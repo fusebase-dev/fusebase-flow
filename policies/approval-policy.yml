@@ -1,0 +1,74 @@
+# Fusebase Flow — approval policy (committed default)
+#
+# This is the canonical approval policy shipped with the template. Hooks read this
+# file first, then layer `approval-policy.local.yml` on top if it exists (gitignored).
+# Edit this file when you want the default to ship with your fork. Edit the local
+# override to apply per-clone preferences without committing.
+#
+# Schema version drives policy_loader compatibility checks.
+schema_version: 1
+
+# Workflow mode for the repo. Solo/local default is direct-to-main.
+# Switch to branch_pr for shared/team/high-risk projects.
+workflow_mode: direct_to_main   # direct_to_main | branch_pr
+
+# Operations that require an approval artifact on disk before the hook lets them
+# through. Each operation is keyed by the action name used in `command-policy.yml`.
+# An "approval artifact" is a JSON file at:
+#   state/approvals/<operation>-<slug>-<YYYYMMDD>.json
+# The artifact must contain { "approved_by": "<operator>", "scope": "<short>",
+# "expires_at": "<ISO 8601>", "reason": "<one-liner>" }.
+require_approval:
+  production_deploy:
+    enforce: true
+    artifact_ttl_minutes: 60
+    rationale: "Production deploys are externally visible and irreversible without rollback ceremony."
+  database_migration:
+    enforce: true
+    artifact_ttl_minutes: 120
+    rationale: "Schema changes can break downstream readers and may not be cleanly reversible."
+  destructive_file_delete:
+    enforce: true
+    artifact_ttl_minutes: 30
+    rationale: "Bulk deletes (rm -rf, find -delete) are usually unrecoverable."
+  auth_or_permission_change:
+    enforce: true
+    artifact_ttl_minutes: 60
+    rationale: "Auth changes can lock operators out or expose data."
+  external_customer_visible_message:
+    enforce: true
+    artifact_ttl_minutes: 30
+    rationale: "Outbound messages (email, SMS, webhooks, public posts) cannot be unsent."
+  session_key_or_cookie_use:
+    enforce: true
+    artifact_ttl_minutes: 30
+    rationale: "Live-user verification with operator session credentials needs explicit consent and ephemeral handling."
+  secret_file_write:
+    enforce: true
+    artifact_ttl_minutes: 60
+    rationale: ".env / credentials writes risk leaking secrets through git or logs."
+  protected_path_edit:
+    enforce: true
+    artifact_ttl_minutes: 60
+    rationale: "Worker-undisturbed and generated paths must show empty diffs unless an exception is approved."
+
+# Roles permitted to author an approval artifact for each operation. Hooks check
+# this against the self-attested role of the requesting session.
+approval_authors:
+  default: ["operator"]
+  # Examples (uncomment to require co-sign for high-risk ops):
+  # production_deploy: ["operator"]
+  # database_migration: ["operator"]
+
+# Where approval artifacts live. Path is relative to git root.
+approval_artifact_dir: "state/approvals/"
+
+# Behavior when no artifact is found for a require_approval operation.
+on_missing_artifact: deny      # deny | warn
+
+# Behavior when artifact is expired.
+on_expired_artifact: deny      # deny | warn
+
+# Whether the local override file may relax (vs. only tighten) this default.
+# When false, local override may only deny more, never approve more.
+local_override_may_relax: false

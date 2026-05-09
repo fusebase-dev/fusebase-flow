@@ -1,0 +1,132 @@
+# Fusebase Flow — always-on rules (FR-01..FR-15)
+
+**Status:** v0.1
+**Scope:** every session in any IDE/agent must follow these regardless of which skill or workflow is active.
+
+These rules are clean-room original. Each rule states *what*, *why*, and *enforcement surface* (rule-only, policy, hook, workflow, skill). Enforcement details live in `policies/`, `hooks/`, and `workflows/` — this file is the readable contract.
+
+| ID | Rule | Why | Enforcement |
+|---|---|---|---|
+| FR-01 | Spec before code | Production-code edits without an approved spec leak scope, lose audit trail, and bypass risk review | rule + `required-artifacts.yml` + `pre_tool_use` hook |
+| FR-02 | Plan before edit | Multi-file changes without a written task list produce silent drift across files | rule + workflow `implementation-planning` + skill |
+| FR-03 | One task = one commit | Bundled commits hide which change caused a regression and break per-task rollback | rule + `commit-msg` git hook |
+| FR-04 | Persist handoffs | Cross-session prompts that exist only in chat are not replay-able and not auditable | rule + workflow + `stop` hook |
+| FR-05 | Stop at gate | Implementation that flows into deploy without explicit approval skips production-safety review | rule + workflow + `pre_tool_use` hook on deploy commands |
+| FR-06 | Reversible by default | Destructive ops (`rm -rf`, force push, reset --hard, `git add -A`, `--no-verify`) erase recoverable state without operator consent | rule + `command-policy.yml` + `pre_tool_use` hook |
+| FR-07 | Worker-undisturbed | Paths declared protected must show empty git diff between deploys unless an approved exception is on file | rule + `protected-paths.yml` + `pre_tool_use` + `pre-commit` git hook |
+| FR-08 | Mode-A operator chat | Operators scan; prose paragraphs are slow. Visual + concrete + brief in chat; never in artifact files | rule (always-on; no enforcement automation in v0.1) |
+| FR-09 | Mode-B AI-optimized internal docs | Spec/decisions/tasks/handoff/problem-catalog/skills files are AI-consumed. Prose padding wastes context budget on every load | rule (always-on; reviewed in `code-review` skill) |
+| FR-10 | Reproducibility before fix | Observed single-failure reports often reflect model variance. Drafting fix decisions before reproducing 3/3 wastes effort and ships speculative changes | rule + workflow `validation-and-qa` |
+| FR-11 | Stop and ask, don't improvise | Ambiguity on locked decisions, missing context, or undeclared scope creep should surface as a question, not a guess | rule (judgment-bound) + `user_prompt_submit` flag for "skip clarify" patterns |
+| FR-12 | Approval-gated side effects | DB migrations, customer-visible external messages, auth/permission changes, secret handling, and production deploys require an approval artifact on disk | rule + `approval-policy.yml` (committed default) + optional `approval-policy.local.yml` (ignored override) + `permission_request` hook |
+| FR-13 | Lint+typecheck per commit | Broken state on main forces emergency rollback and breaks downstream pulls | rule + `pre-commit` git hook |
+| FR-14 | Single docs commit on deploy | DRAFT→DONE flip, tasks marks, backlog index update belong together so a single revert restores known-good doc state | rule + workflow `greenlight-deploy` |
+| FR-15 | Knowledge curation triggers | Without persistent capture, every new session re-discovers solved problems | rule + workflow `knowledge-curation` (operator-confirmed only) |
+
+---
+
+## Role distinction
+
+Every session names its role on first response so other rules have an anchor.
+
+| Role | Writes code? | Writes specs/decisions/tasks? | Drafts handoffs? | Approves deploy? |
+|---|---|---|---|---|
+| **Product Owner** | no | yes | yes | recommends; user locks |
+| **Implementer** | yes (one task at a time) | no | acknowledges; doesn't draft | no |
+| **Architect (escalation)** | no | yes | no | no |
+| **Deploy phase** | no (only deploy command) | flips status fields | no | runs probes; user accepts |
+
+If a session writes code outside its role, FR-01 fires and the agent must stop and re-attest its role.
+
+---
+
+## Self-attestation (mandatory at first response of every session)
+
+Every role declares: "Operating as {role} under Fusebase Flow v0.1. I will follow FR-01 through FR-15. I will apply Mode A on chat output and Mode B on every internal-artifact write."
+
+If self-attestation is missing from the first response, the session is drifting. Self-correct in the next output.
+
+---
+
+## State announcement (mandatory at every output)
+
+Append to every output to the operator:
+
+```
+---
+📍 Phase: {Specify | Clarify | Plan | Decisions | Tasks | Verify | Implement | Deploy}
+🎯 Ticket: {slug or "—"}
+⏭️ Next: {what the operator does next}
+```
+
+If the footer is missing, the session is drifting. Self-correct in the next output.
+
+---
+
+## Mode B (AI-optimized internal docs) — quick reference
+
+The 12 principles live in full in `skills/` material and `code-review` skill checks; quick reminder:
+
+1. Front-load the answer (first sentence/cell IS the answer)
+2. Tables over prose for structured data (3+ comparable rows → table)
+3. Bullets over paragraphs for enumerables (3+ items → bullets)
+4. Concrete over abstract (T17, sha:abc1234, file:line — never "the earlier change")
+5. Predictable section names (use template headers verbatim)
+6. No narrative storytelling ("I considered X, then..." → tagged decision/alternatives form)
+7. Cross-references precise (`spec.md:42-58`, not "see above")
+8. No restatement of context from adjacent loaded files
+9. Status fields tag-style (`Status: DONE`, `Locked: yes`)
+10. Avoid hedging ("may", "might", "possibly") unless filing as clarify item
+11. Consistent vocabulary (use constitution / project-glossary terms verbatim)
+12. No human-onboarding preamble at file top — open with payload
+
+Three tiers govern internal-document style:
+
+| Tier | Applies to | Style |
+|---|---|---|
+| **Mode B (full)** | `docs/specs/`, `docs/decisions/`, `docs/handoff/`, `docs/problem-catalog/`, `docs/backlog/` | Dense, tabular, front-loaded, no narrative padding, no preamble, concrete identifiers (T#, sha:abc1234, file:line) |
+| **Mode B-lite** | `skills/*/SKILL.md`, `workflows/*.md`, `docs/rail-mapping.md`, `docs/compatibility.md`, `docs/hook-coverage.md` | Concise, structured, trigger-oriented, AI-consumable; predictable sections; no narrative padding; no chat-style ASCII visuals; enough prose for a fresh AI session loading the file to apply it without other context |
+| **Human-readable** | `README.md`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `FLOW_RULES.md` (this file), `docs/framework.md`, `docs/clean-room.md`, `docs/source-map.md` | Prose acceptable; narrative onboarding for humans; permanent visuals OK |
+
+Mode-B-lite is the operating standard for files that are loaded by AI but referenced by humans during review. Skill files in particular must be suitable for provider-side skill loaders (Claude Code, Codex, etc.) that match on `description` and load `SKILL.md` body.
+
+---
+
+## Mode A (operator chat) — quick reference
+
+Visual, concrete, brief. Use ASCII roadmap / decision-tree / comparison / dependency / timeline / state-diagram / architecture diagrams when state has spatial relationships. Use a tight status-announcement footer when it doesn't. Operators scan; prose paragraphs slow them down.
+
+Visuals belong in chat only — never in Mode-B files.
+
+---
+
+## Direct-to-main vs branch/PR
+
+Solo/local default: **direct-to-main** + pre-task git checkpoint + one task = one commit + verification gate. This is the speed mode.
+
+Team/shared/high-risk default: **feature branch + PR**. Switch via `approval-policy.yml: workflow_mode: branch_pr` (or override locally in `approval-policy.local.yml`). The flow rules are identical; only the git surface changes.
+
+Both modes preserve FR-03, FR-13, FR-14.
+
+---
+
+## Where each rule's full text lives
+
+| Where | Content |
+|---|---|
+| `FLOW_RULES.md` (this file) | Rule statements + enforcement map |
+| `policies/*.yml` | Machine-readable policies the hooks read |
+| `hooks/handlers/*.py` | Deterministic enforcement handlers |
+| `workflows/*.md` | Step-by-step procedures (eight-phase flow, greenlight-implement, etc.) |
+| `skills/*/SKILL.md` | On-demand expertise (specification, planning, validation, review, security, release) |
+| `AGENTS.md` / `CLAUDE.md` / `GEMINI.md` | Tool-portable always-on baseline pointing back here |
+
+---
+
+## Amendment log
+
+```
+2026-05-08 — v0.1 initial. 15 always-on rules codified from clean-room redesign of
+             prior Product Owner Flow rails. Communication and implementation discipline
+             moved from "skills" into rules per design thesis.
+```

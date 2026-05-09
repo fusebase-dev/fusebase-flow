@@ -1,0 +1,172 @@
+# Fusebase Flow — gate contracts (committed default)
+#
+# Required-field schemas for the structured reports that flow between sessions.
+# validation-and-qa, code-review, security-permissions-review, and
+# release-deploy-reporting skills produce reports that must satisfy these.
+schema_version: 1
+local_override_file: policies/gate-contracts.local.yml
+
+gate_report:
+  description: "Implementer's gate report at end of T<gate>; PO reads to verify before deploy."
+  required_fields:
+    implementation_summary:
+      type: string
+      max_sentences: 3
+    per_task_shas:
+      type: list
+      item_format: "T<n>: <sha> <subject>"
+      min_items: 1
+    test_counts:
+      type: object
+      shape:
+        before: int
+        after: int
+        delta: int
+        per_layer:
+          unit: { before: int, after: int, delta: int }
+          integration: { before: int, after: int, delta: int, optional: true }
+          e2e: { before: int, after: int, delta: int, optional: true }
+    lint_status:
+      type: enum
+      values: [clean, warnings, errors]
+    typecheck_status:
+      type: enum
+      values: [clean, errors]
+    worker_undisturbed_diff:
+      type: list
+      item_format: "<file>: empty diff ✓"
+      min_items: 0      # 0 if no protected paths apply to this ticket
+    manifest_version:
+      type: string
+      pattern: "^(N/A|<old> -> <new>)$"
+      optional: true
+    deviations:
+      type: string
+      default: "none"
+    self_attestation:
+      type: string
+      contains_phrase: "Operating as Implementer"
+
+deploy_report:
+  description: "Deploy phase's report after deploy + probes."
+  required_fields:
+    deploy_hash:
+      type: string
+      pattern: "^[a-f0-9]{7,40}$|^[a-zA-Z0-9_-]+$"   # git sha or platform version id
+    deploy_command_output:
+      type: string
+      max_lines: 50
+    pre_deploy_worker_undisturbed:
+      type: list
+      item_format: "<file>: empty diff ✓"
+    probe_results:
+      type: list
+      item_shape:
+        id: string                 # G-M, G-N, G-O, G-P, G-Q
+        status: enum [pass, fail, skipped]
+        evidence: string           # log line, response excerpt, screenshot ref
+        reason_if_skipped: string
+      min_items: 1
+    smoke_results:
+      type: object
+      shape:
+        ratio: string              # "<n>/<m> PASS"
+        per_prompt:
+          type: list
+          item_shape:
+            id: string             # S1..Sn
+            status: enum [pass, fail]
+            evidence_path: string
+      optional_unless_smoke_specified: true
+    docs_commit_sha:
+      type: string
+    rollback_procedure:
+      type: string
+    self_attestation:
+      type: string
+      contains_phrase: "Operating as Deploy phase"
+
+smoke_report:
+  description: "Smoke run results, persisted per-prompt with evidence."
+  required_fields:
+    ratio:
+      type: string
+      pattern: "^[0-9]+/[0-9]+\\s+PASS$"
+    per_prompt:
+      type: list
+      item_shape:
+        id: string
+        status: enum [pass, fail]
+        evidence_path: string
+        observed_if_fail: string
+        expected_if_fail: string
+      min_items: 1
+    evidence_dir:
+      type: string
+      pattern: "^docs/handoff/[0-9]{4}-[0-9]{2}-[0-9]{2}-.+-smoke/$"
+
+code_review_report:
+  description: "code-review skill output; distinguishes blockers from non-blockers."
+  required_fields:
+    summary:
+      type: string
+      max_sentences: 3
+    blockers:
+      type: list
+      item_shape:
+        finding: string
+        location: string         # file:line
+        recommendation: string
+      min_items: 0
+    non_blockers:
+      type: list
+      item_shape:
+        finding: string
+        location: string
+        recommendation: string
+      min_items: 0
+    spec_alignment:
+      type: list
+      item_shape:
+        ac: string               # AC1..ACn
+        implemented_in: string   # task or commit reference
+        status: enum [implemented, partial, missing]
+      min_items: 1
+    rollback_safety:
+      type: enum
+      values: [clean, concerns, blocked]
+
+security_review_report:
+  description: "security-permissions-review skill output; high-risk decisions surface here."
+  required_fields:
+    summary:
+      type: string
+      max_sentences: 3
+    blockers:
+      type: list
+      item_shape:
+        finding: string
+        location: string
+        category: enum [secret_leak, missing_auth_gate, missing_approval, unsafe_data_flow, external_message_no_idempotency, other]
+        mitigation: string
+      min_items: 0
+    sensitive_path_findings:
+      type: list
+      item_shape:
+        path: string
+        concern: string
+        mitigation: string
+      min_items: 0
+    approvals_required:
+      type: list
+      item_shape:
+        action: string           # matches approval-policy.yml keys
+        artifact_path: string    # where the approval artifact would land
+        present: bool
+      min_items: 0
+    secrets_scan:
+      type: object
+      shape:
+        scanned: bool
+        matches_redacted: list   # never raw values
+        clean: bool

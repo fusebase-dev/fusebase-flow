@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Fusebase Flow — commit-msg git hook
+#
+# Per FR-03: implementation commits must cite a T-number.
+# Per code-review discipline: vague messages are rejected.
+#
+# Install: bash hooks/local/install-git-hooks.sh
+#
+# Original Fusebase Flow content; clean-room.
+
+set -uo pipefail
+
+MSG_FILE="${1:-}"
+if [ -z "$MSG_FILE" ] || [ ! -f "$MSG_FILE" ]; then
+    exit 0
+fi
+
+# Strip comments and trailing blank lines, then read the subject line.
+SUBJECT="$(grep -v '^#' "$MSG_FILE" | sed '/^[[:space:]]*$/d' | head -n 1)"
+
+if [ -z "$SUBJECT" ]; then
+    echo "[fusebase-flow:commit-msg] BLOCK — empty commit message." >&2
+    exit 1
+fi
+
+# Allow specific docs-only / chore prefixes without T-number requirement.
+ALLOWED_DOCS_PREFIX_REGEX='^(docs|chore|build|ci|style|revert|merge|flow)(\([^)]+\))?:[[:space:]]'
+
+if echo "$SUBJECT" | grep -Eq "$ALLOWED_DOCS_PREFIX_REGEX"; then
+    # Docs/chore commits: still reject vague subjects.
+    if echo "$SUBJECT" | grep -Eiq '^(docs|chore|build|ci|style)(\([^)]+\))?:[[:space:]]+(update|fix|changes|misc|stuff|wip)\.?$'; then
+        echo "[fusebase-flow:commit-msg] BLOCK — vague subject: '$SUBJECT'." >&2
+        echo "Use a specific scope. Example: 'docs(flow): clarify FR-12 approval semantics'." >&2
+        exit 1
+    fi
+    exit 0
+fi
+
+# Implementation commits: require T<number>.
+if ! echo "$SUBJECT" | grep -Eq '\bT[0-9]+\b'; then
+    echo "[fusebase-flow:commit-msg] BLOCK — implementation commits must cite a T-number (FR-03)." >&2
+    echo "Subject: $SUBJECT" >&2
+    echo "Examples:" >&2
+    echo "  feat(spa): T17 add EnrichmentCard 'Skip if already fetched' toggle" >&2
+    echo "  fix(extension): T18 content-script honors skipFlags from EXTRACT" >&2
+    echo "If this is a docs-only commit, prefix with 'docs(...): '." >&2
+    exit 1
+fi
+
+# Reject vague verbs even on impl commits.
+if echo "$SUBJECT" | grep -Eiq '\bT[0-9]+\b[[:space:]]+(update|fix|changes|misc|stuff|wip)\.?$'; then
+    echo "[fusebase-flow:commit-msg] BLOCK — vague subject after T-number: '$SUBJECT'." >&2
+    exit 1
+fi
+
+exit 0

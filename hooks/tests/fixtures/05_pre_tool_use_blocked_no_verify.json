@@ -1,0 +1,12 @@
+{
+  "_test": "blocked --no-verify",
+  "_handler": "pre_tool_use.py",
+  "_expected_decision": "deny",
+  "_expected_rule_id": "FR-13",
+  "event": "pre_tool_use",
+  "session_id": "test-05",
+  "cwd": ".",
+  "host_tool": "claude_code",
+  "tool_name": "Bash",
+  "tool_input": { "command": "git commit --no-verify -m 'wip'" }
+}

@@ -1,0 +1,106 @@
+# Fusebase Flow — command policy (committed default)
+#
+# Pre-tool-use hook reads this to decide whether to allow, deny, or require
+# approval for shell commands. Patterns match against `tool_input.command` for
+# Bash-style tools or equivalent. Patterns are regex; use ^ and $ anchors when
+# you want exact matches.
+schema_version: 1
+local_override_file: policies/command-policy.local.yml
+
+# Hard deny. The pre_tool_use hook returns deny with the reason cited.
+# Operators cannot override these without removing the entry from this file
+# (deliberate change, not just an approval artifact).
+deny:
+  - pattern: '\brm\s+-rf\b'
+    reason: "FR-06: rm -rf erases recoverable state without operator consent."
+    rule_id: FR-06
+  - pattern: '\bfind\b.*-delete\b'
+    reason: "FR-06: find -delete is bulk delete without recovery."
+    rule_id: FR-06
+  - pattern: '\bgit\s+push\s+(.+\s+)?--force(?:-with-lease)?\b'
+    reason: "FR-06: never force-push to main; use git revert <sha> instead."
+    rule_id: FR-06
+  - pattern: '\bgit\s+reset\s+--hard\b'
+    reason: "FR-06: reset --hard destroys uncommitted changes."
+    rule_id: FR-06
+  - pattern: '\bgit\s+checkout\s+--\s+\.'
+    reason: "FR-06: checkout -- . destroys uncommitted changes."
+    rule_id: FR-06
+  - pattern: '\bgit\s+clean\s+-fdx?\b'
+    reason: "FR-06: git clean -fdx destroys untracked files including .env."
+    rule_id: FR-06
+  - pattern: '\bgit\s+add\s+(\.(\s|$)|--all\b|-A\b)'
+    reason: "FR-06: mass-staging risks committing .env, credentials, and unrelated work; stage by name."
+    rule_id: FR-06
+  - pattern: '--no-verify\b'
+    reason: "FR-06 + FR-13: --no-verify bypasses pre-commit hooks (lint, typecheck, secret scan)."
+    rule_id: FR-13
+
+# Require approval. The pre_tool_use hook checks state/approvals/ for an
+# artifact matching the action. Action names match approval-policy.yml keys.
+require_approval:
+
+  - pattern: '\bfusebase\s+deploy\b'
+    action: production_deploy
+    reason: "FR-12: production deploy requires approval artifact."
+    rule_id: FR-12
+
+  - pattern: '\bvercel\s+(deploy|--prod)\b'
+    action: production_deploy
+    reason: "FR-12: vercel production deploy requires approval artifact."
+    rule_id: FR-12
+
+  - pattern: '\bnetlify\s+deploy\s+--prod\b'
+    action: production_deploy
+    reason: "FR-12: netlify production deploy requires approval artifact."
+    rule_id: FR-12
+
+  - pattern: '\bgit\s+push\b.*\b(main|master)\b'
+    action: production_deploy
+    reason: "FR-12: pushes to main/master require deploy approval when workflow_mode is direct_to_main."
+    rule_id: FR-12
+    only_when: { workflow_mode: direct_to_main }
+
+  - pattern: '\b(npx\s+)?prisma\s+migrate\s+(deploy|reset)\b'
+    action: database_migration
+    reason: "FR-12: schema migrations require approval artifact."
+    rule_id: FR-12
+
+  - pattern: '\bsequelize-cli\s+db:migrate\b'
+    action: database_migration
+    reason: "FR-12: schema migrations require approval artifact."
+    rule_id: FR-12
+
+  - pattern: '\b(npx\s+)?knex\s+migrate:latest\b'
+    action: database_migration
+    reason: "FR-12: schema migrations require approval artifact."
+    rule_id: FR-12
+
+  - pattern: '\bpsql\b.*\b(DROP|TRUNCATE|DELETE\s+FROM)\b'
+    action: database_migration
+    reason: "FR-12: destructive SQL on production requires approval."
+    rule_id: FR-12
+
+  - pattern: '\brm\s+(-r|-rf|-fr)?\s+'
+    action: destructive_file_delete
+    reason: "FR-12: bulk file delete (when not matching the deny entry above) requires approval."
+    rule_id: FR-12
+    fallthrough: true   # only matches if not already denied above
+
+  - pattern: '(curl|http|wget).*--data.*api\.(twilio|sendgrid|mailgun|postmark)\.com'
+    action: external_customer_visible_message
+    reason: "FR-12: outbound customer-visible messages require approval."
+    rule_id: FR-12
+
+# Allow list (positive override). Anything matching here is explicitly allowed
+# even if a `deny` or `require_approval` pattern would also match. Use sparingly.
+allow: []
+
+# Behavior on first-match. Order: deny → require_approval → allow → default.
+match_order: [deny, require_approval, allow]
+
+# What to do when a command doesn't match any rule.
+default: allow
+
+# Whether to log every check (allowed or not) to audit log.
+log_all_checks: true

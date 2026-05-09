@@ -1,0 +1,40 @@
+---
+description: Fusebase Flow specification phase rules. Use when drafting docs/specs/*, docs/decisions/*, docs/handoff/*, docs/backlog/*.
+globs: ["docs/specs/**", "docs/decisions/**", "docs/handoff/**", "docs/backlog/**", "docs/problem-catalog/**"]
+alwaysApply: false
+---
+
+# Fusebase Flow — Mode B (full) for spec-side artifacts
+
+Files in this glob are read by AI sessions, not human readers. Optimize for AI context efficiency.
+
+## Mode B principles (full)
+
+1. Front-load the answer — first sentence/cell IS the answer; reasoning second.
+2. Tables over prose for structured data (3+ comparable rows → table).
+3. Bullets over paragraphs for enumerables (3+ items → bullets).
+4. Concrete over abstract — `T17`, `sha:abc1234`, `repository.ts:42-58` — never "the earlier change".
+5. Predictable section names — use `templates/` headers verbatim.
+6. No narrative storytelling — "Decision: X. Reason: Y. Alternatives: Z (rejected: A)." not "I considered X then thought about Y..."
+7. Cross-references precise — `spec.md:42-58` not "see above".
+8. No restatement of context already in adjacent loaded files.
+9. Status fields tag-style — `Status: DONE`, `Locked: yes`.
+10. No hedging unless filing as a clarify item.
+11. Consistent vocabulary — use FLOW_RULES.md / AGENTS.md project-specific terms verbatim.
+12. No human-onboarding preamble — open with payload.
+
+## Substrates
+
+- `docs/specs/<slug>/spec.md` ← `templates/spec.md`
+- `docs/specs/<slug>/decisions.md` ← `templates/decisions.md`
+- `docs/specs/<slug>/tasks.md` ← `templates/tasks.md`
+- `docs/specs/<slug>/verification-gate.md` ← `templates/verification-gate.md`
+- `docs/handoff/<YYYY-MM-DD>-<slug>-<stage>.md` ← workflow templates in `workflows/`
+- `docs/problem-catalog/<slug>/problem.md` ← `templates/problem-catalog-entry.md`
+
+## Anti-patterns
+
+- ASCII visuals in spec.md/decisions.md/tasks.md (visuals belong in chat per FR-08)
+- Restating constitution / spec content inside decisions.md
+- Free-form decision write-ups instead of letter-prefixed matrix
+- Long preambles ("This document captures...")

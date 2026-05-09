@@ -1,0 +1,98 @@
+name: fusebase-flow-verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: '.python-version'
+
+      - name: Install runtime dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r hooks/requirements.txt
+
+      - name: Make scripts executable
+        run: |
+          chmod +x hooks/local/*.sh \
+                   hooks/tests/*.sh \
+                   hooks/git/pre-commit \
+                   hooks/git/commit-msg
+
+      - name: Preflight (structure + YAML + frontmatter + mirror drift + action-name consistency)
+        run: bash hooks/local/preflight.sh
+
+      - name: Hook tests (deterministic fixtures)
+        run: bash hooks/tests/run-tests.sh
+
+      - name: Mirror drift check (re-run mirror-skills.sh; fail if working tree changes)
+        run: |
+          bash hooks/local/mirror-skills.sh
+          # Mirror script regenerates manifest. Working tree should be unchanged
+          # for canonical-mirror parity; otherwise drift exists.
+          git diff --exit-code -- .agents/skills/ .claude/skills/ audit/skill-mirror-manifest.txt \
+            || (echo "Mirror drift detected; canonical and mirrors disagree." && exit 1)
+
+      - name: Public-surface guard (allowlist of approved tracked top-level entries)
+        run: |
+          set -euo pipefail
+          # Every tracked top-level entry must be on this approved allowlist.
+          # Any other entry indicates a non-approved compatibility surface and
+          # fails the build.
+          ALLOWED=(
+            "AGENTS.md" "CLAUDE.md" "GEMINI.md" "README.md" "PUBLISHING.md" "LICENSE"
+            "FLOW_RULES.md" "VERSION" "install.sh"
+            ".gitignore" ".gitattributes" ".python-version"
+            ".agents" ".claude" ".codex" ".cursor" ".github"
+            "audit" "docs" "hooks" "policies" "skills" "state" "templates" "workflows"
+          )
+          actual=$(git ls-files | awk -F/ '{print $1}' | sort -u)
+          fail=0
+          for entry in $actual; do
+            ok=0
+            for a in "${ALLOWED[@]}"; do
+              if [ "$entry" = "$a" ]; then ok=1; break; fi
+            done
+            if [ $ok -eq 0 ]; then
+              echo "Non-approved top-level entry detected: $entry"
+              fail=1
+            fi
+          done
+          if [ "$fail" -ne 0 ]; then
+            echo "Public-surface contract violated: tracked tree contains a non-approved top-level entry."
+            exit 1
+          fi
+          echo "All tracked top-level entries are on the approved allowlist."
+
+      - name: Working-tree clean check
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "Working tree dirty after verify steps."
+            git status --short
+            exit 1
+          fi
+
+      - name: Upload runtime audit artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fusebase-flow-audit
+          path: state/audit/
+          if-no-files-found: ignore
+          retention-days: 30

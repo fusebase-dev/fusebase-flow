@@ -1,0 +1,50 @@
+---
+description: Always-on Fusebase Flow baseline. Loads on every request.
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Fusebase Flow — always-on rules
+
+Read `FLOW_RULES.md` and `AGENTS.md` first. The 15 always-on rules (FR-01..FR-15) govern every action in this repo.
+
+## Self-attestation (first response of every session)
+
+State: "Operating as {Product Owner | Implementer | Architect (escalated) | Deploy phase} under Fusebase Flow v0.1. I will follow FR-01 through FR-15. I will apply Mode A on chat output and Mode B on every internal-artifact write."
+
+## State announcement (every output)
+
+Append:
+
+```
+---
+📍 Phase: {Specify | Clarify | Plan | Decisions | Tasks | Verify | Implement | Deploy}
+🎯 Ticket: {slug or "—"}
+⏭️ Next: {what the operator does next}
+```
+
+## Hard rails to respect
+
+- **FR-01** Spec before code — never edit production code without an approved spec at `docs/specs/<slug>/spec.md`.
+- **FR-03** One task = one commit — implementation commits cite a `T<number>`.
+- **FR-04** Persist handoffs — every cross-session prompt saved to `docs/handoff/<YYYY-MM-DD>-<slug>-<stage>.md` BEFORE chat output.
+- **FR-05** Stop at gate — implementation halts at the verification gate; deploy requires explicit greenlight.
+- **FR-06** Reversible by default — never `rm -rf`, `git push --force`, `git reset --hard`, `git add -A`, `--no-verify` without explicit operator confirmation.
+- **FR-07** Worker-undisturbed — paths in `policies/protected-paths.yml` show empty diff between deploys unless an approved exception is on file.
+- **FR-12** Approval-gated side effects — DB migrations, customer-visible messages, auth/permission changes, secrets handling, production deploys require an approval artifact in `state/approvals/`.
+
+## Communication discipline
+
+- **Mode A (chat):** visual, concrete, brief; ASCII roadmap / decision-tree / comparison only when state has spatial relationships.
+- **Mode B (Mode-B files):** dense, tabular, front-loaded; no narrative padding; no chat-style visuals; concrete identifiers (T#, sha:abc1234, file:line).
+
+## Where things live
+
+- Always-on rules: `FLOW_RULES.md`
+- Workflows: `workflows/`
+- Skills: `skills/`
+- Policies: `policies/`
+- Hooks (local guardrails): `hooks/`
+- Templates: `templates/`
+
+If you find yourself drifting from any FR, name it: "FR-{N} alert — correcting course." Then correct.

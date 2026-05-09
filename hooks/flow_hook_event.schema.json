@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fusebase-flow.dev/schemas/flow_hook_event.schema.json",
+  "title": "Fusebase Flow hook event",
+  "description": "The unified event shape that handlers in hooks/handlers/ accept on stdin. Different host providers (Claude Code, Codex, etc.) deliver slightly different shapes; the host-specific wrapper or shim normalizes to this schema before invoking the handler.",
+  "type": "object",
+  "required": ["event", "session_id", "cwd"],
+  "properties": {
+    "event": {
+      "type": "string",
+      "enum": [
+        "session_start",
+        "user_prompt_submit",
+        "pre_tool_use",
+        "permission_request",
+        "post_tool_use",
+        "stop",
+        "task_complete",
+        "pre_compact"
+      ],
+      "description": "Lifecycle event name."
+    },
+    "session_id": {
+      "type": "string",
+      "description": "Stable identifier for the agent/IDE session. Used for audit log correlation."
+    },
+    "cwd": {
+      "type": "string",
+      "description": "Working directory at event time. Handlers compute git root from here."
+    },
+    "host_tool": {
+      "type": "string",
+      "enum": ["claude_code", "codex", "git_hook", "preflight", "unknown"],
+      "description": "Which host invoked the hook. Handlers may adjust output format accordingly."
+    },
+    "transcript_path": {
+      "type": ["string", "null"],
+      "description": "Path to the host tool's session transcript. Optional; some hosts don't expose it."
+    },
+    "tool_name": {
+      "type": "string",
+      "description": "For pre_tool_use / post_tool_use: the tool the agent is invoking (e.g., 'Bash', 'Edit', 'Write')."
+    },
+    "tool_input": {
+      "type": "object",
+      "description": "For pre_tool_use / post_tool_use: the arguments the agent is passing to the tool. Shape depends on tool_name."
+    },
+    "tool_output": {
+      "type": ["object", "string", "null"],
+      "description": "For post_tool_use: the tool's output. Optional."
+    },
+    "user_prompt": {
+      "type": "string",
+      "description": "For user_prompt_submit: the operator's raw prompt text."
+    },
+    "stop_reason": {
+      "type": "string",
+      "description": "For stop: why the agent is signaling completion (e.g., 'task_complete', 'awaiting_user_input')."
+    },
+    "agent_message": {
+      "type": "string",
+      "description": "For stop: the agent's final message to the operator. Used to detect 'done' / 'ready' claims."
+    },
+    "compact_target": {
+      "type": "string",
+      "description": "For pre_compact: what is being compacted (e.g., 'transcript')."
+    },
+    "permission_request": {
+      "type": "object",
+      "description": "For permission_request: the pending permission ask details.",
+      "properties": {
+        "tool_name": { "type": "string" },
+        "tool_input": { "type": "object" },
+        "category": { "type": "string", "description": "Approximated category: 'destructive', 'production_deploy', etc." }
+      }
+    }
+  },
+  "additionalProperties": true
+}

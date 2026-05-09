@@ -1,0 +1,106 @@
+# Publishing Fusebase Flow Local as a public GitHub template
+
+This document describes the **history-hygiene step** required before publishing this repo as a public GitHub template.
+
+## Why history hygiene matters
+
+The build of Fusebase Flow Local v0.1 happened across multiple commits, including intermediate commits that contained non-target adapter artifacts for compatibility surfaces that are **not** public targets in v0.1. Those artifacts were removed from the final tree (`HEAD`) by the public-surface cleanup step, but they remain visible in earlier commit objects in the build-time history.
+
+Before publishing the public template, the operator MUST collapse the build history so the public Git tree reflects only the approved compatibility surfaces.
+
+## Approved publication options
+
+### Option 1 — fresh repo from the cleaned final tree (recommended)
+
+```bash
+# From the cleaned working tree on `main`:
+TMPDIR="$(mktemp -d)"
+cp -R . "$TMPDIR/fusebase-flow-template"
+cd "$TMPDIR/fusebase-flow-template"
+rm -rf .git
+git init -b main
+git add .
+git -c user.email="<your-email>" -c user.name="<your-name>" commit -m "Initial commit — Fusebase Flow Local v0.1"
+git tag v0.1.0
+# Push to a fresh GitHub repository configured as a "Template repository":
+git remote add origin git@github.com:<owner>/fusebase-flow-template.git
+git push -u origin main
+git push origin v0.1.0
+```
+
+Then in the GitHub UI, mark the repository as a **Template repository** so users can click "Use this template".
+
+### Option 2 — squash-rebuild the current branch
+
+```bash
+# From the cleaned working tree on `main`:
+git checkout --orphan release/v0.1.0
+git add -A
+git -c user.email="<your-email>" -c user.name="<your-name>" commit -m "Initial commit — Fusebase Flow Local v0.1"
+# Replace main with this new branch:
+git branch -D main
+git branch -m main
+git tag v0.1.0
+git push -u --force origin main
+git push origin v0.1.0
+```
+
+> **Note:** Option 2 force-pushes `main`. If anyone has already cloned the build-time repo, coordinate before force-pushing. Option 1 (fresh repo) avoids this concern entirely.
+
+## Verification before publication
+
+Run all of:
+
+```bash
+bash hooks/local/preflight.sh
+bash hooks/tests/run-tests.sh
+bash hooks/local/mirror-skills.sh
+git status --short
+```
+
+Expected:
+
+```
+preflight:    0 errors / 0 warnings
+hook tests:   11 / 11 PASS
+mirror:       14 files mirrored across 2 approved mirrors
+git status:   clean (or only the regenerated mirror manifest, if previously stale)
+```
+
+Also verify the **public-surface allowlist guard** passes — every tracked top-level entry must be on the approved allowlist. The allowlist is the same one enforced by `.github/workflows/fusebase-flow-verify.yml`:
+
+```bash
+ALLOWED=(
+  "AGENTS.md" "CLAUDE.md" "GEMINI.md" "README.md" "PUBLISHING.md" "LICENSE"
+  "FLOW_RULES.md" "VERSION" "install.sh"
+  ".gitignore" ".gitattributes" ".python-version"
+  ".agents" ".claude" ".codex" ".cursor" ".github"
+  "audit" "docs" "hooks" "policies" "skills" "state" "templates" "workflows"
+)
+actual=$(git ls-files | awk -F/ '{print $1}' | sort -u)
+for entry in $actual; do
+  ok=0
+  for a in "${ALLOWED[@]}"; do
+    [ "$entry" = "$a" ] && ok=1 && break
+  done
+  [ "$ok" -eq 0 ] && { echo "Non-approved top-level entry: $entry"; exit 1; }
+done
+echo "All tracked top-level entries are on the approved allowlist."
+```
+
+If any of these checks fail, do NOT publish; correct the working tree and re-verify.
+
+## After publication
+
+- Watch the GitHub Action `fusebase-flow-verify` on the first push; it must pass.
+- Tag the release (`v0.1.0`) so consumers can pin a specific version.
+- Update `VERSION` only when a new release ships.
+- Document any post-publication changes in a `CHANGELOG.md` (planned for v0.2).
+
+## What this template promises consumers
+
+- Approved provider / IDE compatibility surfaces (as listed in `README.md` and `docs/compatibility.md`).
+- Stdlib-first Python runtime; PyYAML is the only non-stdlib dependency.
+- Local-only hook handlers; no network surface.
+- Clean-room original content; no third-party code, prompts, skill files, or hook scripts copied.
+- MIT License.

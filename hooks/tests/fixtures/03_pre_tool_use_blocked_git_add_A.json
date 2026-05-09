@@ -1,0 +1,12 @@
+{
+  "_test": "blocked git add -A",
+  "_handler": "pre_tool_use.py",
+  "_expected_decision": "deny",
+  "_expected_rule_id": "FR-06",
+  "event": "pre_tool_use",
+  "session_id": "test-03",
+  "cwd": ".",
+  "host_tool": "claude_code",
+  "tool_name": "Bash",
+  "tool_input": { "command": "git add -A" }
+}

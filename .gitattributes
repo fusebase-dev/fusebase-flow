@@ -1,0 +1,43 @@
+# Fusebase Flow — line-ending hardening
+# Force LF for files that must round-trip through shells, Python, YAML loaders,
+# and JSON parsers across platforms. Without this, Windows clones may rewrite
+# CRLF on checkout and break shebang detection in shell hooks.
+
+* text=auto
+
+# Shell + Python (executable; LF mandatory)
+*.sh        text eol=lf
+*.bash      text eol=lf
+*.py        text eol=lf
+
+# Config / data formats
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.json      text eol=lf
+*.toml      text eol=lf
+*.ini       text eol=lf
+
+# Documentation (LF for diff stability across platforms)
+*.md        text eol=lf
+*.mdc       text eol=lf
+*.txt       text eol=lf
+
+# Git internals (LF mandatory)
+.gitignore        text eol=lf
+.gitattributes    text eol=lf
+.gitkeep          text eol=lf
+
+# Hook scripts shipped without an extension (e.g. pre-commit, commit-msg)
+hooks/git/pre-commit  text eol=lf
+hooks/git/commit-msg  text eol=lf
+
+# Binary classes — never line-ending-normalize
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.pdf       binary
+*.zip       binary
+*.gz        binary
+*.tar       binary

@@ -1,0 +1,34 @@
+# Fusebase Flow — Codex config example
+#
+# To enable: copy to `.codex/config.toml` and customize.
+# Project-local Codex hooks load only when the project `.codex/` layer is trusted
+# by the operator. Hooks are a guardrail, not a complete security boundary.
+
+# REQUIRED: enable Codex hook loading for this project.
+codex_hooks = true
+
+# OPTIONAL: declare which Fusebase Flow lifecycle events you want Codex to invoke.
+# Codex's PreToolUse is the primary defense-in-depth surface; UserPromptSubmit
+# catches pasted secrets before the model acts; Stop blocks premature done claims.
+hooks_file = ".codex/hooks.json"
+
+# OPTIONAL: project-trust note for the operator.
+#
+# When you first open this repo in Codex, Codex will ask whether you trust the
+# project's `.codex/` configuration. Approve once for hook loading to work.
+# Hooks are still bounded by Codex's broader permission model — they are NOT a
+# complete security boundary, just a deterministic guardrail layer.
+project_trust_note = """
+Fusebase Flow ships local hook handlers in hooks/handlers/.
+These run on lifecycle events (UserPromptSubmit, PreToolUse, PostToolUse, Stop, PreCompact).
+They block obviously-unsafe commands and surface warnings for ambiguous ones.
+Review hooks/README.md before approving project trust.
+"""
+
+# OPTIONAL: skill-loading hint. Codex matches skill descriptions against
+# operator prompts; concise descriptions improve match quality. Fusebase Flow
+# canonical skills are mirrored to .agents/skills/ for Codex to load.
+skills_dir = ".agents/skills"
+
+# OPTIONAL: forbid network for hook handlers (defense-in-depth).
+# hook_network_access = "deny"

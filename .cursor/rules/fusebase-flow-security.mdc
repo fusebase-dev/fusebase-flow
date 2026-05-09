@@ -1,0 +1,46 @@
+---
+description: Fusebase Flow security/permissions rules. Use when changes touch auth, secrets, env files, deploy config, external messages, or production data.
+globs: ["**/auth/**", "**/middleware/**", "**/.env*", "**/secrets/**", "**/migrations/**", "**/*.sql", "**/deploy/**", ".github/workflows/**", "**/permissions/**"]
+alwaysApply: false
+---
+
+# Fusebase Flow — security & permissions rules
+
+## Hard prohibitions
+
+- Never print secret values (FR-12). Redact in any output.
+- Never `git add` `.env`, credentials, private keys (FR-06).
+- Never write a customer-visible external message without `external_customer_visible_message` approval artifact (FR-12).
+- Never use a session key / cookie without `session_key_or_cookie_use` approval artifact (FR-12).
+- Never modify auth/permission code without `auth_or_permission_change` approval artifact (FR-12).
+
+## Approval artifacts
+
+If an action requires approval per `policies/approval-policy.yml`, the operator authors an artifact:
+
+```
+state/approvals/<action>-<slug>-<YYYYMMDD>.json
+```
+
+Author with: `bash hooks/local/approve-local.sh <action> <slug> "<reason>"`.
+
+Hooks check for an unexpired artifact before allowing the action.
+
+## Secret-pattern scanning
+
+`policies/secret-patterns.yml` defines patterns that hooks block. If the operator pastes a secret-shaped string in chat, the `user_prompt_submit` hook surfaces a warning. If a write would persist a secret to disk, the `pre_tool_use` hook blocks.
+
+## Categories that trigger this rule
+
+- Auth middleware, permission checks, role/scope code, login/logout flows
+- `.env`, secrets handling, credential storage, encryption code
+- Outbound external messages (email, SMS, webhooks, public posts)
+- Data export, bulk import, customer data movement
+- Production DB writes outside the established repository pattern
+- Deploy config, CI/CD pipeline, infra-as-code
+
+## What this rule does NOT do
+
+- General code review (use the `code-review` skill)
+- Style/formatting concerns
+- Performance (out of v0.1 scope)

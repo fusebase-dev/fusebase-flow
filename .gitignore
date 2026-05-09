@@ -1,0 +1,39 @@
+# Fusebase Flow runtime state — never commit the contents (but keep dirs via .gitkeep)
+state/audit.log.jsonl
+state/context-summary.md
+state/*.tmp
+state/approvals/*
+!state/approvals/.gitkeep
+!state/.gitkeep
+state/audit/*
+!state/audit/.gitkeep
+
+# Local override of the approval policy (committed default lives at policies/approval-policy.yml)
+policies/approval-policy.local.yml
+
+# Secrets / env
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+credentials.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors (project-specific config not needed in template)
+.vscode/
+.idea/
+
+# Python (hooks runtime)
+__pycache__/
+*.pyc
+*.pyo
+
+# Node (when projects layered on top use it)
+node_modules/
+dist/
+build/
+*.log

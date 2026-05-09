@@ -1,0 +1,11 @@
+{
+  "_test": "allowed harmless command (git status)",
+  "_handler": "pre_tool_use.py",
+  "_expected_decision": "allow",
+  "event": "pre_tool_use",
+  "session_id": "test-08",
+  "cwd": ".",
+  "host_tool": "claude_code",
+  "tool_name": "Bash",
+  "tool_input": { "command": "git status --short" }
+}

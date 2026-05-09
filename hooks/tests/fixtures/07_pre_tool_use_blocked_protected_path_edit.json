@@ -1,0 +1,15 @@
+{
+  "_test": "blocked protected path edit (deployment config)",
+  "_handler": "pre_tool_use.py",
+  "_expected_decision": "deny",
+  "_expected_rule_id": "FR-07",
+  "event": "pre_tool_use",
+  "session_id": "test-07",
+  "cwd": ".",
+  "host_tool": "claude_code",
+  "tool_name": "Edit",
+  "tool_input": {
+    "file_path": "fusebase.json",
+    "new_string": "{}"
+  }
+}

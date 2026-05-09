@@ -1,0 +1,107 @@
+# Fusebase Flow — protected paths policy (committed default)
+#
+# Each path entry is a glob; matched files require an approval artifact (per
+# approval-policy.yml: protected_path_edit) before agents/hooks let edits through.
+# Categories below are descriptive; hooks treat all listed paths uniformly.
+schema_version: 1
+
+# Per-project local override path (optional, gitignored — not yet supported in
+# v0.1 but reserved for forward compatibility).
+local_override_file: policies/protected-paths.local.yml
+
+# Default categories. Most are commented-out so projects opt in deliberately
+# during repo-onboarding-context-map skill output. Uncomment + customize.
+
+categories:
+
+  env_and_secrets:
+    description: "Files that hold credentials or environment configuration."
+    paths:
+      - ".env"
+      - ".env.*"
+      - "**/.env"
+      - "**/.env.*"
+      - "**/credentials.json"
+      - "**/*.pem"
+      - "**/*.key"
+      - "**/.netrc"
+      - "**/secrets/**"
+
+  generated_artifacts:
+    description: "Files produced by builds or codegen; manual edits should be flagged."
+    paths: []
+    # Examples (uncomment / customize):
+    # - "dist/**"
+    # - "build/**"
+    # - "**/__generated__/**"
+    # - "**/*.generated.ts"
+    # - "**/*.gen.go"
+
+  worker_undisturbed:
+    description: "Long-lived running components that must show empty diff between deploys (FR-07). The repo-onboarding-context-map skill proposes candidates; operator confirms."
+    paths: []
+    # Examples (uncomment / customize):
+    # - "extension/connector.ts"
+    # - "extension/sync.ts"
+    # - "extension/repository.ts"
+    # - "src/workers/**/*.ts"
+
+  migration_and_schema:
+    description: "Database schema changes that need approval per database_migration in approval-policy.yml."
+    paths: []
+    # Examples (uncomment / customize):
+    # - "migrations/**"
+    # - "postgres/migrations/**"
+    # - "prisma/schema.prisma"
+    # - "**/*.sql"
+
+  deployment_config:
+    description: "Files that control how deploys happen; production_deploy approval applies."
+    paths:
+      - "fusebase.json"
+      - "vercel.json"
+      - "netlify.toml"
+      - "render.yaml"
+      - "fly.toml"
+      - "Procfile"
+
+  ci_cd_config:
+    description: "CI/CD pipelines; protected because changes affect every future deploy."
+    paths:
+      - ".github/workflows/**"
+      - ".gitlab-ci.yml"
+      - "azure-pipelines.yml"
+      - "buildkite/**"
+      - "circle.yml"
+      - ".circleci/**"
+
+  fusebase_flow_internals:
+    description: "Modifying Fusebase Flow itself within a project. Edits should be deliberate."
+    paths:
+      - "FLOW_RULES.md"
+      - "policies/*.yml"
+      - "hooks/handlers/**"
+      - "hooks/shared/**"
+      - "hooks/git/**"
+
+# Exception artifact format. When an operator wants to allow an edit to a
+# protected path, they create a JSON file at:
+#   state/approvals/protected_path_edit-<slug>-<YYYYMMDD>.json
+# The artifact must contain { "approved_by", "scope", "expires_at", "reason",
+# "paths": [<list of approved paths>] }.
+exception_artifact:
+  dir: "state/approvals/"
+  pattern: "protected_path_edit-*.json"
+  required_fields:
+    - approved_by
+    - scope
+    - expires_at
+    - reason
+    - paths
+
+# Behavior when no exception artifact and a protected-path edit is attempted.
+on_unapproved_edit: deny     # deny | warn
+
+# Whether mass-staging operations (`git add -A`, `git add .`) trigger
+# protected-path scanning even if the protected file wasn't directly named.
+scan_mass_staging: true

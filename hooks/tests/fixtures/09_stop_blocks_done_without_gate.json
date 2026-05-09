@@ -1,0 +1,11 @@
+{
+  "_test": "Stop hook blocks 'implementation complete' claim without gate evidence",
+  "_handler": "stop.py",
+  "_expected_decision": "deny",
+  "_expected_rule_id": "FR-05",
+  "event": "stop",
+  "session_id": "test-09",
+  "cwd": ".",
+  "host_tool": "claude_code",
+  "agent_message": "Implementation complete. All tasks done. Ready to deploy."
+}

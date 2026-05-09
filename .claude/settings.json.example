@@ -1,0 +1,81 @@
+{
+  "$schema": "https://example.com/claude-code-settings.schema.json",
+  "_comment_about_this_file": [
+    "This is an EXAMPLE settings file for Claude Code shipped with Fusebase Flow.",
+    "To enable: copy to `.claude/settings.json` and customize the python interpreter path.",
+    "Hooks read JSON events from stdin and write decisions to stdout — see",
+    "hooks/README.md and hooks/flow_hook_event.schema.json.",
+    "All hook commands use repo-relative paths so they work from any subdir.",
+    "PreToolUse uses the current hookSpecificOutput.permissionDecision style."
+  ],
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${PROJECT_DIR}/hooks/handlers/session_start.py"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${PROJECT_DIR}/hooks/handlers/user_prompt_submit.py"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${PROJECT_DIR}/hooks/handlers/pre_tool_use.py"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${PROJECT_DIR}/hooks/handlers/post_tool_use.py"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${PROJECT_DIR}/hooks/handlers/stop.py"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ${PROJECT_DIR}/hooks/handlers/pre_compact.py"
+          }
+        ]
+      }
+    ]
+  },
+  "_notes": {
+    "permissionDecision_format": "PreToolUse handler returns hookSpecificOutput.permissionDecision: 'allow' | 'deny' | 'ask' along with permissionDecisionReason.",
+    "windows_users": "Replace 'python3' with the python launcher path (e.g., 'py' or 'C:\\\\Python313\\\\python.exe').",
+    "PROJECT_DIR_substitution": "Claude Code substitutes ${PROJECT_DIR} at runtime; keep paths relative to git root.",
+    "manual_for_side_effects": "Skills with `invocation: manual-for-side-effects` (release-deploy-reporting) should not be auto-invoked. Operator triggers explicitly."
+  }
+}

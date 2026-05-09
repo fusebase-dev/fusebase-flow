@@ -1,0 +1,97 @@
+# Fusebase Flow — required artifacts policy (committed default)
+#
+# Lifecycle gates that hooks check before allowing certain actions. Used by
+# pre_tool_use (writes/edits) and stop (no-claim-without-evidence).
+schema_version: 1
+local_override_file: policies/required-artifacts.local.yml
+
+# Implementation gate: before a session in Implementer role writes production code,
+# all of these artifacts must exist.
+before_implementation:
+  required:
+    - path_glob: "docs/specs/*/spec.md"
+      condition: "exists"
+      reason: "FR-01: spec must exist before code edits."
+      rule_id: FR-01
+    - path_glob: "docs/specs/*/decisions.md"
+      condition: "exists_and_locked"     # custom predicate: every decision has Lock status: LOCKED
+      reason: "FR-01: decisions must be locked before implementation."
+      rule_id: FR-01
+    - path_glob: "docs/specs/*/tasks.md"
+      condition: "exists"
+      reason: "FR-02: tasks list must exist before multi-file edits."
+      rule_id: FR-02
+    - path_glob: "docs/specs/*/verification-gate.md"
+      condition: "exists"
+      reason: "FR-05: gate contract must exist before implementation starts."
+      rule_id: FR-05
+  on_missing: warn       # deny | warn (warn so first-time onboarding doesn't block)
+
+# Done/ready gate: stop hook blocks the agent from claiming "implementation complete"
+# unless all of these artifacts and signals are present.
+before_done_claim:
+  required:
+    - signal: diff_summary_present
+      reason: "FR-09: a concrete diff summary must be in chat before claiming done."
+      rule_id: FR-09
+    - signal: lint_clean_marker
+      reason: "FR-13: lint must be clean before commit."
+      rule_id: FR-13
+    - signal: typecheck_clean_marker
+      reason: "FR-13: typecheck must be clean before commit."
+      rule_id: FR-13
+    - signal: gate_report_present
+      reason: "FR-05: gate report must exist before claiming readiness."
+      rule_id: FR-05
+  on_missing: deny
+
+# Deploy-ready gate: before a session in Deploy phase runs the deploy command,
+# these artifacts must exist.
+before_deploy_command:
+  required:
+    - path_glob: "docs/handoff/*-deploy.md"
+      condition: "exists_and_recent"       # within last 24 hours
+      reason: "FR-04 + FR-05: deploy handoff must be persisted and recent."
+      rule_id: FR-05
+    - path_glob: "state/approvals/production_deploy-*.json"
+      condition: "exists_unexpired"
+      reason: "FR-12: production_deploy approval artifact required."
+      rule_id: FR-12
+    - signal: worker_undisturbed_recheck
+      reason: "FR-07: final pre-deploy worker-undisturbed re-check required."
+      rule_id: FR-07
+  on_missing: deny
+
+# Deploy-complete gate: stop hook blocks "deploy complete" claim unless evidence is present.
+before_deploy_complete_claim:
+  required:
+    - signal: deploy_hash_captured
+      reason: "FR-14: deploy hash must be captured for spec.md DRAFT→DONE flip."
+      rule_id: FR-14
+    - signal: probes_passed
+      reason: "Gate contract: post-deploy probes must report results."
+      rule_id: FR-05
+    - signal: smoke_results_present
+      reason: "Gate contract: smoke results must be persisted when applicable."
+      rule_id: FR-05
+      optional_unless_smoke_specified: true
+    - signal: rollback_note_present
+      reason: "Operational discipline: rollback procedure must be documented even on success."
+      rule_id: FR-14
+    - signal: docs_commit_present
+      reason: "FR-14: single docs commit must land before claiming complete."
+      rule_id: FR-14
+  on_missing: deny
+
+# Signal definitions. Hooks compute these from the agent's recent transcript.
+signal_definitions:
+  diff_summary_present: "transcript contains 'git diff --stat' output or equivalent within last 5 messages"
+  lint_clean_marker: "transcript contains 'lint clean' or '0 errors, 0 warnings' phrase"
+  typecheck_clean_marker: "transcript contains 'typecheck clean' or 'tsc' clean output"
+  gate_report_present: "transcript contains 'Gate report' header or equivalent within last 10 messages"
+  worker_undisturbed_recheck: "transcript contains 'pre-deploy worker-undisturbed verification' phrase within last 5 messages"
+  deploy_hash_captured: "transcript contains a captured deploy hash mentioned by the deploy command output"
+  probes_passed: "transcript contains 'G-M..G-Q' results or equivalent probes table with PASS markers"
+  smoke_results_present: "transcript references docs/handoff/*-smoke/ artifacts"
+  rollback_note_present: "transcript contains 'rollback' procedure paragraph"
+  docs_commit_present: "transcript contains 'docs(post-deploy):' commit or equivalent"
