@@ -173,7 +173,7 @@ fusebase-flow/
 ├── CLAUDE.md                       ← Anthropic Claude Code adapter
 ├── GEMINI.md                       ← Gemini-style IDE adapter
 ├── FLOW_RULES.md                   ← FR-01..FR-15 always-on rules
-├── VERSION                         ← 2.1.0
+├── VERSION                         ← 2.1.1
 ├── .gitattributes                  ← LF line endings for shell/python/yaml/md
 ├── .python-version                 ← 3.12 (recommended)
 ├── skills/                         ← 9 canonical skills (2 mandatory + 7 on-demand)
@@ -187,7 +187,7 @@ fusebase-flow/
 │   ├── handlers/                   ← 8 Python lifecycle handlers
 │   ├── shared/                     ← 6 shared utilities
 │   ├── git/                        ← pre-commit + commit-msg
-│   ├── local/                      ← install / preflight / verify-gate / approve-local / mirror-skills / mirror-agents
+│   ├── local/                      ← install / preflight / verify-gate / approve-local / mirror-skills / mirror-agents / po-investigate
 │   ├── tests/                      ← run-tests.sh + 14 fixtures
 │   └── requirements.txt            ← pyyaml (only non-stdlib dep)
 ├── audit/

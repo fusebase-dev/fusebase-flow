@@ -65,6 +65,7 @@ If no handoff path is provided in the operator's first message, **STOP** and ask
 |---|---|
 | Pre-deploy | Verify approval artifact exists: `state/approvals/production_deploy-<slug>-<date>.json` (DP.1) |
 | Pre-deploy | Run final worker-undisturbed re-check (DP.2) |
+| **Operator confirm (DP.6)** | **STOP.** Ask the operator to type the literal phrase `APPROVE-DEPLOY-NOW` to proceed with the deploy command. Use `AskUserQuestion` (Claude Code) or a chat prompt asking the operator to reply with the phrase (Codex / generic). If the response is anything other than the exact literal `APPROVE-DEPLOY-NOW`, abort the deploy and surface the abort to the operator. Do NOT proceed on `yes`, `y`, `ok`, partial matches, or near-matches. |
 | Deploy | Execute the deploy command from the deploy handoff |
 | Capture | Capture deploy hash (no "TBD" / "see commit" placeholders — DP.3) |
 | Verify | Run all probes + smoke prompts named in the deploy handoff |
@@ -72,6 +73,12 @@ If no handoff path is provided in the operator's first message, **STOP** and ask
 | Hand back | Return deploy hash + probe results + smoke results to the PO session for the DRAFT→DONE flip |
 
 The Deploy phase agent does **not** flip the spec to DONE itself — the PO does that as the bundled docs commit (8c).
+
+#### Why the deploy-time operator confirm (DP.6)
+
+Production cutovers benefit from a human-at-the-keyboard moment. DP.1 (approval artifact) and DP.2 (worker-undisturbed re-check) are machine-verified gates. The DP.6 pause is the operator-attentiveness gate: if a probe fails or the deploy itself misbehaves, you want the operator looking at the terminal in real time, not in a different tab. The `APPROVE-DEPLOY-NOW` magic phrase is structural friction — the operator must type, not reflexively click — mirroring the existing `APPEND-ONLY` pattern in `install.sh`. Cost: ~5 seconds. Value: no surprise prod cutovers when the operator's attention is elsewhere.
+
+If the operator types anything other than `APPROVE-DEPLOY-NOW`, treat it as an abort. The operator can re-issue the deploy by re-running the deploy handoff in a fresh AI Developer session.
 
 ## Skills the agent invokes
 
@@ -115,7 +122,7 @@ Full list with refusal phrasing in `skills/role-discipline/SKILL.md`. Headlines:
 | IM.9 | Don't claim "done" without producing all required gate-report fields |
 | IM.10 | Don't start T1 with a dirty working tree |
 
-### Deploy phase (DP.1..DP.5)
+### Deploy phase (DP.1..DP.6)
 
 | # | Don't |
 |---|---|
@@ -124,6 +131,7 @@ Full list with refusal phrasing in `skills/role-discipline/SKILL.md`. Headlines:
 | DP.3 | Don't mark spec DRAFT→DONE without the deploy hash captured (no "TBD" / "see commit") |
 | DP.4 | Don't split deploy docs across multiple commits — one bundled docs commit |
 | DP.5 | Don't mark spec DONE if any post-deploy probe or smoke prompt failed |
+| DP.6 | Don't run the deploy command without the operator typing the literal `APPROVE-DEPLOY-NOW` phrase |
 
 ## Tool surface
 
@@ -185,6 +193,7 @@ If cookie / session-key handling is detected by the secret scanner (`policies/se
 | Operator request would violate IM/DP don't-list | Refuse with section's exact phrasing |
 | Working tree was dirty when starting T1 | Refuse to start. Demand `git status --short` clean (IM.10) |
 | `state/approvals/production_deploy-<slug>-<date>.json` missing during Deploy | Refuse to deploy. Direct operator to `bash hooks/local/approve-local.sh production_deploy <slug> '<reason>'` (DP.1) |
+| Operator's response to the DP.6 confirm prompt is anything other than `APPROVE-DEPLOY-NOW` | Abort the deploy. Surface the abort. Operator can re-issue the deploy in a fresh session (DP.6) |
 | Probe / smoke failed during Deploy | Surface failure; do NOT mark DONE (DP.5) |
 
 ## Output style

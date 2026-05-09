@@ -10,8 +10,8 @@
 .claude/skills/repo-onboarding-context-map/SKILL.md  0f8b16b4de6a2f4bf917cde3c34e7daca081ab2727ed1662a3c7ad71d89c951c
 .agents/skills/requirements-specification/SKILL.md  0be7fcfba1446e594b1fca94dc6d231b5029db98ac2bb041dd8251189facd157
 .claude/skills/requirements-specification/SKILL.md  0be7fcfba1446e594b1fca94dc6d231b5029db98ac2bb041dd8251189facd157
-.agents/skills/role-discipline/SKILL.md  1125bad9ebb225e1257ff0a526fdf19c705d55696c957105cc54eacfd3b56304
-.claude/skills/role-discipline/SKILL.md  1125bad9ebb225e1257ff0a526fdf19c705d55696c957105cc54eacfd3b56304
+.agents/skills/role-discipline/SKILL.md  2f66345f3e89ac4325023b79cb295cf55debee4276d76a9da55be2ac88b41a47
+.claude/skills/role-discipline/SKILL.md  2f66345f3e89ac4325023b79cb295cf55debee4276d76a9da55be2ac88b41a47
 .agents/skills/security-permissions-review/SKILL.md  c046cd1559ec972796005e5085266f1227cd3764db067c1975677e31f9d7d7dc
 .claude/skills/security-permissions-review/SKILL.md  c046cd1559ec972796005e5085266f1227cd3764db067c1975677e31f9d7d7dc
 .agents/skills/validation-and-qa/SKILL.md  73b5f9b615a8c4225ff0d782c767cf44d13406fbb74af9d36e735b2e2073b527

@@ -167,11 +167,13 @@ See `workflows/violation-recovery.md`. High-level: out-of-scope content gets mov
 | DP.3 | Don't mark spec DRAFT → DONE without the deploy hash captured. No "TBD" / "see commit" placeholders. | FR-14 |
 | DP.4 | Don't split deploy docs across multiple commits. One single docs commit at the end captures spec.md flip + tasks.md verification + backlog index update + README header. | FR-14 |
 | DP.5 | Don't mark spec DONE if any post-deploy probe or smoke prompt failed. Surface failure; operator decides rollback vs fix-forward. | FR-05 |
+| DP.6 | Don't run the deploy command without the operator typing the literal phrase `APPROVE-DEPLOY-NOW`. No `yes` / `y` / `ok` / partial matches. The pause keeps a human at the keyboard for the production cutover moment. ~5s structural friction; mirrors the `APPEND-ONLY` pattern in `install.sh`. | FR-12 |
 
 ### Refusal phrasing
 
 - **DP.1 violation requested ("approval artifact's missing, just deploy"):** "Per FR-12 + DP.1, no deploy without `state/approvals/production_deploy-<slug>-<date>.json`. Operator authors with `bash hooks/local/approve-local.sh production_deploy <slug> '<reason>'`. Stopping until artifact present."
 - **DP.5 violation requested ("probe G-O failed but it's not important; mark DONE"):** "Per FR-05 + DP.5, do NOT mark spec DONE on probe failure. G-O observed Y, expected Z. Recovery options: (A) rollback (`git revert <hash>` + redeploy), (B) fix-forward via follow-up task. Operator decides."
+- **DP.6 violation requested ("just deploy, I'm watching, no need for the phrase"):** "Per FR-12 + DP.6, the literal `APPROVE-DEPLOY-NOW` phrase is required before the deploy command runs. Anything else aborts. Re-issue when ready."
 
 ### Recovery if a Deploy phase rail is tripped
 
@@ -179,6 +181,7 @@ See `workflows/violation-recovery.md`. High-level:
 
 - DP.1 (deployed without artifact): produce artifact retroactively; document the bypass in spec.md audit log; file incident if production was disturbed.
 - DP.5 (marked DONE despite probe fail): reverse spec to DRAFT; either rollback or file fix-forward task; document.
+- DP.6 (deployed without operator confirm phrase): unusual — the wrapper requires the phrase. If the agent ran deploy without confirmation, treat as agent rule violation; document; tighten the agent's prompt or wrapper.
 
 ---
 

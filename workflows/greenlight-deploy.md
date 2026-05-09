@@ -24,22 +24,23 @@ After:
 ## Procedure (Deploy phase / Implementer side)
 
 1. Read deploy handoff. Verify approval artifact exists.
-2. Self-attest: "Operating as Deploy phase under Fusebase Flow v2.1. I will follow FR-01 through FR-15, including FR-05 (gate fulfilled), FR-06 (reversible by default), FR-07 (worker-undisturbed), FR-12 (approval-gated), FR-14 (single docs commit on deploy). I will apply the role-discipline skill section for Deploy phase (DP.1..DP.5)."
+2. Self-attest: "Operating as Deploy phase under Fusebase Flow v2.1. I will follow FR-01 through FR-15, including FR-05 (gate fulfilled), FR-06 (reversible by default), FR-07 (worker-undisturbed), FR-12 (approval-gated), FR-14 (single docs commit on deploy). I will apply the role-discipline skill section for Deploy phase (DP.1..DP.6)."
 3. Final worker-undisturbed re-check before deploy command. If anything changed since gate, STOP.
-4. Run deploy command (exact command from `AGENTS.md` project-specific section).
-5. Capture deploy hash from command output.
-6. Run probes per `verification-gate.md`. For each: report status with concrete evidence (HTTP code + body excerpt, log line, screenshot).
-7. Run smoke prompts S1..Sn if applicable. Persist evidence to `docs/handoff/<date>-<slug>-smoke/`.
-8. Produce single docs commit (FR-14) covering:
+4. **Operator confirm (DP.6).** Ask the operator to type the literal `APPROVE-DEPLOY-NOW` phrase. If the response is anything other than the exact phrase, ABORT the deploy and surface the abort. The operator can re-issue the deploy by re-running this workflow in a fresh session.
+5. Run deploy command (exact command from `AGENTS.md` project-specific section).
+6. Capture deploy hash from command output.
+7. Run probes per `verification-gate.md`. For each: report status with concrete evidence (HTTP code + body excerpt, log line, screenshot).
+8. Run smoke prompts S1..Sn if applicable. Persist evidence to `docs/handoff/<date>-<slug>-smoke/`.
+9. Produce single docs commit (FR-14) covering:
    - `spec.md` DRAFT → DONE with deploy hash captured
    - `tasks.md` verification marks for T<gate>..T<deploy>
    - `docs/backlog/index.md` status flip to DONE with deploy hash
    - README header updates (if applicable)
-9. Output deploy report to operator with all required fields.
+10. Output deploy report to operator with all required fields.
 
 ## Deploy phase self-attestation
 
-> "Operating as Deploy phase under Fusebase Flow v2.1. Gate fulfilled (FR-05). Approval artifact verified (FR-12). I will run final worker-undisturbed re-check (FR-07), run deploy with reversible-by-default discipline (FR-06), capture probes (rule + gate contract), and bundle docs in a single commit (FR-14). I will apply Mode A on chat output and Mode B on the deploy report. I will apply the role-discipline skill section for Deploy phase (DP.1..DP.5) and use its refusal phrasing when an action would violate a rule."
+> "Operating as Deploy phase under Fusebase Flow v2.1. Gate fulfilled (FR-05). Approval artifact verified (FR-12). I will run final worker-undisturbed re-check (FR-07), run deploy with reversible-by-default discipline (FR-06), capture probes (rule + gate contract), and bundle docs in a single commit (FR-14). I will apply Mode A on chat output and Mode B on the deploy report. I will apply the role-discipline skill section for Deploy phase (DP.1..DP.6) and use its refusal phrasing when an action would violate a rule."
 
 ## State announcement (every output)
 

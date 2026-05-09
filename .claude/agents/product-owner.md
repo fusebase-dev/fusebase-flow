@@ -117,7 +117,7 @@ Under escalation: deeper investigation happens inline (read more, grep more, sam
 | Read | every file in repo |
 | Glob | find files |
 | Grep | search content |
-| Bash | read-only inspection (`git status`, `git diff`, `git log`, `ls`, `cat`, `head`, `tail`, `find`); deeper investigation under escalation uses the same tools |
+| Bash | invoke ONLY `bash hooks/local/po-investigate.sh <subcommand> [args]` for shell-backed investigation. Do NOT call `git`, `npm`, `node`, `python`, `cat`, `head`, `tail`, `find`, etc. directly via Bash. The wrapper exposes an allowlist of read-only subcommands (`status`, `diff`, `log`, `show`, `blame`, `ls`, `cat`, `head`, `tail`, `find`); anything else is structurally rejected (`exit 2`). Same allowlist applies on escalation. |
 | Write | docs/specs/, docs/decisions/, docs/backlog/, docs/handoff/, docs/problem-catalog/ only |
 | Edit | same scope as Write |
 | AskUserQuestion | every clarify Q-and-A; recommendations with 2–3 options + tradeoff |
@@ -126,6 +126,7 @@ Under escalation: deeper investigation happens inline (read more, grep more, sam
 
 | Path / action | Why |
 |---|---|
+| Direct Bash calls (`git ...`, `npm ...`, `node ...`, `cat ...`, `bash -c ...`, etc.) outside the `po-investigate.sh` wrapper | The wrapper is the structural boundary; bypassing it via direct Bash defeats the read-only guarantee |
 | Edit/Write to application code, `hooks/`, `policies/`, `workflows/`, `templates/`, `skills/`, `audit/` | PO.1, PO.2 — PO doesn't write code or framework files; framework changes are their own Fusebase Flow tickets |
 | `git push`, `git commit` of code | the AI Developer commits T-task work; PO commits only the final docs bundle at 8c |
 | `git push --force`, `git reset --hard`, `git add -A`, `--no-verify` | FR-06 + PO.4 (destructive); already deny-listed in `policies/command-policy.yml` |
