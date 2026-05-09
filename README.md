@@ -126,10 +126,11 @@ fusebase-flow/
 ├── CLAUDE.md                       ← Anthropic Claude Code adapter
 ├── GEMINI.md                       ← Gemini-style IDE adapter
 ├── FLOW_RULES.md                   ← FR-01..FR-15 always-on rules
-├── VERSION                         ← 0.1.1
+├── VERSION                         ← 0.1.2
 ├── .gitattributes                  ← LF line endings for shell/python/yaml/md
 ├── .python-version                 ← 3.12 (recommended)
 ├── skills/                         ← 9 canonical skills (2 mandatory + 7 on-demand)
+├── agents/                         ← 2 canonical sub-agents (product-owner, ai-developer)
 ├── workflows/                      ← 12 procedures
 ├── policies/                       ← 6 YAML policies
 ├── templates/                      ← 13 substrates
@@ -139,17 +140,20 @@ fusebase-flow/
 │   ├── handlers/                   ← 8 Python lifecycle handlers
 │   ├── shared/                     ← 6 shared utilities
 │   ├── git/                        ← pre-commit + commit-msg
-│   ├── local/                      ← install / preflight / verify-gate / approve-local / mirror-skills
+│   ├── local/                      ← install / preflight / verify-gate / approve-local / mirror-skills / mirror-agents
 │   ├── tests/                      ← run-tests.sh + 14 fixtures
 │   └── requirements.txt            ← pyyaml (only non-stdlib dep)
 ├── audit/
 │   ├── README.md                   ← what does (and does not) live here
-│   └── skill-mirror-manifest.txt   ← sha256 manifest used by preflight + CI
+│   ├── skill-mirror-manifest.txt   ← sha256 manifest used by preflight + CI
+│   └── agent-mirror-manifest.txt   ← sha256 manifest for sub-agent mirrors
 ├── state/                          ← runtime state (gitignored contents)
 ├── docs/                           ← public reference docs + per-project artifacts
-├── .agents/skills/                 ← OpenAI / ChatGPT Codex skill mirror (× 8)
-├── .claude/skills/                 ← Anthropic Claude Code skill mirror (× 8)
+├── .agents/skills/                 ← OpenAI / ChatGPT Codex skill mirror (× 9)
+├── .claude/skills/                 ← Anthropic Claude Code skill mirror (× 9)
+├── .claude/agents/                 ← Anthropic Claude Code sub-agent mirror (× 2)
 ├── .claude/settings.json.example   ← Claude Code hook wiring
+├── .codex/agents/                  ← OpenAI / ChatGPT Codex sub-agent mirror (× 2)
 ├── .codex/{config.toml,hooks.json}.example ← Codex hook wiring + project trust note
 ├── .cursor/rules/                  ← Cursor rules (always + scoped)
 └── .github/
@@ -165,6 +169,7 @@ fusebase-flow/
 | **Always-on rules** | 15 baseline rules every session attests to | `FLOW_RULES.md` |
 | **Workflows** | Step-by-step procedures (eight-phase, greenlight-implement, greenlight-deploy, etc.) | `workflows/` |
 | **Skills** | On-demand expertise loaded when triggered by description match | `skills/` (canonical) + provider mirrors |
+| **Sub-agents** | Role-shaped specialists (Product Owner, AI Developer) with tight tool surfaces and self-attestation | `agents/` (canonical) + `.claude/agents/`, `.codex/agents/` mirrors |
 | **Policies** | Machine-readable rule data (deny lists, secret patterns, approval rules) | `policies/` |
 | **Hooks** | Deterministic enforcement at lifecycle events (Python; stdin → stdout) | `hooks/handlers/` |
 | **Git fallback** | Always-on safety net for any IDE without native hooks | `hooks/git/{pre-commit,commit-msg}` |

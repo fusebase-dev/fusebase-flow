@@ -15,7 +15,8 @@
 #   1. install local git hooks  (hooks/git/* into .git/hooks/)              [opt-in]
 #   2. run preflight            (validate structure + policies + mirrors)   [opt-in]
 #   3. mirror skills            (skills/ -> .agents/skills/, .claude/skills/) [opt-in]
-#   4. show next steps          (provider-specific activation hints)
+#   4. mirror sub-agents        (agents/ -> .claude/agents/, .codex/agents/) [opt-in]
+#   5. show next steps          (provider-specific activation hints)
 #
 # Exit codes:
 #   0  success
@@ -139,7 +140,7 @@ if ! python3 -c "import yaml" >/dev/null 2>&1; then
 fi
 
 # 1. Install local git hooks
-if confirm "(1/3) Install local git fallback hooks (pre-commit, commit-msg)?"; then
+if confirm "(1/4) Install local git fallback hooks (pre-commit, commit-msg)?"; then
     bash hooks/local/install-git-hooks.sh
     echo "- step 1: git hooks installed" >> "$REPORT"
 else
@@ -147,7 +148,7 @@ else
 fi
 
 # 2. Run preflight
-if confirm "(2/3) Run preflight (validate framework structure, policies, mirrors)?"; then
+if confirm "(2/4) Run preflight (validate framework structure, policies, mirrors)?"; then
     if bash hooks/local/preflight.sh; then
         echo "- step 2: preflight PASS (errors: 0, warnings: 0)" >> "$REPORT"
     else
@@ -160,11 +161,23 @@ else
 fi
 
 # 3. Mirror skills
-if confirm "(3/3) Mirror skills into provider folders (.agents/skills/, .claude/skills/)?"; then
+if confirm "(3/4) Mirror skills into provider folders (.agents/skills/, .claude/skills/)?"; then
     bash hooks/local/mirror-skills.sh
     echo "- step 3: skills mirrored to .agents/skills/ and .claude/skills/" >> "$REPORT"
 else
     echo "- step 3: skill mirror skipped" >> "$REPORT"
+fi
+
+# 4. Mirror sub-agents (canonical agents/<name>/AGENT.md -> .claude/agents/, .codex/agents/)
+if [ -d "$ROOT/agents" ]; then
+    if confirm "(4/4) Mirror sub-agents into provider folders (.claude/agents/, .codex/agents/)?"; then
+        bash hooks/local/mirror-agents.sh
+        echo "- step 4: agents mirrored to .claude/agents/ and .codex/agents/" >> "$REPORT"
+    else
+        echo "- step 4: agent mirror skipped" >> "$REPORT"
+    fi
+else
+    echo "- step 4: agents/ canonical dir not present — skipped" >> "$REPORT"
 fi
 
 # Next steps hint

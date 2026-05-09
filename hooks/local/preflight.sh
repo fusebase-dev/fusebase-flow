@@ -87,6 +87,29 @@ for canon in "$FF_DIR"/skills/*/SKILL.md; do
     done
 done
 
+# 5b. Agent mirror consistency (canonical = agents/<name>/AGENT.md;
+#     approved mirrors = .claude/agents/<name>.md, .codex/agents/<name>.md).
+if [ -d "$FF_DIR/agents" ]; then
+    for canon in "$FF_DIR"/agents/*/AGENT.md; do
+        [ -e "$canon" ] || continue
+        agent_name="$(basename "$(dirname "$canon")")"
+        canon_hash="$(sha256sum "$canon" 2>/dev/null | awk '{print $1}')"
+        [ -z "$canon_hash" ] && canon_hash="$(shasum -a 256 "$canon" | awk '{print $1}')"
+        for mirror_root in .claude/agents .codex/agents; do
+            mirror_file="$ROOT/$mirror_root/$agent_name.md"
+            if [ ! -f "$mirror_file" ]; then
+                warn "agent mirror missing: $mirror_root/$agent_name.md (run mirror-agents.sh)"
+                continue
+            fi
+            mirror_hash="$(sha256sum "$mirror_file" 2>/dev/null | awk '{print $1}')"
+            [ -z "$mirror_hash" ] && mirror_hash="$(shasum -a 256 "$mirror_file" | awk '{print $1}')"
+            if [ "$canon_hash" != "$mirror_hash" ]; then
+                warn "agent mirror drift: $mirror_root/$agent_name.md != canonical (run mirror-agents.sh)"
+            fi
+        done
+    done
+fi
+
 # 6. Action-name consistency: command-policy.yml require_approval actions must
 #    appear in approval-policy.yml require_approval keys.
 if command -v python3 >/dev/null 2>&1; then
