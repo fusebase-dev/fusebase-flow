@@ -50,6 +50,24 @@ The full surface support breakdown lives at [`docs/compatibility.md`](docs/compa
 
    (Only PyYAML; ~100 KB.)
 
+## Installing into an existing Fusebase CLI / MCP project
+
+Do not blindly copy this repository over an existing project.
+
+If the target repo already contains `AGENTS.md`, `CLAUDE.md`, `.gitignore`, `.claude/settings.json`, `.mcp.json`, `.cursor/mcp.json`, `.agents/skills/`, `.claude/skills/`, `fusebase.json`, or `skills-lock.json`, use the Fusebase CLI / MCP-safe install path.
+
+In that case:
+
+- append to `AGENTS.md`
+- append to `CLAUDE.md`
+- append to `.gitignore`
+- add skills into existing skill folders only when no name collision exists
+- never replace MCP configuration
+- never replace active Claude settings or hooks
+- review `.claude/settings.json.example` before merging lifecycle hooks
+
+See [`docs/install-fusebase-cli-project.md`](docs/install-fusebase-cli-project.md). The general existing-repo guide lives at [`docs/install-existing-project.md`](docs/install-existing-project.md).
+
 ## Quick start (copy into existing repo)
 
 ```bash

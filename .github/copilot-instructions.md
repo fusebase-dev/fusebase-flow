@@ -56,6 +56,10 @@ For phase-specific guidance, also load whichever of these applies to the current
 - `.github/instructions/security.instructions.md` — for changes touching auth, secrets, env, deploy config, external messages, production data
 - `.github/instructions/validation.instructions.md` — for gate verification, smoke prompts, reproducibility-before-fix
 
+## Installation safety rule
+
+When installing Fusebase Flow into an existing repository, never overwrite existing `AGENTS.md`, `CLAUDE.md`, `.gitignore`, MCP config (`.mcp.json`, `.cursor/mcp.json`, `fusebase.json`, `skills-lock.json`), provider config (`.claude/settings.json`, `.codex/config.toml`), or existing skill folders (`.agents/skills/`, `.claude/skills/`). Append or merge only. Use `docs/install-fusebase-cli-project.md` for repos initialized by Fusebase CLI or MCP.
+
 ## Notes on Copilot scope
 
 - Copilot does not have native lifecycle hooks (PreToolUse, PostToolUse, etc.) in v0.1. The git fallback hooks at `hooks/git/` and the operator's vigilance are the active enforcement layer.

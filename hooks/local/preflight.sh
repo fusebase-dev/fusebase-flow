@@ -108,5 +108,16 @@ PY
     if [ $? -ne 0 ]; then errors=$((errors + 1)); fi
 fi
 
+# 7. Existing Fusebase CLI / MCP overlay sanity check (warning only).
+#    If MCP / runtime config is present, ensure Fusebase Flow was installed
+#    as an append/merge overlay and not via blind bulk copy.
+mcp_present=()
+for f in .mcp.json .cursor/mcp.json fusebase.json .claude/settings.json; do
+    [ -e "$f" ] && mcp_present+=("$f")
+done
+if [ "${#mcp_present[@]}" -gt 0 ]; then
+    warn "existing Fusebase CLI / MCP configuration detected (${mcp_present[*]}); ensure Fusebase Flow was installed as an append/merge overlay (see docs/install-fusebase-cli-project.md)"
+fi
+
 note "preflight finished — errors: $errors, warnings: $warnings"
 exit $errors

@@ -6,9 +6,13 @@ Your existing development setup keeps working exactly as before. Fusebase Flow b
 
 ## Existing Fusebase CLI / MCP projects
 
-If your repository was initialized by Fusebase CLI, contains MCP configuration, or already has files such as `AGENTS.md`, `.claude/settings.json`, `.agents/skills/`, `.claude/skills/`, `.mcp.json`, `.cursor/mcp.json`, or `fusebase.json`, do not use the generic bulk copy path without review.
+If your repository was already initialized by Fusebase CLI, has MCP configuration, or already contains `AGENTS.md`, `.claude/settings.json`, `.agents/skills/`, `.claude/skills/`, `.mcp.json`, `.cursor/mcp.json`, `fusebase.json`, or `skills-lock.json`, do not use the generic bulk copy commands below without review.
 
-Use the Fusebase CLI / MCP-safe install path in [docs/install-fusebase-cli-project.md](install-fusebase-cli-project.md).
+Use the safe install guide:
+
+[`docs/install-fusebase-cli-project.md`](install-fusebase-cli-project.md)
+
+The generic install on this page is for repositories that do not already have overlapping agent, MCP, provider, or workflow configuration. Running the bulk copy over a Fusebase CLI / MCP project will overwrite runtime rules, MCP setup, Claude hooks, and existing skills.
 
 ## Supported environments
 

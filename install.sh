@@ -9,11 +9,18 @@
 #   bash install.sh                # interactive
 #   bash install.sh --auto-yes     # non-interactive: do everything safe
 #
-# What this script does (each opt-in):
-#   1. install local git hooks  (hooks/git/* into .git/hooks/)
-#   2. run preflight            (validate structure + policies + mirrors)
-#   3. mirror skills            (skills/ -> .agents/skills/, .claude/skills/)
+# What this script does:
+#   0. detect existing agent / MCP / Fusebase CLI config and require explicit
+#      APPEND-ONLY confirmation if any is found (or --auto-yes acknowledgement)
+#   1. install local git hooks  (hooks/git/* into .git/hooks/)              [opt-in]
+#   2. run preflight            (validate structure + policies + mirrors)   [opt-in]
+#   3. mirror skills            (skills/ -> .agents/skills/, .claude/skills/) [opt-in]
 #   4. show next steps          (provider-specific activation hints)
+#
+# Exit codes:
+#   0  success
+#   2  unknown argument
+#   3  protected files detected and operator did not type APPEND-ONLY
 #
 # What this script does NOT do:
 #   - install Python or pip
@@ -21,6 +28,9 @@
 #   - rewrite git history
 #   - mutate provider settings
 #   - call any external service
+#   - merge or replace existing AGENTS.md, CLAUDE.md, MCP config, or
+#     `.claude/settings.json`. See docs/install-fusebase-cli-project.md
+#     for the manual append/merge procedure.
 
 set -euo pipefail
 
@@ -67,6 +77,59 @@ echo "[install] Fusebase Flow Local installer"
 echo "[install] Repo: $ROOT"
 echo "[install] Report will be written to: $REPORT"
 echo
+
+# 0. Existing Fusebase CLI / MCP / agent configuration detection.
+#
+# Fusebase Flow must be installed as an append/merge overlay on top of any
+# existing Fusebase CLI, MCP, or agent configuration. This guard surfaces
+# protected files and requires explicit APPEND-ONLY acknowledgement before
+# proceeding. See docs/install-fusebase-cli-project.md.
+PROTECTED_DETECTED=()
+for f in AGENTS.md CLAUDE.md .gitignore .claude/settings.json .codex/config.toml \
+         .cursor/mcp.json .mcp.json fusebase.json skills-lock.json; do
+    if [ -e "$f" ]; then PROTECTED_DETECTED+=("$f"); fi
+done
+for d in .agents/skills .claude/skills .claude/hooks .claude/agents; do
+    if [ -d "$d" ]; then PROTECTED_DETECTED+=("$d/"); fi
+done
+
+if [ "${#PROTECTED_DETECTED[@]}" -gt 0 ]; then
+    echo "[install] WARNING: existing agent / MCP / Fusebase CLI configuration detected:"
+    for path in "${PROTECTED_DETECTED[@]}"; do
+        echo "[install]   - $path"
+    done
+    echo
+    echo "[install] Fusebase Flow must be installed as an append/merge overlay."
+    echo "[install] Do not overwrite existing AGENTS.md, CLAUDE.md, .gitignore,"
+    echo "[install] MCP config, Claude settings, or existing skill folders."
+    echo
+    echo "[install] Review docs/install-fusebase-cli-project.md before continuing."
+    echo
+    {
+        echo
+        echo "## Step 0 — protected file detection"
+        echo
+        echo "Detected:"
+        for path in "${PROTECTED_DETECTED[@]}"; do echo "- $path"; done
+    } >> "$REPORT"
+
+    if [ "$AUTO_YES" -eq 1 ]; then
+        echo "[install] --auto-yes set: continuing (assumes operator has reviewed merge safety)."
+        echo "- step 0: --auto-yes acknowledged, continuing" >> "$REPORT"
+    else
+        ack=""
+        read -r -p "Type APPEND-ONLY to continue: " ack || true
+        if [ "$ack" != "APPEND-ONLY" ]; then
+            echo "[install] aborted: no APPEND-ONLY confirmation." >&2
+            echo "- step 0: aborted (no APPEND-ONLY confirmation)" >> "$REPORT"
+            exit 3
+        fi
+        echo "- step 0: APPEND-ONLY confirmed by operator" >> "$REPORT"
+    fi
+    echo
+else
+    echo "- step 0: no existing agent / MCP / Fusebase CLI files detected" >> "$REPORT"
+fi
 
 # Preflight: PyYAML available?
 if ! python3 -c "import yaml" >/dev/null 2>&1; then

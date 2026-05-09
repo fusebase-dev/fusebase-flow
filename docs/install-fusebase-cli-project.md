@@ -203,15 +203,9 @@ Append this to the bottom of the existing `AGENTS.md`:
 
 # Fusebase Flow Local — workflow discipline overlay
 
-This repo also uses Fusebase Flow Local. Read `FLOW_RULES.md` for the always-on workflow rules, `workflows/` for procedures, and `skills/` for task-specific guidance.
+This repository also uses Fusebase Flow Local. Read `FLOW_RULES.md` for the always-on workflow rules, `workflows/` for lifecycle procedures, and `skills/` for on-demand workflow guidance.
 
-Existing Fusebase CLI, MCP, SDK, and project-specific rules above remain authoritative for runtime behavior and integration contracts.
-
-Fusebase Flow governs the workflow lifecycle:
-
-spec → plan → decisions → tasks → verify → implement → deploy
-
-When a runtime rule and a workflow rule both apply, obey both. If they conflict, stop and ask the operator before proceeding.
+Existing Fusebase CLI, MCP, SDK, provider, and project-specific rules remain authoritative for runtime behavior. Fusebase Flow governs workflow lifecycle: specification, planning, implementation, verification, review, and deploy readiness.
 ```
 
 ### CLAUDE.md append section
@@ -221,15 +215,9 @@ Append this to the bottom of the existing `CLAUDE.md`:
 ```md
 ## Fusebase Flow Local
 
-This repository includes Fusebase Flow Local as a workflow overlay.
+This repository includes Fusebase Flow Local as a workflow overlay. The canonical workflow files are in `FLOW_RULES.md`, `workflows/`, `skills/`, `policies/`, and `templates/`.
 
-- `FLOW_RULES.md` contains the always-on workflow rules.
-- `skills/` contains canonical Fusebase Flow skills.
-- `.claude/skills/` contains Claude Code skill mirrors.
-- `workflows/` contains lifecycle procedures.
-- `hooks/` contains optional local guardrails.
-
-If `.claude/settings.json` already contains project hooks, do not replace it with `.claude/settings.json.example`. Merge lifecycle hooks only after review.
+Do not replace existing Claude instructions, hooks, or project-specific rules. Merge Fusebase Flow guidance as an overlay.
 ```
 
 ### .gitignore append section

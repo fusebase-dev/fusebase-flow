@@ -78,6 +78,26 @@ Visuals belong in chat only, never in Mode-B files.
 
 If your provider supports project-trust prompts (Codex, etc.), accept them so hooks can run.
 
+## Installation safety rule
+
+When installing Fusebase Flow into an existing repository, never automatically overwrite these files or folders:
+
+- `AGENTS.md`
+- `CLAUDE.md`
+- `.gitignore`
+- `.claude/settings.json`
+- `.mcp.json`
+- `.cursor/mcp.json`
+- `fusebase.json`
+- `skills-lock.json`
+- existing `.agents/skills/`
+- existing `.claude/skills/`
+- existing `.github/workflows/`
+
+If any of these files or folders already exist, append or merge only after reviewing the existing content.
+
+Preserve existing Fusebase CLI, MCP, SDK, provider, and project-specific rules. Fusebase Flow is a workflow lifecycle overlay, not a replacement for runtime/MCP configuration. See `docs/install-fusebase-cli-project.md` for the safe-install procedure.
+
 ## Quick links
 
 - Full rules: `FLOW_RULES.md`
@@ -85,3 +105,4 @@ If your provider supports project-trust prompts (Codex, etc.), accept them so ho
 - Skill catalog: `skills/`
 - Audit package: `audit/`
 - Compatibility matrix: `docs/compatibility.md`
+- Safe install into Fusebase CLI / MCP repos: `docs/install-fusebase-cli-project.md`
