@@ -3,7 +3,7 @@ name: role-discipline
 description: ALWAYS load at session start. Apply the section matching your self-attested role (Product Owner / Implementer / Architect / Deploy phase). Contains role-specific don't-list, exact refusal phrasing for FR violations, and pointers to recovery procedures. Mandatory; not on-demand.
 source_inspiration: conceptual-only
 license_status: clean-room-original
-fusebase_flow_version: 0.1
+fusebase_flow_version: 2.1
 risk_level: medium
 invocation: automatic
 mandatory_load: true

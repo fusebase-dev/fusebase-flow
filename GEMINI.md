@@ -1,6 +1,6 @@
 # GEMINI.md — Gemini / Antigravity adapter for Fusebase Flow
 
-This repo runs **Fusebase Flow Local v0.1**. The full portable baseline is in `AGENTS.md` and the full rule set is in `FLOW_RULES.md`. Read both before any other action.
+This repo runs **Fusebase Flow Local v2.1**. The full portable baseline is in `AGENTS.md` and the full rule set is in `FLOW_RULES.md`. Read both before any other action.
 
 ## Gemini / Antigravity-specific notes
 
@@ -18,7 +18,7 @@ This adapter is intentionally minimal because Gemini / Antigravity-style IDEs do
 
 ## Self-attestation (every session's first response)
 
-> "Operating as {role} under Fusebase Flow v0.1. I will follow FR-01 through FR-15. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+> "Operating as {role} under Fusebase Flow v2.1. I will follow FR-01 through FR-15. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 ## State announcement (every output)
 

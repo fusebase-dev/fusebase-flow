@@ -3,7 +3,7 @@ name: security-permissions-review
 description: Use when changes touch auth, permissions, secrets, env files, deploy config, external messages, data export/import, production DB writes, or customer-visible behavior; surfaces sensitive-path findings + approval-required list. Do NOT use as general code review.
 source_inspiration: conceptual-only
 license_status: clean-room-original
-fusebase_flow_version: 0.1
+fusebase_flow_version: 2.1
 risk_level: high
 invocation: manual
 expected_outputs:

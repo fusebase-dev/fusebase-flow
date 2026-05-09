@@ -12,9 +12,9 @@ tools: Read, Glob, Grep, Bash, Write, Edit, AskUserQuestion
 
 Choose the role from the handoff filename:
 
-> **Implementer:** "Operating as Implementer under Fusebase Flow v0.1. I will follow FR-01 through FR-15. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Implementer."
+> **Implementer:** "Operating as Implementer under Fusebase Flow v2.1. I will follow FR-01 through FR-15. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Implementer."
 
-> **Deploy phase:** "Operating as Deploy phase under Fusebase Flow v0.1. I will follow FR-01 through FR-15. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Deploy phase."
+> **Deploy phase:** "Operating as Deploy phase under Fusebase Flow v2.1. I will follow FR-01 through FR-15. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Deploy phase."
 
 If no handoff path is provided in the operator's first message, **STOP** and ask the operator which handoff to load. Do NOT improvise the work without a handoff.
 

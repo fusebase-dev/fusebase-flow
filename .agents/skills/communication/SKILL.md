@@ -3,7 +3,7 @@ name: communication
 description: ALWAYS apply on every chat output (Mode A — visual, concrete, brief) and on every internal-artifact write (Mode B — dense, tabular, front-loaded; no narrative padding). Mandatory at session start; not on-demand. Contains the full ASCII pattern library and the 12 Mode B principles with concrete anti-patterns.
 source_inspiration: conceptual-only
 license_status: clean-room-original
-fusebase_flow_version: 0.1
+fusebase_flow_version: 2.1
 risk_level: low
 invocation: automatic
 mandatory_load: true

@@ -3,7 +3,7 @@ name: implementation-planning
 description: Use after spec is drafted to plan implementation; produces decisions, tasks, verification-gate, and implementer handoff. Do NOT write code, do NOT lock decisions on operator's behalf, do NOT run before spec exists.
 source_inspiration: conceptual-only
 license_status: clean-room-original
-fusebase_flow_version: 0.1
+fusebase_flow_version: 2.1
 risk_level: medium
 invocation: automatic
 expected_outputs:

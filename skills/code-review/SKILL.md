@@ -3,7 +3,7 @@ name: code-review
 description: Use before commit, deploy, or PR merge, or when operator asks "review this diff" / "is this safe?"; reviews diff vs spec, decisions, maintainability, scope, tests, rollback. Do NOT write or fix code — review only.
 source_inspiration: conceptual-only
 license_status: clean-room-original
-fusebase_flow_version: 0.1
+fusebase_flow_version: 2.1
 risk_level: low
 invocation: manual
 expected_outputs:

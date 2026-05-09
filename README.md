@@ -114,6 +114,53 @@ bash install.sh
 
 The full eight-phase lifecycle lives at [`workflows/eight-phase-flow.md`](workflows/eight-phase-flow.md).
 
+## Using sub-agents (v2.1+)
+
+Two role-shaped sub-agents cover the full eight-phase lifecycle. They are **opt-in** — the framework remains fully usable via the skill-and-workflow pattern alone — but they make role boundaries explicit and harder to drift across.
+
+| Sub-agent | Owns | Skills it invokes |
+|---|---|---|
+| **Product Owner** | Specify, Clarify, Plan, Decisions, Tasks, draft-verification-gate, post-implement code-review and security-permissions-review, deploy-handoff drafting, spec DRAFT→DONE flip, **plus Architect responsibilities inline on escalation** (>10 files / cross-cutting refactor / platform blocker / blocked migration) | `requirements-specification`, `implementation-planning`, `code-review`, `security-permissions-review`, `release-deploy-reporting` |
+| **AI Developer** | Run gate, Implement T-chain (one task = one commit; stops at gate), Run deploy command (gated on approval artifact, captures hash, runs probes) | `validation-and-qa`, `repo-onboarding-context-map` |
+
+Both sub-agents always load the mandatory `communication` and `role-discipline` skills.
+
+### Invoking from Claude Code
+
+```
+> Use the product-owner sub-agent. Let's ship pagination.
+```
+
+```
+> Use the ai-developer sub-agent. Run docs/handoff/2026-05-09-pagination-implement.md.
+```
+
+Claude Code auto-discovers `.claude/agents/<name>.md`.
+
+### Invoking from Codex
+
+Codex doesn't auto-discover sub-agent files. Reference them in the first message of a fresh session:
+
+```
+> Read .codex/agents/product-owner.md and operate as Product Owner per its instructions.
+> Let's ship pagination.
+```
+
+```
+> Read .codex/agents/ai-developer.md and operate as AI Developer per its instructions.
+> Run docs/handoff/2026-05-09-pagination-implement.md.
+```
+
+### Updating sub-agent definitions
+
+Edit the canonical at `agents/<name>/AGENT.md`, then regenerate provider mirrors:
+
+```bash
+bash hooks/local/mirror-agents.sh
+```
+
+Preflight will warn on drift if the mirrors and canonical fall out of sync. Full release notes for the v2.1.0 sub-agents launch live at [`docs/release-notes/v2.1.0.md`](docs/release-notes/v2.1.0.md).
+
 ## What's inside
 
 ```
@@ -126,7 +173,7 @@ fusebase-flow/
 ├── CLAUDE.md                       ← Anthropic Claude Code adapter
 ├── GEMINI.md                       ← Gemini-style IDE adapter
 ├── FLOW_RULES.md                   ← FR-01..FR-15 always-on rules
-├── VERSION                         ← 0.1.2
+├── VERSION                         ← 2.1.0
 ├── .gitattributes                  ← LF line endings for shell/python/yaml/md
 ├── .python-version                 ← 3.12 (recommended)
 ├── skills/                         ← 9 canonical skills (2 mandatory + 7 on-demand)

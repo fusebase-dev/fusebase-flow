@@ -3,7 +3,7 @@ name: validation-and-qa
 description: Use when code changes need a gate report, operator asks "is this ready?", or a single observed failure needs reproducibility check; runs lint/typecheck/tests, smoke, probes, reproducibility-before-fix. Do NOT approve deploy (that's release-deploy-reporting).
 source_inspiration: conceptual-only
 license_status: clean-room-original
-fusebase_flow_version: 0.1
+fusebase_flow_version: 2.1
 risk_level: medium
 invocation: automatic
 expected_outputs:

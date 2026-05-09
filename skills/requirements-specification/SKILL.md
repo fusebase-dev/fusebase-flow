@@ -3,7 +3,7 @@ name: requirements-specification
 description: Use when operator starts a new ticket ("ship X", "build Y", "add feature", "fix workflow") and no spec exists; produces spec, clarify questions, acceptance criteria. Do NOT use for code edits, mid-flight reorgs, or after a spec is locked.
 source_inspiration: conceptual-only
 license_status: clean-room-original
-fusebase_flow_version: 0.1
+fusebase_flow_version: 2.1
 risk_level: low
 invocation: automatic
 expected_outputs:

@@ -3,7 +3,7 @@ name: <kebab-case-slug>
 description: <one to two sentences. Lead with WHEN to invoke and WHEN NOT to invoke. The agent's skill matcher reads this first.>
 source_inspiration: conceptual-only
 license_status: clean-room-original
-fusebase_flow_version: 0.1
+fusebase_flow_version: 2.1
 risk_level: low | medium | high
 invocation: automatic | manual | manual-for-side-effects
 expected_outputs:

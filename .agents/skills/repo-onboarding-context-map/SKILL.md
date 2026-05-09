@@ -3,7 +3,7 @@ name: repo-onboarding-context-map
 description: Use on first Fusebase Flow install, opening an unfamiliar repo, or after major restructuring; produces durable context map (commands, structure, protected paths, risky boundaries). Do NOT use for routine ticket investigation.
 source_inspiration: conceptual-only
 license_status: clean-room-original
-fusebase_flow_version: 0.1
+fusebase_flow_version: 2.1
 risk_level: low
 invocation: manual
 expected_outputs:

@@ -23,7 +23,7 @@ After `implementation-planning` has produced `decisions.md` (all locked), `tasks
 ## Procedure (Implementer side)
 
 1. Read mandatory pre-execution files (per the handoff's reads list).
-2. Self-attest: "Operating as Implementer under Fusebase Flow v0.1. I will follow FR-01 through FR-15. I will apply Mode A on chat output and Mode B on every file I write. I will apply the role-discipline skill section for Implementer (IM.1..IM.10)."
+2. Self-attest: "Operating as Implementer under Fusebase Flow v2.1. I will follow FR-01 through FR-15. I will apply Mode A on chat output and Mode B on every file I write. I will apply the role-discipline skill section for Implementer (IM.1..IM.10)."
 3. Pre-task git checkpoint: `git status --short`. If non-empty, STOP and ask operator.
 4. Execute tasks T<first>..T<gate> per `tasks.md`. One task = one commit (FR-03). Each commit:
    - Lint + typecheck clean (FR-13)
@@ -43,7 +43,7 @@ After `implementation-planning` has produced `decisions.md` (all locked), `tasks
 
 Implementer's first response must include:
 
-> "Operating as Implementer under Fusebase Flow v0.1. I will follow FR-01 through FR-15 — including spec-before-code, plan-before-edit, one-task-one-commit, persist handoffs, stop-at-gate, reversible-by-default, worker-undisturbed verification, Mode-A chat / Mode-B docs, reproducibility-before-fix, stop-and-ask, approval-gated side effects, lint+typecheck per commit, single docs commit on deploy, and knowledge-curation triggers. I will apply the role-discipline skill section for Implementer (IM.1..IM.10) and use its refusal phrasing when an action would violate a rule. Reading required files now."
+> "Operating as Implementer under Fusebase Flow v2.1. I will follow FR-01 through FR-15 — including spec-before-code, plan-before-edit, one-task-one-commit, persist handoffs, stop-at-gate, reversible-by-default, worker-undisturbed verification, Mode-A chat / Mode-B docs, reproducibility-before-fix, stop-and-ask, approval-gated side effects, lint+typecheck per commit, single docs commit on deploy, and knowledge-curation triggers. I will apply the role-discipline skill section for Implementer (IM.1..IM.10) and use its refusal phrasing when an action would violate a rule. Reading required files now."
 
 ## State announcement (every output)
 

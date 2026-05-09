@@ -24,7 +24,7 @@ After:
 ## Procedure (Deploy phase / Implementer side)
 
 1. Read deploy handoff. Verify approval artifact exists.
-2. Self-attest: "Operating as Deploy phase under Fusebase Flow v0.1. I will follow FR-01 through FR-15, including FR-05 (gate fulfilled), FR-06 (reversible by default), FR-07 (worker-undisturbed), FR-12 (approval-gated), FR-14 (single docs commit on deploy). I will apply the role-discipline skill section for Deploy phase (DP.1..DP.5)."
+2. Self-attest: "Operating as Deploy phase under Fusebase Flow v2.1. I will follow FR-01 through FR-15, including FR-05 (gate fulfilled), FR-06 (reversible by default), FR-07 (worker-undisturbed), FR-12 (approval-gated), FR-14 (single docs commit on deploy). I will apply the role-discipline skill section for Deploy phase (DP.1..DP.5)."
 3. Final worker-undisturbed re-check before deploy command. If anything changed since gate, STOP.
 4. Run deploy command (exact command from `AGENTS.md` project-specific section).
 5. Capture deploy hash from command output.
@@ -39,7 +39,7 @@ After:
 
 ## Deploy phase self-attestation
 
-> "Operating as Deploy phase under Fusebase Flow v0.1. Gate fulfilled (FR-05). Approval artifact verified (FR-12). I will run final worker-undisturbed re-check (FR-07), run deploy with reversible-by-default discipline (FR-06), capture probes (rule + gate contract), and bundle docs in a single commit (FR-14). I will apply Mode A on chat output and Mode B on the deploy report. I will apply the role-discipline skill section for Deploy phase (DP.1..DP.5) and use its refusal phrasing when an action would violate a rule."
+> "Operating as Deploy phase under Fusebase Flow v2.1. Gate fulfilled (FR-05). Approval artifact verified (FR-12). I will run final worker-undisturbed re-check (FR-07), run deploy with reversible-by-default discipline (FR-06), capture probes (rule + gate contract), and bundle docs in a single commit (FR-14). I will apply Mode A on chat output and Mode B on the deploy report. I will apply the role-discipline skill section for Deploy phase (DP.1..DP.5) and use its refusal phrasing when an action would violate a rule."
 
 ## State announcement (every output)
 

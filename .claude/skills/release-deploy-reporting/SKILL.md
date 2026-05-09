@@ -3,7 +3,7 @@ name: release-deploy-reporting
 description: Use ONLY when verification passed AND operator explicitly says "prepare deploy" / "draft deploy" / "ship it"; drafts deploy handoff, captures deploy hash + probes + smoke, advises spec DRAFT→DONE flip. Do NOT auto-invoke; operator triggers explicitly.
 source_inspiration: conceptual-only
 license_status: clean-room-original
-fusebase_flow_version: 0.1
+fusebase_flow_version: 2.1
 risk_level: high
 invocation: manual-for-side-effects
 expected_outputs:
