@@ -23,7 +23,7 @@ After `implementation-planning` has produced `decisions.md` (all locked), `tasks
 ## Procedure (Implementer side)
 
 1. Read mandatory pre-execution files (per the handoff's reads list).
-2. Self-attest: "Operating as Implementer under Fusebase Flow v0.1. I will follow FR-01 through FR-15. I will apply Mode A on chat output and Mode B on every file I write."
+2. Self-attest: "Operating as Implementer under Fusebase Flow v0.1. I will follow FR-01 through FR-15. I will apply Mode A on chat output and Mode B on every file I write. I will apply the role-discipline skill section for Implementer (IM.1..IM.10)."
 3. Pre-task git checkpoint: `git status --short`. If non-empty, STOP and ask operator.
 4. Execute tasks T<first>..T<gate> per `tasks.md`. One task = one commit (FR-03). Each commit:
    - Lint + typecheck clean (FR-13)
@@ -43,7 +43,7 @@ After `implementation-planning` has produced `decisions.md` (all locked), `tasks
 
 Implementer's first response must include:
 
-> "Operating as Implementer under Fusebase Flow v0.1. I will follow FR-01 through FR-15 — including spec-before-code, plan-before-edit, one-task-one-commit, persist handoffs, stop-at-gate, reversible-by-default, worker-undisturbed verification, Mode-A chat / Mode-B docs, reproducibility-before-fix, stop-and-ask, approval-gated side effects, lint+typecheck per commit, single docs commit on deploy, and knowledge-curation triggers. Reading required files now."
+> "Operating as Implementer under Fusebase Flow v0.1. I will follow FR-01 through FR-15 — including spec-before-code, plan-before-edit, one-task-one-commit, persist handoffs, stop-at-gate, reversible-by-default, worker-undisturbed verification, Mode-A chat / Mode-B docs, reproducibility-before-fix, stop-and-ask, approval-gated side effects, lint+typecheck per commit, single docs commit on deploy, and knowledge-curation triggers. I will apply the role-discipline skill section for Implementer (IM.1..IM.10) and use its refusal phrasing when an action would violate a rule. Reading required files now."
 
 ## State announcement (every output)
 
@@ -93,11 +93,40 @@ If any check fails, STOP and fix before commit. No "fix in next commit" patterns
 
 ## Pre-cached identifiers
 
+> **Discipline:** the Implementer should not waste cycles discovering stable IDs that the operator already knows. The PO bakes them into the handoff. The Implementer verifies (one quick read) but does not re-derive.
+
+| Identifier | Value | Why it's pre-cached |
+|---|---|---|
+| Decision letter prefix | `<Letter>` (e.g., `G`) | Implementer references decisions as `<Letter>1`, `<Letter>2` in commit messages and gate report |
+| T-counter going in | `T<first - 1>`; first task is `T<first>` | One-task-one-commit (FR-03) requires exact T-numbers |
+| Last shipped slice | `<slug>` (deploy `<hash>`, `<date>`) | Production state baseline for rollback comparison |
+| Database / store IDs | `<store-id>`, `<dashboard-id>`, `<view-id>`, etc. | Avoid round-trip discovery via MCP / API every session |
+| Test fixture user / account | `<identifier>` | Reuse the same fixture across runs for deterministic results |
+| Worker / API tokens (env var name only — never the value) | `WORKER_TOKEN`, `FEATURE_TOKEN`, etc. | Implementer reads from env; PO does not paste secrets |
+| API base URL | `<url>` (dev / staging / prod as appropriate) | Smoke probes hit a known surface |
+| Other project-stable IDs | `<...>` | Anything the operator already knows that the Implementer would otherwise re-derive |
+
+### Pre-caching examples
+
+```markdown
 | Identifier | Value |
 |---|---|
-| Decision letter prefix | <Letter> |
-| T-counter going in | T<first - 1>; first task is T<first> |
-| Last shipped slice | <slug> (deploy <hash>, <date>) |
+| Decision letter prefix | G |
+| T-counter going in | T57; first task is T58 |
+| Last shipped slice | priority-fix (deploy hsq0zy6d, 2026-05-08) |
+| Isolated store "enrichment" | store_id: yz81xs9a |
+| Dashboard "Operator Console" | dashboard_id: dxh3p4ty, view_id: vw9ka2sl |
+| Worker token env var | WORKER_TOKEN |
+| API base URL | https://app-api.fusebase.dev/v4/api/proxy/dashboard-service/v1 |
+```
+
+### Anti-patterns
+
+- ❌ Implementer queries the API for IDs that were already known. Wasted tokens; risk of grabbing the wrong ID.
+- ❌ PO embeds secret VALUES in the handoff. Use env var NAMES; the value lives in the environment.
+- ❌ PO pre-caches a "should-be-stable" ID without verifying it. Verify before pasting; stale IDs are worse than missing IDs.
+
+If an identifier needs verification (e.g., the dashboard was renamed), note it: `Dashboard "Operator Console" — verify view_id is current; was vw9ka2sl as of 2026-05-08`.
 
 ## Production state going in
 

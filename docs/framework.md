@@ -9,7 +9,7 @@ The framework lives here. Provider and IDE compatibility files (`.claude/`, `.co
 | `FLOW_RULES.md` | Always-on rules (FR-01..FR-15). Every session loads this. |
 | `VERSION` | Framework version (semver). |
 | `workflows/` | Repeatable procedures (eight-phase flow, greenlight-implement, greenlight-deploy, verification-gate, smoke, knowledge-curation, architect-escalation). |
-| `skills/` | Seven on-demand expertise areas: `requirements-specification`, `repo-onboarding-context-map`, `implementation-planning`, `validation-and-qa`, `code-review`, `security-permissions-review`, `release-deploy-reporting`. Canonical source; mirrored into `.claude/skills/` (Anthropic Claude Code) and `.agents/skills/` (OpenAI/ChatGPT Codex) for provider consumption. |
+| `skills/` | Two mandatory skills (`communication`, `role-discipline`) plus seven on-demand expertise areas: `requirements-specification`, `repo-onboarding-context-map`, `implementation-planning`, `validation-and-qa`, `code-review`, `security-permissions-review`, `release-deploy-reporting`. Canonical source; mirrored into `.claude/skills/` (Anthropic Claude Code) and `.agents/skills/` (OpenAI/ChatGPT Codex) for provider consumption. |
 | `policies/` | Machine-readable YAML policies hooks read (protected paths, command policy, required artifacts, gate contracts, secret patterns, local approval). |
 | `hooks/` | Deterministic enforcement. Python handlers (`handlers/`), shared utilities (`shared/`), git fallback (`git/`), local install/preflight scripts (`local/`). |
 | `templates/` | Substrate documents new artifacts copy from (spec, decisions, tasks, gate, etc.). |

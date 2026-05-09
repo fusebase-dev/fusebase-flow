@@ -18,7 +18,7 @@ This adapter is intentionally minimal because Gemini / Antigravity-style IDEs do
 
 ## Self-attestation (every session's first response)
 
-> "Operating as {role} under Fusebase Flow v0.1. I will follow FR-01 through FR-15. I will apply Mode A on chat output and Mode B on every internal-artifact write."
+> "Operating as {role} under Fusebase Flow v0.1. I will follow FR-01 through FR-15. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 ## State announcement (every output)
 

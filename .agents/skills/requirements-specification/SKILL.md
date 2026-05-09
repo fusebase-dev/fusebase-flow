@@ -32,7 +32,35 @@ Turn vague operator intent into a versioned spec with explicit acceptance criter
 
 - A spec at `docs/specs/<slug>/spec.md` already exists with status `LOCKED` or `DONE`
 - Operator is asking how something already works (use code-review or repo-onboarding-context-map instead)
-- Task is a one-line bug fix that does not need clarify (operator can short-circuit by typing "skip clarify")
+- Task is a one-line bug fix that does not need clarify (see "Skip-clarify gate" below)
+
+## Skip-clarify gate (when "skip clarify" is allowed)
+
+The clarify phase exists to surface hidden ambiguity before code is written. Skipping it has a cost — undetected ambiguity surfaces later as wrong-direction code or operator-rework. Skip ONLY when ALL of the following hold:
+
+| Skip condition | Concrete check |
+|---|---|
+| Single file, single function | Affects exactly one file; one named function or contiguous block |
+| No new dependency / API / config | No `package.json`, no env var, no policy file change |
+| Acceptance criterion fits in one sentence | "X now returns Y instead of Z" or equivalent |
+| Operator typed "skip clarify" verbatim | Not inferred from "this is small" |
+| No constitution-invariant question raised | Worker-undisturbed, mixed-fleet, auth gates all unaffected |
+
+If ANY condition is unmet: run clarify, even if the operator pushes for speed. The phrase "the spec for a small fix is two paragraphs" applies (per `docs/operator-discipline.md` OD-6).
+
+When skipping: spec.md is still drafted (DRAFT → LOCKED in same step), but the clarify-conversation.md file is replaced by a one-line note: `Clarify skipped per operator request; ticket meets skip-clarify gate (see requirements-specification/SKILL.md).`
+
+## Phase 1 / Phase 2 split (diagnostic vs fix)
+
+For bug investigation tickets where the root cause is unknown, split the spec into two phases:
+
+**Phase 1 — Diagnostic.** Acceptance criterion is "we can name the root cause + cite evidence". No production code change. Output: an investigation note in `docs/specs/<slug>/diagnostic.md` with reproduction steps, suspected component, and evidence (logs, traces, repro). The phase ends when the operator confirms the diagnosis.
+
+**Phase 2 — Fix.** Drafted as a separate spec section (or separate spec file `<slug>-fix/spec.md`) AFTER Phase 1 closes. Acceptance criteria are concrete code changes; verification gate references the diagnostic.
+
+Why split: collapsing both phases lets the implementer guess at fixes while the bug is still not understood — produces "shotgun debugging" commits and burns context. The split also makes it explicit when the operator should be asked "is the root cause confirmed?" before you write any code.
+
+When NOT to split: the bug is already understood (e.g., known typo, obvious off-by-one, broken import). Single-phase spec is fine.
 
 ## Required inputs
 
@@ -67,6 +95,8 @@ Turn vague operator intent into a versioned spec with explicit acceptance criter
 | Operator can't answer clarify question | After 1 round, operator says "I don't know" | Park spec at `BLOCKED` status; file follow-up backlog ticket for the unknown |
 | Backlog ticket conflicts with FLOW_RULES invariant | Constitution check fails | Stop. Ask operator to revise scope OR amend project-specific rules. Don't proceed silently. |
 | Scope is actually two tickets | Spec needs >12 acceptance criteria, multiple deploys, or splits naturally | Stop. Propose splitting into `<slug>-a` and `<slug>-b` backlog tickets. |
+| Investigation reveals the ticket is wrong | During clarify, evidence shows the reported behavior is intentional, the bug is elsewhere, or the feature already exists | **Abort the ticket.** Mark spec status `ABORTED` with one paragraph: what was investigated, what was found, why no work follows. Move ticket back to `docs/backlog/<slug>/README.md` with status `aborted-on-investigation` so it doesn't reappear. Do NOT silently downscope to "fix the wrong thing instead." |
+| Operator and clarify keep disagreeing on scope | After 2 rounds of clarify, the gap between operator's intent and what the spec captures is widening | Stop. Switch to a 1:1 clarify-only chat: ask the operator to restate the goal in 3 sentences. If the gap persists, escalate to architect (`workflows/architect-escalation.md`) — the framing problem is bigger than spec drafting can resolve. |
 
 ## Escalation path
 

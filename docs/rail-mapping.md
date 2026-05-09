@@ -11,8 +11,8 @@ Every always-on rule in `FLOW_RULES.md` maps to one or more enforcement surfaces
 | FR-05 | Stop at gate | yes | `verification-gate.md`, `greenlight-implement.md` | `validation-and-qa` | `stop` (blocks deploy-ready claim without gate evidence) | `required-artifacts.yml: before_done_claim`, `before_deploy_command` |
 | FR-06 | Reversible by default | yes | `git-workflow.md` | n/a | `pre_tool_use` (deny destructive Bash) | `command-policy.yml: deny` |
 | FR-07 | Worker-undisturbed | yes | `verification-gate.md`, `greenlight-deploy.md` | `code-review`, `validation-and-qa`, `release-deploy-reporting` | `pre_tool_use` (path policy), `post_tool_use` (warn on protected modifications), `pre-commit` git hook | `protected-paths.yml` + exception artifact format |
-| FR-08 | Mode-A operator chat | yes | (across all workflows) | n/a (always-on rule) | n/a (judgment-based) | n/a |
-| FR-09 | Mode-B AI-optimized internal docs | yes | (across all workflows) | n/a | n/a (judgment-based; `code-review` skill flags violations) | n/a |
+| FR-08 | Mode-A operator chat | yes | (across all workflows) | `communication` (mandatory) | n/a (judgment-based) | n/a |
+| FR-09 | Mode-B AI-optimized internal docs | yes | (across all workflows) | `communication` (mandatory) | n/a (judgment-based; `code-review` skill flags violations) | n/a |
 | FR-10 | Reproducibility before fix | yes | `smoke-verification.md` | `validation-and-qa` (sub-mode C) | n/a | n/a |
 | FR-11 | Stop and ask, don't improvise | yes | (across all workflows) | (all skills explicitly guard against improvisation) | `user_prompt_submit` (flags bypass-attempt patterns like "skip clarify", "ignore approvals") | n/a |
 | FR-12 | Approval-gated side effects | yes | `greenlight-deploy.md`, `architect-escalation.md` | `security-permissions-review`, `release-deploy-reporting` | `pre_tool_use` (require_approval), `permission_request` (artifact lookup), `pre-commit` git hook (secret block) | `approval-policy.yml`, `command-policy.yml: require_approval`, `secret-patterns.yml` |
@@ -26,9 +26,16 @@ Every always-on rule in `FLOW_RULES.md` maps to one or more enforcement surfaces
 |---|---|
 | Rule statement (FLOW_RULES.md) | 15 / 15 |
 | Workflow | 11 / 15 |
-| Skill | 8 / 15 |
+| Skill | 10 / 15 |
 | Hook | 9 / 15 |
 | Policy | 6 / 15 |
+
+## Cross-cutting mandatory skills
+
+Two skills are **mandatory** (loaded at every session start; presence enforced by `hooks/handlers/session_start.py`) and apply across multiple rules rather than mapping cleanly to one row above:
+
+- **`communication`** — governs FR-08 / FR-09 (Mode A / Mode B discipline). Listed in the table.
+- **`role-discipline`** — per-role don't-list + refusal phrasing; touches FR-01, FR-05, FR-06, FR-11, FR-12, FR-13, FR-14 depending on the role. Not listed per-row to avoid table noise; see `skills/role-discipline/SKILL.md` for the role-by-role mapping.
 
 ## Drift detection
 

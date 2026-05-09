@@ -8,8 +8,8 @@ This document records that **Fusebase Flow Local was designed after reviewing pu
 
 This wording is used in:
 
-- All 8 canonical SKILL.md `Clean-room note` sections (`skills/<slug>/SKILL.md`).
-- All 14 mirror SKILL.md files (regenerated from canonical via `mirror-skills.sh`).
+- All 9 canonical SKILL.md `Clean-room note` sections (`skills/<slug>/SKILL.md`).
+- All 18 mirror SKILL.md files (regenerated from canonical via `mirror-skills.sh`).
 - `templates/skill-template.md` (substrate for future skills).
 - `hooks/README.md` (hook framework attestation).
 
@@ -42,7 +42,7 @@ The following design patterns are common to public AI coding workflow discussion
 The clean-room property is validated by:
 
 1. Original wording check — the public-template tree is verified against a word-boundary search for non-target tool names; expected result is zero matches.
-2. Standard wording presence — `preflight.sh` is configured to inspect skill frontmatter; manual review of clean-room notes confirms the standard wording in all 8 canonical + 16 mirror SKILL.md files.
+2. Standard wording presence — `preflight.sh` is configured to inspect skill frontmatter; manual review of clean-room notes confirms the standard wording in all 9 canonical + 18 mirror SKILL.md files.
 3. License attestation — see [`docs/clean-room.md`](clean-room.md) for the explicit clean-room statement.
 
 ## Internal research notes (not published)

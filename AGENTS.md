@@ -98,10 +98,35 @@ If any of these files or folders already exist, append or merge only after revie
 
 Preserve existing Fusebase CLI, MCP, SDK, provider, and project-specific rules. Fusebase Flow is a workflow lifecycle overlay, not a replacement for runtime/MCP configuration. See `docs/install-fusebase-cli-project.md` for the safe-install procedure.
 
+## Project-specific values
+
+> Fill in or replace these fields when installing into a project. Each field is short — prose-heavy explanations belong in `docs/constitution.md`, machine-readable enforcement belongs in `policies/`.
+
+| Field | Value | Where the data is enforced |
+|---|---|---|
+| **Project name** | `<your-project>` | (informational only) |
+| **One-line description** | `<what this project does in 15 words>` | (informational only) |
+| **Stack** | `<e.g., Node + Hono + Postgres on Fusebase Apps; React SPA>` | (informational only) |
+| **Workflow mode** | `direct_to_main` (default) or `branch_pr` | `policies/approval-policy.yml: workflow_mode` |
+| **Worker-undisturbed paths** | `<list specific files; or "none">` | `policies/protected-paths.yml: worker_undisturbed` |
+| **Mixed-fleet considerations** | `<e.g., "Chrome extension installed per-machine; old clients must keep working">` or `"N/A"` | per-ticket `decisions.md` references |
+| **Migration constraints** | `<e.g., "platform apply checksum bug; prefer no-migration">` or `"none"` | per-ticket `decisions.md` references |
+| **Auth model** | `<e.g., "feature-token cookie + worker-token for /api/jobs/*">` | per-ticket security review + `policies/protected-paths.yml: env_and_secrets` |
+| **Deploy command** | `<e.g., "fusebase deploy">` | `workflows/greenlight-deploy.md` |
+| **Decision letter prefix in use** | `<A, B, C, ...>` (increments per ticket) | `templates/decisions.md` |
+| **T-counter** | `<0, 1, 2, ...>` (increments per task across all tickets) | `templates/tasks.md` |
+| **CI workflow** | `.github/workflows/fusebase-flow-verify.yml` (default) | (existing) |
+
+Narrative reasoning for these values — why they're set this way for THIS project — lives in `docs/constitution.md`.
+
 ## Quick links
 
 - Full rules: `FLOW_RULES.md`
 - Eight-phase flow: `workflows/eight-phase-flow.md`
+- Project constitution (narrative): `docs/constitution.md`
+- Operator discipline: `docs/operator-discipline.md`
+- Architecture overview: `docs/architecture-overview.md`
+- Key tensions: `docs/tradeoffs.md`
 - Skill catalog: `skills/`
 - Audit package: `audit/`
 - Compatibility matrix: `docs/compatibility.md`

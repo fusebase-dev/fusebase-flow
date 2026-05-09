@@ -62,8 +62,8 @@ Expected:
 
 ```
 preflight:    0 errors / 0 warnings
-hook tests:   11 / 11 PASS
-mirror:       14 files mirrored across 2 approved mirrors
+hook tests:   14 / 14 PASS
+mirror:       18 files mirrored across 2 approved mirrors
 git status:   clean (or only the regenerated mirror manifest, if previously stale)
 ```
 

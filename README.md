@@ -126,11 +126,11 @@ fusebase-flow/
 ├── CLAUDE.md                       ← Anthropic Claude Code adapter
 ├── GEMINI.md                       ← Gemini-style IDE adapter
 ├── FLOW_RULES.md                   ← FR-01..FR-15 always-on rules
-├── VERSION                         ← 0.1.0
+├── VERSION                         ← 0.1.1
 ├── .gitattributes                  ← LF line endings for shell/python/yaml/md
 ├── .python-version                 ← 3.12 (recommended)
-├── skills/                         ← 8 canonical skills (1 mandatory + 7 on-demand)
-├── workflows/                      ← 10 procedures
+├── skills/                         ← 9 canonical skills (2 mandatory + 7 on-demand)
+├── workflows/                      ← 12 procedures
 ├── policies/                       ← 6 YAML policies
 ├── templates/                      ← 13 substrates
 ├── hooks/
@@ -140,7 +140,7 @@ fusebase-flow/
 │   ├── shared/                     ← 6 shared utilities
 │   ├── git/                        ← pre-commit + commit-msg
 │   ├── local/                      ← install / preflight / verify-gate / approve-local / mirror-skills
-│   ├── tests/                      ← run-tests.sh + 11 fixtures
+│   ├── tests/                      ← run-tests.sh + 14 fixtures
 │   └── requirements.txt            ← pyyaml (only non-stdlib dep)
 ├── audit/
 │   ├── README.md                   ← what does (and does not) live here

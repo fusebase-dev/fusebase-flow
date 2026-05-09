@@ -58,8 +58,14 @@ Validate changed behavior with deterministic checks before a deploy is approved.
    - Worker-undisturbed git diff confirmation
    - Manifest version (if applicable)
 3. If any field missing, redirect implementer: "Gate report missing <field>. Per FR-05, complete reports only. Re-run."
-4. If complete, run cross-artifact consistency check (every AC exercised in tasks; every locked decision cited where applied; no TODO/FIXME/WIP markers; spec status still DRAFT).
-5. If passes, output approval to operator with explicit phrase "Gate verified. Phase advances to Deploy."
+4. Run cross-artifact consistency check (every AC exercised in tasks; every locked decision cited where applied; no TODO/FIXME/WIP markers; spec status still DRAFT).
+5. **Apply the 3-question test for empirical coverage** to each AC:
+   1. *Did this AC actually run on a real input?* (or only in unit tests with mocks?)
+   2. *Was the observed output compared to the expected output?* (or did the test only assert "no exception"?)
+   3. *Could a reader reproduce the run from the gate report alone?* (commands + inputs + outputs visible?)
+
+   If any answer is "no" for any AC, the gate is incomplete. Redirect implementer to add the missing evidence, even if all the unit tests pass. Mock-only tests + green CI do NOT prove the AC works against real inputs.
+6. If passes, output approval to operator with explicit phrase "Gate verified. Phase advances to Deploy."
 
 ### Sub-mode B — Smoke prompt verification (post-deploy)
 
@@ -76,6 +82,30 @@ Validate changed behavior with deterministic checks before a deploy is approved.
    - **1/3 or 2/3** → likely model variance / non-determinism; document and recommend no-op close
    - **0/3** → close ticket as no-op-needed
 4. Document attempts in chat with concrete commands, inputs, observed outputs.
+
+### Sub-mode D — Test-data hygiene cleanup
+
+Run BEFORE marking the spec DONE. Smoke runs and reproducibility attempts often write throwaway artifacts (probe payloads, screenshots, temp database rows, mock response captures). These must be cleaned up so they don't pollute the next session or leak into commits.
+
+1. **Inventory test artifacts created during this ticket:**
+   - Files written under `docs/handoff/<date>-<slug>-smoke/` (KEEP — evidence)
+   - Files written under `tmp/`, `/tmp/`, project root with random names (DELETE)
+   - Database rows tagged with test slugs / fixture IDs (DELETE if scoped to this ticket; keep if shared fixture)
+   - Mock response captures left in feature directories (DELETE)
+   - Screenshots / response bodies that captured operator session content during live-user verification (REDACT or DELETE per `workflows/live-user-verification.md` Step 6)
+2. **Run cleanup commands** with explicit before/after counts. Example:
+   ```
+   # Before: list what will be removed
+   find tmp/ -type f -name '<slug>-*' | wc -l    # → 7
+   # Cleanup
+   find tmp/ -type f -name '<slug>-*' -delete
+   # After: confirm zero remain
+   find tmp/ -type f -name '<slug>-*' | wc -l    # → 0
+   ```
+3. **Verify no test data slipped into git:** `git status` after cleanup; if anything is staged that looks like test artifact, unstage and delete (or move to `docs/handoff/<date>-<slug>-smoke/` if it is genuine evidence).
+4. **Document in the gate report:** one-line "Test-data hygiene: <N> ephemeral artifacts cleaned; 0 remaining; git status clean."
+
+Skip this sub-mode only if no test data was written during the ticket (rare — even pure typecheck tickets often leave `node_modules/` / `__pycache__/` churn that should be ignored, not deleted).
 
 ## Output artifacts
 

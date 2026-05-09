@@ -32,7 +32,7 @@ Hooks read policies from `policies/*.yml`. They are **opt-in**: nothing runs unt
 
 ## Self-attestation (every session's first response)
 
-> "Operating as {role} under Fusebase Flow v0.1. I will follow FR-01 through FR-15. I will apply Mode A on chat output and Mode B on every internal-artifact write."
+> "Operating as {role} under Fusebase Flow v0.1. I will follow FR-01 through FR-15. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 If your first response doesn't include this attestation, you're drifting. See `FLOW_RULES.md`.
 
