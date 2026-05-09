@@ -111,7 +111,7 @@ fusebase-flow/
 ├── VERSION                         ← 0.1.0
 ├── .gitattributes                  ← LF line endings for shell/python/yaml/md
 ├── .python-version                 ← 3.12 (recommended)
-├── skills/                         ← 7 canonical skills
+├── skills/                         ← 8 canonical skills (1 mandatory + 7 on-demand)
 ├── workflows/                      ← 10 procedures
 ├── policies/                       ← 6 YAML policies
 ├── templates/                      ← 13 substrates
@@ -129,8 +129,8 @@ fusebase-flow/
 │   └── skill-mirror-manifest.txt   ← sha256 manifest used by preflight + CI
 ├── state/                          ← runtime state (gitignored contents)
 ├── docs/                           ← public reference docs + per-project artifacts
-├── .agents/skills/                 ← OpenAI / ChatGPT Codex skill mirror (× 7)
-├── .claude/skills/                 ← Anthropic Claude Code skill mirror (× 7)
+├── .agents/skills/                 ← OpenAI / ChatGPT Codex skill mirror (× 8)
+├── .claude/skills/                 ← Anthropic Claude Code skill mirror (× 8)
 ├── .claude/settings.json.example   ← Claude Code hook wiring
 ├── .codex/{config.toml,hooks.json}.example ← Codex hook wiring + project trust note
 ├── .cursor/rules/                  ← Cursor rules (always + scoped)

@@ -21,7 +21,12 @@ from shared.audit_logger import emit  # noqa: E402
 from shared.policy_loader import find_git_root  # noqa: E402
 
 
-REQUIRED_TOP_FILES = ["AGENTS.md", "FLOW_RULES.md", "VERSION"]
+REQUIRED_TOP_FILES = [
+    "AGENTS.md",
+    "FLOW_RULES.md",
+    "VERSION",
+    "skills/communication/SKILL.md",  # mandatory communication skill
+]
 REQUIRED_DIRS = [
     "skills",
     "workflows",

@@ -14,8 +14,8 @@ These rules are clean-room original. Each rule states *what*, *why*, and *enforc
 | FR-05 | Stop at gate | Implementation that flows into deploy without explicit approval skips production-safety review | rule + workflow + `pre_tool_use` hook on deploy commands |
 | FR-06 | Reversible by default | Destructive ops (`rm -rf`, force push, reset --hard, `git add -A`, `--no-verify`) erase recoverable state without operator consent | rule + `command-policy.yml` + `pre_tool_use` hook |
 | FR-07 | Worker-undisturbed | Paths declared protected must show empty git diff between deploys unless an approved exception is on file | rule + `protected-paths.yml` + `pre_tool_use` + `pre-commit` git hook |
-| FR-08 | Mode-A operator chat | Operators scan; prose paragraphs are slow. Visual + concrete + brief in chat; never in artifact files | rule (always-on; no enforcement automation in v0.1) |
-| FR-09 | Mode-B AI-optimized internal docs | Spec/decisions/tasks/handoff/problem-catalog/skills files are AI-consumed. Prose padding wastes context budget on every load | rule (always-on; reviewed in `code-review` skill) |
+| FR-08 | Mode-A operator chat | Operators scan; prose paragraphs are slow. Visual + concrete + brief in chat; never in artifact files | mandatory skill `skills/communication/SKILL.md` (Mode A pattern library) |
+| FR-09 | Mode-B AI-optimized internal docs | Internal artifacts are AI-consumed. Prose padding wastes context budget on every load | mandatory skill `skills/communication/SKILL.md` (Mode B principles + anti-patterns) |
 | FR-10 | Reproducibility before fix | Observed single-failure reports often reflect model variance. Drafting fix decisions before reproducing 3/3 wastes effort and ships speculative changes | rule + workflow `validation-and-qa` |
 | FR-11 | Stop and ask, don't improvise | Ambiguity on locked decisions, missing context, or undeclared scope creep should surface as a question, not a guess | rule (judgment-bound) + `user_prompt_submit` flag for "skip clarify" patterns |
 | FR-12 | Approval-gated side effects | DB migrations, customer-visible external messages, auth/permission changes, secret handling, and production deploys require an approval artifact on disk | rule + `approval-policy.yml` (committed default) + optional `approval-policy.local.yml` (ignored override) + `permission_request` hook |
@@ -63,40 +63,15 @@ If the footer is missing, the session is drifting. Self-correct in the next outp
 
 ---
 
-## Mode B (AI-optimized internal docs) — quick reference
+## Communication discipline
 
-The 12 principles live in full in `skills/` material and `code-review` skill checks; quick reminder:
+Communication is governed by a single mandatory skill, **`skills/communication/SKILL.md`**, loaded at every session start. It defines:
 
-1. Front-load the answer (first sentence/cell IS the answer)
-2. Tables over prose for structured data (3+ comparable rows → table)
-3. Bullets over paragraphs for enumerables (3+ items → bullets)
-4. Concrete over abstract (T17, sha:abc1234, file:line — never "the earlier change")
-5. Predictable section names (use template headers verbatim)
-6. No narrative storytelling ("I considered X, then..." → tagged decision/alternatives form)
-7. Cross-references precise (`spec.md:42-58`, not "see above")
-8. No restatement of context from adjacent loaded files
-9. Status fields tag-style (`Status: DONE`, `Locked: yes`)
-10. Avoid hedging ("may", "might", "possibly") unless filing as clarify item
-11. Consistent vocabulary (use constitution / project-glossary terms verbatim)
-12. No human-onboarding preamble at file top — open with payload
+- **Mode A** — operator chat output: visual, concrete, brief; full ASCII pattern library (roadmap, status snapshot, decision tree, dependency, comparison, timeline, state diagram, architecture).
+- **Mode B** — internal-artifact writes: dense, tabular, front-loaded; 12 numbered principles + concrete anti-patterns.
+- **File classification** — which files are Mode B (full), Mode-B-lite, or human-readable.
 
-Three tiers govern internal-document style:
-
-| Tier | Applies to | Style |
-|---|---|---|
-| **Mode B (full)** | `docs/specs/`, `docs/decisions/`, `docs/handoff/`, `docs/problem-catalog/`, `docs/backlog/` | Dense, tabular, front-loaded, no narrative padding, no preamble, concrete identifiers (T#, sha:abc1234, file:line) |
-| **Mode B-lite** | `skills/*/SKILL.md`, `workflows/*.md`, `docs/rail-mapping.md`, `docs/compatibility.md`, `docs/hook-coverage.md` | Concise, structured, trigger-oriented, AI-consumable; predictable sections; no narrative padding; no chat-style ASCII visuals; enough prose for a fresh AI session loading the file to apply it without other context |
-| **Human-readable** | `README.md`, `AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `FLOW_RULES.md` (this file), `docs/framework.md`, `docs/clean-room.md`, `docs/source-map.md` | Prose acceptable; narrative onboarding for humans; permanent visuals OK |
-
-Mode-B-lite is the operating standard for files that are loaded by AI but referenced by humans during review. Skill files in particular must be suitable for provider-side skill loaders (Claude Code, Codex, etc.) that match on `description` and load `SKILL.md` body.
-
----
-
-## Mode A (operator chat) — quick reference
-
-Visual, concrete, brief. Use ASCII roadmap / decision-tree / comparison / dependency / timeline / state-diagram / architecture diagrams when state has spatial relationships. Use a tight status-announcement footer when it doesn't. Operators scan; prose paragraphs slow them down.
-
-Visuals belong in chat only — never in Mode-B files.
+Every session names this skill in its self-attestation. FR-08 and FR-09 are the rule pointers; the skill is where the discipline content lives.
 
 ---
 

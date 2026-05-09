@@ -1,5 +1,7 @@
 .agents/skills/code-review/SKILL.md  8ec9c57221c2b4186af39275e17844755a569d4de61528d5403d2468ff3faacf
 .claude/skills/code-review/SKILL.md  8ec9c57221c2b4186af39275e17844755a569d4de61528d5403d2468ff3faacf
+.agents/skills/communication/SKILL.md  5deac4663dd14c811577e0d84c06abfbefcc766fb5de3177378a79d4b7235e22
+.claude/skills/communication/SKILL.md  5deac4663dd14c811577e0d84c06abfbefcc766fb5de3177378a79d4b7235e22
 .agents/skills/implementation-planning/SKILL.md  0fec2b844cfd5c9fbc44db6ad76b26ab522d74230772412eb980ac03f53c5de6
 .claude/skills/implementation-planning/SKILL.md  0fec2b844cfd5c9fbc44db6ad76b26ab522d74230772412eb980ac03f53c5de6
 .agents/skills/release-deploy-reporting/SKILL.md  d3a702b74b794a92e2c2a87228d87c42a86fa70d70902dca75c5d96a9cec644d

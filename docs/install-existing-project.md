@@ -4,6 +4,12 @@ Fusebase Flow is designed to install **into** an existing repository, not to rep
 
 Your existing development setup keeps working exactly as before. Fusebase Flow becomes infrastructure that sits alongside your code and is read by whichever agent or IDE you use.
 
+## Existing Fusebase CLI / MCP projects
+
+If your repository was initialized by Fusebase CLI, contains MCP configuration, or already has files such as `AGENTS.md`, `.claude/settings.json`, `.agents/skills/`, `.claude/skills/`, `.mcp.json`, `.cursor/mcp.json`, or `fusebase.json`, do not use the generic bulk copy path without review.
+
+Use the Fusebase CLI / MCP-safe install path in [docs/install-fusebase-cli-project.md](install-fusebase-cli-project.md).
+
 ## Supported environments
 
 Fusebase Flow is provider- and IDE-neutral. It works with any tool that reads files from the repository.

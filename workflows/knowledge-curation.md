@@ -29,7 +29,7 @@ Without persistent capture, every new session re-discovers the same problems. Th
    ```
 3. If operator says `capture`:
    - For problem-catalog: file at `docs/problem-catalog/<slug>/problem.md` using `templates/problem-catalog-entry.md`
-   - For project-internal skill: file at `docs/skills/<slug>/SKILL.md` using `templates/skill-template.md` (NOT `skills/`; this is a project-internal skill distinct from the framework's seven core skills)
+   - For project-internal skill: file at `docs/skills/<slug>/SKILL.md` using `templates/skill-template.md` (NOT `skills/`; this is a project-internal skill distinct from the framework's 8 core skills)
    - Update the corresponding index (`docs/problem-catalog/README.md` or `docs/skills/README.md`)
 4. If operator says `skip`: note the decision in the current ticket's `decisions.md` as audit trail. Do not refile this trigger again for the same ticket.
 5. For "must-capture without asking" cases (production-blocking platform bug, recurring constraint that affects future migrations): file the entry and announce: "Captured `docs/problem-catalog/<slug>/problem.md` per FR-15. Future tickets hitting this territory will inherit the context."
@@ -38,7 +38,7 @@ Without persistent capture, every new session re-discovers the same problems. Th
 
 | Type | Location | Purpose |
 |---|---|---|
-| Framework skill | `skills/<name>/SKILL.md` | One of the 7 core skills shipping with the template |
+| Framework skill | `skills/<name>/SKILL.md` | One of the 8 core skills shipping with the template |
 | Project-internal skill | `docs/skills/<slug>/SKILL.md` | Project-specific expertise capture, distinct from framework skills |
 
 Project-internal skills are loaded by reference (operator says "load skill <slug>") not by description match. Their structure follows `templates/skill-template.md` but they don't ship in framework mirrors (`.claude/skills/`, etc.).
