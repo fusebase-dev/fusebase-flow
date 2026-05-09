@@ -25,7 +25,8 @@ REQUIRED_TOP_FILES = [
     "AGENTS.md",
     "FLOW_RULES.md",
     "VERSION",
-    "skills/communication/SKILL.md",  # mandatory communication skill
+    "skills/communication/SKILL.md",     # mandatory: Mode A / Mode B discipline
+    "skills/role-discipline/SKILL.md",   # mandatory: per-role don't-list + refusal phrasing
 ]
 REQUIRED_DIRS = [
     "skills",

@@ -54,6 +54,15 @@ def _signals_from_transcript(transcript_text: str, signal_defs: dict) -> dict[st
     detected["smoke_results_present"] = bool(re.search(r"docs/handoff/.*-smoke/|smoke\s+results", text))
     detected["rollback_note_present"] = bool(re.search(r"\brollback\b", text))
     detected["docs_commit_present"] = bool(re.search(r"docs\(post-deploy\)|single docs commit", text))
+    # Live-user verification cleanup signal (per workflows/live-user-verification.md Step 8).
+    # Two indicators: (a) a session_key_or_cookie_use approval artifact was authored
+    # for this ticket (raw transcript reference), and (b) the literal cleanup phrase.
+    detected["live_user_verification_used"] = bool(
+        re.search(r"session_key_or_cookie_use|live-user verification", text)
+    )
+    detected["cleanup_marker_present"] = bool(
+        re.search(r"cleanup:\s*operator can sign out or cookie expires per ttl", text)
+    )
     return detected
 
 
@@ -99,8 +108,15 @@ def main() -> int:
     for req in gate_cfg.get("required", []) or []:
         sig = req.get("signal")
         if sig:
-            optional = req.get("optional_unless_smoke_specified") and not detected.get("smoke_results_present", False)
-            if not detected.get(sig, False) and not optional:
+            optional_smoke = (
+                req.get("optional_unless_smoke_specified")
+                and not detected.get("smoke_results_present", False)
+            )
+            optional_live_user = (
+                req.get("optional_unless_live_user_verification_used")
+                and not detected.get("live_user_verification_used", False)
+            )
+            if not detected.get(sig, False) and not (optional_smoke or optional_live_user):
                 missing.append(sig)
 
     if missing:

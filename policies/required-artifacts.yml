@@ -81,6 +81,10 @@ before_deploy_complete_claim:
     - signal: docs_commit_present
       reason: "FR-14: single docs commit must land before claiming complete."
       rule_id: FR-14
+    - signal: cleanup_marker_present
+      reason: "Live-user verification (when used) must end with operator-sign-out OR cookie-TTL cleanup; ephemeral session-key handling per workflows/live-user-verification.md."
+      rule_id: FR-12
+      optional_unless_live_user_verification_used: true
   on_missing: deny
 
 # Signal definitions. Hooks compute these from the agent's recent transcript.
@@ -95,3 +99,4 @@ signal_definitions:
   smoke_results_present: "transcript references docs/handoff/*-smoke/ artifacts"
   rollback_note_present: "transcript contains 'rollback' procedure paragraph"
   docs_commit_present: "transcript contains 'docs(post-deploy):' commit or equivalent"
+  cleanup_marker_present: "transcript contains the literal phrase 'cleanup: operator can sign out OR cookie expires per TTL' (per workflows/live-user-verification.md Step 8); only required when a session_key_or_cookie_use approval artifact was authored during this ticket"

@@ -1,0 +1,15 @@
+{
+  "_test": "PreToolUse blocks Write that contains a session cookie (pattern_overrides escalates cookie_session_value warn -> block in pre_tool_use)",
+  "_handler": "pre_tool_use.py",
+  "_expected_decision": "deny",
+  "_expected_rule_id": "FR-12",
+  "event": "pre_tool_use",
+  "session_id": "test-12",
+  "cwd": ".",
+  "host_tool": "claude_code",
+  "tool_name": "Write",
+  "tool_input": {
+    "file_path": "tmp/cookie-snapshot.txt",
+    "content": "Cookie: session=AbCdEf1234567890aBcDeF12345.signed_part_xyz789=="
+  }
+}

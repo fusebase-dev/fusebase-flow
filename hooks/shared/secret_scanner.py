@@ -46,6 +46,9 @@ def scan(
     default_action = policy.get("default_action", "block")
     overrides = (policy.get("per_tool_overrides") or {}).get(tool_context or "", {})
     tool_action = overrides.get("action", default_action)
+    # Per-pattern escalation in this tool context (e.g. cookie_session_value
+    # is `warn` at pattern level but `block` when reached via pre_tool_use).
+    pattern_overrides = overrides.get("pattern_overrides") or {}
 
     matches: list[SecretMatch] = []
     for regex, entry in _compile_patterns(policy):
@@ -62,7 +65,8 @@ def scan(
         # Whitelist check
         if _is_whitelisted(m.group(0), policy):
             continue
-        action = entry.get("action", tool_action)
+        # Precedence: pattern_overrides[id] > pattern-level action > tool action.
+        action = pattern_overrides.get(entry["id"], entry.get("action", tool_action))
         matches.append(
             SecretMatch(
                 pattern_id=entry["id"],

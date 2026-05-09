@@ -104,7 +104,9 @@ def _evaluate_require_approval(
             reason=(
                 f"FR-12: command requires approval ({action}); no artifact found in "
                 f"state/approvals/. "
-                f"Author one with `bash hooks/local/approve-local.sh {action} <slug>`."
+                f"Author one with `bash hooks/local/approve-local.sh {action} <slug>`. "
+                f"See workflows/violation-recovery.md for full recovery procedure; "
+                f"role-specific don't-list at skills/role-discipline/SKILL.md."
             ),
             rule_id=rule.get("rule_id", "FR-12"),
             matched_pattern=rule["pattern"],
