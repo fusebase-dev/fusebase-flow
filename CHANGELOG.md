@@ -4,6 +4,76 @@ All notable changes to Fusebase Flow Local. Format follows [Keep a Changelog](ht
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [2.3.2] — 2026-05-10
+
+### Fixed — two engine + recovery edge cases
+
+Bundled patch fixing two cosmetic / classification issues surfaced during real-world use of v2.2.x → v2.3.x.
+
+#### 1. `upgrade-engine.sh` self-update count off-by-one (closes BACKLOG B1)
+
+When `upgrade-engine.sh` upgrades itself (i.e. `hooks/local/upgrade-engine.sh` differs between local and `.fusebase-flow-source/`), the apply-summary previously undercounted by 1:
+
+```
+[upgrade-engine] Applied (1):    ← undercount; should be 2
+  ✓ VERSION (2.3.0 -> 2.3.1)
+```
+
+Root cause: the script overwrites itself via `cp` mid-execution. The cp succeeds and the file on disk is updated correctly, but the running bash process (executing from memory) loses the `APPLIED+=("$f")` accumulation for the self-target on Windows + Git Bash.
+
+**Fix:** restructured to detect + handle `upgrade-engine.sh` self-update OUTSIDE the main `FILES_TO_SYNC` loop. Self-update detection happens in a dedicated pre-loop block (`SELF_NEW`/`SELF_CHANGED` flags); apply happens before the regular loop. APPLIED tracking is now reliable. Apply-summary message also explicitly notes "new logic active on next run" since the running script is the OLD version.
+
+Also extracted the diff-line counting into a `count_diff_lines` helper for consistency.
+
+#### 2. Engine reclassifies missing upstream clone from BROKEN to OK (closes BACKLOG B3)
+
+Pre-v2.3.2 engine code:
+
+```bash
+if [ "$EXPECTED_AGENT_COUNT" -eq 0 ]; then
+  LOCAL_BROKEN+=(".claude/agents/: cannot determine expected agent set ...")
+```
+
+This forced verdict `BROKEN` (exit 2) for any project that intentionally cleaned up `.fusebase-flow-source/` after install (which is the documented norm per `install-fusebase-cli-project.md` and `install-existing-project.md`).
+
+Surfaced empirically during install in `paperclip+hermes-v1` (commit `f73e204`) — the install brief explicitly cleaned up the clone in Step 16, then expected `HEALTHY` in Step 15. With the v2.3.1 engine, the verdict was `BROKEN` instead of `HEALTHY` — a wrong prediction caused by this over-classification.
+
+**Fix:** reclassify `EXPECTED_X_COUNT == 0` from `LOCAL_BROKEN` to `LOCAL_OK` with informational language: `count not verified (no .fusebase-flow-source/ clone available; re-clone to enable upstream comparison)`. Verdict no longer flips to `BROKEN` on this state alone.
+
+The check is informational — the engine still falls back to local `skills/` / `agents/` directories for the actual mirror count (when those exist locally). The reclassification only affects projects that lack BOTH the upstream clone AND root-level `skills/`/`agents/` — typically: post-install-cleanup state without root-level canonical content (rare, but happens).
+
+### Changed
+
+- **`hooks/local/upgrade-engine.sh`** — restructured self-update detection + apply (~30 lines net change). Inline comments explain the on-Windows-self-overwrite fragility for future maintainers.
+- **`hooks/local/fusebase-flow-health-check.sh`** — two `LOCAL_BROKEN` calls reclassified to `LOCAL_OK` with informational text (~6 lines net change). Inline comments cite v2.3.2 + reference to install-cleanup discipline.
+- **`VERSION`** `2.3.1` → `2.3.2`.
+
+### Validation at release
+
+- preflight: 0 errors / 0 warnings
+- hook tests: 14/14 PASS
+- skill mirror: 20 files (10 × 2), 0 drift
+- agent mirror: 4 files, 0 drift
+- bash syntax check on both modified scripts: clean
+- B1 smoke test: induced self+other diff in `test project 2`; (will validate after operator pulls v2.3.2)
+- B3 smoke test: in `test project 2`, temporarily renamed `.fusebase-flow-source/` away; engine reported `HEALTHY` exit 0 (was `BROKEN` exit 2 pre-fix). Local fallback worked.
+
+### Notes for upgraders (v2.3.1 → v2.3.2)
+
+- Pure engine + script behavior fixes. No content changes; no migration needed.
+- Existing projects pulling v2.3.2 will see slightly different output:
+  - `upgrade-engine.sh` apply summary now correctly counts self-updates (no off-by-one)
+  - Health check no longer reports `BROKEN` purely because `.fusebase-flow-source/` was cleaned up post-install
+- Recommended upgrade: refresh `.fusebase-flow-source/`, run `bash hooks/local/upgrade-engine.sh` to pick up both fixes in one pass.
+
+### Real-world impact
+
+Projects affected by these fixes:
+
+- **`paperclip+hermes-v1`** (currently on v2.2.1): once they upgrade to v2.3.2, the BROKEN verdict caused by missing-clone classification will improve to either `DRIFTED` (if other deferred items remain) or `HEALTHY`. The deferred-decision items (settings.json events + Windows patch) still surface as drift — those need backlog item B4 (deferred-decision artifacts) to be marked as approved.
+
+---
+
 ## [2.3.1] — 2026-05-10
 
 ### Fixed — cosmetic diff-count display in `upgrade-engine.sh`

@@ -86,14 +86,54 @@ echo "[upgrade-engine] Local:"
 echo "[upgrade-engine]   VERSION: $LOCAL_VERSION"
 echo ""
 
+# Helper to safely count diff lines under set -o pipefail.
+#
+# `|| true` swallows non-zero exit (set -o pipefail makes the pipe exit
+# non-zero whenever diff finds differences, even though grep -c then
+# succeeds). grep -c always emits the count to stdout, so `|| true`
+# doesn't lose data — and avoids polluting stdout with a stray "0"
+# appended after the real count (the v2.3.0 cosmetic display bug,
+# fixed in v2.3.1).
+count_diff_lines() {
+  diff "$1" "$2" 2>/dev/null | grep -cE "^[<>]" 2>/dev/null || true
+}
+
+# Self-update detection (special case — handled outside main loop).
+#
+# Why: when the script overwrites itself via cp mid-execution, bash
+# continues running from the old in-memory script but the file on
+# disk is replaced. The old loop's APPLIED+=("$f") tracking became
+# unreliable for the self-target on Windows + Git Bash (B1 in
+# docs/fusebase-health/BACKLOG.md, fixed here in v2.3.2). Treating
+# self-update as a special case before the main loop tracks it
+# correctly + lets the apply-summary advise that NEW logic only
+# kicks in on next run.
+SELF_TARGET="hooks/local/upgrade-engine.sh"
+SELF_SRC="$SOURCE_CLONE/$SELF_TARGET"
+SELF_CHANGED=0
+SELF_NEW=0
+if [ -f "$SELF_SRC" ]; then
+  if [ ! -f "$SELF_TARGET" ]; then
+    SELF_NEW=1
+  elif ! diff -q "$SELF_SRC" "$SELF_TARGET" >/dev/null 2>&1; then
+    SELF_CHANGED=1
+  fi
+fi
+
 # Files to sync (operator-maintained scripts that should match upstream version)
+# upgrade-engine.sh is handled separately above.
 FILES_TO_SYNC=(
-  "hooks/local/upgrade-engine.sh"
   "hooks/local/fusebase-flow-health-check.sh"
   "hooks/local/post-fusebase-update.sh"
 )
 
 CHANGES=()
+if [ "$SELF_NEW" -eq 1 ]; then
+  CHANGES+=("$SELF_TARGET (NEW — not present locally) [self-update]")
+elif [ "$SELF_CHANGED" -eq 1 ]; then
+  diff_count=$(count_diff_lines "$SELF_SRC" "$SELF_TARGET")
+  CHANGES+=("$SELF_TARGET ($diff_count line diffs) [self-update]")
+fi
 for f in "${FILES_TO_SYNC[@]}"; do
   src="$SOURCE_CLONE/$f"
   if [ ! -f "$src" ]; then
@@ -105,12 +145,7 @@ for f in "${FILES_TO_SYNC[@]}"; do
   elif diff -q "$src" "$f" >/dev/null 2>&1; then
     : # byte-identical; skip
   else
-    # `|| true` swallows non-zero exit (set -o pipefail makes the pipe exit
-    # non-zero whenever diff finds differences, even though grep -c then
-    # succeeds). grep -c always emits the count to stdout, so `|| true`
-    # doesn't lose data — and avoids polluting stdout with a stray "0"
-    # appended after the real count (the v2.3.0 cosmetic display bug).
-    diff_count=$(diff "$src" "$f" 2>/dev/null | grep -cE "^[<>]" 2>/dev/null || true)
+    diff_count=$(count_diff_lines "$src" "$f")
     CHANGES+=("$f ($diff_count line diffs)")
   fi
 done
@@ -151,6 +186,20 @@ fi
 # Apply
 TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
 APPLIED=()
+
+# Self-update first (special case — see SELF_CHANGED detection block above).
+# Tracked in APPLIED separately because the script overwrites itself mid-execution
+# and the loop body that adds to APPLIED isn't reliably reached for the self-target
+# on Windows + Git Bash. Doing it here ensures the apply summary is accurate.
+if [ "$SELF_NEW" -eq 1 ] || [ "$SELF_CHANGED" -eq 1 ]; then
+  if [ "$SELF_CHANGED" -eq 1 ]; then
+    cp "$SELF_TARGET" "$SELF_TARGET.pre-upgrade-$TIMESTAMP"
+  fi
+  cp "$SELF_SRC" "$SELF_TARGET"
+  chmod +x "$SELF_TARGET"
+  APPLIED+=("$SELF_TARGET (self-update; new logic active on next run)")
+fi
+
 for f in "${FILES_TO_SYNC[@]}"; do
   src="$SOURCE_CLONE/$f"
   if [ ! -f "$src" ]; then continue; fi

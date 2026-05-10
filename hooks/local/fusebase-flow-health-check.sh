@@ -180,8 +180,13 @@ fi
 EXPECTED_SKILL_COUNT="${#SKILL_NAMES[@]}"
 
 # Fusebase Flow skills mirrored to .claude/skills/
+# Note (engine v2.3.2+): when upstream clone is absent and no local skills/
+# directory exists, classify as informational OK rather than BROKEN.
+# install-fusebase-cli-project.md and install-existing-project.md both
+# instruct operators to clean up `.fusebase-flow-source/` after install,
+# so this state is the documented post-install norm — not a failure.
 if [ "$EXPECTED_SKILL_COUNT" -eq 0 ]; then
-  LOCAL_BROKEN+=(".claude/skills/: cannot determine expected skill set (no upstream clone, no local skills/)")
+  LOCAL_OK+=(".claude/skills/: count not verified (no .fusebase-flow-source/ clone available; re-clone to enable upstream comparison)")
 else
   SKILLS_PRESENT=0
   for s in "${SKILL_NAMES[@]}"; do
@@ -211,8 +216,9 @@ fi
 EXPECTED_AGENT_COUNT="${#AGENT_NAMES[@]}"
 
 # Sub-agents mirrored to .claude/agents/
+# (engine v2.3.2+ — same reclassification rationale as the skills check above)
 if [ "$EXPECTED_AGENT_COUNT" -eq 0 ]; then
-  LOCAL_BROKEN+=(".claude/agents/: cannot determine expected agent set (no upstream clone, no local agents/)")
+  LOCAL_OK+=(".claude/agents/: count not verified (no .fusebase-flow-source/ clone available; re-clone to enable upstream comparison)")
 else
   AGENTS_PRESENT=0
   for a in "${AGENT_NAMES[@]}"; do
