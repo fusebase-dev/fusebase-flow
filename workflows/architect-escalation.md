@@ -107,7 +107,7 @@ Key questions:
 - One-task-one-commit (FR-03)
 - Worker-undisturbed (FR-07)
 - Mode B for every artifact (FR-09)
-- No production code edits (you're Architect, not Implementer)
+- No production code edits (you're Architect, not AI Developer)
 
 ## Out of scope
 

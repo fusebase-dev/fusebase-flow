@@ -17,11 +17,11 @@ After:
    - [ ] Worker-undisturbed re-check: run `git diff` against `protected-paths.yml`. Must be empty (or bounded per spec)
    - [ ] Gate passed; code-review zero blockers; security clean
    - [ ] Spec is still DRAFT (will flip to DONE in this deploy)
-2. Draft deploy handoff using the template at the bottom of this workflow.
-3. Save to `docs/handoff/<YYYY-MM-DD>-<slug>-deploy.md` BEFORE outputting in chat (FR-04).
-4. Tell operator: "Deploy handoff saved to <path>. Open and paste into the Implementer chat to authorize deploy."
+2. **Author handoff from `templates/handoff-deploy.md`** (v2.5.0+). The template includes a role-bootstrap prelude that makes the handoff self-bootstrapping in any agent (Claude Code, Codex, etc.) — fresh chat or follow-up. Do NOT hand-roll the prelude; copy from the template so DP.6 + DP.1 invariants stay canonical.
+3. Save to `docs/handoff/<YYYY-MM-DD>-<slug>-deploy.md` BEFORE outputting in chat (FR-04). Fill in placeholders (slug, approval artifact path, deploy command, probe table, smoke pointers).
+4. Tell operator: "Deploy handoff saved to `<path>`. Paste this into the AI Developer chat (fresh or existing) — the file is self-bootstrapping: `Execute docs/handoff/<path>`."
 
-## Procedure (Deploy phase / Implementer side)
+## Procedure (Deploy phase / AI Developer side)
 
 1. Read deploy handoff. Verify approval artifact exists.
 2. Self-attest: "Operating as Deploy phase under Fusebase Flow v2.1. I will follow FR-01 through FR-15, including FR-05 (gate fulfilled), FR-06 (reversible by default), FR-07 (worker-undisturbed), FR-12 (approval-gated), FR-14 (single docs commit on deploy). I will apply the role-discipline skill section for Deploy phase (DP.1..DP.6)."
@@ -89,6 +89,8 @@ If ANY probe fails:
 
 ## Handoff content template
 
+> **As of v2.5.0, the canonical deploy handoff template lives at `templates/handoff-deploy.md`** with a role-bootstrap prelude built in. PO sessions should copy that file and fill in placeholders, rather than hand-rolling from the snippet below. The snippet is retained for legacy reference and to show the body shape; **prefer the standalone template** for new handoffs.
+
 ```markdown
 # Deploy handoff — <slug> (<YYYY-MM-DD>)
 
@@ -141,6 +143,7 @@ Commit message: `docs(post-deploy): T<deploy> <slug> DONE — <hash>`
 
 ## Related
 
+- `templates/handoff-deploy.md` — **canonical deploy handoff template** (v2.5.0+); copy + fill placeholders for new handoffs
 - `skills/release-deploy-reporting/SKILL.md` — produces this handoff (manual-invoke)
 - `workflows/verification-gate.md` — gate contract referenced for probes
 - `workflows/smoke-verification.md` — smoke procedure

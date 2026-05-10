@@ -10,7 +10,7 @@ Fusebase Flow ships:
 - **Always-on rules:** `FLOW_RULES.md` (FR-01..FR-15)
 - **Mandatory skills (auto-loaded via `.claude/skills/` and `.agents/skills/`):** `communication`, `role-discipline`
 - **On-demand skills (description-matched):** `code-review`, `implementation-planning`, `release-deploy-reporting`, `repo-onboarding-context-map`, `requirements-specification`, `security-permissions-review`, `validation-and-qa`, `fusebase-flow-health-check`
-- **Sub-agents (description-matched from `.claude/agents/`):** `product-owner` (phases 1–6 + Architect inline), `ai-developer` (phase 7 Implementer + phase 8b Deploy attestation)
+- **Sub-agents (description-matched from `.claude/agents/`):** `product-owner` (phases 1–6 + Architect inline), `ai-developer` (phase 7 AI Developer + phase 8b Deploy attestation)
 - **Workflows:** `workflows/*.md`
 - **Policies:** `policies/*.yml` (machine-readable; consumed by hooks)
 - **Hooks:** `hooks/handlers/*.py` (lifecycle events wired in `.claude/settings.json`)

@@ -6,7 +6,7 @@ applyTo: "docs/specs/*/verification-gate.md, docs/handoff/*-smoke/**, **/test/**
 
 Apply when running gate checks, reviewing diffs against the gate contract, or verifying smoke prompts.
 
-## Gate report (Implementer-side)
+## Gate report (AI Developer-side)
 
 Required fields per `policies/gate-contracts.yml`:
 

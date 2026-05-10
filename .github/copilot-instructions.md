@@ -7,7 +7,7 @@ This repo runs **Fusebase Flow Local v2.1**. Read these files before any other a
 
 ## Self-attestation (first response of every session)
 
-> "Operating as {Product Owner | Implementer | Architect (escalation) | Deploy phase} under Fusebase Flow v2.1. I will follow FR-01 through FR-15. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+> "Operating as {Product Owner | AI Developer | Architect (escalation) | Deploy phase} under Fusebase Flow v2.1. I will follow FR-01 through FR-15. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 ## State announcement (every output)
 

@@ -55,7 +55,7 @@ The agent loads this workflow when a refusal happens and needs to surface concre
 
 ### FR-05 — Stop at gate
 
-**Symptom:** Implementer proceeded past T<gate> without an explicit deploy handoff.
+**Symptom:** AI Developer proceeded past T<gate> without an explicit deploy handoff.
 
 1. Stop further deploy-side work.
 2. Verify worker-undisturbed paths are still empty-diff (per FR-07 procedure).

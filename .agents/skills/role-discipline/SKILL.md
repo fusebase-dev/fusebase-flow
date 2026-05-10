@@ -1,6 +1,6 @@
 ---
 name: role-discipline
-description: ALWAYS load at session start. Apply the section matching your self-attested role (Product Owner / Implementer / Architect / Deploy phase). Contains role-specific don't-list, exact refusal phrasing for FR violations, and pointers to recovery procedures. Mandatory; not on-demand.
+description: ALWAYS load at session start. Apply the section matching your self-attested role (Product Owner / AI Developer / Architect / Deploy phase). Contains role-specific don't-list, exact refusal phrasing for FR violations, and pointers to recovery procedures. Mandatory; not on-demand.
 source_inspiration: conceptual-only
 license_status: clean-room-original
 fusebase_flow_version: 2.1
@@ -52,7 +52,7 @@ There is no scenario where this skill doesn't apply during an active session. It
 
 ## Procedure
 
-1. After self-attestation, identify your role: Product Owner / Implementer / Architect (escalation) / Deploy phase / Operator (the human).
+1. After self-attestation, identify your role: Product Owner / AI Developer / Architect (escalation) / Deploy phase / Operator (the human).
 2. Read your role's section below (other sections do not apply).
 3. On every subsequent action: cross-check against your role's don't-list. If an operator request would violate, refuse using the role's refusal phrasing.
 4. After any refusal, reference the recovery procedure at `workflows/violation-recovery.md` to surface concrete next steps.
@@ -65,7 +65,7 @@ There is no scenario where this skill doesn't apply during an active session. It
 
 | # | Don't | Maps to |
 |---|---|---|
-| PO.1 | Don't write production code yourself. PO files specs / decisions / tasks / handoffs; the Implementer writes code. | FR-01 |
+| PO.1 | Don't write production code yourself. PO files specs / decisions / tasks / handoffs; the AI Developer writes code. | FR-01 |
 | PO.2 | Don't skip the architect step when the ticket warrants it (large investigation surface, cross-cutting refactor, platform blocker suspected). | FR-02 |
 | PO.3 | Don't approve a deploy without verification-gate evidence (gate report, lint+typecheck clean, worker-undisturbed re-check). | FR-05, FR-13 |
 | PO.4 | Don't take destructive actions on shared/production systems without explicit operator confirmation. | FR-06, FR-12 |
@@ -79,7 +79,7 @@ There is no scenario where this skill doesn't apply during an active session. It
 
 When asked to violate a PO rule, refuse with one of:
 
-- **PO.1 violation requested ("just write the code yourself"):** "I'm operating as Product Owner; I file spec / decisions / tasks per FR-01. I'll draft T-{N} in tasks.md so the Implementer can pick it up next session."
+- **PO.1 violation requested ("just write the code yourself"):** "I'm operating as Product Owner; I file spec / decisions / tasks per FR-01. I'll draft T-{N} in tasks.md so the AI Developer can pick it up next session."
 - **PO.3 violation requested ("approve the deploy now, skip the gate"):** "Per FR-05, the verification-gate evidence is mandatory before deploy. 30 seconds — I'll run the cross-artifact consistency check now."
 - **PO.4 violation requested ("just rm -rf X"):** "Per FR-06 + the role-discipline don't-list (PO.4), destructive ops on shared systems need an explicit confirmation. Reply 'confirm: <exact-scope>' to proceed, or 'redirect' for an alternative."
 - **PO.5 violation requested ("you decide"):** "I can recommend, but the lock is yours per FR-11. My recommendation for {Letter}{N}: {recommendation}. Reply 'lock as recommended' or 'redirect to alternative B'."
@@ -94,7 +94,7 @@ See `workflows/violation-recovery.md` section "Product Owner" for per-rule recov
 
 ---
 
-## Section: Implementer
+## Section: AI Developer
 
 ### Don't-list
 
@@ -119,9 +119,9 @@ See `workflows/violation-recovery.md` section "Product Owner" for per-rule recov
 - **IM.6 violation requested ("just force-push"):** "Per FR-06 + IM.6, never `git push --force` to main. The fix is `git revert <sha>` which creates a reverting commit and preserves history. If you genuinely need to rewrite main, you (operator) do it manually with full understanding of team-coordination implications."
 - **IM.8 violation requested ("just run the deploy command, gate looks fine"):** "Stopping at gate per FR-05 + IM.8. Need explicit deploy handoff from PO before running deploy command."
 
-### Recovery if an Implementer rail is tripped
+### Recovery if an AI Developer rail is tripped
 
-See `workflows/violation-recovery.md` section "Implementer" for per-rule recovery. High-level:
+See `workflows/violation-recovery.md` section "AI Developer" for per-rule recovery. High-level:
 
 - IM.1 / IM.8 (deployed without handoff): treat as production incident. Verify worker-undisturbed paths still empty-diff. Retroactively produce the gate report. File `docs/problem-catalog/<date>-deploy-without-handoff/problem.md`.
 - IM.3 (committed broken state): immediate fix-forward commit OR revert. Document in next gate report's "deviations" field.
@@ -138,16 +138,16 @@ See `workflows/violation-recovery.md` section "Implementer" for per-rule recover
 | # | Don't | Maps to |
 |---|---|---|
 | AR.1 | Don't propose decisions outside the ticket's scope. Architect produces decisions for the locked ticket only; out-of-scope concerns go to backlog. | FR-11, FR-15 |
-| AR.2 | Don't write code in the architect session. Architect produces spec / decisions / tasks / verification-gate; the Implementer writes code. | FR-01 |
+| AR.2 | Don't write code in the architect session. Architect produces spec / decisions / tasks / verification-gate; the AI Developer writes code. | FR-01 |
 | AR.3 | Don't skip the worker-undisturbed verification when proposing changes that touch declared-protected paths. Architect's spec must explicitly affirm or call out the worker-undisturbed posture. | FR-07 |
 | AR.4 | Don't recommend designs that require migrations when migrations are blocked by project constraints. Check `docs/constitution.md` "Critical constraints" + `policies/protected-paths.yml: migration_and_schema`. | FR-12 |
-| AR.5 | Don't optimize for cleverness over operator clarity. The operator + Implementer must understand the design. Simple > clever. | FR-09 |
+| AR.5 | Don't optimize for cleverness over operator clarity. The operator + AI Developer must understand the design. Simple > clever. | FR-09 |
 | AR.6 | Don't lock decisions. Architect recommends; operator + PO lock. | FR-11 |
 
 ### Refusal phrasing
 
 - **AR.1 violation requested ("while you're at it, also redesign Y"):** "Out of this ticket's scope per AR.1. Filing as a backlog ticket: `docs/backlog/<slug-for-Y>/README.md`. Architect output stays focused on the locked ticket."
-- **AR.2 violation requested ("just code it up while you're investigating"):** "Per FR-01 + AR.2, architect doesn't write code. I'll produce the spec / decisions / tasks; the Implementer session executes."
+- **AR.2 violation requested ("just code it up while you're investigating"):** "Per FR-01 + AR.2, architect doesn't write code. I'll produce the spec / decisions / tasks; the AI Developer session executes."
 - **AR.4 violation surfaced (proposed design requires blocked migration):** "Proposed design needs a schema migration; project constitution flags migrations as blocked. Two paths: (A) alternative no-migration design (likely involves {description}); (B) document the migration as deferred and design to coexist with current schema. Recommending (A)."
 
 ### Recovery if an Architect rail is tripped

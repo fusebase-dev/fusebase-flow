@@ -32,7 +32,7 @@ I can verify this on your actual account (faster, more accurate diagnosis), OR
 proceed with synthetic test data (safer, slower).
 
 If you provide your session key:
-- Implementer runs smoke prompts against your live account
+- AI Developer runs smoke prompts against your live account
 - Faster: real config, real auth, real edge cases visible
 - Risk: if the implementer's session is compromised during testing, your account
   could be accessed during the testing window
@@ -40,7 +40,7 @@ If you provide your session key:
   invalidate immediately; key is never persisted to disk
 
 If you decline:
-- Implementer uses synthetic test data + test accounts
+- AI Developer uses synthetic test data + test accounts
 - Slower: may not reproduce account-specific edge cases
 - Safer: no credential exposure
 
@@ -78,8 +78,8 @@ Operator has consented to live-user verification per `workflows/live-user-verifi
 Approval artifact: `state/approvals/session_key_or_cookie_use-<slug>-<YYYYMMDD>.json` (TTL 30 min).
 
 The session key will be supplied by the operator via env var (NOT in this handoff text).
-Implementer must apply the session-key handling discipline (skills/role-discipline/SKILL.md
-section "Implementer", item IM.7):
+AI Developer must apply the session-key handling discipline (skills/role-discipline/SKILL.md
+section "AI Developer", item IM.7):
 - mask in any output (never print the value)
 - never persist to disk (no commits, no log files, no audit log)
 - ephemeral — discard at end of testing window
@@ -87,7 +87,7 @@ section "Implementer", item IM.7):
 - end-of-work cleanup (operator signs out OR cookie expires; document)
 ```
 
-### Step 5 — Cookie sanity test (Implementer side)
+### Step 5 — Cookie sanity test (AI Developer side)
 
 Before running smoke prompts, verify the session key is valid. The cookie / token must:
 
@@ -202,7 +202,7 @@ The `stop` hook scans for this signal before allowing "smoke complete" / "deploy
 
 - `policies/approval-policy.yml: session_key_or_cookie_use` — TTL + enforcement
 - `policies/secret-patterns.yml: cookie_session_value` — pattern detection (per-tool override blocks `pre_tool_use` writes)
-- `skills/role-discipline/SKILL.md` Implementer section IM.7 — handling discipline summary
+- `skills/role-discipline/SKILL.md` AI Developer section IM.7 — handling discipline summary
 - `workflows/smoke-verification.md` — generic smoke procedure (this workflow extends it for live-user)
 - `workflows/violation-recovery.md` FR-12 — recovery if session-key was used without an artifact
 - `docs/operator-discipline.md` OD-3 — don't bypass the Product Owner (session-key proposals always go through PO)

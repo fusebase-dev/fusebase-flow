@@ -1,6 +1,6 @@
 # `docs/handoff/` — cross-session prompts
 
-Every prompt that hands work between two AI sessions (Product Owner → Implementer, Implementer → Deploy phase, Product Owner → Architect on escalation) is saved here as a dated file before it is shown in chat.
+Every prompt that hands work between two AI sessions (Product Owner → AI Developer, AI Developer → Deploy phase, Product Owner → Architect on escalation) is saved here as a dated file before it is shown in chat.
 
 ## Naming convention
 
@@ -11,7 +11,7 @@ docs/handoff/<YYYY-MM-DD>-<slug>-<stage>.md
 | Stage | Producer | Consumer | Example |
 |---|---|---|---|
 | `architect` | Product Owner | escalated Architect | `2026-05-08-skip-already-fetched-fields-architect.md` |
-| `implement` | Product Owner | Implementer | `2026-05-08-skip-already-fetched-fields-implement.md` |
+| `implement` | Product Owner | AI Developer | `2026-05-08-skip-already-fetched-fields-implement.md` |
 | `deploy` | Product Owner | Deploy phase | `2026-05-08-skip-already-fetched-fields-deploy.md` |
 
 ## Why on disk

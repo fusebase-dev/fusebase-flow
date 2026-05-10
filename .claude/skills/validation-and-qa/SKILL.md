@@ -26,7 +26,7 @@ Validate changed behavior with deterministic checks before a deploy is approved.
 ## When to invoke
 
 - Active phase is `Verify` (per FLOW_RULES state announcement)
-- Implementer has reported a gate from `greenlight-implement` and the operator pasted it back
+- AI Developer has reported a gate from `greenlight-implement` and the operator pasted it back
 - Operator asks "is this ready?" / "did it pass?" / "validate this change"
 - Operator describes a single observed failure: "the system did X, that's wrong" → run reproducibility-before-fix sub-mode (FR-10)
 - Post-deploy: smoke-prompt verification when `verification-gate.md` specified numbered smoke prompts
@@ -42,7 +42,7 @@ Validate changed behavior with deterministic checks before a deploy is approved.
 | Input | Where it lives | If missing |
 |---|---|---|
 | Verification-gate contract | `docs/specs/<slug>/verification-gate.md` | Stop; gate without contract is meaningless |
-| Implementer gate report | chat paste from Implementer session | Stop; ask operator to paste report |
+| AI Developer gate report | chat paste from AI Developer session | Stop; ask operator to paste report |
 | Lint / typecheck / test commands | project-specific section of `AGENTS.md` or `package.json`/`pyproject.toml` | Stop; ask operator to provide commands |
 | Worker-undisturbed list | `policies/protected-paths.yml` | Stop; gate cannot complete without protected-path verification |
 

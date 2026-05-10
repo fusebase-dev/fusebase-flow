@@ -4,9 +4,9 @@ globs: ["**/*.{ts,tsx,js,jsx,py,go,rs,java,rb,php,sql}"]
 alwaysApply: false
 ---
 
-# Fusebase Flow — Implementer discipline
+# Fusebase Flow — AI Developer discipline
 
-Use only when in Implementer role with a locked spec.
+Use only when in AI Developer role with a locked spec.
 
 ## Self-check before any code edit
 

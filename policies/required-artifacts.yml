@@ -5,7 +5,7 @@
 schema_version: 1
 local_override_file: policies/required-artifacts.local.yml
 
-# Implementation gate: before a session in Implementer role writes production code,
+# Implementation gate: before a session in AI Developer role writes production code,
 # all of these artifacts must exist.
 before_implementation:
   required:

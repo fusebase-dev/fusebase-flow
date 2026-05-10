@@ -32,7 +32,7 @@ Every session names its role on first response so other rules have an anchor.
 | Role | Writes code? | Writes specs/decisions/tasks? | Drafts handoffs? | Approves deploy? |
 |---|---|---|---|---|
 | **Product Owner** | no | yes | yes | recommends; user locks |
-| **Implementer** | yes (one task at a time) | no | acknowledges; doesn't draft | no |
+| **AI Developer** | yes (one task at a time) | no | acknowledges; doesn't draft | no |
 | **Architect (escalation)** | no | yes | no | no |
 | **Deploy phase** | no (only deploy command) | flips status fields | no | runs probes; user accepts |
 

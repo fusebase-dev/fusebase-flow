@@ -14,10 +14,10 @@ This repo uses **Fusebase Flow Local** — a repo-local discipline framework for
 ## How to use this repo as an agent
 
 1. **First action of every session:** load `FLOW_RULES.md`. Then load the active workflow if a ticket is in progress.
-2. **Self-attest your role** (Product Owner, Implementer, Architect, Deploy) — see `FLOW_RULES.md` role table.
+2. **Self-attest your role** (Product Owner, AI Developer, Architect, Deploy) — see `FLOW_RULES.md` role table.
 3. **Append the state-announcement footer** to every output.
 4. **Ask before you act** when the task is non-trivial (multi-file, deploy, schema, auth, secrets).
-5. **One task = one commit** when in Implementer role; commit messages cite a `T<number>`.
+5. **One task = one commit** when in AI Developer role; commit messages cite a `T<number>`.
 6. **Save handoffs to disk before chat output** — never hand work across sessions through chat alone.
 
 ## Where things live

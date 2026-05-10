@@ -11,9 +11,9 @@
 | 3 | Plan | Product Owner | `docs/specs/<slug>/spec.md` filled out | `requirements-specification` skill |
 | 4 | Decisions | Product Owner ↔ operator | `docs/specs/<slug>/decisions.md` (LOCKED after operator confirms) | `implementation-planning` skill |
 | 5 | Tasks | Product Owner | `docs/specs/<slug>/tasks.md` (T-numbered chain) | `implementation-planning` skill |
-| 6 | Verify | Product Owner → Implementer → Product Owner | `docs/specs/<slug>/verification-gate.md` + gate report | `implementation-planning` (drafts gate) → `validation-and-qa` (verifies) |
-| 7 | Implement | Implementer (separate session) | task chain commits | `workflows/greenlight-implement.md` handoff |
-| 8 | Deploy | Implementer (separate session) → Product Owner | deploy hash + probe results + spec DRAFT→DONE | `release-deploy-reporting` skill + `workflows/greenlight-deploy.md` handoff |
+| 6 | Verify | Product Owner → AI Developer → Product Owner | `docs/specs/<slug>/verification-gate.md` + gate report | `implementation-planning` (drafts gate) → `validation-and-qa` (verifies) |
+| 7 | Implement | AI Developer (separate session) | task chain commits | `workflows/greenlight-implement.md` handoff |
+| 8 | Deploy | AI Developer (separate session) → Product Owner | deploy hash + probe results + spec DRAFT→DONE | `release-deploy-reporting` skill + `workflows/greenlight-deploy.md` handoff |
 
 ## Phase transitions
 
@@ -37,7 +37,7 @@ Each transition has a state-announcement footer update. The operator can redirec
 | From | To | Handoff file |
 |---|---|---|
 | Product Owner | Architect (escalation) | `docs/handoff/<date>-<slug>-architect.md` |
-| Product Owner | Implementer | `docs/handoff/<date>-<slug>-implement.md` |
+| Product Owner | AI Developer | `docs/handoff/<date>-<slug>-implement.md` |
 | Product Owner | Deploy phase | `docs/handoff/<date>-<slug>-deploy.md` |
 
 Handoffs are saved to disk BEFORE being shown in chat (FR-04).
@@ -46,7 +46,7 @@ Handoffs are saved to disk BEFORE being shown in chat (FR-04).
 
 | Failure | Recovery |
 |---|---|
-| Implementer reports gate failure | `validation-and-qa` reports specifics; operator decides redirect (revise spec/decisions) or fix-forward (file follow-up task) |
+| AI Developer reports gate failure | `validation-and-qa` reports specifics; operator decides redirect (revise spec/decisions) or fix-forward (file follow-up task) |
 | Deploy probe fails | Per FR-DP-4 / `greenlight-deploy.md`: do not flip spec DONE; surface rollback (`git revert`) or fix-forward; operator decides |
 | Constitution invariant violated mid-implementation | STOP; redirect via `decisions.md` update OR amend project-specific rules in `AGENTS.md` |
 

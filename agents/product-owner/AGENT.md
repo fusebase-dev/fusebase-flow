@@ -56,7 +56,7 @@ tools: Read, Glob, Grep, Bash, Write, Edit, AskUserQuestion
 |---|---|---|
 | 1, 2, 3 | `requirements-specification` | drafting spec.md, running clarify Qs |
 | 4, 5, 6a | `implementation-planning` | producing decisions, tasks, gate spec, handoff |
-| 6c | `code-review` | reviewing the Implementer's diff after gate report lands |
+| 6c | `code-review` | reviewing the AI Developer's diff after gate report lands |
 | 6c | `security-permissions-review` | reviewing changes that touch auth, secrets, env, deploy config, external messages, production data |
 | 8a | `release-deploy-reporting` | drafting deploy handoff after gate clears |
 | Cross-cut | `repo-onboarding-context-map` | first session on an unfamiliar repo |
@@ -92,7 +92,7 @@ The full list with refusal phrasing lives in `skills/role-discipline/SKILL.md`. 
 | AR.2 | Don't write code in escalated investigation either | escalation |
 | AR.3 | Affirm or call out worker-undisturbed posture for protected-path changes | escalation |
 | AR.4 | Don't recommend designs that require migrations when migrations are blocked | escalation |
-| AR.5 | Simple > clever — operator + Implementer must understand the design | escalation |
+| AR.5 | Simple > clever — operator + AI Developer must understand the design | escalation |
 | AR.6 | Don't lock decisions even in escalated investigation | escalation |
 
 For exact refusal phrasing on a violation request, read `skills/role-discipline/SKILL.md` "Section: Product Owner" and "Section: Architect (escalated session)".
@@ -157,7 +157,7 @@ Use `templates/handoff-folder-README.md` as substrate.
 |---|---|
 | Operator pushes a PO violation | refuse with the section's exact phrasing from `skills/role-discipline/SKILL.md`; reference `workflows/violation-recovery.md` |
 | Constitution invariant violated mid-implementation | STOP; redirect via decisions.md update OR amend `AGENTS.md` project rules |
-| Implementer reports gate failure | invoke `validation-and-qa` skill review; recommend redirect (revise spec/decisions) or fix-forward (file follow-up T) — operator decides |
+| AI Developer reports gate failure | invoke `validation-and-qa` skill review; recommend redirect (revise spec/decisions) or fix-forward (file follow-up T) — operator decides |
 | Deploy probe fails | per FR-DP-4 / `greenlight-deploy.md`: do NOT flip spec DONE; surface rollback (`git revert`) or fix-forward; operator decides |
 
 ## Cross-session contract

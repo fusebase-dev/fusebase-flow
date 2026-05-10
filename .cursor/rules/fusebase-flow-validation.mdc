@@ -6,7 +6,7 @@ alwaysApply: false
 
 # Fusebase Flow — validation rules
 
-## Gate report (Implementer-side)
+## Gate report (AI Developer-side)
 
 Required fields per `policies/gate-contracts.yml`:
 

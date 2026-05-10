@@ -16,7 +16,7 @@ Open a fresh chat / agent session for each handoff. The flow is built around sin
 
 ## OD-2. Paste full reports back
 
-When the Implementer or Deploy session produces a gate report or deploy report, paste **the entire report** into the originating Product Owner session. Do not:
+When the AI Developer or Deploy session produces a gate report or deploy report, paste **the entire report** into the originating Product Owner session. Do not:
 
 - Truncate to "the important parts" — the cross-artifact consistency check needs every field.
 - Paraphrase — exact phrasing matters for grep / audit later.
@@ -31,17 +31,17 @@ The Product Owner session is the only session that:
 - Drafts spec / decisions / tasks / verification-gate artifacts
 - Runs the cross-artifact consistency checker before deploy
 - Locks decisions after operator confirms
-- Drafts handoffs to the Implementer / Deploy / Architect
+- Drafts handoffs to the AI Developer / Deploy / Architect
 
 Do not:
 
 - Skip directly from "let's ship X" to "deploy now" — the PO's investigation + decisions step is what catches scope creep, constitution violations, and missed acceptance criteria.
-- Have the Implementer make architectural decisions on its own — those belong in `decisions.md` with a letter-prefix and your lock.
+- Have the AI Developer make architectural decisions on its own — those belong in `decisions.md` with a letter-prefix and your lock.
 - Approve a deploy from a chat that wasn't the PO session — you'd lose the audit trail.
 
 ## OD-4. Don't pass partial information between sessions
 
-When the Implementer reports back, give the **full** gate report to the PO. When the PO drafts a handoff, save it to disk and paste **the entire saved file** into the next session — not a summary, not the chat-rendered version, the saved file at `docs/handoff/<date>-<slug>-<stage>.md`.
+When the AI Developer reports back, give the **full** gate report to the PO. When the PO drafts a handoff, save it to disk and paste **the entire saved file** into the next session — not a summary, not the chat-rendered version, the saved file at `docs/handoff/<date>-<slug>-<stage>.md`.
 
 Why: cross-session contracts depend on every field. Summary loss is hard to detect later.
 
@@ -70,7 +70,7 @@ If the ticket truly needs no architectural decision, the spec is two paragraphs.
 
 ## OD-7. Don't bury the parking lot
 
-When the agent (PO or Implementer) surfaces a related-but-out-of-scope concern mid-flow, it gets filed as a backlog ticket at `docs/backlog/<slug>/README.md`. Don't:
+When the agent (PO or AI Developer) surfaces a related-but-out-of-scope concern mid-flow, it gets filed as a backlog ticket at `docs/backlog/<slug>/README.md`. Don't:
 
 - Discard the concern with "we'll come back to that" — write the ticket while it's fresh.
 - Conflate it with the current ticket — scope creep destroys the cross-artifact consistency check.
@@ -84,7 +84,7 @@ The agent will not refuse — it can't enforce these against you. But the gate r
 
 | Symptom | Likely violated |
 |---|---|
-| The Implementer keeps asking for clarification mid-task | OD-4 (partial info passed) |
+| The AI Developer keeps asking for clarification mid-task | OD-4 (partial info passed) |
 | The PO can't run the consistency check (missing fields) | OD-2 (report truncated) |
 | Deploy probes fail and the cause is "we forgot to test X" | OD-5 (approved tired) |
 | Backlog grows but no tickets are filed | OD-7 (parking lot buried) |

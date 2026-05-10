@@ -23,7 +23,7 @@ hook_dependencies:
 
 ## Purpose
 
-Convert a drafted spec into the artifacts an Implementer session needs to execute: a letter-decision matrix, a numbered task chain, a verification-gate contract, and a saved handoff prompt.
+Convert a drafted spec into the artifacts an AI Developer session needs to execute: a letter-decision matrix, a numbered task chain, a verification-gate contract, and a saved handoff prompt.
 
 ## When to invoke
 
@@ -58,7 +58,7 @@ Convert a drafted spec into the artifacts an Implementer session needs to execut
 8. Wait for operator lock confirmation per FR-11. Implicit approval ("ok", "looks good") does NOT count.
 9. After lock: increment letter prefix and T-counter in `AGENTS.md`. Update `tasks.md` SHAs to LOCKED.
 10. Draft implementer handoff using `templates/handoff-folder-README.md` informed shape; save to `docs/handoff/<YYYY-MM-DD>-<slug>-implement.md` BEFORE outputting in chat (FR-04).
-11. Tell operator: "Implement handoff saved to <path>. Open that file, paste into a fresh AI agent session as Implementer."
+11. Tell operator: "Implement handoff saved to <path>. Open that file, paste into a fresh AI agent session as AI Developer."
 
 ## Output artifacts
 

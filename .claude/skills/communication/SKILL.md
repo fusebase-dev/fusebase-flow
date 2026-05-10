@@ -294,7 +294,7 @@ Total: 6 shipped phases
        │
        ▼ user locks decisions
 ┌──────────────┐
-│ Implementing │   ← Implementer executes T1, T2, ...
+│ Implementing │   ← AI Developer executes T1, T2, ...
 └──────┬───────┘
        │
        ▼ implementer reports gate

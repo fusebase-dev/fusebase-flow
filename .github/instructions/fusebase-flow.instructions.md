@@ -19,13 +19,13 @@ These instructions apply to every file. Tighter scoped instructions live alongsi
 | Role | Writes code? | Writes specs / decisions / tasks? | Drafts handoffs? | Approves deploy? |
 |---|---|---|---|---|
 | Product Owner | no | yes | yes | recommends; user locks |
-| Implementer | yes (one task at a time) | no | acknowledges only | no |
+| AI Developer | yes (one task at a time) | no | acknowledges only | no |
 | Architect (escalation) | no | yes | no | no |
 | Deploy phase | no (only deploy command) | flips status fields | no | runs probes; user accepts |
 
 Self-attest the role on first response.
 
-## Per-task discipline (Implementer role)
+## Per-task discipline (AI Developer role)
 
 - Pre-task: `git status --short` clean; pull latest from main.
 - One task = one commit (FR-03). Commit message format: `<type>(<scope>): T<n> <one-liner>`.

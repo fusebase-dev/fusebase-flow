@@ -1,6 +1,6 @@
 # Workflow: greenlight-implement
 
-> **Style:** Mode-B-lite. The handoff from Product Owner session to Implementer session.
+> **Style:** Mode-B-lite. The handoff from Product Owner session to AI Developer session.
 
 ## When to run
 
@@ -16,14 +16,14 @@ After `implementation-planning` has produced `decisions.md` (all locked), `tasks
    - [ ] Constitution invariants explicitly affirmed in spec.md (worker-undisturbed list, mixed-fleet, etc.)
    - [ ] Letter prefix incremented in `AGENTS.md` (if a new ticket)
    - [ ] T-counter updated in `AGENTS.md`
-2. Draft handoff content using the template at the bottom of this workflow.
-3. Save to `docs/handoff/<YYYY-MM-DD>-<slug>-implement.md` BEFORE outputting in chat (FR-04).
-4. Tell operator: "Implement handoff saved to <path>. Open and paste into a fresh AI agent session."
+2. **Author handoff from `templates/handoff-implement.md`** (v2.5.0+). The template includes a role-bootstrap prelude that makes the handoff self-bootstrapping in any agent (Claude Code, Codex, etc.) — fresh chat or follow-up. Do NOT hand-roll the prelude; copy from the template so role-attestation language stays canonical.
+3. Save to `docs/handoff/<YYYY-MM-DD>-<slug>-implement.md` BEFORE outputting in chat (FR-04). Fill in placeholders (slug, decisions range, task range, pre-cached identifiers, production state, tracks, worker-undisturbed posture).
+4. Tell operator: "Implement handoff saved to `<path>`. Paste this into the AI Developer chat (fresh or existing) — the file is self-bootstrapping: `Execute docs/handoff/<path>`."
 
-## Procedure (Implementer side)
+## Procedure (AI Developer side)
 
 1. Read mandatory pre-execution files (per the handoff's reads list).
-2. Self-attest: "Operating as Implementer under Fusebase Flow v2.1. I will follow FR-01 through FR-15. I will apply Mode A on chat output and Mode B on every file I write. I will apply the role-discipline skill section for Implementer (IM.1..IM.10)."
+2. Self-attest: "Operating as AI Developer under Fusebase Flow v2.1. I will follow FR-01 through FR-15. I will apply Mode A on chat output and Mode B on every file I write. I will apply the role-discipline skill section for AI Developer (IM.1..IM.10)."
 3. Pre-task git checkpoint: `git status --short`. If non-empty, STOP and ask operator.
 4. Execute tasks T<first>..T<gate> per `tasks.md`. One task = one commit (FR-03). Each commit:
    - Lint + typecheck clean (FR-13)
@@ -39,11 +39,11 @@ After `implementation-planning` has produced `decisions.md` (all locked), `tasks
    - Deviations from architect/PO plan with reasoning
 7. Paste gate report back to operator.
 
-## Implementer self-attestation
+## AI Developer self-attestation
 
-Implementer's first response must include:
+AI Developer's first response must include:
 
-> "Operating as Implementer under Fusebase Flow v2.1. I will follow FR-01 through FR-15 — including spec-before-code, plan-before-edit, one-task-one-commit, persist handoffs, stop-at-gate, reversible-by-default, worker-undisturbed verification, Mode-A chat / Mode-B docs, reproducibility-before-fix, stop-and-ask, approval-gated side effects, lint+typecheck per commit, single docs commit on deploy, and knowledge-curation triggers. I will apply the role-discipline skill section for Implementer (IM.1..IM.10) and use its refusal phrasing when an action would violate a rule. Reading required files now."
+> "Operating as AI Developer under Fusebase Flow v2.1. I will follow FR-01 through FR-15 — including spec-before-code, plan-before-edit, one-task-one-commit, persist handoffs, stop-at-gate, reversible-by-default, worker-undisturbed verification, Mode-A chat / Mode-B docs, reproducibility-before-fix, stop-and-ask, approval-gated side effects, lint+typecheck per commit, single docs commit on deploy, and knowledge-curation triggers. I will apply the role-discipline skill section for AI Developer (IM.1..IM.10) and use its refusal phrasing when an action would violate a rule. Reading required files now."
 
 ## State announcement (every output)
 
@@ -74,10 +74,12 @@ If any check fails, STOP and fix before commit. No "fix in next commit" patterns
 
 ## Handoff content template
 
+> **As of v2.5.0, the canonical handoff template lives at `templates/handoff-implement.md`** with a role-bootstrap prelude built in. PO sessions should copy that file and fill in placeholders, rather than hand-rolling from the snippet below. The snippet is retained for legacy reference and to show the body shape; **prefer the standalone template** for new handoffs.
+
 ```markdown
 # Implement handoff — <slug> (<YYYY-MM-DD>)
 
-**Status:** ready for Implementer
+**Status:** ready for AI Developer
 **Source spec:** `docs/specs/<slug>/spec.md`
 **Decisions locked:** <Letter>1..<Letter>N
 **Task range:** T<first>..T<gate> (stop at gate)
@@ -93,18 +95,18 @@ If any check fails, STOP and fix before commit. No "fix in next commit" patterns
 
 ## Pre-cached identifiers
 
-> **Discipline:** the Implementer should not waste cycles discovering stable IDs that the operator already knows. The PO bakes them into the handoff. The Implementer verifies (one quick read) but does not re-derive.
+> **Discipline:** the AI Developer should not waste cycles discovering stable IDs that the operator already knows. The PO bakes them into the handoff. The AI Developer verifies (one quick read) but does not re-derive.
 
 | Identifier | Value | Why it's pre-cached |
 |---|---|---|
-| Decision letter prefix | `<Letter>` (e.g., `G`) | Implementer references decisions as `<Letter>1`, `<Letter>2` in commit messages and gate report |
+| Decision letter prefix | `<Letter>` (e.g., `G`) | AI Developer references decisions as `<Letter>1`, `<Letter>2` in commit messages and gate report |
 | T-counter going in | `T<first - 1>`; first task is `T<first>` | One-task-one-commit (FR-03) requires exact T-numbers |
 | Last shipped slice | `<slug>` (deploy `<hash>`, `<date>`) | Production state baseline for rollback comparison |
 | Database / store IDs | `<store-id>`, `<dashboard-id>`, `<view-id>`, etc. | Avoid round-trip discovery via MCP / API every session |
 | Test fixture user / account | `<identifier>` | Reuse the same fixture across runs for deterministic results |
-| Worker / API tokens (env var name only — never the value) | `WORKER_TOKEN`, `FEATURE_TOKEN`, etc. | Implementer reads from env; PO does not paste secrets |
+| Worker / API tokens (env var name only — never the value) | `WORKER_TOKEN`, `FEATURE_TOKEN`, etc. | AI Developer reads from env; PO does not paste secrets |
 | API base URL | `<url>` (dev / staging / prod as appropriate) | Smoke probes hit a known surface |
-| Other project-stable IDs | `<...>` | Anything the operator already knows that the Implementer would otherwise re-derive |
+| Other project-stable IDs | `<...>` | Anything the operator already knows that the AI Developer would otherwise re-derive |
 
 ### Pre-caching examples
 
@@ -122,7 +124,7 @@ If any check fails, STOP and fix before commit. No "fix in next commit" patterns
 
 ### Anti-patterns
 
-- ❌ Implementer queries the API for IDs that were already known. Wasted tokens; risk of grabbing the wrong ID.
+- ❌ AI Developer queries the API for IDs that were already known. Wasted tokens; risk of grabbing the wrong ID.
 - ❌ PO embeds secret VALUES in the handoff. Use env var NAMES; the value lives in the environment.
 - ❌ PO pre-caches a "should-be-stable" ID without verifying it. Verify before pasting; stale IDs are worse than missing IDs.
 
@@ -151,6 +153,7 @@ Per FR-05, stop at T<gate>. Do NOT run deploy. Report gate per `verification-gat
 
 ## Related
 
+- `templates/handoff-implement.md` — **canonical handoff template** (v2.5.0+); copy + fill placeholders for new handoffs
 - `skills/implementation-planning/SKILL.md` — produces this handoff
 - `workflows/verification-gate.md` — gate contract
 - `workflows/greenlight-deploy.md` — next handoff after gate verifies

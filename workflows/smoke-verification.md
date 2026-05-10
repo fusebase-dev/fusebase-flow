@@ -93,7 +93,7 @@ Smoke prompts can be:
 | Background job | application logs | log line excerpt |
 | Mixed | combination | as appropriate |
 
-The Implementer or Deploy session executes; evidence is captured to `docs/handoff/<date>-<slug>-smoke/`.
+The AI Developer or Deploy session executes; evidence is captured to `docs/handoff/<date>-<slug>-smoke/`.
 
 ## Outputs
 

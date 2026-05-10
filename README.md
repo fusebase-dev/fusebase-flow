@@ -108,9 +108,9 @@ bash install.sh
 1. Tell the agent: *"Let's ship `<feature description>`."*
 2. The agent invokes the `requirements-specification` skill, drafts `docs/specs/<slug>/spec.md`, and runs clarify questions.
 3. After clarify resolves, the agent invokes `implementation-planning` to produce `decisions.md`, `tasks.md`, `verification-gate.md`, plus a saved handoff at `docs/handoff/<YYYY-MM-DD>-<slug>-implement.md`.
-4. Open a fresh agent session, paste the handoff, and the Implementer executes the task chain — stopping at the verification gate.
+4. Open a fresh agent session, paste the handoff, and the AI Developer executes the task chain — stopping at the verification gate.
 5. Paste the gate report back to the originating session. Run `code-review` and `security-permissions-review`.
-6. If clean, the operator says *"prepare deploy"* — the `release-deploy-reporting` skill drafts the deploy handoff, you paste it into the Implementer session, deploy runs, probes verify.
+6. If clean, the operator says *"prepare deploy"* — the `release-deploy-reporting` skill drafts the deploy handoff, you paste it into the AI Developer session, deploy runs, probes verify.
 
 The full eight-phase lifecycle lives at [`workflows/eight-phase-flow.md`](workflows/eight-phase-flow.md).
 

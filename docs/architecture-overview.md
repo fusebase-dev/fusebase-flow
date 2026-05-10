@@ -6,7 +6,7 @@
 
 ```
 ┌─────────────────┐                ┌─────────────────┐                ┌─────────────────┐
-│  Product Owner  │ ─── handoff ─► │   Implementer   │ ─── handoff ─► │  Deploy phase   │
+│  Product Owner  │ ─── handoff ─► │   AI Developer   │ ─── handoff ─► │  Deploy phase   │
 │ (drafts spec,   │                │ (executes T1..  │                │ (runs probes,   │
 │  decisions,     │ ◄── gate ───── │  Tn, stops at   │ ◄── deploy ─── │  flips spec     │
 │  tasks, gate)   │                │  verification)  │                │  DRAFT → DONE)  │
@@ -31,7 +31,7 @@
 4. Decisions   ─────► docs/specs/<slug>/decisions.md (LOCKED after operator confirms)
 5. Tasks       ─────► docs/specs/<slug>/tasks.md (T-numbered chain)
 6. Verify      ─────► docs/specs/<slug>/verification-gate.md drafted
-7. Implement   ─────► Implementer session runs T1..T<gate>; stops at gate
+7. Implement   ─────► AI Developer session runs T1..T<gate>; stops at gate
 8. Deploy      ─────► Deploy session runs probes + smoke; spec flips DRAFT → DONE
 ```
 
@@ -42,7 +42,7 @@ Each transition updates the `📍 Phase:` state-announcement footer.
 ```
 docs/handoff/
 ├── <YYYY-MM-DD>-<slug>-architect.md     ← Product Owner → escalated Architect
-├── <YYYY-MM-DD>-<slug>-implement.md     ← Product Owner → Implementer
+├── <YYYY-MM-DD>-<slug>-implement.md     ← Product Owner → AI Developer
 └── <YYYY-MM-DD>-<slug>-deploy.md        ← Product Owner → Deploy phase
 ```
 

@@ -7,15 +7,15 @@
 For solo / local / fast-iteration projects:
 
 ```
-main (always green) → operator pulls → Implementer commits one task at a time → push
+main (always green) → operator pulls → AI Developer commits one task at a time → push
 ```
 
 Discipline that replaces branch protection:
 
 | Discipline | Enforcement |
 |---|---|
-| Pre-task git checkpoint (verify clean state before T<first>) | Implementer self-check + `pre_tool_use` hook |
-| One task = one commit (FR-03) | Implementer self-check + `commit-msg` git hook |
+| Pre-task git checkpoint (verify clean state before T<first>) | AI Developer self-check + `pre_tool_use` hook |
+| One task = one commit (FR-03) | AI Developer self-check + `commit-msg` git hook |
 | Lint+typecheck per commit (FR-13) | `pre-commit` git hook |
 | No `git add -A` / `git add .` for production code (FR-06) | `command-policy.yml` + `pre_tool_use` hook |
 | No `--no-verify` (FR-06) | `command-policy.yml` + `pre_tool_use` hook |

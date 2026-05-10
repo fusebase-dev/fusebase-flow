@@ -16,7 +16,7 @@ Every always-on rule in `FLOW_RULES.md` maps to one or more enforcement surfaces
 | FR-10 | Reproducibility before fix | yes | `smoke-verification.md` | `validation-and-qa` (sub-mode C) | n/a | n/a |
 | FR-11 | Stop and ask, don't improvise | yes | (across all workflows) | (all skills explicitly guard against improvisation) | `user_prompt_submit` (flags bypass-attempt patterns like "skip clarify", "ignore approvals") | n/a |
 | FR-12 | Approval-gated side effects | yes | `greenlight-deploy.md`, `architect-escalation.md` | `security-permissions-review`, `release-deploy-reporting` | `pre_tool_use` (require_approval), `permission_request` (artifact lookup), `pre-commit` git hook (secret block) | `approval-policy.yml`, `command-policy.yml: require_approval`, `secret-patterns.yml` |
-| FR-13 | Lint + typecheck per commit | yes | `git-workflow.md` | n/a (Implementer attestation) | `pre-commit` git hook | n/a (project-defined commands) |
+| FR-13 | Lint + typecheck per commit | yes | `git-workflow.md` | n/a (AI Developer attestation) | `pre-commit` git hook | n/a (project-defined commands) |
 | FR-14 | Single docs commit on deploy | yes | `greenlight-deploy.md` | `release-deploy-reporting` | `stop` (blocks "deploy complete" claim without single-docs-commit signal) | `required-artifacts.yml: before_deploy_complete_claim` |
 | FR-15 | Knowledge curation triggers | yes | `knowledge-curation.md` | (Product Owner judgment; not a skill) | n/a | n/a |
 

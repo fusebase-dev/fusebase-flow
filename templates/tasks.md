@@ -41,7 +41,7 @@
 
 ### T<gate>. Verification gate
 
-No code change. Implementer produces gate report per `verification-gate.md` contract:
+No code change. AI Developer produces gate report per `verification-gate.md` contract:
 
 - Per-task SHAs
 - Test counts (before / after / delta per layer)
@@ -50,7 +50,7 @@ No code change. Implementer produces gate report per `verification-gate.md` cont
 - Manifest version (if applicable)
 - Architect/PO deviations
 
-After gate report, Implementer waits for an explicit deploy handoff. Do NOT proceed to T<deploy> on initiative.
+After gate report, AI Developer waits for an explicit deploy handoff. Do NOT proceed to T<deploy> on initiative.
 
 ---
 

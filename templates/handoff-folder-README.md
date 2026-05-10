@@ -17,7 +17,7 @@ docs/handoff/<YYYY-MM-DD>-<slug>-<stage>.md
 | Stage | Producer | Consumer | Example |
 |---|---|---|---|
 | `architect` | Product Owner | escalated Architect | `2026-05-08-skip-already-fetched-fields-architect.md` |
-| `implement` | Product Owner | Implementer | `2026-05-08-skip-already-fetched-fields-implement.md` |
+| `implement` | Product Owner | AI Developer | `2026-05-08-skip-already-fetched-fields-implement.md` |
 | `deploy` | Product Owner | Deploy phase | `2026-05-08-skip-already-fetched-fields-deploy.md` |
 
 If two handoffs of the same stage occur on the same date for the same slug, append `-2`, `-3`, etc. to disambiguate.

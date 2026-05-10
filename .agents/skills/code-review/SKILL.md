@@ -25,7 +25,7 @@ Independent review of a diff against the spec contract, locked decisions, and FL
 ## When to invoke
 
 - Operator says "review this" / "is this safe to ship?" / "look at the diff"
-- Implementer-session gate report has been pasted and `validation-and-qa` ran clean — code-review is the next step before deploy
+- AI Developer-session gate report has been pasted and `validation-and-qa` ran clean — code-review is the next step before deploy
 - About to merge a PR (team mode)
 - Major refactor in flight and operator wants midpoint review
 

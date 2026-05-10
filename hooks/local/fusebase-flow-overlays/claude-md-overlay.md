@@ -24,7 +24,7 @@ This repository follows **Fusebase Flow** in addition to project-specific rules.
 **Fusebase Flow sub-agents (description-matched from `.claude/agents/`):**
 
 - `product-owner` — covers phases 1–6 + Architect inline. PO Bash gated by `hooks/local/po-investigate.sh` allowlist (read-only investigation only).
-- `ai-developer` — covers phase 7 (Implementer attestation when given `*-implement.md` handoff) and phase 8b (Deploy phase attestation when given `*-deploy.md` handoff). Deploy gated by DP.6 magic-phrase confirm + DP.1 approval artifact.
+- `ai-developer` — covers phase 7 (AI Developer attestation when given `*-implement.md` handoff) and phase 8b (Deploy phase attestation when given `*-deploy.md` handoff). Deploy gated by DP.6 magic-phrase confirm + DP.1 approval artifact.
 
 **State announcement footer (every output):**
 

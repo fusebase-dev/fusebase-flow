@@ -64,7 +64,7 @@ The final skill in the eight-phase flow: draft the deploy green-light handoff, c
    - Smoke prompts S1..Sn (if applicable)
    - Single-docs-commit instructions (FR-14): spec DRAFT→DONE flip with deploy hash, tasks.md verification marks, backlog index update, README header
 4. Save handoff to `docs/handoff/<YYYY-MM-DD>-<slug>-deploy.md` BEFORE outputting in chat (FR-04).
-5. Tell operator: "Deploy handoff saved to <path>. Open and paste into the Implementer (Codex) chat to authorize deploy."
+5. Tell operator: "Deploy handoff saved to <path>. Open and paste into the AI Developer (Codex) chat to authorize deploy."
 6. After operator pastes back deploy report:
    - Verify deploy hash captured
    - Verify each probe result with concrete evidence

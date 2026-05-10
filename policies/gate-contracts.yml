@@ -7,7 +7,7 @@ schema_version: 1
 local_override_file: policies/gate-contracts.local.yml
 
 gate_report:
-  description: "Implementer's gate report at end of T<gate>; PO reads to verify before deploy."
+  description: "AI Developer's gate report at end of T<gate>; PO reads to verify before deploy."
   required_fields:
     implementation_summary:
       type: string
@@ -45,7 +45,7 @@ gate_report:
       default: "none"
     self_attestation:
       type: string
-      contains_phrase: "Operating as Implementer"
+      contains_phrase: "Operating as AI Developer"
 
 deploy_report:
   description: "Deploy phase's report after deploy + probes."

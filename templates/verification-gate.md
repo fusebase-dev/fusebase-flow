@@ -25,7 +25,7 @@
 | Worker-undisturbed git diff | `<file>: empty diff ✓` per protected path |
 | Manifest version | `<old> → <new>` or `N/A` |
 | Architect/PO deviations | listed with reasoning, or `none` |
-| Self-attestation | "Operating as Implementer..." phrase |
+| Self-attestation | "Operating as AI Developer..." phrase |
 
 ## Lint / typecheck / test commands
 
@@ -112,4 +112,4 @@ Cross-artifact:
 ☐ Spec status still DRAFT (will flip to DONE in deploy)
 ```
 
-If ANY item fails, redirect Implementer. Do NOT bypass.
+If ANY item fails, redirect AI Developer. Do NOT bypass.
