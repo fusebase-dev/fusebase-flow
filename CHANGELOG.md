@@ -4,6 +4,98 @@ All notable changes to Fusebase Flow Local. Format follows [Keep a Changelog](ht
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [2.4.0] — 2026-05-10
+
+### Added — health-check deferral artifacts (closes BACKLOG B4)
+
+Operator-authored mechanism for marking specific health-check drift items as deliberate-by-design rather than actual drift. When all non-OK checks are covered by an active deferral artifact, the engine returns verdict `EXCEPTION_IN_EFFECT` (exit code 3) instead of `DRIFTED` / `BROKEN`.
+
+#### What ships
+
+- **New artifact category:** `state/approvals/health_check_deferral-<slug>-<YYYYMMDD>.json`. Lists `deferred_checks` — an array of stable check_ids the engine recognizes. Schema documented at `docs/health-check-deferrals.md`.
+- **Engine recognizes 6 defer-able check_ids:**
+  - `agents_md_overlay`
+  - `claude_md_overlay`
+  - `settings_json_lifecycle_events`
+  - `claude_skills_mirror_count`
+  - `claude_agents_mirror_count`
+  - `windows_shell_patch`
+
+  Critical infrastructure checks (preflight, recovery script presence, hook tests, etc.) are deliberately NOT defer-able — see `docs/health-check-deferrals.md` for the rationale.
+- **New `LOCAL_DEFERRED` bucket** with `⊘` rendering in the engine output. Each deferred item is tagged with `[check_id=<id>; deferred per <artifact-filename>]` for full traceability.
+- **New "Deferred checks" output section** explaining the mechanism when LOCAL_DEFERRED is non-empty.
+- **Verdict logic update.** When `LOCAL_DRIFT` is empty AND `LOCAL_DEFERRED` is non-empty → `EXCEPTION_IN_EFFECT`. Genuine breakage (`LOCAL_BROKEN`) still trumps deferrals — operators cannot defer real failures.
+
+#### Why this exists
+
+Real-world driver: `paperclip+hermes-v1` install brief (commit `f73e204`) deliberately deferred two checks per Steps 9 + 10 of its install discipline:
+- `.claude/settings.json` lifecycle hooks NOT wired (preserve project's existing quality-check + lint-on-stop hooks)
+- Windows `shell:true` patch NOT applied (`.claude/hooks/` listed as protected)
+
+The brief's Step 15 expected `HEALTHY` after install. Pre-v2.4.0 the engine had no concept of "this drift is approved"; it reported `BROKEN` instead. Brief's expectation was correct — the engine was the gap. v2.4.0 closes it.
+
+The mechanism is **explicit and documented**, not a wildcard suppression knob:
+
+- Operator authors a JSON artifact with `approved_by`, `scope`, `expires_at`, `reason`, and `deferred_checks` fields
+- Each `deferred_checks` entry must match a canonical check_id (unknown ones are silently ignored — engine prefers explicit taxonomy over wildcard)
+- Engine respects `expires_at` — expired artifacts go inactive automatically, drift items go back to `LOCAL_DRIFT`
+- Critical infrastructure remains non-deferrable (recovery script presence, overlay templates folder, preflight failures, etc.)
+
+### Fixed — latent v2.2.1 grep-count zero-matches bug
+
+Surfaced during v2.4.0 development: the AGENTS.md / CLAUDE.md overlay-marker count check used `grep -cF ... || echo 0` which produced corrupted `"0\n0"` output when count was 0 (same `set -o pipefail` interaction as v2.3.0's diff-count bug, fixed in v2.3.1). Existed since v2.2.1 but only triggered when a project genuinely lacked overlay markers — uncommon. Surfaced when running v2.4.0 engine in upstream's own working tree (whose AGENTS.md doesn't have the operator-installed overlay block).
+
+**Fix:** replace `|| echo 0` with `|| true` in both AGENTS.md and CLAUDE.md count lines. Same pattern as v2.3.1's fix.
+
+### Changed
+
+- **`hooks/local/fusebase-flow-health-check.sh`** — engine grew ~110 lines net for: deferral artifact loading in Section 0, `record_drift` helper function with check_id lookup, `LOCAL_DEFERRED` bucket, refactored 6 defer-able check sites, verdict logic update, "Deferred checks" output section, recommendations update for the deferred-only case. Plus the latent grep-count bug fix.
+- **`README.md`** — added "Deferral artifacts (v2.4.0+)" subsection inside the Health check section. Verdict table updated to mention both v2 and v2.4.0+ artifact types.
+- **`docs/health-check-deferrals.md` (new)** — full operator reference for the new mechanism. Schema, taxonomy, examples (including the canonical paperclip+hermes-v1 case), workflow for adding/removing deferrals, limitations.
+- **`VERSION`** `2.3.2` → `2.4.0`.
+
+### Validation at release
+
+- preflight: 0 errors / 0 warnings
+- hook tests: 14/14 PASS
+- skill mirror: 20 files, 0 drift
+- agent mirror: 4 files, 0 drift
+- bash syntax check on engine: clean
+- B4 smoke test in `test project 2`:
+  - Pre-deferral baseline (Windows patch reverted): verdict `DRIFTED`, exit 1 ✓
+  - Post-deferral artifact (`health_check_deferral-test-windows-patch-20260510.json` listing `windows_shell_patch`): verdict `EXCEPTION_IN_EFFECT`, exit 3, item shown with ⊘ symbol + `[check_id=windows_shell_patch; deferred per <artifact>]` ✓
+  - Cleanup (delete artifact, restore patch): verdict back to `HEALTHY`, exit 0 ✓
+- Engine in upstream's own working tree (where AGENTS.md genuinely lacks overlay): now reports `DRIFTED` correctly with proper count display (was `BROKEN` with `"0\n0"` corruption pre-v2.4.0)
+
+### Real-world impact
+
+**`paperclip+hermes-v1`** can now author a deferral artifact matching its install brief's Steps 9 + 10:
+
+```json
+{
+  "approved_by": "pavel.sher@thefusebase.com",
+  "scope": "Lifecycle hooks + Windows patch deferred per install brief 2026-05-08",
+  "expires_at": "2026-08-10T00:00:00Z",
+  "reason": "Project preserves existing hooks per Step 9; .claude/hooks/ protected per Step 10",
+  "deferred_checks": ["settings_json_lifecycle_events", "windows_shell_patch"]
+}
+```
+
+After filing this artifact, the project's health check returns `EXCEPTION_IN_EFFECT` (exit 3) instead of `BROKEN` (exit 2). The brief's Step 15 expected behavior is now achievable.
+
+### Notes for upgraders (v2.3.2 → v2.4.0)
+
+- **Pure additive feature.** No content changes; no migration needed for projects that don't author deferral artifacts.
+- Upgrade path: refresh `.fusebase-flow-source/`, run `bash hooks/local/upgrade-engine.sh` — engine self-update picks up v2.4.0 logic.
+- Existing `protected_path_edit-*.json` artifacts continue to work unchanged.
+- New documentation: read `docs/health-check-deferrals.md` if you have install briefs that deliberately omit parts of the canonical setup.
+
+### What's next
+
+Backlog item **B2** (refresh `docs/fusebase-health/` for v2.3.0 + v2.3.1 + v2.3.2 + v2.4.0) is the docs-sweep follow-up. No release needed; gitignored operator dev notes.
+
+---
+
 ## [2.3.2] — 2026-05-10
 
 ### Fixed — two engine + recovery edge cases

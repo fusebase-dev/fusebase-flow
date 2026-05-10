@@ -43,22 +43,38 @@ SOURCE_CLONE=".fusebase-flow-source"
 LOCAL_OK=()
 LOCAL_DRIFT=()
 LOCAL_BROKEN=()
+LOCAL_DEFERRED=()        # drift items deferred via active health_check_deferral artifact (engine v2.4.0+)
 UPSTREAM_NOTES=()
 ACTIVE_ARTIFACTS=()      # filenames of non-expired approval artifacts (informational)
 ARTIFACT_NOTES=()        # human-readable summaries of each active artifact
+DEFERRED_CHECKS=()       # check_ids deferred via active health_check_deferral-*.json (engine v2.4.0+)
+DEFERRED_BY_ARTIFACT=()  # parallel array — for each entry in DEFERRED_CHECKS, the artifact filename that authorized it
 DRIFT_SIGNATURE=""
 RECOMMENDATIONS=()
 
 ###############################################################################
 # Section 0 — Active approval artifacts (informational, before any checks)
 ###############################################################################
-# Read state/approvals/*.json, filter for non-expired entries. Active artifacts
-# legitimately authorize what hook tests expect to be denied — surfacing them
-# upfront prevents false BROKEN verdicts.
+# Read state/approvals/*.json, filter for non-expired entries. Two artifact types:
+#
+#   - protected_path_edit-*.json  (existing, since v2.0)
+#       Authorizes specific protected-path edits. Lists `paths`. Allows hook test
+#       failures named *protected_path_edit* to be attributed to the artifact.
+#
+#   - health_check_deferral-*.json  (new in engine v2.4.0)
+#       Authorizes deliberate deferral of specific health-check items. Lists
+#       `deferred_checks` — an array of stable check_ids (see docs/health-check-deferrals.md
+#       for the canonical taxonomy). Engine reclassifies matching drift items to
+#       LOCAL_DEFERRED, which counts toward EXCEPTION_IN_EFFECT verdict instead of
+#       DRIFTED / BROKEN. Use when an install brief deliberately omits parts of
+#       the canonical Fusebase Flow setup (e.g. settings.json lifecycle hooks
+#       not wired, Windows shell:true patch not applied per protected-paths
+#       discipline).
 
 if [ -d "state/approvals" ] && command -v python3 >/dev/null 2>&1; then
   while IFS= read -r artifact_file; do
     if [ -z "$artifact_file" ]; then continue; fi
+    artifact_basename=$(basename "$artifact_file")
     summary=$(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$artifact_file" <<'PY' 2>/dev/null
 import json, sys, time
 try:
@@ -68,10 +84,17 @@ try:
     now = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
     if expires and expires < now:
         sys.exit(1)  # expired - skip
-    paths = data.get('paths', []) or []
     # Restrict scope to ASCII so it renders cleanly on any console codec
     scope = (data.get('scope', '') or '').encode('ascii', errors='replace').decode('ascii')[:80]
-    print(f"paths={len(paths)} expires={expires} scope=\"{scope}\"")
+    # Different artifact types use different list fields
+    paths = data.get('paths', []) or []
+    deferred = data.get('deferred_checks', []) or []
+    if deferred:
+        # health_check_deferral artifact
+        print(f"deferred_checks={len(deferred)} expires={expires} scope=\"{scope}\"")
+    else:
+        # protected_path_edit (or other) artifact
+        print(f"paths={len(paths)} expires={expires} scope=\"{scope}\"")
     sys.exit(0)
 except Exception:
     sys.exit(2)
@@ -79,11 +102,55 @@ PY
 )
     rc=$?
     if [ "$rc" -eq 0 ]; then
-      ACTIVE_ARTIFACTS+=("$(basename "$artifact_file")")
-      ARTIFACT_NOTES+=("$(basename "$artifact_file"): $summary")
+      ACTIVE_ARTIFACTS+=("$artifact_basename")
+      ARTIFACT_NOTES+=("$artifact_basename: $summary")
+      # If this is a health_check_deferral artifact, extract its deferred_checks
+      # list and add each check_id to DEFERRED_CHECKS (with the artifact name
+      # tracked in DEFERRED_BY_ARTIFACT for output).
+      if [[ "$artifact_basename" == health_check_deferral-* ]]; then
+        deferred_list=$(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$artifact_file" <<'PY' 2>/dev/null
+import json, sys
+try:
+    data = json.loads(open(sys.argv[1], encoding='utf-8').read())
+    for cid in (data.get('deferred_checks') or []):
+        if isinstance(cid, str) and cid:
+            print(cid)
+except Exception:
+    pass
+PY
+)
+        while IFS= read -r cid; do
+          [ -z "$cid" ] && continue
+          DEFERRED_CHECKS+=("$cid")
+          DEFERRED_BY_ARTIFACT+=("$artifact_basename")
+        done <<< "$deferred_list"
+      fi
     fi
   done < <(find state/approvals -maxdepth 2 -name '*.json' -type f 2>/dev/null)
 fi
+
+###############################################################################
+# Helper: record_drift — push to LOCAL_DRIFT or LOCAL_DEFERRED based on whether
+# the check_id is in the operator's active deferral list.
+###############################################################################
+record_drift() {
+  local check_id="$1"
+  local message="$2"
+  local i found=""
+  if [ "${#DEFERRED_CHECKS[@]}" -gt 0 ]; then
+    for i in "${!DEFERRED_CHECKS[@]}"; do
+      if [ "${DEFERRED_CHECKS[$i]}" = "$check_id" ]; then
+        found="${DEFERRED_BY_ARTIFACT[$i]}"
+        break
+      fi
+    done
+  fi
+  if [ -n "$found" ]; then
+    LOCAL_DEFERRED+=("$message [check_id=$check_id; deferred per $found]")
+  else
+    LOCAL_DRIFT+=("$message")
+  fi
+}
 
 ###############################################################################
 # Section 1 — Local inventory (read-only)
@@ -102,12 +169,13 @@ fi
 # (a duplicate happens after a major-version heading rename if the operator
 #  ran recovery without first removing the old block; see CHANGELOG upgrader notes)
 if [ -f AGENTS.md ]; then
-  AGENTS_OVERLAY_COUNT=$(grep -cF "## Fusebase Flow — workflow lifecycle overlay" AGENTS.md 2>/dev/null || echo 0)
+  AGENTS_OVERLAY_COUNT=$(grep -cF "## Fusebase Flow — workflow lifecycle overlay" AGENTS.md 2>/dev/null || true)
   if [ "$AGENTS_OVERLAY_COUNT" -eq 0 ]; then
-    LOCAL_DRIFT+=("AGENTS.md overlay block: MISSING")
+    record_drift "agents_md_overlay" "AGENTS.md overlay block: MISSING"
   elif [ "$AGENTS_OVERLAY_COUNT" -eq 1 ]; then
     LOCAL_OK+=("AGENTS.md overlay block: present")
   else
+    # Duplicate is a real config error worth investigating; not deferrable
     LOCAL_DRIFT+=("AGENTS.md overlay block: DUPLICATE ($AGENTS_OVERLAY_COUNT copies present — likely from a heading-marker rename without first removing the old block; remove the older block manually)")
   fi
 else
@@ -116,9 +184,9 @@ fi
 
 # CLAUDE.md overlay marker (only if Claude Code in use) — same count-based logic
 if [ -f CLAUDE.md ]; then
-  CLAUDE_OVERLAY_COUNT=$(grep -cF "## Fusebase Flow — additional rules (overlay)" CLAUDE.md 2>/dev/null || echo 0)
+  CLAUDE_OVERLAY_COUNT=$(grep -cF "## Fusebase Flow — additional rules (overlay)" CLAUDE.md 2>/dev/null || true)
   if [ "$CLAUDE_OVERLAY_COUNT" -eq 0 ]; then
-    LOCAL_DRIFT+=("CLAUDE.md overlay block: MISSING")
+    record_drift "claude_md_overlay" "CLAUDE.md overlay block: MISSING"
   elif [ "$CLAUDE_OVERLAY_COUNT" -eq 1 ]; then
     LOCAL_OK+=("CLAUDE.md overlay block: present")
   else
@@ -158,10 +226,10 @@ if [ -f .claude/settings.json ]; then
     if grep -q "hooks/handlers/stop.py" .claude/settings.json 2>/dev/null; then
       LOCAL_OK+=(".claude/settings.json: $EVENTS_PRESENT/$EXPECTED_EVENT_COUNT lifecycle events wired (incl. Fusebase Flow stop.py)")
     else
-      LOCAL_DRIFT+=(".claude/settings.json: $EVENTS_PRESENT/$EXPECTED_EVENT_COUNT events present BUT Fusebase Flow stop.py missing from Stop chain")
+      record_drift "settings_json_lifecycle_events" ".claude/settings.json: $EVENTS_PRESENT/$EXPECTED_EVENT_COUNT events present BUT Fusebase Flow stop.py missing from Stop chain"
     fi
   else
-    LOCAL_DRIFT+=(".claude/settings.json: only $EVENTS_PRESENT/$EXPECTED_EVENT_COUNT lifecycle events wired")
+    record_drift "settings_json_lifecycle_events" ".claude/settings.json: only $EVENTS_PRESENT/$EXPECTED_EVENT_COUNT lifecycle events wired"
   fi
 fi
 
@@ -197,7 +265,7 @@ else
   if [ "$SKILLS_PRESENT" -eq "$EXPECTED_SKILL_COUNT" ]; then
     LOCAL_OK+=(".claude/skills/: $SKILLS_PRESENT/$EXPECTED_SKILL_COUNT Fusebase Flow skills mirrored")
   else
-    LOCAL_DRIFT+=(".claude/skills/: only $SKILLS_PRESENT/$EXPECTED_SKILL_COUNT Fusebase Flow skills mirrored")
+    record_drift "claude_skills_mirror_count" ".claude/skills/: only $SKILLS_PRESENT/$EXPECTED_SKILL_COUNT Fusebase Flow skills mirrored"
   fi
 fi
 
@@ -230,7 +298,7 @@ else
   if [ "$AGENTS_PRESENT" -eq "$EXPECTED_AGENT_COUNT" ]; then
     LOCAL_OK+=(".claude/agents/: $AGENTS_PRESENT/$EXPECTED_AGENT_COUNT Fusebase Flow sub-agents mirrored ($AGENT_LIST)")
   else
-    LOCAL_DRIFT+=(".claude/agents/: only $AGENTS_PRESENT/$EXPECTED_AGENT_COUNT Fusebase Flow sub-agents mirrored")
+    record_drift "claude_agents_mirror_count" ".claude/agents/: only $AGENTS_PRESENT/$EXPECTED_AGENT_COUNT Fusebase Flow sub-agents mirrored"
   fi
 fi
 
@@ -310,7 +378,7 @@ case "$(uname -s)" in
       if grep -q '^\s*shell:' .claude/hooks/run-typecheck-features.js 2>/dev/null; then
         LOCAL_OK+=("Windows shell:true patch on run-typecheck-features.js: applied")
       else
-        LOCAL_DRIFT+=("Windows shell:true patch on run-typecheck-features.js: MISSING (Windows + Node 22+ typecheck would EINVAL)")
+        record_drift "windows_shell_patch" "Windows shell:true patch on run-typecheck-features.js: MISSING (Windows + Node 22+ typecheck would EINVAL)"
       fi
     fi ;;
 esac
@@ -349,21 +417,27 @@ fi
 
 DRIFT_COUNT="${#LOCAL_DRIFT[@]}"
 BROKEN_COUNT="${#LOCAL_BROKEN[@]}"
+DEFERRED_COUNT="${#LOCAL_DEFERRED[@]}"
 
 # Count drift items that are explainable by an active approval artifact
+# (existing v2 hook-test attribution path)
 ARTIFACT_DRIFT_COUNT=0
 if [ "$DRIFT_COUNT" -gt 0 ]; then
   ARTIFACT_DRIFT_COUNT=$(printf '%s\n' "${LOCAL_DRIFT[@]}" | grep -c "active approval artifact" || true)
 fi
 
-if [ "$DRIFT_COUNT" -eq 0 ] && [ "$BROKEN_COUNT" -eq 0 ]; then
+if [ "$DRIFT_COUNT" -eq 0 ] && [ "$BROKEN_COUNT" -eq 0 ] && [ "$DEFERRED_COUNT" -eq 0 ]; then
   DRIFT_SIGNATURE="HEALTHY"
 elif [ "$BROKEN_COUNT" -gt 0 ]; then
-  # Genuine breakage trumps everything
+  # Genuine breakage trumps everything (including deferrals — operator can't defer real breakage)
   DRIFT_SIGNATURE="BROKEN"
+elif [ "$DRIFT_COUNT" -eq 0 ] && [ "$DEFERRED_COUNT" -gt 0 ]; then
+  # Only deferred items remain (no real drift, no breakage). v2.4.0+: this is
+  # the deferral artifact mechanism working as designed.
+  DRIFT_SIGNATURE="EXCEPTION_IN_EFFECT"
 elif [ "$ARTIFACT_DRIFT_COUNT" -eq "$DRIFT_COUNT" ] && [ "$ARTIFACT_DRIFT_COUNT" -gt 0 ]; then
   # Every drift item is attributable to an active operator approval artifact —
-  # this is the artifact mechanism working as designed, not real drift.
+  # this is the v2 hook-test artifact mechanism working as designed, not real drift.
   DRIFT_SIGNATURE="EXCEPTION_IN_EFFECT"
 else
   # AGENTS.md overlay missing + settings.json reduced is the canonical
@@ -389,9 +463,15 @@ case "$DRIFT_SIGNATURE" in
   HEALTHY)
     RECOMMENDATIONS+=("No action required. Fusebase Flow overlay is intact.") ;;
   EXCEPTION_IN_EFFECT)
-    RECOMMENDATIONS+=("All drift is attributable to active approval artifact(s) in state/approvals/. This is the protected-paths exception mechanism working as designed.")
-    RECOMMENDATIONS+=("Recovery script will NOT fix this — it doesn't touch state/approvals/.")
-    RECOMMENDATIONS+=("To clear: when the protected work is done, delete the listed artifact(s) or wait for their expires_at to pass. Then re-run this health check.") ;;
+    if [ "${#LOCAL_DEFERRED[@]}" -gt 0 ]; then
+      RECOMMENDATIONS+=("All non-OK items are operator-authored deferrals (active health_check_deferral-*.json artifact(s) in state/approvals/). This is engine v2.4.0+ acknowledging that the install brief or operator deliberately omitted parts of the canonical Fusebase Flow setup.")
+      RECOMMENDATIONS+=("Recovery script CAN fix the underlying state if you decide to revisit any deferral — the script is additive + idempotent. Run: bash hooks/local/post-fusebase-update.sh")
+      RECOMMENDATIONS+=("To clear the deferral artifact(s) themselves: delete the listed artifact file(s) or wait for their expires_at to pass.")
+    else
+      RECOMMENDATIONS+=("All drift is attributable to active approval artifact(s) in state/approvals/. This is the protected-paths exception mechanism working as designed.")
+      RECOMMENDATIONS+=("Recovery script will NOT fix this — it doesn't touch state/approvals/.")
+      RECOMMENDATIONS+=("To clear: when the protected work is done, delete the listed artifact(s) or wait for their expires_at to pass. Then re-run this health check.")
+    fi ;;
   FUSEBASE_UPDATE_AFTERMATH)
     RECOMMENDATIONS+=("Drift signature matches the 'fusebase update' aftermath pattern (AGENTS.md overlay missing AND settings.json reduced).")
     RECOMMENDATIONS+=("Recommended recovery: bash hooks/local/post-fusebase-update.sh")
@@ -417,11 +497,22 @@ echo "============================================================"
 echo "Date: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 echo "Project root: $ROOT"
 echo ""
-echo "Local state ($((${#LOCAL_OK[@]} + ${#LOCAL_DRIFT[@]} + ${#LOCAL_BROKEN[@]})) checks):"
+echo "Local state ($((${#LOCAL_OK[@]} + ${#LOCAL_DRIFT[@]} + ${#LOCAL_BROKEN[@]} + ${#LOCAL_DEFERRED[@]})) checks):"
 for x in "${LOCAL_OK[@]}";    do echo "  ✓ $x"; done
 for x in "${LOCAL_DRIFT[@]}"; do echo "  ✗ $x"; done
 for x in "${LOCAL_BROKEN[@]}";do echo "  ⚠ $x"; done
+for x in "${LOCAL_DEFERRED[@]}"; do echo "  ⊘ $x"; done
 echo ""
+
+if [ "${#LOCAL_DEFERRED[@]}" -gt 0 ]; then
+  echo "Deferred checks (${#LOCAL_DEFERRED[@]} — operator-authored exceptions; engine v2.4.0+):"
+  echo "  Each ⊘ above is reclassified from drift to deferred via a"
+  echo "  state/approvals/health_check_deferral-*.json artifact. These items"
+  echo "  count toward EXCEPTION_IN_EFFECT, NOT DRIFTED or BROKEN. Run the"
+  echo "  recovery script later if/when you want to revisit any deferral —"
+  echo "  the script is additive + idempotent."
+  echo ""
+fi
 
 if [ "${#ACTIVE_ARTIFACTS[@]}" -gt 0 ]; then
   echo "Active approval artifacts (${#ACTIVE_ARTIFACTS[@]}):"

@@ -198,10 +198,16 @@ Plus active approval artifacts in `state/approvals/` are surfaced informationall
 | Verdict | Exit | Meaning |
 |---|:---:|---|
 | `HEALTHY` | 0 | All checks pass; upstream in sync |
-| `EXCEPTION_IN_EFFECT` | 3 | All drift attributable to active approval artifacts in `state/approvals/` |
+| `EXCEPTION_IN_EFFECT` | 3 | All drift attributable to active approval artifacts in `state/approvals/` (either v2 hook-test `protected_path_edit-*.json` or v2.4.0+ `health_check_deferral-*.json`) |
 | `FUSEBASE_UPDATE_AFTERMATH` | 1 | Canonical `fusebase update` aftermath (AGENTS.md overlay missing AND settings.json reduced) |
 | `DRIFTED` | 1 | Drift detected but doesn't match a known pattern |
 | `BROKEN` | 2 | Genuine failure NOT attributable to operator-authored exceptions |
+
+### Deferral artifacts (v2.4.0+)
+
+When an install brief or operator deliberately omits parts of the canonical Fusebase Flow setup (e.g. lifecycle hooks not wired, Windows patch not applied per protected-paths discipline), file a **deferral artifact** at `state/approvals/health_check_deferral-<slug>-<YYYYMMDD>.json` listing the check_ids being deferred. Engine reclassifies matching drift items from `LOCAL_DRIFT` → `LOCAL_DEFERRED` (⊘ symbol in the report) and verdict drops to `EXCEPTION_IN_EFFECT` (exit 3).
+
+See [docs/health-check-deferrals.md](docs/health-check-deferrals.md) for the artifact schema, the canonical check_id taxonomy, examples, and operator workflow for adding/removing deferrals.
 
 ### Recovery flow (the diagnose-then-offer pattern)
 
