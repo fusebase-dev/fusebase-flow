@@ -6,7 +6,11 @@
 # override to apply per-clone preferences without committing.
 #
 # Schema version drives policy_loader compatibility checks.
-schema_version: 1
+# v2 (Fusebase Flow v2.7.0+): require_approval.<action>.artifact_ttl_minutes
+#   may be either a flat integer (legacy form) OR a mode-keyed object
+#   { direct_to_main: <int>, branch_pr: <int> }. Readers handle both shapes
+#   with backward compatibility. v1 projects continue to work unchanged.
+schema_version: 2
 
 # Workflow mode for the repo. Solo/local default is direct-to-main.
 # Switch to branch_pr for shared/team/high-risk projects.
@@ -21,8 +25,22 @@ workflow_mode: direct_to_main   # direct_to_main | branch_pr
 require_approval:
   production_deploy:
     enforce: true
-    artifact_ttl_minutes: 60
-    rationale: "Production deploys are externally visible and irreversible without rollback ceremony."
+    # Mode-aware TTL (v2.7.0+). Reader looks up workflow_mode and applies the
+    # matching value. Backward-compat: a flat integer here also works (legacy
+    # v1 schema).
+    #
+    # Why mode-aware: in solo direct-to-main, DP.6 (the APPROVE-DEPLOY-NOW
+    # magic phrase typed at deploy time) is the real per-deploy gate. The
+    # artifact's TTL serves only stale-state protection, which barely matters
+    # for one operator iterating on one machine. 60 min was over-engineered
+    # for solo and produced friction during multi-attempt deploy debugging.
+    # In team branch_pr mode, multiple operators may interact with stale
+    # approvals from days-old PR reviews; short TTL forces fresh approval
+    # against current state. The two contexts deserve different defaults.
+    artifact_ttl_minutes:
+      direct_to_main: 129600   # 90 days; cookie-like; DP.6 is the real gate
+      branch_pr: 60            # 60 min; stale-state protection for team contexts
+    rationale: "Production deploys are externally visible and irreversible without rollback ceremony. DP.6 magic phrase is the real per-deploy gate; TTL is stale-state protection only — long for solo direct-to-main, short for team branch_pr."
   database_migration:
     enforce: true
     artifact_ttl_minutes: 120

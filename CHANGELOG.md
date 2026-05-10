@@ -4,6 +4,66 @@ All notable changes to Fusebase Flow Local. Format follows [Keep a Changelog](ht
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [2.7.0] — 2026-05-10
+
+### Added — workflow-mode-aware `artifact_ttl_minutes` for `production_deploy`
+
+The `production_deploy.artifact_ttl_minutes` field in `policies/approval-policy.yml` can now be a **mode-keyed object** with separate TTLs for `direct_to_main` and `branch_pr` workflow modes. The reader (`hooks/local/approve-local.sh`) looks up the project's `workflow_mode` and applies the matching value.
+
+```yaml
+require_approval:
+  production_deploy:
+    enforce: true
+    artifact_ttl_minutes:
+      direct_to_main: 129600   # 90 days; cookie-like; DP.6 is the real gate
+      branch_pr: 60            # 60 min; stale-state protection for team contexts
+    rationale: "..."
+```
+
+**Why.** Real-world friction observed during `paperclip+hermes-v1` deploy: operator hit multiple approval-window expirations during a complex deploy debugging session (3 aborts due to cookie capture issues, SSH tunnel wedged, VS Code zombie listener captured fake cookie). The 60-min default was burning out before the operator could complete the deploy steps.
+
+The PO downstream session correctly diagnosed: in solo direct-to-main mode, the **DP.6 magic phrase** (`APPROVE-DEPLOY-NOW` typed at deploy time, non-delegable, non-bypassable) is the real per-deploy gate. The artifact's TTL serves only stale-state protection — barely matters for one operator iterating on one machine. 60 min was over-engineered for solo and produced friction during multi-attempt deploy debugging.
+
+In team `branch_pr` mode, multiple operators may interact with stale approvals from days-old PR reviews; short TTL forces fresh approval against current state. The two contexts deserve different defaults — that's what mode-aware TTL gives them.
+
+### Backward compatibility — strict superset
+
+The field accepts both shapes:
+
+| Shape | Behavior |
+|---|---|
+| Flat integer (legacy v1 schema) | Used as-is regardless of `workflow_mode` |
+| Mode-keyed object (v2 schema) | Reader looks up `workflow_mode`, falls back to `direct_to_main` if mode key missing, falls back to 60 if both missing |
+
+Existing projects with flat-int form continue to work unchanged. Only `production_deploy` becomes mode-aware in this release; other operations (`database_migration`, `destructive_file_delete`, etc.) keep flat-int form because they don't have the same DP.6-equivalent gate dynamic.
+
+`schema_version` field bumped from `1` to `2` to reflect the new shape support.
+
+### Migration path for downstream projects
+
+| Starting state | What to do |
+|---|---|
+| Project on v2.6.1 with default flat-int 60 min | Pull `policies/approval-policy.yml` from upstream (or merge selectively); your `direct_to_main` mode gets the 90-day default automatically |
+| Project on v2.6.x with manual flat-int override (e.g., operator already set to 129600) | Either keep your local override (works fine; matches `direct_to_main` value upstream now) or migrate to mode-keyed form for cleaner semantics |
+| Project on `branch_pr` mode | Pull upstream; your TTL stays at 60 min (mode-aware default) |
+| Project that customized the field locally via `policies/approval-policy.local.yml` | Local override still works; takes precedence; reader handles whichever shape you used |
+
+### What did NOT change
+
+- Engine bytes (`hooks/local/fusebase-flow-health-check.sh`) — identical to v2.6.1 / v2.6.0 / v2.5.0 / v2.4.1 (5th release in a row with no engine change)
+- Recovery script (`hooks/local/post-fusebase-update.sh`) — identical
+- `upgrade-engine.sh` — identical
+- All other `require_approval.<action>.artifact_ttl_minutes` fields — flat int, unchanged
+- TTL enforcement code (`hooks/shared/command_policy.py`) — already reads `expires_at` from authored artifacts, which is mode-agnostic; no change needed
+
+### Verification
+
+- `bash -n hooks/local/approve-local.sh` → OK
+- 6-case schema reader test (flat int, mode-keyed `direct_to_main`, mode-keyed `branch_pr`, missing field, unknown mode → fallback to `direct_to_main`, no fallback → 60) — all pass
+- End-to-end: `bash hooks/local/approve-local.sh production_deploy v2.7.0-smoke "smoke test"` produces artifact with `expires_at` ≈ 90 days from now (correct for upstream's `direct_to_main` mode + new mode-keyed default)
+- preflight: 0 errors, 0 warnings
+- hook tests: 14/14 PASS
+
 ## [2.6.1] — 2026-05-10
 
 ### Fixed — `.gitignore` exception for `health_check_deferral-*.json` (closes BACKLOG B5)

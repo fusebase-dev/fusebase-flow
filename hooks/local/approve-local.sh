@@ -37,11 +37,22 @@ APPROVALS_DIR="$ROOT/state/approvals"
 mkdir -p "$APPROVALS_DIR"
 
 # Read TTL for this action from the policy (default 60 minutes).
+#
+# v2.7.0+ supports mode-aware TTL: artifact_ttl_minutes may be either a flat
+# integer (legacy v1 schema) OR a mode-keyed object
+# { direct_to_main: <int>, branch_pr: <int> } (v2 schema). When mode-keyed,
+# the reader looks up the project's workflow_mode and applies the matching
+# value. Falls back to direct_to_main, then to 60 if both are absent.
 TTL_MIN="$(python3 - <<PY
 import yaml
 p = yaml.safe_load(open("$POLICY"))
 ra = (p.get("require_approval") or {}).get("$ACTION") or {}
-print(ra.get("artifact_ttl_minutes", 60))
+val = ra.get("artifact_ttl_minutes", 60)
+if isinstance(val, dict):
+    # Mode-keyed object (v2 schema). Look up workflow_mode.
+    workflow_mode = p.get("workflow_mode", "direct_to_main")
+    val = val.get(workflow_mode, val.get("direct_to_main", 60))
+print(int(val))
 PY
 )"
 
