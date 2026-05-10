@@ -120,4 +120,4 @@ If a piece of project identity needs both a narrative justification and a machin
 - `docs/operator-discipline.md` — expectations for the human operator
 - `docs/tradeoffs.md` — key tensions to manage
 - `policies/*.yml` — machine-readable enforcement
-- `FLOW_RULES.md` — FR-01..FR-16 (always-on rules)
+- `FLOW_RULES.md` — FR-01..FR-17 (always-on rules)

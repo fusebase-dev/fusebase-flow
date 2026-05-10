@@ -19,7 +19,7 @@ You are an Architect session that has investigated a complex / cross-cutting des
 
 **Status:** Architect investigation complete; awaiting PO to draft decisions / tasks / verification-gate
 **Slug:** `<slug>`
-**Reporting session:** Architect (Fusebase Flow v2.1, FR-01..FR-16, AR.1..AR.6)
+**Reporting session:** Architect (Fusebase Flow v2.1, FR-01..FR-17, AR.1..AR.6)
 **Date:** <YYYY-MM-DD>
 
 ---

@@ -4,6 +4,98 @@ All notable changes to Fusebase Flow Local. Format follows [Keep a Changelog](ht
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [2.8.0] — 2026-05-10
+
+### Added — FR-17: Forward momentum, never retreat
+
+The headline change. New 17th always-on rule in `FLOW_RULES.md`:
+
+> **FR-17 — Forward momentum, never retreat.** Agents present the next forward action. Don't suggest closing the session, "letting it bake," resting, postponing, or wrapping up — those are presumptuous behavioral suggestions that mask agent caution as operator advice. If there is genuinely no next action, state that fact neutrally ("no pending action") and let the operator decide whether to close. Operators do not need agents to tell them when to stop working.
+
+Self-attestation language updated framework-wide: "FR-01 through FR-17" (was FR-01..FR-16). 26 source-of-truth files touched (38 replacements). Mirrors regenerated.
+
+### Added — anti-retreat role-discipline entries
+
+`skills/role-discipline/SKILL.md` extended with per-role don't-list entries:
+
+| # | Role | Rule |
+|---|---|---|
+| PO.11 | Product Owner | Don't suggest closing / let-it-bake / wrap-up; always present the next forward action; "no pending action" if genuinely nothing. |
+| IM.12 | AI Developer | Same; "produce gate report and stop at gate" is a forward action, not a retreat. |
+| DP.7 | Deploy phase | Same; always a forward action through deploy completion or rollback decision. |
+
+Plus a new **Forward Momentum Protocol** section in the skill with:
+- Concrete `forward action` vs `retreat-disguised-as-advice` comparison table
+- Anti-pattern phrase catalog (12 forbidden phrases: "let it bake," "save it for tomorrow," "close session?", etc.)
+- Edge case: legitimate engineering judgment ("observe real signal first") vs unprompted retreat suggestion
+- Rule of thumb: if the operator didn't ask "should I stop?", the agent doesn't suggest stopping
+- Self-correction refusal phrasing for catching retreat phrases mid-draft
+
+Anchored at don't-list level via PO.11, IM.12, DP.7 (mapped to FR-17). Cross-referenced from agent definitions.
+
+### Added — IM.11: per-task wall-clock recording (retrospective time tracking)
+
+`skills/role-discipline/SKILL.md` adds **IM.11**: AI Developer records UTC `started_at` when picking up a task and `committed_at` when the commit lands. Wall-clock = `committed_at − started_at` per task. Sum of wall-clocks = **net active development time**, naturally excluding wait-for-operator time (which happens between tasks). Both timestamps go into the gate report and (for deploy-phase tasks) the deploy report.
+
+### Updated — return-path templates carry the new time data
+
+`templates/gate-report.md`:
+- **Per-task commit table** grows three columns: `Started (UTC)`, `Committed (UTC)`, `Wall-clock` (the active task time)
+- **New section 1b "Time totals"** showing total elapsed (wall), total active development (sum of wall-clocks), wait time (elapsed − active), tasks completed, average task wall-clock
+- **Section 9 operator-relay block** includes the time totals so operator can paste them to PO without scanning the technical body
+- **Fill-in checklist** adds two items requiring time data
+
+`templates/deploy-report.md`:
+- **Section 7** renamed from "Total deploy duration" to "Net deploy duration breakdown" with two sub-tables:
+  - 7a per-phase elapsed (deploy command, probes, smoke, FR-14 commit) with start/end UTC timestamps and per-phase wall-clock
+  - 7b net active vs wait breakdown (total elapsed, active work, wait time, deploy-command-only duration)
+- **Section 8 operator-relay block** expanded with new time line (elapsed / active / wait split)
+- **Fill-in checklist** adds three items requiring time data
+
+### Updated — agent definitions cross-reference the new rules
+
+- `agents/ai-developer/AGENT.md` — new phase-7 row "every task" explicitly invoking IM.11 (timestamp recording). Existing FR-count bumped to FR-17.
+- `agents/product-owner/AGENT.md` — PO don't-list grows to PO.1..PO.11 (was PO.1..PO.10). New PO.11 row for FR-17.
+
+### What did NOT change
+
+- Engine bytes (`hooks/local/fusebase-flow-health-check.sh`) — identical to v2.7.1 / v2.7.0 / v2.6.1 / v2.6.0 / v2.5.0 / v2.4.1 (7th release in a row with no engine change)
+- Recovery script — identical
+- `upgrade-engine.sh` — identical
+- All policy files (`policies/*.yml`) — unchanged from v2.7.0
+- `templates/handoff-implement.md`, `templates/handoff-deploy.md` — only FR-count bump
+- DP.6 magic phrase, DP.1 approval artifact, all other deploy gates — unchanged
+- TTL config, `.gitignore`, all other infrastructure — unchanged
+
+### Backward compatibility — strict superset
+
+- Existing handoffs, templates, and reports continue to work unchanged.
+- Older sessions attesting "FR-01 through FR-16" still function — FR-17 is additive.
+- Older gate / deploy reports without time columns continue to work; new reports authored from v2.8.0+ templates carry the new data.
+- Existing PO sessions that accidentally suggest "let's close" still produce valid output (operator can ignore); but post-v2.8.0 PO sessions following the protocol won't.
+
+### Drivers (operator-surfaced friction)
+
+1. **FR-17 (anti-retreat)** — operator-observed pattern: "AI always tries to avoid continue working, [tries to make the] operator stop. It constantly engages in things like 'You are done,' 'Go to rest,' 'Let's postpone,' 'Let's close the day.' This is not productive... the operator thinks that all was done, but in [reality the] AI just tries to postpone things."
+2. **IM.11 (time tracking)** — operator-observed gap: deploy reports show timestamps but no per-task or aggregate active-time data. "Let's add the time which was taken to execute the task. Excluding the wait time when the AI Developer waits for feedback, we need to check the net time of actual development. That's going to help in the future to do retrospective analysis and improve the flow."
+
+### Verification
+
+- `bash hooks/local/preflight.sh` → 0 errors, 0 warnings
+- `bash hooks/tests/run-tests.sh` → 14/14 PASS
+- `bash hooks/local/fusebase-flow-health-check.sh` → as-expected verdict (DRIFTED on upstream tree; same baseline as v2.7.1)
+- `grep -rn "FR-01 through FR-16"` outside CHANGELOG / release-notes / fusebase-health → 0 matches
+- Mirrors regenerated cleanly (skills 20/2; agents 4/2)
+- Forward Momentum Protocol section present in role-discipline skill + mirrors
+
+### Why ship as v2.8.0 (minor) not v2.7.2 (patch)
+
+This adds two distinct framework capabilities (new always-on rule + new mandatory measurement). Minor version reflects the additive scope.
+
+### Engine bytes — 7th release in a row with no change
+
+Today's release sequence: v2.4.1 → v2.5.0 → v2.6.0 → v2.6.1 → v2.7.0 → v2.7.1 → v2.8.0. All seven share byte-identical engine code. The framework has been iterating heavily on operator-experience policy / role-discipline / templates while keeping the diagnostic engine stable.
+
 ## [2.7.1] — 2026-05-10
 
 ### Fixed — `AskUserQuestion` popup tools removed from PO (conflict with FR-16)

@@ -3,11 +3,11 @@
 This repo runs **Fusebase Flow Local v2.1**. Read these files before any other action:
 
 - `AGENTS.md` — portable always-on baseline (rules vs skills vs workflows vs hooks vs policies)
-- `FLOW_RULES.md` — full always-on rules (FR-01..FR-16) with enforcement-surface map
+- `FLOW_RULES.md` — full always-on rules (FR-01..FR-17) with enforcement-surface map
 
 ## Self-attestation (first response of every session)
 
-> "Operating as {Product Owner | AI Developer | Architect (escalation) | Deploy phase} under Fusebase Flow v2.1. I will follow FR-01 through FR-16. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+> "Operating as {Product Owner | AI Developer | Architect (escalation) | Deploy phase} under Fusebase Flow v2.1. I will follow FR-01 through FR-17. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 ## State announcement (every output)
 

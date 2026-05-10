@@ -12,9 +12,9 @@ tools: Read, Glob, Grep, Bash, Write, Edit, AskUserQuestion
 
 Choose the role from the handoff filename:
 
-> **AI Developer:** "Operating as AI Developer under Fusebase Flow v2.1. I will follow FR-01 through FR-16. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for AI Developer."
+> **AI Developer:** "Operating as AI Developer under Fusebase Flow v2.1. I will follow FR-01 through FR-17. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for AI Developer."
 
-> **Deploy phase:** "Operating as Deploy phase under Fusebase Flow v2.1. I will follow FR-01 through FR-16. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Deploy phase."
+> **Deploy phase:** "Operating as Deploy phase under Fusebase Flow v2.1. I will follow FR-01 through FR-17. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Deploy phase."
 
 If no handoff path is provided in the operator's first message, **STOP** and ask the operator which handoff to load. Do NOT improvise the work without a handoff.
 
@@ -32,7 +32,7 @@ If no handoff path is provided in the operator's first message, **STOP** and ask
 | File | Why |
 |---|---|
 | The handoff file (path provided by operator) | the work to do |
-| `FLOW_RULES.md` | FR-01..FR-16 always-on rules |
+| `FLOW_RULES.md` | FR-01..FR-17 always-on rules |
 | `AGENTS.md` | repo-local always-on baseline |
 | `skills/communication/SKILL.md` | Mode A / Mode B discipline (mandatory) |
 | `skills/role-discipline/SKILL.md` | AI Developer + Deploy phase don't-lists + refusal phrasing (mandatory) |
@@ -54,6 +54,7 @@ If no handoff path is provided in the operator's first message, **STOP** and ask
 | 6b — pre-task checkpoint | `git status --short` clean before T1 (IM.10) |
 | 6b — repo onboarding (first session) | Invoke `repo-onboarding-context-map` skill |
 | 7 — execute T-chain | One task per commit (FR-03 / IM.4); commit message references the T-number (IM.5) |
+| 7 — every task | **(v2.8.0+ / IM.11)** Record UTC `started_at` when picking up task `T<n>`. Record `committed_at` when the commit lands. Both go into the gate-report per-task table (Wall-clock column = `committed_at − started_at`). Wait-for-operator time is naturally excluded since the agent isn't doing work between tasks. |
 | 7 — every commit | lint + typecheck pass before commit (FR-13 / IM.3) |
 | 7 — when smoke needed | follow `workflows/smoke-verification.md`; if live-user verification fires, follow `workflows/live-user-verification.md` (mask cookies / session keys; never persist) |
 | 6c — produce gate report | Use `templates/gate-report.md` (v2.6.0+). Required fields: per-task SHAs, test counts, lint+typecheck status, worker-undisturbed git-diff result, manifest version, deviations list, **plus section 9 operator-relay block** (mandatory; per FR-16 — operator copies that block into PO chat instead of digesting the technical body). |

@@ -7,7 +7,7 @@ This repository follows **Fusebase Flow** (https://github.com/fusebase-dev/fuseb
 
 Fusebase Flow ships:
 
-- **Always-on rules:** `FLOW_RULES.md` (FR-01..FR-16)
+- **Always-on rules:** `FLOW_RULES.md` (FR-01..FR-17)
 - **Mandatory skills (auto-loaded via `.claude/skills/` and `.agents/skills/`):** `communication`, `role-discipline`
 - **On-demand skills (description-matched):** `code-review`, `implementation-planning`, `release-deploy-reporting`, `repo-onboarding-context-map`, `requirements-specification`, `security-permissions-review`, `validation-and-qa`, `fusebase-flow-health-check`
 - **Sub-agents (description-matched from `.claude/agents/`):** `product-owner` (phases 1–6 + Architect inline), `ai-developer` (phase 7 AI Developer + phase 8b Deploy attestation)
@@ -18,7 +18,7 @@ Fusebase Flow ships:
 
 **Self-attestation (every session's first response):**
 
-> "Operating as {role} under Fusebase Flow. I will follow FR-01 through FR-16. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+> "Operating as {role} under Fusebase Flow. I will follow FR-01 through FR-17. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 ### Maintenance posture (Fusebase CLI ↔ Fusebase Flow coexistence)
 

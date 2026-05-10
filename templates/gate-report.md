@@ -20,20 +20,38 @@ You are an AI Developer session that has just completed `T<first>..T<gate>` and 
 **Status:** Gate reached; awaiting PO review and deploy handoff
 **Slug:** `<slug>`
 **Task range:** T<first>..T<gate>
-**Reporting session:** AI Developer (Fusebase Flow v2.1, FR-01..FR-16)
+**Reporting session:** AI Developer (Fusebase Flow v2.1, FR-01..FR-17)
 **Date:** <YYYY-MM-DD>
 
 ---
 
 ## 1. Per-task commit table
 
-| Task | Title | Commit SHA | Lint | Typecheck | Worker-undisturbed | Notes |
-|---|---|---|---|---|---|---|
-| T<first> | <task title> | `<sha>` | ✓ | ✓ | empty diff | — |
-| T<first+1> | <task title> | `<sha>` | ✓ | ✓ | empty diff | — |
-| ... | ... | ... | ... | ... | ... | ... |
-| T<gate-1> | <task title> | `<sha>` | ✓ | ✓ | empty diff | — |
-| T<gate> | <gate task title> | `<sha>` | ✓ | ✓ | empty diff | gate evidence captured |
+| Task | Title | Commit SHA | Started (UTC) | Committed (UTC) | Wall-clock | Lint | Typecheck | Worker-undisturbed | Notes |
+|---|---|---|---|---|---|---|---|---|---|
+| T<first> | <task title> | `<sha>` | `<HH:MM:SS>` | `<HH:MM:SS>` | `<m:ss>` | ✓ | ✓ | empty diff | — |
+| T<first+1> | <task title> | `<sha>` | `<HH:MM:SS>` | `<HH:MM:SS>` | `<m:ss>` | ✓ | ✓ | empty diff | — |
+| ... | ... | ... | ... | ... | ... | ... | ... | ... | ... |
+| T<gate-1> | <task title> | `<sha>` | `<HH:MM:SS>` | `<HH:MM:SS>` | `<m:ss>` | ✓ | ✓ | empty diff | — |
+| T<gate> | <gate task title> | `<sha>` | `<HH:MM:SS>` | `<HH:MM:SS>` | `<m:ss>` | ✓ | ✓ | empty diff | gate evidence captured |
+
+**Per IM.11 (v2.8.0+):** wall-clock = `committed_at − started_at` per task. Net active development time = sum of wall-clocks. Wait-for-operator time happens between tasks (gate review, decisions, etc.) and is naturally excluded — the agent isn't doing work then.
+
+---
+
+## 1b. Time totals
+
+| Metric | Value | Notes |
+|---|---|---|
+| First task started | `<YYYY-MM-DD HH:MM:SS UTC>` | T<first> |
+| Gate task committed | `<YYYY-MM-DD HH:MM:SS UTC>` | T<gate> |
+| **Total elapsed (wall)** | `<H:MM:SS>` | end-to-end including all waits |
+| **Total active development** | `<H:MM:SS>` | sum of per-task wall-clocks; **excludes wait time** |
+| Wait time (elapsed − active) | `<H:MM:SS>` | operator feedback / decision pauses between tasks |
+| Tasks completed | `<count>` | T<first>..T<gate> |
+| Average task wall-clock | `<m:ss>` | active dev / tasks |
+
+These numbers feed retrospective analysis per FR-15. Historical comparison helps predict future task chains and identify task-types that consistently run over/under estimate.
 
 ---
 
@@ -132,6 +150,12 @@ Headline: <one-line summary — e.g., "All gate items PASS. Ready for PO review 
 
 Per-task commits: T<first>..T<gate> (<count> commits). All lint+typecheck clean. Worker-undisturbed: empty diff on all protected paths.
 
+Time totals (per IM.11 / v2.8.0+):
+  - Total elapsed (wall): <H:MM:SS>
+  - Total active development: <H:MM:SS> (excludes wait time)
+  - Wait time: <H:MM:SS>
+  - Average task wall-clock: <m:ss>
+
 Test deltas:
   - Unit: <N> -> <N> (<±N>)
   - Integration: <N> -> <N> (<±N>)
@@ -160,6 +184,8 @@ Before pasting the filled report to operator, verify:
 
 - [ ] Every task in T<first>..T<gate> has a row in the per-task commit table
 - [ ] All commit SHAs are real (not placeholders)
+- [ ] **Per-task `started_at`, `committed_at`, and wall-clock filled in (IM.11 / v2.8.0+)** — record the UTC timestamp when you pick up each task and when its commit lands
+- [ ] **Section 1b time totals computed** — total elapsed (wall), total active development (sum of wall-clocks), wait time (elapsed − active), average task wall-clock
 - [ ] Lint + typecheck output is pasted verbatim (not paraphrased)
 - [ ] Worker-undisturbed re-check actually run; output pasted
 - [ ] Test counts before / after / delta computed (operator should be able to verify)

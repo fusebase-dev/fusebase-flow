@@ -6,7 +6,7 @@ This repo runs **Fusebase Flow Local v2.1**. The full portable baseline is in `A
 
 | Surface | Where |
 |---|---|
-| Always-on rules | `FLOW_RULES.md` (FR-01..FR-16) |
+| Always-on rules | `FLOW_RULES.md` (FR-01..FR-17) |
 | Skills (read on demand) | `skills/` (canonical) |
 | Workflows | `workflows/` |
 | Templates | `templates/` |
@@ -18,7 +18,7 @@ This adapter is intentionally minimal because Gemini / Antigravity-style IDEs do
 
 ## Self-attestation (every session's first response)
 
-> "Operating as {role} under Fusebase Flow v2.1. I will follow FR-01 through FR-16. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+> "Operating as {role} under Fusebase Flow v2.1. I will follow FR-01 through FR-17. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 ## State announcement (every output)
 

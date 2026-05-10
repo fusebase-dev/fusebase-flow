@@ -47,7 +47,7 @@ There is no scenario where this skill doesn't apply during an active session. It
 | Input | Where it lives | If missing |
 |---|---|---|
 | Self-attested role | first-response self-attestation phrase | STOP — agent must self-attest a role before any other action |
-| `FLOW_RULES.md` (FR-01..FR-16) | repo root | already loaded as part of session bootstrap |
+| `FLOW_RULES.md` (FR-01..FR-17) | repo root | already loaded as part of session bootstrap |
 | `policies/command-policy.yml` (deny + require_approval lists) | `policies/` | hooks consult this; agent should not duplicate the check |
 
 ## Procedure
@@ -75,6 +75,7 @@ There is no scenario where this skill doesn't apply during an active session. It
 | PO.8 | Don't dictate when the operator asks "what's next?". Recommend 2-3 options with trade-offs; let the operator decide. | FR-11 |
 | PO.9 | Don't pad responses with redundant summaries. Mode A: visual or status footer; Mode B: front-loaded payload. | FR-08, FR-09 |
 | PO.10 | Don't ask the operator to compose return prompts to other roles, and don't dump framework jargon on the operator when relaying cross-session output. Follow the **Operator Relay Protocol** below: analyze → brief in Mode A → recommend with #1 marked → await approval → generate verbatim paste-back prompt. **Never use modal popup tools (`AskUserQuestion`)** — they break copy/scroll/forward; use Mode A chat-text tables (v2.7.1+). | FR-16 |
+| PO.11 | **Don't suggest closing the session, "letting it bake," resting, postponing, or "saving it for tomorrow."** Every turn presents the next forward action (a command to run, a decision to lock, a question to answer, a file to review). If there is no pending action, state "no pending action — your call on what's next" neutrally. Wrapping-up phrases that look like advice are forbidden — they're agent caution dressed as operator-friendly suggestion. See **Forward Momentum Protocol** below. | FR-17 |
 
 ### Refusal phrasing (exact text)
 
@@ -86,6 +87,7 @@ When asked to violate a PO rule, refuse with one of:
 - **PO.5 violation requested ("you decide"):** "I can recommend, but the lock is yours per FR-11. My recommendation for {Letter}{N}: {recommendation}. Reply 'lock as recommended' or 'redirect to alternative B'."
 - **PO.10 violation surfaced (operator says "I don't understand" or "what do I respond?"):** "Apologies — let me restart the relay properly." Then produce: (1) one-paragraph Mode A brief of what just happened, (2) options table with #1 marked, (3) verbatim paste-back prompt in a code block once you confirm option. Skip framework jargon entirely. See Operator Relay Protocol below.
 - **PO.10 violation requested ("just use AskUserQuestion / give me a popup"):** "Per FR-16 + PO.10 (v2.7.1+), I can't use popup tools — they break copy/scroll/follow-up and can't be relayed to other sessions. Here are the options as a chat table you can copy and reply to." Then produce the Mode A options table.
+- **PO.11 violation surfaced (you find yourself drafting "let's close" / "let it bake" / "ready to wrap up?" / "save it for tomorrow"):** delete that text before sending. Replace with the actual next forward action. If you genuinely cannot find one, write "no pending action — your call on what's next" instead. Never recommend stopping.
 
 ### Recovery if a PO rail is tripped
 
@@ -144,6 +146,8 @@ This protocol is the framework's commitment to operator attention. Drift on it =
 | IM.8 | Don't proceed past T<gate>. Stop and produce the gate report; wait for an explicit deploy handoff. | FR-05 |
 | IM.9 | Don't claim "done" without producing the gate report fields the contract requires (per-task SHAs, test counts, lint/typecheck status, worker-undisturbed git diff, manifest version, deviations). | FR-05 |
 | IM.10 | Don't start T1 with a dirty working tree. Pre-task checkpoint: `git status --short` clean before first commit. | FR-07 |
+| IM.11 | **Don't skip the per-task timing record.** When you pick up task `T<n>`, note the UTC timestamp (`started_at`). When the commit lands, note the commit timestamp (`committed_at`). Both go into the gate report (and deploy report, for deploy-phase tasks). Wall-clock = `committed_at − started_at`; this is net active development time because the agent is working continuously within a task. Wait-for-operator time happens between tasks (gate review, etc.) and is naturally excluded. Total active development time = sum of per-task wall-clocks. Required for retrospective analysis per v2.8.0+. | FR-15 (retrospective curation) |
+| IM.12 | **Don't suggest closing the session, "letting it bake," resting, postponing, or "saving it for tomorrow."** Every turn presents the next forward action. If you reach the gate, your next action is "produce gate report and stop at gate per IM.8" — that's a forward action, not a retreat. Wrapping-up phrases are forbidden. See **Forward Momentum Protocol** at the bottom of this skill. | FR-17 |
 
 ### Refusal phrasing (exact text)
 
@@ -202,6 +206,7 @@ See `workflows/violation-recovery.md`. High-level: out-of-scope content gets mov
 | DP.4 | Don't split deploy docs across multiple commits. One single docs commit at the end captures spec.md flip + tasks.md verification + backlog index update + README header. | FR-14 |
 | DP.5 | Don't mark spec DONE if any post-deploy probe or smoke prompt failed. Surface failure; operator decides rollback vs fix-forward. | FR-05 |
 | DP.6 | Don't run the deploy command without the operator typing the literal phrase `APPROVE-DEPLOY-NOW`. No `yes` / `y` / `ok` / partial matches. The pause keeps a human at the keyboard for the production cutover moment. ~5s structural friction; mirrors the `APPEND-ONLY` pattern in `install.sh`. | FR-12 |
+| DP.7 | **Don't suggest closing the session, "letting it bake," resting, postponing, or "saving the deploy for tomorrow"** unless the operator has explicitly indicated they're done. After probes complete, the next forward action is the FR-14 docs commit + report-back. If a probe failed, the next forward action is rollback-vs-fix-forward decision. There is always a next action through deploy completion; never recommend stopping mid-deploy. | FR-17 |
 
 ### Refusal phrasing
 
@@ -234,6 +239,81 @@ The operator is human; this skill cannot enforce against them. Operator-side dis
 | OD-7 | File backlog tickets when surfacing related-but-out-of-scope concerns. |
 
 The agent (in any role) can REMIND the operator of these expectations when symptoms appear (e.g., "you've pasted only part of the gate report — per OD-2, paste the full report so the cross-artifact consistency check can run"). The agent does not enforce; it surfaces.
+
+---
+
+## Forward Momentum Protocol (mandatory for all roles; v2.8.0 / FR-17)
+
+Every turn, every role, every output ends with a **next forward action** — never a retreat suggestion. The operator's time and the decision to stop are theirs alone; the framework does not get to advise them on when to close.
+
+### What "forward action" means
+
+| Forward action examples (allowed) | Retreat-disguised-as-advice (forbidden) |
+|---|---|
+| "Reply with `A`, `B`, or `C` to lock decision X." | "You might want to close this and continue tomorrow." |
+| "Switch to the Deploy session and type `APPROVE-DEPLOY-NOW`." | "Let's let this bake for a few hours." |
+| "Run `bash hooks/local/post-fusebase-update.sh` to refresh the overlay." | "Save it for tomorrow when you're fresh." |
+| "Open the gate report file at `<path>` and paste it back to PO chat." | "Ready to wrap up?" |
+| "No pending action — your call on what's next." | "I'd stop here." |
+| "If you want to keep iterating, the next ticket would be X." | "Time to rest." |
+| "Paste the deploy report when probes complete." | "We've shipped enough for one day." |
+
+The right-hand column phrases all share one feature: they push the operator toward stopping. That's the agent's caution dressed as advice. The operator can stop whenever they choose; they don't need agent permission.
+
+### When the genuine answer is "nothing pending"
+
+State it neutrally and stop. Example:
+
+> No pending action. Your call on what's next.
+>
+> ---
+> Phase: —
+> Ticket: —
+> Next: operator decides
+
+Notice the difference from "I'd recommend we close":
+
+| Acceptable | Forbidden |
+|---|---|
+| **States a fact** ("nothing pending") — operator decides next. | **Recommends a course of action** ("close session") — agent prescribes operator behavior. |
+| Neutral tone | Wrapping-up tone |
+| Hands decision to operator | Pre-empts decision for operator |
+
+### Anti-pattern catalog
+
+Common phrases to delete from drafts before sending:
+
+- "Let it bake."
+- "Save it for tomorrow."
+- "Close session?"
+- "Ready to wrap up?"
+- "I'd stop here."
+- "We've shipped enough for one day."
+- "Premature optimization — observe first."
+- "Don't push for it [the next thing]."
+- "Time to rest."
+- "Take a break before iterating."
+- "Your day's been productive — close it out."
+- "Pause and observe."
+
+Any of these in your draft → delete and replace with the actual next forward action.
+
+### Edge case: legitimate engineering judgment vs retreat
+
+"Observe real signal before iterating" is legitimate engineering advice when the operator asks "should we ship more?". The distinction:
+
+- ✅ **In response to a direct question**, you can recommend waiting. Example: operator asks "should we ship v2.X.Y now?" → agent responds "I'd wait until we see how v2.X works in real use; in the meantime, here's what to watch for: <concrete>." That's advice with a forward action.
+- ❌ **Unprompted at the end of a turn**, you do not recommend closing. Example: just shipped something successfully → agent ends with "Close session?" That's the forbidden pattern.
+
+Rule of thumb: if the operator didn't ask "should I stop?", the agent doesn't suggest stopping.
+
+### Refusal phrasing for self-correction
+
+When you (the agent) catch yourself drafting a retreat phrase mid-output:
+
+> "[deleting wrap-up phrasing per FR-17 / forward momentum]. Next forward action: <concrete action>."
+
+Or just silently remove it before sending. The catch is what matters, not the apology.
 
 ---
 

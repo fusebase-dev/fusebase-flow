@@ -21,7 +21,7 @@ You are an AI Developer Deploy-phase session that has just completed T<deploy> (
 **Slug:** `<slug>`
 **Deploy hash:** `<hash>` ← rollback: `git revert <hash>`
 **Approval artifact:** `state/approvals/production_deploy-<slug>-<date>.json` (expires `<timestamp>`)
-**Reporting session:** AI Developer / Deploy phase (Fusebase Flow v2.1, FR-01..FR-16)
+**Reporting session:** AI Developer / Deploy phase (Fusebase Flow v2.1, FR-01..FR-17)
 **Date:** <YYYY-MM-DD>
 
 ---
@@ -99,14 +99,30 @@ If pending actions exist: list them with **literal commands the operator should 
 
 ---
 
-## 7. Total deploy duration
+## 7. Net deploy duration breakdown
 
-| Phase | Duration |
-|---|---|
-| Operator confirm → deploy command exit | <mm:ss> |
-| Deploy command exit → probes complete | <mm:ss> |
-| Probes complete → docs commit pushed | <mm:ss> |
-| **Total** | <mm:ss> |
+Per IM.11 (v2.8.0+), separate active deploy work from operator-wait time. Retrospective analysis uses these numbers.
+
+### 7a. Per-phase elapsed (wall-clock)
+
+| Phase | Started (UTC) | Ended (UTC) | Wall-clock |
+|---|---|---|---|
+| Operator typed `APPROVE-DEPLOY-NOW` → deploy command started | `<HH:MM:SS>` | `<HH:MM:SS>` | `<m:ss>` |
+| Deploy command running | `<HH:MM:SS>` | `<HH:MM:SS>` | `<m:ss>` |
+| Probes running | `<HH:MM:SS>` | `<HH:MM:SS>` | `<m:ss>` |
+| Smoke prompts running (if any) | `<HH:MM:SS>` | `<HH:MM:SS>` | `<m:ss>` |
+| FR-14 docs commit prep + push | `<HH:MM:SS>` | `<HH:MM:SS>` | `<m:ss>` |
+
+### 7b. Net active vs wait
+
+| Metric | Value | Notes |
+|---|---|---|
+| **Total elapsed (wall)** | `<H:MM:SS>` | operator-confirm → deploy report ready; end-to-end including all waits |
+| **Active deploy work** | `<H:MM:SS>` | sum of "deploy command running" + "probes running" + "smoke running" + "FR-14 commit prep+push"; **excludes operator-wait moments** |
+| Wait time | `<H:MM:SS>` | elapsed − active; e.g., operator deciding rollback-vs-fix-forward on a probe failure |
+| Deploy-command-only duration | `<m:ss>` | the deploy command itself, for tracking deploy-script bottlenecks |
+
+These numbers feed retrospective analysis per FR-15. Useful comparisons: deploy-command duration over time (regression in build pipeline?), probe duration over time (test suite drift?), active vs wait ratio (where are we spending the slow-but-not-running minutes?).
 
 ---
 
@@ -121,7 +137,8 @@ Headline: <one-line summary — e.g., "All probes PASS. FR-14 docs commit landed
 
 Deploy hash: <hash>
 Rollback command: git revert <hash>
-Total duration: <mm:ss>
+Total elapsed: <H:MM:SS> (active <H:MM:SS> + wait <H:MM:SS>; per IM.11/v2.8.0+)
+Deploy-command-only: <m:ss>
 
 Probes: <N>/<N> PASS (G-M..G-Q + smoke S1..Sn)
 FR-14 docs commit: <commit SHA>
@@ -179,8 +196,10 @@ Before pasting:
 - [ ] Deploy hash captured from real command output
 - [ ] Each probe result has concrete evidence (output excerpt, log line, screenshot path) — not just "PASS"
 - [ ] FR-14 commit SHA is real
+- [ ] **Section 7a per-phase timestamps recorded** — UTC `started_at` + `ended_at` for each deploy-phase activity (deploy command, probes, smoke, FR-14 commit) per IM.11 / v2.8.0+
+- [ ] **Section 7b net active vs wait breakdown computed** — total elapsed, active work (sum of phase wall-clocks), wait time, deploy-command-only duration
 - [ ] Section 6 operator-side pending actions: literal commands, not paraphrases
-- [ ] Section 8 operator-relay block is filled with actual content (not template `<...>` placeholders)
+- [ ] Section 8 operator-relay block is filled with actual content (not template `<...>` placeholders) — INCLUDING the new time line (elapsed / active / wait)
 - [ ] If any probe failed: section 3 replaced with failure version + relay block reflects failure
 
 ---

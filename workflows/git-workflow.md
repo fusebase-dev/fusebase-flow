@@ -33,7 +33,7 @@ For team / shared / regulated projects, switch via `policies/approval-policy.yml
 | Approval artifact | `state/approvals/production_deploy-*.json` | PR approval (GitHub/GitLab) + same artifact |
 | Rollback | `git revert <hash>` on main | `git revert` on main; close PR if not merged |
 
-The flow rules (FR-01..FR-16) are identical. Only the git surface changes.
+The flow rules (FR-01..FR-17) are identical. Only the git surface changes.
 
 ## Per-task commit procedure
 

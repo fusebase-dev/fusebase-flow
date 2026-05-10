@@ -24,7 +24,7 @@ After:
 ## Procedure (Deploy phase / AI Developer side)
 
 1. Read deploy handoff. Verify approval artifact exists.
-2. Self-attest: "Operating as Deploy phase under Fusebase Flow v2.1. I will follow FR-01 through FR-16, including FR-05 (gate fulfilled), FR-06 (reversible by default), FR-07 (worker-undisturbed), FR-12 (approval-gated), FR-14 (single docs commit on deploy). I will apply the role-discipline skill section for Deploy phase (DP.1..DP.6)."
+2. Self-attest: "Operating as Deploy phase under Fusebase Flow v2.1. I will follow FR-01 through FR-17, including FR-05 (gate fulfilled), FR-06 (reversible by default), FR-07 (worker-undisturbed), FR-12 (approval-gated), FR-14 (single docs commit on deploy). I will apply the role-discipline skill section for Deploy phase (DP.1..DP.6)."
 3. Final worker-undisturbed re-check before deploy command. If anything changed since gate, STOP.
 4. **Operator confirm (DP.6).** Ask the operator to type the literal `APPROVE-DEPLOY-NOW` phrase. If the response is anything other than the exact phrase, ABORT the deploy and surface the abort. The operator can re-issue the deploy by re-running this workflow in a fresh session.
 5. Run deploy command (exact command from `AGENTS.md` project-specific section).

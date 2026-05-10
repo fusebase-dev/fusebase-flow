@@ -263,7 +263,7 @@ fusebase-flow/
 ├── AGENTS.md                       ← portable always-on baseline
 ├── CLAUDE.md                       ← Anthropic Claude Code adapter
 ├── GEMINI.md                       ← Gemini-style IDE adapter
-├── FLOW_RULES.md                   ← FR-01..FR-16 always-on rules
+├── FLOW_RULES.md                   ← FR-01..FR-17 always-on rules
 ├── VERSION                         ← 2.2.0
 ├── .gitattributes                  ← LF line endings for shell/python/yaml/md
 ├── .python-version                 ← 3.12 (recommended)
@@ -360,7 +360,7 @@ Public-facing reference material lives in [`docs/`](docs/):
 
 - [`docs/compatibility.md`](docs/compatibility.md) — provider / IDE support detail
 - [`docs/hook-coverage.md`](docs/hook-coverage.md) — hook × provider coverage
-- [`docs/rail-mapping.md`](docs/rail-mapping.md) — FR-01..FR-16 → enforcement surfaces
+- [`docs/rail-mapping.md`](docs/rail-mapping.md) — FR-01..FR-17 → enforcement surfaces
 - [`docs/clean-room.md`](docs/clean-room.md) — clean-room license attestation
 - [`docs/source-map.md`](docs/source-map.md) — generic pattern attribution
 

@@ -29,7 +29,7 @@ You are operating as the **AI Developer in the Deploy phase** under Fusebase Flo
 
 ## Mandatory pre-execution reads (in order)
 
-1. `FLOW_RULES.md` — FR-01 through FR-16
+1. `FLOW_RULES.md` — FR-01 through FR-17
 2. `AGENTS.md` (project-specific section, especially deploy command and worker-undisturbed list)
 3. `docs/specs/<slug>/spec.md` — locked spec (will flip DRAFT → DONE in this deploy)
 4. `docs/specs/<slug>/verification-gate.md` — probe contract you'll run
