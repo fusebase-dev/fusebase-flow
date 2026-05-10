@@ -53,7 +53,7 @@ Every cross-session prompt is saved here BEFORE being shown in chat (FR-04). Rep
 ```
                                         ┌─────────────────────┐
                                         │   FLOW_RULES.md     │
-                                        │   (FR-01..FR-15)    │
+                                        │   (FR-01..FR-16)    │
                                         │   always-on         │
                                         └──────────┬──────────┘
                                                    │

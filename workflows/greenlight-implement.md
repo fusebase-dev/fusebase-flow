@@ -23,27 +23,28 @@ After `implementation-planning` has produced `decisions.md` (all locked), `tasks
 ## Procedure (AI Developer side)
 
 1. Read mandatory pre-execution files (per the handoff's reads list).
-2. Self-attest: "Operating as AI Developer under Fusebase Flow v2.1. I will follow FR-01 through FR-15. I will apply Mode A on chat output and Mode B on every file I write. I will apply the role-discipline skill section for AI Developer (IM.1..IM.10)."
+2. Self-attest: "Operating as AI Developer under Fusebase Flow v2.1. I will follow FR-01 through FR-16. I will apply Mode A on chat output and Mode B on every file I write. I will apply the role-discipline skill section for AI Developer (IM.1..IM.10)."
 3. Pre-task git checkpoint: `git status --short`. If non-empty, STOP and ask operator.
 4. Execute tasks T<first>..T<gate> per `tasks.md`. One task = one commit (FR-03). Each commit:
    - Lint + typecheck clean (FR-13)
    - Worker-undisturbed paths show empty diff (FR-07)
    - Commit message cites T-number (FR-03)
 5. Stop at T<gate>. Do NOT proceed to T<deploy>. Wait for an explicit deploy handoff (FR-05).
-6. Produce the gate report per `verification-gate.md` contract:
+6. Produce the gate report **using `templates/gate-report.md`** (v2.6.0+). The template includes a section-9 operator-relay block that the operator copies into PO chat — per FR-16, you (AI Developer) compose this block so the operator doesn't have to scan the technical body to figure out "what to tell PO." Gate body covers:
    - Every commit SHA per task
    - Test counts (before / after / delta per layer)
    - Lint + typecheck status
    - Worker-undisturbed git diff confirmation
    - Manifest version (if applicable)
    - Deviations from architect/PO plan with reasoning
-7. Paste gate report back to operator.
+   - Section 9 operator-relay block (mandatory; per FR-16)
+7. Paste filled gate report back to operator. Operator copies section 9 block into PO chat for closeout per the **Operator Relay Protocol** (skills/role-discipline/SKILL.md PO section).
 
 ## AI Developer self-attestation
 
 AI Developer's first response must include:
 
-> "Operating as AI Developer under Fusebase Flow v2.1. I will follow FR-01 through FR-15 — including spec-before-code, plan-before-edit, one-task-one-commit, persist handoffs, stop-at-gate, reversible-by-default, worker-undisturbed verification, Mode-A chat / Mode-B docs, reproducibility-before-fix, stop-and-ask, approval-gated side effects, lint+typecheck per commit, single docs commit on deploy, and knowledge-curation triggers. I will apply the role-discipline skill section for AI Developer (IM.1..IM.10) and use its refusal phrasing when an action would violate a rule. Reading required files now."
+> "Operating as AI Developer under Fusebase Flow v2.1. I will follow FR-01 through FR-16 — including spec-before-code, plan-before-edit, one-task-one-commit, persist handoffs, stop-at-gate, reversible-by-default, worker-undisturbed verification, Mode-A chat / Mode-B docs, reproducibility-before-fix, stop-and-ask, approval-gated side effects, lint+typecheck per commit, single docs commit on deploy, and knowledge-curation triggers. I will apply the role-discipline skill section for AI Developer (IM.1..IM.10) and use its refusal phrasing when an action would violate a rule. Reading required files now."
 
 ## State announcement (every output)
 
@@ -154,7 +155,9 @@ Per FR-05, stop at T<gate>. Do NOT run deploy. Report gate per `verification-gat
 ## Related
 
 - `templates/handoff-implement.md` — **canonical handoff template** (v2.5.0+); copy + fill placeholders for new handoffs
+- `templates/gate-report.md` — **canonical gate report template** (v2.6.0+); AI Developer fills this when reaching T<gate>; section 9 is the operator-relay block per FR-16
 - `skills/implementation-planning/SKILL.md` — produces this handoff
+- `skills/role-discipline/SKILL.md` — PO section includes the **Operator Relay Protocol** (FR-16) used when operator pastes the gate report back to PO
 - `workflows/verification-gate.md` — gate contract
 - `workflows/greenlight-deploy.md` — next handoff after gate verifies
 - `policies/protected-paths.yml` — worker-undisturbed list

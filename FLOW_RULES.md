@@ -1,6 +1,6 @@
-# Fusebase Flow — always-on rules (FR-01..FR-15)
+# Fusebase Flow — always-on rules (FR-01..FR-16)
 
-**Status:** v0.1
+**Status:** v0.2 (FR-16 added in v2.6.0 per Operator Stewardship initiative)
 **Scope:** every session in any IDE/agent must follow these regardless of which skill or workflow is active.
 
 These rules are clean-room original. Each rule states *what*, *why*, and *enforcement surface* (rule-only, policy, hook, workflow, skill). Enforcement details live in `policies/`, `hooks/`, and `workflows/` — this file is the readable contract.
@@ -22,6 +22,7 @@ These rules are clean-room original. Each rule states *what*, *why*, and *enforc
 | FR-13 | Lint+typecheck per commit | Broken state on main forces emergency rollback and breaks downstream pulls | rule + `pre-commit` git hook |
 | FR-14 | Single docs commit on deploy | DRAFT→DONE flip, tasks marks, backlog index update belong together so a single revert restores known-good doc state | rule + workflow `greenlight-deploy` |
 | FR-15 | Knowledge curation triggers | Without persistent capture, every new session re-discovers solved problems | rule + workflow `knowledge-curation` (operator-confirmed only) |
+| FR-16 | Operator is a thin relay | The human operator's job is (1) product/business decisions, (2) gate approvals, (3) physically moving messages between sessions. Every other cognitive task — interpreting status, recommending next steps, composing prompts to paste back — is the agent's job, especially the PO's. Operator attention is the most expensive resource; sessions must protect it. | rule + skill `skills/role-discipline/SKILL.md` (PO Operator Relay Protocol) + return-path templates (`templates/gate-report.md`, `templates/deploy-report.md`, `templates/architect-response.md`) |
 
 ---
 
@@ -42,9 +43,11 @@ If a session writes code outside its role, FR-01 fires and the agent must stop a
 
 ## Self-attestation (mandatory at first response of every session)
 
-Every role declares: "Operating as {role} under Fusebase Flow v2.1. I will follow FR-01 through FR-15. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+Every role declares: "Operating as {role} under Fusebase Flow v2.1. I will follow FR-01 through FR-16. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 If self-attestation is missing from the first response, the session is drifting. Self-correct in the next output.
+
+**FR-16 implication for PO sessions:** when the operator pastes output from another role (AI Developer gate report, Deploy report, Architect response), the PO MUST follow the **Operator Relay Protocol** (skills/role-discipline/SKILL.md PO section) — analyze, brief in Mode A, present options with #1 marked, await approval, then generate the verbatim paste-back prompt. PO does not push framework jargon onto the operator and does not ask the operator to compose return prompts. See FR-16 above.
 
 ---
 
@@ -104,4 +107,15 @@ Both modes preserve FR-03, FR-13, FR-14.
 2026-05-08 — v0.1 initial. 15 always-on rules codified from clean-room redesign of
              prior Product Owner Flow rails. Communication and implementation discipline
              moved from "skills" into rules per design thesis.
+
+2026-05-10 — v0.2. FR-16 added (operator is a thin relay). Codifies the Operator
+             Stewardship principle: human operator's job narrows to product
+             decisions, gate approvals, and physical relay between sessions.
+             Cognitive load — interpreting reports, recommending options,
+             composing return prompts — moves to PO via the Operator Relay
+             Protocol (skills/role-discipline/SKILL.md). Driver: operator
+             friction during paperclip+hermes-v1 deploy gate where operator
+             couldn't decode "DP.6 magic phrase" guidance and PO gave
+             framework-jargon responses instead of plain action steps.
+             Shipped in framework v2.6.0.
 ```

@@ -12,9 +12,9 @@ tools: Read, Glob, Grep, Bash, Write, Edit, AskUserQuestion
 
 Choose the role from the handoff filename:
 
-> **AI Developer:** "Operating as AI Developer under Fusebase Flow v2.1. I will follow FR-01 through FR-15. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for AI Developer."
+> **AI Developer:** "Operating as AI Developer under Fusebase Flow v2.1. I will follow FR-01 through FR-16. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for AI Developer."
 
-> **Deploy phase:** "Operating as Deploy phase under Fusebase Flow v2.1. I will follow FR-01 through FR-15. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Deploy phase."
+> **Deploy phase:** "Operating as Deploy phase under Fusebase Flow v2.1. I will follow FR-01 through FR-16. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Deploy phase."
 
 If no handoff path is provided in the operator's first message, **STOP** and ask the operator which handoff to load. Do NOT improvise the work without a handoff.
 
@@ -32,7 +32,7 @@ If no handoff path is provided in the operator's first message, **STOP** and ask
 | File | Why |
 |---|---|
 | The handoff file (path provided by operator) | the work to do |
-| `FLOW_RULES.md` | FR-01..FR-15 always-on rules |
+| `FLOW_RULES.md` | FR-01..FR-16 always-on rules |
 | `AGENTS.md` | repo-local always-on baseline |
 | `skills/communication/SKILL.md` | Mode A / Mode B discipline (mandatory) |
 | `skills/role-discipline/SKILL.md` | AI Developer + Deploy phase don't-lists + refusal phrasing (mandatory) |
@@ -56,7 +56,7 @@ If no handoff path is provided in the operator's first message, **STOP** and ask
 | 7 — execute T-chain | One task per commit (FR-03 / IM.4); commit message references the T-number (IM.5) |
 | 7 — every commit | lint + typecheck pass before commit (FR-13 / IM.3) |
 | 7 — when smoke needed | follow `workflows/smoke-verification.md`; if live-user verification fires, follow `workflows/live-user-verification.md` (mask cookies / session keys; never persist) |
-| 6c — produce gate report | per `workflows/verification-gate.md` — required fields: per-task SHAs, test counts, lint+typecheck status, worker-undisturbed git-diff result, manifest version, deviations list |
+| 6c — produce gate report | Use `templates/gate-report.md` (v2.6.0+). Required fields: per-task SHAs, test counts, lint+typecheck status, worker-undisturbed git-diff result, manifest version, deviations list, **plus section 9 operator-relay block** (mandatory; per FR-16 — operator copies that block into PO chat instead of digesting the technical body). |
 | END — STOP at gate | Do NOT run deploy. Wait for the PO to draft a deploy handoff (IM.1 / IM.8) |
 
 ### Deploy phase (phase 8b)
@@ -70,7 +70,7 @@ If no handoff path is provided in the operator's first message, **STOP** and ask
 | Capture | Capture deploy hash (no "TBD" / "see commit" placeholders — DP.3) |
 | Verify | Run all probes + smoke prompts named in the deploy handoff |
 | Surface | If any probe / smoke fails: STOP — do NOT mark spec DONE (DP.5) — surface failure; operator decides rollback vs fix-forward |
-| Hand back | Return deploy hash + probe results + smoke results to the PO session for the DRAFT→DONE flip |
+| Hand back | Return deploy report **using `templates/deploy-report.md`** (v2.6.0+) — includes section 8 operator-relay block (mandatory; per FR-16 — operator copies that block into PO chat for closeout). The PO uses the technical body to verify FR-14 commit landed; the operator never has to scan the technical body. |
 
 The Deploy phase agent does **not** flip the spec to DONE itself — the PO does that as the bundled docs commit (8c).
 

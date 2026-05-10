@@ -43,7 +43,7 @@ The merged Product Owner role does most investigation inline. For tickets with l
    - `AGENTS.md` (project-specific section)
    - `docs/backlog/<slug>/README.md` (the seed ticket)
 2. Self-attest as Architect (escalation):
-   > "Operating as Architect (escalated session) under Fusebase Flow v2.1. I will follow FR-01 through FR-15. I will produce spec/decisions/tasks/verification-gate per templates and apply Mode B to every artifact I write. I will NOT lock decisions on operator's behalf — recommendations only. I will apply the role-discipline skill section for Architect (AR.1..AR.6) and use its refusal phrasing when an action would violate a rule."
+   > "Operating as Architect (escalated session) under Fusebase Flow v2.1. I will follow FR-01 through FR-16. I will produce spec/decisions/tasks/verification-gate per templates and apply Mode B to every artifact I write. I will NOT lock decisions on operator's behalf — recommendations only. I will apply the role-discipline skill section for Architect (AR.1..AR.6) and use its refusal phrasing when an action would violate a rule."
 3. Investigate the surface listed in the architect handoff.
 4. Produce all four artifacts in `docs/specs/<slug>/`:
    - `spec.md` (DRAFT)
@@ -51,7 +51,7 @@ The merged Product Owner role does most investigation inline. For tickets with l
    - `tasks.md` (T-numbered)
    - `verification-gate.md`
 5. Optionally produce `research.md` and/or `data-model.md` if scope warrants.
-6. Report back to operator with summary of decisions to lock.
+6. Report back to operator **using `templates/architect-response.md`** (v2.6.0+). The template includes a section-12 operator-relay block that the operator copies into PO chat — per FR-16, you (Architect) compose this block so the operator doesn't have to scan the technical body to figure out what to tell PO.
 
 ## Architect handoff template
 
@@ -127,6 +127,8 @@ PO will review your output, recommend locks, and operator will confirm.
 
 ## Related
 
+- `templates/architect-response.md` — **canonical architect response template** (v2.6.0+); Architect fills this when reporting back; section 12 is the operator-relay block per FR-16
 - `skills/requirements-specification/SKILL.md` — may invoke this workflow when surface is large
+- `skills/role-discipline/SKILL.md` — PO section includes the **Operator Relay Protocol** (FR-16) used when operator pastes the architect response back to PO
 - `workflows/eight-phase-flow.md` — the canonical flow this slot-fills into
 - `workflows/greenlight-implement.md` — the next handoff after architect output is locked

@@ -24,7 +24,7 @@ After:
 ## Procedure (Deploy phase / AI Developer side)
 
 1. Read deploy handoff. Verify approval artifact exists.
-2. Self-attest: "Operating as Deploy phase under Fusebase Flow v2.1. I will follow FR-01 through FR-15, including FR-05 (gate fulfilled), FR-06 (reversible by default), FR-07 (worker-undisturbed), FR-12 (approval-gated), FR-14 (single docs commit on deploy). I will apply the role-discipline skill section for Deploy phase (DP.1..DP.6)."
+2. Self-attest: "Operating as Deploy phase under Fusebase Flow v2.1. I will follow FR-01 through FR-16, including FR-05 (gate fulfilled), FR-06 (reversible by default), FR-07 (worker-undisturbed), FR-12 (approval-gated), FR-14 (single docs commit on deploy). I will apply the role-discipline skill section for Deploy phase (DP.1..DP.6)."
 3. Final worker-undisturbed re-check before deploy command. If anything changed since gate, STOP.
 4. **Operator confirm (DP.6).** Ask the operator to type the literal `APPROVE-DEPLOY-NOW` phrase. If the response is anything other than the exact phrase, ABORT the deploy and surface the abort. The operator can re-issue the deploy by re-running this workflow in a fresh session.
 5. Run deploy command (exact command from `AGENTS.md` project-specific section).
@@ -36,7 +36,7 @@ After:
    - `tasks.md` verification marks for T<gate>..T<deploy>
    - `docs/backlog/index.md` status flip to DONE with deploy hash
    - README header updates (if applicable)
-10. Output deploy report to operator with all required fields.
+10. Output deploy report **using `templates/deploy-report.md`** (v2.6.0+). The template includes a section-8 operator-relay block that the operator copies into PO chat for closeout — per FR-16, the Deploy phase composes this block so the operator doesn't have to scan the technical body. Filled-template fields: pre-deploy verification, deploy command output, probe results table, smoke results, FR-14 commit SHA, operator-side pending actions (literal commands), total deploy duration, section 8 operator-relay block (mandatory).
 
 ## Deploy phase self-attestation
 
@@ -144,7 +144,9 @@ Commit message: `docs(post-deploy): T<deploy> <slug> DONE — <hash>`
 ## Related
 
 - `templates/handoff-deploy.md` — **canonical deploy handoff template** (v2.5.0+); copy + fill placeholders for new handoffs
+- `templates/deploy-report.md` — **canonical deploy report template** (v2.6.0+); Deploy phase fills this after T<deploy>; section 8 is the operator-relay block per FR-16
 - `skills/release-deploy-reporting/SKILL.md` — produces this handoff (manual-invoke)
+- `skills/role-discipline/SKILL.md` — PO section includes the **Operator Relay Protocol** (FR-16) used when operator pastes the deploy report back to PO for closeout
 - `workflows/verification-gate.md` — gate contract referenced for probes
 - `workflows/smoke-verification.md` — smoke procedure
 - `policies/approval-policy.yml` — `production_deploy` approval requirement

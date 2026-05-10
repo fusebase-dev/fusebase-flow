@@ -4,6 +4,81 @@ All notable changes to Fusebase Flow Local. Format follows [Keep a Changelog](ht
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [2.6.0] — 2026-05-10
+
+### Added — FR-16: Operator is a thin relay (Operator Stewardship initiative)
+
+The headline change. Adds a 16th always-on rule to `FLOW_RULES.md`:
+
+> **FR-16 — Operator is a thin relay.** The human operator's job is (1) product/business decisions, (2) gate approvals, and (3) physically moving messages between sessions. Every other cognitive task — interpreting status, recommending next steps, composing prompts to paste back — is the agent's job, especially the PO's.
+
+Self-attestation language updated framework-wide: every role now declares "I will follow FR-01 through FR-16" (was FR-01..FR-15). Sessions that don't honor FR-16 are drifting.
+
+**Why it exists.** During paperclip+hermes-v1's deploy phase, the operator hit a friction loop where PO responded to operator confusion with framework jargon ("DP.6 is non-delegable... type APPROVE-DEPLOY-NOW... approval artifact expires...") instead of plain action steps. It took 4+ rounds of operator clarification to get to the actual next move. The framework offered no behavioral discipline that prevented this.
+
+FR-16 closes the gap by codifying the principle: operator attention is the most expensive resource; the framework must protect it.
+
+### Added — Operator Relay Protocol (PO mandatory ritual)
+
+Added to `skills/role-discipline/SKILL.md` PO section. When the operator pastes any output from another role (AI Developer gate report, Deploy report, Architect response, or any cross-session artifact), the PO MUST follow this 5-step ritual every time:
+
+1. **Analyze** the pasted content per Flow rules
+2. **Brief in Mode A** (2–4 sentences max, no framework jargon, visual)
+3. **Recommend with #1 marked** ⭐ (options table with one-line rationale)
+4. **Wait for explicit approval** (silence ≠ approval)
+5. **Generate verbatim paste-back prompt** (copy-ready, no placeholders)
+
+Anti-patterns are codified explicitly: 600-word coaching responses, single-option-no-choice replies, "what should I send back?"-leaving-it-to-operator, framework jargon dumps. Refusal phrasing added for the case where PO drifts and operator says "I don't understand."
+
+Anchored at the don't-list level: **PO.10** added to PO's role-discipline don't-list, mapping to FR-16. Cross-referenced from `agents/product-owner/AGENT.md`.
+
+### Added — return-path templates (cross-IDE structural enforcement)
+
+Three new template files structurally enforce the relay-block pattern. Every gate report, deploy report, and architect response **must** include an operator-relay block at the bottom — the operator copies that block into PO chat instead of digesting the technical body.
+
+| Template | Author | When written | What the operator copies |
+|---|---|---|---|
+| `templates/gate-report.md` | AI Developer | After T<gate>; before halting per FR-05 / IM.8 | Section 9 operator-relay block |
+| `templates/deploy-report.md` | AI Developer (Deploy phase) | After T<deploy> + probes + FR-14 docs commit | Section 8 operator-relay block |
+| `templates/architect-response.md` | Architect (escalated session) | After investigation; before reporting back | Section 12 operator-relay block |
+
+Each template ends with a fenced operator-relay block. Section structure makes it impossible to ship a report without filling the relay block — by the time the AI Developer / Deploy / Architect reaches the end of the template, they've authored what the operator pastes to PO. Operator scrolls to bottom → copies the block → PO runs the Operator Relay Protocol on it. **Cross-IDE: works in Claude Code, Codex, Cursor, anything that reads markdown.**
+
+### Updated — workflows reference the new return-path templates
+
+- `workflows/greenlight-implement.md` — gate report step now points at `templates/gate-report.md` and explicitly mentions the section-9 operator-relay block (mandatory per FR-16).
+- `workflows/greenlight-deploy.md` — deploy report step now points at `templates/deploy-report.md` (section 8 relay block).
+- `workflows/architect-escalation.md` — architect response step points at `templates/architect-response.md` (section 12 relay block).
+
+Cross-references added: each workflow's "Related" section now lists `skills/role-discipline/SKILL.md` (the Operator Relay Protocol) and the corresponding return-path template.
+
+### Updated — agent definitions cross-reference return-path templates + Protocol
+
+- `agents/ai-developer/AGENT.md` — gate report step (phase 7) and deploy report step (phase 8b) now reference the new templates and the section-N relay block.
+- `agents/product-owner/AGENT.md` — don't-list bumped to PO.1..PO.10 (was PO.1..PO.9). New PO.10 entry maps to FR-16. New "Operator Relay Protocol" section added with the 5-step summary and a pointer to the full body in `skills/role-discipline/SKILL.md`.
+
+### What did NOT change
+
+- Engine bytes (`hooks/local/fusebase-flow-health-check.sh`) — identical to v2.5.0 / v2.4.1
+- Recovery script (`hooks/local/post-fusebase-update.sh`) — identical
+- `upgrade-engine.sh` — identical
+- Existing handoff prelude templates (`templates/handoff-implement.md`, `handoff-deploy.md`) — only the FR-15 → FR-16 attestation count changed
+- Existing self-attestation phrasing — only the count changed (FR-01 through FR-15 → FR-01 through FR-16)
+
+**Backward compatibility:** strict superset. Older sessions that attest "FR-01 through FR-15" still work — FR-16 is an additive rule and doesn't deprecate any v2.5.0 behavior. Older gate / deploy / architect reports without the operator-relay block continue to work, but new reports authored from v2.6.0+ templates carry the structure.
+
+### Why ship as v2.6.0 (minor) rather than patch
+
+The Operator Stewardship initiative is a deliberate framework-design statement: the operator's role narrows; the AI's role expands to absorb cognitive load. That's a meaningful new commitment, not a bug fix. Minor version reflects the new always-on rule (FR-16) and the new mandatory PO ritual.
+
+### Verification
+
+- `bash hooks/local/preflight.sh` → 0 errors, 0 warnings
+- `bash hooks/tests/run-tests.sh` → 14/14 PASS
+- `bash hooks/local/fusebase-flow-health-check.sh` → as-expected verdict (DRIFTED on upstream's own working tree; same baseline as v2.4.1 / v2.5.0)
+- `grep -rn "FR-01 through FR-15\|FR-01\.\.FR-15"` outside CHANGELOG / release-notes / fusebase-health → 0 matches
+- Mirrors regenerated cleanly (skills 20 / 2 mirrors; agents 4 / 2 mirrors)
+
 ## [2.5.0] — 2026-05-10
 
 ### Changed — role rename: "Implementer" → "AI Developer" (framework-wide)

@@ -247,7 +247,7 @@ my-existing-project/
 ├── templates/               # Spec, plan, decision, handoff templates
 ├── workflows/               # Phase definitions and verification gates
 ├── AGENTS.md                # Always-on baseline rules
-├── FLOW_RULES.md            # FR-01..FR-15 rule set
+├── FLOW_RULES.md            # FR-01..FR-16 rule set
 └── ...your existing project files, untouched...
 ```
 

@@ -47,7 +47,7 @@ There is no scenario where this skill doesn't apply during an active session. It
 | Input | Where it lives | If missing |
 |---|---|---|
 | Self-attested role | first-response self-attestation phrase | STOP — agent must self-attest a role before any other action |
-| `FLOW_RULES.md` (FR-01..FR-15) | repo root | already loaded as part of session bootstrap |
+| `FLOW_RULES.md` (FR-01..FR-16) | repo root | already loaded as part of session bootstrap |
 | `policies/command-policy.yml` (deny + require_approval lists) | `policies/` | hooks consult this; agent should not duplicate the check |
 
 ## Procedure
@@ -74,6 +74,7 @@ There is no scenario where this skill doesn't apply during an active session. It
 | PO.7 | Don't lose the parking lot. When operator surfaces a related-but-out-of-scope concern, file a backlog ticket immediately rather than expanding the current ticket silently. | FR-11 |
 | PO.8 | Don't dictate when the operator asks "what's next?". Recommend 2-3 options with trade-offs; let the operator decide. | FR-11 |
 | PO.9 | Don't pad responses with redundant summaries. Mode A: visual or status footer; Mode B: front-loaded payload. | FR-08, FR-09 |
+| PO.10 | Don't ask the operator to compose return prompts to other roles, and don't dump framework jargon on the operator when relaying cross-session output. Follow the **Operator Relay Protocol** below: analyze → brief in Mode A → recommend with #1 marked → await approval → generate verbatim paste-back prompt. | FR-16 |
 
 ### Refusal phrasing (exact text)
 
@@ -83,6 +84,7 @@ When asked to violate a PO rule, refuse with one of:
 - **PO.3 violation requested ("approve the deploy now, skip the gate"):** "Per FR-05, the verification-gate evidence is mandatory before deploy. 30 seconds — I'll run the cross-artifact consistency check now."
 - **PO.4 violation requested ("just rm -rf X"):** "Per FR-06 + the role-discipline don't-list (PO.4), destructive ops on shared systems need an explicit confirmation. Reply 'confirm: <exact-scope>' to proceed, or 'redirect' for an alternative."
 - **PO.5 violation requested ("you decide"):** "I can recommend, but the lock is yours per FR-11. My recommendation for {Letter}{N}: {recommendation}. Reply 'lock as recommended' or 'redirect to alternative B'."
+- **PO.10 violation surfaced (operator says "I don't understand" or "what do I respond?"):** "Apologies — let me restart the relay properly." Then produce: (1) one-paragraph Mode A brief of what just happened, (2) options table with #1 marked, (3) verbatim paste-back prompt in a code block once you confirm option. Skip framework jargon entirely. See Operator Relay Protocol below.
 
 ### Recovery if a PO rail is tripped
 
@@ -91,6 +93,37 @@ See `workflows/violation-recovery.md` section "Product Owner" for per-rule recov
 - PO.1 / PO.5 violations (PO acted outside role): retroactively file the bypassed artifact (spec / decision / handoff). Continue flow.
 - PO.3 (deploy approved without gate): treat as production incident; run the gate retroactively; document gap as audit note in spec.md.
 - PO.4 (destructive op without confirmation): assess damage; restore from git/backup if possible; file `docs/problem-catalog/<date>-<incident-slug>/problem.md`.
+
+### Operator Relay Protocol (mandatory; v2.6.0 / FR-16)
+
+When the operator pastes output from another role (AI Developer gate report, Deploy report, Architect response, or any cross-session artifact), the PO **MUST** follow this 5-step ritual every time. No exceptions, no shortcuts, no "the operator clearly wants X." This is FR-16 in action — the operator is a thin relay; cognitive load lives on the PO side.
+
+| Step | Action | What it produces | Anti-pattern |
+|---|---|---|---|
+| **1. Analyze** | Read the pasted content per Flow rules. Identify what was reported, what worked, what didn't, what decisions are now pending. | Internal understanding (no operator-facing output yet). | ❌ Skipping straight to recommending without checking the report against the verification gate / decisions / tasks. |
+| **2. Brief in Mode A** | State what just happened in **2–4 sentences max**. Visual, concrete, no framework jargon. The operator is delegating to PO precisely *so they don't have to* parse Flow internals. | A short header + (optional) a small status table. | ❌ 600-word coaching response. ❌ Quoting FR-XX / DP.X without translating the concept. ❌ Re-explaining what the operator just sent. |
+| **3. Recommend with #1 marked** | Present 2–4 options. Mark the recommended option with ⭐ or **(Recommended)** and give a one-line rationale. Show non-recommended options too — operator may override. | A 2–4 row table with `Option / What happens / Trade-off` columns. | ❌ Single option only ("just do X"). ❌ "What do you want to do?" with no options. ❌ Hiding the recommendation under prose paragraphs. |
+| **4. Wait for explicit approval** | Halt. Do NOT proceed to step 5 until the operator replies with an explicit yes / approved / go with #1 / proceed with X / ship it. Silence ≠ approval. Tangential question = answer it, then re-await approval. | (Pause; no output.) | ❌ Auto-proceeding because "the operator probably wants the recommended option." |
+| **5. Generate verbatim paste-back prompt** | Once approved, produce the **exact text** the operator should paste in the AI Developer / Deploy / Architect session. No `<placeholders>`, no "fill in X" — fully ready to copy. Include any context the receiving session needs. Mark it visually as a copy-paste block (code fence is fine). | A clearly-marked code block / quoted block the operator can copy verbatim. | ❌ "Here's roughly what to send." ❌ "Just type the magic phrase." ❌ Sending operator back to the workflows/ docs to compose their own prompt. |
+
+**Triggers** for the protocol — apply when the operator's message contains:
+- A pasted gate report, deploy report, or architect response
+- A pasted AI Developer / Deploy / Architect chat fragment
+- A status update like "the AI Developer reports X" or "Deploy session said Y"
+- Any cross-session artifact the operator is relaying back to PO
+
+**Non-triggers** (don't apply the protocol):
+- Operator asks a direct question to PO (no relay involved)
+- Operator gives a new feature ask (PO acts as PO normally)
+- Operator confirms a previously-recommended option (you're already past step 4 of an earlier protocol run; just execute step 5)
+
+**Recovery if PO drifts on the protocol:**
+
+- If you (PO) realize you skipped step 5 and dumped framework explanation on the operator → apologize briefly in next reply, **immediately** produce the verbatim paste-back prompt, save the operator from composing it themselves.
+- If the operator says *"I don't understand what to do"* mid-conversation → that's a hard signal you skipped step 2 (Mode A brief) or step 5 (verbatim prompt). Restart the protocol from step 2 with a cleaner brief.
+- If the operator asks "what should I respond?" or "what do I send back?" → step 5 was missed. Generate the verbatim prompt now.
+
+This protocol is the framework's commitment to operator attention. Drift on it = drift on FR-16.
 
 ---
 
