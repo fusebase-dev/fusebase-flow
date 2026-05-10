@@ -171,6 +171,7 @@ Fusebase Flow ships a built-in **health check skill** + **recovery script** that
 |---|---|
 | Check overlay state (read-only) | `bash hooks/local/fusebase-flow-health-check.sh` <br> or `/fusebase-health` (Claude Code) <br> or *"is Fusebase Flow healthy?"* (any agent) |
 | Recover the overlay | `bash hooks/local/post-fusebase-update.sh` <br> or reply `yes` when the skill offers recovery in chat |
+| Upgrade engine + recovery to latest upstream | `bash hooks/local/upgrade-engine.sh` (v2.3.0+; refresh `.fusebase-flow-source/` first) |
 | Avoid drift on routine updates | `fusebase update --skip-skills` (preserves Fusebase Flow overlay) |
 
 ### What the health check verifies
@@ -272,7 +273,7 @@ fusebase-flow/
 │   ├── shared/                     ← 6 shared utilities
 │   ├── git/                        ← pre-commit + commit-msg
 │   ├── local/                      ← preflight / verify-gate / approve-local / mirror-skills / mirror-agents / po-investigate
-│   │                                  / install-git-hooks / fusebase-flow-health-check / post-fusebase-update
+│   │                                  / install-git-hooks / fusebase-flow-health-check / post-fusebase-update / upgrade-engine
 │   ├── local/fusebase-flow-overlays/  ← AGENTS.md + CLAUDE.md overlay templates,
 │   │                                     settings-json-merge.py, health-check skill + slash command templates
 │   ├── tests/                      ← run-tests.sh + 14 fixtures

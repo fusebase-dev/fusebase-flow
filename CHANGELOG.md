@@ -4,6 +4,70 @@ All notable changes to Fusebase Flow Local. Format follows [Keep a Changelog](ht
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [2.3.0] — 2026-05-10
+
+### Added — `hooks/local/upgrade-engine.sh` (operator-explicit engine upgrade)
+
+A new operator-maintained script that closes the loop on engine upgrades. When upstream ships a new health-check engine version (e.g. v2.2.1's duplicate-marker detection), `mirror-skills.sh` and `mirror-agents.sh` only sync `skills/` and `agents/` from the local `.fusebase-flow-source/` clone — they deliberately do NOT touch `hooks/local/*.sh` because those are operator-maintained scripts that may carry local customization.
+
+`upgrade-engine.sh` is the explicit opt-in path for operators who DO want to adopt new upstream engine versions:
+
+- Diffs `hooks/local/fusebase-flow-health-check.sh`, `hooks/local/post-fusebase-update.sh`, and `hooks/local/upgrade-engine.sh` (itself) against `.fusebase-flow-source/hooks/local/`
+- Bumps the project's `VERSION` file to match upstream
+- Backs up each replaced file with a `.pre-upgrade-<timestamp>` suffix
+- Reports diff stats, prompts for confirmation (or accepts `--auto-yes` / `--dry-run`)
+
+### Why this matters
+
+Pre-v2.3.0, an operator who pulled a new upstream version into `.fusebase-flow-source/` had to manually copy the engine + recovery scripts file-by-file. Easy to forget; easy to leave the project on an older engine while thinking it was upgraded. v2.3.0 makes the upgrade a single command:
+
+```bash
+cd .fusebase-flow-source && git pull origin main && cd ..
+bash hooks/local/upgrade-engine.sh
+```
+
+### Usage modes
+
+| Mode | Command | Behavior |
+|---|---|---|
+| Interactive (default) | `bash hooks/local/upgrade-engine.sh` | Prints diff stats, prompts `y/N` |
+| Non-interactive | `bash hooks/local/upgrade-engine.sh --auto-yes` | Applies without prompt |
+| Preview only | `bash hooks/local/upgrade-engine.sh --dry-run` | Shows what would change; no writes |
+
+### Files synced
+
+- `hooks/local/upgrade-engine.sh` (itself — so future runs adopt new versions of this script seamlessly)
+- `hooks/local/fusebase-flow-health-check.sh`
+- `hooks/local/post-fusebase-update.sh`
+- `VERSION`
+
+### Files explicitly NOT touched
+
+- `hooks/local/fusebase-flow-overlays/` (operator-customizable overlay templates with project-specific values)
+- `skills/`, `agents/` (canonical content; use `mirror-skills.sh` / `mirror-agents.sh`)
+- `AGENTS.md`, `CLAUDE.md`, `.claude/*` (managed via `post-fusebase-update.sh`)
+
+### Validation at release
+
+- preflight: 0 errors / 0 warnings
+- skill mirror: 20 files, 0 drift
+- agent mirror: 4 files, 0 drift
+- hook tests: 14/14 PASS
+- `bash -n` syntax check on new script: OK
+
+### Notes for upgraders (v2.2.x → v2.3.0)
+
+- **Bootstrap step (one-time):** to get the v2.3.0 `upgrade-engine.sh` script into a project that's currently on v2.2.x, manually copy it once:
+  ```bash
+  cd .fusebase-flow-source && git pull origin main && cd ..
+  cp .fusebase-flow-source/hooks/local/upgrade-engine.sh hooks/local/upgrade-engine.sh
+  chmod +x hooks/local/upgrade-engine.sh
+  ```
+  After that, future engine upgrades (v2.3.1, v2.4.0, ...) are seamless via `bash hooks/local/upgrade-engine.sh`.
+- **Recovery script unchanged.** v2.3.0 is purely additive.
+
+---
+
 ## [2.2.1] — 2026-05-10
 
 ### Added — duplicate-overlay-block detection in health check engine
