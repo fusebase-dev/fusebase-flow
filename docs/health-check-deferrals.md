@@ -141,6 +141,18 @@ Filename: `state/approvals/health_check_deferral-workflow-only-install-20260510.
 3. Run `bash hooks/local/fusebase-flow-health-check.sh` and verify the engine reports `EXCEPTION_IN_EFFECT` (exit 3) instead of `DRIFTED` / `BROKEN`.
 4. Commit the artifact alongside any related code changes (the artifact is a record of the decision).
 
+> **`.gitignore` policy (v2.6.1+).** The upstream template's `.gitignore` excludes `state/approvals/*` wholesale because most artifact families there are ephemeral runtime state (e.g. `production_deploy-*.json` — 60-min auth tokens that must NEVER be in git). v2.6.1 adds a narrow exception so `health_check_deferral-*.json` artifacts are auto-tracked:
+>
+> ```
+> state/approvals/*
+> !state/approvals/.gitkeep
+> !state/approvals/health_check_deferral-*.json   ← v2.6.1+
+> ```
+>
+> **Why narrow.** The exception is intentionally specific to `health_check_deferral-*.json`. Other artifact families (`production_deploy`, future categories) stay ignored unless explicitly added. This forces every new artifact-family decision to be deliberate.
+>
+> If you're on a project that hasn't picked up v2.6.1 yet, add the exception manually — `git add state/approvals/health_check_deferral-*.json` will silently no-op without it.
+
 ### Removing a deferral (revisiting the decision)
 
 1. Either delete the artifact file OR update its `expires_at` to a past date (engine treats expired artifacts as inactive).

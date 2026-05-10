@@ -4,6 +4,13 @@ state/context-summary.md
 state/*.tmp
 state/approvals/*
 !state/approvals/.gitkeep
+# health_check_deferral-*.json artifacts are documents of record (90-day TTL,
+# operator-authored deferral decisions). They MUST be in git so fresh clones
+# reproduce the EXCEPTION_IN_EFFECT verdict and PR review can audit which
+# deferrals are active. Other state/approvals/* artifacts (e.g.
+# production_deploy-*.json — 60-min ephemeral auth tokens) stay gitignored.
+# See docs/health-check-deferrals.md and docs/release-notes/v2.6.1.md.
+!state/approvals/health_check_deferral-*.json
 !state/.gitkeep
 state/audit/*
 !state/audit/.gitkeep

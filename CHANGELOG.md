@@ -4,6 +4,50 @@ All notable changes to Fusebase Flow Local. Format follows [Keep a Changelog](ht
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [2.6.1] — 2026-05-10
+
+### Fixed — `.gitignore` exception for `health_check_deferral-*.json` (closes BACKLOG B5)
+
+The wholesale rule `state/approvals/*` (with only `.gitkeep` exempted) was authored before v2.4.0 introduced the `health_check_deferral-*.json` artifact category. It treated all `state/approvals/` artifacts as ephemeral runtime state — correct for `production_deploy-*.json` (60-min auth tokens that must NEVER be in git), wrong for `health_check_deferral-*.json` (90-day documents-of-record that MUST be in git for fresh clones to reproduce the `EXCEPTION_IN_EFFECT` verdict and PR review to audit which deferrals are active).
+
+**First observed downstream:** 2026-05-10 by `paperclip+hermes-v1` receiving agent during v2.4.1 adoption. Workaround applied per-project (narrow `.gitignore` exception) and filed as B5 for upstream back-port.
+
+**Fix:** add narrow exception to upstream `.gitignore`:
+
+```
+state/approvals/*
+!state/approvals/.gitkeep
+!state/approvals/health_check_deferral-*.json   ← added
+```
+
+The exception is intentionally narrow — `production_deploy-*.json` and any future ephemeral artifact families stay gitignored unless explicitly added. This forces every new artifact-family decision to be deliberate.
+
+**Verification:**
+
+```
+$ git check-ignore -v state/approvals/health_check_deferral-test.json
+.gitignore:13:!state/approvals/health_check_deferral-*.json    state/approvals/health_check_deferral-test.json
+↑ tracked (negation rule applies)
+
+$ git check-ignore -v state/approvals/production_deploy-test.json
+.gitignore:5:state/approvals/*    state/approvals/production_deploy-test.json
+↑ ignored (wholesale rule still applies)
+```
+
+### Updated — `docs/health-check-deferrals.md`
+
+Adds a **`.gitignore` policy** callout to the operator workflow section explaining the new exception, why it's narrow, and what to do on projects that haven't yet picked up v2.6.1.
+
+### What did NOT change
+
+- Engine bytes (`hooks/local/fusebase-flow-health-check.sh`) — identical to v2.6.0 / v2.5.0 / v2.4.1
+- All other framework / template / skill / agent files — identical to v2.6.0
+- Existing in-flight deferral artifacts on downstream projects — unaffected; if they're already gitignored locally and have a per-project exception, that exception remains valid (and matches what v2.6.1 ships in upstream)
+
+### Backward compatibility
+
+Strict superset of v2.6.0. Downstream projects that already added the exception manually are now redundant with upstream — they can keep the local exception (no harm) or remove it after pulling v2.6.1 (cleaner; matches upstream byte-for-byte).
+
 ## [2.6.0] — 2026-05-10
 
 ### Added — FR-16: Operator is a thin relay (Operator Stewardship initiative)
