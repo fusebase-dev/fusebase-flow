@@ -98,23 +98,31 @@ else
   LOCAL_DRIFT+=("VERSION file missing at repo root")
 fi
 
-# AGENTS.md overlay marker
+# AGENTS.md overlay marker — count occurrences to catch duplicates
+# (a duplicate happens after a major-version heading rename if the operator
+#  ran recovery without first removing the old block; see CHANGELOG upgrader notes)
 if [ -f AGENTS.md ]; then
-  if grep -qF "## Fusebase Flow — workflow lifecycle overlay" AGENTS.md; then
+  AGENTS_OVERLAY_COUNT=$(grep -cF "## Fusebase Flow — workflow lifecycle overlay" AGENTS.md 2>/dev/null || echo 0)
+  if [ "$AGENTS_OVERLAY_COUNT" -eq 0 ]; then
+    LOCAL_DRIFT+=("AGENTS.md overlay block: MISSING")
+  elif [ "$AGENTS_OVERLAY_COUNT" -eq 1 ]; then
     LOCAL_OK+=("AGENTS.md overlay block: present")
   else
-    LOCAL_DRIFT+=("AGENTS.md overlay block: MISSING")
+    LOCAL_DRIFT+=("AGENTS.md overlay block: DUPLICATE ($AGENTS_OVERLAY_COUNT copies present — likely from a heading-marker rename without first removing the old block; remove the older block manually)")
   fi
 else
   LOCAL_DRIFT+=("AGENTS.md: file missing")
 fi
 
-# CLAUDE.md overlay marker (only if Claude Code in use)
+# CLAUDE.md overlay marker (only if Claude Code in use) — same count-based logic
 if [ -f CLAUDE.md ]; then
-  if grep -qF "## Fusebase Flow — additional rules (overlay)" CLAUDE.md; then
+  CLAUDE_OVERLAY_COUNT=$(grep -cF "## Fusebase Flow — additional rules (overlay)" CLAUDE.md 2>/dev/null || echo 0)
+  if [ "$CLAUDE_OVERLAY_COUNT" -eq 0 ]; then
+    LOCAL_DRIFT+=("CLAUDE.md overlay block: MISSING")
+  elif [ "$CLAUDE_OVERLAY_COUNT" -eq 1 ]; then
     LOCAL_OK+=("CLAUDE.md overlay block: present")
   else
-    LOCAL_DRIFT+=("CLAUDE.md overlay block: MISSING")
+    LOCAL_DRIFT+=("CLAUDE.md overlay block: DUPLICATE ($CLAUDE_OVERLAY_COUNT copies present — likely from a heading-marker rename without first removing the old block; remove the older block manually)")
   fi
 fi
 
