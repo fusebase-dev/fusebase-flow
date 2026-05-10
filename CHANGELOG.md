@@ -4,6 +4,82 @@ All notable changes to Fusebase Flow Local. Format follows [Keep a Changelog](ht
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [2.2.0] — 2026-05-10
+
+### Added — Health check & recovery (major feature)
+
+A built-in **health check skill** + **recovery script** that diagnose and repair Fusebase Flow overlay drift. The most common drift cause is `fusebase update` (Fusebase CLI) regenerating `AGENTS.md` / `.claude/settings.json` / `.claude/hooks/` from CLI templates and evicting the Fusebase Flow overlay. The new system handles this end-to-end.
+
+#### What ships
+
+- **`skills/fusebase-flow-health-check/SKILL.md`** (canonical skill, description-matched) plus mirrors at `.claude/skills/fusebase-flow-health-check/SKILL.md` and `.agents/skills/fusebase-flow-health-check/SKILL.md`.
+- **`hooks/local/fusebase-flow-health-check.sh`** — read-only diagnostic engine. 12 inventory checks + active-approval-artifact awareness + upstream-comparison via `.fusebase-flow-source/` clone. Exit codes: 0 HEALTHY, 1 DRIFTED / FUSEBASE_UPDATE_AFTERMATH, 2 BROKEN, 3 EXCEPTION_IN_EFFECT.
+- **`hooks/local/post-fusebase-update.sh`** — idempotent recovery script. 10 steps restore: skills + sub-agents mirrors, AGENTS.md + CLAUDE.md overlay blocks, `.claude/settings.json` lifecycle events, Windows shell:true patch on the typecheck hook (CVE-2024-27980 mitigation), the health-check skill mirror, and the `/fusebase-health` slash command.
+- **`hooks/local/fusebase-flow-overlays/`** — overlay templates (the canonical content the recovery script appends/restores):
+  - `agents-md-overlay.md` — `## Fusebase Flow — workflow lifecycle overlay` block for AGENTS.md
+  - `claude-md-overlay.md` — `## Fusebase Flow — additional rules (overlay)` block for CLAUDE.md
+  - `settings-json-merge.py` — Python merger (no `jq` dependency; auto-discovers events from upstream's `.claude/settings.json.example`)
+  - `skills/fusebase-flow-health-check/SKILL.md` — skill template
+  - `commands/fusebase-health.md` — slash command template
+- **`.claude/commands/fusebase-health.md`** — `/fusebase-health` slash command (Claude Code).
+
+#### Skill behavior — diagnose then offer
+
+The skill is **read-only during diagnosis**. When drift is detected and recoverable, the skill **offers** recovery in chat with a yes/no confirmation:
+
+```
+Run recovery now? It will:
+  • Restore AGENTS.md overlay block
+  • Merge .claude/settings.json lifecycle events
+  • Re-apply Windows shell:true patch
+  • Re-mirror Fusebase Flow skills + sub-agents
+
+Reply `yes` / `run it` / `fix it` / `proceed` to execute.
+Reply anything else to halt and decide later.
+```
+
+On affirmative reply → recovery executes + re-check + report new verdict. On any non-affirmative reply (silence, `no`, a question) → halt. Operator authority preserved (PO.5 from `role-discipline` skill); friction reduced — no terminal context-switch needed for most cases. **EXCEPTION_IN_EFFECT** (drift attributable to active approval artifacts in `state/approvals/`) and **BROKEN** verdicts do NOT trigger the recovery offer (recovery wouldn't fix them).
+
+#### Auto-discovery for upstream upgrades
+
+The engine and the merger auto-discover canonical sets at runtime from `.fusebase-flow-source/`:
+
+- **Skill names** from `skills/*/`
+- **Agent names** from `agents/*/`
+- **Lifecycle event names** from `.claude/settings.json.example`
+- **Hook handler commands + matchers** from the same example file
+
+Patch / minor upstream releases (new skill / agent / event) require **zero maintenance** to this system. Only major-version semantic changes (heading marker rename) require manual edits.
+
+#### Heading marker convention
+
+This release standardizes on `## Fusebase Flow — workflow lifecycle overlay` (AGENTS.md) and `## Fusebase Flow — additional rules (overlay)` (CLAUDE.md). The previous internal "V2" qualifier was dropped per the standard "Fusebase Flow" naming.
+
+### Changed
+
+- **`VERSION`** `2.1.1` → `2.2.0`.
+- **`README.md`** — added "Health check & recovery (v2.2+)" section with quick reference, verdicts table, recovery flow, auto-discovery posture, and file inventory.
+- **`docs/install-fusebase-cli-project.md`** — heading marker text updated to `## Fusebase Flow — workflow lifecycle overlay` (was `# Fusebase Flow Local — workflow discipline overlay`); recovery section added.
+- **`docs/install-existing-project.md`** — health check + recovery section added.
+
+### Validation at release
+
+- preflight: 0 errors / 0 warnings
+- skill mirror: 20 files (10 × 2 mirrors), 0 drift (after regen)
+- agent mirror: 4 files, 0 drift (after regen)
+- hook tests: 14/14 PASS
+- Health check end-to-end test: HEALTHY → fusebase update → FUSEBASE_UPDATE_AFTERMATH → recovery offer → affirmative → recovery executed → HEALTHY (exit 0)
+- Idempotency: 2nd recovery run reports "already in place" for all restorable items, byte-identical no-op on settings.json merge
+
+### Notes for upgraders (v2.1.x → v2.2.0)
+
+- **Heading marker change:** if you have an existing v2.1.x project with `## Fusebase Flow V2 — workflow lifecycle overlay` in your AGENTS.md, edit it to drop the "V2 ": `## Fusebase Flow — workflow lifecycle overlay`. Same for CLAUDE.md (`## Fusebase Flow V2 — additional rules (overlay)` → `## Fusebase Flow — additional rules (overlay)`). The recovery script and engine grep for the new heading; without this edit they'll think the marker is missing and append a duplicate block.
+- **`stop.py` statusMessage:** the merger now writes `"Fusebase Flow stop hook…"` (was `"Fusebase Flow V2 stop hook…"`). Existing settings.json entries with the old text continue to work but will not match the merger's substring check on the next merge — re-run `bash hooks/local/post-fusebase-update.sh` to pick up the updated text.
+- **No skill / agent rename:** existing skills and sub-agents keep their names. The new `fusebase-flow-health-check` skill is additive.
+- **Fresh installs:** `bash install.sh` works as before; new health check files are picked up automatically by the existing mirror-skills step.
+
+---
+
 ## [2.1.1] — 2026-05-09
 
 ### Added — defense-in-depth refinements to the v2.1.0 sub-agent design

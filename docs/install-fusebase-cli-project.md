@@ -196,28 +196,46 @@ Do not copy these from Fusebase Flow over the existing project files. Append the
 
 ### AGENTS.md append section
 
-Append this to the bottom of the existing `AGENTS.md`:
+Append this to the bottom of the existing `AGENTS.md`. **The heading marker must be exactly `## Fusebase Flow — workflow lifecycle overlay`** — the health-check engine and recovery script grep for this string verbatim.
+
+Minimal block:
 
 ```md
 ---
 
-# Fusebase Flow Local — workflow discipline overlay
+## Fusebase Flow — workflow lifecycle overlay
 
-This repository also uses Fusebase Flow Local. Read `FLOW_RULES.md` for the always-on workflow rules, `workflows/` for lifecycle procedures, and `skills/` for on-demand workflow guidance.
+This repository also uses Fusebase Flow. Read `FLOW_RULES.md` for the always-on workflow rules, `workflows/` for lifecycle procedures, and `skills/` for on-demand workflow guidance.
 
 Existing Fusebase CLI, MCP, SDK, provider, and project-specific rules remain authoritative for runtime behavior. Fusebase Flow governs workflow lifecycle: specification, planning, implementation, verification, review, and deploy readiness.
 ```
 
+For the **recommended fuller block** (mandatory + on-demand skills lists, sub-agent references, state-announcement footer, project-specific values table, plus the maintenance posture / recovery section), use the canonical template that ships with this release:
+
+```bash
+cat hooks/local/fusebase-flow-overlays/agents-md-overlay.md >> AGENTS.md
+```
+
+That same template is what `bash hooks/local/post-fusebase-update.sh` uses to restore AGENTS.md if it ever loses the overlay block (e.g. after `fusebase update`).
+
 ### CLAUDE.md append section
 
-Append this to the bottom of the existing `CLAUDE.md`:
+Append this to the bottom of the existing `CLAUDE.md`. **The heading marker must be exactly `## Fusebase Flow — additional rules (overlay)`**.
+
+Minimal block:
 
 ```md
-## Fusebase Flow Local
+## Fusebase Flow — additional rules (overlay)
 
-This repository includes Fusebase Flow Local as a workflow overlay. The canonical workflow files are in `FLOW_RULES.md`, `workflows/`, `skills/`, `policies/`, and `templates/`.
+This repository includes Fusebase Flow as a workflow overlay. The canonical workflow files are in `FLOW_RULES.md`, `workflows/`, `skills/`, `policies/`, and `templates/`.
 
 Do not replace existing Claude instructions, hooks, or project-specific rules. Merge Fusebase Flow guidance as an overlay.
+```
+
+Recommended fuller block:
+
+```bash
+cat hooks/local/fusebase-flow-overlays/claude-md-overlay.md >> CLAUDE.md
 ```
 
 ### .gitignore append section
@@ -271,6 +289,40 @@ Never modify or replace these during a Fusebase Flow install:
 - existing MCP server configuration
 
 Fusebase Flow is a workflow overlay, not an MCP or runtime replacement.
+
+## Health check & recovery (v2.2+)
+
+After install, you can verify the overlay is healthy at any time:
+
+```bash
+bash hooks/local/fusebase-flow-health-check.sh
+```
+
+Or, in Claude Code, type `/fusebase-health` (or ask any AI agent: *"is Fusebase Flow healthy?"*).
+
+The health check is **read-only**. It produces a structured report with one of five verdicts: `HEALTHY`, `EXCEPTION_IN_EFFECT`, `FUSEBASE_UPDATE_AFTERMATH`, `DRIFTED`, `BROKEN`.
+
+### When `fusebase update` evicts the overlay
+
+The Fusebase CLI's `fusebase update` command (without `--skip-skills`) regenerates `AGENTS.md`, `.claude/settings.json`, and `.claude/hooks/run-typecheck-features.js` from CLI templates — destroying the Fusebase Flow overlay block in AGENTS.md, the lifecycle event entries in `.claude/settings.json`, and the Windows shell:true patch on the typecheck hook.
+
+Recovery is bundled into a single idempotent script:
+
+```bash
+bash hooks/local/post-fusebase-update.sh
+```
+
+This restores all destroyed pieces in ~5 seconds and is safe to run multiple times.
+
+When triggered through the chat skill, the agent will **offer** to run recovery for you — reply `yes` (or `run it` / `fix it` / `proceed`) and the agent executes the script and re-checks. The skill never runs recovery without an explicit affirmative reply.
+
+### Avoiding drift on routine CLI updates
+
+```bash
+fusebase update --skip-skills
+```
+
+The `--skip-skills` flag tells the CLI to skip the AGENTS.md / `.claude/*` regeneration entirely — your Fusebase Flow overlay stays intact. Use the full `fusebase update` only when you actively want CLI-side skill / hook updates.
 
 ## Post-install validation
 

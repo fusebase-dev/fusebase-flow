@@ -161,6 +161,90 @@ bash hooks/local/mirror-agents.sh
 
 Preflight will warn on drift if the mirrors and canonical fall out of sync. Full release notes for the v2.1.0 sub-agents launch live at [`docs/release-notes/v2.1.0.md`](docs/release-notes/v2.1.0.md).
 
+## Health check & recovery (v2.2+)
+
+Fusebase Flow ships a built-in **health check skill** + **recovery script** that diagnose and repair overlay drift. The most common cause of drift is `fusebase update` (Fusebase CLI), which regenerates `AGENTS.md`, `.claude/settings.json`, and `.claude/hooks/` from CLI templates and evicts the Fusebase Flow overlay. Other causes include manual edits, foreign frameworks installed on top, or partial pulls.
+
+### Quick reference
+
+| Need | Command |
+|---|---|
+| Check overlay state (read-only) | `bash hooks/local/fusebase-flow-health-check.sh` <br> or `/fusebase-health` (Claude Code) <br> or *"is Fusebase Flow healthy?"* (any agent) |
+| Recover the overlay | `bash hooks/local/post-fusebase-update.sh` <br> or reply `yes` when the skill offers recovery in chat |
+| Avoid drift on routine updates | `fusebase update --skip-skills` (preserves Fusebase Flow overlay) |
+
+### What the health check verifies
+
+12 inventory checks per run:
+
+- VERSION file
+- AGENTS.md overlay block (`## Fusebase Flow — workflow lifecycle overlay`)
+- CLAUDE.md overlay block (`## Fusebase Flow — additional rules (overlay)`)
+- `.claude/settings.json` lifecycle events (auto-discovered count)
+- `.claude/skills/` mirror count (auto-discovered set)
+- `.claude/agents/` mirror count (auto-discovered set)
+- Health-check skill self-presence
+- Recovery script presence + executable
+- Overlay templates folder presence
+- `preflight.sh` clean
+- `hooks/tests/run-tests.sh` passing
+- Windows `shell:true` patch on `.claude/hooks/run-typecheck-features.js` (CVE-2024-27980 mitigation)
+
+Plus active approval artifacts in `state/approvals/` are surfaced informationally so artifact-attributable test failures don't trigger false BROKEN verdicts.
+
+### Verdicts
+
+| Verdict | Exit | Meaning |
+|---|:---:|---|
+| `HEALTHY` | 0 | All checks pass; upstream in sync |
+| `EXCEPTION_IN_EFFECT` | 3 | All drift attributable to active approval artifacts in `state/approvals/` |
+| `FUSEBASE_UPDATE_AFTERMATH` | 1 | Canonical `fusebase update` aftermath (AGENTS.md overlay missing AND settings.json reduced) |
+| `DRIFTED` | 1 | Drift detected but doesn't match a known pattern |
+| `BROKEN` | 2 | Genuine failure NOT attributable to operator-authored exceptions |
+
+### Recovery flow (the diagnose-then-offer pattern)
+
+The skill is read-only during diagnosis. When drift is detected and recoverable, the skill **offers** recovery in chat:
+
+```
+Run recovery now? It will:
+  • Restore AGENTS.md overlay block (if missing)
+  • Merge .claude/settings.json lifecycle events (if reduced)
+  • Re-apply Windows shell:true patch (if missing)
+  • Re-mirror Fusebase Flow skills + sub-agents (no-op if already present)
+
+Reply `yes` / `run it` / `fix it` / `proceed` to execute.
+Reply anything else to halt and decide later.
+```
+
+On affirmative reply → recovery executes + re-check + report new verdict. On any non-affirmative reply (silence, `no`, a question) → halt. Operator authority preserved (PO.5 from `role-discipline` skill); friction reduced — no terminal context-switch needed for most cases.
+
+The recovery script is **idempotent** — safe to run multiple times. Only re-applies pieces that are actually missing.
+
+### Auto-discovery for upstream upgrades
+
+The engine and the merger auto-discover the canonical sets of skills, agents, lifecycle events, and handler commands from the upstream `.fusebase-flow-source/` clone at runtime. This means:
+
+- **Patch / minor upstream releases** (new skill, new agent, renamed handler, new matcher) → **zero maintenance** to the health check + recovery system.
+- **Major upstream releases** (heading marker rename, fundamental restructuring) → manual edits to heading-marker references in 4 files. Documented in the upgrade procedure section of the canonical skill.
+
+### Files involved
+
+```
+skills/fusebase-flow-health-check/SKILL.md          ← canonical skill (description-matched)
+.claude/skills/fusebase-flow-health-check/SKILL.md  ← Claude Code mirror
+.agents/skills/fusebase-flow-health-check/SKILL.md  ← Codex mirror
+.claude/commands/fusebase-health.md                 ← /fusebase-health slash command
+hooks/local/fusebase-flow-health-check.sh           ← engine (read-only diagnostic)
+hooks/local/post-fusebase-update.sh                 ← recovery script (10 idempotent steps)
+hooks/local/fusebase-flow-overlays/                 ← overlay templates + canonical skill + slash command source
+  ├── agents-md-overlay.md                          ← block to append to AGENTS.md
+  ├── claude-md-overlay.md                          ← block to append to CLAUDE.md
+  ├── settings-json-merge.py                        ← Python merger (no jq)
+  ├── skills/fusebase-flow-health-check/SKILL.md    ← skill template (recovery copies into mirrors)
+  └── commands/fusebase-health.md                   ← slash command template
+```
+
 ## What's inside
 
 ```
@@ -173,10 +257,10 @@ fusebase-flow/
 ├── CLAUDE.md                       ← Anthropic Claude Code adapter
 ├── GEMINI.md                       ← Gemini-style IDE adapter
 ├── FLOW_RULES.md                   ← FR-01..FR-15 always-on rules
-├── VERSION                         ← 2.1.1
+├── VERSION                         ← 2.2.0
 ├── .gitattributes                  ← LF line endings for shell/python/yaml/md
 ├── .python-version                 ← 3.12 (recommended)
-├── skills/                         ← 9 canonical skills (2 mandatory + 7 on-demand)
+├── skills/                         ← 10 canonical skills (2 mandatory + 8 on-demand, incl. fusebase-flow-health-check)
 ├── agents/                         ← 2 canonical sub-agents (product-owner, ai-developer)
 ├── workflows/                      ← 12 procedures
 ├── policies/                       ← 6 YAML policies
@@ -187,7 +271,10 @@ fusebase-flow/
 │   ├── handlers/                   ← 8 Python lifecycle handlers
 │   ├── shared/                     ← 6 shared utilities
 │   ├── git/                        ← pre-commit + commit-msg
-│   ├── local/                      ← install / preflight / verify-gate / approve-local / mirror-skills / mirror-agents / po-investigate
+│   ├── local/                      ← preflight / verify-gate / approve-local / mirror-skills / mirror-agents / po-investigate
+│   │                                  / install-git-hooks / fusebase-flow-health-check / post-fusebase-update
+│   ├── local/fusebase-flow-overlays/  ← AGENTS.md + CLAUDE.md overlay templates,
+│   │                                     settings-json-merge.py, health-check skill + slash command templates
 │   ├── tests/                      ← run-tests.sh + 14 fixtures
 │   └── requirements.txt            ← pyyaml (only non-stdlib dep)
 ├── audit/
@@ -196,9 +283,10 @@ fusebase-flow/
 │   └── agent-mirror-manifest.txt   ← sha256 manifest for sub-agent mirrors
 ├── state/                          ← runtime state (gitignored contents)
 ├── docs/                           ← public reference docs + per-project artifacts
-├── .agents/skills/                 ← OpenAI / ChatGPT Codex skill mirror (× 9)
-├── .claude/skills/                 ← Anthropic Claude Code skill mirror (× 9)
+├── .agents/skills/                 ← OpenAI / ChatGPT Codex skill mirror (× 10)
+├── .claude/skills/                 ← Anthropic Claude Code skill mirror (× 10)
 ├── .claude/agents/                 ← Anthropic Claude Code sub-agent mirror (× 2)
+├── .claude/commands/               ← Anthropic Claude Code slash commands (incl. /fusebase-health)
 ├── .claude/settings.json.example   ← Claude Code hook wiring
 ├── .codex/agents/                  ← OpenAI / ChatGPT Codex sub-agent mirror (× 2)
 ├── .codex/{config.toml,hooks.json}.example ← Codex hook wiring + project trust note

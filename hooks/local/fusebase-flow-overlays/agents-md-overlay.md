@@ -1,0 +1,60 @@
+
+---
+
+## Fusebase Flow — workflow lifecycle overlay
+
+This repository follows **Fusebase Flow** (https://github.com/fusebase-dev/fusebase-flow) for AI agent workflow discipline. The Fusebase Flow framework governs the workflow lifecycle (specification → planning → decisions → tasks → verification → implementation → review → deploy readiness). Existing project rules (Fusebase CLI, MCP, SDK, runtime conventions) remain authoritative for runtime behavior.
+
+Fusebase Flow ships:
+
+- **Always-on rules:** `FLOW_RULES.md` (FR-01..FR-15)
+- **Mandatory skills (auto-loaded via `.claude/skills/` and `.agents/skills/`):** `communication`, `role-discipline`
+- **On-demand skills (description-matched):** `code-review`, `implementation-planning`, `release-deploy-reporting`, `repo-onboarding-context-map`, `requirements-specification`, `security-permissions-review`, `validation-and-qa`, `fusebase-flow-health-check`
+- **Sub-agents (description-matched from `.claude/agents/`):** `product-owner` (phases 1–6 + Architect inline), `ai-developer` (phase 7 Implementer + phase 8b Deploy attestation)
+- **Workflows:** `workflows/*.md`
+- **Policies:** `policies/*.yml` (machine-readable; consumed by hooks)
+- **Hooks:** `hooks/handlers/*.py` (lifecycle events wired in `.claude/settings.json`)
+- **Templates:** `templates/*.md`
+
+**Self-attestation (every session's first response):**
+
+> "Operating as {role} under Fusebase Flow. I will follow FR-01 through FR-15. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+
+### Maintenance posture (Fusebase CLI ↔ Fusebase Flow coexistence)
+
+`.claude/skills/`, `.claude/agents/`, `.claude/hooks/`, `.claude/settings.json`, and `AGENTS.md` are touched by `fusebase update` (without `--skip-skills`). Use either:
+
+**Option A (recommended for routine updates):**
+
+```bash
+fusebase update --skip-skills
+```
+
+Skips the Fusebase Flow regeneration entirely. Doesn't get CLI-side skill / hook updates but keeps Fusebase Flow overlay intact.
+
+**Option B (when you want full CLI updates):**
+
+```bash
+fusebase update                              # let CLI regenerate; Fusebase Flow overlay is destroyed
+bash hooks/local/post-fusebase-update.sh     # idempotent recovery: re-mirrors skills+agents,
+                                             # re-appends AGENTS.md/CLAUDE.md overlays,
+                                             # re-merges settings.json hook chain,
+                                             # re-applies Windows shell:true patch
+```
+
+The recovery script is self-detecting: it skips parts that don't need restoration (idempotent; safe to run multiple times).
+
+**Or use the in-chat health check:** type `/fusebase-health` (or ask "is Fusebase Flow healthy?") — the skill diagnoses any drift and offers to run recovery on your confirmation.
+
+### Project-specific values
+
+| Field | Value | Where the data is enforced |
+|---|---|---|
+| Project name | (customize during install) | (informational) |
+| Stack | (customize during install) | (informational) |
+| Workflow mode | `direct_to_main` | `policies/approval-policy.yml: workflow_mode` |
+| Worker-undisturbed paths | `none` (extend if needed) | `policies/protected-paths.yml: worker_undisturbed` |
+| Decision letter prefix | `A` | `templates/decisions.md` |
+| T-counter | `0` | `templates/tasks.md` |
+
+**Where Fusebase Flow and project-specific rules conflict, project-specific rules win.**

@@ -40,3 +40,7 @@ build/
 
 # Local-only docs (operator working notes; never published to GitHub)
 docs/fusebase-health/
+
+# Defensive: hook handlers running with wrong cwd previously created
+# .fusebase-flow/state/audit.log.jsonl. Standard runtime state lives in state/.
+.fusebase-flow/

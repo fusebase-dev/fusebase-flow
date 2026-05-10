@@ -157,6 +157,24 @@ Expected result:
 
 If either step reports failures, resolve them before continuing — the framework's guardrails depend on a clean preflight.
 
+## Health check & recovery (v2.2+)
+
+After install, the new health check + recovery system is available. It diagnoses overlay drift (especially after `fusebase update` or any tool that regenerates `AGENTS.md` / `.claude/*`) and offers in-chat recovery.
+
+```bash
+# Read-only diagnostic (one of HEALTHY / EXCEPTION_IN_EFFECT / FUSEBASE_UPDATE_AFTERMATH / DRIFTED / BROKEN)
+bash hooks/local/fusebase-flow-health-check.sh
+
+# Idempotent recovery (only re-applies what's missing; ~5 sec)
+bash hooks/local/post-fusebase-update.sh
+```
+
+In Claude Code, use the `/fusebase-health` slash command. In any AI agent, ask: *"is Fusebase Flow healthy?"* The skill is description-matched and auto-loads via `.claude/skills/fusebase-flow-health-check/SKILL.md` and `.agents/skills/fusebase-flow-health-check/SKILL.md`.
+
+When drift is detected, the skill offers recovery in-chat with a yes/no confirmation — execute by replying `yes` (or `run it` / `fix it` / `proceed`). The skill never writes without an explicit affirmative reply.
+
+Full reference is in the [Health check & recovery section of README.md](../README.md#health-check--recovery-v22).
+
 ## Installing from a private Fusebase Flow repository
 
 If the `fusebase-flow` repository is private, authenticate to GitHub before cloning. The instructions below assume your GitHub account has access to the repository.

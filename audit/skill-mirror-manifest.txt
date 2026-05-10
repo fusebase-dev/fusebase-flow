@@ -2,6 +2,8 @@
 .claude/skills/code-review/SKILL.md  c4e8e696b684805acfb03c8331ef73cac074b8a12a628967feded96a270be4da
 .agents/skills/communication/SKILL.md  7ac2a32d6996479387dfb0e27f5903c8fc1928abe49bc786a7b8d2ce9e1ec78e
 .claude/skills/communication/SKILL.md  7ac2a32d6996479387dfb0e27f5903c8fc1928abe49bc786a7b8d2ce9e1ec78e
+.agents/skills/fusebase-flow-health-check/SKILL.md  50b9ca8bb0ee1c7200fe51fa10b9d5c43aa74ab05be989c6d4d2332458976720
+.claude/skills/fusebase-flow-health-check/SKILL.md  50b9ca8bb0ee1c7200fe51fa10b9d5c43aa74ab05be989c6d4d2332458976720
 .agents/skills/implementation-planning/SKILL.md  5c328a34fb2206663c033b8124c17a59f4016a22bd8408b9be71b0c7203a317f
 .claude/skills/implementation-planning/SKILL.md  5c328a34fb2206663c033b8124c17a59f4016a22bd8408b9be71b0c7203a317f
 .agents/skills/release-deploy-reporting/SKILL.md  03aebd6e1fff1806a2b60d5e64d124abe44d1b9b2dae7d718daafb1cc112e386
