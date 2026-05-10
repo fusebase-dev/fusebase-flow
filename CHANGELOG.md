@@ -4,6 +4,65 @@ All notable changes to Fusebase Flow Local. Format follows [Keep a Changelog](ht
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [2.7.1] — 2026-05-10
+
+### Fixed — `AskUserQuestion` popup tools removed from PO (conflict with FR-16)
+
+Resolves a behavior conflict between the v2.6.0 Operator Stewardship initiative (FR-16 / Operator Relay Protocol) and the pre-v2.6.0 PO agent definition. The PO's allowed-tools list previously included `AskUserQuestion` for "every clarify Q-and-A; recommendations with 2–3 options + tradeoff." That guidance was written before FR-16 codified "the operator is a thin relay" and before the Operator Relay Protocol required options to be **scrollable, copyable, and forwardable** Mode A chat-text.
+
+**The conflict in real use** (observed in `paperclip+hermes-v1` deploy session, 2026-05-10):
+
+| Operator need (per FR-16) | Mode A chat text | `AskUserQuestion` modal |
+|---|---|---|
+| Scroll back to compare options | ✓ | ✗ — closes after click |
+| Copy options into another session for context | ✓ | ✗ — uncopyable modal |
+| Ask a follow-up before deciding | ✓ | ✗ — modal forces single answer |
+| Preserve in conversation history | ✓ — text persists | ✗ — only the selected answer survives |
+| Forward options to AI Developer / Deploy session | ✓ | ✗ |
+
+The modal popup pattern is a v1-era affordance that worked when the operator was the only consumer of the question. Post-FR-16, options are part of a **relay** the operator may need to forward, discuss with a teammate, or revisit — that needs persistent chat-text, not a one-shot modal.
+
+**The fix.** Four coordinated edits — critically, both the **machine-readable frontmatter** (which is what Claude Code actually reads to grant sub-agent tools) and the **human-readable documentation tables** are aligned:
+
+1. **`agents/product-owner/AGENT.md` YAML frontmatter `tools:` field** — `AskUserQuestion` removed. This is the **actual enforcement point**: when an `Agent({subagent_type: "product-owner"})` sub-agent invocation fires, Claude Code reads this list to decide which tools the sub-agent has access to. Pre-v2.7.1: `tools: Read, Glob, Grep, Bash, Write, Edit, AskUserQuestion`. Post-v2.7.1: `tools: Read, Glob, Grep, Bash, Write, Edit`.
+2. **`agents/product-owner/AGENT.md` Allowed table (documentation)** — `AskUserQuestion` row removed for consistency with the frontmatter.
+3. **`agents/product-owner/AGENT.md` Denied table** — new row added explicitly forbidding `AskUserQuestion` for PO, with FR-16 rationale. Other roles (AI Developer, Deploy phase, Architect) may still use it for narrow non-relay cases — the restriction is PO-only.
+4. **`skills/role-discipline/SKILL.md`** —
+   - Operator Relay Protocol step 3 explicitly says "Mode A chat-text tables" and "never use modal popup tools."
+   - PO.10 don't-list entry expanded to forbid popup tools.
+   - New PO.10 refusal phrasing for the "use a popup for me" request.
+
+### Why this is a patch (v2.7.1) not minor
+
+- Closes a behavior conflict between v2.6.0 and pre-v2.6.0 design intent — semantically a fix, not a new feature.
+- No schema changes, no template additions, no engine changes.
+- Strict superset: existing handoffs, templates, and reports continue to work.
+- Trivially backward compatible — projects on v2.6.x already had FR-16; v2.7.1 closes the gap with the older agent-definition guidance.
+
+### What did NOT change
+
+- Engine bytes (`hooks/local/fusebase-flow-health-check.sh`) — identical to v2.7.0 / v2.6.1 / v2.6.0 / v2.5.0 / v2.4.1 (6th release in a row with no engine change)
+- All policy files (`policies/*.yml`) — unchanged from v2.7.0
+- Templates — unchanged
+- Other roles' tool surfaces — unchanged (they may still use `AskUserQuestion` for narrow non-relay cases)
+- DP.6 magic phrase mechanism — unchanged (typed phrase, not a modal)
+
+### Verification
+
+- `bash -n hooks/local/fusebase-flow-health-check.sh` → OK
+- `bash hooks/local/preflight.sh` → 0 errors, 0 warnings
+- `bash hooks/tests/run-tests.sh` → 14/14 PASS
+- Mirrors regenerated (skills 20/2; agents 4/2)
+- `grep -n "AskUserQuestion" agents/product-owner/AGENT.md` shows 1 match (the new Denied entry); 0 matches in Allowed
+
+### Migration for downstream consumers
+
+Pull `agents/product-owner/AGENT.md` (and its mirrors `.claude/agents/product-owner.md`, `.codex/agents/product-owner.md`) plus `skills/role-discipline/SKILL.md` (and its mirrors). Or run `bash hooks/local/post-fusebase-update.sh` after upgrading framework files. The recovery script re-mirrors skills + agents from their canonical sources.
+
+For the immediate workaround if a downstream PO is still using popups (before pulling v2.7.1), paste this in their PO chat:
+
+> Per FR-16 + PO.10 (v2.7.1+), stop using `AskUserQuestion` popups. Re-issue your last question as a Mode A chat-text table with options marked ⭐ for the recommendation, rationale inline. I'll reply with the option letter.
+
 ## [2.7.0] — 2026-05-10
 
 ### Added — workflow-mode-aware `artifact_ttl_minutes` for `production_deploy`
