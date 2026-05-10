@@ -20,7 +20,7 @@ You are an AI Developer session that has just completed `T<first>..T<gate>` and 
 **Status:** Gate reached; awaiting PO review and deploy handoff
 **Slug:** `<slug>`
 **Task range:** T<first>..T<gate>
-**Reporting session:** AI Developer (Fusebase Flow v2.1, FR-01..FR-17)
+**Reporting session:** AI Developer (Fusebase Flow v2.1, FR-01..FR-18)
 **Date:** <YYYY-MM-DD>
 
 ---
@@ -178,24 +178,10 @@ Full gate report attached above. PO: please follow Operator Relay Protocol — b
 
 ---
 
-## Fill-in checklist for AI Developer using this template
+## Fill-in checklist
 
-Before pasting the filled report to operator, verify:
+When filling this template, the AI Developer should consult `templates/references/gate-report-checklist.md` for the canonical fill-in checklist (v2.9.0+ — lazy-loaded reference). Don't paraphrase the checklist into the filled artifact; it's a fill-time aid, not output content.
 
-- [ ] Every task in T<first>..T<gate> has a row in the per-task commit table
-- [ ] All commit SHAs are real (not placeholders)
-- [ ] **Per-task `started_at`, `committed_at`, and wall-clock filled in (IM.11 / v2.8.0+)** — record the UTC timestamp when you pick up each task and when its commit lands
-- [ ] **Section 1b time totals computed** — total elapsed (wall), total active development (sum of wall-clocks), wait time (elapsed − active), average task wall-clock
-- [ ] Lint + typecheck output is pasted verbatim (not paraphrased)
-- [ ] Worker-undisturbed re-check actually run; output pasted
-- [ ] Test counts before / after / delta computed (operator should be able to verify)
-- [ ] Deviations field is honest (don't hide split-tasks; surface them)
-- [ ] Section 9 operator-relay block is filled in with actual content (not template `<...>` placeholders)
-- [ ] State announcement footer included
-
-If any checkbox is "no" — don't ship the report yet. The PO will catch it; better to fix now.
-
----
 
 ## Why the operator-relay block matters (FR-16 / v2.6.0)
 

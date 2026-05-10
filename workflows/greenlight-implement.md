@@ -23,7 +23,7 @@ After `implementation-planning` has produced `decisions.md` (all locked), `tasks
 ## Procedure (AI Developer side)
 
 1. Read mandatory pre-execution files (per the handoff's reads list).
-2. Self-attest: "Operating as AI Developer under Fusebase Flow v2.1. I will follow FR-01 through FR-17. I will apply Mode A on chat output and Mode B on every file I write. I will apply the role-discipline skill section for AI Developer (IM.1..IM.10)."
+2. Self-attest: "Operating as AI Developer under Fusebase Flow v2.1. I will follow FR-01 through FR-18. I will apply Mode A on chat output and Mode B on every file I write. I will apply the role-discipline skill section for AI Developer (IM.1..IM.10)."
 3. Pre-task git checkpoint: `git status --short`. If non-empty, STOP and ask operator.
 4. Execute tasks T<first>..T<gate> per `tasks.md`. One task = one commit (FR-03). Each commit:
    - Lint + typecheck clean (FR-13)
@@ -42,9 +42,7 @@ After `implementation-planning` has produced `decisions.md` (all locked), `tasks
 
 ## AI Developer self-attestation
 
-AI Developer's first response must include:
-
-> "Operating as AI Developer under Fusebase Flow v2.1. I will follow FR-01 through FR-17 — including spec-before-code, plan-before-edit, one-task-one-commit, persist handoffs, stop-at-gate, reversible-by-default, worker-undisturbed verification, Mode-A chat / Mode-B docs, reproducibility-before-fix, stop-and-ask, approval-gated side effects, lint+typecheck per commit, single docs commit on deploy, and knowledge-curation triggers. I will apply the role-discipline skill section for AI Developer (IM.1..IM.10) and use its refusal phrasing when an action would violate a rule. Reading required files now."
+Per `FLOW_RULES.md` § Self-attestation (FR-01..FR-18); name AI Developer as the role and `skills/role-discipline/SKILL.md` § AI Developer (IM.1..IM.13). Canonical attestation paragraph lives in FLOW_RULES.md; don't duplicate it here.
 
 ## State announcement (every output)
 

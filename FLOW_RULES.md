@@ -1,6 +1,6 @@
-# Fusebase Flow — always-on rules (FR-01..FR-17)
+# Fusebase Flow — always-on rules (FR-01..FR-18)
 
-**Status:** v0.3 (FR-17 added in v2.8.0 — forward momentum, never retreat)
+**Status:** v0.4 (FR-18 added in v2.9.0 — supersede, don't accumulate; token-efficiency initiative)
 **Scope:** every session in any IDE/agent must follow these regardless of which skill or workflow is active.
 
 These rules are clean-room original. Each rule states *what*, *why*, and *enforcement surface* (rule-only, policy, hook, workflow, skill). Enforcement details live in `policies/`, `hooks/`, and `workflows/` — this file is the readable contract.
@@ -24,6 +24,7 @@ These rules are clean-room original. Each rule states *what*, *why*, and *enforc
 | FR-15 | Knowledge curation triggers | Without persistent capture, every new session re-discovers solved problems | rule + workflow `knowledge-curation` (operator-confirmed only) |
 | FR-16 | Operator is a thin relay | The human operator's job is (1) product/business decisions, (2) gate approvals, (3) physically moving messages between sessions. Every other cognitive task — interpreting status, recommending next steps, composing prompts to paste back — is the agent's job, especially the PO's. Operator attention is the most expensive resource; sessions must protect it. | rule + skill `skills/role-discipline/SKILL.md` (PO Operator Relay Protocol) + return-path templates (`templates/gate-report.md`, `templates/deploy-report.md`, `templates/architect-response.md`) |
 | FR-17 | Forward momentum, never retreat | Agents present the next forward action. Don't suggest closing the session, "letting it bake," resting, postponing, or wrapping up — those are presumptuous behavioral suggestions that mask agent caution as operator advice. If there is genuinely no next action, state that fact neutrally ("no pending action") and let the operator decide whether to close. Operators do not need agents to tell them when to stop working. | rule + skill `skills/role-discipline/SKILL.md` (PO.11 / IM.12 / DP.7 anti-retreat entries + refusal phrasing + anti-pattern catalog) |
+| FR-18 | Supersede, don't accumulate | When revising a handoff, gate report, decision, or spec post-abort or post-correction, REPLACE the stale content with the corrected version. Don't keep both the old and the new in the same file. Audit trail lives in git history (every revision is its own commit), not in the live file — every reload of an accumulated artifact pays token cost for content that's no longer authoritative. Exception: when human-readable diff is genuinely needed for operator review, use a `## Superseded sections (audit only — agents skip)` heading that the agent recognizes and skips during reads. | rule + skill `skills/role-discipline/SKILL.md` (PO.12 / IM.13 / AR.7 / DP.8 supersede entries + the "Superseded sections" convention) |
 
 ---
 
@@ -44,13 +45,15 @@ If a session writes code outside its role, FR-01 fires and the agent must stop a
 
 ## Self-attestation (mandatory at first response of every session)
 
-Every role declares: "Operating as {role} under Fusebase Flow v2.1. I will follow FR-01 through FR-17. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+Every role declares: "Operating as {role} under Fusebase Flow v2.1. I will follow FR-01 through FR-18. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 If self-attestation is missing from the first response, the session is drifting. Self-correct in the next output.
 
 **FR-16 implication for PO sessions:** when the operator pastes output from another role (AI Developer gate report, Deploy report, Architect response), the PO MUST follow the **Operator Relay Protocol** (skills/role-discipline/SKILL.md PO section) — analyze, brief in Mode A, present options with #1 marked, await approval, then generate the verbatim paste-back prompt. PO does not push framework jargon onto the operator and does not ask the operator to compose return prompts. See FR-16 above.
 
 **FR-17 implication for every role:** at the end of every turn, the role presents the next forward action (concrete: a command to run, a decision to lock, a question to answer, a file to review). The role does NOT suggest stopping the session, "letting things bake," resting, postponing, or wrapping up unless the operator has explicitly indicated they're done. If there's no pending action, say "no pending action — your call on what's next" rather than recommending a close. Wrapping-up phrases that look like advice ("you might want to close this now", "let it bake before iterating", "save it for tomorrow") are forbidden — they're agent caution dressed as operator-friendly suggestion.
+
+**FR-18 implication for revisions:** when a handoff, gate report, decision, or spec needs to be revised post-abort or post-correction, REPLACE the stale content with the corrected version. Don't preserve both versions in the same file ("RESUMPTION NOTES" section on top + "ORIGINAL HANDOFF BODY" below the cut). Audit trail = git history; every revision is a commit. Exception for legitimate human-readable diff: wrap the superseded content in `## Superseded sections (audit only — agents skip)` — agents recognize this heading and skip the section during reads. Every accumulated artifact pays token cost on every reload; supersede discipline keeps active content current and lets git history hold the old.
 
 ---
 
@@ -133,4 +136,18 @@ Both modes preserve FR-03, FR-13, FR-14.
              agents do not recommend stopping. If there's nothing to do, say
              "no pending action" neutrally and let the operator decide.
              Shipped in framework v2.8.0.
+
+2026-05-10 — v0.4. FR-18 added (supersede, don't accumulate). Token-efficiency
+             initiative. Driver: real-world artifact bloat observed in
+             paperclip+hermes-v1 deploy handoff — first deploy attempt aborted,
+             PO added "RESUMPTION NOTES" on top but didn't delete the now-stale
+             "ORIGINAL HANDOFF BODY". Result: 25KB handoff with ~50% dead
+             weight, paid in tokens on every reload. Framework had no rule
+             against accumulating. FR-18 codifies REPLACE-not-PRESERVE for
+             revisions; audit trail moves to git history. Exception for
+             human-readable diff: `## Superseded sections (audit only —
+             agents skip)` heading. Shipped in framework v2.9.0 alongside
+             5 other token-efficiency themes (de-dup self-attestation,
+             lazy-load patterns library, role-filtered role-discipline,
+             extracted template checklists, tightened handoff preludes).
 ```

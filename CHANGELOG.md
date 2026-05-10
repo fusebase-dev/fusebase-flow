@@ -4,6 +4,80 @@ All notable changes to Fusebase Flow Local. Format follows [Keep a Changelog](ht
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [2.9.0] — 2026-05-10
+
+### Added — FR-18 (supersede, don't accumulate) + 5 token-efficiency themes
+
+Token-efficiency initiative. Operator surfaced concrete bloat in real-world artifacts (paperclip+hermes-v1 deploy handoff at 25KB with ~50% dead "ORIGINAL HANDOFF BODY" content; communication SKILL.md loading 3300 tokens of pattern-library content at every session start regardless of whether visuals would be used). v2.9.0 ships six coordinated changes that reduce per-session and per-ticket token cost without losing any functional content.
+
+### FR-18 — Supersede, don't accumulate
+
+New 18th always-on rule:
+
+> **FR-18 — Supersede, don't accumulate.** When revising a handoff, gate report, decision, or spec post-abort or post-correction, REPLACE the stale content with the corrected version. Audit trail lives in git history (every revision is a commit), not in the live file. Exception: when human-readable diff is essential, use the `## Superseded sections (audit only — agents skip)` heading the agent recognizes and skips during reads.
+
+Self-attestation language bumped framework-wide: "FR-01 through FR-18" (was FR-01..FR-17). 26 source-of-truth files touched (38 replacements). Mirrors regenerated.
+
+Role-discipline gets 4 new don't-list entries: **PO.12**, **IM.13**, **AR.7**, **DP.8** — all forbidding the accumulate-instead-of-supersede pattern. New **Supersede Convention** section in `skills/role-discipline/SKILL.md` with:
+
+- Concrete REPLACE vs PRESERVE comparison table (4 scenarios)
+- The `## Superseded sections (audit only — agents skip)` heading convention with example markup
+- "What goes in git, not in the file" decision table
+- Self-correction refusal phrasing for when the agent catches itself drafting accumulated content
+
+### Six token-efficiency themes (combined)
+
+| # | Theme | Change |
+|---|---|---|
+| 1 | **De-duplicate self-attestation** | Replaced embedded ~250-token paragraph in 4 source files (handoff preludes + workflow self-attestation sections) with one-line reference: `Per FLOW_RULES.md § Self-attestation (FR-01..FR-18); name your role.` Canonical paragraph stays in FLOW_RULES.md only. |
+| 2 | **Lazy-load patterns library** | Moved 8-pattern Mode A visual library (`skills/communication/SKILL.md` lines 144-336) into `skills/communication/references/patterns.md`. Main SKILL.md shrinks from 559 → 367 lines. Patterns load on demand only when a visual is actually warranted. |
+| 3 | **Per-role scoped loading in role-discipline** | New preamble after `## Procedure` documents which sections each role should load. PO loads PO section + Operator Relay Protocol + Forward Momentum Protocol + Supersede Convention. AI Developer loads only AI Developer section + the 3 shared protocols. Skips ~3000 tokens of irrelevant cross-role content per session. |
+| 4 | **FR-18 supersede discipline** | See "FR-18" section above. |
+| 5 | **Extract template fill-in checklists** | Moved "Fill-in checklist" sections out of `templates/gate-report.md`, `templates/deploy-report.md`, `templates/architect-response.md` into `templates/references/<name>-checklist.md`. Templates shrink ~10-14 lines each. Checklists are fill-time aids; downstream consumers of filled artifacts no longer pay token cost for them. |
+| 6 | **Tighten handoff template preludes** | `templates/handoff-implement.md` and `templates/handoff-deploy.md` preludes no longer paraphrase FR rules (which the agent already loaded from FLOW_RULES.md). Replaced "Hard invariants" bullet lists with one-line FR citations. ~150 tokens saved per filled handoff. |
+
+### Combined savings (estimated)
+
+| Per session start (mandatory skill load) | Per ticket artifacts (5-10 generated files) |
+|---|---|
+| ~3300 tokens (Theme 2 lazy-load) | ~750 tokens (Theme 1 de-dup × N handoffs) |
+| ~3000 tokens (Theme 3 role-filter) | ~400 tokens (Theme 5 checklist extraction × N filled artifacts) |
+|  | ~150 tokens (Theme 6 prelude tightening × N filled handoffs) |
+|  | ~1500-3500 tokens (Theme 4 supersede discipline × N revised artifacts) |
+| **~6300 tokens / session** | **~2800-4800 tokens / ticket** |
+
+### What did NOT change
+
+- Engine bytes (`hooks/local/fusebase-flow-health-check.sh`) — byte-identical to v2.8.0 / v2.7.1 / v2.7.0 / v2.6.1 / v2.6.0 / v2.5.0 / v2.4.1 (**8th release in a row with no engine change**)
+- Recovery script — identical
+- `upgrade-engine.sh` — identical
+- All policy files (`policies/*.yml`) — unchanged
+- Self-attestation requirement itself — unchanged; just no longer duplicated across files
+
+### Backward compatibility — strict superset
+
+- Existing handoffs, templates, and reports continue to work unchanged (older filled artifacts with embedded attestation paragraphs are fine; they just carry slightly more content than v2.9.0 templates would produce).
+- Older sessions attesting "FR-01 through FR-17" still function — FR-18 is additive.
+- Agents that don't yet honor per-role scoped loading (Theme 3) still get correct behavior; they just load more than necessary. Compliance is opt-in via the preamble.
+
+### Drivers (operator-surfaced friction, 2026-05-10)
+
+> "Reconsider the file creation and information exchange from the perspective of token usage. Is there too much, too extensive information? Can it be optimized for more efficiency? ... We can also analyze it and see if there is any redundancy that can be optimized without losing any quality of use-based flow execution."
+
+The audit on paperclip+hermes-v1 found:
+- deploy handoff: 25KB / ~6000 tokens, ~50% stale content from accumulating "RESUMPTION NOTES" + "ORIGINAL HANDOFF BODY"
+- Self-attestation paragraph duplicated in 3 generated files per ticket
+- Communication skill loading 3300 tokens of pattern library at every session start
+
+### Verification
+
+- `bash hooks/local/preflight.sh` → 0 errors, 0 warnings
+- `bash hooks/tests/run-tests.sh` → 14/14 PASS
+- `bash hooks/local/fusebase-flow-health-check.sh` → DRIFTED (expected; same baseline as v2.8.0 on upstream tree)
+- `grep -rn "FR-01 through FR-17"` outside historical/CHANGELOG/release-notes → 0 matches
+- Mirrors regenerated cleanly; `references/patterns.md` propagated to `.claude/skills/communication/references/` and `.agents/skills/communication/references/`
+- New `templates/references/` checklists present
+
 ## [2.8.0] — 2026-05-10
 
 ### Added — FR-17: Forward momentum, never retreat

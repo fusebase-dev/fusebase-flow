@@ -19,7 +19,7 @@ You are an Architect session that has investigated a complex / cross-cutting des
 
 **Status:** Architect investigation complete; awaiting PO to draft decisions / tasks / verification-gate
 **Slug:** `<slug>`
-**Reporting session:** Architect (Fusebase Flow v2.1, FR-01..FR-17, AR.1..AR.6)
+**Reporting session:** Architect (Fusebase Flow v2.1, FR-01..FR-18, AR.1..AR.6)
 **Date:** <YYYY-MM-DD>
 
 ---
@@ -184,20 +184,10 @@ Full architect response attached above. PO: please follow Operator Relay Protoco
 
 ---
 
-## Fill-in checklist for Architect using this template
+## Fill-in checklist
 
-Before pasting:
+When filling this template, the Architect should consult `templates/references/architect-response-checklist.md` for the canonical fill-in checklist (v2.9.0+ -- lazy-loaded reference). Don't paraphrase the checklist into the filled artifact; it's a fill-time aid, not output content.
 
-- [ ] Findings cite real file paths + line numbers (not paraphrases)
-- [ ] Constraints reference real `policies/`, `docs/constitution.md`, etc. — not hand-waved
-- [ ] Recommended design is concrete enough for PO to translate into tasks
-- [ ] Alternatives considered AND rejected with reasoning (per AR.5 — simple > clever; show the work)
-- [ ] Proposed decisions are *questions* with recommended *answers*; PO + operator lock
-- [ ] Out-of-scope items actually filed to backlog (per AR.1) — not just listed
-- [ ] Section 12 operator-relay block is filled with actual content (not `<...>` placeholders)
-- [ ] State announcement footer included
-
----
 
 ## Why the operator-relay block matters (FR-16 / v2.6.0)
 

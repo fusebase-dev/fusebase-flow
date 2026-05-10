@@ -6,7 +6,7 @@ The framework lives here. Provider and IDE compatibility files (`.claude/`, `.co
 
 | Path | Purpose |
 |---|---|
-| `FLOW_RULES.md` | Always-on rules (FR-01..FR-17). Every session loads this. |
+| `FLOW_RULES.md` | Always-on rules (FR-01..FR-18). Every session loads this. |
 | `VERSION` | Framework version (semver). |
 | `workflows/` | Repeatable procedures (eight-phase flow, greenlight-implement, greenlight-deploy, verification-gate, smoke, knowledge-curation, architect-escalation). |
 | `skills/` | Two mandatory skills (`communication`, `role-discipline`) plus seven on-demand expertise areas: `requirements-specification`, `repo-onboarding-context-map`, `implementation-planning`, `validation-and-qa`, `code-review`, `security-permissions-review`, `release-deploy-reporting`. Canonical source; mirrored into `.claude/skills/` (Anthropic Claude Code) and `.agents/skills/` (OpenAI/ChatGPT Codex) for provider consumption. |

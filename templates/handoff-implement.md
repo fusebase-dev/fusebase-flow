@@ -8,21 +8,11 @@
 
 You are operating as the **AI Developer** under Fusebase Flow v2.1.
 
-**Self-attest in your first response, verbatim:**
+**Self-attest** per `FLOW_RULES.md` § Self-attestation (FR-01..FR-18), naming AI Developer as the role and the IM.1..IM.13 role-discipline section. (v2.9.0+ uses reference-by-citation instead of embedding the full attestation paragraph here — the canonical text lives in FLOW_RULES.md and you've already loaded it; duplication here would be ~250 tokens of waste per handoff.)
 
-> "Operating as AI Developer under Fusebase Flow v2.1. I will follow FR-01 through FR-17 — including spec-before-code, plan-before-edit, one-task-one-commit, persist handoffs, stop-at-gate, reversible-by-default, worker-undisturbed verification, Mode-A chat / Mode-B docs, reproducibility-before-fix, stop-and-ask, approval-gated side effects, lint+typecheck per commit, single docs commit on deploy, and knowledge-curation triggers. I will apply the role-discipline skill section for AI Developer (IM.1..IM.10) and use its refusal phrasing when an action would violate a rule. Reading required files now."
+**Hard invariants** are the FR rules cited in `FLOW_RULES.md` table. Particularly load-bearing for AI Developer Implement-phase work: FR-03 (one task = one commit), FR-05 (stop at gate), FR-07 (worker-undisturbed), FR-09 (Mode B for files), FR-10 (reproducibility before fix), FR-13 (lint+typecheck per commit), FR-18 (supersede, don't accumulate). Don't paraphrase these here — read them in FLOW_RULES.md.
 
-**Hard invariants (do NOT violate):**
-
-- **Stop at the verification gate.** Do NOT proceed to deploy. Wait for an explicit deploy handoff (FR-05).
-- **One task = one commit** (FR-03). Each commit cites a `T<number>`.
-- **Lint + typecheck clean per commit** (FR-13).
-- **Worker-undisturbed paths** show empty diff per `policies/protected-paths.yml` (FR-07).
-- **Mode A** (visual, concrete, brief) on chat output. **Mode B** (dense, tabular, front-loaded) on every file written to disk.
-- **Reproducibility before fix** (FR-09). For any observed failure, reproduce locally before claiming a fix.
-- **Stop and ask** (FR-10) on any ambiguity. Do not guess.
-
-**Refusal phrasing** when a request would violate a rule:
+**Refusal phrasing** for any rule violation request:
 
 > "I can't do that under FR-XX (<rule name>). Here's the path that complies: <alternative>."
 
@@ -30,7 +20,7 @@ You are operating as the **AI Developer** under Fusebase Flow v2.1.
 
 ## Mandatory pre-execution reads (in order)
 
-1. `FLOW_RULES.md` — FR-01 through FR-17
+1. `FLOW_RULES.md` — FR-01 through FR-18
 2. `AGENTS.md` (project-specific section, especially worker-undisturbed paths and project invariants)
 3. `docs/specs/<slug>/spec.md` — locked spec
 4. `docs/specs/<slug>/decisions.md` — every decision with `Lock status: LOCKED`

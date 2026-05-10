@@ -1,7 +1,7 @@
 .agents/skills/code-review/SKILL.md  99b80f80a39bf4ddb2f1af51b8463252fc9c100f17dfbb55abcb464a80bc4d3a
 .claude/skills/code-review/SKILL.md  99b80f80a39bf4ddb2f1af51b8463252fc9c100f17dfbb55abcb464a80bc4d3a
-.agents/skills/communication/SKILL.md  db2dcf6fa8b20b43f15043a001db6baeb08e1c42d6619ddfd24ac2f034925ba6
-.claude/skills/communication/SKILL.md  db2dcf6fa8b20b43f15043a001db6baeb08e1c42d6619ddfd24ac2f034925ba6
+.agents/skills/communication/SKILL.md  30711b545a966e1d894fef055f9174f82d548d5535e060ba9ad760082debdacc
+.claude/skills/communication/SKILL.md  30711b545a966e1d894fef055f9174f82d548d5535e060ba9ad760082debdacc
 .agents/skills/fusebase-flow-health-check/SKILL.md  50b9ca8bb0ee1c7200fe51fa10b9d5c43aa74ab05be989c6d4d2332458976720
 .claude/skills/fusebase-flow-health-check/SKILL.md  50b9ca8bb0ee1c7200fe51fa10b9d5c43aa74ab05be989c6d4d2332458976720
 .agents/skills/implementation-planning/SKILL.md  e03be340fdeea3cdb41ffdd97859af202c760105ebf42a2bd5f3f553e7c353f8
@@ -12,8 +12,8 @@
 .claude/skills/repo-onboarding-context-map/SKILL.md  0f8b16b4de6a2f4bf917cde3c34e7daca081ab2727ed1662a3c7ad71d89c951c
 .agents/skills/requirements-specification/SKILL.md  0be7fcfba1446e594b1fca94dc6d231b5029db98ac2bb041dd8251189facd157
 .claude/skills/requirements-specification/SKILL.md  0be7fcfba1446e594b1fca94dc6d231b5029db98ac2bb041dd8251189facd157
-.agents/skills/role-discipline/SKILL.md  445465c78f0e502dcb45385152c5ff00b212f1b6f5a420c7ff8e42ba007d34cc
-.claude/skills/role-discipline/SKILL.md  445465c78f0e502dcb45385152c5ff00b212f1b6f5a420c7ff8e42ba007d34cc
+.agents/skills/role-discipline/SKILL.md  76ddcb6074ca9f965b548abdbdff082e661b51229ba0f7cd9440bc0d64c66888
+.claude/skills/role-discipline/SKILL.md  76ddcb6074ca9f965b548abdbdff082e661b51229ba0f7cd9440bc0d64c66888
 .agents/skills/security-permissions-review/SKILL.md  c046cd1559ec972796005e5085266f1227cd3764db067c1975677e31f9d7d7dc
 .claude/skills/security-permissions-review/SKILL.md  c046cd1559ec972796005e5085266f1227cd3764db067c1975677e31f9d7d7dc
 .agents/skills/validation-and-qa/SKILL.md  2a3f5d94ecff5c326f3ec5dfd2aabd5d16d45c56c0f8502bffaeffa2e7bc1205

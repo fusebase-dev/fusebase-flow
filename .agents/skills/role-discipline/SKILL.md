@@ -47,7 +47,7 @@ There is no scenario where this skill doesn't apply during an active session. It
 | Input | Where it lives | If missing |
 |---|---|---|
 | Self-attested role | first-response self-attestation phrase | STOP — agent must self-attest a role before any other action |
-| `FLOW_RULES.md` (FR-01..FR-17) | repo root | already loaded as part of session bootstrap |
+| `FLOW_RULES.md` (FR-01..FR-18) | repo root | already loaded as part of session bootstrap |
 | `policies/command-policy.yml` (deny + require_approval lists) | `policies/` | hooks consult this; agent should not duplicate the check |
 
 ## Procedure
@@ -56,6 +56,23 @@ There is no scenario where this skill doesn't apply during an active session. It
 2. Read your role's section below (other sections do not apply).
 3. On every subsequent action: cross-check against your role's don't-list. If an operator request would violate, refuse using the role's refusal phrasing.
 4. After any refusal, reference the recovery procedure at `workflows/violation-recovery.md` to surface concrete next steps.
+
+---
+
+## Per-role scoped loading (v2.9.0+ token-efficiency)
+
+This file contains 5 role sections + 2 cross-cutting protocols. **Only load your role's section plus the shared protocols** — the other roles' don't-lists are not load-bearing for your turn.
+
+| Your self-attested role | Section to load | Plus shared (always) |
+|---|---|---|
+| **Product Owner** (also covers Architect on escalation) | § Section: Product Owner + § Section: Architect (escalation) | § Operator Relay Protocol + § Forward Momentum Protocol + § Supersede Convention |
+| **AI Developer** | § Section: AI Developer | § Forward Momentum Protocol + § Supersede Convention |
+| **Deploy phase** | § Section: Deploy phase | § Forward Momentum Protocol + § Supersede Convention |
+| **Architect (standalone, not via PO escalation)** | § Section: Architect (escalation) | § Forward Momentum Protocol + § Supersede Convention |
+
+Pre-v2.9.0, every session loaded all 5 sections (~4500 tokens). v2.9.0+: ~1500 tokens per session for the relevant section + shared protocols. The other sections stay in the file for reference but are skipped during your read.
+
+If you genuinely need to know another role's don't-list (e.g., during a violation-recovery investigation, or to draft a handoff that the receiving role will consume), load just that section on demand.
 
 ---
 
@@ -76,6 +93,7 @@ There is no scenario where this skill doesn't apply during an active session. It
 | PO.9 | Don't pad responses with redundant summaries. Mode A: visual or status footer; Mode B: front-loaded payload. | FR-08, FR-09 |
 | PO.10 | Don't ask the operator to compose return prompts to other roles, and don't dump framework jargon on the operator when relaying cross-session output. Follow the **Operator Relay Protocol** below: analyze → brief in Mode A → recommend with #1 marked → await approval → generate verbatim paste-back prompt. **Never use modal popup tools (`AskUserQuestion`)** — they break copy/scroll/forward; use Mode A chat-text tables (v2.7.1+). | FR-16 |
 | PO.11 | **Don't suggest closing the session, "letting it bake," resting, postponing, or "saving it for tomorrow."** Every turn presents the next forward action (a command to run, a decision to lock, a question to answer, a file to review). If there is no pending action, state "no pending action — your call on what's next" neutrally. Wrapping-up phrases that look like advice are forbidden — they're agent caution dressed as operator-friendly suggestion. See **Forward Momentum Protocol** below. | FR-17 |
+| PO.12 | **Don't accumulate stale content in handoffs / gates / decisions.** When you revise a doc post-abort or post-correction, REPLACE the stale content with the corrected version. Don't preserve both ("RESUMPTION NOTES" + "ORIGINAL HANDOFF BODY" pattern). Audit trail = git history; every revision is a commit. Exception: legitimate human-readable diff cases use the `## Superseded sections (audit only — agents skip)` heading convention (see Supersede Convention below). | FR-18 |
 
 ### Refusal phrasing (exact text)
 
@@ -148,6 +166,7 @@ This protocol is the framework's commitment to operator attention. Drift on it =
 | IM.10 | Don't start T1 with a dirty working tree. Pre-task checkpoint: `git status --short` clean before first commit. | FR-07 |
 | IM.11 | **Don't skip the per-task timing record.** When you pick up task `T<n>`, note the UTC timestamp (`started_at`). When the commit lands, note the commit timestamp (`committed_at`). Both go into the gate report (and deploy report, for deploy-phase tasks). Wall-clock = `committed_at − started_at`; this is net active development time because the agent is working continuously within a task. Wait-for-operator time happens between tasks (gate review, etc.) and is naturally excluded. Total active development time = sum of per-task wall-clocks. Required for retrospective analysis per v2.8.0+. | FR-15 (retrospective curation) |
 | IM.12 | **Don't suggest closing the session, "letting it bake," resting, postponing, or "saving it for tomorrow."** Every turn presents the next forward action. If you reach the gate, your next action is "produce gate report and stop at gate per IM.8" — that's a forward action, not a retreat. Wrapping-up phrases are forbidden. See **Forward Momentum Protocol** at the bottom of this skill. | FR-17 |
+| IM.13 | **Don't accumulate stale gate-report content when a re-run is needed.** If the first gate run failed and you re-run, REPLACE the failed run's gate report content; do not preserve both. The failure is captured in git history (the failed gate-report commit). Same rule for any artifact you revise mid-ticket. | FR-18 |
 
 ### Refusal phrasing (exact text)
 
@@ -181,6 +200,7 @@ See `workflows/violation-recovery.md` section "AI Developer" for per-rule recove
 | AR.4 | Don't recommend designs that require migrations when migrations are blocked by project constraints. Check `docs/constitution.md` "Critical constraints" + `policies/protected-paths.yml: migration_and_schema`. | FR-12 |
 | AR.5 | Don't optimize for cleverness over operator clarity. The operator + AI Developer must understand the design. Simple > clever. | FR-09 |
 | AR.6 | Don't lock decisions. Architect recommends; operator + PO lock. | FR-11 |
+| AR.7 | **Don't accumulate stale architect-response content** when revising findings post-clarify. REPLACE; git history holds the audit trail. | FR-18 |
 
 ### Refusal phrasing
 
@@ -207,6 +227,7 @@ See `workflows/violation-recovery.md`. High-level: out-of-scope content gets mov
 | DP.5 | Don't mark spec DONE if any post-deploy probe or smoke prompt failed. Surface failure; operator decides rollback vs fix-forward. | FR-05 |
 | DP.6 | Don't run the deploy command without the operator typing the literal phrase `APPROVE-DEPLOY-NOW`. No `yes` / `y` / `ok` / partial matches. The pause keeps a human at the keyboard for the production cutover moment. ~5s structural friction; mirrors the `APPEND-ONLY` pattern in `install.sh`. | FR-12 |
 | DP.7 | **Don't suggest closing the session, "letting it bake," resting, postponing, or "saving the deploy for tomorrow"** unless the operator has explicitly indicated they're done. After probes complete, the next forward action is the FR-14 docs commit + report-back. If a probe failed, the next forward action is rollback-vs-fix-forward decision. There is always a next action through deploy completion; never recommend stopping mid-deploy. | FR-17 |
+| DP.8 | **Don't accumulate stale deploy-report content when re-running.** First deploy aborted? REPLACE the report content with the corrected/resumed version. Don't preserve both. The aborted attempt is captured in git history (the failed deploy-report commit + the abort-recovery commit). This is the rule that fixes the paperclip+hermes-v1 25KB-deploy-handoff pattern. | FR-18 |
 
 ### Refusal phrasing
 
@@ -314,6 +335,64 @@ When you (the agent) catch yourself drafting a retreat phrase mid-output:
 > "[deleting wrap-up phrasing per FR-17 / forward momentum]. Next forward action: <concrete action>."
 
 Or just silently remove it before sending. The catch is what matters, not the apology.
+
+---
+
+## Supersede Convention (FR-18 / v2.9.0)
+
+When you revise a handoff, gate report, deploy report, decision, or spec post-abort or post-correction, the default is **REPLACE the stale content with the corrected version**. Do not preserve both versions inline. Git history is the audit trail; every revision commit captures the prior state.
+
+### Default behavior — REPLACE
+
+| Scenario | Do this | Not this |
+|---|---|---|
+| First deploy attempt aborted; PO authors corrected deploy handoff | Overwrite the original handoff body with the corrected content. The old version lives in git history (the pre-revision commit). | Add "RESUMPTION NOTES" on top, leave "ORIGINAL HANDOFF BODY" below — both versions in one file. |
+| Gate run failed; AI Developer re-runs and produces new gate report | Replace the failed report's body with the successful one. | Keep failure-report sections + success-report sections stacked. |
+| Architect investigation revisited after operator clarify | Update the architect-response sections with new findings. | Append "v2 findings" while keeping "v1 findings" inline. |
+| Spec needs amendment mid-implement | Edit the relevant section directly. | Add an "Amendment: 2026-MM-DD" section that contradicts an earlier section. |
+
+The token cost of accumulating is paid every reload. The PO chat alone may reload a deploy handoff dozens of times across a ticket; if half its content is stale "RESUMPTION NOTES" + "ORIGINAL", that's pure waste.
+
+### Exception — when human-readable diff is essential
+
+For genuinely diagnostic cases where an operator needs to SEE the before/after diff inline (rare):
+
+```markdown
+## Superseded sections (audit only — agents skip)
+
+> The content below was the original v1 plan. Superseded 2026-05-10 by the
+> current handoff body after operator clarify. Kept inline (rather than via
+> git history) because the diff itself is part of the ticket's audit trail.
+> Per FR-18, **agents reading this file should skip this section** — it is
+> not authoritative for current state.
+
+<old content here>
+```
+
+The heading `## Superseded sections (audit only — agents skip)` is a structural marker:
+
+- **Humans** see the section and can read it for forensic review.
+- **Agents** reading the file recognize the heading and skip the section's body when extracting authoritative content. The agent's read budget is not spent on superseded text.
+
+Use sparingly. The default is REPLACE; this exception exists for rare cases where the diff is itself the ticket subject (e.g., a problem-catalog entry that documents "we tried X, it broke, we now do Y").
+
+### What goes in git, not in the file
+
+| Captured by git history (don't preserve inline) | Captured inline with the supersede heading (rare exception) |
+|---|---|
+| First failed deploy attempt's handoff body | A problem-catalog entry that documents "v1 design failed because X" alongside the v2 fix — the diff is part of the lesson |
+| Failed gate report from a re-run | A regression-investigation spec where the operator needs to see both the broken-behavior description and the fixed-behavior description side by side |
+| Out-of-date task numbering after a re-plan | (almost nothing else qualifies) |
+
+If in doubt, REPLACE and rely on git history. The supersede heading is for cases where you'd otherwise tell the operator "open these two commits side by side" — putting both in one file with the supersede marker is the structurally-sound version of that.
+
+### Refusal phrasing when tempted to accumulate
+
+When you (the agent) catch yourself drafting a "## RESUMPTION NOTES" or "## v2 plan" section on top of stale content:
+
+> "[deleting accumulated content per FR-18 / supersede]. Replacing the prior <section name> with the corrected version. Prior state is in git history at <commit if known>."
+
+Or just silently replace. The audit trail is git history, not the file.
 
 ---
 

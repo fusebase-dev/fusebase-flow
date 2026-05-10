@@ -21,7 +21,7 @@ You are an AI Developer Deploy-phase session that has just completed T<deploy> (
 **Slug:** `<slug>`
 **Deploy hash:** `<hash>` ← rollback: `git revert <hash>`
 **Approval artifact:** `state/approvals/production_deploy-<slug>-<date>.json` (expires `<timestamp>`)
-**Reporting session:** AI Developer / Deploy phase (Fusebase Flow v2.1, FR-01..FR-17)
+**Reporting session:** AI Developer / Deploy phase (Fusebase Flow v2.1, FR-01..FR-18)
 **Date:** <YYYY-MM-DD>
 
 ---
@@ -188,21 +188,10 @@ The relay block in section 8 must reflect the failure: include **"DEPLOY FAILED 
 
 ---
 
-## Fill-in checklist for Deploy phase using this template
+## Fill-in checklist
 
-Before pasting:
+When filling this template, the Deploy phase should consult `templates/references/deploy-report-checklist.md` for the canonical fill-in checklist (v2.9.0+ -- lazy-loaded reference). Don't paraphrase the checklist into the filled artifact; it's a fill-time aid, not output content.
 
-- [ ] DP.1 + DP.6 verification rows actually performed (not just claimed)
-- [ ] Deploy hash captured from real command output
-- [ ] Each probe result has concrete evidence (output excerpt, log line, screenshot path) — not just "PASS"
-- [ ] FR-14 commit SHA is real
-- [ ] **Section 7a per-phase timestamps recorded** — UTC `started_at` + `ended_at` for each deploy-phase activity (deploy command, probes, smoke, FR-14 commit) per IM.11 / v2.8.0+
-- [ ] **Section 7b net active vs wait breakdown computed** — total elapsed, active work (sum of phase wall-clocks), wait time, deploy-command-only duration
-- [ ] Section 6 operator-side pending actions: literal commands, not paraphrases
-- [ ] Section 8 operator-relay block is filled with actual content (not template `<...>` placeholders) — INCLUDING the new time line (elapsed / active / wait)
-- [ ] If any probe failed: section 3 replaced with failure version + relay block reflects failure
-
----
 
 ## Why the operator-relay block matters (FR-16 / v2.6.0)
 

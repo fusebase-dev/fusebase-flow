@@ -9,7 +9,7 @@ This repo runs **Fusebase Flow Local v2.1**. The portable always-on baseline is 
 | Project skills (Claude Code reads automatically) | `.claude/skills/` (mirrored from canonical `skills/`) |
 | Settings example (hooks wiring) | `.claude/settings.json.example` — copy to `.claude/settings.json` and customize before hooks run |
 | Hook handlers | `hooks/handlers/*.py` (Python, lifecycle-event-named) |
-| Always-on rules | `FLOW_RULES.md` (FR-01..FR-17) |
+| Always-on rules | `FLOW_RULES.md` (FR-01..FR-18) |
 
 ## Skills behavior under Claude Code
 
@@ -32,7 +32,7 @@ Hooks read policies from `policies/*.yml`. They are **opt-in**: nothing runs unt
 
 ## Self-attestation (every session's first response)
 
-> "Operating as {role} under Fusebase Flow v2.1. I will follow FR-01 through FR-17. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+> "Operating as {role} under Fusebase Flow v2.1. I will follow FR-01 through FR-18. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 If your first response doesn't include this attestation, you're drifting. See `FLOW_RULES.md`.
 
