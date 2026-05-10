@@ -101,6 +101,10 @@ except Exception:
 PY
 )
     rc=$?
+    # Windows CRLF guard (engine v2.4.1+): Python print() on Windows emits CRLF;
+    # bash $() strips trailing LF only, leaving a stray CR. Defensive strip so
+    # the summary renders cleanly in ARTIFACT_NOTES on any platform.
+    summary="${summary//$'\r'/}"
     if [ "$rc" -eq 0 ]; then
       ACTIVE_ARTIFACTS+=("$artifact_basename")
       ARTIFACT_NOTES+=("$artifact_basename: $summary")
@@ -120,6 +124,12 @@ except Exception:
 PY
 )
         while IFS= read -r cid; do
+          # Windows CRLF guard: Python on Windows emits CRLF; bash read -r
+          # strips LF but leaves CR on all entries except the last. Without
+          # this strip, multi-entry deferral lists silently fail the check_id
+          # equality match in record_drift on Windows. Idempotent on Linux/Mac.
+          # (Engine v2.4.1+; fixes a v2.4.0 Windows-specific bug.)
+          cid="${cid%$'\r'}"
           [ -z "$cid" ] && continue
           DEFERRED_CHECKS+=("$cid")
           DEFERRED_BY_ARTIFACT+=("$artifact_basename")
@@ -206,6 +216,10 @@ try:
 except Exception:
     pass
 " 2>/dev/null)
+  # Windows CRLF guard (engine v2.4.1+): Python's print() on Windows emits CRLF.
+  # The for-loop word-splits on whitespace including \r, so the last event name
+  # would inherit a trailing CR without this strip. Idempotent on Linux/Mac.
+  EXPECTED_EVENTS_STR="${EXPECTED_EVENTS_STR//$'\r'/}"
   for e in $EXPECTED_EVENTS_STR; do EXPECTED_EVENTS+=("$e"); done
 fi
 if [ "${#EXPECTED_EVENTS[@]}" -eq 0 ]; then
