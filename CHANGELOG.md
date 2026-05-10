@@ -4,6 +4,58 @@ All notable changes to Fusebase Flow Local. Format follows [Keep a Changelog](ht
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [2.3.1] — 2026-05-10
+
+### Fixed — cosmetic diff-count display in `upgrade-engine.sh`
+
+When `set -o pipefail` is active (it is, in `upgrade-engine.sh`), the line:
+
+```bash
+diff_count=$(diff "$src" "$f" 2>/dev/null | grep -cE "^[<>]" || echo 0)
+```
+
+produced corrupted output for any file with line differences. `diff` exits non-zero when files differ → pipefail makes the whole pipe exit non-zero → `|| echo 0` fires AND appends "0" to stdout → `diff_count` captures both the real count AND a literal newline + "0".
+
+Render pre-v2.3.1:
+
+```
+  • hooks/local/fusebase-flow-health-check.sh (200
+0 line diffs)
+```
+
+Render in v2.3.1:
+
+```
+  • hooks/local/fusebase-flow-health-check.sh (200 line diffs)
+```
+
+### Changed
+
+- **`hooks/local/upgrade-engine.sh`** — replace `|| echo 0` with `|| true`. `grep -c` always writes the count to stdout (even when 0), so `|| true` swallows the non-zero exit without polluting stdout. Added inline comment explaining the pipefail interaction.
+- **`VERSION`** `2.3.0` → `2.3.1`.
+
+### Validation at release
+
+- preflight: 0 errors / 0 warnings
+- hook tests: 14/14 PASS
+- skill mirror: 20 files, 0 drift
+- Unit test (set -o pipefail + 250-line diff):
+  - Pre-fix: captured `"500\n0"` (corrupted)
+  - Post-fix: captured `"500"` (clean)
+  - Identical files (edge case): captured `"0"` (correct, no false count)
+- `bash -n hooks/local/upgrade-engine.sh`: clean
+
+### Notes for upgraders (v2.3.0 → v2.3.1)
+
+- Cosmetic-only patch. No behavior changes; functional logic was already correct.
+- Re-running `bash hooks/local/upgrade-engine.sh` after pulling v2.3.1 will pick up the fix on next run (the script syncs itself).
+
+### Discovered during validation
+
+This bug was caught during the v2.3.0 end-to-end smoke test in a downstream project — the upgrade succeeded, but the dry-run preview rendered with a line break in the diff count. v2.3.1 ships within hours of v2.3.0, demonstrating the value of always validating new releases against a real downstream upgrade scenario before declaring done.
+
+---
+
 ## [2.3.0] — 2026-05-10
 
 ### Added — `hooks/local/upgrade-engine.sh` (operator-explicit engine upgrade)

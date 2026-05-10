@@ -105,7 +105,12 @@ for f in "${FILES_TO_SYNC[@]}"; do
   elif diff -q "$src" "$f" >/dev/null 2>&1; then
     : # byte-identical; skip
   else
-    diff_count=$(diff "$src" "$f" 2>/dev/null | grep -cE "^[<>]" || echo 0)
+    # `|| true` swallows non-zero exit (set -o pipefail makes the pipe exit
+    # non-zero whenever diff finds differences, even though grep -c then
+    # succeeds). grep -c always emits the count to stdout, so `|| true`
+    # doesn't lose data — and avoids polluting stdout with a stray "0"
+    # appended after the real count (the v2.3.0 cosmetic display bug).
+    diff_count=$(diff "$src" "$f" 2>/dev/null | grep -cE "^[<>]" 2>/dev/null || true)
     CHANGES+=("$f ($diff_count line diffs)")
   fi
 done
