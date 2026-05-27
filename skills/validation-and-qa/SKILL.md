@@ -3,7 +3,7 @@ name: validation-and-qa
 description: Use when code changes need a gate report, operator asks "is this ready?", or a single observed failure needs reproducibility check; runs lint/typecheck/tests, smoke, probes, reproducibility-before-fix. Do NOT approve deploy (that's release-deploy-reporting).
 source_inspiration: conceptual-only
 license_status: clean-room-original
-fusebase_flow_version: 2.1
+fusebase_flow_version: 3.1
 risk_level: medium
 invocation: automatic
 expected_outputs:
@@ -21,7 +21,7 @@ hook_dependencies:
 
 ## Purpose
 
-Validate changed behavior with deterministic checks before a deploy is approved. Three sub-modes: (a) verification gate after implementation; (b) smoke prompt verification post-deploy; (c) reproducibility-before-fix when a single observed failure is reported.
+Validate changed behavior with deterministic checks before a deploy is approved. Four sub-modes: (a) verification gate after implementation; (b) smoke prompt verification post-deploy; (c) reproducibility-before-fix when a single observed failure is reported; (d) test-data hygiene cleanup.
 
 ## When to invoke
 
@@ -45,6 +45,8 @@ Validate changed behavior with deterministic checks before a deploy is approved.
 | AI Developer gate report | chat paste from AI Developer session | Stop; ask operator to paste report |
 | Lint / typecheck / test commands | project-specific section of `AGENTS.md` or `package.json`/`pyproject.toml` | Stop; ask operator to provide commands |
 | Worker-undisturbed list | `policies/protected-paths.yml` | Stop; gate cannot complete without protected-path verification |
+| UI / E2E test context, if applicable | `verification-gate.md`, `templates/smoke-test-playwright.md`, route/component files, API/backend paths | Require route, primary action, stable locator, auth plan, test data, expected outcome, diagnostic surfaces |
+| CLI edition map, for Fusebase Apps work | `docs/fusebase-cli-edition.md` | Continue with Flow-only validation, but mark app-domain probe coverage unknown |
 
 ## Procedure
 
@@ -65,13 +67,28 @@ Validate changed behavior with deterministic checks before a deploy is approved.
    3. *Could a reader reproduce the run from the gate report alone?* (commands + inputs + outputs visible?)
 
    If any answer is "no" for any AC, the gate is incomplete. Redirect implementer to add the missing evidence, even if all the unit tests pass. Mock-only tests + green CI do NOT prove the AC works against real inputs.
-6. If passes, output approval to operator with explicit phrase "Gate verified. Phase advances to Deploy."
+6. For UI / E2E evidence, verify the test plan is specific enough to reproduce:
+   - Route/navigation path to the feature.
+   - Stable selectors or accessible locators for controls and meaningful outputs.
+   - Primary action under test and expected user-visible result.
+   - Auth/session plan, including whether synthetic test data or live-user verification is required.
+   - Test data setup using unique values; no exact-count assumptions against shared state unless the test created the records.
+   - Browser-visible evidence plus backend/log/API diagnostic evidence when the feature spans frontend and backend.
+7. If passes, output approval to operator with explicit phrase "Gate verified. Phase advances to Deploy."
 
 ### Sub-mode B — Smoke prompt verification (post-deploy)
 
-1. Run numbered smoke prompts S1..Sn from `verification-gate.md`. Persist evidence (screenshots, response excerpts, log lines) to `docs/handoff/<date>-<slug>-smoke/`.
-2. Compute pass ratio (e.g., 4/4 PASS).
-3. If below threshold defined in gate contract, do NOT mark spec DONE. Report failure with concrete `Sn observed Y, expected Z`.
+1. Invoke `skills/smoke-testing/SKILL.md` and run numbered smoke prompts S1..Sn from `verification-gate.md`.
+2. For Fusebase Apps smoke, use `docs/fusebase-cli-edition.md` to identify supporting CLI diagnostics such as `remote-logs`, `dev-debug-logs`, `fusebase-cli`, or `app-create-checker`. These are evidence sources, not substitutes for operator-visible outcome proof.
+3. Verify each smoke prompt demonstrates the operator-visible outcome and inspects the ground-truth diagnostic surface. Exit code, file hash, service active, symbol presence, and auth sanity are supporting checks only.
+4. For interactive UI changes, verify at least one smoke prompt exercises the real primary interaction; screenshots/render checks alone are incomplete.
+5. For browser smoke, verify the plan runs one user flow at a time and includes route, viewport, selectors/locators, test data, auth/session handling, expected outcomes, and cleanup responsibility.
+6. For UI smoke, verify selectors/locators are stable enough to reproduce the run; avoid styling/layout selectors when a purpose/state selector or accessible locator exists.
+7. Verify shared-state discipline: generated test records use unique values, tests do not rely on exact counts for data they did not create, and empty-state checks are isolated or explicitly prepared.
+8. Inspect both browser-visible evidence and the backend/log/API diagnostic surface when the UI action crosses system boundaries. Browser PASS with server-side error logs is smoke FAIL.
+9. Persist evidence (screenshots, response excerpts, browser console/network notes, log lines, request dumps, rendered DOM, job rows) to `docs/handoff/<date>-<slug>-smoke/`.
+10. Compute pass ratio (e.g., 4/4 PASS).
+11. If below threshold defined in gate contract, or if end-to-end smoke is not feasible, do NOT mark spec DONE. Report failure or `PENDING-OPERATOR-SMOKE` with concrete `Sn observed Y, expected Z` / missing prerequisite.
 
 ### Sub-mode C — Reproducibility before fix
 
@@ -93,6 +110,7 @@ Run BEFORE marking the spec DONE. Smoke runs and reproducibility attempts often 
    - Database rows tagged with test slugs / fixture IDs (DELETE if scoped to this ticket; keep if shared fixture)
    - Mock response captures left in feature directories (DELETE)
    - Screenshots / response bodies that captured operator session content during live-user verification (REDACT or DELETE per `workflows/live-user-verification.md` Step 6)
+   - External-service test objects, notifications, webhooks, or payment-like side effects (CLEAN UP or document as intentionally retained with approval)
 2. **Run cleanup commands** with explicit before/after counts. Example:
    ```
    # Before: list what will be removed
@@ -121,7 +139,10 @@ Skip this sub-mode only if no test data was written during the ticket (rare — 
 |---|---|---|
 | Lint/typecheck failed in implementer gate report | report shows "lint: errors" or "typecheck: errors" | Redirect implementer to fix; do not advance phase |
 | Worker-undisturbed file diffed unexpectedly | `git diff` against `protected-paths.yml` shows non-empty | Stop; redirect to check FR-07 + filed exception artifact |
+| UI / E2E plan is vague | no route, locator, primary action, test data, auth plan, or expected outcome | Mark gate incomplete; require a reproducible browser test plan |
+| Shared-state assumption | asserts exact counts or empty state without creating/isolating data | Revise test to create unique data or isolate state before claiming PASS |
 | Smoke S<n> failed | screenshot or log shows divergence from expected | Document `Sn observed Y, expected Z`; do NOT mark spec DONE; surface to operator with rollback/fix-forward options |
+| Browser PASS but backend diagnostic shows error | console/UI looks right while server log/request dump/job row shows failure | Smoke FAIL; attach both evidence surfaces |
 | Reproduce attempt fails 0/3 or partially | 1 or 2 of 3 attempts reproduce | Document model variance; recommend no-op close per FR-10 |
 
 ## Escalation path
@@ -129,6 +150,7 @@ Skip this sub-mode only if no test data was written during the ticket (rare — 
 - Smoke threshold not met → operator decides rollback (`git revert`) or fix-forward via follow-up task; surface options, don't decide
 - Test infrastructure broken → file infra ticket; gate cannot proceed; do not weaken gate to "skip tests"
 - Reproduction needs operator session credentials → propose via `workflows/architect-escalation.md` (live-user verification with explicit consent)
+- External-service side effects needed for verification → require explicit approval or use a sandbox/test-mode path before execution
 
 ## Anti-patterns
 
@@ -137,6 +159,9 @@ Skip this sub-mode only if no test data was written during the ticket (rare — 
 - Do NOT print or persist session keys / cookies if a live-user verification is in play; mask in output
 - Do NOT auto-fix lint or typecheck errors without operator approval — surface them
 - Do NOT skip reproducibility-before-fix when a single failure is reported (FR-10)
+- Do NOT use browser automation for API-only, unit-only, load, or performance testing when a lighter deterministic probe is sufficient
+- Do NOT claim UI/E2E coverage from a test plan with placeholders, uncreated data, brittle selectors, or unspecified auth state
+- Do NOT allow external-service smoke to send real notifications, charges, or customer-visible messages without an approval path
 
 ## Clean-room note
 

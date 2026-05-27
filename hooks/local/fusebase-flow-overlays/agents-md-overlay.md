@@ -1,4 +1,6 @@
 
+<!-- CUSTOM:SKILL:BEGIN -->
+
 ---
 
 ## Fusebase Flow — workflow lifecycle overlay
@@ -7,9 +9,9 @@ This repository follows **Fusebase Flow** (https://github.com/fusebase-dev/fuseb
 
 Fusebase Flow ships:
 
-- **Always-on rules:** `FLOW_RULES.md` (FR-01..FR-18)
+- **Always-on rules:** `FLOW_RULES.md` (FR-01..FR-19)
 - **Mandatory skills (auto-loaded via `.claude/skills/` and `.agents/skills/`):** `communication`, `role-discipline`
-- **On-demand skills (description-matched):** `code-review`, `implementation-planning`, `release-deploy-reporting`, `repo-onboarding-context-map`, `requirements-specification`, `security-permissions-review`, `validation-and-qa`, `fusebase-flow-health-check`
+- **On-demand skills (description-matched):** `code-review`, `design-discovery-ideation`, `implementation-planning`, `release-deploy-reporting`, `repo-onboarding-context-map`, `requirements-specification`, `security-permissions-review`, `smoke-testing`, `task-delegation`, `validation-and-qa`, `fusebase-flow-health-check`
 - **Sub-agents (description-matched from `.claude/agents/`):** `product-owner` (phases 1–6 + Architect inline), `ai-developer` (phase 7 AI Developer + phase 8b Deploy attestation)
 - **Workflows:** `workflows/*.md`
 - **Policies:** `policies/*.yml` (machine-readable; consumed by hooks)
@@ -18,7 +20,9 @@ Fusebase Flow ships:
 
 **Self-attestation (every session's first response):**
 
-> "Operating as {role} under Fusebase Flow. I will follow FR-01 through FR-18. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+> "Operating as {role} under Fusebase Flow v3.1. I will follow FR-01 through FR-19. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+
+**Operator questions:** per FR-19, ask questions in chat text, not popup / clickable menu tools. Use short option tables or numbered lists so the operator can copy, forward, quote, and follow up.
 
 ### Maintenance posture (Fusebase CLI ↔ Fusebase Flow coexistence)
 
@@ -58,3 +62,5 @@ The recovery script is self-detecting: it skips parts that don't need restoratio
 | T-counter | `0` | `templates/tasks.md` |
 
 **Where Fusebase Flow and project-specific rules conflict, project-specific rules win.**
+
+<!-- CUSTOM:SKILL:END -->

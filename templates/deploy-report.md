@@ -21,7 +21,7 @@ You are an AI Developer Deploy-phase session that has just completed T<deploy> (
 **Slug:** `<slug>`
 **Deploy hash:** `<hash>` ← rollback: `git revert <hash>`
 **Approval artifact:** `state/approvals/production_deploy-<slug>-<date>.json` (expires `<timestamp>`)
-**Reporting session:** AI Developer / Deploy phase (Fusebase Flow v2.1, FR-01..FR-18)
+**Reporting session:** AI Developer / Deploy phase (Fusebase Flow v3.1, FR-01..FR-19)
 **Date:** <YYYY-MM-DD>
 
 ---
@@ -64,11 +64,13 @@ If ANY probe failed: replace this section with **failure section** below.
 
 ## 4. Smoke prompts (if applicable)
 
-| Smoke | Result | Evidence path |
-|---|---|---|
-| S1 | ✓ PASS | `docs/handoff/<date>-<slug>-smoke/S1-output.md` |
-| S2 | ✓ PASS | `docs/handoff/<date>-<slug>-smoke/S2-output.md` |
-| ... | ... | ... |
+| Smoke | Result | Operator-visible outcome | Ground-truth diagnostic | Evidence path |
+|---|---|---|---|---|
+| S1 | PASS / FAIL / PENDING-OPERATOR-SMOKE | `<observed outcome>` | `<diagnostic checked; error=null / no error entry / expected row present>` | `docs/handoff/<date>-<slug>-smoke/S1-output.md` |
+| S2 | PASS / FAIL / PENDING-OPERATOR-SMOKE | `<observed outcome>` | `<diagnostic checked>` | `docs/handoff/<date>-<slug>-smoke/S2-output.md` |
+| ... | ... | ... | ... | ... |
+
+Supporting checks only (exit code, hashes, service active, symbol presence, auth sanity) are not sufficient smoke evidence. If any S<n> is `PENDING-OPERATOR-SMOKE`, leave spec DRAFT and provide the exact operator smoke steps.
 
 ---
 

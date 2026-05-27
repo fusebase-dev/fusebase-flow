@@ -11,15 +11,16 @@
 #
 # PURPOSE:
 #   Run after `fusebase update` (without --skip-skills) to restore the Fusebase
-#   Flow overlay that the CLI's full-refresh destroyed. Idempotent: safe to run
-#   multiple times; only re-applies pieces that are actually missing.
+#   Flow overlay that the CLI's full-refresh may remove or reduce. Idempotent:
+#   safe to run multiple times; only re-applies pieces that are actually missing.
 #
 # What this script restores:
 #   1. .claude/skills/<all Fusebase Flow skills>/      via upstream mirror-skills.sh
 #   2. .agents/skills/<all Fusebase Flow skills>/      via upstream mirror-skills.sh
 #   3. .claude/agents/<all Fusebase Flow sub-agents>.md  via upstream mirror-agents.sh
 #   4. .codex/agents/<all Fusebase Flow sub-agents>.md   via upstream mirror-agents.sh
-#   5. AGENTS.md "## Fusebase Flow — workflow lifecycle overlay" block (if missing)
+#   5. AGENTS.md "## Fusebase Flow — workflow lifecycle overlay" block
+#      wrapped in CLI-preserved CUSTOM:SKILL markers (if missing)
 #   6. CLAUDE.md "## Fusebase Flow — additional rules (overlay)" block (if missing)
 #   7. .claude/settings.json — lifecycle event keys + Stop hook chain (if missing)
 #   8. .claude/hooks/run-typecheck-features.js — Windows shell:true patch (until upstream CLI fix)
@@ -74,7 +75,9 @@ else
 fi
 
 ###############################################################################
-# Step 3 — Re-append AGENTS.md overlay if missing
+# Step 3 — Re-append AGENTS.md overlay if missing. The overlay template is
+# wrapped in the CLI's CUSTOM:SKILL markers so current Fusebase CLI refreshes
+# capture and restore it instead of evicting it on later full updates.
 ###############################################################################
 
 echo "[post-fusebase-update] Step 3: AGENTS.md overlay check..."

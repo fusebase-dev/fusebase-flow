@@ -181,7 +181,11 @@ fi
 if [ -f AGENTS.md ]; then
   AGENTS_OVERLAY_COUNT=$(grep -cF "## Fusebase Flow — workflow lifecycle overlay" AGENTS.md 2>/dev/null || true)
   if [ "$AGENTS_OVERLAY_COUNT" -eq 0 ]; then
-    record_drift "agents_md_overlay" "AGENTS.md overlay block: MISSING"
+    if grep -qF "Fusebase Flow always-on baseline" AGENTS.md 2>/dev/null; then
+      LOCAL_OK+=("AGENTS.md baseline: present (source-template / edition mode)")
+    else
+      record_drift "agents_md_overlay" "AGENTS.md overlay block: MISSING"
+    fi
   elif [ "$AGENTS_OVERLAY_COUNT" -eq 1 ]; then
     LOCAL_OK+=("AGENTS.md overlay block: present")
   else
@@ -196,7 +200,11 @@ fi
 if [ -f CLAUDE.md ]; then
   CLAUDE_OVERLAY_COUNT=$(grep -cF "## Fusebase Flow — additional rules (overlay)" CLAUDE.md 2>/dev/null || true)
   if [ "$CLAUDE_OVERLAY_COUNT" -eq 0 ]; then
-    record_drift "claude_md_overlay" "CLAUDE.md overlay block: MISSING"
+    if grep -qF "Claude Code adapter for Fusebase Flow" CLAUDE.md 2>/dev/null; then
+      LOCAL_OK+=("CLAUDE.md baseline: present (source-template / edition mode)")
+    else
+      record_drift "claude_md_overlay" "CLAUDE.md overlay block: MISSING"
+    fi
   elif [ "$CLAUDE_OVERLAY_COUNT" -eq 1 ]; then
     LOCAL_OK+=("CLAUDE.md overlay block: present")
   else
@@ -454,13 +462,15 @@ elif [ "$ARTIFACT_DRIFT_COUNT" -eq "$DRIFT_COUNT" ] && [ "$ARTIFACT_DRIFT_COUNT"
   # this is the v2 hook-test artifact mechanism working as designed, not real drift.
   DRIFT_SIGNATURE="EXCEPTION_IN_EFFECT"
 else
-  # AGENTS.md overlay missing + settings.json reduced is the canonical
-  # `fusebase update` aftermath signature for current CLI versions.
+  # settings.json reduced is the core `fusebase update` aftermath signature.
+  # AGENTS.md may be missing on legacy/plain-overlay installs, or still present
+  # after recovery has installed the CLI-preserved CUSTOM:SKILL wrapper.
   AGENTS_MISSING=$(printf '%s\n' "${LOCAL_DRIFT[@]}" | grep -c "AGENTS.md overlay block: MISSING" || true)
+  AGENTS_PRESENT=$(printf '%s\n' "${LOCAL_OK[@]}" | grep -c "AGENTS.md overlay block: present" || true)
   SETTINGS_REDUCED=$(printf '%s\n' "${LOCAL_DRIFT[@]}" | grep -c "settings.json: only" || true)
   WIN_PATCH_MISSING=$(printf '%s\n' "${LOCAL_DRIFT[@]}" | grep -c "Windows shell:true patch.*MISSING" || true)
 
-  if [ "$AGENTS_MISSING" -gt 0 ] && [ "$SETTINGS_REDUCED" -gt 0 ]; then
+  if [ "$SETTINGS_REDUCED" -gt 0 ] && { [ "$AGENTS_MISSING" -gt 0 ] || [ "$AGENTS_PRESENT" -gt 0 ]; }; then
     DRIFT_SIGNATURE="FUSEBASE_UPDATE_AFTERMATH"
   elif [ "$WIN_PATCH_MISSING" -gt 0 ] && [ "$AGENTS_MISSING" -eq 0 ] && [ "$SETTINGS_REDUCED" -eq 0 ]; then
     DRIFT_SIGNATURE="DRIFTED"
@@ -487,9 +497,9 @@ case "$DRIFT_SIGNATURE" in
       RECOMMENDATIONS+=("To clear: when the protected work is done, delete the listed artifact(s) or wait for their expires_at to pass. Then re-run this health check.")
     fi ;;
   FUSEBASE_UPDATE_AFTERMATH)
-    RECOMMENDATIONS+=("Drift signature matches the 'fusebase update' aftermath pattern (AGENTS.md overlay missing AND settings.json reduced).")
+    RECOMMENDATIONS+=("Drift signature matches the 'fusebase update' aftermath pattern (settings.json reduced; AGENTS.md overlay may be missing on legacy installs or preserved by the CUSTOM:SKILL wrapper on current installs).")
     RECOMMENDATIONS+=("Recommended recovery: bash hooks/local/post-fusebase-update.sh")
-    RECOMMENDATIONS+=("That script is idempotent and restores AGENTS.md overlay, settings.json events, Windows typecheck patch, plus re-mirrors skills/agents (no-op if already present).")
+    RECOMMENDATIONS+=("That script is idempotent and restores the AGENTS.md overlay wrapper when needed, settings.json events, Windows typecheck patch, plus re-mirrors skills/agents (no-op if already present).")
     RECOMMENDATIONS+=("To avoid this in future: prefer 'fusebase update --skip-skills' for routine updates.") ;;
   DRIFTED)
     RECOMMENDATIONS+=("Drift detected but signature does NOT match a clean fusebase update aftermath. Review the LOCAL_DRIFT items above and investigate manually.")

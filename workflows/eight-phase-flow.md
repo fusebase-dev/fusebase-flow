@@ -11,7 +11,7 @@
 | 3 | Plan | Product Owner | `docs/specs/<slug>/spec.md` filled out | `requirements-specification` skill |
 | 4 | Decisions | Product Owner ↔ operator | `docs/specs/<slug>/decisions.md` (LOCKED after operator confirms) | `implementation-planning` skill |
 | 5 | Tasks | Product Owner | `docs/specs/<slug>/tasks.md` (T-numbered chain) | `implementation-planning` skill |
-| 6 | Verify | Product Owner → AI Developer → Product Owner | `docs/specs/<slug>/verification-gate.md` + gate report | `implementation-planning` (drafts gate) → `validation-and-qa` (verifies) |
+| 6 | Verify | Product Owner → AI Developer → Product Owner | `docs/specs/<slug>/verification-gate.md` + gate report | `implementation-planning` + `smoke-testing` (draft gate) → `validation-and-qa` (verifies) |
 | 7 | Implement | AI Developer (separate session) | task chain commits | `workflows/greenlight-implement.md` handoff |
 | 8 | Deploy | AI Developer (separate session) → Product Owner | deploy hash + probe results + spec DRAFT→DONE | `release-deploy-reporting` skill + `workflows/greenlight-deploy.md` handoff |
 
@@ -30,7 +30,7 @@ Each transition has a state-announcement footer update. The operator can redirec
 | `architect-escalation.md` | Investigation surface > 10 files / cross-cutting refactor / platform blocker suspected |
 | `knowledge-curation.md` | After deploy or mid-investigation when triggers fire (see FR-15) |
 | `git-workflow.md` | Pre-task checkpoint, per-commit, pre-deploy verification |
-| `smoke-verification.md` | When `verification-gate.md` specifies numbered smoke prompts |
+| `smoke-verification.md` | When `verification-gate.md` specifies numbered smoke prompts; execute with `smoke-testing` |
 
 ## Role hand-offs across sessions
 

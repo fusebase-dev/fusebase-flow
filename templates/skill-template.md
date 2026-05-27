@@ -73,7 +73,7 @@ Tabular list of files or chat outputs the skill produces.
 
 Bullet list. When the skill cannot complete, where does work go next?
 
-- Stop and ask operator with `<specific question>`
+- Stop and ask operator with `<specific question>` in chat text (FR-19); do not use popup / clickable menu tools
 - Hand off to skill `<other-skill>` via `<trigger>`
 - Park as backlog ticket at `docs/backlog/<slug>/README.md`
 
@@ -95,9 +95,14 @@ Original Fusebase Flow content. Designed after reviewing public AI coding workfl
 **Authoring checklist (Mode-B-lite):**
 
 - [ ] Frontmatter `description` leads with WHEN to invoke and WHEN NOT
+- [ ] Destination classified: `skills/` framework skill vs `docs/skills/` project skill vs problem-catalog entry
+- [ ] External sources, if any, transformed conceptually; no copied prose, examples, proprietary labels, or vendor-specific paths
+- [ ] Existing skills checked for overlap before adding a new skill
+- [ ] Role applicability named: Product Owner / AI Developer / Architect / Deploy phase
 - [ ] No human-onboarding preamble in body
 - [ ] Tables/bullets dominate prose paragraphs
 - [ ] Concrete identifiers (T#, file:line, command names) over vague pointers
 - [ ] No chat-style ASCII visuals (visuals belong in chat per FR-08, not in skill files)
 - [ ] Predictable sections present in this exact order
 - [ ] Body fits in one screen of an 80-col editor when possible
+- [ ] Framework skills only: provider mirrors and `audit/skill-mirror-manifest.txt` refreshed

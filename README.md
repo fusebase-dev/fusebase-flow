@@ -1,10 +1,16 @@
-# Fusebase Flow Local
+# Fusebase Flow Local - Fusebase CLI edition
 
-**A GitHub template / repo-local workflow framework for AI coding agents and IDEs.**
+**A GitHub template / repo-local workflow framework for AI coding agents and IDEs, packaged with Fusebase Apps CLI domain assets.**
 
 Fusebase Flow Local installs durable rules, skills, workflows, hooks, policies, and templates into a project so your existing IDE / agent can follow a consistent multi-phase ticket lifecycle — from spec through deploy.
 
 It works by shaping the agent's behavior through **repo files**, not by replacing the agent. There is no SaaS, no daemon, no proprietary runtime to install.
+
+## Edition scope
+
+This Fusebase CLI edition keeps Flow as the lifecycle layer and adds Fusebase Apps CLI provider assets as the runtime/domain layer. Flow owns specs, decisions, tasks, gates, reviews, deploy handoffs, and smoke discipline. CLI assets support app architecture, Fusebase CLI usage, dashboards, gate, secrets, routing, logs, and scaffold checks.
+
+See [`docs/fusebase-cli-edition.md`](docs/fusebase-cli-edition.md) for the boundary map and overlap table.
 
 ## What this is — and isn't
 
@@ -26,6 +32,8 @@ Fusebase Flow Local provides compatibility files for:
 - **GitHub Copilot / VS Code** — `.github/copilot-instructions.md`, `.github/instructions/*.instructions.md`, `AGENTS.md`
 - **Gemini / Antigravity-style IDE agents** — `GEMINI.md`, `AGENTS.md`
 - **Generic local repo workflows** — `AGENTS.md` + root-level framework dirs (`skills/`, `workflows/`, `policies/`, `templates/`, `hooks/`) + git fallback hooks + local scripts
+
+In this edition, `.claude/skills/` and `.agents/skills/` include both canonical Flow skill mirrors and CLI provider skills. The audit mirror manifest tracks the Flow mirrors only.
 
 The full surface support breakdown lives at [`docs/compatibility.md`](docs/compatibility.md).
 
@@ -110,7 +118,7 @@ bash install.sh
 3. After clarify resolves, the agent invokes `implementation-planning` to produce `decisions.md`, `tasks.md`, `verification-gate.md`, plus a saved handoff at `docs/handoff/<YYYY-MM-DD>-<slug>-implement.md`.
 4. Open a fresh agent session, paste the handoff, and the AI Developer executes the task chain — stopping at the verification gate.
 5. Paste the gate report back to the originating session. Run `code-review` and `security-permissions-review`.
-6. If clean, the operator says *"prepare deploy"* — the `release-deploy-reporting` skill drafts the deploy handoff, you paste it into the AI Developer session, deploy runs, probes verify.
+6. If clean, the operator says *"prepare deploy"* — the `release-deploy-reporting` skill drafts the deploy handoff, you paste it into the AI Developer session, deploy runs, probes and outcome-based smoke verify.
 
 The full eight-phase lifecycle lives at [`workflows/eight-phase-flow.md`](workflows/eight-phase-flow.md).
 
@@ -120,10 +128,12 @@ Two role-shaped sub-agents cover the full eight-phase lifecycle. They are **opt-
 
 | Sub-agent | Owns | Skills it invokes |
 |---|---|---|
-| **Product Owner** | Specify, Clarify, Plan, Decisions, Tasks, draft-verification-gate, post-implement code-review and security-permissions-review, deploy-handoff drafting, spec DRAFT→DONE flip, **plus Architect responsibilities inline on escalation** (>10 files / cross-cutting refactor / platform blocker / blocked migration) | `requirements-specification`, `implementation-planning`, `code-review`, `security-permissions-review`, `release-deploy-reporting` |
-| **AI Developer** | Run gate, Implement T-chain (one task = one commit; stops at gate), Run deploy command (gated on approval artifact, captures hash, runs probes) | `validation-and-qa`, `repo-onboarding-context-map` |
+| **Product Owner** | Specify, Clarify, Plan, design discovery/ideation, Decisions, Tasks, draft-verification-gate, smoke contract definition, clean-room skill classification, post-implement code-review and security-permissions-review, deploy-handoff drafting, spec DRAFT→DONE flip, **plus Architect responsibilities inline on escalation** (>10 files / cross-cutting refactor / platform blocker / blocked migration) | `requirements-specification`, `design-discovery-ideation`, `implementation-planning`, `smoke-testing`, `task-delegation`, `skill-authoring`, `code-review`, `security-permissions-review`, `release-deploy-reporting` |
+| **AI Developer** | Run gate, Implement T-chain (one task = one commit; stops at gate), implement approved framework skill changes, Run deploy command (gated on approval artifact, captures hash, runs probes and smoke evidence) | `validation-and-qa`, `smoke-testing`, `task-delegation`, `skill-authoring`, `repo-onboarding-context-map` |
 
 Both sub-agents always load the mandatory `communication` and `role-discipline` skills.
+
+This CLI edition also ships CLI app agents (`app-architect`, `app-create-checker`) as provider/domain assets. They support Fusebase Apps architecture and scaffold validation; they do not replace the Flow Product Owner or AI Developer role agents.
 
 ### Invoking from Claude Code
 
@@ -163,7 +173,7 @@ Preflight will warn on drift if the mirrors and canonical fall out of sync. Full
 
 ## Health check & recovery (v2.2+)
 
-Fusebase Flow ships a built-in **health check skill** + **recovery script** that diagnose and repair overlay drift. The most common cause of drift is `fusebase update` (Fusebase CLI), which regenerates `AGENTS.md`, `.claude/settings.json`, and `.claude/hooks/` from CLI templates and evicts the Fusebase Flow overlay. Other causes include manual edits, foreign frameworks installed on top, or partial pulls.
+Fusebase Flow ships a built-in **health check skill** + **recovery script** that diagnose and repair overlay drift. The most common cause of drift is `fusebase update` without `--skip-skills`, which refreshes `AGENTS.md`, `.claude/skills/`, `.claude/agents/`, `.claude/hooks/`, and `.claude/settings.json` from CLI templates. Current CLI builds preserve custom blocks in `AGENTS.md`, so Flow appends its overlay inside that wrapper; `.claude/settings.json` and hook helpers still need recovery after a full refresh. Other causes include manual edits, foreign frameworks installed on top, or partial pulls.
 
 ### Quick reference
 
@@ -179,11 +189,11 @@ Fusebase Flow ships a built-in **health check skill** + **recovery script** that
 12 inventory checks per run:
 
 - VERSION file
-- AGENTS.md overlay block (`## Fusebase Flow — workflow lifecycle overlay`)
+- AGENTS.md overlay block (`## Fusebase Flow — workflow lifecycle overlay`, appended inside the CLI-preserved custom wrapper)
 - CLAUDE.md overlay block (`## Fusebase Flow — additional rules (overlay)`)
 - `.claude/settings.json` lifecycle events (auto-discovered count)
-- `.claude/skills/` mirror count (auto-discovered set)
-- `.claude/agents/` mirror count (auto-discovered set)
+- `.claude/skills/` Flow mirror count (auto-discovered set; CLI provider skills may also be present)
+- `.claude/agents/` Flow agent mirror count (auto-discovered set; CLI app agents may also be present)
 - Health-check skill self-presence
 - Recovery script presence + executable
 - Overlay templates folder presence
@@ -199,7 +209,7 @@ Plus active approval artifacts in `state/approvals/` are surfaced informationall
 |---|:---:|---|
 | `HEALTHY` | 0 | All checks pass; upstream in sync |
 | `EXCEPTION_IN_EFFECT` | 3 | All drift attributable to active approval artifacts in `state/approvals/` (either v2 hook-test `protected_path_edit-*.json` or v2.4.0+ `health_check_deferral-*.json`) |
-| `FUSEBASE_UPDATE_AFTERMATH` | 1 | Canonical `fusebase update` aftermath (AGENTS.md overlay missing AND settings.json reduced) |
+| `FUSEBASE_UPDATE_AFTERMATH` | 1 | Canonical `fusebase update` aftermath (settings.json reduced; AGENTS may be missing on legacy/plain-overlay installs or preserved by the custom wrapper) |
 | `DRIFTED` | 1 | Drift detected but doesn't match a known pattern |
 | `BROKEN` | 2 | Genuine failure NOT attributable to operator-authored exceptions |
 
@@ -215,7 +225,7 @@ The skill is read-only during diagnosis. When drift is detected and recoverable,
 
 ```
 Run recovery now? It will:
-  • Restore AGENTS.md overlay block (if missing)
+  • Restore AGENTS.md overlay block in the CLI-preserved custom wrapper (if missing)
   • Merge .claude/settings.json lifecycle events (if reduced)
   • Re-apply Windows shell:true patch (if missing)
   • Re-mirror Fusebase Flow skills + sub-agents (no-op if already present)
@@ -245,7 +255,7 @@ skills/fusebase-flow-health-check/SKILL.md          ← canonical skill (descrip
 hooks/local/fusebase-flow-health-check.sh           ← engine (read-only diagnostic)
 hooks/local/post-fusebase-update.sh                 ← recovery script (10 idempotent steps)
 hooks/local/fusebase-flow-overlays/                 ← overlay templates + canonical skill + slash command source
-  ├── agents-md-overlay.md                          ← block to append to AGENTS.md
+  ├── agents-md-overlay.md                          ← custom-block-wrapped block to append to AGENTS.md
   ├── claude-md-overlay.md                          ← block to append to CLAUDE.md
   ├── settings-json-merge.py                        ← Python merger (no jq)
   ├── skills/fusebase-flow-health-check/SKILL.md    ← skill template (recovery copies into mirrors)
@@ -263,11 +273,11 @@ fusebase-flow/
 ├── AGENTS.md                       ← portable always-on baseline
 ├── CLAUDE.md                       ← Anthropic Claude Code adapter
 ├── GEMINI.md                       ← Gemini-style IDE adapter
-├── FLOW_RULES.md                   ← FR-01..FR-18 always-on rules
-├── VERSION                         ← 2.2.0
+├── FLOW_RULES.md                   ← FR-01..FR-19 always-on rules
+├── VERSION                         ← 3.1
 ├── .gitattributes                  ← LF line endings for shell/python/yaml/md
 ├── .python-version                 ← 3.12 (recommended)
-├── skills/                         ← 10 canonical skills (2 mandatory + 8 on-demand, incl. fusebase-flow-health-check)
+├── skills/                         ← 14 canonical skills (2 mandatory + 12 on-demand, incl. design-discovery-ideation, smoke-testing, task-delegation, skill-authoring + fusebase-flow-health-check)
 ├── agents/                         ← 2 canonical sub-agents (product-owner, ai-developer)
 ├── workflows/                      ← 12 procedures
 ├── policies/                       ← 6 YAML policies
@@ -290,12 +300,12 @@ fusebase-flow/
 │   └── agent-mirror-manifest.txt   ← sha256 manifest for sub-agent mirrors
 ├── state/                          ← runtime state (gitignored contents)
 ├── docs/                           ← public reference docs + per-project artifacts
-├── .agents/skills/                 ← OpenAI / ChatGPT Codex skill mirror (× 10)
-├── .claude/skills/                 ← Anthropic Claude Code skill mirror (× 10)
-├── .claude/agents/                 ← Anthropic Claude Code sub-agent mirror (× 2)
+├── .agents/skills/                 ← Codex skill surface (14 Flow mirrors + 19 CLI provider skills)
+├── .claude/skills/                 ← Claude Code skill surface (14 Flow mirrors + 19 CLI provider skills)
+├── .claude/agents/                 ← Claude Code agent surface (2 Flow role agents + 2 CLI app agents)
 ├── .claude/commands/               ← Anthropic Claude Code slash commands (incl. /fusebase-health)
 ├── .claude/settings.json.example   ← Claude Code hook wiring
-├── .codex/agents/                  ← OpenAI / ChatGPT Codex sub-agent mirror (× 2)
+├── .codex/agents/                  ← Codex agent surface (2 Flow role agents + 2 CLI app agents)
 ├── .codex/{config.toml,hooks.json}.example ← Codex hook wiring + project trust note
 ├── .cursor/rules/                  ← Cursor rules (always + scoped)
 └── .github/
@@ -308,7 +318,7 @@ fusebase-flow/
 
 | Layer | What it does | Where |
 |---|---|---|
-| **Always-on rules** | 15 baseline rules every session attests to | `FLOW_RULES.md` |
+| **Always-on rules** | 19 baseline rules every session attests to | `FLOW_RULES.md` |
 | **Workflows** | Step-by-step procedures (eight-phase, greenlight-implement, greenlight-deploy, etc.) | `workflows/` |
 | **Skills** | On-demand expertise loaded when triggered by description match | `skills/` (canonical) + provider mirrors |
 | **Sub-agents** | Role-shaped specialists (Product Owner, AI Developer) with tight tool surfaces and self-attestation | `agents/` (canonical) + `.claude/agents/`, `.codex/agents/` mirrors |
@@ -344,7 +354,7 @@ CI runs both on every push / PR via `.github/workflows/fusebase-flow-verify.yml`
 
 ## Clean-room
 
-Designed after reviewing public AI coding workflow patterns. **No third-party code, prompts, skill files, or hook scripts are copied.** See [`docs/clean-room.md`](docs/clean-room.md).
+Canonical Flow files are clean-room original. This CLI edition also includes provider-scoped Fusebase Apps CLI assets; see [`docs/clean-room.md`](docs/clean-room.md) and [`docs/fusebase-cli-edition.md`](docs/fusebase-cli-edition.md).
 
 ## License
 
@@ -360,7 +370,7 @@ Public-facing reference material lives in [`docs/`](docs/):
 
 - [`docs/compatibility.md`](docs/compatibility.md) — provider / IDE support detail
 - [`docs/hook-coverage.md`](docs/hook-coverage.md) — hook × provider coverage
-- [`docs/rail-mapping.md`](docs/rail-mapping.md) — FR-01..FR-18 → enforcement surfaces
+- [`docs/rail-mapping.md`](docs/rail-mapping.md) — FR-01..FR-19 → enforcement surfaces
 - [`docs/clean-room.md`](docs/clean-room.md) — clean-room license attestation
 - [`docs/source-map.md`](docs/source-map.md) — generic pattern attribution
 

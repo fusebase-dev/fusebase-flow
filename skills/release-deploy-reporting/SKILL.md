@@ -51,27 +51,29 @@ The final skill in the eight-phase flow: draft the deploy green-light handoff, c
 | Deploy command | project-specific section of `AGENTS.md` | Stop; ask operator for deploy command |
 | Approval artifact for `production_deploy` | `state/approvals/production_deploy-<slug>-<YYYYMMDD>.json` | Stop; operator must author artifact per FR-12 |
 | Worker-undisturbed list | `policies/protected-paths.yml` | Stop; cannot run final pre-deploy check without it |
+| CLI edition map, for Fusebase Apps deploys | `docs/fusebase-cli-edition.md` | Continue with generic deploy handoff, but mark CLI probes/log diagnostics unknown |
 
 ## Procedure
 
 1. Verify all preconditions: gate passed, code-review clean, security clean, approval artifact present.
 2. Final pre-deploy worker-undisturbed check: re-run `git diff` against `protected-paths.yml`. If anything changed since the gate report, STOP and report.
-3. Draft deploy handoff using `templates/handoff-folder-README.md` shape adapted for deploy stage (see `workflows/greenlight-deploy.md`). Include:
+3. For Fusebase Apps deploys, use `docs/fusebase-cli-edition.md` to identify supporting CLI assets for commands, logs, app quality checks, and post-deploy diagnostics.
+4. Draft deploy handoff using `templates/handoff-folder-README.md` shape adapted for deploy stage (see `workflows/greenlight-deploy.md`). Include:
    - Self-attestation phrase the deployer should output first
    - Pre-deploy worker-undisturbed re-check instructions
    - Deploy command (exact)
    - Probe list (G-M..G-Q or project equivalents from `verification-gate.md`)
-   - Smoke prompts S1..Sn (if applicable)
+   - Smoke prompts S1..Sn (if applicable), copied from the `smoke-testing` contract with success criterion, ground-truth diagnostic, adversarial check, and evidence required
    - Single-docs-commit instructions (FR-14): spec DRAFT→DONE flip with deploy hash, tasks.md verification marks, backlog index update, README header
-4. Save handoff to `docs/handoff/<YYYY-MM-DD>-<slug>-deploy.md` BEFORE outputting in chat (FR-04).
-5. Tell operator: "Deploy handoff saved to <path>. Open and paste into the AI Developer (Codex) chat to authorize deploy."
-6. After operator pastes back deploy report:
+5. Save handoff to `docs/handoff/<YYYY-MM-DD>-<slug>-deploy.md` BEFORE outputting in chat (FR-04).
+6. Tell operator: "Deploy handoff saved to <path>. Open and paste into the AI Developer (Codex) chat to authorize deploy."
+7. After operator pastes back deploy report:
    - Verify deploy hash captured
    - Verify each probe result with concrete evidence
-   - Verify smoke results meet threshold from gate contract
+   - Verify smoke results meet threshold from gate contract and satisfy `skills/smoke-testing/SKILL.md` (operator-visible outcome + ground-truth diagnostic, not supporting checks only)
    - Verify single docs commit landed (one SHA covering all post-deploy doc updates)
-7. If all verified, acknowledge with summary + tally update + identify what's next (parked backlog options, observation period).
-8. If any probe failed, do NOT acknowledge as success. Surface failure with rollback (`git revert <hash>` + redeploy) or fix-forward (follow-up task) options. Operator decides.
+8. If all verified, acknowledge with summary + tally update + identify what's next (parked backlog options, observation period).
+9. If any probe failed, do NOT acknowledge as success. Surface failure with rollback (`git revert <hash>` + redeploy) or fix-forward (follow-up task) options. Operator decides.
 
 ## Output artifacts
 

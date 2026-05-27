@@ -141,6 +141,19 @@ Three benefits when used in chat:
 
 Heuristic: **"Would I reach for a whiteboard if explaining this in person?"** If yes, ASCII. If no, prose or table.
 
+## Operator questions are chat text (FR-19)
+
+When asking the operator to choose, clarify, confirm, or approve, write the full question in normal chat text. Do not use popup / clickable menu tools (`AskUserQuestion` or equivalents).
+
+| Question type | Mode A shape |
+|---|---|
+| Decision with options | Markdown table with `Option / What happens / Trade-off`; mark **(Recommended)** when appropriate |
+| Narrow confirm | Exact typed phrase in backticks, followed by what happens on any other response |
+| Clarify | One concise question, then 2-3 concrete options if useful |
+| Relay prompt | Copy-ready code block or quote block |
+
+Reason: chat text can be copied, forwarded, quoted, scrolled, and followed up on across Product Owner / AI Developer / Deploy sessions. Popup menus cannot reliably do that.
+
 ## Pattern library (lazy-load reference, v2.9.0+)
 
 The 8-pattern Mode A visual library — project roadmap, status snapshot, decision tree, dependency graph, comparison table, timeline, state diagram, box-and-arrow architecture — lives at `references/patterns.md`.

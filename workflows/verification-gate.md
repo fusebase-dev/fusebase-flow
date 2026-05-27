@@ -39,7 +39,7 @@ If any field is missing, the gate report is incomplete and must be redirected.
 
 ## Smoke prompts (when applicable)
 
-For tickets that touch user-facing surfaces, `verification-gate.md` (per-ticket file in `docs/specs/<slug>/`) defines numbered smoke prompts S1..Sn. The `smoke-verification.md` workflow runs them post-deploy. Pass threshold (e.g., `4/4 PASS`) is part of the gate contract.
+For tickets that touch user-facing or operator-facing surfaces, `verification-gate.md` (per-ticket file in `docs/specs/<slug>/`) defines numbered smoke prompts S1..Sn under `skills/smoke-testing/SKILL.md`. The `smoke-verification.md` workflow runs them post-deploy. Pass threshold (e.g., `4/4 PASS`) is part of the gate contract. Supporting checks alone (exit code, file hash, service active, symbol presence, auth sanity) do not satisfy smoke.
 
 ## Probes (when applicable)
 
@@ -53,6 +53,7 @@ Each ticket gets its own `docs/specs/<slug>/verification-gate.md` drafted by `im
 - Worker-undisturbed paths for this ticket
 - Manifest version bump (if applicable)
 - Smoke prompts (if applicable)
+- Ground-truth diagnostic surface for each smoke prompt
 - Probes (if applicable)
 - Pass thresholds
 

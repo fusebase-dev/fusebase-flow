@@ -1,52 +1,61 @@
-# License clean-room attestation — Fusebase Flow Local v0.1
+# License clean-room attestation - Fusebase Flow Local v3.1, Fusebase CLI edition
 
 ## Statement
 
-Fusebase Flow Local is original content. Designed after reviewing public AI coding workflow patterns; **no third-party code, prompts, skill files, or hook scripts are copied** into this template.
+Canonical Fusebase Flow content is original content. It was designed after reviewing public AI coding workflow patterns; no third-party code, prompts, skill files, or hook scripts are copied into canonical Flow roots.
 
-## Scope of this attestation
+This Fusebase CLI edition also includes copied Fusebase Apps CLI provider assets. Those assets are edition/domain assets, not canonical Flow framework files. Their boundary is documented in `docs/fusebase-cli-edition.md` and `docs/source-map.md`.
 
-This attestation applies to every file in the public template tree, including but not limited to:
+## Scope of canonical Flow attestation
 
-- All canonical and mirrored SKILL.md files
-- All Python lifecycle hook handlers and shared utilities
-- All shell scripts (git fallback hooks + local scripts)
-- All YAML policy files
-- All workflow and template documents
-- All provider / IDE compatibility files
-- All audit and documentation files
+This attestation applies to:
 
-## License of original content
+- Root `skills/<slug>/SKILL.md` canonical Flow skills.
+- Flow mirrors generated from canonical skills under `.agents/skills/` and `.claude/skills/`.
+- Root `agents/<name>/AGENT.md` canonical Flow role agents and generated provider mirrors.
+- Flow lifecycle hook handlers and shared utilities under `hooks/handlers/`, `hooks/shared/`, `hooks/git/`, and `hooks/local/`.
+- Flow YAML policies, workflows, templates, and framework documentation.
+- Provider/IDE compatibility files authored by Flow.
+
+## Out of scope
+
+| Asset | Why out of scope |
+|---|---|
+| `.claude/skills/<cli-skill>/` and `.agents/skills/<cli-skill>/` | Copied CLI provider skills for Fusebase Apps domain support |
+| `.claude/agents/app-*.md` and `.codex/agents/app-*.md` | Copied CLI app agents |
+| `.claude/hooks/*` | Copied CLI quality hooks |
+
+## License of original Flow content
 
 This template is published under the MIT License (see `LICENSE`). MIT permits use, copy, modification, merger, publication, distribution, sub-licensing, and sale, subject to inclusion of the copyright notice and the warranty disclaimer.
 
-## What "clean-room" means here
+## What clean-room means here
 
-- No SKILL.md text was copied from any third-party project's skill catalog.
-- No hook handler logic was copied from any third-party hook system.
-- No prompt text, system prompt, vendor configuration sample, or example file was reproduced verbatim from a third-party source.
-- Public protocol shapes (e.g., the structure of provider settings JSON or hook event schemas) were used as **specification**, not as **source code**. The example files in `.claude/`, `.codex/`, etc. are written from the public protocol shape, not copied from any vendor sample repo.
+- No third-party SKILL.md text is copied into canonical Flow `skills/`.
+- No third-party hook handler logic is copied into canonical Flow hook roots.
+- No prompt text, system prompt, vendor configuration sample, or example file is reproduced verbatim from a third-party source into canonical Flow roots.
+- Public protocol shapes are used as specification, not as source code.
+- CLI provider assets stay provider-scoped and are not described as clean-room Flow framework skills.
 
 ## Evidence
 
 | Evidence | Location |
 |---|---|
-| Standard attestation wording | `skills/<slug>/SKILL.md` (× 7), mirrors (× 14), `templates/skill-template.md`, `hooks/README.md` |
-| Public-surface guard | `.github/workflows/fusebase-flow-verify.yml` runs an allowlist check on every push and PR; tracked top-level entries that are not on the approved list fail CI |
-| Build phase reviews | retained outside the public template; available with the release-audit bundle for the corresponding tagged release |
-| Pattern attribution | [`docs/source-map.md`](source-map.md) (generic pattern categories; no vendor-specific copying) |
+| Standard attestation wording | Canonical `skills/<slug>/SKILL.md`, Flow mirrors, `templates/skill-template.md`, `hooks/README.md` |
+| Edition boundary map | `docs/fusebase-cli-edition.md` |
+| Source map | `docs/source-map.md` |
+| Mirror manifests | `audit/skill-mirror-manifest.txt`, `audit/agent-mirror-manifest.txt` |
 
 ## Trademarks
 
-Provider and IDE names mentioned in this template (e.g., the names of compatibility surfaces that Fusebase Flow Local explicitly supports) are the trademarks of their respective owners. Mention is descriptive — it identifies the surface a compatibility file targets — and does not imply endorsement, partnership, or affiliation.
+Provider and IDE names mentioned in this template are the trademarks of their respective owners. Mention is descriptive and does not imply endorsement, partnership, or affiliation.
 
 ## Liability
 
-The MIT License's warranty disclaimer applies. Fusebase Flow Local is provided **AS IS**, without warranty of any kind.
+The MIT License's warranty disclaimer applies. Fusebase Flow Local is provided AS IS, without warranty of any kind.
 
 ## Last amended
 
 ```
-2026-05-08 — initial Phase 4 attestation; consolidates the clean-room
-              property documented across earlier phases.
+2026-05-27 - Fusebase CLI edition attestation scope clarified.
 ```

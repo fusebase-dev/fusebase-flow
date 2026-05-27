@@ -1,40 +1,48 @@
-# CLAUDE.md — Claude Code adapter for Fusebase Flow
+# CLAUDE.md - Claude Code adapter for Fusebase Flow
 
-This repo runs **Fusebase Flow Local v2.1**. The portable always-on baseline is in `AGENTS.md`. The full rule set is in `FLOW_RULES.md`. Read both before any other action.
+This repo runs **Fusebase Flow Local v3.1 - Fusebase CLI edition**. The portable always-on baseline is in `AGENTS.md`. The full rule set is in `FLOW_RULES.md`. Read both before any other action.
 
 ## Claude Code-specific notes
 
 | Surface | Where |
 |---|---|
-| Project skills (Claude Code reads automatically) | `.claude/skills/` (mirrored from canonical `skills/`) |
+| Flow lifecycle skills (Claude Code reads automatically) | `.claude/skills/` entries mirrored from canonical `skills/` |
+| CLI provider skills (Claude Code reads automatically) | `.claude/skills/<cli-skill>/` entries copied from Fusebase Apps CLI provider assets |
+| Flow and CLI app agents | `.claude/agents/` |
 | Settings example (hooks wiring) | `.claude/settings.json.example` — copy to `.claude/settings.json` and customize before hooks run |
-| Hook handlers | `hooks/handlers/*.py` (Python, lifecycle-event-named) |
-| Always-on rules | `FLOW_RULES.md` (FR-01..FR-18) |
+| Flow hook handlers | `hooks/handlers/*.py` (Python, lifecycle-event-named) |
+| CLI quality hooks | `.claude/hooks/*` |
+| Always-on rules | `FLOW_RULES.md` (FR-01..FR-19) |
 
 ## Skills behavior under Claude Code
 
 - Skills load via SKILL.md frontmatter (`name`, `description`).
 - Side-effecting skills (`release-deploy-reporting`, parts of `validation-and-qa`) carry `invocation: manual-for-side-effects` — Claude Code should not auto-invoke them. Operator triggers them explicitly.
 - Skill descriptions are trigger-oriented: include "Use when..." and "Do NOT use when..." so the matcher can decide.
+- For Fusebase Apps runtime work, load the relevant CLI provider skill as supporting domain guidance while keeping Flow artifacts and role rules authoritative.
 
 ## Hooks behavior under Claude Code
 
-`.claude/settings.json.example` wires lifecycle events to the canonical handlers:
+`.claude/settings.json.example` wires Flow lifecycle events to the canonical handlers and preserves CLI Stop hooks:
 
 - `SessionStart` → `hooks/handlers/session_start.py`
 - `UserPromptSubmit` → `hooks/handlers/user_prompt_submit.py`
 - `PreToolUse` → `hooks/handlers/pre_tool_use.py`
 - `PostToolUse` → `hooks/handlers/post_tool_use.py`
-- `Stop` → `hooks/handlers/stop.py`
+- `Stop` → CLI lint/typecheck/app quality hooks, then `hooks/handlers/stop.py`
 - `PreCompact` → `hooks/handlers/pre_compact.py`
 
 Hooks read policies from `policies/*.yml`. They are **opt-in**: nothing runs until you copy `settings.json.example` → `settings.json`. The git fallback hooks (`hooks/git/`) provide a safety net even when Claude Code hooks are off.
 
 ## Self-attestation (every session's first response)
 
-> "Operating as {role} under Fusebase Flow v2.1. I will follow FR-01 through FR-18. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+> "Operating as {role} under Fusebase Flow v3.1. I will follow FR-01 through FR-19. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 If your first response doesn't include this attestation, you're drifting. See `FLOW_RULES.md`.
+
+## Operator questions
+
+Per FR-19, ask operator questions in chat text. Do not use popup / clickable menu tools for clarify prompts, option selection, deploy confirmation, or recovery choices. Use a short markdown table or numbered list with **(Recommended)** marked when appropriate.
 
 ## State announcement (every output)
 
@@ -59,5 +67,6 @@ bash hooks/local/install-git-hooks.sh
 ## See also
 
 - Portable always-on baseline: `AGENTS.md`
+- Fusebase CLI edition bridge: `docs/fusebase-cli-edition.md`
 - Tool compatibility matrix: `docs/compatibility.md`
 - License clean-room attestation: `docs/clean-room.md`

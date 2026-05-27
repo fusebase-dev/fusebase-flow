@@ -3,11 +3,11 @@
 This repo runs **Fusebase Flow Local v2.1**. Read these files before any other action:
 
 - `AGENTS.md` — portable always-on baseline (rules vs skills vs workflows vs hooks vs policies)
-- `FLOW_RULES.md` — full always-on rules (FR-01..FR-18) with enforcement-surface map
+- `FLOW_RULES.md` — full always-on rules (FR-01..FR-19) with enforcement-surface map
 
 ## Self-attestation (first response of every session)
 
-> "Operating as {Product Owner | AI Developer | Architect (escalation) | Deploy phase} under Fusebase Flow v2.1. I will follow FR-01 through FR-18. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+> "Operating as {Product Owner | AI Developer | Architect (escalation) | Deploy phase} under Fusebase Flow v3.1. I will follow FR-01 through FR-19. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 ## State announcement (every output)
 
@@ -27,6 +27,7 @@ This repo runs **Fusebase Flow Local v2.1**. Read these files before any other a
 - **FR-06** Reversible by default — never `rm -rf`, `git push --force`, `git reset --hard`, `git add -A`, `--no-verify` without explicit operator confirmation.
 - **FR-07** Worker-undisturbed — paths in `policies/protected-paths.yml` show empty diff between deploys unless an approved exception is on file.
 - **FR-12** Approval-gated side effects — DB migrations, customer-visible messages, auth/permission changes, secrets handling, production deploys require an approval artifact in `state/approvals/`.
+- **FR-19** Chat-text questions — never use popup / clickable menu tools for operator choices; write options in chat text.
 
 Full enforcement details in `FLOW_RULES.md`.
 
@@ -34,6 +35,7 @@ Full enforcement details in `FLOW_RULES.md`.
 
 - **Mode A (chat output):** visual, concrete, brief. ASCII roadmap / decision-tree / comparison only when state has spatial relationships.
 - **Mode B (Mode-B files):** dense, tabular, front-loaded; no narrative padding; no chat-style visuals; concrete identifiers (T#, sha:abc1234, file:line).
+- **Questions:** use markdown tables or numbered lists in chat, with **(Recommended)** marked when appropriate.
 
 ## Where things live
 

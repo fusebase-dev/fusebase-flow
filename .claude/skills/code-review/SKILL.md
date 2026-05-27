@@ -43,28 +43,30 @@ Independent review of a diff against the spec contract, locked decisions, and FL
 | Spec | `docs/specs/<slug>/spec.md` | Stop; review without spec is style-only and limited |
 | Decisions | `docs/specs/<slug>/decisions.md` | Stop; cannot verify decision adherence |
 | Tasks | `docs/specs/<slug>/tasks.md` | Stop; cannot verify scope adherence |
+| CLI edition map, for Fusebase Apps work | `docs/fusebase-cli-edition.md` | Continue with Flow-only review, but mark app-domain review criteria unknown |
 
 ## Procedure
 
 1. Run `git diff <baseline>..HEAD --stat` to get changed files. Confirm scope matches `tasks.md`.
-2. For each task T<n>: read the corresponding commit (or accumulated diff). Verify:
+2. For Fusebase Apps diffs, read `docs/fusebase-cli-edition.md` and load the relevant CLI provider skills as review standards for app/runtime/domain behavior.
+3. For each task T<n>: read the corresponding commit (or accumulated diff). Verify:
    - Scope matches `tasks.md` task description (no scope creep)
    - Locked decisions from `decisions.md` honored (cite letter+number)
    - No protected-path edits unless an exception exists
    - Lint/typecheck status from gate report still holds
-3. Spec alignment matrix: for each AC1..ACn, confirm at least one task implements it; flag unimplemented ACs.
-4. Maintainability scan:
+4. Spec alignment matrix: for each AC1..ACn, confirm at least one task implements it; flag unimplemented ACs.
+5. Maintainability scan:
    - Type safety (no broad casts on external JSON, no `any`)
    - Comments only where WHY is non-obvious
    - No TODO/FIXME/WIP markers
    - Function size and complexity reasonable
-5. Test coverage scan: new behavior has at least one test; tests align with ACs.
-6. Rollback safety: each commit individually revertable; no commit straddles unrelated changes.
-7. Output review summary in chat:
+6. Test coverage scan: new behavior has at least one test; tests align with ACs.
+7. Rollback safety: each commit individually revertable; no commit straddles unrelated changes.
+8. Output review summary in chat:
    - Blockers (must fix before deploy)
    - Non-blockers (improvement candidates; can be follow-up tickets)
    - Spec alignment matrix (table)
-8. If invoked from operator chat: end with "Review complete. <N> blockers, <M> non-blockers. Operator decides whether to fix or proceed."
+9. If invoked from operator chat: end with "Review complete. <N> blockers, <M> non-blockers. Operator decides whether to fix or proceed."
 
 ## Output artifacts
 

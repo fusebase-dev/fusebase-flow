@@ -1,6 +1,6 @@
-# AGENTS.md — Fusebase Flow always-on baseline
+# AGENTS.md - Fusebase Flow always-on baseline for Fusebase CLI edition
 
-This repo uses **Fusebase Flow Local** — a repo-local discipline framework for AI coding agents and IDEs. The full rule set is at `FLOW_RULES.md`. This file is the portable always-on baseline that every agent reads first regardless of tool.
+This repo uses **Fusebase Flow Local - Fusebase CLI edition**: a repo-local discipline framework for AI coding agents and IDEs, packaged with Fusebase Apps CLI domain skills, agents, and Claude Code quality hooks. The full rule set is at `FLOW_RULES.md`. This file is the portable always-on baseline that every agent reads first regardless of tool.
 
 ## What Fusebase Flow is (and isn't)
 
@@ -11,6 +11,17 @@ This repo uses **Fusebase Flow Local** — a repo-local discipline framework for
 | Tool-portable across Cursor, Claude Code, Codex, GitHub Copilot/VS Code, Gemini-style IDE agents, and generic local workflows | Tied to one vendor |
 | A GitHub template you copy into projects | Auto-installed dependencies |
 
+## Fusebase CLI edition layering
+
+This edition includes original Fusebase Apps CLI provider assets as a runtime/domain layer. Flow remains the lifecycle layer.
+
+| Layer | Owns | Paths |
+|---|---|---|
+| Flow lifecycle | specs, decisions, tasks, verification gates, reviews, deploy handoffs, smoke contracts | `FLOW_RULES.md`, `skills/`, `workflows/`, `templates/`, `policies/`, `hooks/` |
+| CLI domain | Fusebase Apps implementation guidance, MCP/dashboard/gate usage, routing, secrets, logs, scaffold quality | `.claude/skills/<cli-skill>/`, `.agents/skills/<cli-skill>/`, `.claude/agents/`, `.codex/agents/`, `.claude/hooks/` |
+
+Runtime, MCP, SDK, and app-domain rules from CLI skills win over generic Flow implementation guidance when they overlap. Flow still governs the lifecycle artifact, approval, and smoke discipline. See `docs/fusebase-cli-edition.md` for the full mapping.
+
 ## How to use this repo as an agent
 
 1. **First action of every session:** load `FLOW_RULES.md`. Then load the active workflow if a ticket is in progress.
@@ -19,6 +30,7 @@ This repo uses **Fusebase Flow Local** — a repo-local discipline framework for
 4. **Ask before you act** when the task is non-trivial (multi-file, deploy, schema, auth, secrets).
 5. **One task = one commit** when in AI Developer role; commit messages cite a `T<number>`.
 6. **Save handoffs to disk before chat output** — never hand work across sessions through chat alone.
+7. **Ask questions in chat text, not popups** — options must be copyable, scrollable, forwardable, and open to follow-up.
 
 ## Where things live
 
@@ -27,6 +39,8 @@ This repo uses **Fusebase Flow Local** — a repo-local discipline framework for
 | Always-on rules | `FLOW_RULES.md` |
 | Workflows (procedures) | `workflows/` |
 | Skills (on-demand expertise) | `skills/` (canonical) — mirrored to `.claude/skills/` and `.agents/skills/` |
+| Fusebase CLI edition bridge | `docs/fusebase-cli-edition.md` |
+| CLI provider assets | `.claude/skills/`, `.agents/skills/`, `.claude/agents/`, `.codex/agents/`, `.claude/hooks/` |
 | Policies (YAML, machine-readable) | `policies/` |
 | Hooks (deterministic enforcement) | `hooks/` |
 | Templates (artifact substrates) | `templates/` |
@@ -51,6 +65,7 @@ This repo uses **Fusebase Flow Local** — a repo-local discipline framework for
 - **Mode B (internal artifacts):** dense, tabular, front-loaded. Files in `docs/specs/`, `docs/decisions/`, `docs/handoff/`, `docs/problem-catalog/`, `docs/backlog/` are AI-consumed — no narrative padding, no human-onboarding preamble.
 
 Visuals belong in chat only, never in Mode-B files.
+Questions and choices also belong in chat text, never in popup / clickable menu tools.
 
 ## Destructive ops (never without explicit confirmation)
 
@@ -59,11 +74,11 @@ Visuals belong in chat only, never in Mode-B files.
 ## Starting your first ticket
 
 1. Tell the agent: "Let's ship `<feature description>`."
-2. Agent invokes the `requirements-specification` skill → drafts `docs/specs/<slug>/spec.md`, runs clarify questions.
+2. Agent invokes the `requirements-specification` skill → drafts `docs/specs/<slug>/spec.md`, runs clarify questions; if the operator asks for options, `design-discovery-ideation` produces the option brief before lock.
 3. After clarify resolves: agent invokes `implementation-planning` skill → drafts `decisions.md`, `tasks.md`, `verification-gate.md`, and saves `docs/handoff/<date>-<slug>-implement.md`.
 4. Open a fresh agent session, paste the implement handoff, agent executes task chain stopping at the gate.
 5. Paste the gate report into the original session, agent invokes `code-review` and `security-permissions-review` skills.
-6. If clean, agent invokes `release-deploy-reporting` skill → drafts `docs/handoff/<date>-<slug>-deploy.md`.
+6. If clean, agent invokes `release-deploy-reporting` skill → drafts `docs/handoff/<date>-<slug>-deploy.md` with smoke prompts governed by `smoke-testing` when applicable.
 
 ## Activating provider and IDE compatibility files
 
@@ -104,15 +119,15 @@ Preserve existing Fusebase CLI, MCP, SDK, provider, and project-specific rules. 
 
 | Field | Value | Where the data is enforced |
 |---|---|---|
-| **Project name** | `<your-project>` | (informational only) |
-| **One-line description** | `<what this project does in 15 words>` | (informational only) |
-| **Stack** | `<e.g., Node + Hono + Postgres on Fusebase Apps; React SPA>` | (informational only) |
+| **Project name** | `Fusebase Flow - Fusebase CLI edition` | (informational only) |
+| **One-line description** | `Fusebase Flow lifecycle framework packaged with Fusebase Apps CLI domain skills and agents` | (informational only) |
+| **Stack** | `Repo-local Flow framework + Fusebase Apps CLI provider assets` | (informational only) |
 | **Workflow mode** | `direct_to_main` (default) or `branch_pr` | `policies/approval-policy.yml: workflow_mode` |
 | **Worker-undisturbed paths** | `<list specific files; or "none">` | `policies/protected-paths.yml: worker_undisturbed` |
-| **Mixed-fleet considerations** | `<e.g., "Chrome extension installed per-machine; old clients must keep working">` or `"N/A"` | per-ticket `decisions.md` references |
-| **Migration constraints** | `<e.g., "platform apply checksum bug; prefer no-migration">` or `"none"` | per-ticket `decisions.md` references |
-| **Auth model** | `<e.g., "feature-token cookie + worker-token for /api/jobs/*">` | per-ticket security review + `policies/protected-paths.yml: env_and_secrets` |
-| **Deploy command** | `<e.g., "fusebase deploy">` | `workflows/greenlight-deploy.md` |
+| **Mixed-fleet considerations** | `Generated apps may use original CLI assets and Flow overlay together` | per-ticket `decisions.md` references |
+| **Migration constraints** | `Do not absorb CLI provider skills into root Flow canonical skills` | per-ticket `decisions.md` references |
+| **Auth model** | `Edition template only; downstream apps follow Fusebase Apps token/MCP rules from CLI skills` | per-ticket security review + `policies/protected-paths.yml: env_and_secrets` |
+| **Deploy command** | `N/A for template; downstream apps use fusebase deploy` | `workflows/greenlight-deploy.md` |
 | **Decision letter prefix in use** | `<A, B, C, ...>` (increments per ticket) | `templates/decisions.md` |
 | **T-counter** | `<0, 1, 2, ...>` (increments per task across all tickets) | `templates/tasks.md` |
 | **CI workflow** | `.github/workflows/fusebase-flow-verify.yml` (default) | (existing) |
@@ -124,6 +139,7 @@ Narrative reasoning for these values — why they're set this way for THIS proje
 - Full rules: `FLOW_RULES.md`
 - Eight-phase flow: `workflows/eight-phase-flow.md`
 - Project constitution (narrative): `docs/constitution.md`
+- Fusebase CLI edition bridge: `docs/fusebase-cli-edition.md`
 - Operator discipline: `docs/operator-discipline.md`
 - Architecture overview: `docs/architecture-overview.md`
 - Key tensions: `docs/tradeoffs.md`

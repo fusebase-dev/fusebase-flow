@@ -1,6 +1,6 @@
-# Source map — Fusebase Flow Local v0.1
+# Source map - Fusebase Flow Local v3.1, Fusebase CLI edition
 
-This document records that **Fusebase Flow Local was designed after reviewing public AI coding workflow patterns**, and that **no third-party code, prompts, skill files, or hook scripts are copied** into this template.
+This document records source boundaries for the Fusebase CLI edition. Canonical Fusebase Flow files remain clean-room original. CLI provider assets are copied as edition-specific Fusebase Apps CLI assets and are intentionally kept outside canonical Flow roots.
 
 ## Standard attestation
 
@@ -8,10 +8,20 @@ This document records that **Fusebase Flow Local was designed after reviewing pu
 
 This wording is used in:
 
-- All 9 canonical SKILL.md `Clean-room note` sections (`skills/<slug>/SKILL.md`).
-- All 18 mirror SKILL.md files (regenerated from canonical via `mirror-skills.sh`).
+- All 14 canonical SKILL.md `Clean-room note` sections (`skills/<slug>/SKILL.md`).
+- All 28 mirror SKILL.md files (regenerated from canonical via `mirror-skills.sh`).
 - `templates/skill-template.md` (substrate for future skills).
 - `hooks/README.md` (hook framework attestation).
+
+## Edition-specific copied assets
+
+| Asset family | Source | Destination | Boundary |
+|---|---|---|---|
+| CLI provider skills | Fusebase Apps CLI project template | `.claude/skills/<cli-skill>/`, `.agents/skills/<cli-skill>/` | Provider/domain assets; not canonical Flow skills |
+| CLI app agents | Fusebase Apps CLI project template | `.claude/agents/app-*.md`, `.codex/agents/app-*.md` | Provider/domain agents; not canonical Flow role agents |
+| CLI quality hooks | Fusebase Apps CLI project template | `.claude/hooks/*` | Claude Code provider hooks; separate from Flow `hooks/handlers/*` |
+
+These copied assets are documented in `docs/fusebase-cli-edition.md`. Do not cite the standard Flow clean-room attestation as applying to the copied CLI provider assets.
 
 ## Pattern categories considered (generic descriptions only)
 
@@ -32,8 +42,8 @@ The following design patterns are common to public AI coding workflow discussion
 
 ## What is NOT copied
 
-- No SKILL.md prose from any third-party project.
-- No hook handler code or shell scripts from any third-party project.
+- No SKILL.md prose from any third-party project is copied into canonical Flow `skills/`.
+- No hook handler code or shell scripts from any third-party project are copied into canonical Flow `hooks/handlers/`, `hooks/shared/`, `hooks/git/`, or `hooks/local/`.
 - No vendor configuration examples reproduced verbatim; all examples (`.claude/settings.json.example`, `.codex/config.toml.example`, etc.) are written from the public protocol shape, not copied from any vendor sample repo.
 - No prompt text, system prompt, or skill description from any third-party project.
 
@@ -42,8 +52,9 @@ The following design patterns are common to public AI coding workflow discussion
 The clean-room property is validated by:
 
 1. Original wording check — the public-template tree is verified against a word-boundary search for non-target tool names; expected result is zero matches.
-2. Standard wording presence — `preflight.sh` is configured to inspect skill frontmatter; manual review of clean-room notes confirms the standard wording in all 9 canonical + 18 mirror SKILL.md files.
-3. License attestation — see [`docs/clean-room.md`](clean-room.md) for the explicit clean-room statement.
+2. Standard wording presence - `preflight.sh` is configured to inspect skill frontmatter; manual review of clean-room notes confirms the standard wording in all 14 canonical + 28 Flow mirror SKILL.md files.
+3. Edition boundary check - CLI provider assets remain under provider surfaces and are not added to root `skills/` or canonical Flow mirror manifests.
+4. License attestation - see [`docs/clean-room.md`](clean-room.md) for the explicit clean-room statement for canonical Flow files.
 
 ## Internal research notes (not published)
 
@@ -52,7 +63,6 @@ Any internal research notes that reference specific external projects belong **o
 ## Last amended
 
 ```
-2026-05-08 — initial draft (Phase 4); replaces per-skill conceptual-inspiration notes
-              with the standard generic attestation; consolidates clean-room evidence
-              for the public template tree.
+2026-05-27 - Fusebase CLI edition source map; distinguishes canonical Flow clean-room files
+              from copied CLI provider/domain assets.
 ```

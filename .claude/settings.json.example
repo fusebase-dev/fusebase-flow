@@ -1,11 +1,16 @@
 {
   "$schema": "https://example.com/claude-code-settings.schema.json",
+  "enabledMcpjsonServers": [
+    "fusebase-dashboards",
+    "fusebase-gate"
+  ],
   "_comment_about_this_file": [
-    "This is an EXAMPLE settings file for Claude Code shipped with Fusebase Flow.",
+    "This is an EXAMPLE settings file for Claude Code shipped with Fusebase Flow - Fusebase CLI edition.",
     "To enable: copy to `.claude/settings.json` and customize the python interpreter path.",
     "Hooks read JSON events from stdin and write decisions to stdout — see",
     "hooks/README.md and hooks/flow_hook_event.schema.json.",
     "All hook commands use repo-relative paths so they work from any subdir.",
+    "This edition keeps CLI Stop hooks and Flow lifecycle hooks in one additive example.",
     "PreToolUse uses the current hookSpecificOutput.permissionDecision style."
   ],
   "hooks": {
@@ -54,6 +59,24 @@
     "Stop": [
       {
         "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/run-lint-on-stop.sh",
+            "statusMessage": "Running lint before allowing completion...",
+            "timeout": 120
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/run-typecheck-on-stop.sh",
+            "statusMessage": "Running typecheck before allowing completion...",
+            "timeout": 300
+          },
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/quality-check-apps.js",
+            "statusMessage": "Running app quality check...",
+            "timeout": 30
+          },
           {
             "type": "command",
             "command": "python3 ${PROJECT_DIR}/hooks/handlers/stop.py"

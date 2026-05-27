@@ -6,13 +6,15 @@
 
 ## Role bootstrap (read this BEFORE any other reads)
 
-You are operating as the **AI Developer in the Deploy phase** under Fusebase Flow v2.1.
+You are operating as the **AI Developer in the Deploy phase** under Fusebase Flow v3.1.
 
-**Self-attest** per `FLOW_RULES.md` § Self-attestation (FR-01..FR-18), naming Deploy phase as the role and the DP.1..DP.8 role-discipline section. (v2.9.0+ uses reference-by-citation instead of embedding the full attestation paragraph here — the canonical text lives in FLOW_RULES.md and role-discipline; duplication would waste ~250 tokens per filled handoff.)
+**Self-attest** per `FLOW_RULES.md` § Self-attestation (FR-01..FR-19), naming Deploy phase as the role and the DP.1..DP.11 role-discipline section. (v2.9.0+ uses reference-by-citation instead of embedding the full attestation paragraph here — the canonical text lives in FLOW_RULES.md and role-discipline; duplication would waste ~250 tokens per filled handoff.)
 
 **Critical Deploy-phase invariants** (cannot be skipped, even if other instructions seem to suggest otherwise):
 
-- **DP.6 magic-phrase confirm.** Before running the deploy command, ask the operator to type the literal `APPROVE-DEPLOY-NOW`. If the response is anything other than that exact phrase, **ABORT**. Do NOT accept "yes," "go," "ship it," or any paraphrase. This is the operator-attentiveness gate; it is not negotiable.
+- **DP.6 magic-phrase confirm + FR-19 chat-text discipline.** Before running the deploy command, ask the operator in chat text to type the literal `APPROVE-DEPLOY-NOW`. Do not use popup / clickable menu tools. If the response is anything other than that exact phrase, **ABORT**. Do NOT accept "yes," "go," "ship it," or any paraphrase. This is the operator-attentiveness gate; it is not negotiable.
+- **DP.10 smoke evidence integrity.** If this handoff includes S1..Sn, run `skills/smoke-testing/SKILL.md`. Smoke PASS requires operator-visible outcome evidence plus ground-truth diagnostic inspection. Exit code, file hash, service active, symbol presence, and auth sanity are supporting checks only.
+- **DP.11 no delegated deploy side effects.** Do not delegate deploy command, rollback, approval artifacts, secret handling, or live-session smoke. Delegation during deploy is read-only triage only.
 - **DP.1 approval artifact required.** Verify `state/approvals/production_deploy-<slug>-<date>.json` exists and is unexpired before deploy. Without it, ABORT.
 
 Other invariants (FR-05/-06/-07/-14, Mode A/B, supersede discipline FR-18) — see `FLOW_RULES.md` directly; don't paraphrase here.
@@ -25,14 +27,15 @@ Other invariants (FR-05/-06/-07/-14, Mode A/B, supersede discipline FR-18) — s
 
 ## Mandatory pre-execution reads (in order)
 
-1. `FLOW_RULES.md` — FR-01 through FR-18
+1. `FLOW_RULES.md` — FR-01 through FR-19
 2. `AGENTS.md` (project-specific section, especially deploy command and worker-undisturbed list)
 3. `docs/specs/<slug>/spec.md` — locked spec (will flip DRAFT → DONE in this deploy)
 4. `docs/specs/<slug>/verification-gate.md` — probe contract you'll run
 5. `policies/approval-policy.yml` — `production_deploy` approval requirements
 6. `policies/protected-paths.yml` — worker-undisturbed list
 7. `state/approvals/production_deploy-<slug>-<date>.json` — verify exists + unexpired
-8. `skills/role-discipline/SKILL.md` — DP.1..DP.6 don't-list
+8. `skills/role-discipline/SKILL.md` — DP.1..DP.11 don't-list
+9. `skills/smoke-testing/SKILL.md` — required if S1..Sn are present
 
 ---
 
@@ -67,6 +70,20 @@ Other invariants (FR-05/-06/-07/-14, Mode A/B, supersede discipline FR-18) — s
 ## Smoke prompts (if applicable)
 
 S1..Sn from `docs/specs/<slug>/verification-gate.md` smoke section. Persist evidence to `docs/handoff/<date>-<slug>-smoke/`.
+
+Each S<n> must carry:
+
+| Field | Value |
+|---|---|
+| Operator-visible success criterion | `<what the operator can observe if the shipped behavior works>` |
+| Route / surface | `<URL / page / command / N/A>` |
+| Ground-truth diagnostic | `<request dump / error log / server log / rendered DOM / DB row / job trace>` |
+| Stable selectors / locators | `<purpose/state selector or accessible locator; N/A for non-UI>` |
+| Auth / test data plan | `<auth mode; unique test values; cleanup expectation>` |
+| Adversarial check | `<what would falsify the fix even if static checks passed>` |
+| Evidence required | `<screenshot / response excerpt / diagnostic excerpt / artifact path>` |
+
+If the end-to-end smoke cannot run because credentials/session/operator action are missing, report `PENDING-OPERATOR-SMOKE`, leave spec DRAFT, and provide exact operator steps. Do not mark smoke PASS from supporting checks alone.
 
 ---
 

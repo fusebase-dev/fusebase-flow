@@ -49,17 +49,19 @@ Targeted review for changes that touch security-sensitive surfaces. Distinct fro
 | Sensitive paths config | `policies/protected-paths.yml` (auth + secrets sections) | Use built-in defaults from policy template; flag policy as needing customization |
 | Secret patterns | `policies/secret-patterns.yml` | Use built-in defaults; flag policy as needing customization |
 | Approval policy | `policies/approval-policy.yml` (+ optional `.local.yml` override) | Stop; FR-12 cannot enforce without policy |
+| CLI edition map, for Fusebase Apps work | `docs/fusebase-cli-edition.md` | Continue with generic security review, but mark app-domain auth/secret assumptions unknown |
 
 ## Procedure
 
 1. Scan diff for files matching auth/secrets/data patterns from `policies/protected-paths.yml`.
-2. Run secret-pattern check against added lines: API keys, session cookies, private keys, OAuth tokens, cloud credentials. NEVER print detected values; redact in any output.
-3. Auth surface: if endpoints added/modified, verify each has explicit auth gate matching project's auth model from `AGENTS.md`. Flag missing gates as blocker.
-4. Permission surface: if role checks added/modified, verify scope is least-privilege; flag overly broad scopes.
-5. Production data surface: if DB writes added, verify they go through the established repository/transaction pattern; flag direct connection-string writes.
-6. External-message surface: if outbound messages added (email, SMS, webhooks), verify they're idempotent or have a "do not send twice" safeguard. Flag missing approval artifact for `external_customer_visible_message` per `approval-policy.yml`.
-7. Build approval-required list: every operation in diff that triggers `require_approval` in `approval-policy.yml` and lacks a corresponding artifact in `state/approvals/`.
-8. Output security review summary in chat (Mode A):
+2. For Fusebase Apps diffs, load relevant CLI provider skills (`app-secrets`, `handling-authentication-errors`, `fusebase-gate`, `fusebase-dashboards`) as runtime-specific security context.
+3. Run secret-pattern check against added lines: API keys, session cookies, private keys, OAuth tokens, cloud credentials. NEVER print detected values; redact in any output.
+4. Auth surface: if endpoints added/modified, verify each has explicit auth gate matching project's auth model from `AGENTS.md`. Flag missing gates as blocker.
+5. Permission surface: if role checks added/modified, verify scope is least-privilege; flag overly broad scopes.
+6. Production data surface: if DB writes added, verify they go through the established repository/transaction pattern; flag direct connection-string writes.
+7. External-message surface: if outbound messages added (email, SMS, webhooks), verify they're idempotent or have a "do not send twice" safeguard. Flag missing approval artifact for `external_customer_visible_message` per `approval-policy.yml`.
+8. Build approval-required list: every operation in diff that triggers `require_approval` in `approval-policy.yml` and lacks a corresponding artifact in `state/approvals/`.
+9. Output security review summary in chat (Mode A):
    - Blockers (must fix or get approval before deploy)
    - Sensitive-path findings (file:line + concern + mitigation)
    - Approval-required list (operations + missing artifacts)

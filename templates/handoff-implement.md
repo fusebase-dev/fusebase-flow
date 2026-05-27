@@ -6,9 +6,9 @@
 
 ## Role bootstrap (read this BEFORE any other reads)
 
-You are operating as the **AI Developer** under Fusebase Flow v2.1.
+You are operating as the **AI Developer** under Fusebase Flow v3.1.
 
-**Self-attest** per `FLOW_RULES.md` § Self-attestation (FR-01..FR-18), naming AI Developer as the role and the IM.1..IM.13 role-discipline section. (v2.9.0+ uses reference-by-citation instead of embedding the full attestation paragraph here — the canonical text lives in FLOW_RULES.md and you've already loaded it; duplication here would be ~250 tokens of waste per handoff.)
+**Self-attest** per `FLOW_RULES.md` § Self-attestation (FR-01..FR-19), naming AI Developer as the role and the IM.1..IM.17 role-discipline section. (v2.9.0+ uses reference-by-citation instead of embedding the full attestation paragraph here — the canonical text lives in FLOW_RULES.md and you've already loaded it; duplication here would be ~250 tokens of waste per handoff.)
 
 **Hard invariants** are the FR rules cited in `FLOW_RULES.md` table. Particularly load-bearing for AI Developer Implement-phase work: FR-03 (one task = one commit), FR-05 (stop at gate), FR-07 (worker-undisturbed), FR-09 (Mode B for files), FR-10 (reproducibility before fix), FR-13 (lint+typecheck per commit), FR-18 (supersede, don't accumulate). Don't paraphrase these here — read them in FLOW_RULES.md.
 
@@ -20,14 +20,14 @@ You are operating as the **AI Developer** under Fusebase Flow v2.1.
 
 ## Mandatory pre-execution reads (in order)
 
-1. `FLOW_RULES.md` — FR-01 through FR-18
+1. `FLOW_RULES.md` — FR-01 through FR-19
 2. `AGENTS.md` (project-specific section, especially worker-undisturbed paths and project invariants)
 3. `docs/specs/<slug>/spec.md` — locked spec
 4. `docs/specs/<slug>/decisions.md` — every decision with `Lock status: LOCKED`
 5. `docs/specs/<slug>/tasks.md` — T-numbered task list
 6. `docs/specs/<slug>/verification-gate.md` — gate contract you'll have to satisfy
 7. `policies/protected-paths.yml` — worker-undisturbed list
-8. `skills/role-discipline/SKILL.md` (or `.claude/skills/role-discipline/SKILL.md`) — IM.1..IM.10 don't-list
+8. `skills/role-discipline/SKILL.md` (or `.claude/skills/role-discipline/SKILL.md`) — IM.1..IM.17 don't-list
 
 ---
 
@@ -70,6 +70,26 @@ If an identifier needs verification (e.g., the dashboard was renamed), note it: 
 ## Production state going in
 
 <concrete pre-work production state for rollback comparison; e.g., commit SHA, deploy hash, table row counts, last-known-good probe outputs>
+
+---
+
+## Frontend / UI implementation brief (if applicable)
+
+> Required for tickets that add or change a user/operator-facing UI, prompt flow, dashboard, or frontend route. If not applicable, write `N/A`.
+
+| Field | Value |
+|---|---|
+| Selected design direction | `<decision ref, option name, or N/A>` |
+| Product identity / target user | `<who this is for and what problem the surface solves>` |
+| Routes / screens / workflows in scope | `<list>` |
+| Components or files in scope | `<paths or modules>` |
+| Data types and fields | `<entities, fields, state names>` |
+| API/helper surfaces | `<function/hook/helper names and signatures, or N/A>` |
+| Applicable stack conventions / project frontend rules | `<paths to project-local skill/docs, or N/A>` |
+| Stable test selectors | `<required selector strategy for interactive and meaningful dynamic elements, or N/A>` |
+| Trust-critical real interactions | `<save/send/auth/search/filter/etc.; no placeholder behavior>` |
+| Brand/source assets | `<local paths or N/A; never vague remote references only>` |
+| Explicit non-goals | `<routes, entities, workflows, or visual constraints AI Developer must not invent>` |
 
 ---
 

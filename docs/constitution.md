@@ -1,123 +1,74 @@
-# Project constitution (narrative)
+# Project constitution
 
-> The narrative half of the project constitution: identity, motivation, scope, why-this-exists. The data half lives in `policies/*.yml` (worker-undisturbed paths, approval rules, command policy, secret patterns, etc.) and the project-specific values section of `AGENTS.md`. This document explains the *why* behind those entries.
+## Purpose
 
-## What this document is for
+This document records the identity and constraints for Fusebase Flow - Fusebase CLI edition. Machine-readable enforcement stays in `policies/`; structured field values stay in `AGENTS.md`; the Flow/CLI boundary map lives in `docs/fusebase-cli-edition.md`.
 
-A project that uses Fusebase Flow Local has its identity scattered across several files for good reason — machine-readable data goes in `policies/`, always-on operator guidance goes in `AGENTS.md`, runtime artifacts go in `docs/specs/`. But scattering means the *narrative* — the reason this project exists, what it does for whom, what's in scope and what isn't — has no canonical home.
+## Project identity
 
-This document is that home. It's narrative-only. It links to the data layer; it doesn't duplicate it.
+| Field | Value |
+|---|---|
+| Name | Fusebase Flow - Fusebase CLI edition |
+| One-line | Fusebase Flow lifecycle framework packaged with Fusebase Apps CLI domain skills and agents. |
+| Origin | Created as a dedicated edition after comparing the universal Flow template with the latest Fusebase Apps CLI project template. |
+| Stakeholders | Operators installing Flow into Fusebase Apps/CLI projects; Product Owner sessions planning app work; AI Developer sessions implementing app work; downstream generated Fusebase Apps projects. |
 
-## Template structure (fill in for your project)
+## Scope
 
-Replace the example content below with your project's narrative. Keep it short — under one printed page. Anything longer probably belongs in `docs/specs/` or in a per-feature README.
+| In scope | Out of scope |
+|---|---|
+| Flow rules, skills, workflows, policies, hooks, templates, and role agents | Replacing Fusebase Apps CLI runtime, SDK, MCP, or provider configuration |
+| CLI provider skills in `.claude/skills/` and `.agents/skills/` | Absorbing CLI provider skills into root `skills/` without a clean-room Flow skill proposal |
+| CLI app agents in `.claude/agents/` and `.codex/agents/` | Overwriting downstream app settings or active provider files during installation |
+| CLI quality hooks in `.claude/hooks/` | Turning Flow into an agent product, SaaS, daemon, or dependency installer |
 
----
+## Critical constraints
 
-### Project identity
+| Constraint | Practical effect |
+|---|---|
+| Flow is a lifecycle overlay | Flow owns specs, decisions, tasks, gates, smoke, reviews, deploy handoffs, and approvals. |
+| CLI assets are the app/runtime domain layer | CLI skills inform architecture, CLI usage, dashboards, gate, secrets, routing, logs, sidecars, upload, and scaffold checks. |
+| Install is append/merge only | Existing `AGENTS.md`, `CLAUDE.md`, `.claude/settings.json`, MCP config, CLI config, skill folders, and workflows are inspected before merge. |
+| Canonical Flow stays separate | Root `skills/` and `agents/` remain Flow canonical sources; provider CLI assets stay in provider folders. |
+| Runtime rules win on runtime details | If a CLI skill conflicts with generic Flow implementation guidance, use the CLI rule for app behavior and keep Flow lifecycle artifacts intact. |
 
-**Name:** {project name}
+## Production safety posture
 
-**One-line:** {what this project does in 15 words}
+This repo is a template/edition package, not a deployed app. The default workflow is direct-to-main for framework changes unless a downstream project switches `policies/approval-policy.yml: workflow_mode` to `branch_pr`. Downstream production deploys use the receiving app's deploy command and the Flow deploy handoff/smoke discipline.
 
-**Origin:** {when, why, who needed this}
+## Quality bar
 
-**Stakeholders:** {who depends on this — operators, end-users, downstream systems}
+| Area | Bar |
+|---|---|
+| Framework files | Small, scoped changes; canonical-first edits for Flow skills/agents; provider mirrors regenerated afterward. |
+| CLI provider assets | Copied as provider/domain assets; do not rewrite or blend into Flow canonical files without an approved skill-authoring ticket. |
+| Validation | Check JSON parse, mirror consistency, provider asset presence, and source-leak scans. |
+| Commits | T-numbered when executed by AI Developer under a ticket; one task per commit per FR-03. |
+| Reviews | PO verifies Flow/CLI boundary, smoke sufficiency, and append/merge posture before deploy/closeout. |
 
-### What's in scope
+## Motivation
 
-{One paragraph describing the bounded problem. The constitution doesn't list every feature; it names the *territory* the project occupies.}
+The universal Flow template is intentionally product-neutral. Fusebase Apps CLI projects need additional domain guidance for app architecture, CLI behavior, MCP/dashboard/gate usage, secrets, routing, logs, and scaffold validation. This edition provides that guidance without weakening Flow's lifecycle discipline or duplicating the same domain rules inside multiple Flow skills.
 
-Examples:
-- "Browser-extension data fetching for AI Top Voice (LinkedIn / X / TikTok / YouTube creator metadata)."
-- "Internal operator dashboard for our enrichment pipeline; not a customer product."
+## Amendment process
 
-### What's out of scope (deliberately)
+1. Draft the change as a decision in a regular Fusebase Flow ticket.
+2. Lock the decision with operator approval.
+3. Land the amendment as a scoped docs/framework commit, or as part of the ticket's final docs bundle.
 
-{2–4 bullets naming what this project will NOT become. The constitution is a forward-looking commitment to NOT do certain things. Without this, scope drifts.}
-
-Examples:
-- Multi-tenant SaaS (single-org by design).
-- Real-time push notifications (batch is sufficient).
-- Mobile clients (web-only).
-
-### Critical constraints
-
-{The 2–4 invariants that shape every architectural decision. These are platform / vendor / regulatory / operational constraints — not preferences.}
-
-Examples:
-- "Migration apply has a known checksum-validation bug; prefer no-migration designs until upstream fix lands."
-- "Browser extension installed per-machine; mixed-fleet safety required (old clients must keep working through deploys)."
-- "Data residency: all customer data processing must happen in Fusebase-Apps-hosted infrastructure."
-
-For machine-readable enforcement of these, see:
-- `policies/protected-paths.yml` (what must show empty diff)
-- `policies/command-policy.yml` (what's forbidden / approval-gated)
-- `AGENTS.md` "Project-specific values" section
-
-### Production safety posture
-
-{How aggressive is the deploy cadence; what's the rollback plan; what's the operator's tolerance for risk; who's on-call.}
-
-Examples:
-- "Direct-to-main; multiple deploys per day during active development; rollback via `git revert` + redeploy; operator monitors first-hour metrics."
-- "Branch + PR + sign-off; weekly deploy window; rollback via platform-managed previous version; 24/7 on-call rotation."
-
-For machine-readable enforcement, see `policies/approval-policy.yml: workflow_mode`.
-
-### Quality bar
-
-{What "good enough" means for this project.}
-
-- **Code:** {language conventions, type-safety stance — e.g., "TypeScript strict, no `any` in production paths"}
-- **Tests:** {coverage stance — e.g., "every behavior change has at least one integration test; smoke prompts cover user-facing flows"}
-- **Commits:** {convention — e.g., "T-numbered, lint+typecheck clean, one task per commit per FR-03"}
-- **Reviews:** {process — e.g., "PO runs cross-artifact consistency check before deploy approval"}
-
-### Why this project exists (motivation)
-
-{One paragraph. Why this project, not an off-the-shelf alternative? Why the chosen architecture? The motivation answers a future maintainer's question: "should we keep this, replace it, or rewrite it?"}
-
-Examples:
-- "Existing scrapers don't honor the worker-undisturbed posture our extension requires; building this in-house lets us keep the per-machine-install assumption central."
-- "Our enrichment pipeline runs on Fusebase Apps; this project is the operator UI for it. Replacing the pipeline would replace this; replacing this would not require replacing the pipeline."
-
-### Amendment process
-
-This narrative changes when the project's identity changes — new stakeholders, dropped scope, changed constraints. Amendment is a deliberate act:
-
-1. Operator drafts the change as a decision in a regular Fusebase Flow ticket (e.g., `docs/specs/constitution-amend-<topic>/decisions.md`).
-2. Decision is locked normally.
-3. The amendment lands as a single docs commit alongside the spec's deploy commit, OR as a standalone `docs(constitution): amend <topic>` commit when the change is doc-only.
-
-Constitution amendments are rare. If you're amending more than once per quarter, the constitution is too narrow.
-
-### Last amended
+## Last amended
 
 ```
-{YYYY-MM-DD} — initial draft
+2026-05-27 - initial Fusebase CLI edition constitution
 ```
-
----
-
-## How this constitution interacts with the data layer
-
-| Concept | Where the data lives | Where the narrative lives |
-|---|---|---|
-| Worker-undisturbed paths | `policies/protected-paths.yml: worker_undisturbed` | "Critical constraints" section above |
-| Workflow mode (direct-to-main vs branch+PR) | `policies/approval-policy.yml: workflow_mode` | "Production safety posture" section above |
-| Approval-required actions | `policies/approval-policy.yml: require_approval` | "Production safety posture" section above |
-| Banned commands | `policies/command-policy.yml: deny` | "Critical constraints" + `AGENTS.md` "Destructive ops" |
-| Secret patterns | `policies/secret-patterns.yml` | (no narrative needed — patterns are exhaustive) |
-| Auth model | `AGENTS.md` "Project-specific values" | "Critical constraints" + per-ticket `decisions.md` |
-| Letter decisions / T-numbers | `templates/decisions.md` + `templates/tasks.md` | (substrate; no narrative) |
-
-If a piece of project identity needs both a narrative justification and a machine-readable enforcement, write the narrative here and the enforcement in the appropriate `policies/` file. The two layers reinforce each other; they don't duplicate.
 
 ## Related
 
-- `AGENTS.md` "Project-specific values" — structured field summary linking to policies/
-- `docs/operator-discipline.md` — expectations for the human operator
-- `docs/tradeoffs.md` — key tensions to manage
-- `policies/*.yml` — machine-readable enforcement
-- `FLOW_RULES.md` — FR-01..FR-18 (always-on rules)
+| Artifact | Purpose |
+|---|---|
+| `AGENTS.md` | Portable always-on baseline and project-specific values |
+| `docs/fusebase-cli-edition.md` | Flow/CLI boundary map and overlap table |
+| `docs/operator-discipline.md` | Operator expectations |
+| `docs/tradeoffs.md` | Framework tensions |
+| `policies/*.yml` | Machine-readable enforcement |
+| `FLOW_RULES.md` | FR-01..FR-19 always-on rules |

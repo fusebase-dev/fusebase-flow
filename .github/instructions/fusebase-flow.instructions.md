@@ -9,7 +9,7 @@ These instructions apply to every file. Tighter scoped instructions live alongsi
 ## Read first
 
 1. `AGENTS.md` — portable always-on baseline.
-2. `FLOW_RULES.md` — 15 always-on rules with enforcement-surface mapping.
+2. `FLOW_RULES.md` — 19 always-on rules with enforcement-surface mapping.
 3. `workflows/` — repeatable procedures.
 4. `templates/` — substrates for artifacts you write.
 5. `policies/` — machine-readable rule data hooks consult.
@@ -32,6 +32,7 @@ Self-attest the role on first response.
 - Stage by name; never `git add .` / `git add -A` (FR-06).
 - Lint + typecheck clean per commit (FR-13).
 - Worker-undisturbed paths show empty diff (FR-07).
+- Operator questions use chat text, not popup / clickable menu tools (FR-19).
 
 Pre-commit attestation:
 
@@ -57,6 +58,7 @@ After committing T<first>..T<gate>, produce the gate report per `docs/specs/<slu
 
 - **Mode A (chat):** visual, concrete, brief. ASCII roadmap / decision-tree / comparison when state has spatial relationships.
 - **Mode B (`docs/specs/`, `docs/decisions/`, `docs/handoff/`, `docs/problem-catalog/`, `docs/backlog/`):** dense, tabular, front-loaded; no narrative padding.
+- **Questions:** write options as chat text tables or numbered lists; mark **(Recommended)** when appropriate.
 
 ## State announcement (every output)
 

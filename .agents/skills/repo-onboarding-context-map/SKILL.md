@@ -42,18 +42,20 @@ Inspect an unfamiliar repo and produce a durable context map so future sessions 
 | Repo root | git root | Stop; ask operator to confirm working directory |
 | Package/project files | `package.json`, `pyproject.toml`, `Cargo.toml`, etc. | Note "no manifest detected"; describe based on file extensions only |
 | Existing READMEs | `README.md`, `docs/`, etc. | Note absence; flag as Phase-4 onboarding gap |
+| CLI edition map, for this edition | `docs/fusebase-cli-edition.md` | Continue with generic repo map, but mark CLI provider asset mapping unknown |
 
 ## Procedure
 
 1. List repo root files (top level only). Identify project type (Node/Python/Go/Rust/etc.) and frontend/backend split if visible.
 2. Read root `README.md` if present. Read up to 3 most-referenced docs in `docs/`.
-3. Detect build/test/lint commands from manifest files. Capture exact commands.
-4. Identify protected-path candidates: long-lived worker code, generated files, migration files, deployment configs.
-5. Identify risky system boundaries: external APIs, database migrations, auth surfaces, file system writes outside repo.
-6. Run `git log --oneline -30` to read commit cadence + recent areas of activity.
-7. Save findings to `docs/specs/repo-context.md` using `templates/spec.md` adapted for context-mapping (see template).
-8. Propose updates to `AGENTS.md` "project-specific values" section. Show the diff in chat. Do NOT apply unless operator says "apply".
-9. Propose initial `policies/protected-paths.yml` candidates. Save as draft if operator approves; do NOT auto-write.
+3. If this is the Fusebase CLI edition or a downstream Fusebase Apps project, read `docs/fusebase-cli-edition.md` and record which CLI provider assets are present and relevant.
+4. Detect build/test/lint commands from manifest files. Capture exact commands.
+5. Identify protected-path candidates: long-lived worker code, generated files, migration files, deployment configs.
+6. Identify risky system boundaries: external APIs, database migrations, auth surfaces, file system writes outside repo.
+7. Run `git log --oneline -30` to read commit cadence + recent areas of activity.
+8. Save findings to `docs/specs/repo-context.md` using `templates/spec.md` adapted for context-mapping (see template).
+9. Propose updates to `AGENTS.md` "project-specific values" section. Show the diff in chat. Do NOT apply unless operator says "apply".
+10. Propose initial `policies/protected-paths.yml` candidates. Save as draft if operator approves; do NOT auto-write.
 
 ## Output artifacts
 

@@ -3,7 +3,7 @@ name: fusebase-flow-health-check
 description: Use when operator asks "is Fusebase Flow healthy", "check Fusebase Flow", "did fusebase update break anything", "Fusebase Flow status", "what's broken with Fusebase Flow", "restore Fusebase Flow", or asks to verify the project's Fusebase Flow overlay after running `fusebase update` or any other tool that touches AGENTS.md / `.claude/*`. Reports overlay status (skills/agents mirrors, AGENTS.md overlay, CLAUDE.md overlay, .claude/settings.json events) and compares the local `.fusebase-flow-source/` clone against upstream. Surfaces drift signatures (especially `fusebase update` aftermath). For recoverable drift verdicts (FUSEBASE_UPDATE_AFTERMATH, recoverable DRIFTED), offers recovery in-chat — asks the operator "Run recovery now?" and executes `bash hooks/local/post-fusebase-update.sh` only on affirmative reply (yes / run it / fix it / proceed). Diagnosis is always read-only; recovery is operator-confirmed (engine v2.2). For EXCEPTION_IN_EFFECT and BROKEN verdicts the skill does NOT offer recovery — recovery wouldn't fix them.
 source_inspiration: original (operator-maintained recovery infrastructure, contributed to upstream in v2.2.0)
 license_status: clean-room-original
-fusebase_flow_version: 2.2
+fusebase_flow_version: 3.1
 risk_level: low — diagnosis phase is read-only; recovery phase executes hooks/local/post-fusebase-update.sh only after explicit operator affirmative reply in chat
 invocation: automatic (description match) — also via /fusebase-health slash command
 expected_outputs:
@@ -25,7 +25,7 @@ hook_dependencies:
 
 Diagnostic skill for the operator to verify that the Fusebase Flow overlay on top of agent-managed files (AGENTS.md, CLAUDE.md, `.claude/skills/`, `.claude/agents/`, `.claude/settings.json`, `.claude/hooks/`) is intact, and that the local `.fusebase-flow-source/` clone is in sync with upstream. **Diagnosis is strictly read-only.** When drift is detected and recoverable, the skill **offers** to run the recovery script in-chat with explicit operator confirmation — it never writes without an unambiguous affirmative reply.
 
-The most common breakage cause is `fusebase update` (which regenerates AGENTS.md, `.claude/settings.json`, and `.claude/hooks/run-typecheck-features.js` from CLI templates, evicting the Fusebase Flow overlay). This skill recognizes that signature and helps the operator recover.
+The most common breakage cause is `fusebase update` without `--skip-skills`. The current CLI refreshes `AGENTS.md`, `.claude/skills/`, `.claude/agents/`, `.claude/hooks/`, and `.claude/settings.json` from CLI templates. It preserves CLI custom blocks in `AGENTS.md` and skill markdown files, but `.claude/settings.json` and hook helpers still need Flow-side recovery after a full refresh. This skill recognizes those signatures and helps the operator recover.
 
 ## When to invoke
 
@@ -90,7 +90,7 @@ When the verdict warrants recovery, present this to the operator after the diagn
 
 ```
 Run recovery now? It will:
-  • Restore AGENTS.md overlay block (if missing)
+  • Restore AGENTS.md overlay block in a CLI-preserved custom wrapper (if missing)
   • Merge .claude/settings.json lifecycle events (if reduced)
   • Re-apply Windows shell:true patch (if missing)
   • Re-mirror Fusebase Flow skills + sub-agents (no-op if already present)
@@ -122,12 +122,13 @@ Then proceed with the normal procedure (diagnose → offer → execute on confir
 
 ## Knowledge — the canonical `fusebase update` recovery context
 
-When drift signature matches `fusebase update` aftermath (AGENTS.md overlay missing AND `.claude/settings.json` reduced), the operator's situation is:
+When drift signature matches `fusebase update` aftermath (`.claude/settings.json` reduced, with the AGENTS overlay either missing on legacy installs or preserved by the custom-block wrapper on current installs), the operator's situation is:
 
 - They ran `fusebase update` without `--skip-skills` (or another tool that regenerates agent-managed files).
-- The CLI regenerated AGENTS.md, `.claude/hooks/`, and `.claude/settings.json` from CLI templates.
-- Empirically observed (Fusebase CLI 2026.04+): the CLI **preserves** `.claude/skills/`, `.claude/agents/`, `.claude/commands/`, and `CLAUDE.md`. Earlier CLI versions destroyed all of these — the recovery script still re-mirrors them defensively (no-op if already present).
-- The Fusebase Flow overlay (added by `install.sh` or the manual install) is partially destroyed: AGENTS.md overlay block, `.claude/settings.json` events, and the Windows typecheck shell:true patch.
+- Latest archive check (2026-05-27): the CLI agent-asset refresh copies or extracts `AGENTS.md`, `.claude/skills/`, `.claude/agents/`, `.claude/hooks/`, and `.claude/settings.json`; `--skip-skills` skips that stage.
+- The CLI captures `<!-- CUSTOM:SKILL:BEGIN --> ... <!-- CUSTOM:SKILL:END -->` blocks from `AGENTS.md` and `.claude/skills/**/*.md` before refresh, then restores them. Fusebase Flow therefore appends the AGENTS overlay inside that wrapper.
+- `.claude/settings.json` is still replaced by the CLI template and must be merged back with Flow lifecycle events. `.claude/hooks/run-typecheck-features.js` may still need the Windows `shell:true` patch.
+- Skills and sub-agents are re-mirrored defensively because the CLI refreshes those directories and may overwrite same-name template files or future behavior may become more destructive.
 
 The recovery is well-defined and bundled into one script:
 
@@ -138,7 +139,7 @@ bash hooks/local/post-fusebase-update.sh
 That script is idempotent and restores six layers:
 1. Re-mirrors all Fusebase Flow skills via upstream `mirror-skills.sh`
 2. Re-mirrors all Fusebase Flow sub-agents via upstream `mirror-agents.sh`
-3. Re-appends the `## Fusebase Flow — workflow lifecycle overlay` block to `AGENTS.md` (only if missing)
+3. Re-appends the `## Fusebase Flow — workflow lifecycle overlay` block to `AGENTS.md` inside the CLI-preserved custom wrapper (only if missing)
 4. Re-appends the `## Fusebase Flow — additional rules (overlay)` block to `CLAUDE.md` (only if missing)
 5. Re-merges `.claude/settings.json` to add the missing lifecycle event keys + appends the Fusebase Flow `stop.py` to the Stop chain (only if missing)
 6. Re-applies the Windows `shell:true` patch on `.claude/hooks/run-typecheck-features.js` (only if Windows AND patch missing)
@@ -181,7 +182,7 @@ Or for `fusebase update` aftermath:
 Fusebase Flow health check — 2026-05-09 21:35 UTC
 
 Local state:
-  ✗ AGENTS.md overlay: MISSING
+  ✗ or ✓ AGENTS.md overlay: missing on legacy installs, preserved after custom-wrapper recovery
   ✗ .claude/settings.json: only 1/6 events wired
   ✗ Windows shell:true patch on run-typecheck-features.js: MISSING
   ✓ .claude/skills/: N/N Fusebase Flow skills mirrored
@@ -190,10 +191,10 @@ Local state:
 Verdict: FUSEBASE_UPDATE_AFTERMATH
 
 Diagnosis: drift signature matches the `fusebase update` aftermath pattern
-(AGENTS.md overlay missing AND settings.json reduced).
+(.claude/settings.json reduced after agent-asset refresh).
 
-Run recovery now? It will restore AGENTS.md overlay, settings.json events,
-and the Windows shell:true patch in ~5 seconds.
+Run recovery now? It will restore the AGENTS.md overlay wrapper if needed,
+settings.json events, and the Windows shell:true patch in ~5 seconds.
 
 Reply `yes` / `run it` / `fix it` / `proceed` to execute.
 Reply anything else to halt and decide later.

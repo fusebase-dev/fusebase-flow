@@ -24,13 +24,13 @@ After:
 ## Procedure (Deploy phase / AI Developer side)
 
 1. Read deploy handoff. Verify approval artifact exists.
-2. Self-attest: "Operating as Deploy phase under Fusebase Flow v2.1. I will follow FR-01 through FR-18, including FR-05 (gate fulfilled), FR-06 (reversible by default), FR-07 (worker-undisturbed), FR-12 (approval-gated), FR-14 (single docs commit on deploy). I will apply the role-discipline skill section for Deploy phase (DP.1..DP.6)."
+2. Self-attest: "Operating as Deploy phase under Fusebase Flow v3.1. I will follow FR-01 through FR-19, including FR-05 (gate fulfilled), FR-06 (reversible by default), FR-07 (worker-undisturbed), FR-12 (approval-gated), FR-14 (single docs commit on deploy), FR-19 (chat-text questions). I will apply the role-discipline skill section for Deploy phase (DP.1..DP.11)."
 3. Final worker-undisturbed re-check before deploy command. If anything changed since gate, STOP.
-4. **Operator confirm (DP.6).** Ask the operator to type the literal `APPROVE-DEPLOY-NOW` phrase. If the response is anything other than the exact phrase, ABORT the deploy and surface the abort. The operator can re-issue the deploy by re-running this workflow in a fresh session.
+4. **Operator confirm (DP.6 + FR-19).** Ask the operator in chat text to type the literal `APPROVE-DEPLOY-NOW` phrase. Do not use popup / clickable menu tools. If the response is anything other than the exact phrase, ABORT the deploy and surface the abort. The operator can re-issue the deploy by re-running this workflow in a fresh session.
 5. Run deploy command (exact command from `AGENTS.md` project-specific section).
 6. Capture deploy hash from command output.
 7. Run probes per `verification-gate.md`. For each: report status with concrete evidence (HTTP code + body excerpt, log line, screenshot).
-8. Run smoke prompts S1..Sn if applicable. Persist evidence to `docs/handoff/<date>-<slug>-smoke/`.
+8. Run smoke prompts S1..Sn if applicable under `skills/smoke-testing/SKILL.md`. Smoke PASS requires operator-visible outcome evidence plus ground-truth diagnostic inspection; supporting checks alone are incomplete. Persist evidence to `docs/handoff/<date>-<slug>-smoke/`.
 9. Produce single docs commit (FR-14) covering:
    - `spec.md` DRAFT → DONE with deploy hash captured
    - `tasks.md` verification marks for T<gate>..T<deploy>
@@ -40,7 +40,7 @@ After:
 
 ## Deploy phase self-attestation
 
-Per `FLOW_RULES.md` § Self-attestation (FR-01..FR-18); name Deploy phase as the role and `skills/role-discipline/SKILL.md` § Deploy phase (DP.1..DP.8). DP.6 (magic-phrase confirm) and DP.1 (approval artifact) are the load-bearing gates for this phase.
+Per `FLOW_RULES.md` § Self-attestation (FR-01..FR-19); name Deploy phase as the role and `skills/role-discipline/SKILL.md` § Deploy phase (DP.1..DP.11). DP.6 (magic-phrase confirm), DP.1 (approval artifact), DP.10 (smoke evidence integrity), DP.11 (no delegated deploy side effects), and FR-19 (chat-text questions) are the load-bearing gates for this phase.
 
 ## State announcement (every output)
 
@@ -121,7 +121,7 @@ If ANY probe fails:
 
 ## Smoke prompts (if applicable)
 
-S1..Sn from `docs/specs/<slug>/verification-gate.md` smoke section. Persist evidence to `docs/handoff/<date>-<slug>-smoke/`.
+S1..Sn from `docs/specs/<slug>/verification-gate.md` smoke section. Each S<n> must include an operator-visible success criterion, ground-truth diagnostic, adversarial check, and evidence requirement per `skills/smoke-testing/SKILL.md`. Persist evidence to `docs/handoff/<date>-<slug>-smoke/`.
 
 ## Single docs commit (FR-14)
 
@@ -147,6 +147,7 @@ Commit message: `docs(post-deploy): T<deploy> <slug> DONE — <hash>`
 - `templates/deploy-report.md` — **canonical deploy report template** (v2.6.0+); Deploy phase fills this after T<deploy>; section 8 is the operator-relay block per FR-16
 - `skills/release-deploy-reporting/SKILL.md` — produces this handoff (manual-invoke)
 - `skills/role-discipline/SKILL.md` — PO section includes the **Operator Relay Protocol** (FR-16) used when operator pastes the deploy report back to PO for closeout
+- `skills/smoke-testing/SKILL.md` — outcome-based smoke definition/execution discipline
 - `workflows/verification-gate.md` — gate contract referenced for probes
 - `workflows/smoke-verification.md` — smoke procedure
 - `policies/approval-policy.yml` — `production_deploy` approval requirement

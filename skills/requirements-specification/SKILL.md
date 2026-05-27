@@ -68,17 +68,20 @@ When NOT to split: the bug is already understood (e.g., known typo, obvious off-
 |---|---|---|
 | Backlog ticket or operator intent | `docs/backlog/<slug>/README.md` or chat | Ask operator for one-liner + why-now + rough scope |
 | Constitution / project context | `FLOW_RULES.md` + project-specific values in `AGENTS.md` | Stop and ask operator to fill `AGENTS.md` project-specific section |
+| CLI edition map, for Fusebase Apps work | `docs/fusebase-cli-edition.md` | Continue with Flow-only spec, but mark CLI domain assumptions unknown |
 | Letter prefix in use | Project-specific section of `AGENTS.md` | Default to `A`; ask operator to confirm |
 
 ## Procedure
 
 1. Read the backlog ticket (or capture operator intent in chat as a 1-paragraph problem statement).
-2. Identify ambiguities. For each, draft a clarify question with 2–3 options + recommendation. Save to `docs/specs/<slug>/clarify-conversation.md` using `templates/clarify-conversation.md`.
-3. Present clarify questions in chat (Mode A — visual when there are 3+ options to compare).
-4. Wait for operator answers. Update `clarify-conversation.md` with locked answers.
-5. Draft `docs/specs/<slug>/spec.md` using `templates/spec.md`. Status: DRAFT.
-6. Spec must include: problem statement, why-now, in-scope, out-of-scope, acceptance criteria (numbered AC1..ACn), risks, constraints from FLOW_RULES (worker-undisturbed, mixed-fleet if applicable).
-7. State announcement footer in chat: phase advances from `Specify` to `Plan` once spec.md is saved.
+2. For Fusebase Apps tickets, read `docs/fusebase-cli-edition.md` and identify any CLI domain skills that should inform scope, constraints, or acceptance criteria. Use them as supporting context; do not copy their content into the spec.
+3. Identify ambiguities. For each, draft a clarify question with 2–3 options + recommendation. Save to `docs/specs/<slug>/clarify-conversation.md` using `templates/clarify-conversation.md`.
+4. If the operator asks for alternatives, variations, product/UI directions, or other possible shapes, invoke `skills/design-discovery-ideation/SKILL.md` before drafting the final clarify options. Capture the selected direction in `clarify-conversation.md` or `spec.md`.
+5. Present clarify questions in chat text (FR-19): no popup / clickable menu tools. Use a short options table or numbered list when there are multiple choices, with **(Recommended)** marked when appropriate.
+6. Wait for operator answers. Update `clarify-conversation.md` with locked answers.
+7. Draft `docs/specs/<slug>/spec.md` using `templates/spec.md`. Status: DRAFT.
+8. Spec must include: problem statement, why-now, in-scope, out-of-scope, acceptance criteria (numbered AC1..ACn), risks, constraints from FLOW_RULES (worker-undisturbed, mixed-fleet if applicable).
+9. State announcement footer in chat: phase advances from `Specify` to `Plan` once spec.md is saved.
 
 ## Output artifacts
 
@@ -101,6 +104,7 @@ When NOT to split: the bug is already understood (e.g., known typo, obvious off-
 ## Escalation path
 
 - Investigation surface > 10 files across multiple subsystems → propose architect escalation via `workflows/architect-escalation.md`
+- Operator asks for divergent product/UI/workflow alternatives → invoke `design-discovery-ideation` before locking the spec direction
 - Operator can't decide between two architectural directions → invoke `implementation-planning` skill in "decision-only" mode to surface trade-offs
 
 ## Anti-patterns

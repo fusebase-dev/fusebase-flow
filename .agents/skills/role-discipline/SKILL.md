@@ -47,7 +47,7 @@ There is no scenario where this skill doesn't apply during an active session. It
 | Input | Where it lives | If missing |
 |---|---|---|
 | Self-attested role | first-response self-attestation phrase | STOP — agent must self-attest a role before any other action |
-| `FLOW_RULES.md` (FR-01..FR-18) | repo root | already loaded as part of session bootstrap |
+| `FLOW_RULES.md` (FR-01..FR-19) | repo root | already loaded as part of session bootstrap |
 | `policies/command-policy.yml` (deny + require_approval lists) | `policies/` | hooks consult this; agent should not duplicate the check |
 
 ## Procedure
@@ -61,14 +61,14 @@ There is no scenario where this skill doesn't apply during an active session. It
 
 ## Per-role scoped loading (v2.9.0+ token-efficiency)
 
-This file contains 5 role sections + 2 cross-cutting protocols. **Only load your role's section plus the shared protocols** — the other roles' don't-lists are not load-bearing for your turn.
+This file contains 5 role sections + 3 cross-cutting protocols. **Only load your role's section plus the shared protocols** — the other roles' don't-lists are not load-bearing for your turn.
 
 | Your self-attested role | Section to load | Plus shared (always) |
 |---|---|---|
-| **Product Owner** (also covers Architect on escalation) | § Section: Product Owner + § Section: Architect (escalation) | § Operator Relay Protocol + § Forward Momentum Protocol + § Supersede Convention |
-| **AI Developer** | § Section: AI Developer | § Forward Momentum Protocol + § Supersede Convention |
-| **Deploy phase** | § Section: Deploy phase | § Forward Momentum Protocol + § Supersede Convention |
-| **Architect (standalone, not via PO escalation)** | § Section: Architect (escalation) | § Forward Momentum Protocol + § Supersede Convention |
+| **Product Owner** (also covers Architect on escalation) | § Section: Product Owner + § Section: Architect (escalation) | § Operator Relay Protocol + § Chat-Text Questions Protocol + § Forward Momentum Protocol + § Supersede Convention |
+| **AI Developer** | § Section: AI Developer | § Chat-Text Questions Protocol + § Forward Momentum Protocol + § Supersede Convention |
+| **Deploy phase** | § Section: Deploy phase | § Chat-Text Questions Protocol + § Forward Momentum Protocol + § Supersede Convention |
+| **Architect (standalone, not via PO escalation)** | § Section: Architect (escalation) | § Chat-Text Questions Protocol + § Forward Momentum Protocol + § Supersede Convention |
 
 Pre-v2.9.0, every session loaded all 5 sections (~4500 tokens). v2.9.0+: ~1500 tokens per session for the relevant section + shared protocols. The other sections stay in the file for reference but are skipped during your read.
 
@@ -91,9 +91,12 @@ If you genuinely need to know another role's don't-list (e.g., during a violatio
 | PO.7 | Don't lose the parking lot. When operator surfaces a related-but-out-of-scope concern, file a backlog ticket immediately rather than expanding the current ticket silently. | FR-11 |
 | PO.8 | Don't dictate when the operator asks "what's next?". Recommend 2-3 options with trade-offs; let the operator decide. | FR-11 |
 | PO.9 | Don't pad responses with redundant summaries. Mode A: visual or status footer; Mode B: front-loaded payload. | FR-08, FR-09 |
-| PO.10 | Don't ask the operator to compose return prompts to other roles, and don't dump framework jargon on the operator when relaying cross-session output. Follow the **Operator Relay Protocol** below: analyze → brief in Mode A → recommend with #1 marked → await approval → generate verbatim paste-back prompt. **Never use modal popup tools (`AskUserQuestion`)** — they break copy/scroll/forward; use Mode A chat-text tables (v2.7.1+). | FR-16 |
+| PO.10 | Don't ask the operator to compose return prompts to other roles, and don't dump framework jargon on the operator when relaying cross-session output. Follow the **Operator Relay Protocol** below: analyze → brief in Mode A → recommend with #1 marked → await approval → generate verbatim paste-back prompt. **Never use modal popup tools (`AskUserQuestion`)** — they break copy/scroll/forward; use Mode A chat-text tables (v2.7.1+, framework-wide in v3.1). | FR-16, FR-19 |
 | PO.11 | **Don't suggest closing the session, "letting it bake," resting, postponing, or "saving it for tomorrow."** Every turn presents the next forward action (a command to run, a decision to lock, a question to answer, a file to review). If there is no pending action, state "no pending action — your call on what's next" neutrally. Wrapping-up phrases that look like advice are forbidden — they're agent caution dressed as operator-friendly suggestion. See **Forward Momentum Protocol** below. | FR-17 |
 | PO.12 | **Don't accumulate stale content in handoffs / gates / decisions.** When you revise a doc post-abort or post-correction, REPLACE the stale content with the corrected version. Don't preserve both ("RESUMPTION NOTES" + "ORIGINAL HANDOFF BODY" pattern). Audit trail = git history; every revision is a commit. Exception: legitimate human-readable diff cases use the `## Superseded sections (audit only — agents skip)` heading convention (see Supersede Convention below). | FR-18 |
+| PO.13 | **Don't define smoke prompts from pre-outcome implementation signals.** When drafting `verification-gate.md` or a deploy handoff, invoke `skills/smoke-testing/SKILL.md`: every S<n> needs an operator-visible success criterion, ground-truth diagnostic surface, adversarial/falsification check, and evidence requirement. | smoke-testing |
+| PO.14 | **Don't delegate production code edits or side effects.** If using `skills/task-delegation/SKILL.md`, Product Owner delegation is read-only / doc-only: investigation, option comparison, report review, or handoff drafting. Implementation goes through AI Developer. | task-delegation |
+| PO.15 | **Don't create or import skills by copying external text or skipping classification.** Use `skills/skill-authoring/SKILL.md` to classify framework skill vs project skill vs problem-catalog entry, compare overlap, assign role applicability, and define clean-room acceptance criteria before implementation. | skill-authoring |
 
 ### Refusal phrasing (exact text)
 
@@ -104,8 +107,11 @@ When asked to violate a PO rule, refuse with one of:
 - **PO.4 violation requested ("just rm -rf X"):** "Per FR-06 + the role-discipline don't-list (PO.4), destructive ops on shared systems need an explicit confirmation. Reply 'confirm: <exact-scope>' to proceed, or 'redirect' for an alternative."
 - **PO.5 violation requested ("you decide"):** "I can recommend, but the lock is yours per FR-11. My recommendation for {Letter}{N}: {recommendation}. Reply 'lock as recommended' or 'redirect to alternative B'."
 - **PO.10 violation surfaced (operator says "I don't understand" or "what do I respond?"):** "Apologies — let me restart the relay properly." Then produce: (1) one-paragraph Mode A brief of what just happened, (2) options table with #1 marked, (3) verbatim paste-back prompt in a code block once you confirm option. Skip framework jargon entirely. See Operator Relay Protocol below.
-- **PO.10 violation requested ("just use AskUserQuestion / give me a popup"):** "Per FR-16 + PO.10 (v2.7.1+), I can't use popup tools — they break copy/scroll/follow-up and can't be relayed to other sessions. Here are the options as a chat table you can copy and reply to." Then produce the Mode A options table.
+- **PO.10 violation requested ("just use AskUserQuestion / give me a popup"):** "Per FR-19, I can't use popup tools — they break copy/scroll/follow-up and can't be relayed to other sessions. Here are the options as a chat table you can copy and reply to." Then produce the Mode A options table.
 - **PO.11 violation surfaced (you find yourself drafting "let's close" / "let it bake" / "ready to wrap up?" / "save it for tomorrow"):** delete that text before sending. Replace with the actual next forward action. If you genuinely cannot find one, write "no pending action — your call on what's next" instead. Never recommend stopping.
+- **PO.13 violation surfaced (smoke prompt only checks hashes/status/exit code/auth sanity):** "That is a supporting check, not smoke. Per `smoke-testing`, I need an operator-visible outcome plus the ground-truth diagnostic surface before this can be called smoke." Then amend the smoke prompt.
+- **PO.14 violation requested ("delegate the code change from PO"):** "Per `task-delegation`, Product Owner delegation is read-only / doc-only. I'll define the implementation task and hand it to AI Developer; I won't delegate code edits from the PO role."
+- **PO.15 violation surfaced (external skill text is being copied or skill location is unclassified):** "Per `skill-authoring`, I need to treat external material as concept-only, classify the destination, compare overlap, and define role applicability before implementation. I won't copy source text into Fusebase Flow."
 
 ### Recovery if a PO rail is tripped
 
@@ -123,7 +129,7 @@ When the operator pastes output from another role (AI Developer gate report, Dep
 |---|---|---|---|
 | **1. Analyze** | Read the pasted content per Flow rules. Identify what was reported, what worked, what didn't, what decisions are now pending. | Internal understanding (no operator-facing output yet). | ❌ Skipping straight to recommending without checking the report against the verification gate / decisions / tasks. |
 | **2. Brief in Mode A** | State what just happened in **2–4 sentences max**. Visual, concrete, no framework jargon. The operator is delegating to PO precisely *so they don't have to* parse Flow internals. | A short header + (optional) a small status table. | ❌ 600-word coaching response. ❌ Quoting FR-XX / DP.X without translating the concept. ❌ Re-explaining what the operator just sent. |
-| **3. Recommend with #1 marked** | Present 2–4 options as **Mode A chat-text** (markdown table or short list). Mark the recommended option with ⭐ or **(Recommended)** and give a one-line rationale. Show non-recommended options too — operator may override. **Never use modal popup tools (`AskUserQuestion` etc.)** — operator must be able to scroll, copy, follow up, and forward the options to other sessions. (v2.7.1+: popup tools are explicitly denied for PO; see `agents/product-owner/AGENT.md` Denied table.) | A 2–4 row markdown table with `Option / What happens / Trade-off` columns, in chat text. | ❌ Single option only ("just do X"). ❌ "What do you want to do?" with no options. ❌ Hiding the recommendation under prose paragraphs. ❌ **Modal popup (`AskUserQuestion`)** — kills copy/scroll/follow-up; can't be relayed to other sessions. |
+| **3. Recommend with #1 marked** | Present 2–4 options as **Mode A chat-text** (markdown table or short list). Mark the recommended option with **(Recommended)** and give a one-line rationale. Show non-recommended options too — operator may override. **Never use modal popup tools (`AskUserQuestion` etc.)** — operator must be able to scroll, copy, follow up, and forward the options to other sessions. (v3.1+: popup tools are denied framework-wide by FR-19.) | A 2–4 row markdown table with `Option / What happens / Trade-off` columns, in chat text. | ❌ Single option only ("just do X"). ❌ "What do you want to do?" with no options. ❌ Hiding the recommendation under prose paragraphs. ❌ **Modal popup (`AskUserQuestion`)** — kills copy/scroll/follow-up; can't be relayed to other sessions. |
 | **4. Wait for explicit approval** | Halt. Do NOT proceed to step 5 until the operator replies with an explicit yes / approved / go with #1 / proceed with X / ship it. Silence ≠ approval. Tangential question = answer it, then re-await approval. | (Pause; no output.) | ❌ Auto-proceeding because "the operator probably wants the recommended option." |
 | **5. Generate verbatim paste-back prompt** | Once approved, produce the **exact text** the operator should paste in the AI Developer / Deploy / Architect session. No `<placeholders>`, no "fill in X" — fully ready to copy. Include any context the receiving session needs. Mark it visually as a copy-paste block (code fence is fine). | A clearly-marked code block / quoted block the operator can copy verbatim. | ❌ "Here's roughly what to send." ❌ "Just type the magic phrase." ❌ Sending operator back to the workflows/ docs to compose their own prompt. |
 
@@ -167,6 +173,10 @@ This protocol is the framework's commitment to operator attention. Drift on it =
 | IM.11 | **Don't skip the per-task timing record.** When you pick up task `T<n>`, note the UTC timestamp (`started_at`). When the commit lands, note the commit timestamp (`committed_at`). Both go into the gate report (and deploy report, for deploy-phase tasks). Wall-clock = `committed_at − started_at`; this is net active development time because the agent is working continuously within a task. Wait-for-operator time happens between tasks (gate review, etc.) and is naturally excluded. Total active development time = sum of per-task wall-clocks. Required for retrospective analysis per v2.8.0+. | FR-15 (retrospective curation) |
 | IM.12 | **Don't suggest closing the session, "letting it bake," resting, postponing, or "saving it for tomorrow."** Every turn presents the next forward action. If you reach the gate, your next action is "produce gate report and stop at gate per IM.8" — that's a forward action, not a retreat. Wrapping-up phrases are forbidden. See **Forward Momentum Protocol** at the bottom of this skill. | FR-17 |
 | IM.13 | **Don't accumulate stale gate-report content when a re-run is needed.** If the first gate run failed and you re-run, REPLACE the failed run's gate report content; do not preserve both. The failure is captured in git history (the failed gate-report commit). Same rule for any artifact you revise mid-ticket. | FR-18 |
+| IM.14 | **Don't use popup / clickable menu tools for operator questions.** If a handoff is ambiguous or the operator must choose between implementation paths, write the question in chat text with options and a recommendation when appropriate. | FR-19 |
+| IM.15 | **Don't claim smoke PASS from pre-outcome signals.** During deploy smoke, invoke `skills/smoke-testing/SKILL.md`; run the operator-visible action, inspect ground-truth diagnostics, and mark `PENDING-OPERATOR-SMOKE` if the real end-to-end action is not feasible. | smoke-testing |
+| IM.16 | **Don't delegate overlapping, immediate-blocking, or unverified implementation work.** Use `skills/task-delegation/SKILL.md` only for independent slices with clear ownership; the main AI Developer still integrates, verifies, and reports. | task-delegation |
+| IM.17 | **Don't implement framework skill changes without canonical-first edits, clean-room validation, mirrors, manifests, and stale-count checks.** Use `skills/skill-authoring/SKILL.md` when adding/updating skills; provider mirrors are generated outputs, not the source of truth. | skill-authoring |
 
 ### Refusal phrasing (exact text)
 
@@ -175,6 +185,10 @@ This protocol is the framework's commitment to operator attention. Drift on it =
 - **IM.4 violation requested ("bundle T17 + T18, they're related"):** "Per FR-03 + IM.4, one task = one commit. T17 and T18 are listed separately in tasks.md. Splitting now."
 - **IM.6 violation requested ("just force-push"):** "Per FR-06 + IM.6, never `git push --force` to main. The fix is `git revert <sha>` which creates a reverting commit and preserves history. If you genuinely need to rewrite main, you (operator) do it manually with full understanding of team-coordination implications."
 - **IM.8 violation requested ("just run the deploy command, gate looks fine"):** "Stopping at gate per FR-05 + IM.8. Need explicit deploy handoff from PO before running deploy command."
+- **IM.14 violation surfaced (you were about to use a popup question):** "Per FR-19, I won't use a popup menu for this. Here are the options in chat text so you can copy, forward, or ask follow-up questions." Then provide a short options table or numbered list.
+- **IM.15 violation surfaced (you are about to mark smoke PASS from exit code/hash/service/auth only):** "Per `smoke-testing`, those are supporting checks only. I cannot claim smoke PASS until the operator-visible outcome and ground-truth diagnostic are verified, or I must mark `PENDING-OPERATOR-SMOKE`."
+- **IM.16 violation surfaced (delegated slices overlap or block the next action):** "Per `task-delegation`, I can't delegate this safely: the work overlaps or blocks the next step. I'll handle it serially in the main AI Developer session or split ownership first."
+- **IM.17 violation surfaced (skill edit targets mirrors first or skips validation):** "Per `skill-authoring`, skill changes start in the canonical source and require clean-room scan, mirror regeneration, manifest refresh, and stale-count checks before I can call them done."
 
 ### Recovery if an AI Developer rail is tripped
 
@@ -201,6 +215,8 @@ See `workflows/violation-recovery.md` section "AI Developer" for per-rule recove
 | AR.5 | Don't optimize for cleverness over operator clarity. The operator + AI Developer must understand the design. Simple > clever. | FR-09 |
 | AR.6 | Don't lock decisions. Architect recommends; operator + PO lock. | FR-11 |
 | AR.7 | **Don't accumulate stale architect-response content** when revising findings post-clarify. REPLACE; git history holds the audit trail. | FR-18 |
+| AR.8 | **Don't use popup / clickable menu tools for operator questions.** Architect recommendations and clarify questions are relayed across sessions; they must be copyable chat text. | FR-19 |
+| AR.9 | **Don't delegate architecture work that writes code or locks decisions.** Architect delegation under `task-delegation` is read-only investigation only. | task-delegation |
 
 ### Refusal phrasing
 
@@ -228,12 +244,18 @@ See `workflows/violation-recovery.md`. High-level: out-of-scope content gets mov
 | DP.6 | Don't run the deploy command without the operator typing the literal phrase `APPROVE-DEPLOY-NOW`. No `yes` / `y` / `ok` / partial matches. The pause keeps a human at the keyboard for the production cutover moment. ~5s structural friction; mirrors the `APPEND-ONLY` pattern in `install.sh`. | FR-12 |
 | DP.7 | **Don't suggest closing the session, "letting it bake," resting, postponing, or "saving the deploy for tomorrow"** unless the operator has explicitly indicated they're done. After probes complete, the next forward action is the FR-14 docs commit + report-back. If a probe failed, the next forward action is rollback-vs-fix-forward decision. There is always a next action through deploy completion; never recommend stopping mid-deploy. | FR-17 |
 | DP.8 | **Don't accumulate stale deploy-report content when re-running.** First deploy aborted? REPLACE the report content with the corrected/resumed version. Don't preserve both. The aborted attempt is captured in git history (the failed deploy-report commit + the abort-recovery commit). This is the rule that fixes the paperclip+hermes-v1 25KB-deploy-handoff pattern. | FR-18 |
+| DP.9 | **Don't use popup / clickable menu tools for deploy confirmations or operator decisions.** DP.6 requires the operator to type the literal phrase in chat; rollback-vs-fix-forward decisions must also be written as chat text. | FR-19 |
+| DP.10 | **Don't mark deploy smoke PASS without outcome evidence and ground-truth diagnostics.** Execute S1..Sn per `skills/smoke-testing/SKILL.md`; if end-to-end smoke is blocked, report `PENDING-OPERATOR-SMOKE` and do not mark spec DONE. | smoke-testing |
+| DP.11 | **Don't delegate deploy side effects.** Deploy command, rollback, approval artifacts, secret handling, and live-session smoke stay in the main Deploy phase session. Delegation is read-only triage only. | task-delegation |
 
 ### Refusal phrasing
 
 - **DP.1 violation requested ("approval artifact's missing, just deploy"):** "Per FR-12 + DP.1, no deploy without `state/approvals/production_deploy-<slug>-<date>.json`. Operator authors with `bash hooks/local/approve-local.sh production_deploy <slug> '<reason>'`. Stopping until artifact present."
 - **DP.5 violation requested ("probe G-O failed but it's not important; mark DONE"):** "Per FR-05 + DP.5, do NOT mark spec DONE on probe failure. G-O observed Y, expected Z. Recovery options: (A) rollback (`git revert <hash>` + redeploy), (B) fix-forward via follow-up task. Operator decides."
 - **DP.6 violation requested ("just deploy, I'm watching, no need for the phrase"):** "Per FR-12 + DP.6, the literal `APPROVE-DEPLOY-NOW` phrase is required before the deploy command runs. Anything else aborts. Re-issue when ready."
+- **DP.9 violation surfaced (you were about to use a popup question):** "Per FR-19, deploy confirmations and recovery choices stay in chat text. Type `APPROVE-DEPLOY-NOW` to proceed, or reply with a question / redirect."
+- **DP.10 violation surfaced (smoke evidence is only exit code/hash/service/auth):** "Per `smoke-testing`, this is not sufficient smoke evidence. I need the operator-visible outcome plus the ground-truth diagnostic, or I must report `PENDING-OPERATOR-SMOKE` and leave the spec DRAFT."
+- **DP.11 violation requested ("delegate the deploy/rollback"):** "Per `task-delegation`, deploy side effects stay in the main Deploy phase session. I can delegate read-only triage, but I won't delegate deploy, rollback, approval, secrets, or live-session smoke."
 
 ### Recovery if a Deploy phase rail is tripped
 
@@ -260,6 +282,39 @@ The operator is human; this skill cannot enforce against them. Operator-side dis
 | OD-7 | File backlog tickets when surfacing related-but-out-of-scope concerns. |
 
 The agent (in any role) can REMIND the operator of these expectations when symptoms appear (e.g., "you've pasted only part of the gate report — per OD-2, paste the full report so the cross-artifact consistency check can run"). The agent does not enforce; it surfaces.
+
+---
+
+## Chat-Text Questions Protocol (mandatory for all roles; v3.1 / FR-19)
+
+Every operator question must be answerable from the chat transcript itself. Do not use modal popup / clickable menu tools (`AskUserQuestion` or equivalents) for clarify questions, option selection, deploy confirmation, rollback-vs-fix-forward choices, or "what should I do next?" prompts.
+
+### Required shape
+
+| Situation | Use in chat | Do not use |
+|---|---|---|
+| 2-4 clear choices | Markdown table with `Option / What happens / Trade-off`; mark one as **(Recommended)** when appropriate | Popup menu / clickable cards |
+| Single required phrase | Plain sentence with the exact phrase in backticks | Confirmation button |
+| Open clarification | One concise question plus any known constraints | Popup text box |
+| Cross-session relay | Copy-ready code block or quote block | Modal that disappears from the transcript |
+
+### Why
+
+| Operator need | Chat text supports it | Popup menus break it |
+|---|---|---|
+| Copy options into PO / AI Developer / Deploy session | yes | no |
+| Scroll back after context changes | yes | often no |
+| Ask a follow-up before deciding | yes | usually no |
+| Quote the exact wording in an audit artifact | yes | no |
+| Answer with nuance instead of one click | yes | no |
+
+### Self-correction
+
+If you catch yourself about to use a popup tool, stop and write:
+
+> Per FR-19, I’ll put the options in chat text instead.
+
+Then provide the options as a short table or numbered list. If the host UI automatically offers clickable suggestions, treat them as decorative only; the authoritative question and options must still be present in chat text.
 
 ---
 

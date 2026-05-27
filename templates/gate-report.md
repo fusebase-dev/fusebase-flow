@@ -20,7 +20,7 @@ You are an AI Developer session that has just completed `T<first>..T<gate>` and 
 **Status:** Gate reached; awaiting PO review and deploy handoff
 **Slug:** `<slug>`
 **Task range:** T<first>..T<gate>
-**Reporting session:** AI Developer (Fusebase Flow v2.1, FR-01..FR-18)
+**Reporting session:** AI Developer (Fusebase Flow v3.1, FR-01..FR-19)
 **Date:** <YYYY-MM-DD>
 
 ---
@@ -187,6 +187,6 @@ When filling this template, the AI Developer should consult `templates/reference
 
 Pre-v2.6.0, gate reports were technical Mode B documents the operator had to scan to figure out "what's the headline / what should I tell PO?" That's framework cognitive load on the operator — wrong direction.
 
-Post-v2.6.0, the AI Developer composes the relay block as part of the report. The operator copies that block verbatim into PO chat. PO then runs the **Operator Relay Protocol** (skills/role-discipline/SKILL.md PO section) on it: analyze, brief, recommend with #1 marked, await approval, generate paste-back prompt. The operator's job is just **copy → paste → click**.
+Post-v2.6.0, the AI Developer composes the relay block as part of the report. The operator copies that block verbatim into PO chat. PO then runs the **Operator Relay Protocol** (skills/role-discipline/SKILL.md PO section) on it: analyze, brief, recommend with #1 marked, await approval, generate paste-back prompt. Per FR-19, the operator's job is chat-based copy/paste relay, not clicking popup menus.
 
 The structure is the enforcement: an AI Developer can't ship a gate report without filling section 9, because the template ends there.

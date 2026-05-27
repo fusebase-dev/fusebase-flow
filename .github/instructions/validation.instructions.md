@@ -37,9 +37,12 @@ When the operator describes a single observed failure:
 
 When `verification-gate.md` defines numbered S1..Sn:
 
+- Follow `skills/smoke-testing/SKILL.md`.
+- Verify the operator-visible outcome, not only supporting checks.
+- Inspect the ground-truth diagnostic surface named by S<n>.
 - Persist evidence to `docs/handoff/<date>-<slug>-smoke/`.
 - Compute pass ratio against the gate contract threshold.
-- If below threshold, do NOT mark spec DONE; surface failure with concrete `S<n> observed Y, expected Z`.
+- If below threshold or end-to-end smoke is not feasible, do NOT mark spec DONE; surface failure or `PENDING-OPERATOR-SMOKE` with concrete `S<n> observed Y, expected Z` / missing prerequisite.
 
 ## What this scope does NOT do
 

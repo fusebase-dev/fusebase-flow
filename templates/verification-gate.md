@@ -47,11 +47,13 @@ Subset of `policies/protected-paths.yml` relevant to this ticket. Empty diff req
 
 ## Smoke prompts (post-deploy)
 
-| ID | Scenario | Pass criterion | Evidence required |
-|---|---|---|---|
-| S1 | <one-liner> | <specific condition> | screenshot / response excerpt / log line |
-| S2 | <one-liner> | <specific condition> | screenshot |
-| S3 | <one-liner> | <specific condition> | response excerpt |
+Define with `skills/smoke-testing/SKILL.md`. Smoke PASS requires operator-visible outcome evidence plus ground-truth diagnostic inspection; supporting checks alone are incomplete. For interactive UI changes, at least one smoke prompt must exercise the real primary interaction; screenshot-only evidence is not sufficient. Name stable selectors or accessible locators for interactive controls and meaningful dynamic output. Browser smoke must include route/navigation, viewport, auth/session plan, unique test data, cleanup responsibility, and any backend/log/API diagnostic surface.
+
+| ID | Scenario | Route / surface | Operator-visible success criterion | Ground-truth diagnostic | Stable selectors / locators | Auth / test data plan | Adversarial check | Evidence required |
+|---|---|---|---|---|---|---|---|---|
+| S1 | <one-liner> | <URL / page / command / N/A> | <specific user/operator-observable outcome> | <request dump / error log / rendered DOM / DB row / job trace> | `<selector or N/A>` | <no-auth / synthetic / live-user; unique data + cleanup> | <what would falsify the fix> | screenshot / response excerpt / diagnostic excerpt |
+| S2 | <one-liner> | <surface> | <specific condition> | <diagnostic surface> | `<selector or N/A>` | <auth/data plan> | <falsification signal> | screenshot |
+| S3 | <one-liner> | <surface> | <specific condition> | <diagnostic surface> | `<selector or N/A>` | <auth/data plan> | <falsification signal> | response excerpt |
 
 Detailed steps for each smoke prompt below.
 
@@ -63,6 +65,11 @@ Steps:
 
 Expected: <observation>
 Pass criterion: <specific condition>
+Route / surface: <URL / page / command / N/A>
+Ground-truth diagnostic: <log/dump/DOM/DB/job artifact to inspect after the action>
+Stable selectors / locators: <purpose/state selector or accessible locator; N/A for non-UI>
+Auth / test data plan: <auth mode; unique values to create; cleanup expectation; no exact shared-state counts unless prepared>
+Adversarial check: <signal that would prove the fix is still broken>
 Evidence dir: `docs/handoff/<date>-<slug>-smoke/S1-*.{png,md,log}`
 
 ### S2: ...

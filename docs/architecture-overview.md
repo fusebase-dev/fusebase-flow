@@ -2,6 +2,8 @@
 
 > Reference visual for how Fusebase Flow Local fits together. Human-readable; does not need to be loaded into agent context. For the always-on rules see `FLOW_RULES.md`. For per-component detail see `docs/framework.md`.
 
+This Fusebase CLI edition adds a provider-domain layer on top of the Flow lifecycle layer. The boundary map is `docs/fusebase-cli-edition.md`.
+
 ## Three roles, one workflow
 
 ```
@@ -53,7 +55,7 @@ Every cross-session prompt is saved here BEFORE being shown in chat (FR-04). Rep
 ```
                                         ┌─────────────────────┐
                                         │   FLOW_RULES.md     │
-                                        │   (FR-01..FR-18)    │
+                                        │   (FR-01..FR-19)    │
                                         │   always-on         │
                                         └──────────┬──────────┘
                                                    │
@@ -71,6 +73,7 @@ Every cross-session prompt is saved here BEFORE being shown in chat (FR-04). Rep
        │ validation-*   │                 │ smoke-         │                 │ gate-contracts │
        │ code-review    │                 │ knowledge-     │                 │ secret-patterns│
        │ security-*     │                 │ ...            │                 │                │
+       │ skill-authoring│                 │                │                 │                │
        │ release-deploy │                 │                │                 │                │
        └────────────────┘                 └────────────────┘                 └────────┬───────┘
                                                                                       │
@@ -131,6 +134,8 @@ See `docs/rail-mapping.md` for the canonical FR-NN → surface mapping.
                   verify mirrors match canonical (drift = 0)
 ```
 
+In this edition, `.agents/skills/` and `.claude/skills/` also contain CLI provider skills. The mirror flow above tracks canonical Flow skills only; CLI provider assets stay outside root `skills/` unless a separate clean-room Flow skill proposal is approved.
+
 ## Approval-artifact flow (FR-12)
 
 ```
@@ -161,8 +166,9 @@ operator                   approve-local.sh                    state/approvals/
 ## Where to read next
 
 - `README.md` — quickstart, install paths, supported surfaces
-- `FLOW_RULES.md` — the 15 always-on rules
+- `FLOW_RULES.md` — the 19 always-on rules
 - `docs/framework.md` — the framework directory structure entry point
+- `docs/fusebase-cli-edition.md` - Flow/CLI edition boundary map
 - `docs/compatibility.md` — supported provider / IDE matrix
 - `docs/hook-coverage.md` — handler × surface coverage
 - `docs/rail-mapping.md` — FR-NN → enforcement surface map

@@ -4,6 +4,44 @@ All notable changes to Fusebase Flow Local. Format follows [Keep a Changelog](ht
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.1] — 2026-05-27
+
+### Added - Fusebase CLI edition packaging
+
+This release now has a dedicated Fusebase CLI edition that layers Fusebase Apps CLI provider assets on top of the Flow lifecycle framework.
+
+Key additions:
+
+- Added `docs/fusebase-cli-edition.md` with the Flow/CLI boundary map, overlap table, and role applicability.
+- Added 19 CLI provider skills to `.claude/skills/` and `.agents/skills/`, alongside the 14 canonical Flow mirrors.
+- Added CLI app agents `app-architect` and `app-create-checker` to `.claude/agents/` and `.codex/agents/`.
+- Added CLI Claude Code quality hooks under `.claude/hooks/`.
+- Updated `.claude/settings.json.example` to merge CLI MCP server hints and Stop hooks with Flow lifecycle hooks.
+- Updated clean-room and source-map docs so copied CLI provider assets are clearly separated from canonical Flow clean-room files.
+- Updated health check behavior so source-template / edition projects validate as `HEALTHY` without requiring downstream overlay markers.
+
+### Added — FR-19 chat-text questions, no popup menus
+
+Operators reported that clickable popup menus are hard to copy, forward, scroll back to, and follow up on across the Product Owner / AI Developer / Deploy relay loop. v3.1 adds **FR-19**: every operator question, clarify prompt, option choice, deploy confirmation, and recovery decision must be written as normal chat text.
+
+Key changes:
+
+- Added FR-19 to `FLOW_RULES.md`.
+- Added Chat-Text Questions Protocol to `skills/role-discipline/SKILL.md`.
+- Added Mode A question-shape guidance to `skills/communication/SKILL.md`.
+- Removed `AskUserQuestion` from the AI Developer agent tool grant.
+- Updated deploy confirmation wording so DP.6 requires a chat-text typed phrase, not a popup confirm.
+- Added `design-discovery-ideation` skill so PO can turn "show options" / "try alternatives" requests into clean-room product/UI/workflow option briefs before decisions lock.
+- Strengthened frontend/UI handoffs: design briefs now capture product identity, surface map, data/API contracts, applicable stack conventions, stable selector strategy, trust-critical interactions, and non-goals before AI Developer implementation.
+- Added `smoke-testing` skill so PO defines outcome-based S1..Sn and AI Developer / Deploy phase cannot claim smoke PASS from supporting checks alone.
+- Added `task-delegation` skill so PO can delegate read-only/doc-only work and AI Developer can delegate independent implementation/test slices without overlapping writes or bypassing verification.
+- Added `skill-authoring` skill so PO classifies clean-room reusable skill changes and AI Developer implements canonical-first edits with mirror/source-leak/count validation.
+- Strengthened UI/E2E validation guidance across smoke and QA: browser tests now require route, viewport, stable locators, auth/test-data plan, backend diagnostics, unique data, cleanup, and side-effect controls.
+- Updated Fusebase Flow health-check recovery for the latest Apps CLI agent-asset refresh: AGENTS overlay recovery now appends inside the CLI-preserved `CUSTOM:SKILL` wrapper, and the health-check engine treats reduced `.claude/settings.json` as the core recoverable `fusebase update` aftermath signal even when AGENTS survives through that wrapper.
+- Updated provider adapters, overlay templates, handoff templates, and release docs.
+
+See `docs/release-notes/v3.1.md`.
+
 ## [2.9.0] — 2026-05-10
 
 ### Added — FR-18 (supersede, don't accumulate) + 5 token-efficiency themes

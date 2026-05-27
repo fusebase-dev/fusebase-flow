@@ -53,6 +53,29 @@ DEFAULT_EVENT_MATCHERS = {
     "PostToolUse": "Edit|Write|MultiEdit|NotebookEdit",
 }
 
+DEFAULT_CLI_MCP_SERVERS = ["fusebase-dashboards", "fusebase-gate"]
+
+CLI_STOP_HOOKS: list[tuple[str, dict[str, Any]]] = [
+    ("run-lint-on-stop.sh", {
+        "type": "command",
+        "command": '"$CLAUDE_PROJECT_DIR"/.claude/hooks/run-lint-on-stop.sh',
+        "statusMessage": "Running lint before allowing completion...",
+        "timeout": 120,
+    }),
+    ("run-typecheck-on-stop.sh", {
+        "type": "command",
+        "command": '"$CLAUDE_PROJECT_DIR"/.claude/hooks/run-typecheck-on-stop.sh',
+        "statusMessage": "Running typecheck before allowing completion...",
+        "timeout": 300,
+    }),
+    ("quality-check-apps.js", {
+        "type": "command",
+        "command": 'node "$CLAUDE_PROJECT_DIR"/.claude/hooks/quality-check-apps.js',
+        "statusMessage": "Running app quality check...",
+        "timeout": 30,
+    }),
+]
+
 
 def discover_flow_config_from_upstream() -> tuple[dict[str, str], dict[str, str]] | tuple[None, None]:
     """Read upstream .fusebase-flow-source/.claude/settings.json.example to
@@ -124,6 +147,14 @@ def make_event_block(event: str) -> dict[str, Any]:
 def merge_settings(settings: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     """Return (updated settings, list of changes applied)."""
     changes: list[str] = []
+
+    servers = settings.setdefault("enabledMcpjsonServers", [])
+    if isinstance(servers, list):
+        for server in DEFAULT_CLI_MCP_SERVERS:
+            if server not in servers:
+                servers.append(server)
+                changes.append(f"added MCP server {server}")
+
     hooks = settings.setdefault("hooks", {})
 
     # All non-Stop events from FLOW_HOOKS get added wholesale if missing.
@@ -137,17 +168,28 @@ def merge_settings(settings: dict[str, Any]) -> tuple[dict[str, Any], list[str]]
 
     # Stop event: preserve existing CLI hooks; append Fusebase Flow stop.py only if missing
     if "Stop" not in hooks or not hooks["Stop"]:
-        hooks["Stop"] = [{"hooks": [{
+        stop_chain: list[dict[str, Any]] = []
+        for marker, hook in CLI_STOP_HOOKS:
+            if Path(f".claude/hooks/{marker}").is_file():
+                stop_chain.append(dict(hook))
+                changes.append(f"added CLI Stop hook {marker}")
+        stop_chain.append({
             "type": "command",
             "command": FLOW_HOOKS["Stop"],
             "statusMessage": "Fusebase Flow stop hook…",
             "timeout": 30,
-        }]}]
+        })
+        hooks["Stop"] = [{"hooks": stop_chain}]
         changes.append("added Stop event with Fusebase Flow stop.py")
     else:
         # Stop array exists; check first block's hooks chain for our stop.py
         stop_block = hooks["Stop"][0]
         stop_hooks = stop_block.setdefault("hooks", [])
+        for marker, hook in reversed(CLI_STOP_HOOKS):
+            already_cli_present = any(marker in h.get("command", "") for h in stop_hooks)
+            if not already_cli_present and Path(f".claude/hooks/{marker}").is_file():
+                stop_hooks.insert(0, dict(hook))
+                changes.append(f"added CLI Stop hook {marker}")
         already_present = any(
             "hooks/handlers/stop.py" in h.get("command", "")
             for h in stop_hooks
