@@ -1,8 +1,8 @@
 # Tasks - cli-first-flow-second-recovery
 
 **T-counter going in:** T1 (next task is T2)
-**Task range:** T2..T8
-**Gate task:** T8
+**Task range:** T2..T9
+**Gate task:** T9
 **Deploy task:** N/A - framework/template change, no production deploy
 **Linked spec:** `docs/specs/cli-first-flow-second-recovery/spec.md`
 **Linked decisions:** `docs/specs/cli-first-flow-second-recovery/decisions.md`
@@ -18,6 +18,7 @@
 | T6 | tests | Add simulation coverage for CLI refresh followed by Flow recovery. | A6 | T3, T4, T5 | 90e422c | done |
 | T7 | docs | Update install and health docs for CLI-first, Flow-second model. | A1..A6 | T3..T6 | 21b05c9 | done |
 | T8 | gate | Run validation gate and produce gate report. | A1..A6 | T2..T7 | gate-report commit | done |
+| T9 | audit-fix | Fix audit blockers for exact overlay restoration and settings merge failure handling; update tests and gate note. | A3, A5, A6 | T8 | T9 commit | done |
 
 ## Per-task detail
 
@@ -120,3 +121,17 @@ No code change. AI Developer produces gate report per `verification-gate.md` con
 - Architect/PO deviations
 
 After gate report, stop. No production deploy applies to this ticket.
+
+---
+
+### T9. Audit blocker fixes
+
+**Track:** recovery/tests/docs
+**Scope:** Tighten overlay marker checks to exact current headings, handle settings merge failures without abrupt `set -e` exit, add simulation assertions, and correct gate wording for ignored docs.
+**Files:** `hooks/local/post-fusebase-update.sh`, `hooks/tests/test-cli-flow-recovery.sh`, `docs/specs/cli-first-flow-second-recovery/gate-report.md`, `docs/specs/cli-first-flow-second-recovery/tasks.md`
+**Cites:** decisions A3, A5, A6
+**Depends on:** T8
+**Acceptance:** AC5, AC6, AC8, AC9, AC10
+**Tests:** `bash hooks/tests/test-cli-flow-recovery.sh`; full gate rerun
+**Worker-undisturbed:** no downstream worker paths
+**SHA:** T9 commit

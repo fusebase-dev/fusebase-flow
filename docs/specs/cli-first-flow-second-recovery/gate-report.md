@@ -49,7 +49,7 @@ Implemented CLI-first, Flow-second recovery semantics for the Fusebase CLI editi
 | AC6 | Simulation verifies settings merge preserves CLI Stop hooks and `.codex/config.toml` checksum. |
 | AC7 | Health check supports `CLI_LAYER_DRIFT`, `FLOW_LAYER_DRIFT`, `SHARED_MERGE_DRIFT`, `HEALTHY`, `BROKEN`, and `EXCEPTION_IN_EFFECT`. |
 | AC8 | `test-cli-flow-recovery.sh` simulates CLI refresh then Flow recovery. |
-| AC9 | `docs/install-fusebase-cli-project.md` updated; health skill and slash command docs updated. Local-only ignored health docs were also refreshed in workspace notes. |
+| AC9 | `docs/install-fusebase-cli-project.md` updated; health skill and slash command docs updated. Ignored `docs/fusebase-health/**` files are not counted as shipped evidence. |
 | AC10 | Existing preflight and hook tests pass; new simulation passes. |
 
 ## Worker-undisturbed
@@ -62,7 +62,7 @@ N/A - no downstream worker paths apply. This ticket changed Flow framework docs 
 
 ## Architect/PO deviations
 
-- `docs/fusebase-health/README.md` and `docs/fusebase-health/OPERATOR-WORKFLOWS.md` are ignored local working notes per `.gitignore`, so they were refreshed in the workspace but not committed.
+- `docs/fusebase-health/**` is ignored by `.gitignore`, so it is not counted as shipped documentation evidence for AC9.
 - Unrelated commits appeared in history during execution: `befa7df docs: restructure README for new-user onboarding` and `89bbfb3 docs: add promotion pass - skill catalog, FAQ, positioning + community health files`. They are not part of the T2..T8 task chain.
 
 ## Git status note

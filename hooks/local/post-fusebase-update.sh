@@ -63,7 +63,7 @@ fi
 ###############################################################################
 
 echo "[post-fusebase-update] Step 3: AGENTS.md overlay check..."
-AGENTS_MARKER="## Fusebase Flow"
+AGENTS_MARKER="## Fusebase Flow — workflow lifecycle overlay"
 if [ ! -f AGENTS.md ]; then
   WARNINGS+=("AGENTS.md not found in repo root; skipping overlay restore")
 elif grep -qF "$AGENTS_MARKER" AGENTS.md; then
@@ -82,7 +82,7 @@ fi
 ###############################################################################
 
 echo "[post-fusebase-update] Step 4: CLAUDE.md overlay check..."
-CLAUDE_MARKER="## Fusebase Flow"
+CLAUDE_MARKER="## Fusebase Flow — additional rules (overlay)"
 if [ ! -f CLAUDE.md ]; then
   ACTIONS_SKIPPED+=("CLAUDE.md not present (Claude Code not configured for this project)")
 elif grep -qF "$CLAUDE_MARKER" CLAUDE.md; then
@@ -110,8 +110,10 @@ elif [ ! -f "$MERGE_SCRIPT" ]; then
   WARNINGS+=("$MERGE_SCRIPT missing; cannot merge settings.json")
 else
   cp .claude/settings.json .claude/settings.json.pre-flow-merge
+  set +e
   MERGE_OUTPUT=$(python3 "$MERGE_SCRIPT" .claude/settings.json 2>&1)
   MERGE_EXIT=$?
+  set -e
   if [ "$MERGE_EXIT" -eq 0 ]; then
     if echo "$MERGE_OUTPUT" | grep -q "already up to date\|byte-identical"; then
       ACTIONS_SKIPPED+=(".claude/settings.json: Fusebase Flow events already wired")

@@ -57,12 +57,16 @@ cat > "$PROJECT/AGENTS.md" <<'EOF'
 # FuseBase CLI project
 
 CURRENT CLI AGENTS SENTINEL 0.25.5
+
+## Fusebase Flow V2 - stale previous overlay heading
 EOF
 
 cat > "$PROJECT/CLAUDE.md" <<'EOF'
 # FuseBase CLI Claude instructions
 
 CURRENT CLI CLAUDE SENTINEL 0.25.5
+
+## Fusebase Flow V2 - stale previous overlay heading
 EOF
 
 cat > "$PROJECT/.claude/settings.json" <<'EOF'
@@ -179,9 +183,9 @@ CLI_SKILL_BEFORE="$(sha_cmd "$PROJECT/.claude/skills/fusebase-cli/SKILL.md")"
 )
 
 grep -q "CURRENT CLI AGENTS SENTINEL" "$PROJECT/AGENTS.md" || fail "CLI AGENTS baseline was lost"
-grep -q "Fusebase Flow" "$PROJECT/AGENTS.md" || fail "Flow AGENTS overlay was not restored"
+grep -q "## Fusebase Flow — workflow lifecycle overlay" "$PROJECT/AGENTS.md" || fail "current Flow AGENTS overlay was not restored"
 grep -q "CURRENT CLI CLAUDE SENTINEL" "$PROJECT/CLAUDE.md" || fail "CLI CLAUDE baseline was lost"
-grep -q "Fusebase Flow" "$PROJECT/CLAUDE.md" || fail "Flow CLAUDE overlay was not restored"
+grep -q "## Fusebase Flow — additional rules (overlay)" "$PROJECT/CLAUDE.md" || fail "current Flow CLAUDE overlay was not restored"
 
 [ "$CODEX_BEFORE" = "$(sha_cmd "$PROJECT/.codex/config.toml")" ] || fail ".codex/config.toml changed"
 [ "$HOOK_BEFORE" = "$(sha_cmd "$PROJECT/.claude/hooks/run-typecheck-apps.js")" ] || fail "CLI hook helper changed"
@@ -212,3 +216,37 @@ pass "CLI provider skills and hook helpers untouched"
 pass "shared settings merge preserved CLI Stop hooks"
 pass "Flow skills, agents, overlays, and health command restored"
 pass "conflict reporter returned HEALTHY"
+
+BAD_PROJECT="$TMP_BASE/bad-settings"
+mkdir -p "$BAD_PROJECT/hooks/local" "$BAD_PROJECT/.claude" "$BAD_PROJECT/.claude/skills" "$BAD_PROJECT/.agents/skills" "$BAD_PROJECT/.claude/agents" "$BAD_PROJECT/.codex/agents" "$BAD_PROJECT/.claude/commands"
+cp -R skills "$BAD_PROJECT/skills"
+cp -R agents "$BAD_PROJECT/agents"
+cp hooks/local/mirror-skills.sh "$BAD_PROJECT/hooks/local/"
+cp hooks/local/mirror-agents.sh "$BAD_PROJECT/hooks/local/"
+cp hooks/local/post-fusebase-update.sh "$BAD_PROJECT/hooks/local/"
+cp -R hooks/local/fusebase-flow-overlays "$BAD_PROJECT/hooks/local/fusebase-flow-overlays"
+
+cat > "$BAD_PROJECT/AGENTS.md" <<'EOF'
+# FuseBase CLI project
+EOF
+cat > "$BAD_PROJECT/CLAUDE.md" <<'EOF'
+# FuseBase CLI Claude instructions
+EOF
+cat > "$BAD_PROJECT/.claude/settings.json" <<'EOF'
+{ invalid json
+EOF
+
+set +e
+(
+  cd "$BAD_PROJECT"
+  bash hooks/local/post-fusebase-update.sh > "$TMP_BASE/bad-settings.out" 2>&1
+)
+BAD_RC=$?
+set -e
+
+[ "$BAD_RC" -eq 1 ] || fail "invalid settings recovery should return 1, got $BAD_RC"
+grep -q "\[post-fusebase-update\] Summary" "$TMP_BASE/bad-settings.out" || fail "invalid settings recovery did not print summary"
+[ ! -f "$BAD_PROJECT/.claude/settings.json.pre-flow-merge" ] || fail "invalid settings recovery left backup behind"
+grep -q "{ invalid json" "$BAD_PROJECT/.claude/settings.json" || fail "invalid settings recovery did not restore original settings"
+
+pass "invalid settings merge reports warning and cleans backup"
