@@ -73,49 +73,91 @@ git checkout -b chore/install-fusebase-flow
 
 If your repo already contains `AGENTS.md`, `CLAUDE.md`, `.github/`, `.claude/`, `.codex/`, `.cursor/`, or `.agents/`, do not blindly run the copy commands. Copy into a temporary staging folder first, compare the files, and manually merge the parts you want.
 
+> ⚠️ **Two-writer hazard — do NOT `-Force`/overwrite CLI-owned paths.** The
+> provider folders `.claude/` and `.agents/` are written by **two independent
+> tools**: `fusebase update` (the live FuseBase CLI bundle) and the Fusebase
+> Flow snapshot you are copying from. A blind recursive `-Force` copy of
+> `.claude/` or `.agents/` would clobber the live, CLI-owned assets
+> (`.claude/skills/<cli-skill>/`, `.claude/hooks/`, `.claude/agents/app-*.md`,
+> `.agents/skills/<cli-skill>/`, `.codex/agents/app-*.md`) — including any
+> `<!-- CUSTOM:SKILL -->` blocks you have added — with the frozen Flow snapshot.
+> That violates the edition's own rule that **Flow must never restore CLI-owned
+> assets from its bundled copy**. The commands below therefore copy CLI-owned
+> paths **only if absent** (`cp -Rn` / `Copy-Item` without `-Force`); existing
+> CLI-owned files are left untouched. See `docs/fusebase-cli-edition.md`
+> § "Two-writer hazard". After install, run
+> `bash hooks/local/check-cli-flow-conflicts.sh` to confirm nothing drifted.
+
 Bash / zsh:
 
 ```bash
-cp -R .fusebase-flow-source/.agents . 2>/dev/null || true
-cp -R .fusebase-flow-source/.claude . 2>/dev/null || true
-cp -R .fusebase-flow-source/.codex . 2>/dev/null || true
-cp -R .fusebase-flow-source/.cursor . 2>/dev/null || true
-cp -R .fusebase-flow-source/.github . 2>/dev/null || true
+# CLI-owned provider folders: copy ONLY-IF-ABSENT (-n / --no-clobber).
+# Existing CLI-owned assets (provider skills, hooks, app-*.md agents) and any
+# CUSTOM:SKILL blocks are preserved. On a fresh repo, the Flow mirrors land
+# normally; the post-install mirror step re-syncs Flow skills/agents anyway.
+cp -Rn .fusebase-flow-source/.agents . 2>/dev/null || true
+cp -Rn .fusebase-flow-source/.claude . 2>/dev/null || true
+cp -Rn .fusebase-flow-source/.codex . 2>/dev/null || true
+cp -Rn .fusebase-flow-source/.cursor . 2>/dev/null || true
+cp -Rn .fusebase-flow-source/.github . 2>/dev/null || true
 
+# Flow-owned framework folders: copy normally (Flow is authoritative here).
 cp -R .fusebase-flow-source/hooks .
 cp -R .fusebase-flow-source/policies .
 cp -R .fusebase-flow-source/skills .
 cp -R .fusebase-flow-source/templates .
 cp -R .fusebase-flow-source/workflows .
 
-cp .fusebase-flow-source/AGENTS.md .
 cp .fusebase-flow-source/FLOW_RULES.md .
-cp .fusebase-flow-source/CLAUDE.md . 2>/dev/null || true
-cp .fusebase-flow-source/GEMINI.md . 2>/dev/null || true
+# Instruction files are merge surfaces — copy only if absent, then review.
+cp -n .fusebase-flow-source/AGENTS.md . 2>/dev/null || true
+cp -n .fusebase-flow-source/CLAUDE.md . 2>/dev/null || true
+cp -n .fusebase-flow-source/GEMINI.md . 2>/dev/null || true
+
+# After copying, re-sync the Flow mirrors WITHOUT touching CLI-owned assets:
+bash hooks/local/mirror-skills.sh
+bash hooks/local/mirror-agents.sh
 ```
 
-PowerShell:
+PowerShell (no `-Force` on the provider folders so CLI-owned files are kept):
 
 ```powershell
-Copy-Item -Recurse -Force .fusebase-flow-source\.agents . -ErrorAction SilentlyContinue
-Copy-Item -Recurse -Force .fusebase-flow-source\.claude . -ErrorAction SilentlyContinue
-Copy-Item -Recurse -Force .fusebase-flow-source\.codex . -ErrorAction SilentlyContinue
-Copy-Item -Recurse -Force .fusebase-flow-source\.cursor . -ErrorAction SilentlyContinue
-Copy-Item -Recurse -Force .fusebase-flow-source\.github . -ErrorAction SilentlyContinue
+# CLI-owned provider folders: copy only the items that are MISSING.
+foreach ($dir in '.agents','.claude','.codex','.cursor','.github') {
+  $src = ".fusebase-flow-source\$dir"
+  if (Test-Path $src) {
+    Get-ChildItem -Recurse -File $src | ForEach-Object {
+      $rel  = $_.FullName.Substring((Resolve-Path $src).Path.Length + 1)
+      $dest = Join-Path $dir $rel
+      if (-not (Test-Path $dest)) {
+        New-Item -ItemType Directory -Force -Path (Split-Path $dest) | Out-Null
+        Copy-Item $_.FullName $dest   # no -Force: never overwrite CLI-owned files
+      }
+    }
+  }
+}
 
+# Flow-owned framework folders: copy normally.
 Copy-Item -Recurse -Force .fusebase-flow-source\hooks .
 Copy-Item -Recurse -Force .fusebase-flow-source\policies .
 Copy-Item -Recurse -Force .fusebase-flow-source\skills .
 Copy-Item -Recurse -Force .fusebase-flow-source\templates .
 Copy-Item -Recurse -Force .fusebase-flow-source\workflows .
 
-Copy-Item -Force .fusebase-flow-source\AGENTS.md .
 Copy-Item -Force .fusebase-flow-source\FLOW_RULES.md .
-Copy-Item -Force .fusebase-flow-source\CLAUDE.md . -ErrorAction SilentlyContinue
-Copy-Item -Force .fusebase-flow-source\GEMINI.md . -ErrorAction SilentlyContinue
+# Instruction files are merge surfaces — copy only if absent, then review.
+foreach ($f in 'AGENTS.md','CLAUDE.md','GEMINI.md') {
+  if ((Test-Path ".fusebase-flow-source\$f") -and (-not (Test-Path $f))) {
+    Copy-Item ".fusebase-flow-source\$f" .
+  }
+}
+
+# After copying, re-sync the Flow mirrors WITHOUT touching CLI-owned assets:
+bash hooks/local/mirror-skills.sh
+bash hooks/local/mirror-agents.sh
 ```
 
-The commands above are fastest for repos that do not already have these files. In mature repos, prefer manual merge for instruction files, provider config folders, and `.github/` workflows.
+The commands above never overwrite an existing CLI-owned asset. They are fastest for repos that do not already have these files. In mature repos, prefer manual merge for instruction files, provider config folders, and `.github/` workflows, and run `bash hooks/local/check-cli-flow-conflicts.sh` afterward.
 
 Then check the working tree:
 

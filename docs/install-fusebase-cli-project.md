@@ -184,20 +184,29 @@ Skill folders are additive. Names must not collide.
    find .agents/skills .claude/skills -maxdepth 2 -name SKILL.md 2>/dev/null
    ```
 
-2. Copy Fusebase Flow skill mirrors only if there are no name collisions:
+2. Copy Fusebase Flow skill mirrors only if there are no name collisions.
+   Use **copy-if-absent** (`-n`) so an existing CLI-owned provider skill in
+   `.claude/skills/<cli-skill>/` or `.agents/skills/<cli-skill>/` is **never
+   overwritten** by the Flow snapshot (two-writer hazard — see the warning
+   below):
 
    ```bash
    mkdir -p .agents/skills .claude/skills
-   cp -R .fusebase-flow-source/.agents/skills/* .agents/skills/
-   cp -R .fusebase-flow-source/.claude/skills/* .claude/skills/
+   cp -Rn .fusebase-flow-source/.agents/skills/* .agents/skills/
+   cp -Rn .fusebase-flow-source/.claude/skills/* .claude/skills/
    ```
 
 3. If a skill folder with the same name already exists, stop and compare manually.
+   Do not `-Force`/overwrite — CLI provider skills (and any `CUSTOM:SKILL`
+   blocks) are CLI-owned.
 
-4. After copying, refresh provider mirrors from the canonical `skills/`:
+4. After copying, refresh the **Flow** provider mirrors from the canonical
+   `skills/`. `mirror-skills.sh` only writes the 14 canonical Flow skills and
+   never touches CLI provider skills:
 
    ```bash
    bash hooks/local/mirror-skills.sh
+   bash hooks/local/check-cli-flow-conflicts.sh   # confirm no CLI asset drifted
    ```
 
 Notes:
