@@ -27,7 +27,7 @@
 #
 # EXIT CODES:
 #   0  HEALTHY (no drift detected, upstream in sync)
-#   1  DRIFTED (some Fusebase Flow content missing or upstream newer than local)
+#   1  CLI_LAYER_DRIFT / FLOW_LAYER_DRIFT / SHARED_MERGE_DRIFT
 #   2  BROKEN  (preflight fails or hook tests fail with no operator-authored cause)
 #   3  EXCEPTION_IN_EFFECT (drift attributable to active operator approval artifact(s))
 
@@ -44,6 +44,8 @@ LOCAL_OK=()
 LOCAL_DRIFT=()
 LOCAL_BROKEN=()
 LOCAL_DEFERRED=()        # drift items deferred via active health_check_deferral artifact (engine v2.4.0+)
+CLI_LAYER_DRIFT=()
+SHARED_MERGE_DRIFT=()
 UPSTREAM_NOTES=()
 ACTIVE_ARTIFACTS=()      # filenames of non-expired approval artifacts (informational)
 ARTIFACT_NOTES=()        # human-readable summaries of each active artifact
@@ -66,10 +68,9 @@ RECOMMENDATIONS=()
 #       `deferred_checks` — an array of stable check_ids (see docs/health-check-deferrals.md
 #       for the canonical taxonomy). Engine reclassifies matching drift items to
 #       LOCAL_DEFERRED, which counts toward EXCEPTION_IN_EFFECT verdict instead of
-#       DRIFTED / BROKEN. Use when an install brief deliberately omits parts of
-#       the canonical Fusebase Flow setup (e.g. settings.json lifecycle hooks
-#       not wired, Windows shell:true patch not applied per protected-paths
-#       discipline).
+#       layer drift / BROKEN. Use when an install brief deliberately omits parts
+#       of the canonical Fusebase Flow setup (e.g. settings.json lifecycle hooks
+#       intentionally not wired).
 
 if [ -d "state/approvals" ] && command -v python3 >/dev/null 2>&1; then
   while IFS= read -r artifact_file; do
@@ -393,17 +394,53 @@ if [ -x hooks/tests/run-tests.sh ]; then
   fi
 fi
 
-# Windows shell:true patch (only relevant on Windows)
-case "$(uname -s)" in
-  MINGW*|MSYS*|CYGWIN*)
-    if [ -f .claude/hooks/run-typecheck-features.js ]; then
-      if grep -q '^\s*shell:' .claude/hooks/run-typecheck-features.js 2>/dev/null; then
-        LOCAL_OK+=("Windows shell:true patch on run-typecheck-features.js: applied")
-      else
-        record_drift "windows_shell_patch" "Windows shell:true patch on run-typecheck-features.js: MISSING (Windows + Node 22+ typecheck would EINVAL)"
-      fi
-    fi ;;
-esac
+# CLI/Flow ownership report (read-only).
+if [ -x hooks/local/check-cli-flow-conflicts.sh ]; then
+  CONFLICT_JSON=$(bash hooks/local/check-cli-flow-conflicts.sh --json 2>/dev/null || true)
+  if [ -n "$CONFLICT_JSON" ] && command -v python3 >/dev/null 2>&1; then
+    CONFLICT_PARSED=$(printf '%s' "$CONFLICT_JSON" | python3 -c '
+import json, sys
+try:
+    data = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+print("VERDICT\t" + str(data.get("verdict", "")))
+for f in data.get("findings", []):
+    if f.get("status") not in {"MISSING", "DRIFT"}:
+        continue
+    print("\t".join([
+        str(f.get("layer", "")),
+        str(f.get("status", "")),
+        str(f.get("path", "")),
+        str(f.get("detail", "")),
+        str(f.get("action", "")),
+    ]))
+' 2>/dev/null)
+    if [ -n "$CONFLICT_PARSED" ]; then
+      while IFS=$'\t' read -r layer status path detail action; do
+        [ -z "$layer" ] && continue
+        if [ "$layer" = "VERDICT" ]; then
+          LOCAL_OK+=("CLI/Flow ownership report: $status")
+          continue
+        fi
+        msg="$path: $status"
+        [ -n "$detail" ] && msg="$msg ($detail)"
+        [ -n "$action" ] && msg="$msg; action: $action"
+        case "$layer" in
+          cli) CLI_LAYER_DRIFT+=("$msg"); LOCAL_DRIFT+=("CLI layer: $msg") ;;
+          shared) SHARED_MERGE_DRIFT+=("$msg"); LOCAL_DRIFT+=("Shared merge: $msg") ;;
+          flow) record_drift "flow_owned_surface" "$msg" ;;
+        esac
+      done <<< "$CONFLICT_PARSED"
+    else
+      LOCAL_BROKEN+=("CLI/Flow ownership report: could not parse reporter output")
+    fi
+  else
+    LOCAL_BROKEN+=("CLI/Flow ownership report: python3 unavailable or empty reporter output")
+  fi
+else
+  LOCAL_DRIFT+=("hooks/local/check-cli-flow-conflicts.sh: MISSING (ownership report unavailable)")
+fi
 
 ###############################################################################
 # Section 2 — Upstream comparison (.fusebase-flow-source/)
@@ -440,6 +477,8 @@ fi
 DRIFT_COUNT="${#LOCAL_DRIFT[@]}"
 BROKEN_COUNT="${#LOCAL_BROKEN[@]}"
 DEFERRED_COUNT="${#LOCAL_DEFERRED[@]}"
+CLI_LAYER_DRIFT_COUNT="${#CLI_LAYER_DRIFT[@]}"
+SHARED_MERGE_DRIFT_COUNT="${#SHARED_MERGE_DRIFT[@]}"
 
 # Count drift items that are explainable by an active approval artifact
 # (existing v2 hook-test attribution path)
@@ -448,15 +487,19 @@ if [ "$DRIFT_COUNT" -gt 0 ]; then
   ARTIFACT_DRIFT_COUNT=$(printf '%s\n' "${LOCAL_DRIFT[@]}" | grep -c "active approval artifact" || true)
 fi
 
-if [ "$DRIFT_COUNT" -eq 0 ] && [ "$BROKEN_COUNT" -eq 0 ] && [ "$DEFERRED_COUNT" -eq 0 ]; then
+if [ "$DRIFT_COUNT" -eq 0 ] && [ "$BROKEN_COUNT" -eq 0 ] && [ "$DEFERRED_COUNT" -eq 0 ] && [ "$CLI_LAYER_DRIFT_COUNT" -eq 0 ] && [ "$SHARED_MERGE_DRIFT_COUNT" -eq 0 ]; then
   DRIFT_SIGNATURE="HEALTHY"
 elif [ "$BROKEN_COUNT" -gt 0 ]; then
   # Genuine breakage trumps everything (including deferrals — operator can't defer real breakage)
   DRIFT_SIGNATURE="BROKEN"
-elif [ "$DRIFT_COUNT" -eq 0 ] && [ "$DEFERRED_COUNT" -gt 0 ]; then
+elif [ "$DRIFT_COUNT" -eq 0 ] && [ "$CLI_LAYER_DRIFT_COUNT" -eq 0 ] && [ "$SHARED_MERGE_DRIFT_COUNT" -eq 0 ] && [ "$DEFERRED_COUNT" -gt 0 ]; then
   # Only deferred items remain (no real drift, no breakage). v2.4.0+: this is
   # the deferral artifact mechanism working as designed.
   DRIFT_SIGNATURE="EXCEPTION_IN_EFFECT"
+elif [ "$CLI_LAYER_DRIFT_COUNT" -gt 0 ]; then
+  DRIFT_SIGNATURE="CLI_LAYER_DRIFT"
+elif [ "$SHARED_MERGE_DRIFT_COUNT" -gt 0 ]; then
+  DRIFT_SIGNATURE="SHARED_MERGE_DRIFT"
 elif [ "$ARTIFACT_DRIFT_COUNT" -eq "$DRIFT_COUNT" ] && [ "$ARTIFACT_DRIFT_COUNT" -gt 0 ]; then
   # Every drift item is attributable to an active operator approval artifact —
   # this is the v2 hook-test artifact mechanism working as designed, not real drift.
@@ -468,14 +511,11 @@ else
   AGENTS_MISSING=$(printf '%s\n' "${LOCAL_DRIFT[@]}" | grep -c "AGENTS.md overlay block: MISSING" || true)
   AGENTS_PRESENT=$(printf '%s\n' "${LOCAL_OK[@]}" | grep -c "AGENTS.md overlay block: present" || true)
   SETTINGS_REDUCED=$(printf '%s\n' "${LOCAL_DRIFT[@]}" | grep -c "settings.json: only" || true)
-  WIN_PATCH_MISSING=$(printf '%s\n' "${LOCAL_DRIFT[@]}" | grep -c "Windows shell:true patch.*MISSING" || true)
 
   if [ "$SETTINGS_REDUCED" -gt 0 ] && { [ "$AGENTS_MISSING" -gt 0 ] || [ "$AGENTS_PRESENT" -gt 0 ]; }; then
-    DRIFT_SIGNATURE="FUSEBASE_UPDATE_AFTERMATH"
-  elif [ "$WIN_PATCH_MISSING" -gt 0 ] && [ "$AGENTS_MISSING" -eq 0 ] && [ "$SETTINGS_REDUCED" -eq 0 ]; then
-    DRIFT_SIGNATURE="DRIFTED"
+    DRIFT_SIGNATURE="SHARED_MERGE_DRIFT"
   else
-    DRIFT_SIGNATURE="DRIFTED"
+    DRIFT_SIGNATURE="FLOW_LAYER_DRIFT"
   fi
 fi
 
@@ -496,14 +536,18 @@ case "$DRIFT_SIGNATURE" in
       RECOMMENDATIONS+=("Recovery script will NOT fix this — it doesn't touch state/approvals/.")
       RECOMMENDATIONS+=("To clear: when the protected work is done, delete the listed artifact(s) or wait for their expires_at to pass. Then re-run this health check.")
     fi ;;
-  FUSEBASE_UPDATE_AFTERMATH)
-    RECOMMENDATIONS+=("Drift signature matches the 'fusebase update' aftermath pattern (settings.json reduced; AGENTS.md overlay may be missing on legacy installs or preserved by the CUSTOM:SKILL wrapper on current installs).")
-    RECOMMENDATIONS+=("Recommended recovery: bash hooks/local/post-fusebase-update.sh")
-    RECOMMENDATIONS+=("That script is idempotent and restores the AGENTS.md overlay wrapper when needed, settings.json events, Windows typecheck patch, plus re-mirrors skills/agents (no-op if already present).")
-    RECOMMENDATIONS+=("To avoid this in future: prefer 'fusebase update --skip-skills' for routine updates.") ;;
-  DRIFTED)
-    RECOMMENDATIONS+=("Drift detected but signature does NOT match a clean fusebase update aftermath. Review the LOCAL_DRIFT items above and investigate manually.")
-    RECOMMENDATIONS+=("If you want the recovery script to attempt restoration anyway, run: bash hooks/local/post-fusebase-update.sh") ;;
+  CLI_LAYER_DRIFT)
+    RECOMMENDATIONS+=("CLI-owned agent assets are missing or structurally damaged.")
+    RECOMMENDATIONS+=("Run the current FuseBase CLI refresh/update for this project first so the CLI restores its own files.")
+    RECOMMENDATIONS+=("After CLI refresh, run: bash hooks/local/post-fusebase-update.sh") ;;
+  SHARED_MERGE_DRIFT)
+    RECOMMENDATIONS+=("Shared CLI/Flow files are missing Flow overlay or merge additions.")
+    RECOMMENDATIONS+=("Run: bash hooks/local/post-fusebase-update.sh")
+    RECOMMENDATIONS+=("The script restores Flow overlay blocks, Flow lifecycle settings, Flow skill/agent mirrors, and does not patch CLI hook helper files.") ;;
+  FLOW_LAYER_DRIFT)
+    RECOMMENDATIONS+=("Flow-owned overlay assets are missing or drifted.")
+    RECOMMENDATIONS+=("Run: bash hooks/local/post-fusebase-update.sh")
+    RECOMMENDATIONS+=("If CLI-owned assets are also damaged, refresh the current FuseBase CLI first, then rerun Flow recovery.") ;;
   BROKEN)
     RECOMMENDATIONS+=("Genuine failure detected (NOT attributable to an active approval artifact).")
     RECOMMENDATIONS+=("Inspect the LOCAL_BROKEN items above; address each manually.")
@@ -521,7 +565,7 @@ echo "============================================================"
 echo "Date: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 echo "Project root: $ROOT"
 echo ""
-echo "Local state ($((${#LOCAL_OK[@]} + ${#LOCAL_DRIFT[@]} + ${#LOCAL_BROKEN[@]} + ${#LOCAL_DEFERRED[@]})) checks):"
+echo "Local state ($((${#LOCAL_OK[@]} + ${#LOCAL_DRIFT[@]} + ${#LOCAL_BROKEN[@]} + ${#LOCAL_DEFERRED[@]} + ${#CLI_LAYER_DRIFT[@]} + ${#SHARED_MERGE_DRIFT[@]})) checks):"
 for x in "${LOCAL_OK[@]}";    do echo "  ✓ $x"; done
 for x in "${LOCAL_DRIFT[@]}"; do echo "  ✗ $x"; done
 for x in "${LOCAL_BROKEN[@]}";do echo "  ⚠ $x"; done
@@ -532,7 +576,7 @@ if [ "${#LOCAL_DEFERRED[@]}" -gt 0 ]; then
   echo "Deferred checks (${#LOCAL_DEFERRED[@]} — operator-authored exceptions; engine v2.4.0+):"
   echo "  Each ⊘ above is reclassified from drift to deferred via a"
   echo "  state/approvals/health_check_deferral-*.json artifact. These items"
-  echo "  count toward EXCEPTION_IN_EFFECT, NOT DRIFTED or BROKEN. Run the"
+  echo "  count toward EXCEPTION_IN_EFFECT, NOT layer drift or BROKEN. Run the"
   echo "  recovery script later if/when you want to revisit any deferral —"
   echo "  the script is additive + idempotent."
   echo ""
