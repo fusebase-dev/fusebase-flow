@@ -1,39 +1,23 @@
 #!/usr/bin/env bash
-# Fusebase Flow — post-fusebase-update recovery script.
+# Fusebase Flow - post-fusebase-update recovery script.
 #
-# PROVENANCE:
-#   Shipped as part of Fusebase Flow v2.2.0+. Lives at hooks/local/ — outside the
-#   Fusebase CLI's refresh manifest, so it survives `fusebase update`.
-#
-#   If a future Fusebase CLI release expands its refresh manifest, run
-#   `fusebase update --dry-run` once after the CLI bump to confirm hooks/local/
-#   is still untouched.
-#
-# PURPOSE:
-#   Run after `fusebase update` (without --skip-skills) to restore the Fusebase
-#   Flow overlay that the CLI's full-refresh may remove or reduce. Idempotent:
-#   safe to run multiple times; only re-applies pieces that are actually missing.
+# Lives at hooks/local/, outside the FuseBase CLI refresh manifest in current
+# CLI releases. Run after a CLI refresh/update when Flow overlay pieces need to
+# be restored.
 #
 # What this script restores:
-#   1. .claude/skills/<all Fusebase Flow skills>/      via upstream mirror-skills.sh
-#   2. .agents/skills/<all Fusebase Flow skills>/      via upstream mirror-skills.sh
-#   3. .claude/agents/<all Fusebase Flow sub-agents>.md  via upstream mirror-agents.sh
-#   4. .codex/agents/<all Fusebase Flow sub-agents>.md   via upstream mirror-agents.sh
-#   5. AGENTS.md "## Fusebase Flow — workflow lifecycle overlay" block
-#      wrapped in CLI-preserved CUSTOM:SKILL markers (if missing)
-#   6. CLAUDE.md "## Fusebase Flow — additional rules (overlay)" block (if missing)
-#   7. .claude/settings.json — lifecycle event keys + Stop hook chain (if missing)
-#   8. .claude/hooks/run-typecheck-features.js — Windows shell:true patch (until upstream CLI fix)
-#   9. .claude/skills/fusebase-flow-health-check/  + .agents/skills/fusebase-flow-health-check/
-#  10. .claude/commands/fusebase-health.md         (Claude Code slash command)
+#   1. Flow skill mirrors in .claude/skills/ and .agents/skills/
+#   2. Flow agent mirrors in .claude/agents/ and .codex/agents/
+#   3. AGENTS.md Flow overlay block, wrapped in CLI-preserved CUSTOM:SKILL markers
+#   4. CLAUDE.md Flow overlay block
+#   5. .claude/settings.json Flow lifecycle events and stop.py hook
+#   6. fusebase-flow-health-check skill mirrors
+#   7. .claude/commands/fusebase-health.md
 #
-# Recommended workflow:
-#   bash hooks/local/post-fusebase-update.sh
-#   git diff                                   # review what changed
-#   bash hooks/local/preflight.sh              # validate
-#   bash hooks/tests/run-tests.sh              # all hook tests should pass
-#   git add .gitignore AGENTS.md CLAUDE.md .claude/ .agents/ .codex/agents/
-#   git commit -m "chore(flow): restore Fusebase Flow overlay after fusebase update"
+# Guardrail:
+#   .claude/hooks/** is CLI-owned. Flow recovery does not patch or restore CLI
+#   hook helper files. If CLI-owned hook helpers are missing or stale, run the
+#   current FuseBase CLI refresh/update first, then run this script.
 
 set -euo pipefail
 
@@ -51,7 +35,7 @@ if [ ! -d "$OVERLAYS" ]; then
 fi
 
 ###############################################################################
-# Step 1 — Re-mirror Fusebase Flow skills (upstream tool, idempotent by design)
+# Step 1 - Re-mirror Fusebase Flow skills.
 ###############################################################################
 
 echo "[post-fusebase-update] Step 1: re-mirror Fusebase Flow skills..."
@@ -63,7 +47,7 @@ else
 fi
 
 ###############################################################################
-# Step 2 — Re-mirror Fusebase Flow sub-agents (upstream tool, idempotent)
+# Step 2 - Re-mirror Fusebase Flow sub-agents.
 ###############################################################################
 
 echo "[post-fusebase-update] Step 2: re-mirror Fusebase Flow sub-agents..."
@@ -75,13 +59,11 @@ else
 fi
 
 ###############################################################################
-# Step 3 — Re-append AGENTS.md overlay if missing. The overlay template is
-# wrapped in the CLI's CUSTOM:SKILL markers so current Fusebase CLI refreshes
-# capture and restore it instead of evicting it on later full updates.
+# Step 3 - Re-append AGENTS.md overlay if missing.
 ###############################################################################
 
 echo "[post-fusebase-update] Step 3: AGENTS.md overlay check..."
-AGENTS_MARKER="## Fusebase Flow — workflow lifecycle overlay"
+AGENTS_MARKER="## Fusebase Flow"
 if [ ! -f AGENTS.md ]; then
   WARNINGS+=("AGENTS.md not found in repo root; skipping overlay restore")
 elif grep -qF "$AGENTS_MARKER" AGENTS.md; then
@@ -96,11 +78,11 @@ else
 fi
 
 ###############################################################################
-# Step 4 — Re-append CLAUDE.md overlay if missing (only if Claude Code is in use)
+# Step 4 - Re-append CLAUDE.md overlay if missing.
 ###############################################################################
 
 echo "[post-fusebase-update] Step 4: CLAUDE.md overlay check..."
-CLAUDE_MARKER="## Fusebase Flow — additional rules (overlay)"
+CLAUDE_MARKER="## Fusebase Flow"
 if [ ! -f CLAUDE.md ]; then
   ACTIONS_SKIPPED+=("CLAUDE.md not present (Claude Code not configured for this project)")
 elif grep -qF "$CLAUDE_MARKER" CLAUDE.md; then
@@ -115,9 +97,7 @@ else
 fi
 
 ###############################################################################
-# Step 5 — Re-merge .claude/settings.json with Fusebase Flow lifecycle hooks
-#          (Python-based; no jq dependency — Python is already a Fusebase Flow
-#          hook-runtime requirement)
+# Step 5 - Merge .claude/settings.json with Fusebase Flow lifecycle hooks.
 ###############################################################################
 
 echo "[post-fusebase-update] Step 5: .claude/settings.json merge check..."
@@ -125,17 +105,17 @@ MERGE_SCRIPT="$OVERLAYS/settings-json-merge.py"
 if [ ! -f .claude/settings.json ]; then
   ACTIONS_SKIPPED+=(".claude/settings.json not present (Claude Code not configured)")
 elif ! command -v python3 >/dev/null 2>&1; then
-  WARNINGS+=("python3 not on PATH — cannot merge .claude/settings.json automatically; install Python 3 (also required by Fusebase Flow hooks)")
+  WARNINGS+=("python3 not on PATH - cannot merge .claude/settings.json automatically")
 elif [ ! -f "$MERGE_SCRIPT" ]; then
   WARNINGS+=("$MERGE_SCRIPT missing; cannot merge settings.json")
 else
   cp .claude/settings.json .claude/settings.json.pre-flow-merge
   MERGE_OUTPUT=$(python3 "$MERGE_SCRIPT" .claude/settings.json 2>&1)
   MERGE_EXIT=$?
-  if [ $MERGE_EXIT -eq 0 ]; then
+  if [ "$MERGE_EXIT" -eq 0 ]; then
     if echo "$MERGE_OUTPUT" | grep -q "already up to date\|byte-identical"; then
       ACTIONS_SKIPPED+=(".claude/settings.json: Fusebase Flow events already wired")
-      rm -f .claude/settings.json.pre-flow-merge   # no real change; backup unnecessary
+      rm -f .claude/settings.json.pre-flow-merge
     else
       ACTIONS_TAKEN+=(".claude/settings.json: merged Fusebase Flow lifecycle events (backup at .claude/settings.json.pre-flow-merge)")
     fi
@@ -147,54 +127,17 @@ else
 fi
 
 ###############################################################################
-# Step 6 — Re-apply Windows shell:true patch on run-typecheck-features.js
-# (until upstream Fusebase CLI fix lands; mitigates spawnSync npm.cmd EINVAL on Node 22+)
+# Step 6 - CLI hook ownership guardrail.
 ###############################################################################
 
-echo "[post-fusebase-update] Step 6: Windows typecheck wrapper patch check..."
-TYPECHECK_FILE=".claude/hooks/run-typecheck-features.js"
-if [ ! -f "$TYPECHECK_FILE" ]; then
-  ACTIONS_SKIPPED+=("$TYPECHECK_FILE not present (CLI may not have shipped this hook on this version)")
-elif grep -q '^\s*shell:' "$TYPECHECK_FILE"; then
-  ACTIONS_SKIPPED+=("$TYPECHECK_FILE Windows shell:true patch already applied")
-elif [ "$(uname -s)" != "MINGW64_NT-10.0-26200" ] && [ "$(uname -s)" != "MINGW64_NT" ] && [[ "$(uname -s)" != MINGW* ]] && [[ "$(uname -s)" != MSYS* ]] && [[ "$(uname -s)" != CYGWIN* ]]; then
-  ACTIONS_SKIPPED+=("$TYPECHECK_FILE Windows patch not applied (not on Windows; uname=$(uname -s))")
-else
-  # Patch the spawnSync call to add shell: process.platform === 'win32'
-  if grep -q '^\s*encoding: "utf-8",$' "$TYPECHECK_FILE"; then
-    # Use python because portable across MSYS / WSL / cygwin
-    python3 - <<'PYTHON_PATCH'
-import re, pathlib
-p = pathlib.Path(".claude/hooks/run-typecheck-features.js")
-src = p.read_text(encoding="utf-8")
-# Add shell line right after the encoding line (only if not already present)
-if "shell:" not in src:
-    src = re.sub(
-        r'(\s+)encoding: "utf-8",\n',
-        r'\1encoding: "utf-8",\n\1shell: process.platform === "win32",\n',
-        src,
-        count=1,
-    )
-    p.write_text(src, encoding="utf-8")
-    print("PATCHED")
-else:
-    print("ALREADY_PATCHED")
-PYTHON_PATCH
-    if grep -q 'shell: process.platform === "win32"' "$TYPECHECK_FILE"; then
-      ACTIONS_TAKEN+=("$TYPECHECK_FILE: re-applied Windows shell:true patch (CVE-2024-27980 mitigation)")
-    else
-      WARNINGS+=("$TYPECHECK_FILE: Windows shell:true patch attempt did not stick; review manually")
-    fi
-  else
-    WARNINGS+=("$TYPECHECK_FILE: expected anchor 'encoding: \"utf-8\",' not found; CLI may have changed the file shape; manual patch required")
-  fi
-fi
+echo "[post-fusebase-update] Step 6: CLI hook ownership guardrail..."
+ACTIONS_SKIPPED+=(".claude/hooks/** is CLI-owned; Flow recovery does not patch CLI hook helpers")
 
 ###############################################################################
-# Step 9 — Restore fusebase-flow-health-check skill mirror
+# Step 7 - Restore fusebase-flow-health-check skill mirror.
 ###############################################################################
 
-echo "[post-fusebase-update] Step 9: fusebase-flow-health-check skill restore..."
+echo "[post-fusebase-update] Step 7: fusebase-flow-health-check skill restore..."
 HEALTH_SKILL_TEMPLATE="$OVERLAYS/skills/fusebase-flow-health-check/SKILL.md"
 if [ ! -f "$HEALTH_SKILL_TEMPLATE" ]; then
   WARNINGS+=("$HEALTH_SKILL_TEMPLATE missing; cannot restore fusebase-flow-health-check skill")
@@ -204,7 +147,7 @@ else
     target_path="$target_dir/fusebase-flow-health-check/SKILL.md"
     mkdir -p "$(dirname "$target_path")"
     if [ -f "$target_path" ] && diff -q "$HEALTH_SKILL_TEMPLATE" "$target_path" >/dev/null 2>&1; then
-      :  # already in place + byte-identical
+      :
     else
       cp "$HEALTH_SKILL_TEMPLATE" "$target_path"
       RESTORED=$((RESTORED + 1))
@@ -218,10 +161,10 @@ else
 fi
 
 ###############################################################################
-# Step 10 — Restore /fusebase-health slash command
+# Step 8 - Restore /fusebase-health slash command.
 ###############################################################################
 
-echo "[post-fusebase-update] Step 10: /fusebase-health slash command restore..."
+echo "[post-fusebase-update] Step 8: /fusebase-health slash command restore..."
 HEALTH_CMD_TEMPLATE="$OVERLAYS/commands/fusebase-health.md"
 HEALTH_CMD_TARGET=".claude/commands/fusebase-health.md"
 if [ ! -f "$HEALTH_CMD_TEMPLATE" ]; then
@@ -245,24 +188,24 @@ echo "============================================================"
 echo ""
 if [ "${#ACTIONS_TAKEN[@]}" -gt 0 ]; then
   echo "Actions taken (${#ACTIONS_TAKEN[@]}):"
-  for a in "${ACTIONS_TAKEN[@]}"; do echo "  ✓ $a"; done
+  for a in "${ACTIONS_TAKEN[@]}"; do echo "  * $a"; done
   echo ""
 fi
 if [ "${#ACTIONS_SKIPPED[@]}" -gt 0 ]; then
   echo "Already in place (${#ACTIONS_SKIPPED[@]}):"
-  for a in "${ACTIONS_SKIPPED[@]}"; do echo "  · $a"; done
+  for a in "${ACTIONS_SKIPPED[@]}"; do echo "  - $a"; done
   echo ""
 fi
 if [ "${#WARNINGS[@]}" -gt 0 ]; then
   echo "Warnings (${#WARNINGS[@]}):"
-  for w in "${WARNINGS[@]}"; do echo "  ⚠ $w"; done
+  for w in "${WARNINGS[@]}"; do echo "  ! $w"; done
   echo ""
 fi
 
 echo "Recommended next steps:"
 echo "  1. Review changes:   git diff"
-echo "  2. Run validation:   bash hooks/local/preflight.sh && bash hooks/tests/run-tests.sh && npm run lint"
-echo "  3. Commit if clean:  git add . && git commit -m 'chore(flow): restore Fusebase Flow overlay after fusebase update'"
+echo "  2. Run validation:   bash hooks/local/preflight.sh && bash hooks/tests/run-tests.sh"
+echo "  3. Commit if clean:  git add AGENTS.md CLAUDE.md .claude/settings.json .claude/commands .claude/skills .agents/skills .claude/agents .codex/agents && git commit -m 'chore(flow): restore Fusebase Flow overlay after fusebase update'"
 
 if [ "${#WARNINGS[@]}" -gt 0 ]; then
   exit 1
