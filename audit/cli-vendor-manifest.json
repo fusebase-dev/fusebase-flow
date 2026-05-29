@@ -1,0 +1,513 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-05-29",
+  "source_cli_version": "unknown",
+  "description": "Provenance for vendored FuseBase CLI-owned assets shipped in this Fusebase Flow edition. source_cli_version is UNVERIFIABLE_LOCALLY (literal 'unknown' sentinel); freshness is advisory only. Per-file sha256 feeds the CLI_SNAPSHOT_STALE advisory in check-cli-flow-conflicts.sh. Regenerate with hooks/local/stamp-cli-provenance.sh.",
+  "asset_count": 126,
+  "assets": [
+    {
+      "path": ".agents/skills/api-exploration/SKILL.md",
+      "sha256": "ddcfdd7eb7c04bcfac6025bffbcb25f87e4783e343ef9f1a0400b780544a7629"
+    },
+    {
+      "path": ".agents/skills/app-backend/SKILL.md",
+      "sha256": "08adc37f795a4590dafb52bd2468f42cbfc34c984e0ebe8009cb4a88e9948700"
+    },
+    {
+      "path": ".agents/skills/app-business-docs/SKILL.md",
+      "sha256": "2f6595f0dfdfdbfcb555258edf0cff8faefe382045fe9b2b3d97b08d1194a402"
+    },
+    {
+      "path": ".agents/skills/app-dev-practices/SKILL.md",
+      "sha256": "0240741dbc3c3d5b2fbffd659822707b05b190afe8702872c25cb1f29ad6bd98"
+    },
+    {
+      "path": ".agents/skills/app-routing/SKILL.md",
+      "sha256": "b940a39fe3412af4c619bfa281c3399b5d9e3838a0df971923348b17477e393d"
+    },
+    {
+      "path": ".agents/skills/app-secrets/SKILL.md",
+      "sha256": "dd79b406ef1b7ccb8a1a0996ac63cfe5c995fdb54a3799c5318d325e6fb39c79"
+    },
+    {
+      "path": ".agents/skills/app-sidecar/SKILL.md",
+      "sha256": "f44106b24829618f469222fa44e0f308fc475b9114106941d95aa7f6b09ed395"
+    },
+    {
+      "path": ".agents/skills/app-ui-design/SKILL.md",
+      "sha256": "4c7885c6ea271549fafcd658e89d23bb55b28538d6eb9beb30d8e7c4cf90af1b"
+    },
+    {
+      "path": ".agents/skills/dev-debug-logs/SKILL.md",
+      "sha256": "9e5eb7ddb8793c099c379170794e3652ef5827483b352c647819b1b7d2a6e03a"
+    },
+    {
+      "path": ".agents/skills/file-upload/SKILL.md",
+      "sha256": "72a6e6a82792b7e279cde0667538f0163decdee10707dfdb04286db566f28002"
+    },
+    {
+      "path": ".agents/skills/file-upload/references/upload-lifecycle.md",
+      "sha256": "2fe64168bd369336ff66a898518ed8991dc95fd1c1f580bb2632c586c9d7ffa0"
+    },
+    {
+      "path": ".agents/skills/fusebase-cli/SKILL.md",
+      "sha256": "b47f49b9c4c28309693c836a1bd93f8296e723785e1c422107415900023c83b6"
+    },
+    {
+      "path": ".agents/skills/fusebase-cli/references/fusebase-json-schema.md",
+      "sha256": "3ec95d09e5dc31676f0cb36da3e2b92a839ecb8f0b14129d735a27533e1ebb3b"
+    },
+    {
+      "path": ".agents/skills/fusebase-dashboards/SKILL.md",
+      "sha256": "25a3f2af09dcb5475e018be4a866f822b40a66ad12c3e436578087ec8e6ee691"
+    },
+    {
+      "path": ".agents/skills/fusebase-dashboards/references/authz.md",
+      "sha256": "4a2190ca886d17d7c05b04da757bf53e1ec544af5d05a6ab394b3aaf59a38d72"
+    },
+    {
+      "path": ".agents/skills/fusebase-dashboards/references/bootstrap.md",
+      "sha256": "afa0458d594fe07e8ae63ad02fbc1af032fa1950c87439a320bd74987fb77475"
+    },
+    {
+      "path": ".agents/skills/fusebase-dashboards/references/child-tables.md",
+      "sha256": "c95e8b07a578e34ae14eb27368a912b3a411ccdac584b848cc05fcbe14f7ca3b"
+    },
+    {
+      "path": ".agents/skills/fusebase-dashboards/references/core-concepts.md",
+      "sha256": "615fb3f07555e37168030eb2b6fd099d979562b3a342d165c8c29be27fdd9c84"
+    },
+    {
+      "path": ".agents/skills/fusebase-dashboards/references/data-patterns.md",
+      "sha256": "67153be789f45f7768b8ba32af34075d6b29d37af7b1f9f2702b6ed33e7f873e"
+    },
+    {
+      "path": ".agents/skills/fusebase-dashboards/references/filters.md",
+      "sha256": "2c3995542bb5000748c1fc116c03eaa085c1d40b98ad5ae096e8540c842dce36"
+    },
+    {
+      "path": ".agents/skills/fusebase-dashboards/references/relations-guide.md",
+      "sha256": "ad7af6a2c8a9934f149f6d78299539d10c7848f90fe06cfc7da5d09ff8a897ca"
+    },
+    {
+      "path": ".agents/skills/fusebase-dashboards/references/representations.md",
+      "sha256": "b988abd865b051383a1011c2bad3485405017492c9791c364e204f1c1a692126"
+    },
+    {
+      "path": ".agents/skills/fusebase-dashboards/references/rows.md",
+      "sha256": "1426f060b858cfaff90020b41a5b4575555c23b8ef0837fe9680d94d170f2a26"
+    },
+    {
+      "path": ".agents/skills/fusebase-dashboards/references/schema-fundamentals.md",
+      "sha256": "02f2cbd4799b25a99ce7ecf1804ab5056784b8b044acad3fd464708a1c932cb0"
+    },
+    {
+      "path": ".agents/skills/fusebase-dashboards/references/sdk.md",
+      "sha256": "95d17a57ac9189603125912ea285ad033db0864e52f5e615ee62647728e7c06b"
+    },
+    {
+      "path": ".agents/skills/fusebase-dashboards/references/tooling.md",
+      "sha256": "175084d327bf15ae5569c259475852f1335ae22f71081622206e11716c87d5f8"
+    },
+    {
+      "path": ".agents/skills/fusebase-gate/SKILL.md",
+      "sha256": "091a57ead258782b86c1b437f6aabc2b3fc5458e2cd1fa13fd0519269fae578e"
+    },
+    {
+      "path": ".agents/skills/fusebase-gate/references/app-magic-links.md",
+      "sha256": "222506a6646cc2453f62277e2ccb97454b9fc251102c913ce7154e3b29e60249"
+    },
+    {
+      "path": ".agents/skills/fusebase-gate/references/authz.md",
+      "sha256": "0107fcd66bbfc6b4f7b1a24069b12fbc2f1367997b6640717c4de4b5219a8022"
+    },
+    {
+      "path": ".agents/skills/fusebase-gate/references/billing.md",
+      "sha256": "d99a9a493b0fea431453df95fb986d110d5077ac9fde66de5bb112151dc0e16f"
+    },
+    {
+      "path": ".agents/skills/fusebase-gate/references/bootstrap.md",
+      "sha256": "9e409674517de18325e1b56acaa210b9d1ceb5bf8418c7225f05f72f5c366ef4"
+    },
+    {
+      "path": ".agents/skills/fusebase-gate/references/emails.md",
+      "sha256": "14b92602976be0c0c1c403e28be69523d697ac2fe5c61102c145c0bd6fbefb0b"
+    },
+    {
+      "path": ".agents/skills/fusebase-gate/references/files.md",
+      "sha256": "c8bd6ad2980b5e5a8dd0c59d3733252a742c0d90c6516f7f692884543ab31c93"
+    },
+    {
+      "path": ".agents/skills/fusebase-gate/references/fusebase-auth.md",
+      "sha256": "fb263de548efb37894bfc4a7d103a89e98b85d38428e008274f56959e5724320"
+    },
+    {
+      "path": ".agents/skills/fusebase-gate/references/isolated-sql-migration-discipline.md",
+      "sha256": "db449baa137286b45ab38f172e42c6c0c723350b5bc4231e4dab7d964f417c15"
+    },
+    {
+      "path": ".agents/skills/fusebase-gate/references/isolated-sql-rls-plan.md",
+      "sha256": "44c417ff11a42ecf0c404af09d2388273af25c156ff39634b7caea74b4c98c70"
+    },
+    {
+      "path": ".agents/skills/fusebase-gate/references/isolated-sql-stores.md",
+      "sha256": "cc30997f971f886920cf78f2dd1697473dbc9dd23313276c05108a77608587a7"
+    },
+    {
+      "path": ".agents/skills/fusebase-gate/references/isolated-sql.md",
+      "sha256": "b0aa226c076067783641e1da258527ec03c4b1b165d4e9b21af6e4a44acc0834"
+    },
+    {
+      "path": ".agents/skills/fusebase-gate/references/isolated-store-hierarchy.md",
+      "sha256": "dd2eabc553313131afc90e9e29a1b225774902cba862d68b61893046ddf24187"
+    },
+    {
+      "path": ".agents/skills/fusebase-gate/references/isolated-stores-release-checklist.md",
+      "sha256": "89bbc36f7dabc04975b8c3305d307076d22d532dc2d5789210ed214879a3ec2c"
+    },
+    {
+      "path": ".agents/skills/fusebase-gate/references/isolated.md",
+      "sha256": "b047a92a84aa4e13fb688faa3d6ef910213340495f93be1776b1d47cec8448c3"
+    },
+    {
+      "path": ".agents/skills/fusebase-gate/references/membership.md",
+      "sha256": "6fbd9ad11e493a866d381096e864bac4d582dd93c3d656c982f4308241e8e836"
+    },
+    {
+      "path": ".agents/skills/fusebase-gate/references/notes.md",
+      "sha256": "107ee39132f30a3395a237c0b0bde4efdf2d056803e0344cb22dee832bb57bba"
+    },
+    {
+      "path": ".agents/skills/fusebase-gate/references/org-groups.md",
+      "sha256": "8e3e88096882fdf1e1b7b3bab331520b52564034de4e407eb61700a5e9090a31"
+    },
+    {
+      "path": ".agents/skills/fusebase-gate/references/sdk.md",
+      "sha256": "2efa977e7a34b7f9ce702ef97a0276b1cfb6d80d65587e533ccb33d8e9526d3d"
+    },
+    {
+      "path": ".agents/skills/fusebase-gate/references/stripe-apps.md",
+      "sha256": "b726b1c59693223e9568ef845ccb33095fceeffec73f96e90388708009be6dcb"
+    },
+    {
+      "path": ".agents/skills/fusebase-gate/references/stripe-for-apps-and-agents.md",
+      "sha256": "6a5f88321c8d60305977579bbd3c8e62256455df7d4ecc8b037683a815561847"
+    },
+    {
+      "path": ".agents/skills/fusebase-gate/references/tooling.md",
+      "sha256": "e70663d56b0f50967b8b3f9855ead4f750aa720b7bf1955a5385a79024dd9a20"
+    },
+    {
+      "path": ".agents/skills/fusebase-gate/references/users.md",
+      "sha256": "0553c21189c9f49c1cb7a3a94155f6c13d89ad4798d9bb71af93fd90abd60964"
+    },
+    {
+      "path": ".agents/skills/fusebase-portal-specific-apps/SKILL.md",
+      "sha256": "32718705a74643d6409c84768bf437797f3a441c3380a1df6fb82807513ccafe"
+    },
+    {
+      "path": ".agents/skills/git-workflow/SKILL.md",
+      "sha256": "e624771804d74e6a4d1258137162bd898b1c352a7a3e4dd8382148ba65454dcf"
+    },
+    {
+      "path": ".agents/skills/handling-authentication-errors/SKILL.md",
+      "sha256": "df464a21f859e93127b8c8f033c8272dc9084fff6791101020e1c5b9a7f4a60c"
+    },
+    {
+      "path": ".agents/skills/managed-integrations/SKILL.md",
+      "sha256": "1dcbb9258ae7684af538d6f3eee92b3aa3f6f8e76abbaa48b1bc1e41c09135b1"
+    },
+    {
+      "path": ".agents/skills/managed-integrations/references/calling-server-tool.md",
+      "sha256": "678e09f32f64014c7dbb25470fa8390806925420226357f18dcc08c8226cfd49"
+    },
+    {
+      "path": ".agents/skills/managed-integrations/references/creating-mcp-server.md",
+      "sha256": "1dd7cea09d72660e732fa8a602038b1db4c062c85c1645567cb7a6a42602a4c9"
+    },
+    {
+      "path": ".agents/skills/managed-integrations/references/personal-auth-flow.md",
+      "sha256": "f9d8b91d4506833e36f538b67136eab192328b8e0c9e325c0c15f19c32333e59"
+    },
+    {
+      "path": ".agents/skills/managed-integrations/references/shared-auth-flow.md",
+      "sha256": "1ff16cd2060ac74b4e2769c065d743b76909f9491848fda2fc1620c6d539d810"
+    },
+    {
+      "path": ".agents/skills/mcp-gate-debug/SKILL.md",
+      "sha256": "c58285d657b63eb47c4deaff06b6c99074ecd2c3d4363c8a336a10e1079101d8"
+    },
+    {
+      "path": ".agents/skills/remote-logs/SKILL.md",
+      "sha256": "551abc90796d6f3833f2d19e4eb2ec96ddcbfed1077d3d1308e8f1a4822fc57f"
+    },
+    {
+      "path": ".claude/agents/app-architect.md",
+      "sha256": "b72353d11df54695cd0e88b6cd10672b875e311fbdc7a1b8637d8452b2d60b75"
+    },
+    {
+      "path": ".claude/agents/app-create-checker.md",
+      "sha256": "4832244beed2462c36634cf5d1a991676c1739eef01f7661c15bf6833958fcdd"
+    },
+    {
+      "path": ".claude/hooks/quality-check-apps.js",
+      "sha256": "f4e3a17991dbc7160d430c2dcbea3d2a625255057700697591059e1edeafac40"
+    },
+    {
+      "path": ".claude/hooks/run-lint-on-stop.sh",
+      "sha256": "a83cce7eab1abaac14f3340c18e44d5f707414a34f29f16e286743ab953758f0"
+    },
+    {
+      "path": ".claude/hooks/run-typecheck-apps.js",
+      "sha256": "1d0d75f6dcc3c9ab5535a9707c250ea3fc1cf17eac3441215bc80f38298ad2aa"
+    },
+    {
+      "path": ".claude/hooks/run-typecheck-on-stop.sh",
+      "sha256": "056b93c892f52c319beef2ce892a297ca907c888d8e729e20c6d94c1235f73bb"
+    },
+    {
+      "path": ".claude/skills/api-exploration/SKILL.md",
+      "sha256": "ddcfdd7eb7c04bcfac6025bffbcb25f87e4783e343ef9f1a0400b780544a7629"
+    },
+    {
+      "path": ".claude/skills/app-backend/SKILL.md",
+      "sha256": "08adc37f795a4590dafb52bd2468f42cbfc34c984e0ebe8009cb4a88e9948700"
+    },
+    {
+      "path": ".claude/skills/app-business-docs/SKILL.md",
+      "sha256": "2f6595f0dfdfdbfcb555258edf0cff8faefe382045fe9b2b3d97b08d1194a402"
+    },
+    {
+      "path": ".claude/skills/app-dev-practices/SKILL.md",
+      "sha256": "0240741dbc3c3d5b2fbffd659822707b05b190afe8702872c25cb1f29ad6bd98"
+    },
+    {
+      "path": ".claude/skills/app-routing/SKILL.md",
+      "sha256": "b940a39fe3412af4c619bfa281c3399b5d9e3838a0df971923348b17477e393d"
+    },
+    {
+      "path": ".claude/skills/app-secrets/SKILL.md",
+      "sha256": "dd79b406ef1b7ccb8a1a0996ac63cfe5c995fdb54a3799c5318d325e6fb39c79"
+    },
+    {
+      "path": ".claude/skills/app-sidecar/SKILL.md",
+      "sha256": "f44106b24829618f469222fa44e0f308fc475b9114106941d95aa7f6b09ed395"
+    },
+    {
+      "path": ".claude/skills/app-ui-design/SKILL.md",
+      "sha256": "4c7885c6ea271549fafcd658e89d23bb55b28538d6eb9beb30d8e7c4cf90af1b"
+    },
+    {
+      "path": ".claude/skills/dev-debug-logs/SKILL.md",
+      "sha256": "9e5eb7ddb8793c099c379170794e3652ef5827483b352c647819b1b7d2a6e03a"
+    },
+    {
+      "path": ".claude/skills/file-upload/SKILL.md",
+      "sha256": "72a6e6a82792b7e279cde0667538f0163decdee10707dfdb04286db566f28002"
+    },
+    {
+      "path": ".claude/skills/file-upload/references/upload-lifecycle.md",
+      "sha256": "2fe64168bd369336ff66a898518ed8991dc95fd1c1f580bb2632c586c9d7ffa0"
+    },
+    {
+      "path": ".claude/skills/fusebase-cli/SKILL.md",
+      "sha256": "b47f49b9c4c28309693c836a1bd93f8296e723785e1c422107415900023c83b6"
+    },
+    {
+      "path": ".claude/skills/fusebase-cli/references/fusebase-json-schema.md",
+      "sha256": "3ec95d09e5dc31676f0cb36da3e2b92a839ecb8f0b14129d735a27533e1ebb3b"
+    },
+    {
+      "path": ".claude/skills/fusebase-dashboards/SKILL.md",
+      "sha256": "25a3f2af09dcb5475e018be4a866f822b40a66ad12c3e436578087ec8e6ee691"
+    },
+    {
+      "path": ".claude/skills/fusebase-dashboards/references/authz.md",
+      "sha256": "4a2190ca886d17d7c05b04da757bf53e1ec544af5d05a6ab394b3aaf59a38d72"
+    },
+    {
+      "path": ".claude/skills/fusebase-dashboards/references/bootstrap.md",
+      "sha256": "afa0458d594fe07e8ae63ad02fbc1af032fa1950c87439a320bd74987fb77475"
+    },
+    {
+      "path": ".claude/skills/fusebase-dashboards/references/child-tables.md",
+      "sha256": "c95e8b07a578e34ae14eb27368a912b3a411ccdac584b848cc05fcbe14f7ca3b"
+    },
+    {
+      "path": ".claude/skills/fusebase-dashboards/references/core-concepts.md",
+      "sha256": "615fb3f07555e37168030eb2b6fd099d979562b3a342d165c8c29be27fdd9c84"
+    },
+    {
+      "path": ".claude/skills/fusebase-dashboards/references/data-patterns.md",
+      "sha256": "67153be789f45f7768b8ba32af34075d6b29d37af7b1f9f2702b6ed33e7f873e"
+    },
+    {
+      "path": ".claude/skills/fusebase-dashboards/references/filters.md",
+      "sha256": "2c3995542bb5000748c1fc116c03eaa085c1d40b98ad5ae096e8540c842dce36"
+    },
+    {
+      "path": ".claude/skills/fusebase-dashboards/references/relations-guide.md",
+      "sha256": "ad7af6a2c8a9934f149f6d78299539d10c7848f90fe06cfc7da5d09ff8a897ca"
+    },
+    {
+      "path": ".claude/skills/fusebase-dashboards/references/representations.md",
+      "sha256": "b988abd865b051383a1011c2bad3485405017492c9791c364e204f1c1a692126"
+    },
+    {
+      "path": ".claude/skills/fusebase-dashboards/references/rows.md",
+      "sha256": "1426f060b858cfaff90020b41a5b4575555c23b8ef0837fe9680d94d170f2a26"
+    },
+    {
+      "path": ".claude/skills/fusebase-dashboards/references/schema-fundamentals.md",
+      "sha256": "02f2cbd4799b25a99ce7ecf1804ab5056784b8b044acad3fd464708a1c932cb0"
+    },
+    {
+      "path": ".claude/skills/fusebase-dashboards/references/sdk.md",
+      "sha256": "95d17a57ac9189603125912ea285ad033db0864e52f5e615ee62647728e7c06b"
+    },
+    {
+      "path": ".claude/skills/fusebase-dashboards/references/tooling.md",
+      "sha256": "175084d327bf15ae5569c259475852f1335ae22f71081622206e11716c87d5f8"
+    },
+    {
+      "path": ".claude/skills/fusebase-gate/SKILL.md",
+      "sha256": "091a57ead258782b86c1b437f6aabc2b3fc5458e2cd1fa13fd0519269fae578e"
+    },
+    {
+      "path": ".claude/skills/fusebase-gate/references/app-magic-links.md",
+      "sha256": "222506a6646cc2453f62277e2ccb97454b9fc251102c913ce7154e3b29e60249"
+    },
+    {
+      "path": ".claude/skills/fusebase-gate/references/authz.md",
+      "sha256": "0107fcd66bbfc6b4f7b1a24069b12fbc2f1367997b6640717c4de4b5219a8022"
+    },
+    {
+      "path": ".claude/skills/fusebase-gate/references/billing.md",
+      "sha256": "d99a9a493b0fea431453df95fb986d110d5077ac9fde66de5bb112151dc0e16f"
+    },
+    {
+      "path": ".claude/skills/fusebase-gate/references/bootstrap.md",
+      "sha256": "9e409674517de18325e1b56acaa210b9d1ceb5bf8418c7225f05f72f5c366ef4"
+    },
+    {
+      "path": ".claude/skills/fusebase-gate/references/emails.md",
+      "sha256": "14b92602976be0c0c1c403e28be69523d697ac2fe5c61102c145c0bd6fbefb0b"
+    },
+    {
+      "path": ".claude/skills/fusebase-gate/references/files.md",
+      "sha256": "c8bd6ad2980b5e5a8dd0c59d3733252a742c0d90c6516f7f692884543ab31c93"
+    },
+    {
+      "path": ".claude/skills/fusebase-gate/references/fusebase-auth.md",
+      "sha256": "fb263de548efb37894bfc4a7d103a89e98b85d38428e008274f56959e5724320"
+    },
+    {
+      "path": ".claude/skills/fusebase-gate/references/isolated-sql-migration-discipline.md",
+      "sha256": "db449baa137286b45ab38f172e42c6c0c723350b5bc4231e4dab7d964f417c15"
+    },
+    {
+      "path": ".claude/skills/fusebase-gate/references/isolated-sql-rls-plan.md",
+      "sha256": "44c417ff11a42ecf0c404af09d2388273af25c156ff39634b7caea74b4c98c70"
+    },
+    {
+      "path": ".claude/skills/fusebase-gate/references/isolated-sql-stores.md",
+      "sha256": "cc30997f971f886920cf78f2dd1697473dbc9dd23313276c05108a77608587a7"
+    },
+    {
+      "path": ".claude/skills/fusebase-gate/references/isolated-sql.md",
+      "sha256": "b0aa226c076067783641e1da258527ec03c4b1b165d4e9b21af6e4a44acc0834"
+    },
+    {
+      "path": ".claude/skills/fusebase-gate/references/isolated-store-hierarchy.md",
+      "sha256": "dd2eabc553313131afc90e9e29a1b225774902cba862d68b61893046ddf24187"
+    },
+    {
+      "path": ".claude/skills/fusebase-gate/references/isolated-stores-release-checklist.md",
+      "sha256": "89bbc36f7dabc04975b8c3305d307076d22d532dc2d5789210ed214879a3ec2c"
+    },
+    {
+      "path": ".claude/skills/fusebase-gate/references/isolated.md",
+      "sha256": "b047a92a84aa4e13fb688faa3d6ef910213340495f93be1776b1d47cec8448c3"
+    },
+    {
+      "path": ".claude/skills/fusebase-gate/references/membership.md",
+      "sha256": "6fbd9ad11e493a866d381096e864bac4d582dd93c3d656c982f4308241e8e836"
+    },
+    {
+      "path": ".claude/skills/fusebase-gate/references/notes.md",
+      "sha256": "107ee39132f30a3395a237c0b0bde4efdf2d056803e0344cb22dee832bb57bba"
+    },
+    {
+      "path": ".claude/skills/fusebase-gate/references/org-groups.md",
+      "sha256": "8e3e88096882fdf1e1b7b3bab331520b52564034de4e407eb61700a5e9090a31"
+    },
+    {
+      "path": ".claude/skills/fusebase-gate/references/sdk.md",
+      "sha256": "2efa977e7a34b7f9ce702ef97a0276b1cfb6d80d65587e533ccb33d8e9526d3d"
+    },
+    {
+      "path": ".claude/skills/fusebase-gate/references/stripe-apps.md",
+      "sha256": "b726b1c59693223e9568ef845ccb33095fceeffec73f96e90388708009be6dcb"
+    },
+    {
+      "path": ".claude/skills/fusebase-gate/references/stripe-for-apps-and-agents.md",
+      "sha256": "6a5f88321c8d60305977579bbd3c8e62256455df7d4ecc8b037683a815561847"
+    },
+    {
+      "path": ".claude/skills/fusebase-gate/references/tooling.md",
+      "sha256": "e70663d56b0f50967b8b3f9855ead4f750aa720b7bf1955a5385a79024dd9a20"
+    },
+    {
+      "path": ".claude/skills/fusebase-gate/references/users.md",
+      "sha256": "0553c21189c9f49c1cb7a3a94155f6c13d89ad4798d9bb71af93fd90abd60964"
+    },
+    {
+      "path": ".claude/skills/fusebase-portal-specific-apps/SKILL.md",
+      "sha256": "32718705a74643d6409c84768bf437797f3a441c3380a1df6fb82807513ccafe"
+    },
+    {
+      "path": ".claude/skills/git-workflow/SKILL.md",
+      "sha256": "e624771804d74e6a4d1258137162bd898b1c352a7a3e4dd8382148ba65454dcf"
+    },
+    {
+      "path": ".claude/skills/handling-authentication-errors/SKILL.md",
+      "sha256": "df464a21f859e93127b8c8f033c8272dc9084fff6791101020e1c5b9a7f4a60c"
+    },
+    {
+      "path": ".claude/skills/managed-integrations/SKILL.md",
+      "sha256": "1dcbb9258ae7684af538d6f3eee92b3aa3f6f8e76abbaa48b1bc1e41c09135b1"
+    },
+    {
+      "path": ".claude/skills/managed-integrations/references/calling-server-tool.md",
+      "sha256": "678e09f32f64014c7dbb25470fa8390806925420226357f18dcc08c8226cfd49"
+    },
+    {
+      "path": ".claude/skills/managed-integrations/references/creating-mcp-server.md",
+      "sha256": "1dd7cea09d72660e732fa8a602038b1db4c062c85c1645567cb7a6a42602a4c9"
+    },
+    {
+      "path": ".claude/skills/managed-integrations/references/personal-auth-flow.md",
+      "sha256": "f9d8b91d4506833e36f538b67136eab192328b8e0c9e325c0c15f19c32333e59"
+    },
+    {
+      "path": ".claude/skills/managed-integrations/references/shared-auth-flow.md",
+      "sha256": "1ff16cd2060ac74b4e2769c065d743b76909f9491848fda2fc1620c6d539d810"
+    },
+    {
+      "path": ".claude/skills/mcp-gate-debug/SKILL.md",
+      "sha256": "c58285d657b63eb47c4deaff06b6c99074ecd2c3d4363c8a336a10e1079101d8"
+    },
+    {
+      "path": ".claude/skills/remote-logs/SKILL.md",
+      "sha256": "551abc90796d6f3833f2d19e4eb2ec96ddcbfed1077d3d1308e8f1a4822fc57f"
+    },
+    {
+      "path": ".codex/agents/app-architect.md",
+      "sha256": "b72353d11df54695cd0e88b6cd10672b875e311fbdc7a1b8637d8452b2d60b75"
+    },
+    {
+      "path": ".codex/agents/app-create-checker.md",
+      "sha256": "4832244beed2462c36634cf5d1a991676c1739eef01f7661c15bf6833958fcdd"
+    }
+  ]
+}

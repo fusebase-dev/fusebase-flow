@@ -110,6 +110,21 @@ if [ -d "$FF_DIR/agents" ]; then
     done
 fi
 
+# 5c. CLI vendor provenance manifest (info/advisory only — never fails).
+#     The manifest is a document of record for vendored CLI-owned assets
+#     (audit/cli-vendor-manifest.json). If present it must parse; if absent,
+#     warn (a fresh edition should ship it, but a downstream may regenerate it
+#     with hooks/local/stamp-cli-provenance.sh).
+if command -v python3 >/dev/null 2>&1; then
+    prov="$FF_DIR/audit/cli-vendor-manifest.json"
+    if [ -f "$prov" ]; then
+        python3 -c "import json,sys; d=json.load(open('$prov')); sys.exit(0 if d.get('schema_version')==1 and isinstance(d.get('assets'),list) else 1)" 2>/dev/null \
+            || warn "cli-vendor-manifest.json present but invalid (schema_version!=1 or no assets); regenerate with hooks/local/stamp-cli-provenance.sh"
+    else
+        warn "cli-vendor-manifest.json absent; run bash hooks/local/stamp-cli-provenance.sh to stamp CLI vendor provenance"
+    fi
+fi
+
 # 6. Action-name consistency: command-policy.yml require_approval actions must
 #    appear in approval-policy.yml require_approval keys.
 if command -v python3 >/dev/null 2>&1; then
