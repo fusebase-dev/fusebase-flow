@@ -277,13 +277,23 @@ bash install.sh
 
 ## Health check & recovery
 
-Fusebase Flow ships a built-in **health check skill** + **recovery script** that diagnose and repair overlay drift. The most common cause of drift is `fusebase update` without `--skip-skills`, which refreshes `AGENTS.md`, `.claude/skills/`, `.claude/agents/`, `.claude/hooks/`, and `.claude/settings.json` from CLI templates. Current CLI builds preserve custom blocks in `AGENTS.md`, so Flow appends its overlay inside that wrapper; `.claude/settings.json` and hook helpers still need recovery after a full refresh. Other causes include manual edits, foreign frameworks installed on top, or partial pulls.
+When Fusebase Flow is installed on top of the FuseBase CLI, the two share a repo. Flow's recovery model is **CLI-first, Flow-second**: **Flow never overwrites FuseBase CLI-owned files or instructions.** The health engine classifies every drift by ownership layer and recovers only what Flow owns.
+
+| Layer | Examples | Who restores it |
+|---|---|---|
+| **CLI-owned** | CLI provider skills, `.claude/hooks/**`, MCP config, `fusebase.json`, `skills-lock.json`, existing CLI instructions | FuseBase CLI refresh/update — Flow **diagnoses only**, never writes |
+| **Flow-owned** | Flow skills/agents mirrors, `AGENTS.md`/`CLAUDE.md` overlay blocks, health-check skill + `/fusebase-health` command, Flow-owned hook assets | Flow recovery script |
+| **Shared** | `.claude/settings.json` | **Merged**, never replaced |
+
+An ownership manifest backs this split, and a read-only conflict reporter surfaces the per-layer verdict.
 
 | Need | Command |
 |---|---|
-| Check overlay state (read-only) | `bash hooks/local/fusebase-flow-health-check.sh` <br> or `/fusebase-health` (Claude Code) <br> or *"is Fusebase Flow healthy?"* (any agent) |
-| Recover the overlay | `bash hooks/local/post-fusebase-update.sh` <br> or reply `yes` when the skill offers recovery in chat |
-| Upgrade engine + recovery to latest upstream | `bash hooks/local/upgrade-engine.sh` (v2.3.0+; refresh `.fusebase-flow-source/` first) |
+| Check health + layer verdict (read-only) | `bash hooks/local/fusebase-flow-health-check.sh` <br> or `/fusebase-health` (Claude Code) <br> or *"is Fusebase Flow healthy?"* (any agent) |
+| Detailed CLI/Flow ownership & conflict report (read-only) | `bash hooks/local/check-cli-flow-conflicts.sh` |
+| Recover Flow-owned + shared surfaces | `bash hooks/local/post-fusebase-update.sh` <br> or reply `yes` when the skill offers recovery in chat |
+| Restore CLI-owned drift | Run the current **FuseBase CLI refresh/update first**, then `post-fusebase-update.sh` for the Flow layer |
+| Upgrade engine + recovery to latest upstream | `bash hooks/local/upgrade-engine.sh` (refresh `.fusebase-flow-source/` first) |
 | Avoid drift on routine updates | `fusebase update --skip-skills` (preserves Fusebase Flow overlay) |
 
 <details>
@@ -308,15 +318,18 @@ Fusebase Flow ships a built-in **health check skill** + **recovery script** that
 
 Plus active approval artifacts in `state/approvals/` are surfaced informationally so artifact-attributable test failures don't trigger false BROKEN verdicts.
 
-### Verdicts
+### Verdicts (ownership-layer model)
 
-| Verdict | Exit | Meaning |
-|---|:---:|---|
-| `HEALTHY` | 0 | All checks pass; upstream in sync |
-| `EXCEPTION_IN_EFFECT` | 3 | All drift attributable to active approval artifacts in `state/approvals/` (either v2 hook-test `protected_path_edit-*.json` or v2.4.0+ `health_check_deferral-*.json`) |
-| `FUSEBASE_UPDATE_AFTERMATH` | 1 | Canonical `fusebase update` aftermath (settings.json reduced; AGENTS may be missing on legacy/plain-overlay installs or preserved by the custom wrapper) |
-| `DRIFTED` | 1 | Drift detected but doesn't match a known pattern |
-| `BROKEN` | 2 | Genuine failure NOT attributable to operator-authored exceptions |
+| Verdict | Exit | Meaning | Recovery posture |
+|---|:---:|---|---|
+| `HEALTHY` | 0 | CLI-owned, Flow-owned, and shared-merge surfaces all intact | No action |
+| `CLI_LAYER_DRIFT` | 1 | CLI-owned assets missing or structurally damaged | **Run FuseBase CLI refresh/update first**, then Flow recovery — Flow does not write CLI-owned files |
+| `FLOW_LAYER_DRIFT` | 1 | Flow-owned mirrors or overlay files missing/drifted | Flow recovery offered |
+| `SHARED_MERGE_DRIFT` | 1 | Shared files missing Flow overlay/merge additions | Flow recovery offered (merge, not replace) |
+| `EXCEPTION_IN_EFFECT` | 3 | Drift covered by active approval/deferral artifacts in `state/approvals/` | Surface the artifact; no automatic recovery |
+| `BROKEN` | 2 | Preflight, hook tests, manifest parsing, or another critical check failed | Inspect the broken item first; no recovery |
+
+Recovery (`post-fusebase-update.sh`) restores **only** Flow-owned assets and shared Flow additions — Flow skills/agents mirrors, `AGENTS.md`/`CLAUDE.md` overlay blocks, the `fusebase-flow-health-check` skill, and `.claude/commands/fusebase-health.md`, plus a merge into `.claude/settings.json`. It never touches `.claude/hooks/**`, CLI provider skills, MCP config, `fusebase.json`, `skills-lock.json`, or active `.codex/config.toml`.
 
 ### Deferral artifacts (v2.4.0+)
 
@@ -430,17 +443,14 @@ They're optional guardrails. Nothing runs until you copy `.claude/settings.json.
 <details>
 <summary><strong>`fusebase update` changed my files — is Flow broken?</strong></summary>
 
-Most likely just overlay drift. Run the read-only health check:
+Probably not. Run the read-only health check — it reports a **layer verdict** so you know who restores what:
 
 ```bash
 bash hooks/local/fusebase-flow-health-check.sh    # or /fusebase-health in Claude Code
 ```
 
-If it reports recoverable drift, recover idempotently:
-
-```bash
-bash hooks/local/post-fusebase-update.sh
-```
+- **`FLOW_LAYER_DRIFT` / `SHARED_MERGE_DRIFT`** → Flow recovers it idempotently: `bash hooks/local/post-fusebase-update.sh`
+- **`CLI_LAYER_DRIFT`** → CLI-owned files. Run the **FuseBase CLI refresh/update first**, then the Flow recovery. Flow never overwrites CLI-owned files.
 
 Avoid drift next time with `fusebase update --skip-skills`. See [Health check & recovery](#health-check--recovery).
 </details>
