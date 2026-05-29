@@ -197,9 +197,13 @@ for entry in paths:
             continue
         has_flow_stop = any("hooks/handlers/stop.py" in c for c in commands)
         cli_hook_dir = root / ".claude" / "hooks"
+        # Cross-platform node Stop hooks are the canonical wired set (B5 / v3.2.0).
+        # run-typecheck-apps.js carries the CVE-2024-27980 shell:win32 patch;
+        # quality-check-apps.js runs the app-quality checks. The jq/bash
+        # duplicates (run-lint-on-stop.sh, run-typecheck-on-stop.sh) are
+        # deprecated and intentionally not part of the expected wired set.
         expected_cli_markers = [
-            "run-lint-on-stop.sh",
-            "run-typecheck-on-stop.sh",
+            "run-typecheck-apps.js",
             "quality-check-apps.js",
         ]
         missing_cli_hooks = [

@@ -55,16 +55,16 @@ DEFAULT_EVENT_MATCHERS = {
 
 DEFAULT_CLI_MCP_SERVERS = ["fusebase-dashboards", "fusebase-gate"]
 
+# Canonical CLI Stop hooks Flow re-injects when merging into a settings.json
+# that lacks them (B5 / v3.2.0): the cross-platform node hooks only. The
+# jq/bash duplicates (run-lint-on-stop.sh, run-typecheck-on-stop.sh) are
+# deprecated and are NOT auto-re-injected, because they fail out-of-the-box on
+# Windows. Merge never REMOVES an existing hook, so a downstream project that
+# still wires a deprecated .sh keeps it; Flow simply stops re-adding it.
 CLI_STOP_HOOKS: list[tuple[str, dict[str, Any]]] = [
-    ("run-lint-on-stop.sh", {
+    ("run-typecheck-apps.js", {
         "type": "command",
-        "command": '"$CLAUDE_PROJECT_DIR"/.claude/hooks/run-lint-on-stop.sh',
-        "statusMessage": "Running lint before allowing completion...",
-        "timeout": 120,
-    }),
-    ("run-typecheck-on-stop.sh", {
-        "type": "command",
-        "command": '"$CLAUDE_PROJECT_DIR"/.claude/hooks/run-typecheck-on-stop.sh',
+        "command": 'node "$CLAUDE_PROJECT_DIR"/.claude/hooks/run-typecheck-apps.js',
         "statusMessage": "Running typecheck before allowing completion...",
         "timeout": 300,
     }),

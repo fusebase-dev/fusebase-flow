@@ -86,12 +86,7 @@ cat > "$PROJECT/.claude/settings.json" <<'EOF'
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/run-lint-on-stop.sh",
-            "timeout": 120
-          },
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/run-typecheck-on-stop.sh",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/run-typecheck-apps.js",
             "timeout": 300
           },
           {
@@ -197,9 +192,12 @@ grep -q "## Fusebase Flow — additional rules (overlay)" "$PROJECT/CLAUDE.md" |
 [ "$CLI_SKILL_BEFORE" = "$(sha_cmd "$PROJECT/.claude/skills/fusebase-cli/SKILL.md")" ] || fail "CLI provider skill changed"
 
 grep -q "hooks/handlers/stop.py" "$PROJECT/.claude/settings.json" || fail "Flow stop.py was not merged"
-grep -q "run-lint-on-stop.sh" "$PROJECT/.claude/settings.json" || fail "CLI lint Stop hook not preserved"
-grep -q "run-typecheck-on-stop.sh" "$PROJECT/.claude/settings.json" || fail "CLI typecheck Stop hook not preserved"
+grep -q "run-typecheck-apps.js" "$PROJECT/.claude/settings.json" || fail "CLI node typecheck Stop hook not preserved"
 grep -q "quality-check-apps.js" "$PROJECT/.claude/settings.json" || fail "CLI quality Stop hook not preserved"
+# B5: the deprecated jq/bash Stop hooks are present on disk but were not wired
+# in the simulated CLI settings; Flow merge must NOT re-inject them.
+grep -q "run-lint-on-stop.sh" "$PROJECT/.claude/settings.json" && fail "deprecated run-lint-on-stop.sh was re-injected into settings" || true
+grep -q "run-typecheck-on-stop.sh" "$PROJECT/.claude/settings.json" && fail "deprecated run-typecheck-on-stop.sh was re-injected into settings" || true
 
 test -f "$PROJECT/.claude/skills/role-discipline/SKILL.md" || fail "Flow Claude skill mirror missing"
 test -f "$PROJECT/.agents/skills/role-discipline/SKILL.md" || fail "Flow Codex skill mirror missing"

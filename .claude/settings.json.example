@@ -11,6 +11,7 @@
     "hooks/README.md and hooks/flow_hook_event.schema.json.",
     "All hook commands use repo-relative paths so they work from any subdir.",
     "This edition keeps CLI Stop hooks and Flow lifecycle hooks in one additive example.",
+    "Stop hooks use the cross-platform node implementations (run-typecheck-apps.js carries the CVE-2024-27980 shell:win32 patch; quality-check-apps.js runs the app-quality checks). The jq/bash duplicates run-lint-on-stop.sh and run-typecheck-on-stop.sh are deprecated and intentionally not wired here — they fail out-of-the-box on Windows where jq/bash are absent.",
     "PreToolUse uses the current hookSpecificOutput.permissionDecision style."
   ],
   "hooks": {
@@ -61,13 +62,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/run-lint-on-stop.sh",
-            "statusMessage": "Running lint before allowing completion...",
-            "timeout": 120
-          },
-          {
-            "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/run-typecheck-on-stop.sh",
+            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/run-typecheck-apps.js",
             "statusMessage": "Running typecheck before allowing completion...",
             "timeout": 300
           },
