@@ -11,13 +11,13 @@
 
 | T# | Track | Scope | Cites decision | Depends on | SHA | Status |
 |---|---|---|---|---|---|---|
-| T2 | planning/manifest | Lock spec decisions, save implement handoff, add ownership manifest. | A1, A2, A3 | - | pending | in_progress |
-| T3 | tooling | Add read-only CLI/Flow conflict reporter using the ownership manifest. | A1, A2, A4 | T2 | pending | pending |
-| T4 | recovery | Enforce Flow-only recovery and remove stale CLI-hook patch behavior. | A3, A5 | T2 | pending | pending |
-| T5 | health | Add layer verdicts and CLI-first next-action guidance to health check and skill text. | A2, A3, A5 | T3, T4 | pending | pending |
-| T6 | tests | Add simulation coverage for CLI refresh followed by Flow recovery. | A6 | T3, T4, T5 | pending | pending |
-| T7 | docs | Update install and health docs for CLI-first, Flow-second model. | A1..A6 | T3..T6 | pending | pending |
-| T8 | gate | Run validation gate and produce gate report. | A1..A6 | T2..T7 | pending | pending |
+| T2 | planning/manifest | Lock spec decisions, save implement handoff, add ownership manifest. | A1, A2, A3 | - | 01a3bed | done |
+| T3 | tooling | Add read-only CLI/Flow conflict reporter using the ownership manifest. | A1, A2, A4 | T2 | d439f4a | done |
+| T4 | recovery | Enforce Flow-only recovery and remove stale CLI-hook patch behavior. | A3, A5 | T2 | 0ce1392 | done |
+| T5 | health | Add layer verdicts and CLI-first next-action guidance to health check and skill text. | A2, A3, A5 | T3, T4 | a43fead | done |
+| T6 | tests | Add simulation coverage for CLI refresh followed by Flow recovery. | A6 | T3, T4, T5 | 90e422c | done |
+| T7 | docs | Update install and health docs for CLI-first, Flow-second model. | A1..A6 | T3..T6 | 21b05c9 | done |
+| T8 | gate | Run validation gate and produce gate report. | A1..A6 | T2..T7 | gate-report commit | done |
 
 ## Per-task detail
 
@@ -31,7 +31,7 @@
 **Acceptance:** AC1
 **Tests:** JSON parse check in T3/T6; full gate in T8
 **Worker-undisturbed:** no downstream worker paths
-**SHA:** pending
+**SHA:** 01a3bed
 
 ---
 
@@ -45,7 +45,7 @@
 **Acceptance:** AC2
 **Tests:** run reporter in current repo and in simulation fixture
 **Worker-undisturbed:** no downstream worker paths
-**SHA:** pending
+**SHA:** d439f4a
 
 ---
 
@@ -59,7 +59,7 @@
 **Acceptance:** AC3, AC5, AC6
 **Tests:** simulation fixture in T6; existing hook tests in T8
 **Worker-undisturbed:** no downstream worker paths
-**SHA:** pending
+**SHA:** 0ce1392
 
 ---
 
@@ -73,7 +73,7 @@
 **Acceptance:** AC4, AC7
 **Tests:** health check on current repo; fixture checks in T6
 **Worker-undisturbed:** no downstream worker paths
-**SHA:** pending
+**SHA:** a43fead
 
 ---
 
@@ -87,7 +87,7 @@
 **Acceptance:** AC8, AC10
 **Tests:** `bash hooks/tests/test-cli-flow-recovery.sh`
 **Worker-undisturbed:** no downstream worker paths
-**SHA:** pending
+**SHA:** 90e422c
 
 ---
 
@@ -101,7 +101,7 @@
 **Acceptance:** AC9
 **Tests:** docs reviewed for consistency; full gate T8
 **Worker-undisturbed:** no downstream worker paths
-**SHA:** pending
+**SHA:** 21b05c9
 
 ---
 
