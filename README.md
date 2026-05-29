@@ -32,17 +32,33 @@ Every ticket flows left to right. The **Product Owner** drives Specify → Tasks
 - [Filing your first ticket](#filing-your-first-ticket)
 - [Supported agents & IDEs](#supported-agents--ides)
 - [Using sub-agents](#using-sub-agents)
+- [Skill catalog](#skill-catalog)
 - [Installing into an existing project](#installing-into-an-existing-project)
 - [Health check & recovery](#health-check--recovery)
 - [How enforcement works](#how-enforcement-works)
 - [Default workflow modes](#default-workflow-modes)
 - [Validating an installation](#validating-an-installation)
+- [FAQ & troubleshooting](#faq--troubleshooting)
 - [What's inside](#whats-inside)
 - [Clean-room, license & publishing](#clean-room-license--publishing)
 
 ## Why a flow?
 
 Letting an agent free-code a feature in one pass produces fast first drafts and slow, surprising failures. Fusebase Flow front-loads the cheap parts of engineering — a **spec**, **clarifying questions**, locked **decisions**, an explicit **task list**, and a **verification gate** — so that by the time code is written, the target is unambiguous and every commit is checkable against it. The result is an AI coding loop you can trust to build and deploy real Fusebase apps, not just demos.
+
+### Coming from ad-hoc agent prompting?
+
+If today you open Claude Code / Codex / Cursor and just say *"build me X"*, you already have everything Flow needs — Flow doesn't replace your agent, it **gives it a process**:
+
+| Without Flow | With Fusebase Flow |
+|---|---|
+| One giant prompt → one giant diff you have to trust | Spec → decisions → tasks → one-commit-per-task you can review |
+| "It worked on my machine" | Verification gate + outcome-based smoke before deploy |
+| Scope creep mid-session | Locked decisions; supersede discipline (FR-18) |
+| Re-explaining context every session | Durable repo artifacts (`docs/specs/`, `docs/handoff/`) |
+| Risky deploys | Deploy gated on an explicit approval artifact |
+
+Nothing to uninstall from your agent — drop the files in, attest once, keep working.
 
 ## Edition scope
 
@@ -153,6 +169,57 @@ bash hooks/local/mirror-agents.sh
 ```
 
 Preflight will warn on drift if the mirrors and canonical fall out of sync. Full release notes for the v2.1.0 sub-agents launch live at [`docs/release-notes/v2.1.0.md`](docs/release-notes/v2.1.0.md).
+
+## Skill catalog
+
+Skills are on-demand expertise the agent loads when a task matches the skill's description. **14 canonical Flow skills** govern the lifecycle; **19 Fusebase CLI provider skills** supply the app-building domain knowledge. You never invoke them by hand — describe the work and the matcher loads the right one.
+
+### Flow lifecycle skills (14)
+
+| Phase | Skill | What it does |
+|---|---|---|
+| _always_ | `communication` ★ | Mode A chat output + Mode B artifact writing |
+| _always_ | `role-discipline` ★ | Enforces role boundaries + FR refusal phrasing |
+| Specify / Clarify | `requirements-specification` | Drafts the spec + clarify questions + acceptance criteria |
+| Clarify / Plan | `design-discovery-ideation` | Divergent options & UI/product directions before lock |
+| Plan / Decisions / Tasks | `implementation-planning` | Produces decisions, tasks, verification-gate, handoff |
+| Tasks / Implement | `task-delegation` | Safe parallel/subagent slicing of independent tasks |
+| Verify / Implement | `validation-and-qa` | Gate report: lint, typecheck, tests, repro-before-fix |
+| Implement / Deploy | `smoke-testing` | Proves the operator-visible outcome on the deployed surface |
+| Review | `code-review` | Diff vs spec/decisions, maintainability, scope, rollback |
+| Review | `security-permissions-review` | Auth, secrets, deploy-config, customer-visible changes |
+| Deploy | `release-deploy-reporting` | Deploy handoff, hash + probes + smoke, DRAFT→DONE flip |
+| Onboarding | `repo-onboarding-context-map` | Durable context map for a new/unfamiliar repo |
+| Meta | `skill-authoring` | Create/update reusable skills (clean-room classified) |
+| Health | `fusebase-flow-health-check` | Read-only overlay drift diagnosis + offered recovery |
+
+★ = mandatory, loaded every session.
+
+### Fusebase CLI provider skills (19)
+
+<details>
+<summary><strong>App build · runtime · data · ops domain skills</strong></summary>
+
+| Group | Skills |
+|---|---|
+| **Build & structure** | `fusebase-cli`, `app-dev-practices`, `app-routing`, `app-ui-design` |
+| **Backend & infra** | `app-backend`, `app-secrets`, `app-sidecar`, `managed-integrations` |
+| **Data & dashboards** | `fusebase-dashboards`, `fusebase-gate`, `file-upload`, `fusebase-portal-specific-apps` |
+| **Auth & errors** | `handling-authentication-errors` |
+| **Debug & ops** | `dev-debug-logs`, `remote-logs`, `api-exploration`, `mcp-gate-debug` |
+| **Docs & git** | `app-business-docs`, `git-workflow` |
+
+</details>
+
+### Which one do I use?
+
+| Situation | Reach for |
+|---|---|
+| Starting a new ticket | `requirements-specification` (or the **Product Owner** sub-agent) |
+| Plan is set, time to build | the **AI Developer** sub-agent + `validation-and-qa` |
+| "Is this diff safe?" | `code-review` **and** `security-permissions-review` |
+| "Did the deploy actually work?" | `smoke-testing` |
+| "Did `fusebase update` break Flow?" | `fusebase-flow-health-check` (or `/fusebase-health`) |
 
 ## Installing into an existing project
 
@@ -339,6 +406,68 @@ Both must pass cleanly:
 ```
 
 CI runs both on every push / PR via `.github/workflows/fusebase-flow-verify.yml`.
+
+## FAQ & troubleshooting
+
+<details>
+<summary><strong>Does Flow replace my coding agent?</strong></summary>
+
+No. Flow is repo-local files (rules, skills, workflows, hooks). Your existing agent (Claude Code, Codex, Cursor, Copilot, Gemini) reads them and follows the process. There is no separate runtime, daemon, or SaaS.
+</details>
+
+<details>
+<summary><strong>Do I have to use the sub-agents?</strong></summary>
+
+No. The Product Owner / AI Developer sub-agents are **opt-in**. The framework is fully usable through the skill-and-workflow pattern alone. The sub-agents just make role boundaries explicit and harder to drift across.
+</details>
+
+<details>
+<summary><strong>Do I need the Python hooks?</strong></summary>
+
+They're optional guardrails. Nothing runs until you copy `.claude/settings.json.example` → `.claude/settings.json`. The git fallback hooks (`hooks/git/`) provide a safety net even with Claude Code hooks off. The only dependency is PyYAML (~100 KB).
+</details>
+
+<details>
+<summary><strong>`fusebase update` changed my files — is Flow broken?</strong></summary>
+
+Most likely just overlay drift. Run the read-only health check:
+
+```bash
+bash hooks/local/fusebase-flow-health-check.sh    # or /fusebase-health in Claude Code
+```
+
+If it reports recoverable drift, recover idempotently:
+
+```bash
+bash hooks/local/post-fusebase-update.sh
+```
+
+Avoid drift next time with `fusebase update --skip-skills`. See [Health check & recovery](#health-check--recovery).
+</details>
+
+<details>
+<summary><strong>Preflight or tests fail after I edited a skill</strong></summary>
+
+Skill files are mirrored across provider folders and tracked by a SHA-256 manifest. Edit the **canonical** under `skills/` (or `agents/`), then re-mirror:
+
+```bash
+bash hooks/local/mirror-skills.sh
+bash hooks/local/mirror-agents.sh
+bash hooks/local/preflight.sh        # should report errors: 0, warnings: 0
+```
+</details>
+
+<details>
+<summary><strong>Solo vs team workflow?</strong></summary>
+
+Default is **solo / direct-to-main** with per-task commits and a verification gate. Switch to **feature branches + PR** by setting `workflow_mode: branch_pr` in `policies/approval-policy.yml` (or `approval-policy.local.yml`). The flow rules are identical in both modes.
+</details>
+
+<details>
+<summary><strong>How do I uninstall / back out?</strong></summary>
+
+Flow is just files. Remove the framework dirs (`skills/ workflows/ hooks/ policies/ templates/ audit/ state/`), the adapter files (`AGENTS.md CLAUDE.md GEMINI.md FLOW_RULES.md VERSION`), and the provider surfaces you added (`.claude/ .agents/ .codex/ .cursor/ .github/`). To disable just the hooks, delete `.claude/settings.json`; if you installed the git fallback hooks, delete the copied `pre-commit` and `commit-msg` files from `.git/hooks/`. Your agent and code are untouched.
+</details>
 
 ## What's inside
 
