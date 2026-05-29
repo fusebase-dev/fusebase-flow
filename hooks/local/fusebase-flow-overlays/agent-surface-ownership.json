@@ -1,0 +1,232 @@
+{
+  "schema_version": 1,
+  "description": "Ownership map for Fusebase CLI and Fusebase Flow agent-facing surfaces. Flow recovery may write only flow-owned paths and shared-merge Flow additions.",
+  "owners": {
+    "cli-owned": "Current FuseBase CLI or project runtime configuration is authoritative. Flow may diagnose only.",
+    "flow-owned": "Fusebase Flow canonical source is authoritative. Recovery may restore from Flow source.",
+    "shared-merge": "Both layers contribute. Recovery may append or merge only the Flow-owned addition while preserving existing content."
+  },
+  "paths": [
+    {
+      "path": "AGENTS.md",
+      "owner": "shared-merge",
+      "required": true,
+      "cli_action": "Current FuseBase CLI owns the baseline and may refresh it.",
+      "flow_action": "Append the Fusebase Flow overlay block wrapped in CUSTOM:SKILL markers if missing.",
+      "flow_write_mode": "append-marker-block-only"
+    },
+    {
+      "path": "CLAUDE.md",
+      "owner": "shared-merge",
+      "required": false,
+      "cli_action": "Claude/project instructions remain authoritative when present.",
+      "flow_action": "Append the Fusebase Flow overlay block if missing.",
+      "flow_write_mode": "append-marker-block-only"
+    },
+    {
+      "path": ".claude/settings.json",
+      "owner": "shared-merge",
+      "required": false,
+      "cli_action": "Current FuseBase CLI owns CLI Stop hooks, permissions, and MCP server allowlist.",
+      "flow_action": "Merge missing Fusebase Flow lifecycle events and append Flow stop.py without removing existing hooks.",
+      "flow_write_mode": "json-merge-preserve-existing"
+    },
+    {
+      "path": ".codex/config.toml",
+      "owner": "shared-merge",
+      "required": false,
+      "cli_action": "Current FuseBase CLI may manage MCP server entries.",
+      "flow_action": "Do not overwrite active config; preserve non-MCP settings such as codex_hooks, hooks_file, and skills_dir.",
+      "flow_write_mode": "diagnose-only"
+    },
+    {
+      "path": ".mcp.json",
+      "owner": "cli-owned",
+      "required": false,
+      "cli_action": "Current FuseBase CLI or project runtime owns MCP server configuration.",
+      "flow_action": "Diagnose collision only; never restore from Flow.",
+      "flow_write_mode": "never"
+    },
+    {
+      "path": ".cursor/mcp.json",
+      "owner": "cli-owned",
+      "required": false,
+      "cli_action": "Current FuseBase CLI or project runtime owns Cursor MCP configuration.",
+      "flow_action": "Diagnose collision only; never restore from Flow.",
+      "flow_write_mode": "never"
+    },
+    {
+      "path": "fusebase.json",
+      "owner": "cli-owned",
+      "required": false,
+      "cli_action": "FuseBase CLI project configuration is authoritative.",
+      "flow_action": "Diagnose collision only; never restore from Flow.",
+      "flow_write_mode": "never"
+    },
+    {
+      "path": "skills-lock.json",
+      "owner": "cli-owned",
+      "required": false,
+      "cli_action": "FuseBase CLI skill/version lock data is authoritative.",
+      "flow_action": "Diagnose collision only; never restore from Flow.",
+      "flow_write_mode": "never"
+    },
+    {
+      "path": ".claude/hooks/**",
+      "owner": "cli-owned",
+      "required": false,
+      "cli_action": "Current FuseBase CLI owns Claude hook helper scripts.",
+      "flow_action": "Diagnose only; Flow lifecycle handlers live under hooks/handlers and are wired through settings merge.",
+      "flow_write_mode": "never"
+    },
+    {
+      "path": ".claude/skills/<cli-provider-skill>/**",
+      "owner": "cli-owned",
+      "required": false,
+      "known_names": [
+        "api-exploration",
+        "app-backend",
+        "app-business-docs",
+        "app-dev-practices",
+        "app-routing",
+        "app-secrets",
+        "app-sidecar",
+        "app-ui-design",
+        "dev-debug-logs",
+        "file-upload",
+        "fusebase-cli",
+        "fusebase-dashboards",
+        "fusebase-gate",
+        "fusebase-portal-specific-apps",
+        "git-workflow",
+        "handling-authentication-errors",
+        "managed-integrations",
+        "mcp-gate-debug",
+        "remote-logs"
+      ],
+      "cli_action": "Current FuseBase CLI owns provider skill text and references.",
+      "flow_action": "Never restore these from Flow's bundled provider copy.",
+      "flow_write_mode": "never"
+    },
+    {
+      "path": ".agents/skills/<cli-provider-skill>/**",
+      "owner": "cli-owned",
+      "required": false,
+      "known_names": [
+        "api-exploration",
+        "app-backend",
+        "app-business-docs",
+        "app-dev-practices",
+        "app-routing",
+        "app-secrets",
+        "app-sidecar",
+        "app-ui-design",
+        "dev-debug-logs",
+        "file-upload",
+        "fusebase-cli",
+        "fusebase-dashboards",
+        "fusebase-gate",
+        "fusebase-portal-specific-apps",
+        "git-workflow",
+        "handling-authentication-errors",
+        "managed-integrations",
+        "mcp-gate-debug",
+        "remote-logs"
+      ],
+      "cli_action": "Current FuseBase CLI owns provider skill text and references.",
+      "flow_action": "Never restore these from Flow's bundled provider copy.",
+      "flow_write_mode": "never"
+    },
+    {
+      "path": ".claude/skills/<flow-skill>/**",
+      "owner": "flow-owned",
+      "required": false,
+      "source": "skills/<flow-skill>/",
+      "flow_action": "Restore from canonical root skills via mirror-skills.sh.",
+      "flow_write_mode": "overwrite-flow-skill-mirror"
+    },
+    {
+      "path": ".agents/skills/<flow-skill>/**",
+      "owner": "flow-owned",
+      "required": false,
+      "source": "skills/<flow-skill>/",
+      "flow_action": "Restore from canonical root skills via mirror-skills.sh.",
+      "flow_write_mode": "overwrite-flow-skill-mirror"
+    },
+    {
+      "path": ".claude/agents/app-*.md",
+      "owner": "cli-owned",
+      "required": false,
+      "cli_action": "Current FuseBase CLI owns app-focused provider agents.",
+      "flow_action": "Never restore these from Flow.",
+      "flow_write_mode": "never"
+    },
+    {
+      "path": ".codex/agents/app-*.md",
+      "owner": "cli-owned",
+      "required": false,
+      "cli_action": "Current FuseBase CLI owns app-focused provider agents.",
+      "flow_action": "Never restore these from Flow.",
+      "flow_write_mode": "never"
+    },
+    {
+      "path": ".claude/agents/<flow-agent>.md",
+      "owner": "flow-owned",
+      "required": false,
+      "source": "agents/<flow-agent>/AGENT.md",
+      "flow_action": "Restore from canonical root agents via mirror-agents.sh.",
+      "flow_write_mode": "overwrite-flow-agent-mirror"
+    },
+    {
+      "path": ".codex/agents/<flow-agent>.md",
+      "owner": "flow-owned",
+      "required": false,
+      "source": "agents/<flow-agent>/AGENT.md",
+      "flow_action": "Restore from canonical root agents via mirror-agents.sh.",
+      "flow_write_mode": "overwrite-flow-agent-mirror"
+    },
+    {
+      "path": ".claude/commands/fusebase-health.md",
+      "owner": "flow-owned",
+      "required": false,
+      "source": "hooks/local/fusebase-flow-overlays/commands/fusebase-health.md",
+      "flow_action": "Restore slash command from Flow overlay template.",
+      "flow_write_mode": "overwrite-flow-command"
+    },
+    {
+      "path": "hooks/local/**",
+      "owner": "flow-owned",
+      "required": true,
+      "flow_action": "Flow owns local health/recovery tooling.",
+      "flow_write_mode": "flow-source"
+    },
+    {
+      "path": "hooks/handlers/**",
+      "owner": "flow-owned",
+      "required": true,
+      "flow_action": "Flow owns lifecycle hook handlers.",
+      "flow_write_mode": "flow-source"
+    },
+    {
+      "path": "skills/**",
+      "owner": "flow-owned",
+      "required": true,
+      "flow_action": "Flow owns canonical lifecycle skills.",
+      "flow_write_mode": "flow-source"
+    },
+    {
+      "path": "agents/**",
+      "owner": "flow-owned",
+      "required": true,
+      "flow_action": "Flow owns canonical lifecycle agents.",
+      "flow_write_mode": "flow-source"
+    },
+    {
+      "path": "FLOW_RULES.md",
+      "owner": "flow-owned",
+      "required": true,
+      "flow_action": "Flow owns always-on lifecycle rules.",
+      "flow_write_mode": "flow-source"
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 
 **Status:** DRAFT
 **Created:** 2026-05-29
-**Linked decisions:** pending
+**Linked decisions:** `docs/specs/cli-first-flow-second-recovery/decisions.md`
 **Promoted from:** operator request in chat, 2026-05-29
 **Deploy hash:** N/A - framework/template change
 
@@ -97,12 +97,17 @@ paths:
 |---|---|---|
 | Q-A | Flow must not restore CLI instructions from Flow's bundled copy; current CLI remains source of truth. | 2026-05-29 |
 | Q-B | Recovery model is CLI-first, Flow-second. | 2026-05-29 |
-| Q-C | Pending: whether CLI layer drift detection should be shape-only or version-aware. | pending |
-| Q-D | Pending: whether implementation includes a new installer script or only health-check/recovery changes. | pending |
+| Q-C | Flow recovery restores Flow-owned overlay pieces only. | 2026-05-29 |
+| Q-D | CLI drift detection is shape-only now; version-aware checks require a future CLI manifest. | 2026-05-29 |
+| Q-E | This ticket implements health/recovery/dry-run diagnostics, not a write-capable installer. | 2026-05-29 |
+| Q-F | Health output recommends exact CLI refresh flags only if implementation verifies support; otherwise it uses generic current-CLI refresh wording. | 2026-05-29 |
 
 ## Related
 
 - `docs/specs/cli-first-flow-second-recovery/clarify-conversation.md`
+- `docs/specs/cli-first-flow-second-recovery/decisions.md`
+- `docs/specs/cli-first-flow-second-recovery/tasks.md`
+- `docs/specs/cli-first-flow-second-recovery/verification-gate.md`
 - `docs/fusebase-cli-edition.md`
 - `docs/install-fusebase-cli-project.md`
 - `docs/backlog/install-into-existing-fusebase-cli-project/README.md`
