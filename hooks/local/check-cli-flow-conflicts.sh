@@ -256,17 +256,18 @@ for entry in paths:
                 add("MISSING", layer, owner, skill_path, "run bash hooks/local/post-fusebase-update.sh", "Flow skill mirror missing")
         continue
 
-    if rel.endswith("app-*.md"):
+    if "<cli-provider-agent>" in rel:
+        known = entry.get("known_names") or []
         mirror_root = ".claude/agents" if rel.startswith(".claude/") else ".codex/agents"
-        agent_dir = root / mirror_root
-        if not agent_dir.is_dir():
+        if not (root / mirror_root).is_dir():
             add("INFO", layer, owner, mirror_root, "provider agent mirror absent")
             continue
-        matches = sorted(p.name for p in agent_dir.glob("app-*.md"))
-        if matches:
-            add("OK", layer, owner, rel, "current CLI owns provider agents", ", ".join(matches))
-        else:
-            add("MISSING", layer, owner, rel, "run current FuseBase CLI refresh/update first", "no app-*.md provider agents present")
+        for name in known:
+            agent_path = f"{mirror_root}/{name}.md"
+            if rel_exists(agent_path):
+                add("OK", layer, owner, agent_path, "current CLI owns provider agent")
+            else:
+                add("MISSING", layer, owner, agent_path, "run current FuseBase CLI refresh/update first", "provider agent missing")
         continue
 
     if "<flow-agent>" in rel:

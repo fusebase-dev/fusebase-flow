@@ -37,6 +37,11 @@ sha_cmd() {
   fi
 }
 
+python_bin="${PYTHON:-python3}"
+if ! command -v "$python_bin" >/dev/null 2>&1; then
+  python_bin="python"
+fi
+
 mkdir -p "$PROJECT"
 
 cp -R skills "$PROJECT/skills"
@@ -216,6 +221,51 @@ pass "CLI provider skills and hook helpers untouched"
 pass "shared settings merge preserved CLI Stop hooks"
 pass "Flow skills, agents, overlays, and health command restored"
 pass "conflict reporter returned HEALTHY"
+
+# --- AC4: explicit known_names, no app-*.md glob ---
+# The two known CLI app-agents must be attributed cli-owned by name.
+(
+  cd "$PROJECT"
+  bash hooks/local/check-cli-flow-conflicts.sh --json > "$TMP_BASE/conflict.json"
+)
+"$python_bin" - "$TMP_BASE/conflict.json" <<'PY' || fail "known_names CLI app-agents not attributed cli-owned"
+import json, sys
+data = json.loads(open(sys.argv[1], encoding="utf-8").read())
+findings = data["findings"]
+def owned(path):
+    return [f for f in findings if f["path"] == path and f["layer"] == "cli"]
+for name in ("app-architect", "app-create-checker"):
+    for root in (".claude/agents", ".codex/agents"):
+        p = f"{root}/{name}.md"
+        if not owned(p):
+            print(f"missing cli-owned finding for {p}", file=sys.stderr)
+            sys.exit(1)
+PY
+pass "CLI app-agents attributed cli-owned by explicit known_names"
+
+# A non-listed app-*.md agent must NOT be scooped up as cli-owned (no glob).
+# Drop a synthetic app-foo.md into the CLI agent dirs that is absent from
+# known_names; the reporter must not attribute it to the CLI layer.
+echo "SYNTHETIC FLOW-NAMED AGENT app-foo" > "$PROJECT/.claude/agents/app-foo.md"
+echo "SYNTHETIC FLOW-NAMED AGENT app-foo" > "$PROJECT/.codex/agents/app-foo.md"
+(
+  cd "$PROJECT"
+  bash hooks/local/check-cli-flow-conflicts.sh --json > "$TMP_BASE/conflict2.json"
+)
+"$python_bin" - "$TMP_BASE/conflict2.json" <<'PY' || fail "synthetic app-foo.md was misattributed cli-owned (glob still active)"
+import json, sys
+data = json.loads(open(sys.argv[1], encoding="utf-8").read())
+findings = data["findings"]
+bad = [
+    f for f in findings
+    if f["layer"] == "cli" and f["path"].endswith("app-foo.md")
+]
+if bad:
+    print(f"app-foo.md wrongly attributed cli-owned: {bad}", file=sys.stderr)
+    sys.exit(1)
+PY
+rm -f "$PROJECT/.claude/agents/app-foo.md" "$PROJECT/.codex/agents/app-foo.md"
+pass "non-listed app-foo.md agent not misattributed cli-owned (glob retired)"
 
 BAD_PROJECT="$TMP_BASE/bad-settings"
 mkdir -p "$BAD_PROJECT/hooks/local" "$BAD_PROJECT/.claude" "$BAD_PROJECT/.claude/skills" "$BAD_PROJECT/.agents/skills" "$BAD_PROJECT/.claude/agents" "$BAD_PROJECT/.codex/agents" "$BAD_PROJECT/.claude/commands"

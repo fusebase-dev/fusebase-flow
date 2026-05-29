@@ -154,17 +154,25 @@
       "flow_write_mode": "overwrite-flow-skill-mirror"
     },
     {
-      "path": ".claude/agents/app-*.md",
+      "path": ".claude/agents/<cli-provider-agent>.md",
       "owner": "cli-owned",
       "required": false,
+      "known_names": [
+        "app-architect",
+        "app-create-checker"
+      ],
       "cli_action": "Current FuseBase CLI owns app-focused provider agents.",
       "flow_action": "Never restore these from Flow.",
       "flow_write_mode": "never"
     },
     {
-      "path": ".codex/agents/app-*.md",
+      "path": ".codex/agents/<cli-provider-agent>.md",
       "owner": "cli-owned",
       "required": false,
+      "known_names": [
+        "app-architect",
+        "app-create-checker"
+      ],
       "cli_action": "Current FuseBase CLI owns app-focused provider agents.",
       "flow_action": "Never restore these from Flow.",
       "flow_write_mode": "never"
