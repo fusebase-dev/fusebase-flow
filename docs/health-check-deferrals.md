@@ -66,7 +66,7 @@ The engine recognizes these check_ids in the `deferred_checks` array:
 | `settings_json_lifecycle_events` | `.claude/settings.json` events count below the upstream-canonical count (auto-discovered from `.claude/settings.json.example`); also covers Fusebase Flow `stop.py` missing from the Stop chain |
 | `claude_skills_mirror_count` | `.claude/skills/` mirror count below the upstream skill count |
 | `claude_agents_mirror_count` | `.claude/agents/` mirror count below the upstream sub-agent count |
-| `windows_shell_patch` | Windows `shell:true` patch on `.claude/hooks/run-typecheck-features.js` not applied (CVE-2024-27980 mitigation) |
+| `windows_shell_patch` | Windows `shell:true` patch on `.claude/hooks/run-typecheck-apps.js` not applied (CVE-2024-27980 mitigation) |
 
 Anything else in `deferred_checks` is silently ignored. Engine prefers explicit, documented check_ids over a wildcard suppression mechanism.
 

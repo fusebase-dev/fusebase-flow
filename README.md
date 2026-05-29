@@ -314,7 +314,7 @@ An ownership manifest backs this split, and a read-only conflict reporter surfac
 - Overlay templates folder presence
 - `preflight.sh` clean
 - `hooks/tests/run-tests.sh` passing
-- Windows `shell:true` patch on `.claude/hooks/run-typecheck-features.js` (CVE-2024-27980 mitigation)
+- Windows `shell:true` patch on `.claude/hooks/run-typecheck-apps.js` (CVE-2024-27980 mitigation)
 
 Plus active approval artifacts in `state/approvals/` are surfaced informationally so artifact-attributable test failures don't trigger false BROKEN verdicts.
 
