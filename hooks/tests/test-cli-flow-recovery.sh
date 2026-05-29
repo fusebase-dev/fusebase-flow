@@ -51,6 +51,7 @@ cp hooks/local/mirror-skills.sh "$PROJECT/hooks/local/"
 cp hooks/local/mirror-agents.sh "$PROJECT/hooks/local/"
 cp hooks/local/post-fusebase-update.sh "$PROJECT/hooks/local/"
 cp hooks/local/check-cli-flow-conflicts.sh "$PROJECT/hooks/local/"
+cp hooks/local/stamp-cli-provenance.sh "$PROJECT/hooks/local/"
 cp -R hooks/local/fusebase-flow-overlays "$PROJECT/hooks/local/fusebase-flow-overlays"
 cp -R hooks/handlers "$PROJECT/hooks/handlers"
 cp FLOW_RULES.md "$PROJECT/FLOW_RULES.md"
@@ -264,6 +265,94 @@ if bad:
 PY
 rm -f "$PROJECT/.claude/agents/app-foo.md" "$PROJECT/.codex/agents/app-foo.md"
 pass "non-listed app-foo.md agent not misattributed cli-owned (glob retired)"
+
+# --- B3 / AC2 + AC3: provenance drift advisory + CUSTOM:SKILL scan ---
+# Stamp provenance over the simulated CLI assets, then prove:
+#   (1) clean state -> 0 advisories, verdict HEALTHY;
+#   (2) a mutated present CLI skill -> CLI_SNAPSHOT_STALE advisory, still
+#       HEALTHY + exit 0 (advisory must NOT flip the verdict/exit code);
+#   (3) a CUSTOM:SKILL block in a CLI skill -> CLI_CUSTOM_AT_RISK advisory.
+(
+  cd "$PROJECT"
+  bash hooks/local/stamp-cli-provenance.sh > "$TMP_BASE/stamp.out"
+)
+test -f "$PROJECT/audit/cli-vendor-manifest.json" || fail "provenance manifest not generated"
+
+# (1) clean: 0 advisories, HEALTHY, exit 0.
+set +e
+(
+  cd "$PROJECT"
+  bash hooks/local/check-cli-flow-conflicts.sh --json > "$TMP_BASE/prov-clean.json"
+)
+PROV_CLEAN_RC=$?
+set -e
+[ "$PROV_CLEAN_RC" -eq 0 ] || fail "clean provenance reporter should exit 0, got $PROV_CLEAN_RC"
+"$python_bin" - "$TMP_BASE/prov-clean.json" <<'PY' || fail "clean provenance state should report 0 advisories and HEALTHY"
+import json, sys
+d = json.loads(open(sys.argv[1], encoding="utf-8").read())
+assert d["verdict"] == "HEALTHY", d["verdict"]
+assert d["summary"]["cli_snapshot_stale"] == 0, d["summary"]
+assert d["summary"]["cli_custom_at_risk"] == 0, d["summary"]
+PY
+pass "provenance stamped; clean state has 0 advisories and HEALTHY verdict"
+
+# (2) mutate a present CLI skill -> CLI_SNAPSHOT_STALE, still HEALTHY + exit 0.
+printf '\nLOCAL EDIT THAT DIFFERS FROM BUNDLED SNAPSHOT\n' >> "$PROJECT/.claude/skills/fusebase-cli/SKILL.md"
+set +e
+(
+  cd "$PROJECT"
+  bash hooks/local/check-cli-flow-conflicts.sh --json > "$TMP_BASE/prov-stale.json"
+)
+PROV_STALE_RC=$?
+set -e
+[ "$PROV_STALE_RC" -eq 0 ] || fail "CLI_SNAPSHOT_STALE is advisory; reporter must still exit 0, got $PROV_STALE_RC"
+"$python_bin" - "$TMP_BASE/prov-stale.json" <<'PY' || fail "mutated CLI skill should produce CLI_SNAPSHOT_STALE advisory while staying HEALTHY"
+import json, sys
+d = json.loads(open(sys.argv[1], encoding="utf-8").read())
+assert d["verdict"] == "HEALTHY", f"advisory stale must not flip verdict: {d['verdict']}"
+assert d["summary"]["cli_snapshot_stale"] >= 1, d["summary"]
+stale = [f for f in d["findings"] if f["status"] == "CLI_SNAPSHOT_STALE" and f["path"].endswith("fusebase-cli/SKILL.md")]
+assert stale, "expected CLI_SNAPSHOT_STALE for the mutated skill"
+PY
+pass "mutated CLI skill -> CLI_SNAPSHOT_STALE advisory (non-failing, verdict stays HEALTHY)"
+
+# (3) inject a CUSTOM:SKILL block -> CLI_CUSTOM_AT_RISK advisory.
+printf '\n<!-- CUSTOM:SKILL:BEGIN -->\nuser customization\n<!-- CUSTOM:SKILL:END -->\n' >> "$PROJECT/.agents/skills/app-backend/SKILL.md"
+set +e
+(
+  cd "$PROJECT"
+  bash hooks/local/check-cli-flow-conflicts.sh --json > "$TMP_BASE/prov-custom.json"
+)
+PROV_CUSTOM_RC=$?
+set -e
+[ "$PROV_CUSTOM_RC" -eq 0 ] || fail "CLI_CUSTOM_AT_RISK is advisory; reporter must still exit 0, got $PROV_CUSTOM_RC"
+"$python_bin" - "$TMP_BASE/prov-custom.json" <<'PY' || fail "CUSTOM:SKILL block should be reported at-risk"
+import json, sys
+d = json.loads(open(sys.argv[1], encoding="utf-8").read())
+assert d["verdict"] == "HEALTHY", f"advisory custom must not flip verdict: {d['verdict']}"
+assert d["summary"]["cli_custom_at_risk"] >= 1, d["summary"]
+risk = [f for f in d["findings"] if f["status"] == "CLI_CUSTOM_AT_RISK" and f["path"].endswith("app-backend/SKILL.md")]
+assert risk, "expected CLI_CUSTOM_AT_RISK for the skill carrying a CUSTOM:SKILL block"
+PY
+pass "CUSTOM:SKILL block -> CLI_CUSTOM_AT_RISK advisory (at-risk on next refresh)"
+
+# (4) a MISSING CLI skill still escalates to CLI_LAYER_DRIFT (exit 1) — the
+#     advisory work must not weaken the missing-asset semantics.
+rm -f "$PROJECT/.claude/skills/fusebase-cli/SKILL.md"
+set +e
+(
+  cd "$PROJECT"
+  bash hooks/local/check-cli-flow-conflicts.sh --json > "$TMP_BASE/prov-missing.json"
+)
+PROV_MISSING_RC=$?
+set -e
+[ "$PROV_MISSING_RC" -eq 1 ] || fail "MISSING CLI skill must still exit 1 (CLI_LAYER_DRIFT), got $PROV_MISSING_RC"
+"$python_bin" - "$TMP_BASE/prov-missing.json" <<'PY' || fail "MISSING CLI skill should still be CLI_LAYER_DRIFT"
+import json, sys
+d = json.loads(open(sys.argv[1], encoding="utf-8").read())
+assert d["verdict"] == "CLI_LAYER_DRIFT", d["verdict"]
+PY
+pass "MISSING CLI skill still escalates to CLI_LAYER_DRIFT (missing-vs-stale semantics intact)"
 
 BAD_PROJECT="$TMP_BASE/bad-settings"
 mkdir -p "$BAD_PROJECT/hooks/local" "$BAD_PROJECT/.claude" "$BAD_PROJECT/.claude/skills" "$BAD_PROJECT/.agents/skills" "$BAD_PROJECT/.claude/agents" "$BAD_PROJECT/.codex/agents" "$BAD_PROJECT/.claude/commands"

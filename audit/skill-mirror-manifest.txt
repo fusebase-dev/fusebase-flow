@@ -4,8 +4,8 @@
 .claude/skills/communication/SKILL.md  f0542a27ed6127d6d8ff838a717b1ea578602665a1c108b2d7f6093413c9fa7b
 .agents/skills/design-discovery-ideation/SKILL.md  da13a8f584dbde2b659f7c729b49c32f68baf053427f068ca65b4f3b16e24467
 .claude/skills/design-discovery-ideation/SKILL.md  da13a8f584dbde2b659f7c729b49c32f68baf053427f068ca65b4f3b16e24467
-.agents/skills/fusebase-flow-health-check/SKILL.md  9639ff340da416c12f94d58da184fef416e8bedb3f45aa175e2609e19ec5af79
-.claude/skills/fusebase-flow-health-check/SKILL.md  9639ff340da416c12f94d58da184fef416e8bedb3f45aa175e2609e19ec5af79
+.agents/skills/fusebase-flow-health-check/SKILL.md  2c1f552125329cb1ad0390ab62873a72efcb81a5aba6119671aee2741f5e9749
+.claude/skills/fusebase-flow-health-check/SKILL.md  2c1f552125329cb1ad0390ab62873a72efcb81a5aba6119671aee2741f5e9749
 .agents/skills/implementation-planning/SKILL.md  233ec5eefc7fcaba496a15971d382ded0ecc80b9dd47cac3eaae9a81beb3052d
 .claude/skills/implementation-planning/SKILL.md  233ec5eefc7fcaba496a15971d382ded0ecc80b9dd47cac3eaae9a81beb3052d
 .agents/skills/release-deploy-reporting/SKILL.md  059fbe2507476e6293df10ed07e765d89c4eb9bc1a0b2bab181fe3ff920accae

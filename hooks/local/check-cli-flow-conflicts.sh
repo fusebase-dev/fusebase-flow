@@ -65,6 +65,7 @@ fi
 "$python_bin" - "$ROOT" "$MANIFEST" "$FORMAT" <<'PY'
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from fnmatch import fnmatch
@@ -74,6 +75,80 @@ from typing import Any
 root = Path(sys.argv[1]).resolve()
 manifest_path = Path(sys.argv[2]).resolve()
 fmt = sys.argv[3]
+
+# --- CLI vendor provenance (B2/B3) -----------------------------------------
+# audit/cli-vendor-manifest.json maps each vendored CLI-owned asset to its
+# bundled sha256. We hash present assets against it to emit the advisory
+# CLI_SNAPSHOT_STALE finding (info, NON-FAILING). Absent/invalid manifest ->
+# provenance simply unavailable; we never fail on it.
+PROVENANCE: dict[str, str] = {}
+PROVENANCE_AVAILABLE = False
+_prov_path = root / "audit" / "cli-vendor-manifest.json"
+if _prov_path.is_file():
+    try:
+        _prov = json.loads(_prov_path.read_text(encoding="utf-8"))
+        for _a in _prov.get("assets", []) or []:
+            p = _a.get("path")
+            s = _a.get("sha256")
+            if isinstance(p, str) and isinstance(s, str):
+                PROVENANCE[p] = s
+        PROVENANCE_AVAILABLE = bool(PROVENANCE)
+    except Exception:
+        PROVENANCE_AVAILABLE = False
+
+
+def sha256_of(path: Path) -> str | None:
+    try:
+        h = hashlib.sha256()
+        with path.open("rb") as fh:
+            for chunk in iter(lambda: fh.read(65536), b""):
+                h.update(chunk)
+        return h.hexdigest()
+    except OSError:
+        return None
+
+
+def has_custom_skill_block(path: Path) -> bool:
+    """True if the file contains a CUSTOM:SKILL:BEGIN marker (a user edit that a
+    fusebase update / CLI refresh would clobber)."""
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return False
+    return "CUSTOM:SKILL:BEGIN" in text
+
+
+def check_provenance(rel_path: str) -> None:
+    """Emit an advisory CLI_SNAPSHOT_STALE finding if a present CLI asset's
+    sha256 differs from the bundled provenance. Advisory only — never changes
+    the verdict/exit code (these are filtered out of cli_drift below)."""
+    if not PROVENANCE_AVAILABLE:
+        return
+    expected = PROVENANCE.get(rel_path)
+    if not expected:
+        return
+    actual = sha256_of(root / rel_path)
+    if actual is None:
+        return
+    if actual != expected:
+        add(
+            "CLI_SNAPSHOT_STALE", "cli", "cli-owned", rel_path,
+            "advisory only; if intentional run bash hooks/local/stamp-cli-provenance.sh to re-stamp, "
+            "or run the current FuseBase CLI refresh to align",
+            "present asset differs from bundled provenance sha256 (newer or locally-modified copy)",
+        )
+
+
+def scan_custom_skill_block(rel_path: str) -> None:
+    """Emit an advisory CLI_CUSTOM_AT_RISK finding when a CLI-owned skill file
+    carries a CUSTOM:SKILL block — those edits are at risk on the next CLI
+    refresh. Advisory only — never changes the verdict/exit code."""
+    if has_custom_skill_block(root / rel_path):
+        add(
+            "CLI_CUSTOM_AT_RISK", "cli", "cli-owned", rel_path,
+            "back up the CUSTOM:SKILL block; the next FuseBase CLI refresh may overwrite it",
+            "CUSTOM:SKILL block found in a CLI-owned skill (at-risk on next refresh)",
+        )
 
 
 def read_text(path: Path) -> str:
@@ -243,6 +318,15 @@ for entry in paths:
             skill_path = f"{mirror_root}/{name}/SKILL.md"
             if rel_exists(skill_path):
                 add("OK", layer, owner, skill_path, "current CLI owns provider skill text")
+                # B3: advisory drift + CUSTOM-block scan for the present asset.
+                check_provenance(skill_path)
+                scan_custom_skill_block(skill_path)
+                # Also advise on drift for any vendored references/ files.
+                skill_dir = root / mirror_root / name
+                for fp in sorted(skill_dir.rglob("*")):
+                    if fp.is_file() and fp.name != "SKILL.md":
+                        rp = str(fp.relative_to(root)).replace("\\", "/")
+                        check_provenance(rp)
             else:
                 add("MISSING", layer, owner, skill_path, "run current FuseBase CLI refresh/update first", "provider skill missing")
         continue
@@ -270,6 +354,7 @@ for entry in paths:
             agent_path = f"{mirror_root}/{name}.md"
             if rel_exists(agent_path):
                 add("OK", layer, owner, agent_path, "current CLI owns provider agent")
+                check_provenance(agent_path)
             else:
                 add("MISSING", layer, owner, agent_path, "run current FuseBase CLI refresh/update first", "provider agent missing")
         continue
@@ -295,6 +380,12 @@ for entry in paths:
         ]
         if matches:
             add("OK", layer, owner, rel, action, f"{len(matches)} path(s) present")
+            # B3: advisory drift for vendored CLI-owned files matched by a glob
+            # (e.g. .claude/hooks/**) that have a provenance entry.
+            if layer == "cli":
+                for m in matches:
+                    if (root / m).is_file():
+                        check_provenance(m)
         elif required:
             add("MISSING", layer, owner, rel, action, "required glob has no matches")
         else:
@@ -313,6 +404,11 @@ broken = [f for f in findings if f["layer"] == "unknown" or f["status"] == "BROK
 cli_drift = [f for f in findings if f["layer"] == "cli" and f["status"] in {"MISSING", "DRIFT"}]
 shared_drift = [f for f in findings if f["layer"] == "shared" and f["status"] in {"MISSING", "DRIFT"}]
 flow_drift = [f for f in findings if f["layer"] == "flow" and f["status"] in {"MISSING", "DRIFT"}]
+# Advisory (B3): present-but-changed snapshots and at-risk CUSTOM blocks.
+# These are INFORMATIONAL ONLY and deliberately excluded from cli_drift above,
+# so they never change the verdict or exit code.
+cli_stale = [f for f in findings if f["status"] == "CLI_SNAPSHOT_STALE"]
+cli_custom_at_risk = [f for f in findings if f["status"] == "CLI_CUSTOM_AT_RISK"]
 
 if broken:
     verdict = "BROKEN"
@@ -341,8 +437,11 @@ if fmt == "json":
             "shared_merge_drift": len(shared_drift),
             "flow_drift": len(flow_drift),
             "broken": len(broken),
+            "cli_snapshot_stale": len(cli_stale),
+            "cli_custom_at_risk": len(cli_custom_at_risk),
             "findings": len(findings),
         },
+        "provenance_available": PROVENANCE_AVAILABLE,
         "findings": findings,
     }, indent=2))
 else:
@@ -360,6 +459,11 @@ else:
     print(f"  Shared merge drift: {len(shared_drift)}")
     print(f"  Flow drift: {len(flow_drift)}")
     print(f"  Broken: {len(broken)}")
+    print(f"  CLI snapshot stale (advisory): {len(cli_stale)}")
+    print(f"  CLI CUSTOM at-risk (advisory): {len(cli_custom_at_risk)}")
+    if not PROVENANCE_AVAILABLE:
+        print("  (provenance manifest unavailable — drift advisory skipped; "
+              "run bash hooks/local/stamp-cli-provenance.sh)")
     print("")
     print("Findings:")
     for f in findings:
@@ -369,7 +473,7 @@ else:
         print(f"  [{f['status']}] {f['layer']} {f['path']}{detail}")
         if f.get("action"):
             print(f"      action: {f['action']}")
-    if verdict == "HEALTHY":
+    if verdict == "HEALTHY" and not cli_stale and not cli_custom_at_risk:
         print("  No write conflict detected.")
     print("")
     print("Next action:")
