@@ -1,18 +1,54 @@
-# Fusebase Flow Local - Fusebase CLI edition
+# Fusebase Flow Local — Fusebase CLI edition
 
-**A GitHub template / repo-local workflow framework for AI coding agents and IDEs, packaged with Fusebase Apps CLI domain assets.**
+**A disciplined, spec-to-deploy workflow for AI coding agents building Fusebase apps with the Fusebase CLI.**
 
-Fusebase Flow Local installs durable rules, skills, workflows, hooks, policies, and templates into a project so your existing IDE / agent can follow a consistent multi-phase ticket lifecycle — from spec through deploy.
+[![Version](https://img.shields.io/badge/version-3.1-blue.svg)](VERSION)
+[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![CI](https://github.com/nimbuswebinc/fusebase-flow-FuseBase-CLI-edition/actions/workflows/fusebase-flow-verify.yml/badge.svg)](https://github.com/nimbuswebinc/fusebase-flow-FuseBase-CLI-edition/actions/workflows/fusebase-flow-verify.yml)
+[![Use this template](https://img.shields.io/badge/GitHub-Use_this_template-brightgreen.svg?logo=github)](https://github.com/nimbuswebinc/fusebase-flow-FuseBase-CLI-edition/generate)
+
+Fusebase Flow turns ad-hoc "vibe prompting" into a repeatable engineering loop. It installs durable rules, skills, workflows, hooks, policies, and templates into a project so your existing IDE / agent follows a consistent multi-phase ticket lifecycle — from spec through deploy — while the Fusebase CLI edition layers in everything an agent needs to actually build and ship Fusebase apps.
 
 It works by shaping the agent's behavior through **repo files**, not by replacing the agent. There is no SaaS, no daemon, no proprietary runtime to install.
+
+## The lifecycle at a glance
+
+```mermaid
+flowchart LR
+    S[📋 Specify] --> C[❓ Clarify] --> P[🗺️ Plan] --> D[🔒 Decisions]
+    D --> T[✅ Tasks] --> V[🚦 Verify gate] --> I[⚙️ Implement] --> X[🚀 Deploy]
+    style S fill:#e3f2fd,stroke:#1976d2
+    style X fill:#e8f5e9,stroke:#388e3c
+    style V fill:#fff3e0,stroke:#f57c00
+```
+
+Every ticket flows left to right. The **Product Owner** drives Specify → Tasks and drafts the verification gate; the **AI Developer** runs the gate, implements one-task-one-commit, and runs deploy only on an approval artifact. The full eight-phase procedure lives at [`workflows/eight-phase-flow.md`](workflows/eight-phase-flow.md).
+
+## Contents
+
+- [Why a flow?](#why-a-flow)
+- [Edition scope](#edition-scope)
+- [Quick start (GitHub template)](#quick-start-github-template)
+- [Filing your first ticket](#filing-your-first-ticket)
+- [Supported agents & IDEs](#supported-agents--ides)
+- [Using sub-agents](#using-sub-agents)
+- [Installing into an existing project](#installing-into-an-existing-project)
+- [Health check & recovery](#health-check--recovery)
+- [How enforcement works](#how-enforcement-works)
+- [Default workflow modes](#default-workflow-modes)
+- [Validating an installation](#validating-an-installation)
+- [What's inside](#whats-inside)
+- [Clean-room, license & publishing](#clean-room-license--publishing)
+
+## Why a flow?
+
+Letting an agent free-code a feature in one pass produces fast first drafts and slow, surprising failures. Fusebase Flow front-loads the cheap parts of engineering — a **spec**, **clarifying questions**, locked **decisions**, an explicit **task list**, and a **verification gate** — so that by the time code is written, the target is unambiguous and every commit is checkable against it. The result is an AI coding loop you can trust to build and deploy real Fusebase apps, not just demos.
 
 ## Edition scope
 
 This Fusebase CLI edition keeps Flow as the lifecycle layer and adds Fusebase Apps CLI provider assets as the runtime/domain layer. Flow owns specs, decisions, tasks, gates, reviews, deploy handoffs, and smoke discipline. CLI assets support app architecture, Fusebase CLI usage, dashboards, gate, secrets, routing, logs, and scaffold checks.
 
 See [`docs/fusebase-cli-edition.md`](docs/fusebase-cli-edition.md) for the boundary map and overlap table.
-
-## What this is — and isn't
 
 | Is | Isn't |
 |---|---|
@@ -21,21 +57,6 @@ See [`docs/fusebase-cli-edition.md`](docs/fusebase-cli-edition.md) for the bound
 | Tool-portable across multiple AI coding surfaces | Tied to one vendor |
 | Stdlib-first Python + bash + git | Requires heavy frameworks (FastAPI, daemons, servers) |
 | Local-only hooks | Network webhooks |
-
-## Supported public targets
-
-Fusebase Flow Local provides compatibility files for:
-
-- **Anthropic Claude Code** — `CLAUDE.md`, `.claude/skills/`, `.claude/settings.json.example`
-- **OpenAI / ChatGPT Codex** — `AGENTS.md`, `.agents/skills/`, `.codex/config.toml.example`, `.codex/hooks.json.example`
-- **Cursor** — `.cursor/rules/*.mdc`, `AGENTS.md`
-- **GitHub Copilot / VS Code** — `.github/copilot-instructions.md`, `.github/instructions/*.instructions.md`, `AGENTS.md`
-- **Gemini / Antigravity-style IDE agents** — `GEMINI.md`, `AGENTS.md`
-- **Generic local repo workflows** — `AGENTS.md` + root-level framework dirs (`skills/`, `workflows/`, `policies/`, `templates/`, `hooks/`) + git fallback hooks + local scripts
-
-In this edition, `.claude/skills/` and `.agents/skills/` include both canonical Flow skill mirrors and CLI provider skills. The audit mirror manifest tracks the Flow mirrors only.
-
-The full surface support breakdown lives at [`docs/compatibility.md`](docs/compatibility.md).
 
 ## Quick start (GitHub template)
 
@@ -58,59 +79,6 @@ The full surface support breakdown lives at [`docs/compatibility.md`](docs/compa
 
    (Only PyYAML; ~100 KB.)
 
-## Installing into an existing Fusebase CLI / MCP project
-
-Do not blindly copy this repository over an existing project.
-
-If the target repo already contains `AGENTS.md`, `CLAUDE.md`, `.gitignore`, `.claude/settings.json`, `.mcp.json`, `.cursor/mcp.json`, `.agents/skills/`, `.claude/skills/`, `fusebase.json`, or `skills-lock.json`, use the Fusebase CLI / MCP-safe install path.
-
-In that case:
-
-- append to `AGENTS.md`
-- append to `CLAUDE.md`
-- append to `.gitignore`
-- add skills into existing skill folders only when no name collision exists
-- never replace MCP configuration
-- never replace active Claude settings or hooks
-- review `.claude/settings.json.example` before merging lifecycle hooks
-
-See [`docs/install-fusebase-cli-project.md`](docs/install-fusebase-cli-project.md). The general existing-repo guide lives at [`docs/install-existing-project.md`](docs/install-existing-project.md).
-
-## Quick start (copy into existing repo)
-
-```bash
-# From the existing repo's root, copy the framework + the always-on baseline:
-SRC=/path/to/fusebase-flow
-
-cp -R $SRC/skills ./
-cp -R $SRC/workflows ./
-cp -R $SRC/hooks ./
-cp -R $SRC/policies ./
-cp -R $SRC/templates ./
-cp -R $SRC/audit ./
-cp -R $SRC/state ./
-cp -R $SRC/docs ./
-cp $SRC/AGENTS.md ./
-cp $SRC/CLAUDE.md ./
-cp $SRC/GEMINI.md ./
-cp $SRC/FLOW_RULES.md ./
-cp $SRC/VERSION ./
-cp $SRC/install.sh ./
-cp $SRC/.gitattributes ./
-cp $SRC/.gitignore ./
-cp $SRC/.python-version ./
-cp -R $SRC/.github ./
-
-# Copy only the provider/IDE compatibility surfaces you use:
-cp -R $SRC/.claude ./       # Anthropic Claude Code
-cp -R $SRC/.agents ./       # OpenAI / ChatGPT Codex
-cp -R $SRC/.codex ./        # OpenAI / ChatGPT Codex
-cp -R $SRC/.cursor ./       # Cursor
-
-# Then run the installer:
-bash install.sh
-```
-
 ## Filing your first ticket
 
 1. Tell the agent: *"Let's ship `<feature description>`."*
@@ -122,7 +90,22 @@ bash install.sh
 
 The full eight-phase lifecycle lives at [`workflows/eight-phase-flow.md`](workflows/eight-phase-flow.md).
 
-## Using sub-agents (v2.1+)
+## Supported agents & IDEs
+
+Fusebase Flow Local provides compatibility files for:
+
+- **Anthropic Claude Code** — `CLAUDE.md`, `.claude/skills/`, `.claude/settings.json.example`
+- **OpenAI / ChatGPT Codex** — `AGENTS.md`, `.agents/skills/`, `.codex/config.toml.example`, `.codex/hooks.json.example`
+- **Cursor** — `.cursor/rules/*.mdc`, `AGENTS.md`
+- **GitHub Copilot / VS Code** — `.github/copilot-instructions.md`, `.github/instructions/*.instructions.md`, `AGENTS.md`
+- **Gemini / Antigravity-style IDE agents** — `GEMINI.md`, `AGENTS.md`
+- **Generic local repo workflows** — `AGENTS.md` + root-level framework dirs (`skills/`, `workflows/`, `policies/`, `templates/`, `hooks/`) + git fallback hooks + local scripts
+
+In this edition, `.claude/skills/` and `.agents/skills/` include both canonical Flow skill mirrors and CLI provider skills. The audit mirror manifest tracks the Flow mirrors only.
+
+The full surface support breakdown lives at [`docs/compatibility.md`](docs/compatibility.md).
+
+## Using sub-agents
 
 Two role-shaped sub-agents cover the full eight-phase lifecycle. They are **opt-in** — the framework remains fully usable via the skill-and-workflow pattern alone — but they make role boundaries explicit and harder to drift across.
 
@@ -171,11 +154,63 @@ bash hooks/local/mirror-agents.sh
 
 Preflight will warn on drift if the mirrors and canonical fall out of sync. Full release notes for the v2.1.0 sub-agents launch live at [`docs/release-notes/v2.1.0.md`](docs/release-notes/v2.1.0.md).
 
-## Health check & recovery (v2.2+)
+## Installing into an existing project
+
+Do not blindly copy this repository over an existing project.
+
+If the target repo already contains `AGENTS.md`, `CLAUDE.md`, `.gitignore`, `.claude/settings.json`, `.mcp.json`, `.cursor/mcp.json`, `.agents/skills/`, `.claude/skills/`, `fusebase.json`, or `skills-lock.json`, use the Fusebase CLI / MCP-safe install path:
+
+- append to `AGENTS.md`
+- append to `CLAUDE.md`
+- append to `.gitignore`
+- add skills into existing skill folders only when no name collision exists
+- never replace MCP configuration
+- never replace active Claude settings or hooks
+- review `.claude/settings.json.example` before merging lifecycle hooks
+
+See [`docs/install-fusebase-cli-project.md`](docs/install-fusebase-cli-project.md). The general existing-repo guide lives at [`docs/install-existing-project.md`](docs/install-existing-project.md).
+
+<details>
+<summary><strong>Copy-into-existing-repo commands</strong></summary>
+
+```bash
+# From the existing repo's root, copy the framework + the always-on baseline:
+SRC=/path/to/fusebase-flow
+
+cp -R $SRC/skills ./
+cp -R $SRC/workflows ./
+cp -R $SRC/hooks ./
+cp -R $SRC/policies ./
+cp -R $SRC/templates ./
+cp -R $SRC/audit ./
+cp -R $SRC/state ./
+cp -R $SRC/docs ./
+cp $SRC/AGENTS.md ./
+cp $SRC/CLAUDE.md ./
+cp $SRC/GEMINI.md ./
+cp $SRC/FLOW_RULES.md ./
+cp $SRC/VERSION ./
+cp $SRC/install.sh ./
+cp $SRC/.gitattributes ./
+cp $SRC/.gitignore ./
+cp $SRC/.python-version ./
+cp -R $SRC/.github ./
+
+# Copy only the provider/IDE compatibility surfaces you use:
+cp -R $SRC/.claude ./       # Anthropic Claude Code
+cp -R $SRC/.agents ./       # OpenAI / ChatGPT Codex
+cp -R $SRC/.codex ./        # OpenAI / ChatGPT Codex
+cp -R $SRC/.cursor ./       # Cursor
+
+# Then run the installer:
+bash install.sh
+```
+
+</details>
+
+## Health check & recovery
 
 Fusebase Flow ships a built-in **health check skill** + **recovery script** that diagnose and repair overlay drift. The most common cause of drift is `fusebase update` without `--skip-skills`, which refreshes `AGENTS.md`, `.claude/skills/`, `.claude/agents/`, `.claude/hooks/`, and `.claude/settings.json` from CLI templates. Current CLI builds preserve custom blocks in `AGENTS.md`, so Flow appends its overlay inside that wrapper; `.claude/settings.json` and hook helpers still need recovery after a full refresh. Other causes include manual edits, foreign frameworks installed on top, or partial pulls.
-
-### Quick reference
 
 | Need | Command |
 |---|---|
@@ -183,6 +218,9 @@ Fusebase Flow ships a built-in **health check skill** + **recovery script** that
 | Recover the overlay | `bash hooks/local/post-fusebase-update.sh` <br> or reply `yes` when the skill offers recovery in chat |
 | Upgrade engine + recovery to latest upstream | `bash hooks/local/upgrade-engine.sh` (v2.3.0+; refresh `.fusebase-flow-source/` first) |
 | Avoid drift on routine updates | `fusebase update --skip-skills` (preserves Fusebase Flow overlay) |
+
+<details>
+<summary><strong>What the health check verifies, verdicts, deferrals & recovery flow</strong></summary>
 
 ### What the health check verifies
 
@@ -262,7 +300,50 @@ hooks/local/fusebase-flow-overlays/                 ← overlay templates + cano
   └── commands/fusebase-health.md                   ← slash command template
 ```
 
+</details>
+
+## How enforcement works
+
+| Layer | What it does | Where |
+|---|---|---|
+| **Always-on rules** | 19 baseline rules every session attests to | `FLOW_RULES.md` |
+| **Workflows** | Step-by-step procedures (eight-phase, greenlight-implement, greenlight-deploy, etc.) | `workflows/` |
+| **Skills** | On-demand expertise loaded when triggered by description match | `skills/` (canonical) + provider mirrors |
+| **Sub-agents** | Role-shaped specialists (Product Owner, AI Developer) with tight tool surfaces and self-attestation | `agents/` (canonical) + `.claude/agents/`, `.codex/agents/` mirrors |
+| **Policies** | Machine-readable rule data (deny lists, secret patterns, approval rules) | `policies/` |
+| **Hooks** | Deterministic enforcement at lifecycle events (Python; stdin → stdout) | `hooks/handlers/` |
+| **Git fallback** | Always-on safety net for any IDE without native hooks | `hooks/git/{pre-commit,commit-msg}` |
+| **Local scripts** | Operator-run helpers (preflight, install-git-hooks, mirror-skills, approve-local) | `hooks/local/` |
+
+Hooks read a unified JSON event from stdin (schema at `hooks/flow_hook_event.schema.json`) and emit a JSON decision. They are **local guardrails**, not a complete security boundary; combine with git hooks and operator vigilance.
+
+## Default workflow modes
+
+- **Solo / local default:** direct-to-main with pre-task git checkpoint, one-task-one-commit, lint+typecheck per commit, and verification gate before deploy.
+- **Team / shared mode:** feature branches + PR review. Switch via `policies/approval-policy.yml: workflow_mode: branch_pr` (or in a local override at `approval-policy.local.yml`).
+
+The flow rules are identical in both modes; only the git surface changes.
+
+## Validating an installation
+
+```bash
+bash hooks/local/preflight.sh    # structure + YAML + frontmatter + mirror drift + action-name consistency
+bash hooks/tests/run-tests.sh    # 11 deterministic hook test fixtures
+```
+
+Both must pass cleanly:
+
+```
+[preflight] preflight finished — errors: 0, warnings: 0
+[run-tests] 11/11 PASS
+```
+
+CI runs both on every push / PR via `.github/workflows/fusebase-flow-verify.yml`.
+
 ## What's inside
+
+<details>
+<summary><strong>Full repository tree</strong></summary>
 
 ```
 fusebase-flow/
@@ -314,57 +395,15 @@ fusebase-flow/
     └── workflows/fusebase-flow-verify.yml ← CI: preflight + tests + mirror drift + public-surface allowlist
 ```
 
-## How enforcement works
+</details>
 
-| Layer | What it does | Where |
-|---|---|---|
-| **Always-on rules** | 19 baseline rules every session attests to | `FLOW_RULES.md` |
-| **Workflows** | Step-by-step procedures (eight-phase, greenlight-implement, greenlight-deploy, etc.) | `workflows/` |
-| **Skills** | On-demand expertise loaded when triggered by description match | `skills/` (canonical) + provider mirrors |
-| **Sub-agents** | Role-shaped specialists (Product Owner, AI Developer) with tight tool surfaces and self-attestation | `agents/` (canonical) + `.claude/agents/`, `.codex/agents/` mirrors |
-| **Policies** | Machine-readable rule data (deny lists, secret patterns, approval rules) | `policies/` |
-| **Hooks** | Deterministic enforcement at lifecycle events (Python; stdin → stdout) | `hooks/handlers/` |
-| **Git fallback** | Always-on safety net for any IDE without native hooks | `hooks/git/{pre-commit,commit-msg}` |
-| **Local scripts** | Operator-run helpers (preflight, install-git-hooks, mirror-skills, approve-local) | `hooks/local/` |
+## Clean-room, license & publishing
 
-Hooks read a unified JSON event from stdin (schema at `hooks/flow_hook_event.schema.json`) and emit a JSON decision. They are **local guardrails**, not a complete security boundary; combine with git hooks and operator vigilance.
+- **Clean-room** — Canonical Flow files are clean-room original. This CLI edition also includes provider-scoped Fusebase Apps CLI assets; see [`docs/clean-room.md`](docs/clean-room.md) and [`docs/fusebase-cli-edition.md`](docs/fusebase-cli-edition.md).
+- **License** — MIT. See [`LICENSE`](LICENSE).
+- **Publishing** — Before making this repo public, follow the history-hygiene step in [`PUBLISHING.md`](PUBLISHING.md).
 
-## Default workflow modes
-
-- **Solo / local default:** direct-to-main with pre-task git checkpoint, one-task-one-commit, lint+typecheck per commit, and verification gate before deploy.
-- **Team / shared mode:** feature branches + PR review. Switch via `policies/approval-policy.yml: workflow_mode: branch_pr` (or in a local override at `approval-policy.local.yml`).
-
-The flow rules are identical in both modes; only the git surface changes.
-
-## Validating an installation
-
-```bash
-bash hooks/local/preflight.sh    # structure + YAML + frontmatter + mirror drift + action-name consistency
-bash hooks/tests/run-tests.sh    # 11 deterministic hook test fixtures
-```
-
-Both must pass cleanly:
-
-```
-[preflight] preflight finished — errors: 0, warnings: 0
-[run-tests] 11/11 PASS
-```
-
-CI runs both on every push / PR via `.github/workflows/fusebase-flow-verify.yml`.
-
-## Clean-room
-
-Canonical Flow files are clean-room original. This CLI edition also includes provider-scoped Fusebase Apps CLI assets; see [`docs/clean-room.md`](docs/clean-room.md) and [`docs/fusebase-cli-edition.md`](docs/fusebase-cli-edition.md).
-
-## License
-
-MIT. See [`LICENSE`](LICENSE).
-
-## Publishing as a public GitHub template
-
-Before making this repo public, follow the history-hygiene step in [`PUBLISHING.md`](PUBLISHING.md).
-
-## Public reference docs
+### Public reference docs
 
 Public-facing reference material lives in [`docs/`](docs/):
 
@@ -374,7 +413,7 @@ Public-facing reference material lives in [`docs/`](docs/):
 - [`docs/clean-room.md`](docs/clean-room.md) — clean-room license attestation
 - [`docs/source-map.md`](docs/source-map.md) — generic pattern attribution
 
-## Audit folder
+### Audit folder
 
 [`audit/`](audit/) is intentionally minimal in the public template:
 
