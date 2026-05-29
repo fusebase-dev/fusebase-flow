@@ -44,6 +44,22 @@ Never overwrite these files blindly:
 
 When in doubt, copy the Fusebase Flow version into a temporary location, diff against the existing file, and merge by hand.
 
+## CLI-first, Flow-second recovery model
+
+Ownership is explicit:
+
+- `cli-owned`: current FuseBase CLI or the project runtime owns the file. Flow diagnoses only.
+- `flow-owned`: Fusebase Flow owns the file and recovery may restore it from Flow source.
+- `shared-merge`: both layers contribute; Flow may append or merge only the Flow-owned addition.
+
+The maintained ownership map is `hooks/local/fusebase-flow-overlays/agent-surface-ownership.json`. To produce a no-write collision report before or after install:
+
+```bash
+bash hooks/local/check-cli-flow-conflicts.sh
+```
+
+If that report or the health check says `CLI_LAYER_DRIFT`, restore CLI-owned files with the current FuseBase CLI first. Then run Flow recovery. Flow must never restore CLI provider skills, CLI hooks, MCP config, `fusebase.json`, `skills-lock.json`, or active `.codex/config.toml` from this repository's bundled copy.
+
 ## Recommended safe workflow
 
 1. Create a branch.
@@ -300,11 +316,16 @@ bash hooks/local/fusebase-flow-health-check.sh
 
 Or, in Claude Code, type `/fusebase-health` (or ask any AI agent: *"is Fusebase Flow healthy?"*).
 
-The health check is **read-only**. It produces a structured report with one of five verdicts: `HEALTHY`, `EXCEPTION_IN_EFFECT`, `FUSEBASE_UPDATE_AFTERMATH`, `DRIFTED`, `BROKEN`.
+The health check is **read-only**. It produces a structured report with these verdicts: `HEALTHY`, `CLI_LAYER_DRIFT`, `FLOW_LAYER_DRIFT`, `SHARED_MERGE_DRIFT`, `EXCEPTION_IN_EFFECT`, `BROKEN`.
 
-### When `fusebase update` evicts the overlay
+### When `fusebase update` changes shared agent files
 
-The Fusebase CLI's `fusebase update` command (without `--skip-skills`) regenerates `AGENTS.md`, `.claude/settings.json`, and `.claude/hooks/run-typecheck-features.js` from CLI templates — destroying the Fusebase Flow overlay block in AGENTS.md, the lifecycle event entries in `.claude/settings.json`, and the Windows shell:true patch on the typecheck hook.
+The Fusebase CLI's `fusebase update` command can refresh CLI-owned agent assets such as provider skills, provider agents, Claude hook helper files, MCP/IDE config, and shared files like `AGENTS.md` and `.claude/settings.json`.
+
+Recovery order is always:
+
+1. Current FuseBase CLI restores CLI-owned files.
+2. Fusebase Flow restores only Flow-owned files and shared Flow additions.
 
 Recovery is bundled into a single idempotent script:
 
@@ -312,7 +333,7 @@ Recovery is bundled into a single idempotent script:
 bash hooks/local/post-fusebase-update.sh
 ```
 
-This restores all destroyed pieces in ~5 seconds and is safe to run multiple times.
+This restores Flow skills, Flow agents, AGENTS/CLAUDE overlay blocks, Flow lifecycle settings merge, the Flow health skill mirrors, and the `/fusebase-health` command. It does not patch `.claude/hooks/**` or restore CLI provider text.
 
 When triggered through the chat skill, the agent will **offer** to run recovery for you — reply `yes` (or `run it` / `fix it` / `proceed`) and the agent executes the script and re-checks. The skill never runs recovery without an explicit affirmative reply.
 
@@ -322,7 +343,7 @@ When triggered through the chat skill, the agent will **offer** to run recovery 
 fusebase update --skip-skills
 ```
 
-The `--skip-skills` flag tells the CLI to skip the AGENTS.md / `.claude/*` regeneration entirely — your Fusebase Flow overlay stays intact. Use the full `fusebase update` only when you actively want CLI-side skill / hook updates.
+The `--skip-skills` flag tells the CLI to skip the AGENTS.md / `.claude/*` regeneration entirely, so your Fusebase Flow overlay stays intact. Use the full CLI refresh only when you actively want current CLI-side skill, agent, hook, or settings updates, then run Flow recovery.
 
 ## Post-install validation
 
