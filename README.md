@@ -2,7 +2,7 @@
 
 **A disciplined, spec-to-deploy workflow for AI coding agents building Fusebase apps with the Fusebase CLI.**
 
-[![Version](https://img.shields.io/badge/version-3.1-blue.svg)](VERSION)
+[![Version](https://img.shields.io/badge/version-3.2.0-blue.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![CI](https://github.com/nimbuswebinc/fusebase-flow-FuseBase-CLI-edition/actions/workflows/fusebase-flow-verify.yml/badge.svg)](https://github.com/nimbuswebinc/fusebase-flow-FuseBase-CLI-edition/actions/workflows/fusebase-flow-verify.yml)
 [![Use this template](https://img.shields.io/badge/GitHub-Use_this_template-brightgreen.svg?logo=github)](https://github.com/nimbuswebinc/fusebase-flow-FuseBase-CLI-edition/generate)
@@ -290,7 +290,8 @@ An ownership manifest backs this split, and a read-only conflict reporter surfac
 | Need | Command |
 |---|---|
 | Check health + layer verdict (read-only) | `bash hooks/local/fusebase-flow-health-check.sh` <br> or `/fusebase-health` (Claude Code) <br> or *"is Fusebase Flow healthy?"* (any agent) |
-| Detailed CLI/Flow ownership & conflict report (read-only) | `bash hooks/local/check-cli-flow-conflicts.sh` |
+| Detailed CLI/Flow ownership & conflict report + drift advisory (read-only) | `bash hooks/local/check-cli-flow-conflicts.sh` |
+| Re-stamp CLI vendor provenance (after a `fusebase update` or an intentional CLI asset change) | `bash hooks/local/stamp-cli-provenance.sh` |
 | Recover Flow-owned + shared surfaces | `bash hooks/local/post-fusebase-update.sh` <br> or reply `yes` when the skill offers recovery in chat |
 | Restore CLI-owned drift | Run the current **FuseBase CLI refresh/update first**, then `post-fusebase-update.sh` for the Flow layer |
 | Upgrade engine + recovery to latest upstream | `bash hooks/local/upgrade-engine.sh` (refresh `.fusebase-flow-source/` first) |
@@ -315,8 +316,24 @@ An ownership manifest backs this split, and a read-only conflict reporter surfac
 - `preflight.sh` clean
 - `hooks/tests/run-tests.sh` passing
 - Windows `shell:true` patch on `.claude/hooks/run-typecheck-apps.js` (CVE-2024-27980 mitigation)
+- CLI vendor provenance manifest (`audit/cli-vendor-manifest.json`) present + parseable (advisory)
 
 Plus active approval artifacts in `state/approvals/` are surfaced informationally so artifact-attributable test failures don't trigger false BROKEN verdicts.
+
+### CLI vendor provenance & drift advisory (v3.2.0+)
+
+The Fusebase CLI edition vendors a frozen copy of FuseBase CLI-owned assets (19 provider skills + `references/`, 2 app-agents, 4 quality hooks). `bash hooks/local/stamp-cli-provenance.sh` records a per-file sha256 of each in `audit/cli-vendor-manifest.json` (a committed document of record), with `source_cli_version: "unknown"` — the bundling tool cannot know which live CLI bundle a copy came from, so freshness is advisory only.
+
+`check-cli-flow-conflicts.sh` then hashes each **present** CLI asset against that manifest and surfaces two **advisory** findings (informational only — they never change the verdict or exit code):
+
+| Advisory | Meaning | What to do |
+|---|---|---|
+| `CLI_SNAPSHOT_STALE` | a present CLI asset's sha256 differs from the bundled snapshot (newer or locally modified) — distinct from `MISSING`, which still escalates to `CLI_LAYER_DRIFT` | expected after `fusebase update`; if intentional, re-stamp with `stamp-cli-provenance.sh` |
+| `CLI_CUSTOM_AT_RISK` | a CLI-owned skill carries a `CUSTOM:SKILL` block a future CLI refresh may overwrite | back up the block before the next `fusebase update` |
+
+This guards the **two-writer hazard** — `fusebase update` and the Flow snapshot both write the same provider paths. The documented install copy is non-clobbering for CLI-owned paths, and Flow recovery never writes them. See [docs/fusebase-cli-edition.md](docs/fusebase-cli-edition.md) § "Two-writer hazard".
+
+The Claude Code Stop hooks shipped in `.claude/settings.json.example` are the cross-platform **node** hooks (`run-typecheck-apps.js`, `quality-check-apps.js`); the jq/bash duplicates (`run-lint-on-stop.sh`, `run-typecheck-on-stop.sh`) are deprecated and unwired (they fail out-of-the-box on Windows).
 
 ### Verdicts (ownership-layer model)
 
@@ -494,7 +511,7 @@ fusebase-flow/
 ├── CLAUDE.md                       ← Anthropic Claude Code adapter
 ├── GEMINI.md                       ← Gemini-style IDE adapter
 ├── FLOW_RULES.md                   ← FR-01..FR-19 always-on rules
-├── VERSION                         ← 3.1
+├── VERSION                         ← 3.2.0
 ├── .gitattributes                  ← LF line endings for shell/python/yaml/md
 ├── .python-version                 ← 3.12 (recommended)
 ├── skills/                         ← 14 canonical skills (2 mandatory + 12 on-demand, incl. design-discovery-ideation, smoke-testing, task-delegation, skill-authoring + fusebase-flow-health-check)

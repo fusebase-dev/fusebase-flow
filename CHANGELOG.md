@@ -4,6 +4,31 @@ All notable changes to Fusebase Flow Local. Format follows [Keep a Changelog](ht
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.2.0] — 2026-05-29
+
+### Added — provider-skill drift guards (Fusebase CLI edition)
+
+The CLI edition vendors a second copy of FuseBase CLI-owned assets (19 provider skills + their `references/`, 2 app-agents, 4 quality hooks). Those copies are written by two independent tools — `fusebase update` and the frozen Flow snapshot — with no provenance, no freshness signal, and no content-drift detection. v3.2.0 closes the residual drift-visibility and install-overwrite gaps without de-vendoring (the offline/template UX is preserved).
+
+Key additions:
+
+- **Provenance manifest (B2).** Added `hooks/local/stamp-cli-provenance.sh`, which stamps `audit/cli-vendor-manifest.json`: per-file sha256 of every vendored CLI-owned asset, a `generated_at` date, and `source_cli_version: "unknown"` (UNVERIFIABLE_LOCALLY — freshness is advisory only). The manifest is a committed document of record (like `skill-mirror-manifest.txt`); it does NOT fold CLI assets into the Flow mirror manifest.
+- **Drift-aware conflict reporter (B3).** `check-cli-flow-conflicts.sh` now hashes each present CLI asset against the provenance manifest and emits an advisory `CLI_SNAPSHOT_STALE` finding when it differs, plus a `CLI_CUSTOM_AT_RISK` finding for any CLI-owned skill carrying a `CUSTOM:SKILL` block. Both are informational only — they never change the verdict or exit code. `MISSING → CLI_LAYER_DRIFT` semantics are unchanged.
+- **CLI app-agents pinned by name (B4).** Replaced the `app-*.md` wildcard in `agent-surface-ownership.json` with explicit `known_names: ["app-architect","app-create-checker"]`; the checker iterates the list instead of globbing, so a future Flow agent named `app-*` is no longer misattributed cli-owned.
+- **Non-clobber install (B6).** The documented install copy steps now copy CLI-owned provider paths only-if-absent (`cp -Rn` / no PowerShell `-Force`); Flow-owned paths copy normally. Added a "Two-writer hazard" section to `docs/fusebase-cli-edition.md`.
+
+### Changed
+
+- **Stop-hook consolidation (B5).** `.claude/settings.json.example` now wires only the cross-platform node Stop hooks (`run-typecheck-apps.js` — CVE-2024-27980 `shell:win32` patch — plus `quality-check-apps.js`). The jq/bash duplicates (`run-lint-on-stop.sh`, `run-typecheck-on-stop.sh`) are **deprecated and unwired** (kept on disk one release with a deprecation header, because no node hook covers lint). The settings-merge recovery and conflict reporter were aligned to the node hooks; merge still never removes a hook a downstream wired.
+- **Doc-accuracy stragglers (B7).** Corrected `run-typecheck-features.js` → `run-typecheck-apps.js` in current-shipped docs (`README.md`, `docs/health-check-deferrals.md`) and `FR-01..FR-18` → `FR-01..FR-19` in `docs/install-existing-project.md`. Dated historical narratives left intact.
+- **Health-check skill text.** Documents the new advisory signals (`CLI_SNAPSHOT_STALE`, `CLI_CUSTOM_AT_RISK`), that they never trigger Flow recovery, and the `stamp-cli-provenance.sh` re-stamp path. Mirrored to `.claude`/`.agents` + overlay restore template.
+- **README "Health check & recovery"** refreshed for the provenance manifest, the drift advisory, and the node Stop-hook consolidation.
+- **Tests.** `hooks/tests/test-cli-flow-recovery.sh` extended (not rewritten) with cases for: explicit `known_names` attribution + glob-retirement, provenance stale advisory (non-failing), `CUSTOM:SKILL` at-risk, and missing-vs-stale escalation. `preflight.sh` gains an advisory (non-failing) provenance-manifest check.
+
+Baseline protections re-verified non-regressed: `mirror-skills.sh` canonical-only (14 Flow skills); 19 CLI provider skills stay `flow_write_mode:"never"`; `post-fusebase-update.sh` CLI-exclusion intact; `audit/skill-mirror-manifest.txt` still 28 lines.
+
+See `docs/release-notes/v3.2.md`.
+
 ## [3.1] — 2026-05-27
 
 ### Added - Fusebase CLI edition packaging
