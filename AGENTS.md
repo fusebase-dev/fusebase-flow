@@ -119,7 +119,7 @@ Preserve existing Fusebase CLI, MCP, SDK, provider, and project-specific rules. 
 
 | Field | Value | Where the data is enforced |
 |---|---|---|
-| **Project name** | `Fusebase Flow - Fusebase CLI edition` | (informational only) |
+| **Project name** | `Fusebase Flow` | (informational only) |
 | **One-line description** | `Fusebase Flow lifecycle framework packaged with Fusebase Apps CLI domain skills and agents` | (informational only) |
 | **Stack** | `Repo-local Flow framework + Fusebase Apps CLI provider assets` | (informational only) |
 | **Workflow mode** | `direct_to_main` (default) or `branch_pr` | `policies/approval-policy.yml: workflow_mode` |
