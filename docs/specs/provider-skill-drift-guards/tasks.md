@@ -11,14 +11,14 @@
 
 | T# | Track | Scope | Cites decision | Depends on | SHA | Status |
 |---|---|---|---|---|---|---|
-| T10 | docs | Doc-accuracy: FR-18→FR-19; `run-typecheck-features.js`→`run-typecheck-apps.js` in tracked docs. | B7 | — | <sha> | pending |
-| T11 | manifest/tooling | Pin CLI app-agents by explicit `known_names`; checker iterates list (no glob); update tests. | B4 | — | <sha> | pending |
-| T12 | hooks | Consolidate Stop hooks onto node; wire node hooks in settings example; deprecate/remove jq/bash duplicates; update docs. | B5 | — | <sha> | pending |
-| T13 | provenance | Add `audit/cli-vendor-manifest.json` + `hooks/local/stamp-cli-provenance.sh` generator (skills+refs+agents+hooks); optional preflight check. | B2 | — | <sha> | pending |
-| T14 | tooling/health | Make conflict reporter drift-aware (`CLI_SNAPSHOT_STALE`) + CUSTOM:SKILL at-risk scan; update health-check skill text + mirrors; update tests. | B3 | T11, T13 | <sha> | pending |
-| T15 | docs | Non-clobber install copy for CLI-owned paths; document two-writer hazard in `fusebase-cli-edition.md`. | B6 | — | <sha> | pending |
-| T16 | release | VERSION→3.2.0; CHANGELOG entry; `docs/release-notes/v3.2.md`; README health/recovery refresh. | B8 | T10..T15 | <sha> | pending |
-| T17 | gate | Run validation gate; produce gate report. No commit. | B1..B8 | T10..T16 | — | pending |
+| T10 | docs | Doc-accuracy: FR-18→FR-19; `run-typecheck-features.js`→`run-typecheck-apps.js` in tracked docs. | B7 | — | b35afa4 | done |
+| T11 | manifest/tooling | Pin CLI app-agents by explicit `known_names`; checker iterates list (no glob); update tests. | B4 | — | 5f44d68 | done |
+| T12 | hooks | Consolidate Stop hooks onto node; wire node hooks in settings example; deprecate/remove jq/bash duplicates; update docs. | B5 | — | f6fb7ef | done |
+| T13 | provenance | Add `audit/cli-vendor-manifest.json` + `hooks/local/stamp-cli-provenance.sh` generator (skills+refs+agents+hooks); optional preflight check. | B2 | — | 22410b9 | done |
+| T14 | tooling/health | Make conflict reporter drift-aware (`CLI_SNAPSHOT_STALE`) + CUSTOM:SKILL at-risk scan; update health-check skill text + mirrors; update tests. | B3 | T11, T13 | 9448fb2 | done |
+| T15 | docs | Non-clobber install copy for CLI-owned paths; document two-writer hazard in `fusebase-cli-edition.md`. | B6 | — | b09695d | done |
+| T16 | release | VERSION→3.2.0; CHANGELOG entry; `docs/release-notes/v3.2.md`; README health/recovery refresh. | B8 | T10..T15 | abb0e11 | done |
+| T17 | gate | Run validation gate; produce gate report. No commit. | B1..B8 | T10..T16 | — | done (CLEAN_TO_FLIP) |
 
 ## Per-task detail
 

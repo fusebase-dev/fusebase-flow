@@ -1,10 +1,11 @@
 # Spec — provider-skill-drift-guards
 
-**Status:** DRAFT
+**Status:** DONE
 **Created:** 2026-05-29
 **Linked decisions:** B1..B8
 **Promoted from:** external adoption feedback (v3.1 provider-skill drift-risk audit, 2026-05-29)
 **Deploy hash:** N/A — framework/template change, no production deploy
+**Closure:** T10..T16 shipped (b35afa4..abb0e11) and pushed to origin; gate T17 green; post-implement review verdict CLEAN_TO_FLIP (0 blockers, 6 findings refuted, 1 nit TEST-4 deferred). Released as VERSION 3.2.0.
 
 ## Problem
 
