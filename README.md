@@ -1,33 +1,51 @@
-# Fusebase Flow Local — Fusebase CLI edition
+# Fusebase Flow
 
-**A disciplined, spec-to-deploy workflow for AI coding agents building Fusebase apps with the Fusebase CLI.**
+**Turn client conversations into shipped apps — with one point of contact.** Fusebase Flow gives client-facing teams a **Product Owner** agent that consults on *what* to build and *how to build it right*, then ships it through an **AI Developer** agent.
 
 [![Version](https://img.shields.io/badge/version-3.2.0-blue.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![CI](https://github.com/nimbuswebinc/fusebase-flow-FuseBase-CLI-edition/actions/workflows/fusebase-flow-verify.yml/badge.svg)](https://github.com/nimbuswebinc/fusebase-flow-FuseBase-CLI-edition/actions/workflows/fusebase-flow-verify.yml)
-[![Use this template](https://img.shields.io/badge/GitHub-Use_this_template-brightgreen.svg?logo=github)](https://github.com/nimbuswebinc/fusebase-flow-FuseBase-CLI-edition/generate)
+[![CI](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml/badge.svg)](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml)
+[![Use this template](https://img.shields.io/badge/GitHub-Use_this_template-brightgreen.svg?logo=github)](https://github.com/fusebase-dev/fusebase-flow/generate)
 
-Fusebase Flow turns ad-hoc "vibe prompting" into a repeatable engineering loop. It installs durable rules, skills, workflows, hooks, policies, and templates into a project so your existing IDE / agent follows a consistent multi-phase ticket lifecycle — from spec through deploy — while the Fusebase CLI edition layers in everything an agent needs to actually build and ship Fusebase apps.
+Fusebase Flow turns ad-hoc "vibe prompting" into a repeatable engineering loop run by **just two agents**. It installs durable rules, skills, workflows, hooks, policies, and templates into a project so your existing IDE / agent follows a consistent multi-phase lifecycle — from spec through deploy — packaged with Fusebase Apps domain skills so the agent can actually build and ship real apps.
 
 It works by shaping the agent's behavior through **repo files**, not by replacing the agent. There is no SaaS, no daemon, no proprietary runtime to install.
 
-## The lifecycle at a glance
+## Who it's for
+
+- **Client-facing teams & businesses** — agencies, consultancies, and client-services teams who need to turn what a client asks for into shipped software, reliably.
+- **One point of contact.** Your team and your clients talk to the **Product Owner** agent — it advises on building the *right* product, then breaks the work into phases and slices an **AI Developer** executes.
+- Also works for **any AI-coding team** that wants discipline instead of vibe-prompting — but client-facing delivery is where it shines.
+
+## The two agents
+
+Fusebase Flow runs on **two agents** — that simplicity is the point. No fleet to manage: one advisor, one builder.
 
 ```mermaid
 flowchart LR
-    S[📋 Specify] --> C[❓ Clarify] --> P[🗺️ Plan] --> D[🔒 Decisions]
-    D --> T[✅ Tasks] --> V[🚦 Verify gate] --> I[⚙️ Implement] --> X[🚀 Deploy]
-    style S fill:#e3f2fd,stroke:#1976d2
-    style X fill:#e8f5e9,stroke:#388e3c
+    Client([Client / team request]) --> S[📋 Specify]
+    S --> C[❓ Clarify] --> P[🗺️ Plan] --> D[🔒 Decisions] --> T[✅ Tasks / slices]
+    T --> V[🚦 Verify gate]
+    V -->|handoff| I[⚙️ Implement<br/>one task = one commit]
+    I --> R[🔍 Review] --> H[📦 Deploy handoff] --> X[🚀 Deploy] --> Done([Shipped])
+    style Client fill:#fef9c3,stroke:#a16207
+    style S fill:#dbeafe,stroke:#1d4ed8
     style V fill:#fff3e0,stroke:#f57c00
+    style I fill:#dcfce7,stroke:#15803d
+    style X fill:#dcfce7,stroke:#15803d
 ```
 
-Every ticket flows left to right. The **Product Owner** drives Specify → Tasks and drafts the verification gate; the **AI Developer** runs the gate, implements one-task-one-commit, and runs deploy only on an approval artifact. The full eight-phase procedure lives at [`workflows/eight-phase-flow.md`](workflows/eight-phase-flow.md).
+| Agent | What it does for a client-facing team |
+|---|---|
+| **Product Owner** (blue) | The single point of contact and advisor. Understands internal and client collaboration; consults on *what* to build and *how to build it right*; then decomposes it into phases and slices. Owns Specify → Clarify → Plan → Decisions → Tasks → Review → deploy handoff. |
+| **AI Developer** (green) | The builder. Executes the slices one task = one commit, stops at the verification gate, and deploys only on explicit approval. |
+
+The full eight-phase procedure lives at [`workflows/eight-phase-flow.md`](workflows/eight-phase-flow.md).
 
 ## Contents
 
 - [Why a flow?](#why-a-flow)
-- [Edition scope](#edition-scope)
+- [What's in the box](#whats-in-the-box)
 - [Quick start (GitHub template)](#quick-start-github-template)
 - [Filing your first ticket](#filing-your-first-ticket)
 - [Supported agents & IDEs](#supported-agents--ides)
@@ -44,7 +62,7 @@ Every ticket flows left to right. The **Product Owner** drives Specify → Tasks
 
 ## Why a flow?
 
-Letting an agent free-code a feature in one pass produces fast first drafts and slow, surprising failures. Fusebase Flow front-loads the cheap parts of engineering — a **spec**, **clarifying questions**, locked **decisions**, an explicit **task list**, and a **verification gate** — so that by the time code is written, the target is unambiguous and every commit is checkable against it. The result is an AI coding loop you can trust to build and deploy real Fusebase apps, not just demos.
+Letting an agent free-code a feature in one pass produces fast first drafts and slow, surprising failures — and when you're building for a client, those failures land in front of the client. Fusebase Flow front-loads the cheap parts of engineering — a **spec**, **clarifying questions**, locked **decisions**, an explicit **task list**, and a **verification gate** — so that by the time code is written, the target is unambiguous and every commit is checkable against it. The result is an AI coding loop you can trust to build and ship real client apps, not just demos.
 
 ### Coming from ad-hoc agent prompting?
 
@@ -60,11 +78,11 @@ If today you open Claude Code / Codex / Cursor and just say *"build me X"*, you 
 
 Nothing to uninstall from your agent — drop the files in, attest once, keep working.
 
-## Edition scope
+## What's in the box
 
-This Fusebase CLI edition keeps Flow as the lifecycle layer and adds Fusebase Apps CLI provider assets as the runtime/domain layer. Flow owns specs, decisions, tasks, gates, reviews, deploy handoffs, and smoke discipline. CLI assets support app architecture, Fusebase CLI usage, dashboards, gate, secrets, routing, logs, and scaffold checks.
+Fusebase Flow has two layers. **Flow** is the lifecycle: specs, decisions, tasks, gates, reviews, deploy handoffs, and smoke discipline. The bundled **Fusebase Apps domain skills** are the build layer: app architecture, Fusebase CLI usage, dashboards, gate, secrets, routing, logs, and scaffold checks — so the agent can ship real apps, not just plan them.
 
-See [`docs/fusebase-cli-edition.md`](docs/fusebase-cli-edition.md) for the boundary map and overlap table.
+See [`docs/fusebase-cli-edition.md`](docs/fusebase-cli-edition.md) for the layer boundary map and overlap table.
 
 | Is | Isn't |
 |---|---|
@@ -108,7 +126,7 @@ The full eight-phase lifecycle lives at [`workflows/eight-phase-flow.md`](workfl
 
 ## Supported agents & IDEs
 
-Fusebase Flow Local provides compatibility files for:
+Fusebase Flow provides compatibility files for:
 
 - **Anthropic Claude Code** — `CLAUDE.md`, `.claude/skills/`, `.claude/settings.json.example`
 - **OpenAI / ChatGPT Codex** — `AGENTS.md`, `.agents/skills/`, `.codex/config.toml.example`, `.codex/hooks.json.example`
@@ -117,7 +135,7 @@ Fusebase Flow Local provides compatibility files for:
 - **Gemini / Antigravity-style IDE agents** — `GEMINI.md`, `AGENTS.md`
 - **Generic local repo workflows** — `AGENTS.md` + root-level framework dirs (`skills/`, `workflows/`, `policies/`, `templates/`, `hooks/`) + git fallback hooks + local scripts
 
-In this edition, `.claude/skills/` and `.agents/skills/` include both canonical Flow skill mirrors and CLI provider skills. The audit mirror manifest tracks the Flow mirrors only.
+`.claude/skills/` and `.agents/skills/` include both canonical Flow skill mirrors and Fusebase Apps domain skills. The audit mirror manifest tracks the Flow mirrors only.
 
 The full surface support breakdown lives at [`docs/compatibility.md`](docs/compatibility.md).
 
@@ -555,7 +573,7 @@ fusebase-flow/
 
 ## Clean-room, license & publishing
 
-- **Clean-room** — Canonical Flow files are clean-room original. This CLI edition also includes provider-scoped Fusebase Apps CLI assets; see [`docs/clean-room.md`](docs/clean-room.md) and [`docs/fusebase-cli-edition.md`](docs/fusebase-cli-edition.md).
+- **Clean-room** — Canonical Flow files are clean-room original. The bundled Fusebase Apps domain skills are provider-scoped assets; see [`docs/clean-room.md`](docs/clean-room.md) and [`docs/fusebase-cli-edition.md`](docs/fusebase-cli-edition.md).
 - **License** — MIT. See [`LICENSE`](LICENSE).
 - **Publishing** — Before making this repo public, follow the history-hygiene step in [`PUBLISHING.md`](PUBLISHING.md).
 

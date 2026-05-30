@@ -1,6 +1,6 @@
-# AGENTS.md - Fusebase Flow always-on baseline for Fusebase CLI edition
+# AGENTS.md - Fusebase Flow always-on baseline
 
-This repo uses **Fusebase Flow Local - Fusebase CLI edition**: a repo-local discipline framework for AI coding agents and IDEs, packaged with Fusebase Apps CLI domain skills, agents, and Claude Code quality hooks. The full rule set is at `FLOW_RULES.md`. This file is the portable always-on baseline that every agent reads first regardless of tool.
+This repo uses **Fusebase Flow**: a repo-local discipline framework for AI coding agents and IDEs, packaged with Fusebase Apps domain skills, agents, and Claude Code quality hooks. The full rule set is at `FLOW_RULES.md`. This file is the portable always-on baseline that every agent reads first regardless of tool.
 
 ## What Fusebase Flow is (and isn't)
 

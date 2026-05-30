@@ -1,6 +1,6 @@
 # GEMINI.md - Gemini / Antigravity adapter for Fusebase Flow
 
-This repo runs **Fusebase Flow Local v3.1 - Fusebase CLI edition**. The full portable baseline is in `AGENTS.md` and the full rule set is in `FLOW_RULES.md`. Read both before any other action.
+This repo runs **Fusebase Flow v3.2.0**. The full portable baseline is in `AGENTS.md` and the full rule set is in `FLOW_RULES.md`. Read both before any other action.
 
 ## Gemini / Antigravity-specific notes
 
