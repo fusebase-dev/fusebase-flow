@@ -11,9 +11,9 @@ This repo uses **Fusebase Flow**: a repo-local discipline framework for AI codin
 | Tool-portable across Cursor, Claude Code, Codex, GitHub Copilot/VS Code, Gemini-style IDE agents, and generic local workflows | Tied to one vendor |
 | A GitHub template you copy into projects | Auto-installed dependencies |
 
-## Fusebase CLI edition layering
+## Layering: lifecycle + domain
 
-This edition includes original Fusebase Apps CLI provider assets as a runtime/domain layer. Flow remains the lifecycle layer.
+Fusebase Flow includes original Fusebase Apps CLI provider assets as a runtime/domain layer. Flow remains the lifecycle layer.
 
 | Layer | Owns | Paths |
 |---|---|---|

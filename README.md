@@ -150,7 +150,7 @@ Two role-shaped sub-agents cover the full eight-phase lifecycle. They are **opt-
 
 Both sub-agents always load the mandatory `communication` and `role-discipline` skills.
 
-This CLI edition also ships CLI app agents (`app-architect`, `app-create-checker`) as provider/domain assets. They support Fusebase Apps architecture and scaffold validation; they do not replace the Flow Product Owner or AI Developer role agents.
+Fusebase Flow also ships Fusebase Apps app-agents (`app-architect`, `app-create-checker`) as domain assets. They support Fusebase Apps architecture and scaffold validation; they do not replace the Flow Product Owner or AI Developer role agents.
 
 ### Invoking from Claude Code
 
@@ -340,7 +340,7 @@ Plus active approval artifacts in `state/approvals/` are surfaced informationall
 
 ### CLI vendor provenance & drift advisory (v3.2.0+)
 
-The Fusebase CLI edition vendors a frozen copy of FuseBase CLI-owned assets (19 provider skills + `references/`, 2 app-agents, 4 quality hooks). `bash hooks/local/stamp-cli-provenance.sh` records a per-file sha256 of each in `audit/cli-vendor-manifest.json` (a committed document of record), with `source_cli_version: "unknown"` — the bundling tool cannot know which live CLI bundle a copy came from, so freshness is advisory only.
+Fusebase Flow vendors a frozen copy of FuseBase CLI-owned assets (19 provider skills + `references/`, 2 app-agents, 4 quality hooks). `bash hooks/local/stamp-cli-provenance.sh` records a per-file sha256 of each in `audit/cli-vendor-manifest.json` (a committed document of record), with `source_cli_version: "unknown"` — the bundling tool cannot know which live CLI bundle a copy came from, so freshness is advisory only.
 
 `check-cli-flow-conflicts.sh` then hashes each **present** CLI asset against that manifest and surfaces two **advisory** findings (informational only — they never change the verdict or exit code):
 
