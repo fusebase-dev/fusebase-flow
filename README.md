@@ -11,6 +11,16 @@ A development framework for client-facing businesses and teams, FuseBase Flow co
 
 It shapes your existing AI agent through **repo files** — no SaaS, no daemon, no proprietary runtime. Works in Claude Code, Codex, Cursor, Copilot, and Gemini.
 
+## Built by FuseBase
+
+FuseBase Flow is built and maintained by **FuseBase** (Nimbus Web Inc.) — a US company building client-facing collaboration software since **2014 (11 years)**. It's the framework FuseBase itself uses to ship apps, backed by a proven product track record:
+
+- 🏆 **Product Hunt** — Product of the Day, Week, Month & Year (team collaboration)
+- 🥇 **3× top-selling deal on AppSumo**
+- ⭐ **~600 five-star reviews**
+
+FuseBase Flow isn't an experiment — it's the workflow a real product company runs on.
+
 ## Who it's for
 
 - **Agencies, consultancies, and client-facing teams** building apps for both their own internal operations and their clients.
@@ -67,12 +77,9 @@ If today you open Claude Code / Codex / Cursor and just say *"build me X"*, you 
 
 Nothing to uninstall from your agent -- drop the files in, attest once, keep working.
 
-## Backed by FuseBase
-
-Built by FuseBase (Nimbus Web Inc., est. 2014) -- the operating environment where client-facing teams build and ship internal and client apps. <!-- verify before publishing: years in business, Product Hunt honors, AppSumo deals, review count -->
-
 ## Contents
 
+- [Built by FuseBase](#built-by-fusebase)
 - [Who it's for](#who-its-for)
 - [Why a framework (and why two agents)](#why-a-framework-and-why-two-agents)
 - [How it stays reliable](#how-it-stays-reliable)
