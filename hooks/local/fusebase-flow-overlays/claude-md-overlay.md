@@ -23,6 +23,22 @@ This repository follows **Fusebase Flow** in addition to project-specific rules.
 - `smoke-testing` — define and execute outcome-based deploy smoke with ground-truth diagnostics
 - `task-delegation` — coordinate bounded read-only or disjoint implementation subtasks when the host supports subagents
 - `validation-and-qa` — verification-gate authoring and execution
+- `skill-authoring` — create/update reusable skills (clean-room; incl. domain-expert mode)
+- `zoom-out` — FR-20 root-cause-vs-patch check before a fix
+- `phase-audit` — independent sub-agent audit of all slices of a phase
+- `git-history-diagnostic` — regression archaeology (locate the causing commit)
+- `project-onboarding` — `/onboard` discovery interview → writes project artifacts (operator-triggered)
+- `north-star` — steer work to `docs/north-star.md` if present (no-op if absent)
+- `client-vs-internal` — simple-for-client / robust-for-internal (no-op if absent)
+- `product-docs-first` — design per-app product docs before code (no-op if absent)
+- `business-logic-guardian` — protect documented business logic during fixes (no-op if absent)
+- `product-apps-decomposition` — product → focused apps guidance
+
+(23 canonical Fusebase Flow skills total.)
+
+**Slash commands (`.claude/commands/`):** `/fusebase-health`, `/onboard`, `/product-owner`.
+
+**Active project context:** if `docs/north-star.md` / `docs/<app>/product.md` exist, read and follow them; if absent, run generically — never auto-create. Run `/onboard` to capture project vision.
 
 **Fusebase Flow sub-agents (description-matched from `.claude/agents/`):**
 

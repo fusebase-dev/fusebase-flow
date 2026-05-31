@@ -12,7 +12,7 @@
 #   4. CLAUDE.md Flow overlay block
 #   5. .claude/settings.json Flow lifecycle events and stop.py hook
 #   6. fusebase-flow-health-check skill mirrors
-#   7. .claude/commands/fusebase-health.md
+#   7. .claude/commands/*.md (all Fusebase Flow slash commands: fusebase-health, onboard, product-owner)
 #
 # Guardrail:
 #   .claude/hooks/** is CLI-owned. Flow recovery does not patch or restore CLI
@@ -166,17 +166,32 @@ fi
 # Step 8 - Restore /fusebase-health slash command.
 ###############################################################################
 
-echo "[post-fusebase-update] Step 8: /fusebase-health slash command restore..."
-HEALTH_CMD_TEMPLATE="$OVERLAYS/commands/fusebase-health.md"
-HEALTH_CMD_TARGET=".claude/commands/fusebase-health.md"
-if [ ! -f "$HEALTH_CMD_TEMPLATE" ]; then
-  WARNINGS+=("$HEALTH_CMD_TEMPLATE missing; cannot restore /fusebase-health slash command")
-elif [ -f "$HEALTH_CMD_TARGET" ] && diff -q "$HEALTH_CMD_TEMPLATE" "$HEALTH_CMD_TARGET" >/dev/null 2>&1; then
-  ACTIONS_SKIPPED+=("/fusebase-health slash command already in place")
+echo "[post-fusebase-update] Step 8: Fusebase Flow slash commands restore..."
+CMD_TEMPLATE_DIR="$OVERLAYS/commands"
+CMD_TARGET_DIR=".claude/commands"
+if [ ! -d "$CMD_TEMPLATE_DIR" ]; then
+  WARNINGS+=("$CMD_TEMPLATE_DIR missing; cannot restore Fusebase Flow slash commands")
 else
-  mkdir -p "$(dirname "$HEALTH_CMD_TARGET")"
-  cp "$HEALTH_CMD_TEMPLATE" "$HEALTH_CMD_TARGET"
-  ACTIONS_TAKEN+=("/fusebase-health slash command: restored to $HEALTH_CMD_TARGET")
+  CMD_RESTORED=0
+  CMD_TOTAL=0
+  mkdir -p "$CMD_TARGET_DIR"
+  for cmd_template in "$CMD_TEMPLATE_DIR"/*.md; do
+    [ -f "$cmd_template" ] || continue
+    CMD_TOTAL=$((CMD_TOTAL + 1))
+    cmd_name="$(basename "$cmd_template")"
+    cmd_target="$CMD_TARGET_DIR/$cmd_name"
+    if [ -f "$cmd_target" ] && diff -q "$cmd_template" "$cmd_target" >/dev/null 2>&1; then
+      :
+    else
+      cp "$cmd_template" "$cmd_target"
+      CMD_RESTORED=$((CMD_RESTORED + 1))
+    fi
+  done
+  if [ "$CMD_RESTORED" -gt 0 ]; then
+    ACTIONS_TAKEN+=("Fusebase Flow slash commands: restored $CMD_RESTORED of $CMD_TOTAL to $CMD_TARGET_DIR")
+  else
+    ACTIONS_SKIPPED+=("Fusebase Flow slash commands already in place ($CMD_TOTAL command(s))")
+  fi
 fi
 
 ###############################################################################

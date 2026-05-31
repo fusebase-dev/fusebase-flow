@@ -4,6 +4,17 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.5.2] — 2026-05-31
+
+### Fixed — recovery/overlay refresh for downstream installs
+
+A health/recovery audit found the recovery overlay templates had not kept pace with the v3.3–v3.5 additions (latent — affected a downstream project running recovery after `fusebase update`, not this repo).
+
+- **R-1:** `post-fusebase-update.sh` Step 8 now restores **all** `.claude/commands/*.md` (loop, not just `fusebase-health.md`) — `/onboard` and `/product-owner` are now recoverable. Added their templates to `hooks/local/fusebase-flow-overlays/commands/`. Verified: a simulated wipe restored 2 of 3 commands correctly.
+- **R-2:** AGENTS.md + CLAUDE.md overlay templates' skills lists refreshed to all 23 canonical skills; added the "Active project context" discovery instruction.
+- **R-3:** CLAUDE.md overlay self-attestation/labels swept `FR-19`/`v3.1` → `FR-20`/`v3.5.0`.
+- VERSION 3.5.1 → 3.5.2; plugin manifests bumped. No skills added/removed.
+
 ## [3.5.1] — 2026-05-31
 
 ### Fixed — post-implementation audit corrections
