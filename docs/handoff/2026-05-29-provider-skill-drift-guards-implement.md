@@ -42,7 +42,7 @@ Refusal phrasing for any rule-violating request:
 | CLI quality hooks (4) | `.claude/hooks/quality-check-apps.js`, `run-lint-on-stop.sh`, `run-typecheck-apps.js`, `run-typecheck-on-stop.sh` | hook consolidation (B5) + provenance (B2) |
 | CVE patch location | `run-typecheck-apps.js:104-105` (`shell: process.platform==="win32"`) | the node hook to KEEP/wire (B5) |
 | Canonical Flow skills (14) | unchanged set — do NOT add CLI skills here | baseline non-regression |
-| `repo-polish` skill | LOCAL-ONLY, gitignored (`.git/info/exclude`) — NOT a CLI skill | exclude from provenance manifest |
+| a local-only operator skill | LOCAL-ONLY, gitignored (`.git/info/exclude`) — NOT a CLI skill | exclude from provenance manifest |
 
 ## Production state going in
 

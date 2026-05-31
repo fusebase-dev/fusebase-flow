@@ -627,7 +627,7 @@ Surfaced during v2.4.0 development: the AGENTS.md / CLAUDE.md overlay-marker cou
 
 ```json
 {
-  "approved_by": "pavel.sher@thefusebase.com",
+  "approved_by": "operator@example.com",
   "scope": "Lifecycle hooks + Windows patch deferred per install brief 2026-05-08",
   "expires_at": "2026-08-10T00:00:00Z",
   "reason": "Project preserves existing hooks per Step 9; .claude/hooks/ protected per Step 10",

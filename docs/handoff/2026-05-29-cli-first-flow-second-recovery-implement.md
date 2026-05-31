@@ -11,8 +11,8 @@
 ## Start state
 
 - Operator locked recommended clarify/decision path with `lock recommended`.
-- CLI archive analyzed at `C:\Users\abcpa\OneDrive\Downloads\apps-cli-main (1).zip`.
-- Temporary extraction used during analysis: `C:\tmp\apps-cli-main-1-analysis-20260528-223555\apps-cli-main`.
+- CLI archive analyzed from the operator's local download of the FuseBase CLI source archive.
+- Temporary extraction used during analysis under a local temp directory.
 - Archive package: `fusebase-apps-cli` version `0.25.5`.
 - Current repo branch before implementation: `main`.
 - Recent baseline commit: `95f9bcb T1: package Fusebase CLI edition v3.1`.
