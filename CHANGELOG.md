@@ -4,6 +4,17 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.5.0] — 2026-05-31
+
+### Added — input-dependent skills (client-facing delivery)
+
+- **`client-vs-internal`** — simple-for-client / robust-for-internal posture; gated on `docs/audience.md`.
+- **`product-docs-first`** — design per-app product docs before code; gated on `docs/<app>/product.md`.
+- **`business-logic-guardian`** — protect documented business logic during fixes (pairs with FR-20); gated on `docs/<app>/business-logic.md`.
+- **`product-apps-decomposition`** — product→focused-apps guidance (reliability + token economy); generic-with-enhancement.
+- `templates/audience.md`, `templates/product.md`; `session_start.py` scan extended.
+- All reuse the v3.4.0 artifact-gated pattern (absent → silent no-op). Flow skills 19 → 23; manifest 38 → 46. Completes the Tier-1/2 gap batch. Full detail: `docs/release-notes/v3.5.md`.
+
 ## [3.4.0] — 2026-05-31
 
 ### Added — onboarding keystone + North Star

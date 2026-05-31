@@ -77,10 +77,13 @@ def main() -> int:
     # Absent by default; absence changes nothing (AGENTS.md instruction + skill
     # existence-guards cover discovery universally, hook or no hook).
     project_artifacts = []
-    if (root / "docs" / "north-star.md").exists():
-        project_artifacts.append("docs/north-star.md")
+    for rel in ("docs/north-star.md", "docs/audience.md"):
+        if (root / rel).exists():
+            project_artifacts.append(rel)
     try:
         for p in sorted((root / "docs").glob("*/product.md")):
+            project_artifacts.append(str(p.relative_to(root)).replace("\\", "/"))
+        for p in sorted((root / "docs").glob("*/business-logic.md")):
             project_artifacts.append(str(p.relative_to(root)).replace("\\", "/"))
     except OSError:
         pass

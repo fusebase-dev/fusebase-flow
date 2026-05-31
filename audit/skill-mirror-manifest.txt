@@ -1,3 +1,7 @@
+.agents/skills/business-logic-guardian/SKILL.md  64c27f0921013461dcb426e3a2f5c45fbeb94681331686bffbcff8d6d4500d68
+.claude/skills/business-logic-guardian/SKILL.md  64c27f0921013461dcb426e3a2f5c45fbeb94681331686bffbcff8d6d4500d68
+.agents/skills/client-vs-internal/SKILL.md  8598654f239aa87feb88375dc1716b2ef55d40d2ecc98c667eb44061382efaa6
+.claude/skills/client-vs-internal/SKILL.md  8598654f239aa87feb88375dc1716b2ef55d40d2ecc98c667eb44061382efaa6
 .agents/skills/code-review/SKILL.md  8e8b0230d7222c9b4e6185ff79d812fabefe40e4e8a9867f47b69f475f8f76e8
 .claude/skills/code-review/SKILL.md  8e8b0230d7222c9b4e6185ff79d812fabefe40e4e8a9867f47b69f475f8f76e8
 .agents/skills/communication/SKILL.md  f0542a27ed6127d6d8ff838a717b1ea578602665a1c108b2d7f6093413c9fa7b
@@ -14,6 +18,10 @@
 .claude/skills/north-star/SKILL.md  0052db6692c889abc0ec62752892b43e5708974ec8b621fcea4cbdf35e6e2e72
 .agents/skills/phase-audit/SKILL.md  c14e73fd1132b88443459e724f9e730296d95c407b674f1e7fde87c5adf33038
 .claude/skills/phase-audit/SKILL.md  c14e73fd1132b88443459e724f9e730296d95c407b674f1e7fde87c5adf33038
+.agents/skills/product-apps-decomposition/SKILL.md  87964cada626f59cfd120585ba2de878befbc9421e711467832dd5c6aa9ae96b
+.claude/skills/product-apps-decomposition/SKILL.md  87964cada626f59cfd120585ba2de878befbc9421e711467832dd5c6aa9ae96b
+.agents/skills/product-docs-first/SKILL.md  11e3c6e187a2bc31f005a68220b0f5e85d405f4d27fc461ea622230135785bab
+.claude/skills/product-docs-first/SKILL.md  11e3c6e187a2bc31f005a68220b0f5e85d405f4d27fc461ea622230135785bab
 .agents/skills/project-onboarding/SKILL.md  565a8e1bbaec68084b996dc6a7b5624aa3c403464701cb0b2e9487ccb714640e
 .claude/skills/project-onboarding/SKILL.md  565a8e1bbaec68084b996dc6a7b5624aa3c403464701cb0b2e9487ccb714640e
 .agents/skills/release-deploy-reporting/SKILL.md  059fbe2507476e6293df10ed07e765d89c4eb9bc1a0b2bab181fe3ff920accae
