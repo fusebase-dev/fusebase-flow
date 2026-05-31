@@ -1,25 +1,30 @@
-# Fusebase Flow
+# FuseBase Flow
 
-**Turn client conversations into shipped apps — with one point of contact.** Fusebase Flow gives client-facing teams a **Product Owner** agent that consults on *what* to build and *how to build it right*, then ships it through an **AI Developer** agent.
+**The framework client-facing teams use to build internal and client-facing apps with AI.**
 
 [![Version](https://img.shields.io/badge/version-3.2.0-blue.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![CI](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml/badge.svg)](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml)
 [![Use this template](https://img.shields.io/badge/GitHub-Use_this_template-brightgreen.svg?logo=github)](https://github.com/fusebase-dev/fusebase-flow/generate)
 
-Fusebase Flow turns ad-hoc "vibe prompting" into a repeatable engineering loop run by **just two agents**. It installs durable rules, skills, workflows, hooks, policies, and templates into a project so your existing IDE / agent follows a consistent multi-phase lifecycle — from spec through deploy — packaged with Fusebase Apps domain skills so the agent can actually build and ship real apps.
+A development framework for client-facing businesses and teams, FuseBase Flow covers what breaks during real app development for internal and external collaboration — drift, context rot, scope creep, unreliable hand-offs — so two AI agents (a Product Owner and an AI Developer) can ship reliably.
 
-It works by shaping the agent's behavior through **repo files**, not by replacing the agent. There is no SaaS, no daemon, no proprietary runtime to install.
+It shapes your existing AI agent through **repo files** — no SaaS, no daemon, no proprietary runtime. Works in Claude Code, Codex, Cursor, Copilot, and Gemini.
 
 ## Who it's for
 
-- **Client-facing teams & businesses** — agencies, consultancies, and client-services teams who need to turn what a client asks for into shipped software, reliably.
-- **One point of contact.** Your team and your clients talk to the **Product Owner** agent — it advises on building the *right* product, then breaks the work into phases and slices an **AI Developer** executes.
-- Also works for **any AI-coding team** that wants discipline instead of vibe-prompting — but client-facing delivery is where it shines.
+- **Agencies, consultancies, and client-facing teams** building apps for both their own internal operations and their clients.
+- Teams who want to **productize their expertise** — turn the knowledge only you have into apps and systems you deliver, internally and to clients.
+- Anyone who's hit the wall where one AI chat gets clogged, the model drifts, and a half-built app stops being trustworthy.
 
-## The two agents
+## Why a framework (and why two agents)
 
-Fusebase Flow runs on **two agents** — that simplicity is the point. No fleet to manage: one advisor, one builder.
+Building real apps with an AI agent breaks in predictable ways: one chat fills up and the model **drifts**; context rot makes later edits contradict earlier ones; a single mega-prompt smuggles in **scope creep**; and work handed between sessions loses its thread. FuseBase Flow closes those gaps with a disciplined loop run by **two agents** — a consultant and a builder, not a sprawling fleet. The simplicity is the point.
+
+| Agent | Role |
+|---|---|
+| **Product Owner** | Your single point of contact. Consults on *what* to build and *how to build it right*, then breaks the work into phases and slices. Owns Specify -> Clarify -> Plan -> Decisions -> Tasks -> Review -> deploy hand-off. |
+| **AI Developer** | The builder. Executes each slice one task = one commit, stops at a verification gate, and deploys only on approval -- in a separate session so the main context stays clean. |
 
 ```mermaid
 flowchart LR
@@ -35,16 +40,44 @@ flowchart LR
     style X fill:#dcfce7,stroke:#15803d
 ```
 
-| Agent | What it does for a client-facing team |
-|---|---|
-| **Product Owner** (blue) | The single point of contact and advisor. Understands internal and client collaboration; consults on *what* to build and *how to build it right*; then decomposes it into phases and slices. Owns Specify → Clarify → Plan → Decisions → Tasks → Review → deploy handoff. |
-| **AI Developer** (green) | The builder. Executes the slices one task = one commit, stops at the verification gate, and deploys only on explicit approval. |
+*Product Owner (blue) is the single point of contact -- consults, advises, and breaks work into phases and slices. AI Developer (green) builds and deploys. The full eight-phase procedure lives at [`workflows/eight-phase-flow.md`](workflows/eight-phase-flow.md).*
 
-The full eight-phase procedure lives at [`workflows/eight-phase-flow.md`](workflows/eight-phase-flow.md).
+## How it stays reliable
+
+- **No drift** -- the Product Owner (advise) and AI Developer (build) split the work so neither chat clogs and the model stays on target.
+- **Phases -> slices** -- complex work is decomposed Jira-style into reviewable slices, never one risky mega-prompt.
+- **Durable hand-offs** -- work survives session resets with full context, so a fresh chat picks up without fatigue.
+- **Many small apps, not one monster** -- a product is composed of focused apps, so one failure can't sink the whole system.
+
+## What it costs
+
+FuseBase Flow runs natively in your IDE through the FuseBase CLI. There are **no per-token platform fees** -- you pay only for the AI subscription you already have (Claude Code, Codex, Cursor, Gemini, or Copilot).
+
+## Coming from ad-hoc agent prompting?
+
+If today you open Claude Code / Codex / Cursor and just say *"build me X"*, you already have everything FuseBase Flow needs -- it doesn't replace your agent, it **gives it a process**:
+
+| Without FuseBase Flow | With FuseBase Flow |
+|---|---|
+| One giant prompt -> one giant diff you have to trust | Spec -> decisions -> tasks -> one-commit-per-task you can review |
+| "It worked on my machine" | Verification gate + outcome-based smoke before deploy |
+| Scope creep mid-session | Locked decisions; supersede discipline (FR-18) |
+| Re-explaining context every session | Durable repo artifacts (`docs/specs/`, `docs/handoff/`) |
+| Risky deploys | Deploy gated on an explicit approval artifact |
+
+Nothing to uninstall from your agent -- drop the files in, attest once, keep working.
+
+## Backed by FuseBase
+
+Built by FuseBase (Nimbus Web Inc., est. 2014) -- the operating environment where client-facing teams build and ship internal and client apps. <!-- verify before publishing: years in business, Product Hunt honors, AppSumo deals, review count -->
 
 ## Contents
 
-- [Why a flow?](#why-a-flow)
+- [Who it's for](#who-its-for)
+- [Why a framework (and why two agents)](#why-a-framework-and-why-two-agents)
+- [How it stays reliable](#how-it-stays-reliable)
+- [What it costs](#what-it-costs)
+- [Coming from ad-hoc agent prompting?](#coming-from-ad-hoc-agent-prompting)
 - [What's in the box](#whats-in-the-box)
 - [Quick start (GitHub template)](#quick-start-github-template)
 - [Filing your first ticket](#filing-your-first-ticket)
@@ -60,27 +93,9 @@ The full eight-phase procedure lives at [`workflows/eight-phase-flow.md`](workfl
 - [What's inside](#whats-inside)
 - [Clean-room, license & publishing](#clean-room-license--publishing)
 
-## Why a flow?
-
-Letting an agent free-code a feature in one pass produces fast first drafts and slow, surprising failures — and when you're building for a client, those failures land in front of the client. Fusebase Flow front-loads the cheap parts of engineering — a **spec**, **clarifying questions**, locked **decisions**, an explicit **task list**, and a **verification gate** — so that by the time code is written, the target is unambiguous and every commit is checkable against it. The result is an AI coding loop you can trust to build and ship real client apps, not just demos.
-
-### Coming from ad-hoc agent prompting?
-
-If today you open Claude Code / Codex / Cursor and just say *"build me X"*, you already have everything Flow needs — Flow doesn't replace your agent, it **gives it a process**:
-
-| Without Flow | With Fusebase Flow |
-|---|---|
-| One giant prompt → one giant diff you have to trust | Spec → decisions → tasks → one-commit-per-task you can review |
-| "It worked on my machine" | Verification gate + outcome-based smoke before deploy |
-| Scope creep mid-session | Locked decisions; supersede discipline (FR-18) |
-| Re-explaining context every session | Durable repo artifacts (`docs/specs/`, `docs/handoff/`) |
-| Risky deploys | Deploy gated on an explicit approval artifact |
-
-Nothing to uninstall from your agent — drop the files in, attest once, keep working.
-
 ## What's in the box
 
-Fusebase Flow has two layers. **Flow** is the lifecycle: specs, decisions, tasks, gates, reviews, deploy handoffs, and smoke discipline. The bundled **Fusebase Apps domain skills** are the build layer: app architecture, Fusebase CLI usage, dashboards, gate, secrets, routing, logs, and scaffold checks — so the agent can ship real apps, not just plan them.
+FuseBase Flow has two layers. **Flow** is the lifecycle: specs, decisions, tasks, gates, reviews, deploy handoffs, and smoke discipline. The bundled **FuseBase Apps domain skills** are the build layer: app architecture, FuseBase CLI usage, dashboards, gate, secrets, routing, logs, and scaffold checks — so the agent can ship real apps, not just plan them.
 
 See [`docs/fusebase-cli-edition.md`](docs/fusebase-cli-edition.md) for the layer boundary map and overlap table.
 
@@ -126,7 +141,7 @@ The full eight-phase lifecycle lives at [`workflows/eight-phase-flow.md`](workfl
 
 ## Supported agents & IDEs
 
-Fusebase Flow provides compatibility files for:
+FuseBase Flow provides compatibility files for:
 
 - **Anthropic Claude Code** — `CLAUDE.md`, `.claude/skills/`, `.claude/settings.json.example`
 - **OpenAI / ChatGPT Codex** — `AGENTS.md`, `.agents/skills/`, `.codex/config.toml.example`, `.codex/hooks.json.example`
@@ -135,7 +150,7 @@ Fusebase Flow provides compatibility files for:
 - **Gemini / Antigravity-style IDE agents** — `GEMINI.md`, `AGENTS.md`
 - **Generic local repo workflows** — `AGENTS.md` + root-level framework dirs (`skills/`, `workflows/`, `policies/`, `templates/`, `hooks/`) + git fallback hooks + local scripts
 
-`.claude/skills/` and `.agents/skills/` include both canonical Flow skill mirrors and Fusebase Apps domain skills. The audit mirror manifest tracks the Flow mirrors only.
+`.claude/skills/` and `.agents/skills/` include both canonical Flow skill mirrors and FuseBase Apps domain skills. The audit mirror manifest tracks the Flow mirrors only.
 
 The full surface support breakdown lives at [`docs/compatibility.md`](docs/compatibility.md).
 
@@ -150,7 +165,7 @@ Two role-shaped sub-agents cover the full eight-phase lifecycle. They are **opt-
 
 Both sub-agents always load the mandatory `communication` and `role-discipline` skills.
 
-Fusebase Flow also ships Fusebase Apps app-agents (`app-architect`, `app-create-checker`) as domain assets. They support Fusebase Apps architecture and scaffold validation; they do not replace the Flow Product Owner or AI Developer role agents.
+FuseBase Flow also ships FuseBase Apps app-agents (`app-architect`, `app-create-checker`) as domain assets. They support FuseBase Apps architecture and scaffold validation; they do not replace the Flow Product Owner or AI Developer role agents.
 
 ### Invoking from Claude Code
 
@@ -190,7 +205,7 @@ Preflight will warn on drift if the mirrors and canonical fall out of sync. Full
 
 ## Skill catalog
 
-Skills are on-demand expertise the agent loads when a task matches the skill's description. **14 canonical Flow skills** govern the lifecycle; **19 Fusebase CLI provider skills** supply the app-building domain knowledge. You never invoke them by hand — describe the work and the matcher loads the right one.
+Skills are on-demand expertise the agent loads when a task matches the skill's description. **14 canonical Flow skills** govern the lifecycle; **19 FuseBase CLI provider skills** supply the app-building domain knowledge. You never invoke them by hand — describe the work and the matcher loads the right one.
 
 ### Flow lifecycle skills (14)
 
@@ -213,7 +228,7 @@ Skills are on-demand expertise the agent loads when a task matches the skill's d
 
 ★ = mandatory, loaded every session.
 
-### Fusebase CLI provider skills (19)
+### FuseBase CLI provider skills (19)
 
 <details>
 <summary><strong>App build · runtime · data · ops domain skills</strong></summary>
@@ -243,7 +258,7 @@ Skills are on-demand expertise the agent loads when a task matches the skill's d
 
 Do not blindly copy this repository over an existing project.
 
-If the target repo already contains `AGENTS.md`, `CLAUDE.md`, `.gitignore`, `.claude/settings.json`, `.mcp.json`, `.cursor/mcp.json`, `.agents/skills/`, `.claude/skills/`, `fusebase.json`, or `skills-lock.json`, use the Fusebase CLI / MCP-safe install path:
+If the target repo already contains `AGENTS.md`, `CLAUDE.md`, `.gitignore`, `.claude/settings.json`, `.mcp.json`, `.cursor/mcp.json`, `.agents/skills/`, `.claude/skills/`, `fusebase.json`, or `skills-lock.json`, use the FuseBase CLI / MCP-safe install path:
 
 - append to `AGENTS.md`
 - append to `CLAUDE.md`
@@ -295,7 +310,7 @@ bash install.sh
 
 ## Health check & recovery
 
-When Fusebase Flow is installed on top of the FuseBase CLI, the two share a repo. Flow's recovery model is **CLI-first, Flow-second**: **Flow never overwrites FuseBase CLI-owned files or instructions.** The health engine classifies every drift by ownership layer and recovers only what Flow owns.
+When FuseBase Flow is installed on top of the FuseBase CLI, the two share a repo. Flow's recovery model is **CLI-first, Flow-second**: **Flow never overwrites FuseBase CLI-owned files or instructions.** The health engine classifies every drift by ownership layer and recovers only what Flow owns.
 
 | Layer | Examples | Who restores it |
 |---|---|---|
@@ -307,13 +322,13 @@ An ownership manifest backs this split, and a read-only conflict reporter surfac
 
 | Need | Command |
 |---|---|
-| Check health + layer verdict (read-only) | `bash hooks/local/fusebase-flow-health-check.sh` <br> or `/fusebase-health` (Claude Code) <br> or *"is Fusebase Flow healthy?"* (any agent) |
+| Check health + layer verdict (read-only) | `bash hooks/local/fusebase-flow-health-check.sh` <br> or `/fusebase-health` (Claude Code) <br> or *"is FuseBase Flow healthy?"* (any agent) |
 | Detailed CLI/Flow ownership & conflict report + drift advisory (read-only) | `bash hooks/local/check-cli-flow-conflicts.sh` |
 | Re-stamp CLI vendor provenance (after a `fusebase update` or an intentional CLI asset change) | `bash hooks/local/stamp-cli-provenance.sh` |
 | Recover Flow-owned + shared surfaces | `bash hooks/local/post-fusebase-update.sh` <br> or reply `yes` when the skill offers recovery in chat |
 | Restore CLI-owned drift | Run the current **FuseBase CLI refresh/update first**, then `post-fusebase-update.sh` for the Flow layer |
 | Upgrade engine + recovery to latest upstream | `bash hooks/local/upgrade-engine.sh` (refresh `.fusebase-flow-source/` first) |
-| Avoid drift on routine updates | `fusebase update --skip-skills` (preserves Fusebase Flow overlay) |
+| Avoid drift on routine updates | `fusebase update --skip-skills` (preserves FuseBase Flow overlay) |
 
 <details>
 <summary><strong>What the health check verifies, verdicts, deferrals & recovery flow</strong></summary>
@@ -323,8 +338,8 @@ An ownership manifest backs this split, and a read-only conflict reporter surfac
 12 inventory checks per run:
 
 - VERSION file
-- AGENTS.md overlay block (`## Fusebase Flow — workflow lifecycle overlay`, appended inside the CLI-preserved custom wrapper)
-- CLAUDE.md overlay block (`## Fusebase Flow — additional rules (overlay)`)
+- AGENTS.md overlay block (`## FuseBase Flow — workflow lifecycle overlay`, appended inside the CLI-preserved custom wrapper)
+- CLAUDE.md overlay block (`## FuseBase Flow — additional rules (overlay)`)
 - `.claude/settings.json` lifecycle events (auto-discovered count)
 - `.claude/skills/` Flow mirror count (auto-discovered set; CLI provider skills may also be present)
 - `.claude/agents/` Flow agent mirror count (auto-discovered set; CLI app agents may also be present)
@@ -340,7 +355,7 @@ Plus active approval artifacts in `state/approvals/` are surfaced informationall
 
 ### CLI vendor provenance & drift advisory (v3.2.0+)
 
-Fusebase Flow vendors a frozen copy of FuseBase CLI-owned assets (19 provider skills + `references/`, 2 app-agents, 4 quality hooks). `bash hooks/local/stamp-cli-provenance.sh` records a per-file sha256 of each in `audit/cli-vendor-manifest.json` (a committed document of record), with `source_cli_version: "unknown"` — the bundling tool cannot know which live CLI bundle a copy came from, so freshness is advisory only.
+FuseBase Flow vendors a frozen copy of FuseBase CLI-owned assets (19 provider skills + `references/`, 2 app-agents, 4 quality hooks). `bash hooks/local/stamp-cli-provenance.sh` records a per-file sha256 of each in `audit/cli-vendor-manifest.json` (a committed document of record), with `source_cli_version: "unknown"` — the bundling tool cannot know which live CLI bundle a copy came from, so freshness is advisory only.
 
 `check-cli-flow-conflicts.sh` then hashes each **present** CLI asset against that manifest and surfaces two **advisory** findings (informational only — they never change the verdict or exit code):
 
@@ -368,7 +383,7 @@ Recovery (`post-fusebase-update.sh`) restores **only** Flow-owned assets and sha
 
 ### Deferral artifacts (v2.4.0+)
 
-When an install brief or operator deliberately omits parts of the canonical Fusebase Flow setup (e.g. lifecycle hooks not wired, Windows patch not applied per protected-paths discipline), file a **deferral artifact** at `state/approvals/health_check_deferral-<slug>-<YYYYMMDD>.json` listing the check_ids being deferred. Engine reclassifies matching drift items from `LOCAL_DRIFT` → `LOCAL_DEFERRED` (⊘ symbol in the report) and verdict drops to `EXCEPTION_IN_EFFECT` (exit 3).
+When an install brief or operator deliberately omits parts of the canonical FuseBase Flow setup (e.g. lifecycle hooks not wired, Windows patch not applied per protected-paths discipline), file a **deferral artifact** at `state/approvals/health_check_deferral-<slug>-<YYYYMMDD>.json` listing the check_ids being deferred. Engine reclassifies matching drift items from `LOCAL_DRIFT` → `LOCAL_DEFERRED` (⊘ symbol in the report) and verdict drops to `EXCEPTION_IN_EFFECT` (exit 3).
 
 See [docs/health-check-deferrals.md](docs/health-check-deferrals.md) for the artifact schema, the canonical check_id taxonomy, examples, and operator workflow for adding/removing deferrals.
 
@@ -381,7 +396,7 @@ Run recovery now? It will:
   • Restore AGENTS.md overlay block in the CLI-preserved custom wrapper (if missing)
   • Merge .claude/settings.json lifecycle events (if reduced)
   • Re-apply Windows shell:true patch (if missing)
-  • Re-mirror Fusebase Flow skills + sub-agents (no-op if already present)
+  • Re-mirror FuseBase Flow skills + sub-agents (no-op if already present)
 
 Reply `yes` / `run it` / `fix it` / `proceed` to execute.
 Reply anything else to halt and decide later.
@@ -573,7 +588,7 @@ fusebase-flow/
 
 ## Clean-room, license & publishing
 
-- **Clean-room** — Canonical Flow files are clean-room original. The bundled Fusebase Apps domain skills are provider-scoped assets; see [`docs/clean-room.md`](docs/clean-room.md) and [`docs/fusebase-cli-edition.md`](docs/fusebase-cli-edition.md).
+- **Clean-room** — Canonical Flow files are clean-room original. The bundled FuseBase Apps domain skills are provider-scoped assets; see [`docs/clean-room.md`](docs/clean-room.md) and [`docs/fusebase-cli-edition.md`](docs/fusebase-cli-edition.md).
 - **License** — MIT. See [`LICENSE`](LICENSE).
 - **Publishing** — Before making this repo public, follow the history-hygiene step in [`PUBLISHING.md`](PUBLISHING.md).
 
