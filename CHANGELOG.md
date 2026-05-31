@@ -4,6 +4,18 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.3.0] — 2026-05-31
+
+### Added — generic flow skills + FR-20
+
+- **FR-20 (zoom out, don't patch-myopically)** — new always-on rule; zoom out to root cause before applying a narrow patch. Self-attestation → FR-01..FR-20.
+- **`zoom-out` skill** — operationalizes FR-20.
+- **`phase-audit` skill** — independent sub-agent audits all slices of a phase.
+- **`git-history-diagnostic` skill** — regression archaeology (locate the causing commit).
+- **`skill-authoring`** extended with a domain-expert skill authoring mode.
+- **`design-discovery-ideation`** extended with prototype-before-build.
+- Flow skills 14 → 16; mirror manifest 28 → 32 lines. Input-dependent skills (north-star, client-vs-internal, product-docs, business-logic-guardian, product→apps) deferred to the onboarding keystone. Full detail: `docs/release-notes/v3.3.md`.
+
 ## [3.2.0] — 2026-05-29
 
 ### Added — provider-skill drift guards (Fusebase CLI edition)
