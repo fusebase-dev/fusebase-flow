@@ -4,7 +4,7 @@
 
 ![FuseBase Flow — you design and decide with the Product Owner agent, which hands off to the AI Developer agent that implements, runs the verification gate, and deploys](docs/assets/two-agent-banner.svg)
 
-[![Version](https://img.shields.io/badge/version-3.5.1-blue.svg)](VERSION)
+[![Version](https://img.shields.io/badge/version-3.5.2-blue.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![CI](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml/badge.svg)](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml)
 [![Use this template](https://img.shields.io/badge/GitHub-Use_this_template-brightgreen.svg?logo=github)](https://github.com/fusebase-dev/fusebase-flow/generate)
@@ -136,6 +136,26 @@ See [`docs/fusebase-cli-edition.md`](docs/fusebase-cli-edition.md) for the layer
    ```
 
    (Only PyYAML; ~100 KB.)
+
+### Or install as a Claude Code plugin
+
+Prefer one command? Add the marketplace and install — skills, commands, and sub-agents load namespaced:
+
+```
+/plugin marketplace add fusebase-dev/fusebase-flow
+/plugin install fusebase-flow@fusebase-flow
+```
+
+### Optimize it for your project (optional)
+
+Out of the box FuseBase Flow runs generically. To steer it toward *your* team's vision, run onboarding — the Product Owner interviews you, then writes the project artifacts (North Star, audience, per-app product docs) that the rest of the skills read:
+
+```
+/onboard          # Product Owner discovery interview → writes docs/north-star.md, etc.
+/product-owner    # start a Product Owner session for a ticket
+```
+
+Skipping is fine — nothing is created unless you provide it, and the framework behaves exactly like a generic install until you opt in.
 
 ## Filing your first ticket
 
