@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 480" role="img" aria-label="FuseBase Flow two-agent model: you design and decide with the Product Owner, which hands off to the AI Developer that implements, runs the gate, and deploys.">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#f8fafc"/>
+      <stop offset="1" stop-color="#eef2f7"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="6" flood-color="#0f172a" flood-opacity="0.12"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#475569"/>
+    </marker>
+  </defs>
+
+  <rect width="1280" height="480" fill="url(#bg)"/>
+
+  <!-- Title -->
+  <text x="64" y="70" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="38" font-weight="700" fill="#0f172a">FuseBase Flow</text>
+  <text x="64" y="104" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="20" font-weight="400" fill="#475569">Build internal &amp; client apps with AI — two agents, not a fleet.</text>
+
+  <!-- You -->
+  <circle cx="150" cy="300" r="62" fill="#fef9c3" stroke="#a16207" stroke-width="2.5" filter="url(#shadow)"/>
+  <text x="150" y="292" text-anchor="middle" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="30" fill="#a16207">&#128100;</text>
+  <text x="150" y="324" text-anchor="middle" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="22" font-weight="700" fill="#3f2d04">You</text>
+
+  <!-- arrow You -> PO (with label) -->
+  <line x1="218" y1="300" x2="470" y2="300" stroke="#475569" stroke-width="2.5" marker-end="url(#arrow)" marker-start="url(#arrow)"/>
+  <rect x="262" y="282" width="164" height="34" rx="17" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5"/>
+  <text x="344" y="304" text-anchor="middle" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="16" fill="#334155">design &amp; decide together</text>
+
+  <!-- Product Owner box -->
+  <rect x="478" y="220" width="320" height="160" rx="16" fill="#dbeafe" stroke="#1d4ed8" stroke-width="2.5" filter="url(#shadow)"/>
+  <text x="638" y="270" text-anchor="middle" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="24" font-weight="700" fill="#0c1e4e">&#129504; Product Owner</text>
+  <text x="638" y="308" text-anchor="middle" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="18" fill="#1e3a8a">Designs the work with you</text>
+  <text x="638" y="338" text-anchor="middle" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="17" fill="#1e3a8a">Plans &#8226; Reviews &#8226; Approves</text>
+
+  <!-- arrows PO <-> AI Developer -->
+  <line x1="798" y1="276" x2="958" y2="276" stroke="#475569" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <rect x="838" y="258" width="86" height="32" rx="16" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5"/>
+  <text x="881" y="279" text-anchor="middle" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="15" fill="#334155">handoff</text>
+
+  <line x1="958" y1="324" x2="798" y2="324" stroke="#475569" stroke-width="2.5" marker-end="url(#arrow)"/>
+  <rect x="826" y="306" width="110" height="32" rx="16" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5"/>
+  <text x="881" y="327" text-anchor="middle" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="15" fill="#334155">gate report</text>
+
+  <!-- AI Developer box -->
+  <rect x="958" y="220" width="290" height="160" rx="16" fill="#dcfce7" stroke="#15803d" stroke-width="2.5" filter="url(#shadow)"/>
+  <text x="1103" y="270" text-anchor="middle" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="24" font-weight="700" fill="#0a3622">&#9881;&#65039; AI Developer</text>
+  <text x="1103" y="308" text-anchor="middle" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="18" fill="#166534">Implements the code</text>
+  <text x="1103" y="338" text-anchor="middle" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="17" fill="#166534">Runs the gate &#8226; Deploys</text>
+
+  <!-- footer -->
+  <text x="64" y="446" font-family="-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-size="16" fill="#64748b">One point of contact. The Product Owner advises what to build; the AI Developer ships it reliably.</text>
+</svg>
