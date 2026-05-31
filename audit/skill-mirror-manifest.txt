@@ -10,8 +10,12 @@
 .claude/skills/git-history-diagnostic/SKILL.md  f84d0ee6415f88751bc608800c25d31d5ac5fbf14ac4337dbb6cbd8df8b032d1
 .agents/skills/implementation-planning/SKILL.md  233ec5eefc7fcaba496a15971d382ded0ecc80b9dd47cac3eaae9a81beb3052d
 .claude/skills/implementation-planning/SKILL.md  233ec5eefc7fcaba496a15971d382ded0ecc80b9dd47cac3eaae9a81beb3052d
+.agents/skills/north-star/SKILL.md  0052db6692c889abc0ec62752892b43e5708974ec8b621fcea4cbdf35e6e2e72
+.claude/skills/north-star/SKILL.md  0052db6692c889abc0ec62752892b43e5708974ec8b621fcea4cbdf35e6e2e72
 .agents/skills/phase-audit/SKILL.md  c14e73fd1132b88443459e724f9e730296d95c407b674f1e7fde87c5adf33038
 .claude/skills/phase-audit/SKILL.md  c14e73fd1132b88443459e724f9e730296d95c407b674f1e7fde87c5adf33038
+.agents/skills/project-onboarding/SKILL.md  565a8e1bbaec68084b996dc6a7b5624aa3c403464701cb0b2e9487ccb714640e
+.claude/skills/project-onboarding/SKILL.md  565a8e1bbaec68084b996dc6a7b5624aa3c403464701cb0b2e9487ccb714640e
 .agents/skills/release-deploy-reporting/SKILL.md  059fbe2507476e6293df10ed07e765d89c4eb9bc1a0b2bab181fe3ff920accae
 .claude/skills/release-deploy-reporting/SKILL.md  059fbe2507476e6293df10ed07e765d89c4eb9bc1a0b2bab181fe3ff920accae
 .agents/skills/repo-onboarding-context-map/SKILL.md  fa61af5cd7393a4196493180c3a22e7d724de8e1c5c0cea93a2760ed2e75b390

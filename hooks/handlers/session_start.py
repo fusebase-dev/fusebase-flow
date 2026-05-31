@@ -72,6 +72,25 @@ def main() -> int:
     else:
         summary_lines.append("Required structure: ok")
 
+    # Active project context (Layer 2 of artifact discovery — Claude Code accelerator).
+    # Additive, read-only: surface project artifacts if the project has been onboarded.
+    # Absent by default; absence changes nothing (AGENTS.md instruction + skill
+    # existence-guards cover discovery universally, hook or no hook).
+    project_artifacts = []
+    if (root / "docs" / "north-star.md").exists():
+        project_artifacts.append("docs/north-star.md")
+    try:
+        for p in sorted((root / "docs").glob("*/product.md")):
+            project_artifacts.append(str(p.relative_to(root)).replace("\\", "/"))
+    except OSError:
+        pass
+    if project_artifacts:
+        summary_lines.append("Active project context (read + follow these):")
+        for a in project_artifacts:
+            summary_lines.append(f"  • {a}")
+    else:
+        summary_lines.append("Active project context: none (not onboarded — run /onboard to capture vision).")
+
     summary = "\n".join(summary_lines)
     print(summary, file=sys.stderr)
 

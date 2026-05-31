@@ -32,6 +32,18 @@ Runtime, MCP, SDK, and app-domain rules from CLI skills win over generic Flow im
 6. **Save handoffs to disk before chat output** — never hand work across sessions through chat alone.
 7. **Ask questions in chat text, not popups** — options must be copyable, scrollable, forwardable, and open to follow-up.
 
+## Active project context — read first
+
+Before starting work, check whether this project has been **onboarded** (optimized for a specific product/agency vision). These artifacts are **absent by default** — they exist only if the operator ran `/onboard` (the `project-onboarding` skill) or created them manually:
+
+| Artifact | If present → | If absent → |
+|---|---|---|
+| `docs/north-star.md` | read it; keep all work aligned to the vision (the `north-star` skill) | run generically; do **not** create it |
+| `docs/<app>/product.md` | read it for that app's product intent | run generically |
+| `docs/<app>/business-logic.md` | treat documented logic as a guard during fixes | run generically |
+
+This check is **universal** — it works on every surface (Claude Code, Codex, Cursor, Copilot, Gemini) because every agent reads this file. On Claude Code the `SessionStart` hook also surfaces these automatically, but the instruction here is the source of truth and does not depend on hooks. If an artifact is absent, Fusebase Flow runs exactly as a generic install — no clutter, no degradation. To capture project vision, run `/onboard`.
+
 ## Where things live
 
 | Need | Path |

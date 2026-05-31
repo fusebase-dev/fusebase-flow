@@ -4,6 +4,16 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.4.0] — 2026-05-31
+
+### Added — onboarding keystone + North Star
+
+- **`project-onboarding` skill + `/onboard`** — PO-owned discovery interview that writes `docs/north-star.md` and fills AGENTS project-values. Operator-triggered, optional, re-runnable.
+- **`north-star` skill** — artifact-gated: steers work to `docs/north-star.md` when present; silent no-op when absent (the canonical "ship complete, stay dormant until fed" pattern).
+- **3-layer universal artifact discovery** (hook-independent): AGENTS.md "Active project context" instruction + `session_start.py` scan + per-skill existence-guard.
+- **`/product-owner` command**, **`templates/north-star.md`**.
+- Flow skills 17 → 19; manifest 34 → 38. Absent-by-default: a fresh install has no project artifacts and runs generically. Input-dependent skills (client-vs-internal, product-docs, business-logic-guardian, product→apps) follow next. Full detail: `docs/release-notes/v3.4.md`.
+
 ## [3.3.0] — 2026-05-31
 
 ### Added — generic flow skills + FR-20
