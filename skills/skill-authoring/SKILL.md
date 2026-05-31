@@ -172,6 +172,21 @@ If validation cannot run, report the exact missing check and treat the change as
 - If implementation touches provider mirrors or manifests, hand to AI Developer for canonical edit + mirror regeneration.
 - If clean-room status cannot be established, stop and request a concept summary instead of using the source text.
 
+## Domain-expert skill mode
+
+Use when the operator wants a skill that makes the agent an **expert in a specific product area / industry** (e.g. dental clinics, legal intake, fitness) so app work uses best-practice patterns and known market-solution categories instead of reinventing the wheel. The produced skill is **project-local** (lives under the project's own skill area, not Flow canonical `skills/`, and is **not** mirrored or added to the Flow manifest) and is **input-dependent** — it needs the operator's domain + any research they supply.
+
+| Step | Action |
+|---|---|
+| 1. Confirm need | A real, repeated domain — not a one-off ticket. One domain = one skill. |
+| 2. Gather inputs | Operator's vision + research dropped at `docs/<app>/research/`. The agent does NOT invent domain facts. |
+| 3. Scope the expertise | Domain vocabulary, standard workflows, common entities/data, regulatory/trust constraints, typical client-vs-internal needs. |
+| 4. Market awareness | List the *categories* of established solutions so the agent reuses proven patterns — **never copy competitor names, prose, code, or licensed assets** (clean-room). |
+| 5. Author | Follow `templates/skill-template.md`; description leads with the domain triggers; cite where each domain fact came from. |
+| 6. Place (do NOT mirror) | Project-local domain skill, not Flow canonical. Do not run `mirror-skills.sh` for it; do not add it to `audit/skill-mirror-manifest.txt`. |
+
+The *authoring method here* is generic (ships with Flow); the *produced domain skill* is project-specific and absent by default.
+
 ## Anti-patterns
 
 - Do not copy external skill prose, example blocks, or proprietary labels.

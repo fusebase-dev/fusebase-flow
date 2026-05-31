@@ -4,6 +4,16 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.5.1] — 2026-05-31
+
+### Fixed — post-implementation audit corrections
+
+- **Implemented two skill extensions that prior v3.3.0 release notes claimed but had not actually shipped:** `skill-authoring` now has a **Domain-expert skill mode**; `design-discovery-ideation` now has a **Prototype before build** section. (An independent audit caught the claim/file mismatch; the dead cross-references in `product-docs-first` / `project-onboarding` now resolve.)
+- **FR-20 consistency sweep:** `FR-01..FR-19` → `FR-01..FR-20` and stale `v3.1`/`v3.2.0` self-attestation labels → `v3.5.0` across ~32 non-historical files (adapters, agents, workflows, templates, role-discipline, overlays). Historical release notes/handoffs left intact; legitimate mentions of the FR-19 *rule* preserved. A fresh agent now self-attests to FR-20.
+- **README:** corrected stale skill counts (14 → 23), added the 9 new skills to the catalog, version badge → 3.5.1.
+- **session_start.py:** project-artifact scan now uses `rglob` so nested app layouts (`docs/apps/<app>/product.md`) are surfaced.
+- VERSION 3.5.0 → 3.5.1; plugin manifests bumped. No skills added/removed (still 23 canonical; manifest 46 lines).
+
 ## [3.5.0] — 2026-05-31
 
 ### Added — input-dependent skills (client-facing delivery)

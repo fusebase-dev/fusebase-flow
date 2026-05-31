@@ -6,8 +6,8 @@
 .claude/skills/code-review/SKILL.md  8e8b0230d7222c9b4e6185ff79d812fabefe40e4e8a9867f47b69f475f8f76e8
 .agents/skills/communication/SKILL.md  f0542a27ed6127d6d8ff838a717b1ea578602665a1c108b2d7f6093413c9fa7b
 .claude/skills/communication/SKILL.md  f0542a27ed6127d6d8ff838a717b1ea578602665a1c108b2d7f6093413c9fa7b
-.agents/skills/design-discovery-ideation/SKILL.md  da13a8f584dbde2b659f7c729b49c32f68baf053427f068ca65b4f3b16e24467
-.claude/skills/design-discovery-ideation/SKILL.md  da13a8f584dbde2b659f7c729b49c32f68baf053427f068ca65b4f3b16e24467
+.agents/skills/design-discovery-ideation/SKILL.md  9681650dea868e2352b2268f6058489f366dc7d997086a911b6cc3c63de2835b
+.claude/skills/design-discovery-ideation/SKILL.md  9681650dea868e2352b2268f6058489f366dc7d997086a911b6cc3c63de2835b
 .agents/skills/fusebase-flow-health-check/SKILL.md  2c1f552125329cb1ad0390ab62873a72efcb81a5aba6119671aee2741f5e9749
 .claude/skills/fusebase-flow-health-check/SKILL.md  2c1f552125329cb1ad0390ab62873a72efcb81a5aba6119671aee2741f5e9749
 .agents/skills/git-history-diagnostic/SKILL.md  f84d0ee6415f88751bc608800c25d31d5ac5fbf14ac4337dbb6cbd8df8b032d1
@@ -30,12 +30,12 @@
 .claude/skills/repo-onboarding-context-map/SKILL.md  fa61af5cd7393a4196493180c3a22e7d724de8e1c5c0cea93a2760ed2e75b390
 .agents/skills/requirements-specification/SKILL.md  72e7a3f8c23c6264e6ac92691039d3f65ffb1ecbb3a5789958523d3a86d672bb
 .claude/skills/requirements-specification/SKILL.md  72e7a3f8c23c6264e6ac92691039d3f65ffb1ecbb3a5789958523d3a86d672bb
-.agents/skills/role-discipline/SKILL.md  c84962a608552c8c38b43ad1ec71e4b047351638c8d48220b7f1d72fdaab15ff
-.claude/skills/role-discipline/SKILL.md  c84962a608552c8c38b43ad1ec71e4b047351638c8d48220b7f1d72fdaab15ff
+.agents/skills/role-discipline/SKILL.md  1cce1ae7174d4b5411b4eef953a59be68e74ba383eae42188ea013e4c4ad5cec
+.claude/skills/role-discipline/SKILL.md  1cce1ae7174d4b5411b4eef953a59be68e74ba383eae42188ea013e4c4ad5cec
 .agents/skills/security-permissions-review/SKILL.md  c4c7a9ced92346a839d46c608694c96d8079421210d3220a01b5419d6d0fa658
 .claude/skills/security-permissions-review/SKILL.md  c4c7a9ced92346a839d46c608694c96d8079421210d3220a01b5419d6d0fa658
-.agents/skills/skill-authoring/SKILL.md  4d252ee39e889f26b8586fbf7a4701268265a6daa06c6879c7d8d760658d1281
-.claude/skills/skill-authoring/SKILL.md  4d252ee39e889f26b8586fbf7a4701268265a6daa06c6879c7d8d760658d1281
+.agents/skills/skill-authoring/SKILL.md  067db7a5b573a6e6c727de1bc755a218fdc908d82b2e9104b728240ecdc7cc19
+.claude/skills/skill-authoring/SKILL.md  067db7a5b573a6e6c727de1bc755a218fdc908d82b2e9104b728240ecdc7cc19
 .agents/skills/smoke-testing/SKILL.md  82b8d9aea1345095892ac60461eb970c2b303a364c557ad620f20efc71b1ed82
 .claude/skills/smoke-testing/SKILL.md  82b8d9aea1345095892ac60461eb970c2b303a364c557ad620f20efc71b1ed82
 .agents/skills/task-delegation/SKILL.md  4e7ff1a0759b0b0cc34bc2bddacf2b54286585cd55787ac01f0027a07c2fc401

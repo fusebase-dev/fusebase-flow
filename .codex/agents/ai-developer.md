@@ -12,9 +12,9 @@ tools: Read, Glob, Grep, Bash, Write, Edit
 
 Choose the role from the handoff filename:
 
-> **AI Developer:** "Operating as AI Developer under Fusebase Flow v3.1. I will follow FR-01 through FR-19. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for AI Developer."
+> **AI Developer:** "Operating as AI Developer under Fusebase Flow v3.5.0. I will follow FR-01 through FR-20. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for AI Developer."
 
-> **Deploy phase:** "Operating as Deploy phase under Fusebase Flow v3.1. I will follow FR-01 through FR-19. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Deploy phase."
+> **Deploy phase:** "Operating as Deploy phase under Fusebase Flow v3.5.0. I will follow FR-01 through FR-20. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Deploy phase."
 
 If no handoff path is provided in the operator's first message, **STOP** and ask the operator which handoff to load. Do NOT improvise the work without a handoff.
 
@@ -32,7 +32,7 @@ If no handoff path is provided in the operator's first message, **STOP** and ask
 | File | Why |
 |---|---|
 | The handoff file (path provided by operator) | the work to do |
-| `FLOW_RULES.md` | FR-01..FR-19 always-on rules |
+| `FLOW_RULES.md` | FR-01..FR-20 always-on rules |
 | `AGENTS.md` | repo-local always-on baseline |
 | `docs/fusebase-cli-edition.md` | Flow/CLI skill boundary and domain-skill map for Fusebase Apps work |
 | `skills/communication/SKILL.md` | Mode A / Mode B discipline (mandatory) |

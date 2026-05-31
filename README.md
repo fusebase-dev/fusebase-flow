@@ -4,7 +4,7 @@
 
 ![FuseBase Flow — you design and decide with the Product Owner agent, which hands off to the AI Developer agent that implements, runs the verification gate, and deploys](docs/assets/two-agent-banner.svg)
 
-[![Version](https://img.shields.io/badge/version-3.2.0-blue.svg)](VERSION)
+[![Version](https://img.shields.io/badge/version-3.5.1-blue.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![CI](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml/badge.svg)](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml)
 [![Use this template](https://img.shields.io/badge/GitHub-Use_this_template-brightgreen.svg?logo=github)](https://github.com/fusebase-dev/fusebase-flow/generate)
@@ -214,9 +214,9 @@ Preflight will warn on drift if the mirrors and canonical fall out of sync. Full
 
 ## Skill catalog
 
-Skills are on-demand expertise the agent loads when a task matches the skill's description. **14 canonical Flow skills** govern the lifecycle; **19 FuseBase CLI provider skills** supply the app-building domain knowledge. You never invoke them by hand — describe the work and the matcher loads the right one.
+Skills are on-demand expertise the agent loads when a task matches the skill's description. **23 canonical Flow skills** govern the lifecycle and project-optimization; **19 FuseBase Apps domain skills** supply the app-building knowledge. You never invoke them by hand — describe the work and the matcher loads the right one.
 
-### Flow lifecycle skills (14)
+### Flow lifecycle skills (23)
 
 | Phase | Skill | What it does |
 |---|---|---|
@@ -232,10 +232,19 @@ Skills are on-demand expertise the agent loads when a task matches the skill's d
 | Review | `security-permissions-review` | Auth, secrets, deploy-config, customer-visible changes |
 | Deploy | `release-deploy-reporting` | Deploy handoff, hash + probes + smoke, DRAFT→DONE flip |
 | Onboarding | `repo-onboarding-context-map` | Durable context map for a new/unfamiliar repo |
-| Meta | `skill-authoring` | Create/update reusable skills (clean-room classified) |
+| Meta | `skill-authoring` | Create/update reusable skills (clean-room classified; incl. domain-expert mode) |
 | Health | `fusebase-flow-health-check` | Read-only overlay drift diagnosis + offered recovery |
+| Anti-drift | `zoom-out` | FR-20 — root-cause-vs-patch check before a fix |
+| Review | `phase-audit` | Independent sub-agent audit of all slices of a phase |
+| Debug | `git-history-diagnostic` | Regression archaeology — locate the causing commit |
+| Project setup | `project-onboarding` | `/onboard` discovery interview → writes project artifacts |
+| Project focus | `north-star` | Steers work to `docs/north-star.md` (no-op if absent) |
+| Audience | `client-vs-internal` | Simple-for-client / robust-for-internal (no-op if absent) |
+| Product | `product-docs-first` | Design per-app product docs before code (no-op if absent) |
+| Guard | `business-logic-guardian` | Protect documented business logic during fixes (no-op if absent) |
+| Architecture | `product-apps-decomposition` | Product → focused apps (generic + steers to product doc) |
 
-★ = mandatory, loaded every session.
+★ = mandatory, loaded every session. The last 9 (zoom-out … product-apps-decomposition) shipped in v3.3–v3.5; the project-* / north-star / client-vs-internal / product-* / guard skills are **artifact-gated** — dormant until onboarding creates their `docs/` artifact.
 
 ### FuseBase CLI provider skills (19)
 
@@ -552,11 +561,11 @@ fusebase-flow/
 ├── AGENTS.md                       ← portable always-on baseline
 ├── CLAUDE.md                       ← Anthropic Claude Code adapter
 ├── GEMINI.md                       ← Gemini-style IDE adapter
-├── FLOW_RULES.md                   ← FR-01..FR-19 always-on rules
+├── FLOW_RULES.md                   ← FR-01..FR-20 always-on rules
 ├── VERSION                         ← 3.2.0
 ├── .gitattributes                  ← LF line endings for shell/python/yaml/md
 ├── .python-version                 ← 3.12 (recommended)
-├── skills/                         ← 14 canonical skills (2 mandatory + 12 on-demand, incl. design-discovery-ideation, smoke-testing, task-delegation, skill-authoring + fusebase-flow-health-check)
+├── skills/                         ← 23 canonical skills (2 mandatory + 21 on-demand, incl. the v3.3–v3.5 additions: zoom-out, phase-audit, git-history-diagnostic, project-onboarding, north-star, client-vs-internal, product-docs-first, business-logic-guardian, product-apps-decomposition)
 ├── agents/                         ← 2 canonical sub-agents (product-owner, ai-developer)
 ├── workflows/                      ← 12 procedures
 ├── policies/                       ← 6 YAML policies
@@ -579,8 +588,8 @@ fusebase-flow/
 │   └── agent-mirror-manifest.txt   ← sha256 manifest for sub-agent mirrors
 ├── state/                          ← runtime state (gitignored contents)
 ├── docs/                           ← public reference docs + per-project artifacts
-├── .agents/skills/                 ← Codex skill surface (14 Flow mirrors + 19 CLI provider skills)
-├── .claude/skills/                 ← Claude Code skill surface (14 Flow mirrors + 19 CLI provider skills)
+├── .agents/skills/                 ← Codex skill surface (23 Flow mirrors + 19 CLI provider skills)
+├── .claude/skills/                 ← Claude Code skill surface (23 Flow mirrors + 19 CLI provider skills)
 ├── .claude/agents/                 ← Claude Code agent surface (2 Flow role agents + 2 CLI app agents)
 ├── .claude/commands/               ← Anthropic Claude Code slash commands (incl. /fusebase-health)
 ├── .claude/settings.json.example   ← Claude Code hook wiring
@@ -607,7 +616,7 @@ Public-facing reference material lives in [`docs/`](docs/):
 
 - [`docs/compatibility.md`](docs/compatibility.md) — provider / IDE support detail
 - [`docs/hook-coverage.md`](docs/hook-coverage.md) — hook × provider coverage
-- [`docs/rail-mapping.md`](docs/rail-mapping.md) — FR-01..FR-19 → enforcement surfaces
+- [`docs/rail-mapping.md`](docs/rail-mapping.md) — FR-01..FR-20 → enforcement surfaces
 - [`docs/clean-room.md`](docs/clean-room.md) — clean-room license attestation
 - [`docs/source-map.md`](docs/source-map.md) — generic pattern attribution
 

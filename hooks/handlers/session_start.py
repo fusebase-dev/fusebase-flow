@@ -81,10 +81,10 @@ def main() -> int:
         if (root / rel).exists():
             project_artifacts.append(rel)
     try:
-        for p in sorted((root / "docs").glob("*/product.md")):
-            project_artifacts.append(str(p.relative_to(root)).replace("\\", "/"))
-        for p in sorted((root / "docs").glob("*/business-logic.md")):
-            project_artifacts.append(str(p.relative_to(root)).replace("\\", "/"))
+        # rglob so nested app layouts (e.g. docs/apps/foo/product.md) are surfaced too.
+        for name in ("product.md", "business-logic.md"):
+            for p in sorted((root / "docs").rglob(name)):
+                project_artifacts.append(str(p.relative_to(root)).replace("\\", "/"))
     except OSError:
         pass
     if project_artifacts:

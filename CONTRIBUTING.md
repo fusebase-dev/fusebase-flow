@@ -4,7 +4,7 @@ Thanks for helping improve Fusebase Flow. This project is a repo-local workflow 
 
 ## Before you start
 
-- Read [`AGENTS.md`](AGENTS.md) (portable baseline) and [`FLOW_RULES.md`](FLOW_RULES.md) (FR-01..FR-19). Contributions are expected to respect the always-on rules.
+- Read [`AGENTS.md`](AGENTS.md) (portable baseline) and [`FLOW_RULES.md`](FLOW_RULES.md) (FR-01..FR-20). Contributions are expected to respect the always-on rules.
 - For framework changes, the project itself follows the eight-phase lifecycle in [`workflows/eight-phase-flow.md`](workflows/eight-phase-flow.md). Small doc fixes don't need a full spec; behavior changes do.
 
 ## Ground rules

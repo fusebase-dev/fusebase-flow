@@ -131,9 +131,23 @@ Help the Product Owner turn "show options" / "try approaches" requests into clea
 - Need smoke criteria for a UI/operator-facing outcome -> `skills/smoke-testing/SKILL.md`.
 - Need parallel read-only analysis -> `skills/task-delegation/SKILL.md`.
 
+## Prototype before build
+
+Use when a UI / screen / app is about to be implemented and the operator would benefit from *seeing* it before code is written — cheap visual agreement avoids expensive rebuilds.
+
+| Step | Action |
+|---|---|
+| 1. Mock in markdown | Draw the layout as an ASCII/box mockup in chat (Mode A) — structure, key elements, states. No code. |
+| 2. Get feedback | Operator reacts to the mockup; iterate in chat until the shape is agreed. |
+| 3. Optional HTML prototype | If a richer preview is needed, build a single throwaway static HTML page of the screen for visual testing — clearly a prototype, not the implementation. |
+| 4. Then build | Only after the visual is agreed, hand the agreed shape to `implementation-planning` -> AI Developer. |
+
+Pre-build prototyping is a generic technique (no project artifact needed). Keep prototypes disposable; the real build follows the locked direction. ASCII mockups belong in chat (Mode A), never embedded in Mode-B artifact files (FR-08).
+
 ## Anti-patterns
 
 - Do not write production code from this skill.
+- Do not treat an HTML prototype as the real implementation — it is throwaway.
 - Do not present only one option unless the operator explicitly narrowed the choice.
 - Do not produce alternatives that differ only by color, wording, or spacing unless the operator asked for that narrow axis.
 - Do not prescribe exact UI structure, colors, typography, spacing, or component patterns unless the operator explicitly made them constraints.
