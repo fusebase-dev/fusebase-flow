@@ -1,0 +1,26 @@
+{
+  "name": "fusebase-flow",
+  "description": "The framework client-facing teams use to build internal and client apps with AI. Two agents (Product Owner + AI Developer) run a disciplined spec-to-deploy lifecycle, packaged with FuseBase Apps domain skills. Closes the gaps that break real AI app development: drift, context rot, scope creep, unreliable hand-offs.",
+  "version": "3.2.0",
+  "author": {
+    "name": "FuseBase (Nimbus Web Inc.)"
+  },
+  "homepage": "https://ai-dev.thefusebase.com/",
+  "repository": "https://github.com/fusebase-dev/fusebase-flow",
+  "license": "MIT",
+  "keywords": [
+    "ai-coding-assistant",
+    "claude-code",
+    "codex",
+    "cursor",
+    "ai-agents",
+    "product-owner",
+    "client-facing",
+    "spec-driven-development",
+    "fusebase",
+    "workflow-framework"
+  ],
+  "skills": ["./.claude/skills"],
+  "commands": ["./.claude/commands"],
+  "agents": ["./.claude/agents"]
+}
