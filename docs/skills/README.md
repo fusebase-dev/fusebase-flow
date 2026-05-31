@@ -7,7 +7,7 @@ This folder holds **project-specific** skills that capture patterns the operator
 | Type | Location | Lifetime | Source |
 |---|---|---|---|
 | **Framework skills** | `skills/<name>/SKILL.md` | Lives with Fusebase Flow versions | Shipped with the template; mirrored to `.agents/skills/` (OpenAI/ChatGPT Codex) and `.claude/skills/` (Anthropic Claude Code) for provider consumption |
-| **CLI provider skills** | `.agents/skills/<name>/SKILL.md` and `.claude/skills/<name>/SKILL.md` | Lives with the Fusebase CLI edition provider layer | Copied from Fusebase Apps CLI provider assets; supports app/runtime domain work; not tracked as canonical Flow skills |
+| **CLI provider skills** | `.agents/skills/<name>/SKILL.md` and `.claude/skills/<name>/SKILL.md` | Lives with the Fusebase CLI provider layer | Copied from Fusebase Apps CLI provider assets; supports app/runtime domain work; not tracked as canonical Flow skills |
 | **Project skills** | `docs/skills/<slug>/SKILL.md` (this folder) | Lives with the project | Authored by the operator + AI when a pattern recurs across 3+ tickets |
 
 Project skills are NOT auto-loaded by provider skill matchers in v0.1. They are loaded by reference: the operator says "load skill `<slug>`" or the Product Owner cites them during investigation. CLI provider skills are auto-visible only on provider surfaces that read `.agents/skills/` or `.claude/skills/`; see `docs/fusebase-cli-edition.md`.

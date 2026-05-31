@@ -1,6 +1,6 @@
-# Source map - Fusebase Flow Local v3.1, Fusebase CLI edition
+# Source map — Fusebase Flow
 
-This document records source boundaries for the Fusebase CLI edition. Canonical Fusebase Flow files remain clean-room original. CLI provider assets are copied as edition-specific Fusebase Apps CLI assets and are intentionally kept outside canonical Flow roots.
+This document records source boundaries for the Fusebase CLI provider layer. Canonical Fusebase Flow files remain clean-room original. CLI provider assets are copied as Fusebase Apps CLI provider assets and are intentionally kept outside canonical Flow roots.
 
 ## Standard attestation
 
@@ -25,9 +25,9 @@ These copied assets are documented in `docs/fusebase-cli-edition.md`. Do not cit
 
 ## Pattern categories considered (generic descriptions only)
 
-The following design patterns are common to public AI coding workflow discussion. Fusebase Flow Local implements them as **original content**; specific vendor names are not advertised in the public template.
+The following design patterns are common to public AI coding workflow discussion. Fusebase Flow implements them as **original content**; specific vendor names are not advertised in the public template.
 
-| Pattern category | How Fusebase Flow Local implements it |
+| Pattern category | How Fusebase Flow implements it |
 |---|---|
 | Always-on repository instructions | `AGENTS.md` (portable baseline) + provider-specific compatibility files |
 | Skill catalogs | `skills/<slug>/SKILL.md` with frontmatter + predictable section structure |

@@ -30,4 +30,4 @@ Public-facing reference documents that used to live in this folder have moved to
 
 ## Why the separation
 
-Fusebase Flow Local is a GitHub template. Anything committed here is copied into every new user repository that's created from the template. Build-time audit reports and per-run test logs would clutter every consumer's tree without serving them. They belong in the release-audit bundle (tagged with the release version) and in CI workflow artifacts, not in the template itself.
+Fusebase Flow is a GitHub template. Anything committed here is copied into every new user repository that's created from the template. Build-time audit reports and per-run test logs would clutter every consumer's tree without serving them. They belong in the release-audit bundle (tagged with the release version) and in CI workflow artifacts, not in the template itself.

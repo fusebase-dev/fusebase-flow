@@ -1,8 +1,8 @@
 # Architecture overview
 
-> Reference visual for how Fusebase Flow Local fits together. Human-readable; does not need to be loaded into agent context. For the always-on rules see `FLOW_RULES.md`. For per-component detail see `docs/framework.md`.
+> Reference visual for how Fusebase Flow fits together. Human-readable; does not need to be loaded into agent context. For the always-on rules see `FLOW_RULES.md`. For per-component detail see `docs/framework.md`.
 
-This Fusebase CLI edition adds a provider-domain layer on top of the Flow lifecycle layer. The boundary map is `docs/fusebase-cli-edition.md`.
+Fusebase Flow layers Fusebase CLI provider-domain assets on top of the Flow lifecycle layer. The boundary map is `docs/fusebase-cli-edition.md`.
 
 ## Three roles, one workflow
 

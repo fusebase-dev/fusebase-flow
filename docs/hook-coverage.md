@@ -1,4 +1,4 @@
-# Hook coverage matrix — Fusebase Flow Local v0.1
+# Hook coverage matrix — Fusebase Flow
 
 Lists every Fusebase Flow lifecycle hook handler and which provider / fallback surface invokes it.
 

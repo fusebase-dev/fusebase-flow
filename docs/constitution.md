@@ -8,7 +8,7 @@ This document records the identity and constraints for Fusebase Flow - Fusebase 
 
 | Field | Value |
 |---|---|
-| Name | Fusebase Flow - Fusebase CLI edition |
+| Name | Fusebase Flow |
 | One-line | Fusebase Flow lifecycle framework packaged with Fusebase Apps CLI domain skills and agents. |
 | Origin | Created as a dedicated edition after comparing the universal Flow template with the latest Fusebase Apps CLI project template. |
 | Stakeholders | Operators installing Flow into Fusebase Apps/CLI projects; Product Owner sessions planning app work; AI Developer sessions implementing app work; downstream generated Fusebase Apps projects. |

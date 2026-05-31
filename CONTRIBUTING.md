@@ -1,4 +1,4 @@
-# Contributing to Fusebase Flow Local — Fusebase CLI edition
+# Contributing to Fusebase Flow
 
 Thanks for helping improve Fusebase Flow. This project is a repo-local workflow framework — most contributions are edits to skills, workflows, policies, hooks, docs, or the provider compatibility surfaces.
 

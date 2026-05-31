@@ -1,10 +1,10 @@
-# Publishing Fusebase Flow Local as a public GitHub template
+# Publishing Fusebase Flow as a public GitHub template
 
 This document describes the **history-hygiene step** required before publishing this repo as a public GitHub template.
 
 ## Why history hygiene matters
 
-The build of Fusebase Flow Local v0.1 happened across multiple commits, including intermediate commits that contained non-target adapter artifacts for compatibility surfaces that are **not** public targets in v0.1. Those artifacts were removed from the final tree (`HEAD`) by the public-surface cleanup step, but they remain visible in earlier commit objects in the build-time history.
+The build of Fusebase Flow v0.1 happened across multiple commits, including intermediate commits that contained non-target adapter artifacts for compatibility surfaces that are **not** public targets in v0.1. Those artifacts were removed from the final tree (`HEAD`) by the public-surface cleanup step, but they remain visible in earlier commit objects in the build-time history.
 
 Before publishing the public template, the operator MUST collapse the build history so the public Git tree reflects only the approved compatibility surfaces.
 
@@ -20,12 +20,12 @@ cd "$TMPDIR/fusebase-flow-template"
 rm -rf .git
 git init -b main
 git add .
-git -c user.email="<your-email>" -c user.name="<your-name>" commit -m "Initial commit — Fusebase Flow Local v0.1"
-git tag v0.1.0
+git -c user.email="<your-email>" -c user.name="<your-name>" commit -m "Initial commit — Fusebase Flow v<version>"
+git tag v<version>
 # Push to a fresh GitHub repository configured as a "Template repository":
 git remote add origin git@github.com:<owner>/fusebase-flow-template.git
 git push -u origin main
-git push origin v0.1.0
+git push origin v<version>
 ```
 
 Then in the GitHub UI, mark the repository as a **Template repository** so users can click "Use this template".
@@ -34,15 +34,15 @@ Then in the GitHub UI, mark the repository as a **Template repository** so users
 
 ```bash
 # From the cleaned working tree on `main`:
-git checkout --orphan release/v0.1.0
+git checkout --orphan release/v<version>
 git add -A
-git -c user.email="<your-email>" -c user.name="<your-name>" commit -m "Initial commit — Fusebase Flow Local v0.1"
+git -c user.email="<your-email>" -c user.name="<your-name>" commit -m "Initial commit — Fusebase Flow v<version>"
 # Replace main with this new branch:
 git branch -D main
 git branch -m main
-git tag v0.1.0
+git tag v<version>
 git push -u --force origin main
-git push origin v0.1.0
+git push origin v<version>
 ```
 
 > **Note:** Option 2 force-pushes `main`. If anyone has already cloned the build-time repo, coordinate before force-pushing. Option 1 (fresh repo) avoids this concern entirely.
@@ -73,9 +73,10 @@ Also verify the **public-surface allowlist guard** passes — every tracked top-
 ALLOWED=(
   "AGENTS.md" "CLAUDE.md" "GEMINI.md" "README.md" "PUBLISHING.md" "LICENSE"
   "FLOW_RULES.md" "VERSION" "install.sh"
+  "CHANGELOG.md" "CONTRIBUTING.md" "SECURITY.md" "CODE_OF_CONDUCT.md"
   ".gitignore" ".gitattributes" ".python-version"
   ".agents" ".claude" ".codex" ".cursor" ".github"
-  "audit" "docs" "hooks" "policies" "skills" "state" "templates" "workflows"
+  "agents" "audit" "docs" "hooks" "policies" "skills" "state" "templates" "workflows"
 )
 actual=$(git ls-files | awk -F/ '{print $1}' | sort -u)
 for entry in $actual; do
@@ -93,7 +94,7 @@ If any of these checks fail, do NOT publish; correct the working tree and re-ver
 ## After publication
 
 - Watch the GitHub Action `fusebase-flow-verify` on the first push; it must pass.
-- Tag the release (`v0.1.0`) so consumers can pin a specific version.
+- Tag the release (`v<version>`) so consumers can pin a specific version.
 - Update `VERSION` only when a new release ships.
 - Document any post-publication changes in a `CHANGELOG.md` (planned for v0.2).
 

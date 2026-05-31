@@ -1,6 +1,6 @@
 # GitHub Copilot / VS Code — Fusebase Flow repository instructions
 
-This repo runs **Fusebase Flow Local v2.1**. Read these files before any other action:
+This repo runs **Fusebase Flow v3.2.0**. Read these files before any other action:
 
 - `AGENTS.md` — portable always-on baseline (rules vs skills vs workflows vs hooks vs policies)
 - `FLOW_RULES.md` — full always-on rules (FR-01..FR-19) with enforcement-surface map

@@ -1,6 +1,6 @@
 # Key tensions to manage
 
-> The Fusebase Flow Local design balances several pairs of competing pressures. None is fully resolvable; each has to be navigated case-by-case. This document names the tensions so they're easier to discuss in clarify conversations and decisions.md alternatives.
+> The Fusebase Flow design balances several pairs of competing pressures. None is fully resolvable; each has to be navigated case-by-case. This document names the tensions so they're easier to discuss in clarify conversations and decisions.md alternatives.
 
 ## Speed vs safety
 

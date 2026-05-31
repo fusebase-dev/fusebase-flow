@@ -1,4 +1,4 @@
-# License clean-room attestation - Fusebase Flow Local v3.1, Fusebase CLI edition
+# License clean-room attestation — Fusebase Flow
 
 ## Statement
 
@@ -52,7 +52,7 @@ Provider and IDE names mentioned in this template are the trademarks of their re
 
 ## Liability
 
-The MIT License's warranty disclaimer applies. Fusebase Flow Local is provided AS IS, without warranty of any kind.
+The MIT License's warranty disclaimer applies. Fusebase Flow is provided AS IS, without warranty of any kind.
 
 ## Last amended
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fusebase Flow Local — install.sh
+# Fusebase Flow — install.sh
 #
 # Optional convenience installer. Does NOT install heavy dependencies.
 # Does NOT require any external SaaS. Does NOT mutate your project beyond
@@ -74,7 +74,7 @@ mkdir -p "$(dirname "$REPORT")"
     echo
 } > "$REPORT"
 
-echo "[install] Fusebase Flow Local installer"
+echo "[install] Fusebase Flow installer"
 echo "[install] Repo: $ROOT"
 echo "[install] Report will be written to: $REPORT"
 echo

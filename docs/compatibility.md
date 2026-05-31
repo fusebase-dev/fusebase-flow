@@ -1,4 +1,4 @@
-# Compatibility matrix - Fusebase Flow Local v3.1, Fusebase CLI edition
+# Compatibility matrix — Fusebase Flow
 
 The public template targets the following provider / IDE surfaces. **No other compatibility surfaces are claimed.**
 

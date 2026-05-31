@@ -5,12 +5,12 @@
     "fusebase-gate"
   ],
   "_comment_about_this_file": [
-    "This is an EXAMPLE settings file for Claude Code shipped with Fusebase Flow - Fusebase CLI edition.",
+    "This is an EXAMPLE settings file for Claude Code shipped with Fusebase Flow.",
     "To enable: copy to `.claude/settings.json` and customize the python interpreter path.",
     "Hooks read JSON events from stdin and write decisions to stdout — see",
     "hooks/README.md and hooks/flow_hook_event.schema.json.",
     "All hook commands use repo-relative paths so they work from any subdir.",
-    "This edition keeps CLI Stop hooks and Flow lifecycle hooks in one additive example.",
+    "This example keeps CLI Stop hooks and Flow lifecycle hooks together additively.",
     "Stop hooks use the cross-platform node implementations (run-typecheck-apps.js carries the CVE-2024-27980 shell:win32 patch; quality-check-apps.js runs the app-quality checks). The jq/bash duplicates run-lint-on-stop.sh and run-typecheck-on-stop.sh are deprecated and intentionally not wired here — they fail out-of-the-box on Windows where jq/bash are absent.",
     "PreToolUse uses the current hookSpecificOutput.permissionDecision style."
   ],

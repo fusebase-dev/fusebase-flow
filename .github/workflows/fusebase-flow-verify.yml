@@ -58,9 +58,10 @@ jobs:
           ALLOWED=(
             "AGENTS.md" "CLAUDE.md" "GEMINI.md" "README.md" "PUBLISHING.md" "LICENSE"
             "FLOW_RULES.md" "VERSION" "install.sh"
+            "CHANGELOG.md" "CONTRIBUTING.md" "SECURITY.md" "CODE_OF_CONDUCT.md"
             ".gitignore" ".gitattributes" ".python-version"
             ".agents" ".claude" ".codex" ".cursor" ".github"
-            "audit" "docs" "hooks" "policies" "skills" "state" "templates" "workflows"
+            "agents" "audit" "docs" "hooks" "policies" "skills" "state" "templates" "workflows"
           )
           actual=$(git ls-files | awk -F/ '{print $1}' | sort -u)
           fail=0

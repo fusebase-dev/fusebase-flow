@@ -2,7 +2,7 @@
 
 ## Scope
 
-Fusebase Flow Local is a **repo-local workflow framework** — files (rules, skills, workflows, policies) plus optional local hooks. It has no server, no daemon, and makes no outbound network calls. Its hooks are **local guardrails**, not a complete security boundary; combine them with git hooks and operator vigilance.
+Fusebase Flow is a **repo-local workflow framework** — files (rules, skills, workflows, policies) plus optional local hooks. It has no server, no daemon, and makes no outbound network calls. Its hooks are **local guardrails**, not a complete security boundary; combine them with git hooks and operator vigilance.
 
 Relevant security-sensitive surfaces in this repo:
 

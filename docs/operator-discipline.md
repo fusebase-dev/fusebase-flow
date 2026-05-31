@@ -1,6 +1,6 @@
 # Operator discipline
 
-> Expectations for the **human operator** (you) when running Fusebase Flow Local. This document is for humans, not AI agents — the agent enforces FR-01..FR-19 from `FLOW_RULES.md` on its side; you carry the operator side.
+> Expectations for the **human operator** (you) when running Fusebase Flow. This document is for humans, not AI agents — the agent enforces FR-01..FR-19 from `FLOW_RULES.md` on its side; you carry the operator side.
 >
 > AGENTS.md links to this doc; rules here are not auto-enforced (you're the human, not the AI).
 
