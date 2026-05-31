@@ -3,14 +3,15 @@
   "owner": {
     "name": "FuseBase (Nimbus Web Inc.)"
   },
-  "description": "FuseBase Flow — the spec-to-deploy AI app-development framework for client-facing teams, packaged with FuseBase Apps domain skills.",
+  "metadata": {
+    "description": "FuseBase Flow — the spec-to-deploy AI app-development framework for client-facing teams, packaged with FuseBase Apps domain skills."
+  },
   "plugins": [
     {
       "name": "fusebase-flow",
       "source": "./",
       "description": "Two-agent (Product Owner + AI Developer) spec-to-deploy lifecycle for building internal and client apps with AI, plus FuseBase Apps domain skills. Repo-local, tool-portable, no SaaS.",
       "version": "3.2.0",
-      "displayName": "FuseBase Flow",
       "author": {
         "name": "FuseBase (Nimbus Web Inc.)"
       },
