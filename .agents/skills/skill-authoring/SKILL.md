@@ -137,7 +137,7 @@ Minimum validation for framework skill changes:
 | Agent mirror integrity | canonical agent hash matches `.claude/agents/` and `.codex/agents/` if agents changed |
 | Source-leak scan | no external/prohibited names, copied phrases, or vendor-specific paths introduced |
 | Count scan | no stale skill-count references after adding/removing framework skills |
-| CLI edition boundary | provider CLI assets remain outside root `skills/` unless separately approved as clean-room Flow framework skills |
+| CLI provider boundary | provider CLI assets remain outside root `skills/` unless separately approved as clean-room Flow framework skills |
 | Format check | `git diff --check` clean except known line-ending warnings |
 | Scope review | no unrelated refactors or duplicated skill responsibilities |
 

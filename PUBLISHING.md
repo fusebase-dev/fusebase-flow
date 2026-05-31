@@ -4,7 +4,7 @@ This document describes the **history-hygiene step** required before publishing 
 
 ## Why history hygiene matters
 
-The build of Fusebase Flow v0.1 happened across multiple commits, including intermediate commits that contained non-target adapter artifacts for compatibility surfaces that are **not** public targets in v0.1. Those artifacts were removed from the final tree (`HEAD`) by the public-surface cleanup step, but they remain visible in earlier commit objects in the build-time history.
+The build of this repo happened across many commits, some of which contained intermediate or non-target artifacts for compatibility surfaces that are **not** public targets. Those artifacts were removed from the final tree (`HEAD`) by the public-surface cleanup step, but they may remain visible in earlier commit objects in the build-time history.
 
 Before publishing the public template, the operator MUST collapse the build history so the public Git tree reflects only the approved compatibility surfaces.
 
