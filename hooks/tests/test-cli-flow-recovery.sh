@@ -235,6 +235,36 @@ pass "Flow skills, agents, overlays, and health command restored"
 pass "conflict reporter returned HEALTHY"
 
 ###############################################################################
+# U10 — an absent FLAG-GATED CLI provider skill is benign, not CLI_LAYER_DRIFT.
+# The CLI deletes flag-gated skills when their flag is off, so absence is by
+# design. Removing one from an otherwise-complete install must NOT flip the
+# verdict, and the remediation must name `set-flag` (not `fusebase update`).
+# Run on a copy so $PROJECT stays clean for the overlay tests below.
+###############################################################################
+U10P="$TMP_BASE/u10-flaggated"
+cp -R "$PROJECT" "$U10P"
+rm -rf "$U10P/.claude/skills/managed-integrations" "$U10P/.agents/skills/managed-integrations"
+set +e
+(
+  cd "$U10P"
+  bash hooks/local/check-cli-flow-conflicts.sh --json > "$TMP_BASE/u10.json"
+)
+U10_RC=$?
+set -e
+[ "$U10_RC" -ne 1 ] || { cat "$TMP_BASE/u10.json" >&2; fail "U10: absent flag-gated skill wrongly escalated to CLI_LAYER_DRIFT (exit 1)"; }
+"$python_bin" - "$TMP_BASE/u10.json" <<'PY' || fail "U10: absent flag-gated skill should be benign INFO, not drift"
+import json, sys
+d = json.loads(open(sys.argv[1], encoding="utf-8").read())
+assert d["verdict"] != "CLI_LAYER_DRIFT", f"flag-gated absence must not be CLI_LAYER_DRIFT, got {d['verdict']}"
+bad = [f for f in d["findings"] if f["status"] == "MISSING" and "managed-integrations" in f["path"]]
+assert not bad, f"flag-gated skill reported MISSING: {bad}"
+info = [f for f in d["findings"] if f["status"] == "INFO" and "managed-integrations" in f["path"]]
+txt = " ".join((f.get("action","") + " " + f.get("detail","")) for f in info).lower()
+assert info and "flag" in txt and "set-flag" in txt, f"expected flag-aware benign INFO, got {info}"
+PY
+pass "U10: absent flag-gated CLI skill is benign INFO (not CLI_LAYER_DRIFT); remediation names set-flag"
+
+###############################################################################
 # F2 — version-aware overlay refresh is marker-anchored and idempotent.
 # The reported bug: --refresh-overlays anchored on the heading, but the
 # templates wrap the heading inside CUSTOM:SKILL markers, so the drift check was

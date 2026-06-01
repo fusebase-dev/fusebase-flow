@@ -6,6 +6,14 @@
     "flow-owned": "Fusebase Flow canonical source is authoritative. Recovery may restore from Flow source.",
     "shared-merge": "Both layers contribute. Recovery may append or merge only the Flow-owned addition while preserving existing content."
   },
+  "flag_gated_skills": {
+    "_comment": "U10: the FuseBase CLI gates these provider skills behind config flags (lib/copy-template.ts FLAG_GATED_SKILLS) and DELETES the skill dir when the flag is off. So an absent flag-gated skill is benign-by-design (flag off), NOT CLI_LAYER_DRIFT, and the correct remediation is `fusebase config set-flag <flag>` (only if the feature is wanted) — never `fusebase update`. Map: skill -> acceptable enabling flag(s).",
+    "git-workflow": ["git-init", "git-debug-commits"],
+    "app-business-docs": ["app-business-docs"],
+    "mcp-gate-debug": ["mcp-gate-debug"],
+    "fusebase-portal-specific-apps": ["portal-specific-apps"],
+    "managed-integrations": ["managed-integrations"]
+  },
   "paths": [
     {
       "path": "AGENTS.md",

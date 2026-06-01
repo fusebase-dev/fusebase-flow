@@ -10,7 +10,7 @@ Read `FLOW_RULES.md` and `AGENTS.md` first. The 20 always-on rules (FR-01..FR-21
 
 ## Self-attestation (first response of every session)
 
-State: "Operating as {Product Owner | AI Developer | Architect (escalated) | Deploy phase} under Fusebase Flow v3.8.1. I will follow FR-01 through FR-21. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+State: "Operating as {Product Owner | AI Developer | Architect (escalated) | Deploy phase} under Fusebase Flow v3.8.2. I will follow FR-01 through FR-21. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 ## State announcement (every output)
 

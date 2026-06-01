@@ -4,6 +4,16 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.8.2] — 2026-06-01
+
+### Fixed — U10: flag-gated CLI skills no longer cause a chronic false-positive CLI_LAYER_DRIFT
+
+Downstream report: the health check flagged a permanent `CLI_LAYER_DRIFT` for CLI provider skills that are **absent by design** — the FuseBase CLI gates several skills behind config flags and deletes them when the flag is off, so `fusebase update` (the advised remediation) can never restore them. Same class as F4 (absent-by-design ≠ drift), affecting essentially every downstream that didn't opt into every optional flag. Fixed:
+
+- `agent-surface-ownership.json` gains a `flag_gated_skills` map (skill → enabling flag(s), mirroring the CLI's `FLAG_GATED_SKILLS`: `portal-specific-apps`, `managed-integrations`, `git-init`/`git-debug-commits`, `app-business-docs`, `mcp-gate-debug`).
+- `check-cli-flow-conflicts.sh` now treats an absent flag-gated skill as a **benign INFO** naming the correct remediation (`fusebase config set-flag <flag>`), not a `MISSING`/`CLI_LAYER_DRIFT`. An absent skill whose flag is **provably on** (best-effort read of `fusebase.json`) is still genuine drift; non-flag-gated absences are unaffected (precision retained, proven by the existing `fusebase-cli`-removed → `CLI_LAYER_DRIFT` test).
+- Recovery sim gains a U10 assertion (remove a flag-gated skill from a complete install → stays non-drift with a `set-flag` INFO). README health section documents the behavior. Dogfooded through the Lightweight Lane. VERSION 3.8.1 → 3.8.2; plugin manifests bumped.
+
 ## [3.8.1] — 2026-06-01
 
 ### Fixed — U9: the first preserve-aware upgrade is now lossless

@@ -4,7 +4,7 @@
 
 ![FuseBase Flow — you design and decide with the Product Owner agent, which hands off to the AI Developer agent that implements, runs the verification gate, and deploys](docs/assets/two-agent-banner.svg)
 
-[![Version](https://img.shields.io/badge/version-3.8.1-blue.svg)](VERSION)
+[![Version](https://img.shields.io/badge/version-3.8.2-blue.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![CI](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml/badge.svg)](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml)
 [![Use this template](https://img.shields.io/badge/GitHub-Use_this_template-brightgreen.svg?logo=github)](https://github.com/fusebase-dev/fusebase-flow/generate)
@@ -421,6 +421,8 @@ The Claude Code Stop hooks shipped in `.claude/settings.json.example` are the cr
 | `SHARED_MERGE_DRIFT` | 1 | Shared files missing Flow overlay/merge additions | Flow recovery offered (merge, not replace) |
 | `EXCEPTION_IN_EFFECT` | 3 | Drift covered by active approval/deferral artifacts in `state/approvals/` | Surface the artifact; no automatic recovery |
 | `BROKEN` | 2 | Preflight, hook tests, manifest parsing, or another critical check failed | Inspect the broken item first; no recovery |
+
+**Flag-gated CLI skills are absent-by-design, not drift (v3.8.2+).** The FuseBase CLI gates some provider skills behind config flags (`portal-specific-apps`, `managed-integrations`, `git-init`/`git-debug-commits`, `app-business-docs`, `mcp-gate-debug`) and removes the skill when the flag is off. The health check treats such an **absent flag-gated skill as a benign INFO** (not `CLI_LAYER_DRIFT`) — the only correct remediation is `fusebase config set-flag <flag>` if you actually want the feature, never `fusebase update`. An absent skill whose flag is provably **on** is still genuine drift; non-flag-gated absences are unaffected.
 
 Recovery (`post-fusebase-update.sh`) restores **only** Flow-owned assets and shared Flow additions — Flow skills/agents mirrors, `AGENTS.md`/`CLAUDE.md` overlay blocks, the `fusebase-flow-health-check` skill, and `.claude/commands/fusebase-health.md`. It never touches `.claude/hooks/**`, CLI provider skills, MCP config, `fusebase.json`, `skills-lock.json`, or active `.codex/config.toml`. **Hook wiring is opt-in** (v3.6.0+): by default recovery does *not* modify `.claude/settings.json` — pass `--wire-hooks` to merge the Flow lifecycle events (the CLI's own Stop hooks are preserved either way).
 

@@ -235,6 +235,44 @@ paths: list[dict[str, Any]] = manifest.get("paths") or []
 flow_skills = flow_skill_names()
 flow_agents = flow_agent_names()
 
+# U10: flag-gated CLI provider skills. The FuseBase CLI deletes these when their
+# config flag is off, so an absent one is benign-by-design (not CLI_LAYER_DRIFT)
+# and `fusebase update` can't restore it — the remediation is `fusebase config
+# set-flag <flag>`. Map: skill -> acceptable enabling flag(s).
+flag_gated_skills: dict[str, list] = {
+    k: (v if isinstance(v, list) else [v])
+    for k, v in (manifest.get("flag_gated_skills") or {}).items()
+    if not k.startswith("_")
+}
+
+
+def enabled_flags():
+    """Best-effort, read-only resolution of the project's enabled CLI flags.
+    Returns a set of flag strings, or None when it can't be determined. When None,
+    a flag-gated absent skill is treated as benign (the dominant correct case) —
+    we never invoke the `fusebase` CLI from this read-only diagnostic."""
+    for cfg in (root / "fusebase.json", root / ".fusebase" / "config.json", root / "fuse.config.json"):
+        if not cfg.is_file():
+            continue
+        try:
+            data = json.loads(cfg.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        if not isinstance(data, dict):
+            continue
+        sources = [data, data.get("config") if isinstance(data.get("config"), dict) else {}]
+        for src in sources:
+            for key in ("flags", "enabledFlags", "featureFlags"):
+                val = src.get(key)
+                if isinstance(val, list):
+                    return {str(x) for x in val}
+                if isinstance(val, dict):
+                    return {k for k, v in val.items() if v}
+    return None
+
+
+project_flags = enabled_flags()
+
 for entry in paths:
     owner = entry.get("owner", "")
     rel = entry.get("path", "")
@@ -338,8 +376,23 @@ for entry in paths:
                         rp = str(fp.relative_to(root)).replace("\\", "/")
                         check_provenance(rp)
             else:
-                # Partial install: some present, this one missing → genuine drift.
-                add("MISSING", layer, owner, skill_path, "run the current FuseBase CLI refresh/update to restore this provider skill", "provider skill partially missing")
+                fg = flag_gated_skills.get(name)
+                if fg:
+                    # U10: this skill is flag-gated. Absent + flag-off (or flag state
+                    # undeterminable) is benign-by-design, NOT drift. Only an absent
+                    # skill whose flag is provably ON is genuine drift.
+                    if project_flags is not None and any(f in project_flags for f in fg):
+                        add("MISSING", layer, owner, skill_path,
+                            f"flag '{fg[0]}' is enabled but the skill is absent — run the current FuseBase CLI refresh/update to restore it",
+                            "flag-gated provider skill missing though its flag is on")
+                    else:
+                        add("INFO", layer, owner, skill_path,
+                            f"absent — flag-gated by '{'/'.join(fg)}'; benign when the flag is off "
+                            f"(the CLI removes flag-off skills, so `fusebase update` won't restore it). "
+                            f"Enable the feature only if wanted: fusebase config set-flag {fg[0]}")
+                else:
+                    # Partial install: some present, this one missing → genuine drift.
+                    add("MISSING", layer, owner, skill_path, "run the current FuseBase CLI refresh/update to restore this provider skill", "provider skill partially missing")
         continue
 
     if "<flow-skill>" in rel:
