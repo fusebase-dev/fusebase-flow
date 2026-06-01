@@ -47,18 +47,30 @@ before_done_claim:
 
 # Deploy-ready gate: before a session in Deploy phase runs the deploy command,
 # these artifacts must exist.
+# FR-21 tier-aware. Full lane: deploy handoff + production_deploy artifact.
+# Lightweight lane: the handoff is waived and the approval artifact may be the
+# one-command lightweight_deploy stamp instead of production_deploy (see
+# policies/approval-policy.yml: lightweight_deploy). The worker-undisturbed
+# re-check (FR-07) is required in BOTH lanes. (stop.py enforces only `signal`
+# entries; the `path_glob` entries are read by the deploy-command gate / are
+# agent-facing. `any_of` and `waived_when_lightweight` are honored by
+# tier-aware readers; the FR-07 signal is unconditional.)
 before_deploy_command:
   required:
     - path_glob: "docs/handoff/*-deploy.md"
       condition: "exists_and_recent"       # within last 24 hours
-      reason: "FR-04 + FR-05: deploy handoff must be persisted and recent."
+      reason: "FR-04 + FR-05: deploy handoff must be persisted and recent (Full lane)."
       rule_id: FR-05
-    - path_glob: "state/approvals/production_deploy-*.json"
-      condition: "exists_unexpired"
-      reason: "FR-12: production_deploy approval artifact required."
+      waived_when_lightweight: true        # FR-21: LL uses a change-note, not a deploy handoff
+    - any_of:
+        - path_glob: "state/approvals/production_deploy-*.json"
+          condition: "exists_unexpired"
+        - path_glob: "state/approvals/lightweight_deploy-*.json"
+          condition: "exists_unexpired"
+      reason: "FR-12 / FR-21: production_deploy approval (Full) OR the one-command lightweight_deploy stamp (Lightweight)."
       rule_id: FR-12
     - signal: worker_undisturbed_recheck
-      reason: "FR-07: final pre-deploy worker-undisturbed re-check required."
+      reason: "FR-07: final pre-deploy worker-undisturbed re-check required (both lanes)."
       rule_id: FR-07
   on_missing: deny
 
@@ -69,18 +81,21 @@ before_deploy_complete_claim:
       reason: "FR-14: deploy hash must be captured for spec.md DRAFT→DONE flip."
       rule_id: FR-14
     - signal: probes_passed
-      reason: "Gate contract: post-deploy probes must report results."
+      reason: "Gate contract: post-deploy probes must report results (Full lane). FR-21: a Lightweight ticket reports a 1–3 line live-proof instead of a G-M..G-Q probes table."
       rule_id: FR-05
+      optional_when_lightweight: true
     - signal: smoke_results_present
       reason: "Gate contract: smoke results must be persisted when applicable."
       rule_id: FR-05
       optional_unless_smoke_specified: true
+      optional_when_lightweight: true
     - signal: rollback_note_present
-      reason: "Operational discipline: rollback procedure must be documented even on success."
+      reason: "Operational discipline: rollback procedure must be documented even on success (both lanes — safety floor)."
       rule_id: FR-14
     - signal: docs_commit_present
-      reason: "FR-14: single docs commit must land before claiming complete."
+      reason: "FR-14: single docs commit must land before claiming complete (Full lane). FR-21: a Lightweight change is its own single commit + ledger line, with no separate post-deploy docs commit."
       rule_id: FR-14
+      optional_when_lightweight: true
     - signal: cleanup_marker_present
       reason: "Live-user verification (when used) must end with operator-sign-out OR cookie-TTL cleanup; ephemeral session-key handling per workflows/live-user-verification.md."
       rule_id: FR-12
@@ -100,3 +115,4 @@ signal_definitions:
   rollback_note_present: "transcript contains 'rollback' procedure paragraph"
   docs_commit_present: "transcript contains 'docs(post-deploy):' commit or equivalent"
   cleanup_marker_present: "transcript contains the literal phrase 'cleanup: operator can sign out OR cookie expires per TTL' (per workflows/live-user-verification.md Step 8); only required when a session_key_or_cookie_use approval artifact was authored during this ticket"
+  lightweight_lane_marker: "transcript indicates an FR-21 Lightweight-lane ticket: contains 'change_tier: lightweight', 'Lightweight lane', or a 'Phase: Lightweight' state announcement. When set, before_deploy_complete_claim signals flagged optional_when_lightweight (probes_passed, smoke_results_present, docs_commit_present) are waived; the safety-floor signals (deploy_hash_captured, rollback_note_present) stay required."

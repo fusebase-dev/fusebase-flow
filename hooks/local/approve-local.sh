@@ -20,6 +20,7 @@ Usage: $0 <action> <slug> [reason]
 
 Available actions (from approval-policy.yml):
   production_deploy
+  lightweight_deploy        # FR-21 Lightweight lane — one-command go-ahead stamp
   database_migration
   destructive_file_delete
   auth_or_permission_change

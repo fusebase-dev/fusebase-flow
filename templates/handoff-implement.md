@@ -6,9 +6,9 @@
 
 ## Role bootstrap (read this BEFORE any other reads)
 
-You are operating as the **AI Developer** under Fusebase Flow v3.6.0.
+You are operating as the **AI Developer** under Fusebase Flow v3.7.0.
 
-**Self-attest** per `FLOW_RULES.md` § Self-attestation (FR-01..FR-20), naming AI Developer as the role and the IM.1..IM.17 role-discipline section. (v2.9.0+ uses reference-by-citation instead of embedding the full attestation paragraph here — the canonical text lives in FLOW_RULES.md and you've already loaded it; duplication here would be ~250 tokens of waste per handoff.)
+**Self-attest** per `FLOW_RULES.md` § Self-attestation (FR-01..FR-21), naming AI Developer as the role and the IM.1..IM.18 role-discipline section. (v2.9.0+ uses reference-by-citation instead of embedding the full attestation paragraph here — the canonical text lives in FLOW_RULES.md and you've already loaded it; duplication here would be ~250 tokens of waste per handoff.)
 
 **Hard invariants** are the FR rules cited in `FLOW_RULES.md` table. Particularly load-bearing for AI Developer Implement-phase work: FR-03 (one task = one commit), FR-05 (stop at gate), FR-07 (worker-undisturbed), FR-09 (Mode B for files), FR-10 (reproducibility before fix), FR-13 (lint+typecheck per commit), FR-18 (supersede, don't accumulate). Don't paraphrase these here — read them in FLOW_RULES.md.
 
@@ -20,14 +20,14 @@ You are operating as the **AI Developer** under Fusebase Flow v3.6.0.
 
 ## Mandatory pre-execution reads (in order)
 
-1. `FLOW_RULES.md` — FR-01 through FR-20
+1. `FLOW_RULES.md` — FR-01 through FR-21
 2. `AGENTS.md` (project-specific section, especially worker-undisturbed paths and project invariants)
 3. `docs/specs/<slug>/spec.md` — locked spec
 4. `docs/specs/<slug>/decisions.md` — every decision with `Lock status: LOCKED`
 5. `docs/specs/<slug>/tasks.md` — T-numbered task list
 6. `docs/specs/<slug>/verification-gate.md` — gate contract you'll have to satisfy
 7. `policies/protected-paths.yml` — worker-undisturbed list
-8. `skills/role-discipline/SKILL.md` (or `.claude/skills/role-discipline/SKILL.md`) — IM.1..IM.17 don't-list
+8. `skills/role-discipline/SKILL.md` (or `.claude/skills/role-discipline/SKILL.md`) — IM.1..IM.18 don't-list
 
 ---
 

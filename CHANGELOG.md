@@ -4,6 +4,19 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.7.0] — 2026-06-01
+
+### Added — Lightweight Lane (FR-21): ceremony proportional to change size
+
+Production feedback (a one-line, reversible edit that ran the full lifecycle at ~10–16 min wall-clock, ~98% process/build/verify/approval and ~2% the change) showed Fusebase Flow applied the same full ceremony to every change regardless of risk. v3.7.0 adds a two-tier model so ceremony scales with risk. Spec: `docs/specs/lightweight-lane/`.
+
+- **FR-21 (new always-on rule) — ceremony proportional to change size.** Every ticket is classified **Full** or **Lightweight** at Specify. The safety floor is kept in BOTH lanes (live proof, an explicit operator deploy go-ahead, FR-07 protected paths, a documented rollback, one-commit-per-change with the SHA). Fail-safe-up + mandatory mid-flight promotion. Self-attestation range is now `FR-01..FR-21`.
+- **`lightweight-lane` skill (24th canonical).** Single source of truth for the eligibility gate (6 conjunctive conditions), the change-note artifact, the one build→verify→deploy pass, and mid-flight promotion. Referenced by `requirements-specification`, `validation-and-qa`, `release-deploy-reporting`, `role-discipline`, and both agents.
+- **A Lightweight ticket** replaces the spec/decisions/tasks/verification-gate chain + two handoff docs with **one change-note** (`templates/change-note.md`), runs build→verify→deploy in **one agent pass** (no two-agent split, no redundant rebuild), and deploys on a **plain explicit operator go-ahead** — no DP.6 magic phrase, no hand-authored DP.1 JSON (DP.12). Verification is compressed (live proof + the 3-question empirical test on the one acceptance criterion, reported in 1–3 lines), not skipped. Tier + any promotion are logged in `docs/changes/index.md`.
+- **role-discipline:** PO.16 (classify; don't over/under-tier), IM.18 (one-pass LL; keep the floor; promote if it grows), DP.12 (plain go-ahead replaces DP.1/DP.6 for LL). DP.1/DP.6 scoped to Full lane.
+- **Tier-aware hook layer (opt-in, off by default):** `approval-policy.yml` gains `lightweight_deploy` (a one-command stamp authored from the operator's go-ahead); `required-artifacts.yml` `before_deploy_command` accepts `production_deploy` OR `lightweight_deploy`, and `before_deploy_complete_claim` waives the Full-lane-only signals (probes table, post-deploy docs commit, smoke) for LL while keeping the safety-floor signals (deploy hash + rollback). `stop.py` is tier-aware via a lightweight-lane transcript marker. Two new hook-test fixtures (15: LL deploy-complete allowed; 16: LL still blocked without rollback). Tests now 16/16.
+- **Docs/workflows:** `workflows/lightweight-lane.md`; lane selection added to `workflows/eight-phase-flow.md`; AGENTS/CLAUDE/GEMINI overlays + README document the two lanes; skill count 23→24. VERSION 3.6.0 → 3.7.0; plugin manifests bumped.
+
 ## [3.6.0] — 2026-05-31
 
 ### Added / Fixed — upgrade-path hardening

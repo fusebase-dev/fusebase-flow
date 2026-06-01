@@ -63,6 +63,12 @@ def _signals_from_transcript(transcript_text: str, signal_defs: dict) -> dict[st
     detected["cleanup_marker_present"] = bool(
         re.search(r"cleanup:\s*operator can sign out or cookie expires per ttl", text)
     )
+    # FR-21 Lightweight-lane marker. When present, the deploy-complete gate drops
+    # the Full-lane-only signals (probes table, post-deploy docs commit, smoke
+    # artifacts) but KEEPS the safety floor (deploy hash + rollback note).
+    detected["lightweight_lane_marker"] = bool(
+        re.search(r"change_tier:\s*lightweight|lightweight lane|phase:\s*lightweight", text)
+    )
     return detected
 
 
@@ -104,6 +110,8 @@ def main() -> int:
     signal_defs = policy.get("signal_definitions") or {}
     detected = _signals_from_transcript(transcript_text, signal_defs)
 
+    lightweight = detected.get("lightweight_lane_marker", False)
+
     missing: list[str] = []
     for req in gate_cfg.get("required", []) or []:
         sig = req.get("signal")
@@ -116,7 +124,14 @@ def main() -> int:
                 req.get("optional_unless_live_user_verification_used")
                 and not detected.get("live_user_verification_used", False)
             )
-            if not detected.get(sig, False) and not (optional_smoke or optional_live_user):
+            # FR-21: a signal flagged optional_when_lightweight is waived on a
+            # Lightweight-lane ticket (the marker is in the transcript). The
+            # safety-floor signals (deploy hash, rollback) are NOT flagged, so
+            # they stay required in both lanes.
+            optional_lightweight = bool(req.get("optional_when_lightweight")) and lightweight
+            if not detected.get(sig, False) and not (
+                optional_smoke or optional_live_user or optional_lightweight
+            ):
                 missing.append(sig)
 
     if missing:

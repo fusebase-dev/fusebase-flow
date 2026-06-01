@@ -1,6 +1,6 @@
 # Operator discipline
 
-> Expectations for the **human operator** (you) when running Fusebase Flow. This document is for humans, not AI agents — the agent enforces FR-01..FR-20 from `FLOW_RULES.md` on its side; you carry the operator side.
+> Expectations for the **human operator** (you) when running Fusebase Flow. This document is for humans, not AI agents — the agent enforces FR-01..FR-21 from `FLOW_RULES.md` on its side; you carry the operator side.
 >
 > AGENTS.md links to this doc; rules here are not auto-enforced (you're the human, not the AI).
 
@@ -94,6 +94,6 @@ The fix is always: stop, file the missing artifact (full report / parked ticket 
 
 ## Related
 
-- `FLOW_RULES.md` — FR-01..FR-20 (the agent-side rules)
+- `FLOW_RULES.md` — FR-01..FR-21 (the agent-side rules)
 - `skills/role-discipline/SKILL.md` — agent-side don't-list per role
 - `AGENTS.md` — always-on baseline that links here

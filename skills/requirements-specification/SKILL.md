@@ -34,7 +34,11 @@ Turn vague operator intent into a versioned spec with explicit acceptance criter
 - Operator is asking how something already works (use code-review or repo-onboarding-context-map instead)
 - Task is a one-line bug fix that does not need clarify (see "Skip-clarify gate" below)
 
-## Skip-clarify gate (when "skip clarify" is allowed)
+## Lane classification first (FR-21)
+
+Before drafting a spec, classify the ticket **Full** or **Lightweight** using the eligibility gate in `skills/lightweight-lane/SKILL.md`. If the change is small, reversible, security-neutral, mechanically-verifiable, needs no architectural decision, and the root cause is known → it is **Lightweight**: do NOT draft spec/clarify/decisions/tasks/gate. Instead produce a single **change-note** (`templates/change-note.md`) and route to `workflows/lightweight-lane.md` (one build→verify→deploy pass, plain operator go-ahead). In doubt → **Full** (continue below). The skip-clarify gate that follows is a *Full-lane* micro-optimization (it skips clarify only); the Lightweight lane is the bigger lever for genuinely small work.
+
+## Skip-clarify gate (Full lane — when "skip clarify" is allowed)
 
 The clarify phase exists to surface hidden ambiguity before code is written. Skipping it has a cost — undetected ambiguity surfaces later as wrong-direction code or operator-rework. Skip ONLY when ALL of the following hold:
 

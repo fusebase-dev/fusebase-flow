@@ -1,0 +1,11 @@
+{
+  "_test": "Stop hook still BLOCKS a Lightweight-lane deploy-complete claim that drops a safety-floor signal (no rollback note) — FR-21 drops ceremony, not the safety floor",
+  "_handler": "stop.py",
+  "_expected_decision": "deny",
+  "_expected_rule_id": "FR-05",
+  "event": "stop",
+  "session_id": "test-16",
+  "cwd": ".",
+  "host_tool": "claude_code",
+  "agent_message": "Deploy complete (Lightweight lane, change_tier: lightweight). Dropped JSON pretty-printing; observed payload smaller, under the cap. Deploy hash: deployed via abc1234ef."
+}

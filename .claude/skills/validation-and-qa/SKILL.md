@@ -21,7 +21,7 @@ hook_dependencies:
 
 ## Purpose
 
-Validate changed behavior with deterministic checks before a deploy is approved. Four sub-modes: (a) verification gate after implementation; (b) smoke prompt verification post-deploy; (c) reproducibility-before-fix when a single observed failure is reported; (d) test-data hygiene cleanup.
+Validate changed behavior with deterministic checks before a deploy is approved. Five sub-modes: (a) verification gate after implementation; (b) smoke prompt verification post-deploy; (c) reproducibility-before-fix when a single observed failure is reported; (d) test-data hygiene cleanup; (e) **Lightweight-lane live-proof** (FR-21) — the compressed gate for a Lightweight ticket.
 
 ## When to invoke
 
@@ -75,6 +75,17 @@ Validate changed behavior with deterministic checks before a deploy is approved.
    - Test data setup using unique values; no exact-count assumptions against shared state unless the test created the records.
    - Browser-visible evidence plus backend/log/API diagnostic evidence when the feature spans frontend and backend.
 7. If passes, output approval to operator with explicit phrase "Gate verified. Phase advances to Deploy."
+
+### Sub-mode E — Lightweight-lane live-proof (FR-21)
+
+For a Lightweight-lane ticket there is no `verification-gate.md` and no long-form gate report — but the **live proof is never skipped** (it is the safety floor). Compress, don't drop:
+
+1. Run the change on a **real input** (not a mock) and **compare observed to expected** — the first two of the 3-question test, applied to the one acceptance criterion in the change-note.
+2. Make it **reproducible from the change-note alone** (command + input + observed output in 1–3 lines) — the third question.
+3. Confirm the FR-07 protected-path re-check is clean (`git diff` against `policies/protected-paths.yml`).
+4. Report in **1–3 lines**: `<what changed> · observed <X>, expected <Y> ✓ · FR-07 clean`. That is the LL gate.
+
+If the live proof can't be produced (no real input reachable, outcome not measurable), the ticket is **not** Lightweight-eligible per condition 3 — promote to Full (`skills/lightweight-lane/SKILL.md`).
 
 ### Sub-mode B — Smoke prompt verification (post-deploy)
 

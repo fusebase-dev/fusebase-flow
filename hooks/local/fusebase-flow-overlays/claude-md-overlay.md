@@ -35,8 +35,9 @@ This repository follows **Fusebase Flow** in addition to project-specific rules.
 - `product-docs-first` — design per-app product docs before code (no-op if absent)
 - `business-logic-guardian` — protect documented business logic during fixes (no-op if absent)
 - `product-apps-decomposition` — product → focused apps guidance
+- `lightweight-lane` — FR-21 change-size tiering; small/reversible changes use a change-note + one build→verify→deploy pass instead of the full lifecycle
 
-(23 canonical Fusebase Flow skills total.)
+(24 canonical Fusebase Flow skills total.)
 
 **Slash commands (`.claude/commands/`):** `/fusebase-health`, `/onboard`, `/product-owner`.
 

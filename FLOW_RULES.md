@@ -1,6 +1,6 @@
-# Fusebase Flow — always-on rules (FR-01..FR-20)
+# Fusebase Flow — always-on rules (FR-01..FR-21)
 
-**Status:** v0.6 (FR-20 added in v3.3 — zoom out, don't patch-myopically)
+**Status:** v0.7 (FR-21 added in v3.7 — ceremony proportional to change size)
 **Scope:** every session in any IDE/agent must follow these regardless of which skill or workflow is active.
 
 These rules are clean-room original. Each rule states *what*, *why*, and *enforcement surface* (rule-only, policy, hook, workflow, skill). Enforcement details live in `policies/`, `hooks/`, and `workflows/` — this file is the readable contract.
@@ -27,6 +27,7 @@ These rules are clean-room original. Each rule states *what*, *why*, and *enforc
 | FR-18 | Supersede, don't accumulate | When revising a handoff, gate report, decision, or spec post-abort or post-correction, REPLACE the stale content with the corrected version. Don't keep both the old and the new in the same file. Audit trail lives in git history (every revision is its own commit), not in the live file — every reload of an accumulated artifact pays token cost for content that's no longer authoritative. Exception: when human-readable diff is genuinely needed for operator review, use a `## Superseded sections (audit only — agents skip)` heading that the agent recognizes and skips during reads. | rule + skill `skills/role-discipline/SKILL.md` (PO.12 / IM.13 / AR.7 / DP.8 supersede entries + the "Superseded sections" convention) |
 | FR-19 | Chat-text questions, no popup menus | Operator questions and decision prompts must be written as normal chat text, usually a short options table or numbered list. Do not use modal popup / clickable menu tools (`AskUserQuestion` or equivalents) because they cannot be copied, forwarded, quoted, or followed up on reliably across sessions. | rule + mandatory skills `skills/communication/SKILL.md` and `skills/role-discipline/SKILL.md` + agent tool grants |
 | FR-20 | Zoom out, don't patch-myopically | When fixing a bug or making an improvement, first zoom out and check the bigger picture before applying a narrow patch: does this fix address the root cause or only the symptom; does it contradict the spec, decisions, or (if present) the project North Star; does it belong in a different layer; will it create drift elsewhere. Narrow patch-on-patch behavior accumulates inconsistency and is a primary driver of AI-development drift. Prefer the root-cause fix; if a narrow patch is the right call, say why. When the bigger picture is ambiguous, ask the operator (FR-19) rather than guess. | rule + skill `skills/zoom-out/SKILL.md` + skill `skills/validation-and-qa/SKILL.md` (reproduce-before-fix, FR-10) |
+| FR-21 | Ceremony proportional to change size | One-size-fits-all ceremony is waste on small work: a trivial, reversible, security-neutral change with a one-sentence verifiable outcome does not need the full spec→clarify→decisions→tasks→gate chain, a DP.1 approval artifact, the DP.6 magic phrase, or a two-agent build-then-deploy split. Forcing it costs time, breeds approval fatigue (diluting the approvals that matter), and can add risk (more steps than the change carries). Classify every ticket **Full** or **Lightweight** at Specify and scale ceremony to risk. The safety floor is kept in BOTH lanes and is never dropped: live proof it works, an explicit operator deploy go-ahead (never auto-deploy), FR-07 protected paths, a documented rollback, one-commit-per-change with the SHA recorded. Eligibility is conjunctive and fail-safe: in doubt → Full; if a Lightweight change turns non-trivial mid-flight (more than a couple files, a surfaced risk, a real decision, or a deeper bug), STOP and promote to Full. | rule + skill `skills/lightweight-lane/SKILL.md` + skill `skills/requirements-specification/SKILL.md` (lane-classification gate) + tier-aware `approval-policy.yml` / `required-artifacts.yml` |
 
 ---
 
@@ -47,7 +48,7 @@ If a session writes code outside its role, FR-01 fires and the agent must stop a
 
 ## Self-attestation (mandatory at first response of every session)
 
-Every role declares: "Operating as {role} under Fusebase Flow v3.6.0. I will follow FR-01 through FR-20. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+Every role declares: "Operating as {role} under Fusebase Flow v3.7.0. I will follow FR-01 through FR-21. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 If self-attestation is missing from the first response, the session is drifting. Self-correct in the next output.
 
@@ -60,6 +61,8 @@ If self-attestation is missing from the first response, the session is drifting.
 **FR-19 implication for every role:** when asking the operator to choose, confirm, clarify, or approve, write the question in chat text. Provide 2-4 concrete options with the recommended option marked when there is a recommendation. Do not use popup / clickable menu tools for operator questions. The operator must be able to copy the question, forward it to another session, quote it, scroll back to it, and ask follow-up questions before deciding.
 
 **FR-20 implication for every role:** before committing a bug fix or improvement, zoom out first. Confirm the change targets the root cause (not just the visible symptom), is consistent with the spec / locked decisions / North Star (if present), sits in the right layer, and won't introduce drift elsewhere. Avoid patch-on-patch accumulation. Load `skills/zoom-out/SKILL.md` when a fix is non-trivial or repeats. If the bigger picture is ambiguous, ask the operator (FR-19) instead of guessing.
+
+**FR-21 implication for every role:** at Specify, classify the ticket **Full** or **Lightweight** using the eligibility gate in `skills/lightweight-lane/SKILL.md` (load it whenever a change looks small/reversible). A **Lightweight** ticket replaces the spec/decisions/tasks/gate chain + two handoff docs with a single **change-note** (problem · change · verification · rollback · tier), runs **build → live-verify → deploy in one agent pass** (no two-agent split, no redundant rebuild), and deploys on a **plain explicit operator go-ahead** ("ship it") instead of the DP.1 artifact + DP.6 magic phrase. It still keeps the full safety floor (live proof, the explicit go-ahead, FR-07, a one-line rollback, one commit + SHA). The **Full** lane is unchanged. When unsure, choose Full; if a Lightweight change turns non-trivial mid-flight, STOP and promote to Full and record the promotion. PO and AI Developer must not run a Lightweight deploy without the explicit operator go-ahead, and must not auto-promote risk into the Lightweight lane.
 
 ---
 
@@ -175,4 +178,21 @@ Both modes preserve FR-03, FR-13, FR-14.
              alongside the generic-flow-skills batch (zoom-out,
              phase-audit, git-history-diagnostic, plus domain-expert and
              prototype-before-build skill extensions).
+
+2026-06-01 — v0.7. FR-21 added (ceremony proportional to change size).
+             Driver: production feedback from paperclip+hermes-v1 — a
+             one-line, reversible edit ran the full lifecycle (spec →
+             decisions → tasks → gate → two-agent build-then-deploy split +
+             DP.1 artifact + DP.6 magic phrase) at ~10-16 min wall-clock,
+             ~98% process/build/verify/approval and ~2% the actual change.
+             The only prior concession (skip-clarify) skips clarify alone.
+             FR-21 introduces a two-tier model: every ticket is classified
+             Full or Lightweight at Specify; a Lightweight ticket uses a
+             single change-note, one build->verify->deploy agent pass, and a
+             plain operator go-ahead instead of the DP.1 artifact + DP.6
+             phrase — while keeping the full safety floor (live proof,
+             explicit deploy go-ahead, FR-07, rollback, one-commit) in both
+             lanes. Fail-safe-up + mandatory mid-flight promotion guard
+             against under-tiering. Operationalized by
+             skills/lightweight-lane/SKILL.md. Shipped in framework v3.7.0.
 ```

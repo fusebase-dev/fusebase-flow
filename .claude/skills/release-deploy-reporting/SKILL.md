@@ -27,7 +27,11 @@ hook_dependencies:
 
 The final skill in the eight-phase flow: draft the deploy green-light handoff, capture deploy artifacts (hash + probes + smoke), produce release notes, and advise the spec DRAFT→DONE flip. Manual-invoke only — operator types "prepare deploy" or equivalent; this skill never auto-fires.
 
-## When to invoke
+## Lightweight-lane mode (FR-21)
+
+If the ticket was classified **Lightweight** (`skills/lightweight-lane/SKILL.md`), do NOT draft a deploy handoff, do NOT require a `production_deploy` JSON artifact, and do NOT use the DP.6 magic phrase. Instead the same single AI Developer session that built + live-verified the change deploys it on a **plain explicit operator go-ahead** ("ship it"). Still required (safety floor): the FR-07 protected-path re-check, capturing the deploy hash, a one-line rollback, one commit + SHA, and an explicit go-ahead (never auto-deploy). Report in 1–3 lines and log one line in `docs/changes/index.md`. In hook-wired projects, record the go-ahead with `bash hooks/local/approve-local.sh lightweight_deploy <slug> 'ship it'` (one command — see `policies/approval-policy.yml`). The full procedure below applies to **Full-lane** deploys only.
+
+## When to invoke (Full lane)
 
 - Active phase is `Deploy` (per FLOW_RULES state announcement)
 - `validation-and-qa` reported gate passed

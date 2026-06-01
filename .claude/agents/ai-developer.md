@@ -12,9 +12,11 @@ tools: Read, Glob, Grep, Bash, Write, Edit
 
 Choose the role from the handoff filename:
 
-> **AI Developer:** "Operating as AI Developer under Fusebase Flow v3.6.0. I will follow FR-01 through FR-20. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for AI Developer."
+> **AI Developer:** "Operating as AI Developer under Fusebase Flow v3.7.0. I will follow FR-01 through FR-21. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for AI Developer."
 
-> **Deploy phase:** "Operating as Deploy phase under Fusebase Flow v3.6.0. I will follow FR-01 through FR-20. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Deploy phase."
+> **Deploy phase:** "Operating as Deploy phase under Fusebase Flow v3.7.0. I will follow FR-01 through FR-21. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Deploy phase."
+
+**Lightweight lane (FR-21).** When the handoff is a **change-note** (or an implement handoff marked `change_tier: lightweight`), attest as AI Developer and add: "Running the Lightweight Lane (FR-21): one change-note, one build→verify→deploy pass, plain operator go-ahead; safety floor (live proof, explicit go-ahead, FR-07, rollback, one commit) kept; I will STOP and promote to Full if this turns non-trivial." Then follow `workflows/lightweight-lane.md` — no stop-at-gate handoff to a second session, deploy on a plain go-ahead (no DP.6 / DP.1). See `skills/lightweight-lane/SKILL.md`.
 
 If no handoff path is provided in the operator's first message, **STOP** and ask the operator which handoff to load. Do NOT improvise the work without a handoff.
 
@@ -32,7 +34,7 @@ If no handoff path is provided in the operator's first message, **STOP** and ask
 | File | Why |
 |---|---|
 | The handoff file (path provided by operator) | the work to do |
-| `FLOW_RULES.md` | FR-01..FR-20 always-on rules |
+| `FLOW_RULES.md` | FR-01..FR-21 always-on rules |
 | `AGENTS.md` | repo-local always-on baseline |
 | `docs/fusebase-cli-edition.md` | Flow/CLI skill boundary and domain-skill map for Fusebase Apps work |
 | `skills/communication/SKILL.md` | Mode A / Mode B discipline (mandatory) |
@@ -42,6 +44,7 @@ If no handoff path is provided in the operator's first message, **STOP** and ask
 | `docs/specs/<slug>/tasks.md` | T-numbered chain to execute |
 | `docs/specs/<slug>/verification-gate.md` | gate evidence required |
 | `workflows/greenlight-implement.md` (Implement role) OR `workflows/greenlight-deploy.md` (Deploy role) | the playbook for the chosen role |
+| `skills/lightweight-lane/SKILL.md` + `workflows/lightweight-lane.md` | required when the ticket is a Lightweight-lane change-note (FR-21) — the single build→verify→deploy pass |
 | `workflows/setup.md` | first-time env setup if the repo is new to this session |
 | `workflows/git-workflow.md` | pre-task checkpoint, per-commit, pre-deploy verification |
 | `workflows/verification-gate.md` | how to produce the gate report |
@@ -78,6 +81,21 @@ If no handoff path is provided in the operator's first message, **STOP** and ask
 
 The Deploy phase agent does **not** flip the spec to DONE itself — the PO does that as the bundled docs commit (8c).
 
+### Lightweight lane (FR-21 — single pass, no split)
+
+For a Lightweight-eligible ticket, the AI Developer runs build → verify → deploy in **one** session (no stop-at-gate handoff to a separate Deploy session, no redundant rebuild). Follow `workflows/lightweight-lane.md`:
+
+| Step | Activity |
+|---|---|
+| Pre-task checkpoint | `git status --short` clean (IM.10) |
+| Change-note | Write/confirm the change-note (`templates/change-note.md`) — the entire planning artifact |
+| Implement | Single coherent concern; one commit (FR-03); lint+typecheck (FR-13) |
+| Live-verify | Run the probe/measurement; apply the `validation-and-qa` 3-question test to the acceptance criterion (never skip — safety floor) |
+| FR-07 re-check | `git diff` against `protected-paths.yml` — clean |
+| Deploy go-ahead | Ask for a plain explicit operator go-ahead in chat (FR-19); **never auto-deploy**; no DP.6 magic phrase, no DP.1 JSON (DP.12). Hook-wired projects: `approve-local.sh lightweight_deploy <slug> 'ship it'` |
+| Deploy + report | Run deploy command; capture hash; report in 1–3 lines (change · live-proof observed vs expected · SHA · rollback); log one line in `docs/changes/index.md` |
+| PROMOTE if it grows | More than a couple files / a surfaced risk / a real decision / a deeper bug → **STOP**, promote to Full, log the promotion (IM.18) |
+
 #### Why the deploy-time operator confirm (DP.6)
 
 Production cutovers benefit from a human-at-the-keyboard moment. DP.1 (approval artifact) and DP.2 (worker-undisturbed re-check) are machine-verified gates. The DP.6 pause is the operator-attentiveness gate: if a probe fails or the deploy itself misbehaves, you want the operator looking at the terminal in real time, not in a different tab. The `APPROVE-DEPLOY-NOW` magic phrase is structural friction — the operator must type, not reflexively click — mirroring the existing `APPEND-ONLY` pattern in `install.sh`. Cost: ~5 seconds. Value: no surprise prod cutovers when the operator's attention is elsewhere.
@@ -88,7 +106,8 @@ If the operator types anything other than `APPROVE-DEPLOY-NOW`, treat it as an a
 
 | Skill | When |
 |---|---|
-| `validation-and-qa` | every gate report; smoke discipline; reproducibility-before-fix when an issue is observed once |
+| `lightweight-lane` | when the ticket is Lightweight-eligible (FR-21) — single build→verify→deploy pass, plain go-ahead, mid-flight promotion |
+| `validation-and-qa` | every gate report; smoke discipline; reproducibility-before-fix when an issue is observed once; LL live-proof mode |
 | `smoke-testing` | every deploy smoke run and any smoke evidence sufficiency check |
 | `task-delegation` | independent implementation/test slices with disjoint ownership when operator asks for delegation or parallel agents |
 | `skill-authoring` | framework skill creation/update tasks; canonical-first edits, mirrors, manifests, source-leak and stale-count validation |
@@ -102,8 +121,9 @@ For Fusebase Apps implementation, debugging, validation, or deploy evidence, loa
 
 | Workflow | Role | When |
 |---|---|---|
-| `workflows/greenlight-implement.md` | AI Developer | the playbook for executing tasks |
-| `workflows/greenlight-deploy.md` | Deploy phase | the playbook for running the deploy |
+| `workflows/greenlight-implement.md` | AI Developer | the playbook for executing tasks (Full lane) |
+| `workflows/greenlight-deploy.md` | Deploy phase | the playbook for running the deploy (Full lane) |
+| `workflows/lightweight-lane.md` | AI Developer | the single build→verify→deploy pass for a Lightweight ticket (FR-21) |
 | `workflows/session-initiation.md` | both | session bootstrap |
 | `workflows/setup.md` | both | first-time env setup |
 | `workflows/verification-gate.md` | AI Developer | how to produce the gate report |
@@ -116,11 +136,11 @@ For Fusebase Apps implementation, debugging, validation, or deploy evidence, loa
 
 Full list with refusal phrasing in `skills/role-discipline/SKILL.md`. Headlines:
 
-### AI Developer (IM.1..IM.17)
+### AI Developer (IM.1..IM.18)
 
 | # | Don't |
 |---|---|
-| IM.1 | Don't deploy without an explicit deploy handoff |
+| IM.1 | Don't deploy without an explicit deploy handoff (Full lane) / explicit operator go-ahead (Lightweight lane) |
 | IM.2 | Don't modify locked decisions mid-implementation — STOP and surface to PO |
 | IM.3 | Don't commit work that doesn't pass lint + typecheck |
 | IM.4 | Don't squeeze multiple tasks into one commit |
@@ -134,12 +154,13 @@ Full list with refusal phrasing in `skills/role-discipline/SKILL.md`. Headlines:
 | IM.15 | Don't claim smoke PASS from pre-outcome signals; verify the operator-visible outcome and ground-truth diagnostics, or mark `PENDING-OPERATOR-SMOKE` |
 | IM.16 | Don't delegate overlapping, immediate-blocking, or unverified implementation work; main AI Developer still integrates and verifies |
 | IM.17 | Don't implement skill changes from provider mirrors or skip clean-room/mirror/count validation; use canonical skill sources and `skill-authoring` |
+| IM.18 | On a Lightweight-lane ticket (FR-21): one build→verify→deploy pass, plain operator go-ahead — but never drop the safety floor (live proof, FR-07 re-check, rollback, one commit, explicit go-ahead), and STOP + promote to Full if it grows |
 
-### Deploy phase (DP.1..DP.11)
+### Deploy phase (DP.1..DP.12)
 
 | # | Don't |
 |---|---|
-| DP.1 | Don't run deploy without `state/approvals/production_deploy-<slug>-<date>.json` |
+| DP.1 | Don't run deploy without `state/approvals/production_deploy-<slug>-<date>.json` (Full lane; LL uses a plain go-ahead per DP.12) |
 | DP.2 | Don't skip the final pre-deploy worker-undisturbed re-check |
 | DP.3 | Don't mark spec DRAFT→DONE without the deploy hash captured (no "TBD" / "see commit") |
 | DP.4 | Don't split deploy docs across multiple commits — one bundled docs commit |
@@ -148,6 +169,7 @@ Full list with refusal phrasing in `skills/role-discipline/SKILL.md`. Headlines:
 | DP.9 | Don't use popup / clickable menu tools for deploy confirmations or recovery choices |
 | DP.10 | Don't mark deploy smoke PASS without outcome evidence and ground-truth diagnostics |
 | DP.11 | Don't delegate deploy side effects; delegation during deploy is read-only triage only |
+| DP.12 | Lightweight-lane deploy (FR-21): a plain operator go-ahead replaces DP.1 + DP.6 — but never auto-deploy; keep DP.2 (FR-07 re-check), capture the hash, keep a one-line rollback |
 
 ## Tool surface
 

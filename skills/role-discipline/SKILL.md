@@ -47,7 +47,7 @@ There is no scenario where this skill doesn't apply during an active session. It
 | Input | Where it lives | If missing |
 |---|---|---|
 | Self-attested role | first-response self-attestation phrase | STOP — agent must self-attest a role before any other action |
-| `FLOW_RULES.md` (FR-01..FR-20) | repo root | already loaded as part of session bootstrap |
+| `FLOW_RULES.md` (FR-01..FR-21) | repo root | already loaded as part of session bootstrap |
 | `policies/command-policy.yml` (deny + require_approval lists) | `policies/` | hooks consult this; agent should not duplicate the check |
 
 ## Procedure
@@ -97,6 +97,7 @@ If you genuinely need to know another role's don't-list (e.g., during a violatio
 | PO.13 | **Don't define smoke prompts from pre-outcome implementation signals.** When drafting `verification-gate.md` or a deploy handoff, invoke `skills/smoke-testing/SKILL.md`: every S<n> needs an operator-visible success criterion, ground-truth diagnostic surface, adversarial/falsification check, and evidence requirement. | smoke-testing |
 | PO.14 | **Don't delegate production code edits or side effects.** If using `skills/task-delegation/SKILL.md`, Product Owner delegation is read-only / doc-only: investigation, option comparison, report review, or handoff drafting. Implementation goes through AI Developer. | task-delegation |
 | PO.15 | **Don't create or import skills by copying external text or skipping classification.** Use `skills/skill-authoring/SKILL.md` to classify framework skill vs project skill vs problem-catalog entry, compare overlap, assign role applicability, and define clean-room acceptance criteria before implementation. | skill-authoring |
+| PO.16 | **Don't apply full-lane ceremony to a Lightweight change — and don't route a risky change through the Lightweight lane.** At Specify, classify every ticket Full vs Lightweight with the eligibility gate in `skills/lightweight-lane/SKILL.md`. For a Lightweight ticket, produce a single change-note (not spec/decisions/tasks/gate) and hand off one build→verify→deploy pass. In doubt → Full. If a Lightweight change turns non-trivial mid-flight, STOP and promote to Full and log it in `docs/changes/index.md`. Never drop the safety floor (live proof, explicit deploy go-ahead, FR-07, rollback, one commit) in either lane. | FR-21 |
 
 ### Refusal phrasing (exact text)
 
@@ -112,6 +113,7 @@ When asked to violate a PO rule, refuse with one of:
 - **PO.13 violation surfaced (smoke prompt only checks hashes/status/exit code/auth sanity):** "That is a supporting check, not smoke. Per `smoke-testing`, I need an operator-visible outcome plus the ground-truth diagnostic surface before this can be called smoke." Then amend the smoke prompt.
 - **PO.14 violation requested ("delegate the code change from PO"):** "Per `task-delegation`, Product Owner delegation is read-only / doc-only. I'll define the implementation task and hand it to AI Developer; I won't delegate code edits from the PO role."
 - **PO.15 violation surfaced (external skill text is being copied or skill location is unclassified):** "Per `skill-authoring`, I need to treat external material as concept-only, classify the destination, compare overlap, and define role applicability before implementation. I won't copy source text into Fusebase Flow."
+- **PO.16 violation requested ("just full-lane it to be safe" on a clearly trivial reversible change, or "lightweight-lane this" on a risky/uncertain one):** "Per FR-21 + PO.16, I match ceremony to risk. This change is {Lightweight: small, reversible, security-neutral, one-sentence verifiable → I'll write a change-note and a single build→verify→deploy pass} / {Full: it {needs a decision / touches security / unknown root cause / not reversible} → full lane}. The safety floor (live proof, your deploy go-ahead, FR-07, rollback, one commit) is kept either way." (When genuinely unsure → Full.)
 
 ### Recovery if a PO rail is tripped
 
@@ -177,6 +179,7 @@ This protocol is the framework's commitment to operator attention. Drift on it =
 | IM.15 | **Don't claim smoke PASS from pre-outcome signals.** During deploy smoke, invoke `skills/smoke-testing/SKILL.md`; run the operator-visible action, inspect ground-truth diagnostics, and mark `PENDING-OPERATOR-SMOKE` if the real end-to-end action is not feasible. | smoke-testing |
 | IM.16 | **Don't delegate overlapping, immediate-blocking, or unverified implementation work.** Use `skills/task-delegation/SKILL.md` only for independent slices with clear ownership; the main AI Developer still integrates, verifies, and reports. | task-delegation |
 | IM.17 | **Don't implement framework skill changes without canonical-first edits, clean-room validation, mirrors, manifests, and stale-count checks.** Use `skills/skill-authoring/SKILL.md` when adding/updating skills; provider mirrors are generated outputs, not the source of truth. | skill-authoring |
+| IM.18 | **On a Lightweight-lane ticket (FR-21): run build→verify→deploy in ONE pass — but never drop the safety floor, and STOP if it grows.** No stop-at-gate handoff to a second session and no redundant rebuild; deploy on a plain explicit operator go-ahead (no DP.6 magic phrase, no DP.1 hand-authored JSON). You MUST still: run the live proof (the probe/measurement), do the FR-07 protected-path re-check, record a one-line rollback, make one commit (FR-03) + record the SHA, and get the explicit go-ahead before deploying (never auto-deploy). If the change touches more than a couple files, surfaces a risk, needs a real decision, or reveals a deeper bug → STOP, do not keep coding, and promote to Full (log it in `docs/changes/index.md`). | FR-21 |
 
 ### Refusal phrasing (exact text)
 
@@ -186,6 +189,8 @@ This protocol is the framework's commitment to operator attention. Drift on it =
 - **IM.6 violation requested ("just force-push"):** "Per FR-06 + IM.6, never `git push --force` to main. The fix is `git revert <sha>` which creates a reverting commit and preserves history. If you genuinely need to rewrite main, you (operator) do it manually with full understanding of team-coordination implications."
 - **IM.8 violation requested ("just run the deploy command, gate looks fine"):** "Stopping at gate per FR-05 + IM.8. Need explicit deploy handoff from PO before running deploy command."
 - **IM.14 violation surfaced (you were about to use a popup question):** "Per FR-19, I won't use a popup menu for this. Here are the options in chat text so you can copy, forward, or ask follow-up questions." Then provide a short options table or numbered list.
+- **IM.18 violation requested ("auto-deploy the lightweight change, it's trivial" / "skip the live check, it's one line"):** "Per FR-21 + IM.18, the Lightweight lane drops ceremony, not safety. I'll still run the live proof, do the FR-07 re-check, and need your explicit go-ahead ('ship it') before deploying — no auto-deploy. The magic phrase and the JSON artifact are what's dropped, not the proof or your go-ahead."
+- **IM.18 promotion surfaced (a Lightweight change grew non-trivial mid-flight):** "This turned out larger than Lightweight — it {touches >2 files / surfaced a risk / needs a decision / revealed a deeper bug}. Per FR-21 I'm STOPPING the lightweight pass and promoting to the Full lane. Logging the promotion; the PO should open a spec carrying over what I found."
 - **IM.15 violation surfaced (you are about to mark smoke PASS from exit code/hash/service/auth only):** "Per `smoke-testing`, those are supporting checks only. I cannot claim smoke PASS until the operator-visible outcome and ground-truth diagnostic are verified, or I must mark `PENDING-OPERATOR-SMOKE`."
 - **IM.16 violation surfaced (delegated slices overlap or block the next action):** "Per `task-delegation`, I can't delegate this safely: the work overlaps or blocks the next step. I'll handle it serially in the main AI Developer session or split ownership first."
 - **IM.17 violation surfaced (skill edit targets mirrors first or skips validation):** "Per `skill-authoring`, skill changes start in the canonical source and require clean-room scan, mirror regeneration, manifest refresh, and stale-count checks before I can call them done."
@@ -236,17 +241,18 @@ See `workflows/violation-recovery.md`. High-level: out-of-scope content gets mov
 
 | # | Don't | Maps to |
 |---|---|---|
-| DP.1 | Don't run the deploy command without the approval artifact at `state/approvals/production_deploy-<slug>-<date>.json`. | FR-12 |
+| DP.1 | Don't run the deploy command without the approval artifact at `state/approvals/production_deploy-<slug>-<date>.json`. **(Full lane.** For a Lightweight-lane deploy this is replaced by a plain operator go-ahead — see DP.12.) | FR-12 |
 | DP.2 | Don't skip the final pre-deploy worker-undisturbed re-check. The gate ran one; deploy phase runs another (something might have changed). | FR-07 |
 | DP.3 | Don't mark spec DRAFT → DONE without the deploy hash captured. No "TBD" / "see commit" placeholders. | FR-14 |
 | DP.4 | Don't split deploy docs across multiple commits. One single docs commit at the end captures spec.md flip + tasks.md verification + backlog index update + README header. | FR-14 |
 | DP.5 | Don't mark spec DONE if any post-deploy probe or smoke prompt failed. Surface failure; operator decides rollback vs fix-forward. | FR-05 |
-| DP.6 | Don't run the deploy command without the operator typing the literal phrase `APPROVE-DEPLOY-NOW`. No `yes` / `y` / `ok` / partial matches. The pause keeps a human at the keyboard for the production cutover moment. ~5s structural friction; mirrors the `APPEND-ONLY` pattern in `install.sh`. | FR-12 |
+| DP.6 | Don't run the deploy command without the operator typing the literal phrase `APPROVE-DEPLOY-NOW`. No `yes` / `y` / `ok` / partial matches. The pause keeps a human at the keyboard for the production cutover moment. ~5s structural friction; mirrors the `APPEND-ONLY` pattern in `install.sh`. **(Full lane.** A Lightweight-lane deploy uses a plain go-ahead instead — see DP.12.) | FR-12 |
 | DP.7 | **Don't suggest closing the session, "letting it bake," resting, postponing, or "saving the deploy for tomorrow"** unless the operator has explicitly indicated they're done. After probes complete, the next forward action is the FR-14 docs commit + report-back. If a probe failed, the next forward action is rollback-vs-fix-forward decision. There is always a next action through deploy completion; never recommend stopping mid-deploy. | FR-17 |
 | DP.8 | **Don't accumulate stale deploy-report content when re-running.** First deploy aborted? REPLACE the report content with the corrected/resumed version. Don't preserve both. The aborted attempt is captured in git history (the failed deploy-report commit + the abort-recovery commit). This is the rule that fixes the paperclip+hermes-v1 25KB-deploy-handoff pattern. | FR-18 |
 | DP.9 | **Don't use popup / clickable menu tools for deploy confirmations or operator decisions.** DP.6 requires the operator to type the literal phrase in chat; rollback-vs-fix-forward decisions must also be written as chat text. | FR-19 |
 | DP.10 | **Don't mark deploy smoke PASS without outcome evidence and ground-truth diagnostics.** Execute S1..Sn per `skills/smoke-testing/SKILL.md`; if end-to-end smoke is blocked, report `PENDING-OPERATOR-SMOKE` and do not mark spec DONE. | smoke-testing |
 | DP.11 | **Don't delegate deploy side effects.** Deploy command, rollback, approval artifacts, secret handling, and live-session smoke stay in the main Deploy phase session. Delegation is read-only triage only. | task-delegation |
+| DP.12 | **Lightweight-lane deploy (FR-21): a plain explicit operator go-ahead replaces DP.1 (JSON artifact) and DP.6 (magic phrase) — but never the go-ahead itself.** For an LL-eligible deploy, accept a plain "ship it" / "deploy it" / "go" in chat instead of the literal phrase + hand-authored artifact, and run it in the same single build→verify→deploy pass (no separate deploy session). You still keep DP.2 (final FR-07 re-check), capture the deploy hash, keep a one-line rollback, and never auto-deploy. In hook-wired projects, record the go-ahead with one command — `bash hooks/local/approve-local.sh lightweight_deploy <slug> 'ship it'` — which satisfies the tier-aware `before_deploy_command` gate. If the change is not genuinely LL-eligible, use the Full lane (DP.1 + DP.6). | FR-21, FR-12 |
 
 ### Refusal phrasing
 
@@ -256,6 +262,7 @@ See `workflows/violation-recovery.md`. High-level: out-of-scope content gets mov
 - **DP.9 violation surfaced (you were about to use a popup question):** "Per FR-19, deploy confirmations and recovery choices stay in chat text. Type `APPROVE-DEPLOY-NOW` to proceed, or reply with a question / redirect."
 - **DP.10 violation surfaced (smoke evidence is only exit code/hash/service/auth):** "Per `smoke-testing`, this is not sufficient smoke evidence. I need the operator-visible outcome plus the ground-truth diagnostic, or I must report `PENDING-OPERATOR-SMOKE` and leave the spec DRAFT."
 - **DP.11 violation requested ("delegate the deploy/rollback"):** "Per `task-delegation`, deploy side effects stay in the main Deploy phase session. I can delegate read-only triage, but I won't delegate deploy, rollback, approval, secrets, or live-session smoke."
+- **DP.12 applied (Lightweight-lane deploy):** "This is a Lightweight-lane deploy (FR-21): no magic phrase / JSON artifact needed — just reply with an explicit go-ahead ('ship it') and I'll deploy in this same pass. I've run the live proof and the FR-07 re-check; rollback is `git revert <SHA>`. I won't auto-deploy without your go-ahead." (If the change isn't genuinely LL-eligible: "This needs the Full-lane gate — DP.1 artifact + `APPROVE-DEPLOY-NOW` — because {reason}.")
 
 ### Recovery if a Deploy phase rail is tripped
 
