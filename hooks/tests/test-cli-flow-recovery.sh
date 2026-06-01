@@ -234,6 +234,68 @@ pass "CLI provider skills and hook helpers untouched"
 pass "Flow skills, agents, overlays, and health command restored"
 pass "conflict reporter returned HEALTHY"
 
+###############################################################################
+# F2 — version-aware overlay refresh is marker-anchored and idempotent.
+# The reported bug: --refresh-overlays anchored on the heading, but the
+# templates wrap the heading inside CUSTOM:SKILL markers, so the drift check was
+# always true and each run re-appended the wrapper (BEGIN count grew, END went
+# unbalanced). These assertions pin: (1) refreshing a CURRENT block is a no-op
+# with exactly one balanced BEGIN/END; (2) a drifted block is restored to one
+# balanced block; (3) re-running is idempotent.
+###############################################################################
+count_marker() { awk -v m="$2" 'index($0,m){n++} END{print n+0}' "$1"; }
+MB="<!-- CUSTOM:SKILL:BEGIN -->"
+ME="<!-- CUSTOM:SKILL:END -->"
+
+for ov in AGENTS.md CLAUDE.md; do
+  [ "$(count_marker "$PROJECT/$ov" "$MB")" -eq 1 ] \
+    || fail "F2 precondition: $ov should have exactly 1 BEGIN after recovery, got $(count_marker "$PROJECT/$ov" "$MB")"
+done
+
+# (1) refresh a CURRENT block -> no-op (no backup, reported "present and current").
+rm -f "$PROJECT"/AGENTS.md.pre-refresh-* "$PROJECT"/CLAUDE.md.pre-refresh-*
+(
+  cd "$PROJECT"
+  bash hooks/local/post-fusebase-update.sh --refresh-overlays > "$OUT.refresh1"
+)
+for ov in AGENTS.md CLAUDE.md; do
+  [ "$(count_marker "$PROJECT/$ov" "$MB")" -eq 1 ] \
+    || fail "F2: refreshing a CURRENT $ov changed BEGIN count to $(count_marker "$PROJECT/$ov" "$MB") (duplication bug)"
+  [ "$(count_marker "$PROJECT/$ov" "$ME")" -eq 1 ] \
+    || fail "F2: $ov has $(count_marker "$PROJECT/$ov" "$ME") END markers (expected 1 — unbalanced)"
+  grep -q "$ov overlay present and current" "$OUT.refresh1" \
+    || fail "F2: refresh of a current $ov was not reported as 'present and current'"
+done
+ls "$PROJECT"/AGENTS.md.pre-refresh-* >/dev/null 2>&1 && fail "F2: no-op refresh wrote an AGENTS.md backup" || true
+ls "$PROJECT"/CLAUDE.md.pre-refresh-* >/dev/null 2>&1 && fail "F2: no-op refresh wrote a CLAUDE.md backup" || true
+pass "F2: --refresh-overlays on a current block is a no-op (BEGIN/END balanced at 1)"
+
+# (2) drift AGENTS.md, refresh -> restored to one balanced block, drift removed.
+printf '\nDRIFTED-FLOW-BLOCK-EXTRA-LINE\n' >> "$PROJECT/AGENTS.md"
+(
+  cd "$PROJECT"
+  bash hooks/local/post-fusebase-update.sh --refresh-overlays > "$OUT.refresh2"
+)
+[ "$(count_marker "$PROJECT/AGENTS.md" "$MB")" -eq 1 ] \
+  || fail "F2: after refreshing a DRIFTED AGENTS.md, BEGIN count is $(count_marker "$PROJECT/AGENTS.md" "$MB") (expected 1)"
+[ "$(count_marker "$PROJECT/AGENTS.md" "$ME")" -eq 1 ] \
+  || fail "F2: after refreshing a DRIFTED AGENTS.md, END count is $(count_marker "$PROJECT/AGENTS.md" "$ME") (expected 1)"
+grep -q "DRIFTED-FLOW-BLOCK-EXTRA-LINE" "$PROJECT/AGENTS.md" && fail "F2: drift survived the refresh (block not replaced)" || true
+ls "$PROJECT"/AGENTS.md.pre-refresh-* >/dev/null 2>&1 || fail "F2: refresh of a drifted block wrote no backup"
+grep -q "CURRENT CLI AGENTS SENTINEL" "$PROJECT/AGENTS.md" || fail "F2: refresh dropped the CLI-owned AGENTS baseline"
+pass "F2: --refresh-overlays restores a drifted block (single balanced BEGIN/END, drift removed, CLI baseline kept)"
+
+# (3) refresh again -> idempotent no-op.
+rm -f "$PROJECT"/AGENTS.md.pre-refresh-*
+(
+  cd "$PROJECT"
+  bash hooks/local/post-fusebase-update.sh --refresh-overlays > "$OUT.refresh3"
+)
+[ "$(count_marker "$PROJECT/AGENTS.md" "$MB")" -eq 1 ] \
+  || fail "F2: second refresh changed BEGIN count (not idempotent)"
+ls "$PROJECT"/AGENTS.md.pre-refresh-* >/dev/null 2>&1 && fail "F2: second refresh of a now-current block wrote a backup (not idempotent)" || true
+pass "F2: --refresh-overlays is idempotent (re-run on a current block does nothing)"
+
 # --- AC4: explicit known_names, no app-*.md glob ---
 # The two known CLI app-agents must be attributed cli-owned by name.
 (

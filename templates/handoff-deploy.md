@@ -6,7 +6,7 @@
 
 ## Role bootstrap (read this BEFORE any other reads)
 
-You are operating as the **AI Developer in the Deploy phase** under Fusebase Flow v3.5.0.
+You are operating as the **AI Developer in the Deploy phase** under Fusebase Flow v3.6.0.
 
 **Self-attest** per `FLOW_RULES.md` § Self-attestation (FR-01..FR-20), naming Deploy phase as the role and the DP.1..DP.11 role-discipline section. (v2.9.0+ uses reference-by-citation instead of embedding the full attestation paragraph here — the canonical text lives in FLOW_RULES.md and role-discipline; duplication would waste ~250 tokens per filled handoff.)
 

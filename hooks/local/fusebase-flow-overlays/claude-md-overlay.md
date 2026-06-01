@@ -1,4 +1,6 @@
 
+<!-- CUSTOM:SKILL:BEGIN -->
+
 ---
 
 ## Fusebase Flow — additional rules (overlay)
@@ -55,3 +57,5 @@ This repository follows **Fusebase Flow** in addition to project-specific rules.
 **Operator questions:** per FR-19, ask questions in chat text, not popup / clickable menu tools. Use short option tables or numbered lists so the operator can copy, forward, quote, and follow up.
 
 Project-specific rules in `AGENTS.md` (CLI/MCP/SDK conventions, type-safety, runtime constraints) take precedence over any Fusebase Flow rule that overlaps.
+
+<!-- CUSTOM:SKILL:END -->

@@ -63,14 +63,18 @@ Operator instruction (2026-05-31): "option C — fix/improve everything that's n
 
 All AC met; verification gate green.
 
+**Post-release recheck (2026-06-01):** an independent verification against the actual 3.6.0 code (commit `7535e78`, not just the changelog) confirmed 6/8 solid and flagged two needing another pass — both now fixed in a second pass:
+- **F2 was fixed-but-buggy:** the refresh was heading-anchored while the templates wrap the heading inside `CUSTOM:SKILL` markers, so the drift check was always-true and `upgrade.sh` (which calls `--refresh-overlays` every run) duplicated the overlay block each run, unbalancing the markers. Re-anchored on the markers, wrapped the CLAUDE.md template the same way, and added no-op/restore/idempotent assertions.
+- **F7 was too narrow:** only 5 files were covered, leaving ~12 (incl. `agents/**/AGENT.md` and their mirrors) self-attesting `v3.5.0`. Broadened to all live-attestation surfaces with context-anchored (history-preserving) replacement + re-mirror.
+
 | AC | Evidence |
 |---|---|
 | AC1 (F1) | `hooks/local/upgrade.sh` — content refresh → mirror → sync-strings → VERSION last; backups + `--dry-run`/`--auto-yes`; dry-run verified against a simulated plain-dir upstream |
-| AC2 (F2) | `post-fusebase-update.sh --refresh-overlays` replaces a drifted present overlay block with `.pre-refresh-<ts>` backup; recovery's missing→append path unchanged |
+| AC2 (F2) | `post-fusebase-update.sh --refresh-overlays` replaces a drifted present overlay block with `.pre-refresh-<ts>` backup; **marker-anchored** (CUSTOM:SKILL:BEGIN/END, not heading) so it is idempotent — no-op on a current block, single balanced BEGIN/END; CLAUDE.md template now marker-wrapped; recovery's missing→append path unchanged |
 | AC3 (F3) | settings.json untouched without `--wire-hooks` (loud notice); merged + CLI Stop hooks preserved with it — both asserted in `test-cli-flow-recovery.sh` |
 | AC4 (F4) | `check-cli-flow-conflicts.sh` 0-present → single benign INFO (not CLI_LAYER_DRIFT); partial still MISSING — both asserted; "structurally damaged" wording removed for never-installed assets |
 | AC5 (F5) | `upgrade-engine.sh` + `upgrade.sh` accept a plain `.fusebase-flow-source/` dir (WARN, VERSION-compare fallback); `.git` still enables HEAD/diff — verified |
-| AC6 (F7) | `hooks/local/sync-version-strings.sh` derives `vX.Y.Z` from VERSION across AGENTS/CLAUDE/GEMINI + overlays; v3.5.0 strings corrected to v3.6.0; idempotent re-run is a no-op |
+| AC6 (F7) | `hooks/local/sync-version-strings.sh` derives `vX.Y.Z` from VERSION across **all** live-attestation surfaces (agents/** + mirrors, workflows, templates, FLOW_RULES, copilot-instructions, .cursor rules, AGENTS/CLAUDE/GEMINI, overlays); **context-anchored** so historical refs (v2.3.0+/v2.4.0/v3.2.0/v2.7.0) are preserved; ~12 v3.5.0 strings corrected to v3.6.0; idempotent re-run is a no-op |
 | AC7 (F6/F8) | `.pyc` scrub line in `upgrade.sh`; README documents canonical→mirror order + the new upgrade path |
 | AC8 | VERSION 3.6.0; CHANGELOG `[3.6.0]`; `docs/release-notes/v3.6.md`; plugin manifests → 3.6.0 |
 | AC9 | preflight 0/0 · run-tests 14/14 · recovery sim PASS (incl. new F3/F4 cases) · health HEALTHY · mirror drift 0 (50 files) · plugin validate clean · no competitor names · `internal/`+`repo-polish` untracked |

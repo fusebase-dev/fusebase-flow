@@ -52,6 +52,56 @@ if [ ! -d "$OVERLAYS" ]; then
   exit 1
 fi
 
+TS_REFRESH=$(date -u +%Y%m%dT%H%M%SZ)
+
+# F2: version-aware overlay refresh — anchored on the CUSTOM:SKILL markers, NOT
+# the heading. Both overlay templates wrap their heading INSIDE
+# `<!-- CUSTOM:SKILL:BEGIN -->` … `<!-- CUSTOM:SKILL:END -->`. The previous
+# heading-anchored logic compared (heading→EOF) against the full marker-wrapped
+# template, so they could never match — every run reported DRIFTED and re-appended
+# the wrapper, duplicating the BEGIN marker and unbalancing the block. This helper
+# compares the live marker-wrapped block (the BEGIN immediately preceding the
+# heading → EOF) against the template's marker-wrapped block and replaces it in
+# place (with a .pre-refresh backup) only when they genuinely differ. A legacy
+# marker-less block is treated as drifted and migrated to the wrapped form.
+refresh_overlay_block() {
+  local file="$1" heading="$2" template="$3" label="$4"
+  [ -f "$template" ] || { WARNINGS+=("$template missing; cannot refresh $label overlay"); return 0; }
+
+  local heading_line begin_line
+  heading_line=$(awk -v h="$heading" 'index($0,h){print NR; exit}' "$file")
+  begin_line=$(awk -v hl="$heading_line" '
+      index($0,"<!-- CUSTOM:SKILL:BEGIN -->") && (hl=="" || NR<=hl){b=NR}
+      END{print b+0}' "$file")
+  # Only accept a BEGIN that sits just above the heading (templates put it 4 lines
+  # up). A distant BEGIN belongs to a different (e.g. CLI-owned) custom block —
+  # treat the Flow block as marker-less so we never truncate that other block.
+  if [ "${begin_line:-0}" -gt 0 ] && [ "${heading_line:-0}" -gt 0 ] \
+     && [ $((heading_line - begin_line)) -gt 6 ]; then
+    begin_line=0
+  fi
+
+  local file_block tmpl_block
+  tmpl_block=$(awk 'index($0,"<!-- CUSTOM:SKILL:BEGIN -->"){f=1} f' "$template")
+  if [ "${begin_line:-0}" -gt 0 ]; then
+    file_block=$(awk -v s="$begin_line" 'NR>=s' "$file")
+  else
+    file_block="__LEGACY_MARKERLESS_BLOCK__"   # force migrate to wrapped form
+  fi
+
+  if [ "$file_block" = "$tmpl_block" ]; then
+    ACTIONS_SKIPPED+=("$label overlay present and current")
+    return 0
+  fi
+
+  cp "$file" "$file.pre-refresh-$TS_REFRESH"
+  local cut
+  if [ "${begin_line:-0}" -gt 0 ]; then cut="$begin_line"; else cut="$heading_line"; fi
+  awk -v c="$cut" 'NR<c' "$file.pre-refresh-$TS_REFRESH" > "$file"
+  cat "$template" >> "$file"
+  ACTIONS_TAKEN+=("$label: refreshed DRIFTED overlay block (backup: $file.pre-refresh-$TS_REFRESH)")
+}
+
 ###############################################################################
 # Step 1 - Re-mirror Fusebase Flow skills.
 ###############################################################################
@@ -82,23 +132,12 @@ fi
 
 echo "[post-fusebase-update] Step 3: AGENTS.md overlay check..."
 AGENTS_MARKER="## Fusebase Flow — workflow lifecycle overlay"
-TS_REFRESH=$(date -u +%Y%m%dT%H%M%SZ)
 if [ ! -f AGENTS.md ]; then
   WARNINGS+=("AGENTS.md not found in repo root; skipping overlay restore")
 elif grep -qF "$AGENTS_MARKER" AGENTS.md; then
-  # F2: present — but is it DRIFTED from the template? Only act under --refresh-overlays.
-  if [ "$REFRESH_OVERLAYS" -eq 1 ] && [ -f "$OVERLAYS/agents-md-overlay.md" ]; then
-    # Extract the existing overlay block (marker line → EOF) and compare to template.
-    existing_block=$(awk -v m="$AGENTS_MARKER" 'index($0,m){f=1} f' AGENTS.md)
-    if [ -n "$existing_block" ] && ! printf '%s' "$existing_block" | diff -q - "$OVERLAYS/agents-md-overlay.md" >/dev/null 2>&1; then
-      cp AGENTS.md "AGENTS.md.pre-refresh-$TS_REFRESH"
-      # Replace from the marker line onward with the fresh template.
-      awk -v m="$AGENTS_MARKER" 'index($0,m){exit} {print}' "AGENTS.md.pre-refresh-$TS_REFRESH" > AGENTS.md
-      cat "$OVERLAYS/agents-md-overlay.md" >> AGENTS.md
-      ACTIONS_TAKEN+=("AGENTS.md: refreshed DRIFTED overlay block (backup: AGENTS.md.pre-refresh-$TS_REFRESH)")
-    else
-      ACTIONS_SKIPPED+=("AGENTS.md overlay present and current")
-    fi
+  # F2: present — refresh if DRIFTED, only under --refresh-overlays (marker-anchored).
+  if [ "$REFRESH_OVERLAYS" -eq 1 ]; then
+    refresh_overlay_block AGENTS.md "$AGENTS_MARKER" "$OVERLAYS/agents-md-overlay.md" "AGENTS.md"
   else
     ACTIONS_SKIPPED+=("AGENTS.md overlay already present (use --refresh-overlays to update a drifted block)")
   fi
@@ -120,17 +159,9 @@ CLAUDE_MARKER="## Fusebase Flow — additional rules (overlay)"
 if [ ! -f CLAUDE.md ]; then
   ACTIONS_SKIPPED+=("CLAUDE.md not present (Claude Code not configured for this project)")
 elif grep -qF "$CLAUDE_MARKER" CLAUDE.md; then
-  # F2: present — refresh if DRIFTED, only under --refresh-overlays.
-  if [ "$REFRESH_OVERLAYS" -eq 1 ] && [ -f "$OVERLAYS/claude-md-overlay.md" ]; then
-    existing_block=$(awk -v m="$CLAUDE_MARKER" 'index($0,m){f=1} f' CLAUDE.md)
-    if [ -n "$existing_block" ] && ! printf '%s' "$existing_block" | diff -q - "$OVERLAYS/claude-md-overlay.md" >/dev/null 2>&1; then
-      cp CLAUDE.md "CLAUDE.md.pre-refresh-$TS_REFRESH"
-      awk -v m="$CLAUDE_MARKER" 'index($0,m){exit} {print}' "CLAUDE.md.pre-refresh-$TS_REFRESH" > CLAUDE.md
-      cat "$OVERLAYS/claude-md-overlay.md" >> CLAUDE.md
-      ACTIONS_TAKEN+=("CLAUDE.md: refreshed DRIFTED overlay block (backup: CLAUDE.md.pre-refresh-$TS_REFRESH)")
-    else
-      ACTIONS_SKIPPED+=("CLAUDE.md overlay present and current")
-    fi
+  # F2: present — refresh if DRIFTED, only under --refresh-overlays (marker-anchored).
+  if [ "$REFRESH_OVERLAYS" -eq 1 ]; then
+    refresh_overlay_block CLAUDE.md "$CLAUDE_MARKER" "$OVERLAYS/claude-md-overlay.md" "CLAUDE.md"
   else
     ACTIONS_SKIPPED+=("CLAUDE.md overlay already present (use --refresh-overlays to update a drifted block)")
   fi
