@@ -325,12 +325,21 @@ for entry in paths:
             if (cli_hook_dir / marker).is_file()
             and not any(marker in c for c in commands)
         ]
-        if has_flow_stop and not missing_cli_hooks:
-            add("OK", layer, owner, rel, action, "Flow stop hook and existing CLI hooks preserved")
-        elif not has_flow_stop:
-            add("DRIFT", layer, owner, rel, action, "Flow stop hook missing")
-        else:
+        if not has_flow_stop:
+            # U11 (F3): Flow lifecycle hooks are OPT-IN. A settings.json that exists
+            # (CLI hooks present) but does not wire Flow's stop.py is the deliberate
+            # hooks-off default, not drift — same by-design-state-≠-drift shape as
+            # F4/U10. Recovery wires them only with --wire-hooks. So this is a benign
+            # INFO, not SHARED_MERGE_DRIFT. (If Flow's merge had CLOBBERED CLI hooks,
+            # that would be a real shared-merge problem — but that only applies once
+            # Flow has actually merged, i.e. has_flow_stop is true; see below.)
+            add("INFO", layer, owner, rel,
+                "Flow lifecycle hooks not wired (opt-in default; enable with "
+                "bash hooks/local/post-fusebase-update.sh --wire-hooks)")
+        elif missing_cli_hooks:
             add("DRIFT", layer, owner, rel, action, "CLI Stop hooks not preserved: " + ", ".join(missing_cli_hooks))
+        else:
+            add("OK", layer, owner, rel, action, "Flow stop hook and existing CLI hooks preserved")
         continue
 
     if rel == ".codex/config.toml":
@@ -398,7 +407,22 @@ for entry in paths:
     if "<flow-skill>" in rel:
         mirror_root = ".claude/skills" if rel.startswith(".claude/") else ".agents/skills"
         if not flow_skills:
-            add("INFO", layer, owner, mirror_root, "canonical Flow skills absent")
+            # U12: root skills/ is Flow's CANONICAL source (mirror-skills / upgrade.sh
+            # / the health mirror-count all build on it). The FuseBase CLI now warns
+            # "the ./skills folder is obsolete" — that targets non-Flow projects and
+            # MUST NOT be followed on a Flow install. If canonical skills/ is gone but
+            # the Flow provider mirrors are still here, the operator likely deleted it;
+            # surface that loudly + recoverably instead of a quiet INFO.
+            flow_marker = rel_exists(f"{mirror_root}/role-discipline/SKILL.md") or rel_exists(f"{mirror_root}/communication/SKILL.md")
+            if flow_marker:
+                add("MISSING", "flow", owner, "skills/",
+                    "root skills/ is Flow's CANONICAL source but is empty/absent while Flow "
+                    "mirrors still exist — do NOT delete it (the FuseBase CLI 'obsolete ./skills' "
+                    "warning does not apply to Flow installs). Restore with: bash hooks/local/upgrade.sh "
+                    "(or hooks/local/bootstrap-upgrade.sh, or git checkout -- skills/).",
+                    "canonical Flow skills/ deleted (do not follow the CLI 'obsolete ./skills' warning)")
+            else:
+                add("INFO", layer, owner, mirror_root, "canonical Flow skills absent")
             continue
         for name in flow_skills:
             skill_path = f"{mirror_root}/{name}/SKILL.md"

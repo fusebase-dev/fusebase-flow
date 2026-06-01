@@ -265,6 +265,71 @@ PY
 pass "U10: absent flag-gated CLI skill is benign INFO (not CLI_LAYER_DRIFT); remediation names set-flag"
 
 ###############################################################################
+# U11 — Flow hooks NOT wired (opt-in default) is benign, not SHARED_MERGE_DRIFT.
+# settings.json exists with CLI hooks but no Flow stop.py → deliberate hooks-off
+# (F3) must read as a benign INFO, not drift.
+###############################################################################
+U11P="$TMP_BASE/u11-hooksoff"
+cp -R "$PROJECT" "$U11P"
+# Reset settings.json to CLI-only (CLI Stop hooks present, NO Flow stop.py).
+cat > "$U11P/.claude/settings.json" <<'EOF'
+{
+  "enabledMcpjsonServers": ["fusebase-dashboards", "fusebase-gate"],
+  "hooks": {
+    "Stop": [
+      { "hooks": [
+        { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/run-typecheck-apps.js", "timeout": 300 },
+        { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/quality-check-apps.js", "timeout": 30 }
+      ] }
+    ]
+  }
+}
+EOF
+set +e
+(
+  cd "$U11P"
+  bash hooks/local/check-cli-flow-conflicts.sh --json > "$TMP_BASE/u11.json"
+)
+set -e
+"$python_bin" - "$TMP_BASE/u11.json" <<'PY' || fail "U11: hooks-off should be benign INFO, not SHARED_MERGE_DRIFT"
+import json, sys
+d = json.loads(open(sys.argv[1], encoding="utf-8").read())
+assert d["verdict"] != "SHARED_MERGE_DRIFT", f"deliberate hooks-off must not be SHARED_MERGE_DRIFT, got {d['verdict']}"
+drift = [f for f in d["findings"] if f["path"] == ".claude/settings.json" and f["status"] in ("DRIFT", "MISSING")]
+assert not drift, f"settings.json wrongly reported drift: {drift}"
+info = [f for f in d["findings"] if f["path"] == ".claude/settings.json" and f["status"] == "INFO"]
+txt = " ".join((f.get("action","") + " " + f.get("detail","")) for f in info).lower()
+assert info and ("not wired" in txt or "opt-in" in txt), f"expected an opt-in INFO for unwired hooks, got {info}"
+PY
+pass "U11: Flow hooks-off (opt-in) is benign INFO, not SHARED_MERGE_DRIFT"
+
+###############################################################################
+# U12 — deleting root skills/ (Flow's canonical source) is flagged loudly.
+# The FuseBase CLI's "obsolete ./skills" warning must not silently break Flow:
+# canonical skills/ gone while mirrors remain → a clear, recoverable finding.
+###############################################################################
+U12P="$TMP_BASE/u12-skillsdeleted"
+cp -R "$PROJECT" "$U12P"
+rm -rf "$U12P/skills"   # operator follows the CLI's "delete ./skills" advice
+set +e
+(
+  cd "$U12P"
+  bash hooks/local/check-cli-flow-conflicts.sh --json > "$TMP_BASE/u12.json"
+)
+set -e
+"$python_bin" - "$TMP_BASE/u12.json" <<'PY' || fail "U12: deleted canonical skills/ should be flagged loudly with restore guidance"
+import json, sys
+d = json.loads(open(sys.argv[1], encoding="utf-8").read())
+hits = [f for f in d["findings"] if f["path"] == "skills/" and f["status"] == "MISSING"]
+assert hits, "expected a loud MISSING finding for deleted canonical skills/"
+txt = " ".join((f.get("action","") + " " + f.get("detail","")) for f in hits).lower()
+assert "canonical" in txt and ("do not" in txt or "obsolete" in txt), f"finding should explain the do-not-delete guard: {hits}"
+assert "upgrade.sh" in txt or "git checkout" in txt, f"finding should name a restore path: {hits}"
+assert d["verdict"] == "FLOW_LAYER_DRIFT", f"deleted canonical source should be FLOW_LAYER_DRIFT, got {d['verdict']}"
+PY
+pass "U12: deleted canonical skills/ is flagged FLOW_LAYER_DRIFT with do-not-delete + restore guidance"
+
+###############################################################################
 # F2 — version-aware overlay refresh is marker-anchored and idempotent.
 # The reported bug: --refresh-overlays anchored on the heading, but the
 # templates wrap the heading inside CUSTOM:SKILL markers, so the drift check was

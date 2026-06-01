@@ -20,7 +20,7 @@ Fusebase Flow ships:
 
 **Self-attestation (every session's first response):**
 
-> "Operating as {role} under Fusebase Flow v3.8.2. I will follow FR-01 through FR-21. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+> "Operating as {role} under Fusebase Flow v3.8.3. I will follow FR-01 through FR-21. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 **Operator questions:** per FR-19, ask questions in chat text, not popup / clickable menu tools. Use short option tables or numbered lists so the operator can copy, forward, quote, and follow up.
 
@@ -39,6 +39,8 @@ Check whether this project has been onboarded. These artifacts are **absent by d
 This check is universal across every surface (it lives in this file, which every agent reads). On Claude Code the `SessionStart` hook also surfaces these automatically, but discovery does not depend on hooks. If an artifact is absent, Fusebase Flow runs as a generic install — no clutter. Run `/onboard` to capture project vision.
 
 ### Maintenance posture (Fusebase CLI ↔ Fusebase Flow coexistence)
+
+> **Do NOT delete the root `skills/` folder while Fusebase Flow is installed.** Recent FuseBase CLI versions print `⚠️ The ./skills folder is obsolete and should be deleted`. That deprecation targets **non-Flow** projects. For a Flow install, root `skills/` is the **canonical source of truth** — `hooks/local/mirror-skills.sh`, `hooks/local/upgrade.sh`, and the health check's mirror-count all build on it. Deleting it silently breaks Flow's mirror/upgrade/health model. Ignore that CLI warning here. (The health check flags an empty/absent `skills/` while Flow mirrors exist, with restore steps.)
 
 `.claude/skills/`, `.claude/agents/`, `.claude/hooks/`, `.claude/settings.json`, and `AGENTS.md` are touched by `fusebase update` (without `--skip-skills`). Use either:
 

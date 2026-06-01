@@ -4,6 +4,19 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.8.3] — 2026-06-01
+
+### Fixed — U11 (hooks-off ≠ drift) + U12 guard (don't delete root skills/)
+
+Two downstream findings. **U11:** a `.claude/settings.json` that exists (CLI hooks present) but doesn't wire Flow's `stop.py` was reported as `SHARED_MERGE_DRIFT` — but hook wiring is opt-in (F3), so the deliberate hooks-off default now reads as a **benign INFO** ("not wired — opt-in; enable with `--wire-hooks`"), not drift. A Flow merge that *clobbered* existing CLI Stop hooks is still flagged. Same by-design-≠-drift shape as F4/U10.
+
+**U12 (guard for the FuseBase CLI's `skills/` deprecation):** recent CLI versions warn "the ./skills folder is obsolete and should be deleted." For a Flow install, root `skills/` is the **canonical source** that `mirror-skills.sh`, `upgrade.sh`, and the health mirror-count build on — deleting it breaks Flow, and `fusebase update` won't restore it. This ships the **safe, non-foreclosing guard** the report recommended:
+- `check-cli-flow-conflicts.sh` now flags an empty/absent root `skills/` while Flow mirrors still exist as a loud, recoverable `FLOW_LAYER_DRIFT` ("do not delete; the CLI 'obsolete ./skills' warning does not apply to Flow installs; restore with `upgrade.sh` / `bootstrap-upgrade.sh` / `git checkout -- skills/`").
+- The AGENTS.md overlay "Maintenance posture" section + README document the do-not-delete / ignore-the-CLI-warning guidance, so downstreams don't self-break.
+- The larger architectural question (move Flow's canonical store off root `skills/`, or mirror into `.claude/skills/` as source-of-truth) is **deliberately not done here** — it depends on the CLI team's intended end-state and is left as an open decision.
+
+Tests: recovery sim gains U11 + U12 assertions (and the existing precision cases still pass). run-tests 16/16; health HEALTHY; plugin valid. VERSION 3.8.2 → 3.8.3; plugin manifests bumped.
+
 ## [3.8.2] — 2026-06-01
 
 ### Fixed — U10: flag-gated CLI skills no longer cause a chronic false-positive CLI_LAYER_DRIFT
