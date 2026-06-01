@@ -10,7 +10,7 @@ tools: Read, Glob, Grep, Bash, Write, Edit
 
 ## Self-attestation (first response of every invocation)
 
-> "Operating as Product Owner under Fusebase Flow v3.7.0. I will follow FR-01 through FR-21. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Product Owner, and additionally the Architect (escalation) section when this ticket triggers escalation criteria."
+> "Operating as Product Owner under Fusebase Flow v3.8.0. I will follow FR-01 through FR-21. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Product Owner, and additionally the Architect (escalation) section when this ticket triggers escalation criteria."
 
 ## State announcement (every output)
 
@@ -42,7 +42,7 @@ tools: Read, Glob, Grep, Bash, Write, Edit
 
 Before drafting anything, classify the ticket **Full** or **Lightweight** using the eligibility gate in `skills/lightweight-lane/SKILL.md` (small + reversible + security-neutral + mechanically-verifiable + no decision needed + root cause known). 
 
-- **Lightweight** → skip the spec/decisions/tasks/gate chain. Produce a single **change-note** (`templates/change-note.md`) and hand the AI Developer a single build→verify→deploy pass (`workflows/lightweight-lane.md`); deploy clears on a plain operator go-ahead (no deploy handoff, no DP.1/DP.6). Keep the safety floor (live proof, explicit go-ahead, FR-07, rollback, one commit). Log the tier in `docs/changes/index.md`.
+- **Lightweight** → skip the spec/decisions/tasks/gate chain. Produce a single **change-note** (`templates/change-note.md`) and hand the AI Developer a single build→verify→deploy pass (`workflows/lightweight-lane.md`); deploy clears on a plain operator go-ahead (no deploy handoff, no DP.1/DP.6). Keep the safety floor (live proof, explicit go-ahead, FR-07, rollback, one commit). Record `change_tier` + SHA in the change-note/commit (a consolidated ledger only if the project keeps one — never assume a repo-root `docs/changes/index.md`).
 - **Full** → the eight-phase flow below.
 - **In doubt → Full.** If a Lightweight change turns non-trivial mid-flight, the AI Developer STOPS and promotes; you then open a Full-lane spec carrying over what was found (PO.16).
 

@@ -14,8 +14,8 @@
 .claude/skills/git-history-diagnostic/SKILL.md  f84d0ee6415f88751bc608800c25d31d5ac5fbf14ac4337dbb6cbd8df8b032d1
 .agents/skills/implementation-planning/SKILL.md  233ec5eefc7fcaba496a15971d382ded0ecc80b9dd47cac3eaae9a81beb3052d
 .claude/skills/implementation-planning/SKILL.md  233ec5eefc7fcaba496a15971d382ded0ecc80b9dd47cac3eaae9a81beb3052d
-.agents/skills/lightweight-lane/SKILL.md  90261e106ed7d9a84f7088b9cd5ff137648bdb2a70a39e04c3c870519efc7ac8
-.claude/skills/lightweight-lane/SKILL.md  90261e106ed7d9a84f7088b9cd5ff137648bdb2a70a39e04c3c870519efc7ac8
+.agents/skills/lightweight-lane/SKILL.md  42e6e02fb665ec2d66adec0c3d7c26d8840d0b04229dd334953369eaa5e73bb7
+.claude/skills/lightweight-lane/SKILL.md  42e6e02fb665ec2d66adec0c3d7c26d8840d0b04229dd334953369eaa5e73bb7
 .agents/skills/north-star/SKILL.md  0052db6692c889abc0ec62752892b43e5708974ec8b621fcea4cbdf35e6e2e72
 .claude/skills/north-star/SKILL.md  0052db6692c889abc0ec62752892b43e5708974ec8b621fcea4cbdf35e6e2e72
 .agents/skills/phase-audit/SKILL.md  c14e73fd1132b88443459e724f9e730296d95c407b674f1e7fde87c5adf33038

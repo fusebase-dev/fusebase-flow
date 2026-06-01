@@ -20,7 +20,7 @@ Fusebase Flow ships:
 
 **Self-attestation (every session's first response):**
 
-> "Operating as {role} under Fusebase Flow v3.7.0. I will follow FR-01 through FR-21. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+> "Operating as {role} under Fusebase Flow v3.8.0. I will follow FR-01 through FR-21. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 **Operator questions:** per FR-19, ask questions in chat text, not popup / clickable menu tools. Use short option tables or numbered lists so the operator can copy, forward, quote, and follow up.
 
@@ -64,6 +64,7 @@ The recovery script is self-detecting: it skips parts that don't need restoratio
 
 **Or use the in-chat health check:** type `/fusebase-health` (or ask "is Fusebase Flow healthy?") — the skill diagnoses any drift and offers to run recovery on your confirmation.
 
+<!-- FLOW:PRESERVE:BEGIN (operator-owned — overlay refresh carries this region forward verbatim; edit freely) -->
 ### Project-specific values
 
 | Field | Value | Where the data is enforced |
@@ -76,5 +77,6 @@ The recovery script is self-detecting: it skips parts that don't need restoratio
 | T-counter | `0` | `templates/tasks.md` |
 
 **Where Fusebase Flow and project-specific rules conflict, project-specific rules win.**
+<!-- FLOW:PRESERVE:END -->
 
 <!-- CUSTOM:SKILL:END -->

@@ -68,6 +68,21 @@ if [ -z "$VER" ]; then
   exit 1
 fi
 
+# U3: version is not the only derived attestation fact. The live self-attestation
+# also names the FR-range ("FR-01 through FR-NN" / "FR-01..FR-NN") and some
+# adapters/overlays name the skill count ("(NN canonical skills total)"). All three
+# are derived from the framework and must match on every upgrade — otherwise an
+# adapter without an overlay-refresh path (e.g. GEMINI.md) ends up self-attesting
+# "vX.Y.Z … FR-01 through FR-(N-1)". Derive them here so one tool keeps all three
+# consistent.
+FR_MAX="$(grep -oE 'FR-[0-9]+' FLOW_RULES.md 2>/dev/null | sed 's/FR-//' | sort -n | tail -1)"
+if [ -n "$FR_MAX" ]; then
+  FR_HI="$(printf 'FR-%02d' "$FR_MAX")"     # e.g. FR-21
+else
+  FR_HI=""
+fi
+SKILL_COUNT="$(find skills -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
+
 # Discover scan targets: canonical sources + standalone adapters (*.md / *.mdc),
 # pruning dated history, generated mirror dirs, and non-source trees. Generated
 # mirror dirs (.claude .agents .codex) are intentionally excluded — they are
@@ -79,6 +94,7 @@ mapfile -t CANDIDATES < <(
         -o -name '.claude' -o -name '.agents' -o -name '.codex' \
         -o -path './internal' \
         -o -path './docs/release-notes' -o -path './docs/handoff' -o -path './docs/specs' \
+        -o -path './docs/fusebase-health' \
       \) -prune \) -o \
     \( -type f \( -name '*.md' -o -name '*.mdc' \) \
         ! -name 'CHANGELOG.md' \
@@ -86,15 +102,31 @@ mapfile -t CANDIDATES < <(
         -print \)
 )
 
-# Two context-anchored substitutions — live attestation + live banner only.
+# Context-anchored substitutions — live attestation + banner + FR-range + skill
+# count only. Never a blanket replace (historical/provenance refs must survive).
+# Build the sed program dynamically so FR-range / skill-count subs are added only
+# when their derived value is known.
+SED_ARGS=(
+  -e "s/(under Fusebase Flow v)[0-9]+\.[0-9]+\.[0-9]+/\1${VER}/g"
+  -e "s/(runs \*\*Fusebase Flow v)[0-9]+\.[0-9]+\.[0-9]+/\1${VER}/g"
+)
+if [ -n "$FR_HI" ]; then
+  SED_ARGS+=( -e "s/FR-01 through FR-[0-9]+/FR-01 through ${FR_HI}/g" )
+  SED_ARGS+=( -e "s/FR-01\.\.FR-[0-9]+/FR-01..${FR_HI}/g" )
+fi
+if [ -n "$SKILL_COUNT" ] && [ "$SKILL_COUNT" -gt 0 ] 2>/dev/null; then
+  # Only the parenthesized "(NN canonical … skills total)" form (overlays/adapters);
+  # leaves README's bold/heading counts to release-time edits.
+  SED_ARGS+=( -e "s/\(([0-9]+) canonical/(${SKILL_COUNT} canonical/g" )
+fi
+
 CHANGED=()
 TOUCHED_CANONICAL=0
 for f in "${CANDIDATES[@]}"; do
   [ -f "$f" ] || continue
-  before="$(cat "$f")"
-  after="$(printf '%s' "$before" | sed -E \
-    -e "s/(under Fusebase Flow v)[0-9]+\.[0-9]+\.[0-9]+/\1${VER}/g" \
-    -e "s/(runs \*\*Fusebase Flow v)[0-9]+\.[0-9]+\.[0-9]+/\1${VER}/g")"
+  # U8: strip null bytes so command substitution doesn't warn on a stray-NUL file.
+  before="$(tr -d '\0' < "$f")"
+  after="$(printf '%s' "$before" | sed -E "${SED_ARGS[@]}")"
   if [ "$before" != "$after" ]; then
     CHANGED+=("$f")
     case "$f" in
@@ -106,13 +138,15 @@ for f in "${CANDIDATES[@]}"; do
   fi
 done
 
+DERIVED="version v$VER${FR_HI:+, FR-01..$FR_HI}${SKILL_COUNT:+, $SKILL_COUNT skills}"
+
 if [ "${#CHANGED[@]}" -eq 0 ]; then
-  echo "[sync-version-strings] All live version strings already match VERSION ($VER)."
+  echo "[sync-version-strings] All live derived strings already match the repo ($DERIVED)."
   exit 0
 fi
 
 if [ "$DRY_RUN" -eq 1 ]; then
-  echo "[sync-version-strings] (dry-run) would update live version → v$VER in:"
+  echo "[sync-version-strings] (dry-run) would sync derived strings ($DERIVED) in:"
   for c in "${CHANGED[@]}"; do echo "  • $c"; done
   case " ${CHANGED[*]} " in
     *" ./agents/"*|*" ./skills/"*) echo "  • (would re-mirror agents + skills to refresh provider copies)";;
@@ -120,7 +154,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
   exit 0
 fi
 
-echo "[sync-version-strings] updated live version → v$VER in:"
+echo "[sync-version-strings] synced derived strings ($DERIVED) in:"
 for c in "${CHANGED[@]}"; do echo "  • $c"; done
 
 # Propagate canonical agent/skill edits into the generated provider mirrors

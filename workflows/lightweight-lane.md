@@ -20,7 +20,7 @@ Chosen at Specify when the eligibility gate in `skills/lightweight-lane/SKILL.md
 10. **Operator deploy go-ahead (FR-19, chat text).** Ask for an explicit plain go-ahead ("ship it" / "deploy it" / "go"). **Never auto-deploy.** No DP.6 magic phrase, no DP.1 hand-authored JSON, no separate deploy session. (Hook-wired projects: record the go-ahead with `bash hooks/local/approve-local.sh lightweight_deploy <slug> 'ship it'` — one command. Hooks are opt-in; in the default off setup the chat go-ahead is the gate.)
 11. **Deploy** (exact command from `AGENTS.md`). Capture the deploy hash.
 12. **Report in 1–3 lines:** what changed · live-proof result (observed vs expected) · deploy SHA/hash · one-line rollback.
-13. **Log the tier** — one line in `docs/changes/index.md` (`<date> · <slug> · lightweight · <SHA>`).
+13. **Record the tier** — `change_tier: lightweight` + the SHA live in the change-note/commit body (durable; git carries it). If the project keeps a consolidated ledger, append one line (`<date> · <slug> · lightweight · <SHA>`); its path is configurable (default `docs/changes/index.md`) and the file is opt-in — never assume a repo-root ledger.
 
 ## Self-attestation
 

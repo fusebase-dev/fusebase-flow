@@ -19,14 +19,14 @@ Deploy:       go-ahead "<operator phrase>" · deployed <SHA/hash> · FR-07 check
 
 ## Field notes
 
-- **change_tier** — `lightweight`. If it became non-trivial mid-flight, you should have STOPPED and promoted to Full (record `promoted: lightweight→full — <reason>` in `docs/changes/index.md`); a change-note is not the place to absorb scope creep.
+- **change_tier** — `lightweight`. If it became non-trivial mid-flight, you should have STOPPED and promoted to Full (record `promoted: lightweight→full — <reason>` in the promoting commit body, or the project's ledger if it keeps one); a change-note is not the place to absorb scope creep.
 - **Verified** — the safety floor. Live proof the change works (run it on a real input, compare observed to expected, make it reproducible from this note). Never "looks right."
 - **Rollback** — the safety floor. One concrete command.
 - **Deploy** — record the explicit operator go-ahead, the deployed SHA/hash, and that the FR-07 protected-path re-check was clean. No DP.6 magic phrase / DP.1 JSON for LL; the plain go-ahead is the gate (hook-wired projects: `approve-local.sh lightweight_deploy <slug>`).
 
-## Ledger
+## Ledger (optional)
 
-Add one line to `docs/changes/index.md`:
+The durable record is the `change_tier` + `Commit` fields above (git carries them). A consolidated ledger is **opt-in and path-configurable** — only if your project keeps one. Default location `docs/changes/index.md`; a per-app docs layout may use `docs/<app>/changes.md` or skip the file entirely. Do not create a repo-root ledger just because of this change.
 
 ```
 <YYYY-MM-DD> · <slug> · lightweight · <SHA>

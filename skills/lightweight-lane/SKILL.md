@@ -9,7 +9,7 @@ invocation: automatic
 expected_outputs:
   - a tier classification (full | lightweight) with the gate result
   - for lightweight tickets, a single change-note (templates/change-note.md) inline in the commit body or at docs/changes/<date>-<slug>.md
-  - a one-line tier/promotion entry in docs/changes/index.md
+  - a tier/promotion record in the change-note / commit body (optional consolidated ledger if the project keeps one)
 related_workflows:
   - lightweight-lane.md
   - eight-phase-flow.md
@@ -52,7 +52,7 @@ Classify **Full** or **Lightweight** when the ticket is opened. `requirements-sp
 | Agent passes | build-agent (stop at gate) → separate deploy-agent | **One agent pass**: build → live-verify → deploy in a single run (no redundant rebuild) |
 | Deploy approval | DP.1 JSON artifact + DP.6 literal magic phrase | **One explicit plain operator go-ahead** ("ship it"); no magic phrase, no hand-authored JSON |
 | Verification | full gate report (P1..Pn) | **Live-proof kept**, the 3-question empirical test still applied to the one acceptance criterion, reported in 1–3 lines |
-| Traceability | full counter + index + backlog updates | **Minimal**: T-counter bump + commit SHA + a one-line `docs/changes/index.md` entry |
+| Traceability | full counter + index + backlog updates | **Minimal**: `change_tier: lightweight` + the commit SHA recorded in the commit body (always); an optional one-line ledger entry if the project keeps one |
 
 ## What LL KEEPS (non-negotiable safety floor — both lanes)
 
@@ -76,7 +76,7 @@ Classify **Full** or **Lightweight** when the ticket is opened. `requirements-sp
 3. **One agent pass.** Pre-task git checkpoint → make the change → lint + typecheck → build once → **live-verify** (run the probe/measurement; apply the 3-question test to the acceptance criterion) → commit (one commit, FR-03) → record the SHA.
 4. **Deploy on a plain go-ahead.** Re-run the FR-07 protected-path check. Ask the operator in chat text (FR-19) for an explicit go-ahead ("ship it" / "deploy it" / "go"). **Never auto-deploy.** No DP.6 magic phrase, no separate deploy session. (Hook-wired projects: record the go-ahead with one command — `bash hooks/local/approve-local.sh lightweight_deploy <slug> 'ship it'` — see [release-deploy-reporting](../release-deploy-reporting/SKILL.md) and `policies/approval-policy.yml`. Hooks are opt-in; in the default off setup the chat go-ahead is the gate.)
 5. **Report in 1–3 lines:** what changed, the live-proof result (observed vs expected), the deploy SHA, and the one-line rollback.
-6. **Log the tier** in `docs/changes/index.md` (one line: date · slug · `lightweight` · SHA). This is the telemetry that makes mis-tiering auditable.
+6. **Record the tier.** Always put `change_tier: lightweight` + the commit SHA in the change-note / commit body (that is the durable telemetry; git carries it). A consolidated **ledger is opt-in**: if the project keeps one, append one line (date · slug · `lightweight` · SHA). Its location is configurable — default `docs/changes/index.md`, but a repo with a per-app docs layout may set its own path (e.g. `docs/<app>/changes.md`) or skip the file entirely and rely on the commit body. Do **not** assume a repo-root ledger exists; only materialize it on opt-in.
 
 ## Mid-flight promotion (mandatory)
 
@@ -86,11 +86,13 @@ If, while doing an LL change, ANY of these appears → **STOP and promote to the
 - it needs a real architectural decision, or
 - the "one-line" fix reveals a deeper bug.
 
-On promotion: stop coding, open a Full-lane spec (`requirements-specification`), carry over what you learned, and record the promotion in `docs/changes/index.md` (`promoted: lightweight→full — <reason>`). Promotion is a success, not a failure — it is the gate working. (Real example: a "trivial" assignment fix surfaced a same-class recovery-path bug; that *should* promote.)
+On promotion: stop coding, open a Full-lane spec (`requirements-specification`), carry over what you learned, and record the promotion (`promoted: lightweight→full — <reason>`) in the promoting commit body, plus the project's ledger if it keeps one. Promotion is a success, not a failure — it is the gate working. (Real example: a "trivial" assignment fix surfaced a same-class recovery-path bug; that *should* promote.)
 
 ## Telemetry
 
-`docs/changes/index.md` holds one line per LL ticket (`<date> · <slug> · lightweight · <SHA>`) and one line per promotion (`<date> · <slug> · promoted lightweight→full · <reason>`), so the split — and any mis-tiering that had to be promoted — is auditable over time. Keep it minimal; it is a ledger, not a report.
+The **durable** record is always in git: `change_tier: lightweight` + the SHA in the commit body / change-note, and `promoted lightweight→full — <reason>` in the promoting commit. That alone makes the tier split and any mis-tiering auditable via `git log`.
+
+A **consolidated ledger is optional and path-configurable** — it just makes the history easier to skim. Default location `docs/changes/index.md`; a project with a per-app docs convention may point it elsewhere (e.g. `docs/<app>/changes.md`) or omit it. One line per LL ticket (`<date> · <slug> · lightweight · <SHA>`) and one per promotion. Keep it minimal; it is a ledger, not a report. Never assume a repo-root ledger exists — create/append only where the project has opted in.
 
 ## Anti-patterns
 

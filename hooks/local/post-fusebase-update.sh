@@ -81,8 +81,37 @@ refresh_overlay_block() {
     begin_line=0
   fi
 
+  # U1: carry the operator's FLOW:PRESERVE sub-region forward. Build an "effective
+  # template" = the fresh template with its preserve-region swapped for whatever the
+  # existing block currently has, so a refresh updates framework prose WITHOUT
+  # clobbering operator-owned values (e.g. AGENTS.md ### Project-specific values).
+  # ONLY built when the operator actually customized the region (the regions differ);
+  # otherwise the raw template is used unchanged so the rebuild stays byte-identical
+  # to a fresh append. If either side lacks the markers, the raw template is used.
+  local eff_template="$template"
+  local tmp_pres="" tmp_tpres="" tmp_eff=""
+  if grep -q "<!-- FLOW:PRESERVE:BEGIN" "$template" 2>/dev/null \
+     && [ "${begin_line:-0}" -gt 0 ] \
+     && grep -q "<!-- FLOW:PRESERVE:BEGIN" "$file" 2>/dev/null; then
+    tmp_pres="$(mktemp)"; tmp_tpres="$(mktemp)"
+    awk 'index($0,"<!-- FLOW:PRESERVE:BEGIN"){p=1} p{print} index($0,"<!-- FLOW:PRESERVE:END -->"){p=0}' "$file" > "$tmp_pres"
+    awk 'index($0,"<!-- FLOW:PRESERVE:BEGIN"){p=1} p{print} index($0,"<!-- FLOW:PRESERVE:END -->"){p=0}' "$template" > "$tmp_tpres"
+    if ! diff -q "$tmp_pres" "$tmp_tpres" >/dev/null 2>&1; then
+      # Operator customized the preserve region → carry it into a personalized template.
+      tmp_eff="$(mktemp)"
+      awk -v pf="$tmp_pres" '
+        BEGIN { n=0; while ((getline ln < pf) > 0) pres[++n]=ln }
+        index($0,"<!-- FLOW:PRESERVE:BEGIN"){ for (i=1;i<=n;i++) print pres[i]; skip=1; next }
+        index($0,"<!-- FLOW:PRESERVE:END -->"){ skip=0; next }
+        !skip { print }
+      ' "$template" > "$tmp_eff"
+      eff_template="$tmp_eff"
+    fi
+  fi
+  rm -f "$tmp_pres" "$tmp_tpres"; tmp_pres=""; tmp_tpres=""
+
   local file_block tmpl_block
-  tmpl_block=$(awk 'index($0,"<!-- CUSTOM:SKILL:BEGIN -->"){f=1} f' "$template")
+  tmpl_block=$(awk 'index($0,"<!-- CUSTOM:SKILL:BEGIN -->"){f=1} f' "$eff_template")
   if [ "${begin_line:-0}" -gt 0 ]; then
     file_block=$(awk -v s="$begin_line" 'NR>=s' "$file")
   else
@@ -91,19 +120,28 @@ refresh_overlay_block() {
 
   if [ "$file_block" = "$tmpl_block" ]; then
     ACTIONS_SKIPPED+=("$label overlay present and current")
+    [ -n "$tmp_eff" ] && rm -f "$tmp_eff"
     return 0
   fi
 
   cp "$file" "$file.pre-refresh-$TS_REFRESH"
-  local cut
-  if [ "${begin_line:-0}" -gt 0 ]; then cut="$begin_line"; else cut="$heading_line"; fi
-  # Preserve everything before the block start, but TRIM trailing blank lines from
-  # that region. The template begins with exactly one blank line, so trimming makes
-  # the rebuilt result byte-identical to a freshly-appended block (exactly one blank
-  # line before BEGIN) instead of accumulating a stray blank on each drift-rebuild.
-  awk -v c="$cut" 'NR<c { lines[NR]=$0; if ($0 ~ /[^[:space:]]/) last=NR } END { for (i=1; i<=last; i++) print lines[i] }' \
-    "$file.pre-refresh-$TS_REFRESH" > "$file"
-  cat "$template" >> "$file"
+  local cut trim_rule=0
+  if [ "${begin_line:-0}" -gt 0 ]; then cut="$begin_line"; else cut="$heading_line"; trim_rule=1; fi
+  # Preserve everything before the block start; TRIM trailing blank lines (so the
+  # template's single leading blank yields exactly one blank before BEGIN — byte-
+  # identical to a fresh append). In the legacy marker-less migration (begin_line==0)
+  # ALSO trim a trailing `---` rule (U7) so the template's own `---` isn't doubled.
+  awk -v c="$cut" -v tr="$trim_rule" '
+    NR<c {
+      lines[NR]=$0
+      is_blank = ($0 ~ /^[[:space:]]*$/)
+      is_rule  = (tr && $0 ~ /^[[:space:]]*---[[:space:]]*$/)
+      if (!is_blank && !is_rule) last=NR
+    }
+    END { for (i=1; i<=last; i++) print lines[i] }
+  ' "$file.pre-refresh-$TS_REFRESH" > "$file"
+  cat "$eff_template" >> "$file"
+  [ -n "$tmp_eff" ] && rm -f "$tmp_eff"
   ACTIONS_TAKEN+=("$label: refreshed DRIFTED overlay block (backup: $file.pre-refresh-$TS_REFRESH)")
 }
 

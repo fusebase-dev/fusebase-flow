@@ -4,7 +4,7 @@
 
 ![FuseBase Flow — you design and decide with the Product Owner agent, which hands off to the AI Developer agent that implements, runs the verification gate, and deploys](docs/assets/two-agent-banner.svg)
 
-[![Version](https://img.shields.io/badge/version-3.7.0-blue.svg)](VERSION)
+[![Version](https://img.shields.io/badge/version-3.8.0-blue.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![CI](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml/badge.svg)](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml)
 [![Use this template](https://img.shields.io/badge/GitHub-Use_this_template-brightgreen.svg?logo=github)](https://github.com/fusebase-dev/fusebase-flow/generate)
@@ -452,14 +452,20 @@ The recovery script is **idempotent** — safe to run multiple times. Only re-ap
 
 ### Upgrading an installed overlay (v3.6.0+)
 
-There are two upgrade tools, by scope:
+There are three upgrade tools, by scope:
 
-- **`bash hooks/local/upgrade.sh`** — the in-place **content** upgrade. Use this when a newer Flow ships new/changed skills, rules, agents, workflows, policies, or templates. It refreshes the canonical content from `.fusebase-flow-source/`, re-mirrors it, syncs the embedded version strings, then bumps `VERSION` **last**. `--dry-run` previews the plan; backups are written with a `.pre-upgrade-<ts>` suffix.
+- **`bash hooks/local/upgrade.sh`** — the in-place **content** upgrade. Use this when a newer Flow ships new/changed skills, rules, agents, workflows, policies, templates, **or hooks**. It refreshes the canonical content (incl. the `hooks/` layer — so the hook handlers and the upgrade tooling itself stay current) from `.fusebase-flow-source/`, re-mirrors it, syncs the derived attestation strings (version + FR-range + skill count), refreshes drifted AGENTS.md/CLAUDE.md overlay blocks **carrying your `FLOW:PRESERVE` region forward** (it never clobbers your `### Project-specific values`), then bumps `VERSION` **last**. `--dry-run` previews the plan; backups are written with a `.pre-upgrade-<ts>` suffix. It does **not** copy framework dev-docs into your `docs/` — pass `--with-framework-docs` to stage them under `docs/_fusebase-flow/`.
+- **`bash hooks/local/bootstrap-upgrade.sh`** — the **first hop for a pre-3.6.0 install** that has no `upgrade.sh` yet. It stages an upstream copy at `.fusebase-flow-source/`, copies the engine scripts into `hooks/local/`, then hands off to `upgrade.sh` (passes through flags after `--`). For an install so old it lacks even this script, run the equivalent one-liner:
+  ```bash
+  git clone --depth 1 https://github.com/fusebase-dev/fusebase-flow.git .fusebase-flow-source \
+    && cp .fusebase-flow-source/hooks/local/{upgrade,upgrade-engine,sync-version-strings,post-fusebase-update,mirror-skills,mirror-agents,preflight}.sh hooks/local/ \
+    && bash hooks/local/upgrade.sh --dry-run
+  ```
 - **`bash hooks/local/upgrade-engine.sh`** — narrower: refreshes only the engine + recovery scripts and `VERSION`.
 
-Both accept `.fusebase-flow-source/` as either a git clone (enables HEAD/diff reporting) or a plain directory copy (the documented install end-state, which drops `.git`); a plain dir falls back to VERSION-file comparison instead of erroring.
+All accept `.fusebase-flow-source/` as either a git clone (enables HEAD/diff reporting) or a plain directory copy (the documented install end-state, which drops `.git`); a plain dir falls back to VERSION-file comparison instead of erroring.
 
-**Canonical → mirror order (why VERSION is bumped last).** Provider folders (`.claude/skills`, `.agents/skills`, `.claude/agents`, `.codex/agents`) are *generated* from the canonical `skills/` and `agents/` trees. The upgrade always: **(1)** refresh canonical content → **(2)** re-mirror to providers → **(3)** sync embedded `vX.Y.Z` strings → **(4)** refresh drifted AGENTS.md/CLAUDE.md overlay blocks → **(5)** bump `VERSION`. Bumping `VERSION` last guarantees the version number can never advertise content that hasn't actually landed. Edit canonical files, never the mirrors; `preflight.sh` warns on drift.
+**Canonical → mirror order (why VERSION is bumped last).** Provider folders (`.claude/skills`, `.agents/skills`, `.claude/agents`, `.codex/agents`) are *generated* from the canonical `skills/` and `agents/` trees. The upgrade always: **(1)** refresh canonical content (incl. `hooks/`, preserving `hooks/local/*.local.*`) → **(2)** re-mirror to providers → **(3)** sync derived attestation strings (version + `FR-01..FR-NN` + `(NN canonical skills total)`) → **(4)** refresh drifted AGENTS.md/CLAUDE.md overlay blocks (operator `FLOW:PRESERVE` region carried forward) → **(5)** bump `VERSION`. Bumping `VERSION` last guarantees the version number can never advertise content that hasn't actually landed. Edit canonical files, never the mirrors; `preflight.sh` warns on drift.
 
 Hook wiring is a deliberately separate, opt-in step (`post-fusebase-update.sh --wire-hooks`) — `upgrade.sh` never touches `.claude/settings.json`.
 

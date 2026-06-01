@@ -4,6 +4,22 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.8.0] — 2026-06-01
+
+### Fixed — upgrade-path hardening 2 (from a live 3.5.2 → 3.7.0 in-place upgrade)
+
+A downstream ran the real in-place upgrade on a heavily-customized pre-3.6.0 install and confirmed F2/F3/F4 held up — while surfacing 8 upgrade-path gaps (1 data-loss, 1 functional-staleness, plus consistency/pollution/UX). All fixed. Spec: `docs/specs/upgrade-path-hardening-2/`.
+
+- **U1 (High, data loss) — overlay refresh no longer wipes operator values.** The `### Project-specific values` table is now wrapped in inner `<!-- FLOW:PRESERVE:BEGIN -->…<!-- FLOW:PRESERVE:END -->` markers; `refresh_overlay_block()` carries the existing preserve-region forward into the fresh template (merge-preserve). A refresh updates framework prose **without** overwriting operator-filled project values. New recovery-sim assertion proves the value survives a drift refresh.
+- **U2 (High) — `upgrade.sh` now refreshes `hooks/`.** Previously it refreshed `skills/agents/workflows/policies/templates` but not `hooks/`, so a downstream got new skills/rules but a stale hook layer (the v3.7.0 tier-aware deploy gate silently inert) and the upgrade tooling couldn't update its own home. `hooks/` is now in the refreshed set; `hooks/local/*.local.*` overrides are preserved and CLI-owned `.claude/hooks/**` is untouched; engine scripts self-update (new logic active next run).
+- **U3 (Med) — adapters no longer drift to a stale FR-range/skill-count.** `sync-version-strings.sh` is generalized to sync **derived attestation facts** — version **+** `FR-01..FR-NN` (from FLOW_RULES.md) **+** `(NN canonical skills total)` — across all adapters incl. GEMINI.md, which has no overlay-refresh path. No more "v3.x … FR-01 through FR-(N-1)".
+- **U4 (Med) — `upgrade.sh` stops polluting the consumer `docs/`.** Framework dev-docs are no longer copied into `docs/` by default; `--with-framework-docs` stages them under `docs/_fusebase-flow/` (namespaced).
+- **U5 (Med) — pre-3.6.0 bootstrap.** New `hooks/local/bootstrap-upgrade.sh` stages a source clone, copies the engine scripts in, and runs `upgrade.sh`; README documents a copy-paste one-liner for installs that lack even the bootstrap.
+- **U6 (Low) — LL ledger is opt-in / path-configurable.** The durable record is `change_tier` + SHA in the commit body; the consolidated `docs/changes/index.md` is now opt-in with a configurable path (skill + change-note template reworded; no repo-root ledger assumed).
+- **U7 (Low) — legacy CLAUDE.md migration no longer doubles `---`.** The begin-line-0 rebuild trims a trailing `---` rule from the preserved region so exactly one separator remains (marker-wrapped byte-exactness from v3.7.0 still holds).
+- **U8 (Low) — null-byte warning silenced** in `sync-version-strings.sh` (`tr -d '\0'`).
+- Tests: recovery sim gains U1 (preserve) + U7 (single-rule) assertions; run-tests still 16/16; the v3.7.0 F2 byte-exact lock still passes. VERSION 3.7.0 → 3.8.0; plugin manifests bumped. No skills added/removed (still 24 canonical).
+
 ## [3.7.0] — 2026-06-01
 
 ### Added — Lightweight Lane (FR-21): ceremony proportional to change size

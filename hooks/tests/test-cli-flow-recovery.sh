@@ -305,6 +305,65 @@ rm -f "$PROJECT"/AGENTS.md.pre-refresh-*
 ls "$PROJECT"/AGENTS.md.pre-refresh-* >/dev/null 2>&1 && fail "F2: second refresh of a now-current block wrote a backup (not idempotent)" || true
 pass "F2: --refresh-overlays is idempotent (re-run on a current block does nothing)"
 
+###############################################################################
+# U1 — overlay refresh PRESERVES operator-customized FLOW:PRESERVE region.
+# Customize the project-values (operator data), then drift the framework prose
+# inside the block, then refresh. The operator's value must survive AND the
+# framework prose must update. (Regression guard for the data-loss bug.)
+###############################################################################
+grep -q "<!-- FLOW:PRESERVE:BEGIN" "$PROJECT/AGENTS.md" || fail "U1 precondition: AGENTS.md block lacks FLOW:PRESERVE markers"
+# operator fills a project value inside the preserve region
+sed -i 's/Project name | (customize during install)/Project name | WORKHUB-MANAGED/' "$PROJECT/AGENTS.md"
+grep -q "WORKHUB-MANAGED" "$PROJECT/AGENTS.md" || fail "U1 setup: could not set the operator project value"
+# drift the framework prose inside the block (a line OUTSIDE the preserve region)
+sed -i 's/workflow lifecycle overlay/workflow lifecycle overlay (DRIFTED-FRAMEWORK-PROSE)/' "$PROJECT/AGENTS.md"
+rm -f "$PROJECT"/AGENTS.md.pre-refresh-*
+(
+  cd "$PROJECT"
+  bash hooks/local/post-fusebase-update.sh --refresh-overlays > "$OUT.u1"
+)
+grep -q "WORKHUB-MANAGED" "$PROJECT/AGENTS.md" || fail "U1: refresh WIPED the operator's project value (data loss!)"
+grep -q "DRIFTED-FRAMEWORK-PROSE" "$PROJECT/AGENTS.md" && fail "U1: framework prose drift survived the refresh (block not refreshed)" || true
+[ "$(count_marker "$PROJECT/AGENTS.md" "$MB")" -eq 1 ] || fail "U1: BEGIN count not 1 after preserve-carry refresh"
+pass "U1: refresh preserves operator FLOW:PRESERVE values while refreshing framework prose"
+
+###############################################################################
+# U7 — legacy marker-less CLAUDE.md migrates to ONE '---' before the heading.
+###############################################################################
+LEGACY="$TMP_BASE/legacy-claude"
+mkdir -p "$LEGACY/hooks/local" "$LEGACY/.claude/skills" "$LEGACY/.agents/skills" "$LEGACY/.claude/agents" "$LEGACY/.codex/agents" "$LEGACY/.claude/commands"
+cp -R skills "$LEGACY/skills"; cp -R agents "$LEGACY/agents"
+cp hooks/local/mirror-skills.sh hooks/local/mirror-agents.sh hooks/local/post-fusebase-update.sh "$LEGACY/hooks/local/"
+cp -R hooks/local/fusebase-flow-overlays "$LEGACY/hooks/local/fusebase-flow-overlays"
+cat > "$LEGACY/AGENTS.md" <<'EOF'
+# Legacy project
+EOF
+# A pre-3.6.0 marker-LESS CLAUDE.md overlay block: a bare '---' then the heading,
+# no CUSTOM:SKILL markers (the old append format).
+cat > "$LEGACY/CLAUDE.md" <<'EOF'
+# Legacy CLAUDE
+
+project rules here
+
+---
+
+## Fusebase Flow — additional rules (overlay)
+
+old stale body
+EOF
+set +e
+(
+  cd "$LEGACY"
+  bash hooks/local/post-fusebase-update.sh --refresh-overlays > "$TMP_BASE/u7.out" 2>&1
+)
+set -e
+# After migration: exactly one CUSTOM:SKILL:BEGIN, and exactly one '---' on the
+# lines between the project content and the heading (the template's own rule).
+[ "$(count_marker "$LEGACY/CLAUDE.md" "$MB")" -eq 1 ] || fail "U7: legacy migration did not produce exactly 1 BEGIN ($(count_marker "$LEGACY/CLAUDE.md" "$MB"))"
+RULES_BEFORE_HEADING="$(awk '/^## Fusebase Flow — additional rules/{exit} /^[[:space:]]*---[[:space:]]*$/{c++} END{print c+0}' "$LEGACY/CLAUDE.md")"
+[ "$RULES_BEFORE_HEADING" -le 1 ] || fail "U7: $RULES_BEFORE_HEADING '---' rules before the heading (expected <=1; doubled-rule regression)"
+pass "U7: legacy marker-less CLAUDE.md migrates to a single wrapped block (no doubled ---)"
+
 # --- AC4: explicit known_names, no app-*.md glob ---
 # The two known CLI app-agents must be attributed cli-owned by name.
 (

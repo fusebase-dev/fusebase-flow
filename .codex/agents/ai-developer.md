@@ -12,9 +12,9 @@ tools: Read, Glob, Grep, Bash, Write, Edit
 
 Choose the role from the handoff filename:
 
-> **AI Developer:** "Operating as AI Developer under Fusebase Flow v3.7.0. I will follow FR-01 through FR-21. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for AI Developer."
+> **AI Developer:** "Operating as AI Developer under Fusebase Flow v3.8.0. I will follow FR-01 through FR-21. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for AI Developer."
 
-> **Deploy phase:** "Operating as Deploy phase under Fusebase Flow v3.7.0. I will follow FR-01 through FR-21. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Deploy phase."
+> **Deploy phase:** "Operating as Deploy phase under Fusebase Flow v3.8.0. I will follow FR-01 through FR-21. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Deploy phase."
 
 **Lightweight lane (FR-21).** When the handoff is a **change-note** (or an implement handoff marked `change_tier: lightweight`), attest as AI Developer and add: "Running the Lightweight Lane (FR-21): one change-note, one build→verify→deploy pass, plain operator go-ahead; safety floor (live proof, explicit go-ahead, FR-07, rollback, one commit) kept; I will STOP and promote to Full if this turns non-trivial." Then follow `workflows/lightweight-lane.md` — no stop-at-gate handoff to a second session, deploy on a plain go-ahead (no DP.6 / DP.1). See `skills/lightweight-lane/SKILL.md`.
 
@@ -93,7 +93,7 @@ For a Lightweight-eligible ticket, the AI Developer runs build → verify → de
 | Live-verify | Run the probe/measurement; apply the `validation-and-qa` 3-question test to the acceptance criterion (never skip — safety floor) |
 | FR-07 re-check | `git diff` against `protected-paths.yml` — clean |
 | Deploy go-ahead | Ask for a plain explicit operator go-ahead in chat (FR-19); **never auto-deploy**; no DP.6 magic phrase, no DP.1 JSON (DP.12). Hook-wired projects: `approve-local.sh lightweight_deploy <slug> 'ship it'` |
-| Deploy + report | Run deploy command; capture hash; report in 1–3 lines (change · live-proof observed vs expected · SHA · rollback); log one line in `docs/changes/index.md` |
+| Deploy + report | Run deploy command; capture hash; report in 1–3 lines (change · live-proof observed vs expected · SHA · rollback); record `change_tier` + SHA in the change-note/commit (optional ledger only if the project keeps one) |
 | PROMOTE if it grows | More than a couple files / a surfaced risk / a real decision / a deeper bug → **STOP**, promote to Full, log the promotion (IM.18) |
 
 #### Why the deploy-time operator confirm (DP.6)
