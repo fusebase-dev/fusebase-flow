@@ -14,5 +14,5 @@ Verified:  recovery sim PASS — F2 no-op refresh and drift refresh both restore
            byte-identical to the clean appended block (sha match); BEGIN/END balanced 1/1;
            run-tests 16/16; preflight 0/0.
 Rollback:  git revert <SHA>
-Commit:    <filled after commit>
+Commit:    291c55b
 Deploy:    rides with the pending v3.7.0 release (tag + GitHub release) on operator go-ahead.
