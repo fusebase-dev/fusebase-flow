@@ -18,5 +18,5 @@ Verified:  recovery sim — U10: removing a flag-gated skill (managed-integratio
            "MISSING CLI skill (fusebase-cli) -> CLI_LAYER_DRIFT" case still passes (precision).
            run-tests 16/16; preflight 0/0; health HEALTHY; embedded-python + manifest JSON valid.
 Rollback:  git revert <SHA>
-Commit:    <filled after commit>
+Commit:    250e068
 Deploy:    plain operator go-ahead -> v3.8.2 (tag + GitHub release).
