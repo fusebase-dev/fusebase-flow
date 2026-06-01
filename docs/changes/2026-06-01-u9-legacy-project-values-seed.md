@@ -15,5 +15,5 @@ Verified:  recovery sim — a block with CUSTOM:SKILL markers but NO FLOW:PRESER
            operator value AND gains the FLOW:PRESERVE markers; existing U1/F2/U7 still
            pass; run-tests 16/16; preflight 0/0.
 Rollback:  git revert <SHA>
-Commit:    <filled after commit>
+Commit:    4c1c522
 Deploy:    plain operator go-ahead → v3.8.1 (tag + GitHub release).
