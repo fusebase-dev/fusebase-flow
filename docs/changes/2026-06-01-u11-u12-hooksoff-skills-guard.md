@@ -18,5 +18,5 @@ Verified:  recovery sim — U11 (hooks-off benign, not SHARED_MERGE_DRIFT), U12 
            skill still CLI_LAYER_DRIFT; U10 flag-gated still benign). run-tests 16/16; preflight
            0/0; health HEALTHY; embedded-python + manifest JSON valid.
 Rollback:  git revert <SHA>
-Commit:    <filled after commit>
+Commit:    ea38342
 Deploy:    plain operator go-ahead -> v3.8.3 (tag + GitHub release).
