@@ -12,3 +12,4 @@ Format:
 ## Entries
 
 <!-- newest first -->
+2026-06-01 · overlay-refresh-trailing-blank · lightweight · (pending SHA)

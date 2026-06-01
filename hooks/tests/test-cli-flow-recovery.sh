@@ -252,6 +252,11 @@ for ov in AGENTS.md CLAUDE.md; do
     || fail "F2 precondition: $ov should have exactly 1 BEGIN after recovery, got $(count_marker "$PROJECT/$ov" "$MB")"
 done
 
+# Byte-exactness baseline: the clean, freshly-appended AGENTS.md block. A no-op
+# refresh must leave it identical; a drift refresh must converge back to it
+# byte-for-byte (locks the trailing-blank-before-BEGIN nit so it can't regress).
+AGENTS_GOOD="$(sha_cmd "$PROJECT/AGENTS.md")"
+
 # (1) refresh a CURRENT block -> no-op (no backup, reported "present and current").
 rm -f "$PROJECT"/AGENTS.md.pre-refresh-* "$PROJECT"/CLAUDE.md.pre-refresh-*
 (
@@ -268,7 +273,9 @@ for ov in AGENTS.md CLAUDE.md; do
 done
 ls "$PROJECT"/AGENTS.md.pre-refresh-* >/dev/null 2>&1 && fail "F2: no-op refresh wrote an AGENTS.md backup" || true
 ls "$PROJECT"/CLAUDE.md.pre-refresh-* >/dev/null 2>&1 && fail "F2: no-op refresh wrote a CLAUDE.md backup" || true
-pass "F2: --refresh-overlays on a current block is a no-op (BEGIN/END balanced at 1)"
+[ "$(sha_cmd "$PROJECT/AGENTS.md")" = "$AGENTS_GOOD" ] \
+  || fail "F2: no-op refresh changed AGENTS.md bytes (should be byte-identical to the clean block)"
+pass "F2: --refresh-overlays on a current block is a no-op (byte-identical; BEGIN/END balanced at 1)"
 
 # (2) drift AGENTS.md, refresh -> restored to one balanced block, drift removed.
 printf '\nDRIFTED-FLOW-BLOCK-EXTRA-LINE\n' >> "$PROJECT/AGENTS.md"
@@ -283,7 +290,9 @@ printf '\nDRIFTED-FLOW-BLOCK-EXTRA-LINE\n' >> "$PROJECT/AGENTS.md"
 grep -q "DRIFTED-FLOW-BLOCK-EXTRA-LINE" "$PROJECT/AGENTS.md" && fail "F2: drift survived the refresh (block not replaced)" || true
 ls "$PROJECT"/AGENTS.md.pre-refresh-* >/dev/null 2>&1 || fail "F2: refresh of a drifted block wrote no backup"
 grep -q "CURRENT CLI AGENTS SENTINEL" "$PROJECT/AGENTS.md" || fail "F2: refresh dropped the CLI-owned AGENTS baseline"
-pass "F2: --refresh-overlays restores a drifted block (single balanced BEGIN/END, drift removed, CLI baseline kept)"
+[ "$(sha_cmd "$PROJECT/AGENTS.md")" = "$AGENTS_GOOD" ] \
+  || fail "F2: drift refresh did not converge byte-exactly to the clean block (trailing-blank-before-BEGIN regression?)"
+pass "F2: --refresh-overlays restores a drifted block byte-exactly (== clean block; single balanced BEGIN/END; CLI baseline kept)"
 
 # (3) refresh again -> idempotent no-op.
 rm -f "$PROJECT"/AGENTS.md.pre-refresh-*

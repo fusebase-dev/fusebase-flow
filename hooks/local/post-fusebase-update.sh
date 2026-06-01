@@ -97,7 +97,12 @@ refresh_overlay_block() {
   cp "$file" "$file.pre-refresh-$TS_REFRESH"
   local cut
   if [ "${begin_line:-0}" -gt 0 ]; then cut="$begin_line"; else cut="$heading_line"; fi
-  awk -v c="$cut" 'NR<c' "$file.pre-refresh-$TS_REFRESH" > "$file"
+  # Preserve everything before the block start, but TRIM trailing blank lines from
+  # that region. The template begins with exactly one blank line, so trimming makes
+  # the rebuilt result byte-identical to a freshly-appended block (exactly one blank
+  # line before BEGIN) instead of accumulating a stray blank on each drift-rebuild.
+  awk -v c="$cut" 'NR<c { lines[NR]=$0; if ($0 ~ /[^[:space:]]/) last=NR } END { for (i=1; i<=last; i++) print lines[i] }' \
+    "$file.pre-refresh-$TS_REFRESH" > "$file"
   cat "$template" >> "$file"
   ACTIONS_TAKEN+=("$label: refreshed DRIFTED overlay block (backup: $file.pre-refresh-$TS_REFRESH)")
 }
