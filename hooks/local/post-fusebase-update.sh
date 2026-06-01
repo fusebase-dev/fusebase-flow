@@ -89,15 +89,32 @@ refresh_overlay_block() {
   # otherwise the raw template is used unchanged so the rebuild stays byte-identical
   # to a fresh append. If either side lacks the markers, the raw template is used.
   local eff_template="$template"
-  local tmp_pres="" tmp_tpres="" tmp_eff=""
-  if grep -q "<!-- FLOW:PRESERVE:BEGIN" "$template" 2>/dev/null \
-     && [ "${begin_line:-0}" -gt 0 ] \
-     && grep -q "<!-- FLOW:PRESERVE:BEGIN" "$file" 2>/dev/null; then
+  local tmp_pres="" tmp_tpres="" tmp_eff="" seed_mode=""
+  if grep -q "<!-- FLOW:PRESERVE:BEGIN" "$template" 2>/dev/null && [ "${begin_line:-0}" -gt 0 ]; then
+    if grep -q "<!-- FLOW:PRESERVE:BEGIN" "$file" 2>/dev/null; then
+      seed_mode="markers"                                  # live block already marked
+    elif grep -q "^### Project-specific values" "$file" 2>/dev/null; then
+      seed_mode="legacy"                                   # U9: pre-markers block — seed from the legacy table
+    fi
+  fi
+  if [ -n "$seed_mode" ]; then
     tmp_pres="$(mktemp)"; tmp_tpres="$(mktemp)"
-    awk 'index($0,"<!-- FLOW:PRESERVE:BEGIN"){p=1} p{print} index($0,"<!-- FLOW:PRESERVE:END -->"){p=0}' "$file" > "$tmp_pres"
     awk 'index($0,"<!-- FLOW:PRESERVE:BEGIN"){p=1} p{print} index($0,"<!-- FLOW:PRESERVE:END -->"){p=0}' "$template" > "$tmp_tpres"
-    if ! diff -q "$tmp_pres" "$tmp_tpres" >/dev/null 2>&1; then
-      # Operator customized the preserve region → carry it into a personalized template.
+    if [ "$seed_mode" = "markers" ]; then
+      awk 'index($0,"<!-- FLOW:PRESERVE:BEGIN"){p=1} p{print} index($0,"<!-- FLOW:PRESERVE:END -->"){p=0}' "$file" > "$tmp_pres"
+    else
+      # U9 legacy seed: wrap the live block's marker-less `### Project-specific values`
+      # table (heading → "…rules win." footer) in the template's preserve markers, so a
+      # pre-markers block isn't reset on the FIRST preserve-aware upgrade.
+      {
+        grep -m1 "<!-- FLOW:PRESERVE:BEGIN" "$template"
+        awk '/^### Project-specific values/{p=1} p{print} /project-specific rules win\./{p=0}' "$file"
+        echo "<!-- FLOW:PRESERVE:END -->"
+      } > "$tmp_pres"
+    fi
+    # Carry the region forward when it's a legacy seed (the block is migrating anyway)
+    # or when the operator actually customized it (markers mode that differs from default).
+    if [ "$seed_mode" = "legacy" ] || ! diff -q "$tmp_pres" "$tmp_tpres" >/dev/null 2>&1; then
       tmp_eff="$(mktemp)"
       awk -v pf="$tmp_pres" '
         BEGIN { n=0; while ((getline ln < pf) > 0) pres[++n]=ln }
@@ -107,8 +124,8 @@ refresh_overlay_block() {
       ' "$template" > "$tmp_eff"
       eff_template="$tmp_eff"
     fi
+    rm -f "$tmp_pres" "$tmp_tpres"; tmp_pres=""; tmp_tpres=""
   fi
-  rm -f "$tmp_pres" "$tmp_tpres"; tmp_pres=""; tmp_tpres=""
 
   local file_block tmpl_block
   tmpl_block=$(awk 'index($0,"<!-- CUSTOM:SKILL:BEGIN -->"){f=1} f' "$eff_template")

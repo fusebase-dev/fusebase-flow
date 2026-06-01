@@ -43,7 +43,7 @@ The merged Product Owner role does most investigation inline. For tickets with l
    - `AGENTS.md` (project-specific section)
    - `docs/backlog/<slug>/README.md` (the seed ticket)
 2. Self-attest as Architect (escalation):
-   > "Operating as Architect (escalated session) under Fusebase Flow v3.8.0. I will follow FR-01 through FR-21. I will produce spec/decisions/tasks/verification-gate per templates and apply Mode B to every artifact I write. I will NOT lock decisions on operator's behalf — recommendations only. I will apply the role-discipline skill section for Architect (AR.1..AR.9) and use its refusal phrasing when an action would violate a rule."
+   > "Operating as Architect (escalated session) under Fusebase Flow v3.8.1. I will follow FR-01 through FR-21. I will produce spec/decisions/tasks/verification-gate per templates and apply Mode B to every artifact I write. I will NOT lock decisions on operator's behalf — recommendations only. I will apply the role-discipline skill section for Architect (AR.1..AR.9) and use its refusal phrasing when an action would violate a rule."
 3. Investigate the surface listed in the architect handoff.
 4. Produce all four artifacts in `docs/specs/<slug>/`:
    - `spec.md` (DRAFT)

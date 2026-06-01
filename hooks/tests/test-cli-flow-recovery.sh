@@ -364,6 +364,42 @@ RULES_BEFORE_HEADING="$(awk '/^## Fusebase Flow — additional rules/{exit} /^[[
 [ "$RULES_BEFORE_HEADING" -le 1 ] || fail "U7: $RULES_BEFORE_HEADING '---' rules before the heading (expected <=1; doubled-rule regression)"
 pass "U7: legacy marker-less CLAUDE.md migrates to a single wrapped block (no doubled ---)"
 
+###############################################################################
+# U9 — first preserve-aware upgrade is LOSSLESS for a pre-markers block.
+# Simulate a 3.7.0-era AGENTS.md: a CUSTOM:SKILL-wrapped block WITH the
+# ### Project-specific values table but WITHOUT FLOW:PRESERVE markers, and a
+# customized value. A refresh against the 3.8.0 template must SEED the new
+# preserve region from that legacy table (value survives) AND add the markers.
+###############################################################################
+U9P="$TMP_BASE/u9-preupgrade"
+mkdir -p "$U9P/hooks/local" "$U9P/.claude/skills" "$U9P/.agents/skills" "$U9P/.claude/agents" "$U9P/.codex/agents" "$U9P/.claude/commands"
+cp -R skills "$U9P/skills"; cp -R agents "$U9P/agents"
+cp hooks/local/mirror-skills.sh hooks/local/mirror-agents.sh hooks/local/post-fusebase-update.sh "$U9P/hooks/local/"
+cp -R hooks/local/fusebase-flow-overlays "$U9P/hooks/local/fusebase-flow-overlays"
+cat > "$U9P/CLAUDE.md" <<'EOF'
+# pre-upgrade CLAUDE
+EOF
+# Build a marker-less (pre-3.8.0) block from the current AGENTS overlay template:
+# strip the FLOW:PRESERVE marker lines and customize a project value.
+{
+  printf '# pre-upgrade AGENTS\n\nCURRENT CLI AGENTS SENTINEL\n'
+  sed -e '/<!-- FLOW:PRESERVE:BEGIN/d' -e '/<!-- FLOW:PRESERVE:END -->/d' \
+      -e 's/Project name | (customize during install)/Project name | SEEDED-FROM-LEGACY/' \
+      hooks/local/fusebase-flow-overlays/agents-md-overlay.md
+} > "$U9P/AGENTS.md"
+# Precondition: CUSTOM:SKILL present, FLOW:PRESERVE absent, value set.
+[ "$(count_marker "$U9P/AGENTS.md" "$MB")" -eq 1 ] || fail "U9 precondition: expected 1 CUSTOM:SKILL:BEGIN"
+grep -q "<!-- FLOW:PRESERVE:BEGIN" "$U9P/AGENTS.md" && fail "U9 precondition: pre-upgrade block should have NO FLOW:PRESERVE markers" || true
+grep -q "SEEDED-FROM-LEGACY" "$U9P/AGENTS.md" || fail "U9 setup: could not set the legacy project value"
+(
+  cd "$U9P"
+  bash hooks/local/post-fusebase-update.sh --refresh-overlays > "$TMP_BASE/u9.out" 2>&1
+)
+grep -q "SEEDED-FROM-LEGACY" "$U9P/AGENTS.md" || fail "U9: first preserve-aware upgrade RESET the legacy project value (lossy transition!)"
+grep -q "<!-- FLOW:PRESERVE:BEGIN" "$U9P/AGENTS.md" || fail "U9: refresh did not add FLOW:PRESERVE markers (no migration)"
+[ "$(count_marker "$U9P/AGENTS.md" "$MB")" -eq 1 ] || fail "U9: BEGIN count not 1 after legacy seed"
+pass "U9: first preserve-aware upgrade seeds the new FLOW:PRESERVE region from the legacy table (lossless)"
+
 # --- AC4: explicit known_names, no app-*.md glob ---
 # The two known CLI app-agents must be attributed cli-owned by name.
 (

@@ -4,6 +4,12 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.8.1] — 2026-06-01
+
+### Fixed — U9: the first preserve-aware upgrade is now lossless
+
+Follow-up from a downstream 3.7.0 → 3.8.0 upgrade: the U1 `FLOW:PRESERVE` carry-forward only matched when the live block already had the markers, so the **first** preserve-aware upgrade (a pre-markers block) still reset operator project-values once. `refresh_overlay_block()` now **seeds the new preserve region from a legacy (marker-less) `### Project-specific values` table** — detecting it by its heading + "…rules win." footer and wrapping it in the template's `FLOW:PRESERVE` markers — so even the transition from a pre-3.8.0 block keeps the operator's values. Recovery sim asserts a customized legacy value survives the first preserve-aware refresh and the markers are added. Dogfooded through the Lightweight Lane (`docs/changes/2026-06-01-u9-legacy-project-values-seed.md`). VERSION 3.8.0 → 3.8.1; plugin manifests bumped.
+
 ## [3.8.0] — 2026-06-01
 
 ### Fixed — upgrade-path hardening 2 (from a live 3.5.2 → 3.7.0 in-place upgrade)
