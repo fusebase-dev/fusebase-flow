@@ -29,6 +29,24 @@ ACTIONS_TAKEN=()
 ACTIONS_SKIPPED=()
 WARNINGS=()
 
+# Flags (F2/F3):
+#   --wire-hooks       opt-in: merge Flow lifecycle hooks into .claude/settings.json.
+#                      DEFAULT IS OFF — recovery never silently changes settings.json
+#                      (matches CLAUDE.md's "hooks are opt-in" contract).
+#   --refresh-overlays version-aware: if an AGENTS.md/CLAUDE.md overlay block is
+#                      PRESENT but DRIFTED from the template, replace it (with a
+#                      backup) instead of skipping. Used by upgrade.sh.
+WIRE_HOOKS=0
+REFRESH_OVERLAYS=0
+for arg in "$@"; do
+  case "$arg" in
+    --wire-hooks) WIRE_HOOKS=1 ;;
+    --refresh-overlays) REFRESH_OVERLAYS=1 ;;
+    --help|-h) sed -n '2,20p' "$0"; exit 0 ;;
+    *) echo "[post-fusebase-update] Unknown argument: $arg" >&2; exit 2 ;;
+  esac
+done
+
 if [ ! -d "$OVERLAYS" ]; then
   echo "[post-fusebase-update] FATAL: $OVERLAYS not found. Cannot restore Fusebase Flow overlay." >&2
   exit 1
@@ -64,10 +82,26 @@ fi
 
 echo "[post-fusebase-update] Step 3: AGENTS.md overlay check..."
 AGENTS_MARKER="## Fusebase Flow — workflow lifecycle overlay"
+TS_REFRESH=$(date -u +%Y%m%dT%H%M%SZ)
 if [ ! -f AGENTS.md ]; then
   WARNINGS+=("AGENTS.md not found in repo root; skipping overlay restore")
 elif grep -qF "$AGENTS_MARKER" AGENTS.md; then
-  ACTIONS_SKIPPED+=("AGENTS.md overlay already present")
+  # F2: present — but is it DRIFTED from the template? Only act under --refresh-overlays.
+  if [ "$REFRESH_OVERLAYS" -eq 1 ] && [ -f "$OVERLAYS/agents-md-overlay.md" ]; then
+    # Extract the existing overlay block (marker line → EOF) and compare to template.
+    existing_block=$(awk -v m="$AGENTS_MARKER" 'index($0,m){f=1} f' AGENTS.md)
+    if [ -n "$existing_block" ] && ! printf '%s' "$existing_block" | diff -q - "$OVERLAYS/agents-md-overlay.md" >/dev/null 2>&1; then
+      cp AGENTS.md "AGENTS.md.pre-refresh-$TS_REFRESH"
+      # Replace from the marker line onward with the fresh template.
+      awk -v m="$AGENTS_MARKER" 'index($0,m){exit} {print}' "AGENTS.md.pre-refresh-$TS_REFRESH" > AGENTS.md
+      cat "$OVERLAYS/agents-md-overlay.md" >> AGENTS.md
+      ACTIONS_TAKEN+=("AGENTS.md: refreshed DRIFTED overlay block (backup: AGENTS.md.pre-refresh-$TS_REFRESH)")
+    else
+      ACTIONS_SKIPPED+=("AGENTS.md overlay present and current")
+    fi
+  else
+    ACTIONS_SKIPPED+=("AGENTS.md overlay already present (use --refresh-overlays to update a drifted block)")
+  fi
 else
   if [ ! -f "$OVERLAYS/agents-md-overlay.md" ]; then
     WARNINGS+=("$OVERLAYS/agents-md-overlay.md missing; cannot restore AGENTS.md")
@@ -86,7 +120,20 @@ CLAUDE_MARKER="## Fusebase Flow — additional rules (overlay)"
 if [ ! -f CLAUDE.md ]; then
   ACTIONS_SKIPPED+=("CLAUDE.md not present (Claude Code not configured for this project)")
 elif grep -qF "$CLAUDE_MARKER" CLAUDE.md; then
-  ACTIONS_SKIPPED+=("CLAUDE.md overlay already present")
+  # F2: present — refresh if DRIFTED, only under --refresh-overlays.
+  if [ "$REFRESH_OVERLAYS" -eq 1 ] && [ -f "$OVERLAYS/claude-md-overlay.md" ]; then
+    existing_block=$(awk -v m="$CLAUDE_MARKER" 'index($0,m){f=1} f' CLAUDE.md)
+    if [ -n "$existing_block" ] && ! printf '%s' "$existing_block" | diff -q - "$OVERLAYS/claude-md-overlay.md" >/dev/null 2>&1; then
+      cp CLAUDE.md "CLAUDE.md.pre-refresh-$TS_REFRESH"
+      awk -v m="$CLAUDE_MARKER" 'index($0,m){exit} {print}' "CLAUDE.md.pre-refresh-$TS_REFRESH" > CLAUDE.md
+      cat "$OVERLAYS/claude-md-overlay.md" >> CLAUDE.md
+      ACTIONS_TAKEN+=("CLAUDE.md: refreshed DRIFTED overlay block (backup: CLAUDE.md.pre-refresh-$TS_REFRESH)")
+    else
+      ACTIONS_SKIPPED+=("CLAUDE.md overlay present and current")
+    fi
+  else
+    ACTIONS_SKIPPED+=("CLAUDE.md overlay already present (use --refresh-overlays to update a drifted block)")
+  fi
 else
   if [ ! -f "$OVERLAYS/claude-md-overlay.md" ]; then
     WARNINGS+=("$OVERLAYS/claude-md-overlay.md missing; cannot restore CLAUDE.md")
@@ -102,7 +149,15 @@ fi
 
 echo "[post-fusebase-update] Step 5: .claude/settings.json merge check..."
 MERGE_SCRIPT="$OVERLAYS/settings-json-merge.py"
-if [ ! -f .claude/settings.json ]; then
+if [ "$WIRE_HOOKS" -ne 1 ]; then
+  # F3: opt-in. By default recovery does NOT touch settings.json — this matches
+  # CLAUDE.md's "hooks are opt-in: nothing runs until you copy settings.json.example."
+  if [ -f .claude/settings.json ]; then
+    ACTIONS_SKIPPED+=(".claude/settings.json NOT modified (hook wiring is opt-in — re-run with --wire-hooks to merge Flow lifecycle hooks)")
+  else
+    ACTIONS_SKIPPED+=(".claude/settings.json not present (Claude Code not configured)")
+  fi
+elif [ ! -f .claude/settings.json ]; then
   ACTIONS_SKIPPED+=(".claude/settings.json not present (Claude Code not configured)")
 elif ! command -v python3 >/dev/null 2>&1; then
   WARNINGS+=("python3 not on PATH - cannot merge .claude/settings.json automatically")

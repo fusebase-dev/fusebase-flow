@@ -4,6 +4,22 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.6.0] — 2026-05-31
+
+### Added / Fixed — upgrade-path hardening
+
+Verified operator feedback (upgrading a live project from an older Flow to 3.5.x) showed the **in-place upgrade path** was the remaining gap: the install path was mature, but upgrading an already-installed overlay had eight rough edges. All eight were checked against the code and fixed (spec `docs/specs/upgrade-path-hardening/`).
+
+- **F1 — `hooks/local/upgrade.sh` (new keystone):** the missing in-place *content* upgrade. Refreshes canonical `skills/ agents/ workflows/ policies/ templates/ FLOW_RULES.md` + framework `docs/*.md` from `.fusebase-flow-source/`, re-mirrors, syncs embedded version strings, then bumps `VERSION` **last** — so VERSION can never advance ahead of content (the root cause of stale-skills-with-new-version). Backups (`.pre-upgrade-<ts>`), `--dry-run`, `--auto-yes`.
+- **F2 — version-aware overlay refresh:** `post-fusebase-update.sh --refresh-overlays` now detects a *present-but-drifted* AGENTS.md/CLAUDE.md Flow overlay block and replaces it (with a `.pre-refresh-<ts>` backup) instead of skipping. Recovery's missing→append path is unchanged.
+- **F3 — hook wiring is now genuinely opt-in:** `post-fusebase-update.sh` no longer merges `.claude/settings.json` by default. It prints a loud "settings.json NOT modified — re-run with `--wire-hooks`" notice; the merge runs only with `--wire-hooks`. This makes CLAUDE.md's "hooks are opt-in" contract true. CLI Stop hooks are still preserved when you do opt in.
+- **F4 — no more false `CLI_LAYER_DRIFT` for single-provider projects:** `check-cli-flow-conflicts.sh` now treats a wholly-absent CLI provider surface (**0 of N** known provider skills/agents present) as a single benign INFO ("not installed — benign for non-FuseBase-Apps / single-provider projects"), not per-item MISSING. **Partial** installs still report genuine drift. A Claude-only project no longer reads RED after a clean upgrade.
+- **F5 — plain-dir upstream accepted:** `upgrade-engine.sh` and `upgrade.sh` no longer FATAL when `.fusebase-flow-source/` lacks `.git` (the documented install end-state). They warn and fall back to VERSION-file comparison; a `.git` clone still enables HEAD/diff.
+- **F6 — `.pyc` scrub** on upgrade (gitignore rule was already present).
+- **F7 — `hooks/local/sync-version-strings.sh` (new):** derives the embedded `Fusebase Flow vX.Y.Z` self-attestation/banner strings from `VERSION` across AGENTS/CLAUDE/GEMINI + overlay templates (never historical files). Corrected the current `v3.5.0` strings to match `VERSION`.
+- **F8 — docs:** the canonical→mirror order and the new upgrade path are documented in `upgrade.sh` and the README.
+- **Tests:** `test-cli-flow-recovery.sh` gained assertions for F3 (settings untouched by default; merged under `--wire-hooks`) and F4 (0-present benign vs partial-drift). VERSION 3.5.2 → 3.6.0; plugin manifests bumped. No skills added/removed (still 23 canonical).
+
 ## [3.5.2] — 2026-05-31
 
 ### Fixed — recovery/overlay refresh for downstream installs

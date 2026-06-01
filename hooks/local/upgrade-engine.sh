@@ -67,15 +67,24 @@ for arg in "$@"; do
   esac
 done
 
-if [ ! -d "$SOURCE_CLONE/.git" ]; then
-  echo "[upgrade-engine] FATAL: $SOURCE_CLONE/ not present as a git clone." >&2
-  echo "                  Clone upstream first:" >&2
+# F5: a git clone enables HEAD reporting, but a plain directory copy (the
+# documented install end-state, which drops .git) is also accepted — fall back
+# to VERSION-file comparison. Only a fully-missing source is fatal.
+if [ ! -d "$SOURCE_CLONE" ]; then
+  echo "[upgrade-engine] FATAL: $SOURCE_CLONE/ not found." >&2
+  echo "                  Provide an upstream copy first:" >&2
   echo "                    git clone https://github.com/fusebase-dev/fusebase-flow.git $SOURCE_CLONE" >&2
   echo "                  Then re-run this script." >&2
   exit 1
 fi
 
-SRC_HEAD=$(cd "$SOURCE_CLONE" && git rev-parse --short HEAD 2>/dev/null || echo "?")
+if [ -d "$SOURCE_CLONE/.git" ]; then
+  SRC_HEAD=$(cd "$SOURCE_CLONE" && git rev-parse --short HEAD 2>/dev/null || echo "?")
+else
+  SRC_HEAD="(plain dir — no .git; HEAD/diff unavailable)"
+  echo "[upgrade-engine] NOTE: $SOURCE_CLONE/ is a plain directory (no .git);"
+  echo "                 comparing by file content + VERSION only."
+fi
 SRC_VERSION=$(cat "$SOURCE_CLONE/VERSION" 2>/dev/null | tr -d '\n')
 LOCAL_VERSION=$(cat VERSION 2>/dev/null | tr -d '\n')
 

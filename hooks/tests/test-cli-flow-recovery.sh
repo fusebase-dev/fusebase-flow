@@ -177,6 +177,7 @@ EOF
 CODEX_BEFORE="$(sha_cmd "$PROJECT/.codex/config.toml")"
 HOOK_BEFORE="$(sha_cmd "$PROJECT/.claude/hooks/run-typecheck-apps.js")"
 CLI_SKILL_BEFORE="$(sha_cmd "$PROJECT/.claude/skills/fusebase-cli/SKILL.md")"
+SETTINGS_BEFORE="$(sha_cmd "$PROJECT/.claude/settings.json")"
 
 (
   cd "$PROJECT"
@@ -192,13 +193,26 @@ grep -q "## Fusebase Flow — additional rules (overlay)" "$PROJECT/CLAUDE.md" |
 [ "$HOOK_BEFORE" = "$(sha_cmd "$PROJECT/.claude/hooks/run-typecheck-apps.js")" ] || fail "CLI hook helper changed"
 [ "$CLI_SKILL_BEFORE" = "$(sha_cmd "$PROJECT/.claude/skills/fusebase-cli/SKILL.md")" ] || fail "CLI provider skill changed"
 
-grep -q "hooks/handlers/stop.py" "$PROJECT/.claude/settings.json" || fail "Flow stop.py was not merged"
+# F3: DEFAULT recovery is opt-in for hook wiring — it must NOT touch settings.json.
+[ "$SETTINGS_BEFORE" = "$(sha_cmd "$PROJECT/.claude/settings.json")" ] || fail "F3: default recovery modified settings.json without --wire-hooks"
+grep -q "hooks/handlers/stop.py" "$PROJECT/.claude/settings.json" && fail "F3: stop.py merged without --wire-hooks" || true
+[ ! -f "$PROJECT/.claude/settings.json.pre-flow-merge" ] || fail "F3: default recovery left a settings.json backup behind"
+grep -q "NOT modified (hook wiring is opt-in" "$OUT" || fail "F3: default recovery did not print the opt-in notice"
+pass "F3: default recovery leaves settings.json untouched and prints the opt-in notice"
+
+# F3: explicit --wire-hooks performs the merge, preserving the CLI Stop hooks.
+(
+  cd "$PROJECT"
+  bash hooks/local/post-fusebase-update.sh --wire-hooks > "$OUT.wire"
+)
+grep -q "hooks/handlers/stop.py" "$PROJECT/.claude/settings.json" || fail "Flow stop.py was not merged under --wire-hooks"
 grep -q "run-typecheck-apps.js" "$PROJECT/.claude/settings.json" || fail "CLI node typecheck Stop hook not preserved"
 grep -q "quality-check-apps.js" "$PROJECT/.claude/settings.json" || fail "CLI quality Stop hook not preserved"
 # B5: the deprecated jq/bash Stop hooks are present on disk but were not wired
 # in the simulated CLI settings; Flow merge must NOT re-inject them.
 grep -q "run-lint-on-stop.sh" "$PROJECT/.claude/settings.json" && fail "deprecated run-lint-on-stop.sh was re-injected into settings" || true
 grep -q "run-typecheck-on-stop.sh" "$PROJECT/.claude/settings.json" && fail "deprecated run-typecheck-on-stop.sh was re-injected into settings" || true
+pass "F3: --wire-hooks merges Flow lifecycle hooks and preserves the CLI Stop hooks"
 
 test -f "$PROJECT/.claude/skills/role-discipline/SKILL.md" || fail "Flow Claude skill mirror missing"
 test -f "$PROJECT/.agents/skills/role-discipline/SKILL.md" || fail "Flow Codex skill mirror missing"
@@ -217,7 +231,6 @@ echo "$CONFLICT_OUTPUT" | grep -q "Verdict: HEALTHY" || {
 
 pass "CLI-owned AGENTS/CLAUDE baselines preserved"
 pass "CLI provider skills and hook helpers untouched"
-pass "shared settings merge preserved CLI Stop hooks"
 pass "Flow skills, agents, overlays, and health command restored"
 pass "conflict reporter returned HEALTHY"
 
@@ -373,10 +386,12 @@ cat > "$BAD_PROJECT/.claude/settings.json" <<'EOF'
 { invalid json
 EOF
 
+# F3: the merge path is opt-in — exercise it with --wire-hooks so the invalid-JSON
+# handling (warn, restore, exit 1, no backup left) is actually tested.
 set +e
 (
   cd "$BAD_PROJECT"
-  bash hooks/local/post-fusebase-update.sh > "$TMP_BASE/bad-settings.out" 2>&1
+  bash hooks/local/post-fusebase-update.sh --wire-hooks > "$TMP_BASE/bad-settings.out" 2>&1
 )
 BAD_RC=$?
 set -e
@@ -386,4 +401,51 @@ grep -q "\[post-fusebase-update\] Summary" "$TMP_BASE/bad-settings.out" || fail 
 [ ! -f "$BAD_PROJECT/.claude/settings.json.pre-flow-merge" ] || fail "invalid settings recovery left backup behind"
 grep -q "{ invalid json" "$BAD_PROJECT/.claude/settings.json" || fail "invalid settings recovery did not restore original settings"
 
-pass "invalid settings merge reports warning and cleans backup"
+pass "invalid settings merge (--wire-hooks) reports warning and cleans backup"
+
+###############################################################################
+# F4 — single-provider benign absence.
+# A Claude-only / Flow-only project that NEVER installed the CLI provider skills
+# (0 of N present) must NOT be flagged CLI_LAYER_DRIFT. The reporter emits one
+# benign INFO instead of per-skill MISSING. Partial install stays drift (already
+# covered by case (4) above, which removes one of 19 and expects CLI_LAYER_DRIFT).
+#
+# Built from a clean copy of the recovered HEALTHY project, then the entire CLI
+# provider surface is removed — so only the absent-CLI-surface variable changes;
+# every required Flow path stays present.
+###############################################################################
+
+CLAUDE_ONLY="$TMP_BASE/claude-only"
+cp -R "$PROJECT" "$CLAUDE_ONLY"
+# Remove ALL known CLI provider skills + app-agents (simulate never-installed).
+for name in "${providers[@]}"; do
+  rm -rf "$CLAUDE_ONLY/.claude/skills/$name" "$CLAUDE_ONLY/.agents/skills/$name"
+done
+rm -f "$CLAUDE_ONLY/.claude/agents/app-architect.md" "$CLAUDE_ONLY/.claude/agents/app-create-checker.md" \
+      "$CLAUDE_ONLY/.codex/agents/app-architect.md" "$CLAUDE_ONLY/.codex/agents/app-create-checker.md"
+# .claude/skills + .claude/agents dirs still exist (Flow mirrors remain), but
+# contain 0 of the known CLI provider skills/agents.
+set +e
+(
+  cd "$CLAUDE_ONLY"
+  bash hooks/local/check-cli-flow-conflicts.sh --json > "$TMP_BASE/claude-only.json"
+)
+CLAUDE_ONLY_RC=$?
+set -e
+[ "$CLAUDE_ONLY_RC" -ne 1 ] || {
+  cat "$TMP_BASE/claude-only.json" >&2
+  fail "F4: 0-present CLI provider surface wrongly escalated to CLI_LAYER_DRIFT (exit 1)"
+}
+"$python_bin" - "$TMP_BASE/claude-only.json" <<'PY' || fail "F4: 0-present provider surface should be benign (INFO, not CLI_LAYER_DRIFT)"
+import json, sys
+d = json.loads(open(sys.argv[1], encoding="utf-8").read())
+assert d["verdict"] != "CLI_LAYER_DRIFT", f"0-present must not be CLI_LAYER_DRIFT, got {d['verdict']}"
+# No per-skill MISSING for the never-installed provider surface.
+missing = [f for f in d["findings"] if f["status"] == "MISSING" and f["layer"] == "cli"]
+assert not missing, f"0-present provider surface produced per-item MISSING: {missing}"
+# A benign INFO names the not-installed case (message lives in action/detail).
+def text(f): return (f.get("action", "") + " " + f.get("detail", "")).lower()
+info = [f for f in d["findings"] if f["status"] == "INFO" and "not installed" in text(f)]
+assert info, "expected a benign INFO about provider skills not being installed"
+PY
+pass "F4: 0-present CLI provider surface is benign (single INFO, never CLI_LAYER_DRIFT)"

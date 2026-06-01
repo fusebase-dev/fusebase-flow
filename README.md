@@ -364,8 +364,11 @@ An ownership manifest backs this split, and a read-only conflict reporter surfac
 | Detailed CLI/Flow ownership & conflict report + drift advisory (read-only) | `bash hooks/local/check-cli-flow-conflicts.sh` |
 | Re-stamp CLI vendor provenance (after a `fusebase update` or an intentional CLI asset change) | `bash hooks/local/stamp-cli-provenance.sh` |
 | Recover Flow-owned + shared surfaces | `bash hooks/local/post-fusebase-update.sh` <br> or reply `yes` when the skill offers recovery in chat |
+| (Re)wire Flow lifecycle hooks into `.claude/settings.json` (opt-in) | `bash hooks/local/post-fusebase-update.sh --wire-hooks` |
 | Restore CLI-owned drift | Run the current **FuseBase CLI refresh/update first**, then `post-fusebase-update.sh` for the Flow layer |
-| Upgrade engine + recovery to latest upstream | `bash hooks/local/upgrade-engine.sh` (refresh `.fusebase-flow-source/` first) |
+| **Upgrade Flow content** (skills/rules/agents) to latest upstream | `bash hooks/local/upgrade.sh` (refresh `.fusebase-flow-source/` first; `--dry-run` to preview) |
+| Upgrade only the engine + recovery scripts | `bash hooks/local/upgrade-engine.sh` (refresh `.fusebase-flow-source/` first) |
+| Re-sync embedded `vX.Y.Z` strings to the `VERSION` file | `bash hooks/local/sync-version-strings.sh` |
 | Avoid drift on routine updates | `fusebase update --skip-skills` (preserves FuseBase Flow overlay) |
 
 <details>
@@ -417,7 +420,7 @@ The Claude Code Stop hooks shipped in `.claude/settings.json.example` are the cr
 | `EXCEPTION_IN_EFFECT` | 3 | Drift covered by active approval/deferral artifacts in `state/approvals/` | Surface the artifact; no automatic recovery |
 | `BROKEN` | 2 | Preflight, hook tests, manifest parsing, or another critical check failed | Inspect the broken item first; no recovery |
 
-Recovery (`post-fusebase-update.sh`) restores **only** Flow-owned assets and shared Flow additions — Flow skills/agents mirrors, `AGENTS.md`/`CLAUDE.md` overlay blocks, the `fusebase-flow-health-check` skill, and `.claude/commands/fusebase-health.md`, plus a merge into `.claude/settings.json`. It never touches `.claude/hooks/**`, CLI provider skills, MCP config, `fusebase.json`, `skills-lock.json`, or active `.codex/config.toml`.
+Recovery (`post-fusebase-update.sh`) restores **only** Flow-owned assets and shared Flow additions — Flow skills/agents mirrors, `AGENTS.md`/`CLAUDE.md` overlay blocks, the `fusebase-flow-health-check` skill, and `.claude/commands/fusebase-health.md`. It never touches `.claude/hooks/**`, CLI provider skills, MCP config, `fusebase.json`, `skills-lock.json`, or active `.codex/config.toml`. **Hook wiring is opt-in** (v3.6.0+): by default recovery does *not* modify `.claude/settings.json` — pass `--wire-hooks` to merge the Flow lifecycle events (the CLI's own Stop hooks are preserved either way).
 
 ### Deferral artifacts (v2.4.0+)
 
@@ -432,9 +435,10 @@ The skill is read-only during diagnosis. When drift is detected and recoverable,
 ```
 Run recovery now? It will:
   • Restore AGENTS.md overlay block in the CLI-preserved custom wrapper (if missing)
-  • Merge .claude/settings.json lifecycle events (if reduced)
   • Re-apply Windows shell:true patch (if missing)
   • Re-mirror FuseBase Flow skills + sub-agents (no-op if already present)
+  (Lifecycle-hook wiring into .claude/settings.json is opt-in — run
+   post-fusebase-update.sh --wire-hooks separately.)
 
 Reply `yes` / `run it` / `fix it` / `proceed` to execute.
 Reply anything else to halt and decide later.
@@ -443,6 +447,19 @@ Reply anything else to halt and decide later.
 On affirmative reply → recovery executes + re-check + report new verdict. On any non-affirmative reply (silence, `no`, a question) → halt. Operator authority preserved (PO.5 from `role-discipline` skill); friction reduced — no terminal context-switch needed for most cases.
 
 The recovery script is **idempotent** — safe to run multiple times. Only re-applies pieces that are actually missing.
+
+### Upgrading an installed overlay (v3.6.0+)
+
+There are two upgrade tools, by scope:
+
+- **`bash hooks/local/upgrade.sh`** — the in-place **content** upgrade. Use this when a newer Flow ships new/changed skills, rules, agents, workflows, policies, or templates. It refreshes the canonical content from `.fusebase-flow-source/`, re-mirrors it, syncs the embedded version strings, then bumps `VERSION` **last**. `--dry-run` previews the plan; backups are written with a `.pre-upgrade-<ts>` suffix.
+- **`bash hooks/local/upgrade-engine.sh`** — narrower: refreshes only the engine + recovery scripts and `VERSION`.
+
+Both accept `.fusebase-flow-source/` as either a git clone (enables HEAD/diff reporting) or a plain directory copy (the documented install end-state, which drops `.git`); a plain dir falls back to VERSION-file comparison instead of erroring.
+
+**Canonical → mirror order (why VERSION is bumped last).** Provider folders (`.claude/skills`, `.agents/skills`, `.claude/agents`, `.codex/agents`) are *generated* from the canonical `skills/` and `agents/` trees. The upgrade always: **(1)** refresh canonical content → **(2)** re-mirror to providers → **(3)** sync embedded `vX.Y.Z` strings → **(4)** refresh drifted AGENTS.md/CLAUDE.md overlay blocks → **(5)** bump `VERSION`. Bumping `VERSION` last guarantees the version number can never advertise content that hasn't actually landed. Edit canonical files, never the mirrors; `preflight.sh` warns on drift.
+
+Hook wiring is a deliberately separate, opt-in step (`post-fusebase-update.sh --wire-hooks`) — `upgrade.sh` never touches `.claude/settings.json`.
 
 ### Auto-discovery for upstream upgrades
 
@@ -459,7 +476,7 @@ skills/fusebase-flow-health-check/SKILL.md          ← canonical skill (descrip
 .agents/skills/fusebase-flow-health-check/SKILL.md  ← Codex mirror
 .claude/commands/fusebase-health.md                 ← /fusebase-health slash command
 hooks/local/fusebase-flow-health-check.sh           ← engine (read-only diagnostic)
-hooks/local/post-fusebase-update.sh                 ← recovery script (10 idempotent steps)
+hooks/local/post-fusebase-update.sh                 ← recovery script (8 idempotent steps; --wire-hooks / --refresh-overlays)
 hooks/local/fusebase-flow-overlays/                 ← overlay templates + canonical skill + slash command source
   ├── agents-md-overlay.md                          ← custom-block-wrapped block to append to AGENTS.md
   ├── claude-md-overlay.md                          ← block to append to CLAUDE.md

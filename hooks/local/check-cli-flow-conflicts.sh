@@ -314,6 +314,16 @@ for entry in paths:
         if not (root / mirror_root).is_dir():
             add("INFO", layer, owner, mirror_root, "provider skill mirror absent")
             continue
+        # F4: distinguish "never installed" (benign) from "partially missing" (drift).
+        # A Claude-only / non-FuseBase-Apps project never had the CLI provider skills;
+        # 0-present must NOT escalate to CLI_LAYER_DRIFT ("structurally damaged").
+        present = [n for n in known if rel_exists(f"{mirror_root}/{n}/SKILL.md")]
+        if known and not present:
+            add("INFO", layer, owner, mirror_root,
+                f"CLI provider skills not installed ({len(known)} known, 0 present) — "
+                "benign for non-FuseBase-Apps / single-provider projects; "
+                "run the FuseBase CLI to add them if you build Apps")
+            continue
         for name in known:
             skill_path = f"{mirror_root}/{name}/SKILL.md"
             if rel_exists(skill_path):
@@ -328,7 +338,8 @@ for entry in paths:
                         rp = str(fp.relative_to(root)).replace("\\", "/")
                         check_provenance(rp)
             else:
-                add("MISSING", layer, owner, skill_path, "run current FuseBase CLI refresh/update first", "provider skill missing")
+                # Partial install: some present, this one missing → genuine drift.
+                add("MISSING", layer, owner, skill_path, "run the current FuseBase CLI refresh/update to restore this provider skill", "provider skill partially missing")
         continue
 
     if "<flow-skill>" in rel:
@@ -350,13 +361,20 @@ for entry in paths:
         if not (root / mirror_root).is_dir():
             add("INFO", layer, owner, mirror_root, "provider agent mirror absent")
             continue
+        # F4: 0-present = never installed (benign); partial = genuine drift.
+        present = [n for n in known if rel_exists(f"{mirror_root}/{n}.md")]
+        if known and not present:
+            add("INFO", layer, owner, mirror_root,
+                f"CLI app-agents not installed ({len(known)} known, 0 present) — "
+                "benign for non-FuseBase-Apps / single-provider projects")
+            continue
         for name in known:
             agent_path = f"{mirror_root}/{name}.md"
             if rel_exists(agent_path):
                 add("OK", layer, owner, agent_path, "current CLI owns provider agent")
                 check_provenance(agent_path)
             else:
-                add("MISSING", layer, owner, agent_path, "run current FuseBase CLI refresh/update first", "provider agent missing")
+                add("MISSING", layer, owner, agent_path, "run the current FuseBase CLI refresh/update to restore this provider agent", "provider agent partially missing")
         continue
 
     if "<flow-agent>" in rel:
