@@ -31,7 +31,7 @@ The framework lives here. Provider and IDE compatibility files (`.claude/`, `.co
 ## How to extend
 
 - **Add a rule:** add to `FLOW_RULES.md` table; if enforceable, add to `policies/`; if deterministic, add to `hooks/handlers/`.
-- **Add a skill:** invoke `skills/skill-authoring/SKILL.md` first; then copy `templates/skill-template.md` into the approved destination (`skills/<slug>/SKILL.md` for framework skills, `docs/skills/<slug>/SKILL.md` for project skills) and mirror framework skills via `hooks/local/mirror-skills.sh`. CLI provider assets stay in provider folders unless separately approved as clean-room Flow framework skills.
+- **Add a skill:** invoke `flow-skills/skill-authoring/SKILL.md` first; then copy `templates/skill-template.md` into the approved destination (`skills/<slug>/SKILL.md` for framework skills, `docs/skills/<slug>/SKILL.md` for project skills) and mirror framework skills via `hooks/local/mirror-skills.sh`. CLI provider assets stay in provider folders unless separately approved as clean-room Flow framework skills.
 - **Add a workflow:** put procedure in `workflows/<slug>.md`; reference from skills or rules that use it.
 - **Add a policy:** YAML under `policies/`; update `hooks/shared/policy_loader.py` if needed; document in `docs/rail-mapping.md`.
 

@@ -47,7 +47,7 @@ Subset of `policies/protected-paths.yml` relevant to this ticket. Empty diff req
 
 ## Smoke prompts (post-deploy)
 
-Define with `skills/smoke-testing/SKILL.md`. Smoke PASS requires operator-visible outcome evidence plus ground-truth diagnostic inspection; supporting checks alone are incomplete. For interactive UI changes, at least one smoke prompt must exercise the real primary interaction; screenshot-only evidence is not sufficient. Name stable selectors or accessible locators for interactive controls and meaningful dynamic output. Browser smoke must include route/navigation, viewport, auth/session plan, unique test data, cleanup responsibility, and any backend/log/API diagnostic surface.
+Define with `flow-skills/smoke-testing/SKILL.md`. Smoke PASS requires operator-visible outcome evidence plus ground-truth diagnostic inspection; supporting checks alone are incomplete. For interactive UI changes, at least one smoke prompt must exercise the real primary interaction; screenshot-only evidence is not sufficient. Name stable selectors or accessible locators for interactive controls and meaningful dynamic output. Browser smoke must include route/navigation, viewport, auth/session plan, unique test data, cleanup responsibility, and any backend/log/API diagnostic surface.
 
 | ID | Scenario | Route / surface | Operator-visible success criterion | Ground-truth diagnostic | Stable selectors / locators | Auth / test data plan | Adversarial check | Evidence required |
 |---|---|---|---|---|---|---|---|---|

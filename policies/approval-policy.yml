@@ -43,7 +43,7 @@ require_approval:
     rationale: "Production deploys are externally visible and irreversible without rollback ceremony. DP.6 magic phrase is the real per-deploy gate; TTL is stale-state protection only — long for solo direct-to-main, short for team branch_pr."
   lightweight_deploy:
     # FR-21 Lightweight-lane deploy. For a small, reversible, security-neutral
-    # change classified Lightweight (see skills/lightweight-lane/SKILL.md), this
+    # change classified Lightweight (see flow-skills/lightweight-lane/SKILL.md), this
     # is the tier-aware deploy gate: it REPLACES production_deploy + the DP.6
     # magic phrase. It is authored by ONE command from the operator's plain
     # go-ahead — `bash hooks/local/approve-local.sh lightweight_deploy <slug> 'ship it'`

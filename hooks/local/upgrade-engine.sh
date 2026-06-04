@@ -25,7 +25,7 @@
 #
 # What it does NOT touch:
 #   - hooks/local/fusebase-flow-overlays/  (operator-customizable overlay templates)
-#   - skills/, agents/                     (use mirror-skills.sh / mirror-agents.sh)
+#   - flow-skills/, agents/                (use mirror-skills.sh / mirror-agents.sh)
 #   - AGENTS.md, CLAUDE.md, .claude/*       (managed via post-fusebase-update.sh)
 #
 # Prerequisite:

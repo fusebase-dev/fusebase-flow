@@ -21,19 +21,28 @@ from shared.audit_logger import emit  # noqa: E402
 from shared.policy_loader import find_git_root  # noqa: E402
 
 
-REQUIRED_TOP_FILES = [
+# Canonical skills live at flow-skills/ (v3.9.0+); root skills/ is the legacy
+# pre-3.9.0 location, accepted as a fallback. SKILLS_CANON is resolved at runtime
+# against the actual repo so a not-yet-migrated tree still validates.
+REQUIRED_TOP_FILES_BASE = [
     "AGENTS.md",
     "FLOW_RULES.md",
     "VERSION",
-    "skills/communication/SKILL.md",     # mandatory: Mode A / Mode B discipline
-    "skills/role-discipline/SKILL.md",   # mandatory: per-role don't-list + refusal phrasing
 ]
-REQUIRED_DIRS = [
-    "skills",
+# {canon} is substituted with the resolved canonical skills dir name.
+REQUIRED_SKILL_FILES = [
+    "{canon}/communication/SKILL.md",     # mandatory: Mode A / Mode B discipline
+    "{canon}/role-discipline/SKILL.md",   # mandatory: per-role don't-list + refusal phrasing
+]
+REQUIRED_DIRS_BASE = [
     "workflows",
     "policies",
     "templates",
 ]
+
+
+def _skills_canon(root: Path) -> str:
+    return "flow-skills" if (root / "flow-skills").is_dir() else "skills"
 
 
 def main() -> int:
@@ -52,8 +61,11 @@ def main() -> int:
         sys.stdout.write(json.dumps(out))
         return 0
 
-    missing_files = [f for f in REQUIRED_TOP_FILES if not (root / f).exists()]
-    missing_dirs = [d for d in REQUIRED_DIRS if not (root / d).is_dir()]
+    canon = _skills_canon(root)
+    required_files = REQUIRED_TOP_FILES_BASE + [f.format(canon=canon) for f in REQUIRED_SKILL_FILES]
+    required_dirs = REQUIRED_DIRS_BASE + [canon]
+    missing_files = [f for f in required_files if not (root / f).exists()]
+    missing_dirs = [d for d in required_dirs if not (root / d).is_dir()]
 
     version_path = root / "VERSION"
     version = version_path.read_text(encoding="utf-8").strip() if version_path.exists() else "unknown"

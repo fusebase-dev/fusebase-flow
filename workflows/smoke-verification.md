@@ -1,6 +1,6 @@
 # Workflow: smoke-verification
 
-> **Style:** Mode-B-lite. Numbered smoke prompts run post-deploy with persisted evidence. Execute under `skills/smoke-testing/SKILL.md`.
+> **Style:** Mode-B-lite. Numbered smoke prompts run post-deploy with persisted evidence. Execute under `flow-skills/smoke-testing/SKILL.md`.
 
 ## Purpose
 
@@ -122,6 +122,6 @@ The AI Developer or Deploy session executes; evidence is captured to `docs/hando
 - `workflows/verification-gate.md` — gate contract that includes smoke threshold
 - `workflows/greenlight-deploy.md` — deploy flow that includes this workflow
 - `templates/smoke-test-playwright.md` — Playwright spec template
-- `skills/smoke-testing/SKILL.md` — role discipline for defining/executing outcome-based smoke
-- `skills/validation-and-qa/SKILL.md` — sub-mode B (smoke verification)
-- `skills/release-deploy-reporting/SKILL.md` — captures smoke results in deploy report
+- `flow-skills/smoke-testing/SKILL.md` — role discipline for defining/executing outcome-based smoke
+- `flow-skills/validation-and-qa/SKILL.md` — sub-mode B (smoke verification)
+- `flow-skills/release-deploy-reporting/SKILL.md` — captures smoke results in deploy report

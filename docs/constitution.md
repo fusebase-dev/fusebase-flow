@@ -18,7 +18,7 @@ This document records the identity and constraints for Fusebase Flow - Fusebase 
 | In scope | Out of scope |
 |---|---|
 | Flow rules, skills, workflows, policies, hooks, templates, and role agents | Replacing Fusebase Apps CLI runtime, SDK, MCP, or provider configuration |
-| CLI provider skills in `.claude/skills/` and `.agents/skills/` | Absorbing CLI provider skills into root `skills/` without a clean-room Flow skill proposal |
+| CLI provider skills in `.claude/skills/` and `.agents/skills/` | Absorbing CLI provider skills into `flow-skills/` without a clean-room Flow skill proposal |
 | CLI app agents in `.claude/agents/` and `.codex/agents/` | Overwriting downstream app settings or active provider files during installation |
 | CLI quality hooks in `.claude/hooks/` | Turning Flow into an agent product, SaaS, daemon, or dependency installer |
 
@@ -40,7 +40,7 @@ This repo is a template/edition package, not a deployed app. The default workflo
 
 | Area | Bar |
 |---|---|
-| Framework files | Small, scoped changes; canonical-first edits for Flow skills/agents; provider mirrors regenerated afterward. |
+| Framework files | Small, scoped changes; canonical-first edits for Flow flow-skills/agents; provider mirrors regenerated afterward. |
 | CLI provider assets | Copied as provider/domain assets; do not rewrite or blend into Flow canonical files without an approved skill-authoring ticket. |
 | Validation | Check JSON parse, mirror consistency, provider asset presence, and source-leak scans. |
 | Commits | T-numbered when executed by AI Developer under a ticket; one task per commit per FR-03. |

@@ -149,16 +149,16 @@
       "path": ".claude/skills/<flow-skill>/**",
       "owner": "flow-owned",
       "required": false,
-      "source": "skills/<flow-skill>/",
-      "flow_action": "Restore from canonical root skills via mirror-skills.sh.",
+      "source": "flow-skills/<flow-skill>/",
+      "flow_action": "Restore from canonical flow-skills/ via mirror-skills.sh.",
       "flow_write_mode": "overwrite-flow-skill-mirror"
     },
     {
       "path": ".agents/skills/<flow-skill>/**",
       "owner": "flow-owned",
       "required": false,
-      "source": "skills/<flow-skill>/",
-      "flow_action": "Restore from canonical root skills via mirror-skills.sh.",
+      "source": "flow-skills/<flow-skill>/",
+      "flow_action": "Restore from canonical flow-skills/ via mirror-skills.sh.",
       "flow_write_mode": "overwrite-flow-skill-mirror"
     },
     {
@@ -224,7 +224,7 @@
       "flow_write_mode": "flow-source"
     },
     {
-      "path": "skills/**",
+      "path": "flow-skills/**",
       "owner": "flow-owned",
       "required": true,
       "flow_action": "Flow owns canonical lifecycle skills.",

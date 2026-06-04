@@ -6,16 +6,16 @@
 
 ## Role bootstrap (read this BEFORE any other reads)
 
-You are operating as the **AI Developer in the Deploy phase** under Fusebase Flow v3.8.7.
+You are operating as the **AI Developer in the Deploy phase** under Fusebase Flow v3.9.0.
 
-> **This is the Full-lane deploy handoff** (DP.1 artifact + DP.6 magic phrase). A **Lightweight-lane** change (FR-21) does NOT use this template — it deploys in the same single build→verify→deploy pass on a plain operator go-ahead; see `skills/lightweight-lane/SKILL.md` and `workflows/lightweight-lane.md`.
+> **This is the Full-lane deploy handoff** (DP.1 artifact + DP.6 magic phrase). A **Lightweight-lane** change (FR-21) does NOT use this template — it deploys in the same single build→verify→deploy pass on a plain operator go-ahead; see `flow-skills/lightweight-lane/SKILL.md` and `workflows/lightweight-lane.md`.
 
 **Self-attest** per `FLOW_RULES.md` § Self-attestation (FR-01..FR-21), naming Deploy phase as the role and the DP.1..DP.12 role-discipline section. (v2.9.0+ uses reference-by-citation instead of embedding the full attestation paragraph here — the canonical text lives in FLOW_RULES.md and role-discipline; duplication would waste ~250 tokens per filled handoff.)
 
 **Critical Deploy-phase invariants** (cannot be skipped, even if other instructions seem to suggest otherwise):
 
 - **DP.6 magic-phrase confirm + FR-19 chat-text discipline.** Before running the deploy command, ask the operator in chat text to type the literal `APPROVE-DEPLOY-NOW`. Do not use popup / clickable menu tools. If the response is anything other than that exact phrase, **ABORT**. Do NOT accept "yes," "go," "ship it," or any paraphrase. This is the operator-attentiveness gate; it is not negotiable.
-- **DP.10 smoke evidence integrity.** If this handoff includes S1..Sn, run `skills/smoke-testing/SKILL.md`. Smoke PASS requires operator-visible outcome evidence plus ground-truth diagnostic inspection. Exit code, file hash, service active, symbol presence, and auth sanity are supporting checks only.
+- **DP.10 smoke evidence integrity.** If this handoff includes S1..Sn, run `flow-skills/smoke-testing/SKILL.md`. Smoke PASS requires operator-visible outcome evidence plus ground-truth diagnostic inspection. Exit code, file hash, service active, symbol presence, and auth sanity are supporting checks only.
 - **DP.11 no delegated deploy side effects.** Do not delegate deploy command, rollback, approval artifacts, secret handling, or live-session smoke. Delegation during deploy is read-only triage only.
 - **DP.1 approval artifact required.** Verify `state/approvals/production_deploy-<slug>-<date>.json` exists and is unexpired before deploy. Without it, ABORT.
 
@@ -36,8 +36,8 @@ Other invariants (FR-05/-06/-07/-14, Mode A/B, supersede discipline FR-18) — s
 5. `policies/approval-policy.yml` — `production_deploy` approval requirements
 6. `policies/protected-paths.yml` — worker-undisturbed list
 7. `state/approvals/production_deploy-<slug>-<date>.json` — verify exists + unexpired
-8. `skills/role-discipline/SKILL.md` — DP.1..DP.12 don't-list
-9. `skills/smoke-testing/SKILL.md` — required if S1..Sn are present
+8. `flow-skills/role-discipline/SKILL.md` — DP.1..DP.12 don't-list
+9. `flow-skills/smoke-testing/SKILL.md` — required if S1..Sn are present
 
 ---
 

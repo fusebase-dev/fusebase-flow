@@ -4,7 +4,7 @@
 
 > **Style:** Mode B (per-ticket smoke spec is an internal artifact).
 
-> **Discipline:** follow `skills/smoke-testing/SKILL.md`. Playwright must exercise the real primary interaction for interactive UI changes; screenshots/DOM assertions alone are not enough. Still inspect any ground-truth diagnostic named by S<n> (request dump, app error log, job row, etc.).
+> **Discipline:** follow `flow-skills/smoke-testing/SKILL.md`. Playwright must exercise the real primary interaction for interactive UI changes; screenshots/DOM assertions alone are not enough. Still inspect any ground-truth diagnostic named by S<n> (request dump, app error log, job row, etc.).
 
 ## When Playwright is overkill
 

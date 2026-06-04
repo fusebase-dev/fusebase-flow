@@ -96,7 +96,7 @@ If that report or the health check says `CLI_LAYER_DRIFT`, restore CLI-owned fil
 
 These framework files belong to Fusebase Flow and are unlikely to exist in a Fusebase CLI / MCP repo. They can be copied without review:
 
-- `skills/`
+- `flow-skills/`
 - `agents/`  ← canonical sub-agents; **required** by `hooks/local/mirror-agents.sh` (omitting it → mirror-agents aborts, `.claude/agents/` stays empty, health → `FLOW_LAYER_DRIFT` 0/2 sub-agents)
 - `workflows/`
 - `policies/`
@@ -112,7 +112,7 @@ These framework files belong to Fusebase Flow and are unlikely to exist in a Fus
 Bash / zsh:
 
 ```bash
-cp -R .fusebase-flow-source/skills .
+cp -R .fusebase-flow-source/flow-skills .
 cp -R .fusebase-flow-source/agents .
 cp -R .fusebase-flow-source/workflows .
 cp -R .fusebase-flow-source/policies .
@@ -201,7 +201,7 @@ Skill folders are additive. Names must not collide.
    blocks) are CLI-owned.
 
 4. After copying, refresh the **Flow** provider mirrors from the canonical
-   `skills/`. `mirror-skills.sh` only writes the 14 canonical Flow skills and
+   `flow-skills/`. `mirror-skills.sh` only writes the canonical Flow skills and
    never touches CLI provider skills:
 
    ```bash
@@ -211,7 +211,7 @@ Skill folders are additive. Names must not collide.
 
 Notes:
 
-- Canonical Fusebase Flow skills live in `skills/`.
+- Canonical Fusebase Flow skills live in `flow-skills/`.
 - Provider mirrors live in `.agents/skills/` and `.claude/skills/`.
 - Existing project skills must remain intact.
 
@@ -230,7 +230,7 @@ Minimal block:
 
 ## Fusebase Flow — workflow lifecycle overlay
 
-This repository also uses Fusebase Flow. Read `FLOW_RULES.md` for the always-on workflow rules, `workflows/` for lifecycle procedures, and `skills/` for on-demand workflow guidance.
+This repository also uses Fusebase Flow. Read `FLOW_RULES.md` for the always-on workflow rules, `workflows/` for lifecycle procedures, and `flow-skills/` for on-demand workflow guidance.
 
 Existing Fusebase CLI, MCP, SDK, provider, and project-specific rules remain authoritative for runtime behavior. Fusebase Flow governs workflow lifecycle: specification, planning, implementation, verification, review, and deploy readiness.
 ```
@@ -252,7 +252,7 @@ Minimal block:
 ```md
 ## Fusebase Flow — additional rules (overlay)
 
-This repository includes Fusebase Flow as a workflow overlay. The canonical workflow files are in `FLOW_RULES.md`, `workflows/`, `skills/`, `policies/`, and `templates/`.
+This repository includes Fusebase Flow as a workflow overlay. The canonical workflow files are in `FLOW_RULES.md`, `workflows/`, `flow-skills/`, `policies/`, and `templates/`.
 
 Do not replace existing Claude instructions, hooks, or project-specific rules. Merge Fusebase Flow guidance as an overlay.
 ```

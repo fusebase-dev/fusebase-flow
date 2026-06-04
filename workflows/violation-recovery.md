@@ -1,6 +1,6 @@
 # Workflow: violation-recovery
 
-> **Style:** Mode-B-lite. Per-rule recovery procedures. Hooks reference this workflow via the `reason` field they emit on deny / warn. The role-discipline skill (`skills/role-discipline/SKILL.md`) names the rule; this workflow handles the multi-step recovery.
+> **Style:** Mode-B-lite. Per-rule recovery procedures. Hooks reference this workflow via the `reason` field they emit on deny / warn. The role-discipline skill (`flow-skills/role-discipline/SKILL.md`) names the rule; this workflow handles the multi-step recovery.
 
 ## When to run
 
@@ -184,7 +184,7 @@ The hook prints whether T-number is missing or the message is too vague. Steps:
 ## Cross-references
 
 - Rule statements: `FLOW_RULES.md`
-- Role-specific don't-lists + refusal phrasing: `skills/role-discipline/SKILL.md`
+- Role-specific don't-lists + refusal phrasing: `flow-skills/role-discipline/SKILL.md`
 - Hook decision logic: `hooks/handlers/*.py`
 - Policies hooks consult: `policies/*.yml`
 - Live-user verification recovery (FR-12 specific): `workflows/live-user-verification.md`

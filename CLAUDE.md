@@ -1,12 +1,12 @@
 # CLAUDE.md - Claude Code adapter for Fusebase Flow
 
-This repo runs **Fusebase Flow v3.8.7**. The portable always-on baseline is in `AGENTS.md`. The full rule set is in `FLOW_RULES.md`. Read both before any other action.
+This repo runs **Fusebase Flow v3.9.0**. The portable always-on baseline is in `AGENTS.md`. The full rule set is in `FLOW_RULES.md`. Read both before any other action.
 
 ## Claude Code-specific notes
 
 | Surface | Where |
 |---|---|
-| Flow lifecycle skills (Claude Code reads automatically) | `.claude/skills/` entries mirrored from canonical `skills/` |
+| Flow lifecycle skills (Claude Code reads automatically) | `.claude/skills/` entries mirrored from canonical `flow-skills/` |
 | CLI provider skills (Claude Code reads automatically) | `.claude/skills/<cli-skill>/` entries copied from Fusebase Apps CLI provider assets |
 | Flow and CLI app agents | `.claude/agents/` |
 | Settings example (hooks wiring) | `.claude/settings.json.example` — copy to `.claude/settings.json` and customize before hooks run |
@@ -36,7 +36,7 @@ Hooks read policies from `policies/*.yml`. They are **opt-in**: nothing runs unt
 
 ## Self-attestation (every session's first response)
 
-> "Operating as {role} under Fusebase Flow v3.8.7. I will follow FR-01 through FR-21. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+> "Operating as {role} under Fusebase Flow v3.9.0. I will follow FR-01 through FR-21. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 If your first response doesn't include this attestation, you're drifting. See `FLOW_RULES.md`.
 
@@ -79,8 +79,8 @@ This repository follows **Fusebase Flow** in addition to project-specific rules.
 
 **Always loaded at session start (Fusebase Flow mandatory skills, auto-loaded via `.claude/skills/`):**
 
-- `skills/communication/SKILL.md` — Mode A (operator chat) / Mode B (internal artifacts)
-- `skills/role-discipline/SKILL.md` — per-role don't-list + refusal phrasing
+- `flow-skills/communication/SKILL.md` — Mode A (operator chat) / Mode B (internal artifacts)
+- `flow-skills/role-discipline/SKILL.md` — per-role don't-list + refusal phrasing
 
 **On-demand Fusebase Flow skills (description-matched from `.claude/skills/`):**
 

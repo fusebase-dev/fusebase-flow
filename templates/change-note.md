@@ -2,7 +2,7 @@
 
 The **entire** planning + handoff + deploy artifact for a Lightweight-lane change. Use inline in the commit body for the smallest changes, or save to `docs/changes/<date>-<slug>.md`. Replaces spec + decisions + tasks + verification-gate + two handoff docs for LL-eligible work only. Keep it short — five lines is the target.
 
-Eligibility (all must hold, else Full lane): small implementation + single concern · reversible · mechanically-verifiable acceptance · no new security surface · no public-contract decision · root cause understood. In doubt → Full. See `skills/lightweight-lane/SKILL.md`.
+Eligibility (all must hold, else Full lane): small implementation + single concern · reversible · mechanically-verifiable acceptance · no new security surface · no public-contract decision · root cause understood. In doubt → Full. See `flow-skills/lightweight-lane/SKILL.md`.
 
 ---
 

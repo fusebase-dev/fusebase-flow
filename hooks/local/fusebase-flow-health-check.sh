@@ -267,17 +267,18 @@ if [ -f .claude/settings.json ]; then
   fi
 fi
 
-# Auto-discover canonical Fusebase Flow skill names from upstream's skills/
-# (or local skills/ as fallback).
+# Auto-discover canonical Fusebase Flow skill names. Canonical lives at
+# flow-skills/ (v3.9.0+); root skills/ is the legacy pre-3.9.0 location, still
+# accepted as a fallback. Prefer the upstream staging clone, then local.
 SKILL_NAMES=()
-if [ -d "$SOURCE_CLONE/skills" ]; then
+CANON_SKILLS_DIR=""
+for cand in "$SOURCE_CLONE/flow-skills" "$SOURCE_CLONE/skills" "flow-skills" "skills"; do
+  if [ -d "$cand" ]; then CANON_SKILLS_DIR="$cand"; break; fi
+done
+if [ -n "$CANON_SKILLS_DIR" ]; then
   while IFS= read -r d; do
     [ -f "$d/SKILL.md" ] && SKILL_NAMES+=("$(basename "$d")")
-  done < <(find "$SOURCE_CLONE/skills" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | sort)
-elif [ -d "skills" ]; then
-  while IFS= read -r d; do
-    [ -f "$d/SKILL.md" ] && SKILL_NAMES+=("$(basename "$d")")
-  done < <(find skills -maxdepth 1 -mindepth 1 -type d 2>/dev/null | sort)
+  done < <(find "$CANON_SKILLS_DIR" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | sort)
 fi
 EXPECTED_SKILL_COUNT="${#SKILL_NAMES[@]}"
 

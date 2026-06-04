@@ -106,7 +106,10 @@ echo ""
 # silently not work). copy_dir copies upstream OVER local without deleting extras,
 # so operator overrides (hooks/local/*.local.*) and CLI-owned `.claude/hooks/**`
 # (a separate tree) are preserved/untouched.
-CONTENT_DIRS=( "skills" "agents" "workflows" "policies" "templates" "hooks" )
+# v3.9.0: canonical skills moved root skills/ -> flow-skills/ (the FuseBase CLI
+# deprecates the root ./skills name). Step 1b below migrates an existing install's
+# legacy root skills/ away after the new flow-skills/ lands.
+CONTENT_DIRS=( "flow-skills" "agents" "workflows" "policies" "templates" "hooks" )
 CONTENT_FILES=( "FLOW_RULES.md" )
 # Framework reference docs (top-level docs/*.md). U4: NOT copied into the consumer
 # by default (they're framework-dev docs that collide with consumer doc layouts).
@@ -141,6 +144,14 @@ if [ "$WITH_DOCS" -eq 1 ] && [ -d "$SOURCE_CLONE/$DOC_GLOB" ]; then
       PLAN+=("add doc:      $dest")
     fi
   done < <(find "$SOURCE_CLONE/$DOC_GLOB" -maxdepth 1 -name "*.md" -type f 2>/dev/null)
+fi
+
+# v3.9.0 migration: a legacy root skills/ alongside the incoming flow-skills/ will
+# be retired (backed up). Only when the source actually ships flow-skills/.
+MIGRATE_LEGACY_SKILLS=0
+if [ -d "skills" ] && [ -d "$SOURCE_CLONE/flow-skills" ]; then
+  MIGRATE_LEGACY_SKILLS=1
+  PLAN+=("migrate:      retire legacy root skills/ (canonical -> flow-skills/)")
 fi
 
 VERSION_CHANGE=""
@@ -178,6 +189,7 @@ copy_dir() {
   if [ -d "$d" ]; then cp -R "$d" "$d.pre-upgrade-$TS"; fi
   # Replace contents (canonical is source of truth; do not delete extra local files
   # blindly — copy upstream over, leaving any project-local additions in place).
+  mkdir -p "$d"   # new dir on first migration (e.g. flow-skills/ on a pre-3.9.0 tree)
   cp -R "$SOURCE_CLONE/$d/." "$d/"
 }
 for d in "${CONTENT_DIRS[@]}"; do
@@ -189,6 +201,16 @@ for f in "${CONTENT_FILES[@]}"; do
     cp "$SOURCE_CLONE/$f" "$f"
   fi
 done
+
+# ---- Step 1b: retire legacy root skills/ (v3.9.0 canonical relocation) ----
+# flow-skills/ has now landed (step 1). Remove the superseded root skills/ so the
+# FuseBase CLI's "obsolete ./skills" warning no longer applies and there's a single
+# canonical source. Backed up; idempotent (no-op if already migrated).
+if [ "$MIGRATE_LEGACY_SKILLS" -eq 1 ] && [ -d "skills" ] && [ -d "flow-skills" ]; then
+  cp -R "skills" "skills.pre-upgrade-$TS"
+  rm -rf "skills"
+  echo "[upgrade] migrated canonical: retired legacy root skills/ (now flow-skills/; backup skills.pre-upgrade-$TS)"
+fi
 if [ "$WITH_DOCS" -eq 1 ] && [ -d "$SOURCE_CLONE/$DOC_GLOB" ]; then
   mkdir -p "$DOC_DEST_PREFIX"
   while IFS= read -r srcdoc; do

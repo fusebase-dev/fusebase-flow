@@ -18,13 +18,17 @@ note() { echo "[preflight] $*"; }
 err()  { echo "[preflight] ERROR: $*" >&2; errors=$((errors + 1)); }
 warn() { echo "[preflight] warn:  $*" >&2; warnings=$((warnings + 1)); }
 
+# Canonical skills dir: flow-skills/ (v3.9.0+); legacy root skills/ as fallback.
+SKILLS_CANON="flow-skills"
+[ -d "$FF_DIR/$SKILLS_CANON" ] || SKILLS_CANON="skills"
+
 # 1. Required top-level files
 for f in AGENTS.md CLAUDE.md GEMINI.md FLOW_RULES.md VERSION; do
     [ -f "$f" ] || err "missing required file: $f"
 done
 
 # 2. Skills, workflows, templates, policies populated
-for d in skills workflows templates policies hooks/handlers hooks/shared hooks/git hooks/local audit; do
+for d in "$SKILLS_CANON" workflows templates policies hooks/handlers hooks/shared hooks/git hooks/local audit; do
     if [ ! -d "$FF_DIR/$d" ] || [ -z "$(ls -A "$FF_DIR/$d" 2>/dev/null)" ]; then
         warn "empty dir: $d"
     fi
@@ -32,12 +36,13 @@ done
 
 # 3. Skill frontmatter structure (requires YAML in each SKILL.md)
 if command -v python3 >/dev/null 2>&1; then
-    python3 - <<'PY' || true
+    SKILLS_CANON="$SKILLS_CANON" python3 - <<'PY' || true
 import os, re, sys
 from pathlib import Path
 root = Path.cwd()
 errs = 0
-for skill in (root / "skills").glob("*/SKILL.md"):
+canon = os.environ.get("SKILLS_CANON", "flow-skills")
+for skill in (root / canon).glob("*/SKILL.md"):
     text = skill.read_text(encoding="utf-8")
     m = re.match(r"---\n(.*?)\n---", text, flags=re.DOTALL)
     if not m:
@@ -66,9 +71,9 @@ if command -v python3 >/dev/null 2>&1; then
     done
 fi
 
-# 5. Skill mirrors consistency (canonical = skills/<name>/SKILL.md;
+# 5. Skill mirrors consistency (canonical = flow-skills/<name>/SKILL.md;
 #    approved mirrors = .agents/skills/ (Codex), .claude/skills/ (Claude Code))
-for canon in "$FF_DIR"/skills/*/SKILL.md; do
+for canon in "$FF_DIR/$SKILLS_CANON"/*/SKILL.md; do
     [ -e "$canon" ] || continue
     skill_name="$(basename "$(dirname "$canon")")"
     canon_hash="$(sha256sum "$canon" 2>/dev/null | awk '{print $1}')"

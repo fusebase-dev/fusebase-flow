@@ -4,7 +4,7 @@
 
 ![FuseBase Flow — you design and decide with the Product Owner agent, which hands off to the AI Developer agent that implements, runs the verification gate, and deploys](docs/assets/two-agent-banner.svg)
 
-[![Version](https://img.shields.io/badge/version-3.8.7-blue.svg)](VERSION)
+[![Version](https://img.shields.io/badge/version-3.9.0-blue.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![CI](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml/badge.svg)](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml)
 [![Use this template](https://img.shields.io/badge/GitHub-Use_this_template-brightgreen.svg?logo=github)](https://github.com/fusebase-dev/fusebase-flow/generate)
@@ -180,7 +180,7 @@ FuseBase Flow provides compatibility files for:
 - **Cursor** — `.cursor/rules/*.mdc`, `AGENTS.md`
 - **GitHub Copilot / VS Code** — `.github/copilot-instructions.md`, `.github/instructions/*.instructions.md`, `AGENTS.md`
 - **Gemini / Antigravity-style IDE agents** — `GEMINI.md`, `AGENTS.md`
-- **Generic local repo workflows** — `AGENTS.md` + root-level framework dirs (`skills/`, `workflows/`, `policies/`, `templates/`, `hooks/`) + git fallback hooks + local scripts
+- **Generic local repo workflows** — `AGENTS.md` + root-level framework dirs (`flow-skills/`, `workflows/`, `policies/`, `templates/`, `hooks/`) + git fallback hooks + local scripts
 
 `.claude/skills/` and `.agents/skills/` include both canonical Flow skill mirrors and FuseBase Apps domain skills. The audit mirror manifest tracks the Flow mirrors only.
 
@@ -357,7 +357,7 @@ When FuseBase Flow is installed on top of the FuseBase CLI, the two share a repo
 | Layer | Examples | Who restores it |
 |---|---|---|
 | **CLI-owned** | CLI provider skills, `.claude/hooks/**`, MCP config, `fusebase.json`, `skills-lock.json`, existing CLI instructions | FuseBase CLI refresh/update — Flow **diagnoses only**, never writes |
-| **Flow-owned** | Flow skills/agents mirrors, `AGENTS.md`/`CLAUDE.md` overlay blocks, health-check skill + `/fusebase-health` command, Flow-owned hook assets | Flow recovery script |
+| **Flow-owned** | Flow skill/agent mirrors, `AGENTS.md`/`CLAUDE.md` overlay blocks, health-check skill + `/fusebase-health` command, Flow-owned hook assets | Flow recovery script |
 | **Shared** | `.claude/settings.json` | **Merged**, never replaced |
 
 An ownership manifest backs this split, and a read-only conflict reporter surfaces the per-layer verdict.
@@ -428,9 +428,9 @@ The Claude Code Stop hooks shipped in `.claude/settings.json.example` are the cr
 
 **Flow lifecycle hooks off = benign, not drift (v3.8.3+).** Hook wiring is opt-in (v3.6.0+). A `.claude/settings.json` that exists (CLI hooks present) but doesn't wire Flow's `stop.py` now reads as a benign INFO ("hooks not wired — opt-in"), not `SHARED_MERGE_DRIFT`. Wire them with `post-fusebase-update.sh --wire-hooks` if you want them; a Flow merge that *clobbered* existing CLI Stop hooks is still flagged.
 
-> ⚠️ **Do NOT delete the root `skills/` folder while Fusebase Flow is installed (v3.8.3+).** Recent FuseBase CLI versions warn `⚠️ The ./skills folder is obsolete and should be deleted` — that targets **non-Flow** projects. For a Flow install, root `skills/` is the **canonical source** that `mirror-skills.sh`, `upgrade.sh`, and the health mirror-count build on; deleting it breaks Flow's upgrade/mirror/health model and `fusebase update` won't restore it. The health check now flags an empty/absent `skills/` (while Flow mirrors exist) with restore steps (`upgrade.sh` / `bootstrap-upgrade.sh` / `git checkout -- skills/`). *(The longer-term alignment of Flow's canonical store with the CLI's `.claude/skills/`-only direction is being coordinated with the CLI team.)*
+> ℹ️ **Canonical skills live in `flow-skills/` (v3.9.0+), not root `skills/`.** Earlier versions used root `skills/`, which collided with the FuseBase CLI's `⚠️ The ./skills folder is obsolete and should be deleted` warning. As of v3.9.0 Flow's canonical source is the Flow-namespaced `flow-skills/` — the CLI never touches it, so that warning is now safe to follow. `mirror-skills.sh`, `upgrade.sh`, and the health mirror-count all build on `flow-skills/`; `upgrade.sh` auto-migrates an existing install (moves `skills/` → `flow-skills/`, retires the old dir with a backup). The health check flags an empty/absent `flow-skills/` (while Flow mirrors exist) with restore steps (`upgrade.sh` / `bootstrap-upgrade.sh` / `git checkout -- flow-skills/`).
 
-Recovery (`post-fusebase-update.sh`) restores **only** Flow-owned assets and shared Flow additions — Flow skills/agents mirrors, `AGENTS.md`/`CLAUDE.md` overlay blocks, the `fusebase-flow-health-check` skill, and `.claude/commands/fusebase-health.md`. It never touches `.claude/hooks/**`, CLI provider skills, MCP config, `fusebase.json`, `skills-lock.json`, or active `.codex/config.toml`. **Hook wiring is opt-in** (v3.6.0+): by default recovery does *not* modify `.claude/settings.json` — pass `--wire-hooks` to merge the Flow lifecycle events (the CLI's own Stop hooks are preserved either way).
+Recovery (`post-fusebase-update.sh`) restores **only** Flow-owned assets and shared Flow additions — Flow skill/agent mirrors, `AGENTS.md`/`CLAUDE.md` overlay blocks, the `fusebase-flow-health-check` skill, and `.claude/commands/fusebase-health.md`. It never touches `.claude/hooks/**`, CLI provider skills, MCP config, `fusebase.json`, `skills-lock.json`, or active `.codex/config.toml`. **Hook wiring is opt-in** (v3.6.0+): by default recovery does *not* modify `.claude/settings.json` — pass `--wire-hooks` to merge the Flow lifecycle events (the CLI's own Stop hooks are preserved either way).
 
 ### Deferral artifacts (v2.4.0+)
 
@@ -475,7 +475,7 @@ All accept `.fusebase-flow-source/` as either a git clone (enables HEAD/diff rep
 
 > ⚠️ **`.fusebase-flow-source/` + ESLint (v3.8.6+).** The staging clone holds CLI-owned **CommonJS** hooks, and ESLint **flat config does not read `.gitignore`** — so if your `fusebase deploy` runs lint, it lints the clone and fails (`@typescript-eslint/no-require-imports`) even with zero app errors. The clone is **transient**: delete it after an upgrade (`rm -rf .fusebase-flow-source` — re-created next upgrade), or add `".fusebase-flow-source/**"` to your `eslint.config` `ignores` next to `".claude/**"`. One-shot helper: `bash hooks/local/eslint-ignore-flow-paths.sh` (idempotent; backs up your config).
 
-**Canonical → mirror order (why VERSION is bumped last).** Provider folders (`.claude/skills`, `.agents/skills`, `.claude/agents`, `.codex/agents`) are *generated* from the canonical `skills/` and `agents/` trees. The upgrade always: **(1)** refresh canonical content (incl. `hooks/`, preserving `hooks/local/*.local.*`) → **(2)** re-mirror to providers → **(3)** sync derived attestation strings (version + `FR-01..FR-NN` + `(NN canonical skills total)`) → **(4)** refresh drifted AGENTS.md/CLAUDE.md overlay blocks (operator `FLOW:PRESERVE` region carried forward) → **(5)** bump `VERSION`. Bumping `VERSION` last guarantees the version number can never advertise content that hasn't actually landed. Edit canonical files, never the mirrors; `preflight.sh` warns on drift.
+**Canonical → mirror order (why VERSION is bumped last).** Provider folders (`.claude/skills`, `.agents/skills`, `.claude/agents`, `.codex/agents`) are *generated* from the canonical `flow-skills/` and `agents/` trees. The upgrade always: **(1)** refresh canonical content (incl. `hooks/`, preserving `hooks/local/*.local.*`) → **(2)** re-mirror to providers → **(3)** sync derived attestation strings (version + `FR-01..FR-NN` + `(NN canonical skills total)`) → **(4)** refresh drifted AGENTS.md/CLAUDE.md overlay blocks (operator `FLOW:PRESERVE` region carried forward) → **(5)** bump `VERSION`. Bumping `VERSION` last guarantees the version number can never advertise content that hasn't actually landed. Edit canonical files, never the mirrors; `preflight.sh` warns on drift.
 
 Hook wiring is a deliberately separate, opt-in step (`post-fusebase-update.sh --wire-hooks`) — `upgrade.sh` never touches `.claude/settings.json`.
 
@@ -489,7 +489,7 @@ The engine and the merger auto-discover the canonical sets of skills, agents, li
 ### Files involved
 
 ```
-skills/fusebase-flow-health-check/SKILL.md          ← canonical skill (description-matched)
+flow-skills/fusebase-flow-health-check/SKILL.md          ← canonical skill (description-matched)
 .claude/skills/fusebase-flow-health-check/SKILL.md  ← Claude Code mirror
 .agents/skills/fusebase-flow-health-check/SKILL.md  ← Codex mirror
 .claude/commands/fusebase-health.md                 ← /fusebase-health slash command
@@ -499,7 +499,7 @@ hooks/local/fusebase-flow-overlays/                 ← overlay templates + cano
   ├── agents-md-overlay.md                          ← custom-block-wrapped block to append to AGENTS.md
   ├── claude-md-overlay.md                          ← block to append to CLAUDE.md
   ├── settings-json-merge.py                        ← Python merger (no jq)
-  ├── skills/fusebase-flow-health-check/SKILL.md    ← skill template (recovery copies into mirrors)
+  ├── flow-skills/fusebase-flow-health-check/SKILL.md    ← skill template (recovery copies into mirrors)
   └── commands/fusebase-health.md                   ← slash command template
 ```
 
@@ -511,7 +511,7 @@ hooks/local/fusebase-flow-overlays/                 ← overlay templates + cano
 |---|---|---|
 | **Always-on rules** | 19 baseline rules every session attests to | `FLOW_RULES.md` |
 | **Workflows** | Step-by-step procedures (eight-phase, greenlight-implement, greenlight-deploy, etc.) | `workflows/` |
-| **Skills** | On-demand expertise loaded when triggered by description match | `skills/` (canonical) + provider mirrors |
+| **Skills** | On-demand expertise loaded when triggered by description match | `flow-skills/` (canonical) + provider mirrors |
 | **Sub-agents** | Role-shaped specialists (Product Owner, AI Developer) with tight tool surfaces and self-attestation | `agents/` (canonical) + `.claude/agents/`, `.codex/agents/` mirrors |
 | **Policies** | Machine-readable rule data (deny lists, secret patterns, approval rules) | `policies/` |
 | **Hooks** | Deterministic enforcement at lifecycle events (Python; stdin → stdout) | `hooks/handlers/` |
@@ -581,7 +581,7 @@ Avoid drift next time with `fusebase update --skip-skills`. See [Health check & 
 <details>
 <summary><strong>Preflight or tests fail after I edited a skill</strong></summary>
 
-Skill files are mirrored across provider folders and tracked by a SHA-256 manifest. Edit the **canonical** under `skills/` (or `agents/`), then re-mirror:
+Skill files are mirrored across provider folders and tracked by a SHA-256 manifest. Edit the **canonical** under `flow-skills/` (or `agents/`), then re-mirror:
 
 ```bash
 bash hooks/local/mirror-skills.sh
@@ -599,7 +599,7 @@ Default is **solo / direct-to-main** with per-task commits and a verification ga
 <details>
 <summary><strong>How do I uninstall / back out?</strong></summary>
 
-Flow is just files. Remove the framework dirs (`skills/ workflows/ hooks/ policies/ templates/ audit/ state/`), the adapter files (`AGENTS.md CLAUDE.md GEMINI.md FLOW_RULES.md VERSION`), and the provider surfaces you added (`.claude/ .agents/ .codex/ .cursor/ .github/`). To disable just the hooks, delete `.claude/settings.json`; if you installed the git fallback hooks, delete the copied `pre-commit` and `commit-msg` files from `.git/hooks/`. Your agent and code are untouched.
+Flow is just files. Remove the framework dirs (`flow-skills/ workflows/ hooks/ policies/ templates/ audit/ state/`), the adapter files (`AGENTS.md CLAUDE.md GEMINI.md FLOW_RULES.md VERSION`), and the provider surfaces you added (`.claude/ .agents/ .codex/ .cursor/ .github/`). To disable just the hooks, delete `.claude/settings.json`; if you installed the git fallback hooks, delete the copied `pre-commit` and `commit-msg` files from `.git/hooks/`. Your agent and code are untouched.
 </details>
 
 ## What's inside
@@ -620,7 +620,7 @@ fusebase-flow/
 ├── VERSION                         ← 3.7.0
 ├── .gitattributes                  ← LF line endings for shell/python/yaml/md
 ├── .python-version                 ← 3.12 (recommended)
-├── skills/                         ← 24 canonical skills (2 mandatory + 22 on-demand, incl. lightweight-lane (v3.7) + the v3.3–v3.5 additions: zoom-out, phase-audit, git-history-diagnostic, project-onboarding, north-star, client-vs-internal, product-docs-first, business-logic-guardian, product-apps-decomposition)
+├── flow-skills/                         ← 24 canonical skills (2 mandatory + 22 on-demand, incl. lightweight-lane (v3.7) + the v3.3–v3.5 additions: zoom-out, phase-audit, git-history-diagnostic, project-onboarding, north-star, client-vs-internal, product-docs-first, business-logic-guardian, product-apps-decomposition)
 ├── agents/                         ← 2 canonical sub-agents (product-owner, ai-developer)
 ├── workflows/                      ← 13 procedures (incl. lightweight-lane)
 ├── policies/                       ← 6 YAML policies

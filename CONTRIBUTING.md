@@ -18,7 +18,7 @@ Thanks for helping improve Fusebase Flow. This project is a repo-local workflow 
 Skill and agent files are **mirrored** across provider folders (`.claude/`, `.agents/`, `.codex/`) and tracked by SHA-256 manifests in [`audit/`](audit/). Always edit the **canonical** source, then regenerate mirrors:
 
 ```bash
-# Canonical skill lives at: skills/<name>/SKILL.md
+# Canonical skill lives at: flow-skills/<name>/SKILL.md
 bash hooks/local/mirror-skills.sh
 
 # Canonical sub-agent lives at: agents/<name>/AGENT.md

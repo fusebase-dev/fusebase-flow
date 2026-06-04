@@ -39,7 +39,7 @@ If any field is missing, the gate report is incomplete and must be redirected.
 
 ## Smoke prompts (when applicable)
 
-For tickets that touch user-facing or operator-facing surfaces, `verification-gate.md` (per-ticket file in `docs/specs/<slug>/`) defines numbered smoke prompts S1..Sn under `skills/smoke-testing/SKILL.md`. The `smoke-verification.md` workflow runs them post-deploy. Pass threshold (e.g., `4/4 PASS`) is part of the gate contract. Supporting checks alone (exit code, file hash, service active, symbol presence, auth sanity) do not satisfy smoke.
+For tickets that touch user-facing or operator-facing surfaces, `verification-gate.md` (per-ticket file in `docs/specs/<slug>/`) defines numbered smoke prompts S1..Sn under `flow-skills/smoke-testing/SKILL.md`. The `smoke-verification.md` workflow runs them post-deploy. Pass threshold (e.g., `4/4 PASS`) is part of the gate contract. Supporting checks alone (exit code, file hash, service active, symbol presence, auth sanity) do not satisfy smoke.
 
 ## Probes (when applicable)
 
@@ -69,8 +69,8 @@ Each ticket gets its own `docs/specs/<slug>/verification-gate.md` drafted by `im
 
 ## Related
 
-- `skills/implementation-planning/SKILL.md` — drafts per-ticket gate file
-- `skills/validation-and-qa/SKILL.md` — verifies gate
-- `skills/code-review/SKILL.md` — reviews diff against gate findings
+- `flow-skills/implementation-planning/SKILL.md` — drafts per-ticket gate file
+- `flow-skills/validation-and-qa/SKILL.md` — verifies gate
+- `flow-skills/code-review/SKILL.md` — reviews diff against gate findings
 - `templates/verification-gate.md` — substrate for per-ticket files
 - `policies/gate-contracts.yml` — machine-readable required fields

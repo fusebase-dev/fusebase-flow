@@ -20,9 +20,9 @@ This edition layers Fusebase Flow lifecycle discipline on top of the Fusebase Ap
 1. Flow governs specs, clarifies, decisions, tasks, verification gates, implementation handoffs, review, deploy handoffs, smoke contracts, and DONE flips.
 2. CLI skills govern Fusebase Apps implementation/runtime/MCP/SDK/domain behavior.
 3. If runtime app guidance conflicts with generic Flow guidance, follow the CLI/project-specific runtime rule and keep the Flow lifecycle artifact intact.
-4. Do not copy CLI provider skills into root `skills/`; they are edition/provider assets, not canonical Flow framework skills.
+4. Do not copy CLI provider skills into `flow-skills/`; they are edition/provider assets, not canonical Flow framework skills.
 5. Do not add CLI provider skills to `audit/skill-mirror-manifest.txt`; the manifest tracks canonical Flow mirror drift only.
-6. If a CLI skill becomes a reusable Flow framework pattern, route it through `skills/skill-authoring/SKILL.md` as a clean-room upstream proposal.
+6. If a CLI skill becomes a reusable Flow framework pattern, route it through `flow-skills/skill-authoring/SKILL.md` as a clean-room upstream proposal.
 
 ## Two-writer hazard
 

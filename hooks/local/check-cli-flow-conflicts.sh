@@ -187,9 +187,18 @@ def commands_in_settings(path: Path) -> list[str]:
     return commands
 
 
+def flow_skills_dir():
+    # Canonical lives at flow-skills/ (v3.9.0+); root skills/ is the legacy
+    # pre-3.9.0 location, accepted as a fallback during/after migration.
+    for cand in (root / "flow-skills", root / "skills"):
+        if cand.is_dir():
+            return cand
+    return None
+
+
 def flow_skill_names() -> list[str]:
-    skills_dir = root / "skills"
-    if not skills_dir.is_dir():
+    skills_dir = flow_skills_dir()
+    if skills_dir is None:
         return []
     return sorted(
         p.name
@@ -234,6 +243,17 @@ findings: list[dict[str, str]] = []
 paths: list[dict[str, Any]] = manifest.get("paths") or []
 flow_skills = flow_skill_names()
 flow_agents = flow_agent_names()
+
+# U12 (v3.9.0): canonical skills moved root skills/ -> flow-skills/. A leftover
+# legacy root skills/ sitting alongside the new flow-skills/ is now benign — the
+# FuseBase CLI's "delete ./skills" warning is finally correct for Flow too. Surface
+# it as a one-line INFO advising the (idempotent) migration, never as drift.
+if (root / "skills").is_dir() and (root / "flow-skills").is_dir():
+    add("INFO", "flow", "flow", "skills/",
+        "legacy root skills/ found alongside canonical flow-skills/ (v3.9.0+). It is "
+        "no longer used and is safe to delete — `bash hooks/local/upgrade.sh` removes it "
+        "(backed up .pre-upgrade-*). The FuseBase CLI 'obsolete ./skills' warning now applies.",
+        "legacy canonical leftover (benign; flow-skills/ is authoritative)")
 
 # U10: flag-gated CLI provider skills. The FuseBase CLI deletes these when their
 # config flag is off, so an absent one is benign-by-design (not CLI_LAYER_DRIFT)
@@ -423,20 +443,18 @@ for entry in paths:
     if "<flow-skill>" in rel:
         mirror_root = ".claude/skills" if rel.startswith(".claude/") else ".agents/skills"
         if not flow_skills:
-            # U12: root skills/ is Flow's CANONICAL source (mirror-skills / upgrade.sh
-            # / the health mirror-count all build on it). The FuseBase CLI now warns
-            # "the ./skills folder is obsolete" — that targets non-Flow projects and
-            # MUST NOT be followed on a Flow install. If canonical skills/ is gone but
-            # the Flow provider mirrors are still here, the operator likely deleted it;
-            # surface that loudly + recoverably instead of a quiet INFO.
+            # U12 (v3.9.0): Flow's CANONICAL source is flow-skills/ — mirror-skills /
+            # upgrade.sh / the health mirror-count all build on it (legacy root skills/
+            # is still accepted as a fallback, so this branch only fires when BOTH
+            # flow-skills/ and a legacy skills/ are gone). If canonical is absent while
+            # the Flow provider mirrors are still here, surface that loudly + recoverably.
             flow_marker = rel_exists(f"{mirror_root}/role-discipline/SKILL.md") or rel_exists(f"{mirror_root}/communication/SKILL.md")
             if flow_marker:
-                add("MISSING", "flow", owner, "skills/",
-                    "root skills/ is Flow's CANONICAL source but is empty/absent while Flow "
-                    "mirrors still exist — do NOT delete it (the FuseBase CLI 'obsolete ./skills' "
-                    "warning does not apply to Flow installs). Restore with: bash hooks/local/upgrade.sh "
-                    "(or hooks/local/bootstrap-upgrade.sh, or git checkout -- skills/).",
-                    "canonical Flow skills/ deleted (do not follow the CLI 'obsolete ./skills' warning)")
+                add("MISSING", "flow", owner, "flow-skills/",
+                    "flow-skills/ is Flow's CANONICAL source but is empty/absent while Flow "
+                    "mirrors still exist. Restore with: bash hooks/local/upgrade.sh "
+                    "(or hooks/local/bootstrap-upgrade.sh, or git checkout -- flow-skills/).",
+                    "canonical Flow flow-skills/ deleted")
             else:
                 add("INFO", layer, owner, mirror_root, "canonical Flow skills absent")
             continue

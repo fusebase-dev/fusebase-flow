@@ -33,7 +33,7 @@ The git fallback hooks in `hooks/git/` provide a safety net for surfaces that do
 
 1. Open your existing repository in VS Code (or your editor of choice).
 2. Clone Fusebase Flow into `.fusebase-flow-source` inside or next to your repo (see commands below).
-3. Copy or merge the framework directories you want from `.fusebase-flow-source/` into your repo root — for example: `hooks/`, `workflows/`, `policies/`, `templates/`, `skills/`, plus `AGENTS.md`, `FLOW_RULES.md`, and any provider configs you use (`.claude/`, `.codex/`, `.cursor/`, `.agents/`, `.github/`).
+3. Copy or merge the framework directories you want from `.fusebase-flow-source/` into your repo root — for example: `hooks/`, `workflows/`, `policies/`, `templates/`, `flow-skills/`, plus `AGENTS.md`, `FLOW_RULES.md`, and any provider configs you use (`.claude/`, `.codex/`, `.cursor/`, `.agents/`, `.github/`).
 4. Install the one runtime dependency: `pip install -r hooks/requirements.txt`.
 5. Run `bash .fusebase-flow-source/install.sh` from your repo root. The installer is interactive and opt-in. It installs git fallback hooks, runs preflight, and mirrors skills into provider folders.
 6. Remove `.fusebase-flow-source` when finished.
@@ -94,7 +94,7 @@ Bash / zsh:
 # CLI-owned provider folders: copy ONLY-IF-ABSENT (-n / --no-clobber).
 # Existing CLI-owned assets (provider skills, hooks, app-*.md agents) and any
 # CUSTOM:SKILL blocks are preserved. On a fresh repo, the Flow mirrors land
-# normally; the post-install mirror step re-syncs Flow skills/agents anyway.
+# normally; the post-install mirror step re-syncs Flow flow-skills/agents anyway.
 cp -Rn .fusebase-flow-source/.agents . 2>/dev/null || true
 cp -Rn .fusebase-flow-source/.claude . 2>/dev/null || true
 cp -Rn .fusebase-flow-source/.codex . 2>/dev/null || true
@@ -285,7 +285,7 @@ my-existing-project/
 ├── .github/                 # Workflow validation Action(s)
 ├── hooks/                   # Lifecycle + git fallback handlers
 ├── policies/                # YAML policies read by hooks
-├── skills/                  # Canonical provider-neutral skills
+├── flow-skills/             # Canonical provider-neutral skills
 ├── templates/               # Spec, plan, decision, handoff templates
 ├── workflows/               # Phase definitions and verification gates
 ├── AGENTS.md                # Always-on baseline rules
@@ -307,7 +307,7 @@ Steps the installer performs:
 
 What the installer does **not** do automatically:
 
-- Copy framework directories (`hooks/`, `policies/`, `workflows/`, `templates/`, `skills/`, provider configs) into your project. You stage those yourself before running the installer.
+- Copy framework directories (`hooks/`, `policies/`, `workflows/`, `templates/`, `flow-skills/`, provider configs) into your project. You stage those yourself before running the installer.
 - Merge `AGENTS.md`, `CLAUDE.md`, or `GEMINI.md` with files you already have. If those files exist in your repo, review the diffs by hand before staging the framework versions.
 - Modify `.github/workflows/` files in repos that already have GitHub Actions configured.
 
@@ -341,7 +341,7 @@ Fusebase Flow is removable. Delete the framework directories and provider config
 - `hooks/`
 - `workflows/`
 - `policies/`
-- `skills/`
+- `flow-skills/`
 - `templates/`
 - `.claude/`, `.codex/`, `.cursor/`, `.agents/` (or just the Fusebase Flow subset)
 - The Fusebase Flow section appended to `AGENTS.md` / `CLAUDE.md`
@@ -373,7 +373,7 @@ The framework works because agents read files from the repository. Specifically:
 
 - `AGENTS.md` and `FLOW_RULES.md` — always-on rules every agent reads at session start
 - Provider configs (`.claude/`, `.codex/`, `.cursor/`, `.agents/`) — surface-specific entry points
-- `skills/` — task-scoped guidance the agent loads when relevant
+- `flow-skills/` — task-scoped guidance the agent loads when relevant
 - `workflows/` — phase definitions and verification gates the operator and agent share
 - `hooks/` — lifecycle and git handlers that enforce policy locally
 - `policies/` — declarative rules the hooks read

@@ -12,11 +12,11 @@ tools: Read, Glob, Grep, Bash, Write, Edit
 
 Choose the role from the handoff filename:
 
-> **AI Developer:** "Operating as AI Developer under Fusebase Flow v3.8.7. I will follow FR-01 through FR-21. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for AI Developer."
+> **AI Developer:** "Operating as AI Developer under Fusebase Flow v3.9.0. I will follow FR-01 through FR-21. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for AI Developer."
 
-> **Deploy phase:** "Operating as Deploy phase under Fusebase Flow v3.8.7. I will follow FR-01 through FR-21. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Deploy phase."
+> **Deploy phase:** "Operating as Deploy phase under Fusebase Flow v3.9.0. I will follow FR-01 through FR-21. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Deploy phase."
 
-**Lightweight lane (FR-21).** When the handoff is a **change-note** (or an implement handoff marked `change_tier: lightweight`), attest as AI Developer and add: "Running the Lightweight Lane (FR-21): one change-note, one build→verify→deploy pass, plain operator go-ahead; safety floor (live proof, explicit go-ahead, FR-07, rollback, one commit) kept; I will STOP and promote to Full if this turns non-trivial." Then follow `workflows/lightweight-lane.md` — no stop-at-gate handoff to a second session, deploy on a plain go-ahead (no DP.6 / DP.1). See `skills/lightweight-lane/SKILL.md`.
+**Lightweight lane (FR-21).** When the handoff is a **change-note** (or an implement handoff marked `change_tier: lightweight`), attest as AI Developer and add: "Running the Lightweight Lane (FR-21): one change-note, one build→verify→deploy pass, plain operator go-ahead; safety floor (live proof, explicit go-ahead, FR-07, rollback, one commit) kept; I will STOP and promote to Full if this turns non-trivial." Then follow `workflows/lightweight-lane.md` — no stop-at-gate handoff to a second session, deploy on a plain go-ahead (no DP.6 / DP.1). See `flow-skills/lightweight-lane/SKILL.md`.
 
 If no handoff path is provided in the operator's first message, **STOP** and ask the operator which handoff to load. Do NOT improvise the work without a handoff.
 
@@ -37,19 +37,19 @@ If no handoff path is provided in the operator's first message, **STOP** and ask
 | `FLOW_RULES.md` | FR-01..FR-21 always-on rules |
 | `AGENTS.md` | repo-local always-on baseline |
 | `docs/fusebase-cli-edition.md` | Flow/CLI skill boundary and domain-skill map for Fusebase Apps work |
-| `skills/communication/SKILL.md` | Mode A / Mode B discipline (mandatory) |
-| `skills/role-discipline/SKILL.md` | AI Developer + Deploy phase don't-lists + refusal phrasing (mandatory) |
+| `flow-skills/communication/SKILL.md` | Mode A / Mode B discipline (mandatory) |
+| `flow-skills/role-discipline/SKILL.md` | AI Developer + Deploy phase don't-lists + refusal phrasing (mandatory) |
 | `docs/specs/<slug>/spec.md` | what the ticket is shipping |
 | `docs/specs/<slug>/decisions.md` | LOCKED decisions (do not modify) |
 | `docs/specs/<slug>/tasks.md` | T-numbered chain to execute |
 | `docs/specs/<slug>/verification-gate.md` | gate evidence required |
 | `workflows/greenlight-implement.md` (Implement role) OR `workflows/greenlight-deploy.md` (Deploy role) | the playbook for the chosen role |
-| `skills/lightweight-lane/SKILL.md` + `workflows/lightweight-lane.md` | required when the ticket is a Lightweight-lane change-note (FR-21) — the single build→verify→deploy pass |
+| `flow-skills/lightweight-lane/SKILL.md` + `workflows/lightweight-lane.md` | required when the ticket is a Lightweight-lane change-note (FR-21) — the single build→verify→deploy pass |
 | `workflows/setup.md` | first-time env setup if the repo is new to this session |
 | `workflows/git-workflow.md` | pre-task checkpoint, per-commit, pre-deploy verification |
 | `workflows/verification-gate.md` | how to produce the gate report |
-| `skills/smoke-testing/SKILL.md` | required when deploy handoff includes S1..Sn smoke prompts |
-| `skills/skill-authoring/SKILL.md` | required when the handoff includes framework skill creation/update work |
+| `flow-skills/smoke-testing/SKILL.md` | required when deploy handoff includes S1..Sn smoke prompts |
+| `flow-skills/skill-authoring/SKILL.md` | required when the handoff includes framework skill creation/update work |
 
 ## Phase ownership
 
@@ -62,7 +62,7 @@ If no handoff path is provided in the operator's first message, **STOP** and ask
 | 7 — execute T-chain | One task per commit (FR-03 / IM.4); commit message references the T-number (IM.5) |
 | 7 — every task | **(v2.8.0+ / IM.11)** Record UTC `started_at` when picking up task `T<n>`. Record `committed_at` when the commit lands. Both go into the gate-report per-task table (Wall-clock column = `committed_at − started_at`). Wait-for-operator time is naturally excluded since the agent isn't doing work between tasks. |
 | 7 — every commit | lint + typecheck pass before commit (FR-13 / IM.3) |
-| 7 — when smoke needed | follow `skills/smoke-testing/SKILL.md` + `workflows/smoke-verification.md`; if live-user verification fires, follow `workflows/live-user-verification.md` (mask cookies / session keys; never persist) |
+| 7 — when smoke needed | follow `flow-skills/smoke-testing/SKILL.md` + `workflows/smoke-verification.md`; if live-user verification fires, follow `workflows/live-user-verification.md` (mask cookies / session keys; never persist) |
 | 6c — produce gate report | Use `templates/gate-report.md` (v2.6.0+). Required fields: per-task SHAs, test counts, lint+typecheck status, worker-undisturbed git-diff result, manifest version, deviations list, **plus section 9 operator-relay block** (mandatory; per FR-16 — operator copies that block into PO chat instead of digesting the technical body). |
 | END — STOP at gate | Do NOT run deploy. Wait for the PO to draft a deploy handoff (IM.1 / IM.8) |
 
@@ -134,7 +134,7 @@ For Fusebase Apps implementation, debugging, validation, or deploy evidence, loa
 
 ## Don't-list
 
-Full list with refusal phrasing in `skills/role-discipline/SKILL.md`. Headlines:
+Full list with refusal phrasing in `flow-skills/role-discipline/SKILL.md`. Headlines:
 
 ### AI Developer (IM.1..IM.18)
 

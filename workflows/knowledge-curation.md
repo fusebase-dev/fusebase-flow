@@ -29,7 +29,7 @@ Without persistent capture, every new session re-discovers the same problems. Th
    ```
 3. If operator says `capture`:
    - For problem-catalog: file at `docs/problem-catalog/<slug>/problem.md` using `templates/problem-catalog-entry.md`
-   - For project-internal skill: invoke `skills/skill-authoring/SKILL.md`, then file at `docs/skills/<slug>/SKILL.md` using `templates/skill-template.md` (NOT `skills/`; this is project-specific expertise, not a framework skill)
+   - For project-internal skill: invoke `flow-skills/skill-authoring/SKILL.md`, then file at `docs/skills/<slug>/SKILL.md` using `templates/skill-template.md` (NOT `skills/`; this is project-specific expertise, not a framework skill)
    - Update the corresponding index (`docs/problem-catalog/README.md` or `docs/skills/README.md`)
 4. If operator says `skip`: note the decision in the current ticket's `decisions.md` as audit trail. Do not refile this trigger again for the same ticket.
 5. For "must-capture without asking" cases (production-blocking platform bug, recurring constraint that affects future migrations): file the entry and announce: "Captured `docs/problem-catalog/<slug>/problem.md` per FR-15. Future tickets hitting this territory will inherit the context."
@@ -65,6 +65,6 @@ Project-internal skills are loaded by reference (operator says "load skill <slug
 - `FLOW_RULES.md` FR-15 — knowledge curation triggers
 - `templates/problem-catalog-entry.md` — substrate for catalog entries
 - `templates/skill-template.md` — substrate for both framework and project-internal skills
-- `skills/skill-authoring/SKILL.md` — clean-room classification, authoring, role applicability, and mirror validation for skills
-- `skills/requirements-specification/SKILL.md` — may invoke this workflow on completion
-- `skills/release-deploy-reporting/SKILL.md` — may invoke this workflow post-deploy
+- `flow-skills/skill-authoring/SKILL.md` — clean-room classification, authoring, role applicability, and mirror validation for skills
+- `flow-skills/requirements-specification/SKILL.md` — may invoke this workflow on completion
+- `flow-skills/release-deploy-reporting/SKILL.md` — may invoke this workflow post-deploy

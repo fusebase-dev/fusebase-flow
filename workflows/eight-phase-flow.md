@@ -4,12 +4,12 @@
 
 ## Lane selection (FR-21 — do this first, at Specify)
 
-Before Phase 1, classify the ticket **Full** or **Lightweight** using the eligibility gate in `skills/lightweight-lane/SKILL.md`.
+Before Phase 1, classify the ticket **Full** or **Lightweight** using the eligibility gate in `flow-skills/lightweight-lane/SKILL.md`.
 
 - **Lightweight** (small + reversible + security-neutral + mechanically-verifiable + no decision needed + root cause known) → take `workflows/lightweight-lane.md` instead of the eight phases below: one change-note, one build→verify→deploy agent pass, plain operator go-ahead. The safety floor (live proof, explicit go-ahead, FR-07, rollback, one commit + SHA) is kept.
 - **Full** (anything risky/uncertain, or any doubt) → the eight phases below.
 
-In doubt → Full. If a Lightweight change turns non-trivial mid-flight, STOP and promote to Full (`skills/lightweight-lane/SKILL.md` → "Mid-flight promotion").
+In doubt → Full. If a Lightweight change turns non-trivial mid-flight, STOP and promote to Full (`flow-skills/lightweight-lane/SKILL.md` → "Mid-flight promotion").
 
 ## Phases (Full lane)
 
@@ -62,7 +62,7 @@ Handoffs are saved to disk BEFORE being shown in chat (FR-04).
 ## Related
 
 - `workflows/lightweight-lane.md` — the Lightweight-lane variant (FR-21) for small/reversible changes
-- `skills/lightweight-lane/SKILL.md` — the eligibility gate + change-note + one-pass procedure
+- `flow-skills/lightweight-lane/SKILL.md` — the eligibility gate + change-note + one-pass procedure
 - `FLOW_RULES.md` — the rules that govern each phase (FR-21 governs lane selection)
 - All skills in `skills/`
 - All other workflows in `workflows/`

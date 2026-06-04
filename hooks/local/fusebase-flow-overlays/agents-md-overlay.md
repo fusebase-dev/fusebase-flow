@@ -20,7 +20,7 @@ Fusebase Flow ships:
 
 **Self-attestation (every session's first response):**
 
-> "Operating as {role} under Fusebase Flow v3.8.7. I will follow FR-01 through FR-21. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+> "Operating as {role} under Fusebase Flow v3.9.0. I will follow FR-01 through FR-21. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 **Operator questions:** per FR-19, ask questions in chat text, not popup / clickable menu tools. Use short option tables or numbered lists so the operator can copy, forward, quote, and follow up.
 
@@ -40,7 +40,7 @@ This check is universal across every surface (it lives in this file, which every
 
 ### Maintenance posture (Fusebase CLI ↔ Fusebase Flow coexistence)
 
-> **Do NOT delete the root `skills/` folder while Fusebase Flow is installed.** Recent FuseBase CLI versions print `⚠️ The ./skills folder is obsolete and should be deleted`. That deprecation targets **non-Flow** projects. For a Flow install, root `skills/` is the **canonical source of truth** — `hooks/local/mirror-skills.sh`, `hooks/local/upgrade.sh`, and the health check's mirror-count all build on it. Deleting it silently breaks Flow's mirror/upgrade/health model. Ignore that CLI warning here. (The health check flags an empty/absent `skills/` while Flow mirrors exist, with restore steps.)
+> **Flow's canonical skills live in `flow-skills/` (v3.9.0+), not root `skills/`.** The FuseBase CLI deprecates the root `./skills` folder (`⚠️ The ./skills folder is obsolete and should be deleted`); Flow now uses the Flow-namespaced `flow-skills/`, which the CLI never touches, so that warning is safe to follow. `hooks/local/mirror-skills.sh`, `hooks/local/upgrade.sh`, and the health check's mirror-count all build on `flow-skills/`. Upgrading from a pre-3.9.0 install: `bash hooks/local/upgrade.sh` auto-migrates (moves `skills/` → `flow-skills/`, retires the old dir with a backup). The health check flags an empty/absent `flow-skills/` while Flow mirrors exist, with restore steps.
 
 > **`.fusebase-flow-source/` and ESLint (deploy lint).** The upstream staging clone `.fusebase-flow-source/` contains CLI-owned CommonJS hooks; ESLint **flat config does not read `.gitignore`**, and the CLI's `eslint.config` only ignores `.claude/**` — so if your `fusebase deploy` runs lint, the staged clone fails it (`@typescript-eslint/no-require-imports`) even with zero app errors. The clone is **transient** — either delete it after an upgrade (`rm -rf .fusebase-flow-source`; it's re-created on the next upgrade), or add `".fusebase-flow-source/**"` to your `eslint.config` `ignores` (next to `".claude/**"`). One-shot helper: `bash hooks/local/eslint-ignore-flow-paths.sh`.
 

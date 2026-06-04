@@ -24,7 +24,7 @@
 # What it scans (canonical sources + standalone adapters):
 #   Root adapters:     AGENTS.md, CLAUDE.md, GEMINI.md, FLOW_RULES.md
 #   Other adapters:    .github/copilot-instructions.md, .cursor/rules/*.mdc
-#   Canonical:         agents/**/AGENT.md, skills/**/SKILL.md, workflows/*.md,
+#   Canonical:         agents/**/AGENT.md, flow-skills/**/SKILL.md, workflows/*.md,
 #                      templates/*.md, hooks/local/fusebase-flow-overlays/*.md,
 #                      docs/*.md (top-level framework docs only)
 #   It then RE-MIRRORS (mirror-agents.sh + mirror-skills.sh) so the generated
@@ -81,7 +81,9 @@ if [ -n "$FR_MAX" ]; then
 else
   FR_HI=""
 fi
-SKILL_COUNT="$(find skills -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
+# Canonical skills: flow-skills/ (v3.9.0+); legacy root skills/ as fallback.
+SKILLS_CANON="flow-skills"; [ -d "$SKILLS_CANON" ] || SKILLS_CANON="skills"
+SKILL_COUNT="$(find "$SKILLS_CANON" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
 
 # Discover scan targets: canonical sources + standalone adapters (*.md / *.mdc),
 # pruning dated history, generated mirror dirs, and non-source trees. Generated
@@ -130,7 +132,7 @@ for f in "${CANDIDATES[@]}"; do
   if [ "$before" != "$after" ]; then
     CHANGED+=("$f")
     case "$f" in
-      ./agents/*|./skills/*) TOUCHED_CANONICAL=1 ;;
+      ./agents/*|./flow-skills/*|./skills/*) TOUCHED_CANONICAL=1 ;;
     esac
     if [ "$DRY_RUN" -eq 0 ]; then
       printf '%s' "$after" > "$f"
@@ -149,7 +151,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
   echo "[sync-version-strings] (dry-run) would sync derived strings ($DERIVED) in:"
   for c in "${CHANGED[@]}"; do echo "  • $c"; done
   case " ${CHANGED[*]} " in
-    *" ./agents/"*|*" ./skills/"*) echo "  • (would re-mirror agents + skills to refresh provider copies)";;
+    *" ./agents/"*|*" ./flow-skills/"*|*" ./skills/"*) echo "  • (would re-mirror agents + skills to refresh provider copies)";;
   esac
   exit 0
 fi

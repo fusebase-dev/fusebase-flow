@@ -62,7 +62,7 @@ Every cross-session prompt is saved here BEFORE being shown in chat (FR-04). Rep
                 ┌──────────────────────────────────┼──────────────────────────────────┐
                 ▼                                  ▼                                  ▼
        ┌────────────────┐                 ┌────────────────┐                 ┌────────────────┐
-       │   skills/      │                 │  workflows/    │                 │   policies/    │
+       │   flow-skills/      │                 │  workflows/    │                 │   policies/    │
        │  (on-demand    │                 │  (procedural)  │                 │  (machine-     │
        │   + 2 mandatory)│                 │                │                 │   readable)    │
        │                │                 │                │                 │                │
@@ -114,7 +114,7 @@ See `docs/rail-mapping.md` for the canonical FR-NN → surface mapping.
 ## Skill mirror flow
 
 ```
-                  skills/<name>/SKILL.md         ← canonical
+                  flow-skills/<name>/SKILL.md         ← canonical
                             │
                             │ bash hooks/local/mirror-skills.sh
                             ▼
@@ -134,7 +134,7 @@ See `docs/rail-mapping.md` for the canonical FR-NN → surface mapping.
                   verify mirrors match canonical (drift = 0)
 ```
 
-In this edition, `.agents/skills/` and `.claude/skills/` also contain CLI provider skills. The mirror flow above tracks canonical Flow skills only; CLI provider assets stay outside root `skills/` unless a separate clean-room Flow skill proposal is approved.
+In this edition, `.agents/skills/` and `.claude/skills/` also contain CLI provider skills. The mirror flow above tracks canonical Flow skills only; CLI provider assets stay outside root `flow-skills/` unless a separate clean-room Flow skill proposal is approved.
 
 ## Approval-artifact flow (FR-12)
 

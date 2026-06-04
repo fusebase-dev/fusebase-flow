@@ -4,7 +4,7 @@
 
 ## When to run
 
-Chosen at Specify when the eligibility gate in `skills/lightweight-lane/SKILL.md` passes (ALL of): small implementation + single concern · reversible · mechanically-verifiable acceptance · no new security surface · no public-contract decision · root cause understood. **In doubt → Full lane** (`workflows/eight-phase-flow.md`).
+Chosen at Specify when the eligibility gate in `flow-skills/lightweight-lane/SKILL.md` passes (ALL of): small implementation + single concern · reversible · mechanically-verifiable acceptance · no new security surface · no public-contract decision · root cause understood. **In doubt → Full lane** (`workflows/eight-phase-flow.md`).
 
 ## Procedure (single AI Developer session — no two-agent split)
 
@@ -24,7 +24,7 @@ Chosen at Specify when the eligibility gate in `skills/lightweight-lane/SKILL.md
 
 ## Self-attestation
 
-The same role attestation as any AI Developer session (per `FLOW_RULES.md` § Self-attestation, FR-01..FR-21), naming the AI Developer role and `skills/role-discipline/SKILL.md`. Add one line: "Running the Lightweight Lane (FR-21): one change-note, one build→verify→deploy pass, plain operator go-ahead; safety floor (live proof, explicit go-ahead, FR-07, rollback, one commit) kept; I will STOP and promote to Full if this turns non-trivial."
+The same role attestation as any AI Developer session (per `FLOW_RULES.md` § Self-attestation, FR-01..FR-21), naming the AI Developer role and `flow-skills/role-discipline/SKILL.md`. Add one line: "Running the Lightweight Lane (FR-21): one change-note, one build→verify→deploy pass, plain operator go-ahead; safety floor (live proof, explicit go-ahead, FR-07, rollback, one commit) kept; I will STOP and promote to Full if this turns non-trivial."
 
 ## Mid-flight promotion (mandatory)
 
@@ -46,11 +46,11 @@ If the change touches more than a couple files, surfaces a risk, needs a real de
 
 ## Related
 
-- `skills/lightweight-lane/SKILL.md` — eligibility gate, change-note, promotion (single source of truth)
+- `flow-skills/lightweight-lane/SKILL.md` — eligibility gate, change-note, promotion (single source of truth)
 - `templates/change-note.md` — the LL artifact
 - `workflows/eight-phase-flow.md` — the Full lane (lane selection happens there)
 - `workflows/git-workflow.md` — pre-task checkpoint + per-commit discipline
-- `skills/validation-and-qa/SKILL.md` — live-proof / 3-question empirical test (LL mode)
-- `skills/release-deploy-reporting/SKILL.md` — LL deploy mode (plain go-ahead)
+- `flow-skills/validation-and-qa/SKILL.md` — live-proof / 3-question empirical test (LL mode)
+- `flow-skills/release-deploy-reporting/SKILL.md` — LL deploy mode (plain go-ahead)
 - `policies/approval-policy.yml` — `lightweight_deploy` (one-command stamp) vs `production_deploy`
 - `policies/protected-paths.yml` — FR-07 worker-undisturbed list

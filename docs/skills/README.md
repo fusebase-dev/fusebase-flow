@@ -25,7 +25,7 @@ If the trigger is a **specific incident** (one bug, one outage, one platform sur
 
 ## Filing a project skill
 
-Invoke `skills/skill-authoring/SKILL.md`, then use `templates/skill-template.md` as substrate. Fill out:
+Invoke `flow-skills/skill-authoring/SKILL.md`, then use `templates/skill-template.md` as substrate. Fill out:
 
 - frontmatter (`name`, trigger-oriented `description`, etc.)
 - Purpose, When to invoke, Do not invoke when
@@ -50,7 +50,7 @@ Project skills MUST be Mode-B-lite (concise, structured, trigger-oriented, AI-co
 | It's a one-off incident with a specific cause | `docs/problem-catalog/<slug>/problem.md` |
 | It's a recurring pattern (3+ tickets) in this project | `docs/skills/<slug>/SKILL.md` (here) |
 | It's a domain that EVERY Fusebase Flow project would benefit from | invoke `skill-authoring`, then propose upstream into `skills/` as a separate framework change |
-| It's Fusebase Apps CLI runtime/domain guidance already present in provider assets | keep it in `.agents/skills/` / `.claude/skills/`; do not duplicate it under root `skills/` |
+| It's Fusebase Apps CLI runtime/domain guidance already present in provider assets | keep it in `.agents/skills/` / `.claude/skills/`; do not duplicate it under `flow-skills/` |
 | It's a one-off architectural choice for the current ticket | that goes in `docs/specs/<slug>/decisions.md`, not a skill |
 
 ## Loading project skills in provider / IDE sessions

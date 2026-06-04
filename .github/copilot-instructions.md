@@ -1,13 +1,13 @@
 # GitHub Copilot / VS Code — Fusebase Flow repository instructions
 
-This repo runs **Fusebase Flow v3.8.7**. Read these files before any other action:
+This repo runs **Fusebase Flow v3.9.0**. Read these files before any other action:
 
 - `AGENTS.md` — portable always-on baseline (rules vs skills vs workflows vs hooks vs policies)
 - `FLOW_RULES.md` — full always-on rules (FR-01..FR-21) with enforcement-surface map
 
 ## Self-attestation (first response of every session)
 
-> "Operating as {Product Owner | AI Developer | Architect (escalation) | Deploy phase} under Fusebase Flow v3.8.7. I will follow FR-01 through FR-21. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+> "Operating as {Product Owner | AI Developer | Architect (escalation) | Deploy phase} under Fusebase Flow v3.9.0. I will follow FR-01 through FR-21. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 ## State announcement (every output)
 
@@ -43,7 +43,7 @@ Full enforcement details in `FLOW_RULES.md`.
 |---|---|
 | Always-on rules | `FLOW_RULES.md` |
 | Workflows (procedures) | `workflows/` |
-| Skills (on-demand expertise) | `skills/` |
+| Skills (on-demand expertise) | `flow-skills/` |
 | Policies (machine-readable) | `policies/` |
 | Hooks (deterministic enforcement) | `hooks/` |
 | Templates (artifact substrates) | `templates/` |
@@ -65,5 +65,5 @@ When installing Fusebase Flow into an existing repository, never overwrite exist
 ## Notes on Copilot scope
 
 - Copilot does not have native lifecycle hooks (PreToolUse, PostToolUse, etc.) in v0.1. The git fallback hooks at `hooks/git/` and the operator's vigilance are the active enforcement layer.
-- Skill files at `skills/` are reference material; cite paths explicitly when invoking them.
+- Skill files at `flow-skills/` are reference material; cite paths explicitly when invoking them.
 - For full skill content, read the SKILL.md from canonical source rather than duplicating into Copilot instructions.

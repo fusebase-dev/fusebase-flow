@@ -53,7 +53,7 @@ The clean-room property is validated by:
 
 1. Original wording check — the public-template tree is verified against a word-boundary search for non-target tool names; expected result is zero matches.
 2. Standard wording presence - `preflight.sh` is configured to inspect skill frontmatter; manual review of clean-room notes confirms the standard wording in all 14 canonical + 28 Flow mirror SKILL.md files.
-3. Edition boundary check - CLI provider assets remain under provider surfaces and are not added to root `skills/` or canonical Flow mirror manifests.
+3. Edition boundary check - CLI provider assets remain under provider surfaces and are not added to `flow-skills/` or canonical Flow mirror manifests.
 4. License attestation - see [`docs/clean-room.md`](clean-room.md) for the explicit clean-room statement for canonical Flow files.
 
 ## Internal research notes (not published)

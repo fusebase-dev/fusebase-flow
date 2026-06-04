@@ -9,8 +9,8 @@ This repository follows **Fusebase Flow** in addition to project-specific rules.
 
 **Always loaded at session start (Fusebase Flow mandatory skills, auto-loaded via `.claude/skills/`):**
 
-- `skills/communication/SKILL.md` — Mode A (operator chat) / Mode B (internal artifacts)
-- `skills/role-discipline/SKILL.md` — per-role don't-list + refusal phrasing
+- `flow-skills/communication/SKILL.md` — Mode A (operator chat) / Mode B (internal artifacts)
+- `flow-skills/role-discipline/SKILL.md` — per-role don't-list + refusal phrasing
 
 **On-demand Fusebase Flow skills (description-matched from `.claude/skills/`):**
 

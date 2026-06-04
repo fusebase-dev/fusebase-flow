@@ -44,7 +44,7 @@ fi
 
 mkdir -p "$PROJECT"
 
-cp -R skills "$PROJECT/skills"
+cp -R flow-skills "$PROJECT/flow-skills"   # v3.9.0: canonical is flow-skills/ (was root skills/)
 cp -R agents "$PROJECT/agents"
 mkdir -p "$PROJECT/hooks/local"
 cp hooks/local/mirror-skills.sh "$PROJECT/hooks/local/"
@@ -304,30 +304,59 @@ PY
 pass "U11: Flow hooks-off (opt-in) is benign INFO, not SHARED_MERGE_DRIFT"
 
 ###############################################################################
-# U12 — deleting root skills/ (Flow's canonical source) is flagged loudly.
-# The FuseBase CLI's "obsolete ./skills" warning must not silently break Flow:
-# canonical skills/ gone while mirrors remain → a clear, recoverable finding.
+# U12 (v3.9.0) — deleting the canonical source (now flow-skills/) is flagged
+# loudly. Canonical flow-skills/ gone while mirrors remain → a clear, recoverable
+# FLOW_LAYER_DRIFT finding naming the restore path.
 ###############################################################################
 U12P="$TMP_BASE/u12-skillsdeleted"
 cp -R "$PROJECT" "$U12P"
-rm -rf "$U12P/skills"   # operator follows the CLI's "delete ./skills" advice
+rm -rf "$U12P/flow-skills"   # canonical source removed
 set +e
 (
   cd "$U12P"
   bash hooks/local/check-cli-flow-conflicts.sh --json > "$TMP_BASE/u12.json"
 )
 set -e
-"$python_bin" - "$TMP_BASE/u12.json" <<'PY' || fail "U12: deleted canonical skills/ should be flagged loudly with restore guidance"
+"$python_bin" - "$TMP_BASE/u12.json" <<'PY' || fail "U12: deleted canonical flow-skills/ should be flagged loudly with restore guidance"
 import json, sys
 d = json.loads(open(sys.argv[1], encoding="utf-8").read())
-hits = [f for f in d["findings"] if f["path"] == "skills/" and f["status"] == "MISSING"]
-assert hits, "expected a loud MISSING finding for deleted canonical skills/"
+hits = [f for f in d["findings"] if f["path"] == "flow-skills/" and f["status"] == "MISSING"]
+assert hits, "expected a loud MISSING finding for deleted canonical flow-skills/"
 txt = " ".join((f.get("action","") + " " + f.get("detail","")) for f in hits).lower()
-assert "canonical" in txt and ("do not" in txt or "obsolete" in txt), f"finding should explain the do-not-delete guard: {hits}"
+assert "canonical" in txt, f"finding should name it canonical: {hits}"
 assert "upgrade.sh" in txt or "git checkout" in txt, f"finding should name a restore path: {hits}"
 assert d["verdict"] == "FLOW_LAYER_DRIFT", f"deleted canonical source should be FLOW_LAYER_DRIFT, got {d['verdict']}"
 PY
-pass "U12: deleted canonical skills/ is flagged FLOW_LAYER_DRIFT with do-not-delete + restore guidance"
+pass "U12: deleted canonical flow-skills/ is flagged FLOW_LAYER_DRIFT with restore guidance"
+
+###############################################################################
+# U19 (v3.9.0) — a legacy root skills/ left ALONGSIDE the new flow-skills/ is
+# benign (the CLI's "delete ./skills" warning is finally correct for Flow too):
+# a one-line INFO advising the idempotent migration, never drift.
+###############################################################################
+U19P="$TMP_BASE/u19-legacy-leftover"
+cp -R "$PROJECT" "$U19P"
+cp -R "$U19P/flow-skills" "$U19P/skills"   # stale legacy copy still present
+set +e
+(
+  cd "$U19P"
+  bash hooks/local/check-cli-flow-conflicts.sh --json > "$TMP_BASE/u19.json"
+)
+U19_RC=$?
+set -e
+[ "$U19_RC" -ne 1 ] || { cat "$TMP_BASE/u19.json" >&2; fail "U19: legacy skills/ leftover wrongly escalated to drift (exit 1)"; }
+"$python_bin" - "$TMP_BASE/u19.json" <<'PY' || fail "U19: legacy skills/ leftover should be a benign INFO, not drift"
+import json, sys
+d = json.loads(open(sys.argv[1], encoding="utf-8").read())
+assert d["verdict"] == "HEALTHY", f"legacy leftover must stay HEALTHY, got {d['verdict']}"
+info = [f for f in d["findings"] if f["path"] == "skills/" and f["status"] == "INFO"]
+txt = " ".join((f.get("action","") + " " + f.get("detail","")) for f in info).lower()
+assert info and "flow-skills/" in txt and ("safe to delete" in txt or "upgrade.sh" in txt), f"expected benign migration INFO, got {info}"
+# It must NOT be a MISSING/drift finding.
+bad = [f for f in d["findings"] if f["path"] == "skills/" and f["status"] == "MISSING"]
+assert not bad, f"legacy leftover must not be MISSING: {bad}"
+PY
+pass "U19: legacy root skills/ alongside flow-skills/ is a benign migration INFO (not drift)"
 
 ###############################################################################
 # U13 (Issue 2) — CLI provider skills absent from the NON-authoritative .agents/
@@ -599,7 +628,7 @@ pass "U1: refresh preserves operator FLOW:PRESERVE values while refreshing frame
 ###############################################################################
 LEGACY="$TMP_BASE/legacy-claude"
 mkdir -p "$LEGACY/hooks/local" "$LEGACY/.claude/skills" "$LEGACY/.agents/skills" "$LEGACY/.claude/agents" "$LEGACY/.codex/agents" "$LEGACY/.claude/commands"
-cp -R skills "$LEGACY/skills"; cp -R agents "$LEGACY/agents"
+cp -R flow-skills "$LEGACY/flow-skills"; cp -R agents "$LEGACY/agents"
 cp hooks/local/mirror-skills.sh hooks/local/mirror-agents.sh hooks/local/post-fusebase-update.sh "$LEGACY/hooks/local/"
 cp -R hooks/local/fusebase-flow-overlays "$LEGACY/hooks/local/fusebase-flow-overlays"
 cat > "$LEGACY/AGENTS.md" <<'EOF'
@@ -640,7 +669,7 @@ pass "U7: legacy marker-less CLAUDE.md migrates to a single wrapped block (no do
 ###############################################################################
 U9P="$TMP_BASE/u9-preupgrade"
 mkdir -p "$U9P/hooks/local" "$U9P/.claude/skills" "$U9P/.agents/skills" "$U9P/.claude/agents" "$U9P/.codex/agents" "$U9P/.claude/commands"
-cp -R skills "$U9P/skills"; cp -R agents "$U9P/agents"
+cp -R flow-skills "$U9P/flow-skills"; cp -R agents "$U9P/agents"
 cp hooks/local/mirror-skills.sh hooks/local/mirror-agents.sh hooks/local/post-fusebase-update.sh "$U9P/hooks/local/"
 cp -R hooks/local/fusebase-flow-overlays "$U9P/hooks/local/fusebase-flow-overlays"
 cat > "$U9P/CLAUDE.md" <<'EOF'
@@ -805,7 +834,7 @@ pass "MISSING CLI skill still escalates to CLI_LAYER_DRIFT (missing-vs-stale sem
 
 BAD_PROJECT="$TMP_BASE/bad-settings"
 mkdir -p "$BAD_PROJECT/hooks/local" "$BAD_PROJECT/.claude" "$BAD_PROJECT/.claude/skills" "$BAD_PROJECT/.agents/skills" "$BAD_PROJECT/.claude/agents" "$BAD_PROJECT/.codex/agents" "$BAD_PROJECT/.claude/commands"
-cp -R skills "$BAD_PROJECT/skills"
+cp -R flow-skills "$BAD_PROJECT/flow-skills"
 cp -R agents "$BAD_PROJECT/agents"
 cp hooks/local/mirror-skills.sh "$BAD_PROJECT/hooks/local/"
 cp hooks/local/mirror-agents.sh "$BAD_PROJECT/hooks/local/"
@@ -885,3 +914,41 @@ info = [f for f in d["findings"] if f["status"] == "INFO" and "not installed" in
 assert info, "expected a benign INFO about provider skills not being installed"
 PY
 pass "F4: 0-present CLI provider surface is benign (single INFO, never CLI_LAYER_DRIFT)"
+
+###############################################################################
+# U20 (v3.9.0) — REAL upgrade.sh migration: a pre-3.9.0 install on root skills/
+# upgrades against a source shipping flow-skills/. After the run the canonical
+# must live at flow-skills/, root skills/ must be retired (with a backup), and
+# the provider mirrors must be regenerated. This exercises the actual migration
+# code path (step 1b), not a re-implementation.
+###############################################################################
+U20P="$TMP_BASE/u20-migration"
+cp -R "$PROJECT" "$U20P"
+# Make it look pre-3.9.0: canonical at root skills/, no flow-skills/ yet.
+mv "$U20P/flow-skills" "$U20P/skills"
+# The engine scripts the migration needs (PROJECT fixture lacks upgrade.sh).
+cp hooks/local/upgrade.sh "$U20P/hooks/local/"
+cp hooks/local/sync-version-strings.sh "$U20P/hooks/local/" 2>/dev/null || true
+# Stage a minimal upstream source shipping the NEW layout (flow-skills/ + VERSION).
+mkdir -p "$U20P/.fusebase-flow-source"
+cp -R flow-skills "$U20P/.fusebase-flow-source/flow-skills"
+cp VERSION "$U20P/.fusebase-flow-source/VERSION"
+set +e
+(
+  cd "$U20P"
+  bash hooks/local/upgrade.sh --auto-yes > "$TMP_BASE/u20.out" 2>&1
+)
+U20_RC=$?
+set -e
+[ "$U20_RC" -eq 0 ] || { cat "$TMP_BASE/u20.out" >&2; fail "U20: upgrade.sh exited $U20_RC during migration"; }
+[ -f "$U20P/flow-skills/communication/SKILL.md" ] || fail "U20: canonical flow-skills/ not present after migration"
+[ ! -d "$U20P/skills" ] || fail "U20: legacy root skills/ was NOT retired by the migration"
+ls -d "$U20P"/skills.pre-upgrade-* >/dev/null 2>&1 || fail "U20: migration did not back up the retired skills/ (skills.pre-upgrade-*)"
+[ -f "$U20P/.claude/skills/communication/SKILL.md" ] || fail "U20: provider mirror not regenerated from flow-skills/ after migration"
+grep -q "retired legacy root skills/" "$TMP_BASE/u20.out" || fail "U20: upgrade.sh did not report the canonical migration"
+# Idempotency: a second run is a no-op for migration (no skills/ to retire).
+set +e
+( cd "$U20P"; bash hooks/local/upgrade.sh --auto-yes > "$TMP_BASE/u20b.out" 2>&1 )
+set -e
+[ ! -d "$U20P/skills" ] || fail "U20: second upgrade run re-created root skills/"
+pass "U20: upgrade.sh migrates root skills/ -> flow-skills/ (retires old dir w/ backup, re-mirrors, idempotent)"

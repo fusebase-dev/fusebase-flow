@@ -17,7 +17,7 @@ Fusebase Flow includes original Fusebase Apps CLI provider assets as a runtime/d
 
 | Layer | Owns | Paths |
 |---|---|---|
-| Flow lifecycle | specs, decisions, tasks, verification gates, reviews, deploy handoffs, smoke contracts | `FLOW_RULES.md`, `skills/`, `workflows/`, `templates/`, `policies/`, `hooks/` |
+| Flow lifecycle | specs, decisions, tasks, verification gates, reviews, deploy handoffs, smoke contracts | `FLOW_RULES.md`, `flow-skills/`, `workflows/`, `templates/`, `policies/`, `hooks/` |
 | CLI domain | Fusebase Apps implementation guidance, MCP/dashboard/gate usage, routing, secrets, logs, scaffold quality | `.claude/skills/<cli-skill>/`, `.agents/skills/<cli-skill>/`, `.claude/agents/`, `.codex/agents/`, `.claude/hooks/` |
 
 Runtime, MCP, SDK, and app-domain rules from CLI skills win over generic Flow implementation guidance when they overlap. Flow still governs the lifecycle artifact, approval, and smoke discipline. See `docs/fusebase-cli-edition.md` for the full mapping.
@@ -50,7 +50,7 @@ This check is **universal** — it works on every surface (Claude Code, Codex, C
 |---|---|
 | Always-on rules | `FLOW_RULES.md` |
 | Workflows (procedures) | `workflows/` |
-| Skills (on-demand expertise) | `skills/` (canonical) — mirrored to `.claude/skills/` and `.agents/skills/` |
+| Skills (on-demand expertise) | `flow-skills/` (canonical) — mirrored to `.claude/skills/` and `.agents/skills/` |
 | Fusebase CLI edition bridge | `docs/fusebase-cli-edition.md` |
 | CLI provider assets | `.claude/skills/`, `.agents/skills/`, `.claude/agents/`, `.codex/agents/`, `.claude/hooks/` |
 | Policies (YAML, machine-readable) | `policies/` |
@@ -155,7 +155,7 @@ Narrative reasoning for these values — why they're set this way for THIS proje
 - Operator discipline: `docs/operator-discipline.md`
 - Architecture overview: `docs/architecture-overview.md`
 - Key tensions: `docs/tradeoffs.md`
-- Skill catalog: `skills/`
+- Skill catalog: `flow-skills/`
 - Audit package: `audit/`
 - Compatibility matrix: `docs/compatibility.md`
 - Safe install into Fusebase CLI / MCP repos: `docs/install-fusebase-cli-project.md`
@@ -181,7 +181,7 @@ Fusebase Flow ships:
 
 **Self-attestation (every session's first response):**
 
-> "Operating as {role} under Fusebase Flow v3.8.7. I will follow FR-01 through FR-21. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+> "Operating as {role} under Fusebase Flow v3.9.0. I will follow FR-01 through FR-21. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 **Operator questions:** per FR-19, ask questions in chat text, not popup / clickable menu tools. Use short option tables or numbered lists so the operator can copy, forward, quote, and follow up.
 

@@ -10,7 +10,7 @@ This is the canonical mechanism for situations where an install brief or operato
 
 - A project with existing `.claude/settings.json` lifecycle hooks that the operator wants to preserve, deferring Fusebase Flow's hook wiring
 - A project where `.claude/hooks/` is treated as protected per the install brief, deferring the Windows `shell:true` patch
-- A project that mirrors a subset of Fusebase Flow skills/agents into provider folders, deferring full mirror coverage
+- A project that mirrors a subset of Fusebase Flow flow-skills/agents into provider folders, deferring full mirror coverage
 
 ## When to use a deferral artifact
 
@@ -108,7 +108,7 @@ Filename: `state/approvals/health_check_deferral-paperclip-install-discipline-20
 ```json
 {
   "approved_by": "ops@example.com",
-  "scope": "Workflow-only install — Fusebase Flow skills/agents/templates without overlay or settings",
+  "scope": "Workflow-only install — Fusebase Flow flow-skills/agents/templates without overlay or settings",
   "expires_at": "2027-01-01T00:00:00Z",
   "reason": "This project doesn't use Claude Code or Codex; only the canonical skills/, agents/, workflows/ are needed for human reference. Overlay blocks and settings.json wiring don't apply.",
   "deferred_checks": [

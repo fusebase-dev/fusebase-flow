@@ -106,7 +106,7 @@ def _evaluate_require_approval(
                 f"state/approvals/. "
                 f"Author one with `bash hooks/local/approve-local.sh {action} <slug>`. "
                 f"See workflows/violation-recovery.md for full recovery procedure; "
-                f"role-specific don't-list at skills/role-discipline/SKILL.md."
+                f"role-specific don't-list at flow-skills/role-discipline/SKILL.md."
             ),
             rule_id=rule.get("rule_id", "FR-12"),
             matched_pattern=rule["pattern"],

@@ -44,6 +44,6 @@ Hooks check for an unexpired artifact before allowing the action.
 
 ## What this scope does NOT do
 
-- General code review (use the `code-review` skill at `skills/code-review/SKILL.md`)
+- General code review (use the `code-review` skill at `flow-skills/code-review/SKILL.md`)
 - Style / formatting concerns
 - Performance (out of v0.1 scope)

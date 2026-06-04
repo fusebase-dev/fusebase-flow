@@ -54,5 +54,5 @@
 ## Related
 
 - `workflows/session-initiation.md` — what to do at the start of each subsequent session
-- `skills/repo-onboarding-context-map/SKILL.md` — produces `docs/specs/repo-context.md`
+- `flow-skills/repo-onboarding-context-map/SKILL.md` — produces `docs/specs/repo-context.md`
 - `hooks/local/preflight.sh` — runs the validation in step 9
