@@ -4,6 +4,21 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.8.7] — 2026-06-01
+
+### Fixed — downstream install/upgrade review against v3.8.5 (Windows overlay) — F1–F4 (+F5 doc)
+
+A downstream verified v3.8.4/U14 fixed, and surfaced 5 more (2 High). All confirmed against the cited locations and fixed.
+
+- **F1 [High] — install doc omitted `agents/` from the additive-copy list.** `docs/install-fusebase-cli-project.md` "Safe additive copies" listed `skills/ workflows/ policies/ templates/ hooks/ audit/ state/` but not `agents/` — and `hooks/local/mirror-agents.sh` requires canonical `agents/`. Following the doc literally → mirror-agents aborts, `.claude/agents/` empty, health → `FLOW_LAYER_DRIFT` (0/2 sub-agents). Added `agents/` to the list + both bash and PowerShell blocks.
+- **F2 [High] — U11 was only half-applied.** The conflict checker treated deliberate hooks-off as benign (U11), but the **main** engine (`fusebase-flow-health-check.sh`) still `record_drift`-ed the same state → an overlay-only opt-in install verdicted `SHARED_MERGE_DRIFT` and couldn't reach HEALTHY without wiring hooks (defeating "opt-in"). The main engine is now U11-consistent: settings.json with CLI hooks but **no** Flow `stop.py` and no Flow events wired = benign opt-in (LOCAL_OK), not drift. Drift is reserved for the genuine cases — events wired but `stop.py` missing (U14-style mis-wire) or `stop.py` present with an incomplete event set. Behavioral regression test (U16) runs the main engine on a hooks-off overlay and asserts no `SHARED_MERGE_DRIFT`.
+- **F3 [Med] — `.gitattributes` (and `LICENSE`/`PUBLISHING.md`/`.python-version`) removed from the unconditional copy list.** Flow's `.gitattributes` has repo-wide `* text=auto`/`eol=lf`; copied into an existing (esp. Windows) repo it renormalizes line endings across every file → massive spurious diff. Moved those four into a new "Copy only after review" section with the reason for each (`.gitattributes` eol bomb; `LICENSE` overwrites yours; `PUBLISHING.md` Flow-internal; `.python-version` pins Python).
+- **F4 [Low] — upstream comparison misreported on a shallow/tag staging clone.** A `--depth 1`/`--branch <tag>` `.fusebase-flow-source` (the bootstrap default) can't resolve `origin/main` or traverse history → the engine printed a spurious "upstream NEWER … behind by ? commits". Now detects shallow/detached/unresolvable state and prints "upstream comparison unavailable (shallow/tag staging clone …)" with the staged source VERSION + how to get a precise compare (`git fetch --unshallow`).
+- **F5 [Low] — documented** the intended behavior: `--wire-hooks` injects the canonical **node** Stop hooks; if a deprecated `*-on-stop.sh` duplicate is also wired you get a double typecheck. Captured in the maintenance notes (node hooks are canonical; the jq/bash duplicates are deprecated). No code change.
+- Out of scope (routed to the FuseBase CLI repo): the CLI's `project-template/eslint.config.mjs` ignores `.claude/**` but not `.codex/**` while emitting `require()`-style `.codex/hooks/*.js` → not a Flow issue.
+
+Tests: recovery sim 27/27 (new U16 main-engine hooks-off; U15 retained). run-tests 16/16; health HEALTHY; plugin valid. VERSION 3.8.6 → 3.8.7; plugin manifests bumped.
+
 ## [3.8.6] — 2026-06-01
 
 ### Fixed — downstream install/upgrade UX (1 deploy blocker + 2 minor)

@@ -97,6 +97,7 @@ If that report or the health check says `CLI_LAYER_DRIFT`, restore CLI-owned fil
 These framework files belong to Fusebase Flow and are unlikely to exist in a Fusebase CLI / MCP repo. They can be copied without review:
 
 - `skills/`
+- `agents/`  ← canonical sub-agents; **required** by `hooks/local/mirror-agents.sh` (omitting it → mirror-agents aborts, `.claude/agents/` stays empty, health → `FLOW_LAYER_DRIFT` 0/2 sub-agents)
 - `workflows/`
 - `policies/`
 - `templates/`
@@ -106,16 +107,13 @@ These framework files belong to Fusebase Flow and are unlikely to exist in a Fus
 - `FLOW_RULES.md`
 - `VERSION`
 - `install.sh`
-- `PUBLISHING.md`
-- `LICENSE`
 - `GEMINI.md`
-- `.gitattributes`
-- `.python-version`
 
 Bash / zsh:
 
 ```bash
 cp -R .fusebase-flow-source/skills .
+cp -R .fusebase-flow-source/agents .
 cp -R .fusebase-flow-source/workflows .
 cp -R .fusebase-flow-source/policies .
 cp -R .fusebase-flow-source/templates .
@@ -126,17 +124,14 @@ cp -R .fusebase-flow-source/state .
 cp .fusebase-flow-source/FLOW_RULES.md .
 cp .fusebase-flow-source/VERSION .
 cp .fusebase-flow-source/install.sh .
-cp .fusebase-flow-source/PUBLISHING.md .
-cp .fusebase-flow-source/LICENSE .
 cp .fusebase-flow-source/GEMINI.md .
-cp .fusebase-flow-source/.gitattributes .
-cp .fusebase-flow-source/.python-version .
 ```
 
 PowerShell:
 
 ```powershell
 Copy-Item -Recurse -Force .fusebase-flow-source\skills .
+Copy-Item -Recurse -Force .fusebase-flow-source\agents .
 Copy-Item -Recurse -Force .fusebase-flow-source\workflows .
 Copy-Item -Recurse -Force .fusebase-flow-source\policies .
 Copy-Item -Recurse -Force .fusebase-flow-source\templates .
@@ -147,14 +142,19 @@ Copy-Item -Recurse -Force .fusebase-flow-source\state .
 Copy-Item -Force .fusebase-flow-source\FLOW_RULES.md .
 Copy-Item -Force .fusebase-flow-source\VERSION .
 Copy-Item -Force .fusebase-flow-source\install.sh .
-Copy-Item -Force .fusebase-flow-source\PUBLISHING.md .
-Copy-Item -Force .fusebase-flow-source\LICENSE .
 Copy-Item -Force .fusebase-flow-source\GEMINI.md .
-Copy-Item -Force .fusebase-flow-source\.gitattributes .
-Copy-Item -Force .fusebase-flow-source\.python-version .
 ```
 
 If any of these names already exist in your repo, stop and review by hand before copying.
+
+### Copy only after review — unsafe to blind-copy into an existing/proprietary repo
+
+Do **NOT** blind-copy these into an existing project; they overwrite or globally affect your repo. Copy only if you understand the effect:
+
+- **`.gitattributes`** — Flow's has repo-wide `* text=auto` + `eol=lf` rules. Copied into an existing repo (especially on Windows) the next checkout/add **renormalizes line endings across every file** → massive spurious diff + polluted blame. Either skip it, or merge only Flow-path-scoped rules into your existing `.gitattributes`.
+- **`LICENSE`** — Flow ships MIT. Copying it **overwrites your project's license**. Skip on a proprietary/differently-licensed repo.
+- **`PUBLISHING.md`** — Flow's own release process; irrelevant to a consumer project. Skip.
+- **`.python-version`** — pins a Python version; may conflict with your project's. Skip unless you want Flow's pin.
 
 ## Provider and IDE additions that need review
 

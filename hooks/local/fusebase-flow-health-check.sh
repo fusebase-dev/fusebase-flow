@@ -244,15 +244,26 @@ if [ -f .claude/settings.json ]; then
       EVENTS_PRESENT=$((EVENTS_PRESENT + 1))
     fi
   done
-  if [ "$EVENTS_PRESENT" -eq "$EXPECTED_EVENT_COUNT" ]; then
-    # Also check Fusebase Flow stop.py is in the Stop chain
-    if grep -q "hooks/handlers/stop.py" .claude/settings.json 2>/dev/null; then
-      LOCAL_OK+=(".claude/settings.json: $EVENTS_PRESENT/$EXPECTED_EVENT_COUNT lifecycle events wired (incl. Fusebase Flow stop.py)")
-    else
-      record_drift "settings_json_lifecycle_events" ".claude/settings.json: $EVENTS_PRESENT/$EXPECTED_EVENT_COUNT events present BUT Fusebase Flow stop.py missing from Stop chain"
-    fi
+  if grep -q "hooks/handlers/stop.py" .claude/settings.json 2>/dev/null; then
+    FLOW_STOP_WIRED=1
   else
-    record_drift "settings_json_lifecycle_events" ".claude/settings.json: only $EVENTS_PRESENT/$EXPECTED_EVENT_COUNT lifecycle events wired"
+    FLOW_STOP_WIRED=0
+  fi
+  if [ "$EVENTS_PRESENT" -eq "$EXPECTED_EVENT_COUNT" ] && [ "$FLOW_STOP_WIRED" -eq 1 ]; then
+    LOCAL_OK+=(".claude/settings.json: $EVENTS_PRESENT/$EXPECTED_EVENT_COUNT lifecycle events wired (incl. Fusebase Flow stop.py)")
+  elif [ "$EVENTS_PRESENT" -eq "$EXPECTED_EVENT_COUNT" ] && [ "$FLOW_STOP_WIRED" -eq 0 ]; then
+    # All Flow event keys present but stop.py absent from the Stop chain = a genuine
+    # mis-wire (e.g. the U14 shared-Stop discovery bug). Keep this as drift.
+    record_drift "settings_json_lifecycle_events" ".claude/settings.json: $EVENTS_PRESENT/$EXPECTED_EVENT_COUNT events present BUT Fusebase Flow stop.py missing from Stop chain"
+  elif [ "$FLOW_STOP_WIRED" -eq 1 ]; then
+    # stop.py wired but the Flow event set is incomplete = genuine partial degradation.
+    record_drift "settings_json_lifecycle_events" ".claude/settings.json: only $EVENTS_PRESENT/$EXPECTED_EVENT_COUNT lifecycle events wired (stop.py present but events incomplete)"
+  else
+    # F2/U11: Flow lifecycle hooks are OPT-IN (F3). A settings.json with CLI hooks but
+    # no Flow stop.py and no Flow events wired is the DELIBERATE overlay-only default —
+    # benign, not SHARED_MERGE_DRIFT (consistent with check-cli-flow-conflicts.sh). The
+    # CLI's own hooks are preserved. Reserve drift for the wired-then-broken cases above.
+    LOCAL_OK+=(".claude/settings.json: Flow lifecycle hooks not wired (opt-in default; enable with: bash hooks/local/post-fusebase-update.sh --wire-hooks). Existing CLI hooks preserved.")
   fi
 fi
 
@@ -449,20 +460,31 @@ fi
 if [ -d "$SOURCE_CLONE/.git" ]; then
   cd "$SOURCE_CLONE"
 
-  UPSTREAM_FETCH_OUTPUT=$(git fetch origin --tags 2>&1)
+  IS_SHALLOW=$(git rev-parse --is-shallow-repository 2>/dev/null || echo "true")
+  git fetch origin --tags >/dev/null 2>&1 || true
   LOCAL_HEAD=$(git rev-parse HEAD 2>/dev/null || echo "")
   REMOTE_HEAD=$(git rev-parse origin/main 2>/dev/null || echo "")
   UPSTREAM_VERSION=$(MSYS_NO_PATHCONV=1 git show origin/main:VERSION 2>/dev/null | tr -d '\n' || echo "?")
+  SRC_VER=$(tr -d '\n\r' < VERSION 2>/dev/null || echo "?")
 
-  if [ -z "$LOCAL_HEAD" ] || [ -z "$REMOTE_HEAD" ]; then
+  if [ "$IS_SHALLOW" = "true" ] || [ -z "$REMOTE_HEAD" ]; then
+    # F4: a `--depth 1` / `--branch <tag>` staging clone (the bootstrap default) has
+    # no resolvable origin/main and can't traverse history, so any "behind by N" is
+    # bogus. Report unavailable instead of a spurious "upstream NEWER … behind by ?".
+    UPSTREAM_NOTES+=("upstream comparison unavailable (shallow/tag staging clone — no resolvable origin/main). Staged source VERSION: $SRC_VER. For a precise comparison: cd $SOURCE_CLONE && git fetch --unshallow origin main, or re-clone without --depth.")
+  elif [ -z "$LOCAL_HEAD" ]; then
     UPSTREAM_NOTES+=("upstream fetch failed; cannot compare versions")
   elif [ "$LOCAL_HEAD" = "$REMOTE_HEAD" ]; then
     UPSTREAM_NOTES+=("upstream in sync: local commit = origin/main = $LOCAL_HEAD ($UPSTREAM_VERSION)")
   else
-    BEHIND=$(git rev-list --count "$LOCAL_HEAD..origin/main" 2>/dev/null || echo "?")
-    UPSTREAM_NOTES+=("upstream NEWER: local at ${LOCAL_HEAD:0:7} ($LOCAL_VERSION), origin/main at ${REMOTE_HEAD:0:7} ($UPSTREAM_VERSION); local behind by $BEHIND commits")
-    UPSTREAM_NOTES+=("recent upstream commits:")
-    while IFS= read -r line; do UPSTREAM_NOTES+=("  $line"); done < <(git log --oneline "$LOCAL_HEAD..origin/main" 2>/dev/null | head -5)
+    BEHIND=$(git rev-list --count "$LOCAL_HEAD..origin/main" 2>/dev/null || echo "")
+    if [ -z "$BEHIND" ] || [ "$BEHIND" = "?" ]; then
+      UPSTREAM_NOTES+=("upstream differs from local but the commit distance is unavailable (shallow history). local ${LOCAL_HEAD:0:7} ($LOCAL_VERSION) vs origin/main ${REMOTE_HEAD:0:7} ($UPSTREAM_VERSION).")
+    else
+      UPSTREAM_NOTES+=("upstream NEWER: local at ${LOCAL_HEAD:0:7} ($LOCAL_VERSION), origin/main at ${REMOTE_HEAD:0:7} ($UPSTREAM_VERSION); local behind by $BEHIND commits")
+      UPSTREAM_NOTES+=("recent upstream commits:")
+      while IFS= read -r line; do UPSTREAM_NOTES+=("  $line"); done < <(git log --oneline "$LOCAL_HEAD..origin/main" 2>/dev/null | head -5)
+    fi
   fi
 
   cd "$ROOT"

@@ -432,6 +432,37 @@ diff -q "$U15P/eslint.config.mjs" "$U15P/eslint.config.mjs.snap" >/dev/null 2>&1
 pass "U15: eslint-ignore-flow-paths.sh adds .fusebase-flow-source/** next to .claude/** (idempotent, array stays valid)"
 
 ###############################################################################
+# F2 (U16) — the MAIN health engine (fusebase-flow-health-check.sh), not just the
+# conflict checker, must read deliberate hooks-off as benign (U11 consistency).
+# An overlay-only install (CLI hooks present, no Flow stop.py, no clobber) must
+# NOT verdict SHARED_MERGE_DRIFT.
+###############################################################################
+F2P="$TMP_BASE/f2-engine-hooksoff"
+cp -R "$PROJECT" "$F2P"
+cp hooks/local/fusebase-flow-health-check.sh "$F2P/hooks/local/"
+cat > "$F2P/.claude/settings.json" <<'EOF'
+{
+  "enabledMcpjsonServers": ["fusebase-dashboards", "fusebase-gate"],
+  "hooks": {
+    "Stop": [
+      { "hooks": [
+        { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/run-typecheck-apps.js", "timeout": 300 },
+        { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/quality-check-apps.js", "timeout": 30 }
+      ] }
+    ]
+  }
+}
+EOF
+(
+  cd "$F2P"
+  bash hooks/local/fusebase-flow-health-check.sh > "$TMP_BASE/f2.out" 2>&1 || true
+)
+grep -q "Verdict: SHARED_MERGE_DRIFT" "$TMP_BASE/f2.out" && { sed -n '/Verdict/,$p' "$TMP_BASE/f2.out" >&2; fail "F2: main health engine verdict SHARED_MERGE_DRIFT for deliberate hooks-off (should be benign)"; } || true
+grep -qE "lifecycle events wired \(stop.py present|stop.py missing from Stop chain" "$TMP_BASE/f2.out" && fail "F2: main engine recorded a settings.json drift for the opt-in-off state" || true
+grep -q "Flow lifecycle hooks not wired (opt-in" "$TMP_BASE/f2.out" || fail "F2: main engine did not emit the benign opt-in note for hooks-off"
+pass "F2 (U16): main health engine reads deliberate hooks-off as benign (no SHARED_MERGE_DRIFT)"
+
+###############################################################################
 # F2 — version-aware overlay refresh is marker-anchored and idempotent.
 # The reported bug: --refresh-overlays anchored on the heading, but the
 # templates wrap the heading inside CUSTOM:SKILL markers, so the drift check was
