@@ -114,7 +114,21 @@ def discover_flow_config_from_upstream() -> tuple[dict[str, str], dict[str, str]
             handlers = block.get('hooks')
             if not isinstance(handlers, list) or not handlers:
                 continue
-            cmd = handlers[0].get('command') if isinstance(handlers[0], dict) else None
+            # U14: pick the FLOW handler, not handlers[0]. On shared events (Stop)
+            # the example chain lists CLI hooks BEFORE Flow's, so handlers[0] is a
+            # CLI command (e.g. run-typecheck-apps.js) — discovering that as the
+            # "Stop" Flow command makes the merge wire a CLI command under the Flow
+            # label and never wire stop.py. Flow handlers live under hooks/handlers/.
+            cmd = None
+            for h in handlers:
+                if isinstance(h, dict):
+                    hc = h.get('command')
+                    if isinstance(hc, str) and 'hooks/handlers/' in hc:
+                        cmd = hc
+                        break
+            if cmd is None:
+                first = handlers[0]
+                cmd = first.get('command') if isinstance(first, dict) else None
             if not isinstance(cmd, str):
                 continue
             # Upstream example uses ${PROJECT_DIR}; Claude Code substitutes

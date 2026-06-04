@@ -364,6 +364,41 @@ PY
 pass "U13 (Issue 2): .agents CLI-provider mirror gap is benign INFO (not CLI_LAYER_DRIFT); points at .claude/skills, not fusebase update"
 
 ###############################################################################
+# U14 — --wire-hooks must wire stop.py (not a copied CLI command) onto a Stop
+# chain that already has CLI hooks, when discovering the Flow config from the
+# upstream example (whose Stop chain lists CLI hooks BEFORE stop.py). Regression
+# for the handlers[0] discovery bug. Exercised via the merge script with an
+# upstream example present (the existing F3 test runs without one).
+###############################################################################
+U14P="$TMP_BASE/u14-wirestop"
+mkdir -p "$U14P/.fusebase-flow-source/.claude" "$U14P/.claude/hooks" "$U14P/hooks/local/fusebase-flow-overlays"
+cp hooks/local/fusebase-flow-overlays/settings-json-merge.py "$U14P/hooks/local/fusebase-flow-overlays/"
+cp .claude/settings.json.example "$U14P/.fusebase-flow-source/.claude/settings.json.example"
+echo "// cli" > "$U14P/.claude/hooks/run-typecheck-apps.js"
+echo "// cli" > "$U14P/.claude/hooks/quality-check-apps.js"
+cat > "$U14P/.claude/settings.json" <<'EOF'
+{ "hooks": { "Stop": [ { "hooks": [
+  { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/run-typecheck-apps.js", "timeout": 300 },
+  { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/quality-check-apps.js", "timeout": 30 }
+] } ] } }
+EOF
+(
+  cd "$U14P"
+  "$python_bin" hooks/local/fusebase-flow-overlays/settings-json-merge.py .claude/settings.json >/dev/null 2>&1
+)
+"$python_bin" - "$U14P/.claude/settings.json" <<'PY' || fail "U14: --wire-hooks did not wire stop.py onto an existing CLI Stop chain"
+import json, sys
+d = json.loads(open(sys.argv[1], encoding="utf-8").read())
+chain = d["hooks"]["Stop"][0]["hooks"]
+flow = [h for h in chain if "Fusebase Flow stop hook" in h.get("statusMessage", "")]
+assert flow, "no Flow-labeled Stop entry produced"
+assert "hooks/handlers/stop.py" in flow[0]["command"], f"Flow Stop entry has the WRONG command (handlers[0] bug): {flow[0]['command']}"
+assert any("hooks/handlers/stop.py" in h.get("command", "") for h in chain), "stop.py missing from Stop chain"
+assert sum("run-typecheck-apps.js" in h.get("command", "") for h in chain) == 1, "CLI typecheck duplicated or dropped"
+PY
+pass "U14: --wire-hooks wires stop.py (not a CLI command) onto an existing CLI Stop chain (discovery picks the Flow handler)"
+
+###############################################################################
 # F2 — version-aware overlay refresh is marker-anchored and idempotent.
 # The reported bug: --refresh-overlays anchored on the heading, but the
 # templates wrap the heading inside CUSTOM:SKILL markers, so the drift check was

@@ -4,6 +4,16 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.8.5] — 2026-06-01
+
+### Fixed — U14: `--wire-hooks` mis-wired the shared Stop event onto a chain with existing CLI hooks
+
+Downstream report (reproduced): on a project whose `.claude/settings.json` already had CLI Stop hooks, `post-fusebase-update.sh --wire-hooks` produced a Stop entry **labeled** as the Flow hook but carrying the **CLI** `run-typecheck-apps.js` command — so `stop.py` was never wired (Flow's end-of-turn enforcement silently didn't run, and a CLI typecheck ran twice). 5 of 6 events wired correctly; only the shared Stop event was wrong.
+
+Root cause: `settings-json-merge.py`'s `discover_flow_config_from_upstream()` read each event's command as `handlers[0].command`. For Flow-only events that's the Flow handler, but the upstream example's **Stop** chain lists CLI hooks *before* `stop.py` (`[run-typecheck-apps.js, quality-check-apps.js, stop.py]`), so `handlers[0]` was the CLI command — discovered as the "Stop" Flow command and then appended under the Flow label. (The existing recovery test missed it because it runs without a `.fusebase-flow-source/`, so discovery fell back to the correct hardcoded `stop.py` default.)
+
+Fix: discovery now picks the **Flow** handler in each event's chain — the one whose command is under `hooks/handlers/` — instead of `handlers[0]`, falling back to `handlers[0]` only if none match. So the Stop event resolves to `stop.py` regardless of CLI-hook ordering. Regression test added (U14): merge onto a settings.json with pre-existing CLI Stop hooks **and an upstream example present**, asserting the Stop chain's Flow entry is `stop.py`, the CLI typecheck is preserved exactly once, and `stop.py` is in the chain. 25/25 recovery-sim assertions; run-tests 16/16; health HEALTHY. VERSION 3.8.4 → 3.8.5; plugin manifests bumped.
+
 ## [3.8.4] — 2026-06-01
 
 ### Fixed — Issue 2: false CLI_LAYER_DRIFT for the non-authoritative `.agents/`/`.codex/` provider mirrors
