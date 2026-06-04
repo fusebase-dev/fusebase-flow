@@ -330,6 +330,40 @@ PY
 pass "U12: deleted canonical skills/ is flagged FLOW_LAYER_DRIFT with do-not-delete + restore guidance"
 
 ###############################################################################
+# U13 (Issue 2) — CLI provider skills absent from the NON-authoritative .agents/
+# mirror is benign, not CLI_LAYER_DRIFT. The CLI maintains provider skills in
+# .claude/skills only; Flow never writes CLI provider skill text. So a partial
+# .agents/ mirror (present in .claude, missing in .agents) must NOT drift, and the
+# recommendation must not be the dead-end "run fusebase update".
+###############################################################################
+U13P="$TMP_BASE/u13-agentsgap"
+cp -R "$PROJECT" "$U13P"
+for s in app-backend app-routing app-secrets app-sidecar app-ui-design; do
+  rm -rf "$U13P/.agents/skills/$s"   # present in .claude, removed from .agents only
+done
+set +e
+(
+  cd "$U13P"
+  bash hooks/local/check-cli-flow-conflicts.sh --json > "$TMP_BASE/u13.json"
+)
+U13_RC=$?
+set -e
+[ "$U13_RC" -ne 1 ] || { cat "$TMP_BASE/u13.json" >&2; fail "U13: .agents CLI-provider gap wrongly escalated to CLI_LAYER_DRIFT (exit 1)"; }
+"$python_bin" - "$TMP_BASE/u13.json" <<'PY' || fail "U13: .agents CLI-provider gap should be benign, not drift"
+import json, sys
+d = json.loads(open(sys.argv[1], encoding="utf-8").read())
+assert d["verdict"] != "CLI_LAYER_DRIFT", f".agents CLI-provider gap must not be CLI_LAYER_DRIFT, got {d['verdict']}"
+# No MISSING finding for any .agents/skills CLI provider skill.
+bad = [f for f in d["findings"] if f["status"] == "MISSING" and f["path"].startswith(".agents/skills/")]
+assert not bad, f".agents CLI-provider skills wrongly reported MISSING: {bad}"
+# A benign INFO for the .agents mirror that explains it (and does NOT dead-end on `fusebase update`).
+info = [f for f in d["findings"] if f["status"] == "INFO" and f["path"] == ".agents/skills"]
+txt = " ".join((f.get("action","") + " " + f.get("detail","")) for f in info).lower()
+assert info and ".claude/skills" in txt and "expected" in txt, f"expected a benign explanatory INFO for .agents mirror, got {info}"
+PY
+pass "U13 (Issue 2): .agents CLI-provider mirror gap is benign INFO (not CLI_LAYER_DRIFT); points at .claude/skills, not fusebase update"
+
+###############################################################################
 # F2 — version-aware overlay refresh is marker-anchored and idempotent.
 # The reported bug: --refresh-overlays anchored on the heading, but the
 # templates wrap the heading inside CUSTOM:SKILL markers, so the drift check was
@@ -496,7 +530,9 @@ grep -q "<!-- FLOW:PRESERVE:BEGIN" "$U9P/AGENTS.md" || fail "U9: refresh did not
 pass "U9: first preserve-aware upgrade seeds the new FLOW:PRESERVE region from the legacy table (lossless)"
 
 # --- AC4: explicit known_names, no app-*.md glob ---
-# The two known CLI app-agents must be attributed cli-owned by name.
+# The two known CLI app-agents must be attributed cli-owned by name on the
+# AUTHORITATIVE surface (.claude/agents). (.codex/agents is a non-authoritative
+# mirror as of Issue 2 — reported as a benign summary, not per-agent.)
 (
   cd "$PROJECT"
   bash hooks/local/check-cli-flow-conflicts.sh --json > "$TMP_BASE/conflict.json"
@@ -508,13 +544,12 @@ findings = data["findings"]
 def owned(path):
     return [f for f in findings if f["path"] == path and f["layer"] == "cli"]
 for name in ("app-architect", "app-create-checker"):
-    for root in (".claude/agents", ".codex/agents"):
-        p = f"{root}/{name}.md"
-        if not owned(p):
-            print(f"missing cli-owned finding for {p}", file=sys.stderr)
-            sys.exit(1)
+    p = f".claude/agents/{name}.md"
+    if not owned(p):
+        print(f"missing cli-owned finding for {p}", file=sys.stderr)
+        sys.exit(1)
 PY
-pass "CLI app-agents attributed cli-owned by explicit known_names"
+pass "CLI app-agents attributed cli-owned by explicit known_names (authoritative .claude/agents)"
 
 # A non-listed app-*.md agent must NOT be scooped up as cli-owned (no glob).
 # Drop a synthetic app-foo.md into the CLI agent dirs that is absent from
@@ -590,8 +625,10 @@ assert stale, "expected CLI_SNAPSHOT_STALE for the mutated skill"
 PY
 pass "mutated CLI skill -> CLI_SNAPSHOT_STALE advisory (non-failing, verdict stays HEALTHY)"
 
-# (3) inject a CUSTOM:SKILL block -> CLI_CUSTOM_AT_RISK advisory.
-printf '\n<!-- CUSTOM:SKILL:BEGIN -->\nuser customization\n<!-- CUSTOM:SKILL:END -->\n' >> "$PROJECT/.agents/skills/app-backend/SKILL.md"
+# (3) inject a CUSTOM:SKILL block -> CLI_CUSTOM_AT_RISK advisory. Inject on the
+# AUTHORITATIVE surface (.claude/skills) — that's the one the CLI refreshes, so it's
+# where a CUSTOM block is genuinely at risk (Issue 2: .agents is not CLI-touched).
+printf '\n<!-- CUSTOM:SKILL:BEGIN -->\nuser customization\n<!-- CUSTOM:SKILL:END -->\n' >> "$PROJECT/.claude/skills/app-backend/SKILL.md"
 set +e
 (
   cd "$PROJECT"

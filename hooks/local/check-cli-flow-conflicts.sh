@@ -361,6 +361,22 @@ for entry in paths:
         if not (root / mirror_root).is_dir():
             add("INFO", layer, owner, mirror_root, "provider skill mirror absent")
             continue
+        # Issue 2: `.claude/skills/` is the ONLY surface the FuseBase CLI maintains for
+        # CLI provider skills (verified against the CLI: `fusebase update` writes
+        # .claude/* only). The `.agents/` (Codex) CLI-provider mirror is maintained by
+        # NEITHER tool — the CLI never writes it, and Flow never writes CLI provider
+        # skill text (ownership guardrail). So absence there is benign-by-design, not
+        # drift, and `fusebase update` would not change it. Report a single benign INFO
+        # for the non-authoritative mirror; never MISSING/CLI_LAYER_DRIFT.
+        if mirror_root != ".claude/skills":
+            n_present = sum(1 for n in known if rel_exists(f"{mirror_root}/{n}/SKILL.md"))
+            n_absent = len(known) - n_present
+            add("INFO", layer, owner, mirror_root,
+                f"{mirror_root} CLI-provider mirror: {n_present}/{len(known)} present, {n_absent} absent — "
+                "absence is expected (the CLI maintains CLI provider skills in .claude/skills only; Flow "
+                "never writes CLI provider skill text). `fusebase update` won't populate this mirror; copy "
+                "from .claude/skills/ if you want Codex/.agents parity.")
+            continue
         # F4: distinguish "never installed" (benign) from "partially missing" (drift).
         # A Claude-only / non-FuseBase-Apps project never had the CLI provider skills;
         # 0-present must NOT escalate to CLI_LAYER_DRIFT ("structurally damaged").
@@ -437,6 +453,17 @@ for entry in paths:
         mirror_root = ".claude/agents" if rel.startswith(".claude/") else ".codex/agents"
         if not (root / mirror_root).is_dir():
             add("INFO", layer, owner, mirror_root, "provider agent mirror absent")
+            continue
+        # Issue 2: `.claude/agents/` is the only CLI-maintained surface for CLI app-agents;
+        # the `.codex/agents/` mirror is maintained by neither the CLI nor Flow. Absence
+        # there is benign-by-design, not drift (same rationale as the .agents/ skill mirror).
+        if mirror_root != ".claude/agents":
+            n_present = sum(1 for n in known if rel_exists(f"{mirror_root}/{n}.md"))
+            n_absent = len(known) - n_present
+            add("INFO", layer, owner, mirror_root,
+                f"{mirror_root} CLI-provider mirror: {n_present}/{len(known)} present, {n_absent} absent — "
+                "absence is expected (the CLI maintains CLI app-agents in .claude/agents only; Flow never "
+                "writes CLI provider agents). Copy from .claude/agents/ if you want Codex/.codex parity.")
             continue
         # F4: 0-present = never installed (benign); partial = genuine drift.
         present = [n for n in known if rel_exists(f"{mirror_root}/{n}.md")]

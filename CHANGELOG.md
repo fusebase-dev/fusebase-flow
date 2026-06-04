@@ -4,6 +4,18 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.8.4] — 2026-06-01
+
+### Fixed — Issue 2: false CLI_LAYER_DRIFT for the non-authoritative `.agents/`/`.codex/` provider mirrors
+
+Downstream report (verified against the FuseBase CLI source, `lib/copy-template.ts` + `lib/commands/product.ts`): `fusebase update` writes CLI provider skills/agents to **`.claude/` only** — never `.agents/skills/` or `.codex/agents/`. Combined with Flow's standing guardrail (Flow never writes CLI provider skill text), the `.agents/.codex` CLI-provider mirrors are maintained by **neither** tool — so the health check's `MISSING` → `CLI_LAYER_DRIFT` for them was a false positive, and its "run `fusebase update`" remediation a dead end (the CLI won't touch those paths). Same by-design-≠-drift family as F4/U10/U11.
+
+- `check-cli-flow-conflicts.sh`: `.claude/skills` and `.claude/agents` are the **authoritative** CLI-provider surfaces (full F4/U10 drift logic kept — genuine `.claude` provider drift still escalates with the correct `fusebase update` advice). The **non-authoritative** mirrors (`.agents/skills`, `.codex/agents`) now report a single **benign INFO** ("N/M present, K absent — expected; the CLI maintains provider skills in `.claude/` only; copy from `.claude/` for Codex parity"), never `MISSING`/`CLI_LAYER_DRIFT`.
+- The `feature-*` vs `app-*` orphan duplication needs no Flow change — Flow only checks the current `app-*` `known_names`, so CLI-renamed `feature-*` orphans are invisible to it (no churn).
+- Tests: recovery sim gains U13 (.agents partial CLI-provider gap is benign); AC4 now checks per-agent cli-owned attribution on the authoritative `.claude/agents` only; the CUSTOM:SKILL-at-risk test moved to `.claude/skills` (the surface the CLI actually refreshes). Precision retained (missing `.claude` provider skill still `CLI_LAYER_DRIFT`). 24/24 sim assertions; run-tests 16/16; health HEALTHY. VERSION 3.8.3 → 3.8.4; plugin manifests bumped.
+
+> **Note on Issue 1 (CLI deprecating root `./skills`):** the v3.8.3 guard (health flags a deleted `skills/`; docs say ignore the CLI warning) stands. The CLI source confirms the deprecation is real and directional, which **rules out** mirroring into `.claude/skills/` as Flow's source (the CLI owns and rewrites that dir on every update). The remaining end-state choice — keep root `skills/` (guarded) vs. move Flow's canonical store to a Flow-namespaced path the CLI ignores — is still an open operator decision.
+
 ## [3.8.3] — 2026-06-01
 
 ### Fixed — U11 (hooks-off ≠ drift) + U12 guard (don't delete root skills/)
