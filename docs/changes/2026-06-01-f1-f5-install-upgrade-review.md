@@ -20,5 +20,5 @@ Change:    F1: add agents/ to docs/install-fusebase-cli-project.md list + bash +
 Verified:  recovery sim +U16 (run the MAIN engine on a hooks-off overlay → not SHARED_MERGE_DRIFT);
            27/27 sim; run-tests 16/16; preflight 0/0; health HEALTHY; health-check + tests syntax OK.
 Rollback:  git revert <SHA>
-Commit:    <filled after commit>
+Commit:    24dd371
 Deploy:    plain operator go-ahead -> v3.8.7 (tag + GitHub release).
