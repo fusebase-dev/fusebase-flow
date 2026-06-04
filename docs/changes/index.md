@@ -16,3 +16,4 @@ Format:
 2026-06-01 · u9-legacy-project-values-seed · lightweight · 4c1c522
 2026-06-01 · u10-flag-gated-cli-skills · lightweight · 250e068
 2026-06-01 · u11-u12-hooksoff-and-skills-guard · lightweight · ea38342
+2026-06-01 · u13-noncanonical-provider-mirrors · lightweight · b42a3d2

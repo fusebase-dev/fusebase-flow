@@ -22,5 +22,5 @@ Verified:  recovery sim — U13 (.agents partial CLI-provider gap benign, not CL
            refreshes); precision retained (missing .claude provider skill still CLI_LAYER_DRIFT;
            U10/U11/U12 pass). 24/24 sim assertions; run-tests 16/16; preflight 0/0; health HEALTHY.
 Rollback:  git revert <SHA>
-Commit:    <filled after commit>
+Commit:    b42a3d2
 Deploy:    plain operator go-ahead -> v3.8.4 (tag + GitHub release).
