@@ -17,5 +17,5 @@ Verified:  helper tested on the real CLI eslint.config.mjs shape — adds entry,
            (node --check OK), idempotent. recovery sim +U15; U1/U9 setups made robust to the new
            placeholder wording. 26/26 sim; run-tests 16/16; preflight 0/0; health HEALTHY.
 Rollback:  git revert <SHA>
-Commit:    <filled after commit>
+Commit:    905037f
 Deploy:    plain operator go-ahead -> v3.8.6 (tag + GitHub release).
