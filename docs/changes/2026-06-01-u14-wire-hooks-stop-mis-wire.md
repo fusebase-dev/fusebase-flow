@@ -18,5 +18,5 @@ Verified:  reproduced the mis-wire, then confirmed fix wires stop.py + preserves
            present → Flow entry is stop.py). 25/25 sim; run-tests 16/16; preflight 0/0; health
            HEALTHY; merge script syntax valid.
 Rollback:  git revert <SHA>
-Commit:    <filled after commit>
+Commit:    d227837
 Deploy:    plain operator go-ahead -> v3.8.5 (tag + GitHub release).
