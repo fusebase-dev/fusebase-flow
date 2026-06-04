@@ -440,6 +440,7 @@ pass "U15: eslint-ignore-flow-paths.sh adds .fusebase-flow-source/** next to .cl
 F2P="$TMP_BASE/f2-engine-hooksoff"
 cp -R "$PROJECT" "$F2P"
 cp hooks/local/fusebase-flow-health-check.sh "$F2P/hooks/local/"
+cp VERSION "$F2P/VERSION"   # main engine checks VERSION at repo root (fixture lacks it)
 cat > "$F2P/.claude/settings.json" <<'EOF'
 {
   "enabledMcpjsonServers": ["fusebase-dashboards", "fusebase-gate"],
@@ -461,6 +462,44 @@ grep -q "Verdict: SHARED_MERGE_DRIFT" "$TMP_BASE/f2.out" && { sed -n '/Verdict/,
 grep -qE "lifecycle events wired \(stop.py present|stop.py missing from Stop chain" "$TMP_BASE/f2.out" && fail "F2: main engine recorded a settings.json drift for the opt-in-off state" || true
 grep -q "Flow lifecycle hooks not wired (opt-in" "$TMP_BASE/f2.out" || fail "F2: main engine did not emit the benign opt-in note for hooks-off"
 pass "F2 (U16): main health engine reads deliberate hooks-off as benign (no SHARED_MERGE_DRIFT)"
+
+###############################################################################
+# U17/U18 — lock the "two engines must agree" invariant: the MAIN engine must
+# also read the other by-design CLI cases as benign (it folds the conflict
+# checker but only MISSING/DRIFT, so INFO classifications must NOT surface as
+# drift). U17 = flag-gated absence (U10 class); U18 = .agents/.codex gap (U13 class).
+###############################################################################
+run_main_engine_verdict() {  # $1 = project dir → echoes the Verdict line (never aborts the suite)
+  local out=""
+  out="$(cd "$1" 2>/dev/null && bash hooks/local/fusebase-flow-health-check.sh 2>/dev/null)" || true
+  printf '%s\n' "$out" | grep -m1 "^Verdict:" || echo "Verdict: (none captured)"
+}
+
+U17P="$TMP_BASE/u17-engine-flaggated"
+cp -R "$PROJECT" "$U17P"
+cp hooks/local/fusebase-flow-health-check.sh "$U17P/hooks/local/"
+cp VERSION "$U17P/VERSION"
+rm -rf "$U17P/.claude/skills/managed-integrations" "$U17P/.agents/skills/managed-integrations"
+V17="$(run_main_engine_verdict "$U17P")"
+case "$V17" in
+  *CLI_LAYER_DRIFT*) fail "U17: main engine $V17 for a flag-gated absence (should be benign)";;
+  *HEALTHY*) : ;;
+  *) fail "U17: unexpected main-engine '$V17' (expected HEALTHY)";;
+esac
+pass "U17: main health engine reads a flag-gated CLI skill absence as benign (HEALTHY)"
+
+U18P="$TMP_BASE/u18-engine-agentsgap"
+cp -R "$PROJECT" "$U18P"
+cp hooks/local/fusebase-flow-health-check.sh "$U18P/hooks/local/"
+cp VERSION "$U18P/VERSION"
+for s in app-backend app-routing app-secrets app-sidecar app-ui-design; do rm -rf "$U18P/.agents/skills/$s"; done
+V18="$(run_main_engine_verdict "$U18P")"
+case "$V18" in
+  *CLI_LAYER_DRIFT*) fail "U18: main engine $V18 for a .agents CLI-provider gap (should be benign)";;
+  *HEALTHY*) : ;;
+  *) fail "U18: unexpected main-engine '$V18' (expected HEALTHY)";;
+esac
+pass "U18: main health engine reads a non-authoritative .agents CLI-provider gap as benign (HEALTHY)"
 
 ###############################################################################
 # F2 — version-aware overlay refresh is marker-anchored and idempotent.
