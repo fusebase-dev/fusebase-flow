@@ -1,0 +1,42 @@
+# Fusebase Flow — comment policy carve-outs (committed default)
+#
+# Declarative source for FR-22 (code-comment policy: tripwire + pointer only).
+# Lists the trust-critical path globs that KEEP multi-line tripwire comments;
+# everywhere else the rule applies fully (CRUD/routine code stays lean).
+#
+# NOT consumed by a hook. FR-22 is enforced at write-time (the rule) and
+# review-time (the `code-review` skill reads this file as the carve-out source).
+# It is deliberately NOT a regex/lint gate — distinguishing a tripwire from a
+# restate-WHAT comment is semantic, not pattern-matchable, and a regex gate would
+# train agents to write worse comments to satisfy it. See docs/comment-policy.md.
+schema_version: 1
+
+# Per-project local override (optional, gitignored). When present its
+# trust_critical_globs REPLACE the defaults below.
+local_override_file: policies/comment-policy.local.yml
+
+# Trust-critical path globs. The policy is architecture-dependent: run the
+# independent-audit prompt in docs/comment-policy.md against THIS project to
+# derive its real set, then uncomment + customize. Most are commented so a
+# project opts in deliberately (same posture as protected-paths.yml).
+trust_critical_globs:
+  # auth / identity / session / gate
+  # - "**/auth/**"
+  # - "**/identity/**"
+  # - "**/session/**"
+  # - "**/*gate*/**"
+  # - "**/*token*.*"
+  # database migrations
+  # - "**/migrations/**"
+  # - "postgres/migrations/**"
+  # concurrency / platform-quirk engine code (project-specific — derive via audit)
+  # - "**/*worker*.*"
+  # - "**/*scheduler*.*"
+
+# Notes:
+# - "Keep tripwires" does NOT mean "keep all comments" — even trust-critical
+#   files drop WHAT-restating prose, recorded-elsewhere rationale, and changelog;
+#   they're just allowed the ≤~4-line multi-line tripwire where one line can't
+#   carry the security/auth/concurrency constraint.
+# - A retrieval pointer (e.g. `(decision B2)`, `backlog 156`) is load-bearing
+#   everywhere, not a duplicate — never strip it (storage != retrieval).

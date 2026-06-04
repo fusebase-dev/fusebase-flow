@@ -4,7 +4,7 @@
 
 ![FuseBase Flow — you design and decide with the Product Owner agent, which hands off to the AI Developer agent that implements, runs the verification gate, and deploys](docs/assets/two-agent-banner.svg)
 
-[![Version](https://img.shields.io/badge/version-3.9.0-blue.svg)](VERSION)
+[![Version](https://img.shields.io/badge/version-3.10.0-blue.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![CI](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml/badge.svg)](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml)
 [![Use this template](https://img.shields.io/badge/GitHub-Use_this_template-brightgreen.svg?logo=github)](https://github.com/fusebase-dev/fusebase-flow/generate)
@@ -616,7 +616,7 @@ fusebase-flow/
 ├── AGENTS.md                       ← portable always-on baseline
 ├── CLAUDE.md                       ← Anthropic Claude Code adapter
 ├── GEMINI.md                       ← Gemini-style IDE adapter
-├── FLOW_RULES.md                   ← FR-01..FR-21 always-on rules
+├── FLOW_RULES.md                   ← FR-01..FR-22 always-on rules
 ├── VERSION                         ← 3.7.0
 ├── .gitattributes                  ← LF line endings for shell/python/yaml/md
 ├── .python-version                 ← 3.12 (recommended)
@@ -671,7 +671,7 @@ Public-facing reference material lives in [`docs/`](docs/):
 
 - [`docs/compatibility.md`](docs/compatibility.md) — provider / IDE support detail
 - [`docs/hook-coverage.md`](docs/hook-coverage.md) — hook × provider coverage
-- [`docs/rail-mapping.md`](docs/rail-mapping.md) — FR-01..FR-21 → enforcement surfaces
+- [`docs/rail-mapping.md`](docs/rail-mapping.md) — FR-01..FR-22 → enforcement surfaces
 - [`docs/clean-room.md`](docs/clean-room.md) — clean-room license attestation
 - [`docs/source-map.md`](docs/source-map.md) — generic pattern attribution
 

@@ -57,9 +57,25 @@ Independent review of a diff against the spec contract, locked decisions, and FL
 4. Spec alignment matrix: for each AC1..ACn, confirm at least one task implements it; flag unimplemented ACs.
 5. Maintainability scan:
    - Type safety (no broad casts on external JSON, no `any`)
-   - Comments only where WHY is non-obvious
+   - **Comment policy (FR-22)** — see the dedicated dimension in step 5b
    - No TODO/FIXME/WIP markers
    - Function size and complexity reasonable
+
+5b. Comment-policy dimension (FR-22) — enforce in BOTH directions:
+   - **Flag for removal (findings):** comments that restate what the code does;
+     rationale/diagnosis prose already recorded in a decision/ticket/memory (should be
+     replaced by a ≤1-line pointer, not deleted outright); changelog/history narrative
+     (it's in git); comment blocks that exist only because the surrounding file is
+     comment-heavy ("matched density" upward).
+   - **Verify retention (catch over-trimming):** a one-line **tripwire** (a non-obvious
+     constraint an editing agent could violate) and a **retrieval pointer** (`(decision B2)`,
+     `backlog 156`) must NOT have been stripped. Deleting a pointer orphans the external
+     record (storage ≠ retrieval) — flag that as a blocker too, not just over-commenting.
+   - **Carve-out:** files matching `policies/comment-policy.yml: trust_critical_globs`
+     (auth/identity/session/gate, migrations, project-derived) keep multi-line tripwires —
+     do not flag those. Apply the rule fully to CRUD/routine code.
+   - This is a **semantic** judgment (tripwire vs restate-WHAT), not a regex check — review
+     by reading, never propose a lint/regex gate for it. Reference: `docs/comment-policy.md`.
 6. Test coverage scan: new behavior has at least one test; tests align with ACs.
 7. Rollback safety: each commit individually revertable; no commit straddles unrelated changes.
 8. Output review summary in chat:
@@ -85,6 +101,8 @@ Independent review of a diff against the spec contract, locked decisions, and FL
 | AC unimplemented | Spec AC<n> has no task touching it | Flag as blocker; either add task or remove AC explicitly |
 | Protected path edited without exception | `git diff` against `protected-paths.yml` non-empty | Flag as blocker per FR-07; require approval artifact OR revert |
 | Type safety regression | New `any` / broad casts on external JSON introduced | Flag as blocker if production-path; non-blocker if test fixture |
+| Comment-policy violation (FR-22) | WHAT-restating / duplicated-rationale / changelog comments added, or "matched density" upward in a comment-heavy file | Flag as non-blocker (note the lines); not a deploy blocker unless it obscures a real defect |
+| Comment over-trim (FR-22) | A load-bearing tripwire or `(decision/backlog ...)` retrieval pointer was deleted | Flag as blocker — deleting the pointer orphans the external record (storage ≠ retrieval); restore it |
 
 ## Escalation path
 
@@ -99,6 +117,7 @@ Independent review of a diff against the spec contract, locked decisions, and FL
 - Do NOT block on stylistic preferences absent a lint rule; flag as non-blocker
 - Do NOT pass without checking protected paths (FR-07)
 - Do NOT pass without verifying gate report alignment
+- Do NOT enforce the comment policy (FR-22) by proposing a regex/lint gate — it's a semantic call; review by reading. And don't only hunt over-commenting: a deleted tripwire/pointer is the symmetric failure (over-trim) and is a blocker.
 
 ## Clean-room note
 

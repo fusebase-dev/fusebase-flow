@@ -21,7 +21,7 @@ You are an AI Developer Deploy-phase session that has just completed T<deploy> (
 **Slug:** `<slug>`
 **Deploy hash:** `<hash>` ← rollback: `git revert <hash>`
 **Approval artifact:** `state/approvals/production_deploy-<slug>-<date>.json` (expires `<timestamp>`)
-**Reporting session:** AI Developer / Deploy phase (Fusebase Flow v3.1, FR-01..FR-21)
+**Reporting session:** AI Developer / Deploy phase (Fusebase Flow v3.1, FR-01..FR-22)
 **Date:** <YYYY-MM-DD>
 
 ---

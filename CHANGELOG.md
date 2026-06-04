@@ -4,6 +4,22 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.10.0] — 2026-06-04
+
+### Added — FR-22 code-comment policy (tripwire + retrieval-pointer only)
+
+A new always-on rule. Flow source files are read by AI agents, not humans (a human asks an agent to explain rather than opening the file), so WHAT-restating prose, recorded-elsewhere rationale, and changelog comments serve an absent audience and cost context on every load — measured ~45% of comments removable in trust-critical files across two independent projects (paperclip+hermes-v1 + AssetWatch Prod). Two framework-level root causes: the base "match surrounding comment density" instruction is a one-directional ratchet (now explicitly overridden), and every Stop-hook gate is comment-blind so over-commenting is invisible to the loop.
+
+- **FR-22 (FLOW_RULES.md)** — write only two comment kinds: a one-line **tripwire** (a non-obvious constraint an editing agent could violate; ≤~4 lines only for security/auth/concurrency/platform-quirk) and a ≤1-line **retrieval pointer** to the external WHY-home (`(decision B2)`, `backlog 156`). Remove WHAT-restating, recorded-elsewhere rationale (→ pointer), and changelog/history (→ git). Includes the explicit **density-override** clause that breaks the ratchet.
+- **Two subtleties preserved.** *Storage ≠ retrieval* — the pointer is NOT a duplicate; deleting it orphans the external record the agent has no in-context trigger to open (kill the prose, keep the pointer). *Architecture-dependent* — carve-outs are project-settable, not hardcoded.
+- **`code-review` skill — the enforcement layer.** New comment-policy dimension flags WHAT-restating / duplicated-rationale / changelog comments AND verifies tripwires + pointers were retained (catches the symmetric **over-trim** failure: a deleted pointer/tripwire is a blocker). Plus a failure-case row and an anti-pattern forbidding a regex/lint gate.
+- **`policies/comment-policy.yml`** — declarative `trust_critical_globs` (auth/identity/session/gate, migrations; opt-in/commented like `protected-paths.yml`) + `local_override_file`. The project-settable carve-out source.
+- **`docs/comment-policy.md`** — rationale, cross-project evidence, and a reusable **independent-audit prompt** (run per-project to derive carve-outs). Plugin-specific clause generalized.
+- **`templates/handoff-implement.md`** — FR-22 added to hard invariants + a pre-commit checklist line.
+- **Not a gate.** Distinguishing a tripwire from a restate-WHAT comment is semantic, not pattern-matchable; enforcement is write-time (FR-22) + review-time (code-review), never a regex/lint hook. Not retroactive — existing files are cleaned only via an explicit Lightweight pass (comments strip from build output, so no deploy).
+
+Spec: `docs/specs/comment-policy-fr22/`. FR-range auto-synced FR-01..FR-22 across adapters; skill count unchanged (24). Tests: preflight 0/0; run-tests 16/16; recovery sim 31/31; health HEALTHY; plugin valid. VERSION 3.9.0 → 3.10.0.
+
 ## [3.9.0] — 2026-06-04
 
 ### Changed — canonical skills relocated `skills/` → `flow-skills/` (resolves the U12 CLI collision end-state)

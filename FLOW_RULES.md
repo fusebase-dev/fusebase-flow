@@ -1,6 +1,6 @@
-# Fusebase Flow — always-on rules (FR-01..FR-21)
+# Fusebase Flow — always-on rules (FR-01..FR-22)
 
-**Status:** v0.7 (FR-21 added in v3.7 — ceremony proportional to change size)
+**Status:** v0.8 (FR-22 added in v3.10 — code-comment policy: tripwire + pointer only)
 **Scope:** every session in any IDE/agent must follow these regardless of which skill or workflow is active.
 
 These rules are clean-room original. Each rule states *what*, *why*, and *enforcement surface* (rule-only, policy, hook, workflow, skill). Enforcement details live in `policies/`, `hooks/`, and `workflows/` — this file is the readable contract.
@@ -28,6 +28,7 @@ These rules are clean-room original. Each rule states *what*, *why*, and *enforc
 | FR-19 | Chat-text questions, no popup menus | Operator questions and decision prompts must be written as normal chat text, usually a short options table or numbered list. Do not use modal popup / clickable menu tools (`AskUserQuestion` or equivalents) because they cannot be copied, forwarded, quoted, or followed up on reliably across sessions. | rule + mandatory skills `flow-skills/communication/SKILL.md` and `flow-skills/role-discipline/SKILL.md` + agent tool grants |
 | FR-20 | Zoom out, don't patch-myopically | When fixing a bug or making an improvement, first zoom out and check the bigger picture before applying a narrow patch: does this fix address the root cause or only the symptom; does it contradict the spec, decisions, or (if present) the project North Star; does it belong in a different layer; will it create drift elsewhere. Narrow patch-on-patch behavior accumulates inconsistency and is a primary driver of AI-development drift. Prefer the root-cause fix; if a narrow patch is the right call, say why. When the bigger picture is ambiguous, ask the operator (FR-19) rather than guess. | rule + skill `flow-skills/zoom-out/SKILL.md` + skill `flow-skills/validation-and-qa/SKILL.md` (reproduce-before-fix, FR-10) |
 | FR-21 | Ceremony proportional to change size | One-size-fits-all ceremony is waste on small work: a trivial, reversible, security-neutral change with a one-sentence verifiable outcome does not need the full spec→clarify→decisions→tasks→gate chain, a DP.1 approval artifact, the DP.6 magic phrase, or a two-agent build-then-deploy split. Forcing it costs time, breeds approval fatigue (diluting the approvals that matter), and can add risk (more steps than the change carries). Classify every ticket **Full** or **Lightweight** at Specify and scale ceremony to risk. The safety floor is kept in BOTH lanes and is never dropped: live proof it works, an explicit operator deploy go-ahead (never auto-deploy), FR-07 protected paths, a documented rollback, one-commit-per-change with the SHA recorded. Eligibility is conjunctive and fail-safe: in doubt → Full; if a Lightweight change turns non-trivial mid-flight (more than a couple files, a surfaced risk, a real decision, or a deeper bug), STOP and promote to Full. | rule + skill `flow-skills/lightweight-lane/SKILL.md` + skill `flow-skills/requirements-specification/SKILL.md` (lane-classification gate) + tier-aware `approval-policy.yml` / `required-artifacts.yml` |
+| FR-22 | Comment policy: tripwire + pointer only | Source files in a Flow workflow are read by AI agents, not humans (a human asks an agent to explain rather than opening the file). WHAT-restating prose, rationale already recorded elsewhere, and changelog comments serve an absent audience and cost context budget on every load (~45% of comments removable in trust-critical files, measured cross-project). The base "match surrounding comment density" instruction is a one-directional ratchet, and every Stop-hook gate is comment-blind, so over-commenting is invisible to the loop — Flow must ship an explicit override. | rule + `docs/comment-policy.md` (rationale + reusable audit prompt) + `code-review` review dimension (the enforcement layer) + `policies/comment-policy.yml` (`trust_critical_globs` carve-out). NOT a regex/lint gate — tripwire-vs-restate is semantic, not pattern-matchable. |
 
 ---
 
@@ -48,7 +49,7 @@ If a session writes code outside its role, FR-01 fires and the agent must stop a
 
 ## Self-attestation (mandatory at first response of every session)
 
-Every role declares: "Operating as {role} under Fusebase Flow v3.9.0. I will follow FR-01 through FR-21. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+Every role declares: "Operating as {role} under Fusebase Flow v3.10.0. I will follow FR-01 through FR-22. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 If self-attestation is missing from the first response, the session is drifting. Self-correct in the next output.
 
@@ -63,6 +64,8 @@ If self-attestation is missing from the first response, the session is drifting.
 **FR-20 implication for every role:** before committing a bug fix or improvement, zoom out first. Confirm the change targets the root cause (not just the visible symptom), is consistent with the spec / locked decisions / North Star (if present), sits in the right layer, and won't introduce drift elsewhere. Avoid patch-on-patch accumulation. Load `flow-skills/zoom-out/SKILL.md` when a fix is non-trivial or repeats. If the bigger picture is ambiguous, ask the operator (FR-19) instead of guessing.
 
 **FR-21 implication for every role:** at Specify, classify the ticket **Full** or **Lightweight** using the eligibility gate in `flow-skills/lightweight-lane/SKILL.md` (load it whenever a change looks small/reversible). A **Lightweight** ticket replaces the spec/decisions/tasks/gate chain + two handoff docs with a single **change-note** (problem · change · verification · rollback · tier), runs **build → live-verify → deploy in one agent pass** (no two-agent split, no redundant rebuild), and deploys on a **plain explicit operator go-ahead** ("ship it") instead of the DP.1 artifact + DP.6 magic phrase. It still keeps the full safety floor (live proof, the explicit go-ahead, FR-07, a one-line rollback, one commit + SHA). The **Full** lane is unchanged. When unsure, choose Full; if a Lightweight change turns non-trivial mid-flight, STOP and promote to Full and record the promotion. PO and AI Developer must not run a Lightweight deploy without the explicit operator go-ahead, and must not auto-promote risk into the Lightweight lane.
+
+**FR-22 implication for every role that writes code:** write only two kinds of comment and remove everything else. (1) **Tripwire** — a constraint an editing agent could violate without realizing and that isn't obvious from local code (*"empirical floor — don't lower below X"*; *"additive — editing breaks back-compat"*; an auth/platform/concurrency quirk); one line by default, ≤~4 lines **only** for security/auth/concurrency/platform-quirk. (2) **Retrieval pointer** — a ≤1-line tag naming the external WHY-home (`(decision B2)`, `backlog 156`) so an agent whose context is just the open file knows where the rationale lives. **Remove:** comments that restate what the code does; rationale/diagnosis already recorded in a decision/ticket/memory (replace with the pointer); changelog/history (the change is in git). **Do NOT "match surrounding comment density" upward** — trim toward this policy even in comment-heavy files; this clause is what breaks the harness density-ratchet, without it the policy is silently overridden. **Storage ≠ retrieval — the pointer is NOT a duplicate:** when an agent opens a file the external records aren't in its context, so deleting the one-line pointer orphans a correct record the agent now has no trigger to open — kill the prose, keep the pointer. **Carve-out:** trust-critical paths (auth/identity/session/gate code, DB migrations, and anything in `policies/comment-policy.yml: trust_critical_globs`) keep their multi-line tripwires; apply the rule fully to CRUD/routine code. The policy is architecture-dependent (whether a separate instruction layer is read *instead of* source varies by project), so carve-outs are **project-settable** — run the audit prompt in `docs/comment-policy.md` to derive a project's set before adopting. Enforced at **write-time** (this rule) and **review-time** (`code-review`), **never by a gate**: a regex check can't tell a tripwire from a restate and would train agents to write worse comments to satisfy it. **Not retroactive** — clean existing files only via an explicit Lightweight pass (comments strip from build output, so cleanups need no deploy).
 
 ---
 
@@ -195,4 +198,25 @@ Both modes preserve FR-03, FR-13, FR-14.
              lanes. Fail-safe-up + mandatory mid-flight promotion guard
              against under-tiering. Operationalized by
              flow-skills/lightweight-lane/SKILL.md. Shipped in framework v3.7.0.
+
+2026-06-04 — v0.8. FR-22 added (comment policy: tripwire + pointer only).
+             Driver: cross-project audits (paperclip+hermes-v1 + AssetWatch
+             Prod, 2026-06-04) found ~45% of comments in trust-critical files
+             removable — WHAT-restating prose, rationale already homed in a
+             decision/backlog, and changelog history — because Flow source is
+             read by AI agents, not humans. Two framework-level root causes:
+             the base "match surrounding comment density" instruction is a
+             one-directional ratchet (Flow now ships an explicit override), and
+             every Stop-hook gate is comment-blind so over-commenting is
+             invisible to the loop. FR-22 mandates two comment kinds (one-line
+             tripwire; ≤1-line retrieval pointer to the external WHY-home) and
+             removes the rest. Two subtleties preserved: storage ≠ retrieval
+             (the pointer is load-bearing, not a duplicate — deleting it
+             orphans the external record), and architecture-dependence
+             (carve-outs are project-settable via policies/comment-policy.yml:
+             trust_critical_globs; each project runs the audit prompt in
+             docs/comment-policy.md). Enforced at write-time (this rule) +
+             review-time (code-review dimension), never via a regex/lint gate
+             (tripwire-vs-restate is semantic). Not retroactive. Shipped in
+             framework v3.10.0.
 ```
