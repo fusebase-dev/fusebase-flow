@@ -399,6 +399,39 @@ PY
 pass "U14: --wire-hooks wires stop.py (not a CLI command) onto an existing CLI Stop chain (discovery picks the Flow handler)"
 
 ###############################################################################
+# U15 — eslint-ignore-flow-paths.sh adds .fusebase-flow-source/** next to
+# .claude/** so the staged upstream clone (CommonJS CLI hooks) doesn't fail the
+# downstream's ESLint flat config (which doesn't honor .gitignore) → deploy lint.
+###############################################################################
+U15P="$TMP_BASE/u15-eslint"
+mkdir -p "$U15P/hooks/local"
+cp hooks/local/eslint-ignore-flow-paths.sh "$U15P/hooks/local/"
+cat > "$U15P/eslint.config.mjs" <<'EOF'
+export default [
+  {
+    ignores: [
+      "node_modules/**",
+      "**/dist/**",
+      ".claude/**"
+    ],
+  }
+];
+EOF
+(
+  cd "$U15P"
+  git init -q 2>/dev/null || true
+  bash hooks/local/eslint-ignore-flow-paths.sh >/dev/null 2>&1
+)
+grep -q '"\.fusebase-flow-source/\*\*"' "$U15P/eslint.config.mjs" || fail "U15: helper did not add .fusebase-flow-source/** to eslint ignores"
+# .claude/** must now carry a trailing comma (it's no longer last)
+grep -qE '"\.claude/\*\*",' "$U15P/eslint.config.mjs" || fail "U15: .claude/** entry not comma-terminated after insert (broken array)"
+# idempotent: second run makes no change
+cp "$U15P/eslint.config.mjs" "$U15P/eslint.config.mjs.snap"
+( cd "$U15P"; bash hooks/local/eslint-ignore-flow-paths.sh >/dev/null 2>&1 )
+diff -q "$U15P/eslint.config.mjs" "$U15P/eslint.config.mjs.snap" >/dev/null 2>&1 || fail "U15: helper is not idempotent (second run changed the file)"
+pass "U15: eslint-ignore-flow-paths.sh adds .fusebase-flow-source/** next to .claude/** (idempotent, array stays valid)"
+
+###############################################################################
 # F2 — version-aware overlay refresh is marker-anchored and idempotent.
 # The reported bug: --refresh-overlays anchored on the heading, but the
 # templates wrap the heading inside CUSTOM:SKILL markers, so the drift check was
@@ -476,8 +509,8 @@ pass "F2: --refresh-overlays is idempotent (re-run on a current block does nothi
 # framework prose must update. (Regression guard for the data-loss bug.)
 ###############################################################################
 grep -q "<!-- FLOW:PRESERVE:BEGIN" "$PROJECT/AGENTS.md" || fail "U1 precondition: AGENTS.md block lacks FLOW:PRESERVE markers"
-# operator fills a project value inside the preserve region
-sed -i 's/Project name | (customize during install)/Project name | WORKHUB-MANAGED/' "$PROJECT/AGENTS.md"
+# operator fills a project value inside the preserve region (robust to placeholder wording)
+sed -i -E 's/\| Project name \| [^|]*\|/| Project name | WORKHUB-MANAGED |/' "$PROJECT/AGENTS.md"
 grep -q "WORKHUB-MANAGED" "$PROJECT/AGENTS.md" || fail "U1 setup: could not set the operator project value"
 # drift the framework prose inside the block (a line OUTSIDE the preserve region)
 sed -i 's/workflow lifecycle overlay/workflow lifecycle overlay (DRIFTED-FRAMEWORK-PROSE)/' "$PROJECT/AGENTS.md"
@@ -547,8 +580,8 @@ EOF
 # strip the FLOW:PRESERVE marker lines and customize a project value.
 {
   printf '# pre-upgrade AGENTS\n\nCURRENT CLI AGENTS SENTINEL\n'
-  sed -e '/<!-- FLOW:PRESERVE:BEGIN/d' -e '/<!-- FLOW:PRESERVE:END -->/d' \
-      -e 's/Project name | (customize during install)/Project name | SEEDED-FROM-LEGACY/' \
+  sed -E -e '/<!-- FLOW:PRESERVE:BEGIN/d' -e '/<!-- FLOW:PRESERVE:END -->/d' \
+      -e 's/\| Project name \| [^|]*\|/| Project name | SEEDED-FROM-LEGACY |/' \
       hooks/local/fusebase-flow-overlays/agents-md-overlay.md
 } > "$U9P/AGENTS.md"
 # Precondition: CUSTOM:SKILL present, FLOW:PRESERVE absent, value set.

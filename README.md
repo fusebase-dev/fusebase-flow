@@ -4,7 +4,7 @@
 
 ![FuseBase Flow — you design and decide with the Product Owner agent, which hands off to the AI Developer agent that implements, runs the verification gate, and deploys](docs/assets/two-agent-banner.svg)
 
-[![Version](https://img.shields.io/badge/version-3.8.5-blue.svg)](VERSION)
+[![Version](https://img.shields.io/badge/version-3.8.6-blue.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![CI](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml/badge.svg)](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml)
 [![Use this template](https://img.shields.io/badge/GitHub-Use_this_template-brightgreen.svg?logo=github)](https://github.com/fusebase-dev/fusebase-flow/generate)
@@ -168,6 +168,8 @@ Skipping is fine — nothing is created unless you provide it, and the framework
 6. If clean, the operator says *"prepare deploy"* — the `release-deploy-reporting` skill drafts the deploy handoff, you paste it into the AI Developer session, deploy runs, probes and outcome-based smoke verify.
 
 The full eight-phase lifecycle lives at [`workflows/eight-phase-flow.md`](workflows/eight-phase-flow.md).
+
+**Docs layout (created on demand — nothing to scaffold).** A fresh install ships no `docs/specs/` or `docs/changes/` — they're created by the work that needs them, so the tree stays clean until your first ticket. Expected paths once you start: `docs/specs/<slug>/` (spec · decisions · tasks · verification-gate), `docs/handoff/` (cross-session handoffs), `docs/changes/` (Lightweight-lane ledger, opt-in), `docs/backlog/` (parked tickets). Run `/onboard` first if you want project artifacts (`docs/north-star.md`, project values) before ticket #1.
 
 ## Supported agents & IDEs
 
@@ -470,6 +472,8 @@ There are three upgrade tools, by scope:
 - **`bash hooks/local/upgrade-engine.sh`** — narrower: refreshes only the engine + recovery scripts and `VERSION`.
 
 All accept `.fusebase-flow-source/` as either a git clone (enables HEAD/diff reporting) or a plain directory copy (the documented install end-state, which drops `.git`); a plain dir falls back to VERSION-file comparison instead of erroring.
+
+> ⚠️ **`.fusebase-flow-source/` + ESLint (v3.8.6+).** The staging clone holds CLI-owned **CommonJS** hooks, and ESLint **flat config does not read `.gitignore`** — so if your `fusebase deploy` runs lint, it lints the clone and fails (`@typescript-eslint/no-require-imports`) even with zero app errors. The clone is **transient**: delete it after an upgrade (`rm -rf .fusebase-flow-source` — re-created next upgrade), or add `".fusebase-flow-source/**"` to your `eslint.config` `ignores` next to `".claude/**"`. One-shot helper: `bash hooks/local/eslint-ignore-flow-paths.sh` (idempotent; backs up your config).
 
 **Canonical → mirror order (why VERSION is bumped last).** Provider folders (`.claude/skills`, `.agents/skills`, `.claude/agents`, `.codex/agents`) are *generated* from the canonical `skills/` and `agents/` trees. The upgrade always: **(1)** refresh canonical content (incl. `hooks/`, preserving `hooks/local/*.local.*`) → **(2)** re-mirror to providers → **(3)** sync derived attestation strings (version + `FR-01..FR-NN` + `(NN canonical skills total)`) → **(4)** refresh drifted AGENTS.md/CLAUDE.md overlay blocks (operator `FLOW:PRESERVE` region carried forward) → **(5)** bump `VERSION`. Bumping `VERSION` last guarantees the version number can never advertise content that hasn't actually landed. Edit canonical files, never the mirrors; `preflight.sh` warns on drift.
 

@@ -4,6 +4,18 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.8.6] — 2026-06-01
+
+### Fixed — downstream install/upgrade UX (1 deploy blocker + 2 minor)
+
+From a live overlay project (Vite/React/TS, ESLint flat config, deploy via `fusebase deploy`).
+
+- **[BLOCKER] `.fusebase-flow-source/` fails the project's ESLint → breaks `fusebase deploy`.** The staging clone holds **CLI-owned CommonJS** hooks (`require()`), which trip `@typescript-eslint/no-require-imports`. The path is gitignored, but **ESLint flat config doesn't read `.gitignore`**, and the CLI's `eslint.config` only ignores `.claude/**` — so the clone gets linted and `npm run lint` (hence deploy) exits 1 even with zero app errors. Flow has no eslint config of its own and the hooks are CLI-owned (can't be rewritten — `fusebase update` would re-clobber), so the fix is to stop the staging clone from being linted: new **`hooks/local/eslint-ignore-flow-paths.sh`** (opt-in; idempotent; backs up) adds `".fusebase-flow-source/**"` to the project's flat-config `ignores` right after `".claude/**"`. `upgrade.sh` / `bootstrap-upgrade.sh` now print a loud note (the clone is transient — `rm -rf .fusebase-flow-source` after an upgrade, or run the helper), and AGENTS-overlay maintenance + README document it. Regression test U15.
+- **[MINOR] project-values placeholders now point at `/onboard`.** The `### Project-specific values` table read "(customize during install)"; it now reads "(run `/onboard` or edit)" with a note that `/onboard` is the canonical fill step and values are preserved across upgrades (U1 `FLOW:PRESERVE`).
+- **[MINOR] cold-start docs layout documented.** README now states `docs/specs/`, `docs/handoff/`, `docs/changes/`, `docs/backlog/` are created on demand (nothing to scaffold), so the expected layout is discoverable before the first PO session. (No empty `.gitkeep` clutter shipped.)
+
+Tests: recovery sim 26/26 (new U15); U1/U9 setups made robust to the placeholder wording. run-tests 16/16; health HEALTHY; plugin valid. VERSION 3.8.5 → 3.8.6; plugin manifests bumped.
+
 ## [3.8.5] — 2026-06-01
 
 ### Fixed — U14: `--wire-hooks` mis-wired the shared Stop event onto a chain with existing CLI hooks

@@ -243,4 +243,11 @@ echo "  git add -A && git commit -m 'chore(flow): upgrade content to v$SRC_VERSI
 echo ""
 echo "[upgrade] NOTE: .claude/settings.json was NOT modified. To (re)wire Flow"
 echo "          lifecycle hooks, run:  bash hooks/local/post-fusebase-update.sh --wire-hooks"
+echo ""
+echo "[upgrade] NOTE: .fusebase-flow-source/ is a transient staging clone. ESLint flat"
+echo "          config does NOT honor .gitignore, so if 'fusebase deploy' runs lint it"
+echo "          will lint this clone's CommonJS hooks and fail. Either:"
+echo "            rm -rf .fusebase-flow-source                         # transient; re-created next upgrade"
+echo "          or add it to your eslint ignores (next to .claude/**):"
+echo "            bash hooks/local/eslint-ignore-flow-paths.sh"
 exit 0
