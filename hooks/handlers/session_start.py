@@ -84,6 +84,12 @@ def main() -> int:
     else:
         summary_lines.append("Required structure: ok")
 
+    # Secondary FR-22 reminder (T6). Static string only — primary carrier is the
+    # flow-skills/comment-policy skill; this hook is opt-in + no sub-agent reach.
+    summary_lines.append(
+        "FR-22 code-comment policy in force when writing code — load flow-skills/comment-policy"
+    )
+
     # Active project context (Layer 2 of artifact discovery — Claude Code accelerator).
     # Additive, read-only: surface project artifacts if the project has been onboarded.
     # Absent by default; absence changes nothing (AGENTS.md instruction + skill
