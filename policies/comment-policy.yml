@@ -16,8 +16,10 @@ schema_version: 1
 local_override_file: policies/comment-policy.local.yml
 
 # Trust-critical path globs. The policy is architecture-dependent: run the
-# independent-audit prompt in docs/comment-policy.md against THIS project to
-# derive its real set, then uncomment + customize. Most are commented so a
+# independent-audit prompt in flow-skills/comment-policy/references/audit-prompt.md
+# against THIS project to derive its real set, then uncomment + customize. (The
+# prompt ships with the comment-policy skill so it is reachable in consumers;
+# docs/comment-policy.md is the framework-dev rationale home.) Most are commented so a
 # project opts in deliberately (same posture as protected-paths.yml).
 trust_critical_globs:
   # auth / identity / session / gate
