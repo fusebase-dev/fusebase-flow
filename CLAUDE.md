@@ -106,8 +106,9 @@ This repository follows **Fusebase Flow** in addition to project-specific rules.
 - `business-logic-guardian` — protect documented business logic during fixes (no-op if absent)
 - `product-apps-decomposition` — product → focused apps guidance
 - `lightweight-lane` — FR-21 change-size tiering; small/reversible changes use a change-note + one build→verify→deploy pass instead of the full lifecycle
+- `comment-policy` — FR-22 write-time carrier; delivers the tripwire + retrieval-pointer comment policy into a code-writing agent's context (description-matched on code/comment edits)
 
-(24 canonical Fusebase Flow skills total.)
+(25 canonical Fusebase Flow skills total.)
 
 **Slash commands (`.claude/commands/`):** `/fusebase-health`, `/onboard`, `/product-owner`.
 

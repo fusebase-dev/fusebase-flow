@@ -47,7 +47,7 @@ There is no scenario where this skill doesn't apply during an active session. It
 | Input | Where it lives | If missing |
 |---|---|---|
 | Self-attested role | first-response self-attestation phrase | STOP — agent must self-attest a role before any other action |
-| `FLOW_RULES.md` (FR-01..FR-22) | repo root | already loaded as part of session bootstrap |
+| `FLOW_RULES.md` (FR-01..FR-22) | repo root | existence-checked at bootstrap, NOT injected into context — read on demand. FR-22's write-time body ships via the `flow-skills/comment-policy` skill (load it before writing code). |
 | `policies/command-policy.yml` (deny + require_approval lists) | `policies/` | hooks consult this; agent should not duplicate the check |
 
 ## Procedure
@@ -157,6 +157,8 @@ This protocol is the framework's commitment to operator attention. Drift on it =
 ---
 
 ## Section: AI Developer
+
+**Before writing code, load `flow-skills/comment-policy`** — FR-22 (tripwire + pointer only) is not auto-injected; the carrier skill is its write-time home (FR-22 is enforced write-time + review-time, never via a gate).
 
 ### Don't-list
 
