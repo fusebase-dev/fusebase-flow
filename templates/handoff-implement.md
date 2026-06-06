@@ -100,6 +100,8 @@ If an identifier needs verification (e.g., the dashboard was renamed), note it: 
 
 Verification gate (T<gate>) and deploy (T<deploy>) serialize after all tracks land.
 
+When delegating a code-writing slice, inline the comment-policy Delegation push block into the sub-agent prompt (FR-22 push; sub-agents don't auto-load skills).
+
 ---
 
 ## Worker-undisturbed posture

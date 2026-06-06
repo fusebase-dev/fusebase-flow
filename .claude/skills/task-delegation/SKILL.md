@@ -89,6 +89,8 @@ Every delegated task gets a brief with:
 
 For code-edit subtasks, tell the worker: "You are not alone in the codebase. Do not revert or overwrite other concurrent edits; adapt to them."
 
+**Mandatory (code-writing / implementation slices):** the delegating prompt MUST inline the comment-policy **Delegation push block** from `flow-skills/comment-policy/SKILL.md` (push, not pull — sub-agents do not reliably auto-load skills, so don't just tell the worker to "load comment-policy"). Read-only / triage delegation is exempt (no code is written).
+
 For frontend/design subtasks, add:
 
 | Field | Required content |

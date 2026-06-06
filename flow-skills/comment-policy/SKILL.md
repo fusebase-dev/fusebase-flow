@@ -79,6 +79,19 @@ COOLDOWN_S = 30        # (backlog 156)
 | Rationale/diagnosis already in a decision/ticket/memory | duplicate of an external record | the ≤1-line pointer |
 | Changelog / history (`# changed 2026-06-04: was X`) | the change is in git | nothing |
 
+## Delegation push block (for code-writing sub-agents)
+
+When you delegate any code-writing/implementation slice to a sub-agent, paste this block into its prompt (push — sub-agents do not reliably auto-load this skill):
+
+```
+COMMENT POLICY (FR-22) — applies to all code you write:
+Write ONLY two kinds of comment; remove everything else.
+1) TRIPWIRE — a constraint an editor could break unknowingly, not obvious from local code (≤1 line; ≤4 lines only for security/auth/concurrency/platform).
+2) RETRIEVAL POINTER — a ≤1-line tag naming the external WHY-home, e.g. "(decision B2)" or "backlog 156".
+REMOVE: comments that restate what the code does; rationale already recorded in a decision/ticket/memory; changelog/history (it's in git).
+Do NOT match surrounding comment density upward. Keep pointers — they are not duplicates.
+```
+
 ## Two subtleties (do not over-simplify)
 
 - **Do NOT "match surrounding comment density" upward.** Trim toward this policy even in comment-heavy files. This clause is what breaks the harness density-ratchet — without it the policy is silently overridden.
