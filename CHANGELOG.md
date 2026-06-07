@@ -4,6 +4,29 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.11.1] — 2026-06-06
+
+### Fixed — `sync-version-strings` nested-docs prune (+ FLOW_RULES v0.9)
+
+`sync-version-strings.sh` rewrites live attestation strings while never touching dated history (handoffs, specs, release-notes). Its prune list used exact top-level `-path` patterns, but `find`'s `-path` is exact (no implicit depth), so **per-app layouts** (`docs/<app>/handoff`, `docs/<app>/specs`, …) escaped the prune and the rewrite falsified their historical attestation versions. Reproduced by the Product Owner before the fix.
+
+- **`hooks/local/sync-version-strings.sh`** — prune list extended with depth-tolerant `./docs/*/{release-notes,handoff,specs,fusebase-health}` siblings (spans any nesting depth ≥1; flat case still covered). One-line FR-22 tripwire above the `find` block. No other engine script touched.
+- **`FLOW_RULES.md`** — Status `v0.8 → v0.9` + one amendment-log entry. FR-01..FR-22 rule rows/implications unchanged.
+- VERSION 3.11.0 → 3.11.1. Live acceptance gate: fixtures under `docs/_acctest/{handoff,specs}/` carrying old attestation are NOT in the `--dry-run` would-change list (pruned); framework live files still bump. preflight 0/0; health HEALTHY (25 skills). Detail: `docs/release-notes/v3.11.1.md`.
+
+## [3.11.0] — 2026-06-06
+
+### Added — FR-22 write-time delivery (carrier skill; semantics unchanged)
+
+Closes the **delivery gap** in FR-22 (the code-comment policy shipped in v3.10.0). FR-22 shipped as a correct *rule* but had no **write-time carrier** — its body never reached a code-*writing* agent's context at the moment comments are written. A v3.10.0 consumer (`WorkHub Managed`) proved the gap in production: a delegated AI Developer sub-agent wrote default JSDoc-heavy comments — the exact density-ratchet FR-22 was authored to break — because the breaker was never loaded. FR-22's semantics are unchanged; only delivery (carrier, pointers, push) changed.
+
+- **`flow-skills/comment-policy/SKILL.md`** (new) — description-matched write-time carrier; carries FR-22's two comment kinds, remove-list, density-override, storage≠retrieval subtlety, carve-out pointer, and a **Delegation push block**. Plus `references/audit-prompt.md` bundled so it rides the mirror into every consumer.
+- **`flow-skills/role-discipline/SKILL.md`** — corrected the false ":50 already-loaded" claim (the hook existence-checks, does not inject) that suppressed the workaround; added an AI-Developer directive to load `comment-policy` before writing code.
+- **`flow-skills/task-delegation/SKILL.md`** — mandatory clause: a delegated code-writing slice MUST carry the Delegation push block (push, not pull); read-only/triage delegation exempt.
+- **`FLOW_RULES.md` / `policies/comment-policy.yml`** — FR-22 audit-prompt pointers re-pointed from the undelivered `docs/comment-policy.md` to the delivered `flow-skills/comment-policy/references/audit-prompt.md`. FR-01..FR-21 byte-unchanged.
+- **Behavioral proof** — V7 (pull) NEGATIVE: an unprimed sub-agent wrote ~49 comment lines (~90% removable); V8 (push) PASS with the block inlined. Drove the push decision. Canonical skill count 24 → **25**.
+- **Not done** — no regex/lint comment-gate (semantic, not pattern-matchable); not retroactive. preflight 0/0; run-tests 16/16; health HEALTHY (25 skills). Detail: `docs/release-notes/v3.11.0.md`.
+
 ## [3.10.0] — 2026-06-04
 
 ### Added — FR-22 code-comment policy (tripwire + retrieval-pointer only)
