@@ -9,6 +9,7 @@
 [![CI](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml/badge.svg)](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml)
 [![Use this template](https://img.shields.io/badge/GitHub-Use_this_template-brightgreen.svg?logo=github)](https://github.com/fusebase-dev/fusebase-flow/generate)
 [![Built by FuseBase](https://img.shields.io/badge/built_by-FuseBase-0A66C2.svg)](https://thefusebase.com)
+[![Discussions](https://img.shields.io/badge/community-Discussions-5865F2.svg?logo=github)](https://github.com/fusebase-dev/fusebase-flow/discussions)
 
 A development framework for client-facing businesses and teams, FuseBase Flow covers what breaks during real app development for internal and external collaboration — drift, context rot, scope creep, unreliable hand-offs — so two AI agents (a Product Owner and an AI Developer) can ship reliably.
 
