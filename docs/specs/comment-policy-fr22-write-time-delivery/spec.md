@@ -3,7 +3,7 @@
 **Status:** DONE
 **Created:** 2026-06-06
 **Released:** 2026-06-06 (v3.11.0)
-**Deploy hash:** _release commit — see release report / git log (set post-commit)_
+**Deploy hash:** `411fc129cac27d4d06c47e622b4d9f54d9f40829` (release commit, v3.11.0)
 **Lane:** Full (touches a mandatory always-loaded skill + an always-on rule's delivery + adds a canonical skill → mirror/count change; multi-surface)
 **Linked decisions:** W1..W4
 **Target version:** 3.11.0 (operator-confirmable)
