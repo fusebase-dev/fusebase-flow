@@ -12,7 +12,7 @@ Format:
 ## Entries
 
 <!-- newest first -->
-2026-06-06 · sync-version-strings-nested-docs-prune · lightweight · <sha>
+2026-06-06 · sync-version-strings-nested-docs-prune · lightweight · 9a4d554
 2026-06-01 · overlay-refresh-trailing-blank · lightweight · 291c55b
 2026-06-01 · u9-legacy-project-values-seed · lightweight · 4c1c522
 2026-06-01 · u10-flag-gated-cli-skills · lightweight · 250e068

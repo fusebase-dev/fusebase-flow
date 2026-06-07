@@ -25,5 +25,5 @@ Verified:  Live proof (acceptance gate, run pre-commit): fixture docs/_acctest/h
            in the list; banner "version v3.11.1, FR-01..FR-22, 25 skills"). Fixture removed
            (not committed). preflight 0/0; health HEALTHY, 25 skills.
 Rollback:  git revert <SHA>  (single commit; reversible — shell + markdown only, no schema/data)
-Commit:    <SHA, filled after commit>
-Deploy:    go-ahead "ship it" · deployed <SHA> via git push origin main · FR-07 check: clean
+Commit:    9a4d554
+Deploy:    go-ahead "ship it" · deployed 9a4d554 via git push origin main · FR-07 check: clean
