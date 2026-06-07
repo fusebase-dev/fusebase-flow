@@ -27,6 +27,27 @@ FuseBase Flow is built and maintained by **FuseBase** (Nimbus Web Inc.) — a US
 
 FuseBase Flow isn't an experiment — it's the workflow a real product company runs on.
 
+## Built with FuseBase Flow
+
+Real client-facing apps — a help-desk, a rental marketplace, an adoption-analytics dashboard, a training portal, a client-interview workspace, and more — **built with FuseBase Flow on FuseBase Apps, by the community in a few days.**
+
+<table>
+  <tr>
+    <td align="center" width="25%"><a href="https://ai-dev.thefusebase.com/"><img src="docs/assets/showcase/ticketing-support.png" alt="Asset support ticketing app built with FuseBase Flow" width="100%"></a><br/><sub>Help-desk ticketing</sub></td>
+    <td align="center" width="25%"><a href="https://ai-dev.thefusebase.com/"><img src="docs/assets/showcase/help-desk.png" alt="Support desk and knowledge-base portal built with FuseBase Flow" width="100%"></a><br/><sub>Support desk &amp; KB</sub></td>
+    <td align="center" width="25%"><a href="https://ai-dev.thefusebase.com/"><img src="docs/assets/showcase/adoption-dashboard.png" alt="Customer adoption analytics dashboard built with FuseBase Flow" width="100%"></a><br/><sub>Analytics dashboard</sub></td>
+    <td align="center" width="25%"><a href="https://ai-dev.thefusebase.com/"><img src="docs/assets/showcase/rental-marketplace.png" alt="Room rental marketplace built with FuseBase Flow" width="100%"></a><br/><sub>Rental marketplace</sub></td>
+  </tr>
+  <tr>
+    <td align="center" width="25%"><a href="https://ai-dev.thefusebase.com/"><img src="docs/assets/showcase/training-course.png" alt="Training and course app built with FuseBase Flow" width="100%"></a><br/><sub>Learning &amp; training</sub></td>
+    <td align="center" width="25%"><a href="https://ai-dev.thefusebase.com/"><img src="docs/assets/showcase/interview-workspace.png" alt="Client interview workspace built with FuseBase Flow" width="100%"></a><br/><sub>Interview workspace</sub></td>
+    <td align="center" width="25%"><a href="https://ai-dev.thefusebase.com/"><img src="docs/assets/showcase/content-agency-site.png" alt="Content agency marketing site built with FuseBase Flow" width="100%"></a><br/><sub>Marketing site</sub></td>
+    <td align="center" width="25%"><a href="https://ai-dev.thefusebase.com/"><img src="docs/assets/showcase/language-learning-game.jpg" alt="Gamified language-learning app built with FuseBase Flow" width="100%"></a><br/><sub>Language-learning game</sub></td>
+  </tr>
+</table>
+
+🔎 **[Explore the full gallery → ai-dev.thefusebase.com](https://ai-dev.thefusebase.com/)** · Built something with FuseBase Flow? Share it in **[Show and tell](https://github.com/fusebase-dev/fusebase-flow/discussions)** — standout projects get featured here.
+
 ## Who it's for
 
 - **Agencies, consultancies, and client-facing teams** building apps for both their own internal operations and their clients.
@@ -616,14 +637,6 @@ Default is **solo / direct-to-main** with per-task commits and a verification ga
 
 Flow is just files. Remove the framework dirs (`flow-skills/ workflows/ hooks/ policies/ templates/ audit/ state/`), the adapter files (`AGENTS.md CLAUDE.md GEMINI.md FLOW_RULES.md VERSION`), and the provider surfaces you added (`.claude/ .agents/ .codex/ .cursor/ .github/`). To disable just the hooks, delete `.claude/settings.json`; if you installed the git fallback hooks, delete the copied `pre-commit` and `commit-msg` files from `.git/hooks/`. Your agent and code are untouched.
 </details>
-
-## Built with FuseBase Flow
-
-Real client-facing apps shipped **with FuseBase Flow on FuseBase Apps** — the Flow workflow takes a client conversation from spec to deployed app, running on the platform those apps are built on.
-
-🔎 **[Explore the gallery → ai-dev.thefusebase.com](https://ai-dev.thefusebase.com/)** — client-facing AI apps built this way.
-
-Built something with FuseBase Flow? Share it in **[Show and tell](https://github.com/fusebase-dev/fusebase-flow/discussions)** — standout projects get featured here.
 
 ## What's inside
 
