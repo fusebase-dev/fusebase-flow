@@ -4,10 +4,11 @@
 
 ![FuseBase Flow — you design and decide with the Product Owner agent, which hands off to the AI Developer agent that implements, runs the verification gate, and deploys](docs/assets/two-agent-banner.svg)
 
-[![Version](https://img.shields.io/badge/version-3.10.0-blue.svg)](VERSION)
+[![Version](https://img.shields.io/badge/version-3.11.0-blue.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![CI](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml/badge.svg)](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml)
 [![Use this template](https://img.shields.io/badge/GitHub-Use_this_template-brightgreen.svg?logo=github)](https://github.com/fusebase-dev/fusebase-flow/generate)
+[![Built by FuseBase](https://img.shields.io/badge/built_by-FuseBase-0A66C2.svg)](https://thefusebase.com)
 
 A development framework for client-facing businesses and teams, FuseBase Flow covers what breaks during real app development for internal and external collaboration — drift, context rot, scope creep, unreliable hand-offs — so two AI agents (a Product Owner and an AI Developer) can ship reliably.
 
@@ -173,7 +174,17 @@ The full eight-phase lifecycle lives at [`workflows/eight-phase-flow.md`](workfl
 
 ## Supported agents & IDEs
 
-FuseBase Flow provides compatibility files for:
+**Get started — find your tool, do the one step.** (After *Use this template* → clone → open the repo in your tool of choice.)
+
+| Your AI tool | Then do this |
+|---|---|
+| **Claude Code** | Auto-reads `CLAUDE.md`. Say *"Let's ship `<feature>`."* — or tailor it first with `/onboard`, or install as a plugin: `/plugin marketplace add fusebase-dev/fusebase-flow` |
+| **Codex** | Say *"Read `AGENTS.md` and follow `FLOW_RULES.md`,"* then *"Let's ship `<feature>`."* |
+| **Cursor** | Rules auto-load from `.cursor/rules/`. Say *"Let's ship `<feature>`."* |
+| **GitHub Copilot / VS Code** | `.github/copilot-instructions.md` auto-loads. Say *"Let's ship `<feature>`."* |
+| **Gemini** | Reads `GEMINI.md` + `AGENTS.md`. Say *"Let's ship `<feature>`."* |
+
+Compatibility files per tool:
 
 - **Anthropic Claude Code** — `CLAUDE.md`, `.claude/skills/`, `.claude/settings.json.example`
 - **OpenAI / ChatGPT Codex** — `AGENTS.md`, `.agents/skills/`, `.codex/config.toml.example`, `.codex/hooks.json.example`
