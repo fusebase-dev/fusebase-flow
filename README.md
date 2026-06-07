@@ -237,9 +237,9 @@ Preflight will warn on drift if the mirrors and canonical fall out of sync. Full
 
 ## Skill catalog
 
-Skills are on-demand expertise the agent loads when a task matches the skill's description. **24 canonical Flow skills** govern the lifecycle and project-optimization; **19 FuseBase Apps domain skills** supply the app-building knowledge. You never invoke them by hand — describe the work and the matcher loads the right one.
+Skills are on-demand expertise the agent loads when a task matches the skill's description. **25 canonical Flow skills** govern the lifecycle and project-optimization; **19 FuseBase Apps domain skills** supply the app-building knowledge. You never invoke them by hand — describe the work and the matcher loads the right one.
 
-### Flow lifecycle skills (24)
+### Flow lifecycle skills (25)
 
 | Phase | Skill | What it does |
 |---|---|---|
@@ -256,6 +256,7 @@ Skills are on-demand expertise the agent loads when a task matches the skill's d
 | Deploy | `release-deploy-reporting` | Deploy handoff, hash + probes + smoke, DRAFT→DONE flip |
 | Onboarding | `repo-onboarding-context-map` | Durable context map for a new/unfamiliar repo |
 | Meta | `skill-authoring` | Create/update reusable skills (clean-room classified; incl. domain-expert mode) |
+| Code-writing | `comment-policy` | FR-22 write-time carrier — tripwire + retrieval-pointer comment policy |
 | Health | `fusebase-flow-health-check` | Read-only overlay drift diagnosis + offered recovery |
 | Anti-drift | `zoom-out` | FR-20 — root-cause-vs-patch check before a fix |
 | Review | `phase-audit` | Independent sub-agent audit of all slices of a phase |
@@ -620,7 +621,7 @@ fusebase-flow/
 ├── VERSION                         ← 3.7.0
 ├── .gitattributes                  ← LF line endings for shell/python/yaml/md
 ├── .python-version                 ← 3.12 (recommended)
-├── flow-skills/                         ← 24 canonical skills (2 mandatory + 22 on-demand, incl. lightweight-lane (v3.7) + the v3.3–v3.5 additions: zoom-out, phase-audit, git-history-diagnostic, project-onboarding, north-star, client-vs-internal, product-docs-first, business-logic-guardian, product-apps-decomposition)
+├── flow-skills/                         ← 25 canonical skills (2 mandatory + 23 on-demand, incl. comment-policy (v3.11) + lightweight-lane (v3.7) + the v3.3–v3.5 additions: zoom-out, phase-audit, git-history-diagnostic, project-onboarding, north-star, client-vs-internal, product-docs-first, business-logic-guardian, product-apps-decomposition)
 ├── agents/                         ← 2 canonical sub-agents (product-owner, ai-developer)
 ├── workflows/                      ← 13 procedures (incl. lightweight-lane)
 ├── policies/                       ← 6 YAML policies
@@ -643,8 +644,8 @@ fusebase-flow/
 │   └── agent-mirror-manifest.txt   ← sha256 manifest for sub-agent mirrors
 ├── state/                          ← runtime state (gitignored contents)
 ├── docs/                           ← public reference docs + per-project artifacts
-├── .agents/skills/                 ← Codex skill surface (24 Flow mirrors + 19 CLI provider skills)
-├── .claude/skills/                 ← Claude Code skill surface (24 Flow mirrors + 19 CLI provider skills)
+├── .agents/skills/                 ← Codex skill surface (25 Flow mirrors + 19 CLI provider skills)
+├── .claude/skills/                 ← Claude Code skill surface (25 Flow mirrors + 19 CLI provider skills)
 ├── .claude/agents/                 ← Claude Code agent surface (2 Flow role agents + 2 CLI app agents)
 ├── .claude/commands/               ← Anthropic Claude Code slash commands (incl. /fusebase-health)
 ├── .claude/settings.json.example   ← Claude Code hook wiring
