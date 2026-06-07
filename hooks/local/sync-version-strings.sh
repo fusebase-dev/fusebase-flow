@@ -89,14 +89,18 @@ SKILL_COUNT="$(find "$SKILLS_CANON" -mindepth 1 -maxdepth 1 -type d 2>/dev/null 
 # pruning dated history, generated mirror dirs, and non-source trees. Generated
 # mirror dirs (.claude .agents .codex) are intentionally excluded — they are
 # refreshed by the re-mirror step so canonical stays the single source of truth.
+# Tripwire: -path is exact (no implicit depth) — nested per-app docs
+# (docs/<app>/handoff, docs/<app>/specs …) need the ./docs/*/ variant too.
 mapfile -t CANDIDATES < <(
   find . \
     \( -type d \( \
         -name '.git' -o -name '.fusebase-flow-source' -o -name 'node_modules' \
         -o -name '.claude' -o -name '.agents' -o -name '.codex' \
         -o -path './internal' \
-        -o -path './docs/release-notes' -o -path './docs/handoff' -o -path './docs/specs' \
-        -o -path './docs/fusebase-health' \
+        -o -path './docs/release-notes'   -o -path './docs/*/release-notes' \
+        -o -path './docs/handoff'         -o -path './docs/*/handoff' \
+        -o -path './docs/specs'           -o -path './docs/*/specs' \
+        -o -path './docs/fusebase-health' -o -path './docs/*/fusebase-health' \
       \) -prune \) -o \
     \( -type f \( -name '*.md' -o -name '*.mdc' \) \
         ! -name 'CHANGELOG.md' \

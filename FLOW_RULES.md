@@ -1,6 +1,6 @@
 # Fusebase Flow — always-on rules (FR-01..FR-22)
 
-**Status:** v0.8 (FR-22 added in v3.10 — code-comment policy: tripwire + pointer only)
+**Status:** v0.9 (FR-22 added in v3.10 — code-comment policy: tripwire + pointer only)
 **Scope:** every session in any IDE/agent must follow these regardless of which skill or workflow is active.
 
 These rules are clean-room original. Each rule states *what*, *why*, and *enforcement surface* (rule-only, policy, hook, workflow, skill). Enforcement details live in `policies/`, `hooks/`, and `workflows/` — this file is the readable contract.
@@ -49,7 +49,7 @@ If a session writes code outside its role, FR-01 fires and the agent must stop a
 
 ## Self-attestation (mandatory at first response of every session)
 
-Every role declares: "Operating as {role} under Fusebase Flow v3.11.0. I will follow FR-01 through FR-22. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+Every role declares: "Operating as {role} under Fusebase Flow v3.11.1. I will follow FR-01 through FR-22. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 If self-attestation is missing from the first response, the session is drifting. Self-correct in the next output.
 
@@ -219,4 +219,9 @@ Both modes preserve FR-03, FR-13, FR-14.
              review-time (code-review dimension), never via a regex/lint gate
              (tripwire-vs-restate is semantic). Not retroactive. Shipped in
              framework v3.10.0.
+
+2026-06-06 — v0.9. FR-22 write-time delivery shipped in v3.11.0 (comment-policy
+             carrier skill + sub-agent push + reachable audit prompt +
+             role-discipline false-claim fix); sync-version-strings
+             nested-per-app-docs prune fix in v3.11.1.
 ```
