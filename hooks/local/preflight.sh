@@ -162,5 +162,18 @@ if [ "${#mcp_present[@]}" -gt 0 ]; then
     warn "existing Fusebase CLI / MCP configuration detected (${mcp_present[*]}); ensure Fusebase Flow was installed as an append/merge overlay (see docs/install-fusebase-cli-project.md)"
 fi
 
+# 8. Command-surface consistency (v3.14.1+): the handoff command/skill surfaces
+#    and the plugin manifest version must stay in lockstep with the framework.
+VER_FILE="$(tr -d '\n\r' < VERSION 2>/dev/null)"
+[ -f .claude/commands/handoff.md ] || err "missing .claude/commands/handoff.md (/handoff slash command)"
+grep -q '/handoff' CLAUDE.md || err "CLAUDE.md does not list the /handoff slash command"
+grep -qi 'invoke the `handoff` skill' AGENTS.md || err "AGENTS.md does not explain the portable (non-Claude) handoff invocation"
+if [ -f .claude-plugin/plugin.json ] && command -v python3 >/dev/null 2>&1; then
+    plugin_ver="$(python3 -c "import json,sys; print(json.load(open('.claude-plugin/plugin.json')).get('version',''))" 2>/dev/null)"
+    if [ -n "$plugin_ver" ] && [ -n "$VER_FILE" ] && [ "$plugin_ver" != "$VER_FILE" ]; then
+        err ".claude-plugin/plugin.json version ($plugin_ver) != VERSION ($VER_FILE); bump them together"
+    fi
+fi
+
 note "preflight finished — errors: $errors, warnings: $warnings"
 exit $errors

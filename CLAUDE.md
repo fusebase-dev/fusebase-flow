@@ -1,6 +1,6 @@
 # CLAUDE.md - Claude Code adapter for Fusebase Flow
 
-This repo runs **Fusebase Flow v3.14.0**. The portable always-on baseline is in `AGENTS.md`. The full rule set is in `FLOW_RULES.md`. Read both before any other action.
+This repo runs **Fusebase Flow v3.14.1**. The portable always-on baseline is in `AGENTS.md`. The full rule set is in `FLOW_RULES.md`. Read both before any other action.
 
 ## Claude Code-specific notes
 
@@ -36,7 +36,7 @@ Hooks read policies from `policies/*.yml`. They are **opt-in**: nothing runs unt
 
 ## Self-attestation (every session's first response)
 
-> "Operating as {role} under Fusebase Flow v3.14.0. I will follow FR-01 through FR-23. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+> "Operating as {role} under Fusebase Flow v3.14.1. I will follow FR-01 through FR-23. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 If your first response doesn't include this attestation, you're drifting. See `FLOW_RULES.md`.
 
@@ -108,7 +108,7 @@ This repository follows **Fusebase Flow** in addition to project-specific rules.
 - `lightweight-lane` — FR-21 change-size tiering; small/reversible changes use a change-note + one build→verify→deploy pass instead of the full lifecycle
 - `comment-policy` — FR-22 write-time carrier; delivers the tripwire + retrieval-pointer comment policy into a code-writing agent's context (description-matched on code/comment edits)
 - `documentation-budget` — FR-23 doc-budget classifier; tier (0-4) before any AI-consumed artifact; canonical ownership + pointers over duplication; active handoff = `docs/tmp/handoff.md`
-- `handoff` — writes active session restart state to `docs/tmp/handoff.md` (16-section template) so a fresh session resumes exactly; operator-triggered (also via `/handoff`)
+- `handoff` — portable skill: writes active session restart state to `docs/tmp/handoff.md` (16-section template) so a fresh session resumes exactly; operator-triggered. On Claude Code use the `/handoff` slash command; on Codex/Cursor/Copilot/Gemini invoke the `handoff` skill by name (same skill, same output).
 
 (27 canonical Fusebase Flow skills total.)
 

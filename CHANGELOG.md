@@ -4,6 +4,20 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.14.1] — 2026-06-07
+
+### Fixed — release-hygiene polish (no model/behavior change)
+
+Small consistency patch over v3.14.0. The handoff model is unchanged; this corrects surface metadata and adds a guard so it can't silently drift again.
+
+- **`/handoff` vs `handoff` skill clarified** — `/handoff` is the **Claude Code** slash command; the `handoff` **skill** is the portable cross-agent workflow. `AGENTS.md` now states the non-Claude invocation explicitly ("invoke the `handoff` skill and write `docs/tmp/handoff.md`" on Codex / Cursor / Copilot / Gemini); `CLAUDE.md` bullet clarified.
+- **`.claude-plugin/plugin.json`** version `3.10.0` → `3.14.1` (was badly stale).
+- **README** version badge `3.11.1` → `3.14.1`; existing-repo copy block fixed to `cp -R $SRC/flow-skills ./` (was `skills/`).
+- **`docs/compatibility.md`** refreshed: 27 Flow skills (was 14), mirror count 54 = 27 × 2 (was 28 = 14 × 2), hook tests 16/16 (was 14/14), canonical source is `flow-skills/` (was `skills/`), `/handoff` listed.
+- **`preflight.sh` §8 (new)** — command-surface consistency guard: `.claude/commands/handoff.md` exists, `CLAUDE.md` lists `/handoff`, `AGENTS.md` explains the portable invocation, and `.claude-plugin/plugin.json` version == `VERSION`. (Verified: negative test fails preflight, positive passes.)
+- Version-string sweep brought live attestation strings to v3.14.1; `FLOW_RULES.md` Status `v0.12 → v0.13`.
+- **Verified:** preflight 0/0; run-tests 16/16. Detail: `docs/release-notes/v3.14.1.md`.
+
 ## [3.14.0] — 2026-06-07
 
 ### Added — handoff procedure finalized (`handoff` skill + `/handoff` command + template) + version-string sweep

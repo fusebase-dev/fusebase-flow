@@ -182,11 +182,13 @@ Fusebase Flow ships:
 
 **Self-attestation (every session's first response):**
 
-> "Operating as {role} under Fusebase Flow v3.14.0. I will follow FR-01 through FR-23. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+> "Operating as {role} under Fusebase Flow v3.14.1. I will follow FR-01 through FR-23. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 **Operator questions:** per FR-19, ask questions in chat text, not popup / clickable menu tools. Use short option tables or numbered lists so the operator can copy, forward, quote, and follow up.
 
-**Slash commands:** `/fusebase-health` (overlay health), `/onboard` (capture project vision), `/product-owner` (start a PO session), `/handoff` (write active restart state to `docs/tmp/handoff.md`). All in `.claude/commands/`.
+**Slash commands:** `/fusebase-health` (overlay health), `/onboard` (capture project vision), `/product-owner` (start a PO session), `/handoff` (write active restart state to `docs/tmp/handoff.md`). All in `.claude/commands/` — these are **Claude Code** surfaces.
+
+**Cross-agent handoff (portable):** the `handoff` skill is the portable workflow; `/handoff` is only the Claude Code convenience wrapper for it. On **Codex / Cursor / Copilot / Gemini** (no slash commands), invoke the `handoff` skill and write `docs/tmp/handoff.md` — same skill, same output, no command needed.
 
 ### Active project context — read first
 

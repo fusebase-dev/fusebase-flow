@@ -1,4 +1,4 @@
-.claude/agents/ai-developer.md  7c46b1d98ce094f916f2e80abb0bb3db307f385bc18ec8833e8f2d4702af83b2
-.codex/agents/ai-developer.md  7c46b1d98ce094f916f2e80abb0bb3db307f385bc18ec8833e8f2d4702af83b2
-.claude/agents/product-owner.md  b9bdbcea4b6b0653637cd3bbe32808cf65a9d82f45f93ec4e3194648125c27c3
-.codex/agents/product-owner.md  b9bdbcea4b6b0653637cd3bbe32808cf65a9d82f45f93ec4e3194648125c27c3
+.claude/agents/ai-developer.md  81a52525436b652fef8d791f8125150e9af5517fde6e2a696f06ffad195f2b4f
+.codex/agents/ai-developer.md  81a52525436b652fef8d791f8125150e9af5517fde6e2a696f06ffad195f2b4f
+.claude/agents/product-owner.md  4e736dc5359ef65fa8f620c701cba35f11934b571240480bf5a48473889094e8
+.codex/agents/product-owner.md  4e736dc5359ef65fa8f620c701cba35f11934b571240480bf5a48473889094e8
