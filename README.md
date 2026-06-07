@@ -615,6 +615,14 @@ Default is **solo / direct-to-main** with per-task commits and a verification ga
 Flow is just files. Remove the framework dirs (`flow-skills/ workflows/ hooks/ policies/ templates/ audit/ state/`), the adapter files (`AGENTS.md CLAUDE.md GEMINI.md FLOW_RULES.md VERSION`), and the provider surfaces you added (`.claude/ .agents/ .codex/ .cursor/ .github/`). To disable just the hooks, delete `.claude/settings.json`; if you installed the git fallback hooks, delete the copied `pre-commit` and `commit-msg` files from `.git/hooks/`. Your agent and code are untouched.
 </details>
 
+## Built with FuseBase Flow
+
+Real client-facing apps shipped **with FuseBase Flow on FuseBase Apps** — the Flow workflow takes a client conversation from spec to deployed app, running on the platform those apps are built on.
+
+🔎 **[Explore the gallery → ai-dev.thefusebase.com](https://ai-dev.thefusebase.com/)** — client-facing AI apps built this way.
+
+Built something with FuseBase Flow? Share it in **[Show and tell](https://github.com/fusebase-dev/fusebase-flow/discussions)** — standout projects get featured here.
+
 ## What's inside
 
 <details>
