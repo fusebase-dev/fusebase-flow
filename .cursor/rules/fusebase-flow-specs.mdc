@@ -1,6 +1,6 @@
 ---
-description: Fusebase Flow specification phase rules. Use when drafting docs/specs/*, docs/decisions/*, docs/handoff/*, docs/backlog/*.
-globs: ["docs/specs/**", "docs/decisions/**", "docs/handoff/**", "docs/backlog/**", "docs/problem-catalog/**"]
+description: Fusebase Flow specification phase rules. Use when drafting docs/specs/*, docs/decisions/*, docs/tmp/handoff/*, docs/backlog/*.
+globs: ["docs/specs/**", "docs/decisions/**", "docs/tmp/handoff/**", "docs/backlog/**", "docs/problem-catalog/**"]
 alwaysApply: false
 ---
 
@@ -29,7 +29,7 @@ Files in this glob are read by AI sessions, not human readers. Optimize for AI c
 - `docs/specs/<slug>/decisions.md` ← `templates/decisions.md`
 - `docs/specs/<slug>/tasks.md` ← `templates/tasks.md`
 - `docs/specs/<slug>/verification-gate.md` ← `templates/verification-gate.md`
-- `docs/handoff/<YYYY-MM-DD>-<slug>-<stage>.md` ← workflow templates in `workflows/`
+- `docs/tmp/handoff/<YYYY-MM-DD>-<slug>-<stage>.md` ← workflow templates in `workflows/`
 - `docs/problem-catalog/<slug>/problem.md` ← `templates/problem-catalog-entry.md`
 
 ## Anti-patterns

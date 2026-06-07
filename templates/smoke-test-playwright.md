@@ -110,14 +110,14 @@ test.describe('<slug> smoke', () => {
     expect(consoleErrors).toEqual([]);
 
     // Evidence
-    await page.screenshot({ path: 'docs/handoff/<date>-<slug>-smoke/screenshots/S1.png' });
+    await page.screenshot({ path: 'docs/tmp/handoff/<date>-<slug>-smoke/screenshots/S1.png' });
     // Also inspect the backend/log/API diagnostic named in verification-gate.md S1.
   });
 
   test('S2: <scenario one-liner>', async ({ page }) => {
     await page.goto(`${BASE_URL}/<feature route>`);
     // ...
-    await page.screenshot({ path: 'docs/handoff/<date>-<slug>-smoke/screenshots/S2.png' });
+    await page.screenshot({ path: 'docs/tmp/handoff/<date>-<slug>-smoke/screenshots/S2.png' });
   });
 
 });
@@ -126,22 +126,22 @@ test.describe('<slug> smoke', () => {
 ## Run command
 
 ```bash
-mkdir -p docs/handoff/<date>-<slug>-smoke/screenshots
+mkdir -p docs/tmp/handoff/<date>-<slug>-smoke/screenshots
 SMOKE_BASE_URL=<deployed url> npx playwright test docs/specs/<slug>/smoke.spec.ts \
   --reporter=line \
-  --output=docs/handoff/<date>-<slug>-smoke/playwright-output \
-  | tee docs/handoff/<date>-<slug>-smoke/playwright-run.log
+  --output=docs/tmp/handoff/<date>-<slug>-smoke/playwright-output \
+  | tee docs/tmp/handoff/<date>-<slug>-smoke/playwright-run.log
 ```
 
 ## Evidence persistence
 
 | Artifact | Path |
 |---|---|
-| Screenshot per S<n> | `docs/handoff/<date>-<slug>-smoke/screenshots/S<n>.png` |
-| Playwright trace (failures) | `docs/handoff/<date>-<slug>-smoke/playwright-output/` |
-| Run log | `docs/handoff/<date>-<slug>-smoke/playwright-run.log` |
-| Test data note | `docs/handoff/<date>-<slug>-smoke/test-data.md` |
-| Backend diagnostic excerpt | `docs/handoff/<date>-<slug>-smoke/S<n>-diagnostic.log` |
+| Screenshot per S<n> | `docs/tmp/handoff/<date>-<slug>-smoke/screenshots/S<n>.png` |
+| Playwright trace (failures) | `docs/tmp/handoff/<date>-<slug>-smoke/playwright-output/` |
+| Run log | `docs/tmp/handoff/<date>-<slug>-smoke/playwright-run.log` |
+| Test data note | `docs/tmp/handoff/<date>-<slug>-smoke/test-data.md` |
+| Backend diagnostic excerpt | `docs/tmp/handoff/<date>-<slug>-smoke/S<n>-diagnostic.log` |
 | Pass/fail summary | embedded in deploy report |
 
 ## Pass / fail interpretation
@@ -157,7 +157,7 @@ SMOKE_BASE_URL=<deployed url> npx playwright test docs/specs/<slug>/smoke.spec.t
 - Do not use brittle selectors tied to styling, layout, generated classes, or incidental copy
 - Do not assert exact counts, first-row assumptions, or empty states unless this smoke created or isolated the data
 - Do not use placeholder values that can collide with previous runs; create unique values and document them
-- Do not commit screenshots to git — keep them in `docs/handoff/<date>-<slug>-smoke/` (which is committed for audit; rotate with deploy ticket retention)
+- Do not commit screenshots to git — keep them in `docs/tmp/handoff/<date>-<slug>-smoke/` (which is committed for audit; rotate with deploy ticket retention)
 - Do not embed deploy URL or session credentials in the spec file — read from env vars
 - Do not trigger real notifications, charges, or customer-visible external-service actions without an explicit approval or sandbox path
 - Do not over-instrument — smoke tests are end-to-end happy-path checks, not exhaustive regression suites

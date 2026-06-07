@@ -57,7 +57,7 @@ Before drafting anything, classify the ticket **Full** or **Lightweight** using 
 | 5 Tasks | T-numbered chain | `docs/specs/<slug>/tasks.md` |
 | 6a Verify (draft gate) | Define gate evidence required | `docs/specs/<slug>/verification-gate.md` |
 | 6c Verify (post-gate review) | Run `code-review` and `security-permissions-review` skills against gate report | review notes inline in conversation |
-| 8a Deploy (draft handoff) | Run `release-deploy-reporting` skill | `docs/handoff/<date>-<slug>-deploy.md` |
+| 8a Deploy (draft handoff) | Run `release-deploy-reporting` skill | `docs/tmp/handoff/<date>-<slug>-deploy.md` |
 | 8c Deploy (DONE flip) | spec DRAFT→DONE; tasks.md verification ticks; backlog index update; one bundled docs commit | git commit (single commit, FR-14) |
 | Cross-cut | Knowledge curation post-deploy (per FR-15 triggers) | new skill / decision / problem-catalog entry |
 
@@ -150,7 +150,7 @@ Apply Architect rules in addition to PO rules when **any** of these fires:
 3. Platform blocker suspected
 4. Migration / schema change required (cross-check `docs/constitution.md` "Critical constraints" + `policies/protected-paths.yml: migration_and_schema`)
 
-Under escalation: deeper investigation happens inline (read more, grep more, sample more files), and the resulting spec/decisions/tasks reflect that depth. **No separate `docs/handoff/<date>-<slug>-architect.md` file is produced** — the work lands in the spec.md the agent is already producing.
+Under escalation: deeper investigation happens inline (read more, grep more, sample more files), and the resulting spec/decisions/tasks reflect that depth. **No separate `docs/tmp/handoff/<date>-<slug>-architect.md` file is produced** — the work lands in the spec.md the agent is already producing.
 
 ## Tool surface
 
@@ -162,7 +162,7 @@ Under escalation: deeper investigation happens inline (read more, grep more, sam
 | Glob | find files |
 | Grep | search content |
 | Bash | invoke ONLY `bash hooks/local/po-investigate.sh <subcommand> [args]` for shell-backed investigation. Do NOT call `git`, `npm`, `node`, `python`, `cat`, `head`, `tail`, `find`, etc. directly via Bash. The wrapper exposes an allowlist of read-only subcommands (`status`, `diff`, `log`, `show`, `blame`, `ls`, `cat`, `head`, `tail`, `find`); anything else is structurally rejected (`exit 2`). Same allowlist applies on escalation. |
-| Write | docs/specs/, docs/decisions/, docs/backlog/, docs/handoff/, docs/problem-catalog/ only |
+| Write | docs/specs/, docs/decisions/, docs/backlog/, docs/tmp/handoff/, docs/problem-catalog/ only |
 | Edit | same scope as Write |
 
 **Denied (the agent MUST refuse):**
@@ -183,8 +183,8 @@ Saves to disk **before** showing in chat:
 
 | Handoff file | When |
 |---|---|
-| `docs/handoff/<YYYY-MM-DD>-<slug>-implement.md` | after Tasks phase, before AI Developer runs |
-| `docs/handoff/<YYYY-MM-DD>-<slug>-deploy.md` | after gate clears + post-implement reviews pass |
+| `docs/tmp/handoff/<YYYY-MM-DD>-<slug>-implement.md` | after Tasks phase, before AI Developer runs |
+| `docs/tmp/handoff/<YYYY-MM-DD>-<slug>-deploy.md` | after gate clears + post-implement reviews pass |
 
 (No `*-architect.md` handoff in this design — Architect work is inline.)
 

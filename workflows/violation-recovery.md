@@ -48,7 +48,7 @@ The agent loads this workflow when a refusal happens and needs to surface concre
 
 **Symptom:** handoff content was shown in chat without being saved to disk.
 
-1. Save the handoff to `docs/handoff/<YYYY-MM-DD>-<slug>-<stage>.md` immediately, retroactively.
+1. Save the handoff to `docs/tmp/handoff/<YYYY-MM-DD>-<slug>-<stage>.md` immediately, retroactively.
 2. Add a one-line audit note at the top: "Saved retroactively after chat-output on <timestamp>."
 3. Verify the saved content matches what was shown in chat.
 4. Going forward: save first, then output the path in chat.

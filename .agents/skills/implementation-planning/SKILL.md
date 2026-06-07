@@ -10,7 +10,7 @@ expected_outputs:
   - docs/specs/<slug>/decisions.md
   - docs/specs/<slug>/tasks.md
   - docs/specs/<slug>/verification-gate.md
-  - docs/handoff/<YYYY-MM-DD>-<slug>-implement.md
+  - docs/tmp/handoff/<YYYY-MM-DD>-<slug>-implement.md
 related_workflows:
   - eight-phase-flow.md
   - greenlight-implement.md
@@ -73,7 +73,7 @@ Fail-safe: when unsure, choose the higher tier. Never weaken a safety artifact r
 9. Present decisions for lock in chat (Mode A — comparison table when there are 3+ alternatives). End with explicit lock prompt: "Reply 'lock' to approve all as recommended, OR 'redirect <Letter><n>' to change."
 10. Wait for operator lock confirmation per FR-11. Implicit approval ("ok", "looks good") does NOT count.
 11. After lock: increment letter prefix and T-counter in `AGENTS.md`. Update `tasks.md` SHAs to LOCKED.
-12. Draft implementer handoff using `templates/handoff-folder-README.md` informed shape; save to `docs/handoff/<YYYY-MM-DD>-<slug>-implement.md` BEFORE outputting in chat (FR-04). Per FR-23, the handoff points to canonical `spec.md` / `decisions.md` / `tasks.md` (cite paths + AC/decision IDs); it must NOT reprint their contents.
+12. Draft implementer handoff using `templates/handoff-folder-README.md` informed shape; save to `docs/tmp/handoff/<YYYY-MM-DD>-<slug>-implement.md` BEFORE outputting in chat (FR-04). Per FR-23, the handoff points to canonical `spec.md` / `decisions.md` / `tasks.md` (cite paths + AC/decision IDs); it must NOT reprint their contents.
 13. Tell operator: "Implement handoff saved to <path>. Open that file, paste into a fresh AI agent session as AI Developer."
 
 ## Output artifacts
@@ -83,7 +83,7 @@ Fail-safe: when unsure, choose the higher tier. Never weaken a safety artifact r
 | Decisions | `docs/specs/<slug>/decisions.md` | Mode B (full) |
 | Tasks | `docs/specs/<slug>/tasks.md` | Mode B (full) |
 | Verification gate | `docs/specs/<slug>/verification-gate.md` | Mode B (full) |
-| Implement handoff | `docs/handoff/<YYYY-MM-DD>-<slug>-implement.md` | Mode B (full) |
+| Implement handoff | `docs/tmp/handoff/<YYYY-MM-DD>-<slug>-implement.md` | Mode B (full) |
 | Updated counters | `AGENTS.md` project-specific section | Human-readable |
 
 ## Failure cases

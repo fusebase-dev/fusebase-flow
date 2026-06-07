@@ -100,7 +100,7 @@ If today you open Claude Code / Codex / Cursor and just say *"build me X"*, you 
 | One giant prompt -> one giant diff you have to trust | Spec -> decisions -> tasks -> one-commit-per-task you can review |
 | "It worked on my machine" | Verification gate + outcome-based smoke before deploy |
 | Scope creep mid-session | Locked decisions; supersede discipline (FR-18) |
-| Re-explaining context every session | Durable repo artifacts (`docs/specs/`, `docs/handoff/`) |
+| Re-explaining context every session | Durable repo artifacts (`docs/specs/`, `docs/tmp/handoff/`) |
 | Risky deploys | Deploy gated on an explicit approval artifact |
 
 Nothing to uninstall from your agent -- drop the files in, attest once, keep working.
@@ -187,14 +187,14 @@ Skipping is fine — nothing is created unless you provide it, and the framework
 
 1. Tell the agent: *"Let's ship `<feature description>`."*
 2. The agent invokes the `requirements-specification` skill, drafts `docs/specs/<slug>/spec.md`, and runs clarify questions.
-3. After clarify resolves, the agent invokes `implementation-planning` to produce `decisions.md`, `tasks.md`, `verification-gate.md`, plus a saved handoff at `docs/handoff/<YYYY-MM-DD>-<slug>-implement.md`.
+3. After clarify resolves, the agent invokes `implementation-planning` to produce `decisions.md`, `tasks.md`, `verification-gate.md`, plus a saved handoff at `docs/tmp/handoff/<YYYY-MM-DD>-<slug>-implement.md`.
 4. Open a fresh agent session, paste the handoff, and the AI Developer executes the task chain — stopping at the verification gate.
 5. Paste the gate report back to the originating session. Run `code-review` and `security-permissions-review`.
 6. If clean, the operator says *"prepare deploy"* — the `release-deploy-reporting` skill drafts the deploy handoff, you paste it into the AI Developer session, deploy runs, probes and outcome-based smoke verify.
 
 The full eight-phase lifecycle lives at [`workflows/eight-phase-flow.md`](workflows/eight-phase-flow.md).
 
-**Docs layout (created on demand — nothing to scaffold).** A fresh install ships no `docs/specs/` or `docs/changes/` — they're created by the work that needs them, so the tree stays clean until your first ticket. Expected paths once you start: `docs/specs/<slug>/` (spec · decisions · tasks · verification-gate), `docs/handoff/` (cross-session handoffs), `docs/changes/` (Lightweight-lane ledger, opt-in), `docs/backlog/` (parked tickets). Run `/onboard` first if you want project artifacts (`docs/north-star.md`, project values) before ticket #1.
+**Docs layout (created on demand — nothing to scaffold).** A fresh install ships no `docs/specs/` or `docs/changes/` — they're created by the work that needs them, so the tree stays clean until your first ticket. Expected paths once you start: `docs/specs/<slug>/` (spec · decisions · tasks · verification-gate), `docs/tmp/handoff/` (cross-session handoffs), `docs/changes/` (Lightweight-lane ledger, opt-in), `docs/backlog/` (parked tickets). Run `/onboard` first if you want project artifacts (`docs/north-star.md`, project values) before ticket #1.
 
 ## Supported agents & IDEs
 
@@ -241,7 +241,7 @@ FuseBase Flow also ships FuseBase Apps app-agents (`app-architect`, `app-create-
 ```
 
 ```
-> Use the ai-developer sub-agent. Run docs/handoff/2026-05-09-pagination-implement.md.
+> Use the ai-developer sub-agent. Run docs/tmp/handoff/2026-05-09-pagination-implement.md.
 ```
 
 Claude Code auto-discovers `.claude/agents/<name>.md`.
@@ -257,7 +257,7 @@ Codex doesn't auto-discover sub-agent files. Reference them in the first message
 
 ```
 > Read .codex/agents/ai-developer.md and operate as AI Developer per its instructions.
-> Run docs/handoff/2026-05-09-pagination-implement.md.
+> Run docs/tmp/handoff/2026-05-09-pagination-implement.md.
 ```
 
 ### Updating sub-agent definitions

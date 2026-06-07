@@ -32,8 +32,9 @@
 #   reflect the canonical edits. (Those dirs are generated; never edited directly.)
 #
 # What it NEVER touches:
-#   - Dated history: CHANGELOG.md, docs/release-notes/**, docs/handoff/**,
-#     docs/specs/** (excluded from the scan).
+#   - Dated history: CHANGELOG.md, docs/release-notes/**, docs/handoff/** (archive),
+#     docs/tmp/handoff/** (formal dated relays, v3.13.0+), docs/specs/**
+#     (excluded from the scan).
 #   - Generated mirror dirs directly (.claude/ .agents/ .codex/ — refreshed via
 #     re-mirror so a single canonical source of truth is preserved).
 #   - .fusebase-flow-source/, internal/, node_modules/, .git/, *.pre-* backups.
@@ -99,6 +100,7 @@ mapfile -t CANDIDATES < <(
         -o -path './internal' \
         -o -path './docs/release-notes'   -o -path './docs/*/release-notes' \
         -o -path './docs/handoff'         -o -path './docs/*/handoff' \
+        -o -path './docs/tmp/handoff' \
         -o -path './docs/specs'           -o -path './docs/*/specs' \
         -o -path './docs/fusebase-health' -o -path './docs/*/fusebase-health' \
       \) -prune \) -o \

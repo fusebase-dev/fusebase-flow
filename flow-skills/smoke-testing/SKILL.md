@@ -8,8 +8,8 @@ risk_level: high
 invocation: automatic
 expected_outputs:
   - outcome-based smoke prompts in docs/specs/<slug>/verification-gate.md
-  - deploy-handoff smoke contract in docs/handoff/<date>-<slug>-deploy.md
-  - smoke evidence in docs/handoff/<date>-<slug>-smoke/
+  - deploy-handoff smoke contract in docs/tmp/handoff/<date>-<slug>-deploy.md
+  - smoke evidence in docs/tmp/handoff/<date>-<slug>-smoke/
   - smoke result table in deploy report
 related_workflows:
   - smoke-verification.md
@@ -30,7 +30,7 @@ Prevent pre-outcome signals from being mislabeled as smoke success. A smoke test
 ## When to invoke
 
 - Product Owner drafts `verification-gate.md` for a user-facing or operator-facing change.
-- Product Owner drafts `docs/handoff/<date>-<slug>-deploy.md` and includes S1..Sn smoke prompts.
+- Product Owner drafts `docs/tmp/handoff/<date>-<slug>-deploy.md` and includes S1..Sn smoke prompts.
 - AI Developer / Deploy phase runs post-deploy smoke prompts.
 - A previous smoke missed a production bug and the smoke method must be corrected.
 - Operator asks whether smoke evidence is sufficient.
@@ -52,7 +52,7 @@ Prevent pre-outcome signals from being mislabeled as smoke success. A smoke test
 | Existing smoke harness | `docs/specs/<slug>/smoke.spec.ts`, script path, curl command, or manual steps | Use if present; do not substitute weaker checks silently |
 | UI / browser plan, if applicable | S<n> fields or `templates/smoke-test-playwright.md` | Require route, viewport, primary action, stable locators, auth plan, unique test data, expected outcome, diagnostics |
 | CLI edition map, for Fusebase Apps work | `docs/fusebase-cli-edition.md` | Continue only if smoke can name another ground-truth diagnostic surface |
-| Evidence directory | `docs/handoff/<date>-<slug>-smoke/` | Create before execution |
+| Evidence directory | `docs/tmp/handoff/<date>-<slug>-smoke/` | Create before execution |
 
 ## Procedure
 
@@ -86,7 +86,7 @@ Prevent pre-outcome signals from being mislabeled as smoke success. A smoke test
 9. For errors shaped like `'X' object is not Y`, `NoneType`, `undefined is not`, or equivalent type/iteration failures, get the full traceback first. Do not bisect from guesses.
 10. If smoke fails, list at least three candidate causes before selecting the next probe. Design a probe that distinguishes them.
 11. If end-to-end execution is not feasible, report `PENDING-OPERATOR-SMOKE` with the missing prerequisite and exact operator steps. Do not claim PASS, DONE, or SHIPPED.
-12. Persist evidence under `docs/handoff/<date>-<slug>-smoke/` and include exact paths in the deploy report.
+12. Persist evidence under `docs/tmp/handoff/<date>-<slug>-smoke/` and include exact paths in the deploy report.
 13. Clean up or document test data and external-service side effects before DONE. Keep evidence files; remove throwaway data not needed for audit.
 14. If a smoke missed a bug, update future smoke methodology immediately: add the missed outcome or diagnostic surface to the next gate/handoff.
 
@@ -95,8 +95,8 @@ Prevent pre-outcome signals from being mislabeled as smoke success. A smoke test
 | Artifact | Path or location | Mode |
 |---|---|---|
 | Smoke contract | `docs/specs/<slug>/verification-gate.md` | Mode B |
-| Deploy smoke instructions | `docs/handoff/<date>-<slug>-deploy.md` | Mode B |
-| Evidence files | `docs/handoff/<date>-<slug>-smoke/S<n>-*.{md,log,png,json}` | Mode B |
+| Deploy smoke instructions | `docs/tmp/handoff/<date>-<slug>-deploy.md` | Mode B |
+| Evidence files | `docs/tmp/handoff/<date>-<slug>-smoke/S<n>-*.{md,log,png,json}` | Mode B |
 | Smoke result matrix | `templates/deploy-report.md` section 4 | Mode B |
 | Pending operator smoke prompt | deploy report + PO chat relay block | Mode A + Mode B |
 

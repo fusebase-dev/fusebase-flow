@@ -7,5 +7,5 @@
   "session_id": "test-13",
   "cwd": ".",
   "host_tool": "claude_code",
-  "agent_message": "Deploy complete. Live-user verification was used for this ticket via session_key_or_cookie_use approval. Probes: G-M PASS, G-N PASS, G-O PASS, G-P PASS, G-Q PASS. Deploy hash: deployed via abc1234ef. Rollback procedure documented; git revert <hash> + redeploy. Single docs commit: docs(post-deploy): test-slug DONE. Smoke results at docs/handoff/2026-05-08-test-slug-smoke/."
+  "agent_message": "Deploy complete. Live-user verification was used for this ticket via session_key_or_cookie_use approval. Probes: G-M PASS, G-N PASS, G-O PASS, G-P PASS, G-Q PASS. Deploy hash: deployed via abc1234ef. Rollback procedure documented; git revert <hash> + redeploy. Single docs commit: docs(post-deploy): test-slug DONE. Smoke results at docs/tmp/handoff/2026-05-08-test-slug-smoke/."
 }

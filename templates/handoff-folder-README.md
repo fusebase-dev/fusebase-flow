@@ -1,17 +1,17 @@
-# `docs/handoff/` README — handoff convention
+# `docs/tmp/handoff/` README — handoff convention
 
-This file is the substrate for the project's `docs/handoff/README.md`. The setup workflow copies this in (or projects can author their own).
+This file is the substrate for the project's `docs/tmp/handoff/README.md`. The setup workflow copies this in (or projects can author their own).
 
 ---
 
-# `docs/handoff/` — cross-session prompts
+# `docs/tmp/handoff/` — cross-session prompts
 
 Every prompt that hands work between two AI sessions is saved here as a dated file BEFORE it is shown in chat.
 
 ## Naming convention
 
 ```
-docs/handoff/<YYYY-MM-DD>-<slug>-<stage>.md
+docs/tmp/handoff/<YYYY-MM-DD>-<slug>-<stage>.md
 ```
 
 | Stage | Producer | Consumer | Example |
@@ -35,7 +35,7 @@ Per-stage handoff content templates live in:
 Per FR-04 (persist handoffs):
 
 - **Replay-able** — paste the same file again to restart a crashed session.
-- **Audit trail** — `git log docs/handoff/` shows every cross-session prompt that ever ran.
+- **Audit trail** — `git log docs/tmp/handoff/` shows every cross-session prompt that ever ran.
 - **Searchable** — grep for a topic across all past handoffs.
 
 ## Style

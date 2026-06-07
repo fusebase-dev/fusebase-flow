@@ -1,6 +1,6 @@
 # Implement handoff template (v2.5.0+)
 
-> **Mode B (full).** Dense, tabular, front-loaded. The Product Owner authors this file in `docs/handoff/<YYYY-MM-DD>-<slug>-implement.md` and points the AI Developer session at it. The role-bootstrap prelude at the top makes the file self-bootstrapping in any agent (Claude Code, Codex, etc.) — fresh chat or follow-up.
+> **Mode B (full).** Dense, tabular, front-loaded. The Product Owner authors this file in `docs/tmp/handoff/<YYYY-MM-DD>-<slug>-implement.md` and points the AI Developer session at it. The role-bootstrap prelude at the top makes the file self-bootstrapping in any agent (Claude Code, Codex, etc.) — fresh chat or follow-up.
 
 ---
 

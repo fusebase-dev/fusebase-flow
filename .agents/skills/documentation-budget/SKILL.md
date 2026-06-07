@@ -31,7 +31,7 @@ Before creating, expanding, or revising any of:
 
 - `docs/specs/<slug>/spec.md`, `decisions.md`, `tasks.md`, `verification-gate.md`
 - `docs/tmp/handoff.md` (active session continuity)
-- `docs/handoff/<YYYY-MM-DD>-<slug>-{implement,deploy}.md` (formal role-relay)
+- `docs/tmp/handoff/<YYYY-MM-DD>-<slug>-{implement,deploy}.md` (formal role-relay)
 - `docs/changes/<date>-<slug>.md` (Lightweight change-note)
 - `docs/backlog/**`, `docs/problem-catalog/**`
 - `docs/<app>/product.md`, `docs/<app>/business-logic.md`, `docs/<app>/business-logic-index.md`
@@ -92,20 +92,20 @@ Before writing a persistent AI-consumed artifact, classify the documentation tie
 | `tasks.md` | execution slices, file-level work, dependencies, validation commands | product rationale, full spec |
 | `verification-gate.md` | gate status, proof, unresolved risk, approval status | task details beyond gate evidence |
 | `docs/tmp/handoff.md` | active restart state, repo state, files in flight, failed attempts, single next action | full spec/decisions/tasks |
-| `docs/handoff/*-{implement,deploy}.md` | formal role-relay prompt for a fresh session | full spec/decisions/tasks (point to canonical) |
+| `docs/tmp/handoff/*-{implement,deploy}.md` | formal role-relay prompt for a fresh session | full spec/decisions/tasks (point to canonical) |
 | change-note | lightweight change proof + rollback + commit/deploy summary (FR-21) | full lifecycle docs (it replaces them for LL work) |
 | `product.md` | long-lived product/app/workflow intent (`product-docs-first`) | implementation detail |
 | `business-logic-index.md` | implemented rules/workflows as AI retrieval index | narrative onboarding |
 
 ## Active handoff path
 
-Active session continuity uses **`docs/tmp/handoff.md`** — single file, superseded every session (FR-18), not an audit log. **Never** use `docs/handoff/` for active continuity. Formal role-relay prompts are separate and intentional:
+Active session continuity uses **`docs/tmp/handoff.md`** — single file, superseded every session (FR-18), not an audit log. Active state goes in that top-level `.md`, never in the dated `docs/tmp/handoff/<...>` relay files. Formal role-relay prompts are dated siblings under the same folder:
 
 | Path | Role |
 |---|---|
 | `docs/tmp/handoff.md` | Active restart state. Superseded every session. Point to canonical artifacts; `Unknown` not a guess; `None` not filler. |
-| `docs/handoff/<YYYY-MM-DD>-<slug>-implement.md` | Formal implement relay (`implementation-planning`), only when needed. |
-| `docs/handoff/<YYYY-MM-DD>-<slug>-deploy.md` | Formal deploy relay (`release-deploy-reporting`), only when needed. |
+| `docs/tmp/handoff/<YYYY-MM-DD>-<slug>-implement.md` | Formal implement relay (`implementation-planning`), only when needed. |
+| `docs/tmp/handoff/<YYYY-MM-DD>-<slug>-deploy.md` | Formal deploy relay (`release-deploy-reporting`), only when needed. |
 
 ## Product docs rule
 
@@ -155,7 +155,7 @@ Bad: a doc that reprints full background, all decisions, all ACs, and all implem
 | Product doc expanded for small fix | no product-intent change | Revert the expansion. |
 | Business doc is narrative-heavy | paragraphs dominate | Convert to retrieval tables (`business-logic-index.md`). |
 | Lightweight work grew risky | security/decision/migration appears | Stop; promote tier (and Full lane per FR-21). |
-| Active continuity written to `docs/handoff/` | wrong path | Move to `docs/tmp/handoff.md`. |
+| Active continuity written to `docs/tmp/handoff/` | wrong path | Move to `docs/tmp/handoff.md`. |
 
 ## Escalation path
 
@@ -171,7 +171,7 @@ Bad: a doc that reprints full background, all decisions, all ACs, and all implem
 - Repeating full ACs in `tasks.md` when `spec.md` owns them.
 - Reprinting the full spec inside a handoff.
 - Appending "resumption notes" above stale handoff content (FR-18).
-- Using `docs/handoff/` for active continuity.
+- Using `docs/tmp/handoff/` for active continuity.
 - Writing business-logic docs as long prose when tables would work.
 - Expanding `product.md` for small fixes/refactors.
 - Treating git history as content to copy into docs.

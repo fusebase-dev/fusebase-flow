@@ -69,7 +69,7 @@ The TTL is short by design. The session key is intended for the testing window o
 
 ### Step 4 — PO drafts the implementer handoff with session-key authorization
 
-In `docs/handoff/<date>-<slug>-implement.md`, include:
+In `docs/tmp/handoff/<date>-<slug>-implement.md`, include:
 
 ```markdown
 ## Live-user verification authorized
@@ -136,7 +136,7 @@ Smoke prompts execute as normal per `workflows/smoke-verification.md`, with two 
      | tee log.txt
    ```
 
-2. **Evidence persistence:** screenshots and response bodies that would normally land in `docs/handoff/<date>-<slug>-smoke/` must be screened for any leaked session value. If a screenshot would expose the cookie, take a different screenshot or crop.
+2. **Evidence persistence:** screenshots and response bodies that would normally land in `docs/tmp/handoff/<date>-<slug>-smoke/` must be screened for any leaked session value. If a screenshot would expose the cookie, take a different screenshot or crop.
 
 ### Step 7 — End-of-work cleanup (mandatory)
 
@@ -175,8 +175,8 @@ The `stop` hook scans for this signal before allowing "smoke complete" / "deploy
 | Approval artifact | `state/approvals/session_key_or_cookie_use-<slug>-<date>.json` | machine-readable |
 | Consent record | `docs/specs/<slug>/spec.md` audit log | Mode B |
 | Sanity-test result | chat output | Mode A |
-| Smoke evidence (with redacted credentials) | `docs/handoff/<date>-<slug>-smoke/` | Mode B |
-| Cleanup confirmation | deploy report or `docs/handoff/<date>-<slug>-deploy.md` | Mode B |
+| Smoke evidence (with redacted credentials) | `docs/tmp/handoff/<date>-<slug>-smoke/` | Mode B |
+| Cleanup confirmation | deploy report or `docs/tmp/handoff/<date>-<slug>-deploy.md` | Mode B |
 
 ## Failure modes
 

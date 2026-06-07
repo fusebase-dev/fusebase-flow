@@ -59,7 +59,7 @@ This check is **universal** — it works on every surface (Claude Code, Codex, C
 | Audit and paper trail | `audit/` |
 | Active tickets and specs | `docs/specs/<slug>/`, `docs/backlog/<slug>/` |
 | Active session continuity (restart state) | `docs/tmp/handoff.md` (single file, superseded each session — FR-23 Tier 2 / FR-18) |
-| Formal cross-session relay prompts | `docs/handoff/<YYYY-MM-DD>-<slug>-<stage>.md` (implement / deploy) |
+| Formal cross-session relay prompts | `docs/tmp/handoff/<YYYY-MM-DD>-<slug>-<stage>.md` (implement / deploy) |
 
 ## Rules vs skills vs workflows vs hooks vs policies vs ignore
 
@@ -75,7 +75,7 @@ This check is **universal** — it works on every surface (Claude Code, Codex, C
 ## Communication discipline (Mode A vs Mode B)
 
 - **Mode A (operator chat):** visual, concrete, brief. ASCII roadmap / decision-tree / comparison / dependency / timeline diagrams when state has spatial relationships. Status footer otherwise.
-- **Mode B (internal artifacts):** dense, tabular, front-loaded. Files in `docs/specs/`, `docs/decisions/`, `docs/handoff/`, `docs/problem-catalog/`, `docs/backlog/` are AI-consumed — no narrative padding, no human-onboarding preamble.
+- **Mode B (internal artifacts):** dense, tabular, front-loaded. Files in `docs/specs/`, `docs/decisions/`, `docs/tmp/handoff/`, `docs/problem-catalog/`, `docs/backlog/` are AI-consumed — no narrative padding, no human-onboarding preamble.
 
 Visuals belong in chat only, never in Mode-B files.
 Questions and choices also belong in chat text, never in popup / clickable menu tools.
@@ -88,10 +88,10 @@ Questions and choices also belong in chat text, never in popup / clickable menu 
 
 1. Tell the agent: "Let's ship `<feature description>`."
 2. Agent invokes the `requirements-specification` skill → drafts `docs/specs/<slug>/spec.md`, runs clarify questions; if the operator asks for options, `design-discovery-ideation` produces the option brief before lock.
-3. After clarify resolves: agent invokes `implementation-planning` skill → drafts `decisions.md`, `tasks.md`, `verification-gate.md`, and saves `docs/handoff/<date>-<slug>-implement.md`.
+3. After clarify resolves: agent invokes `implementation-planning` skill → drafts `decisions.md`, `tasks.md`, `verification-gate.md`, and saves `docs/tmp/handoff/<date>-<slug>-implement.md`.
 4. Open a fresh agent session, paste the implement handoff, agent executes task chain stopping at the gate.
 5. Paste the gate report into the original session, agent invokes `code-review` and `security-permissions-review` skills.
-6. If clean, agent invokes `release-deploy-reporting` skill → drafts `docs/handoff/<date>-<slug>-deploy.md` with smoke prompts governed by `smoke-testing` when applicable.
+6. If clean, agent invokes `release-deploy-reporting` skill → drafts `docs/tmp/handoff/<date>-<slug>-deploy.md` with smoke prompts governed by `smoke-testing` when applicable.
 
 ## Activating provider and IDE compatibility files
 
@@ -182,7 +182,7 @@ Fusebase Flow ships:
 
 **Self-attestation (every session's first response):**
 
-> "Operating as {role} under Fusebase Flow v3.12.1. I will follow FR-01 through FR-23. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+> "Operating as {role} under Fusebase Flow v3.13.0. I will follow FR-01 through FR-23. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 **Operator questions:** per FR-19, ask questions in chat text, not popup / clickable menu tools. Use short option tables or numbered lists so the operator can copy, forward, quote, and follow up.
 

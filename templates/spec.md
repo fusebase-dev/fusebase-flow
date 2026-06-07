@@ -87,5 +87,5 @@ File-by-file scope.
 - `docs/specs/<slug>/decisions.md`
 - `docs/specs/<slug>/tasks.md`
 - `docs/specs/<slug>/verification-gate.md`
-- `docs/handoff/<date>-<slug>-implement.md` (when filed)
-- `docs/handoff/<date>-<slug>-deploy.md` (when filed)
+- `docs/tmp/handoff/<date>-<slug>-implement.md` (when filed)
+- `docs/tmp/handoff/<date>-<slug>-deploy.md` (when filed)

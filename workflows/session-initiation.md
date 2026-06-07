@@ -15,7 +15,7 @@ Every new AI agent session in a repo where Fusebase Flow is installed.
 5. Load project state in parallel:
    - `docs/backlog/index.md` (if exists)
    - `docs/specs/` (list folders for in-flight specs)
-   - `docs/handoff/` (list; read 3 most recent)
+   - `docs/tmp/handoff/` (list; read 3 most recent)
    - `git log --oneline -20`
    - `git status`
    - `docs/problem-catalog/README.md` (index only; don't load entries unless ticket-relevant)
@@ -36,7 +36,7 @@ Every new AI agent session in a repo where Fusebase Flow is installed.
 |---|---|
 | Tool surface | inferred from the IDE (Claude Code / Codex / Cursor / GitHub Copilot / Gemini-style IDE / generic) |
 | Repo state | git + `docs/` |
-| Active ticket(s) | `docs/specs/` and `docs/handoff/` |
+| Active ticket(s) | `docs/specs/` and `docs/tmp/handoff/` |
 
 ## Outputs
 

@@ -45,9 +45,9 @@ Each transition has a state-announcement footer update. The operator can redirec
 
 | From | To | Handoff file |
 |---|---|---|
-| Product Owner | Architect (escalation) | `docs/handoff/<date>-<slug>-architect.md` |
-| Product Owner | AI Developer | `docs/handoff/<date>-<slug>-implement.md` |
-| Product Owner | Deploy phase | `docs/handoff/<date>-<slug>-deploy.md` |
+| Product Owner | Architect (escalation) | `docs/tmp/handoff/<date>-<slug>-architect.md` |
+| Product Owner | AI Developer | `docs/tmp/handoff/<date>-<slug>-implement.md` |
+| Product Owner | Deploy phase | `docs/tmp/handoff/<date>-<slug>-deploy.md` |
 
 Handoffs are saved to disk BEFORE being shown in chat (FR-04).
 

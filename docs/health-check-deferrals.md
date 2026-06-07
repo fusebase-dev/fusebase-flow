@@ -93,7 +93,7 @@ Some checks represent critical infrastructure or actual failures and cannot be d
   "approved_by": "operator@example.com",
   "scope": "Fusebase Flow installed without lifecycle-hook wiring + without Windows patch per install brief 2026-05-08",
   "expires_at": "2026-08-10T00:00:00Z",
-  "reason": "Project preserves existing quality-check + lint-on-stop hooks (Step 9) and treats .claude/hooks/ as protected (Step 10). Both decisions are load-bearing per the install brief at docs/handoff/2026-05-08-fusebase-flow-install.md (commit f73e204). Revisit at the next architectural review of this project's hook chain.",
+  "reason": "Project preserves existing quality-check + lint-on-stop hooks (Step 9) and treats .claude/hooks/ as protected (Step 10). Both decisions are load-bearing per the install brief at docs/tmp/handoff/2026-05-08-fusebase-flow-install.md (commit f73e204). Revisit at the next architectural review of this project's hook chain.",
   "deferred_checks": [
     "settings_json_lifecycle_events",
     "windows_shell_patch"

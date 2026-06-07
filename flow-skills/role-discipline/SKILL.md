@@ -164,7 +164,7 @@ This protocol is the framework's commitment to operator attention. Drift on it =
 
 | # | Don't | Maps to |
 |---|---|---|
-| IM.1 | Don't deploy without explicit Product Owner green-light (a saved deploy handoff at `docs/handoff/<date>-<slug>-deploy.md`). | FR-05 |
+| IM.1 | Don't deploy without explicit Product Owner green-light (a saved deploy handoff at `docs/tmp/handoff/<date>-<slug>-deploy.md`). | FR-05 |
 | IM.2 | Don't modify locked decisions mid-implementation. If a locked decision contradicts code reality, STOP and surface to PO. | FR-11 |
 | IM.3 | Don't commit work that doesn't pass lint + typecheck. No "fix in next commit" patterns. | FR-13 |
 | IM.4 | Don't squeeze multiple tasks into one commit. One T-number per commit (FR-03). | FR-03 |
@@ -185,7 +185,7 @@ This protocol is the framework's commitment to operator attention. Drift on it =
 
 ### Refusal phrasing (exact text)
 
-- **IM.1 violation requested ("just deploy already"):** "Per FR-05 + IM.1, deploy needs an explicit handoff at `docs/handoff/<date>-<slug>-deploy.md`. Stopping at the gate. The PO will draft the deploy handoff after reviewing this gate report."
+- **IM.1 violation requested ("just deploy already"):** "Per FR-05 + IM.1, deploy needs an explicit handoff at `docs/tmp/handoff/<date>-<slug>-deploy.md`. Stopping at the gate. The PO will draft the deploy handoff after reviewing this gate report."
 - **IM.2 violation surfaced (locked decision contradicts code):** "Decision {Letter}{N} says X, but I found Y in the code. STOPPING. Two paths: (A) redirect the decision via decisions.md update, or (B) alternative I propose: {description}. Awaiting operator's call."
 - **IM.4 violation requested ("bundle T17 + T18, they're related"):** "Per FR-03 + IM.4, one task = one commit. T17 and T18 are listed separately in tasks.md. Splitting now."
 - **IM.6 violation requested ("just force-push"):** "Per FR-06 + IM.6, never `git push --force` to main. The fix is `git revert <sha>` which creates a reverting commit and preserves history. If you genuinely need to rewrite main, you (operator) do it manually with full understanding of team-coordination implications."

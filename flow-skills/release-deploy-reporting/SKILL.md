@@ -7,7 +7,7 @@ fusebase_flow_version: 2.1
 risk_level: high
 invocation: manual-for-side-effects
 expected_outputs:
-  - docs/handoff/<YYYY-MM-DD>-<slug>-deploy.md
+  - docs/tmp/handoff/<YYYY-MM-DD>-<slug>-deploy.md
   - release notes section
   - deploy report (after operator pastes back)
   - rollback notes
@@ -69,7 +69,7 @@ If the ticket was classified **Lightweight** (`skills/lightweight-lane/SKILL.md`
    - Probe list (G-M..G-Q or project equivalents from `verification-gate.md`)
    - Smoke prompts S1..Sn (if applicable), copied from the `smoke-testing` contract with success criterion, ground-truth diagnostic, adversarial check, and evidence required
    - Single-docs-commit instructions (FR-14): spec DRAFT→DONE flip with deploy hash, tasks.md verification marks, backlog index update, README header
-5. Save handoff to `docs/handoff/<YYYY-MM-DD>-<slug>-deploy.md` BEFORE outputting in chat (FR-04).
+5. Save handoff to `docs/tmp/handoff/<YYYY-MM-DD>-<slug>-deploy.md` BEFORE outputting in chat (FR-04).
 6. Tell operator: "Deploy handoff saved to <path>. Open and paste into the AI Developer (Codex) chat to authorize deploy."
 7. After operator pastes back deploy report:
    - Verify deploy hash captured
@@ -83,7 +83,7 @@ If the ticket was classified **Lightweight** (`skills/lightweight-lane/SKILL.md`
 
 | Artifact | Path / location | Mode |
 |---|---|---|
-| Deploy handoff | `docs/handoff/<YYYY-MM-DD>-<slug>-deploy.md` | Mode B (full) |
+| Deploy handoff | `docs/tmp/handoff/<YYYY-MM-DD>-<slug>-deploy.md` | Mode B (full) |
 | Release notes | embedded in deploy handoff + spec.md DONE section | Mode B (full) |
 | Deploy verification | chat acknowledgment to operator | Mode A |
 | Tally update | project-specific counter in `AGENTS.md` | Human-readable |

@@ -60,14 +60,14 @@ Pass criterion: 0 transcript fetch attempts in extension log + at least 1 cache_
 ## Procedure
 
 1. Read smoke prompts S1..Sn from `docs/specs/<slug>/verification-gate.md`.
-2. Create evidence dir: `mkdir -p docs/handoff/<date>-<slug>-smoke/screenshots/`.
+2. Create evidence dir: `mkdir -p docs/tmp/handoff/<date>-<slug>-smoke/screenshots/`.
 3. For each S<n>:
    - Execute the steps
    - Capture operator-visible evidence (screenshot, rendered output, response body, job result)
    - Inspect the ground-truth diagnostic surface (request dump, error log, server log, DB row, DOM state, etc.)
    - For browser smoke, use the route, viewport, stable selectors/locators, auth plan, and unique test data from S<n>
    - For UI/backend flows, inspect browser console/network evidence and backend/log/API diagnostics
-   - Save evidence: `docs/handoff/<date>-<slug>-smoke/S<n>-<scenario>.{png,md,log}`
+   - Save evidence: `docs/tmp/handoff/<date>-<slug>-smoke/S<n>-<scenario>.{png,md,log}`
    - Compare against expected and pass criterion
    - Record verdict: PASS / FAIL
    - Treat exit code 0, service active, hash match, symbol presence, and auth sanity as supporting checks only
@@ -76,10 +76,10 @@ Pass criterion: 0 transcript fetch attempts in extension log + at least 1 cache_
 5. Append summary to deploy report:
    ```
    Smoke results: <n_pass>/<n_total> PASS
-   - S1: PASS — evidence at docs/handoff/<date>-<slug>-smoke/S1-*.png
-   - S2: PASS — evidence at docs/handoff/<date>-<slug>-smoke/S2-*.md
-   - S3: FAIL — observed Y, expected Z; evidence at docs/handoff/<date>-<slug>-smoke/S3-*.png
-   - S4: PASS — evidence at docs/handoff/<date>-<slug>-smoke/S4-*.log
+   - S1: PASS — evidence at docs/tmp/handoff/<date>-<slug>-smoke/S1-*.png
+   - S2: PASS — evidence at docs/tmp/handoff/<date>-<slug>-smoke/S2-*.md
+   - S3: FAIL — observed Y, expected Z; evidence at docs/tmp/handoff/<date>-<slug>-smoke/S3-*.png
+   - S4: PASS — evidence at docs/tmp/handoff/<date>-<slug>-smoke/S4-*.log
    ```
 
 ## Pass
@@ -107,13 +107,13 @@ Smoke prompts can be:
 | Background job | application logs | log line excerpt |
 | Mixed | combination | as appropriate |
 
-The AI Developer or Deploy session executes; evidence is captured to `docs/handoff/<date>-<slug>-smoke/`.
+The AI Developer or Deploy session executes; evidence is captured to `docs/tmp/handoff/<date>-<slug>-smoke/`.
 
 ## Outputs
 
 | Artifact | Path |
 |---|---|
-| Per-prompt evidence | `docs/handoff/<date>-<slug>-smoke/S<n>-*.{png,md,log}` |
+| Per-prompt evidence | `docs/tmp/handoff/<date>-<slug>-smoke/S<n>-*.{png,md,log}` |
 | Summary | embedded in deploy report |
 | Failure flag (if applicable) | chat surfacing + spec stays DRAFT |
 

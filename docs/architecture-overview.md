@@ -42,7 +42,7 @@ Each transition updates the `📍 Phase:` state-announcement footer.
 ## Cross-session handoff folder
 
 ```
-docs/handoff/
+docs/tmp/handoff/
 ├── <YYYY-MM-DD>-<slug>-architect.md     ← Product Owner → escalated Architect
 ├── <YYYY-MM-DD>-<slug>-implement.md     ← Product Owner → AI Developer
 └── <YYYY-MM-DD>-<slug>-deploy.md        ← Product Owner → Deploy phase

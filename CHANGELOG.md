@@ -4,6 +4,21 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.13.0] — 2026-06-07
+
+### Changed — handoff artifacts consolidated under `docs/tmp/handoff`
+
+All handoff artifacts now live under `docs/tmp/handoff` (handoffs are operational/transient AI-workflow artifacts, not durable product docs). Deferred from the v3.12.1 patch because formal relays are load-bearing for the deploy-safety gate; done atomically here with full gate validation. No FR added/removed.
+
+- **Path model:** active restart state = `docs/tmp/handoff.md` (single file, superseded each session); formal implement/deploy/architect relays = `docs/tmp/handoff/<date>-<slug>-<stage>.md` (dated siblings). `docs/tmp/` is git-tracked → audit trail preserved.
+- **Deploy-safety gate rewired (atomic):** `policies/required-artifacts.yml` (`before_deploy_command` path_glob + `smoke_results_present` signal), `policies/gate-contracts.yml` (smoke-dir pattern), `hooks/handlers/stop.py` (smoke regex), and fixtures 13/14 → `docs/tmp/handoff`. Semantics unchanged.
+- **References updated:** all workflows, agents (+ `.claude`/`.codex` mirrors), templates, flow-skills (+ mirrors), `AGENTS.md`, `README.md`, `.cursor` rules, `.github` instructions, live docs, and the FR-23 row + implication in `FLOW_RULES.md`.
+- **`hooks/local/sync-version-strings.sh`** — prune list note + explicit `docs/tmp/handoff` entry so dated formal relays are protected from the version-string sweep.
+- **`docs/handoff/`** retained as a frozen historical archive (README redirects to `docs/tmp/handoff/`); existing dated artifacts preserved in place.
+- **Preserved history:** CHANGELOG, release-notes, `docs/specs/*`, `docs/changes/*`, and the FLOW_RULES amendment log were NOT rewritten.
+- `FLOW_RULES.md` Status `v0.10 → v0.11` + amendment-log entry; canonical baselines (FLOW_RULES/AGENTS/CLAUDE/GEMINI) + VERSION → v3.13.0. Spec: `docs/specs/handoff-path-migration/spec.md`.
+- **Verified:** preflight 0/0; run-tests **16/16 PASS** (deploy-gate fixtures green post-migration). Detail: `docs/release-notes/v3.13.0.md`.
+
 ## [3.12.1] — 2026-06-07
 
 ### Fixed — FR-23 wiring completeness (post-release review patch)

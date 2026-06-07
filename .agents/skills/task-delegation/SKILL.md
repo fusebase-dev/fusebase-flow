@@ -41,7 +41,7 @@ Coordinate bounded work across multiple agents when the host environment support
 - The work touches deploy commands, production side effects, approval artifacts, secrets, or live-user credentials.
 - Product Owner would be delegating production code edits.
 - Write scopes overlap or cannot be clearly owned.
-- The host has no subagent/delegation tool; use normal `docs/handoff/` Flow instead.
+- The host has no subagent/delegation tool; use normal `docs/tmp/handoff/` Flow instead.
 
 ## Required inputs
 

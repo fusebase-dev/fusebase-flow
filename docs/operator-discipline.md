@@ -6,7 +6,7 @@
 
 ## OD-1. One handoff per session
 
-Each cross-session prompt at `docs/handoff/<date>-<slug>-<stage>.md` belongs in exactly one fresh AI agent session. Do not:
+Each cross-session prompt at `docs/tmp/handoff/<date>-<slug>-<stage>.md` belongs in exactly one fresh AI agent session. Do not:
 
 - Paste two handoff files into the same session — context pollutes.
 - Fork a session to run two stages in parallel — state diverges.
@@ -41,7 +41,7 @@ Do not:
 
 ## OD-4. Don't pass partial information between sessions
 
-When the AI Developer reports back, give the **full** gate report to the PO. When the PO drafts a handoff, save it to disk and paste **the entire saved file** into the next session — not a summary, not the chat-rendered version, the saved file at `docs/handoff/<date>-<slug>-<stage>.md`.
+When the AI Developer reports back, give the **full** gate report to the PO. When the PO drafts a handoff, save it to disk and paste **the entire saved file** into the next session — not a summary, not the chat-rendered version, the saved file at `docs/tmp/handoff/<date>-<slug>-<stage>.md`.
 
 Why: cross-session contracts depend on every field. Summary loss is hard to detect later.
 

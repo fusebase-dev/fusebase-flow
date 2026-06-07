@@ -26,7 +26,7 @@ The merged Product Owner role does most investigation inline. For tickets with l
 1. Product Owner identifies the ticket warrants escalation. State explicitly to operator:
    > "This ticket warrants fresh-eyes review because <reason>. Drafting architect handoff."
 2. Draft architect handoff using the template below.
-3. Save to `docs/handoff/<YYYY-MM-DD>-<slug>-architect.md` BEFORE outputting in chat (FR-04).
+3. Save to `docs/tmp/handoff/<YYYY-MM-DD>-<slug>-architect.md` BEFORE outputting in chat (FR-04).
 4. Tell operator: "Architect handoff saved to <path>. Open and paste into a fresh AI agent session as Architect's first message. Architect will investigate independently and report back."
 5. When operator pastes architect's report, review it:
    - Spec / decisions / tasks / verification-gate produced

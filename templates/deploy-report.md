@@ -66,8 +66,8 @@ If ANY probe failed: replace this section with **failure section** below.
 
 | Smoke | Result | Operator-visible outcome | Ground-truth diagnostic | Evidence path |
 |---|---|---|---|---|
-| S1 | PASS / FAIL / PENDING-OPERATOR-SMOKE | `<observed outcome>` | `<diagnostic checked; error=null / no error entry / expected row present>` | `docs/handoff/<date>-<slug>-smoke/S1-output.md` |
-| S2 | PASS / FAIL / PENDING-OPERATOR-SMOKE | `<observed outcome>` | `<diagnostic checked>` | `docs/handoff/<date>-<slug>-smoke/S2-output.md` |
+| S1 | PASS / FAIL / PENDING-OPERATOR-SMOKE | `<observed outcome>` | `<diagnostic checked; error=null / no error entry / expected row present>` | `docs/tmp/handoff/<date>-<slug>-smoke/S1-output.md` |
+| S2 | PASS / FAIL / PENDING-OPERATOR-SMOKE | `<observed outcome>` | `<diagnostic checked>` | `docs/tmp/handoff/<date>-<slug>-smoke/S2-output.md` |
 | ... | ... | ... | ... | ... |
 
 Supporting checks only (exit code, hashes, service active, symbol presence, auth sanity) are not sufficient smoke evidence. If any S<n> is `PENDING-OPERATOR-SMOKE`, leave spec DRAFT and provide the exact operator smoke steps.

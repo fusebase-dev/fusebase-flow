@@ -103,7 +103,7 @@ smoke_report:
       min_items: 1
     evidence_dir:
       type: string
-      pattern: "^docs/handoff/[0-9]{4}-[0-9]{2}-[0-9]{2}-.+-smoke/$"
+      pattern: "^docs/tmp/handoff/[0-9]{4}-[0-9]{2}-[0-9]{2}-.+-smoke/$"
 
 code_review_report:
   description: "code-review skill output; distinguishes blockers from non-blockers."

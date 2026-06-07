@@ -51,7 +51,7 @@ def _signals_from_transcript(transcript_text: str, signal_defs: dict) -> dict[st
     detected["worker_undisturbed_recheck"] = bool(re.search(r"worker[-\s]?undisturbed", text))
     detected["deploy_hash_captured"] = bool(re.search(r"deploy\s+hash|deployed\s+via\s+[a-f0-9]{7,}", text))
     detected["probes_passed"] = bool(re.search(r"\bg-?[mnopq]\b.*pass", text))
-    detected["smoke_results_present"] = bool(re.search(r"docs/handoff/.*-smoke/|smoke\s+results", text))
+    detected["smoke_results_present"] = bool(re.search(r"docs/tmp/handoff/.*-smoke/|smoke\s+results", text))
     detected["rollback_note_present"] = bool(re.search(r"\brollback\b", text))
     detected["docs_commit_present"] = bool(re.search(r"docs\(post-deploy\)|single docs commit", text))
     # Live-user verification cleanup signal (per workflows/live-user-verification.md Step 8).

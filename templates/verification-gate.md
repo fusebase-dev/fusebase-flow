@@ -70,7 +70,7 @@ Ground-truth diagnostic: <log/dump/DOM/DB/job artifact to inspect after the acti
 Stable selectors / locators: <purpose/state selector or accessible locator; N/A for non-UI>
 Auth / test data plan: <auth mode; unique values to create; cleanup expectation; no exact shared-state counts unless prepared>
 Adversarial check: <signal that would prove the fix is still broken>
-Evidence dir: `docs/handoff/<date>-<slug>-smoke/S1-*.{png,md,log}`
+Evidence dir: `docs/tmp/handoff/<date>-<slug>-smoke/S1-*.{png,md,log}`
 
 ### S2: ...
 

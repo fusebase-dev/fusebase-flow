@@ -57,7 +57,7 @@ After committing T<first>..T<gate>, produce the gate report per `docs/specs/<slu
 ## Mode A chat / Mode B docs
 
 - **Mode A (chat):** visual, concrete, brief. ASCII roadmap / decision-tree / comparison when state has spatial relationships.
-- **Mode B (`docs/specs/`, `docs/decisions/`, `docs/handoff/`, `docs/problem-catalog/`, `docs/backlog/`):** dense, tabular, front-loaded; no narrative padding.
+- **Mode B (`docs/specs/`, `docs/decisions/`, `docs/tmp/handoff/`, `docs/problem-catalog/`, `docs/backlog/`):** dense, tabular, front-loaded; no narrative padding.
 - **Questions:** write options as chat text tables or numbered lists; mark **(Recommended)** when appropriate.
 
 ## State announcement (every output)

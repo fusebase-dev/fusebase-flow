@@ -18,8 +18,8 @@ After:
    - [ ] Gate passed; code-review zero blockers; security clean
    - [ ] Spec is still DRAFT (will flip to DONE in this deploy)
 2. **Author handoff from `templates/handoff-deploy.md`** (v2.5.0+). The template includes a role-bootstrap prelude that makes the handoff self-bootstrapping in any agent (Claude Code, Codex, etc.) — fresh chat or follow-up. Do NOT hand-roll the prelude; copy from the template so DP.6 + DP.1 invariants stay canonical.
-3. Save to `docs/handoff/<YYYY-MM-DD>-<slug>-deploy.md` BEFORE outputting in chat (FR-04). Fill in placeholders (slug, approval artifact path, deploy command, probe table, smoke pointers).
-4. Tell operator: "Deploy handoff saved to `<path>`. Paste this into the AI Developer chat (fresh or existing) — the file is self-bootstrapping: `Execute docs/handoff/<path>`."
+3. Save to `docs/tmp/handoff/<YYYY-MM-DD>-<slug>-deploy.md` BEFORE outputting in chat (FR-04). Fill in placeholders (slug, approval artifact path, deploy command, probe table, smoke pointers).
+4. Tell operator: "Deploy handoff saved to `<path>`. Paste this into the AI Developer chat (fresh or existing) — the file is self-bootstrapping: `Execute docs/tmp/handoff/<path>`."
 
 ## Procedure (Deploy phase / AI Developer side)
 
@@ -30,7 +30,7 @@ After:
 5. Run deploy command (exact command from `AGENTS.md` project-specific section).
 6. Capture deploy hash from command output.
 7. Run probes per `verification-gate.md`. For each: report status with concrete evidence (HTTP code + body excerpt, log line, screenshot).
-8. Run smoke prompts S1..Sn if applicable under `flow-skills/smoke-testing/SKILL.md`. Smoke PASS requires operator-visible outcome evidence plus ground-truth diagnostic inspection; supporting checks alone are incomplete. Persist evidence to `docs/handoff/<date>-<slug>-smoke/`.
+8. Run smoke prompts S1..Sn if applicable under `flow-skills/smoke-testing/SKILL.md`. Smoke PASS requires operator-visible outcome evidence plus ground-truth diagnostic inspection; supporting checks alone are incomplete. Persist evidence to `docs/tmp/handoff/<date>-<slug>-smoke/`.
 9. Produce single docs commit (FR-14) covering:
    - `spec.md` DRAFT → DONE with deploy hash captured
    - `tasks.md` verification marks for T<gate>..T<deploy>
@@ -121,7 +121,7 @@ If ANY probe fails:
 
 ## Smoke prompts (if applicable)
 
-S1..Sn from `docs/specs/<slug>/verification-gate.md` smoke section. Each S<n> must include an operator-visible success criterion, ground-truth diagnostic, adversarial check, and evidence requirement per `flow-skills/smoke-testing/SKILL.md`. Persist evidence to `docs/handoff/<date>-<slug>-smoke/`.
+S1..Sn from `docs/specs/<slug>/verification-gate.md` smoke section. Each S<n> must include an operator-visible success criterion, ground-truth diagnostic, adversarial check, and evidence requirement per `flow-skills/smoke-testing/SKILL.md`. Persist evidence to `docs/tmp/handoff/<date>-<slug>-smoke/`.
 
 ## Single docs commit (FR-14)
 

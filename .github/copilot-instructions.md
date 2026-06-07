@@ -22,7 +22,7 @@ This repo runs **Fusebase Flow v3.11.1**. Read these files before any other acti
 
 - **FR-01** Spec before code — never edit production code without an approved spec at `docs/specs/<slug>/spec.md`.
 - **FR-03** One task = one commit — implementation commits cite a `T<number>`.
-- **FR-04** Persist handoffs — every cross-session prompt saved to `docs/handoff/<YYYY-MM-DD>-<slug>-<stage>.md` BEFORE chat output.
+- **FR-04** Persist handoffs — every cross-session prompt saved to `docs/tmp/handoff/<YYYY-MM-DD>-<slug>-<stage>.md` BEFORE chat output.
 - **FR-05** Stop at gate — implementation halts at the verification gate; deploy requires explicit greenlight.
 - **FR-06** Reversible by default — never `rm -rf`, `git push --force`, `git reset --hard`, `git add -A`, `--no-verify` without explicit operator confirmation.
 - **FR-07** Worker-undisturbed — paths in `policies/protected-paths.yml` show empty diff between deploys unless an approved exception is on file.
@@ -48,7 +48,7 @@ Full enforcement details in `FLOW_RULES.md`.
 | Hooks (deterministic enforcement) | `hooks/` |
 | Templates (artifact substrates) | `templates/` |
 | Active tickets and specs | `docs/specs/<slug>/`, `docs/backlog/<slug>/` |
-| Cross-session prompts | `docs/handoff/<YYYY-MM-DD>-<slug>-<stage>.md` |
+| Cross-session prompts | `docs/tmp/handoff/<YYYY-MM-DD>-<slug>-<stage>.md` |
 
 ## Scoped instructions
 

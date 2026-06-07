@@ -26,7 +26,7 @@ hook_dependencies:
 Two communication modes that every Fusebase Flow session must follow consistently. The audiences differ, so the format differs:
 
 - **Mode A — Operator chat.** Output the operator reads in real time. Visual, concrete, brief. ASCII diagrams when state has spatial relationships; tight status announcements when it doesn't. Operators scan; they don't read.
-- **Mode B — Internal artifacts.** Files the next AI session will load (`docs/specs/`, `docs/decisions/`, `docs/tmp/handoff.md` (active restart state), `docs/handoff/` (formal relays), `docs/problem-catalog/`, `docs/backlog/`, plus other framework files at root). Written for an AI consumer, not a human reader. Dense, tabular, front-loaded, no narrative padding.
+- **Mode B — Internal artifacts.** Files the next AI session will load (`docs/specs/`, `docs/decisions/`, `docs/tmp/handoff.md` (active restart state), `docs/tmp/handoff/` (formal relays), `docs/problem-catalog/`, `docs/backlog/`, plus other framework files at root). Written for an AI consumer, not a human reader. Dense, tabular, front-loaded, no narrative padding.
 
 This skill is mandatory because both modes affect quality continuously: operator clarity (Mode A) and AI context-budget efficiency (Mode B). Drift on either degrades the flow.
 
@@ -57,7 +57,7 @@ docs/specs/<slug>/clarify-conversation.md
 docs/backlog/<slug>/README.md
 docs/backlog/index.md
 docs/tmp/handoff.md                     (active session continuity — superseded each session, FR-18/FR-23 Tier 2)
-docs/handoff/<YYYY-MM-DD>-<slug>-<stage>.md   (formal role-relay prompt — implement/deploy)
+docs/tmp/handoff/<YYYY-MM-DD>-<slug>-<stage>.md   (formal role-relay prompt — implement/deploy)
 docs/problem-catalog/<slug>/problem.md
 docs/problem-catalog/README.md
 docs/skills/<slug>/SKILL.md            (project-internal skills)
@@ -94,7 +94,7 @@ docs/source-map.md
 
 If a file's mode is unclear, default to Mode B (AI-optimized). The carve-out list above is the explicit human-facing set.
 
-> **Whether an artifact should exist at all** is governed by FR-23 / `flow-skills/documentation-budget/SKILL.md` (tier classification). This skill governs only HOW to write it once that skill says it's warranted. Active session continuity is `docs/tmp/handoff.md`; `docs/handoff/*` is reserved for formal implement/deploy role-relay prompts — never use `docs/handoff/` for active continuity.
+> **Whether an artifact should exist at all** is governed by FR-23 / `flow-skills/documentation-budget/SKILL.md` (tier classification). This skill governs only HOW to write it once that skill says it's warranted. Active session continuity is `docs/tmp/handoff.md`; `docs/tmp/handoff/*` is reserved for formal implement/deploy role-relay prompts — never use `docs/tmp/handoff/` for active continuity.
 
 ---
 
@@ -102,7 +102,7 @@ If a file's mode is unclear, default to Mode B (AI-optimized). The carve-out lis
 
 ## Critical rule
 
-ASCII visuals go in CHAT MESSAGES the agent sends to the operator. They do NOT go in `docs/specs/`, `docs/decisions/`, `docs/handoff/`, `docs/problem-catalog/`, `docs/backlog/`, or any other Mode-B file.
+ASCII visuals go in CHAT MESSAGES the agent sends to the operator. They do NOT go in `docs/specs/`, `docs/decisions/`, `docs/tmp/handoff/`, `docs/problem-catalog/`, `docs/backlog/`, or any other Mode-B file.
 
 Why:
 

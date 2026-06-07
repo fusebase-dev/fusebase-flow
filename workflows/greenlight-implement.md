@@ -17,8 +17,8 @@ After `implementation-planning` has produced `decisions.md` (all locked), `tasks
    - [ ] Letter prefix incremented in `AGENTS.md` (if a new ticket)
    - [ ] T-counter updated in `AGENTS.md`
 2. **Author handoff from `templates/handoff-implement.md`** (v2.5.0+). The template includes a role-bootstrap prelude that makes the handoff self-bootstrapping in any agent (Claude Code, Codex, etc.) — fresh chat or follow-up. Do NOT hand-roll the prelude; copy from the template so role-attestation language stays canonical.
-3. Save to `docs/handoff/<YYYY-MM-DD>-<slug>-implement.md` BEFORE outputting in chat (FR-04). Fill in placeholders (slug, decisions range, task range, pre-cached identifiers, production state, tracks, worker-undisturbed posture).
-4. Tell operator: "Implement handoff saved to `<path>`. Paste this into the AI Developer chat (fresh or existing) — the file is self-bootstrapping: `Execute docs/handoff/<path>`."
+3. Save to `docs/tmp/handoff/<YYYY-MM-DD>-<slug>-implement.md` BEFORE outputting in chat (FR-04). Fill in placeholders (slug, decisions range, task range, pre-cached identifiers, production state, tracks, worker-undisturbed posture).
+4. Tell operator: "Implement handoff saved to `<path>`. Paste this into the AI Developer chat (fresh or existing) — the file is self-bootstrapping: `Execute docs/tmp/handoff/<path>`."
 
 ## Procedure (AI Developer side)
 

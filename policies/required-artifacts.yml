@@ -57,7 +57,7 @@ before_done_claim:
 # tier-aware readers; the FR-07 signal is unconditional.)
 before_deploy_command:
   required:
-    - path_glob: "docs/handoff/*-deploy.md"
+    - path_glob: "docs/tmp/handoff/*-deploy.md"
       condition: "exists_and_recent"       # within last 24 hours
       reason: "FR-04 + FR-05: deploy handoff must be persisted and recent (Full lane)."
       rule_id: FR-05
@@ -111,7 +111,7 @@ signal_definitions:
   worker_undisturbed_recheck: "transcript contains 'pre-deploy worker-undisturbed verification' phrase within last 5 messages"
   deploy_hash_captured: "transcript contains a captured deploy hash mentioned by the deploy command output"
   probes_passed: "transcript contains 'G-M..G-Q' results or equivalent probes table with PASS markers"
-  smoke_results_present: "transcript references docs/handoff/*-smoke/ artifacts"
+  smoke_results_present: "transcript references docs/tmp/handoff/*-smoke/ artifacts"
   rollback_note_present: "transcript contains 'rollback' procedure paragraph"
   docs_commit_present: "transcript contains 'docs(post-deploy):' commit or equivalent"
   cleanup_marker_present: "transcript contains the literal phrase 'cleanup: operator can sign out OR cookie expires per TTL' (per workflows/live-user-verification.md Step 8); only required when a session_key_or_cookie_use approval artifact was authored during this ticket"

@@ -1,6 +1,6 @@
 # Deploy handoff template (v2.5.0+)
 
-> **Mode B (full).** Dense, tabular, front-loaded. The Product Owner authors this file in `docs/handoff/<YYYY-MM-DD>-<slug>-deploy.md` and points the AI Developer (Deploy phase) session at it. The role-bootstrap prelude at the top makes the file self-bootstrapping in any agent (Claude Code, Codex, etc.) — fresh chat or follow-up.
+> **Mode B (full).** Dense, tabular, front-loaded. The Product Owner authors this file in `docs/tmp/handoff/<YYYY-MM-DD>-<slug>-deploy.md` and points the AI Developer (Deploy phase) session at it. The role-bootstrap prelude at the top makes the file self-bootstrapping in any agent (Claude Code, Codex, etc.) — fresh chat or follow-up.
 
 ---
 
@@ -71,7 +71,7 @@ Other invariants (FR-05/-06/-07/-14, Mode A/B, supersede discipline FR-18) — s
 
 ## Smoke prompts (if applicable)
 
-S1..Sn from `docs/specs/<slug>/verification-gate.md` smoke section. Persist evidence to `docs/handoff/<date>-<slug>-smoke/`.
+S1..Sn from `docs/specs/<slug>/verification-gate.md` smoke section. Persist evidence to `docs/tmp/handoff/<date>-<slug>-smoke/`.
 
 Each S<n> must carry:
 
@@ -147,7 +147,7 @@ Produce a Mode B report with these fields:
 - **Deploy hash** + **rollback command** in header
 - Approval artifact filename + expiry timestamp
 - Probe table (each probe: pass/fail + concrete evidence)
-- Smoke evidence pointer (`docs/handoff/<date>-<slug>-smoke/`)
+- Smoke evidence pointer (`docs/tmp/handoff/<date>-<slug>-smoke/`)
 - Single docs commit SHA (FR-14)
 - Spec flip confirmation (DRAFT → DONE)
 - Backlog index flip confirmation

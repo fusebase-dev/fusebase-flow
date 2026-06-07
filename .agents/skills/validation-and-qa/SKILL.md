@@ -8,7 +8,7 @@ risk_level: medium
 invocation: automatic
 expected_outputs:
   - gate report (chat or docs/verification/<slug>-gate.md)
-  - smoke report (docs/handoff/<date>-<slug>-smoke/)
+  - smoke report (docs/tmp/handoff/<date>-<slug>-smoke/)
   - reproduction notes (when applicable)
 related_workflows:
   - verification-gate.md
@@ -97,7 +97,7 @@ If the live proof can't be produced (no real input reachable, outcome not measur
 6. For UI smoke, verify selectors/locators are stable enough to reproduce the run; avoid styling/layout selectors when a purpose/state selector or accessible locator exists.
 7. Verify shared-state discipline: generated test records use unique values, tests do not rely on exact counts for data they did not create, and empty-state checks are isolated or explicitly prepared.
 8. Inspect both browser-visible evidence and the backend/log/API diagnostic surface when the UI action crosses system boundaries. Browser PASS with server-side error logs is smoke FAIL.
-9. Persist evidence (screenshots, response excerpts, browser console/network notes, log lines, request dumps, rendered DOM, job rows) to `docs/handoff/<date>-<slug>-smoke/`.
+9. Persist evidence (screenshots, response excerpts, browser console/network notes, log lines, request dumps, rendered DOM, job rows) to `docs/tmp/handoff/<date>-<slug>-smoke/`.
 10. Compute pass ratio (e.g., 4/4 PASS).
 11. If below threshold defined in gate contract, or if end-to-end smoke is not feasible, do NOT mark spec DONE. Report failure or `PENDING-OPERATOR-SMOKE` with concrete `Sn observed Y, expected Z` / missing prerequisite.
 
@@ -116,7 +116,7 @@ If the live proof can't be produced (no real input reachable, outcome not measur
 Run BEFORE marking the spec DONE. Smoke runs and reproducibility attempts often write throwaway artifacts (probe payloads, screenshots, temp database rows, mock response captures). These must be cleaned up so they don't pollute the next session or leak into commits.
 
 1. **Inventory test artifacts created during this ticket:**
-   - Files written under `docs/handoff/<date>-<slug>-smoke/` (KEEP — evidence)
+   - Files written under `docs/tmp/handoff/<date>-<slug>-smoke/` (KEEP — evidence)
    - Files written under `tmp/`, `/tmp/`, project root with random names (DELETE)
    - Database rows tagged with test slugs / fixture IDs (DELETE if scoped to this ticket; keep if shared fixture)
    - Mock response captures left in feature directories (DELETE)
@@ -131,7 +131,7 @@ Run BEFORE marking the spec DONE. Smoke runs and reproducibility attempts often 
    # After: confirm zero remain
    find tmp/ -type f -name '<slug>-*' | wc -l    # → 0
    ```
-3. **Verify no test data slipped into git:** `git status` after cleanup; if anything is staged that looks like test artifact, unstage and delete (or move to `docs/handoff/<date>-<slug>-smoke/` if it is genuine evidence).
+3. **Verify no test data slipped into git:** `git status` after cleanup; if anything is staged that looks like test artifact, unstage and delete (or move to `docs/tmp/handoff/<date>-<slug>-smoke/` if it is genuine evidence).
 4. **Document in the gate report:** one-line "Test-data hygiene: <N> ephemeral artifacts cleaned; 0 remaining; git status clean."
 
 Skip this sub-mode only if no test data was written during the ticket (rare — even pure typecheck tickets often leave `node_modules/` / `__pycache__/` churn that should be ignored, not deleted).
@@ -141,7 +141,7 @@ Skip this sub-mode only if no test data was written during the ticket (rare — 
 | Artifact | Path / location | Mode |
 |---|---|---|
 | Gate verdict | chat output to operator | Mode A |
-| Smoke evidence | `docs/handoff/<date>-<slug>-smoke/` | Mode B (full) |
+| Smoke evidence | `docs/tmp/handoff/<date>-<slug>-smoke/` | Mode B (full) |
 | Reproduction notes | chat output + optionally `docs/specs/<slug>/spec.md` audit-log | Mode A + Mode B |
 
 ## Failure cases

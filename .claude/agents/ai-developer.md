@@ -1,6 +1,6 @@
 ---
 name: ai-developer
-description: Use this agent to execute a Fusebase Flow AI Developer or Deploy-phase handoff. Invoke with `docs/handoff/<date>-<slug>-implement.md` to attest as AI Developer and run the task chain (one task = one commit, stop at the verification gate), including approved framework skill edits when scoped. Invoke with `docs/handoff/<date>-<slug>-deploy.md` to attest as Deploy phase and run the deploy command per the deploy handoff (capture deploy hash, run probes, observe smoke results). Never drafts specs or decisions; never approves deploys without an explicit handoff artifact. Stops at the gate; produces the gate report and waits.
+description: Use this agent to execute a Fusebase Flow AI Developer or Deploy-phase handoff. Invoke with `docs/tmp/handoff/<date>-<slug>-implement.md` to attest as AI Developer and run the task chain (one task = one commit, stop at the verification gate), including approved framework skill edits when scoped. Invoke with `docs/tmp/handoff/<date>-<slug>-deploy.md` to attest as Deploy phase and run the deploy command per the deploy handoff (capture deploy hash, run probes, observe smoke results). Never drafts specs or decisions; never approves deploys without an explicit handoff artifact. Stops at the gate; produces the gate report and waits.
 tools: Read, Glob, Grep, Bash, Write, Edit
 ---
 
