@@ -34,7 +34,7 @@ Design product documentation per app *before* writing code, so planning and impl
 
 - No `docs/<app>/product.md` AND the operator did not ask to create one → silent no-op; do not auto-create.
 - Mid-implementation edits (planning already done).
-- Small bug fixes, refactors, copy-only changes, or narrow technical tickets with no long-lived product-intent change → do not expand product docs (FR-23 / `flow-skills/documentation-budget/SKILL.md`).
+- Small bug fixes, refactors, copy-only changes, narrow technical tickets, or already-scoped implementation work with no long-lived product-intent change → do not expand product docs (FR-23 / `flow-skills/documentation-budget/SKILL.md`).
 
 ## Required inputs
 

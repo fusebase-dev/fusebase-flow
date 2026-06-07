@@ -4,6 +4,21 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.12.1] — 2026-06-07
+
+### Fixed — FR-23 wiring completeness (post-release review patch)
+
+A corrective patch closing gaps an independent review found after v3.12.0. No new rule; FR-23 semantics unchanged.
+
+- **`GEMINI.md`** — baseline was stale (`v3.11.1` / `FR-01..FR-22`, no documentation-budget). Swept to `v3.12.1` / `FR-01..FR-23` so the AGENTS/CLAUDE/GEMINI always-on trio is consistent. (FLOW_RULES.md was already correct at v3.12.0.)
+- **`flow-skills/requirements-specification/SKILL.md`** — fixed a stale `skills/lightweight-lane/SKILL.md` reference → `flow-skills/...`; added an FR-23 documentation-budget pre-write classifier (Tier 0/1/2 → no spec artifacts; only Tier 3/4 drafts a full spec).
+- **`flow-skills/implementation-planning/SKILL.md`** — added an FR-23 documentation tier gate: `decisions.md` only when a real decision exists, `verification-gate.md` only when lane/policy requires, the implement handoff points to canonical spec/decisions/tasks and must not reprint them. Fixed two stale `skills/` references → `flow-skills/`.
+- **`flow-skills/communication/SKILL.md`** — Mode-B prose intro now lists `docs/tmp/handoff.md` (active restart state) alongside `docs/handoff/` (formal relays).
+- **`flow-skills/product-docs-first/SKILL.md`** — gating extended to "already-scoped implementation work".
+- **`flow-skills/business-logic-guardian/SKILL.md`** — now guards on **either** `docs/<app>/business-logic-index.md` (AI-default) **or** `docs/<app>/business-logic.md` (human narrative); index is primary when both exist.
+- Version strings on the canonical baselines (FLOW_RULES/AGENTS/CLAUDE/GEMINI) → v3.12.1; mirrors regenerated; manifest updated.
+- **Deferred (unchanged):** formal implement/deploy handoff relays remain `docs/handoff/*` because they are wired into the deploy-safety gate (`policies/required-artifacts.yml`, `policies/gate-contracts.yml`) + ~18 workflow/agent/template files; migrating them to `docs/tmp/handoff` is a separate ticket (operator confirmation pending). The repo-wide `sync-version-strings.sh` attestation sweep also remains deferred. preflight 0/0; run-tests 16/16. Detail: `docs/release-notes/v3.12.1.md`.
+
 ## [3.12.0] — 2026-06-07
 
 ### Added — FR-23 documentation budget (+ documentation-budget skill)

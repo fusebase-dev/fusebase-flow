@@ -18,7 +18,7 @@ hook_dependencies:
 
 # Business Logic Guardian
 
-> **Style:** Mode-B-lite. **Artifact-gated** — inert unless `docs/<app>/business-logic.md` exists.
+> **Style:** Mode-B-lite. **Artifact-gated** — inert unless a business-logic doc exists (`docs/<app>/business-logic-index.md` AI-default, or `docs/<app>/business-logic.md` human narrative).
 
 ## Purpose
 
@@ -28,13 +28,13 @@ Protect documented business logic during fixes and improvements. The business-lo
 
 ## When to invoke
 
-- `docs/<app>/business-logic.md` exists AND a fix/improvement touches business behavior.
+- `docs/<app>/business-logic-index.md` (AI-default retrieval index) **or** `docs/<app>/business-logic.md` (human narrative) exists AND a fix/improvement touches business behavior. If both exist, the index is the primary guard layer; the narrative is supplementary.
 - Operator says "don't break the business logic", "does this change behavior".
 - During Implement / post-gate fixes on an app that has documented logic.
 
 ## Do not invoke when
 
-- **No `docs/<app>/business-logic.md`** → silent no-op; do not create it (use `app-business-docs` to author one deliberately).
+- **Neither `docs/<app>/business-logic-index.md` nor `docs/<app>/business-logic.md` exists** → silent no-op; do not create either (use `app-business-docs`, or the FR-23 `business-logic-index` template, to author one deliberately).
 - Net-new feature with no documented logic yet.
 - Pure cosmetic edits.
 

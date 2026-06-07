@@ -34,9 +34,11 @@ Turn vague operator intent into a versioned spec with explicit acceptance criter
 - Operator is asking how something already works (use code-review or repo-onboarding-context-map instead)
 - Task is a one-line bug fix that does not need clarify (see "Skip-clarify gate" below)
 
-## Lane classification first (FR-21)
+## Lane + documentation-budget classification first (FR-21 + FR-23)
 
-Before drafting a spec, classify the ticket **Full** or **Lightweight** using the eligibility gate in `skills/lightweight-lane/SKILL.md`. If the change is small, reversible, security-neutral, mechanically-verifiable, needs no architectural decision, and the root cause is known → it is **Lightweight**: do NOT draft spec/clarify/decisions/tasks/gate. Instead produce a single **change-note** (`templates/change-note.md`) and route to `workflows/lightweight-lane.md` (one build→verify→deploy pass, plain operator go-ahead). In doubt → **Full** (continue below). The skip-clarify gate that follows is a *Full-lane* micro-optimization (it skips clarify only); the Lightweight lane is the bigger lever for genuinely small work.
+Before drafting a spec, classify the ticket **Full** or **Lightweight** using the eligibility gate in `flow-skills/lightweight-lane/SKILL.md`. If the change is small, reversible, security-neutral, mechanically-verifiable, needs no architectural decision, and the root cause is known → it is **Lightweight**: do NOT draft spec/clarify/decisions/tasks/gate. Instead produce a single **change-note** (`templates/change-note.md`) and route to `workflows/lightweight-lane.md` (one build→verify→deploy pass, plain operator go-ahead). In doubt → **Full** (continue below). The skip-clarify gate that follows is a *Full-lane* micro-optimization (it skips clarify only); the Lightweight lane is the bigger lever for genuinely small work.
+
+Then run the FR-23 documentation-budget classifier (`flow-skills/documentation-budget/SKILL.md`) before creating any spec artifact: **Tier 0** (transient / already captured in code/tests/git) → no doc; **Tier 1** (Lightweight) → change-note only; **Tier 2** (mid-flight restart) → `docs/tmp/handoff.md` only; **Tier 3/4** → proceed to a full spec below. Do NOT create `docs/specs/<slug>/` artifacts for Tier 0/1/2 work. When unsure between tiers, choose the higher.
 
 ## Skip-clarify gate (Full lane — when "skip clarify" is allowed)
 

@@ -26,7 +26,7 @@ hook_dependencies:
 Two communication modes that every Fusebase Flow session must follow consistently. The audiences differ, so the format differs:
 
 - **Mode A — Operator chat.** Output the operator reads in real time. Visual, concrete, brief. ASCII diagrams when state has spatial relationships; tight status announcements when it doesn't. Operators scan; they don't read.
-- **Mode B — Internal artifacts.** Files the next AI session will load (`docs/specs/`, `docs/decisions/`, `docs/handoff/`, `docs/problem-catalog/`, `docs/backlog/`, plus other framework files at root). Written for an AI consumer, not a human reader. Dense, tabular, front-loaded, no narrative padding.
+- **Mode B — Internal artifacts.** Files the next AI session will load (`docs/specs/`, `docs/decisions/`, `docs/tmp/handoff.md` (active restart state), `docs/handoff/` (formal relays), `docs/problem-catalog/`, `docs/backlog/`, plus other framework files at root). Written for an AI consumer, not a human reader. Dense, tabular, front-loaded, no narrative padding.
 
 This skill is mandatory because both modes affect quality continuously: operator clarity (Mode A) and AI context-budget efficiency (Mode B). Drift on either degrades the flow.
 
