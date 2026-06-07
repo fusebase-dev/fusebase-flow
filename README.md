@@ -2,6 +2,8 @@
 
 **The framework client-facing teams use to build internal and client-facing apps with AI.**
 
+**🌐 Read this in:** 🇪🇸 [Español](docs/translations/es/README.md) · 🇫🇷 [Français](docs/translations/fr/README.md) · 🇩🇪 [Deutsch](docs/translations/de/README.md) · 🇧🇷 [Português](docs/translations/pt-BR/README.md) · 🇯🇵 [日本語](docs/translations/ja/README.md) · 🇨🇳 [简体中文](docs/translations/zh-Hans/README.md)
+
 ![FuseBase Flow — you design and decide with the Product Owner agent, which hands off to the AI Developer agent that implements, runs the verification gate, and deploys](docs/assets/two-agent-banner.svg)
 
 [![Version](https://img.shields.io/badge/version-3.11.1-blue.svg)](VERSION)
