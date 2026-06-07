@@ -4,6 +4,18 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.14.2] — 2026-06-07
+
+### Fixed — doc-consistency sweep (counts + canonical-path refs)
+
+Polish pass correcting stale prose counts/paths the version-string sweep doesn't reach. No behavior change.
+
+- **Skill/mirror/hook counts corrected** to the v3.14 baseline (27 Flow skills · 54 mirrors = 27 × 2 · 16/16 hook tests) in: `audit/README.md`, `docs/fusebase-cli-edition.md`, `docs/source-map.md`, `docs/compatibility.md` (already), `PUBLISHING.md` (hook tests 14→16, mirror 18→54), README catalog (already).
+- **Canonical skill path corrected** `skills/` → `flow-skills/` (canonical since v3.9.0) in `docs/source-map.md` and `docs/clean-room.md` attestation-scope sections.
+- **Translated READMEs** (`docs/translations/{de,es,fr,ja,pt-BR,zh-Hans}`) audited — intentionally version-free summaries that point to the canonical English README; correctly need no per-release count/version edits (no drift by design).
+- `.claude-plugin/plugin.json` / README badge / VERSION → 3.14.2; attestation strings swept; `FLOW_RULES.md` Status `v0.13 → v0.14` + amendment entry.
+- **Verified:** preflight 0/0 (incl. §8); run-tests 16/16. Detail: `docs/release-notes/v3.14.2.md`.
+
 ## [3.14.1] — 2026-06-07
 
 ### Fixed — release-hygiene polish (no model/behavior change)

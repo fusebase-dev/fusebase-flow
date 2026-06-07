@@ -52,7 +52,7 @@ overwrite or a `fusebase update`.
    **only-if-absent** (`cp -Rn` / `Copy-Item` without `-Force`); Flow-owned
    framework folders copy normally. See those docs for the exact commands.
 2. **Recovery never writes CLI-owned paths.** `mirror-skills.sh` writes only the
-   14 canonical Flow skills; `post-fusebase-update.sh` excludes
+   27 canonical Flow skills; `post-fusebase-update.sh` excludes
    `.claude/hooks/**`, CLI provider skills, MCP/`fusebase.json`/`skills-lock.json`,
    and active `.codex/config.toml`; the ownership map marks all 19 CLI provider
    skills `flow_write_mode:"never"`.

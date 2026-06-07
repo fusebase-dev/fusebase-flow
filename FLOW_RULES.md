@@ -1,6 +1,6 @@
 # Fusebase Flow — always-on rules (FR-01..FR-23)
 
-**Status:** v0.13 (v3.14.1 — release-hygiene polish + preflight §8 command-surface guard. Handoff procedure finalized in v3.14; consolidated under `docs/tmp/handoff` in v3.13; FR-23 added in v3.12.)
+**Status:** v0.14 (v3.14.2 — doc-consistency sweep: stale skill/mirror/hook counts + canonical `flow-skills/` path refs corrected across framework docs. Release-hygiene §8 guard added in v3.14.1; handoff procedure finalized in v3.14; FR-23 added in v3.12.)
 **Scope:** every session in any IDE/agent must follow these regardless of which skill or workflow is active.
 
 These rules are clean-room original. Each rule states *what*, *why*, and *enforcement surface* (rule-only, policy, hook, workflow, skill). Enforcement details live in `policies/`, `hooks/`, and `workflows/` — this file is the readable contract.
@@ -50,7 +50,7 @@ If a session writes code outside its role, FR-01 fires and the agent must stop a
 
 ## Self-attestation (mandatory at first response of every session)
 
-Every role declares: "Operating as {role} under Fusebase Flow v3.14.1. I will follow FR-01 through FR-23. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+Every role declares: "Operating as {role} under Fusebase Flow v3.14.2. I will follow FR-01 through FR-23. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 If self-attestation is missing from the first response, the session is drifting. Self-correct in the next output.
 
@@ -281,4 +281,14 @@ Both modes preserve FR-03, FR-13, FR-14.
              preflight §8 command-surface guard (handoff command/skill present +
              plugin.json version == VERSION). Attestation version swept to
              v3.14.1. Shipped in framework v3.14.1.
+
+2026-06-07 — v0.14. Doc-consistency sweep (no rule added/removed). v3.14.2:
+             corrected stale skill/mirror/hook counts and canonical-path refs
+             that the version-string sweep does not reach (prose counts) —
+             audit/README.md, docs/{compatibility,source-map,clean-room,
+             fusebase-cli-edition}.md, PUBLISHING.md, README catalog: 27 Flow
+             skills, 54 mirrors, 16/16 hook tests, canonical `flow-skills/`
+             (not `skills/`). Translated READMEs are intentionally version-free
+             summaries (point to canonical English README) — unchanged.
+             Attestation swept to v3.14.2. Shipped in framework v3.14.2.
 ```

@@ -8,7 +8,7 @@ This document records source boundaries for the Fusebase CLI provider layer. Can
 
 This wording is used in:
 
-- All 14 canonical SKILL.md `Clean-room note` sections (`skills/<slug>/SKILL.md`).
+- All 27 canonical SKILL.md `Clean-room note` sections (`flow-skills/<slug>/SKILL.md`).
 - All 28 mirror SKILL.md files (regenerated from canonical via `mirror-skills.sh`).
 - `templates/skill-template.md` (substrate for future skills).
 - `hooks/README.md` (hook framework attestation).
@@ -30,7 +30,7 @@ The following design patterns are common to public AI coding workflow discussion
 | Pattern category | How Fusebase Flow implements it |
 |---|---|
 | Always-on repository instructions | `AGENTS.md` (portable baseline) + provider-specific compatibility files |
-| Skill catalogs | `skills/<slug>/SKILL.md` with frontmatter + predictable section structure |
+| Skill catalogs | `flow-skills/<slug>/SKILL.md` with frontmatter + predictable section structure |
 | Rules / Skills / Workflows / Hooks separation | This repo's directory layout under `` |
 | Plan-before-edit discipline | FR-02 + `implementation-planning` skill + `architect-escalation` workflow |
 | Repo-map / context-map onboarding | `repo-onboarding-context-map` skill |
@@ -42,7 +42,7 @@ The following design patterns are common to public AI coding workflow discussion
 
 ## What is NOT copied
 
-- No SKILL.md prose from any third-party project is copied into canonical Flow `skills/`.
+- No SKILL.md prose from any third-party project is copied into canonical Flow `flow-skills/`.
 - No hook handler code or shell scripts from any third-party project are copied into canonical Flow `hooks/handlers/`, `hooks/shared/`, `hooks/git/`, or `hooks/local/`.
 - No vendor configuration examples reproduced verbatim; all examples (`.claude/settings.json.example`, `.codex/config.toml.example`, etc.) are written from the public protocol shape, not copied from any vendor sample repo.
 - No prompt text, system prompt, or skill description from any third-party project.
@@ -52,7 +52,7 @@ The following design patterns are common to public AI coding workflow discussion
 The clean-room property is validated by:
 
 1. Original wording check — the public-template tree is verified against a word-boundary search for non-target tool names; expected result is zero matches.
-2. Standard wording presence - `preflight.sh` is configured to inspect skill frontmatter; manual review of clean-room notes confirms the standard wording in all 14 canonical + 28 Flow mirror SKILL.md files.
+2. Standard wording presence - `preflight.sh` is configured to inspect skill frontmatter; manual review of clean-room notes confirms the standard wording in all 27 canonical + 54 Flow mirror SKILL.md files.
 3. Edition boundary check - CLI provider assets remain under provider surfaces and are not added to `flow-skills/` or canonical Flow mirror manifests.
 4. License attestation - see [`docs/clean-room.md`](clean-room.md) for the explicit clean-room statement for canonical Flow files.
 

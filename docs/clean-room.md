@@ -10,7 +10,7 @@ This Fusebase CLI edition also includes copied Fusebase Apps CLI provider assets
 
 This attestation applies to:
 
-- Root `skills/<slug>/SKILL.md` canonical Flow skills.
+- Canonical `flow-skills/<slug>/SKILL.md` Flow skills.
 - Flow mirrors generated from canonical skills under `.agents/skills/` and `.claude/skills/`.
 - Root `agents/<name>/AGENT.md` canonical Flow role agents and generated provider mirrors.
 - Flow lifecycle hook handlers and shared utilities under `hooks/handlers/`, `hooks/shared/`, `hooks/git/`, and `hooks/local/`.
@@ -31,7 +31,7 @@ This template is published under the MIT License (see `LICENSE`). MIT permits us
 
 ## What clean-room means here
 
-- No third-party SKILL.md text is copied into canonical Flow `skills/`.
+- No third-party SKILL.md text is copied into canonical Flow `flow-skills/`.
 - No third-party hook handler logic is copied into canonical Flow hook roots.
 - No prompt text, system prompt, vendor configuration sample, or example file is reproduced verbatim from a third-party source into canonical Flow roots.
 - Public protocol shapes are used as specification, not as source code.
@@ -41,7 +41,7 @@ This template is published under the MIT License (see `LICENSE`). MIT permits us
 
 | Evidence | Location |
 |---|---|
-| Standard attestation wording | Canonical `skills/<slug>/SKILL.md`, Flow mirrors, `templates/skill-template.md`, `hooks/README.md` |
+| Standard attestation wording | Canonical `flow-skills/<slug>/SKILL.md`, Flow mirrors, `templates/skill-template.md`, `hooks/README.md` |
 | Edition boundary map | `docs/fusebase-cli-edition.md` |
 | Source map | `docs/source-map.md` |
 | Mirror manifests | `audit/skill-mirror-manifest.txt`, `audit/agent-mirror-manifest.txt` |
