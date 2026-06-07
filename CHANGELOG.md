@@ -4,6 +4,20 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.12.0] — 2026-06-07
+
+### Added — FR-23 documentation budget (+ documentation-budget skill)
+
+Documentation-overhead reduction. PO and AI Developer sessions create AI-consumed artifacts that cost context on every future load and spawn stale conflicting copies — `decisions.md` with no real decision, handoffs that reprint the full spec, product docs expanded for small fixes, narrative-heavy business-logic docs. FR-23 makes documentation proportional to risk/value: classify each artifact by tier before writing, honor canonical ownership, prefer pointers over restatement. It is the documentation-axis complement to FR-21 (which scales process ceremony); Tier 1 == the Lightweight change-note.
+
+- **`flow-skills/documentation-budget/SKILL.md`** (new) — pre-write classifier: tiers 0-4 (0 none · 1 change-note · 2 active handoff · 3 spec+tasks · 4 full pack), canonical artifact-ownership table, pointer-over-duplication rule, product-doc gating (defers to `product-docs-first`), business-logic-index rule, anti-patterns. Active session continuity is `docs/tmp/handoff.md`; formal implement/deploy relays stay at `docs/handoff/*`.
+- **`FLOW_RULES.md`** — FR-23 row + implication paragraph; Status `v0.9 → v0.10`; title + self-attestation `FR-01..FR-22 → FR-01..FR-23`, `v3.11.1 → v3.12.0`; amendment-log entry. **FR-01..FR-22 rule rows/implications unchanged.**
+- **`templates/business-logic-index.md`** (new) — AI-readable retrieval index (tables + source paths), the default business-logic format for AI workflows. The human-narrative `templates/business-logic.md` is **preserved** as the explicit human-readable option.
+- **Cross-references** (one-line, non-duplicating) added to `communication` (`docs/tmp/handoff.md` in the Mode B list + "FR-23 governs whether an artifact exists"), `lightweight-lane` (change-note = Tier 1), `product-docs-first` (don't expand for small fixes), `business-logic-guardian` (index template default).
+- **`CLAUDE.md` / `AGENTS.md`** — version, FR range, attestation bumped to v3.12.0 / FR-23; on-demand skill catalog `25 → 26` with `documentation-budget`; active-vs-formal handoff rows.
+- Canonical skill count **25 → 26**. Mirrors regenerated (52 = 26 × 2); manifest updated.
+- **Not done (deferred):** the repo-wide `sync-version-strings.sh` attestation sweep (workflows/agents/templates still read v3.11.1 / FR-01..FR-22) — separate follow-up. No safety gate weakened; Full lane + FR-05/FR-07/FR-12 unchanged. Independently adversarially reviewed (one AGENTS.md sweep blocker found + fixed). preflight 0/0; run-tests 16/16; health HEALTHY (26 skills). Detail: `docs/release-notes/v3.12.0.md`.
+
 ## [3.11.1] — 2026-06-06
 
 ### Fixed — `sync-version-strings` nested-docs prune (+ FLOW_RULES v0.9)

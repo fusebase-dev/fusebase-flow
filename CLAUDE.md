@@ -1,6 +1,6 @@
 # CLAUDE.md - Claude Code adapter for Fusebase Flow
 
-This repo runs **Fusebase Flow v3.11.1**. The portable always-on baseline is in `AGENTS.md`. The full rule set is in `FLOW_RULES.md`. Read both before any other action.
+This repo runs **Fusebase Flow v3.12.0**. The portable always-on baseline is in `AGENTS.md`. The full rule set is in `FLOW_RULES.md`. Read both before any other action.
 
 ## Claude Code-specific notes
 
@@ -12,7 +12,7 @@ This repo runs **Fusebase Flow v3.11.1**. The portable always-on baseline is in 
 | Settings example (hooks wiring) | `.claude/settings.json.example` — copy to `.claude/settings.json` and customize before hooks run |
 | Flow hook handlers | `hooks/handlers/*.py` (Python, lifecycle-event-named) |
 | CLI quality hooks | `.claude/hooks/*` |
-| Always-on rules | `FLOW_RULES.md` (FR-01..FR-22) |
+| Always-on rules | `FLOW_RULES.md` (FR-01..FR-23) |
 
 ## Skills behavior under Claude Code
 
@@ -36,7 +36,7 @@ Hooks read policies from `policies/*.yml`. They are **opt-in**: nothing runs unt
 
 ## Self-attestation (every session's first response)
 
-> "Operating as {role} under Fusebase Flow v3.11.1. I will follow FR-01 through FR-22. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+> "Operating as {role} under Fusebase Flow v3.12.0. I will follow FR-01 through FR-23. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 If your first response doesn't include this attestation, you're drifting. See `FLOW_RULES.md`.
 
@@ -107,8 +107,9 @@ This repository follows **Fusebase Flow** in addition to project-specific rules.
 - `product-apps-decomposition` — product → focused apps guidance
 - `lightweight-lane` — FR-21 change-size tiering; small/reversible changes use a change-note + one build→verify→deploy pass instead of the full lifecycle
 - `comment-policy` — FR-22 write-time carrier; delivers the tripwire + retrieval-pointer comment policy into a code-writing agent's context (description-matched on code/comment edits)
+- `documentation-budget` — FR-23 doc-budget classifier; tier (0-4) before any AI-consumed artifact; canonical ownership + pointers over duplication; active handoff = `docs/tmp/handoff.md`
 
-(25 canonical Fusebase Flow skills total.)
+(26 canonical Fusebase Flow skills total.)
 
 **Slash commands (`.claude/commands/`):** `/fusebase-health`, `/onboard`, `/product-owner`.
 

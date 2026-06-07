@@ -26,6 +26,8 @@ Make ceremony proportional to risk. Fusebase Flow's full eight-phase lane is cal
 
 This is **not** only for one-line edits. It covers the whole class of **small / minor changes that need no large implementation and no real architectural decisions** — small hotfixes, small bug fixes, small improvements, config/copy tweaks. The discriminator is *implementation size + risk*, not a hard file count.
 
+> The change-note is **Tier 1** in the FR-23 documentation budget (`flow-skills/documentation-budget/SKILL.md`): FR-21 scales *process* ceremony; FR-23 scales *persistent documentation*. A Lightweight ticket's documentation IS the change-note — do not also emit spec/decisions/tasks/handoff docs for it.
+
 ## When to classify (every ticket, at Specify)
 
 Classify **Full** or **Lightweight** when the ticket is opened. `requirements-specification` calls this gate. Record `change_tier` (in the change-note for LL; in `spec.md` for Full).

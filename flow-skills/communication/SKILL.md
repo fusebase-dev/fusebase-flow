@@ -56,7 +56,8 @@ docs/specs/<slug>/data-model.md        (optional artifact)
 docs/specs/<slug>/clarify-conversation.md
 docs/backlog/<slug>/README.md
 docs/backlog/index.md
-docs/handoff/<YYYY-MM-DD>-<slug>-<stage>.md
+docs/tmp/handoff.md                     (active session continuity — superseded each session, FR-18/FR-23 Tier 2)
+docs/handoff/<YYYY-MM-DD>-<slug>-<stage>.md   (formal role-relay prompt — implement/deploy)
 docs/problem-catalog/<slug>/problem.md
 docs/problem-catalog/README.md
 docs/skills/<slug>/SKILL.md            (project-internal skills)
@@ -92,6 +93,8 @@ docs/source-map.md
 ```
 
 If a file's mode is unclear, default to Mode B (AI-optimized). The carve-out list above is the explicit human-facing set.
+
+> **Whether an artifact should exist at all** is governed by FR-23 / `flow-skills/documentation-budget/SKILL.md` (tier classification). This skill governs only HOW to write it once that skill says it's warranted. Active session continuity is `docs/tmp/handoff.md`; `docs/handoff/*` is reserved for formal implement/deploy role-relay prompts — never use `docs/handoff/` for active continuity.
 
 ---
 

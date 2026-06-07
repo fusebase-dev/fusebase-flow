@@ -24,6 +24,8 @@ hook_dependencies:
 
 Protect documented business logic during fixes and improvements. The business-logic doc is a fast navigation/verify layer: confirm a change does not silently break documented behavior before committing. Complements FR-20 (zoom-out) and FR-10 (reproduce-before-fix).
 
+> Consumes whichever business-logic doc exists. Per FR-23 (`flow-skills/documentation-budget/SKILL.md`), the AI-default authoring format is the retrieval index `templates/business-logic-index.md` (tables + source paths); the narrative `templates/business-logic.md` is the explicit human-readable option. This skill reads either as the guard layer.
+
 ## When to invoke
 
 - `docs/<app>/business-logic.md` exists AND a fix/improvement touches business behavior.
