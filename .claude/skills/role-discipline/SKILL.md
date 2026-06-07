@@ -47,7 +47,7 @@ There is no scenario where this skill doesn't apply during an active session. It
 | Input | Where it lives | If missing |
 |---|---|---|
 | Self-attested role | first-response self-attestation phrase | STOP — agent must self-attest a role before any other action |
-| `FLOW_RULES.md` (FR-01..FR-22) | repo root | existence-checked at bootstrap, NOT injected into context — read on demand. FR-22's write-time body ships via the `flow-skills/comment-policy` skill (load it before writing code). |
+| `FLOW_RULES.md` (FR-01..FR-23) | repo root | existence-checked at bootstrap, NOT injected into context — read on demand. FR-22's write-time body ships via the `flow-skills/comment-policy` skill (load it before writing code). |
 | `policies/command-policy.yml` (deny + require_approval lists) | `policies/` | hooks consult this; agent should not duplicate the check |
 
 ## Procedure

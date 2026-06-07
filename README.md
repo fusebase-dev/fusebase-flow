@@ -272,9 +272,9 @@ Preflight will warn on drift if the mirrors and canonical fall out of sync. Full
 
 ## Skill catalog
 
-Skills are on-demand expertise the agent loads when a task matches the skill's description. **25 canonical Flow skills** govern the lifecycle and project-optimization; **19 FuseBase Apps domain skills** supply the app-building knowledge. You never invoke them by hand — describe the work and the matcher loads the right one.
+Skills are on-demand expertise the agent loads when a task matches the skill's description. **27 canonical Flow skills** govern the lifecycle and project-optimization; **19 FuseBase Apps domain skills** supply the app-building knowledge. You never invoke them by hand — describe the work and the matcher loads the right one.
 
-### Flow lifecycle skills (25)
+### Flow lifecycle skills (27)
 
 | Phase | Skill | What it does |
 |---|---|---|
@@ -303,8 +303,10 @@ Skills are on-demand expertise the agent loads when a task matches the skill's d
 | Guard | `business-logic-guardian` | Protect documented business logic during fixes (no-op if absent) |
 | Architecture | `product-apps-decomposition` | Product → focused apps (generic + steers to product doc) |
 | Lane / speed | `lightweight-lane` | FR-21 — classify Full vs Lightweight; small/reversible changes use a change-note + one build→verify→deploy pass instead of the full chain |
+| Docs budget | `documentation-budget` | FR-23 — tier-classify (0-4) before any AI-consumed artifact; canonical ownership + pointers over duplication |
+| Continuity | `handoff` | Writes active session restart state to `docs/tmp/handoff.md` (16-section template); operator-triggered (`/handoff`) |
 
-★ = mandatory, loaded every session. The last 9 (zoom-out … product-apps-decomposition) shipped in v3.3–v3.5; `lightweight-lane` shipped in v3.7. The project-* / north-star / client-vs-internal / product-* / guard skills are **artifact-gated** — dormant until onboarding creates their `docs/` artifact.
+★ = mandatory, loaded every session. The last 9 (zoom-out … product-apps-decomposition) shipped in v3.3–v3.5; `lightweight-lane` v3.7, `comment-policy` v3.11, `documentation-budget` v3.12, `handoff` v3.14. The project-* / north-star / client-vs-internal / product-* / guard skills are **artifact-gated** — dormant until onboarding creates their `docs/` artifact.
 
 ### FuseBase CLI provider skills (19)
 
@@ -652,15 +654,15 @@ fusebase-flow/
 ├── AGENTS.md                       ← portable always-on baseline
 ├── CLAUDE.md                       ← Anthropic Claude Code adapter
 ├── GEMINI.md                       ← Gemini-style IDE adapter
-├── FLOW_RULES.md                   ← FR-01..FR-22 always-on rules
+├── FLOW_RULES.md                   ← FR-01..FR-23 always-on rules
 ├── VERSION                         ← 3.7.0
 ├── .gitattributes                  ← LF line endings for shell/python/yaml/md
 ├── .python-version                 ← 3.12 (recommended)
-├── flow-skills/                         ← 25 canonical skills (2 mandatory + 23 on-demand, incl. comment-policy (v3.11) + lightweight-lane (v3.7) + the v3.3–v3.5 additions: zoom-out, phase-audit, git-history-diagnostic, project-onboarding, north-star, client-vs-internal, product-docs-first, business-logic-guardian, product-apps-decomposition)
+├── flow-skills/                         ← 27 canonical skills (2 mandatory + 25 on-demand, incl. handoff (v3.14) + documentation-budget (v3.12) + comment-policy (v3.11) + lightweight-lane (v3.7) + the v3.3–v3.5 additions: zoom-out, phase-audit, git-history-diagnostic, project-onboarding, north-star, client-vs-internal, product-docs-first, business-logic-guardian, product-apps-decomposition)
 ├── agents/                         ← 2 canonical sub-agents (product-owner, ai-developer)
 ├── workflows/                      ← 13 procedures (incl. lightweight-lane)
 ├── policies/                       ← 6 YAML policies
-├── templates/                      ← 14 substrates (incl. change-note)
+├── templates/                      ← 24 substrates (incl. change-note, business-logic-index, handoff)
 ├── hooks/
 │   ├── README.md
 │   ├── flow_hook_event.schema.json
@@ -707,7 +709,7 @@ Public-facing reference material lives in [`docs/`](docs/):
 
 - [`docs/compatibility.md`](docs/compatibility.md) — provider / IDE support detail
 - [`docs/hook-coverage.md`](docs/hook-coverage.md) — hook × provider coverage
-- [`docs/rail-mapping.md`](docs/rail-mapping.md) — FR-01..FR-22 → enforcement surfaces
+- [`docs/rail-mapping.md`](docs/rail-mapping.md) — FR-01..FR-23 → enforcement surfaces
 - [`docs/clean-room.md`](docs/clean-room.md) — clean-room license attestation
 - [`docs/source-map.md`](docs/source-map.md) — generic pattern attribution
 

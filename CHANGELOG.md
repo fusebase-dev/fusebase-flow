@@ -4,6 +4,19 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.14.0] — 2026-06-07
+
+### Added — handoff procedure finalized (`handoff` skill + `/handoff` command + template) + version-string sweep
+
+Completes the active-continuity half of FR-23 Tier 2 (formal relays already moved to `docs/tmp/handoff/` in v3.13.0) and brings every live attestation string current. No FR added/removed.
+
+- **`flow-skills/handoff/SKILL.md`** (new) — operator-triggered (`invocation: manual`) skill that writes the active session restart state to `docs/tmp/handoff.md` for the next AI coding agent (16 sections, Mode B, supersede-in-place per FR-18, pointers-not-reprints per FR-23). Distinct from the formal implement/deploy relays.
+- **`templates/handoff.md`** (new) — the 16-section Mode B substrate (Session Role → Completion Criteria) the skill fills.
+- **`.claude/commands/handoff.md`** (new) — `/handoff` slash command (4th command).
+- **Version-string sweep** (`hooks/local/sync-version-strings.sh`) — brought all live attestation/banner strings to **v3.14.0 / FR-01..FR-23 / 27 skills** across adapters, agents, workflows, templates, overlays, and framework docs (history preserved: release-notes/specs/handoff archives pruned). This was the deferred mechanical hygiene from the v3.12–v3.13 line.
+- Canonical skill count **26 → 27**; `CLAUDE.md`/`AGENTS.md` skill catalogs + `/handoff` wired; README counts corrected (skills 25→27, templates 14→24); `FLOW_RULES.md` Status `v0.11 → v0.12` + amendment entry. Mirrors regenerated (54 = 27 × 2).
+- **Verified:** preflight 0/0; run-tests **16/16 PASS**. Detail: `docs/release-notes/v3.14.0.md`.
+
 ## [3.13.0] — 2026-06-07
 
 ### Changed — handoff artifacts consolidated under `docs/tmp/handoff`

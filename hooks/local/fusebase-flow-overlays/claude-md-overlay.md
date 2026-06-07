@@ -38,7 +38,7 @@ This repository follows **Fusebase Flow** in addition to project-specific rules.
 - `lightweight-lane` — FR-21 change-size tiering; small/reversible changes use a change-note + one build→verify→deploy pass instead of the full lifecycle
 - `comment-policy` — FR-22 write-time carrier; delivers the tripwire + retrieval-pointer comment policy into a code-writing agent's context (description-matched on code/comment edits)
 
-(25 canonical Fusebase Flow skills total.)
+(27 canonical Fusebase Flow skills total.)
 
 **Slash commands (`.claude/commands/`):** `/fusebase-health`, `/onboard`, `/product-owner`.
 

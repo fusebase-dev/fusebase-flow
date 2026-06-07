@@ -24,7 +24,7 @@ Chosen at Specify when the eligibility gate in `flow-skills/lightweight-lane/SKI
 
 ## Self-attestation
 
-The same role attestation as any AI Developer session (per `FLOW_RULES.md` § Self-attestation, FR-01..FR-22), naming the AI Developer role and `flow-skills/role-discipline/SKILL.md`. Add one line: "Running the Lightweight Lane (FR-21): one change-note, one build→verify→deploy pass, plain operator go-ahead; safety floor (live proof, explicit go-ahead, FR-07, rollback, one commit) kept; I will STOP and promote to Full if this turns non-trivial."
+The same role attestation as any AI Developer session (per `FLOW_RULES.md` § Self-attestation, FR-01..FR-23), naming the AI Developer role and `flow-skills/role-discipline/SKILL.md`. Add one line: "Running the Lightweight Lane (FR-21): one change-note, one build→verify→deploy pass, plain operator go-ahead; safety floor (live proof, explicit go-ahead, FR-07, rollback, one commit) kept; I will STOP and promote to Full if this turns non-trivial."
 
 ## Mid-flight promotion (mandatory)
 

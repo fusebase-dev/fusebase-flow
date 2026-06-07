@@ -1,6 +1,6 @@
 # Fusebase Flow — always-on rules (FR-01..FR-23)
 
-**Status:** v0.11 (v3.13 — all handoff artifacts consolidated under `docs/tmp/handoff`; FR-23 row + implication updated. FR-23 added in v3.12.)
+**Status:** v0.12 (v3.14 — handoff skill + `/handoff` command finalize the handoff procedure; version-string sweep. Handoffs consolidated under `docs/tmp/handoff` in v3.13; FR-23 added in v3.12.)
 **Scope:** every session in any IDE/agent must follow these regardless of which skill or workflow is active.
 
 These rules are clean-room original. Each rule states *what*, *why*, and *enforcement surface* (rule-only, policy, hook, workflow, skill). Enforcement details live in `policies/`, `hooks/`, and `workflows/` — this file is the readable contract.
@@ -50,7 +50,7 @@ If a session writes code outside its role, FR-01 fires and the agent must stop a
 
 ## Self-attestation (mandatory at first response of every session)
 
-Every role declares: "Operating as {role} under Fusebase Flow v3.13.0. I will follow FR-01 through FR-23. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+Every role declares: "Operating as {role} under Fusebase Flow v3.14.0. I will follow FR-01 through FR-23. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 If self-attestation is missing from the first response, the session is drifting. Self-correct in the next output.
 
@@ -261,4 +261,15 @@ Both modes preserve FR-03, FR-13, FR-14.
              preserved: run-tests 16/16, preflight 0/0. Spec:
              docs/specs/handoff-path-migration/spec.md. Shipped in framework
              v3.13.0.
+
+2026-06-07 — v0.12. Handoff procedure finalized (no rule added/removed). New
+             flow-skills/handoff/SKILL.md (operator-triggered; writes active
+             restart state to docs/tmp/handoff.md), templates/handoff.md
+             (16-section Mode B substrate), and /handoff slash command —
+             completing the active-continuity half of FR-23 Tier 2 (formal
+             relays already at docs/tmp/handoff/ since v3.13.0). Also ran the
+             deferred sync-version-strings.sh sweep so all live attestation
+             strings read v3.14.0 / FR-01..FR-23 / 27 skills (canonical skill
+             count 26 -> 27). No rule text changed; FLOW_RULES attestation
+             version bumped by the sweep. Shipped in framework v3.14.0.
 ```
