@@ -1,4 +1,4 @@
-# Rail mapping — FR-01..FR-23 → enforcement surface
+# Rail mapping — FR-01..FR-24 → enforcement surface
 
 Every always-on rule in `FLOW_RULES.md` maps to one or more enforcement surfaces (rule statement only, workflow procedure, on-demand skill, lifecycle hook, machine-readable policy). This table is the canonical map.
 

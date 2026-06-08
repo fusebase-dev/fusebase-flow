@@ -4,6 +4,20 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.15.0] — 2026-06-08
+
+### Added — FR-24 write-time discipline delivery (write-time rules reach the writing agent)
+
+Closes a **class** of delivery gaps surfaced by a consumer (WorkHub Managed): after upgrading to v3.14.2, an operator-launched AI-Developer fix chain still produced verbose human-oriented comments — FR-22's carrier skill is description-matched and never loaded in that flow. Zoom-out (FR-20): FR-22 is one symptom; the write-time rules **FR-09 (Mode B), FR-18 (supersede), FR-22 (comments), FR-23 (documentation budget)** all share the same "is the rule in the writing agent's context at write time?" hole — and FR-23 (the documentation rule itself) is exposed identically.
+
+- **`FLOW_RULES.md`** — new **FR-24 (write-time discipline delivery)** + implication; title/Status `v0.14 → v0.15`; amendment entry. Codifies *one* systemic delivery mechanism instead of per-rule patches.
+- **`flow-skills/role-discipline/SKILL.md`** — new always-on, role-scoped **§ Write-time discipline digest**: a **pointer index** (FR-09/18/22/23, one line + skill pointer each — not duplicated bodies, honoring FR-23) delivered in every writing session's context. Replaces the old description-match-dependent FR-22 pull-directive.
+- **`templates/handoff-implement.md`** — hard-invariants broadened from FR-22-only to the digest (FR-09/18/22/23); delegation push-block now inlines the digest for sub-agents (which don't inherit the always-on path).
+- **`hooks/handlers/session_start.py`** — FR-22 reminder broadened to the write-time set (FR-24).
+- **Audience principle codified:** dev artifacts (comments, specs, decisions, tasks, handoffs, business-logic *index*) are AI-consumed → optimize for AI only; the human-facing surface (README/onboarding/legal/translations, opt-in `business-logic.md` narrative) stays human-readable.
+- **Not done (deliberately):** no new skill; no `mandatory_load` change (the 3rd-always-on-skill option was already rejected as self-contradictory context bloat); no regex/lint comment gate (semantic). FR range swept to FR-01..FR-24; baselines + VERSION → 3.15.0.
+- **Verified:** preflight 0/0; run-tests 16/16. Spec: `docs/specs/write-time-discipline-delivery/spec.md`. Detail: `docs/release-notes/v3.15.0.md`.
+
 ## [3.14.2] — 2026-06-07
 
 ### Fixed — doc-consistency sweep (counts + canonical-path refs)

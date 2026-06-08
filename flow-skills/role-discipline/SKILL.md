@@ -47,7 +47,7 @@ There is no scenario where this skill doesn't apply during an active session. It
 | Input | Where it lives | If missing |
 |---|---|---|
 | Self-attested role | first-response self-attestation phrase | STOP — agent must self-attest a role before any other action |
-| `FLOW_RULES.md` (FR-01..FR-23) | repo root | existence-checked at bootstrap, NOT injected into context — read on demand. FR-22's write-time body ships via the `flow-skills/comment-policy` skill (load it before writing code). |
+| `FLOW_RULES.md` (FR-01..FR-24) | repo root | existence-checked at bootstrap, NOT injected into context — read on demand. The write-time rules (FR-09/18/22/23) are delivered in-context, always-on, via § Write-time discipline digest below (FR-24); load the cited skill for full detail. |
 | `policies/command-policy.yml` (deny + require_approval lists) | `policies/` | hooks consult this; agent should not duplicate the check |
 
 ## Procedure
@@ -158,7 +158,7 @@ This protocol is the framework's commitment to operator attention. Drift on it =
 
 ## Section: AI Developer
 
-**Before writing code, load `flow-skills/comment-policy`** — FR-22 (tripwire + pointer only) is not auto-injected; the carrier skill is its write-time home (FR-22 is enforced write-time + review-time, never via a gate).
+**Before writing code or creating any artifact, apply the § Write-time discipline digest (FR-24)** — it delivers FR-23 (doc-budget/tier), FR-09 (Mode B), FR-18 (supersede), and FR-22 (comments: tripwire + pointer only, don't match density upward) in-context, always-on. Load the cited skill (`flow-skills/comment-policy` for FR-22, `flow-skills/documentation-budget` for FR-23) for full detail. None of these is a gate — they're enforced write-time (this digest) + review-time (`code-review`).
 
 ### Don't-list
 
@@ -399,6 +399,23 @@ When you (the agent) catch yourself drafting a retreat phrase mid-output:
 > "[deleting wrap-up phrasing per FR-17 / forward momentum]. Next forward action: <concrete action>."
 
 Or just silently remove it before sending. The catch is what matters, not the apology.
+
+---
+
+## Write-time discipline digest (FR-24 / v3.15.0)
+
+**Mandatory for every WRITING role** — AI Developer (code + artifacts); Product Owner / Architect when writing specs/decisions/tasks/handoffs. This digest is the always-on, in-context **delivery** of the write-time rules (per FR-24). It is a **pointer index, not a duplicate** of their bodies (itself an FR-23 application) — load the cited skill for full detail. Apply it whenever you create/edit an artifact or write code.
+
+| Rule | Write-time discipline (one line) | Applies to | Full source |
+|---|---|---|---|
+| FR-23 | Before creating/expanding any AI-consumed doc, tier-classify (0 none · 1 change-note · 2 active handoff · 3 spec+tasks · 4 full); canonical ownership; pointers over duplication; don't create a doc just because a template implies one | all artifact writing | `flow-skills/documentation-budget/SKILL.md` |
+| FR-09 | AI-consumed artifacts are Mode B: dense, tabular, front-loaded; no narrative padding / human-onboarding preamble | all artifact writing | `flow-skills/communication/SKILL.md` |
+| FR-18 | Revising an artifact → REPLACE stale content in place; don't accumulate old+new; git history is the audit trail | all artifact writing | this skill § Supersede Convention |
+| FR-22 | Code comments: only (1) tripwire + (2) ≤1-line retrieval pointer; remove WHAT-restating / changelog / recorded-elsewhere; do NOT match surrounding density upward | code-writing (AI Developer) | `flow-skills/comment-policy/SKILL.md` |
+
+**Audience (the why):** human operators do NOT read dev artifacts — comments, specs, decisions, tasks, gates, handoffs, business-logic *index* are AI-consumed → **optimize for AI agents only**. The human-facing surface stays human-readable and is OUT of scope: `README.md` + translated READMEs, `CONTRIBUTING`/`SECURITY`/`LICENSE`/`PUBLISHING`, `AGENTS.md`/`CLAUDE.md`/`GEMINI.md` onboarding, opt-in `business-logic.md` narrative.
+
+**Sub-agent reach:** a delegated code-writing sub-agent does NOT inherit this always-on digest (sub-agents don't reliably auto-load skills; `session_start` doesn't fire for them). The delegating prompt MUST inline this digest + the `comment-policy` Delegation push-block — see `flow-skills/task-delegation`.
 
 ---
 

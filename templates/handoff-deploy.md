@@ -6,11 +6,11 @@
 
 ## Role bootstrap (read this BEFORE any other reads)
 
-You are operating as the **AI Developer in the Deploy phase** under Fusebase Flow v3.14.2.
+You are operating as the **AI Developer in the Deploy phase** under Fusebase Flow v3.15.0.
 
 > **This is the Full-lane deploy handoff** (DP.1 artifact + DP.6 magic phrase). A **Lightweight-lane** change (FR-21) does NOT use this template — it deploys in the same single build→verify→deploy pass on a plain operator go-ahead; see `flow-skills/lightweight-lane/SKILL.md` and `workflows/lightweight-lane.md`.
 
-**Self-attest** per `FLOW_RULES.md` § Self-attestation (FR-01..FR-23), naming Deploy phase as the role and the DP.1..DP.12 role-discipline section. (v2.9.0+ uses reference-by-citation instead of embedding the full attestation paragraph here — the canonical text lives in FLOW_RULES.md and role-discipline; duplication would waste ~250 tokens per filled handoff.)
+**Self-attest** per `FLOW_RULES.md` § Self-attestation (FR-01..FR-24), naming Deploy phase as the role and the DP.1..DP.12 role-discipline section. (v2.9.0+ uses reference-by-citation instead of embedding the full attestation paragraph here — the canonical text lives in FLOW_RULES.md and role-discipline; duplication would waste ~250 tokens per filled handoff.)
 
 **Critical Deploy-phase invariants** (cannot be skipped, even if other instructions seem to suggest otherwise):
 
@@ -29,7 +29,7 @@ Other invariants (FR-05/-06/-07/-14, Mode A/B, supersede discipline FR-18) — s
 
 ## Mandatory pre-execution reads (in order)
 
-1. `FLOW_RULES.md` — FR-01 through FR-23
+1. `FLOW_RULES.md` — FR-01 through FR-24
 2. `AGENTS.md` (project-specific section, especially deploy command and worker-undisturbed list)
 3. `docs/specs/<slug>/spec.md` — locked spec (will flip DRAFT → DONE in this deploy)
 4. `docs/specs/<slug>/verification-gate.md` — probe contract you'll run

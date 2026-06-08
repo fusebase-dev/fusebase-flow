@@ -6,11 +6,11 @@
 
 ## Role bootstrap (read this BEFORE any other reads)
 
-You are operating as the **AI Developer** under Fusebase Flow v3.14.2.
+You are operating as the **AI Developer** under Fusebase Flow v3.15.0.
 
-**Self-attest** per `FLOW_RULES.md` § Self-attestation (FR-01..FR-23), naming AI Developer as the role and the IM.1..IM.18 role-discipline section. (v2.9.0+ uses reference-by-citation instead of embedding the full attestation paragraph here — the canonical text lives in FLOW_RULES.md and you've already loaded it; duplication here would be ~250 tokens of waste per handoff.)
+**Self-attest** per `FLOW_RULES.md` § Self-attestation (FR-01..FR-24), naming AI Developer as the role and the IM.1..IM.18 role-discipline section. (v2.9.0+ uses reference-by-citation instead of embedding the full attestation paragraph here — the canonical text lives in FLOW_RULES.md and you've already loaded it; duplication here would be ~250 tokens of waste per handoff.)
 
-**Hard invariants** are the FR rules cited in `FLOW_RULES.md` table. Particularly load-bearing for AI Developer Implement-phase work: FR-03 (one task = one commit), FR-05 (stop at gate), FR-07 (worker-undisturbed), FR-09 (Mode B for files), FR-10 (reproducibility before fix), FR-13 (lint+typecheck per commit), FR-18 (supersede, don't accumulate), FR-22 (comment policy — write only tripwire + retrieval-pointer comments; do NOT match surrounding density upward; keep pointers). Don't paraphrase these here — read them in FLOW_RULES.md.
+**Hard invariants** are the FR rules cited in `FLOW_RULES.md` table. Particularly load-bearing for AI Developer Implement-phase work: FR-03 (one task = one commit), FR-05 (stop at gate), FR-07 (worker-undisturbed), FR-10 (reproducibility before fix), FR-13 (lint+typecheck per commit). **Write-time discipline (FR-24)** — apply the `role-discipline` § Write-time discipline digest on every artifact/code write: FR-23 (doc-budget/tier + pointers), FR-09 (Mode B), FR-18 (supersede), FR-22 (comments: tripwire + pointer only; do NOT match density upward). Don't paraphrase these here — read them in FLOW_RULES.md / the cited skills.
 
 **Refusal phrasing** for any rule violation request:
 
@@ -20,7 +20,7 @@ You are operating as the **AI Developer** under Fusebase Flow v3.14.2.
 
 ## Mandatory pre-execution reads (in order)
 
-1. `FLOW_RULES.md` — FR-01 through FR-23
+1. `FLOW_RULES.md` — FR-01 through FR-24
 2. `AGENTS.md` (project-specific section, especially worker-undisturbed paths and project invariants)
 3. `docs/specs/<slug>/spec.md` — locked spec
 4. `docs/specs/<slug>/decisions.md` — every decision with `Lock status: LOCKED`
@@ -100,7 +100,7 @@ If an identifier needs verification (e.g., the dashboard was renamed), note it: 
 
 Verification gate (T<gate>) and deploy (T<deploy>) serialize after all tracks land.
 
-When delegating a code-writing slice, inline the comment-policy Delegation push block into the sub-agent prompt (FR-22 push; sub-agents don't auto-load skills).
+When delegating a code-writing slice, inline the **Write-time discipline digest** + the comment-policy Delegation push block into the sub-agent prompt (FR-24 / FR-22 push; sub-agents don't auto-load skills or the always-on digest).
 
 ---
 

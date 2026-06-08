@@ -13,16 +13,16 @@ Change:    1) hooks/local/sync-version-strings.sh prune list — add depth-toler
               existing top-level patterns (find * spans /, so ./docs/*/ catches any
               nesting depth >=1; flat case still covered). One-line FR-22 tripwire added
               above the find block. No other engine script touched.
-           2) FLOW_RULES.md Status :3 v0.8 -> v0.9 + one amendment-log entry. FR-01..FR-23
+           2) FLOW_RULES.md Status :3 v0.8 -> v0.9 + one amendment-log entry. FR-01..FR-24
               rule rows/implications unchanged.
            3) VERSION 3.11.0 -> 3.11.1; ran sync-version-strings (live attestation/FR-range/
-              skill-count -> v3.11.1, FR-01..FR-23, 25 skills) + re-mirror.
+              skill-count -> v3.11.1, FR-01..FR-24, 25 skills) + re-mirror.
 Verified:  Live proof (acceptance gate, run pre-commit): fixture docs/_acctest/handoff/old.md
            + docs/_acctest/specs/old.md each carrying "Fusebase Flow v3.10.0 / FR-01 through
            FR-21". sync --dry-run → NEITHER fixture file in the would-change list (pruned by
            the fix; old exact patterns would have rewritten them). Framework live files still
            bump (GEMINI.md + FLOW_RULES.md + AGENTS.md + CLAUDE.md + templates/ + workflows/
-           in the list; banner "version v3.11.1, FR-01..FR-23, 25 skills"). Fixture removed
+           in the list; banner "version v3.11.1, FR-01..FR-24, 25 skills"). Fixture removed
            (not committed). preflight 0/0; health HEALTHY, 25 skills.
 Rollback:  git revert <SHA>  (single commit; reversible — shell + markdown only, no schema/data)
 Commit:    9a4d554
