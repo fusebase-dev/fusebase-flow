@@ -1,6 +1,6 @@
 # Fusebase Flow — always-on rules (FR-01..FR-25)
 
-**Status:** v0.16 (FR-25 added in v3.16.0 — module-size ratchet: the first deterministic write-time gate; source files are AI-read, so over-ceiling growth blocks at pre-commit once a baseline is committed. FR-24 write-time digest added v3.15; FR-23 added v3.12.)
+**Status:** v0.17 (roadmap publication v3.16.1 — no rule change. FR-25 added in v3.16.0 — module-size ratchet: the first deterministic write-time gate; source files are AI-read, so over-ceiling growth blocks at pre-commit once a baseline is committed. FR-24 write-time digest added v3.15.)
 **Scope:** every session in any IDE/agent must follow these regardless of which skill or workflow is active.
 
 These rules are clean-room original. Each rule states *what*, *why*, and *enforcement surface* (rule-only, policy, hook, workflow, skill). Enforcement details live in `policies/`, `hooks/`, and `workflows/` — this file is the readable contract.
@@ -52,7 +52,7 @@ If a session writes code outside its role, FR-01 fires and the agent must stop a
 
 ## Self-attestation (mandatory at first response of every session)
 
-Every role declares: "Operating as {role} under Fusebase Flow v3.16.0. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+Every role declares: "Operating as {role} under Fusebase Flow v3.16.1. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 If self-attestation is missing from the first response, the session is drifting. Self-correct in the next output.
 
@@ -346,4 +346,13 @@ Both modes preserve FR-03, FR-13, FR-14.
              (16 fixtures + 6 = 22). Spec:
              docs/specs/module-size-discipline/spec.md. Shipped in framework
              v3.16.0.
+
+2026-06-10 — v0.17. Roadmap publication (no rule added/removed). v3.16.1:
+             ROADMAP.md (root, public-surface allowlisted) + 2 parked backlog
+             tickets (architect-sub-agent, role-path-hook-enforcement)
+             harvested from the stranded pre-v3.2 local line and refreshed to
+             the v3.16.0 baseline; docs/backlog/index.md; README/CONTRIBUTING
+             pointers. Local main fast-forwarded to origin/main (stale-local-
+             main hazard resolved; stranded line archived locally).
+             Attestation strings swept to v3.16.1.
 ```

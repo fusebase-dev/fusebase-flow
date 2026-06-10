@@ -4,6 +4,18 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.16.1] — 2026-06-10
+
+### Added — public roadmap + parked backlog published (docs-only; no rule/behavior change)
+
+Formalizes the roadmap publication (`ad1fb7f` + `2b02db7`) as a release and brings all live attestation strings to v3.16.1.
+
+- **`ROADMAP.md`** (new, root) — public view of what's likely next, rewritten to the v3.16.0 baseline: released arc v3.2→v3.16; **Next likely**: architect sub-agent, role × path hook enforcement (now easier — FR-25 shipped the glob/policy-gate plumbing); **radar**: rail-mapping FR-20..25 rows, `.claude/commands` refresh path, baseline rename handling, dogfood baseline, new provider surfaces; corrected non-goals (Claude Code plugin + slash commands are optional conveniences, never the primary path; regex gates only for objectively countable rules).
+- **`docs/backlog/`** — `architect-sub-agent` + `role-path-hook-enforcement` tickets harvested from the stranded pre-v3.2 local line (d8f24f5, never pushed) and refreshed (flow-skills/ paths, 22/22 test baseline, `docs/tmp/handoff` relays, `*.local.yml` gitignore); `index.md` created (3 parked tickets).
+- **CI** — `ROADMAP.md` added to the public-surface allowlist; README public-docs list + CONTRIBUTING before-you-start gain roadmap pointers.
+- Housekeeping: local `main` fast-forwarded to origin/main (stranded line archived locally); attestation strings swept to v3.16.1; `FLOW_RULES.md` Status `v0.16 → v0.17` (no rule text changed).
+- **Verified:** preflight 0/0; run-tests 22/22; CI green incl. public-surface guard. Detail: `docs/release-notes/v3.16.1.md`.
+
 ## [3.16.0] — 2026-06-10
 
 ### Added — FR-25 module-size ratchet (first deterministic write-time gate)
