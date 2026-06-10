@@ -708,6 +708,7 @@ fusebase-flow/
 
 Public-facing reference material lives in [`docs/`](docs/):
 
+- [`ROADMAP.md`](ROADMAP.md) — what's likely next, parked backlog tickets, and explicit non-goals
 - [`docs/compatibility.md`](docs/compatibility.md) — provider / IDE support detail
 - [`docs/hook-coverage.md`](docs/hook-coverage.md) — hook × provider coverage
 - [`docs/rail-mapping.md`](docs/rail-mapping.md) — FR-01..FR-25 → enforcement surfaces
