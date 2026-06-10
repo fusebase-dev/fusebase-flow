@@ -24,7 +24,7 @@ Change:    1) ROADMAP.md (new, root) rewritten to the v3.16.0 baseline: released
 Verified:  preflight 0/0; run-tests 22/22; sweep dry-run clean; CI green on push
            (public-surface guard accepts ROADMAP.md).
 Rollback:  git revert <SHA>  (single commit; markdown + one allowlist line)
-Commit:    <backfilled after commit>
+Commit:    ad1fb7f
 Deploy:    plain operator go-ahead ("proceed to finalize it in one development
            cycle") → push to origin main; local main fast-forwarded after
            (stranded line archived as a local branch).
