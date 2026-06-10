@@ -47,7 +47,7 @@ There is no scenario where this skill doesn't apply during an active session. It
 | Input | Where it lives | If missing |
 |---|---|---|
 | Self-attested role | first-response self-attestation phrase | STOP — agent must self-attest a role before any other action |
-| `FLOW_RULES.md` (FR-01..FR-24) | repo root | existence-checked at bootstrap, NOT injected into context — read on demand. The write-time rules (FR-09/18/22/23) are delivered in-context, always-on, via § Write-time discipline digest below (FR-24); load the cited skill for full detail. |
+| `FLOW_RULES.md` (FR-01..FR-25) | repo root | existence-checked at bootstrap, NOT injected into context — read on demand. The write-time rules (FR-09/18/22/23/25) are delivered in-context, always-on, via § Write-time discipline digest below (FR-24); load the cited skill for full detail. |
 | `policies/command-policy.yml` (deny + require_approval lists) | `policies/` | hooks consult this; agent should not duplicate the check |
 
 ## Procedure
@@ -158,7 +158,7 @@ This protocol is the framework's commitment to operator attention. Drift on it =
 
 ## Section: AI Developer
 
-**Before writing code or creating any artifact, apply the § Write-time discipline digest (FR-24)** — it delivers FR-23 (doc-budget/tier), FR-09 (Mode B), FR-18 (supersede), and FR-22 (comments: tripwire + pointer only, don't match density upward) in-context, always-on. Load the cited skill (`flow-skills/comment-policy` for FR-22, `flow-skills/documentation-budget` for FR-23) for full detail. None of these is a gate — they're enforced write-time (this digest) + review-time (`code-review`).
+**Before writing code or creating any artifact, apply the § Write-time discipline digest (FR-24)** — it delivers FR-23 (doc-budget/tier), FR-09 (Mode B), FR-18 (supersede), FR-22 (comments: tripwire + pointer only, don't match density upward), and FR-25 (module-size ratchet: don't grow over-ceiling files; extract along a responsibility seam) in-context, always-on. Load the cited skill (`flow-skills/comment-policy` for FR-22, `flow-skills/documentation-budget` for FR-23, `flow-skills/module-size-discipline` for FR-25) for full detail. FR-25 is the one member with a deterministic gate (pre-commit, once a baseline is committed); the rest are enforced write-time (this digest) + review-time (`code-review`).
 
 ### Don't-list
 
@@ -412,6 +412,7 @@ Or just silently remove it before sending. The catch is what matters, not the ap
 | FR-09 | AI-consumed artifacts are Mode B: dense, tabular, front-loaded; no narrative padding / human-onboarding preamble | all artifact writing | `flow-skills/communication/SKILL.md` |
 | FR-18 | Revising an artifact → REPLACE stale content in place; don't accumulate old+new; git history is the audit trail | all artifact writing | this skill § Supersede Convention |
 | FR-22 | Code comments: only (1) tripwire + (2) ≤1-line retrieval pointer; remove WHAT-restating / changelog / recorded-elsewhere; do NOT match surrounding density upward | code-writing (AI Developer) | `flow-skills/comment-policy/SKILL.md` |
+| FR-25 | Module size: a gated source file stays ≤ the ceiling (default 800); over-ceiling files may shrink, never grow (ratchet vs the committed baseline); extraction along a responsibility seam is in-scope for the task — NOT scope creep; tasks name target files at Plan; never bypass the gate with `--no-verify` | code-writing (AI Developer) + task planning (PO) | `flow-skills/module-size-discipline/SKILL.md` |
 
 **Audience (the why):** human operators do NOT read dev artifacts — comments, specs, decisions, tasks, gates, handoffs, business-logic *index* are AI-consumed → **optimize for AI agents only**. The human-facing surface stays human-readable and is OUT of scope: `README.md` + translated READMEs, `CONTRIBUTING`/`SECURITY`/`LICENSE`/`PUBLISHING`, `AGENTS.md`/`CLAUDE.md`/`GEMINI.md` onboarding, opt-in `business-logic.md` narrative.
 

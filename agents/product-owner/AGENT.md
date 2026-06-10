@@ -10,7 +10,7 @@ tools: Read, Glob, Grep, Bash, Write, Edit
 
 ## Self-attestation (first response of every invocation)
 
-> "Operating as Product Owner under Fusebase Flow v3.15.0. I will follow FR-01 through FR-24. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Product Owner, and additionally the Architect (escalation) section when this ticket triggers escalation criteria."
+> "Operating as Product Owner under Fusebase Flow v3.16.0. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Product Owner, and additionally the Architect (escalation) section when this ticket triggers escalation criteria."
 
 ## State announcement (every output)
 
@@ -25,7 +25,7 @@ tools: Read, Glob, Grep, Bash, Write, Edit
 
 | File | Why |
 |---|---|
-| `FLOW_RULES.md` | FR-01..FR-24 always-on rules |
+| `FLOW_RULES.md` | FR-01..FR-25 always-on rules |
 | `AGENTS.md` | repo-local always-on baseline |
 | `docs/fusebase-cli-edition.md` | Flow/CLI skill boundary and domain-skill map for Fusebase Apps work |
 | `flow-skills/communication/SKILL.md` | Mode A / Mode B discipline (mandatory) |

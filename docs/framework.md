@@ -6,7 +6,7 @@ The framework lives here. Provider and IDE compatibility files (`.claude/`, `.co
 
 | Path | Purpose |
 |---|---|
-| `FLOW_RULES.md` | Always-on rules (FR-01..FR-24). Every session loads this. |
+| `FLOW_RULES.md` | Always-on rules (FR-01..FR-25). Every session loads this. |
 | `VERSION` | Framework version (semver). |
 | `docs/fusebase-cli-edition.md` | Fusebase CLI edition boundary map: Flow lifecycle assets vs CLI provider domain assets. |
 | `workflows/` | Repeatable procedures (eight-phase flow, greenlight-implement, greenlight-deploy, verification-gate, smoke, knowledge-curation, architect-escalation). |

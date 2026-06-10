@@ -15,8 +15,10 @@ state/approvals/*
 state/audit/*
 !state/audit/.gitkeep
 
-# Local override of the approval policy (committed default lives at policies/approval-policy.yml)
+# Local overrides of committed policies (committed defaults live at policies/*.yml;
+# a committed *.local.yml could silently neutralize gates for every clone)
 policies/approval-policy.local.yml
+policies/*.local.yml
 
 # Secrets / env
 .env

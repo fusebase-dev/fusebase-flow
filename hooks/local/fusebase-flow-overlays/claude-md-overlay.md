@@ -37,10 +37,13 @@ This repository follows **Fusebase Flow** in addition to project-specific rules.
 - `product-apps-decomposition` — product → focused apps guidance
 - `lightweight-lane` — FR-21 change-size tiering; small/reversible changes use a change-note + one build→verify→deploy pass instead of the full lifecycle
 - `comment-policy` — FR-22 write-time carrier; delivers the tripwire + retrieval-pointer comment policy into a code-writing agent's context (description-matched on code/comment edits)
+- `documentation-budget` — FR-23 doc-budget classifier; tier (0-4) before any AI-consumed artifact; canonical ownership + pointers over duplication; active handoff = `docs/tmp/handoff.md`
+- `handoff` — portable skill: writes active session restart state to `docs/tmp/handoff.md`; operator-triggered (`/handoff` on Claude Code; invoke by name elsewhere)
+- `module-size-discipline` — FR-25 module-size ratchet; gated source files stay ≤ ceiling (default 800), over-ceiling files may shrink never grow; extraction on a responsibility seam is in-scope; pre-commit gate + plan-time target-file rule
 
-(27 canonical Fusebase Flow skills total.)
+(28 canonical Fusebase Flow skills total.)
 
-**Slash commands (`.claude/commands/`):** `/fusebase-health`, `/onboard`, `/product-owner`.
+**Slash commands (`.claude/commands/`):** `/fusebase-health`, `/onboard`, `/product-owner`, `/handoff`.
 
 **Active project context:** if `docs/north-star.md` / `docs/<app>/product.md` exist, read and follow them; if absent, run generically — never auto-create. Run `/onboard` to capture project vision.
 

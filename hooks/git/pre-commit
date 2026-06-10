@@ -2,7 +2,8 @@
 # Fusebase Flow — pre-commit git hook
 #
 # Runs before each commit. Defends FR-07 (worker-undisturbed), FR-12 (secrets),
-# and FR-13 (lint+typecheck). Original Fusebase Flow content; clean-room.
+# FR-13 (lint+typecheck), and FR-25 (module-size ratchet). Original Fusebase
+# Flow content; clean-room.
 #
 # Install: bash hooks/local/install-git-hooks.sh
 #
@@ -82,7 +83,16 @@ PY
     if [ "${exit_proto:-0}" -ne 0 ]; then exit 1; fi
 fi
 
-# 4. Lint + typecheck (FR-13). Project hooks may set FUSEBASE_FLOW_LINT / FUSEBASE_FLOW_TYPECHECK.
+# 4. Module-size ratchet (FR-25). Warn-only until policies/module-size-baseline.txt
+#    is committed; then over-ceiling growth blocks (extract or operator exemption).
+if [ -f "$ROOT/hooks/local/check-module-size.sh" ]; then
+    if ! bash "$ROOT/hooks/local/check-module-size.sh" --staged; then
+        echo "[fusebase-flow:pre-commit] BLOCK — module-size ratchet failed (FR-25)." >&2
+        exit 1
+    fi
+fi
+
+# 5. Lint + typecheck (FR-13). Project hooks may set FUSEBASE_FLOW_LINT / FUSEBASE_FLOW_TYPECHECK.
 LINT_CMD="${FUSEBASE_FLOW_LINT:-}"
 TYPECHECK_CMD="${FUSEBASE_FLOW_TYPECHECK:-}"
 

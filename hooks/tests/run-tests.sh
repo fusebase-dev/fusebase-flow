@@ -94,6 +94,32 @@ PY
     fi
 done
 
+# Phase 2 — FR-25 module-size ratchet scenarios (shell-level; not handler fixtures).
+MS_TEST="$ROOT/hooks/tests/test-module-size.sh"
+if [ -f "$MS_TEST" ]; then
+    ms_out="$(bash "$MS_TEST" 2>&1)"
+    ms_fail=$?
+    echo "$ms_out" | grep -E '^(PASS|FAIL): module-size' || true
+    ms_pass="$(echo "$ms_out" | grep -c '^PASS: module-size')"
+    ms_failed="$(echo "$ms_out" | grep -c '^FAIL: module-size')"
+    total=$((total + ms_pass + ms_failed))
+    pass=$((pass + ms_pass))
+    fail=$((fail + ms_failed))
+    while IFS= read -r line; do
+        name="${line#*: module-size }"
+        result="${line%%:*}"
+        report_rows="$report_rows| test-module-size.sh | $name | $result | exit-code scenario |"$'\n'
+    done < <(echo "$ms_out" | grep -E '^(PASS|FAIL): module-size')
+    # Crash guard: a non-zero exit with zero parsed FAIL lines means the scenario
+    # script died before running (mktemp/cp/syntax) — count it, don't go green.
+    if [ "$ms_fail" -ne 0 ] && [ "$ms_failed" -eq 0 ]; then
+        total=$((total + 1))
+        fail=$((fail + 1))
+        echo "FAIL: test-module-size.sh crashed (exit $ms_fail) before reporting scenarios"
+        report_rows="$report_rows| test-module-size.sh | (harness) | FAIL | crashed with exit $ms_fail, no scenario output |"$'\n'
+    fi
+fi
+
 # Write report
 {
     echo "# Hook test results"

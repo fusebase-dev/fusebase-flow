@@ -24,6 +24,7 @@
 **Track:** backend / spa / extension / docs / etc.
 **Scope:** <what this task does, file by file>
 **Files:** `<path>`, `<path>`
+**Module-size (FR-25):** <"all targets under ceiling" | "extracts <concern> into `<new module>`" | "exemption: <one-line reason> (operator-approved)">
 **Cites:** decision <Letter><n>
 **Depends on:** <T-numbers, or "—">
 **Acceptance:** AC<n> from spec

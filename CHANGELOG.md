@@ -4,6 +4,23 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.16.0] — 2026-06-10
+
+### Added — FR-25 module-size ratchet (first deterministic write-time gate)
+
+Closes the structural blind spot: nothing in the lifecycle looked at file size. Consumer audit (paperclip+hermes-v1) found 19,026 / 14,202 / 10,434 / 5,363-line source files accreted under full Flow discipline — tasks say WHAT never WHERE, every gate is behavioral, FR-21 makes mid-task extraction look like scope creep; the monolith is the integral of N reasonable diffs. Source is AI-read (FR-22/FR-24 audience principle) → over-ceiling files degrade every future session. Unlike FR-22/FR-23 (semantic), line count is objective — so this rule ships a real gate.
+
+- **`FLOW_RULES.md`** — new **FR-25 (module-size ratchet)** + implication; Status `v0.15 → v0.16`; amendment entry.
+- **Gate (new):** `policies/module-size.yml` (ceiling 800 · source/exempt globs · local override) + `hooks/shared/module_size.py` (wrapper `hooks/local/check-module-size.sh`; modes `--staged`/`--worktree`/`--all`/`--write-baseline`) wired into `hooks/git/pre-commit`. **Ratchet semantics:** new file > ceiling → block; baselined over-ceiling file may shrink, never grow; **no baseline → warn-only** (adoption-safe); `--write-baseline` is operator-run and activates block mode.
+- **Tests:** `hooks/tests/test-module-size.sh` (6 scenarios) + `run-tests.sh` phase 2 — totals **22/22** (16 fixtures + 6).
+- **Plan-time:** `implementation-planning` + `templates/tasks.md` — every task names target file(s); over-ceiling target → extraction (named seam) or one-line operator exemption.
+- **Steering:** 28th skill `flow-skills/module-size-discipline`; FR-25 line in the FR-24 write-time digest (`role-discipline`); `code-review` 5c dimension (over-ceiling growth = blocker; mechanical `utilsN` split check — split quality stays semantic, review-only); `lightweight-lane` interplay (extraction-to-satisfy-ratchet is in-scope, not promotion); `handoff-implement` checklist + `session_start.py` reminder broadened.
+- **Not done (deliberately):** no forced refactor of existing monoliths; no regex split-quality gate; no `*.md` gating (FR-23 owns docs); no template-shipped baseline.
+- Skill count 27 → **28** (mirrors 56); overlay templates backfilled with `documentation-budget`/`handoff` (pre-existing drift); FR range swept to FR-01..FR-25; VERSION → 3.16.0.
+- **`sync-version-strings.sh`** — two history-falsification guards: `docs/changes/**` (dated Lightweight-lane ledger) added to the never-touch prune list, and the `FLOW_RULES.md` dated amendment log (below `## Amendment log`) excluded from substitutions; the v3.14.0 amendment entry was restored to its true `FR-01..FR-23` text (corrupted by the v3.15/v3.16 sweeps).
+- **Independent pre-release review (4 blockers fixed, plus hardening):** PUBLISHING.md expected counts 22/22 + 56; `.claude/commands/{onboard,product-owner}.md` attestation ranges FR-01..FR-22 → FR-01..FR-25 (3 generations stale); `policies/*.local.yml` actually gitignored (a committed override could silently neutralize the gate); `run-tests.sh` crash guard (scenario-script death can no longer report green); `core.quotepath=off` on git calls (non-ASCII filenames no longer skip the gate); unknown gate args exit 2 instead of silently running `--staged`; rename tripwire documented in the skill; stale "20 always-on rules" prose → 25 in `.cursor`/`.github`/architecture-overview.
+- **Verified:** preflight 0/0; run-tests **22/22**. Spec: `docs/specs/module-size-discipline/spec.md`. Detail: `docs/release-notes/v3.16.0.md`.
+
 ## [3.15.0] — 2026-06-08
 
 ### Added — FR-24 write-time discipline delivery (write-time rules reach the writing agent)

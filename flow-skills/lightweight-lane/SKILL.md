@@ -80,6 +80,10 @@ Classify **Full** or **Lightweight** when the ticket is opened. `requirements-sp
 5. **Report in 1–3 lines:** what changed, the live-proof result (observed vs expected), the deploy SHA, and the one-line rollback.
 6. **Record the tier.** Always put `change_tier: lightweight` + the commit SHA in the change-note / commit body (that is the durable telemetry; git carries it). A consolidated **ledger is opt-in**: if the project keeps one, append one line (date · slug · `lightweight` · SHA). Its location is configurable — default `docs/changes/index.md`, but a repo with a per-app docs layout may set its own path (e.g. `docs/<app>/changes.md`) or skip the file entirely and rely on the commit body. Do **not** assume a repo-root ledger exists; only materialize it on opt-in.
 
+## FR-25 interplay (module-size ratchet)
+
+The module-size ratchet applies in **both lanes**. If an LL change would grow an over-ceiling file (or push a file past the ceiling), extracting the addition into a new module along a responsibility seam is **part of the LL change, not scope creep and not by itself a promotion trigger** — the extra file the extraction creates does not fail eligibility condition 1. Promote only if the extraction itself surfaces a real architectural decision or risk (then the normal promotion rule applies). Never satisfy the gate with a mechanical `utils2` split or an agent-initiated baseline/exemption edit — see `flow-skills/module-size-discipline/SKILL.md`.
+
 ## Mid-flight promotion (mandatory)
 
 If, while doing an LL change, ANY of these appears → **STOP and promote to the Full lane:**

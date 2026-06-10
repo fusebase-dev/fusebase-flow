@@ -1,0 +1,74 @@
+# Fusebase Flow — module-size ratchet (FR-25, committed default)
+#
+# Declarative source for FR-25 (module-size discipline). Consumed by
+# hooks/shared/module_size.py (wrapper: hooks/local/check-module-size.sh),
+# wired into hooks/git/pre-commit; optionally into a Claude Code Stop hook.
+#
+# Ratchet semantics — stops growth, never forces a big-bang refactor:
+#   - a gated file NOT in the baseline must be <= ceiling
+#   - a gated file IN the baseline may not grow past its baseline value while
+#     over the ceiling (touching / shrinking it is always fine)
+#   - no baseline file committed yet -> the gate WARNS only and prints the
+#     generation instruction (adoption-safe on repos with existing monoliths)
+# Generate/refresh (operator-run, deliberate):
+#   bash hooks/local/check-module-size.sh --write-baseline
+schema_version: 1
+
+# Max lines for a single source file. 800 ~= single-pass AI-readable (spec Q-B).
+ceiling: 800
+
+# Committed ratchet baseline ("<lines> <path>" rows, over-ceiling files only).
+# Deliberately NOT shipped in the template — created by --write-baseline at
+# install / first ticket. Its presence is what switches warn -> block.
+baseline_file: policies/module-size-baseline.txt
+
+# enforcement: block | warn   (warn is forced while baseline_file is absent)
+enforcement: block
+
+# Per-project local override (optional, gitignored). Top-level keys present in
+# the local file REPLACE the committed defaults (same posture as comment-policy).
+local_override_file: policies/module-size.local.yml
+
+# What counts as source. Markdown/docs deliberately excluded — FR-23 owns docs.
+source_globs:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "**/*.js"
+  - "**/*.jsx"
+  - "**/*.mjs"
+  - "**/*.cjs"
+  - "**/*.vue"
+  - "**/*.svelte"
+  - "**/*.py"
+  - "**/*.go"
+  - "**/*.rb"
+  - "**/*.rs"
+  - "**/*.java"
+  - "**/*.kt"
+  - "**/*.swift"
+  - "**/*.cs"
+  - "**/*.php"
+  - "**/*.c"
+  - "**/*.cc"
+  - "**/*.cpp"
+  - "**/*.h"
+  - "**/*.hpp"
+  - "**/*.sh"
+  - "**/*.sql"
+
+# Never gated: deps, build output, generated code, lockfiles, vendored trees.
+# Add a project's JUSTIFIED monolith classes here (data-as-code catalogs,
+# upstream complete-file mirrors) — exemption is explicit and reviewable.
+exempt_globs:
+  - "**/node_modules/**"
+  - "**/dist/**"
+  - "**/build/**"
+  - "**/out/**"
+  - "**/vendor/**"
+  - ".fusebase-flow-source/**"
+  - "**/generated/**"
+  - "**/__generated__/**"
+  - "**/*.min.*"
+  - "**/*.lock"
+  - "**/package-lock.json"
+  - "**/migrations/**"

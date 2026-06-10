@@ -33,7 +33,8 @@
 #
 # What it NEVER touches:
 #   - Dated history: CHANGELOG.md, docs/release-notes/**, docs/handoff/** (archive),
-#     docs/tmp/handoff/** (formal dated relays, v3.13.0+), docs/specs/**
+#     docs/tmp/handoff/** (formal dated relays, v3.13.0+), docs/specs/**,
+#     docs/changes/** (Lightweight-lane dated ledger, v3.16.0+)
 #     (excluded from the scan).
 #   - Generated mirror dirs directly (.claude/ .agents/ .codex/ — refreshed via
 #     re-mirror so a single canonical source of truth is preserved).
@@ -102,6 +103,7 @@ mapfile -t CANDIDATES < <(
         -o -path './docs/handoff'         -o -path './docs/*/handoff' \
         -o -path './docs/tmp/handoff' \
         -o -path './docs/specs'           -o -path './docs/*/specs' \
+        -o -path './docs/changes'         -o -path './docs/*/changes' \
         -o -path './docs/fusebase-health' -o -path './docs/*/fusebase-health' \
       \) -prune \) -o \
     \( -type f \( -name '*.md' -o -name '*.mdc' \) \
@@ -114,19 +116,28 @@ mapfile -t CANDIDATES < <(
 # count only. Never a blanket replace (historical/provenance refs must survive).
 # Build the sed program dynamically so FR-range / skill-count subs are added only
 # when their derived value is known.
-SED_ARGS=(
-  -e "s/(under Fusebase Flow v)[0-9]+\.[0-9]+\.[0-9]+/\1${VER}/g"
-  -e "s/(runs \*\*Fusebase Flow v)[0-9]+\.[0-9]+\.[0-9]+/\1${VER}/g"
+SED_EXPRS=(
+  "s/(under Fusebase Flow v)[0-9]+\.[0-9]+\.[0-9]+/\1${VER}/g"
+  "s/(runs \*\*Fusebase Flow v)[0-9]+\.[0-9]+\.[0-9]+/\1${VER}/g"
 )
 if [ -n "$FR_HI" ]; then
-  SED_ARGS+=( -e "s/FR-01 through FR-[0-9]+/FR-01 through ${FR_HI}/g" )
-  SED_ARGS+=( -e "s/FR-01\.\.FR-[0-9]+/FR-01..${FR_HI}/g" )
+  SED_EXPRS+=( "s/FR-01 through FR-[0-9]+/FR-01 through ${FR_HI}/g" )
+  SED_EXPRS+=( "s/FR-01\.\.FR-[0-9]+/FR-01..${FR_HI}/g" )
 fi
 if [ -n "$SKILL_COUNT" ] && [ "$SKILL_COUNT" -gt 0 ] 2>/dev/null; then
   # Only the parenthesized "(NN canonical … skills total)" form (overlays/adapters);
   # leaves README's bold/heading counts to release-time edits.
-  SED_ARGS+=( -e "s/\(([0-9]+) canonical/(${SKILL_COUNT} canonical/g" )
+  SED_EXPRS+=( "s/\(([0-9]+) canonical/(${SKILL_COUNT} canonical/g" )
 fi
+# FLOW_RULES.md carries its dated amendment log below "## Amendment log" —
+# substitutions there falsify history (v3.16.0 guard), so its sed program is
+# range-limited to the live section above the heading.
+SED_ARGS=()
+SED_ARGS_PRELOG=()
+for expr in "${SED_EXPRS[@]}"; do
+  SED_ARGS+=( -e "$expr" )
+  SED_ARGS_PRELOG+=( -e "1,/^## Amendment log\$/ ${expr}" )
+done
 
 CHANGED=()
 TOUCHED_CANONICAL=0
@@ -134,7 +145,11 @@ for f in "${CANDIDATES[@]}"; do
   [ -f "$f" ] || continue
   # U8: strip null bytes so command substitution doesn't warn on a stray-NUL file.
   before="$(tr -d '\0' < "$f")"
-  after="$(printf '%s' "$before" | sed -E "${SED_ARGS[@]}")"
+  if [ "$f" = "./FLOW_RULES.md" ]; then
+    after="$(printf '%s' "$before" | sed -E "${SED_ARGS_PRELOG[@]}")"
+  else
+    after="$(printf '%s' "$before" | sed -E "${SED_ARGS[@]}")"
+  fi
   if [ "$before" != "$after" ]; then
     CHANGED+=("$f")
     case "$f" in

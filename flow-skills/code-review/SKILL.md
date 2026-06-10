@@ -76,6 +76,18 @@ Independent review of a diff against the spec contract, locked decisions, and FL
      do not flag those. Apply the rule fully to CRUD/routine code.
    - This is a **semantic** judgment (tripwire vs restate-WHAT), not a regex check — review
      by reading, never propose a lint/regex gate for it. Reference: `docs/comment-policy.md`.
+5c. Module-size dimension (FR-25):
+   - **Growth check:** did this diff grow a file past the ceiling in `policies/module-size.yml`
+     (default 800), or grow an already-over-ceiling file? The pre-commit ratchet blocks this
+     when a baseline is committed — in warn-only installs (no baseline yet), review is the
+     only line of defense: flag it as a blocker with the extraction remedy.
+   - **Split-quality check (semantic):** if the diff extracted code to satisfy the ratchet,
+     verify the seam is a nameable responsibility, not a mechanical `utils2.ts` / `helpers2.ts`
+     dump — a mechanical split silences the gate while making navigation worse; flag it.
+   - **Exemption check:** new `exempt_globs` entries or baseline edits must be operator-approved
+     and justified (generated / vendored / data-as-code) — an agent-initiated baseline raise or
+     exemption for ordinary source is a blocker.
+   - Reference: `flow-skills/module-size-discipline/SKILL.md`.
 6. Test coverage scan: new behavior has at least one test; tests align with ACs.
 7. Rollback safety: each commit individually revertable; no commit straddles unrelated changes.
 8. Output review summary in chat:
@@ -103,6 +115,9 @@ Independent review of a diff against the spec contract, locked decisions, and FL
 | Type safety regression | New `any` / broad casts on external JSON introduced | Flag as blocker if production-path; non-blocker if test fixture |
 | Comment-policy violation (FR-22) | WHAT-restating / duplicated-rationale / changelog comments added, or "matched density" upward in a comment-heavy file | Flag as non-blocker (note the lines); not a deploy blocker unless it obscures a real defect |
 | Comment over-trim (FR-22) | A load-bearing tripwire or `(decision/backlog ...)` retrieval pointer was deleted | Flag as blocker — deleting the pointer orphans the external record (storage ≠ retrieval); restore it |
+| Over-ceiling growth (FR-25) | Diff grows a gated file past the ceiling / grows an over-ceiling file (check `policies/module-size.yml` + baseline) | Flag as blocker; remedy = extract along a responsibility seam or explicit operator exemption |
+| Mechanical split (FR-25) | Extraction lands in a `utils2`/`helpers2`-style dump with no nameable responsibility | Flag as non-blocker (improvement) unless it was done solely to silence the gate — then blocker |
+| Agent-raised baseline / exemption (FR-25) | Baseline values raised or `exempt_globs` widened without operator approval | Flag as blocker — exemptions are operator decisions |
 
 ## Escalation path
 
@@ -118,6 +133,7 @@ Independent review of a diff against the spec contract, locked decisions, and FL
 - Do NOT pass without checking protected paths (FR-07)
 - Do NOT pass without verifying gate report alignment
 - Do NOT enforce the comment policy (FR-22) by proposing a regex/lint gate — it's a semantic call; review by reading. And don't only hunt over-commenting: a deleted tripwire/pointer is the symmetric failure (over-trim) and is a blocker.
+- Do NOT judge split quality (FR-25) by line counts alone — the gate already counts lines; review checks the semantic part (is the seam a nameable responsibility), which no regex can.
 
 ## Clean-room note
 
