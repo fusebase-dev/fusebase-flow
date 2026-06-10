@@ -6,6 +6,7 @@
 **Linked spec:** `docs/specs/module-size-discipline/spec.md`
 **Linked decisions:** `docs/specs/module-size-discipline/decisions.md`
 **Commit strategy:** single release commit (decision M7); per-task SHAs N/A.
+**Status:** T1..T10 ALL DONE — release `81d35da` (tag `v3.16.0`) + CI exec-bit hotfix `0bd8269` (CI green). Gate T9: preflight 0/0 · run-tests 22/22 · independent review (4 blockers fixed: amendment-log sweep guard + FR-01..FR-23 restoration, PUBLISHING counts, .claude/commands ranges, policies/*.local.yml gitignore; hardening: crash guard, quotepath, arg validation, rename tripwire doc).
 
 | T# | Scope | Files | Cites | AC |
 |---|---|---|---|---|

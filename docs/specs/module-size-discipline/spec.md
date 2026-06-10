@@ -1,12 +1,12 @@
 # Spec — module-size-discipline (FR-25)
 
-**Status:** LOCKED (operator-approved 2026-06-10, all recommended options)
+**Status:** DONE (shipped 2026-06-10, framework v3.16.0, tag `v3.16.0`)
 **Created:** 2026-06-10
 **Lands in:** framework v3.16.0
 **Tier:** 4 (new always-on rule + policy + gate script + multi-skill + template) per FR-23
 **Lane:** Full
-**Linked decisions:** (none yet — drafted at Plan)
-**Deploy hash:** (at DRAFT → DONE flip)
+**Linked decisions:** M1..M7 (`decisions.md`)
+**Deploy hash:** `81d35da` (release) + `0bd8269` (CI exec-bit hotfix; first green `fusebase-flow-verify` since v3.15.0). Independent pre-release review: 4 blockers fixed pre-push; preflight 0/0; run-tests 22/22.
 
 ## Problem
 
