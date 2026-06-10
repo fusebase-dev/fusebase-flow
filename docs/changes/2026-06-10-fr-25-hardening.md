@@ -36,7 +36,7 @@ Verified:  test-module-size.sh 8/8; run-tests 24/24; preflight 0/0;
            enforcement:warn is ignored (violation still exits 1); S8 proves
            re-key tightens one row without touching others.
 Rollback:  git revert <SHA>  (single commit; engine + policy + docs + tests)
-Commit:    <backfilled after commit>
+Commit:    db43bf6
 Deploy:    operator go-ahead ("proceed") -> v3.16.2 tag, push origin main
            --follow-tags. Lane note: classified Lightweight — scope was locked
            by the independent stress-test review (no open design decisions);
