@@ -4,6 +4,22 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.16.2] — 2026-06-10
+
+### Changed — FR-25 hardening: the gate is now live by default (no rule text change)
+
+Driven by a post-ship stress test: an empirical probe of the motivating consumer repo (its monoliths grew 14,202→15,616 and 10,434→10,840 lines in the days since the audit — steering alone demonstrably doesn't stop growth) plus an independent devil's-advocate review whose verdict was "right call, wrong delivery posture."
+
+- **Template ships its own baseline** (`policies/module-size-baseline.txt`, dogfood: 1 row) — the gate is **live from commit #1** on greenfield instantiations instead of dormant until an operator runs `--write-baseline`. Retrofit installs re-key once (one command, now a step in both install docs; the block message prints it too).
+- **Local override hardened (kill-switch closed):** `module-size.local.yml` is now **additive-only** — `exempt_globs`/`source_globs` entries are appended; `enforcement`/`ceiling`/`baseline_file` cannot be overridden locally (a gitignored REPLACE-semantics file could silently flip block→warn, invisible to diff and review). The engine prints a notice whenever a local override is active. New gate scenario S7 proves a local `enforcement: warn` is ignored.
+- **`--write-baseline <path>` single-file re-key** — the rename remedy and targeted refresh; a full regen grandfathers every accumulated violation (global amnesty), so refreshes can now stay surgical. New scenario S8 proves one row tightens without touching others.
+- **Baseline path protected** (`fusebase_flow_internals`) — the ratchet's state ledger is no longer freely agent-editable.
+- **CI surface:** `fusebase-flow-verify.yml` gains a "Module-size ratchet `--all`" step — local `--no-verify`/partial-stage dodges no longer survive to main unnoticed.
+- **Default test-file exemptions** (`**/*.test.*`, `**/*.spec.*`, `**/__tests__/**`) — kills the likeliest early-false-block → exemption-bleed path.
+- **LL split-quality hook:** an LL pass that extracts a module must name the responsibility seam in its change-note (LL has no review step — the named seam is the operator's at-a-glance check).
+- **Observable mechanical-split criterion** in `code-review` 5c + the skill: extraction landing in `utilsN`/`helpersN`/`misc`/`extra`-style names = blocker; no intent inference (the two surfaces previously phrased this differently).
+- Gate scenarios 6 → **8**; totals **24/24**. `FLOW_RULES.md` Status `v0.17 → v0.18` (no rule text changed). Change-note: `docs/changes/2026-06-10-fr-25-hardening.md`. Detail: `docs/release-notes/v3.16.2.md`.
+
 ## [3.16.1] — 2026-06-10
 
 ### Added — public roadmap + parked backlog published (docs-only; no rule/behavior change)

@@ -80,6 +80,7 @@ categories:
     paths:
       - "FLOW_RULES.md"
       - "policies/*.yml"
+      - "policies/module-size-baseline.txt"
       - "hooks/handlers/**"
       - "hooks/shared/**"
       - "hooks/git/**"

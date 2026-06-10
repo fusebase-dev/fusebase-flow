@@ -6,7 +6,8 @@ an over-ceiling file not in the committed baseline is a violation; a baselined
 file may shrink or hold but not grow while over the ceiling. No baseline file
 => warn-only (adoption-safe). See flow-skills/module-size-discipline/SKILL.md.
 
-Modes: --staged (pre-commit) | --worktree (vs HEAD) | --all | --write-baseline
+Modes: --staged (pre-commit) | --worktree (vs HEAD) | --all | --write-baseline [path]
+(--write-baseline with a path re-keys ONE row — no global amnesty.)
 Exit: 1 = violations under enforcement=block (and baseline present); else 0.
 """
 from __future__ import annotations
@@ -54,6 +55,12 @@ def _matches(path: str, regexes: list[re.Pattern]) -> bool:
     return any(r.match(path) for r in regexes)
 
 
+# Local override is ADDITIVE-ONLY on these keys. enforcement/ceiling/baseline_file
+# stay committed-policy only — a gitignored file that could flip block->warn or
+# blank the globs would be a silent, review-invisible kill switch for the gate.
+LOCAL_OVERRIDE_ADDITIVE = ("exempt_globs", "source_globs")
+
+
 def _load_policy(root: Path) -> dict | None:
     try:
         import yaml
@@ -68,7 +75,17 @@ def _load_policy(root: Path) -> dict | None:
     local_path = root / local_rel if local_rel else None
     if local_path and local_path.is_file():
         local = yaml.safe_load(local_path.read_text(encoding="utf-8")) or {}
-        policy.update({k: v for k, v in local.items() if v is not None})
+        applied, ignored = [], []
+        for k, v in local.items():
+            if k in LOCAL_OVERRIDE_ADDITIVE and isinstance(v, list):
+                policy[k] = list(policy.get(k) or []) + v
+                applied.append(k)
+            else:
+                ignored.append(k)
+        note = f"[module-size] local override active ({local_rel}): additive {applied if applied else '[]'}"
+        if ignored:
+            note += f"; IGNORED non-overridable keys {ignored} (enforcement/ceiling/baseline_file are committed-policy only)"
+        print(note, file=sys.stderr)
     return policy
 
 
@@ -114,11 +131,19 @@ KNOWN_ARGS = ("--staged", "--worktree", "--all", "--write-baseline")
 
 def main(argv: list[str]) -> int:
     mode = "staged"
-    for arg in argv:
+    flags = [a for a in argv if a.startswith("-")]
+    bare = [a for a in argv if not a.startswith("-")]
+    for arg in flags:
         if arg not in KNOWN_ARGS:
             print(f"[module-size] unknown argument: {arg} (expected one of {', '.join(KNOWN_ARGS)})", file=sys.stderr)
             return 2
         mode = "write_baseline" if arg == "--write-baseline" else arg.lstrip("-")
+    target = None
+    if bare:
+        if mode != "write_baseline" or len(bare) > 1:
+            print(f"[module-size] unexpected argument(s): {' '.join(bare)} (a single path is only valid after --write-baseline)", file=sys.stderr)
+            return 2
+        target = bare[0].replace("\\", "/")
     top = _git(["rev-parse", "--show-toplevel"])
     if not top:
         print("[module-size] not in a git repo; skipping", file=sys.stderr)
@@ -149,15 +174,33 @@ def main(argv: list[str]) -> int:
             gated.append((norm, lines))
 
     if mode == "write_baseline":
-        rows = sorted((p, n) for p, n in gated if n > ceiling)
-        baseline_path.parent.mkdir(parents=True, exist_ok=True)
-        body = "\n".join(f"{n} {p}" for p, n in rows)
-        baseline_path.write_text(
+        header = (
             "# FR-25 module-size baseline — over-ceiling files frozen at current size.\n"
             "# Regenerate (operator-run): bash hooks/local/check-module-size.sh --write-baseline\n"
-            + (body + "\n" if body else ""),
-            encoding="utf-8",
+            "# Re-key ONE file (no global amnesty): ... --write-baseline <path>\n"
         )
+        baseline_path.parent.mkdir(parents=True, exist_ok=True)
+        if target:
+            # Single-file re-key (rename remedy / targeted refresh). Full regen
+            # grandfathers EVERY current violation — keep refreshes targeted.
+            existing = _read_baseline(baseline_path) or {}
+            lines = _line_count(root, target, staged=False)
+            if lines is None:
+                existing.pop(target, None)
+                action = "row removed (file absent)"
+            elif lines > ceiling:
+                existing[target] = lines
+                action = f"frozen at {lines}"
+            else:
+                existing.pop(target, None)
+                action = f"row removed ({lines} <= ceiling {ceiling})"
+            body = "\n".join(f"{n} {p}" for p, n in sorted(existing.items()))
+            baseline_path.write_text(header + (body + "\n" if body else ""), encoding="utf-8")
+            print(f"[module-size] baseline re-keyed: {target} — {action} ({baseline_rel})")
+            return 0
+        rows = sorted((p, n) for p, n in gated if n > ceiling)
+        body = "\n".join(f"{n} {p}" for p, n in rows)
+        baseline_path.write_text(header + (body + "\n" if body else ""), encoding="utf-8")
         print(f"[module-size] baseline written: {baseline_rel} ({len(rows)} over-ceiling file(s), ceiling {ceiling})")
         return 0
 

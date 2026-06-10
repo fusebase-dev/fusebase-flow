@@ -41,7 +41,7 @@ Expected:
 
 ```
 [preflight] preflight finished — errors: 0, warnings: 0
-[run-tests] 22/22 PASS
+[run-tests] 24/24 PASS
 ```
 
 CI runs both on every push / PR via `.github/workflows/fusebase-flow-verify.yml`.

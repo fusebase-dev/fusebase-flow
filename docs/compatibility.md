@@ -25,7 +25,7 @@ The public template does not advertise compatibility with any AI coding assistan
 | Mirror dirs allowed | `.agents/skills/`, `.claude/skills/`; this edition also keeps CLI provider skills in those dirs |
 | `mirror-skills.sh` target list | mirrors canonical Flow skills only (source `flow-skills/`) and preserves extra CLI provider skills |
 | `preflight.sh` mirror drift check | validates canonical Flow skill mirrors only |
-| Hook tests | 22 / 22 PASS (16 handler fixtures + 6 module-size gate scenarios) |
+| Hook tests | 24 / 24 PASS (16 handler fixtures + 8 module-size gate scenarios) |
 | Preflight | 0 errors / 0 warnings |
 | GitHub Action | runs preflight + hook tests + mirror drift check on every push / PR |
 
@@ -35,4 +35,5 @@ The public template does not advertise compatibility with any AI coding assistan
 2026-05-27 - v3.1 Fusebase CLI edition matrix; reflects 14 Flow skills plus 19 CLI provider skills.
 2026-06-07 - v3.14.1 refresh; 27 canonical Flow skills (flow-skills/), 54 Flow mirrors, 16/16 hook tests, /handoff slash command added.
 2026-06-10 - v3.16.0 refresh; 28 canonical Flow skills (module-size-discipline added), 56 Flow mirrors, 22/22 hook tests (16 fixtures + 6 FR-25 gate scenarios), module-size pre-commit step added to git fallback.
+2026-06-10 - v3.16.2 hardening; 24/24 hook tests (8 gate scenarios), template ships its own FR-25 baseline (gate live by default), CI --all step, additive-only local override, --write-baseline <path> re-key.
 ```

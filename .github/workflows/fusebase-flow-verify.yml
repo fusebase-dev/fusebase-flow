@@ -41,6 +41,9 @@ jobs:
       - name: Hook tests (deterministic fixtures)
         run: bash hooks/tests/run-tests.sh
 
+      - name: Module-size ratchet (FR-25, full scan vs committed baseline)
+        run: bash hooks/local/check-module-size.sh --all
+
       - name: Mirror drift check (re-run mirror-skills.sh; fail if working tree changes)
         run: |
           bash hooks/local/mirror-skills.sh

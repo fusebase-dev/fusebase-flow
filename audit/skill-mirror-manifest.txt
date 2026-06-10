@@ -2,8 +2,8 @@
 .claude/skills/business-logic-guardian/SKILL.md  5d715d5c7aeef7bafd7e5f6704233a3641ec5e61edf37a583df1c5f42025418a
 .agents/skills/client-vs-internal/SKILL.md  8598654f239aa87feb88375dc1716b2ef55d40d2ecc98c667eb44061382efaa6
 .claude/skills/client-vs-internal/SKILL.md  8598654f239aa87feb88375dc1716b2ef55d40d2ecc98c667eb44061382efaa6
-.agents/skills/code-review/SKILL.md  621bd6ecaa1f3cb8c8d2415256da04c6b27a071cb68e35e99a6344985e52eb25
-.claude/skills/code-review/SKILL.md  621bd6ecaa1f3cb8c8d2415256da04c6b27a071cb68e35e99a6344985e52eb25
+.agents/skills/code-review/SKILL.md  59d4e613e21cc4880b2836f954e3f4b3ba28daa33a83951cf275fa7005419fa4
+.claude/skills/code-review/SKILL.md  59d4e613e21cc4880b2836f954e3f4b3ba28daa33a83951cf275fa7005419fa4
 .agents/skills/comment-policy/SKILL.md  119ae17b132a29a9bcadf6838f34e5136097bd2b241ff234a05434658672b694
 .claude/skills/comment-policy/SKILL.md  119ae17b132a29a9bcadf6838f34e5136097bd2b241ff234a05434658672b694
 .agents/skills/communication/SKILL.md  71dae984df4df882b50526867972de000dfc152b0a50526765116ae5bfb3a509
@@ -20,10 +20,10 @@
 .claude/skills/handoff/SKILL.md  0090995ed7084975fea9e7ad7d2479bcab6f20c894a379e691aec87f075bac05
 .agents/skills/implementation-planning/SKILL.md  f8db0c2cf73c2e5bdc02d32184d919cdec1b93bbc701ef45428797539d7afc4e
 .claude/skills/implementation-planning/SKILL.md  f8db0c2cf73c2e5bdc02d32184d919cdec1b93bbc701ef45428797539d7afc4e
-.agents/skills/lightweight-lane/SKILL.md  e8c98a7e39b98acb88d0fb325fda2ca5d0b49d67ff637d9789bfd755be5c34e4
-.claude/skills/lightweight-lane/SKILL.md  e8c98a7e39b98acb88d0fb325fda2ca5d0b49d67ff637d9789bfd755be5c34e4
-.agents/skills/module-size-discipline/SKILL.md  b81f4065e0e85201fc205a1341969b8c7ba00fd21e7b26f01ba8c81ef4931cef
-.claude/skills/module-size-discipline/SKILL.md  b81f4065e0e85201fc205a1341969b8c7ba00fd21e7b26f01ba8c81ef4931cef
+.agents/skills/lightweight-lane/SKILL.md  c97f01cb78f5b8a6925bdf258b121e094f04d8474131fe2ba5fe19abda83261d
+.claude/skills/lightweight-lane/SKILL.md  c97f01cb78f5b8a6925bdf258b121e094f04d8474131fe2ba5fe19abda83261d
+.agents/skills/module-size-discipline/SKILL.md  1d56f66c95595d5881f24166839d4a4dc4de4761a267a7f86ad006f47c61da1e
+.claude/skills/module-size-discipline/SKILL.md  1d56f66c95595d5881f24166839d4a4dc4de4761a267a7f86ad006f47c61da1e
 .agents/skills/north-star/SKILL.md  0052db6692c889abc0ec62752892b43e5708974ec8b621fcea4cbdf35e6e2e72
 .claude/skills/north-star/SKILL.md  0052db6692c889abc0ec62752892b43e5708974ec8b621fcea4cbdf35e6e2e72
 .agents/skills/phase-audit/SKILL.md  c14e73fd1132b88443459e724f9e730296d95c407b674f1e7fde87c5adf33038

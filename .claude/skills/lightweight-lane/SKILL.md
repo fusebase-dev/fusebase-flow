@@ -82,7 +82,7 @@ Classify **Full** or **Lightweight** when the ticket is opened. `requirements-sp
 
 ## FR-25 interplay (module-size ratchet)
 
-The module-size ratchet applies in **both lanes**. If an LL change would grow an over-ceiling file (or push a file past the ceiling), extracting the addition into a new module along a responsibility seam is **part of the LL change, not scope creep and not by itself a promotion trigger** — the extra file the extraction creates does not fail eligibility condition 1. Promote only if the extraction itself surfaces a real architectural decision or risk (then the normal promotion rule applies). Never satisfy the gate with a mechanical `utils2` split or an agent-initiated baseline/exemption edit — see `flow-skills/module-size-discipline/SKILL.md`.
+The module-size ratchet applies in **both lanes**. If an LL change would grow an over-ceiling file (or push a file past the ceiling), extracting the addition into a new module along a responsibility seam is **part of the LL change, not scope creep and not by itself a promotion trigger** — the extra file the extraction creates does not fail eligibility condition 1. Promote only if the extraction itself surfaces a real architectural decision or risk (then the normal promotion rule applies). Never satisfy the gate with a mechanical `utils2` split or an agent-initiated baseline/exemption edit — see `flow-skills/module-size-discipline/SKILL.md`. **If the pass extracted a module, name the responsibility seam in the change-note's `Change:` line** (LL has no review step — the named seam is what lets the operator judge the split at a glance).
 
 ## Mid-flight promotion (mandatory)
 

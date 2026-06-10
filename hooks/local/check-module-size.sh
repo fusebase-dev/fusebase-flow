@@ -7,6 +7,8 @@
 #   bash hooks/local/check-module-size.sh --all             # every tracked source file
 #   bash hooks/local/check-module-size.sh --write-baseline  # (re)generate the committed
 #                                                           # baseline — operator-run only
+#   bash hooks/local/check-module-size.sh --write-baseline <path>  # re-key ONE row
+#                                                           # (rename remedy; no global amnesty)
 #
 # Policy: policies/module-size.yml (+ optional gitignored module-size.local.yml).
 # Exit 1 = ratchet violation under enforcement=block; warn-only while no baseline.
@@ -24,4 +26,5 @@ if ! command -v "$python_bin" >/dev/null 2>&1; then
     exit 0
 fi
 
+# All args forwarded; a bare path is only valid after --write-baseline.
 exec "$python_bin" "$ROOT/hooks/shared/module_size.py" "${@:---staged}"

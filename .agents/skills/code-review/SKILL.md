@@ -82,8 +82,10 @@ Independent review of a diff against the spec contract, locked decisions, and FL
      when a baseline is committed — in warn-only installs (no baseline yet), review is the
      only line of defense: flag it as a blocker with the extraction remedy.
    - **Split-quality check (semantic):** if the diff extracted code to satisfy the ratchet,
-     verify the seam is a nameable responsibility, not a mechanical `utils2.ts` / `helpers2.ts`
-     dump — a mechanical split silences the gate while making navigation worse; flag it.
+     verify the seam is a nameable responsibility. Observable blocker criterion: the extraction
+     lands in a file whose NAME does not state a responsibility (`utils2.*`, `helpers2.*`,
+     `misc.*`, `extra.*`, `more.*`-style) — no intent inference needed. Named seams are judged
+     by reading; a poor-but-named seam is a non-blocker improvement.
    - **Exemption check:** new `exempt_globs` entries or baseline edits must be operator-approved
      and justified (generated / vendored / data-as-code) — an agent-initiated baseline raise or
      exemption for ordinary source is a blocker.
@@ -116,7 +118,7 @@ Independent review of a diff against the spec contract, locked decisions, and FL
 | Comment-policy violation (FR-22) | WHAT-restating / duplicated-rationale / changelog comments added, or "matched density" upward in a comment-heavy file | Flag as non-blocker (note the lines); not a deploy blocker unless it obscures a real defect |
 | Comment over-trim (FR-22) | A load-bearing tripwire or `(decision/backlog ...)` retrieval pointer was deleted | Flag as blocker — deleting the pointer orphans the external record (storage ≠ retrieval); restore it |
 | Over-ceiling growth (FR-25) | Diff grows a gated file past the ceiling / grows an over-ceiling file (check `policies/module-size.yml` + baseline) | Flag as blocker; remedy = extract along a responsibility seam or explicit operator exemption |
-| Mechanical split (FR-25) | Extraction lands in a `utils2`/`helpers2`-style dump with no nameable responsibility | Flag as non-blocker (improvement) unless it was done solely to silence the gate — then blocker |
+| Mechanical split (FR-25) | Extraction lands in a file whose name states no responsibility (`utils2`/`helpers2`/`misc`/`extra`-style) | Flag as blocker (observable criterion — no intent inference); a named-but-debatable seam is a non-blocker improvement |
 | Agent-raised baseline / exemption (FR-25) | Baseline values raised or `exempt_globs` widened without operator approval | Flag as blocker — exemptions are operator decisions |
 
 ## Escalation path

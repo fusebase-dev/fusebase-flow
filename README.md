@@ -6,7 +6,7 @@
 
 ![FuseBase Flow — you design and decide with the Product Owner agent, which hands off to the AI Developer agent that implements, runs the verification gate, and deploys](docs/assets/two-agent-banner.svg)
 
-[![Version](https://img.shields.io/badge/version-3.16.1-blue.svg)](VERSION)
+[![Version](https://img.shields.io/badge/version-3.16.2-blue.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![CI](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml/badge.svg)](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml)
 [![Use this template](https://img.shields.io/badge/GitHub-Use_this_template-brightgreen.svg?logo=github)](https://github.com/fusebase-dev/fusebase-flow/generate)
@@ -570,14 +570,14 @@ The flow rules are identical in both modes; only the git surface changes.
 
 ```bash
 bash hooks/local/preflight.sh    # structure + YAML + frontmatter + mirror drift + action-name consistency
-bash hooks/tests/run-tests.sh    # 16 deterministic handler fixtures + 6 module-size gate scenarios
+bash hooks/tests/run-tests.sh    # 16 deterministic handler fixtures + 8 module-size gate scenarios
 ```
 
 Both must pass cleanly:
 
 ```
 [preflight] preflight finished — errors: 0, warnings: 0
-[run-tests] 22/22 PASS
+[run-tests] 24/24 PASS
 ```
 
 CI runs both on every push / PR via `.github/workflows/fusebase-flow-verify.yml`.

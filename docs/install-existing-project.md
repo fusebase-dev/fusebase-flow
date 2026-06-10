@@ -183,6 +183,17 @@ The installer is interactive and opt-in. Pass `--auto-yes` (or `-y`) to accept a
 - No external API calls.
 - All execution is local, in your shell, against your working tree.
 
+## Activate the module-size ratchet for your codebase (FR-25)
+
+The copied `policies/module-size-baseline.txt` is the **template's** baseline, not yours — your repo's existing over-ceiling files would block on first touch. Regenerate it once (freezes your current over-ceiling files at their present size; new growth then blocks):
+
+```bash
+bash hooks/local/check-module-size.sh --write-baseline
+git add policies/module-size-baseline.txt && git commit -m "chore: FR-25 module-size baseline for this repo"
+```
+
+Add your justified monolith classes (generated code, vendored mirrors, data-as-code catalogs) to `policies/module-size.yml: exempt_globs` first if you don't want them frozen in the baseline.
+
 ## Validate the installation
 
 Run:

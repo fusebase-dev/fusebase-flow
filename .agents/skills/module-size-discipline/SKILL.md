@@ -37,9 +37,13 @@ Config: `policies/module-size.yml` (`ceiling` default 800 · `source_globs` · `
 | File matches `exempt_globs` | never gated |
 | No `baseline_file` committed | **warn-only** + generation instruction (adoption-safe) |
 
-Modes: `--staged` (pre-commit default) · `--worktree` (vs HEAD; optional Stop-hook wiring) · `--all` (full scan) · `--write-baseline` (**operator-run only** — freezes current over-ceiling files; commit the result; presence switches warn → block).
+Modes: `--staged` (pre-commit default) · `--worktree` (vs HEAD; optional Stop-hook wiring) · `--all` (full scan; also a CI step in `fusebase-flow-verify.yml`) · `--write-baseline` (**operator-run only** — freezes current over-ceiling files; commit the result; presence switches warn → block) · `--write-baseline <path>` (re-keys ONE row — the targeted refresh; a full regen grandfathers every current violation, so prefer the single-file form).
 
-Rename tripwire: the baseline keys by path — after renaming a baselined over-ceiling file, its first content edit blocks (fail-closed, zero-growth included) until the operator re-runs `--write-baseline` to re-key it.
+Baseline shipping: the template **ships its own committed baseline**, so the gate is live from commit #1 on greenfield instantiations. Installing into an **existing** repo: regenerate it once (`--write-baseline`, then commit) right after copying — until then legacy over-ceiling files block on first touch (the block message prints this exact remedy).
+
+Local override (`policies/module-size.local.yml`, gitignored) is **additive-only**: it may append `exempt_globs` / `source_globs` entries; `enforcement`, `ceiling`, and `baseline_file` cannot be overridden locally (a gitignored kill switch would disarm the gate invisibly). The engine prints a notice whenever a local override is active.
+
+Rename tripwire: the baseline keys by path — after renaming a baselined over-ceiling file, its first content edit blocks (fail-closed, zero-growth included) until the operator re-keys it: `--write-baseline <new-path>` (and the old row disappears on the next targeted or full refresh; stale rows for absent files are inert).
 
 ## Plan-time rule (where the problem starts)
 
@@ -63,8 +67,8 @@ Justified monolith classes go in `exempt_globs`: generated code (SDK/OpenAPI out
 
 ## Anti-patterns
 
-- Splitting mechanically to satisfy the gate (`helpers2.ts`) — review-time blocker; the seam must be a nameable responsibility.
-- Raising the baseline to make a violation pass — `--write-baseline` is operator-run, never agent-initiated.
+- Splitting mechanically to satisfy the gate — observable criterion: an extraction landing in a file whose name does not state a responsibility (`utils2`, `helpers2`, `misc`, `extra`, `more`-style names) is a review blocker; a named seam is judged by reading.
+- Raising the baseline to make a violation pass — `--write-baseline` is operator-run, never agent-initiated; prefer the single-file form so refreshes are never global amnesties.
 - Treating the ratchet warning as noise in warn-only mode — surface it to the operator with the activation instruction instead.
 - Adding `exempt_globs` entries for ordinary source because extraction is inconvenient.
 

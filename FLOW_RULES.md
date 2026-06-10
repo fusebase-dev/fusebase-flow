@@ -1,6 +1,6 @@
 # Fusebase Flow — always-on rules (FR-01..FR-25)
 
-**Status:** v0.17 (roadmap publication v3.16.1 — no rule change. FR-25 added in v3.16.0 — module-size ratchet: the first deterministic write-time gate; source files are AI-read, so over-ceiling growth blocks at pre-commit once a baseline is committed. FR-24 write-time digest added v3.15.)
+**Status:** v0.18 (FR-25 hardening v3.16.2 — gate live by default: template ships its own baseline, CI --all step, additive-only local override, single-file re-key; no rule text change. FR-25 added v3.16.0; FR-24 write-time digest v3.15.)
 **Scope:** every session in any IDE/agent must follow these regardless of which skill or workflow is active.
 
 These rules are clean-room original. Each rule states *what*, *why*, and *enforcement surface* (rule-only, policy, hook, workflow, skill). Enforcement details live in `policies/`, `hooks/`, and `workflows/` — this file is the readable contract.
@@ -52,7 +52,7 @@ If a session writes code outside its role, FR-01 fires and the agent must stop a
 
 ## Self-attestation (mandatory at first response of every session)
 
-Every role declares: "Operating as {role} under Fusebase Flow v3.16.1. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+Every role declares: "Operating as {role} under Fusebase Flow v3.16.2. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 If self-attestation is missing from the first response, the session is drifting. Self-correct in the next output.
 
@@ -355,4 +355,23 @@ Both modes preserve FR-03, FR-13, FR-14.
              pointers. Local main fast-forwarded to origin/main (stale-local-
              main hazard resolved; stranded line archived locally).
              Attestation strings swept to v3.16.1.
+
+2026-06-10 — v0.18. FR-25 hardening (no rule added/removed). v3.16.2: stress
+             test (empirical probe on the motivating consumer repo — monoliths
+             grew 14,202->15,616 / 10,434->10,840 lines in the days since the
+             audit — + independent devil's-advocate review) confirmed the
+             ratchet core and exposed delivery gaps. Fixes: template now SHIPS
+             its own baseline (gate live from commit #1 greenfield; retrofit =
+             one --write-baseline, added to both install docs); local override
+             additive-only (exempt/source globs appended; enforcement/ceiling/
+             baseline_file not locally overridable; notice printed) — closes
+             the gitignored kill-switch channel; --write-baseline <path>
+             single-file re-key (rename remedy without global amnesty);
+             baseline path protected (fusebase_flow_internals); CI --all step
+             in fusebase-flow-verify; test-file exempts (*.test.* / *.spec.* /
+             __tests__); LL extractions name their seam in the change-note;
+             mechanical-split review blocker made observable (utilsN-style
+             names, no intent inference). Gate scenarios 6->8 (totals 24/24).
+             Change-note: docs/changes/2026-06-10-fr-25-hardening.md. Shipped
+             in framework v3.16.2.
 ```

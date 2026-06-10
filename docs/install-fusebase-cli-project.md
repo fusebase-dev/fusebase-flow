@@ -356,7 +356,13 @@ The `--skip-skills` flag tells the CLI to skip the AGENTS.md / `.claude/*` regen
 
 ## Post-install validation
 
-Run:
+First, re-key the module-size ratchet (FR-25) to **this** repo — the copied baseline is the template's, and your existing over-ceiling files would block on first touch otherwise:
+
+```bash
+bash hooks/local/check-module-size.sh --write-baseline   # then commit the baseline
+```
+
+Then run:
 
 ```bash
 pip install -r hooks/requirements.txt

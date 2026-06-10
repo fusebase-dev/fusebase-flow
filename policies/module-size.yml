@@ -18,15 +18,22 @@ schema_version: 1
 ceiling: 800
 
 # Committed ratchet baseline ("<lines> <path>" rows, over-ceiling files only).
-# Deliberately NOT shipped in the template — created by --write-baseline at
-# install / first ticket. Its presence is what switches warn -> block.
+# The template SHIPS its own (dogfood) baseline, so the gate is live from
+# commit #1 on greenfield instantiations. Installing into an EXISTING repo:
+# regenerate before your first commit (one command, also printed by any block):
+#   bash hooks/local/check-module-size.sh --write-baseline   # then commit it
+# Targeted refresh (rename remedy; never a global amnesty):
+#   bash hooks/local/check-module-size.sh --write-baseline <path>
 baseline_file: policies/module-size-baseline.txt
 
 # enforcement: block | warn   (warn is forced while baseline_file is absent)
 enforcement: block
 
-# Per-project local override (optional, gitignored). Top-level keys present in
-# the local file REPLACE the committed defaults (same posture as comment-policy).
+# Per-project local override (optional, gitignored). ADDITIVE-ONLY:
+# only exempt_globs / source_globs entries are merged in (and the engine prints
+# a notice whenever the local file is active). enforcement / ceiling /
+# baseline_file canNOT be overridden locally — a gitignored kill switch would
+# disarm the gate invisibly to git diff and review.
 local_override_file: policies/module-size.local.yml
 
 # What counts as source. Markdown/docs deliberately excluded — FR-23 owns docs.
@@ -60,6 +67,9 @@ source_globs:
 # Add a project's JUSTIFIED monolith classes here (data-as-code catalogs,
 # upstream complete-file mirrors) — exemption is explicit and reviewable.
 exempt_globs:
+  - "**/*.test.*"
+  - "**/*.spec.*"
+  - "**/__tests__/**"
   - "**/node_modules/**"
   - "**/dist/**"
   - "**/build/**"
