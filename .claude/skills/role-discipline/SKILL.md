@@ -70,7 +70,7 @@ This file contains 5 role sections + 3 cross-cutting protocols. **Only load your
 | **Deploy phase** | § Section: Deploy phase | § Chat-Text Questions Protocol + § Forward Momentum Protocol + § Supersede Convention |
 | **Architect (standalone, not via PO escalation)** | § Section: Architect (escalation) | § Chat-Text Questions Protocol + § Forward Momentum Protocol + § Supersede Convention |
 
-Pre-v2.9.0, every session loaded all 5 sections (~4500 tokens). v2.9.0+: ~1500 tokens per session for the relevant section + shared protocols. The other sections stay in the file for reference but are skipped during your read.
+Scoped reading saves roughly half the file: role sections you are not in (measured v3.16.3: PO ~3.2k tokens, AI-Dev ~2.3k, Deploy ~1.6k, Architect ~0.7k) are skipped during your read; shared protocols (~2.9k tokens) always apply.
 
 If you genuinely need to know another role's don't-list (e.g., during a violation-recovery investigation, or to draft a handoff that the receiving role will consume), load just that section on demand.
 

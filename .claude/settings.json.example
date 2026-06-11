@@ -9,9 +9,9 @@
     "To enable: copy to `.claude/settings.json` and customize the python interpreter path.",
     "Hooks read JSON events from stdin and write decisions to stdout — see",
     "hooks/README.md and hooks/flow_hook_event.schema.json.",
-    "All hook commands use repo-relative paths so they work from any subdir.",
+    "Flow hook commands use $CLAUDE_PROJECT_DIR (set by Claude Code at runtime) so they resolve from any subdir.",
     "This example keeps CLI Stop hooks and Flow lifecycle hooks together additively.",
-    "Stop hooks use the cross-platform node implementations (run-typecheck-apps.js carries the CVE-2024-27980 shell:win32 patch; quality-check-apps.js runs the app-quality checks). The jq/bash duplicates run-lint-on-stop.sh and run-typecheck-on-stop.sh are deprecated and intentionally not wired here — they fail out-of-the-box on Windows where jq/bash are absent.",
+    "Stop hooks use the cross-platform node implementations (run-typecheck-apps.js carries the CVE-2024-27980 shell:win32 patch; quality-check-apps.js runs the app-quality checks). The deprecated jq/bash duplicates (run-lint-on-stop.sh, run-typecheck-on-stop.sh) were removed from the template in v3.16.4; the settings merger still strips them from older downstream settings.",
     "PreToolUse uses the current hookSpecificOutput.permissionDecision style."
   ],
   "hooks": {
@@ -20,7 +20,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ${PROJECT_DIR}/hooks/handlers/session_start.py"
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/hooks/handlers/session_start.py"
           }
         ]
       }
@@ -30,7 +30,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ${PROJECT_DIR}/hooks/handlers/user_prompt_submit.py"
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/hooks/handlers/user_prompt_submit.py"
           }
         ]
       }
@@ -41,7 +41,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ${PROJECT_DIR}/hooks/handlers/pre_tool_use.py"
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/hooks/handlers/pre_tool_use.py"
           }
         ]
       }
@@ -52,7 +52,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ${PROJECT_DIR}/hooks/handlers/post_tool_use.py"
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/hooks/handlers/post_tool_use.py"
           }
         ]
       }
@@ -74,7 +74,7 @@
           },
           {
             "type": "command",
-            "command": "python3 ${PROJECT_DIR}/hooks/handlers/stop.py"
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/hooks/handlers/stop.py"
           }
         ]
       }
@@ -84,7 +84,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 ${PROJECT_DIR}/hooks/handlers/pre_compact.py"
+            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/hooks/handlers/pre_compact.py"
           }
         ]
       }
@@ -93,7 +93,7 @@
   "_notes": {
     "permissionDecision_format": "PreToolUse handler returns hookSpecificOutput.permissionDecision: 'allow' | 'deny' | 'ask' along with permissionDecisionReason.",
     "windows_users": "Replace 'python3' with the python launcher path (e.g., 'py' or 'C:\\\\Python313\\\\python.exe').",
-    "PROJECT_DIR_substitution": "Claude Code substitutes ${PROJECT_DIR} at runtime; keep paths relative to git root.",
+    "CLAUDE_PROJECT_DIR": "Claude Code sets $CLAUDE_PROJECT_DIR to the project root at runtime (the legacy ${PROJECT_DIR} placeholder was never substituted by Claude Code; settings-json-merge.py still normalizes it in old installs).",
     "manual_for_side_effects": "Skills with `invocation: manual-for-side-effects` (release-deploy-reporting) should not be auto-invoked. Operator triggers explicitly."
   }
 }

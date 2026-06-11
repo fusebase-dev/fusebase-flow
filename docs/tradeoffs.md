@@ -85,7 +85,7 @@
 | Pressure | Source |
 |---|---|
 | **Provider-specific** | `.claude/settings.json.example`, `.codex/hooks.json.example`, provider hook event names |
-| **Portable** | `AGENTS.md`, the canonical framework at root (`skills/`, `policies/`, `workflows/`, `hooks/`, `templates/`), git fallback hooks |
+| **Portable** | `AGENTS.md`, the canonical framework at root (`flow-skills/`, `policies/`, `workflows/`, `hooks/`, `templates/`), git fallback hooks |
 
 **How the flow balances:** the canonical framework lives at root, portable across providers. Provider-specific files are thin adapters that wire the same canonical handlers into provider lifecycle events.
 

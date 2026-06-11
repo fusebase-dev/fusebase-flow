@@ -1,6 +1,6 @@
 # Fusebase Flow — always-on rules (FR-01..FR-25)
 
-**Status:** v0.19 (token-trim v3.16.3 — session reads stop at § Amendment log; FR-25 row+implication compressed; no semantics change. FR-25 hardened v3.16.2 (gate live by default); added v3.16.0.)
+**Status:** v0.20 (efficiency repairs v3.16.4 — broken install/hook-activation paths fixed, inline overlays re-synced, stale facts swept, rail-mapping rows current; no rule change. Token-trim v3.16.3; FR-25 added v3.16.0, hardened v3.16.2.)
 **Scope:** every session in any IDE/agent must follow these regardless of which skill or workflow is active.
 
 These rules are clean-room original. Each rule states *what*, *why*, and *enforcement surface* (rule-only, policy, hook, workflow, skill). Enforcement details live in `policies/`, `hooks/`, and `workflows/` — this file is the readable contract.
@@ -52,7 +52,7 @@ If a session writes code outside its role, FR-01 fires and the agent must stop a
 
 ## Self-attestation (mandatory at first response of every session)
 
-Every role declares: "Operating as {role} under Fusebase Flow v3.16.3. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+Every role declares: "Operating as {role} under Fusebase Flow v3.16.4. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 If self-attestation is missing from the first response, the session is drifting. Self-correct in the next output.
 
@@ -395,4 +395,19 @@ Both modes preserve FR-03, FR-13, FR-14.
              gains "extraction is in-scope for the current task". Change-note:
              docs/changes/2026-06-10-flow-token-trim.md. Shipped in framework
              v3.16.3.
+
+2026-06-10 — v0.20. Efficiency repairs (no rule changed). v3.16.4, from a
+             framework-wide independent efficiency audit: fixed the broken
+             existing-repo install (copy blocks still copied retired skills/,
+             never flow-skills/ -> consumers got zero Flow skills) and the
+             broken hook quick-activation (settings.json.example used
+             ${PROJECT_DIR}, never set by Claude Code -> all 6 Flow hooks
+             silently dead; now $CLAUDE_PROJECT_DIR). Inline AGENTS/CLAUDE
+             overlay blocks re-synced to the canonical templates (markers +
+             amendment-log stop). Deprecated jq/bash Stop scripts removed
+             (provenance re-stamped). Stale-facts sweep (9 canonical-skills/
+             path refs, README dev-history claim, role-discipline token
+             claim). rail-mapping rows FR-20..25 added (6 releases behind).
+             Change-note: docs/changes/2026-06-10-flow-efficiency-repairs.md.
+             Shipped in framework v3.16.4.
 ```

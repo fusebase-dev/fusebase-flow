@@ -194,7 +194,7 @@ Skipping is fine — nothing is created unless you provide it, and the framework
 
 The full eight-phase lifecycle lives at [`workflows/eight-phase-flow.md`](workflows/eight-phase-flow.md).
 
-**Docs layout (created on demand — nothing to scaffold).** A fresh install ships no `docs/specs/` or `docs/changes/` — they're created by the work that needs them, so the tree stays clean until your first ticket. Expected paths once you start: `docs/specs/<slug>/` (spec · decisions · tasks · verification-gate), `docs/tmp/handoff/` (cross-session handoffs), `docs/changes/` (Lightweight-lane ledger, opt-in), `docs/backlog/` (parked tickets). Run `/onboard` first if you want project artifacts (`docs/north-star.md`, project values) before ticket #1.
+**Docs layout.** Your own ticket artifacts are created on demand — nothing to scaffold. (The template tree does carry FuseBase Flow's OWN dev history under `docs/specs/`, `docs/changes/`, `docs/release-notes/`, `docs/backlog/` — upstream framework records, not your project's; the existing-repo install guide shows how to copy only the live framework docs.) Expected paths once you start: `docs/specs/<slug>/` (spec · decisions · tasks · verification-gate), `docs/tmp/handoff/` (cross-session handoffs), `docs/changes/` (Lightweight-lane ledger, opt-in), `docs/backlog/` (parked tickets). Run `/onboard` first if you want project artifacts (`docs/north-star.md`, project values) before ticket #1.
 
 ## Supported agents & IDEs
 
@@ -439,7 +439,7 @@ Plus active approval artifacts in `state/approvals/` are surfaced informationall
 
 ### CLI vendor provenance & drift advisory (v3.2.0+)
 
-FuseBase Flow vendors a frozen copy of FuseBase CLI-owned assets (19 provider skills + `references/`, 2 app-agents, 4 quality hooks). `bash hooks/local/stamp-cli-provenance.sh` records a per-file sha256 of each in `audit/cli-vendor-manifest.json` (a committed document of record), with `source_cli_version: "unknown"` — the bundling tool cannot know which live CLI bundle a copy came from, so freshness is advisory only.
+FuseBase Flow vendors a frozen copy of FuseBase CLI-owned assets (19 provider skills + `references/`, 2 app-agents, 2 quality hooks). `bash hooks/local/stamp-cli-provenance.sh` records a per-file sha256 of each in `audit/cli-vendor-manifest.json` (a committed document of record), with `source_cli_version: "unknown"` — the bundling tool cannot know which live CLI bundle a copy came from, so freshness is advisory only.
 
 `check-cli-flow-conflicts.sh` then hashes each **present** CLI asset against that manifest and surfaces two **advisory** findings (informational only — they never change the verdict or exit code):
 
@@ -450,7 +450,7 @@ FuseBase Flow vendors a frozen copy of FuseBase CLI-owned assets (19 provider sk
 
 This guards the **two-writer hazard** — `fusebase update` and the Flow snapshot both write the same provider paths. The documented install copy is non-clobbering for CLI-owned paths, and Flow recovery never writes them. See [docs/fusebase-cli-edition.md](docs/fusebase-cli-edition.md) § "Two-writer hazard".
 
-The Claude Code Stop hooks shipped in `.claude/settings.json.example` are the cross-platform **node** hooks (`run-typecheck-apps.js`, `quality-check-apps.js`); the jq/bash duplicates (`run-lint-on-stop.sh`, `run-typecheck-on-stop.sh`) are deprecated and unwired (they fail out-of-the-box on Windows).
+The Claude Code Stop hooks shipped in `.claude/settings.json.example` are the cross-platform **node** hooks (`run-typecheck-apps.js`, `quality-check-apps.js`); the deprecated jq/bash duplicates (`run-lint-on-stop.sh`, `run-typecheck-on-stop.sh`) were removed from the template in v3.16.4 — the settings merger still strips them from older downstream installs.
 
 ### Verdicts (ownership-layer model)
 

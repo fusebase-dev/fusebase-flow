@@ -1,6 +1,6 @@
 # CLAUDE.md - Claude Code adapter for Fusebase Flow
 
-This repo runs **Fusebase Flow v3.16.3**. The portable always-on baseline is in `AGENTS.md`. The full rule set is in `FLOW_RULES.md`. Read both before any other action (stop `FLOW_RULES.md` at `## Amendment log` — dated history, never load it).
+This repo runs **Fusebase Flow v3.16.4**. The portable always-on baseline is in `AGENTS.md`. The full rule set is in `FLOW_RULES.md`. Read both before any other action (stop `FLOW_RULES.md` at `## Amendment log` — dated history, never load it).
 
 ## Claude Code-specific notes
 
@@ -36,7 +36,7 @@ Hooks read policies from `policies/*.yml`. They are **opt-in**: nothing runs unt
 
 ## Self-attestation (every session's first response)
 
-> "Operating as {role} under Fusebase Flow v3.16.3. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+> "Operating as {role} under Fusebase Flow v3.16.4. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 If your first response doesn't include this attestation, you're drifting. See `FLOW_RULES.md`.
 
@@ -70,6 +70,8 @@ bash hooks/local/install-git-hooks.sh
 - Fusebase CLI edition bridge: `docs/fusebase-cli-edition.md`
 - Tool compatibility matrix: `docs/compatibility.md`
 - License clean-room attestation: `docs/clean-room.md`
+
+<!-- CUSTOM:SKILL:BEGIN -->
 
 ---
 
@@ -108,7 +110,7 @@ This repository follows **Fusebase Flow** in addition to project-specific rules.
 - `lightweight-lane` — FR-21 change-size tiering; small/reversible changes use a change-note + one build→verify→deploy pass instead of the full lifecycle
 - `comment-policy` — FR-22 write-time carrier; delivers the tripwire + retrieval-pointer comment policy into a code-writing agent's context (description-matched on code/comment edits)
 - `documentation-budget` — FR-23 doc-budget classifier; tier (0-4) before any AI-consumed artifact; canonical ownership + pointers over duplication; active handoff = `docs/tmp/handoff.md`
-- `handoff` — portable skill: writes active session restart state to `docs/tmp/handoff.md` (16-section template) so a fresh session resumes exactly; operator-triggered. On Claude Code use the `/handoff` slash command; on Codex/Cursor/Copilot/Gemini invoke the `handoff` skill by name (same skill, same output).
+- `handoff` — portable skill: writes active session restart state to `docs/tmp/handoff.md`; operator-triggered (`/handoff` on Claude Code; invoke by name elsewhere)
 - `module-size-discipline` — FR-25 module-size ratchet; gated source files stay ≤ ceiling (default 800), over-ceiling files may shrink never grow; extraction on a responsibility seam is in-scope; pre-commit gate + plan-time target-file rule
 
 (28 canonical Fusebase Flow skills total.)
@@ -132,3 +134,5 @@ This repository follows **Fusebase Flow** in addition to project-specific rules.
 **Operator questions:** per FR-19, ask questions in chat text, not popup / clickable menu tools. Use short option tables or numbered lists so the operator can copy, forward, quote, and follow up.
 
 Project-specific rules in `AGENTS.md` (CLI/MCP/SDK conventions, type-safety, runtime constraints) take precedence over any Fusebase Flow rule that overlaps.
+
+<!-- CUSTOM:SKILL:END -->

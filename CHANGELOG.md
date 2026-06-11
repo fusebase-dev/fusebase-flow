@@ -4,6 +4,20 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.16.4] — 2026-06-10
+
+### Fixed — efficiency repairs: two broken consumer paths + drift sweep (audit-driven; no rule change)
+
+A framework-wide independent efficiency audit (follow-up to the FR-25 token audit) found two outright **bugs** plus accumulated drift:
+
+- **Existing-repo install was broken** — `docs/install-existing-project.md` copy blocks (bash + PowerShell) still copied the retired `skills/` directory and never `flow-skills/` (canonical since v3.9.0): a consumer following the docs landed with **zero Flow skills**. Fixed.
+- **Hook quick-activation was broken** — `.claude/settings.json.example` used `${PROJECT_DIR}`, which Claude Code never sets; the documented `cp` activation left **all six Flow lifecycle hooks silently dead**. Now `"$CLAUDE_PROJECT_DIR"` (the real runtime var); `settings-json-merge.py` still normalizes the legacy placeholder in old installs.
+- **Inline overlay blocks re-synced to canonical** — the template's own AGENTS.md/CLAUDE.md overlay copies had drifted (missed the v3.16.3 amendment-log stop; CLAUDE's inline block lacked the `CUSTOM:SKILL` markers the recovery refresh anchors on; AGENTS's lacked `FLOW:PRESERVE`).
+- **Deprecated jq/bash Stop scripts removed** (`run-lint-on-stop.sh`, `run-typecheck-on-stop.sh` — deprecated since v3.2.0, shipped 14 releases since); CLI vendor provenance re-stamped; the settings merger still strips them from older downstream installs.
+- **Stale-facts sweep** — 9 files still naming canonical `skills/` (framework.md, constitution, tradeoffs, problem-catalog/skills READMEs, skill-template, eight-phase-flow, knowledge-curation, install doc); README's false "fresh install ships no docs/specs" claim corrected; `role-discipline` scoped-loading token claim replaced with measured numbers.
+- **`docs/rail-mapping.md` rows FR-20..25 added** (the table was 6 releases behind its own "every new rule adds a row" contract); surface counts now 25-base; dead `open-questions.md` reference removed; ROADMAP radar updated.
+- **Verified:** preflight 0/0; run-tests 24/24; `--all` green; settings example parses as valid JSON with all 6 handlers on `$CLAUDE_PROJECT_DIR`. Change-note: `docs/changes/2026-06-10-flow-efficiency-repairs.md`.
+
 ## [3.16.3] — 2026-06-10
 
 ### Changed — token-trim: session reads stop at the amendment log (no semantics change)

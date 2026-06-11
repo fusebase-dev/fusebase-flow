@@ -38,7 +38,7 @@ Without persistent capture, every new session re-discovers the same problems. Th
 
 | Type | Location | Purpose |
 |---|---|---|
-| Framework skill | `skills/<name>/SKILL.md` | Description-matched skill shipping with the Fusebase Flow template |
+| Framework skill | `flow-skills/<name>/SKILL.md` | Description-matched skill shipping with the Fusebase Flow template |
 | Project-internal skill | `docs/skills/<slug>/SKILL.md` | Project-specific expertise capture, distinct from framework skills |
 
 Project-internal skills are loaded by reference (operator says "load skill <slug>") not by description match. Their structure follows `templates/skill-template.md` but they don't ship in framework mirrors (`.claude/skills/`, etc.).

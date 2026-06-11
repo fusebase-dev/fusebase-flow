@@ -23,16 +23,22 @@ Every always-on rule in `FLOW_RULES.md` maps to one or more enforcement surfaces
 | FR-17 | Forward momentum, never retreat | yes | (across all workflows) | `role-discipline` (Forward Momentum Protocol) | n/a (judgment-based) | n/a |
 | FR-18 | Supersede, don't accumulate | yes | (artifact revision discipline) | `role-discipline` (Supersede Convention) | n/a (judgment-based) | n/a |
 | FR-19 | Chat-text questions, no popup menus | yes | `greenlight-deploy.md`, `session-initiation.md` | `communication`, `role-discipline` (Chat-Text Questions Protocol) | n/a (tool grants remove popup tools where available) | n/a |
+| FR-20 | Zoom out, don't patch-myopically | yes | (fix-time discipline across workflows) | `zoom-out`, `validation-and-qa` (reproduce-before-fix) | n/a (judgment-based) | n/a |
+| FR-21 | Ceremony proportional to change size | yes | `lightweight-lane.md` | `lightweight-lane`, `requirements-specification` (lane gate) | `stop` (LL deploy-claim fixtures 15/16) | tier-aware `approval-policy.yml`, `required-artifacts.yml` |
+| FR-22 | Comment policy: tripwire + pointer only | yes | (write-time; not a workflow) | `comment-policy` (carrier), `code-review` (dimension 5b) | n/a (deliberately never a gate — semantic) | `comment-policy.yml: trust_critical_globs` |
+| FR-23 | Documentation budget | yes | (artifact-creation discipline) | `documentation-budget`, `implementation-planning` (tier gate) | n/a (judgment-based) | n/a |
+| FR-24 | Write-time discipline delivery | yes | (delivery mechanism, not a procedure) | `role-discipline` (§ Write-time discipline digest) | `session_start` (reminder line) | n/a |
+| FR-25 | Module-size ratchet | yes | (write/plan-time; CI step) | `module-size-discipline`, `implementation-planning` (target-file rule), `code-review` (dimension 5c) | `pre-commit` git hook (module-size step) + CI `--all` step | `policies/module-size.yml` + `module-size-baseline.txt` |
 
 ## Surface counts
 
 | Surface type | Count of rules with this surface |
 |---|---|
-| Rule statement (FLOW_RULES.md) | 19 / 19 |
-| Workflow | 15 / 19 |
-| Skill | 14 / 19 |
-| Hook | 9 / 19 |
-| Policy | 6 / 19 |
+| Rule statement (FLOW_RULES.md) | 25 / 25 |
+| Workflow | 16 / 25 |
+| Skill | 21 / 25 |
+| Hook | 12 / 25 |
+| Policy | 9 / 25 |
 
 ## Cross-cutting mandatory skills
 
@@ -49,10 +55,11 @@ Any new rule (FR-16+) must be added to:
 2. This file — enforcement-surface row.
 3. The relevant workflow / skill / hook / policy if the rule is enforceable mechanically.
 
-`preflight.sh` does not currently parse this file; drift is operator-detected during Phase-N reviews. Tracked in `open-questions.md` for v0.2 automation.
+`preflight.sh` does not currently parse this file; drift is operator-detected during release reviews (automation candidate — `ROADMAP.md` radar).
 
 ## Last amended
 
 ```
 2026-05-27 — v3.1; added FR-16..FR-19 rows and updated surface counts.
+2026-06-10 — v3.16.4; added FR-20..FR-25 rows (had drifted 6 releases behind), surface counts 19→25 base, removed dead open-questions.md reference.
 ```

@@ -29,7 +29,7 @@ This document records the identity and constraints for Fusebase Flow - Fusebase 
 | Flow is a lifecycle overlay | Flow owns specs, decisions, tasks, gates, smoke, reviews, deploy handoffs, and approvals. |
 | CLI assets are the app/runtime domain layer | CLI skills inform architecture, CLI usage, dashboards, gate, secrets, routing, logs, sidecars, upload, and scaffold checks. |
 | Install is append/merge only | Existing `AGENTS.md`, `CLAUDE.md`, `.claude/settings.json`, MCP config, CLI config, skill folders, and workflows are inspected before merge. |
-| Canonical Flow stays separate | Root `skills/` and `agents/` remain Flow canonical sources; provider CLI assets stay in provider folders. |
+| Canonical Flow stays separate | `flow-skills/` and `agents/` remain Flow canonical sources; provider CLI assets stay in provider folders. |
 | Runtime rules win on runtime details | If a CLI skill conflicts with generic Flow implementation guidance, use the CLI rule for app behavior and keep Flow lifecycle artifacts intact. |
 
 ## Production safety posture

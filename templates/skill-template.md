@@ -95,7 +95,7 @@ Original Fusebase Flow content. Designed after reviewing public AI coding workfl
 **Authoring checklist (Mode-B-lite):**
 
 - [ ] Frontmatter `description` leads with WHEN to invoke and WHEN NOT
-- [ ] Destination classified: `skills/` framework skill vs `docs/skills/` project skill vs problem-catalog entry
+- [ ] Destination classified: `flow-skills/` framework skill vs `docs/skills/` project skill vs problem-catalog entry
 - [ ] External sources, if any, transformed conceptually; no copied prose, examples, proprietary labels, or vendor-specific paths
 - [ ] Existing skills checked for overlap before adding a new skill
 - [ ] Role applicability named: Product Owner / AI Developer / Architect / Deploy phase

@@ -34,7 +34,7 @@ The Product Owner proposes filing; the operator confirms. `Capture` files the en
 | Pattern | Where | Why |
 |---|---|---|
 | One specific incident with a specific cause | problem-catalog | Concrete, dated, reference-able |
-| General expertise area that recurs across 3+ tickets | `docs/skills/<slug>/SKILL.md` (project-internal skill, distinct from `skills/`) | Reusable knowledge, not incident-bound |
+| General expertise area that recurs across 3+ tickets | `docs/skills/<slug>/SKILL.md` (project-internal skill, distinct from `flow-skills/`) | Reusable knowledge, not incident-bound |
 
 ## Style
 

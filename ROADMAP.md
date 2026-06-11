@@ -23,7 +23,7 @@ Items here have a clear shape but aren't scheduled. They land when real-world fr
 
 ## Open / radar (smaller items)
 
-- **`docs/rail-mapping.md` completion** — enforcement-surface rows currently end at FR-19; FR-20..FR-25 rows + surface counts need a refresh pass.
+- **`docs/rail-mapping.md` automation** — rows are current as of v3.16.4 (FR-20..25 added), but `preflight.sh` still doesn't parse the file; a rule-count consistency check would prevent the 6-release drift from recurring.
 - **`.claude/commands/` refresh path** — slash-command files have no regeneration step (mirroring covers skills + agents only), so their attestation ranges can drift between releases; candidates: mirror from the overlay templates or include in the version-string sweep.
 - **Module-size baseline rename handling** — `--write-baseline <path>` (v3.16.2) makes the rename remedy a one-command targeted re-key; carrying baseline values across renames *automatically* remains a candidate refinement.
 - **More provider integrations** — the current 5 surfaces (Claude Code, Codex, Cursor, GitHub Copilot, Gemini) were chosen for stable adoption signals; new surfaces land when an operator runs the framework on one and surfaces a need.

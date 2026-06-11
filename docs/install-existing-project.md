@@ -104,7 +104,7 @@ cp -Rn .fusebase-flow-source/.github . 2>/dev/null || true
 # Flow-owned framework folders: copy normally (Flow is authoritative here).
 cp -R .fusebase-flow-source/hooks .
 cp -R .fusebase-flow-source/policies .
-cp -R .fusebase-flow-source/skills .
+cp -R .fusebase-flow-source/flow-skills .
 cp -R .fusebase-flow-source/templates .
 cp -R .fusebase-flow-source/workflows .
 
@@ -140,7 +140,7 @@ foreach ($dir in '.agents','.claude','.codex','.cursor','.github') {
 # Flow-owned framework folders: copy normally.
 Copy-Item -Recurse -Force .fusebase-flow-source\hooks .
 Copy-Item -Recurse -Force .fusebase-flow-source\policies .
-Copy-Item -Recurse -Force .fusebase-flow-source\skills .
+Copy-Item -Recurse -Force .fusebase-flow-sourcelow-skills .
 Copy-Item -Recurse -Force .fusebase-flow-source\templates .
 Copy-Item -Recurse -Force .fusebase-flow-source\workflows .
 

@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "generated_at": "2026-05-29",
+  "generated_at": "2026-06-11",
   "source_cli_version": "unknown",
   "description": "Provenance for vendored FuseBase CLI-owned assets shipped in this Fusebase Flow edition. source_cli_version is UNVERIFIABLE_LOCALLY (literal 'unknown' sentinel); freshness is advisory only. Per-file sha256 feeds the CLI_SNAPSHOT_STALE advisory in check-cli-flow-conflicts.sh. Regenerate with hooks/local/stamp-cli-provenance.sh.",
-  "asset_count": 126,
+  "asset_count": 124,
   "assets": [
     {
       "path": ".agents/skills/api-exploration/SKILL.md",
@@ -251,19 +251,11 @@
     },
     {
       "path": ".claude/hooks/quality-check-apps.js",
-      "sha256": "f4e3a17991dbc7160d430c2dcbea3d2a625255057700697591059e1edeafac40"
-    },
-    {
-      "path": ".claude/hooks/run-lint-on-stop.sh",
-      "sha256": "a83cce7eab1abaac14f3340c18e44d5f707414a34f29f16e286743ab953758f0"
+      "sha256": "5f8cad7d090bf517f80c5930fda10ee4d2d3aa0972cafe384e976f8b67d8bda2"
     },
     {
       "path": ".claude/hooks/run-typecheck-apps.js",
-      "sha256": "1d0d75f6dcc3c9ab5535a9707c250ea3fc1cf17eac3441215bc80f38298ad2aa"
-    },
-    {
-      "path": ".claude/hooks/run-typecheck-on-stop.sh",
-      "sha256": "056b93c892f52c319beef2ce892a297ca907c888d8e729e20c6d94c1235f73bb"
+      "sha256": "001a531cc89d730faaf3dcd356cd29a02e295784dc511bd598e5a0bb91812487"
     },
     {
       "path": ".claude/skills/api-exploration/SKILL.md",
