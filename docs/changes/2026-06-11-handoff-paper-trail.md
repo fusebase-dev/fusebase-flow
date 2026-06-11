@@ -18,6 +18,6 @@ Change:    handoff skill + /handoff command: archive the existing
            as mandatory in PUBLISHING.md.
 Verified:  preflight 0/0; run-tests 24/24; mirrors 0 drift post-sweep.
 Rollback:  git revert <SHA>
-Commit:    <backfilled after commit>
+Commit:    4578f0d
 Deploy:    operator request (timestamped handoffs + paper trail) -> v3.18.2
            tag + GitHub Release, push origin main --follow-tags.
