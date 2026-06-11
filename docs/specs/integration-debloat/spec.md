@@ -1,8 +1,8 @@
 # Spec — integration-debloat (v3.18.0)
 
-**Status:** LOCKED (operator "proceed" 2026-06-10; scope = integration-audit top-5 actions)
+**Status:** DONE (shipped 2026-06-10, framework v3.18.0, tag `v3.18.0`)
 **Tier:** 3 · **Lane:** Full (action 3 touches deploy-approval procedure → focused security pass required)
-**Deploy hash:** (at DONE flip)
+**Deploy hash:** `1a9ff6f`. Independent implementer (gate clean, −9.3KB/−20% per-ticket reads, net −609 lines); PO spot-verified G2/G8 safety edits + all gates (preflight 0/0, 24/24, --all green); security note § below applied. Deviations accepted: gate-report-checklist kept (referenced by producer), 5 extra restating carriers pointer-ized, architect-escalation refs to deleted templates replaced.
 
 ## Problem
 
