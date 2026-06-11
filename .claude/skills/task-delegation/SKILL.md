@@ -89,6 +89,8 @@ Every delegated task gets a brief with:
 
 For code-edit subtasks, tell the worker: "You are not alone in the codebase. Do not revert or overwrite other concurrent edits; adapt to them."
 
+**Turn-completion rule (every delegated session — binding):** a delegated session's deliverable must be COMPLETE within its turn. A delegated session cannot self-resume: when its turn ends, its context dies and nothing comes back. If the work requires waiting (ticks, agent runs, external processes, human gates), either poll with bounded sleeps INSIDE the turn until the result exists, or restructure the task as record-then-read (`flow-skills/smoke-testing` § Verification cost discipline). NEVER end the turn with "running in background — I'll resume when it completes" — you won't, and the orchestrator may trust the false completion. The delegating prompt MUST state this rule in one sentence (push, not pull).
+
 **Mandatory (code-writing / implementation slices):** the delegating prompt MUST inline the comment-policy **Delegation push block** from `flow-skills/comment-policy/SKILL.md` (push, not pull — sub-agents do not reliably auto-load skills, so don't just tell the worker to "load comment-policy"). Read-only / triage delegation is exempt (no code is written).
 
 For frontend/design subtasks, add:

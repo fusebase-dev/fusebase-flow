@@ -131,6 +131,10 @@ Skip this sub-mode only if no test data was written during the ticket (rare — 
 | Smoke evidence | `docs/tmp/handoff/<date>-<slug>-smoke/` | Mode B (full) |
 | Reproduction notes | chat output + optionally `docs/specs/<slug>/spec.md` audit-log | Mode A + Mode B |
 
+## Verification cost
+
+For any verification that spans wall-clock time (deploys, jobs, agent runs): record-then-read by default — see `flow-skills/smoke-testing` § Verification cost discipline (polling is the bounded exception, not the default).
+
 ## Failure cases
 
 | Failure mode | Detection | Response |

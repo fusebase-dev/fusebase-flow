@@ -66,11 +66,11 @@
 .claude/skills/security-permissions-review/SKILL.md  c4c7a9ced92346a839d46c608694c96d8079421210d3220a01b5419d6d0fa658
 .agents/skills/skill-authoring/SKILL.md  459868716e10a611daa2f834ea5fc3011e316ea6abac3ff8b38fcbfc391f4e35
 .claude/skills/skill-authoring/SKILL.md  459868716e10a611daa2f834ea5fc3011e316ea6abac3ff8b38fcbfc391f4e35
-.agents/skills/smoke-testing/SKILL.md  6594ee95c7a07e46efd9bf1341fc97eb07a0ead6f459fd7a11410cf658c7753e
-.claude/skills/smoke-testing/SKILL.md  6594ee95c7a07e46efd9bf1341fc97eb07a0ead6f459fd7a11410cf658c7753e
-.agents/skills/task-delegation/SKILL.md  cc8111bbec5cc4546dd26ce7173f0c0d0bae5d1cccabdf82037ef687f65b79d1
-.claude/skills/task-delegation/SKILL.md  cc8111bbec5cc4546dd26ce7173f0c0d0bae5d1cccabdf82037ef687f65b79d1
-.agents/skills/validation-and-qa/SKILL.md  608943a4a667cb3a0280ce9e1625d151d4a8d97cdd447ccd972c05a91a70cef4
-.claude/skills/validation-and-qa/SKILL.md  608943a4a667cb3a0280ce9e1625d151d4a8d97cdd447ccd972c05a91a70cef4
+.agents/skills/smoke-testing/SKILL.md  78bd4a60a32133415de2ad60e015a829fa9661624ea71c42e9fdc6c5ac4fc8a5
+.claude/skills/smoke-testing/SKILL.md  78bd4a60a32133415de2ad60e015a829fa9661624ea71c42e9fdc6c5ac4fc8a5
+.agents/skills/task-delegation/SKILL.md  e012e04b4bee7e24a91876fa346576454a520d5cd2ed374f60c8db09644c2320
+.claude/skills/task-delegation/SKILL.md  e012e04b4bee7e24a91876fa346576454a520d5cd2ed374f60c8db09644c2320
+.agents/skills/validation-and-qa/SKILL.md  8fb558accadd408805103b6b70825b9ad04ad149b11c77a74d87925c0e4cfe8d
+.claude/skills/validation-and-qa/SKILL.md  8fb558accadd408805103b6b70825b9ad04ad149b11c77a74d87925c0e4cfe8d
 .agents/skills/zoom-out/SKILL.md  24108329ab818022d26c919c2a6ab5f89862b4ea5d877fc4a1bb0576f1338557
 .claude/skills/zoom-out/SKILL.md  24108329ab818022d26c919c2a6ab5f89862b4ea5d877fc4a1bb0576f1338557

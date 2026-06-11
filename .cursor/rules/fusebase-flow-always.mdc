@@ -10,7 +10,7 @@ Read `FLOW_RULES.md` (stop at `## Amendment log` — dated history, never load i
 
 ## Self-attestation (first response of every session)
 
-State: "Operating as {Product Owner | AI Developer | Architect (escalated) | Deploy phase} under Fusebase Flow v3.18.2. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+State: "Operating as {Product Owner | AI Developer | Architect (escalated) | Deploy phase} under Fusebase Flow v3.19.1. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 ## State announcement (every output)
 

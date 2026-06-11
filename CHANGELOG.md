@@ -4,6 +4,16 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.19.1] — 2026-06-11
+
+### Added — delegation turn-completion rule + verification cost discipline (downstream proposal)
+
+From a formal downstream proposal (paperclip+hermes-v1 autonomous multi-slice run; both gaps hit repeatedly, neither project-specific):
+
+- **Turn-completion rule (binding, `task-delegation`):** a delegated session's deliverable must be COMPLETE within its turn — delegated sessions cannot self-resume; their context dies at turn end. Wait-dependent work polls with bounded sleeps IN-TURN or restructures as record-then-read. Never end a delegated turn with "running in background — I'll resume when it completes" (observed 3× in one run; each was a silent partial-completion risk). One-sentence push added to delegating prompts (`handoff-implement` delegation line) and to the deploy workflow's probe step.
+- **Verification cost discipline (`smoke-testing` § new, cross-ref'd from `validation-and-qa`):** default = **record-then-read** — let the system run unobserved and read its durable evidence surfaces (journals, run records, logs) once afterward, instead of agent-side polling (measured ~10× cost, linear with wall-clock). No durable evidence surface = an observability-gap finding. Sole exception: the first live drive of freshly-changed code hunting unknown failure modes, bounded. Long-running verification plans state their mode.
+- **Verified:** preflight 0/0; run-tests 24/24. Change-note: `docs/changes/2026-06-11-delegation-verification-discipline.md`.
+
 ## [3.19.0] — 2026-06-11
 
 ### Added — `app-quality-patterns`: cross-project behavioral quality library (29th skill)

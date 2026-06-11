@@ -90,6 +90,16 @@ Prevent pre-outcome signals from being mislabeled as smoke success. A smoke test
 13. Clean up or document test data and external-service side effects before DONE. Keep evidence files; remove throwaway data not needed for audit.
 14. If a smoke missed a bug, update future smoke methodology immediately: add the missed outcome or diagnostic surface to the next gate/handoff.
 
+## Verification cost discipline (record-then-read default)
+
+Evidence rules above say WHAT counts; this says HOW to obtain it economically. Agent-side watching (re-reading state every cycle while the system works) costs tokens linear with wall-clock regardless of how little happens — measured at ~10× the cost of reading the same evidence once afterward.
+
+- **Default = record-then-read:** let the system run unobserved and read its durable evidence surfaces ONCE after the run — journals, run records, logs, event trails, snapshots, outcome docs. Prefer the system's own records over agent-side polling.
+- **If the system under test has no durable evidence surface, that absence is itself a finding** (observability gap) — report it; don't compensate by watching.
+- **The only exception:** the first live drive of freshly-changed code hunting UNKNOWN failure modes, where catching the defect at the moment it happens is the point. Bound it (one flow, one watch window), then revert to record-then-read.
+- A long-running verification plan states which mode it uses and why (one line in the S<n> or gate plan).
+- Delegated sessions: combine with the turn-completion rule (`task-delegation`) — record-then-read is how a delegated verifier finishes in one turn.
+
 ## Output artifacts
 
 | Artifact | Path or location | Mode |

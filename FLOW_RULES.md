@@ -1,6 +1,6 @@
 # Fusebase Flow — always-on rules (FR-01..FR-25)
 
-**Status:** v0.26 (app-quality-patterns v3.19.0 — 29th skill: cross-project behavioral quality library (QP-01..24) injected as spec ACs with copy-ready smoke recipes; no rule change. Handoff paper trail v3.18.2 before it.)
+**Status:** v0.27 (delegation turn-completion + verification cost discipline v3.19.1 — delegated deliverables complete in-turn; record-then-read default over agent-side polling; no rule change. app-quality-patterns v3.19.0 before it.)
 **Scope:** every session in any IDE/agent must follow these regardless of which skill or workflow is active.
 
 These rules are clean-room original. Each rule states *what*, *why*, and *enforcement surface* (rule-only, policy, hook, workflow, skill). Enforcement details live in `policies/`, `hooks/`, and `workflows/` — this file is the readable contract.
@@ -52,7 +52,7 @@ If a session writes code outside its role, FR-01 fires and the agent must stop a
 
 ## Self-attestation (mandatory at first response of every session)
 
-Every role declares: "Operating as {role} under Fusebase Flow v3.19.0. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+Every role declares: "Operating as {role} under Fusebase Flow v3.19.1. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 If self-attestation is missing from the first response, the session is drifting. Self-correct in the next output.
 
@@ -517,4 +517,24 @@ Both modes preserve FR-03, FR-13, FR-14.
              confirm/undo, QP-24 unsaved-changes guard). Spec:
              docs/specs/app-quality-patterns/spec.md. Shipped in framework
              v3.19.0.
+
+2026-06-11 — v0.27. Delegation turn-completion + verification cost discipline
+             (no rule changed). v3.19.1, downstream proposal (paperclip+
+             hermes-v1 autonomous run, operator-relayed): (1) three delegated
+             sessions ended their turn "watching in background — I'll resume
+             when it completes" — a delegated session cannot self-resume;
+             task-delegation now carries a binding turn-completion rule
+             (deliverable complete in-turn; bounded in-turn polling or
+             record-then-read; one-sentence push into delegating prompts;
+             also in greenlight-deploy + handoff-implement push line).
+             (2) Verification skills defined WHAT counts as evidence but not
+             HOW to obtain it economically — agent-side watching measured at
+             ~10x the cost of reading durable records after the run.
+             smoke-testing gains § Verification cost discipline
+             (record-then-read default; missing evidence surface = an
+             observability-gap finding; sole exception = first live drive of
+             fresh code hunting unknown failure modes, bounded);
+             validation-and-qa cross-references it. Change-note:
+             docs/changes/2026-06-11-delegation-verification-discipline.md.
+             Shipped in framework v3.19.1.
 ```
