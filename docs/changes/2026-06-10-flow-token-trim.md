@@ -32,6 +32,6 @@ Verified:  preflight 0/0; run-tests 24/24; sweep dry-run clean (amendment-log
            compliant sessions per consumer repo (amendment-log skip ~410k +
            row/implication merge ~47k + preamble dedupe ~12k).
 Rollback:  git revert <SHA>
-Commit:    <backfilled after commit>
+Commit:    a4a798c
 Deploy:    operator go-ahead ("proceed") -> v3.16.3 tag, push origin main
            --follow-tags.
