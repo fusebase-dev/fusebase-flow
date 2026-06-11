@@ -1,6 +1,6 @@
 ---
 name: git-history-diagnostic
-description: Use when something worked before and is now broken (a regression), or the operator asks "when did this break", "find the commit that caused X", "it used to work", "compare to a previous version". Locates where a regression entered by comparing commits / bisecting history. Do NOT use for net-new bugs that never worked, for routine rollback (git-workflow), or as a substitute for reproduce-before-fix (FR-10).
+description: Use when something worked before and is now broken (a regression), or the operator asks "when did this break", "find the commit that caused X", "it used to work", "compare to a previous version". Locates where a regression entered by comparing commits / bisecting history. Do NOT use for net-new bugs that never worked, for routine rollback (workflows/git-discipline.md), or as a substitute for reproduce-before-fix (FR-10).
 source_inspiration: conceptual-only
 license_status: clean-room-original
 fusebase_flow_version: 3.3
@@ -11,7 +11,7 @@ expected_outputs:
   - a diff explaining the causing change
   - handoff to zoom-out / validation-and-qa for the actual fix
 related_workflows:
-  - git-workflow.md
+  - git-discipline.md
   - verification-gate.md
 hook_dependencies:
   - none
@@ -34,7 +34,7 @@ Regression archaeology: when behavior that previously worked is now broken, loca
 ## Do not invoke when
 
 - The behavior never worked (net-new bug → normal debugging).
-- Routine rollback of a known commit → `git-workflow`.
+- Routine rollback of a known commit → `workflows/git-discipline.md`.
 - Reproduction isn't established yet → run FR-10 reproduce-before-fix first (you need a reliable signal to bisect against).
 
 ## Required inputs

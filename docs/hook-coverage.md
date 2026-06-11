@@ -12,7 +12,7 @@ Lists every Fusebase Flow lifecycle hook handler and which provider / fallback s
 | `permission_request` | reserved (returned `ask` decision honored when host invokes) | yes (`permission_request`) | n/a | `approve-local.sh` authors approval artifacts the handler reads | implemented |
 | `post_tool_use` | yes (`PostToolUse`; matchers: Edit, Write, MultiEdit) | yes (`post_tool_use`; matchers: Edit, Write, MultiEdit) | n/a | n/a | implemented |
 | `stop` | yes (`Stop`) | yes (`stop`) | partial (`verify-gate.sh` checks pasted gate report shape) | `verify-gate.sh` for ad-hoc validation | implemented |
-| `task_complete` | n/a (Stop covers this) | n/a (stop covers this) | n/a | `task_complete.py` runnable directly when host emits it | implemented |
+| `task_complete` | n/a (Stop covers this) | n/a (stop covers this) | n/a | n/a | retired v3.18.0 (handler was wired nowhere; `stop` owns completion gating) |
 | `pre_compact` | yes (`PreCompact`) | reserved (host-dependent) | n/a | n/a | implemented |
 
 ## Surface notes

@@ -4,6 +4,19 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.18.0] — 2026-06-10
+
+### Changed — integration-debloat: procedure layer de-duplicated, 3 contradictions fixed, deploy ceremony right-sized
+
+From a capability-integration audit (functional overlap + velocity lens across all 10 capability groups). No rule text changed; ~9.3KB (−20%) cut from per-ticket-read procedure files; 2 operator touches removed from the common deploy.
+
+- **3 live cross-surface contradictions fixed:** FR-14 docs-commit owner is the **Deploy session** (the enforced path) — both sub-agent files corrected; the decisions requirement is now **tier-aware** ("LOCKED *if present*; absence valid per FR-23 when spec records 'no real decisions'") in `greenlight-implement` + `required-artifacts.yml`; **security review is conditional** on its own trigger list in all carriers (else `security: N/A` recorded) instead of unconditional on every deploy.
+- **Gate contract canonical = `gate-contracts.yml` (machine) + `templates/gate-report.md` (producer)** — 5+ restating carriers (verification-gate workflow + template, greenlight-implement, tasks/handoff templates, cursor/copilot adapters) → pointers. **Smoke canonical = `smoke-testing` skill** — workflow shrunk to mechanics; validation-and-qa sub-mode B → 3-line pointer. ~130 lines of self-declared "legacy reference" handoff snippets deleted from both greenlight workflows.
+- **Review boundary:** `code-review` now trusts the recorded validation-and-qa gate verdict for deterministic/cross-artifact fields and reviews only semantic dimensions — eliminates a full duplicated diff pass per ticket.
+- **Reversible-deploy waiver:** on `dp1_waiver: eligible` handoffs (reversible, no protected-path/security/migration surface) the Deploy agent stamps the DP.1 artifact itself upon the operator's typed DP.6 phrase. Artifact + hook semantics unchanged; human gate unchanged; deploy-intent confirmations 3 → 2. Excluded classes keep operator-run DP.1.
+- **Machinery hygiene:** `task_complete.py` retired (wired nowhere); `session-initiation` now reads `state/context-summary.md` (pre-compact output was written but never read); preflight gains an overlay-copy drift check; `upgrade-engine.sh` → deprecation shim; orphan templates `research.md`/`data-model.md` deleted (24→22), `audience.md` wired into `project-onboarding`; knowledge-capture routing cross-pointers (documentation-budget ↔ knowledge-curation); **`workflows/git-workflow.md` renamed `git-discipline.md`** (name collision with the CLI provider skill confused retrieval).
+- **Verified:** preflight 0/0; run-tests 24/24; `--all` green; mirrors clean. Spec: `docs/specs/integration-debloat/spec.md`. Detail: `docs/release-notes/v3.18.0.md`.
+
 ## [3.17.1] — 2026-06-10
 
 ### Fixed — post-ship audit nit-sweep + references/ drift gate

@@ -9,7 +9,7 @@ Chosen at Specify when the eligibility gate in `flow-skills/lightweight-lane/SKI
 ## Procedure (single AI Developer session — no two-agent split)
 
 1. **Confirm tier.** Re-check the eligibility gate. If any condition fails or there is doubt → STOP, use the Full lane.
-2. **Pre-task checkpoint.** Git checkpoint per `workflows/git-workflow.md` (so revert is clean).
+2. **Pre-task checkpoint.** Git checkpoint per `workflows/git-discipline.md` (so revert is clean).
 3. **Write the change-note** from `templates/change-note.md` (problem · change · verified · rollback · `change_tier: lightweight`). Inline in the commit body for the smallest changes, or `docs/changes/<date>-<slug>.md`.
 4. **Make the change.** Single coherent concern. If scope grows past a couple files / surfaces a risk / needs a decision / reveals a deeper bug → STOP and promote (see below).
 5. **Lint + typecheck** (FR-13).
@@ -28,12 +28,7 @@ The same role attestation as any AI Developer session (per `FLOW_RULES.md` § Se
 
 ## Mid-flight promotion (mandatory)
 
-If the change touches more than a couple files, surfaces a risk, needs a real decision, or reveals a deeper bug → **STOP.** Do not keep coding. Open a Full-lane spec (`requirements-specification`), carry over what you learned, and record `<date> · <slug> · promoted lightweight→full · <reason>` in `docs/changes/index.md`. Promotion is the gate working, not a failure.
-
-## What stays vs what's dropped
-
-- **Kept (both lanes):** live proof · explicit operator deploy go-ahead · FR-07 protected-path check · documented one-line rollback · one commit + SHA · lint+typecheck per commit.
-- **Dropped (LL only):** separate spec/decisions/tasks/verification-gate + two handoff docs · DP.1 JSON artifact · DP.6 magic phrase · two-agent build-then-deploy split (→ no redundant rebuild) · long-form gate report.
+Triggers, procedure, and the kept-vs-dropped safety floor are canonical in `flow-skills/lightweight-lane/SKILL.md` (§ Mid-flight promotion, § What LL KEEPS / DROPS). On any trigger: **STOP**, promote to Full, record the promotion.
 
 ## State announcement (every output)
 
@@ -49,7 +44,7 @@ If the change touches more than a couple files, surfaces a risk, needs a real de
 - `flow-skills/lightweight-lane/SKILL.md` — eligibility gate, change-note, promotion (single source of truth)
 - `templates/change-note.md` — the LL artifact
 - `workflows/eight-phase-flow.md` — the Full lane (lane selection happens there)
-- `workflows/git-workflow.md` — pre-task checkpoint + per-commit discipline
+- `workflows/git-discipline.md` — pre-task checkpoint + per-commit discipline
 - `flow-skills/validation-and-qa/SKILL.md` — live-proof / 3-question empirical test (LL mode)
 - `flow-skills/release-deploy-reporting/SKILL.md` — LL deploy mode (plain go-ahead)
 - `policies/approval-policy.yml` — `lightweight_deploy` (one-command stamp) vs `production_deploy`

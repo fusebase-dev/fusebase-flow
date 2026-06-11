@@ -47,21 +47,17 @@ Independent review of a diff against the spec contract, locked decisions, and FL
 
 ## Procedure
 
-1. Run `git diff <baseline>..HEAD --stat` to get changed files. Confirm scope matches `tasks.md`.
-2. For Fusebase Apps diffs, read `docs/fusebase-cli-edition.md` and load the relevant CLI provider skills as review standards for app/runtime/domain behavior.
-3. For each task T<n>: read the corresponding commit (or accumulated diff). Verify:
-   - Scope matches `tasks.md` task description (no scope creep)
-   - Locked decisions from `decisions.md` honored (cite letter+number)
-   - No protected-path edits unless an exception exists
-   - Lint/typecheck status from gate report still holds
-4. Spec alignment matrix: for each AC1..ACn, confirm at least one task implements it; flag unimplemented ACs.
-5. Maintainability scan:
+1. **Trust the recorded gate verdict (review boundary).** When `validation-and-qa` has recorded a gate verdict ("Gate verified. Phase advances to Deploy."), trust it for the deterministic/cross-artifact fields — AC↔task map, decisions-cited-in-tasks, lint/typecheck status, TODO/FIXME/WIP scan, protected-path diff. Do not re-verify them; carry the gate's AC↔task verdict into the review's spec-alignment matrix by citation. If no gate verdict exists, route to `validation-and-qa` first — do not absorb its checks here.
+2. Run `git diff <baseline>..HEAD --stat` to get changed files. For Fusebase Apps diffs, read `docs/fusebase-cli-edition.md` and load the relevant CLI provider skills as review standards for app/runtime/domain behavior.
+3. Semantic review per task T<n>: read the corresponding commit (or accumulated diff). Judge:
+   - Scope-creep: does the change match the *intent* of the `tasks.md` description, not just touch the listed files?
+   - Decision adherence in meaning: the gate checks decisions are *cited*; review checks the code *does what the locked decision means* (cite letter+number on divergence)
+4. Maintainability scan:
    - Type safety (no broad casts on external JSON, no `any`)
-   - **Comment policy (FR-22)** — see the dedicated dimension in step 5b
-   - No TODO/FIXME/WIP markers
+   - **Comment policy (FR-22)** — see the dedicated dimension in step 4b
    - Function size and complexity reasonable
 
-5b. Comment-policy dimension (FR-22) — enforce in BOTH directions:
+4b. Comment-policy dimension (FR-22) — enforce in BOTH directions:
    - **Flag for removal (findings):** comments that restate what the code does;
      rationale/diagnosis prose already recorded in a decision/ticket/memory (should be
      replaced by a ≤1-line pointer, not deleted outright); changelog/history narrative
@@ -76,7 +72,7 @@ Independent review of a diff against the spec contract, locked decisions, and FL
      do not flag those. Apply the rule fully to CRUD/routine code.
    - This is a **semantic** judgment (tripwire vs restate-WHAT), not a regex check — review
      by reading, never propose a lint/regex gate for it. Reference: `docs/comment-policy.md`.
-5c. Module-size dimension (FR-25):
+4c. Module-size dimension (FR-25):
    - **Growth check:** did this diff grow a file past the ceiling in `policies/module-size.yml`
      (default 800), or grow an already-over-ceiling file? The pre-commit ratchet blocks this
      when a baseline is committed — in warn-only installs (no baseline yet), review is the
@@ -90,13 +86,13 @@ Independent review of a diff against the spec contract, locked decisions, and FL
      and justified (generated / vendored / data-as-code) — an agent-initiated baseline raise or
      exemption for ordinary source is a blocker.
    - Reference: `flow-skills/module-size-discipline/SKILL.md`.
-6. Test coverage scan: new behavior has at least one test; tests align with ACs.
-7. Rollback safety: each commit individually revertable; no commit straddles unrelated changes.
-8. Output review summary in chat:
+5. Test coverage scan: tests are *meaningful* for the new behavior (assert real outcomes, not just "no exception"); the deterministic AC-coverage map is the gate's.
+6. Rollback safety: each commit individually revertable; no commit straddles unrelated changes.
+7. Output review summary in chat:
    - Blockers (must fix before deploy)
    - Non-blockers (improvement candidates; can be follow-up tickets)
-   - Spec alignment matrix (table)
-9. If invoked from operator chat: end with "Review complete. <N> blockers, <M> non-blockers. Operator decides whether to fix or proceed."
+   - Spec alignment matrix (table; deterministic AC↔task statuses carried from the gate verdict by citation)
+8. If invoked from operator chat: end with "Review complete. <N> blockers, <M> non-blockers. Operator decides whether to fix or proceed."
 
 ## Output artifacts
 
@@ -112,8 +108,8 @@ Independent review of a diff against the spec contract, locked decisions, and FL
 |---|---|---|
 | Diff straddles multiple unrelated changes | Commits cover code outside current ticket scope | Flag as blocker; recommend split into separate tickets |
 | Locked decision contradicted by code | Decision says X, code does Y | Flag as blocker; redirect via decisions.md update OR fix code |
-| AC unimplemented | Spec AC<n> has no task touching it | Flag as blocker; either add task or remove AC explicitly |
-| Protected path edited without exception | `git diff` against `protected-paths.yml` non-empty | Flag as blocker per FR-07; require approval artifact OR revert |
+| AC unimplemented | Surfaced while reading the diff (the gate owns the deterministic AC↔task scan) | Flag as blocker; either add task or remove AC explicitly |
+| Protected path edited without exception | Surfaced while reading the diff (the gate owns the deterministic FR-07 scan) | Flag as blocker per FR-07; require approval artifact OR revert |
 | Type safety regression | New `any` / broad casts on external JSON introduced | Flag as blocker if production-path; non-blocker if test fixture |
 | Comment-policy violation (FR-22) | WHAT-restating / duplicated-rationale / changelog comments added, or "matched density" upward in a comment-heavy file | Flag as non-blocker (note the lines); not a deploy blocker unless it obscures a real defect |
 | Comment over-trim (FR-22) | A load-bearing tripwire or `(decision/backlog ...)` retrieval pointer was deleted | Flag as blocker — deleting the pointer orphans the external record (storage ≠ retrieval); restore it |
@@ -132,8 +128,7 @@ Independent review of a diff against the spec contract, locked decisions, and FL
 - Do NOT fix code yourself; surface findings, operator + implementer fix
 - Do NOT lock-or-redirect decisions; that's the operator's call (FR-11)
 - Do NOT block on stylistic preferences absent a lint rule; flag as non-blocker
-- Do NOT pass without checking protected paths (FR-07)
-- Do NOT pass without verifying gate report alignment
+- Do NOT re-verify deterministic gate fields (AC↔task map, decisions-cited, lint/typecheck, TODO scan, protected paths) when a recorded gate verdict exists — trust it; absent a verdict, route to `validation-and-qa` first
 - Do NOT enforce the comment policy (FR-22) by proposing a regex/lint gate — it's a semantic call; review by reading. And don't only hunt over-commenting: a deleted tripwire/pointer is the symmetric failure (over-trim) and is a blocker.
 - Do NOT judge split quality (FR-25) by line counts alone — the gate already counts lines; review checks the semantic part (is the seam a nameable responsibility), which no regex can.
 

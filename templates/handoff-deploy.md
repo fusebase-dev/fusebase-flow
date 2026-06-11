@@ -6,7 +6,7 @@
 
 ## Role bootstrap (read this BEFORE any other reads)
 
-You are operating as the **AI Developer in the Deploy phase** under Fusebase Flow v3.17.0.
+You are operating as the **AI Developer in the Deploy phase** under Fusebase Flow v3.18.0.
 
 > **This is the Full-lane deploy handoff** (DP.1 artifact + DP.6 magic phrase). A **Lightweight-lane** change (FR-21) does NOT use this template — it deploys in the same single build→verify→deploy pass on a plain operator go-ahead; see `flow-skills/lightweight-lane/SKILL.md` and `workflows/lightweight-lane.md`.
 
@@ -17,7 +17,7 @@ You are operating as the **AI Developer in the Deploy phase** under Fusebase Flo
 - **DP.6 magic-phrase confirm + FR-19 chat-text discipline.** Before running the deploy command, ask the operator in chat text to type the literal `APPROVE-DEPLOY-NOW`. Do not use popup / clickable menu tools. If the response is anything other than that exact phrase, **ABORT**. Do NOT accept "yes," "go," "ship it," or any paraphrase. This is the operator-attentiveness gate; it is not negotiable.
 - **DP.10 smoke evidence integrity.** If this handoff includes S1..Sn, run `flow-skills/smoke-testing/SKILL.md`. Smoke PASS requires operator-visible outcome evidence plus ground-truth diagnostic inspection. Exit code, file hash, service active, symbol presence, and auth sanity are supporting checks only.
 - **DP.11 no delegated deploy side effects.** Do not delegate deploy command, rollback, approval artifacts, secret handling, or live-session smoke. Delegation during deploy is read-only triage only.
-- **DP.1 approval artifact required.** Verify `state/approvals/production_deploy-<slug>-<date>.json` exists and is unexpired before deploy. Without it, ABORT.
+- **DP.1 approval artifact required.** Verify `state/approvals/production_deploy-<slug>-<date>.json` exists and is unexpired before deploy. If absent: when this handoff's `dp1_waiver` field says `eligible` (reversible-deploy waiver — see `policies/approval-policy.yml`), stamp it yourself immediately after the operator types the DP.6 phrase (`bash hooks/local/approve-local.sh production_deploy <slug> 'APPROVE-DEPLOY-NOW'`); otherwise ABORT.
 
 Other invariants (FR-05/-06/-07/-14, Mode A/B, supersede discipline FR-18) — see `FLOW_RULES.md` directly; don't paraphrase here.
 
@@ -48,6 +48,7 @@ Other invariants (FR-05/-06/-07/-14, Mode A/B, supersede discipline FR-18) — s
 | **Slug** | `<slug>` |
 | **Status** | ready for Deploy phase |
 | **Approval artifact** | `state/approvals/production_deploy-<slug>-<date>.json` |
+| **DP.1 waiver** | `dp1_waiver: eligible|excluded — <reason>` (eligible iff reversible AND no protected-path / security-surface / migration touch; eligible = Deploy session stamps DP.1 itself on the operator's DP.6 phrase) |
 | **Source spec** | `docs/specs/<slug>/spec.md` |
 | **Gate verified** | `<date>` (gate report SHA `<hash>`) |
 | **Deploy command** | `<exact command from AGENTS.md>` |
@@ -71,19 +72,7 @@ Other invariants (FR-05/-06/-07/-14, Mode A/B, supersede discipline FR-18) — s
 
 ## Smoke prompts (if applicable)
 
-S1..Sn from `docs/specs/<slug>/verification-gate.md` smoke section. Persist evidence to `docs/tmp/handoff/<date>-<slug>-smoke/`.
-
-Each S<n> must carry:
-
-| Field | Value |
-|---|---|
-| Operator-visible success criterion | `<what the operator can observe if the shipped behavior works>` |
-| Route / surface | `<URL / page / command / N/A>` |
-| Ground-truth diagnostic | `<request dump / error log / server log / rendered DOM / DB row / job trace>` |
-| Stable selectors / locators | `<purpose/state selector or accessible locator; N/A for non-UI>` |
-| Auth / test data plan | `<auth mode; unique test values; cleanup expectation>` |
-| Adversarial check | `<what would falsify the fix even if static checks passed>` |
-| Evidence required | `<screenshot / response excerpt / diagnostic excerpt / artifact path>` |
+Copy S1..Sn **verbatim** from `docs/specs/<slug>/verification-gate.md` — each S<n> carries the full field set defined by `flow-skills/smoke-testing/SKILL.md` (the canonical smoke contract); never compress to "run smoke". Persist evidence to `docs/tmp/handoff/<date>-<slug>-smoke/`.
 
 If the end-to-end smoke cannot run because credentials/session/operator action are missing, report `PENDING-OPERATOR-SMOKE`, leave spec DRAFT, and provide exact operator steps. Do not mark smoke PASS from supporting checks alone.
 

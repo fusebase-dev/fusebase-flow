@@ -6,7 +6,7 @@
 
 ![FuseBase Flow — you design and decide with the Product Owner agent, which hands off to the AI Developer agent that implements, runs the verification gate, and deploys](docs/assets/two-agent-banner.svg)
 
-[![Version](https://img.shields.io/badge/version-3.17.1-blue.svg)](VERSION)
+[![Version](https://img.shields.io/badge/version-3.18.0-blue.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![CI](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml/badge.svg)](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml)
 [![Use this template](https://img.shields.io/badge/GitHub-Use_this_template-brightgreen.svg?logo=github)](https://github.com/fusebase-dev/fusebase-flow/generate)
@@ -189,7 +189,7 @@ Skipping is fine — nothing is created unless you provide it, and the framework
 2. The agent invokes the `requirements-specification` skill, drafts `docs/specs/<slug>/spec.md`, and runs clarify questions.
 3. After clarify resolves, the agent invokes `implementation-planning` to produce `decisions.md`, `tasks.md`, `verification-gate.md`, plus a saved handoff at `docs/tmp/handoff/<YYYY-MM-DD>-<slug>-implement.md`.
 4. Open a fresh agent session, paste the handoff, and the AI Developer executes the task chain — stopping at the verification gate.
-5. Paste the gate report back to the originating session. Run `code-review` and `security-permissions-review`.
+5. Paste the gate report back to the originating session. Run `code-review`; `security-permissions-review` runs only when the diff touches a sensitive surface (auth/secrets/env/deploy config/external messages/production data), else the review records `security: N/A — no sensitive surface`.
 6. If clean, the operator says *"prepare deploy"* — the `release-deploy-reporting` skill drafts the deploy handoff, you paste it into the AI Developer session, deploy runs, probes and outcome-based smoke verify.
 
 The full eight-phase lifecycle lives at [`workflows/eight-phase-flow.md`](workflows/eight-phase-flow.md).
@@ -416,7 +416,7 @@ An ownership manifest backs this split, and a read-only conflict reporter surfac
 | (Re)wire Flow lifecycle hooks into `.claude/settings.json` (opt-in) | `bash hooks/local/post-fusebase-update.sh --wire-hooks` |
 | Restore CLI-owned drift | Run the current **FuseBase CLI refresh/update first**, then `post-fusebase-update.sh` for the Flow layer |
 | **Upgrade Flow content** (skills/rules/agents) to latest upstream | `bash hooks/local/upgrade.sh` (refresh `.fusebase-flow-source/` first; `--dry-run` to preview) |
-| Upgrade only the engine + recovery scripts | `bash hooks/local/upgrade-engine.sh` (refresh `.fusebase-flow-source/` first) |
+| ~~Upgrade only the engine + recovery scripts~~ | `upgrade-engine.sh` is a deprecated shim (v3.18.0) — it forwards to `bash hooks/local/upgrade.sh` |
 | Re-sync embedded `vX.Y.Z` strings to the `VERSION` file | `bash hooks/local/sync-version-strings.sh` |
 | Avoid drift on routine updates | `fusebase update --skip-skills` (preserves FuseBase Flow overlay) |
 
@@ -514,7 +514,7 @@ There are three upgrade tools, by scope:
     && cp .fusebase-flow-source/hooks/local/{upgrade,upgrade-engine,sync-version-strings,post-fusebase-update,mirror-skills,mirror-agents,preflight}.sh hooks/local/ \
     && bash hooks/local/upgrade.sh --dry-run
   ```
-- **`bash hooks/local/upgrade-engine.sh`** — narrower: refreshes only the engine + recovery scripts and `VERSION`.
+- **`bash hooks/local/upgrade-engine.sh`** — **deprecated shim (v3.18.0):** forwards to `upgrade.sh`, which covers the engine + recovery scripts and everything else.
 
 All accept `.fusebase-flow-source/` as either a git clone (enables HEAD/diff reporting) or a plain directory copy (the documented install end-state, which drops `.git`); a plain dir falls back to VERSION-file comparison instead of erroring.
 
@@ -669,7 +669,7 @@ fusebase-flow/
 ├── agents/                         ← 2 canonical sub-agents (product-owner, ai-developer)
 ├── workflows/                      ← 13 procedures (incl. lightweight-lane)
 ├── policies/                       ← 8 YAML policies (incl. module-size ratchet)
-├── templates/                      ← 24 substrates (incl. change-note, business-logic-index, handoff)
+├── templates/                      ← 22 substrates (incl. change-note, business-logic-index, handoff)
 ├── hooks/
 │   ├── README.md
 │   ├── flow_hook_event.schema.json

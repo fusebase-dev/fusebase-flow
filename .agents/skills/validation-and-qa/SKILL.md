@@ -52,13 +52,8 @@ Validate changed behavior with deterministic checks before a deploy is approved.
 
 ### Sub-mode A — Verification gate
 
-1. Read `verification-gate.md` to learn the contract (required fields, smoke prompts, probe list).
-2. Verify completeness of pasted gate report against contract:
-   - Every T-task has a SHA
-   - Test counts (before / after / delta per layer)
-   - Lint + typecheck status
-   - Worker-undisturbed git diff confirmation
-   - Manifest version (if applicable)
+1. Read `verification-gate.md` to learn the contract (smoke prompts, probe list); required gate-report fields are canonical in `policies/gate-contracts.yml: gate_report` (producer template: `templates/gate-report.md`).
+2. Verify completeness of the pasted gate report against that field schema.
 3. If any field missing, redirect implementer: "Gate report missing <field>. Per FR-05, complete reports only. Re-run."
 4. Run cross-artifact consistency check (every AC exercised in tasks; every locked decision cited where applied; no TODO/FIXME/WIP markers; spec status still DRAFT).
 5. **Apply the 3-question test for empirical coverage** to each AC:
@@ -85,21 +80,13 @@ For a Lightweight-lane ticket there is no `verification-gate.md` and no long-for
 3. Confirm the FR-07 protected-path re-check is clean (`git diff` against `policies/protected-paths.yml`).
 4. Report in **1–3 lines**: `<what changed> · observed <X>, expected <Y> ✓ · FR-07 clean`. That is the LL gate.
 
-If the live proof can't be produced (no real input reachable, outcome not measurable), the ticket is **not** Lightweight-eligible per condition 3 — promote to Full (`skills/lightweight-lane/SKILL.md`).
+If the live proof can't be produced (no real input reachable, outcome not measurable), the ticket is **not** Lightweight-eligible per condition 3 — promote to Full (`flow-skills/lightweight-lane/SKILL.md`).
 
 ### Sub-mode B — Smoke prompt verification (post-deploy)
 
-1. Invoke `skills/smoke-testing/SKILL.md` and run numbered smoke prompts S1..Sn from `verification-gate.md`.
-2. For Fusebase Apps smoke, use `docs/fusebase-cli-edition.md` to identify supporting CLI diagnostics such as `remote-logs`, `dev-debug-logs`, `fusebase-cli`, or `app-create-checker`. These are evidence sources, not substitutes for operator-visible outcome proof.
-3. Verify each smoke prompt demonstrates the operator-visible outcome and inspects the ground-truth diagnostic surface. Exit code, file hash, service active, symbol presence, and auth sanity are supporting checks only.
-4. For interactive UI changes, verify at least one smoke prompt exercises the real primary interaction; screenshots/render checks alone are incomplete.
-5. For browser smoke, verify the plan runs one user flow at a time and includes route, viewport, selectors/locators, test data, auth/session handling, expected outcomes, and cleanup responsibility.
-6. For UI smoke, verify selectors/locators are stable enough to reproduce the run; avoid styling/layout selectors when a purpose/state selector or accessible locator exists.
-7. Verify shared-state discipline: generated test records use unique values, tests do not rely on exact counts for data they did not create, and empty-state checks are isolated or explicitly prepared.
-8. Inspect both browser-visible evidence and the backend/log/API diagnostic surface when the UI action crosses system boundaries. Browser PASS with server-side error logs is smoke FAIL.
-9. Persist evidence (screenshots, response excerpts, browser console/network notes, log lines, request dumps, rendered DOM, job rows) to `docs/tmp/handoff/<date>-<slug>-smoke/`.
-10. Compute pass ratio (e.g., 4/4 PASS).
-11. If below threshold defined in gate contract, or if end-to-end smoke is not feasible, do NOT mark spec DONE. Report failure or `PENDING-OPERATOR-SMOKE` with concrete `Sn observed Y, expected Z` / missing prerequisite.
+1. Invoke `flow-skills/smoke-testing/SKILL.md` — the canonical smoke contract (outcome-first sufficiency, UI/browser plan, shared-state discipline, dual-surface evidence) — and run S1..Sn from `verification-gate.md` per `workflows/smoke-verification.md` mechanics.
+2. Persist evidence to `docs/tmp/handoff/<date>-<slug>-smoke/`; compute the pass ratio and verify it against the threshold in the gate contract.
+3. If below threshold, or if end-to-end smoke is not feasible, do NOT mark spec DONE. Report failure or `PENDING-OPERATOR-SMOKE` with concrete `Sn observed Y, expected Z` / missing prerequisite.
 
 ### Sub-mode C — Reproducibility before fix
 

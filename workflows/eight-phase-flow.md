@@ -38,7 +38,7 @@ Each transition has a state-announcement footer update. The operator can redirec
 |---|---|
 | `architect-escalation.md` | Investigation surface > 10 files / cross-cutting refactor / platform blocker suspected |
 | `knowledge-curation.md` | After deploy or mid-investigation when triggers fire (see FR-15) |
-| `git-workflow.md` | Pre-task checkpoint, per-commit, pre-deploy verification |
+| `git-discipline.md` | Pre-task checkpoint, per-commit, pre-deploy verification |
 | `smoke-verification.md` | When `verification-gate.md` specifies numbered smoke prompts; execute with `smoke-testing` |
 
 ## Role hand-offs across sessions

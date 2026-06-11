@@ -6,7 +6,7 @@
 
 ## Role bootstrap (read this BEFORE any other reads)
 
-You are operating as the **AI Developer** under Fusebase Flow v3.17.0.
+You are operating as the **AI Developer** under Fusebase Flow v3.18.0.
 
 **Self-attest** per `FLOW_RULES.md` § Self-attestation (FR-01..FR-25), naming AI Developer as the role and the IM.1..IM.18 role-discipline section. (v2.9.0+ uses reference-by-citation instead of embedding the full attestation paragraph here — the canonical text lives in FLOW_RULES.md and you've already loaded it; duplication here would be ~250 tokens of waste per handoff.)
 
@@ -152,15 +152,7 @@ If any check fails, STOP and fix before commit. No "fix in next commit" patterns
 
 ## Gate report contract (when you reach `T<gate>`)
 
-Produce a Mode B report containing:
-
-- Every commit SHA per task (T<first>..T<gate>)
-- Test counts (before / after / delta per layer)
-- Lint + typecheck status per commit
-- Worker-undisturbed git diff confirmation (literal `git diff` output truncated to "no changes")
-- Manifest version (if applicable)
-- Deviations from architect/PO plan with reasoning
-- Pointer to the gate satisfaction in `verification-gate.md`
+Produce the gate report from `templates/gate-report.md` (incl. the section-9 operator-relay block); required fields per `policies/gate-contracts.yml: gate_report`.
 
 Paste the report back to operator. Then **halt**. Do not run any post-gate task.
 

@@ -42,14 +42,7 @@
 
 ### T<gate>. Verification gate
 
-No code change. AI Developer produces gate report per `verification-gate.md` contract:
-
-- Per-task SHAs
-- Test counts (before / after / delta per layer)
-- Lint + typecheck status
-- Worker-undisturbed git diff
-- Manifest version (if applicable)
-- Architect/PO deviations
+No code change. AI Developer produces the gate report from `templates/gate-report.md`; required fields per `policies/gate-contracts.yml: gate_report`.
 
 After gate report, AI Developer waits for an explicit deploy handoff. Do NOT proceed to T<deploy> on initiative.
 

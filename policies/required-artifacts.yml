@@ -14,8 +14,9 @@ before_implementation:
       reason: "FR-01: spec must exist before code edits."
       rule_id: FR-01
     - path_glob: "docs/specs/*/decisions.md"
-      condition: "exists_and_locked"     # custom predicate: every decision has Lock status: LOCKED
-      reason: "FR-01: decisions must be locked before implementation."
+      condition: "locked_if_present"     # custom predicate: when the file exists, every decision has Lock status: LOCKED
+      optional_when: "no_real_decisions" # FR-23: absence is valid when spec.md records 'no real decisions' for the ticket
+      reason: "FR-01: decisions must be LOCKED if present; absence valid per FR-23 when spec records 'no real decisions'."
       rule_id: FR-01
     - path_glob: "docs/specs/*/tasks.md"
       condition: "exists"

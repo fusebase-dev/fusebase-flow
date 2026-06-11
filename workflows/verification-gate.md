@@ -8,21 +8,9 @@ Define the gate report shape so `validation-and-qa` and `code-review` can verify
 
 ## Gate report required fields
 
-A gate report from the AI Developer session MUST contain all of:
+Canonical in exactly two carriers: `policies/gate-contracts.yml: gate_report` (machine-readable field schema) and `templates/gate-report.md` (the producer template the AI Developer fills). Do not restate the field list elsewhere — point here.
 
-| Field | Format | Source |
-|---|---|---|
-| Implementation summary | 1–3 sentences | AI Developer summary of what landed |
-| Per-task SHAs | `T<n>: <sha> <subject>` for every task in range | `git log` |
-| Test counts | `before: <n>, after: <m>, delta: +<k>` per layer (unit / integration / e2e) | test runner output |
-| Lint status | `clean` / `<n> warnings` / `<n> errors` | lint runner output |
-| Typecheck status | `clean` / `<n> errors` | typecheck output |
-| Worker-undisturbed git diff | `<file>: empty diff ✓` for each protected path; or explicit "exception artifact ref" | `git diff` against `protected-paths.yml` |
-| Manifest version | `<old> → <new>` if applicable; or `N/A` | manifest file |
-| Architect/PO deviations | listed with reasoning, or `none` | implementer judgment |
-| Gate self-attestation | "Operating as AI Developer..." phrase | AI Developer first response |
-
-If any field is missing, the gate report is incomplete and must be redirected.
+If any required field is missing, the gate report is incomplete and must be redirected.
 
 ## Verification procedure (Product Owner side, via validation-and-qa skill)
 
@@ -36,6 +24,8 @@ If any field is missing, the gate report is incomplete and must be redirected.
    - No TODO/FIXME/WIP markers in diff
    - Spec status still DRAFT (will flip in deploy)
 6. If verified, advance phase to Deploy. If not, redirect AI Developer with concrete failure list.
+
+`code-review` trusts this gate's recorded verdict for the deterministic/cross-artifact fields (AC↔task map, decisions-cited, lint/typecheck, TODO scan, protected paths) and reviews only semantic dimensions — see `flow-skills/code-review/SKILL.md`.
 
 ## Smoke prompts (when applicable)
 

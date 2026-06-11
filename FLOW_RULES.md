@@ -1,6 +1,6 @@
 # Fusebase Flow — always-on rules (FR-01..FR-25)
 
-**Status:** v0.22 (post-ship audit sweep v3.17.1 — references/ mirror drift gate + residual pointer fixes; no rule change. Context-floor reduction v3.17.0; FR-25 added v3.16.0.)
+**Status:** v0.23 (integration-debloat v3.18.0 — procedure de-dup (gate/smoke canonical+pointers), 3 cross-surface contradictions fixed, review boundary, reversible-deploy DP.1 auto-stamp waiver, machinery hygiene; no rule text change. v3.17.x context-floor line before it.)
 **Scope:** every session in any IDE/agent must follow these regardless of which skill or workflow is active.
 
 These rules are clean-room original. Each rule states *what*, *why*, and *enforcement surface* (rule-only, policy, hook, workflow, skill). Enforcement details live in `policies/`, `hooks/`, and `workflows/` — this file is the readable contract.
@@ -52,7 +52,7 @@ If a session writes code outside its role, FR-01 fires and the agent must stop a
 
 ## Self-attestation (mandatory at first response of every session)
 
-Every role declares: "Operating as {role} under Fusebase Flow v3.17.1. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+Every role declares: "Operating as {role} under Fusebase Flow v3.18.0. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 If self-attestation is missing from the first response, the session is drifting. Self-correct in the next output.
 
@@ -440,4 +440,28 @@ Both modes preserve FR-03, FR-13, FR-14.
              flow-skills/. Change-note:
              docs/changes/2026-06-10-audit-nit-sweep.md. Shipped in framework
              v3.17.1.
+
+2026-06-10 — v0.23. Integration-debloat (no rule text changed). v3.18.0, from
+             a capability-integration audit: 3 live cross-surface
+             contradictions fixed (FR-14 docs-commit owner = Deploy session,
+             agents corrected; decisions requirement tier-aware per FR-23 —
+             "LOCKED if present"; security review conditional on its own
+             trigger list). Procedure de-dup: gate contract canonical =
+             gate-contracts.yml + gate-report template (5 carriers ->
+             pointers); smoke canonical = smoke-testing skill; ~130 lines of
+             legacy handoff snippets deleted from greenlight workflows
+             (-9.3KB / -20% across per-ticket-read files). Review boundary:
+             code-review trusts the recorded validation-and-qa gate verdict
+             for deterministic fields. Reversible-deploy waiver: on
+             dp1_waiver:eligible handoffs the Deploy agent stamps DP.1 itself
+             upon the operator's DP.6 phrase (artifact + hook semantics
+             unchanged; migration/security/protected-path excluded).
+             Machinery: task_complete.py retired; session-initiation reads
+             context-summary; preflight overlay-copy drift check;
+             upgrade-engine.sh shimmed; 2 orphan templates deleted (24->22),
+             audience.md wired into project-onboarding; knowledge routing
+             cross-pointers; workflows/git-workflow.md renamed
+             git-discipline.md (CLI skill name collision). Spec:
+             docs/specs/integration-debloat/spec.md. Shipped in framework
+             v3.18.0.
 ```

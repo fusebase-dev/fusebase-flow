@@ -8,17 +8,7 @@ alwaysApply: false
 
 ## Gate report (AI Developer-side)
 
-Required fields per `policies/gate-contracts.yml`:
-
-- Implementation summary (1–3 sentences)
-- Per-task SHAs (`T<n>: <sha> <subject>`)
-- Test counts (before/after/delta per layer)
-- Lint status (clean / warnings / errors)
-- Typecheck status (clean / errors)
-- Worker-undisturbed git diff confirmation
-- Manifest version (if applicable)
-- Deviations from architect/PO plan
-- Self-attestation phrase
+Required fields are canonical in `policies/gate-contracts.yml: gate_report` (machine schema); the producer template is `templates/gate-report.md`. Do not restate the field list.
 
 If any field is missing, redirect: "Gate report missing <field>. Per FR-05, complete reports only. Re-run."
 

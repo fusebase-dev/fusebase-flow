@@ -4,7 +4,7 @@
 
 ## Purpose
 
-Without persistent capture, every new session re-discovers the same problems. This workflow runs after non-trivial diagnosis OR mid-investigation when a trigger fires, and proposes filing either a problem-catalog entry or a project-internal skill.
+Without persistent capture, every new session re-discovers the same problems. This workflow runs after non-trivial diagnosis OR mid-investigation when a trigger fires, and proposes filing either a problem-catalog entry or a project-internal skill. Creation cost is gated by FR-23 (`flow-skills/documentation-budget/SKILL.md`) — capture only when a future consumer / future action exists.
 
 ## When to run
 

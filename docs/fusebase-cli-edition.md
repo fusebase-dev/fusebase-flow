@@ -8,7 +8,7 @@ This edition layers Fusebase Flow lifecycle discipline on top of the Fusebase Ap
 
 | Area | Owner | Path |
 |---|---|---|
-| Flow lifecycle skills | Flow canonical | `skills/`, mirrored to `.claude/skills/` and `.agents/skills/` |
+| Flow lifecycle skills | Flow canonical | `flow-skills/`, mirrored to `.claude/skills/` and `.agents/skills/` |
 | CLI domain skills | CLI provider assets | `.claude/skills/<cli-skill>/` and `.agents/skills/<cli-skill>/` |
 | Flow agents | Flow canonical | `agents/`, mirrored to `.claude/agents/` and `.codex/agents/` |
 | CLI app agents | CLI provider assets | `.claude/agents/app-architect.md`, `.claude/agents/app-create-checker.md`, copied to `.codex/agents/` |

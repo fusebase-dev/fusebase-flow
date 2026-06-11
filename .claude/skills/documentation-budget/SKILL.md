@@ -79,6 +79,8 @@ Before writing a persistent AI-consumed artifact, classify the documentation tie
 | 3 | Spec + tasks | multi-file Full-lane work, clear scope, few/no architectural decisions, no major security/migration/public-contract risk | `docs/specs/<slug>/spec.md` + `tasks.md`; `decisions.md` only if real decisions; gate per policy |
 | 4 | Full pack | high-risk / ambiguous product behavior / new app / new public contract / permissions / auth / migrations / data ownership / cross-cutting architecture / deploy-sensitive | full Flow artifact chain — no duplicated rationale across artifacts |
 
+**Lesson/incident routing:** a diagnosis lesson, recurring pattern, or platform quirk is not a ticket artifact in this tier table — route it via `workflows/knowledge-curation.md` (FR-15: problem-catalog entry or project-internal skill); its creation cost is still gated by FR-23.
+
 **Fail-safe:** when unsure between two tiers, choose the higher one (mirrors FR-21's in-doubt→Full).
 
 **Promotion:** if a Tier 0/1/2 change grows a security/permission/migration/public-contract concern or a real architectural decision mid-flight, STOP and reclassify upward before continuing (mirrors FR-21 mid-flight promotion).

@@ -13,19 +13,9 @@
 | AC2 | T<m> | <test names> |
 | AC3 | T<m+1>, T<m+2> | <test names> |
 
-## Required gate-report fields (per `policies/gate-contracts.yml`)
+## Required gate-report fields
 
-| Field | Format |
-|---|---|
-| Implementation summary | 1–3 sentences |
-| Per-task SHAs | `T<n>: <sha> <subject>` for every task in range |
-| Test counts | `before: <n>, after: <m>, delta: +<k>` per layer |
-| Lint status | `clean` / `<n> warnings` / `<n> errors` |
-| Typecheck status | `clean` / `<n> errors` |
-| Worker-undisturbed git diff | `<file>: empty diff ✓` per protected path |
-| Manifest version | `<old> → <new>` or `N/A` |
-| Architect/PO deviations | listed with reasoning, or `none` |
-| Self-attestation | "Operating as AI Developer..." phrase |
+Per `policies/gate-contracts.yml: gate_report` (machine-readable schema); the AI Developer produces the report from `templates/gate-report.md`. Do not restate the field list here.
 
 ## Lint / typecheck / test commands
 
@@ -47,7 +37,7 @@ Subset of `policies/protected-paths.yml` relevant to this ticket. Empty diff req
 
 ## Smoke prompts (post-deploy)
 
-Define with `flow-skills/smoke-testing/SKILL.md`. Smoke PASS requires operator-visible outcome evidence plus ground-truth diagnostic inspection; supporting checks alone are incomplete. For interactive UI changes, at least one smoke prompt must exercise the real primary interaction; screenshot-only evidence is not sufficient. Name stable selectors or accessible locators for interactive controls and meaningful dynamic output. Browser smoke must include route/navigation, viewport, auth/session plan, unique test data, cleanup responsibility, and any backend/log/API diagnostic surface.
+Define with `flow-skills/smoke-testing/SKILL.md` — the canonical smoke contract (outcome-first criteria, sufficiency rules, UI/browser plan requirements, falsification). Fill every column below per that skill.
 
 | ID | Scenario | Route / surface | Operator-visible success criterion | Ground-truth diagnostic | Stable selectors / locators | Auth / test data plan | Adversarial check | Evidence required |
 |---|---|---|---|---|---|---|---|---|

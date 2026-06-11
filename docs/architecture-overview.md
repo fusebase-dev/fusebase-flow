@@ -89,7 +89,6 @@ Every cross-session prompt is saved here BEFORE being shown in chat (FR-04). Rep
                                                                             │ post_tool_use  │
                                                                             │ permission_req │
                                                                             │ stop           │
-                                                                            │ task_complete  │
                                                                             │ pre_compact    │
                                                                             │ + git pre-     │
                                                                             │   commit /     │

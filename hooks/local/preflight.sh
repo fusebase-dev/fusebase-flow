@@ -132,6 +132,28 @@ if command -v python3 >/dev/null 2>&1; then
     fi
 fi
 
+# 5d. Overlay recovery-copy drift (warn-level only). The copies under
+#     hooks/local/fusebase-flow-overlays/ are recovery sources (health-check
+#     skill + slash commands); if canonical moved on without them, recovery
+#     would restore stale content.
+OVL="$FF_DIR/hooks/local/fusebase-flow-overlays"
+if [ -d "$OVL" ]; then
+    if [ -f "$OVL/skills/fusebase-flow-health-check/SKILL.md" ] && [ -f "$FF_DIR/$SKILLS_CANON/fusebase-flow-health-check/SKILL.md" ]; then
+        cmp -s "$OVL/skills/fusebase-flow-health-check/SKILL.md" "$FF_DIR/$SKILLS_CANON/fusebase-flow-health-check/SKILL.md" \
+            || warn "overlay drift: fusebase-flow-overlays/skills/fusebase-flow-health-check/SKILL.md != canonical $SKILLS_CANON copy (refresh the overlay)"
+    fi
+    for ovl_cmd in "$OVL"/commands/*.md; do
+        [ -f "$ovl_cmd" ] || continue
+        cmd_name="$(basename "$ovl_cmd")"
+        if [ -f "$ROOT/.claude/commands/$cmd_name" ]; then
+            cmp -s "$ovl_cmd" "$ROOT/.claude/commands/$cmd_name" \
+                || warn "overlay drift: fusebase-flow-overlays/commands/$cmd_name != .claude/commands/$cmd_name (refresh the overlay)"
+        else
+            warn "overlay command has no live counterpart: .claude/commands/$cmd_name missing"
+        fi
+    done
+fi
+
 # 6. Action-name consistency: command-policy.yml require_approval actions must
 #    appear in approval-policy.yml require_approval keys.
 if command -v python3 >/dev/null 2>&1; then

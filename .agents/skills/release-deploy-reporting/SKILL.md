@@ -29,7 +29,7 @@ The final skill in the eight-phase flow: draft the deploy green-light handoff, c
 
 ## Lightweight-lane mode (FR-21)
 
-If the ticket was classified **Lightweight** (`skills/lightweight-lane/SKILL.md`), do NOT draft a deploy handoff, do NOT require a `production_deploy` JSON artifact, and do NOT use the DP.6 magic phrase. Instead the same single AI Developer session that built + live-verified the change deploys it on a **plain explicit operator go-ahead** ("ship it"). Still required (safety floor): the FR-07 protected-path re-check, capturing the deploy hash, a one-line rollback, one commit + SHA, and an explicit go-ahead (never auto-deploy). Report in 1–3 lines and log one line in `docs/changes/index.md`. In hook-wired projects, record the go-ahead with `bash hooks/local/approve-local.sh lightweight_deploy <slug> 'ship it'` (one command — see `policies/approval-policy.yml`). The full procedure below applies to **Full-lane** deploys only.
+If the ticket was classified **Lightweight** (`flow-skills/lightweight-lane/SKILL.md`), do NOT draft a deploy handoff, do NOT require a `production_deploy` JSON artifact, and do NOT use the DP.6 magic phrase. Instead the same single AI Developer session that built + live-verified the change deploys it on a **plain explicit operator go-ahead** ("ship it"). Still required (safety floor): the FR-07 protected-path re-check, capturing the deploy hash, a one-line rollback, one commit + SHA, and an explicit go-ahead (never auto-deploy). Report in 1–3 lines and log one line in `docs/changes/index.md`. In hook-wired projects, record the go-ahead with `bash hooks/local/approve-local.sh lightweight_deploy <slug> 'ship it'` (one command — see `policies/approval-policy.yml`). The full procedure below applies to **Full-lane** deploys only.
 
 ## When to invoke (Full lane)
 
@@ -53,7 +53,7 @@ If the ticket was classified **Lightweight** (`skills/lightweight-lane/SKILL.md`
 | Spec | `docs/specs/<slug>/spec.md` (status DRAFT) | Stop; cannot deploy without spec |
 | Verification gate report | chat paste from `validation-and-qa` | Stop; cannot deploy without gate pass |
 | Deploy command | project-specific section of `AGENTS.md` | Stop; ask operator for deploy command |
-| Approval artifact for `production_deploy` | `state/approvals/production_deploy-<slug>-<YYYYMMDD>.json` | Stop; operator must author artifact per FR-12 |
+| Approval artifact for `production_deploy` | `state/approvals/production_deploy-<slug>-<YYYYMMDD>.json` | Stop; operator authors artifact per FR-12 — OR mark `dp1_waiver: eligible` in the handoff when the ticket qualifies (reversible-deploy waiver; Deploy session stamps it at DP.6) |
 | Worker-undisturbed list | `policies/protected-paths.yml` | Stop; cannot run final pre-deploy check without it |
 | CLI edition map, for Fusebase Apps deploys | `docs/fusebase-cli-edition.md` | Continue with generic deploy handoff, but mark CLI probes/log diagnostics unknown |
 
@@ -64,6 +64,7 @@ If the ticket was classified **Lightweight** (`skills/lightweight-lane/SKILL.md`
 3. For Fusebase Apps deploys, use `docs/fusebase-cli-edition.md` to identify supporting CLI assets for commands, logs, app quality checks, and post-deploy diagnostics.
 4. Draft deploy handoff using `templates/handoff-folder-README.md` shape adapted for deploy stage (see `workflows/greenlight-deploy.md`). Include:
    - Self-attestation phrase the deployer should output first
+   - **DP.1 waiver eligibility** — `dp1_waiver: eligible|excluded — <reason>`: `eligible` iff the ticket is reversible AND touches no protected path / security surface / migration (Deploy session then stamps the DP.1 artifact itself on the operator's DP.6 phrase); the excluded classes keep operator-run DP.1
    - Pre-deploy worker-undisturbed re-check instructions
    - Deploy command (exact)
    - Probe list (G-M..G-Q or project equivalents from `verification-gate.md`)
@@ -74,7 +75,7 @@ If the ticket was classified **Lightweight** (`skills/lightweight-lane/SKILL.md`
 7. After operator pastes back deploy report:
    - Verify deploy hash captured
    - Verify each probe result with concrete evidence
-   - Verify smoke results meet threshold from gate contract and satisfy `skills/smoke-testing/SKILL.md` (operator-visible outcome + ground-truth diagnostic, not supporting checks only)
+   - Verify smoke results meet threshold from gate contract and satisfy `flow-skills/smoke-testing/SKILL.md` (operator-visible outcome + ground-truth diagnostic, not supporting checks only)
    - Verify single docs commit landed (one SHA covering all post-deploy doc updates)
 8. If all verified, acknowledge with summary + tally update + identify what's next (parked backlog options, observation period).
 9. If any probe failed, do NOT acknowledge as success. Surface failure with rollback (`git revert <hash>` + redeploy) or fix-forward (follow-up task) options. Operator decides.

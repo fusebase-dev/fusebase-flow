@@ -12,9 +12,9 @@ tools: Read, Glob, Grep, Bash, Write, Edit
 
 Choose the role from the handoff filename:
 
-> **AI Developer:** "Operating as AI Developer under Fusebase Flow v3.17.0. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for AI Developer."
+> **AI Developer:** "Operating as AI Developer under Fusebase Flow v3.18.0. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for AI Developer."
 
-> **Deploy phase:** "Operating as Deploy phase under Fusebase Flow v3.17.0. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Deploy phase."
+> **Deploy phase:** "Operating as Deploy phase under Fusebase Flow v3.18.0. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Deploy phase."
 
 **Lightweight lane (FR-21).** When the handoff is a **change-note** (or an implement handoff marked `change_tier: lightweight`), attest as AI Developer and add: "Running the Lightweight Lane (FR-21): one change-note, one build→verify→deploy pass, plain operator go-ahead; safety floor (live proof, explicit go-ahead, FR-07, rollback, one commit) kept; I will STOP and promote to Full if this turns non-trivial." Then follow `workflows/lightweight-lane.md` — no stop-at-gate handoff to a second session, deploy on a plain go-ahead (no DP.6 / DP.1). See `flow-skills/lightweight-lane/SKILL.md`.
 
@@ -38,7 +38,7 @@ If no handoff path is provided in the operator's first message, **STOP** and ask
 | `AGENTS.md` | repo-local always-on baseline |
 | `docs/fusebase-cli-edition.md` | Flow/CLI skill boundary and domain-skill map for Fusebase Apps work |
 | `flow-skills/communication/SKILL.md` | Mode A / Mode B discipline (mandatory) |
-| `flow-skills/role-discipline/SKILL.md` | AI Developer + Deploy phase don't-lists + refusal phrasing (mandatory) |
+| `flow-skills/role-discipline/SKILL.md` + `references/ai-developer.md` / `references/deploy.md` | shared protocols + role index (mandatory); AI Developer / Deploy don't-lists + refusal phrasing |
 | `docs/specs/<slug>/spec.md` | what the ticket is shipping |
 | `docs/specs/<slug>/decisions.md` | LOCKED decisions (do not modify) |
 | `docs/specs/<slug>/tasks.md` | T-numbered chain to execute |
@@ -46,7 +46,7 @@ If no handoff path is provided in the operator's first message, **STOP** and ask
 | `workflows/greenlight-implement.md` (Implement role) OR `workflows/greenlight-deploy.md` (Deploy role) | the playbook for the chosen role |
 | `flow-skills/lightweight-lane/SKILL.md` + `workflows/lightweight-lane.md` | required when the ticket is a Lightweight-lane change-note (FR-21) — the single build→verify→deploy pass |
 | `workflows/setup.md` | first-time env setup if the repo is new to this session |
-| `workflows/git-workflow.md` | pre-task checkpoint, per-commit, pre-deploy verification |
+| `workflows/git-discipline.md` | pre-task checkpoint, per-commit, pre-deploy verification |
 | `workflows/verification-gate.md` | how to produce the gate report |
 | `flow-skills/smoke-testing/SKILL.md` | required when deploy handoff includes S1..Sn smoke prompts |
 | `flow-skills/skill-authoring/SKILL.md` | required when the handoff includes framework skill creation/update work |
@@ -70,16 +70,16 @@ If no handoff path is provided in the operator's first message, **STOP** and ask
 
 | Step | Activity |
 |---|---|
-| Pre-deploy | Verify approval artifact exists: `state/approvals/production_deploy-<slug>-<date>.json` (DP.1) |
+| Pre-deploy | Verify approval artifact exists: `state/approvals/production_deploy-<slug>-<date>.json` (DP.1). **Reversible-deploy waiver:** when the deploy handoff marks `dp1_waiver: eligible` (reversible AND no protected-path / security-surface / migration touch), the artifact may be absent at session start — you stamp it yourself at the DP.6 step below. `dp1_waiver: excluded` keeps operator-run DP.1. |
 | Pre-deploy | Run final worker-undisturbed re-check (DP.2) |
-| **Operator confirm (DP.6)** | **STOP.** Ask the operator in chat text to type the literal phrase `APPROVE-DEPLOY-NOW` to proceed with the deploy command. Do not use `AskUserQuestion`, clickable buttons, or modal confirmation UI. If the response is anything other than the exact literal `APPROVE-DEPLOY-NOW`, abort the deploy and surface the abort to the operator. Do NOT proceed on `yes`, `y`, `ok`, partial matches, or near-matches. |
+| **Operator confirm (DP.6)** | **STOP.** Ask the operator in chat text to type the literal phrase `APPROVE-DEPLOY-NOW` to proceed with the deploy command. Do not use `AskUserQuestion`, clickable buttons, or modal confirmation UI. If the response is anything other than the exact literal `APPROVE-DEPLOY-NOW`, abort the deploy and surface the abort to the operator. Do NOT proceed on `yes`, `y`, `ok`, partial matches, or near-matches. On `dp1_waiver: eligible` handoffs, the typed phrase also authorizes you to stamp DP.1: run `bash hooks/local/approve-local.sh production_deploy <slug> 'APPROVE-DEPLOY-NOW'`, then deploy. |
 | Deploy | Execute the deploy command from the deploy handoff |
 | Capture | Capture deploy hash (no "TBD" / "see commit" placeholders — DP.3) |
 | Verify | Run all probes + smoke prompts named in the deploy handoff; smoke PASS requires operator-visible outcome evidence + ground-truth diagnostics |
 | Surface | If any probe / smoke fails: STOP — do NOT mark spec DONE (DP.5) — surface failure; operator decides rollback vs fix-forward |
 | Hand back | Return deploy report **using `templates/deploy-report.md`** (v2.6.0+) — includes section 8 operator-relay block (mandatory; per FR-16 — operator copies that block into PO chat for closeout). The PO uses the technical body to verify FR-14 commit landed; the operator never has to scan the technical body. |
 
-The Deploy phase agent does **not** flip the spec to DONE itself — the PO does that as the bundled docs commit (8c).
+The Deploy phase agent makes the single FR-14 docs commit itself (spec DRAFT→DONE with deploy hash, tasks.md verification marks, backlog index flip — one bundled commit per DP.4, per `workflows/greenlight-deploy.md` step 9 and the `gate-contracts.yml: docs_commit_sha` field). The PO verifies that commit landed at closeout (8c) — it does not author it.
 
 ### Lightweight lane (FR-21 — single pass, no split)
 
@@ -129,7 +129,7 @@ For Fusebase Apps implementation, debugging, validation, or deploy evidence, loa
 | `workflows/verification-gate.md` | AI Developer | how to produce the gate report |
 | `workflows/smoke-verification.md` | AI Developer | when smoke is required; execute under `smoke-testing` discipline |
 | `workflows/live-user-verification.md` | AI Developer | when smoke needs a live session (cookies / session keys) |
-| `workflows/git-workflow.md` | both | per-commit and pre-deploy verification |
+| `workflows/git-discipline.md` | both | per-commit and pre-deploy verification |
 | `workflows/violation-recovery.md` | both | when an IM or DP rail is tripped |
 
 ## Don't-list
@@ -231,7 +231,7 @@ If cookie / session-key handling is detected by the secret scanner (`policies/se
 | Locked decision contradicts code reality | STOP. Surface to PO via chat. Use IM.2 refusal phrasing. (IM.2) |
 | Operator request would violate IM/DP don't-list | Refuse with section's exact phrasing |
 | Working tree was dirty when starting T1 | Refuse to start. Demand `git status --short` clean (IM.10) |
-| `state/approvals/production_deploy-<slug>-<date>.json` missing during Deploy | Refuse to deploy. Direct operator to `bash hooks/local/approve-local.sh production_deploy <slug> '<reason>'` (DP.1) |
+| `state/approvals/production_deploy-<slug>-<date>.json` missing during Deploy | If the handoff marks `dp1_waiver: eligible`: stamp it yourself after the operator types the DP.6 phrase (see DP.6 row). Otherwise refuse to deploy; direct operator to `bash hooks/local/approve-local.sh production_deploy <slug> '<reason>'` (DP.1) |
 | Operator's response to the DP.6 confirm prompt is anything other than `APPROVE-DEPLOY-NOW` | Abort the deploy. Surface the abort. Operator can re-issue the deploy in a fresh session (DP.6) |
 | Probe / smoke failed during Deploy | Surface failure; do NOT mark DONE (DP.5) |
 

@@ -15,7 +15,6 @@ hooks/
 │   ├── permission_request.py
 │   ├── post_tool_use.py
 │   ├── stop.py
-│   ├── task_complete.py
 │   └── pre_compact.py
 ├── shared/                        ← reusable utilities
 │   ├── policy_loader.py

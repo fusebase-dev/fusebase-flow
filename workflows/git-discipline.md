@@ -1,6 +1,8 @@
-# Workflow: git-workflow
+# Workflow: git-discipline
 
 > **Style:** Mode-B-lite. Direct-to-main as default; branch/PR as opt-in.
+>
+> Renamed from `workflows/git-workflow.md` (v3.18.0) to remove the name collision with the **CLI provider skill** `git-workflow` (`.claude/skills/git-workflow/` — Fusebase Apps git guidance, CLI-owned). This file is the Flow-side git discipline; the CLI skill is untouched.
 
 ## Default mode: direct-to-main
 

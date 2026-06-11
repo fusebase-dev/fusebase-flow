@@ -7,13 +7,13 @@
 After:
 - `validation-and-qa` confirms gate passed
 - `code-review` confirms zero blockers (or operator accepted them as non-blockers)
-- `security-permissions-review` confirms approval artifacts in place per `approval-policy.yml`
+- `security-permissions-review` confirms approval artifacts in place per `approval-policy.yml` — invoked only when the diff matches the skill's trigger list (auth, permissions, secrets, env, deploy config, external messages, production data); otherwise the review summary records `security: N/A — no sensitive surface`
 - Operator explicitly says "draft deploy" / "ship it" / "prepare deploy"
 
 ## Procedure (Product Owner side, via release-deploy-reporting skill)
 
 1. Final pre-deploy checklist:
-   - [ ] Approval artifact for `production_deploy` exists at `state/approvals/production_deploy-<slug>-<date>.json`
+   - [ ] Approval artifact for `production_deploy` exists at `state/approvals/production_deploy-<slug>-<date>.json` — OR the handoff marks `dp1_waiver: eligible` (reversible-deploy waiver below; the Deploy session stamps the artifact at DP.6)
    - [ ] Worker-undisturbed re-check: run `git diff` against `protected-paths.yml`. Must be empty (or bounded per spec)
    - [ ] Gate passed; code-review zero blockers; security clean
    - [ ] Spec is still DRAFT (will flip to DONE in this deploy)
@@ -23,10 +23,11 @@ After:
 
 ## Procedure (Deploy phase / AI Developer side)
 
-1. Read deploy handoff. Verify approval artifact exists.
-2. Self-attest: "Operating as Deploy phase under Fusebase Flow v3.17.1. I will follow FR-01 through FR-25, including FR-05 (gate fulfilled), FR-06 (reversible by default), FR-07 (worker-undisturbed), FR-12 (approval-gated), FR-14 (single docs commit on deploy), FR-19 (chat-text questions). I will apply the role-discipline skill section for Deploy phase (DP.1..DP.12)."
+1. Read deploy handoff. Verify approval artifact exists — or, on a `dp1_waiver: eligible` handoff, note that you will stamp it at step 4 (waiver below).
+2. Self-attest: "Operating as Deploy phase under Fusebase Flow v3.18.0. I will follow FR-01 through FR-25, including FR-05 (gate fulfilled), FR-06 (reversible by default), FR-07 (worker-undisturbed), FR-12 (approval-gated), FR-14 (single docs commit on deploy), FR-19 (chat-text questions). I will apply the role-discipline skill section for Deploy phase (DP.1..DP.12)."
 3. Final worker-undisturbed re-check before deploy command. If anything changed since gate, STOP.
 4. **Operator confirm (DP.6 + FR-19).** Ask the operator in chat text to type the literal `APPROVE-DEPLOY-NOW` phrase. Do not use popup / clickable menu tools. If the response is anything other than the exact phrase, ABORT the deploy and surface the abort. The operator can re-issue the deploy by re-running this workflow in a fresh session.
+   **Reversible-deploy waiver (DP.1 auto-stamp):** when the handoff marks `dp1_waiver: eligible` (ticket is reversible AND touches no protected path, security surface, or migration), the operator's typed DP.6 phrase also authorizes you to stamp the DP.1 artifact yourself — run `bash hooks/local/approve-local.sh production_deploy <slug> 'APPROVE-DEPLOY-NOW'`, then proceed. The artifact still exists on disk (FR-12 + hook semantics unchanged); only the stamping party changes. `dp1_waiver: excluded` (migration / security / protected-path classes) keeps operator-run DP.1 — never stamp those yourself.
 5. Run deploy command (exact command from `AGENTS.md` project-specific section).
 6. Capture deploy hash from command output.
 7. Run probes per `verification-gate.md`. For each: report status with concrete evidence (HTTP code + body excerpt, log line, screenshot).
@@ -89,57 +90,7 @@ If ANY probe fails:
 
 ## Handoff content template
 
-> **As of v2.5.0, the canonical deploy handoff template lives at `templates/handoff-deploy.md`** with a role-bootstrap prelude built in. PO sessions should copy that file and fill in placeholders, rather than hand-rolling from the snippet below. The snippet is retained for legacy reference and to show the body shape; **prefer the standalone template** for new handoffs.
-
-```markdown
-# Deploy handoff — <slug> (<YYYY-MM-DD>)
-
-**Status:** ready for Deploy phase
-**Approval artifact:** `state/approvals/production_deploy-<slug>-<date>.json`
-**Source spec:** `docs/specs/<slug>/spec.md`
-**Gate verified:** <date> (gate report SHA <hash>)
-
-## Mandatory pre-execution
-
-1. Self-attest as Deploy phase
-2. Final worker-undisturbed re-check (`git diff` against `protected-paths.yml`)
-3. If clean: proceed to deploy command. If not: STOP and report.
-
-## Deploy command
-
-```
-<exact command from AGENTS.md>
-```
-
-## Probes (run after deploy command)
-
-1. G-M: <description, success criterion>
-2. G-N: <description, success criterion>
-3. G-O: <description, success criterion>
-4. G-P: <description, success criterion>
-5. G-Q: <description, success criterion>
-
-## Smoke prompts (if applicable)
-
-S1..Sn from `docs/specs/<slug>/verification-gate.md` smoke section. Each S<n> must include an operator-visible success criterion, ground-truth diagnostic, adversarial check, and evidence requirement per `flow-skills/smoke-testing/SKILL.md`. Persist evidence to `docs/tmp/handoff/<date>-<slug>-smoke/`.
-
-## Single docs commit (FR-14)
-
-After all probes pass, one commit covering:
-- spec.md DRAFT → DONE with `<deploy hash>`
-- tasks.md verification marks
-- docs/backlog/index.md status flip
-- README header (if applicable)
-
-Commit message: `docs(post-deploy): T<deploy> <slug> DONE — <hash>`
-
-## Rollback procedure (if any probe fails)
-
-1. `git revert <deploy hash>`
-2. Redeploy (run deploy command again)
-3. File follow-up backlog ticket documenting failure
-4. Spec stays DRAFT until follow-up resolves
-```
+The canonical deploy handoff template (role-bootstrap prelude, ticket header incl. `dp1_waiver`, probes, smoke, FR-14 docs commit, rollback) lives at `templates/handoff-deploy.md` — copy it and fill placeholders; never hand-roll.
 
 ## Related
 

@@ -82,7 +82,7 @@ Questions and choices also belong in chat text, never in popup / clickable menu 
 2. Agent invokes the `requirements-specification` skill → drafts `docs/specs/<slug>/spec.md`, runs clarify questions; if the operator asks for options, `design-discovery-ideation` produces the option brief before lock.
 3. After clarify resolves: agent invokes `implementation-planning` skill → drafts `decisions.md`, `tasks.md`, `verification-gate.md`, and saves `docs/tmp/handoff/<date>-<slug>-implement.md`.
 4. Open a fresh agent session, paste the implement handoff, agent executes task chain stopping at the gate.
-5. Paste the gate report into the original session, agent invokes `code-review` and `security-permissions-review` skills.
+5. Paste the gate report into the original session, agent invokes `code-review`; `security-permissions-review` runs only when the diff touches its trigger surfaces (auth, secrets, env, deploy config, external messages, production data), else the review summary records `security: N/A — no sensitive surface`.
 6. If clean, agent invokes `release-deploy-reporting` skill → drafts `docs/tmp/handoff/<date>-<slug>-deploy.md` with smoke prompts governed by `smoke-testing` when applicable.
 
 ## Activating provider and IDE compatibility files
@@ -157,7 +157,7 @@ Fusebase Flow ships:
 
 **Self-attestation (every session's first response):**
 
-> "Operating as {role} under Fusebase Flow v3.17.1. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+> "Operating as {role} under Fusebase Flow v3.18.0. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 **Operator questions:** per FR-19, ask questions in chat text, not popup / clickable menu tools. Use short option tables or numbered lists so the operator can copy, forward, quote, and follow up.
 

@@ -41,6 +41,15 @@ require_approval:
       direct_to_main: 129600   # 90 days; cookie-like; DP.6 is the real gate
       branch_pr: 60            # 60 min; stale-state protection for team contexts
     rationale: "Production deploys are externally visible and irreversible without rollback ceremony. DP.6 magic phrase is the real per-deploy gate; TTL is stale-state protection only — long for solo direct-to-main, short for team branch_pr."
+    # Reversible-deploy waiver (v3.18.0, documented procedure — no enforcement change):
+    # when the deploy handoff marks `dp1_waiver: eligible` (ticket is reversible AND
+    # touches no protected path / security surface / migration), the Deploy session
+    # stamps this artifact itself upon the operator typing the literal DP.6 phrase
+    # (`bash hooks/local/approve-local.sh production_deploy <slug> 'APPROVE-DEPLOY-NOW'`).
+    # The artifact stays mandatory and on-disk (FR-12 + hook semantics unchanged); only
+    # the stamping party changes. EXCLUDED classes — database_migration,
+    # auth_or_permission_change, protected_path_edit, secret_file_write, or any
+    # security-surface touch — keep operator-run DP.1. See workflows/greenlight-deploy.md.
   lightweight_deploy:
     # FR-21 Lightweight-lane deploy. For a small, reversible, security-neutral
     # change classified Lightweight (see flow-skills/lightweight-lane/SKILL.md), this

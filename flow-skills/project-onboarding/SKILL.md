@@ -54,13 +54,15 @@ Capture the operator's project vision once, into durable artifacts that steer ev
 5. **Write `docs/north-star.md`** from `templates/north-star.md`, populated with the operator's answers + `last_updated:` today. Only write content the operator actually provided.
 6. **Fill `AGENTS.md` § Project-specific values** (`<placeholder>` fields) where the operator gave concrete values.
 7. **Register for discovery:** confirm `docs/north-star.md` is at a path the session-start scan globs (it is). No separate registry needed in v1.
-8. **Offer next** (FR-17): "North Star captured — want to define audience surfaces, or start a ticket?" Do not over-create artifacts unprompted.
+8. **Audience surfaces (if the operator defines them):** write `docs/audience.md` from `templates/audience.md` — the substrate the `client-vs-internal` skill guards on (client-facing = simple/guided/trust-first; internal = robust controls).
+9. **Offer next** (FR-17): "North Star captured — want to define audience surfaces, or start a ticket?" Do not over-create artifacts unprompted.
 
 ## Output artifacts
 
 | Artifact | Path | Mode |
 |---|---|---|
 | North Star | `docs/north-star.md` | Mode B |
+| Audience definitions (optional, operator-provided) | `docs/audience.md` (from `templates/audience.md`) | Mode B |
 | Project values | `AGENTS.md` § Project-specific values | Mode B |
 | Interview record (optional) | chat or `docs/specs/<slug>/clarify-conversation.md` | Mode A/B |
 

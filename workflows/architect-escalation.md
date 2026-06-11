@@ -43,14 +43,14 @@ The merged Product Owner role does most investigation inline. For tickets with l
    - `AGENTS.md` (project-specific section)
    - `docs/backlog/<slug>/README.md` (the seed ticket)
 2. Self-attest as Architect (escalation):
-   > "Operating as Architect (escalated session) under Fusebase Flow v3.17.1. I will follow FR-01 through FR-25. I will produce spec/decisions/tasks/verification-gate per templates and apply Mode B to every artifact I write. I will NOT lock decisions on operator's behalf — recommendations only. I will apply the role-discipline skill section for Architect (AR.1..AR.9) and use its refusal phrasing when an action would violate a rule."
+   > "Operating as Architect (escalated session) under Fusebase Flow v3.18.0. I will follow FR-01 through FR-25. I will produce spec/decisions/tasks/verification-gate per templates and apply Mode B to every artifact I write. I will NOT lock decisions on operator's behalf — recommendations only. I will apply the role-discipline skill section for Architect (AR.1..AR.9) and use its refusal phrasing when an action would violate a rule."
 3. Investigate the surface listed in the architect handoff.
 4. Produce all four artifacts in `docs/specs/<slug>/`:
    - `spec.md` (DRAFT)
    - `decisions.md` (PENDING locks)
    - `tasks.md` (T-numbered)
    - `verification-gate.md`
-5. Optionally produce `research.md` and/or `data-model.md` if scope warrants.
+5. Record any tech-stack validation or schema findings in `spec.md` (architecture/design sections) — no separate research/data-model files.
 6. Report back to operator **using `templates/architect-response.md`** (v2.6.0+). The template includes a section-12 operator-relay block that the operator copies into PO chat — per FR-16, you (Architect) compose this block so the operator doesn't have to scan the technical body to figure out what to tell PO.
 
 ## Architect handoff template
@@ -74,8 +74,6 @@ The merged Product Owner role does most investigation inline. For tickets with l
 - `docs/specs/<slug>/decisions.md` (letter-decisions <Letter>1+ with reasoning + alternatives + lock status PENDING)
 - `docs/specs/<slug>/tasks.md` (T-numbered chain from T<next-T>)
 - `docs/specs/<slug>/verification-gate.md`
-- Optional: `research.md` if tech-stack validation is needed
-- Optional: `data-model.md` if non-trivial schema changes
 
 ## Project context
 
