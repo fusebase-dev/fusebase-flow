@@ -1,8 +1,8 @@
 # Spec — app-quality-patterns (v3.19.0)
 
-**Status:** LOCKED (operator "proceed" 2026-06-11, all recommended options)
+**Status:** DONE (shipped 2026-06-11, framework v3.19.0, tag `v3.19.0`)
 **Tier:** 3 · **Lane:** Full (new canonical skill + 4 skill-integration edits)
-**Deploy hash:** (at DONE flip)
+**Deploy hash:** `8174da0`. Independent pre-ship review: 12/12 seeds sound, 1 count blocker + nits fixed, +2 reviewer patterns (QP-14/QP-24 — final library 14 patterns). All gates green.
 
 ## Problem
 
