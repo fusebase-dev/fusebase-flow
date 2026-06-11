@@ -1,6 +1,6 @@
 # Fusebase Flow — always-on rules (FR-01..FR-25)
 
-**Status:** v0.18 (FR-25 hardening v3.16.2 — gate live by default: template ships its own baseline, CI --all step, additive-only local override, single-file re-key; no rule text change. FR-25 added v3.16.0; FR-24 write-time digest v3.15.)
+**Status:** v0.19 (token-trim v3.16.3 — session reads stop at § Amendment log; FR-25 row+implication compressed; no semantics change. FR-25 hardened v3.16.2 (gate live by default); added v3.16.0.)
 **Scope:** every session in any IDE/agent must follow these regardless of which skill or workflow is active.
 
 These rules are clean-room original. Each rule states *what*, *why*, and *enforcement surface* (rule-only, policy, hook, workflow, skill). Enforcement details live in `policies/`, `hooks/`, and `workflows/` — this file is the readable contract.
@@ -31,7 +31,7 @@ These rules are clean-room original. Each rule states *what*, *why*, and *enforc
 | FR-22 | Comment policy: tripwire + pointer only | Source files in a Flow workflow are read by AI agents, not humans (a human asks an agent to explain rather than opening the file). WHAT-restating prose, rationale already recorded elsewhere, and changelog comments serve an absent audience and cost context budget on every load (~45% of comments removable in trust-critical files, measured cross-project). The base "match surrounding comment density" instruction is a one-directional ratchet, and every Stop-hook gate is comment-blind, so over-commenting is invisible to the loop — Flow must ship an explicit override. | rule + `flow-skills/comment-policy/` skill (write-time carrier) + its `references/audit-prompt.md` + `docs/comment-policy.md` (rationale) + `code-review` review dimension (the enforcement layer) + `policies/comment-policy.yml` (`trust_critical_globs` carve-out). NOT a regex/lint gate — tripwire-vs-restate is semantic, not pattern-matchable. |
 | FR-23 | Documentation budget | AI-consumed artifacts (spec, decisions, tasks, gate, handoff, product/business-logic docs, project-internal skills) are created only when they reduce future context cost more than they add. Duplicate rationale, narrative padding, and docs created merely because a template exists cost tokens on every future load and spawn stale conflicting copies. Classify each artifact by tier (0 none · 1 change-note · 2 active handoff · 3 spec+tasks · 4 full pack) before writing; honor canonical ownership; prefer pointers over restatement; use `docs/tmp/handoff.md` for active session continuity (formal `docs/tmp/handoff/*` relays are dated siblings). The documentation-axis complement to FR-21 (ceremony proportional to change size). | rule + skill `flow-skills/documentation-budget/SKILL.md` + Mode-B review (`code-review` doc dimension) |
 | FR-24 | Write-time discipline delivery | The write-time rules — FR-09 (Mode B), FR-18 (supersede), FR-22 (comments), FR-23 (documentation budget) — govern *what* an agent writes into artifacts, and only reduce context cost if they are in the writing agent's context **at write time**. They are correctly NOT gates (tripwire-vs-restate / tier judgement are semantic, not regex-able), but description-matched carrier skills miss operator-launched writing chats and per-skill `mandatory_load` taxes non-writing roles. Deliver the whole class via ONE always-on, role-scoped **write-time discipline digest** — a pointer index (not duplicated bodies) — in the writing-role sections of `role-discipline`, reinforced in the implement handoff (sub-agent reach the always-on path can't cover) and the `session_start` reminder. Every new write-time rule registers one line in the digest. Dev artifacts are AI-consumed → optimize for AI only; the human-facing surface (README/onboarding/legal/translations) stays human-readable. | rule + skill `flow-skills/role-discipline/SKILL.md` (§ Write-time discipline digest) + `templates/handoff-implement.md` + `hooks/handlers/session_start.py` + `code-review` (review-time) |
-| FR-25 | Module-size ratchet | Source files in a Flow workflow are AI-read (FR-22/FR-24 audience principle); a multi-thousand-line file cannot be loaded in one pass, so every future session pays degraded slice-reads on the hottest files. Monoliths are the integral of N individually-reasonable diffs — tasks say WHAT but never WHERE, every gate is behavioral, and one-task-one-commit makes mid-task extraction look like scope creep, so nothing in the loop pushes back on growth (consumer-measured: 19k/14k/10k-line files under full Flow discipline). Unlike FR-22/FR-23 (semantic), line count is **objective** — this write-time rule ships a deterministic gate. **Ratchet, not refactor:** a gated source file not in the committed baseline must be ≤ the ceiling (default 800, policy-set); a baselined over-ceiling file may shrink but never grow; generated/vendored/data-as-code monoliths are explicit `exempt_globs`; no baseline committed → warn-only (adoption-safe). Extraction along a responsibility seam to satisfy the ratchet is in-scope for the task (never scope creep, never by itself an FR-21 promotion trigger); mechanical `utilsN` splits are the anti-pattern — split QUALITY is semantic and stays review-time. Not retroactive: existing monoliths freeze at baseline and shrink via explicit tickets. | rule + `policies/module-size.yml` + `hooks/shared/module_size.py` (wrapper `hooks/local/check-module-size.sh`) + `pre-commit` git hook + skill `flow-skills/module-size-discipline/SKILL.md` + plan-time rule in `implementation-planning` (tasks name target files) + `code-review` dimension + FR-24 digest line |
+| FR-25 | Module-size ratchet | Source files are AI-read; a multi-thousand-line file can't be loaded in one pass, and monoliths form as the integral of N individually-reasonable diffs. Line count is objective (unlike FR-22/FR-23) → deterministic gate. Gated file ≤ ceiling (default 800, policy-set); baselined over-ceiling files may shrink, never grow; no committed baseline → warn-only. Extraction on a responsibility seam is in-scope for the task — never scope creep, never an FR-21 promotion trigger by itself. Split QUALITY (seam vs mechanical `utilsN`) is semantic → review-time only. Exemptions/baseline are operator-only; never `--no-verify`. Not retroactive. | rule + `policies/module-size.yml` + `hooks/shared/module_size.py` (`hooks/local/check-module-size.sh`) + `pre-commit` git hook + CI `--all` step + skill `flow-skills/module-size-discipline/SKILL.md` + plan-time rule (`implementation-planning`) + `code-review` dimension + FR-24 digest line |
 
 ---
 
@@ -52,7 +52,7 @@ If a session writes code outside its role, FR-01 fires and the agent must stop a
 
 ## Self-attestation (mandatory at first response of every session)
 
-Every role declares: "Operating as {role} under Fusebase Flow v3.16.2. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+Every role declares: "Operating as {role} under Fusebase Flow v3.16.3. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 If self-attestation is missing from the first response, the session is drifting. Self-correct in the next output.
 
@@ -74,7 +74,7 @@ If self-attestation is missing from the first response, the session is drifting.
 
 **FR-24 implication for every writing role:** the write-time rules above (FR-09 Mode B, FR-18 supersede, FR-22 comments, FR-23 documentation budget) are delivered to you in-context, always-on, via the **Write-time discipline digest** in `flow-skills/role-discipline/SKILL.md` (§ Write-time discipline digest) — apply it whenever you create/edit an artifact or write code; load the cited skill for full detail. The digest is a **pointer index, not a duplicate** of the rule bodies (itself an FR-23 application). Audience: human operators do NOT read dev artifacts (comments, specs, decisions, tasks, handoffs, business-logic index) — optimize them for **AI agents only**; the human-facing surface (README, CONTRIBUTING/SECURITY/LICENSE/PUBLISHING, AGENTS/CLAUDE/GEMINI onboarding, translated READMEs, opt-in `business-logic.md` narrative) stays human-readable and is out of scope. A delegated code-writing **sub-agent does NOT inherit the always-on digest** — the delegating prompt MUST inline it (+ the `comment-policy` push-block) per `flow-skills/task-delegation`. This rule adds no gate and makes no skill `mandatory_load`; it is a delivery guarantee, not a new constraint on content.
 
-**FR-25 implication for every role that plans or writes code:** module size is gated by `policies/module-size.yml` (ceiling default 800 source lines; ratchet against the committed `policies/module-size-baseline.txt`). **Planning (PO):** every task names its target file(s); a task targeting an over-ceiling file must either extract the addition into a new module or carry an explicit one-line exemption with reason — "where does this code live" is decided at Plan, not mid-implement. **Writing (AI Developer):** when an edit would push a gated file over the ceiling (or grow an already-over-ceiling file), extract along a responsibility seam; that extraction is in-scope for the task — it is NOT scope creep and NOT by itself an FR-21 promotion trigger. Never bypass the gate with `--no-verify` (FR-06); the remedies are extraction or an explicit operator exemption (`exempt_globs`, or operator-run `--write-baseline`). Mechanical splits (`utils2.ts`) defeat the purpose — `code-review` checks seam quality (semantic, never a regex gate). No baseline committed → the gate is warn-only; activate it with `bash hooks/local/check-module-size.sh --write-baseline` + commit. Not retroactive: decomposing an existing monolith is its own (usually Full-lane) ticket, never a side effect. Full detail: `flow-skills/module-size-discipline/SKILL.md`.
+**FR-25 implication for every role that plans or writes code:** **Planning (PO):** every task names its target file(s); a task targeting an over-ceiling file states the extraction (new module + responsibility seam) or carries a one-line operator exemption — "where does this code live" is decided at Plan, not mid-implement. **Writing (AI Developer):** an edit that would grow a gated file past ceiling/baseline → extract along a responsibility seam as part of the task; if extraction is impossible (in-place fix inside a frozen file), surface it to the operator (FR-19) — all remedies (`exempt_globs`, `--write-baseline [path]`) are operator-run. Decomposing an existing monolith is its own ticket, never a side effect. Full detail: `flow-skills/module-size-discipline/SKILL.md`.
 
 ---
 
@@ -129,6 +129,8 @@ Both modes preserve FR-03, FR-13, FR-14.
 ---
 
 ## Amendment log
+
+> **Dated history — agents stop reading at this heading** (session reads end here; per-release detail lives in `docs/release-notes/`). The heading text is also the sweep guard's anchor (`sync-version-strings.sh`) — do not rename it.
 
 ```
 2026-05-08 — v0.1 initial. 15 always-on rules codified from clean-room redesign of
@@ -374,4 +376,23 @@ Both modes preserve FR-03, FR-13, FR-14.
              names, no intent inference). Gate scenarios 6->8 (totals 24/24).
              Change-note: docs/changes/2026-06-10-fr-25-hardening.md. Shipped
              in framework v3.16.2.
+
+2026-06-10 — v0.19. Token-trim (no rule semantics changed). v3.16.3: an
+             independent token-economy audit of FR-25 (verdict NET POSITIVE,
+             4-6x cost coverage, WITH WASTE) found the framework's biggest
+             hidden cost: session-start instructions said "load FLOW_RULES.md"
+             unbounded, so this amendment log (~40% of the file, dated
+             history) was paid by every compliant session (~410k tokens/100
+             sessions per consumer repo). Session reads now stop at
+             "## Amendment log" (skip instruction in all adapters + workflows
+             + handoff template + overlays; boundary marker under the heading;
+             heading text unchanged — sweep-guard anchor). FR-25 row +
+             implication deduplicated to house style (~47k/100 sessions);
+             role-discipline write-preamble collapsed into the digest table it
+             pointed at (~12k); role-discipline:50 load-model contradiction
+             fixed; module-size-discipline decisions M4 superseded in place
+             (FR-18 — was stale vs the v3.16.2 shipped baseline); gate stderr
+             gains "extraction is in-scope for the current task". Change-note:
+             docs/changes/2026-06-10-flow-token-trim.md. Shipped in framework
+             v3.16.3.
 ```

@@ -228,7 +228,8 @@ def main(argv: list[str]) -> int:
         print(f"  {v}", file=sys.stderr)
     print(
         "  Remedy: extract the addition into a new module along a responsibility seam\n"
-        "  (not a mechanical utilsN split), or get an operator exemption\n"
+        "  (extraction is in-scope for the current task, not scope creep; not a\n"
+        "  mechanical utilsN split), or get an operator exemption\n"
         "  (policies/module-size.yml exempt_globs, or operator-run --write-baseline).",
         file=sys.stderr,
     )

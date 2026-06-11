@@ -24,7 +24,7 @@ Runtime, MCP, SDK, and app-domain rules from CLI skills win over generic Flow im
 
 ## How to use this repo as an agent
 
-1. **First action of every session:** load `FLOW_RULES.md`. Then load the active workflow if a ticket is in progress.
+1. **First action of every session:** load `FLOW_RULES.md` **down to `## Amendment log`** (the log is dated history — never load it; ~40% of the file). Then load the active workflow if a ticket is in progress.
 2. **Self-attest your role** (Product Owner, AI Developer, Architect, Deploy) — see `FLOW_RULES.md` role table.
 3. **Append the state-announcement footer** to every output.
 4. **Ask before you act** when the task is non-trivial (multi-file, deploy, schema, auth, secrets).
@@ -182,7 +182,7 @@ Fusebase Flow ships:
 
 **Self-attestation (every session's first response):**
 
-> "Operating as {role} under Fusebase Flow v3.16.2. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+> "Operating as {role} under Fusebase Flow v3.16.3. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 **Operator questions:** per FR-19, ask questions in chat text, not popup / clickable menu tools. Use short option tables or numbered lists so the operator can copy, forward, quote, and follow up.
 

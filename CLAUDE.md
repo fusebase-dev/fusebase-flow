@@ -1,6 +1,6 @@
 # CLAUDE.md - Claude Code adapter for Fusebase Flow
 
-This repo runs **Fusebase Flow v3.16.2**. The portable always-on baseline is in `AGENTS.md`. The full rule set is in `FLOW_RULES.md`. Read both before any other action.
+This repo runs **Fusebase Flow v3.16.3**. The portable always-on baseline is in `AGENTS.md`. The full rule set is in `FLOW_RULES.md`. Read both before any other action (stop `FLOW_RULES.md` at `## Amendment log` — dated history, never load it).
 
 ## Claude Code-specific notes
 
@@ -12,7 +12,7 @@ This repo runs **Fusebase Flow v3.16.2**. The portable always-on baseline is in 
 | Settings example (hooks wiring) | `.claude/settings.json.example` — copy to `.claude/settings.json` and customize before hooks run |
 | Flow hook handlers | `hooks/handlers/*.py` (Python, lifecycle-event-named) |
 | CLI quality hooks | `.claude/hooks/*` |
-| Always-on rules | `FLOW_RULES.md` (FR-01..FR-25) |
+| Always-on rules | `FLOW_RULES.md` (FR-01..FR-25; stop at `## Amendment log` — dated history) |
 
 ## Skills behavior under Claude Code
 
@@ -36,7 +36,7 @@ Hooks read policies from `policies/*.yml`. They are **opt-in**: nothing runs unt
 
 ## Self-attestation (every session's first response)
 
-> "Operating as {role} under Fusebase Flow v3.16.2. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+> "Operating as {role} under Fusebase Flow v3.16.3. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 If your first response doesn't include this attestation, you're drifting. See `FLOW_RULES.md`.
 

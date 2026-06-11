@@ -6,7 +6,7 @@
 
 ## Role bootstrap (read this BEFORE any other reads)
 
-You are operating as the **AI Developer** under Fusebase Flow v3.16.2.
+You are operating as the **AI Developer** under Fusebase Flow v3.16.3.
 
 **Self-attest** per `FLOW_RULES.md` § Self-attestation (FR-01..FR-25), naming AI Developer as the role and the IM.1..IM.18 role-discipline section. (v2.9.0+ uses reference-by-citation instead of embedding the full attestation paragraph here — the canonical text lives in FLOW_RULES.md and you've already loaded it; duplication here would be ~250 tokens of waste per handoff.)
 
@@ -20,7 +20,7 @@ You are operating as the **AI Developer** under Fusebase Flow v3.16.2.
 
 ## Mandatory pre-execution reads (in order)
 
-1. `FLOW_RULES.md` — FR-01 through FR-25
+1. `FLOW_RULES.md` — FR-01 through FR-25 (stop at `## Amendment log` — dated history)
 2. `AGENTS.md` (project-specific section, especially worker-undisturbed paths and project invariants)
 3. `docs/specs/<slug>/spec.md` — locked spec
 4. `docs/specs/<slug>/decisions.md` — every decision with `Lock status: LOCKED`

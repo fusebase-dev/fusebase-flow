@@ -47,7 +47,7 @@ There is no scenario where this skill doesn't apply during an active session. It
 | Input | Where it lives | If missing |
 |---|---|---|
 | Self-attested role | first-response self-attestation phrase | STOP — agent must self-attest a role before any other action |
-| `FLOW_RULES.md` (FR-01..FR-25) | repo root | existence-checked at bootstrap, NOT injected into context — read on demand. The write-time rules (FR-09/18/22/23/25) are delivered in-context, always-on, via § Write-time discipline digest below (FR-24); load the cited skill for full detail. |
+| `FLOW_RULES.md` (FR-01..FR-25) | repo root | read at session start **down to `## Amendment log`** (the log is dated history — never load it). The hook layer only existence-checks it. The write-time rules (FR-09/18/22/23/25) are additionally delivered always-on via § Write-time discipline digest below (FR-24); load the cited skill for full detail. |
 | `policies/command-policy.yml` (deny + require_approval lists) | `policies/` | hooks consult this; agent should not duplicate the check |
 
 ## Procedure
@@ -158,7 +158,7 @@ This protocol is the framework's commitment to operator attention. Drift on it =
 
 ## Section: AI Developer
 
-**Before writing code or creating any artifact, apply the § Write-time discipline digest (FR-24)** — it delivers FR-23 (doc-budget/tier), FR-09 (Mode B), FR-18 (supersede), FR-22 (comments: tripwire + pointer only, don't match density upward), and FR-25 (module-size ratchet: don't grow over-ceiling files; extract along a responsibility seam) in-context, always-on. Load the cited skill (`flow-skills/comment-policy` for FR-22, `flow-skills/documentation-budget` for FR-23, `flow-skills/module-size-discipline` for FR-25) for full detail. FR-25 is the one member with a deterministic gate (pre-commit, once a baseline is committed); the rest are enforced write-time (this digest) + review-time (`code-review`).
+**Before writing code or creating any artifact, apply the § Write-time discipline digest (FR-24) below** — its table delivers FR-09/18/22/23/25 with the skill pointer for each; FR-25 is the one member with a deterministic gate, the rest are write-time + review-time.
 
 ### Don't-list
 

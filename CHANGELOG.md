@@ -4,6 +4,18 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.16.3] — 2026-06-10
+
+### Changed — token-trim: session reads stop at the amendment log (no semantics change)
+
+An independent token-economy audit of FR-25 (verdict: **NET POSITIVE — 4-6× cost coverage — with waste**; break-even at only 5-6 avoided monolith slice-reads per 100 sessions) surfaced one framework-wide find and two FR-25 dupes:
+
+- **Amendment log no longer session-loaded** — the audit's biggest find: session-start instructions said "load `FLOW_RULES.md`" unbounded, so the amendment log (~4.1k tokens, ~40% of the file, pure dated history) was paid by **every compliant session in every consumer repo** (~410k tokens/100 sessions). All read instructions (AGENTS/CLAUDE/GEMINI/copilot/cursor adapters, `session-initiation`, `handoff-implement`, both overlay templates) now say stop at `## Amendment log`; a boundary marker sits under the heading (heading text unchanged — it anchors the sweep guard). `role-discipline:50`'s contradictory "not injected — read on demand" load-model row corrected.
+- **FR-25 row + implication deduplicated** to house style (1,626→~700 and 1,348→~700 chars; ~47k tokens/100 sessions) — all operative semantics preserved; restated rationale cut (the spec owns it).
+- **role-discipline write-preamble** collapsed into the digest table it pointed at (~12k/100 sessions).
+- Correctness riders: `module-size-discipline` decisions **M4 superseded in place** (FR-18 — was stale against the v3.16.2 shipped baseline); gate stderr now states "extraction is in-scope for the current task" (saves operator round-trips).
+- Audited net: **~470k tokens saved /100 compliant sessions per consumer repo**, zero behavior change. Change-note: `docs/changes/2026-06-10-flow-token-trim.md`.
+
 ## [3.16.2] — 2026-06-10
 
 ### Changed — FR-25 hardening: the gate is now live by default (no rule text change)
