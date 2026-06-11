@@ -36,6 +36,6 @@ Verified:  preflight 0/0; run-tests 24/24; check-module-size --all green;
            $CLAUDE_PROJECT_DIR; AGENTS/CLAUDE inline blocks contain
            CUSTOM:SKILL + FLOW:PRESERVE markers + amendment-log stop.
 Rollback:  git revert <SHA>
-Commit:    <backfilled after commit>
+Commit:    2efd3d7
 Deploy:    operator go-ahead ("proceed") -> v3.16.4 tag, push origin main
            --follow-tags.
