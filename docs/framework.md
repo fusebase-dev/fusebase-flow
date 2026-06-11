@@ -10,7 +10,7 @@ The framework lives here. Provider and IDE compatibility files (`.claude/`, `.co
 | `VERSION` | Framework version (semver). |
 | `docs/fusebase-cli-edition.md` | Fusebase CLI edition boundary map: Flow lifecycle assets vs CLI provider domain assets. |
 | `workflows/` | Repeatable procedures (eight-phase flow, greenlight-implement, greenlight-deploy, verification-gate, smoke, knowledge-curation, architect-escalation). |
-| `flow-skills/` | Two mandatory skills (`communication`, `role-discipline`) plus 26 on-demand skills (full catalog: README § Skill catalog). Canonical source; mirrored into `.claude/skills/` (Anthropic Claude Code) and `.agents/skills/` (OpenAI/ChatGPT Codex) for provider consumption. |
+| `flow-skills/` | Two mandatory skills (`communication`, `role-discipline`) plus 27 on-demand skills (full catalog: README § Skill catalog). Canonical source; mirrored into `.claude/skills/` (Anthropic Claude Code) and `.agents/skills/` (OpenAI/ChatGPT Codex) for provider consumption. |
 | `.claude/skills/`, `.agents/skills/` | Provider skill surfaces. In this edition, they contain Flow mirrors plus CLI provider skills. Extra CLI provider skills are not canonical Flow skills and are not tracked by `audit/skill-mirror-manifest.txt`. |
 | `.claude/agents/`, `.codex/agents/` | Provider agent surfaces. In this edition, they contain Flow role agents plus CLI app agents. |
 | `.claude/hooks/` | CLI quality hooks used by Claude Code Stop hooks. |

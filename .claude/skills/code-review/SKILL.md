@@ -52,6 +52,7 @@ Independent review of a diff against the spec contract, locked decisions, and FL
 3. Semantic review per task T<n>: read the corresponding commit (or accumulated diff). Judge:
    - Scope-creep: does the change match the *intent* of the `tasks.md` description, not just touch the listed files?
    - Decision adherence in meaning: the gate checks decisions are *cited*; review checks the code *does what the locked decision means* (cite letter+number on divergence)
+   - Quality-pattern ACs (QP-xx, `flow-skills/app-quality-patterns`): the cited pattern's Requirement is actually met by the implementation (semantic, by reading — e.g., is the filter state really in the URL, does the delete really handle children)
 4. Maintainability scan:
    - Type safety (no broad casts on external JSON, no `any`)
    - **Comment policy (FR-22)** — see the dedicated dimension in step 4b

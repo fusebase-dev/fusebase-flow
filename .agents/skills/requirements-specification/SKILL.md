@@ -86,7 +86,7 @@ When NOT to split: the bug is already understood (e.g., known typo, obvious off-
 5. Present clarify questions in chat text (FR-19): no popup / clickable menu tools. Use a short options table or numbered list when there are multiple choices, with **(Recommended)** marked when appropriate.
 6. Wait for operator answers. Update `clarify-conversation.md` with locked answers.
 7. Draft `docs/specs/<slug>/spec.md` using `templates/spec.md`. Status: DRAFT.
-8. Spec must include: problem statement, why-now, in-scope, out-of-scope, acceptance criteria (numbered AC1..ACn), risks, constraints from FLOW_RULES (worker-undisturbed, mixed-fleet if applicable).
+8. Spec must include: problem statement, why-now, in-scope, out-of-scope, acceptance criteria (numbered AC1..ACn), risks, constraints from FLOW_RULES (worker-undisturbed, mixed-fleet if applicable). **For app-feature tickets — quality-pattern scan:** check the category index in `flow-skills/app-quality-patterns/SKILL.md`; every pattern whose Trigger matches this feature becomes an AC citing its ID (e.g., "AC4 — filter/report state encoded in URL; refresh restores the exact view (QP-01)"). Cite IDs only — do not paste pattern bodies (FR-23).
 9. State announcement footer in chat: phase advances from `Specify` to `Plan` once spec.md is saved.
 
 ## Output artifacts

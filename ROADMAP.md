@@ -4,13 +4,15 @@ FuseBase Flow ships **reactively** — each release is driven by real friction s
 
 ## Now (released)
 
+- **v3.19.0** (2026-06-11) — **app-quality-patterns** (29th skill): cross-project behavioral quality library (QP-01..24 — URL-state, delete cascades, empty/loading/error states…) injected as spec ACs with copy-ready smoke recipes.
+- **v3.17.0–v3.18.2** (2026-06-10/11) — efficiency line: always-on session floor −50%, procedure layer −20%, reversible-deploy waiver, handoff paper trail (timestamped archives).
 - **v3.16.0** (2026-06-10) — **FR-25 module-size ratchet**: the first deterministic write-time gate (ceiling 800; over-ceiling files may shrink, never grow; plan-time target-file rule; 28th skill `module-size-discipline`). Driven by a consumer audit that found 19k-line source files accreted under full discipline.
 - **v3.15.0** (2026-06-08) — **FR-24 write-time discipline delivery**: the always-on, role-scoped digest that guarantees FR-09/18/22/23/25 reach the writing agent at write time.
 - **v3.12.0–v3.14.2** — **FR-23 documentation budget** (tier-classified artifacts, pointers over duplication), all handoffs consolidated under `docs/tmp/handoff`, the portable `handoff` skill + `/handoff` command, release-hygiene guards (preflight §8).
 - **v3.7.0–v3.11.1** — **FR-21 Lightweight Lane** (ceremony proportional to change size) and **FR-22 comment policy** (tripwire + retrieval-pointer only) with its write-time carrier skill.
 - **v3.2.0–v3.6.0** — FuseBase CLI edition packaging (CLI-first/Flow-second recovery, vendor provenance, two-writer hazard guards), generic anti-drift skills (`zoom-out`, `phase-audit`, `git-history-diagnostic`), project onboarding + North Star, upgrade-path hardening.
 
-Current shape: **25 always-on rules (FR-01..FR-25) · 28 canonical skills · 2 sub-agents · 13 workflows · 22 templates · 8 policies · 24 hook tests**.
+Current shape: **25 always-on rules (FR-01..FR-25) · 29 canonical skills · 2 sub-agents · 13 workflows · 22 templates · 8 policies · 24 hook tests**.
 
 ## Next likely (no firm dates — when needed)
 

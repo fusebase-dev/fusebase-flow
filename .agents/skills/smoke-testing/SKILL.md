@@ -61,7 +61,7 @@ Prevent pre-outcome signals from being mislabeled as smoke success. A smoke test
 1. Write the success-criterion sentence first. It must describe the operator-visible outcome, not an implementation signal.
    - Bad: `spawn exits 0`
    - Good: `operator chat reply renders TemplateListCard with the 8 real templates`
-2. Identify the ground-truth diagnostic surface for each S<n>. Examples: request dump JSON, app error log, server log, rendered DOM, response body, database row, job trace.
+2. For ACs citing quality patterns (QP-xx), start from the pattern's **Verify** line in `flow-skills/app-quality-patterns/references/` — it is a copy-ready S<n> recipe; adapt routes/selectors/data. Then identify the ground-truth diagnostic surface for each S<n>. Examples: request dump JSON, app error log, server log, rendered DOM, response body, database row, job trace.
 3. For Fusebase Apps smoke, use `docs/fusebase-cli-edition.md` to pick supporting CLI diagnostics such as `remote-logs`, `dev-debug-logs`, `fusebase-cli`, `fusebase-dashboards`, or `fusebase-gate`.
 4. Separate supporting checks from smoke checks. File hashes, symbol presence, service active, exit code 0, and HTTP auth sanity are supporting checks only; they cannot satisfy smoke by themselves.
 5. For UI smoke, include at least one real primary interaction when the ticket creates or changes one: navigate, submit, save, send, search, filter, authenticate, or complete the main workflow. A screenshot-only check is visual evidence, not sufficient smoke for an interactive feature.

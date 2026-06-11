@@ -63,7 +63,7 @@ Expected:
 ```
 preflight:    0 errors / 0 warnings
 hook tests:   24 / 24 PASS
-mirror:       68 files mirrored across 2 approved mirrors (56 SKILL.md + 12 references)
+mirror:       76 files mirrored across 2 approved mirrors (58 SKILL.md + 18 references)
 git status:   clean (or only the regenerated mirror manifest, if previously stale)
 ```
 

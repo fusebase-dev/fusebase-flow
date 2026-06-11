@@ -4,6 +4,18 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.19.0] — 2026-06-11
+
+### Added — `app-quality-patterns`: cross-project behavioral quality library (29th skill)
+
+Operator-driven: the same behavioral defects recur across consumer projects — view state not encoded in the URL (refresh/share loses filters/reports), deletes leaving orphaned records, chevron misalignment — and LLMs only apply such requirements when they're in context at the right lifecycle moment.
+
+- **The library:** `flow-skills/app-quality-patterns/` = thin router SKILL.md + `references/{state-and-navigation,data-integrity,ui-polish}.md` (lazy-loaded per category). **14 seeded patterns** (QP-01..04 · QP-10..14 · QP-20..24), each: Trigger · Requirement · **Verify (copy-ready smoke recipe)** · Anti-pattern. Includes the three operator-observed defects plus empty/loading/error states, mutation cache-invalidation, double-submit guards, optimistic rollback, destructive-action scope confirm/undo, unsaved-changes guard, deep-link guards, back/forward, list-position restore, form-validation UX, timezone correctness.
+- **Enforcement = AC-injection (no new gates):** `requirements-specification` scans the category index on app-feature tickets; every matching pattern becomes a spec **AC citing its QP ID** — which then rides the existing tasks → gate → smoke → review machinery. `implementation-planning` design briefs cite the IDs; `code-review` checks QP-ACs semantically; `smoke-testing` copies Verify lines as S(n).
+- **Growth rule:** a defect seen across ≥2 projects = one new table row, shipped in the next release; project-specific patterns live in that project's `docs/skills/`. Boundary: QP owns WHAT must be true; CLI skills (`app-ui-design` etc.) own HOW on the stack (overlap-map row added).
+- Counts: skills 28 → **29** (mirrors 58; 76 mirrored files incl. 18 references). Independent pre-ship review: 12/12 seeds judged sound (0 drops), 1 count blocker + nits fixed, 2 reviewer-suggested patterns added.
+- **Verified:** preflight 0/0; run-tests 24/24; `--all` green; AGENTS inline overlay byte-matches canonical. Spec: `docs/specs/app-quality-patterns/spec.md`. Detail: `docs/release-notes/v3.19.0.md`.
+
 ## [3.18.2] — 2026-06-11
 
 ### Added — handoff paper trail: predecessors archived, every handoff timestamped

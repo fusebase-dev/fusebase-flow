@@ -52,7 +52,7 @@ overwrite or a `fusebase update`.
    **only-if-absent** (`cp -Rn` / `Copy-Item` without `-Force`); Flow-owned
    framework folders copy normally. See those docs for the exact commands.
 2. **Recovery never writes CLI-owned paths.** `mirror-skills.sh` writes only the
-   28 canonical Flow skills; `post-fusebase-update.sh` excludes
+   29 canonical Flow skills; `post-fusebase-update.sh` excludes
    `.claude/hooks/**`, CLI provider skills, MCP/`fusebase.json`/`skills-lock.json`,
    and active `.codex/config.toml`; the ownership map marks all 19 CLI provider
    skills `flow_write_mode:"never"`.
@@ -101,6 +101,7 @@ After any install or `fusebase update`, run
 | `release-deploy-reporting` | `fusebase-cli`, `git-workflow`, `remote-logs` | Deploy handoff needs CLI/deploy evidence | Flow owns deploy report shape; CLI assets provide commands and runtime evidence |
 | `repo-onboarding-context-map` | `fusebase-cli`, `app-dev-practices` | Both orient agents to app repos | Flow writes durable context map; CLI assets supply Fusebase Apps project conventions |
 | `code-review` | `app-backend`, `app-ui-design`, `app-routing`, `file-upload`, `app-sidecar` | Reviews need domain standards | Flow reviews against spec/decisions/tasks; CLI skills supply implementation-specific review criteria |
+| `app-quality-patterns` | `app-ui-design`, `app-routing`, `fusebase-dashboards` | Both shape feature behavior/UI | QP owns WHAT must be true (behavioral ACs + smoke recipes); CLI assets own HOW on the FuseBase stack |
 
 ## Agent bridge
 

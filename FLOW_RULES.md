@@ -1,6 +1,6 @@
 # Fusebase Flow — always-on rules (FR-01..FR-25)
 
-**Status:** v0.25 (handoff paper trail v3.18.2 — active handoff predecessors auto-archived to docs/tmp/handoff/archive/ with timestamps; GitHub Release step codified in PUBLISHING; no rule change. v3.18.x debloat line before it.)
+**Status:** v0.26 (app-quality-patterns v3.19.0 — 29th skill: cross-project behavioral quality library (QP-01..24) injected as spec ACs with copy-ready smoke recipes; no rule change. Handoff paper trail v3.18.2 before it.)
 **Scope:** every session in any IDE/agent must follow these regardless of which skill or workflow is active.
 
 These rules are clean-room original. Each rule states *what*, *why*, and *enforcement surface* (rule-only, policy, hook, workflow, skill). Enforcement details live in `policies/`, `hooks/`, and `workflows/` — this file is the readable contract.
@@ -52,7 +52,7 @@ If a session writes code outside its role, FR-01 fires and the agent must stop a
 
 ## Self-attestation (mandatory at first response of every session)
 
-Every role declares: "Operating as {role} under Fusebase Flow v3.18.2. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+Every role declares: "Operating as {role} under Fusebase Flow v3.19.0. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 If self-attestation is missing from the first response, the session is drifting. Self-correct in the next output.
 
@@ -495,4 +495,26 @@ Both modes preserve FR-03, FR-13, FR-14.
              shipped tags-only). Change-note:
              docs/changes/2026-06-11-handoff-paper-trail.md. Shipped in
              framework v3.18.2.
+
+2026-06-11 — v0.26. app-quality-patterns added (no rule changed). v3.19.0,
+             operator-driven: recurring behavioral defects across consumer
+             projects (view state not in URL — refresh loses filters/reports;
+             deletes leaving orphaned records; chevron misalignment) with no
+             Flow carrier. New 29th canonical skill = thin router +
+             references/{state-and-navigation,data-integrity,ui-polish}.md —
+             14 ID'd patterns (QP-01..04, 10..14, 20..24), each Trigger ·
+             Requirement · Verify (copy-ready smoke recipe) · Anti-pattern.
+             Enforcement = AC-injection: requirements-specification scans the
+             index and matching patterns become spec ACs by ID, riding the
+             existing tasks->gate->smoke->review machinery (no new gates —
+             behavioral requirements aren't regex-able, FR-25 lesson inverse).
+             Reinforced: implementation-planning design brief cites QP IDs;
+             code-review QP-AC dimension; smoke-testing copies Verify lines as
+             S<n>. Growth: one table row per new cross-project lesson;
+             project-specific patterns stay in project docs/skills/.
+             Independent pre-ship review: 12/12 seeds sound, 1 count blocker
+             fixed, 2 reviewer-suggested patterns added (QP-14 destructive
+             confirm/undo, QP-24 unsaved-changes guard). Spec:
+             docs/specs/app-quality-patterns/spec.md. Shipped in framework
+             v3.19.0.
 ```
