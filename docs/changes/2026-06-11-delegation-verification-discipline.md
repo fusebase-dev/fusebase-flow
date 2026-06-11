@@ -24,6 +24,6 @@ Change:    1) task-delegation: binding Turn-completion rule (deliverable
            validation-and-qa: § Verification cost cross-ref.
 Verified:  preflight 0/0; run-tests 24/24; --all 0; mirrors re-run clean.
 Rollback:  git revert <SHA>
-Commit:    <backfilled after commit>
+Commit:    2c017b7
 Deploy:    operator-relayed proposal = the request -> v3.19.1 tag + GitHub
            Release, push origin main --follow-tags.
