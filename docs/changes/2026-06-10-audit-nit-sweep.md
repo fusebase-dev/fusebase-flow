@@ -26,6 +26,6 @@ Verified:  preflight 0/0 (references drift checks active); run-tests 24/24;
            check-module-size --all exit 0; sweep dry-run clean; mirror run
            reports 68 files; CLAUDE inline overlay == canonical (byte).
 Rollback:  git revert <SHA>
-Commit:    <backfilled after commit>
+Commit:    3f55feb
 Deploy:    operator go-ahead ("bump up version and then publish it") ->
            v3.17.1 tag, push origin main --follow-tags.
