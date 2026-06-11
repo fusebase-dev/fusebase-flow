@@ -1,10 +1,10 @@
 # Spec — context-floor-reduction (v3.17.0)
 
-**Status:** LOCKED (operator "proceed" 2026-06-10; scope = framework-efficiency-audit F1/F2/F3/F10/F6)
+**Status:** DONE (shipped 2026-06-10, framework v3.17.0, tag `v3.17.0`)
 **Lands in:** framework v3.17.0
 **Tier:** 3 (spec + tasks; decisions inline) per FR-23
 **Lane:** Full (contract files + recovery-machinery coordination)
-**Deploy hash:** (at DONE flip)
+**Deploy hash:** `0157f59`. Independent implementer (gate clean) + independent reviewer (FIX-FIRST → B1 11-pointer sweep + B2 install-doc docs copy fixed; AC2 per-rule semantic attestation PASSED FR-16..24). Measured: PO −8.0k / AI-Dev −7.9k / Deploy −8.5k tokens/session. AC1 soft-miss noted (SKILL.md 23.4KB vs ~20KB target — shared-protocol floor).
 
 ## Problem
 
