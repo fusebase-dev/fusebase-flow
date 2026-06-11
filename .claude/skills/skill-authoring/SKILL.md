@@ -51,7 +51,7 @@ Create or update skills without skill sprawl, role drift, mirror drift, or licen
 | Existing skill catalog | `skills/`, `.agents/skills/`, `.claude/skills/`, `docs/skills/README.md` | Search before adding; avoid duplicate skills |
 | CLI edition map, for CLI provider assets | `docs/fusebase-cli-edition.md` | Treat provider assets as domain support, not canonical Flow skills |
 | Skill substrate | `templates/skill-template.md` | Stop; use the canonical section order |
-| Role boundaries | `FLOW_RULES.md`, `skills/role-discipline/SKILL.md`, `agents/*/AGENT.md` | Stop if role ownership cannot be assigned |
+| Role boundaries | `FLOW_RULES.md`, `flow-skills/role-discipline/references/<role>.md`, `agents/*/AGENT.md` | Stop if role ownership cannot be assigned |
 | Clean-room constraints | `docs/source-map.md`, `docs/clean-room.md` | Treat external material as concept-only |
 | Mirror process | `hooks/local/mirror-skills.sh`, `audit/skill-mirror-manifest.txt` | Required for framework skill changes |
 
@@ -117,7 +117,7 @@ For `skills/<slug>/SKILL.md` changes, check whether each surface needs an update
 
 | Surface | Update when |
 |---|---|
-| `skills/role-discipline/SKILL.md` | role don't-list or refusal phrasing changes |
+| `flow-skills/role-discipline/references/<role>.md` | role don't-list or refusal phrasing changes (shared protocols: `flow-skills/role-discipline/SKILL.md`) |
 | `agents/product-owner/AGENT.md` | PO / Architect should load or invoke the skill |
 | `agents/ai-developer/AGENT.md` | AI Developer / Deploy phase should load or invoke the skill |
 | `workflows/*.md` | a workflow creates, consumes, or validates the skill |

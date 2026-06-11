@@ -95,5 +95,5 @@ The fix is always: stop, file the missing artifact (full report / parked ticket 
 ## Related
 
 - `FLOW_RULES.md` — FR-01..FR-25 (the agent-side rules)
-- `flow-skills/role-discipline/SKILL.md` — agent-side don't-list per role
+- `flow-skills/role-discipline/SKILL.md` (shared protocols + role index) + `references/<role>.md` — agent-side don't-list per role
 - `AGENTS.md` — always-on baseline that links here

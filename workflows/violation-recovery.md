@@ -184,7 +184,7 @@ The hook prints whether T-number is missing or the message is too vague. Steps:
 ## Cross-references
 
 - Rule statements: `FLOW_RULES.md`
-- Role-specific don't-lists + refusal phrasing: `flow-skills/role-discipline/SKILL.md`
+- Role-specific don't-lists + refusal phrasing: `flow-skills/role-discipline/references/<role>.md` (shared protocols: `flow-skills/role-discipline/SKILL.md`)
 - Hook decision logic: `hooks/handlers/*.py`
 - Policies hooks consult: `policies/*.yml`
 - Live-user verification recovery (FR-12 specific): `workflows/live-user-verification.md`

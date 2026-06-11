@@ -4,6 +4,18 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.17.1] — 2026-06-10
+
+### Fixed — post-ship audit nit-sweep + references/ drift gate
+
+An independent post-ship audit of the v3.16.0→v3.17.0 chain returned **ALL CORRECT, zero blockers**, with residual nits and one real gap — all closed here:
+
+- **`references/*.md` now drift-gated** — `mirror-skills.sh` hashes + manifests every references file (manifest 56 → 68 entries) and `preflight.sh` §5 verifies them across both mirrors. The per-role don't-lists moved there in v3.17.0; previously only `SKILL.md` files had a drift gate.
+- **6 residual stale pointers** still claiming role don't-lists live in `role-discipline/SKILL.md` repointed to `references/<role>.md`: `skill-authoring` (×2 — one also carried a retired `skills/` path), both agent context-load tables, the claude overlay's mandatory-skill bullet (canonical edited, inline re-spliced), `violation-recovery`, `operator-discipline`, the parked architect-sub-agent ticket.
+- **PUBLISHING.md** — expected mirror output 56 → 68; the inline public-surface allowlist copy synced to the live CI one (was missing `ROADMAP.md`, `.claude-plugin`, `flow-skills`; still listed retired `skills`).
+- **`install-existing-project.md:328`** — installer description "copies `skills/`" → `flow-skills/`.
+- **Verified:** preflight 0/0 (now incl. references drift checks); run-tests 24/24; `--all` green; CLAUDE inline overlay byte-matches canonical after re-splice.
+
 ## [3.17.0] — 2026-06-10
 
 ### Changed — context-floor reduction: always-on session cost cut ~30% (no rule semantics changed)

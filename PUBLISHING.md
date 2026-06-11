@@ -63,7 +63,7 @@ Expected:
 ```
 preflight:    0 errors / 0 warnings
 hook tests:   24 / 24 PASS
-mirror:       56 files mirrored across 2 approved mirrors
+mirror:       68 files mirrored across 2 approved mirrors (56 SKILL.md + 12 references)
 git status:   clean (or only the regenerated mirror manifest, if previously stale)
 ```
 
@@ -73,10 +73,10 @@ Also verify the **public-surface allowlist guard** passes — every tracked top-
 ALLOWED=(
   "AGENTS.md" "CLAUDE.md" "GEMINI.md" "README.md" "PUBLISHING.md" "LICENSE"
   "FLOW_RULES.md" "VERSION" "install.sh"
-  "CHANGELOG.md" "CONTRIBUTING.md" "SECURITY.md" "CODE_OF_CONDUCT.md"
+  "CHANGELOG.md" "CONTRIBUTING.md" "SECURITY.md" "CODE_OF_CONDUCT.md" "ROADMAP.md"
   ".gitignore" ".gitattributes" ".python-version"
-  ".agents" ".claude" ".codex" ".cursor" ".github"
-  "agents" "audit" "docs" "hooks" "policies" "skills" "state" "templates" "workflows"
+  ".agents" ".claude" ".claude-plugin" ".codex" ".cursor" ".github"
+  "agents" "audit" "docs" "flow-skills" "hooks" "policies" "state" "templates" "workflows"
 )
 actual=$(git ls-files | awk -F/ '{print $1}' | sort -u)
 for entry in $actual; do

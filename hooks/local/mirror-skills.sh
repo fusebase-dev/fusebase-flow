@@ -52,12 +52,24 @@ for skill_dir in "$CANON"/*/; do
         fi
         cp "$canon_file" "$target_file"
         mirrored=$((mirrored + 1))
-        # Also surface any references/ subdir if the skill has one.
+        echo "$mirror_root/$skill_name/SKILL.md  $canon_hash" >> "$MANIFEST"
+        # references/ files are drift-gated like SKILL.md — they carry rule
+        # content (role don't-lists since v3.17.0), not just supporting docs.
         if [ -d "$skill_dir/references" ]; then
             mkdir -p "$target_dir/references"
-            cp -R "$skill_dir/references/." "$target_dir/references/"
+            for ref in "$skill_dir/references"/*; do
+                [ -f "$ref" ] || continue
+                ref_name="$(basename "$ref")"
+                ref_hash="$(sha_cmd "$ref")"
+                ref_target="$target_dir/references/$ref_name"
+                if [ -f "$ref_target" ] && [ "$(sha_cmd "$ref_target")" != "$ref_hash" ]; then
+                    drifted=$((drifted + 1))
+                fi
+                cp "$ref" "$ref_target"
+                mirrored=$((mirrored + 1))
+                echo "$mirror_root/$skill_name/references/$ref_name  $ref_hash" >> "$MANIFEST"
+            done
         fi
-        echo "$mirror_root/$skill_name/SKILL.md  $canon_hash" >> "$MANIFEST"
     done
 done
 

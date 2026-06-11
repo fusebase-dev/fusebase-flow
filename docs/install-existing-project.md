@@ -325,7 +325,7 @@ Steps the installer performs:
 
 - **Install git fallback hooks** — runs `hooks/local/install-git-hooks.sh`, which writes `pre-commit` and `commit-msg` into `.git/hooks/`. Existing hook files at those paths are overwritten by the underlying script. Back them up first if you have custom hooks there.
 - **Run preflight** — runs `hooks/local/preflight.sh` to validate framework structure, policies, and skill mirrors. Read-only.
-- **Mirror skills** — copies `skills/` into `.agents/skills/` and `.claude/skills/`.
+- **Mirror skills** — copies `flow-skills/` into `.agents/skills/` and `.claude/skills/`.
 
 What the installer does **not** do automatically:
 

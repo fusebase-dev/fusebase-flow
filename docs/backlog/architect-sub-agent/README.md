@@ -46,7 +46,7 @@ The `role-discipline` skill already has a fully-shaped `Architect (escalation)` 
 
 ## Related
 
-- `flow-skills/role-discipline/SKILL.md` — Architect (escalated session) section
+- `flow-skills/role-discipline/references/architect.md` — Architect (escalated session) don't-list (AR.1..AR.9)
 - `workflows/architect-escalation.md` — inline-escalation flow today
 - `agents/product-owner/AGENT.md` — "Escalation triggers"; current absorbs-Architect behavior
 - `templates/architect-response.md` — existing relay substrate

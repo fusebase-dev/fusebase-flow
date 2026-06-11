@@ -71,23 +71,25 @@ if command -v python3 >/dev/null 2>&1; then
     done
 fi
 
-# 5. Skill mirrors consistency (canonical = flow-skills/<name>/SKILL.md;
-#    approved mirrors = .agents/skills/ (Codex), .claude/skills/ (Claude Code))
-for canon in "$FF_DIR/$SKILLS_CANON"/*/SKILL.md; do
-    [ -e "$canon" ] || continue
-    skill_name="$(basename "$(dirname "$canon")")"
+# 5. Skill mirrors consistency (canonical = flow-skills/<name>/SKILL.md +
+#    references/*.md; approved mirrors = .agents/skills/ (Codex),
+#    .claude/skills/ (Claude Code)). references/ carry rule content
+#    (role don't-lists, v3.17.0+) — drift-gated like SKILL.md.
+for canon in "$FF_DIR/$SKILLS_CANON"/*/SKILL.md "$FF_DIR/$SKILLS_CANON"/*/references/*; do
+    [ -f "$canon" ] || continue
+    rel="${canon#"$FF_DIR/$SKILLS_CANON/"}"
     canon_hash="$(sha256sum "$canon" 2>/dev/null | awk '{print $1}')"
     [ -z "$canon_hash" ] && canon_hash="$(shasum -a 256 "$canon" | awk '{print $1}')"
     for mirror_root in .agents .claude; do
-        mirror_file="$ROOT/$mirror_root/skills/$skill_name/SKILL.md"
+        mirror_file="$ROOT/$mirror_root/skills/$rel"
         if [ ! -f "$mirror_file" ]; then
-            warn "mirror missing: $mirror_root/skills/$skill_name/SKILL.md (run mirror-skills.sh)"
+            warn "mirror missing: $mirror_root/skills/$rel (run mirror-skills.sh)"
             continue
         fi
         mirror_hash="$(sha256sum "$mirror_file" 2>/dev/null | awk '{print $1}')"
         [ -z "$mirror_hash" ] && mirror_hash="$(shasum -a 256 "$mirror_file" | awk '{print $1}')"
         if [ "$canon_hash" != "$mirror_hash" ]; then
-            warn "mirror drift: $mirror_root/skills/$skill_name/SKILL.md != canonical (run mirror-skills.sh)"
+            warn "mirror drift: $mirror_root/skills/$rel != canonical (run mirror-skills.sh)"
         fi
     done
 done

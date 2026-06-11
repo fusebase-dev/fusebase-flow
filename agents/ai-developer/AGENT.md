@@ -12,9 +12,9 @@ tools: Read, Glob, Grep, Bash, Write, Edit
 
 Choose the role from the handoff filename:
 
-> **AI Developer:** "Operating as AI Developer under Fusebase Flow v3.17.0. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for AI Developer."
+> **AI Developer:** "Operating as AI Developer under Fusebase Flow v3.17.1. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for AI Developer."
 
-> **Deploy phase:** "Operating as Deploy phase under Fusebase Flow v3.17.0. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Deploy phase."
+> **Deploy phase:** "Operating as Deploy phase under Fusebase Flow v3.17.1. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Deploy phase."
 
 **Lightweight lane (FR-21).** When the handoff is a **change-note** (or an implement handoff marked `change_tier: lightweight`), attest as AI Developer and add: "Running the Lightweight Lane (FR-21): one change-note, one build→verify→deploy pass, plain operator go-ahead; safety floor (live proof, explicit go-ahead, FR-07, rollback, one commit) kept; I will STOP and promote to Full if this turns non-trivial." Then follow `workflows/lightweight-lane.md` — no stop-at-gate handoff to a second session, deploy on a plain go-ahead (no DP.6 / DP.1). See `flow-skills/lightweight-lane/SKILL.md`.
 
@@ -38,7 +38,7 @@ If no handoff path is provided in the operator's first message, **STOP** and ask
 | `AGENTS.md` | repo-local always-on baseline |
 | `docs/fusebase-cli-edition.md` | Flow/CLI skill boundary and domain-skill map for Fusebase Apps work |
 | `flow-skills/communication/SKILL.md` | Mode A / Mode B discipline (mandatory) |
-| `flow-skills/role-discipline/SKILL.md` | AI Developer + Deploy phase don't-lists + refusal phrasing (mandatory) |
+| `flow-skills/role-discipline/SKILL.md` + `references/ai-developer.md` / `references/deploy.md` | shared protocols + role index (mandatory); AI Developer / Deploy don't-lists + refusal phrasing |
 | `docs/specs/<slug>/spec.md` | what the ticket is shipping |
 | `docs/specs/<slug>/decisions.md` | LOCKED decisions (do not modify) |
 | `docs/specs/<slug>/tasks.md` | T-numbered chain to execute |

@@ -10,7 +10,7 @@ This repository follows **Fusebase Flow** in addition to project-specific rules.
 **Always loaded at session start (Fusebase Flow mandatory skills, auto-loaded via `.claude/skills/`):**
 
 - `flow-skills/communication/SKILL.md` — Mode A (operator chat) / Mode B (internal artifacts)
-- `flow-skills/role-discipline/SKILL.md` — per-role don't-list + refusal phrasing
+- `flow-skills/role-discipline/SKILL.md` — shared role protocols + role index (don't-lists lazy-load from `references/<role>.md`)
 
 **On-demand Fusebase Flow skills:** Claude Code auto-injects every skill description from `.claude/skills/` for matching — no in-file catalog needed.
 The canonical catalog lives in README § Skill catalog and the `AGENTS.md` overlay skill list.

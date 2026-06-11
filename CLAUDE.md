@@ -1,6 +1,6 @@
 # CLAUDE.md - Claude Code adapter for Fusebase Flow
 
-This repo runs **Fusebase Flow v3.17.0**. The portable always-on baseline is in `AGENTS.md`. The full rule set is in `FLOW_RULES.md`. Read both before any other action (stop `FLOW_RULES.md` at `## Amendment log` — dated history, never load it).
+This repo runs **Fusebase Flow v3.17.1**. The portable always-on baseline is in `AGENTS.md`. The full rule set is in `FLOW_RULES.md`. Read both before any other action (stop `FLOW_RULES.md` at `## Amendment log` — dated history, never load it).
 
 ## Claude Code-specific notes
 
@@ -67,7 +67,7 @@ This repository follows **Fusebase Flow** in addition to project-specific rules.
 **Always loaded at session start (Fusebase Flow mandatory skills, auto-loaded via `.claude/skills/`):**
 
 - `flow-skills/communication/SKILL.md` — Mode A (operator chat) / Mode B (internal artifacts)
-- `flow-skills/role-discipline/SKILL.md` — per-role don't-list + refusal phrasing
+- `flow-skills/role-discipline/SKILL.md` — shared role protocols + role index (don't-lists lazy-load from `references/<role>.md`)
 
 **On-demand Fusebase Flow skills:** Claude Code auto-injects every skill description from `.claude/skills/` for matching — no in-file catalog needed.
 The canonical catalog lives in README § Skill catalog and the `AGENTS.md` overlay skill list.

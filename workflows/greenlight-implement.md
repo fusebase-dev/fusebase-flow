@@ -23,7 +23,7 @@ After `implementation-planning` has produced `decisions.md` (all locked), `tasks
 ## Procedure (AI Developer side)
 
 1. Read mandatory pre-execution files (per the handoff's reads list).
-2. Self-attest: "Operating as AI Developer under Fusebase Flow v3.17.0. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every file I write. I will apply the role-discipline skill section for AI Developer (IM.1..IM.18)."
+2. Self-attest: "Operating as AI Developer under Fusebase Flow v3.17.1. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every file I write. I will apply the role-discipline skill section for AI Developer (IM.1..IM.18)."
 3. Pre-task git checkpoint: `git status --short`. If non-empty, STOP and ask operator.
 4. Execute tasks T<first>..T<gate> per `tasks.md`. One task = one commit (FR-03). Each commit:
    - Lint + typecheck clean (FR-13)

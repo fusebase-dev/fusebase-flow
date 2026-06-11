@@ -1,6 +1,6 @@
 # Fusebase Flow — always-on rules (FR-01..FR-25)
 
-**Status:** v0.21 (context-floor reduction v3.17.0 — FR-16..24 rows/implications compressed to house style, role-discipline split per-role, adapter dedup; reviewer-attested no rule semantics changed. Efficiency repairs v3.16.4; FR-25 added v3.16.0.)
+**Status:** v0.22 (post-ship audit sweep v3.17.1 — references/ mirror drift gate + residual pointer fixes; no rule change. Context-floor reduction v3.17.0; FR-25 added v3.16.0.)
 **Scope:** every session in any IDE/agent must follow these regardless of which skill or workflow is active.
 
 These rules are clean-room original. Each rule states *what*, *why*, and *enforcement surface* (rule-only, policy, hook, workflow, skill). Enforcement details live in `policies/`, `hooks/`, and `workflows/` — this file is the readable contract.
@@ -52,7 +52,7 @@ If a session writes code outside its role, FR-01 fires and the agent must stop a
 
 ## Self-attestation (mandatory at first response of every session)
 
-Every role declares: "Operating as {role} under Fusebase Flow v3.17.0. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+Every role declares: "Operating as {role} under Fusebase Flow v3.17.1. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 If self-attestation is missing from the first response, the session is drifting. Self-correct in the next output.
 
@@ -428,4 +428,16 @@ Both modes preserve FR-03, FR-13, FR-14.
              docs/*.md, never upstream dev history (~7.4MB). Spec:
              docs/specs/context-floor-reduction/spec.md. Shipped in framework
              v3.17.0.
+
+2026-06-10 — v0.22. Post-ship audit sweep (no rule changed). v3.17.1: an
+             independent post-ship audit of the v3.16.0->v3.17.0 chain found
+             zero blockers; this patch closes its nits + one real gap —
+             references/*.md mirrors (which carry the per-role don't-lists
+             since v3.17.0) are now drift-gated by mirror-skills.sh (manifest
+             56->68 entries) and preflight §5; 6 residual stale pointers
+             repointed to references/<role>.md; PUBLISHING expected outputs +
+             inline allowlist synced; installer description skills/ ->
+             flow-skills/. Change-note:
+             docs/changes/2026-06-10-audit-nit-sweep.md. Shipped in framework
+             v3.17.1.
 ```
