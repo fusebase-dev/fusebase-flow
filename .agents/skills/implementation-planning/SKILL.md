@@ -43,7 +43,7 @@ Before drafting any planning artifact, apply the tier from `flow-skills/document
 
 | Artifact | Create only when |
 |---|---|
-| `decisions.md` | a **real** decision exists — alternatives with rejection reasons or a locked tradeoff to preserve. No real decision → omit the file (do not write single-option "decisions"). |
+| `decisions.md` | a **real** decision exists — alternatives with rejection reasons or a locked tradeoff to preserve. No real decision → omit the file (do not write single-option "decisions") **and record the literal line `no real decisions` in spec.md's Clarify summary — `greenlight-implement` + `required-artifacts.yml: optional_when` consume it**. |
 | `tasks.md` | Tier 3/4 (multi-file Full-lane work). Reference ACs by pointer (`spec.md` AC1..ACn); do not reprint them. |
 | `verification-gate.md` | Full lane **or** `policies/required-artifacts.yml` / `policies/gate-contracts.yml` requires it for this tier. |
 | implement handoff | a fresh AI Developer session will execute the chain. Point to canonical spec/decisions/tasks; do NOT reprint them. |
@@ -73,7 +73,7 @@ Fail-safe: when unsure, choose the higher tier. Never weaken a safety artifact r
 9. Present decisions for lock in chat (Mode A — comparison table when there are 3+ alternatives). End with explicit lock prompt: "Reply 'lock' to approve all as recommended, OR 'redirect <Letter><n>' to change."
 10. Wait for operator lock confirmation per FR-11. Implicit approval ("ok", "looks good") does NOT count.
 11. After lock: increment letter prefix and T-counter in `AGENTS.md`. Update `tasks.md` SHAs to LOCKED.
-12. Draft implementer handoff using `templates/handoff-folder-README.md` informed shape; save to `docs/tmp/handoff/<YYYY-MM-DD>-<slug>-implement.md` BEFORE outputting in chat (FR-04). Per FR-23, the handoff points to canonical `spec.md` / `decisions.md` / `tasks.md` (cite paths + AC/decision IDs); it must NOT reprint their contents.
+12. Draft implementer handoff from `templates/handoff-implement.md` (canonical); save to `docs/tmp/handoff/<YYYY-MM-DD>-<slug>-implement.md` BEFORE outputting in chat (FR-04). Per FR-23, the handoff points to canonical `spec.md` / `decisions.md` / `tasks.md` (cite paths + AC/decision IDs); it must NOT reprint their contents.
 13. Tell operator: "Implement handoff saved to <path>. Open that file, paste into a fresh AI agent session as AI Developer."
 
 ## Output artifacts

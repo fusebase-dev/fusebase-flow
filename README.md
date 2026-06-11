@@ -6,7 +6,7 @@
 
 ![FuseBase Flow — you design and decide with the Product Owner agent, which hands off to the AI Developer agent that implements, runs the verification gate, and deploys](docs/assets/two-agent-banner.svg)
 
-[![Version](https://img.shields.io/badge/version-3.18.0-blue.svg)](VERSION)
+[![Version](https://img.shields.io/badge/version-3.18.1-blue.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![CI](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml/badge.svg)](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml)
 [![Use this template](https://img.shields.io/badge/GitHub-Use_this_template-brightgreen.svg?logo=github)](https://github.com/fusebase-dev/fusebase-flow/generate)
@@ -227,7 +227,7 @@ Two role-shaped sub-agents cover the full eight-phase lifecycle. They are **opt-
 
 | Sub-agent | Owns | Skills it invokes |
 |---|---|---|
-| **Product Owner** | Specify, Clarify, Plan, design discovery/ideation, Decisions, Tasks, draft-verification-gate, smoke contract definition, clean-room skill classification, post-implement code-review and security-permissions-review, deploy-handoff drafting, spec DRAFT→DONE flip, **plus Architect responsibilities inline on escalation** (>10 files / cross-cutting refactor / platform blocker / blocked migration) | `requirements-specification`, `design-discovery-ideation`, `implementation-planning`, `smoke-testing`, `task-delegation`, `skill-authoring`, `code-review`, `security-permissions-review`, `release-deploy-reporting` |
+| **Product Owner** | Specify, Clarify, Plan, design discovery/ideation, Decisions, Tasks, draft-verification-gate, smoke contract definition, clean-room skill classification, post-implement code-review (+ security-permissions-review when the diff matches its trigger list), deploy-handoff drafting, spec DRAFT→DONE flip, **plus Architect responsibilities inline on escalation** (>10 files / cross-cutting refactor / platform blocker / blocked migration) | `requirements-specification`, `design-discovery-ideation`, `implementation-planning`, `smoke-testing`, `task-delegation`, `skill-authoring`, `code-review`, `security-permissions-review`, `release-deploy-reporting` |
 | **AI Developer** | Run gate, Implement T-chain (one task = one commit; stops at gate), implement approved framework skill changes, Run deploy command (gated on approval artifact, captures hash, runs probes and smoke evidence) | `validation-and-qa`, `smoke-testing`, `task-delegation`, `skill-authoring`, `repo-onboarding-context-map` |
 
 Both sub-agents always load the mandatory `communication` and `role-discipline` skills.
@@ -331,7 +331,7 @@ Skills are on-demand expertise the agent loads when a task matches the skill's d
 |---|---|
 | Starting a new ticket | `requirements-specification` (or the **Product Owner** sub-agent) |
 | Plan is set, time to build | the **AI Developer** sub-agent + `validation-and-qa` |
-| "Is this diff safe?" | `code-review` **and** `security-permissions-review` |
+| "Is this diff safe?" | `code-review` (+ `security-permissions-review` when the diff matches its trigger list — auth/secrets/deploy-config/etc.) |
 | "Did the deploy actually work?" | `smoke-testing` |
 | "Did `fusebase update` break Flow?" | `fusebase-flow-health-check` (or `/fusebase-health`) |
 

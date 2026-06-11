@@ -1,6 +1,6 @@
 # Fusebase Flow — always-on rules (FR-01..FR-25)
 
-**Status:** v0.23 (integration-debloat v3.18.0 — procedure de-dup (gate/smoke canonical+pointers), 3 cross-surface contradictions fixed, review boundary, reversible-deploy DP.1 auto-stamp waiver, machinery hygiene; no rule text change. v3.17.x context-floor line before it.)
+**Status:** v0.24 (post-ship nit-sweep v3.18.1 — waiver-path prompt/read/precondition consistency, gate-field restatements pointer-ized, no-real-decisions producer line; no rule change. Integration-debloat v3.18.0 before it.)
 **Scope:** every session in any IDE/agent must follow these regardless of which skill or workflow is active.
 
 These rules are clean-room original. Each rule states *what*, *why*, and *enforcement surface* (rule-only, policy, hook, workflow, skill). Enforcement details live in `policies/`, `hooks/`, and `workflows/` — this file is the readable contract.
@@ -52,7 +52,7 @@ If a session writes code outside its role, FR-01 fires and the agent must stop a
 
 ## Self-attestation (mandatory at first response of every session)
 
-Every role declares: "Operating as {role} under Fusebase Flow v3.18.0. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+Every role declares: "Operating as {role} under Fusebase Flow v3.18.1. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 If self-attestation is missing from the first response, the session is drifting. Self-correct in the next output.
 
@@ -447,7 +447,7 @@ Both modes preserve FR-03, FR-13, FR-14.
              agents corrected; decisions requirement tier-aware per FR-23 —
              "LOCKED if present"; security review conditional on its own
              trigger list). Procedure de-dup: gate contract canonical =
-             gate-contracts.yml + gate-report template (5 carriers ->
+             gate-contracts.yml + gate-report template (7 carriers ->
              pointers); smoke canonical = smoke-testing skill; ~130 lines of
              legacy handoff snippets deleted from greenlight workflows
              (-9.3KB / -20% across per-ticket-read files). Review boundary:
@@ -464,4 +464,20 @@ Both modes preserve FR-03, FR-13, FR-14.
              git-discipline.md (CLI skill name collision). Spec:
              docs/specs/integration-debloat/spec.md. Shipped in framework
              v3.18.0.
+
+2026-06-11 — v0.24. Post-ship nit-sweep (no rule changed). v3.18.1: an
+             independent post-ship audit of v3.18.0 found 0 blockers, 9 nits —
+             all fixed: waiver-path consistency (DP.6 prompt no longer claims
+             'artifact verified' pre-stamp on eligible deploys; mandatory-read
+             7 + release-deploy-reporting step 1 carry the waiver branch);
+             gate-field restatements in ai-developer agent + IM.9 pointer-ized
+             (the agent copy had already drifted — missing
+             implementation_summary); README conditional security-review
+             residue; task_complete removed from the event-schema enum;
+             producer line added: omitting decisions.md requires the literal
+             'no real decisions' in spec.md (consumed by optional_when);
+             handoff drafting steps repointed at the canonical templates;
+             gate-report placeholder attestation made sweep-maintained.
+             Change-note: docs/changes/2026-06-11-v3181-nit-sweep.md. Shipped
+             in framework v3.18.1.
 ```

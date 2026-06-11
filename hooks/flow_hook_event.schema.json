@@ -15,7 +15,6 @@
         "permission_request",
         "post_tool_use",
         "stop",
-        "task_complete",
         "pre_compact"
       ],
       "description": "Lifecycle event name."

@@ -6,7 +6,7 @@
 
 ## Role bootstrap (read this BEFORE any other reads)
 
-You are operating as the **AI Developer in the Deploy phase** under Fusebase Flow v3.18.0.
+You are operating as the **AI Developer in the Deploy phase** under Fusebase Flow v3.18.1.
 
 > **This is the Full-lane deploy handoff** (DP.1 artifact + DP.6 magic phrase). A **Lightweight-lane** change (FR-21) does NOT use this template — it deploys in the same single build→verify→deploy pass on a plain operator go-ahead; see `flow-skills/lightweight-lane/SKILL.md` and `workflows/lightweight-lane.md`.
 
@@ -35,7 +35,7 @@ Other invariants (FR-05/-06/-07/-14, Mode A/B, supersede discipline FR-18) — s
 4. `docs/specs/<slug>/verification-gate.md` — probe contract you'll run
 5. `policies/approval-policy.yml` — `production_deploy` approval requirements
 6. `policies/protected-paths.yml` — worker-undisturbed list
-7. `state/approvals/production_deploy-<slug>-<date>.json` — verify exists + unexpired
+7. `state/approvals/production_deploy-<slug>-<date>.json` — verify exists + unexpired, **or** confirm the header says `dp1_waiver: eligible` (you stamp it at the DP.6 step)
 8. `flow-skills/role-discipline/references/deploy.md` — DP.1..DP.12 don't-list; shared protocols in `flow-skills/role-discipline/SKILL.md`
 9. `flow-skills/smoke-testing/SKILL.md` — required if S1..Sn are present
 
@@ -48,7 +48,7 @@ Other invariants (FR-05/-06/-07/-14, Mode A/B, supersede discipline FR-18) — s
 | **Slug** | `<slug>` |
 | **Status** | ready for Deploy phase |
 | **Approval artifact** | `state/approvals/production_deploy-<slug>-<date>.json` |
-| **DP.1 waiver** | `dp1_waiver: eligible|excluded — <reason>` (eligible iff reversible AND no protected-path / security-surface / migration touch; eligible = Deploy session stamps DP.1 itself on the operator's DP.6 phrase) |
+| **DP.1 waiver** | `dp1_waiver: eligible / excluded — <reason>` (eligible iff reversible AND no protected-path / security-surface / migration touch; eligible = Deploy session stamps DP.1 itself on the operator's DP.6 phrase) |
 | **Source spec** | `docs/specs/<slug>/spec.md` |
 | **Gate verified** | `<date>` (gate report SHA `<hash>`) |
 | **Deploy command** | `<exact command from AGENTS.md>` |
@@ -82,11 +82,11 @@ If the end-to-end smoke cannot run because credentials/session/operator action a
 
 When you reach the deploy command step, output exactly:
 
-> Pre-deploy checks complete. Approval artifact verified. Worker-undisturbed re-check clean. Probes ready.
+> Pre-deploy checks complete. <`Approval artifact verified.` | on `dp1_waiver: eligible`: `Waiver-eligible — I will stamp the DP.1 artifact on your phrase.`> Worker-undisturbed re-check clean. Probes ready.
 >
 > **Type `APPROVE-DEPLOY-NOW` to authorize deploy.** Any other response will abort.
 
-If operator response is exactly `APPROVE-DEPLOY-NOW` → run deploy command.
+If operator response is exactly `APPROVE-DEPLOY-NOW` → (waiver-eligible only: stamp DP.1 first — `bash hooks/local/approve-local.sh production_deploy <slug> 'APPROVE-DEPLOY-NOW'`) → run deploy command.
 Anything else → ABORT, surface the abort reason, do not retry.
 
 ---

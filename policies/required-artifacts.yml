@@ -1,7 +1,7 @@
 # Fusebase Flow — required artifacts policy (committed default)
 #
-# Lifecycle gates that hooks check before allowing certain actions. Used by
-# pre_tool_use (writes/edits) and stop (no-claim-without-evidence).
+# Lifecycle gates checked before certain actions. Hook consumer: stop.py
+# (signal entries only); other entries are read by agents/workflows, not hooks.
 schema_version: 1
 local_override_file: policies/required-artifacts.local.yml
 

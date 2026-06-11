@@ -59,10 +59,10 @@ If the ticket was classified **Lightweight** (`flow-skills/lightweight-lane/SKIL
 
 ## Procedure
 
-1. Verify all preconditions: gate passed, code-review clean, security clean, approval artifact present.
+1. Verify all preconditions: gate passed, code-review clean, security clean **or recorded `security: N/A — no sensitive surface`**, approval artifact present **or `dp1_waiver: eligible` (Deploy session stamps it on the DP.6 phrase)**.
 2. Final pre-deploy worker-undisturbed check: re-run `git diff` against `protected-paths.yml`. If anything changed since the gate report, STOP and report.
 3. For Fusebase Apps deploys, use `docs/fusebase-cli-edition.md` to identify supporting CLI assets for commands, logs, app quality checks, and post-deploy diagnostics.
-4. Draft deploy handoff using `templates/handoff-folder-README.md` shape adapted for deploy stage (see `workflows/greenlight-deploy.md`). Include:
+4. Draft deploy handoff from `templates/handoff-deploy.md` (canonical; see `workflows/greenlight-deploy.md`). Include:
    - Self-attestation phrase the deployer should output first
    - **DP.1 waiver eligibility** — `dp1_waiver: eligible|excluded — <reason>`: `eligible` iff the ticket is reversible AND touches no protected path / security surface / migration (Deploy session then stamps the DP.1 artifact itself on the operator's DP.6 phrase); the excluded classes keep operator-run DP.1
    - Pre-deploy worker-undisturbed re-check instructions

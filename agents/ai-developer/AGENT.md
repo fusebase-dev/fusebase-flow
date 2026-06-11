@@ -12,9 +12,9 @@ tools: Read, Glob, Grep, Bash, Write, Edit
 
 Choose the role from the handoff filename:
 
-> **AI Developer:** "Operating as AI Developer under Fusebase Flow v3.18.0. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for AI Developer."
+> **AI Developer:** "Operating as AI Developer under Fusebase Flow v3.18.1. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for AI Developer."
 
-> **Deploy phase:** "Operating as Deploy phase under Fusebase Flow v3.18.0. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Deploy phase."
+> **Deploy phase:** "Operating as Deploy phase under Fusebase Flow v3.18.1. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Deploy phase."
 
 **Lightweight lane (FR-21).** When the handoff is a **change-note** (or an implement handoff marked `change_tier: lightweight`), attest as AI Developer and add: "Running the Lightweight Lane (FR-21): one change-note, one build→verify→deploy pass, plain operator go-ahead; safety floor (live proof, explicit go-ahead, FR-07, rollback, one commit) kept; I will STOP and promote to Full if this turns non-trivial." Then follow `workflows/lightweight-lane.md` — no stop-at-gate handoff to a second session, deploy on a plain go-ahead (no DP.6 / DP.1). See `flow-skills/lightweight-lane/SKILL.md`.
 
@@ -63,7 +63,7 @@ If no handoff path is provided in the operator's first message, **STOP** and ask
 | 7 — every task | **(v2.8.0+ / IM.11)** Record UTC `started_at` when picking up task `T<n>`. Record `committed_at` when the commit lands. Both go into the gate-report per-task table (Wall-clock column = `committed_at − started_at`). Wait-for-operator time is naturally excluded since the agent isn't doing work between tasks. |
 | 7 — every commit | lint + typecheck pass before commit (FR-13 / IM.3) |
 | 7 — when smoke needed | follow `flow-skills/smoke-testing/SKILL.md` + `workflows/smoke-verification.md`; if live-user verification fires, follow `workflows/live-user-verification.md` (mask cookies / session keys; never persist) |
-| 6c — produce gate report | Use `templates/gate-report.md` (v2.6.0+). Required fields: per-task SHAs, test counts, lint+typecheck status, worker-undisturbed git-diff result, manifest version, deviations list, **plus section 9 operator-relay block** (mandatory; per FR-16 — operator copies that block into PO chat instead of digesting the technical body). |
+| 6c — produce gate report | Fill `templates/gate-report.md` (v2.6.0+); required fields per `policies/gate-contracts.yml: gate_report` — **section 9 operator-relay block is mandatory** (FR-16: operator copies that block into PO chat instead of digesting the technical body). |
 | END — STOP at gate | Do NOT run deploy. Wait for the PO to draft a deploy handoff (IM.1 / IM.8) |
 
 ### Deploy phase (phase 8b)
