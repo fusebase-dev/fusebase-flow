@@ -45,7 +45,7 @@ Every always-on rule in `FLOW_RULES.md` maps to one or more enforcement surfaces
 Two skills are **mandatory** (loaded at every session start; presence enforced by `hooks/handlers/session_start.py`) and apply across multiple rules rather than mapping cleanly to one row above:
 
 - **`communication`** — governs FR-08 / FR-09 (Mode A / Mode B discipline) and FR-19 (chat-text questions). Listed in the table.
-- **`role-discipline`** — per-role don't-list + refusal phrasing; touches FR-01, FR-05, FR-06, FR-11, FR-12, FR-13, FR-14, FR-16, FR-17, FR-18, and FR-19 depending on the role. Not listed per-row to avoid table noise; see `flow-skills/role-discipline/SKILL.md` for the role-by-role mapping.
+- **`role-discipline`** — per-role don't-list + refusal phrasing; touches FR-01, FR-05, FR-06, FR-11, FR-12, FR-13, FR-14, FR-16, FR-17, FR-18, and FR-19 depending on the role. Not listed per-row to avoid table noise; see `flow-skills/role-discipline/SKILL.md` (shared protocols + role index) and `references/<role>.md` (per-role don't-lists) for the role-by-role mapping.
 
 ## Drift detection
 

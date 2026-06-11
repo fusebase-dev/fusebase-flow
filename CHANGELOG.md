@@ -4,6 +4,19 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.17.0] — 2026-06-10
+
+### Changed — context-floor reduction: always-on session cost cut ~30% (no rule semantics changed)
+
+Implements the structural half of the framework-wide efficiency audit (the repairs were v3.16.4). Measured baseline floor: ~34.5k tokens/session (Claude Code) / ~27.9k (Codex). Measured reduction: **~8k tokens/session** (PO −8.0k · AI-Dev −7.9k · Deploy −8.5k). Independent reviewer attested per-rule that **no FR semantics were lost**; an independent implementer built it; spec: `docs/specs/context-floor-reduction/spec.md`.
+
+- **`role-discipline` split per-role (C1):** the 4 role sections moved to `flow-skills/role-discipline/references/{product-owner,ai-developer,architect,deploy}.md` (lazy-loaded on role match — same pattern as `communication/references/`); SKILL.md (50.3KB → 23.4KB) keeps all shared protocols (Operator Relay, Chat-Text, Forward Momentum, Supersede, FR-24 digest) + a role→file index. All 55 rule IDs verified exactly-once; mirrors carry `references/` byte-identical.
+- **FLOW_RULES FR-16..24 compressed to house style (C2):** rows + implications deduplicated against the protocols role-discipline already delivers mandatorily (live region −8.2KB). FR-01..15, FR-25, attestation, amendment log byte-identical. Every dropped clause verified surviving in its enforcement-pointer target (FR-21 safety floor + FR-22 storage≠retrieval/carve-outs/not-retroactive kept verbatim-equivalent).
+- **Adapter dedup (C3/C4):** CLAUDE/AGENTS base sections that duplicated their overlay blocks → single pointers (attestation, footer, operator-questions, project-values, active-context each now have exactly one in-file copy; overlays stay byte-identical to the canonical templates). Canonical `claude-md-overlay.md` 28-bullet catalog → 3-line pointer (Claude Code injects every skill description; the AGENTS comma list is kept — load-bearing on Codex).
+- **Install copy excludes upstream dev history (C5):** README + `install-existing-project.md` copy blocks now copy only the live `docs/*.md` framework docs (consumers no longer inherit ~7.4MB of FuseBase Flow's own specs/changes/release-notes/assets). Also fixed: a form-feed corruption in the install doc's PowerShell line (introduced v3.16.4).
+- **Review fixes folded in:** 11 stale pointers into the moved role sections repointed (`references/<role>.md`) across workflows/templates/agents/`command_policy.py`/rail-mapping; CLAUDE.md attestation-pointer wording corrected.
+- **Verified:** preflight 0/0; run-tests 24/24; `--all` green; inline overlays byte-match canonical; health-check anchors + preflight §8 intact. Detail: `docs/release-notes/v3.17.0.md`.
+
 ## [3.16.4] — 2026-06-10
 
 ### Fixed — efficiency repairs: two broken consumer paths + drift sweep (audit-driven; no rule change)

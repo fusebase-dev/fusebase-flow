@@ -6,7 +6,7 @@
 
 ![FuseBase Flow — you design and decide with the Product Owner agent, which hands off to the AI Developer agent that implements, runs the verification gate, and deploys](docs/assets/two-agent-banner.svg)
 
-[![Version](https://img.shields.io/badge/version-3.16.3-blue.svg)](VERSION)
+[![Version](https://img.shields.io/badge/version-3.17.0-blue.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![CI](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml/badge.svg)](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml)
 [![Use this template](https://img.shields.io/badge/GitHub-Use_this_template-brightgreen.svg?logo=github)](https://github.com/fusebase-dev/fusebase-flow/generate)
@@ -194,7 +194,7 @@ Skipping is fine — nothing is created unless you provide it, and the framework
 
 The full eight-phase lifecycle lives at [`workflows/eight-phase-flow.md`](workflows/eight-phase-flow.md).
 
-**Docs layout.** Your own ticket artifacts are created on demand — nothing to scaffold. (The template tree does carry FuseBase Flow's OWN dev history under `docs/specs/`, `docs/changes/`, `docs/release-notes/`, `docs/backlog/` — upstream framework records, not your project's; the existing-repo install guide shows how to copy only the live framework docs.) Expected paths once you start: `docs/specs/<slug>/` (spec · decisions · tasks · verification-gate), `docs/tmp/handoff/` (cross-session handoffs), `docs/changes/` (Lightweight-lane ledger, opt-in), `docs/backlog/` (parked tickets). Run `/onboard` first if you want project artifacts (`docs/north-star.md`, project values) before ticket #1.
+**Docs layout.** Your own ticket artifacts are created on demand — nothing to scaffold. (The template tree does carry FuseBase Flow's OWN dev history under `docs/specs/`, `docs/changes/`, `docs/release-notes/`, `docs/backlog/` — upstream framework records, not your project's; the existing-repo copy commands below copy only the live framework docs, never the dev history.) Expected paths once you start: `docs/specs/<slug>/` (spec · decisions · tasks · verification-gate), `docs/tmp/handoff/` (cross-session handoffs), `docs/changes/` (Lightweight-lane ledger, opt-in), `docs/backlog/` (parked tickets). Run `/onboard` first if you want project artifacts (`docs/north-star.md`, project values) before ticket #1.
 
 ## Supported agents & IDEs
 
@@ -365,7 +365,13 @@ cp -R $SRC/policies ./
 cp -R $SRC/templates ./
 cp -R $SRC/audit ./
 cp -R $SRC/state ./
-cp -R $SRC/docs ./
+
+# Live framework docs only:
+mkdir -p docs && cp $SRC/docs/*.md docs/
+cp -R $SRC/docs/translations docs/   # optional: translated READMEs
+# upstream dev history (docs/specs, docs/changes, docs/release-notes, docs/backlog,
+# docs/handoff, docs/assets …) is deliberately NOT copied
+
 cp $SRC/AGENTS.md ./
 cp $SRC/CLAUDE.md ./
 cp $SRC/GEMINI.md ./

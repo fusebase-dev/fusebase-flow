@@ -1,6 +1,6 @@
 # CLAUDE.md - Claude Code adapter for Fusebase Flow
 
-This repo runs **Fusebase Flow v3.16.4**. The portable always-on baseline is in `AGENTS.md`. The full rule set is in `FLOW_RULES.md`. Read both before any other action (stop `FLOW_RULES.md` at `## Amendment log` — dated history, never load it).
+This repo runs **Fusebase Flow v3.17.0**. The portable always-on baseline is in `AGENTS.md`. The full rule set is in `FLOW_RULES.md`. Read both before any other action (stop `FLOW_RULES.md` at `## Amendment log` — dated history, never load it).
 
 ## Claude Code-specific notes
 
@@ -34,24 +34,9 @@ This repo runs **Fusebase Flow v3.16.4**. The portable always-on baseline is in 
 
 Hooks read policies from `policies/*.yml`. They are **opt-in**: nothing runs until you copy `settings.json.example` → `settings.json`. The git fallback hooks (`hooks/git/`) provide a safety net even when Claude Code hooks are off.
 
-## Self-attestation (every session's first response)
+## Attestation, footer, operator questions
 
-> "Operating as {role} under Fusebase Flow v3.16.4. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
-
-If your first response doesn't include this attestation, you're drifting. See `FLOW_RULES.md`.
-
-## Operator questions
-
-Per FR-19, ask operator questions in chat text. Do not use popup / clickable menu tools for clarify prompts, option selection, deploy confirmation, or recovery choices. Use a short markdown table or numbered list with **(Recommended)** marked when appropriate.
-
-## State announcement (every output)
-
-```
----
-📍 Phase: {Specify | Clarify | Plan | Decisions | Tasks | Verify | Implement | Deploy}
-🎯 Ticket: {slug or "—"}
-⏭️ Next: {what the operator does next}
-```
+Apply all three every session. Canonical homes: self-attestation text — `AGENTS.md` overlay § Self-attestation (also `FLOW_RULES.md` § Self-attestation); state-announcement footer + FR-19 chat-text question rule — the overlay below (§ Fusebase Flow — additional rules).
 
 ## Quick activation
 
@@ -84,36 +69,9 @@ This repository follows **Fusebase Flow** in addition to project-specific rules.
 - `flow-skills/communication/SKILL.md` — Mode A (operator chat) / Mode B (internal artifacts)
 - `flow-skills/role-discipline/SKILL.md` — per-role don't-list + refusal phrasing
 
-**On-demand Fusebase Flow skills (description-matched from `.claude/skills/`):**
-
-- `code-review` — multi-perspective code review for PRs and significant patches
-- `design-discovery-ideation` — explore product/UI/workflow options before spec or decision lock
-- `fusebase-flow-health-check` — verify Fusebase Flow overlay state; offer recovery if drifted (also via `/fusebase-health`)
-- `implementation-planning` — produce decisions.md, tasks.md, verification-gate.md from a clarified spec
-- `release-deploy-reporting` — deploy reporting (manual-for-side-effects; do not auto-invoke)
-- `repo-onboarding-context-map` — first-pass repo orientation for a new agent session
-- `requirements-specification` — turn a feature ask into a clarified spec
-- `security-permissions-review` — review of authz, secret handling, protected-paths
-- `smoke-testing` — define and execute outcome-based deploy smoke with ground-truth diagnostics
-- `task-delegation` — coordinate bounded read-only or disjoint implementation subtasks when the host supports subagents
-- `validation-and-qa` — verification-gate authoring and execution
-- `skill-authoring` — create/update reusable skills (clean-room; incl. domain-expert mode)
-- `zoom-out` — FR-20 root-cause-vs-patch check before a fix
-- `phase-audit` — independent sub-agent audit of all slices of a phase
-- `git-history-diagnostic` — regression archaeology (locate the causing commit)
-- `project-onboarding` — `/onboard` discovery interview → writes project artifacts (operator-triggered)
-- `north-star` — steer work to `docs/north-star.md` if present (no-op if absent)
-- `client-vs-internal` — simple-for-client / robust-for-internal (no-op if absent)
-- `product-docs-first` — design per-app product docs before code (no-op if absent)
-- `business-logic-guardian` — protect documented business logic during fixes (no-op if absent)
-- `product-apps-decomposition` — product → focused apps guidance
-- `lightweight-lane` — FR-21 change-size tiering; small/reversible changes use a change-note + one build→verify→deploy pass instead of the full lifecycle
-- `comment-policy` — FR-22 write-time carrier; delivers the tripwire + retrieval-pointer comment policy into a code-writing agent's context (description-matched on code/comment edits)
-- `documentation-budget` — FR-23 doc-budget classifier; tier (0-4) before any AI-consumed artifact; canonical ownership + pointers over duplication; active handoff = `docs/tmp/handoff.md`
-- `handoff` — portable skill: writes active session restart state to `docs/tmp/handoff.md`; operator-triggered (`/handoff` on Claude Code; invoke by name elsewhere)
-- `module-size-discipline` — FR-25 module-size ratchet; gated source files stay ≤ ceiling (default 800), over-ceiling files may shrink never grow; extraction on a responsibility seam is in-scope; pre-commit gate + plan-time target-file rule
-
-(28 canonical Fusebase Flow skills total.)
+**On-demand Fusebase Flow skills:** Claude Code auto-injects every skill description from `.claude/skills/` for matching — no in-file catalog needed.
+The canonical catalog lives in README § Skill catalog and the `AGENTS.md` overlay skill list.
+The 2 mandatory skills remain listed above (always loaded at session start).
 
 **Slash commands (`.claude/commands/`):** `/fusebase-health`, `/onboard`, `/product-owner`, `/handoff`.
 

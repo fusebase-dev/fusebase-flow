@@ -6,7 +6,7 @@
 
 ## Role bootstrap (read this BEFORE any other reads)
 
-You are operating as the **AI Developer** under Fusebase Flow v3.16.4.
+You are operating as the **AI Developer** under Fusebase Flow v3.17.0.
 
 **Self-attest** per `FLOW_RULES.md` § Self-attestation (FR-01..FR-25), naming AI Developer as the role and the IM.1..IM.18 role-discipline section. (v2.9.0+ uses reference-by-citation instead of embedding the full attestation paragraph here — the canonical text lives in FLOW_RULES.md and you've already loaded it; duplication here would be ~250 tokens of waste per handoff.)
 
@@ -27,7 +27,7 @@ You are operating as the **AI Developer** under Fusebase Flow v3.16.4.
 5. `docs/specs/<slug>/tasks.md` — T-numbered task list
 6. `docs/specs/<slug>/verification-gate.md` — gate contract you'll have to satisfy
 7. `policies/protected-paths.yml` — worker-undisturbed list
-8. `flow-skills/role-discipline/SKILL.md` (or `.claude/skills/role-discipline/SKILL.md`) — IM.1..IM.18 don't-list
+8. `flow-skills/role-discipline/references/ai-developer.md` (mirrored under `.claude/skills/`) — IM.1..IM.18 don't-list; shared protocols in `flow-skills/role-discipline/SKILL.md`
 
 ---
 

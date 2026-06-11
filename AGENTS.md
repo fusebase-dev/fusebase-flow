@@ -34,15 +34,7 @@ Runtime, MCP, SDK, and app-domain rules from CLI skills win over generic Flow im
 
 ## Active project context — read first
 
-Before starting work, check whether this project has been **onboarded** (optimized for a specific product/agency vision). These artifacts are **absent by default** — they exist only if the operator ran `/onboard` (the `project-onboarding` skill) or created them manually:
-
-| Artifact | If present → | If absent → |
-|---|---|---|
-| `docs/north-star.md` | read it; keep all work aligned to the vision (the `north-star` skill) | run generically; do **not** create it |
-| `docs/<app>/product.md` | read it for that app's product intent | run generically |
-| `docs/<app>/business-logic.md` | treat documented logic as a guard during fixes | run generically |
-
-This check is **universal** — it works on every surface (Claude Code, Codex, Cursor, Copilot, Gemini) because every agent reads this file. On Claude Code the `SessionStart` hook also surfaces these automatically, but the instruction here is the source of truth and does not depend on hooks. If an artifact is absent, Fusebase Flow runs exactly as a generic install — no clutter, no degradation. To capture project vision, run `/onboard`.
+Before starting work, check whether this project has been **onboarded** — see the identical check + artifact table in the overlay below (§ Active project context — read first; single copy).
 
 ## Where things live
 
@@ -128,24 +120,7 @@ Preserve existing Fusebase CLI, MCP, SDK, provider, and project-specific rules. 
 
 ## Project-specific values
 
-> Fill in or replace these fields when installing into a project. Each field is short — prose-heavy explanations belong in `docs/constitution.md`, machine-readable enforcement belongs in `policies/`.
-
-| Field | Value | Where the data is enforced |
-|---|---|---|
-| **Project name** | `Fusebase Flow` | (informational only) |
-| **One-line description** | `Fusebase Flow lifecycle framework packaged with Fusebase Apps CLI domain skills and agents` | (informational only) |
-| **Stack** | `Repo-local Flow framework + Fusebase Apps CLI provider assets` | (informational only) |
-| **Workflow mode** | `direct_to_main` (default) or `branch_pr` | `policies/approval-policy.yml: workflow_mode` |
-| **Worker-undisturbed paths** | `<list specific files; or "none">` | `policies/protected-paths.yml: worker_undisturbed` |
-| **Mixed-fleet considerations** | `Generated apps may use original CLI assets and Flow overlay together` | per-ticket `decisions.md` references |
-| **Migration constraints** | `Do not absorb CLI provider skills into root Flow canonical skills` | per-ticket `decisions.md` references |
-| **Auth model** | `Edition template only; downstream apps follow Fusebase Apps token/MCP rules from CLI skills` | per-ticket security review + `policies/protected-paths.yml: env_and_secrets` |
-| **Deploy command** | `N/A for template; downstream apps use fusebase deploy` | `workflows/greenlight-deploy.md` |
-| **Decision letter prefix in use** | `<A, B, C, ...>` (increments per ticket) | `templates/decisions.md` |
-| **T-counter** | `<0, 1, 2, ...>` (increments per task across all tickets) | `templates/tasks.md` |
-| **CI workflow** | `.github/workflows/fusebase-flow-verify.yml` (default) | (existing) |
-
-Narrative reasoning for these values — why they're set this way for THIS project — lives in `docs/constitution.md`.
+Single copy lives in the overlay's `FLOW:PRESERVE` block below (§ Project-specific values) — fill via `/onboard` or edit there; preserved across overlay refreshes. Narrative reasoning belongs in `docs/constitution.md`; machine-readable enforcement in `policies/`.
 
 ## Quick links
 
@@ -182,7 +157,7 @@ Fusebase Flow ships:
 
 **Self-attestation (every session's first response):**
 
-> "Operating as {role} under Fusebase Flow v3.16.4. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+> "Operating as {role} under Fusebase Flow v3.17.0. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 **Operator questions:** per FR-19, ask questions in chat text, not popup / clickable menu tools. Use short option tables or numbered lists so the operator can copy, forward, quote, and follow up.
 

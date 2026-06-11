@@ -109,6 +109,13 @@ cp -R .fusebase-flow-source/templates .
 cp -R .fusebase-flow-source/workflows .
 
 cp .fusebase-flow-source/FLOW_RULES.md .
+
+# Live framework docs only (referenced by the always-on files). Upstream dev
+# history (docs/specs, docs/changes, docs/release-notes, docs/backlog,
+# docs/handoff, docs/assets ...) is deliberately NOT copied.
+mkdir -p docs
+cp .fusebase-flow-source/docs/*.md docs/
+
 # Instruction files are merge surfaces — copy only if absent, then review.
 cp -n .fusebase-flow-source/AGENTS.md . 2>/dev/null || true
 cp -n .fusebase-flow-source/CLAUDE.md . 2>/dev/null || true
@@ -140,11 +147,15 @@ foreach ($dir in '.agents','.claude','.codex','.cursor','.github') {
 # Flow-owned framework folders: copy normally.
 Copy-Item -Recurse -Force .fusebase-flow-source\hooks .
 Copy-Item -Recurse -Force .fusebase-flow-source\policies .
-Copy-Item -Recurse -Force .fusebase-flow-sourcelow-skills .
+Copy-Item -Recurse -Force .fusebase-flow-source\flow-skills .
 Copy-Item -Recurse -Force .fusebase-flow-source\templates .
 Copy-Item -Recurse -Force .fusebase-flow-source\workflows .
 
 Copy-Item -Force .fusebase-flow-source\FLOW_RULES.md .
+
+# Live framework docs only — upstream dev history is deliberately NOT copied.
+New-Item -ItemType Directory -Force -Path docs | Out-Null
+Copy-Item -Force .fusebase-flow-source\docs\*.md docs\
 # Instruction files are merge surfaces — copy only if absent, then review.
 foreach ($f in 'AGENTS.md','CLAUDE.md','GEMINI.md') {
   if ((Test-Path ".fusebase-flow-source\$f") -and (-not (Test-Path $f))) {

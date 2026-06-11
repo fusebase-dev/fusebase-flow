@@ -78,7 +78,7 @@ Operator has consented to live-user verification per `workflows/live-user-verifi
 Approval artifact: `state/approvals/session_key_or_cookie_use-<slug>-<YYYYMMDD>.json` (TTL 30 min).
 
 The session key will be supplied by the operator via env var (NOT in this handoff text).
-AI Developer must apply the session-key handling discipline (flow-skills/role-discipline/SKILL.md
+AI Developer must apply the session-key handling discipline (flow-skills/role-discipline/references/ai-developer.md
 section "AI Developer", item IM.7):
 - mask in any output (never print the value)
 - never persist to disk (no commits, no log files, no audit log)
@@ -202,7 +202,7 @@ The `stop` hook scans for this signal before allowing "smoke complete" / "deploy
 
 - `policies/approval-policy.yml: session_key_or_cookie_use` — TTL + enforcement
 - `policies/secret-patterns.yml: cookie_session_value` — pattern detection (per-tool override blocks `pre_tool_use` writes)
-- `flow-skills/role-discipline/SKILL.md` AI Developer section IM.7 — handling discipline summary
+- `flow-skills/role-discipline/references/ai-developer.md` IM.7 — handling discipline summary
 - `workflows/smoke-verification.md` — generic smoke procedure (this workflow extends it for live-user)
 - `workflows/violation-recovery.md` FR-12 — recovery if session-key was used without an artifact
 - `docs/operator-discipline.md` OD-3 — don't bypass the Product Owner (session-key proposals always go through PO)
