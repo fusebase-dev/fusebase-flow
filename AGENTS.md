@@ -50,7 +50,7 @@ Before starting work, check whether this project has been **onboarded** — see 
 | Templates (artifact substrates) | `templates/` |
 | Audit and paper trail | `audit/` |
 | Active tickets and specs | `docs/specs/<slug>/`, `docs/backlog/<slug>/` |
-| Active session continuity (restart state) | `docs/tmp/handoff.md` (single file, superseded each session — FR-23 Tier 2 / FR-18) |
+| Active session continuity (restart state) | `docs/tmp/handoff.md` (single live file, timestamped; predecessors auto-archived to `docs/tmp/handoff/archive/` — dated history, never loaded; FR-23 Tier 2 / FR-18) |
 | Formal cross-session relay prompts | `docs/tmp/handoff/<YYYY-MM-DD>-<slug>-<stage>.md` (implement / deploy) |
 
 ## Rules vs skills vs workflows vs hooks vs policies vs ignore
@@ -157,7 +157,7 @@ Fusebase Flow ships:
 
 **Self-attestation (every session's first response):**
 
-> "Operating as {role} under Fusebase Flow v3.18.1. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+> "Operating as {role} under Fusebase Flow v3.18.2. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 **Operator questions:** per FR-19, ask questions in chat text, not popup / clickable menu tools. Use short option tables or numbered lists so the operator can copy, forward, quote, and follow up.
 

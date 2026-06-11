@@ -95,6 +95,7 @@ If any of these checks fail, do NOT publish; correct the working tree and re-ver
 
 - Watch the GitHub Action `fusebase-flow-verify` on the first push; it must pass.
 - Tag the release (`v<version>`) so consumers can pin a specific version.
+- **Create the GitHub Release** (mandatory — tags alone leave the repo's Releases page stale): `gh release create v<version> -t "v<version> — <one-liner>" -F docs/release-notes/v<version>.md`.
 - Update `VERSION` only when a new release ships.
 - Document any post-publication changes in a `CHANGELOG.md` (planned for v0.2).
 

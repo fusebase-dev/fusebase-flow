@@ -1,13 +1,14 @@
 ---
 name: handoff
-description: Use when a coding session is getting long, before stopping complex implementation/migration/debugging work, or when the operator says "prepare a handoff" / "hand this off" / "continue in a new chat" / "/handoff" — writes the active restart state to docs/tmp/handoff.md so a fresh AI session resumes from the exact current point without the previous chat. Do NOT use for routine commits, human-facing status reports, formal implement/deploy role relays (those are docs/tmp/handoff/<date>-<slug>-{implement,deploy}.md), or when no meaningful code/test/schema/config/decision change happened this session.
+description: Use when a coding session is getting long, before stopping complex implementation/migration/debugging work, or when the operator says "prepare a handoff" / "hand this off" / "continue in a new chat" / "/handoff" — archives the previous handoff to docs/tmp/handoff/archive/ (paper trail), then writes the active restart state to docs/tmp/handoff.md so a fresh AI session resumes from the exact current point without the previous chat. Do NOT use for routine commits, human-facing status reports, formal implement/deploy role relays (those are docs/tmp/handoff/<date>-<slug>-{implement,deploy}.md), or when no meaningful code/test/schema/config/decision change happened this session.
 source_inspiration: conceptual-only
 license_status: clean-room-original
 fusebase_flow_version: 3.14
 risk_level: low
 invocation: manual
 expected_outputs:
-  - docs/tmp/handoff.md (active session restart state, 16 sections, Mode B)
+  - docs/tmp/handoff.md (active session restart state, 16 sections, Mode B, timestamped)
+  - docs/tmp/handoff/archive/<YYYY-MM-DD-HHMM>-handoff.md (the superseded predecessor, when one existed)
   - a short Mode A summary in chat (goal, current state, next step)
 related_workflows:
   - eight-phase-flow.md
@@ -52,15 +53,17 @@ Capture the exact current state of a coding session into `docs/tmp/handoff.md` s
 2. Inspect repo state: branch, short HEAD, `git status --short`, `git diff --stat`; review small diffs.
 3. Detect real build/test/lint commands from manifests. Do not invent.
 4. Reconstruct session facts: role + authority, goal + non-goals, done/partial/not-started, locked decisions, constraints, what failed and why, open questions, the single next concrete action.
-5. Create `docs/tmp/` if absent. Write (or supersede in place) `docs/tmp/handoff.md` using `templates/handoff.md` — same section order, every section filled with content / `Unknown` / `None`. Do NOT append resumption notes above old content (FR-18); replace.
-6. Quality bar: factual only; pointers to canonical spec/decisions/tasks instead of reprinting them (FR-23); exactly one concrete executable Next Step; preserve repo terminology; product/user decisions separate from implementation detail.
-7. Report a short Mode A summary in chat (Goal, Current state, Active files, Next step, Validation). Do not paste the full file unless asked.
+5. **Archive the predecessor (paper trail).** If `docs/tmp/handoff.md` exists, move it to `docs/tmp/handoff/archive/<YYYY-MM-DD-HHMM>-handoff.md` (timestamp from its `Updated:` header when parseable, else file mtime/now) before writing. Archive files are **dated history — agents never load them**; supersede semantics protect git-committed trails, the archive protects the common uncommitted-mid-session case. The operator may prune the archive anytime (nothing references it).
+6. Create `docs/tmp/` if absent. Write `docs/tmp/handoff.md` fresh from `templates/handoff.md` — same section order, every section filled with content / `Unknown` / `None`, and a current `Updated: <YYYY-MM-DD HH:MMZ>` timestamp in the header. Do NOT append resumption notes above old content (FR-18); the predecessor lives in the archive.
+7. Quality bar: factual only; pointers to canonical spec/decisions/tasks instead of reprinting them (FR-23); exactly one concrete executable Next Step; preserve repo terminology; product/user decisions separate from implementation detail.
+8. Report a short Mode A summary in chat (Goal, Current state, Active files, Next step, Validation). Do not paste the full file unless asked.
 
 ## Output artifacts
 
 | Artifact | Path | Mode |
 |---|---|---|
-| Active session handoff | `docs/tmp/handoff.md` | Mode B (16 sections from `templates/handoff.md`) |
+| Active session handoff | `docs/tmp/handoff.md` | Mode B (16 sections from `templates/handoff.md`, `Updated:` timestamp) |
+| Archived predecessor | `docs/tmp/handoff/archive/<YYYY-MM-DD-HHMM>-handoff.md` | dated history — never loaded |
 | Handoff summary | chat | Mode A |
 
 ## Failure cases
@@ -70,7 +73,7 @@ Capture the exact current state of a coding session into `docs/tmp/handoff.md` s
 | Nothing meaningful to hand off | `git status` clean, no in-flight decisions | Tell operator no handoff is warranted; do not write a hollow file |
 | Facts unknown | A section can't be filled from session/repo | Write `Unknown`; never invent results/decisions |
 | Vague next step | Next Step reads "continue" / "fix issues" | Rewrite as one named file/function/command + expected result |
-| Stale existing handoff | `docs/tmp/handoff.md` describes a different/old task | Supersede with current state (FR-18); do not merge contradictory histories |
+| Stale existing handoff | `docs/tmp/handoff.md` describes a different/old task | Archive it, then write current state fresh (FR-18); do not merge contradictory histories |
 | Reprinting canonical docs | Handoff restates the full spec/decisions/tasks | Replace with pointers (FR-23) + current state |
 
 ## Escalation path

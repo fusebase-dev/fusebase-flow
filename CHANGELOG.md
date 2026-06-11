@@ -4,6 +4,18 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.18.2] — 2026-06-11
+
+### Added — handoff paper trail: predecessors archived, every handoff timestamped
+
+Operator-surfaced gap: `docs/tmp/handoff.md` supersedes in place, and the "audit trail = git history" assumption fails exactly when handoffs are written — mid-session, often uncommitted — so prior restart state could be silently lost.
+
+- **Archive-on-supersede:** the `handoff` skill + `/handoff` command now move the existing `docs/tmp/handoff.md` to `docs/tmp/handoff/archive/<YYYY-MM-DD-HHMM>-handoff.md` before writing fresh. Archives are dated history — agents never load them (zero context cost); the operator may prune anytime. The live file keeps its stable name (the session-initiation read path is unchanged) and its mandatory `Updated:` timestamp header.
+- **Scope note:** formal implement/deploy relays are unchanged — a revision of the same relay correctly supersedes in place per FR-18; the active handoff is a different snapshot each time, hence the archive.
+- **PUBLISHING.md:** `gh release create` codified as a mandatory release step (this cycle's 9 releases had shipped tags-only until backfilled).
+- Carriers updated: `flow-skills/handoff` (+2 mirrors), `templates/handoff.md`, `.claude/commands/handoff.md`, `AGENTS.md` continuity row, `documentation-budget` Tier-2 row.
+- **Verified:** preflight 0/0; run-tests 24/24. Change-note: `docs/changes/2026-06-11-handoff-paper-trail.md`.
+
 ## [3.18.1] — 2026-06-11
 
 ### Fixed — post-ship audit nit-sweep (9 nits + 3 pre-existing finds; no behavior change)

@@ -1,6 +1,6 @@
 # Fusebase Flow — always-on rules (FR-01..FR-25)
 
-**Status:** v0.24 (post-ship nit-sweep v3.18.1 — waiver-path prompt/read/precondition consistency, gate-field restatements pointer-ized, no-real-decisions producer line; no rule change. Integration-debloat v3.18.0 before it.)
+**Status:** v0.25 (handoff paper trail v3.18.2 — active handoff predecessors auto-archived to docs/tmp/handoff/archive/ with timestamps; GitHub Release step codified in PUBLISHING; no rule change. v3.18.x debloat line before it.)
 **Scope:** every session in any IDE/agent must follow these regardless of which skill or workflow is active.
 
 These rules are clean-room original. Each rule states *what*, *why*, and *enforcement surface* (rule-only, policy, hook, workflow, skill). Enforcement details live in `policies/`, `hooks/`, and `workflows/` — this file is the readable contract.
@@ -52,7 +52,7 @@ If a session writes code outside its role, FR-01 fires and the agent must stop a
 
 ## Self-attestation (mandatory at first response of every session)
 
-Every role declares: "Operating as {role} under Fusebase Flow v3.18.1. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+Every role declares: "Operating as {role} under Fusebase Flow v3.18.2. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 If self-attestation is missing from the first response, the session is drifting. Self-correct in the next output.
 
@@ -480,4 +480,19 @@ Both modes preserve FR-03, FR-13, FR-14.
              gate-report placeholder attestation made sweep-maintained.
              Change-note: docs/changes/2026-06-11-v3181-nit-sweep.md. Shipped
              in framework v3.18.1.
+
+2026-06-11 — v0.25. Handoff paper trail (no rule changed). v3.18.2: operator
+             observed docs/tmp/handoff.md is overwritten in place, and the
+             FR-18 "audit trail = git history" assumption fails exactly when
+             handoffs are written — mid-session, often uncommitted. The
+             handoff skill/command now ARCHIVE the predecessor to
+             docs/tmp/handoff/archive/<YYYY-MM-DD-HHMM>-handoff.md before
+             writing fresh (timestamped Updated: header mandatory). Archives
+             are dated history — never loaded by agents (zero context cost);
+             operator may prune anytime. Formal relays unchanged (revisions
+             correctly supersede in place per FR-18). Also: gh release create
+             codified as a mandatory step in PUBLISHING.md (9 releases had
+             shipped tags-only). Change-note:
+             docs/changes/2026-06-11-handoff-paper-trail.md. Shipped in
+             framework v3.18.2.
 ```
