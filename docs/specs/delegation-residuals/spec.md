@@ -1,8 +1,8 @@
 # Spec — delegation residuals (v3.21.1)
 
-**Status:** LOCKED (operator 2026-06-12 "proceed"; source: POST-DELIVERY RESIDUALS + ADDENDUM 2 in downstream proposal 2026-06-12, post-v3.20.1/v3.21.0 verification — downstream confirms all 10 prior asks delivered)
+**Status:** DONE (shipped v3.21.1; was LOCKED operator 2026-06-12 "proceed"; source: POST-DELIVERY RESIDUALS + ADDENDUM 2 in downstream proposal 2026-06-12, post-v3.20.1/v3.21.0 verification — downstream confirms all 10 prior asks delivered)
 **Tier:** 2 · **Lane:** Lightweight-plus (4 small fixes; independent post-implementation review before ship)
-**Deploy hash:** (at DONE flip)
+**Deploy hash:** af1d5af (v3.21.1, pushed to origin/main 2026-06-12; GitHub Release published; review verdict SHIP)
 
 ## Problem
 
