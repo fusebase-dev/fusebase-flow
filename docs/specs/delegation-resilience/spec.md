@@ -1,8 +1,8 @@
 # Spec — delegation resilience + return contracts (v3.21.0)
 
-**Status:** LOCKED (operator 2026-06-12 "proceed"; plan review REVISE-FIRST → all 13 findings folded; double-review protocol: plan review → self-correct → implement → implementation review)
+**Status:** DONE (shipped v3.21.0; was LOCKED — plan review REVISE-FIRST → all 13 findings folded; double-review protocol: plan review → self-correct → implement → implementation review)
 **Tier:** 3 · **Lane:** Full (multi-skill behavior change + parser extension)
-**Deploy hash:** (at DONE flip)
+**Deploy hash:** efb49fa (v3.21.0, pushed to origin/main 2026-06-12; GitHub Release published; impl review FIX-FIRST findings fixed pre-tag)
 
 ## Problem
 
