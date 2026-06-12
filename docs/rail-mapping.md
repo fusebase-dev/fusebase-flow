@@ -1,4 +1,4 @@
-# Rail mapping — FR-01..FR-25 → enforcement surface
+# Rail mapping — FR-01..FR-26 → enforcement surface
 
 Every always-on rule in `FLOW_RULES.md` maps to one or more enforcement surfaces (rule statement only, workflow procedure, on-demand skill, lifecycle hook, machine-readable policy). This table is the canonical map.
 
@@ -29,16 +29,17 @@ Every always-on rule in `FLOW_RULES.md` maps to one or more enforcement surfaces
 | FR-23 | Documentation budget | yes | (artifact-creation discipline) | `documentation-budget`, `implementation-planning` (tier gate) | n/a (judgment-based) | n/a |
 | FR-24 | Write-time discipline delivery | yes | (delivery mechanism, not a procedure) | `role-discipline` (§ Write-time discipline digest) | `session_start` (reminder line) | n/a |
 | FR-25 | Module-size ratchet | yes | (write/plan-time; CI step) | `module-size-discipline`, `implementation-planning` (target-file rule), `code-review` (dimension 5c) | `pre-commit` git hook (module-size step) + CI `--all` step | `policies/module-size.yml` + `module-size-baseline.txt` |
+| FR-26 | Token-efficient execution | yes | (execution-time discipline + retrospective audit; deliberately no gate — semantic) | `token-economy` (carrier), `role-discipline` (digest line) | n/a (`/token-waste-audit` parser `hooks/local/token-waste-audit.py` is operator tooling, not a hook) | n/a |
 
 ## Surface counts
 
 | Surface type | Count of rules with this surface |
 |---|---|
-| Rule statement (FLOW_RULES.md) | 25 / 25 |
-| Workflow | 16 / 25 |
-| Skill | 21 / 25 |
-| Hook | 12 / 25 |
-| Policy | 9 / 25 |
+| Rule statement (FLOW_RULES.md) | 26 / 26 |
+| Workflow | 16 / 26 |
+| Skill | 22 / 26 |
+| Hook | 12 / 26 |
+| Policy | 9 / 26 |
 
 ## Cross-cutting mandatory skills
 
@@ -62,4 +63,5 @@ Any new rule (FR-16+) must be added to:
 ```
 2026-05-27 — v3.1; added FR-16..FR-19 rows and updated surface counts.
 2026-06-10 — v3.16.4; added FR-20..FR-25 rows (had drifted 6 releases behind), surface counts 19→25 base, removed dead open-questions.md reference.
+2026-06-11 — v3.20.0; added FR-26 row (token-efficient execution) at ship time per § Drift detection, surface counts 25→26 base.
 ```

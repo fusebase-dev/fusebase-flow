@@ -2,7 +2,7 @@
 
 ## Section: AI Developer
 
-**Before writing code or creating any artifact, apply the § Write-time discipline digest (FR-24) in ../SKILL.md** — its table delivers FR-09/18/22/23/25 with the skill pointer for each; FR-25 is the one member with a deterministic gate, the rest are write-time + review-time.
+**Before writing code or creating any artifact, apply the § Write-time discipline digest (FR-24) in ../SKILL.md** — its table delivers FR-09/18/22/23/25/26 with the skill pointer for each; FR-25 is the one member with a deterministic gate, the rest are write-time + review-time.
 
 ### Don't-list
 

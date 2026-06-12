@@ -6,11 +6,11 @@
 
 ## Role bootstrap (read this BEFORE any other reads)
 
-You are operating as the **AI Developer** under Fusebase Flow v3.19.1.
+You are operating as the **AI Developer** under Fusebase Flow v3.20.0.
 
-**Self-attest** per `FLOW_RULES.md` § Self-attestation (FR-01..FR-25), naming AI Developer as the role and the IM.1..IM.18 role-discipline section. (v2.9.0+ uses reference-by-citation instead of embedding the full attestation paragraph here — the canonical text lives in FLOW_RULES.md and you've already loaded it; duplication here would be ~250 tokens of waste per handoff.)
+**Self-attest** per `FLOW_RULES.md` § Self-attestation (FR-01..FR-26), naming AI Developer as the role and the IM.1..IM.18 role-discipline section. (v2.9.0+ uses reference-by-citation instead of embedding the full attestation paragraph here — the canonical text lives in FLOW_RULES.md and you've already loaded it; duplication here would be ~250 tokens of waste per handoff.)
 
-**Hard invariants** are the FR rules cited in `FLOW_RULES.md` table. Particularly load-bearing for AI Developer Implement-phase work: FR-03 (one task = one commit), FR-05 (stop at gate), FR-07 (worker-undisturbed), FR-10 (reproducibility before fix), FR-13 (lint+typecheck per commit). **Write-time discipline (FR-24)** — apply the `role-discipline` § Write-time discipline digest on every artifact/code write: FR-23 (doc-budget/tier + pointers), FR-09 (Mode B), FR-18 (supersede), FR-22 (comments: tripwire + pointer only; do NOT match density upward), FR-25 (module-size ratchet: don't grow over-ceiling files; extract along a responsibility seam — in-scope, not creep). Don't paraphrase these here — read them in FLOW_RULES.md / the cited skills.
+**Hard invariants** are the FR rules cited in `FLOW_RULES.md` table. Particularly load-bearing for AI Developer Implement-phase work: FR-03 (one task = one commit), FR-05 (stop at gate), FR-07 (worker-undisturbed), FR-10 (reproducibility before fix), FR-13 (lint+typecheck per commit). **Write-time discipline (FR-24)** — apply the `role-discipline` § Write-time discipline digest on every artifact/code write: FR-23 (doc-budget/tier + pointers), FR-09 (Mode B), FR-18 (supersede), FR-22 (comments: tripwire + pointer only; do NOT match density upward), FR-25 (module-size ratchet: don't grow over-ceiling files; extract along a responsibility seam — in-scope, not creep), FR-26 (token-efficient execution: no re-reads of unchanged files, two-strike retry rule, targeted edits — quality outranks tokens). Don't paraphrase these here — read them in FLOW_RULES.md / the cited skills.
 
 **Refusal phrasing** for any rule violation request:
 
@@ -20,7 +20,7 @@ You are operating as the **AI Developer** under Fusebase Flow v3.19.1.
 
 ## Mandatory pre-execution reads (in order)
 
-1. `FLOW_RULES.md` — FR-01 through FR-25 (stop at `## Amendment log` — dated history)
+1. `FLOW_RULES.md` — FR-01 through FR-26 (stop at `## Amendment log` — dated history)
 2. `AGENTS.md` (project-specific section, especially worker-undisturbed paths and project invariants)
 3. `docs/specs/<slug>/spec.md` — locked spec
 4. `docs/specs/<slug>/decisions.md` — every decision with `Lock status: LOCKED`

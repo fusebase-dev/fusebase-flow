@@ -1,6 +1,6 @@
 # CLAUDE.md - Claude Code adapter for Fusebase Flow
 
-This repo runs **Fusebase Flow v3.19.1**. The portable always-on baseline is in `AGENTS.md`. The full rule set is in `FLOW_RULES.md`. Read both before any other action (stop `FLOW_RULES.md` at `## Amendment log` — dated history, never load it).
+This repo runs **Fusebase Flow v3.20.0**. The portable always-on baseline is in `AGENTS.md`. The full rule set is in `FLOW_RULES.md`. Read both before any other action (stop `FLOW_RULES.md` at `## Amendment log` — dated history, never load it).
 
 ## Claude Code-specific notes
 
@@ -12,7 +12,7 @@ This repo runs **Fusebase Flow v3.19.1**. The portable always-on baseline is in 
 | Settings example (hooks wiring) | `.claude/settings.json.example` — copy to `.claude/settings.json` and customize before hooks run |
 | Flow hook handlers | `hooks/handlers/*.py` (Python, lifecycle-event-named) |
 | CLI quality hooks | `.claude/hooks/*` |
-| Always-on rules | `FLOW_RULES.md` (FR-01..FR-25; stop at `## Amendment log` — dated history) |
+| Always-on rules | `FLOW_RULES.md` (FR-01..FR-26; stop at `## Amendment log` — dated history) |
 
 ## Skills behavior under Claude Code
 
@@ -73,7 +73,7 @@ This repository follows **Fusebase Flow** in addition to project-specific rules.
 The canonical catalog lives in README § Skill catalog and the `AGENTS.md` overlay skill list.
 The 2 mandatory skills remain listed above (always loaded at session start).
 
-**Slash commands (`.claude/commands/`):** `/fusebase-health`, `/onboard`, `/product-owner`, `/handoff`.
+**Slash commands (`.claude/commands/`):** `/fusebase-health`, `/onboard`, `/product-owner`, `/handoff`, `/token-waste-audit`.
 
 **Active project context:** if `docs/north-star.md` / `docs/<app>/product.md` exist, read and follow them; if absent, run generically — never auto-create. Run `/onboard` to capture project vision.
 

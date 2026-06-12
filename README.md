@@ -6,7 +6,7 @@
 
 ![FuseBase Flow — you design and decide with the Product Owner agent, which hands off to the AI Developer agent that implements, runs the verification gate, and deploys](docs/assets/two-agent-banner.svg)
 
-[![Version](https://img.shields.io/badge/version-3.19.1-blue.svg)](VERSION)
+[![Version](https://img.shields.io/badge/version-3.20.0-blue.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![CI](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml/badge.svg)](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml)
 [![Use this template](https://img.shields.io/badge/GitHub-Use_this_template-brightgreen.svg?logo=github)](https://github.com/fusebase-dev/fusebase-flow/generate)
@@ -272,9 +272,9 @@ Preflight will warn on drift if the mirrors and canonical fall out of sync. Full
 
 ## Skill catalog
 
-Skills are on-demand expertise the agent loads when a task matches the skill's description. **29 canonical Flow skills** govern the lifecycle and project-optimization; **19 FuseBase Apps domain skills** supply the app-building knowledge. You never invoke them by hand — describe the work and the matcher loads the right one.
+Skills are on-demand expertise the agent loads when a task matches the skill's description. **30 canonical Flow skills** govern the lifecycle and project-optimization; **19 FuseBase Apps domain skills** supply the app-building knowledge. You never invoke them by hand — describe the work and the matcher loads the right one.
 
-### Flow lifecycle skills (29)
+### Flow lifecycle skills (30)
 
 | Phase | Skill | What it does |
 |---|---|---|
@@ -307,8 +307,9 @@ Skills are on-demand expertise the agent loads when a task matches the skill's d
 | Continuity | `handoff` | Writes active session restart state to `docs/tmp/handoff.md` (16-section template); operator-triggered (`/handoff`) |
 | Structure | `module-size-discipline` | FR-25 — module-size ratchet; gated source ≤ ceiling (default 800), over-ceiling files shrink-only; extraction on a responsibility seam is in-scope |
 | Quality | `app-quality-patterns` | Cross-project behavioral quality patterns (QP-xx: URL reflects view state, delete cascade policy, empty/loading/error states…) — become spec ACs by ID; Verify lines are copy-ready smoke recipes |
+| Economy | `token-economy` | FR-26 — token-efficient execution (scoped reads, no re-reads of unchanged files, two-strike retry rule, targeted edits) with per-rule quality guards; measured via `/token-waste-audit` |
 
-★ = mandatory, loaded every session. The last 9 (zoom-out … product-apps-decomposition) shipped in v3.3–v3.5; `lightweight-lane` v3.7, `comment-policy` v3.11, `documentation-budget` v3.12, `handoff` v3.14, `module-size-discipline` v3.16, `app-quality-patterns` v3.19. The project-* / north-star / client-vs-internal / product-* / guard skills are **artifact-gated** — dormant until onboarding creates their `docs/` artifact.
+★ = mandatory, loaded every session. The last 9 (zoom-out … product-apps-decomposition) shipped in v3.3–v3.5; `lightweight-lane` v3.7, `comment-policy` v3.11, `documentation-budget` v3.12, `handoff` v3.14, `module-size-discipline` v3.16, `app-quality-patterns` v3.19, `token-economy` v3.20. The project-* / north-star / client-vs-internal / product-* / guard skills are **artifact-gated** — dormant until onboarding creates their `docs/` artifact.
 
 ### FuseBase CLI provider skills (19)
 
@@ -662,11 +663,11 @@ fusebase-flow/
 ├── AGENTS.md                       ← portable always-on baseline
 ├── CLAUDE.md                       ← Anthropic Claude Code adapter
 ├── GEMINI.md                       ← Gemini-style IDE adapter
-├── FLOW_RULES.md                   ← FR-01..FR-25 always-on rules
+├── FLOW_RULES.md                   ← FR-01..FR-26 always-on rules
 ├── VERSION                         ← (current release)
 ├── .gitattributes                  ← LF line endings for shell/python/yaml/md
 ├── .python-version                 ← 3.12 (recommended)
-├── flow-skills/                         ← 29 canonical skills (2 mandatory + 27 on-demand, incl. app-quality-patterns (v3.19) + module-size-discipline (v3.16) + handoff (v3.14) + documentation-budget (v3.12) + comment-policy (v3.11) + lightweight-lane (v3.7) + the v3.3–v3.5 additions: zoom-out, phase-audit, git-history-diagnostic, project-onboarding, north-star, client-vs-internal, product-docs-first, business-logic-guardian, product-apps-decomposition)
+├── flow-skills/                         ← 30 canonical skills (2 mandatory + 28 on-demand, incl. token-economy (v3.20) + app-quality-patterns (v3.19) + module-size-discipline (v3.16) + handoff (v3.14) + documentation-budget (v3.12) + comment-policy (v3.11) + lightweight-lane (v3.7) + the v3.3–v3.5 additions: zoom-out, phase-audit, git-history-diagnostic, project-onboarding, north-star, client-vs-internal, product-docs-first, business-logic-guardian, product-apps-decomposition)
 ├── agents/                         ← 2 canonical sub-agents (product-owner, ai-developer)
 ├── workflows/                      ← 13 procedures (incl. lightweight-lane)
 ├── policies/                       ← 8 YAML policies (incl. module-size ratchet)
@@ -689,8 +690,8 @@ fusebase-flow/
 │   └── agent-mirror-manifest.txt   ← sha256 manifest for sub-agent mirrors
 ├── state/                          ← runtime state (gitignored contents)
 ├── docs/                           ← public reference docs + per-project artifacts
-├── .agents/skills/                 ← Codex skill surface (29 Flow mirrors + 19 CLI provider skills)
-├── .claude/skills/                 ← Claude Code skill surface (29 Flow mirrors + 19 CLI provider skills)
+├── .agents/skills/                 ← Codex skill surface (30 Flow mirrors + 19 CLI provider skills)
+├── .claude/skills/                 ← Claude Code skill surface (30 Flow mirrors + 19 CLI provider skills)
 ├── .claude/agents/                 ← Claude Code agent surface (2 Flow role agents + 2 CLI app agents)
 ├── .claude/commands/               ← Anthropic Claude Code slash commands (incl. /fusebase-health)
 ├── .claude/settings.json.example   ← Claude Code hook wiring
@@ -718,7 +719,7 @@ Public-facing reference material lives in [`docs/`](docs/):
 - [`ROADMAP.md`](ROADMAP.md) — what's likely next, parked backlog tickets, and explicit non-goals
 - [`docs/compatibility.md`](docs/compatibility.md) — provider / IDE support detail
 - [`docs/hook-coverage.md`](docs/hook-coverage.md) — hook × provider coverage
-- [`docs/rail-mapping.md`](docs/rail-mapping.md) — FR-01..FR-25 → enforcement surfaces
+- [`docs/rail-mapping.md`](docs/rail-mapping.md) — FR-01..FR-26 → enforcement surfaces
 - [`docs/clean-room.md`](docs/clean-room.md) — clean-room license attestation
 - [`docs/source-map.md`](docs/source-map.md) — generic pattern attribution
 

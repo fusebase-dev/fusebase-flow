@@ -12,7 +12,7 @@ FuseBase Flow ships **reactively** — each release is driven by real friction s
 - **v3.7.0–v3.11.1** — **FR-21 Lightweight Lane** (ceremony proportional to change size) and **FR-22 comment policy** (tripwire + retrieval-pointer only) with its write-time carrier skill.
 - **v3.2.0–v3.6.0** — FuseBase CLI edition packaging (CLI-first/Flow-second recovery, vendor provenance, two-writer hazard guards), generic anti-drift skills (`zoom-out`, `phase-audit`, `git-history-diagnostic`), project onboarding + North Star, upgrade-path hardening.
 
-Current shape: **25 always-on rules (FR-01..FR-25) · 29 canonical skills · 2 sub-agents · 13 workflows · 22 templates · 8 policies · 24 hook tests**.
+Current shape: **26 always-on rules (FR-01..FR-26) · 30 canonical skills · 2 sub-agents · 13 workflows · 22 templates · 8 policies · 24 hook tests**.
 
 ## Next likely (no firm dates — when needed)
 
@@ -38,7 +38,7 @@ Considered and **deliberately deferred or rejected**. Surfacing them prevents mi
 |---|---|
 | **A required CLI / install daemon / SaaS** | The whole framework is plain files in your repo. No external dependency, no runtime service. |
 | **Plugin-marketplace-only distribution** | The copy/`install.sh` model is the canonical provider-neutral path. The Claude Code plugin (v3.3.0+) is an optional convenience on one surface, never the only path. |
-| **Slash commands as the primary entry point** | Slash commands work on one provider. Skills, sub-agents, and trigger phrases work across all 5 supported surfaces; `/onboard`, `/product-owner`, `/fusebase-health`, `/handoff` are Claude Code conveniences only. |
+| **Slash commands as the primary entry point** | Slash commands work on one provider. Skills, sub-agents, and trigger phrases work across all 5 supported surfaces; `/onboard`, `/product-owner`, `/fusebase-health`, `/handoff`, `/token-waste-audit` are Claude Code conveniences only. |
 | **Telemetry / analytics / phone-home** | Local-only is a feature, not a missing capability. |
 | **Heavy framework dependencies (FastAPI, daemons, etc.)** | Stdlib-first by design; one runtime dep (PyYAML). |
 | **Vendor-specific content outside provider mirrors** | Canonical `flow-skills/` / `agents/` / `workflows/` / `templates/` are vendor-neutral; provider folders (`.claude/`, `.agents/`, `.codex/`, `.cursor/`, `.github/`) are generated mirrors or scoped adapters. |

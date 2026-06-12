@@ -1,6 +1,6 @@
-# Fusebase Flow — always-on rules (FR-01..FR-25)
+# Fusebase Flow — always-on rules (FR-01..FR-26)
 
-**Status:** v0.27 (delegation turn-completion + verification cost discipline v3.19.1 — delegated deliverables complete in-turn; record-then-read default over agent-side polling; no rule change. app-quality-patterns v3.19.0 before it.)
+**Status:** v0.28 (FR-26 added — token-efficient execution, v3.20.0: quality-first guardrail; redundant-consumption rules + `/token-waste-audit` measurement; 30th skill `token-economy`. Delegation turn-completion + verification cost discipline v3.19.1 before it.)
 **Scope:** every session in any IDE/agent must follow these regardless of which skill or workflow is active.
 
 These rules are clean-room original. Each rule states *what*, *why*, and *enforcement surface* (rule-only, policy, hook, workflow, skill). Enforcement details live in `policies/`, `hooks/`, and `workflows/` — this file is the readable contract.
@@ -32,6 +32,7 @@ These rules are clean-room original. Each rule states *what*, *why*, and *enforc
 | FR-23 | Documentation budget | An AI-consumed artifact (spec/decisions/tasks/gate/handoff/product docs, project skills) is created only when it reduces future context cost more than it adds — duplicates and template-driven docs cost tokens every load and spawn stale copies. Tier-classify first (0 none · 1 change-note · 2 active handoff `docs/tmp/handoff.md` · 3 spec+tasks · 4 full pack); honor canonical ownership; pointers over restatement. Doc-axis complement to FR-21. | rule + `flow-skills/documentation-budget/SKILL.md` + Mode-B review (`code-review` doc dimension) |
 | FR-24 | Write-time discipline delivery | The write-time rules (FR-09 Mode B, FR-18 supersede, FR-22 comments, FR-23 doc budget) only work when in the writing agent's context **at write time**; carrier skills miss operator-launched writing chats. Delivered via ONE always-on, role-scoped **write-time discipline digest** (pointer index, not duplicated bodies); every new write-time rule adds one digest line. Dev artifacts are AI-consumed → optimize for AI only; human-facing surface stays human-readable. | rule + `flow-skills/role-discipline/SKILL.md` (§ Write-time discipline digest) + `templates/handoff-implement.md` + `hooks/handlers/session_start.py` + `code-review` (review-time) |
 | FR-25 | Module-size ratchet | Source files are AI-read; a multi-thousand-line file can't be loaded in one pass, and monoliths form as the integral of N individually-reasonable diffs. Line count is objective (unlike FR-22/FR-23) → deterministic gate. Gated file ≤ ceiling (default 800, policy-set); baselined over-ceiling files may shrink, never grow; no committed baseline → warn-only. Extraction on a responsibility seam is in-scope for the task — never scope creep, never an FR-21 promotion trigger by itself. Split QUALITY (seam vs mechanical `utilsN`) is semantic → review-time only. Exemptions/baseline are operator-only; never `--no-verify`. Not retroactive. | rule + `policies/module-size.yml` + `hooks/shared/module_size.py` (`hooks/local/check-module-size.sh`) + `pre-commit` git hook + CI `--all` step + skill `flow-skills/module-size-discipline/SKILL.md` + plan-time rule (`implementation-planning`) + `code-review` dimension + FR-24 digest line |
+| FR-26 | Token-efficient execution | Cut REDUNDANT token consumption only: scoped reads, no re-reads of unchanged in-context files, skip generated/vendored files, pre-cached IDs, two-strike retry rule, targeted edits over whole-file rewrites, pointers over reprints. Redundant spend buys zero information (completes the FR-21/23/25 economy family on the execution axis). Quality outranks tokens — never skip a needed first-read or thin verification. | rule + `flow-skills/token-economy/SKILL.md` (rules + quality guards) + role-discipline § Write-time discipline digest line (FR-24 channel) + `/token-waste-audit` retrospective audit (Claude Code; portable fallback in the skill) — deliberately NOT a gate (semantic, FR-22 class; a budget gate trains truncation) |
 
 ---
 
@@ -52,7 +53,7 @@ If a session writes code outside its role, FR-01 fires and the agent must stop a
 
 ## Self-attestation (mandatory at first response of every session)
 
-Every role declares: "Operating as {role} under Fusebase Flow v3.19.1. I will follow FR-01 through FR-25. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+Every role declares: "Operating as {role} under Fusebase Flow v3.20.0. I will follow FR-01 through FR-26. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 If self-attestation is missing from the first response, the session is drifting. Self-correct in the next output.
 
@@ -75,6 +76,8 @@ If self-attestation is missing from the first response, the session is drifting.
 **FR-24 implication for every writing role:** apply role-discipline § Write-time discipline digest on every artifact/code write; load the cited skill for full detail. Delegated sub-agents do NOT inherit it — the delegating prompt must inline the digest + `comment-policy` push-block per `flow-skills/task-delegation`.
 
 **FR-25 implication for every role that plans or writes code:** **Planning (PO):** every task names its target file(s); a task targeting an over-ceiling file states the extraction (new module + responsibility seam) or carries a one-line operator exemption — "where does this code live" is decided at Plan, not mid-implement. **Writing (AI Developer):** an edit that would grow a gated file past ceiling/baseline → extract along a responsibility seam as part of the task; if extraction is impossible (in-place fix inside a frozen file), surface it to the operator (FR-19) — all remedies (`exempt_globs`, `--write-baseline [path]`) are operator-run. Decomposing an existing monolith is its own ticket, never a side effect. Full detail: `flow-skills/module-size-discipline/SKILL.md`.
+
+**FR-26 implication for every tool-using role:** quality outranks tokens — the correctness/safety floor always wins; FR-26 cuts REDUNDANT consumption only (re-reads of unchanged in-context files, retry storms, whole-file rewrites, reprints), never a needed first-read, verification depth, or reasoning. Full rules with their quality guards + measurement (`/token-waste-audit`): `flow-skills/token-economy/SKILL.md`.
 
 ---
 
@@ -537,4 +540,27 @@ Both modes preserve FR-03, FR-13, FR-14.
              validation-and-qa cross-references it. Change-note:
              docs/changes/2026-06-11-delegation-verification-discipline.md.
              Shipped in framework v3.19.1.
+
+2026-06-11 — v0.28. FR-26 added (token-efficient execution). Driver: after
+             FR-21/22/23/25 + v3.19.1 the execution axis still leaked —
+             read-side waste (re-reading unchanged files, whole-file reads for
+             one fact, reading generated/vendored files, re-deriving known
+             IDs), retry storms (same failing approach re-attempted instead of
+             diagnosed), whole-file regeneration for small edits — and, root
+             cause, no measurement: nobody could see where a session's tokens
+             went. Operator constraint is the rule's FIRST clause: quality
+             outranks tokens — rules cut REDUNDANT consumption only; never
+             skip a needed first-read, thin verification, or truncate
+             reasoning. Deliberately no gate/hook (FR-22 semantic class; a
+             budget gate trains truncation = intelligence damage). Delivery:
+             one FR-24 digest line (all tool-using execution, every role) +
+             30th carrier skill flow-skills/token-economy (guardrail-first
+             rules table with per-row quality guards; pointers to canonical
+             homes, no restatement) + deterministic stdlib parser
+             hooks/local/token-waste-audit.py behind the /token-waste-audit
+             slash command (Claude Code; requestId-deduped usage totals, leak
+             signatures reported as candidates-not-verdicts, privacy-
+             preserving report to state/audit/); non-Claude surfaces degrade
+             to the repo-side fallback summary. Spec:
+             docs/specs/token-economy/spec.md. Shipped in framework v3.20.0.
 ```

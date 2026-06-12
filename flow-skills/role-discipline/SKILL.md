@@ -47,7 +47,7 @@ There is no scenario where this skill doesn't apply during an active session. It
 | Input | Where it lives | If missing |
 |---|---|---|
 | Self-attested role | first-response self-attestation phrase | STOP — agent must self-attest a role before any other action |
-| `FLOW_RULES.md` (FR-01..FR-25) | repo root | read at session start **down to `## Amendment log`** (the log is dated history — never load it). The hook layer only existence-checks it. The write-time rules (FR-09/18/22/23/25) are additionally delivered always-on via § Write-time discipline digest below (FR-24); load the cited skill for full detail. |
+| `FLOW_RULES.md` (FR-01..FR-26) | repo root | read at session start **down to `## Amendment log`** (the log is dated history — never load it). The hook layer only existence-checks it. The write-time rules (FR-09/18/22/23/25/26) are additionally delivered always-on via § Write-time discipline digest below (FR-24); load the cited skill for full detail. |
 | `policies/command-policy.yml` (deny + require_approval lists) | `policies/` | hooks consult this; agent should not duplicate the check |
 
 ## Procedure
@@ -235,7 +235,7 @@ Or just silently remove it before sending. The catch is what matters, not the ap
 
 ## Write-time discipline digest (FR-24 / v3.15.0)
 
-**Mandatory for every WRITING role** — AI Developer (code + artifacts); Product Owner / Architect when writing specs/decisions/tasks/handoffs. This digest is the always-on, in-context **delivery** of the write-time rules (per FR-24). It is a **pointer index, not a duplicate** of their bodies (itself an FR-23 application) — load the cited skill for full detail. Apply it whenever you create/edit an artifact or write code.
+**Mandatory for every WRITING role** — AI Developer (code + artifacts); Product Owner / Architect when writing specs/decisions/tasks/handoffs. This digest is the always-on, in-context **delivery** of the write-time rules (per FR-24). It is a **pointer index, not a duplicate** of their bodies (itself an FR-23 application) — load the cited skill for full detail. Apply it whenever you create/edit an artifact or write code. The digest also carries the execution-time economy rule (FR-26) — same always-on channel; the FR-24 row in FLOW_RULES stays untouched.
 
 | Rule | Write-time discipline (one line) | Applies to | Full source |
 |---|---|---|---|
@@ -244,6 +244,7 @@ Or just silently remove it before sending. The catch is what matters, not the ap
 | FR-18 | Revising an artifact → REPLACE stale content in place; don't accumulate old+new; git history is the audit trail | all artifact writing | this skill § Supersede Convention |
 | FR-22 | Code comments: only (1) tripwire + (2) ≤1-line retrieval pointer; remove WHAT-restating / changelog / recorded-elsewhere; do NOT match surrounding density upward | code-writing (AI Developer) | `flow-skills/comment-policy/SKILL.md` |
 | FR-25 | Module size: a gated source file stays ≤ the ceiling (default 800); over-ceiling files may shrink, never grow (ratchet vs the committed baseline); extraction along a responsibility seam is in-scope for the task — NOT scope creep; tasks name target files at Plan; never bypass the gate with `--no-verify` | code-writing (AI Developer) + task planning (PO) | `flow-skills/module-size-discipline/SKILL.md` |
+| FR-26 | Token-efficient execution: scope reads to the fact needed (before an EDIT, read enough context to hold the file's invariants); no re-reads of unchanged in-context files (re-read REQUIRED after invalidation: own Edit/Write, hooks/formatters, delegated agents, git ops, failed Edit match, compaction); two-strike retry rule; targeted edits over whole-file rewrites — quality outranks tokens: never skip a needed first-read or thin verification | all tool-using execution (every role) | `flow-skills/token-economy/SKILL.md` |
 
 **Audience (the why):** human operators do NOT read dev artifacts — comments, specs, decisions, tasks, gates, handoffs, business-logic *index* are AI-consumed → **optimize for AI agents only**. The human-facing surface stays human-readable and is OUT of scope: `README.md` + translated READMEs, `CONTRIBUTING`/`SECURITY`/`LICENSE`/`PUBLISHING`, `AGENTS.md`/`CLAUDE.md`/`GEMINI.md` onboarding, opt-in `business-logic.md` narrative.
 

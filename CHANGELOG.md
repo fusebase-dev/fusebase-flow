@@ -4,6 +4,18 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.20.0] — 2026-06-11
+
+### Added — FR-26 token-efficient execution + `token-economy` skill + `/token-waste-audit`
+
+Closes the last uncovered token-leak class: implementation sessions consuming context without considering efficiency — read-side waste (re-reads, whole-file reads for one fact, generated-file reads, re-derived IDs), retry storms, whole-file rewrites — and the root cause: **no measurement**. Built under a double-review protocol (independent plan review → spec corrections → implementation → independent implementation review).
+
+- **FR-26 (token-efficient execution)** — completes the economy family (FR-21 process · FR-23 docs · FR-25 modules · FR-26 execution). **Quality-first guardrail is the rule's first clause**: cut REDUNDANT consumption only — never skip a needed first-read, never thin verification, never truncate reasoning; on conflict the correctness/safety floor wins. Deliberately NOT a gate (a token budget trains truncation). One FR-24 digest line.
+- **30th skill `token-economy`** — execution rules with explicit quality guards from the plan review: scoped reads (fact-finding vs edit-context — never grep-and-edit blind), no re-reads of unchanged in-context files (re-read REQUIRED after invalidation events incl. parallel agents, hooks, failed Edit match, compaction), generated/vendored read ban (subject-of-task exception), two-strike retry rule (FR-10 3/3 reproduction + test-reruns-after-change + labeled flaky retries are NOT strikes), targeted edits (FR-18 rewrites exempt), pointers to the canonical pre-cached-IDs and record-then-read homes.
+- **`/token-waste-audit`** (5th command) + `hooks/local/token-waste-audit.py` (351 lines, stdlib) — parses the project's local session transcripts: per-session deduped token totals (**requestId dedupe — naive summation overcounts ~2.4×**, the plan review's blocker catch), cache-growth visibility, and leak-candidate signatures (identical-window re-reads, no-edit-between polling runs, top sinks, large rewrites) framed as candidates with documented false-positive classes. Privacy: no message/thinking/result text in reports; commands truncated. Portable degradation: repo-side fallback on non-Claude surfaces. Live-proven on this repo's own transcripts + empty/nonexistent/malformed-input paths.
+- Counts: skills 29 → **30** (mirrors 60; 78 mirrored files); commands 4 → **5**; FR range FR-01..FR-26. Implementation review: 1 count blocker + 1 count word fixed pre-ship.
+- **Verified:** preflight 0/0 (incl. new §8 lines); run-tests 24/24; `--all` green. Spec: `docs/specs/token-economy/spec.md`. Detail: `docs/release-notes/v3.20.0.md`.
+
 ## [3.19.1] — 2026-06-11
 
 ### Added — delegation turn-completion rule + verification cost discipline (downstream proposal)

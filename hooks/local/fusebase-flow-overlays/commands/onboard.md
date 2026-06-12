@@ -6,7 +6,7 @@ description: Onboard THIS project to Fusebase Flow. The Product Owner interviews
 
 Adopt the **Product Owner** role and run the `project-onboarding` skill.
 
-1. Self-attest per `FLOW_RULES.md` (FR-01..FR-25). Do not write application code.
+1. Self-attest per `FLOW_RULES.md` (FR-01..FR-26). Do not write application code.
 2. Ask the operator the adoption level (FR-19): (a) one-line North Star, (b) full discovery interview, (c) skip. Respect "skip".
 3. Run the discovery interview in chat text (one topic at a time): who/your edge · audience (internal vs client) · product vision / apps to build · domain · success · constraints.
 4. Ingest any research the operator dropped in `docs/**/research/`; summarize, never invent.

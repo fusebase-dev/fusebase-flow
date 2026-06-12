@@ -191,6 +191,8 @@ fi
 VER_FILE="$(tr -d '\n\r' < VERSION 2>/dev/null)"
 [ -f .claude/commands/handoff.md ] || err "missing .claude/commands/handoff.md (/handoff slash command)"
 grep -q '/handoff' CLAUDE.md || err "CLAUDE.md does not list the /handoff slash command"
+[ -f .claude/commands/token-waste-audit.md ] || err "missing .claude/commands/token-waste-audit.md (/token-waste-audit slash command)"
+grep -q '/token-waste-audit' CLAUDE.md || err "CLAUDE.md does not list the /token-waste-audit slash command"
 grep -qi 'invoke the `handoff` skill' AGENTS.md || err "AGENTS.md does not explain the portable (non-Claude) handoff invocation"
 if [ -f .claude-plugin/plugin.json ] && command -v python3 >/dev/null 2>&1; then
     plugin_ver="$(python3 -c "import json,sys; print(json.load(open('.claude-plugin/plugin.json')).get('version',''))" 2>/dev/null)"

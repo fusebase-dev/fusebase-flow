@@ -71,4 +71,4 @@ The universal Flow template is intentionally product-neutral. Fusebase Apps CLI 
 | `docs/operator-discipline.md` | Operator expectations |
 | `docs/tradeoffs.md` | Framework tensions |
 | `policies/*.yml` | Machine-readable enforcement |
-| `FLOW_RULES.md` | FR-01..FR-25 always-on rules |
+| `FLOW_RULES.md` | FR-01..FR-26 always-on rules |
