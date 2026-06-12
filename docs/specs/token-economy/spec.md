@@ -1,8 +1,8 @@
 # Spec — token-economy + /token-waste-audit (v3.20.0)
 
-**Status:** LOCKED (operator 2026-06-11; command name `/token-waste-audit`; double-review protocol: plan review → self-correct → implement → implementation review)
+**Status:** DONE (shipped v3.20.0; was LOCKED operator 2026-06-11; command name `/token-waste-audit`; double-review protocol: plan review → self-correct → implement → implementation review)
 **Tier:** 3 · **Lane:** Full (new FR + 30th skill + parser script + 5th slash command)
-**Deploy hash:** (at DONE flip)
+**Deploy hash:** 3e997af (v3.20.0, pushed to origin/main 2026-06-11; GitHub Release published)
 
 ## Problem
 
