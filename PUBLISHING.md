@@ -91,6 +91,8 @@ echo "All tracked top-level entries are on the approved allowlist."
 
 If any of these checks fail, do NOT publish; correct the working tree and re-verify.
 
+**Shipping a new slash command?** The same release MUST ship its installer surface (v3.20.1 rule: *a preflight check may only ship in the same release as its installer step*): the recovery-snapshot copy in `hooks/local/fusebase-flow-overlays/commands/` (this is what `upgrade.sh`/`post-fusebase-update.sh` Step 8 install downstream) plus the command's entry in preflight §8 `FLOW_COMMANDS`. Preflight enforces all three surfaces (live file · snapshot copy · CLAUDE.md reference) per command — an incomplete command surface fails the release here instead of landing BROKEN on every consumer upgrade.
+
 ## After publication
 
 - Watch the GitHub Action `fusebase-flow-verify` on the first push; it must pass.

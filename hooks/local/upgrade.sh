@@ -53,6 +53,18 @@
 
 set -euo pipefail
 
+# v3.20.1: the WHOLE body lives in main() so bash parses the entire file before
+# executing a single step. Step 1 refreshes hooks/ — INCLUDING THIS RUNNING
+# FILE. Without the wrapper, bash keeps streaming the (now-replaced) script at
+# a stale byte offset and aborts mid-upgrade with a syntax error (observed on
+# the 3.19.1 -> 3.20.1 hop; nondeterministic before that — offset-dependent).
+# Engines ≤3.20.0 lack this guard: from those versions, either upgrade via
+#   bash hooks/local/bootstrap-upgrade.sh -- --auto-yes   (stages the new
+# engine FIRST, so the self-overwrite is byte-identical and harmless), or
+# simply RE-RUN upgrade.sh after the abort — the refreshed engine completes
+# the remaining steps idempotently.
+main() {
+
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$ROOT"
 
@@ -66,7 +78,7 @@ for arg in "$@"; do
     --auto-yes|-y) AUTO_YES=1 ;;
     --dry-run|-n) DRY_RUN=1 ;;
     --with-framework-docs) WITH_DOCS=1 ;;
-    --help|-h) sed -n '2,42p' "$0"; exit 0 ;;
+    --help|-h) sed -n '2,52p' "$0"; exit 0 ;;
     *) echo "Unknown argument: $arg" >&2; echo "Run with --help for usage." >&2; exit 2 ;;
   esac
 done
@@ -109,7 +121,11 @@ echo ""
 # v3.9.0: canonical skills moved root skills/ -> flow-skills/ (the FuseBase CLI
 # deprecates the root ./skills name). Step 1b below migrates an existing install's
 # legacy root skills/ away after the new flow-skills/ lands.
-CONTENT_DIRS=( "flow-skills" "agents" "workflows" "policies" "templates" "hooks" )
+# v3.20.1: .claude-plugin included — preflight §8 requires plugin.json version
+# == VERSION, but nothing refreshed it on upgrade, so every 3.14.1+ consumer
+# upgrade landed with a version-mismatch ERROR (same installer-parity class as
+# the slash-command gap).
+CONTENT_DIRS=( "flow-skills" "agents" "workflows" "policies" "templates" "hooks" ".claude-plugin" )
 CONTENT_FILES=( "FLOW_RULES.md" )
 # Framework reference docs (top-level docs/*.md). U4: NOT copied into the consumer
 # by default (they're framework-dev docs that collide with consumer doc layouts).
@@ -167,6 +183,7 @@ for p in "${PLAN[@]}"; do echo "  • $p"; done
 echo "  • re-mirror skills + agents (canonical -> .claude/.agents/.codex)"
 echo "  • sync derived attestation strings (version + FR-range + skill count) from the repo"
 echo "  • version-aware refresh of AGENTS.md/CLAUDE.md overlay blocks (operator FLOW:PRESERVE region carried forward)"
+echo "  • restore Flow slash commands: recovery snapshot -> .claude/commands/ (new commands install here)"
 [ "$WITH_DOCS" -eq 1 ] && echo "  • copy framework docs -> docs/_fusebase-flow/ (--with-framework-docs)" || echo "  • (framework docs NOT copied — pass --with-framework-docs to stage them under docs/_fusebase-flow/)"
 [ -n "$VERSION_CHANGE" ] && echo "  • $VERSION_CHANGE  (applied LAST, after content)"
 echo ""
@@ -242,8 +259,28 @@ fi
 # ---- Step 3: sync embedded version strings now that VERSION reflects target ----
 [ -x hooks/local/sync-version-strings.sh ] && bash hooks/local/sync-version-strings.sh || true
 
-# ---- Step 4: version-aware overlay refresh (F2) ----
+# ---- Step 4: version-aware overlay refresh (F2) + slash-command restore ----
+# post-fusebase-update.sh Step 8 installs any NEW commands from the (just-
+# refreshed) recovery snapshot hooks/local/fusebase-flow-overlays/commands/ —
+# this is the installer step for command-adding releases (v3.20.1).
 bash hooks/local/post-fusebase-update.sh --refresh-overlays >/dev/null 2>&1 || true
+
+# ---- Step 4b: command doc-ref self-check (v3.20.1) ----
+# The overlay refresh above is the injection path for CLAUDE.md command refs.
+# If a consumer's CLAUDE.md is customized past marker recovery, the refresh can
+# miss — preflight would then fail with a missing /<cmd> reference. Convert that
+# silent BROKEN into an actionable notice here.
+if [ -f CLAUDE.md ] && [ -d hooks/local/fusebase-flow-overlays/commands ]; then
+  for cmd_file in hooks/local/fusebase-flow-overlays/commands/*.md; do
+    [ -f "$cmd_file" ] || continue
+    cmd="$(basename "$cmd_file" .md)"
+    if ! grep -q "/$cmd\b" CLAUDE.md; then
+      echo "[upgrade] WARN: CLAUDE.md does not reference the /$cmd slash command —"
+      echo "          add /$cmd to the 'Slash commands (.claude/commands/)' line in the"
+      echo "          Fusebase Flow overlay block (preflight errors until it is listed)."
+    fi
+  done
+fi
 
 # ---- .pyc scrub (F6) ----
 find . -path ./.fusebase-flow-source -prune -o -name "*.pyc" -print -delete 2>/dev/null | grep -q . \
@@ -273,3 +310,7 @@ echo "            rm -rf .fusebase-flow-source                         # transie
 echo "          or add it to your eslint ignores (next to .claude/**):"
 echo "            bash hooks/local/eslint-ignore-flow-paths.sh"
 exit 0
+
+}
+
+main "$@"

@@ -186,13 +186,19 @@ if [ "${#mcp_present[@]}" -gt 0 ]; then
     warn "existing Fusebase CLI / MCP configuration detected (${mcp_present[*]}); ensure Fusebase Flow was installed as an append/merge overlay (see docs/install-fusebase-cli-project.md)"
 fi
 
-# 8. Command-surface consistency (v3.14.1+): the handoff command/skill surfaces
-#    and the plugin manifest version must stay in lockstep with the framework.
+# 8. Command-surface consistency (v3.14.1+; data-driven v3.20.1): every Flow
+#    slash command must ship its FULL surface in lockstep — the live command
+#    file, the recovery-snapshot copy (the upgrade.sh/post-fusebase-update
+#    installer source; a check may only ship in the same release as its
+#    installer step), and the CLAUDE.md reference. New command = one array
+#    entry + the snapshot copy; preflight fails the release otherwise.
 VER_FILE="$(tr -d '\n\r' < VERSION 2>/dev/null)"
-[ -f .claude/commands/handoff.md ] || err "missing .claude/commands/handoff.md (/handoff slash command)"
-grep -q '/handoff' CLAUDE.md || err "CLAUDE.md does not list the /handoff slash command"
-[ -f .claude/commands/token-waste-audit.md ] || err "missing .claude/commands/token-waste-audit.md (/token-waste-audit slash command)"
-grep -q '/token-waste-audit' CLAUDE.md || err "CLAUDE.md does not list the /token-waste-audit slash command"
+FLOW_COMMANDS=(fusebase-health onboard product-owner handoff token-waste-audit)
+for c in "${FLOW_COMMANDS[@]}"; do
+    [ -f ".claude/commands/$c.md" ] || err "missing .claude/commands/$c.md (/$c slash command)"
+    [ -f "$OVL/commands/$c.md" ] || err "command '/$c' missing from recovery snapshot fusebase-flow-overlays/commands/ — a command surface may only ship with its installer step (upgrade would land BROKEN downstream)"
+    grep -q "/$c\b" CLAUDE.md || err "CLAUDE.md does not list the /$c slash command"
+done
 grep -qi 'invoke the `handoff` skill' AGENTS.md || err "AGENTS.md does not explain the portable (non-Claude) handoff invocation"
 if [ -f .claude-plugin/plugin.json ] && command -v python3 >/dev/null 2>&1; then
     plugin_ver="$(python3 -c "import json,sys; print(json.load(open('.claude-plugin/plugin.json')).get('version',''))" 2>/dev/null)"

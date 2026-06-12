@@ -1,0 +1,42 @@
+# Spec — upgrade installer parity for slash commands (v3.20.1)
+
+**Status:** LOCKED (operator 2026-06-12 "proceed"; downstream defect reports 2026-06-07 + RECURRENCE 2026-06-12, paperclip+hermes-v1)
+**Tier:** 2 · **Lane:** Lightweight-plus (defect fix; independent post-implementation review before ship)
+**Deploy hash:** (at DONE flip)
+
+## Problem
+
+`upgrade.sh` upgrades that cross a command-adding release leave the consumer BROKEN by its own preflight (recurred 3.11.1→3.14.2 `/handoff` and 3.19.0→3.20.0 `/token-waste-audit`). Root cause is **singular**: the installer chain already exists (`upgrade.sh` step 4 → `post-fusebase-update.sh` Step 8, a data-driven loop over the recovery snapshot) but the snapshot `hooks/local/fusebase-flow-overlays/commands/` was never updated for new commands (3 of 5 present) — and preflight 5d checks snapshot→live only, so live commands absent from the snapshot are invisible at write time. Downstream's sharpened ask: *a preflight check may only ship in the same release as its installer step.*
+
+## Decisions (locked)
+
+| ID | Decision | Rejected |
+|---|---|---|
+| U1 | **No new mirror script.** Proposal A is satisfied by the existing chain once the snapshot is complete: upgrade.sh refreshes `hooks/` (snapshot included) from source BEFORE step 4 runs Step 8 from the refreshed tree. Backfill `handoff.md` + `token-waste-audit.md` (byte-identical to live; 5d `cmp` enforces). | `mirror-commands.sh` (duplicates Step 8; third mirror manifest to maintain). |
+| U2 | **Write-time gate (the recurrence killer):** preflight §8 refactored data-driven — one `FLOW_COMMANDS` array (fusebase-health, onboard, product-owner, handoff, token-waste-audit); per command THREE err checks: live `.claude/commands/<c>.md` exists · **snapshot `fusebase-flow-overlays/commands/<c>.md` exists** ("a command surface may only ship with its installer step") · CLAUDE.md references `/<c>`. Adding command #6 = adding it to the array; forgetting the snapshot copy fails upstream preflight before the release can ship. AGENTS.md portable-handoff check unchanged. | Upstream-vs-consumer detection for a live⊆snapshot check (no reliable discriminator; operator-own commands would false-error); keeping 5 hand-written check lines (the rot vector). |
+| U3 | **Proposal C at WARN level:** upgrade.sh, after step 4, self-checks each snapshot command for a `/<name>` reference in CLAUDE.md (when present) and prints an actionable WARN naming the command + the fix. No injection outside the overlay block — the marker-anchored overlay refresh is the injection path; the WARN converts the silent-BROKEN residue (heavily customized/marker-less consumer docs) into a one-line notice. | Direct sed-injection into operator-customized CLAUDE.md (report itself flags it as the judgment call). |
+| U4 | **Proposal D:** comments only — `post-fusebase-update.sh` line-15 enumeration and the Step 8 header name specific commands; the loop is already data-driven. Reword both to non-enumerating. | Code change (none needed). |
+| U5 | **Process rule in PUBLISHING.md:** release checklist gains "ships a new slash command? → same release MUST add the recovery-snapshot copy + the `FLOW_COMMANDS` array entry (preflight enforces)". | Rule-only fix without the deterministic gate (the 2026-06-07 report already proved process text alone doesn't hold). |
+| U6 | **Verification = the report's own recipe**, end-to-end with the REAL old engine: consumer = `git archive v3.19.1` extract, source = patched working tree; assert post-upgrade preflight **0 errors**, `/token-waste-audit` installed + CLAUDE.md ref present, no manual wiring. Two paths (see U7): (a) old `upgrade.sh` direct → abort+re-run completes; (b) old `bootstrap-upgrade.sh -- --auto-yes` → one-shot. | Unit-only verification (the defect lived in the gaps between units); synthetic consumer (a degraded copy of HEAD masks old-engine behavior — proven: the first sim with the real v3.19.1 engine exposed U7). |
+| U7 | **Self-overwrite landmine (found by the U6 sim, worse than the reported defect):** `upgrade.sh` step 1 refreshes `hooks/` — overwriting its own running file; bash streams scripts incrementally, so the run aborts mid-upgrade with a syntax error at a stale byte offset (deterministic on the 3.19.1→3.20.1 hop; offset-dependent luck before). Fix: wrap the entire body in `main() { … } ; main "$@"` so the file is fully parsed before step 1 executes — v3.20.1+ engines are immune. For consumers on ≤3.20.0 engines (unfixable retroactively): document both recoveries — `bootstrap-upgrade.sh -- --auto-yes` (stages the new engine FIRST; self-overwrite becomes byte-identical → harmless) as the recommended cross-version path, and "re-run upgrade.sh after the abort" (refreshed engine completes idempotently). | Temp-copy re-exec (more moving parts than the parse-complete idiom); rewriting history/old releases (impossible); silence (the abort strands consumers half-upgraded: content new, VERSION old, mirrors stale, commands missing). |
+
+| U8 | **Second parity gap, same class (found by the U6 sim):** preflight §8 (3.14.1+) requires `.claude-plugin/plugin.json` version == VERSION, but `upgrade.sh` never refreshed `.claude-plugin/` — every 3.14.1+ consumer upgrade landed with a version-mismatch ERROR. Fix: `.claude-plugin` added to `CONTENT_DIRS` (refreshed from source in step 1, before the VERSION bump — the "VERSION never leads content" invariant holds). Sim-faithfulness note: consumers are git repos; the sim consumer is `git init`-ed (preflight's `$FF_DIR` falls back to an msys-style `pwd` outside a git repo, which native Windows Python cannot open — 8 false YAML errors, sim artifact only). | Teaching sync-version-strings.sh to rewrite plugin.json (scope creep into the upstream release recipe; dir refresh already fully covers the consumer side). |
+
+## ACs
+
+1. AC1 — Snapshot complete: 5/5 commands in `fusebase-flow-overlays/commands/`, byte-identical to `.claude/commands/` (5d cmp clean).
+2. AC2 — preflight §8 data-driven over `FLOW_COMMANDS`; removing any snapshot file ⇒ preflight ERROR (proven in sim).
+3. AC3 — upgrade.sh step-4b doc-ref WARN: logic verified via captured standalone harness (fixture CLAUDE.md missing one ref → exactly one WARN, correct command named). In integration the overlay refresh self-heals refs, so the WARN is reachable only in degraded states (refresh crash, missing template) — not full-run sim-captured, by design. Plan output mentions the command-restore step.
+4. AC4 — Comments de-enumerated (post-fusebase-update.sh:15 + Step 8 header).
+5. AC5 — PUBLISHING.md checklist rule present.
+6. AC6 — E2E sim (U6) passes on BOTH paths against the real v3.19.1 engine: (a) direct upgrade.sh abort → re-run → preflight 0 errors; (b) bootstrap one-shot → preflight 0 errors; `/token-waste-audit` installed + CLAUDE.md ref present with zero manual steps.
+6b. AC6b — v3.20.1 engine is self-overwrite-immune: upgrading FROM a tree with the main()-wrapped engine completes in one run even when hooks/ content differs.
+7. AC7 — Gates: preflight 0/0 · run-tests 24/24 · sweep clean · overlays byte-match · independent review findings fixed before ship.
+
+## Independent review (FIX-FIRST → resolved)
+
+Reviewer confirmed all mechanical claims (gates, §8 superset-of-old, negative test, wrapper semantics, byte-identical snapshot, history guard) and returned 7 findings: (1) AC6 sim evidence predated the U8 fix — paths (a)/(c) re-run against the final tree to observed 0/0 (logs `C:\tmp\ff-sim5`); (2) AC3 overclaim — reworded above; (3) pre-existing: sync-version-strings rewrote attestations inside `*.pre-upgrade-*`/`*.pre-bootstrap-*` backup DIRS (basename-only exclusion) — fixed in this release (prune group + file exclusions); (4) `grep -q "/$c"` substring false-pass — `\b` added (preflight §8 + upgrade.sh 4b); (5) `--help` sed range stale at 2,42 — now 2,52 (full Usage/exit codes); (6) accepted: no upgrade-time WARN for the AGENTS.md portable-handoff err (overlay refresh self-heals; revisit with delegation-resilience ticket); (7) accepted residual: `FLOW_COMMANDS` is itself an enumerated list — a release omitting BOTH array entry and snapshot passes preflight; guarded by the PUBLISHING.md rule only (U2 consciously rejected live-dir derivation).
+
+## Out of scope
+
+Delegation-resilience asks (separate v3.21.0 ticket); retroactive consumer repairs (downstream already self-fixed); AGENTS.md ref checks beyond the existing handoff line.

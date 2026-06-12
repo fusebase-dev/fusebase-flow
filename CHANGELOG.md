@@ -4,6 +4,23 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.20.1] — 2026-06-12
+
+### Fixed — upgrade installer parity for slash commands + self-overwrite-safe engine
+
+Downstream defect reports (paperclip+hermes-v1, 2026-06-07 + recurrence 2026-06-12): `upgrade.sh` upgrades crossing a command-adding release (3.14.x `/handoff`, 3.20.0 `/token-waste-audit`) left consumers BROKEN by their own preflight. Root cause was singular: the installer chain already existed (`upgrade.sh` → `post-fusebase-update.sh` Step 8, data-driven) but the recovery snapshot `hooks/local/fusebase-flow-overlays/commands/` was never updated for new commands, and no check enforced it.
+
+- **Recovery snapshot backfilled** — 5/5 commands present (added `handoff.md`, `token-waste-audit.md`), byte-identical to `.claude/commands/` (preflight 5d `cmp` enforces).
+- **Write-time gate (the recurrence killer)** — preflight §8 is now data-driven over one `FLOW_COMMANDS` array; per command three ERROR checks: live file · **recovery-snapshot copy** · CLAUDE.md reference. *A command surface may only ship with its installer step* — forgetting the snapshot now fails the release upstream instead of landing BROKEN downstream.
+- **Self-overwrite-safe engine (found by the E2E sim; worse than reported)** — `upgrade.sh` refreshes `hooks/` including its own running file; bash streams scripts incrementally, so pre-3.20.1 engines can abort mid-upgrade with a syntax error at a stale byte offset (deterministic on the 3.19.1→3.20.1 hop). The body now lives in a `main()` wrapper (whole file parsed before step 1 runs). Upgrading FROM ≤3.20.0: use `bootstrap-upgrade.sh -- --auto-yes` (stages the new engine first → harmless) or re-run `upgrade.sh` after an abort (idempotent completion). README documents both.
+- **Actionable instead of silent** — upgrade.sh step 4b warns when CLAUDE.md lacks a `/command` reference after the overlay refresh; plan output names the command-restore step; `post-fusebase-update.sh` comments de-enumerated (the Step 8 loop was already data-driven).
+- **Process rule (PUBLISHING.md)** — shipping a new slash command requires the snapshot copy + `FLOW_COMMANDS` entry in the same release; preflight enforces.
+- **Second parity gap, same class (found by the E2E sim):** preflight requires `.claude-plugin/plugin.json` version == VERSION (3.14.1+), but `upgrade.sh` never refreshed `.claude-plugin/` — every 3.14.1+ consumer upgrade landed with a version-mismatch ERROR. `.claude-plugin` added to the refresh list.
+- Verified end-to-end against the **real v3.19.1 engine** (`git archive v3.19.1`, git-inited consumers, final tree): direct-upgrade abort→re-run, bootstrap one-shot, and wrapped-engine byte-diff immunity — all three observed at preflight **0 errors / 0 warnings** with `/token-waste-audit` installed, CLAUDE.md ref present, plugin.json parity, zero manual wiring.
+- **Independent review (FIX-FIRST → resolved)** — all mechanical claims verified; review-driven hardenings folded in: the attestation sweep no longer rewrites version strings inside `*.pre-upgrade-*`/`*.pre-bootstrap-*` backup dirs (pre-existing bug — rollback backups stay pristine), command-ref greps gained word boundaries (`/onboard` no longer satisfied by `/onboarding`), `upgrade.sh --help` prints the full usage header.
+
+Spec: `docs/specs/upgrade-installer-parity/spec.md` (decisions U1–U8 + review record).
+
 ## [3.20.0] — 2026-06-11
 
 ### Added — FR-26 token-efficient execution + `token-economy` skill + `/token-waste-audit`

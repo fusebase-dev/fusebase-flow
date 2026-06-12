@@ -12,7 +12,8 @@
 #   4. CLAUDE.md Flow overlay block
 #   5. .claude/settings.json Flow lifecycle events and stop.py hook
 #   6. fusebase-flow-health-check skill mirrors
-#   7. .claude/commands/*.md (all Fusebase Flow slash commands: fusebase-health, onboard, product-owner)
+#   7. .claude/commands/*.md (ALL Fusebase Flow slash commands — data-driven
+#      from the fusebase-flow-overlays/commands/ snapshot, never a fixed list)
 #
 # Guardrail:
 #   .claude/hooks/** is CLI-owned. Flow recovery does not patch or restore CLI
@@ -309,7 +310,8 @@ else
 fi
 
 ###############################################################################
-# Step 8 - Restore /fusebase-health slash command.
+# Step 8 - Restore Fusebase Flow slash commands (data-driven from the
+#          recovery snapshot — this is the installer step new commands ship in).
 ###############################################################################
 
 echo "[post-fusebase-update] Step 8: Fusebase Flow slash commands restore..."

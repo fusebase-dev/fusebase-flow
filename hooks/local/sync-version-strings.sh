@@ -98,6 +98,7 @@ mapfile -t CANDIDATES < <(
     \( -type d \( \
         -name '.git' -o -name '.fusebase-flow-source' -o -name 'node_modules' \
         -o -name '.claude' -o -name '.agents' -o -name '.codex' \
+        -o -name '*.pre-upgrade-*' -o -name '*.pre-bootstrap-*' -o -name '*.pre-refresh-*' \
         -o -path './internal' \
         -o -path './docs/release-notes'   -o -path './docs/*/release-notes' \
         -o -path './docs/handoff'         -o -path './docs/*/handoff' \
@@ -108,7 +109,7 @@ mapfile -t CANDIDATES < <(
       \) -prune \) -o \
     \( -type f \( -name '*.md' -o -name '*.mdc' \) \
         ! -name 'CHANGELOG.md' \
-        ! -name '*.pre-upgrade-*' ! -name '*.pre-refresh-*' ! -name '*.pre-flow-merge' \
+        ! -name '*.pre-upgrade-*' ! -name '*.pre-bootstrap-*' ! -name '*.pre-refresh-*' ! -name '*.pre-flow-merge' \
         -print \)
 )
 
