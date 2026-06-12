@@ -304,7 +304,7 @@ Skills are on-demand expertise the agent loads when a task matches the skill's d
 | Architecture | `product-apps-decomposition` | Product → focused apps (generic + steers to product doc) |
 | Lane / speed | `lightweight-lane` | FR-21 — classify Full vs Lightweight; small/reversible changes use a change-note + one build→verify→deploy pass instead of the full chain |
 | Docs budget | `documentation-budget` | FR-23 — tier-classify (0-4) before any AI-consumed artifact; canonical ownership + pointers over duplication |
-| Continuity | `handoff` | Writes active session restart state to `docs/tmp/handoff.md` (16-section template); operator-triggered (`/handoff`) |
+| Continuity | `handoff` | Writes active session state to `docs/tmp/handoff.md` (16-section template); operator-triggered (`/handoff`, `Mode: restart`); autonomous runs may update it as `Mode: run-ledger` (announced in chat) |
 | Structure | `module-size-discipline` | FR-25 — module-size ratchet; gated source ≤ ceiling (default 800), over-ceiling files shrink-only; extraction on a responsibility seam is in-scope |
 | Quality | `app-quality-patterns` | Cross-project behavioral quality patterns (QP-xx: URL reflects view state, delete cascade policy, empty/loading/error states…) — become spec ACs by ID; Verify lines are copy-ready smoke recipes |
 | Economy | `token-economy` | FR-26 — token-efficient execution (scoped reads, no re-reads of unchanged files, two-strike retry rule, targeted edits) with per-rule quality guards; measured via `/token-waste-audit` |

@@ -20,11 +20,11 @@ Fusebase Flow ships:
 
 **Self-attestation (every session's first response):**
 
-> "Operating as {role} under Fusebase Flow v3.20.1. I will follow FR-01 through FR-26. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+> "Operating as {role} under Fusebase Flow v3.21.0. I will follow FR-01 through FR-26. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 **Operator questions:** per FR-19, ask questions in chat text, not popup / clickable menu tools. Use short option tables or numbered lists so the operator can copy, forward, quote, and follow up.
 
-**Slash commands:** `/fusebase-health` (overlay health), `/onboard` (capture project vision), `/product-owner` (start a PO session), `/handoff` (write active restart state to `docs/tmp/handoff.md`), `/token-waste-audit` (FR-26 transcript audit). All in `.claude/commands/` — Claude Code surfaces; on Codex/Cursor/Copilot/Gemini invoke the `handoff` skill by name (and the `token-economy` skill for the audit's repo-side fallback).
+**Slash commands:** `/fusebase-health` (overlay health), `/onboard` (capture project vision), `/product-owner` (start a PO session), `/handoff` (write active restart state to `docs/tmp/handoff.md`; autonomous runs may update it as `Mode: run-ledger`), `/token-waste-audit` (FR-26 transcript audit). All in `.claude/commands/` — Claude Code surfaces; on Codex/Cursor/Copilot/Gemini invoke the `handoff` skill by name (and the `token-economy` skill for the audit's repo-side fallback).
 
 ### Active project context — read first
 

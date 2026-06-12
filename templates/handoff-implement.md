@@ -1,12 +1,14 @@
 # Implement handoff template (v2.5.0+)
 
 > **Mode B (full).** Dense, tabular, front-loaded. The Product Owner authors this file in `docs/tmp/handoff/<YYYY-MM-DD>-<slug>-implement.md` and points the AI Developer session at it. The role-bootstrap prelude at the top makes the file self-bootstrapping in any agent (Claude Code, Codex, etc.) — fresh chat or follow-up.
+>
+> **Procedure freshness:** before executing any reused/copied procedural block, check whether a capability shipped since it was written supersedes the procedure (e.g., self-recording deploys obsolete poll-watching) — CHANGELOG / skill catalog vs this template's cited version.
 
 ---
 
 ## Role bootstrap (read this BEFORE any other reads)
 
-You are operating as the **AI Developer** under Fusebase Flow v3.20.1.
+You are operating as the **AI Developer** under Fusebase Flow v3.21.0.
 
 **Self-attest** per `FLOW_RULES.md` § Self-attestation (FR-01..FR-26), naming AI Developer as the role and the IM.1..IM.18 role-discipline section. (v2.9.0+ uses reference-by-citation instead of embedding the full attestation paragraph here — the canonical text lives in FLOW_RULES.md and you've already loaded it; duplication here would be ~250 tokens of waste per handoff.)
 
@@ -100,7 +102,7 @@ If an identifier needs verification (e.g., the dashboard was renamed), note it: 
 
 Verification gate (T<gate>) and deploy (T<deploy>) serialize after all tracks land.
 
-When delegating a code-writing slice, inline the **Write-time discipline digest** + the comment-policy Delegation push block into the sub-agent prompt (FR-24 / FR-22 push; sub-agents don't auto-load skills or the always-on digest), plus the turn-completion rule: *"your deliverable must be complete within this turn — you cannot self-resume; poll in-turn or read durable records, never end with 'I'll resume when…'"* (`task-delegation`).
+When delegating a code-writing slice, inline the **Write-time discipline digest** + the comment-policy Delegation push block into the sub-agent prompt (FR-24 / FR-22 push; sub-agents don't auto-load skills or the always-on digest), plus the **Delegation contract push block** (`task-delegation` §3): *"complete within this turn (no self-resume; poll in-turn or read durable records); write durable facts into your owed artifacts AS THEY OCCUR — skeleton first, rows as earned; on an unbounded wait (human gate, no-ETA event) return `BLOCKED-AT-<gate>` + where reality is recorded; return verdict · SHAs · deltas · artifact pointers, never re-pasted bodies."*
 
 ---
 

@@ -259,6 +259,35 @@ def fallback_summary(root):
     return "\n".join(lines)
 
 
+AGGREGATE_HEADER = (
+    "> Read-tool/Bash visibility only — auto-injected always-on context never appears as transcript "
+    "tool calls, so the dominant cross-session floor cost may be invisible here. Recurring rules/handoff "
+    "reads and session-initiation Bash floor commands (git status, git log) are usually the session floor "
+    "working as designed — an FR-23 session-floor surface (consider pre-cached IDs, pointers, smaller "
+    "always-on files), NOT an FR-26 violation. Top %d rows by session-count." % TOP_SINKS)
+
+
+def cross_session_aggregate(sessions):
+    """Files/commands recurring in >=2 parsed sessions (path-keyed; window args ignored)."""
+    file_sessions = {}   # path -> set(session file)
+    file_reads = {}      # path -> total reads across sessions
+    cmd_sessions = {}    # normalized command -> set(session file)
+    for s in sessions:
+        for (fp, _off, _lim), n in s["read_counts"].items():
+            if not fp:
+                continue
+            file_sessions.setdefault(fp, set()).add(s["file"])
+            file_reads[fp] = file_reads.get(fp, 0) + n
+        for cmd in s["bash_runs"]:
+            if cmd:
+                cmd_sessions.setdefault(cmd, set()).add(s["file"])
+    files = sorted(((len(ss), file_reads[fp], fp) for fp, ss in file_sessions.items() if len(ss) >= 2),
+                   key=lambda r: (-r[0], -r[1]))
+    cmds = sorted(((len(ss), c) for c, ss in cmd_sessions.items() if len(ss) >= 2),
+                  key=lambda r: -r[0])
+    return files[:TOP_SINKS], cmds[:TOP_SINKS]
+
+
 def build_report(sessions, root, today):
     lines = ["# Token-waste audit — %s" % today, "",
              "Scope: %d session(s), dir-resolved from git root `%s`." % (len(sessions), root),
@@ -294,6 +323,23 @@ def build_report(sessions, root, today):
     if not any_finding:
         lines.append("No leak-signature candidates above thresholds.")
         lines.append("")
+    if len(sessions) >= 2:
+        agg_files, agg_cmds = cross_session_aggregate(sessions)
+        lines += ["## Cross-session aggregate (%d sessions)" % len(sessions), "",
+                  AGGREGATE_HEADER, ""]
+        if agg_files:
+            lines += ["| Sessions | Total reads | File |", "|---|---|---|"]
+            for ns, total, fp in agg_files:
+                lines.append("| %d | %d | %s |" % (ns, total, snippet(fp)))
+            lines.append("")
+        if agg_cmds:
+            lines += ["| Sessions | Bash command (present in session) |", "|---|---|"]
+            for ns, c in agg_cmds:
+                lines.append("| %d | %s |" % (ns, snippet(c)))
+            lines.append("")
+        if not agg_files and not agg_cmds:
+            lines.append("No file or command recurs in >=2 of the parsed sessions.")
+            lines.append("")
     return "\n".join(lines)
 
 

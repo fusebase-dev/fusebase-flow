@@ -75,7 +75,7 @@ Before writing a persistent AI-consumed artifact, classify the documentation tie
 |---|---|---|---|
 | 0 | No persistent doc | transient exploration, no code change, already captured in code/tests/git/existing docs | none |
 | 1 | Change-note | Lightweight-eligible change (FR-21): small, reversible, single-concern, mechanically verifiable, no security/permission/public-contract risk, root cause understood | a single change-note (`templates/change-note.md`) inline in the commit body or `docs/changes/<date>-<slug>.md` |
-| 2 | Active handoff | long session restart, code mid-flight, no new product/architecture decision, next AI session needs exact continuation state | `docs/tmp/handoff.md` (superseded each session, FR-18; predecessors auto-archived to `docs/tmp/handoff/archive/` — dated history, never loaded) |
+| 2 | Active handoff | long session restart, code mid-flight, no new product/architecture decision, next AI session needs exact continuation state | `docs/tmp/handoff.md` (superseded each session, FR-18; archived to `docs/tmp/handoff/archive/` on restart supersede / mode transition only — run-ledger updates supersede in place; dated history, never loaded) |
 | 3 | Spec + tasks | multi-file Full-lane work, clear scope, few/no architectural decisions, no major security/migration/public-contract risk | `docs/specs/<slug>/spec.md` + `tasks.md`; `decisions.md` only if real decisions; gate per policy |
 | 4 | Full pack | high-risk / ambiguous product behavior / new app / new public contract / permissions / auth / migrations / data ownership / cross-cutting architecture / deploy-sensitive | full Flow artifact chain — no duplicated rationale across artifacts |
 

@@ -1,12 +1,14 @@
 # Deploy handoff template (v2.5.0+)
 
 > **Mode B (full).** Dense, tabular, front-loaded. The Product Owner authors this file in `docs/tmp/handoff/<YYYY-MM-DD>-<slug>-deploy.md` and points the AI Developer (Deploy phase) session at it. The role-bootstrap prelude at the top makes the file self-bootstrapping in any agent (Claude Code, Codex, etc.) — fresh chat or follow-up.
+>
+> **Procedure freshness:** before executing any reused/copied procedural block, check whether a capability shipped since it was written supersedes the procedure (e.g., self-recording deploys obsolete poll-watching) — CHANGELOG / skill catalog vs this template's cited version.
 
 ---
 
 ## Role bootstrap (read this BEFORE any other reads)
 
-You are operating as the **AI Developer in the Deploy phase** under Fusebase Flow v3.20.1.
+You are operating as the **AI Developer in the Deploy phase** under Fusebase Flow v3.21.0.
 
 > **This is the Full-lane deploy handoff** (DP.1 artifact + DP.6 magic phrase). A **Lightweight-lane** change (FR-21) does NOT use this template — it deploys in the same single build→verify→deploy pass on a plain operator go-ahead; see `flow-skills/lightweight-lane/SKILL.md` and `workflows/lightweight-lane.md`.
 

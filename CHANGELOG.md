@@ -4,6 +4,22 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.21.0] — 2026-06-12
+
+### Added — delegation resilience + return contracts
+
+Six evidence-backed residuals from live delegated-run experience (downstream proposal paperclip+hermes-v1 2026-06-12). Double-review protocol: independent plan review (REVISE-FIRST, 13 findings — incl. two blockers: contract text that would never reach the worker sessions it binds, and an archive-flood/filename-collision in the run-ledger design) → spec self-correction → implementation → independent implementation review.
+
+- **Progress-ledger contract** (`task-delegation` §3 + `greenlight-deploy` step 7): delegated sessions write durable facts AS THEY OCCUR (deploy hash at deploy moment; probe rows as each lands; skeleton first, rows as earned) — never end-loaded; sessions die mid-work and end-loaded reporting loses everything. Successor contract: resume from records, last durable fact, never redo verified steps.
+- **Blocked-return semantics**: at an UNBOUNDED wait (human gate, no-ETA event) the honest return is `BLOCKED-AT-<gate>` + what-cleared-looks-like + state pointer — never fake-complete, never burn an open watch.
+- **Delegated return shape** (`task-delegation` §5): verdict (`DONE`|`BLOCKED-AT-<gate>`|`FAILED-<reason>`) · per-task SHAs · count deltas · artifact POINTERS · residual risk; never re-paste a body an artifact already holds. Delegated returns only — gate reports keep PASS/FAIL.
+- **Delegation contract push block** (the plan-review blocker fix): workers never load skills, so the whole contract rides the delegating prompt — named quotable block in `task-delegation` §3; `templates/handoff-implement.md`'s push line upgraded to it.
+- **Restart vs run-ledger split** (`handoff` skill + `templates/handoff.md`): header `Mode: restart | run-ledger`. Restart stays operator-triggered (`invocation: manual`); run-ledger is the sole sanctioned autonomous write (long-run continuity, announced in chat — dissolves the "why did you write it without the slash command?" confusion). Run-ledger updates supersede IN PLACE; archive fires on restart supersede / mode transition only (no archive flood, no same-minute filename clobber). Legacy files without `Mode:` = restart.
+- **Procedure-freshness line** (`handoff` Procedure + `handoff-implement` + `handoff-deploy` headers): before executing a reused procedural block, check whether a shipped capability supersedes it (e.g., self-recording deploys obsolete poll-watching).
+- **Cross-session aggregate in `/token-waste-audit`**: report section (≥2 sessions parsed, no new flag) — files/commands recurring across sessions, top-N capped; framing header maps recurring rules/handoff reads + session-initiation Bash floor to **FR-23 session-floor discipline** (by-design), not FR-26 violations, and states the Read-tool-only visibility limit. Live-proven on 3 real transcripts.
+
+Spec: `docs/specs/delegation-resilience/spec.md` (R1–R7 + full plan-review fold-in record).
+
 ## [3.20.1] — 2026-06-12
 
 ### Fixed — upgrade installer parity for slash commands + self-overwrite-safe engine

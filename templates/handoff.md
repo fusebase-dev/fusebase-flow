@@ -1,8 +1,9 @@
 # Handoff — <slug>
 
-> **Style:** Mode B. Active session restart state for the NEXT AI coding agent (not a human PM report). Written to `docs/tmp/handoff.md` (FR-23 Tier 2). Supersede in place — do NOT append resumption notes above old content (FR-18); the handoff skill archives the predecessor to `docs/tmp/handoff/archive/<YYYY-MM-DD-HHMM>-handoff.md` first (paper trail; dated history — never loaded). Use `Unknown` instead of guessing, `None` for empty sections, tables where possible, and pointers to canonical artifacts instead of reprinting them. Not an audit log (git history + `docs/tmp/handoff/archive/` are). For formal role relays use `docs/tmp/handoff/<date>-<slug>-{implement,deploy,architect}.md` instead.
+> **Style:** Mode B. Active session state for the NEXT AI coding agent (not a human PM report). Written to `docs/tmp/handoff.md` (FR-23 Tier 2). Supersede in place — do NOT append resumption notes above old content (FR-18); the handoff skill archives the predecessor to `docs/tmp/handoff/archive/<YYYY-MM-DD-HHMM>-handoff.md` ONLY on restart supersede / mode transition (run-ledger updates supersede in place; paper trail is dated history — never loaded). Use `Unknown` instead of guessing, `None` for empty sections, tables where possible, and pointers to canonical artifacts instead of reprinting them. Not an audit log (git history + `docs/tmp/handoff/archive/` are). For formal role relays use `docs/tmp/handoff/<date>-<slug>-{implement,deploy,architect}.md` instead.
 
-**Updated:** <YYYY-MM-DD HH:MMZ>  ·  **Branch:** <branch>  ·  **HEAD:** <short-sha>
+**Mode:** <restart | run-ledger>  ·  **Updated:** <YYYY-MM-DD HH:MMZ>  ·  **Branch:** <branch>  ·  **HEAD:** <short-sha>
+<!-- Mode: restart = operator-triggered snapshot for the next session. run-ledger = autonomous long-run continuity (announced in chat); a fresh reader resumes from records (task-delegation successor contract). Absent Mode: line (legacy file) = restart. -->
 
 ## Session Role
 <Product Owner | AI Developer | Architect | Deploy phase> + authority level.

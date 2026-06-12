@@ -84,12 +84,20 @@ Every delegated task gets a brief with:
 | Inputs | relevant artifacts and skill paths already loaded |
 | Forbidden actions | no revert of others' edits; no deploy; no secrets; no broad cleanup |
 | Domain skills | relevant CLI provider skill names from `docs/fusebase-cli-edition.md`, if the task touches Fusebase Apps runtime/domain behavior |
-| Output format | changed files list, findings table, commands run, residual risk |
+| Output format | the **Delegated return shape** (§5): verdict · SHAs · deltas · artifact pointers · residual risk |
 | Verification | expected tests/checks/evidence |
 
 For code-edit subtasks, tell the worker: "You are not alone in the codebase. Do not revert or overwrite other concurrent edits; adapt to them."
 
-**Turn-completion rule (every delegated session — binding):** a delegated session's deliverable must be COMPLETE within its turn. A delegated session cannot self-resume: when its turn ends, its context dies and nothing comes back. If the work requires waiting (ticks, agent runs, external processes, human gates), either poll with bounded sleeps INSIDE the turn until the result exists, or restructure the task as record-then-read (`flow-skills/smoke-testing` § Verification cost discipline). NEVER end the turn with "running in background — I'll resume when it completes" — you won't, and the orchestrator may trust the false completion. The delegating prompt MUST state this rule in one sentence (push, not pull).
+**Turn-completion rule (every delegated session — binding):** a delegated session's deliverable must be COMPLETE within its turn. A delegated session cannot self-resume: when its turn ends, its context dies and nothing comes back. If the work requires waiting (ticks, agent runs, external processes), either poll with bounded sleeps INSIDE the turn until the result exists, or restructure the task as record-then-read (`flow-skills/smoke-testing` § Verification cost discipline). NEVER end the turn with "running in background — I'll resume when it completes" — you won't, and the orchestrator may trust the false completion.
+
+**Progress ledger (every delegated session — binding):** write durable facts into the artifacts you already owe AS THEY OCCUR — the deploy hash the moment the deploy lands, probe/evidence rows as each one runs, the report skeleton first and rows as earned — never everything-at-the-end. Sessions die mid-work (provider limits, machine restarts); end-loaded reporting loses everything that wasn't yet written. **Successor contract:** a successor session resumes from records — read the ledger first, resume from the last durable fact, never redo verified steps; the delegating prompt for a successor states this explicitly (verify-from-records).
+
+**Blocked-return rule:** when the remaining wait is UNBOUNDED (human approval gate, external event with no bounded ETA) — which neither in-turn polling nor record-then-read can span — the prescribed return is an explicit `BLOCKED-AT-<gate>` verdict + what cleared looks like + a pointer to where reality is recorded, so the orchestrator re-dispatches when the gate clears. Never fake-complete; never burn an open watch on an unbounded wait.
+
+**Delegation contract push block** — inline this in every delegating prompt (push, not pull; workers do not load skills):
+
+> Your deliverable must be COMPLETE within this turn — you cannot self-resume; poll in-turn (bounded) or read durable records, never end with "I'll resume when…". Write durable facts into your owed artifacts AS THEY OCCUR (skeleton first, rows as earned), never everything-at-the-end. If you hit an unbounded wait (human gate, no-ETA event), return `BLOCKED-AT-<gate>` + a pointer to where reality is recorded. Return per the delegated return shape: verdict · SHAs · deltas · artifact pointers — never re-paste a body an artifact already holds.
 
 **Mandatory (code-writing / implementation slices):** the delegating prompt MUST inline the comment-policy **Delegation push block** from `flow-skills/comment-policy/SKILL.md` (push, not pull — sub-agents do not reliably auto-load skills, so don't just tell the worker to "load comment-policy"). Read-only / triage delegation is exempt (no code is written).
 
@@ -138,6 +146,18 @@ The main session must:
 3. Resolve conflicts without reverting unrelated user or subagent changes.
 4. Run the relevant verification gate commands.
 5. Record delegated work in the gate/deploy report when it affected implementation or evidence.
+
+### Delegated return shape
+
+For **delegated returns only** — gate reports keep PASS/FAIL, spec statuses keep DRAFT/LOCKED/DONE/BLOCKED.
+
+| Field | Content |
+|---|---|
+| Verdict | `DONE` \| `BLOCKED-AT-<gate>` (+ what cleared looks like + state pointer) \| `FAILED-<reason>` |
+| Commits | per-task SHAs (when code was written) |
+| Deltas | counts only: tests before/after, files changed, findings N |
+| Artifacts | POINTERS (paths) to reports/evidence — never re-paste a body an artifact already holds (FR-23/FR-26) |
+| Residual risk | one line, or `None` |
 
 Subagent output is evidence, not proof. Fusebase Flow success still requires the normal gate, smoke, security, and deploy checks.
 
