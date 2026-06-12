@@ -3,6 +3,8 @@
 > **Mode B (full).** This template is what the **AI Developer** produces when it reaches the verification gate (`T<gate>`) and stops per FR-05 / IM.8. The structure has two sections: the **technical gate body** (for the PO's analytical work — verifying gate satisfaction, lint+typecheck, worker-undisturbed, etc.) and the **operator relay block** at the bottom (a copy-paste-ready chunk the operator pastes into the PO chat, so the PO never has to ask the operator "what did the AI Developer say?").
 >
 > Per FR-16, the AI Developer composes the operator-relay block — the operator never has to digest the technical body to figure out "what to send to PO." Scroll to bottom → copy the relay block → done.
+>
+> **Self-recording systems (FR-23):** if the system under test has durable evidence surfaces (journals, run records, logs, snapshots), report fields carry POINTERS to them — transcribe only what no system records.
 
 ---
 
@@ -20,7 +22,7 @@ You are an AI Developer session that has just completed `T<first>..T<gate>` and 
 **Status:** Gate reached; awaiting PO review and deploy handoff
 **Slug:** `<slug>`
 **Task range:** T<first>..T<gate>
-**Reporting session:** AI Developer (under Fusebase Flow v3.21.0, FR-01..FR-26)
+**Reporting session:** AI Developer (under Fusebase Flow v3.21.1, FR-01..FR-26)
 **Date:** <YYYY-MM-DD>
 
 ---

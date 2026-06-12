@@ -68,11 +68,11 @@
 .claude/skills/skill-authoring/SKILL.md  459868716e10a611daa2f834ea5fc3011e316ea6abac3ff8b38fcbfc391f4e35
 .agents/skills/smoke-testing/SKILL.md  78bd4a60a32133415de2ad60e015a829fa9661624ea71c42e9fdc6c5ac4fc8a5
 .claude/skills/smoke-testing/SKILL.md  78bd4a60a32133415de2ad60e015a829fa9661624ea71c42e9fdc6c5ac4fc8a5
-.agents/skills/task-delegation/SKILL.md  3da36ef4f078ed033274cc7c1f7d64e877a48812bc6482e9579ffc801159eafc
-.claude/skills/task-delegation/SKILL.md  3da36ef4f078ed033274cc7c1f7d64e877a48812bc6482e9579ffc801159eafc
+.agents/skills/task-delegation/SKILL.md  637a53a474216245a917e06e281eaecda761b8cf5126b1b36cdc86ecb1943f86
+.claude/skills/task-delegation/SKILL.md  637a53a474216245a917e06e281eaecda761b8cf5126b1b36cdc86ecb1943f86
 .agents/skills/token-economy/SKILL.md  c7090953477a2f80133e550b142bccf4d4e9b3dcb75ff55c0fb4dcbbcfb0f086
 .claude/skills/token-economy/SKILL.md  c7090953477a2f80133e550b142bccf4d4e9b3dcb75ff55c0fb4dcbbcfb0f086
-.agents/skills/validation-and-qa/SKILL.md  8fb558accadd408805103b6b70825b9ad04ad149b11c77a74d87925c0e4cfe8d
-.claude/skills/validation-and-qa/SKILL.md  8fb558accadd408805103b6b70825b9ad04ad149b11c77a74d87925c0e4cfe8d
+.agents/skills/validation-and-qa/SKILL.md  bb7050bbf74da112f34baab5490d45add89a7e03a46490f438b773d88020f431
+.claude/skills/validation-and-qa/SKILL.md  bb7050bbf74da112f34baab5490d45add89a7e03a46490f438b773d88020f431
 .agents/skills/zoom-out/SKILL.md  24108329ab818022d26c919c2a6ab5f89862b4ea5d877fc4a1bb0576f1338557
 .claude/skills/zoom-out/SKILL.md  24108329ab818022d26c919c2a6ab5f89862b4ea5d877fc4a1bb0576f1338557

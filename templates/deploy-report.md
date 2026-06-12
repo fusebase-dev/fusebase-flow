@@ -3,6 +3,8 @@
 > **Mode B (full).** This template is what the **AI Developer in Deploy phase** produces after completing T<deploy> (deploy command + probes + smoke + single docs commit per FR-14). Two sections: the **technical deploy body** (for the PO's audit work — verifying probes, FR-14 commit landed, rollback option visible) and the **operator relay block** at the bottom (a copy-paste-ready chunk the operator pastes into PO chat).
 >
 > Per FR-16, the Deploy phase composes the operator-relay block — operator never digests the technical body. Scroll → copy → paste in PO chat.
+>
+> **Self-recording systems (FR-23):** if the system under test has durable evidence surfaces (journals, run records, logs, snapshots), report fields carry POINTERS to them — transcribe only what no system records.
 
 ---
 

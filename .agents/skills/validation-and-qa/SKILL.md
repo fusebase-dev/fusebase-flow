@@ -62,6 +62,8 @@ Validate changed behavior with deterministic checks before a deploy is approved.
    3. *Could a reader reproduce the run from the gate report alone?* (commands + inputs + outputs visible?)
 
    If any answer is "no" for any AC, the gate is incomplete. Redirect implementer to add the missing evidence, even if all the unit tests pass. Mock-only tests + green CI do NOT prove the AC works against real inputs.
+
+   **Self-recording systems (FR-23):** if the system under test has durable evidence surfaces (journals, run records, logs, snapshots), report fields carry POINTERS to them — transcribe only what no system records; redirect a report that re-transcribes system-recorded events.
 6. For UI / E2E evidence, verify the test plan is specific enough to reproduce:
    - Route/navigation path to the feature.
    - Stable selectors or accessible locators for controls and meaningful outputs.

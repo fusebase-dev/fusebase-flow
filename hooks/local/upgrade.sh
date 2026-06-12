@@ -263,7 +263,20 @@ fi
 # post-fusebase-update.sh Step 8 installs any NEW commands from the (just-
 # refreshed) recovery snapshot hooks/local/fusebase-flow-overlays/commands/ —
 # this is the installer step for command-adding releases (v3.20.1).
-bash hooks/local/post-fusebase-update.sh --refresh-overlays >/dev/null 2>&1 || true
+# v3.21.1: output captured and SURFACED — the old fully-silenced call
+# (>/dev/null || true) let a mid-run recovery crash half-apply (stale command
+# files) with the root cause masked. Note: the recovery exits 1 on warnings
+# as well as crashes, so non-zero means "review it", not "upgrade failed".
+RECOVERY_LOG="$(mktemp)"
+if bash hooks/local/post-fusebase-update.sh --refresh-overlays > "$RECOVERY_LOG" 2>&1; then
+  grep -E "^  \* " "$RECOVERY_LOG" | sed 's/^/[upgrade] recovery: /' || true
+else
+  echo "[upgrade] WARN: overlay/command recovery reported warnings or FAILED — it may have"
+  echo "          HALF-APPLIED (stale slash commands / overlay blocks possible). Last output:"
+  tail -15 "$RECOVERY_LOG" | sed 's/^/          | /'
+  echo "          Re-run it directly and review:  bash hooks/local/post-fusebase-update.sh --refresh-overlays"
+fi
+rm -f "$RECOVERY_LOG"
 
 # ---- Step 4b: command doc-ref self-check (v3.20.1) ----
 # The overlay refresh above is the injection path for CLAUDE.md command refs.

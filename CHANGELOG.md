@@ -4,6 +4,19 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.21.1] — 2026-06-12
+
+### Fixed — delegation residuals (downstream post-delivery verification)
+
+Downstream verified v3.20.1 + v3.21.0 (all 10 prior asks confirmed delivered) and reported 4 second-order residuals — one silent-failure fix, three "the rule exists but doesn't reach the surface that needs it" fixes:
+
+- **Recovery call surfaced** — `upgrade.sh` step 4 ran the overlay/command recovery fully silenced (`>/dev/null 2>&1 || true`); a mid-run recovery crash half-applied (downstream: 2 of 5 command files stale) with the root cause masked. Now: success prints the recovery's actions-taken summary; non-zero exit prints a loud HALF-APPLIED warning + last output lines + the literal re-run command. Sim-proven both paths.
+- **Deploy sessions inherit the delegation contract** — `templates/handoff-deploy.md` (the prompt a delegated Deploy session actually reads) gains the turn-completion + progress-ledger + BLOCKED-AT invariant bullet, and `workflows/greenlight-deploy.md` joins its mandatory-reads list (the v3.21.0 push-not-pull fix covered implement handoffs only).
+- **Self-recording clause for reports** — `gate-report.md` + `deploy-report.md` headers + `validation-and-qa`: if the system under test has durable evidence surfaces, report fields carry POINTERS — transcribe only what no system records (extends the v3.21.0 pointers rule from returns to reports; FR-23).
+- **Ground-truth rule in the return shape** — a state-change claim (launched/deployed/completed) names the verification performed (system surface read + what it showed); an attempted action or look-alike artifact is not evidence (downstream: a false "launched" survived ~19h). Short form added to the push block + implement-handoff quote.
+
+Spec: `docs/specs/delegation-residuals/spec.md` (S1–S5; independent review pre-ship).
+
 ## [3.21.0] — 2026-06-12
 
 ### Added — delegation resilience + return contracts

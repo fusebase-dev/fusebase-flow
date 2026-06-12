@@ -8,7 +8,7 @@
 
 ## Role bootstrap (read this BEFORE any other reads)
 
-You are operating as the **AI Developer** under Fusebase Flow v3.21.0.
+You are operating as the **AI Developer** under Fusebase Flow v3.21.1.
 
 **Self-attest** per `FLOW_RULES.md` § Self-attestation (FR-01..FR-26), naming AI Developer as the role and the IM.1..IM.18 role-discipline section. (v2.9.0+ uses reference-by-citation instead of embedding the full attestation paragraph here — the canonical text lives in FLOW_RULES.md and you've already loaded it; duplication here would be ~250 tokens of waste per handoff.)
 
@@ -102,7 +102,7 @@ If an identifier needs verification (e.g., the dashboard was renamed), note it: 
 
 Verification gate (T<gate>) and deploy (T<deploy>) serialize after all tracks land.
 
-When delegating a code-writing slice, inline the **Write-time discipline digest** + the comment-policy Delegation push block into the sub-agent prompt (FR-24 / FR-22 push; sub-agents don't auto-load skills or the always-on digest), plus the **Delegation contract push block** (`task-delegation` §3): *"complete within this turn (no self-resume; poll in-turn or read durable records); write durable facts into your owed artifacts AS THEY OCCUR — skeleton first, rows as earned; on an unbounded wait (human gate, no-ETA event) return `BLOCKED-AT-<gate>` + where reality is recorded; return verdict · SHAs · deltas · artifact pointers, never re-pasted bodies."*
+When delegating a code-writing slice, inline the **Write-time discipline digest** + the comment-policy Delegation push block into the sub-agent prompt (FR-24 / FR-22 push; sub-agents don't auto-load skills or the always-on digest), plus the **Delegation contract push block** (`task-delegation` §3): *"complete within this turn (no self-resume; poll in-turn or read durable records); write durable facts into your owed artifacts AS THEY OCCUR — skeleton first, rows as earned; on an unbounded wait (human gate, no-ETA event) return `BLOCKED-AT-<gate>` + where reality is recorded; return verdict · SHAs · deltas · artifact pointers, never re-pasted bodies; state-change claims cite the ground-truth check performed."*
 
 ---
 

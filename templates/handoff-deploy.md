@@ -8,7 +8,7 @@
 
 ## Role bootstrap (read this BEFORE any other reads)
 
-You are operating as the **AI Developer in the Deploy phase** under Fusebase Flow v3.21.0.
+You are operating as the **AI Developer in the Deploy phase** under Fusebase Flow v3.21.1.
 
 > **This is the Full-lane deploy handoff** (DP.1 artifact + DP.6 magic phrase). A **Lightweight-lane** change (FR-21) does NOT use this template — it deploys in the same single build→verify→deploy pass on a plain operator go-ahead; see `flow-skills/lightweight-lane/SKILL.md` and `workflows/lightweight-lane.md`.
 
@@ -20,6 +20,7 @@ You are operating as the **AI Developer in the Deploy phase** under Fusebase Flo
 - **DP.10 smoke evidence integrity.** If this handoff includes S1..Sn, run `flow-skills/smoke-testing/SKILL.md`. Smoke PASS requires operator-visible outcome evidence plus ground-truth diagnostic inspection. Exit code, file hash, service active, symbol presence, and auth sanity are supporting checks only.
 - **DP.11 no delegated deploy side effects.** Do not delegate deploy command, rollback, approval artifacts, secret handling, or live-session smoke. Delegation during deploy is read-only triage only.
 - **DP.1 approval artifact required.** Verify `state/approvals/production_deploy-<slug>-<date>.json` exists and is unexpired before deploy. If absent: when this handoff's `dp1_waiver` field says `eligible` (reversible-deploy waiver — see `policies/approval-policy.yml`), stamp it yourself immediately after the operator types the DP.6 phrase (`bash hooks/local/approve-local.sh production_deploy <slug> 'APPROVE-DEPLOY-NOW'`); otherwise ABORT.
+- **Turn-completion + progress ledger (delegated sessions — `task-delegation` §3).** Complete all evidence IN-TURN (poll bounded or read durable records — you cannot self-resume). Write durable facts AS THEY OCCUR: the deploy hash the moment it lands, probe rows as each one runs — skeleton first, never everything-at-the-end. At an unbounded wait (human gate, no-ETA event) return `BLOCKED-AT-<gate>` + a pointer to where reality is recorded. State-change claims cite the ground-truth check performed.
 
 Other invariants (FR-05/-06/-07/-14, Mode A/B, supersede discipline FR-18) — see `FLOW_RULES.md` directly; don't paraphrase here.
 
@@ -40,6 +41,7 @@ Other invariants (FR-05/-06/-07/-14, Mode A/B, supersede discipline FR-18) — s
 7. `state/approvals/production_deploy-<slug>-<date>.json` — verify exists + unexpired, **or** confirm the header says `dp1_waiver: eligible` (you stamp it at the DP.6 step)
 8. `flow-skills/role-discipline/references/deploy.md` — DP.1..DP.12 don't-list; shared protocols in `flow-skills/role-discipline/SKILL.md`
 9. `flow-skills/smoke-testing/SKILL.md` — required if S1..Sn are present
+10. `workflows/greenlight-deploy.md` — the deploy procedure this handoff executes (step-7 in-turn evidence + progress-ledger rules)
 
 ---
 

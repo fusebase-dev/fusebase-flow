@@ -97,7 +97,7 @@ For code-edit subtasks, tell the worker: "You are not alone in the codebase. Do 
 
 **Delegation contract push block** — inline this in every delegating prompt (push, not pull; workers do not load skills):
 
-> Your deliverable must be COMPLETE within this turn — you cannot self-resume; poll in-turn (bounded) or read durable records, never end with "I'll resume when…". Write durable facts into your owed artifacts AS THEY OCCUR (skeleton first, rows as earned), never everything-at-the-end. If you hit an unbounded wait (human gate, no-ETA event), return `BLOCKED-AT-<gate>` + a pointer to where reality is recorded. Return per the delegated return shape: verdict · SHAs · deltas · artifact pointers — never re-paste a body an artifact already holds.
+> Your deliverable must be COMPLETE within this turn — you cannot self-resume; poll in-turn (bounded) or read durable records, never end with "I'll resume when…". Write durable facts into your owed artifacts AS THEY OCCUR (skeleton first, rows as earned), never everything-at-the-end. If you hit an unbounded wait (human gate, no-ETA event), return `BLOCKED-AT-<gate>` + a pointer to where reality is recorded. Return per the delegated return shape: verdict · SHAs · deltas · artifact pointers — never re-paste a body an artifact already holds; state-change claims cite the ground-truth check performed (surface read + what it showed).
 
 **Mandatory (code-writing / implementation slices):** the delegating prompt MUST inline the comment-policy **Delegation push block** from `flow-skills/comment-policy/SKILL.md` (push, not pull — sub-agents do not reliably auto-load skills, so don't just tell the worker to "load comment-policy"). Read-only / triage delegation is exempt (no code is written).
 
@@ -158,6 +158,8 @@ For **delegated returns only** — gate reports keep PASS/FAIL, spec statuses ke
 | Deltas | counts only: tests before/after, files changed, findings N |
 | Artifacts | POINTERS (paths) to reports/evidence — never re-paste a body an artifact already holds (FR-23/FR-26) |
 | Residual risk | one line, or `None` |
+
+**Ground-truth rule:** any claim that system state changed (launched / registered / deployed / completed) names the verification performed — the system surface read and what it showed. An attempted action or an observed look-alike artifact is not evidence; a false "launched" built from those can survive for hours.
 
 Subagent output is evidence, not proof. Fusebase Flow success still requires the normal gate, smoke, security, and deploy checks.
 
