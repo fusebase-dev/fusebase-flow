@@ -1,8 +1,8 @@
 # Spec — upgrade installer parity for slash commands (v3.20.1)
 
-**Status:** LOCKED (operator 2026-06-12 "proceed"; downstream defect reports 2026-06-07 + RECURRENCE 2026-06-12, paperclip+hermes-v1)
+**Status:** DONE (shipped v3.20.1; was LOCKED operator 2026-06-12 "proceed"; downstream defect reports 2026-06-07 + RECURRENCE 2026-06-12, paperclip+hermes-v1)
 **Tier:** 2 · **Lane:** Lightweight-plus (defect fix; independent post-implementation review before ship)
-**Deploy hash:** (at DONE flip)
+**Deploy hash:** 511e558 (v3.20.1, pushed to origin/main 2026-06-12; GitHub Release published)
 
 ## Problem
 
