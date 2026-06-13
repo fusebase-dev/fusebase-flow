@@ -275,6 +275,44 @@ def _evidence_scoping_cases(check_bool):
     check_bool("scoping(a): `## Recovery taken` result section keeps probe-fail firing",
                {"false-green-deploy", "unauthorized-deploy"} <= fired, True)
 
+    # --- Codex round-5 LOW: procedure/example heading precedence over a generic
+    #     "result"/"outcome" word. Locks BOTH directions of the exact edge where a
+    #     heading carries a procedure/example word AND a generic outcome word, so
+    #     the precedence (exact-allowed-outcome > procedure/example > generic word)
+    #     can never regress. ---
+
+    # LOW(a) NON-OUTCOME: a heading with BOTH a procedure/example word AND a generic
+    #     "result"/"outcome" word is non-outcome — an example/instruction body under
+    #     it must fire NOTHING (no false irreversible-loss).
+    proc_result = (
+        "# Deploy report — x\n## Rollback procedure result\n"
+        "rollback executed; reverted the deploy.\n")
+    fired = E.collect_firing_evidence([("docs/specs/x/deploy-report.md", proc_result)])
+    check_bool("scoping(LOW-a): `## Rollback procedure result` + body fires NOTHING",
+               fired, set())
+    ex_outcome = (
+        "# Deploy report — x\n## Recovery example outcome\n"
+        "rolled back the deploy; reverted the deploy.\n")
+    fired = E.collect_firing_evidence([("docs/specs/x/deploy-report.md", ex_outcome)])
+    check_bool("scoping(LOW-a): `## Recovery example outcome` + body fires NOTHING",
+               fired, set())
+
+    # LOW(b) OUTCOME: an EXACT allowlisted outcome heading still reopens the outcome
+    #     section and a real rollback/recovery result body still fires — the fix did
+    #     NOT over-correct into a false negative.
+    rb_result = (
+        "# Deploy report — x\n## Rollback result: rolled back the deploy\n"
+        "rolled back the deploy after G-N failed.\n")
+    fired = E.collect_firing_evidence([("docs/specs/x/deploy-report.md", rb_result)])
+    check_bool("scoping(LOW-b): `## Rollback result: rolled back the deploy` fires irreversible-loss",
+               "irreversible-loss" in fired, True)
+    rb_outcome = (
+        "# Deploy report — x\n## Rollback outcome\n"
+        "rollback executed; reverted the deploy.\n")
+    fired = E.collect_firing_evidence([("docs/specs/x/deploy-report.md", rb_outcome)])
+    check_bool("scoping(LOW-b): `## Rollback outcome` real outcome fires irreversible-loss",
+               "irreversible-loss" in fired, True)
+
     # --- DIRECTION (b): instructional / template / split text still NOT counted ---
 
     # b1: a deploy-report TEMPLATE body (procedure + placeholders + instruction

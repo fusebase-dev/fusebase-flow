@@ -300,12 +300,30 @@ def artifact_kind(rel, text=None):
 # real control firing. Everything else is instructional/spec/contract text.
 RECORDED_REPORT_KINDS = frozenset({"gate-report", "deploy-report"})
 
-# A heading that names a genuine RECORDED OUTCOME — including a rollback/recovery
-# RESULT (as opposed to the rollback PROCEDURE). Checked BEFORE the non-outcome
-# regex so "## Rollback result" / "## Rollback outcome" reopens an outcome section
-# even though it contains the word "rollback" (MED fix: a genuine recorded rollback
-# result was being stripped along with the procedure). "rolled back" / "probe
-# failed" / "gate blocked" / "redeploy" in a heading are recorded-outcome signals.
+# EXACT allowlisted recorded-OUTCOME headings — the genuine "what actually
+# happened" section titles a filled gate/deploy REPORT carries. These WIN over the
+# non-outcome regex unconditionally: a "## Rollback result" / "## Rollback outcome"
+# / "## Recovery taken" reopens an outcome section even though it shares the word
+# "rollback"/"recovery" with the procedure pattern (MED fix). Phrased as anchored
+# alternatives (heading text == one of these, allowing a `:`/tail) so a heading
+# that merely CONTAINS a procedure/example word alongside a generic outcome word
+# (e.g. "## Rollback procedure result") does NOT qualify — it falls through to the
+# non-outcome test below (Codex round-5 LOW: procedure/example precedence over a
+# generic "result"/"outcome" word).
+_EXACT_OUTCOME_HEADING_RE = re.compile(
+    r"^\s{0,3}#{1,6}\s+(?:"
+    r"rollback result|rollback outcome|rollback executed|"
+    r"recovery result|recovery outcome|recovery taken|recovery executed|"
+    r"probe result|probe failed|gate blocked|gate satisfaction|"
+    r"deploy command|pre-deploy|worker-undisturbed|test count|"
+    r"status|result|outcome|deviation"
+    r")\b(?:[\s:].*)?$",
+    re.IGNORECASE)
+# A heading that names a genuine RECORDED OUTCOME by a recorded-outcome SIGNAL word
+# anywhere in the heading ("rolled back", "redeploy", "smoke"). Checked AFTER the
+# non-outcome test so a procedure/example heading that happens to contain such a
+# word is still treated as non-outcome (precedence: exact-allowed > procedure/example
+# present > generic outcome word).
 _OUTCOME_HEADING_RE = re.compile(
     r"^\s{0,3}#{1,6}\s+.*\b("
     r"rollback result|rollback outcome|rollback executed|rolled back|"
@@ -319,13 +337,15 @@ _OUTCOME_HEADING_RE = re.compile(
 # rollback EXAMPLE ("git revert <hash>") or a "use this template when" block is
 # never mistaken for a recorded firing/block. `rollback` / `recovery` trip this
 # ONLY when paired with procedure/example/steps/how-to words — a bare "## Rollback
-# result" is an OUTCOME (handled above), not stripped (MED fix).
+# result" is an OUTCOME (handled above), not stripped (MED fix). A bare
+# "procedure"/"example"/"steps"/"playbook"/"guide" word ALSO trips it (Codex
+# round-5 LOW: "## Rollback procedure result" must be non-outcome — the
+# procedure/example classification wins over the trailing generic "result").
 _NON_OUTCOME_HEADING_RE = re.compile(
     r"^\s{0,3}#{1,6}\s+.*\b("
-    r"(?:rollback|recovery)\s+(?:procedure|example|steps?|playbook|template|guide)|"
-    r"(?:procedure|example|steps?|playbook|guide)\s+(?:for\s+)?(?:rollback|recovery)|"
-    r"use this template|fill-in|why .* matters|example|template body|"
-    r"if a probe failed|appendix|how to|procedure)\b",
+    r"procedure|example|steps?|playbook|guide|"
+    r"use this template|fill-in|why .* matters|template body|"
+    r"if a probe failed|appendix|how to)\b",
     re.IGNORECASE)
 # Template/example placeholder lines (angle-bracket fills, code-fence template
 # bodies) carry instruction grammar, not a recorded outcome.
@@ -347,15 +367,24 @@ def recorded_outcome_text(text):
     kept = []
     in_non_outcome = False
     for line in text.splitlines():
-        # OUTCOME headings are tested FIRST so a heading naming a result/outcome
-        # (e.g. "## Rollback result", "## Recovery outcome") reopens an outcome
-        # section even though it shares a word with the non-outcome pattern (MED fix).
-        if _OUTCOME_HEADING_RE.match(line):
+        # PRECEDENCE (Codex round-5 LOW):
+        #   1. an EXACT allowlisted outcome heading ("## Rollback result",
+        #      "## Recovery taken") reopens an outcome section UNCONDITIONALLY —
+        #      even though it shares a word with the non-outcome pattern (MED fix);
+        #   2. else a procedure/example/steps heading marks a NON-outcome section —
+        #      this WINS over a trailing generic "result"/"outcome" word, so
+        #      "## Rollback procedure result" / "## Recovery example outcome" are
+        #      non-outcome (Codex round-5 LOW: procedure/example > generic word);
+        #   3. else a generic outcome-signal heading reopens an outcome section.
+        if _EXACT_OUTCOME_HEADING_RE.match(line):
             in_non_outcome = False
             # keep the outcome heading itself out of the matched body
             continue
         if _NON_OUTCOME_HEADING_RE.match(line):
             in_non_outcome = True
+            continue
+        if _OUTCOME_HEADING_RE.match(line):
+            in_non_outcome = False
             continue
         if in_non_outcome:
             continue
