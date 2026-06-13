@@ -272,9 +272,9 @@ Preflight will warn on drift if the mirrors and canonical fall out of sync. Full
 
 ## Skill catalog
 
-Skills are on-demand expertise the agent loads when a task matches the skill's description. **30 canonical Flow skills** govern the lifecycle and project-optimization; **19 FuseBase Apps domain skills** supply the app-building knowledge. You never invoke them by hand — describe the work and the matcher loads the right one.
+Skills are on-demand expertise the agent loads when a task matches the skill's description. **31 canonical Flow skills** govern the lifecycle and project-optimization; **19 FuseBase Apps domain skills** supply the app-building knowledge. You never invoke them by hand — describe the work and the matcher loads the right one.
 
-### Flow lifecycle skills (30)
+### Flow lifecycle skills (31)
 
 | Phase | Skill | What it does |
 |---|---|---|
@@ -308,8 +308,9 @@ Skills are on-demand expertise the agent loads when a task matches the skill's d
 | Structure | `module-size-discipline` | FR-25 — module-size ratchet; gated source ≤ ceiling (default 800), over-ceiling files shrink-only; extraction on a responsibility seam is in-scope |
 | Quality | `app-quality-patterns` | Cross-project behavioral quality patterns (QP-xx: URL reflects view state, delete cascade policy, empty/loading/error states…) — become spec ACs by ID; Verify lines are copy-ready smoke recipes |
 | Economy | `token-economy` | FR-26 — token-efficient execution (scoped reads, no re-reads of unchanged files, two-strike retry rule, targeted edits) with per-rule quality guards; measured via `/token-waste-audit` |
+| Ceremony audit | `find-wasted-effort` | A2 — process-per-outcome ceremony audit (`/find-wasted-effort`); reads Flow artifacts on disk for ceremony that bought no safety outcome; read-only, findings are review candidates (never auto-prune); sibling of `/token-waste-audit` on a different axis |
 
-★ = mandatory, loaded every session. The last 9 (zoom-out … product-apps-decomposition) shipped in v3.3–v3.5; `lightweight-lane` v3.7, `comment-policy` v3.11, `documentation-budget` v3.12, `handoff` v3.14, `module-size-discipline` v3.16, `app-quality-patterns` v3.19, `token-economy` v3.20. The project-* / north-star / client-vs-internal / product-* / guard skills are **artifact-gated** — dormant until onboarding creates their `docs/` artifact.
+★ = mandatory, loaded every session. The last 9 (zoom-out … product-apps-decomposition) shipped in v3.3–v3.5; `lightweight-lane` v3.7, `comment-policy` v3.11, `documentation-budget` v3.12, `handoff` v3.14, `module-size-discipline` v3.16, `app-quality-patterns` v3.19, `token-economy` v3.20, `find-wasted-effort` v3.22. The project-* / north-star / client-vs-internal / product-* / guard skills are **artifact-gated** — dormant until onboarding creates their `docs/` artifact.
 
 ### FuseBase CLI provider skills (19)
 
@@ -669,7 +670,7 @@ fusebase-flow/
 ├── VERSION                         ← (current release)
 ├── .gitattributes                  ← LF line endings for shell/python/yaml/md
 ├── .python-version                 ← 3.12 (recommended)
-├── flow-skills/                         ← 30 canonical skills (2 mandatory + 28 on-demand, incl. token-economy (v3.20) + app-quality-patterns (v3.19) + module-size-discipline (v3.16) + handoff (v3.14) + documentation-budget (v3.12) + comment-policy (v3.11) + lightweight-lane (v3.7) + the v3.3–v3.5 additions: zoom-out, phase-audit, git-history-diagnostic, project-onboarding, north-star, client-vs-internal, product-docs-first, business-logic-guardian, product-apps-decomposition)
+├── flow-skills/                         ← 31 canonical skills (2 mandatory + 29 on-demand, incl. find-wasted-effort (v3.22) + token-economy (v3.20) + app-quality-patterns (v3.19) + module-size-discipline (v3.16) + handoff (v3.14) + documentation-budget (v3.12) + comment-policy (v3.11) + lightweight-lane (v3.7) + the v3.3–v3.5 additions: zoom-out, phase-audit, git-history-diagnostic, project-onboarding, north-star, client-vs-internal, product-docs-first, business-logic-guardian, product-apps-decomposition)
 ├── agents/                         ← 2 canonical sub-agents (product-owner, ai-developer)
 ├── workflows/                      ← 13 procedures (incl. lightweight-lane)
 ├── policies/                       ← 8 YAML policies (incl. module-size ratchet)

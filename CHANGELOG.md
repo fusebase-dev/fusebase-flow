@@ -4,6 +4,19 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.22.0] — 2026-06-13
+
+### Added — ratchet governance (A3) + `/find-wasted-effort` read-only ceremony audit (A2) — ceremony-efficiency Phase 1
+
+Phase 1 of the ceremony-efficiency-middle-lane ticket (solves PR-2 + PR-3; Phase 2 = audit writes, Phase 3 = the Middle Lane / `middle_deploy` — both deferred to their own gates). Low-risk, additive, no deploy-authority change.
+
+- **A3 ratchet governance** — `policies/ratchet-governance.yml`: the `prevents: <incident-class>` annotation convention + the `catastrophic-low-frequency` severity tag (makes a control harder to prune; a clean window is expected for rare-but-severe controls). A 9-class incident taxonomy is the WHY-home; a D5-scoped coverage map (deploy/gate controls + the elements rule 6 reads) states its own scope (silence ≠ safety). Scoped `prevents:` markers added to `templates/{handoff-deploy,handoff-implement,gate-report,verification-gate}.md` + `workflows/{greenlight-deploy,eight-phase-flow}.md`. **Pruning is PO-owned and never automatic** — an un-annotated, non-firing element is a *review candidate* only (needs named incident-class, severity, window, negative examples, operator confirmation).
+- **A2 `/find-wasted-effort` (31st skill, read-only)** — the **process-per-outcome** ceremony sibling of `/token-waste-audit` (**tokens-per-rule**). Different axis, different inputs (Flow artifacts on disk vs transcripts), **shared discipline**: it reuses the shipped `token-economy` substrate (FP header, read-only-first posture, gitignored `state/audit/<date>.md` output) — not reinvented. 6 active rules (rule 4 **CUT** — already in token-waste-audit's v3.21.0 cross-session aggregate; rule 7 scoped to the cross-session ceremony layer only), each emitting **confirmed / dismissed / inconclusive** with required contrary-evidence + per-rule FP examples.
+- **`hooks/local/find-wasted-effort.py`** — deterministic, stdlib-only, **READ-ONLY** analyzer (563 lines, under the FR-25 ceiling). Reads gate/deploy reports, handoffs, approval artifacts, git log, and `prevents:` annotations; writes only its own gitignored report. NO memory/overlay/spec writes, NO prune/reclassify recommendations (those are Phase 2/3, gated on per-rule FP fixtures — D4). `--selftest` runs 23 synthetic per-rule + parser fixtures.
+- **`/find-wasted-effort`** (6th command) + recovery snapshot; skill mirrored to `.claude/skills/` + `.agents/skills/`; counts swept 30 → **31** skills, 8 → **9** policies.
+
+Spec: `docs/specs/ceremony-efficiency-middle-lane/spec.md` (decisions D1..D7; Phase 1 cites D5, D7). Detail: `docs/release-notes/v3.22.0.md`.
+
 ## [3.21.1] — 2026-06-12
 
 ### Fixed — delegation residuals (downstream post-delivery verification)
