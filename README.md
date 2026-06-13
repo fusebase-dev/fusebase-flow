@@ -673,7 +673,7 @@ fusebase-flow/
 ├── flow-skills/                         ← 31 canonical skills (2 mandatory + 29 on-demand, incl. find-wasted-effort (v3.22) + token-economy (v3.20) + app-quality-patterns (v3.19) + module-size-discipline (v3.16) + handoff (v3.14) + documentation-budget (v3.12) + comment-policy (v3.11) + lightweight-lane (v3.7) + the v3.3–v3.5 additions: zoom-out, phase-audit, git-history-diagnostic, project-onboarding, north-star, client-vs-internal, product-docs-first, business-logic-guardian, product-apps-decomposition)
 ├── agents/                         ← 2 canonical sub-agents (product-owner, ai-developer)
 ├── workflows/                      ← 13 procedures (incl. lightweight-lane)
-├── policies/                       ← 8 YAML policies (incl. module-size ratchet)
+├── policies/                       ← 9 YAML policies (incl. module-size ratchet + ratchet-governance)
 ├── templates/                      ← 22 substrates (incl. change-note, business-logic-index, handoff)
 ├── hooks/
 │   ├── README.md
