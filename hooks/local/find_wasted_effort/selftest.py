@@ -502,7 +502,8 @@ def _containment_cases(check_bool):
             check_bool("containment: symlinked state/audit escape rejected",
                        rejected or not escaped, True)
         else:
-            check_bool("containment: symlink unsupported (skipped, not failed)", True, True)
+            check_bool("containment: symlinked state/audit escape (host lacks symlink privilege)",
+                       None, None, skipped=True)
     finally:
         shutil.rmtree(base, ignore_errors=True)
 
@@ -575,7 +576,8 @@ def _containment_cases(check_bool):
             check_bool("containment: write_report rejects symlinked report target (lstat)",
                        rejected and not wrote_through, True)
         else:
-            check_bool("containment: report-symlink write guard (skipped, not failed)", True, True)
+            check_bool("containment: report-symlink write guard (host lacks symlink privilege)",
+                       None, None, skipped=True)
     finally:
         shutil.rmtree(base, ignore_errors=True)
 
@@ -601,17 +603,24 @@ def _containment_cases(check_bool):
 # --------------------------------------------------------------------------
 
 def run_selftest():
+    # Each case: (status, name, want, got) where status is "PASS" | "FAIL" | "SKIP".
+    # SKIP (LOW fix): a fixture that could not be EXERCISED on this host (e.g. no
+    # symlink privilege) is reported SEPARATELY and is NOT counted in the passed
+    # tally — the reported pass count reflects only fixtures actually run.
     cases = []
 
     def check(name, fn, ev, want):
         got = fn(ev)["verdict"]
-        cases.append((got == want, name, want, got))
+        cases.append(("PASS" if got == want else "FAIL", name, want, got))
 
     def check_e2e(name, got, want):
-        cases.append((got == want, name, want, got))
+        cases.append(("PASS" if got == want else "FAIL", name, want, got))
 
-    def check_bool(name, got, want):
-        cases.append((got == want, name, want, got))
+    def check_bool(name, got, want, skipped=False):
+        if skipped:
+            cases.append(("SKIP", name, "(host lacks capability)", "skipped"))
+        else:
+            cases.append(("PASS" if got == want else "FAIL", name, want, got))
 
     _synthetic_cases(check)
     _evidence_sourcing_cases(check_bool)
@@ -638,10 +647,17 @@ def run_selftest():
     ]
     for name, line, want in parse_cases:
         got = parse_prevents_classes(line)
-        cases.append((got == want, "parse: " + name, sorted(want), sorted(got)))
+        cases.append(("PASS" if got == want else "FAIL", "parse: " + name,
+                      sorted(want), sorted(got)))
 
-    failures = [c for c in cases if not c[0]]
-    for ok, name, want, got in cases:
-        print("  %s %s (want=%s got=%s)" % ("PASS" if ok else "FAIL", name, want, got))
-    print("[find-wasted-effort --selftest] %d/%d passed" % (len(cases) - len(failures), len(cases)))
-    return 1 if failures else 0
+    passed = [c for c in cases if c[0] == "PASS"]
+    failed = [c for c in cases if c[0] == "FAIL"]
+    skipped = [c for c in cases if c[0] == "SKIP"]
+    for status, name, want, got in cases:
+        print("  %s %s (want=%s got=%s)" % (status, name, want, got))
+    # Reported pass count reflects only fixtures ACTUALLY EXERCISED (LOW fix):
+    # skips are tallied separately, never folded into "passed".
+    exercised = len(passed) + len(failed)
+    print("[find-wasted-effort --selftest] %d/%d passed, %d skipped" % (
+        len(passed), exercised, len(skipped)))
+    return 1 if failed else 0
