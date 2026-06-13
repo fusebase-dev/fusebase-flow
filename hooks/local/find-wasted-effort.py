@@ -264,9 +264,28 @@ def build_report(ev, root, today):
     return "\n".join(lines), counts, findings
 
 
-def write_report(report_path, report):
+def write_report(root, report_path, report):
+    """Write the report to report_path AFTER re-asserting containment immediately
+    before the write (TOCTOU hardening, LOW finding). Create/resolve the audit dir,
+    then re-run the containment check against the now-on-disk dir, then reject a
+    symlinked report path via lstat before writing. Raises RootError on any escape;
+    writes only inside root/state/audit/."""
+    audit_dir = report_path.parent
+    audit_dir.mkdir(parents=True, exist_ok=True)
+    # Re-resolve the (now-created) audit dir and re-assert it lives under the repo
+    # root — a symlink swapped in between contained_report_path() and here is caught.
+    resolved_audit = audit_dir.resolve()
+    if not _is_relative_to(resolved_audit, root.resolve()):
+        raise RootError("state/audit resolves outside the repo root (symlink escape): %s"
+                        % resolved_audit)
+    if not _is_relative_to(report_path.resolve() if report_path.exists() else report_path,
+                           resolved_audit):
+        raise RootError("report path escapes state/audit: %s" % report_path)
+    # Reject a symlinked report target outright (lstat does not follow the link),
+    # so we never write THROUGH a symlink planted at the report path.
+    if report_path.is_symlink():
+        raise RootError("report path is a symlink — refusing to write through it: %s" % report_path)
     try:
-        report_path.parent.mkdir(parents=True, exist_ok=True)
         report_path.write_text(report, encoding="utf-8", newline="\n")
         return str(report_path)
     except OSError as exc:
@@ -305,10 +324,10 @@ def main():
     report, counts, _ = build_report(ev, root, today)
     try:
         report_path = contained_report_path(root, today)
+        wrote = write_report(root, report_path, report)
     except RootError as exc:
         print("[find-wasted-effort] ERROR: refusing to write — %s" % exc, file=sys.stderr)
         return 2
-    wrote = write_report(report_path, report)
 
     print("[find-wasted-effort] artifacts: %d | rounds: %d | window: %d | report: %s" % (
         len(ev["artifacts"]), len(ev["rounds"]), args.window, wrote))

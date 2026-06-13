@@ -430,6 +430,52 @@ def _containment_cases(check_bool):
     finally:
         shutil.rmtree(base, ignore_errors=True)
 
+    # (f) write_report TOCTOU guard (LOW finding): a symlinked report TARGET planted
+    #     after path resolution is rejected via lstat before any write occurs.
+    base = Path(tempfile.mkdtemp(prefix="fwe-wsym-"))
+    try:
+        repo = base / "repo"
+        (repo / "state" / "audit").mkdir(parents=True)
+        (repo / "VERSION").write_text("0.0.0\n", encoding="utf-8")
+        root = main_mod.resolve_root(str(repo))
+        report_path = main_mod.contained_report_path(root, today)
+        outside = base / "outside.md"
+        outside.write_text("attacker\n", encoding="utf-8")
+        symlink_ok = True
+        try:
+            os.symlink(str(outside), str(report_path))
+        except (OSError, NotImplementedError):
+            symlink_ok = False  # no symlink privilege -> skip, don't fail
+        if symlink_ok:
+            rejected = False
+            try:
+                main_mod.write_report(root, report_path, "report body")
+            except main_mod.RootError:
+                rejected = True
+            wrote_through = outside.read_text(encoding="utf-8") != "attacker\n"
+            check_bool("containment: write_report rejects symlinked report target (lstat)",
+                       rejected and not wrote_through, True)
+        else:
+            check_bool("containment: report-symlink write guard (skipped, not failed)", True, True)
+    finally:
+        shutil.rmtree(base, ignore_errors=True)
+
+    # (g) write_report happy path: a real Flow root yields a written file inside
+    #     state/audit (re-asserted containment lets the legitimate write through).
+    base = Path(tempfile.mkdtemp(prefix="fwe-wok-"))
+    try:
+        repo = base / "repo"; repo.mkdir()
+        (repo / "VERSION").write_text("0.0.0\n", encoding="utf-8")
+        root = main_mod.resolve_root(str(repo))
+        report_path = main_mod.contained_report_path(root, today)
+        wrote = main_mod.write_report(root, report_path, "report body\n")
+        inside = main_mod._is_relative_to(Path(wrote).resolve(),
+                                          (repo / "state" / "audit").resolve())
+        check_bool("containment: write_report writes inside state/audit on a valid root",
+                   inside and Path(wrote).read_text(encoding="utf-8") == "report body\n", True)
+    finally:
+        shutil.rmtree(base, ignore_errors=True)
+
 
 # --------------------------------------------------------------------------
 # Runner
