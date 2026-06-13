@@ -6,7 +6,7 @@
 
 Before Phase 1, classify the ticket **Full** or **Lightweight** using the eligibility gate in `flow-skills/lightweight-lane/SKILL.md`.
 
-- **Lightweight** (small + reversible + security-neutral + mechanically-verifiable + no decision needed + root cause known) → take `workflows/lightweight-lane.md` instead of the eight phases below: one change-note, one build→verify→deploy agent pass, plain operator go-ahead. The safety floor (live proof, explicit go-ahead, FR-07, rollback, one commit + SHA) is kept.
+- **Lightweight** (small + reversible + security-neutral + mechanically-verifiable + no decision needed + root cause known) → take `workflows/lightweight-lane.md` instead of the eight phases below: one change-note, one build→verify→deploy agent pass, plain operator go-ahead. The safety floor (live proof, explicit go-ahead, FR-07, rollback, one commit + SHA) is kept. <!-- prevents: false-green-deploy, unattended-prod-cutover, silent-protected-path-drift, irreversible-loss, regression-attribution-loss — taxonomy: policies/ratchet-governance.yml (A3) -->
 - **Full** (anything risky/uncertain, or any doubt) → the eight phases below.
 
 In doubt → Full. If a Lightweight change turns non-trivial mid-flight, STOP and promote to Full (`flow-skills/lightweight-lane/SKILL.md` → "Mid-flight promotion").
@@ -49,7 +49,7 @@ Each transition has a state-announcement footer update. The operator can redirec
 | Product Owner | AI Developer | `docs/tmp/handoff/<date>-<slug>-implement.md` |
 | Product Owner | Deploy phase | `docs/tmp/handoff/<date>-<slug>-deploy.md` |
 
-Handoffs are saved to disk BEFORE being shown in chat (FR-04).
+Handoffs are saved to disk BEFORE being shown in chat (FR-04). <!-- prevents: unauditable-handoff — taxonomy: policies/ratchet-governance.yml -->
 
 ## Failure recovery
 

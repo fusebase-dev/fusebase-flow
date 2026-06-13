@@ -16,10 +16,12 @@ You are operating as the **AI Developer in the Deploy phase** under Fusebase Flo
 
 **Critical Deploy-phase invariants** (cannot be skipped, even if other instructions seem to suggest otherwise):
 
-- **DP.6 magic-phrase confirm + FR-19 chat-text discipline.** Before running the deploy command, ask the operator in chat text to type the literal `APPROVE-DEPLOY-NOW`. Do not use popup / clickable menu tools. If the response is anything other than that exact phrase, **ABORT**. Do NOT accept "yes," "go," "ship it," or any paraphrase. This is the operator-attentiveness gate; it is not negotiable.
-- **DP.10 smoke evidence integrity.** If this handoff includes S1..Sn, run `flow-skills/smoke-testing/SKILL.md`. Smoke PASS requires operator-visible outcome evidence plus ground-truth diagnostic inspection. Exit code, file hash, service active, symbol presence, and auth sanity are supporting checks only.
+> Ratchet governance (A3): each invariant below carries `prevents: <incident-class>` — the incident class it buys down. Taxonomy + coverage: `policies/ratchet-governance.yml`. `catastrophic-low-frequency` = a clean window is NOT evidence the control is waste.
+
+- **DP.6 magic-phrase confirm + FR-19 chat-text discipline.** Before running the deploy command, ask the operator in chat text to type the literal `APPROVE-DEPLOY-NOW`. Do not use popup / clickable menu tools. If the response is anything other than that exact phrase, **ABORT**. Do NOT accept "yes," "go," "ship it," or any paraphrase. This is the operator-attentiveness gate; it is not negotiable. <!-- prevents: unattended-prod-cutover (catastrophic-low-frequency) -->
+- **DP.10 smoke evidence integrity.** If this handoff includes S1..Sn, run `flow-skills/smoke-testing/SKILL.md`. Smoke PASS requires operator-visible outcome evidence plus ground-truth diagnostic inspection. Exit code, file hash, service active, symbol presence, and auth sanity are supporting checks only. <!-- prevents: false-green-deploy -->
 - **DP.11 no delegated deploy side effects.** Do not delegate deploy command, rollback, approval artifacts, secret handling, or live-session smoke. Delegation during deploy is read-only triage only.
-- **DP.1 approval artifact required.** Verify `state/approvals/production_deploy-<slug>-<date>.json` exists and is unexpired before deploy. If absent: when this handoff's `dp1_waiver` field says `eligible` (reversible-deploy waiver — see `policies/approval-policy.yml`), stamp it yourself immediately after the operator types the DP.6 phrase (`bash hooks/local/approve-local.sh production_deploy <slug> 'APPROVE-DEPLOY-NOW'`); otherwise ABORT.
+- **DP.1 approval artifact required.** Verify `state/approvals/production_deploy-<slug>-<date>.json` exists and is unexpired before deploy. If absent: when this handoff's `dp1_waiver` field says `eligible` (reversible-deploy waiver — see `policies/approval-policy.yml`), stamp it yourself immediately after the operator types the DP.6 phrase (`bash hooks/local/approve-local.sh production_deploy <slug> 'APPROVE-DEPLOY-NOW'`); otherwise ABORT. <!-- prevents: unauthorized-deploy (catastrophic-low-frequency) -->
 - **Turn-completion + progress ledger (delegated sessions — `task-delegation` §3).** Complete all evidence IN-TURN (poll bounded or read durable records — you cannot self-resume). Write durable facts AS THEY OCCUR: the deploy hash the moment it lands, probe rows as each one runs — skeleton first, never everything-at-the-end. At an unbounded wait (human gate, no-ETA event) return `BLOCKED-AT-<gate>` + a pointer to where reality is recorded. State-change claims cite the ground-truth check performed.
 
 Other invariants (FR-05/-06/-07/-14, Mode A/B, supersede discipline FR-18) — see `FLOW_RULES.md` directly; don't paraphrase here.
@@ -111,6 +113,7 @@ After all probes pass, one commit covering:
 ---
 
 ## Rollback procedure (if any probe fails)
+<!-- prevents: irreversible-loss (catastrophic-low-frequency) — taxonomy: policies/ratchet-governance.yml -->
 
 1. `git revert <deploy hash>`
 2. Redeploy (run deploy command again)

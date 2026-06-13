@@ -13,7 +13,7 @@ After:
 ## Procedure (Product Owner side, via release-deploy-reporting skill)
 
 1. Final pre-deploy checklist:
-   - [ ] Approval artifact for `production_deploy` exists at `state/approvals/production_deploy-<slug>-<date>.json` — OR the handoff marks `dp1_waiver: eligible` (reversible-deploy waiver below; the Deploy session stamps the artifact at DP.6)
+   - [ ] Approval artifact for `production_deploy` exists at `state/approvals/production_deploy-<slug>-<date>.json` — OR the handoff marks `dp1_waiver: eligible` (reversible-deploy waiver below; the Deploy session stamps the artifact at DP.6) <!-- prevents: unauthorized-deploy (catastrophic-low-frequency) — taxonomy: policies/ratchet-governance.yml -->
    - [ ] Worker-undisturbed re-check: run `git diff` against `protected-paths.yml`. Must be empty (or bounded per spec)
    - [ ] Gate passed; code-review zero blockers; security clean
    - [ ] Spec is still DRAFT (will flip to DONE in this deploy)
@@ -25,13 +25,13 @@ After:
 
 1. Read deploy handoff. Verify approval artifact exists — or, on a `dp1_waiver: eligible` handoff, note that you will stamp it at step 4 (waiver below).
 2. Self-attest: "Operating as Deploy phase under Fusebase Flow v3.21.1. I will follow FR-01 through FR-26, including FR-05 (gate fulfilled), FR-06 (reversible by default), FR-07 (worker-undisturbed), FR-12 (approval-gated), FR-14 (single docs commit on deploy), FR-19 (chat-text questions). I will apply the role-discipline skill section for Deploy phase (DP.1..DP.12)."
-3. Final worker-undisturbed re-check before deploy command. If anything changed since gate, STOP.
-4. **Operator confirm (DP.6 + FR-19).** Ask the operator in chat text to type the literal `APPROVE-DEPLOY-NOW` phrase. Do not use popup / clickable menu tools. If the response is anything other than the exact phrase, ABORT the deploy and surface the abort. The operator can re-issue the deploy by re-running this workflow in a fresh session.
+3. Final worker-undisturbed re-check before deploy command. If anything changed since gate, STOP. <!-- prevents: silent-protected-path-drift — taxonomy: policies/ratchet-governance.yml -->
+4. **Operator confirm (DP.6 + FR-19).** Ask the operator in chat text to type the literal `APPROVE-DEPLOY-NOW` phrase. Do not use popup / clickable menu tools. If the response is anything other than the exact phrase, ABORT the deploy and surface the abort. The operator can re-issue the deploy by re-running this workflow in a fresh session. <!-- prevents: unattended-prod-cutover (catastrophic-low-frequency) — taxonomy: policies/ratchet-governance.yml -->
    **Reversible-deploy waiver (DP.1 auto-stamp):** when the handoff marks `dp1_waiver: eligible` (ticket is reversible AND touches no protected path, security surface, or migration), the operator's typed DP.6 phrase also authorizes you to stamp the DP.1 artifact yourself — run `bash hooks/local/approve-local.sh production_deploy <slug> 'APPROVE-DEPLOY-NOW'`, then proceed. The artifact still exists on disk (FR-12 + hook semantics unchanged); only the stamping party changes. `dp1_waiver: excluded` (migration / security / protected-path classes) keeps operator-run DP.1 — never stamp those yourself.
 5. Run deploy command (exact command from `AGENTS.md` project-specific section).
 6. Capture deploy hash from command output.
 7. Run probes per `verification-gate.md`. For each: report status with concrete evidence (HTTP code + body excerpt, log line, screenshot). **Delegated/deploy sessions complete all evidence IN-TURN** — poll with bounded sleeps or read durable records (`smoke-testing` § Verification cost discipline); never end the turn "watching in background" (a delegated session cannot self-resume). **Progress ledger (`task-delegation` §3):** append each probe result to the smoke evidence files / deploy-report draft AS IT LANDS — skeleton first, rows as earned; never hold all evidence for an end-of-run write (a dying session loses everything unwritten).
-8. Run smoke prompts S1..Sn if applicable under `flow-skills/smoke-testing/SKILL.md`. Smoke PASS requires operator-visible outcome evidence plus ground-truth diagnostic inspection; supporting checks alone are incomplete. Persist evidence to `docs/tmp/handoff/<date>-<slug>-smoke/`.
+8. Run smoke prompts S1..Sn if applicable under `flow-skills/smoke-testing/SKILL.md`. Smoke PASS requires operator-visible outcome evidence plus ground-truth diagnostic inspection; supporting checks alone are incomplete. Persist evidence to `docs/tmp/handoff/<date>-<slug>-smoke/`. <!-- prevents: false-green-deploy — taxonomy: policies/ratchet-governance.yml -->
 9. Produce single docs commit (FR-14) covering:
    - `spec.md` DRAFT → DONE with deploy hash captured
    - `tasks.md` verification marks for T<gate>..T<deploy>

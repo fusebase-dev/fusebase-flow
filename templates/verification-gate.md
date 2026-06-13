@@ -36,6 +36,7 @@ Subset of `policies/protected-paths.yml` relevant to this ticket. Empty diff req
 - `<path-3>` — bounded-additive allowed for this ticket; functions added: `<list>`. Empty diff required on functions: `<list>`.
 
 ## Smoke prompts (post-deploy)
+<!-- prevents: false-green-deploy — taxonomy: policies/ratchet-governance.yml (A3). Outcome + ground-truth columns are the safety-bearing part; do not reduce to "run smoke". -->
 
 Define with `flow-skills/smoke-testing/SKILL.md` — the canonical smoke contract (outcome-first criteria, sufficiency rules, UI/browser plan requirements, falsification). Fill every column below per that skill.
 
@@ -83,6 +84,7 @@ New: `<version>`
 Reason: <one-liner>
 
 ## Rollback procedure
+<!-- prevents: irreversible-loss (catastrophic-low-frequency) — taxonomy: policies/ratchet-governance.yml -->
 
 If any probe fails:
 1. `git revert <deploy hash>`

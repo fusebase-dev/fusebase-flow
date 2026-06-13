@@ -1,0 +1,177 @@
+# Fusebase Flow — ratchet governance (A3 / PR-2; committed default)
+#
+# WHY this exists: ceremony ratchets — incidents ADD steps; success never removes
+# them; no role owns pruning. This file is the missing answer. Every ceremony
+# element that bears safety weight carries `prevents: <incident-class>`; the PO
+# owns subtraction, fed by `/find-wasted-effort` rule 6 (ratchet inventory).
+# An un-annotated, never-firing element is a *review candidate* only — never an
+# auto-prune. Pruning needs a named incident-class, severity, window, negative
+# examples, and operator confirmation. Spec: docs/specs/ceremony-efficiency-middle-lane/spec.md (A3, D5).
+#
+# READ-ONLY in Phase 1: hooks/local/find-wasted-effort.py parses the `prevents:`
+# markers below + in the annotated files; it never edits or prunes. Writes/prune
+# recommendations are Phase 2/3, gated on per-rule false-positive fixtures.
+schema_version: 1
+local_override_file: policies/ratchet-governance.local.yml
+
+# ---------------------------------------------------------------------------
+# Annotation convention
+# ---------------------------------------------------------------------------
+# A ceremony element (a workflow step, a template check, a gate line) is annotated
+# at its definition site with a marker the analyzer can parse:
+#
+#   prevents: <incident-class>            # one class
+#   prevents: <class-a>, <class-b>        # multiple classes (comma-separated)
+#
+# The marker rides the element as a trailing inline comment or a `prevents:` line
+# directly beneath it (see annotation_marker.syntax). It is a tripwire+pointer
+# comment under FR-22 — the WHY (which incident class this control buys down) lives
+# here in the taxonomy, the marker is the ≤1-line retrieval pointer.
+#
+# The `catastrophic-low-frequency` SEVERITY TAG is appended to any element whose
+# incident class is rare-but-severe; it makes the element HARDER to prune (a clean
+# observation window is expected for such controls and is NOT evidence of waste).
+annotation_marker:
+  syntax:
+    inline: "<element>   # prevents: <incident-class>[, <incident-class>...]"
+    standalone: "prevents: <incident-class>[, <incident-class>...]"
+  severity_tag: "catastrophic-low-frequency"   # append to make pruning harder
+  parse_regex: 'prevents:\s*([a-z0-9 ,\-]+?)\s*(?:#|$)'   # used by find-wasted-effort.py
+
+# ---------------------------------------------------------------------------
+# Incident-class taxonomy (the WHY-home for each marker)
+# ---------------------------------------------------------------------------
+# Each class: the failure it names, an example, and whether it is severity-tagged
+# catastrophic-low-frequency (rare-but-severe → a clean window is expected).
+incident_classes:
+  false-green-deploy:
+    description: "A deploy reported PASS/DONE while the changed path is actually broken (smoke/probe theatre, exit-code-only PASS)."
+    example: "Marking smoke PASS from exit code + service-active without inspecting the operator-visible outcome."
+    catastrophic_low_frequency: false
+  unattended-prod-cutover:
+    description: "A production cutover ran without a human attending the terminal in real time."
+    example: "Auto-deploy / a deploy that proceeds on 'yes' instead of an explicit operator authorization."
+    catastrophic_low_frequency: true
+  unauthorized-deploy:
+    description: "A deploy ran without the required approval artifact / operator authorization on file."
+    example: "Running the deploy command with no production_deploy approval and no DP.6 phrase."
+    catastrophic_low_frequency: true
+  irreversible-loss:
+    description: "Destructive/irreversible state change with no rollback path captured."
+    example: "Deploy with no documented `git revert <hash>` rollback line; force-push erasing recoverable state."
+    catastrophic_low_frequency: true
+  silent-protected-path-drift:
+    description: "A worker-undisturbed / protected path changed between deploys without an approved exception (FR-07)."
+    example: "A long-lived worker file shows a non-empty diff at deploy with no protected_path_edit artifact."
+    catastrophic_low_frequency: false
+  speculative-fix-on-variance:
+    description: "A fix shipped on a single observed failure that was model variance, not a real defect (FR-10)."
+    example: "Drafting a fix decision before reproducing the failure 3/3."
+    catastrophic_low_frequency: false
+  unauditable-handoff:
+    description: "Cross-session work handed off through chat only — not replay-able, not auditable (FR-04)."
+    example: "Telling the next session what to do in chat instead of a saved handoff file."
+    catastrophic_low_frequency: false
+  regression-attribution-loss:
+    description: "Bundled multi-task commits hide which change caused a regression and break per-task rollback (FR-03)."
+    example: "Squeezing T18 + T19 into one commit."
+    catastrophic_low_frequency: false
+  broken-main:
+    description: "Broken state on main forces emergency rollback and breaks downstream pulls (FR-13)."
+    example: "Committing work that fails lint/typecheck with a 'fix in next commit' note."
+    catastrophic_low_frequency: false
+
+# ---------------------------------------------------------------------------
+# Coverage map (D5 scope — silence != safety; state it explicitly)
+# ---------------------------------------------------------------------------
+# Phase-1 scope per D5: the ceremony elements that /find-wasted-effort rule 6
+# reads + the deploy/gate controls. NOT every ceremony element in the framework —
+# the un-covered surface below is honestly enumerated so the audit can report its
+# own coverage rather than implying full-framework annotation.
+coverage:
+  scope_statement: >
+    Phase 1 annotates the deploy/gate control set + the elements rule 6 reads.
+    This is a deliberate D5 scope, not full-framework coverage. Un-annotated
+    ceremony elsewhere is NOT implied safe — it is simply out of this phase's
+    scope and is a candidate for a later annotation pass.
+  annotated_elements:
+    - file: templates/handoff-deploy.md
+      element: "DP.6 magic-phrase confirm (APPROVE-DEPLOY-NOW)"
+      prevents: [unattended-prod-cutover]
+      severity: catastrophic-low-frequency
+    - file: templates/handoff-deploy.md
+      element: "DP.1 approval artifact required before deploy"
+      prevents: [unauthorized-deploy]
+      severity: catastrophic-low-frequency
+    - file: templates/handoff-deploy.md
+      element: "DP.10 smoke evidence integrity (outcome + ground-truth)"
+      prevents: [false-green-deploy]
+    - file: templates/handoff-deploy.md
+      element: "Rollback procedure (git revert deploy hash)"
+      prevents: [irreversible-loss]
+      severity: catastrophic-low-frequency
+    - file: templates/handoff-implement.md
+      element: "Stop at gate (FR-05)"
+      prevents: [false-green-deploy, unauthorized-deploy]
+    - file: templates/handoff-implement.md
+      element: "Per-commit pre-attestation — one task scope"
+      prevents: [regression-attribution-loss]
+    - file: templates/handoff-implement.md
+      element: "Per-commit pre-attestation — lint + typecheck clean"
+      prevents: [broken-main]
+    - file: templates/handoff-implement.md
+      element: "Worker-undisturbed unchanged"
+      prevents: [silent-protected-path-drift]
+    - file: templates/gate-report.md
+      element: "Worker-undisturbed verification (section 4)"
+      prevents: [silent-protected-path-drift]
+    - file: templates/verification-gate.md
+      element: "Smoke prompts — operator-visible outcome + ground-truth diagnostic"
+      prevents: [false-green-deploy]
+    - file: templates/verification-gate.md
+      element: "Rollback procedure"
+      prevents: [irreversible-loss]
+      severity: catastrophic-low-frequency
+    - file: workflows/greenlight-deploy.md
+      element: "Operator confirm (DP.6 + FR-19)"
+      prevents: [unattended-prod-cutover]
+      severity: catastrophic-low-frequency
+    - file: workflows/greenlight-deploy.md
+      element: "Approval artifact pre-deploy checklist (DP.1)"
+      prevents: [unauthorized-deploy]
+      severity: catastrophic-low-frequency
+    - file: workflows/greenlight-deploy.md
+      element: "Pre-deploy worker-undisturbed re-check"
+      prevents: [silent-protected-path-drift]
+    - file: workflows/greenlight-deploy.md
+      element: "Smoke PASS requires outcome + ground-truth diagnostic"
+      prevents: [false-green-deploy]
+    - file: workflows/eight-phase-flow.md
+      element: "Lane safety floor (live proof / go-ahead / FR-07 / rollback / one commit)"
+      prevents: [false-green-deploy, unattended-prod-cutover, silent-protected-path-drift, irreversible-loss, regression-attribution-loss]
+    - file: workflows/eight-phase-flow.md
+      element: "Handoffs saved to disk before chat (FR-04)"
+      prevents: [unauditable-handoff]
+  not_in_scope_phase1:
+    - "Specify/Clarify/Plan/Decisions/Tasks phase artifacts (no deploy/gate safety weight)."
+    - "Code-review / security-permissions-review dimensions (own trigger surfaces; later pass)."
+    - "Knowledge-curation / architect-escalation ceremony (not deploy/gate controls)."
+    - "FR rule rows in FLOW_RULES.md (worker-undisturbed in Phase 1; rule work is Phase 3)."
+
+# ---------------------------------------------------------------------------
+# Pruning protocol (PO-owned; never automatic)
+# ---------------------------------------------------------------------------
+prune_protocol:
+  owner: product_owner
+  automatic: false
+  required_to_propose_removal:
+    - named_incident_class            # which class the element prevents (or "none, un-annotated")
+    - severity                        # incl. whether catastrophic-low-frequency
+    - observation_window              # how long with no firing
+    - negative_examples               # rounds in the window where the control did NOT fire
+    - operator_confirmation           # explicit operator go-ahead
+  review_candidate_definition: >
+    An element with NO `prevents:` annotation AND no firing in the observation
+    window is a REVIEW candidate (surface to the PO) — never a remove instruction.
+    A catastrophic-low-frequency element is NOT a review candidate on a clean
+    window alone (rare-but-severe controls are expected to sit idle).

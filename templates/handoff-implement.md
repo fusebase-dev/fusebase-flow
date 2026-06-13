@@ -116,6 +116,7 @@ When delegating a code-writing slice, inline the **Write-time discipline digest*
 ---
 
 ## Stop at gate
+<!-- prevents: false-green-deploy, unauthorized-deploy — taxonomy: policies/ratchet-governance.yml (A3) -->
 
 Per FR-05, stop at `T<gate>`. Do NOT run deploy. Report gate per `verification-gate.md` contract; operator will draft deploy handoff after review.
 
@@ -134,6 +135,7 @@ Per FR-05, stop at `T<gate>`. Do NOT run deploy. Report gate per `verification-g
 
 ## Per-commit pre-attestation
 
+<!-- prevents: broken-main (lint/typecheck), regression-attribution-loss (one task scope), silent-protected-path-drift (worker-undisturbed) — taxonomy: policies/ratchet-governance.yml -->
 ```
 T<n> pre-commit check:
 ☐ Lint clean

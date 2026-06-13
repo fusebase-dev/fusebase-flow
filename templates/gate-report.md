@@ -83,6 +83,7 @@ $ npm run typecheck
 ---
 
 ## 4. Worker-undisturbed verification
+<!-- prevents: silent-protected-path-drift — taxonomy: policies/ratchet-governance.yml (A3) -->
 
 Per `policies/protected-paths.yml`:
 
