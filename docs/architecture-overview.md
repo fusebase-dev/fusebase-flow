@@ -165,7 +165,7 @@ operator                   approve-local.sh                    state/approvals/
 ## Where to read next
 
 - `README.md` — quickstart, install paths, supported surfaces
-- `FLOW_RULES.md` — the 25 always-on rules
+- `FLOW_RULES.md` — the 26 always-on rules (FR-01..FR-26)
 - `docs/framework.md` — the framework directory structure entry point
 - `docs/fusebase-cli-edition.md` - Flow/CLI edition boundary map
 - `docs/compatibility.md` — supported provider / IDE matrix
