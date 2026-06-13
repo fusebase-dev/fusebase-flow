@@ -54,11 +54,20 @@ def _synthetic_cases(check):
     ev = _base_ev(); ev["gate_approvals"] = 1
     check("r1 inconclusive (window < min)", R.rule1_unused_gate_stops, ev, INCONCLUSIVE)
 
-    # Rule 2
-    ev = _base_ev(); ev["full_suite_runs_per_round"] = {"R1": (5, True)}
-    check("r2 confirmed (5 identical runs)", R.rule2_per_commit_full_suite, ev, CONFIRMED)
-    ev = _base_ev(); ev["full_suite_runs_per_round"] = {"R1": (5, False)}
-    check("r2 dismissed (fail-set differed)", R.rule2_per_commit_full_suite, ev, DISMISSED)
+    # Rule 2 — tuple is (run_count, identical_failsets, failset_complete).
+    # POSITIVE: runs > norm, fail-sets recorded for every run AND identical -> confirmed.
+    ev = _base_ev(); ev["full_suite_runs_per_round"] = {"R1": (5, True, True)}
+    check("r2 confirmed (5 identical runs, fail-sets complete)", R.rule2_per_commit_full_suite, ev, CONFIRMED)
+    ev = _base_ev(); ev["full_suite_runs_per_round"] = {"R1": (5, False, True)}
+    check("r2 dismissed (fail-set differed, complete)", R.rule2_per_commit_full_suite, ev, DISMISSED)
+    # NEGATIVE / FALSE-POSITIVE GUARD (HIGH finding): run counts present but fail-sets
+    # NOT recorded (failset_complete False) MUST be inconclusive, never confirmed.
+    ev = _base_ev(); ev["full_suite_runs_per_round"] = {"R1": (5, False, False)}
+    check("r2 inconclusive (runs present, fail-sets ABSENT -> not confirmed)",
+          R.rule2_per_commit_full_suite, ev, INCONCLUSIVE)
+    ev = _base_ev(); ev["full_suite_runs_per_round"] = {"R1": (5, True, False)}
+    check("r2 inconclusive (runs present, fail-sets PARTIAL -> not confirmed)",
+          R.rule2_per_commit_full_suite, ev, INCONCLUSIVE)
     ev = _base_ev()
     check("r2 inconclusive (no counts -> honest reason)", R.rule2_per_commit_full_suite, ev, INCONCLUSIVE)
 
@@ -208,13 +217,39 @@ def _e2e_cases(check_e2e):
         ]
         _init_fixture_repo(tmp, files, commits)
         v2, ev, report = _verdict_for(2, tmp)
-        check_e2e("e2e r2 confirmed (3 identical full-suite runs)", v2, CONFIRMED)
+        check_e2e("e2e r2 confirmed (3 full-suite runs + identical recorded fail-sets)", v2, CONFIRMED)
         v6, _, _ = _verdict_for(6, tmp)
         # both governed elements are catastrophic-idle or governed -> not confirmed waste
         check_e2e("e2e r6 not-confirmed (governed/catastrophic elements)",
                   v6 in (DISMISSED, INCONCLUSIVE), True)
         check_e2e("e2e report has rule-6 per-element table",
                   "per-element ratchet inventory" in report, True)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+    # --- NEGATIVE / false-positive (HIGH finding): suite-RUN counts recorded but
+    #     fail-SETS NOT recorded. >baseline+end runs but no recorded fail-set per
+    #     run -> rule 2 MUST be inconclusive, never confirmed (rule-signatures.md:20-25).
+    tmp = Path(tempfile.mkdtemp(prefix="fwe-e2e-r2-nofs-"))
+    try:
+        gate = (
+            "# Gate report\n\nRound for nofs-fixture-round-one.\n\n"
+            "Ran the full suite (run-tests) at the first checkpoint.\n"
+            "Ran the full suite (run-tests) at the second checkpoint.\n"
+            "Ran the full suite (run-tests) at the third checkpoint.\n"
+        )
+        files = {
+            "policies/ratchet-governance.yml": GOV_FIXTURE,
+            "docs/specs/nofs-fixture-round-one/gate-report.md": gate,
+        }
+        commits = [
+            ("T1: nofs-fixture-round-one small tweak (D1)",
+             [("docs/specs/nofs-fixture-round-one/x.txt", "a\n")]),
+        ]
+        _init_fixture_repo(tmp, files, commits)
+        v2, _, _ = _verdict_for(2, tmp)
+        check_e2e("e2e r2 inconclusive (runs recorded, fail-sets ABSENT -> NOT confirmed)",
+                  v2, INCONCLUSIVE)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 

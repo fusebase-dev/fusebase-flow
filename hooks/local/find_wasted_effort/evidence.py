@@ -201,9 +201,14 @@ def collect_suite_runs(artifacts, rounds):
     """Derive per-round full-suite run counts + whether fail-sets were identical,
     from suite-run + fail-set traces in gate/deploy reports and handoffs.
 
-    Returns ({round_id: (run_count, identical_failsets)}, reason). When NO artifact
-    records a machine-readable suite-run trace, returns ({}, reason) so rule 2
-    emits an honest inconclusive naming the missing input."""
+    Returns ({round_id: (run_count, identical_failsets, failset_complete)}, reason).
+    `failset_complete` is True ONLY when a fail-set was recorded for EVERY counted
+    run (>=1 fail-set and one per run); when fail-sets are missing or fewer than the
+    run count, it is False so rule 2 returns inconclusive instead of a false confirm
+    (HIGH finding — a confirm requires real evidence that the repeated runs had
+    IDENTICAL recorded fail-sets, per rule-signatures.md:20-25). When NO artifact
+    records a machine-readable suite-run trace, returns ({}, reason) so rule 2 emits
+    an honest inconclusive naming the missing input."""
     per_round = {}            # round_id -> {"runs": int, "failsets": [str,...]}
     for rel, text in artifacts:
         slug = artifact_slug(rel)
@@ -232,8 +237,12 @@ def collect_suite_runs(artifacts, rounds):
     result = {}
     for rid, acc in per_round.items():
         fs = [f for f in acc["failsets"] if f]
-        identical = (len(set(fs)) <= 1) if fs else True
-        result[rid] = (acc["runs"], identical)
+        # complete = a fail-set recorded for every counted run (>=1, one per run).
+        # Without this, runs with NO recorded fail-set would default to "identical"
+        # and falsely confirm. Fewer fail-sets than runs is incomplete evidence too.
+        failset_complete = bool(fs) and len(fs) >= acc["runs"]
+        identical = (len(set(fs)) <= 1) if fs else False
+        result[rid] = (acc["runs"], identical, failset_complete)
     return result, None
 
 

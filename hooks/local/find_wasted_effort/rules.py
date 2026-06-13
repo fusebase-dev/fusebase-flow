@@ -47,23 +47,44 @@ def rule1_unused_gate_stops(ev):
 
 def rule2_per_commit_full_suite(ev):
     """Rule 2 — per-commit full-suite habit. Input wired to suite-run traces parsed
-    from gate/deploy reports + handoffs (collect_suite_runs)."""
+    from gate/deploy reports + handoffs (collect_suite_runs).
+
+    A CONFIRM requires real fail-set evidence: runs > baseline+end AND fail-sets
+    recorded for every run AND those fail-sets identical (HIGH finding /
+    rule-signatures.md:20-25). Run counts present but fail-sets NOT recorded ->
+    inconclusive, never confirmed."""
     runs = ev["full_suite_runs_per_round"]
     if not runs:
         reason = ev.get("full_suite_reason") or "full-suite run counts not recorded in artifacts"
         return finding(2, INCONCLUSIVE,
                        "full-suite run pattern not derivable: %s" % reason,
                        "needs per-round suite-run counts + fail-sets in reports")
-    waste_rounds = [r for r, (n, identical) in runs.items() if n > FULL_SUITE_MAX and identical]
-    info_rounds = [r for r, (n, identical) in runs.items() if not identical]
+    # Confirm ONLY when fail-sets were completely recorded AND identical.
+    waste_rounds = [r for r, (n, identical, complete) in runs.items()
+                    if n > FULL_SUITE_MAX and identical and complete]
+    # A real mid-round regression (fail-set differed) dismisses — but only when the
+    # fail-set evidence is actually present to show the difference.
+    info_rounds = [r for r, (n, identical, complete) in runs.items()
+                   if complete and not identical]
+    # Run counts above the norm but with missing/partial fail-sets: the suite-run
+    # pattern is suspicious but unproven -> honest inconclusive (no false confirm).
+    unrecorded_rounds = [r for r, (n, identical, complete) in runs.items()
+                         if n > FULL_SUITE_MAX and not complete]
     if waste_rounds:
         return finding(2, CONFIRMED,
                        "rounds %s ran >%d identical full suites" % (sorted(waste_rounds), FULL_SUITE_MAX),
-                       "no round in this set had a differing fail-set (suite caught nothing new)")
+                       "no round in this set had a differing fail-set (suite caught nothing new); "
+                       "every run had a recorded fail-set")
     if info_rounds:
         return finding(2, DISMISSED,
                        "full-suite fail-sets DIFFERED in rounds %s" % sorted(info_rounds),
                        "the suite caught a real mid-round regression — runs bought information")
+    if unrecorded_rounds:
+        return finding(2, INCONCLUSIVE,
+                       "rounds %s ran >%d full suites but fail-sets were not fully recorded"
+                       % (sorted(unrecorded_rounds), FULL_SUITE_MAX),
+                       "run counts present, fail-sets missing/partial — cannot prove identical "
+                       "fail-sets (rule-signatures.md:20-25); needs a recorded fail-set per run")
     return finding(2, INCONCLUSIVE, "suite-run pattern within baseline+end norm",
                    "no excess identical runs")
 
