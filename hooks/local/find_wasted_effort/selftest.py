@@ -313,6 +313,32 @@ def _evidence_scoping_cases(check_bool):
     check_bool("scoping(LOW-b): `## Rollback outcome` real outcome fires irreversible-loss",
                "irreversible-loss" in fired, True)
 
+    # --- Codex round-6 LOW: a non-outcome term in the EXACT-allowlist TAIL demotes
+    #     the heading to non-outcome. The exact allowlist accepts an arbitrary
+    #     `:`/parenthetical tail after an outcome prefix ("Rollback result",
+    #     "Outcome:"), so a procedure/example word in that tail would otherwise win
+    #     the exact branch before `_NON_OUTCOME_HEADING_RE` runs. The call-site veto
+    #     forces a fall-through to non-outcome. Both new fixtures must fire NOTHING;
+    #     the genuine outcome heading is re-asserted as a regression guard. ---
+    rb_result_proc = (
+        "# Deploy report — x\n## Rollback result (procedure)\n"
+        "rollback executed; reverted the deploy.\n")
+    fired = E.collect_firing_evidence([("docs/specs/x/deploy-report.md", rb_result_proc)])
+    check_bool("scoping(LOW6): `## Rollback result (procedure)` + body fires NOTHING",
+               fired, set())
+    outcome_proc = (
+        "# Deploy report — x\n## Outcome: rollback procedure\n"
+        "rolled back the deploy; reverted the deploy.\n")
+    fired = E.collect_firing_evidence([("docs/specs/x/deploy-report.md", outcome_proc)])
+    check_bool("scoping(LOW6): `## Outcome: rollback procedure` + body fires NOTHING",
+               fired, set())
+    rb_result_guard = (
+        "# Deploy report — x\n## Rollback result: rolled back the deploy\n"
+        "rolled back the deploy after G-N failed.\n")
+    fired = E.collect_firing_evidence([("docs/specs/x/deploy-report.md", rb_result_guard)])
+    check_bool("scoping(LOW6-guard): `## Rollback result: rolled back the deploy` still fires irreversible-loss",
+               "irreversible-loss" in fired, True)
+
     # --- DIRECTION (b): instructional / template / split text still NOT counted ---
 
     # b1: a deploy-report TEMPLATE body (procedure + placeholders + instruction
