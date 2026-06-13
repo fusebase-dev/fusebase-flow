@@ -139,6 +139,79 @@ def _synthetic_cases(check):
 
 
 # --------------------------------------------------------------------------
+# Layer 1b — evidence-sourcing integrity (HIGH finding): blocks/firings come ONLY
+# from recorded-report OUTCOME text, never from instructional/spec/template/example
+# text, and are matched PER-ARTIFACT (no cross-file token combination).
+# --------------------------------------------------------------------------
+
+def _evidence_sourcing_cases(check_bool):
+    from . import evidence as E
+
+    # (a) INSTRUCTIONAL text is NOT a block/firing. The verification-gate TEMPLATE
+    #     instruction + a spec's rollback EXAMPLE + a handoff: none may source one.
+    vgate = (
+        "## Cross-artifact consistency check\n"
+        "If ANY item fails, redirect AI Developer. Do NOT bypass.\n"
+        "## Rollback procedure\n1. git revert <deploy hash>\n2. Redeploy\n")
+    spec = ("# Spec\nExample: deploy with no documented `git revert <hash>` rollback line.\n"
+            "On failure the operator may abort; the DP.6 phrase is APPROVE-DEPLOY-NOW.\n")
+    handoff = ("# Implement handoff\nRedirect AI Developer if any item fails. Do NOT bypass.\n"
+               "Rollback: git revert <hash>.\n")
+    instructional = [
+        ("docs/specs/x/verification-gate.md", vgate),
+        ("docs/specs/x/spec.md", spec),
+        ("docs/tmp/handoff/2026-01-01-x-implement.md", handoff),
+    ]
+    appr, blk = E.collect_gate_outcomes(instructional)
+    check_bool("evidence: instructional text yields 0 gate-blocks", blk, 0)
+    fired = E.collect_firing_evidence(instructional)
+    check_bool("evidence: instructional text yields NO firing classes", fired, set())
+
+    # (b) a GENUINE recorded gate-block / firing in a gate-report / deploy-report
+    #     OUTCOME section IS counted.
+    gate_report = (
+        "# Gate report\n## 7. Gate satisfaction\nGate blocked: deviation rejected by the operator.\n")
+    deploy_report = (
+        "# Deploy report\n## 3. Probe results\nG-N health probe: probe failed (observed 500).\n"
+        "Operator decided rollback; rolled back the deploy.\n")
+    recorded = [
+        ("docs/specs/y/gate-report.md", gate_report),
+        ("docs/specs/y/deploy-report.md", deploy_report),
+    ]
+    appr, blk = E.collect_gate_outcomes(recorded)
+    check_bool("evidence: recorded gate-block IS counted (>=1)", blk >= 1, True)
+    fired = E.collect_firing_evidence(recorded)
+    check_bool("evidence: recorded probe-fail fires false-green/unauthorized",
+               {"false-green-deploy", "unauthorized-deploy"} <= fired, True)
+    check_bool("evidence: recorded 'rolled back the deploy' fires irreversible-loss",
+               "irreversible-loss" in fired, True)
+
+    # (c) tokens SPLIT across two artifacts do NOT combine into one event:
+    #     `abort` in one report + `APPROVE-DEPLOY-NOW` in another must NOT fabricate
+    #     an unattended-prod-cutover firing (per-artifact matching).
+    split = [
+        ("docs/specs/z/gate-report.md", "# Gate report\n## Status\nOperator chose to abort.\n"),
+        ("docs/specs/z/deploy-report.md", "# Deploy report\n## Status\nTyped APPROVE-DEPLOY-NOW.\n"),
+    ]
+    fired = E.collect_firing_evidence(split)
+    check_bool("evidence: split abort+APPROVE-DEPLOY-NOW across 2 reports does NOT fire",
+               "unattended-prod-cutover" not in fired, True)
+    # but BOTH tokens within ONE report's outcome text DO fire it.
+    together = [("docs/specs/z/deploy-report.md",
+                 "# Deploy report\n## Status\nDeploy aborted: operator never typed APPROVE-DEPLOY-NOW.\n")]
+    fired = E.collect_firing_evidence(together)
+    check_bool("evidence: abort+APPROVE-DEPLOY-NOW within ONE report DOES fire",
+               "unattended-prod-cutover" in fired, True)
+
+    # (d) artifact_kind classifies the recorded-report vs instructional surfaces.
+    check_bool("evidence: gate-report classified recorded",
+               E.artifact_kind("docs/specs/x/gate-report.md") == "gate-report", True)
+    check_bool("evidence: verification-gate classified instructional (not recorded)",
+               E.artifact_kind("docs/specs/x/verification-gate.md") in
+               (E.RECORDED_REPORT_KINDS), False)
+
+
+# --------------------------------------------------------------------------
 # Layer 2 — end-to-end fixture repos (real assemble_evidence on disk)
 # --------------------------------------------------------------------------
 
@@ -329,6 +402,52 @@ def _e2e_cases(check_e2e):
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
+    # --- end-to-end (HIGH finding): INSTRUCTIONAL text must NOT fabricate a gate
+    #     BLOCK (rule 1) or a control FIRING (rule 6). A verification-gate TEMPLATE
+    #     instance carries "redirect AI Developer. Do NOT bypass."; a spec carries a
+    #     `git revert <hash>` rollback EXAMPLE; a handoff carries `abort` and the
+    #     APPROVE-DEPLOY-NOW phrase in INSTRUCTION grammar. None may be read as a
+    #     recorded outcome. Pre-fix: rule 1 dismissed on fake "6 block(s)" and rule 6
+    #     dismissed on fabricated firings. Post-fix: rule 1 honest (no recorded
+    #     outcomes -> inconclusive) and rule 6 sees NO firing from instructional text.
+    tmp = Path(tempfile.mkdtemp(prefix="fwe-e2e-instr-"))
+    try:
+        files = {
+            "policies/ratchet-governance.yml": GOV_FIXTURE,
+            # verification-gate instance — pure INSTRUCTION/template text
+            "docs/specs/instr-fixture-round/verification-gate.md":
+                "# Verification gate\n## Cross-artifact consistency check\n"
+                "If ANY item fails, redirect AI Developer. Do NOT bypass.\n"
+                "## Rollback procedure\n1. git revert <deploy hash>\n2. Redeploy\n",
+            # spec — rollback EXAMPLE + abort/APPROVE-DEPLOY-NOW in instruction grammar
+            "docs/specs/instr-fixture-round/spec.md":
+                "# Spec\nExample: deploy with no documented `git revert <hash>` rollback.\n"
+                "On failure the operator may abort; the phrase is APPROVE-DEPLOY-NOW.\n",
+            "templates/handoff-deploy.md":
+                "DP.6 confirm <!-- prevents: unattended-prod-cutover (catastrophic-low-frequency) -->\n"
+                "DP.10 smoke <!-- prevents: false-green-deploy -->\n"
+                "Rollback <!-- prevents: irreversible-loss (catastrophic-low-frequency) -->\n",
+        }
+        commits = [
+            ("T1: instr-fixture-round work (D1)",
+             [("docs/specs/instr-fixture-round/x.txt", "a\n")]),
+        ]
+        _init_fixture_repo(tmp, files, commits)
+        v1, ev1, _ = _verdict_for(1, tmp)
+        check_e2e("e2e r1 NOT dismissed on instructional 'Do NOT bypass' (no fake block)",
+                  v1 != DISMISSED, True)
+        check_e2e("e2e instructional text sources ZERO gate-blocks", ev1["gate_blocks"], 0)
+        check_e2e("e2e instructional text sources ZERO firing classes",
+                  ev1["fired_classes"], set())
+        # rule 6: the catastrophic elements (unattended-prod-cutover / irreversible-loss)
+        # must NOT be dismissed-via-firing — with no firing they are catastrophic-idle
+        # (inconclusive) or governed (dismissed by marker), never dismissed by a FAKE firing.
+        v6, ev6, _ = _verdict_for(6, tmp)
+        check_e2e("e2e r6 sees no fabricated firing from instructional text",
+                  ev6["fired_classes"], set())
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
 
 # --------------------------------------------------------------------------
 # Layer 3 — path-containment / --root escape (HIGH finding)
@@ -495,6 +614,7 @@ def run_selftest():
         cases.append((got == want, name, want, got))
 
     _synthetic_cases(check)
+    _evidence_sourcing_cases(check_bool)
     _e2e_cases(check_e2e)
     _containment_cases(check_bool)
 

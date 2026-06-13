@@ -206,6 +206,100 @@ def artifact_slug(rel):
 
 
 # --------------------------------------------------------------------------
+# artifact kind + recorded-outcome extraction (HIGH integrity fix)
+#
+# Outcome / firing / block evidence must come ONLY from ACTUAL RECORDED OUTCOMES
+# — a gate-report or deploy-report's outcome/result sections — NEVER from a spec,
+# a verification-gate (which is INSTRUCTIONAL: "If ANY item fails, redirect AI
+# Developer. Do NOT bypass."), a handoff, a change-note, or a template/example/
+# rollback section. And matching is PER-ARTIFACT: a token in one file plus a token
+# in another file must NOT combine into one fabricated event (no concatenation).
+# --------------------------------------------------------------------------
+
+def artifact_kind(rel):
+    """Classify an artifact by filename so the outcome collectors can scan ONLY
+    recorded-report kinds. Returns one of:
+      'gate-report' | 'deploy-report'  -> recorded OUTCOMES (scan outcome sections)
+      'verification-gate' | 'spec' | 'decisions' | 'handoff' | 'change-note' |
+      'other'                          -> INSTRUCTIONAL/spec/contract text (never an
+                                          outcome source for blocks/firings)
+    """
+    base = rel.replace("\\", "/").rsplit("/", 1)[-1].lower()
+    if base == "gate-report.md":
+        return "gate-report"
+    if base == "deploy-report.md":
+        return "deploy-report"
+    if base == "verification-gate.md":
+        return "verification-gate"
+    if base == "spec.md":
+        return "spec"
+    if base == "decisions.md":
+        return "decisions"
+    if base.endswith("-implement.md") or base.endswith("-deploy.md") or \
+            base.endswith("-smoke.md"):
+        return "handoff"
+    if "/docs/changes/" in ("/" + rel.replace("\\", "/")):
+        return "change-note"
+    return "other"
+
+
+# Recorded-report kinds whose OUTCOME sections may source a real gate-block or a
+# real control firing. Everything else is instructional/spec/contract text.
+RECORDED_REPORT_KINDS = frozenset({"gate-report", "deploy-report"})
+
+# Section headings (markdown ##/###) whose BODY is instructional / example /
+# template / rollback PROCEDURE text — excluded even inside a recorded report so a
+# rollback EXAMPLE ("git revert <hash>") or a "use this template when" block is
+# never mistaken for a recorded firing/block.
+_NON_OUTCOME_HEADING_RE = re.compile(
+    r"^\s{0,3}#{1,6}\s+.*\b("
+    r"rollback|use this template|fill-in|why .* matters|example|template body|"
+    r"if a probe failed|recovery|notes?|appendix|how to|procedure)\b",
+    re.IGNORECASE)
+# A heading that re-opens a genuine outcome section after a non-outcome one.
+_OUTCOME_HEADING_RE = re.compile(
+    r"^\s{0,3}#{1,6}\s+.*\b("
+    r"probe result|smoke|deploy command|gate satisfaction|pre-deploy|"
+    r"deviation|test count|worker-undisturbed|status|result)\b",
+    re.IGNORECASE)
+# Template/example placeholder lines (angle-bracket fills, code-fence template
+# bodies) carry instruction grammar, not a recorded outcome.
+_TEMPLATE_PLACEHOLDER_RE = re.compile(r"<[a-z][a-z0-9 _/+-]*>", re.IGNORECASE)
+# A literal instruction line that ships in the verification-gate/gate-report
+# TEMPLATE body ("If ANY item fails, redirect AI Developer. Do NOT bypass.").
+_INSTRUCTION_LINE_RE = re.compile(
+    r"\b(if any .*fails?|do not bypass|redirect(?:ed)? .* developer|"
+    r"replace this section|must show|paste (?:the|this|actual)|"
+    r"use this section instead)\b", re.IGNORECASE)
+
+
+def recorded_outcome_text(text):
+    """Return ONLY the recorded-outcome lines of a report — the lines that state
+    what ACTUALLY happened — with instructional / example / rollback / template
+    boilerplate stripped. Lines inside a non-outcome section heading are dropped;
+    template-placeholder lines (`<...>`) and literal instruction lines are dropped.
+    The result is what the outcome collectors regex-match (per-artifact)."""
+    kept = []
+    in_non_outcome = False
+    for line in text.splitlines():
+        if _NON_OUTCOME_HEADING_RE.match(line):
+            in_non_outcome = True
+            continue
+        if _OUTCOME_HEADING_RE.match(line):
+            in_non_outcome = False
+            # keep the outcome heading itself out of the matched body
+            continue
+        if in_non_outcome:
+            continue
+        if _TEMPLATE_PLACEHOLDER_RE.search(line):
+            continue
+        if _INSTRUCTION_LINE_RE.search(line):
+            continue
+        kept.append(line)
+    return "\n".join(kept)
+
+
+# --------------------------------------------------------------------------
 # rule-2 input: full-suite run traces per round (BLOCKER 1)
 # --------------------------------------------------------------------------
 
@@ -353,9 +447,15 @@ def collect_cross_session_rederivation(artifacts):
 # rule-1 input: gate deviation outcomes (approved vs blocked)
 # --------------------------------------------------------------------------
 
+# A RECORDED gate block — a real outcome ("the gate blocked X", "deviation
+# rejected", a recorded probe/deploy FAILURE). The old set included INSTRUCTIONAL
+# phrases ("redirect AI Developer", "do not bypass") that ship in the verification-
+# gate TEMPLATE — those are now excluded (they describe what SHOULD happen, not what
+# DID). They are additionally stripped by recorded_outcome_text() as defense in depth.
 GATE_BLOCK_RE = re.compile(
-    r"\b(gate blocked|deviation rejected|redirect(?:ed)? (?:the )?ai developer|"
-    r"do not bypass|gate fail(?:ed)?|blocked deploy|STOP→Full|stop to full)\b",
+    r"\b(gate blocked|deviation rejected|blocked the deploy|blocked deploy|"
+    r"deploy failed|probe failed|smoke failed|stopped (?:the )?deploy|"
+    r"halted at the gate)\b",
     re.IGNORECASE)
 GATE_APPROVE_RE = re.compile(
     r"\b(approved per operator|operator approved|deviation approved|"
@@ -363,13 +463,21 @@ GATE_APPROVE_RE = re.compile(
 
 
 def collect_gate_outcomes(artifacts):
-    """Count recorded gate deviation outcomes: approvals vs blocks. Conservative
-    (only unambiguous phrases) so the rule degrades to inconclusive, never to a
-    false confirmed. Returns (approvals, blocks)."""
+    """Count recorded gate deviation outcomes: approvals vs blocks.
+
+    INTEGRITY (HIGH fix): blocks/approvals are counted ONLY from ACTUAL RECORDED
+    OUTCOMES — gate-report / deploy-report OUTCOME sections — NEVER from a
+    verification-gate template, a spec, a handoff, or a change-note (all
+    INSTRUCTIONAL). Matching is PER-ARTIFACT (no concatenation), so a token in one
+    file cannot combine with a token in another to fabricate one event. Returns
+    (approvals, blocks)."""
     approvals = blocks = 0
-    for _, text in artifacts:
-        approvals += len(GATE_APPROVE_RE.findall(text))
-        blocks += len(GATE_BLOCK_RE.findall(text))
+    for rel, text in artifacts:
+        if artifact_kind(rel) not in RECORDED_REPORT_KINDS:
+            continue                       # instructional/spec/contract text — never an outcome
+        body = recorded_outcome_text(text)  # strip rollback/example/template/instruction
+        approvals += len(GATE_APPROVE_RE.findall(body))
+        blocks += len(GATE_BLOCK_RE.findall(body))
     return approvals, blocks
 
 
@@ -484,21 +592,45 @@ def _parse_yaml_list(raw):
 
 
 def collect_firing_evidence(artifacts):
-    """Map incident-class -> True when an artifact shows that class's control
-    FIRED in the window (a gate stop, a rollback used, a worker-undisturbed catch).
-    A fired control is NOT a waste candidate (rule 6 contrary evidence). Returns
-    a set of incident-classes with firing evidence."""
+    """Map incident-class -> True when a RECORDED REPORT shows that class's control
+    actually FIRED in the window (a real gate stop, a rollback that was USED, a
+    worker-undisturbed catch that recorded a real drift). A fired control is NOT a
+    waste candidate (rule 6 contrary evidence). Returns the set of incident-classes
+    with firing evidence.
+
+    INTEGRITY (HIGH fix), three rails:
+      1. ONLY recorded-report kinds (gate-report / deploy-report) source a firing —
+         a spec's rollback EXAMPLE ("git revert <hash>") or a verification-gate
+         instruction is never a firing.
+      2. ONLY each report's recorded-OUTCOME section is scanned — rollback
+         PROCEDURE / example / template sections are stripped first.
+      3. Matching is PER-ARTIFACT — tokens are required to co-occur WITHIN ONE
+         report's outcome text, so `abort` in one file + `APPROVE-DEPLOY-NOW` in an
+         unrelated file can NOT combine into one fabricated unattended-cutover event.
+    """
     fired = set()
-    text_all = "\n".join(t for _, t in artifacts)
-    low = text_all.lower()
-    # narrow, high-precision firing signals per class
-    if GATE_BLOCK_RE.search(text_all):
-        fired |= {"false-green-deploy", "unauthorized-deploy"}
-    if "git revert" in low and ("rollback" in low or "reverted" in low):
-        fired.add("irreversible-loss")
-    if ("worker-undisturbed" in low or "protected path" in low) and \
-            ("non-empty diff" in low or "changed since gate" in low or "stop" in low and "drift" in low):
-        fired.add("silent-protected-path-drift")
-    if "abort" in low and "approve-deploy-now" in low:
-        fired.add("unattended-prod-cutover")
+    for rel, text in artifacts:
+        if artifact_kind(rel) not in RECORDED_REPORT_KINDS:
+            continue
+        body = recorded_outcome_text(text)
+        low = body.lower()
+        # narrow, high-precision firing signals per class — evaluated PER-ARTIFACT
+        if GATE_BLOCK_RE.search(body):
+            fired |= {"false-green-deploy", "unauthorized-deploy"}
+        # a rollback that was actually USED (past-tense outcome), not the procedure.
+        # The rollback PROCEDURE / `git revert <hash>` EXAMPLE is already stripped by
+        # recorded_outcome_text(), so a past-tense "rolled back" in a result/status
+        # section is a genuine firing, not template boilerplate.
+        if ("rolled back the deploy" in low or "rollback executed" in low or
+                "reverted the deploy" in low or "deploy was rolled back" in low):
+            fired.add("irreversible-loss")
+        # a worker-undisturbed catch that recorded a REAL drift in this report
+        if ("worker-undisturbed" in low or "protected path" in low) and \
+                ("non-empty diff" in low or "changed since gate" in low or
+                 ("drift" in low and "detected" in low)):
+            fired.add("silent-protected-path-drift")
+        # an unattended-cutover catch: BOTH tokens must appear in THIS report's
+        # outcome text (per-artifact), describing a real aborted cutover.
+        if "abort" in low and "approve-deploy-now" in low:
+            fired.add("unattended-prod-cutover")
     return fired
