@@ -170,7 +170,14 @@ def deviation_gating_approvals(approvals):
 
 def collect_artifacts(root):
     """Round artifacts to scan: handoffs (tmp + durable), gate reports, deploy
-    reports, change-notes, verification gates. Returns [(relpath, text)]."""
+    reports (incl. dated filename variants + reports saved under state/), change-
+    notes, verification gates. Returns [(relpath, text)].
+
+    The dated/variant report globs (deploy-report-<date>.md, gate-report-<date>.md,
+    and gate/deploy reports persisted under state/) exist so artifact_kind() can
+    classify a REAL recorded outcome saved under a real-world filename — not only
+    the exact docs/specs/<slug>/gate-report.md basename (MED fix: false negatives
+    when a genuine outcome lives at a dated path)."""
     out = []
     globs = [
         "docs/tmp/handoff/*.md",
@@ -178,7 +185,13 @@ def collect_artifacts(root):
         "docs/changes/*.md",
         "docs/specs/*/verification-gate.md",
         "docs/specs/*/gate-report.md",
+        "docs/specs/*/gate-report-*.md",
         "docs/specs/*/deploy-report.md",
+        "docs/specs/*/deploy-report-*.md",
+        "docs/tmp/handoff/*-smoke/*.md",
+        "state/gate-report*.md",
+        "state/deploy-report*.md",
+        "state/reports/*.md",
     ]
     seen = set()
     for g in globs:
@@ -216,29 +229,69 @@ def artifact_slug(rel):
 # in another file must NOT combine into one fabricated event (no concatenation).
 # --------------------------------------------------------------------------
 
-def artifact_kind(rel):
-    """Classify an artifact by filename so the outcome collectors can scan ONLY
-    recorded-report kinds. Returns one of:
+# A recorded-report basename: the exact report names AND their dated variants
+# (deploy-report-2026-06-13.md, gate-report-<date>.md). Matched as report-name +
+# optional `-<anything>` suffix + `.md`, so a dated filename a real deploy saved
+# is recognized as an outcome source (MED fix), while spec.md / verification-gate.md
+# / decisions.md remain instructional.
+_GATE_REPORT_BASE_RE = re.compile(r"^gate-report(?:-[a-z0-9._-]+)?\.md$", re.IGNORECASE)
+_DEPLOY_REPORT_BASE_RE = re.compile(r"^deploy-report(?:-[a-z0-9._-]+)?\.md$", re.IGNORECASE)
+# A recorded-report HEADER (markdown H1) — the title a filled gate/deploy REPORT
+# carries ("# Gate report — <slug>", "# Deploy report — <slug>"). A deploy
+# *handoff* (instructional) titles itself "# Deploy handoff" / "Role bootstrap",
+# so the header discriminates a real outcome saved at a handoff-style path
+# (docs/tmp/handoff/<date>-<slug>-deploy.md) from the instructional handoff.
+_GATE_REPORT_HEADER_RE = re.compile(r"^\s{0,3}#{1,3}\s+gate report\b", re.IGNORECASE | re.MULTILINE)
+_DEPLOY_REPORT_HEADER_RE = re.compile(r"^\s{0,3}#{1,3}\s+deploy report\b", re.IGNORECASE | re.MULTILINE)
+# A handoff-style path where a recorded report may be saved under a -deploy/-smoke
+# filename (and therefore needs the header sniff to tell report from handoff).
+_HANDOFF_REPORT_PATH_RE = re.compile(r"^(?:docs/tmp/handoff|docs/handoff|state)/", re.IGNORECASE)
+
+
+def artifact_kind(rel, text=None):
+    """Classify an artifact so the outcome collectors scan ONLY recorded-report
+    kinds. Classification is by report-basename (incl. dated variants) AND, for a
+    handoff-style path that may hold either an instructional handoff or a recorded
+    report under a -deploy/-smoke filename, by the report HEADER in `text` (MED
+    fix). Returns one of:
       'gate-report' | 'deploy-report'  -> recorded OUTCOMES (scan outcome sections)
       'verification-gate' | 'spec' | 'decisions' | 'handoff' | 'change-note' |
       'other'                          -> INSTRUCTIONAL/spec/contract text (never an
                                           outcome source for blocks/firings)
+
+    A spec.md / verification-gate.md / decisions.md / *-implement.md handoff is
+    NEVER reclassified as a recorded report — re-admitting that instruction text
+    was the HIGH finding and stays excluded.
     """
-    base = rel.replace("\\", "/").rsplit("/", 1)[-1].lower()
-    if base == "gate-report.md":
-        return "gate-report"
-    if base == "deploy-report.md":
-        return "deploy-report"
+    relp = rel.replace("\\", "/")
+    base = relp.rsplit("/", 1)[-1].lower()
+    # Exact instruction surfaces — never an outcome source, regardless of header.
     if base == "verification-gate.md":
         return "verification-gate"
     if base == "spec.md":
         return "spec"
     if base == "decisions.md":
         return "decisions"
-    if base.endswith("-implement.md") or base.endswith("-deploy.md") or \
-            base.endswith("-smoke.md"):
+    if base.endswith("-implement.md"):
         return "handoff"
-    if "/docs/changes/" in ("/" + rel.replace("\\", "/")):
+    # Recorded-report basenames (exact + dated variants).
+    if _GATE_REPORT_BASE_RE.match(base):
+        return "gate-report"
+    if _DEPLOY_REPORT_BASE_RE.match(base):
+        return "deploy-report"
+    # A -deploy/-smoke file on a handoff-style path: report iff its HEADER says so;
+    # otherwise it's the instructional handoff. The header check requires `text`.
+    if (base.endswith("-deploy.md") or base.endswith("-smoke.md")) and \
+            _HANDOFF_REPORT_PATH_RE.match(relp):
+        if text:
+            if _DEPLOY_REPORT_HEADER_RE.search(text):
+                return "deploy-report"
+            if _GATE_REPORT_HEADER_RE.search(text):
+                return "gate-report"
+        return "handoff"
+    if base.endswith("-deploy.md") or base.endswith("-smoke.md"):
+        return "handoff"
+    if "/docs/changes/" in ("/" + relp):
         return "change-note"
     return "other"
 
@@ -247,20 +300,32 @@ def artifact_kind(rel):
 # real control firing. Everything else is instructional/spec/contract text.
 RECORDED_REPORT_KINDS = frozenset({"gate-report", "deploy-report"})
 
+# A heading that names a genuine RECORDED OUTCOME — including a rollback/recovery
+# RESULT (as opposed to the rollback PROCEDURE). Checked BEFORE the non-outcome
+# regex so "## Rollback result" / "## Rollback outcome" reopens an outcome section
+# even though it contains the word "rollback" (MED fix: a genuine recorded rollback
+# result was being stripped along with the procedure). "rolled back" / "probe
+# failed" / "gate blocked" / "redeploy" in a heading are recorded-outcome signals.
+_OUTCOME_HEADING_RE = re.compile(
+    r"^\s{0,3}#{1,6}\s+.*\b("
+    r"rollback result|rollback outcome|rollback executed|rolled back|"
+    r"recovery (?:result|outcome|taken|executed)|"
+    r"probe result|probe failed|gate blocked|redeploy(?:ed)?|"
+    r"smoke|deploy command|gate satisfaction|pre-deploy|"
+    r"deviation|test count|worker-undisturbed|status|result|outcome)\b",
+    re.IGNORECASE)
 # Section headings (markdown ##/###) whose BODY is instructional / example /
 # template / rollback PROCEDURE text — excluded even inside a recorded report so a
 # rollback EXAMPLE ("git revert <hash>") or a "use this template when" block is
-# never mistaken for a recorded firing/block.
+# never mistaken for a recorded firing/block. `rollback` / `recovery` trip this
+# ONLY when paired with procedure/example/steps/how-to words — a bare "## Rollback
+# result" is an OUTCOME (handled above), not stripped (MED fix).
 _NON_OUTCOME_HEADING_RE = re.compile(
     r"^\s{0,3}#{1,6}\s+.*\b("
-    r"rollback|use this template|fill-in|why .* matters|example|template body|"
-    r"if a probe failed|recovery|notes?|appendix|how to|procedure)\b",
-    re.IGNORECASE)
-# A heading that re-opens a genuine outcome section after a non-outcome one.
-_OUTCOME_HEADING_RE = re.compile(
-    r"^\s{0,3}#{1,6}\s+.*\b("
-    r"probe result|smoke|deploy command|gate satisfaction|pre-deploy|"
-    r"deviation|test count|worker-undisturbed|status|result)\b",
+    r"(?:rollback|recovery)\s+(?:procedure|example|steps?|playbook|template|guide)|"
+    r"(?:procedure|example|steps?|playbook|guide)\s+(?:for\s+)?(?:rollback|recovery)|"
+    r"use this template|fill-in|why .* matters|example|template body|"
+    r"if a probe failed|appendix|how to|procedure)\b",
     re.IGNORECASE)
 # Template/example placeholder lines (angle-bracket fills, code-fence template
 # bodies) carry instruction grammar, not a recorded outcome.
@@ -282,12 +347,15 @@ def recorded_outcome_text(text):
     kept = []
     in_non_outcome = False
     for line in text.splitlines():
-        if _NON_OUTCOME_HEADING_RE.match(line):
-            in_non_outcome = True
-            continue
+        # OUTCOME headings are tested FIRST so a heading naming a result/outcome
+        # (e.g. "## Rollback result", "## Recovery outcome") reopens an outcome
+        # section even though it shares a word with the non-outcome pattern (MED fix).
         if _OUTCOME_HEADING_RE.match(line):
             in_non_outcome = False
             # keep the outcome heading itself out of the matched body
+            continue
+        if _NON_OUTCOME_HEADING_RE.match(line):
+            in_non_outcome = True
             continue
         if in_non_outcome:
             continue
@@ -473,7 +541,7 @@ def collect_gate_outcomes(artifacts):
     (approvals, blocks)."""
     approvals = blocks = 0
     for rel, text in artifacts:
-        if artifact_kind(rel) not in RECORDED_REPORT_KINDS:
+        if artifact_kind(rel, text) not in RECORDED_REPORT_KINDS:
             continue                       # instructional/spec/contract text — never an outcome
         body = recorded_outcome_text(text)  # strip rollback/example/template/instruction
         approvals += len(GATE_APPROVE_RE.findall(body))
@@ -610,7 +678,7 @@ def collect_firing_evidence(artifacts):
     """
     fired = set()
     for rel, text in artifacts:
-        if artifact_kind(rel) not in RECORDED_REPORT_KINDS:
+        if artifact_kind(rel, text) not in RECORDED_REPORT_KINDS:
             continue
         body = recorded_outcome_text(text)
         low = body.lower()
