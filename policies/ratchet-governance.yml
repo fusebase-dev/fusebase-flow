@@ -36,7 +36,10 @@ annotation_marker:
     inline: "<element>   # prevents: <incident-class>[, <incident-class>...]"
     standalone: "prevents: <incident-class>[, <incident-class>...]"
   severity_tag: "catastrophic-low-frequency"   # append to make pruning harder
-  parse_regex: 'prevents:\s*([a-z0-9 ,\-]+?)\s*(?:#|$)'   # used by find-wasted-effort.py
+  # Used by find-wasted-effort.py (PREVENTS_RE). Captures the comma-separated
+  # class list; terminates at the comment close, '#', em-dash, or EOL. Inline
+  # per-class parentheticals / severity tags are stripped per-class.
+  parse_regex: 'prevents:\s*([a-z0-9][a-z0-9 ,\-()/]*?)\s*(?:-->|#|—|$)'
 
 # ---------------------------------------------------------------------------
 # Incident-class taxonomy (the WHY-home for each marker)
