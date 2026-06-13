@@ -32,7 +32,7 @@ from . import rules as R
 
 def _base_ev():
     return {
-        "gate_blocks": 0, "gate_approvals": 0,
+        "gate_blocks": 0, "gate_approvals": 0, "gating_approvals": [],
         "full_suite_runs_per_round": {}, "full_suite_reason": "no traces",
         "duplicate_blocks": [],
         "lane_candidates": None, "lane_reason": "no candidate",
@@ -51,6 +51,16 @@ def _synthetic_cases(check):
     check("r1 confirmed (4 approvals, 0 blocks)", R.rule1_unused_gate_stops, ev, CONFIRMED)
     ev = _base_ev(); ev["gate_approvals"] = 4; ev["gate_blocks"] = 1
     check("r1 dismissed (a block present)", R.rule1_unused_gate_stops, ev, DISMISSED)
+    # MED: a deviation-gating approval artifact is contrary evidence -> dismissed,
+    # even with many rubber-stamped approvals and zero recorded blocks.
+    ev = _base_ev(); ev["gate_approvals"] = 4
+    ev["gating_approvals"] = [{"file": "state/approvals/protected_path_edit-x-20260613.json",
+                               "kind": "protected_path_edit"}]
+    check("r1 dismissed (deviation-gating approval consumed as contrary evidence)",
+          R.rule1_unused_gate_stops, ev, DISMISSED)
+    ev = _base_ev(); ev["gating_approvals"] = [{"file": "f", "kind": "database_migration"}]
+    check("r1 dismissed (gating approval alone, no recorded gate-outcome text)",
+          R.rule1_unused_gate_stops, ev, DISMISSED)
     ev = _base_ev(); ev["gate_approvals"] = 1
     check("r1 inconclusive (window < min)", R.rule1_unused_gate_stops, ev, INCONCLUSIVE)
 

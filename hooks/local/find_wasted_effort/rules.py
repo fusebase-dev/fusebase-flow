@@ -25,10 +25,18 @@ def finding(rule, verdict, summary, contrary, elements=None):
 
 
 def rule1_unused_gate_stops(ev):
-    """Rule 1 — unused gate stops. Needs recorded deviation/block outcomes."""
+    """Rule 1 — unused gate stops. Needs recorded deviation/block outcomes.
+
+    Contrary evidence is TWO-sourced: a recorded gate BLOCK in the artifacts, OR a
+    deviation-gating APPROVAL artifact on disk (state/approvals/) whose kind gated
+    a real deviation from a default (protected_path_edit, database_migration, …).
+    Either one shows a gate stop bought a real outcome and dismisses the rule —
+    routine-deploy approvals are excluded (they are the happy path, not a deviation
+    the gate had to stop and authorize)."""
     blocks = ev["gate_blocks"]
     approvals = ev["gate_approvals"]
-    if approvals == 0 and blocks == 0:
+    gating = ev.get("gating_approvals", [])
+    if approvals == 0 and blocks == 0 and not gating:
         return finding(1, INCONCLUSIVE,
                        "no recorded gate deviation outcomes in the window",
                        "needs >= %d rounds of recorded approve/block outcomes" % UNUSED_GATE_MIN)
@@ -36,10 +44,18 @@ def rule1_unused_gate_stops(ev):
         return finding(1, DISMISSED,
                        "a gate blocked a deviation in the window (%d block(s))" % blocks,
                        "blocked-gate counterexample present — gate stops bought an outcome")
+    if gating:
+        kinds = sorted({a["kind"] for a in gating})
+        return finding(1, DISMISSED,
+                       "a deviation-gating approval gated a real deviation in the window "
+                       "(%d artifact(s): %s)" % (len(gating), kinds),
+                       "approval-artifact counterexample present — a gate required an explicit "
+                       "operator decision to authorize a deviation (it bought an outcome)")
     if approvals >= UNUSED_GATE_MIN and blocks == 0:
         return finding(1, CONFIRMED,
                        "gate approved every deviation across %d round(s), none blocked" % approvals,
-                       "searched for a blocked-gate counterexample; none found (review candidate, NOT auto-reclassify)")
+                       "searched for a blocked-gate counterexample AND a deviation-gating approval; "
+                       "none found (review candidate, NOT auto-reclassify)")
     return finding(1, INCONCLUSIVE,
                    "only %d approved deviation(s); window < %d" % (approvals, UNUSED_GATE_MIN),
                    "window too small to confirm")

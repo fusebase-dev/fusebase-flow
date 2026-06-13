@@ -137,8 +137,12 @@ def build_rounds(commits, numstat):
 
 def collect_approvals(root):
     """Read state/approvals/*.json (the deploy-authority trail). Returns a list of
-    {file, kind} dicts; [] when none on disk. Feeds rule-1 contrary evidence (an
-    approval artifact is a recorded operator decision, not a silent gate skip)."""
+    {file, kind} dicts; [] when none on disk. CONSUMED by rule 1 as contrary
+    evidence: a deviation-gating approval (see DEVIATION_GATING_APPROVALS) is a
+    recorded operator decision that authorized a real deviation — a gate that
+    bought an outcome, which dismisses rule 1's "every deviation rubber-stamped"
+    signal. The artifact name encodes the kind: <operation>-<slug>-<date>.json,
+    so the kind is the leading token before the slug."""
     base = root / "state" / "approvals"
     out = []
     if not base.is_dir():
@@ -150,6 +154,14 @@ def collect_approvals(root):
         kind = name.split("-", 1)[0] if "-" in name else name.replace(".json", "")
         out.append({"file": relpath(f, root), "kind": kind})
     return out
+
+
+def deviation_gating_approvals(approvals):
+    """Subset of collected approvals whose KIND gates a real deviation from a
+    default (rule-1 contrary evidence). Routine-deploy kinds are excluded — they
+    are the happy path, not a deviation a gate had to stop and authorize."""
+    from .constants import DEVIATION_GATING_APPROVALS
+    return [a for a in approvals if a["kind"] in DEVIATION_GATING_APPROVALS]
 
 
 # --------------------------------------------------------------------------

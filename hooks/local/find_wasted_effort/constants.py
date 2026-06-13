@@ -11,6 +11,23 @@ DUP_BLOCK_MIN = 3            # rule 3: verbatim block in >= N artifacts
 UNUSED_GATE_MIN = 3          # rule 1: N rounds, every deviation approved
 FULL_SUITE_MAX = 2           # rule 2: baseline + end is the non-waste norm
 
+# Rule 1 contrary-evidence: approval KINDS that gate a real DEVIATION from a
+# default (the operator had to make an explicit call to authorize stepping around
+# a rule). One on disk in the window is a counterexample that dismisses rule 1 — a
+# gate bought a real outcome. The routine-deploy kinds (production_deploy,
+# lightweight_deploy) are the happy path itself, NOT a deviation, so they are
+# EXCLUDED. Kinds mirror policies/approval-policy.yml: require_approval.
+DEVIATION_GATING_APPROVALS = frozenset({
+    "protected_path_edit",
+    "database_migration",
+    "auth_or_permission_change",
+    "secret_file_write",
+    "destructive_file_delete",
+    "external_customer_visible_message",
+    "session_key_or_cookie_use",
+    "direct_to_main",
+})
+
 CONFIRMED, DISMISSED, INCONCLUSIVE = "confirmed", "dismissed", "inconclusive"
 
 # Reused from the token-economy substrate (token-waste-audit.py) — do not diverge.

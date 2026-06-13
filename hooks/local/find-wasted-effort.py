@@ -138,6 +138,7 @@ def assemble_evidence(root, window):
     rounds = ev_mod.build_rounds(commits, numstat)
     artifacts = ev_mod.collect_artifacts(root)
     approvals = ev_mod.collect_approvals(root)
+    gating_approvals = ev_mod.deviation_gating_approvals(approvals)
 
     gate_approvals, gate_blocks = ev_mod.collect_gate_outcomes(artifacts)
     suite_runs, suite_reason = ev_mod.collect_suite_runs(artifacts, rounds)
@@ -152,6 +153,7 @@ def assemble_evidence(root, window):
         # rule 1
         "gate_blocks": gate_blocks,
         "gate_approvals": gate_approvals,
+        "gating_approvals": gating_approvals,
         # rule 2
         "full_suite_runs_per_round": suite_runs,
         "full_suite_reason": suite_reason,
@@ -239,6 +241,9 @@ def build_report(ev, root, today):
               "| Rounds (git log + diffstat) | %d |" % len(ev["rounds"]),
               "| Round artifacts (handoffs/gate/deploy/change-notes) | %d |" % len(ev["artifacts"]),
               "| Approval artifacts (state/approvals/) | %d |" % len(ev["approvals"]),
+              "| Deviation-gating approvals (rule-1 contrary evidence) | %s |" % (
+                  ", ".join(sorted({a["kind"] for a in ev.get("gating_approvals", [])}))
+                  or "none"),
               "| Gate deviation outcomes (approve / block) | %d / %d |" % (
                   ev["gate_approvals"], ev["gate_blocks"]),
               "| Suite-run traces | %s |" % (
