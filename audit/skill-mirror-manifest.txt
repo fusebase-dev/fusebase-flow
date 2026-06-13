@@ -24,6 +24,12 @@
 .claude/skills/design-discovery-ideation/SKILL.md  9681650dea868e2352b2268f6058489f366dc7d997086a911b6cc3c63de2835b
 .agents/skills/documentation-budget/SKILL.md  ac49c0e5f603674cb33b27f1c95282d82b1d9cdbd09f86832165eccf2aa7c612
 .claude/skills/documentation-budget/SKILL.md  ac49c0e5f603674cb33b27f1c95282d82b1d9cdbd09f86832165eccf2aa7c612
+.agents/skills/find-wasted-effort/SKILL.md  59ea32da8c7e114fdb376535f55a3026a111fa44889e172cea455493cb4d5ef9
+.agents/skills/find-wasted-effort/references/false-positive-examples.md  bc8a9a1b5dac09b2db3d5e8dcdba7cf777cdff57f43f0391a39bcbaae1ac6021
+.agents/skills/find-wasted-effort/references/rule-signatures.md  043a63d880bdcf3ecac764671a635de164d55de7c16e34919b1d7e6c49fc5086
+.claude/skills/find-wasted-effort/SKILL.md  59ea32da8c7e114fdb376535f55a3026a111fa44889e172cea455493cb4d5ef9
+.claude/skills/find-wasted-effort/references/false-positive-examples.md  bc8a9a1b5dac09b2db3d5e8dcdba7cf777cdff57f43f0391a39bcbaae1ac6021
+.claude/skills/find-wasted-effort/references/rule-signatures.md  043a63d880bdcf3ecac764671a635de164d55de7c16e34919b1d7e6c49fc5086
 .agents/skills/fusebase-flow-health-check/SKILL.md  2c1f552125329cb1ad0390ab62873a72efcb81a5aba6119671aee2741f5e9749
 .claude/skills/fusebase-flow-health-check/SKILL.md  2c1f552125329cb1ad0390ab62873a72efcb81a5aba6119671aee2741f5e9749
 .agents/skills/git-history-diagnostic/SKILL.md  3e4492f489c839bb6dfb5b3c80dca6b65e7990f873b86013f47c658b8e320f2e
