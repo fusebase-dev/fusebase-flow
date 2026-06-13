@@ -14,9 +14,21 @@ FULL_SUITE_MAX = 2           # rule 2: baseline + end is the non-waste norm
 # Rule 1 contrary-evidence: approval KINDS that gate a real DEVIATION from a
 # default (the operator had to make an explicit call to authorize stepping around
 # a rule). One on disk in the window is a counterexample that dismisses rule 1 — a
-# gate bought a real outcome. The routine-deploy kinds (production_deploy,
-# lightweight_deploy) are the happy path itself, NOT a deviation, so they are
-# EXCLUDED. Kinds mirror policies/approval-policy.yml: require_approval.
+# gate bought a real outcome.
+#
+# Derivation (LOW fix): every member MUST be a real `require_approval` kind in
+# policies/approval-policy.yml. `direct_to_main` is a workflow MODE (workflow_mode:
+# direct_to_main | branch_pr), NOT an approval kind — it was a false member that
+# could falsely dismiss rule 1, so it is REMOVED. The routine-deploy kinds
+# (production_deploy, lightweight_deploy, middle_deploy) ARE require_approval kinds
+# but are the happy path itself, NOT a deviation a gate had to stop and authorize,
+# so they are EXCLUDED here. What remains = the deviation-gating require_approval
+# kinds. ROUTINE_DEPLOY_KINDS documents the deliberate exclusions.
+ROUTINE_DEPLOY_KINDS = frozenset({
+    "production_deploy",
+    "lightweight_deploy",
+    "middle_deploy",
+})
 DEVIATION_GATING_APPROVALS = frozenset({
     "protected_path_edit",
     "database_migration",
@@ -25,7 +37,6 @@ DEVIATION_GATING_APPROVALS = frozenset({
     "destructive_file_delete",
     "external_customer_visible_message",
     "session_key_or_cookie_use",
-    "direct_to_main",
 })
 
 CONFIRMED, DISMISSED, INCONCLUSIVE = "confirmed", "dismissed", "inconclusive"

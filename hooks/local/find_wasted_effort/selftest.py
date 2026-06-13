@@ -211,6 +211,61 @@ def _evidence_sourcing_cases(check_bool):
                (E.RECORDED_REPORT_KINDS), False)
 
 
+def _deviation_gating_kind_cases(check_bool):
+    """LOW fix: DEVIATION_GATING_APPROVALS must contain ONLY real require_approval
+    deviation kinds. Probe every kind: each included one dismisses rule 1 via
+    deviation_gating_approvals(); routine-deploy kinds + non-kinds (incl. the
+    `direct_to_main` workflow MODE) do NOT. Also cross-check membership against the
+    real require_approval kinds in policies/approval-policy.yml."""
+    from . import evidence as E
+    from .constants import DEVIATION_GATING_APPROVALS, ROUTINE_DEPLOY_KINDS
+
+    # every INCLUDED kind is consumed as contrary evidence (dismisses)
+    for kind in sorted(DEVIATION_GATING_APPROVALS):
+        gating = E.deviation_gating_approvals([{"file": "f", "kind": kind}])
+        check_bool("dev-kind: %s consumed as rule-1 contrary evidence" % kind,
+                   len(gating) == 1, True)
+        v = R.rule1_unused_gate_stops(
+            {**_base_ev(), "gating_approvals": gating})["verdict"]
+        check_bool("dev-kind: %s dismisses rule 1" % kind, v, DISMISSED)
+
+    # routine-deploy kinds + non-kinds (incl. direct_to_main MODE) are NOT consumed
+    non_gating = sorted(ROUTINE_DEPLOY_KINDS) + ["direct_to_main", "branch_pr",
+                                                 "not_a_kind"]
+    for kind in non_gating:
+        gating = E.deviation_gating_approvals([{"file": "f", "kind": kind}])
+        check_bool("dev-kind: %s is NOT rule-1 contrary evidence" % kind,
+                   gating, [])
+        check_bool("dev-kind: %s is excluded from DEVIATION_GATING_APPROVALS" % kind,
+                   kind in DEVIATION_GATING_APPROVALS, False)
+
+    # cross-check: every member is a real require_approval kind in approval-policy.yml
+    pol = Path(__file__).resolve().parent.parent.parent.parent / "policies" / "approval-policy.yml"
+    if pol.is_file():
+        import re as _re
+        text = pol.read_text(encoding="utf-8", errors="replace")
+        # parse the require_approval: block's immediate-child keys (2-space indent)
+        kinds = set()
+        in_block = False
+        for line in text.splitlines():
+            if _re.match(r"^require_approval:\s*$", line):
+                in_block = True
+                continue
+            if in_block:
+                if _re.match(r"^\S", line):       # dedented back to top-level key
+                    break
+                m = _re.match(r"^  ([a-z_]+):\s*$", line)
+                if m:
+                    kinds.add(m.group(1))
+        check_bool("dev-kind: every DEVIATION_GATING kind is a real require_approval kind",
+                   DEVIATION_GATING_APPROVALS <= kinds, True)
+        check_bool("dev-kind: direct_to_main is NOT a require_approval kind (it's a mode)",
+                   "direct_to_main" in kinds, False)
+    else:
+        check_bool("dev-kind: approval-policy.yml present for cross-check",
+                   None, None, skipped=True)
+
+
 # --------------------------------------------------------------------------
 # Layer 2 — end-to-end fixture repos (real assemble_evidence on disk)
 # --------------------------------------------------------------------------
@@ -624,6 +679,7 @@ def run_selftest():
 
     _synthetic_cases(check)
     _evidence_sourcing_cases(check_bool)
+    _deviation_gating_kind_cases(check_bool)
     _e2e_cases(check_e2e)
     _containment_cases(check_bool)
 
