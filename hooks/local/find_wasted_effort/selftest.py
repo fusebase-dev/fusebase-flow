@@ -339,6 +339,24 @@ def _evidence_scoping_cases(check_bool):
     check_bool("scoping(LOW6-guard): `## Rollback result: rolled back the deploy` still fires irreversible-loss",
                "irreversible-loss" in fired, True)
 
+    # --- Codex round-7 LOW: extend the non-outcome heading veto with the runbook/
+    #     instructions/sop/recipe/how-to synonym class. A "## Outcome: rollback
+    #     runbook" heading is a procedure REFERENCE, not a recorded firing, so it
+    #     must fire NOTHING; a genuine bare "## Rollback result: rolled back the
+    #     deploy" still fires (the veto did not over-correct). ---
+    runbook_heading = (
+        "# Deploy report — x\n## Outcome: rollback runbook\n"
+        "see the rollback runbook; rolled back the deploy; reverted the deploy.\n")
+    fired = E.collect_firing_evidence([("docs/specs/x/deploy-report.md", runbook_heading)])
+    check_bool("scoping(LOW7): `## Outcome: rollback runbook` + body fires NOTHING",
+               fired, set())
+    rb_result_guard7 = (
+        "# Deploy report — x\n## Rollback result: rolled back the deploy\n"
+        "rolled back the deploy after G-N failed.\n")
+    fired = E.collect_firing_evidence([("docs/specs/x/deploy-report.md", rb_result_guard7)])
+    check_bool("scoping(LOW7-guard): `## Rollback result: rolled back the deploy` still fires irreversible-loss",
+               "irreversible-loss" in fired, True)
+
     # --- DIRECTION (b): instructional / template / split text still NOT counted ---
 
     # b1: a deploy-report TEMPLATE body (procedure + placeholders + instruction

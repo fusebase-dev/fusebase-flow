@@ -343,11 +343,14 @@ _OUTCOME_HEADING_RE = re.compile(
 # "procedure"/"example"/"steps"/"playbook"/"guide" word ALSO trips it (Codex
 # round-5 LOW: "## Rollback procedure result" must be non-outcome — the
 # procedure/example classification wins over the trailing generic "result").
+# round-7 LOW: the same non-outcome class includes runbook/instructions/sop/
+# recipe and hyphenated how-to — a "## Outcome: rollback runbook" heading is a
+# procedure reference, not a recorded firing.
 _NON_OUTCOME_HEADING_RE = re.compile(
     r"^\s{0,3}#{1,6}\s+.*\b("
-    r"procedure|example|steps?|playbook|guide|"
+    r"procedure|example|steps?|playbook|guide|runbook|instructions|sop|recipe|"
     r"use this template|fill-in|why .* matters|template body|"
-    r"if a probe failed|appendix|how to)\b",
+    r"if a probe failed|appendix|how to|how-to)\b",
     re.IGNORECASE)
 # Template/example placeholder lines (angle-bracket fills, code-fence template
 # bodies) carry instruction grammar, not a recorded outcome.
