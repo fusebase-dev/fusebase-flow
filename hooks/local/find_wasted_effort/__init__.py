@@ -20,6 +20,9 @@ from .constants import (  # noqa: F401
     FALSE_POSITIVE_HEADER,
     PREVENTS_RE,
     PAREN_STRIP_RE,
+    PROPOSAL_SOURCE,
+    PRUNE_REVIEW_CANDIDATE,
+    PROPOSAL_FROM_VERDICT,
 )
 
 __all__ = [
@@ -33,4 +36,7 @@ __all__ = [
     "FALSE_POSITIVE_HEADER",
     "PREVENTS_RE",
     "PAREN_STRIP_RE",
+    "PROPOSAL_SOURCE",
+    "PRUNE_REVIEW_CANDIDATE",
+    "PROPOSAL_FROM_VERDICT",
 ]

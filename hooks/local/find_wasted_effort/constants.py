@@ -41,6 +41,34 @@ DEVIATION_GATING_APPROVALS = frozenset({
 
 CONFIRMED, DISMISSED, INCONCLUSIVE = "confirmed", "dismissed", "inconclusive"
 
+# --------------------------------------------------------------------------
+# Phase 2A proposal schema (read-only-safe — OUTPUT only, no write-apply)
+# --------------------------------------------------------------------------
+# A proposal is a change a HUMAN could apply — never one the audit applies. The
+# analyzer stays read-only to the project (Phase 2A / D4): proposals are emitted
+# only into the contained state/audit/ report + an optional gitignored sibling
+# JSON. The actual write-apply is Phase 2B (DEFERRED, consumer-repo, AC2b).
+# Fields (the defined schema — T24):
+#   proposal_id   stable id: "<rule>-<verdict-kind>-<short-hash-of-target+evidence>"
+#   rule          source rule number (1,2,3,5,6,7)
+#   verdict       the source finding's verdict (always "confirmed" — or rule-6
+#                 "prune_review_candidate"; inconclusive/dismissed emit none)
+#   raw_evidence_refs  pointers to RAW on-disk artifacts that justify it — NEVER a
+#                 prior audit report/proposal (self-output quarantine, Codex #5)
+#   target_kind   what a human would change (policy/lane/memory/template/...)
+#   target_path   the on-disk file a human could edit (or "(operator decision)")
+#   exact_patch   the concrete change text a human COULD apply (description, not an
+#                 applied diff — Phase 2A emits, never applies)
+#   operator_confirmation_required  ALWAYS True (PO owns subtraction)
+#   source        ALWAYS "audit"
+PROPOSAL_SOURCE = "audit"
+# Rule-6 review-candidate proposals carry this verdict label (NEVER an auto-prune
+# or a recorded prune decision — PO owns subtraction; policies/ratchet-governance.yml).
+PRUNE_REVIEW_CANDIDATE = "prune_review_candidate"
+# The only verdict that yields a proposal from a NON-rule-6 finding. rule 6 yields
+# proposals from its per-element review candidates (see proposals.py).
+PROPOSAL_FROM_VERDICT = CONFIRMED
+
 # Reused from the token-economy substrate (token-waste-audit.py) — do not diverge.
 FALSE_POSITIVE_HEADER = (
     "Findings below are review CANDIDATES that MAY indicate outcome-neutral "

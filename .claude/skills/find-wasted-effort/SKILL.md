@@ -1,6 +1,6 @@
 ---
 name: find-wasted-effort
-description: Use when the operator runs "/find-wasted-effort" or asks about "wasted effort", "ceremony overhead", "process overhead", "outcome-neutral steps", "are our gate stops worth it", "is the Full lane overkill here", or wants the process-per-outcome sibling of /token-waste-audit. Audits Flow ARTIFACTS ON DISK (gate reports, deploy reports, handoffs, approval artifacts, git log, prevents: annotations) for ceremony that bought no safety outcome — distinct axis from token-waste-audit (tokens-per-rule, from transcripts). Read-only in Phase 1 (no writes / no prune / no overlay edits). Do NOT use for token/transcript economy (token-economy + /token-waste-audit own that), for execution-layer polling/record-then-read economics (smoke-testing § Verification cost discipline owns that), for doc budgets (documentation-budget owns that), or to auto-remove any ceremony element (pruning is PO-owned, never automatic, never this audit's job).
+description: Use when the operator runs "/find-wasted-effort" or asks about "wasted effort", "ceremony overhead", "process overhead", "outcome-neutral steps", "are our gate stops worth it", "is the Full lane overkill here", or wants the process-per-outcome sibling of /token-waste-audit. Audits Flow ARTIFACTS ON DISK (gate reports, deploy reports, handoffs, approval artifacts, git log, prevents: annotations) for ceremony that bought no safety outcome — distinct axis from token-waste-audit (tokens-per-rule, from transcripts). Read-only to the project (Phase 1 + Phase 2A: writes only the gitignored state/audit/; Phase 2A adds proposal OUTPUT — a Proposed memory entries report section + optional state/audit/ JSON — but applies nothing; no prune / no overlay edits). Do NOT use for token/transcript economy (token-economy + /token-waste-audit own that), for execution-layer polling/record-then-read economics (smoke-testing § Verification cost discipline owns that), for doc budgets (documentation-budget owns that), or to auto-remove any ceremony element (pruning is PO-owned, never automatic, never this audit's job).
 source_inspiration: conceptual-only
 license_status: clean-room-original
 fusebase_flow_version: "3.21"
@@ -10,6 +10,7 @@ expected_outputs:
   - a Mode-A chat summary plus a gitignored report at state/audit/find-wasted-effort-<date>.md
   - per-rule findings, each labelled confirmed / dismissed / inconclusive with the required contrary-evidence
   - a stated coverage section (which prevents:-annotated controls were in scope) — silence is not safety
+  - (Phase 2A) a Proposed memory entries report section + an optional gitignored state/audit/find-wasted-effort-proposals-<date>.json; both under state/audit/ only, nothing applied
 related_workflows:
   - greenlight-implement.md
   - lightweight-lane.md
@@ -34,9 +35,9 @@ It is **not** standalone-with-no-sibling. It **reuses the shipped substrate** �
 
 **Ceremony drops, safety never.** This audit flags ceremony that is *outcome-neutral in the observed window* — that is a **review candidate**, not a remove instruction. A clean window is **not** proof a control is worthless: a gate stop can be low-frequency/high-severity (`catastrophic-low-frequency`, `policies/ratchet-governance.yml`). Every finding states the contrary evidence that would dismiss it; absence of contrary evidence in a short window is `inconclusive`, never `confirmed`.
 
-## Read-only is load-bearing in Phase 1 (D4)
+## Read-only-to-the-project is load-bearing (D4)
 
-Phase 1 ships **read-only**: NO memory writes, NO overlay/spec/decisions edits, NO prune/remove recommendations. The audit *describes* candidates; the **PO owns subtraction** (A3 prune protocol). Proposed-memory and overlay-edit drafts arrive only at Phase 2 (T24), gated on per-rule false-positive fixtures. If asked to "just remove the dead gate," refuse: "Per the A2 read-only posture (D4), I surface review candidates; removal is the PO's call via the `policies/ratchet-governance.yml` prune protocol."
+The analyzer writes **only** inside the gitignored `state/audit/` directory — NO memory writes, NO overlay/spec/decisions/provider/policy edits, NO prune/remove **application**. This holds in Phase 1 (read-only) AND Phase 2A (proposal-output): Phase 2A enriches the *output* (a *Proposed memory entries* report section + an optional gitignored `state/audit/` proposals JSON) but applies NOTHING. The audit *describes* candidates and *proposes* changes a human could apply; the **PO owns subtraction** (A3 prune protocol). The actual memory **write-apply** is Phase 2B (DEFERRED, consumer-repo prototype, AC2b). If asked to "just remove the dead gate" or "apply the proposal," refuse: "Per the A2 read-only-to-the-project posture (D4), I surface review candidates and propose patches; removal/apply is Phase 2B + the PO's call via the `policies/ratchet-governance.yml` prune protocol."
 
 ## Verdict vocabulary (every rule emits one)
 
@@ -69,9 +70,27 @@ Phase 1 ships **read-only**: NO memory writes, NO overlay/spec/decisions edits, 
 
 ## Output
 
-- Mode-A chat summary (totals + per-rule confirmed/dismissed/inconclusive + coverage).
-- Gitignored report `state/audit/find-wasted-effort-<date>.md` carrying the FP header (reuse token-economy's), the per-rule findings, and a **coverage section** naming which `prevents:`-annotated controls were in scope (D5 — silence is not safety).
-- **Phase 1: NO writes beyond that report.** No memory, no overlay, no spec/decisions edits, no prune recs.
+- Mode-A chat summary (totals + per-rule confirmed/dismissed/inconclusive + coverage + proposal count).
+- Gitignored report `state/audit/find-wasted-effort-<date>.md` carrying the FP header (reuse token-economy's), the per-rule findings, a **coverage section** naming which `prevents:`-annotated controls were in scope (D5 — silence is not safety), and (Phase 2A) a **Proposed memory entries** section.
+- **Phase 2A (read-only-safe):** a *Proposed memory entries* report section + an optional gitignored `state/audit/find-wasted-effort-proposals-<date>.json` sibling (skip with `--no-proposals-json`). Both live **only** under `state/audit/`.
+- **NO writes beyond `state/audit/`** in any phase here: no memory, no overlay, no spec/decisions/provider/policy edits, no prune **application**. The write-apply is Phase 2B (DEFERRED, consumer-repo, AC2b).
+
+### Proposal schema (Phase 2A)
+
+A proposal is a change a **human could** apply — the audit emits it, never applies it. Emitted from `confirmed` findings (rules 1,2,3,5,7) and rule-6 per-element review candidates; `inconclusive`/`dismissed` emit none.
+
+| Field | Meaning |
+|---|---|
+| `proposal_id` | stable `<rule>-<verdict-kind>-<hash>` id (deterministic) |
+| `rule` | source rule number |
+| `verdict` | `confirmed` (rules 1,2,3,5,7) or `prune_review_candidate` (rule 6 — **never** an auto-prune) |
+| `raw_evidence_refs` | pointers to **raw on-disk artifacts** — never a prior audit report/proposal (self-output quarantine) |
+| `target_kind` / `target_path` | what / where a human could change (often an `(operator decision)`) |
+| `exact_patch` | the concrete change text a human *could* apply (description, not an applied diff) |
+| `operator_confirmation_required` | always `true` |
+| `source` | always `"audit"` |
+
+**Self-output quarantine (Codex #5):** the evidence collectors do NOT read `state/audit/`, so the audit can never cite its own prior output as evidence. Proposals cite only raw artifacts.
 
 ## Coverage statement (mandatory in every report)
 

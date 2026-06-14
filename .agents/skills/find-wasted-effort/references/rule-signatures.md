@@ -3,7 +3,11 @@
 > Loaded on demand by the skill and implemented by `hooks/local/find-wasted-effort.py`.
 > Each rule: INPUT (what the analyzer reads), SIGNATURE (what triggers a candidate),
 > VERDICT LOGIC (confirmed / dismissed / inconclusive), OUTPUT (what the finding says).
-> Read-only in Phase 1 — none of these write, prune, or reclassify.
+> Read-only to the project — none of these write, prune, or reclassify. Phase 2A adds
+> proposal OUTPUT (a `confirmed` finding → one proposal; a rule-6 review candidate →
+> a `prune_review_candidate` proposal; inconclusive/dismissed → none) into the
+> contained `state/audit/` report + optional JSON — applied by nobody (the write-apply
+> is Phase 2B, DEFERRED, AC2b). Proposal schema + emission: `hooks/local/find_wasted_effort/proposals.py`.
 
 ## Rule 1 — Unused gate stops
 

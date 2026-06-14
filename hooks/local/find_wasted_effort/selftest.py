@@ -471,6 +471,7 @@ def _deviation_gating_kind_cases(check_bool):
 # --------------------------------------------------------------------------
 
 from .selftest_e2e import e2e_cases as _e2e_cases   # noqa: E402
+from .selftest_proposals import proposal_cases as _proposal_cases   # noqa: E402
 
 
 # --------------------------------------------------------------------------
@@ -652,6 +653,7 @@ def run_selftest():
     _deviation_gating_kind_cases(check_bool)
     _e2e_cases(check_e2e)
     _containment_cases(check_bool)
+    _proposal_cases(check_bool)
 
     # prevents: parser fixtures (the annotation forms used on disk)
     from .constants import parse_prevents_classes

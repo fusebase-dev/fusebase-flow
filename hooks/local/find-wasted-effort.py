@@ -32,6 +32,7 @@ Exit 0 on a normal run (incl. an empty repo). --selftest exits non-zero on failu
 
 import argparse
 import datetime
+import json
 import subprocess
 import sys
 from pathlib import Path
@@ -44,6 +45,7 @@ from find_wasted_effort.constants import (   # noqa: E402
 )
 from find_wasted_effort import evidence as ev_mod   # noqa: E402
 from find_wasted_effort.rules import RULE_EVALUATORS, RULE_TITLES   # noqa: E402
+from find_wasted_effort.proposals import build_proposals   # noqa: E402
 
 
 # --------------------------------------------------------------------------
@@ -90,10 +92,12 @@ def _is_flow_root(root):
                for marker in ("FLOW_RULES.md", "AGENTS.md", "VERSION"))
 
 
-def contained_report_path(root, today):
-    """Resolve the report path and ASSERT it stays inside root/state/audit/, even
-    through symlinks. Raises RootError on any escape (path traversal / absolute /
-    symlinked state-audit). This is the only path the analyzer ever writes."""
+def contained_audit_path(root, basename):
+    """Resolve an output path UNDER root/state/audit/ and ASSERT it stays inside,
+    even through symlinks. Raises RootError on any escape (path traversal / absolute
+    / symlinked state-audit). state/audit/ is the ONLY directory the analyzer ever
+    writes — both the .md report and the optional .json proposals file go through
+    here (Phase 2A keeps the analyzer read-only to the rest of the project)."""
     audit_dir = (root / "state" / "audit")
     # Resolve the audit dir's real location (collapsing any symlink) and require
     # it to live under the resolved root — a symlinked state/audit pointing
@@ -103,10 +107,20 @@ def contained_report_path(root, today):
     if not _is_relative_to(resolved_audit, resolved_root):
         raise RootError("state/audit resolves outside the repo root (symlink escape): %s"
                         % resolved_audit)
-    report = resolved_audit / ("find-wasted-effort-%s.md" % today)
-    if not _is_relative_to(report.resolve() if report.exists() else report, resolved_audit):
-        raise RootError("report path escapes state/audit: %s" % report)
-    return report
+    target = resolved_audit / basename
+    if not _is_relative_to(target.resolve() if target.exists() else target, resolved_audit):
+        raise RootError("audit output path escapes state/audit: %s" % target)
+    return target
+
+
+def contained_report_path(root, today):
+    """The contained .md report path (Phase 1 surface, retained name)."""
+    return contained_audit_path(root, "find-wasted-effort-%s.md" % today)
+
+
+def contained_proposals_path(root, today):
+    """The contained, gitignored .json proposals path (Phase 2A optional sibling)."""
+    return contained_audit_path(root, "find-wasted-effort-proposals-%s.json" % today)
 
 
 def _is_relative_to(path, base):
@@ -256,40 +270,88 @@ def build_report(ev, root, today):
                   ev["cross_session_rederivation"]["record"] if ev["cross_session_rederivation"]
                   else "none (inconclusive: %s)" % ev["cross_session_reason"]),
               ""]
+    # Phase 2A — Proposed memory entries (read-only-safe OUTPUT; nothing applied).
+    proposals = build_proposals(ev, findings)
+    lines += _render_proposals_section(proposals)
+
     lines += ["## Totals", "",
-              "confirmed %d · dismissed %d · inconclusive %d" % (
-                  counts[CONFIRMED], counts[DISMISSED], counts[INCONCLUSIVE]),
+              "confirmed %d · dismissed %d · inconclusive %d · proposals %d" % (
+                  counts[CONFIRMED], counts[DISMISSED], counts[INCONCLUSIVE], len(proposals)),
               "", "Findings are review candidates. The PO owns subtraction "
-              "(policies/ratchet-governance.yml prune protocol); writes/prune ship in Phase 2.", ""]
-    return "\n".join(lines), counts, findings
+              "(policies/ratchet-governance.yml prune protocol); the write-apply is "
+              "Phase 2B (DEFERRED, consumer-repo, AC2b). This audit only PROPOSES.", ""]
+    return "\n".join(lines), counts, findings, proposals
 
 
-def write_report(root, report_path, report):
-    """Write the report to report_path AFTER re-asserting containment immediately
+def _render_proposals_section(proposals):
+    """Render the 'Proposed memory entries' report section (Phase 2A).
+
+    Proposals are changes a HUMAN could apply — the audit emits them, never applies
+    them (read-only to the project; the only on-disk output is the contained
+    state/audit/ report + optional sibling JSON). Each cites RAW on-disk evidence
+    (never a prior audit report — self-output quarantine). rule-6 entries are
+    `prune_review_candidate`, never an auto-prune."""
+    out = ["## Proposed memory entries (Phase 2A — read-only-safe; nothing applied)", ""]
+    if not proposals:
+        out += ["No proposals: no `confirmed` finding and no rule-6 review candidate "
+                "in this window (inconclusive/dismissed findings emit none).", "",
+                "Phase 2A emits proposals ONLY into this report (and an optional "
+                "gitignored state/audit/ JSON). It applies nothing — the write-apply "
+                "is Phase 2B (DEFERRED, AC2b); the PO owns subtraction.", ""]
+        return out
+    out += ["Each proposal is a change a HUMAN could apply (operator_confirmation_required: "
+            "true; source: audit). The audit applies NOTHING — Phase 2A is output-only; "
+            "the write-apply is Phase 2B (DEFERRED, consumer-repo, AC2b). Evidence cites "
+            "RAW on-disk artifacts, never a prior audit report (self-output quarantine).", "",
+            "| Proposal id | Rule | Verdict | Target kind | Target path | Raw evidence |",
+            "|---|---|---|---|---|---|"]
+    for p in proposals:
+        refs = ", ".join("`%s`" % r for r in p["raw_evidence_refs"]) or "—"
+        out.append("| `%s` | %d | **%s** | %s | %s | %s |" % (
+            p["proposal_id"], p["rule"], p["verdict"], p["target_kind"],
+            p["target_path"], refs))
+    out.append("")
+    out += ["### Proposal detail (the exact change a human COULD apply)", ""]
+    for p in proposals:
+        out += ["- **%s** (rule %d · %s): %s" % (
+            p["proposal_id"], p["rule"], p["verdict"], p["exact_patch"])]
+    out.append("")
+    return out
+
+
+def write_audit_file(root, target_path, content):
+    """Write `content` to target_path AFTER re-asserting containment immediately
     before the write (TOCTOU hardening, LOW finding). Create/resolve the audit dir,
     then re-run the containment check against the now-on-disk dir, then reject a
-    symlinked report path via lstat before writing. Raises RootError on any escape;
-    writes only inside root/state/audit/."""
-    audit_dir = report_path.parent
+    symlinked target via lstat before writing. Raises RootError on any escape;
+    writes only inside root/state/audit/. Shared by the .md report AND the .json
+    proposals sibling — both stay inside the single contained output directory."""
+    audit_dir = target_path.parent
     audit_dir.mkdir(parents=True, exist_ok=True)
     # Re-resolve the (now-created) audit dir and re-assert it lives under the repo
-    # root — a symlink swapped in between contained_report_path() and here is caught.
+    # root — a symlink swapped in between contained_audit_path() and here is caught.
     resolved_audit = audit_dir.resolve()
     if not _is_relative_to(resolved_audit, root.resolve()):
         raise RootError("state/audit resolves outside the repo root (symlink escape): %s"
                         % resolved_audit)
-    if not _is_relative_to(report_path.resolve() if report_path.exists() else report_path,
+    if not _is_relative_to(target_path.resolve() if target_path.exists() else target_path,
                            resolved_audit):
-        raise RootError("report path escapes state/audit: %s" % report_path)
-    # Reject a symlinked report target outright (lstat does not follow the link),
-    # so we never write THROUGH a symlink planted at the report path.
-    if report_path.is_symlink():
-        raise RootError("report path is a symlink — refusing to write through it: %s" % report_path)
+        raise RootError("audit output path escapes state/audit: %s" % target_path)
+    # Reject a symlinked target outright (lstat does not follow the link), so we
+    # never write THROUGH a symlink planted at the output path.
+    if target_path.is_symlink():
+        raise RootError("audit output path is a symlink — refusing to write through it: %s"
+                        % target_path)
     try:
-        report_path.write_text(report, encoding="utf-8", newline="\n")
-        return str(report_path)
+        target_path.write_text(content, encoding="utf-8", newline="\n")
+        return str(target_path)
     except OSError as exc:
         return "(write failed: %s)" % exc
+
+
+def write_report(root, report_path, report):
+    """Write the .md report (Phase 1 surface, retained name) via write_audit_file."""
+    return write_audit_file(root, report_path, report)
 
 
 # --------------------------------------------------------------------------
@@ -303,10 +365,13 @@ def main():
                     help="commit/round window to consider (default %d)" % DEFAULT_WINDOW)
     ap.add_argument("--selftest", action="store_true",
                     help="run synthetic + end-to-end fixtures and exit (no repo report write)")
+    ap.add_argument("--no-proposals-json", action="store_true",
+                    help="skip the optional gitignored state/audit/ proposals JSON "
+                         "sibling (the report section is always written)")
     # --root is an INTERNAL test hook only (the selftest's path-escape fixtures
     # need it). It is intentionally NOT advertised on the public command surface
     # (.claude/commands/find-wasted-effort.md). Suppressed from --help; still
-    # subjected to resolve_root() + contained_report_path() containment.
+    # subjected to resolve_root() + contained_audit_path() containment.
     ap.add_argument("--root", default=None, help=argparse.SUPPRESS)
     args = ap.parse_args()
 
@@ -321,19 +386,30 @@ def main():
         return 2
     today = datetime.date.today().isoformat()
     ev = assemble_evidence(root, args.window)
-    report, counts, _ = build_report(ev, root, today)
+    report, counts, _, proposals = build_report(ev, root, today)
     try:
         report_path = contained_report_path(root, today)
         wrote = write_report(root, report_path, report)
+        wrote_json = "(skipped)"
+        if not args.no_proposals_json:
+            # Optional gitignored JSON sibling — Phase 2A read-only-safe OUTPUT only.
+            # Written through the SAME containment as the report (state/audit/ only).
+            payload = json.dumps(
+                {"date": today, "source": "find-wasted-effort",
+                 "phase": "2A", "proposals": proposals},
+                indent=2, sort_keys=True) + "\n"
+            json_path = contained_proposals_path(root, today)
+            wrote_json = write_audit_file(root, json_path, payload)
     except RootError as exc:
         print("[find-wasted-effort] ERROR: refusing to write — %s" % exc, file=sys.stderr)
         return 2
 
     print("[find-wasted-effort] artifacts: %d | rounds: %d | window: %d | report: %s" % (
         len(ev["artifacts"]), len(ev["rounds"]), args.window, wrote))
-    print("[find-wasted-effort] confirmed %d · dismissed %d · inconclusive %d "
+    print("[find-wasted-effort] confirmed %d · dismissed %d · inconclusive %d · proposals %d "
           "(candidates, not verdicts — see report header)" % (
-              counts[CONFIRMED], counts[DISMISSED], counts[INCONCLUSIVE]))
+              counts[CONFIRMED], counts[DISMISSED], counts[INCONCLUSIVE], len(proposals)))
+    print("[find-wasted-effort] proposals JSON: %s" % wrote_json)
     return 0
 
 

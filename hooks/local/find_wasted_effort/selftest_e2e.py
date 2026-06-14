@@ -65,7 +65,7 @@ def _verdict_for(rule_no, root):
     ev = main_mod.assemble_evidence(root, DEFAULT_WINDOW)
     # build_report must succeed (renders rule 6 per-element table etc.) and never write.
     today = datetime.date.today().isoformat()
-    _report, _counts, findings = main_mod.build_report(ev, root, today)
+    _report, _counts, findings, _proposals = main_mod.build_report(ev, root, today)
     by_rule = {f["rule"]: f for f in findings}
     return by_rule[rule_no]["verdict"], ev, _report
 

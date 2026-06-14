@@ -2,8 +2,11 @@
 
 > The contrary-evidence catalog. A finding is `confirmed` only after the analyzer
 > searched for — and did not find — its rule's false positives below. These also
-> seed the per-rule FP fixtures that gate the Phase-2 write flip (T24): no rule
-> writes a recommendation until it has a fixture proving it dismisses its FPs.
+> seed the per-rule FP fixtures behind Phase 2A proposal output (T24): a proposal
+> is emitted only from a `confirmed` finding (or a rule-6 review candidate), so no
+> proposal is produced until the rule has dismissed its FPs. Phase 2A PROPOSES
+> only (read-only-safe; output under state/audit/); the write-apply is Phase 2B
+> (DEFERRED, consumer-repo, AC2b).
 
 ## Rule 1 — Unused gate stops — false positives
 
