@@ -1,8 +1,8 @@
 # Tasks — ceremony-efficiency-middle-lane
 
 **T-counter going in:** T17 (next task is T18)
-**Task range (framework repo):** T18..T26 (P1 SHIPPED, P2A pending). P2B + P3 are routed to the **consumer repo** (`paperclip+hermes-v1`) per the 2026-06-14 operator decision + Codex Phase-2 design review — they are NOT framework tasks until upstreamed.
-**Phase gates (framework):** P1 gate T22 / deploy T23 (DONE) · P2A gate T25 / deploy T26. P2B + P3 gates live in the consumer-repo prototype.
+**Task range (framework repo):** T18..T26 (P1 SHIPPED v3.22.0, P2A SHIPPED v3.23.0). P2B + P3 are routed to the **consumer repo** (`paperclip+hermes-v1`) per the 2026-06-14 operator decision + Codex Phase-2 design review — they are NOT framework tasks until upstreamed.
+**Phase gates (framework):** P1 gate T22 / deploy T23 (DONE) · P2A gate T25 / deploy T26 (DONE, hash 43cab47). P2B + P3 gates live in the consumer-repo prototype.
 **Linked spec:** `docs/specs/ceremony-efficiency-middle-lane/spec.md` (decisions D1..D7 + AC2b inline; implementation order)
 **Decisions:** in spec.md § Decisions (no separate decisions.md — FR-23, not duplicated)
 
@@ -18,9 +18,9 @@
 | T21 | P1 | wiring | A2: command + provider mirrors + skill-count + FR/version strings | D7 | T19,T20 | 0811a93 | ✅ verified |
 | T22 | P1 | — | verification gate (no commit; gate report only) | — | T18..T21 | (no commit) | ✅ gate PASS |
 | T23 | P1 | — | deploy P1 + probes + single docs commit | — | T22 | eb1991a | ✅ deployed v3.22.0 (hash eb1991a; probes G-M..G-Q + smoke S1 PASS; round-7 hardening 4d1a8ed) |
-| T24 | P2A | skill+hook | A2 **proposal-output** (read-only-safe): *Proposed memory entries* report section + gitignored `state/audit/` proposal JSON, defined schema, golden fixtures; **writes nothing outside `state/audit/`** (tested) | D7 | T23 | — | pending |
-| T25 | P2A | — | verification gate (assert no memory/overlay/spec/provider write) | — | T24 | — | pending |
-| T26 | P2A | — | deploy P2A + probes + docs commit (Lightweight; additive) | — | T25 | — | pending |
+| T24 | P2A | skill+hook | A2 **proposal-output** (read-only-safe): *Proposed memory entries* report section + gitignored `state/audit/` proposal JSON, defined schema, golden fixtures; **writes nothing outside `state/audit/`** (tested) | D7 | T23 | d2f9ecc | ✅ verified |
+| T25 | P2A | — | verification gate (assert no memory/overlay/spec/provider write) | — | T24 | (no commit) | ✅ gate PASS |
+| T26 | P2A | — | deploy P2A + probes + docs commit (Lightweight; additive) | — | T25 | 43cab47 | ✅ deployed v3.23.0 (hash 43cab47; Codex Phase-2A LOW hardening 11cb1af; probes G-M..G-Q + smoke PASS; selftest 151/151+2) |
 | — | P2B 🔒 | (consumer repo) | memory **write-apply** — DEFERRED, prototyped in `paperclip+hermes-v1` behind AC2b gates (operator approval artifact · per-target containment · self-output quarantine · real-data confirmed+dismissed · security review). NOT a framework task until upstreamed. | AC2b | T26 + evidence | — | deferred |
 | — | overlay 🔒 | (later ticket) | FLOW:PRESERVE overlay **apply** — DROPPED from this ticket (2A emits diff only); later ticket reuses `post-fusebase-update.sh` recovery machinery | — | — | — | dropped |
 | T27 | P3 🔒 (consumer repo) | rules | A1: extend FR-21 two-tier → three-tier (lane-classification) | D1,D3 | (gated) | — | gated |
