@@ -99,7 +99,9 @@ def contained_audit_path(root, basename):
     even through symlinks. Raises RootError on any escape (path traversal / absolute
     / symlinked state-audit). state/audit/ is the ONLY directory the analyzer ever
     writes — both the .md report and the optional .json proposals file go through
-    here (Phase 2A keeps the analyzer read-only to the rest of the project)."""
+    here (Phase 2A keeps the analyzer read-only to the rest of the project).
+    Threat model (at-rest aliases defended; active mid-run FS races out of scope):
+    see write_audit_file()."""
     # Reject a basename that is absolute or carries a parent-ref / path separator
     # BEFORE composing the target — a "../evil.md" or "/etc/x" basename must never
     # reach the join. Both real callers pass a fixed flat basename, so this is a
@@ -343,7 +345,11 @@ def write_audit_file(root, target_path, content):
     file OUTSIDE state/audit/ is ever modified (the containment invariant is
     absolute — read-only-safety is Phase 2A's whole safety case). Raises RootError
     on any escape; writes only inside root/state/audit/. Shared by the .md report
-    AND the .json proposals sibling — both stay inside the single contained dir."""
+    AND the .json proposals sibling — both stay inside the single contained dir.
+
+    THREAT MODEL: containment defends pre-planted symlink/hardlink/traversal targets
+    AT REST. Active concurrent FS races mid-run (e.g. renaming state/audit between
+    temp-create and replace) are OUT OF SCOPE — local single-operator read-only tool."""
     audit_dir = target_path.parent
     audit_dir.mkdir(parents=True, exist_ok=True)
     # Re-resolve the (now-created) audit dir and re-assert it lives under the repo

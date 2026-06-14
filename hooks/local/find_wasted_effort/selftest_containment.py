@@ -7,10 +7,11 @@ Phase 2A (the analyzer writes NOTHING outside state/audit/).
 
 It covers: a non-Flow / traversal / symlinked-state-audit root is rejected; the
 contained_audit_path basename guard; and the write_audit_file TARGET guards — a
-symlink (f) and a HARDLINK (g2) pre-planted at the output path must never let a
-write leak through to a file OUTSIDE state/audit/, while a normal write (g, g3)
-still lands report + proposals JSON UNDER state/audit/. Host-capability-gated
-fixtures (no symlink/hardlink privilege) report SKIP, not FAIL.
+symlink (f) and a pre-planted-at-rest HARDLINK (g2) at the output path must FAIL
+CLOSED (raise RootError, leave the OUTSIDE aliased file byte-unchanged), while a
+normal write (g, g3) still lands report + proposals JSON UNDER state/audit/ on a
+NEW inode (st_nlink==1, severed-alias path). Host-capability-gated fixtures (no
+symlink/hardlink privilege) report SKIP, not FAIL.
 
 Non-writing against the real repo: every fixture builds a throwaway temp repo and
 cleans it up.
@@ -167,12 +168,14 @@ def containment_cases(check_bool):
     finally:
         shutil.rmtree(base, ignore_errors=True)
 
-    # (g2) write_audit_file HARDLINK guard (Codex final-review LOW): a hardlink
-    #     pre-planted at the report TARGET aliases a file OUTSIDE state/audit. After a
-    #     write, the OUTSIDE file MUST be unchanged (atomic temp+os.replace severs the
-    #     alias; the up-front st_nlink>1 check refuses to write through it), and the
-    #     report still lands correctly UNDER state/audit. Proves the read-only-safety
-    #     invariant holds against a hardlink, the way (f) proves it against a symlink.
+    # (g2) write_audit_file HARDLINK guard (Codex final-review LOW) — TRUE fail-closed
+    #     contract: a hardlink pre-planted AT REST at the report TARGET aliases a file
+    #     OUTSIDE state/audit. write_audit_file MUST fail closed — the up-front
+    #     st_nlink>1 check RAISES RootError before any write — AND the OUTSIDE aliased
+    #     file is byte-UNCHANGED (the read-only-safety invariant). This is the honest
+    #     contract for the planted-at-rest case: the write is REFUSED, not let through.
+    #     (The severed-alias happy path — a fresh write on a NEW inode, st_nlink==1 —
+    #     is proven by (g3) below.)
     base = Path(tempfile.mkdtemp(prefix="fwe-whard-"))
     try:
         repo = base / "repo"
@@ -188,26 +191,18 @@ def containment_cases(check_bool):
         except (OSError, NotImplementedError, AttributeError):
             hardlink_ok = False  # host can't hardlink (cross-device / no privilege) -> skip
         if hardlink_ok:
-            # write through the planted hardlink target
+            # fail-closed: a pre-planted hardlink at the target RAISES RootError
+            raised = False
             try:
                 main_mod.write_audit_file(root, report_path, "report body\n")
             except main_mod.RootError:
-                pass  # refusing up-front is an acceptable outcome (alias not followed)
-            # the OUTSIDE aliased file is UNCHANGED (no write leaked through the alias)
+                raised = True
+            check_bool("containment: pre-planted hardlink target raises RootError (fail-closed)",
+                       raised, True)
+            # safety invariant: the OUTSIDE aliased file is byte-UNCHANGED
             outside_intact = outside.read_text(encoding="utf-8") == "attacker\n"
-            check_bool("containment: hardlink-aliased OUTSIDE file untouched after write",
+            check_bool("containment: hardlink-aliased OUTSIDE file byte-unchanged after refusal",
                        outside_intact, True)
-            # and a legitimate report still lands UNDER state/audit (re-run, alias now
-            # severed by the replace / refusal — a fresh write must succeed & be inside)
-            try:
-                os.remove(str(report_path))
-            except OSError:
-                pass
-            wrote = main_mod.write_audit_file(root, report_path, "report body\n")
-            inside = main_mod._is_relative_to(Path(wrote).resolve(),
-                                              (repo / "state" / "audit").resolve())
-            check_bool("containment: report still lands under state/audit despite planted hardlink",
-                       inside and Path(wrote).read_text(encoding="utf-8") == "report body\n", True)
         else:
             check_bool("containment: hardlink-target write guard (host lacks hardlink capability)",
                        None, None, skipped=True)
