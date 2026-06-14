@@ -12,12 +12,12 @@
 
 | T# | Phase | Track | Scope | Cites | Depends on | SHA | Status |
 |---|---|---|---|---|---|---|---|
-| T18 | P1 | governance | A3: `prevents:` annotation scheme + annotate scoped ceremony elements | D5 | — | — | pending |
-| T19 | P1 | skill | A2: author `flow-skills/find-wasted-effort/SKILL.md` (read-only, 6 rules) | D7 | — | — | pending |
-| T20 | P1 | hook | A2: read-only analyzer `hooks/local/find-wasted-effort.py` | D7 | T19 | — | pending |
-| T21 | P1 | wiring | A2: command + provider mirrors + skill-count + FR/version strings | D7 | T19,T20 | — | pending |
-| T22 | P1 | — | verification gate (no commit; gate report only) | — | T18..T21 | — | pending |
-| T23 | P1 | — | deploy P1 + probes + single docs commit | — | T22 | — | pending |
+| T18 | P1 | governance | A3: `prevents:` annotation scheme + annotate scoped ceremony elements | D5 | — | 67b95fd | ✅ verified |
+| T19 | P1 | skill | A2: author `flow-skills/find-wasted-effort/SKILL.md` (read-only, 6 rules) | D7 | — | 206425f | ✅ verified |
+| T20 | P1 | hook | A2: read-only analyzer `hooks/local/find-wasted-effort.py` | D7 | T19 | 0661df1 | ✅ verified |
+| T21 | P1 | wiring | A2: command + provider mirrors + skill-count + FR/version strings | D7 | T19,T20 | 0811a93 | ✅ verified |
+| T22 | P1 | — | verification gate (no commit; gate report only) | — | T18..T21 | (no commit) | ✅ gate PASS |
+| T23 | P1 | — | deploy P1 + probes + single docs commit | — | T22 | eb1991a | ✅ deployed v3.22.0 (hash eb1991a; probes G-M..G-Q + smoke S1 PASS; round-7 hardening 4d1a8ed) |
 | T24 | P2 | skill+hook | A2 write phase: proposed-memory output + per-rule FP fixtures, gated flip read-only→write | D7 | T23 | — | pending |
 | T25 | P2 | — | verification gate | — | T24 | — | pending |
 | T26 | P2 | — | deploy P2 + probes + docs commit | — | T25 | — | pending |

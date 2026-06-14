@@ -91,7 +91,7 @@ Adversarial plan review for engine-class changes · RED-first reproduction · li
 
 Front-load the cheap, reversible, no-deploy-risk wins; let them produce the evidence that earns the risky lane. **All three asks are committed; this is order, not de-scoping.**
 
-1. **Phase 1 (low risk):** A3 `prevents:` annotations + A2 `/find-wasted-effort` **read-only**. Ships via the Lightweight lane. Solves PR-2 + PR-3; begins measuring PR-1 across projects.
+1. **Phase 1 (low risk):** A3 `prevents:` annotations + A2 `/find-wasted-effort` **read-only**. Ships via the Lightweight lane. Solves PR-2 + PR-3; begins measuring PR-1 across projects. — **SHIPPED v3.22.0, deploy hash `eb1991a`, 2026-06-13** (Lightweight lane; T18..T23; AC2/AC3/AC5/AC6/AC7 met; probes G-M..G-Q + smoke S1 PASS). Phase 2/3 remain LOCKED below.
 2. **Phase 2:** A2 write phase (proposed-memory) once per-rule FP fixtures exist.
 3. **Phase 3 (the lift):** A1 Middle Lane — FR-21 three-tier + the `middle_deploy` enforcement **code** + round-file + security-permissions-review. Ships via the **Full** lane (AC7). Gated on: A2 evidence beyond n=2 that the second-session rebuild is genuinely outcome-neutral for a change class, AND the `middle_deploy` design passing security review.
 
