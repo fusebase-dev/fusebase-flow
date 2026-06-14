@@ -4,6 +4,19 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.23.1] — 2026-06-14
+
+### Fixed — `/find-wasted-effort` containment hardening (atomic write, hardlink/symlink fail-closed)
+
+Patch hardening of the `/find-wasted-effort` audit's on-disk write path. Additive and read-only-safe — the analyzer still writes **nothing outside the gitignored `state/audit/`** directory and applies nothing; no behavior change to verdicts or proposals.
+
+- **Atomic contained write** — `write_audit_file()` writes a fresh temp file *inside* the resolved `state/audit/` dir, then `os.replace()`s it onto the target. The replace rebinds the directory entry to a NEW inode, so any pre-planted hardlink/alias at the target is severed and the outside file it aliased is never modified (same-filesystem temp keeps the rename atomic and contained).
+- **Hardlink/symlink fail-closed** — the target is rejected up front if it is a symlink (`is_symlink()`) or a hardlink alias (`lstat().st_nlink > 1`), raising `RootError` — the audit refuses to write *through* a planted alias. Defeats a pre-planted-alias write-through that could otherwise have modified a file outside `state/audit/`.
+- **Honest fail-closed fixture** — the `g2` selftest now asserts the TRUE contract: a pre-planted-at-rest hardlink at the target ⇒ `RootError` (fail-closed) AND the outside aliased file is byte-unchanged. Drops the prior dishonest "report still lands despite planted hardlink" claim (it masked the fail-closed reality by removing the alias first). The severed-alias/new-inode happy path stays proven by `g3` (`st_nlink == 1`, no temp turd left).
+- **Documented at-rest threat model (FR-22)** — `write_audit_file()` / `contained_audit_path()`: containment defends pre-planted symlink/hardlink/traversal targets AT REST; active concurrent FS races mid-run (e.g. renaming `state/audit/` between temp-create and replace) are OUT OF SCOPE for a local single-operator read-only audit tool.
+
+`--selftest` 155 passed, 2 skipped (skips = host lacks symlink/hardlink privilege). Read-only invariant unchanged; counts unchanged (31 skills, FR-01..FR-26). Detail: `docs/release-notes/v3.23.1.md`.
+
 ## [3.23.0] — 2026-06-14
 
 ### Added — `/find-wasted-effort` proposal output (read-only-safe) — ceremony-efficiency Phase 2A
