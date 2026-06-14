@@ -33,6 +33,7 @@ Exit 0 on a normal run (incl. an empty repo). --selftest exits non-zero on failu
 import argparse
 import datetime
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -98,6 +99,14 @@ def contained_audit_path(root, basename):
     / symlinked state-audit). state/audit/ is the ONLY directory the analyzer ever
     writes — both the .md report and the optional .json proposals file go through
     here (Phase 2A keeps the analyzer read-only to the rest of the project)."""
+    # Reject a basename that is absolute or carries a parent-ref / path separator
+    # BEFORE composing the target — a "../evil.md" or "/etc/x" basename must never
+    # reach the join. Both real callers pass a fixed flat basename, so this is a
+    # no-op for them; it closes internal-misuse traversal at the boundary.
+    if (os.path.isabs(basename) or ".." in Path(basename).parts
+            or "/" in basename or "\\" in basename):
+        raise RootError("audit basename must be a flat name, not a path/traversal: %r"
+                        % basename)
     audit_dir = (root / "state" / "audit")
     # Resolve the audit dir's real location (collapsing any symlink) and require
     # it to live under the resolved root — a symlinked state/audit pointing
@@ -107,8 +116,11 @@ def contained_audit_path(root, basename):
     if not _is_relative_to(resolved_audit, resolved_root):
         raise RootError("state/audit resolves outside the repo root (symlink escape): %s"
                         % resolved_audit)
+    # Resolve the composed target FIRST, then assert it stays under state/audit —
+    # a resolved target that escapes (symlink/traversal) is rejected here.
     target = resolved_audit / basename
-    if not _is_relative_to(target.resolve() if target.exists() else target, resolved_audit):
+    resolved_target = target.resolve() if target.exists() else (resolved_audit / basename).resolve(strict=False)
+    if not _is_relative_to(resolved_target, resolved_audit):
         raise RootError("audit output path escapes state/audit: %s" % target)
     return target
 

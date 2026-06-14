@@ -622,6 +622,44 @@ def _containment_cases(check_bool):
     finally:
         shutil.rmtree(base, ignore_errors=True)
 
+    # (h) basename hardening (Codex Phase-2A LOW): contained_audit_path REJECTS a
+    #     basename that is absolute or carries ../ / a path separator (internal-misuse
+    #     traversal), and ACCEPTS a flat basename, resolving it under state/audit.
+    base = Path(tempfile.mkdtemp(prefix="fwe-bname-"))
+    try:
+        repo = base / "repo"; repo.mkdir()
+        (repo / "VERSION").write_text("0.0.0\n", encoding="utf-8")
+        root = main_mod.resolve_root(str(repo))
+        audit = (repo / "state" / "audit")
+
+        evil_rejected = False
+        try:
+            main_mod.contained_audit_path(root, "../evil.md")
+        except RootError:
+            evil_rejected = True
+        check_bool("containment: contained_audit_path rejects '../evil.md' basename",
+                   evil_rejected, True)
+        # the rejected basename wrote nothing outside state/audit
+        check_bool("containment: rejected '../evil.md' wrote no escape file",
+                   (base / "evil.md").exists() or (repo / "evil.md").exists(), False)
+
+        for bad in ("nested/x.md", "..", "/etc/passwd"):
+            rejected = False
+            try:
+                main_mod.contained_audit_path(root, bad)
+            except RootError:
+                rejected = True
+            check_bool("containment: contained_audit_path rejects %r basename" % bad,
+                       rejected, True)
+
+        # a normal flat basename resolves under state/audit
+        ok_path = main_mod.contained_audit_path(root, "find-wasted-effort-x.md")
+        check_bool("containment: contained_audit_path accepts a flat basename under state/audit",
+                   main_mod._is_relative_to(ok_path.resolve() if ok_path.exists() else ok_path,
+                                            audit.resolve()), True)
+    finally:
+        shutil.rmtree(base, ignore_errors=True)
+
 
 # --------------------------------------------------------------------------
 # Runner
