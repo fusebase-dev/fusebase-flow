@@ -1,12 +1,12 @@
 # Tasks — ceremony-efficiency-middle-lane
 
 **T-counter going in:** T17 (next task is T18)
-**Task range:** T18..T32 (across 3 phases; P3 is GATED — outline only)
-**Phase gates:** P1 gate T22 / deploy T23 · P2 gate T25 / deploy T26 · P3 gate T31 / deploy T32
-**Linked spec:** `docs/specs/ceremony-efficiency-middle-lane/spec.md` (decisions D1..D7 inline; ACs AC1..AC7; implementation order)
+**Task range (framework repo):** T18..T26 (P1 SHIPPED, P2A pending). P2B + P3 are routed to the **consumer repo** (`paperclip+hermes-v1`) per the 2026-06-14 operator decision + Codex Phase-2 design review — they are NOT framework tasks until upstreamed.
+**Phase gates (framework):** P1 gate T22 / deploy T23 (DONE) · P2A gate T25 / deploy T26. P2B + P3 gates live in the consumer-repo prototype.
+**Linked spec:** `docs/specs/ceremony-efficiency-middle-lane/spec.md` (decisions D1..D7 + AC2b inline; implementation order)
 **Decisions:** in spec.md § Decisions (no separate decisions.md — FR-23, not duplicated)
 
-> **Phasing is the spec's safe-sequencing (Implementation order): P1 governance + read-only audit → P2 audit writes → P3 Middle Lane.** Each phase ships independently (own gate + deploy). P3 does not start until its entry conditions hold (see T27 header).
+> **Phasing (de-conflicted 2026-06-14):** Phase 1 governance + read-only audit (SHIPPED) → **Phase 2A** audit *proposal-output*, still read-only-safe (framework) → **Phase 2B** memory *write-apply* (DEFERRED, consumer-repo prototype, hard-gated) → **Phase 3** Middle Lane (consumer-repo prototype → upstream). Overlay-apply dropped to a later ticket. Each framework phase ships independently (own gate + deploy).
 
 ## Task chain
 
@@ -18,15 +18,17 @@
 | T21 | P1 | wiring | A2: command + provider mirrors + skill-count + FR/version strings | D7 | T19,T20 | 0811a93 | ✅ verified |
 | T22 | P1 | — | verification gate (no commit; gate report only) | — | T18..T21 | (no commit) | ✅ gate PASS |
 | T23 | P1 | — | deploy P1 + probes + single docs commit | — | T22 | eb1991a | ✅ deployed v3.22.0 (hash eb1991a; probes G-M..G-Q + smoke S1 PASS; round-7 hardening 4d1a8ed) |
-| T24 | P2 | skill+hook | A2 write phase: proposed-memory output + per-rule FP fixtures, gated flip read-only→write | D7 | T23 | — | pending |
-| T25 | P2 | — | verification gate | — | T24 | — | pending |
-| T26 | P2 | — | deploy P2 + probes + docs commit | — | T25 | — | pending |
-| T27 | P3 🔒 | rules | A1: extend FR-21 two-tier → three-tier (lane-classification) | D1,D3 | (gated) | — | gated |
-| T28 | P3 🔒 | policy+hook | A1: `middle_deploy` enforcement **code** (author/role check, DP.6 phrase, TTL, baseline-hash, hooks-off fallback) | D2 | T27 | — | gated |
-| T29 | P3 🔒 | template+skill | A1: `templates/round-file.md` + Middle-lane skill/workflow wiring | D6,D3 | T27 | — | gated |
-| T30 | P3 🔒 | tests | A1: hook tests + recovery-sim Middle-lane fixtures | D2 | T28,T29 | — | gated |
-| T31 | P3 🔒 | — | verification gate + **security-permissions-review** | — | T27..T30 | — | gated |
-| T32 | P3 🔒 | — | deploy P3 (Full lane, AC7) + probes + docs commit | — | T31 | — | gated |
+| T24 | P2A | skill+hook | A2 **proposal-output** (read-only-safe): *Proposed memory entries* report section + gitignored `state/audit/` proposal JSON, defined schema, golden fixtures; **writes nothing outside `state/audit/`** (tested) | D7 | T23 | — | pending |
+| T25 | P2A | — | verification gate (assert no memory/overlay/spec/provider write) | — | T24 | — | pending |
+| T26 | P2A | — | deploy P2A + probes + docs commit (Lightweight; additive) | — | T25 | — | pending |
+| — | P2B 🔒 | (consumer repo) | memory **write-apply** — DEFERRED, prototyped in `paperclip+hermes-v1` behind AC2b gates (operator approval artifact · per-target containment · self-output quarantine · real-data confirmed+dismissed · security review). NOT a framework task until upstreamed. | AC2b | T26 + evidence | — | deferred |
+| — | overlay 🔒 | (later ticket) | FLOW:PRESERVE overlay **apply** — DROPPED from this ticket (2A emits diff only); later ticket reuses `post-fusebase-update.sh` recovery machinery | — | — | — | dropped |
+| T27 | P3 🔒 (consumer repo) | rules | A1: extend FR-21 two-tier → three-tier (lane-classification) | D1,D3 | (gated) | — | gated |
+| T28 | P3 🔒 (consumer repo) | policy+hook | A1: `middle_deploy` enforcement **code** (author/role check, DP.6 phrase, TTL, baseline-hash, hooks-off fallback) | D2 | T27 | — | gated |
+| T29 | P3 🔒 (consumer repo) | template+skill | A1: `templates/round-file.md` + Middle-lane skill/workflow wiring | D6,D3 | T27 | — | gated |
+| T30 | P3 🔒 (consumer repo) | tests | A1: hook tests + recovery-sim Middle-lane fixtures | D2 | T28,T29 | — | gated |
+| T31 | P3 🔒 (consumer repo) | — | verification gate + **security-permissions-review** | — | T27..T30 | — | gated |
+| T32 | P3 🔒 (consumer repo) | — | deploy P3 (Full lane, AC7) + probes + docs commit; then **upstream to framework** | — | T31 | — | gated |
 
 ## Per-task detail — Phase 1 (executable now)
 
@@ -65,15 +67,21 @@ No code change. AI Developer produces the gate report from `templates/gate-repor
 ### T23. Deploy P1 + probes + docs commit
 **Procedure:** `workflows/greenlight-deploy.md` (framework release pattern: VERSION bump, commit, push, annotated tag, GitHub release). Capture deploy hash; run probes G-M..G-Q (`verification-gate.md`); run smoke S1 (run `/find-wasted-effort` against THIS repo — AC7 first-consumer). Single docs commit (FR-14): spec P1 status note + tasks SHAs + CHANGELOG/release-notes + README skill-count. **Approval artifact** per `policies/approval-policy.yml`.
 
-## Per-task detail — Phase 2 (executable after P1)
+## Per-task detail — Phase 2A (framework, read-only-safe; executable after P1)
 
-### T24. A2 write phase
-**Cites:** D7 · **Depends on:** T23 · **Acceptance:** AC2 (P3-write clause)
-**Scope:** Add proposed-project-memory output + per-rule false-positive fixtures; flip the analyzer from read-only to write-capable **behind the fixtures gate** (no writes ship until each rule has FP fixtures). Optional FLOW:PRESERVE overlay-edit draft (operator-confirmed only). Files: `hooks/local/find-wasted-effort.py`, `flow-skills/find-wasted-effort/`, fixtures. **T25** gate, **T26** deploy (as P1 pattern).
+> Reshaped 2026-06-14 per the Codex Phase-2 design review (DESCOPE-OR-DEFER the read-only→write flip). Phase 2A does **NOT** flip the analyzer to write-capable — it only enriches the *output*. The actual write-apply is Phase 2B (deferred, consumer-repo, AC2b).
 
-## Per-task detail — Phase 3 (GATED — outline only)
+### T24. A2 — proposal output (read-only-safe)
+**Cites:** D7 · **Depends on:** T23 · **Acceptance:** AC2 (Phase-2A clause)
+**Scope:** Add a *Proposed memory entries* section to the contained `state/audit/` report + an optional gitignored `state/audit/` proposal JSON, with a **defined proposal schema** (`proposal_id`, `rule`, `verdict`, `raw_evidence_refs`, `target_kind`, `target_path`, `exact_patch`, `operator_confirmation_required`, `source=audit`). The analyzer stays **read-only to the project** — writes **nothing outside `state/audit/`**. Add golden-proposal fixtures + a hard test that no memory/overlay/spec/provider file is modified. Files: `hooks/local/find_wasted_effort/*`, `flow-skills/find-wasted-effort/`, fixtures. **NO** read-only→write flip; **NO** overlay apply (diff-only). **T25** gate (assert nothing outside `state/audit/` changed), **T26** deploy (Lightweight, as P1).
 
-> **Entry conditions (ALL must hold before T27 starts):** (1) `/find-wasted-effort` (P1/P2) has produced **cross-project evidence beyond n=2** that the second-session rebuild is genuinely outcome-neutral for a change class; (2) the `middle_deploy` enforcement design has passed **security-permissions-review**. Until both hold, P3 stays `gated`. Full per-task detail is authored at that point (avoid planning conditional work in detail now — FR-23).
+### Phase 2B — memory write-apply (DEFERRED → consumer-repo prototype)
+Not a framework task. Prototype in `paperclip+hermes-v1` behind **AC2b** (operator approval artifact · per-target containment · self-output quarantine · ≥1 real confirmed + 1 dismissed counterexample · security-permissions-review). `prune_review_candidate` only — never auto-prune. Upstream to the framework only once proven.
+
+## Per-task detail — Phase 3 (GATED · consumer-repo prototype → upstream; outline only)
+
+> **Where:** Phase 3 is built in `paperclip+hermes-v1` as a `FLOW:PRESERVE` overlay (operator decision 2026-06-14; mirrors how the Lightweight lane was born), proven on real rounds, **then upstreamed** to the framework as the tasks below.
+> **Entry conditions (ALL must hold before T27 starts):** (1) `/find-wasted-effort` has produced **cross-project evidence beyond n=2** that the second-session rebuild is genuinely outcome-neutral for a change class; (2) the `middle_deploy` enforcement design has passed **security-permissions-review**. Until both hold, P3 stays `gated`. Full per-task detail is authored at that point (avoid planning conditional work in detail now — FR-23).
 
 - **T27** Extend FR-21 to three-tier (D1): FLOW_RULES FR-21 row + a lane-classification skill; eligibility = existing Lightweight gate one notch stricter (reference, don't re-derive). **Worker-undisturbed:** FR-01..FR-20, FR-22..FR-26 rows byte-unchanged.
 - **T28** `middle_deploy` enforcement **code** (D2): build the author/role check that does NOT exist today (`command_policy.py` must read `approved_by` vs `approval_authors.middle_deploy`, denying the AI-Developer role); add `middle_deploy` to approval/required-artifacts/command policies; DP.6 typed phrase; minutes-scale round-bound TTL (config); baseline-fail-set hash binding; **hooks-off ⇒ fall back to Full DP.6**. Models on the v3.18.0 `dp1_waiver`. **Security-permissions-review mandatory.**

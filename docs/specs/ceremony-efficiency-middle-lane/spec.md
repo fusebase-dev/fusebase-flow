@@ -6,7 +6,7 @@
 **Linked decisions:** D1..D7 (LOCKED, below).
 **Deploy hash:** N/A — framework/template change.
 **Source:** consumer proposal `paperclip+hermes-v1` 2026-06-12/13 (controlled A/B from production). Naming decision: repo memory `find-wasted-effort-command-name`.
-**Reviews folded:** (1) Codex independent → SHIP-WITH-CHANGES; (2) 5-lens verification → deploy-authority enforcement mechanisms; (3) 6-area re-grounding vs everything shipped v3.12→v3.21.1.
+**Reviews folded:** (1) Codex independent → SHIP-WITH-CHANGES; (2) 5-lens verification → deploy-authority enforcement mechanisms; (3) 6-area re-grounding vs everything shipped v3.12→v3.21.1; (4) 7-round Codex implementation review of Phase 1 (shipped v3.22.0); (5) **Codex Phase-2 design review 2026-06-14 → DESCOPE-OR-DEFER the read-only→write flip**; reshaped to **Phase 2A** proposal-output (read-only-safe) + **Phase 2B** deferred write-apply (consumer-repo prototype, hard-gated), **overlay-apply dropped** to a later ticket.
 
 ## Problems (as originally reported) → solutions
 
@@ -67,7 +67,7 @@ Detection rules (each emits **confirmed / dismissed / inconclusive** with requir
 6. **Ratchet inventory** — element with no `prevents:` (A3) AND no firing in the window ⇒ **review candidate** (never "remove").
 7. **Watch-vs-read waste (cross-session ceremony layer only)** — re-scoped so it does **not** duplicate FR-26's execution-layer record-then-read/polling signature.
 
-Output: Mode-A report; **P2 ships read-only** (no writes/overlay/prune); proposed-memory + overlay edits only at **P3**, after per-rule false-positive fixtures exist.
+Output: Mode-A report — **Phase 1 shipped read-only** (writes nothing outside gitignored `state/audit/`). **Phase 2A** (framework, still read-only-safe) adds a *Proposed memory entries* report section + a gitignored `state/audit/` proposal JSON (defined schema, golden fixtures) — writes nothing outside `state/audit/` (tested). **Phase 2B** — the actual memory **write-apply** — is **DEFERRED and prototyped in the consumer repo** behind hard gates (AC2b). **Overlay-edit apply is dropped** from this ticket (Phase 2A may emit a diff only); a later overlay ticket reuses the `post-fusebase-update.sh` recovery machinery. Findings are `prune_review_candidate` only — never an auto-prune (Codex Phase-2 review).
 
 ## A3 — Ratchet governance (solves PR-2)
 
@@ -82,7 +82,7 @@ Adversarial plan review for engine-class changes · RED-first reproduction · li
 | D1 | **Extend FR-21 to three-tier** (not a new FR). | FR-21 is still strictly two-tier at v3.21.1; this is net-new. |
 | D2 | **New `middle_deploy` path + security-permissions-review.** | Bigger than a config knob: `approval_authors` is **dead config**; author/role enforcement must be **built**. Model on the v3.18.0 waiver. |
 | D3 | **PO owns classification; AI Developer promotes upward only; mid-build miss = STOP→Full.** | — |
-| D4 | **Phase it: P1 = lane → P2 = audit read-only → P3 = audit writes/prune.** | — |
+| D4 | **Phase it (one scheme): Phase 1 = governance + read-only audit (SHIPPED) → Phase 2A = audit proposal-output (framework, read-only-safe) → Phase 2B = memory write-apply (DEFERRED, consumer-repo prototype, hard-gated) → Phase 3 = Middle Lane (consumer-repo prototype → upstream). Overlay-apply dropped to a later ticket.** | Resolves the prior P2/P3 numbering contradiction (Codex Phase-2 design review, finding 1: spec said both "P2 read-only" and "P2 write phase"). |
 | D5 | **Scope A3 annotation** to rule-6-read + deploy/gate controls first; expand later. | — |
 | D6 | **New `templates/round-file.md`** (don't overload `change-note.md`). | — |
 | D7 | **`/find-wasted-effort` reuses the SHIPPED FR-26/token-economy discipline** (confirmed/dismissed/inconclusive, FP header, `state/audit/` output); tune per rule. | Original "no token-waste-audit here / standalone" premise was FALSE — corrected. |
@@ -92,12 +92,14 @@ Adversarial plan review for engine-class changes · RED-first reproduction · li
 Front-load the cheap, reversible, no-deploy-risk wins; let them produce the evidence that earns the risky lane. **All three asks are committed; this is order, not de-scoping.**
 
 1. **Phase 1 (low risk):** A3 `prevents:` annotations + A2 `/find-wasted-effort` **read-only**. Ships via the Lightweight lane. Solves PR-2 + PR-3; begins measuring PR-1 across projects. — **SHIPPED v3.22.0, deploy hash `eb1991a`, 2026-06-13** (Lightweight lane; T18..T23; AC2/AC3/AC5/AC6/AC7 met; probes G-M..G-Q + smoke S1 PASS). Phase 2/3 remain LOCKED below.
-2. **Phase 2:** A2 write phase (proposed-memory) once per-rule FP fixtures exist.
-3. **Phase 3 (the lift):** A1 Middle Lane — FR-21 three-tier + the `middle_deploy` enforcement **code** + round-file + security-permissions-review. Ships via the **Full** lane (AC7). Gated on: A2 evidence beyond n=2 that the second-session rebuild is genuinely outcome-neutral for a change class, AND the `middle_deploy` design passing security review.
+2. **Phase 2A (framework, read-only-safe):** `/find-wasted-effort` emits *Proposed memory entries* (report section + gitignored `state/audit/` JSON, defined schema, golden fixtures) — still writes **nothing outside `state/audit/`**. Ships like Phase 1 (additive, Lightweight lane).
+3. **Phase 2B (DEFERRED → consumer-repo prototype):** the actual memory **write-apply**, behind AC2b's hard gates; proven in `paperclip+hermes-v1` before any framework write path exists. Overlay-apply dropped to a later ticket (diff-only in 2A).
+4. **Phase 3 (→ consumer-repo prototype, then upstream):** A1 Middle Lane — prototyped as a `FLOW:PRESERVE` overlay in `paperclip+hermes-v1` (where the feedback + real ceremony pain + evidence live; mirrors how the Lightweight lane was born), proven on real rounds, **then upstreamed** to the framework as FR-21 three-tier + `middle_deploy` enforcement code + round-file. Gated on: Phase-1/2A evidence beyond n=2 that the second-session rebuild is genuinely outcome-neutral for a change class, AND the `middle_deploy` design passing security-permissions-review.
 
 ## Acceptance criteria
 - **AC1** Middle Lane = FR-21 three-tier extension + skill, referencing the existing eligibility gate (one notch stricter), with the hardened non-gameable conditional-deploy properties and PO-owned upward-only promotion — no non-negotiable weakened.
-- **AC2** `/find-wasted-effort` ships **read-only (P2)**: 6 active rules (rule 4 cut) each emitting confirmed/dismissed/inconclusive with per-rule FP fixtures; reuses the shipped `state/audit/` output + FP-header convention; **no writes until P3**.
+- **AC2 (Phase 1, MET; Phase 2A)** `/find-wasted-effort` ships **read-only**: 6 active rules (rule 4 cut) each emitting confirmed/dismissed/inconclusive with per-rule FP fixtures; reuses the shipped `state/audit/` output + FP-header convention. **Phase 2A** adds proposal output (a *Proposed memory entries* report section + gitignored JSON, defined schema, golden fixtures) while writing **nothing outside `state/audit/`** (explicitly tested: no memory/overlay/spec/provider file modified).
+- **AC2b (Phase 2B — DEFERRED, consumer-repo prototype)** memory **write-apply** enabled ONLY behind ALL of: an **operator-authored approval artifact** (proposal id · target path · expected content hash · repo root · expiry · action — not the builder-stampable `approve-local.sh`/`$USER` path); **per-target allowlist + `resolve()`/symlink-rejection/root-binding** containment; audit-authored output **quarantined** from future audit evidence (no self-reinforcement loop); **≥1 real-consumer confirmed candidate + a dismissed counterexample** for the affected rule class; **security-permissions-review** of durable agent-memory mutation. Output stays `prune_review_candidate` — never an auto-prune/reclassify (PO owns subtraction).
 - **AC3** `prevents:` annotation on the scoped set (D5), `catastrophic-low-frequency` available; audit states its coverage.
 - **AC4** `middle_deploy` wired into approval/required-artifacts/command policies **with new author-role enforcement code** (today none exists), a DP.6 typed phrase, minutes-scale round-bound TTL, machine-captured immutable baseline, operator-authored non-widenable bounds, **hooks-off ⇒ fall back to Full DP.6**; security-permissions-review clean.
 - **AC5** Docs + sweep: AGENTS/CLAUDE/GEMINI overlays, README, eight-phase-flow workflow, FR-range + version strings, CHANGELOG, release notes, plugin manifests.
@@ -108,8 +110,9 @@ Front-load the cheap, reversible, no-deploy-risk wins; let them produce the evid
 - Removing/weakening any non-negotiable, FR-07, deploy go-ahead, one-commit, rollback.
 - Auto-deploy / removing the human from the deploy loop — conditional authority is operator-pre-authorized, expiring, round-bound, hooks-on-only.
 - Re-implementing `/token-waste-audit` (FR-26) — A2 reuses it.
-- Touching `paperclip+hermes-v1` or any downstream project.
+- This framework ticket does not edit `paperclip+hermes-v1`. **But Phase 2B (write-apply) and Phase 3 (Middle Lane) are routed to `paperclip+hermes-v1` as consumer-repo prototypes** (operator decision 2026-06-14) — upstreamed to the framework only once proven (the Lightweight-lane pattern). The framework side stays proposal-output-only (Phase 2A) until then.
 
 ## Notes
 - Re-grounded against the live framework (6-area investigation): A1/A3 are genuine gaps; A2 is a genuine gap on the ceremony axis (its "standalone" premise was corrected). Nothing here was on the roadmap/backlog.
 - Naming rationale: repo memory `find-wasted-effort-command-name`.
+- **2026-06-14 amendments (Codex Phase-2 design review + operator routing):** phase numbering de-conflicted (Phase 2A safe / Phase 2B deferred); the read-only→write flip descoped from the framework; Phase 2B write-apply + Phase 3 Middle Lane routed to `paperclip+hermes-v1` as consumer-repo prototypes → upstream when proven. Spec stays LOCKED; Phase 1 (shipped) unchanged.
