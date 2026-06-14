@@ -1,6 +1,6 @@
 # Spec — handoff-path-migration
 
-**Status:** LOCKED (operator-locked decision; mechanical migration)
+**Status:** DONE — shipped v3.13.0 (handoff artifacts consolidated under `docs/tmp/handoff`; release notes `docs/release-notes/v3.13.0.md`). Status reconciled 2026-06-14 (was LOCKED; deploy never flipped it).
 **Created:** 2026-06-07
 **Lands in:** framework v3.13.0
 **Tier:** 4 (cross-cutting, deploy-safety-sensitive migration) per FR-23

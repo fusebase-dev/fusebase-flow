@@ -1,6 +1,6 @@
 # Spec — write-time-discipline-delivery (FR-24)
 
-**Status:** LOCKED (operator-approved 2026-06-08)
+**Status:** DONE — shipped v3.15.0 (FR-24 write-time discipline delivery; release notes `docs/release-notes/v3.15.0.md`). Status reconciled 2026-06-14 (was LOCKED 2026-06-08; deploy never flipped it).
 **Lands in:** framework v3.15.0
 **Tier:** 4 (cross-cutting: new always-on rule + role-discipline + handoff + hook + multi-surface) per FR-23
 **Lane:** Full

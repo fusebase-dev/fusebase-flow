@@ -1,6 +1,6 @@
 # Spec - cli-first-flow-second-recovery
 
-**Status:** DRAFT
+**Status:** DONE (delivered) — the CLI-first/Flow-second recovery model shipped via the health-check engine (`CLI_LAYER_DRIFT` / `FLOW_LAYER_DRIFT` / `SHARED_MERGE_DRIFT` ownership verdicts in `hooks/local/fusebase-flow-health-check.sh`) + related DONE specs (`provider-skill-drift-guards`, `upgrade-path-hardening`, `u12-canonical-skills-relocation`). Early exploratory draft (2026-05-29); no discrete release commit under this slug. Status reconciled 2026-06-14.
 **Created:** 2026-05-29
 **Linked decisions:** `docs/specs/cli-first-flow-second-recovery/decisions.md`
 **Promoted from:** operator request in chat, 2026-05-29
