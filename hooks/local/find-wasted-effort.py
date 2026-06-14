@@ -36,6 +36,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 # Make the sibling package importable regardless of CWD (FR: absolute paths).
@@ -332,12 +333,17 @@ def _render_proposals_section(proposals):
 
 
 def write_audit_file(root, target_path, content):
-    """Write `content` to target_path AFTER re-asserting containment immediately
-    before the write (TOCTOU hardening, LOW finding). Create/resolve the audit dir,
-    then re-run the containment check against the now-on-disk dir, then reject a
-    symlinked target via lstat before writing. Raises RootError on any escape;
-    writes only inside root/state/audit/. Shared by the .md report AND the .json
-    proposals sibling — both stay inside the single contained output directory."""
+    """Write `content` to target_path via an atomic temp-then-os.replace() INSIDE
+    the contained state/audit/ dir, AFTER re-asserting containment immediately
+    before the write (TOCTOU hardening, LOW findings). Create/resolve the audit dir,
+    re-run the containment check against the now-on-disk dir, then reject a target
+    that is a symlink OR a hardlink (lstat: st_nlink > 1) so we never write THROUGH
+    a planted alias. os.replace() swaps in a NEW inode for the directory entry, so
+    even a pre-planted hardlink/alias at the target is BROKEN by the replace and no
+    file OUTSIDE state/audit/ is ever modified (the containment invariant is
+    absolute — read-only-safety is Phase 2A's whole safety case). Raises RootError
+    on any escape; writes only inside root/state/audit/. Shared by the .md report
+    AND the .json proposals sibling — both stay inside the single contained dir."""
     audit_dir = target_path.parent
     audit_dir.mkdir(parents=True, exist_ok=True)
     # Re-resolve the (now-created) audit dir and re-assert it lives under the repo
@@ -354,8 +360,33 @@ def write_audit_file(root, target_path, content):
     if target_path.is_symlink():
         raise RootError("audit output path is a symlink — refusing to write through it: %s"
                         % target_path)
+    # Reject a HARDLINKED target (st_nlink > 1) — a pre-planted hardlink aliases an
+    # OUTSIDE inode, so writing through it would modify a file outside state/audit/.
+    # lstat does not follow links; the os.replace() below also breaks the alias, but
+    # we refuse up front so the invariant violation is loud, not silent.
+    if target_path.exists() and target_path.lstat().st_nlink > 1:
+        raise RootError("audit output path is a hardlink alias (st_nlink>1) — "
+                        "refusing to write through it: %s" % target_path)
+    # Atomic write: a fresh temp file INSIDE the resolved audit dir, then os.replace()
+    # onto the target. The replace rebinds the directory entry to a NEW inode, so any
+    # pre-planted hardlink/alias at the target is severed (the old inode — and the
+    # outside file it aliased — is left untouched). The temp lives in the contained
+    # dir so the rename is same-filesystem (atomic) and never escapes containment.
     try:
-        target_path.write_text(content, encoding="utf-8", newline="\n")
+        fd, tmp_name = tempfile.mkstemp(
+            prefix=".find-wasted-effort-", suffix=".tmp", dir=str(resolved_audit))
+        tmp_path = Path(tmp_name)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
+                fh.write(content)
+            os.replace(str(tmp_path), str(target_path))
+        except BaseException:
+            # never leave a temp turd behind on any failure path
+            try:
+                tmp_path.unlink()
+            except OSError:
+                pass
+            raise
         return str(target_path)
     except OSError as exc:
         return "(write failed: %s)" % exc

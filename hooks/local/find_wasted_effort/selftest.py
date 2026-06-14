@@ -6,18 +6,18 @@ Three layers, so the suite is NOT tautological (MED finding):
      ratchet-governance.yml), run the REAL assemble_evidence() + rule evaluators
      against it, and assert each rule's verdict. Includes NEGATIVE false-positive
      fixtures (a clean / governed / catastrophic-idle repo must NOT be flagged).
-  3. PATH-CONTAINMENT fixtures — the --root / symlink-escape guard (HIGH finding):
-     a traversal root, a non-Flow root, and a symlinked state/audit must all be
-     rejected by resolve_root() / contained_report_path().
+  3. PATH-CONTAINMENT / WRITE-PATH-SAFETY fixtures (extracted to
+     selftest_containment.py along the test-layer seam, FR-25): the --root /
+     symlink-escape guard (HIGH) plus the write_audit_file symlink AND hardlink
+     target guards (LOW) — a traversal root, a non-Flow root, a symlinked
+     state/audit, and a symlink/hardlink planted at the output path must all be
+     rejected so nothing OUTSIDE state/audit/ is ever written.
 
 Non-writing: end-to-end fixtures build their report IN MEMORY (build_report) and
-never call write_report against the real repo. Temp dirs are cleaned up.
+never call write_report against the real repo; write-path fixtures write only into
+throwaway temp repos. Temp dirs are cleaned up.
 """
 
-import datetime
-import os
-import shutil
-import tempfile
 from pathlib import Path
 
 from .constants import CONFIRMED, DISMISSED, INCONCLUSIVE, DEFAULT_WINDOW
@@ -475,190 +475,15 @@ from .selftest_proposals import proposal_cases as _proposal_cases   # noqa: E402
 
 
 # --------------------------------------------------------------------------
-# Layer 3 — path-containment / --root escape (HIGH finding)
+# Layer 3 — path-containment / --root escape + write-path safety (HIGH/LOW findings)
+#
+# Extracted to selftest_containment.py along the test-layer seam (FR-25 module
+# ceiling): the write-path SAFETY layer (containment + symlink/hardlink target
+# guards) is the load-bearing read-only-safety case for Phase 2A and a single,
+# self-contained responsibility.
 # --------------------------------------------------------------------------
 
-def _containment_cases(check_bool):
-    import importlib.util
-    spec = importlib.util.spec_from_file_location(
-        "fwe_main", str(Path(__file__).resolve().parent.parent / "find-wasted-effort.py"))
-    main_mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(main_mod)
-    RootError = main_mod.RootError
-    today = datetime.date.today().isoformat()
-
-    # (a) a non-Flow directory is rejected as a root
-    tmp = Path(tempfile.mkdtemp(prefix="fwe-noflow-"))
-    try:
-        rejected = False
-        try:
-            main_mod.resolve_root(str(tmp))
-        except RootError:
-            rejected = True
-        check_bool("containment: non-Flow --root rejected", rejected, True)
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-
-    # (b) a traversal root (../outside) does not let the report escape: a Flow
-    #     fixture root with a SYMLINKED state/audit pointing outside is rejected.
-    base = Path(tempfile.mkdtemp(prefix="fwe-symesc-"))
-    try:
-        repo = base / "repo"
-        outside = base / "outside"
-        repo.mkdir(); outside.mkdir()
-        (repo / "VERSION").write_text("0.0.0\n", encoding="utf-8")  # Flow marker
-        (repo / "state").mkdir()
-        symlink_ok = True
-        try:
-            os.symlink(str(outside), str(repo / "state" / "audit"),
-                       target_is_directory=True)
-        except (OSError, NotImplementedError):
-            symlink_ok = False  # no symlink privilege (some Windows) -> skip, don't fail
-        if symlink_ok:
-            root = main_mod.resolve_root(str(repo))
-            escaped = False
-            rejected = False
-            try:
-                rp = main_mod.contained_report_path(root, today)
-                # if not rejected, the resolved report must still be inside repo
-                escaped = not main_mod._is_relative_to(rp.resolve(), repo.resolve())
-            except RootError:
-                rejected = True
-            check_bool("containment: symlinked state/audit escape rejected",
-                       rejected or not escaped, True)
-        else:
-            check_bool("containment: symlinked state/audit escape (host lacks symlink privilege)",
-                       None, None, skipped=True)
-    finally:
-        shutil.rmtree(base, ignore_errors=True)
-
-    # (c) a well-formed Flow root yields a contained report path inside state/audit
-    tmp = Path(tempfile.mkdtemp(prefix="fwe-ok-"))
-    try:
-        (tmp / "VERSION").write_text("0.0.0\n", encoding="utf-8")
-        root = main_mod.resolve_root(str(tmp))
-        rp = main_mod.contained_report_path(root, today)
-        inside = main_mod._is_relative_to(rp, (root / "state" / "audit").resolve())
-        check_bool("containment: valid Flow root -> report inside state/audit", inside, True)
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-
-    # (d) privilege-INDEPENDENT escape guard: a sibling path outside state/audit
-    #     must be rejected by the containment predicate (the same predicate
-    #     contained_report_path() uses to assert no traversal/absolute/symlink escape).
-    base = Path(tempfile.mkdtemp(prefix="fwe-guard-"))
-    try:
-        repo = base / "repo"; (repo / "state" / "audit").mkdir(parents=True)
-        sibling = base / "outside" / "report.md"
-        sibling.parent.mkdir(parents=True)
-        contained = main_mod._is_relative_to(sibling.resolve(),
-                                             (repo / "state" / "audit").resolve())
-        check_bool("containment: sibling path rejected by guard predicate", contained, False)
-        legit = (repo / "state" / "audit" / "find-wasted-effort-x.md")
-        ok = main_mod._is_relative_to(legit.resolve(),
-                                      (repo / "state" / "audit").resolve())
-        check_bool("containment: in-audit path accepted by guard predicate", ok, True)
-    finally:
-        shutil.rmtree(base, ignore_errors=True)
-
-    # (e) a traversal-style --root that resolves to a non-Flow dir is rejected
-    base = Path(tempfile.mkdtemp(prefix="fwe-trav-"))
-    try:
-        (base / "sub").mkdir()
-        rejected = False
-        try:
-            # ../ from a Flow-less sub resolves to a Flow-less parent -> RootError
-            main_mod.resolve_root(str(base / "sub" / ".." / "nowhere"))
-        except RootError:
-            rejected = True
-        check_bool("containment: traversal --root to non-Flow dir rejected", rejected, True)
-    finally:
-        shutil.rmtree(base, ignore_errors=True)
-
-    # (f) write_report TOCTOU guard (LOW finding): a symlinked report TARGET planted
-    #     after path resolution is rejected via lstat before any write occurs.
-    base = Path(tempfile.mkdtemp(prefix="fwe-wsym-"))
-    try:
-        repo = base / "repo"
-        (repo / "state" / "audit").mkdir(parents=True)
-        (repo / "VERSION").write_text("0.0.0\n", encoding="utf-8")
-        root = main_mod.resolve_root(str(repo))
-        report_path = main_mod.contained_report_path(root, today)
-        outside = base / "outside.md"
-        outside.write_text("attacker\n", encoding="utf-8")
-        symlink_ok = True
-        try:
-            os.symlink(str(outside), str(report_path))
-        except (OSError, NotImplementedError):
-            symlink_ok = False  # no symlink privilege -> skip, don't fail
-        if symlink_ok:
-            rejected = False
-            try:
-                main_mod.write_report(root, report_path, "report body")
-            except main_mod.RootError:
-                rejected = True
-            wrote_through = outside.read_text(encoding="utf-8") != "attacker\n"
-            check_bool("containment: write_report rejects symlinked report target (lstat)",
-                       rejected and not wrote_through, True)
-        else:
-            check_bool("containment: report-symlink write guard (host lacks symlink privilege)",
-                       None, None, skipped=True)
-    finally:
-        shutil.rmtree(base, ignore_errors=True)
-
-    # (g) write_report happy path: a real Flow root yields a written file inside
-    #     state/audit (re-asserted containment lets the legitimate write through).
-    base = Path(tempfile.mkdtemp(prefix="fwe-wok-"))
-    try:
-        repo = base / "repo"; repo.mkdir()
-        (repo / "VERSION").write_text("0.0.0\n", encoding="utf-8")
-        root = main_mod.resolve_root(str(repo))
-        report_path = main_mod.contained_report_path(root, today)
-        wrote = main_mod.write_report(root, report_path, "report body\n")
-        inside = main_mod._is_relative_to(Path(wrote).resolve(),
-                                          (repo / "state" / "audit").resolve())
-        check_bool("containment: write_report writes inside state/audit on a valid root",
-                   inside and Path(wrote).read_text(encoding="utf-8") == "report body\n", True)
-    finally:
-        shutil.rmtree(base, ignore_errors=True)
-
-    # (h) basename hardening (Codex Phase-2A LOW): contained_audit_path REJECTS a
-    #     basename that is absolute or carries ../ / a path separator (internal-misuse
-    #     traversal), and ACCEPTS a flat basename, resolving it under state/audit.
-    base = Path(tempfile.mkdtemp(prefix="fwe-bname-"))
-    try:
-        repo = base / "repo"; repo.mkdir()
-        (repo / "VERSION").write_text("0.0.0\n", encoding="utf-8")
-        root = main_mod.resolve_root(str(repo))
-        audit = (repo / "state" / "audit")
-
-        evil_rejected = False
-        try:
-            main_mod.contained_audit_path(root, "../evil.md")
-        except RootError:
-            evil_rejected = True
-        check_bool("containment: contained_audit_path rejects '../evil.md' basename",
-                   evil_rejected, True)
-        # the rejected basename wrote nothing outside state/audit
-        check_bool("containment: rejected '../evil.md' wrote no escape file",
-                   (base / "evil.md").exists() or (repo / "evil.md").exists(), False)
-
-        for bad in ("nested/x.md", "..", "/etc/passwd"):
-            rejected = False
-            try:
-                main_mod.contained_audit_path(root, bad)
-            except RootError:
-                rejected = True
-            check_bool("containment: contained_audit_path rejects %r basename" % bad,
-                       rejected, True)
-
-        # a normal flat basename resolves under state/audit
-        ok_path = main_mod.contained_audit_path(root, "find-wasted-effort-x.md")
-        check_bool("containment: contained_audit_path accepts a flat basename under state/audit",
-                   main_mod._is_relative_to(ok_path.resolve() if ok_path.exists() else ok_path,
-                                            audit.resolve()), True)
-    finally:
-        shutil.rmtree(base, ignore_errors=True)
+from .selftest_containment import containment_cases as _containment_cases   # noqa: E402
 
 
 # --------------------------------------------------------------------------
