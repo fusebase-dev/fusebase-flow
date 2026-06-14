@@ -4,6 +4,19 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.23.0] — 2026-06-14
+
+### Added — `/find-wasted-effort` proposal output (read-only-safe) — ceremony-efficiency Phase 2A
+
+Phase 2A of the ceremony-efficiency-middle-lane ticket. Additive, read-only-safe: `/find-wasted-effort` now emits schema'd proposals; the analyzer still writes **nothing outside the gitignored `state/audit/`** directory and applies nothing. Per the Codex Phase-2 design review (2026-06-14) the read-only→write flip is **descoped from the framework** — the memory write-apply (Phase 2B) and the Middle Lane (Phase 3) are routed to the `paperclip+hermes-v1` consumer repo as hard-gated prototypes, upstreamed only once proven.
+
+- **Proposal output** — a *Proposed memory entries* section in the contained `state/audit/<date>.md` report + an optional sibling gitignored `state/audit/find-wasted-effort-proposals-<date>.json` (`--no-proposals-json` skips the JSON). A `confirmed` finding → a recommendation proposal; a rule-6 review-candidate → a `prune_review_candidate`; `inconclusive`/`dismissed` → none. Defined schema: `proposal_id`, `rule`, `verdict`, `raw_evidence_refs`, `target_kind`, `target_path`, `exact_patch`, `operator_confirmation_required: true`, `source: "audit"`.
+- **Self-output quarantine (Codex finding 5)** — proposals cite raw on-disk artifacts as evidence, never a prior audit report/proposal; the evidence collectors do not read `state/audit/` (the audit cannot cite itself). `prune_review_candidate` only — never an auto-prune or recorded prune decision (the PO owns subtraction; `policies/ratchet-governance.yml`).
+- **Read-only to the project (tested)** — a hard test asserts a full run modifies no memory/overlay/spec/provider/policy file; golden-proposal fixtures (confirmed → proposal, review-candidate → proposal, inconclusive → none). **Not** the read-only→write flip — that is Phase 2B (deferred, consumer-repo, AC2b).
+- **Containment hardening (Codex Phase-2A LOW)** — `contained_audit_path` resolves the target before the relative check and rejects an absolute / `..` / path-separator basename at the boundary (raises `RootError`). Both real callers pass fixed flat basenames (a no-op for them); closes internal-misuse traversal in the containment helper. +6 selftest fixtures.
+
+`--selftest` 151 passed, 2 skipped (+6 over v3.22.0 = the new basename-hardening fixtures). Spec: `docs/specs/ceremony-efficiency-middle-lane/spec.md` (Phase 2A; cites D7, AC2 Phase-2A clause). Detail: `docs/release-notes/v3.23.0.md`.
+
 ## [3.22.0] — 2026-06-13
 
 ### Added — ratchet governance (A3) + `/find-wasted-effort` read-only ceremony audit (A2) — ceremony-efficiency Phase 1
