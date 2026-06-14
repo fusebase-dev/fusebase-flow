@@ -6,7 +6,7 @@
 **Linked decisions:** D1..D7 (LOCKED, below).
 **Deploy hash:** N/A — framework/template change.
 **Source:** consumer proposal `paperclip+hermes-v1` 2026-06-12/13 (controlled A/B from production). Naming decision: repo memory `find-wasted-effort-command-name`.
-**Reviews folded:** (1) Codex independent → SHIP-WITH-CHANGES; (2) 5-lens verification → deploy-authority enforcement mechanisms; (3) 6-area re-grounding vs everything shipped v3.12→v3.21.1; (4) 7-round Codex implementation review of Phase 1 (shipped v3.22.0); (5) **Codex Phase-2 design review 2026-06-14 → DESCOPE-OR-DEFER the read-only→write flip**; reshaped to **Phase 2A** proposal-output (read-only-safe) + **Phase 2B** deferred write-apply (consumer-repo prototype, hard-gated), **overlay-apply dropped** to a later ticket.
+**Reviews folded:** (1) Codex independent → SHIP-WITH-CHANGES; (2) 5-lens verification → deploy-authority enforcement mechanisms; (3) 6-area re-grounding vs everything shipped v3.12→v3.21.1; (4) 7-round Codex implementation review of Phase 1 (shipped v3.22.0); (5) **Codex Phase-2 design review 2026-06-14 → DESCOPE-OR-DEFER the read-only→write flip**; reshaped to **Phase 2A** proposal-output (read-only-safe) + **Phase 2B** deferred write-apply (consumer-repo prototype, hard-gated), **overlay-apply dropped** to a later ticket; (6) **Codex final-review LOW → Phase-2A containment hardening** (atomic temp+`os.replace()` write; hardlink/symlink fail-closed; at-rest threat model documented) shipped **v3.23.1** (`08940a4`) — read-only invariant unchanged. Detail: `docs/release-notes/v3.23.1.md`.
 
 ## Problems (as originally reported) → solutions
 
