@@ -21,7 +21,10 @@
 #      plain dir you already staged).
 #   2. Copy the engine + recovery + mirror scripts from the source into hooks/local/
 #      (upgrade.sh, upgrade-engine.sh, sync-version-strings.sh, post-fusebase-update.sh,
-#      mirror-skills.sh, mirror-agents.sh, preflight.sh) + the overlay templates dir.
+#      mirror-skills.sh, mirror-agents.sh, preflight.sh) + the overlay templates dir
+#      + the engine's sourced lib dir hooks/local/lib/ (the new upgrade.sh sources
+#      merge-module-size-baseline.sh from there; staging it BEFORE handoff is what
+#      lets the v3.25.x baseline merge-preserve actually run on the adoption hop).
 #   3. Hand off to upgrade.sh (passing through any flags, e.g. --dry-run / --auto-yes).
 #
 # What it does NOT do:
@@ -117,7 +120,17 @@ if [ -d "$SOURCE_CLONE/hooks/local/fusebase-flow-overlays" ]; then
   mkdir -p hooks/local/fusebase-flow-overlays
   cp -R "$SOURCE_CLONE/hooks/local/fusebase-flow-overlays/." hooks/local/fusebase-flow-overlays/
 fi
-echo "[bootstrap-upgrade] Staged $COPIED engine script(s) into hooks/local/ (backups: .pre-bootstrap-$TS)."
+# Engine-sourced lib dir (hooks/local/lib/). The new upgrade.sh sources its merge
+# rule (merge-module-size-baseline.sh) from here; if it isn't staged before handoff,
+# the merge function is undefined when Step 1a runs and the W2 baseline-clobber fix
+# silently no-ops on the adoption hop. Stage the WHOLE dir (future libs too).
+if [ -d "$SOURCE_CLONE/hooks/local/lib" ]; then
+  [ -d hooks/local/lib ] && cp -R hooks/local/lib "hooks/local/lib.pre-bootstrap-$TS"
+  mkdir -p hooks/local/lib
+  cp -R "$SOURCE_CLONE/hooks/local/lib/." hooks/local/lib/
+  chmod +x hooks/local/lib/*.sh 2>/dev/null || true
+fi
+echo "[bootstrap-upgrade] Staged $COPIED engine script(s) + hooks/local/lib/ into hooks/local/ (backups: .pre-bootstrap-$TS)."
 
 if [ ! -x hooks/local/upgrade.sh ] && [ ! -f hooks/local/upgrade.sh ]; then
   echo "[bootstrap-upgrade] FATAL: upgrade.sh was not staged; cannot continue." >&2
