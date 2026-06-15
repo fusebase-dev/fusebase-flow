@@ -442,7 +442,7 @@ elif [ -x hooks/tests/run-tests.sh ]; then
   ffhc_run_bounded "$FFHC_TESTS_TIMEOUT" bash hooks/tests/run-tests.sh
   HOOK_TEST_OUTPUT="$FFHC_LAST_OUT"
   HOOK_TEST_RC="$FFHC_LAST_RC"
-  HOOK_TEST_PASS_LINE=$(echo "$HOOK_TEST_OUTPUT" | grep -E "^\[run-tests\] [0-9]+/[0-9]+ PASS" | tail -1)
+  HOOK_TEST_PASS_LINE=$(ffhc_select_pass_line "$HOOK_TEST_OUTPUT")  # "" + FFHC_PASS_LINE_REASON unless EXACTLY one strict PASS summary (no tail -1; Codex A2)
   HOOK_TEST_FAILS=$(echo "$HOOK_TEST_OUTPUT" | grep -E "^FAIL:" || true)
 
   if [ "$FFHC_LAST_TIMED_OUT" -eq 1 ] && [ -z "$HOOK_TEST_FAILS" ]; then
@@ -457,12 +457,11 @@ elif [ -x hooks/tests/run-tests.sh ]; then
     # read OK via `|| true` (a false-HEALTHY). A crash is genuine breakage.
     LOCAL_BROKEN+=("hook tests: harness exited rc=$HOOK_TEST_RC with no parsable result — likely crashed before reporting (run 'bash hooks/tests/run-tests.sh' to inspect)")
   elif [ -z "$HOOK_TEST_PASS_LINE" ]; then
-    # rc=0, no FAIL:, but ALSO no parsable "N/N PASS" confirmation line. The
-    # harness never asserted success — its output is unparseable (truncated, an
-    # rc-0 crash, or a contract change). Per H6 a check that "didn't actually
-    # confirm pass" must NOT read HEALTHY: a positive PASS line is REQUIRED to
-    # record OK, so this is unparseable harness output => BROKEN, never exit 0.
-    LOCAL_BROKEN+=("hook tests: harness exited rc=$HOOK_TEST_RC but printed no parsable 'N/N PASS' line and no FAIL: — output is unparseable, cannot confirm pass (run 'bash hooks/tests/run-tests.sh' to inspect)")
+    # rc=0, no FAIL:, but ffhc_select_pass_line did not return EXACTLY one strict
+    # "N/N PASS" line: zero (unparseable/no summary) or >=2 (the tail -1 duplicate
+    # spoof — Codex round-3 A2). Per H6 a check that didn't confirm a single pass
+    # must NOT read HEALTHY => BROKEN, never 0. The message re-derives which case.
+    LOCAL_BROKEN+=("$(ffhc_pass_line_broken_msg "$HOOK_TEST_RC" "$HOOK_TEST_OUTPUT")")
   elif [ -z "$HOOK_TEST_FAILS" ] && ffhc_run_tests_pass_ok "$HOOK_TEST_PASS_LINE"; then
     # STRICT "N/N PASS" only (Codex round-2 A1: a prefix match alone is not proof).
     LOCAL_OK+=("hook tests: $HOOK_TEST_PASS_LINE")

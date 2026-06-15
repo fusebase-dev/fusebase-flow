@@ -255,7 +255,94 @@ ht12() {
   ht_pass "HT12-clean-pass-n (Codex round-2 A1 regression guard): clean '3/3 PASS' (N>1, passed==total>0, no suffix) => HEALTHY / exit 0"
 }
 
+# ---- PASS-classifier spoof table (Codex round-3 A1+A2) -----------------------
+# The run-tests PASS summary is the one signal that flips the engine to HEALTHY/0,
+# so the parser kept yielding new spoof edges. These fixtures LOCK the whole Codex
+# table so the classifier stops regressing. Each asserts the exact verdict + exit.
+#
+# Two shared drivers stub run-tests to emit a crafted summary, then run the REAL
+# engine with criticals fast and upstream off, isolating the PASS-line classifier.
+
+# hc_broken_pass <name> <printf-emitted-output>: stub run-tests to print the given
+# output (rc 0) and assert the engine => BROKEN / exit 2 (never HEALTHY). The
+# payload is a printf format string (use \n for newlines, %% for literal %).
+hc_broken_pass() {  # $1=name  $2=printf-format-for-run-tests-stdout
+  local name="$1" payload="$2"
+  local D="$TMP_BASE/$name"
+  setup_hc_fixture "$D"
+  { printf '#!/usr/bin/env bash\n'; printf 'printf '\''%s'\''\n' "$payload"; printf 'exit 0\n'; } > "$D/hooks/tests/run-tests.sh"
+  chmod +x "$D/hooks/tests/run-tests.sh"
+  local OUT; OUT="$(run_hc "$D" env FFHC_TESTS_TIMEOUT=10)"
+  echo "$OUT" | grep -q "Verdict: BROKEN" || { ht_fail "$name" "$OUT"; return; }
+  echo "$OUT" | grep -q "^EXIT=2$" || { ht_fail "$name" "$OUT"; return; }
+  if echo "$OUT" | grep -q "Verdict: HEALTHY"; then ht_fail "$name" "$OUT"; return; fi
+  ht_pass "$name (spoof => BROKEN/2)"
+}
+
+# hc_healthy_pass <name> <printf-emitted-output>: stub run-tests to print the given
+# output (rc 0) and assert the engine => HEALTHY / exit 0 (the genuine clean path
+# must NOT be over-rejected). Upstream off + criticals fast so the only variable
+# is the PASS summary.
+hc_healthy_pass() {  # $1=name  $2=printf-format-for-run-tests-stdout
+  local name="$1" payload="$2"
+  local D="$TMP_BASE/$name"
+  setup_hc_fixture "$D"
+  { printf '#!/usr/bin/env bash\n'; printf 'printf '\''%s'\''\n' "$payload"; printf 'exit 0\n'; } > "$D/hooks/tests/run-tests.sh"
+  chmod +x "$D/hooks/tests/run-tests.sh"
+  local OUT; OUT="$(cd "$D" && FFHC_PREFLIGHT_TIMEOUT=10 FFHC_CONFLICT_TIMEOUT=10 FFHC_TESTS_TIMEOUT=10 bash hooks/local/fusebase-flow-health-check.sh --no-upstream 2>&1; echo "EXIT=$?")"
+  echo "$OUT" | grep -q "Verdict: HEALTHY" || { ht_fail "$name" "$OUT"; return; }
+  echo "$OUT" | grep -q "^EXIT=0$" || { ht_fail "$name" "$OUT"; return; }
+  ht_pass "$name (clean => HEALTHY/0)"
+}
+
+# A2: two strict PASS summaries — tail -1 used to collapse them to the last clean
+# line => false HEALTHY. Now ambiguous => BROKEN with the duplicate message.
+ht_dup_pass() {
+  local D="$TMP_BASE/spoof-two-pass-lines"
+  setup_hc_fixture "$D"
+  printf '#!/usr/bin/env bash\necho "[run-tests] 1/1 PASS"\necho "[run-tests] 1/1 PASS"\nexit 0\n' > "$D/hooks/tests/run-tests.sh"
+  chmod +x "$D/hooks/tests/run-tests.sh"
+  local OUT; OUT="$(run_hc "$D" env FFHC_TESTS_TIMEOUT=10)"
+  echo "$OUT" | grep -q "Verdict: BROKEN" || { ht_fail "spoof-two-pass-lines" "$OUT"; return; }
+  echo "$OUT" | grep -q "^EXIT=2$" || { ht_fail "spoof-two-pass-lines" "$OUT"; return; }
+  echo "$OUT" | grep -qi "ambiguous/duplicate hook-test summary" || { ht_fail "spoof-two-pass-lines" "$OUT"; return; }
+  if echo "$OUT" | grep -q "Verdict: HEALTHY"; then ht_fail "spoof-two-pass-lines" "$OUT"; return; fi
+  ht_pass "spoof-two-pass-lines (Codex r3 A2): two 'N/N PASS' summaries => BROKEN/2 'ambiguous/duplicate', never HEALTHY"
+}
+
+# A2 variant: a clean PASS summary AND a later FAIL: line => the FAIL path wins
+# (genuine failure), never HEALTHY.
+ht_pass_then_fail() {
+  local D="$TMP_BASE/spoof-pass-then-fail"
+  setup_hc_fixture "$D"
+  printf '#!/usr/bin/env bash\necho "[run-tests] 1/1 PASS"\necho "FAIL: 07_pretend_test.json (desc) -> expected=x got=y"\nexit 1\n' > "$D/hooks/tests/run-tests.sh"
+  chmod +x "$D/hooks/tests/run-tests.sh"
+  local OUT; OUT="$(run_hc "$D" env FFHC_TESTS_TIMEOUT=10)"
+  echo "$OUT" | grep -q "Verdict: BROKEN" || { ht_fail "spoof-pass-then-fail" "$OUT"; return; }
+  echo "$OUT" | grep -q "^EXIT=2$" || { ht_fail "spoof-pass-then-fail" "$OUT"; return; }
+  if echo "$OUT" | grep -q "Verdict: HEALTHY"; then ht_fail "spoof-pass-then-fail" "$OUT"; return; fi
+  ht_pass "spoof-pass-then-fail (Codex r3 A2): clean PASS summary + later FAIL: => BROKEN/2, never HEALTHY"
+}
+
 ht1; ht2; ht3; ht4; ht5; ht6; ht7; ht8; ht9; ht10; ht11; ht12
+
+# --- Codex round-3 spoof table, BROKEN/2 rows ---
+hc_broken_pass "spoof-zero-zero"          '[run-tests] 0/0 PASS\n'
+hc_broken_pass "spoof-passed-lt-total"    '[run-tests] 1/2 PASS\n'
+hc_broken_pass "spoof-passed-gt-total"    '[run-tests] 2/1 PASS\n'
+hc_broken_pass "spoof-leading-zero"       '[run-tests] 01/01 PASS\n'
+hc_broken_pass "spoof-passed-word"        '[run-tests] 1/1 PASSED\n'
+hc_broken_pass "spoof-pass-extra"         '[run-tests] 1/1 PASS extra\n'
+hc_broken_pass "spoof-leading-whitespace" ' [run-tests] 1/1 PASS\n'
+hc_broken_pass "spoof-midline-embedded"   'preamble [run-tests] 1/1 PASS trailing\n'
+ht_dup_pass
+ht_pass_then_fail
+
+# --- Codex round-3 spoof table, HEALTHY/0 (genuine clean) rows ---
+hc_healthy_pass "clean-three-three"       '[run-tests] 3/3 PASS\n'
+hc_healthy_pass "clean-trailing-space"    '[run-tests] 1/1 PASS \n'
+hc_healthy_pass "clean-trailing-tab"      '[run-tests] 1/1 PASS\t\n'
+hc_healthy_pass "clean-very-large-equal"  '[run-tests] 999/999 PASS\n'
 
 echo "[test-health-check-timeout] $pass_count/$((pass_count + fail_count)) PASS"
 exit "$fail_count"
