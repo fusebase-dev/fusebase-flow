@@ -456,6 +456,13 @@ elif [ -x hooks/tests/run-tests.sh ]; then
     # crashed before reporting (mktemp/cp/syntax/python-missing). Pre-fix this
     # read OK via `|| true` (a false-HEALTHY). A crash is genuine breakage.
     LOCAL_BROKEN+=("hook tests: harness exited rc=$HOOK_TEST_RC with no parsable result — likely crashed before reporting (run 'bash hooks/tests/run-tests.sh' to inspect)")
+  elif [ -z "$HOOK_TEST_PASS_LINE" ]; then
+    # rc=0, no FAIL:, but ALSO no parsable "N/N PASS" confirmation line. The
+    # harness never asserted success — its output is unparseable (truncated, an
+    # rc-0 crash, or a contract change). Per H6 a check that "didn't actually
+    # confirm pass" must NOT read HEALTHY: a positive PASS line is REQUIRED to
+    # record OK, so this is unparseable harness output => BROKEN, never exit 0.
+    LOCAL_BROKEN+=("hook tests: harness exited rc=$HOOK_TEST_RC but printed no parsable 'N/N PASS' line and no FAIL: — output is unparseable, cannot confirm pass (run 'bash hooks/tests/run-tests.sh' to inspect)")
   elif [ -z "$HOOK_TEST_FAILS" ]; then
     LOCAL_OK+=("hook tests: $HOOK_TEST_PASS_LINE")
   else
