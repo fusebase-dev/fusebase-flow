@@ -120,6 +120,33 @@ if [ -f "$MS_TEST" ]; then
     fi
 fi
 
+# Phase 3 — health-check bounded-execution + verdict/exit contract scenarios
+# (shell-level; spec docs/specs/health-check-fast-timeout). Same parse contract
+# as Phase 2: count "PASS:/FAIL: health-check-timeout <name>" lines; a non-zero
+# exit with zero parsed FAIL lines means the script crashed before reporting.
+HT_TEST="$ROOT/hooks/tests/test-health-check-timeout.sh"
+if [ -f "$HT_TEST" ]; then
+    ht_out="$(bash "$HT_TEST" 2>&1)"
+    ht_rc=$?
+    echo "$ht_out" | grep -E '^(PASS|FAIL): health-check-timeout' || true
+    ht_pass="$(echo "$ht_out" | grep -c '^PASS: health-check-timeout')"
+    ht_failed="$(echo "$ht_out" | grep -c '^FAIL: health-check-timeout')"
+    total=$((total + ht_pass + ht_failed))
+    pass=$((pass + ht_pass))
+    fail=$((fail + ht_failed))
+    while IFS= read -r line; do
+        name="${line#*: health-check-timeout }"
+        result="${line%%:*}"
+        report_rows="$report_rows| test-health-check-timeout.sh | $name | $result | timeout/verdict scenario |"$'\n'
+    done < <(echo "$ht_out" | grep -E '^(PASS|FAIL): health-check-timeout')
+    if [ "$ht_rc" -ne 0 ] && [ "$ht_failed" -eq 0 ]; then
+        total=$((total + 1))
+        fail=$((fail + 1))
+        echo "FAIL: test-health-check-timeout.sh crashed (exit $ht_rc) before reporting scenarios"
+        report_rows="$report_rows| test-health-check-timeout.sh | (harness) | FAIL | crashed with exit $ht_rc, no scenario output |"$'\n'
+    fi
+fi
+
 # Write report
 {
     echo "# Hook test results"
