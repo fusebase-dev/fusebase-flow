@@ -21,23 +21,41 @@
 #     "v2 (Fusebase Flow v2.7.0+)"                  (approval-policy.yml)
 #   Rewriting those would falsify history.
 #
-# What it scans (canonical sources + standalone adapters):
-#   Root adapters:     AGENTS.md, CLAUDE.md, GEMINI.md, FLOW_RULES.md
-#   Other adapters:    .github/copilot-instructions.md, .cursor/rules/*.mdc
-#   Canonical:         agents/**/AGENT.md, flow-skills/**/SKILL.md, workflows/*.md,
-#                      templates/*.md, hooks/local/fusebase-flow-overlays/*.md,
-#                      docs/*.md (top-level framework docs only)
+# U4 (v3.24.x) — EXECUTABLE FRAMEWORK-OWNED ALLOWLIST (anti-GEMINI under-reach):
+#   The scan set is an IN-SCRIPT allowlist (SYNC_ROOTS + SYNC_FILES), NOT a broad
+#   `find` + a prune deny-list. A deny-list is unbounded against consumer doc
+#   layouts (the v3.21.1 friction: FR refs got rewritten inside consumer
+#   docs/product-backlog/**), and an allowlist that silently OMITS a framework
+#   file recreates the GEMINI-stuck-at-v2.1 drift in reverse. Both failure modes
+#   are guarded by hooks/tests/test-sync-allowlist.sh (the under-reach guard):
+#   it FAILS if a token-bearing framework file is missing from the allowlist, and
+#   FAILS if a consumer doc root would be synced. Edit the allowlist below + that
+#   test together; never reintroduce a broad find.
+#
+# U5 (v3.24.x) — GEMINI 2-part / Local header: the version regex matches
+#   `Fusebase Flow (Local )?v<2-or-3-part-semver>` so a consumer's
+#   `Fusebase Flow Local v2.1` header syncs (was stuck because the old anchor
+#   demanded a literal 3-part `v[0-9]+.[0-9]+.[0-9]+` and no `Local`).
+#
+# U2 (v3.24.x) — PORTABLE NEWLINE-STATE PRESERVATION: the previous
+#   `printf '%s' "$after" > "$f"` STRIPPED the file's trailing newline, churning
+#   every token-bearing file it scanned (11 consumer docs on one upgrade). We now
+#   capture each file's EOF-newline state and restore it on write — portable
+#   across Git-Bash/GNU/BSD (no bare `sed -i`, whose -i '' / unterminated-final-
+#   line / NUL behavior differs by platform). Proven by hooks/tests/test-newline-
+#   preserve.sh on both trailing-newline and no-trailing-newline fixtures.
+#
 #   It then RE-MIRRORS (mirror-agents.sh + mirror-skills.sh) so the generated
 #   provider copies under .claude/ .agents/ .codex/ — and their audit manifests —
 #   reflect the canonical edits. (Those dirs are generated; never edited directly.)
 #
 # What it NEVER touches:
 #   - Dated history: CHANGELOG.md, docs/release-notes/**, docs/handoff/** (archive),
-#     docs/tmp/handoff/** (formal dated relays, v3.13.0+), docs/specs/**,
-#     docs/changes/** (Lightweight-lane dated ledger, v3.16.0+)
-#     (excluded from the scan).
+#     docs/tmp/handoff/** (formal dated relays), docs/specs/**, docs/changes/**.
 #   - Generated mirror dirs directly (.claude/ .agents/ .codex/ — refreshed via
 #     re-mirror so a single canonical source of truth is preserved).
+#   - Consumer doc trees (docs/product-backlog|problem-catalog|product-execution|
+#     client-workflows/**) — never in the allowlist (U4 guard enforces this).
 #   - .fusebase-flow-source/, internal/, node_modules/, .git/, *.pre-* backups.
 #
 # Usage:
@@ -55,7 +73,7 @@ DRY_RUN=0
 for arg in "$@"; do
   case "$arg" in
     --dry-run|-n) DRY_RUN=1 ;;
-    --help|-h) sed -n '2,52p' "$0"; exit 0 ;;
+    --help|-h) sed -n '2,60p' "$0"; exit 0 ;;
     *) echo "Unknown argument: $arg" >&2; exit 2 ;;
   esac
 done
@@ -70,16 +88,14 @@ if [ -z "$VER" ]; then
   exit 1
 fi
 
-# U3: version is not the only derived attestation fact. The live self-attestation
-# also names the FR-range ("FR-01 through FR-NN" / "FR-01..FR-NN") and some
-# adapters/overlays name the skill count ("(NN canonical skills total)"). All three
-# are derived from the framework and must match on every upgrade — otherwise an
-# adapter without an overlay-refresh path (e.g. GEMINI.md) ends up self-attesting
-# "vX.Y.Z … FR-01 through FR-(N-1)". Derive them here so one tool keeps all three
-# consistent.
+# Version is not the only derived attestation fact. The live self-attestation also
+# names the FR-range ("FR-01 through FR-NN" / "FR-01..FR-NN") and some adapters/
+# overlays name the skill count ("(NN canonical skills total)"). All three are
+# derived from the framework and must match on every upgrade — otherwise an
+# adapter ends up self-attesting "vX.Y.Z … FR-01 through FR-(N-1)".
 FR_MAX="$(grep -oE 'FR-[0-9]+' FLOW_RULES.md 2>/dev/null | sed 's/FR-//' | sort -n | tail -1)"
 if [ -n "$FR_MAX" ]; then
-  FR_HI="$(printf 'FR-%02d' "$FR_MAX")"     # e.g. FR-21
+  FR_HI="$(printf 'FR-%02d' "$FR_MAX")"     # e.g. FR-26
 else
   FR_HI=""
 fi
@@ -87,39 +103,63 @@ fi
 SKILLS_CANON="flow-skills"; [ -d "$SKILLS_CANON" ] || SKILLS_CANON="skills"
 SKILL_COUNT="$(find "$SKILLS_CANON" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
 
-# Discover scan targets: canonical sources + standalone adapters (*.md / *.mdc),
-# pruning dated history, generated mirror dirs, and non-source trees. Generated
-# mirror dirs (.claude .agents .codex) are intentionally excluded — they are
-# refreshed by the re-mirror step so canonical stays the single source of truth.
-# Tripwire: -path is exact (no implicit depth) — nested per-app docs
-# (docs/<app>/handoff, docs/<app>/specs …) need the ./docs/*/ variant too.
-mapfile -t CANDIDATES < <(
-  find . \
-    \( -type d \( \
-        -name '.git' -o -name '.fusebase-flow-source' -o -name 'node_modules' \
-        -o -name '.claude' -o -name '.agents' -o -name '.codex' \
-        -o -name '*.pre-upgrade-*' -o -name '*.pre-bootstrap-*' -o -name '*.pre-refresh-*' \
-        -o -path './internal' \
-        -o -path './docs/release-notes'   -o -path './docs/*/release-notes' \
-        -o -path './docs/handoff'         -o -path './docs/*/handoff' \
-        -o -path './docs/tmp/handoff' \
-        -o -path './docs/specs'           -o -path './docs/*/specs' \
-        -o -path './docs/changes'         -o -path './docs/*/changes' \
-        -o -path './docs/fusebase-health' -o -path './docs/*/fusebase-health' \
-      \) -prune \) -o \
-    \( -type f \( -name '*.md' -o -name '*.mdc' \) \
-        ! -name 'CHANGELOG.md' \
-        ! -name '*.pre-upgrade-*' ! -name '*.pre-bootstrap-*' ! -name '*.pre-refresh-*' ! -name '*.pre-flow-merge' \
-        -print \)
+###############################################################################
+# U4 — EXECUTABLE framework-owned sync allowlist (NOT a broad find + prune).
+###############################################################################
+# SYNC_ROOTS: directory globs whose framework *.md / *.mdc are syncable. SYNC_FILES:
+# explicit standalone files. The under-reach guard test (test-sync-allowlist.sh)
+# scans these roots for token-bearing files and FAILS on any omission; it also
+# FAILS if a consumer doc root is added here. Plugin metadata (.claude-plugin/
+# plugin.json) is version-checked by preflight §8 (a parity check, NOT a sed here).
+SYNC_ROOTS=(
+  "agents"                                  # agents/**/AGENT.md (canonical sub-agents)
+  "flow-skills"                             # flow-skills/**/*.md (SKILL.md + references/*)
+  "workflows"                              # workflows/*.md
+  "templates"                              # templates/*.md
+  "hooks/local/fusebase-flow-overlays"     # overlay recovery snapshots (adapters + commands)
+  ".github/instructions"                   # .github/instructions/*.instructions.md
+  ".cursor/rules"                          # .cursor/rules/*.mdc
+)
+SYNC_FILES=(
+  "AGENTS.md" "CLAUDE.md" "GEMINI.md" "FLOW_RULES.md"
+  ".github/copilot-instructions.md"
+  "CONTRIBUTING.md"
+  # Framework reference docs (top-level docs/*.md only — NOT consumer doc trees).
+  "README.md" "ROADMAP.md"
+  "docs/rail-mapping.md" "docs/architecture-overview.md" "docs/framework.md"
+  "docs/compatibility.md" "docs/fusebase-cli-edition.md"
+  "docs/install-fusebase-cli-project.md" "docs/install-existing-project.md"
+  "docs/constitution.md" "docs/operator-discipline.md"
+  # Tripwire: these three carry a LIVE `FR-01..FR-NN` string (found by the
+  # under-reach guard test-sync-allowlist.sh). Removing them recreates the
+  # GEMINI-stuck drift. docs/health-check-deferrals.md is deliberately NOT here:
+  # its only token is historical provenance ("Available since: v2.4.0").
 )
 
+# Enumerate the allowlisted candidate set (framework files only; *.md / *.mdc).
+declare -a CANDIDATES=()
+for root in "${SYNC_ROOTS[@]}"; do
+  [ -d "$root" ] || continue
+  while IFS= read -r f; do
+    [ -n "$f" ] && CANDIDATES+=("$f")
+  done < <(find "$root" -type f \( -name '*.md' -o -name '*.mdc' \) 2>/dev/null)
+done
+for f in "${SYNC_FILES[@]}"; do
+  [ -f "$f" ] && CANDIDATES+=("$f")
+done
+
+###############################################################################
 # Context-anchored substitutions — live attestation + banner + FR-range + skill
 # count only. Never a blanket replace (historical/provenance refs must survive).
-# Build the sed program dynamically so FR-range / skill-count subs are added only
-# when their derived value is known.
+###############################################################################
+# U5: the version regex matches an optional " Local " and a 2- OR 3-part semver
+#   `Fusebase Flow (Local )?v[0-9]+(\.[0-9]+){1,2}` so a stuck `Local v2.1`
+#   header syncs. The replacement re-emits the canonical 3-part live form
+#   `Fusebase Flow v<VER>` (dropping any stale " Local " in the live banner /
+#   attestation phrasings — those two live forms are always the plain v<semver>).
 SED_EXPRS=(
-  "s/(under Fusebase Flow v)[0-9]+\.[0-9]+\.[0-9]+/\1${VER}/g"
-  "s/(runs \*\*Fusebase Flow v)[0-9]+\.[0-9]+\.[0-9]+/\1${VER}/g"
+  "s/(under Fusebase Flow )(Local )?v[0-9]+(\.[0-9]+){1,2}/\1v${VER}/g"
+  "s/(runs \*\*Fusebase Flow )(Local )?v[0-9]+(\.[0-9]+){1,2}/\1v${VER}/g"
 )
 if [ -n "$FR_HI" ]; then
   SED_EXPRS+=( "s/FR-01 through FR-[0-9]+/FR-01 through ${FR_HI}/g" )
@@ -131,8 +171,8 @@ if [ -n "$SKILL_COUNT" ] && [ "$SKILL_COUNT" -gt 0 ] 2>/dev/null; then
   SED_EXPRS+=( "s/\(([0-9]+) canonical/(${SKILL_COUNT} canonical/g" )
 fi
 # FLOW_RULES.md carries its dated amendment log below "## Amendment log" —
-# substitutions there falsify history (v3.16.0 guard), so its sed program is
-# range-limited to the live section above the heading.
+# substitutions there falsify history, so its sed program is range-limited to the
+# live section above the heading.
 SED_ARGS=()
 SED_ARGS_PRELOG=()
 for expr in "${SED_EXPRS[@]}"; do
@@ -140,13 +180,41 @@ for expr in "${SED_EXPRS[@]}"; do
   SED_ARGS_PRELOG+=( -e "1,/^## Amendment log\$/ ${expr}" )
 done
 
+# U1: grep -lE prefilter (chunked for ARG_MAX). Only files containing a syncable
+# token can change; the rest yield before==after with no write. SUPERSET_RE is a
+# strict superset of every SED match condition for ANY version/FR/skill-count
+# value, so nothing the sed would touch is dropped. Chunk via xargs -0 -n N so a
+# very large candidate set never blows ARG_MAX.
+SUPERSET_RE='Fusebase Flow (Local )?v[0-9]|FR-01 through FR-|FR-01\.\.FR-|\([0-9]+ canonical'
+declare -a MATCHED=()
+if [ "${#CANDIDATES[@]}" -gt 0 ]; then
+  while IFS= read -r f; do
+    [ -n "$f" ] && MATCHED+=("$f")
+  done < <(printf '%s\0' "${CANDIDATES[@]}" | xargs -0 -n 256 grep -lZE "$SUPERSET_RE" -- 2>/dev/null | tr '\0' '\n')
+fi
+
+echo "[sync-version-strings] scanning ${#CANDIDATES[@]} allowlisted file(s); ${#MATCHED[@]} contain a syncable token…"
+
+###############################################################################
+# U2 — portable newline-state-preserving rewrite.
+###############################################################################
+# Command substitution strips ALL trailing newlines, so we cannot infer the
+# original EOF state from `$after`. Capture it explicitly from the file, run the
+# substitution, then re-emit `after` WITH or WITHOUT the single trailing newline
+# to match the original. before/after are compared on content (newline-agnostic),
+# and we only write when content OR the realized bytes differ.
+had_trailing_newline() { # had_trailing_newline <file> -> 0 (yes) / 1 (no)
+  [ -s "$1" ] || return 1
+  [ "$(tail -c 1 "$1" | od -An -tx1 | tr -d ' \n')" = "0a" ]
+}
+
 CHANGED=()
 TOUCHED_CANONICAL=0
-for f in "${CANDIDATES[@]}"; do
+for f in "${MATCHED[@]}"; do
   [ -f "$f" ] || continue
-  # U8: strip null bytes so command substitution doesn't warn on a stray-NUL file.
+  # Strip null bytes so command substitution doesn't warn on a stray-NUL file.
   before="$(tr -d '\0' < "$f")"
-  if [ "$f" = "./FLOW_RULES.md" ]; then
+  if [ "$f" = "FLOW_RULES.md" ] || [ "$f" = "./FLOW_RULES.md" ]; then
     after="$(printf '%s' "$before" | sed -E "${SED_ARGS_PRELOG[@]}")"
   else
     after="$(printf '%s' "$before" | sed -E "${SED_ARGS[@]}")"
@@ -154,10 +222,14 @@ for f in "${CANDIDATES[@]}"; do
   if [ "$before" != "$after" ]; then
     CHANGED+=("$f")
     case "$f" in
-      ./agents/*|./flow-skills/*|./skills/*) TOUCHED_CANONICAL=1 ;;
+      agents/*|./agents/*|flow-skills/*|./flow-skills/*|skills/*|./skills/*) TOUCHED_CANONICAL=1 ;;
     esac
     if [ "$DRY_RUN" -eq 0 ]; then
-      printf '%s' "$after" > "$f"
+      if had_trailing_newline "$f"; then
+        printf '%s\n' "$after" > "$f"        # restore the single trailing newline
+      else
+        printf '%s' "$after" > "$f"          # original had none — keep it that way
+      fi
     fi
   fi
 done
@@ -173,7 +245,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
   echo "[sync-version-strings] (dry-run) would sync derived strings ($DERIVED) in:"
   for c in "${CHANGED[@]}"; do echo "  • $c"; done
   case " ${CHANGED[*]} " in
-    *" ./agents/"*|*" ./flow-skills/"*|*" ./skills/"*) echo "  • (would re-mirror agents + skills to refresh provider copies)";;
+    *" agents/"*|*" ./agents/"*|*" flow-skills/"*|*" ./flow-skills/"*|*" skills/"*|*" ./skills/"*) echo "  • (would re-mirror agents + skills to refresh provider copies)";;
   esac
   exit 0
 fi
