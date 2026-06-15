@@ -147,6 +147,34 @@ if [ -f "$HT_TEST" ]; then
     fi
 fi
 
+# Phases 4-7 — upgrade-tooling-hardening shell scenarios (v3.24.x). Same parse
+# contract as Phase 2/3: count "PASS:/FAIL: <tag> <name>" lines; a non-zero exit
+# with zero parsed FAIL lines means the script crashed before reporting. One loop
+# over (script, tag) pairs keeps run-tests under the FR-25 ceiling.
+run_shell_phase() { # run_shell_phase <test-script> <tag>
+    local script="$ROOT/hooks/tests/$1" tag="$2"
+    [ -f "$script" ] || return 0
+    local out rc p f
+    out="$(bash "$script" 2>&1)"; rc=$?
+    echo "$out" | grep -E "^(PASS|FAIL): $tag " || true
+    p="$(echo "$out" | grep -c "^PASS: $tag ")"
+    f="$(echo "$out" | grep -c "^FAIL: $tag ")"
+    total=$((total + p + f)); pass=$((pass + p)); fail=$((fail + f))
+    while IFS= read -r line; do
+        name="${line#*: $tag }"; result="${line%%:*}"
+        report_rows="$report_rows| $1 | $name | $result | shell scenario |"$'\n'
+    done < <(echo "$out" | grep -E "^(PASS|FAIL): $tag ")
+    if [ "$rc" -ne 0 ] && [ "$f" -eq 0 ]; then
+        total=$((total + 1)); fail=$((fail + 1))
+        echo "FAIL: $1 crashed (exit $rc) before reporting scenarios"
+        report_rows="$report_rows| $1 | (harness) | FAIL | crashed with exit $rc, no scenario output |"$'\n'
+    fi
+}
+run_shell_phase test-newline-preserve.sh     "newline-preserve"
+run_shell_phase test-baseline-merge.sh       "baseline-merge"
+run_shell_phase test-sync-allowlist.sh       "sync-allowlist"
+run_shell_phase test-policy-state-preserve.sh "policy-state"
+
 # Write report
 {
     echo "# Hook test results"
