@@ -39,6 +39,11 @@ cd "$ROOT"
 OVERLAYS="hooks/local/fusebase-flow-overlays"
 SOURCE_CLONE=".fusebase-flow-source"
 
+# Bounded-execution helper (extracted per FR-25; see hooks/local/lib/run-with-timeout.sh).
+# shellcheck source=lib/run-with-timeout.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib/run-with-timeout.sh"
+ffhc_detect_timeout   # sets FFHC_TIMEOUT_BIN to "timeout" | "gtimeout" | ""
+
 # Tracking
 LOCAL_OK=()
 LOCAL_DRIFT=()
