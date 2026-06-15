@@ -66,6 +66,27 @@ FFHC_TESTS_TIMEOUT="${FFHC_TESTS_TIMEOUT:-60}"
 # host can never hang).
 FFHC_ALLOW_UNBOUNDED="${FFHC_ALLOW_UNBOUNDED:-0}"
 
+# Flags (H3): --no-upstream = full local verdict, exit 0 OK (upstream is
+# optional). --fast = skip the slow hook tests (and upstream) for a quick verdict
+# but it is EXPLICITLY PARTIAL — exit 4, never 0 — because a critical check
+# (hook tests) deliberately did not run. Both keep preflight.
+OPT_NO_UPSTREAM=0
+OPT_FAST=0
+for arg in "$@"; do
+  case "$arg" in
+    --no-upstream) OPT_NO_UPSTREAM=1 ;;
+    --fast)        OPT_FAST=1; OPT_NO_UPSTREAM=1 ;;
+    -h|--help)
+      echo "Usage: bash hooks/local/fusebase-flow-health-check.sh [--fast] [--no-upstream]"
+      echo "  --no-upstream  skip the optional upstream comparison (full local verdict; exit 0 OK)"
+      echo "  --fast         skip hook tests + upstream for a quick verdict (PARTIAL; exit 4, never 0)"
+      echo "Env knobs (seconds): FFHC_FETCH_TIMEOUT FFHC_PREFLIGHT_TIMEOUT FFHC_CONFLICT_TIMEOUT FFHC_TESTS_TIMEOUT"
+      echo "  FFHC_ALLOW_UNBOUNDED=1  run bounded ops unbounded when no timeout binary exists"
+      exit 0 ;;
+    *) echo "[health-check] unknown argument: $arg (try --help)" >&2; exit 2 ;;
+  esac
+done
+
 # Tracking
 LOCAL_OK=()
 LOCAL_DRIFT=()
@@ -403,7 +424,10 @@ fi
 
 # Hook tests (CRITICAL, slow regardless of network — bounded). Timed-out/skipped
 # => UNVERIFIED. The ran-case rc is preserved for the H6 harness-crash guard (Td).
-if [ -x hooks/tests/run-tests.sh ]; then
+# --fast deliberately skips this critical => UNVERIFIED by design => exit 4 (H3).
+if [ "$OPT_FAST" -eq 1 ]; then
+  LOCAL_UNVERIFIED+=("hook tests: UNVERIFIED — skipped by --fast (fast mode is NOT a full health verdict; drop --fast for a full run)")
+elif [ -x hooks/tests/run-tests.sh ]; then
   ffhc_run_bounded "$FFHC_TESTS_TIMEOUT" bash hooks/tests/run-tests.sh
   HOOK_TEST_OUTPUT="$FFHC_LAST_OUT"
   HOOK_TEST_RC="$FFHC_LAST_RC"
@@ -521,7 +545,11 @@ fi
 # Section 2 — Upstream comparison (.fusebase-flow-source/)
 ###############################################################################
 
-if [ -d "$SOURCE_CLONE/.git" ]; then
+if [ "$OPT_NO_UPSTREAM" -eq 1 ]; then
+  # --no-upstream / --fast: upstream is optional, so skipping it is a NOTE only —
+  # it never becomes UNVERIFIED and never blocks exit 0 (H3/H4).
+  UPSTREAM_NOTES+=("upstream comparison skipped (--no-upstream/--fast); local verdict only.")
+elif [ -d "$SOURCE_CLONE/.git" ]; then
   cd "$SOURCE_CLONE"
 
   IS_SHALLOW=$(git rev-parse --is-shallow-repository 2>/dev/null || echo "true")
@@ -722,6 +750,11 @@ fi
 echo "Upstream comparison:"
 for x in "${UPSTREAM_NOTES[@]}"; do echo "  $x"; done
 echo ""
+
+if [ "$OPT_FAST" -eq 1 ]; then
+  echo "fast mode — not a full health verdict (hook tests skipped; exit 4)."
+  echo ""
+fi
 
 echo "Verdict: $DRIFT_SIGNATURE"
 echo ""
