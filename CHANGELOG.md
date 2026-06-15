@@ -4,6 +4,25 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.25.0] — 2026-06-15
+
+### Changed — upgrade-tooling hardening (Windows perf, baseline/policy merge-preserve, sync allowlist, GEMINI sync, PARTIAL_UPGRADE)
+
+The 3.23.x **content model is correct and well-guarded**, but the **refresh/upgrade scripts** forced manual intervention on Windows. **Two independent consumer projects** (paperclip+hermes-v1 and WorkHub Managed) filed the same friction on a `v3.21.1 → v3.23.1` upgrade: `upgrade.sh` stalled mid-mirror, churned consumer docs on an EOF-newline strip, rewrote FR refs in historical consumer docs, and clobbered `policies/module-size-baseline.txt` (breaking `check-module-size --all`). This is a reactive, bounded hardening of the three refresh scripts plus GEMINI, `.gitattributes`, and the health check — the content model, the byte-exact copy contract, and the marker-anchored overlay refresh are unchanged.
+
+- **U1 — batched mirror/sync spawns (Windows perf).** `mirror-skills.sh` and `sync-version-strings.sh` spawned a process per file (≈0.8–1.4s each on Windows Git-Bash → minutes for a 6,974-`.md` scan). Now a single chunked `sha256sum`/`shasum` primes an assoc-array cache and the loop is fork-free. **Copy scope unchanged** (still `SKILL.md` + `references/*`, a bounded copy not a blind `cp -R`) — manifest stays **byte-identical**. Windows ~5 min → seconds.
+- **U2 — portable EOF-newline-preserving sync.** Replaced `printf '%s' > "$f"` (which stripped the trailing newline and churned 11 consumer docs) with explicit trailing-newline-state capture/restore (not a bare `sed -i`). Chunked `grep -lE` superset pre-filter. Fixtures prove both trailing-newline and no-trailing-newline files round-trip.
+- **U3 — `module-size-baseline.txt` + policy-state merge-preserve on upgrade.** `upgrade.sh` no longer wholesale-clobbers project state in `policies/`. Merge rule (LOCKED): ownership = **upstream-baseline membership** (not path prefixes); upstream rows take upstream counts, **project rows absent upstream are preserved verbatim**, a Flow row dropped upstream is removed, malformed local rows warn. Also guards `approval-policy.yml:workflow_mode` and `protected-paths.yml worker_undisturbed` via `*.local.yml` + a policy-state-preserve test.
+- **U4 — executable framework-owned sync allowlist + under-reach guard.** Broad `find`+prune replaced with an in-script `SYNC_ROOTS`/`SYNC_FILES` allowlist; plugin metadata via a parity check, not sed. The **under-reach guard** test FAILS if any token-bearing framework file is omitted (the anti-GEMINI). Consumer roots (`docs/product-backlog|problem-catalog|product-execution|client-workflows/**`) are NEVER synced.
+- **U5 — GEMINI version regex.** Now matches `Fusebase Flow (Local )?v[0-9]+(\.[0-9]+){1,2}` so GEMINI's `Local v2.1`-style header syncs (it had been stuck for releases). Confirmed live: GEMINI.md → v3.25.0.
+- **U7 — upgrade trap recovery + health-check `PARTIAL_UPGRADE`.** `upgrade.sh` prints the exact recovery command(s) on interruption/failure; the health check compares derived facts vs live strings and reports `PARTIAL_UPGRADE` + the repair command on mismatch (builds on the v3.24.0 engine).
+- **U9 — progress output** in mirror/sync/upgrade (`mirroring N/31…`, `scanning N files…`) — the silent multi-minute window is gone.
+- **U11 — `.gitattributes` LF pins** (`VERSION`, `*.sh`, hook scripts, config/doc formats) so Windows clones don't rewrite CRLF and churn diffs.
+- **U8 — Windows docs** (docs only): Git-Bash invocation, unusable-WSL-bash detection, `git -c http.sslBackend=openssl` fallback for schannel tag/clone failures.
+- **Deferred:** U6 (full GEMINI/copilot/cursor overlay-refresh parity — needs a marker-strategy design) ships as a follow-up ticket `docs/backlog/adapter-overlay-refresh-parity/`.
+
+Verified: preflight 0/0 · run-tests 79/79 PASS (new AC2/AC3/AC4/AC7 fixtures) · `check-module-size --all` exit 0 · mirror 31 skills / 0 drift · agent mirrors byte-identical · **recovery-sim 31/31 exit 0** · plugin == VERSION == 3.25.0 · GEMINI synced · FR-07/FR-25 clean (version-string sweep only). Credit: paperclip+hermes-v1 + WorkHub Managed. Spec: `docs/specs/upgrade-tooling-hardening/spec.md`. Detail: `docs/release-notes/v3.25.0.md`.
+
 ## [3.24.0] — 2026-06-15
 
 ### Added — health check fast/bounded execution + `PARTIAL_UNVERIFIED` (exit 4)
