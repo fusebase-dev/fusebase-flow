@@ -88,8 +88,24 @@ print_recovery_hint() {
 
 # U3 (W2): the baseline merge rule lives in a sourced, unit-tested lib so the
 # engine stays small (FR-25) and AC3 can test the rule directly.
+#
+# v3.25.1 (the bootstrap/adoption-hop fix): a PRE-v3.25 install — or a bootstrap
+# that didn't stage hooks/local/lib/ — has NO local merge lib when this engine
+# starts, so sourcing only $ROOT/... left merge_module_size_baseline undefined and
+# the Step 1a guard silently skipped the merge → baseline clobbered. The merge MUST
+# be driven by the TARGET-version lib (the running engine may predate it), so we
+# source from $SOURCE_CLONE FIRST (authoritative), falling back to the local copy.
+# Defined here; called after SOURCE_CLONE is validated (and again, belt-and-suspenders,
+# right before the Step 1a guard) — never silently skipped.
 MERGE_LIB="$ROOT/hooks/local/lib/merge-module-size-baseline.sh"
-[ -f "$MERGE_LIB" ] && . "$MERGE_LIB"
+source_merge_lib() {
+  command -v merge_module_size_baseline >/dev/null 2>&1 && return 0
+  local src_lib="$SOURCE_CLONE/hooks/local/lib/merge-module-size-baseline.sh"
+  [ -f "$src_lib" ] && . "$src_lib" 2>/dev/null
+  command -v merge_module_size_baseline >/dev/null 2>&1 && return 0
+  [ -f "$MERGE_LIB" ] && . "$MERGE_LIB" 2>/dev/null
+  command -v merge_module_size_baseline >/dev/null 2>&1
+}
 
 SOURCE_CLONE=".fusebase-flow-source"
 AUTO_YES=0
@@ -112,6 +128,11 @@ if [ ! -d "$SOURCE_CLONE" ]; then
   echo "            git clone https://github.com/fusebase-dev/fusebase-flow.git $SOURCE_CLONE" >&2
   exit 1
 fi
+
+# Load the baseline-merge lib now that $SOURCE_CLONE is confirmed present — from the
+# authoritative target-version tree first (the running engine may predate the merge
+# rule). Step 1a re-checks and warns loudly if it is somehow still undefined.
+source_merge_lib || true
 
 # F5: a git clone enables HEAD reporting; a plain dir is accepted with a warning.
 if [ -d "$SOURCE_CLONE/.git" ]; then
@@ -265,6 +286,10 @@ done
 # OTHER project-state in policies/ — those are preserved via *.local.yml (deep-merged
 # by policy_loader.py; the wholesale copy never ships a *.local.yml so it can't
 # clobber them) + the policy-state-preserve test (AC7).
+# Belt-and-suspenders: Step 1 just refreshed hooks/ (so the local lib is now
+# definitely present) AND $SOURCE_CLONE/hooks/local/lib/ is authoritative — re-source
+# in case the early load was a no-op (pre-v3.25 install / un-staged bootstrap).
+source_merge_lib || true
 if [ -n "$LOCAL_BASELINE_SNAPSHOT" ] && command -v merge_module_size_baseline >/dev/null 2>&1; then
   UPSTREAM_BASELINE="$SOURCE_CLONE/$BASELINE_REL"
   MERGED_BASELINE="$(mktemp)"
@@ -275,6 +300,26 @@ if [ -n "$LOCAL_BASELINE_SNAPSHOT" ] && command -v merge_module_size_baseline >/
     echo "[upgrade] U3: merge-preserved module-size baseline project rows (see $BASELINE_REL)"
   fi
   rm -f "$MERGED_BASELINE" "$LOCAL_BASELINE_SNAPSHOT"
+elif [ -n "$LOCAL_BASELINE_SNAPSHOT" ]; then
+  # The merge lib could not be loaded from $SOURCE_CLONE OR locally — the W2 fix
+  # cannot run. NEVER silently skip: the wholesale policies/ copy has clobbered the
+  # consumer's module-size baseline with upstream's, so `check-module-size --all` may
+  # now fail. Tell the operator loudly + give the exact recovery.
+  echo "" >&2
+  echo "[upgrade] ============================ WARNING ============================" >&2
+  echo "[upgrade] module-size baseline was NOT merge-preserved — merge_module_size_baseline" >&2
+  echo "[upgrade] could not be sourced from $SOURCE_CLONE/hooks/local/lib/ or $MERGE_LIB." >&2
+  echo "[upgrade] Your project rows in $BASELINE_REL may have been clobbered by upstream's." >&2
+  echo "[upgrade] RECOVER (restore your pre-upgrade baseline):" >&2
+  echo "    cp $BASELINE_REL.pre-upgrade-$TS $BASELINE_REL" >&2
+  echo "    # (or, if the wholesale copy backed up the dir: cp policies.pre-upgrade-$TS/module-size-baseline.txt $BASELINE_REL)" >&2
+  echo "[upgrade] Then re-run the upgrade via the bootstrap path so the lib is staged first:" >&2
+  echo "    bash hooks/local/bootstrap-upgrade.sh -- --auto-yes" >&2
+  echo "[upgrade] =================================================================" >&2
+  # Preserve a copy so the recovery command above has a target even though the
+  # wholesale copy already overwrote policies/.
+  cp "$LOCAL_BASELINE_SNAPSHOT" "$BASELINE_REL.pre-upgrade-$TS" 2>/dev/null || true
+  rm -f "$LOCAL_BASELINE_SNAPSHOT"
 fi
 
 # ---- Step 1b: retire legacy root skills/ (v3.9.0 canonical relocation) ----
