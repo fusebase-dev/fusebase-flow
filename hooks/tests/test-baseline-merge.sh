@@ -83,14 +83,41 @@ cp "$ROOT/hooks/shared/module_size.py" "$TMP/repo/hooks/shared/"
 cp "$ROOT/hooks/local/check-module-size.sh" "$TMP/repo/hooks/local/"
 
 # The consumer has its OWN over-ceiling source file, frozen in the baseline.
-mkdir -p "$TMP/repo/src"
-"$python_bin" -c "open('$TMP/repo/src/big.py','w').write('x = 1\n'*900)"
+# Tripwire: build big.py via SHELL REDIRECTION, not a Python open() — a Python
+# path that FileNotFiles on Git-Bash used to print to stderr yet leave the test
+# green (the merge/check then ran against a NON-EXISTENT file, so check-module-size
+# --all had nothing to gate and passed for the WRONG reason). The setup below FAILS
+# the test loudly if the fixture is missing or the wrong size, so AC3 genuinely
+# exercises the W2 preserve-project-rows case.
+BIG_LINES=900
+mkdir -p "$TMP/repo/src" || { bad "setup-mkdir-src" "could not create src/"; echo "[test-baseline-merge] $pass/$((pass + fail)) PASS"; exit $fail; }
+for _ in $(seq 1 "$BIG_LINES"); do printf 'x = 1\n'; done > "$TMP/repo/src/big.py"
+# Assert the fixture EXISTS and is EXACTLY over-ceiling BEFORE any merge/check — a
+# silent setup failure here is what produced the false-green.
+if [ ! -f "$TMP/repo/src/big.py" ]; then
+  bad "setup-fixture-exists" "src/big.py was not created (would false-green AC3)"
+  echo "[test-baseline-merge] $pass/$((pass + fail)) PASS"; exit $fail
+fi
+ok "setup-fixture-exists"
+actual_lines="$(wc -l < "$TMP/repo/src/big.py" | tr -d ' ')"
+if [ "$actual_lines" != "$BIG_LINES" ]; then
+  bad "setup-fixture-line-count" "src/big.py is $actual_lines lines, expected $BIG_LINES (over-ceiling fixture wrong)"
+  echo "[test-baseline-merge] $pass/$((pass + fail)) PASS"; exit $fail
+fi
+ok "setup-fixture-line-count"
 # Pre-existing baseline: the consumer's project row (frozen) — this is the W2 state.
-cat > "$TMP/repo/policies/module-size-baseline.txt" <<'EOF'
+cat > "$TMP/repo/policies/module-size-baseline.txt" <<EOF
 # FR-25 module-size baseline — over-ceiling files frozen at current size.
-900 src/big.py
+$BIG_LINES src/big.py
 EOF
 "${GIT[@]}" add -A >/dev/null 2>&1; "${GIT[@]}" commit -q -m init >/dev/null 2>&1
+# Assert the over-ceiling fixture is git-TRACKED (--all uses `git ls-files`; an
+# untracked file is invisible to the gate, another way the guard could no-op).
+if ! "${GIT[@]}" ls-files --error-unmatch src/big.py >/dev/null 2>&1; then
+  bad "setup-fixture-tracked" "src/big.py not tracked after commit (--all would skip it)"
+  echo "[test-baseline-merge] $pass/$((pass + fail)) PASS"; exit $fail
+fi
+ok "setup-fixture-tracked"
 
 # Baseline passes BEFORE the upgrade.
 ( cd "$TMP/repo" && bash hooks/local/check-module-size.sh --all >/dev/null 2>&1 )
