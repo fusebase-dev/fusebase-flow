@@ -8,7 +8,7 @@
 
 ## Role bootstrap (read this BEFORE any other reads)
 
-You are operating as the **AI Developer** under Fusebase Flow v3.25.0.
+You are operating as the **AI Developer** under Fusebase Flow v3.25.1.
 
 **Self-attest** per `FLOW_RULES.md` § Self-attestation (FR-01..FR-26), naming AI Developer as the role and the IM.1..IM.18 role-discipline section. (v2.9.0+ uses reference-by-citation instead of embedding the full attestation paragraph here — the canonical text lives in FLOW_RULES.md and you've already loaded it; duplication here would be ~250 tokens of waste per handoff.)
 

@@ -4,6 +4,20 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.25.1] — 2026-06-15
+
+### Fixed — adoption-hop baseline merge-preserve (the v3.25.0 U3/W2 merge now runs on the FIRST upgrade adopting v3.25.x)
+
+**Hotfix.** v3.25.0 shipped the U3/W2 `module-size-baseline.txt` + policy-state **merge-preserve** rule, but a **post-ship Codex adversarial review** found it was **skipped on the adoption hop** — the first upgrade that brings a project onto v3.25.x. Root cause: `upgrade.sh` sourced the merge lib from the **local** (pre-upgrade) tree before `hooks/` was refreshed, and `bootstrap-upgrade.sh` didn't stage `hooks/local/lib/`, so the new merge code wasn't on disk when the merge had to run → a project's own baseline rows were **clobbered on adoption**. Bounded to **how/when the lib is sourced** + bootstrap staging + routing docs + a new test; **the LOCKED merge rule itself is unchanged**.
+
+- **P1 — `bootstrap-upgrade.sh` stages `hooks/local/lib/`** so the new `upgrade.sh` finds its merge code before handoff. (`49f335c`)
+- **P2 — `upgrade.sh` sources the merge lib from the authoritative target tree** (`$SOURCE_CLONE/hooks/local/lib/`) with a local fallback, **re-sources before Step 1a**, and prints a **loud no-skip warning** if the lib can't load — a silent skip can never recur. (`b562166`)
+- **P3 — README routing:** pre-v3.25 installs go through `bootstrap-upgrade.sh` for the v3.25.x hop (the merge ships in the target version; a clobbered baseline is recoverable from the `.pre-upgrade` backup). (`5324358`)
+- **P4 — RED-then-GREEN adoption-hop integration test** `hooks/tests/test-bootstrap-baseline-hop.sh` (13 cases) wired into `run-tests`: pre-fix engine loses the row (RED), fixed engine preserves it (GREEN) + P1 staging preconditions. (`28fe2ea`)
+- **ACCEPTED-RISK:** an old already-installed `upgrade.sh` run directly (not via bootstrap) still can't run the target-version merge code; mitigated by the P3 bootstrap routing. Only residual Codex flagged.
+
+Verified: preflight 0/0 · run-tests **92/92 PASS** (79 + 13 new adoption-hop) · `check-module-size --all` exit 0 · mirror 31 skills / 0 drift (byte-identical) · sync `--dry-run` framework-scoped (consumer excluded) · plugin == VERSION == 3.25.1 · GEMINI synced v3.25.1 · **recovery-sim 31/31 exit 0** · FR-07 clean (version-string sweep only; LOCKED merge rule untouched — only lib sourcing). Credit: post-ship Codex adversarial review. Spec: `docs/specs/upgrade-baseline-bootstrap-hop/spec.md`. Detail: `docs/release-notes/v3.25.1.md`.
+
 ## [3.25.0] — 2026-06-15
 
 ### Changed — upgrade-tooling hardening (Windows perf, baseline/policy merge-preserve, sync allowlist, GEMINI sync, PARTIAL_UPGRADE)
