@@ -55,6 +55,17 @@ SOURCE_CLONE=".fusebase-flow-source"
 . "$(dirname "${BASH_SOURCE[0]}")/lib/run-with-timeout.sh"
 ffhc_detect_timeout   # sets FFHC_TIMEOUT_BIN to "timeout" | "gtimeout" | ""
 
+# SLO-budgeted timeouts (seconds), env-overridable. Finalized in task Tf; the
+# worst-case full-run bound is documented there.
+FFHC_FETCH_TIMEOUT="${FFHC_FETCH_TIMEOUT:-15}"
+FFHC_PREFLIGHT_TIMEOUT="${FFHC_PREFLIGHT_TIMEOUT:-30}"
+FFHC_CONFLICT_TIMEOUT="${FFHC_CONFLICT_TIMEOUT:-30}"
+FFHC_TESTS_TIMEOUT="${FFHC_TESTS_TIMEOUT:-60}"
+# Opt-in escape hatch: when no timeout binary exists, run the bounded ops
+# UNbounded instead of skipping them (H5 — off by default so a network-impaired
+# host can never hang).
+FFHC_ALLOW_UNBOUNDED="${FFHC_ALLOW_UNBOUNDED:-0}"
+
 # Tracking
 LOCAL_OK=()
 LOCAL_DRIFT=()
@@ -375,22 +386,37 @@ else
   LOCAL_BROKEN+=("$OVERLAYS/: MISSING — overlay templates unavailable; recovery cannot rebuild AGENTS.md/CLAUDE.md/settings.json")
 fi
 
-# Preflight (read-only — captures exit code only)
+# Preflight (CRITICAL, read-only — bounded). Timed-out/skipped => UNVERIFIED
+# (never silently OK); a completed run that fails => BROKEN (AC4a).
 if [ -x hooks/local/preflight.sh ]; then
-  if bash hooks/local/preflight.sh >/dev/null 2>&1; then
+  ffhc_run_bounded "$FFHC_PREFLIGHT_TIMEOUT" bash hooks/local/preflight.sh
+  if [ "$FFHC_LAST_TIMED_OUT" -eq 1 ]; then
+    LOCAL_UNVERIFIED+=("preflight: UNVERIFIED — timed out after ${FFHC_PREFLIGHT_TIMEOUT}s (raise FFHC_PREFLIGHT_TIMEOUT or run 'bash hooks/local/preflight.sh')")
+  elif [ "$FFHC_LAST_SKIPPED" -eq 1 ]; then
+    LOCAL_UNVERIFIED+=("preflight: UNVERIFIED — skipped (no timeout binary; install coreutils or set FFHC_ALLOW_UNBOUNDED=1)")
+  elif [ "$FFHC_LAST_RC" -eq 0 ]; then
     LOCAL_OK+=("preflight: clean (0 errors)")
   else
     LOCAL_BROKEN+=("preflight: errors detected (run 'bash hooks/local/preflight.sh' to inspect)")
   fi
 fi
 
-# Hook tests — capture full output and attribute failures
+# Hook tests (CRITICAL, slow regardless of network — bounded). Timed-out/skipped
+# => UNVERIFIED. The ran-case rc is preserved for the H6 harness-crash guard (Td).
 if [ -x hooks/tests/run-tests.sh ]; then
-  HOOK_TEST_OUTPUT=$(bash hooks/tests/run-tests.sh 2>&1 || true)
+  ffhc_run_bounded "$FFHC_TESTS_TIMEOUT" bash hooks/tests/run-tests.sh
+  HOOK_TEST_OUTPUT="$FFHC_LAST_OUT"
+  HOOK_TEST_RC="$FFHC_LAST_RC"
   HOOK_TEST_PASS_LINE=$(echo "$HOOK_TEST_OUTPUT" | grep -E "^\[run-tests\] [0-9]+/[0-9]+ PASS" | tail -1)
   HOOK_TEST_FAILS=$(echo "$HOOK_TEST_OUTPUT" | grep -E "^FAIL:" || true)
 
-  if [ -z "$HOOK_TEST_FAILS" ]; then
+  if [ "$FFHC_LAST_TIMED_OUT" -eq 1 ] && [ -z "$HOOK_TEST_FAILS" ]; then
+    # Timeout with no observed FAIL: => UNVERIFIED (spec D / H6). If a FAIL: was
+    # already printed before the timeout, fall through so it counts as BROKEN.
+    LOCAL_UNVERIFIED+=("hook tests: UNVERIFIED — timed out after ${FFHC_TESTS_TIMEOUT}s with no FAIL: observed (raise FFHC_TESTS_TIMEOUT or run 'bash hooks/tests/run-tests.sh')")
+  elif [ "$FFHC_LAST_SKIPPED" -eq 1 ]; then
+    LOCAL_UNVERIFIED+=("hook tests: UNVERIFIED — skipped (no timeout binary; install coreutils or set FFHC_ALLOW_UNBOUNDED=1)")
+  elif [ -z "$HOOK_TEST_FAILS" ]; then
     LOCAL_OK+=("hook tests: $HOOK_TEST_PASS_LINE")
   else
     artifact_attributable=0
@@ -423,10 +449,25 @@ if [ -x hooks/tests/run-tests.sh ]; then
   fi
 fi
 
-# CLI/Flow ownership report (read-only).
+# CLI/Flow ownership report (CRITICAL, read-only — bounded; does full-tree scans
+# that are slow in large repos). Timed-out/skipped => UNVERIFIED. JSON is read
+# from stdout only (stderr suppressed) so the parser sees clean output.
+CONFLICT_TIMED_OUT=0
+CONFLICT_SKIPPED=0
 if [ -x hooks/local/check-cli-flow-conflicts.sh ]; then
-  CONFLICT_JSON=$(bash hooks/local/check-cli-flow-conflicts.sh --json 2>/dev/null || true)
-  if [ -n "$CONFLICT_JSON" ] && command -v python3 >/dev/null 2>&1; then
+  if [ -n "${FFHC_TIMEOUT_BIN:-}" ]; then
+    CONFLICT_JSON=$(run_with_timeout "$FFHC_CONFLICT_TIMEOUT" bash hooks/local/check-cli-flow-conflicts.sh --json 2>/dev/null); CONFLICT_RC=$?
+    ffhc_timed_out "$CONFLICT_RC" && CONFLICT_TIMED_OUT=1
+  elif [ "$FFHC_ALLOW_UNBOUNDED" = "1" ]; then
+    CONFLICT_JSON=$(bash hooks/local/check-cli-flow-conflicts.sh --json 2>/dev/null); CONFLICT_RC=$?
+  else
+    CONFLICT_JSON=""; CONFLICT_RC=125; CONFLICT_SKIPPED=1
+  fi
+  if [ "$CONFLICT_TIMED_OUT" -eq 1 ]; then
+    LOCAL_UNVERIFIED+=("CLI/Flow ownership report: UNVERIFIED — timed out after ${FFHC_CONFLICT_TIMEOUT}s (raise FFHC_CONFLICT_TIMEOUT or run 'bash hooks/local/check-cli-flow-conflicts.sh')")
+  elif [ "$CONFLICT_SKIPPED" -eq 1 ]; then
+    LOCAL_UNVERIFIED+=("CLI/Flow ownership report: UNVERIFIED — skipped (no timeout binary; install coreutils or set FFHC_ALLOW_UNBOUNDED=1)")
+  elif [ -n "$CONFLICT_JSON" ] && command -v python3 >/dev/null 2>&1; then
     CONFLICT_PARSED=$(printf '%s' "$CONFLICT_JSON" | python3 -c '
 import json, sys
 try:
@@ -479,7 +520,25 @@ if [ -d "$SOURCE_CLONE/.git" ]; then
   cd "$SOURCE_CLONE"
 
   IS_SHALLOW=$(git rev-parse --is-shallow-repository 2>/dev/null || echo "true")
-  git fetch origin --tags >/dev/null 2>&1 || true
+  # OPTIONAL network op — bounded so a network-impaired host can't hang. A
+  # timeout/skip is a NOTE ONLY (upstream not verified); it must NOT become
+  # UNVERIFIED and must NOT force exit 4 (upstream is optional — H4/AC1).
+  # GIT_TERMINAL_PROMPT=0 + low-speed config make the fetch fail fast rather than
+  # block on a credential prompt or a stalled connection.
+  FETCH_TIMED_OUT=0
+  if [ -n "${FFHC_TIMEOUT_BIN:-}" ]; then
+    GIT_TERMINAL_PROMPT=0 run_with_timeout "$FFHC_FETCH_TIMEOUT" \
+      git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime="$FFHC_FETCH_TIMEOUT" \
+      fetch origin --tags >/dev/null 2>&1
+    ffhc_timed_out "$?" && FETCH_TIMED_OUT=1
+  elif [ "$FFHC_ALLOW_UNBOUNDED" = "1" ]; then
+    GIT_TERMINAL_PROMPT=0 git fetch origin --tags >/dev/null 2>&1 || true
+  else
+    FETCH_TIMED_OUT=1   # no timeout binary: skip the unbounded network op (treat as not-verified)
+  fi
+  if [ "$FETCH_TIMED_OUT" -eq 1 ]; then
+    UPSTREAM_NOTES+=("upstream not verified (fetch timed out or skipped); comparison below uses whatever the local clone already had.")
+  fi
   LOCAL_HEAD=$(git rev-parse HEAD 2>/dev/null || echo "")
   REMOTE_HEAD=$(git rev-parse origin/main 2>/dev/null || echo "")
   UPSTREAM_VERSION=$(MSYS_NO_PATHCONV=1 git show origin/main:VERSION 2>/dev/null | tr -d '\n' || echo "?")

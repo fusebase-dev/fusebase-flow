@@ -48,3 +48,26 @@ run_with_timeout() {
   local grace="${FFHC_TIMEOUT_KILL_GRACE:-5s}"
   "$FFHC_TIMEOUT_BIN" -k "$grace" "$secs" "$@"
 }
+
+# ffhc_run_bounded SECS CMD [ARGS...]
+#   Runs CMD per the no-binary policy and records the result in module-globals
+#   the engine reads. Captures combined stdout+stderr so callers can parse it.
+#     FFHC_LAST_OUT       — captured combined output ("" when skipped)
+#     FFHC_LAST_RC        — wrapped command's own rc (124 on timeout; 125 sentinel when skipped)
+#     FFHC_LAST_TIMED_OUT — 1 iff the run hit the timeout (rc 124), else 0
+#     FFHC_LAST_SKIPPED   — 1 iff the run was skipped because no timeout binary exists, else 0
+#   Policy (H5): if no timeout binary AND FFHC_ALLOW_UNBOUNDED!=1 => SKIP (no run,
+#   sentinel rc 125, FFHC_LAST_SKIPPED=1) so a slow op can never hang the engine;
+#   FFHC_ALLOW_UNBOUNDED=1 opts into an unbounded run instead.
+ffhc_run_bounded() {
+  local secs="$1"; shift
+  FFHC_LAST_OUT=""; FFHC_LAST_RC=0; FFHC_LAST_TIMED_OUT=0; FFHC_LAST_SKIPPED=0
+  if [ -n "${FFHC_TIMEOUT_BIN:-}" ]; then
+    FFHC_LAST_OUT="$(run_with_timeout "$secs" "$@" 2>&1)"; FFHC_LAST_RC=$?
+    ffhc_timed_out "$FFHC_LAST_RC" && FFHC_LAST_TIMED_OUT=1
+  elif [ "${FFHC_ALLOW_UNBOUNDED:-0}" = "1" ]; then
+    FFHC_LAST_OUT="$("$@" 2>&1)"; FFHC_LAST_RC=$?
+  else
+    FFHC_LAST_RC=125; FFHC_LAST_SKIPPED=1
+  fi
+}
