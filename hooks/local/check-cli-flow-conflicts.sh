@@ -513,9 +513,21 @@ for entry in paths:
         continue
 
     if "*" in rel:
+        # Perf (Tf): scope the walk to the static prefix BEFORE the first
+        # wildcard instead of rglob-ing the whole tree (which is slow in large
+        # repos and was a verdict-affecting cost in the health check). Behavior
+        # is unchanged — the fnmatch filter against the full pattern is identical;
+        # only the candidate set is narrowed to the relevant subtree.
+        prefix = rel.split("*", 1)[0]
+        base = root
+        sub = ""
+        if "/" in prefix:
+            sub = prefix.rsplit("/", 1)[0]
+            base = root / sub
+        scan_root = base if base.is_dir() else root
         matches = [
             str(p.relative_to(root)).replace("\\", "/")
-            for p in root.rglob("*")
+            for p in scan_root.rglob("*")
             if fnmatch(str(p.relative_to(root)).replace("\\", "/"), rel)
         ]
         if matches:

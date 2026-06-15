@@ -55,8 +55,12 @@ SOURCE_CLONE=".fusebase-flow-source"
 . "$(dirname "${BASH_SOURCE[0]}")/lib/run-with-timeout.sh"
 ffhc_detect_timeout   # sets FFHC_TIMEOUT_BIN to "timeout" | "gtimeout" | ""
 
-# SLO-budgeted timeouts (seconds), env-overridable. Finalized in task Tf; the
-# worst-case full-run bound is documented there.
+# SLO-budgeted timeouts (seconds), env-overridable. Defaults sit at the top of
+# the spec's ranges (fetch 10-15, preflight 20-30, conflict 20-30, tests 45-60).
+# Worst-case BOUNDED full-run wall-clock ~= fetch + preflight + conflict + tests
+# + 4*grace = 15+30+30+60 + ~20 = ~155s (vs the unbounded >2-min hang this fixes;
+# the criticals run serially). Raise the relevant knob on a slow host (e.g.
+# Windows Git-Bash where process spawn is costly) rather than living with exit 4.
 FFHC_FETCH_TIMEOUT="${FFHC_FETCH_TIMEOUT:-15}"
 FFHC_PREFLIGHT_TIMEOUT="${FFHC_PREFLIGHT_TIMEOUT:-30}"
 FFHC_CONFLICT_TIMEOUT="${FFHC_CONFLICT_TIMEOUT:-30}"
