@@ -29,6 +29,24 @@ Fusebase Flow is provider- and IDE-neutral. It works with any tool that reads fi
 
 The git fallback hooks in `hooks/git/` provide a safety net for surfaces that don't expose lifecycle hooks of their own.
 
+### Windows (Git Bash / WSL) — read this first (U8)
+
+The Fusebase Flow scripts are POSIX shell. On Windows run them from **Git Bash** (ships with Git for Windows), never `cmd.exe`/PowerShell:
+
+```bash
+bash hooks/local/upgrade.sh
+bash hooks/local/preflight.sh
+```
+
+- **`bash` may resolve to an unusable WSL stub.** On some Windows setups `bash` on `PATH` is a `wsl.exe` shim that can't see your Windows-path repo (it mounts it at `/mnt/c/...` or fails outright). If `bash hooks/local/preflight.sh` errors with a path-not-found or hangs, you're on the WSL stub — use the Git Bash binary explicitly (e.g. `"/c/Program Files/Git/bin/bash.exe" hooks/local/preflight.sh`) or launch the "Git Bash" terminal directly.
+- **GitHub tag/clone fails with a schannel/SSL error.** Windows' default `schannel` TLS backend sometimes rejects the GitHub fetch used by `git clone .../fusebase-flow.git` and the health-check's upstream comparison. Retry with the OpenSSL backend:
+  ```bash
+  git -c http.sslBackend=openssl clone https://github.com/fusebase-dev/fusebase-flow.git .fusebase-flow-source
+  ```
+  Make it permanent with `git config --global http.sslBackend openssl`.
+- **Spawn cost.** Git Bash spawns a process in ~0.8–1.4 s (vs ~1–3 ms on Linux/macOS). The mirror/sync scripts batch their spawns (v3.24.x), so an upgrade that used to stall mid-mirror now completes in seconds. If a refresh ever stalls, the upgrade prints exact re-run recovery commands (it is idempotent).
+- **Line endings.** `.gitattributes` pins `*.sh`, `VERSION`, and config files to LF so a Windows checkout doesn't break shebang detection. Keep `core.autocrlf` at its default; do not force CRLF.
+
 ## Recommended installation workflow
 
 1. Open your existing repository in VS Code (or your editor of choice).

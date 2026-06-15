@@ -62,6 +62,15 @@ fi
 . "$FFHC_LIB"
 ffhc_detect_timeout   # sets FFHC_TIMEOUT_BIN to "timeout" | "gtimeout" | ""
 
+# U7 (v3.24.x): the PARTIAL_UPGRADE derived-facts check lives in a sourced lib
+# (FR-25 — the engine was at the 800-line ceiling). A missing lib degrades the
+# check open (the function simply isn't defined; the section below no-ops) — it is
+# a NEW signal, not a critical the verdict depends on, so its absence must not flip
+# a HEALTHY tree to BROKEN.
+FFHC_PARTIAL_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/partial-upgrade-check.sh"
+# shellcheck source=lib/partial-upgrade-check.sh
+[ -f "$FFHC_PARTIAL_LIB" ] && . "$FFHC_PARTIAL_LIB"
+
 # SLO-budgeted timeouts (seconds), env-overridable. Defaults sit at the top of
 # the spec's ranges (fetch 10-15, preflight 20-30, conflict 20-30, tests 45-60).
 # Worst-case BOUNDED full-run wall-clock ~= fetch + preflight + conflict + tests
@@ -113,6 +122,7 @@ DEFERRED_CHECKS=()       # check_ids deferred via active health_check_deferral-*
 DEFERRED_BY_ARTIFACT=()  # parallel array — for each entry in DEFERRED_CHECKS, the artifact filename that authorized it
 DRIFT_SIGNATURE=""
 RECOMMENDATIONS=()
+PARTIAL_UPGRADE_FINDINGS=()   # U7: stale derived-fact mismatches (version/FR/plugin vs live strings)
 
 ###############################################################################
 # Section 0 — Active approval artifacts (informational, before any checks)
@@ -132,72 +142,14 @@ RECOMMENDATIONS=()
 #       of the canonical Fusebase Flow setup (e.g. settings.json lifecycle hooks
 #       intentionally not wired).
 
-if [ -d "state/approvals" ] && command -v python3 >/dev/null 2>&1; then
-  while IFS= read -r artifact_file; do
-    if [ -z "$artifact_file" ]; then continue; fi
-    artifact_basename=$(basename "$artifact_file")
-    summary=$(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$artifact_file" <<'PY' 2>/dev/null
-import json, sys, time
-try:
-    p = sys.argv[1]
-    data = json.loads(open(p, encoding='utf-8').read())
-    expires = data.get('expires_at', '')
-    now = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
-    if expires and expires < now:
-        sys.exit(1)  # expired - skip
-    # Restrict scope to ASCII so it renders cleanly on any console codec
-    scope = (data.get('scope', '') or '').encode('ascii', errors='replace').decode('ascii')[:80]
-    # Different artifact types use different list fields
-    paths = data.get('paths', []) or []
-    deferred = data.get('deferred_checks', []) or []
-    if deferred:
-        # health_check_deferral artifact
-        print(f"deferred_checks={len(deferred)} expires={expires} scope=\"{scope}\"")
-    else:
-        # protected_path_edit (or other) artifact
-        print(f"paths={len(paths)} expires={expires} scope=\"{scope}\"")
-    sys.exit(0)
-except Exception:
-    sys.exit(2)
-PY
-)
-    rc=$?
-    # Windows CRLF guard (engine v2.4.1+): Python print() on Windows emits CRLF;
-    # bash $() strips trailing LF only, leaving a stray CR. Defensive strip so
-    # the summary renders cleanly in ARTIFACT_NOTES on any platform.
-    summary="${summary//$'\r'/}"
-    if [ "$rc" -eq 0 ]; then
-      ACTIVE_ARTIFACTS+=("$artifact_basename")
-      ARTIFACT_NOTES+=("$artifact_basename: $summary")
-      # If this is a health_check_deferral artifact, extract its deferred_checks
-      # list and add each check_id to DEFERRED_CHECKS (with the artifact name
-      # tracked in DEFERRED_BY_ARTIFACT for output).
-      if [[ "$artifact_basename" == health_check_deferral-* ]]; then
-        deferred_list=$(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$artifact_file" <<'PY' 2>/dev/null
-import json, sys
-try:
-    data = json.loads(open(sys.argv[1], encoding='utf-8').read())
-    for cid in (data.get('deferred_checks') or []):
-        if isinstance(cid, str) and cid:
-            print(cid)
-except Exception:
-    pass
-PY
-)
-        while IFS= read -r cid; do
-          # Windows CRLF guard: Python on Windows emits CRLF; bash read -r
-          # strips LF but leaves CR on all entries except the last. Without
-          # this strip, multi-entry deferral lists silently fail the check_id
-          # equality match in record_drift on Windows. Idempotent on Linux/Mac.
-          # (Engine v2.4.1+; fixes a v2.4.0 Windows-specific bug.)
-          cid="${cid%$'\r'}"
-          [ -z "$cid" ] && continue
-          DEFERRED_CHECKS+=("$cid")
-          DEFERRED_BY_ARTIFACT+=("$artifact_basename")
-        done <<< "$deferred_list"
-      fi
-    fi
-  done < <(find state/approvals -maxdepth 2 -name '*.json' -type f 2>/dev/null)
+# Extracted to a sourced lib per FR-25 (the U7 PARTIAL_UPGRADE section pushed the
+# engine to the ceiling). The function populates ACTIVE_ARTIFACTS / ARTIFACT_NOTES /
+# DEFERRED_CHECKS / DEFERRED_BY_ARTIFACT in THIS scope (sourced => shared scope).
+FFHC_APPROVALS_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/active-approvals.sh"
+# shellcheck source=lib/active-approvals.sh
+if [ -f "$FFHC_APPROVALS_LIB" ]; then
+  . "$FFHC_APPROVALS_LIB"
+  ffhc_collect_active_approvals
 fi
 
 ###############################################################################
@@ -562,6 +514,23 @@ else
 fi
 
 ###############################################################################
+# Section 1b — PARTIAL_UPGRADE derived-facts check (U7, read-only, local).
+###############################################################################
+# Compare derived facts (VERSION, FR-range, plugin version) against the LIVE
+# attestation strings in the adapters. A mismatch == an upgrade that bumped VERSION
+# but left stale strings (interrupted run / an adapter with no overlay-refresh
+# path). Findings are genuine DRIFT (concrete, repairable) — recorded so the
+# verdict can name PARTIAL_UPGRADE (a sub-class of the drift exit, code 1). NOT
+# exit 4: this check RAN and FOUND drift; exit 4 is for a critical that couldn't run.
+if command -v ffhc_partial_upgrade_findings >/dev/null 2>&1; then
+  while IFS= read -r pu; do
+    [ -z "$pu" ] && continue
+    PARTIAL_UPGRADE_FINDINGS+=("$pu")
+    record_drift "partial_upgrade" "PARTIAL_UPGRADE — $pu"
+  done < <(ffhc_partial_upgrade_findings 2>/dev/null)
+fi
+
+###############################################################################
 # Section 2 — Upstream comparison (.fusebase-flow-source/)
 ###############################################################################
 
@@ -640,6 +609,16 @@ if [ "$DRIFT_COUNT" -gt 0 ]; then
   ARTIFACT_DRIFT_COUNT=$(printf '%s\n' "${LOCAL_DRIFT[@]}" | grep -c "active approval artifact" || true)
 fi
 
+# U7: count drift items that are stale-derived-fact (PARTIAL_UPGRADE) findings, and
+# whether they account for ALL of LOCAL_DRIFT. When they do (and there's no
+# CLI/shared-layer drift and no breakage), the verdict is named PARTIAL_UPGRADE —
+# a sub-class of the drift exit (1), so the v3.24.0 exit contract is unchanged.
+PARTIAL_UPGRADE_COUNT="${#PARTIAL_UPGRADE_FINDINGS[@]}"
+PARTIAL_UPGRADE_DRIFT_COUNT=0
+if [ "$DRIFT_COUNT" -gt 0 ]; then
+  PARTIAL_UPGRADE_DRIFT_COUNT=$(printf '%s\n' "${LOCAL_DRIFT[@]}" | grep -c "^PARTIAL_UPGRADE — " || true)
+fi
+
 # Verdict precedence (LOCKED contract / H4): BROKEN > real drift > EXCEPTION
 # (only-deferred) > PARTIAL_UNVERIFIED > HEALTHY. HEALTHY requires that EVERY
 # critical check ran clean — UNVERIFIED_COUNT must be 0 — so a timed-out/skipped
@@ -652,6 +631,13 @@ if [ "$DRIFT_COUNT" -eq 0 ] && [ "$BROKEN_COUNT" -eq 0 ] && [ "$UNVERIFIED_COUNT
 elif [ "$BROKEN_COUNT" -gt 0 ]; then
   # Genuine breakage trumps everything (including deferrals — operator can't defer real breakage)
   DRIFT_SIGNATURE="BROKEN"
+elif [ "$PARTIAL_UPGRADE_DRIFT_COUNT" -gt 0 ] && [ "$PARTIAL_UPGRADE_DRIFT_COUNT" -eq "$DRIFT_COUNT" ] \
+     && [ "$CLI_LAYER_DRIFT_COUNT" -eq 0 ] && [ "$SHARED_MERGE_DRIFT_COUNT" -eq 0 ]; then
+  # U7: stale derived facts (version/FR/plugin vs live strings) account for ALL real
+  # drift, with no CLI/shared-layer drift or breakage — an interrupted/partial upgrade.
+  # Named so the operator gets the precise repair command. Drift class => exit 1
+  # (NOT exit 4 — the check ran and FOUND the mismatch).
+  DRIFT_SIGNATURE="PARTIAL_UPGRADE"
 elif [ "$DRIFT_COUNT" -eq 0 ] && [ "$CLI_LAYER_DRIFT_COUNT" -eq 0 ] && [ "$SHARED_MERGE_DRIFT_COUNT" -eq 0 ] && [ "$DEFERRED_COUNT" -gt 0 ]; then
   # Only deferred items remain (no real drift, no breakage). v2.4.0+: this is
   # the deferral artifact mechanism working as designed.
@@ -690,6 +676,12 @@ fi
 case "$DRIFT_SIGNATURE" in
   HEALTHY)
     RECOMMENDATIONS+=("No action required. Fusebase Flow overlay is intact.") ;;
+  PARTIAL_UPGRADE)
+    RECOMMENDATIONS+=("PARTIAL UPGRADE — VERSION/content advanced but live attestation strings are STALE (an interrupted upgrade, or an adapter with no overlay-refresh path). The stale-fact items are listed above as 'PARTIAL_UPGRADE — …'.")
+    RECOMMENDATIONS+=("Repair (re-syncs the derived strings + re-applies adapter overlays):")
+    RECOMMENDATIONS+=("  bash hooks/local/sync-version-strings.sh")
+    RECOMMENDATIONS+=("  bash hooks/local/post-fusebase-update.sh --refresh-overlays")
+    RECOMMENDATIONS+=("Then re-run this health check (expect HEALTHY). If a re-run still reports the same surface, that adapter has no overlay-refresh path yet (e.g. GEMINI.md before the U6 follow-up) — sync-version-strings now covers it (U5).") ;;
   EXCEPTION_IN_EFFECT)
     if [ "${#LOCAL_DEFERRED[@]}" -gt 0 ]; then
       RECOMMENDATIONS+=("All non-OK items are operator-authored deferrals (active health_check_deferral-*.json artifact(s) in state/approvals/). This is engine v2.4.0+ acknowledging that the install brief or operator deliberately omitted parts of the canonical Fusebase Flow setup.")
@@ -789,11 +781,14 @@ echo "============================================================"
 
 # Exit codes (LOCKED contract). PARTIAL_UNVERIFIED must NEVER fall through to a
 # 0; it is its own code 4 so callers can tell "partial/unverified" apart from
-# both full health (0) and drift/breakage (1/2).
+# both full health (0) and drift/breakage (1/2). U7: PARTIAL_UPGRADE is a named
+# drift sub-class -> exit 1 (NOT 4 — exit 4 is reserved for a critical that could
+# not RUN; PARTIAL_UPGRADE means the check ran and FOUND stale derived facts).
 case "$DRIFT_SIGNATURE" in
   HEALTHY)             exit 0 ;;
   EXCEPTION_IN_EFFECT) exit 3 ;;
   BROKEN)              exit 2 ;;
   PARTIAL_UNVERIFIED)  exit 4 ;;
+  PARTIAL_UPGRADE)     exit 1 ;;
   *)                   exit 1 ;;
 esac

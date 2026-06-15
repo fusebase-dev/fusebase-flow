@@ -27,7 +27,11 @@
 .gitattributes    text eol=lf
 .gitkeep          text eol=lf
 
-# Hook scripts shipped without an extension (e.g. pre-commit, commit-msg)
+# Extensionless files that MUST be LF (read by shells / parsed byte-exact).
+# U11 (v3.24.x): VERSION had no explicit pin — a Windows clone could rewrite it
+# CRLF on checkout, and `tr -d '\n\r'` masks it at read time but the file churns
+# in git diff. Pin it (and the no-extension hook scripts) to LF explicitly.
+VERSION               text eol=lf
 hooks/git/pre-commit  text eol=lf
 hooks/git/commit-msg  text eol=lf
 
