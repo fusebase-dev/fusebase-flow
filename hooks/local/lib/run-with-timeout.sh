@@ -127,6 +127,9 @@ ffhc_count_pass_lines() {
 # two summaries collapsed to the last clean line and read HEALTHY. The reason for
 # an empty result is re-derived by ffhc_pass_line_broken_msg from the same raw
 # output (NOT a shared global — this runs in a command-substitution subshell).
+# THREAT MODEL: this classifier trusts the framework-owned run-tests.sh FAIL:/N/N
+# PASS contract; a malicious harness emitting one clean summary while hiding
+# failures is out of threat model (it requires harness control — repo already compromised).
 ffhc_select_pass_line() {
   [ "$(ffhc_count_pass_lines "$1")" -eq 1 ] && echo "$1" | grep -E "^\[run-tests\] [0-9]+/[0-9]+ PASS[[:space:]]*$"
 }
