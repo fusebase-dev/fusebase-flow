@@ -27,12 +27,25 @@ Verify the local Fusebase Flow overlay and the shared FuseBase CLI / Flow agent 
 
 | Verdict | Meaning | Recovery posture |
 |---|---|---|
-| `HEALTHY` | CLI-owned, Flow-owned, and shared-merge surfaces look intact. | No action. |
+| `HEALTHY` | CLI-owned, Flow-owned, and shared-merge surfaces look intact AND every critical check ran clean. | No action. |
 | `CLI_LAYER_DRIFT` | CLI-owned assets are **missing** or structurally damaged. | Do not run Flow recovery first. Run the current FuseBase CLI refresh/update, then Flow recovery. |
 | `SHARED_MERGE_DRIFT` | Shared files are missing Flow overlay/merge additions. | Offer Flow recovery. |
 | `FLOW_LAYER_DRIFT` | Flow-owned mirrors or overlay files are missing/drifted. | Offer Flow recovery. |
 | `EXCEPTION_IN_EFFECT` | Drift is covered by active approval/deferral artifacts. | Do not run recovery automatically. Surface the artifact. |
-| `BROKEN` | Preflight, hook tests, manifest parsing, or other critical checks failed. | Do not offer recovery; inspect the broken item first. |
+| `BROKEN` | A completed critical check failed, or a sub-script crashed (rc≠0 with no parsable result). | Do not offer recovery; inspect the broken item first. |
+| `PARTIAL_UNVERIFIED` | A **critical** check (preflight, hook tests, conflict reporter) was skipped / timed out / unavailable, and nothing that ran proves drift or breakage. **Not full health, not a failure** — the run is simply incomplete. | Re-run on a host with more time/CPU, raise the relevant `FFHC_*_TIMEOUT` knob, or run the named check directly. Don't treat as healthy. |
+
+### Bounded execution + flags (v3.24.0+)
+
+The slow, verdict-affecting operations (preflight, hook tests, conflict reporter, the upstream `git fetch`) are bounded so a network-impaired or large-repo host can't make the read-only diagnostic appear to hang. A timed-out/skipped **critical** check ⇒ `PARTIAL_UNVERIFIED` (never a false `HEALTHY`). The upstream comparison is **optional** — its fetch timing out is a "upstream not verified" note only and never forces exit 4.
+
+| Flag | Effect | Exit |
+|---|---|---|
+| (none) | Full local + upstream verdict. | 0 only if every critical ran clean |
+| `--no-upstream` | Skip the optional upstream comparison (full **local** verdict). | 0 OK |
+| `--fast` | Skip the slow hook tests (and upstream); keeps preflight + inventory + conflict reporter. **Explicitly partial.** | **4, never 0** (prints "fast mode — not a full health verdict") |
+
+Env knobs (seconds; defaults in parentheses): `FFHC_FETCH_TIMEOUT` (15), `FFHC_PREFLIGHT_TIMEOUT` (30), `FFHC_CONFLICT_TIMEOUT` (30), `FFHC_TESTS_TIMEOUT` (60). If neither `timeout` nor `gtimeout` exists, the bounded ops are **skipped** ⇒ `PARTIAL_UNVERIFIED` (install coreutils, or opt into unbounded runs with `FFHC_ALLOW_UNBOUNDED=1`). Worst-case bounded full run ≈ 155s.
 
 ### Advisory signals (informational — never change the verdict or exit code)
 
@@ -69,10 +82,13 @@ The conflict reporter (`check-cli-flow-conflicts.sh`) also emits advisory findin
 
    | Exit | Verdicts |
    |---:|---|
-   | 0 | `HEALTHY` |
+   | 0 | `HEALTHY` (every critical check ran clean) |
    | 1 | `CLI_LAYER_DRIFT`, `FLOW_LAYER_DRIFT`, `SHARED_MERGE_DRIFT` |
    | 2 | `BROKEN` |
    | 3 | `EXCEPTION_IN_EFFECT` |
+   | 4 | `PARTIAL_UNVERIFIED` (a critical check did not run — partial/unverified; **not** full health, **not** a hard failure) |
+
+   **Callers that branch on the exit code must treat 4 as partial/unverified** — re-run or raise a timeout knob; never read it as healthy and never hard-fail a pipeline on it without distinguishing it from drift/breakage.
 
 5. If verdict is `FLOW_LAYER_DRIFT` or `SHARED_MERGE_DRIFT`, ask in chat before writing:
 

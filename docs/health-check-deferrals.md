@@ -6,6 +6,8 @@ A **deferral artifact** is an operator-authored JSON file at `state/approvals/he
 
 When all non-OK items are covered by an active deferral artifact, the engine returns verdict `EXCEPTION_IN_EFFECT` (exit code 3) instead of `DRIFTED` (exit 1) or `BROKEN` (exit 2). The drift items show with the `⊘` symbol in the report and are explicitly tagged with the artifact filename for traceability.
 
+> **Exit code 4 (`PARTIAL_UNVERIFIED`, v3.24.0+) is distinct from a deferral.** A deferral (exit 3) says "this drift is by design"; `PARTIAL_UNVERIFIED` (exit 4) says "a critical check could not run (timed out / skipped / no timeout binary), so the verdict is incomplete." Deferrals do not suppress exit 4 — an unverified critical is not drift to defer, it's a check to re-run.
+
 This is the canonical mechanism for situations where an install brief or operator deliberately chose **not** to wire a part of the canonical Fusebase Flow setup — for example:
 
 - A project with existing `.claude/settings.json` lifecycle hooks that the operator wants to preserve, deferring Fusebase Flow's hook wiring

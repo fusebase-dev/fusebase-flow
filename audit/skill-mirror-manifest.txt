@@ -1,6 +1,12 @@
+.agents/skills/token-economy/SKILL.md  c7090953477a2f80133e550b142bccf4d4e9b3dcb75ff55c0fb4dcbbcfb0f086
+.claude/skills/token-economy/SKILL.md  c7090953477a2f80133e550b142bccf4d4e9b3dcb75ff55c0fb4dcbbcfb0f086
 .agents/skills/app-quality-patterns/SKILL.md  ce3cdcd35fb57c31dba0be38382b39e479e4666d60d5b66434e0908b95469884
+.agents/skills/validation-and-qa/SKILL.md  bb7050bbf74da112f34baab5490d45add89a7e03a46490f438b773d88020f431
 .agents/skills/app-quality-patterns/references/data-integrity.md  4ad0bdc4a237d609e70a827c347ec41068d967296b598e32560beeb7d3d5423a
+.claude/skills/validation-and-qa/SKILL.md  bb7050bbf74da112f34baab5490d45add89a7e03a46490f438b773d88020f431
 .agents/skills/app-quality-patterns/references/state-and-navigation.md  4abad99a33df7a6d409b0969831588d15b38e312cd5ebde1afda3876a4ee65ae
+.agents/skills/zoom-out/SKILL.md  24108329ab818022d26c919c2a6ab5f89862b4ea5d877fc4a1bb0576f1338557
+.claude/skills/zoom-out/SKILL.md  24108329ab818022d26c919c2a6ab5f89862b4ea5d877fc4a1bb0576f1338557
 .agents/skills/app-quality-patterns/references/ui-polish.md  53d5be00e1a2346cd1bdce0c4b9320d02c7146e69f3c75e1cf9521c54563c6d6
 .claude/skills/app-quality-patterns/SKILL.md  ce3cdcd35fb57c31dba0be38382b39e479e4666d60d5b66434e0908b95469884
 .claude/skills/app-quality-patterns/references/data-integrity.md  4ad0bdc4a237d609e70a827c347ec41068d967296b598e32560beeb7d3d5423a
@@ -30,8 +36,8 @@
 .claude/skills/find-wasted-effort/SKILL.md  0a88ec0440f42d4bff5a96b1da8885d623c874b1de0cd556ac6087ebc5ad91a7
 .claude/skills/find-wasted-effort/references/false-positive-examples.md  889674d446a1849c9aef72cf27ae724388fe3599e4f379fe62411ca2c2ba128f
 .claude/skills/find-wasted-effort/references/rule-signatures.md  f115cc035a5ba4c34130e22216f49a5535e11264c50073a335f61105f993afb6
-.agents/skills/fusebase-flow-health-check/SKILL.md  2c1f552125329cb1ad0390ab62873a72efcb81a5aba6119671aee2741f5e9749
-.claude/skills/fusebase-flow-health-check/SKILL.md  2c1f552125329cb1ad0390ab62873a72efcb81a5aba6119671aee2741f5e9749
+.agents/skills/fusebase-flow-health-check/SKILL.md  542e1d9236c8c9735cbafcc29a8bb16b25707d6d693f4953db70947a0e5f7a3a
+.claude/skills/fusebase-flow-health-check/SKILL.md  542e1d9236c8c9735cbafcc29a8bb16b25707d6d693f4953db70947a0e5f7a3a
 .agents/skills/git-history-diagnostic/SKILL.md  3e4492f489c839bb6dfb5b3c80dca6b65e7990f873b86013f47c658b8e320f2e
 .claude/skills/git-history-diagnostic/SKILL.md  3e4492f489c839bb6dfb5b3c80dca6b65e7990f873b86013f47c658b8e320f2e
 .agents/skills/handoff/SKILL.md  512dd16afcb81dec7bc6747dff63dadfd7d835a977ae28a040ba5b686980f471

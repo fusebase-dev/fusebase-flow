@@ -4,6 +4,23 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.24.0] — 2026-06-14
+
+### Added — health check fast/bounded execution + `PARTIAL_UNVERIFIED` (exit 4)
+
+`hooks/local/fusebase-flow-health-check.sh` could exceed two minutes and **appear to hang** on a network-impaired or large-repo host (unbounded `git fetch` + slow `preflight` / `run-tests` / `check-cli-flow-conflicts` sub-invocations). The fix bounds every slow op and adds a verdict that distinguishes "a critical check didn't run" from "healthy" — the design-review blocker was a **false `HEALTHY`** when a critical check is skipped/timed-out.
+
+- **New `PARTIAL_UNVERIFIED` verdict + exit code 4** (and a `LOCAL_UNVERIFIED` tracking array). **Exit 0 only when every CRITICAL check (preflight, hook tests, conflict reporter) actually ran and passed.** A timed-out/skipped critical ⇒ `PARTIAL_UNVERIFIED`/exit 4 — never `HEALTHY`/0. Precedence: BROKEN > real drift > EXCEPTION > PARTIAL_UNVERIFIED > HEALTHY.
+- **Upstream comparison is optional** — the `git fetch` timing out is a "upstream not verified (fetch timed out)" note only; it never becomes UNVERIFIED and never forces exit 4. `GIT_TERMINAL_PROMPT=0` + low-speed config make the fetch fail fast instead of blocking on a prompt.
+- **`run_with_timeout` helper** (extracted to `hooks/local/lib/run-with-timeout.sh` per FR-25): detects `timeout` → `gtimeout`; `-k` grace; rc 124 = timeout; **preserves the wrapped command's own rc otherwise**. If neither binary exists ⇒ bounded ops are skipped ⇒ `PARTIAL_UNVERIFIED` (opt into unbounded with `FFHC_ALLOW_UNBOUNDED=1`).
+- **Fixed a pre-existing run-tests rc-masking false-HEALTHY (H6):** a harness crash (rc≠0 with no parsable `FAIL:` line) previously read OK via `|| true`; it is now `BROKEN`/2.
+- **Flags:** `--no-upstream` (full **local** verdict, exit 0 OK) and `--fast` (skips the slow hook tests — keeps preflight — for a quick verdict; **explicitly partial: exit 4, never 0**, prints "fast mode — not a full health verdict").
+- **SLO-budgeted, env-overridable timeouts:** `FFHC_FETCH_TIMEOUT` (15s), `FFHC_PREFLIGHT_TIMEOUT` (30s), `FFHC_CONFLICT_TIMEOUT` (30s), `FFHC_TESTS_TIMEOUT` (60s); worst-case bounded full run ≈ 155s. The conflict reporter's wildcard matcher now scopes its scan to the static path prefix instead of walking the whole tree (behavior-preserving; `--json` output byte-identical).
+- **AC8 exit-code contract:** any caller/recovery flow that branches on the health-check exit code must treat **exit 4 = partial/unverified** (not full health, not a hard failure). Swept — no code caller currently branches on the exit code; the recovery test harness keys off the `Verdict:` line, not the code. Docs updated (skill, README, deferrals).
+- **Tests:** 7 new fixtures in the recovery suite (fetch-timeout-not-hang → bounded+note+exit0; critical-timeout → exit 4; real-preflight-fail → BROKEN; run-tests harness-crash → BROKEN; `--fast` → exit 4; no-timeout-binary → partial; unbounded-opt-in → HEALTHY). Stubbed sub-scripts/git — no real network. Drift detection unchanged (existing U/F engine tests still pass).
+
+Spec: `docs/specs/health-check-fast-timeout/spec.md`. Detail: `docs/release-notes/v3.24.0.md`.
+
 ## [3.23.1] — 2026-06-14
 
 ### Fixed — `/find-wasted-effort` containment hardening (atomic write, hardlink/symlink fail-closed)

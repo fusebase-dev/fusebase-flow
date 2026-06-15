@@ -465,12 +465,15 @@ The Claude Code Stop hooks shipped in `.claude/settings.json.example` are the cr
 
 | Verdict | Exit | Meaning | Recovery posture |
 |---|:---:|---|---|
-| `HEALTHY` | 0 | CLI-owned, Flow-owned, and shared-merge surfaces all intact | No action |
+| `HEALTHY` | 0 | CLI-owned, Flow-owned, and shared-merge surfaces all intact **and every critical check ran clean** | No action |
 | `CLI_LAYER_DRIFT` | 1 | CLI-owned assets missing or structurally damaged | **Run FuseBase CLI refresh/update first**, then Flow recovery — Flow does not write CLI-owned files |
 | `FLOW_LAYER_DRIFT` | 1 | Flow-owned mirrors or overlay files missing/drifted | Flow recovery offered |
 | `SHARED_MERGE_DRIFT` | 1 | Shared files missing Flow overlay/merge additions | Flow recovery offered (merge, not replace) |
+| `BROKEN` | 2 | A completed critical check failed, or a sub-script crashed (rc≠0, no parsable result) | Inspect the broken item first; no recovery |
 | `EXCEPTION_IN_EFFECT` | 3 | Drift covered by active approval/deferral artifacts in `state/approvals/` | Surface the artifact; no automatic recovery |
-| `BROKEN` | 2 | Preflight, hook tests, manifest parsing, or another critical check failed | Inspect the broken item first; no recovery |
+| `PARTIAL_UNVERIFIED` | 4 | A critical check (preflight, hook tests, conflict reporter) was skipped/timed-out/unavailable; nothing that ran proves drift or breakage | **Not full health, not a failure** — re-run with more time, raise the relevant `FFHC_*_TIMEOUT` knob, or run the named check directly |
+
+**Bounded execution + `--fast` / `--no-upstream` (v3.24.0+).** The slow verdict-affecting ops (preflight, hook tests, conflict reporter, upstream `git fetch`) are time-bounded so a network-impaired or large-repo host can't make the read-only diagnostic appear to hang. A timed-out/skipped **critical** check ⇒ `PARTIAL_UNVERIFIED` (exit 4) — never a false `HEALTHY`. The upstream comparison is **optional**: its fetch timing out is a "upstream not verified" note only, never exit 4. Flags: `--no-upstream` (full local verdict, exit 0 OK) and `--fast` (skips the slow hook tests for a quick verdict — keeps preflight — but is explicitly partial: **exit 4, never 0**). Timeouts are env-overridable: `FFHC_FETCH_TIMEOUT` (15s), `FFHC_PREFLIGHT_TIMEOUT` (30s), `FFHC_CONFLICT_TIMEOUT` (30s), `FFHC_TESTS_TIMEOUT` (60s); worst-case bounded full run ≈ 155s. With neither `timeout` nor `gtimeout` present, bounded ops are skipped ⇒ `PARTIAL_UNVERIFIED` (or opt into unbounded with `FFHC_ALLOW_UNBOUNDED=1`). **Any caller keying off the exit code must treat 4 as partial/unverified — not healthy, not a hard failure.**
 
 **Flag-gated CLI skills are absent-by-design, not drift (v3.8.2+).** The FuseBase CLI gates some provider skills behind config flags (`portal-specific-apps`, `managed-integrations`, `git-init`/`git-debug-commits`, `app-business-docs`, `mcp-gate-debug`) and removes the skill when the flag is off. The health check treats such an **absent flag-gated skill as a benign INFO** (not `CLI_LAYER_DRIFT`) — the only correct remediation is `fusebase config set-flag <flag>` if you actually want the feature, never `fusebase update`. An absent skill whose flag is provably **on** is still genuine drift; non-flag-gated absences are unaffected.
 
