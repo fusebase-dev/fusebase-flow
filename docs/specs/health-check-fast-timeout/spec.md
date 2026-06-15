@@ -1,9 +1,9 @@
 # Spec — health-check-fast-timeout
 
-**Status:** LOCKED (Codex adversarial design review 2026-06-14 folded; ready for implementation)
+**Status:** DONE (shipped v3.24.0, 2026-06-15; 4 Codex review rounds → SHIP)
 **Created:** 2026-06-14
 **Baseline:** FuseBase Flow v3.23.1
-**Deploy hash:** N/A — framework/template change
+**Deploy hash:** a3d41fa (a3d41fabd95b57612400fb99a0d6e34767b3cbff) — tag v3.24.0; release https://github.com/fusebase-dev/fusebase-flow/releases/tag/v3.24.0
 **Source:** real consumer install (Windows/schannel-impaired) — `fusebase-flow-health-check.sh` did not return within 2 minutes during install; reproduced in the maintenance session. Backlog: `docs/backlog/health-check-fast-timeout/`.
 **Design review:** Codex 2026-06-14 → **BUILD-WITH-CHANGES**; biggest risk = **false-HEALTHY when a critical check doesn't run.** All findings folded (new `PARTIAL_UNVERIFIED` verdict; bound `check-cli-flow-conflicts` too; fix the pre-existing run-tests rc-masking; split `--fast`/`--no-upstream`; `gtimeout` fallback; SLO-budgeted timeouts).
 
@@ -75,6 +75,24 @@ Bounding/skipping these checks naively creates a **false HEALTHY**: today an emp
 - **Tg** Tests (AC1–AC6 fixtures) + update exit-code-aware callers (AC7/AC8).
 - **Th** Docs + CHANGELOG + release notes + version bump; mirror if overlay copy exists.
 - Gate → deploy.
+
+### Implemented tasks (T1–T12 → SHA, shipped v3.24.0)
+| T | Maps to | SHA | Description |
+|---|---|---|---|
+| T1 | Ta | 73afb1e | run_with_timeout helper lib + source it in health-check engine |
+| T2 | Tb | e88dd0a | LOCAL_UNVERIFIED tracking + PARTIAL_UNVERIFIED verdict + exit 4 |
+| T3 | Tc | 92b8ead | bound all 4 slow ops; criticals→UNVERIFIED, upstream→note-only |
+| T4 | Td | db68b20 | fix run-tests rc-masking (H6) — harness crash ⇒ BROKEN |
+| T5 | Te | 758638c | --no-upstream (exit 0 OK) and --fast (exit 4, never 0) flags |
+| T6 | Tf | c2cf8f0 | document worst-case bound + scope conflict-reporter glob scan |
+| T7 | Tg | 902232c | tests for AC1–AC6 + AC8 caller note + test-driven hardening |
+| T8 | Th | 139689c | health-check fast-timeout docs + v3.24.0 bump (AC8) |
+| T9 | — | de6c53f | treat rc 137 as timeout-induced in run_with_timeout (Codex B2) |
+| T10 | — | 1670896 | require a non-empty PASS line for hook-tests OK (Codex A1) |
+| T11 | — | 3628f41 | reword unverified-block to not assert PARTIAL_UNVERIFIED (Codex B1) |
+| T12 | — | 6fd2f9d | extract HT health-check-timeout fixtures to own test file (Codex A2) |
+
+Post-gate Codex hardening (round-2/round-3, not T-numbered): ebafd41 (validate PASS counts — round-2 A1), 9294b08 (close two residual PASS-classifier spoofs — round-3 A1+A2). Step-0 threat-model note (round-4): c4252a8. Release-date set: a3d41fa.
 
 ## Notes
 - One engine script + tests + docs. FR-25: currently 633 lines; the additions (helper + UNVERIFIED + flags) may approach 800 — extract the timeout helper / verdict logic along a clean seam if so.
