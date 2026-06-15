@@ -1,9 +1,9 @@
 # Spec — upgrade-tooling-hardening
 
-**Status:** LOCKED (Codex adversarial design review 2026-06-15 folded — verdict RESCOPE; HIGH cluster ships first, U6 follow-up). Ready for implementation.
+**Status:** DONE — shipped v3.25.0 (2026-06-15). Codex adversarial design review (RESCOPE) folded; HIGH cluster shipped, U6 deferred to follow-up backlog ticket `docs/backlog/adapter-overlay-refresh-parity/`.
 **Created:** 2026-06-15
 **Baseline:** FuseBase Flow v3.24.0
-**Deploy hash:** N/A — framework/tooling change
+**Deploy hash:** `6a8961fb603988c0fbfd460fc16a0b65e2c88f85` (release commit, tag `v3.25.0`)
 **Source:** TWO independent consumer upgrade reports (v3.21.1→v3.23.1, both Windows/Git-Bash):
 - `paperclip+hermes-v1/docs/fusebase-flow-proposals/2026-06-15-upgrade-3.21.1-to-3.23.1-friction-report.md` (I1–I9) + proven patch `2026-06-14-windows-hash-spawn-batch-cost.md`
 - WorkHub Managed report (W1–W5), commit `2504584`.
@@ -61,14 +61,21 @@ Byte-exact content copy; marker-anchored AGENTS/CLAUDE overlay refresh (preserve
 - **AC8** `.gitattributes` LF pins (U11); progress output present (U9); Windows docs (U8); `.pre-*` retention prunes dotfile-prefixed (U10, if shipped).
 - **AC9** Standard gate: preflight 0/0; run-tests PASS (+ new fixtures); recovery-sim PASS (exercises both refresh scripts — strongest guard); health HEALTHY; mirror drift 0; plugin valid; `internal/`+`repo-polish` untracked; FR-25 all modules < ceiling.
 
-## Tasks (rough)
-- **Ua** mirror-skills.sh batch, bounded copy, ARG_MAX-safe (U1) + progress (U9).
-- **Ub** sync-version-strings.sh: prefilter + portable newline-preserving rewrite (U1/U2) + executable allowlist `SYNC_ROOTS` (U4) + progress.
-- **Uc** upgrade.sh: module-size-baseline + policy-state merge-preserve (U3) per the LOCKED rule; trap recovery message (U7); `.pre-*` retention (U10); offer-remove `.fusebase-flow-source/` (U12 doc).
-- **Ud** GEMINI regex (U5); `.gitattributes` (U11); Windows env detection + docs (U8); health-check `PARTIAL_UPGRADE` signal (U7).
-- **Ue** Tests: AC2 newline fixtures, AC3 baseline-preserve regression, AC4 under-reach guard + consumer-doc-not-synced, AC7 policy-state preserve.
-- **Uf** Docs + CHANGELOG + release notes + version bump; mirror.
-- Gate → deploy.
+## Tasks (shipped — SHAs)
+| Task | What | Commit SHA |
+|---|---|---|
+| **Ua** | mirror-skills.sh batch, bounded copy, ARG_MAX-safe (U1) + progress (U9) | `b6f31a1` |
+| **Ub** | sync-version-strings.sh: prefilter + portable newline-preserving rewrite (U1/U2) + executable allowlist `SYNC_ROOTS` (U4) + Local regex (U5) + progress | `37c6706` |
+| **Uc** | upgrade.sh: module-size-baseline + policy-state merge-preserve (U3) per LOCKED rule; trap recovery (U7); `.pre-*` retention (U10); progress (U9) | `8ef5d95` |
+| **Ud** | GEMINI regex (U5); `.gitattributes` (U11); Windows env docs (U8); health-check `PARTIAL_UPGRADE` signal (U7) | `382a05e` |
+| **Ue** | Tests: AC2 newline / AC3 baseline-merge / AC4 under-reach guard + consumer-doc-not-synced / AC7 policy-state | `dc47042` |
+| **Ua-fix** | mirror-skills.sh — survive a plain (non-git) dir run (recovery-sim regression) | `0b2b32d` |
+| **Ug-A2** | AC3 baseline-merge — shell-redirection fixture + loud setup asserts (round-2 remediation) | `8c401bd` |
+| **Ug-B1** | merge-baseline — document canonicalization (preservation is row-per-path) | `b86d9eb` |
+| **Ug-B2** | mirror-skills — temp hash cache via mktemp under TMPDIR + EXIT trap | `899a698` |
+| **Uf** | Version bump + sync sweep + release notes + CHANGELOG (the release commit) | `6a8961f` |
+
+Gate → deploy: preflight 0/0 · run-tests 79/79 · check-module-size --all 0 · mirror 0 drift · recovery-sim 31/31 (captured) · probes G-M..G-Q PASS. Tag `v3.25.0`. Codex round-2 confirm SHIP, no findings.
 
 ## Notes
 - Mostly `mirror-skills.sh`, `sync-version-strings.sh`, `upgrade.sh` + GEMINI + `.gitattributes` + health-check (PARTIAL_UPGRADE) + docs. FR-25: watch sizes; extract along seams.
