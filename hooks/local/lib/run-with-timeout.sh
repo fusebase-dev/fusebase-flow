@@ -15,8 +15,10 @@
 #   FFHC_TIMEOUT_BIN     — set by ffhc_detect_timeout: "timeout" | "gtimeout" | "" (none)
 #   run_with_timeout SECS CMD...
 #     rc 124  => the wrapped command timed out (the timeout binary's own signal rc)
+#     rc 137  => the wrapped command ignored TERM and was SIGKILLed after the -k
+#                grace (128+9) — also a timeout-induced kill
 #     other   => the wrapped command's OWN rc, preserved (NOT squashed to 0/1)
-#   ffhc_timed_out RC    => returns 0 (true) iff RC == 124
+#   ffhc_timed_out RC    => returns 0 (true) iff RC is timeout-induced (124 or 137)
 
 # Detect a usable timeout binary. GNU coreutils ships `timeout` (Linux, Git-Bash);
 # macOS commonly ships only `gtimeout` (from coreutils via Homebrew). Sets the
@@ -35,9 +37,13 @@ ffhc_detect_timeout() {
   fi
 }
 
-# rc 124 is the GNU-timeout convention for "killed because the duration elapsed".
+# Timeout-induced rc: 124 = GNU-timeout's "duration elapsed"; 137 = 128+SIGKILL, the
+# rc when `-k <grace>` SIGKILLs a child that ignored the initial TERM. Both must read
+# as a timeout so a hung-then-SIGKILLed critical is UNVERIFIED, not a spurious other
+# state. Accepted limitation: a wrapped command's OWN legit exit 124/137 (e.g. it
+# self-SIGKILLs) is also treated as a timeout — acceptable for these read-only criticals.
 ffhc_timed_out() {
-  [ "${1:-}" = "124" ]
+  [ "${1:-}" = "124" ] || [ "${1:-}" = "137" ]
 }
 
 # run_with_timeout SECS CMD [ARGS...]
