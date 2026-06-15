@@ -95,23 +95,31 @@ echo "[mirror-skills] mirroring $SKILL_COUNT skill(s) across ${#MIRRORS[@]} mirr
 # Hash canonical sources AND any existing target files in a single batched pass so
 # the drift comparison reads the cache directly (no per-file sha spawn).
 declare -A HASHCACHE=()
+HASH_RAW="$ROOT/.mirror-hash-cache.$$"
+# Feed canon sources + any existing targets (NUL-delimited) to ONE chunked sha
+# pass; capture the raw "<hash>  <path>" output to a temp file. Kept off a
+# pipefail pipeline whose tail `read` would return EOF=1 and trip `set -e` in a
+# non-git/plain-dir run (the recovery-sim's $PROJECT is a plain dir).
 {
     for f in "${CANON_FILES[@]}"; do printf '%s\0' "$f"; done
     for line in "${MIRROR_LINES[@]}"; do
         target="$ROOT/${line%%$'\t'*}"
         [ -f "$target" ] && printf '%s\0' "$target"
     done
-} | sha_batch | {
-    # sha256sum prints "<hash>  <path>"; slice fixed offsets (space-safe: the repo
-    # path can contain a space). 64 hex + 2 spaces => path starts at offset 66.
-    while IFS= read -r line; do
-        printf '%s\t%s\n' "${line:66}" "${line:0:64}"
-    done
-} > "$ROOT/.mirror-hash-cache.$$"
-while IFS=$'\t' read -r path hash; do
-    [ -n "$path" ] && HASHCACHE["$path"]="$hash"
-done < "$ROOT/.mirror-hash-cache.$$"
-rm -f "$ROOT/.mirror-hash-cache.$$"
+    # Tripwire: the loop's last `[ -f target ]` is FALSE on a fresh mirror (no
+    # existing targets), which would make this brace group exit 1 and — under
+    # `pipefail` + `set -e` — abort the whole script in a plain (non-git) dir like
+    # the recovery-sim's $PROJECT. Force a 0 exit so the pipe status reflects only
+    # sha_batch.
+    true
+} | sha_batch > "$HASH_RAW"
+# sha256sum prints "<hash>  <path>"; slice fixed offsets (space-safe: the repo path
+# can contain a space). 64 hex + 2 spaces => path starts at offset 66.
+while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    HASHCACHE["${line:66}"]="${line:0:64}"
+done < "$HASH_RAW"
+rm -f "$HASH_RAW"
 
 cache_hash() { # cache_hash <path> -> hash (cache hit, else single-file fallback)
     local p="$1"
