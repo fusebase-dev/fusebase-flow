@@ -416,6 +416,11 @@ if [ -x hooks/tests/run-tests.sh ]; then
     LOCAL_UNVERIFIED+=("hook tests: UNVERIFIED — timed out after ${FFHC_TESTS_TIMEOUT}s with no FAIL: observed (raise FFHC_TESTS_TIMEOUT or run 'bash hooks/tests/run-tests.sh')")
   elif [ "$FFHC_LAST_SKIPPED" -eq 1 ]; then
     LOCAL_UNVERIFIED+=("hook tests: UNVERIFIED — skipped (no timeout binary; install coreutils or set FFHC_ALLOW_UNBOUNDED=1)")
+  elif [ -z "$HOOK_TEST_FAILS" ] && [ "$HOOK_TEST_RC" -ne 0 ]; then
+    # H6: the harness exited non-zero but printed no parsable FAIL: line — it
+    # crashed before reporting (mktemp/cp/syntax/python-missing). Pre-fix this
+    # read OK via `|| true` (a false-HEALTHY). A crash is genuine breakage.
+    LOCAL_BROKEN+=("hook tests: harness exited rc=$HOOK_TEST_RC with no parsable result — likely crashed before reporting (run 'bash hooks/tests/run-tests.sh' to inspect)")
   elif [ -z "$HOOK_TEST_FAILS" ]; then
     LOCAL_OK+=("hook tests: $HOOK_TEST_PASS_LINE")
   else
