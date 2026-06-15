@@ -26,10 +26,21 @@
 #   bash hooks/local/fusebase-flow-health-check.sh
 #
 # EXIT CODES:
-#   0  HEALTHY (no drift detected, upstream in sync)
+#   0  HEALTHY (ALL critical checks ran and passed; no drift; upstream may be
+#      unverified — upstream is optional and does NOT block exit 0)
 #   1  CLI_LAYER_DRIFT / FLOW_LAYER_DRIFT / SHARED_MERGE_DRIFT
-#   2  BROKEN  (preflight fails or hook tests fail with no operator-authored cause)
+#   2  BROKEN  (a completed critical check failed, or a sub-script rc!=0 with no
+#      parsable result — a harness crash)
 #   3  EXCEPTION_IN_EFFECT (drift attributable to active operator approval artifact(s))
+#   4  PARTIAL_UNVERIFIED (a CRITICAL check — preflight, hook tests, conflict
+#      reporter — was skipped/timed-out/unavailable and nothing proves BROKEN;
+#      NOT a full health verdict. Never exit 0 when a critical check did not run.)
+#
+# CRITICAL checks (must run to claim full health): preflight, hook tests
+#   (run-tests), CLI/Flow conflict reporter (check-cli-flow-conflicts).
+# OPTIONAL check: upstream comparison (git fetch + version diff) — may be
+#   unavailable WITHOUT forcing exit 4; the verdict text then says
+#   "upstream not verified".
 
 set -uo pipefail
 
@@ -48,6 +59,7 @@ ffhc_detect_timeout   # sets FFHC_TIMEOUT_BIN to "timeout" | "gtimeout" | ""
 LOCAL_OK=()
 LOCAL_DRIFT=()
 LOCAL_BROKEN=()
+LOCAL_UNVERIFIED=()      # CRITICAL checks that could not run (timed out / skipped / no timeout binary) — drive PARTIAL_UNVERIFIED/exit 4; NEVER let exit be 0 (engine v3.x+ / H4)
 LOCAL_DEFERRED=()        # drift items deferred via active health_check_deferral artifact (engine v2.4.0+)
 CLI_LAYER_DRIFT=()
 SHARED_MERGE_DRIFT=()
@@ -504,6 +516,7 @@ fi
 
 DRIFT_COUNT="${#LOCAL_DRIFT[@]}"
 BROKEN_COUNT="${#LOCAL_BROKEN[@]}"
+UNVERIFIED_COUNT="${#LOCAL_UNVERIFIED[@]}"
 DEFERRED_COUNT="${#LOCAL_DEFERRED[@]}"
 CLI_LAYER_DRIFT_COUNT="${#CLI_LAYER_DRIFT[@]}"
 SHARED_MERGE_DRIFT_COUNT="${#SHARED_MERGE_DRIFT[@]}"
@@ -515,7 +528,14 @@ if [ "$DRIFT_COUNT" -gt 0 ]; then
   ARTIFACT_DRIFT_COUNT=$(printf '%s\n' "${LOCAL_DRIFT[@]}" | grep -c "active approval artifact" || true)
 fi
 
-if [ "$DRIFT_COUNT" -eq 0 ] && [ "$BROKEN_COUNT" -eq 0 ] && [ "$DEFERRED_COUNT" -eq 0 ] && [ "$CLI_LAYER_DRIFT_COUNT" -eq 0 ] && [ "$SHARED_MERGE_DRIFT_COUNT" -eq 0 ]; then
+# Verdict precedence (LOCKED contract / H4): BROKEN > real drift > EXCEPTION
+# (only-deferred) > PARTIAL_UNVERIFIED > HEALTHY. HEALTHY requires that EVERY
+# critical check ran clean — UNVERIFIED_COUNT must be 0 — so a timed-out/skipped
+# critical can NEVER read HEALTHY/0 (the false-HEALTHY blocker). Real drift is a
+# concrete finding (exit 1) and still outranks UNVERIFIED; the PARTIAL_UNVERIFIED
+# branch fires only when nothing else did. Upstream is optional and is never
+# recorded in LOCAL_UNVERIFIED, so it cannot force exit 4.
+if [ "$DRIFT_COUNT" -eq 0 ] && [ "$BROKEN_COUNT" -eq 0 ] && [ "$UNVERIFIED_COUNT" -eq 0 ] && [ "$DEFERRED_COUNT" -eq 0 ] && [ "$CLI_LAYER_DRIFT_COUNT" -eq 0 ] && [ "$SHARED_MERGE_DRIFT_COUNT" -eq 0 ]; then
   DRIFT_SIGNATURE="HEALTHY"
 elif [ "$BROKEN_COUNT" -gt 0 ]; then
   # Genuine breakage trumps everything (including deferrals — operator can't defer real breakage)
@@ -532,6 +552,10 @@ elif [ "$ARTIFACT_DRIFT_COUNT" -eq "$DRIFT_COUNT" ] && [ "$ARTIFACT_DRIFT_COUNT"
   # Every drift item is attributable to an active operator approval artifact —
   # this is the v2 hook-test artifact mechanism working as designed, not real drift.
   DRIFT_SIGNATURE="EXCEPTION_IN_EFFECT"
+elif [ "$DRIFT_COUNT" -eq 0 ] && [ "$UNVERIFIED_COUNT" -gt 0 ]; then
+  # No drift/breakage/exception, but a CRITICAL check did not run — cannot claim
+  # full health. New in engine v3.x (H4): partial, unverified — exit 4, never 0.
+  DRIFT_SIGNATURE="PARTIAL_UNVERIFIED"
 else
   # settings.json reduced is the core `fusebase update` aftermath signature.
   # AGENTS.md may be missing on legacy/plain-overlay installs, or still present
@@ -580,6 +604,10 @@ case "$DRIFT_SIGNATURE" in
     RECOMMENDATIONS+=("Genuine failure detected (NOT attributable to an active approval artifact).")
     RECOMMENDATIONS+=("Inspect the LOCAL_BROKEN items above; address each manually.")
     RECOMMENDATIONS+=("After fixes, re-run this health check.") ;;
+  PARTIAL_UNVERIFIED)
+    RECOMMENDATIONS+=("PARTIAL — not a full health verdict. One or more CRITICAL checks did not run (timed out, skipped, or no timeout binary available); see the 'unverified' items above.")
+    RECOMMENDATIONS+=("This is NOT a failure and NOT full health. Exit code 4. Nothing that DID run proved drift or breakage.")
+    RECOMMENDATIONS+=("To get a full verdict: re-run on a host with more time/CPU, raise the relevant FFHC_*_TIMEOUT env knob, or run the named check directly. If a timeout binary is missing, install coreutils (provides 'timeout'/'gtimeout') or opt into unbounded runs with FFHC_ALLOW_UNBOUNDED=1.") ;;
 esac
 
 ###############################################################################
@@ -593,12 +621,23 @@ echo "============================================================"
 echo "Date: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 echo "Project root: $ROOT"
 echo ""
-echo "Local state ($((${#LOCAL_OK[@]} + ${#LOCAL_DRIFT[@]} + ${#LOCAL_BROKEN[@]} + ${#LOCAL_DEFERRED[@]} + ${#CLI_LAYER_DRIFT[@]} + ${#SHARED_MERGE_DRIFT[@]})) checks):"
+echo "Local state ($((${#LOCAL_OK[@]} + ${#LOCAL_DRIFT[@]} + ${#LOCAL_BROKEN[@]} + ${#LOCAL_UNVERIFIED[@]} + ${#LOCAL_DEFERRED[@]} + ${#CLI_LAYER_DRIFT[@]} + ${#SHARED_MERGE_DRIFT[@]})) checks):"
 for x in "${LOCAL_OK[@]}";    do echo "  ✓ $x"; done
 for x in "${LOCAL_DRIFT[@]}"; do echo "  ✗ $x"; done
 for x in "${LOCAL_BROKEN[@]}";do echo "  ⚠ $x"; done
+for x in "${LOCAL_UNVERIFIED[@]}"; do echo "  ? $x"; done
 for x in "${LOCAL_DEFERRED[@]}"; do echo "  ⊘ $x"; done
 echo ""
+
+if [ "${#LOCAL_UNVERIFIED[@]}" -gt 0 ]; then
+  echo "Unverified critical checks (${#LOCAL_UNVERIFIED[@]} — could not run; engine v3.x+):"
+  echo "  Each ? above is a CRITICAL check that did not complete (timed out,"
+  echo "  skipped, or no timeout binary). The verdict is PARTIAL_UNVERIFIED"
+  echo "  (exit 4) — NOT full health and NOT a failure. Nothing that DID run"
+  echo "  proved drift or breakage. Re-run with more time/CPU, raise the"
+  echo "  relevant FFHC_*_TIMEOUT knob, or run the named check directly."
+  echo ""
+fi
 
 if [ "${#LOCAL_DEFERRED[@]}" -gt 0 ]; then
   echo "Deferred checks (${#LOCAL_DEFERRED[@]} — operator-authored exceptions; engine v2.4.0+):"
@@ -629,10 +668,13 @@ echo ""
 
 echo "============================================================"
 
-# Exit codes
+# Exit codes (LOCKED contract). PARTIAL_UNVERIFIED must NEVER fall through to a
+# 0; it is its own code 4 so callers can tell "partial/unverified" apart from
+# both full health (0) and drift/breakage (1/2).
 case "$DRIFT_SIGNATURE" in
   HEALTHY)             exit 0 ;;
   EXCEPTION_IN_EFFECT) exit 3 ;;
   BROKEN)              exit 2 ;;
+  PARTIAL_UNVERIFIED)  exit 4 ;;
   *)                   exit 1 ;;
 esac
