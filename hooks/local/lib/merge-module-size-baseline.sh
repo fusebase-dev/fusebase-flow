@@ -19,12 +19,15 @@
 #     - each UPSTREAM row -> emit with the UPSTREAM line-count (upstream is source
 #       of truth for files it owns; a Flow row dropped upstream — file no longer
 #       over ceiling — is therefore dropped locally too);
-#     - each LOCAL row whose path is NOT in flow_owned (a PROJECT row) -> preserve
-#       VERBATIM (the consumer's own frozen monolith);
+#     - each LOCAL row whose path is NOT in flow_owned (a PROJECT row) -> preserved
+#       (the consumer's own frozen monolith);
 #     - a LOCAL row whose path IS in flow_owned is superseded by the upstream row
 #       (no duplicate; upstream count wins).
 #   Output: standard header + deterministic sort ("<lines> <path>", sorted by path).
-#   Malformed local rows are WARNED (stderr), never silently dropped.
+#   CANONICALIZATION (preservation is by ROW-PER-UNIQUE-PATH, not byte-verbatim):
+#   duplicate local paths collapse to the LAST occurrence; malformed local rows are
+#   WARNED (stderr) and omitted, never silently dropped. The W2 contract — every
+#   PROJECT path keeps its frozen count — holds across both.
 #
 # USAGE:
 #   merge_module_size_baseline <local_baseline> <upstream_baseline> <out_file>
@@ -85,7 +88,7 @@ merge_module_size_baseline() {
       if [ -z "${OUT_LINES[$lp]:-}" ]; then
         OUT_PATHS+=("$lp")
       fi
-      OUT_LINES["$lp"]="$n"                    # PROJECT row -> preserve verbatim
+      OUT_LINES["$lp"]="$n"                    # PROJECT row kept; dup path -> last wins
     done < "$local_bl"
   fi
 
