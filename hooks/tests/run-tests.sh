@@ -174,6 +174,7 @@ run_shell_phase test-newline-preserve.sh     "newline-preserve"
 run_shell_phase test-baseline-merge.sh       "baseline-merge"
 run_shell_phase test-sync-allowlist.sh       "sync-allowlist"
 run_shell_phase test-policy-state-preserve.sh "policy-state"
+run_shell_phase test-bootstrap-baseline-hop.sh "bootstrap-baseline-hop"
 
 # Write report
 {
