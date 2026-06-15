@@ -742,10 +742,12 @@ echo ""
 if [ "${#LOCAL_UNVERIFIED[@]}" -gt 0 ]; then
   echo "Unverified critical checks (${#LOCAL_UNVERIFIED[@]} — could not run; engine v3.x+):"
   echo "  Each ? above is a CRITICAL check that did not complete (timed out,"
-  echo "  skipped, or no timeout binary). The verdict is PARTIAL_UNVERIFIED"
-  echo "  (exit 4) — NOT full health and NOT a failure. Nothing that DID run"
-  echo "  proved drift or breakage. Re-run with more time/CPU, raise the"
-  echo "  relevant FFHC_*_TIMEOUT knob, or run the named check directly."
+  echo "  skipped, or no timeout binary). These items would make the verdict"
+  echo "  PARTIAL_UNVERIFIED (exit 4) — NOT full health and NOT a failure —"
+  echo "  unless a higher-priority finding (BROKEN/DRIFT/EXCEPTION) takes"
+  echo "  precedence (see 'Verdict:' below for the final result). Re-run with"
+  echo "  more time/CPU, raise the relevant FFHC_*_TIMEOUT knob, or run the"
+  echo "  named check directly."
   echo ""
 fi
 
