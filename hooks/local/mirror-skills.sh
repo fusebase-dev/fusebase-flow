@@ -95,7 +95,12 @@ echo "[mirror-skills] mirroring $SKILL_COUNT skill(s) across ${#MIRRORS[@]} mirr
 # Hash canonical sources AND any existing target files in a single batched pass so
 # the drift comparison reads the cache directly (no per-file sha spawn).
 declare -A HASHCACHE=()
-HASH_RAW="$ROOT/.mirror-hash-cache.$$"
+# Temp cache under $TMPDIR (not repo root): an interrupt between create and the
+# `rm` below otherwise leaves untracked .mirror-hash-cache.* debris in the tree
+# (and in the recovery-sim's plain $PROJECT). mktemp + an EXIT trap clean it up
+# on any exit path, including a signal.
+HASH_RAW="$(mktemp "${TMPDIR:-/tmp}/mirror-hash-cache.XXXXXX")"
+trap 'rm -f "$HASH_RAW"' EXIT
 # Feed canon sources + any existing targets (NUL-delimited) to ONE chunked sha
 # pass; capture the raw "<hash>  <path>" output to a temp file. Kept off a
 # pipefail pipeline whose tail `read` would return EOF=1 and trip `set -e` in a
