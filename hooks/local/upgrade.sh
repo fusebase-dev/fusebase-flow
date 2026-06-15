@@ -68,6 +68,29 @@ main() {
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$ROOT"
 
+# U7: recovery hint on interruption/failure. The upgrade is multi-step and refreshes
+# the hook layer mid-run; if the operator Ctrl-C's or a step dies AFTER writing has
+# begun, print the exact re-run commands so a half-applied tree is recoverable
+# without guessing. The trap is ARMED just before step 1 (the first write) so the
+# pre-write FATAL/declined exits don't print a spurious "half-applied" hint; a
+# clean finish sets UPGRADE_FINISHED=1 to suppress it.
+UPGRADE_FINISHED=0
+print_recovery_hint() {
+  [ "$UPGRADE_FINISHED" -eq 1 ] && return 0
+  echo "" >&2
+  echo "[upgrade] INTERRUPTED or FAILED before completion — the tree may be HALF-APPLIED." >&2
+  echo "[upgrade] Recover by re-running (idempotent — the refreshed engine finishes the rest):" >&2
+  echo "    bash hooks/local/upgrade.sh                              # re-run; completes remaining steps" >&2
+  echo "    bash hooks/local/post-fusebase-update.sh --refresh-overlays  # re-apply adapters + slash commands" >&2
+  echo "    bash hooks/local/sync-version-strings.sh                 # re-sync derived attestation strings" >&2
+  echo "    bash hooks/local/preflight.sh && bash hooks/local/fusebase-flow-health-check.sh  # verify (HEALTHY)" >&2
+}
+
+# U3 (W2): the baseline merge rule lives in a sourced, unit-tested lib so the
+# engine stays small (FR-25) and AC3 can test the rule directly.
+MERGE_LIB="$ROOT/hooks/local/lib/merge-module-size-baseline.sh"
+[ -f "$MERGE_LIB" ] && . "$MERGE_LIB"
+
 SOURCE_CLONE=".fusebase-flow-source"
 AUTO_YES=0
 DRY_RUN=0
@@ -199,7 +222,21 @@ if [ "$AUTO_YES" -ne 1 ]; then
   case "$ans" in [yY]|[yY][eE][sS]) ;; *) echo "[upgrade] Aborted."; exit 3 ;; esac
 fi
 
+# U7: arm the recovery trap now — from here on a Ctrl-C / dying step can leave a
+# half-applied tree, so an interruption should print the recovery commands.
+trap 'rc=$?; print_recovery_hint; exit $rc' INT TERM ERR
+
+# U3 (W2): SNAPSHOT the consumer's project-state baseline BEFORE step 1 clobbers
+# policies/ wholesale. The merge after the copy restores the project rows.
+BASELINE_REL="policies/module-size-baseline.txt"
+LOCAL_BASELINE_SNAPSHOT=""
+if [ -f "$BASELINE_REL" ]; then
+  LOCAL_BASELINE_SNAPSHOT="$(mktemp)"
+  cp "$BASELINE_REL" "$LOCAL_BASELINE_SNAPSHOT"
+fi
+
 # ---- Step 1: refresh canonical content (with backups) ----
+echo "[upgrade] Step 1/5: refreshing canonical content (${#CONTENT_DIRS[@]} dir(s) + ${#CONTENT_FILES[@]} file(s))…"
 copy_dir() {
   local d="$1"
   [ -d "$SOURCE_CLONE/$d" ] || return 0
@@ -218,6 +255,27 @@ for f in "${CONTENT_FILES[@]}"; do
     cp "$SOURCE_CLONE/$f" "$f"
   fi
 done
+
+# ---- Step 1a (U3 / W2): merge-preserve the module-size baseline project state ----
+# policies/ was just refreshed wholesale, which OVERWROTE the consumer's baseline
+# with upstream's. Re-apply the LOCKED merge rule (upstream counts for upstream
+# rows; consumer PROJECT rows preserved verbatim; ownership = upstream-baseline
+# membership, NOT path prefixes) so check-module-size --all still passes post-upgrade.
+# approval-policy.workflow_mode + protected-paths worker_undisturbed.paths are the
+# OTHER project-state in policies/ — those are preserved via *.local.yml (deep-merged
+# by policy_loader.py; the wholesale copy never ships a *.local.yml so it can't
+# clobber them) + the policy-state-preserve test (AC7).
+if [ -n "$LOCAL_BASELINE_SNAPSHOT" ] && command -v merge_module_size_baseline >/dev/null 2>&1; then
+  UPSTREAM_BASELINE="$SOURCE_CLONE/$BASELINE_REL"
+  MERGED_BASELINE="$(mktemp)"
+  merge_module_size_baseline "$LOCAL_BASELINE_SNAPSHOT" "$UPSTREAM_BASELINE" "$MERGED_BASELINE"
+  if ! diff -q "$MERGED_BASELINE" "$BASELINE_REL" >/dev/null 2>&1; then
+    cp "$BASELINE_REL" "$BASELINE_REL.pre-upgrade-$TS" 2>/dev/null || true
+    cp "$MERGED_BASELINE" "$BASELINE_REL"
+    echo "[upgrade] U3: merge-preserved module-size baseline project rows (see $BASELINE_REL)"
+  fi
+  rm -f "$MERGED_BASELINE" "$LOCAL_BASELINE_SNAPSHOT"
+fi
 
 # ---- Step 1b: retire legacy root skills/ (v3.9.0 canonical relocation) ----
 # flow-skills/ has now landed (step 1). Remove the superseded root skills/ so the
@@ -299,6 +357,35 @@ fi
 find . -path ./.fusebase-flow-source -prune -o -name "*.pyc" -print -delete 2>/dev/null | grep -q . \
   && echo "[upgrade] scrubbed stray .pyc files" || true
 
+# ---- U10: .pre-* backup retention (keep the most-recent N per stem) ----
+# Every upgrade drops *.pre-upgrade-<ts> (and recovery drops *.pre-refresh-<ts>)
+# backups; left unpruned they accrete (~70 observed, dotfile-prefixed so easy to
+# miss). Keep the newest N per backup STEM (the path before the .pre-*-<ts> suffix),
+# delete older ones. The <ts> is a sortable UTC stamp (date -u +%Y%m%dT%H%M%SZ), so
+# lexicographic reverse-sort == newest-first. Conservative: only OUR timestamped
+# suffixes, never the clone / .git. Default N=3 (FF_PRE_RETAIN override).
+PRE_RETAIN="${FF_PRE_RETAIN:-3}"
+prune_pre_backups() {
+  local stem count bak
+  # Group every timestamped backup by stem (path with the .pre-*-<ts> suffix removed).
+  while IFS= read -r stem; do
+    [ -n "$stem" ] || continue
+    count=0
+    # Newest-first by the trailing UTC timestamp (reverse lexicographic sort).
+    while IFS= read -r bak; do
+      [ -e "$bak" ] || continue
+      count=$((count + 1))
+      [ "$count" -le "$PRE_RETAIN" ] && continue
+      rm -rf -- "$bak" && echo "[upgrade] U10: pruned old backup $bak"
+    done < <(find . -path ./.git -prune -o -path ./.fusebase-flow-source -prune -o \
+               \( -name "$(basename "$stem").pre-upgrade-*" -o -name "$(basename "$stem").pre-refresh-*" \) -print 2>/dev/null \
+             | grep -E "^${stem//./\\.}\.pre-(upgrade|refresh)-" | sort -r)
+  done < <(find . -path ./.git -prune -o -path ./.fusebase-flow-source -prune -o \
+             \( -name '*.pre-upgrade-*' -o -name '*.pre-refresh-*' \) -print 2>/dev/null \
+           | sed -E 's/\.pre-(upgrade|refresh)-[^/]*$//' | sort -u)
+}
+prune_pre_backups || true
+
 echo ""
 echo "[upgrade] Content upgrade applied. VERSION now: $(tr -d '\n\r' < VERSION)"
 echo "[upgrade] Backups written with suffix .pre-upgrade-$TS — remove once validated."
@@ -322,6 +409,10 @@ echo "          will lint this clone's CommonJS hooks and fail. Either:"
 echo "            rm -rf .fusebase-flow-source                         # transient; re-created next upgrade"
 echo "          or add it to your eslint ignores (next to .claude/**):"
 echo "            bash hooks/local/eslint-ignore-flow-paths.sh"
+
+# U7: clean finish — suppress the recovery hint and clear the trap.
+UPGRADE_FINISHED=1
+trap - INT TERM ERR
 exit 0
 
 }
