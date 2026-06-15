@@ -9,6 +9,14 @@
 # v3.9.0: canonical moved root skills/ -> flow-skills/ (the FuseBase CLI now
 # deprecates the root ./skills name). Legacy root skills/ is still accepted as a
 # fallback so a not-yet-migrated tree keeps mirroring until upgrade.sh migrates it.
+#
+# Windows portability (U1, v3.24.x): Git-Bash spawns a process in ~0.8-1.4s
+# (vs ~1-3ms on Linux/macOS), so a per-file sha256sum/cp/$() loop turns into a
+# multi-minute stall. We batch all hashing into ONE chunked sha256sum call into
+# an assoc-array cache and run a fork-free loop (no $(basename)/$(sha_cmd) per
+# file). Copy scope is UNCHANGED — only SKILL.md + references/* per skill, not a
+# blind `cp -R` of whole dirs — so the manifest/preflight contract (preflight §5
+# validates exactly that set) and the manifest bytes stay identical.
 
 set -euo pipefail
 
@@ -26,51 +34,110 @@ MANIFEST="$ROOT/audit/skill-mirror-manifest.txt"
 mkdir -p "$(dirname "$MANIFEST")"
 : > "$MANIFEST"
 
-sha_cmd() {
+# Batched hash command (chunked for ARG_MAX safety). Reads NUL-delimited paths on
+# stdin, emits "<hash>  <path>" lines. -n 256 keeps each spawn's argv well under
+# any platform ARG_MAX while still collapsing hundreds of files into a handful of
+# spawns. Tripwire: the cache key is the path EXACTLY as fed in (fixed 64-hex +
+# two spaces + path), so callers must feed the same path string they later look up.
+sha_batch() {
+    if command -v sha256sum >/dev/null 2>&1; then
+        xargs -0 -n 256 sha256sum --
+    else
+        xargs -0 -n 256 shasum -a 256 --
+    fi
+}
+# Single-file fallback (only used if a path is somehow not primed — keeps drift
+# correct even on a cache miss; on Windows this is the slow path we avoid).
+sha_one() {
     if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | awk '{print $1}'
     else shasum -a 256 "$1" | awk '{print $1}'; fi
 }
 
-mirrored=0
-drifted=0
+# ---- Phase 1: enumerate the exact mirror set (SKILL.md + references/*) ----
+# Build the canonical file list and the parallel target list in one pass, with no
+# per-file process spawns (pure bash globbing + parameter expansion). Tripwire:
+# the emission order MUST match the legacy per-file loop EXACTLY (mirror_root
+# outermost; SKILL.md then references/* per skill) or the manifest bytes shift —
+# preflight §5 + the audit manifest diff would flag a (false) drift.
+declare -a CANON_FILES=()        # canonical source paths (cache keys), de-duped order
+declare -a MIRROR_LINES=()       # "<mirror_root>/<rel>\t<canon_file>" target spec
+SKILL_COUNT=0
 
 for skill_dir in "$CANON"/*/; do
-    skill_name="$(basename "$skill_dir")"
-    canon_file="$skill_dir/SKILL.md"
+    sdir="${skill_dir%/}"                       # U1 footgun: strip trailing slash so
+    skill_name="${sdir##*/}"                    # the cache key matches single-slash paths
+    canon_file="$sdir/SKILL.md"
     [ -f "$canon_file" ] || { echo "[mirror-skills] skip $skill_name (no SKILL.md)"; continue; }
-    canon_hash="$(sha_cmd "$canon_file")"
+    SKILL_COUNT=$((SKILL_COUNT + 1))
+
+    CANON_FILES+=("$canon_file")
+    if [ -d "$sdir/references" ]; then
+        for ref in "$sdir/references"/*; do
+            [ -f "$ref" ] && CANON_FILES+=("$ref")
+        done
+    fi
 
     for mirror_root in "${MIRRORS[@]}"; do
-        target_dir="$ROOT/$mirror_root/$skill_name"
-        target_file="$target_dir/SKILL.md"
-        mkdir -p "$target_dir"
-        if [ -f "$target_file" ]; then
-            existing_hash="$(sha_cmd "$target_file")"
-            if [ "$existing_hash" != "$canon_hash" ]; then
-                drifted=$((drifted + 1))
-            fi
-        fi
-        cp "$canon_file" "$target_file"
-        mirrored=$((mirrored + 1))
-        echo "$mirror_root/$skill_name/SKILL.md  $canon_hash" >> "$MANIFEST"
-        # references/ files are drift-gated like SKILL.md — they carry rule
-        # content (role don't-lists since v3.17.0), not just supporting docs.
-        if [ -d "$skill_dir/references" ]; then
-            mkdir -p "$target_dir/references"
-            for ref in "$skill_dir/references"/*; do
+        MIRROR_LINES+=("$mirror_root/$skill_name/SKILL.md"$'\t'"$canon_file")
+        if [ -d "$sdir/references" ]; then
+            for ref in "$sdir/references"/*; do
                 [ -f "$ref" ] || continue
-                ref_name="$(basename "$ref")"
-                ref_hash="$(sha_cmd "$ref")"
-                ref_target="$target_dir/references/$ref_name"
-                if [ -f "$ref_target" ] && [ "$(sha_cmd "$ref_target")" != "$ref_hash" ]; then
-                    drifted=$((drifted + 1))
-                fi
-                cp "$ref" "$ref_target"
-                mirrored=$((mirrored + 1))
-                echo "$mirror_root/$skill_name/references/$ref_name  $ref_hash" >> "$MANIFEST"
+                ref_name="${ref##*/}"
+                MIRROR_LINES+=("$mirror_root/$skill_name/references/$ref_name"$'\t'"$ref")
             done
         fi
     done
+done
+
+echo "[mirror-skills] mirroring $SKILL_COUNT skill(s) across ${#MIRRORS[@]} mirror(s)…"
+
+# ---- Phase 2: prime the hash cache (one chunked spawn over canon + targets) ----
+# Hash canonical sources AND any existing target files in a single batched pass so
+# the drift comparison reads the cache directly (no per-file sha spawn).
+declare -A HASHCACHE=()
+{
+    for f in "${CANON_FILES[@]}"; do printf '%s\0' "$f"; done
+    for line in "${MIRROR_LINES[@]}"; do
+        target="$ROOT/${line%%$'\t'*}"
+        [ -f "$target" ] && printf '%s\0' "$target"
+    done
+} | sha_batch | {
+    # sha256sum prints "<hash>  <path>"; slice fixed offsets (space-safe: the repo
+    # path can contain a space). 64 hex + 2 spaces => path starts at offset 66.
+    while IFS= read -r line; do
+        printf '%s\t%s\n' "${line:66}" "${line:0:64}"
+    done
+} > "$ROOT/.mirror-hash-cache.$$"
+while IFS=$'\t' read -r path hash; do
+    [ -n "$path" ] && HASHCACHE["$path"]="$hash"
+done < "$ROOT/.mirror-hash-cache.$$"
+rm -f "$ROOT/.mirror-hash-cache.$$"
+
+cache_hash() { # cache_hash <path> -> hash (cache hit, else single-file fallback)
+    local p="$1"
+    if [ -n "${HASHCACHE[$p]:-}" ]; then printf '%s' "${HASHCACHE[$p]}"
+    else sha_one "$p"; fi
+}
+
+# ---- Phase 3: drift detection from the pre-copy cache + bounded copy ----
+# Drift is computed BEFORE copying (the cache holds pre-copy target hashes), so the
+# printed drift count and the manifest are identical to the per-file implementation.
+mirrored=0
+drifted=0
+for line in "${MIRROR_LINES[@]}"; do
+    rel="${line%%$'\t'*}"
+    canon_file="${line#*$'\t'}"
+    target="$ROOT/$rel"
+    canon_hash="$(cache_hash "$canon_file")"
+
+    if [ -f "$target" ]; then
+        existing_hash="$(cache_hash "$target")"
+        [ "$existing_hash" != "$canon_hash" ] && drifted=$((drifted + 1))
+    fi
+    mkdir -p "$(dirname "$target")"
+    cp "$canon_file" "$target"
+    mirrored=$((mirrored + 1))
+    echo "$rel  $canon_hash" >> "$MANIFEST"
 done
 
 echo "[mirror-skills] mirrored $mirrored files (across ${#MIRRORS[@]} mirrors); $drifted had pre-existing drift."
