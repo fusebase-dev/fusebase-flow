@@ -81,3 +81,15 @@ ffhc_run_bounded() {
     FFHC_LAST_RC=125; FFHC_LAST_SKIPPED=1
   fi
 }
+
+# ffhc_run_tests_pass_ok <pass-line>: classify a run-tests summary line. Returns 0
+# (OK) ONLY when the line is STRICTLY "[run-tests] N/N PASS" (nothing but optional
+# trailing whitespace after PASS) with passed==total AND total>0. Returns 1 for a
+# trailing suffix (e.g. "1/1 PASS but not really"), zero tests ("0/0 PASS"), or a
+# real undercount ("1/2 PASS"). A prefix match alone is NOT proof of a clean run
+# (Codex round-2 A1): the engine must record OK only on a genuine all-pass summary.
+ffhc_run_tests_pass_ok() {
+  local cnt
+  cnt=$(echo "$1" | sed -nE 's|^\[run-tests\] ([0-9]+)/([0-9]+) PASS[[:space:]]*$|\1 \2|p')
+  [ -n "$cnt" ] && [ "${cnt#* }" -gt 0 ] && [ "${cnt% *}" -eq "${cnt#* }" ]
+}

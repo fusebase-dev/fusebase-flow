@@ -463,8 +463,11 @@ elif [ -x hooks/tests/run-tests.sh ]; then
     # confirm pass" must NOT read HEALTHY: a positive PASS line is REQUIRED to
     # record OK, so this is unparseable harness output => BROKEN, never exit 0.
     LOCAL_BROKEN+=("hook tests: harness exited rc=$HOOK_TEST_RC but printed no parsable 'N/N PASS' line and no FAIL: — output is unparseable, cannot confirm pass (run 'bash hooks/tests/run-tests.sh' to inspect)")
-  elif [ -z "$HOOK_TEST_FAILS" ]; then
+  elif [ -z "$HOOK_TEST_FAILS" ] && ffhc_run_tests_pass_ok "$HOOK_TEST_PASS_LINE"; then
+    # STRICT "N/N PASS" only (Codex round-2 A1: a prefix match alone is not proof).
     LOCAL_OK+=("hook tests: $HOOK_TEST_PASS_LINE")
+  elif [ -z "$HOOK_TEST_FAILS" ]; then
+    LOCAL_BROKEN+=("hook tests: PASS summary malformed or not all tests passed ('$HOOK_TEST_PASS_LINE') — cannot confirm pass (run 'bash hooks/tests/run-tests.sh' to inspect)")
   else
     artifact_attributable=0
     true_failures=0

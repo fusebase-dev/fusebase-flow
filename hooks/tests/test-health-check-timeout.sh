@@ -199,7 +199,63 @@ ht8() {
   ht_pass "HT8-rc0-no-pass-no-fail (Codex A1 / H6): run-tests rc=0 + no PASS + no FAIL => BROKEN / exit 2, never HEALTHY"
 }
 
-ht1; ht2; ht3; ht4; ht5; ht6; ht7; ht8
+# ---- HT9 (Codex round-2 A1 / AC4b / H6): run-tests rc=0 reporting "0/0 PASS" —
+# the prefix matches but ZERO tests ran (total==0). A summary that confirms a
+# pass of nothing must NOT read HEALTHY => BROKEN/2. ----
+ht9() {
+  local HT9="$TMP_BASE/ht9-zero-zero-pass"
+  setup_hc_fixture "$HT9"
+  printf '#!/usr/bin/env bash\necho "[run-tests] 0/0 PASS"\nexit 0\n' > "$HT9/hooks/tests/run-tests.sh"; chmod +x "$HT9/hooks/tests/run-tests.sh"
+  local OUT; OUT="$(run_hc "$HT9" env FFHC_TESTS_TIMEOUT=10)"
+  echo "$OUT" | grep -q "Verdict: BROKEN" || { ht_fail "HT9-zero-zero-pass" "$OUT"; return; }
+  echo "$OUT" | grep -q "^EXIT=2$" || { ht_fail "HT9-zero-zero-pass" "$OUT"; return; }
+  if echo "$OUT" | grep -q "Verdict: HEALTHY"; then ht_fail "HT9-zero-zero-pass" "$OUT"; return; fi
+  ht_pass "HT9-zero-zero-pass (Codex round-2 A1 / H6): run-tests '0/0 PASS' (total==0) => BROKEN / exit 2, never HEALTHY"
+}
+
+# ---- HT10 (Codex round-2 A1 / AC4b / H6): run-tests rc=0 reporting "1/2 PASS" —
+# passed != total, i.e. a real failure the summary undercounts. Must NOT read
+# HEALTHY => BROKEN/2. ----
+ht10() {
+  local HT10="$TMP_BASE/ht10-passed-lt-total"
+  setup_hc_fixture "$HT10"
+  printf '#!/usr/bin/env bash\necho "[run-tests] 1/2 PASS"\nexit 0\n' > "$HT10/hooks/tests/run-tests.sh"; chmod +x "$HT10/hooks/tests/run-tests.sh"
+  local OUT; OUT="$(run_hc "$HT10" env FFHC_TESTS_TIMEOUT=10)"
+  echo "$OUT" | grep -q "Verdict: BROKEN" || { ht_fail "HT10-passed-lt-total" "$OUT"; return; }
+  echo "$OUT" | grep -q "^EXIT=2$" || { ht_fail "HT10-passed-lt-total" "$OUT"; return; }
+  if echo "$OUT" | grep -q "Verdict: HEALTHY"; then ht_fail "HT10-passed-lt-total" "$OUT"; return; fi
+  ht_pass "HT10-passed-lt-total (Codex round-2 A1 / H6): run-tests '1/2 PASS' (passed!=total) => BROKEN / exit 2, never HEALTHY"
+}
+
+# ---- HT11 (Codex round-2 A1 / AC4b / H6): run-tests rc=0 reporting "1/1 PASS but
+# not really" — counts look clean but trailing suffix text means the summary is
+# garbled/spoofed and cannot be trusted. Must NOT read HEALTHY => BROKEN/2. ----
+ht11() {
+  local HT11="$TMP_BASE/ht11-pass-suffix"
+  setup_hc_fixture "$HT11"
+  printf '#!/usr/bin/env bash\necho "[run-tests] 1/1 PASS but not really"\nexit 0\n' > "$HT11/hooks/tests/run-tests.sh"; chmod +x "$HT11/hooks/tests/run-tests.sh"
+  local OUT; OUT="$(run_hc "$HT11" env FFHC_TESTS_TIMEOUT=10)"
+  echo "$OUT" | grep -q "Verdict: BROKEN" || { ht_fail "HT11-pass-suffix" "$OUT"; return; }
+  echo "$OUT" | grep -q "^EXIT=2$" || { ht_fail "HT11-pass-suffix" "$OUT"; return; }
+  if echo "$OUT" | grep -q "Verdict: HEALTHY"; then ht_fail "HT11-pass-suffix" "$OUT"; return; fi
+  ht_pass "HT11-pass-suffix (Codex round-2 A1 / H6): run-tests '1/1 PASS but not really' (trailing suffix) => BROKEN / exit 2, never HEALTHY"
+}
+
+# ---- HT12 (Codex round-2 A1 regression guard): the genuine clean "N/N PASS" path
+# with N>1 (passed==total>0, no suffix) must STILL => HEALTHY/0. The count
+# validation must not over-reject the legitimate summary. ----
+ht12() {
+  local HT12="$TMP_BASE/ht12-clean-pass-n"
+  setup_hc_fixture "$HT12"
+  printf '#!/usr/bin/env bash\necho "[run-tests] 3/3 PASS"\nexit 0\n' > "$HT12/hooks/tests/run-tests.sh"; chmod +x "$HT12/hooks/tests/run-tests.sh"
+  local OUT; OUT="$(cd "$HT12" && FFHC_PREFLIGHT_TIMEOUT=10 FFHC_CONFLICT_TIMEOUT=10 FFHC_TESTS_TIMEOUT=10 bash hooks/local/fusebase-flow-health-check.sh --no-upstream 2>&1; echo "EXIT=$?")"
+  echo "$OUT" | grep -q "Verdict: HEALTHY" || { ht_fail "HT12-clean-pass-n" "$OUT"; return; }
+  echo "$OUT" | grep -q "^EXIT=0$" || { ht_fail "HT12-clean-pass-n" "$OUT"; return; }
+  echo "$OUT" | grep -q "hook tests: \[run-tests\] 3/3 PASS" || { ht_fail "HT12-clean-pass-n" "$OUT"; return; }
+  ht_pass "HT12-clean-pass-n (Codex round-2 A1 regression guard): clean '3/3 PASS' (N>1, passed==total>0, no suffix) => HEALTHY / exit 0"
+}
+
+ht1; ht2; ht3; ht4; ht5; ht6; ht7; ht8; ht9; ht10; ht11; ht12
 
 echo "[test-health-check-timeout] $pass_count/$((pass_count + fail_count)) PASS"
 exit "$fail_count"
