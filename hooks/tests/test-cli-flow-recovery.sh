@@ -52,6 +52,7 @@ cp hooks/local/mirror-agents.sh "$PROJECT/hooks/local/"
 cp hooks/local/post-fusebase-update.sh "$PROJECT/hooks/local/"
 cp hooks/local/check-cli-flow-conflicts.sh "$PROJECT/hooks/local/"
 cp hooks/local/stamp-cli-provenance.sh "$PROJECT/hooks/local/"
+cp -R hooks/local/lib "$PROJECT/hooks/local/lib"   # health engine sources lib/run-with-timeout.sh
 cp -R hooks/local/fusebase-flow-overlays "$PROJECT/hooks/local/fusebase-flow-overlays"
 cp -R hooks/handlers "$PROJECT/hooks/handlers"
 cp FLOW_RULES.md "$PROJECT/FLOW_RULES.md"
@@ -485,7 +486,9 @@ cat > "$F2P/.claude/settings.json" <<'EOF'
 EOF
 (
   cd "$F2P"
-  bash hooks/local/fusebase-flow-health-check.sh > "$TMP_BASE/f2.out" 2>&1 || true
+  # Generous budgets (this assertion is about drift semantics, not timing).
+  FFHC_PREFLIGHT_TIMEOUT=600 FFHC_TESTS_TIMEOUT=600 FFHC_CONFLICT_TIMEOUT=600 FFHC_FETCH_TIMEOUT=30 \
+    bash hooks/local/fusebase-flow-health-check.sh > "$TMP_BASE/f2.out" 2>&1 || true
 )
 grep -q "Verdict: SHARED_MERGE_DRIFT" "$TMP_BASE/f2.out" && { sed -n '/Verdict/,$p' "$TMP_BASE/f2.out" >&2; fail "F2: main health engine verdict SHARED_MERGE_DRIFT for deliberate hooks-off (should be benign)"; } || true
 grep -qE "lifecycle events wired \(stop.py present|stop.py missing from Stop chain" "$TMP_BASE/f2.out" && fail "F2: main engine recorded a settings.json drift for the opt-in-off state" || true
@@ -498,9 +501,17 @@ pass "F2 (U16): main health engine reads deliberate hooks-off as benign (no SHAR
 # checker but only MISSING/DRIFT, so INFO classifications must NOT surface as
 # drift). U17 = flag-gated absence (U10 class); U18 = .agents/.codex gap (U13 class).
 ###############################################################################
+# AC8 (health-check-fast-timeout): the engine can now exit 4 (PARTIAL_UNVERIFIED)
+# in addition to 0/1/2/3. This helper keys off the Verdict LINE, not the exit
+# code, and uses `|| true`, so exit 4 is handled correctly (treated as partial,
+# neither success nor hard-fail). Any caller that branches on the exit code must
+# treat 4 as "partial/unverified" — not full health (0) and not failure (1/2).
 run_main_engine_verdict() {  # $1 = project dir → echoes the Verdict line (never aborts the suite)
   local out=""
-  out="$(cd "$1" 2>/dev/null && bash hooks/local/fusebase-flow-health-check.sh 2>/dev/null)" || true
+  # Generous budgets so the real preflight/run-tests/conflict criticals don't
+  # time out on a slow host and yield a spurious PARTIAL_UNVERIFIED (these tests
+  # assert drift/health semantics, not timing).
+  out="$(cd "$1" 2>/dev/null && FFHC_PREFLIGHT_TIMEOUT=600 FFHC_TESTS_TIMEOUT=600 FFHC_CONFLICT_TIMEOUT=600 FFHC_FETCH_TIMEOUT=30 bash hooks/local/fusebase-flow-health-check.sh 2>/dev/null)" || true
   printf '%s\n' "$out" | grep -m1 "^Verdict:" || echo "Verdict: (none captured)"
 }
 
@@ -952,3 +963,138 @@ set +e
 set -e
 [ ! -d "$U20P/skills" ] || fail "U20: second upgrade run re-created root skills/"
 pass "U20: upgrade.sh migrates root skills/ -> flow-skills/ (retires old dir w/ backup, re-mirrors, idempotent)"
+
+###############################################################################
+# HT1-HT6 — health-check-fast-timeout (spec docs/specs/health-check-fast-timeout).
+# Lock the bounded-execution + verdict/exit contract. No real network and no real
+# slow sub-scripts: each test builds a minimal scratch project whose sub-scripts
+# are STUBS (sleep to force a timeout against a 1s budget, or exit a crafted rc),
+# and runs the real engine against them. Stubbing keeps these deterministic and
+# fast (vs the real preflight/run-tests which take tens of seconds).
+###############################################################################
+
+# Build a minimal scratch project the engine can run against, with a clean
+# baseline (proper AGENTS.md overlay marker + instant-OK stub sub-scripts) so
+# each test isolates ONE variable. The engine resolves its lib via BASH_SOURCE
+# so we copy lib/ alongside it. Per-test, overwrite the relevant stub.
+hc_stub_ok_subscripts() {  # $1=dir — preflight OK, run-tests PASS, conflict HEALTHY
+  local dir="$1"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$dir/hooks/local/preflight.sh"
+  printf '#!/usr/bin/env bash\necho "[run-tests] 1/1 PASS"\nexit 0\n' > "$dir/hooks/tests/run-tests.sh"
+  printf '#!/usr/bin/env bash\nprintf %%s "{\\"verdict\\": \\"HEALTHY\\", \\"findings\\": []}"\nexit 0\n' > "$dir/hooks/local/check-cli-flow-conflicts.sh"
+  chmod +x "$dir/hooks/local/preflight.sh" "$dir/hooks/tests/run-tests.sh" "$dir/hooks/local/check-cli-flow-conflicts.sh"
+}
+setup_hc_fixture() {
+  local dir="$1"
+  rm -rf "$dir"
+  mkdir -p "$dir/hooks/local/lib" "$dir/hooks/tests" "$dir/.claude/skills/fusebase-flow-health-check" "$dir/.claude/agents"
+  cp hooks/local/fusebase-flow-health-check.sh "$dir/hooks/local/"
+  cp hooks/local/lib/run-with-timeout.sh "$dir/hooks/local/lib/"
+  cp VERSION "$dir/VERSION"
+  # Clean baseline so the inventory section adds no unrelated drift/broken items.
+  printf '# AGENTS\n\n## Fusebase Flow — workflow lifecycle overlay\n' > "$dir/AGENTS.md"
+  : > "$dir/.claude/skills/fusebase-flow-health-check/SKILL.md"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$dir/hooks/local/post-fusebase-update.sh"
+  mkdir -p "$dir/hooks/local/fusebase-flow-overlays"
+  chmod +x "$dir/hooks/local/post-fusebase-update.sh"
+  hc_stub_ok_subscripts "$dir"
+}
+
+# Run the engine in a fixture dir with extra env; echo "EXIT=<rc>" + the report.
+run_hc() {  # $1=dir; rest=args/env already exported by caller
+  local dir="$1"; shift
+  local out rc
+  out="$(cd "$dir" && "$@" bash hooks/local/fusebase-flow-health-check.sh 2>&1)"; rc=$?
+  printf '%s\nEXIT=%s\n' "$out" "$rc"
+}
+
+# --- HT1 (AC1): upstream git fetch unreachable => bounded + "upstream not
+# verified" NOTE, and upstream alone does NOT force exit 4 (it's optional). ---
+HT1="$TMP_BASE/ht1-fetch-timeout"
+setup_hc_fixture "$HT1"   # criticals are instant-OK from the baseline
+# Fake an upstream clone + a `git` stub on PATH whose `fetch` hangs.
+mkdir -p "$HT1/.fusebase-flow-source/.git" "$HT1/stubbin"
+cat > "$HT1/stubbin/git" <<'GITSTUB'
+#!/usr/bin/env bash
+case "$*" in
+  *fetch*) sleep 30 ;;                       # network hang -> must be bounded
+  *rev-parse\ --show-toplevel*) pwd ;;
+  *rev-parse\ --is-shallow-repository*) echo "false" ;;
+  *rev-parse\ HEAD*) echo "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" ;;
+  *rev-parse\ origin/main*) echo "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" ;;
+  *show\ origin/main:VERSION*) cat VERSION 2>/dev/null ;;
+  *) exit 0 ;;
+esac
+GITSTUB
+chmod +x "$HT1/stubbin/git"
+HT1_OUT="$(run_hc "$HT1" env "PATH=$HT1/stubbin:$PATH" FFHC_FETCH_TIMEOUT=1)"
+echo "$HT1_OUT" | grep -q "upstream not verified" || { echo "$HT1_OUT" >&2; fail "HT1 (AC1): no 'upstream not verified' note on a fetch timeout"; }
+echo "$HT1_OUT" | grep -q "^EXIT=0$" || { echo "$HT1_OUT" >&2; fail "HT1 (AC1): upstream fetch timeout forced a non-zero exit (must be optional, exit 0)"; }
+pass "HT1 (AC1): fetch timeout is bounded + 'upstream not verified' note; upstream alone does NOT force exit 4 (exit 0)"
+
+# --- HT2 (AC2): a CRITICAL check (preflight) times out => PARTIAL_UNVERIFIED
+# exit 4, never 0; the report names the unverified check. ---
+HT2="$TMP_BASE/ht2-critical-timeout"
+setup_hc_fixture "$HT2"
+printf '#!/usr/bin/env bash\nsleep 30\n' > "$HT2/hooks/local/preflight.sh"; chmod +x "$HT2/hooks/local/preflight.sh"   # hangs -> timeout
+HT2_OUT="$(run_hc "$HT2" env FFHC_PREFLIGHT_TIMEOUT=1)"
+echo "$HT2_OUT" | grep -q "Verdict: PARTIAL_UNVERIFIED" || { echo "$HT2_OUT" >&2; fail "HT2 (AC2): critical timeout did not yield PARTIAL_UNVERIFIED"; }
+echo "$HT2_OUT" | grep -q "^EXIT=4$" || { echo "$HT2_OUT" >&2; fail "HT2 (AC2): critical timeout exit was not 4"; }
+echo "$HT2_OUT" | grep -qi "preflight: UNVERIFIED" || { echo "$HT2_OUT" >&2; fail "HT2 (AC2): report did not name preflight as unverified"; }
+pass "HT2 (AC2): critical (preflight) timeout => PARTIAL_UNVERIFIED / exit 4, names the unverified check"
+
+# --- HT3 (AC4a): a real preflight FAILURE still => BROKEN/2 even with timeouts
+# in place (a completed critical that fails is breakage, not unverified). ---
+HT3="$TMP_BASE/ht3-preflight-fail"
+setup_hc_fixture "$HT3"
+printf '#!/usr/bin/env bash\nexit 1\n' > "$HT3/hooks/local/preflight.sh"; chmod +x "$HT3/hooks/local/preflight.sh"   # completes, fails
+HT3_OUT="$(run_hc "$HT3" env FFHC_PREFLIGHT_TIMEOUT=10)"
+echo "$HT3_OUT" | grep -q "Verdict: BROKEN" || { echo "$HT3_OUT" >&2; fail "HT3 (AC4a): a completed preflight failure did not yield BROKEN"; }
+echo "$HT3_OUT" | grep -q "^EXIT=2$" || { echo "$HT3_OUT" >&2; fail "HT3 (AC4a): preflight failure exit was not 2"; }
+pass "HT3 (AC4a): a completed preflight failure => BROKEN / exit 2 (not UNVERIFIED) even with timeouts in place"
+
+# --- HT4 (AC4b / H6): a run-tests harness CRASH (rc!=0, no FAIL:) => BROKEN/2,
+# NOT HEALTHY (the pre-existing '|| true' false-HEALTHY). ---
+HT4="$TMP_BASE/ht4-harness-crash"
+setup_hc_fixture "$HT4"
+printf '#!/usr/bin/env bash\necho "boom: mktemp failed" >&2\nexit 3\n' > "$HT4/hooks/tests/run-tests.sh"; chmod +x "$HT4/hooks/tests/run-tests.sh"   # rc!=0, no FAIL:
+HT4_OUT="$(run_hc "$HT4" env FFHC_TESTS_TIMEOUT=10)"
+echo "$HT4_OUT" | grep -q "Verdict: BROKEN" || { echo "$HT4_OUT" >&2; fail "HT4 (AC4b/H6): a run-tests harness crash did not yield BROKEN"; }
+echo "$HT4_OUT" | grep -q "^EXIT=2$" || { echo "$HT4_OUT" >&2; fail "HT4 (AC4b/H6): harness-crash exit was not 2"; }
+echo "$HT4_OUT" | grep -qi "harness exited rc=" || { echo "$HT4_OUT" >&2; fail "HT4 (AC4b/H6): report did not flag the harness crash"; }
+pass "HT4 (AC4b / H6): run-tests harness crash (rc!=0, no FAIL:) => BROKEN / exit 2, not HEALTHY"
+
+# --- HT5 (AC4c / AC5): --fast => exit 4 + 'not a full verdict', never 0; keeps
+# preflight. ---
+HT5="$TMP_BASE/ht5-fast"
+setup_hc_fixture "$HT5"
+# run-tests would PASS, but --fast must skip it; make it emit a tripwire if run.
+printf '#!/usr/bin/env bash\necho "FAIL: should-not-run"\nexit 9\n' > "$HT5/hooks/tests/run-tests.sh"; chmod +x "$HT5/hooks/tests/run-tests.sh"
+HT5_OUT="$(cd "$HT5" && FFHC_PREFLIGHT_TIMEOUT=10 FFHC_CONFLICT_TIMEOUT=10 bash hooks/local/fusebase-flow-health-check.sh --fast 2>&1; echo "EXIT=$?")"
+echo "$HT5_OUT" | grep -q "^EXIT=4$" || { echo "$HT5_OUT" >&2; fail "HT5 (AC4c/AC5): --fast exit was not 4"; }
+echo "$HT5_OUT" | grep -qi "not a full health verdict" || { echo "$HT5_OUT" >&2; fail "HT5 (AC4c/AC5): --fast did not print 'not a full health verdict'"; }
+echo "$HT5_OUT" | grep -qi "preflight: clean" || { echo "$HT5_OUT" >&2; fail "HT5 (AC5): --fast did not keep preflight"; }
+echo "$HT5_OUT" | grep -q "FAIL: should-not-run" && { echo "$HT5_OUT" >&2; fail "HT5 (AC5): --fast ran the hook tests (must skip)"; } || true
+pass "HT5 (AC4c / AC5): --fast => exit 4 + 'not a full verdict' + keeps preflight + skips hook tests"
+
+# --- HT6 (AC6): neither timeout nor gtimeout present => engine still returns (no
+# hang, no crash) with PARTIAL_UNVERIFIED (bounded ops skipped). ---
+HT6="$TMP_BASE/ht6-no-timeout-bin"
+setup_hc_fixture "$HT6"   # baseline OK stubs; the variable here is the missing timeout binary
+# Force the no-timeout-binary path deterministically (FFHC_FORCE_NO_TIMEOUT) so
+# the test doesn't depend on tearing apart PATH. The bounded criticals must be
+# SKIPPED (not run unbounded) => PARTIAL_UNVERIFIED, no hang.
+HT6_OUT="$(run_hc "$HT6" env FFHC_FORCE_NO_TIMEOUT=1)"
+echo "$HT6_OUT" | grep -q "Verdict: PARTIAL_UNVERIFIED" || { echo "$HT6_OUT" >&2; fail "HT6 (AC6): no timeout binary did not yield PARTIAL_UNVERIFIED"; }
+echo "$HT6_OUT" | grep -q "^EXIT=4$" || { echo "$HT6_OUT" >&2; fail "HT6 (AC6): no-timeout-binary exit was not 4"; }
+echo "$HT6_OUT" | grep -qi "no timeout binary" || { echo "$HT6_OUT" >&2; fail "HT6 (AC6): report did not explain the missing timeout binary"; }
+pass "HT6 (AC6): no timeout/gtimeout => bounded ops skipped => PARTIAL_UNVERIFIED / exit 4 (no hang)"
+
+# --- HT7 (AC6 escape hatch): no timeout binary BUT FFHC_ALLOW_UNBOUNDED=1 => run
+# the (fast-stub) criticals unbounded => HEALTHY/0 (opt-in, never the default). ---
+HT7="$TMP_BASE/ht7-no-timeout-unbounded"
+setup_hc_fixture "$HT7"
+HT7_OUT="$(cd "$HT7" && FFHC_FORCE_NO_TIMEOUT=1 FFHC_ALLOW_UNBOUNDED=1 bash hooks/local/fusebase-flow-health-check.sh --no-upstream 2>&1; echo "EXIT=$?")"
+echo "$HT7_OUT" | grep -q "Verdict: HEALTHY" || { echo "$HT7_OUT" >&2; fail "HT7 (AC6): FFHC_ALLOW_UNBOUNDED did not let a clean run reach HEALTHY"; }
+echo "$HT7_OUT" | grep -q "^EXIT=0$" || { echo "$HT7_OUT" >&2; fail "HT7 (AC6): unbounded opt-in exit was not 0"; }
+pass "HT7 (AC6): FFHC_ALLOW_UNBOUNDED=1 opt-in runs criticals unbounded => HEALTHY/0 (never the default)"

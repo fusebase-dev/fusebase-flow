@@ -51,8 +51,15 @@ OVERLAYS="hooks/local/fusebase-flow-overlays"
 SOURCE_CLONE=".fusebase-flow-source"
 
 # Bounded-execution helper (extracted per FR-25; see hooks/local/lib/run-with-timeout.sh).
+# A missing lib is a critical dependency failure — fail loudly, never silently
+# degrade into "criticals can't run".
+FFHC_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/run-with-timeout.sh"
+if [ ! -f "$FFHC_LIB" ]; then
+  echo "[health-check] BROKEN — missing $FFHC_LIB (the bounded-execution helper). Re-clone or run: bash hooks/local/post-fusebase-update.sh" >&2
+  exit 2
+fi
 # shellcheck source=lib/run-with-timeout.sh
-. "$(dirname "${BASH_SOURCE[0]}")/lib/run-with-timeout.sh"
+. "$FFHC_LIB"
 ffhc_detect_timeout   # sets FFHC_TIMEOUT_BIN to "timeout" | "gtimeout" | ""
 
 # SLO-budgeted timeouts (seconds), env-overridable. Defaults sit at the top of

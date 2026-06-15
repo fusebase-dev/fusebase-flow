@@ -21,8 +21,12 @@
 # Detect a usable timeout binary. GNU coreutils ships `timeout` (Linux, Git-Bash);
 # macOS commonly ships only `gtimeout` (from coreutils via Homebrew). Sets the
 # module-global FFHC_TIMEOUT_BIN to the binary name, or "" when neither exists.
+# FFHC_FORCE_NO_TIMEOUT=1 forces the no-binary path (testability + an operator
+# escape to exercise the degraded behavior on a host that does have timeout).
 ffhc_detect_timeout() {
-  if command -v timeout >/dev/null 2>&1; then
+  if [ "${FFHC_FORCE_NO_TIMEOUT:-0}" = "1" ]; then
+    FFHC_TIMEOUT_BIN=""
+  elif command -v timeout >/dev/null 2>&1; then
     FFHC_TIMEOUT_BIN="timeout"
   elif command -v gtimeout >/dev/null 2>&1; then
     FFHC_TIMEOUT_BIN="gtimeout"
