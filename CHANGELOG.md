@@ -4,7 +4,7 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
-## [3.24.0] — 2026-06-14
+## [3.24.0] — 2026-06-15
 
 ### Added — health check fast/bounded execution + `PARTIAL_UNVERIFIED` (exit 4)
 
