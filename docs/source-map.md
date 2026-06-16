@@ -60,9 +60,15 @@ The clean-room property is validated by:
 
 Any internal research notes that reference specific external projects belong **outside** this GitHub template. They live in operator-private notebooks or internal company docs, not in the public template tree. The published template uses generic wording only.
 
+## FR-26 context-compression discipline (clean-room)
+
+The FR-26 context-compression discipline update — `flow-skills/token-economy/SKILL.md` § Context compression discipline, the `/token-waste-audit` command, and the `large-output` audit class in `hooks/local/token-waste-audit.py` — is clean-room original FuseBase Flow content. It implements FuseBase-native behavioral rules and deterministic, stdlib-only audit heuristics. No third-party code, prompts, skill files, command text, hook scripts, docs, benchmark language, or dependency is copied or vendored.
+
 ## Last amended
 
 ```
 2026-05-27 - Fusebase CLI edition source map; distinguishes canonical Flow clean-room files
               from copied CLI provider/domain assets.
+2026-06-15 - FR-26 context-compression discipline (large-context/large-output) noted as
+              clean-room original; no third-party dependency or content introduced.
 ```

@@ -36,14 +36,32 @@ hook_dependencies:
 | **Record-then-read** — read durable evidence once after the run instead of agent-side polling | Sole exception (first live drive of fresh code) is bounded | POINTER → `flow-skills/smoke-testing/SKILL.md` § Verification cost discipline |
 | **Delegation economics** — delegate only when the sub-agent's context floor costs less than the tokens the split saves | Bounded, disjoint slices only | `flow-skills/task-delegation/SKILL.md` |
 
+## Context compression discipline
+
+Extends FR-26 to **large context and large output** — when the input or a tool result is big enough that loading it whole is itself the waste. This is read-time and reasoning-time routing, **not a budget**: it slices and points to large artifacts and keeps compressed context honest. It never authorizes skipping a needed read or thinning verification — the Guardrail still governs.
+
+| Rule | Guard / what it must never become |
+|---|---|
+| **Content-route before consuming** — classify a large input (code, log, JSON, test output, diff, markdown, prose, transcript, generated/vendored output, binary/asset metadata) before deciding how much of it to read | Routing decides depth, never whether to verify; an authoritative artifact still gets read in full when the task needs its invariants |
+| **Extract before reasoning** — for large logs, test output, JSON, traces, transcripts, and search results, pull the relevant slice or a summary first instead of loading the whole body into reasoning context | The slice is for triage; if it is ambiguous or the decision is load-bearing, widen it or open the source |
+| **Preserve the retrieval path** — every summary or compressed note carries a handle to reopen the original: source path, command, report path, line/window pointer, request ID, or test name | A note with no retrieval handle is a dead end — you must always be able to get back to ground truth |
+| **Original-before-edit** — before editing code, changing product logic, approving acceptance criteria, deciding security / billing / permissions / client-data, or closing verification, reopen and read the authoritative source | A summary may point you AT the change; it never substitutes for reading the file you are about to edit or approve |
+| **Summary is not authority** — compressed/summarized context is for exploration and triage | NEVER the sole basis for implementation, security, permissions, billing, migrations, compliance, public API contracts, client-data access, or acceptance criteria — those decide against the original |
+| **Stable context floor** — don't rewrite always-on rules, agent files, command files, handoffs, or governance docs just to improve phrasing | A small, stable instruction surface is cheaper every session than a "better-worded" one; governance edits are explicit, reviewed, diff-based tickets — never an optimization side effect |
+| **Cross-agent dedupe** — handoffs between PO, AI Developer, Architect, Deploy, QA, and other roles carry decisions, IDs, paths, and pointers, not duplicated full artifacts | Dedupe never drops a decision or an ID the next role needs; every pointer must resolve |
+| **Reference an in-context body once** — once a large body (a big tool result, log, JSON, file region) is in context, later turns and chat refer to it by its retrieval handle (path+window, request ID, report path, test name) instead of re-pasting the whole body again | A fresh first inclusion, or a deliberately re-run command's NEW output, is not a re-send; never drop a decision, ID, or evidence the next step needs |
+| **Large-output hygiene (anticipate, then narrow)** — when a command's output is plausibly large or unbounded (full logs, whole-tree listings, unfiltered queries/dumps), scope the FIRST invocation — limit/offset, tail, grep/jq, targeted test, shorter traceback, or write-to-report-then-read — rather than running it wide and narrowing only on the rerun | Scoping serves the question; never scope so tight that needed evidence is excluded, and an estimated size is never a hard cap or a reason to skip a needed read |
+| **Generated/vendored restraint** — don't read large generated, vendored, lock, build, cache, or compiled outputs | Unless the generated artifact is itself the subject of the task (shared definition: `policies/module-size.yml: exempt_globs`) |
+| **Compression is not verification** — never use compression/summarization to skip reproduction, skip smoke tests, thin acceptance evidence, or hide uncertainty | **Quality outranks tokens** — on any conflict the correctness/safety floor wins, exactly as in the Guardrail |
+
 ## Measure it
 
-- **Claude Code:** run `/token-waste-audit` (command file `.claude/commands/token-waste-audit.md`) or directly `python hooks/local/token-waste-audit.py [--last N] [--dir PATH]`. Deterministic stdlib-only parser over this project's transcripts: requestId-deduped per-session totals (requests, output tokens, cache read/creation, tool-result size estimates) + leak signatures (identical-window Reads ≥3×, polling-shaped Bash repeats, top-10 largest tool results, large rewrites of pre-existing paths). Findings are **candidates that MAY indicate** an FR-26 rule — the report header lists the known false-positive classes. Report → `state/audit/token-waste-audit-<date>.md` (gitignored).
+- **Claude Code:** run `/token-waste-audit` (command file `.claude/commands/token-waste-audit.md`) or directly `python hooks/local/token-waste-audit.py [--last N] [--dir PATH]`. Deterministic stdlib-only parser over this project's transcripts: requestId-deduped per-session totals (requests, output tokens, cache read/creation, tool-result size estimates) + leak signatures (identical-window Reads ≥3×, polling-shaped Bash repeats, top-10 largest tool results, large rewrites of pre-existing paths, **`large-output` candidates** — tool results ≥20k chars from any output-producing tool, built-in **or MCP** (write tools excluded) — and **`repeat-output` candidates** — the same large body re-sent across turns, fingerprinted by a one-way hash, never the content. All mapped to § Context compression discipline). Findings are **candidates that MAY indicate** an FR-26 rule — the report header lists the known false-positive classes. Report → `state/audit/token-waste-audit-<date>.md` (gitignored).
 - **Other surfaces (Codex / Cursor / Copilot / Gemini):** transcript metrics are unavailable — say so explicitly ("transcript metrics unavailable on this surface") and degrade to the repo-side summary the parser also produces: largest tracked source files, `docs/tmp/handoff.md` size, optional `bash hooks/local/check-module-size.sh --all`. Never fabricate transcript numbers.
 
 ## Growth rule
 
-A waste pattern that recurs across audits and matches no row above → add one rule row (with its quality guard) via `skill-authoring`. Project-specific waste patterns stay in project docs/skills, not here.
+A waste pattern that recurs across audits and matches no row above → add one rule row (with its quality guard) via `skill-authoring`. This includes recurring large-output / large-context patterns surfaced by the `large-output` audit class — add the row **clean-room and dependency-free** (never reach for a third-party compression tool). Project-specific waste patterns stay in project docs/skills, not here unless they generalize across Flow use cases.
 
 ## Anti-patterns
 
@@ -51,6 +69,12 @@ A waste pattern that recurs across audits and matches no row above → add one r
 - Treating audit findings as verdicts. They are candidates: FR-18 supersede rewrites, mirror regeneration, and deliberate FR-10 reproduction look identical to waste in the metrics.
 - Hard token budgets, caps, or gates on token counts — a budget gate trains truncation (intelligence damage); FR-26 is deliberately write-time discipline + retrospective audit only.
 - Grep-and-edit blind: editing a file whose invariants you never read because "scoped reads are cheaper".
+- Treating a summary as the source of truth for a final edit or an approval — the original is reopened first (§ Context compression discipline).
+- Compressing away the evidence verification needs — reproduction runs, smoke output, acceptance evidence, or a stated uncertainty.
+- Using token economy as an excuse to avoid opening the authoritative file before deciding.
+- Adding a third-party compression dependency to Flow core — FR-26 economy is behavioral discipline + a deterministic stdlib audit, not a tool to install.
+- Copying a third-party compression implementation, prompt, or doc into Flow — canonical Flow content is clean-room original.
+- Rewriting always-on / governance files for cosmetic phrasing under the banner of "optimization" — governance edits are explicit, reviewed, diff-based.
 
 ## Clean-room note
 

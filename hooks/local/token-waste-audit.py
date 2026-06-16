@@ -7,7 +7,9 @@ FR-26 rules (flow-skills/token-economy/SKILL.md). Operator tooling (preflight/
 health-check class) — not part of the hook test harness; verified by live self-run.
 
 Privacy: no message/thinking/tool-result text is emitted. Tool results appear as
-(tool, target, size estimate); command snippets are one line, <=100 chars.
+(tool, target, size estimate); command snippets are one line, <=100 chars. A
+one-way hash (never the content) fingerprints results to detect an identical large
+body re-sent across turns.
 
 Usage: python hooks/local/token-waste-audit.py [--last N] [--dir PATH]
 Exit 0 always when transcripts are merely missing/empty (degraded repo-side mode).
@@ -15,6 +17,7 @@ Exit 0 always when transcripts are merely missing/empty (degraded repo-side mode
 
 import argparse
 import datetime
+import hashlib
 import json
 import re
 import subprocess
@@ -27,6 +30,8 @@ BASH_REPEAT_MIN = 3
 LARGE_WRITE_CHARS = 10_000
 SNIPPET_MAX = 100
 TOP_SINKS = 10
+LARGE_TOOL_RESULT_CHARS = 20_000
+REPEAT_OUTPUT_MIN = 2          # an identical large body seen >= this many times = candidate
 LINE_TYPES = {"assistant", "user"}
 WRITE_TOOLS = {"Edit", "Write", "NotebookEdit"}
 
@@ -35,7 +40,13 @@ FALSE_POSITIVE_HEADER = (
     "not verdicts. Known false-positive classes: FR-18 supersede rewrites "
     "(whole-file replace is mandated), mirror/overlay regeneration (generated "
     "copies), deliberate FR-10 3/3 reproduction runs, test reruns after a real "
-    "change, bounded labeled flaky-external retries."
+    "change, bounded labeled flaky-external retries. For large-output: an "
+    "intentional first read of a large file needed to hold its invariants, a "
+    "mandated FR-18 supersede rewrite or mirror regeneration, generated output "
+    "that is itself the subject of the task, deliberate FR-10 reproduction "
+    "evidence, and a one-time large diagnostic report written to disk then read once. "
+    "For repeat-output: a deliberately re-run command's fresh (different) output and "
+    "FR-10 reproduction reruns are not re-sends of the same body."
 )
 
 
@@ -94,24 +105,41 @@ def tool_target(name, tool_input):
     return snippet(name)
 
 
-def result_chars(content):
+def result_size_and_digest(content):
+    """Return (char count, short one-way fingerprint of the result TEXT).
+
+    The digest detects an identical large body re-sent across turns. The raw body is
+    hashed in memory only — never stored or emitted — preserving the no-content-emitted
+    privacy invariant. Char count is byte-for-byte the same metric as before (key order
+    in json.dumps does not change length; sort_keys only stabilizes the digest)."""
+    parts = []
     if isinstance(content, str):
-        return len(content)
-    if isinstance(content, list):
-        total = 0
+        parts.append(content)
+    elif isinstance(content, list):
         for block in content:
             if isinstance(block, dict):
                 if block.get("type") == "text":
-                    total += len(block.get("text") or "")
+                    parts.append(block.get("text") or "")
                 else:
                     try:
-                        total += len(json.dumps(block, default=str))
+                        parts.append(json.dumps(block, default=str, sort_keys=True))
                     except Exception:
-                        total += 0
+                        pass
             else:
-                total += len(str(block))
-        return total
-    return 0
+                parts.append(str(block))
+    text = "".join(parts)
+    digest = hashlib.sha256(" ".join(text.split()).encode("utf-8", "replace")).hexdigest()[:16]
+    return len(text), digest
+
+
+def is_output_heavy(name):
+    """A large result is a context-compression candidate when it came from an
+    OUTPUT-producing tool — any built-in OR MCP (`mcp__*`) tool. Detected GENERICALLY by
+    excluding write tools (their result is an edit confirmation; the bulk content is the
+    edit itself, covered by the rewrite class) and the unmapped "?" sentinel (unknown
+    provenance). An exclusion test, not an allowlist, so new built-ins and MCP servers
+    are covered automatically instead of silently missed."""
+    return name not in WRITE_TOOLS and name != "?"
 
 
 def parse_session(path):
@@ -121,7 +149,7 @@ def parse_session(path):
         "usage_by_request": {},       # requestId -> last usage seen
         "usage_no_request": [],
         "tool_result_chars": 0,
-        "tool_results": [],           # (chars, tool, target)
+        "tool_results": [],           # (chars, tool, target, digest)
         "read_counts": {},            # (file_path, offset, limit) -> count
         "bash_runs": {},              # norm cmd -> max consecutive-without-write run
         "large_writes": [],           # (path, content_chars)
@@ -130,6 +158,7 @@ def parse_session(path):
     tool_meta = {}                    # tool_use id -> (name, target)
     bash_counts = {}
     seen_paths = set()
+    seen_result_ids = set()           # tool_use_id of results already counted (no double-count)
     with path.open(encoding="utf-8", errors="replace") as fh:
         for line in fh:
             line = line.strip()
@@ -193,10 +222,15 @@ def parse_session(path):
                 for block in content:
                     if not (isinstance(block, dict) and block.get("type") == "tool_result"):
                         continue
-                    chars = result_chars(block.get("content"))
+                    rid_res = block.get("tool_use_id")
+                    if rid_res and rid_res in seen_result_ids:
+                        continue  # same result line repeated in the transcript — count once
+                    if rid_res:
+                        seen_result_ids.add(rid_res)
+                    chars, digest = result_size_and_digest(block.get("content"))
                     s["tool_result_chars"] += chars
-                    name, target = tool_meta.get(block.get("tool_use_id"), ("?", "?"))
-                    s["tool_results"].append((chars, name, target))
+                    name, target = tool_meta.get(rid_res, ("?", "?"))
+                    s["tool_results"].append((chars, name, target, digest))
     return s
 
 
@@ -224,6 +258,33 @@ def session_findings(s):
     for fp, chars in s["large_writes"]:
         f.append(("rewrite", "Write %d chars to pre-existing path: %s" % (chars, fp),
                   "FR-26 targeted edits over whole-file rewrites"))
+    # large-output: oversized results from any output-producing tool (built-in OR MCP;
+    # write tools + unmapped "?" excluded) — candidates for extract/scope/filter before
+    # reasoning (§ Context compression discipline). Capped at TOP_SINKS per session
+    # (largest first) so one noisy session can't flood. Only (size, tool, target) emitted.
+    large = sorted(
+        ((chars, name, target) for (chars, name, target, _d) in s["tool_results"]
+         if chars >= LARGE_TOOL_RESULT_CHARS and is_output_heavy(name)),
+        key=lambda r: (-r[0], r[1], r[2]),
+    )[:TOP_SINKS]
+    for chars, name, target in large:
+        f.append(("large-output",
+                  "Tool result %d chars (~%d tokens): %s %s" % (chars, chars // 4, name, target),
+                  "FR-26 context compression discipline: extract/scope/filter before reasoning over large output"))
+    # repeat-output: the SAME large body re-sent across turns (identical fingerprint).
+    # One finding per recurring digest (count = times seen) — references-not-re-sends.
+    by_digest = {}
+    for chars, name, target, digest in s["tool_results"]:
+        if chars >= LARGE_TOOL_RESULT_CHARS and is_output_heavy(name):
+            by_digest.setdefault(digest, []).append((chars, name, target))
+    repeats = sorted(
+        ((len(v), v[0][0], v[0][1], v[0][2]) for v in by_digest.values() if len(v) >= REPEAT_OUTPUT_MIN),
+        key=lambda r: (-r[0], -r[1], r[2], r[3]),
+    )[:TOP_SINKS]
+    for n, chars, name, target in repeats:
+        f.append(("repeat-output",
+                  "Identical large result x%d (~%d chars each): %s %s" % (n, chars, name, target),
+                  "FR-26 context compression discipline: reference an in-context body by its handle, don't re-send it"))
     return f
 
 
@@ -304,7 +365,7 @@ def build_report(sessions, root, today):
         all_results.extend(s["tool_results"])
     lines += ["", "## Top %d largest tool results (tool, target, size estimate)" % TOP_SINKS, "",
               "| Chars (~tokens) | Tool | Target |", "|---|---|---|"]
-    for chars, name, target in sorted(all_results, key=lambda r: -r[0])[:TOP_SINKS]:
+    for chars, name, target, _d in sorted(all_results, key=lambda r: (-r[0], r[1], r[2]))[:TOP_SINKS]:
         lines.append("| %d (~%d) | %s | %s |" % (chars, chars // 4, name, target))
     lines += ["", "## Findings — candidates that MAY indicate an FR-26 rule", ""]
     any_finding = False
@@ -339,6 +400,26 @@ def build_report(sessions, root, today):
             lines.append("")
         if not agg_files and not agg_cmds:
             lines.append("No file or command recurs in >=2 of the parsed sessions.")
+            lines.append("")
+        # repeated identical large bodies across the parsed sessions (digest-keyed) —
+        # the same large content re-sent. Counts occurrences (and distinct sessions);
+        # only (count, sessions, tool, target, size) is emitted, never the body.
+        body_occ, body_sess = {}, {}
+        for s in sessions:
+            for chars, name, target, digest in s["tool_results"]:
+                if chars >= LARGE_TOOL_RESULT_CHARS and is_output_heavy(name):
+                    body_occ.setdefault(digest, []).append((chars, name, target))
+                    body_sess.setdefault(digest, set()).add(s["file"])
+        repeated = sorted(
+            ((len(occ), len(body_sess[d]), occ[0][0], occ[0][1], occ[0][2])
+             for d, occ in body_occ.items() if len(occ) >= REPEAT_OUTPUT_MIN),
+            key=lambda r: (-r[0], -r[2], r[3], r[4]),
+        )[:TOP_SINKS]
+        if repeated:
+            lines += ["**Repeated identical large bodies** (same content re-sent — reference it by handle):", "",
+                      "| Times | Sessions | Chars (~tokens) | Tool | Target |", "|---|---|---|---|---|"]
+            for times, nsess, chars, name, target in repeated:
+                lines.append("| %d | %d | %d (~%d) | %s | %s |" % (times, nsess, chars, chars // 4, name, target))
             lines.append("")
     return "\n".join(lines)
 
@@ -378,7 +459,7 @@ def main():
     print("")
     print("| Session | Requests | Output tokens | Cache read | Cache creation | Tool-result chars (~tokens) |")
     print("|---|---|---|---|---|---|")
-    counts = {"re-read": 0, "polling": 0, "rewrite": 0}
+    counts = {"re-read": 0, "polling": 0, "rewrite": 0, "large-output": 0, "repeat-output": 0}
     for s in sessions:
         t = usage_totals(s)
         print("| %s | %d | %d | %d | %d | %d (~%d) |" % (
@@ -388,8 +469,9 @@ def main():
             counts[cls] = counts.get(cls, 0) + 1
     print("")
     print("Candidates (MAY indicate -- see report header for false-positive classes): "
-          "re-read %d | polling %d | whole-file-rewrite %d" % (
-              counts["re-read"], counts["polling"], counts["rewrite"]))
+          "re-read %d | polling %d | whole-file-rewrite %d | large-output %d | repeat-output %d" % (
+              counts["re-read"], counts["polling"], counts["rewrite"],
+              counts["large-output"], counts["repeat-output"]))
     return 0
 
 
