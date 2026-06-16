@@ -87,6 +87,84 @@ flowchart LR
 - **Many small apps, not one monster** -- a product is composed of focused apps, so one failure can't sink the whole system.
 - **Ceremony scales with risk (FR-21)** -- a small, reversible change takes the **Lightweight lane** (one change-note, one build→verify→deploy pass, a plain "ship it" go-ahead) instead of the full spec→decisions→tasks→gate chain; risky/uncertain work takes the full lane. The safety floor -- live proof, an explicit deploy go-ahead, protected-path check, rollback -- is kept either way.
 
+## Commands & capabilities
+
+Six slash commands are the only things you invoke directly — everything else is a **skill** that activates automatically when its trigger matches. The tables below are the use-case view; for the phase-mapped trigger view of every skill, see [§ Skill catalog](#skill-catalog).
+
+### Slash commands
+
+| Command | What it does | Real-world use case |
+|---|---|---|
+| **/product-owner** | Starts a Product Owner session — your single point of contact who advises *what* to build and *how*, reads your North Star, and breaks work into phases/slices. | "Let's build a booking system" → the PO scopes it, asks the right questions, and slices it into reviewable work. |
+| **/onboard** | The PO interviews you about vision, audience, and domain, then writes the project artifacts (`docs/north-star.md`, audience, project values) that steer all future work. | First time using Flow on your repo — capture your product vision once so every later task is aimed at it. |
+| **/handoff** | Writes the live session state to `docs/tmp/handoff.md` (16-section template) so a fresh chat resumes exactly where you left off. | A long debugging session is getting heavy → `/handoff`, open a new chat, continue without losing the thread. |
+| **/fusebase-health** | Read-only health check — reports drift between the FuseBase CLI layer and the Flow layer, and offers recovery for Flow-owned drift. | After a `fusebase update` you're unsure if Flow still works → confirms what (if anything) drifted and offers to fix it. |
+| **/token-waste-audit** | Parses this project's transcripts and lists token-waste *candidates* (big reads, re-reads, polling, `large-output`, `repeat-output`) mapped to FR-26. | A session felt expensive → see where the tokens actually went and what to do differently next time. |
+| **/find-wasted-effort** | Audits Flow *artifacts on disk* (gate reports, handoffs, approvals, git log) for ceremony that bought no safety outcome. Read-only; findings are review candidates. | You suspect the process has overhead that isn't earning its keep → spot ceremony to trim (nothing auto-removed). |
+
+### What the skills do for you
+
+**Always on (every session)**
+
+| Skill | What it does | Real-world use case |
+|---|---|---|
+| **communication** | Mode A for chat (clear, concrete, skimmable) + Mode B for internal artifacts (dense, tabular, front-loaded). | Every answer is structured and scannable; every internal doc is compact, not padded prose. |
+| **role-discipline** | Enforces the PO-vs-AI-Developer boundaries and the exact refusal wording when a rule would be broken. | The PO won't quietly start writing app code; asked to skip a gate, it refuses with a clear reason. |
+
+**Ticket lifecycle (Specify → Deploy)**
+
+| Skill | What it does | Real-world use case |
+|---|---|---|
+| **requirements-specification** | Drafts the spec, clarifying questions, and acceptance criteria at the start of a ticket. | "Build a feature" → it writes the spec and asks the few questions that actually matter before any code. |
+| **design-discovery-ideation** | Generates divergent options / UI & product directions *before* a decision is locked. | Unsure how a dashboard should work → get 3 distinct directions to choose from instead of committing blind. |
+| **implementation-planning** | Turns the locked spec into decisions, tasks, a verification gate, and an implementer handoff. | Spec is ready → work is broken into one-task-one-commit slices with a clear gate to stop at. |
+| **task-delegation** | Decides when to split work across parallel sub-agents — only when the split saves more than its context cost. | A migration touches 20 independent files → safely fan it out instead of one slow serial pass. |
+| **validation-and-qa** | The verification gate: lint, typecheck, tests, and reproduce-before-fix discipline. | A bug fix must first *reproduce* the bug, then prove the fix with a test, before it's called done. |
+| **smoke-testing** | Proves the *operator-visible outcome* on the deployed surface — not just "tests passed." | After deploy, it actually exercises the feature to confirm it works for a real user. |
+| **code-review** | Reviews the diff against spec/decisions for correctness bugs, scope creep, maintainability, rollback. | Before merge, an independent pass checks the change does what was specified — and nothing extra. |
+| **security-permissions-review** | Focused review when changes touch auth, secrets, deploy config, or customer-visible behavior. | A change adds an API key + a public endpoint → it flags the sensitive surfaces and what needs sign-off. |
+| **release-deploy-reporting** | Drafts the deploy handoff, captures deploy hash + probes + smoke, flips spec DRAFT→DONE. | "Ship it" → produces the deploy plan and the post-deploy evidence record. |
+
+**Review, anti-drift & debugging**
+
+| Skill | What it does | Real-world use case |
+|---|---|---|
+| **zoom-out** (FR-20) | Forces a root-cause-vs-patch check before applying a fix. | A bug keeps recurring → "are we fixing the cause or the symptom?" before patching it a third time. |
+| **phase-audit** | A fresh sub-agent independently audits *all* slices of a multi-slice phase before sign-off. | A big phase shipped across 8 slices → every slice gets checked against the spec before you call it done. |
+| **git-history-diagnostic** | Regression archaeology — locates the exact commit that introduced a break. | "It worked last week, broken now" → bisects history to the causing commit instead of guessing. |
+| **repo-onboarding-context-map** | Builds a durable map of an unfamiliar repo (where things live, how it fits together). | Dropped into a large new codebase → get the lay of the land before editing anything. |
+
+**Quality & discipline (the always-on rule carriers)**
+
+| Skill | What it does | Real-world use case |
+|---|---|---|
+| **lightweight-lane** (FR-21) | Classifies Full vs Lightweight; small/reversible changes get a change-note + one build→verify→deploy pass. | A one-line constant bump skips heavy ceremony but is still verified and recorded. |
+| **comment-policy** (FR-22) | Write-time comment policy — tripwires + retrieval pointers, not restating the code. | Comments capture the non-obvious "why" and point to the spec, instead of narrating obvious lines. |
+| **documentation-budget** (FR-23) | Classifies whether a doc is needed and at which tier *before* writing it. | Stops a redundant "design doc" from being created just because a template exists. |
+| **module-size-discipline** (FR-25) | Module-size ratchet — gated files stay under the ceiling (default 800 lines); over-ceiling files may only shrink. | A file creeping toward 800 lines triggers a clean extraction along a seam, not unchecked growth. |
+| **token-economy** (FR-26) | Token-efficient execution + context-compression discipline (route-by-type, extract-before-reasoning, pointer-backed summaries); measured via `/token-waste-audit`. | The AI reads the slice it needs and references big results instead of re-pasting them. |
+| **find-wasted-effort** | Ceremony audit — process-per-outcome; reads Flow artifacts for steps that bought no safety (the sibling of `/token-waste-audit` on a different axis). | Surfaces gate stops or handoffs that never prevented anything, so you can trim ceremony deliberately. |
+| **app-quality-patterns** | Cross-project behavioral quality patterns (URL reflects view state, delete-cascade policy, empty/loading/error states…) that become spec ACs. | Building a list view → "show empty/loading/error states" and "URL reflects filters" are baked in as acceptance criteria. |
+
+**Project setup & product (dormant until you `/onboard`)**
+
+| Skill | What it does | Real-world use case |
+|---|---|---|
+| **project-onboarding** | The `/onboard` discovery interview that writes your project artifacts. | Captures your vision/audience once so the whole framework is tuned to your project. |
+| **north-star** | Steers every task to `docs/north-star.md` and flags drift away from it. | A proposed feature that contradicts your stated vision gets flagged before it's built. |
+| **client-vs-internal** | Steers surfaces — simple/guided/trust-first for clients, robust/power-features for internal. | A client-facing screen gets a guided design; the internal admin tool gets bulk controls. |
+| **product-docs-first** | Designs per-app product docs before any code is written. | Before building, the product doc that planning builds from is written and agreed. |
+| **business-logic-guardian** | Treats documented business logic as a guard layer during fixes. | A "quick fix" that would silently break a documented billing rule gets caught. |
+| **product-apps-decomposition** | Decides one big app vs several focused apps. | A sprawling "CRM" request → split into focused apps so one failure can't sink the whole system. |
+
+**Health, continuity & meta**
+
+| Skill | What it does | Real-world use case |
+|---|---|---|
+| **fusebase-flow-health-check** | The read-only engine behind `/fusebase-health` — layer-by-layer drift verdicts + offered recovery. | Confirms whether CLI and Flow files conflict after an update, and fixes Flow-owned drift on confirmation. |
+| **handoff** | The engine behind `/handoff` — reconstructs goal/decisions/failures/next-step into the restart template. | A complex migration spans sessions → the next chat resumes from the exact point, fatigue-free. |
+| **skill-authoring** | Create/update reusable skills (clean-room classified; includes domain-expert mode). | A waste or quality pattern recurs across audits → capture it as a new skill rule the right way. |
+
 ## What it costs
 
 FuseBase Flow runs natively in your IDE through the FuseBase CLI. There are **no per-token platform fees** -- you pay only for the AI subscription you already have (Claude Code, Codex, Cursor, Gemini, or Copilot).
