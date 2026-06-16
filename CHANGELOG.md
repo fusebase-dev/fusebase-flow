@@ -4,6 +4,21 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.26.0] — 2026-06-15
+
+### Added — FR-26 context-compression discipline (large-output / repeat-output audit, MCP coverage)
+
+**Feature (additive).** Extends **FR-26** from read-side hygiene to **large context and large output** — when loading a big input or tool result whole is itself the waste. New **`## Context compression discipline`** section in `flow-skills/token-economy/SKILL.md` plus **two new `/token-waste-audit` candidate classes**. Clean-room original, MIT, stdlib-only, **no new dependency**. No new FR rule and no new skill — it extends the existing FR-26 / `token-economy` carrier, so the FR range (FR-01..FR-26) and skill count (31) are unchanged. Routing, not a budget: the Guardrail still governs (quality outranks tokens; no needed read or verification is skipped).
+
+- **`## Context compression discipline`** — behavioral rules with per-row quality guards: content-route-before-consuming, extract-before-reasoning, preserve-the-retrieval-path (every summary keeps a handle back to ground truth), original-before-edit, summary-is-not-authority, stable-context-floor, cross-agent dedupe, reference-an-in-context-body-once, large-output hygiene (anticipate then narrow), generated/vendored restraint, compression-is-not-verification.
+- **`large-output` audit class** — flags tool results ≥20k chars from **any** output-producing tool, built-in **and MCP** (write tools excluded). Corrects a real coverage gap: the prior allowlist silently missed MCP tools.
+- **`repeat-output` audit class** — flags the same large body re-sent across turns, fingerprinted by a **one-way stdlib hash**; the body is **never emitted** into the report.
+- All findings stay **candidates that MAY indicate** an FR-26 rule (never verdicts; known false-positive classes listed in the report header).
+
+Clean-room: no third-party code/prompt/text/dependency copied or vendored; **no third-party tool named** in any shipped artifact; attestation in `docs/source-map.md`. Triple-validated: gap-analysis workflow + **two Codex SHIP reviews** + a name/license firewall audit (reference is Apache-2.0; nothing copied; the firewall-term grep over the repo returns 0).
+
+Verified: preflight 0/0 · `py_compile token-waste-audit.py` OK · `check-module-size --all` exit 0 · mirror 31 skills / 0 drift (byte-identical) · firewall-term grep = 0 · LICENSE untouched · plugin == VERSION == 3.26.0 · **GEMINI.md = v3.26.0** · README badge 3.26.0 · sync `--dry-run` framework-scoped (no consumer doc touched) · FR-07 clean (version-string sweep only). Feature smoke: synthetic transcript fires `large-output` ≥1 (incl. the MCP tool) + `repeat-output` ≥1, content marker 0× in report. Detail: `docs/release-notes/v3.26.0.md`.
+
 ## [3.25.1] — 2026-06-15
 
 ### Fixed — adoption-hop baseline merge-preserve (the v3.25.0 U3/W2 merge now runs on the FIRST upgrade adopting v3.25.x)
