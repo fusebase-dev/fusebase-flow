@@ -10,7 +10,7 @@ tools: Read, Glob, Grep, Bash, Write, Edit
 
 ## Self-attestation (first response of every invocation)
 
-> "Operating as Product Owner under Fusebase Flow v3.26.0. I will follow FR-01 through FR-26. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Product Owner, and additionally the Architect (escalation) section when this ticket triggers escalation criteria."
+> "Operating as Product Owner under Fusebase Flow v3.27.0. I will follow FR-01 through FR-26. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Product Owner, and additionally the Architect (escalation) section when this ticket triggers escalation criteria."
 
 ## Activation boot (echo as your FIRST reply)
 

@@ -4,6 +4,30 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.27.0] — 2026-06-17
+
+### Added — FR-22 delivery guarantee + PO verifiable boot
+
+**Feature (additive).** Two tickets in the **FR-22 family** — *"mandatory" without a delivery guarantee + artifact-level verification is just "optional with extra words."* Both **warn-only** (no deny gate loosened) and **FR-07-clean** (no FR rule rows, no deploy-policy rule semantics, no `ratchet-governance.yml`). Both independently **Codex-SHIP'd** (design RESCOPE folded + impl review). No new FR rule, no new skill — FR range (FR-01..FR-26) and skill count (31) unchanged.
+
+**1. FR-22 delivery guarantee (Phase 1, A–E)** — the comment-policy is now delivered + verifiable at the **artifact level**, never gating on comment **content** (FR-22's no-content-gate stays intact):
+- **Present-by-construction handoff block** (`templates/handoff-implement.md`) — the FR-22 Delegation push-block text is a literal, non-optional section in every authored implement handoff, not a "remember to inline" line a long autonomous run forgets.
+- **Write-time digest** (`flow-skills/role-discipline/SKILL.md`) — carries the full two-kinds FR-22 rule **and** an explicit "does **not** auto-propagate to sub-agents — inline the comment-policy push block when delegating code-writing" note.
+- **`comment_policy_review_applied` warn-signal** (`policies/required-artifacts.yml` + `hooks/handlers/stop.py`) — a transcript marker (`comment-policy review: applied (FR-22)` / `… N/A (FR-22; no code diff)`) recording the review **ran**, never what comments say; absence → **warn**, never block.
+- **Artifact-vs-content distinction doc** (`flow-skills/comment-policy/SKILL.md` + `docs/comment-policy.md`) — content-gating forbidden, artifact-level checks encouraged.
+- **Carve-out clarity** (`policies/comment-policy.yml`) — opt-in posture preserved; clearer "derive at Specify" trigger + tighter commented starter set. No gate.
+- **Deferred:** `fr22-predelegation-hook` (the pre-delegation PreToolUse check) — inert under the shipped matchers (Bash/Edit/Write only, not Task/Agent); needs host-matcher coverage + explicit delegation markers + warn-only telemetry first. Its own ticket.
+
+**2. PO verifiable boot** — `/product-owner` opens with a verifiable activation boot:
+- **Command boot block + ASCII marker** (`.claude/commands/product-owner.md` + overlay) — a 6–8 line operating-rules checklist the PO echoes as its first reply, ending in `[[ PO-ACTIVATED | FuseBase Flow <VERSION> | … ]]` (grep-stable). Pointers to FLOW_RULES, not a re-paste.
+- **Same boot in the canonical agent** (`agents/product-owner/AGENT.md` → mirror) — boots-by-construction via the slash command **or** the Agent tool / description match; a drift-guard test asserts the two boot blocks match.
+- **UserPromptSubmit detection** (`hooks/handlers/user_prompt_submit.py`) — `/product-owner` → non-blocking reminder + supplemental `po_activation_requested` event.
+- **Dedicated PO-activation Stop check** (`hooks/handlers/stop.py`) — a **separate** path outside `CLAIM_PATTERNS` (fires on a PO first reply, which has no done/deploy claim): activation present, marker absent → **warn + Stop ALLOWS**; literal transcript scan only; existing deny gates untouched. Enforceable where FR-22 hook F was not, because it rides the already-wired `UserPromptSubmit`/`Stop` events (no new matcher needed).
+
+Clean-room: no third-party code/prompt/text/dependency copied or vendored; prior clean-room state intact (`git grep -ni headroom` = 0).
+
+Verified: preflight 0/0 · `py_compile stop.py + user_prompt_submit.py` OK · run-tests **118/118 PASS** · `check-module-size --all` exit 0 · mirror 0 drift (skills + agents byte-identical) · plugin == VERSION == 3.27.0 · **GEMINI.md = v3.27.0** · README badge 3.27.0 · sync `--dry-run` framework-scoped (no consumer doc touched) · `git grep -ni headroom` = 0 · FR-07 clean (5 surfaces unchanged; only the FLOW_RULES version-attestation line moved). Feature smoke: FR-22 push block present in the rendered handoff; `comment-policy review: applied (FR-22)` detected; `/product-owner` activation with no marker → warn + allow (rc 0); a required done-gate signal missing → still deny (rc 2). Feature commits `b7b2d87..35d9a82` + `8b79af3..eea8bd9`. Specs: `docs/specs/fr22-delivery-guarantee/spec.md`, `docs/specs/po-verifiable-boot/spec.md`. Detail: `docs/release-notes/v3.27.0.md`.
+
 ## [3.26.0] — 2026-06-15
 
 ### Added — FR-26 context-compression discipline (large-output / repeat-output audit, MCP coverage)

@@ -6,7 +6,7 @@
 
 ![FuseBase Flow — you design and decide with the Product Owner agent, which hands off to the AI Developer agent that implements, runs the verification gate, and deploys](docs/assets/two-agent-banner.svg)
 
-[![Version](https://img.shields.io/badge/version-3.26.0-blue.svg)](VERSION)
+[![Version](https://img.shields.io/badge/version-3.27.0-blue.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![CI](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml/badge.svg)](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml)
 [![Use this template](https://img.shields.io/badge/GitHub-Use_this_template-brightgreen.svg?logo=github)](https://github.com/fusebase-dev/fusebase-flow/generate)
@@ -95,7 +95,7 @@ Six slash commands are the only things you invoke directly — everything else i
 
 | Command | What it does | Real-world use case |
 |---|---|---|
-| **/product-owner** | Starts a Product Owner session — your single point of contact who advises *what* to build and *how*, reads your North Star, and breaks work into phases/slices. | "Let's build a booking system" → the PO scopes it, asks the right questions, and slices it into reviewable work. |
+| **/product-owner** | Starts a Product Owner session — your single point of contact who advises *what* to build and *how*, reads your North Star, and breaks work into phases/slices. It opens with a verifiable activation boot: the PO echoes its operating-rules checklist and a `PO-ACTIVATED` marker, and a Stop-hook warns if a session skips it. | "Let's build a booking system" → the PO scopes it, asks the right questions, and slices it into reviewable work. |
 | **/onboard** | The PO interviews you about vision, audience, and domain, then writes the project artifacts (`docs/north-star.md`, audience, project values) that steer all future work. | First time using Flow on your repo — capture your product vision once so every later task is aimed at it. |
 | **/handoff** | Writes the live session state to `docs/tmp/handoff.md` (16-section template) so a fresh chat resumes exactly where you left off. | A long debugging session is getting heavy → `/handoff`, open a new chat, continue without losing the thread. |
 | **/fusebase-health** | Read-only health check — reports drift between the FuseBase CLI layer and the Flow layer, and offers recovery for Flow-owned drift. | After a `fusebase update` you're unsure if Flow still works → confirms what (if anything) drifted and offers to fix it. |
