@@ -38,6 +38,34 @@ CLAIM_PATTERNS = {
 }
 
 
+# PO activation marker (ASCII, grep-stable). Match the stable prefix, not a
+# version number — the PO substitutes the live VERSION at runtime (spec D3).
+_PO_MARKER_RE = re.compile(r"\[\[ PO-ACTIVATED \| FuseBase Flow", re.IGNORECASE)
+# A PO session is present when the transcript shows the explicit /product-owner
+# invocation OR the marker itself (spec D1 — literal scan only; no audit-log
+# session correlation, no rule-content inspection).
+_PO_INVOCATION_RE = re.compile(r"(?:^|\s)/product-owner\b", re.IGNORECASE)
+
+
+def _po_activation_warn(transcript_text: str) -> str | None:
+    """Dedicated PO-activation check, INDEPENDENT of the done/deploy CLAIM_PATTERNS
+    gate (a normal PO first reply carries no claim phrase, so that gate never fires
+    for it). Returns a warn reason when a PO session is detected but the activation
+    marker is absent; otherwise None. Never denies, never touches the done/deploy
+    decision (spec D1/D2)."""
+    is_po_session = bool(_PO_INVOCATION_RE.search(transcript_text)) or bool(
+        _PO_MARKER_RE.search(transcript_text)
+    )
+    if is_po_session and not _PO_MARKER_RE.search(transcript_text):
+        return (
+            "PO session detected but the activation marker is absent. Emit the "
+            "activation boot checklist ending with "
+            "'[[ PO-ACTIVATED | FuseBase Flow <VERSION> | ... ]]' as the first reply "
+            "(warn-only, never blocks)."
+        )
+    return None
+
+
 def _signals_from_transcript(transcript_text: str, signal_defs: dict) -> dict[str, bool]:
     """Heuristic signal detection. v0.1 uses pattern definitions from
     required-artifacts.yml signal_definitions; we approximate with regex/keyword
@@ -101,6 +129,15 @@ def main() -> int:
         except OSError:
             transcript_text = ""
     transcript_text = transcript_text + "\n" + (event.get("agent_message") or "")
+
+    # Dedicated PO-activation path (spec D1/D2): runs OUTSIDE the CLAIM_PATTERNS
+    # gate so it fires on a PO first reply (which carries no claim phrase). Emits
+    # a warn when a PO session lacks the marker; never denies, never changes the
+    # done/deploy decision below.
+    po_warn = _po_activation_warn(transcript_text)
+    if po_warn:
+        emit("stop", decision="warn", reason=po_warn, rule_id="po_activation_attested", root=root)
+        print(f"[fusebase-flow] WARN: {po_warn}", file=sys.stderr)
 
     # Decide which gate applies
     triggered_gate: str | None = None

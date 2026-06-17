@@ -127,3 +127,12 @@ signal_definitions:
   # FR-22 review-ran signal (D1: WARN, never deny). Records that the comment-policy
   # review RAN; never inspects comment content (a content gate is forbidden by FR-22).
   comment_policy_review_applied: "transcript contains the literal phrase 'comment-policy review: applied (FR-22)' OR 'comment-policy review: N/A (FR-22; no code diff)'"
+  # PO-activation signal (spec po-verifiable-boot, D1/D2: WARN, never deny).
+  # Documentation only — NOT a before_done_claim entry. Fired by stop.py's
+  # dedicated PO-activation path (independent of CLAIM_PATTERNS), not by the
+  # done/deploy gate: when the transcript shows a /product-owner activation (the
+  # literal '/product-owner' input OR the ASCII '[[ PO-ACTIVATED | FuseBase Flow'
+  # marker) but the marker is ABSENT, stop.py emits a warn and still allows.
+  # Literal transcript scan only (no audit-log session correlation, no rule-content
+  # inspection).
+  po_activation_attested: "transcript shows a /product-owner activation (literal '/product-owner' input OR the '[[ PO-ACTIVATED | FuseBase Flow' marker) AND the marker is present; absence on a PO session is a warn via stop.py's dedicated path, never a deny"
