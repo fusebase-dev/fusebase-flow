@@ -45,6 +45,13 @@ before_done_claim:
       reason: "FR-05: gate report must exist before claiming readiness."
       rule_id: FR-05
   on_missing: deny
+  # Non-blocking recommended signals (D1: warn, never deny). A missing recommended
+  # signal emits a warn note via stop.py but NEVER adds to the blocking missing set.
+  recommended:
+    - signal: comment_policy_review_applied
+      reason: "FR-22: records that the comment-policy review ran (artifact-level, never content). Warn-only per decision D1; absence does not block."
+      rule_id: FR-22
+  on_missing_recommended: warn
 
 # Deploy-ready gate: before a session in Deploy phase runs the deploy command,
 # these artifacts must exist.
@@ -117,3 +124,6 @@ signal_definitions:
   docs_commit_present: "transcript contains 'docs(post-deploy):' commit or equivalent"
   cleanup_marker_present: "transcript contains the literal phrase 'cleanup: operator can sign out OR cookie expires per TTL' (per workflows/live-user-verification.md Step 8); only required when a session_key_or_cookie_use approval artifact was authored during this ticket"
   lightweight_lane_marker: "transcript indicates an FR-21 Lightweight-lane ticket: contains 'change_tier: lightweight', 'Lightweight lane', or a 'Phase: Lightweight' state announcement. When set, before_deploy_complete_claim signals flagged optional_when_lightweight (probes_passed, smoke_results_present, docs_commit_present) are waived; the safety-floor signals (deploy_hash_captured, rollback_note_present) stay required."
+  # FR-22 review-ran signal (D1: WARN, never deny). Records that the comment-policy
+  # review RAN; never inspects comment content (a content gate is forbidden by FR-22).
+  comment_policy_review_applied: "transcript contains the literal phrase 'comment-policy review: applied (FR-22)' OR 'comment-policy review: N/A (FR-22; no code diff)'"

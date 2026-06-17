@@ -69,6 +69,15 @@ def _signals_from_transcript(transcript_text: str, signal_defs: dict) -> dict[st
     detected["lightweight_lane_marker"] = bool(
         re.search(r"change_tier:\s*lightweight|lightweight lane|phase:\s*lightweight", text)
     )
+    # FR-22 review-ran marker (artifact-level; never inspects comment content).
+    # Either phrase satisfies it; absence is warn-only (decision D1), never a block.
+    detected["comment_policy_review_applied"] = bool(
+        re.search(
+            r"comment-policy review:\s*applied \(fr-22\)"
+            r"|comment-policy review:\s*n/a \(fr-22; no code diff\)",
+            text,
+        )
+    )
     return detected
 
 
@@ -133,6 +142,28 @@ def main() -> int:
                 optional_smoke or optional_live_user or optional_lightweight
             ):
                 missing.append(sig)
+
+    # Recommended (non-blocking) signals (D1): a missing one emits a warn note but
+    # is NEVER added to `missing` — it cannot flip the decision to deny.
+    missing_recommended: list[str] = []
+    for rec in gate_cfg.get("recommended", []) or []:
+        sig = rec.get("signal")
+        if sig and not detected.get(sig, False):
+            missing_recommended.append(sig)
+    if missing_recommended:
+        warn_reason = (
+            f"FR-22 (recommended, non-blocking): claim '{triggered_gate}' missing "
+            + ", ".join(missing_recommended)
+            + ". Emit 'comment-policy review: applied (FR-22)' (or '… N/A (FR-22; no code diff)')."
+        )
+        emit(
+            "stop",
+            decision="warn",
+            reason=warn_reason,
+            rule_id="FR-22",
+            extra={"gate": triggered_gate, "missing_recommended": missing_recommended},
+            root=root,
+        )
 
     if missing:
         on_missing = gate_cfg.get("on_missing", "deny")
