@@ -53,6 +53,12 @@ SPEC_REFERENCE_PATTERNS = [
 ]
 
 
+# PO activation: detect an explicit /product-owner invocation (spec D1 —
+# literal command only, no fuzzy keywords). Supplemental telemetry; the Stop
+# check does NOT rely on this (audit sessions key off env, not event id).
+PO_INVOCATION_PATTERN = r"(?:^|\s)/product-owner\b"
+
+
 def _detect_bypass(text: str) -> list[tuple[str, str]]:
     hits = []
     for pat, rule_id in BYPASS_PATTERNS:
@@ -91,6 +97,11 @@ def main() -> int:
     # 3. Impl request without spec
     impl_no_spec = _detect_impl_without_spec(user_prompt)
 
+    # 4. PO activation request (supplemental telemetry; never relied on by Stop)
+    po_activation_requested = bool(
+        re.search(PO_INVOCATION_PATTERN, user_prompt, flags=re.IGNORECASE)
+    )
+
     warnings: list[str] = []
     rule_ids: list[str] = []
 
@@ -112,6 +123,12 @@ def main() -> int:
         )
         rule_ids.append("FR-01")
 
+    if po_activation_requested:
+        warnings.append(
+            "PO session — emit the activation boot + marker first "
+            "(echo the operating-rules checklist ending with the PO-ACTIVATED marker)."
+        )
+
     decision = "allow"
     if sec_decision == "deny":
         decision = "warn"   # for prompts, we surface but don't block; operator may need to discuss
@@ -127,6 +144,7 @@ def main() -> int:
             "secret_match_ids": [m.pattern_id for m in secret_matches],
             "bypass_hits": [p for p, _ in bypass_hits],
             "impl_no_spec": impl_no_spec,
+            "po_activation_requested": po_activation_requested,
             "prompt_preview_chars": len(user_prompt),
         },
         root=root,
