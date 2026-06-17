@@ -27,6 +27,17 @@ Remove: WHAT-restating comments; rationale already in a decision/ticket/memory (
 - **Storage ≠ retrieval → the pointer is NOT a duplicate.** When an agent opens a file, the decision/backlog records are not in its context (SessionStart injects a fixed path set; commit bodies are often empty). The one-line pointer is the only in-context trigger to that external record. A naive "never restate — the why lives elsewhere" rule wrongly deletes it and *orphans* the record. Kill the prose; keep the pointer.
 - **Architecture-dependent → carve-outs are project-configurable.** Whether a *separate instruction layer* is read **instead of** source (a generated substrate/prompt/RAG/codegen the authoring agent consumes, never the engine source) was SUPPORTED in one audited project and REFUTED in another (one agent reads the real files). So the trust-critical carve-out set is **project-settable** in `policies/comment-policy.yml: trust_critical_globs` — never hardcoded. Run the audit prompt below in each project to derive its set before adopting.
 
+## Content gate forbidden — artifact-level checks encouraged
+
+The "no gate" decision is scoped to comment **content**, not to process **artifacts**. Conflating the two over-generalized "no content gate" into "build nothing" — including the safe artifact-level checks that give FR-22 a delivery guarantee.
+
+| Layer | Inspects | Verdict | Why |
+|---|---|---|---|
+| Comment CONTENT (tripwire vs WHAT-restate) | the words inside a comment | **FORBIDDEN as a gate** | tripwire-vs-restate is semantic, not pattern-matchable; a regex/lint gate trains agents to write worse comments to satisfy it. Enforced write-time (FR-22) + review-time (`code-review`). |
+| Process ARTIFACTS (handoff-contains-block; review-ran signal) | whether the implement handoff carries the FR-22 push block; whether the agent emitted the review-ran marker | **ENCOURAGED** | inspects process artifacts, never comment semantics → fully FR-22-safe. Makes the rule present-by-construction (template) and visible to the loop (`comment_policy_review_applied`, warn-only, in `policies/required-artifacts.yml`; detected by `stop.py`). |
+
+Maintainers/agents must not read "FR-22 forbids a gate" as "no enforcement machinery at all." Content gates are out; artifact-level checks are in. (The `FLOW_RULES.md` FR-22 rule row is unchanged — this distinction lives here + in the `comment-policy` skill.)
+
 ## Cross-project evidence (2026-06-04)
 
 | Claim | Project A | Project B |
