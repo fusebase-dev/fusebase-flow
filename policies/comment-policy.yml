@@ -15,25 +15,30 @@ schema_version: 1
 # trust_critical_globs REPLACE the defaults below.
 local_override_file: policies/comment-policy.local.yml
 
-# Trust-critical path globs. The policy is architecture-dependent: run the
-# independent-audit prompt in flow-skills/comment-policy/references/audit-prompt.md
-# against THIS project to derive its real set, then uncomment + customize. (The
-# prompt ships with the comment-policy skill so it is reachable in consumers;
-# docs/comment-policy.md is the framework-dev rationale home.) Most are commented so a
-# project opts in deliberately (same posture as protected-paths.yml).
+# Trust-critical path globs (multi-line ≤4-line tripwires stay legitimate here;
+# everywhere else the one-line rule applies fully).
+#
+# DERIVE AT SPECIFY (don't guess): the set is architecture-dependent. At the
+# Specify phase of the FIRST ticket that touches trust-critical code, run the
+# independent-audit prompt in
+# flow-skills/comment-policy/references/audit-prompt.md against THIS project; its
+# output is the exact glob set — uncomment the matching starters below + customize.
+# (docs/comment-policy.md is the framework-dev rationale home.) Posture is OPT-IN:
+# every entry stays commented so the boundary is one uncomment away and a project
+# opts in deliberately — same posture as protected-paths.yml. Do NOT ship active
+# broad defaults: an over-broad set weakens the review semantics (everything looks
+# "trust-critical", so nothing is).
 trust_critical_globs:
-  # auth / identity / session / gate
+  # Tightened starter set — uncomment ONLY the globs the audit prompt confirms for
+  # this project; delete the rest so the set stays minimal.
+  #
+  # auth / identity / session / gate code
   # - "**/auth/**"
-  # - "**/identity/**"
   # - "**/session/**"
-  # - "**/*gate*/**"
-  # - "**/*token*.*"
-  # database migrations
+  # database migrations (schema constraints a one-liner can't carry)
   # - "**/migrations/**"
-  # - "postgres/migrations/**"
-  # concurrency / platform-quirk engine code (project-specific — derive via audit)
+  # concurrency / scheduler engine code (project-specific — confirm via audit)
   # - "**/*worker*.*"
-  # - "**/*scheduler*.*"
 
 # Notes:
 # - "Keep tripwires" does NOT mean "keep all comments" — even trust-critical
