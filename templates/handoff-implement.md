@@ -102,7 +102,29 @@ If an identifier needs verification (e.g., the dashboard was renamed), note it: 
 
 Verification gate (T<gate>) and deploy (T<deploy>) serialize after all tracks land.
 
-When delegating a code-writing slice, inline the **Write-time discipline digest** + the comment-policy Delegation push block into the sub-agent prompt (FR-24 / FR-22 push; sub-agents don't auto-load skills or the always-on digest), plus the **Delegation contract push block** (`task-delegation` §3): *"complete within this turn (no self-resume; poll in-turn or read durable records); write durable facts into your owed artifacts AS THEY OCCUR — skeleton first, rows as earned; on an unbounded wait (human gate, no-ETA event) return `BLOCKED-AT-<gate>` + where reality is recorded; return verdict · SHAs · deltas · artifact pointers, never re-pasted bodies; state-change claims cite the ground-truth check performed."*
+When delegating a code-writing slice, inline the **Write-time discipline digest** + the **Comment policy (FR-22) — Delegation push block** rendered verbatim in the § below into the sub-agent prompt (FR-24 / FR-22 push; sub-agents don't auto-load skills or the always-on digest), plus the **Delegation contract push block** (`task-delegation` §3): *"complete within this turn (no self-resume; poll in-turn or read durable records); write durable facts into your owed artifacts AS THEY OCCUR — skeleton first, rows as earned; on an unbounded wait (human gate, no-ETA event) return `BLOCKED-AT-<gate>` + where reality is recorded; return verdict · SHAs · deltas · artifact pointers, never re-pasted bodies; state-change claims cite the ground-truth check performed."*
+
+---
+
+## Comment policy (FR-22) — applies to all code written under this handoff
+<!-- prevents: fr22-undelivered-to-sub-agents — taxonomy: docs/specs/fr22-delivery-guarantee/spec.md -->
+
+> **Present-by-construction (not "remember to inline").** This block ships in the template, so every authored handoff carries the FR-22 rule by construction — it is NOT an optional reminder the PO must recall. Single source of truth for the rule body: `flow-skills/comment-policy/SKILL.md` § Delegation push block; rendered here verbatim so the AI Developer (and any code-writing sub-agent — paste this block into its prompt, FR-24) sees it at write time. Do NOT delete this section.
+
+```
+COMMENT POLICY (FR-22) — applies to all code you write:
+Write ONLY two kinds of comment; remove everything else.
+1) TRIPWIRE — a constraint an editor could break unknowingly, not obvious from local code (≤1 line; ≤4 lines only for security/auth/concurrency/platform).
+2) RETRIEVAL POINTER — a ≤1-line tag naming the external WHY-home, e.g. "(decision B2)" or "backlog 156".
+REMOVE: comments that restate what the code does; rationale already recorded in a decision/ticket/memory; changelog/history (it's in git).
+Do NOT match surrounding comment density upward. Keep pointers — they are not duplicates.
+```
+
+After your code passes, emit the review-ran marker in chat (per `policies/required-artifacts.yml: comment_policy_review_applied`):
+- `comment-policy review: applied (FR-22)` — when this handoff produced a code diff.
+- `comment-policy review: N/A (FR-22; no code diff)` — for a no-source task.
+
+This records that the review RAN; it never inspects comment content (FR-22 forbids a content gate). Absence of the marker → a non-blocking warn at the done gate, not a deny.
 
 ---
 
