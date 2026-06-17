@@ -97,6 +97,17 @@ Do NOT match surrounding comment density upward. Keep pointers — they are not 
 - **Do NOT "match surrounding comment density" upward.** Trim toward this policy even in comment-heavy files. This clause is what breaks the harness density-ratchet — without it the policy is silently overridden.
 - **Storage ≠ retrieval — the pointer is NOT a duplicate.** When an agent opens a file the external records aren't in its context, so deleting the one-line pointer orphans a correct record the agent now has no trigger to open. Kill the prose; keep the pointer.
 
+## Content gate forbidden — artifact-level checks encouraged
+
+Two distinct enforcement layers; do not conflate them (conflating them led maintainers to build *nothing*):
+
+| Layer | Inspects | Verdict |
+|---|---|---|
+| **Comment CONTENT** (tripwire-vs-restate) | the words inside a comment | **FORBIDDEN as a gate** — semantic, not pattern-matchable; a regex/lint gate trains agents to write worse comments to pass it. Enforced write-time (this skill) + review-time (`code-review`) only. |
+| **Process ARTIFACTS** (handoff-contains-block; review-ran signal) | whether the handoff carries the FR-22 push block; whether the review marker was emitted | **ENCOURAGED** — inspects process artifacts, never comment semantics; fully FR-22-safe. E.g. `comment_policy_review_applied` (warn-only) in `policies/required-artifacts.yml`, detected by `stop.py`. |
+
+The "no gate" rule is about comment content only. It does **not** forbid the safe artifact-level checks that make FR-22 delivered-by-construction and visible to the loop.
+
 ## Carve-out (trust-critical paths)
 
 Trust-critical paths — auth / identity / session / gate code, DB migrations, and anything in `policies/comment-policy.yml: trust_critical_globs` — keep their multi-line tripwires. Apply the rule fully to CRUD / routine code. The set is **project-settable** (architecture-dependent: whether a separate instruction layer is read *instead of* source varies by project). Run `references/audit-prompt.md` against a project to derive its set before adopting.

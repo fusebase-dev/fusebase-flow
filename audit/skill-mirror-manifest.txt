@@ -12,9 +12,9 @@
 .claude/skills/client-vs-internal/SKILL.md  8598654f239aa87feb88375dc1716b2ef55d40d2ecc98c667eb44061382efaa6
 .agents/skills/code-review/SKILL.md  6c065abee39a92d5cd584b6ee17d3a3251fb5dade59c7aa4ccaa2c017e2e5e7b
 .claude/skills/code-review/SKILL.md  6c065abee39a92d5cd584b6ee17d3a3251fb5dade59c7aa4ccaa2c017e2e5e7b
-.agents/skills/comment-policy/SKILL.md  119ae17b132a29a9bcadf6838f34e5136097bd2b241ff234a05434658672b694
+.agents/skills/comment-policy/SKILL.md  6f54dc3df6317bfc28a680bb4fb12adb1b7e67a10a023bc5482ffb908c4fbb81
 .agents/skills/comment-policy/references/audit-prompt.md  5a949b4e7906f6df6eff74a7e5247c4157a07934e3183ff6a2131e1a41c9874c
-.claude/skills/comment-policy/SKILL.md  119ae17b132a29a9bcadf6838f34e5136097bd2b241ff234a05434658672b694
+.claude/skills/comment-policy/SKILL.md  6f54dc3df6317bfc28a680bb4fb12adb1b7e67a10a023bc5482ffb908c4fbb81
 .claude/skills/comment-policy/references/audit-prompt.md  5a949b4e7906f6df6eff74a7e5247c4157a07934e3183ff6a2131e1a41c9874c
 .agents/skills/communication/SKILL.md  71dae984df4df882b50526867972de000dfc152b0a50526765116ae5bfb3a509
 .agents/skills/communication/references/patterns.md  959b878159878177803d9f59622f59bbbf60b9725c1bf5f5aec441dc64266ddb
@@ -58,12 +58,12 @@
 .claude/skills/repo-onboarding-context-map/SKILL.md  fa61af5cd7393a4196493180c3a22e7d724de8e1c5c0cea93a2760ed2e75b390
 .agents/skills/requirements-specification/SKILL.md  e5027aed8585649e9e9ec9395126942a43a535cdca37162b78adeb06dd754c76
 .claude/skills/requirements-specification/SKILL.md  e5027aed8585649e9e9ec9395126942a43a535cdca37162b78adeb06dd754c76
-.agents/skills/role-discipline/SKILL.md  b0640e06f91864f3968b3c8a287358972138523d90dd7852a1c2673f17e1ead4
+.agents/skills/role-discipline/SKILL.md  b0f6722f339653997815f5d5a50ca9b0cc41d6066eb250eb2f91d988064e85ba
 .agents/skills/role-discipline/references/ai-developer.md  98f3bf488a38c4dd97390f4cc011b60fac2b09d8ffe3621394d37850c50644af
 .agents/skills/role-discipline/references/architect.md  fd7f0edf600a618b34284e61025b7ad97ad51fd2e2dfa005eec6596cac996744
 .agents/skills/role-discipline/references/deploy.md  65551966f3136adb3baa036ed9c0d01695eb953ba1cdbf1cd9ce3c7d102ce83b
 .agents/skills/role-discipline/references/product-owner.md  277321fac4c03623f3fa47f02e37d7b08e918123990dc60ddf58f4405d6c1cbc
-.claude/skills/role-discipline/SKILL.md  b0640e06f91864f3968b3c8a287358972138523d90dd7852a1c2673f17e1ead4
+.claude/skills/role-discipline/SKILL.md  b0f6722f339653997815f5d5a50ca9b0cc41d6066eb250eb2f91d988064e85ba
 .claude/skills/role-discipline/references/ai-developer.md  98f3bf488a38c4dd97390f4cc011b60fac2b09d8ffe3621394d37850c50644af
 .claude/skills/role-discipline/references/architect.md  fd7f0edf600a618b34284e61025b7ad97ad51fd2e2dfa005eec6596cac996744
 .claude/skills/role-discipline/references/deploy.md  65551966f3136adb3baa036ed9c0d01695eb953ba1cdbf1cd9ce3c7d102ce83b
