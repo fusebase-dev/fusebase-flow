@@ -30,16 +30,17 @@ Every always-on rule in `FLOW_RULES.md` maps to one or more enforcement surfaces
 | FR-24 | Write-time discipline delivery | yes | (delivery mechanism, not a procedure) | `role-discipline` (§ Write-time discipline digest) | `session_start` (reminder line) | n/a |
 | FR-25 | Module-size ratchet | yes | (write/plan-time; CI step) | `module-size-discipline`, `implementation-planning` (target-file rule), `code-review` (dimension 5c) | `pre-commit` git hook (module-size step) + CI `--all` step | `policies/module-size.yml` + `module-size-baseline.txt` |
 | FR-26 | Token-efficient execution | yes | (execution-time discipline + retrospective audit; deliberately no gate — semantic) | `token-economy` (carrier), `role-discipline` (digest line) | n/a (`/token-waste-audit` parser `hooks/local/token-waste-audit.py` is operator tooling, not a hook) | n/a |
+| FR-27 | Liveness — never launch bare | yes | (launch-time discipline; deliberately no gate AND no verification hook — a hang is undetectable by construction, so a "watchdog: applied" signal would be attestation theatre) | `liveness-discipline` (carrier + protocol), `role-discipline` (digest line); cross-links `task-delegation` (BLOCKED-AT) + `smoke-testing` (record-then-read) | `session_start` (reminder line) — NOT a verification hook; enforcement = digest delivery + `hooks/local/lib/bounded-run.sh` (structural bounded-run tooling) | n/a |
 
 ## Surface counts
 
 | Surface type | Count of rules with this surface |
 |---|---|
-| Rule statement (FLOW_RULES.md) | 26 / 26 |
-| Workflow | 16 / 26 |
-| Skill | 22 / 26 |
-| Hook | 12 / 26 |
-| Policy | 9 / 26 |
+| Rule statement (FLOW_RULES.md) | 27 / 27 |
+| Workflow | 16 / 27 |
+| Skill | 23 / 27 |
+| Hook | 13 / 27 |
+| Policy | 9 / 27 |
 
 ## Cross-cutting mandatory skills
 
@@ -64,4 +65,5 @@ Any new rule (FR-16+) must be added to:
 2026-05-27 — v3.1; added FR-16..FR-19 rows and updated surface counts.
 2026-06-10 — v3.16.4; added FR-20..FR-25 rows (had drifted 6 releases behind), surface counts 19→25 base, removed dead open-questions.md reference.
 2026-06-11 — v3.20.0; added FR-26 row (token-efficient execution) at ship time per § Drift detection, surface counts 25→26 base.
+2026-06-17 — v3.28.0; added FR-27 row (liveness — never launch bare) per § Drift detection, surface counts 26→27 base. Enforcement = digest delivery + bounded-run.sh; no gate; no hook verification (a hang is undetectable by construction).
 ```

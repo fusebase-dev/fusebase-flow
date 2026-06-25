@@ -143,6 +143,7 @@ Six slash commands are the only things you invoke directly — everything else i
 | **documentation-budget** (FR-23) | Classifies whether a doc is needed and at which tier *before* writing it. | Stops a redundant "design doc" from being created just because a template exists. |
 | **module-size-discipline** (FR-25) | Module-size ratchet — gated files stay under the ceiling (default 800 lines); over-ceiling files may only shrink. | A file creeping toward 800 lines triggers a clean extraction along a seam, not unchecked growth. |
 | **token-economy** (FR-26) | Token-efficient execution + context-compression discipline (route-by-type, extract-before-reasoning, pointer-backed summaries); measured via `/token-waste-audit`. | The AI reads the slice it needs and references big results instead of re-pasting them. |
+| **liveness-discipline** (FR-27) | Never launch long/silent background work bare — bound it with a timeout/watchdog (`bounded-run.sh`), finish it in-turn, or return `BLOCKED-AT-<gate>` so a hung job can't leave the agent idling silently. | A background re-verify probe stalls against a cold-start proxy → it times out with a visible line instead of the agent sitting idle until you ask "is it done?". |
 | **find-wasted-effort** | Ceremony audit — process-per-outcome; reads Flow artifacts for steps that bought no safety (the sibling of `/token-waste-audit` on a different axis). | Surfaces gate stops or handoffs that never prevented anything, so you can trim ceremony deliberately. |
 | **app-quality-patterns** | Cross-project behavioral quality patterns (URL reflects view state, delete-cascade policy, empty/loading/error states…) that become spec ACs. | Building a list view → "show empty/loading/error states" and "URL reflects filters" are baked in as acceptance criteria. |
 
@@ -350,9 +351,9 @@ Preflight will warn on drift if the mirrors and canonical fall out of sync. Full
 
 ## Skill catalog
 
-Skills are on-demand expertise the agent loads when a task matches the skill's description. **31 canonical Flow skills** govern the lifecycle and project-optimization; **19 FuseBase Apps domain skills** supply the app-building knowledge. You never invoke them by hand — describe the work and the matcher loads the right one.
+Skills are on-demand expertise the agent loads when a task matches the skill's description. **32 canonical Flow skills** govern the lifecycle and project-optimization; **19 FuseBase Apps domain skills** supply the app-building knowledge. You never invoke them by hand — describe the work and the matcher loads the right one.
 
-### Flow lifecycle skills (31)
+### Flow lifecycle skills (32)
 
 | Phase | Skill | What it does |
 |---|---|---|
@@ -386,9 +387,10 @@ Skills are on-demand expertise the agent loads when a task matches the skill's d
 | Structure | `module-size-discipline` | FR-25 — module-size ratchet; gated source ≤ ceiling (default 800), over-ceiling files shrink-only; extraction on a responsibility seam is in-scope |
 | Quality | `app-quality-patterns` | Cross-project behavioral quality patterns (QP-xx: URL reflects view state, delete cascade policy, empty/loading/error states…) — become spec ACs by ID; Verify lines are copy-ready smoke recipes |
 | Economy | `token-economy` | FR-26 — token-efficient execution (scoped reads, no re-reads of unchanged files, two-strike retry rule, targeted edits) with per-rule quality guards; measured via `/token-waste-audit` — plus **context-compression discipline** for large context/output (route-by-type, extract-before-reasoning, pointer-backed summaries, reopen-original-before-deciding); `/token-waste-audit` now flags `large-output` + `repeat-output` candidates across built-in **and MCP** tools |
+| Liveness | `liveness-discipline` | FR-27 — never launch long/silent background work bare; ≥1 liveness guarantee before launch (bound via `hooks/local/lib/bounded-run.sh`, complete in-turn, or return `BLOCKED-AT-<gate>` + a record-then-read pointer) so a hung job reaches completion-or-death instead of a silent idle; diagnose a suspected hang by activity/mtime not 0-byte existence; **no blocking gate, no verification hook** (a hang is undetectable by construction — enforcement = bounded-run tooling + present-by-construction delivery) |
 | Ceremony audit | `find-wasted-effort` | A2 — process-per-outcome ceremony audit (`/find-wasted-effort`); reads Flow artifacts on disk for ceremony that bought no safety outcome; read-only, findings are review candidates (never auto-prune); sibling of `/token-waste-audit` on a different axis |
 
-★ = mandatory, loaded every session. The last 9 (zoom-out … product-apps-decomposition) shipped in v3.3–v3.5; `lightweight-lane` v3.7, `comment-policy` v3.11, `documentation-budget` v3.12, `handoff` v3.14, `module-size-discipline` v3.16, `app-quality-patterns` v3.19, `token-economy` v3.20, `find-wasted-effort` v3.22. The project-* / north-star / client-vs-internal / product-* / guard skills are **artifact-gated** — dormant until onboarding creates their `docs/` artifact.
+★ = mandatory, loaded every session. The last 9 (zoom-out … product-apps-decomposition) shipped in v3.3–v3.5; `lightweight-lane` v3.7, `comment-policy` v3.11, `documentation-budget` v3.12, `handoff` v3.14, `module-size-discipline` v3.16, `app-quality-patterns` v3.19, `token-economy` v3.20, `find-wasted-effort` v3.22, `liveness-discipline` v3.28. The project-* / north-star / client-vs-internal / product-* / guard skills are **artifact-gated** — dormant until onboarding creates their `docs/` artifact.
 
 ### FuseBase CLI provider skills (19)
 
@@ -753,7 +755,7 @@ fusebase-flow/
 ├── VERSION                         ← (current release)
 ├── .gitattributes                  ← LF line endings for shell/python/yaml/md
 ├── .python-version                 ← 3.12 (recommended)
-├── flow-skills/                         ← 31 canonical skills (2 mandatory + 29 on-demand, incl. find-wasted-effort (v3.22) + token-economy (v3.20) + app-quality-patterns (v3.19) + module-size-discipline (v3.16) + handoff (v3.14) + documentation-budget (v3.12) + comment-policy (v3.11) + lightweight-lane (v3.7) + the v3.3–v3.5 additions: zoom-out, phase-audit, git-history-diagnostic, project-onboarding, north-star, client-vs-internal, product-docs-first, business-logic-guardian, product-apps-decomposition)
+├── flow-skills/                         ← 32 canonical skills (2 mandatory + 30 on-demand, incl. liveness-discipline (v3.28) + find-wasted-effort (v3.22) + token-economy (v3.20) + app-quality-patterns (v3.19) + module-size-discipline (v3.16) + handoff (v3.14) + documentation-budget (v3.12) + comment-policy (v3.11) + lightweight-lane (v3.7) + the v3.3–v3.5 additions: zoom-out, phase-audit, git-history-diagnostic, project-onboarding, north-star, client-vs-internal, product-docs-first, business-logic-guardian, product-apps-decomposition)
 ├── agents/                         ← 2 canonical sub-agents (product-owner, ai-developer)
 ├── workflows/                      ← 13 procedures (incl. lightweight-lane)
 ├── policies/                       ← 9 YAML policies (incl. module-size ratchet + ratchet-governance)
@@ -776,8 +778,8 @@ fusebase-flow/
 │   └── agent-mirror-manifest.txt   ← sha256 manifest for sub-agent mirrors
 ├── state/                          ← runtime state (gitignored contents)
 ├── docs/                           ← public reference docs + per-project artifacts
-├── .agents/skills/                 ← Codex skill surface (31 Flow mirrors + 19 CLI provider skills)
-├── .claude/skills/                 ← Claude Code skill surface (31 Flow mirrors + 19 CLI provider skills)
+├── .agents/skills/                 ← Codex skill surface (32 Flow mirrors + 19 CLI provider skills)
+├── .claude/skills/                 ← Claude Code skill surface (32 Flow mirrors + 19 CLI provider skills)
 ├── .claude/agents/                 ← Claude Code agent surface (2 Flow role agents + 2 CLI app agents)
 ├── .claude/commands/               ← Anthropic Claude Code slash commands (incl. /fusebase-health)
 ├── .claude/settings.json.example   ← Claude Code hook wiring
