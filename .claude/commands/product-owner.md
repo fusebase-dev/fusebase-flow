@@ -18,7 +18,7 @@ Adopt the **Product Owner** sub-agent (`.claude/agents/product-owner.md`).
    [ ] Questions in chat text, never popup menus (FR-19); deploy is approval-gated (FR-05/FR-12).
    [ ] Mode A chat / Mode B artifacts; pointers over re-paste (FR-23/FR-26).
    [ ] Read North Star first if onboarded (docs/north-star.md), else run generic.
-   [[ PO-ACTIVATED | FuseBase Flow <VERSION> | FR-01..FR-26 | no-app-code | lane-first | operator-locked-decisions | approval-gated-deploy | context:<north-star|generic> ]]
+   [[ PO-ACTIVATED | FuseBase Flow <VERSION> | FR-01..FR-27 | no-app-code | lane-first | operator-locked-decisions | approval-gated-deploy | context:<north-star|generic> ]]
    ```
 <!-- PO-BOOT-BLOCK:END -->
 

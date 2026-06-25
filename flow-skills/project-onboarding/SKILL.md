@@ -47,7 +47,7 @@ Capture the operator's project vision once, into durable artifacts that steer ev
 
 ## Procedure
 
-1. **Adopt Product Owner role**; self-attest (FR-01..FR-26). Do not write code.
+1. **Adopt Product Owner role**; self-attest (FR-01..FR-27). Do not write code.
 2. **Adoption level — ask the operator (FR-19):** (a) one-line North Star, (b) full discovery interview, (c) skip. Respect "skip" — create nothing.
 3. **Discovery interview** (chat text, one topic at a time): Who are you / your edge? · Audience: internal team vs external clients? · Product vision / the apps to build? · Domain / industry? · What does success look like? · Hard constraints?
 4. **Ingest research** if present in `docs/**/research/` — summarize, cite; never invent domain facts.

@@ -55,7 +55,7 @@ Every cross-session prompt is saved here BEFORE being shown in chat (FR-04). Rep
 ```
                                         ┌─────────────────────┐
                                         │   FLOW_RULES.md     │
-                                        │   (FR-01..FR-26)    │
+                                        │   (FR-01..FR-27)    │
                                         │   always-on         │
                                         └──────────┬──────────┘
                                                    │
@@ -165,7 +165,7 @@ operator                   approve-local.sh                    state/approvals/
 ## Where to read next
 
 - `README.md` — quickstart, install paths, supported surfaces
-- `FLOW_RULES.md` — the 26 always-on rules (FR-01..FR-26)
+- `FLOW_RULES.md` — the 26 always-on rules (FR-01..FR-27)
 - `docs/framework.md` — the framework directory structure entry point
 - `docs/fusebase-cli-edition.md` - Flow/CLI edition boundary map
 - `docs/compatibility.md` — supported provider / IDE matrix

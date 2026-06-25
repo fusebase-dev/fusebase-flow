@@ -1,4 +1,4 @@
-# Fusebase Flow — always-on rules (FR-01..FR-26)
+# Fusebase Flow — always-on rules (FR-01..FR-27)
 
 **Status:** v0.28 (FR-26 added — token-efficient execution, v3.20.0: quality-first guardrail; redundant-consumption rules + `/token-waste-audit` measurement; 30th skill `token-economy`. Delegation turn-completion + verification cost discipline v3.19.1 before it.)
 **Scope:** every session in any IDE/agent must follow these regardless of which skill or workflow is active.
@@ -54,7 +54,7 @@ If a session writes code outside its role, FR-01 fires and the agent must stop a
 
 ## Self-attestation (mandatory at first response of every session)
 
-Every role declares: "Operating as {role} under Fusebase Flow v3.27.0. I will follow FR-01 through FR-26. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+Every role declares: "Operating as {role} under Fusebase Flow v3.27.0. I will follow FR-01 through FR-27. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 If self-attestation is missing from the first response, the session is drifting. Self-correct in the next output.
 

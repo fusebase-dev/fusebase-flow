@@ -329,7 +329,7 @@ my-existing-project/
 ├── templates/               # Spec, plan, decision, handoff templates
 ├── workflows/               # Phase definitions and verification gates
 ├── AGENTS.md                # Always-on baseline rules
-├── FLOW_RULES.md            # FR-01..FR-26 rule set
+├── FLOW_RULES.md            # FR-01..FR-27 rule set
 └── ...your existing project files, untouched...
 ```
 

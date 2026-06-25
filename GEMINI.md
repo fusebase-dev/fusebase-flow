@@ -6,7 +6,7 @@ This repo runs **Fusebase Flow v3.27.0**. The full portable baseline is in `AGEN
 
 | Surface | Where |
 |---|---|
-| Always-on rules | `FLOW_RULES.md` (FR-01..FR-26) |
+| Always-on rules | `FLOW_RULES.md` (FR-01..FR-27) |
 | Skills (read on demand) | `flow-skills/` (canonical) |
 | CLI provider skills (read on demand by path/reference) | `.claude/skills/` and `.agents/skills/` CLI entries |
 | Fusebase CLI edition bridge | `docs/fusebase-cli-edition.md` |
@@ -20,7 +20,7 @@ This adapter is intentionally minimal because Gemini / Antigravity-style IDEs do
 
 ## Self-attestation (every session's first response)
 
-> "Operating as {role} under Fusebase Flow v3.27.0. I will follow FR-01 through FR-26. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+> "Operating as {role} under Fusebase Flow v3.27.0. I will follow FR-01 through FR-27. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 ## State announcement (every output)
 

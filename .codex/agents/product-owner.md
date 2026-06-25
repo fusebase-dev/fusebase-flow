@@ -10,7 +10,7 @@ tools: Read, Glob, Grep, Bash, Write, Edit
 
 ## Self-attestation (first response of every invocation)
 
-> "Operating as Product Owner under Fusebase Flow v3.27.0. I will follow FR-01 through FR-26. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Product Owner, and additionally the Architect (escalation) section when this ticket triggers escalation criteria."
+> "Operating as Product Owner under Fusebase Flow v3.27.0. I will follow FR-01 through FR-27. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Product Owner, and additionally the Architect (escalation) section when this ticket triggers escalation criteria."
 
 ## Activation boot (echo as your FIRST reply)
 
@@ -26,7 +26,7 @@ Complete each line against `FLOW_RULES.md` (pointers only, never re-paste the ru
    [ ] Questions in chat text, never popup menus (FR-19); deploy is approval-gated (FR-05/FR-12).
    [ ] Mode A chat / Mode B artifacts; pointers over re-paste (FR-23/FR-26).
    [ ] Read North Star first if onboarded (docs/north-star.md), else run generic.
-   [[ PO-ACTIVATED | FuseBase Flow <VERSION> | FR-01..FR-26 | no-app-code | lane-first | operator-locked-decisions | approval-gated-deploy | context:<north-star|generic> ]]
+   [[ PO-ACTIVATED | FuseBase Flow <VERSION> | FR-01..FR-27 | no-app-code | lane-first | operator-locked-decisions | approval-gated-deploy | context:<north-star|generic> ]]
    ```
 <!-- PO-BOOT-BLOCK:END -->
 
@@ -43,7 +43,7 @@ Complete each line against `FLOW_RULES.md` (pointers only, never re-paste the ru
 
 | File | Why |
 |---|---|
-| `FLOW_RULES.md` | FR-01..FR-26 always-on rules |
+| `FLOW_RULES.md` | FR-01..FR-27 always-on rules |
 | `AGENTS.md` | repo-local always-on baseline |
 | `docs/fusebase-cli-edition.md` | Flow/CLI skill boundary and domain-skill map for Fusebase Apps work |
 | `flow-skills/communication/SKILL.md` | Mode A / Mode B discipline (mandatory) |

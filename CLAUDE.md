@@ -12,7 +12,7 @@ This repo runs **Fusebase Flow v3.27.0**. The portable always-on baseline is in 
 | Settings example (hooks wiring) | `.claude/settings.json.example` — copy to `.claude/settings.json` and customize before hooks run |
 | Flow hook handlers | `hooks/handlers/*.py` (Python, lifecycle-event-named) |
 | CLI quality hooks | `.claude/hooks/*` |
-| Always-on rules | `FLOW_RULES.md` (FR-01..FR-26; stop at `## Amendment log` — dated history) |
+| Always-on rules | `FLOW_RULES.md` (FR-01..FR-27; stop at `## Amendment log` — dated history) |
 
 ## Skills behavior under Claude Code
 

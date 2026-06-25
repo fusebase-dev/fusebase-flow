@@ -47,7 +47,7 @@ There is no scenario where this skill doesn't apply during an active session. It
 | Input | Where it lives | If missing |
 |---|---|---|
 | Self-attested role | first-response self-attestation phrase | STOP — agent must self-attest a role before any other action |
-| `FLOW_RULES.md` (FR-01..FR-26) | repo root | read at session start **down to `## Amendment log`** (the log is dated history — never load it). The hook layer only existence-checks it. The write-time rules (FR-09/18/22/23/25/26) are additionally delivered always-on via § Write-time discipline digest below (FR-24); load the cited skill for full detail. |
+| `FLOW_RULES.md` (FR-01..FR-27) | repo root | read at session start **down to `## Amendment log`** (the log is dated history — never load it). The hook layer only existence-checks it. The write-time rules (FR-09/18/22/23/25/26) are additionally delivered always-on via § Write-time discipline digest below (FR-24); load the cited skill for full detail. |
 | `policies/command-policy.yml` (deny + require_approval lists) | `policies/` | hooks consult this; agent should not duplicate the check |
 
 ## Procedure
