@@ -1,0 +1,1 @@
+[fusebase-flow] WARN: PO session detected but the activation marker is absent. Emit the activation boot checklist ending with '[[ PO-ACTIVATED | FuseBase Flow <VERSION> | ... ]]' as the first reply (warn-only, never blocks).
