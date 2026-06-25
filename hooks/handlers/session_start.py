@@ -92,6 +92,12 @@ def main() -> int:
         "FR-25 module-size ratchet (don't grow over-ceiling files; extract on a seam) "
         "— see role-discipline § Write-time discipline digest"
     )
+    summary_lines.append(
+        "Liveness (FR-27): never launch long/silent background work bare — bound it "
+        "(source hooks/local/lib/bounded-run.sh), complete it in-turn, or return "
+        "BLOCKED-AT-<gate> + a record-then-read pointer; a hung task emits no "
+        "completion event and you idle silently — see flow-skills/liveness-discipline"
+    )
 
     # Active project context (Layer 2 of artifact discovery — Claude Code accelerator).
     # Additive, read-only: surface project artifacts if the project has been onboarded.
