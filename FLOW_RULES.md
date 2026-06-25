@@ -33,6 +33,7 @@ These rules are clean-room original. Each rule states *what*, *why*, and *enforc
 | FR-24 | Write-time discipline delivery | The write-time rules (FR-09 Mode B, FR-18 supersede, FR-22 comments, FR-23 doc budget) only work when in the writing agent's context **at write time**; carrier skills miss operator-launched writing chats. Delivered via ONE always-on, role-scoped **write-time discipline digest** (pointer index, not duplicated bodies); every new write-time rule adds one digest line. Dev artifacts are AI-consumed → optimize for AI only; human-facing surface stays human-readable. | rule + `flow-skills/role-discipline/SKILL.md` (§ Write-time discipline digest) + `templates/handoff-implement.md` + `hooks/handlers/session_start.py` + `code-review` (review-time) |
 | FR-25 | Module-size ratchet | Source files are AI-read; a multi-thousand-line file can't be loaded in one pass, and monoliths form as the integral of N individually-reasonable diffs. Line count is objective (unlike FR-22/FR-23) → deterministic gate. Gated file ≤ ceiling (default 800, policy-set); baselined over-ceiling files may shrink, never grow; no committed baseline → warn-only. Extraction on a responsibility seam is in-scope for the task — never scope creep, never an FR-21 promotion trigger by itself. Split QUALITY (seam vs mechanical `utilsN`) is semantic → review-time only. Exemptions/baseline are operator-only; never `--no-verify`. Not retroactive. | rule + `policies/module-size.yml` + `hooks/shared/module_size.py` (`hooks/local/check-module-size.sh`) + `pre-commit` git hook + CI `--all` step + skill `flow-skills/module-size-discipline/SKILL.md` + plan-time rule (`implementation-planning`) + `code-review` dimension + FR-24 digest line |
 | FR-26 | Token-efficient execution | Cut REDUNDANT token consumption only: scoped reads, no re-reads of unchanged in-context files, skip generated/vendored files, pre-cached IDs, two-strike retry rule, targeted edits over whole-file rewrites, pointers over reprints. Redundant spend buys zero information (completes the FR-21/23/25 economy family on the execution axis). Quality outranks tokens — never skip a needed first-read or thin verification. | rule + `flow-skills/token-economy/SKILL.md` (rules + quality guards) + role-discipline § Write-time discipline digest line (FR-24 channel) + `/token-waste-audit` retrospective audit (Claude Code; portable fallback in the skill) — deliberately NOT a gate (semantic, FR-22 class; a budget gate trains truncation) |
+| FR-27 | Liveness — never launch bare | Any long/silent background work (the agent's own probe/script/deploy/fetch-loop/browser-automation, a sub-agent, or a workflow) must be made observable BEFORE launch — bounded by a timeout/watchdog, OR completed in-turn, OR returned as `BLOCKED-AT-<gate>` + a record-then-read pointer. A hung process emits no completion event, so the agent is never re-invoked and idles silently. A task that cannot signal its own completion-or-death must never be launched bare. Quality/safety floor unchanged. | rule + `flow-skills/liveness-discipline/SKILL.md` (full protocol) + `hooks/local/lib/bounded-run.sh` (structural bounded-run tooling) + role-discipline § Write-time discipline digest line (FR-24 channel) — deliberately NO blocking gate and NO verification hook (a hang is undetectable by construction; a "watchdog: applied" signal would be attestation theatre); enforcement = safe-default tooling + present-by-construction delivery |
 
 ---
 
@@ -563,4 +564,48 @@ Both modes preserve FR-03, FR-13, FR-14.
              preserving report to state/audit/); non-Claude surfaces degrade
              to the repo-side fallback summary. Spec:
              docs/specs/token-economy/spec.md. Shipped in framework v3.20.0.
+
+2026-06-17 — v0.29. FR-27 added (liveness — never launch bare). Driver:
+             operator report — a project's AI developer launched a background
+             re-verify probe that HUNG (no internal timeout; a fetch/cleanup
+             stalled against a cold-start proxy). A hung process emits no
+             completion event, so the agent was never re-invoked and idled
+             until the operator nudged it ("is it all done?"). The framework
+             already named this failure but only for delegated sub-agents
+             (task-delegation turn-completion / BLOCKED-AT, scope-gated to
+             sub-agents) — the agent's OWN probe/script/deploy/fetch-loop/
+             browser-automation was uncovered, and the protocol had been
+             hand-retyped into 3 deploy handoffs + the subagent-deploy memory
+             with no canonical home. Honest enforcement model (load-bearing):
+             NO hook can reliably verify this hang class — there is no
+             elapsed-time/idle event in the hook schema, post_tool_use cannot
+             fire for a call that never returns, and a Stop-time
+             "watchdog: applied" signal would be attestation theatre (the
+             inert-lever anti-pattern). Therefore NO blocking gate and NO
+             verification hook (FR-26 precedent: the failure is semantic — a
+             real hang vs a legitimate long-but-live run; a gate would train
+             premature kills). Enforcement = (1) structural safe-by-default
+             tooling (new hooks/local/lib/bounded-run.sh REUSES
+             run-with-timeout's core without breaking the ffhc_* API the
+             health-check sources; adds a wall-clock deadline emitting a
+             terminal timeout line + incremental progress logging so a
+             monitored background launch reaches completion-or-death instead
+             of a silent idle) + (2) present-by-construction delivery (FR-27
+             digest row in role-discipline + session_start reminder + the
+             liveness/BLOCKED-AT clause promoted into the handoff Role-bootstrap
+             Hard-invariants so the MAIN session carries it). Qualified tooling
+             claim (D7 — do not overstate): the wrapper bounds the MONITORED
+             process; it does NOT kill an `&`-detached grandchild or an
+             uninterruptible OS wait, and does NOT prove the host re-invokes —
+             the skill teaches "don't `&`-detach under the wrapper; put a
+             deadline INSIDE long scripts too; always flush partial results."
+             New 32nd canonical skill flow-skills/liveness-discipline
+             (cross-links task-delegation BLOCKED-AT + smoke-testing
+             record-then-read). DEFERRED (follow-up tickets): D3 warn-only
+             pre_tool_use nudge (host maps a non-allow/non-deny decision to
+             an interactive `ask`/block — needs an allow-with-warning path +
+             tests), D4 Python watchdog helper (shell first), D5
+             templates/bounded-script.sh skeleton (compact example lives in
+             the skill). Spec: docs/specs/liveness-discipline/spec.md. Shipped
+             in framework v3.28.0.
 ```
