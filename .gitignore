@@ -36,6 +36,10 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Operator-private Claude Code permission overrides — never publish an operator's
+# local allowlist; the committed config of record is .claude/settings.json.example
+.claude/settings.local.json
+
 # Python (hooks runtime)
 __pycache__/
 *.pyc
