@@ -4,6 +4,25 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.28.0] — 2026-06-17
+
+### Added — FR-27 liveness discipline (anti-hang)
+
+**Feature (additive).** The first always-on rule added since FR-26. Driver: a real consumer hang — a background re-verify probe **HUNG** (no internal timeout; stalled against a cold-start proxy), emitted no completion event, so the agent was never re-invoked and idled silently until the operator nudged it. The framework already named this failure but only for **delegated sub-agents** (`task-delegation`); the agent's **own** probe/script/deploy/fetch-loop/browser work was uncovered, with no canonical home.
+
+**FR-07-clean / additive:** FR-27 is an **APPEND** to the FR table — existing FR-01..FR-26 rows are byte-unchanged; the 3 deploy-policy semantics + `ratchet-governance.yml` + `run-with-timeout.sh` (`ffhc_*` API) untouched. Double-reviewed by Codex (design RESCOPE folded + implementation review: stale-count DO-NOT-SHIP → fixed `9361526` → re-confirm **SHIP**).
+
+- **FR-27 rule** (`FLOW_RULES.md`) — any long/silent background work (the agent's own probe/script/deploy/fetch-loop/browser-automation, a sub-agent, or a workflow) must be made observable BEFORE launch — bounded by a timeout/watchdog, OR completed in-turn, OR returned as `BLOCKED-AT-<gate>` + a record-then-read pointer. A task that cannot signal its own completion-or-death must never be launched bare.
+- **`liveness-discipline` skill** (`flow-skills/liveness-discipline/SKILL.md`) — the **32nd** canonical skill carrying the full protocol + a compact `bounded-run` example + cross-links to `task-delegation` (`BLOCKED-AT`) and `smoke-testing` (record-then-read).
+- **`bounded-run.sh` structural helper** (`hooks/local/lib/bounded-run.sh`) — **reuses** the health-check's `run-with-timeout.sh` core (preserving the `ffhc_*` API) and adds a wall-clock **deadline** emitting a terminal **timeout line** + **incremental heartbeat** so a monitored background launch reaches completion-or-death instead of a silent idle.
+- **3-tier present-by-construction delivery** — Tier 1: FR-27 row in the role-discipline § Write-time discipline digest; Tier 2: a `session_start.py` reminder line; Tier 3: the liveness/`BLOCKED-AT` clause promoted into the handoff Role-bootstrap **Hard-invariants** (the MAIN session carries it).
+- **Honest model:** **no blocking gate, no verification hook** — a hang is undetectable by construction (no idle event; `post_tool_use` can't fire for a call that never returns; a "watchdog: applied" signal would be attestation theatre). Enforcement = safe-default tooling + present-by-construction delivery. The tooling claim is **qualified**: it bounds the monitored process; it does NOT kill an `&`-detached grandchild or prove host re-invocation.
+- **Deferred:** `fr27-prelaunch-nudge` (D3 — the warn-only `pre_tool_use` nudge; must ship as allow+warning, never a block); D4 Python watchdog helper; D5 `templates/bounded-script.sh` skeleton.
+
+Clean-room: no third-party code/prompt/text/dependency copied or vendored; prior clean-room state intact (`git grep -ni headroom` = 0).
+
+Verified: preflight 0/0 · `bash -n bounded-run.sh` OK · run-tests **132/132 PASS** · `check-module-size --all` exit 0 · mirror 0 drift (32 skills + agents) · plugin == VERSION == 3.28.0 · **GEMINI.md = v3.28.0** · README badge 3.28.0 · sync `--dry-run` framework-scoped (no consumer doc touched) · `git grep -ni headroom` = 0 · **FR-07 clean** (5 surfaces unchanged; FR-27 is an append; `run-with-timeout.sh` byte-unchanged, `ffhc_*` intact). Feature smoke: `sleep 30` through `bounded-run.sh` with a ~2s deadline → `bounded-run: TIMEOUT` line + **rc 124** + heartbeat; health-check timeout suite still passes. Spec: `docs/specs/liveness-discipline/spec.md`. Detail: `docs/release-notes/v3.28.0.md`.
+
 ## [3.27.0] — 2026-06-17
 
 ### Added — FR-22 delivery guarantee + PO verifiable boot
