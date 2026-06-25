@@ -12,7 +12,7 @@ FuseBase Flow ships **reactively** — each release is driven by real friction s
 - **v3.7.0–v3.11.1** — **FR-21 Lightweight Lane** (ceremony proportional to change size) and **FR-22 comment policy** (tripwire + retrieval-pointer only) with its write-time carrier skill.
 - **v3.2.0–v3.6.0** — FuseBase CLI edition packaging (CLI-first/Flow-second recovery, vendor provenance, two-writer hazard guards), generic anti-drift skills (`zoom-out`, `phase-audit`, `git-history-diagnostic`), project onboarding + North Star, upgrade-path hardening.
 
-Current shape: **26 always-on rules (FR-01..FR-27) · 31 canonical skills · 2 sub-agents · 13 workflows · 22 templates · 9 policies · 24 hook tests**.
+Current shape: **27 always-on rules (FR-01..FR-27) · 32 canonical skills · 2 sub-agents · 13 workflows · 22 templates · 9 policies · 24 hook tests**.
 
 ## Next likely (no firm dates — when needed)
 

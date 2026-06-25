@@ -9,7 +9,7 @@ These instructions apply to every file. Tighter scoped instructions live alongsi
 ## Read first
 
 1. `AGENTS.md` — portable always-on baseline.
-2. `FLOW_RULES.md` — 26 always-on rules (FR-01..FR-27) with enforcement-surface mapping.
+2. `FLOW_RULES.md` — 27 always-on rules (FR-01..FR-27) with enforcement-surface mapping.
 3. `workflows/` — repeatable procedures.
 4. `templates/` — substrates for artifacts you write.
 5. `policies/` — machine-readable rule data hooks consult.

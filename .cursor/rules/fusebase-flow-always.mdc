@@ -6,7 +6,7 @@ alwaysApply: true
 
 # Fusebase Flow — always-on rules
 
-Read `FLOW_RULES.md` (stop at `## Amendment log` — dated history, never load it) and `AGENTS.md` first. The 26 always-on rules (FR-01..FR-27) govern every action in this repo.
+Read `FLOW_RULES.md` (stop at `## Amendment log` — dated history, never load it) and `AGENTS.md` first. The 27 always-on rules (FR-01..FR-27) govern every action in this repo.
 
 ## Self-attestation (first response of every session)
 
