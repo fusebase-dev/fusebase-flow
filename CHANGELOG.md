@@ -4,6 +4,23 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.29.0] — 2026-06-26
+
+### Added — Codex / cross-agent slash-command parity
+
+**Feature (additive).** Flow's **6 slash commands** were Claude-Code-only; this release ships **command parity** across Codex / Cursor / Copilot / Gemini in two arms. No new FR rule (FR-01..FR-27 unchanged), no new skill (32 unchanged). Independently **Codex-SHIP'd** (design RESCOPE folded + impl review LOW hardened → `cdf7bf6`, bite-verified).
+
+**FR-07-clean / additive:** no FR rule rows, no deploy-policy rule semantics, no `ratchet-governance.yml` touched. The `AGENTS.md` command table sits **outside** the version-swept region and **outside** `FLOW:PRESERVE`.
+
+- **B — command-equivalents table (primary, repo-portable)** (`AGENTS.md` + overlay source → propagated `CLAUDE.md` / `GEMINI.md`) — a compact **6-row** table (`Command · Claude /cmd · Codex /prompts:cmd if installed · Portable = invoke the skill / type the command`) replacing the single "slash commands" sentence. Repo-committed, every agent reads it, no native mechanism required; matches Codex's own **skills** model. Pointer-style — no command-body re-paste (FR-23/FR-26).
+- **A — opt-in native Codex installer (per-machine polish)** (`hooks/local/install-codex-prompts.sh`) — single-sources native Codex custom prompts from the 6 canonical command bodies (transform: keep `description:`, repoint `.claude/agents` → `.codex/agents`, preserve the PO-boot block + markers) and writes them to `$CODEX_HOME/prompts/` where Codex surfaces them as `/prompts:<cmd>`. Each file **marked** Flow-generated; **idempotent**; **refuses** UNMARKED collisions without `--force`; **hard-fails** on a frontmatter-less body. **Never default-on** — not called by `post-fusebase-update.sh` or any default path (it writes user-global files).
+- **Ground truth (verified, Codex CLI 0.128.0):** native Codex prompts are `$CODEX_HOME/prompts/*.md` — **user-global, NOT repo-shared, deprecated** in favor of skills; invoked `/prompts:<basename>` (namespaced); YAML frontmatter kept; repo-local `.codex/prompts/` is not a read path; plugins bundle skills/mcp/apps/hooks, not commands. Net: B is the genuine repo-portable parity; A is optional per-machine polish, honestly labeled.
+- **Possible follow-up:** a Codex-**plugin** packaging of Flow's skills/agents (via `codex plugin marketplace`) — out of scope (plugins don't carry commands); filed to backlog.
+
+Clean-room: no third-party code/prompt/text/dependency copied or vendored; prior clean-room state intact (`git grep -ni headroom` = 0).
+
+Verified: preflight 0/0 · `bash -n install-codex-prompts.sh` OK · run-tests **151/151 PASS** · `check-module-size --all` exit 0 · mirror 0 drift (32 skills + agents) · plugin == VERSION == 3.29.0 · **GEMINI.md = v3.29.0** · README badge 3.29.0 · sync `--dry-run` framework-scoped (no consumer doc touched; under-reach guard passes) · **AGENTS.md command table byte-unchanged after the sweep** · `git grep -ni headroom` = 0 · **FR-07 clean** (5 surfaces unchanged; only the FLOW_RULES version-attestation line moved). FR range FR-01..FR-27, 32 skills unchanged. B smoke: AGENTS.md carries the 6-row table + all 6 commands + the Portable column, byte-unchanged after `sync --dry-run`. A smoke: `CODEX_HOME=<tmp>` install → 6 marked prompts, 0 `.claude/agents` leak, idempotent re-run, unmarked-collision refused, frontmatter-less fixture hard-fails. Feature commits `528219d..cdf7bf6`. Spec: `docs/specs/codex-slash-command-parity/spec.md`. Detail: `docs/release-notes/v3.29.0.md`.
+
 ## [3.28.0] — 2026-06-17
 
 ### Added — FR-27 liveness discipline (anti-hang)

@@ -12,9 +12,9 @@ tools: Read, Glob, Grep, Bash, Write, Edit
 
 Choose the role from the handoff filename:
 
-> **AI Developer:** "Operating as AI Developer under Fusebase Flow v3.28.0. I will follow FR-01 through FR-27. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for AI Developer."
+> **AI Developer:** "Operating as AI Developer under Fusebase Flow v3.29.0. I will follow FR-01 through FR-27. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for AI Developer."
 
-> **Deploy phase:** "Operating as Deploy phase under Fusebase Flow v3.28.0. I will follow FR-01 through FR-27. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Deploy phase."
+> **Deploy phase:** "Operating as Deploy phase under Fusebase Flow v3.29.0. I will follow FR-01 through FR-27. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Deploy phase."
 
 **Lightweight lane (FR-21).** When the handoff is a **change-note** (or an implement handoff marked `change_tier: lightweight`), attest as AI Developer and add: "Running the Lightweight Lane (FR-21): one change-note, one build→verify→deploy pass, plain operator go-ahead; safety floor (live proof, explicit go-ahead, FR-07, rollback, one commit) kept; I will STOP and promote to Full if this turns non-trivial." Then follow `workflows/lightweight-lane.md` — no stop-at-gate handoff to a second session, deploy on a plain go-ahead (no DP.6 / DP.1). See `flow-skills/lightweight-lane/SKILL.md`.
 
