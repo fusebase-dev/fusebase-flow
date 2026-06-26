@@ -178,6 +178,7 @@ run_shell_phase test-bootstrap-baseline-hop.sh "bootstrap-baseline-hop"
 run_shell_phase test-fr22-delivery-guarantee.sh "fr22-delivery"
 run_shell_phase test-po-verifiable-boot.sh     "po-verifiable-boot"
 run_shell_phase test-liveness-bounded-run.sh   "liveness"
+run_shell_phase test-codex-prompt-parity.sh    "codex-parity"
 
 # Write report
 {
