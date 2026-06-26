@@ -196,4 +196,50 @@ run_install "$CH"
   && ok "ac3-marked-file-not-blocked" \
   || bad "ac3-marked-file-not-blocked" "a now-marked file blocked a plain run (rc=$RC) — collision guard too broad"
 
+###############################################################################
+# AC3+ — marker invariant is TOTAL (Codex LOW, 2026-06-26). A canonical body with
+# NO YAML frontmatter must HARD-FAIL the transform: installer exits non-zero AND
+# writes no (unmarked) prompt. RED-then-GREEN: prove the pre-fix transform path
+# (bare awk, no PIPESTATUS guard) WOULD have streamed an unmarked body for the same
+# fixture — so this test bites if the hard-fail is removed.
+###############################################################################
+NF_SRC="$TMP_ROOT/nofm-commands"
+mkdir -p "$NF_SRC"
+cp "$SRC_DIR"/*.md "$NF_SRC/"
+printf '# /no-frontmatter\n\nBody with NO yaml frontmatter fence.\n' > "$NF_SRC/no-frontmatter.md"
+NF_INSTALLER="$TMP_ROOT/install-nofm.sh"
+sed "s|^SRC_DIR=.*|SRC_DIR=\"$NF_SRC\"|" "$INSTALLER" > "$NF_INSTALLER"
+
+CH_NF="$TMP_ROOT/nofm-home"
+CODEX_HOME="$CH_NF" bash "$NF_INSTALLER" >"$TMP_ROOT/nf_out" 2>&1
+NF_RC=$?
+if [ "$NF_RC" -ne 0 ]; then
+  ok "ac3-no-frontmatter-hard-fails"
+else
+  bad "ac3-no-frontmatter-hard-fails" "frontmatter-less body did NOT make the installer exit non-zero (rc=$NF_RC)"
+fi
+
+# No unmarked prompt may have been written for the offending command — and the
+# fail-closed posture means NO prompt at all is written from that run.
+if [ ! -f "$CH_NF/prompts/no-frontmatter.md" ]; then
+  ok "ac3-no-frontmatter-writes-no-unmarked-file"
+else
+  bad "ac3-no-frontmatter-writes-no-unmarked-file" "an UNMARKED prompt was written for a frontmatter-less body"
+fi
+
+# RED proof: the pre-fix transform (bare awk emitting the marker to stderr, no
+# PIPESTATUS hard-fail) would have produced a non-empty stdout BODY for this same
+# fixture — i.e. an unmarked prompt. Asserting that body is non-empty confirms the
+# hazard was real and that the GREEN arms above are the fix, not a no-op.
+prefix_body="$(awk 'BEGIN{fm=0;inserted=0}
+  NR==1 && $0=="---"{fm=1;print;next}
+  fm==1 && $0=="---"{print;print"";print "MARKER";fm=2;inserted=1;next}
+  {print}
+  END{if(!inserted) print "MARKER" > "/dev/stderr"}' "$NF_SRC/no-frontmatter.md" 2>/dev/null)"
+if [ -n "$prefix_body" ] && ! printf '%s' "$prefix_body" | grep -qF 'MARKER'; then
+  ok "ac3-no-frontmatter-red-proof"
+else
+  bad "ac3-no-frontmatter-red-proof" "pre-fix path did not demonstrate an unmarked body (RED proof inconclusive)"
+fi
+
 finish

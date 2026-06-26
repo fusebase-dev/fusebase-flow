@@ -59,19 +59,30 @@ PROMPTS_DIR="$CODEX_HOME/prompts"
 # .claude/agents -> .codex/agents; insert the Flow marker just after the closing
 # frontmatter fence so the YAML stays valid and the PO-boot block + its markers
 # pass through untouched.
-transform_body() { # transform_body <canonical-file> <basename>
-  local file="$1" name="$2" marker
+# Tripwire (Codex LOW, 2026-06-26): a body with no YAML frontmatter fence HARD-FAILS
+# here — never emit an unmarked prompt. The marker invariant must stay total, or the
+# collision/idempotency guard later refuses to overwrite the installer's own output.
+transform_body() { # transform_body <canonical-file> <basename>; nonzero on missing frontmatter
+  local file="$1" name="$2" marker awk_rc
   marker="${MARKER/<name>/$name}"
   awk -v marker="$marker" '
     BEGIN { fm=0; inserted=0 }
     NR==1 && $0=="---" { fm=1; print; next }
     fm==1 && $0=="---" { print; print ""; print marker; fm=2; inserted=1; next }
     { print }
-    END {
-      # No frontmatter fence (unexpected) -> still mark the file at the very top.
-      if (!inserted) { print marker > "/dev/stderr" }
-    }
+    END { if (!inserted) exit 3 }
   ' "$file" | sed 's|\.claude/agents/|.codex/agents/|g'
+  awk_rc=${PIPESTATUS[0]}
+  if [ "$awk_rc" -eq 3 ]; then
+    echo "[install-codex-prompts] FATAL: no YAML frontmatter fence in $file — refusing to generate an UNMARKED prompt." >&2
+    return 3
+  fi
+  return 0
+}
+
+# Returns 0 iff a canonical body opens with a `---` frontmatter fence (line 1).
+has_frontmatter() { # has_frontmatter <file>
+  [ -f "$1" ] && [ "$(head -n1 "$1")" = "---" ]
 }
 
 # Returns 0 if an existing file carries the Flow marker (safe to overwrite).
@@ -82,6 +93,19 @@ is_marked() { # is_marked <file>
 mapfile -t SRC_FILES < <(find "$SRC_DIR" -maxdepth 1 -type f -name '*.md' | sort)
 if [ "${#SRC_FILES[@]}" -eq 0 ]; then
   echo "[install-codex-prompts] FATAL: no command bodies found under $SRC_DIR." >&2
+  exit 1
+fi
+
+# Pass 0 — frontmatter validation BEFORE writing anything (fail closed). A body
+# without a frontmatter fence cannot be marked, so refuse the whole run (no partial
+# / unmarked writes) and name the offending file(s).
+NO_FRONTMATTER=()
+for src in "${SRC_FILES[@]}"; do
+  has_frontmatter "$src" || NO_FRONTMATTER+=("$src")
+done
+if [ "${#NO_FRONTMATTER[@]}" -gt 0 ]; then
+  echo "[install-codex-prompts] REFUSING to generate — canonical command body has no YAML frontmatter fence:" >&2
+  for n in "${NO_FRONTMATTER[@]}"; do echo "  ! $n (cannot mark an unmarked prompt — fix the source)" >&2; done
   exit 1
 fi
 
@@ -111,7 +135,9 @@ SKIPPED=0
 for src in "${SRC_FILES[@]}"; do
   name="$(basename "$src" .md)"
   target="$PROMPTS_DIR/$name.md"
-  generated="$(transform_body "$src" "$name")"
+  if ! generated="$(transform_body "$src" "$name")"; then
+    exit 1   # transform refused (unmarked-body guard) — never write a partial/unmarked prompt
+  fi
   if [ "$DRY_RUN" -eq 1 ]; then
     echo "[install-codex-prompts] (dry-run) would write $target  (/prompts:$name)"
     continue
