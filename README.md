@@ -102,6 +102,8 @@ Six slash commands are the only things you invoke directly — everything else i
 | **/token-waste-audit** | Parses this project's transcripts and lists token-waste *candidates* (big reads, re-reads, polling, `large-output`, `repeat-output`) mapped to FR-26. | A session felt expensive → see where the tokens actually went and what to do differently next time. |
 | **/find-wasted-effort** | Audits Flow *artifacts on disk* (gate reports, handoffs, approvals, git log) for ceremony that bought no safety outcome. Read-only; findings are review candidates. | You suspect the process has overhead that isn't earning its keep → spot ceremony to trim (nothing auto-removed). |
 
+These are native Claude Code slash commands. On **Codex, Cursor, Copilot, and Gemini** the same commands work via the `AGENTS.md` command-equivalents table — invoke the named skill, or type the command as text. Codex users who want native `/prompts:<cmd>` can additionally run the per-machine opt-in `bash hooks/local/install-codex-prompts.sh` (user-global, namespaced, Codex-deprecated in favor of skills).
+
 ### What the skills do for you
 
 **Always on (every session)**
