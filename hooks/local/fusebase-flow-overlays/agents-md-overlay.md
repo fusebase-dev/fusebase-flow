@@ -24,7 +24,18 @@ Fusebase Flow ships:
 
 **Operator questions:** per FR-19, ask questions in chat text, not popup / clickable menu tools. Use short option tables or numbered lists so the operator can copy, forward, quote, and follow up.
 
-**Slash commands:** `/fusebase-health` (overlay health), `/onboard` (capture project vision), `/product-owner` (start a PO session), `/handoff` (write active restart state to `docs/tmp/handoff.md`; autonomous runs may update it as `Mode: run-ledger`), `/token-waste-audit` (FR-26 transcript audit), `/find-wasted-effort` (A2 process-per-outcome ceremony audit). All in `.claude/commands/` — Claude Code surfaces; on Codex/Cursor/Copilot/Gemini invoke the `handoff` skill by name (and the `token-economy` / `find-wasted-effort` skills for the audits' repo-side runs).
+**Command equivalents.** The 6 commands are native Claude Code slash commands; on every other agent invoke the named skill (or type the command as text). Canonical command bodies live in `hooks/local/fusebase-flow-overlays/commands/*.md` (no body re-paste here — pointer only).
+
+| Command | Claude Code | Codex (`/prompts:<cmd>` if installed) | Portable (any agent) |
+|---|---|---|---|
+| `/product-owner` | `/product-owner` | `/prompts:product-owner` | invoke the `product-owner` agent / type `/product-owner` |
+| `/onboard` | `/onboard` | `/prompts:onboard` | invoke the `project-onboarding` skill / type `/onboard` |
+| `/handoff` | `/handoff` | `/prompts:handoff` | invoke the `handoff` skill / type `/handoff` |
+| `/fusebase-health` | `/fusebase-health` | `/prompts:fusebase-health` | invoke the `fusebase-flow-health-check` skill / type `/fusebase-health` |
+| `/token-waste-audit` | `/token-waste-audit` | `/prompts:token-waste-audit` | invoke the `token-economy` skill / type `/token-waste-audit` |
+| `/find-wasted-effort` | `/find-wasted-effort` | `/prompts:find-wasted-effort` | invoke the `find-wasted-effort` skill / type `/find-wasted-effort` |
+
+Claude Code surfaces these from `.claude/commands/`. The Codex `/prompts:<cmd>` column applies only after the per-machine opt-in install (`bash hooks/local/install-codex-prompts.sh`; user-global, Codex-deprecated). Cursor/Copilot/Gemini have no native command mechanism — use the Portable column (invoke the skill, or type the command as text and the agent follows it).
 
 ### Active project context — read first
 
