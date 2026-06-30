@@ -257,11 +257,17 @@ elif [ ! -f "$MERGE_SCRIPT" ]; then
   WARNINGS+=("$MERGE_SCRIPT missing; cannot merge settings.json")
 else
   cp .claude/settings.json .claude/settings.json.pre-flow-merge
+  # D1 receipt: the merge writes state/audit/cli-stop-baseline.json on EVERY
+  # wire-hooks run (real merge AND the no-op "already wired" path) so the
+  # health-check's diff baseline is durable + self-refreshing. NOT .pre-flow-merge
+  # (overwritten at :259 / rm -f'd on no-op).
+  CLI_STOP_BASELINE="state/audit/cli-stop-baseline.json"
   set +e
-  MERGE_OUTPUT=$(python3 "$MERGE_SCRIPT" .claude/settings.json 2>&1)
+  MERGE_OUTPUT=$(python3 "$MERGE_SCRIPT" .claude/settings.json --baseline-out "$CLI_STOP_BASELINE" 2>&1)
   MERGE_EXIT=$?
   set -e
   if [ "$MERGE_EXIT" -eq 0 ]; then
+    ACTIONS_TAKEN+=(".claude/settings.json: wrote CLI Stop baseline receipt ($CLI_STOP_BASELINE)")
     if echo "$MERGE_OUTPUT" | grep -q "already up to date\|byte-identical"; then
       ACTIONS_SKIPPED+=(".claude/settings.json: Fusebase Flow events already wired")
       rm -f .claude/settings.json.pre-flow-merge

@@ -207,21 +207,6 @@ def stop_commands_in_settings(path: Path) -> list[str]:
     return out
 
 
-def cli_hook_markers_in(commands: list[str], cli_hook_dir: Path) -> list[str]:
-    """Classify which commands are CLI Stop hooks: a command is CLI-owned iff it
-    references a basename that exists under .claude/hooks/. D1c: classify an
-    already-wired command, never invent one from a static name."""
-    markers: list[str] = []
-    if not cli_hook_dir.is_dir():
-        return markers
-    cli_files = {p.name for p in cli_hook_dir.iterdir() if p.is_file()}
-    for cmd in commands:
-        for name in cli_files:
-            if name in cmd and name not in markers:
-                markers.append(name)
-    return markers
-
-
 def flow_skills_dir():
     # Canonical lives at flow-skills/ (v3.9.0+); root skills/ is the legacy
     # pre-3.9.0 location, accepted as a fallback during/after migration.
@@ -365,39 +350,51 @@ for entry in paths:
             continue
         has_flow_stop = any("hooks/handlers/stop.py" in c for c in commands)
         cli_hook_dir = root / ".claude" / "hooks"
-        # D1c (diff framing, version-agnostic): a SHARED_MERGE_DRIFT means Flow's
-        # merge DROPPED a CLI Stop hook that was wired BEFORE the merge — not that
-        # some statically-named hook is absent (that hardcoded-set check phantom-
-        # flagged 0.25.9, which wires run-typecheck-on-stop.sh instead of
-        # run-typecheck-apps.js). Diff source = the merge's own pre-merge backup
-        # (.claude/settings.json.pre-flow-merge, kept by post-fusebase-update on a
-        # real merge). A command is CLI-owned iff it names a file under
-        # .claude/hooks/ (classify an already-wired command; never invent one).
-        # No backup => no diff evidence => no drift (the merge only adds stop.py).
-        pre_merge = root / ".claude" / "settings.json.pre-flow-merge"
-        missing_cli_hooks: list[str] = []
-        if pre_merge.is_file():
-            pre_stop = stop_commands_in_settings(pre_merge)
-            pre_cli = cli_hook_markers_in(pre_stop, cli_hook_dir)
-            cur_stop = stop_commands_in_settings(path)
-            missing_cli_hooks = [
-                m for m in pre_cli if not any(m in c for c in cur_stop)
-            ]
+        # D1/D2 (advisory-only): the merge is preserve-only, so a missing CLI Stop
+        # hook is never a Flow-merge fault — it's a non-Flow/operator edit. Diff
+        # source = the DURABLE updater-written receipt state/audit/cli-stop-baseline.json
+        # (NOT .pre-flow-merge, which post-fusebase-update overwrites/rm -f's). A
+        # command is CLI-owned iff it names a file under .claude/hooks/. Findings here
+        # are ADVISORY (filtered out of shared_drift below) — never exit-1.
+        # Re-baseline escape hatch: re-run post-fusebase-update.sh --wire-hooks.
+        baselined_cli_hooks: list[str] = []
+        have_receipt = False
+        receipt_path = root / "state" / "audit" / "cli-stop-baseline.json"
+        if receipt_path.is_file():
+            try:
+                receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+                if isinstance(receipt, dict):
+                    have_receipt = True
+                    baselined_cli_hooks = [
+                        h for h in (receipt.get("cli_stop_hooks") or []) if isinstance(h, str)
+                    ]
+            except Exception:
+                have_receipt = False
         if not has_flow_stop:
             # U11 (F3): Flow lifecycle hooks are OPT-IN. A settings.json that exists
             # (CLI hooks present) but does not wire Flow's stop.py is the deliberate
-            # hooks-off default, not drift — same by-design-state-≠-drift shape as
-            # F4/U10. Recovery wires them only with --wire-hooks. So this is a benign
-            # INFO, not SHARED_MERGE_DRIFT. (If Flow's merge had CLOBBERED CLI hooks,
-            # that would be a real shared-merge problem — but that only applies once
-            # Flow has actually merged, i.e. has_flow_stop is true; see below.)
+            # hooks-off default, not drift. Benign INFO. Never nag CLI_STOP_UNVERIFIED
+            # on a never-wired project (gate strictly on has_flow_stop).
             add("INFO", layer, owner, rel,
                 "Flow lifecycle hooks not wired (opt-in default; enable with "
                 "bash hooks/local/post-fusebase-update.sh --wire-hooks)")
-        elif missing_cli_hooks:
-            add("DRIFT", layer, owner, rel, action, "CLI Stop hooks not preserved: " + ", ".join(missing_cli_hooks))
+        elif not have_receipt:
+            add("CLI_STOP_UNVERIFIED", layer, owner, rel,
+                "cannot verify CLI Stop preservation; run "
+                "bash hooks/local/post-fusebase-update.sh --wire-hooks to establish a baseline",
+                "no CLI Stop baseline receipt (state/audit/cli-stop-baseline.json) for a Flow-merged project")
         else:
-            add("OK", layer, owner, rel, action, "Flow stop hook and existing CLI hooks preserved")
+            cur_stop = stop_commands_in_settings(path)
+            missing_cli_hooks = [
+                m for m in baselined_cli_hooks if not any(m in c for c in cur_stop)
+            ]
+            if missing_cli_hooks:
+                add("CLI_STOP_BASELINE_DRIFT", layer, owner, rel,
+                    "a CLI Stop hook wired at last Flow update is gone; "
+                    "re-run bash hooks/local/post-fusebase-update.sh --wire-hooks to re-baseline if intentional",
+                    "baselined CLI Stop hook(s) missing now: " + ", ".join(missing_cli_hooks))
+            else:
+                add("OK", layer, owner, rel, action, "Flow stop hook and baselined CLI hooks preserved")
         continue
 
     if rel == ".codex/config.toml":
@@ -594,11 +591,13 @@ broken = [f for f in findings if f["layer"] == "unknown" or f["status"] == "BROK
 cli_drift = [f for f in findings if f["layer"] == "cli" and f["status"] in {"MISSING", "DRIFT"}]
 shared_drift = [f for f in findings if f["layer"] == "shared" and f["status"] in {"MISSING", "DRIFT"}]
 flow_drift = [f for f in findings if f["layer"] == "flow" and f["status"] in {"MISSING", "DRIFT"}]
-# Advisory (B3): present-but-changed snapshots and at-risk CUSTOM blocks.
-# These are INFORMATIONAL ONLY and deliberately excluded from cli_drift above,
-# so they never change the verdict or exit code.
+# Advisory (B3 + D2/D3): present-but-changed snapshots, at-risk CUSTOM blocks, and
+# the Stop-baseline advisories. INFORMATIONAL ONLY — their statuses are not in the
+# {MISSING, DRIFT} verdict buckets above, so they never change the verdict/exit code.
 cli_stale = [f for f in findings if f["status"] == "CLI_SNAPSHOT_STALE"]
 cli_custom_at_risk = [f for f in findings if f["status"] == "CLI_CUSTOM_AT_RISK"]
+cli_stop_unverified = [f for f in findings if f["status"] == "CLI_STOP_UNVERIFIED"]
+cli_stop_baseline_drift = [f for f in findings if f["status"] == "CLI_STOP_BASELINE_DRIFT"]
 
 if broken:
     verdict = "BROKEN"
@@ -629,6 +628,8 @@ if fmt == "json":
             "broken": len(broken),
             "cli_snapshot_stale": len(cli_stale),
             "cli_custom_at_risk": len(cli_custom_at_risk),
+            "cli_stop_unverified": len(cli_stop_unverified),
+            "cli_stop_baseline_drift": len(cli_stop_baseline_drift),
             "findings": len(findings),
         },
         "provenance_available": PROVENANCE_AVAILABLE,
@@ -651,6 +652,8 @@ else:
     print(f"  Broken: {len(broken)}")
     print(f"  CLI snapshot stale (advisory): {len(cli_stale)}")
     print(f"  CLI CUSTOM at-risk (advisory): {len(cli_custom_at_risk)}")
+    print(f"  CLI Stop unverified (advisory): {len(cli_stop_unverified)}")
+    print(f"  CLI Stop baseline drift (advisory): {len(cli_stop_baseline_drift)}")
     if not PROVENANCE_AVAILABLE:
         print("  (provenance manifest unavailable — drift advisory skipped; "
               "run bash hooks/local/stamp-cli-provenance.sh)")
@@ -663,7 +666,8 @@ else:
         print(f"  [{f['status']}] {f['layer']} {f['path']}{detail}")
         if f.get("action"):
             print(f"      action: {f['action']}")
-    if verdict == "HEALTHY" and not cli_stale and not cli_custom_at_risk:
+    if (verdict == "HEALTHY" and not cli_stale and not cli_custom_at_risk
+            and not cli_stop_unverified and not cli_stop_baseline_drift):
         print("  No write conflict detected.")
     print("")
     print("Next action:")

@@ -22,9 +22,15 @@ Idempotent: safe to run multiple times; second run is a byte-identical no-op.
 
 Usage:
     python3 hooks/local/fusebase-flow-overlays/settings-json-merge.py .claude/settings.json
+    python3 .../settings-json-merge.py .claude/settings.json --baseline-out state/audit/cli-stop-baseline.json
+
+`--baseline-out PATH` writes the durable CLI-Stop-hook receipt the health-check
+reads (single-sources the "CLI-owned iff it names a file under .claude/hooks/"
+rule the reporter uses). Why a receipt and not the pre-merge backup: spec D1
+(post-fusebase-update.sh overwrites .pre-flow-merge before every merge).
 
 Exit codes:
-    0  merge complete (or no merge needed — already in place)
+    0  merge complete (or no merge needed — already in place; receipt written)
     1  file not found / not valid JSON / write error
 """
 
@@ -208,12 +214,62 @@ def merge_settings(settings: dict[str, Any]) -> tuple[dict[str, Any], list[str]]
     return settings, changes
 
 
+def cli_stop_hook_basenames(settings: dict[str, Any], cli_hook_dir: Path) -> list[str]:
+    """Basenames of CLI-owned Stop hooks in `settings`. CLI-owned iff the command
+    string names a file present under `cli_hook_dir` (.claude/hooks/). Single-sources
+    the reporter's cli_hook_markers_in rule so the receipt and the diff never disagree.
+    stop.py lives under hooks/handlers/ (not .claude/hooks/) so it is never matched."""
+    if not cli_hook_dir.is_dir():
+        return []
+    cli_files = sorted(p.name for p in cli_hook_dir.iterdir() if p.is_file())
+    hooks = settings.get("hooks") if isinstance(settings, dict) else None
+    out: list[str] = []
+    if isinstance(hooks, dict):
+        for block in hooks.get("Stop") or []:
+            if not isinstance(block, dict):
+                continue
+            for hook in block.get("hooks") or []:
+                if not isinstance(hook, dict):
+                    continue
+                cmd = hook.get("command")
+                if not isinstance(cmd, str):
+                    continue
+                for name in cli_files:
+                    if name in cmd and name not in out:
+                        out.append(name)
+    return out
+
+
+def write_baseline(settings: dict[str, Any], out_path: Path) -> None:
+    """Write the durable CLI-Stop-hook receipt (spec D1). Read-only w.r.t. settings."""
+    cli_hook_dir = Path(".claude/hooks")
+    receipt = {
+        "schema": 1,
+        "cli_stop_hooks": cli_stop_hook_basenames(settings, cli_hook_dir),
+        "written_by": "post-fusebase-update --wire-hooks",
+    }
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
+    print(f"[settings-merge] baseline receipt written: {out_path} "
+          f"({len(receipt['cli_stop_hooks'])} CLI Stop hook(s))")
+
+
 def main() -> int:
-    if len(sys.argv) != 2:
-        print("Usage: python3 settings-json-merge.py <settings.json path>", file=sys.stderr)
+    args = sys.argv[1:]
+    baseline_out: str | None = None
+    if "--baseline-out" in args:
+        i = args.index("--baseline-out")
+        if i + 1 >= len(args):
+            print("Usage: --baseline-out requires a PATH", file=sys.stderr)
+            return 1
+        baseline_out = args[i + 1]
+        del args[i:i + 2]
+
+    if len(args) != 1:
+        print("Usage: python3 settings-json-merge.py <settings.json path> [--baseline-out PATH]", file=sys.stderr)
         return 1
 
-    path = Path(sys.argv[1])
+    path = Path(args[0])
     if not path.is_file():
         print(f"ERROR: {path} not found", file=sys.stderr)
         return 1
@@ -227,19 +283,20 @@ def main() -> int:
 
     updated, changes = merge_settings(settings)
 
+    new_text = json.dumps(updated, indent=2, ensure_ascii=False) + "\n"
     if not changes:
         print(f"[settings-merge] {path}: already up to date (no changes needed)")
-        return 0
-
-    new_text = json.dumps(updated, indent=2, ensure_ascii=False) + "\n"
-    if new_text == original_text:
+    elif new_text == original_text:
         print(f"[settings-merge] {path}: byte-identical after merge (no-op)")
-        return 0
+    else:
+        path.write_text(new_text, encoding="utf-8")
+        print(f"[settings-merge] {path}: applied {len(changes)} change(s):")
+        for c in changes:
+            print(f"  - {c}")
 
-    path.write_text(new_text, encoding="utf-8")
-    print(f"[settings-merge] {path}: applied {len(changes)} change(s):")
-    for c in changes:
-        print(f"  - {c}")
+    # Receipt on every path (D1): durable + self-refreshing on the no-op run too.
+    if baseline_out is not None:
+        write_baseline(updated, Path(baseline_out))
     return 0
 
 
