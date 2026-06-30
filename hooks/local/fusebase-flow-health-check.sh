@@ -95,11 +95,12 @@ OPT_FAST=0
 for arg in "$@"; do
   case "$arg" in
     --no-upstream) OPT_NO_UPSTREAM=1 ;;
-    --fast)        OPT_FAST=1; OPT_NO_UPSTREAM=1 ;;
+    --fast|--skip-hook-tests) OPT_FAST=1; OPT_NO_UPSTREAM=1 ;;   # --skip-hook-tests = --fast alias (B3): the Windows escape for the slow hook tests
     -h|--help)
-      echo "Usage: bash hooks/local/fusebase-flow-health-check.sh [--fast] [--no-upstream]"
-      echo "  --no-upstream  skip the optional upstream comparison (full local verdict; exit 0 OK)"
-      echo "  --fast         skip hook tests + upstream for a quick verdict (PARTIAL; exit 4, never 0)"
+      echo "Usage: bash hooks/local/fusebase-flow-health-check.sh [--fast|--skip-hook-tests] [--no-upstream]"
+      echo "  --no-upstream      skip the optional upstream comparison (full local verdict; exit 0 OK)"
+      echo "  --fast             skip hook tests + upstream for a quick verdict (PARTIAL; exit 4, never 0)"
+      echo "  --skip-hook-tests  alias for --fast (skips hook tests; PARTIAL; exit 4, never 0)"
       echo "Env knobs (seconds): FFHC_FETCH_TIMEOUT FFHC_PREFLIGHT_TIMEOUT FFHC_CONFLICT_TIMEOUT FFHC_TESTS_TIMEOUT"
       echo "  FFHC_ALLOW_UNBOUNDED=1  run bounded ops unbounded when no timeout binary exists"
       exit 0 ;;

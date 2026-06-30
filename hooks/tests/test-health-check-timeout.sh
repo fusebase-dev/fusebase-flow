@@ -155,6 +155,20 @@ ht5() {
   ht_pass "HT5-fast (AC4c / AC5): --fast => exit 4 + 'not a full verdict' + keeps preflight + skips hook tests"
 }
 
+# ---- HT5b (AC-B3): --skip-hook-tests is an exact alias for --fast (Windows
+# escape) — same exit 4, same 'not a full verdict', same hook-test skip. ----
+ht5b() {
+  local D="$TMP_BASE/ht5b-skip-hook-tests"
+  setup_hc_fixture "$D"
+  printf '#!/usr/bin/env bash\necho "FAIL: should-not-run"\nexit 9\n' > "$D/hooks/tests/run-tests.sh"; chmod +x "$D/hooks/tests/run-tests.sh"
+  local OUT; OUT="$(cd "$D" && FFHC_PREFLIGHT_TIMEOUT=10 FFHC_CONFLICT_TIMEOUT=10 bash hooks/local/fusebase-flow-health-check.sh --skip-hook-tests 2>&1; echo "EXIT=$?")"
+  echo "$OUT" | grep -q "^EXIT=4$" || { ht_fail "ht5b-skip-hook-tests-alias" "$OUT"; return; }
+  echo "$OUT" | grep -qi "not a full health verdict" || { ht_fail "ht5b-skip-hook-tests-alias" "$OUT"; return; }
+  echo "$OUT" | grep -qi "preflight: clean" || { ht_fail "ht5b-skip-hook-tests-alias" "$OUT"; return; }
+  if echo "$OUT" | grep -q "FAIL: should-not-run"; then ht_fail "ht5b-skip-hook-tests-alias" "$OUT"; return; fi
+  ht_pass "ht5b-skip-hook-tests-alias (AC-B3): --skip-hook-tests == --fast (exit 4, not-a-full-verdict, keeps preflight, skips hook tests)"
+}
+
 # ---- HT6 (AC6): neither timeout nor gtimeout present => engine still returns (no
 # hang, no crash) with PARTIAL_UNVERIFIED (bounded ops skipped). ----
 ht6() {
@@ -357,7 +371,7 @@ ht_b2_genuine_crash_broken() {
   ht_pass "b2-genuine-crash-broken (AC-B2 guard): genuine crash rc=3 (non-signal) STAYS BROKEN/exit 2, NOT downgraded to INCONCLUSIVE"
 }
 
-ht1; ht2; ht3; ht4; ht5; ht6; ht7; ht8; ht9; ht10; ht11; ht12
+ht1; ht2; ht3; ht4; ht5; ht5b; ht6; ht7; ht8; ht9; ht10; ht11; ht12
 
 # --- Codex round-3 spoof table, BROKEN/2 rows ---
 hc_broken_pass "spoof-zero-zero"          '[run-tests] 0/0 PASS\n'

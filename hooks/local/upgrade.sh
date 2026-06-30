@@ -343,8 +343,12 @@ if [ "$WITH_DOCS" -eq 1 ] && [ -d "$SOURCE_CLONE/$DOC_GLOB" ]; then
 fi
 
 # ---- Step 2: re-mirror canonical -> providers ----
+# B4: progress echoes bracket the otherwise-silenced re-mirror so a long mirror
+# pass is visible (not a silent stall) on the operator's terminal.
+echo "[upgrade] Step 2/3: re-mirroring skills + agents (canonical -> providers)…" >&2
 [ -x hooks/local/mirror-skills.sh ] && bash hooks/local/mirror-skills.sh >/dev/null 2>&1 || true
 [ -x hooks/local/mirror-agents.sh ] && bash hooks/local/mirror-agents.sh >/dev/null 2>&1 || true
+echo "[upgrade] Step 2/3: re-mirror done." >&2
 
 # ---- Step 3: sync embedded version strings (uses LOCAL VERSION; bumped in step 5,
 # so run AFTER bump? No — strings should reflect the TARGET version. Write VERSION
@@ -360,6 +364,7 @@ if [ -n "$VERSION_CHANGE" ]; then
 fi
 
 # ---- Step 3: sync embedded version strings now that VERSION reflects target ----
+echo "[upgrade] Step 3/3: syncing derived attestation strings (sync-version-strings)…" >&2
 [ -x hooks/local/sync-version-strings.sh ] && bash hooks/local/sync-version-strings.sh || true
 
 # ---- Step 4: version-aware overlay refresh (F2) + slash-command restore ----
