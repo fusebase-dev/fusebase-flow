@@ -353,7 +353,7 @@ Preflight will warn on drift if the mirrors and canonical fall out of sync. Full
 
 ## Skill catalog
 
-Skills are on-demand expertise the agent loads when a task matches the skill's description. **32 canonical Flow skills** govern the lifecycle and project-optimization; **19 FuseBase Apps domain skills** supply the app-building knowledge. You never invoke them by hand — describe the work and the matcher loads the right one.
+Skills are on-demand expertise the agent loads when a task matches the skill's description. **32 canonical Flow skills** govern the lifecycle and project-optimization; **20 FuseBase Apps domain skills** supply the app-building knowledge. You never invoke them by hand — describe the work and the matcher loads the right one.
 
 ### Flow lifecycle skills (32)
 
@@ -394,7 +394,7 @@ Skills are on-demand expertise the agent loads when a task matches the skill's d
 
 ★ = mandatory, loaded every session. The last 9 (zoom-out … product-apps-decomposition) shipped in v3.3–v3.5; `lightweight-lane` v3.7, `comment-policy` v3.11, `documentation-budget` v3.12, `handoff` v3.14, `module-size-discipline` v3.16, `app-quality-patterns` v3.19, `token-economy` v3.20, `find-wasted-effort` v3.22, `liveness-discipline` v3.28. The project-* / north-star / client-vs-internal / product-* / guard skills are **artifact-gated** — dormant until onboarding creates their `docs/` artifact.
 
-### FuseBase CLI provider skills (19)
+### FuseBase CLI provider skills (20)
 
 <details>
 <summary><strong>App build · runtime · data · ops domain skills</strong></summary>
@@ -405,7 +405,7 @@ Skills are on-demand expertise the agent loads when a task matches the skill's d
 | **Backend & infra** | `app-backend`, `app-secrets`, `app-sidecar`, `managed-integrations` |
 | **Data & dashboards** | `fusebase-dashboards`, `fusebase-gate`, `file-upload`, `fusebase-portal-specific-apps` |
 | **Auth & errors** | `handling-authentication-errors` |
-| **Debug & ops** | `dev-debug-logs`, `remote-logs`, `api-exploration`, `mcp-gate-debug` |
+| **Debug & ops** | `dev-debug-logs`, `remote-logs`, `api-exploration`, `mcp-gate-debug`, `app-api-contract-testing` |
 | **Docs & git** | `app-business-docs`, `git-workflow` |
 
 </details>
@@ -530,7 +530,7 @@ Plus active approval artifacts in `state/approvals/` are surfaced informationall
 
 ### CLI vendor provenance & drift advisory (v3.2.0+)
 
-FuseBase Flow vendors a frozen copy of FuseBase CLI-owned assets (19 provider skills + `references/`, 2 app-agents, 2 quality hooks). `bash hooks/local/stamp-cli-provenance.sh` records a per-file sha256 of each in `audit/cli-vendor-manifest.json` (a committed document of record), with `source_cli_version: "unknown"` — the bundling tool cannot know which live CLI bundle a copy came from, so freshness is advisory only.
+FuseBase Flow vendors a frozen copy of FuseBase CLI-owned assets (20 provider skills + `references/`, 2 app-agents, 4 quality hooks; FuseBase CLI 0.25.9). `bash hooks/local/stamp-cli-provenance.sh` records a per-file sha256 of each in `audit/cli-vendor-manifest.json` (a committed document of record), with `source_cli_version: "unknown"` — the bundling tool cannot know which live CLI bundle a copy came from, so freshness is advisory only.
 
 `check-cli-flow-conflicts.sh` then hashes each **present** CLI asset against that manifest and surfaces two **advisory** findings (informational only — they never change the verdict or exit code):
 
@@ -541,7 +541,7 @@ FuseBase Flow vendors a frozen copy of FuseBase CLI-owned assets (19 provider sk
 
 This guards the **two-writer hazard** — `fusebase update` and the Flow snapshot both write the same provider paths. The documented install copy is non-clobbering for CLI-owned paths, and Flow recovery never writes them. See [docs/fusebase-cli-edition.md](docs/fusebase-cli-edition.md) § "Two-writer hazard".
 
-The Claude Code Stop hooks shipped in `.claude/settings.json.example` are the cross-platform **node** hooks (`run-typecheck-apps.js`, `quality-check-apps.js`); the deprecated jq/bash duplicates (`run-lint-on-stop.sh`, `run-typecheck-on-stop.sh`) were removed from the template in v3.16.4 — the settings merger still strips them from older downstream installs.
+The Claude Code Stop hooks shipped in `.claude/settings.json.example` mirror the FuseBase CLI 0.25.9 wired set: `run-lint-on-stop.sh`, `run-typecheck-on-stop.sh`, `quality-check-apps.js`, followed by Flow `stop.py`. The merge is **preserve-only** — it appends `stop.py` and keeps every existing CLI Stop hook, and never static-injects a hook from a name (an older-CLI project that still wires `run-typecheck-apps.js` keeps it; Flow simply stops re-adding it).
 
 ### Verdicts (ownership-layer model)
 
@@ -780,8 +780,8 @@ fusebase-flow/
 │   └── agent-mirror-manifest.txt   ← sha256 manifest for sub-agent mirrors
 ├── state/                          ← runtime state (gitignored contents)
 ├── docs/                           ← public reference docs + per-project artifacts
-├── .agents/skills/                 ← Codex skill surface (32 Flow mirrors + 19 CLI provider skills)
-├── .claude/skills/                 ← Claude Code skill surface (32 Flow mirrors + 19 CLI provider skills)
+├── .agents/skills/                 ← Codex skill surface (32 Flow mirrors + 20 CLI provider skills)
+├── .claude/skills/                 ← Claude Code skill surface (32 Flow mirrors + 20 CLI provider skills)
 ├── .claude/agents/                 ← Claude Code agent surface (2 Flow role agents + 2 CLI app agents)
 ├── .claude/commands/               ← Anthropic Claude Code slash commands (incl. /fusebase-health)
 ├── .claude/settings.json.example   ← Claude Code hook wiring
