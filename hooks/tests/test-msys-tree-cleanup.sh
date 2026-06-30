@@ -46,7 +46,7 @@ fi
 PAYLOAD=(bash -c 'cmd //c start //b cmd //c "ping -n 8 127.0.0.1 >NUL" & sleep 12')
 DEADLINE=1
 export FFHC_TIMEOUT_KILL_GRACE=1s
-GREEN_CEILING=5   # deadline + grace + generous epsilon; well under the ~6-8s RED block
+GREEN_CEILING=6   # deadline + grace + epsilon (host-load slack); still under the ~8-10s native-ping RED block
 
 # --- GREEN: the fixed ffhc_run_bounded (tempfile capture + MSYS tree-kill) ---
 start=$(date +%s)

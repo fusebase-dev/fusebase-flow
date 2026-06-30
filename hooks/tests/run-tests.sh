@@ -180,6 +180,8 @@ run_shell_phase test-po-verifiable-boot.sh     "po-verifiable-boot"
 run_shell_phase test-liveness-bounded-run.sh   "liveness"
 run_shell_phase test-codex-prompt-parity.sh    "codex-parity"
 run_shell_phase test-cli-0259-compat.sh        "cli-0259"
+run_shell_phase test-secret-scan-staged.sh     "secret-scan-staged"
+run_shell_phase test-msys-tree-cleanup.sh      "msys-tree-cleanup"
 
 # Exit-code phase — all-or-nothing shell tests that fail-fast (set -e + fail()→exit)
 # and don't emit the run_shell_phase "PASS: <tag> <name>" contract. One row per

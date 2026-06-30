@@ -405,18 +405,14 @@ elif [ -x hooks/tests/run-tests.sh ]; then
   elif [ "$FFHC_LAST_SKIPPED" -eq 1 ]; then
     LOCAL_UNVERIFIED+=("hook tests: UNVERIFIED — skipped (no timeout binary; install coreutils or set FFHC_ALLOW_UNBOUNDED=1)")
   elif [ -z "$HOOK_TEST_FAILS" ] && { [ "$HOOK_TEST_RC" = "124" ] || [ "$HOOK_TEST_RC" -ge 128 ]; }; then
-    # B2 defense (D-B2): no FAIL: + no strict N/N PASS + a SIGNAL/timeout rc
-    # (124, or 128+sig — e.g. 137/143) => HOOK_TESTS_INCONCLUSIVE, advisory only =>
-    # PARTIAL_UNVERIFIED/exit 4 (reuse LOCAL_UNVERIFIED; no new verdict). This is
-    # the residual belt for a non-124 signal rc the B-core tree-reap didn't squash;
-    # a cleanly-reaped timeout already surfaces 124 at line 400. A GENUINE crash
-    # (rc 1..123/125..127) is NOT a signal rc and falls to the BROKEN branch below.
+    # B2 defense (D-B2): no FAIL: + no strict PASS + a SIGNAL/timeout rc (124, or
+    # 128+sig) => advisory HOOK_TESTS_INCONCLUSIVE => PARTIAL_UNVERIFIED/exit 4
+    # (reuse LOCAL_UNVERIFIED, no new verdict). A genuine crash (rc 1..123/125..127)
+    # is NOT a signal rc and stays BROKEN at the next branch.
     LOCAL_UNVERIFIED+=("hook tests: HOOK_TESTS_INCONCLUSIVE — harness exited on a signal/timeout rc=$HOOK_TEST_RC with no FAIL: and no parsable 'N/N PASS' (likely an un-reaped bounded sub-run; raise FFHC_TESTS_TIMEOUT or run 'bash hooks/tests/run-tests.sh')")
   elif [ -z "$HOOK_TEST_FAILS" ] && [ "$HOOK_TEST_RC" -ne 0 ]; then
-    # H6: the harness exited non-zero (a GENUINE crash rc 1..123/125..127) but
-    # printed no parsable FAIL: line — it crashed before reporting (mktemp/cp/
-    # syntax/python-missing). Pre-fix this read OK via `|| true` (a false-HEALTHY).
-    # A crash is genuine breakage => BROKEN (NOT downgraded to the B2 signal belt).
+    # H6: a GENUINE crash (rc 1..123/125..127, non-signal) with no FAIL: — crashed
+    # before reporting. Pre-fix `|| true` read this as a false-HEALTHY; it is breakage.
     LOCAL_BROKEN+=("hook tests: harness exited rc=$HOOK_TEST_RC with no parsable result — likely crashed before reporting (run 'bash hooks/tests/run-tests.sh' to inspect)")
   elif [ -z "$HOOK_TEST_PASS_LINE" ]; then
     # rc=0, no FAIL:, but ffhc_select_pass_line did not return EXACTLY one strict
@@ -466,23 +462,13 @@ fi
 CONFLICT_TIMED_OUT=0
 CONFLICT_SKIPPED=0
 if [ -x hooks/local/check-cli-flow-conflicts.sh ]; then
-  if [ -n "${FFHC_TIMEOUT_BIN:-}" ]; then
-    # Tempfile capture (D-B1, belt #2): same liveness guarantee as ffhc_run_bounded
-    # — the bounded reporter's stdout goes to a file, we hold its pid + MSYS-reap
-    # the native tree, then read; a descendant can't starve this `$(…)`. stdout-only
-    # (stderr discarded) keeps the JSON parser's input identical to before.
-    _cf_tf="$(mktemp 2>/dev/null || echo "${TMPDIR:-/tmp}/ffhc-conflict.$$.$RANDOM")"
-    run_with_timeout "$FFHC_CONFLICT_TIMEOUT" bash hooks/local/check-cli-flow-conflicts.sh --json >"$_cf_tf" 2>/dev/null &
-    _cf_pid=$!
-    if ffhc_is_msys; then ffhc_msys_wait_reap "$_cf_pid" "$FFHC_CONFLICT_TIMEOUT"; else wait "$_cf_pid"; fi
-    CONFLICT_RC=$?
-    CONFLICT_JSON="$(cat "$_cf_tf" 2>/dev/null)"; rm -f "$_cf_tf" 2>/dev/null
-    ffhc_timed_out "$CONFLICT_RC" && CONFLICT_TIMED_OUT=1
-  elif [ "$FFHC_ALLOW_UNBOUNDED" = "1" ]; then
-    CONFLICT_JSON=$(bash hooks/local/check-cli-flow-conflicts.sh --json 2>/dev/null); CONFLICT_RC=$?
-  else
-    CONFLICT_JSON=""; CONFLICT_RC=125; CONFLICT_SKIPPED=1
-  fi
+  # Bounded stdout-only capture via the lib's belt-#2 helper (D-B1): tempfile +
+  # MSYS tree-reap so a descendant can't starve the parent; stderr dropped so the
+  # JSON parser's input is identical to before. Map the FFHC_LAST_* globals to the
+  # local CONFLICT_* the verdict logic below reads (no-binary SKIP policy preserved).
+  ffhc_run_bounded_stdout "$FFHC_CONFLICT_TIMEOUT" bash hooks/local/check-cli-flow-conflicts.sh --json
+  CONFLICT_JSON="$FFHC_LAST_OUT"; CONFLICT_RC="$FFHC_LAST_RC"
+  CONFLICT_TIMED_OUT="$FFHC_LAST_TIMED_OUT"; CONFLICT_SKIPPED="$FFHC_LAST_SKIPPED"
   if [ "$CONFLICT_TIMED_OUT" -eq 1 ]; then
     LOCAL_UNVERIFIED+=("CLI/Flow ownership report: UNVERIFIED — timed out after ${FFHC_CONFLICT_TIMEOUT}s (raise FFHC_CONFLICT_TIMEOUT or run 'bash hooks/local/check-cli-flow-conflicts.sh')")
   elif [ "$CONFLICT_SKIPPED" -eq 1 ]; then

@@ -44,6 +44,7 @@ The slow, verdict-affecting operations (preflight, hook tests, conflict reporter
 | (none) | Full local + upstream verdict. | 0 only if every critical ran clean |
 | `--no-upstream` | Skip the optional upstream comparison (full **local** verdict). | 0 OK |
 | `--fast` | Skip the slow hook tests (and upstream); keeps preflight + inventory + conflict reporter. **Explicitly partial.** | **4, never 0** (prints "fast mode — not a full health verdict") |
+| `--skip-hook-tests` | Alias for `--fast`. **Windows/Git-Bash escape**: the slow hook tests are the operation most affected by host CPU/timeout pressure; this skips them for a quick partial verdict without typing `--fast`. | **4, never 0** (same as `--fast`) |
 
 Env knobs (seconds; defaults in parentheses): `FFHC_FETCH_TIMEOUT` (15), `FFHC_PREFLIGHT_TIMEOUT` (30), `FFHC_CONFLICT_TIMEOUT` (30), `FFHC_TESTS_TIMEOUT` (60). If neither `timeout` nor `gtimeout` exists, the bounded ops are **skipped** ⇒ `PARTIAL_UNVERIFIED` (install coreutils, or opt into unbounded runs with `FFHC_ALLOW_UNBOUNDED=1`). Worst-case bounded full run ≈ 155s.
 

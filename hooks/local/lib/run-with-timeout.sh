@@ -120,25 +120,60 @@ ffhc_msys_wait_reap() {
 #   Policy (H5): if no timeout binary AND FFHC_ALLOW_UNBOUNDED!=1 => SKIP (no run,
 #   sentinel rc 125, FFHC_LAST_SKIPPED=1) so a slow op can never hang the engine;
 #   FFHC_ALLOW_UNBOUNDED=1 opts into an unbounded run instead.
+# _ffhc_tempfile_capture STDERR_MODE SECS CMD...: shared belt-#2 capture core (D-B1).
+# Backgrounds the bounded run with output to a TEMP FILE (never a pipe a descendant
+# could hold open), holds its pid + MSYS-reaps the native tree, waits, reads. Sets
+# FFHC_LAST_OUT/FFHC_LAST_RC/FFHC_LAST_TIMED_OUT. STDERR_MODE: "merge" (2>&1, combined)
+# or "drop" (2>/dev/null, stdout only). One core => the conflict reporter and
+# ffhc_run_bounded share the exact same liveness guarantee (FR-25 seam).
+_ffhc_tempfile_capture() {
+  local stderr_mode="$1" secs="$2"; shift 2
+  local _tf; _tf="$(mktemp 2>/dev/null || echo "${TMPDIR:-/tmp}/ffhc-bounded.$$.$RANDOM")"
+  if [ "$stderr_mode" = "drop" ]; then
+    run_with_timeout "$secs" "$@" >"$_tf" 2>/dev/null &
+  else
+    run_with_timeout "$secs" "$@" >"$_tf" 2>&1 &
+  fi
+  local _bpid=$!
+  if ffhc_is_msys; then ffhc_msys_wait_reap "$_bpid" "$secs"; else wait "$_bpid"; fi
+  FFHC_LAST_RC=$?
+  FFHC_LAST_OUT="$(cat "$_tf" 2>/dev/null)"
+  rm -f "$_tf" 2>/dev/null
+  ffhc_timed_out "$FFHC_LAST_RC" && FFHC_LAST_TIMED_OUT=1 || FFHC_LAST_TIMED_OUT=0
+}
+
+# ffhc_run_bounded SECS CMD [ARGS...]
+#   Runs CMD per the no-binary policy and records the result in module-globals
+#   the engine reads. Captures combined stdout+stderr so callers can parse it.
+#     FFHC_LAST_OUT       — captured combined output ("" when skipped)
+#     FFHC_LAST_RC        — wrapped command's own rc (124 on timeout; 125 sentinel when skipped)
+#     FFHC_LAST_TIMED_OUT — 1 iff the run hit the timeout (rc 124), else 0
+#     FFHC_LAST_SKIPPED   — 1 iff the run was skipped because no timeout binary exists, else 0
+#   Policy (H5): if no timeout binary AND FFHC_ALLOW_UNBOUNDED!=1 => SKIP (no run,
+#   sentinel rc 125, FFHC_LAST_SKIPPED=1) so a slow op can never hang the engine;
+#   FFHC_ALLOW_UNBOUNDED=1 opts into an unbounded run instead.
 ffhc_run_bounded() {
   local secs="$1"; shift
   FFHC_LAST_OUT=""; FFHC_LAST_RC=0; FFHC_LAST_TIMED_OUT=0; FFHC_LAST_SKIPPED=0
   if [ -n "${FFHC_TIMEOUT_BIN:-}" ]; then
-    # Belt #2 (all platforms, D-B1): capture via a TEMP FILE, not `$(…)`. The
-    # bounded run is backgrounded with stdout+stderr to a file; we hold its pid,
-    # wait, then read — so a descendant holding the old pipe can't starve this
-    # parent even if the MSYS tree-kill races/misses. Captured value + rc stay
-    # identical to the prior `$(run_with_timeout …)` on the success path.
-    local _tf; _tf="$(mktemp 2>/dev/null || echo "${TMPDIR:-/tmp}/ffhc-bounded.$$.$RANDOM")"
-    run_with_timeout "$secs" "$@" >"$_tf" 2>&1 &
-    local _bpid=$!
-    if ffhc_is_msys; then ffhc_msys_wait_reap "$_bpid" "$secs"; else wait "$_bpid"; fi
-    FFHC_LAST_RC=$?
-    FFHC_LAST_OUT="$(cat "$_tf" 2>/dev/null)"
-    rm -f "$_tf" 2>/dev/null
-    ffhc_timed_out "$FFHC_LAST_RC" && FFHC_LAST_TIMED_OUT=1
+    _ffhc_tempfile_capture merge "$secs" "$@"     # combined stdout+stderr (belt #2, D-B1)
   elif [ "${FFHC_ALLOW_UNBOUNDED:-0}" = "1" ]; then
     FFHC_LAST_OUT="$("$@" 2>&1)"; FFHC_LAST_RC=$?
+  else
+    FFHC_LAST_RC=125; FFHC_LAST_SKIPPED=1
+  fi
+}
+
+# ffhc_run_bounded_stdout SECS CMD [ARGS...]: like ffhc_run_bounded but stdout-only
+# (stderr discarded) — for callers that parse clean JSON/text (the conflict reporter).
+# Same module-globals + no-binary SKIP policy. Belt-#2 capture via the shared core.
+ffhc_run_bounded_stdout() {
+  local secs="$1"; shift
+  FFHC_LAST_OUT=""; FFHC_LAST_RC=0; FFHC_LAST_TIMED_OUT=0; FFHC_LAST_SKIPPED=0
+  if [ -n "${FFHC_TIMEOUT_BIN:-}" ]; then
+    _ffhc_tempfile_capture drop "$secs" "$@"
+  elif [ "${FFHC_ALLOW_UNBOUNDED:-0}" = "1" ]; then
+    FFHC_LAST_OUT="$("$@" 2>/dev/null)"; FFHC_LAST_RC=$?
   else
     FFHC_LAST_RC=125; FFHC_LAST_SKIPPED=1
   fi
