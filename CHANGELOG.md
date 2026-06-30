@@ -4,6 +4,23 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.30.0] — 2026-06-29
+
+### Changed — FuseBase CLI 0.25.9 vendor refresh + de-staled CLI-Stop-hook model
+
+**Refresh (additive + a behavior fix that only removes noise).** Flow v3.29.0 already **ran** with FuseBase CLI 0.25.9, but its vendored snapshot and hardcoded Stop-hook model were stale → a **proven false `SHARED_MERGE_DRIFT`** (phantom "CLI Stop hooks not preserved: run-typecheck-apps.js") and a **redundant double-typecheck on restore**. No new FR rule (FR-01..FR-27 unchanged), no new Flow skill (32 unchanged — the **20** is the CLI-provider count, separate). Dual-reviewed against the real 0.25.9 CLI: Codex design RESCOPE folded + FuseBase adversarial impl review **SHIP** (1 tracked MED + 2 LOW, none blocking).
+
+**FR-07-clean / additive:** no FR rule rows, no deploy-policy rule semantics, no `ratchet-governance.yml` touched. The re-vendored CLI assets stay **CLI-owned** (clean-room boundary) — not under the Flow clean-room attestation.
+
+- **B — de-staled CLI-Stop-hook model (diff-framed, version-agnostic).** `settings-json-merge.py` is now **preserve-only**: appends `stop.py` once (idempotent) + preserves every existing Stop hook + `enabledMcpjsonServers`; no longer re-injects `run-typecheck-apps.js` from a static name; never removes an existing hook (older-CLI projects keep theirs). `check-cli-flow-conflicts.sh` flags `SHARED_MERGE_DRIFT` only when Flow's merge actually **dropped** a CLI Stop command wired in the pre-merge `.claude/settings.json` (`.claude/hooks/` only classifies an already-wired command). No false positive on 0.25.9's 3-hook set; a genuinely-dropped hook is still flagged.
+- **H1 — `.claude/settings.json.example`.** Stop chain aligned to 0.25.9: `[run-lint-on-stop.sh, run-typecheck-on-stop.sh, quality-check-apps.js, stop.py]`; no `run-typecheck-apps.js`; "deprecated" comments removed; `stop.py` stays discoverable.
+- **A — full re-vendor to 0.25.9.** 20 provider skills (adds `app-api-contract-testing`), 4 `.claude/hooks` (adds `run-lint-on-stop.sh`, `run-typecheck-on-stop.sh`), 2 app-agents; `stamp-cli-provenance.sh` re-run → fresh `cli-vendor-manifest.json` (62/62 byte-match; no `CLI_SNAPSHOT_STALE`).
+- **H2 — flag-gate the new skill.** `app-api-contract-testing` added to `known_names` (both surfaces) + `flag_gated_skills` (flag `cross-app-api-calls-analysis`, verified vs CLI `copy-template.ts`) → absence-when-flag-off is benign INFO, not false `CLI_LAYER_DRIFT`. CLI-skill count 19→20 in the catalog.
+- **C — docs.** `compatibility.md` (19→20, `40=20×2`, 0.25.9 wired-hook set), `source-map.md`, `README.md`, `fusebase-cli-edition.md`, `audit/README.md`, `stamp-cli-provenance.sh` comments.
+- **D — tests.** New `hooks/tests/test-cli-0259-compat.sh` (12); `test-cli-flow-recovery.sh` updated to the 0.25.9 model. No-regression: 26 health-check timeout tests + benign non-FuseBase/0-present behavior + FFHC read-only guarantee intact.
+
+Verified: preflight 0/0 · `bash -n check-cli-flow-conflicts.sh stamp-cli-provenance.sh` OK · `py_compile settings-json-merge.py` OK · run-tests **164/164 PASS** · `check-module-size --all` exit 0 · mirror 0 drift (32 Flow skills) · plugin == VERSION == 3.30.0 · **GEMINI.md = v3.30.0** · README badge 3.30.0 · the 5 FR-07 surfaces UNCHANGED (only the FLOW_RULES version-attestation line moved) · `cli-vendor-manifest.json` fresh (no `CLI_SNAPSHOT_STALE`) · AGENTS.md command-equivalents table byte-unchanged after the sweep · T3 doc 19→20 not clobbered · `git grep -ni headroom` = 0. Real-CLI ticket smoke (against the extracted 0.25.9 CLI): merge appends `stop.py` once + preserves the 3 CLI hooks + `enabledMcpjsonServers` + adds 0 `run-typecheck-apps.js` + idempotent; health-check **HEALTHY** (`shared_merge_drift:0`, `cli_snapshot_stale:0`); example wired; 20 skills; manifest 0-diff. Feature commits `1d3780d..d0b25e4`. Spec: `docs/specs/cli-0.25.9-vendor-refresh/spec.md`. Detail: `docs/release-notes/v3.30.0.md`.
+
 ## [3.29.0] — 2026-06-26
 
 ### Added — Codex / cross-agent slash-command parity
