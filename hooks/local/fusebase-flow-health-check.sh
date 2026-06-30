@@ -403,10 +403,19 @@ elif [ -x hooks/tests/run-tests.sh ]; then
     LOCAL_UNVERIFIED+=("hook tests: UNVERIFIED — timed out after ${FFHC_TESTS_TIMEOUT}s with no FAIL: observed (raise FFHC_TESTS_TIMEOUT or run 'bash hooks/tests/run-tests.sh')")
   elif [ "$FFHC_LAST_SKIPPED" -eq 1 ]; then
     LOCAL_UNVERIFIED+=("hook tests: UNVERIFIED — skipped (no timeout binary; install coreutils or set FFHC_ALLOW_UNBOUNDED=1)")
+  elif [ -z "$HOOK_TEST_FAILS" ] && { [ "$HOOK_TEST_RC" = "124" ] || [ "$HOOK_TEST_RC" -ge 128 ]; }; then
+    # B2 defense (D-B2): no FAIL: + no strict N/N PASS + a SIGNAL/timeout rc
+    # (124, or 128+sig — e.g. 137/143) => HOOK_TESTS_INCONCLUSIVE, advisory only =>
+    # PARTIAL_UNVERIFIED/exit 4 (reuse LOCAL_UNVERIFIED; no new verdict). This is
+    # the residual belt for a non-124 signal rc the B-core tree-reap didn't squash;
+    # a cleanly-reaped timeout already surfaces 124 at line 400. A GENUINE crash
+    # (rc 1..123/125..127) is NOT a signal rc and falls to the BROKEN branch below.
+    LOCAL_UNVERIFIED+=("hook tests: HOOK_TESTS_INCONCLUSIVE — harness exited on a signal/timeout rc=$HOOK_TEST_RC with no FAIL: and no parsable 'N/N PASS' (likely an un-reaped bounded sub-run; raise FFHC_TESTS_TIMEOUT or run 'bash hooks/tests/run-tests.sh')")
   elif [ -z "$HOOK_TEST_FAILS" ] && [ "$HOOK_TEST_RC" -ne 0 ]; then
-    # H6: the harness exited non-zero but printed no parsable FAIL: line — it
-    # crashed before reporting (mktemp/cp/syntax/python-missing). Pre-fix this
-    # read OK via `|| true` (a false-HEALTHY). A crash is genuine breakage.
+    # H6: the harness exited non-zero (a GENUINE crash rc 1..123/125..127) but
+    # printed no parsable FAIL: line — it crashed before reporting (mktemp/cp/
+    # syntax/python-missing). Pre-fix this read OK via `|| true` (a false-HEALTHY).
+    # A crash is genuine breakage => BROKEN (NOT downgraded to the B2 signal belt).
     LOCAL_BROKEN+=("hook tests: harness exited rc=$HOOK_TEST_RC with no parsable result — likely crashed before reporting (run 'bash hooks/tests/run-tests.sh' to inspect)")
   elif [ -z "$HOOK_TEST_PASS_LINE" ]; then
     # rc=0, no FAIL:, but ffhc_select_pass_line did not return EXACTLY one strict

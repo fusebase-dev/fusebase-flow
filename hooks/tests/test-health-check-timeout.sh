@@ -324,6 +324,39 @@ ht_pass_then_fail() {
   ht_pass "spoof-pass-then-fail (Codex r3 A2): clean PASS summary + later FAIL: => BROKEN/2, never HEALTHY"
 }
 
+# ---- B2 defense (D-B2 / AC-B2), RED-then-GREEN ------------------------------
+# The narrowed reclassification at fusebase-flow-health-check.sh:406. A run-tests
+# harness that exits on a SIGNAL/timeout rc (124, or 128+sig) with no FAIL: and no
+# strict N/N PASS is INCONCLUSIVE => PARTIAL_UNVERIFIED/exit 4 (advisory), NOT a
+# false BROKEN. Pre-fix RED: rc!=0 + no FAIL: => BROKEN/2 unconditionally. A GENUINE
+# crash rc (1..123/125..127) still => BROKEN/2 (the narrowing must not over-reach).
+
+# B2 #1 (GREEN target): signal rc 143 (128+SIGTERM), no FAIL:, no PASS => INCONCLUSIVE.
+ht_b2_signal_inconclusive() {
+  local D="$TMP_BASE/b2-signal-inconclusive"
+  setup_hc_fixture "$D"
+  printf '#!/usr/bin/env bash\necho "partial output, no summary" >&2\nexit 143\n' > "$D/hooks/tests/run-tests.sh"; chmod +x "$D/hooks/tests/run-tests.sh"
+  local OUT; OUT="$(run_hc "$D" env FFHC_TESTS_TIMEOUT=10)"
+  echo "$OUT" | grep -q "Verdict: PARTIAL_UNVERIFIED" || { ht_fail "b2-signal-inconclusive" "$OUT"; return; }
+  echo "$OUT" | grep -q "^EXIT=4$" || { ht_fail "b2-signal-inconclusive" "$OUT"; return; }
+  echo "$OUT" | grep -qi "HOOK_TESTS_INCONCLUSIVE" || { ht_fail "b2-signal-inconclusive" "$OUT"; return; }
+  if echo "$OUT" | grep -q "Verdict: BROKEN"; then ht_fail "b2-signal-inconclusive" "$OUT"; return; fi
+  ht_pass "b2-signal-inconclusive (AC-B2): signal rc=143 + no FAIL: + no PASS => HOOK_TESTS_INCONCLUSIVE/PARTIAL_UNVERIFIED/exit 4, never BROKEN"
+}
+
+# B2 #2 (regression guard): a GENUINE crash rc 3 (NOT a signal rc) STAYS BROKEN/2.
+ht_b2_genuine_crash_broken() {
+  local D="$TMP_BASE/b2-genuine-crash-broken"
+  setup_hc_fixture "$D"
+  printf '#!/usr/bin/env bash\necho "boom: cp failed" >&2\nexit 3\n' > "$D/hooks/tests/run-tests.sh"; chmod +x "$D/hooks/tests/run-tests.sh"
+  local OUT; OUT="$(run_hc "$D" env FFHC_TESTS_TIMEOUT=10)"
+  echo "$OUT" | grep -q "Verdict: BROKEN" || { ht_fail "b2-genuine-crash-broken" "$OUT"; return; }
+  echo "$OUT" | grep -q "^EXIT=2$" || { ht_fail "b2-genuine-crash-broken" "$OUT"; return; }
+  echo "$OUT" | grep -qi "harness exited rc=3" || { ht_fail "b2-genuine-crash-broken" "$OUT"; return; }
+  if echo "$OUT" | grep -q "HOOK_TESTS_INCONCLUSIVE"; then ht_fail "b2-genuine-crash-broken" "$OUT"; return; fi
+  ht_pass "b2-genuine-crash-broken (AC-B2 guard): genuine crash rc=3 (non-signal) STAYS BROKEN/exit 2, NOT downgraded to INCONCLUSIVE"
+}
+
 ht1; ht2; ht3; ht4; ht5; ht6; ht7; ht8; ht9; ht10; ht11; ht12
 
 # --- Codex round-3 spoof table, BROKEN/2 rows ---
@@ -337,6 +370,10 @@ hc_broken_pass "spoof-leading-whitespace" ' [run-tests] 1/1 PASS\n'
 hc_broken_pass "spoof-midline-embedded"   'preamble [run-tests] 1/1 PASS trailing\n'
 ht_dup_pass
 ht_pass_then_fail
+
+# --- B2 defense RED-then-GREEN (D-B2 / AC-B2) ---
+ht_b2_signal_inconclusive
+ht_b2_genuine_crash_broken
 
 # --- Codex round-3 spoof table, HEALTHY/0 (genuine clean) rows ---
 hc_healthy_pass "clean-three-three"       '[run-tests] 3/3 PASS\n'
