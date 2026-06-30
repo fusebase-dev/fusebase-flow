@@ -371,6 +371,24 @@ ht_b2_genuine_crash_broken() {
   ht_pass "b2-genuine-crash-broken (AC-B2 guard): genuine crash rc=3 (non-signal) STAYS BROKEN/exit 2, NOT downgraded to INCONCLUSIVE"
 }
 
+# B2 #3 (Codex BLOCKER / AC-B2): a crash-AFTER-PASS — run-tests prints a strict
+# "N/N PASS" then exits on a SIGNAL rc (143 = 128+SIGTERM) with no FAIL:. The
+# INCONCLUSIVE branch requires NO strict PASS; with a real PASS line present this
+# is a harness that confirmed a pass then died on a signal => genuine breakage =>
+# BROKEN/exit 2, NOT downgraded to INCONCLUSIVE. RED on the pre-fix predicate
+# (which omitted the no-strict-PASS guard and masked this as INCONCLUSIVE/exit 4).
+ht_b2_pass_then_signal_broken() {
+  local D="$TMP_BASE/b2-pass-then-signal-broken"
+  setup_hc_fixture "$D"
+  printf '#!/usr/bin/env bash\necho "[run-tests] 1/1 PASS"\nexit 143\n' > "$D/hooks/tests/run-tests.sh"; chmod +x "$D/hooks/tests/run-tests.sh"
+  local OUT; OUT="$(run_hc "$D" env FFHC_TESTS_TIMEOUT=10)"
+  echo "$OUT" | grep -q "Verdict: BROKEN" || { ht_fail "b2-pass-then-signal-broken" "$OUT"; return; }
+  echo "$OUT" | grep -q "^EXIT=2$" || { ht_fail "b2-pass-then-signal-broken" "$OUT"; return; }
+  if echo "$OUT" | grep -q "HOOK_TESTS_INCONCLUSIVE"; then ht_fail "b2-pass-then-signal-broken" "$OUT"; return; fi
+  if echo "$OUT" | grep -q "Verdict: PARTIAL_UNVERIFIED"; then ht_fail "b2-pass-then-signal-broken" "$OUT"; return; fi
+  ht_pass "b2-pass-then-signal-broken (Codex BLOCKER / AC-B2): strict 'N/N PASS' + signal rc=143 + no FAIL: => BROKEN/exit 2, NOT INCONCLUSIVE (no-strict-PASS guard)"
+}
+
 ht1; ht2; ht3; ht4; ht5; ht5b; ht6; ht7; ht8; ht9; ht10; ht11; ht12
 
 # --- Codex round-3 spoof table, BROKEN/2 rows ---
@@ -388,6 +406,7 @@ ht_pass_then_fail
 # --- B2 defense RED-then-GREEN (D-B2 / AC-B2) ---
 ht_b2_signal_inconclusive
 ht_b2_genuine_crash_broken
+ht_b2_pass_then_signal_broken
 
 # --- Codex round-3 spoof table, HEALTHY/0 (genuine clean) rows ---
 hc_healthy_pass "clean-three-three"       '[run-tests] 3/3 PASS\n'

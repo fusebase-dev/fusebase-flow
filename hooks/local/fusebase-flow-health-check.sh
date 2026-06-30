@@ -404,11 +404,11 @@ elif [ -x hooks/tests/run-tests.sh ]; then
     LOCAL_UNVERIFIED+=("hook tests: UNVERIFIED — timed out after ${FFHC_TESTS_TIMEOUT}s with no FAIL: observed (raise FFHC_TESTS_TIMEOUT or run 'bash hooks/tests/run-tests.sh')")
   elif [ "$FFHC_LAST_SKIPPED" -eq 1 ]; then
     LOCAL_UNVERIFIED+=("hook tests: UNVERIFIED — skipped (no timeout binary; install coreutils or set FFHC_ALLOW_UNBOUNDED=1)")
-  elif [ -z "$HOOK_TEST_FAILS" ] && { [ "$HOOK_TEST_RC" = "124" ] || [ "$HOOK_TEST_RC" -ge 128 ]; }; then
-    # B2 defense (D-B2): no FAIL: + no strict PASS + a SIGNAL/timeout rc (124, or
-    # 128+sig) => advisory HOOK_TESTS_INCONCLUSIVE => PARTIAL_UNVERIFIED/exit 4
-    # (reuse LOCAL_UNVERIFIED, no new verdict). A genuine crash (rc 1..123/125..127)
-    # is NOT a signal rc and stays BROKEN at the next branch.
+  elif [ -z "$HOOK_TEST_FAILS" ] && [ -z "$HOOK_TEST_PASS_LINE" ] && { [ "$HOOK_TEST_RC" = "124" ] || [ "$HOOK_TEST_RC" -ge 128 ]; }; then
+    # B2 defense (D-B2): no FAIL: + no strict PASS + a SIGNAL/timeout rc (124/128+sig)
+    # => advisory HOOK_TESTS_INCONCLUSIVE => PARTIAL_UNVERIFIED/exit 4 (no new verdict).
+    # TRIPWIRE (Codex BLOCKER): the `-z HOOK_TEST_PASS_LINE` guard is load-bearing — a
+    # strict PASS + signal rc + no FAIL: = pass-then-DIED, MUST fall through to BROKEN.
     LOCAL_UNVERIFIED+=("hook tests: HOOK_TESTS_INCONCLUSIVE — harness exited on a signal/timeout rc=$HOOK_TEST_RC with no FAIL: and no parsable 'N/N PASS' (likely an un-reaped bounded sub-run; raise FFHC_TESTS_TIMEOUT or run 'bash hooks/tests/run-tests.sh')")
   elif [ -z "$HOOK_TEST_FAILS" ] && [ "$HOOK_TEST_RC" -ne 0 ]; then
     # H6: a GENUINE crash (rc 1..123/125..127, non-signal) with no FAIL: — crashed
