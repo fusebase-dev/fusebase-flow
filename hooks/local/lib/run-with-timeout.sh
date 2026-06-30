@@ -74,38 +74,62 @@ ffhc_is_msys() {
   case "$(uname -s 2>/dev/null)" in MINGW*|MSYS*|CYGWIN*) return 0 ;; *) return 1 ;; esac
 }
 
-# ffhc_msys_tree_kill PID: MSYS-only Windows-native tree reap. Resolves the bash
-# PID's Windows pid via /proc/<pid>/winpid and `taskkill //F //T` its tree so a
-# native/escaped descendant left after a POSIX timeout is reaped (D-B1). Graceful
-# fallback: absent winpid or taskkill => no-op (never errors, never hangs the
-# bounded contract). Scope (AC-B1): the attributable wrapper tree only — a
-# `start //b`-detached helper escapes the tree and is OUT of scope (tempfile
-# capture in ffhc_run_bounded is the liveness belt for that case).
-ffhc_msys_tree_kill() {
+# ffhc_msys_winpid PID: echo the Windows pid for a bash PID via /proc/<pid>/winpid,
+# or "" if unresolved. TRIPWIRE: call this IMMEDIATELY after launch, while the proc
+# is still ALIVE — /proc/<pid>/winpid vanishes the instant the proc exits, so a
+# post-deadline read races the wrapper's own exit and usually reads empty (the T7
+# defect). Capturing it early is the whole point.
+ffhc_msys_winpid() {
   local pid="${1:-}"
   [ -n "$pid" ] || return 0
-  command -v taskkill >/dev/null 2>&1 || return 0
-  local winpid; winpid="$(cat "/proc/$pid/winpid" 2>/dev/null || true)"
+  cat "/proc/$pid/winpid" 2>/dev/null || true
+}
+
+# ffhc_msys_taskkill_winpid WINPID: `taskkill //F //T` a captured Windows pid tree
+# (output suppressed). Graceful no-op: empty winpid or no taskkill => return 0,
+# never error, never hang the bounded contract.
+ffhc_msys_taskkill_winpid() {
+  local winpid="${1:-}"
   [ -n "$winpid" ] || return 0
+  command -v taskkill >/dev/null 2>&1 || return 0
   taskkill //F //T //PID "$winpid" >/dev/null 2>&1 || true
 }
 
-# ffhc_msys_wait_reap BPID SECS: MSYS-only wait that returns BPID's own rc (so
-# 124/137 are preserved) while reaping its native descendant tree once the deadline
-# passes. Polls at 1s; after SECS elapses it taskkill-tree-kills the bounded proc
-# (while still attributable) so a native runaway is reaped, then collects the rc.
-# Capped at SECS + grace + epsilon so a stuck wait can never outlive the contract.
+# ffhc_msys_tree_kill PID: MSYS-only Windows-native tree reap (lazy lookup). Resolves
+# the bash PID's Windows pid via /proc/<pid>/winpid and `taskkill //F //T` its tree.
+# TRIPWIRE: this lazy lookup is BEST-EFFORT only — if PID has already exited the
+# winpid read returns empty and this no-ops; the early-captured winpid path
+# (ffhc_msys_winpid at launch + ffhc_msys_taskkill_winpid on timeout) is the
+# reliable reap. Kept for API/back-compat. Graceful fallback: absent winpid or
+# taskkill => no-op (never errors, never hangs).
+ffhc_msys_tree_kill() {
+  ffhc_msys_taskkill_winpid "$(ffhc_msys_winpid "${1:-}")"
+}
+
+# ffhc_msys_wait_reap BPID SECS [WINPID]: MSYS-only wait that returns BPID's own rc
+# (so 124/137 are preserved) while reaping its native descendant tree once the
+# deadline passes. Polls at 1s; after SECS elapses it taskkill-tree-kills the bounded
+# proc so a native runaway is reaped, then collects the rc. Capped at SECS+grace+eps
+# so a stuck wait can never outlive the contract.
+# WINPID (T7): the Windows pid captured at LAUNCH (while alive). When provided, the
+# reap uses it directly — BEST-EFFORT anti-runaway: it reaps the bounded wrapper's
+# attributable tree even after the wrapper has exited (when the lazy /proc lookup
+# would race to empty). HONEST LIMIT: a descendant reparented/detached after its
+# ancestor exited (Windows does NOT reparent to init) may still survive — the
+# tempfile capture, NOT this kill, is the guaranteed anti-hang. Falls back to the
+# lazy ffhc_msys_tree_kill when WINPID is empty.
 ffhc_msys_wait_reap() {
-  local bpid="$1" secs="$2"
+  local bpid="$1" secs="$2" winpid="${3:-}"
   local grace="${FFHC_TIMEOUT_KILL_GRACE:-5s}"; local gsec="${grace%[!0-9]*}"
   case "$gsec" in ''|*[!0-9]*) gsec=5 ;; esac
   local cap=$(( secs + gsec + 2 )) waited=0 reaped=0
+  _ffhc_reap() { if [ -n "$winpid" ]; then ffhc_msys_taskkill_winpid "$winpid"; else ffhc_msys_tree_kill "$bpid"; fi; }
   while kill -0 "$bpid" 2>/dev/null; do
     sleep 1; waited=$((waited + 1))
     if [ "$waited" -ge "$secs" ] && [ "$reaped" -eq 0 ]; then
-      ffhc_msys_tree_kill "$bpid"; reaped=1
+      _ffhc_reap; reaped=1
     fi
-    [ "$waited" -ge "$cap" ] && { ffhc_msys_tree_kill "$bpid"; break; }
+    [ "$waited" -ge "$cap" ] && { _ffhc_reap; break; }
   done
   wait "$bpid"; return $?
 }
@@ -135,7 +159,10 @@ _ffhc_tempfile_capture() {
     run_with_timeout "$secs" "$@" >"$_tf" 2>&1 &
   fi
   local _bpid=$!
-  if ffhc_is_msys; then ffhc_msys_wait_reap "$_bpid" "$secs"; else wait "$_bpid"; fi
+  # T7: capture the Windows pid NOW, while _bpid is still alive (the /proc/<pid>/winpid
+  # node vanishes on exit; a post-deadline read races the wrapper's exit and reads empty).
+  local _winpid=""; if ffhc_is_msys; then _winpid="$(ffhc_msys_winpid "$_bpid")"; fi
+  if ffhc_is_msys; then ffhc_msys_wait_reap "$_bpid" "$secs" "$_winpid"; else wait "$_bpid"; fi
   FFHC_LAST_RC=$?
   FFHC_LAST_OUT="$(cat "$_tf" 2>/dev/null)"
   rm -f "$_tf" 2>/dev/null
