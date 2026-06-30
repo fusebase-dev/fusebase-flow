@@ -68,6 +68,48 @@ run_with_timeout() {
   "$FFHC_TIMEOUT_BIN" -k "$grace" "$secs" "$@"
 }
 
+# ffhc_is_msys: 0 (true) on Git-Bash/MSYS/Cygwin, where a NATIVE descendant of a
+# bounded command survives POSIX `timeout` cleanup (D-B1). POSIX hosts reap fine.
+ffhc_is_msys() {
+  case "$(uname -s 2>/dev/null)" in MINGW*|MSYS*|CYGWIN*) return 0 ;; *) return 1 ;; esac
+}
+
+# ffhc_msys_tree_kill PID: MSYS-only Windows-native tree reap. Resolves the bash
+# PID's Windows pid via /proc/<pid>/winpid and `taskkill //F //T` its tree so a
+# native/escaped descendant left after a POSIX timeout is reaped (D-B1). Graceful
+# fallback: absent winpid or taskkill => no-op (never errors, never hangs the
+# bounded contract). Scope (AC-B1): the attributable wrapper tree only — a
+# `start //b`-detached helper escapes the tree and is OUT of scope (tempfile
+# capture in ffhc_run_bounded is the liveness belt for that case).
+ffhc_msys_tree_kill() {
+  local pid="${1:-}"
+  [ -n "$pid" ] || return 0
+  command -v taskkill >/dev/null 2>&1 || return 0
+  local winpid; winpid="$(cat "/proc/$pid/winpid" 2>/dev/null || true)"
+  [ -n "$winpid" ] || return 0
+  taskkill //F //T //PID "$winpid" >/dev/null 2>&1 || true
+}
+
+# ffhc_msys_wait_reap BPID SECS: MSYS-only wait that returns BPID's own rc (so
+# 124/137 are preserved) while reaping its native descendant tree once the deadline
+# passes. Polls at 1s; after SECS elapses it taskkill-tree-kills the bounded proc
+# (while still attributable) so a native runaway is reaped, then collects the rc.
+# Capped at SECS + grace + epsilon so a stuck wait can never outlive the contract.
+ffhc_msys_wait_reap() {
+  local bpid="$1" secs="$2"
+  local grace="${FFHC_TIMEOUT_KILL_GRACE:-5s}"; local gsec="${grace%[!0-9]*}"
+  case "$gsec" in ''|*[!0-9]*) gsec=5 ;; esac
+  local cap=$(( secs + gsec + 2 )) waited=0 reaped=0
+  while kill -0 "$bpid" 2>/dev/null; do
+    sleep 1; waited=$((waited + 1))
+    if [ "$waited" -ge "$secs" ] && [ "$reaped" -eq 0 ]; then
+      ffhc_msys_tree_kill "$bpid"; reaped=1
+    fi
+    [ "$waited" -ge "$cap" ] && { ffhc_msys_tree_kill "$bpid"; break; }
+  done
+  wait "$bpid"; return $?
+}
+
 # ffhc_run_bounded SECS CMD [ARGS...]
 #   Runs CMD per the no-binary policy and records the result in module-globals
 #   the engine reads. Captures combined stdout+stderr so callers can parse it.
@@ -82,7 +124,18 @@ ffhc_run_bounded() {
   local secs="$1"; shift
   FFHC_LAST_OUT=""; FFHC_LAST_RC=0; FFHC_LAST_TIMED_OUT=0; FFHC_LAST_SKIPPED=0
   if [ -n "${FFHC_TIMEOUT_BIN:-}" ]; then
-    FFHC_LAST_OUT="$(run_with_timeout "$secs" "$@" 2>&1)"; FFHC_LAST_RC=$?
+    # Belt #2 (all platforms, D-B1): capture via a TEMP FILE, not `$(…)`. The
+    # bounded run is backgrounded with stdout+stderr to a file; we hold its pid,
+    # wait, then read — so a descendant holding the old pipe can't starve this
+    # parent even if the MSYS tree-kill races/misses. Captured value + rc stay
+    # identical to the prior `$(run_with_timeout …)` on the success path.
+    local _tf; _tf="$(mktemp 2>/dev/null || echo "${TMPDIR:-/tmp}/ffhc-bounded.$$.$RANDOM")"
+    run_with_timeout "$secs" "$@" >"$_tf" 2>&1 &
+    local _bpid=$!
+    if ffhc_is_msys; then ffhc_msys_wait_reap "$_bpid" "$secs"; else wait "$_bpid"; fi
+    FFHC_LAST_RC=$?
+    FFHC_LAST_OUT="$(cat "$_tf" 2>/dev/null)"
+    rm -f "$_tf" 2>/dev/null
     ffhc_timed_out "$FFHC_LAST_RC" && FFHC_LAST_TIMED_OUT=1
   elif [ "${FFHC_ALLOW_UNBOUNDED:-0}" = "1" ]; then
     FFHC_LAST_OUT="$("$@" 2>&1)"; FFHC_LAST_RC=$?

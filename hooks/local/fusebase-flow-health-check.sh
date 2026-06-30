@@ -457,7 +457,16 @@ CONFLICT_TIMED_OUT=0
 CONFLICT_SKIPPED=0
 if [ -x hooks/local/check-cli-flow-conflicts.sh ]; then
   if [ -n "${FFHC_TIMEOUT_BIN:-}" ]; then
-    CONFLICT_JSON=$(run_with_timeout "$FFHC_CONFLICT_TIMEOUT" bash hooks/local/check-cli-flow-conflicts.sh --json 2>/dev/null); CONFLICT_RC=$?
+    # Tempfile capture (D-B1, belt #2): same liveness guarantee as ffhc_run_bounded
+    # — the bounded reporter's stdout goes to a file, we hold its pid + MSYS-reap
+    # the native tree, then read; a descendant can't starve this `$(…)`. stdout-only
+    # (stderr discarded) keeps the JSON parser's input identical to before.
+    _cf_tf="$(mktemp 2>/dev/null || echo "${TMPDIR:-/tmp}/ffhc-conflict.$$.$RANDOM")"
+    run_with_timeout "$FFHC_CONFLICT_TIMEOUT" bash hooks/local/check-cli-flow-conflicts.sh --json >"$_cf_tf" 2>/dev/null &
+    _cf_pid=$!
+    if ffhc_is_msys; then ffhc_msys_wait_reap "$_cf_pid" "$FFHC_CONFLICT_TIMEOUT"; else wait "$_cf_pid"; fi
+    CONFLICT_RC=$?
+    CONFLICT_JSON="$(cat "$_cf_tf" 2>/dev/null)"; rm -f "$_cf_tf" 2>/dev/null
     ffhc_timed_out "$CONFLICT_RC" && CONFLICT_TIMED_OUT=1
   elif [ "$FFHC_ALLOW_UNBOUNDED" = "1" ]; then
     CONFLICT_JSON=$(bash hooks/local/check-cli-flow-conflicts.sh --json 2>/dev/null); CONFLICT_RC=$?
