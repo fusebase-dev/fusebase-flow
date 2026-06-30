@@ -29,6 +29,18 @@ The public template does not advertise compatibility with any AI coding assistan
 | Preflight | 0 errors / 0 warnings |
 | GitHub Action | runs preflight + hook tests + mirror drift check on every push / PR |
 
+## Secret-scan scope (pre-commit + PreToolUse)
+
+The pre-commit secret scan (`hooks/shared/staged_secret_scan.py`, decision D-A1) scans
+ONLY added (`+`) lines of the staged diff. Two deliberate scope limits — by design, not bugs:
+
+| Limit | Behavior | Why / legitimate path |
+|---|---|---|
+| Designed-token files path-excluded | A real secret added inside `policies/secret-patterns.yml`, `policies/secret-patterns.local.yml`, or `hooks/tests/fixtures/` is NOT caught by the commit scan | Those files hold fake example tokens that otherwise self-trip the scanner. Don't store real secrets there. PreToolUse / UserPromptSubmit still scan freely. |
+| PreToolUse self-trip on full `secret-patterns.yml` writes | An agent that writes the FULL `secret-patterns.yml` content via Edit/Write can trip the PreToolUse scanner on the file's own fake example tokens | Known limitation. Legitimate path: stage the edit and commit (pre-commit path-excludes that file); the commit scan is the authoritative gate for it. |
+
+To get a real-secret BLOCK past pre-commit: rotate the credential + `git reset HEAD -- <file>` to unstage. NEVER add a `whitelist:` entry — a non-empty whitelist disables a pattern globally and breaks fixtures 10/11.
+
 ## Last amended
 
 ```

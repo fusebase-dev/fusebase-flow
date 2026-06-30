@@ -7,9 +7,12 @@
 #
 # Install: bash hooks/local/install-git-hooks.sh
 #
-# Bypass: NEVER use --no-verify. If the secret scan flags a real value, rotate it
-# and unstage — do NOT whitelist the value (that disables detection globally and
-# breaks the scanner's own fixtures). For a false positive, fix the pattern.
+# Bypass: NEVER use --no-verify. Real secret flagged => rotate + `git reset HEAD --
+# <file>` to unstage; never whitelist it (disables a pattern globally, breaks the
+# scanner's own fixtures 10/11). False positive => fix the pattern.
+# Known scan-scope limits (docs/compatibility.md § Secret-scan): designed-token
+# files are path-excluded; PreToolUse self-trips when an agent writes full
+# secret-patterns.yml content.
 
 set -uo pipefail
 

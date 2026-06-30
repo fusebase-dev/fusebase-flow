@@ -14,6 +14,10 @@ DELIBERATE GAP (D-A1): a real secret added to one of the three excluded
 designed-token files is NOT caught by THIS commit scan. The exclusion is a
 data-as-code scope decision — those files exist to hold fake example tokens that
 otherwise self-trip the scanner. PreToolUse/UserPromptSubmit still scan freely.
+
+KNOWN LIMITATION + the excluded-file gap are documented operator-side in
+docs/compatibility.md § Secret-scan scope (PreToolUse self-trips when an agent
+writes full secret-patterns.yml content; legitimate path = stage + commit).
 """
 from __future__ import annotations
 
