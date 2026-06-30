@@ -30,6 +30,33 @@ finish() { echo "[test-msys-tree-cleanup] $pass/$((pass + fail)) PASS"; exit $fa
 . "$LIB"
 ffhc_detect_timeout
 
+# --- T8 (all platforms): robust tempfile fallback. If the capture temp can't be
+# created/written, _ffhc_tempfile_capture MUST route to the SKIPPED sentinel
+# (rc 125 + FFHC_LAST_SKIPPED=1 + empty out) so the engine reads UNVERIFIED — NOT
+# an empty-output run a verdict reads as a false BROKEN, and NEVER a hang. Also
+# assert no transient ffhc-bounded.* file leaks into CWD. Platform-independent (the
+# temp-fail branch is above the MSYS gate), so it runs on Linux/macOS CI too. ---
+if [ -n "${FFHC_TIMEOUT_BIN:-}" ]; then
+  t8_cwd_leak_before=$(ls -1 ffhc-bounded.* 2>/dev/null | wc -l)
+  ( export TMPDIR="/nonexistent-ffhc-tmp-$$/deeper"
+    ffhc_run_bounded 5 bash -c 'echo should-not-run; exit 0'
+    [ "$FFHC_LAST_SKIPPED" = "1" ] && [ "$FFHC_LAST_RC" = "125" ] && [ -z "$FFHC_LAST_OUT" ] && [ "$FFHC_LAST_TIMED_OUT" = "0" ]
+  )
+  if [ $? -eq 0 ]; then
+    ok "t8-tempfail-routes-to-skipped (unwritable TMPDIR => rc 125 + SKIPPED + empty out => UNVERIFIED, never false BROKEN/hang)"
+  else
+    bad "t8-tempfail-routes-to-skipped" "unwritable TMPDIR did not produce the SKIPPED sentinel (rc 125 / FFHC_LAST_SKIPPED=1 / empty out)"
+  fi
+  t8_cwd_leak_after=$(ls -1 ffhc-bounded.* 2>/dev/null | wc -l)
+  if [ "$t8_cwd_leak_after" -le "$t8_cwd_leak_before" ]; then
+    ok "t8-no-cwd-tempfile-leak (explicit \${TMPDIR}/ffhc-bounded.\$\$.XXXXXX template — no transient files in CWD)"
+  else
+    bad "t8-no-cwd-tempfile-leak" "ffhc-bounded.* file(s) leaked into CWD (before=$t8_cwd_leak_before after=$t8_cwd_leak_after)"
+  fi
+else
+  skip "t8-tempfail-routes-to-skipped" "no timeout binary on PATH — tempfile-capture path not exercised"
+fi
+
 case "$(uname -s 2>/dev/null)" in
   MINGW*|MSYS*|CYGWIN*) : ;;  # MSYS — run the real RED-then-GREEN
   *) skip "native-descendant-reap" "off-MSYS — POSIX timeout reaps the tree; native-escape repro is MSYS-only"; finish ;;

@@ -150,9 +150,21 @@ ffhc_msys_wait_reap() {
 # FFHC_LAST_OUT/FFHC_LAST_RC/FFHC_LAST_TIMED_OUT. STDERR_MODE: "merge" (2>&1, combined)
 # or "drop" (2>/dev/null, stdout only). One core => the conflict reporter and
 # ffhc_run_bounded share the exact same liveness guarantee (FR-25 seam).
+# T8: explicit "${TMPDIR:-/tmp}/ffhc-bounded.$$.XXXXXX" template (no CWD files), and
+# if the temp can't be created/written, route to the SKIPPED sentinel (rc 125,
+# FFHC_LAST_SKIPPED=1) so the engine reads UNVERIFIED — NOT an empty-output run that
+# would read as a false BROKEN, and NEVER a launch into a broken redirect.
 _ffhc_tempfile_capture() {
   local stderr_mode="$1" secs="$2"; shift 2
-  local _tf; _tf="$(mktemp 2>/dev/null || echo "${TMPDIR:-/tmp}/ffhc-bounded.$$.$RANDOM")"
+  local _tf
+  _tf="$(mktemp "${TMPDIR:-/tmp}/ffhc-bounded.$$.XXXXXX" 2>/dev/null || true)"
+  # TRIPWIRE: a missing/unwritable temp must SKIP (UNVERIFIED), never launch the
+  # bounded run into a dead redirect (that returns empty => false BROKEN) or hang.
+  if [ -z "$_tf" ] || ! { : >"$_tf"; } 2>/dev/null; then
+    [ -n "$_tf" ] && rm -f "$_tf" 2>/dev/null
+    FFHC_LAST_OUT=""; FFHC_LAST_RC=125; FFHC_LAST_SKIPPED=1; FFHC_LAST_TIMED_OUT=0
+    return 0
+  fi
   if [ "$stderr_mode" = "drop" ]; then
     run_with_timeout "$secs" "$@" >"$_tf" 2>/dev/null &
   else
