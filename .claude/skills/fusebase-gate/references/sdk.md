@@ -1,7 +1,7 @@
 ---
-version: "1.6.2"
+version: "1.6.4"
 mcp_prompt: sdk
-last_synced: "2026-05-22"
+last_synced: "2026-06-08"
 title: "Fusebase Gate SDK"
 category: meta
 ---
@@ -27,12 +27,25 @@ npm: `@fusebase/fusebase-gate-sdk`. For development, install from public npm:
 2. Use sdk_describe to inspect the exact client, method, and input or output schemas.
 3. Use the generated SDK client for application code.
 
+## Peer App API Workflow
+
+If the task is to integrate with another Fusebase app in the same org, do not treat it like an unknown third-party API.
+Start with published app API discovery through Gate:
+- searchAppApiOperations
+- listAppApiOperations
+- getAppApiOperation
+Only then move to callAppApi or direct runtime probing if behavior still needs verification.
+Do not start by asking for raw OpenAPI export, manual endpoint lists, local source code, or dashboard/storage schema spelunking when a published app API exists.
+For security-sensitive app API operations, use contract-level policy: `x-fusebase-allowed-callers` for caller identity and `x-fusebase-required-permissions` for caller capability.
+`x-fusebase-required-permissions` must use the app API namespace `app_api.<namespace>.<capability>.<action>` (for example `app_api.client_portal.provision.write`), not built-in Gate permissions such as `isolated_store.read`.
+
 ## Main SDK Clients
 
 - HealthApi
 - AccessApi
 - BillingApi
 - OrgUsersApi
+- OrgsApi
 - PortalsApi
 - SystemApi
 - TokensApi
@@ -51,12 +64,14 @@ Treat BillingApi.updateStripeMode as a compatibility surface for now rather than
 Use stable app-owned `kind` and `kindId` values in BillingApi. Keep `kind` at 32 chars max and `kindId` at 64 chars max so webhook-backed payment state can be checked later for the same entitlement.
 For subscription offboarding, BillingApi.cancelStripeSubscription defaults to cancel-at-period-end when `cancelAtPeriodEnd` is omitted. Send `cancelAtPeriodEnd: false` only for immediate cancellation.
 For workspace discovery, use WorkspacesApi.listWorkspaces.
+For the organization canonical base URL (subdomain or custom CNAME domain), use OrgsApi.getOrgUrl.
 For portal discovery, use PortalsApi.listPortals.
 For portal invite flows, inspect addOrgUser because portal magic links are returned there rather than through a separate Portal invite API.
 For isolated SQL schema work, keep migration files in the app repo and use SDK helpers `buildSqlMigrationBundle(...)` and `calculateSqlMigrationChecksum(...)` before calling IsolatedStoresApi.getIsolatedStoreSqlMigrationStatus / applyIsolatedStoreSqlMigrations.
-For isolated store runtime wiring in external apps, do not hardcode `storeId` values and do not store them as long-lived app secrets. Treat this as an anti-pattern.
+For isolated store runtime wiring in external apps, do not hardcode `storeId` values and do not store them as long-lived app secrets or env vars. Treat this as an anti-pattern.
+Do not ask users to register Gate-resolved store identity with `fusebase secret create`: `storeId`, database IDs, physical database names, and provider connection details are platform/resource binding details, not app-owned secrets.
 Preferred isolated store discovery flow in SDK code: call IsolatedStoresApi.listIsolatedStores with `orgId` + `clientId`, filter by stable store alias (or `aliasLike`), then use the resolved `storeId` for stage and SQL operations.
-Store app-level alias/client binding in config; resolve physical/logical store ids at runtime from Gate.
+Store app-level alias/client binding in non-secret config only when needed; resolve physical/logical store ids at runtime from Gate.
 
 ## Usage Rules
 
@@ -82,7 +97,7 @@ Always handle SDK operation failures explicitly.
 
 ## Version
 
-- **Version**: 1.6.2
+- **Version**: 1.6.4
 - **Category**: meta
-- **Last synced**: 2026-05-22
+- **Last synced**: 2026-06-08
 - **Priority rule**: If the MCP prompt has a higher version, follow the prompt's API Reference as source of truth.

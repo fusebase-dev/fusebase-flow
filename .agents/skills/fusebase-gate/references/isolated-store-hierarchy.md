@@ -2,7 +2,7 @@
 version: "1.0.0"
 mcp_prompt: none
 source: "docs/isolated-store-hierarchy.md"
-last_synced: "2026-05-07"
+last_synced: "2026-06-23"
 title: "Isolated stores hierarchy: Gate vs Neon"
 category: specialized
 ---
@@ -152,11 +152,10 @@ Operationally those are still bounded by provider capacity and retention policy,
 Current lifecycle for a new SQL store usually looks like:
 
 1. `createIsolatedStore`
-2. `initIsolatedStoreStage(dev)`
-3. `getIsolatedStoreSqlMigrationStatus(dev)`
-4. `applyIsolatedStoreSqlMigrations(dev)`
-5. optional `createIsolatedStoreCheckpoint(dev)`
-6. later repeat the same flow for `prod`
+2. `initIsolatedStoreStage(dev)` and `initIsolatedStoreStage(prod)` — **both** stages at bootstrap
+3. `getIsolatedStoreSqlMigrationStatus(dev)` → `applyIsolatedStoreSqlMigrations(dev)` (and the same for `prod`)
+4. optional `createIsolatedStoreCheckpoint(dev)` / `prod` per stage
+5. for schema changes after bootstrap, apply to **`dev` first**, then **`prod`** (Playbook B)
 
 Important operational rule:
 
@@ -314,4 +313,4 @@ So:
 
 - **Version**: 1.0.0
 - **Category**: specialized
-- **Last synced**: 2026-05-07
+- **Last synced**: 2026-06-23

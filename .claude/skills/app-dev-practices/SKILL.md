@@ -89,6 +89,36 @@ PostCSS plugins (`@tailwindcss/postcss`, `autoprefixer`) belong in `postcss.conf
 
 Apps may optionally include a `backend/` subfolder for a backend API (REST + WebSockets). **Do not add a backend unless the app genuinely needs backend logic** — most apps work fine with the Dashboard SDK alone. See skill **app-backend** for when and how to add one. The backend is served at `/api`.
 
+<!-- CUSTOM:SKILL:BEGIN -->
+## Consuming Another Fusebase App's API
+
+If your app needs to integrate with **another Fusebase app in the same organization**, do **not** treat that app as an external opaque service by default.
+
+Use this workflow:
+
+1. Discover the target app's published API through Gate:
+   - `searchAppApiOperations`
+   - `listAppApiOperations`
+   - `getAppApiOperation`
+2. Inventory the relevant operations and their request or response shapes.
+3. Build the integration against that published contract.
+4. Use `callAppApi` or direct runtime probing only if behavior still needs live verification.
+
+Avoid these dead ends as a first move:
+
+- searching for the target app's source code in the current repo
+- asking for raw OpenAPI export or manual endpoint lists
+- spelunking dashboard tables or storage schemas instead of using the published app API
+
+If a published app API exists, it is the primary cross-app integration surface.
+
+For security-sensitive operations, prefer contract-level app API policy:
+
+- `x-fusebase-allowed-callers` restricts the caller identity, e.g. `client:<clientId>`.
+- `x-fusebase-required-permissions` restricts caller capability and must use the app API namespace `app_api.<namespace>.<capability>.<action>`, e.g. `app_api.client_portal.provision.write`.
+- Do not use built-in Gate permissions such as `isolated_store.read` for app-to-app operation authorization.
+<!-- CUSTOM:SKILL:END -->
+
 ## Authentication
 
 <% if (it.flags?.includes("portal-specific-apps")) { %>

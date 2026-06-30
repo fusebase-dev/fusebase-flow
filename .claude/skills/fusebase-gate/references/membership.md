@@ -1,7 +1,7 @@
 ---
-version: "1.0.0"
+version: "1.0.1"
 mcp_prompt: membership
-last_synced: "2026-03-31"
+last_synced: "2026-06-08"
 title: "Fusebase Gate Membership And Portal Flows"
 category: specialized
 ---
@@ -19,6 +19,7 @@ These prompts cover organization member invites, workspace selection, portal dis
 ## Relevant Operations
 
 - getMyOrgAccess: read the authenticated user's org access state without requiring existing org membership.
+- getOrgUrl: resolve the organization's canonical HTTPS base URL (subdomain or custom CNAME domain).
 - listWorkspaces: list workspaces visible in an organization and identify the default workspace.
 - listPortals: list portals visible in an organization.
 - addOrgUser: create an org invite, workspace invite, or portal invite depending on payload shape.
@@ -74,7 +75,7 @@ These prompts cover organization member invites, workspace selection, portal dis
 
 ## Version
 
-- **Version**: 1.0.0
+- **Version**: 1.0.1
 - **Category**: specialized
-- **Last synced**: 2026-03-31
+- **Last synced**: 2026-06-08
 - **Priority rule**: If the MCP prompt has a higher version, follow the prompt's API Reference as source of truth.

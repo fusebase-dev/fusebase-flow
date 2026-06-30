@@ -29,9 +29,9 @@ category: meta
 ---
 ## Key principle: SDK is for runtime only
 
-- **SDK** = used **only** in app code when the app is running (browser/UI, dev or prod).
-- **LLM does NOT execute SDK** — the LLM discovers operations via MCP, then uses `sdk_search` / `sdk_describe` to get method signatures and **inserts** SDK code into app files. The app runs that code at runtime with the app token.
-- **App code does NOT know about MCP** — it only uses SDK methods with the app token.
+- **SDK** = used **only** in feature code when the feature is running (browser/UI, dev or prod).
+- **LLM does NOT execute SDK** — the LLM discovers operations via MCP, then uses `sdk_search` / `sdk_describe` to get method signatures and **inserts** SDK code into feature files. The feature runs that code at runtime with the feature token.
+- **Feature code does NOT know about MCP** — it only uses SDK methods with the feature token.
 
 **MCP** is for development and dashboard access from the LLM (discovery, tool_call). **SDK** is only for runtime code.
 
@@ -53,7 +53,7 @@ The SDK is a generated TypeScript client that mirrors API operations. Do **not**
 2. Use **MCP SDK discovery tools** to get the code signature for the same operation:
    - `sdk_search({ query: "<opId or keyword>" })` — find the SDK method (same `operationId` as the MCP tool).
    - `sdk_describe({ method: "<operationId>" })` — get API class, method name, parameters, response shape, HTTP details.
-3. Insert the generated SDK call into the app file. The LLM does **not** execute it; the app runs it at runtime with the app token.
+3. Insert the generated SDK call into the feature file. The LLM does **not** execute it; the feature runs it at runtime with the feature token.
 
 Every MCP tool has a corresponding SDK method with the same `operationId` and the same input/output schema.
 
@@ -90,7 +90,7 @@ The SDK returns the **HTTP response body directly** (no extra wrapper). There is
 - Do **not** double-unwrap: use **response.data** for the rows, not response.data.data. Writing response.data.data is wrong and yields undefined.
 - **Schema item fields**: API and SDK types use **snake_case** for schema items (e.g. `source.custom_type`, `_type_custom`). Do not use camelCase (e.g. customType) when reading getDashboardView/describeDashboard response.
 
-Example in app code:
+Example in feature code:
 ```typescript
 const response = await dataApi.getDashboardViewData({ path: { dashboardId, viewId } });
 const rows = response.data ?? [];  // rows = Array<{ root_index_value, [item_key]: value }>
@@ -106,38 +106,38 @@ const rows = response.data ?? [];  // rows = Array<{ root_index_value, [item_key
 npm: `@fusebase/dashboard-service-sdk`. For development, install from public npm:
 `npm install @fusebase/dashboard-service-sdk` (or the equivalent in your package manager).
 
-**Browser/UI runtime** (using app token):
+**Browser/UI runtime** (using feature token):
 
 ```typescript
 import { createClient, CustomDashboardRowsApi, DashboardDataApi, DatabasesApi } from "@fusebase/dashboard-service-sdk";
 
 const BASE_URL = 'https://app-api.{FUSEBASE_HOST}/v4/api/proxy/dashboard-service/v1'
 
-export function createSdkClient(appToken: string) {
+export function createSdkClient(featureToken: string) {
   return createClient({
     baseUrl: BASE_URL,
     defaultHeaders: {
-      'x-app-feature-token': appToken,
+      'x-app-feature-token': featureToken,
     },
   })
 }
 
-export function createDatabasesApi(appToken: string): DatabasesApi {
-  const client = createSdkClient(appToken)
+export function createDatabasesApi(featureToken: string): DatabasesApi {
+  const client = createSdkClient(featureToken)
   return new DatabasesApi(client)
 }
 
-export function createRowsApi(appToken: string): CustomDashboardRowsApi {
-  const client = createSdkClient(appToken)
+export function createRowsApi(featureToken: string): CustomDashboardRowsApi {
+  const client = createSdkClient(featureToken)
   return new CustomDashboardRowsApi(client)
 }
 
-export function createDataApi(appToken: string): DashboardDataApi {
-  const client = createSdkClient(appToken)
+export function createDataApi(featureToken: string): DashboardDataApi {
+  const client = createSdkClient(featureToken)
   return new DashboardDataApi(client)
 }
 
-// Usage: get app token from postMessage or cookie, then create API and call methods.
+// Usage: get feature token from postMessage or cookie, then create API and call methods.
 ```
 
 ---
@@ -155,10 +155,10 @@ To open a database in the Thefusebase UI in the browser, use this URL pattern:
 
 ## Summary
 
-- **SDK = app runtime only**: used in browser/UI code when the app is running; never executed by the LLM.
+- **SDK = feature runtime only**: used in browser/UI code when the feature is running; never executed by the LLM.
 - **MCP = LLM development**: discovery and execution during development.
-- **Discovery**: MCP first (tools_search, tools_describe, tool_call), then sdk_search / sdk_describe to generate SDK code for the app.
-- **Token**: SDK uses the app token (`x-app-feature-token`); MCP uses the connection token from the environment.
+- **Discovery**: MCP first (tools_search, tools_describe, tool_call), then sdk_search / sdk_describe to generate SDK code for the feature.
+- **Token**: SDK uses the feature token (`x-app-feature-token`); MCP uses the connection token from the environment.
 ---
 
 ## Version

@@ -2,7 +2,7 @@
 version: "1.1.2"
 mcp_prompt: none
 source: "docs/isolated-sql-stores.md"
-last_synced: "2026-05-09"
+last_synced: "2026-06-26"
 title: "Isolated SQL stores and migrations (Gate)"
 category: specialized
 ---
@@ -43,14 +43,27 @@ Current rollout position (2026-04-12):
 | Change schema (DDL)       | **Only** `getIsolatedStoreSqlMigrationStatus` + `applyIsolatedStoreSqlMigrations` (ordered bundle) |
 | Insert/update/delete rows | Structured row APIs (`insertIsolatedStoreSqlRow`, …) or read-only `queryIsolatedStoreSql`          |
 | Seed / backfill data      | Structured row APIs or `importIsolatedStoreSqlRows` (CSV/TSV → `COPY`)                             |
+| Inspect RLS posture       | `getIsolatedStoreSqlRlsStatus` (read-only table/policy/index introspection)                        |
+| Validate RLS intent       | Optional `rlsManifest` on migration status/apply/adopt; currently warn-only                        |
 | Chat / MCP smoke test     | One small migration **or** status + dryRun; big bundles → **SDK/CI**                               |
 | Understand drift / 409    | Response `structuredIssues` / error `data.issues`; MCP prompt **`isolatedSqlMigrationDiscipline`** |
 
 Runtime note:
 
 - a custom app backend is **not required** for normal PostgreSQL runtime access;
-- browser/UI code can call Gate SDK methods directly with the feature token for frontend-safe reads and allowed structured writes;
+- browser/UI code can call Gate SDK methods directly with the app token for frontend-safe reads and allowed structured writes;
 - add a backend only when you need privileged operations, secret-bearing integrations, heavy orchestration, or non-user-context work.
+- public/visitor apps can open with `--access=visitor`, but visitor tokens normally do **not** receive isolated-store permissions. For public portal reads/writes, use an app backend with a service token plus trusted portal/workspace context; do not expect direct visitor-token Gate SDK calls to the store to work.
+- A service-token backend must derive the portal/workspace scope from trusted platform auth context, not from arbitrary request body/query data. Prefer `trustedRuntimeContext.portalId` / `trustedRuntimeContext.workspaceId` when the token has `isolated_store.rls.delegate`; if that permission is not available in the target environment, an app-specific `rlsContext` key such as `req_portal_id` is only a reviewed temporary fallback.
+- **Portal iframe app tokens** (`fbsfeaturetoken` in a portal brick) get `app.org_id` from the browser token but **not** `app.portal_id`. Read and verify `portalFeatureContextToken` from the iframe URL on the app backend, then use `trustedRuntimeContext.portalId` on Gate SQL calls — see [portal-embed-context.md](./portal-embed-context.md).
+- Wire-protocol token names still use legacy `feature` spelling for compatibility: `window.FBS_FEATURE_TOKEN`, cookie `fbsfeaturetoken`, and header `x-app-feature-token`. Use "app token" in prose, but do not rename the current runtime contract.
+
+Runtime configuration rule:
+
+- the isolated store is a Gate-resolved resource bound to the app by source scope and permissions, not a value the app owner must copy into secrets;
+- do **not** register `storeId`, database IDs, physical DB names, or provider connection details with `fusebase secret create`;
+- runtime code should resolve the target store through Gate using the app token/client scope and stable store `alias` (or consume the platform-provided binding when available), then use the returned `storeId` only in-memory for that request/session;
+- `storeId` is acceptable in MCP/operator logs, Studio links, and CLI migration commands, but that does not make it runtime app configuration.
 
 ---
 
@@ -64,7 +77,10 @@ For `sql/postgres`, the current managed-store path already supports:
 - structured row CRUD
 - batch insert and CSV/TSV import via `COPY`
 - stage stats, table introspection, counts, and query/select paths
-- checkpoints and full stage restore
+- read-only RLS status introspection for Studio/support visibility
+- transaction-local RLS runtime context on SQL runtime calls
+- warn-only RLS manifest validation on migration status/apply/adopt
+- checkpoints and full stage restore (prod auto-checkpoint before migrations uses **admin** or **RLS-bypass** credentials for `pg_dump` when split roles + `FORCE RLS` are enabled — not the runtime role). **Azure server setup** (roles, secrets, Helm, `BYPASSRLS`): [isolated-postgres-azure-operations.md](./isolated-postgres-azure-operations.md)
 - provider-switchable snapshot storage (`local_file` or `azure_blob`)
 - Studio migration/status rendering via bundle metadata persisted by Gate
 
@@ -73,6 +89,7 @@ What it does not yet fully productize:
 - app release pipeline delivery of migration bundles
 - first-class snapshot preview API
 - completed SQL RLS enforcement layer
+- blocking RLS validation and runtime/migrator role split
 - production-grade retention policy and pruning workflow for stored snapshots
 
 For the next production-pilot cut, the main remaining tasks are:
@@ -136,12 +153,14 @@ Current recommendation:
 
 ## 2. Permissions (typical)
 
-| Capability              | Permission                                                                       |
-| ----------------------- | -------------------------------------------------------------------------------- |
-| Row CRUD, import, query | `isolated_store.read` + `isolated_store.data.write` (as designed for your token) |
-| **Apply migrations**    | `isolated_store.schema.write` (operators / CI — not normal end-users)            |
-| Raw DML escape hatch    | `executeIsolatedStoreSql` — **no DDL**                                           |
-| List/create stores      | Control-plane permissions on isolated-store ops                                  |
+| Capability              | Permission                                                                             |
+| ----------------------- | -------------------------------------------------------------------------------------- |
+| Row CRUD, import, query | `isolated_store.read` + `isolated_store.data.write` (as designed for your token)       |
+| **Apply migrations**    | `isolated_store.schema.write` (operators / CI — not normal end-users)                  |
+| Raw DML escape hatch    | `executeIsolatedStoreSql` — **no DDL**                                                 |
+| RLS break-glass bypass  | `isolated_store.rls.bypass` — reserved for future explicit audited support/admin paths |
+| RLS context delegation  | `isolated_store.rls.delegate` — backend/operator-only trusted portal/workspace context |
+| List/create stores      | Control-plane permissions on isolated-store ops                                        |
 
 Schema **never** goes through `executeIsolatedStoreSql`.
 Operator migration calls do not require a session-backed user anymore: token-auth requests with the right permission can apply migrations through HTTP/SDK, and Gate records a stable token actor label in the audit fields when no concrete `userId` is present.
@@ -149,12 +168,57 @@ After a successful SQL migration apply or baseline adoption, Gate stores the lat
 
 For the midsize-target PostgreSQL Row-Level Security path and the recommended Gate integration model, see [isolated-sql-rls-plan.md](./isolated-sql-rls-plan.md).
 
+RLS validation is currently warn-only. `getIsolatedStoreSqlMigrationStatus`, `applyIsolatedStoreSqlMigrations`, and `adoptIsolatedStoreSqlMigrationBaseline` may include `rlsManifest`; Gate returns `status.rlsValidation` with table/column/index/policy warnings but does not reject apply on those warnings yet. apps-cli sends `rlsManifest` only when its `postgres-rls` flag is enabled. The manifest supports `tenant`, `user`, `owner_collaborator`, `scoped`, `none`, and `technical` table classifications.
+
+RLS verification must check the runtime database role, not only the SQL context. `getIsolatedStoreSqlRlsStatus` returns the active runtime `currentUser`, `bypassRls`, and `superuser` flags. If `bypassRls` is `true`, PostgreSQL policies are visible in introspection but are not enforced for runtime queries; scoped demos must either use explicit `WHERE current_setting(...)` filters as a temporary workaround or wait for the runtime role split.
+
+For server-backed isolated Postgres stores, Gate can run schema operations with a separate migrator role when `ISOLATED_PG_MIGRATOR_USER` and `ISOLATED_PG_MIGRATOR_PASSWORD` are configured. Runtime query/data APIs still use the runtime role; migration apply/baseline/checksum repair use the migrator role. New auto-provisioned databases use `provisioningMetadata.roleModel = "split"` when this is active.
+
+Existing legacy databases need an operator bootstrap before they can be treated as production-grade RLS environments. Configure a distinct `ISOLATED_PG_RUNTIME_USER` / `ISOLATED_PG_RUNTIME_PASSWORD`, keep schema writes on `ISOLATED_PG_MIGRATOR_USER` / `ISOLATED_PG_MIGRATOR_PASSWORD`, then run:
+
+```bash
+npm run isolated-pg:bootstrap-rls-runtime -- --database <stage_database> --schema public
+```
+
+The bootstrap ensures the runtime role exists with `NOBYPASSRLS`, grants runtime DML/function/sequence privileges, and verifies that connecting as runtime reports `bypassRls=false` and `superuser=false`. Add `--transfer-ownership` only when the operator wants to move existing schema/table ownership to the migrator role; new auto-provisioned databases already use the migrator owner when split env is configured.
+
+Studio/support "show all rows" views must not use normal request scope. Gate exposes separate read-only row endpoints for this mode: `countIsolatedStoreSqlRowsRlsBypass` and `selectIsolatedStoreSqlRowsRlsBypass`. They require `isolated_store.rls.bypass`, ignore request `rlsContext`, set trusted `app.rls_admin=true` in the same transaction, and log the actor/org/store/stage/table. Do not grant this permission to app runtime tokens.
+
+Tables that should be visible in Studio Admin must include an explicit read-only admin branch in their `SELECT` policies, for example: `current_setting('app.rls_admin', true) = 'true' OR (...)`. This is Azure-compatible because Azure Flexible Server does not let the configured administrator create arbitrary `BYPASSRLS` roles. Optional physical `BYPASSRLS` read roles are legacy/operator-specific and must not be required for the normal Studio Admin path. **Server-level role + secret setup on Azure:** [isolated-postgres-azure-operations.md](./isolated-postgres-azure-operations.md).
+
+Backend-mediated visitor flows should not tunnel reserved context through `rlsContext`. For service-token calls that act on a verified visitor portal/workspace context, use `trustedRuntimeContext.portalId` and/or `trustedRuntimeContext.workspaceId` on runtime SQL request bodies. Gate requires `isolated_store.rls.delegate` for this field and maps it to trusted transaction-local `app.portal_id` / `app.workspace_id`. Do not grant this permission to browser/client runtime tokens, and do not fill `trustedRuntimeContext` directly from user-controlled request payloads. For portal iframe embeds, obtain portal scope from verified `portalFeatureContextToken` — see [portal-embed-context.md](./portal-embed-context.md).
+
+Standard `app.*` RLS settings are text platform ids, not UUIDs. Values such as `app.org_id`, `app.user_id`, `app.client_id`, `app.portal_id`, and `app.workspace_id` may be strings like `u37o` or `4164`; scope columns that compare to these settings should normally be `text`. Use UUID only for app-owned ids that are actually UUID-shaped.
+
+Under PostgreSQL RLS, `INSERT ... RETURNING` and structured `insert` with `returning` require the inserted row to pass the table's `SELECT` policy. If a row becomes visible only after a second portal/link-table insert, generate the id in app code and insert without `returning`.
+
+Recommended RLS verification checklist after schema apply:
+
+1. Run migration status and confirm the journal head matches the manifest/bundle.
+2. Run RLS status and confirm `bypassRls=false` for real RLS tests.
+3. Probe `current_setting('app.project_id', true)` or another custom setting with a sample `rlsContext`.
+4. Read scoped data and confirm the result is a subset, not all rows.
+5. If `bypassRls=true`, label the environment as "policies not enforced" and do not claim that RLS filtering works.
+
+Anti-pattern: assuming `rlsContext` alone filters rows. `rlsContext` only sets transaction-local PostgreSQL settings; filtering happens only if the runtime role is subject to RLS and table policies use those settings.
+
+Optional-scope policy dimensions should allow "no scope selected" only when that is intended:
+
+```sql
+AND (
+  NULLIF(current_setting('app.project_id', true), '') IS NULL
+  OR project_id = NULLIF(current_setting('app.project_id', true), '')
+)
+```
+
 ---
 
 ## 3. Identifiers you must preserve
 
 Every call needs **`orgId`**, **`storeId`**, **`stage`** (`dev` | `prod`) exactly as Gate returned them.  
 **`dev` and `prod` are different databases** — same logical migration _sequence_ (version numbers + SQL per version), separate journals.
+
+Preserve these identifiers in the current Gate call chain, operator handoff, or migration logs. Do **not** convert them into app secrets or long-lived runtime env vars. If app runtime needs a store later, resolve it again through Gate from the app token/source scope and stable alias.
 
 ---
 
@@ -181,8 +245,10 @@ This keeps checksum generation canonical and avoids agent drift from ad-hoc hash
 
 1. **`listIsolatedStores`** (`orgId`, optional `clientId` for app-scoped tokens). Empty list is normal before create.
 2. **`createIsolatedStore`** — `storeType: "sql"`, `engine: "postgres"`, `alias`, `source: { sourceType: "app", sourceId: "<app id>" }`.
-3. **`initIsolatedStoreStage`** — `stage: "dev"` (then `"prod"` when needed). Omit `bindingConfig` if Gate auto-provisions (see repo README / `ISOLATED_PG_*`).
-4. **`applyIsolatedStoreSqlMigrations`** — full ordered bundle for that `storeId` + `stage` (or SDK equivalent).
+3. **`initIsolatedStoreStage`** — for **both** `dev` and `prod` (two calls, same `storeId`). Omit `bindingConfig` if Gate auto-provisions (see repo README / `ISOLATED_PG_*`). Do **not** defer `prod` to “when needed” — published apps target `prod`; `fusebase dev start` targets `dev`.
+4. **`applyIsolatedStoreSqlMigrations`** — full ordered bundle for **each** `storeId` + `stage` (same logical version line; separate physical databases).
+
+**Stage bootstrap vs runtime default:** always provision **both** stages at create time. When higher-level orchestration **omits** a stage (deployed app runtime, many CLI defaults), the target is **`prod`**. Local **`fusebase dev start`** uses **`dev`**.
 
 **Empty `listIsolatedStores` after create:** wrong `orgId`, or `clientId` filter does not match `source.sourceId` — omit `clientId` to list all org stores.
 
@@ -222,6 +288,35 @@ Do this **per stage** you care about (usually **dev** first, then **prod**).
   - **`isolated_sql_migration_drift`** — prefix mismatch; **`data.issues`** mirrors structured drift rows.
   - **`isolated_sql_journal_head_mismatch`** — optimistic-lock fields disagree with journal tail.
 - **`dryRun: true`** now uses the same pre-apply bundle validation pipeline as a real apply. If the full bundle would fail on canonical checksum or schema-only rules, dryRun fails too.
+
+### Auth/source-scope troubleshooting
+
+If status says **`canApply: true`** and **`isDrifted: false`**, but runtime reads or apply fail with auth errors, do not start by editing checksums, re-baselining, or recreating the store.
+
+Check the token/store binding first:
+
+1. Call `me` / `whoami` and record the exact token **`client` scope**. Use the actual resolved scope, not a guessed `apps[].id`; in apps-cli projects the Gate MCP token client scope is commonly the project `productId`.
+2. Read the store and inspect **`sourceScopes`**.
+3. If the store is missing `{ "sourceType": "app", "sourceId": "<current client scope>" }`, this is a **source scope mismatch**.
+4. Use **`attachIsolatedStoreSourceScope`** to add the missing app source scope when you have `isolated_store.control.write`.
+5. Verify:
+   - `listIsolatedStores({ orgId, clientId: <current client scope> })` returns the store;
+   - `getIsolatedStore` shows both old and new `sourceScopes`;
+   - a safe data-plane read, for example `selectIsolatedStoreSqlRows` with `limit: 1`, returns 200;
+   - `getIsolatedStoreSqlMigrationStatus` still returns `canApply: true`.
+
+What the errors mean:
+
+- **`403 Token cannot access isolated store`** before a SQL/status result usually means the token `client` scope does not match any store `sourceScopes` entry.
+- **`400 Authenticated actor was not resolved`** on apply means the request reached the apply route but Gate could not derive an audit actor from that auth context.
+- If **dryRun apply** reaches bundle validation, for example `bundle.migrations[0].sql must not be empty`, auth and source-scope checks have already passed; send a full SQL bundle for apply/dryRun.
+
+Guardrails:
+
+- `attachIsolatedStoreSourceScope` is non-destructive. It adds a source-scope row and does not touch stage databases, `fusebase_schema_migrations`, aliases, or existing binding config.
+- Do not attach a guessed source id. Attach the exact `client` scope from the token that must use the store.
+- A token scoped to `client:A` cannot attach `sourceId:B`; use a matching client-scoped token or a user/operator context with `isolated_store.control.write`.
+- Do not run real apply as part of this diagnosis unless the user explicitly asked for it.
 
 ### Transactions
 
@@ -308,4 +403,4 @@ Those constraints should be enforced through repo templates, skills/prompts, cod
 
 - **Version**: 1.1.2
 - **Category**: specialized
-- **Last synced**: 2026-05-09
+- **Last synced**: 2026-06-26

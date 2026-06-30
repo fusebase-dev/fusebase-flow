@@ -132,12 +132,12 @@ Combine conditions with AND or OR logic:
 ### 4. Use Array Filters
 Filter by multiple values:
 ```typescript
-{  key: "tags", operator: "has_any_of", value: ["urgent", "bug", "app"] }
+{  key: "tags", operator: "has_any_of", value: ["urgent", "bug", "feature"] }
 ```
 
 ### 5. Portal-Scoped Data (`{{CurrentPortal}}`)
 `{{CurrentPortal}}` is a special dynamic value that is resolved automatically in each request for data.
-Use it when an app must display different information depending on the portal it is embedded in. This way, the app will only "see" data for the current portal.
+Use it when a feature must display different information depending on the portal it is embedded in. This way, the feature will only "see" data for the current portal.
 The filtered column must be either a text column with a portal ID, or, ideally, a relation to the portals dashboard.
 ```typescript
 {

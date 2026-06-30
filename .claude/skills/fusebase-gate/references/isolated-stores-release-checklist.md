@@ -2,7 +2,7 @@
 version: "1.0.0"
 mcp_prompt: none
 source: "docs/isolated-stores-release-checklist.md"
-last_synced: "2026-05-06"
+last_synced: "2026-06-26"
 title: "Isolated stores release checklist"
 category: specialized
 ---
@@ -45,6 +45,7 @@ Short go/no-go checklist for releasing the current `Gate` isolated stores baseli
 
 - Runbook exists for:
   - Azure Blob env setup
+  - **Azure isolated Postgres server roles / secrets / Helm** — [isolated-postgres-azure-operations.md](https://gitlab.com/fusebase/fusebase-gate/-/blob/master/docs/isolated-postgres-azure-operations.md) in `fusebase-gate`
   - creating a checkpoint
   - downloading a dump
   - restoring a stage
@@ -74,4 +75,4 @@ Release only after all blocker and required items are green in the target enviro
 
 - **Version**: 1.0.0
 - **Category**: specialized
-- **Last synced**: 2026-05-06
+- **Last synced**: 2026-06-26

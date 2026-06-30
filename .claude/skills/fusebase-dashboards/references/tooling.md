@@ -52,7 +52,7 @@ When processing schemas from `tools.describe`:
 
 **Rule 3**: If a call fails due to schema mismatch (schemaVersion), refresh schema and retry once.
 
-**Rule 4**: Never construct API URLs manually from app or concept names (e.g. "child-table-link" → /dashboards/.../child-table-link). Real paths may differ (e.g. POST /dashboards/get-child-table-link-dashboard). Always use tools.list → tools.describe → tool.call, or the SDK, to get the correct path and parameters.
+**Rule 4**: Never construct API URLs manually from feature or concept names (e.g. "child-table-link" → /dashboards/.../child-table-link). Real paths may differ (e.g. POST /dashboards/get-child-table-link-dashboard). Always use tools.list → tools.describe → tool.call, or the SDK, to get the correct path and parameters.
 
 **Rule 5 — No direct operation / workarounds**: If you do not see a tool that directly matches the user's requested operation, but you can think of a workaround (e.g. there is no "move dashboard from one database to another", but one could copy the dashboard to the target database and then delete it from the source), **inform the user** and **suggest** the workaround. **Do not execute the workaround automatically.** Let the user decide whether to proceed and confirm the steps (e.g. "There is no single move operation; you could copy the dashboard to the other database and then delete it from the source. Should I do that?" or "I can do A then B as a workaround — confirm if you want me to proceed.").
 

@@ -426,7 +426,7 @@ For columns with `render.type === "files"` (custom type `files`), the value is a
 
 ### Common Patterns
 
-**Parsing getDashboardViewData in app code (SDK)**: The SDK returns the response body directly. Use **response.data** for the array of rows (not response.data.data):
+**Parsing getDashboardViewData in feature code (SDK)**: The SDK returns the response body directly. Use **response.data** for the array of rows (not response.data.data):
 ```
 const response = await dashboardDataApi.getDashboardViewData({ path: { dashboardId, viewId } });
 const rows = response.data ?? [];  // Array<{ root_index_value, [item_key]: value }>

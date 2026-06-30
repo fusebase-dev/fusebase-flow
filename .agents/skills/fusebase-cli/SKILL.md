@@ -107,6 +107,7 @@ Options:
 - Global flag `mcp-gate-debug` includes the `mcp-gate-debug` skill (post–Gate MCP debug summary; isolated stores emphasis)
 - Global flag `isolated-stores` enables isolated stores functionality (SQL/NoSQL), including required Fusebase Gate references and `isolated_store.*` permissions in `fusebase env create`
 - Global flag `portal-specific-apps` includes portal-specific prompts/guidance (`fusebase-portal-specific-apps` skill, `{{CurrentPortal}}` filter references, and `/auth/context` portal runtime context notes)
+- Global flag `app-portal-embeds-list` enables `fusebase app portal-embeds <appId>` and generated app guidance for listing portal pages where an app is embedded
 
 This command **always creates a new app** on Fusebase and initializes the project. It will:
 
@@ -304,7 +305,12 @@ Single update command for both CLI and app:
 - outside app directory: runs only CLI self-update;
 - use `--skip-product` to force CLI-only mode even inside an app directory.
 
-On Windows, CLI self-update launches the installer and exits so `fusebase.exe` can be replaced. After the installer finishes, run `fusebase update` again to continue app stages.
+On Windows the CLI self-update is a **cache swap** (updates the cached CLI under `%LOCALAPPDATA%\FuseBase\CLI\` with no admin elevation and no installer download), so the remaining app stages continue in the same run — just like macOS/Linux.
+
+**Windows launcher commands:**
+
+- `fusebase update --launcher` — refreshes the stable launcher `fusebase.exe` via the elevated installer (the only path that prompts for admin). Windows-only; a no-op on macOS/Linux. Run it when the CLI tells you the launcher is too old, or when prompted by the non-blocking "A launcher update is available" nudge.
+- `fusebase --previous-version <cmd>` — runs the retained previous cached CLI version for that one invocation (escape hatch when a new version misbehaves or a launcher gate is blocking). The next normal run goes back to the active version.
 
 ### Create or update .env (MCP token)
 
@@ -424,6 +430,44 @@ Deploys all apps to Fusebase:
 4. Activates the new version on Fusebase
 
 The project template includes ESLint (`npm run lint`) and root `npm run typecheck` (TypeScript across apps — catches errors ESLint does not). Run both before saying "Done" so deploy succeeds; see AGENTS.md "Final Gate". Claude Code runs lint and typecheck on Stop via `.claude/settings.json` hooks.
+
+### Isolated SQL Bundle / RLS Manifest
+
+```bash
+fusebase isolated-store sql bundle --app <appId> [--alias <alias>] [--stage dev|prod] [--json|--status|--dry-run|--apply --yes]
+```
+
+Use this for app-owned isolated SQL schema work. It reads `apps[].isolatedStores.sql[]` from `fusebase.json`, loads `postgres/migrations/manifest.json`, and computes Gate-canonical checksums from SQL file bytes.
+
+RLS manifest forwarding is experimental. To attach `rlsManifest` from either `rlsManifestFile`, inline config, manifest `rlsManifest`, or `postgres/migrations/rls-manifest.json`, enable:
+
+```bash
+fusebase config set-flag postgres-rls
+```
+
+Examples:
+
+```bash
+fusebase isolated-store sql bundle --app client-portal --json
+fusebase isolated-store sql bundle --app client-portal --stage dev --status
+fusebase isolated-store sql bundle --app client-portal --stage dev --dry-run
+fusebase isolated-store sql bundle --app client-portal --stage dev --apply --yes
+```
+
+Gate calls use `GATE_MCP_TOKEN` from `.env`. Do `--status` and `--dry-run` before any real `--apply`.
+
+### Gate MCP Token Scope
+
+`fusebase env create` writes `GATE_MCP_TOKEN` to `.env`. For current apps-cli projects, the Gate MCP token is created with the project `productId` as its `client` scope, not necessarily with a child `apps[].id`.
+
+When debugging isolated-store access:
+
+- call Gate `me` / `whoami` first and use the actual resolved `client` scope;
+- compare that value with the store `sourceScopes`;
+- if runtime SQL or migration status/apply fails with `403 Token cannot access isolated store`, check for a missing `sourceScopes` entry before changing migrations;
+- if authorized, fix by adding the exact resolved client scope with `attachIsolatedStoreSourceScope`.
+
+Do not attach a guessed child app id when `whoami` shows a different product/client scope. Do not recreate the store or rebaseline migrations just to fix a source-scope mismatch.
 
 ### Manage Sidecar Containers
 
@@ -548,10 +592,55 @@ After changing app code, run `fusebase app update <appId>` if any of these need 
 - `--access` — access principals (visitor / org roles) changed
 - `--sync-gate-permissions` — always include for apps using `@fusebase/fusebase-gate-sdk` at runtime
 
+<% if (it.flags?.includes("cross-app-api-calls-analysis")) { %>
+If runtime code calls other apps via Gate `AppApisApi.callAppApi(...)`, refresh local cross-app dependency metadata and optionally sync it:
+
+```bash
+fusebase analyze app-apis --feature <appId>
+fusebase analyze app-apis --feature <appId> --sync
+# repair/reconciliation mode
+fusebase analyze app-apis --feature <appId> --sync --force
+```
+
+To author a consumer-contract draft for those resolved dependencies, then verify it centrally:
+
+```bash
+fusebase app-api-contracts unresolved --app <appId>
+fusebase app-api-contracts add-manual-dependency --app <appId> --provider <providerAppId> --operation <operationId>
+fusebase app-api-contracts scaffold --app <appId>
+fusebase app-api-contracts validate --app <appId>
+fusebase app-api-contracts publish --app <appId>
+fusebase app-api-contracts verify-consumer --app <appId>
+fusebase app-api-contracts verify-provider --app <providerAppId>
+```
+
+Use the unresolved/manual flow when `AppApisApi.callAppApi(...)` is dynamic by design and static analysis cannot resolve the target operation.
+
+Contracts are **authored and validated locally but verified centrally** — there is no local runtime verification command. Recommended flow: `scaffold` + `validate` (offline) while authoring, `publish` the validated contracts, then `verify-consumer` to confirm the published remote set. Run `verify-provider` for an org-wide provider regression check against the target deployed environment; it verifies the currently deployed provider runtime, not unpublished local changes.
+
+`validate` is offline: it checks contract structure and dependency linkage only; it does not call the provider.
+
+`publish` re-validates the consumer app's contracts (same checks as `validate`) and, only when they all pass, uploads the full set to central storage via the public API; the server replaces the stored set, so re-publishing is idempotent.
+
+`verify-consumer --app <consumerAppId>` (optional `--provider`/`--operation`) and `verify-provider --app <providerAppId>` operate on the **published central** contract set, not local files. They call the public API (`POST .../app-api-contracts/verify-consumer` and `.../verify-provider`), which runs the verification engine centrally through Gate. `verify-consumer` covers one consumer's published contracts; `verify-provider` is the org-wide inbound check across every published consumer targeting that provider in the target deployed environment. Because they read the published set and call the deployed provider runtime, run `publish` after editing local contracts before re-verifying, and run `verify-provider` only after the provider version you want to check is deployed to that environment.
+
+`validate`, `verify-consumer`, and `verify-provider` accept `--json` for machine-readable output in CI: human/colored output is suppressed, a single JSON document is printed to stdout, and a top-level `ok` flag mirrors the process exit code. `publish` is an action (not a check) and has no `--json` report; branch on its exit code.
+<% } %>
+
 ```bash
 # Update permissions and sync Gate permissions
 fusebase app update <appId> --permissions="dashboardView.dash1:view1.read,write" --sync-gate-permissions
 ```
+
+<% if (it.flags?.includes("app-portal-embeds-list")) { %>
+### List Portal Embeds
+
+```bash
+fusebase app portal-embeds <appId>
+```
+
+Lists portal pages in the current org where the app is embedded. Output includes portal name, page title when available, and URL. Empty results print `No portal embeds found for this app.`.
+<% } %>
 
 ## Typical Workflow
 

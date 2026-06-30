@@ -12,7 +12,8 @@
     "app-business-docs": ["app-business-docs"],
     "mcp-gate-debug": ["mcp-gate-debug"],
     "fusebase-portal-specific-apps": ["portal-specific-apps"],
-    "managed-integrations": ["managed-integrations"]
+    "managed-integrations": ["managed-integrations"],
+    "app-api-contract-testing": ["cross-app-api-calls-analysis"]
   },
   "paths": [
     {
@@ -93,6 +94,7 @@
       "required": false,
       "known_names": [
         "api-exploration",
+        "app-api-contract-testing",
         "app-backend",
         "app-business-docs",
         "app-dev-practices",
@@ -122,6 +124,7 @@
       "required": false,
       "known_names": [
         "api-exploration",
+        "app-api-contract-testing",
         "app-backend",
         "app-business-docs",
         "app-dev-practices",
