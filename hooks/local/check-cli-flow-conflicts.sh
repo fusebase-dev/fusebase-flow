@@ -141,14 +141,25 @@ def check_provenance(rel_path: str) -> None:
 
 def scan_custom_skill_block(rel_path: str) -> None:
     """Emit an advisory CLI_CUSTOM_AT_RISK finding when a CLI-owned skill file
-    carries a CUSTOM:SKILL block — those edits are at risk on the next CLI
-    refresh. Advisory only — never changes the verdict/exit code."""
-    if has_custom_skill_block(root / rel_path):
-        add(
-            "CLI_CUSTOM_AT_RISK", "cli", "cli-owned", rel_path,
-            "back up the CUSTOM:SKILL block; the next FuseBase CLI refresh may overwrite it",
-            "CUSTOM:SKILL block found in a CLI-owned skill (at-risk on next refresh)",
-        )
+    carries a CUSTOM:SKILL block AND its content has drifted from bundled
+    provenance — those operator edits are at risk on the next CLI refresh.
+    D4 sha-gate: sha == provenance => pristine CLI-shipped block (a refresh just
+    re-writes the identical copy; nothing at risk) => skip. Provenance unavailable
+    for the file => keep the conservative flag (preserve the genuine signal).
+    Advisory only — never changes the verdict/exit code."""
+    if not has_custom_skill_block(root / rel_path):
+        return
+    if PROVENANCE_AVAILABLE:
+        expected = PROVENANCE.get(rel_path)
+        if expected:
+            actual = sha256_of(root / rel_path)
+            if actual is not None and actual == expected:
+                return  # pristine CLI-shipped block — not at risk
+    add(
+        "CLI_CUSTOM_AT_RISK", "cli", "cli-owned", rel_path,
+        "back up the CUSTOM:SKILL block; the next FuseBase CLI refresh may overwrite it",
+        "drifted CLI-owned skill carries a CUSTOM:SKILL block (at-risk on next refresh)",
+    )
 
 
 def read_text(path: Path) -> str:
