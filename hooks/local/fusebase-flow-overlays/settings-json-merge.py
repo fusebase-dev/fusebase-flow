@@ -55,26 +55,14 @@ DEFAULT_EVENT_MATCHERS = {
 
 DEFAULT_CLI_MCP_SERVERS = ["fusebase-dashboards", "fusebase-gate"]
 
-# Canonical CLI Stop hooks Flow re-injects when merging into a settings.json
-# that lacks them (B5 / v3.2.0): the cross-platform node hooks only. The
-# jq/bash duplicates (run-lint-on-stop.sh, run-typecheck-on-stop.sh) are
-# deprecated and are NOT auto-re-injected, because they fail out-of-the-box on
-# Windows. Merge never REMOVES an existing hook, so a downstream project that
-# still wires a deprecated .sh keeps it; Flow simply stops re-adding it.
-CLI_STOP_HOOKS: list[tuple[str, dict[str, Any]]] = [
-    ("run-typecheck-apps.js", {
-        "type": "command",
-        "command": 'node "$CLAUDE_PROJECT_DIR"/.claude/hooks/run-typecheck-apps.js',
-        "statusMessage": "Running typecheck before allowing completion...",
-        "timeout": 300,
-    }),
-    ("quality-check-apps.js", {
-        "type": "command",
-        "command": 'node "$CLAUDE_PROJECT_DIR"/.claude/hooks/quality-check-apps.js',
-        "statusMessage": "Running app quality check...",
-        "timeout": 30,
-    }),
-]
+# D1 (preserve-only): Flow's Stop merge NEVER static-injects a CLI hook from a
+# name. It appends stop.py and preserves every Stop hook already in the file.
+# This list is intentionally empty: CLI 0.25.9 wires its own Stop set
+# (run-lint-on-stop.sh, run-typecheck-on-stop.sh, quality-check-apps.js) and
+# wires run-typecheck-apps.js 0 times — a static re-inject duplicated typecheck.
+# An older-CLI project that still wires run-typecheck-apps.js keeps it (never
+# removed). Re-stale guard: do NOT re-add entries here; the CLI owns its Stop set.
+CLI_STOP_HOOKS: list[tuple[str, dict[str, Any]]] = []
 
 
 def discover_flow_config_from_upstream() -> tuple[dict[str, str], dict[str, str]] | tuple[None, None]:

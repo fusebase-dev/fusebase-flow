@@ -187,6 +187,41 @@ def commands_in_settings(path: Path) -> list[str]:
     return commands
 
 
+def stop_commands_in_settings(path: Path) -> list[str]:
+    """Just the Stop-event command strings, in order (D1c diff scope)."""
+    if not path.is_file():
+        return []
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    hooks = data.get("hooks") if isinstance(data, dict) else None
+    if not isinstance(hooks, dict):
+        return []
+    out: list[str] = []
+    for block in hooks.get("Stop") or []:
+        if isinstance(block, dict):
+            for hook in block.get("hooks") or []:
+                if isinstance(hook, dict) and isinstance(hook.get("command"), str):
+                    out.append(hook["command"])
+    return out
+
+
+def cli_hook_markers_in(commands: list[str], cli_hook_dir: Path) -> list[str]:
+    """Classify which commands are CLI Stop hooks: a command is CLI-owned iff it
+    references a basename that exists under .claude/hooks/. D1c: classify an
+    already-wired command, never invent one from a static name."""
+    markers: list[str] = []
+    if not cli_hook_dir.is_dir():
+        return markers
+    cli_files = {p.name for p in cli_hook_dir.iterdir() if p.is_file()}
+    for cmd in commands:
+        for name in cli_files:
+            if name in cmd and name not in markers:
+                markers.append(name)
+    return markers
+
+
 def flow_skills_dir():
     # Canonical lives at flow-skills/ (v3.9.0+); root skills/ is the legacy
     # pre-3.9.0 location, accepted as a fallback during/after migration.
@@ -330,21 +365,24 @@ for entry in paths:
             continue
         has_flow_stop = any("hooks/handlers/stop.py" in c for c in commands)
         cli_hook_dir = root / ".claude" / "hooks"
-        # Cross-platform node Stop hooks are the canonical wired set (B5 / v3.2.0).
-        # run-typecheck-apps.js carries the CVE-2024-27980 shell:win32 patch;
-        # quality-check-apps.js runs the app-quality checks. The jq/bash
-        # duplicates (run-lint-on-stop.sh, run-typecheck-on-stop.sh) are
-        # deprecated and intentionally not part of the expected wired set.
-        expected_cli_markers = [
-            "run-typecheck-apps.js",
-            "quality-check-apps.js",
-        ]
-        missing_cli_hooks = [
-            marker
-            for marker in expected_cli_markers
-            if (cli_hook_dir / marker).is_file()
-            and not any(marker in c for c in commands)
-        ]
+        # D1c (diff framing, version-agnostic): a SHARED_MERGE_DRIFT means Flow's
+        # merge DROPPED a CLI Stop hook that was wired BEFORE the merge — not that
+        # some statically-named hook is absent (that hardcoded-set check phantom-
+        # flagged 0.25.9, which wires run-typecheck-on-stop.sh instead of
+        # run-typecheck-apps.js). Diff source = the merge's own pre-merge backup
+        # (.claude/settings.json.pre-flow-merge, kept by post-fusebase-update on a
+        # real merge). A command is CLI-owned iff it names a file under
+        # .claude/hooks/ (classify an already-wired command; never invent one).
+        # No backup => no diff evidence => no drift (the merge only adds stop.py).
+        pre_merge = root / ".claude" / "settings.json.pre-flow-merge"
+        missing_cli_hooks: list[str] = []
+        if pre_merge.is_file():
+            pre_stop = stop_commands_in_settings(pre_merge)
+            pre_cli = cli_hook_markers_in(pre_stop, cli_hook_dir)
+            cur_stop = stop_commands_in_settings(path)
+            missing_cli_hooks = [
+                m for m in pre_cli if not any(m in c for c in cur_stop)
+            ]
         if not has_flow_stop:
             # U11 (F3): Flow lifecycle hooks are OPT-IN. A settings.json that exists
             # (CLI hooks present) but does not wire Flow's stop.py is the deliberate

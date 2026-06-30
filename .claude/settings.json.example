@@ -11,7 +11,7 @@
     "hooks/README.md and hooks/flow_hook_event.schema.json.",
     "Flow hook commands use $CLAUDE_PROJECT_DIR (set by Claude Code at runtime) so they resolve from any subdir.",
     "This example keeps CLI Stop hooks and Flow lifecycle hooks together additively.",
-    "Stop hooks use the cross-platform node implementations (run-typecheck-apps.js carries the CVE-2024-27980 shell:win32 patch; quality-check-apps.js runs the app-quality checks). The deprecated jq/bash duplicates (run-lint-on-stop.sh, run-typecheck-on-stop.sh) were removed from the template in v3.16.4; the settings merger still strips them from older downstream settings.",
+    "Stop hooks mirror the FuseBase CLI 0.25.9 wired set (run-lint-on-stop.sh, run-typecheck-on-stop.sh, quality-check-apps.js) followed by Flow stop.py. The merge is preserve-only: it appends stop.py and keeps every existing CLI Stop hook; it never static-injects a hook from a name (an older-CLI project that still wires run-typecheck-apps.js keeps it).",
     "PreToolUse uses the current hookSpecificOutput.permissionDecision style."
   ],
   "hooks": {
@@ -62,8 +62,14 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/run-typecheck-apps.js",
-            "statusMessage": "Running typecheck before allowing completion...",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/run-lint-on-stop.sh",
+            "statusMessage": "Running lint before allowing completion…",
+            "timeout": 120
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/run-typecheck-on-stop.sh",
+            "statusMessage": "Running typecheck before allowing completion…",
             "timeout": 300
           },
           {
