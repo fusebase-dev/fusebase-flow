@@ -76,6 +76,8 @@ CURRENT CLI CLAUDE SENTINEL 0.25.5
 ## Fusebase Flow V2 - stale previous overlay heading
 EOF
 
+# FuseBase CLI 0.25.9 wired Stop set: run-lint-on-stop.sh, run-typecheck-on-stop.sh,
+# quality-check-apps.js. run-typecheck-apps.js ships on disk (below) but is UNWIRED.
 cat > "$PROJECT/.claude/settings.json" <<'EOF'
 {
   "enabledMcpjsonServers": [
@@ -88,7 +90,12 @@ cat > "$PROJECT/.claude/settings.json" <<'EOF'
         "hooks": [
           {
             "type": "command",
-            "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/run-typecheck-apps.js",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/run-lint-on-stop.sh",
+            "timeout": 120
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/run-typecheck-on-stop.sh",
             "timeout": 300
           },
           {
@@ -207,13 +214,15 @@ pass "F3: default recovery leaves settings.json untouched and prints the opt-in 
   bash hooks/local/post-fusebase-update.sh --wire-hooks > "$OUT.wire"
 )
 grep -q "hooks/handlers/stop.py" "$PROJECT/.claude/settings.json" || fail "Flow stop.py was not merged under --wire-hooks"
-grep -q "run-typecheck-apps.js" "$PROJECT/.claude/settings.json" || fail "CLI node typecheck Stop hook not preserved"
-grep -q "quality-check-apps.js" "$PROJECT/.claude/settings.json" || fail "CLI quality Stop hook not preserved"
-# B5: the deprecated jq/bash Stop hooks are present on disk but were not wired
-# in the simulated CLI settings; Flow merge must NOT re-inject them.
-grep -q "run-lint-on-stop.sh" "$PROJECT/.claude/settings.json" && fail "deprecated run-lint-on-stop.sh was re-injected into settings" || true
-grep -q "run-typecheck-on-stop.sh" "$PROJECT/.claude/settings.json" && fail "deprecated run-typecheck-on-stop.sh was re-injected into settings" || true
-pass "F3: --wire-hooks merges Flow lifecycle hooks and preserves the CLI Stop hooks"
+# 0.25.9 model (D1 preserve-only): the merge keeps every wired CLI Stop hook
+# (run-lint-on-stop.sh, run-typecheck-on-stop.sh, quality-check-apps.js) +
+# appends stop.py, and must NOT static-inject the unwired run-typecheck-apps.js
+# (that would run typecheck twice alongside run-typecheck-on-stop.sh).
+for m in run-lint-on-stop.sh run-typecheck-on-stop.sh quality-check-apps.js; do
+  grep -q "$m" "$PROJECT/.claude/settings.json" || fail "0.25.9 CLI Stop hook not preserved: $m"
+done
+grep -q "run-typecheck-apps.js" "$PROJECT/.claude/settings.json" && fail "unwired run-typecheck-apps.js re-injected (double typecheck)" || true
+pass "F3: --wire-hooks appends stop.py and preserves the 0.25.9 CLI Stop set (no run-typecheck-apps.js re-inject)"
 
 test -f "$PROJECT/.claude/skills/role-discipline/SKILL.md" || fail "Flow Claude skill mirror missing"
 test -f "$PROJECT/.agents/skills/role-discipline/SKILL.md" || fail "Flow Codex skill mirror missing"
@@ -461,12 +470,9 @@ cp "$U15P/eslint.config.mjs" "$U15P/eslint.config.mjs.snap"
 diff -q "$U15P/eslint.config.mjs" "$U15P/eslint.config.mjs.snap" >/dev/null 2>&1 || fail "U15: helper is not idempotent (second run changed the file)"
 pass "U15: eslint-ignore-flow-paths.sh adds .fusebase-flow-source/** next to .claude/** (idempotent, array stays valid)"
 
-###############################################################################
-# F2 (U16) — the MAIN health engine (fusebase-flow-health-check.sh), not just the
-# conflict checker, must read deliberate hooks-off as benign (U11 consistency).
-# An overlay-only install (CLI hooks present, no Flow stop.py, no clobber) must
-# NOT verdict SHARED_MERGE_DRIFT.
-###############################################################################
+# F2 (U16) — the MAIN health engine (not just the conflict checker) must read
+# deliberate hooks-off as benign (U11 consistency): an overlay-only install
+# (CLI hooks present, no Flow stop.py, no clobber) must NOT be SHARED_MERGE_DRIFT.
 F2P="$TMP_BASE/f2-engine-hooksoff"
 cp -R "$PROJECT" "$F2P"
 cp hooks/local/fusebase-flow-health-check.sh "$F2P/hooks/local/"
@@ -493,11 +499,9 @@ grep -qE "lifecycle events wired \(stop.py present|stop.py missing from Stop cha
 grep -q "Flow lifecycle hooks not wired (opt-in" "$TMP_BASE/f2.out" || fail "F2: main engine did not emit the benign opt-in note for hooks-off"
 pass "F2 (U16): main health engine reads deliberate hooks-off as benign (no SHARED_MERGE_DRIFT)"
 
-###############################################################################
-# U17/U18 — "two engines agree": the MAIN engine folds the conflict checker but
-# only its MISSING/DRIFT, so INFO classifications must NOT surface as drift.
-# U17 = flag-gated absence (U10 class); U18 = .agents/.codex gap (U13 class).
-###############################################################################
+# U17/U18 — "two engines agree": the MAIN engine folds only the conflict
+# checker's MISSING/DRIFT, so INFO classes must NOT surface as drift. U17 =
+# flag-gated absence (U10 class); U18 = .agents/.codex gap (U13 class).
 run_main_engine_verdict() {  # $1=project dir → Verdict line; `|| true`+budgets => exit 4 won't abort the suite
   local out
   out="$(cd "$1" 2>/dev/null && FFHC_PREFLIGHT_TIMEOUT=600 FFHC_TESTS_TIMEOUT=600 FFHC_CONFLICT_TIMEOUT=600 FFHC_FETCH_TIMEOUT=30 bash hooks/local/fusebase-flow-health-check.sh 2>/dev/null)" || true
@@ -530,15 +534,10 @@ case "$V18" in
 esac
 pass "U18: main health engine reads a non-authoritative .agents CLI-provider gap as benign (HEALTHY)"
 
-###############################################################################
-# F2 — version-aware overlay refresh is marker-anchored and idempotent.
-# The reported bug: --refresh-overlays anchored on the heading, but the
-# templates wrap the heading inside CUSTOM:SKILL markers, so the drift check was
-# always true and each run re-appended the wrapper (BEGIN count grew, END went
-# unbalanced). These assertions pin: (1) refreshing a CURRENT block is a no-op
-# with exactly one balanced BEGIN/END; (2) a drifted block is restored to one
-# balanced block; (3) re-running is idempotent.
-###############################################################################
+# F2 — --refresh-overlays is marker-anchored + idempotent: (1) refreshing a
+# CURRENT block is a no-op with one balanced BEGIN/END; (2) a drifted block is
+# restored to one balanced block; (3) re-running is idempotent. (Guards the bug
+# where heading-anchored drift re-appended the CUSTOM:SKILL wrapper each run.)
 count_marker() { awk -v m="$2" 'index($0,m){n++} END{print n+0}' "$1"; }
 MB="<!-- CUSTOM:SKILL:BEGIN -->"
 ME="<!-- CUSTOM:SKILL:END -->"

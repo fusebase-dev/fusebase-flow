@@ -179,6 +179,27 @@ run_shell_phase test-fr22-delivery-guarantee.sh "fr22-delivery"
 run_shell_phase test-po-verifiable-boot.sh     "po-verifiable-boot"
 run_shell_phase test-liveness-bounded-run.sh   "liveness"
 run_shell_phase test-codex-prompt-parity.sh    "codex-parity"
+run_shell_phase test-cli-0259-compat.sh        "cli-0259"
+
+# Exit-code phase — all-or-nothing shell tests that fail-fast (set -e + fail()→exit)
+# and don't emit the run_shell_phase "PASS: <tag> <name>" contract. One row per
+# test; PASS iff exit 0. (test-cli-flow-recovery.sh is heavy: it copies the skill
+# tree + drives the health engine — minutes, not seconds.)
+run_exitcode_phase() { # run_exitcode_phase <test-script> <label>
+    local script="$ROOT/hooks/tests/$1" label="$2"
+    [ -f "$script" ] || return 0
+    local rc
+    bash "$script" >/dev/null 2>&1; rc=$?
+    total=$((total + 1))
+    if [ "$rc" -eq 0 ]; then
+        pass=$((pass + 1)); echo "PASS: $label (exit 0)"
+        report_rows="$report_rows| $1 | $label | PASS | exit 0 |"$'\n'
+    else
+        fail=$((fail + 1)); echo "FAIL: $label (exit $rc)"
+        report_rows="$report_rows| $1 | $label | FAIL | exit $rc |"$'\n'
+    fi
+}
+run_exitcode_phase test-cli-flow-recovery.sh "cli-flow-recovery (0.25.9 model)"
 
 # Write report
 {
