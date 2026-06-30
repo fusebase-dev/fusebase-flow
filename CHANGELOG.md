@@ -4,6 +4,21 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.30.1] — 2026-06-30
+
+### Changed — health-check baseline + custom-flag hardening (advisory-only)
+
+**PATCH (hardening, advisory-only).** Closes the two non-blocking follow-ups filed by the FuseBase adversarial review of `cli-0.25.9-vendor-refresh` (v3.30.0): `healthcheck-diff-source-hardening` (MED) + `cli-custom-at-risk-overflag` (LOW). No new FR rule (FR-01..FR-27 unchanged), no new Flow skill (32 unchanged); the FFHC **verdict ENUM + exit codes (0/1/2) are UNCHANGED** — the two new findings are advisory, like `CLI_SNAPSHOT_STALE`. Dual-reviewed: Codex design RESCOPE folded (advisory-only) + FuseBase adversarial impl review **SHIP, zero findings**.
+
+**FR-07-clean / advisory-only:** no FR rule rows, no deploy-policy rule semantics, no `ratchet-governance.yml` touched (only the FLOW_RULES version-attestation line moved). Health-check stays **read-only**.
+
+- **M — durable updater-written receipt** closes the v3.30.0 silent-non-detection blind spot. `settings-json-merge.py --baseline-out` (via `post-fusebase-update.sh --wire-hooks`, on real-merge AND no-op) writes the CLI-owned Stop commands it preserved to `state/audit/cli-stop-baseline.json` (`stop.py` excluded), replacing the ephemeral `.pre-flow-merge` diff source that the no-op path `rm -f`'d. Self-refreshing (re-run the updater to re-baseline). Never an on-disk-`.claude/hooks/` fallback (would re-introduce the `run-typecheck-apps.js` false positive).
+- **Advisory-only reclassification — the v3.30.0 exit-1 path is REMOVED.** Reporter now reads the receipt: `has_flow_stop` + no receipt → advisory `CLI_STOP_UNVERIFIED`; receipt present + a baselined CLI Stop hook missing now → advisory `CLI_STOP_BASELINE_DRIFT`. **No `SHARED_MERGE_DRIFT`/exit-1 for a missing CLI Stop hook** (preserve-only merge ⇒ a missing hook is never a merge fault). A project carrying only these findings stays HEALTHY / exit 0.
+- **L — `CLI_CUSTOM_AT_RISK` sha-gate.** Fires only when the CLI-owned skill's sha256 ≠ bundled provenance (operator content at risk); sha == provenance → CLI-shipped → skip; provenance-unavailable → conservative flag. The pristine-`app-dev-practices` over-flag is gone; genuine signal preserved. Advisory-only contract unchanged.
+- **Docs / tests.** New `test-cli-0259-compat.sh` cases (AC-M1..M4, AC-L1); the v3.30.0 "still-flags-dropped" assertion updated to the advisory model. Backlog READMEs `healthcheck-diff-source-hardening` + `cli-custom-at-risk-overflag` → DONE.
+
+Verified: preflight 0/0 · `bash -n check-cli-flow-conflicts.sh post-fusebase-update.sh` OK · `py_compile settings-json-merge.py` OK · run-tests **182/182 PASS** · `test-cli-flow-recovery.sh` **31/0** to completion · `check-module-size --all` exit 0 · mirror 0 drift (4 health-check skill copies byte-identical) · plugin == VERSION == 3.30.1 · **GEMINI.md = v3.30.1** · README badge 3.30.1 · the 5 FR-07 surfaces UNCHANGED · advisory-only invariant intact (verdict ENUM + exit codes unchanged) · `git grep -ni headroom` in code = 0. Ticket smoke: receipt written (3 CLI hooks, excludes `stop.py`) + durable across a no-op; dropped baselined hook → `CLI_STOP_BASELINE_DRIFT` advisory exit 0; deleted receipt → `CLI_STOP_UNVERIFIED` advisory exit 0; pristine sha==provenance not flagged, drifted flagged; NO input forces exit-1. Feature commits `a0d2e62..363b9be`. Spec: `docs/specs/healthcheck-baseline-and-custom-flag-hardening/spec.md`. Detail: `docs/release-notes/v3.30.1.md`.
+
 ## [3.30.0] — 2026-06-29
 
 ### Changed — FuseBase CLI 0.25.9 vendor refresh + de-staled CLI-Stop-hook model
