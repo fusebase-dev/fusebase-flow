@@ -7,8 +7,9 @@
 #
 # Install: bash hooks/local/install-git-hooks.sh
 #
-# Bypass: NEVER use --no-verify. If the hook flags something legitimate,
-# add a whitelist entry in policies/ rather than bypassing.
+# Bypass: NEVER use --no-verify. If the secret scan flags a real value, rotate it
+# and unstage — do NOT whitelist the value (that disables detection globally and
+# breaks the scanner's own fixtures). For a false positive, fix the pattern.
 
 set -uo pipefail
 
@@ -31,26 +32,11 @@ if [ -n "$SECRET_HITS" ]; then
     exit 1
 fi
 
-# 2. Run secret content scan via Python helper if available.
+# 2. Secret content scan: ONLY added (+) lines, designed-token files path-excluded
+#    (D-A1 — secret-patterns.yml self-trip + whitelist trap). Helper, not inline
+#    bash string-parsing: hooks/shared/staged_secret_scan.py. scan() is UNCHANGED.
 if command -v python3 >/dev/null 2>&1; then
-    PYTHONPATH="$ROOT/hooks" python3 - <<'PY' || exit_secret=$?
-import os, sys, subprocess
-from pathlib import Path
-root = Path(os.environ.get("ROOT", os.getcwd())) if not Path.cwd().joinpath(".git").exists() else Path.cwd()
-sys.path.insert(0, str(root / "hooks"))
-try:
-    from shared.secret_scanner import scan, block_decision
-except Exception:
-    sys.exit(0)
-proc = subprocess.run(["git", "diff", "--cached", "-U0"], capture_output=True, text=True)
-matches = scan(proc.stdout, tool_context="git_pre_commit")
-if matches and block_decision(matches) == "deny":
-    print("[fusebase-flow:pre-commit] BLOCK — secret pattern in staged content:", file=sys.stderr)
-    for m in matches:
-        print(f"  {m.pattern_id} ({m.confidence}) — redacted", file=sys.stderr)
-    print("Per FR-12: rotate the credential, then `git reset HEAD -- <file>` to unstage.", file=sys.stderr)
-    sys.exit(1)
-PY
+    PYTHONPATH="$ROOT/hooks" python3 "$ROOT/hooks/shared/staged_secret_scan.py" || exit_secret=$?
     if [ "${exit_secret:-0}" -ne 0 ]; then exit 1; fi
 fi
 
