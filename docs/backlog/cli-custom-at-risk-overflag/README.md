@@ -1,6 +1,6 @@
 # Backlog ticket — cli-custom-at-risk-overflag
 
-**Status:** parked (filed 2026-06-29 as the LOW follow-up from the FuseBase adversarial impl review of `cli-0.25.9-vendor-refresh`, shipped v3.30.0). Severity: LOW, advisory-only, cosmetic.
+**Status:** DONE — resolved in **v3.30.1** (deploy hash `70b32e2`, tag `v3.30.1`, 2026-06-30). Severity: LOW, advisory-only, cosmetic. **Resolution = sha-gate:** `scan_custom_skill_block` now gates `CLI_CUSTOM_AT_RISK` on provenance drift — it fires only when the CLI-owned skill file's sha256 ≠ the bundled provenance (operator content a CLI refresh would clobber). sha == provenance → CLI-shipped block → skip (the pristine `app-dev-practices` over-flag is gone); provenance unavailable for that file → conservative flag (genuine at-risk signal preserved). Advisory-only contract unchanged (no verdict/exit-code change). Spec: `docs/specs/healthcheck-baseline-and-custom-flag-hardening/spec.md`.
 **Predecessor:** `docs/specs/cli-0.25.9-vendor-refresh/spec.md` (v3.30.0).
 
 ## Pain

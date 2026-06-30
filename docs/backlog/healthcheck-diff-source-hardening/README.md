@@ -1,6 +1,6 @@
 # Backlog ticket — healthcheck-diff-source-hardening
 
-**Status:** parked (filed 2026-06-29 as the MED follow-up from the FuseBase adversarial impl review of `cli-0.25.9-vendor-refresh`, shipped v3.30.0). Severity: MED, non-blocking.
+**Status:** DONE — resolved in **v3.30.1** (deploy hash `70b32e2`, tag `v3.30.1`, 2026-06-30). Severity: MED, non-blocking. **Resolution = advisory-only durable-receipt model:** a durable updater-written receipt `state/audit/cli-stop-baseline.json` (written by `settings-json-merge.py --baseline-out` via `post-fusebase-update.sh --wire-hooks`, on real-merge AND no-op) replaces the ephemeral `.pre-flow-merge` diff source — closing the no-op blind spot. The diff source is the receipt, never an on-disk-`.claude/hooks/` fallback (which would re-introduce the `run-typecheck-apps.js` false positive). A genuinely-dropped CLI Stop hook now surfaces as the advisory **`CLI_STOP_BASELINE_DRIFT`** (verdict HEALTHY, exit 0), and an absent receipt degrades to the advisory **`CLI_STOP_UNVERIFIED`** (never silent) — the v3.30.0 `SHARED_MERGE_DRIFT`/exit-1 path is removed (preserve-only merge ⇒ a missing hook is never a merge fault). Spec: `docs/specs/healthcheck-baseline-and-custom-flag-hardening/spec.md`.
 **Predecessor:** `docs/specs/cli-0.25.9-vendor-refresh/spec.md` (v3.30.0). That release made `check-cli-flow-conflicts.sh` diff-frame `SHARED_MERGE_DRIFT` — flag only a CLI Stop command that Flow's merge actually DROPPED vs the pre-merge `.claude/settings.json` Stop chain.
 
 ## Pain
