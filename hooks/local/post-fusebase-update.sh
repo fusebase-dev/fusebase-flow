@@ -171,13 +171,13 @@ refresh_overlay_block() {
 # when OLD is present and NEW is absent, and it exits 0 only when it actually
 # rewrote a line. Never touches file bytes other than the matched heading line(s).
 ff_migrate_marker() {
-  local file="$1" old="$2" new="$3" tmp changed
+  local file="$1" old="$2" new="$3" tmp
   tmp="$(mktemp)" || return 1
-  changed="$(awk -v o="$old" -v n="$new" '
+  awk -v o="$old" -v n="$new" '
     $0==o { print n; c++; next }
     { print }
     END { print c+0 > "/dev/stderr" }
-  ' "$file" 2>"$tmp.n" >"$tmp")"
+  ' "$file" 2>"$tmp.n" >"$tmp"
   local n; n="$(cat "$tmp.n" 2>/dev/null)"; rm -f "$tmp.n"
   if [ "${n:-0}" -gt 0 ]; then
     cat "$tmp" > "$file"; rm -f "$tmp"; return 0
