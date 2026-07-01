@@ -181,18 +181,20 @@ ffhc_msys_wait_reap() {
 #   Policy (H5): if no timeout binary AND FFHC_ALLOW_UNBOUNDED!=1 => SKIP (no run,
 #   sentinel rc 125, FFHC_LAST_SKIPPED=1) so a slow op can never hang the engine;
 #   FFHC_ALLOW_UNBOUNDED=1 opts into an unbounded run instead.
-# _ffhc_tempfile_capture STDERR_MODE SECS CMD...: shared belt-#2 capture core (D-B1).
-# Backgrounds the bounded run with output to a TEMP FILE (never a pipe a descendant
-# could hold open), holds its pid + MSYS-reaps the native tree, waits, reads. Sets
-# FFHC_LAST_OUT/FFHC_LAST_RC/FFHC_LAST_TIMED_OUT. STDERR_MODE: "merge" (2>&1, combined)
-# or "drop" (2>/dev/null, stdout only). One core => the conflict reporter and
-# ffhc_run_bounded share the exact same liveness guarantee (FR-25 seam).
+# _ffhc_tempfile_capture STDERR_MODE STDIN_MODE SECS CMD...: shared belt-#2 capture
+# core (D-B1). Backgrounds the bounded run with output to a TEMP FILE (never a pipe a
+# descendant could hold open), holds its pid + MSYS-reaps the native tree, waits, reads.
+# Sets FFHC_LAST_OUT/FFHC_LAST_RC/FFHC_LAST_TIMED_OUT. STDERR_MODE: "merge" (2>&1,
+# combined) or "drop" (2>/dev/null, stdout only). STDIN_MODE: "null" (explicit
+# `< /dev/null`, the DEFAULT) or "inherit" (`0<&0`, the caller's fd 0). One core =>
+# the conflict reporter and ffhc_run_bounded share the exact same liveness guarantee
+# (FR-25 seam).
 # T8: explicit "${TMPDIR:-/tmp}/ffhc-bounded.$$.XXXXXX" template (no CWD files), and
 # if the temp can't be created/written, route to the SKIPPED sentinel (rc 125,
 # FFHC_LAST_SKIPPED=1) so the engine reads UNVERIFIED — NOT an empty-output run that
 # would read as a false BROKEN, and NEVER a launch into a broken redirect.
 _ffhc_tempfile_capture() {
-  local stderr_mode="$1" secs="$2"; shift 2
+  local stderr_mode="$1" stdin_mode="$2" secs="$3"; shift 3
   local _tf
   _tf="$(mktemp "${TMPDIR:-/tmp}/ffhc-bounded.$$.XXXXXX" 2>/dev/null || true)"
   # TRIPWIRE: a missing/unwritable temp must SKIP (UNVERIFIED), never launch the
@@ -202,14 +204,16 @@ _ffhc_tempfile_capture() {
     FFHC_LAST_OUT=""; FFHC_LAST_RC=125; FFHC_LAST_SKIPPED=1; FFHC_LAST_TIMED_OUT=0
     return 0
   fi
-  # TRIPWIRE (T17): a backgrounded (`&`) command's stdin defaults to /dev/null and that
+  # TRIPWIRE (T17/T18): a backgrounded (`&`) command's stdin defaults to /dev/null and that
   # default OVERRIDES a `< file` redirect applied to the CALLER — so the child never sees
-  # the caller's fd 0 unless we redirect it explicitly here. Default path: explicit
-  # `< /dev/null` (identical to today's implicit guarantee — a bounded op can never block
-  # on an inherited TTY). Opt-in FFHC_CAPTURE_STDIN=1: inherit the caller's fd 0 (`0<&0`)
-  # so a `< file` on the wrapper reaches the bounded child (the MSYS fixture-phase fix).
-  # Both paths keep the tempfile capture + winpid/childpid reap IDENTICAL below.
-  if [ "${FFHC_CAPTURE_STDIN:-0}" = "1" ]; then
+  # the caller's fd 0 unless we redirect it explicitly here. STDIN_MODE is an EXPLICIT
+  # PARAMETER (never an ambient global — T18): "null" => explicit `< /dev/null` (the DEFAULT,
+  # identical to today's guarantee — a bounded op can never block on an inherited TTY);
+  # "inherit" => `0<&0` (the caller's fd 0), selected ONLY by the dedicated stdin wrapper so
+  # a `< file` on that wrapper reaches the bounded child (the MSYS fixture-phase fix). The
+  # DEFAULT path can NEVER take the inherit branch regardless of the environment. Both paths
+  # keep the tempfile capture + winpid/childpid reap IDENTICAL below.
+  if [ "$stdin_mode" = "inherit" ]; then
     if [ "$stderr_mode" = "drop" ]; then
       run_with_timeout "$secs" "$@" >"$_tf" 2>/dev/null 0<&0 &
     else
@@ -255,7 +259,7 @@ ffhc_run_bounded() {
   local secs="$1"; shift
   FFHC_LAST_OUT=""; FFHC_LAST_RC=0; FFHC_LAST_TIMED_OUT=0; FFHC_LAST_SKIPPED=0
   if [ -n "${FFHC_TIMEOUT_BIN:-}" ]; then
-    _ffhc_tempfile_capture merge "$secs" "$@"     # combined stdout+stderr (belt #2, D-B1)
+    _ffhc_tempfile_capture merge null "$secs" "$@"  # combined stdout+stderr (belt #2, D-B1)
   elif [ "${FFHC_ALLOW_UNBOUNDED:-0}" = "1" ]; then
     FFHC_LAST_OUT="$("$@" 2>&1)"; FFHC_LAST_RC=$?
   else
@@ -270,7 +274,7 @@ ffhc_run_bounded_stdout() {
   local secs="$1"; shift
   FFHC_LAST_OUT=""; FFHC_LAST_RC=0; FFHC_LAST_TIMED_OUT=0; FFHC_LAST_SKIPPED=0
   if [ -n "${FFHC_TIMEOUT_BIN:-}" ]; then
-    _ffhc_tempfile_capture drop "$secs" "$@"
+    _ffhc_tempfile_capture drop null "$secs" "$@"
   elif [ "${FFHC_ALLOW_UNBOUNDED:-0}" = "1" ]; then
     FFHC_LAST_OUT="$("$@" 2>/dev/null)"; FFHC_LAST_RC=$?
   else
@@ -283,13 +287,16 @@ ffhc_run_bounded_stdout() {
 # INHERITS the caller's fd 0, so a `< file` redirect on the wrapper call reaches the
 # child. For stdin-fed handlers under the bound (the run-tests fixture loop): a
 # backgrounded child's stdin otherwise defaults to /dev/null and drops the fixture.
-# The unbounded fallback already inherits fd 0 (no `< /dev/null`), so it needs no flag.
+# The unbounded fallback already inherits fd 0 (no `< /dev/null`), so it needs no arg.
+# T18: stdin inheritance is selected by passing the EXPLICIT "inherit" stdin-mode PARAM
+# to _ffhc_tempfile_capture (no ambient module global, no set/reset dance) — so ONLY this
+# dedicated wrapper ever takes the inherit branch; the default wrappers pass "null" and
+# are immune to any environment value.
 ffhc_run_bounded_stdin_stdout() {
   local secs="$1"; shift
   FFHC_LAST_OUT=""; FFHC_LAST_RC=0; FFHC_LAST_TIMED_OUT=0; FFHC_LAST_SKIPPED=0
   if [ -n "${FFHC_TIMEOUT_BIN:-}" ]; then
-    FFHC_CAPTURE_STDIN=1 _ffhc_tempfile_capture drop "$secs" "$@"
-    FFHC_CAPTURE_STDIN=0
+    _ffhc_tempfile_capture drop inherit "$secs" "$@"
   elif [ "${FFHC_ALLOW_UNBOUNDED:-0}" = "1" ]; then
     FFHC_LAST_OUT="$("$@" 2>/dev/null)"; FFHC_LAST_RC=$?
   else

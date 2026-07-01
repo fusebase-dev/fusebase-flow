@@ -151,10 +151,55 @@ if [ -n "${FFHC_TIMEOUT_BIN:-}" ]; then
   else
     bad "t17-stdin-path-t12-clear" "stdin path left globals set (WINPID='$FFHC_LAST_WINPID' CHILD_PID='$FFHC_LAST_CHILD_PID')"
   fi
+
+  # --- T18 (the fix): the DEFAULT bounded path is IMMUNE to an externally EXPORTED
+  # FFHC_CAPTURE_STDIN. Before T18, ffhc_run_bounded_stdout branched on the ambient
+  # module global, so an exported/stale/adversarial FFHC_CAPTURE_STDIN=1 flipped the
+  # default path to `0<&0` (inherit) instead of the guaranteed `< /dev/null`. After
+  # T18 stdin-mode is an EXPLICIT parameter ("null" for the default wrappers), so the
+  # default path can NEVER take the inherit branch regardless of the environment.
+  # PROOF: export FFHC_CAPTURE_STDIN=1, pipe a NON-EMPTY fixture into the DEFAULT
+  # wrapper running `cat` (a stdin reader). If the default path still honored the flag
+  # (regression) the captured stdout would contain the leaked fixture bytes; with the
+  # explicit `< /dev/null` the child's `cat` gets immediate EOF and captures NOTHING —
+  # only the post-cat marker survives (own rc preserved, no hang). ---
+  t18_fix="${TMPDIR:-/tmp}/ffhc-t18-leak.$$.in"; printf 'FIXTURE-STDIN-BYTES' > "$t18_fix"
+  ( export FFHC_CAPTURE_STDIN=1
+    ffhc_run_bounded_stdout 30 bash -c 'cat; echo T18-IMMUNE-MARKER; exit 5' < "$t18_fix"
+    # Immune => captured stdout is EXACTLY the marker (no leaked fixture bytes), rc 5.
+    [ "$FFHC_LAST_OUT" = "T18-IMMUNE-MARKER" ] && [ "$FFHC_LAST_RC" = "5" ]
+  )
+  t18_rc=$?
+  rm -f "$t18_fix"
+  if [ "$t18_rc" -eq 0 ]; then
+    ok "t18-default-path-immune-to-exported-FFHC_CAPTURE_STDIN (exported flag=1 + piped fixture => DEFAULT wrapper still uses < /dev/null: cat sees EOF, captured out is marker-only, own rc=5)"
+  else
+    bad "t18-default-path-immune-to-exported-FFHC_CAPTURE_STDIN" "exported FFHC_CAPTURE_STDIN=1 leaked the caller's fd 0 into the DEFAULT bounded path (out should be marker-only + rc 5) — default path is NOT immune to the ambient var"
+  fi
+
+  # T18 corollary: the ambient global is DEAD. Even with FFHC_CAPTURE_STDIN=1 exported,
+  # the dedicated STDIN wrapper still delivers fd 0 (selection is by explicit param, not
+  # the env) — a deny-fixture into pre_tool_use still DENIES. Proves the stdin path is
+  # driven ONLY by the wrapper's explicit "inherit", never by the (now-removed) global.
+  t18s_fix="${TMPDIR:-/tmp}/ffhc-t18-deny.$$.json"
+  printf '%s' '{"tool_name":"Bash","tool_input":{"command":"rm -rf /"}}' > "$t18s_fix"
+  ( export FFHC_CAPTURE_STDIN=1
+    ffhc_run_bounded_stdin_stdout 30 python3 "$ROOT/hooks/handlers/pre_tool_use.py" < "$t18s_fix"
+    echo "$FFHC_LAST_OUT" | grep -q '"decision": "deny"'
+  )
+  t18s_rc=$?
+  rm -f "$t18s_fix"
+  if [ "$t18s_rc" -eq 0 ]; then
+    ok "t18-stdin-wrapper-still-delivers-fd0 (explicit inherit param drives the stdin path; deny-fixture DENIES even with the dead FFHC_CAPTURE_STDIN exported)"
+  else
+    bad "t18-stdin-wrapper-still-delivers-fd0" "dedicated stdin wrapper failed to deliver fd 0 (deny-fixture did not DENY) with FFHC_CAPTURE_STDIN exported"
+  fi
 else
   skip "t17-stdin-reaches-child" "no timeout binary on PATH — bounded stdin path not exercised"
   skip "t17-default-path-unchanged" "no timeout binary on PATH"
   skip "t17-stdin-path-t12-clear" "no timeout binary on PATH"
+  skip "t18-default-path-immune-to-exported-FFHC_CAPTURE_STDIN" "no timeout binary on PATH"
+  skip "t18-stdin-wrapper-still-delivers-fd0" "no timeout binary on PATH"
 fi
 
 case "$(uname -s 2>/dev/null)" in
