@@ -86,6 +86,25 @@ else
   skip "ws2-no-hang-large-budget" "no timeout binary on PATH"
 fi
 
+# --- T12 (all platforms with a timeout binary): the in-flight-child globals are
+# non-empty ONLY while the child is provably alive. After ffhc_run_bounded RETURNS
+# (the child is reaped by then), BOTH FFHC_LAST_WINPID AND FFHC_LAST_CHILD_PID must be
+# EMPTY, so a caller's EXIT-trap reap is a strict no-op (no stale/reused winpid swept).
+# Guards the false pre-T12 ":cleared once we return" comment: the globals were never
+# actually cleared, so between fixture iterations the trap could taskkill a DEAD or
+# reused winpid. Platform-independent (the lib clears both on every path). ---
+if [ -n "${FFHC_TIMEOUT_BIN:-}" ]; then
+  FFHC_LAST_WINPID="sentinel-stale"; FFHC_LAST_CHILD_PID="99999"   # pre-seed stale ids
+  ffhc_run_bounded 5 bash -c 'exit 0'
+  if [ -z "$FFHC_LAST_WINPID" ] && [ -z "$FFHC_LAST_CHILD_PID" ]; then
+    ok "t12-winpid+childpid-cleared-on-return (both globals empty after a normal bounded return => EXIT-trap reap is a no-op)"
+  else
+    bad "t12-winpid+childpid-cleared-on-return" "globals not cleared after return (WINPID='$FFHC_LAST_WINPID' CHILD_PID='$FFHC_LAST_CHILD_PID') — a stale/reused winpid could be swept by the EXIT-trap"
+  fi
+else
+  skip "t12-winpid+childpid-cleared-on-return" "no timeout binary on PATH — tempfile-capture path not exercised"
+fi
+
 case "$(uname -s 2>/dev/null)" in
   MINGW*|MSYS*|CYGWIN*) : ;;  # MSYS — run the real RED-then-GREEN + sibling-survival
   *) skip "native-descendant-reap" "off-MSYS — POSIX timeout reaps the tree; native-escape repro is MSYS-only"; skip "ws2-concurrent-sibling-survives" "off-MSYS — taskkill scoping is MSYS-only; strict-scoping asserted by code + true-124/no-hang above"; finish ;;

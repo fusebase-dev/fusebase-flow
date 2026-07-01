@@ -30,13 +30,16 @@ FF_PHASE_TIMEOUT="${FF_PHASE_TIMEOUT:-600}"
 # EXIT-trap reaper (WS3): if the harness is signaled while a bounded phase is still in
 # flight, taskkill ONLY that phase's own recorded child winpid — FFHC_LAST_WINPID, set
 # live at launch by the T1 capture — strict-scoped, never a broad taskkill (depends on
-# WS2-core). run_bounded_phase CLEARS FFHC_LAST_WINPID the instant a phase returns (its
-# child is already reaped by then), so a normal exit reaps nothing and a stale/reused
-# winpid is never swept. The reap is a no-op off-MSYS.
+# WS2-core). It passes FFHC_LAST_CHILD_PID too (T12), so the trap gets the SAME PID-reuse
+# re-verify guard as the deadline path (ffhc_msys_taskkill_winpid re-checks the winpid
+# still maps to our child before killing). The lib + run_bounded_phase CLEAR both the
+# instant a phase returns (its child is already reaped by then), so a normal exit reaps
+# nothing and a stale/reused winpid is never swept. The reap is a no-op off-MSYS.
 FFHC_LAST_WINPID=""
+FFHC_LAST_CHILD_PID=""
 _ff_exit_reap() {
     ffhc_is_msys || return 0
-    [ -n "$FFHC_LAST_WINPID" ] && ffhc_msys_taskkill_winpid "$FFHC_LAST_WINPID"
+    [ -n "$FFHC_LAST_WINPID" ] && ffhc_msys_taskkill_winpid "$FFHC_LAST_WINPID" "$FFHC_LAST_CHILD_PID"
 }
 trap _ff_exit_reap EXIT
 
@@ -52,7 +55,7 @@ run_bounded_phase() {
     local label="$1"; shift
     progress "$label"
     ffhc_run_bounded "$FF_PHASE_TIMEOUT" "$@"
-    FFHC_LAST_WINPID=""   # phase returned => child reaped; no stale sweep on exit
+    FFHC_LAST_WINPID=""; FFHC_LAST_CHILD_PID=""   # phase returned => child reaped; no stale sweep on exit
 }
 
 pass=0
@@ -139,7 +142,7 @@ PY
         report_rows="$report_rows| $name | $test_name | FAIL |$detail (raw=$output) |"$'\n'
     fi
 done
-FFHC_LAST_WINPID=""   # fixture loop done — clear the last handler's winpid before the trap window
+FFHC_LAST_WINPID=""; FFHC_LAST_CHILD_PID=""   # fixture loop done — clear the last handler's ids before the trap window
 
 # Phase 2 — FR-25 module-size ratchet scenarios (shell-level; not handler fixtures).
 MS_TEST="$ROOT/hooks/tests/test-module-size.sh"
@@ -254,7 +257,7 @@ run_exitcode_phase() { # run_exitcode_phase <test-script> <label>
     progress "$label"
     ffhc_run_bounded_stdout "${FF_CLI_RECOVERY_TIMEOUT:-240}" bash "$script"
     local rc=$FFHC_LAST_RC
-    FFHC_LAST_WINPID=""   # phase returned => child reaped; no stale sweep on exit
+    FFHC_LAST_WINPID=""; FFHC_LAST_CHILD_PID=""   # phase returned => child reaped; no stale sweep on exit
     if [ "$rc" -eq 0 ]; then
         pass=$((pass + 1)); echo "PASS: $label (exit 0)"
         report_rows="$report_rows| $1 | $label | PASS | exit 0 |"$'\n'

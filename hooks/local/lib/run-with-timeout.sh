@@ -211,12 +211,16 @@ _ffhc_tempfile_capture() {
   # T7: capture the Windows pid NOW, while _bpid is still alive (the /proc/<pid>/winpid
   # node vanishes on exit; a post-deadline read races the wrapper's exit and reads empty).
   local _winpid=""; if ffhc_is_msys; then _winpid="$(ffhc_msys_winpid "$_bpid")"; fi
-  # FFHC_LAST_WINPID (additive): the recorded in-flight child winpid, exposed so a
-  # caller's EXIT-trap can strict-scoped-reap a phase still running if the caller is
-  # signaled mid-run. Cleared once we return (the child is already reaped by then).
-  FFHC_LAST_WINPID="$_winpid"
+  # FFHC_LAST_WINPID/FFHC_LAST_CHILD_PID (additive): the recorded in-flight child's
+  # winpid AND its bash pid, exposed so a caller's EXIT-trap can strict-scoped-reap a
+  # phase still running if the caller is signaled mid-run — the child pid lets the trap
+  # re-verify the winpid still maps to OUR child (PID-reuse guard), same as the deadline
+  # path. Both are cleared the instant we return below (the child is reaped by then), so
+  # they are non-empty ONLY while the child is provably alive.
+  FFHC_LAST_WINPID="$_winpid"; FFHC_LAST_CHILD_PID="$_bpid"
   if ffhc_is_msys; then ffhc_msys_wait_reap "$_bpid" "$secs" "$_winpid"; else wait "$_bpid"; fi
   FFHC_LAST_RC=$?
+  FFHC_LAST_WINPID=""; FFHC_LAST_CHILD_PID=""   # child reaped => a later EXIT-trap reap is a no-op
   FFHC_LAST_OUT="$(cat "$_tf" 2>/dev/null)"
   rm -f "$_tf" 2>/dev/null
   ffhc_timed_out "$FFHC_LAST_RC" && FFHC_LAST_TIMED_OUT=1 || FFHC_LAST_TIMED_OUT=0
