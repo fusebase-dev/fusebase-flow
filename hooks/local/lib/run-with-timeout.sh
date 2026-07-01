@@ -202,10 +202,25 @@ _ffhc_tempfile_capture() {
     FFHC_LAST_OUT=""; FFHC_LAST_RC=125; FFHC_LAST_SKIPPED=1; FFHC_LAST_TIMED_OUT=0
     return 0
   fi
-  if [ "$stderr_mode" = "drop" ]; then
-    run_with_timeout "$secs" "$@" >"$_tf" 2>/dev/null &
+  # TRIPWIRE (T17): a backgrounded (`&`) command's stdin defaults to /dev/null and that
+  # default OVERRIDES a `< file` redirect applied to the CALLER — so the child never sees
+  # the caller's fd 0 unless we redirect it explicitly here. Default path: explicit
+  # `< /dev/null` (identical to today's implicit guarantee — a bounded op can never block
+  # on an inherited TTY). Opt-in FFHC_CAPTURE_STDIN=1: inherit the caller's fd 0 (`0<&0`)
+  # so a `< file` on the wrapper reaches the bounded child (the MSYS fixture-phase fix).
+  # Both paths keep the tempfile capture + winpid/childpid reap IDENTICAL below.
+  if [ "${FFHC_CAPTURE_STDIN:-0}" = "1" ]; then
+    if [ "$stderr_mode" = "drop" ]; then
+      run_with_timeout "$secs" "$@" >"$_tf" 2>/dev/null 0<&0 &
+    else
+      run_with_timeout "$secs" "$@" >"$_tf" 2>&1 0<&0 &
+    fi
   else
-    run_with_timeout "$secs" "$@" >"$_tf" 2>&1 &
+    if [ "$stderr_mode" = "drop" ]; then
+      run_with_timeout "$secs" "$@" >"$_tf" 2>/dev/null </dev/null &
+    else
+      run_with_timeout "$secs" "$@" >"$_tf" 2>&1 </dev/null &
+    fi
   fi
   local _bpid=$!
   # T7: capture the Windows pid NOW, while _bpid is still alive (the /proc/<pid>/winpid
@@ -256,6 +271,25 @@ ffhc_run_bounded_stdout() {
   FFHC_LAST_OUT=""; FFHC_LAST_RC=0; FFHC_LAST_TIMED_OUT=0; FFHC_LAST_SKIPPED=0
   if [ -n "${FFHC_TIMEOUT_BIN:-}" ]; then
     _ffhc_tempfile_capture drop "$secs" "$@"
+  elif [ "${FFHC_ALLOW_UNBOUNDED:-0}" = "1" ]; then
+    FFHC_LAST_OUT="$("$@" 2>/dev/null)"; FFHC_LAST_RC=$?
+  else
+    FFHC_LAST_RC=125; FFHC_LAST_SKIPPED=1
+  fi
+}
+
+# ffhc_run_bounded_stdin_stdout SECS CMD [ARGS...]: like ffhc_run_bounded_stdout
+# (stdout-only capture, same no-binary SKIP + belt-#2 liveness) BUT the bounded child
+# INHERITS the caller's fd 0, so a `< file` redirect on the wrapper call reaches the
+# child. For stdin-fed handlers under the bound (the run-tests fixture loop): a
+# backgrounded child's stdin otherwise defaults to /dev/null and drops the fixture.
+# The unbounded fallback already inherits fd 0 (no `< /dev/null`), so it needs no flag.
+ffhc_run_bounded_stdin_stdout() {
+  local secs="$1"; shift
+  FFHC_LAST_OUT=""; FFHC_LAST_RC=0; FFHC_LAST_TIMED_OUT=0; FFHC_LAST_SKIPPED=0
+  if [ -n "${FFHC_TIMEOUT_BIN:-}" ]; then
+    FFHC_CAPTURE_STDIN=1 _ffhc_tempfile_capture drop "$secs" "$@"
+    FFHC_CAPTURE_STDIN=0
   elif [ "${FFHC_ALLOW_UNBOUNDED:-0}" = "1" ]; then
     FFHC_LAST_OUT="$("$@" 2>/dev/null)"; FFHC_LAST_RC=$?
   else

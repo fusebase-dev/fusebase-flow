@@ -95,12 +95,14 @@ PY
     fi
 
     # Run handler with the fixture as stdin; capture stdout + exit code. Bounded via
-    # ffhc_run_bounded_stdout (tempfile capture + T1 strict-scoped reap; stderr dropped
-    # to preserve the ORIGINAL 2>/dev/null stdout-only capture the JSON parse relies on)
-    # so a hung handler (or an MSYS native grandchild holding a $(...) pipe) can't freeze
-    # the loop past the deadline. FFHC_LAST_OUT holds stdout only; the '{' parse below
-    # is unchanged.
-    ffhc_run_bounded_stdout "$FF_PHASE_TIMEOUT" "$python_bin" "$HANDLERS_DIR/$handler" < "$fixture"
+    # ffhc_run_bounded_stdin_stdout (tempfile capture + T1 strict-scoped reap; stderr
+    # dropped to preserve the ORIGINAL 2>/dev/null stdout-only capture the JSON parse
+    # relies on) so a hung handler (or an MSYS native grandchild holding a $(...) pipe)
+    # can't freeze the loop past the deadline. TRIPWIRE: the STDIN variant — a
+    # backgrounded child's fd 0 otherwise defaults to /dev/null and the `< "$fixture"`
+    # never reaches the handler (empty stdin => wrong `allow` on deny-fixtures on MSYS).
+    # FFHC_LAST_OUT holds stdout only; the '{' parse below is unchanged.
+    ffhc_run_bounded_stdin_stdout "$FF_PHASE_TIMEOUT" "$python_bin" "$HANDLERS_DIR/$handler" < "$fixture"
     output="$FFHC_LAST_OUT"
     exit_code=$FFHC_LAST_RC
 

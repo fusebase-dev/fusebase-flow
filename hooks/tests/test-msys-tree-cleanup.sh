@@ -105,6 +105,58 @@ else
   skip "t12-winpid+childpid-cleared-on-return" "no timeout binary on PATH — tempfile-capture path not exercised"
 fi
 
+# --- T17 (all platforms with a timeout binary): OPT-IN stdin inheritance for the
+# bounded capture. A backgrounded (`&`) child's fd 0 defaults to /dev/null (POSIX),
+# overriding a `< file` on the WRAPPER — so ffhc_run_bounded_stdout drops the fixture
+# and a deny-fixture reads the wrong `allow`. ffhc_run_bounded_stdin_stdout inherits
+# fd 0 so `< file` reaches the child. RED (old stdout path) => allow; GREEN (new stdin
+# path) => deny. Also assert the DEFAULT path did NOT regress and T12-clears on both. ---
+if [ -n "${FFHC_TIMEOUT_BIN:-}" ]; then
+  t17_fix="${TMPDIR:-/tmp}/ffhc-t17-deny.$$.json"
+  printf '%s' '{"tool_name":"Bash","tool_input":{"command":"rm -rf /"}}' > "$t17_fix"
+
+  # RED: the OLD stdout path loses the piped-in fixture (backgrounded child => /dev/null
+  # stdin) so pre_tool_use reads empty and returns the default `allow`.
+  ffhc_run_bounded_stdout 30 python3 "$ROOT/hooks/handlers/pre_tool_use.py" < "$t17_fix"
+  red_out="$FFHC_LAST_OUT"
+
+  # GREEN: the NEW stdin variant inherits fd 0 so the fixture reaches the handler => deny.
+  ffhc_run_bounded_stdin_stdout 30 python3 "$ROOT/hooks/handlers/pre_tool_use.py" < "$t17_fix"
+  green_out="$FFHC_LAST_OUT"
+  rm -f "$t17_fix"
+
+  if echo "$red_out" | grep -q '"decision": "allow"' && echo "$green_out" | grep -q '"decision": "deny"'; then
+    ok "t17-stdin-reaches-child (RED old stdout path=allow [stdin dropped] => GREEN new stdin path=deny [fixture reached handler])"
+  else
+    bad "t17-stdin-reaches-child" "expected RED allow + GREEN deny; got RED=[$red_out] GREEN=[$green_out]"
+  fi
+
+  # Default (non-stdin) path did NOT regress: bounded, stdout captured, own rc preserved,
+  # no hang (a stdin reader gets EOF from the explicit < /dev/null, never a TTY block).
+  ffhc_run_bounded_stdout 30 bash -c 'cat; echo default-marker; exit 7'
+  if [ "$FFHC_LAST_OUT" = "default-marker" ] && [ "$FFHC_LAST_RC" = "7" ]; then
+    ok "t17-default-path-unchanged (non-stdin bounded run: stdout captured, own rc=7, < /dev/null EOF => no hang)"
+  else
+    bad "t17-default-path-unchanged" "default path regressed: out=[$FFHC_LAST_OUT] rc=$FFHC_LAST_RC (expected default-marker / 7)"
+  fi
+
+  # T12 on BOTH paths: the in-flight-child globals are cleared on return so a caller's
+  # EXIT-trap reap is a strict no-op (no stale/reused winpid swept).
+  t17d_fix="${TMPDIR:-/tmp}/ffhc-t17d.$$.in"; printf 'x' > "$t17d_fix"
+  FFHC_LAST_WINPID="t17-stale"; FFHC_LAST_CHILD_PID="99999"
+  ffhc_run_bounded_stdin_stdout 30 bash -c 'cat >/dev/null; exit 0' < "$t17d_fix"
+  rm -f "$t17d_fix"
+  if [ -z "$FFHC_LAST_WINPID" ] && [ -z "$FFHC_LAST_CHILD_PID" ]; then
+    ok "t17-stdin-path-t12-clear (stdin variant clears WINPID+CHILD_PID on return => EXIT-trap reap is a no-op)"
+  else
+    bad "t17-stdin-path-t12-clear" "stdin path left globals set (WINPID='$FFHC_LAST_WINPID' CHILD_PID='$FFHC_LAST_CHILD_PID')"
+  fi
+else
+  skip "t17-stdin-reaches-child" "no timeout binary on PATH — bounded stdin path not exercised"
+  skip "t17-default-path-unchanged" "no timeout binary on PATH"
+  skip "t17-stdin-path-t12-clear" "no timeout binary on PATH"
+fi
+
 case "$(uname -s 2>/dev/null)" in
   MINGW*|MSYS*|CYGWIN*) : ;;  # MSYS — run the real RED-then-GREEN + sibling-survival
   *) skip "native-descendant-reap" "off-MSYS — POSIX timeout reaps the tree; native-escape repro is MSYS-only"; skip "ws2-concurrent-sibling-survives" "off-MSYS — taskkill scoping is MSYS-only; strict-scoping asserted by code + true-124/no-hang above"; finish ;;
