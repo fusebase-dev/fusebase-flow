@@ -336,8 +336,13 @@ _ffhc_job_fence() {
     kill -0 "$FFHC_JOB_FENCE_HPID" 2>/dev/null || break
     sleep 0.1; waited=$((waited + 1))
   done
-  : > "$trig" 2>/dev/null   # release the helper (terminates an assigned-or-empty job; no-op if none)
-  rm -f "$hstat" 2>/dev/null
+  # NO-RERUN fallback: signal-close the helper, reap it, then clean BOTH temp files (no
+  # leak) and return "" so the caller uses the plain taskkill reap for the already-launched
+  # child — never a re-run.
+  : > "$trig" 2>/dev/null
+  [ -n "$FFHC_JOB_FENCE_HPID" ] && wait "$FFHC_JOB_FENCE_HPID" 2>/dev/null
+  FFHC_JOB_FENCE_HPID=""
+  rm -f "$trig" "$hstat" 2>/dev/null
   echo ""
 }
 
