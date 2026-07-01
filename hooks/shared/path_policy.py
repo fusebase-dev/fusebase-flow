@@ -18,9 +18,10 @@ from .policy_loader import find_git_root, get_policy
 
 # WS1b: the internals-bootstrap category demands a genuinely SINGLE-USE exception.
 # A plain path+TTL artifact is a reusable FR-07 bypass, so for this category the
-# artifact must additionally be bound to the exact staged changeset (tree_digest)
-# and the exact operation (operation), and it is consumed/cleaned by the bootstrap
-# writer after the setup commit passes. A second, unrelated protected-path edit
+# artifact must bind to the exact staged changeset (tree_digest over content+mode)
+# AND the exact operation, use EXACT path membership (no glob fallback, and any glob
+# metacharacter in an approved_path invalidates the artifact), and require every
+# approved_path to actually be staged. A second, unrelated protected-path edit
 # produces a different staged digest -> no match -> still DENIES.
 _BOOTSTRAP_CATEGORY = "fusebase_flow_internals"
 _BOOTSTRAP_OPERATION = "flow-internals-bootstrap"
@@ -39,6 +40,14 @@ class PathDecision:
 
 def _matches_any(path: str, patterns: list[str]) -> bool:
     return any(fnmatch.fnmatch(path, pat) or _glob_starstar(path, pat) for pat in patterns)
+
+
+# TRIPWIRE (WS1b): the internals-bootstrap category treats ANY approved_path
+# carrying a glob metacharacter as an invalid artifact — a wildcard must never
+# bind a concrete queried path. Keep in sync with the metacharacters git/fnmatch
+# would expand (`*`, `?`, `[`, and the `**` recursive form).
+def _has_glob_meta(pattern: str) -> bool:
+    return any(ch in pattern for ch in ("*", "?", "["))
 
 
 def _glob_starstar(path: str, pattern: str) -> bool:
@@ -70,11 +79,15 @@ def is_protected(path: str) -> tuple[bool, str | None]:
     return False, None
 
 
-def _staged_blob_sha(path: str, root: Path) -> str | None:
-    """git's object id for the staged content of `path` (index side), or None.
+def _staged_mode_and_sha(path: str, root: Path) -> tuple[str, str] | None:
+    """(mode, object-id) for the staged content of the EXACT `path`, or None.
 
-    This is the exact bytes the pending commit would write for `path`; hashing
-    over these ids binds an exception to one specific staged changeset.
+    `path` MUST be a concrete file path, never a glob: a glob pathspec makes
+    `git ls-files --stage` emit MANY lines, and the old field-2-of-strip() parse
+    silently kept only the alphabetically-first blob (both reviews flagged this).
+    We parse PER LINE and return the line whose trailing `\\t<path>` matches `path`
+    exactly, so a single concrete lookup is unambiguous and a multi-match glob can
+    never bind. Mode is field 1 (from `git ls-files --stage`), object id is field 2.
     """
     try:
         proc = subprocess.run(
@@ -83,22 +96,33 @@ def _staged_blob_sha(path: str, root: Path) -> str | None:
         )
     except Exception:
         return None
-    line = proc.stdout.strip()
-    if not line:
-        return None
-    # `<mode> <object> <stage>\t<path>` — the object id is field 2.
-    parts = line.split()
-    return parts[1] if len(parts) >= 2 else None
+    for line in proc.stdout.splitlines():
+        if not line:
+            continue
+        # `<mode> <object> <stage>\t<path>`; split the trailing path off the tab.
+        head, _, entry_path = line.partition("\t")
+        if entry_path != path:
+            continue
+        parts = head.split()
+        if len(parts) >= 2:
+            return parts[0], parts[1]   # (mode, object-id)
+    return None
 
 
 def compute_staged_tree_digest(paths: list[str], root: Path) -> str:
-    """Digest binding an exception to the exact staged content of `paths`.
+    """Digest binding an exception to the exact staged content+mode of `paths`.
 
-    sha256 over sorted `<path>\\0<staged-blob-sha>` lines. A path with no staged
-    content contributes `<path>\\0-`; a later, unrelated edit changes the set of
-    staged blob ids, so the digest no longer matches (the single-use property).
+    sha256 over sorted `<path>\\0<mode>\\0<staged-blob-sha>` lines. A path with no
+    staged content contributes `<path>\\0-\\0-`; a later, unrelated edit (or a mode
+    flip) changes the set of staged (mode, blob) pairs, so the digest no longer
+    matches (the single-use property). `write-bootstrap-approval.sh` calls THIS
+    same function on concrete `git diff --cached` paths, so writer and verifier
+    never drift.
     """
-    lines = sorted(f"{p}\0{_staged_blob_sha(p, root) or '-'}" for p in paths)
+    def _entry(p: str) -> str:
+        ms = _staged_mode_and_sha(p, root)
+        return f"{p}\0{ms[0]}\0{ms[1]}" if ms else f"{p}\0-\0-"
+    lines = sorted(_entry(p) for p in paths)
     return hashlib.sha256("\n".join(lines).encode("utf-8")).hexdigest()
 
 
@@ -129,20 +153,35 @@ def has_active_exception(
         if expires and expires < now_iso:
             continue
         approved_paths = data.get("paths") or []
-        if not (path in approved_paths or any(_matches_any(path, [p]) for p in approved_paths)):
-            continue
         if category == _BOOTSTRAP_CATEGORY:
-            # Single-use gate: operation + staged-digest binding required. A plain
-            # path+TTL artifact is NOT sufficient for the internals category.
+            # Single-use gate for the internals-bootstrap category. Hardened (WS1b,
+            # both reviews): EXACT membership only — a glob approved_path like
+            # `hooks/shared/**` must NOT match a concrete queried path, so the glob
+            # fallback (`_matches_any`) that other categories keep is DROPPED here.
+            if path not in approved_paths:
+                continue
+            # A crafted wildcard artifact can never bind: any glob metacharacter in
+            # ANY approved_path invalidates the whole artifact for this category.
+            if any(_has_glob_meta(p) for p in approved_paths):
+                continue
+            # operation + staged-digest binding required; a plain path+TTL artifact
+            # is NOT sufficient for the internals category.
             if data.get("operation") != _BOOTSTRAP_OPERATION:
                 continue
             recorded = data.get("tree_digest", "")
             if not recorded:
                 continue
+            # An approvable internals path must actually be IN the pending commit:
+            # reject if any approved_path has no staged content (the `-` placeholder).
+            if any(_staged_mode_and_sha(p, root) is None for p in approved_paths):
+                continue
             if recorded != compute_staged_tree_digest(list(approved_paths), root):
                 continue
             return True
-        return True
+        # Non-bootstrap categories: backward-compatible plain path+TTL matching
+        # (exact membership OR glob).
+        if path in approved_paths or any(_matches_any(path, [p]) for p in approved_paths):
+            return True
     return False
 
 

@@ -73,6 +73,55 @@ if ls "$D"/state/approvals/protected_path_edit-flow-bootstrap-*.json >/dev/null 
 else ok "2-consume-cleans-artifact"; fi
 rm -rf "$D"
 
+# ---- 4. GLOB-ARTIFACT BYPASS (T10 BLOCKER): a crafted bootstrap artifact whose
+#         `paths` carries a GLOB (`hooks/shared/**`) must NOT authorize an edit to a
+#         concrete NEW/unrelated file under that tree — the glob must never bind a
+#         concrete queried path. The pre-commit must DENY. ----
+D="$(new_repo)"
+# Stage a concrete NEW protected-internals file under hooks/shared/.
+echo "print('x')" > "$D/hooks/shared/new_unrelated.py"
+( cd "$D" && git add hooks/shared/new_unrelated.py )
+# Craft the ATTACK artifact by hand (NOT via the writer): a wildcard `paths` entry +
+# the bootstrap operation + a tree_digest computed for that glob string. With the T10
+# fix the glob is rejected two ways (exact-membership drop + glob-metachar reject), so
+# no concrete path under the tree can bind.
+GLOB_DIGEST="$(cd "$D" && PYTHONPATH="$D/hooks" python3 - <<'PY'
+from shared.path_policy import compute_staged_tree_digest
+from pathlib import Path
+print(compute_staged_tree_digest(["hooks/shared/**"], Path(".")))
+PY
+)"
+cat > "$D/state/approvals/protected_path_edit-flow-bootstrap-glob.json" <<JSON
+{ "approved_by": "attacker", "scope": "flow-internals-bootstrap",
+  "expires_at": "2999-01-01T00:00:00Z", "reason": "crafted glob bypass",
+  "action": "protected_path_edit", "operation": "flow-internals-bootstrap",
+  "tree_digest": "$GLOB_DIGEST", "paths": ["hooks/shared/**"] }
+JSON
+if run_precommit "$D"; then bad "4-glob-artifact-denies" "a glob-bearing bootstrap artifact authorized a concrete edit under the tree (STANDING bypass!)"; else ok "4-glob-artifact-denies"; fi
+
+# ---- 4b. NO-STAGED-CONTENT: a bootstrap artifact listing an EXACT concrete path
+#          that is NOT in the pending commit must DENY (an approvable internals path
+#          must actually be staged). Same staged file as above; artifact names a
+#          DIFFERENT concrete path (FLOW_RULES.md) that is not staged. ----
+NOSTAGE_DIGEST="$(cd "$D" && PYTHONPATH="$D/hooks" python3 - <<'PY'
+from shared.path_policy import compute_staged_tree_digest
+from pathlib import Path
+print(compute_staged_tree_digest(["FLOW_RULES.md"], Path(".")))
+PY
+)"
+rm -f "$D"/state/approvals/protected_path_edit-flow-bootstrap-glob.json
+cat > "$D/state/approvals/protected_path_edit-flow-bootstrap-nostage.json" <<JSON
+{ "approved_by": "attacker", "scope": "flow-internals-bootstrap",
+  "expires_at": "2999-01-01T00:00:00Z", "reason": "unstaged concrete path",
+  "action": "protected_path_edit", "operation": "flow-internals-bootstrap",
+  "tree_digest": "$NOSTAGE_DIGEST", "paths": ["FLOW_RULES.md"] }
+JSON
+# The QUERIED staged path (hooks/shared/new_unrelated.py) is protected and this
+# artifact doesn't list it -> DENY; and even for FLOW_RULES.md the no-staged-content
+# guard would reject. Assert the staged internals edit is still blocked.
+if run_precommit "$D"; then bad "4b-no-staged-content-denies" "an artifact whose approved path is not in the pending commit authorized the edit"; else ok "4b-no-staged-content-denies"; fi
+rm -rf "$D"
+
 # ---- 3. Safe hook (re)install: a pre-existing CUSTOM .git/hooks/pre-commit is
 #         PRESERVED + backed up (never silent-clobber); needs --force to replace. ----
 D="$(new_repo)"
