@@ -63,8 +63,8 @@ The engine recognizes these check_ids in the `deferred_checks` array:
 
 | `check_id` | What it defers |
 |---|---|
-| `agents_md_overlay` | AGENTS.md overlay block missing (the `## Fusebase Flow — workflow lifecycle overlay` heading + body) |
-| `claude_md_overlay` | CLAUDE.md overlay block missing (the `## Fusebase Flow — additional rules (overlay)` heading + body) |
+| `agents_md_overlay` | AGENTS.md overlay block missing (the `## FuseBase Flow — workflow lifecycle overlay` heading + body; the legacy `## Fusebase Flow — …` spelling is also accepted) |
+| `claude_md_overlay` | CLAUDE.md overlay block missing (the `## FuseBase Flow — additional rules (overlay)` heading + body; legacy `## Fusebase Flow — …` also accepted) |
 | `settings_json_lifecycle_events` | `.claude/settings.json` events count below the upstream-canonical count (auto-discovered from `.claude/settings.json.example`); also covers Fusebase Flow `stop.py` missing from the Stop chain |
 | `claude_skills_mirror_count` | `.claude/skills/` mirror count below the upstream skill count |
 | `claude_agents_mirror_count` | `.claude/agents/` mirror count below the upstream sub-agent count |

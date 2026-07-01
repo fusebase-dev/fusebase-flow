@@ -140,7 +140,7 @@ Single copy lives in the overlay's `FLOW:PRESERVE` block below (§ Project-speci
 
 ---
 
-## Fusebase Flow — workflow lifecycle overlay
+## FuseBase Flow — workflow lifecycle overlay
 
 This repository follows **Fusebase Flow** (https://github.com/fusebase-dev/fusebase-flow) for AI agent workflow discipline. The Fusebase Flow framework governs the workflow lifecycle (specification → planning → decisions → tasks → verification → implementation → review → deploy readiness). Existing project rules (Fusebase CLI, MCP, SDK, runtime conventions) remain authoritative for runtime behavior.
 

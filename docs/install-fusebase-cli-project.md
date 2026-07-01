@@ -221,14 +221,14 @@ Do not copy these from Fusebase Flow over the existing project files. Append the
 
 ### AGENTS.md append section
 
-Append this to the bottom of the existing `AGENTS.md`. **The heading marker must be exactly `## Fusebase Flow — workflow lifecycle overlay`** — the health-check engine and recovery script grep for this string verbatim.
+Append this to the bottom of the existing `AGENTS.md`. **The heading marker must be exactly `## FuseBase Flow — workflow lifecycle overlay`** (the canonical capitalized form). The validators are backward-compatible: both the health-check engine and preflight also accept the legacy `## Fusebase Flow — …` spelling, and `post-fusebase-update.sh` migrates an existing legacy marker to the new one in place on upgrade — so an installed base is never broken by the capitalization change.
 
 Minimal block:
 
 ```md
 ---
 
-## Fusebase Flow — workflow lifecycle overlay
+## FuseBase Flow — workflow lifecycle overlay
 
 This repository also uses Fusebase Flow. Read `FLOW_RULES.md` for the always-on workflow rules, `workflows/` for lifecycle procedures, and `flow-skills/` for on-demand workflow guidance.
 
@@ -245,12 +245,12 @@ That same template is what `bash hooks/local/post-fusebase-update.sh` uses to re
 
 ### CLAUDE.md append section
 
-Append this to the bottom of the existing `CLAUDE.md`. **The heading marker must be exactly `## Fusebase Flow — additional rules (overlay)`**.
+Append this to the bottom of the existing `CLAUDE.md`. **The heading marker must be exactly `## FuseBase Flow — additional rules (overlay)`** (validators also accept the legacy `## Fusebase Flow — …` spelling; upgrade migrates it in place).
 
 Minimal block:
 
 ```md
-## Fusebase Flow — additional rules (overlay)
+## FuseBase Flow — additional rules (overlay)
 
 This repository includes Fusebase Flow as a workflow overlay. The canonical workflow files are in `FLOW_RULES.md`, `workflows/`, `flow-skills/`, `policies/`, and `templates/`.
 

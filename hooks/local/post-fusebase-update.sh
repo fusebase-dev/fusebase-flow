@@ -163,6 +163,28 @@ refresh_overlay_block() {
   ACTIONS_TAKEN+=("$label: refreshed DRIFTED overlay block (backup: $file.pre-refresh-$TS_REFRESH)")
 }
 
+# ff_migrate_marker FILE OLD_HEADING NEW_HEADING: rewrite an exact overlay heading
+# line (OLD -> NEW) in place. WS6 marker capitalization migration. Line-anchored on
+# the full literal heading so it never rewrites the same words appearing in prose;
+# awk (not sed) so the em-dash + parens are matched as literal bytes without ERE
+# metacharacter escaping. Idempotent by construction — the caller only invokes this
+# when OLD is present and NEW is absent, and it exits 0 only when it actually
+# rewrote a line. Never touches file bytes other than the matched heading line(s).
+ff_migrate_marker() {
+  local file="$1" old="$2" new="$3" tmp changed
+  tmp="$(mktemp)" || return 1
+  changed="$(awk -v o="$old" -v n="$new" '
+    $0==o { print n; c++; next }
+    { print }
+    END { print c+0 > "/dev/stderr" }
+  ' "$file" 2>"$tmp.n" >"$tmp")"
+  local n; n="$(cat "$tmp.n" 2>/dev/null)"; rm -f "$tmp.n"
+  if [ "${n:-0}" -gt 0 ]; then
+    cat "$tmp" > "$file"; rm -f "$tmp"; return 0
+  fi
+  rm -f "$tmp"; return 1
+}
+
 ###############################################################################
 # Step 1 - Re-mirror Fusebase Flow skills.
 ###############################################################################
@@ -192,7 +214,19 @@ fi
 ###############################################################################
 
 echo "[post-fusebase-update] Step 3: AGENTS.md overlay check..."
-AGENTS_MARKER="## Fusebase Flow — workflow lifecycle overlay"
+# WS6 marker migration: the heading was recapitalized Fusebase->FuseBase. Migrate
+# an existing OLD marker to the NEW one IN PLACE (idempotent: only rewrites the
+# legacy spelling, does nothing once already NEW) BEFORE the present/refresh check,
+# so an upgraded installed base moves to the new marker without a hand edit and the
+# NEW-marker refresh logic below then matches. Dual-accept means either spelling is
+# valid; migration just converges the installed base on the canonical NEW form.
+AGENTS_MARKER="## FuseBase Flow — workflow lifecycle overlay"
+AGENTS_MARKER_OLD="## Fusebase Flow — workflow lifecycle overlay"
+if [ -f AGENTS.md ] && grep -qF "$AGENTS_MARKER_OLD" AGENTS.md && ! grep -qF "$AGENTS_MARKER" AGENTS.md; then
+  # sed over the exact heading line only (leading `## `), never elsewhere in prose.
+  ff_migrate_marker AGENTS.md "$AGENTS_MARKER_OLD" "$AGENTS_MARKER" \
+    && ACTIONS_TAKEN+=("AGENTS.md: migrated overlay heading marker Fusebase->FuseBase (WS6)")
+fi
 if [ ! -f AGENTS.md ]; then
   WARNINGS+=("AGENTS.md not found in repo root; skipping overlay restore")
 elif grep -qF "$AGENTS_MARKER" AGENTS.md; then
@@ -216,7 +250,13 @@ fi
 ###############################################################################
 
 echo "[post-fusebase-update] Step 4: CLAUDE.md overlay check..."
-CLAUDE_MARKER="## Fusebase Flow — additional rules (overlay)"
+# WS6 marker migration (idempotent) — same as AGENTS.md above.
+CLAUDE_MARKER="## FuseBase Flow — additional rules (overlay)"
+CLAUDE_MARKER_OLD="## Fusebase Flow — additional rules (overlay)"
+if [ -f CLAUDE.md ] && grep -qF "$CLAUDE_MARKER_OLD" CLAUDE.md && ! grep -qF "$CLAUDE_MARKER" CLAUDE.md; then
+  ff_migrate_marker CLAUDE.md "$CLAUDE_MARKER_OLD" "$CLAUDE_MARKER" \
+    && ACTIONS_TAKEN+=("CLAUDE.md: migrated overlay heading marker Fusebase->FuseBase (WS6)")
+fi
 if [ ! -f CLAUDE.md ]; then
   ACTIONS_SKIPPED+=("CLAUDE.md not present (Claude Code not configured for this project)")
 elif grep -qF "$CLAUDE_MARKER" CLAUDE.md; then

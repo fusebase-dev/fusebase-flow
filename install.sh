@@ -12,11 +12,14 @@
 # What this script does:
 #   0. detect existing agent / MCP / Fusebase CLI config and require explicit
 #      APPEND-ONLY confirmation if any is found (or --auto-yes acknowledgement)
-#   1. install local git hooks  (hooks/git/* into .git/hooks/)              [opt-in]
-#   2. run preflight            (validate structure + policies + mirrors)   [opt-in]
-#   3. mirror skills            (skills/ -> .agents/skills/, .claude/skills/) [opt-in]
-#   4. mirror sub-agents        (agents/ -> .claude/agents/, .codex/agents/) [opt-in]
-#   5. show next steps          (provider-specific activation hints)
+#   1. install local git hooks  (hooks/git/* into .git/hooks/)               [opt-in]
+#   2. mirror skills            (flow-skills/ -> .agents/skills/, .claude/skills/) [opt-in]
+#   3. mirror sub-agents        (agents/ -> .claude/agents/, .codex/agents/) [opt-in]
+#   4. append overlay blocks    (canonical AGENTS.md/CLAUDE.md overlay, marker-guarded) [opt-in]
+#   5. run preflight            (validate structure + policies + mirrors — LAST) [opt-in]
+#   6. show next steps          (provider-specific activation hints)
+# Mirror + overlay-append run BEFORE preflight so a first install validates clean
+# (no ~86 stale mirror-missing warnings, dual-accept overlay marker present).
 #
 # Exit codes:
 #   0  success
@@ -132,52 +135,103 @@ else
     echo "- step 0: no existing agent / MCP / Fusebase CLI files detected" >> "$REPORT"
 fi
 
-# Preflight: PyYAML available?
+# PyYAML: offer to install (WS6 hygiene). preflight + hooks parse policy YAML with
+# PyYAML; a bare WARN left the operator at a dead-end. Offer the pip install
+# (honor --auto-yes), and fall back to a WARN if pip is unavailable.
 if ! python3 -c "import yaml" >/dev/null 2>&1; then
-    echo "[install] WARN: PyYAML is not installed. Install before running hooks:"
-    echo "[install]   pip install -r hooks/requirements.txt"
-    echo "[install] Continuing — preflight will fail until PyYAML is present." >&2
+    echo "[install] PyYAML is not installed (preflight + hooks parse policy YAML with it)."
+    if command -v pip >/dev/null 2>&1 || command -v pip3 >/dev/null 2>&1; then
+        PIP_BIN="$(command -v pip3 || command -v pip)"
+        if confirm "Install PyYAML now via $PIP_BIN install -r hooks/requirements.txt?"; then
+            if "$PIP_BIN" install -r hooks/requirements.txt; then
+                echo "- pyyaml: installed via $PIP_BIN" >> "$REPORT"
+            else
+                echo "[install] WARN: pip install failed; run 'pip install -r hooks/requirements.txt' manually." >&2
+                echo "- pyyaml: pip install FAILED (manual install needed)" >> "$REPORT"
+            fi
+        else
+            echo "[install] WARN: continuing without PyYAML — preflight will fail until it is installed." >&2
+            echo "- pyyaml: declined (preflight will fail until installed)" >> "$REPORT"
+        fi
+    else
+        echo "[install] WARN: pip not found. Install PyYAML before running hooks:" >&2
+        echo "[install]   pip install -r hooks/requirements.txt" >&2
+        echo "- pyyaml: pip absent (manual install needed)" >> "$REPORT"
+    fi
 fi
 
 # 1. Install local git hooks
-if confirm "(1/4) Install local git fallback hooks (pre-commit, commit-msg)?"; then
+if confirm "(1/5) Install local git fallback hooks (pre-commit, commit-msg)?"; then
     bash hooks/local/install-git-hooks.sh
     echo "- step 1: git hooks installed" >> "$REPORT"
 else
     echo "- step 1: git hooks skipped" >> "$REPORT"
 fi
 
-# 2. Run preflight
-if confirm "(2/4) Run preflight (validate framework structure, policies, mirrors)?"; then
+# 2. Mirror skills — BEFORE preflight (WS6 hygiene). preflight §5 warns once per
+# absent mirror (~86 warnings on a fresh tree); mirroring first means preflight sees
+# a populated mirror set and a first install is clean.
+if confirm "(2/5) Mirror skills into provider folders (.agents/skills/, .claude/skills/)?"; then
+    bash hooks/local/mirror-skills.sh
+    echo "- step 2: skills mirrored to .agents/skills/ and .claude/skills/" >> "$REPORT"
+else
+    echo "- step 2: skill mirror skipped" >> "$REPORT"
+fi
+
+# 3. Mirror sub-agents (canonical agents/<name>/AGENT.md -> .claude/agents/, .codex/agents/)
+if [ -d "$ROOT/agents" ]; then
+    if confirm "(3/5) Mirror sub-agents into provider folders (.claude/agents/, .codex/agents/)?"; then
+        bash hooks/local/mirror-agents.sh
+        echo "- step 3: agents mirrored to .claude/agents/ and .codex/agents/" >> "$REPORT"
+    else
+        echo "- step 3: agent mirror skipped" >> "$REPORT"
+    fi
+else
+    echo "- step 3: agents/ canonical dir not present — skipped" >> "$REPORT"
+fi
+
+# 4. Append canonical overlay blocks to AGENTS.md / CLAUDE.md (WS6). Idempotent,
+# marker-guarded (reuses the post-fusebase-update grep-guard pattern). Only runs
+# when the operator already cleared the APPEND-ONLY gate at step 0 (so an existing
+# AGENTS.md/CLAUDE.md is never touched without that acknowledgement). A fresh
+# install then passes BOTH preflight and the health check (dual-accept marker).
+OVERLAYS_DIR="hooks/local/fusebase-flow-overlays"
+append_overlay() {  # append_overlay <file> <template> <new-marker> <old-marker>
+    local file="$1" tmpl="$2" newm="$3" oldm="$4"
+    [ -f "$tmpl" ] || { echo "[install] WARN: $tmpl missing; cannot append overlay to $file" >&2; return 0; }
+    if [ -f "$file" ] && { grep -qF "$newm" "$file" || grep -qF "$oldm" "$file"; }; then
+        echo "- step 4: $file overlay already present (marker found) — not appended" >> "$REPORT"
+        return 0
+    fi
+    cat "$tmpl" >> "$file"
+    echo "[install] appended Fusebase Flow overlay block to $file"
+    echo "- step 4: appended overlay block to $file" >> "$REPORT"
+}
+if confirm "(4/5) Append the FuseBase Flow overlay blocks to AGENTS.md / CLAUDE.md (idempotent, marker-guarded)?"; then
+    append_overlay AGENTS.md "$OVERLAYS_DIR/agents-md-overlay.md" \
+        "## FuseBase Flow — workflow lifecycle overlay" "## Fusebase Flow — workflow lifecycle overlay"
+    # CLAUDE.md overlay only when Claude Code is in use (CLAUDE.md exists).
+    if [ -f CLAUDE.md ]; then
+        append_overlay CLAUDE.md "$OVERLAYS_DIR/claude-md-overlay.md" \
+            "## FuseBase Flow — additional rules (overlay)" "## Fusebase Flow — additional rules (overlay)"
+    else
+        echo "- step 4: CLAUDE.md not present — overlay append skipped (Claude Code not configured)" >> "$REPORT"
+    fi
+else
+    echo "- step 4: overlay append skipped" >> "$REPORT"
+fi
+
+# 5. Run preflight (LAST — mirrors + overlays are in place so it validates cleanly)
+if confirm "(5/5) Run preflight (validate framework structure, policies, mirrors)?"; then
     if bash hooks/local/preflight.sh; then
-        echo "- step 2: preflight PASS (errors: 0, warnings: 0)" >> "$REPORT"
+        echo "- step 5: preflight PASS (errors: 0, warnings: 0)" >> "$REPORT"
     else
         ec=$?
-        echo "- step 2: preflight FAIL (exit code $ec) — see stderr above" >> "$REPORT"
+        echo "- step 5: preflight FAIL (exit code $ec) — see stderr above" >> "$REPORT"
         echo "[install] preflight failed; see $REPORT" >&2
     fi
 else
-    echo "- step 2: preflight skipped" >> "$REPORT"
-fi
-
-# 3. Mirror skills
-if confirm "(3/4) Mirror skills into provider folders (.agents/skills/, .claude/skills/)?"; then
-    bash hooks/local/mirror-skills.sh
-    echo "- step 3: skills mirrored to .agents/skills/ and .claude/skills/" >> "$REPORT"
-else
-    echo "- step 3: skill mirror skipped" >> "$REPORT"
-fi
-
-# 4. Mirror sub-agents (canonical agents/<name>/AGENT.md -> .claude/agents/, .codex/agents/)
-if [ -d "$ROOT/agents" ]; then
-    if confirm "(4/4) Mirror sub-agents into provider folders (.claude/agents/, .codex/agents/)?"; then
-        bash hooks/local/mirror-agents.sh
-        echo "- step 4: agents mirrored to .claude/agents/ and .codex/agents/" >> "$REPORT"
-    else
-        echo "- step 4: agent mirror skipped" >> "$REPORT"
-    fi
-else
-    echo "- step 4: agents/ canonical dir not present — skipped" >> "$REPORT"
+    echo "- step 5: preflight skipped" >> "$REPORT"
 fi
 
 # Next steps hint

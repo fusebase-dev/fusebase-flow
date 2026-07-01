@@ -74,6 +74,20 @@ ffhc_is_msys() {
   case "$(uname -s 2>/dev/null)" in MINGW*|MSYS*|CYGWIN*) return 0 ;; *) return 1 ;; esac
 }
 
+# ffhc_default_timeout KIND: echo the platform-appropriate default budget (seconds)
+# for KIND in {preflight,tests} (WS4). Git-Bash/MSYS spawns each process in ~0.8-1.4s
+# (vs ~1-3ms POSIX), so the flat 30/60 budgets time out a HEALTHY MSYS install under
+# load => spurious PARTIAL_UNVERIFIED; MSYS gets 60/120, POSIX keeps 30/60. An
+# explicit FFHC_*_TIMEOUT env value still wins (the engine applies it via ${VAR:-…}).
+# fetch/conflict are platform-agnostic (network/git) — not gated here.
+ffhc_default_timeout() {
+  case "$1" in
+    preflight) ffhc_is_msys && echo 60  || echo 30 ;;
+    tests)     ffhc_is_msys && echo 120 || echo 60 ;;
+    *) echo 30 ;;
+  esac
+}
+
 # ffhc_msys_winpid PID: echo the Windows pid for a bash PID via /proc/<pid>/winpid,
 # or "" if unresolved. TRIPWIRE: call this IMMEDIATELY after launch, while the proc
 # is still ALIVE — /proc/<pid>/winpid vanishes the instant the proc exits, so a

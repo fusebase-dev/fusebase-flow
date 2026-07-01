@@ -154,6 +154,30 @@ if [ -d "$OVL" ]; then
     done
 fi
 
+# 5e. Overlay heading-marker assert (WS6) — dual-accept, mirrors the health-check
+#     engine so preflight ⟷ health-check agree on what a valid overlay looks like.
+#     Accept the legacy `## Fusebase Flow — …` OR the new `## FuseBase Flow — …`
+#     marker; if neither, accept the source-template baseline title (edition mode).
+#     A file with NEITHER a marker NOR the baseline title is real drift => ERROR.
+if [ -f AGENTS.md ]; then
+    if grep -qE "^## Fuse[bB]ase Flow — workflow lifecycle overlay" AGENTS.md; then
+        : # overlay marker present (old or new) — OK
+    elif grep -qF "Fusebase Flow always-on baseline" AGENTS.md; then
+        : # source-template baseline (edition mode) — OK
+    else
+        err "AGENTS.md missing the FuseBase Flow overlay heading marker (## FuseBase Flow — workflow lifecycle overlay) and baseline title"
+    fi
+fi
+if [ -f CLAUDE.md ]; then
+    if grep -qE "^## Fuse[bB]ase Flow — additional rules \(overlay\)" CLAUDE.md; then
+        :
+    elif grep -qF "Claude Code adapter for Fusebase Flow" CLAUDE.md; then
+        :
+    else
+        err "CLAUDE.md missing the FuseBase Flow overlay heading marker (## FuseBase Flow — additional rules (overlay)) and baseline title"
+    fi
+fi
+
 # 6. Action-name consistency: command-policy.yml require_approval actions must
 #    appear in approval-policy.yml require_approval keys.
 if command -v python3 >/dev/null 2>&1; then

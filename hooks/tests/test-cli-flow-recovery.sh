@@ -193,9 +193,10 @@ SETTINGS_BEFORE="$(sha_cmd "$PROJECT/.claude/settings.json")"
 )
 
 grep -q "CURRENT CLI AGENTS SENTINEL" "$PROJECT/AGENTS.md" || fail "CLI AGENTS baseline was lost"
-grep -q "## Fusebase Flow — workflow lifecycle overlay" "$PROJECT/AGENTS.md" || fail "current Flow AGENTS overlay was not restored"
+# WS6 dual-accept: recovery emits the NEW marker; a legacy tree may carry either.
+grep -qE "^## Fuse[bB]ase Flow — workflow lifecycle overlay" "$PROJECT/AGENTS.md" || fail "current Flow AGENTS overlay was not restored"
 grep -q "CURRENT CLI CLAUDE SENTINEL" "$PROJECT/CLAUDE.md" || fail "CLI CLAUDE baseline was lost"
-grep -q "## Fusebase Flow — additional rules (overlay)" "$PROJECT/CLAUDE.md" || fail "current Flow CLAUDE overlay was not restored"
+grep -qE "^## Fuse[bB]ase Flow — additional rules \(overlay\)" "$PROJECT/CLAUDE.md" || fail "current Flow CLAUDE overlay was not restored"
 
 [ "$CODEX_BEFORE" = "$(sha_cmd "$PROJECT/.codex/config.toml")" ] || fail ".codex/config.toml changed"
 [ "$HOOK_BEFORE" = "$(sha_cmd "$PROJECT/.claude/hooks/run-typecheck-apps.js")" ] || fail "CLI hook helper changed"
@@ -655,7 +656,7 @@ set -e
 # After migration: exactly one CUSTOM:SKILL:BEGIN, and exactly one '---' on the
 # lines between the project content and the heading (the template's own rule).
 [ "$(count_marker "$LEGACY/CLAUDE.md" "$MB")" -eq 1 ] || fail "U7: legacy migration did not produce exactly 1 BEGIN ($(count_marker "$LEGACY/CLAUDE.md" "$MB"))"
-RULES_BEFORE_HEADING="$(awk '/^## Fusebase Flow — additional rules/{exit} /^[[:space:]]*---[[:space:]]*$/{c++} END{print c+0}' "$LEGACY/CLAUDE.md")"
+RULES_BEFORE_HEADING="$(awk '/^## Fuse[bB]ase Flow — additional rules/{exit} /^[[:space:]]*---[[:space:]]*$/{c++} END{print c+0}' "$LEGACY/CLAUDE.md")"
 [ "$RULES_BEFORE_HEADING" -le 1 ] || fail "U7: $RULES_BEFORE_HEADING '---' rules before the heading (expected <=1; doubled-rule regression)"
 pass "U7: legacy marker-less CLAUDE.md migrates to a single wrapped block (no doubled ---)"
 

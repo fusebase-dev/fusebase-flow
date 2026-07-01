@@ -3,9 +3,9 @@
 
 ---
 
-## Fusebase Flow — additional rules (overlay)
+## FuseBase Flow — additional rules (overlay)
 
-This repository follows **Fusebase Flow** in addition to project-specific rules. See `AGENTS.md` § "Fusebase Flow — workflow lifecycle overlay" for the full reference.
+This repository follows **Fusebase Flow** in addition to project-specific rules. See `AGENTS.md` § "FuseBase Flow — workflow lifecycle overlay" for the full reference.
 
 **Always loaded at session start (Fusebase Flow mandatory skills, auto-loaded via `.claude/skills/`):**
 
