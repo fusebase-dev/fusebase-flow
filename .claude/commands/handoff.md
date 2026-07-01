@@ -1,5 +1,5 @@
 ---
-description: Write the active session restart state to docs/tmp/handoff.md so a fresh AI session continues from the exact current point. Triggers the handoff skill — inspects repo state, reconstructs goal/decisions/failures/next-step, and writes the 16-section handoff for the next coding agent (not a human report).
+description: Write the active session restart state to docs/tmp/handoff.md so a fresh AI session continues from the exact current point. Triggers the handoff skill — inspects repo state, reconstructs goal/decisions/failures/next-step, and writes the 16-section handoff for the next coding agent (not a human report). (FuseBase Flow)
 ---
 
 # /handoff

@@ -1,5 +1,5 @@
 ---
-description: Run the FR-26 token-waste audit — parse this project's Claude Code transcripts deterministically (requestId-deduped totals + leak-signature candidates, incl. large-output), map findings to FR-26 rules, and report concrete fixes. Read-only; report goes to state/audit/ (gitignored).
+description: Run the FR-26 token-waste audit — parse this project's Claude Code transcripts deterministically (requestId-deduped totals + leak-signature candidates, incl. large-output), map findings to FR-26 rules, and report concrete fixes. Read-only; report goes to state/audit/ (gitignored). (FuseBase Flow)
 ---
 
 # /token-waste-audit

@@ -1,5 +1,5 @@
 ---
-description: Start a Product Owner session under Fusebase Flow. The PO is the single point of contact — consults on what to build and how, reads the project's North Star (if onboarded), and breaks work into phases and slices for the AI Developer. Does not write application code.
+description: Start a Product Owner session. The PO is the single point of contact — consults on what to build and how, reads the project's North Star (if onboarded), and breaks work into phases and slices for the AI Developer. Does not write application code. (FuseBase Flow)
 ---
 
 # /product-owner

@@ -1,5 +1,5 @@
 ---
-description: Onboard THIS project to Fusebase Flow. The Product Owner interviews you about your vision, audience, and domain, then writes the project artifacts (docs/north-star.md, AGENTS project-values) that steer all future work. Re-runnable. Skipping is fine — Flow works generically without it; nothing is created unless you provide content.
+description: Onboard THIS project to FuseBase Flow. The Product Owner interviews you about your vision, audience, and domain, then writes the project artifacts (docs/north-star.md, AGENTS project-values) that steer all future work. Re-runnable. Skipping is fine — Flow works generically without it; nothing is created unless you provide content. (FuseBase Flow)
 ---
 
 # /onboard

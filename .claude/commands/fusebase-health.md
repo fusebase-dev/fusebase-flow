@@ -1,5 +1,5 @@
 ---
-description: Run the read-only Fusebase Flow health check. Reports CLI_LAYER_DRIFT, FLOW_LAYER_DRIFT, SHARED_MERGE_DRIFT, EXCEPTION_IN_EFFECT, BROKEN, or HEALTHY, and offers Flow recovery only for Flow-owned/shared drift after explicit operator confirmation.
+description: Run the read-only health check. Reports CLI_LAYER_DRIFT, FLOW_LAYER_DRIFT, SHARED_MERGE_DRIFT, EXCEPTION_IN_EFFECT, BROKEN, or HEALTHY, and offers Flow recovery only for Flow-owned/shared drift after explicit operator confirmation. (FuseBase Flow)
 ---
 
 # /fusebase-health

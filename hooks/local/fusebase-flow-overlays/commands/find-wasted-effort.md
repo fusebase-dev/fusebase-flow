@@ -1,5 +1,5 @@
 ---
-description: Run the A2 find-wasted-effort audit — the process-per-outcome (ceremony) sibling of /token-waste-audit. Parses Flow artifacts on disk (gate/deploy reports, handoffs, approval artifacts, git log, prevents: annotations) for ceremony that bought no safety outcome. Read-only; report goes to state/audit/ (gitignored). Findings are review candidates, never auto-prune.
+description: Run the find-wasted-effort audit — the process-per-outcome (ceremony) sibling of /token-waste-audit. Parses Flow artifacts on disk (gate/deploy reports, handoffs, approval artifacts, git log, prevents: annotations) for ceremony that bought no safety outcome. Read-only; report goes to state/audit/ (gitignored). Findings are review candidates, never auto-prune. (FuseBase Flow)
 ---
 
 # /find-wasted-effort
