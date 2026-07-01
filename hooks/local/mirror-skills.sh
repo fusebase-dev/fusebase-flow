@@ -20,6 +20,19 @@
 
 set -euo pipefail
 
+# --check: real read-only drift check (WS3). Compare the current canonical/mirror set
+# against the COMMITTED manifest — no mkdir/cp/manifest-rewrite — and exit nonzero on
+# drift. Prior to this flag there was NO argv handling and callers who wanted a check
+# ran a FULL mirror (side-effecting), which raced concurrent writers into a truncated
+# manifest (the self-inflicted 'no such flag' incident). Default (no flag) = write mode.
+CHECK_ONLY=0
+for arg in "$@"; do
+    case "$arg" in
+        --check) CHECK_ONLY=1 ;;
+        *) echo "[mirror-skills] unknown arg: $arg (supported: --check)" >&2; exit 2 ;;
+    esac
+done
+
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 CANON="$ROOT/flow-skills"
 [ -d "$CANON" ] || CANON="$ROOT/skills"   # legacy fallback (pre-3.9.0 layout)
@@ -31,8 +44,11 @@ if [ ! -d "$CANON" ]; then
 fi
 
 MANIFEST="$ROOT/audit/skill-mirror-manifest.txt"
-mkdir -p "$(dirname "$MANIFEST")"
-: > "$MANIFEST"
+# Write mode truncates + rebuilds the manifest; --check must NOT touch it (read-only).
+if [ "$CHECK_ONLY" -eq 0 ]; then
+    mkdir -p "$(dirname "$MANIFEST")"
+    : > "$MANIFEST"
+fi
 
 # Batched hash command (chunked for ARG_MAX safety). Reads NUL-delimited paths on
 # stdin, emits "<hash>  <path>" lines. -n 256 keeps each spawn's argv well under
@@ -132,9 +148,57 @@ cache_hash() { # cache_hash <path> -> hash (cache hit, else single-file fallback
     else sha_one "$p"; fi
 }
 
-# ---- Phase 3: drift detection from the pre-copy cache + bounded copy ----
+# ---- Phase 3 (--check): real read-only drift check ----
+# Compare the current canonical/mirror set against the COMMITTED manifest — no mkdir,
+# no cp, no manifest rewrite. Drift = any of: manifest missing a rel, committed hash !=
+# current canonical hash, or the mirror file on disk != canonical. Exit nonzero on any
+# drift so a caller (preflight, a pre-tag self-test) can gate on it deterministically.
+if [ "$CHECK_ONLY" -eq 1 ]; then
+    if [ ! -f "$MANIFEST" ]; then
+        echo "[mirror-skills] --check: committed manifest missing ($MANIFEST) — run mirror-skills.sh" >&2
+        exit 1
+    fi
+    declare -A COMMITTED=()
+    while IFS= read -r mline; do
+        [ -n "$mline" ] || continue
+        COMMITTED["${mline%%  *}"]="${mline##*  }"   # "<rel>  <hash>" (two-space sep)
+    done < "$MANIFEST"
+    drifted=0
+    for line in "${MIRROR_LINES[@]}"; do
+        rel="${line%%$'\t'*}"
+        canon_file="${line#*$'\t'}"
+        target="$ROOT/$rel"
+        canon_hash="$(cache_hash "$canon_file")"
+        if [ "${COMMITTED[$rel]:-}" != "$canon_hash" ]; then
+            drifted=$((drifted + 1))
+            echo "[mirror-skills] --check DRIFT: $rel manifest=${COMMITTED[$rel]:-<absent>} canonical=$canon_hash" >&2
+        elif [ ! -f "$target" ]; then
+            drifted=$((drifted + 1))
+            echo "[mirror-skills] --check DRIFT: $rel mirror file missing on disk" >&2
+        elif [ "$(cache_hash "$target")" != "$canon_hash" ]; then
+            drifted=$((drifted + 1))
+            echo "[mirror-skills] --check DRIFT: $rel on-disk mirror != canonical" >&2
+        fi
+    done
+    # Manifest rows with no live MIRROR_LINES counterpart = stale/extra manifest entry.
+    for rel in "${!COMMITTED[@]}"; do
+        found=0
+        for line in "${MIRROR_LINES[@]}"; do [ "${line%%$'\t'*}" = "$rel" ] && { found=1; break; }; done
+        [ "$found" -eq 0 ] && { drifted=$((drifted + 1)); echo "[mirror-skills] --check DRIFT: manifest has stale entry $rel (no live source)" >&2; }
+    done
+    if [ "$drifted" -eq 0 ]; then
+        echo "[mirror-skills] --check: 0 drift ($SKILL_COUNT skill(s); ${#MIRROR_LINES[@]} mirror files vs manifest)"
+        exit 0
+    fi
+    echo "[mirror-skills] --check: $drifted drift(s) — run mirror-skills.sh to regenerate" >&2
+    exit 1
+fi
+
+# ---- Phase 3 (write): drift detection from the pre-copy cache + bounded copy ----
 # Drift is computed BEFORE copying (the cache holds pre-copy target hashes), so the
 # printed drift count and the manifest are identical to the per-file implementation.
+# Fork-free: the target dir is peeled with ${target%/*} (parameter expansion), not a
+# per-file $(dirname) fork — one less spawn per mirrored file (MSYS 255-fork relief).
 mirrored=0
 drifted=0
 for line in "${MIRROR_LINES[@]}"; do
@@ -147,7 +211,7 @@ for line in "${MIRROR_LINES[@]}"; do
         existing_hash="$(cache_hash "$target")"
         [ "$existing_hash" != "$canon_hash" ] && drifted=$((drifted + 1))
     fi
-    mkdir -p "$(dirname "$target")"
+    mkdir -p "${target%/*}"
     cp "$canon_file" "$target"
     mirrored=$((mirrored + 1))
     echo "$rel  $canon_hash" >> "$MANIFEST"
