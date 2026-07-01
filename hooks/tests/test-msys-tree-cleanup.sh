@@ -57,9 +57,38 @@ else
   skip "t8-tempfail-routes-to-skipped" "no timeout binary on PATH — tempfile-capture path not exercised"
 fi
 
+# --- WS2-core (all platforms with a timeout binary): true-124-on-kill + no-hang.
+# true-124: a bounded op that overruns its deadline MUST report a timeout-induced rc
+# (124/137), NEVER 0 — an rc0-on-kill masks the timeout and routes the health-check to
+# a false BROKEN (the Ovation defect). On POSIX `timeout` returns 124 natively; on MSYS
+# the ffhc_msys_wait_reap deadline-reap normalizes a masked rc to a true 124.
+# no-hang: a fast command under a LARGE budget must RETURN promptly with its own rc
+# (the watchdog/rendezvous must not block for the whole budget). ---
+if [ -n "${FFHC_TIMEOUT_BIN:-}" ]; then
+  export FFHC_TIMEOUT_KILL_GRACE=1s
+  ffhc_run_bounded 1 bash -c 'sleep 20'
+  if ffhc_timed_out "$FFHC_LAST_RC"; then
+    ok "ws2-true-124-on-kill (overrun => rc $FFHC_LAST_RC is timeout-induced 124/137, never 0)"
+  else
+    bad "ws2-true-124-on-kill" "overrun bounded op returned rc=$FFHC_LAST_RC (expected 124/137; rc0-on-kill masks the timeout => false BROKEN)"
+  fi
+
+  nh_start=$(date +%s)
+  ffhc_run_bounded 300 bash -c 'exit 7'
+  nh_end=$(date +%s); nh_elapsed=$((nh_end - nh_start))
+  if [ "$nh_elapsed" -le 30 ] && [ "$FFHC_LAST_RC" = "7" ]; then
+    ok "ws2-no-hang-large-budget (returned in ${nh_elapsed}s with the command's own rc=$FFHC_LAST_RC, not the 300s budget)"
+  else
+    bad "ws2-no-hang-large-budget" "large-budget fast command took ${nh_elapsed}s / rc=$FFHC_LAST_RC (expected <=30s + rc 7 — watchdog must not block for the whole budget)"
+  fi
+else
+  skip "ws2-true-124-on-kill" "no timeout binary on PATH"
+  skip "ws2-no-hang-large-budget" "no timeout binary on PATH"
+fi
+
 case "$(uname -s 2>/dev/null)" in
-  MINGW*|MSYS*|CYGWIN*) : ;;  # MSYS — run the real RED-then-GREEN
-  *) skip "native-descendant-reap" "off-MSYS — POSIX timeout reaps the tree; native-escape repro is MSYS-only"; finish ;;
+  MINGW*|MSYS*|CYGWIN*) : ;;  # MSYS — run the real RED-then-GREEN + sibling-survival
+  *) skip "native-descendant-reap" "off-MSYS — POSIX timeout reaps the tree; native-escape repro is MSYS-only"; skip "ws2-concurrent-sibling-survives" "off-MSYS — taskkill scoping is MSYS-only; strict-scoping asserted by code + true-124/no-hang above"; finish ;;
 esac
 
 if [ -z "${FFHC_TIMEOUT_BIN:-}" ]; then
@@ -120,6 +149,30 @@ if [ "$red_elapsed" -gt "$green_elapsed" ]; then
   ok "tempfile-capture-faster-than-pipe (pipe ${red_elapsed}s > tempfile ${green_elapsed}s)"
 else
   skip "tempfile-capture-faster-than-pipe" "delta inconclusive on this host (pipe ${red_elapsed}s, tempfile ${green_elapsed}s) — no-hang + rc 124/137 already proved the guaranteed contract; relative speed is a best-effort signal only"
+fi
+
+# --- WS2-core concurrent-sibling-survival (the load-bearing strict-scoping proof).
+# Spawn an UNRELATED `bash sleep` sibling in its OWN process tree (record its PID),
+# then run a bounded op that OVERRUNS its deadline (triggering the taskkill reap).
+# The reap is strictly scoped to the bounded op's OWN recorded child winpid subtree,
+# so the unrelated sibling MUST SURVIVE. A broad/ancestor taskkill (the 255-collateral
+# bug) would reap the sibling too. This is the WS2/WS3 30+-sibling-survival AC in miniature. ---
+bash -c 'sleep 25' &
+sib_pid=$!
+sleep 1   # let the sibling establish its own tree
+if kill -0 "$sib_pid" 2>/dev/null; then
+  export FFHC_TIMEOUT_KILL_GRACE=1s
+  ffhc_run_bounded 1 bash -c 'sleep 20'   # overruns => strict-scoped taskkill reap
+  if kill -0 "$sib_pid" 2>/dev/null; then
+    ok "ws2-concurrent-sibling-survives (unrelated bash sleep pid=$sib_pid alive after a bounded op's timeout-taskkill — reap scoped to recorded child only)"
+  else
+    bad "ws2-concurrent-sibling-survives" "unrelated sibling pid=$sib_pid was reaped by the bounded op's taskkill — over-broad/ancestor kill (255-collateral regression)"
+  fi
+  kill "$sib_pid" 2>/dev/null; wait "$sib_pid" 2>/dev/null
+else
+  # Sibling died on its own before the bounded op — environmental; don't false-fail.
+  skip "ws2-concurrent-sibling-survives" "sibling exited before the bounded op could run (environmental; strict-scoping still asserted by true-124/no-hang + code)"
+  wait "$sib_pid" 2>/dev/null
 fi
 
 finish

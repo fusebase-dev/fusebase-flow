@@ -85,13 +85,24 @@ ffhc_msys_winpid() {
   cat "/proc/$pid/winpid" 2>/dev/null || true
 }
 
-# ffhc_msys_taskkill_winpid WINPID: `taskkill //F //T` a captured Windows pid tree
-# (output suppressed). Graceful no-op: empty winpid or no taskkill => return 0,
-# never error, never hang the bounded contract.
+# ffhc_msys_taskkill_winpid WINPID [CHILD_PID]: `taskkill //F //T` the recorded
+# child's Windows pid tree (output suppressed). Graceful no-op: empty winpid or no
+# taskkill => return 0, never error, never hang the bounded contract.
+# TRIPWIRE (WS2-core strict scoping): //T reaps the WHOLE tree rooted at WINPID, so
+# an ancestor/reused winpid would collateral-kill the caller/harness/other sessions
+# (the observed 255-collateral). When CHILD_PID is given, re-verify at kill-time that
+# /proc/<CHILD_PID>/winpid STILL equals the recorded WINPID (guards Windows PID reuse
+# under churn) — if the child already exited (winpid unresolvable) or the mapping
+# changed, SKIP the taskkill rather than risk collateral. NEVER kill an ancestor and
+# NEVER a broad/lazy fallback on an unverifiable winpid.
 ffhc_msys_taskkill_winpid() {
-  local winpid="${1:-}"
+  local winpid="${1:-}" child_pid="${2:-}"
   [ -n "$winpid" ] || return 0
   command -v taskkill >/dev/null 2>&1 || return 0
+  if [ -n "$child_pid" ]; then
+    local now_winpid; now_winpid="$(ffhc_msys_winpid "$child_pid")"
+    [ "$now_winpid" = "$winpid" ] || return 0   # PID reuse / child gone => skip, no collateral
+  fi
   taskkill //F //T //PID "$winpid" >/dev/null 2>&1 || true
 }
 
@@ -112,18 +123,21 @@ ffhc_msys_tree_kill() {
 # proc so a native runaway is reaped, then collects the rc. Capped at SECS+grace+eps
 # so a stuck wait can never outlive the contract.
 # WINPID (T7): the Windows pid captured at LAUNCH (while alive). When provided, the
-# reap uses it directly — BEST-EFFORT anti-runaway: it reaps the bounded wrapper's
-# attributable tree even after the wrapper has exited (when the lazy /proc lookup
-# would race to empty). HONEST LIMIT: a descendant reparented/detached after its
-# ancestor exited (Windows does NOT reparent to init) may still survive — the
-# tempfile capture, NOT this kill, is the guaranteed anti-hang. Falls back to the
-# lazy ffhc_msys_tree_kill when WINPID is empty.
+# reap uses it directly AND re-verifies it still maps to BPID before killing (strict
+# scoping — no ancestor/reused-pid collateral). BEST-EFFORT anti-runaway: it reaps the
+# bounded wrapper's attributable tree even after the wrapper has exited. HONEST LIMIT:
+# a descendant reparented/detached after its ancestor exited (Windows does NOT reparent
+# to init) may still survive — the tempfile capture, NOT this kill, is the guaranteed
+# anti-hang. Falls back to the lazy ffhc_msys_tree_kill when WINPID is empty.
+# Returns a true 124 on a deadline-reap whose rc would otherwise mask the timeout.
 ffhc_msys_wait_reap() {
   local bpid="$1" secs="$2" winpid="${3:-}"
   local grace="${FFHC_TIMEOUT_KILL_GRACE:-5s}"; local gsec="${grace%[!0-9]*}"
   case "$gsec" in ''|*[!0-9]*) gsec=5 ;; esac
   local cap=$(( secs + gsec + 2 )) waited=0 reaped=0
-  _ffhc_reap() { if [ -n "$winpid" ]; then ffhc_msys_taskkill_winpid "$winpid"; else ffhc_msys_tree_kill "$bpid"; fi; }
+  # Strict scoping: pass bpid so the taskkill re-verifies the recorded winpid still
+  # maps to OUR child before killing (no ancestor/reused-pid collateral).
+  _ffhc_reap() { if [ -n "$winpid" ]; then ffhc_msys_taskkill_winpid "$winpid" "$bpid"; else ffhc_msys_tree_kill "$bpid"; fi; }
   while kill -0 "$bpid" 2>/dev/null; do
     sleep 1; waited=$((waited + 1))
     if [ "$waited" -ge "$secs" ] && [ "$reaped" -eq 0 ]; then
@@ -131,7 +145,16 @@ ffhc_msys_wait_reap() {
     fi
     [ "$waited" -ge "$cap" ] && { _ffhc_reap; break; }
   done
-  wait "$bpid"; return $?
+  wait "$bpid"; local rc=$?
+  # TRIPWIRE (WS2-core true-124-on-kill): when WE reaped at the deadline, an MSYS
+  # taskkill can make `wait` return a non-timeout rc (0/other) instead of 124/137 —
+  # that masks the timeout and routes the health-check to a false BROKEN (the
+  # rc0-on-kill defect). Normalize a deadline-reap to a true 124 unless the child
+  # already surfaced a genuine timeout-induced rc (124/137). Only fires when we
+  # actually killed at the deadline (reaped=1), so a fast, self-completing command
+  # keeps its own rc.
+  if [ "$reaped" -eq 1 ] && ! ffhc_timed_out "$rc"; then rc=124; fi
+  return "$rc"
 }
 
 # ffhc_run_bounded SECS CMD [ARGS...]
@@ -174,6 +197,10 @@ _ffhc_tempfile_capture() {
   # T7: capture the Windows pid NOW, while _bpid is still alive (the /proc/<pid>/winpid
   # node vanishes on exit; a post-deadline read races the wrapper's exit and reads empty).
   local _winpid=""; if ffhc_is_msys; then _winpid="$(ffhc_msys_winpid "$_bpid")"; fi
+  # FFHC_LAST_WINPID (additive): the recorded in-flight child winpid, exposed so a
+  # caller's EXIT-trap can strict-scoped-reap a phase still running if the caller is
+  # signaled mid-run. Cleared once we return (the child is already reaped by then).
+  FFHC_LAST_WINPID="$_winpid"
   if ffhc_is_msys; then ffhc_msys_wait_reap "$_bpid" "$secs" "$_winpid"; else wait "$_bpid"; fi
   FFHC_LAST_RC=$?
   FFHC_LAST_OUT="$(cat "$_tf" 2>/dev/null)"
