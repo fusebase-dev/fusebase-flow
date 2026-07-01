@@ -6,12 +6,15 @@
 # to fusebase_flow_internals paths. This authors the SANCTIONED exception (the FR-07
 # way — NOT a --no-verify bypass): a short-TTL artifact bound to the EXACT staged
 # changeset (tree_digest via path_policy.compute_staged_tree_digest) and to the exact
-# operation (flow-internals-bootstrap). Because the digest binds to the staged blob
-# ids, the artifact authorizes ONLY this changeset — a later, unrelated protected-path
-# edit produces a different digest and still DENIES (single-use, not a standing hole).
+# operation (flow-internals-bootstrap). Because the digest binds to the staged content
+# and mode, the artifact authorizes ONLY this changeset — a later, unrelated
+# protected-path edit produces a different digest and still DENIES (single-use).
 #
-# The bootstrap writer (upgrade.sh / post-fusebase-update.sh --wire-hooks) calls this
-# BEFORE the setup commit and CONSUMES it after (--consume) so no artifact lingers.
+# OPERATOR-DRIVEN, not auto-consumed: upgrade.sh / post-fusebase-update.sh PRINT the
+# `mint -> git commit -> --consume` steps as recommended next actions; the operator
+# runs them. Single-use holds even if `--consume` is skipped: a lingering post-commit
+# artifact is digest-bound to the (now-committed) changeset, so it matches NO new
+# staged changeset, and it self-expires (TTL, default 15 min; FF_BOOTSTRAP_TTL_MIN).
 #
 # Usage:
 #   bash hooks/local/write-bootstrap-approval.sh              # mint for the staged internals
