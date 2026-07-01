@@ -86,6 +86,56 @@ print_recovery_hint() {
   echo "    bash hooks/local/preflight.sh && bash hooks/local/fusebase-flow-health-check.sh  # verify (HEALTHY)" >&2
 }
 
+# ---- WS5 (v3.30.4): Windows-safe bounded exit for the long child steps ----
+# The busy-loop / 255-at-tail on MSYS came from unbounded fork-heavy steps (the
+# re-mirror + the per-stem prune_pre_backups traversal — fixed to single-pass below).
+# Reuse the WS2 bounded-run core so long steps are killable + observable. If the lib
+# is absent (a pre-3.28 bootstrap that hasn't staged hooks/local/lib/), degrade to an
+# UNBOUNDED direct run (never fail the upgrade for a missing helper).
+FFHC_STEP_LIB="$ROOT/hooks/local/lib/run-with-timeout.sh"
+FFHC_STEP_LIB_OK=0
+if [ -f "$FFHC_STEP_LIB" ]; then
+  # shellcheck source=/dev/null
+  . "$FFHC_STEP_LIB" 2>/dev/null && command -v ffhc_run_bounded >/dev/null 2>&1 && { ffhc_detect_timeout; FFHC_STEP_LIB_OK=1; }
+fi
+
+# ffhc_run_step SECS CRITICAL LABEL CMD...: run one upgrade step bounded to SECS with a
+# flushed progress echo. CRITICAL=1 => a timeout/kill/failure PRINTS the recovery hint and
+# EXITS 1 (never mask a partial/broken upgrade as success). CRITICAL=0 => a timeout/kill/
+# failure WARNs and CONTINUES (rc stays 0). No timeout binary => the core SKIPs (rc 125):
+# treated as "could not bound", so a CRITICAL step then runs UNBOUNDED (correctness over
+# observability — never skip the content copy / version write), an optional step is skipped
+# with a warning. On any bound the step's own rc is preserved for the caller's decision.
+ffhc_run_step() {
+  local secs="$1" critical="$2" label="$3"; shift 3
+  printf '[upgrade] step: %s (bounded %ss)…\n' "$label" "$secs" >&2
+  local rc
+  if [ "$FFHC_STEP_LIB_OK" -eq 1 ]; then
+    ffhc_run_bounded "$secs" "$@"; rc=$FFHC_LAST_RC
+    [ -n "$FFHC_LAST_OUT" ] && printf '%s\n' "$FFHC_LAST_OUT" >&2
+    if [ "${FFHC_LAST_SKIPPED:-0}" = "1" ]; then
+      if [ "$critical" = "1" ]; then
+        printf '[upgrade] step %s: no timeout binary — running UNBOUNDED (critical, correctness first)…\n' "$label" >&2
+        "$@"; rc=$?
+      else
+        printf '[upgrade] WARN: step %s SKIPPED (no timeout binary to bound an optional step) — continuing.\n' "$label" >&2
+        return 0
+      fi
+    fi
+  else
+    "$@"; rc=$?
+  fi
+  if [ "$rc" -ne 0 ]; then
+    if [ "$critical" = "1" ]; then
+      printf '[upgrade] FATAL: CRITICAL step failed/killed (rc %s): %s — the upgrade is INCOMPLETE.\n' "$rc" "$label" >&2
+      print_recovery_hint
+      exit 1
+    fi
+    printf '[upgrade] WARN: optional step failed/killed (rc %s): %s — continuing (upgrade still valid).\n' "$rc" "$label" >&2
+  fi
+  return 0
+}
+
 # U3 (W2): the baseline merge rule lives in a sourced, unit-tested lib so the
 # engine stays small (FR-25) and AC3 can test the rule directly.
 #
@@ -342,12 +392,15 @@ if [ "$WITH_DOCS" -eq 1 ] && [ -d "$SOURCE_CLONE/$DOC_GLOB" ]; then
   done < <(find "$SOURCE_CLONE/$DOC_GLOB" -maxdepth 1 -name "*.md" -type f 2>/dev/null)
 fi
 
-# ---- Step 2: re-mirror canonical -> providers ----
+# ---- Step 2: re-mirror canonical -> providers (OPTIONAL, bounded) ----
 # B4: progress echoes bracket the otherwise-silenced re-mirror so a long mirror
 # pass is visible (not a silent stall) on the operator's terminal.
+# WS5: bounded via ffhc_run_step (fork-heavy on MSYS — a prime busy-loop candidate).
+# OPTIONAL: a killed/failed mirror WARNs + continues — content + version are already
+# landed, so the upgrade is still valid; the operator re-mirrors from the recovery hint.
 echo "[upgrade] Step 2/3: re-mirroring skills + agents (canonical -> providers)…" >&2
-[ -x hooks/local/mirror-skills.sh ] && bash hooks/local/mirror-skills.sh >/dev/null 2>&1 || true
-[ -x hooks/local/mirror-agents.sh ] && bash hooks/local/mirror-agents.sh >/dev/null 2>&1 || true
+[ -x hooks/local/mirror-skills.sh ] && ffhc_run_step "${FF_MIRROR_TIMEOUT:-300}" 0 "re-mirror skills" bash hooks/local/mirror-skills.sh
+[ -x hooks/local/mirror-agents.sh ] && ffhc_run_step "${FF_MIRROR_TIMEOUT:-300}" 0 "re-mirror agents" bash hooks/local/mirror-agents.sh
 echo "[upgrade] Step 2/3: re-mirror done." >&2
 
 # ---- Step 3: sync embedded version strings (uses LOCAL VERSION; bumped in step 5,
@@ -358,14 +411,23 @@ echo "[upgrade] Step 2/3: re-mirror done." >&2
 # holds because content (steps 1-2) already landed.) ----
 
 # ---- Step 5 (bump VERSION) BEFORE string-sync, but AFTER content (steps 1-2). ----
+# WS5: VERSION write is a CRITICAL step. It is a fast atomic local write (no busy-loop /
+# nothing to bound), but if it does not land, the upgrade must FAIL with the recovery hint —
+# never leave content refreshed while VERSION still reads the old value (or is truncated).
 if [ -n "$VERSION_CHANGE" ]; then
   cp VERSION "VERSION.pre-upgrade-$TS" 2>/dev/null || true
-  echo "$SRC_VERSION" > VERSION
+  if ! echo "$SRC_VERSION" > VERSION || [ "$(tr -d '\n\r' < VERSION 2>/dev/null)" != "$SRC_VERSION" ]; then
+    echo "[upgrade] FATAL: CRITICAL step failed — VERSION write did not land ($SRC_VERSION) — the upgrade is INCOMPLETE." >&2
+    print_recovery_hint
+    exit 1
+  fi
 fi
 
-# ---- Step 3: sync embedded version strings now that VERSION reflects target ----
+# ---- Step 3: sync embedded version strings now that VERSION reflects target (OPTIONAL, bounded) ----
+# WS5: attestation-string sync is cosmetic-derived (VERSION already landed), so a
+# killed/failed sync WARNs + continues; the operator re-runs it from the recovery hint.
 echo "[upgrade] Step 3/3: syncing derived attestation strings (sync-version-strings)…" >&2
-[ -x hooks/local/sync-version-strings.sh ] && bash hooks/local/sync-version-strings.sh || true
+[ -x hooks/local/sync-version-strings.sh ] && ffhc_run_step "${FF_SYNC_TIMEOUT:-180}" 0 "sync-version-strings" bash hooks/local/sync-version-strings.sh
 
 # ---- Step 4: version-aware overlay refresh (F2) + slash-command restore ----
 # post-fusebase-update.sh Step 8 installs any NEW commands from the (just-
@@ -428,26 +490,40 @@ find . -path ./.fusebase-flow-source -prune -o -name "*.pyc" -print -delete 2>/d
 # lexicographic reverse-sort == newest-first. Conservative: only OUR timestamped
 # suffixes, never the clone / .git. Default N=3 (FF_PRE_RETAIN override).
 PRE_RETAIN="${FF_PRE_RETAIN:-3}"
+# WS5 busy-loop ROOT FIX (not just a bound): the prior prune ran a FULL-TREE `find .`
+# PER unique stem (K stems x M files = O(K*M) traversals, each a fork), so a large
+# backup set fork-storms MSYS into a apparent busy-loop / 255-at-tail. This rewrite is
+# SINGLE-PASS: ONE `find`, tag each backup with its stem, sort by (stem, ts-descending)
+# so same-stem newest-first are adjacent, then one awk pass emits only the ones BEYOND
+# N to delete. O(M) + a fixed handful of forks regardless of stem count.
 prune_pre_backups() {
-  local stem count bak
-  # Group every timestamped backup by stem (path with the .pre-*-<ts> suffix removed).
-  while IFS= read -r stem; do
-    [ -n "$stem" ] || continue
-    count=0
-    # Newest-first by the trailing UTC timestamp (reverse lexicographic sort).
-    while IFS= read -r bak; do
-      [ -e "$bak" ] || continue
-      count=$((count + 1))
-      [ "$count" -le "$PRE_RETAIN" ] && continue
-      rm -rf -- "$bak" && echo "[upgrade] U10: pruned old backup $bak"
-    done < <(find . -path ./.git -prune -o -path ./.fusebase-flow-source -prune -o \
-               \( -name "$(basename "$stem").pre-upgrade-*" -o -name "$(basename "$stem").pre-refresh-*" \) -print 2>/dev/null \
-             | grep -E "^${stem//./\\.}\.pre-(upgrade|refresh)-" | sort -r)
-  done < <(find . -path ./.git -prune -o -path ./.fusebase-flow-source -prune -o \
-             \( -name '*.pre-upgrade-*' -o -name '*.pre-refresh-*' \) -print 2>/dev/null \
-           | sed -E 's/\.pre-(upgrade|refresh)-[^/]*$//' | sort -u)
+  local retain="${PRE_RETAIN}"
+  case "$retain" in ''|*[!0-9]*) retain=3 ;; esac
+  local to_delete bak
+  # ONE traversal. For each backup path, emit "<stem>\t<ts>\t<fullpath>"; sort by stem
+  # then ts DESCENDING (newest first within a stem); awk keeps the first `retain` per stem
+  # and prints the rest (the deletions). All forks are constant (find|sed|sort|awk), not
+  # per-stem. Only OUR timestamped suffixes; never .git / the source clone.
+  to_delete="$(
+    find . -path ./.git -prune -o -path ./.fusebase-flow-source -prune -o \
+      \( -name '*.pre-upgrade-*' -o -name '*.pre-refresh-*' \) -print 2>/dev/null \
+    | sed -E 's|^(.*)\.pre-(upgrade\|refresh)-([^/]*)$|\1\t\3\t&|' \
+    | sort -t "$(printf '\t')" -k1,1 -k2,2r \
+    | awk -F '\t' -v n="$retain" '{ if ($1==prev) c++; else { c=1; prev=$1 } if (c>n) print $3 }'
+  )"
+  [ -n "$to_delete" ] || return 0
+  while IFS= read -r bak; do
+    [ -n "$bak" ] && [ -e "$bak" ] || continue
+    rm -rf -- "$bak" && echo "[upgrade] U10: pruned old backup $bak"
+  done <<< "$to_delete"
 }
-prune_pre_backups || true
+# OPTIONAL step. The single-pass rewrite above is the busy-loop FIX (O(M), linear
+# pipeline — it cannot busy-loop), so bounding is belt-only. It is NOT routed through
+# ffhc_run_step: that helper runs the step via `timeout <cmd>`, and `timeout` cannot
+# invoke a bash FUNCTION (only an executable). Instead run it directly, flushed, and
+# `|| true` so a prune hiccup never fails an upgrade whose content + version landed.
+echo "[upgrade] step: prune old .pre-* backups (single-pass, keep newest $PRE_RETAIN/stem)…" >&2
+prune_pre_backups || echo "[upgrade] WARN: backup prune reported an error — continuing (upgrade still valid)." >&2
 
 echo ""
 echo "[upgrade] Content upgrade applied. VERSION now: $(tr -d '\n\r' < VERSION)"
