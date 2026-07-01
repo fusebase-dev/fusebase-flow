@@ -414,5 +414,77 @@ hc_healthy_pass "clean-trailing-space"    '[run-tests] 1/1 PASS \n'
 hc_healthy_pass "clean-trailing-tab"      '[run-tests] 1/1 PASS\t\n'
 hc_healthy_pass "clean-very-large-equal"  '[run-tests] 999/999 PASS\n'
 
+# ---- WS4 (v3.30.3): MSYS timeout defaults + knob surfacing + fail-closed guard --
+# The engine sources hooks/local/lib/run-with-timeout.sh, so ffhc_is_msys is the
+# same predicate the test host resolves — these assertions stay correct on BOTH
+# POSIX (30/60) and MSYS (60/120) CI without hard-coding one platform.
+
+# HT-WS4a (AC: MSYS defaults applied on MINGW, POSIX defaults on non-MSYS AND the
+# PARTIAL_UNVERIFIED recommendation surfaces the exact knob NAMES + current
+# effective VALUES). Force PARTIAL via --fast (skips the hook tests => UNVERIFIED
+# => exit 4) with NO env override, so the printed FFHC_*_TIMEOUT values ARE the
+# platform defaults. Assert the value matches the platform the test itself detects.
+ht_ws4_msys_defaults() {
+  local D="$TMP_BASE/ws4-msys-defaults"
+  setup_hc_fixture "$D"
+  # shellcheck source=/dev/null
+  . hooks/local/lib/run-with-timeout.sh
+  local exp_pre exp_tests plat
+  if ffhc_is_msys; then exp_pre=60; exp_tests=120; plat="MSYS/Git-Bash"; else exp_pre=30; exp_tests=60; plat="POSIX"; fi
+  # --fast: skips hook tests + upstream, keeps preflight => PARTIAL_UNVERIFIED/exit 4.
+  local OUT; OUT="$(cd "$D" && bash hooks/local/fusebase-flow-health-check.sh --fast 2>&1; echo "EXIT=$?")"
+  echo "$OUT" | grep -q "^EXIT=4$" || { ht_fail "ws4-msys-defaults" "$OUT"; return; }
+  echo "$OUT" | grep -q "Current effective timeout budgets" || { ht_fail "ws4-msys-defaults (no knob-values recommendation)" "$OUT"; return; }
+  echo "$OUT" | grep -qF "FFHC_PREFLIGHT_TIMEOUT=${exp_pre}s" || { ht_fail "ws4-msys-defaults (preflight default != ${exp_pre}s for $plat)" "$OUT"; return; }
+  echo "$OUT" | grep -qF "FFHC_TESTS_TIMEOUT=${exp_tests}s" || { ht_fail "ws4-msys-defaults (tests default != ${exp_tests}s for $plat)" "$OUT"; return; }
+  ht_pass "ws4-msys-defaults (WS4): $plat defaults (preflight ${exp_pre}s / tests ${exp_tests}s) applied + knob names+values surfaced in the PARTIAL recommendation"
+}
+
+# HT-WS4b (AC: env override still wins over the platform default). Set an explicit
+# FFHC_TESTS_TIMEOUT; the recommendation must echo THAT value, not the default.
+ht_ws4_env_override_wins() {
+  local D="$TMP_BASE/ws4-env-override"
+  setup_hc_fixture "$D"
+  local OUT; OUT="$(cd "$D" && FFHC_TESTS_TIMEOUT=999 bash hooks/local/fusebase-flow-health-check.sh --fast 2>&1; echo "EXIT=$?")"
+  echo "$OUT" | grep -q "^EXIT=4$" || { ht_fail "ws4-env-override-wins" "$OUT"; return; }
+  echo "$OUT" | grep -qF "FFHC_TESTS_TIMEOUT=999s" || { ht_fail "ws4-env-override-wins (override not honored)" "$OUT"; return; }
+  ht_pass "ws4-env-override-wins (WS4): explicit FFHC_TESTS_TIMEOUT=999 overrides the platform default (recommendation echoes 999s)"
+}
+
+# HT-WS4c (AC: a killed hook-test run — engine rc 124, no FAIL:, no strict PASS —
+# is INCONCLUSIVE => PARTIAL_UNVERIFIED/exit 4, never BROKEN). This is the
+# Ovation rc124-on-kill path handled by the existing :407 branch — WS4 must NOT
+# regress it into BROKEN. (Distinct from the rc143 signal case in
+# ht_b2_signal_inconclusive: this asserts the timeout rc 124 specifically.)
+ht_ws4_killed_rc124_partial() {
+  local D="$TMP_BASE/ws4-killed-rc124"
+  setup_hc_fixture "$D"
+  printf '#!/usr/bin/env bash\necho "partial, no summary" >&2\nexit 124\n' > "$D/hooks/tests/run-tests.sh"; chmod +x "$D/hooks/tests/run-tests.sh"
+  local OUT; OUT="$(run_hc "$D" env FFHC_TESTS_TIMEOUT=10)"
+  echo "$OUT" | grep -q "Verdict: PARTIAL_UNVERIFIED" || { ht_fail "ws4-killed-rc124-partial" "$OUT"; return; }
+  echo "$OUT" | grep -q "^EXIT=4$" || { ht_fail "ws4-killed-rc124-partial" "$OUT"; return; }
+  if echo "$OUT" | grep -q "Verdict: BROKEN"; then ht_fail "ws4-killed-rc124-partial (regressed to BROKEN)" "$OUT"; return; fi
+  ht_pass "ws4-killed-rc124-partial (WS4): killed hook-test engine rc=124 + no FAIL: + no PASS => PARTIAL_UNVERIFIED/exit 4, never BROKEN"
+}
+
+# HT-WS4d (AC / fail-closed no-regression: a genuine no-run crash — rc0, no PASS,
+# no FAIL: — STILL => BROKEN, exactly as HT8, proving WS4 did NOT reclassify rc0).
+# The :417 rc0-no-run guard MUST survive the WS4 timeout-default change.
+ht_ws4_genuine_no_run_broken() {
+  local D="$TMP_BASE/ws4-rc0-no-run"
+  setup_hc_fixture "$D"
+  printf '#!/usr/bin/env bash\necho "crashed before reporting"\nexit 0\n' > "$D/hooks/tests/run-tests.sh"; chmod +x "$D/hooks/tests/run-tests.sh"
+  local OUT; OUT="$(run_hc "$D" env FFHC_TESTS_TIMEOUT=10)"
+  echo "$OUT" | grep -q "Verdict: BROKEN" || { ht_fail "ws4-rc0-no-run-broken" "$OUT"; return; }
+  echo "$OUT" | grep -q "^EXIT=2$" || { ht_fail "ws4-rc0-no-run-broken" "$OUT"; return; }
+  if echo "$OUT" | grep -q "Verdict: HEALTHY"; then ht_fail "ws4-rc0-no-run-broken (false HEALTHY)" "$OUT"; return; fi
+  ht_pass "ws4-rc0-no-run-broken (WS4 fail-closed guard): rc0 + no PASS + no FAIL => BROKEN/exit 2 (rc0 NOT reclassified)"
+}
+
+ht_ws4_msys_defaults
+ht_ws4_env_override_wins
+ht_ws4_killed_rc124_partial
+ht_ws4_genuine_no_run_broken
+
 echo "[test-health-check-timeout] $pass_count/$((pass_count + fail_count)) PASS"
 exit "$fail_count"

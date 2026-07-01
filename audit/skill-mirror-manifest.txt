@@ -30,8 +30,8 @@
 .claude/skills/find-wasted-effort/SKILL.md  0a88ec0440f42d4bff5a96b1da8885d623c874b1de0cd556ac6087ebc5ad91a7
 .claude/skills/find-wasted-effort/references/false-positive-examples.md  889674d446a1849c9aef72cf27ae724388fe3599e4f379fe62411ca2c2ba128f
 .claude/skills/find-wasted-effort/references/rule-signatures.md  f115cc035a5ba4c34130e22216f49a5535e11264c50073a335f61105f993afb6
-.agents/skills/fusebase-flow-health-check/SKILL.md  df61cbe6c504e8d8e3979142ac2c326b443ccd78d4de7edb5e4d514e3d019a1a
-.claude/skills/fusebase-flow-health-check/SKILL.md  df61cbe6c504e8d8e3979142ac2c326b443ccd78d4de7edb5e4d514e3d019a1a
+.agents/skills/fusebase-flow-health-check/SKILL.md  ab47c7067a22d6330d3f30f79f78fd9f8c6c8d302628a49be3a129d70d2a45c1
+.claude/skills/fusebase-flow-health-check/SKILL.md  ab47c7067a22d6330d3f30f79f78fd9f8c6c8d302628a49be3a129d70d2a45c1
 .agents/skills/git-history-diagnostic/SKILL.md  3e4492f489c839bb6dfb5b3c80dca6b65e7990f873b86013f47c658b8e320f2e
 .claude/skills/git-history-diagnostic/SKILL.md  3e4492f489c839bb6dfb5b3c80dca6b65e7990f873b86013f47c658b8e320f2e
 .agents/skills/handoff/SKILL.md  512dd16afcb81dec7bc6747dff63dadfd7d835a977ae28a040ba5b686980f471

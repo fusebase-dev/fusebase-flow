@@ -71,16 +71,27 @@ FFHC_PARTIAL_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/partial-upgrade-check.sh"
 # shellcheck source=lib/partial-upgrade-check.sh
 [ -f "$FFHC_PARTIAL_LIB" ] && . "$FFHC_PARTIAL_LIB"
 
-# SLO-budgeted timeouts (seconds), env-overridable. Defaults sit at the top of
-# the spec's ranges (fetch 10-15, preflight 20-30, conflict 20-30, tests 45-60).
+# SLO-budgeted timeouts (seconds), env-overridable. POSIX defaults sit at the top
+# of the spec's ranges (fetch 10-15, preflight 20-30, conflict 20-30, tests 45-60).
 # Worst-case BOUNDED full-run wall-clock ~= fetch + preflight + conflict + tests
 # + 4*grace = 15+30+30+60 + ~20 = ~155s (vs the unbounded >2-min hang this fixes;
-# the criticals run serially). Raise the relevant knob on a slow host (e.g.
-# Windows Git-Bash where process spawn is costly) rather than living with exit 4.
+# the criticals run serially). Raise the relevant knob on a slow host rather than
+# living with exit 4.
+# WS4 (v3.30.3): Git-Bash/MSYS spawns a process in ~0.8-1.4s (vs ~1-3ms on
+# Linux/macOS), so the flat 30/60 preflight/tests budgets routinely time out a
+# HEALTHY MSYS install under load => spurious PARTIAL_UNVERIFIED. ffhc_is_msys-gate
+# higher defaults there (preflight 60 / tests 120); an explicit env override still
+# wins on EITHER platform (the `${VAR:-default}` form only applies the default when
+# unset). fetch/conflict keep the flat budget (network/git, platform-agnostic).
+if ffhc_is_msys; then
+  FFHC_PREFLIGHT_DEFAULT=60; FFHC_TESTS_DEFAULT=120
+else
+  FFHC_PREFLIGHT_DEFAULT=30; FFHC_TESTS_DEFAULT=60
+fi
 FFHC_FETCH_TIMEOUT="${FFHC_FETCH_TIMEOUT:-15}"
-FFHC_PREFLIGHT_TIMEOUT="${FFHC_PREFLIGHT_TIMEOUT:-30}"
+FFHC_PREFLIGHT_TIMEOUT="${FFHC_PREFLIGHT_TIMEOUT:-$FFHC_PREFLIGHT_DEFAULT}"
 FFHC_CONFLICT_TIMEOUT="${FFHC_CONFLICT_TIMEOUT:-30}"
-FFHC_TESTS_TIMEOUT="${FFHC_TESTS_TIMEOUT:-60}"
+FFHC_TESTS_TIMEOUT="${FFHC_TESTS_TIMEOUT:-$FFHC_TESTS_DEFAULT}"
 # Opt-in escape hatch: when no timeout binary exists, run the bounded ops
 # UNbounded instead of skipping them (H5 — off by default so a network-impaired
 # host can never hang).
@@ -716,7 +727,12 @@ case "$DRIFT_SIGNATURE" in
   PARTIAL_UNVERIFIED)
     RECOMMENDATIONS+=("PARTIAL — not a full health verdict. One or more CRITICAL checks did not run (timed out, skipped, or no timeout binary available); see the 'unverified' items above.")
     RECOMMENDATIONS+=("This is NOT a failure and NOT full health. Exit code 4. Nothing that DID run proved drift or breakage.")
-    RECOMMENDATIONS+=("To get a full verdict: re-run on a host with more time/CPU, raise the relevant FFHC_*_TIMEOUT env knob, or run the named check directly. If a timeout binary is missing, install coreutils (provides 'timeout'/'gtimeout') or opt into unbounded runs with FFHC_ALLOW_UNBOUNDED=1.") ;;
+    # WS4 DX: name the exact knob AND its current effective value (not a generic
+    # hint) so a raised-budget re-run is copy-ready. ffhc_is_msys is echoed so the
+    # operator sees WHY the MSYS defaults (60/120) differ from POSIX (30/60).
+    if ffhc_is_msys; then FFHC_PLATFORM_NOTE="MSYS/Git-Bash (higher defaults auto-applied)"; else FFHC_PLATFORM_NOTE="POSIX"; fi
+    RECOMMENDATIONS+=("Current effective timeout budgets ($FFHC_PLATFORM_NOTE): FFHC_PREFLIGHT_TIMEOUT=${FFHC_PREFLIGHT_TIMEOUT}s  FFHC_TESTS_TIMEOUT=${FFHC_TESTS_TIMEOUT}s  FFHC_FETCH_TIMEOUT=${FFHC_FETCH_TIMEOUT}s  FFHC_CONFLICT_TIMEOUT=${FFHC_CONFLICT_TIMEOUT}s. Raise the one named in the unverified item above (e.g. FFHC_TESTS_TIMEOUT=240) and re-run.")
+    RECOMMENDATIONS+=("To get a full verdict: re-run on a host with more time/CPU, raise the relevant FFHC_*_TIMEOUT env knob (values above), or run the named check directly. If a timeout binary is missing, install coreutils (provides 'timeout'/'gtimeout') or opt into unbounded runs with FFHC_ALLOW_UNBOUNDED=1.") ;;
 esac
 
 ###############################################################################
