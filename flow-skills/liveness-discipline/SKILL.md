@@ -84,6 +84,19 @@ A slow-but-progressing job is NOT a hang. Distinguish before you kill:
 3. **Clean residue** — partial files, locks, half-written state from the killed run.
 4. **Retry only transient rate-limits** with bounded, labeled backoff; a structural hang is not a rate-limit and re-attempting it unchanged is forbidden.
 
+## Zero-trust sub-agent liveness (mandatory — WS8)
+
+A dispatched sub-agent (or Codex) is a long/silent launch under someone else's control — the same hang→no-event→idle failure applies, plus you cannot see its process. **Never trust or passively wait on its completion ping.** The completion notification can be missing, late, or fire on a transcript that is 0 bytes. Apply the zero-trust protocol:
+
+| Step | Action |
+|---|---|
+| **Poll, don't wait** | Proactively check the sub-agent's liveness OFTEN (~every 60–90s) via GIT PROGRESS (new commits / advancing SHA) or process activity — NOT the 0-byte transcript file's mere existence (existence proves nothing; the diagnose-by-activity rule above applies). |
+| **Re-dispatch a transient stall** | On a transient rate-limit / server error / no-start, re-dispatch or SendMessage-resume: wait ~60s, then retry until it actually STARTS producing progress. A structural hang is not a rate-limit — do not blind-retry it unchanged. |
+| **Verify before trusting** | Before you trust ANY sub-agent's output, verify the FINAL git state yourself: clean linear history, the expected commits landed, 0 mirror drift (`mirror-skills.sh --check`), gate evidence present. A completion ping is a claim, not proof. |
+| **Synchronous by default** | Prefer synchronous sub-agent runs for autonomous multi-step work — a backgrounded sub-agent yields mid-task and cannot self-resume (SendMessage may be unavailable); it must complete in-turn or return `BLOCKED-AT-<gate>` (task-delegation turn-completion). |
+
+This is the sub-agent application of the FR-27 floor; `flow-skills/task-delegation` owns the turn-completion / `BLOCKED-AT` return shape (cross-linked below, not duplicated).
+
 ## Cross-links (reuse, do not duplicate)
 
 | Slice | Canonical home | Relationship |
