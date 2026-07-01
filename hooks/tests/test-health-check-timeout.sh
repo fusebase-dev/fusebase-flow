@@ -523,24 +523,28 @@ ht_ws6_new_marker_healthy() {
 }
 
 # HT-WS6c (AC: preflight DUAL-ACCEPTS both markers — preflight ⟷ health-check
-# agree). Run the REAL preflight against an OLD-marker then a NEW-marker minimal
-# tree; both must NOT emit the overlay-marker ERROR (preflight 5e). Light: greps
-# preflight stderr for the marker error, tolerant of unrelated warnings.
+# agree). Drives the REAL §5e AGENTS overlay-marker ERE by EXTRACTING it from the
+# copied preflight.sh (grep the actual `grep -qE "…"` pattern out — same technique
+# ht_ws6_migrate_idempotent uses to extract ff_migrate_marker), NOT a hand-copied
+# duplicate. If the shipped §5e ERE regresses, the extracted ERE changes with it and
+# the dual-accept / non-marker assertions catch it.
 ht_ws6_preflight_dual_accept() {
   local D="$TMP_BASE/ws6-preflight"
   rm -rf "$D"; mkdir -p "$D"
   cp hooks/local/preflight.sh "$D/preflight.sh"
-  # OLD marker file
+  # EXTRACT the real §5e AGENTS ERE from the copied preflight (the `## Fuse[bB]ase Flow
+  # — workflow lifecycle overlay` dual-accept predicate). Fails loudly if the marker
+  # line can't be found (a §5e regression that removed/renamed the predicate).
+  local ere
+  ere="$(grep -oE 'grep -qE "\^## Fuse\[bB\]ase Flow[^"]*workflow lifecycle overlay"' "$D/preflight.sh" | head -1 | sed -E 's/^grep -qE "//; s/"$//')"
+  [ -n "$ere" ] || { ht_fail "ws6-preflight-dual-accept (could not extract the real §5e ERE from preflight.sh — predicate regressed?)" "$(grep -n 'lifecycle overlay' "$D/preflight.sh")"; return; }
   printf '# AGENTS\n\n## Fusebase Flow — workflow lifecycle overlay\n' > "$D/agents-old.md"
   printf '# AGENTS\n\n## FuseBase Flow — workflow lifecycle overlay\n' > "$D/agents-new.md"
-  # Exercise the exact 5e predicate directly (no full preflight fork needed): the
-  # dual-accept ERE must match BOTH spellings and NOT the wrong heading.
-  local ere='^## Fuse[bB]ase Flow — workflow lifecycle overlay'
-  grep -qE "$ere" "$D/agents-old.md" || { ht_fail "ws6-preflight-dual-accept (OLD rejected by 5e ERE)" ""; return; }
-  grep -qE "$ere" "$D/agents-new.md" || { ht_fail "ws6-preflight-dual-accept (NEW rejected by 5e ERE)" ""; return; }
   printf '# AGENTS\n\n## Unrelated heading\n' > "$D/agents-none.md"
-  if grep -qE "$ere" "$D/agents-none.md"; then ht_fail "ws6-preflight-dual-accept (matched a non-marker heading)" ""; return; fi
-  ht_pass "ws6-preflight-dual-accept (WS6): preflight 5e ERE accepts OLD+NEW markers, rejects a non-marker heading (preflight ⟷ health-check agree)"
+  grep -qE "$ere" "$D/agents-old.md" || { ht_fail "ws6-preflight-dual-accept (OLD rejected by the REAL §5e ERE)" "ere=$ere"; return; }
+  grep -qE "$ere" "$D/agents-new.md" || { ht_fail "ws6-preflight-dual-accept (NEW rejected by the REAL §5e ERE)" "ere=$ere"; return; }
+  if grep -qE "$ere" "$D/agents-none.md"; then ht_fail "ws6-preflight-dual-accept (REAL §5e ERE matched a non-marker heading)" "ere=$ere"; return; fi
+  ht_pass "ws6-preflight-dual-accept (WS6): the REAL §5e ERE extracted from preflight.sh accepts OLD+NEW markers, rejects a non-marker heading (preflight ⟷ health-check agree)"
 }
 
 # HT-WS6d (AC: the upgrade path migrates OLD->NEW in place, idempotently — no
@@ -567,25 +571,35 @@ ht_ws6_migrate_idempotent() {
 }
 
 # HT-WS6e (AC: install.sh overlay append is idempotent — no double-append when the
-# marker is already present, in EITHER spelling). Drives the append guard logic:
-# a file already carrying OLD or NEW must NOT get a second block.
+# marker is already present, in EITHER spelling). Drives the REAL install.sh
+# `append_overlay` (SOURCED/extracted from install.sh — same technique WS6d uses for
+# ff_migrate_marker), so the idempotency test guards the SHIPPED code path: if
+# install.sh's append guard regresses (e.g. drops the OLD-marker check), this FAILS.
 ht_ws6_install_append_idempotent() {
   local D="$TMP_BASE/ws6-append"
-  rm -rf "$D"; mkdir -p "$D/hooks/local/fusebase-flow-overlays"
-  cp hooks/local/fusebase-flow-overlays/agents-md-overlay.md "$D/hooks/local/fusebase-flow-overlays/"
+  rm -rf "$D"; mkdir -p "$D/overlays"
+  local TMPL="$D/overlays/agents-md-overlay.md"
+  cp hooks/local/fusebase-flow-overlays/agents-md-overlay.md "$TMPL"
+  # Extract ONLY append_overlay from install.sh and drive it (self-contained: grep/cat).
+  # append_overlay writes progress lines to $REPORT — route it to a throwaway file.
+  local REPORT="$D/report.txt"; : > "$REPORT"
+  # shellcheck source=/dev/null
+  eval "$(awk '/^append_overlay\(\) \{/{p=1} p{print} p&&/^}/{exit}' install.sh)"
+  command -v append_overlay >/dev/null 2>&1 || { ht_fail "ws6-install-append (could not source append_overlay from install.sh — function regressed/renamed?)" ""; return; }
   local newm="## FuseBase Flow — workflow lifecycle overlay" oldm="## Fusebase Flow — workflow lifecycle overlay"
-  # Fresh file: no marker -> append happens.
-  printf '# fresh proj\n' > "$D/AGENTS.md"
-  ( cd "$D"; if ! { grep -qF "$newm" AGENTS.md || grep -qF "$oldm" AGENTS.md; }; then cat hooks/local/fusebase-flow-overlays/agents-md-overlay.md >> AGENTS.md; fi )
-  [ "$(grep -cE "^## Fuse[bB]ase Flow — workflow lifecycle overlay" "$D/AGENTS.md")" -eq 1 ] || { ht_fail "ws6-install-append (fresh append not exactly 1 marker)" "$(cat "$D/AGENTS.md")"; return; }
-  # Second run: marker present -> guard prevents a second append.
-  ( cd "$D"; if ! { grep -qF "$newm" AGENTS.md || grep -qF "$oldm" AGENTS.md; }; then cat hooks/local/fusebase-flow-overlays/agents-md-overlay.md >> AGENTS.md; fi )
-  [ "$(grep -cE "^## Fuse[bB]ase Flow — workflow lifecycle overlay" "$D/AGENTS.md")" -eq 1 ] || { ht_fail "ws6-install-append (DOUBLE-append on 2nd run)" "$(cat "$D/AGENTS.md")"; return; }
-  # An OLD-marker file must ALSO be recognized (no re-append onto a legacy tree).
-  printf '# legacy proj\n\n## Fusebase Flow — workflow lifecycle overlay\n' > "$D/AGENTS.md"
-  ( cd "$D"; if ! { grep -qF "$newm" AGENTS.md || grep -qF "$oldm" AGENTS.md; }; then cat hooks/local/fusebase-flow-overlays/agents-md-overlay.md >> AGENTS.md; fi )
-  [ "$(grep -cE "^## Fuse[bB]ase Flow — workflow lifecycle overlay" "$D/AGENTS.md")" -eq 1 ] || { ht_fail "ws6-install-append (re-appended onto OLD-marker legacy tree)" "$(cat "$D/AGENTS.md")"; return; }
-  ht_pass "ws6-install-append-idempotent (WS6): overlay append runs once on a fresh file, no double-append, dual-marker guard skips an OLD or NEW legacy tree"
+  local F="$D/AGENTS.md"
+  # Fresh file: no marker -> the real append_overlay appends exactly one block.
+  printf '# fresh proj\n' > "$F"
+  append_overlay "$F" "$TMPL" "$newm" "$oldm" >/dev/null 2>&1
+  [ "$(grep -cE "^## Fuse[bB]ase Flow — workflow lifecycle overlay" "$F")" -eq 1 ] || { ht_fail "ws6-install-append (fresh append not exactly 1 marker)" "$(cat "$F")"; return; }
+  # Second run: marker present -> the real guard prevents a second append.
+  append_overlay "$F" "$TMPL" "$newm" "$oldm" >/dev/null 2>&1
+  [ "$(grep -cE "^## Fuse[bB]ase Flow — workflow lifecycle overlay" "$F")" -eq 1 ] || { ht_fail "ws6-install-append (DOUBLE-append on 2nd run — real guard regressed)" "$(cat "$F")"; return; }
+  # An OLD-marker file must ALSO be recognized by the real guard (no re-append onto legacy).
+  printf '# legacy proj\n\n## Fusebase Flow — workflow lifecycle overlay\n' > "$F"
+  append_overlay "$F" "$TMPL" "$newm" "$oldm" >/dev/null 2>&1
+  [ "$(grep -cE "^## Fuse[bB]ase Flow — workflow lifecycle overlay" "$F")" -eq 1 ] || { ht_fail "ws6-install-append (re-appended onto OLD-marker legacy tree — real OLD-marker guard regressed)" "$(cat "$F")"; return; }
+  ht_pass "ws6-install-append-idempotent (WS6): the REAL install.sh append_overlay runs once on a fresh file, no double-append, dual-marker guard skips an OLD or NEW legacy tree"
 }
 
 ht_ws6_old_marker_healthy
