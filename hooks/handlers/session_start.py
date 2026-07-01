@@ -121,6 +121,20 @@ def main() -> int:
     else:
         summary_lines.append("Active project context: none (not onboarded — run /onboard to capture vision).")
 
+    # Problem catalog pointer (WS7): if the repo has filed problems, remind the session
+    # to consult the index before touching a known-problem surface. Pointer-only (FR-23);
+    # quiet on repos with no filed entries.
+    try:
+        catalog_entries = sorted((root / "docs" / "problem-catalog").glob("*/problem.md"))
+    except OSError:
+        catalog_entries = []
+    if catalog_entries:
+        summary_lines.append(
+            f"Problem catalog: {len(catalog_entries)} filed problem(s) — read "
+            "docs/problem-catalog/README.md index before touching MSYS/install-upgrade/"
+            "secret-scan/FR-07 surfaces so you recognize a known problem, not re-diagnose it"
+        )
+
     summary = "\n".join(summary_lines)
     print(summary, file=sys.stderr)
 
