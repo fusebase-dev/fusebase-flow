@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Fusebase Flow — commit-msg git hook
+# fusebase-flow-managed-hook: v1
 #
 # Per FR-03: implementation commits must cite a T-number.
 # Per code-review discipline: vague messages are rejected.

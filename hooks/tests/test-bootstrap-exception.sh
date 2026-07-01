@@ -131,12 +131,30 @@ chmod +x "$D/.git/hooks/pre-commit"
 ( cd "$D" && bash hooks/local/install-git-hooks.sh >/dev/null 2>&1 || true )
 if grep -q custom-hook-sentinel "$D/.git/hooks/pre-commit"; then ok "3-custom-hook-preserved"; else bad "3-custom-hook-preserved" "custom pre-commit was silently overwritten"; fi
 if ls "$D"/.git/hooks/pre-commit.pre-flow-* >/dev/null 2>&1; then ok "3-custom-hook-backed-up"; else bad "3-custom-hook-backed-up" "no backup of the custom hook was written"; fi
-# --force installs the Flow hook (the custom one stays in the backup).
+# --force installs the Flow hook (the custom one stays in the backup). Key off the
+# UNIQUE managed marker (T11) — the token that identifies a Flow-managed hook.
 ( cd "$D" && bash hooks/local/install-git-hooks.sh --force >/dev/null 2>&1 || true )
-if head -5 "$D/.git/hooks/pre-commit" | grep -qF "Fusebase Flow"; then ok "3-force-installs-flow-hook"; else bad "3-force-installs-flow-hook" "--force did not install the Flow hook"; fi
+if head -5 "$D/.git/hooks/pre-commit" | grep -qF "fusebase-flow-managed-hook:"; then ok "3-force-installs-flow-hook"; else bad "3-force-installs-flow-hook" "--force did not install the Flow hook (unique marker absent)"; fi
 # A Flow-managed hook refreshes in place (no spurious backup, no skip).
 ( cd "$D" && bash hooks/local/install-git-hooks.sh >/dev/null 2>&1 || true )
-if head -5 "$D/.git/hooks/pre-commit" | grep -qF "Fusebase Flow"; then ok "3-flow-hook-refreshed-in-place"; else bad "3-flow-hook-refreshed-in-place" "Flow-managed hook was not refreshed in place"; fi
+if head -5 "$D/.git/hooks/pre-commit" | grep -qF "fusebase-flow-managed-hook:"; then ok "3-flow-hook-refreshed-in-place"; else bad "3-flow-hook-refreshed-in-place" "Flow-managed hook was not refreshed in place (unique marker absent)"; fi
+rm -rf "$D"
+
+# ---- 5. UNIQUE MANAGED MARKER (T11): a custom hook whose header MENTIONS the words
+#         "Fusebase Flow" (in a comment) but carries NO unique managed marker must be
+#         treated as CUSTOM — PRESERVED + backed up, never silently clobbered. The old
+#         generic-substring detector clobbered such a hook; the unique marker fixes it. ----
+D="$(new_repo)"
+# A hand-written custom hook that references Fusebase Flow in a comment (NO unique marker).
+printf '%s\n' "#!/bin/sh" "# my project hook — integrates with Fusebase Flow conventions" "echo mentions-fusebase-flow-but-custom" > "$D/.git/hooks/pre-commit"
+chmod +x "$D/.git/hooks/pre-commit"
+( cd "$D" && bash hooks/local/install-git-hooks.sh >/dev/null 2>&1 || true )
+if grep -q mentions-fusebase-flow-but-custom "$D/.git/hooks/pre-commit"; then ok "5-fusebase-mentioning-custom-hook-preserved"; else bad "5-fusebase-mentioning-custom-hook-preserved" "a custom hook that merely mentions 'Fusebase Flow' was silently clobbered (generic-substring false positive)"; fi
+if ls "$D"/.git/hooks/pre-commit.pre-flow-* >/dev/null 2>&1; then ok "5-fusebase-mentioning-custom-hook-backed-up"; else bad "5-fusebase-mentioning-custom-hook-backed-up" "no backup of the Fusebase-mentioning custom hook was written"; fi
+# A genuine Flow hook (unique marker) refreshes in place — no spurious backup skip.
+cp "$ROOT/hooks/git/pre-commit" "$D/.git/hooks/pre-commit"
+( cd "$D" && bash hooks/local/install-git-hooks.sh >/dev/null 2>&1 || true )
+if head -5 "$D/.git/hooks/pre-commit" | grep -qF "fusebase-flow-managed-hook:"; then ok "5-genuine-flow-hook-refreshed-by-unique-marker"; else bad "5-genuine-flow-hook-refreshed-by-unique-marker" "a genuine unique-marker Flow hook was not refreshed in place"; fi
 rm -rf "$D"
 
 finish

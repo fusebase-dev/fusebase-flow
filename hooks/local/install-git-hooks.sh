@@ -4,11 +4,12 @@
 # into .git/hooks/. Re-run after pulling Fusebase Flow updates (upgrade.sh and
 # post-fusebase-update.sh call this so the FIXED pre-commit is live on upgrade).
 #
-# SAFE (re)install (WS1c): a Flow-managed hook (carrying the "Fusebase Flow"
-# marker) is refreshed in place; a CUSTOM hook (no marker) is NEVER silently
-# clobbered — it is backed up and left in place, and overwriting it requires the
-# explicit --force opt-in. So a project's own .git/hooks/pre-commit survives an
-# upgrade unless the operator asks for it to be replaced.
+# SAFE (re)install (WS1c): a Flow-managed hook (carrying the UNIQUE managed marker
+# `fusebase-flow-managed-hook: v1`) is refreshed in place; a CUSTOM hook (no unique
+# marker) is NEVER silently clobbered — it is backed up and left in place, and
+# overwriting it requires the explicit --force opt-in. The marker is a token no
+# hand-written custom hook carries, so a consumer's custom hook that merely mentions
+# "Fusebase Flow" in a comment is treated as CUSTOM (preserved), not clobbered.
 
 set -euo pipefail
 
@@ -24,7 +25,7 @@ done
 ROOT="$(git rev-parse --show-toplevel)"
 SRC="$ROOT/hooks/git"
 DEST="$ROOT/.git/hooks"
-FLOW_MARKER="Fusebase Flow"     # present on line 2 of every Flow-managed hook
+FLOW_MARKER="fusebase-flow-managed-hook:"   # UNIQUE token in every Flow-managed hook header (WS1c/T11)
 
 if [ ! -d "$SRC" ]; then
     echo "Source dir not found: $SRC" >&2
@@ -35,8 +36,8 @@ if [ ! -d "$DEST" ]; then
     exit 1
 fi
 
-# is_flow_managed FILE: 0 (true) iff FILE carries the Flow marker in its header
-# (first ~5 lines) — i.e. it is a Flow-installed hook safe to refresh in place.
+# is_flow_managed FILE: 0 (true) iff FILE carries the UNIQUE managed marker in its
+# header (first ~5 lines) — i.e. it is a Flow-installed hook safe to refresh in place.
 is_flow_managed() {
     [ -f "$1" ] && head -5 "$1" 2>/dev/null | grep -qF "$FLOW_MARKER"
 }

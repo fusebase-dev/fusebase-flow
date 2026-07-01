@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Fusebase Flow — pre-commit git hook
+# fusebase-flow-managed-hook: v1
 #
 # Runs before each commit. Defends FR-07 (worker-undisturbed), FR-12 (secrets),
 # FR-13 (lint+typecheck), and FR-25 (module-size ratchet). Original Fusebase
