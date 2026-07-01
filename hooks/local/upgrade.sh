@@ -403,6 +403,19 @@ if [ -f CLAUDE.md ] && [ -d hooks/local/fusebase-flow-overlays/commands ]; then
   done
 fi
 
+# ---- WS1c: (re)install the Flow git fallback hooks so the FIXED pre-commit is live ----
+# The upgrade refreshed hooks/git/, but the ACTIVE .git/hooks/pre-commit is a COPY —
+# stale until reinstalled (the "upgrade doesn't wire the fixed pre-commit" gap). Safe:
+# a custom .git/hooks/pre-commit is backed up + preserved (needs --force to replace).
+if [ -d .git/hooks ] && [ -x hooks/local/install-git-hooks.sh ]; then
+  if bash hooks/local/install-git-hooks.sh 2>&1 | grep -qi 'custom .* detected'; then
+    echo "[upgrade] NOTE: a custom .git/hooks hook was preserved (not overwritten). To install the"
+    echo "          Flow hook, run: bash hooks/local/install-git-hooks.sh --force"
+  else
+    echo "[upgrade] (re)installed Flow git fallback hooks (.git/hooks/pre-commit, commit-msg)"
+  fi
+fi
+
 # ---- .pyc scrub (F6) ----
 find . -path ./.fusebase-flow-source -prune -o -name "*.pyc" -print -delete 2>/dev/null | grep -q . \
   && echo "[upgrade] scrubbed stray .pyc files" || true
@@ -448,10 +461,15 @@ echo "[upgrade] Recommended next:"
 echo "  bash hooks/local/preflight.sh                       # expect 0 errors / 0 warnings"
 echo "  bash hooks/local/fusebase-flow-health-check.sh      # expect HEALTHY"
 echo "  git diff                                            # review"
-echo "  git add -A && git commit -m 'chore(flow): upgrade content to v$SRC_VERSION'"
+echo "  # Stage the upgraded paths, then commit through the wired pre-commit (NO --no-verify):"
+echo "  git add <upgraded paths>                            # explicit paths (not git add -A)"
+echo "  bash hooks/local/write-bootstrap-approval.sh        # single-use, digest-bound internals approval"
+echo "  git commit -m 'chore(flow): upgrade content to v$SRC_VERSION'"
+echo "  bash hooks/local/write-bootstrap-approval.sh --consume   # single-use: clean up after the commit"
 echo ""
-echo "[upgrade] NOTE: .claude/settings.json was NOT modified. To (re)wire Flow"
-echo "          lifecycle hooks, run:  bash hooks/local/post-fusebase-update.sh --wire-hooks"
+echo "[upgrade] NOTE: the Flow git fallback pre-commit was (re)installed above so the FIXED"
+echo "          pre-commit is live. .claude/settings.json (Claude Code lifecycle hooks) was"
+echo "          NOT modified — to (re)wire those, run: bash hooks/local/post-fusebase-update.sh --wire-hooks"
 echo ""
 echo "[upgrade] NOTE: .fusebase-flow-source/ is a transient staging clone. ESLint flat"
 echo "          config does NOT honor .gitignore, so if 'fusebase deploy' runs lint it"

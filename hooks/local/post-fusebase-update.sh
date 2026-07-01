@@ -322,6 +322,24 @@ else
 fi
 
 ###############################################################################
+# Step 5b - (Re)install the Flow git fallback hooks (WS1c).
+###############################################################################
+# Under --wire-hooks, (re)install the git pre-commit/commit-msg so the FIXED
+# pre-commit is live after an upgrade (the "upgrade doesn't wire the fixed
+# pre-commit" gap). install-git-hooks.sh is SAFE: a custom .git/hooks/pre-commit
+# is backed up + preserved, never silently clobbered (needs --force to replace).
+echo "[post-fusebase-update] Step 5b: Flow git-hook (re)install check..."
+if [ "$WIRE_HOOKS" -eq 1 ] && [ -d .git/hooks ] && [ -x hooks/local/install-git-hooks.sh ]; then
+  if bash hooks/local/install-git-hooks.sh 2>&1 | grep -qi 'custom .* detected'; then
+    WARNINGS+=("custom .git/hooks preserved (not overwritten); re-run 'bash hooks/local/install-git-hooks.sh --force' to install the Flow hook")
+  else
+    ACTIONS_TAKEN+=("(re)installed Flow git fallback hooks (.git/hooks/pre-commit, commit-msg)")
+  fi
+else
+  ACTIONS_SKIPPED+=(".git/hooks NOT touched (git-hook (re)install runs under --wire-hooks only)")
+fi
+
+###############################################################################
 # Step 6 - CLI hook ownership guardrail.
 ###############################################################################
 
@@ -416,7 +434,13 @@ fi
 echo "Recommended next steps:"
 echo "  1. Review changes:   git diff"
 echo "  2. Run validation:   bash hooks/local/preflight.sh && bash hooks/tests/run-tests.sh"
-echo "  3. Commit if clean:  git add AGENTS.md CLAUDE.md .claude/settings.json .claude/commands .claude/skills .agents/skills .claude/agents .codex/agents && git commit -m 'chore(flow): restore Fusebase Flow overlay after fusebase update'"
+echo "  3. Stage + commit (through the wired pre-commit — NO --no-verify):"
+echo "       git add AGENTS.md CLAUDE.md .claude/settings.json .claude/commands .claude/skills .agents/skills .claude/agents .codex/agents"
+echo "       # if the changeset touches Flow-internal protected paths, mint the single-use"
+echo "       # bootstrap approval FIRST (digest-bound to exactly this staged changeset):"
+echo "       bash hooks/local/write-bootstrap-approval.sh"
+echo "       git commit -m 'chore(flow): restore Fusebase Flow overlay after fusebase update'"
+echo "       bash hooks/local/write-bootstrap-approval.sh --consume   # single-use: clean up after"
 
 if [ "${#WARNINGS[@]}" -gt 0 ]; then
   exit 1
