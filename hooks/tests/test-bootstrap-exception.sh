@@ -140,6 +140,69 @@ if head -5 "$D/.git/hooks/pre-commit" | grep -qF "fusebase-flow-managed-hook:"; 
 if head -5 "$D/.git/hooks/pre-commit" | grep -qF "fusebase-flow-managed-hook:"; then ok "3-flow-hook-refreshed-in-place"; else bad "3-flow-hook-refreshed-in-place" "Flow-managed hook was not refreshed in place (unique marker absent)"; fi
 rm -rf "$D"
 
+# ---- 6. DELETE + RENAME coverage (T23 — closes the shipped FR-07 bypass): §3 of the
+#         pre-commit used to gate on `--diff-filter=ACM` only, so a staged DELETE
+#         (`git rm`) or RENAME of a protected file never reached path_policy and
+#         committed with exit 0, no approval. Now the FULL staged change set is
+#         evaluated (A/C/M path; D deleted path; R BOTH old+new). The digest-bound
+#         single-use approval still authorizes a sanctioned delete/rename. ----
+D="$(new_repo)"
+# Seed a committed protected file to delete + one to rename, plus a non-protected file.
+echo "print('victim')" > "$D/hooks/shared/victim.py"
+echo "rules"          > "$D/FLOW_RULES.md"
+echo "app"            > "$D/src/app.py"
+( cd "$D" && git add -A && git commit -qm 'seed protected+nonprotected' )
+
+# 6a. Staged DELETE of a protected path BLOCKS without an approval (RED before T23).
+( cd "$D" && git rm -q hooks/shared/victim.py )
+if run_precommit "$D"; then bad "6a-protected-delete-blocked" "a staged git-rm of a protected path committed with NO approval (FR-07 bypass)"; else ok "6a-protected-delete-blocked"; fi
+# 6b. That SAME delete PASSES once the sanctioned single-use approval is minted (no --no-verify).
+( cd "$D" && bash hooks/local/write-bootstrap-approval.sh >/dev/null 2>&1 )
+if run_precommit "$D"; then ok "6b-protected-delete-with-approval-passes"; else bad "6b-protected-delete-with-approval-passes" "sanctioned delete blocked even with the minted approval"; fi
+( cd "$D" && git commit -qm 'chore(flow): remove victim' && bash hooks/local/write-bootstrap-approval.sh --consume >/dev/null 2>&1 )
+
+# 6c. Staged RENAME of a protected path (old+new both under protection) BLOCKS w/o approval.
+( cd "$D" && git mv FLOW_RULES.md FLOW_RULES_v2.md && git add -A )
+if run_precommit "$D"; then bad "6c-protected-rename-blocked" "a staged rename of a protected path committed with NO approval"; else ok "6c-protected-rename-blocked"; fi
+# 6d. RENAME PASSES with the sanctioned approval (writer + verifier share the full staged set).
+( cd "$D" && bash hooks/local/write-bootstrap-approval.sh >/dev/null 2>&1 )
+if run_precommit "$D"; then ok "6d-protected-rename-with-approval-passes"; else bad "6d-protected-rename-with-approval-passes" "sanctioned rename blocked even with the minted approval"; fi
+( cd "$D" && git commit -qm 'chore(flow): rename rules' && bash hooks/local/write-bootstrap-approval.sh --consume >/dev/null 2>&1 )
+rm -rf "$D"
+
+# 6e/6f. Leaving/entering protection: a rename whose OLD path is protected (moving OUT)
+#         and one whose NEW path is protected (moving IN) must BOTH block — both sides
+#         of the rename are evaluated.
+D="$(new_repo)"
+echo "print('mover')" > "$D/hooks/shared/mover.py"; echo "in" > "$D/src/incoming.py"
+( cd "$D" && git add -A && git commit -qm 'seed mover+incoming' )
+( cd "$D" && git mv hooks/shared/mover.py src/mover.py )   # protected -> non-protected (leaving)
+if run_precommit "$D"; then bad "6e-rename-leaving-protection-blocked" "moving a protected file OUT of protection was allowed (old path not evaluated)"; else ok "6e-rename-leaving-protection-blocked"; fi
+( cd "$D" && git reset -q --hard HEAD )
+( cd "$D" && git mv src/incoming.py hooks/shared/incoming.py )   # non-protected -> protected (entering)
+if run_precommit "$D"; then bad "6f-rename-entering-protection-blocked" "renaming a file INTO protection was allowed (new path not evaluated)"; else ok "6f-rename-entering-protection-blocked"; fi
+rm -rf "$D"
+
+# 6g. NON-protected delete/rename PASSES without any approval (no over-blocking).
+D="$(new_repo)"
+echo "app" > "$D/src/app.py"; ( cd "$D" && git add -A && git commit -qm 'seed app' )
+( cd "$D" && git rm -q src/app.py )
+if run_precommit "$D"; then ok "6g-nonprotected-delete-passes"; else bad "6g-nonprotected-delete-passes" "a non-protected delete was blocked"; fi
+( cd "$D" && git reset -q --hard HEAD && git mv src/app.py src/app2.py )
+if run_precommit "$D"; then ok "6g-nonprotected-rename-passes"; else bad "6g-nonprotected-rename-passes" "a non-protected rename was blocked"; fi
+rm -rf "$D"
+
+# 6h. SINGLE-USE not weakened by T23: a delete-approval must NOT authorize a later,
+#      unrelated protected EDIT (the staged digest changes -> still DENIES).
+D="$(new_repo)"
+echo "print('gone')" > "$D/hooks/shared/gone.py"; ( cd "$D" && git add -A && git commit -qm 'seed gone' )
+( cd "$D" && git rm -q hooks/shared/gone.py && bash hooks/local/write-bootstrap-approval.sh >/dev/null 2>&1 && git commit -qm 'chore: rm gone' )
+# Leave the artifact in place; stage an UNRELATED protected edit.
+printf '\n# unrelated\n' >> "$D/policies/protected-paths.yml"
+( cd "$D" && git add policies/protected-paths.yml )
+if run_precommit "$D"; then bad "6h-delete-approval-single-use" "a stale delete-approval acted as a STANDING bypass for an unrelated protected edit"; else ok "6h-delete-approval-single-use"; fi
+rm -rf "$D"
+
 # ---- 5. UNIQUE MANAGED MARKER (T11): a custom hook whose header MENTIONS the words
 #         "Fusebase Flow" (in a comment) but carries NO unique managed marker must be
 #         treated as CUSTOM — PRESERVED + backed up, never silently clobbered. The old

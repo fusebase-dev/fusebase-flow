@@ -61,17 +61,19 @@ ARTIFACT="$APPROVALS_DIR/protected_path_edit-flow-bootstrap-${DATE_STAMP}.json"
 # collects the staged protected-internals paths, computes the digest, and writes the
 # artifact with the required protected-paths.yml fields + operation + tree_digest.
 PYTHONPATH="$ROOT/hooks" python3 - "$ROOT" "$ARTIFACT" "$OPERATION" "$TTL_MIN" <<'PY'
-import datetime, json, subprocess, sys
+import datetime, json, sys
 from pathlib import Path
 
 root, artifact, operation, ttl_min = sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4])
 sys.path.insert(0, str(Path(root) / "hooks"))
-from shared.path_policy import compute_staged_tree_digest, is_protected  # noqa: E402
+from shared.path_policy import (  # noqa: E402
+    compute_staged_tree_digest, is_protected, staged_change_paths,
+)
 
-staged = subprocess.run(
-    ["git", "diff", "--cached", "--name-only", "--diff-filter=ACM"],
-    capture_output=True, text=True, cwd=root,
-).stdout.splitlines()
+# Full staged change set (A/C/M + DELETES + rename src/dst) so a sanctioned delete or
+# rename of a protected internals path can be approved via the SAME artifact — writer
+# and verifier share staged_change_paths, so they never drift (T23).
+staged = staged_change_paths(Path(root))
 # Only the fusebase_flow_internals paths need the exception; scope it tight.
 paths = [p for p in staged if is_protected(p)[1] == "fusebase_flow_internals"]
 if not paths:

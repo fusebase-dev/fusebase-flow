@@ -109,6 +109,39 @@ def _staged_mode_and_sha(path: str, root: Path) -> tuple[str, str] | None:
     return None
 
 
+def staged_change_paths(root: Path) -> list[str]:
+    """Every path touched by the pending commit, including DELETES + RENAMES.
+
+    `git diff --cached --name-status -M`: A/C/M -> the path; D -> the deleted path;
+    R -> BOTH the old (source, leaving protection) and new (destination) path. The
+    ACM-only `--name-only` set the pre-commit used to gate on silently dropped
+    deletes and rename sources, so a `git rm`/rename of a protected file never
+    reached path_policy (the shipped FR-07 bypass). Returns concrete paths only —
+    a single-use approval still binds each via compute_staged_tree_digest.
+    """
+    try:
+        proc = subprocess.run(
+            ["git", "diff", "--cached", "--name-status", "-M"],
+            capture_output=True, text=True, cwd=str(root),
+        )
+    except Exception:
+        return []
+    out: list[str] = []
+    for line in proc.stdout.splitlines():
+        if not line:
+            continue
+        fields = line.split("\t")
+        status = fields[0]
+        if status and status[0] == "R" and len(fields) >= 3:
+            out.append(fields[1])   # rename source (leaving protection)
+            out.append(fields[2])   # rename destination
+        elif len(fields) >= 2:
+            out.append(fields[1])   # A/C/M/D path
+    # Preserve first-seen order, drop dups (a rename's src/dst never collide).
+    seen: set[str] = set()
+    return [p for p in out if not (p in seen or seen.add(p))]
+
+
 def compute_staged_tree_digest(paths: list[str], root: Path) -> str:
     """Digest binding an exception to the exact staged content+mode of `paths`.
 
@@ -171,9 +204,19 @@ def has_active_exception(
             recorded = data.get("tree_digest", "")
             if not recorded:
                 continue
-            # An approvable internals path must actually be IN the pending commit:
-            # reject if any approved_path has no staged content (the `-` placeholder).
-            if any(_staged_mode_and_sha(p, root) is None for p in approved_paths):
+            # An approvable internals path must actually be IN the pending commit.
+            # A path with staged content (A/C/M) has a blob; a DELETE or rename-SOURCE
+            # legitimately has NO staged blob yet is genuinely staged — so "no blob"
+            # is acceptable ONLY when the path is in the staged change set (T23:
+            # delete/rename coverage). A path entirely absent from the commit (no blob
+            # AND not staged) is still rejected — an artifact cannot approve a path the
+            # pending commit never touches. The digest (with the `-\0-` placeholder for
+            # the deleted path) still binds the artifact single-use to THIS changeset.
+            staged_set = set(staged_change_paths(root))
+            if any(
+                _staged_mode_and_sha(p, root) is None and p not in staged_set
+                for p in approved_paths
+            ):
                 continue
             if recorded != compute_staged_tree_digest(list(approved_paths), root):
                 continue
@@ -217,5 +260,5 @@ def evaluate_many(paths: list[str], *, root: Path | None = None) -> list[PathDec
 
 __all__ = [
     "PathDecision", "is_protected", "has_active_exception", "compute_staged_tree_digest",
-    "evaluate", "evaluate_many",
+    "staged_change_paths", "evaluate", "evaluate_many",
 ]

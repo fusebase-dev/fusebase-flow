@@ -44,20 +44,24 @@ if command -v python3 >/dev/null 2>&1; then
     if [ "${exit_secret:-0}" -ne 0 ]; then exit 1; fi
 fi
 
-# 3. Reject protected-path edits without an active exception artifact.
-if [ -n "$STAGED_PATHS" ] && command -v python3 >/dev/null 2>&1; then
+# 3. Reject protected-path edits without an active exception artifact. Covers the
+#    FULL staged change set — ADDS/MODS *and* DELETES + RENAMES (a `git rm` or rename
+#    of a protected file must reach path_policy too; the old ACM-only set let deletes/
+#    rename-sources through with exit 0 — the shipped FR-07 bypass). The gate fires on
+#    ANY staged change (unfiltered), not just ACM. §1/§2 secret checks stay ACM by
+#    design (deleting a file can't leak a secret).
+STAGED_ANY="$(git diff --cached --name-only 2>/dev/null || true)"
+if [ -n "$STAGED_ANY" ] && command -v python3 >/dev/null 2>&1; then
     PYTHONPATH="$ROOT/hooks" python3 - <<'PY' || exit_proto=$?
-import os, sys
+import sys
 from pathlib import Path
 root = Path.cwd()
 sys.path.insert(0, str(root / "hooks"))
 try:
-    from shared.path_policy import evaluate
+    from shared.path_policy import evaluate, staged_change_paths
 except Exception:
     sys.exit(0)
-import subprocess
-paths = subprocess.run(["git", "diff", "--cached", "--name-only", "--diff-filter=ACM"],
-                      capture_output=True, text=True).stdout.splitlines()
+paths = staged_change_paths(root)
 hits = []
 for p in paths:
     pd = evaluate(p)
