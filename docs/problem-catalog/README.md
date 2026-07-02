@@ -50,7 +50,8 @@ known problem instead of re-diagnosing it.
 |---|---|---|---|
 | `install-upgrade-commit-self-blocked` | high | resolved | Fresh install / self-upgrade couldn't make its own documented setup commit through Flow's gates (secret self-trip + FR-07 + fixed pre-commit not re-installed) |
 | `run-tests-never-completes-msys` | high | resolved | `run-tests.sh` never reached exit 0 on any MINGW64 box — harness didn't reuse the bounded-run reap; `$(...)` capture held open by a native grandchild |
-| `bounded-run-msys-collateral-kill` | high | resolved (core) / v3.30.4 (hard) | MSYS `taskkill //T` over-killed (255 collateral: caller/harness/other sessions) and returned rc0-on-kill; ancestor-resolution + PID reuse |
+| `bounded-run-msys-collateral-kill` | high | resolved (core v3.30.3; opt-in hard fence v3.30.4, Cummings-class reliability consumer-gated) | MSYS `taskkill //T` over-killed (255 collateral: caller/harness/other sessions) and returned rc0-on-kill; ancestor-resolution + PID reuse |
 | `health-check-false-broken-rc0-on-kill` | high | resolved | Healthy install read BROKEN on Ovation — rc0-on-kill hit the `rc0+no-PASS+no-FAIL⇒BROKEN` branch; fixed at root (true-124-on-kill), fail-closed guard preserved |
 | `truncated-manifest-on-bound-hit` | medium | resolved | Self-mistake: release shipped a truncated skill-mirror manifest — bound-hit mid-write + `mirror-skills --check` (a non-existent flag) ran a concurrent full mirror |
 | `inaccurate-consumer-prompt` | medium | resolved | Self-mistake: consumer apply-prompt claimed "the upgrade installs the fixed pre-commit" — false; asserted tool behavior without verifying it against source |
+| `tests-ran-without-set-e` | medium | resolved | A real WS5 optional-step abort bug passed the suite GREEN — the test sourced the lib without `set -e`, so the `set -e`-sensitive abort path was never reproduced; caught only by adversarial review (v3.30.4) |

@@ -1,6 +1,32 @@
 # Roadmap — Windows/MSYS hardening + adoption-path + process (v3.30.3 / v3.30.4)
 
-**Status:** v3.30.3 workstreams SHIPPED — WS1-WS9 DONE (see § Post-deploy closeout). v3.30.4 (WS2-hard + WS5) remains OPEN. LOCKED body below is the execution source-of-truth for the 9 field-validated slices captured 2026-06-30.
+**Status:** COMPLETE — all 9 workstreams SHIPPED across v3.30.3 (WS1-WS9) + v3.30.4 (WS2-hard + WS5). See § Post-deploy closeout — v3.30.3 and § Post-deploy closeout — v3.30.4. LOCKED body below is the historical execution source-of-truth for the 9 field-validated slices captured 2026-06-30.
+
+## Post-deploy closeout — v3.30.4 (2026-07-02) — roadmap COMPLETE
+
+**Released:** commit `37da04f0f551420feab24b74990b3c6100be2d2f` · tag `v3.30.4` · https://github.com/fusebase-dev/fusebase-flow/releases/tag/v3.30.4
+**DP.1 approval:** `state/approvals/production_deploy-v3304-20260702.json` (operator standing authorization; DP.6 equivalent = standing GO).
+**Reviews:** three passes on the corrected diff (Codex full BLOCK→fixed, FuseBase workflow BLOCK→fixed, Codex re-review SHIP); all findings folded (T19/T20 + T21/T22 corrections).
+
+| Workstream | v3.30.4 status |
+|---|---|
+| WS2-hard — Windows Job Object outer fence (opt-in `FFHC_USE_JOB_OBJECT=1`, default OFF) + Cummings-class ac3d/deadline reliability | **DONE** |
+| WS5 — Upgrade engine Windows-safe bounded exit (busy-loop root fix + critical/optional bounding + timestamp-safe prune glob) | **DONE** |
+
+**PROVEN-here vs CONSUMER-GATED split (v3.30.4):**
+
+| Item | Status | Evidence / gate |
+|---|---|---|
+| WS2-hard fence mechanism (launch → assign → strictly-scoped atomic kill of the assigned tree) | **PROVEN here** | MSYS + PowerShell publish host; opt-in gated, default OFF |
+| WS2-hard default behavior byte-unchanged (fence OFF) | **PROVEN here** | full run-tests green + POSIX byte-equivalence; fence is opt-in |
+| WS2-hard Cummings-class `ac3d → rc137` reliability | **CONSUMER-GATED** | requires a real Cummings-class MINGW64 host (can't repro on publish host) |
+| WS2-hard Job-Object-vs-`timeout -k` kill discriminator | **CONSUMER-GATED** | same host dependency; best-effort launch→assign race documented honestly |
+| WS5 `prune_pre_backups` busy-loop root fix (single-pass O(M)) + critical/optional bounding + `set -e` fix (tested under `set -e`) | **PROVEN here** | code-verified + tested; adversarial-review corrections folded |
+| WS5 full `upgrade.sh --auto-yes` end-to-end on MSYS | **CONSUMER-GATED** | host-dependent; operator distributes the apply/validate prompt |
+
+**Consumer-verify (operator distributes):** full `run-tests.sh` on a quiet MINGW64 box · opt-in `FFHC_USE_JOB_OBJECT=1` on a real Cummings-class host · full `upgrade.sh --auto-yes` end-to-end.
+
+**Adversarial-review corrections folded (T19-T22):** fence NO-RERUN fallback cleans both temp files (no leak); opt-in fence command-substitution HANG/leak fix + knob-first gate + honest race claim; `set -e` optional-step abort fix tested under `set -e` (the "tests ran without `set -e`" blind spot closed — see `docs/problem-catalog/tests-ran-without-set-e/`); prune glob tightened to the timestamp shape.
 
 ## Post-deploy closeout — v3.30.3 (2026-07-01)
 
@@ -17,8 +43,8 @@
 | WS7 — Internal problem catalog (`docs/problem-catalog/`) | **DONE** |
 | WS8 — Mandatory zero-trust subagent-liveness rule (FR-27 extension) | **DONE** |
 | WS9 — Slash-command naming + capitalization | **DONE** |
-| WS2-hard — Windows Job Object + Cummings-class ac3d/deadline reliability | **OPEN → v3.30.4** |
-| WS5 — Upgrade engine Windows-safe bounded exit (busy-loop / 255-at-tail) | **OPEN → v3.30.4** |
+| WS2-hard — Windows Job Object + Cummings-class ac3d/deadline reliability | **DONE (v3.30.4 · `37da04f` · tag v3.30.4)** |
+| WS5 — Upgrade engine Windows-safe bounded exit (busy-loop / 255-at-tail) | **DONE (v3.30.4 · `37da04f` · tag v3.30.4)** |
 
 **Adversarial-review corrections folded (T10-T18):** glob-bypass close, unique hook marker, trap re-verify, secret-scan runtime tokens, single-use digest-bound protected-path exception, MSYS bounded-run strict winpid scoping + harness reap + fixture-phase stdin fix, health-check verdict robustness + MSYS timeouts, dual-marker migration, test fidelity. Two independent adversarial reviews (Codex + FuseBase workflow) returned SHIP.
 
