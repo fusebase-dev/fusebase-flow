@@ -171,6 +171,130 @@ w5_optional_ok_returns0() {
   fi
 }
 
+# ---- W9..W12: the set -e BLOCKER (v3.30.4 review correction). The engine runs
+# `set -euo pipefail` WITHOUT `set -E`, so a nonzero `wait "$bpid"` deep in
+# ffhc_run_bounded (rc 124 timeout OR a child's own failure) would ABORT the whole
+# upgrade at that `wait` — before ffhc_run_step's warn/continue (or critical hint),
+# with NO ERR-trap inheritance (set -E off). The w2/w3/w4 cases above run WITHOUT
+# `set -e` (line 22: `set -uo`), which is exactly why they PASSED while the shipped
+# run aborted — the BLIND SPOT. These four drive the SHIPPED ffhc_run_step under the
+# SHIPPED environment: `set -euo pipefail` + the ERR trap the engine arms at :298. ----
+
+# Build a bash program that reproduces the engine's set -e + ERR-trap environment,
+# sources the extracted ffhc_run_step, runs one step, and echoes a post-step marker.
+# CMD_LINE is embedded VERBATIM as the tail of the ffhc_run_step call (already a
+# properly-quoted command line, e.g. `sleep 20` or `bash -c 'exit 4'`) so quoting
+# survives — NOT word-split through $* (which would strip inner quotes).
+_ws5_set_e_prog() { # <critical> <secs> <cmd-line-verbatim>
+  local critical="$1" secs="$2" cmd_line="$3"
+  cat <<PROG
+set -euo pipefail
+ROOT="$ROOT"; FFHC_STEP_LIB="$LIB"; FFHC_STEP_LIB_OK=0
+. "\$FFHC_STEP_LIB"; ffhc_detect_timeout; FFHC_STEP_LIB_OK=1
+export FFHC_TIMEOUT_KILL_GRACE=1s
+print_recovery_hint() { echo "RECOVERY-HINT-PRINTED" >&2; }
+trap 'rc=\$?; print_recovery_hint; exit \$rc' INT TERM ERR
+$(extract_fn ffhc_run_step "$UPGRADE")
+ffhc_run_step $secs $critical "step-under-set-e" $cmd_line
+echo "REACHED-MARKER rc=\$?"
+PROG
+}
+
+w9_optional_timeout_set_e_safe() {
+  if [ -z "${FFHC_TIMEOUT_BIN:-}" ] && ! command -v timeout >/dev/null 2>&1; then
+    skip "w9-optional-timeout-set-e-safe" "no timeout binary to bound the step"; return
+  fi
+  # An OPTIONAL step (critical=0) that TIMES OUT (rc124) under `set -euo pipefail` + the ERR
+  # trap must WARN + CONTINUE + reach the VERSION-write marker with rc0 — NOT abort at `wait`.
+  local out rc
+  out="$(timeout -k 5 40 bash -c "$(_ws5_set_e_prog 0 1 'sleep 20')" 2>&1)"; rc=$?
+  if [ "$rc" -eq 0 ] && echo "$out" | grep -q "REACHED-MARKER rc=0" && echo "$out" | grep -qi "optional step failed/killed"; then
+    ok "w9-optional-timeout-set-e-safe (UNDER set -e + ERR trap: a timed-out OPTIONAL step WARNs + continues + reaches the VERSION-write marker rc0 — the set -e wait-abort can no longer escape)"
+  else
+    bad "w9-optional-timeout-set-e-safe" "set -e wait-abort NOT neutralized: outer_rc=$rc (expected 0), out: $out"
+  fi
+}
+
+w10_optional_fail_set_e_safe() {
+  # An OPTIONAL step whose command FAILS fast (rc4, not a timeout) under set -e must ALSO
+  # warn + continue + reach the marker rc0 (the child-failure arm of the same wait-abort).
+  local out rc
+  out="$(timeout -k 5 40 bash -c "$(_ws5_set_e_prog 0 30 "bash -c 'exit 4'")" 2>&1)"; rc=$?
+  if [ "$rc" -eq 0 ] && echo "$out" | grep -q "REACHED-MARKER rc=0" && echo "$out" | grep -qi "optional step failed/killed"; then
+    ok "w10-optional-fail-set-e-safe (UNDER set -e: a fast-failing OPTIONAL step (rc4) WARNs + continues + reaches the marker rc0 — no wait-abort)"
+  else
+    bad "w10-optional-fail-set-e-safe" "set -e abort on optional child-fail: outer_rc=$rc (expected 0), out: $out"
+  fi
+}
+
+w11_critical_fail_set_e_exits_with_hint() {
+  # A CRITICAL step that fails under set -e must reach ffhc_run_step's OWN critical branch:
+  # exit nonzero WITH the recovery hint (NOT a raw set -e abort that skips the hint). The
+  # post-step marker must NOT appear.
+  local out rc
+  out="$(timeout -k 5 40 bash -c "$(_ws5_set_e_prog 1 30 "bash -c 'exit 4'")" 2>&1)"; rc=$?
+  if [ "$rc" -ne 0 ] && echo "$out" | grep -q "RECOVERY-HINT-PRINTED" && echo "$out" | grep -q "CRITICAL step failed" && ! echo "$out" | grep -q "REACHED-MARKER"; then
+    ok "w11-critical-fail-set-e-exits-with-hint (UNDER set -e: a failing CRITICAL step exits nonzero (rc=$rc) via ffhc_run_step's FATAL+hint path — not a raw wait-abort that would skip the hint)"
+  else
+    bad "w11-critical-fail-set-e-exits-with-hint" "expected nonzero exit + FATAL + RECOVERY-HINT + no marker; got rc=$rc out: $out"
+  fi
+}
+
+w12_degraded_optional_fail_set_e_safe() {
+  # The FFHC_STEP_LIB_OK=0 degraded path runs the step DIRECTLY (`"$@"; rc=$?`) — it has the
+  # identical set -e bug. Under set -e a degraded OPTIONAL fail must still warn + continue.
+  local prog out rc
+  prog="$(cat <<PROG
+set -euo pipefail
+FFHC_STEP_LIB_OK=0
+print_recovery_hint() { echo "RECOVERY-HINT-PRINTED" >&2; }
+trap 'rc=\$?; print_recovery_hint; exit \$rc' INT TERM ERR
+$(extract_fn ffhc_run_step "$UPGRADE")
+ffhc_run_step 30 0 "degraded-optional-fail" bash -c 'exit 7'
+echo "REACHED-MARKER rc=\$?"
+PROG
+)"
+  out="$(timeout -k 5 20 bash -c "$prog" 2>&1)"; rc=$?
+  if [ "$rc" -eq 0 ] && echo "$out" | grep -q "REACHED-MARKER rc=0" && echo "$out" | grep -qi "optional step failed/killed"; then
+    ok "w12-degraded-optional-fail-set-e-safe (UNDER set -e, FFHC_STEP_LIB_OK=0 direct-run path: a failing OPTIONAL step WARNs + continues + reaches the marker rc0)"
+  else
+    bad "w12-degraded-optional-fail-set-e-safe" "degraded-path set -e abort: outer_rc=$rc (expected 0), out: $out"
+  fi
+}
+
+# ---- W13: prune timestamp-safety (defense-in-depth on the DELETE path). A non-backup
+# file that merely CONTAINS ".pre-upgrade-"/".pre-refresh-" (e.g. config.pre-upgrade-
+# template.yml) must NEVER be deleted; only genuine [0-9]{8}T[0-9]{6}Z-suffixed backups
+# are eligible, and they still prune (keep newest N/stem). ----
+w13_prune_ignores_non_backup() {
+  local FIX; FIX="$(mktemp -d "${TMPDIR:-/tmp}/ws5-prunesafe.XXXXXX")" || { bad "w13-prune-ignores-non-backup" "mktemp -d failed"; return; }
+  ( cd "$FIX" || exit 1
+    # Non-backups bearing the reserved substring but NOT the timestamp shape — must survive.
+    : > config.pre-upgrade-template.yml
+    : > notes.pre-refresh-draft.md
+    : > x.pre-upgrade-20260101T00001Z          # 5-digit time => malformed => survive
+    # Genuine timestamped backups: 5 for one stem => newest 3 kept, oldest 2 pruned.
+    local t
+    for t in 20260101T000001Z 20260102T000001Z 20260103T000001Z 20260104T000001Z 20260105T000001Z; do
+      : > "real.txt.pre-upgrade-$t"
+    done
+  ) || { rm -rf "$FIX"; bad "w13-prune-ignores-non-backup" "fixture setup failed"; return; }
+  local FN; FN="$(extract_fn prune_pre_backups "$UPGRADE")"
+  [ -n "$FN" ] || { rm -rf "$FIX"; bad "w13-prune-ignores-non-backup" "could not extract prune_pre_backups"; return; }
+  ( cd "$FIX" && timeout -k 3 30 bash -c "PRE_RETAIN=3; $FN; prune_pre_backups" ) >/dev/null 2>&1
+  local pruned_ok=1 kept
+  [ -f "$FIX/config.pre-upgrade-template.yml" ] || pruned_ok=0
+  [ -f "$FIX/notes.pre-refresh-draft.md" ] || pruned_ok=0
+  [ -f "$FIX/x.pre-upgrade-20260101T00001Z" ] || pruned_ok=0
+  kept="$(cd "$FIX" && ls real.txt.pre-upgrade-* 2>/dev/null | sort | tr '\n' ' ')"
+  rm -rf "$FIX"
+  if [ "$pruned_ok" -eq 1 ] && case "$kept" in *20260103T000001Z*20260104T000001Z*20260105T000001Z*) [ "$(echo "$kept" | wc -w)" -eq 3 ] ;; *) false ;; esac; then
+    ok "w13-prune-ignores-non-backup (non-backup .pre-upgrade-/.pre-refresh- files survive; genuine timestamped backups prune to newest-3/stem: $kept)"
+  else
+    bad "w13-prune-ignores-non-backup" "template survived=$pruned_ok; real-backups-kept=[$kept] (expected 3 newest 03/04/05, non-backups intact)"
+  fi
+}
+
 w6_version_write_critical_guard_present() {
   # The VERSION write is CRITICAL: a failed/partial write must FAIL with the hint, never
   # leave content refreshed while VERSION reads stale. Assert the shipped guard is present
@@ -222,6 +346,11 @@ w2_optional_killed_continues
 w3_critical_killed_fails_with_hint
 w4_critical_failing_cmd_fails
 w5_optional_ok_returns0
+w9_optional_timeout_set_e_safe
+w10_optional_fail_set_e_safe
+w11_critical_fail_set_e_exits_with_hint
+w12_degraded_optional_fail_set_e_safe
+w13_prune_ignores_non_backup
 w6_version_write_critical_guard_present
 w7_remirror_and_prune_bounded_wiring
 w8_no_runaway_after_prune

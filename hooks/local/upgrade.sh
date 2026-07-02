@@ -110,6 +110,14 @@ ffhc_run_step() {
   local secs="$1" critical="$2" label="$3"; shift 3
   printf '[upgrade] step: %s (bounded %ss)…\n' "$label" "$secs" >&2
   local rc
+  # TRIPWIRE (set -e safety): the engine runs `set -euo pipefail` WITHOUT `set -E`, so a
+  # nonzero `wait "$bpid"` deep in ffhc_run_bounded (rc 124 timeout OR the child's own
+  # failure) would ABORT the whole upgrade at that `wait` — before rc capture and before
+  # this function's optional-warn/critical-hint decision, and with no ERR-trap inheritance.
+  # Neutralize -e around EVERY invocation + rc capture, restore it before the decision, so
+  # an OPTIONAL failure/timeout warns+continues and a CRITICAL one exits WITH the hint.
+  local _had_e=0; case $- in *e*) _had_e=1 ;; esac
+  set +e
   if [ "$FFHC_STEP_LIB_OK" -eq 1 ]; then
     ffhc_run_bounded "$secs" "$@"; rc=$FFHC_LAST_RC
     [ -n "$FFHC_LAST_OUT" ] && printf '%s\n' "$FFHC_LAST_OUT" >&2
@@ -119,12 +127,14 @@ ffhc_run_step() {
         "$@"; rc=$?
       else
         printf '[upgrade] WARN: step %s SKIPPED (no timeout binary to bound an optional step) — continuing.\n' "$label" >&2
+        [ "$_had_e" = 1 ] && set -e
         return 0
       fi
     fi
   else
     "$@"; rc=$?
   fi
+  [ "$_had_e" = 1 ] && set -e
   if [ "$rc" -ne 0 ]; then
     if [ "$critical" = "1" ]; then
       printf '[upgrade] FATAL: CRITICAL step failed/killed (rc %s): %s — the upgrade is INCOMPLETE.\n' "$rc" "$label" >&2
@@ -504,10 +514,16 @@ prune_pre_backups() {
   # then ts DESCENDING (newest first within a stem); awk keeps the first `retain` per stem
   # and prints the rest (the deletions). All forks are constant (find|sed|sort|awk), not
   # per-stem. Only OUR timestamped suffixes; never .git / the source clone.
+  # TRIPWIRE (DELETE-path defense-in-depth): the suffix is `date -u +%Y%m%dT%H%M%SZ`, so
+  # BOTH the find glob AND the sed capture require the exact [0-9]{8}T[0-9]{6}Z shape —
+  # a non-backup file that merely contains ".pre-upgrade-" (e.g. config.pre-upgrade-
+  # template.yml) can never match and is never eligible for `rm -rf`. sed dropping a
+  # non-conforming name (no capture => empty line, no tab) makes it fall out of the list.
+  local _tsg='[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]T[0-9][0-9][0-9][0-9][0-9][0-9]Z'
   to_delete="$(
     find . -path ./.git -prune -o -path ./.fusebase-flow-source -prune -o \
-      \( -name '*.pre-upgrade-*' -o -name '*.pre-refresh-*' \) -print 2>/dev/null \
-    | sed -E 's|^(.*)\.pre-(upgrade\|refresh)-([^/]*)$|\1\t\3\t&|' \
+      \( -name "*.pre-upgrade-$_tsg" -o -name "*.pre-refresh-$_tsg" \) -print 2>/dev/null \
+    | sed -nE 's|^(.*)\.pre-(upgrade\|refresh)-([0-9]{8}T[0-9]{6}Z)$|\1\t\3\t&|p' \
     | sort -t "$(printf '\t')" -k1,1 -k2,2r \
     | awk -F '\t' -v n="$retain" '{ if ($1==prev) c++; else { c=1; prev=$1 } if (c>n) print $3 }'
   )"
