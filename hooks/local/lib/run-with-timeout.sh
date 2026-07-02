@@ -202,11 +202,19 @@ ffhc_msys_wait_reap() {
 #
 # HONEST LIMIT (same as taskkill's, run-with-timeout.sh:143): a native descendant
 # that MSYS-fork/`start //b`-DETACHES out of the assigned winpid's Win32 tree before
-# assignment is not in the job — best-effort, exactly like the existing reap. What
-# the fence GUARANTEES: the assigned tree dies atomically (proven: a stubborn
-# TERM-ignoring child under run_with_timeout => rc 137 on TerminateJobObject) and
-# the kill is strictly scoped (an unrelated sibling survives). The tempfile capture,
-# not the kill, remains the anti-hang guarantee.
+# assignment is not in the job — best-effort, exactly like the existing reap.
+# HONEST LIMIT #2 — the LAUNCH->ASSIGN RACE: the fence assigns an ALREADY-LAUNCHED
+# winpid (the child starts under run_with_timeout, THEN the job assign happens), so a
+# descendant spawned in the narrow launch->assign window can escape the job. We shrink
+# the window (winpid is captured immediately post-launch and the assign fires right
+# after) but do NOT eliminate it — best-effort, like limit #1. Also HONEST about the
+# TEST claim: on this host GNU `timeout -k` alone already SIGKILLs a stubborn child to
+# rc 137, so the 137 smoke EXERCISES the mechanism but does NOT prove the Job Object
+# performed the kill (the Job-Object-vs-timeout-k distinction is consumer-gated). What
+# the fence GUARANTEES: the assigned tree dies atomically (a stubborn TERM-ignoring
+# child under run_with_timeout => rc 137 on TerminateJobObject) and the kill is strictly
+# scoped (an unrelated sibling survives). The tempfile capture, not the kill, remains
+# the anti-hang guarantee.
 #
 # NO-RERUN CONTRACT: the probe runs BEFORE any child launches (a probe failure just
 # skips the branch — WS2-core re-run is safe, nothing launched). The helper ASSIGN
@@ -307,43 +315,51 @@ ffhc_job_available() {
 }
 
 # _ffhc_job_fence WINPID SECS: launch the fence helper for an ALREADY-LAUNCHED child's
-# WINPID, bounded to SECS+grace. Echoes the trigger-file path on ASSIGN-OK (touch it to
-# hard-kill the assigned tree; the reap does this at the deadline). Echoes "" on any
-# ASSIGN failure (NO-RERUN: the caller falls back to the plain taskkill reap for the
-# already-launched _bpid — never re-executes). Helper stdout => a tempfile, never a pipe.
+# WINPID, bounded to SECS+grace. SETS TWO MODULE GLOBALS in the CURRENT shell (never a
+# command substitution — see the tripwire): FFHC_JOB_FENCE_TRIG = the trigger-file path
+# on ASSIGN-OK (touch it to hard-kill the assigned tree; the reap does this at the
+# deadline), or "" on any ASSIGN failure; FFHC_JOB_FENCE_HPID = the helper's bash pid so
+# the caller reaps it. TRIPWIRE: this MUST be called DIRECTLY (`_ffhc_job_fence …`), NOT
+# in `$( … )` — a subshell would (a) lose FFHC_JOB_FENCE_HPID so the caller's helper reap
+# never runs (leak) and (b) block the parent on the backgrounded helper's stdout until its
+# deadline cap (the fast-opt-in HANG). The helper's stdout goes to a tempfile ($hstat),
+# never a pipe the parent reads. NO-RERUN: on ASSIGN failure the caller falls back to the
+# plain taskkill reap for the already-launched _bpid — never re-executes.
 FFHC_JOB_FENCE_HPID=""
+FFHC_JOB_FENCE_TRIG=""
 _ffhc_job_fence() {
   local winpid="$1" secs="$2"
-  FFHC_JOB_FENCE_HPID=""
-  [ -n "$winpid" ] || { echo ""; return 0; }
-  local helper; helper="$(_ffhc_job_helper_path)"; [ -n "$helper" ] || { echo ""; return 0; }
+  FFHC_JOB_FENCE_HPID=""; FFHC_JOB_FENCE_TRIG=""
+  [ -n "$winpid" ] || return 0
+  local helper; helper="$(_ffhc_job_helper_path)"; [ -n "$helper" ] || return 0
   local grace="${FFHC_TIMEOUT_KILL_GRACE:-5s}"; local gsec="${grace%[!0-9]*}"
   case "$gsec" in ''|*[!0-9]*) gsec=5 ;; esac
   local dl=$(( secs + gsec + 3 ))
   local trig; trig="$(mktemp "${TMPDIR:-/tmp}/ffhc-jobtrig.$$.XXXXXX" 2>/dev/null)"; rm -f "$trig" 2>/dev/null
-  local hstat; hstat="$(mktemp "${TMPDIR:-/tmp}/ffhc-jobstat.$$.XXXXXX" 2>/dev/null)" || { echo ""; return 0; }
+  local hstat; hstat="$(mktemp "${TMPDIR:-/tmp}/ffhc-jobstat.$$.XXXXXX" 2>/dev/null)" || return 0
+  # stdout -> $hstat (a tempfile), NEVER a pipe the parent reads: the parent must not block
+  # on the backgrounded helper's fd 1 (that is the fast-opt-in HANG when called under $(…)).
   powershell.exe -NoProfile -ExecutionPolicy Bypass \
     -File "$(cygpath -w "$helper" 2>/dev/null || echo "$helper")" \
     -WinPid "$winpid" -TriggerFile "$(cygpath -w "$trig" 2>/dev/null || echo "$trig")" -DeadlineSecs "$dl" \
     >"$hstat" 2>/dev/null &
   FFHC_JOB_FENCE_HPID=$!
   # Confirm ASSIGN-OK within a short bound (the helper prints it right after assign). If it
-  # never confirms, NO-RERUN: signal-close the helper, drop the trigger, return "" (fallback).
+  # never confirms, NO-RERUN: signal-close the helper, drop the trigger, leave TRIG="" (fallback).
   local waited=0
   while [ "$waited" -lt 30 ]; do
-    grep -q "ASSIGN-OK" "$hstat" 2>/dev/null && { rm -f "$hstat" 2>/dev/null; echo "$trig"; return 0; }
+    grep -q "ASSIGN-OK" "$hstat" 2>/dev/null && { rm -f "$hstat" 2>/dev/null; FFHC_JOB_FENCE_TRIG="$trig"; return 0; }
     grep -q "ASSIGN-FAIL" "$hstat" 2>/dev/null && break
     kill -0 "$FFHC_JOB_FENCE_HPID" 2>/dev/null || break
     sleep 0.1; waited=$((waited + 1))
   done
   # NO-RERUN fallback: signal-close the helper, reap it, then clean BOTH temp files (no
-  # leak) and return "" so the caller uses the plain taskkill reap for the already-launched
-  # child — never a re-run.
+  # leak) and leave FFHC_JOB_FENCE_TRIG="" so the caller uses the plain taskkill reap for
+  # the already-launched child — never a re-run.
   : > "$trig" 2>/dev/null
   [ -n "$FFHC_JOB_FENCE_HPID" ] && wait "$FFHC_JOB_FENCE_HPID" 2>/dev/null
   FFHC_JOB_FENCE_HPID=""
   rm -f "$trig" "$hstat" 2>/dev/null
-  echo ""
 }
 
 # ffhc_run_bounded SECS CMD [ARGS...]
@@ -412,14 +428,22 @@ _ffhc_tempfile_capture() {
   # path. Both are cleared the instant we return below (the child is reaped by then), so
   # they are non-empty ONLY while the child is provably alive.
   FFHC_LAST_WINPID="$_winpid"; FFHC_LAST_CHILD_PID="$_bpid"
-  # WS2-hard OUTER FENCE (opt-in, guarded by ffhc_is_msys AND ffhc_job_available AND the
-  # non-inherit default path). Purely additive: when off/unavailable/inherit, _trig="" and
-  # the wait_reap call below is IDENTICAL to WS2-core (byte-behavior-unchanged default).
-  # NO-RERUN: the fence assigns the ALREADY-LAUNCHED _winpid; an ASSIGN failure returns
-  # _trig="" and we fall straight through to the plain taskkill reap — never a re-run.
+  # WS2-hard OUTER FENCE (opt-in, guarded). Purely additive: when off/unavailable/inherit,
+  # _trig="" and the wait_reap call below is IDENTICAL to WS2-core (byte-behavior-unchanged
+  # default). KNOB-FIRST GATE: the cheap string compare `FFHC_USE_JOB_OBJECT==1` is the
+  # FIRST test, so the default (knob unset) path short-circuits WITHOUT ffhc_is_msys (a
+  # `uname` fork) or the ffhc_job_available probe — the default path adds ZERO extra fork.
+  # ffhc_job_available (cached) is LAST in the && chain so the probe runs only when opted in.
+  # NO-RERUN: the fence assigns the ALREADY-LAUNCHED _winpid; an ASSIGN failure leaves
+  # FFHC_JOB_FENCE_TRIG="" and we fall straight through to the plain taskkill reap.
+  # DIRECT CALL (never `$( … )`): _ffhc_job_fence sets FFHC_JOB_FENCE_TRIG + FFHC_JOB_FENCE_HPID
+  # in THIS shell — a subshell would lose the HPID (helper never reaped => leak) AND block the
+  # parent on the helper's stdout until its deadline cap (the fast-opt-in HANG).
   local _trig=""
-  if ffhc_is_msys && [ "$stdin_mode" != "inherit" ] && [ -n "$_winpid" ] && ffhc_job_available; then
-    _trig="$(_ffhc_job_fence "$_winpid" "$secs")"
+  if [ "${FFHC_USE_JOB_OBJECT:-0}" = "1" ] && [ "$stdin_mode" != "inherit" ] && [ -n "$_winpid" ] \
+       && ffhc_is_msys && ffhc_job_available; then
+    _ffhc_job_fence "$_winpid" "$secs"
+    _trig="$FFHC_JOB_FENCE_TRIG"
   fi
   if ffhc_is_msys; then ffhc_msys_wait_reap "$_bpid" "$secs" "$_winpid" "$_trig"; else wait "$_bpid"; fi
   FFHC_LAST_RC=$?
