@@ -277,4 +277,81 @@ else
 fi
 rm -rf "$D"
 
+# ---- 9. ENUMERATION FAIL-CLOSED (T26 BLOCKER): T25 closed the IMPORT fail-open, but
+#         path_policy.staged_change_paths() returns [] on ANY subprocess exception AND on a
+#         nonzero git rc (subprocess.run does NOT raise on nonzero). If enumeration FAILS
+#         while staged changes exist, §3 saw paths=[] -> no hits -> exit 0: a SECOND fail-OPEN.
+#         The §3 cross-check now re-lists staged names with an explicit rc check and blocks on
+#         (a) git-list rc!=0 or (b) names-present-but-enumeration-empty. Both simulations are
+#         pure-Python (host-independent): a bash/.cmd git-shim is NOT honored by the hook's
+#         Windows-native python subprocess, so we override at the module boundary instead.
+#         RED (old T25 code exits 0) -> GREEN (T26 exits 1). ----
+D="$(new_repo)"
+# 9a. enum-failure-fails-closed: staged_change_paths() returns [] while a PROTECTED file is
+#     staged (simulates a failed/[]-returning enumeration). Cross-check: names non-empty +
+#     paths empty -> BLOCK. Append the override so evaluate/is_protected stay the REAL ones.
+cat >> "$D/hooks/shared/path_policy.py" <<'PYOV'
+
+def staged_change_paths(root):  # T26 test override: enumeration returns [] (failure/disagreement)
+    return []
+PYOV
+printf '\n# enum-fail edit\n' >> "$D/policies/protected-paths.yml"
+( cd "$D" && git add policies/protected-paths.yml )
+# GREEN: the T26 pre-commit must BLOCK (names present, enumeration empty).
+ENUM_ERR="$( ( cd "$D" && bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
+ENUM_RC=0; ( cd "$D" && bash hooks/git/pre-commit >/dev/null 2>&1 ) || ENUM_RC=$?
+if [ "$ENUM_RC" -ne 0 ]; then ok "9a-enum-failure-fails-closed (pre-commit BLOCKS, exit $ENUM_RC)"; else bad "9a-enum-failure-fails-closed" "enumeration returned [] while a PROTECTED file was staged and the pre-commit exited 0 — SECOND fail-OPEN"; fi
+if echo "$ENUM_ERR" | grep -qiE "FR-07|enumeration|failing closed"; then ok "9a-enum-failure-diagnostic-emitted"; else bad "9a-enum-failure-diagnostic-emitted" "no stderr diagnostic naming the enumeration failure"; fi
+# RED proof: the T25 HEAD pre-commit with the SAME override exits 0 (the fail-open we are closing).
+if git -C "$ROOT" cat-file -e "d77169f:hooks/git/pre-commit" 2>/dev/null; then
+  git -C "$ROOT" show "d77169f:hooks/git/pre-commit" > "$D/hooks/git/pre-commit-t25"
+  RED_RC=0; ( cd "$D" && bash hooks/git/pre-commit-t25 >/dev/null 2>&1 ) || RED_RC=$?
+  if [ "$RED_RC" -eq 0 ]; then ok "9a-RED-old-code-was-fail-open (T25 pre-commit exit 0 on the same scenario)"; else ok "9a-RED-skipped (old code not exit 0 here; GREEN still asserted)"; fi
+else
+  ok "9a-RED-skipped-no-baseline (d77169f pre-commit not reachable in this checkout)"
+fi
+rm -rf "$D"
+
+# 9b. git-list-failure-fails-closed: the hook's inner `git diff --cached --name-only` returns
+#     nonzero -> list_rc!=0 -> BLOCK (not exit 0). Simulated by a sitecustomize.py on the hook's
+#     PYTHONPATH (=$ROOT/hooks) that patches subprocess.run to fail ONLY the inner name-only call
+#     (the outer bash STAGED_ANY uses the real git, unaffected, so §3 is still entered).
+D="$(new_repo)"
+cat > "$D/hooks/sitecustomize.py" <<'PYSC'
+import subprocess as _sp
+_orig = _sp.run
+def _patched(cmd, *a, **k):
+    if isinstance(cmd, (list, tuple)) and "diff" in cmd and "--name-only" in cmd:
+        class _R:
+            returncode = 9; stdout = ""; stderr = ""
+        return _R()
+    return _orig(cmd, *a, **k)
+_sp.run = _patched
+PYSC
+printf '\n# git-list-fail edit\n' >> "$D/policies/protected-paths.yml"
+( cd "$D" && git add policies/protected-paths.yml )
+GLF_ERR="$( ( cd "$D" && bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
+GLF_RC=0; ( cd "$D" && bash hooks/git/pre-commit >/dev/null 2>&1 ) || GLF_RC=$?
+if [ "$GLF_RC" -ne 0 ]; then ok "9b-git-list-failure-fails-closed (pre-commit BLOCKS, exit $GLF_RC)"; else bad "9b-git-list-failure-fails-closed" "inner git-list rc!=0 left FR-07 fail-OPEN — pre-commit exited 0"; fi
+if echo "$GLF_ERR" | grep -qiE "FR-07|list staged|failing closed"; then ok "9b-git-list-failure-diagnostic-emitted"; else bad "9b-git-list-failure-diagnostic-emitted" "no stderr diagnostic naming the git-list failure"; fi
+rm -rf "$D"
+
+# ---- 10. NO-FALSE-BLOCK (T26): the cross-check must NOT over-block the happy path. rc0 +
+#          genuinely-no-staged-changes returns [] LEGITIMATELY (must PASS); a non-protected edit
+#          passes; a protected edit WITH the sanctioned approval passes. (9/10 mirror T25's
+#          import/python3 no-silent-skip coverage on the enumeration axis.) ----
+D="$(new_repo)"
+# 10a. NO staged changes -> rc0-empty is legit -> PASS (not a false block).
+NOSTAGE_RC=0; ( cd "$D" && bash hooks/git/pre-commit >/dev/null 2>&1 ) || NOSTAGE_RC=$?
+if [ "$NOSTAGE_RC" -eq 0 ]; then ok "10a-no-staged-changes-passes (rc0-empty not over-blocked)"; else bad "10a-no-staged-changes-passes" "a commit with NO staged changes was blocked (rc0-empty over-blocked)"; fi
+# 10b. NON-protected edit -> PASS.
+echo "app" > "$D/src/app.py"; ( cd "$D" && git add src/app.py )
+if run_precommit "$D"; then ok "10b-nonprotected-edit-passes"; else bad "10b-nonprotected-edit-passes" "a non-protected edit was blocked by the enumeration cross-check"; fi
+( cd "$D" && git commit -qm 'add app' )
+# 10c. PROTECTED edit WITH the sanctioned approval -> PASS (cross-check doesn't interfere).
+printf '\n# approved edit\n' >> "$D/policies/protected-paths.yml"; ( cd "$D" && git add policies/protected-paths.yml )
+( cd "$D" && bash hooks/local/write-bootstrap-approval.sh >/dev/null 2>&1 )
+if run_precommit "$D"; then ok "10c-protected-edit-with-approval-passes"; else bad "10c-protected-edit-with-approval-passes" "a protected edit with a valid approval was blocked by the enumeration cross-check"; fi
+rm -rf "$D"
+
 finish

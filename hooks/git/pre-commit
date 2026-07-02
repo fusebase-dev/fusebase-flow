@@ -72,7 +72,33 @@ except Exception as e:
     print("Refusing to commit fail-open. Fix the module/env (e.g. install the missing dep); NEVER use --no-verify.", file=sys.stderr)
     sys.exit(1)
 try:
+    import subprocess
+    # ENUMERATION FAIL-CLOSED (T26): staged_change_paths() returns [] on ANY
+    # subprocess exception AND on a nonzero git rc (subprocess.run does not raise on
+    # nonzero), so a FAILED enumeration while staged changes exist would yield paths=[]
+    # -> no hits -> exit 0: a second fail-OPEN. Cross-check here (the enforcement point;
+    # path_policy's shared contract is left untouched): re-list staged names with an
+    # EXPLICIT rc check. rc!=0 (or the subprocess itself raising) => cannot enumerate =>
+    # BLOCK. names non-empty but staged_change_paths() empty => enumeration disagreement/
+    # failure => BLOCK. rc0 + no staged names is the LEGITIMATE no-op (must still PASS).
+    try:
+        lp = subprocess.run(
+            ["git", "diff", "--cached", "--name-only"],
+            capture_output=True, text=True, cwd=str(root),
+        )
+        list_rc = lp.returncode
+        names = [n for n in lp.stdout.splitlines() if n]
+    except Exception:
+        list_rc, names = 1, []
+    if list_rc != 0:
+        print("[fusebase-flow:pre-commit] BLOCK — FR-07 could not list staged changes (git rc != 0) — failing closed.", file=sys.stderr)
+        print("Refusing to commit fail-open on an unverifiable protected-path check; NEVER use --no-verify.", file=sys.stderr)
+        sys.exit(1)
     paths = staged_change_paths(root)
+    if names and not paths:
+        print("[fusebase-flow:pre-commit] BLOCK — FR-07 staged changes present but protected-path enumeration returned nothing — failing closed.", file=sys.stderr)
+        print("Refusing to commit fail-open; the enumeration disagrees with the staged set. Fix the env; NEVER use --no-verify.", file=sys.stderr)
+        sys.exit(1)
     hits = []
     for p in paths:
         pd = evaluate(p)
