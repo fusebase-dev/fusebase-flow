@@ -1,6 +1,6 @@
 # CLAUDE.md - Claude Code adapter for Fusebase Flow
 
-This repo runs **Fusebase Flow v3.30.3**. The portable always-on baseline is in `AGENTS.md`. The full rule set is in `FLOW_RULES.md`. Read both before any other action (stop `FLOW_RULES.md` at `## Amendment log` — dated history, never load it).
+This repo runs **Fusebase Flow v3.30.4**. The portable always-on baseline is in `AGENTS.md`. The full rule set is in `FLOW_RULES.md`. Read both before any other action (stop `FLOW_RULES.md` at `## Amendment log` — dated history, never load it).
 
 ## Claude Code-specific notes
 
