@@ -330,7 +330,16 @@ fi
 # is backed up + preserved, never silently clobbered (needs --force to replace).
 echo "[post-fusebase-update] Step 5b: Flow git-hook (re)install check..."
 if [ "$WIRE_HOOKS" -eq 1 ] && [ -d .git/hooks ] && [ -x hooks/local/install-git-hooks.sh ]; then
-  if bash hooks/local/install-git-hooks.sh 2>&1 | grep -qi 'custom .* detected'; then
+  # TRIPWIRE (T24): capture OUTPUT + RC SEPARATELY. The old `install-git-hooks.sh | grep`
+  # keyed off `$?` of grep, not the installer — an rc≠0 install that didn't print the
+  # custom-preserve line was recorded as "(re)installed" (a silent false success).
+  # set +e around the capture keeps a nonzero from aborting under set -euo pipefail.
+  set +e
+  GH_OUTPUT="$(bash hooks/local/install-git-hooks.sh 2>&1)"; GH_RC=$?
+  set -e
+  if [ "$GH_RC" -ne 0 ]; then
+    WARNINGS+=("git fallback hook (re)install FAILED (exit $GH_RC); Flow hooks may be stale — re-run 'bash hooks/local/install-git-hooks.sh' and review. Output: $GH_OUTPUT")
+  elif printf '%s' "$GH_OUTPUT" | grep -qi 'custom .* detected'; then
     WARNINGS+=("custom .git/hooks preserved (not overwritten); re-run 'bash hooks/local/install-git-hooks.sh --force' to install the Flow hook")
   else
     ACTIONS_TAKEN+=("(re)installed Flow git fallback hooks (.git/hooks/pre-commit, commit-msg)")
