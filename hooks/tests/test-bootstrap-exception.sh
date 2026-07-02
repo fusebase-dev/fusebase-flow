@@ -354,4 +354,262 @@ printf '\n# approved edit\n' >> "$D/policies/protected-paths.yml"; ( cd "$D" && 
 if run_precommit "$D"; then ok "10c-protected-edit-with-approval-passes"; else bad "10c-protected-edit-with-approval-passes" "a protected edit with a valid approval was blocked by the enumeration cross-check"; fi
 rm -rf "$D"
 
+# =============================================================================
+# T27 — FR-07 fails CLOSED at EVERY remaining load-point (convergence batch).
+# #3 BaseException (SystemExit-0 self-bypass), #4 name-status rc, #5 missing/
+# overridden protected-paths policy, #1 outer git-list rc. RED→GREEN vs dadea26 (T26).
+# =============================================================================
+
+# T27_BASELINE: the T26 HEAD pre-commit, for RED proofs (its `except Exception` +
+# rc-ignoring staged_change_paths are the fail-opens this task closes). Reachable in the
+# real checkout; skipped gracefully otherwise.
+T27_BASE_REF="dadea26"
+
+# ---- 11 (#3). SystemExit(0) SELF-BYPASS: a staged/tampered path_policy.py that does
+#      `raise SystemExit(0)` on import — SystemExit subclasses BaseException, so the old
+#      `except Exception` §3 import wrapper let it exit 0 UNGUARDED while a PROTECTED edit
+#      was staged (stage the tampered module in the SAME commit). The BaseException wrapper
+#      (T27#3) BLOCKS. RED (dadea26 exits 0) -> GREEN (exit 1). ----
+D="$(new_repo)"
+cat > "$D/hooks/shared/path_policy.py" <<'PYSHIM'
+import sys
+raise SystemExit(0)  # T27#3 shim: clean exit-0 on import (BaseException, not Exception)
+PYSHIM
+printf '\n# systemexit-import edit\n' >> "$D/policies/protected-paths.yml"
+( cd "$D" && git add policies/protected-paths.yml )
+SE_ERR="$( ( cd "$D" && bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
+SE_RC=0; ( cd "$D" && bash hooks/git/pre-commit >/dev/null 2>&1 ) || SE_RC=$?
+if [ "$SE_RC" -ne 0 ]; then ok "11-systemexit0-import-blocks (pre-commit BLOCKS, exit $SE_RC)"; else bad "11-systemexit0-import-blocks" "a tampered path_policy raising SystemExit(0) on import left FR-07 fail-OPEN (exit 0)"; fi
+if echo "$SE_ERR" | grep -qiE "FR-07|could not load|import"; then ok "11-systemexit0-import-diagnostic"; else bad "11-systemexit0-import-diagnostic" "no diagnostic naming the load failure"; fi
+# RED proof: the T26 pre-commit with the SAME shim exits 0 (the fail-open being closed).
+if git -C "$ROOT" cat-file -e "$T27_BASE_REF:hooks/git/pre-commit" 2>/dev/null; then
+  git -C "$ROOT" show "$T27_BASE_REF:hooks/git/pre-commit" > "$D/hooks/git/pre-commit-t26"
+  RED_RC=0; ( cd "$D" && bash hooks/git/pre-commit-t26 >/dev/null 2>&1 ) || RED_RC=$?
+  if [ "$RED_RC" -eq 0 ]; then ok "11-RED-t26-was-fail-open (dadea26 exit 0 on SystemExit(0) import)"; else ok "11-RED-t26-not-exit0-here (GREEN still asserted)"; fi
+else ok "11-RED-skipped-no-baseline"; fi
+rm -rf "$D"
+
+# ---- 11b (#3). SystemExit(0) from INSIDE evaluate(): a tampered path_policy whose
+#      evaluate() short-circuits with sys.exit(0). The old body `except Exception` let it
+#      exit 0. T27's SystemExit split (re-raise nonzero, rewrite code-0 -> BLOCK) closes it.
+#      Keep is_protected/staged_change_paths real (so §3 is entered + a hit is found). ----
+D="$(new_repo)"
+cat >> "$D/hooks/shared/path_policy.py" <<'PYOV'
+
+def evaluate(path, *, root=None):  # T27#3 shim: clean exit-0 inside the check
+    import sys
+    sys.exit(0)
+PYOV
+printf '\n# systemexit-eval edit\n' >> "$D/policies/protected-paths.yml"
+( cd "$D" && git add policies/protected-paths.yml )
+SEE_ERR="$( ( cd "$D" && bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
+SEE_RC=0; ( cd "$D" && bash hooks/git/pre-commit >/dev/null 2>&1 ) || SEE_RC=$?
+if [ "$SEE_RC" -ne 0 ]; then ok "11b-systemexit0-in-evaluate-blocks (exit $SEE_RC)"; else bad "11b-systemexit0-in-evaluate-blocks" "sys.exit(0) inside evaluate() left FR-07 fail-OPEN (exit 0)"; fi
+if echo "$SEE_ERR" | grep -qiE "FR-07|exit\(0\)|failing closed|self-exit"; then ok "11b-systemexit0-in-evaluate-diagnostic"; else bad "11b-systemexit0-in-evaluate-diagnostic" "no diagnostic naming the in-check exit(0)"; fi
+rm -rf "$D"
+
+# ---- 11c (#3). NO OVER-BLOCK: a REAL protected-hit sys.exit(1) still exits 1 (the
+#      SystemExit split re-raises nonzero), and a clean no-hit still PASSES (exit 0).
+#      (Real-hit exit-1 is already covered by test 1; here assert the clean pass isn't
+#      swallowed by the new SystemExit handler.) ----
+D="$(new_repo)"
+echo "app" > "$D/src/app.py"; ( cd "$D" && git add src/app.py )
+if run_precommit "$D"; then ok "11c-clean-nohit-still-passes (SystemExit split doesn't over-block)"; else bad "11c-clean-nohit-still-passes" "a clean non-protected commit was blocked by the SystemExit handler"; fi
+rm -rf "$D"
+
+# ---- 12 (#4). NAME-STATUS rc FAIL-CLOSED: staged_change_paths ignored the git
+#      `--name-status -M` returncode, so a nonzero rc with PARTIAL stdout yielded a
+#      nonempty-but-INCOMPLETE list that could MISS a protected path. T27#4 RAISES on
+#      nonzero rc (and on a subprocess exception). Two proofs: (a) a UNIT assertion that
+#      staged_change_paths raises on a nonzero name-status rc; (b) a pre-commit that
+#      BLOCKS when name-status returns rc!=0 + partial output omitting the protected path. ----
+D="$(new_repo)"
+# 12a. UNIT: patch subprocess so name-status returns rc=2 -> staged_change_paths must RAISE.
+UNIT_OUT="$(cd "$D" && PYTHONPATH="$D/hooks" python3 - <<'PY'
+import subprocess as sp
+from pathlib import Path
+_orig = sp.run
+def _patched(cmd, *a, **k):
+    if isinstance(cmd, (list, tuple)) and "--name-status" in cmd:
+        class _R: returncode = 2; stdout = "M\tsrc/app.py\n"; stderr = ""
+        return _R()
+    return _orig(cmd, *a, **k)
+sp.run = _patched
+from shared.path_policy import staged_change_paths
+try:
+    staged_change_paths(Path("."))
+    print("NORAISE")
+except RuntimeError as e:
+    print("RAISED" if "rc=2" in str(e) or "name-status failed" in str(e) else "WRONGRAISE")
+except Exception as e:
+    print("OTHER:%r" % e)
+PY
+)"
+if [ "$UNIT_OUT" = "RAISED" ]; then ok "12a-staged_change_paths-raises-on-rc (unit)"; else bad "12a-staged_change_paths-raises-on-rc" "expected RuntimeError on nonzero name-status rc, got: $UNIT_OUT"; fi
+rm -rf "$D"
+
+# 12b. INTEGRATION: sitecustomize on the hook's PYTHONPATH fails the name-status call
+#      (rc=2, partial stdout that OMITS the staged protected path). The inner name-ONLY
+#      cross-check still lists it (real git) -> names present; staged_change_paths RAISES
+#      -> body BaseException wrapper -> BLOCK. RED (dadea26 evaluated the partial list, no
+#      protected hit -> exit 0) -> GREEN (exit 1).
+D="$(new_repo)"
+cat > "$D/hooks/sitecustomize.py" <<'PYSC'
+import subprocess as _sp
+_orig = _sp.run
+def _patched(cmd, *a, **k):
+    if isinstance(cmd, (list, tuple)) and "--name-status" in cmd:
+        class _R:
+            returncode = 2
+            stdout = "M\tsrc/unrelated_nonprotected.txt\n"  # PARTIAL: omits the protected path
+            stderr = ""
+        return _R()
+    return _orig(cmd, *a, **k)
+_sp.run = _patched
+PYSC
+printf '\n# name-status-partial edit\n' >> "$D/policies/protected-paths.yml"
+( cd "$D" && git add policies/protected-paths.yml )
+NS_ERR="$( ( cd "$D" && bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
+NS_RC=0; ( cd "$D" && bash hooks/git/pre-commit >/dev/null 2>&1 ) || NS_RC=$?
+if [ "$NS_RC" -ne 0 ]; then ok "12b-name-status-partial-rc-blocks (exit $NS_RC)"; else bad "12b-name-status-partial-rc-blocks" "a nonzero name-status rc with partial output omitting the protected path left FR-07 fail-OPEN (exit 0)"; fi
+if echo "$NS_ERR" | grep -qiE "FR-07|name-status|failing closed|errored"; then ok "12b-name-status-partial-diagnostic"; else bad "12b-name-status-partial-diagnostic" "no diagnostic naming the name-status failure"; fi
+# RED proof: the T26 pre-commit with the SAME sitecustomize evaluated the partial list.
+if git -C "$ROOT" cat-file -e "$T27_BASE_REF:hooks/git/pre-commit" 2>/dev/null; then
+  git -C "$ROOT" show "$T27_BASE_REF:hooks/git/pre-commit" > "$D/hooks/git/pre-commit-t26"
+  RED_RC=0; ( cd "$D" && bash hooks/git/pre-commit-t26 >/dev/null 2>&1 ) || RED_RC=$?
+  if [ "$RED_RC" -eq 0 ]; then ok "12b-RED-t26-was-fail-open (partial list evaluated, no hit, exit 0)"; else ok "12b-RED-t26-not-exit0-here (GREEN still asserted)"; fi
+else ok "12b-RED-skipped-no-baseline"; fi
+rm -rf "$D"
+
+# ---- 13 (#5). MISSING/EMPTY protected-paths policy FAILS CLOSED. A missing/emptied
+#      protected-paths.yml made is_protected() always False -> FR-07 silently OFF. The
+#      T27#5 assert_protected_policy_loaded() at the enforcement point BLOCKS with a
+#      policy-missing diagnostic. Three sub-cases: removed, emptied file, emptied sentinel. ----
+# 13a. protected-paths.yml REMOVED entirely -> BLOCK. Stage a would-be protected edit
+#      under hooks/shared/ (protected by the SHIPPED policy) so §3 is entered with intent.
+D="$(new_repo)"
+echo "print('x')" > "$D/hooks/shared/new_file.py"
+( cd "$D" && git add hooks/shared/new_file.py )
+rm -f "$D/policies/protected-paths.yml"
+P_ERR="$( ( cd "$D" && bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
+P_RC=0; ( cd "$D" && bash hooks/git/pre-commit >/dev/null 2>&1 ) || P_RC=$?
+if [ "$P_RC" -ne 0 ]; then ok "13a-missing-policy-blocks (exit $P_RC)"; else bad "13a-missing-policy-blocks" "a REMOVED protected-paths.yml left FR-07 fully OFF (silent pass, exit 0)"; fi
+if echo "$P_ERR" | grep -qiE "protected-paths policy|cannot enforce FR-07|missing"; then ok "13a-missing-policy-diagnostic"; else bad "13a-missing-policy-diagnostic" "no policy-missing diagnostic"; fi
+# RED proof: dadea26 had no policy-present assertion -> exits 0 (silent fail-open).
+if git -C "$ROOT" cat-file -e "$T27_BASE_REF:hooks/git/pre-commit" 2>/dev/null; then
+  git -C "$ROOT" show "$T27_BASE_REF:hooks/git/pre-commit" > "$D/hooks/git/pre-commit-t26"
+  RED_RC=0; ( cd "$D" && bash hooks/git/pre-commit-t26 >/dev/null 2>&1 ) || RED_RC=$?
+  if [ "$RED_RC" -eq 0 ]; then ok "13a-RED-t26-was-fail-open (missing policy exit 0)"; else ok "13a-RED-t26-not-exit0-here (GREEN still asserted)"; fi
+else ok "13a-RED-skipped-no-baseline"; fi
+rm -rf "$D"
+
+# 13b. protected-paths.yml EMPTIED (zero-byte) -> BLOCK (mapping absent).
+D="$(new_repo)"
+echo "print('x')" > "$D/hooks/shared/new_file.py"; ( cd "$D" && git add hooks/shared/new_file.py )
+: > "$D/policies/protected-paths.yml"
+E_RC=0; ( cd "$D" && bash hooks/git/pre-commit >/dev/null 2>&1 ) || E_RC=$?
+if [ "$E_RC" -ne 0 ]; then ok "13b-empty-policy-blocks (exit $E_RC)"; else bad "13b-empty-policy-blocks" "an EMPTY protected-paths.yml left FR-07 OFF (exit 0)"; fi
+rm -rf "$D"
+
+# 13c. sentinel category EMPTIED (fusebase_flow_internals: paths: []) -> BLOCK. A policy
+#      that parses but drops the Flow-internals protections is unenforceable for FR-07.
+D="$(new_repo)"
+echo "print('x')" > "$D/hooks/shared/new_file.py"; ( cd "$D" && git add hooks/shared/new_file.py )
+cat > "$D/policies/protected-paths.yml" <<'YML'
+schema_version: 1
+categories:
+  fusebase_flow_internals:
+    paths: []
+on_unapproved_edit: deny
+YML
+S_RC=0; ( cd "$D" && bash hooks/git/pre-commit >/dev/null 2>&1 ) || S_RC=$?
+if [ "$S_RC" -ne 0 ]; then ok "13c-emptied-sentinel-category-blocks (exit $S_RC)"; else bad "13c-emptied-sentinel-category-blocks" "an emptied fusebase_flow_internals category left FR-07 OFF (exit 0)"; fi
+rm -rf "$D"
+
+# ---- 14 (#5). LOCAL OVERRIDE CANNOT ERASE fusebase_flow_internals (additive-only). A
+#      gitignored protected-paths.local.yml that sets fusebase_flow_internals.paths: []
+#      must NOT relax the base — the loader re-unions base paths, so the category is STILL
+#      enforced. Prove via pre-commit (a protected edit + the erasing local -> still BLOCK)
+#      AND a unit assertion the merged paths still contain the base FLOW_RULES.md pattern. ----
+D="$(new_repo)"
+cat > "$D/policies/protected-paths.local.yml" <<'YML'
+categories:
+  fusebase_flow_internals:
+    paths: []
+YML
+# 14a. UNIT: merged fusebase_flow_internals paths still include the base entries.
+U14="$(cd "$D" && FUSEBASE_FLOW_ROOT="$D" PYTHONPATH="$D/hooks" python3 - <<'PY'
+from shared.policy_loader import get_policy, reset_cache
+reset_cache()
+paths = (get_policy("protected-paths").get("categories") or {}).get("fusebase_flow_internals", {}).get("paths") or []
+print("KEPT" if any("hooks/shared" in p or "FLOW_RULES" in p for p in paths) else "ERASED")
+PY
+)"
+if [ "$U14" = "KEPT" ]; then ok "14a-local-override-cannot-erase-internals (unit: base paths re-unioned)"; else bad "14a-local-override-cannot-erase-internals" "local paths:[] ERASED the base fusebase_flow_internals category (got: $U14)"; fi
+# 14b. PRE-COMMIT: a protected internals edit with the erasing local override still BLOCKS.
+printf '\n# override-erase attempt\n' >> "$D/FLOW_RULES.md" 2>/dev/null || echo seed > "$D/FLOW_RULES.md"
+( cd "$D" && git add FLOW_RULES.md )
+O_RC=0; ( cd "$D" && bash hooks/git/pre-commit >/dev/null 2>&1 ) || O_RC=$?
+if [ "$O_RC" -ne 0 ]; then ok "14b-erasing-local-still-blocks-protected-edit (exit $O_RC)"; else bad "14b-erasing-local-still-blocks-protected-edit" "a protected edit committed with exit 0 because a local override erased the category"; fi
+rm -rf "$D"
+
+# 14c. ADDITIVE local override STILL WORKS (no over-restriction regression): a local that
+#      ADDS a path to a category is honored (mirrors test-policy-state-preserve's contract).
+D="$(new_repo)"
+cat > "$D/policies/protected-paths.local.yml" <<'YML'
+categories:
+  worker_undisturbed:
+    paths:
+      - "src/workers/**/*.ts"
+YML
+ADD14="$(cd "$D" && FUSEBASE_FLOW_ROOT="$D" PYTHONPATH="$D/hooks" python3 - <<'PY'
+from shared.policy_loader import get_policy, reset_cache
+reset_cache()
+paths = (get_policy("protected-paths").get("categories") or {}).get("worker_undisturbed", {}).get("paths") or []
+print("ADDED" if any("src/workers" in p for p in paths) else "MISSING")
+PY
+)"
+if [ "$ADD14" = "ADDED" ]; then ok "14c-additive-local-override-still-honored"; else bad "14c-additive-local-override-still-honored" "an additive local override was dropped (got: $ADD14)"; fi
+rm -rf "$D"
+
+# ---- 15 (#5 happy path + no cross-policy regression). The SHIPPED protected-paths.yml
+#      (present + valid) enforces normally, and get_policy for OTHER policies is unchanged. ----
+D="$(new_repo)"
+printf '\n# happy-path protected edit\n' >> "$D/policies/protected-paths.yml"; ( cd "$D" && git add policies/protected-paths.yml )
+# 15a. Shipped policy present -> protected edit still BLOCKS without approval (unchanged).
+H_RC=0; ( cd "$D" && bash hooks/git/pre-commit >/dev/null 2>&1 ) || H_RC=$?
+if [ "$H_RC" -ne 0 ]; then ok "15a-happy-path-protected-edit-still-blocks"; else bad "15a-happy-path-protected-edit-still-blocks" "shipped policy present but protected edit passed (enforcement broke)"; fi
+# 15b. ...and PASSES with the minted approval (assert_protected_policy_loaded doesn't over-block).
+( cd "$D" && bash hooks/local/write-bootstrap-approval.sh >/dev/null 2>&1 )
+if run_precommit "$D"; then ok "15b-happy-path-with-approval-passes"; else bad "15b-happy-path-with-approval-passes" "policy-present assertion over-blocked an approved protected edit"; fi
+# 15c. CROSS-POLICY: get_policy for a NON-protected-paths policy is byte-for-byte the
+#      normal deep-merge (no additive-union leakage). approval-policy.local.yml override wins.
+cat > "$D/policies/approval-policy.yml" <<'YML'
+schema_version: 2
+workflow_mode: direct_to_main
+require_approval: {}
+YML
+cat > "$D/policies/approval-policy.local.yml" <<'YML'
+workflow_mode: branch_pr
+YML
+X15="$(cd "$D" && FUSEBASE_FLOW_ROOT="$D" PYTHONPATH="$D/hooks" python3 - <<'PY'
+from shared.policy_loader import get_policy, reset_cache
+reset_cache()
+print(get_policy("approval-policy").get("workflow_mode"))
+PY
+)"
+if [ "$X15" = "branch_pr" ]; then ok "15c-cross-policy-get_policy-unchanged (approval-policy local override wins)"; else bad "15c-cross-policy-get_policy-unchanged" "approval-policy merge changed (got: $X15, expected branch_pr)"; fi
+rm -rf "$D"
+
+# ---- 16 (#1). OUTER git-list rc fail-closed. The outer bash `git diff --cached
+#      --name-only` rc is now captured; a nonzero rc fails closed (mirrors the inner
+#      python rc-check). Non-reachable via a real broken repo (it wouldn't commit), so we
+#      assert the guard EXISTS in source (grep) rather than fabricate an unreachable
+#      scenario — the inner python rc-checks (tests 9b/12) cover the reachable path.
+if grep -q 'STAGED_ANY_RC' "$ROOT/hooks/git/pre-commit" && grep -q 'outer git rc' "$ROOT/hooks/git/pre-commit"; then
+  ok "16-outer-git-list-rc-guard-present (source)"
+else
+  bad "16-outer-git-list-rc-guard-present" "outer git-list rc guard (#1) not found in pre-commit source"
+fi
+
 finish

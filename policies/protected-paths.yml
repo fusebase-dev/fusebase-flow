@@ -9,6 +9,12 @@ schema_version: 1
 # v0.1 but reserved for forward compatibility).
 local_override_file: policies/protected-paths.local.yml
 
+# TRIPWIRE (FR-07 / T27#5): the gitignored local override is ADDITIVE-ONLY — it may add
+# protected paths but must never drop/empty a base category (esp. fusebase_flow_internals).
+# policy_loader re-unions base paths so a local `paths: []` cannot erase FR-07. Do not flip
+# to true without accepting that a local file could then disable protected-path enforcement.
+local_override_may_relax: false
+
 # Default categories. Most are commented-out so projects opt in deliberately
 # during repo-onboarding-context-map skill output. Uncomment + customize.
 

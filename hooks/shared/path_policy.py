@@ -79,6 +79,44 @@ def is_protected(path: str) -> tuple[bool, str | None]:
     return False, None
 
 
+# FR-07 fail-closed at the POLICY load-point (T27/#5): a missing/empty/malformed
+# protected-paths.yml made get_policy return {} -> _load_categories() {} -> is_protected
+# always False -> FR-07 fully OFF, silently. The enforcement point (pre-commit §3) must
+# refuse to run against an absent policy rather than wave every protected edit through.
+# Scoped to FR-07: this validates ONLY the protected-paths policy; get_policy for other
+# policies is unchanged.
+_PROTECTED_SENTINEL_CATEGORY = "fusebase_flow_internals"
+
+
+def assert_protected_policy_loaded(root: Path | None = None) -> None:
+    """Raise RuntimeError unless the protected-paths policy is present + enforceable.
+
+    Enforceable = a mapping carrying a non-empty `fusebase_flow_internals` category with
+    a non-empty `paths` list (the Flow-internals sentinel that must always be protected).
+    A missing file, a non-mapping, an absent/empty categories map, or an emptied sentinel
+    category all mean FR-07 cannot be enforced -> fail closed.
+    """
+    policy = get_policy("protected-paths", root=root)
+    if not isinstance(policy, dict) or not policy:
+        raise RuntimeError(
+            "protected-paths policy missing/empty; cannot enforce FR-07; "
+            "fix policies/protected-paths.yml"
+        )
+    cats = policy.get("categories")
+    if not isinstance(cats, dict) or not cats:
+        raise RuntimeError(
+            "protected-paths policy has no categories; cannot enforce FR-07; "
+            "fix policies/protected-paths.yml"
+        )
+    sentinel = cats.get(_PROTECTED_SENTINEL_CATEGORY)
+    paths = (sentinel or {}).get("paths") if isinstance(sentinel, dict) else None
+    if not paths:
+        raise RuntimeError(
+            f"protected-paths policy has no non-empty '{_PROTECTED_SENTINEL_CATEGORY}' "
+            "category; cannot enforce FR-07; fix policies/protected-paths.yml"
+        )
+
+
 def _staged_mode_and_sha(path: str, root: Path) -> tuple[str, str] | None:
     """(mode, object-id) for the staged content of the EXACT `path`, or None.
 
@@ -118,14 +156,28 @@ def staged_change_paths(root: Path) -> list[str]:
     deletes and rename sources, so a `git rm`/rename of a protected file never
     reached path_policy (the shipped FR-07 bypass). Returns concrete paths only —
     a single-use approval still binds each via compute_staged_tree_digest.
+
+    FAIL-CLOSED (T27/#4): the enumeration must never SILENTLY hand back a partial or
+    empty list on a git failure. `subprocess.run` does NOT raise on a nonzero rc, so a
+    truncated `--name-status` (nonzero rc + partial stdout) previously yielded a
+    nonempty-but-INCOMPLETE list that could miss a protected path. On EITHER a
+    subprocess exception OR a nonzero returncode we RAISE — the pre-commit body wrapper
+    (BaseException, T27/#3) catches it and BLOCKS; other callers must tolerate the raise
+    fail-closed (see has_active_exception / pre_tool_use). rc0 parses normally (an empty
+    list is the LEGITIMATE no-staged-changes case).
     """
     try:
         proc = subprocess.run(
             ["git", "diff", "--cached", "--name-status", "-M"],
             capture_output=True, text=True, cwd=str(root),
         )
-    except Exception:
-        return []
+    except Exception as e:
+        raise RuntimeError(f"staged_change_paths: git name-status subprocess failed ({e!r})") from e
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"staged_change_paths: git name-status failed rc={proc.returncode} "
+            "(refusing a partial/incomplete staged set — FR-07 fail-closed)"
+        )
     out: list[str] = []
     for line in proc.stdout.splitlines():
         if not line:
@@ -260,5 +312,5 @@ def evaluate_many(paths: list[str], *, root: Path | None = None) -> list[PathDec
 
 __all__ = [
     "PathDecision", "is_protected", "has_active_exception", "compute_staged_tree_digest",
-    "staged_change_paths", "evaluate", "evaluate_many",
+    "staged_change_paths", "evaluate", "evaluate_many", "assert_protected_policy_loaded",
 ]

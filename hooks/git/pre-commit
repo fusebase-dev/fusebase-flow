@@ -56,7 +56,16 @@ fi
 #    protected edit through the moment path_policy can't load. python3 absent + staged
 #    changes => a LOUD warn (not a hard block: a python3-less env must still be able to
 #    commit, and §2 already gates on python3), so the un-enforceable gap is never silent.
-STAGED_ANY="$(git diff --cached --name-only 2>/dev/null || true)"
+# #1 (T27): capture the OUTER git-list rc too (mirrors the inner python rc-check). A
+# nonzero rc here means we can't reliably know whether protected paths are staged, so
+# fail closed rather than skip §3 on an empty-because-broken list. (Non-reachable in a
+# healthy repo — a broken repo won't commit — but cheap and consistent.)
+STAGED_ANY="$(git diff --cached --name-only 2>/dev/null)"; STAGED_ANY_RC=$?
+if [ "$STAGED_ANY_RC" -ne 0 ]; then
+    echo "[fusebase-flow:pre-commit] BLOCK — FR-07 could not list staged changes (outer git rc=$STAGED_ANY_RC) — failing closed." >&2
+    echo "Refusing to commit fail-open on an unverifiable protected-path check; NEVER use --no-verify." >&2
+    exit 1
+fi
 if [ -n "$STAGED_ANY" ]; then
     if command -v python3 >/dev/null 2>&1; then
         PYTHONPATH="$ROOT/hooks" python3 - <<'PY' || exit_proto=$?
@@ -65,22 +74,34 @@ from pathlib import Path
 root = Path.cwd()
 sys.path.insert(0, str(root / "hooks"))
 try:
-    from shared.path_policy import evaluate, staged_change_paths
-except Exception as e:
-    # FAIL CLOSED: path_policy could not load -> we cannot verify FR-07, so BLOCK.
+    from shared.path_policy import (
+        assert_protected_policy_loaded, evaluate, staged_change_paths,
+    )
+except BaseException as e:
+    # FAIL CLOSED (T27/#3): catch BaseException, not Exception. A staged/tampered
+    # path_policy.py doing `raise SystemExit(0)` / `sys.exit(0)` on import subclasses
+    # BaseException, so `except Exception` let it slip through -> §3 exited 0 unguarded
+    # (a self-bypass: stage the tampered module in the same commit). BaseException blocks.
     print(f"[fusebase-flow:pre-commit] BLOCK — FR-07 protected-path check could not load path_policy (import error: {e!r}).", file=sys.stderr)
     print("Refusing to commit fail-open. Fix the module/env (e.g. install the missing dep); NEVER use --no-verify.", file=sys.stderr)
     sys.exit(1)
 try:
     import subprocess
-    # ENUMERATION FAIL-CLOSED (T26): staged_change_paths() returns [] on ANY
-    # subprocess exception AND on a nonzero git rc (subprocess.run does not raise on
-    # nonzero), so a FAILED enumeration while staged changes exist would yield paths=[]
-    # -> no hits -> exit 0: a second fail-OPEN. Cross-check here (the enforcement point;
-    # path_policy's shared contract is left untouched): re-list staged names with an
-    # EXPLICIT rc check. rc!=0 (or the subprocess itself raising) => cannot enumerate =>
-    # BLOCK. names non-empty but staged_change_paths() empty => enumeration disagreement/
-    # failure => BLOCK. rc0 + no staged names is the LEGITIMATE no-op (must still PASS).
+    # POLICY-PRESENT FAIL-CLOSED (T27/#5): a missing/empty/malformed protected-paths.yml
+    # would make is_protected() always False -> FR-07 silently OFF. Refuse to run against
+    # an unenforceable policy: require a mapping with a non-empty fusebase_flow_internals
+    # category. Scoped to FR-07 (get_policy for other policies is untouched). Raises ->
+    # the BaseException body wrapper below catches it -> BLOCK with the policy-missing text.
+    assert_protected_policy_loaded(root)
+    # ENUMERATION FAIL-CLOSED (T26): staged_change_paths() now RAISES on ANY subprocess
+    # exception AND on a nonzero git rc (T27/#4 — it no longer returns a partial/empty
+    # list), so a FAILED enumeration while staged changes exist can no longer yield
+    # paths=[] -> no hits -> exit 0. The raise reaches the BaseException wrapper -> BLOCK.
+    # Cross-check here too (the enforcement point; path_policy's shared contract stays
+    # intact): re-list staged names with an EXPLICIT rc check. rc!=0 (or the subprocess
+    # itself raising) => cannot enumerate => BLOCK. names non-empty but
+    # staged_change_paths() empty => enumeration disagreement => BLOCK. rc0 + no staged
+    # names is the LEGITIMATE no-op (must still PASS).
     try:
         lp = subprocess.run(
             ["git", "diff", "--cached", "--name-only"],
@@ -104,8 +125,24 @@ try:
         pd = evaluate(p)
         if pd.protected and not pd.has_exception:
             hits.append(pd)
-except Exception as e:
-    # FAIL CLOSED: any unexpected error inside the check blocks, never waves the edit through.
+except SystemExit as se:
+    # T27/#3 — the SystemExit split. This §3 block itself calls sys.exit(1) for a genuine
+    # BLOCK (git-rc / enumeration-disagreement / real protected-hit below). Those NONZERO
+    # exits must propagate as-is. But a staged/tampered path_policy whose import or
+    # evaluate()/staged_change_paths() does `raise SystemExit(0)` / `sys.exit(0)` would,
+    # under a bare `raise`, exit 0 and slip the protected edit through (self-bypass). So:
+    # re-raise a NONZERO SystemExit (our own BLOCK), but a code-0 SystemExit is treated as
+    # the fail-open attack -> rewrite it to a hard BLOCK (exit 1). A `None` code == 0.
+    code = se.code if isinstance(se.code, int) else (0 if se.code is None else 1)
+    if code != 0:
+        raise
+    print("[fusebase-flow:pre-commit] BLOCK — FR-07 protected-path check attempted a clean exit(0) from inside the check (tampered/short-circuited path_policy) — failing closed.", file=sys.stderr)
+    print("Refusing to commit fail-open; a security control must never self-exit 0. Fix the module/env; NEVER use --no-verify.", file=sys.stderr)
+    sys.exit(1)
+except BaseException as e:
+    # FAIL CLOSED (T27/#3): catch BaseException, not Exception. Any other non-Exception
+    # error (KeyboardInterrupt-class, etc.) inside the check blocks rather than waving the
+    # edit through. (A clean no-hit falls through to the natural exit 0 below.)
     print(f"[fusebase-flow:pre-commit] BLOCK — FR-07 protected-path check errored ({e!r}).", file=sys.stderr)
     print("Refusing to commit fail-open. Fix the check/env; NEVER use --no-verify.", file=sys.stderr)
     sys.exit(1)

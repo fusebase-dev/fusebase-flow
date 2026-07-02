@@ -82,8 +82,49 @@ def get_policy(name: str, *, root: Path | None = None, refresh: bool = False) ->
         local = _restrict_to_tightening(base, local)
 
     merged = _deep_merge(base, local)
+
+    # FR-07 non-relaxing local override (T27/#5), scoped to protected-paths ONLY: a
+    # gitignored protected-paths.local.yml must be ADDITIVE — it may add paths to a
+    # category but must never DROP/empty a base category's protected paths (the
+    # deep-merge replaces a list on collision, so a local `paths: []` would erase
+    # fusebase_flow_internals and silently disable FR-07). When
+    # local_override_may_relax is false (default; add it if absent), re-union every base
+    # category's paths back into the merged result. Other policies keep normal merge.
+    if name == "protected-paths" and base.get("local_override_may_relax") is not True and local:
+        merged = _restrict_protected_paths_additive(base, merged)
+
     _POLICY_CACHE[cache_key] = merged
     return merged
+
+
+def _restrict_protected_paths_additive(base: dict[str, Any], merged: dict[str, Any]) -> dict[str, Any]:
+    """For protected-paths: guarantee every base category's paths survive a local override.
+
+    Additive-only: the merged category paths = union(base paths, merged paths), so a local
+    override can ADD paths but never remove/empty a base category (esp. fusebase_flow_internals).
+    A base category the local dropped entirely is restored. Order-preserving, dedup'd.
+    """
+    base_cats = base.get("categories")
+    if not isinstance(base_cats, dict):
+        return merged
+    out = dict(merged)
+    cats = dict(out.get("categories") or {})
+    for name, base_cfg in base_cats.items():
+        if not isinstance(base_cfg, dict):
+            continue
+        base_paths = base_cfg.get("paths") or []
+        merged_cfg = dict(cats.get(name) or {})
+        merged_paths = merged_cfg.get("paths") or []
+        union: list[str] = []
+        seen: set[str] = set()
+        for p in [*base_paths, *merged_paths]:
+            if p not in seen:
+                seen.add(p)
+                union.append(p)
+        merged_cfg["paths"] = union
+        cats[name] = merged_cfg
+    out["categories"] = cats
+    return out
 
 
 def _restrict_to_tightening(base: dict[str, Any], local: dict[str, Any]) -> dict[str, Any]:
