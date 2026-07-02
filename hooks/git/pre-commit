@@ -50,23 +50,39 @@ fi
 #    rename-sources through with exit 0 — the shipped FR-07 bypass). The gate fires on
 #    ANY staged change (unfiltered), not just ACM. §1/§2 secret checks stay ACM by
 #    design (deleting a file can't leak a secret).
+#    This is a SECURITY control: it FAILS CLOSED. An import error (missing dep, broken/
+#    tampered path_policy, a syntax error introduced in the SAME commit) or any unexpected
+#    error inside the check EXITS 1 (block) — never exit 0. A silent fail-open would let a
+#    protected edit through the moment path_policy can't load. python3 absent + staged
+#    changes => a LOUD warn (not a hard block: a python3-less env must still be able to
+#    commit, and §2 already gates on python3), so the un-enforceable gap is never silent.
 STAGED_ANY="$(git diff --cached --name-only 2>/dev/null || true)"
-if [ -n "$STAGED_ANY" ] && command -v python3 >/dev/null 2>&1; then
-    PYTHONPATH="$ROOT/hooks" python3 - <<'PY' || exit_proto=$?
+if [ -n "$STAGED_ANY" ]; then
+    if command -v python3 >/dev/null 2>&1; then
+        PYTHONPATH="$ROOT/hooks" python3 - <<'PY' || exit_proto=$?
 import sys
 from pathlib import Path
 root = Path.cwd()
 sys.path.insert(0, str(root / "hooks"))
 try:
     from shared.path_policy import evaluate, staged_change_paths
-except Exception:
-    sys.exit(0)
-paths = staged_change_paths(root)
-hits = []
-for p in paths:
-    pd = evaluate(p)
-    if pd.protected and not pd.has_exception:
-        hits.append(pd)
+except Exception as e:
+    # FAIL CLOSED: path_policy could not load -> we cannot verify FR-07, so BLOCK.
+    print(f"[fusebase-flow:pre-commit] BLOCK — FR-07 protected-path check could not load path_policy (import error: {e!r}).", file=sys.stderr)
+    print("Refusing to commit fail-open. Fix the module/env (e.g. install the missing dep); NEVER use --no-verify.", file=sys.stderr)
+    sys.exit(1)
+try:
+    paths = staged_change_paths(root)
+    hits = []
+    for p in paths:
+        pd = evaluate(p)
+        if pd.protected and not pd.has_exception:
+            hits.append(pd)
+except Exception as e:
+    # FAIL CLOSED: any unexpected error inside the check blocks, never waves the edit through.
+    print(f"[fusebase-flow:pre-commit] BLOCK — FR-07 protected-path check errored ({e!r}).", file=sys.stderr)
+    print("Refusing to commit fail-open. Fix the check/env; NEVER use --no-verify.", file=sys.stderr)
+    sys.exit(1)
 if hits:
     print("[fusebase-flow:pre-commit] BLOCK — protected paths edited without exception artifact:", file=sys.stderr)
     for h in hits:
@@ -74,7 +90,13 @@ if hits:
     print("Per FR-07: author an approval artifact at state/approvals/ first.", file=sys.stderr)
     sys.exit(1)
 PY
-    if [ "${exit_proto:-0}" -ne 0 ]; then exit 1; fi
+        if [ "${exit_proto:-0}" -ne 0 ]; then exit 1; fi
+    else
+        # python3 absent + staged changes: DON'T silently skip FR-07. Loud warn (not a
+        # hard block — a python3-less env must still commit; §2's secret scan already
+        # gates on python3) so the un-enforceable gap is visible, never silent.
+        echo "[fusebase-flow:pre-commit] WARN — python3 not found; FR-07 protected-path check was NOT enforced for this commit. Install python3 to enforce FR-07." >&2
+    fi
 fi
 
 # 4. Module-size ratchet (FR-25). Warn-only until policies/module-size-baseline.txt

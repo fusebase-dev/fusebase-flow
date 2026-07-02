@@ -220,4 +220,61 @@ cp "$ROOT/hooks/git/pre-commit" "$D/.git/hooks/pre-commit"
 if head -5 "$D/.git/hooks/pre-commit" | grep -qF "fusebase-flow-managed-hook:"; then ok "5-genuine-flow-hook-refreshed-by-unique-marker"; else bad "5-genuine-flow-hook-refreshed-by-unique-marker" "a genuine unique-marker Flow hook was not refreshed in place"; fi
 rm -rf "$D"
 
+# ---- 7. IMPORT FAIL-CLOSED (T25 BLOCKER): §3 used to `except Exception: sys.exit(0)`
+#         — a fail-OPEN. If path_policy can't load (a missing dep like PyYAML, a broken/
+#         tampered module, a syntax error introduced in the SAME commit), the entire FR-07
+#         protected-path check was silently skipped (exit 0) and the protected edit
+#         committed unguarded. A security control must FAIL CLOSED: the pre-commit must
+#         EXIT NONZERO (block) + name the failure, never wave the edit through. We force a
+#         deterministic import failure (independent of whether PyYAML is installed) by
+#         replacing path_policy.py in this throwaway repo with a module that raises on
+#         import, then staging a PROTECTED edit. RED (old code exits 0) -> GREEN (exits 1). ----
+D="$(new_repo)"
+# Overwrite the copied path_policy.py with a shim that raises on import (simulates a
+# missing dep / broken module). Isolated to this throwaway repo — no other test sees it.
+cat > "$D/hooks/shared/path_policy.py" <<'PYSHIM'
+raise ImportError("simulated missing dependency (T25 import-fail-closed test shim)")
+PYSHIM
+# Stage a fusebase_flow_internals protected edit (policies/*.yml).
+printf '\n# import-fail edit\n' >> "$D/policies/protected-paths.yml"
+( cd "$D" && git add policies/protected-paths.yml )
+# Capture stderr to assert the diagnostic is emitted (not a silent skip).
+IMPORT_ERR="$( ( cd "$D" && bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
+IMPORT_RC=0; ( cd "$D" && bash hooks/git/pre-commit >/dev/null 2>&1 ) || IMPORT_RC=$?
+if [ "$IMPORT_RC" -ne 0 ]; then ok "7-import-error-fails-closed (pre-commit BLOCKS, exit $IMPORT_RC)"; else bad "7-import-error-fails-closed" "path_policy import error left FR-07 fail-OPEN — pre-commit exited 0 and the protected edit was NOT blocked"; fi
+if echo "$IMPORT_ERR" | grep -qiE "FR-07|could not load|import"; then ok "7-import-error-diagnostic-emitted"; else bad "7-import-error-diagnostic-emitted" "no stderr diagnostic naming the import failure (operator can't diagnose)"; fi
+rm -rf "$D"
+
+# ---- 8. PYTHON3-ABSENT NO-SILENT-SKIP (T25): §3's outer gate used to silently skip
+#         FR-07 when python3 was unavailable AND changes were staged. That is a quiet
+#         hole — a protected edit committing with no enforcement and no message. The fix
+#         emits a LOUD stderr WARNING (python3 required to enforce FR-07) so the gap is
+#         visible; it does NOT hard-block (a python3-less env must still be able to
+#         commit; §2's secret scan already gates on `command -v python3`). We mask python3
+#         by building a PATH that drops every dir containing a python3/python executable
+#         (git/bash/grep/sed stay resolvable), stage a protected edit, and assert the
+#         hook emits the WARN and does NOT exit 0 SILENTLY (a bare silent skip is the bug). ----
+D="$(new_repo)"
+# Build a python-free PATH: keep every PATH dir that does NOT contain python3/python.
+NOPY_PATH=""
+_ifs_save="$IFS"; IFS=':'
+for _d in $PATH; do
+  [ -n "$_d" ] || continue
+  if [ -x "$_d/python3" ] || [ -x "$_d/python" ] || [ -x "$_d/python3.exe" ] || [ -x "$_d/python.exe" ]; then continue; fi
+  NOPY_PATH="${NOPY_PATH:+$NOPY_PATH:}$_d"
+done
+IFS="$_ifs_save"
+# Sanity: with the curated PATH, python3 must be gone but bash/git still present.
+if PATH="$NOPY_PATH" command -v python3 >/dev/null 2>&1; then
+  bad "8-python3-mask-precondition" "could not mask python3 from PATH for the test (python3 still resolvable)"
+else
+  printf '\n# python3-absent edit\n' >> "$D/policies/protected-paths.yml"
+  ( cd "$D" && git add policies/protected-paths.yml )
+  NOPY_ERR="$( ( cd "$D" && PATH="$NOPY_PATH" bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
+  NOPY_RC=0; ( cd "$D" && PATH="$NOPY_PATH" bash hooks/git/pre-commit >/dev/null 2>&1 ) || NOPY_RC=$?
+  # Assert a LOUD warning was emitted — NOT a silent exit-0 with no message about FR-07.
+  if echo "$NOPY_ERR" | grep -qiE "python3|FR-07"; then ok "8-python3-absent-loud-warn (stderr names the un-enforceable FR-07 check; not a silent skip)"; else bad "8-python3-absent-loud-warn" "python3-absent path emitted NO warning — FR-07 silently skipped with no operator signal"; fi
+fi
+rm -rf "$D"
+
 finish
