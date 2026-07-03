@@ -22,7 +22,10 @@ sys.path.insert(0, str(_HERE.parent))
 
 from shared.audit_logger import emit  # noqa: E402
 from shared.command_policy import evaluate as evaluate_command  # noqa: E402
-from shared.path_policy import evaluate as evaluate_path  # noqa: E402
+from shared.path_policy import (  # noqa: E402
+    assert_protected_policy_loaded,
+    evaluate as evaluate_path,
+)
 from shared.policy_loader import find_git_root  # noqa: E402
 from shared.secret_scanner import scan, block_decision  # noqa: E402
 
@@ -77,6 +80,32 @@ def main() -> int:
         inp = event.get("tool_input") or {}
         target = inp.get("file_path") or inp.get("path") or inp.get("filePath") or ""
         if target:
+            # TOOL-TIME FAIL-CLOSED (T28/#7): evaluate_path() classifies via is_protected(),
+            # which reads protected-paths.yml. A MISSING/EMPTY/malformed policy makes
+            # is_protected() always False -> a protected-path Edit/Write would pass at
+            # tool-time (the pre-commit still blocks the commit, but this load-point must be
+            # fail-closed too — a security control never waves an edit through on an
+            # unenforceable policy). Assert the policy is present + enforceable FIRST; on any
+            # BaseException (missing/empty policy, load error) DENY the tool action. The
+            # SHIPPED policy present => this is a no-op and normal edits are unaffected.
+            try:
+                assert_protected_policy_loaded(root)
+            except BaseException as e:
+                reason = (
+                    "FR-07: protected-paths policy missing/empty/unenforceable; refusing "
+                    f"the {tool_name} on {target} (fail closed). Fix "
+                    f"policies/protected-paths.yml. ({e!r})"
+                )
+                emit(
+                    "pre_tool_use",
+                    decision="deny",
+                    reason=reason,
+                    rule_id="FR-07",
+                    extra={"tool_name": tool_name, "path": target, "fail_closed": True},
+                    root=root,
+                )
+                _output_decision("deny", reason, "FR-07")
+                return 2
             # Make path repo-relative if it's absolute under root.
             rel = target
             if root and Path(target).is_absolute():

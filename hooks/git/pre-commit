@@ -60,6 +60,26 @@ fi
 # nonzero rc here means we can't reliably know whether protected paths are staged, so
 # fail closed rather than skip §3 on an empty-because-broken list. (Non-reachable in a
 # healthy repo — a broken repo won't commit — but cheap and consistent.)
+#
+# TRUSTED-HEAD ENFORCER (T28/#1): the enforcement code (path_policy.py / policy_loader.py /
+# shared/__init__.py) and the protected-paths.yml policy are THEMSELVES fusebase_flow_internals
+# — so a commit could STAGE a tampered enforcer that imports cleanly but LIES ("nothing is
+# protected": is_protected→False / evaluate().protected=False). §3 imported those modules from
+# the MUTABLE working tree, so the tamper ran during its OWN gate, self-passed, and disabled
+# FR-07 going forward (T27's SystemExit(0) block covers a self-EXIT, not a successful-but-lying
+# enforcer). Fix: when the staged set touches the enforcer code/policy, run §3 from the COMMITTED
+# (HEAD) copy of that code + policy — the CLEAN enforcer evaluates the STAGED changeset, still
+# sees `hooks/shared/**` + `policies/protected-paths.yml` as protected, and BLOCKS the tamper
+# unless a sanctioned approval is present. Trusted code + trusted policy; WORKING-TREE
+# state/approvals/ (so a legit sanctioned edit still passes) + STAGED git (the real commit).
+# BOOTSTRAP edge: on the first commit that ADDS these files, HEAD lacks them -> `git show HEAD:`
+# reports "path absent" -> fall back to the working-tree enforcer (the file being added is not a
+# tamper). A TRANSIENT git error (HEAD has the file but `git show` fails) is NOT bootstrap ->
+# fail closed (never fall back to the untrusted tree on an unexplained error; T26/T27 contract).
+# ACCEPTED RESIDUALS (a commit-time discipline guardrail cannot mechanically stop these — they
+# are rule-forbidden and/or out of band): `--no-verify` (FR rule-forbidden), deleting/replacing
+# `.git/hooks/pre-commit` on disk, and a full repo write that never invokes this hook. Documented
+# in the deploy problem-catalog; enforcement of those relies on FR discipline + review, not §3.
 STAGED_ANY="$(git diff --cached --name-only 2>/dev/null)"; STAGED_ANY_RC=$?
 if [ "$STAGED_ANY_RC" -ne 0 ]; then
     echo "[fusebase-flow:pre-commit] BLOCK — FR-07 could not list staged changes (outer git rc=$STAGED_ANY_RC) — failing closed." >&2
@@ -68,15 +88,158 @@ if [ "$STAGED_ANY_RC" -ne 0 ]; then
 fi
 if [ -n "$STAGED_ANY" ]; then
     if command -v python3 >/dev/null 2>&1; then
-        PYTHONPATH="$ROOT/hooks" python3 - <<'PY' || exit_proto=$?
+        # Does the staged set touch the enforcer code/policy? If so we must NOT import the
+        # enforcer from the (possibly tampered) working tree — extract the TRUSTED HEAD copy
+        # first (T28/#1). Match the exact modules §3 imports plus the policy file.
+        FR07_TRUSTED_MODE=0
+        if echo "$STAGED_ANY" | grep -qE '^(hooks/shared/(path_policy|policy_loader|__init__)\.py|policies/protected-paths\.yml)$'; then
+            FR07_TRUSTED_MODE=1
+        fi
+        # FR07_IMPORT_DIR = where the enforcement `shared` package is imported from;
+        # FR07_TRUSTED_POLICY = a trusted policy yaml to seed (empty => common path).
+        # Defaults are the common (working-tree) path — behavior IDENTICAL to pre-T28.
+        FR07_IMPORT_DIR="$ROOT/hooks"
+        FR07_TRUSTED_POLICY=""
+        FR07_TMP=""
+        if [ "$FR07_TRUSTED_MODE" -eq 1 ]; then
+            FR07_TMP="$(mktemp -d 2>/dev/null || mktemp -d -t ffflow-trusted)"
+            # Write the prep script to a file (NOT a heredoc inside $(...), which some bash
+            # -n parsers flag as an unterminated here-doc) then run it. It writes its verdict
+            # (`RESULT=trusted|fallback`) to $FR07_TMP/_result (read as a FILE below, never
+            # via $(...)); notes/diagnostics go to stderr (pass through to the operator);
+            # exits 1 on a TRANSIENT git error (fail closed, no fall-back to the untrusted tree).
+            cat > "$FR07_TMP/_prep.py" <<'PREP'
+import os, subprocess, sys
+from pathlib import Path
+
+root = Path(os.environ["ROOT"])
+tmp = Path(os.environ["FR07_TMP"])
+
+def _result(root, tmp):
+    return tmp / "_result"
+
+# (repo-relative source path, destination inside the temp trusted package)
+files = [
+    ("hooks/shared/__init__.py",       tmp / "shared" / "__init__.py"),
+    ("hooks/shared/path_policy.py",    tmp / "shared" / "path_policy.py"),
+    ("hooks/shared/policy_loader.py",  tmp / "shared" / "policy_loader.py"),
+    ("policies/protected-paths.yml",   tmp / "policies" / "protected-paths.yml"),
+]
+
+def head_has(path: str):
+    """(exists, transient_error). Uses `git ls-tree HEAD -- <path>`, which cleanly
+    separates the three cases where `git cat-file -e` does not:
+      rc0 + non-empty stdout => the path IS in the HEAD tree (present);
+      rc0 + EMPTY stdout      => the path is genuinely ABSENT in HEAD (first-adoption
+                                 bootstrap — a valid `git ls-tree` that lists nothing);
+      rc!=0 / exception       => git itself failed (transient / unresolvable) -> fail closed.
+    (`git cat-file -e HEAD:<path>` returns rc 128 for BOTH "path not in tree" and repo
+    errors — indistinguishable — so it cannot drive the bootstrap-vs-transient split.)"""
+    try:
+        r = subprocess.run(["git", "ls-tree", "HEAD", "--", path],
+                           capture_output=True, text=True, cwd=str(root))
+    except Exception:
+        return False, True
+    if r.returncode != 0:
+        return False, True       # git failed -> transient / unresolvable
+    if r.stdout.strip():
+        return True, False       # path present in HEAD
+    return False, False          # rc0 + empty -> genuinely absent in HEAD (bootstrap)
+
+# Unborn HEAD (no commits yet) is a legitimate first-adoption bootstrap, not transient.
+head_ref = subprocess.run(["git", "rev-parse", "--verify", "--quiet", "HEAD"],
+                          capture_output=True, text=True, cwd=str(root))
+if head_ref.returncode != 0:
+    _result(root, tmp).write_text("RESULT=fallback\n", encoding="utf-8")
+    print("[fusebase-flow:pre-commit] note: no HEAD yet (first-adoption bootstrap) — "
+          "FR-07 §3 uses the working-tree enforcer for this initial commit.", file=sys.stderr)
+    sys.exit(0)
+
+for src, _dst in files:
+    exists, transient = head_has(src)
+    if transient:
+        print(f"[fusebase-flow:pre-commit] BLOCK — FR-07 could not read the trusted HEAD "
+              f"copy of {src} (transient git error) — failing closed, NOT falling back to "
+              f"the untrusted working tree. NEVER use --no-verify.", file=sys.stderr)
+        sys.exit(1)
+    if not exists:
+        # A required trusted file is absent in HEAD => this commit is ADDING the enforcer
+        # (first-adoption). The added file is not a tamper of an existing control; fall back
+        # to the working-tree enforcer (which is all that exists) with a one-line note.
+        _result(root, tmp).write_text("RESULT=fallback\n", encoding="utf-8")
+        print(f"[fusebase-flow:pre-commit] note: {src} not in HEAD (first-adoption "
+              f"bootstrap) — FR-07 §3 uses the working-tree enforcer for this commit.",
+              file=sys.stderr)
+        sys.exit(0)
+
+# All present in HEAD => extract the TRUSTED copies into the temp package.
+for src, dst in files:
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    show = subprocess.run(["git", "show", f"HEAD:{src}"],
+                          capture_output=True, cwd=str(root))
+    if show.returncode != 0:
+        # ls-tree said it exists but show failed => TRANSIENT/unexpected => fail closed.
+        print(f"[fusebase-flow:pre-commit] BLOCK — FR-07 trusted HEAD extraction of {src} "
+              f"failed (git show rc={show.returncode}) — failing closed. NEVER use --no-verify.",
+              file=sys.stderr)
+        sys.exit(1)
+    dst.write_bytes(show.stdout)
+_result(root, tmp).write_text("RESULT=trusted\n", encoding="utf-8")
+PREP
+            # Invoke prep WITHOUT $(...) command substitution: on MSYS a Windows-native git
+            # grandchild can hold a captured pipe open past exit and hang the parent (the
+            # documented $(...) freeze). The prep writes its verdict to $FR07_TMP/_result and
+            # we read the FILE; stdout/stderr flow straight to the terminal (notes visible).
+            FR07_TMP="$FR07_TMP" ROOT="$ROOT" python3 "$FR07_TMP/_prep.py"; PREP_RC=$?
+            if [ "$PREP_RC" -ne 0 ]; then
+                # Transient extraction error => fail closed (diagnostic already on stderr).
+                [ -n "$FR07_TMP" ] && rm -rf "$FR07_TMP"
+                exit 1
+            fi
+            PREP_OUT="$(cat "$FR07_TMP/_result" 2>/dev/null || true)"
+            case "$PREP_OUT" in
+                *RESULT=trusted*)
+                    FR07_IMPORT_DIR="$FR07_TMP"
+                    FR07_TRUSTED_POLICY="$FR07_TMP/policies/protected-paths.yml"
+                    ;;
+                *RESULT=fallback*)
+                    # Bootstrap first-add: keep the working-tree defaults (import dir + no seed).
+                    ;;
+                *)
+                    # Unexpected prep output with rc0 — treat as unverifiable => fail closed.
+                    echo "[fusebase-flow:pre-commit] BLOCK — FR-07 trusted-HEAD preparation returned an unexpected result — failing closed. NEVER use --no-verify." >&2
+                    [ -n "$FR07_TMP" ] && rm -rf "$FR07_TMP"
+                    exit 1
+                    ;;
+            esac
+        fi
+        FR07_IMPORT_DIR="$FR07_IMPORT_DIR" FR07_TRUSTED_POLICY="$FR07_TRUSTED_POLICY" \
+        FR07_REAL_ROOT="$ROOT" PYTHONPATH="$FR07_IMPORT_DIR" python3 - <<'PY' || exit_proto=$?
+import os
 import sys
 from pathlib import Path
-root = Path.cwd()
-sys.path.insert(0, str(root / "hooks"))
+# root = the REAL repo (git --cached + working-tree state/approvals/ are read from here),
+# regardless of whether the enforcement CODE was imported from HEAD (trusted) or the tree.
+root = Path(os.environ["FR07_REAL_ROOT"])
+import_dir = os.environ.get("FR07_IMPORT_DIR") or str(root / "hooks")
+sys.path.insert(0, import_dir)
 try:
     from shared.path_policy import (
         assert_protected_policy_loaded, evaluate, staged_change_paths,
     )
+    # TRUSTED-POLICY SEED (T28/#1): when running the trusted HEAD enforcer, the classification
+    # (is_protected / on_unapproved_edit) must read the TRUSTED HEAD policy, not the mutable
+    # working-tree policies/protected-paths.yml a tamperer could have emptied in the same commit.
+    # Seed the policy loader's cache with the trusted YAML under BOTH cache keys the enforcer
+    # uses (root=None internal calls and the explicit-root assert), so every get_policy(
+    # "protected-paths") returns the trusted policy while state/approvals + git stay real.
+    trusted_policy = os.environ.get("FR07_TRUSTED_POLICY") or ""
+    if trusted_policy:
+        import yaml
+        from shared import policy_loader as _pl
+        policy = yaml.safe_load(Path(trusted_policy).read_text(encoding="utf-8")) or {}
+        _pl._POLICY_CACHE["::protected-paths"] = policy
+        _pl._POLICY_CACHE[f"{root}::protected-paths"] = policy
 except BaseException as e:
     # FAIL CLOSED (T27/#3): catch BaseException, not Exception. A staged/tampered
     # path_policy.py doing `raise SystemExit(0)` / `sys.exit(0)` on import subclasses
@@ -153,6 +316,9 @@ if hits:
     print("Per FR-07: author an approval artifact at state/approvals/ first.", file=sys.stderr)
     sys.exit(1)
 PY
+        # Clean up the trusted-HEAD temp package (FR-27 no-runaways: bounded, always
+        # removed) BEFORE acting on the rc so a BLOCK never leaks the temp dir.
+        [ -n "$FR07_TMP" ] && rm -rf "$FR07_TMP"
         if [ "${exit_proto:-0}" -ne 0 ]; then exit 1; fi
     else
         # python3 absent + staged changes: DON'T silently skip FR-07. Loud warn (not a
