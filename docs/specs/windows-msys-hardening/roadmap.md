@@ -1,6 +1,18 @@
 # Roadmap — Windows/MSYS hardening + adoption-path + process (v3.30.3 / v3.30.4)
 
-**Status:** COMPLETE — all 9 workstreams SHIPPED across v3.30.3 (WS1-WS9) + v3.30.4 (WS2-hard + WS5). See § Post-deploy closeout — v3.30.3 and § Post-deploy closeout — v3.30.4. LOCKED body below is the historical execution source-of-truth for the 9 field-validated slices captured 2026-06-30.
+**Status:** COMPLETE — all 9 workstreams SHIPPED across v3.30.3 (WS1-WS9) + v3.30.4 (WS2-hard + WS5). v3.30.5 = final-review follow-up correction on the shipped roadmap (see § Post-deploy follow-up — v3.30.5). See § Post-deploy closeout — v3.30.3 and § Post-deploy closeout — v3.30.4. LOCKED body below is the historical execution source-of-truth for the 9 field-validated slices captured 2026-06-30.
+
+## Post-deploy follow-up — v3.30.5 (2026-07-03) — final-review correction on the shipped roadmap
+
+**Released:** commit `180f4a179f44002b3a0c1499390cfcc55b28bef9` · tag `v3.30.5` · https://github.com/fusebase-dev/fusebase-flow/releases/tag/v3.30.5
+**DP.1 approval:** `state/approvals/production_deploy-v3305-20260702.json` (operator standing authorization; DP.6 equivalent = standing GO).
+**Reviews:** whole-roadmap review + TEN v3.30.5 convergence confirms; FINAL deploy-gate SHIP from TWO independent reviewers (Codex companion confirm #7 zero-findings + a 3-lens Opus adversarial panel that reproduced the RED baseline end-to-end and returned BLOCK-on-old / SHIP-on-ce4b41e).
+
+The whole-roadmap review of the shipped v3.30.x hook found the FR-07 §3 protected-path check AND the FR-12 §2 secret scan had MULTIPLE reachable fail-opens. v3.30.5 closes them so **both hook security controls fail CLOSED at every reachable load-point** — no mutable working-tree Python (code, patterns, startup file, env var, or import path) can influence any security check. T23 delete/rename coverage · T24 hook-install rc · T25 import fail-closed · T26 enumeration fail-closed · T27 BaseException/policy-present/additive-override/outer-git-rc · T28 trusted-HEAD + tool-time assert · T29 always-trusted-HEAD + `-S` + startup-file close · T30 sanitize env + `-S`-everywhere + git-based fallback (§3) · T31 §2 secret scanner + patterns from trusted HEAD · T32 file-script wrappers strip CWD/repo-root from sys.path (close the last mutable-Python load-path across BOTH checks) + `PYTHONSAFEPATH=1` + file-redirect sentinels (MSYS hang fix). Accepted out-of-model residuals: `--no-verify` (rule-forbidden), deleting/replacing `.git/hooks/pre-commit`, full repo write bypassing the hook, real-site-packages/OS-git-python compromise.
+
+**Lessons captured (`docs/problem-catalog/`):** `security-check-fail-open-class` · `mutable-python-load-point` · `cwd-on-syspath-under-dash-S` · `adversarial-review-convergence` · `msys-git-command-substitution-hang` · `transient-subagent-retry-discipline`.
+
+**Consumer-verify (operator distributes):** full `run-tests.sh` on a quiet MINGW64 box (incl. the 3 slow suites bounded during the gate) · a real protected delete/rename commit blocked on a wired-hook clone.
 
 ## Post-deploy closeout — v3.30.4 (2026-07-02) — roadmap COMPLETE
 
