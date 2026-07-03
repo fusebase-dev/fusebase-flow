@@ -35,8 +35,14 @@ cd "$ROOT" || exit 0
 # ANY python invocation; each invocation additionally passes `-S` + an explicit,
 # trusted-only PYTHONPATH (defense in depth). PYTHONNOUSERSITE=1 also blocks the user
 # site-dir startup path even for any incidental non-`-S` python a sub-tool might spawn.
+# PYTHONSAFEPATH=1 (T32, defense-in-depth): on Python 3.11+ the interpreter NEVER prepends
+# the script dir / CWD / '' to sys.path, so a `python3 -S -` (stdin) heredoc can no longer
+# import a repo-root pathlib.py/yaml.py shadow ahead of stdlib/site. Harmless/ignored on
+# <3.11. Belt-and-suspenders with the primary T32 fix (§2/§3 mains now run as FILE scripts
+# from the trusted temp dir, whose script-dir is the trusted dir and never the CWD).
 unset PYTHONPATH PYTHONSTARTUP PYTHONHOME 2>/dev/null || true
 export PYTHONNOUSERSITE=1
+export PYTHONSAFEPATH=1
 
 # 1. Reject likely secret files in staged changes.
 SECRETS_REGEX='\.env$|\.env\.[^\.]*$|credentials\.json$|/secrets/|\.pem$|\.key$|\.netrc$'
@@ -84,13 +90,24 @@ if command -v python3 >/dev/null 2>&1; then
     # policy_loader}; policy_loader reads secret-patterns.yml.)
     SEC_SENTINELS="hooks/shared/__init__.py hooks/shared/staged_secret_scan.py hooks/shared/secret_scanner.py hooks/shared/audit_logger.py hooks/shared/policy_loader.py policies/secret-patterns.yml"
     SEC_DECISION="trusted"
+    # T32 (RELIABILITY #3, MSYS): the sentinel `git ls-tree HEAD` is captured via a FILE
+    # REDIRECT, NOT `$(git ls-tree ...)` command substitution. On MSYS/Git-Bash a
+    # Windows-native git grandchild can hold the captured pipe open past exit, hanging the
+    # parent shell (rc=124) — the documented $(...)+git freeze that was the source of the
+    # gate timeouts. This is fail-SAFE (a hung hook only ever BLOCKS), not a security
+    # change; the trusted-vs-fallback semantics are IDENTICAL (rc!=0 => fail closed; rc0+
+    # empty => first-adoption fallback). Uses the same file-redirect pattern the PREP
+    # extractor already relies on. The scratch file lives in SEC_LSFILE.
+    SEC_LSFILE="$(mktemp 2>/dev/null || mktemp -t ffflow-secls)"
     if ! git rev-parse --verify --quiet HEAD >/dev/null 2>&1; then
         SEC_DECISION="fallback"
         echo "[fusebase-flow:pre-commit] note: no HEAD yet (first-adoption bootstrap) — §2 secret scan uses the working-tree scanner for this initial commit." >&2
     else
         for _s in $SEC_SENTINELS; do
-            _sls="$(git ls-tree HEAD -- "$_s" 2>/dev/null)"; _sls_rc=$?
+            git ls-tree HEAD -- "$_s" > "$SEC_LSFILE" 2>/dev/null; _sls_rc=$?
+            _sls="$(cat "$SEC_LSFILE" 2>/dev/null)"
             if [ "$_sls_rc" -ne 0 ]; then
+                rm -f "$SEC_LSFILE"
                 echo "[fusebase-flow:pre-commit] BLOCK — §2 secret scan could not read the trusted HEAD copy of $_s (transient git error, rc=$_sls_rc) — failing closed, NOT falling back to the untrusted working tree. NEVER use --no-verify." >&2
                 exit 1
             fi
@@ -101,8 +118,15 @@ if command -v python3 >/dev/null 2>&1; then
             fi
         done
     fi
+    rm -f "$SEC_LSFILE"
+    # T32 (primary CWD-strip fix): create the scratch/trusted temp dir UNCONDITIONALLY. The
+    # §2 MAIN check now runs as a FILE SCRIPT from this dir (python3 -S "$SEC_TMP/_main_secret.py"),
+    # so sys.path[0] is the trusted temp dir — NOT the repo-root CWD, which `-S -` (stdin) would
+    # otherwise leave on sys.path[0] and let a repo-root pathlib.py/yaml.py shadow win before any
+    # scrub. On the TRUSTED path the extractor also fills shared/+policies/ here; on the FALLBACK
+    # path the dir holds ONLY the wrapper (SEC_IMPORT_DIR stays $ROOT/hooks, inserted by the wrapper).
+    SEC_TMP="$(mktemp -d 2>/dev/null || mktemp -d -t ffflow-secret)"
     if [ "$SEC_DECISION" = "trusted" ]; then
-        SEC_TMP="$(mktemp -d 2>/dev/null || mktemp -d -t ffflow-secret)"
         # Pure extractor (git show HEAD -> temp; no verdict). Written to a file, not a
         # heredoc-in-$(...) (bash -n here-doc parse). Fail closed on any git-show failure.
         cat > "$SEC_TMP/_prep_secret.py" <<'SECPREP'
@@ -149,10 +173,37 @@ SECPREP
     # so nothing is inherited) — the trusted temp dir on the normal path, $ROOT/hooks ONLY on
     # the first-adoption bootstrap fallback. The scanner re-adds site-packages (for PyYAML)
     # via getsitepackages() PATHS without running site.main() (its own _restore_site_packages).
-    SEC_IMPORT_DIR="$SEC_IMPORT_DIR" SEC_TRUSTED_PATTERNS="$SEC_TRUSTED_PATTERNS" \
-    SEC_REAL_ROOT="$ROOT" PYTHONPATH="$SEC_IMPORT_DIR" python3 -S - <<'SECPY' || exit_secret=$?
-import os
+    #
+    # T32 (PRIMARY CWD-strip fix): the MAIN check runs as a FILE SCRIPT from the trusted temp
+    # dir (python3 -S "$SEC_TMP/_main_secret.py"), NOT `python3 -S -` (stdin). For a file script
+    # sys.path[0] is the SCRIPT'S dir (the trusted temp dir) and the CWD is never added — so a
+    # repo-root pathlib.py/yaml.py can no longer shadow stdlib/site before the scrub or the
+    # trusted-patterns seed's `import yaml`. (Stdin `-` used to put the repo-root CWD at
+    # sys.path[0]; `-S` disables site but does NOT remove the CWD.) The wrapper ALSO scrubs any
+    # residual CWD/'' entry as its first statements (belt-and-suspenders, unshadowable builtin
+    # os core) so the guarantee holds even on interpreters that ignore PYTHONSAFEPATH.
+    cat > "$SEC_TMP/_main_secret.py" <<'SECPY'
 import sys
+# T32 CWD-STRIP (first statements, before ANY non-builtin import): remove the repo-root/CWD/''
+# entries a stdin/`-c` invocation would leave on sys.path. Get CWD via a BUILTIN os core
+# (`nt` on Windows / `posix` on POSIX — both in sys.builtin_module_names, so a repo-root
+# nt.py/posix.py cannot shadow them). sys itself is builtin (unshadowable). Idempotent: a
+# no-op when the file-script/PYTHONSAFEPATH path already stripped CWD. NOT `del sys.path[0]`
+# (that would wrongly drop the stdlib entry when CWD was already absent).
+_cwd = None
+try:
+    import nt as _oscore  # Windows
+except ImportError:
+    import posix as _oscore  # POSIX
+try:
+    _cwd = _oscore.getcwd()
+except Exception:
+    _cwd = None
+_drop = {"", "."}
+if _cwd:
+    _drop.add(_cwd)
+sys.path[:] = [p for p in sys.path if p not in _drop]
+import os
 from pathlib import Path
 # root = the REAL repo: the STAGED diff (git diff --cached) + working-tree cwd are read
 # from here, regardless of whether the scanner CODE was imported from HEAD (trusted) or
@@ -209,6 +260,10 @@ if matches and block_decision(matches) == "deny":
     print("Per FR-12: rotate the credential, then `git reset HEAD -- <file>` to unstage. Do NOT whitelist the value to get past this.", file=sys.stderr)
     sys.exit(1)
 SECPY
+    # Run the MAIN §2 check as a FILE SCRIPT (T32): sys.path[0] = the trusted temp dir, not the
+    # repo-root CWD. PYTHONPATH is still the SINGLE trusted import dir (T30 scrubbed the env).
+    SEC_IMPORT_DIR="$SEC_IMPORT_DIR" SEC_TRUSTED_PATTERNS="$SEC_TRUSTED_PATTERNS" \
+    SEC_REAL_ROOT="$ROOT" PYTHONPATH="$SEC_IMPORT_DIR" python3 -S "$SEC_TMP/_main_secret.py" || exit_secret=$?
     # Clean up the trusted temp package (FR-27 no-runaways: bounded, always removed)
     # BEFORE acting on the rc so a BLOCK never leaks the temp dir.
     [ -n "$SEC_TMP" ] && rm -rf "$SEC_TMP"
@@ -308,14 +363,24 @@ if [ -n "$STAGED_ANY" ]; then
         # it no longer votes on trusted-vs-fallback.
         FR07_SENTINELS="hooks/shared/__init__.py hooks/shared/path_policy.py hooks/shared/policy_loader.py policies/protected-paths.yml"
         FR07_DECISION="trusted"
+        # T32 (RELIABILITY #3, MSYS): capture the sentinel `git ls-tree HEAD` via a FILE
+        # REDIRECT, NOT `$(git ls-tree ...)` command substitution — the $(...)+git pattern
+        # intermittently HANGS under MSYS/Git-Bash (a Windows-native git grandchild holds the
+        # captured pipe open past exit => rc=124), the source of the gate timeouts. Fail-SAFE
+        # (a hung hook only ever BLOCKS); the trusted-vs-fallback semantics are IDENTICAL
+        # (rc!=0 => fail closed; rc0+empty => first-adoption fallback). Same file-redirect
+        # pattern the PREP extractor already uses. Scratch file in FR07_LSFILE.
+        FR07_LSFILE="$(mktemp 2>/dev/null || mktemp -t ffflow-fr07ls)"
         # Unborn HEAD (no commits yet) is a legitimate first-adoption bootstrap, not transient.
         if ! git rev-parse --verify --quiet HEAD >/dev/null 2>&1; then
             FR07_DECISION="fallback"
             echo "[fusebase-flow:pre-commit] note: no HEAD yet (first-adoption bootstrap) — FR-07 §3 uses the working-tree enforcer for this initial commit." >&2
         else
             for _s in $FR07_SENTINELS; do
-                _ls="$(git ls-tree HEAD -- "$_s" 2>/dev/null)"; _ls_rc=$?
+                git ls-tree HEAD -- "$_s" > "$FR07_LSFILE" 2>/dev/null; _ls_rc=$?
+                _ls="$(cat "$FR07_LSFILE" 2>/dev/null)"
                 if [ "$_ls_rc" -ne 0 ]; then
+                    rm -f "$FR07_LSFILE"
                     echo "[fusebase-flow:pre-commit] BLOCK — FR-07 could not read the trusted HEAD copy of $_s (transient git error, rc=$_ls_rc) — failing closed, NOT falling back to the untrusted working tree. NEVER use --no-verify." >&2
                     exit 1
                 fi
@@ -328,11 +393,17 @@ if [ -n "$STAGED_ANY" ]; then
                 fi
             done
         fi
+        rm -f "$FR07_LSFILE"
+        # T32 (primary CWD-strip fix): create the scratch/trusted temp dir UNCONDITIONALLY so
+        # the §3 MAIN check can run as a FILE SCRIPT from it (python3 -S "$FR07_TMP/_main.py"),
+        # giving sys.path[0] = the trusted temp dir, never the repo-root CWD. On the TRUSTED
+        # path the extractor also fills shared/+policies/ here; on the FALLBACK path the dir
+        # holds ONLY the wrapper (FR07_IMPORT_DIR stays $ROOT/hooks, inserted by the wrapper).
+        FR07_TMP="$(mktemp -d 2>/dev/null || mktemp -d -t ffflow-trusted)"
         # On TRUSTED: extract HEAD's clean enforcer + policy into a temp package via a pure
         # extractor script, run under `-S` with a controlled PYTHONPATH (never $ROOT/hooks,
         # never inherited — the env is already scrubbed at the hook top).
         if [ "$FR07_DECISION" = "trusted" ]; then
-            FR07_TMP="$(mktemp -d 2>/dev/null || mktemp -d -t ffflow-trusted)"
             # Write the extractor to a file (NOT a heredoc inside $(...), which some bash -n
             # parsers flag as an unterminated here-doc) then run it. It ONLY does git show ->
             # temp (no verdict); it exits 1 on a git-show failure (fail closed). Diagnostics
@@ -388,10 +459,33 @@ PREP
         # $ROOT/hooks ONLY on the first-adoption bootstrap fallback (HEAD genuinely lacks the
         # enforcer). Under `-S` site-packages is dropped; the script re-adds it below WITHOUT
         # importing startup files (needed for PyYAML in the trusted-policy seed).
-        FR07_IMPORT_DIR="$FR07_IMPORT_DIR" FR07_TRUSTED_POLICY="$FR07_TRUSTED_POLICY" \
-        FR07_REAL_ROOT="$ROOT" PYTHONPATH="$FR07_IMPORT_DIR" python3 -S - <<'PY' || exit_proto=$?
-import os
+        #
+        # T32 (PRIMARY CWD-strip fix): the MAIN check runs as a FILE SCRIPT from the trusted temp
+        # dir (python3 -S "$FR07_TMP/_main.py"), NOT `python3 -S -` (stdin). sys.path[0] is then
+        # the SCRIPT'S dir (the trusted temp dir); the repo-root CWD is never added, so a repo-root
+        # pathlib.py/yaml.py can no longer shadow stdlib/site before the trusted-policy seed's
+        # `import yaml`. The wrapper ALSO scrubs any residual CWD/'' entry as its first statements
+        # (unshadowable builtin os core) so the guarantee holds even where PYTHONSAFEPATH is a no-op.
+        cat > "$FR07_TMP/_main.py" <<'PY'
 import sys
+# T32 CWD-STRIP (first statements, before ANY non-builtin import): drop repo-root/CWD/'' entries
+# a stdin/`-c` invocation would leave on sys.path. CWD via a BUILTIN os core (`nt`/`posix`, both
+# in sys.builtin_module_names — unshadowable by a repo-root nt.py/posix.py). sys is builtin too.
+# Idempotent; NOT `del sys.path[0]` (that would wrongly drop the stdlib entry once CWD is gone).
+_cwd = None
+try:
+    import nt as _oscore  # Windows
+except ImportError:
+    import posix as _oscore  # POSIX
+try:
+    _cwd = _oscore.getcwd()
+except Exception:
+    _cwd = None
+_drop = {"", "."}
+if _cwd:
+    _drop.add(_cwd)
+sys.path[:] = [p for p in sys.path if p not in _drop]
+import os
 from pathlib import Path
 # root = the REAL repo (git --cached + working-tree state/approvals/ are read from here),
 # regardless of whether the enforcement CODE was imported from HEAD (trusted) or the tree.
@@ -404,6 +498,9 @@ def _restore_site_packages():
     # `-S` dropped site-packages; the enforcer's policy_loader imports PyYAML. Re-add the
     # site-packages dirs WITHOUT running site.main() (which would import sitecustomize/
     # usercustomize). getsitepackages()/getusersitepackages() only RETURN paths.
+    # T32 (DEFENSE-IN-DEPTH #2): PREPEND (insert) site-packages AFTER the leading trusted
+    # import dir (sys.path[0]) — never ahead of it — so real PyYAML/stdlib win over any
+    # working-tree yaml.py shadow while [trusted_dir, site-packages, stdlib] is preserved.
     import site
     dirs = []
     try:
@@ -416,9 +513,11 @@ def _restore_site_packages():
             dirs.append(u)
     except Exception:
         pass
+    insert_at = 1 if sys.path else 0
     for p in dirs:
         if p and p not in sys.path:
-            sys.path.append(p)
+            sys.path.insert(insert_at, p)
+            insert_at += 1
 
 
 _restore_site_packages()
@@ -515,6 +614,10 @@ if hits:
     print("Per FR-07: author an approval artifact at state/approvals/ first.", file=sys.stderr)
     sys.exit(1)
 PY
+        # Run the MAIN §3 check as a FILE SCRIPT (T32): sys.path[0] = the trusted temp dir, not
+        # the repo-root CWD. PYTHONPATH stays the SINGLE trusted import dir (T30 scrubbed the env).
+        FR07_IMPORT_DIR="$FR07_IMPORT_DIR" FR07_TRUSTED_POLICY="$FR07_TRUSTED_POLICY" \
+        FR07_REAL_ROOT="$ROOT" PYTHONPATH="$FR07_IMPORT_DIR" python3 -S "$FR07_TMP/_main.py" || exit_proto=$?
         # Clean up the trusted-HEAD temp package (FR-27 no-runaways: bounded, always
         # removed) BEFORE acting on the rc so a BLOCK never leaks the temp dir.
         [ -n "$FR07_TMP" ] && rm -rf "$FR07_TMP"

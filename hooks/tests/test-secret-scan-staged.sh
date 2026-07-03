@@ -290,4 +290,179 @@ for p in d:
 import yaml
 ' >/dev/null 2>&1; then ok "secret-scan-pyyaml-imports-under-S (getsitepackages re-add works for the §2 seed)"; else bad "secret-scan-pyyaml-imports-under-S" "PyYAML did NOT import under -S — the §2 trusted-patterns seed would silently fail"; fi
 
+# =============================================================================
+# T32 — strip the CWD/repo-root entry from every `python3 -S -` (stdin) invocation so a
+# repo-root module shadow (pathlib.py / yaml.py) can no longer run BEFORE the checks. T29-T31
+# hardened §2 with `-S` + env scrub + trusted-HEAD code/patterns, but the §2 MAIN check still
+# ran as `python3 -S -` (STDIN), which leaves the repo-root CWD on sys.path[0]. `pathlib` is
+# NOT builtin, and _restore_site_packages APPENDED site-packages (behind the CWD), so an
+# UNSTAGED repo-root pathlib.py (os._exit(0)) OR a discriminating yaml.py shim ran ahead of
+# stdlib/site and neutered §2 -> a real staged secret committed unguarded. T32 runs the MAIN
+# check as a FILE SCRIPT from the trusted temp dir (sys.path[0] = that dir, CWD never added) +
+# an in-script CWD scrub + PYTHONSAFEPATH=1 + PREPEND site-packages. RED→GREEN vs 41a8c6d.
+# =============================================================================
+T32_BASE_REF="41a8c6d"
+
+# t32_red_repo: a throwaway repo whose HEAD carries the T32_BASE_REF (pre-T32) pre-commit +
+# the pre-T32 shared scanner stack + patterns + protected-paths policy, so the RED baseline
+# is a FAITHFUL pre-T32 environment (append-style _restore_site_packages + stdin `-S -` MAIN).
+# Echoes the repo dir, or empty string if the baseline blob is unreachable.
+t32_red_repo() {
+  git -C "$ROOT" cat-file -e "$T32_BASE_REF:hooks/git/pre-commit" 2>/dev/null || { echo ""; return; }
+  local D; D="$(mktemp -d)"
+  mkdir -p "$D/hooks/shared" "$D/hooks/git" "$D/policies" "$D/state/approvals" "$D/src"
+  local f
+  for f in __init__.py staged_secret_scan.py secret_scanner.py audit_logger.py policy_loader.py path_policy.py; do
+    git -C "$ROOT" show "$T32_BASE_REF:hooks/shared/$f" > "$D/hooks/shared/$f" 2>/dev/null || true
+  done
+  git -C "$ROOT" show "$T32_BASE_REF:policies/secret-patterns.yml" > "$D/policies/secret-patterns.yml"
+  git -C "$ROOT" show "$T32_BASE_REF:policies/protected-paths.yml" > "$D/policies/protected-paths.yml"
+  git -C "$ROOT" show "$T32_BASE_REF:hooks/git/pre-commit" > "$D/hooks/git/pre-commit"
+  ( cd "$D" && git init -q && git config user.email t@t.t && git config user.name t \
+      && git config core.autocrlf false && git add -A && git commit -qm seed )
+  echo "$D"
+}
+
+# drop_pathlib_shadow: an UNSTAGED repo-root pathlib.py that short-circuits the interpreter.
+drop_pathlib_shadow() { printf 'import os\nos._exit(0)\n' > "$1/pathlib.py"; }
+# drop_yaml_shim: the DISCRIMINATING repo-root yaml.py — empty secret-patterns (neuter §2) but a
+# VALID non-empty fusebase_flow_internals policy for protected-paths text (keep §3 green), keyed
+# on `local_override_may_relax`/`categories:` (only protected-paths.yml carries them).
+drop_yaml_shim() {
+  cat > "$1/yaml.py" <<'YSHIM'
+def safe_load(text):
+    t = text.decode("utf-8", "replace") if isinstance(text, (bytes, bytearray)) else (text or "")
+    if "local_override_may_relax" in t or "categories:" in t:
+        return {"schema_version": 1, "local_override_may_relax": False,
+                "categories": {"fusebase_flow_internals": {"paths": ["FLOW_RULES.md", "policies/*.yml", "hooks/handlers/**", "hooks/shared/**"]}}}
+    return {"schema_version": 1, "default_action": "block", "patterns": [], "whitelist": []}
+def load(t, *a, **k):
+    return safe_load(t)
+class YAMLError(Exception):
+    pass
+YSHIM
+}
+
+# ---- T32 #1. CWD-SHADOW-SECRET-PATHLIB-BLOCKS (§2, Codex vector). Clean scanner in HEAD;
+#      drop an UNSTAGED repo-root pathlib.py (os._exit(0)); stage a real AWS key. The T32
+#      MAIN file-script strips CWD -> pathlib resolves to stdlib -> §2 runs -> BLOCK.
+#      RED (41a8c6d): stdin `-S -` leaves CWD at sys.path[0] -> pathlib shadow os._exit(0)s ->
+#      the §2 process exits 0 -> the secret commits. ----
+D="$(ph_repo)"
+drop_pathlib_shadow "$D"
+printf 'const k = "%s";\n' "$AKIA_KEY" > "$D/src/leak.js"
+( cd "$D" && git add src/leak.js )
+T32A_ERR="$( ( cd "$D" && bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
+T32A_RC=0; run_precommit_pc "$D" || T32A_RC=$?
+if [ "$T32A_RC" -ne 0 ] && echo "$T32A_ERR" | grep -qiE "secret pattern|BLOCK — secret"; then ok "cwd-shadow-secret-pathlib-blocks (§2 file-script strips CWD; pathlib shadow inert, exit $T32A_RC)"; else bad "cwd-shadow-secret-pathlib-blocks" "an UNSTAGED repo-root pathlib.py shadow let a real staged secret through (rc=$T32A_RC) — §2 CWD-on-sys.path bypass"; fi
+# RED proof on 41a8c6d (faithful pre-T32 env): the stdin `-S -` MAIN imports the shadow -> exit 0.
+RED="$(t32_red_repo)"
+if [ -n "$RED" ]; then
+  drop_pathlib_shadow "$RED"; printf 'const k = "%s";\n' "$AKIA_KEY" > "$RED/src/leak.js"
+  ( cd "$RED" && git add src/leak.js )
+  RED32A=0; ( cd "$RED" && bash hooks/git/pre-commit >/dev/null 2>&1 ) || RED32A=$?
+  if [ "$RED32A" -eq 0 ]; then ok "cwd-shadow-secret-pathlib-RED-was-fail-open (41a8c6d stdin -S - imported the repo-root pathlib shadow; secret self-passed at exit 0)"; else ok "cwd-shadow-secret-pathlib-RED-not-exit0-here (GREEN still asserted)"; fi
+  rm -rf "$RED"
+else ok "cwd-shadow-secret-pathlib-RED-skipped-no-baseline (41a8c6d not reachable)"; fi
+rm -rf "$D"
+
+# ---- T32 #2. CWD-SHADOW-SECRET-YAML-BLOCKS (§2, panel vector — the discriminating-shim PoC,
+#      verified END-TO-END). Clean scanner+patterns+enforcer in HEAD; drop the UNSTAGED
+#      discriminating repo-root yaml.py (empty patterns for §2, valid policy for §3); stage a
+#      real AWS key in a NON-protected path (src/leak.js). T32 strips CWD -> real PyYAML wins ->
+#      §2 seeds the TRUSTED patterns -> BLOCK. RED (41a8c6d): the shim wins (CWD ahead of the
+#      APPENDED site-packages) -> §2 sees empty patterns -> §3 stays green -> "all checks
+#      passed", exit 0, the AWS key lands in HEAD. ----
+D="$(ph_repo)"
+drop_yaml_shim "$D"
+printf 'const k = "%s";\n' "$AKIA_KEY" > "$D/src/leak.js"
+( cd "$D" && git add src/leak.js )
+T32B_ERR="$( ( cd "$D" && bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
+T32B_RC=0; run_precommit_pc "$D" || T32B_RC=$?
+if [ "$T32B_RC" -ne 0 ] && echo "$T32B_ERR" | grep -qiE "secret pattern|BLOCK — secret"; then ok "cwd-shadow-secret-yaml-blocks (discriminating shim inert; real PyYAML wins; §2 BLOCKS, exit $T32B_RC)"; else bad "cwd-shadow-secret-yaml-blocks" "the discriminating repo-root yaml.py shim neutered §2 and a real staged secret committed (rc=$T32B_RC) — §2 CWD-shadow bypass"; fi
+RED="$(t32_red_repo)"
+if [ -n "$RED" ]; then
+  drop_yaml_shim "$RED"; printf 'const k = "%s";\n' "$AKIA_KEY" > "$RED/src/leak.js"
+  ( cd "$RED" && git add src/leak.js )
+  RED32B=0; ( cd "$RED" && bash hooks/git/pre-commit >/dev/null 2>&1 ) || RED32B=$?
+  if [ "$RED32B" -eq 0 ]; then ok "cwd-shadow-secret-yaml-RED-was-fail-open (41a8c6d: discriminating shim neutered §2, kept §3 green; the AWS key self-passed at exit 0)"; else ok "cwd-shadow-secret-yaml-RED-not-exit0-here (GREEN still asserted)"; fi
+  rm -rf "$RED"
+else ok "cwd-shadow-secret-yaml-RED-skipped-no-baseline (41a8c6d not reachable)"; fi
+rm -rf "$D"
+
+# ---- T32 #3. YAML-STILL-IMPORTS / NO-OVER-BLOCK. A legit non-secret commit still passes the
+#      T32 file-script §2 path (real PyYAML imports under the CWD-strip + prepend); a real
+#      secret on the untampered path still BLOCKS (§2 detection intact). ----
+D="$(ph_repo)"
+echo "const ok = 'hello world';" > "$D/src/app.js"
+( cd "$D" && git add src/app.js )
+if run_precommit_pc "$D"; then ok "cwd-strip-no-over-block-legit-passes (T32 file-script §2, non-secret, PyYAML imports)"; else bad "cwd-strip-no-over-block-legit-passes" "a legit non-secret commit was over-blocked by the T32 §2 file-script path (did PyYAML fail to import after the CWD strip?)"; fi
+rm -rf "$D"
+D="$(ph_repo)"
+printf 'const k = "%s";\n' "$AKIA_KEY" > "$D/src/leak.js"
+( cd "$D" && git add src/leak.js )
+T32C_RC=0; run_precommit_pc "$D" || T32C_RC=$?
+if [ "$T32C_RC" -ne 0 ]; then ok "cwd-strip-still-blocks-untampered-secret (§2 detection intact under file-script, exit $T32C_RC)"; else bad "cwd-strip-still-blocks-untampered-secret" "a real staged secret was NOT blocked under the T32 §2 file-script path (detection broke)"; fi
+rm -rf "$D"
+
+# ---- T32 #4. SYSPATH-HAS-NO-CWD (assert) + PREPEND ORDER. The §2 MAIN wrapper's effective
+#      sys.path must NOT contain '', '.', or the repo-root/CWD before the first non-builtin
+#      import, AND _restore_site_packages must PREPEND (not append) site-packages AFTER the
+#      leading trusted import dir. Extract the shipped §2 wrapper body + run it with a probe
+#      shim that would only load if CWD were on the path. ----
+# 4a. Assert the shipped §2 MAIN runs as a FILE SCRIPT (not `python3 -S -` stdin) + scrubs CWD.
+if grep -q 'cat > "\$SEC_TMP/_main_secret.py"' "$ROOT/hooks/git/pre-commit" \
+   && grep -q 'python3 -S "\$SEC_TMP/_main_secret.py"' "$ROOT/hooks/git/pre-commit" \
+   && ! grep -q 'PYTHONPATH="\$SEC_IMPORT_DIR" python3 -S - ' "$ROOT/hooks/git/pre-commit"; then
+  ok "cwd-strip-sec-main-is-file-script (source: §2 MAIN runs python3 -S \$SEC_TMP/_main_secret.py, no stdin -S -)"
+else
+  bad "cwd-strip-sec-main-is-file-script" "§2 MAIN still uses stdin `python3 -S -` or the file-script invocation is absent"
+fi
+# 4b. Live probe: a file-script in a fresh temp dir, run from CWD holding a shadow module, must
+#     NOT see '', '.', or the CWD on sys.path — the direct guarantee behind the shadow tests.
+PROBE_TMP="$(mktemp -d)"; PROBE_CWD="$(mktemp -d)"
+printf 'import os\nos._exit(0)\n' > "$PROBE_CWD/pathlib.py"   # a shadow that would fire IF CWD were on the path
+cat > "$PROBE_TMP/probe.py" <<'PROBE'
+import sys
+_cwd = None
+try:
+    import nt as _oscore
+except ImportError:
+    import posix as _oscore
+try:
+    _cwd = _oscore.getcwd()
+except Exception:
+    _cwd = None
+_drop = {"", "."}
+if _cwd:
+    _drop.add(_cwd)
+sys.path[:] = [p for p in sys.path if p not in _drop]
+from pathlib import Path   # would hit the CWD shadow (os._exit 0) if CWD survived
+print("NO_CWD_ON_PATH")
+PROBE
+PROBE_OUT="$( ( cd "$PROBE_CWD" && python3 -S "$PROBE_TMP/probe.py" ) 2>/dev/null )"
+if [ "$PROBE_OUT" = "NO_CWD_ON_PATH" ]; then ok "cwd-strip-syspath-has-no-cwd (file-script + in-script scrub: '', '.', CWD absent before first non-builtin import)"; else bad "cwd-strip-syspath-has-no-cwd" "a file-script run from a CWD holding a pathlib.py shadow still imported it (CWD survived on sys.path) — got: '$PROBE_OUT'"; fi
+rm -rf "$PROBE_TMP" "$PROBE_CWD"
+# 4c. Source assert: _restore_site_packages PREPENDS (insert), not append.
+if grep -q 'sys.path.insert(insert_at, p)' "$ROOT/hooks/shared/staged_secret_scan.py" \
+   && ! grep -q 'sys.path.append(p)' "$ROOT/hooks/shared/staged_secret_scan.py"; then
+  ok "cwd-strip-restore-site-packages-prepends (staged_secret_scan: insert after leading trusted dir, not append)"
+else
+  bad "cwd-strip-restore-site-packages-prepends" "staged_secret_scan._restore_site_packages still appends site-packages (a surviving CWD yaml.py could still shadow real PyYAML)"
+fi
+# 4d. Source assert: PYTHONSAFEPATH=1 exported at the hook top (defense-in-depth).
+if grep -q 'export PYTHONSAFEPATH=1' "$ROOT/hooks/git/pre-commit"; then
+  ok "cwd-strip-pythonsafepath-exported (defense-in-depth: 3.11+ never puts CWD on sys.path)"
+else
+  bad "cwd-strip-pythonsafepath-exported" "PYTHONSAFEPATH=1 not exported at the hook top"
+fi
+# 4e. Source assert: §2 sentinel loop uses the FILE-REDIRECT pattern, not `$(git ls-tree)` command
+#     substitution (MSYS rc=124 hang fix, #3). The capture writes to SEC_LSFILE then reads it.
+if grep -q 'git ls-tree HEAD -- "\$_s" > "\$SEC_LSFILE"' "$ROOT/hooks/git/pre-commit" \
+   && ! grep -q '_sls="\$(git ls-tree HEAD' "$ROOT/hooks/git/pre-commit"; then
+  ok "cwd-strip-sec-sentinel-file-redirect (§2 sentinel via file redirect, no \$(git ls-tree) command substitution — MSYS rc=124 hang closed)"
+else
+  bad "cwd-strip-sec-sentinel-file-redirect" "§2 sentinel loop still uses \$(git ls-tree ...) command substitution (MSYS hang risk)"
+fi
+
 finish

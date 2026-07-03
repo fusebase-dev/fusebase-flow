@@ -461,4 +461,129 @@ for p in d:
 import yaml
 ' >/dev/null 2>&1; then ok "26-pyyaml-imports-under-S (getsitepackages re-add works)"; else bad "26-pyyaml-imports-under-S" "PyYAML did NOT import under -S with the getsitepackages re-add — the trusted-policy seed would silently fail"; fi
 
+# =============================================================================
+# T32 — strip the CWD/repo-root entry from the §3 FR-07 MAIN `python3 -S -` (stdin) invocation.
+# T29-T31 hardened §3 with `-S` + env scrub + trusted-HEAD enforcer/policy + a SHELL-decided
+# trusted-vs-fallback, but the §3 MAIN still ran as `python3 -S -` (STDIN), leaving the repo-root
+# CWD on sys.path[0]. An UNSTAGED repo-root pathlib.py (os._exit(0)) — or a yaml.py shadow —
+# imported BEFORE the enforcer -> the §3 process exited 0 -> an unapproved protected edit
+# committed unguarded. T32 runs §3 MAIN as a FILE SCRIPT from the trusted temp dir (sys.path[0]
+# = that dir, CWD never added) + an in-script CWD scrub + PYTHONSAFEPATH + prepend site-packages.
+# RED→GREEN vs 41a8c6d.
+# =============================================================================
+T32_BASE_REF="41a8c6d"
+
+# t32_red_repo: a throwaway repo whose HEAD carries the pre-T32 pre-commit + shared enforcer +
+# policies, so the RED baseline is a FAITHFUL pre-T32 env (stdin `-S -` §3 MAIN). Echoes the
+# repo dir with the CLEAN enforcer already committed into HEAD (trusted path fires), or "" if
+# the baseline blob is unreachable.
+t32_red_repo() {
+  git -C "$ROOT" cat-file -e "$T32_BASE_REF:hooks/git/pre-commit" 2>/dev/null || { echo ""; return; }
+  local D; D="$(mktemp -d)"
+  mkdir -p "$D/hooks/shared" "$D/hooks/git" "$D/hooks/local" "$D/policies" "$D/state/approvals" "$D/src"
+  local f
+  for f in __init__.py path_policy.py policy_loader.py audit_logger.py secret_scanner.py staged_secret_scan.py; do
+    git -C "$ROOT" show "$T32_BASE_REF:hooks/shared/$f" > "$D/hooks/shared/$f" 2>/dev/null || true
+  done
+  git -C "$ROOT" show "$T32_BASE_REF:policies/protected-paths.yml" > "$D/policies/protected-paths.yml"
+  git -C "$ROOT" show "$T32_BASE_REF:policies/secret-patterns.yml" > "$D/policies/secret-patterns.yml" 2>/dev/null || true
+  git -C "$ROOT" show "$T32_BASE_REF:hooks/git/pre-commit" > "$D/hooks/git/pre-commit"
+  cp "$ROOT/hooks/local/write-bootstrap-approval.sh" "$D/hooks/local/" 2>/dev/null || true
+  ( cd "$D" && git init -q && git config user.email t@t.t && git config user.name t \
+      && git config core.autocrlf false \
+      && git add -A && git commit -qm 'seed clean enforcer into HEAD' )   # CLEAN enforcer in HEAD.
+  echo "$D"
+}
+# fr07_repo: like new_repo but with the CLEAN enforcer already committed into HEAD so the
+# UNCONDITIONAL trusted-HEAD §3 path fires (this task's FIXED working-tree pre-commit).
+fr07_repo() {
+  local D; D="$(new_repo)"
+  head_with_enforcer "$D"
+  echo "$D"
+}
+drop_pathlib_shadow() { printf 'import os\nos._exit(0)\n' > "$1/pathlib.py"; }
+drop_yaml_pathlib_shadow() {   # a yaml.py that also short-circuits (the §3 yaml variant)
+  printf 'import os\nos._exit(0)\n' > "$1/yaml.py"
+}
+
+# ---- 27 (T32 §3). CWD-SHADOW-FR07-PATHLIB-BLOCKS. Clean enforcer in HEAD; drop an UNSTAGED
+#      repo-root pathlib.py (os._exit(0)); stage an UNAPPROVED protected edit (FLOW_RULES.md).
+#      T32 §3 file-script strips CWD -> pathlib resolves to stdlib -> the enforcer runs -> BLOCK.
+#      RED (41a8c6d): stdin `-S -` leaves CWD at sys.path[0] -> pathlib shadow os._exit(0)s -> §3
+#      exits 0 -> the protected edit commits. ----
+D="$(fr07_repo)"
+drop_pathlib_shadow "$D"
+printf '# flow rules (protected edit)\n' > "$D/FLOW_RULES.md"
+( cd "$D" && git add FLOW_RULES.md )
+T27_ERR="$( ( cd "$D" && bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
+T27_RC=0; ( cd "$D" && bash hooks/git/pre-commit >/dev/null 2>&1 ) || T27_RC=$?
+if [ "$T27_RC" -ne 0 ]; then ok "27-cwd-shadow-fr07-pathlib-blocks (§3 file-script strips CWD; pathlib shadow inert, exit $T27_RC)"; else bad "27-cwd-shadow-fr07-pathlib-blocks" "an UNSTAGED repo-root pathlib.py shadow let an unapproved protected edit through (rc=$T27_RC) — §3 CWD-on-sys.path bypass"; fi
+if echo "$T27_ERR" | grep -qiE "protected paths edited|FR-07"; then ok "27-cwd-shadow-fr07-pathlib-diagnostic"; else bad "27-cwd-shadow-fr07-pathlib-diagnostic" "no FR-07 diagnostic on the blocked protected edit under the pathlib shadow"; fi
+RED="$(t32_red_repo)"
+if [ -n "$RED" ]; then
+  drop_pathlib_shadow "$RED"; printf '# flow rules (protected edit)\n' > "$RED/FLOW_RULES.md"
+  ( cd "$RED" && git add FLOW_RULES.md )
+  RED27=0; ( cd "$RED" && bash hooks/git/pre-commit >/dev/null 2>&1 ) || RED27=$?
+  if [ "$RED27" -eq 0 ]; then ok "27-RED-was-fail-open (41a8c6d stdin -S - imported the repo-root pathlib shadow; the protected edit self-passed at exit 0)"; else ok "27-RED-not-exit0-here (GREEN still asserted)"; fi
+  rm -rf "$RED"
+else ok "27-RED-skipped-no-baseline (41a8c6d not reachable)"; fi
+rm -rf "$D"
+
+# ---- 28 (T32 §3, yaml variant). CWD-SHADOW-FR07-YAML-BLOCKS. Same as 27 but the UNSTAGED
+#      repo-root shadow is yaml.py (os._exit(0)) — §3's trusted-policy seed does `import yaml`,
+#      so a repo-root yaml.py on the CWD path fires there. T32 strips CWD -> BLOCK. ----
+D="$(fr07_repo)"
+drop_yaml_pathlib_shadow "$D"
+printf '# flow rules (protected edit)\n' > "$D/FLOW_RULES.md"
+( cd "$D" && git add FLOW_RULES.md )
+T28Y_RC=0; ( cd "$D" && bash hooks/git/pre-commit >/dev/null 2>&1 ) || T28Y_RC=$?
+if [ "$T28Y_RC" -ne 0 ]; then ok "28-cwd-shadow-fr07-yaml-blocks (§3 file-script strips CWD; repo-root yaml.py shadow inert, exit $T28Y_RC)"; else bad "28-cwd-shadow-fr07-yaml-blocks" "an UNSTAGED repo-root yaml.py shadow let an unapproved protected edit through (rc=$T28Y_RC) — §3 CWD-shadow bypass"; fi
+RED="$(t32_red_repo)"
+if [ -n "$RED" ]; then
+  drop_yaml_pathlib_shadow "$RED"; printf '# flow rules (protected edit)\n' > "$RED/FLOW_RULES.md"
+  ( cd "$RED" && git add FLOW_RULES.md )
+  RED28=0; ( cd "$RED" && bash hooks/git/pre-commit >/dev/null 2>&1 ) || RED28=$?
+  if [ "$RED28" -eq 0 ]; then ok "28-RED-yaml-was-fail-open (41a8c6d imported the repo-root yaml.py shadow at the §3 seed; the protected edit self-passed at exit 0)"; else ok "28-RED-yaml-not-exit0-here (GREEN still asserted)"; fi
+  rm -rf "$RED"
+else ok "28-RED-yaml-skipped-no-baseline (41a8c6d not reachable)"; fi
+rm -rf "$D"
+
+# ---- 29 (T32 §3). NO-OVER-BLOCK + LEGIT-APPROVED. Under the T32 file-script §3, a legit
+#      APPROVED enforcer edit still PASSES (the trusted HEAD honors the working-tree approval),
+#      and a plain non-protected edit still PASSES (no over-block from the CWD strip). ----
+D="$(fr07_repo)"
+printf '\n# T32: a real, sanctioned comment-only edit\n' >> "$D/hooks/shared/path_policy.py"
+( cd "$D" && git add hooks/shared/path_policy.py && bash hooks/local/write-bootstrap-approval.sh >/dev/null 2>&1 )
+if run_precommit "$D"; then ok "29-cwd-strip-legit-approved-enforcer-edit-passes (T32 §3 file-script honors the working-tree approval)"; else bad "29-cwd-strip-legit-approved-enforcer-edit-passes" "a sanctioned approved enforcer edit was blocked by the T32 §3 file-script path"; fi
+( cd "$D" && bash hooks/local/write-bootstrap-approval.sh --consume >/dev/null 2>&1 )
+rm -rf "$D"
+D="$(new_repo)"   # no enforcer in HEAD needed — a plain non-protected edit on the common path
+echo "app" > "$D/src/app.py"; ( cd "$D" && git add src/app.py )
+if run_precommit "$D"; then ok "29-cwd-strip-nonprotected-edit-passes (no over-block)"; else bad "29-cwd-strip-nonprotected-edit-passes" "a plain non-protected edit was over-blocked under the T32 §3 file-script path"; fi
+rm -rf "$D"
+
+# ---- 30 (T32 §3). SOURCE ASSERTS: §3 MAIN is a FILE SCRIPT (not stdin `-S -`), the §3 wrapper
+#      scrubs CWD via the unshadowable builtin os core, and the §3 sentinel loop uses the
+#      FILE-REDIRECT pattern (MSYS rc=124 hang fix, #3), not `$(git ls-tree)` command substitution. ----
+if grep -q 'cat > "\$FR07_TMP/_main.py"' "$ROOT/hooks/git/pre-commit" \
+   && grep -q 'python3 -S "\$FR07_TMP/_main.py"' "$ROOT/hooks/git/pre-commit" \
+   && ! grep -q 'PYTHONPATH="\$FR07_IMPORT_DIR" python3 -S - ' "$ROOT/hooks/git/pre-commit"; then
+  ok "30-cwd-strip-fr07-main-is-file-script (source: §3 MAIN runs python3 -S \$FR07_TMP/_main.py, no stdin -S -)"
+else
+  bad "30-cwd-strip-fr07-main-is-file-script" "§3 MAIN still uses stdin `python3 -S -` or the file-script invocation is absent"
+fi
+if grep -q 'import nt as _oscore' "$ROOT/hooks/git/pre-commit" \
+   && grep -q 'import posix as _oscore' "$ROOT/hooks/git/pre-commit" \
+   && grep -q 'sys.path\[:\] = \[p for p in sys.path if p not in _drop\]' "$ROOT/hooks/git/pre-commit"; then
+  ok "30-cwd-strip-inscript-scrub-uses-builtin-oscore (nt/posix builtin -> unshadowable CWD source; sys.path filtered, not del path[0])"
+else
+  bad "30-cwd-strip-inscript-scrub-uses-builtin-oscore" "the in-script CWD scrub (builtin nt/posix + sys.path filter) not found in the §3/§2 wrappers"
+fi
+if grep -q 'git ls-tree HEAD -- "\$_s" > "\$FR07_LSFILE"' "$ROOT/hooks/git/pre-commit" \
+   && ! grep -q '_ls="\$(git ls-tree HEAD' "$ROOT/hooks/git/pre-commit"; then
+  ok "30-cwd-strip-fr07-sentinel-file-redirect (§3 sentinel via file redirect, no \$(git ls-tree) command substitution — MSYS rc=124 hang closed)"
+else
+  bad "30-cwd-strip-fr07-sentinel-file-redirect" "§3 sentinel loop still uses \$(git ls-tree ...) command substitution (MSYS hang risk)"
+fi
+
 finish

@@ -70,6 +70,15 @@ def _restore_site_packages() -> None:
     reach PyYAML (secret_scanner -> policy_loader -> yaml). Add the site-packages dirs
     back via site.getsitepackages()/getusersitepackages() — these only RETURN paths;
     they do NOT run site.main(), so the startup-file import stays disabled.
+
+    T32 (DEFENSE-IN-DEPTH #2): PREPEND site-packages (insert) rather than append, so the
+    REAL PyYAML always wins over any working-tree `yaml.py`/`yaml/` shadow that might still
+    sit later on sys.path — closing the discriminating-`yaml.py`-shim vector even if a
+    CWD-like entry ever survived. Ordering invariant: site-packages go AFTER any leading
+    trusted import dir the caller already inserted at sys.path[0] (the SEC_IMPORT_DIR /
+    FR07_IMPORT_DIR seed), never ahead of it — so [trusted_dir, site-packages, stdlib] is
+    preserved and the prepend never shadows the trusted temp dir's OWN modules. We insert at
+    a running index that STARTS AFTER sys.path[0] to keep that first trusted entry in place.
     """
     import site
     try:
@@ -82,9 +91,12 @@ def _restore_site_packages() -> None:
             candidates.append(user)
     except Exception:
         pass
+    # Insert just after the leading trusted import dir (sys.path[0]), preserving it as first.
+    insert_at = 1 if sys.path else 0
     for p in candidates:
         if p and p not in sys.path:
-            sys.path.append(p)
+            sys.path.insert(insert_at, p)
+            insert_at += 1
 
 
 def main() -> int:
