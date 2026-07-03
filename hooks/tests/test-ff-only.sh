@@ -94,13 +94,21 @@ FF_ONLY=" , " bash "$RT" >/dev/null 2>&1; em_rc=$?
 
 # --- A scoped run WITH a real failure still exits non-zero (fail-closed on failure,
 #     not just on the summary shape). Inject a temporary always-fail fixture whose
-#     expected decision can never match, scope to the fixtures phase, assert rc != 0. ---
+#     expected decision can never match, scope to the fixtures phase, assert rc != 0.
+#     TRIPWIRE: the injected fixture MUST live in the fixtures dir that run-tests.sh
+#     globs ($ROOT/hooks/tests/fixtures) so the scoped fixtures phase discovers it — it
+#     cannot be relocated to an isolated tmpdir without changing run-tests' TESTS_DIR
+#     discovery. So it is LEAK-PROOFED with a trap that removes it on ANY exit/signal
+#     (a bare `rm -f` after the run leaks the fixture if the script dies mid-run, and a
+#     stray zz-*.json then poisons every future full-gate fixture loop). ---
 BADFIX="$ROOT/hooks/tests/fixtures/zz-ff-only-injected-fail.json"
+trap 'rm -f "$BADFIX"' EXIT
 cat > "$BADFIX" <<'JSON'
 {"_test":"ff-only injected failure","_handler":"pre_tool_use.py","_expected_decision":"deny","tool_name":"Read","tool_input":{"file_path":"README.md"}}
 JSON
 FF_ONLY=fixtures bash "$RT" >/dev/null 2>&1; inj_rc=$?
 rm -f "$BADFIX"
+trap - EXIT
 [ "$inj_rc" -ne 0 ] && ok "scoped-with-injected-failure-exits-nonzero (rc=$inj_rc)" \
   || bad "scoped-with-injected-failure-exits-nonzero" "scoped run with an injected failing fixture returned rc 0 (must be non-zero)"
 

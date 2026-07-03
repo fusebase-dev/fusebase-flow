@@ -190,9 +190,20 @@ for fixture in "$TESTS_DIR"/*.json; do
     total=$((total + 1))
     name="$(basename "$fixture")"
 
-    # F5(b): pull this fixture's metadata from the pre-pass TSV via the builtin `read`
-    # (no per-fixture python + no 5x sed spawns). Same five fields as before; keyed by name.
-    IFS=$'\t' read -r test_name handler expected_decision expected_rule_id expected_rule_contains <<< "${_ff_meta[$name]:-}"
+    # F5(b): pull this fixture's metadata from the pre-pass TSV via the builtin `mapfile`
+    # (no per-fixture python + no 5x sed spawns). TRIPWIRE: split with `mapfile -td $'\t'`,
+    # NOT `IFS=$'\t' read` — tab is an IFS-WHITESPACE char, so `read` collapses an EMPTY
+    # middle field (e.g. an empty `_expected_rule_id` before a non-empty
+    # `_expected_rule_id_contains`) and shifts later fields LEFT, silently flipping the
+    # authored substring assertion into an exact-match. mapfile splits on the delimiter
+    # (empties preserved), matching the baseline python-print+sed parse. printf '%s' emits
+    # no trailing newline => no phantom trailing element. Same five fields; keyed by name.
+    mapfile -td $'\t' _ff_row < <(printf '%s' "${_ff_meta[$name]:-}")
+    test_name="${_ff_row[0]-}"
+    handler="${_ff_row[1]-}"
+    expected_decision="${_ff_row[2]-}"
+    expected_rule_id="${_ff_row[3]-}"
+    expected_rule_contains="${_ff_row[4]-}"
 
     if [ -z "$handler" ]; then
         echo "[run-tests] $name SKIP — no _handler set"
@@ -254,6 +265,25 @@ PY
     fi
 done
 FFHC_LAST_WINPID=""; FFHC_LAST_CHILD_PID=""   # fixture loop done — clear the last handler's ids before the trap window
+
+# F5(b) parse invariant (guards the mapfile-vs-`read` fix above): an EMPTY middle field
+# must be PRESERVED, not collapsed. Fixture 10 (empty _expected_rule_id + non-empty
+# _expected_rule_id_contains) parses as rule_id=EMPTY / contains=FR-12 — the authored
+# SUBSTRING assertion, not a shifted exact-match. This bites even though fixture 10's
+# handler emits rule_id exactly "FR-12" (both parses PASS the fixture; only the parse
+# itself distinguishes the regression). A synthesized worst-case row makes it deterministic.
+total=$((total + 1))
+_inv_row=$'inv test\thandler.py\twarn\t\tFR-12'
+mapfile -td $'\t' _inv_f < <(printf '%s' "$_inv_row")
+if [ "${_inv_f[3]-}" = "" ] && [ "${_inv_f[4]-}" = "FR-12" ]; then
+    pass=$((pass + 1))
+    echo "PASS: _parse-invariant  (empty _expected_rule_id preserved; substring FR-12 not shifted into rule_id)"
+    report_rows="$report_rows| _parse-invariant | empty-middle-field preserved | PASS | rule_id=empty contains=FR-12 |"$'\n'
+else
+    fail=$((fail + 1))
+    echo "FAIL: _parse-invariant  (empty middle TSV field collapsed: rule_id=[${_inv_f[3]-}] contains=[${_inv_f[4]-}] — expected rule_id=empty contains=FR-12)"
+    report_rows="$report_rows| _parse-invariant | empty-middle-field preserved | FAIL | rule_id=[${_inv_f[3]-}] contains=[${_inv_f[4]-}] |"$'\n'
+fi
 else
     ff_skip_note fixtures
 fi

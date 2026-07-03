@@ -178,21 +178,31 @@ if [ -f "$RWT" ]; then
       bad "f3-fast-child-returns-well-under-budget" "took ${f_wall}s rc=$f_rc (expected own rc 0 + wall well under the 600s budget)"
     fi
 
-    # (2) NO-EARLY-REAP FLOOR: a hang-child (sleep 30) bounded at 2 must return a
-    # timeout-induced rc in >= 2s (the deadline is a FLOOR — never reaped early) and
-    # <= 2 + grace(5) + 2 slack. This is the load-bearing F3 safety assert.
+    # (2) NO-EARLY-REAP FLOOR + BOUNDED-REAP CEILING: a hang-child (sleep 60) bounded at 2
+    # must return a timeout-induced rc (124/137) with wall in [FLOOR, CEILING].
+    #   FLOOR   = deadline (2s): the deadline is a hard floor — a bounded op must NEVER reap
+    #             EARLY (before GNU timeout's own TERM at `secs`). Critical safety property.
+    #   CEILING = deadline(2) + grace(5) + a DOCUMENTED host-jitter margin. cap = 7s; the
+    #             regression this must catch is "child never killed / reap TENS-of-seconds
+    #             late", NOT the legitimate few-seconds-late reap on a saturated host.
+    #             Measured on a heavily-saturated host the reap lands 10-25s wall (rc 124/137,
+    #             child genuinely killed — never near its 60s completion). CEILING=45s gives
+    #             ~20s headroom over the worst measured jitter (non-flaky) while sitting well
+    #             below the 60s never-killed completion, so a gross late-reap / never-killed
+    #             regression FAILs (a rc=0 sleep-completion also FAILs the rc classifier).
+    #             sleep 60 (not 30) is deliberate: it separates the ~10-25s legit reap window
+    #             from the never-killed signature by a wide margin. TRIPWIRE: keep BOTH bounds
+    #             — a floor-only assert lets a never-killed/late reap wrongly PASS (the exact
+    #             hole this strengthens); do not widen CEILING to swallow a 60s never-kill.
     export FFHC_TIMEOUT_KILL_GRACE=5s
+    F3_REAP_CEILING=45
     h_start=$(date +%s)
-    h_rc="$(bash -c 'source "'"$RWT"'"; ffhc_detect_timeout; ffhc_run_bounded 2 bash -c "sleep 30"; echo $FFHC_LAST_RC' 2>/dev/null | tail -1)"
+    h_rc="$(bash -c 'source "'"$RWT"'"; ffhc_detect_timeout; ffhc_run_bounded 2 bash -c "sleep 60"; echo $FFHC_LAST_RC' 2>/dev/null | tail -1)"
     h_end=$(date +%s); h_wall=$((h_end - h_start))
-    if { [ "$h_rc" = "124" ] || [ "$h_rc" = "137" ]; } && [ "$h_wall" -ge 2 ] && [ "$h_wall" -le 9 ]; then
-      ok "f3-no-early-reap-floor (hang-child bounded at 2s => timeout rc=$h_rc in ${h_wall}s: >=2s FLOOR honored, <=2+grace+2 — never reaped early)"
-    elif { [ "$h_rc" = "124" ] || [ "$h_rc" = "137" ]; } && [ "$h_wall" -ge 2 ]; then
-      # Over the upper slack only on a saturated host — the FLOOR (>=2s, timeout rc) is the
-      # load-bearing safety property; an over-ceiling wall under load is environmental.
-      ok "f3-no-early-reap-floor [${h_wall}s under host load] (FLOOR >=2s honored + timeout rc=$h_rc; upper slack exceeded under saturation — the >=2s floor + timeout rc are the load-bearing asserts)"
+    if { [ "$h_rc" = "124" ] || [ "$h_rc" = "137" ]; } && [ "$h_wall" -ge 2 ] && [ "$h_wall" -le "$F3_REAP_CEILING" ]; then
+      ok "f3-no-early-reap-bounded (hang-child bounded at 2s => timeout rc=$h_rc in ${h_wall}s: FLOOR >=2s honored AND CEILING <=${F3_REAP_CEILING}s — never reaped early, never a late/never-kill regression)"
     else
-      bad "f3-no-early-reap-floor" "hang-child bounded at 2s returned rc=$h_rc in ${h_wall}s (need timeout rc 124/137 AND wall >= 2s — an EARLY reap or non-timeout rc is a behavior change)"
+      bad "f3-no-early-reap-bounded" "hang-child bounded at 2s returned rc=$h_rc in ${h_wall}s (need timeout rc 124/137 AND 2s <= wall <= ${F3_REAP_CEILING}s — EARLY reap, non-timeout rc, or a gross late/never-kill reap is a behavior change)"
     fi
 
     # (3) FALLBACK path exercised: force FFHC_NAP_OK off => the loop takes the literal
@@ -205,7 +215,7 @@ if [ -f "$RWT" ]; then
     fi
   else
     ok "f3-fast-child-returns-well-under-budget [SKIP — no timeout binary]"
-    ok "f3-no-early-reap-floor [SKIP — no timeout binary]"
+    ok "f3-no-early-reap-bounded [SKIP — no timeout binary]"
     ok "f3-fallback-sleep1-path-still-bounds [SKIP — no timeout binary]"
   fi
 
