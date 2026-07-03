@@ -131,11 +131,55 @@ ffhc_msys_tree_kill() {
   ffhc_msys_taskkill_winpid "$(ffhc_msys_winpid "${1:-}")"
 }
 
+# ============================================================================
+# F3 (v3.30.6) — adaptive sub-second poll for the reap loop (spawn-cost cut).
+#
+# The reap loop below polls until the bounded child exits or the deadline passes.
+# The old poll was a hard `sleep 1` per iteration (one `sleep` SPAWN/sec — the
+# dominant reap-loop cost on MSYS, where a spawn is ~1s). F3 replaces the tick with
+# an exponential SUB-second nap ladder using a SPAWN-FREE primitive, and derives
+# `waited` from EPOCHREALTIME real-elapsed microseconds so the deadline stays a hard
+# FLOOR (never reaps EARLY, before GNU timeout's own TERM at `secs` — that would be a
+# behavior change). If the spawn-free primitive is unavailable OR EPOCHREALTIME is
+# absent, the loop falls back to LITERALLY today's `sleep 1; waited+=1` — zero
+# regression on any host that can't take the fast path.
+#
+# _ffhc_nap primitive: `read -t SECS` on an RW-opened FIFO (opened R+W so open() never
+# blocks and read never hits EOF) blocks for SECS with no spawn. PROBED once at init:
+# accept ONLY if a 0.05s nap actually blocks >= 0.04s (an EOF-broken / unsupported fd
+# returns instantly => reject and fall back). FFHC_NAP_OK=1 iff the primitive is proven.
+FFHC_NAP_OK=0
+FFHC_NAP_FD=""
+_ffhc_nap_probe() {
+  # mkfifo + read-t must both exist AND actually block; otherwise leave FFHC_NAP_OK=0.
+  command -v mkfifo >/dev/null 2>&1 || return 0
+  local fifo; fifo="$(mktemp -u "${TMPDIR:-/tmp}/ffhc-nap.XXXXXX")" || return 0
+  mkfifo "$fifo" 2>/dev/null || return 0
+  # Open R+W on a dedicated fd (9) so open() never blocks and read never sees EOF.
+  exec 9<>"$fifo" 2>/dev/null || { rm -f "$fifo" 2>/dev/null; return 0; }
+  rm -f "$fifo" 2>/dev/null   # unlink now; the open fd keeps the pipe alive
+  # Timed probe: a 0.05s nap must really block >= 0.04s. Needs EPOCHREALTIME to measure;
+  # if it is absent we cannot verify the primitive, so we reject (fallback stays correct).
+  if [ -z "${EPOCHREALTIME:-}" ]; then exec 9<&- 2>/dev/null; exec 9>&- 2>/dev/null; return 0; fi
+  local a b us
+  a="${EPOCHREALTIME/./}"
+  read -t 0.05 -u 9 _ 2>/dev/null
+  b="${EPOCHREALTIME/./}"
+  us=$(( 10#$b - 10#$a ))
+  if [ "$us" -ge 40000 ]; then FFHC_NAP_OK=1; FFHC_NAP_FD=9; else exec 9<&- 2>/dev/null; exec 9>&- 2>/dev/null; fi
+}
+_ffhc_nap_probe
+
+# _ffhc_nap SECS: block SECS (a decimal like 0.25) with no spawn via the probed FIFO fd.
+# Only ever called when FFHC_NAP_OK=1. `read -t` returns non-zero on timeout — expected.
+_ffhc_nap() { read -t "$1" -u "$FFHC_NAP_FD" _ 2>/dev/null || true; }
+
 # ffhc_msys_wait_reap BPID SECS [WINPID]: MSYS-only wait that returns BPID's own rc
 # (so 124/137 are preserved) while reaping its native descendant tree once the
-# deadline passes. Polls at 1s; after SECS elapses it taskkill-tree-kills the bounded
-# proc so a native runaway is reaped, then collects the rc. Capped at SECS+grace+eps
-# so a stuck wait can never outlive the contract.
+# deadline passes. Polls with an adaptive sub-second nap (F3; fallback `sleep 1`);
+# after SECS elapses it taskkill-tree-kills the bounded proc so a native runaway is
+# reaped, then collects the rc. Capped at SECS+grace+eps so a stuck wait can never
+# outlive the contract.
 # WINPID (T7): the Windows pid captured at LAUNCH (while alive). When provided, the
 # reap uses it directly AND re-verifies it still maps to BPID before killing (strict
 # scoping — no ancestor/reused-pid collateral). BEST-EFFORT anti-runaway: it reaps the
@@ -161,13 +205,33 @@ ffhc_msys_wait_reap() {
     [ -n "$trigger" ] && : > "$trigger" 2>/dev/null
     if [ -n "$winpid" ]; then ffhc_msys_taskkill_winpid "$winpid" "$bpid"; else ffhc_msys_tree_kill "$bpid"; fi
   }
-  while kill -0 "$bpid" 2>/dev/null; do
-    sleep 1; waited=$((waited + 1))
-    if [ "$waited" -ge "$secs" ] && [ "$reaped" -eq 0 ]; then
-      _ffhc_reap; reaped=1
-    fi
-    [ "$waited" -ge "$cap" ] && { _ffhc_reap; break; }
-  done
+  # F3 adaptive poll. FAST path (FFHC_NAP_OK + EPOCHREALTIME): spawn-free nap ladder,
+  # `waited` = FLOOR of REAL elapsed seconds (a hard deadline floor — reap fires only once
+  # `secs` real seconds have passed, never early). FALLBACK: literally today's per-second
+  # `sleep 1; waited+=1` (byte-behavior-unchanged where the fast path is unavailable).
+  if [ "$FFHC_NAP_OK" -eq 1 ] && [ -n "${EPOCHREALTIME:-}" ]; then
+    local start_us now_us nap="0.05"
+    start_us=$(( 10#${EPOCHREALTIME/./} ))
+    while kill -0 "$bpid" 2>/dev/null; do
+      _ffhc_nap "$nap"
+      # Exponential nap ladder 0.05 -> 0.1 -> 0.25 -> 0.5 -> 1 (then hold at 1).
+      case "$nap" in 0.05) nap="0.1" ;; 0.1) nap="0.25" ;; 0.25) nap="0.5" ;; 0.5) nap="1" ;; esac
+      now_us=$(( 10#${EPOCHREALTIME/./} ))
+      waited=$(( (now_us - start_us) / 1000000 ))   # FLOOR of real elapsed seconds
+      if [ "$waited" -ge "$secs" ] && [ "$reaped" -eq 0 ]; then
+        _ffhc_reap; reaped=1
+      fi
+      [ "$waited" -ge "$cap" ] && { _ffhc_reap; break; }
+    done
+  else
+    while kill -0 "$bpid" 2>/dev/null; do
+      sleep 1; waited=$((waited + 1))
+      if [ "$waited" -ge "$secs" ] && [ "$reaped" -eq 0 ]; then
+        _ffhc_reap; reaped=1
+      fi
+      [ "$waited" -ge "$cap" ] && { _ffhc_reap; break; }
+    done
+  fi
   wait "$bpid"; local rc=$?
   # TRIPWIRE (WS2-core true-124-on-kill): when WE reaped at the deadline, an MSYS
   # taskkill can make `wait` return a non-timeout rc (0/other) instead of 124/137 —

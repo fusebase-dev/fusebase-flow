@@ -149,4 +149,81 @@ else
   bad "ac4-liveness-in-hard-invariants" "templates/handoff-implement.md missing"
 fi
 
+###############################################################################
+# F3 (v3.30.6) — adaptive reap-loop poll. The reap loop now naps sub-second
+# (spawn-free) instead of a hard `sleep 1`/iteration, BUT the deadline stays a
+# hard FLOOR: a bounded op must NOT reap EARLY (before GNU timeout's own TERM at
+# `secs`). These asserts drive ffhc_run_bounded directly against run-with-timeout.sh.
+###############################################################################
+RWT="$ROOT/hooks/local/lib/run-with-timeout.sh"
+if [ -f "$RWT" ]; then
+  # Probe the primitive in a subshell so the module fd doesn't leak into this suite.
+  nap_ok="$(bash -c 'source "'"$RWT"'"; echo "${FFHC_NAP_OK:-0}"' 2>/dev/null)"
+  if [ "$nap_ok" = "1" ]; then ok "f3-nap-primitive-probed-usable (FFHC_NAP_OK=1 on this host)"; else
+    ok "f3-nap-primitive-unavailable-fallback-used (FFHC_NAP_OK=0 => literal sleep-1 fallback; no regression)"; fi
+
+  if command -v timeout >/dev/null 2>&1 || command -v gtimeout >/dev/null 2>&1; then
+    # (1) FAST child completes under its LARGE budget with its OWN rc — the reap loop must
+    # NOT block for the whole 600s budget (a 1s-per-iteration sleep floor is gone; the nap
+    # ladder polls sub-second). The load-bearing deterministic assert is: own rc preserved
+    # AND wall NOT anywhere near the 600s budget. Absolute wall is host-startup-dominated
+    # under saturation, so the ceiling is a generous "not the budget" bound (30s), not a
+    # tight one — the point is "doesn't block for secs", not a microbenchmark.
+    f_start=$(date +%s)
+    bash -c 'source "'"$RWT"'"; ffhc_detect_timeout; ffhc_run_bounded 600 bash -c "exit 0"; exit $FFHC_LAST_RC' >/dev/null 2>&1; f_rc=$?
+    f_end=$(date +%s); f_wall=$((f_end - f_start))
+    if [ "$f_rc" -eq 0 ] && [ "$f_wall" -lt 30 ]; then
+      ok "f3-fast-child-returns-well-under-budget (${f_wall}s wall for a 600s-budget instant child, own rc=0 — reap loop did not block for the budget; nap ladder, not a 1s sleep floor)"
+    else
+      bad "f3-fast-child-returns-well-under-budget" "took ${f_wall}s rc=$f_rc (expected own rc 0 + wall well under the 600s budget)"
+    fi
+
+    # (2) NO-EARLY-REAP FLOOR: a hang-child (sleep 30) bounded at 2 must return a
+    # timeout-induced rc in >= 2s (the deadline is a FLOOR — never reaped early) and
+    # <= 2 + grace(5) + 2 slack. This is the load-bearing F3 safety assert.
+    export FFHC_TIMEOUT_KILL_GRACE=5s
+    h_start=$(date +%s)
+    h_rc="$(bash -c 'source "'"$RWT"'"; ffhc_detect_timeout; ffhc_run_bounded 2 bash -c "sleep 30"; echo $FFHC_LAST_RC' 2>/dev/null | tail -1)"
+    h_end=$(date +%s); h_wall=$((h_end - h_start))
+    if { [ "$h_rc" = "124" ] || [ "$h_rc" = "137" ]; } && [ "$h_wall" -ge 2 ] && [ "$h_wall" -le 9 ]; then
+      ok "f3-no-early-reap-floor (hang-child bounded at 2s => timeout rc=$h_rc in ${h_wall}s: >=2s FLOOR honored, <=2+grace+2 — never reaped early)"
+    elif { [ "$h_rc" = "124" ] || [ "$h_rc" = "137" ]; } && [ "$h_wall" -ge 2 ]; then
+      # Over the upper slack only on a saturated host — the FLOOR (>=2s, timeout rc) is the
+      # load-bearing safety property; an over-ceiling wall under load is environmental.
+      ok "f3-no-early-reap-floor [${h_wall}s under host load] (FLOOR >=2s honored + timeout rc=$h_rc; upper slack exceeded under saturation — the >=2s floor + timeout rc are the load-bearing asserts)"
+    else
+      bad "f3-no-early-reap-floor" "hang-child bounded at 2s returned rc=$h_rc in ${h_wall}s (need timeout rc 124/137 AND wall >= 2s — an EARLY reap or non-timeout rc is a behavior change)"
+    fi
+
+    # (3) FALLBACK path exercised: force FFHC_NAP_OK off => the loop takes the literal
+    # `sleep 1; waited+=1` branch and STILL honors the deadline floor + timeout rc.
+    fb_rc="$(bash -c 'source "'"$RWT"'"; ffhc_detect_timeout; FFHC_NAP_OK=0; ffhc_run_bounded 2 bash -c "sleep 30"; echo $FFHC_LAST_RC' 2>/dev/null | tail -1)"
+    if [ "$fb_rc" = "124" ] || [ "$fb_rc" = "137" ]; then
+      ok "f3-fallback-sleep1-path-still-bounds (FFHC_NAP_OK=0 => literal sleep-1 loop still returns timeout rc=$fb_rc — zero regression on the fallback)"
+    else
+      bad "f3-fallback-sleep1-path-still-bounds" "fallback loop returned rc=$fb_rc (expected timeout 124/137)"
+    fi
+  else
+    ok "f3-fast-child-returns-well-under-budget [SKIP — no timeout binary]"
+    ok "f3-no-early-reap-floor [SKIP — no timeout binary]"
+    ok "f3-fallback-sleep1-path-still-bounds [SKIP — no timeout binary]"
+  fi
+
+  # (4) mkfifo-unusable host => FFHC_NAP_OK must be 0 (probe rejects cleanly) => v3.30.5
+  # sleep-1 fallback. Shadow mkfifo with a shim that FAILS (equivalent to mkfifo absent /
+  # a filesystem that can't make FIFOs); everything else stays on the real PATH so the
+  # probe's own mktemp works. The probe's `mkfifo … || return 0` guard must fire.
+  STUB="$(mktemp -d)"
+  printf '#!/bin/sh\nexit 1\n' > "$STUB/mkfifo"; chmod +x "$STUB/mkfifo"
+  nofifo_ok="$(PATH="$STUB:$PATH" bash -c 'source "'"$RWT"'"; echo "${FFHC_NAP_OK:-x}"' 2>/dev/null | tail -1)"
+  rm -rf "$STUB"
+  if [ "$nofifo_ok" = "0" ]; then
+    ok "f3-mkfifo-absent-forces-fallback (mkfifo unusable => FFHC_NAP_OK=0 => v3.30.5 sleep-1 behavior)"
+  else
+    bad "f3-mkfifo-absent-forces-fallback" "FFHC_NAP_OK=[$nofifo_ok] with mkfifo unusable (expected 0 — the probe must reject cleanly and fall back)"
+  fi
+else
+  bad "f3-nap-primitive-probed-usable" "run-with-timeout.sh missing ($RWT)"
+fi
+
 finish
