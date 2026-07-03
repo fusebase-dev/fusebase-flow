@@ -199,6 +199,29 @@ def main() -> int:
             triggered_gate = gate
             break
 
+    # Fail-closed fallback on transcript-EXTRACTION FAILURE (S1b): the normal path
+    # gates on the FINAL assistant message (claim_text). But if agent_message is absent
+    # AND _final_assistant_text returned "" — a corrupt / wrong-shape / format-drifted
+    # transcript we could not parse a final message from — while the RAW transcript_text
+    # DOES carry a done/deploy claim, that claim is UNGATEABLE and would otherwise fall
+    # through to allow (a reachable fail-OPEN in a security gate). Only on that extraction
+    # failure do we scan the raw text; a done-claim there sets the gate so the deny logic
+    # below fires (required signals are unverifiable from an unparseable transcript). This
+    # NEVER touches the normal path: when a final message extracts (the common case) we
+    # gate on it alone, so a stale claim EARLIER in a well-formed transcript with a clean
+    # final message still allows (no over-trigger — fixture 19).
+    extraction_failed = (
+        (not agent_message) and (not claim_text) and bool(transcript_text.strip())
+    )
+    fail_closed_extraction = False
+    if not triggered_gate and extraction_failed:
+        raw = transcript_text.lower()
+        for gate, patterns in CLAIM_PATTERNS.items():
+            if any(re.search(p, raw) for p in patterns):
+                triggered_gate = gate
+                fail_closed_extraction = True
+                break
+
     if not triggered_gate:
         emit("stop", decision="allow", reason="no claim phrase detected", root=root)
         sys.stdout.write(json.dumps({"decision": "allow"}))
@@ -233,6 +256,13 @@ def main() -> int:
             ):
                 missing.append(sig)
 
+    # Fail-closed guard (S1b): when the gate was set only because a claim survived on an
+    # UNPARSEABLE transcript, no signal derived from that same transcript can be trusted —
+    # a corrupt blob might coincidentally trip a signal regex and empty `missing`. Force a
+    # non-empty `missing` so the deny path below ALWAYS fires (fail-closed, not fail-open).
+    if fail_closed_extraction and "unverifiable_transcript" not in missing:
+        missing.append("unverifiable_transcript")
+
     # Recommended (non-blocking) signals (D1): a missing one emits a warn note but
     # is NEVER added to `missing` — it cannot flip the decision to deny.
     missing_recommended: list[str] = []
@@ -256,13 +286,24 @@ def main() -> int:
         )
 
     if missing:
+        # Extraction-failure fallback (S1b) is fail-CLOSED: an ungateable done/deploy
+        # claim on an unparseable transcript always DENIES (never downgraded to warn).
         on_missing = gate_cfg.get("on_missing", "deny")
-        decision = on_missing if on_missing in ("deny", "warn") else "deny"
-        reason = (
-            f"FR-04/05/14: claim '{triggered_gate}' detected but missing required signals: "
-            + ", ".join(missing)
-            + ". See policies/required-artifacts.yml for the full list."
+        decision = "deny" if fail_closed_extraction else (
+            on_missing if on_missing in ("deny", "warn") else "deny"
         )
+        if fail_closed_extraction:
+            reason = (
+                f"FR-04/05/14: claim '{triggered_gate}' present in transcript_path but "
+                "could not extract the final assistant message from transcript_path "
+                "(corrupt/unknown shape) to verify the done/deploy gate — failing closed."
+            )
+        else:
+            reason = (
+                f"FR-04/05/14: claim '{triggered_gate}' detected but missing required signals: "
+                + ", ".join(missing)
+                + ". See policies/required-artifacts.yml for the full list."
+            )
         emit(
             "stop",
             decision=decision,

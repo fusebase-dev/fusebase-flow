@@ -1,0 +1,10 @@
+{
+  "_test": "Stop (NATIVE shape) does NOT false-deny on a claimless corrupt transcript: a corrupt/format-drifted transcript_path with NO final assistant message AND no done/deploy claim text -> allow (the extraction-failure fallback fires only when the raw text carries a claim).",
+  "_handler": "stop.py",
+  "_expected_decision": "allow",
+  "hook_event_name": "Stop",
+  "session_id": "test-21",
+  "cwd": ".",
+  "host_tool": "claude_code",
+  "transcript_path": "hooks/tests/fixtures/21_stop_native_corrupt_transcript_noclaim_allow_transcript.jsonl"
+}

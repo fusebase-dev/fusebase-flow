@@ -1,0 +1,3 @@
+{"type":"user","message":{"role":"user","content":"finish and ship it"}}
+{"weird_wrapper":{"kind":"model_turn","body":{"speaker":"assistant","segments":[{"kind":"text","value":"Implementation complete. All tasks done. Ready to deploy."}]}}}
+{"type":"tool_result","message":{"role":"tool","content":"exit 0"}}
