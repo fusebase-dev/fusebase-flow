@@ -44,7 +44,12 @@ _PO_MARKER_RE = re.compile(r"\[\[ PO-ACTIVATED \| FuseBase Flow", re.IGNORECASE)
 # A PO session is present when the transcript shows the explicit /product-owner
 # invocation OR the marker itself (spec D1 — literal scan only; no audit-log
 # session correlation, no rule-content inspection).
-_PO_INVOCATION_RE = re.compile(r"(?:^|\s)/product-owner\b", re.IGNORECASE)
+# Boundary set widened beyond ^|\s to also match a real Claude Code transcript
+# JSONL line ("content":"/product-owner", <command-name>/product-owner) — the
+# no-MULTILINE ^ never fires on an embedded line, and the slash is JSON-quote- or
+# tag-adjacent there. Still literal-command-only: the /product-owner token is
+# unchanged; only its permitted left neighbour widens (start | whitespace | " | >).
+_PO_INVOCATION_RE = re.compile(r'(?:^|[\s">])/product-owner\b', re.IGNORECASE)
 
 
 def _po_activation_warn(transcript_text: str) -> str | None:
@@ -109,6 +114,44 @@ def _signals_from_transcript(transcript_text: str, signal_defs: dict) -> dict[st
     return detected
 
 
+def _final_assistant_text(transcript_path: str) -> str:
+    """Return the text of the LAST assistant message in a Claude Code transcript
+    JSONL, or "" if none. Claim detection runs against THIS message only — never the
+    whole transcript — so a historical claim phrase earlier in the session cannot
+    over-trigger the gate. Handles both the Claude Code wrapper shape
+    ({"type":"assistant","message":{"role":"assistant","content":[{"type":"text",
+    "text":...}]}}) and a bare {"role":"assistant","content":...} line; content may be
+    a string or a list of typed blocks."""
+    try:
+        lines = Path(transcript_path).read_text(encoding="utf-8", errors="ignore").splitlines()
+    except OSError:
+        return ""
+    for raw in reversed(lines):
+        raw = raw.strip()
+        if not raw:
+            continue
+        try:
+            obj = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        msg = obj.get("message") if isinstance(obj.get("message"), dict) else obj
+        role = msg.get("role") or obj.get("type")
+        if role != "assistant":
+            continue
+        content = msg.get("content")
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            parts = [
+                b.get("text", "")
+                for b in content
+                if isinstance(b, dict) and b.get("type") == "text"
+            ]
+            return "".join(parts)
+        return ""
+    return ""
+
+
 def main() -> int:
     try:
         event = json.loads(sys.stdin.read() or "{}")
@@ -130,6 +173,16 @@ def main() -> int:
             transcript_text = ""
     transcript_text = transcript_text + "\n" + (event.get("agent_message") or "")
 
+    # Host-shape: Claude Code's Stop event carries NO agent_message — the final model
+    # message lives at the tail of transcript_path. When agent_message is absent, run
+    # CLAIM_PATTERNS against the LAST assistant message only (never the whole transcript
+    # — signal_definitions correctly scan the full text, but a claim phrase is a CURRENT
+    # assertion; scanning history would over-trigger on any past "ready to deploy").
+    # agent_message path is unchanged (backward-compatible with the flow-schema fixtures).
+    claim_text = agent_message
+    if not claim_text and tp:
+        claim_text = _final_assistant_text(tp).lower()
+
     # Dedicated PO-activation path (spec D1/D2): runs OUTSIDE the CLAIM_PATTERNS
     # gate so it fires on a PO first reply (which carries no claim phrase). Emits
     # a warn when a PO session lacks the marker; never denies, never changes the
@@ -142,7 +195,7 @@ def main() -> int:
     # Decide which gate applies
     triggered_gate: str | None = None
     for gate, patterns in CLAIM_PATTERNS.items():
-        if any(re.search(p, agent_message) for p in patterns):
+        if any(re.search(p, claim_text) for p in patterns):
             triggered_gate = gate
             break
 
@@ -230,6 +283,10 @@ def main() -> int:
             },
         }
         sys.stdout.write(json.dumps(out))
+        # Stop exit-2 semantics feed stderr back to the model, not stdout JSON — so a
+        # deny that only wrote stdout reached nothing. Print the reason to stderr before
+        # the non-zero exit (warn path also surfaces, matching the PO-warn line above).
+        print(f"[fusebase-flow] {'DENY' if decision == 'deny' else 'WARN'}: {reason}", file=sys.stderr)
         return 2 if decision == "deny" else 0
 
     emit("stop", decision="allow", reason=f"all signals present for {triggered_gate}", root=root)

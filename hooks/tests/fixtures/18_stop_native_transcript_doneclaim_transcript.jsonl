@@ -1,0 +1,3 @@
+{"type":"user","message":{"role":"user","content":"please finish the ticket"}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Working on it now."}]}}
+{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"Implementation complete. All tasks done. Ready to deploy."}]}}

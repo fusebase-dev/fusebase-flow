@@ -15,7 +15,7 @@ Every always-on rule in `FLOW_RULES.md` maps to one or more enforcement surfaces
 | FR-09 | Mode-B AI-optimized internal docs | yes | (across all workflows) | `communication` (mandatory) | n/a (judgment-based; `code-review` skill flags violations) | n/a |
 | FR-10 | Reproducibility before fix | yes | `smoke-verification.md` | `validation-and-qa` (sub-mode C) | n/a | n/a |
 | FR-11 | Stop and ask, don't improvise | yes | (across all workflows) | (all skills explicitly guard against improvisation) | `user_prompt_submit` (flags bypass-attempt patterns like "skip clarify", "ignore approvals") | n/a |
-| FR-12 | Approval-gated side effects | yes | `greenlight-deploy.md`, `architect-escalation.md` | `security-permissions-review`, `release-deploy-reporting` | `pre_tool_use` (require_approval), `permission_request` (artifact lookup), `pre-commit` git hook (secret block) | `approval-policy.yml`, `command-policy.yml: require_approval`, `secret-patterns.yml` |
+| FR-12 | Approval-gated side effects | yes | `greenlight-deploy.md`, `architect-escalation.md` | `security-permissions-review`, `release-deploy-reporting` | `pre_tool_use` (require_approval + secret block on Write), `user_prompt_submit` (secret warn on pasted prompt — fires on native `prompt` key), `permission_request` (artifact lookup), `pre-commit` git hook (secret block) | `approval-policy.yml`, `command-policy.yml: require_approval`, `secret-patterns.yml` |
 | FR-13 | Lint + typecheck per commit | yes | `git-discipline.md` | n/a (AI Developer attestation) | `pre-commit` git hook | n/a (project-defined commands) |
 | FR-14 | Single docs commit on deploy | yes | `greenlight-deploy.md` | `release-deploy-reporting` | `stop` (blocks "deploy complete" claim without single-docs-commit signal) | `required-artifacts.yml: before_deploy_complete_claim` |
 | FR-15 | Knowledge curation triggers | yes | `knowledge-curation.md` | (Product Owner judgment; not a skill) | n/a | n/a |
@@ -66,4 +66,5 @@ Any new rule (FR-16+) must be added to:
 2026-06-10 — v3.16.4; added FR-20..FR-25 rows (had drifted 6 releases behind), surface counts 19→25 base, removed dead open-questions.md reference.
 2026-06-11 — v3.20.0; added FR-26 row (token-efficient execution) at ship time per § Drift detection, surface counts 25→26 base.
 2026-06-17 — v3.28.0; added FR-27 row (liveness — never launch bare) per § Drift detection, surface counts 26→27 base. Enforcement = digest delivery + bounded-run.sh; no gate; no hook verification (a hang is undetectable by construction).
+2026-07-03 — Phase C S1; FR-12 hook column adds `user_prompt_submit` (secret warn on the native `prompt` key) — the enforcement was inert live before the host-shape fix (see docs/hook-coverage.md § Host field-shape). No new row; surface counts unchanged.
 ```

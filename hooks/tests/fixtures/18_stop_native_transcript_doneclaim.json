@@ -1,0 +1,11 @@
+{
+  "_test": "Stop (NATIVE Claude Code shape: NO agent_message, transcript_path only) denies 'implementation complete' final assistant message without gate evidence -> deny fires live",
+  "_handler": "stop.py",
+  "_expected_decision": "deny",
+  "_expected_rule_id": "FR-05",
+  "hook_event_name": "Stop",
+  "session_id": "test-18",
+  "cwd": ".",
+  "host_tool": "claude_code",
+  "transcript_path": "hooks/tests/fixtures/18_stop_native_transcript_doneclaim_transcript.jsonl"
+}

@@ -81,7 +81,9 @@ def main() -> int:
     except json.JSONDecodeError:
         event = {}
 
-    user_prompt = event.get("user_prompt") or ""
+    # TRIPWIRE (host-shape): Claude Code's native UserPromptSubmit sends the prompt
+    # under `prompt`; Flow fixtures use `user_prompt`. Read both or the gate is inert live.
+    user_prompt = event.get("user_prompt") or event.get("prompt") or ""
     try:
         root = find_git_root(Path(event.get("cwd") or "."))
     except FileNotFoundError:
@@ -152,6 +154,17 @@ def main() -> int:
 
     rule_id_str = ",".join(sorted(set(rule_ids))) if rule_ids else None
     out = {"decision": decision, "rule_id": rule_id_str, "warnings": warnings}
+    # Surface warnings to the model via the native hook contract: an exit-0 JSON
+    # `{"decision":"allow"}` alone does NOT reach the model, so on a warn we attach
+    # hookSpecificOutput.additionalContext (the only UserPromptSubmit channel the host
+    # injects into the model's context). Kept additive: the legacy keys above stay for
+    # the flow-schema fixtures; stderr is also written for host logs.
+    if warnings:
+        out["hookSpecificOutput"] = {
+            "hookEventName": "UserPromptSubmit",
+            "additionalContext": "[fusebase-flow] "
+            + "; ".join(warnings),
+        }
     sys.stdout.write(json.dumps(out))
     if warnings:
         for w in warnings:
