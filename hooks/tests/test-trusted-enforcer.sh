@@ -13,20 +13,23 @@
 #      evaluate_path(), so a missing/empty policy DENIES a protected edit at TOOL time.
 #
 # Output contract (parsed by run-tests.sh run_shell_phase):
-#   "PASS: bootstrap-exception <name>" / "FAIL: bootstrap-exception <name>"; exit = fail count.
-# (Tag kept as "bootstrap-exception" so the assertion names read continuously with the
-#  companion file — tests 17..20 follow 1..16 there.)
+#   "PASS: trusted-enforcer <name>" / "FAIL: trusted-enforcer <name>"; exit = fail count.
+# (T30 label fix, finding 7: run-tests.sh invokes this file under the `trusted-enforcer`
+#  tag, so the emitted label MUST be `trusted-enforcer` — with the old `bootstrap-exception`
+#  tag the PASS rows were never counted by run_shell_phase's `^PASS: trusted-enforcer ` grep.
+#  Assertion NAMES keep the 17.. numbering so they still read continuously with the
+#  companion test-bootstrap-exception.sh, which owns 1..16 under its own tag.)
 
 set -uo pipefail
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 
 pass=0; fail=0
-ok()  { pass=$((pass + 1)); echo "PASS: bootstrap-exception $1"; }
-bad() { fail=$((fail + 1)); echo "FAIL: bootstrap-exception $1 (${2:-})"; }
+ok()  { pass=$((pass + 1)); echo "PASS: trusted-enforcer $1"; }
+bad() { fail=$((fail + 1)); echo "FAIL: trusted-enforcer $1 (${2:-})"; }
 finish() { echo "[test-trusted-enforcer] $pass/$((pass + fail)) PASS"; exit $fail; }
 
-command -v python3 >/dev/null 2>&1 || { echo "PASS: bootstrap-exception skipped-no-python3"; pass=$((pass + 1)); finish; }
+command -v python3 >/dev/null 2>&1 || { echo "PASS: trusted-enforcer skipped-no-python3"; pass=$((pass + 1)); finish; }
 
 # new_repo: a throwaway git repo carrying the Flow bits these tests exercise (same as the
 # companion test-bootstrap-exception.sh). The seed commit contains ONLY seed.txt — the
@@ -192,12 +195,15 @@ if echo "$BOOT_ERR" | grep -qiE "first-adoption bootstrap|not in HEAD"; then ok 
 ( cd "$D" && bash hooks/local/write-bootstrap-approval.sh >/dev/null 2>&1 )
 if run_precommit "$D"; then ok "19c-bootstrap-first-add-with-approval-passes"; else bad "19c-bootstrap-first-add-with-approval-passes" "the sanctioned first-add of the enforcer was blocked (bootstrap broken)"; fi
 rm -rf "$D"
-# 19d. TRANSIENT-vs-BOOTSTRAP distinction fails CLOSED on a non-absent git error. The prep
-#      only falls back when `git cat-file -e HEAD:<file>` returns rc 1 (genuinely absent);
-#      any other nonzero rc (128 etc.) is transient -> BLOCK, never fall back to the untrusted
-#      tree. Asserted via source (the reachable bootstrap path is covered live by 19c).
+# 19d. TRANSIENT-vs-BOOTSTRAP distinction fails CLOSED on a non-absent git error. T30 moved
+#      the decision from the python prep into the SHELL: `git ls-tree HEAD -- <sentinel>` is
+#      run by bash; rc0+empty => genuinely absent (bootstrap fallback), rc!=0 => transient ->
+#      BLOCK (never fall back to the untrusted tree). Asserted via source (the reachable
+#      bootstrap path is covered live by 19c). Anchors updated for the shell location:
+#      the `_ls_rc -ne 0` transient guard + the "transient git error"/"NOT falling back"
+#      diagnostic (T30 — no longer `r.returncode != 0` inside the python prep).
 if grep -q 'transient git error' "$ROOT/hooks/git/pre-commit" \
-   && grep -q 'r.returncode != 0' "$ROOT/hooks/git/pre-commit" \
+   && grep -q '_ls_rc" -ne 0' "$ROOT/hooks/git/pre-commit" \
    && grep -q 'NOT falling back' "$ROOT/hooks/git/pre-commit"; then
   ok "19d-transient-error-fails-closed-not-fallback (source)"
 else
@@ -333,5 +339,126 @@ T22C_ERR="$( ( cd "$D" && bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
 T22C_RC=0; ( cd "$D" && bash hooks/git/pre-commit >/dev/null 2>&1 ) || T22C_RC=$?
 if [ "$T22C_RC" -ne 0 ] && echo "$T22C_ERR" | grep -qiE "secret pattern|BLOCK — secret"; then ok "22c-secret-scan-still-blocks-under-S (§2 ran under -S with sitecustomize present, exit $T22C_RC)"; else bad "22c-secret-scan-still-blocks-under-S" "-S disabled the secret scan (a real staged secret was NOT blocked: exit $T22C_RC)"; fi
 rm -rf "$D"
+
+# =============================================================================
+# T30 — close the mutable-Python-load-point class ENTIRELY. T29 hardened §2/§3 MAIN
+# with `-S`, but the §3 PREP (git-show extraction) still ran PLAIN python3 with an
+# INHERITED PYTHONPATH, and the trusted-vs-fallback verdict was a python-WRITABLE
+# RESULT value. Live PoC (deploy-gate confirm): `PYTHONPATH=$ROOT/hooks` + untracked
+# hooks/sitecustomize.py (forging RESULT=fallback / os._exit(0)) + an UNSTAGED lying
+# path_policy.py + a STAGED protected file => exit 0. Fix: (A) scrub the hook env once
+# at the top; (B) `-S` + a controlled PYTHONPATH on EVERY python invocation incl. PREP;
+# (C) move the trusted-vs-fallback DECISION into the SHELL via `git ls-tree HEAD` (a
+# forged RESULT can no longer be honored when HEAD has the enforcer).
+# RED→GREEN vs ec94204 (T29 HEAD): the PoC exits 0 there.
+# =============================================================================
+T30_BASE_REF="ec94204"
+
+# forge_fallback_site: an untracked hooks/sitecustomize.py that (like the PoC) FORGES the
+# trusted-HEAD verdict — writes `RESULT=fallback` into the prep temp dir — and short-circuits
+# the interpreter with os._exit(0). Under the T30 fix the PREP runs `-S` (this file never
+# imports) AND the shell — not python — decides trusted-vs-fallback, so the forgery is inert.
+forge_fallback_site() {  # $1 = target sitecustomize path
+  cat > "$1" <<'FORGE'
+import os
+_tmp = os.environ.get("FR07_TMP")
+if _tmp:
+    try:
+        with open(os.path.join(_tmp, "_result"), "w") as _f:
+            _f.write("RESULT=fallback\n")
+    except Exception:
+        pass
+os._exit(0)
+FORGE
+}
+
+# ---- 23 (#T30-A). PREP-STEP-INJECTION-BLOCKS — the deploy-gate confirm's live PoC verbatim.
+#      CLEAN enforcer in HEAD. Export a hostile PYTHONPATH=$D/hooks, drop an untracked
+#      hooks/sitecustomize.py forging RESULT=fallback / os._exit(0), tamper the UNSTAGED
+#      working-tree path_policy.py to lie, and stage ONLY a protected file (FLOW_RULES.md).
+#      T30: env scrubbed + PREP under -S + git-based decision => trusted HEAD enforcer runs
+#      => BLOCK. RED: ec94204's plain-python3 PREP imports the sitecustomize -> RESULT=fallback
+#      honored -> working-tree lie runs -> exit 0. ----
+D="$(new_repo)"
+head_with_enforcer "$D"                              # CLEAN enforcer in HEAD.
+forge_fallback_site "$D/hooks/sitecustomize.py"      # forges the verdict at py startup...
+lying_path_policy "$D/hooks/shared/path_policy.py"   # ...unstaged working-tree lie...
+printf '# flow rules (protected edit)\n' > "$D/FLOW_RULES.md"
+( cd "$D" && git add FLOW_RULES.md )                 # ...only the protected file staged.
+T23_ERR="$( ( cd "$D" && PYTHONPATH="$D/hooks" bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
+T23_RC=0; ( cd "$D" && PYTHONPATH="$D/hooks" bash hooks/git/pre-commit >/dev/null 2>&1 ) || T23_RC=$?
+if [ "$T23_RC" -ne 0 ]; then ok "23-prep-step-injection-blocks (env scrub + -S PREP + git decision, exit $T23_RC)"; else bad "23-prep-step-injection-blocks" "the live PoC (hostile PYTHONPATH + forging sitecustomize + unstaged lying path_policy + staged protected) STILL fail-open at exit 0 — FR-07 bypassable"; fi
+if echo "$T23_ERR" | grep -qiE "protected paths edited|FR-07"; then ok "23-prep-injection-diagnostic-emitted"; else bad "23-prep-injection-diagnostic-emitted" "no FR-07 diagnostic on the blocked protected edit"; fi
+# RED proof: pre-T30 (ec94204) plain-python3 PREP imports the sitecustomize -> exit 0.
+if git -C "$ROOT" cat-file -e "$T30_BASE_REF:hooks/git/pre-commit" 2>/dev/null; then
+  git -C "$ROOT" show "$T30_BASE_REF:hooks/git/pre-commit" > "$D/hooks/git/pre-commit-t29"
+  RED23=0; ( cd "$D" && PYTHONPATH="$D/hooks" bash hooks/git/pre-commit-t29 >/dev/null 2>&1 ) || RED23=$?
+  if [ "$RED23" -eq 0 ]; then ok "23-RED-t29-was-fail-open (plain-python3 PREP honored the forged RESULT=fallback; the PoC self-passed at exit 0)"; else ok "23-RED-t29-not-exit0-here (GREEN still asserted)"; fi
+  rm -f "$D/hooks/git/pre-commit-t29"
+else ok "23-RED-skipped-no-baseline (ec94204 pre-commit not reachable)"; fi
+rm -rf "$D"
+
+# ---- 24 (#T30-A). INHERITED-PYTHONPATH-NEUTRALIZED (no over-block). With a hostile
+#      PYTHONPATH exported, a normal protected-WITHOUT-approval edit still BLOCKS and a
+#      normal NON-protected edit still PASSES — the env scrub neutralizes the inherited
+#      value without collateral over-block. ----
+# 24a. hostile PYTHONPATH + protected-no-approval -> BLOCK.
+D="$(new_repo)"
+head_with_enforcer "$D"
+printf '# flow rules (protected edit)\n' > "$D/FLOW_RULES.md"
+( cd "$D" && git add FLOW_RULES.md )
+T24A_RC=0; ( cd "$D" && PYTHONPATH="$D/hooks" bash hooks/git/pre-commit >/dev/null 2>&1 ) || T24A_RC=$?
+if [ "$T24A_RC" -ne 0 ]; then ok "24a-hostile-pythonpath-protected-no-approval-blocks (exit $T24A_RC)"; else bad "24a-hostile-pythonpath-protected-no-approval-blocks" "a protected-no-approval edit passed under hostile PYTHONPATH (env scrub failed)"; fi
+rm -rf "$D"
+# 24b. hostile PYTHONPATH + non-protected edit -> PASS (no over-block).
+D="$(new_repo)"
+head_with_enforcer "$D"
+echo "app" > "$D/src/app.py"
+( cd "$D" && git add src/app.py )
+if ( cd "$D" && PYTHONPATH="$D/hooks" bash hooks/git/pre-commit >/dev/null 2>&1 ); then ok "24b-hostile-pythonpath-nonprotected-passes (no over-block)"; else bad "24b-hostile-pythonpath-nonprotected-passes" "a plain non-protected edit was over-blocked under hostile PYTHONPATH"; fi
+rm -rf "$D"
+
+# ---- 25 (#T30-C). FORGED-FALLBACK-IMPOSSIBLE-WHEN-HEAD-HAS-ENFORCER. An untracked
+#      sitecustomize FORGES RESULT=fallback (no os._exit — so if the decision were still
+#      the python-written file, the working-tree lying enforcer would run). Under T30 the
+#      SHELL decides trusted via `git ls-tree HEAD`, so the forgery is inert => the trusted
+#      HEAD enforcer runs => BLOCK. ----
+D="$(new_repo)"
+head_with_enforcer "$D"
+# sitecustomize that ONLY forges the verdict (no os._exit — isolates the decision-source fix).
+cat > "$D/hooks/sitecustomize.py" <<'FORGE2'
+import os
+_tmp = os.environ.get("FR07_TMP")
+if _tmp:
+    try:
+        with open(os.path.join(_tmp, "_result"), "w") as _f:
+            _f.write("RESULT=fallback\n")
+    except Exception:
+        pass
+FORGE2
+lying_path_policy "$D/hooks/shared/path_policy.py"   # unstaged working-tree lie (fallback target)
+printf '# flow rules (protected edit)\n' > "$D/FLOW_RULES.md"
+( cd "$D" && git add FLOW_RULES.md )
+T25_ERR="$( ( cd "$D" && PYTHONPATH="$D/hooks" bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
+T25_RC=0; ( cd "$D" && PYTHONPATH="$D/hooks" bash hooks/git/pre-commit >/dev/null 2>&1 ) || T25_RC=$?
+if [ "$T25_RC" -ne 0 ] && echo "$T25_ERR" | grep -qiE "protected paths edited|FR-07"; then ok "25-forged-fallback-impossible-when-HEAD-has-enforcer (git decides trusted; forged RESULT inert -> BLOCK, exit $T25_RC)"; else bad "25-forged-fallback-impossible-when-HEAD-has-enforcer" "a forged RESULT=fallback caused the working-tree lying enforcer to run when HEAD has the enforcer (fail-open, exit $T25_RC)"; fi
+rm -rf "$D"
+
+# ---- 26 (#T30-B). PYYAML-STILL-IMPORTS-UNDER-S. The trusted MAIN check runs under `-S`
+#      and re-adds site-packages via getsitepackages()/getusersitepackages() PATHS only.
+#      Prove PyYAML (the enforcer's policy_loader dep) still imports under that regime, so
+#      the trusted-policy seed does not silently fail. ----
+if python3 -S -c 'import site,sys
+d=[]
+try: d.extend(site.getsitepackages())
+except Exception: pass
+try:
+    u=site.getusersitepackages()
+    if u: d.append(u)
+except Exception: pass
+for p in d:
+    if p and p not in sys.path: sys.path.append(p)
+import yaml
+' >/dev/null 2>&1; then ok "26-pyyaml-imports-under-S (getsitepackages re-add works)"; else bad "26-pyyaml-imports-under-S" "PyYAML did NOT import under -S with the getsitepackages re-add — the trusted-policy seed would silently fail"; fi
 
 finish
