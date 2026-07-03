@@ -20,6 +20,9 @@ if [ -z "$REPORT_FILE" ] || [ ! -f "$REPORT_FILE" ]; then
 fi
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+# TRIPWIRE: the embedded python reads policies/gate-contracts.yml CWD-relative;
+# cd to ROOT so verify-gate works from any subdirectory (matches preflight.sh).
+cd "$ROOT" || exit 1
 POLICY="$ROOT/policies/gate-contracts.yml"
 
 if [ ! -f "$POLICY" ]; then

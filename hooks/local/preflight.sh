@@ -35,8 +35,10 @@ for d in "$SKILLS_CANON" workflows templates policies hooks/handlers hooks/share
 done
 
 # 3. Skill frontmatter structure (requires YAML in each SKILL.md)
+# TRIPWIRE: test the heredoc python's rc DIRECTLY (if ! ...). A `|| true` here
+# resets $? to 0 before the test, so the check can never fail preflight (false-clean).
 if command -v python3 >/dev/null 2>&1; then
-    SKILLS_CANON="$SKILLS_CANON" python3 - <<'PY' || true
+    if ! SKILLS_CANON="$SKILLS_CANON" python3 - <<'PY'
 import os, re, sys
 from pathlib import Path
 root = Path.cwd()
@@ -59,7 +61,7 @@ for skill in (root / canon).glob("*/SKILL.md"):
             errs += 1
 sys.exit(errs)
 PY
-    if [ $? -ne 0 ]; then errors=$((errors + 1)); fi
+    then errors=$((errors + 1)); fi
 fi
 
 # 4. YAML parse for every policy file
@@ -254,8 +256,10 @@ fi
 
 # 6. Action-name consistency: command-policy.yml require_approval actions must
 #    appear in approval-policy.yml require_approval keys.
+# TRIPWIRE: test the heredoc python's rc DIRECTLY (if ! ...); a `|| true` here
+# resets $? to 0 before the test, so an orphaned action can never fail preflight.
 if command -v python3 >/dev/null 2>&1; then
-    python3 - <<'PY' || true
+    if ! python3 - <<'PY'
 import sys, yaml
 from pathlib import Path
 root = Path.cwd() / "policies"
@@ -270,7 +274,7 @@ for entry in (cmd.get("require_approval") or []):
         errs += 1
 sys.exit(errs)
 PY
-    if [ $? -ne 0 ]; then errors=$((errors + 1)); fi
+    then errors=$((errors + 1)); fi
 fi
 
 # 7. Existing Fusebase CLI / MCP overlay sanity check (warning only).
