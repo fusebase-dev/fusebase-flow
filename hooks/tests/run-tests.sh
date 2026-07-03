@@ -43,8 +43,8 @@ FF_PHASE_TIMEOUT="${FF_PHASE_TIMEOUT:-600}"
 # FF_ONLY validation set; add a tag here (and its guard) when a phase is added.
 FF_TAGS=(fixtures module-size health-check-timeout newline-preserve baseline-merge \
   sync-allowlist policy-state bootstrap-baseline-hop fr22-delivery po-verifiable-boot \
-  liveness codex-parity cli-0259 secret-scan-staged bootstrap-exception trusted-enforcer \
-  hook-install-rc msys-tree-cleanup ws5-upgrade ff-only cli-flow-recovery)
+  po-investigate liveness codex-parity cli-0259 secret-scan-staged bootstrap-exception \
+  trusted-enforcer hook-install-rc msys-tree-cleanup ws5-upgrade ff-only cli-flow-recovery)
 
 declare -A FF_SEL=()      # selected tags (populated only when scoped)
 FF_SCOPED=0               # 1 iff FF_ONLY is a non-empty selection
@@ -377,6 +377,7 @@ run_shell_phase test-policy-state-preserve.sh "policy-state"
 run_shell_phase test-bootstrap-baseline-hop.sh "bootstrap-baseline-hop"
 run_shell_phase test-fr22-delivery-guarantee.sh "fr22-delivery"
 run_shell_phase test-po-verifiable-boot.sh     "po-verifiable-boot"
+run_shell_phase test-po-investigate.sh         "po-investigate"
 run_shell_phase test-liveness-bounded-run.sh   "liveness"
 run_shell_phase test-codex-prompt-parity.sh    "codex-parity"
 run_shell_phase test-cli-0259-compat.sh        "cli-0259"

@@ -41,6 +41,52 @@
 
 set -euo pipefail
 
+# TRIPWIRE (read-only guarantee): git subcommands forwarded below (diff/log/show) accept
+# args that WRITE FILES or RUN EXTERNAL PROGRAMS — --output=<path> writes; --ext-diff +
+# GIT_EXTERNAL_DIFF / a pager / an editor exec arbitrary commands. A "read-only" wrapper
+# that forwards them isn't read-only. Two layers keep the guarantee: (1) _reject_git_escapes
+# denylists the write/exec flag class and fails CLOSED; (2) _git runs git with the exec-env
+# scrubbed and paging off. Do NOT forward "$@" to git directly — always go through _git.
+_reject_git_escapes() {
+    # Fail closed on any forwarded arg that redirects output to a file or invokes an
+    # external program. Matches the flag AND its =<value> / attached-value forms.
+    local a
+    for a in "$@"; do
+        case "$a" in
+            # Output redirection to a file (diff/log/show all honor --output).
+            --output|--output=*|-o)
+                _refuse "$a" "writes output to a file" ;;
+            # External-diff / pager / editor program execution.
+            --ext-diff)
+                _refuse "$a" "runs GIT_EXTERNAL_DIFF / diff.external (external program)" ;;
+            --pager|--pager=*|-p|--paginate)
+                _refuse "$a" "forces a pager (external program)" ;;
+            # git-global config injection (-c k=v, -C <path>, --config-env=k=v) can set
+            # diff.external / core.pager / core.editor. Only honored as a git-GLOBAL option
+            # (before the subcommand) — unreachable through this wrapper's fixed subcommand
+            # ordering — but denied here as defense-in-depth so a future refactor can't open it.
+            -c|-c=*|-C|--config-env|--config-env=*)
+                _refuse "$a" "injects git config (could set diff.external/core.pager/core.editor)" ;;
+            # --output-indicator-* only annotate; harmless. -O<orderfile> READS a file (no write).
+            # Neither is denied — keep legit flags working.
+        esac
+    done
+}
+
+_refuse() {
+    echo "po-investigate: refused read-only-escaping arg '$1' ($2)." >&2
+    echo "This wrapper is read-only; args that write files or run external programs are blocked." >&2
+    exit 2
+}
+
+# Invoke git with the external-program env scrubbed and paging forced off, so an
+# inherited GIT_EXTERNAL_DIFF / GIT_PAGER / *_EDITOR can't turn a read into a write/exec.
+_git() {
+    env -u GIT_EXTERNAL_DIFF -u GIT_PAGER -u PAGER -u GIT_EDITOR \
+        -u GIT_SEQUENCE_EDITOR -u EDITOR -u VISUAL \
+        git --no-pager "$@"
+}
+
 SUB="${1:-}"
 shift || true
 
@@ -48,11 +94,11 @@ case "$SUB" in
     status)
         git status --short ;;
     diff)
-        git diff "$@" ;;
+        _reject_git_escapes "$@"; _git diff "$@" ;;
     log)
-        git log "$@" ;;
+        _reject_git_escapes "$@"; _git log "$@" ;;
     show)
-        git show "$@" ;;
+        _reject_git_escapes "$@"; _git show "$@" ;;
     blame)
         if [ -z "${1:-}" ]; then
             echo "usage: po-investigate blame <path>" >&2
