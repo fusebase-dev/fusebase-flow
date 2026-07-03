@@ -73,6 +73,8 @@ Validate changed behavior with deterministic checks before a deploy is approved.
    - Browser-visible evidence plus backend/log/API diagnostic evidence when the feature spans frontend and backend.
 7. If passes, output approval to operator with explicit phrase "Gate verified. Phase advances to Deploy."
 
+**Gate scoping (FF_ONLY) — the final gate MUST be full/unscoped.** `bash hooks/tests/run-tests.sh` supports `FF_ONLY="tag1,tag2"` to run a SUBSET of phases for implement-loop iteration speed. FF_ONLY is implement-loop only: the FINAL pre-commit / pre-deploy gate MUST be a full **unscoped** run, and a gate report may cite ONLY `state/audit/hook-test-results.md` — **never** `hook-test-results-scoped.md`. A scoped run is fail-closed by construction (its summary line is deliberately not the strict `[run-tests] N/N PASS` shape, so `ffhc_run_tests_pass_ok` / `ffhc_count_pass_lines` read it as NOT a clean full pass; its rows go to the separate scoped file). If a pasted gate report cites the scoped file or a `(SCOPED FF_ONLY=…)` summary, redirect the implementer to re-run the full gate. `FF_LIST=1` prints the canonical tag list without running.
+
 ### Sub-mode E — Lightweight-lane live-proof (FR-21)
 
 For a Lightweight-lane ticket there is no `verification-gate.md` and no long-form gate report — but the **live proof is never skipped** (it is the safety floor). Compress, don't drop:

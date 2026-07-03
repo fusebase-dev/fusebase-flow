@@ -1,13 +1,24 @@
 #!/usr/bin/env bash
 # Fusebase Flow — hook test runner
 # Pipes each fixture into its target handler and checks the response.
+#
+# ## Gate scoping (FF_ONLY / FF_LIST) — process rule
+#   FF_ONLY="tag1,tag2" runs ONLY the named phases (implement-loop iteration speed).
+#   FF_ONLY is IMPLEMENT-LOOP ONLY: the FINAL pre-commit / pre-deploy gate MUST be a
+#   full UNSCOPED run, and a gate report may cite ONLY state/audit/hook-test-results.md
+#   — never hook-test-results-scoped.md. A scoped run is fail-closed by construction:
+#   its summary line is deliberately NOT the strict "[run-tests] N/N PASS" shape, so
+#   ffhc_run_tests_pass_ok / ffhc_count_pass_lines read it as NOT a clean full pass, and
+#   its results go to hook-test-results-scoped.md (the full-gate file is never touched).
+#   FF_LIST=1 prints the canonical tag list (RUN/SKIP) and exits 0 without running.
+#   Unknown or empty selection => exit 2 (never a "scoped to nothing" green). Canonical
+#   home for this rule: this header + flow-skills/validation-and-qa/SKILL.md (sub-mode A).
 
 set -uo pipefail
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 TESTS_DIR="$ROOT/hooks/tests/fixtures"
 HANDLERS_DIR="$ROOT/hooks/handlers"
-RESULTS_FILE="$ROOT/state/audit/hook-test-results.md"
 
 python_bin="${PYTHON:-python3}"
 
@@ -26,6 +37,59 @@ ffhc_detect_timeout
 # Per-phase heavy-run bound. Generous default (the recovery phase copies a skill tree
 # + drives the health engine — minutes on MSYS); operator-overridable.
 FF_PHASE_TIMEOUT="${FF_PHASE_TIMEOUT:-600}"
+
+# --- FF_ONLY scoped-gate parse (implement-loop iteration speed) ---------------------
+# Canonical phase tags, in run order. This list is the FF_LIST discovery source and the
+# FF_ONLY validation set; add a tag here (and its guard) when a phase is added.
+FF_TAGS=(fixtures module-size health-check-timeout newline-preserve baseline-merge \
+  sync-allowlist policy-state bootstrap-baseline-hop fr22-delivery po-verifiable-boot \
+  liveness codex-parity cli-0259 secret-scan-staged bootstrap-exception trusted-enforcer \
+  hook-install-rc msys-tree-cleanup ws5-upgrade ff-only cli-flow-recovery)
+
+declare -A FF_SEL=()      # selected tags (populated only when scoped)
+FF_SCOPED=0               # 1 iff FF_ONLY is a non-empty selection
+if [ -n "${FF_ONLY:-}" ]; then
+  # Split on commas; trim surrounding whitespace per tag. A bogus or all-blank
+  # selection => exit 2 (never a silent "scoped to nothing" green).
+  IFS=',' read -r -a _ff_req <<< "$FF_ONLY"
+  declare -A _ff_valid=(); for t in "${FF_TAGS[@]}"; do _ff_valid[$t]=1; done
+  for raw in "${_ff_req[@]}"; do
+    tag="${raw#"${raw%%[![:space:]]*}"}"; tag="${tag%"${tag##*[![:space:]]}"}"   # trim
+    [ -z "$tag" ] && continue
+    if [ -z "${_ff_valid[$tag]:-}" ]; then
+      echo "[run-tests] ERROR: FF_ONLY unknown tag '$tag' (valid: ${FF_TAGS[*]})" >&2
+      exit 2
+    fi
+    FF_SEL[$tag]=1
+  done
+  if [ "${#FF_SEL[@]}" -eq 0 ]; then
+    echo "[run-tests] ERROR: FF_ONLY selected no valid tags (was '$FF_ONLY')" >&2
+    exit 2
+  fi
+  FF_SCOPED=1
+fi
+
+# FF_LIST=1: print the canonical tags with RUN/SKIP markers and exit 0 (no run).
+if [ "${FF_LIST:-0}" = "1" ]; then
+  for t in "${FF_TAGS[@]}"; do
+    if [ "$FF_SCOPED" -eq 0 ] || [ -n "${FF_SEL[$t]:-}" ]; then echo "RUN  $t"; else echo "SKIP $t"; fi
+  done
+  exit 0
+fi
+
+# ff_selected TAG: 0 (run) when unscoped OR the tag is in the scoped selection.
+ff_selected() { [ "$FF_SCOPED" -eq 0 ] || [ -n "${FF_SEL[$1]:-}" ]; }
+# ff_skip_note TAG: emit the visible per-phase skip line (only ever called when scoped).
+ff_skip_note() { echo "SKIP (FF_ONLY): $1"; }
+
+# Scoped runs write to a SEPARATE results file so the full-gate hook-test-results.md is
+# never clobbered by a subset run (the health engine / gate reports read only the full
+# file). Unscoped => the canonical full-gate file, byte-behavior-unchanged.
+if [ "$FF_SCOPED" -eq 1 ]; then
+  RESULTS_FILE="$ROOT/state/audit/hook-test-results-scoped.md"
+else
+  RESULTS_FILE="$ROOT/state/audit/hook-test-results.md"
+fi
 
 # EXIT-trap reaper (WS3): if the harness is signaled while a bounded phase is still in
 # flight, taskkill ONLY that phase's own recorded child winpid — FFHC_LAST_WINPID, set
@@ -65,6 +129,18 @@ report_rows=""
 
 mkdir -p "$(dirname "$RESULTS_FILE")"
 
+# Loud scoped banner: a subset run is NEVER a full gate — make that impossible to miss.
+if [ "$FF_SCOPED" -eq 1 ]; then
+  {
+    echo "============================================================"
+    echo "  SCOPED RUN — FF_ONLY=${FF_ONLY}"
+    echo "  This is a SUBSET, not a full gate. Results -> ${RESULTS_FILE#"$ROOT/"}"
+    echo "  The final pre-commit/pre-deploy gate MUST be a full unscoped run."
+    echo "============================================================"
+  } >&2
+fi
+
+if ff_selected fixtures; then
 progress "fixture handler tests"
 for fixture in "$TESTS_DIR"/*.json; do
     [ -f "$fixture" ] || continue
@@ -145,10 +221,15 @@ PY
     fi
 done
 FFHC_LAST_WINPID=""; FFHC_LAST_CHILD_PID=""   # fixture loop done — clear the last handler's ids before the trap window
+else
+    ff_skip_note fixtures
+fi
 
 # Phase 2 — FR-25 module-size ratchet scenarios (shell-level; not handler fixtures).
 MS_TEST="$ROOT/hooks/tests/test-module-size.sh"
-if [ -f "$MS_TEST" ]; then
+if ! ff_selected module-size; then
+    ff_skip_note module-size
+elif [ -f "$MS_TEST" ]; then
     run_bounded_phase "module-size ratchet" bash "$MS_TEST"
     ms_out="$FFHC_LAST_OUT"; ms_fail=$FFHC_LAST_RC
     echo "$ms_out" | grep -E '^(PASS|FAIL): module-size' || true
@@ -177,7 +258,9 @@ fi
 # as Phase 2: count "PASS:/FAIL: health-check-timeout <name>" lines; a non-zero
 # exit with zero parsed FAIL lines means the script crashed before reporting.
 HT_TEST="$ROOT/hooks/tests/test-health-check-timeout.sh"
-if [ -f "$HT_TEST" ]; then
+if ! ff_selected health-check-timeout; then
+    ff_skip_note health-check-timeout
+elif [ -f "$HT_TEST" ]; then
     run_bounded_phase "health-check-timeout scenarios" bash "$HT_TEST"
     ht_out="$FFHC_LAST_OUT"; ht_rc=$FFHC_LAST_RC
     echo "$ht_out" | grep -E '^(PASS|FAIL): health-check-timeout' || true
@@ -205,6 +288,7 @@ fi
 # over (script, tag) pairs keeps run-tests under the FR-25 ceiling.
 run_shell_phase() { # run_shell_phase <test-script> <tag>
     local script="$ROOT/hooks/tests/$1" tag="$2"
+    ff_selected "$tag" || { ff_skip_note "$tag"; return 0; }
     [ -f "$script" ] || return 0
     local out rc p f
     run_bounded_phase "$tag" bash "$script"
@@ -239,6 +323,7 @@ run_shell_phase test-trusted-enforcer.sh       "trusted-enforcer"
 run_shell_phase test-hook-install-rc.sh        "hook-install-rc"
 run_shell_phase test-msys-tree-cleanup.sh      "msys-tree-cleanup"
 run_shell_phase test-ws5-upgrade-bounded.sh    "ws5-upgrade"
+run_shell_phase test-ff-only.sh                "ff-only"
 
 # Exit-code phase — all-or-nothing shell tests that fail-fast (set -e + fail()→exit)
 # and don't emit the run_shell_phase "PASS: <tag> <name>" contract. One row per test;
@@ -248,8 +333,9 @@ run_shell_phase test-ws5-upgrade-bounded.sh    "ws5-upgrade"
 # ffhc_run_bounded_stdout at FF_CLI_RECOVERY_TIMEOUT (default 240s) with an
 # FF_SKIP_CLI_RECOVERY=1 opt-out; a timeout (rc 124/137) is reported INCONCLUSIVE —
 # counted as a non-pass so the suite never goes silently green on a bound-hit.
-run_exitcode_phase() { # run_exitcode_phase <test-script> <label>
-    local script="$ROOT/hooks/tests/$1" label="$2"
+run_exitcode_phase() { # run_exitcode_phase <test-script> <tag> <label>
+    local script="$ROOT/hooks/tests/$1" tag="$2" label="$3"
+    ff_selected "$tag" || { ff_skip_note "$tag"; return 0; }
     [ -f "$script" ] || return 0
     total=$((total + 1))
     if [ "${FF_SKIP_CLI_RECOVERY:-0}" = "1" ]; then
@@ -275,12 +361,20 @@ run_exitcode_phase() { # run_exitcode_phase <test-script> <label>
         report_rows="$report_rows| $1 | $label | FAIL | exit $rc |"$'\n'
     fi
 }
-run_exitcode_phase test-cli-flow-recovery.sh "cli-flow-recovery (0.25.9 model)"
+run_exitcode_phase test-cli-flow-recovery.sh "cli-flow-recovery" "cli-flow-recovery (0.25.9 model)"
 
-# Write report
+# Write report. Unscoped => byte-identical to today. Scoped => a distinct title +
+# an FF_ONLY banner line so the scoped file can never be mistaken for a full-gate report.
 {
-    echo "# Hook test results"
-    echo
+    if [ "$FF_SCOPED" -eq 1 ]; then
+        echo "# Hook test results — SCOPED (FF_ONLY=${FF_ONLY})"
+        echo
+        echo "SUBSET RUN — not a full gate. The final pre-commit/pre-deploy gate must be a full unscoped run."
+        echo
+    else
+        echo "# Hook test results"
+        echo
+    fi
     echo "Run: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
     echo
     echo "Total: $total — PASS: $pass — FAIL: $fail"
@@ -291,7 +385,15 @@ run_exitcode_phase test-cli-flow-recovery.sh "cli-flow-recovery (0.25.9 model)"
 } > "$RESULTS_FILE"
 
 echo
-echo "[run-tests] $pass/$total PASS"
+# Summary line. Unscoped => the strict "[run-tests] N/N PASS" shape that
+# ffhc_run_tests_pass_ok / ffhc_count_pass_lines accept as a clean full pass.
+# Scoped => a DELIBERATELY non-strict form (trailing "(SCOPED …)") so those
+# classifiers read it as NOT a clean full pass (fail-closed by construction).
+if [ "$FF_SCOPED" -eq 1 ]; then
+    echo "[run-tests] $pass/$total PASS (SCOPED FF_ONLY=${FF_ONLY} — subset, not a full gate)"
+else
+    echo "[run-tests] $pass/$total PASS"
+fi
 echo "[run-tests] report written: $RESULTS_FILE"
 
 exit $fail
