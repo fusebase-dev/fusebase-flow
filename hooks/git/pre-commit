@@ -49,18 +49,169 @@ if [ -n "$SECRET_HITS" ]; then
     exit 1
 fi
 
-# 2. Secret content scan: ONLY added (+) lines, designed-token files path-excluded
-#    (D-A1 — secret-patterns.yml self-trip + whitelist trap). Helper, not inline
-#    bash string-parsing: hooks/shared/staged_secret_scan.py. scan() is UNCHANGED.
-#    `-S` (T29): a working-tree/untracked sitecustomize.py doing `os._exit(0)` at
-#    interpreter startup would ALSO disable this scan; `-S` skips site startup files.
-#    The helper restores site-packages (for PyYAML) itself without re-importing them.
-#    PYTHONPATH is set EXPLICITLY (not inherited — T30 already unset it above) to exactly
-#    $ROOT/hooks, the single dir needed to import shared.secret_scanner; nothing else
-#    reaches sys.path. `-S` means an untracked hooks/sitecustomize.py under that dir is
-#    never imported.
+# 2. Secret content scan (FR-12): ONLY added (+) lines, designed-token files path-excluded
+#    (D-A1 — secret-patterns.yml self-trip + whitelist trap). scan() semantics UNCHANGED
+#    (hooks/tests/fixtures 10/11 call scan() directly).
+#
+#    TRUSTED-HEAD SECRET SCANNER (T31, UNCONDITIONAL): the scanner CODE
+#    (staged_secret_scan.py + secret_scanner.py + its shared deps) AND its patterns data
+#    (policies/secret-patterns.yml) are THEMSELVES fusebase_flow_internals — the mutable
+#    working tree cannot be trusted to run its own secret gate. T29/T30 added `-S` + an
+#    env scrub (no startup-file / inherited-PYTHONPATH injection), but the SCRIPT + its
+#    PATTERNS were still the working tree: an UNSTAGED tamper of staged_secret_scan.py
+#    (make it `return 0`) OR of secret-patterns.yml (empty `patterns:`) => "no secrets"
+#    => a real secret in the staged changeset commits unguarded. Same mutable-Python-load
+#    class as the §3 self-tamper (T28-T30), applied to the secret scanner. Closed here by
+#    running §2 from the COMMITTED (HEAD) scanner + patterns, extracted into a temp package
+#    and imported under `-S` with an isolated PYTHONPATH (the trusted temp dir, never
+#    $ROOT/hooks). It scans the STAGED changeset (git diff --cached — unchanged; the
+#    content being committed). The env is already scrubbed at the hook top (T30).
+#    GIT-BASED TRUSTED-vs-FALLBACK (shell-decided, like §3/T30): if HEAD carries the
+#    scanner => ALWAYS trusted (a working-tree tamper cannot run). Fall back to the
+#    working-tree scanner (under `-S`, with a note) ONLY when git proves HEAD genuinely
+#    LACKS it (true first-adoption). A transient git error => fail closed.
 if command -v python3 >/dev/null 2>&1; then
-    PYTHONPATH="$ROOT/hooks" python3 -S "$ROOT/hooks/shared/staged_secret_scan.py" || exit_secret=$?
+    # SEC_IMPORT_DIR = where the scanner `shared` package is imported from;
+    # SEC_TRUSTED_PATTERNS = the trusted patterns yaml to seed the loader cache with
+    # (empty => bootstrap fallback, scanner reads the working-tree patterns).
+    SEC_IMPORT_DIR="$ROOT/hooks"
+    SEC_TRUSTED_PATTERNS=""
+    SEC_TMP=""
+    # Sentinels: the scanner code + its patterns data. The SHELL decides trusted-vs-fallback
+    # via `git ls-tree HEAD` (unforgeable — no python/startup file can influence it). rc0+
+    # non-empty => present; rc0+empty => genuinely absent (first-adoption); rc!=0 => transient
+    # git error => fail closed. (staged_secret_scan -> secret_scanner -> {audit_logger,
+    # policy_loader}; policy_loader reads secret-patterns.yml.)
+    SEC_SENTINELS="hooks/shared/__init__.py hooks/shared/staged_secret_scan.py hooks/shared/secret_scanner.py hooks/shared/audit_logger.py hooks/shared/policy_loader.py policies/secret-patterns.yml"
+    SEC_DECISION="trusted"
+    if ! git rev-parse --verify --quiet HEAD >/dev/null 2>&1; then
+        SEC_DECISION="fallback"
+        echo "[fusebase-flow:pre-commit] note: no HEAD yet (first-adoption bootstrap) — §2 secret scan uses the working-tree scanner for this initial commit." >&2
+    else
+        for _s in $SEC_SENTINELS; do
+            _sls="$(git ls-tree HEAD -- "$_s" 2>/dev/null)"; _sls_rc=$?
+            if [ "$_sls_rc" -ne 0 ]; then
+                echo "[fusebase-flow:pre-commit] BLOCK — §2 secret scan could not read the trusted HEAD copy of $_s (transient git error, rc=$_sls_rc) — failing closed, NOT falling back to the untrusted working tree. NEVER use --no-verify." >&2
+                exit 1
+            fi
+            if [ -z "$_sls" ]; then
+                SEC_DECISION="fallback"
+                echo "[fusebase-flow:pre-commit] note: $_s not in HEAD (first-adoption bootstrap) — §2 secret scan uses the working-tree scanner for this commit." >&2
+                break
+            fi
+        done
+    fi
+    if [ "$SEC_DECISION" = "trusted" ]; then
+        SEC_TMP="$(mktemp -d 2>/dev/null || mktemp -d -t ffflow-secret)"
+        # Pure extractor (git show HEAD -> temp; no verdict). Written to a file, not a
+        # heredoc-in-$(...) (bash -n here-doc parse). Fail closed on any git-show failure.
+        cat > "$SEC_TMP/_prep_secret.py" <<'SECPREP'
+import os, subprocess, sys
+from pathlib import Path
+
+root = Path(os.environ["ROOT"])
+tmp = Path(os.environ["SEC_TMP"])
+
+# The SHELL has already proven (git ls-tree) every one of these is present in HEAD; this
+# script only EXTRACTS the trusted bytes. secret-patterns.local.yml is an OPTIONAL,
+# gitignored designed-token override (never in HEAD) — deliberately NOT extracted; the
+# trusted-patterns seed below binds the loader to ONLY HEAD's committed patterns.
+files = [
+    ("hooks/shared/__init__.py",            tmp / "shared" / "__init__.py"),
+    ("hooks/shared/staged_secret_scan.py",  tmp / "shared" / "staged_secret_scan.py"),
+    ("hooks/shared/secret_scanner.py",      tmp / "shared" / "secret_scanner.py"),
+    ("hooks/shared/audit_logger.py",        tmp / "shared" / "audit_logger.py"),
+    ("hooks/shared/policy_loader.py",       tmp / "shared" / "policy_loader.py"),
+    ("policies/secret-patterns.yml",        tmp / "policies" / "secret-patterns.yml"),
+]
+
+for src, dst in files:
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    show = subprocess.run(["git", "show", f"HEAD:{src}"],
+                          capture_output=True, cwd=str(root))
+    if show.returncode != 0:
+        print(f"[fusebase-flow:pre-commit] BLOCK — §2 trusted HEAD extraction of {src} "
+              f"failed (git show rc={show.returncode}) — failing closed. NEVER use --no-verify.",
+              file=sys.stderr)
+        sys.exit(1)
+    dst.write_bytes(show.stdout)
+SECPREP
+        SEC_TMP="$SEC_TMP" ROOT="$ROOT" PYTHONPATH="" python3 -S "$SEC_TMP/_prep_secret.py"; SEC_PREP_RC=$?
+        if [ "$SEC_PREP_RC" -ne 0 ]; then
+            [ -n "$SEC_TMP" ] && rm -rf "$SEC_TMP"
+            exit 1
+        fi
+        SEC_IMPORT_DIR="$SEC_TMP"
+        SEC_TRUSTED_PATTERNS="$SEC_TMP/policies/secret-patterns.yml"
+    fi
+    # `-S` (T29): no working-tree/untracked sitecustomize.py/usercustomize.py at startup.
+    # PYTHONPATH is set EXPLICITLY to the SINGLE import dir (T30 scrubbed the env at the top,
+    # so nothing is inherited) — the trusted temp dir on the normal path, $ROOT/hooks ONLY on
+    # the first-adoption bootstrap fallback. The scanner re-adds site-packages (for PyYAML)
+    # via getsitepackages() PATHS without running site.main() (its own _restore_site_packages).
+    SEC_IMPORT_DIR="$SEC_IMPORT_DIR" SEC_TRUSTED_PATTERNS="$SEC_TRUSTED_PATTERNS" \
+    SEC_REAL_ROOT="$ROOT" PYTHONPATH="$SEC_IMPORT_DIR" python3 -S - <<'SECPY' || exit_secret=$?
+import os
+import sys
+from pathlib import Path
+# root = the REAL repo: the STAGED diff (git diff --cached) + working-tree cwd are read
+# from here, regardless of whether the scanner CODE was imported from HEAD (trusted) or
+# the tree (bootstrap fallback).
+root = Path(os.environ["SEC_REAL_ROOT"])
+import_dir = os.environ.get("SEC_IMPORT_DIR") or str(root / "hooks")
+sys.path.insert(0, import_dir)
+try:
+    # staged_secret_scan imports only stdlib at module top (subprocess/sys/pathlib), so
+    # importing it does NOT yet reach policy_loader's top-level `import yaml`. Restore
+    # site-packages FIRST (via its own -S-safe getsitepackages re-add), THEN import
+    # secret_scanner — whose transitive `import yaml` would SystemExit under bare `-S` if
+    # site-packages were still dropped (the ordering the original helper's main() used).
+    from shared.staged_secret_scan import staged_added_text, _restore_site_packages
+    _restore_site_packages()
+    from shared.secret_scanner import block_decision, scan
+except BaseException as e:
+    # FAIL CLOSED (mirrors §3's BaseException guard): a tampered/short-circuited scanner
+    # module doing raise SystemExit(0) on import subclasses BaseException; blocking it here
+    # means a broken/lying scanner cannot wave a secret through. (A genuinely scanner-less
+    # bootstrap took the shell fallback above, not this trusted path.)
+    print(f"[fusebase-flow:pre-commit] BLOCK — §2 secret scan could not load the scanner (import error: {e!r}) — failing closed. NEVER use --no-verify.", file=sys.stderr)
+    sys.exit(1)
+# TRUSTED-PATTERNS SEED (mirrors §3's trusted-policy seed): scan() -> get_policy(
+# "secret-patterns") would otherwise read the mutable working-tree patterns file (which a
+# tamperer could have emptied). Seed the loader cache with the TRUSTED HEAD patterns under
+# BOTH keys the scanner reaches (root=None internal call + the cwd-derived root), so every
+# get_policy("secret-patterns") returns the trusted patterns. Scoped to secret-patterns
+# ONLY (other policies untouched). On the bootstrap fallback SEC_TRUSTED_PATTERNS is empty
+# => no seed => the scanner reads the working-tree patterns (a scanner-less repo can't tamper
+# a control it doesn't yet have).
+trusted_patterns = os.environ.get("SEC_TRUSTED_PATTERNS") or ""
+if trusted_patterns:
+    try:
+        import yaml
+        from shared import policy_loader as _pl
+        pol = yaml.safe_load(Path(trusted_patterns).read_text(encoding="utf-8")) or {}
+        _pl._POLICY_CACHE["::secret-patterns"] = pol
+        _pl._POLICY_CACHE[f"{root}::secret-patterns"] = pol
+    except BaseException as e:
+        print(f"[fusebase-flow:pre-commit] BLOCK — §2 secret scan could not seed the trusted HEAD patterns ({e!r}) — failing closed. NEVER use --no-verify.", file=sys.stderr)
+        sys.exit(1)
+# Scan the STAGED changeset (added `+` lines, designed-token files path-excluded — the
+# exclude lives in staged_added_text, run against the REAL root's git). block => exit 1.
+try:
+    matches = scan(staged_added_text(root), tool_context="git_pre_commit")
+except BaseException as e:
+    print(f"[fusebase-flow:pre-commit] BLOCK — §2 secret scan errored ({e!r}) — failing closed. NEVER use --no-verify.", file=sys.stderr)
+    sys.exit(1)
+if matches and block_decision(matches) == "deny":
+    print("[fusebase-flow:pre-commit] BLOCK — secret pattern in staged added lines:", file=sys.stderr)
+    for m in matches:
+        print(f"  {m.pattern_id} ({m.confidence}) — redacted", file=sys.stderr)
+    print("Per FR-12: rotate the credential, then `git reset HEAD -- <file>` to unstage. Do NOT whitelist the value to get past this.", file=sys.stderr)
+    sys.exit(1)
+SECPY
+    # Clean up the trusted temp package (FR-27 no-runaways: bounded, always removed)
+    # BEFORE acting on the rc so a BLOCK never leaks the temp dir.
+    [ -n "$SEC_TMP" ] && rm -rf "$SEC_TMP"
     if [ "${exit_secret:-0}" -ne 0 ]; then exit 1; fi
 fi
 

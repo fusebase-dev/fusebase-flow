@@ -143,4 +143,151 @@ else
 fi
 rm -rf "$D"
 
+# =============================================================================
+# T31 — the §2 secret scanner + its patterns now run from the TRUSTED (HEAD) copy.
+# T29/T30 hardened §2 with `-S` + an env scrub, but the SCRIPT (staged_secret_scan.py)
+# and its PATTERNS (secret-patterns.yml) were still the mutable working tree: an UNSTAGED
+# tamper of either => "no secrets" => a real staged secret commits unguarded. Same
+# mutable-Python-load class as the §3 self-tamper (T28-T30), applied to the secret gate.
+# These scenarios run the REAL pre-commit (the tamper only takes effect through the hook's
+# trusted-HEAD dispatch, not the bare helper). RED→GREEN vs 555b897 (T30 HEAD).
+# =============================================================================
+T31_BASE_REF="555b897"
+
+# ph_repo: a throwaway repo whose HEAD carries the CLEAN scanner stack + patterns + the
+# FR-07 enforcer/policy (so §3 doesn't fail-closed on a missing protected-paths.yml) + the
+# real pre-commit + the bootstrap-approval writer. Echoes the repo dir.
+ph_repo() {
+  local D; D="$(mktemp -d)"
+  mkdir -p "$D/hooks/shared" "$D/hooks/git" "$D/hooks/local" "$D/policies" "$D/state/approvals" "$D/src"
+  cp "$ROOT/hooks/shared/"*.py "$D/hooks/shared/" 2>/dev/null || true
+  : > "$D/hooks/shared/__init__.py"
+  cp "$ROOT/policies/secret-patterns.yml"  "$D/policies/"
+  cp "$ROOT/policies/protected-paths.yml"  "$D/policies/"
+  cp "$ROOT/hooks/git/pre-commit"          "$D/hooks/git/"
+  cp "$ROOT/hooks/local/write-bootstrap-approval.sh" "$D/hooks/local/" 2>/dev/null || true
+  ( cd "$D" && git init -q && git config user.email t@t.t && git config user.name t \
+      && git config core.autocrlf false \
+      && git add -A && git commit -qm seed )   # CLEAN scanner + patterns now in HEAD.
+  echo "$D"
+}
+run_precommit_pc() { ( cd "$1" && bash hooks/git/pre-commit >/dev/null 2>&1 ); }
+# A real high-confidence secret (AWS access key id), built so this test file carries no
+# committed secret literal (WS1a runtime-construction discipline).
+AKIA_KEY="AKIA""IOSFODNN7EXAMPLE"
+
+# ---- T31 #1. SCRIPT-TAMPER-BLOCKS. Clean scanner in HEAD. Tamper the WORKING-TREE
+#      staged_secret_scan.py (UNSTAGED) to `return 0` (report no secrets); stage a file
+#      with a REAL secret. The TRUSTED HEAD scanner runs -> BLOCK. RED (555b897): the
+#      tampered working-tree scanner runs -> the secret commits (rc=0). ----
+D="$(ph_repo)"
+printf 'import sys\ndef main():\n    return 0\nif __name__ == "__main__":\n    sys.exit(main())\n' > "$D/hooks/shared/staged_secret_scan.py"  # UNSTAGED tamper
+printf 'const k = "%s";\n' "$AKIA_KEY" > "$D/src/leak.js"
+( cd "$D" && git add src/leak.js )   # stage ONLY the secret; the scanner tamper is unstaged.
+T31A_ERR="$( ( cd "$D" && bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
+T31A_RC=0; run_precommit_pc "$D" || T31A_RC=$?
+if [ "$T31A_RC" -ne 0 ] && echo "$T31A_ERR" | grep -qiE "secret pattern|BLOCK — secret"; then ok "secret-scan-script-tamper-blocks (trusted HEAD scanner runs, exit $T31A_RC)"; else bad "secret-scan-script-tamper-blocks" "an UNSTAGED working-tree staged_secret_scan.py tamper let a real staged secret through (rc=$T31A_RC) — FR-12 fail-OPEN"; fi
+# RED proof: the pre-T31 pre-commit runs the tampered working-tree scanner -> exit 0.
+if git -C "$ROOT" cat-file -e "$T31_BASE_REF:hooks/git/pre-commit" 2>/dev/null; then
+  git -C "$ROOT" show "$T31_BASE_REF:hooks/git/pre-commit" > "$D/hooks/git/pre-commit-t30"
+  RED31A=0; ( cd "$D" && bash hooks/git/pre-commit-t30 >/dev/null 2>&1 ) || RED31A=$?
+  if [ "$RED31A" -eq 0 ]; then ok "secret-scan-script-tamper-RED-t30-was-fail-open (working-tree scanner ran; the secret self-passed at exit 0)"; else ok "secret-scan-script-tamper-RED-t30-not-exit0-here (GREEN still asserted)"; fi
+  rm -f "$D/hooks/git/pre-commit-t30"
+else ok "secret-scan-script-tamper-RED-skipped-no-baseline (555b897 pre-commit not reachable)"; fi
+rm -rf "$D"
+
+# ---- T31 #2. PATTERNS-TAMPER-BLOCKS. Clean scanner+patterns in HEAD. Empty the
+#      WORKING-TREE secret-patterns.yml (UNSTAGED) so no pattern matches; stage a real
+#      secret. The TRUSTED HEAD patterns (seeded into the loader cache) run -> BLOCK.
+#      RED (555b897): the emptied working-tree patterns load -> no match -> commit (rc=0). ----
+D="$(ph_repo)"
+printf 'schema_version: 1\ndefault_action: block\npatterns: []\nwhitelist: []\n' > "$D/policies/secret-patterns.yml"  # UNSTAGED tamper (emptied)
+printf 'const k = "%s";\n' "$AKIA_KEY" > "$D/src/leak.js"
+( cd "$D" && git add src/leak.js )
+T31B_ERR="$( ( cd "$D" && bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
+T31B_RC=0; run_precommit_pc "$D" || T31B_RC=$?
+if [ "$T31B_RC" -ne 0 ] && echo "$T31B_ERR" | grep -qiE "secret pattern|BLOCK — secret"; then ok "secret-scan-patterns-tamper-blocks (trusted HEAD patterns run, exit $T31B_RC)"; else bad "secret-scan-patterns-tamper-blocks" "an UNSTAGED emptied working-tree secret-patterns.yml let a real staged secret through (rc=$T31B_RC) — FR-12 fail-OPEN"; fi
+if git -C "$ROOT" cat-file -e "$T31_BASE_REF:hooks/git/pre-commit" 2>/dev/null; then
+  git -C "$ROOT" show "$T31_BASE_REF:hooks/git/pre-commit" > "$D/hooks/git/pre-commit-t30"
+  RED31B=0; ( cd "$D" && bash hooks/git/pre-commit-t30 >/dev/null 2>&1 ) || RED31B=$?
+  if [ "$RED31B" -eq 0 ]; then ok "secret-scan-patterns-tamper-RED-t30-was-fail-open (emptied working-tree patterns loaded; the secret self-passed at exit 0)"; else ok "secret-scan-patterns-tamper-RED-t30-not-exit0-here (GREEN still asserted)"; fi
+  rm -f "$D/hooks/git/pre-commit-t30"
+else ok "secret-scan-patterns-tamper-RED-skipped-no-baseline (555b897 pre-commit not reachable)"; fi
+rm -rf "$D"
+
+# ---- T31 #3. STILL-BLOCKS-NORMAL. Untampered clean scanner in HEAD, a real staged secret
+#      -> BLOCK through the trusted-HEAD path (regression: §2 detection intact). ----
+D="$(ph_repo)"
+printf 'const k = "%s";\n' "$AKIA_KEY" > "$D/src/leak.js"
+( cd "$D" && git add src/leak.js )
+T31C_RC=0; run_precommit_pc "$D" || T31C_RC=$?
+if [ "$T31C_RC" -ne 0 ]; then ok "secret-scan-still-blocks-normal (trusted HEAD, untampered, exit $T31C_RC)"; else bad "secret-scan-still-blocks-normal" "a real staged secret was NOT blocked under the trusted-HEAD path (detection broke)"; fi
+rm -rf "$D"
+
+# ---- T31 #4. NO-OVER-BLOCK. A legit non-secret commit passes cleanly through the
+#      trusted-HEAD §2 path (and §3, a non-protected src edit). ----
+D="$(ph_repo)"
+echo "const ok = 'hello world';" > "$D/src/app.js"
+( cd "$D" && git add src/app.js )
+if run_precommit_pc "$D"; then ok "secret-scan-no-over-block-legit-passes (trusted HEAD §2, non-secret)"; else bad "secret-scan-no-over-block-legit-passes" "a legit non-secret commit was over-blocked by the trusted-HEAD §2 path"; fi
+rm -rf "$D"
+
+# ---- T31 #5. BOOTSTRAP-EDGE. HEAD LACKS the scanner (first-adoption): the shell falls
+#      back to the working-tree scanner (with a note) and STILL blocks a real secret. ----
+D="$(mktemp -d)"
+mkdir -p "$D/hooks/shared" "$D/hooks/git" "$D/policies" "$D/src"
+cp "$ROOT/hooks/git/pre-commit" "$D/hooks/git/"
+( cd "$D" && git init -q && git config user.email t@t.t && git config user.name t \
+    && git config core.autocrlf false && echo seed > seed.txt && git add seed.txt && git commit -qm seed )
+# First-add the scanner stack + patterns + a real secret (HEAD has none of them).
+cp "$ROOT/hooks/shared/"*.py "$D/hooks/shared/" 2>/dev/null || true
+: > "$D/hooks/shared/__init__.py"
+cp "$ROOT/policies/secret-patterns.yml" "$D/policies/"
+cp "$ROOT/policies/protected-paths.yml" "$D/policies/"
+printf 'const k = "%s";\n' "$AKIA_KEY" > "$D/src/leak.js"
+( cd "$D" && git add hooks/shared policies/secret-patterns.yml policies/protected-paths.yml src/leak.js )
+BOOT_ERR="$( ( cd "$D" && bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
+BOOT_RC=0; ( cd "$D" && bash hooks/git/pre-commit >/dev/null 2>&1 ) || BOOT_RC=$?
+if echo "$BOOT_ERR" | grep -qiE "first-adoption bootstrap|not in HEAD"; then ok "secret-scan-bootstrap-edge-falls-back (working-tree scanner note emitted)"; else bad "secret-scan-bootstrap-edge-falls-back" "the first-add of the scanner did NOT emit the §2 bootstrap fallback note"; fi
+if [ "$BOOT_RC" -ne 0 ] && echo "$BOOT_ERR" | grep -qiE "secret pattern|BLOCK — secret"; then ok "secret-scan-bootstrap-edge-still-blocks (fallback scanner blocks the real secret, exit $BOOT_RC)"; else bad "secret-scan-bootstrap-edge-still-blocks" "the bootstrap fallback did NOT block a real staged secret (rc=$BOOT_RC)"; fi
+rm -rf "$D"
+
+# ---- T31 #6. TRANSIENT-ERROR-FAILS-CLOSED (source). The §2 trusted-vs-fallback decision
+#      is shell-decided via `git ls-tree HEAD -- <sentinel>`: rc0+empty => genuinely absent
+#      (bootstrap fallback), rc!=0 => transient -> BLOCK (never fall back to the untrusted
+#      tree). Asserted via source (the reachable bootstrap path is covered live by #5). ----
+if grep -q '§2 secret scan could not read the trusted HEAD copy' "$ROOT/hooks/git/pre-commit" \
+   && grep -q '_sls_rc" -ne 0' "$ROOT/hooks/git/pre-commit" \
+   && grep -q 'NOT falling back to the untrusted working tree' "$ROOT/hooks/git/pre-commit"; then
+  ok "secret-scan-transient-error-fails-closed (source)"
+else
+  bad "secret-scan-transient-error-fails-closed" "the §2 transient-vs-bootstrap fail-closed guard not found in pre-commit source"
+fi
+
+# ---- T31 #7. GREP-VERIFY: §2 runs the trusted-HEAD scanner. The §2 python invocation
+#      imports from the trusted temp dir (SEC_IMPORT_DIR), NOT the old bare
+#      `$ROOT/hooks/shared/staged_secret_scan.py` working-tree helper path. ----
+if grep -q 'PYTHONPATH="\$SEC_IMPORT_DIR" python3 -S' "$ROOT/hooks/git/pre-commit" \
+   && ! grep -q 'python3 -S "\$ROOT/hooks/shared/staged_secret_scan.py"' "$ROOT/hooks/git/pre-commit"; then
+  ok "secret-scan-invokes-trusted-head-not-worktree (source: §2 imports from SEC_IMPORT_DIR, no bare \$ROOT/hooks helper invocation)"
+else
+  bad "secret-scan-invokes-trusted-head-not-worktree" "§2 still invokes the bare working-tree staged_secret_scan.py, or the trusted SEC_IMPORT_DIR invocation is absent"
+fi
+
+# ---- T31 #8. PYYAML-UNDER-S. The trusted §2 seed re-adds site-packages under -S via
+#      getsitepackages()/getusersitepackages() PATHS; prove PyYAML still imports so the
+#      trusted-patterns seed does not silently fail. ----
+if python3 -S -c 'import site,sys
+d=[]
+try: d.extend(site.getsitepackages())
+except Exception: pass
+try:
+    u=site.getusersitepackages()
+    if u: d.append(u)
+except Exception: pass
+for p in d:
+    if p and p not in sys.path: sys.path.append(p)
+import yaml
+' >/dev/null 2>&1; then ok "secret-scan-pyyaml-imports-under-S (getsitepackages re-add works for the §2 seed)"; else bad "secret-scan-pyyaml-imports-under-S" "PyYAML did NOT import under -S — the §2 trusted-patterns seed would silently fail"; fi
+
 finish
