@@ -61,9 +61,36 @@ def staged_added_text(root: Path) -> str:
     return added_lines(proc.stdout)
 
 
+def _restore_site_packages() -> None:
+    """Re-add site-packages to sys.path WITHOUT importing sitecustomize/usercustomize.
+
+    TRIPWIRE (T29): the pre-commit now invokes this helper under `python3 -S` so a
+    working-tree/untracked sitecustomize.py cannot run an `os._exit(0)` at startup and
+    silently disable §2. But `-S` also drops site-packages, and this scanner's imports
+    reach PyYAML (secret_scanner -> policy_loader -> yaml). Add the site-packages dirs
+    back via site.getsitepackages()/getusersitepackages() — these only RETURN paths;
+    they do NOT run site.main(), so the startup-file import stays disabled.
+    """
+    import site
+    try:
+        candidates = list(site.getsitepackages())
+    except Exception:
+        candidates = []
+    try:
+        user = site.getusersitepackages()
+        if user:
+            candidates.append(user)
+    except Exception:
+        pass
+    for p in candidates:
+        if p and p not in sys.path:
+            sys.path.append(p)
+
+
 def main() -> int:
     root = Path.cwd()
     sys.path.insert(0, str(root / "hooks"))
+    _restore_site_packages()
     try:
         from shared.secret_scanner import block_decision, scan
     except Exception:

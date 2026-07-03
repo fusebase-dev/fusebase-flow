@@ -249,4 +249,89 @@ except Exception:
 else ok "20-RED-skipped-no-baseline (38be1ef handler not reachable)"; fi
 rm -rf "$D"
 
+# =============================================================================
+# T29 — the trusted-HEAD enforcer is now UNCONDITIONAL + no Python startup injection.
+#   #1 (T29-A) UNSTAGED enforcer tamper: T28 only extracted HEAD when the staged set
+#      touched the enforcer files. Editing the WORKING-TREE path_policy.py to lie
+#      WITHOUT staging it, then staging only a protected file, kept T28's conditional
+#      OFF -> §3 imported the lying working-tree enforcer -> exit 0. Now §3 ALWAYS
+#      runs from HEAD -> the unstaged lie has no effect -> BLOCK.
+#   #2 (T29-B) Python STARTUP injection: an untracked hooks/sitecustomize.py (or
+#      usercustomize.py) with `os._exit(0)` was imported at interpreter startup via
+#      `site` BEFORE any check -> exit 0. Closed by `python3 -S` (§2 + §3) + a
+#      PYTHONPATH isolated to the trusted temp dir. Also proves `-S` did NOT disable
+#      §2: a real secret staged alongside a sitecustomize still BLOCKS on the secret.
+# RED→GREEN vs a12b450 (T28 HEAD): both bypasses exit 0 there.
+# =============================================================================
+T29_BASE_REF="a12b450"
+
+# ---- 21 (#1 T29-A). UNSTAGED-ENFORCER-TAMPER-BLOCKS. Clean enforcer in HEAD. Tamper the
+#      WORKING-TREE path_policy.py to lie (imports cleanly, "nothing protected") but do NOT
+#      stage it; stage ONLY a protected file (FLOW_RULES.md). The unconditional trusted-HEAD
+#      enforcer runs the CLEAN HEAD path_policy -> still sees FLOW_RULES.md protected -> BLOCK.
+#      RED: a12b450's conditional stayed OFF (enforcer not staged) -> working-tree lie ran -> 0. ----
+D="$(new_repo)"
+head_with_enforcer "$D"   # CLEAN enforcer in HEAD -> trusted path fires unconditionally now.
+lying_path_policy "$D/hooks/shared/path_policy.py"   # working tree tampered...
+printf '# flow rules (protected edit)\n' > "$D/FLOW_RULES.md"
+( cd "$D" && git add FLOW_RULES.md )                 # ...but ONLY the protected file is staged.
+T21_ERR="$( ( cd "$D" && bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
+T21_RC=0; ( cd "$D" && bash hooks/git/pre-commit >/dev/null 2>&1 ) || T21_RC=$?
+if [ "$T21_RC" -ne 0 ]; then ok "21-unstaged-enforcer-tamper-blocks (trusted HEAD runs unconditionally, exit $T21_RC)"; else bad "21-unstaged-enforcer-tamper-blocks" "an UNSTAGED lying working-tree enforcer let a staged protected edit through — FR-07 fail-OPEN"; fi
+if echo "$T21_ERR" | grep -qiE "protected paths edited|FR-07"; then ok "21-unstaged-tamper-diagnostic-emitted"; else bad "21-unstaged-tamper-diagnostic-emitted" "no FR-07 diagnostic on the blocked protected edit"; fi
+# RED proof: the pre-T29 pre-commit's conditional stays off (enforcer not staged) -> exit 0.
+if git -C "$ROOT" cat-file -e "$T29_BASE_REF:hooks/git/pre-commit" 2>/dev/null; then
+  git -C "$ROOT" show "$T29_BASE_REF:hooks/git/pre-commit" > "$D/hooks/git/pre-commit-t28"
+  RED21=0; ( cd "$D" && bash hooks/git/pre-commit-t28 >/dev/null 2>&1 ) || RED21=$?
+  if [ "$RED21" -eq 0 ]; then ok "21-RED-t28-was-fail-open (conditional OFF: unstaged lie self-passed at exit 0)"; else ok "21-RED-t28-not-exit0-here (GREEN still asserted)"; fi
+else ok "21-RED-skipped-no-baseline (a12b450 pre-commit not reachable)"; fi
+rm -rf "$D"
+
+# ---- 22 (#2 T29-B). STARTUP-INJECTION-BLOCKS + SECRET-SCAN-STILL-BLOCKS-UNDER-S. An
+#      untracked hooks/sitecustomize.py with `import os; os._exit(0)` is imported at python
+#      startup via `site` before any check — under `-S` it does NOT run, so §3 runs and BLOCKS
+#      the staged protected edit. Then the usercustomize.py variant. Then: stage a REAL secret
+#      alongside the sitecustomize — §2 must STILL block on the secret (proving `-S` disabled
+#      the injection, not the scan). RED: a12b450 imports the startup file -> exit 0. ----
+inject_startup() { printf 'import os\nos._exit(0)\n' > "$1"; }   # $1 = target file path
+
+D="$(new_repo)"
+head_with_enforcer "$D"
+# 22a. sitecustomize injection + staged protected edit -> BLOCK under -S.
+inject_startup "$D/hooks/sitecustomize.py"
+printf '# flow rules (protected edit)\n' > "$D/FLOW_RULES.md"
+( cd "$D" && git add FLOW_RULES.md )
+T22A_RC=0; ( cd "$D" && bash hooks/git/pre-commit >/dev/null 2>&1 ) || T22A_RC=$?
+if [ "$T22A_RC" -ne 0 ]; then ok "22a-sitecustomize-injection-blocks (-S disables startup file; §3 runs, exit $T22A_RC)"; else bad "22a-sitecustomize-injection-blocks" "an untracked hooks/sitecustomize.py os._exit(0) short-circuited the check at startup — fail-OPEN"; fi
+# RED proof: pre-T29 imports the sitecustomize at startup -> exit 0.
+if git -C "$ROOT" cat-file -e "$T29_BASE_REF:hooks/git/pre-commit" 2>/dev/null; then
+  git -C "$ROOT" show "$T29_BASE_REF:hooks/git/pre-commit" > "$D/hooks/git/pre-commit-t28"
+  RED22=0; ( cd "$D" && bash hooks/git/pre-commit-t28 >/dev/null 2>&1 ) || RED22=$?
+  if [ "$RED22" -eq 0 ]; then ok "22a-RED-t28-was-fail-open (startup os._exit(0) exited the check at 0)"; else ok "22a-RED-t28-not-exit0-here (GREEN still asserted)"; fi
+  rm -f "$D/hooks/git/pre-commit-t28"
+else ok "22a-RED-skipped-no-baseline (a12b450 pre-commit not reachable)"; fi
+rm -f "$D/hooks/sitecustomize.py"
+# 22b. usercustomize.py variant -> BLOCK (site imports usercustomize too; -S disables both).
+inject_startup "$D/hooks/usercustomize.py"
+T22B_RC=0; ( cd "$D" && bash hooks/git/pre-commit >/dev/null 2>&1 ) || T22B_RC=$?
+if [ "$T22B_RC" -ne 0 ]; then ok "22b-usercustomize-injection-blocks (-S disables usercustomize; exit $T22B_RC)"; else bad "22b-usercustomize-injection-blocks" "an untracked hooks/usercustomize.py os._exit(0) short-circuited the check — fail-OPEN"; fi
+rm -f "$D/hooks/usercustomize.py"
+( cd "$D" && git restore --staged FLOW_RULES.md >/dev/null 2>&1; rm -f FLOW_RULES.md )
+rm -rf "$D"
+
+# 22c. SECRET-SCAN-STILL-BLOCKS-UNDER-S: stage a REAL secret (AWS access key id) alongside a
+#      sitecustomize os._exit(0). `-S` stops the injection but the secret scan (§2) still runs
+#      and BLOCKS on the secret — proving `-S` did not disable §2. Needs secret-patterns.yml.
+D="$(new_repo)"
+cp "$ROOT/policies/secret-patterns.yml" "$D/policies/" 2>/dev/null || true
+inject_startup "$D/hooks/sitecustomize.py"
+# Construct the key at runtime so this test file itself carries no committed secret.
+AKIA_KEY="AKIA""IOSFODNN7EXAMPLE"
+printf 'const k = "%s";\n' "$AKIA_KEY" > "$D/src/leak.js"
+( cd "$D" && git add src/leak.js )
+T22C_ERR="$( ( cd "$D" && bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
+T22C_RC=0; ( cd "$D" && bash hooks/git/pre-commit >/dev/null 2>&1 ) || T22C_RC=$?
+if [ "$T22C_RC" -ne 0 ] && echo "$T22C_ERR" | grep -qiE "secret pattern|BLOCK — secret"; then ok "22c-secret-scan-still-blocks-under-S (§2 ran under -S with sitecustomize present, exit $T22C_RC)"; else bad "22c-secret-scan-still-blocks-under-S" "-S disabled the secret scan (a real staged secret was NOT blocked: exit $T22C_RC)"; fi
+rm -rf "$D"
+
 finish

@@ -39,8 +39,11 @@ fi
 # 2. Secret content scan: ONLY added (+) lines, designed-token files path-excluded
 #    (D-A1 — secret-patterns.yml self-trip + whitelist trap). Helper, not inline
 #    bash string-parsing: hooks/shared/staged_secret_scan.py. scan() is UNCHANGED.
+#    `-S` (T29): a working-tree/untracked sitecustomize.py doing `os._exit(0)` at
+#    interpreter startup would ALSO disable this scan; `-S` skips site startup files.
+#    The helper restores site-packages (for PyYAML) itself without re-importing them.
 if command -v python3 >/dev/null 2>&1; then
-    PYTHONPATH="$ROOT/hooks" python3 "$ROOT/hooks/shared/staged_secret_scan.py" || exit_secret=$?
+    PYTHONPATH="$ROOT/hooks" python3 -S "$ROOT/hooks/shared/staged_secret_scan.py" || exit_secret=$?
     if [ "${exit_secret:-0}" -ne 0 ]; then exit 1; fi
 fi
 
@@ -61,21 +64,31 @@ fi
 # fail closed rather than skip §3 on an empty-because-broken list. (Non-reachable in a
 # healthy repo — a broken repo won't commit — but cheap and consistent.)
 #
-# TRUSTED-HEAD ENFORCER (T28/#1): the enforcement code (path_policy.py / policy_loader.py /
-# shared/__init__.py) and the protected-paths.yml policy are THEMSELVES fusebase_flow_internals
-# — so a commit could STAGE a tampered enforcer that imports cleanly but LIES ("nothing is
-# protected": is_protected→False / evaluate().protected=False). §3 imported those modules from
-# the MUTABLE working tree, so the tamper ran during its OWN gate, self-passed, and disabled
-# FR-07 going forward (T27's SystemExit(0) block covers a self-EXIT, not a successful-but-lying
-# enforcer). Fix: when the staged set touches the enforcer code/policy, run §3 from the COMMITTED
-# (HEAD) copy of that code + policy — the CLEAN enforcer evaluates the STAGED changeset, still
-# sees `hooks/shared/**` + `policies/protected-paths.yml` as protected, and BLOCKS the tamper
-# unless a sanctioned approval is present. Trusted code + trusted policy; WORKING-TREE
-# state/approvals/ (so a legit sanctioned edit still passes) + STAGED git (the real commit).
-# BOOTSTRAP edge: on the first commit that ADDS these files, HEAD lacks them -> `git show HEAD:`
-# reports "path absent" -> fall back to the working-tree enforcer (the file being added is not a
-# tamper). A TRANSIENT git error (HEAD has the file but `git show` fails) is NOT bootstrap ->
-# fail closed (never fall back to the untrusted tree on an unexplained error; T26/T27 contract).
+# TRUSTED-HEAD ENFORCER (T28→T29, UNCONDITIONAL): the enforcement code (path_policy.py /
+# policy_loader.py / shared/__init__.py) and the protected-paths.yml policy are THEMSELVES
+# fusebase_flow_internals — the mutable working tree cannot be trusted to enforce its own
+# protection. §3 therefore runs the enforcer from the COMMITTED (HEAD) copy of that code +
+# policy for EVERY commit with staged changes, not just when the STAGED set touches those
+# files. T28 made it conditional (fired only when the enforcer files were staged); that left
+# two reachable bypasses the clean-HEAD run now closes:
+#   (a) UNSTAGED enforcer tamper: edit the working-tree path_policy.py to lie ("nothing
+#       protected") WITHOUT staging it, then stage only a protected file — the conditional
+#       stayed off, §3 imported the lying working-tree enforcer, exit 0. Now HEAD's clean
+#       enforcer always runs, so the unstaged lie has no effect.
+#   (b) Python STARTUP injection: an untracked hooks/sitecustomize.py (or usercustomize.py)
+#       with `import os; os._exit(0)` is imported at interpreter startup via `site` BEFORE any
+#       check — the check exited 0. Closed by invoking the §3 (and §2) python with `-S`
+#       (site disabled ⇒ no sitecustomize/usercustomize) AND setting PYTHONPATH to ONLY the
+#       trusted temp dir (never $ROOT/hooks), so no working-tree startup file is importable.
+# The CLEAN enforcer evaluates the STAGED changeset, still sees `hooks/shared/**` +
+# `policies/protected-paths.yml` as protected, reads the WORKING-TREE state/approvals/ (so a
+# legit sanctioned edit still passes) + STAGED git (the real commit), and BLOCKS an unapproved
+# protected edit. For a clean tree HEAD==working-tree, so behavior is IDENTICAL to before.
+# BOOTSTRAP edge: on the first commit that ADDS these files, HEAD lacks them -> `git ls-tree`
+# reports rc0+empty (genuinely absent) -> fall back to the working-tree enforcer (the file being
+# added is not a tamper), still under `-S`. A TRANSIENT git error (HEAD has the file but the
+# read fails) is NOT bootstrap -> fail closed (never fall back to the untrusted tree on an
+# unexplained error; T26/T27 contract).
 # ACCEPTED RESIDUALS (a commit-time discipline guardrail cannot mechanically stop these — they
 # are rule-forbidden and/or out of band): `--no-verify` (FR rule-forbidden), deleting/replacing
 # `.git/hooks/pre-commit` on disk, and a full repo write that never invokes this hook. Documented
@@ -88,20 +101,22 @@ if [ "$STAGED_ANY_RC" -ne 0 ]; then
 fi
 if [ -n "$STAGED_ANY" ]; then
     if command -v python3 >/dev/null 2>&1; then
-        # Does the staged set touch the enforcer code/policy? If so we must NOT import the
-        # enforcer from the (possibly tampered) working tree — extract the TRUSTED HEAD copy
-        # first (T28/#1). Match the exact modules §3 imports plus the policy file.
-        FR07_TRUSTED_MODE=0
-        if echo "$STAGED_ANY" | grep -qE '^(hooks/shared/(path_policy|policy_loader|__init__)\.py|policies/protected-paths\.yml)$'; then
-            FR07_TRUSTED_MODE=1
-        fi
+        # UNCONDITIONAL trusted-HEAD (T29): the working-tree enforcer is never trusted to
+        # enforce its own protection, so §3 ALWAYS runs from the COMMITTED (HEAD) enforcer +
+        # policy — not just when the staged set touches those files (T28's conditional left
+        # the unstaged-tamper + startup-injection bypasses reachable). Extract HEAD's copies
+        # into a temp dir; import/run FR-07 from THERE with `-S` + an isolated PYTHONPATH.
         # FR07_IMPORT_DIR = where the enforcement `shared` package is imported from;
-        # FR07_TRUSTED_POLICY = a trusted policy yaml to seed (empty => common path).
-        # Defaults are the common (working-tree) path — behavior IDENTICAL to pre-T28.
+        # FR07_TRUSTED_POLICY = the trusted policy yaml to seed (empty => bootstrap fallback).
+        # Defaults are the working-tree path — used ONLY on the first-adoption bootstrap edge
+        # (HEAD genuinely lacks the enforcer); otherwise the trusted temp dir replaces them.
         FR07_IMPORT_DIR="$ROOT/hooks"
         FR07_TRUSTED_POLICY=""
         FR07_TMP=""
-        if [ "$FR07_TRUSTED_MODE" -eq 1 ]; then
+        # Trusted-HEAD extraction runs for EVERY staged commit now (T29 — no conditional).
+        # The block below is kept in a `{ ... }` group only to scope the temp-dir prep; the
+        # verdict (trusted vs bootstrap-fallback) is decided by the prep script, never skipped.
+        {
             FR07_TMP="$(mktemp -d 2>/dev/null || mktemp -d -t ffflow-trusted)"
             # Write the prep script to a file (NOT a heredoc inside $(...), which some bash
             # -n parsers flag as an unterminated here-doc) then run it. It writes its verdict
@@ -212,9 +227,15 @@ PREP
                     exit 1
                     ;;
             esac
-        fi
+        }
+        # `-S` (T29): disable `site` so no working-tree/untracked sitecustomize.py or
+        # usercustomize.py runs at interpreter startup (the startup-injection bypass). PYTHONPATH
+        # is the SINGLE import dir — the trusted temp dir on the normal path, $ROOT/hooks ONLY on
+        # the first-adoption bootstrap fallback (HEAD genuinely lacks the enforcer). Under `-S`
+        # site-packages is dropped; the script re-adds it below WITHOUT importing startup files
+        # (needed for PyYAML in the trusted-policy seed).
         FR07_IMPORT_DIR="$FR07_IMPORT_DIR" FR07_TRUSTED_POLICY="$FR07_TRUSTED_POLICY" \
-        FR07_REAL_ROOT="$ROOT" PYTHONPATH="$FR07_IMPORT_DIR" python3 - <<'PY' || exit_proto=$?
+        FR07_REAL_ROOT="$ROOT" PYTHONPATH="$FR07_IMPORT_DIR" python3 -S - <<'PY' || exit_proto=$?
 import os
 import sys
 from pathlib import Path
@@ -223,6 +244,30 @@ from pathlib import Path
 root = Path(os.environ["FR07_REAL_ROOT"])
 import_dir = os.environ.get("FR07_IMPORT_DIR") or str(root / "hooks")
 sys.path.insert(0, import_dir)
+
+
+def _restore_site_packages():
+    # `-S` dropped site-packages; the enforcer's policy_loader imports PyYAML. Re-add the
+    # site-packages dirs WITHOUT running site.main() (which would import sitecustomize/
+    # usercustomize). getsitepackages()/getusersitepackages() only RETURN paths.
+    import site
+    dirs = []
+    try:
+        dirs.extend(site.getsitepackages())
+    except Exception:
+        pass
+    try:
+        u = site.getusersitepackages()
+        if u:
+            dirs.append(u)
+    except Exception:
+        pass
+    for p in dirs:
+        if p and p not in sys.path:
+            sys.path.append(p)
+
+
+_restore_site_packages()
 try:
     from shared.path_policy import (
         assert_protected_policy_loaded, evaluate, staged_change_paths,

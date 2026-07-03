@@ -90,6 +90,14 @@ categories:
       - "hooks/handlers/**"
       - "hooks/shared/**"
       - "hooks/git/**"
+      # TRIPWIRE (T29): a Python startup file (sitecustomize/usercustomize) on a hook
+      # import root runs at interpreter startup BEFORE any check — a committed one could
+      # disable a gate. Runtime is closed by `python3 -S` in the pre-commit; protecting the
+      # names makes a STAGED one need an approval too (defense-in-depth). Do not drop.
+      - "hooks/sitecustomize.py"
+      - "hooks/usercustomize.py"
+      - "**/sitecustomize.py"
+      - "**/usercustomize.py"
 
 # Exception artifact format. When an operator wants to allow an edit to a
 # protected path, they create a JSON file at:
