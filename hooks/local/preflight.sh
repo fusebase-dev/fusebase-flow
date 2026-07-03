@@ -71,50 +71,124 @@ if command -v python3 >/dev/null 2>&1; then
     done
 fi
 
+# _pf_hash_batch OUTFILE FILE...: write "<sha256>  <abs-path>" for each EXISTING file
+# to OUTFILE in ONE pass. Batched sha256sum (one spawn per root, not per file) is the
+# MSYS speedup; falls back to a per-file `shasum -a 256` loop only when sha256sum is
+# absent (same policy as the prior per-file path). Output goes to a FILE REDIRECT, never
+# a pipe (MSYS pipe hygiene). Missing files are simply absent from OUTFILE — the caller
+# reads that absence as "mirror missing", preserving the missing-vs-drift distinction.
+_pf_hash_batch() {
+    local out="$1"; shift
+    local -a existing=()
+    local f
+    for f in "$@"; do [ -f "$f" ] && existing+=("$f"); done
+    : > "$out"
+    [ "${#existing[@]}" -eq 0 ] && return 0
+    if command -v sha256sum >/dev/null 2>&1; then
+        sha256sum "${existing[@]}" > "$out" 2>/dev/null
+    else
+        for f in "${existing[@]}"; do shasum -a 256 "$f"; done > "$out" 2>/dev/null
+    fi
+}
+
 # 5. Skill mirrors consistency (canonical = flow-skills/<name>/SKILL.md +
 #    references/*.md; approved mirrors = .agents/skills/ (Codex),
 #    .claude/skills/ (Claude Code)). references/ carry rule content
 #    (role don't-lists, v3.17.0+) — drift-gated like SKILL.md.
+#    Batched: ONE sha256sum per root (canonical + each mirror) instead of ~270
+#    per-file spawns; same file set, same comparison, same warn/err text in
+#    canonical-list order (F4 — MSYS spawn-cost cut, coverage identical).
+skill_canon_list=()
 for canon in "$FF_DIR/$SKILLS_CANON"/*/SKILL.md "$FF_DIR/$SKILLS_CANON"/*/references/*; do
-    [ -f "$canon" ] || continue
-    rel="${canon#"$FF_DIR/$SKILLS_CANON/"}"
-    canon_hash="$(sha256sum "$canon" 2>/dev/null | awk '{print $1}')"
-    [ -z "$canon_hash" ] && canon_hash="$(shasum -a 256 "$canon" | awk '{print $1}')"
-    for mirror_root in .agents .claude; do
-        mirror_file="$ROOT/$mirror_root/skills/$rel"
-        if [ ! -f "$mirror_file" ]; then
-            warn "mirror missing: $mirror_root/skills/$rel (run mirror-skills.sh)"
-            continue
+    [ -f "$canon" ] && skill_canon_list+=("$canon")
+done
+if [ "${#skill_canon_list[@]}" -gt 0 ]; then
+    _pf_skill_canon_tf="$(mktemp "${TMPDIR:-/tmp}/ffhc-pf-skillcanon.XXXXXX")"
+    _pf_skill_agents_tf="$(mktemp "${TMPDIR:-/tmp}/ffhc-pf-skillagents.XXXXXX")"
+    _pf_skill_claude_tf="$(mktemp "${TMPDIR:-/tmp}/ffhc-pf-skillclaude.XXXXXX")"
+    # Mirror path lists, index-aligned to skill_canon_list (rel path preserved).
+    _pf_agents_files=(); _pf_claude_files=()
+    for canon in "${skill_canon_list[@]}"; do
+        rel="${canon#"$FF_DIR/$SKILLS_CANON/"}"
+        _pf_agents_files+=("$ROOT/.agents/skills/$rel")
+        _pf_claude_files+=("$ROOT/.claude/skills/$rel")
+    done
+    _pf_hash_batch "$_pf_skill_canon_tf"  "${skill_canon_list[@]}"
+    _pf_hash_batch "$_pf_skill_agents_tf" "${_pf_agents_files[@]}"
+    _pf_hash_batch "$_pf_skill_claude_tf" "${_pf_claude_files[@]}"
+    # Build abs-path -> hash maps; the shell loop then warns in canonical order. Strip a
+    # leading '*' (sha256sum binary-mode path marker on MSYS) so the key matches the shell
+    # path; a no-op for text-mode / shasum output.
+    declare -A _pf_canon_h=() _pf_agents_h=() _pf_claude_h=()
+    while read -r h p; do p="${p#\*}"; _pf_canon_h["$p"]="$h";  done < "$_pf_skill_canon_tf"
+    while read -r h p; do p="${p#\*}"; _pf_agents_h["$p"]="$h"; done < "$_pf_skill_agents_tf"
+    while read -r h p; do p="${p#\*}"; _pf_claude_h["$p"]="$h"; done < "$_pf_skill_claude_tf"
+    rm -f "$_pf_skill_canon_tf" "$_pf_skill_agents_tf" "$_pf_skill_claude_tf"
+    for i in "${!skill_canon_list[@]}"; do
+        canon="${skill_canon_list[$i]}"
+        rel="${canon#"$FF_DIR/$SKILLS_CANON/"}"
+        canon_hash="${_pf_canon_h[$canon]:-}"
+        agents_file="${_pf_agents_files[$i]}"; claude_file="${_pf_claude_files[$i]}"
+        # .agents mirror
+        if [ ! -f "$agents_file" ]; then
+            warn "mirror missing: .agents/skills/$rel (run mirror-skills.sh)"
+        elif [ "$canon_hash" != "${_pf_agents_h[$agents_file]:-}" ]; then
+            warn "mirror drift: .agents/skills/$rel != canonical (run mirror-skills.sh)"
         fi
-        mirror_hash="$(sha256sum "$mirror_file" 2>/dev/null | awk '{print $1}')"
-        [ -z "$mirror_hash" ] && mirror_hash="$(shasum -a 256 "$mirror_file" | awk '{print $1}')"
-        if [ "$canon_hash" != "$mirror_hash" ]; then
-            warn "mirror drift: $mirror_root/skills/$rel != canonical (run mirror-skills.sh)"
+        # .claude mirror
+        if [ ! -f "$claude_file" ]; then
+            warn "mirror missing: .claude/skills/$rel (run mirror-skills.sh)"
+        elif [ "$canon_hash" != "${_pf_claude_h[$claude_file]:-}" ]; then
+            warn "mirror drift: .claude/skills/$rel != canonical (run mirror-skills.sh)"
         fi
     done
-done
+fi
 
 # 5b. Agent mirror consistency (canonical = agents/<name>/AGENT.md;
 #     approved mirrors = .claude/agents/<name>.md, .codex/agents/<name>.md).
+#     Batched like §5: ONE sha256sum per root, same warn text in canonical order.
 if [ -d "$FF_DIR/agents" ]; then
+    agent_canon_list=()
     for canon in "$FF_DIR"/agents/*/AGENT.md; do
-        [ -e "$canon" ] || continue
-        agent_name="$(basename "$(dirname "$canon")")"
-        canon_hash="$(sha256sum "$canon" 2>/dev/null | awk '{print $1}')"
-        [ -z "$canon_hash" ] && canon_hash="$(shasum -a 256 "$canon" | awk '{print $1}')"
-        for mirror_root in .claude/agents .codex/agents; do
-            mirror_file="$ROOT/$mirror_root/$agent_name.md"
-            if [ ! -f "$mirror_file" ]; then
-                warn "agent mirror missing: $mirror_root/$agent_name.md (run mirror-agents.sh)"
-                continue
+        [ -e "$canon" ] && agent_canon_list+=("$canon")
+    done
+    if [ "${#agent_canon_list[@]}" -gt 0 ]; then
+        _pf_ag_canon_tf="$(mktemp "${TMPDIR:-/tmp}/ffhc-pf-agcanon.XXXXXX")"
+        _pf_ag_claude_tf="$(mktemp "${TMPDIR:-/tmp}/ffhc-pf-agclaude.XXXXXX")"
+        _pf_ag_codex_tf="$(mktemp "${TMPDIR:-/tmp}/ffhc-pf-agcodex.XXXXXX")"
+        _pf_ag_names=(); _pf_ag_claude_files=(); _pf_ag_codex_files=()
+        for canon in "${agent_canon_list[@]}"; do
+            agent_name="$(basename "$(dirname "$canon")")"
+            _pf_ag_names+=("$agent_name")
+            _pf_ag_claude_files+=("$ROOT/.claude/agents/$agent_name.md")
+            _pf_ag_codex_files+=("$ROOT/.codex/agents/$agent_name.md")
+        done
+        _pf_hash_batch "$_pf_ag_canon_tf"  "${agent_canon_list[@]}"
+        _pf_hash_batch "$_pf_ag_claude_tf" "${_pf_ag_claude_files[@]}"
+        _pf_hash_batch "$_pf_ag_codex_tf"  "${_pf_ag_codex_files[@]}"
+        declare -A _pf_agc_h=() _pf_agcl_h=() _pf_agcx_h=()
+        while read -r h p; do p="${p#\*}"; _pf_agc_h["$p"]="$h";  done < "$_pf_ag_canon_tf"
+        while read -r h p; do p="${p#\*}"; _pf_agcl_h["$p"]="$h"; done < "$_pf_ag_claude_tf"
+        while read -r h p; do p="${p#\*}"; _pf_agcx_h["$p"]="$h"; done < "$_pf_ag_codex_tf"
+        rm -f "$_pf_ag_canon_tf" "$_pf_ag_claude_tf" "$_pf_ag_codex_tf"
+        for i in "${!agent_canon_list[@]}"; do
+            canon="${agent_canon_list[$i]}"; agent_name="${_pf_ag_names[$i]}"
+            canon_hash="${_pf_agc_h[$canon]:-}"
+            claude_file="${_pf_ag_claude_files[$i]}"; codex_file="${_pf_ag_codex_files[$i]}"
+            # .claude/agents mirror
+            if [ ! -f "$claude_file" ]; then
+                warn "agent mirror missing: .claude/agents/$agent_name.md (run mirror-agents.sh)"
+            elif [ "$canon_hash" != "${_pf_agcl_h[$claude_file]:-}" ]; then
+                warn "agent mirror drift: .claude/agents/$agent_name.md != canonical (run mirror-agents.sh)"
             fi
-            mirror_hash="$(sha256sum "$mirror_file" 2>/dev/null | awk '{print $1}')"
-            [ -z "$mirror_hash" ] && mirror_hash="$(shasum -a 256 "$mirror_file" | awk '{print $1}')"
-            if [ "$canon_hash" != "$mirror_hash" ]; then
-                warn "agent mirror drift: $mirror_root/$agent_name.md != canonical (run mirror-agents.sh)"
+            # .codex/agents mirror
+            if [ ! -f "$codex_file" ]; then
+                warn "agent mirror missing: .codex/agents/$agent_name.md (run mirror-agents.sh)"
+            elif [ "$canon_hash" != "${_pf_agcx_h[$codex_file]:-}" ]; then
+                warn "agent mirror drift: .codex/agents/$agent_name.md != canonical (run mirror-agents.sh)"
             fi
         done
-    done
+    fi
 fi
 
 # 5c. CLI vendor provenance manifest (info/advisory only — never fails).
