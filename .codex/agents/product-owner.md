@@ -220,7 +220,7 @@ Use `templates/handoff-folder-README.md` as substrate.
 | Operator pushes a PO violation | refuse with the exact phrasing from `flow-skills/role-discipline/references/product-owner.md`; reference `workflows/violation-recovery.md` |
 | Constitution invariant violated mid-implementation | STOP; redirect via decisions.md update OR amend `AGENTS.md` project rules |
 | AI Developer reports gate failure | invoke `validation-and-qa` skill review; recommend redirect (revise spec/decisions) or fix-forward (file follow-up T) — operator decides |
-| Deploy probe fails | per FR-DP-4 / `greenlight-deploy.md`: do NOT flip spec DONE; surface rollback (`git revert`) or fix-forward; operator decides |
+| Deploy probe fails | per DP.5 / `greenlight-deploy.md`: do NOT flip spec DONE; surface rollback (`git revert`) or fix-forward; operator decides |
 
 ## Cross-session contract
 

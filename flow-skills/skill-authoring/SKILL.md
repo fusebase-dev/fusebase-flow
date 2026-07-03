@@ -40,7 +40,7 @@ Create or update skills without skill sprawl, role drift, mirror drift, or licen
 - The issue is a one-off failure with a concrete cause; file `docs/problem-catalog/<slug>/problem.md` instead.
 - The operator wants to copy external text verbatim. Refuse copying and offer clean-room capability extraction.
 - The topic is already covered by an existing skill and only needs normal use, not authoring or update.
-- A provider mirror is the only target. Canonical skill edits start in `skills/` or `docs/skills/`; mirrors are generated or deliberately promoted.
+- A provider mirror is the only target. Canonical skill edits start in `flow-skills/` (framework) or `docs/skills/` (project-local); mirrors are generated or deliberately promoted.
 
 ## Required inputs
 
@@ -48,7 +48,7 @@ Create or update skills without skill sprawl, role drift, mirror drift, or licen
 |---|---|---|
 | Operator request | chat | Stop; skill purpose depends on requested reuse |
 | Candidate source material | attachment, repo file, operator summary, or observed repeated pattern | Proceed only from available concepts; do not invent missing domain rules |
-| Existing skill catalog | `skills/`, `.agents/skills/`, `.claude/skills/`, `docs/skills/README.md` | Search before adding; avoid duplicate skills |
+| Existing skill catalog | `flow-skills/`, `.agents/skills/`, `.claude/skills/`, `docs/skills/README.md` | Search before adding; avoid duplicate skills |
 | CLI edition map, for CLI provider assets | `docs/fusebase-cli-edition.md` | Treat provider assets as domain support, not canonical Flow skills |
 | Skill substrate | `templates/skill-template.md` | Stop; use the canonical section order |
 | Role boundaries | `FLOW_RULES.md`, `flow-skills/role-discipline/references/<role>.md`, `agents/*/AGENT.md` | Stop if role ownership cannot be assigned |
@@ -61,7 +61,7 @@ Create or update skills without skill sprawl, role drift, mirror drift, or licen
 
 | If the pattern is... | Destination | Owner |
 |---|---|---|
-| Useful to every Fusebase Flow project and description-matchable by agents | `skills/<slug>/SKILL.md` | Framework change; PO defines, AI Developer implements |
+| Useful to every Fusebase Flow project and description-matchable by agents | `flow-skills/<slug>/SKILL.md` | Framework change; PO defines, AI Developer implements |
 | Fusebase Apps CLI runtime/domain guidance already present in provider assets | `.agents/skills/<slug>/` and `.claude/skills/<slug>/` | Provider asset; reference from Flow artifacts, do not duplicate |
 | Specific to one target project after 3+ repeated uses | `docs/skills/<slug>/SKILL.md` | Product Owner / project team |
 | A one-off incident, outage, or diagnostic lesson | `docs/problem-catalog/<slug>/problem.md` | Product Owner |
@@ -113,7 +113,7 @@ Move long examples or variant-specific detail into `references/` only when neede
 
 ### 5. Wire framework skills
 
-For `skills/<slug>/SKILL.md` changes, check whether each surface needs an update:
+For `flow-skills/<slug>/SKILL.md` changes, check whether each surface needs an update:
 
 | Surface | Update when |
 |---|---|
@@ -137,7 +137,7 @@ Minimum validation for framework skill changes:
 | Agent mirror integrity | canonical agent hash matches `.claude/agents/` and `.codex/agents/` if agents changed |
 | Source-leak scan | no external/prohibited names, copied phrases, or vendor-specific paths introduced |
 | Count scan | no stale skill-count references after adding/removing framework skills |
-| CLI provider boundary | provider CLI assets remain outside root `skills/` unless separately approved as clean-room Flow framework skills |
+| CLI provider boundary | provider CLI assets remain outside canonical `flow-skills/` unless separately approved as clean-room Flow framework skills |
 | Format check | `git diff --check` clean except known line-ending warnings |
 | Scope review | no unrelated refactors or duplicated skill responsibilities |
 
@@ -148,7 +148,7 @@ If validation cannot run, report the exact missing check and treat the change as
 | Artifact | Path or location | Mode |
 |---|---|---|
 | Skill analysis / recommendation | chat | Mode A |
-| Framework skill | `skills/<slug>/SKILL.md` | Mode-B-lite |
+| Framework skill | `flow-skills/<slug>/SKILL.md` | Mode-B-lite |
 | Project skill | `docs/skills/<slug>/SKILL.md` | Mode-B-lite |
 | Problem-catalog alternative | `docs/problem-catalog/<slug>/problem.md` | Mode B |
 | Mirror manifest | `audit/skill-mirror-manifest.txt` | generated |
@@ -160,7 +160,7 @@ If validation cannot run, report the exact missing check and treat the change as
 |---|---|---|
 | Duplicate skill | Existing skill has same trigger/procedure | Update existing skill or recommend no change |
 | External text copied | Source-leak scan or review finds copied prose/examples | Replace with clean-room rewrite before claiming done |
-| Wrong location | Project-specific skill added under `skills/`, or framework skill placed only under `docs/skills/` | Move to correct surface and update references |
+| Wrong location | Project-specific skill added under `flow-skills/`, or framework skill placed only under `docs/skills/` | Move to correct surface and update references |
 | Mirror drift | Preflight/hash check finds mirror mismatch | Run mirror script and re-check |
 | Role drift | PO writes production code via skill, or AI Developer changes product direction | Stop; apply `role-discipline` refusal and re-scope |
 | Overlong skill | SKILL.md grows toward large reference-guide size | Split variant detail into `references/` and keep SKILL.md procedural |
@@ -174,7 +174,7 @@ If validation cannot run, report the exact missing check and treat the change as
 
 ## Domain-expert skill mode
 
-Use when the operator wants a skill that makes the agent an **expert in a specific product area / industry** (e.g. dental clinics, legal intake, fitness) so app work uses best-practice patterns and known market-solution categories instead of reinventing the wheel. The produced skill is **project-local** (lives under the project's own skill area, not Flow canonical `skills/`, and is **not** mirrored or added to the Flow manifest) and is **input-dependent** — it needs the operator's domain + any research they supply.
+Use when the operator wants a skill that makes the agent an **expert in a specific product area / industry** (e.g. dental clinics, legal intake, fitness) so app work uses best-practice patterns and known market-solution categories instead of reinventing the wheel. The produced skill is **project-local** (lives under the project's own skill area, not Flow canonical `flow-skills/`, and is **not** mirrored or added to the Flow manifest) and is **input-dependent** — it needs the operator's domain + any research they supply.
 
 | Step | Action |
 |---|---|
@@ -191,7 +191,7 @@ The *authoring method here* is generic (ships with Flow); the *produced domain s
 
 - Do not copy external skill prose, example blocks, or proprietary labels.
 - Do not write directly to `.agents/skills/` or `.claude/skills/` as the source of truth.
-- Do not promote CLI provider assets into root `skills/` without a separate clean-room proposal and non-overlap analysis.
+- Do not promote CLI provider assets into canonical `flow-skills/` without a separate clean-room proposal and non-overlap analysis.
 - Do not add a new skill when a narrow update to an existing skill covers the behavior.
 - Do not use a skill for a one-off bug that belongs in the problem catalog.
 - Do not make Product Owner sessions implement code or AI Developer sessions lock product decisions.

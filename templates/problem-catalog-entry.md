@@ -4,7 +4,7 @@
 **Filed:** <YYYY-MM-DD>
 **Severity:** low | medium | high | production-blocker
 **Status:** open | mitigated | resolved | known-limitation
-**Filed by:** <operator name or "PO per HR-PO-15">
+**Filed by:** <operator name or "PO per FR-15">
 
 ## Symptom
 

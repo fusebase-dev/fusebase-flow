@@ -1,6 +1,8 @@
 # Spec — <slug>
 
-**Status:** DRAFT | LOCKED | DONE
+**Status:** DRAFT | DONE
+<!-- tripwire: DRAFT until the deploy session flips it to DONE. "Locked" is NOT a status value — scope-lock is recorded in decisions.md (Locked: yes), the spec Status stays DRAFT. -->
+**Scope lock:** <not locked | locked YYYY-MM-DD — decisions frozen; see decisions.md>
 **Created:** <YYYY-MM-DD>
 **Linked decisions:** <Letter>1..<Letter>N
 **Promoted from:** `docs/backlog/<slug>/README.md`

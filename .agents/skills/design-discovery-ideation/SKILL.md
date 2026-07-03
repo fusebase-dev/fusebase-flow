@@ -127,9 +127,9 @@ Help the Product Owner turn "show options" / "try approaches" requests into clea
 ## Escalation path
 
 - Cross-cutting product/workflow change -> `workflows/architect-escalation.md`.
-- Need implementation sequencing -> `skills/implementation-planning/SKILL.md`.
-- Need smoke criteria for a UI/operator-facing outcome -> `skills/smoke-testing/SKILL.md`.
-- Need parallel read-only analysis -> `skills/task-delegation/SKILL.md`.
+- Need implementation sequencing -> `flow-skills/implementation-planning/SKILL.md`.
+- Need smoke criteria for a UI/operator-facing outcome -> `flow-skills/smoke-testing/SKILL.md`.
+- Need parallel read-only analysis -> `flow-skills/task-delegation/SKILL.md`.
 
 ## Prototype before build
 

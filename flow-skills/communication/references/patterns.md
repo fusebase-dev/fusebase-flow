@@ -1,6 +1,6 @@
 # Mode A — pattern library (lazy-loaded reference, v2.9.0+)
 
-> **Load on demand.** This file is NOT loaded at session start — the main `skills/communication/SKILL.md` references it. Read this only when you decide a Mode A reply genuinely warrants a visual (per the "When to use a visual" / "When NOT to use a visual" criteria in the main skill). Most Mode A chat output is tables, bullets, and short prose — patterns are for the cases where a whiteboard diagram would help.
+> **Load on demand.** This file is NOT loaded at session start — the main `flow-skills/communication/SKILL.md` references it. Read this only when you decide a Mode A reply genuinely warrants a visual (per the "When to use a visual" / "When NOT to use a visual" criteria in the main skill). Most Mode A chat output is tables, bullets, and short prose — patterns are for the cases where a whiteboard diagram would help.
 
 8 patterns: project roadmap · status snapshot · decision tree · dependency graph · comparison table · timeline · state diagram · box-and-arrow architecture.
 

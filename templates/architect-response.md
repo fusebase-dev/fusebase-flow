@@ -1,6 +1,6 @@
 # Architect response template (v2.6.0+)
 
-> **Mode B (full).** This template is what an **Architect (escalated session)** produces when responding to a PO escalation handoff. Two sections: the **technical architect body** (for the PO to convert into locked decisions, tasks, verification gate) and the **operator relay block** at the bottom (a copy-paste-ready chunk the operator pastes into PO chat).
+> **Mode B (full).** This template is what an **Architect (escalated session)** produces when responding to a PO escalation handoff. The Architect has already produced the spec / decisions (PENDING) / tasks (T-numbered) / verification-gate artifacts in `docs/specs/<slug>/` (per AR.2); this response summarizes them. Two sections: the **technical architect body** (which the PO + operator review and lock — the Architect recommends, they lock per AR.6) and the **operator relay block** at the bottom (a copy-paste-ready chunk the operator pastes into PO chat).
 >
 > Per FR-16, the Architect composes the operator-relay block — the operator never digests the technical body to figure out what to tell PO. Scroll → copy → paste.
 
@@ -17,9 +17,9 @@ You are an Architect session that has investigated a complex / cross-cutting des
 ```markdown
 # Architect response — <slug> (escalated investigation)
 
-**Status:** Architect investigation complete; awaiting PO to draft decisions / tasks / verification-gate
+**Status:** Architect investigation complete; spec / decisions (PENDING locks) / tasks / verification-gate produced in `docs/specs/<slug>/`; awaiting PO + operator to review and lock
 **Slug:** `<slug>`
-**Reporting session:** Architect (Fusebase Flow v3.1, FR-01..FR-27, AR.1..AR.9)
+**Reporting session:** Architect under Fusebase Flow v3.30.6 (FR-01..FR-27, AR.1..AR.9)
 **Date:** <YYYY-MM-DD>
 
 ---
@@ -84,9 +84,9 @@ Citations (per FR-15 — knowledge curation):
 
 ---
 
-## 6. Proposed decisions to lock (for PO)
+## 6. Decisions produced (PENDING lock)
 
-These are recommendations only — per AR.6, the Architect doesn't lock decisions. PO + operator lock.
+The Architect produced `docs/specs/<slug>/decisions.md` with these letter-decisions (recommended choices + alternatives + reasoning), status PENDING. Per AR.6 the Architect does NOT lock — PO + operator review and lock.
 
 | Letter | Decision | Recommended choice | Rationale |
 |---|---|---|---|
@@ -96,19 +96,23 @@ These are recommendations only — per AR.6, the Architect doesn't lock decision
 
 ---
 
-## 7. Proposed task list shape (for PO to T-number)
+## 7. Task chain produced (T-numbered in `tasks.md`)
 
-| # | Task description | Component touched | Notes |
+The Architect produced `docs/specs/<slug>/tasks.md` as a T-numbered chain (per AR.2). This table summarizes it; PO + operator review, not re-number.
+
+| T# | Task description | Component touched | Notes |
 |---|---|---|---|
-| 1 | <task> | <component> | <e.g., Track A> |
-| 2 | <task> | <component> | <e.g., Track A, depends on #1> |
-| 3 | <task> | <component> | <e.g., Track B, parallel to #1-2> |
+| T<first> | <task> | <component> | <e.g., Track A> |
+| T<first+1> | <task> | <component> | <e.g., Track A, depends on prior> |
+| T<first+2> | <task> | <component> | <e.g., Track B, parallel> |
 | ... | ... | ... | ... |
-| N | Verification gate (T<gate>) | — | — |
+| T<gate> | Verification gate | — | — |
 
 ---
 
-## 8. Proposed verification-gate criteria (for PO)
+## 8. Verification-gate criteria produced (in `verification-gate.md`)
+
+The Architect produced `docs/specs/<slug>/verification-gate.md` (per AR.2). This table summarizes its criteria; PO + operator review.
 
 | Criterion | How to verify |
 |---|---|
@@ -164,7 +168,7 @@ Decisions to lock (for PO to formalize):
   <Letter>2: <question> -> recommended <choice>
   ...
 
-Task shape: <N> tasks across <M> tracks (Architect proposes structure; PO assigns T-numbers).
+Task chain: <N> tasks across <M> tracks, T-numbered in tasks.md (Architect produced the chain per AR.2; PO + operator review).
 
 Worker-undisturbed: <e.g., "no protected paths touched"> / <e.g., "needs approval artifact for path X — see section 9">.
 
@@ -177,9 +181,9 @@ Full architect response attached above. PO: please follow Operator Relay Protoco
 
 ---
 
-📍 Phase: Decisions (architect handoff complete; awaiting PO formalization)
+📍 Phase: Decisions (architect handoff complete; artifacts produced — awaiting PO + operator review and lock)
 🎯 Ticket: `<slug>`
-⏭️ Next: PO drafts decisions.md (locking each `<Letter>1..<Letter>N`), tasks.md (T-numbered), verification-gate.md → Implement handoff to AI Developer
+⏭️ Next: PO + operator review the produced decisions.md / tasks.md / verification-gate.md and lock each `<Letter>1..<Letter>N` (Architect recommends, operator locks per AR.6) → PO drafts the Implement handoff to AI Developer
 ```
 
 ---

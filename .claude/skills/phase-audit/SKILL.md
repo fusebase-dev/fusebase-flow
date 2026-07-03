@@ -50,7 +50,7 @@ After a phase of multiple slices is implemented, run an **independent** audit (a
 ## Procedure
 
 1. **Scope.** Identify the phase's slices and their commit range from `tasks.md` / git log.
-2. **Delegate (independent).** Per `skills/task-delegation/SKILL.md`, spawn a fresh sub-agent (read-only) so the audit is unbiased by the implementing session.
+2. **Delegate (independent).** Per `flow-skills/task-delegation/SKILL.md`, spawn a fresh sub-agent (read-only) so the audit is unbiased by the implementing session.
 3. **Per-slice audit.** For each slice: does the diff satisfy its acceptance criteria; cite file:line; flag gaps, scope creep, TODOs, missing tests.
 4. **Cross-slice consistency.** Check slices don't contradict each other, duplicate logic, or leave a seam (shared types, interfaces, data shape).
 5. **Drift vs spec/North Star.** Confirm the phase as a whole still matches the spec/decisions and `docs/north-star.md` if present.

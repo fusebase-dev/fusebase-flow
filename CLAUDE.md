@@ -17,7 +17,7 @@ This repo runs **Fusebase Flow v3.30.6**. The portable always-on baseline is in 
 ## Skills behavior under Claude Code
 
 - Skills load via SKILL.md frontmatter (`name`, `description`).
-- Side-effecting skills (`release-deploy-reporting`, parts of `validation-and-qa`) carry `invocation: manual-for-side-effects` — Claude Code should not auto-invoke them. Operator triggers them explicitly.
+- The side-effecting skill `release-deploy-reporting` carries `invocation: manual-for-side-effects` — Claude Code should not auto-invoke it. Operator triggers it explicitly. (`validation-and-qa` is `invocation: automatic`; be mindful that its release/deploy sub-flows have side effects when run in that context.)
 - Skill descriptions are trigger-oriented: include "Use when..." and "Do NOT use when..." so the matcher can decide.
 - For Fusebase Apps runtime work, load the relevant CLI provider skill as supporting domain guidance while keeping Flow artifacts and role rules authoritative.
 
@@ -79,7 +79,7 @@ The 2 mandatory skills remain listed above (always loaded at session start).
 
 **Fusebase Flow sub-agents (description-matched from `.claude/agents/`):**
 
-- `product-owner` — covers phases 1–6 + Architect inline. PO Bash gated by `hooks/local/po-investigate.sh` allowlist (read-only investigation only).
+- `product-owner` — covers phases 1–6 + Architect inline. PO Bash is instructed to route through the `hooks/local/po-investigate.sh` read-only wrapper (the structural allowlist lives inside the wrapper; a direct Bash call bypassing it is a discipline breach, not a hook-blocked action).
 - `ai-developer` — covers phase 7 (AI Developer attestation when given `*-implement.md` handoff) and phase 8b (Deploy phase attestation when given `*-deploy.md` handoff). Deploy gated by DP.6 magic-phrase confirm + DP.1 approval artifact.
 
 **State announcement footer (every output):**

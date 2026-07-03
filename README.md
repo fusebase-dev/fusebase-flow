@@ -668,7 +668,7 @@ The flow rules are identical in both modes; only the git surface changes.
 
 ```bash
 bash hooks/local/preflight.sh    # structure + YAML + frontmatter + mirror drift + action-name consistency
-bash hooks/tests/run-tests.sh    # 16 deterministic handler fixtures + 8 module-size gate scenarios
+bash hooks/tests/run-tests.sh    # 19 deterministic handler fixtures + 8 module-size gate scenarios
 ```
 
 Both must pass cleanly:
@@ -772,7 +772,7 @@ fusebase-flow/
 │   │                                  / install-git-hooks / fusebase-flow-health-check / post-fusebase-update / upgrade / upgrade-engine / sync-version-strings
 │   ├── local/fusebase-flow-overlays/  ← AGENTS.md + CLAUDE.md overlay templates,
 │   │                                     settings-json-merge.py, health-check skill + slash command templates
-│   ├── tests/                      ← run-tests.sh + 16 fixtures + module-size scenarios
+│   ├── tests/                      ← run-tests.sh + 19 fixtures + module-size scenarios
 │   └── requirements.txt            ← pyyaml (only non-stdlib dep)
 ├── audit/
 │   ├── README.md                   ← what does (and does not) live here

@@ -1,22 +1,22 @@
 # Fusebase Flow — always-on rules (FR-01..FR-27)
 
-**Status:** v0.28 (FR-26 added — token-efficient execution, v3.20.0: quality-first guardrail; redundant-consumption rules + `/token-waste-audit` measurement; 30th skill `token-economy`. Delegation turn-completion + verification cost discipline v3.19.1 before it.)
+**Status:** v0.29 — FR-01..FR-27 defined below. Latest addition FR-27 (liveness — never launch bare, v3.28.0). Per-version history and the driver for each rule live in `## Amendment log` (dated history — do not load it at session start).
 **Scope:** every session in any IDE/agent must follow these regardless of which skill or workflow is active.
 
 These rules are clean-room original. Each rule states *what*, *why*, and *enforcement surface* (rule-only, policy, hook, workflow, skill). Enforcement details live in `policies/`, `hooks/`, and `workflows/` — this file is the readable contract.
 
 | ID | Rule | Why | Enforcement |
 |---|---|---|---|
-| FR-01 | Spec before code | Production-code edits without an approved spec leak scope, lose audit trail, and bypass risk review | rule + `required-artifacts.yml` + `pre_tool_use` hook |
-| FR-02 | Plan before edit | Multi-file changes without a written task list produce silent drift across files | rule + workflow `implementation-planning` + skill |
+| FR-01 | Spec before code | Production-code edits without an approved spec leak scope, lose audit trail, and bypass risk review | rule + `required-artifacts.yml: before_implementation` (policy declaration) + role-discipline (writing code outside role re-fires the rule) + spec-review / verification-gate discipline (workflow) — NOT a tool-time hook (no hook checks spec existence before an Edit/Write) |
+| FR-02 | Plan before edit | Multi-file changes without a written task list produce silent drift across files | rule + skill `implementation-planning` |
 | FR-03 | One task = one commit | Bundled commits hide which change caused a regression and break per-task rollback | rule + `commit-msg` git hook |
-| FR-04 | Persist handoffs | Cross-session prompts that exist only in chat are not replay-able and not auditable | rule + workflow + `stop` hook |
+| FR-04 | Persist handoffs | Cross-session prompts that exist only in chat are not replay-able and not auditable | rule + workflow discipline + `required-artifacts.yml: before_deploy_command` (deploy handoff must exist at deploy time; no stop-hook handoff-persistence check) |
 | FR-05 | Stop at gate | Implementation that flows into deploy without explicit approval skips production-safety review | rule + workflow + `pre_tool_use` hook on deploy commands |
 | FR-06 | Reversible by default | Destructive ops (`rm -rf`, force push, reset --hard, `git add -A`, `--no-verify`) erase recoverable state without operator consent | rule + `command-policy.yml` + `pre_tool_use` hook |
 | FR-07 | Worker-undisturbed | Paths declared protected must show empty git diff between deploys unless an approved exception is on file | rule + `protected-paths.yml` + `pre_tool_use` + `pre-commit` git hook |
 | FR-08 | Mode-A operator chat | Operators scan; prose paragraphs are slow. Visual + concrete + brief in chat; never in artifact files | mandatory skill `flow-skills/communication/SKILL.md` (Mode A pattern library) |
 | FR-09 | Mode-B AI-optimized internal docs | Internal artifacts are AI-consumed. Prose padding wastes context budget on every load | mandatory skill `flow-skills/communication/SKILL.md` (Mode B principles + anti-patterns) |
-| FR-10 | Reproducibility before fix | Observed single-failure reports often reflect model variance. Drafting fix decisions before reproducing 3/3 wastes effort and ships speculative changes | rule + workflow `validation-and-qa` |
+| FR-10 | Reproducibility before fix | Observed single-failure reports often reflect model variance. Drafting fix decisions before reproducing 3/3 wastes effort and ships speculative changes | rule + skill `validation-and-qa` |
 | FR-11 | Stop and ask, don't improvise | Ambiguity on locked decisions, missing context, or undeclared scope creep should surface as a question, not a guess | rule (judgment-bound) + `user_prompt_submit` flag for "skip clarify" patterns |
 | FR-12 | Approval-gated side effects | DB migrations, customer-visible external messages, auth/permission changes, secret handling, and production deploys require an approval artifact on disk | rule + `approval-policy.yml` (committed default) + optional `approval-policy.local.yml` (ignored override) + `permission_request` hook + `pre_tool_use` (secret block on Write) + `user_prompt_submit` (secret warn on pasted prompt; native `prompt` key) |
 | FR-13 | Lint+typecheck per commit | Broken state on main forces emergency rollback and breaks downstream pulls | rule + `pre-commit` git hook |

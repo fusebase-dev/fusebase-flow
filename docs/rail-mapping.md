@@ -4,11 +4,11 @@ Every always-on rule in `FLOW_RULES.md` maps to one or more enforcement surfaces
 
 | Rule | Title | Rule (FLOW_RULES) | Workflow | Skill | Hook | Policy |
 |---|---|---|---|---|---|---|
-| FR-01 | Spec before code | yes | `eight-phase-flow.md`, `greenlight-implement.md` | `requirements-specification` | `pre_tool_use` (when host emits Edit/Write before spec exists) | `required-artifacts.yml: before_implementation` |
+| FR-01 | Spec before code | yes | `eight-phase-flow.md`, `greenlight-implement.md` | `requirements-specification`, `role-discipline` (writing code outside role re-fires FR-01) | n/a (no tool-time hook checks spec existence before Edit/Write) | `required-artifacts.yml: before_implementation` (policy declaration; enforced via workflow/gate discipline, not a tool-time hook) |
 | FR-02 | Plan before edit | yes | `implementation-planning` workflow elements | `implementation-planning` | n/a (judgment-based) | n/a |
 | FR-03 | One task = one commit | yes | `git-discipline.md`, `greenlight-implement.md` | n/a | n/a (commit-time) | `commit-msg` git hook (T-number requirement) |
-| FR-04 | Persist handoffs | yes | `greenlight-implement.md`, `greenlight-deploy.md`, `architect-escalation.md` | (all skills that produce handoffs) | `stop` (blocks "handoff-shown" claim without persisted file) | n/a |
-| FR-05 | Stop at gate | yes | `verification-gate.md`, `greenlight-implement.md` | `validation-and-qa` | `stop` (blocks deploy-ready claim without gate evidence) | `required-artifacts.yml: before_done_claim`, `before_deploy_command` |
+| FR-04 | Persist handoffs | yes | `greenlight-implement.md`, `greenlight-deploy.md`, `architect-escalation.md` | (all skills that produce handoffs) | n/a (stop.py has no handoff-persistence check; the deploy handoff's existence is required at deploy time by `required-artifacts.yml: before_deploy_command`, not a stop-hook claim gate) | `required-artifacts.yml: before_deploy_command` (deploy handoff `exists_and_recent`, Full lane) |
+| FR-05 | Stop at gate | yes | `verification-gate.md`, `greenlight-implement.md` | `validation-and-qa` | `stop` (CLAIM_PATTERNS `before_done_claim`: blocks a done/ready-to-deploy claim without gate-evidence signals) + `pre_tool_use` (deny deploy commands without approval per `command-policy.yml: production_deploy`) | `required-artifacts.yml: before_done_claim` (stop-gated); `before_deploy_command` (deploy-time policy gate — its `worker_undisturbed_recheck` signal has no stop-hook consumer; enforced via workflow discipline) |
 | FR-06 | Reversible by default | yes | `git-discipline.md` | n/a | `pre_tool_use` (deny destructive Bash) | `command-policy.yml: deny` |
 | FR-07 | Worker-undisturbed | yes | `verification-gate.md`, `greenlight-deploy.md` | `code-review`, `validation-and-qa`, `release-deploy-reporting` | `pre_tool_use` (path policy), `post_tool_use` (warn on protected modifications), `pre-commit` git hook | `protected-paths.yml` + exception artifact format |
 | FR-08 | Mode-A operator chat | yes | (across all workflows) | `communication` (mandatory) | n/a (judgment-based) | n/a |
@@ -39,7 +39,7 @@ Every always-on rule in `FLOW_RULES.md` maps to one or more enforcement surfaces
 | Rule statement (FLOW_RULES.md) | 27 / 27 |
 | Workflow | 16 / 27 |
 | Skill | 23 / 27 |
-| Hook | 13 / 27 |
+| Hook | 11 / 27 |
 | Policy | 9 / 27 |
 
 ## Cross-cutting mandatory skills
@@ -67,4 +67,5 @@ Any new rule (FR-16+) must be added to:
 2026-06-11 — v3.20.0; added FR-26 row (token-efficient execution) at ship time per § Drift detection, surface counts 25→26 base.
 2026-06-17 — v3.28.0; added FR-27 row (liveness — never launch bare) per § Drift detection, surface counts 26→27 base. Enforcement = digest delivery + bounded-run.sh; no gate; no hook verification (a hang is undetectable by construction).
 2026-07-03 — Phase C S1; FR-12 hook column adds `user_prompt_submit` (secret warn on the native `prompt` key) — the enforcement was inert live before the host-shape fix (see docs/hook-coverage.md § Host field-shape). No new row; surface counts unchanged.
+2026-07-03 — Phase C S6; doc-consistency corrections (no enforcement changed): FR-01 hook column `pre_tool_use`→n/a (no tool-time hook checks spec existence before an Edit/Write; enforced via role-discipline + workflow/gate); FR-04 hook column `stop`→n/a (stop.py has no handoff-persistence check; the deploy handoff is required at deploy time by `required-artifacts.yml: before_deploy_command`); FR-05 hook column made precise (stop `before_done_claim` + pre_tool_use deploy-deny) and notes `worker_undisturbed_recheck` has no stop-hook consumer. Hook surface count 13→11.
 ```

@@ -72,7 +72,7 @@ Regression archaeology: when behavior that previously worked is now broken, loca
 ## Escalation path
 
 - Cause spans many commits / cross-cutting → `workflows/architect-escalation.md`.
-- Fix design → `skills/zoom-out/SKILL.md` then `validation-and-qa`.
+- Fix design → `flow-skills/zoom-out/SKILL.md` then `validation-and-qa`.
 - Ambiguous good-reference → ask operator in chat (FR-19).
 
 ## Anti-patterns

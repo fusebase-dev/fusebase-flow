@@ -67,7 +67,7 @@ docs/skills/README.md
 ### Mode B-lite (concise, structured, trigger-oriented, AI-consumable; this skill follows this tier)
 
 ```
-skills/*/SKILL.md
+flow-skills/*/SKILL.md
 workflows/*.md
 docs/compatibility.md
 docs/hook-coverage.md
@@ -94,7 +94,7 @@ docs/source-map.md
 
 If a file's mode is unclear, default to Mode B (AI-optimized). The carve-out list above is the explicit human-facing set.
 
-> **Whether an artifact should exist at all** is governed by FR-23 / `flow-skills/documentation-budget/SKILL.md` (tier classification). This skill governs only HOW to write it once that skill says it's warranted. Active session continuity is `docs/tmp/handoff.md`; `docs/tmp/handoff/*` is reserved for formal implement/deploy role-relay prompts — never use `docs/tmp/handoff/` for active continuity.
+> **Whether an artifact should exist at all** is governed by FR-23 / `flow-skills/documentation-budget/SKILL.md` (tier classification). This skill governs only HOW to write it once that skill says it's warranted. Active session continuity is the single file `docs/tmp/handoff.md`. The `docs/tmp/handoff/` subtree has four sanctioned resident types: formal implement/deploy role-relay prompts (`docs/tmp/handoff/<date>-<slug>-{implement,deploy}.md`), architect relays (`-architect.md`), smoke-evidence directories (`docs/tmp/handoff/<date>-<slug>-smoke/`, per `smoke-testing`), and the superseded-handoff archive (`docs/tmp/handoff/archive/`, dated history — never loaded). Never use the `docs/tmp/handoff/` subtree for the active-continuity file (that is `docs/tmp/handoff.md`).
 
 ---
 
