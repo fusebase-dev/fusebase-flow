@@ -142,28 +142,57 @@ fi
 
 if ff_selected fixtures; then
 progress "fixture handler tests"
+
+# F5(c): ONE python start for ALL fixture metadata (not one-per-fixture). Emit a
+# TAB-separated row per fixture — path + the 6 fields — to a tempfile via a FILE
+# REDIRECT; the loop reads its row with the builtin `read` (zero python spawns in the
+# loop for metadata). Any tab/newline in a value is neutralized to a space so the TSV
+# stays one-row-per-fixture (the fields are short handler/decision tokens + a one-line
+# description — plumbing only; the handler runs + assertions below are unchanged).
+_ff_meta_tsv="$(mktemp "${TMPDIR:-/tmp}/ffhc-fixture-meta.XXXXXX")"
+"$python_bin" - "$TESTS_DIR" > "$_ff_meta_tsv" <<'PY'
+import json, os, sys, glob
+# LF-only writer: on Windows/MSYS text-mode stdout appends \r, which would land in the
+# LAST tab field read by the shell (a spurious \r in expected_rule_id_contains => a
+# non-empty invisible value that never matches). Write bytes with an explicit \n.
+def emit(line):
+    sys.stdout.buffer.write((line + "\n").encode("utf-8"))
+tests_dir = sys.argv[1]
+def clean(v):
+    return str(v or "").replace("\t", " ").replace("\n", " ").replace("\r", " ")
+for path in sorted(glob.glob(os.path.join(tests_dir, "*.json"))):
+    try:
+        with open(path) as f:
+            data = json.load(f)
+    except Exception:
+        data = {}
+    fields = [
+        data.get("_test", ""),
+        data.get("_handler", ""),
+        data.get("_expected_decision", ""),
+        data.get("_expected_rule_id", ""),
+        data.get("_expected_rule_id_contains", ""),
+    ]
+    # Key by BASENAME (identical in shell + python; os.path.join uses a backslash on
+    # Windows so the full path would not match the shell glob key).
+    emit(os.path.basename(path) + "\t" + "\t".join(clean(x) for x in fields))
+PY
+# Load the TSV into a basename -> "field1\tfield2..." map (keyed so loop order can't
+# desync from the pre-pass; builtin read, no per-row spawn).
+declare -A _ff_meta=()
+while IFS=$'\t' read -r _mp _rest; do
+    [ -n "$_mp" ] && _ff_meta["$_mp"]="$_rest"
+done < "$_ff_meta_tsv"
+rm -f "$_ff_meta_tsv"
+
 for fixture in "$TESTS_DIR"/*.json; do
     [ -f "$fixture" ] || continue
     total=$((total + 1))
     name="$(basename "$fixture")"
 
-    # Extract metadata via python (simpler than jq for portability).
-    meta="$("$python_bin" - "$fixture" <<'PY'
-import json, sys
-with open(sys.argv[1]) as f:
-    data = json.load(f)
-print(data.get("_test", ""))
-print(data.get("_handler", ""))
-print(data.get("_expected_decision", ""))
-print(data.get("_expected_rule_id", ""))
-print(data.get("_expected_rule_id_contains", ""))
-PY
-)"
-    test_name="$(echo "$meta" | sed -n '1p')"
-    handler="$(echo "$meta" | sed -n '2p')"
-    expected_decision="$(echo "$meta" | sed -n '3p')"
-    expected_rule_id="$(echo "$meta" | sed -n '4p')"
-    expected_rule_contains="$(echo "$meta" | sed -n '5p')"
+    # F5(b): pull this fixture's metadata from the pre-pass TSV via the builtin `read`
+    # (no per-fixture python + no 5x sed spawns). Same five fields as before; keyed by name.
+    IFS=$'\t' read -r test_name handler expected_decision expected_rule_id expected_rule_contains <<< "${_ff_meta[$name]:-}"
 
     if [ -z "$handler" ]; then
         echo "[run-tests] $name SKIP — no _handler set"
@@ -182,7 +211,9 @@ PY
     output="$FFHC_LAST_OUT"
     exit_code=$FFHC_LAST_RC
 
-    # Parse decision and rule_id from JSON stdout.
+    # Parse decision and rule_id from JSON stdout. F5(b): read the two python-emitted
+    # lines with the builtin `read` (no 2x sed spawn per fixture); the python JSON parse
+    # is unchanged (it is the load-bearing decode of the handler's stdout).
     actual="$("$python_bin" - <<PY
 import json, sys
 out = json.loads('''$output''') if '''$output'''.strip().startswith("{") else {}
@@ -190,8 +221,10 @@ print(out.get("decision", ""))
 print(out.get("rule_id", "") or "")
 PY
 )"
-    actual_decision="$(echo "$actual" | sed -n '1p')"
-    actual_rule_id="$(echo "$actual" | sed -n '2p')"
+    { IFS= read -r actual_decision; IFS= read -r actual_rule_id; } <<< "$actual"
+    # python print() emits \r on MSYS; strip a trailing CR so the values match the
+    # prior `echo|sed` extraction byte-for-byte (an unstripped \r would never compare equal).
+    actual_decision="${actual_decision%$'\r'}"; actual_rule_id="${actual_rule_id%$'\r'}"
 
     ok=1
     detail=""

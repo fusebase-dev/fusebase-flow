@@ -456,7 +456,11 @@ _ffhc_tempfile_capture() {
     rm -f "$_trig" 2>/dev/null; FFHC_JOB_FENCE_HPID=""
   fi
   FFHC_LAST_WINPID=""; FFHC_LAST_CHILD_PID=""   # child reaped => a later EXIT-trap reap is a no-op
-  FFHC_LAST_OUT="$(cat "$_tf" 2>/dev/null)"
+  # F5(a): builtin file read of the capture tempfile (no cat spawn). $_tf is a REGULAR
+  # file, so the $(<file)+native-grandchild pipe hazard (which applies to PIPES) does not
+  # apply. Guarded by [ -r ] so an unreadable/vanished tempfile leaves an empty capture,
+  # identical to the prior `$(cat … 2>/dev/null)` fall-through (never a bash read error).
+  FFHC_LAST_OUT=""; [ -r "$_tf" ] && FFHC_LAST_OUT="$(<"$_tf")"
   rm -f "$_tf" 2>/dev/null
   ffhc_timed_out "$FFHC_LAST_RC" && FFHC_LAST_TIMED_OUT=1 || FFHC_LAST_TIMED_OUT=0
 }
