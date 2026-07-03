@@ -255,10 +255,21 @@ for c in "${CHANGED[@]}"; do echo "  • $c"; done
 
 # Propagate canonical agent/skill edits into the generated provider mirrors
 # (and refresh their audit manifests). Re-mirroring is idempotent: if the edit
-# only touched non-canonical adapters, this is skipped.
+# only touched non-canonical adapters, this is skipped. A mirror-script failure
+# here MUST NOT be swallowed — a swallowed failure prints "re-mirrored" while the
+# provider copies stay stale, exactly the drift the mirror step exists to close.
 if [ "$TOUCHED_CANONICAL" -eq 1 ]; then
-  [ -x hooks/local/mirror-agents.sh ] && bash hooks/local/mirror-agents.sh >/dev/null 2>&1 || true
-  [ -x hooks/local/mirror-skills.sh ] && bash hooks/local/mirror-skills.sh >/dev/null 2>&1 || true
+  remirror_rc=0
+  if [ -x hooks/local/mirror-agents.sh ]; then
+    bash hooks/local/mirror-agents.sh >/dev/null 2>&1 || remirror_rc=$?
+  fi
+  if [ -x hooks/local/mirror-skills.sh ]; then
+    bash hooks/local/mirror-skills.sh >/dev/null 2>&1 || remirror_rc=$?
+  fi
+  if [ "$remirror_rc" -ne 0 ]; then
+    echo "[sync-version-strings] ERROR: re-mirror FAILED (rc=$remirror_rc) — run mirror-skills.sh/mirror-agents.sh manually" >&2
+    exit 1
+  fi
   echo "  • re-mirrored agents + skills (provider copies + manifests refreshed)"
 fi
 exit 0

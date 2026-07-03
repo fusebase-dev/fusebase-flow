@@ -58,12 +58,15 @@ bash hooks/local/mirror-skills.sh
 git status --short
 ```
 
-Expected:
+Expected (self-derived — do not hardcode counts that re-stale; the live source is authoritative):
 
 ```
 preflight:    0 errors / 0 warnings
-hook tests:   24 / 24 PASS
-mirror:       78 files mirrored across 2 approved mirrors (60 SKILL.md + 18 references)
+hook tests:   run-tests.sh prints "[run-tests] N/N PASS" (0 FAIL); N is whatever the
+              current suite totals — a clean run is N/N with 0 FAIL, not a fixed number
+mirror:       mirror-skills.sh reports 0 drift; the mirrored file count == the row count
+              in audit/skill-mirror-manifest.txt (which == the live canonical set:
+              one row per flow-skills/*/SKILL.md + flow-skills/*/references/* × 2 mirrors)
 git status:   clean (or only the regenerated mirror manifest, if previously stale)
 ```
 

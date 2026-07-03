@@ -4,6 +4,72 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.30.6] — 2026-07-03
+
+### Changed — gate wall-time optimization (FF_ONLY scoped gates + preflight batch + adaptive reap poll)
+
+**PATCH (test/tooling only — no runtime behavior change; coverage + fail-closed preserved).** Phase B of the operator's optimization mandate: the saturated-host gate is ~90% of session wall time, so this release cuts gate wall-time without touching any runtime behavior. No new FR rule (FR-01..FR-27 unchanged), no new Flow skill (32 unchanged). The v3.30.5 fail-closed FR-07 §3 / FR-12 §2 pre-commit chain (`hooks/git/pre-commit` + `hooks/shared/**`) is UNTOUCHED. Independently reviewed (Codex + a 3-lens Opus panel): no coverage loss, no fail-closed/security weakening; the 13 full-gate FAILs are pre-existing host-saturation artifacts (reproduce identically on the baseline), not regressions.
+
+**FR-07-clean / additive:** no FR rule rows, no deploy-policy rule semantics, no `ratchet-governance.yml` touched (only the FLOW_RULES version-attestation line moved).
+
+- **FF_ONLY opt-in scoped gates (F2).** `run-tests.sh` gains `FF_ONLY` — run only named suites during the implement loop. Unset ⇒ byte-identical full gate. Scoped ⇒ fail-closed by construction: the scoped summary deliberately fails the strict `N/N PASS` classifier, writes a separate results file, and exits 2 on an unknown/empty tag, so a scoped run can never be mistaken for a clean full pass. New `test-ff-only.sh` suite guards the contract. The final pre-commit / pre-deploy gate MUST still be a full unscoped run.
+- **preflight mirror-hash batching (F4).** Preflight now runs one `sha256sum` per root instead of ~270 per-file spawns (~6.7× faster preflight; repairs the default health-check preflight budget). Drift/missing detection is byte-identical.
+- **spawn micro-cuts (F5).** Fixture hot-loop spawn cuts — builtin file reads + a metadata pre-pass replace per-fixture `$(echo|sed)`/python invocations.
+- **adaptive sub-second reap poll (F3).** The MSYS bounded-run reap loop uses a spawn-free FIFO nap ladder with `EPOCHREALTIME` accounting — the deadline is preserved as a hard FLOOR (never reaps early), falling back verbatim to the prior `sleep 1` on any host without the builtin nap.
+
+Verified: preflight 0/0 · `check-module-size --all` exit 0 · mirror 0 drift (32 Flow skills) · manifest 86/86/0-dups · plugin == VERSION == 3.30.6 · README badge 3.30.6 · the v3.30.5 pre-commit security chain UNTOUCHED (`hooks/git/pre-commit` == source) · `git grep -ni headroom` in code = 0. Deploy smoke (LIGHT — full `run-tests.sh` deferred to a quiet MINGW64 box per the loaded-host discipline): preflight 0/0 + health-check + tag/release verification. Consumer-verify (POST-release): full `run-tests.sh` on a quiet box (test count ≥ pre-change; the FAIL set is the known host-saturation class) + an `FF_ONLY` scoped run. Release commit `82c90dc` (tag `v3.30.6`). Spec: `docs/tmp/handoff/2026-07-03-v3306-fable-optimization-spec.md`. Detail: `docs/release-notes/v3.30.6.md`.
+
+## [3.30.5] — 2026-07-03
+
+### Changed — hook-security hardening (FR-07 protected-path + FR-12 secret scan fail CLOSED at every load-point)
+
+**PATCH (security hardening; fixes a SHIPPED FR-07 protected-path bypass found by the whole-roadmap review).** No new FR rule (FR-01..FR-27 unchanged), no new Flow skill (32 unchanged). Both pre-commit security controls — the FR-07 §3 protected-path guard AND the FR-12 §2 secret scanner — now FAIL CLOSED at every reachable load-point: no mutable working-tree Python (code, patterns, startup file, env var, or import path) can influence any security check. Converged over TEN adversarial rounds; the final deploy-gate confirm was SHIP from two independent reviewers (Codex companion, zero findings + a 3-lens Opus panel, RED→GREEN PoCs, all SHIP).
+
+**FR-07-clean:** the enforcement code is hardened; no FR rule rows changed, no deploy-policy rule semantics, no `ratchet-governance.yml` touched (only the FLOW_RULES version-attestation line moved).
+
+- **Staged delete / rename coverage.** The protected-path check now covers staged DELETES (`git rm`) and RENAMES of protected files (was `--diff-filter=ACM` only), via `path_policy.staged_change_paths` (A/C/M→path, D→deleted, R→old+new); the single-use digest-bound exception is extended to delete/rename, never weakened.
+- **Import / enumeration / exception fail-opens closed.** Import error (e.g. missing PyYAML) ⇒ BLOCK with an FR-07 diagnostic (was silent fail-open); missing python3 ⇒ loud WARN; enumeration failure ⇒ BLOCK (was silent []-pass); `BaseException`/`SystemExit(0)` from a tampered module ⇒ BLOCK; `git name-status` nonzero rc ⇒ raise/BLOCK.
+- **Policy-present + additive-only override.** Missing/empty/malformed `protected-paths.yml` ⇒ BLOCK (was a total FR-07 disable); `protected-paths.local.yml` can no longer erase/relax protected categories (additive-only).
+- **Trusted-HEAD enforcement.** The check runs FR-07 (and, in `-S`, the FR-12 scanner + its patterns) from a TRUSTED committed HEAD copy extracted into a fresh `mktemp` dir, under `python3 -S` with a scrubbed env (`unset PYTHONPATH/PYTHONSTARTUP/PYTHONHOME`, `PYTHONNOUSERSITE=1`), with the trusted-vs-fallback decision made by git (unforgeable). Closes the mutable-Python load-point class: staged/unstaged tamper, `sitecustomize.py`/`usercustomize.py` startup injection, a hostile `PYTHONPATH`, and (the deepest tail) a repo-root `pathlib.py`/`yaml.py` that shadows a stdlib/site import when CWD is on `sys.path[0]` under `python3 -S -` — fixed by running the §2/§3 MAIN checks as trusted FILE SCRIPTS from the temp dir (CWD never added), plus `PYTHONSAFEPATH=1` and prepend-site-packages. Also converts the `$(git ls-tree)` sentinel loops to file-redirect to end an intermittent MSYS command-substitution hang.
+- **Hook-install call-site rc.** No silent "installed" on failure.
+
+Accepted out-of-model residuals (a discipline guardrail cannot mechanically stop these): `--no-verify` (rule-forbidden), deleting/replacing `.git/hooks/pre-commit`, a full repo write bypassing the hook, or writing into real site-packages / OS-git-python compromise.
+
+Verified: preflight 0/0 · `check-module-size --all` exit 0 · mirror 0 drift (32 Flow skills) · manifest 86/86/0-dups · plugin == VERSION == 3.30.5 · README badge 3.30.5 · `.git/hooks/pre-commit` == source · bootstrap-exception 22/22, hook-install-rc 7/7 (single-use NOT weakened) · `git grep -ni headroom` in code = 0. Deploy smoke (LIGHT per the loaded-host discipline): preflight 0/0 + health-check + tag/release verification. Ticket smoke: a real protected delete/rename blocked; a tampered-enforcer / repo-root-`pathlib.py` PoC no longer self-passes (RED→GREEN end-to-end). Consumer-verify (POST-release): full `run-tests.sh` on a quiet MINGW64 box + a protected delete/rename commit on a wired-hook clone. Release commit `180f4a1` (tag `v3.30.5`). Detail: `docs/release-notes/v3.30.5.md`.
+
+## [3.30.4] — 2026-07-02
+
+### Changed — WS2-hard opt-in Windows Job Object fence + WS5 upgrade bounded exit
+
+**PATCH (default behavior byte-unchanged from v3.30.3 — the Job Object fence is opt-in, default OFF).** The final two workstreams of the Windows/MSYS hardening roadmap. No new FR rule (FR-01..FR-27 unchanged), no new Flow skill (32 unchanged). Three review passes on the corrected diff (Codex full BLOCK→fixed, Workflow BLOCK→fixed, Codex re-review SHIP) — all findings folded.
+
+**FR-07-clean / additive:** no FR rule rows, no deploy-policy rule semantics, no `ratchet-governance.yml` touched (only the FLOW_RULES version-attestation line moved).
+
+- **WS2-hard — opt-in Windows Job Object outer fence.** `FFHC_USE_JOB_OBJECT=1` (default OFF) wraps the bounded run in a Windows Job Object outer fence — an atomic, strictly-scoped kill of the assigned child tree. The mechanism is proven on MSYS+PowerShell; the reliability discriminator (Cummings-class ac3d→rc137; Job-Object vs `timeout -k` kill) is CONSUMER-GATED (best-effort launch→assign race documented). Default behavior is unchanged from v3.30.3.
+- **WS5 — upgrade engine Windows-safe bounded exit.** `prune_pre_backups` busy-loop ROOT FIX (per-stem full-tree find → single-pass O(M)); critical-vs-optional bounding (an optional step's failure/timeout warns and continues, a critical step fails with a recovery hint); timestamp-safe prune glob.
+- **Review corrections.** Fence opt-in hang fix; the `set -e` optional-step abort fix, now tested under `set -e`.
+
+Verified: preflight 0/0 · `check-module-size --all` exit 0 · mirror 0 drift (32 Flow skills) · manifest 86/86/0-dups · plugin == VERSION == 3.30.4 · README badge 3.30.4 · `git grep -ni headroom` in code = 0. Deploy smoke: preflight 0/0 + health-check (`PARTIAL_UNVERIFIED` known-benign on the saturated host) + tag/release verification. Consumer-verify (operator distributes): full `run-tests.sh` on a quiet MINGW64 box; `FFHC_USE_JOB_OBJECT=1` validation on a real Cummings-class host; full `upgrade.sh --auto-yes` end-to-end. This release COMPLETES the roadmap (all 9 workstreams shipped across v3.30.3 + v3.30.4). Release commit `37da04f` (tag `v3.30.4`). Detail: `docs/release-notes/v3.30.4.md`.
+
+## [3.30.3] — 2026-07-01
+
+### Changed — Windows/MSYS + adoption-path hardening (WS1-WS9)
+
+**PATCH (Windows/MSYS hardening across nine workstreams + adversarial-review corrections).** No new FR rule (FR-01..FR-27 unchanged), no new Flow skill (32 unchanged). Two independent adversarial reviews (Codex + FuseBase workflow) of the full corrected diff returned SHIP; all findings folded.
+
+**FR-07-clean / additive:** no FR rule rows, no deploy-policy rule semantics, no `ratchet-governance.yml` touched (only the FLOW_RULES version-attestation line moved).
+
+- **WS1 — secret-scan + protected-path adoption.** Secret-scan handles runtime tokens; a single-use digest-bound protected-path exception + a safe git-hook (re)install path.
+- **WS2-core / WS3 — MSYS bounded run + harness.** Strict winpid scoping for the MSYS bounded run; test-harness reap; the fixture-phase stdin fix so the fixture phase completes under the bounded wrapper.
+- **WS4 — health-check verdict robustness + MSYS timeout defaults.** A killed/unparseable hook-test run reclassifies to an advisory verdict instead of a false BROKEN; MSYS-tuned timeout defaults.
+- **WS6 — backward-compatible dual-marker migration.** The overlay heading marker accepts the legacy `## Fusebase Flow —` and the new `## FuseBase Flow —` form (preflight ⟷ health-check agree).
+- **WS7 — problem catalog.** `docs/problem-catalog/` seeded as the recurring-problem record of truth.
+- **WS8 — zero-trust liveness (FR-27 extension).** The zero-trust sub-agent liveness rule (poll git-progress, never passively wait) codified.
+- **WS9 — slash-command naming.** Command naming aligned.
+- **Review corrections.** Glob-bypass close, unique hook marker, trap re-verify, test fidelity.
+
+Verified: preflight 0/0 · `check-module-size --all` exit 0 · mirror 0 drift (32 Flow skills) · manifest 86/86/0-dups · plugin == VERSION == 3.30.3 · README badge 3.30.3 · the POSIX `run_with_timeout` path preserved · `git grep -ni headroom` in code = 0. Deploy smoke: preflight 0/0 + health-check + tag/release verification. Consumer-verify (operator distributes): full `run-tests.sh` on a quiet MINGW64 box — the fixture phase now passes under the bounded wrapper. Release commit `989604e` (tag `v3.30.3`). Detail: `docs/release-notes/v3.30.3.md`.
+
 ## [3.30.2] — 2026-06-30
 
 ### Changed — secret-scan self-trip + MSYS bounded-run hang/false-BROKEN fixes

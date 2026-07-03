@@ -25,7 +25,7 @@ The public template does not advertise compatibility with any AI coding assistan
 | Mirror dirs allowed | `.agents/skills/`, `.claude/skills/`; this edition also keeps CLI provider skills in those dirs |
 | `mirror-skills.sh` target list | mirrors canonical Flow skills only (source `flow-skills/`) and preserves extra CLI provider skills |
 | `preflight.sh` mirror drift check | validates canonical Flow skill mirrors only |
-| Hook tests | 24 / 24 PASS (16 handler fixtures + 8 module-size gate scenarios) |
+| Hook tests | `bash hooks/tests/run-tests.sh` prints `[run-tests] N/N PASS` with 0 FAIL — N is the live suite total (handler fixtures + module-size + health-check-timeout + the CLI/security suites), not a fixed number; a clean run is N/N, 0 FAIL |
 | Preflight | 0 errors / 0 warnings |
 | GitHub Action | runs preflight + hook tests + mirror drift check on every push / PR |
 
