@@ -4,6 +4,23 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [3.30.7] — 2026-07-04
+
+### Fixed — Phase C Fable whole-system audit fixes (live enforcement fires + fail-closed tooling + po-investigate hardening + release-doc/consistency)
+
+**PATCH (enforcement-liveness fix; makes several SHIPPED gates actually fire in live Claude Code sessions).** Phase C = an independent Fable whole-system audit (9 subsystems) → 40 findings → 6 Opus-implemented fix slices (S1/S2/S4/S5/S6) + S1b (deploy-gate review close). No new FR rule (FR-01..FR-27 unchanged), no new Flow skill (32 unchanged). The v3.30.5 fail-closed FR-07 §3 / FR-12 §2 pre-commit chain (`hooks/git/pre-commit` + `hooks/shared/**`) is UNTOUCHED (empty diff 82c90dc..HEAD; verified by both reviewers across the whole stack). The consolidated adversarial review (Codex + a 3-lens Opus panel) converged SHIP.
+
+**FR-07-clean / additive:** no FR rule rows, no deploy-policy rule semantics, no `ratchet-governance.yml` touched (only the FLOW_RULES version-attestation line moved).
+
+- **(S1) CRITICAL — live enforcement was inert (`4acb535`).** The `UserPromptSubmit` + `Stop` handlers read Flow-schema keys (`user_prompt`/`agent_message`) the Claude Code runtime never sends (it sends `prompt`/`transcript_path`), with no normalization shim — so the FR-12 pasted-secret warning, bypass detection, `/product-owner` reminder, and the FR-04/05/14 done/deploy-complete deny gate never fired on real prompts (the suite was green only on synthetic fixtures). Fix: handlers read the native shapes (dual-key `prompt`; parse the final assistant message from `transcript_path`); warns via `hookSpecificOutput.additionalContext`, denies via stderr. **No gate weakened — the deny/warn logic is unchanged; only the input source was fixed.** New native-shape fixtures close the synthetic-only coverage gap.
+- **(S4) fail-closed tooling (`9424df8`).** preflight skill-frontmatter + orphaned-approval checks now actually fail the exit code (a pre-`$?` `|| true` had made them false-clean); the health engine reads a completed run-tests with visible INCONCLUSIVE rows as UNVERIFIED (not false-BROKEN) while a genuine crash still BROKEN; verify-gate runs from any subdirectory.
+- **(S5) po-investigate hardening (`1523a86`).** The PO read-only investigation wrapper (`po-investigate.sh`) now refuses git write/exec escapes (`--output`, `--ext-diff`/`GIT_EXTERNAL_DIFF`, `-c *.external`, pager) + scrubs the env — the read-only guarantee is now structural.
+- **(S2) release-doc backfill (`92135f4`).** Backfilled the release-doc chain (CHANGELOG + release-notes for v3.30.3–v3.30.6, README/marketplace badges) + a marketplace.json version-parity preflight check.
+- **(S6) doc/rule/path consistency (`eb50078`).** Doc/rule-text/path consistency sweep (the v3.9.0 `skills/`→`flow-skills/` rename residue, FLOW_RULES status/labels, rail-mapping hook-claims, catalog counts, dangling rule-IDs) — docs/text only, no enforcement change.
+- **(S1b) Stop fail-closed edge (`9790c90`).** The consolidated deploy-gate review (Codex) found + closed a corner-case in S1: the Stop done/deploy gate fell open when the transcript was corrupt/wrong-shape/format-drifted (the final assistant message couldn't be extracted) even though the raw transcript contained a done-claim. `stop.py` now FAILS CLOSED there (deny "could not verify — unverifiable transcript") without re-introducing over-trigger in the normal path. No worse than baseline; now a hard-closed edge.
+
+Verified: preflight 0/0 (incl. marketplace.json parity) · mirror-skills 32 skills / 0 drift · mirror-agents 0 drift · manifest 86/86/0-dups (before AND after sync) · plugin.json == marketplace.json == VERSION == 3.30.7 · the v3.30.5 pre-commit security chain UNTOUCHED. Deploy smoke (LIGHT — loaded-host discipline): preflight 0/0 + health-check + tag/release verification. Consumer-verify (POST-release): full `run-tests.sh` on a quiet MINGW64 box (incl. `test-po-investigate` + native-shape fixtures) + confirm the live hooks fire on real Claude Code events. Release commit `aabbadc` (tag `v3.30.7`). Detail: `docs/release-notes/v3.30.7.md`.
+
 ## [3.30.6] — 2026-07-03
 
 ### Changed — gate wall-time optimization (FF_ONLY scoped gates + preflight batch + adaptive reap poll)
