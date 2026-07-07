@@ -3,7 +3,7 @@ name: handoff
 description: Use when a coding session is getting long, before stopping complex implementation/migration/debugging work, when the operator says "prepare a handoff" / "hand this off" / "continue in a new chat" / "/handoff", or when a long autonomous run needs continuity (Mode run-ledger, announced in chat) — archives the superseded restart state to docs/tmp/handoff/archive/ (paper trail), then writes the active state to docs/tmp/handoff.md so a fresh AI session resumes from the exact current point without the previous chat. Do NOT use for routine commits, human-facing status reports, formal implement/deploy role relays (those are docs/tmp/handoff/<date>-<slug>-{implement,deploy}.md), or when no meaningful code/test/schema/config/decision change happened this session.
 source_inspiration: conceptual-only
 license_status: clean-room-original
-fusebase_flow_version: 3.14
+fusebase_flow_version: 3.30.8
 risk_level: low
 invocation: manual
 expected_outputs:
@@ -60,6 +60,19 @@ Capture the exact current state of a coding session into `docs/tmp/handoff.md` s
 6. Create `docs/tmp/` if absent. Write `docs/tmp/handoff.md` fresh from `templates/handoff.md` — same section order, every section filled with content / `Unknown` / `None`, and current `Updated: <YYYY-MM-DD HH:MMZ>` + `Mode:` lines in the header. Do NOT append resumption notes above old content (FR-18); the superseded restart predecessor lives in the archive.
 7. Quality bar: factual only; pointers to canonical spec/decisions/tasks instead of reprinting them (FR-23); exactly one concrete executable Next Step; preserve repo terminology; product/user decisions separate from implementation detail; before reusing any copied procedural block, check whether a capability shipped since it was written supersedes the procedure.
 8. Report a short Mode A summary in chat (Goal, Current state, Active files, Next step, Validation). Do not paste the full file unless asked.
+
+## Resuming from a handoff (reader contract)
+
+**Named reader:** the NEXT session, via `workflows/session-initiation.md` steps 5/5a (which reads `docs/tmp/handoff.md` automatically at session start).
+
+1. Read the header: `Mode:`, `Updated:`, `Branch:`, `HEAD:`.
+2. **Trust gate.** Diff recorded `Branch:`/`HEAD:` vs live `git branch --show-current` / `git rev-parse --short HEAD`. Match → `Active Files in Flight` and `Next Step` are current; resume there. Mismatch → the repo moved after the write: re-derive in-flight state from `git status --short` + `git log <recorded-HEAD>..HEAD --oneline`; treat the file table as historical; `Key Decisions Made` / `Failed Attempts` stay valid (they don't decay with HEAD).
+3. `Mode: run-ledger` → resume from records: read the ledger's cited artifacts BEFORE acting; resume from the last durable fact (`task-delegation` successor contract).
+4. Never append a resumption note to the file (FR-18) — the next write is a fresh supersede.
+
+## Run-ledger write cadence
+
+Supersede the ledger at durable milestones, not per tool call: after each commit, gate verdict, locked decision, completed T-task/slice, or concluded failed attempt — and BEFORE any operation that could kill context (deploy, migration, long bounded run). Each write = one-line chat announcement. Between milestones the ledger may lag; git history covers the gap. One archive file per update is a violation (in-place supersede — see Procedure step 5).
 
 ## Output artifacts
 

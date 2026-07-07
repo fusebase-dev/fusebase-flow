@@ -3,7 +3,7 @@ name: zoom-out
 description: Use before committing a bug fix or improvement, when a fix is non-trivial, or when the same area has been patched before. Operationalizes FR-20 — zoom out to root cause before applying a narrow patch. Do NOT use for trivial typo/format edits, for net-new feature work with no prior code (nothing to zoom out from), or as a substitute for reproduce-before-fix (FR-10 / validation-and-qa).
 source_inspiration: conceptual-only
 license_status: clean-room-original
-fusebase_flow_version: 3.3
+fusebase_flow_version: 3.30.8
 risk_level: low
 invocation: automatic
 expected_outputs:
@@ -54,14 +54,26 @@ Stop patch-myopia. Before fixing a bug or making an improvement, zoom out and co
 3. **Consistency check.** Does the fix contradict the spec, locked decisions, or `docs/north-star.md` (if present)? If yes → stop, raise it.
 4. **Drift check.** Will this patch create inconsistency elsewhere (other apps, shared logic, future edits)? Prefer the change that reduces total inconsistency.
 5. **Repeat-patch check.** Has this area been patched before? Two+ patches in one spot = treat as a design problem, not another patch.
-6. **Decide.** Either (a) produce a root-cause fix plan, or (b) justify a deliberate narrow patch ("symptom-level fix is correct here because …"). Never an unexamined patch.
+6. **Decide — and emit the Required output block below.** Either (a) produce a root-cause fix plan, or (b) justify a deliberate narrow patch ("symptom-level fix is correct here because …"). Never an unexamined patch.
 7. **Ambiguous bigger picture →** ask the operator in chat (FR-19); do not guess.
+
+## Required output — zoom-out verdict (5 lines)
+
+Emit before the fix lands — in chat, and verbatim into the gate/handoff note when one is written. The block is the checkable evidence FR-20 ran; a zoom-out claim without it is unverifiable.
+
+```
+Symptom:    <visible failure, one clause>
+Root cause: <underlying cause, one clause — "unknown" forces investigation (FR-10), not a patch>
+Layer:      <UI | API | data | shared logic | config> — fixing there? <yes | no + why>
+Drift risk: <none | what becomes inconsistent elsewhere>
+Decision:   <root-cause fix | justified narrow patch because <reason> | escalate (design problem / Architect)>
+```
 
 ## Output artifacts
 
 | Artifact | Path or location | Mode |
 |---|---|---|
-| Zoom-out check result | chat (Mode A) or gate/handoff note | Mode A / Mode-B-lite |
+| Zoom-out verdict block (5 lines, above) | chat (Mode A) or gate/handoff note | Mode A / Mode-B-lite |
 | Root-cause fix plan or justified-patch note | ticket artifact when applicable | Mode B |
 
 ## Failure cases

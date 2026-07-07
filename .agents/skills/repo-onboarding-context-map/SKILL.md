@@ -3,7 +3,7 @@ name: repo-onboarding-context-map
 description: Use on first Fusebase Flow install, opening an unfamiliar repo, or after major restructuring; produces durable context map (commands, structure, protected paths, risky boundaries). Do NOT use for routine ticket investigation.
 source_inspiration: conceptual-only
 license_status: clean-room-original
-fusebase_flow_version: 2.1
+fusebase_flow_version: 3.30.8
 risk_level: low
 invocation: manual
 expected_outputs:
@@ -21,6 +21,8 @@ hook_dependencies:
 ## Purpose
 
 Inspect an unfamiliar repo and produce a durable context map so future sessions know the project's structure, commands, protected paths, and risky system boundaries without re-investigating each session.
+
+**Named reader:** `workflows/session-initiation.md` step 5 — every new session reads `docs/specs/repo-context.md` when it exists and is <90 days old, instead of re-investigating. The map header MUST carry `Generated: <YYYY-MM-DD>` so readers can apply the freshness gate.
 
 ## When to invoke
 
@@ -53,7 +55,7 @@ Inspect an unfamiliar repo and produce a durable context map so future sessions 
 5. Identify protected-path candidates: long-lived worker code, generated files, migration files, deployment configs.
 6. Identify risky system boundaries: external APIs, database migrations, auth surfaces, file system writes outside repo.
 7. Run `git log --oneline -30` to read commit cadence + recent areas of activity.
-8. Save findings to `docs/specs/repo-context.md` using `templates/spec.md` adapted for context-mapping (see template).
+8. Save findings to `docs/specs/repo-context.md` using `templates/spec.md` adapted for context-mapping (see template). Stamp a `Generated: <YYYY-MM-DD>` line in the header — `workflows/session-initiation.md` step 5 uses it for the 90-day freshness gate.
 9. Propose updates to `AGENTS.md` "project-specific values" section. Show the diff in chat. Do NOT apply unless operator says "apply".
 10. Propose initial `policies/protected-paths.yml` candidates. Save as draft if operator approves; do NOT auto-write.
 
@@ -71,7 +73,7 @@ Inspect an unfamiliar repo and produce a durable context map so future sessions 
 |---|---|---|
 | Repo has no manifest, no README, no docs | Initial scan returns nothing identifying | Capture what's visible (file extensions, recent commits). Mark `repo-context.md` as `partial` and ask operator to fill the gaps. |
 | Repo is a monorepo with conflicting conventions | Multiple `package.json` / `pyproject.toml` at different paths | Map each subdir separately. Flag in `repo-context.md` "monorepo: yes". |
-| Repo uses git submodules | `.gitmodules` exists | Note submodules but do not recurse into them in v0.1. |
+| Repo uses git submodules | `.gitmodules` exists | Note submodules in `repo-context.md` but do not recurse into them; map a submodule only if the operator explicitly asks. |
 
 ## Escalation path
 

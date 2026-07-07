@@ -13,6 +13,8 @@ Every new AI agent session in a repo where Fusebase Flow is installed.
 3. Determine your role: Product Owner / AI Developer / Architect (escalation) / Deploy phase. If the operator's first message implies a role, attest it. If unclear, ask.
 4. Self-attest: "Operating as <role> under Fusebase Flow v3.30.8. I will follow FR-01 through FR-27. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for <role>."
 5. Load project state in parallel:
+   - `docs/tmp/handoff.md` (if present — the ACTIVE restart/run-ledger state; read it first, then apply step 5a before trusting its file table)
+   - `docs/specs/repo-context.md` (if present and <90 days old — the durable repo context map; read it INSTEAD of re-investigating structure/commands/protected paths. Older than 90 days or repo restructured since → treat as stale, note it in the status snapshot, offer `repo-onboarding-context-map`)
    - `docs/backlog/index.md` (if exists)
    - `docs/specs/` (list folders for in-flight specs)
    - `docs/tmp/handoff/` (list; read 3 most recent)
@@ -21,6 +23,10 @@ Every new AI agent session in a repo where Fusebase Flow is installed.
    - `docs/problem-catalog/README.md` (index only; don't load entries unless ticket-relevant)
    - `docs/skills/README.md` (project-internal skills index, if exists)
    - `state/context-summary.md` (if present — pre-compact context snapshot from a prior session)
+5a. **Resuming from a handoff (trust gate).** If `docs/tmp/handoff.md` exists: diff its header `Branch:` / `HEAD:` against live `git branch --show-current` / `git rev-parse --short HEAD`.
+   - **Match** → the snapshot is current: trust `Active Files in Flight`, resume from `Next Step`.
+   - **Mismatch** → the repo moved after the write: re-derive in-flight state from `git status --short` + `git log <recorded-HEAD>..HEAD --oneline`; treat the handoff's file table as historical; keep `Key Decisions Made` / `Failed Attempts` (they don't decay with HEAD). Say so in the step-6 status snapshot.
+   - `Mode: run-ledger` → resume from records: read the ledger's cited artifacts first, resume from the last durable fact (`flow-skills/handoff/SKILL.md` § Resuming from a handoff).
 6. Output a status snapshot to operator (Mode A — visual roadmap if multi-phase project).
 7. Append the state-announcement footer to every output:
    ```
@@ -59,4 +65,5 @@ Every new AI agent session in a repo where Fusebase Flow is installed.
 
 - `FLOW_RULES.md` — the rules being attested
 - `workflows/setup.md` — first-time install
-- `flow-skills/repo-onboarding-context-map/SKILL.md` — fills missing project-specific values
+- `flow-skills/repo-onboarding-context-map/SKILL.md` — fills missing project-specific values; produces `docs/specs/repo-context.md` read in step 5
+- `flow-skills/handoff/SKILL.md` — produces `docs/tmp/handoff.md` consumed in steps 5/5a (§ Resuming from a handoff)

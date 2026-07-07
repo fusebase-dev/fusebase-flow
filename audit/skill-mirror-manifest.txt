@@ -34,8 +34,8 @@
 .claude/skills/fusebase-flow-health-check/SKILL.md  ab47c7067a22d6330d3f30f79f78fd9f8c6c8d302628a49be3a129d70d2a45c1
 .agents/skills/git-history-diagnostic/SKILL.md  82d1e561fc1fae0e3678a4d51f087b2e781b6c53f1074c2cd7fa62c7a1bb1ce7
 .claude/skills/git-history-diagnostic/SKILL.md  82d1e561fc1fae0e3678a4d51f087b2e781b6c53f1074c2cd7fa62c7a1bb1ce7
-.agents/skills/handoff/SKILL.md  512dd16afcb81dec7bc6747dff63dadfd7d835a977ae28a040ba5b686980f471
-.claude/skills/handoff/SKILL.md  512dd16afcb81dec7bc6747dff63dadfd7d835a977ae28a040ba5b686980f471
+.agents/skills/handoff/SKILL.md  679fe59e24fe7bdd2cf7647e886ac9b4d6e79513e73c9f6c6d55e719e9e01614
+.claude/skills/handoff/SKILL.md  679fe59e24fe7bdd2cf7647e886ac9b4d6e79513e73c9f6c6d55e719e9e01614
 .agents/skills/implementation-planning/SKILL.md  df273b4c8be4c4f0a11d5a77fdc0305a7ec238e0b725baeb2e9b601bf80cdb56
 .claude/skills/implementation-planning/SKILL.md  df273b4c8be4c4f0a11d5a77fdc0305a7ec238e0b725baeb2e9b601bf80cdb56
 .agents/skills/lightweight-lane/SKILL.md  c97f01cb78f5b8a6925bdf258b121e094f04d8474131fe2ba5fe19abda83261d
@@ -44,8 +44,8 @@
 .claude/skills/liveness-discipline/SKILL.md  c40797353a1b5939e40a0e15b43632c49061348fe218986acbea7c9726f67c2d
 .agents/skills/module-size-discipline/SKILL.md  1d56f66c95595d5881f24166839d4a4dc4de4761a267a7f86ad006f47c61da1e
 .claude/skills/module-size-discipline/SKILL.md  1d56f66c95595d5881f24166839d4a4dc4de4761a267a7f86ad006f47c61da1e
-.agents/skills/north-star/SKILL.md  0052db6692c889abc0ec62752892b43e5708974ec8b621fcea4cbdf35e6e2e72
-.claude/skills/north-star/SKILL.md  0052db6692c889abc0ec62752892b43e5708974ec8b621fcea4cbdf35e6e2e72
+.agents/skills/north-star/SKILL.md  d485dfb06cb215547d2c32f62bebdc332cebc5fbe0ca8ceabeb1bec4a576a111
+.claude/skills/north-star/SKILL.md  d485dfb06cb215547d2c32f62bebdc332cebc5fbe0ca8ceabeb1bec4a576a111
 .agents/skills/phase-audit/SKILL.md  7410f5a2f6d1b9eb5ebf57849fa4378dc3fac059c02637ec913acc1ef8b3e5ae
 .claude/skills/phase-audit/SKILL.md  7410f5a2f6d1b9eb5ebf57849fa4378dc3fac059c02637ec913acc1ef8b3e5ae
 .agents/skills/product-apps-decomposition/SKILL.md  1f189351b44ed93203f777cba55d3a58f76fabaaed1ab9fd2437ba5e50f96e4b
@@ -56,8 +56,8 @@
 .claude/skills/project-onboarding/SKILL.md  bd0eb1bc5f11a4c8f0bd76a3e383d05015fc28e6a1b165a7bef01d3f7176db82
 .agents/skills/release-deploy-reporting/SKILL.md  0bcb0b9689f972ed5a761b28c704a6a4b7ebf2e93132c1dfd6c9ed53e4f912b3
 .claude/skills/release-deploy-reporting/SKILL.md  0bcb0b9689f972ed5a761b28c704a6a4b7ebf2e93132c1dfd6c9ed53e4f912b3
-.agents/skills/repo-onboarding-context-map/SKILL.md  fa61af5cd7393a4196493180c3a22e7d724de8e1c5c0cea93a2760ed2e75b390
-.claude/skills/repo-onboarding-context-map/SKILL.md  fa61af5cd7393a4196493180c3a22e7d724de8e1c5c0cea93a2760ed2e75b390
+.agents/skills/repo-onboarding-context-map/SKILL.md  d0e8c40165353b454a7ee48cc77edc77bc136de1e35cafef1cd86046ed1c19c0
+.claude/skills/repo-onboarding-context-map/SKILL.md  d0e8c40165353b454a7ee48cc77edc77bc136de1e35cafef1cd86046ed1c19c0
 .agents/skills/requirements-specification/SKILL.md  490afe0c59c80de566d51f63db7787c7e0ba3cac5f6d50662a033352292175fb
 .claude/skills/requirements-specification/SKILL.md  490afe0c59c80de566d51f63db7787c7e0ba3cac5f6d50662a033352292175fb
 .agents/skills/role-discipline/SKILL.md  f1287ec7607a6ae50abc421d3856101ae1e928e4a244995e113fe7f96ae08c29
@@ -82,5 +82,5 @@
 .claude/skills/token-economy/SKILL.md  4e705e4f1b5a3b673c7a1de1691eddfcf489d34472dc7b7001d3878af4811c0b
 .agents/skills/validation-and-qa/SKILL.md  121c63b87351cb7f7323eded2e88fae3c6aa7c00abc2a20ea31f61d9ce86e2a0
 .claude/skills/validation-and-qa/SKILL.md  121c63b87351cb7f7323eded2e88fae3c6aa7c00abc2a20ea31f61d9ce86e2a0
-.agents/skills/zoom-out/SKILL.md  24108329ab818022d26c919c2a6ab5f89862b4ea5d877fc4a1bb0576f1338557
-.claude/skills/zoom-out/SKILL.md  24108329ab818022d26c919c2a6ab5f89862b4ea5d877fc4a1bb0576f1338557
+.agents/skills/zoom-out/SKILL.md  dac07aad392bd8151730330f37b1f037c5f80b7e1876b356005971fcfcd37d55
+.claude/skills/zoom-out/SKILL.md  dac07aad392bd8151730330f37b1f037c5f80b7e1876b356005971fcfcd37d55
