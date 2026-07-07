@@ -156,17 +156,28 @@ _ffhc_nap_probe() {
   local fifo; fifo="$(mktemp -u "${TMPDIR:-/tmp}/ffhc-nap.XXXXXX")" || return 0
   mkfifo "$fifo" 2>/dev/null || return 0
   # Open R+W on a dedicated fd (9) so open() never blocks and read never sees EOF.
-  exec 9<>"$fifo" 2>/dev/null || { rm -f "$fifo" 2>/dev/null; return 0; }
+  # Scope the 2>/dev/null to a group: a command-less `exec … 2>/dev/null` would apply the
+  # redirect PERMANENTLY to the sourcing shell, silently discarding all later stderr
+  # (heartbeat/TIMEOUT/SKIPPED markers, and stderr of any consumer that sources this lib —
+  # run-tests.sh, the health-check engine). The group reverts fd 2 after the open.
+  { exec 9<>"$fifo"; } 2>/dev/null || { rm -f "$fifo" 2>/dev/null; return 0; }
   rm -f "$fifo" 2>/dev/null   # unlink now; the open fd keeps the pipe alive
   # Timed probe: a 0.05s nap must really block >= 0.04s. Needs EPOCHREALTIME to measure;
   # if it is absent we cannot verify the primitive, so we reject (fallback stays correct).
-  if [ -z "${EPOCHREALTIME:-}" ]; then exec 9<&- 2>/dev/null; exec 9>&- 2>/dev/null; return 0; fi
+  if [ -z "${EPOCHREALTIME:-}" ]; then { exec 9<&- 9>&-; } 2>/dev/null; return 0; fi
   local a b us
   a="${EPOCHREALTIME/./}"
-  read -t 0.05 -u 9 _ 2>/dev/null
+  # `|| true`: this probe read is DESIGNED to time out (we measure that it blocks >=0.04s).
+  # On MSYS/Cygwin bash, `read -t` timeout is delivered via SIGALRM, so its exit status is
+  # 142 (128+14). Without `|| true`, sourcing this lib under `set -e` (e.g. the upgrade
+  # engine's `set -euo pipefail`) aborts the whole shell at 142 during source, before any
+  # consumer function is even defined. The rc is irrelevant here — only the `us` delta below
+  # decides FFHC_NAP_OK — so neutralizing it is safe and POSIX-identical (Linux read -t
+  # timeout is also >128, making `|| true` a no-op there).
+  read -t 0.05 -u 9 _ 2>/dev/null || true
   b="${EPOCHREALTIME/./}"
   us=$(( 10#$b - 10#$a ))
-  if [ "$us" -ge 40000 ]; then FFHC_NAP_OK=1; FFHC_NAP_FD=9; else exec 9<&- 2>/dev/null; exec 9>&- 2>/dev/null; fi
+  if [ "$us" -ge 40000 ]; then FFHC_NAP_OK=1; FFHC_NAP_FD=9; else { exec 9<&- 9>&-; } 2>/dev/null; fi
 }
 _ffhc_nap_probe
 
