@@ -1,6 +1,6 @@
 ---
 name: business-logic-guardian
-description: Use ONLY when docs/<app>/business-logic.md exists, before fixes/improvements that touch business behavior. Treats the documented business logic as a guard layer — the fix must not silently break documented behavior. Pairs with FR-20 zoom-out. If no business-logic doc exists, this skill does nothing (silent no-op) — do NOT auto-create. Not for net-new features with no documented logic.
+description: Use ONLY when a business-logic doc exists — docs/<app>/business-logic-index.md (AI-default retrieval index), docs/<app>/business-logic.md (human narrative), or docs/en/business-logic.md (the app-business-docs canonical for Fusebase CLI teams) — before fixes/improvements that touch business behavior. Treats the documented business logic as a guard layer — the fix must not silently break documented behavior. Pairs with FR-20 zoom-out. If none of these docs exist, this skill does nothing (silent no-op) — do NOT auto-create any of them. Not for net-new features with no documented logic.
 source_inspiration: conceptual-only
 license_status: clean-room-original
 fusebase_flow_version: 3.5
@@ -18,7 +18,7 @@ hook_dependencies:
 
 # Business Logic Guardian
 
-> **Style:** Mode-B-lite. **Artifact-gated** — inert unless a business-logic doc exists (`docs/<app>/business-logic-index.md` AI-default, or `docs/<app>/business-logic.md` human narrative).
+> **Style:** Mode-B-lite. **Artifact-gated** — inert unless a business-logic doc exists at ANY path in § Doc-path resolution.
 
 ## Purpose
 
@@ -26,15 +26,25 @@ Protect documented business logic during fixes and improvements. The business-lo
 
 > Consumes whichever business-logic doc exists. Per FR-23 (`flow-skills/documentation-budget/SKILL.md`), the AI-default authoring format is the retrieval index `templates/business-logic-index.md` (tables + source paths); the narrative `templates/business-logic.md` is the explicit human-readable option. This skill reads either as the guard layer.
 
+## Doc-path resolution (the gate checks ALL of these)
+
+| Doc | Path | Role |
+|---|---|---|
+| Retrieval index (AI-default, FR-23) | `docs/<app>/business-logic-index.md` | primary guard layer when present |
+| Flow narrative (human option) | `docs/<app>/business-logic.md` | guard layer; supplementary if index exists |
+| CLI-edition narrative (`app-business-docs` canonical) | `docs/en/business-logic.md` | guard layer for Fusebase CLI teams using the provider skill |
+
+If several exist: index first, narratives supplementary. The gate no-ops only when **none** of the three exists.
+
 ## When to invoke
 
-- `docs/<app>/business-logic-index.md` (AI-default retrieval index) **or** `docs/<app>/business-logic.md` (human narrative) exists AND a fix/improvement touches business behavior. If both exist, the index is the primary guard layer; the narrative is supplementary.
+- Any doc in § Doc-path resolution exists — `docs/<app>/business-logic-index.md` (AI-default), `docs/<app>/business-logic.md`, or `docs/en/business-logic.md` (`app-business-docs` canonical) — AND a fix/improvement touches business behavior. If several exist, the index is the primary guard layer; narratives are supplementary.
 - Operator says "don't break the business logic", "does this change behavior".
 - During Implement / post-gate fixes on an app that has documented logic.
 
 ## Do not invoke when
 
-- **Neither `docs/<app>/business-logic-index.md` nor `docs/<app>/business-logic.md` exists** → silent no-op; do not create either (use `app-business-docs`, or the FR-23 `business-logic-index` template, to author one deliberately).
+- **None of the § Doc-path resolution paths exists** (`docs/<app>/business-logic-index.md`, `docs/<app>/business-logic.md`, `docs/en/business-logic.md`) → silent no-op; do not create any of them (author deliberately via `app-business-docs` — which writes `docs/en/business-logic.md` — or the FR-23 `business-logic-index` template).
 - Net-new feature with no documented logic yet.
 - Pure cosmetic edits.
 
@@ -42,12 +52,12 @@ Protect documented business logic during fixes and improvements. The business-lo
 
 | Input | Where it lives | If missing |
 |---|---|---|
-| Business logic doc | `docs/<app>/business-logic.md` | **STOP — no-op.** Author via `app-business-docs` if wanted. |
+| Business logic doc | any § Doc-path resolution path: `docs/<app>/business-logic-index.md` / `docs/<app>/business-logic.md` / `docs/en/business-logic.md` | **STOP — no-op** only if ALL three absent. Author via `app-business-docs` (→ `docs/en/business-logic.md`) or the FR-23 index template if wanted. |
 | The change in progress | current diff/plan | nothing to check; exit |
 
 ## Procedure
 
-1. **Existence gate (FIRST STEP).** No `docs/<app>/business-logic.md` → exit silently. Do not create it.
+1. **Existence gate (FIRST STEP).** Check ALL § Doc-path resolution paths: `docs/<app>/business-logic-index.md`, `docs/<app>/business-logic.md`, `docs/en/business-logic.md`. None exists → exit silently; do not create any. At least one exists → it is the guard layer (index primary).
 2. **Read** the documented business logic / main flows / edge cases.
 3. **Impact-check** the change: does it alter, remove, or contradict any documented behavior or edge case?
 4. **Verify against code** — the doc is the navigation layer; confirm the actual code path matches before trusting the doc (code is source of truth).
@@ -70,7 +80,7 @@ Protect documented business logic during fixes and improvements. The business-lo
 
 ## Escalation path
 
-- Intentional behavior change → update `docs/<app>/business-logic.md` via `app-business-docs`.
+- Intentional behavior change → update whichever guard doc is in use in the same change (narratives via `app-business-docs`, which maintains `docs/en/business-logic.md`; the index via the FR-23 `business-logic-index` template).
 - Conflict with a locked decision → ask operator (FR-11/FR-19).
 
 ## Anti-patterns
