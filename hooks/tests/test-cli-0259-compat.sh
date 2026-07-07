@@ -393,6 +393,37 @@ assert sum("run-typecheck-apps.js" in c for c in chain)==1, f"older-CLI hook rem
 assert sum("hooks/handlers/stop.py" in c for c in chain)==1, f"stop.py not appended: {chain}"
 PY
 
+# AC2 migration (v3.30.8+): an EXISTING install wired with bare `python3 …handler.py` is
+# migrated to the run-handler.sh wrapper on merge (so the python-less self-degrade reaches
+# upgraded projects, not only fresh `cp settings.json.example` ones). CLI Stop hooks and the
+# stop.py substring are preserved; the migration is idempotent.
+P="$TMP_BASE/ac2-migrate"; make_project "$P"
+cat > "$P/.claude/settings.json" <<'EOF'
+{ "hooks": {
+  "SessionStart": [ { "hooks": [ { "type":"command", "command":"python3 \"$CLAUDE_PROJECT_DIR\"/hooks/handlers/session_start.py" } ] } ],
+  "Stop": [ { "hooks": [
+    { "type":"command", "command":"node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/quality-check-apps.js", "timeout":30 },
+    { "type":"command", "command":"python3 \"$CLAUDE_PROJECT_DIR\"/hooks/handlers/stop.py" }
+  ] } ]
+} }
+EOF
+( cd "$P" && "$python_bin" hooks/local/fusebase-flow-overlays/settings-json-merge.py .claude/settings.json >/dev/null 2>&1 )
+"$python_bin" - "$P/.claude/settings.json" <<'PY' && ok "ac2-migrate-python3-to-wrapper" || bad "ac2-migrate-python3-to-wrapper" "see assert"
+import json,sys
+d=json.load(open(sys.argv[1]))
+def cmds(ev): return [h.get("command","") for b in d["hooks"][ev] for h in b.get("hooks",[])]
+ss=cmds("SessionStart"); stop=cmds("Stop")
+assert ss and all("run-handler.sh" in c for c in ss), f"SessionStart not migrated: {ss}"
+assert not any(c.strip().startswith("python3 ") for c in ss+stop), f"bare python3 remains: {ss+stop}"
+assert sum("hooks/handlers/stop.py" in c for c in stop)==1, f"stop.py not exactly once: {stop}"
+assert any("run-handler.sh" in c and "stop.py" in c for c in stop), f"Stop not migrated: {stop}"
+assert sum("quality-check-apps.js" in c for c in stop)==1, f"CLI hook not preserved: {stop}"
+PY
+cp "$P/.claude/settings.json" "$P/snap2.json"
+( cd "$P" && "$python_bin" hooks/local/fusebase-flow-overlays/settings-json-merge.py .claude/settings.json >/dev/null 2>&1 )
+if diff -q "$P/.claude/settings.json" "$P/snap2.json" >/dev/null 2>&1; then ok "ac2-migrate-idempotent"
+else bad "ac2-migrate-idempotent" "second migration run changed the file"; fi
+
 ###############################################################################
 # (c) AC3b — app-api-contract-testing flag-OFF + absent is a benign INFO.
 ###############################################################################

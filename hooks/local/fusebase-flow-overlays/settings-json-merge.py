@@ -37,6 +37,7 @@ Exit codes:
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -156,6 +157,42 @@ def make_event_block(event: str) -> dict[str, Any]:
     return block
 
 
+_HANDLER_RE = re.compile(r"hooks/handlers/([a-z_]+)\.py")
+
+
+def _is_legacy_flow_command(cmd: Any, stem: str) -> bool:
+    """True iff `cmd` is the OLD bare `python3 …/hooks/handlers/<stem>.py` form (pre-v3.30.8),
+    i.e. a Flow lifecycle command NOT yet routed through run-handler.sh. Conservative: only
+    the canonical `python3 `-prefixed form is migrated; an operator customization (a venv
+    path, `py -3 …`, an absolute interpreter) is left untouched."""
+    if not isinstance(cmd, str) or "run-handler.sh" in cmd:
+        return False
+    if f"hooks/handlers/{stem}.py" not in cmd:
+        return False
+    return cmd.lstrip().startswith("python3 ")
+
+
+def _migrate_blocks(blocks: Any, event: str) -> bool:
+    """Rewrite a legacy python3 Flow command in this event's blocks to the run-handler.sh
+    wrapper form (FLOW_HOOKS[event]). Idempotent: the wrapper form is not 'legacy' so a
+    second pass is a no-op. Returns True if anything was migrated. This is what lets an
+    EXISTING install (wired with bare python3) pick up the python-less self-degrade on
+    upgrade — a fresh `cp settings.json.example` already ships the wrapper."""
+    stem_m = _HANDLER_RE.search(FLOW_HOOKS.get(event, ""))
+    if not stem_m or not isinstance(blocks, list):
+        return False
+    stem = stem_m.group(1)
+    migrated = False
+    for block in blocks:
+        if not isinstance(block, dict):
+            continue
+        for hook in block.get("hooks") or []:
+            if isinstance(hook, dict) and _is_legacy_flow_command(hook.get("command"), stem):
+                hook["command"] = FLOW_HOOKS[event]
+                migrated = True
+    return migrated
+
+
 def merge_settings(settings: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     """Return (updated settings, list of changes applied)."""
     changes: list[str] = []
@@ -177,6 +214,10 @@ def merge_settings(settings: dict[str, Any]) -> tuple[dict[str, Any], list[str]]
         if event not in hooks or not hooks[event]:
             hooks[event] = [make_event_block(event)]
             changes.append(f"added {event} event")
+        elif _migrate_blocks(hooks[event], event):
+            # Existing install wired with bare python3 -> route through run-handler.sh so a
+            # python-less machine self-degrades instead of erroring every event.
+            changes.append(f"migrated {event} to run-handler.sh wrapper")
 
     # Stop event: preserve existing CLI hooks; append Fusebase Flow stop.py only if missing
     if "Stop" not in hooks or not hooks["Stop"]:
@@ -197,6 +238,10 @@ def merge_settings(settings: dict[str, Any]) -> tuple[dict[str, Any], list[str]]
         # Stop array exists; check first block's hooks chain for our stop.py
         stop_block = hooks["Stop"][0]
         stop_hooks = stop_block.setdefault("hooks", [])
+        # Migrate a legacy python3 stop.py IN PLACE (before the append-if-missing check —
+        # already_present stays True via the substring, so we rewrite rather than duplicate).
+        if _migrate_blocks(hooks["Stop"], "Stop"):
+            changes.append("migrated Stop to run-handler.sh wrapper")
         for marker, hook in reversed(CLI_STOP_HOOKS):
             already_cli_present = any(marker in h.get("command", "") for h in stop_hooks)
             if not already_cli_present and Path(f".claude/hooks/{marker}").is_file():

@@ -292,7 +292,7 @@ if [ "$WIRE_HOOKS" -ne 1 ]; then
 elif [ ! -f .claude/settings.json ]; then
   ACTIONS_SKIPPED+=(".claude/settings.json not present (Claude Code not configured)")
 elif ! command -v python3 >/dev/null 2>&1; then
-  WARNINGS+=("python3 not on PATH - cannot merge .claude/settings.json automatically")
+  WARNINGS+=("python3 not on PATH - cannot AUTO-MERGE .claude/settings.json (the merge script is Python). To enable hooks without it: cp .claude/settings.json.example .claude/settings.json (it ships the run-handler.sh wrapper, which auto-detects py/python at runtime or self-disables). Install Python 3.11+ (or set FUSEBASE_FLOW_PYTHON) for the auto-merge and to run the handlers.")
 elif [ ! -f "$MERGE_SCRIPT" ]; then
   WARNINGS+=("$MERGE_SCRIPT missing; cannot merge settings.json")
 else
