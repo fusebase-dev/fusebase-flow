@@ -63,7 +63,7 @@ mapfile -t TRUE_TARGET < <(
   find . \( -type d \( \
         -name '.git' -o -name '.fusebase-flow-source' -o -name 'node_modules' \
         -o -name '.claude' -o -name '.agents' -o -name '.codex' \
-        -o -path './internal' \
+        -o -path './internal' -o -path './state' \
         -o -path './docs/release-notes' -o -path './docs/handoff' -o -path './docs/tmp' \
         -o -path './docs/specs' -o -path './docs/changes' -o -path './docs/fusebase-health' \
         -o -path './docs/product-backlog' -o -path './docs/problem-catalog' \
