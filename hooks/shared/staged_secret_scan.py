@@ -41,7 +41,13 @@ def added_lines(diff_text: str) -> str:
     (`-`) line. Returns the added content as one newline-joined blob.
     """
     out: list[str] = []
-    for line in diff_text.splitlines():
+    # Split on "\n" ONLY — NOT str.splitlines(), which ALSO breaks on Unicode/control line
+    # separators (U+2028/U+2029/U+0085 NEL, \v, \f, FS/GS/RS) that git does NOT treat as line
+    # boundaries. `git diff -U0` emits one physical `+` line even when its content contains
+    # those bytes; splitlines() would split it and orphan the tail from its leading "+", so a
+    # secret after such a byte is dropped from the scan (a bypass — flips deny->allow). Only
+    # git's own "\n" delimits diff lines here.
+    for line in diff_text.split("\n"):
         if line.startswith("+++") or line.startswith("---"):
             continue
         if line.startswith("@@"):
@@ -68,6 +74,15 @@ def staged_added_text(root: Path) -> str:
     proc = subprocess.run(
         cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(root)
     )
+    # FAIL-CLOSED (mirrors staged_change_paths, T27/#4): a nonzero git rc means we could not
+    # reliably read the staged diff. Do NOT return an empty blob — that would silently PASS
+    # the scan (fail-open). Raise; the pre-commit's §2 wrapper catches it and BLOCKS. rc0 with
+    # empty stdout is the LEGITIMATE no-staged-content case and returns "" normally.
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"staged_added_text: git diff --cached failed rc={proc.returncode} "
+            "(refusing to scan an unverifiable staged diff — FR-12 fail-closed)"
+        )
     return added_lines(proc.stdout or "")
 
 
