@@ -95,11 +95,21 @@ If the live proof can't be produced (no real input reachable, outcome not measur
 ### Sub-mode C — Reproducibility before fix
 
 1. Operator reports single observed failure ("the system did X").
-2. Reproduce 3 times under the same conditions.
-3. Outcomes:
-   - **3/3 reproduce** → systemic; invoke `requirements-specification` to draft fix spec
-   - **1/3 or 2/3** → likely model variance / non-determinism; document and recommend no-op close
-   - **0/3** → close ticket as no-op-needed
+2. Classify the system under test FIRST — the verdict rules differ:
+   - **DETERMINISTIC app code:** ordinary application/backend/UI logic — same inputs are supposed
+     to give same outputs. Async timing, job ordering, and shared state make the *reproduction
+     rate* vary, not the bug's reality.
+   - **LLM / agent behavior:** the failure is in model output or agent-path choice, where
+     run-to-run variance is inherent.
+3. Reproduce 3 times under the same conditions. Verdicts:
+
+   | System type | 3/3 | 1/3 or 2/3 | 0/3 |
+   |---|---|---|---|
+   | Deterministic app code | Systemic → `requirements-specification` fix spec | **REAL bug** — intermittent ≠ nonexistent. Route to flaky/race investigation: capture `dev-debug-logs` (local) or `remote-logs` (deployed) evidence from a failing run; hunt ordering/timing/state-leak causes. NEVER no-op close. Sole escape — Explained-external (mirrors `smoke-testing` § Flaky-result "Explained"): a NAMED external cause (third-party outage, deploy-propagation delay, cold start) with the ground-truth diagnostic ATTACHED to the ticket evidence; then 3/3 clean under the same conditions after the cause clears before any PASS/close. Bare "couldn't reproduce twice" with no attached diagnostic = REAL bug. | Not reproduced — record exact attempted conditions; vary ONE plausible condition (data state, timing, concurrency) for one more round before recommending close |
+   | LLM / agent behavior | Systemic → fix spec (prompt/tooling/guard) | Model variance — document and recommend no-op close (the classic FR-10 close) | Close as no-op-needed with attempts documented |
+
+   A partial reproduction of deterministic code is the most-laundered bug class: "couldn't
+   reproduce twice" reads as noise but is a race/state bug waiting for a client.
 4. Document attempts in chat with concrete commands, inputs, observed outputs.
 
 ### Sub-mode D — Test-data hygiene cleanup
@@ -149,7 +159,8 @@ For any verification that spans wall-clock time (deploys, jobs, agent runs): rec
 | Shared-state assumption | asserts exact counts or empty state without creating/isolating data | Revise test to create unique data or isolate state before claiming PASS |
 | Smoke S<n> failed | screenshot or log shows divergence from expected | Document `Sn observed Y, expected Z`; do NOT mark spec DONE; surface to operator with rollback/fix-forward options |
 | Browser PASS but backend diagnostic shows error | console/UI looks right while server log/request dump/job row shows failure | Smoke FAIL; attach both evidence surfaces |
-| Reproduce attempt fails 0/3 or partially | 1 or 2 of 3 attempts reproduce | Document model variance; recommend no-op close per FR-10 |
+| Partial reproduction (1/3 or 2/3) — deterministic app code | attempts reproduce intermittently and the system is ordinary app logic | REAL bug: route to flaky/race investigation with `dev-debug-logs` / `remote-logs` evidence from a failing run; never no-op close — sole escape is Sub-mode C Explained-external (named external cause + diagnostic ATTACHED, 3/3 clean re-run after it clears) |
+| Partial reproduction (1/3 or 2/3) — LLM/agent behavior | failure is model output / agent-path variance | Document model variance; recommend no-op close per FR-10 |
 
 ## Escalation path
 
@@ -165,6 +176,7 @@ For any verification that spans wall-clock time (deploys, jobs, agent runs): rec
 - Do NOT print or persist session keys / cookies if a live-user verification is in play; mask in output
 - Do NOT auto-fix lint or typecheck errors without operator approval — surface them
 - Do NOT skip reproducibility-before-fix when a single failure is reported (FR-10)
+- Do NOT close a partially-reproduced failure in deterministic app code as "model variance" — that close is reserved for LLM/agent-behavior failures (Sub-mode C verdict table); an intermittent deterministic failure is a race/state bug unless Explained-external with the named cause's diagnostic ATTACHED (Sub-mode C escape — evidence-gated, never a bare assertion)
 - Do NOT use browser automation for API-only, unit-only, load, or performance testing when a lighter deterministic probe is sufficient
 - Do NOT claim UI/E2E coverage from a test plan with placeholders, uncreated data, brittle selectors, or unspecified auth state
 - Do NOT allow external-service smoke to send real notifications, charges, or customer-visible messages without an approval path

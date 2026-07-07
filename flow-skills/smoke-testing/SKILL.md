@@ -90,6 +90,26 @@ Prevent pre-outcome signals from being mislabeled as smoke success. A smoke test
 13. Clean up or document test data and external-service side effects before DONE. Keep evidence files; remove throwaway data not needed for audit.
 14. If a smoke missed a bug, update future smoke methodology immediately: add the missed outcome or diagnostic surface to the next gate/handoff.
 
+### Flaky-result semantics (FAIL-then-PASS is not PASS)
+
+A smoke S<n> that FAILs and then PASSes on retry is **FLAKY**, not PASS. Retrying until green
+launders a real defect (race, ordering dependency, state leak, async timing) into a false-green ship.
+
+- Record every attempt in the evidence dir: `S<n> attempt 1: FAIL <observed>; attempt 2: PASS` —
+  never overwrite or omit the first result.
+- FLAKY resolves only when the first failure is **reproduced-or-explained**:
+  - **Reproduced:** same conditions re-trigger the failure → real bug. Route to
+    `flow-skills/validation-and-qa/SKILL.md` Sub-mode C (deterministic-system branch); the S<n>
+    verdict is FAIL.
+  - **Explained:** a named, evidenced external cause (deploy-propagation delay confirmed in the
+    platform log; cold-start timeout visible in `remote-logs`) with the ground-truth diagnostic
+    ATTACHED under `docs/tmp/handoff/<date>-<slug>-smoke/`. "Probably a network blip" with no
+    diagnostic is not an explanation.
+- Until one of those holds, report `S<n>: FLAKY (unresolved)` — it counts as FAIL against the
+  smoke threshold and blocks DONE like any FAIL.
+- Reproduction mechanics and the deterministic-vs-model-variance verdict split live in
+  `flow-skills/validation-and-qa/SKILL.md` Sub-mode C.
+
 ## Verification cost discipline (record-then-read default)
 
 Evidence rules above say WHAT counts; this says HOW to obtain it economically. Agent-side watching (re-reading state every cycle while the system works) costs tokens linear with wall-clock regardless of how little happens — measured at ~10× the cost of reading the same evidence once afterward.
@@ -125,6 +145,7 @@ Evidence rules above say WHAT counts; this says HOW to obtain it economically. A
 | End-to-end unavailable | missing live cookie/session/API credential | Use live-user workflow or mark `PENDING-OPERATOR-SMOKE`; spec stays DRAFT |
 | Smoke fail after deploy | S<n> observed != expected or diagnostic shows error | Do not mark DONE; surface rollback vs fix-forward options |
 | Hidden delayed failure | process exits 0 but later dump/log contains exception | Smoke FAIL; attach dump/log evidence |
+| Flaky smoke (FAIL then PASS on retry) | first attempt failed, retry passed, no reproduction or evidenced explanation attached | Verdict `FLAKY (unresolved)` = FAIL against threshold; record all attempts; route first failure to `validation-and-qa` Sub-mode C |
 
 ## Escalation path
 
@@ -137,6 +158,7 @@ Evidence rules above say WHAT counts; this says HOW to obtain it economically. A
 
 - Do not call static deployment checks "smoke."
 - Do not declare PASS from exit code 0 alone.
+- Do not re-run a failed S<n> until it passes and report PASS; FAIL-then-PASS is FLAKY until the first failure is reproduced or explained with attached diagnostics (§ Flaky-result semantics).
 - Do not declare PASS from file hashes, symbol presence, service active, tick latency, or auth transport alone.
 - Do not substitute an easier probe for the sufficient end-to-end probe without marking the result partial.
 - Do not use screenshots alone as PASS evidence for an interactive UI change.

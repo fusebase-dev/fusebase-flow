@@ -116,8 +116,11 @@ After all probes pass, one commit covering:
 ## Rollback procedure (if any probe fails)
 <!-- prevents: irreversible-loss (catastrophic-low-frequency) — taxonomy: policies/ratchet-governance.yml -->
 
-1. `git revert <deploy hash>`
-2. Redeploy (run deploy command again)
+**Rollback surface:** `code-only | migration | secret/config | sidecar/infra | cross-app contract` (classified by the PO per `flow-skills/release-deploy-reporting/SKILL.md` § Rollback-surface classification; multi-class deploys list every class)
+
+1. `code-only` ONLY: `git revert <deploy hash>` → redeploy. Any other class: execute the surface-appropriate plan below (drafted by the PO; a revert-only plan for a non-code surface is invalid — refuse the handoff)
+   - <surface-appropriate steps, one block per class>
+2. Redeploy / re-verify prior state (run the class-appropriate verification probe)
 3. File follow-up backlog ticket documenting failure with concrete evidence
 4. Spec stays DRAFT until follow-up resolves
 

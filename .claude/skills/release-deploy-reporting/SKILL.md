@@ -35,14 +35,14 @@ If the ticket was classified **Lightweight** (`flow-skills/lightweight-lane/SKIL
 
 - Active phase is `Deploy` (per FLOW_RULES state announcement)
 - `validation-and-qa` reported gate passed
-- `code-review` reported zero blockers (or operator accepted them as non-blockers explicitly)
+- `code-review` reported zero blockers — OR every still-open blocker carries a **recorded waiver** in the deploy handoff's `blocker_waivers:` block: verbatim review-summary blocker line + the operator's own accept-phrase naming it + the accepted consequence (the concrete failing scenario / missing test case being shipped). Safety blockers (correctness defect — code-review step 4d; missing/meaningless tests — step 5) are never downgradable to "non-blocker"; they ship only under such a named waiver. A bare "operator accepted the blockers" — unquoted, unnamed, unrecorded — does NOT satisfy this precondition.
 - `security-permissions-review` either ran clean OR all approval artifacts are in place per `approval-policy.yml`
 - Operator says "prepare deploy" / "draft deploy handoff" / "ship it"
 
 ## Do not invoke when
 
 - Gate has not passed (`validation-and-qa` reported failures)
-- Code-review surfaced unaddressed blockers
+- Code-review surfaced unaddressed blockers (unaddressed = neither fixed nor covered by a recorded `blocker_waivers:` entry per § When to invoke — a chat-only "operator said it's fine" leaves the blocker unaddressed)
 - Security review surfaced missing approval artifacts
 - Operator did NOT explicitly ask — this skill's `invocation: manual-for-side-effects` means no auto-trigger
 
@@ -59,14 +59,16 @@ If the ticket was classified **Lightweight** (`flow-skills/lightweight-lane/SKIL
 
 ## Procedure
 
-1. Verify all preconditions: gate passed, code-review clean, security clean **or recorded `security: N/A — no sensitive surface`**, approval artifact present **or `dp1_waiver: eligible` (Deploy session stamps it on the DP.6 phrase)**.
+1. Verify all preconditions: gate passed, code-review clean **or every open blocker recorded in `blocker_waivers:` (verbatim blocker + operator accept-phrase + accepted consequence — § When to invoke)**, security clean **or recorded `security: N/A — no sensitive surface`**, approval artifact present **or `dp1_waiver: eligible` (Deploy session stamps it on the DP.6 phrase)**.
 2. Final pre-deploy worker-undisturbed check: re-run `git diff` against `protected-paths.yml`. If anything changed since the gate report, STOP and report.
 3. For Fusebase Apps deploys, use `docs/fusebase-cli-edition.md` to identify supporting CLI assets for commands, logs, app quality checks, and post-deploy diagnostics.
 4. Draft deploy handoff from `templates/handoff-deploy.md` (canonical; see `workflows/greenlight-deploy.md`). Include:
    - Self-attestation phrase the deployer should output first
    - **DP.1 waiver eligibility** — `dp1_waiver: eligible|excluded — <reason>`: `eligible` iff the ticket is reversible AND touches no protected path / security surface / migration (Deploy session then stamps the DP.1 artifact itself on the operator's DP.6 phrase); the excluded classes keep operator-run DP.1
+   - **`blocker_waivers:` block** (only when open code-review blockers exist) — one entry per blocker: verbatim review-summary line + operator's accept-phrase + accepted consequence. A step-4d/step-5 safety blocker with no entry means the handoff cannot be drafted — STOP and surface the blocker instead
    - Pre-deploy worker-undisturbed re-check instructions
    - Deploy command (exact)
+   - **Rollback surface + plan** — classify the deploy per § Rollback-surface classification below and include the surface-appropriate rollback steps; a bare `git revert` plan is valid ONLY for the `code-only` class
    - Probe list (G-M..G-Q or project equivalents from `verification-gate.md`)
    - Smoke prompts S1..Sn (if applicable), copied from the `smoke-testing` contract with success criterion, ground-truth diagnostic, adversarial check, and evidence required
    - Single-docs-commit instructions (FR-14): spec DRAFT→DONE flip with deploy hash, tasks.md verification marks, backlog index update, README header
@@ -78,7 +80,27 @@ If the ticket was classified **Lightweight** (`flow-skills/lightweight-lane/SKIL
    - Verify smoke results meet threshold from gate contract and satisfy `flow-skills/smoke-testing/SKILL.md` (operator-visible outcome + ground-truth diagnostic, not supporting checks only)
    - Verify single docs commit landed (one SHA covering all post-deploy doc updates)
 8. If all verified, acknowledge with summary + tally update + identify what's next (parked backlog options, observation period).
-9. If any probe failed, do NOT acknowledge as success. Surface failure with rollback (`git revert <hash>` + redeploy) or fix-forward (follow-up task) options. Operator decides.
+9. If any probe failed, do NOT acknowledge as success. Surface failure with rollback per the handoff's rollback-surface plan (`git revert <hash>` + redeploy ONLY for `code-only`; otherwise the surface-appropriate steps from § Rollback-surface classification) or fix-forward (follow-up task) options. Operator decides.
+
+## Rollback-surface classification
+
+`git revert <hash>` + redeploy only un-ships CODE. Every deploy handoff classifies what the deploy
+actually changes and carries a rollback plan matched to that surface. A revert-only plan on a
+non-code surface is a false rollback: the code goes back while the migration/secret/sidecar/contract
+stays forward.
+
+| Surface class | The deploy changes... | Valid rollback plan | `git revert`+redeploy alone? |
+|---|---|---|---|
+| `code-only` | app/backend source, assets, config fully re-applied by redeploy | `git revert <hash>` + redeploy | VALID |
+| `migration` | DB/dashboard schema, store structure, data backfill | Down-migration or restore path, stated AND checked against data written since deploy; if irreversible, say so explicitly and give the forward-fix path | NOT valid alone |
+| `secret/config` | secrets, env vars, third-party keys, permission grants | Restore prior secret/config value (name where the prior value lives); revoke newly-issued credentials | NOT valid alone |
+| `sidecar/infra` | sidecar containers, cron registrations, resource tiers | Remove/re-register sidecar/cron to prior state with exact CLI commands (`app-sidecar`, backend cron docs) | NOT valid alone |
+| `cross-app contract` | an API surface other apps call (`callAppApi` providers, `*.contract.json`) | Coordinated plan: contract-compatible revert or consumer notification; check dependent apps first (`app-api-contract-testing`) | NOT valid alone |
+
+Classify by the DIFF + deploy steps, not intent: if the deploy runs a migration, writes a secret,
+touches sidecars/cron, or changes a provider contract, that class applies even when "the main
+change is code." Multi-class deploys carry one plan per class. A Deploy session must refuse a
+handoff whose rollback plan does not match its surface class.
 
 ## Output artifacts
 
@@ -98,12 +120,14 @@ If the ticket was classified **Lightweight** (`flow-skills/lightweight-lane/SKIL
 | Probe failure | Pasted report shows `Pn FAIL` | Do NOT mark spec DONE. Surface rollback / fix-forward options. |
 | Smoke threshold not met | Pass ratio below gate contract | Do NOT mark spec DONE. Surface failure with concrete `Sn observed Y, expected Z`. |
 | Multiple docs commits instead of one | Pasted report shows multiple SHAs for spec/tasks/backlog updates | Note as FR-14 violation; document but don't block (deploy already happened); flag for next deploy cycle |
+| Rollback plan mismatched to surface | Handoff for a migration / secret / sidecar / cross-app-contract deploy carries only `git revert` + redeploy | STOP before deploy; reclassify per § Rollback-surface classification and rewrite the rollback plan |
+| Open code-review blocker without recorded waiver | Handoff/report carries an open blocker (incl. step-4d correctness / step-5 test blockers) with no matching `blocker_waivers:` entry (verbatim blocker + operator accept-phrase + consequence) | STOP before deploy. A chat-only or paraphrased "operator accepted" is not a waiver — record the entry in the operator's own words, or fix the blocker |
 
 ## Escalation path
 
 - Deploy command unknown or platform-blocker emerges → STOP; file `docs/problem-catalog/deploy-blocker-<date>/problem.md`
 - Probe infrastructure unavailable → cannot verify; STOP and surface to operator before attempting deploy
-- Rollback needed → produce concrete `git revert <hash>` + redeploy steps; operator confirms before execution
+- Rollback needed → produce the surface-appropriate steps from the handoff's rollback-surface classification (`git revert` + redeploy only for `code-only`); operator confirms before execution
 
 ## Anti-patterns
 
@@ -112,6 +136,7 @@ If the ticket was classified **Lightweight** (`flow-skills/lightweight-lane/SKIL
 - Do NOT mark spec DONE before all probes pass
 - Do NOT split deploy docs across multiple commits (FR-14)
 - Do NOT print or persist secrets / session keys in handoff or report
+- Do NOT accept `git revert` + redeploy as the rollback plan for a deploy whose surface class is not `code-only` (§ Rollback-surface classification)
 - Do NOT skip the final worker-undisturbed re-check even though gate already ran one
 
 ## Clean-room note

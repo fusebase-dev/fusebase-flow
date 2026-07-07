@@ -11,7 +11,7 @@
       "name": "fusebase-flow",
       "source": "./",
       "description": "Two-agent (Product Owner + AI Developer) spec-to-deploy lifecycle for building internal and client apps with AI, plus FuseBase Apps domain skills. Repo-local, tool-portable, no SaaS.",
-      "version": "3.30.7",
+      "version": "3.30.8",
       "author": {
         "name": "FuseBase (Nimbus Web Inc.)"
       },

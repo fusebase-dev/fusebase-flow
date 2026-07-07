@@ -87,13 +87,36 @@ Independent review of a diff against the spec contract, locked decisions, and FL
      and justified (generated / vendored / data-as-code) — an agent-initiated baseline raise or
      exemption for ordinary source is a blocker.
    - Reference: `flow-skills/module-size-discipline/SKILL.md`.
-5. Test coverage scan: tests are *meaningful* for the new behavior (assert real outcomes, not just "no exception"); the deterministic AC-coverage map is the gate's.
+4d. Correctness / defect-hunt dimension — actively hunt a bug in the CHANGED logic before
+   certifying "safe"; scope is the diff, not the whole codebase. Per changed function/branch:
+   - **Edge cases:** empty/zero/one/max inputs, boundary indices, off-by-one in loops/slices,
+     empty collections, first/last element, unicode/whitespace in string handling.
+   - **Error & failure paths:** a call inside the change throws / returns error / times out —
+     is the failure surfaced, swallowed, or half-applied (partial write, no cleanup)?
+   - **Concurrency / races:** shared state without ordering guarantees, check-then-act (TOCTOU)
+     windows, interleaving async handlers, retries that double-apply.
+   - **Input validation:** external input (API params, file content, env, user text) reaching
+     the changed logic unvalidated; unchecked coercion of external JSON.
+   - **State & lifecycle:** resources closed on ALL paths incl. the error path; re-run idempotency.
+   Verdict discipline: "no defect found" is claimable only after the hunt ran — name the top-2
+   suspect paths examined and why they hold (1 line each in the review summary). A found defect
+   is a blocker when reachable on a production path; non-blocker in test/dev scaffolding.
+5. Test coverage scan (the deterministic AC-coverage map is the gate's; this is the semantic
+   half). Blocker criteria — flag any of:
+   - **No test at all** for a changed production behavior that has a testable seam.
+   - **Meaningless assertion:** only asserts "no exception" / truthy / blind snapshot-update —
+     observed output never compared to expected.
+   - **Tests the mock:** assertions verify mock wiring, not the changed logic's outcome.
+   - **Happy-path only** where the diff itself added error/edge branches (the new branch is
+     dead code to the suite).
+   Each is a blocker when the changed behavior is production-path; non-blocker for dev
+   tooling/scaffolding. Remedy: name the missing case — do NOT write the test yourself.
 6. Rollback safety: each commit individually revertable; no commit straddles unrelated changes.
 7. Output review summary in chat:
    - Blockers (must fix before deploy)
    - Non-blockers (improvement candidates; can be follow-up tickets)
    - Spec alignment matrix (table; deterministic AC↔task statuses carried from the gate verdict by citation)
-8. If invoked from operator chat: end with "Review complete. <N> blockers, <M> non-blockers. Operator decides whether to fix or proceed."
+8. If invoked from operator chat: end with "Review complete. <N> blockers, <M> non-blockers. Operator decides whether to fix or proceed." Proceeding to deploy past an open blocker is not a chat-side call: it requires the per-blocker recorded waiver in the deploy handoff (`release-deploy-reporting` § When to invoke) — step-4d/step-5 safety blockers especially.
 
 ## Output artifacts
 
@@ -117,6 +140,8 @@ Independent review of a diff against the spec contract, locked decisions, and FL
 | Over-ceiling growth (FR-25) | Diff grows a gated file past the ceiling / grows an over-ceiling file (check `policies/module-size.yml` + baseline) | Flag as blocker; remedy = extract along a responsibility seam or explicit operator exemption |
 | Mechanical split (FR-25) | Extraction lands in a file whose name states no responsibility (`utils2`/`helpers2`/`misc`/`extra`-style) | Flag as blocker (observable criterion — no intent inference); a named-but-debatable seam is a non-blocker improvement |
 | Agent-raised baseline / exemption (FR-25) | Baseline values raised or `exempt_globs` widened without operator approval | Flag as blocker — exemptions are operator decisions |
+| Correctness defect in changed logic | Defect-hunt (step 4d) finds a reachable edge-case / error-path / race / validation bug in the diff | Flag as blocker with a concrete failing-input → wrong-outcome scenario; production-path defects block deploy, scaffolding-only defects are non-blockers |
+| Missing or meaningless tests (step 5) | Changed production behavior has no test, assertion-free tests, mock-only assertions, or happy-path-only coverage of new error/edge branches | Flag as blocker (production-path) and name the missing case; test/dev scaffolding gaps are non-blockers |
 
 ## Escalation path
 
@@ -132,6 +157,7 @@ Independent review of a diff against the spec contract, locked decisions, and FL
 - Do NOT re-verify deterministic gate fields (AC↔task map, decisions-cited, lint/typecheck, TODO scan, protected paths) when a recorded gate verdict exists — trust it; absent a verdict, route to `validation-and-qa` first
 - Do NOT enforce the comment policy (FR-22) by proposing a regex/lint gate — it's a semantic call; review by reading. And don't only hunt over-commenting: a deleted tripwire/pointer is the symmetric failure (over-trim) and is a blocker.
 - Do NOT judge split quality (FR-25) by line counts alone — the gate already counts lines; review checks the semantic part (is the seam a nameable responsibility), which no regex can.
+- Do NOT certify "safe to ship" from scope/decision/style/size checks alone — a review without the step-4d defect hunt never looked for a bug, and "is this safe?" was the question. An empty blocker list must carry the hunt evidence (top-2 suspect paths examined).
 
 ## Clean-room note
 
