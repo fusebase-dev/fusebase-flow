@@ -32,27 +32,53 @@ if [ -z "$HANDLER" ]; then
     exit 0
 fi
 
-# Resolve an interpreter. The override may itself be multi-word ("py -3"), so probe only
-# its first token for existence.
-FF_PY=""
-if [ -n "${FUSEBASE_FLOW_PYTHON:-}" ] && command -v "${FUSEBASE_FLOW_PYTHON%% *}" >/dev/null 2>&1; then
-    FF_PY="$FUSEBASE_FLOW_PYTHON"
-elif command -v python3 >/dev/null 2>&1; then
-    FF_PY="python3"
-elif command -v py >/dev/null 2>&1; then
-    FF_PY="py -3"
-elif command -v python >/dev/null 2>&1; then
-    FF_PY="python"
+# --- interpreter resolution ---------------------------------------------------------
+# A candidate is only accepted if it is a REAL, WORKING Python 3. Two traps on Windows:
+#   - Microsoft Store "App Execution Alias" stubs (python.exe/python3.exe under
+#     .../WindowsApps/) satisfy `command -v python3` on a stock machine before Python is
+#     installed, but running them does NOT run Python (they open the Store / exit nonzero).
+#     Accepting one re-creates the per-event error this wrapper exists to remove.
+#   - a bare `python` may be Python 2 (handlers are py3 -> SyntaxError every event).
+# We pick the resolved command into an ARRAY so a space-containing path
+# (C:\Program Files\PythonXY\python.exe) and a multi-word launcher ("py -3") both work.
+_ff_is_store_stub() {  # $1 = command name; true if it resolves under WindowsApps (alias stub)
+    case "$(command -v "$1" 2>/dev/null)" in *[/\\]WindowsApps[/\\]*) return 0 ;; esac
+    return 1
+}
+_ff_is_py3() {  # runs the candidate as an interpreter; true iff it is a working Python >= 3
+    "$@" -c "import sys; sys.exit(0 if sys.version_info[0] >= 3 else 1)" >/dev/null 2>&1
+}
+
+FF_PY_CMD=()
+# 1. Explicit override: accept a whole-string executable (handles spaces) OR a multi-word
+#    launcher; verify it is really py3. If set but unusable, WARN (never silently ignore).
+if [ -n "${FUSEBASE_FLOW_PYTHON:-}" ]; then
+    if command -v "$FUSEBASE_FLOW_PYTHON" >/dev/null 2>&1 && _ff_is_py3 "$FUSEBASE_FLOW_PYTHON"; then
+        FF_PY_CMD=("$FUSEBASE_FLOW_PYTHON")
+    elif command -v "${FUSEBASE_FLOW_PYTHON%% *}" >/dev/null 2>&1; then
+        read -r -a _ff_ovr <<< "$FUSEBASE_FLOW_PYTHON"
+        _ff_is_py3 "${_ff_ovr[@]}" && FF_PY_CMD=("${_ff_ovr[@]}")
+    fi
+    if [ ${#FF_PY_CMD[@]} -eq 0 ]; then
+        echo "[fusebase-flow:run-handler] FUSEBASE_FLOW_PYTHON='$FUSEBASE_FLOW_PYTHON' is not a working Python 3 -- falling back to auto-detect." >&2
+    fi
+fi
+# 2. Auto-detect: skip Store alias stubs; `py -3` forces py3; verify a bare `python` is py3.
+if [ ${#FF_PY_CMD[@]} -eq 0 ]; then
+    if command -v python3 >/dev/null 2>&1 && ! _ff_is_store_stub python3; then FF_PY_CMD=(python3)
+    elif command -v py >/dev/null 2>&1; then FF_PY_CMD=(py -3)
+    elif command -v python >/dev/null 2>&1 && ! _ff_is_store_stub python && _ff_is_py3 python; then FF_PY_CMD=(python)
+    fi
 fi
 
-if [ -z "$FF_PY" ]; then
-    # No interpreter found. Emit ONE warning -- routed to the lowest-frequency event
+if [ ${#FF_PY_CMD[@]} -eq 0 ]; then
+    # No WORKING interpreter. Emit ONE warning -- routed to the lowest-frequency event
     # (SessionStart) and silent on the high-frequency ones (Pre/PostToolUse, ...) so a
     # python-less machine sees a single clear message, not one per tool call. The warning
     # MUST go to stderr: stdout may be parsed as a hook decision.
     case "$HANDLER" in
         *session_start.py)
-            echo "[fusebase-flow] Python 3 not found on PATH -- Fusebase Flow lifecycle hooks are DISABLED for this session. Install Python 3.11+ or set FUSEBASE_FLOW_PYTHON to your interpreter. (Git fallback hooks still enforce protected paths and secrets.)" >&2
+            echo "[fusebase-flow] No working Python 3 found (checked python3 / py / python; Microsoft Store alias stubs and Python 2 are rejected) -- Fusebase Flow lifecycle hooks are DISABLED for this session. Install Python 3.11+ or set FUSEBASE_FLOW_PYTHON to your interpreter. (Git fallback hooks still enforce protected paths and secrets.)" >&2
             ;;
     esac
     exit 0
@@ -64,6 +90,6 @@ if [ ! -f "$HANDLER" ]; then
 fi
 
 # Run the handler under the resolved interpreter, passing stdin through and propagating
-# its EXACT exit code. $FF_PY is intentionally unquoted so "py -3" word-splits into
-# launcher + flag; the handler path stays quoted.
-exec $FF_PY "$HANDLER"
+# its EXACT exit code. Array expansion keeps a space-containing path intact and a
+# multi-word launcher split correctly; the handler path stays a single quoted arg.
+exec "${FF_PY_CMD[@]}" "$HANDLER"
