@@ -24,7 +24,7 @@ from .constants import CONFIRMED, DISMISSED, INCONCLUSIVE, DEFAULT_WINDOW
 
 
 def _git(root, *args):
-    subprocess.run(["git", *args], cwd=str(root), capture_output=True, text=True, timeout=30)
+    subprocess.run(["git", *args], cwd=str(root), capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
 
 
 def _init_fixture_repo(root, files, commits):

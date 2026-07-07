@@ -61,7 +61,7 @@ def git_root():
     try:
         out = subprocess.run(
             ["git", "rev-parse", "--show-toplevel"],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10,
         )
         if out.returncode == 0 and out.stdout.strip():
             return Path(out.stdout.strip())
@@ -291,7 +291,7 @@ def session_findings(s):
 def fallback_summary(root):
     lines = ["", "## Repo-side fallback summary (transcript metrics unavailable)", ""]
     try:
-        out = subprocess.run(["git", "ls-files"], capture_output=True, text=True,
+        out = subprocess.run(["git", "ls-files"], capture_output=True, text=True, encoding="utf-8", errors="replace",
                              cwd=str(root), timeout=30)
         sizes = []
         for rel in out.stdout.splitlines():

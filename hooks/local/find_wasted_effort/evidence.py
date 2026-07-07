@@ -57,7 +57,7 @@ def git_log(root, n):
     try:
         out = subprocess.run(
             ["git", "log", "-n", str(n), "--pretty=%H%x00%s"],
-            capture_output=True, text=True, cwd=str(root), timeout=30,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(root), timeout=30,
         )
         if out.returncode != 0:
             return []
@@ -77,7 +77,7 @@ def git_numstat(root, n):
     try:
         out = subprocess.run(
             ["git", "log", "-n", str(n), "--numstat", "--pretty=format:%x01%H"],
-            capture_output=True, text=True, cwd=str(root), timeout=30,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(root), timeout=30,
         )
         if out.returncode != 0:
             return {}
