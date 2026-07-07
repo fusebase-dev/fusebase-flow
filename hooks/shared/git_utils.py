@@ -10,11 +10,19 @@ from pathlib import Path
 
 
 def _run(args: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess:
+    # encoding="utf-8" (not the platform default): git emits UTF-8, but `text=True` alone
+    # decodes with locale.getpreferredencoding() — cp1252 on Windows — which raises
+    # UnicodeDecodeError on bytes undefined there (0x81/0x8D/0x8F/0x90/0x9D) and leaves
+    # .stdout None. Callers here read commit messages (recent_commits) and full staged file
+    # content (staged_content), both of which routinely carry such bytes. errors="replace"
+    # degrades gracefully instead of crashing a hook.
     return subprocess.run(
         args,
         cwd=str(cwd) if cwd else None,
         capture_output=True,
         text=True,
+        encoding="utf-8",
+        errors="replace",
         check=False,
     )
 

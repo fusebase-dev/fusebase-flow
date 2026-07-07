@@ -130,7 +130,7 @@ def _staged_mode_and_sha(path: str, root: Path) -> tuple[str, str] | None:
     try:
         proc = subprocess.run(
             ["git", "ls-files", "--stage", "--", path],
-            capture_output=True, text=True, cwd=str(root),
+            capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(root),
         )
     except Exception:
         return None
@@ -169,7 +169,7 @@ def staged_change_paths(root: Path) -> list[str]:
     try:
         proc = subprocess.run(
             ["git", "diff", "--cached", "--name-status", "-M"],
-            capture_output=True, text=True, cwd=str(root),
+            capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(root),
         )
     except Exception as e:
         raise RuntimeError(f"staged_change_paths: git name-status subprocess failed ({e!r})") from e

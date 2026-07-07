@@ -57,8 +57,18 @@ def staged_added_text(root: Path) -> str:
         "git", "diff", "--cached", "-U0", "--",
         ".", *_EXCLUDE_PATHSPECS,
     ]
-    proc = subprocess.run(cmd, capture_output=True, text=True, cwd=str(root))
-    return added_lines(proc.stdout)
+    # Force UTF-8: git emits UTF-8 diff content, but `text=True` alone decodes with
+    # locale.getpreferredencoding() — cp1252 on Windows — which raises UnicodeDecodeError
+    # on any byte undefined there (0x81/0x8D/0x8F/0x90/0x9D; e.g. U+2510 box-drawing corner,
+    # whose UTF-8 e2 94 90 carries the undefined 0x90 — this comment stays ASCII on purpose).
+    # On that failure subprocess.run's reader thread dies and leaves proc.stdout None, so the
+    # scan crashes the commit (or fails open) instead of scanning. errors="replace" degrades
+    # non-UTF-8 bytes to U+FFFD without masking ASCII secret tokens; `or ""` guards a None
+    # stdout from any other subprocess failure.
+    proc = subprocess.run(
+        cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(root)
+    )
+    return added_lines(proc.stdout or "")
 
 
 def _restore_site_packages() -> None:
