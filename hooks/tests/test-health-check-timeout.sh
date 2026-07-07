@@ -432,7 +432,9 @@ ht_ws4_msys_defaults() {
   local exp_pre exp_tests plat
   if ffhc_is_msys; then exp_pre=60; exp_tests=120; plat="MSYS/Git-Bash"; else exp_pre=30; exp_tests=60; plat="POSIX"; fi
   # --fast: skips hook tests + upstream, keeps preflight => PARTIAL_UNVERIFIED/exit 4.
-  local OUT; OUT="$(cd "$D" && bash hooks/local/fusebase-flow-health-check.sh --fast 2>&1; echo "EXIT=$?")"
+  # Assert the platform DEFAULTS — unset any operator FFHC_* budget overrides in the subshell,
+  # so an env that raises these (common on slow MSYS hosts) can't fail the defaults assertion.
+  local OUT; OUT="$(cd "$D" && env -u FFHC_PREFLIGHT_TIMEOUT -u FFHC_TESTS_TIMEOUT -u FFHC_FETCH_TIMEOUT -u FFHC_CONFLICT_TIMEOUT bash hooks/local/fusebase-flow-health-check.sh --fast 2>&1; echo "EXIT=$?")"
   echo "$OUT" | grep -q "^EXIT=4$" || { ht_fail "ws4-msys-defaults" "$OUT"; return; }
   echo "$OUT" | grep -q "Current effective timeout budgets" || { ht_fail "ws4-msys-defaults (no knob-values recommendation)" "$OUT"; return; }
   echo "$OUT" | grep -qF "FFHC_PREFLIGHT_TIMEOUT=${exp_pre}s" || { ht_fail "ws4-msys-defaults (preflight default != ${exp_pre}s for $plat)" "$OUT"; return; }
