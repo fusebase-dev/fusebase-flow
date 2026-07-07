@@ -424,6 +424,26 @@ cp "$P/.claude/settings.json" "$P/snap2.json"
 if diff -q "$P/.claude/settings.json" "$P/snap2.json" >/dev/null 2>&1; then ok "ac2-migrate-idempotent"
 else bad "ac2-migrate-idempotent" "second migration run changed the file"; fi
 
+# Migration must EXACT-match the canonical legacy form — never clobber an operator
+# customization: an added interpreter flag (`python3 -I …`) or a DIFFERENT file whose path
+# merely contains hooks/handlers/<x>.py (…/custom/hooks/handlers/<x>.py) must be left as-is.
+P="$TMP_BASE/ac2-noclobber"; make_project "$P"
+cat > "$P/.claude/settings.json" <<'EOF'
+{ "hooks": {
+  "SessionStart": [ { "hooks": [ { "type":"command", "command":"python3 -I \"$CLAUDE_PROJECT_DIR\"/hooks/handlers/session_start.py" } ] } ],
+  "PreToolUse": [ { "matcher":"Bash", "hooks": [ { "type":"command", "command":"python3 \"$CLAUDE_PROJECT_DIR\"/custom/hooks/handlers/pre_tool_use.py" } ] } ]
+} }
+EOF
+( cd "$P" && "$python_bin" hooks/local/fusebase-flow-overlays/settings-json-merge.py .claude/settings.json >/dev/null 2>&1 )
+"$python_bin" - "$P/.claude/settings.json" <<'PY' && ok "ac2-migrate-no-clobber-customizations" || bad "ac2-migrate-no-clobber-customizations" "see assert"
+import json,sys
+d=json.load(open(sys.argv[1]))
+def cmds(ev): return [h.get("command","") for b in d["hooks"][ev] for h in b.get("hooks",[])]
+ss=cmds("SessionStart"); pt=cmds("PreToolUse")
+assert any("python3 -I " in c and "run-handler.sh" not in c for c in ss), f"'-I' customization was clobbered: {ss}"
+assert any("/custom/hooks/handlers/pre_tool_use.py" in c and "run-handler.sh" not in c for c in pt), f"custom-path hook was clobbered: {pt}"
+PY
+
 ###############################################################################
 # (c) AC3b — app-api-contract-testing flag-OFF + absent is a benign INFO.
 ###############################################################################

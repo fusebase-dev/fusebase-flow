@@ -161,15 +161,19 @@ _HANDLER_RE = re.compile(r"hooks/handlers/([a-z_]+)\.py")
 
 
 def _is_legacy_flow_command(cmd: Any, stem: str) -> bool:
-    """True iff `cmd` is the OLD bare `python3 …/hooks/handlers/<stem>.py` form (pre-v3.30.8),
-    i.e. a Flow lifecycle command NOT yet routed through run-handler.sh. Conservative: only
-    the canonical `python3 `-prefixed form is migrated; an operator customization (a venv
-    path, `py -3 …`, an absolute interpreter) is left untouched."""
+    """True iff `cmd` is EXACTLY the old canonical `python3 "$CLAUDE_PROJECT_DIR"/hooks/
+    handlers/<stem>.py` form (or its legacy `${PROJECT_DIR}` placeholder variant) that the
+    pre-v3.30.8 settings.json.example / DEFAULT_FLOW_HOOKS wired. EXACT match on purpose — a
+    startswith/substring test clobbers operator customizations: an added interpreter flag
+    (`python3 -I …`) would be silently dropped, and a DIFFERENT file whose path merely
+    contains `hooks/handlers/<stem>.py` (e.g. `…/custom/hooks/handlers/<stem>.py`) would be
+    replaced. When the command is not the exact canonical shape we do NOT migrate."""
     if not isinstance(cmd, str) or "run-handler.sh" in cmd:
         return False
-    if f"hooks/handlers/{stem}.py" not in cmd:
-        return False
-    return cmd.lstrip().startswith("python3 ")
+    return cmd.strip() in {
+        f'python3 "$CLAUDE_PROJECT_DIR"/hooks/handlers/{stem}.py',
+        f'python3 "${{PROJECT_DIR}}"/hooks/handlers/{stem}.py',
+    }
 
 
 def _migrate_blocks(blocks: Any, event: str) -> bool:
