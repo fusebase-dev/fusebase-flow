@@ -19,7 +19,7 @@ You are an Architect session that has investigated a complex / cross-cutting des
 
 **Status:** Architect investigation complete; spec / decisions (PENDING locks) / tasks / verification-gate produced in `docs/specs/<slug>/`; awaiting PO + operator to review and lock
 **Slug:** `<slug>`
-**Reporting session:** Architect under Fusebase Flow v3.30.7 (FR-01..FR-27, AR.1..AR.9)
+**Reporting session:** Architect under Fusebase Flow v3.30.8 (FR-01..FR-27, AR.1..AR.9)
 **Date:** <YYYY-MM-DD>
 
 ---
