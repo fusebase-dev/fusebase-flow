@@ -43,13 +43,17 @@ from typing import Any
 
 # Default Fusebase Flow hook commands. Used when upstream `.fusebase-flow-source/`
 # clone is not available. Auto-discovered from the upstream when present.
+# Commands route through hooks/local/run-handler.sh (interpreter auto-detect +
+# graceful self-degrade on a python-less machine). The FULL handler path is passed so
+# the `hooks/handlers/<x>.py` substring stays in the command — both the discovery above
+# (`'hooks/handlers/' in hc`) and the Stop-detection below key on that substring.
 DEFAULT_FLOW_HOOKS = {
-    "SessionStart":     'python3 "$CLAUDE_PROJECT_DIR"/hooks/handlers/session_start.py',
-    "UserPromptSubmit": 'python3 "$CLAUDE_PROJECT_DIR"/hooks/handlers/user_prompt_submit.py',
-    "PreToolUse":       'python3 "$CLAUDE_PROJECT_DIR"/hooks/handlers/pre_tool_use.py',
-    "PostToolUse":      'python3 "$CLAUDE_PROJECT_DIR"/hooks/handlers/post_tool_use.py',
-    "Stop":             'python3 "$CLAUDE_PROJECT_DIR"/hooks/handlers/stop.py',
-    "PreCompact":       'python3 "$CLAUDE_PROJECT_DIR"/hooks/handlers/pre_compact.py',
+    "SessionStart":     'bash "$CLAUDE_PROJECT_DIR"/hooks/local/run-handler.sh "$CLAUDE_PROJECT_DIR"/hooks/handlers/session_start.py',
+    "UserPromptSubmit": 'bash "$CLAUDE_PROJECT_DIR"/hooks/local/run-handler.sh "$CLAUDE_PROJECT_DIR"/hooks/handlers/user_prompt_submit.py',
+    "PreToolUse":       'bash "$CLAUDE_PROJECT_DIR"/hooks/local/run-handler.sh "$CLAUDE_PROJECT_DIR"/hooks/handlers/pre_tool_use.py',
+    "PostToolUse":      'bash "$CLAUDE_PROJECT_DIR"/hooks/local/run-handler.sh "$CLAUDE_PROJECT_DIR"/hooks/handlers/post_tool_use.py',
+    "Stop":             'bash "$CLAUDE_PROJECT_DIR"/hooks/local/run-handler.sh "$CLAUDE_PROJECT_DIR"/hooks/handlers/stop.py',
+    "PreCompact":       'bash "$CLAUDE_PROJECT_DIR"/hooks/local/run-handler.sh "$CLAUDE_PROJECT_DIR"/hooks/handlers/pre_compact.py',
 }
 
 # Default matchers per Claude Code conventions. Auto-discovered from upstream

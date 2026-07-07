@@ -6,10 +6,14 @@
   ],
   "_comment_about_this_file": [
     "This is an EXAMPLE settings file for Claude Code shipped with Fusebase Flow.",
-    "To enable: copy to `.claude/settings.json` and customize the python interpreter path.",
+    "To enable: copy to `.claude/settings.json`. No manual interpreter editing needed —",
+    "lifecycle hooks route through hooks/local/run-handler.sh, which auto-detects your",
+    "Python interpreter (python3 / py / python; override with FUSEBASE_FLOW_PYTHON) and,",
+    "if none is found, self-disables with ONE warning instead of erroring every event.",
     "Hooks read JSON events from stdin and write decisions to stdout — see",
     "hooks/README.md and hooks/flow_hook_event.schema.json.",
     "Flow hook commands use $CLAUDE_PROJECT_DIR (set by Claude Code at runtime) so they resolve from any subdir.",
+    "The run-handler.sh wrapper is passed the FULL handler path so the `hooks/handlers/<x>.py` substring stays in the command — settings-json-merge.py and the health-check detect a wired Flow hook by that substring.",
     "This example keeps CLI Stop hooks and Flow lifecycle hooks together additively.",
     "Stop hooks mirror the FuseBase CLI 0.25.9 wired set (run-lint-on-stop.sh, run-typecheck-on-stop.sh, quality-check-apps.js) followed by Flow stop.py. The merge is preserve-only: it appends stop.py and keeps every existing CLI Stop hook; it never static-injects a hook from a name (an older-CLI project that still wires run-typecheck-apps.js keeps it).",
     "PreToolUse uses the current hookSpecificOutput.permissionDecision style."
@@ -20,7 +24,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/hooks/handlers/session_start.py"
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/hooks/local/run-handler.sh \"$CLAUDE_PROJECT_DIR\"/hooks/handlers/session_start.py"
           }
         ]
       }
@@ -30,7 +34,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/hooks/handlers/user_prompt_submit.py"
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/hooks/local/run-handler.sh \"$CLAUDE_PROJECT_DIR\"/hooks/handlers/user_prompt_submit.py"
           }
         ]
       }
@@ -41,7 +45,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/hooks/handlers/pre_tool_use.py"
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/hooks/local/run-handler.sh \"$CLAUDE_PROJECT_DIR\"/hooks/handlers/pre_tool_use.py"
           }
         ]
       }
@@ -52,7 +56,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/hooks/handlers/post_tool_use.py"
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/hooks/local/run-handler.sh \"$CLAUDE_PROJECT_DIR\"/hooks/handlers/post_tool_use.py"
           }
         ]
       }
@@ -80,7 +84,7 @@
           },
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/hooks/handlers/stop.py"
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/hooks/local/run-handler.sh \"$CLAUDE_PROJECT_DIR\"/hooks/handlers/stop.py"
           }
         ]
       }
@@ -90,7 +94,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR\"/hooks/handlers/pre_compact.py"
+            "command": "bash \"$CLAUDE_PROJECT_DIR\"/hooks/local/run-handler.sh \"$CLAUDE_PROJECT_DIR\"/hooks/handlers/pre_compact.py"
           }
         ]
       }
@@ -98,7 +102,7 @@
   },
   "_notes": {
     "permissionDecision_format": "PreToolUse handler returns hookSpecificOutput.permissionDecision: 'allow' | 'deny' | 'ask' along with permissionDecisionReason.",
-    "windows_users": "Replace 'python3' with the python launcher path (e.g., 'py' or 'C:\\\\Python313\\\\python.exe').",
+    "python_interpreter": "run-handler.sh auto-detects python3 / py / python — no manual edit needed. To force a specific interpreter (e.g. a venv or an unusual launcher), export FUSEBASE_FLOW_PYTHON=/path/to/python (it may be multi-word, e.g. 'py -3'). If no interpreter is found, hooks self-disable with one SessionStart warning; the git fallback hooks still enforce protected paths and secrets.",
     "CLAUDE_PROJECT_DIR": "Claude Code sets $CLAUDE_PROJECT_DIR to the project root at runtime (the legacy ${PROJECT_DIR} placeholder was never substituted by Claude Code; settings-json-merge.py still normalizes it in old installs).",
     "manual_for_side_effects": "Skills with `invocation: manual-for-side-effects` (release-deploy-reporting) should not be auto-invoked. Operator triggers explicitly."
   }

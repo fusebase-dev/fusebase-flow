@@ -5,44 +5,45 @@
     "To enable: copy to `.codex/hooks.json` and ensure `.codex/config.toml` has `codex_hooks = true`.",
     "All `command` paths are repo-root-stable (relative to the repo root, not the cwd).",
     "Codex executes hooks from the repo root, so paths like `...` resolve correctly.",
+    "Handlers route through hooks/local/run-handler.sh, which auto-detects the Python interpreter (python3 / py / python; override with FUSEBASE_FLOW_PYTHON) and self-disables with one warning on a python-less machine instead of erroring every event. The handler path stays in args so the `hooks/handlers/<x>.py` substring is preserved for tooling that detects a wired hook.",
     "Note: PreToolUse here is a guardrail, not a complete security boundary — combine with git pre-commit hooks and operator vigilance."
   ],
   "hooks": {
     "session_start": {
-      "command": "python3",
-      "args": ["hooks/handlers/session_start.py"],
+      "command": "bash",
+      "args": ["hooks/local/run-handler.sh", "hooks/handlers/session_start.py"],
       "timeout_ms": 5000
     },
     "user_prompt_submit": {
-      "command": "python3",
-      "args": ["hooks/handlers/user_prompt_submit.py"],
+      "command": "bash",
+      "args": ["hooks/local/run-handler.sh", "hooks/handlers/user_prompt_submit.py"],
       "timeout_ms": 3000
     },
     "pre_tool_use": {
-      "command": "python3",
-      "args": ["hooks/handlers/pre_tool_use.py"],
+      "command": "bash",
+      "args": ["hooks/local/run-handler.sh", "hooks/handlers/pre_tool_use.py"],
       "timeout_ms": 5000,
       "matchers": ["Bash", "Edit", "Write", "MultiEdit"]
     },
     "permission_request": {
-      "command": "python3",
-      "args": ["hooks/handlers/permission_request.py"],
+      "command": "bash",
+      "args": ["hooks/local/run-handler.sh", "hooks/handlers/permission_request.py"],
       "timeout_ms": 3000
     },
     "post_tool_use": {
-      "command": "python3",
-      "args": ["hooks/handlers/post_tool_use.py"],
+      "command": "bash",
+      "args": ["hooks/local/run-handler.sh", "hooks/handlers/post_tool_use.py"],
       "timeout_ms": 5000,
       "matchers": ["Edit", "Write", "MultiEdit"]
     },
     "stop": {
-      "command": "python3",
-      "args": ["hooks/handlers/stop.py"],
+      "command": "bash",
+      "args": ["hooks/local/run-handler.sh", "hooks/handlers/stop.py"],
       "timeout_ms": 3000
     }
   },
   "_notes": {
-    "windows": "Replace 'python3' with 'py' or absolute python.exe path.",
+    "python_interpreter": "run-handler.sh auto-detects python3 / py / python — no manual edit needed (this replaces the old 'replace python3 with py' Windows step). To force one, export FUSEBASE_FLOW_PYTHON=/path/to/python.",
     "project_trust": "Project-local hooks load only when project trust is granted by the operator.",
     "guardrail_not_boundary": "PreToolUse blocks deterministic patterns; for full security, layer git hooks, code review, and operator vigilance."
   }

@@ -41,9 +41,11 @@ Apply all three every session. Canonical homes: self-attestation text — `AGENT
 ## Quick activation
 
 ```bash
-# Enable hooks (one-time)
+# Enable hooks (one-time). Lifecycle hooks route through hooks/local/run-handler.sh,
+# which auto-detects your Python interpreter (python3 / py / python) — no manual edit.
+# Prerequisite: Python 3.11+ for the hook handlers; without it hooks self-disable with
+# one warning (Flow still works; git fallback hooks still enforce protected paths/secrets).
 cp .claude/settings.json.example .claude/settings.json
-# Edit .claude/settings.json to point hooks at your Python interpreter
 
 # Enable git fallback hooks (one-time)
 bash hooks/local/install-git-hooks.sh

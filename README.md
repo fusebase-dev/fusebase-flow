@@ -697,7 +697,7 @@ No. The Product Owner / AI Developer sub-agents are **opt-in**. The framework is
 <details>
 <summary><strong>Do I need the Python hooks?</strong></summary>
 
-They're optional guardrails. Nothing runs until you copy `.claude/settings.json.example` → `.claude/settings.json`. The git fallback hooks (`hooks/git/`) provide a safety net even with Claude Code hooks off. The only dependency is PyYAML (~100 KB).
+They're optional guardrails. Nothing runs until you copy `.claude/settings.json.example` → `.claude/settings.json`. The git fallback hooks (`hooks/git/`) provide a safety net even with Claude Code hooks off. Dependencies: **Python 3.11+** (also used by preflight, slash commands, and `po-investigate`) plus PyYAML (~100 KB). On a machine without Python, the lifecycle hooks **self-disable with a single warning** rather than erroring on every event — they route through `hooks/local/run-handler.sh`, which auto-detects `python3`/`py`/`python` (override with `FUSEBASE_FLOW_PYTHON`).
 </details>
 
 <details>
