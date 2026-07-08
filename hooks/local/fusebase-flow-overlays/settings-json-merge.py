@@ -68,7 +68,7 @@ DEFAULT_CLI_MCP_SERVERS = ["fusebase-dashboards", "fusebase-gate"]
 
 # D1 (preserve-only): Flow's Stop merge NEVER static-injects a CLI hook from a
 # name. It appends stop.py and preserves every Stop hook already in the file.
-# This list is intentionally empty: CLI 0.25.9 wires its own Stop set
+# This list is intentionally empty: CLI 0.25.9+ (unchanged through 0.25.16) wires its own Stop set
 # (run-lint-on-stop.sh, run-typecheck-on-stop.sh, quality-check-apps.js) and
 # wires run-typecheck-apps.js 0 times — a static re-inject duplicated typecheck.
 # An older-CLI project that still wires run-typecheck-apps.js keeps it (never

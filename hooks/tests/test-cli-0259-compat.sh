@@ -3,6 +3,9 @@
 # Specs: docs/specs/cli-0.25.9-vendor-refresh/spec.md (AC1..AC3b) and
 #        docs/specs/healthcheck-baseline-and-custom-flag-hardening/spec.md (AC-M1..M4, AC-L1).
 #
+# Model note: the 0.25.9-era wired Stop set + flag-gates encoded here are verified
+# unchanged through CLI 0.25.16 (filename kept — a historical model name, not a staleness bug).
+#
 # Load-bearing checks (genuine, loud asserts — no false-green):
 #   (a) AC1 receipt-framed health-check: the 0.25.9 wired Stop set + Flow stop.py +
 #       receipt is OK; AC-M4 — a dropped baselined CLI hook is an ADVISORY

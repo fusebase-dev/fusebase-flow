@@ -425,7 +425,7 @@ run_exitcode_phase() { # run_exitcode_phase <test-script> <tag> <label>
         report_rows="$report_rows| $1 | $label | FAIL | exit $rc |"$'\n'
     fi
 }
-run_exitcode_phase test-cli-flow-recovery.sh "cli-flow-recovery" "cli-flow-recovery (0.25.9 model)"
+run_exitcode_phase test-cli-flow-recovery.sh "cli-flow-recovery" "cli-flow-recovery (0.25.9-era wired-set model; unchanged through 0.25.16)"
 
 # Write report. Unscoped => byte-identical to today. Scoped => a distinct title +
 # an FF_ONLY banner line so the scoped file can never be mistaken for a full-gate report.

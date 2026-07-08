@@ -2,7 +2,7 @@
 # Fusebase Flow — CLI vendor provenance stamp (B2 / v3.2.0).
 #
 # Writes a read-only provenance manifest for every VENDORED FuseBase CLI-owned
-# asset that ships inside this Fusebase Flow edition (FuseBase CLI 0.25.9): the
+# asset that ships inside this Fusebase Flow edition (FuseBase CLI 0.25.16): the
 # 20 provider skills (SKILL.md + references/**) under .claude/skills and
 # .agents/skills, the CLI app-agents under .claude/agents and .codex/agents, and
 # the .claude/hooks/* quality hooks. The skill/agent name lists are data-driven

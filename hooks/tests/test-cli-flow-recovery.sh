@@ -76,8 +76,8 @@ CURRENT CLI CLAUDE SENTINEL 0.25.5
 ## Fusebase Flow V2 - stale previous overlay heading
 EOF
 
-# FuseBase CLI 0.25.9 wired Stop set: run-lint-on-stop.sh, run-typecheck-on-stop.sh,
-# quality-check-apps.js. run-typecheck-apps.js ships on disk (below) but is UNWIRED.
+# FuseBase CLI 0.25.9+ wired Stop set (unchanged through 0.25.16): run-lint-on-stop.sh,
+# run-typecheck-on-stop.sh, quality-check-apps.js. run-typecheck-apps.js ships on disk (below) but is UNWIRED.
 cat > "$PROJECT/.claude/settings.json" <<'EOF'
 {
   "enabledMcpjsonServers": [
@@ -215,15 +215,15 @@ pass "F3: default recovery leaves settings.json untouched and prints the opt-in 
   bash hooks/local/post-fusebase-update.sh --wire-hooks > "$OUT.wire"
 )
 grep -q "hooks/handlers/stop.py" "$PROJECT/.claude/settings.json" || fail "Flow stop.py was not merged under --wire-hooks"
-# 0.25.9 model (D1 preserve-only): the merge keeps every wired CLI Stop hook
+# 0.25.9-era model (D1 preserve-only; unchanged through 0.25.16): the merge keeps every wired CLI Stop hook
 # (run-lint-on-stop.sh, run-typecheck-on-stop.sh, quality-check-apps.js) +
 # appends stop.py, and must NOT static-inject the unwired run-typecheck-apps.js
 # (that would run typecheck twice alongside run-typecheck-on-stop.sh).
 for m in run-lint-on-stop.sh run-typecheck-on-stop.sh quality-check-apps.js; do
-  grep -q "$m" "$PROJECT/.claude/settings.json" || fail "0.25.9 CLI Stop hook not preserved: $m"
+  grep -q "$m" "$PROJECT/.claude/settings.json" || fail "0.25.9-era CLI Stop hook not preserved (unchanged through 0.25.16): $m"
 done
 grep -q "run-typecheck-apps.js" "$PROJECT/.claude/settings.json" && fail "unwired run-typecheck-apps.js re-injected (double typecheck)" || true
-pass "F3: --wire-hooks appends stop.py and preserves the 0.25.9 CLI Stop set (no run-typecheck-apps.js re-inject)"
+pass "F3: --wire-hooks appends stop.py and preserves the 0.25.9-era CLI Stop set (unchanged through 0.25.16; no run-typecheck-apps.js re-inject)"
 
 test -f "$PROJECT/.claude/skills/role-discipline/SKILL.md" || fail "Flow Claude skill mirror missing"
 test -f "$PROJECT/.agents/skills/role-discipline/SKILL.md" || fail "Flow Codex skill mirror missing"

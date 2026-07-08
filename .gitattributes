@@ -9,6 +9,9 @@
 *.sh        text eol=lf
 *.bash      text eol=lf
 *.py        text eol=lf
+# Tripwire: vendored CLI hooks (.claude/hooks/*.js) are LF and sha256-manifest-matched;
+# without this pin, Windows autocrlf clones emit 2 spurious advisory CLI_SNAPSHOT_STALE.
+*.js        text eol=lf
 
 # Config / data formats
 *.yml       text eol=lf
