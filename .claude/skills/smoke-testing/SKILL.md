@@ -103,8 +103,9 @@ launders a real defect (race, ordering dependency, state leak, async timing) int
     verdict is FAIL.
   - **Explained:** a named, evidenced external cause (deploy-propagation delay confirmed in the
     platform log; cold-start timeout visible in `remote-logs`) with the ground-truth diagnostic
-    ATTACHED under `docs/tmp/handoff/<date>-<slug>-smoke/`. "Probably a network blip" with no
-    diagnostic is not an explanation.
+    ATTACHED under `docs/tmp/handoff/<date>-<slug>-smoke/`; then 3/3 clean under the same
+    conditions after the cause clears before any PASS (matches `validation-and-qa` Sub-mode C
+    Explained-external). "Probably a network blip" with no diagnostic is not an explanation.
 - Until one of those holds, report `S<n>: FLAKY (unresolved)` — it counts as FAIL against the
   smoke threshold and blocks DONE like any FAIL.
 - Reproduction mechanics and the deterministic-vs-model-variance verdict split live in

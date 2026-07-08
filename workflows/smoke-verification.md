@@ -36,7 +36,7 @@ If ratio meets threshold from gate contract: continue with single docs commit (F
 If ratio below threshold:
 - Do NOT mark spec DONE
 - Surface failure in chat (Mode A) with concrete `S<n> observed Y, expected Z` and evidence path
-- Recovery options: **Rollback** (`git revert <deploy hash>` + redeploy) or **Fix-forward** (file follow-up task; spec stays DRAFT)
+- Recovery options: **Rollback** per the handoff's rollback-surface plan (`git revert <deploy hash>` + redeploy for code-only; else the surface-appropriate steps — `flow-skills/release-deploy-reporting/SKILL.md` § Rollback-surface classification) or **Fix-forward** (file follow-up task; spec stays DRAFT)
 - Operator decides
 
 ## Automation surfaces

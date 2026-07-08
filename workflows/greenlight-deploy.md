@@ -6,7 +6,7 @@
 
 After:
 - `validation-and-qa` confirms gate passed
-- `code-review` confirms zero blockers (or operator accepted them as non-blockers)
+- `code-review` confirms zero blockers — OR every still-open blocker carries a **recorded waiver** in the deploy handoff's `blocker_waivers:` block: verbatim review-summary blocker line + the operator's own accept-phrase naming it + the accepted consequence (the concrete failing scenario / missing test being shipped). Safety blockers (correctness defect — code-review step 4d; missing/meaningless tests — step 5) are never downgradable to "non-blocker"; they ship only under such a named waiver. A bare "operator accepted the blockers" — unquoted, unnamed, unrecorded — does NOT satisfy this (`flow-skills/release-deploy-reporting/SKILL.md` § When to invoke)
 - `security-permissions-review` confirms approval artifacts in place per `approval-policy.yml` — invoked only when the diff matches the skill's trigger list (auth, permissions, secrets, env, deploy config, external messages, production data); otherwise the review summary records `security: N/A — no sensitive surface`
 - Operator explicitly says "draft deploy" / "ship it" / "prepare deploy"
 
@@ -15,7 +15,7 @@ After:
 1. Final pre-deploy checklist:
    - [ ] Approval artifact for `production_deploy` exists at `state/approvals/production_deploy-<slug>-<date>.json` — OR the handoff marks `dp1_waiver: eligible` (reversible-deploy waiver below; the Deploy session stamps the artifact at DP.6) <!-- prevents: unauthorized-deploy (catastrophic-low-frequency) — taxonomy: policies/ratchet-governance.yml -->
    - [ ] Worker-undisturbed re-check: run `git diff` against `protected-paths.yml`. Must be empty (or bounded per spec)
-   - [ ] Gate passed; code-review zero blockers; security clean
+   - [ ] Gate passed; code-review zero blockers — OR every open blocker recorded in the handoff's `blocker_waivers:` block (verbatim blocker + operator accept-phrase + consequence; safety blockers per code-review step 4d / step 5 are non-downgradable); security clean
    - [ ] Spec is still DRAFT (will flip to DONE in this deploy)
 2. **Author handoff from `templates/handoff-deploy.md`** (v2.5.0+). The template includes a role-bootstrap prelude that makes the handoff self-bootstrapping in any agent (Claude Code, Codex, etc.) — fresh chat or follow-up. Do NOT hand-roll the prelude; copy from the template so DP.6 + DP.1 invariants stay canonical.
 3. Save to `docs/tmp/handoff/<YYYY-MM-DD>-<slug>-deploy.md` BEFORE outputting in chat (FR-04). Fill in placeholders (slug, approval artifact path, deploy command, probe table, smoke pointers).
@@ -84,7 +84,7 @@ If ANY probe fails:
 - Do NOT mark spec DONE
 - Surface failure with `Pn observed Y, expected Z`
 - Recovery options:
-  - Rollback: `git revert <hash>` + redeploy
+  - Rollback: `git revert <hash>` + redeploy ONLY for a `code-only` deploy. For a migration / secret/config / sidecar/infra / cross-app-contract deploy a revert un-ships only the code (schema/data/secret/sidecar/contract stay forward) — execute the surface-appropriate plan from the handoff (`flow-skills/release-deploy-reporting/SKILL.md` § Rollback-surface classification)
   - Fix-forward: file follow-up task; spec stays DRAFT
 - Operator decides which path
 

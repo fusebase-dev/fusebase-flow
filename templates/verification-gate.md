@@ -86,9 +86,11 @@ Reason: <one-liner>
 ## Rollback procedure
 <!-- prevents: irreversible-loss (catastrophic-low-frequency) — taxonomy: policies/ratchet-governance.yml -->
 
+**Rollback surface:** `code-only | migration | secret/config | sidecar/infra | cross-app contract` — classify this ticket's deploy per `flow-skills/release-deploy-reporting/SKILL.md` § Rollback-surface classification. `git revert` + redeploy un-ships only CODE; a migration (down-migration / restore path), secret/config (restore prior value, revoke new credentials), sidecar/infra (re-register to prior state), or cross-app-contract (coordinated revert / consumer notification) deploy needs a surface-appropriate plan. A revert-only plan on those surfaces is a false rollback — the code reverts while the migration/secret/sidecar/contract stays forward.
+
 If any probe fails:
-1. `git revert <deploy hash>`
-2. Redeploy: `<deploy command>`
+1. `code-only`: `git revert <deploy hash>` → redeploy `<deploy command>`. Any other surface class: execute the surface-appropriate plan (see § Rollback-surface classification) — a revert alone does not reverse a non-code deploy.
+2. Re-verify prior state with the class-appropriate probe
 3. File follow-up backlog ticket
 4. Spec stays DRAFT until follow-up resolves
 

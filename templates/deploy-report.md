@@ -21,7 +21,7 @@ You are an AI Developer Deploy-phase session that has just completed T<deploy> (
 
 **Status:** Deploy complete; awaiting PO closeout
 **Slug:** `<slug>`
-**Deploy hash:** `<hash>` ← rollback: `git revert <hash>`
+**Deploy hash:** `<hash>` ← rollback: `<from the handoff's Rollback surface — `git revert <hash>` only if code-only; else the surface-appropriate plan>`
 **Approval artifact:** `state/approvals/production_deploy-<slug>-<date>.json` (expires `<timestamp>`)
 **Reporting session:** AI Developer / Deploy phase under Fusebase Flow v3.30.8 (FR-01..FR-27)
 **Date:** <YYYY-MM-DD>
@@ -140,7 +140,7 @@ Deploy complete for <slug> (T<deploy>).
 Headline: <one-line summary — e.g., "All probes PASS. FR-14 docs commit landed. Spec flipped DRAFT -> DONE.">
 
 Deploy hash: <hash>
-Rollback command: git revert <hash>
+Rollback plan: <code-only: git revert <hash>; migration/secret/sidecar/cross-app-contract: the surface-appropriate plan from the handoff — a revert does NOT reverse a non-code deploy>
 Total elapsed: <H:MM:SS> (active <H:MM:SS> + wait <H:MM:SS>; per IM.11/v2.8.0+)
 Deploy-command-only: <m:ss>
 
@@ -183,7 +183,7 @@ Full deploy report attached above. PO: please follow Operator Relay Protocol —
 
 - Spec stays DRAFT (do NOT flip to DONE)
 - Two recovery paths:
-  - **A. Rollback:** `git revert <deploy hash>` + redeploy. Reverses the deploy.
+  - **A. Rollback:** for a `code-only` deploy, `git revert <deploy hash>` + redeploy reverses it. For a migration / secret/config / sidecar/infra / cross-app-contract deploy a revert un-ships only the code — schema/data/secret/sidecar/contract stay forward — so execute the surface-appropriate plan from the handoff (`flow-skills/release-deploy-reporting/SKILL.md` § Rollback-surface classification).
   - **B. Fix-forward:** file follow-up backlog ticket; spec stays DRAFT until follow-up resolves.
 - Operator decides which path. Surface this decision in the relay block below.
 ```

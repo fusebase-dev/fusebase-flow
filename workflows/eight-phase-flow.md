@@ -56,7 +56,7 @@ Handoffs are saved to disk BEFORE being shown in chat (FR-04). <!-- prevents: un
 | Failure | Recovery |
 |---|---|
 | AI Developer reports gate failure | `validation-and-qa` reports specifics; operator decides redirect (revise spec/decisions) or fix-forward (file follow-up task) |
-| Deploy probe fails | Per DP.5 / `greenlight-deploy.md`: do not flip spec DONE; surface rollback (`git revert`) or fix-forward; operator decides |
+| Deploy probe fails | Per DP.5 / `greenlight-deploy.md`: do not flip spec DONE; surface rollback (surface-appropriate per `release-deploy-reporting` § Rollback-surface classification — `git revert` only for code-only) or fix-forward; operator decides |
 | Constitution invariant violated mid-implementation | STOP; redirect via `decisions.md` update OR amend project-specific rules in `AGENTS.md` |
 
 ## Related

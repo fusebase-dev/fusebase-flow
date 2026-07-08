@@ -164,7 +164,7 @@ For any verification that spans wall-clock time (deploys, jobs, agent runs): rec
 
 ## Escalation path
 
-- Smoke threshold not met → operator decides rollback (`git revert`) or fix-forward via follow-up task; surface options, don't decide
+- Smoke threshold not met → operator decides rollback or fix-forward via follow-up task; surface options, don't decide. `git revert` is a valid rollback ONLY for a `code-only` deploy; a migration / secret / sidecar / cross-app-contract deploy needs the surface-appropriate plan (`flow-skills/release-deploy-reporting/SKILL.md` § Rollback-surface classification)
 - Test infrastructure broken → file infra ticket; gate cannot proceed; do not weaken gate to "skip tests"
 - Reproduction needs operator session credentials → propose via `workflows/architect-escalation.md` (live-user verification with explicit consent)
 - External-service side effects needed for verification → require explicit approval or use a sandbox/test-mode path before execution
