@@ -31,8 +31,8 @@ independent tools**:
 
 | Writer | What it writes | When |
 |---|---|---|
-| `fusebase update` (live FuseBase CLI bundle) | `.claude/skills/<cli-skill>/`, `.claude/hooks/*`, `.claude/agents/app-*.md`, `.agents/skills/<cli-skill>/`, `.codex/agents/app-*.md` | whenever the project syncs the current CLI bundle |
-| Fusebase Flow snapshot | a **frozen copy** of those same assets, shipped inside this edition template | at install / template-copy time |
+| `fusebase update` (live FuseBase CLI bundle) | `.claude/skills/<cli-skill>/`, `.claude/hooks/*`, `.claude/agents/app-*.md` (0.25.16 `copyAgentsAndSkills` writes only `AGENTS.md` + `.claude/{skills,agents,hooks,settings.json}`; `ide-setup` writes only `.codex/config.toml`) | whenever the project syncs the current CLI bundle |
+| Fusebase Flow snapshot | a **frozen copy** of those same assets, shipped inside this edition template — including `.agents/skills/<cli-skill>/` and `.codex/agents/app-*.md`, which the live CLI does **not** write | at install / template-copy time |
 
 Because both writers target the same paths, a blind recursive overwrite (`cp -R`
 without `-n`, or PowerShell `Copy-Item -Force`) of `.claude/` or `.agents/`
@@ -44,6 +44,15 @@ assets from its bundled copy**.
 `CUSTOM:SKILL` blocks are especially at risk: a `<!-- CUSTOM:SKILL:BEGIN -->…END`
 customization a user added to a CLI-owned skill is silently lost on a blind
 overwrite or a `fusebase update`.
+
+**Managed-app caveat — a third `AGENTS.md` writer surface with no update-survival.**
+`fusebase init --managed` appends an **unmarked** `AGENTS.managed.md` block to
+`AGENTS.md`. Because that block carries no `CUSTOM:SKILL` markers, `fusebase
+update` / `product update` overwrites `AGENTS.md` and **destroys it** — the
+custom-block capture/restore never sees it; only re-running `fusebase init
+--managed` re-appends it. Recovery is CLI-side. Before the recovery system
+rewrites `AGENTS.md`, `post-fusebase-update.sh --refresh-overlays` writes a
+`.pre-refresh-<ts>` backup first.
 
 ### Guards
 
