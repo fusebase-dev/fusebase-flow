@@ -250,14 +250,14 @@ def session_findings(s):
         if n >= READ_REPEAT_MIN and fp:
             win = "" if off is None and lim is None else " [offset=%s limit=%s]" % (off, lim)
             f.append(("re-read", "Read x%d identical window: %s%s" % (n, snippet(fp), win),
-                      "FR-26 no re-reads of unchanged in-context files"))
+                      "FR-26 TE-02 — no re-reads of unchanged in-context files"))
     for cmd, n in sorted(s["bash_runs"].items(), key=lambda kv: -kv[1]):
         if n >= BASH_REPEAT_MIN and cmd:
             f.append(("polling", "Bash x%d (no intervening Edit/Write): %s" % (n, snippet(cmd)),
-                      "FR-26 record-then-read (smoke-testing § Verification cost discipline)"))
+                      "FR-26 TE-08 — record-then-read (smoke-testing § Verification cost discipline)"))
     for fp, chars in s["large_writes"]:
         f.append(("rewrite", "Write %d chars to pre-existing path: %s" % (chars, fp),
-                  "FR-26 targeted edits over whole-file rewrites"))
+                  "FR-26 TE-06 — targeted edits over whole-file rewrites"))
     # large-output: oversized results from any output-producing tool (built-in OR MCP;
     # write tools + unmapped "?" excluded) — candidates for extract/scope/filter before
     # reasoning (§ Context compression discipline). Capped at TOP_SINKS per session
@@ -270,7 +270,7 @@ def session_findings(s):
     for chars, name, target in large:
         f.append(("large-output",
                   "Tool result %d chars (~%d tokens): %s %s" % (chars, chars // 4, name, target),
-                  "FR-26 context compression discipline: extract/scope/filter before reasoning over large output"))
+                  "FR-26 TE-11/TE-17 — extract/scope/filter before reasoning over large output"))
     # repeat-output: the SAME large body re-sent across turns (identical fingerprint).
     # One finding per recurring digest (count = times seen) — references-not-re-sends.
     by_digest = {}
@@ -284,7 +284,7 @@ def session_findings(s):
     for n, chars, name, target in repeats:
         f.append(("repeat-output",
                   "Identical large result x%d (~%d chars each): %s %s" % (n, chars, name, target),
-                  "FR-26 context compression discipline: reference an in-context body by its handle, don't re-send it"))
+                  "FR-26 TE-07 — reference an in-context body by its handle, don't re-send it"))
     return f
 
 
