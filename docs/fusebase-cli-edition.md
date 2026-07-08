@@ -128,6 +128,6 @@ After any install or `fusebase update`, run
 | Hook family | Purpose |
 |---|---|
 | Flow lifecycle hooks | Enforce session, prompt, tool-use, stop, and compact discipline from `hooks/handlers/*`. |
-| CLI Stop hooks | The FuseBase CLI 0.25.9 wired Stop set — `run-lint-on-stop.sh`, `run-typecheck-on-stop.sh`, `quality-check-apps.js` — runs app lint, typecheck, and quality checks from `.claude/hooks/*` before completion on Claude Code. Flow appends `stop.py` preserve-only (never removing an existing CLI hook). |
+| CLI Stop hooks | The FuseBase CLI 0.25.16 wired Stop set — `run-lint-on-stop.sh`, `run-typecheck-on-stop.sh`, `quality-check-apps.js` — runs app lint, typecheck, and quality checks from `.claude/hooks/*` before completion on Claude Code. Flow appends `stop.py` preserve-only (never removing an existing CLI hook). |
 
 Keep the merge additive. Do not overwrite an active downstream `.claude/settings.json`; append or merge after inspection.

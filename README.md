@@ -530,7 +530,7 @@ Plus active approval artifacts in `state/approvals/` are surfaced informationall
 
 ### CLI vendor provenance & drift advisory (v3.2.0+)
 
-FuseBase Flow vendors a frozen copy of FuseBase CLI-owned assets (20 provider skills + `references/`, 2 app-agents, 4 quality hooks; FuseBase CLI 0.25.9). `bash hooks/local/stamp-cli-provenance.sh` records a per-file sha256 of each in `audit/cli-vendor-manifest.json` (a committed document of record), with `source_cli_version: "unknown"` — the bundling tool cannot know which live CLI bundle a copy came from, so freshness is advisory only.
+FuseBase Flow vendors a frozen copy of FuseBase CLI-owned assets (20 provider skills + `references/`, 2 app-agents, 4 quality hooks; FuseBase CLI 0.25.16). `bash hooks/local/stamp-cli-provenance.sh` records a per-file sha256 of each in `audit/cli-vendor-manifest.json` (a committed document of record), with `source_cli_version: "unknown"` — the bundling tool cannot know which live CLI bundle a copy came from, so freshness is advisory only.
 
 `check-cli-flow-conflicts.sh` then hashes each **present** CLI asset against that manifest and surfaces two **advisory** findings (informational only — they never change the verdict or exit code):
 
@@ -541,7 +541,7 @@ FuseBase Flow vendors a frozen copy of FuseBase CLI-owned assets (20 provider sk
 
 This guards the **two-writer hazard** — `fusebase update` and the Flow snapshot both write the same provider paths. The documented install copy is non-clobbering for CLI-owned paths, and Flow recovery never writes them. See [docs/fusebase-cli-edition.md](docs/fusebase-cli-edition.md) § "Two-writer hazard".
 
-The Claude Code Stop hooks shipped in `.claude/settings.json.example` mirror the FuseBase CLI 0.25.9 wired set: `run-lint-on-stop.sh`, `run-typecheck-on-stop.sh`, `quality-check-apps.js`, followed by Flow `stop.py`. The merge is **preserve-only** — it appends `stop.py` and keeps every existing CLI Stop hook, and never static-injects a hook from a name (an older-CLI project that still wires `run-typecheck-apps.js` keeps it; Flow simply stops re-adding it).
+The Claude Code Stop hooks shipped in `.claude/settings.json.example` mirror the FuseBase CLI 0.25.16 wired set: `run-lint-on-stop.sh`, `run-typecheck-on-stop.sh`, `quality-check-apps.js`, followed by Flow `stop.py`. The merge is **preserve-only** — it appends `stop.py` and keeps every existing CLI Stop hook, and never static-injects a hook from a name (an older-CLI project that still wires `run-typecheck-apps.js` keeps it; Flow simply stops re-adding it).
 
 ### Verdicts (ownership-layer model)
 

@@ -21,7 +21,7 @@ The public template does not advertise compatibility with any AI coding assistan
 |---|---|
 | Public-surface grep (case-insensitive, full tree) for non-target tool names | 0 true-positive matches |
 | Canonical Flow skill mirror count | 64 = 32 canonical (`flow-skills/`) x 2 approved provider mirrors |
-| CLI provider skill count | 40 = 20 CLI provider skills x 2 provider surfaces (FuseBase CLI 0.25.9) |
+| CLI provider skill count | 40 = 20 CLI provider skills x 2 provider surfaces (FuseBase CLI 0.25.16) |
 | Mirror dirs allowed | `.agents/skills/`, `.claude/skills/`; this edition also keeps CLI provider skills in those dirs |
 | `mirror-skills.sh` target list | mirrors canonical Flow skills only (source `flow-skills/`) and preserves extra CLI provider skills |
 | `preflight.sh` mirror drift check | validates canonical Flow skill mirrors only |
@@ -49,4 +49,5 @@ To get a real-secret BLOCK past pre-commit: rotate the credential + `git reset H
 2026-06-10 - v3.16.0 refresh; 28 canonical Flow skills (module-size-discipline added), 56 Flow mirrors, 22/22 hook tests (16 fixtures + 6 FR-25 gate scenarios), module-size pre-commit step added to git fallback.
 2026-06-10 - v3.16.2 hardening; 24/24 hook tests (8 gate scenarios), template ships its own FR-25 baseline (gate live by default), CI --all step, additive-only local override, --write-baseline <path> re-key.
 2026-06-29 - FuseBase CLI 0.25.9 re-vendor; 20 CLI provider skills (adds app-api-contract-testing), 40 CLI mirrors (20 x 2). The 0.25.9 Stop set wires run-lint-on-stop.sh, run-typecheck-on-stop.sh, quality-check-apps.js (run-typecheck-apps.js shipped but unwired); the merge is preserve-only.
+2026-07-07 - FuseBase CLI 0.25.16 re-vendor; 7 provider skills refreshed (magic-link activation now platform-server-side, apps[].id declarative-optional, gate SDK ^v2.3.28-sdk.1); fusebase-gate drops isolated-sql-stores.md + isolated-sql-rls-plan.md, adds isolated-sql-integrator-troubleshooting.md; manifest 132->130 assets. Wired Stop set unchanged.
 ```
