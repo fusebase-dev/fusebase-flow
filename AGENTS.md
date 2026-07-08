@@ -182,7 +182,7 @@ Check whether this project has been onboarded. These artifacts are **absent by d
 |---|---|---|
 | `docs/north-star.md` | read it; keep work aligned to the vision (`north-star` skill) | run generically; do not create it |
 | `docs/<app>/product.md` | read it for that app's product intent | run generically |
-| `docs/<app>/business-logic.md` | treat documented logic as a guard during fixes | run generically |
+| `docs/<app>/business-logic-index.md` (AI-default index), `docs/<app>/business-logic.md`, or `docs/en/business-logic.md` (Fusebase CLI teams) | treat documented logic as a guard during fixes (`business-logic-guardian`; the index is the primary guard when present) | run generically |
 
 This check is universal across every surface (it lives in this file, which every agent reads). On Claude Code the `SessionStart` hook also surfaces these automatically, but discovery does not depend on hooks. If an artifact is absent, Fusebase Flow runs as a generic install — no clutter. Run `/onboard` to capture project vision.
 

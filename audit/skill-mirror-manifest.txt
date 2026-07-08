@@ -44,8 +44,8 @@
 .claude/skills/liveness-discipline/SKILL.md  c40797353a1b5939e40a0e15b43632c49061348fe218986acbea7c9726f67c2d
 .agents/skills/module-size-discipline/SKILL.md  1d56f66c95595d5881f24166839d4a4dc4de4761a267a7f86ad006f47c61da1e
 .claude/skills/module-size-discipline/SKILL.md  1d56f66c95595d5881f24166839d4a4dc4de4761a267a7f86ad006f47c61da1e
-.agents/skills/north-star/SKILL.md  d485dfb06cb215547d2c32f62bebdc332cebc5fbe0ca8ceabeb1bec4a576a111
-.claude/skills/north-star/SKILL.md  d485dfb06cb215547d2c32f62bebdc332cebc5fbe0ca8ceabeb1bec4a576a111
+.agents/skills/north-star/SKILL.md  53d83bae6f5539c134a995c80ec3ef9f59178b9aee7e2cd8870c73379c7ba89d
+.claude/skills/north-star/SKILL.md  53d83bae6f5539c134a995c80ec3ef9f59178b9aee7e2cd8870c73379c7ba89d
 .agents/skills/phase-audit/SKILL.md  7410f5a2f6d1b9eb5ebf57849fa4378dc3fac059c02637ec913acc1ef8b3e5ae
 .claude/skills/phase-audit/SKILL.md  7410f5a2f6d1b9eb5ebf57849fa4378dc3fac059c02637ec913acc1ef8b3e5ae
 .agents/skills/product-apps-decomposition/SKILL.md  1f189351b44ed93203f777cba55d3a58f76fabaaed1ab9fd2437ba5e50f96e4b

@@ -1,6 +1,6 @@
 ---
 name: north-star
-description: Use ONLY when docs/north-star.md exists (the project has been onboarded) OR the operator explicitly asks to check/apply the North Star. When present, steers every task, decision, and fix toward the project's locked vision and flags drift away from it. If docs/north-star.md is absent, this skill does nothing (silent no-op) — do NOT activate, do NOT create the file. Not for projects that have not been onboarded.
+description: Use when docs/north-star.md exists (the project has been onboarded) OR the operator explicitly asks to check/apply the North Star — steer every task, decision, and fix toward the project's locked vision and flag drift away from it. On the absence path it is a silent no-op by default, with ONE narrow sanctioned output: a single one-time onboarding offer (D5, at most once, only when the operator is clearly doing project work) — so a matcher may load it there for that offer alone. It never creates the file and never nags. Not for projects that have not been onboarded.
 source_inspiration: conceptual-only
 license_status: clean-room-original
 fusebase_flow_version: 3.30.8
@@ -32,14 +32,14 @@ Keep all work aligned to the project's vision. When a project has been onboarded
 
 ## Do not invoke when
 
-- **`docs/north-star.md` does NOT exist** → silent no-op. Do not activate, do not prompt repeatedly, do not create the file. (Project simply hasn't been onboarded; that's fine.)
+- **`docs/north-star.md` does NOT exist** → silent no-op by default. The one narrow exception is the one-time D5 offer (step 6, at most once, only when the operator is clearly doing project work); after it fires (or is declined) stay silent. Never prompt repeatedly, never create the file. (Project simply hasn't been onboarded; that's fine.)
 - Trivial mechanical edits.
 
 ## Required inputs
 
 | Input | Where it lives | If missing |
 |---|---|---|
-| Project North Star | `docs/north-star.md` | **STOP — skill is a no-op.** Do not create it. (Onboarding via `project-onboarding` / `/onboard` creates it.) |
+| Project North Star | `docs/north-star.md` | **Skill is a no-op** (default) — the sole absence-path output is the one-time D5 offer (step 6). Do not create it. (Onboarding via `project-onboarding` / `/onboard` creates it.) |
 | Current work | spec / decision / task / fix in progress | nothing to check; exit |
 
 ## Procedure
@@ -84,7 +84,7 @@ Recommendation: <proceed | on-vision alternative in one line | question for oper
 
 ## Anti-patterns
 
-- Do not activate or create the file when `docs/north-star.md` is absent.
+- Do not activate (beyond the single one-time D5 offer, step 6) or create the file when `docs/north-star.md` is absent.
 - Do not nag every turn when unset (offer at most once — D5).
 - Do not reinterpret/rewrite the vision on the operator's behalf.
 - Do not block trivial work that doesn't touch the vision.
