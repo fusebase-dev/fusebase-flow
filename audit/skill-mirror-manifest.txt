@@ -40,8 +40,8 @@
 .claude/skills/implementation-planning/SKILL.md  df273b4c8be4c4f0a11d5a77fdc0305a7ec238e0b725baeb2e9b601bf80cdb56
 .agents/skills/lightweight-lane/SKILL.md  c97f01cb78f5b8a6925bdf258b121e094f04d8474131fe2ba5fe19abda83261d
 .claude/skills/lightweight-lane/SKILL.md  c97f01cb78f5b8a6925bdf258b121e094f04d8474131fe2ba5fe19abda83261d
-.agents/skills/liveness-discipline/SKILL.md  c40797353a1b5939e40a0e15b43632c49061348fe218986acbea7c9726f67c2d
-.claude/skills/liveness-discipline/SKILL.md  c40797353a1b5939e40a0e15b43632c49061348fe218986acbea7c9726f67c2d
+.agents/skills/liveness-discipline/SKILL.md  3e3e5bd91813ce8f7ed5011389ba9a012d9651d044d8556664988e6ca7abc143
+.claude/skills/liveness-discipline/SKILL.md  3e3e5bd91813ce8f7ed5011389ba9a012d9651d044d8556664988e6ca7abc143
 .agents/skills/module-size-discipline/SKILL.md  1d56f66c95595d5881f24166839d4a4dc4de4761a267a7f86ad006f47c61da1e
 .claude/skills/module-size-discipline/SKILL.md  1d56f66c95595d5881f24166839d4a4dc4de4761a267a7f86ad006f47c61da1e
 .agents/skills/north-star/SKILL.md  53d83bae6f5539c134a995c80ec3ef9f59178b9aee7e2cd8870c73379c7ba89d
