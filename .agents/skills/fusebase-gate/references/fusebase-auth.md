@@ -1,7 +1,7 @@
 ---
-version: "1.2.0"
+version: "1.3.0"
 mcp_prompt: fusebaseAuth
-last_synced: "2026-05-28"
+last_synced: "2026-07-03"
 title: "Fusebase Auth For AI Apps"
 category: specialized
 ---
@@ -18,6 +18,8 @@ category: specialized
 - [Relevant Operations](#relevant-operations)
 - [Architecture Rules](#architecture-rules)
 - [Org Onboarding](#org-onboarding)
+- [Public Registration With Org Membership](#public-registration-with-org-membership)
+- [Two Names For Feature Token](#two-names-for-feature-token)
 - [App `accessPrincipals` Vs Org Membership](#app-accessprincipals-vs-org-membership)
 - [Visitor Access Vs Open API (Platform Edge)](#visitor-access-vs-open-api-platform-edge)
 - [Magic-Link → App Session Exchange](#magic-link--app-session-exchange)
@@ -35,8 +37,8 @@ These operations help AI Apps add Fusebase account registration, login, logout, 
 
 ## Relevant Operations
 
-- `registerFusebaseUser` — visitor-safe email/password registration. Creates a Fusebase account through auth-form and returns a `sessionId` plus `userId` when registration succeeds. It does not add org membership.
-- `registerFusebaseOrgMember` — protected registration plus org provisioning. Creates the Fusebase account, then adds the new user to the path `orgId`. Requires `org.members.write` and org access. Use this only on registration, not on login. **Does not add the user to any App's `accessPrincipals`** — org membership and app access are separate (see below).
+- `registerFusebaseUser` — visitor-safe email/password registration. Creates a Fusebase account through auth-form and returns a `sessionId` plus `userId` when registration succeeds. It does not add org membership. For AI App signup, send `autoConfirmEmail: true` unless product requirements explicitly need platform email confirmation.
+- `registerFusebaseOrgMember` — protected registration plus org provisioning. Creates the Fusebase account, then adds the new user to the path `orgId`. Requires `org.members.write` and org access. Use this only on registration, not on login. **Does not add the user to any App's `accessPrincipals`** — org membership and app access are separate (see below). For AI App signup, send `autoConfirmEmail: true` regardless of the org role being granted.
 - `loginFusebaseUser` — visitor-safe email/password login. Returns `sessionId` plus `userId`, or a challenge. Never provisions org membership.
 - `completeFusebaseAuthChallenge` — completes auth-form challenges such as CAPTCHA, OTP, mail OTP, two-factor, and MFA states returned by register/login.
 - `requestFusebasePasswordRestore` — sends restore email through auth-form. It returns a generic `{ ok: true }` and must not be used for account enumeration.
@@ -48,6 +50,7 @@ These operations help AI Apps add Fusebase account registration, login, logout, 
 - All calls to auth-form must go through a backend or Gate operation. Do not `fetch()` auth-form directly from the SPA because the app host and auth host are different origins and CORS/session cookies will not behave correctly.
 - The returned `sessionId` is credential material. A server/BFF should set it as an app-domain cookie such as `eversessionid` with `httpOnly`, `secure`, `sameSite=Lax`, and `path=/` where possible.
 - After register, login, or challenge success, route the user to the returned `redirectPath`. Always keep redirect paths relative (`/dashboard`, `/tasks/123`) and reject absolute URLs or `//host` forms.
+- When creating accounts from an AI App email/password signup flow, include `autoConfirmEmail: true` on `registerFusebaseUser` or `registerFusebaseOrgMember` so auth-form does not send a separate email-confirmation message.
 - Use `registerFusebaseOrgMember` only for a brand-new registration flow. Do not add org membership during ordinary login because login must not mutate roles or downgrade existing access.
 - For app access decisions after auth or provisioning, check the user's actual org/app access before unlocking protected content. Do not treat a successful write as a substitute for an access check.
 
@@ -57,6 +60,23 @@ These operations help AI Apps add Fusebase account registration, login, logout, 
 - Default org role is `client`. Send `orgRole` only when the app intentionally grants another role and the caller has permission to do so.
 - The operation uses `org.members.write`; expose it only through a trusted app backend or a properly scoped feature token. Do not build an unauthenticated public form that can choose arbitrary org ids or roles.
 - If auth-form returns a challenge during registration, complete the challenge first and retry the registration flow as appropriate. Membership is added only after an authenticated registration response includes a `userId`.
+
+## Public Registration With Org Membership
+
+Acceptance flows that require `registerFusebaseOrgMember` (create account **and** add org membership) use a **two-token BFF pattern**. A `403 Authenticated user-bound context is required (authType=visitor)` is **not** "the platform blocks org join" — it means Gate was called with a **visitor** token instead of the backend service token.
+
+- **Browser → app backend** (`POST /api/account/register` or similar): the request may carry visitor `fbsfeaturetoken` / `x-app-feature-token` so the app-proxy forwards `/api/*`. That token is **not** sufficient for org membership writes.
+- **App backend → Gate** (`registerFusebaseOrgMember`, `addOrgUser`): use `process.env.FBS_FEATURE_TOKEN` — the platform-issued **service token** minted at deploy with `org.members.write` (subject = app owner). In local `fusebase dev`, backend-only provisioning may use `process.env.FBS_FEATURE_TOKEN ?? process.env.GATE_MCP_TOKEN`; browser/UI must never use MCP tokens.
+- Do **not** forward the incoming request's visitor cookie to Gate for `registerFusebaseOrgMember` or `addOrgUser`. Do **not** store an admin session in secrets as a workaround.
+- `orgId` in the Gate path must come from `fusebase.json` (`orgId`), never from user input in the registration body.
+- Grant `org.members.write` on the app feature (`fusebase sync` / redeploy) before testing registration-with-membership.
+- For instant password-based onboarding, prefer `registerFusebaseOrgMember` with `autoConfirmEmail: true`. `autoConfirmClientInvite` is only for `addOrgUser` org-only client invites and does not affect auth-form account registration.
+- After success, set the returned `sessionId` as an app-domain cookie and verify membership with `getMyOrgAccess` (session header + feature token as documented for user-context reads).
+
+## Two Names For Feature Token
+
+- **`window.FBS_FEATURE_TOKEN` / cookie `fbsfeaturetoken`** (browser): visitor-scoped JWE from `/_auth/` for SPA and app-proxy. Cannot perform `org.members.write`.
+- **`process.env.FBS_FEATURE_TOKEN`** (backend pod env): deploy-time Gate **service** token with app permissions. Required for privileged provisioning from trusted BFF routes.
 
 ## App `accessPrincipals` Vs Org Membership
 
@@ -84,9 +104,9 @@ For Apps that use `requestAppMagicLink` / `activateAppMagicLink` (load the `appM
 
 **Mandatory for every magic-link app, Test and Production:**
 
-- After `activateAppMagicLink`, pass **both** `featureToken` and `sessionToken` to a trusted app backend **before** `window.location.replace` to a protected route. Platform cookie `fbsfeaturetoken` can be overwritten on the next HTML request by the app proxy to match whichever Fusebase user is logged into the **browser**, not the magic-link recipient.
-- User identity on Gate calls such as `getMyOrgAccess` requires forwarding `sessionToken` as header `EverHelper-Session-ID` together with `x-app-feature-token` (or your app's equivalent). **`featureToken` alone does not resolve the authenticated user** on those endpoints.
-- Minimum exchange contract: `POST /api/account/from-magic-link` (or another app-owned route) with `{ featureToken, sessionToken }` in the **body** → backend builds a Gate client with both credentials → `getMyOrgAccess` to resolve the recipient → redirect to `redirectPath`. This is the **only** mandatory part of the exchange.
+- Activation is platform-handled at `/_auth/magiclink/{key}`: HttpOnly `eversessionid` / `fbsfeaturetoken` cookies are set server-side, then the browser is redirected to `redirectPath`. JS never sees the tokens; the backend resolves the recipient from request cookies before rendering protected routes.
+- User identity on Gate calls such as `getMyOrgAccess` requires forwarding the session as header `EverHelper-Session-ID` together with `x-app-feature-token` (or your app's equivalent). **The feature token alone does not resolve the authenticated user** on those endpoints.
+- Minimum exchange contract: SPA makes a same-origin `POST /api/account/from-magic-link` (or another app-owned route) — the HttpOnly cookies ride along → backend builds a Gate client with `x-app-feature-token: <fbsfeaturetoken>` + `EverHelper-Session-ID: <eversessionid>` → `getMyOrgAccess` to resolve the recipient. This is the **only** mandatory part of the exchange.
 - Do not call `getMyOrgAccess` with only the app feature token for visitors or fresh magic-link users — that can return the **token owner's** identity (e.g. the app owner in dev, or a stale browser session in prod). Fail closed: show the sign-in / request-link UI instead.
 
 ### Test vs Production
@@ -102,7 +122,7 @@ Split the recipe so smoke tests don't grow the production attack surface and don
 **Production mode (Memberspace, role-gated areas, any flow where the app must remember which user opened the link across navigations):**
 
 - After the mandatory exchange, issue an **app-owned** session cookie (HMAC-signed or equivalent integrity-protected payload, bound to `userId`) and use it as the source of truth for subsequent requests. Verify on every request — do not infer the recipient from `eversessionid` or `fbsfeaturetoken` after the initial redirect.
-- Register the HMAC secret only here, with `fusebase secret create --feature <appId> --secret "APP_SESSION_SECRET:HMAC signing key for app-owned session cookie"`, then read it from `process.env.APP_SESSION_SECRET` in the backend.
+- Register the HMAC secret only here, with `fusebase secret create --app <%= it.flags?.includes("declarative-manifest") ? "<appPath>" : "<appId>" %> --secret "APP_SESSION_SECRET:HMAC signing key for app-owned session cookie"`, then read it from `process.env.APP_SESSION_SECRET` in the backend.
 - Set the cookie `httpOnly`, `secure`, `sameSite=Lax`, `path=/`. Rotate by changing the secret + invalidating live cookies; do not rely on Fusebase cookies for revocation.
 
 ### Non-secrets — never `fusebase secret create`
@@ -135,12 +155,15 @@ Split the recipe so smoke tests don't grow the production attack surface and don
 - Do not put these app routes under `/api/auth/*` in generated app backends; deployed platform proxies may reserve that prefix. Prefer `/api/account/*` or another app-owned prefix.
 - Do not confuse Fusebase platform cookies with app-domain cookies. The app must own its fallback session cookie on its own domain.
 - Do not call org provisioning from login. If a user already has a stronger role, a login-time provisioning call can accidentally change the intended access model.
+- Do not call `registerFusebaseOrgMember` or `addOrgUser` from the SPA directly to Gate, and do not forward visitor `fbsfeaturetoken` from the signup request into those ops.
+- Do not downgrade a flow that requires org membership to account-only (`registerFusebaseUser`) without explicit product approval — `registerFusebaseUser` never adds org membership.
+- `403` with `authType=visitor` on org-write ops: fix backend token wiring (`FBS_FEATURE_TOKEN` + `org.members.write`), not platform policy.
 - Do not expose `sessionId` to localStorage. Prefer server-set cookies; if a pure SPA has to handle it, keep the lifetime short and document the tradeoff.
 ---
 
 ## Version
 
-- **Version**: 1.2.0
+- **Version**: 1.3.0
 - **Category**: specialized
-- **Last synced**: 2026-05-28
+- **Last synced**: 2026-07-03
 - **Priority rule**: If the MCP prompt has a higher version, follow the prompt's API Reference as source of truth.

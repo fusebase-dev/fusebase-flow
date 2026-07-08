@@ -1,7 +1,7 @@
 ---
-version: "1.8.14"
+version: "1.9.0"
 mcp_prompt: isolatedSql
-last_synced: "2026-06-23"
+last_synced: "2026-07-01"
 title: "FuseBase PostgreSQL Database"
 category: specialized
 ---
@@ -15,7 +15,7 @@ category: specialized
 ## Table of contents
 
 - [FuseBase PostgreSQL Database (`sql` / `postgres`)](#fusebase-postgresql-database-sql--postgres)
-  - [Canonical docs](#canonical-docs)
+  - [Canonical docs (app integrators)](#canonical-docs-app-integrators)
   - [Before migration work](#before-migration-work)
   - [Standard sequence (schema + store)](#standard-sequence-schema--store)
   - [Data path (no DDL)](#data-path-no-ddl)
@@ -23,6 +23,7 @@ category: specialized
   - [MCP bundle size](#mcp-bundle-size)
   - [Tokens](#tokens)
   - [PostgreSQL RLS native mode](#postgresql-rls-native-mode)
+  - [Troubleshooting (user-facing — no operator commands)](#troubleshooting-user-facing--no-operator-commands)
   - [RLS app-design pitfalls from QA](#rls-app-design-pitfalls-from-qa)
   - [After a failed apply](#after-a-failed-apply)
   - [Managed PostgreSQL (Azure, etc.)](#managed-postgresql-azure-etc)
@@ -37,9 +38,9 @@ category: specialized
 
 User-facing naming in this guide is **FuseBase PostgreSQL Database**. Internally, the API surface still uses the Gate `isolated-stores` contract and `IsolatedStoresApi` naming.
 
-### Canonical docs
+### Canonical docs (app integrators)
 
-Repo **`docs/isolated-sql-stores.md`** is the **production runbook** (playbooks, permissions, status/apply semantics, MCP vs SDK). Use it for step-by-step operations.
+This prompt is the primary guide for app developers. For migration journal rules load **`isolatedSqlMigrationDiscipline`**. For error triage load **`docs/isolated-sql-integrator-troubleshooting.md`** (symptom → checks → support handoff). **Do not** instruct users to run platform Postgres bootstrap, GRANT, or ownership-transfer operations — those are operator-only.
 
 ### Before migration work
 
@@ -88,17 +89,19 @@ Wire-protocol token names still use legacy `feature` spelling for compatibility:
 
 ### PostgreSQL RLS native mode
 
-RLS context alone does not filter rows. For native PostgreSQL enforcement, **`getIsolatedStoreSqlRlsStatus`** must report **`bypassRls=false`** and **`superuser=false`** for the runtime DB role. If **`bypassRls=true`**, policies may exist but Postgres will not enforce them for runtime reads/writes.
+RLS context alone does not filter rows. For native PostgreSQL enforcement, **`getIsolatedStoreSqlRlsStatus`** must report **`bypassRls=false`** and **`superuser=false`**. If **`bypassRls=true`**, policies may exist but Postgres will not enforce them for runtime reads/writes — label the environment accordingly and do not claim row-level security works.
 
-Production-grade server-backed stores use split roles: **admin** provisions DBs/roles, **migrator** owns schema/tables and applies migrations, **runtime** handles app queries with **`NOBYPASSRLS`** and no DDL ownership. Configure **`ISOLATED_PG_MIGRATOR_USER`** / **`ISOLATED_PG_MIGRATOR_PASSWORD`** and a distinct **`ISOLATED_PG_RUNTIME_USER`** / **`ISOLATED_PG_RUNTIME_PASSWORD`**.
+### Troubleshooting (user-facing — no operator commands)
 
-For existing legacy stage databases, an operator can bootstrap the runtime role from the Gate repo:
+| Symptom | Check in the app | Escalate to Fusebase support with `storeId` + `stage` when |
+|---------|------------------|-------------------------------------------------------------|
+| `permission denied for table …` on data APIs | Token has `isolated_store.read` / `data.write`; correct `stage`; RLS policies match runtime context | Permissions and policies verified; error persists |
+| Empty UI, rows visible in Studio | `dev` vs `prod`; visitor token vs backend service token; portal scope via `trustedRuntimeContext` | Backend + correct stage still returns zero rows |
+| `401` / `403` on store calls | Sync Gate permissions; redeploy backend token; `x-app-feature-token` on server | After sync/redeploy still denied |
+| `must be owner of table …` on migration apply | Not fixable in app migrations | Always — include migration `version` |
+| `bypassRls=true` in RLS status | Treat as **policies not enforced**; use backend filters or wait for platform | Enforced RLS required and status unchanged |
 
-```bash
-npm run isolated-pg:bootstrap-rls-runtime -- --database <stage_database> --schema public
-```
-
-Use **`--transfer-ownership`** only when moving existing object ownership to the migrator role is required. After bootstrap and Gate env update, re-check **`getIsolatedStoreSqlRlsStatus`** before claiming native RLS.
+Full table: **`docs/isolated-sql-integrator-troubleshooting.md`**. Never tell users to run platform bootstrap, GRANT, or ownership-transfer scripts.
 
 Studio/support view-all rows must use the separate read-only RLS-bypass path, not normal runtime reads: **`countIsolatedStoreSqlRowsRlsBypass`** and **`selectIsolatedStoreSqlRowsRlsBypass`**. These require **`isolated_store.rls.bypass`**; Gate sets trusted transaction-local **`app.rls_admin=true`**, so tables that should be visible in Admin must include an explicit admin branch in SELECT policies. Do not grant this permission to app runtime tokens.
 
@@ -159,7 +162,7 @@ Per migration: **`version`**, **`name`**, **`checksum`** — prefer SDK helpers 
 
 ## Version
 
-- **Version**: 1.8.14
+- **Version**: 1.9.0
 - **Category**: specialized
-- **Last synced**: 2026-06-23
+- **Last synced**: 2026-07-01
 - **Priority rule**: If the MCP prompt has a higher version, follow the prompt's API Reference as source of truth.

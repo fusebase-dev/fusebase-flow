@@ -1,7 +1,7 @@
 ---
-version: "1.3.1"
+version: "1.3.2"
 mcp_prompt: isolated
-last_synced: "2026-06-23"
+last_synced: "2026-07-01"
 title: "FuseBase PostgreSQL Database"
 category: specialized
 ---
@@ -72,7 +72,7 @@ Guardrails: do not attach a guessed child app id if `whoami` shows a different `
 - When stage is omitted by higher-level orchestration (deployed runtime / CLI), default target is **`prod`**; local `fusebase dev start` uses **`dev`**.
 - `dev` and `prod` are separate stage instances with separate physical databases.
 - Do not assume data written to `dev` exists in `prod`.
-- **SQL schema:** follow the **`isolatedSql`** prompt and repo **`docs/isolated-sql-stores.md`** (status → optional dryRun → apply). Load **`isolatedSqlMigrationDiscipline`** before editing migration bundles.
+- **SQL schema:** follow the **`isolatedSql`** prompt (status → optional dryRun → apply). Load **`isolatedSqlMigrationDiscipline`** before editing migration bundles. For errors, see **`isolated-sql-integrator-troubleshooting.md`** — do not use operator runbooks.
 - Use `listIsolatedStoreStages` and `listIsolatedStoreRevisions` to inspect the current state before restore flows.
 - Revision `metadata.snapshotStats` can contain preview stats captured at checkpoint time.
 - For SQL checkpoints, revision `metadata.snapshotMigrations` can also capture the stage migration journal head and applied migration list at checkpoint time.
@@ -111,7 +111,7 @@ Guardrails: do not attach a guessed child app id if `whoami` shows a different `
 
 ## Version
 
-- **Version**: 1.3.1
+- **Version**: 1.3.2
 - **Category**: specialized
-- **Last synced**: 2026-06-23
+- **Last synced**: 2026-07-01
 - **Priority rule**: If the MCP prompt has a higher version, follow the prompt's API Reference as source of truth.

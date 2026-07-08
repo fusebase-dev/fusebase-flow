@@ -1,7 +1,7 @@
 ---
 version: "1.1.0"
 mcp_prompt: tooling
-last_synced: "2026-03-24"
+last_synced: "2026-06-30"
 title: "Tooling"
 category: meta
 ---
@@ -16,9 +16,10 @@ category: meta
 
 Tool names may appear with underscores if the client sanitizes names. Use the exact names returned by tools.list.
 
-1. Discover available operations: call tools.list or tools_list to get a lightweight catalog of all operations you are allowed to execute.
+1. Discover available operations: call tools.list or tools_list to get a lightweight catalog of operations callable via tool_call for this token.
    - Each entry includes name, title, description, input and output hints, and schemaVersion.
-   - tools.list shows all allowed operations, but not all of them are registered as directly callable tools.
+   - The response also includes capabilities: all MCP-enabled operations with callableViaToolCall, REST paths, and SDK hints.
+   - tools.list is not the full platform catalog; check capabilities for operations that may be REST/SDK-only.
 
 2. Get schema: for any operation you want to use, call tools.describe or tools_describe with the operation name.
    - For large or complex operations, prefer schemaMode summary first for faster responses.
@@ -75,5 +76,5 @@ Response format for direct calls and tool.call:
 
 - **Version**: 1.1.0
 - **Category**: meta
-- **Last synced**: 2026-03-24
+- **Last synced**: 2026-06-30
 - **Priority rule**: If the MCP prompt has a higher version, follow the prompt's API Reference as source of truth.

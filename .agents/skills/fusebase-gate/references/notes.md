@@ -1,7 +1,7 @@
 ---
-version: "1.2.0"
+version: "1.4.0"
 mcp_prompt: notes
-last_synced: "2026-04-28"
+last_synced: "2026-07-01"
 title: "Fusebase Gate Notes Operations"
 category: specialized
 ---
@@ -14,7 +14,7 @@ category: specialized
 ---
 ## Fusebase Gate Notes Operations
 
-These operations manage workspace note folders, workspace notes, note reads, note creation, and stored-file attachment flows exposed by Gate.
+These operations manage workspace note folders, workspace notes, note reads, note creation, append-only note content updates, and stored-file attachment flows exposed by Gate.
 
 ## Relevant Operations
 
@@ -23,6 +23,7 @@ These operations manage workspace note folders, workspace notes, note reads, not
 - getWorkspaceNote returns one workspace note together with markdown content.
 - createWorkspaceNoteFolder creates a workspace note folder.
 - createWorkspaceNote creates a workspace note and can optionally append initial content after creation.
+- appendWorkspaceNoteContent appends text or html to the end of an existing workspace note without replacing existing content.
 - addWorkspaceNoteAttachment attaches a `storedFileUUID` to a workspace note and appends the matching editor blot.
 
 ## Identity And Scoping Rules
@@ -47,8 +48,20 @@ These operations manage workspace note folders, workspace notes, note reads, not
 - `createWorkspaceNoteFolder` requires a non-empty `title` and optionally accepts `parentId`.
 - `createWorkspaceNote` requires a non-empty `title` and optionally accepts `parentId`, `content`, and `format`.
 - `format` is only valid when `content` is provided.
-- `format` defaults to `text`. Use `html` only when you are intentionally sending html content for the initial paste step.
+- `format` defaults to `text`, which stores content literally. Markdown syntax (`#`, `**`, `>`) sent as `text` appears as raw characters in the editor.
+- When initial note content comes from Markdown, convert Markdown to HTML app-side and call `createWorkspaceNote` with `format: html`.
+- Use `format: text` only for plain text where literal Markdown characters are intended.
 - `createWorkspaceNote` returns note summary metadata, not the final note body. Call `getWorkspaceNote` afterward when you need the resulting markdown.
+
+## Append Flow Rules
+
+- `appendWorkspaceNoteContent` requires a known `noteId` and non-empty `content`.
+- It always appends to the end of the existing note. Do not use it for replacement or full-document editing.
+- `format` defaults to `text`, which stores content literally. Markdown syntax (`#`, `**`, `>`) sent as `text` appears as raw characters in the editor.
+- Gate reads note bodies as markdown via `getWorkspaceNote`, but editor-server append writes currently accept text or html, not a dedicated md body.
+- For Markdown input, convert Markdown to HTML in the app and call `appendWorkspaceNoteContent` with `format: html`. Do not send user-authored Markdown as `format: text` unless raw Markdown characters are the desired output.
+- Editor fidelity is not 1:1: headings, bold, italic, inline code, ordered/unordered lists, and links survive normal HTML paste; markdown blockquotes (`>`, rendered as `<blockquote>`) can degrade to plain paragraphs because of editor limitations.
+- `appendWorkspaceNoteContent` returns the refreshed note metadata and `note.md` after the append.
 
 ## Attachment Flow Rules
 
@@ -60,7 +73,7 @@ These operations manage workspace note folders, workspace notes, note reads, not
 ## Access Model
 
 - Note reads require `notes.read` and org access.
-- Note creation and attachment writes require `notes.write` and org access.
+- Note creation, content append, and attachment writes require `notes.write` and org access.
 - If note-service or editor-server writes fail, verify caller permissions and workspace scope before assuming a schema mismatch.
 
 ## Working Rules
@@ -69,11 +82,12 @@ These operations manage workspace note folders, workspace notes, note reads, not
 - Before creating notes in an unspecified/default workspace, call `listWorkspaces` and use the default workspace's real `id` instead of building note URLs with `/workspaces/default`.
 - For root note creation or listing, prefer omitting `parentId` instead of inventing a folder id.
 - If the caller needs note content after create, follow `createWorkspaceNote` with `getWorkspaceNote`.
+- If the caller wants to add content to an existing note, use `appendWorkspaceNoteContent` instead of creating a replacement note.
 ---
 
 ## Version
 
-- **Version**: 1.2.0
+- **Version**: 1.4.0
 - **Category**: specialized
-- **Last synced**: 2026-04-28
+- **Last synced**: 2026-07-01
 - **Priority rule**: If the MCP prompt has a higher version, follow the prompt's API Reference as source of truth.

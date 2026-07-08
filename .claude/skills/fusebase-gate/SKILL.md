@@ -12,7 +12,7 @@ This document describes how to use **MCP (Model Context Protocol)** with **Fuseb
 
 For rules and checklists, see `AGENTS.md`.
 
-For **FuseBase PostgreSQL Database** (`sql` / `postgres` via the Gate `isolated-stores` contract), treat **`references/isolated-sql-stores.md`** as the **production runbook** (playbooks, permissions, status/apply/409). Add **`references/isolated-sql-migration-discipline.md`** whenever you edit or apply migration bundles (anti-drift). **`references/isolated-sql.md`** is the condensed MCP-oriented SQL surface. See TOC below.
+For **FuseBase PostgreSQL Database** (`sql` / `postgres` via the Gate `isolated-stores` contract), use **`references/isolated-sql.md`** for the MCP-oriented sequence and **`references/isolated-sql-migration-discipline.md`** whenever you edit or apply migration bundles (anti-drift). For runtime errors and support handoff, use **`references/isolated-sql-integrator-troubleshooting.md`**. Do **not** load operator runbooks (`isolated-sql-stores`, `isolated-sql-rls-plan`) — they are platform-internal. See TOC below.
 
 **Critical isolated-store runtime rule:** a Gate isolated store is a platform-bound resource, not app environment configuration. Do not ask users to create app secrets or env vars for `storeId`, database IDs, physical database names, or provider connection details. Runtime code must resolve the store through Gate using the app token/source scope and stable alias (or use the store already bound by the platform). `storeId` may appear in MCP/operator handoff logs or CLI migration commands, but it must not be persisted as an app secret or hardcoded runtime config.
 
@@ -46,10 +46,10 @@ Each reference is in a separate file under `references/`. Load the file when you
 - [Fusebase Gate Users Operations](references/users.md)
 - [FuseBase PostgreSQL Database](references/isolated.md)
 - [FuseBase PostgreSQL Database](references/isolated-sql.md)
-- [Isolated SQL stores and migrations (Gate)](references/isolated-sql-stores.md)
-- [Isolated SQL stores PostgreSQL RLS plan (Gate)](references/isolated-sql-rls-plan.md)
+- [FuseBase PostgreSQL Database — integrator troubleshooting](references/isolated-sql-integrator-troubleshooting.md)
 - [Isolated stores hierarchy: Gate vs Neon](references/isolated-store-hierarchy.md)
 - [Isolated stores release checklist](references/isolated-stores-release-checklist.md)
+- [Portal iframe embed context (Gate SQL RLS)](references/portal-embed-context.md)
 - [Stripe for apps and agents (Gate)](references/stripe-for-apps-and-agents.md)
 
 ---

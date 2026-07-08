@@ -1,7 +1,7 @@
 ---
-version: "1.0.1"
+version: "1.1.0"
 mcp_prompt: membership
-last_synced: "2026-06-08"
+last_synced: "2026-07-03"
 title: "Fusebase Gate Membership And Portal Flows"
 category: specialized
 ---
@@ -14,7 +14,7 @@ category: specialized
 ---
 ## Fusebase Gate Membership And Portal Flows
 
-These prompts cover organization member invites, workspace selection, portal discovery, and portal magic-link behavior exposed through Gate.
+These prompts cover organization member invites/removal, workspace selection, portal discovery, portal magic-link behavior, and delayed Client account deletion exposed through Gate.
 
 ## Relevant Operations
 
@@ -23,6 +23,10 @@ These prompts cover organization member invites, workspace selection, portal dis
 - listWorkspaces: list workspaces visible in an organization and identify the default workspace.
 - listPortals: list portals visible in an organization.
 - addOrgUser: create an org invite, workspace invite, or portal invite depending on payload shape.
+- removeOrgMember: remove an organization member by numeric `userId`.
+- removeWorkspaceMember: remove a workspace member by `workspaceId` plus numeric `userId`.
+- removePortalMember: remove a portal member through the underlying `workspaceId` plus numeric `userId`.
+- scheduleClientAccountDeletion: schedule delayed deletion for a target user only when their org role is `client`.
 
 ## Access Status Rules
 
@@ -66,16 +70,25 @@ These prompts cover organization member invites, workspace selection, portal dis
 - `result: "link"` means org-service returned a portal magic link; inspect `magicLink` and related workspace membership fields.
 - After addOrgUser, verify access through getMyOrgAccess before treating the target user as fully provisioned in the org.
 
+## Removal And Client Account Deletion Rules
+
+- Use listOrgUsers first when you need to verify a target user's org role before account-level deletion.
+- removeOrgMember uses the numeric user id available from listOrgUsers. Gate resolves the internal org membership global id.
+- removeWorkspaceMember and removePortalMember use workspaceId plus numeric userId. Gate resolves the internal workspace membership global id.
+- Removing an org member removes org membership; org-service owns related workspace/group cleanup.
+- scheduleClientAccountDeletion takes numeric `userId` in the body and is allowed only for Client-role users in the requested org.
+- Client account deletion is scheduled/delayed by user-service; do not promise immediate permanent deletion.
+
 ## Working Rules
 
-- Always inspect the exact contract with tools_describe or sdk_describe before calling addOrgUser.
+- Always inspect the exact contract with tools_describe or sdk_describe before calling membership operations.
 - Treat `orgId` as required path input for all membership and portal discovery operations.
 - If a write fails, verify caller permissions and org access before assuming a schema problem.
 ---
 
 ## Version
 
-- **Version**: 1.0.1
+- **Version**: 1.1.0
 - **Category**: specialized
-- **Last synced**: 2026-06-08
+- **Last synced**: 2026-07-03
 - **Priority rule**: If the MCP prompt has a higher version, follow the prompt's API Reference as source of truth.

@@ -1,6 +1,6 @@
 ---
 name: fusebase-portal-specific-apps
-description: How to develop apps that interact with Fusebase portals where they are embedded. Use when a task requires showing data based on the current parent portal<% if (it.flags?.includes("app-portal-embeds-list")) { %> or listing portal pages where the current app is embedded<% } %>.
+description: How to develop apps that interact with Fusebase portals where they are embedded. Use when a task requires showing data based on the current parent portal or listing portal pages where the current app is embedded.
 ---
 
 # Apps in portals
@@ -17,7 +17,6 @@ Requests for the data in this view automatically receive the current portal in c
 ## Writing from a portal
 If you need to add an entry to the table with a portal-based filter, you need to ensure that the row you have created contains the current portal. Get it via the `/auth/context` request described in the `app-dev-practices` skill. When the app runs within the portal, the response may contain `runtimeContext.portalId`. If it is not present, then the app is currently running outside of the portal; therefore, the current portal should not be written to a filter column.
 
-<% if (it.flags?.includes("app-portal-embeds-list")) { %>
 ## Listing all portal pages where this app is embedded
 
 If runtime code needs to show all portal pages where the current app is embedded, use Fusebase Gate from the app runtime:
@@ -28,7 +27,6 @@ If runtime code needs to show all portal pages where the current app is embedded
 - Do not use a service-token fallback for user-facing runtime reads.
 - The result is org-scoped and returns one entry per portal page; multiple embeds on the same page are deduped by the platform.
 - Before publishing an app that calls this operation, run `fusebase app update <appId> --sync-gate-permissions`.
-<% } %>
 
 # Important considerations
 - When possible, always use a relation column that links to portal dashboards instead of a plain-text column for portal IDs.

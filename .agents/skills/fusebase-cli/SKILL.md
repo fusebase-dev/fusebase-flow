@@ -33,6 +33,33 @@ Every Fusebase Apps project requires a `fusebase.json` file in the project root.
 
 For details on the `fusebase.json` schema, see references/fusebase-json-schema.md.
 
+<% if (it.flags?.includes("declarative-manifest")) { %>
+### Declarative manifest — never invent an app `id`
+
+`apps[]` is **declarative**: an app entry carries `subdomain` + `name` and **omits the
+platform app `id`**. `fusebase deploy` reconciles each entry against the platform — it binds
+to the app with a matching `subdomain`, or creates it if missing. The product `id`
+(`productId`) is always required; only the per-app `id` is omitted.
+
+> ⚠️ **Never invent or hand-write an `apps[].id`.** The platform owns app ids. Writing your
+> own `id` and then running `fusebase app create` causes a **double-registration conflict** —
+> the platform creates a brand-new app whose id no longer matches the one you wrote. Add a
+> declarative record (no `id`) and run `fusebase deploy` (or `fusebase app create`); old apps
+> that already carry a real `id` keep working unchanged.
+
+**Canonical declarative app record** (add this to `apps[]` by hand — note: no `id`):
+
+```json
+{
+  "subdomain": "my-app",
+  "name": "My App",
+  "path": "apps/my-app",
+  "dev": { "command": "npm run dev" },
+  "build": { "command": "npm run build", "outputDir": "dist" }
+}
+```
+<% } %>
+
 ## App Permissions
 
 Apps can have permissions that define which dashboard views they can access. This is **required** when creating apps that interact with specific dashboards.
@@ -107,7 +134,6 @@ Options:
 - Global flag `mcp-gate-debug` includes the `mcp-gate-debug` skill (post–Gate MCP debug summary; isolated stores emphasis)
 - Global flag `isolated-stores` enables isolated stores functionality (SQL/NoSQL), including required Fusebase Gate references and `isolated_store.*` permissions in `fusebase env create`
 - Global flag `portal-specific-apps` includes portal-specific prompts/guidance (`fusebase-portal-specific-apps` skill, `{{CurrentPortal}}` filter references, and `/auth/context` portal runtime context notes)
-- Global flag `app-portal-embeds-list` enables `fusebase app portal-embeds <appId>` and generated app guidance for listing portal pages where an app is embedded
 
 This command **always creates a new app** on Fusebase and initializes the project. It will:
 
@@ -349,24 +375,24 @@ During `fusebase init`, only **required** MCP servers (per the catalog, respecti
 ### Create App Secrets
 
 ```bash
-fusebase secret create --app <appId> --secret <KEY:description> [--secret ...]
+fusebase secret create --app <%= it.flags?.includes("declarative-manifest") ? "<appPath>" : "<appId>" %> --secret <KEY:description> [--secret ...]
 ```
 
 Creates secrets (with empty values) for an app and prints the URL where you can set the actual values.
 
 **Required Options:**
 
-- `--app <appId>` - App ID to create secrets for. `--feature` is accepted as a deprecated alias.
+- `--app <%= it.flags?.includes("declarative-manifest") ? "<appPath>" : "<appId>" %>` - <%= it.flags?.includes("declarative-manifest") ? "App path (from `apps[].path` in `fusebase.json`)" : "App ID" %> to create secrets for. `--feature` is accepted as a deprecated alias.
 - `--secret <KEY:description>` - Secret to create. Format: `KEY` or `KEY:description`. **Repeatable** — pass multiple `--secret` flags to create several secrets at once.
 
 **Examples:**
 
 ```bash
 # Create a single secret
-fusebase secret create --app abc123 --secret "API_KEY:Third-party API key"
+fusebase secret create --app <%= it.flags?.includes("declarative-manifest") ? "apps/my-app" : "abc123" %> --secret "API_KEY:Third-party API key"
 
 # Create multiple secrets at once
-fusebase secret create --app abc123 \
+fusebase secret create --app <%= it.flags?.includes("declarative-manifest") ? "apps/my-app" : "abc123" %> \
   --secret "API_KEY:Third-party API key" \
   --secret "DB_PASSWORD:Database connection password" \
   --secret "WEBHOOK_SECRET"
@@ -429,12 +455,18 @@ Deploys all apps to Fusebase:
 3. Uploads the built files from `outputDir`
 4. Activates the new version on Fusebase
 
+Options:
+
+- `--force` — ignore hash matches and re-upload + redeploy every app
+- `--app <subdomain|id|name|path>` — deploy only the matching app
+- `--nocode` — only reconcile infrastructure (bind/create apps on the platform), skip code deployment
+
 The project template includes ESLint (`npm run lint`) and root `npm run typecheck` (TypeScript across apps — catches errors ESLint does not). Run both before saying "Done" so deploy succeeds; see AGENTS.md "Final Gate". Claude Code runs lint and typecheck on Stop via `.claude/settings.json` hooks.
 
 ### Isolated SQL Bundle / RLS Manifest
 
 ```bash
-fusebase isolated-store sql bundle --app <appId> [--alias <alias>] [--stage dev|prod] [--json|--status|--dry-run|--apply --yes]
+fusebase isolated-store sql bundle --app <%= it.flags?.includes("declarative-manifest") ? "<appPath>" : "<appId>" %> [--alias <alias>] [--stage dev|prod] [--json|--status|--dry-run|--apply --yes]
 ```
 
 Use this for app-owned isolated SQL schema work. It reads `apps[].isolatedStores.sql[]` from `fusebase.json`, loads `postgres/migrations/manifest.json`, and computes Gate-canonical checksums from SQL file bytes.
@@ -448,10 +480,10 @@ fusebase config set-flag postgres-rls
 Examples:
 
 ```bash
-fusebase isolated-store sql bundle --app client-portal --json
-fusebase isolated-store sql bundle --app client-portal --stage dev --status
-fusebase isolated-store sql bundle --app client-portal --stage dev --dry-run
-fusebase isolated-store sql bundle --app client-portal --stage dev --apply --yes
+fusebase isolated-store sql bundle --app <%= it.flags?.includes("declarative-manifest") ? "apps/client-portal" : "client-portal" %> --json
+fusebase isolated-store sql bundle --app <%= it.flags?.includes("declarative-manifest") ? "apps/client-portal" : "client-portal" %> --stage dev --status
+fusebase isolated-store sql bundle --app <%= it.flags?.includes("declarative-manifest") ? "apps/client-portal" : "client-portal" %> --stage dev --dry-run
+fusebase isolated-store sql bundle --app <%= it.flags?.includes("declarative-manifest") ? "apps/client-portal" : "client-portal" %> --stage dev --apply --yes
 ```
 
 Gate calls use `GATE_MCP_TOKEN` from `.env`. Do `--status` and `--dry-run` before any real `--apply`.
@@ -632,7 +664,6 @@ Contracts are **authored and validated locally but verified centrally** — ther
 fusebase app update <appId> --permissions="dashboardView.dash1:view1.read,write" --sync-gate-permissions
 ```
 
-<% if (it.flags?.includes("app-portal-embeds-list")) { %>
 ### List Portal Embeds
 
 ```bash
@@ -640,7 +671,6 @@ fusebase app portal-embeds <appId>
 ```
 
 Lists portal pages in the current org where the app is embedded. Output includes portal name, page title when available, and URL. Empty results print `No portal embeds found for this app.`.
-<% } %>
 
 ## Typical Workflow
 

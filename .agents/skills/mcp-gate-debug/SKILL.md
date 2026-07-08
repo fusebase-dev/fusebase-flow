@@ -29,7 +29,7 @@ Keep it scannable:
 1. **Went well** — bullets (tools, prompts, docs that helped).
 2. **Friction** — wrong assumptions, missing context, repeated `tools_describe`, unclear errors, wrong `orgId`/`storeId`/`stage`, migration/drift confusion, permission surprises.
 3. **Improvements** — ordered by impact. For each idea, prefer:
-   - **Target:** file path (e.g. `fusebase-gate/references/isolated-sql-stores.md`) or “MCP tool X description / prompt Y”
+   - **Target:** file path (e.g. `fusebase-gate/references/isolated-sql-integrator-troubleshooting.md`) or “MCP tool X description / prompt Y”
    - **Change:** one sentence
    - **Why:** link to the failure you saw
 
@@ -37,8 +37,9 @@ Keep it scannable:
 
 When isolated-store tools were used, **before** proposing doc changes, re-read if needed:
 
-- `.claude/skills/fusebase-gate/references/isolated-sql-stores.md`
+- `.claude/skills/fusebase-gate/references/isolated-sql.md`
 - `.claude/skills/fusebase-gate/references/isolated-sql-migration-discipline.md`
+- `.claude/skills/fusebase-gate/references/isolated-sql-integrator-troubleshooting.md`
 - `.claude/skills/fusebase-gate/references/isolated-nosql.md` (if NoSQL)
 
 The summary should call out:

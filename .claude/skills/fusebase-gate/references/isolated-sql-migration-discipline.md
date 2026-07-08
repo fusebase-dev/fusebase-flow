@@ -1,7 +1,7 @@
 ---
-version: "1.1.4"
+version: "1.1.5"
 mcp_prompt: isolatedSqlMigrationDiscipline
-last_synced: "2026-05-09"
+last_synced: "2026-07-01"
 title: "Fusebase Gate — Isolated SQL migration discipline"
 category: specialized
 ---
@@ -14,7 +14,7 @@ category: specialized
 ---
 ## Isolated SQL — migration discipline (anti-drift)
 
-Use **before** building, editing, or sending a bundle to **`getIsolatedStoreSqlMigrationStatus`** / **`applyIsolatedStoreSqlMigrations`**. For full playbooks see repo **`docs/isolated-sql-stores.md`**.
+Use **before** building, editing, or sending a bundle to **`getIsolatedStoreSqlMigrationStatus`** / **`applyIsolatedStoreSqlMigrations`**. Pair with MCP prompt **`isolatedSql`**. For runtime errors (not drift), see **`docs/isolated-sql-integrator-troubleshooting.md`**.
 
 ## What drift is
 
@@ -73,7 +73,7 @@ Avoid **`CREATE EXTENSION pgcrypto`** on locked-down hosts; prefer **`gen_random
 
 ## Version
 
-- **Version**: 1.1.4
+- **Version**: 1.1.5
 - **Category**: specialized
-- **Last synced**: 2026-05-09
+- **Last synced**: 2026-07-01
 - **Priority rule**: If the MCP prompt has a higher version, follow the prompt's API Reference as source of truth.

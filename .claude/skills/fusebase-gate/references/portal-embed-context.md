@@ -1,3 +1,16 @@
+---
+version: "1.0.0"
+mcp_prompt: none
+source: "docs/portal-embed-context.md"
+last_synced: "2026-07-01"
+title: "Portal iframe embed context (Gate SQL RLS)"
+category: specialized
+---
+# Portal iframe embed context (Gate SQL RLS)
+
+> **SOURCE**: This file is copied from `docs/portal-embed-context.md` in the fusebase-gate repo. Edit that file, then run `npm run mcp:skills:generate`.
+
+---
 # Portal embed context (`portalFeatureContextToken`)
 
 When a Fusebase app is embedded in a **portal brick iframe**, the platform passes a signed handoff JWT in the iframe URL — not user identity.
@@ -15,13 +28,13 @@ https://<app-sub>.<managed-domain>/<path>?fromFrame=true&portalFeatureContextTok
 
 After signature verification (`HS256`, `iss: fusebase-api`, `aud: portal-app-feature`):
 
-| Claim | Meaning |
-| ----- | ------- |
-| `type` | Must be `portal-app-feature-context` |
-| `portalId` | Portal global id (also JWT `sub`) |
-| `workspaceId` | Workspace bound to the portal |
-| `appId` | **Product** id (legacy field name) |
-| `featureId` | **App (feature)** id (legacy field name) |
+| Claim         | Meaning                                  |
+| ------------- | ---------------------------------------- |
+| `type`        | Must be `portal-app-feature-context`     |
+| `portalId`    | Portal global id (also JWT `sub`)        |
+| `workspaceId` | Workspace bound to the portal            |
+| `appId`       | **Product** id (legacy field name)       |
+| `featureId`   | **App (feature)** id (legacy field name) |
 
 There is **no end-user id** in this token. It identifies portal + product + app feature only.
 
@@ -29,10 +42,10 @@ There is **no end-user id** in this token. It identifies portal + product + app 
 
 For normal browser **`fbsfeaturetoken`** / app JWE sessions:
 
-| Setting | Injected automatically? |
-| ------- | ---------------------- |
-| `app.org_id` | Yes (from token org scope) |
-| `app.portal_id` | **No** for portal-embedded app tokens |
+| Setting               | Injected automatically?                       |
+| --------------------- | --------------------------------------------- |
+| `app.org_id`          | Yes (from token org scope)                    |
+| `app.portal_id`       | **No** for portal-embedded app tokens         |
 | `getMe().auth.scopes` | Often empty for visitor/client embed sessions |
 
 Do **not** assume `app.portal_id` or `CurrentPortal` RLS context without an explicit verified portal id.
@@ -56,10 +69,17 @@ Do **not** assume `app.portal_id` or `CurrentPortal` RLS context without an expl
 
 ## Related platform paths
 
-| Component | Role |
-| --------- | ---- |
-| `nx-frontend` portal customizer | Mints token via `POST /api/portal/portal-feature-context-token` |
-| `app-wrapper` `auth.ts` | Verifies token on `/_auth/` redirect; passes `portalId`/`workspaceId` into `createAppFeatureToken` |
-| Gate `verifyPortalFeatureContextToken` | Backend verification/exchange for RLS bootstrap |
+| Component                              | Role                                                                                               |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `nx-frontend` portal customizer        | Mints token via `POST /api/portal/portal-feature-context-token`                                    |
+| `app-wrapper` `auth.ts`                | Verifies token on `/_auth/` redirect; passes `portalId`/`workspaceId` into `createAppFeatureToken` |
+| Gate `verifyPortalFeatureContextToken` | Backend verification/exchange for RLS bootstrap                                                    |
 
-See also: [isolated-sql.md](./isolated-sql.md), [isolated-sql-rls-plan.md](./isolated-sql-rls-plan.md).
+See also: [isolated-sql.md](./isolated-sql.md), [isolated-sql-integrator-troubleshooting.md](./isolated-sql-integrator-troubleshooting.md).
+---
+
+## Version
+
+- **Version**: 1.0.0
+- **Category**: specialized
+- **Last synced**: 2026-07-01

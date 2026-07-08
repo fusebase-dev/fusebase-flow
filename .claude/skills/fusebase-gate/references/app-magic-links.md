@@ -35,7 +35,7 @@ category: specialized
 ---
 ## Fusebase Gate App Magic Link Operations
 
-These operations expose one-click client onboarding for AI Apps. They mirror the portal magic-link flow but live on the app subdomain (`https://{appSubdomain}.{domain}/link?id=…&redirect=…`) and target the `nimbus-ai` storage layer through Gate.
+These operations expose one-click client onboarding for AI Apps. They mirror the portal magic-link flow but live on the app subdomain (`https://{appSubdomain}.{domain}/_auth/magiclink/{key}`) and target the `nimbus-ai` storage layer through Gate. Activation is handled **server-side by the platform** at that URL (HttpOnly cookies + redirect); the SPA never activates links itself.
 
 ## Terminology: `product` / `app` vs the Gate wire contract
 
@@ -60,8 +60,8 @@ FuseBase renamed its core entities: the old `app` is now a **`product`**, and th
 ## When To Use Each Flow
 
 - Use `createAppMagicLink` when the caller is the app owner/admin and wants to invite a known client by email. This is the right call for proposal/invoice deep-link delivery (set `redirectPath` to the deep page).
-- Use `requestAppMagicLink` from the app's own login form (the `/link` page or a sign-in screen) when a visitor types their email and asks for a magic link. Never call it from the owner-side admin UI.
-- Use `activateAppMagicLink` from the SPA's `/link` route — the visitor lands on `/link?id={globalId}&redirect={path}`, the SPA calls activate, sets the session cookie, persists the feature token, and redirects.
+- Use `requestAppMagicLink` from the app's own login form (a sign-in screen) when a visitor types their email and asks for a magic link. Never call it from the owner-side admin UI.
+- `activateAppMagicLink` is called by the **platform**, not by app code: the visitor lands on `/_auth/magiclink/{globalId}`, fusebase-gate activates the link on nimbus-ai, sets HttpOnly session cookies on the app domain, and redirects to the stored `redirectPath`. Do not call activate from the SPA or write session cookies via JS.
 
 ## Identity And Scoping Rules
 
@@ -90,9 +90,9 @@ FuseBase renamed its core entities: the old `app` is now a **`product`**, and th
 
 ## Activation Rules (`activateAppMagicLink`)
 
-- The SPA at `/link` reads `id` and `redirect` from the query string, then activates the link by issuing `POST {gateBaseUrl}/apps/magic-links/{id}/activate`. The bundled SPA template currently calls this endpoint directly via `fetch` so it stays usable before `@fusebase/fusebase-gate-sdk` exposes `AppMagicLinksApi.activateAppMagicLink`. Once that SDK ships, prefer `activateAppMagicLink({ path: { globalId: id } })` over hand-rolled fetches; the wire request is identical (the server already stored `redirectPath` on the link row at create time, so the client never sends it on activation).
+- Activation happens **server-side**: the visitor opens `/_auth/magiclink/{globalId}` on the app domain, fusebase-gate calls the activate op against nimbus-ai, sets HttpOnly `eversessionid` / `fbsfeaturetoken` / `fbsdashboardtoken` cookies, and 302s to the stored `redirectPath` (the server stored it on the link row at create time). App code never calls activate. The SPA scaffold only keeps a legacy `/link?id={key}` route that forwards old email URLs to `/_auth/magiclink/{key}`.
 - Successful response: `{ id, sessionToken, featureToken, dashboardToken, redirectPath, expiresAt, appFeatureId }`.
-  - `sessionToken` — Fusebase user session for the **magic-link recipient**; forward to Gate as `EverHelper-Session-ID` on user-context calls. The scaffold may also set `eversessionid`, but apps must not treat platform cookies alone as durable app identity (see App session exchange below).
+  - `sessionToken` — Fusebase user session for the **magic-link recipient**; the platform persists it as the HttpOnly `eversessionid` cookie. Apps must not treat platform cookies alone as durable app identity (see App session exchange below).
   - `featureToken` — Gate token scoped to the resolved **App** (host unit); authenticates the app feature but **does not substitute** for `sessionToken` on `getMyOrgAccess` and similar user-context Gate ops.
   - `dashboardToken` — dashboard-service token, scoped to the same App and target user. The bundled SPA persists it as the `fbsdashboardtoken` cookie so dashboard SDK calls (`@fusebase/dashboard-service-sdk`) can authenticate after activation; in the deployed app-wrapper flow it is bundled inside the gate feature token JWT, but the magic-link activation hands both tokens out as discrete strings.
   - `redirectPath` — relative path to navigate to after token persistence (`/` if the invite did not request a deep link).
@@ -103,13 +103,13 @@ FuseBase renamed its core entities: the old `app` is now a **`product`**, and th
   - `404 NotFound` — link id does not exist or the row is soft-deleted.
   - `403 Forbidden` with `reason="expired"` — TTL elapsed; show the expired-link UI and offer a request-link flow.
   - `403 Forbidden` with `reason="revoked"` — the target user no longer has access at activation time (principals mutated after the link was issued); fall back to the same expired-link UI or show "this link is no longer valid".
-- The SPA should branch on the `reason` field rather than the HTTP status alone so error copy stays stable as new reasons are added.
+- The platform renders the error page for these failures; app code branching on `reason` only matters if it surfaces activation errors in its own UI.
 
 ## Deep-Link Redirect Usage
 
 - `redirectPath` is opaque to Gate; nimbus-ai stores it verbatim on the link row and returns it on activation.
 - Always make `redirectPath` relative (`/proposals/abc`, `/invoices/123`). Absolute URLs would let the inviter point the activation to an unrelated origin.
-- The SPA is responsible for sanitizing `redirectPath` before navigating (reject schemes, reject `//host…` patterns) — Gate does not enforce this.
+- The platform `/_auth/magiclink/{key}` handler sanitizes `redirectPath` before redirecting (unsafe values collapse to `/`).
 - Pair `redirectPath` with the email subject the owner sends so the deep page matches the user's expectation ("View your proposal" → `/proposals/abc`).
 
 ## Expired-Link Handling
@@ -139,18 +139,17 @@ FuseBase renamed its core entities: the old `app` is now a **`product`**, and th
 Magic-link Apps are often created with `--access=visitor`. The platform still requires `fbsfeaturetoken` before proxying `/api/*` to the App backend.
 
 - Before activation (or before the browser completes `/_auth/`), `GET /api/…` without cookies redirects to auth — **not** a broken backend.
-- After `activateAppMagicLink`, the SPA should persist platform cookies; same-origin `/api/account/from-magic-link` then reaches the backend. Timeouts on that route after deploy usually mean **backend listen port / health** (infra), not missing visitor access.
+- After `/_auth/magiclink/{key}` activation the platform has set the cookies; same-origin `/api/account/from-magic-link` then reaches the backend. Timeouts on that route after deploy usually mean **backend listen port / health** (infra), not missing visitor access.
 - Do not smoke-test deployed magic-link flows with naked `curl` on `/api/health`; use the browser flow or curl with cookies saved after `/_auth/`.
 - Do not call Gate `getMyOrgAccess` from the SPA for the exchange — CORS blocks `EverHelper-Session-ID`; use the backend exchange pattern below.
 
 ## App Session Exchange After Activation
 
-The bundled `/link` scaffold sets platform cookies and redirects. **The mandatory part of the exchange is identical in Test and Production:** after activation the SPA must `POST` both tokens to a trusted app route (default `/api/account/from-magic-link`) so the backend can resolve the recipient via Gate before any protected route renders. Without that hop the next HTML load may re-issue `fbsfeaturetoken` for a **different** Fusebase user already signed in on that browser.
+The platform activation at `/_auth/magiclink/{key}` sets HttpOnly cookies and redirects — JS cannot read the tokens. **The mandatory part of the exchange is identical in Test and Production:** before any protected route renders, the backend must resolve the recipient via Gate from the request cookies rather than trusting the feature token alone.
 
-1. SPA calls `activateAppMagicLink` and receives `{ featureToken, sessionToken, redirectPath, … }`.
-2. SPA `POST`s `{ featureToken, sessionToken }` in the **body** of an app route (e.g. `/api/account/from-magic-link`) — never rely on `fbsfeaturetoken` surviving the next HTML navigation.
-3. Backend calls Gate with `x-app-feature-token` + `EverHelper-Session-ID: <sessionToken>` (e.g. `getMyOrgAccess`) to resolve `userId`.
-4. Redirect to `redirectPath`.
+1. Visitor opens `/_auth/magiclink/{key}`; the platform activates the link, sets HttpOnly `eversessionid` / `fbsfeaturetoken` / `fbsdashboardtoken` cookies, and redirects to `redirectPath`.
+2. The SPA calls a trusted app route (e.g. `/api/account/from-magic-link`); same-origin requests carry the HttpOnly cookies automatically.
+3. Backend reads the cookies and calls Gate with `x-app-feature-token: <fbsfeaturetoken>` + `EverHelper-Session-ID: <eversessionid>` (e.g. `getMyOrgAccess`) to resolve `userId`.
 
 Never use `getMyOrgAccess` with only the feature token to gate Memberspace — that returns the token owner, not the visitor.
 
@@ -166,7 +165,7 @@ Choose the cookie policy based on what the app actually needs; do not auto-upgra
 **Production mode (Memberspace, role-gated UI, or any flow that must remember the recipient across navigations):**
 
 - After step 3, issue an **app-owned** session cookie (HMAC-signed or equivalent integrity-protected payload, bound to the resolved `userId`) and treat it as the source of truth for subsequent requests. Verify on every protected request; do not re-infer identity from `fbsfeaturetoken`.
-- Register the HMAC secret here and only here: `fusebase secret create --feature <appId> --secret "APP_SESSION_SECRET:HMAC signing key for app-owned session cookie"`. Read it from `process.env.APP_SESSION_SECRET` at runtime.
+- Register the HMAC secret here and only here: `fusebase secret create --app <%= it.flags?.includes("declarative-manifest") ? "<appPath>" : "<appId>" %> --secret "APP_SESSION_SECRET:HMAC signing key for app-owned session cookie"`. Read it from `process.env.APP_SESSION_SECRET` at runtime.
 - Set cookie attributes `httpOnly`, `secure`, `sameSite=Lax`, `path=/`. Rotate by changing the secret + invalidating active cookies; do not depend on Fusebase platform cookies for revocation.
 
 ### Don't register non-secrets
@@ -179,7 +178,7 @@ Choose the cookie policy based on what the app actually needs; do not auto-upgra
 
 - Always inspect the exact contract with `tools_describe` or `sdk_describe` before integration work — the request and response shapes are versioned independently from this prompt.
 - When wiring `createAppMagicLink`, pass the **Product id** (`productId` from `fusebase.json`) as the `appId` path segment. If a call fails with `App not found` / `404`, the most likely cause is an App id (`apps[].id` from `fusebase app list`) used where the Product id belongs — re-read the Terminology section.
-- For app templates that ship with a sign-in form, wire the form to `requestAppMagicLink` and the `/link` route to `activateAppMagicLink`. Never persist the magic link `id` past activation; treat it as single-flow credential material.
+- For app templates that ship with a sign-in form, wire the form to `requestAppMagicLink`; activation is platform-handled at `/_auth/magiclink/{key}`. Never persist the magic link `id` past activation; treat it as single-flow credential material.
 - For owner-side admin UI, prefer `createAppMagicLink` with `addToAccessPrincipals=true` for first-time invites and `addToAccessPrincipals=false` for re-invites of users who already have access.
 - If activation fails, do not assume `accessPrincipals` is the wrong shape; re-read the `reason` field and follow the expired-link handling rules above.
 ---

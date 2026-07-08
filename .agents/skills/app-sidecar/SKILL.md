@@ -86,7 +86,7 @@ fusebase sidecar add --app my-scraper --name redis \
 Secrets must be **registered** with the app beforehand (or alongside) via:
 
 ```bash
-fusebase secret create --app <appId> --secret "DB_PASSWORD:Redis auth"
+fusebase secret create --app <%= it.flags?.includes("declarative-manifest") ? "<appPath>" : "<appId>" %> --secret "DB_PASSWORD:Redis auth"
 ```
 
 Set the actual values in the FuseBase web UI (the URL is printed by `secret create`). Only registered keys may be referenced from `--secret`. See the **app-secrets** skill for the full secret lifecycle.

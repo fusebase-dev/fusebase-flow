@@ -14,10 +14,14 @@ Secrets are encrypted key-value pairs stored in Fusebase and injected into the a
 Use the CLI to register secret keys (values are set on the FuseBase website):
 
 ```bash
-fusebase secret create --app <appId> --secret "KEY:description" [--secret ...]
+fusebase secret create --app <%= it.flags?.includes("declarative-manifest") ? "<appPath>" : "<appId>" %> --secret "KEY:description" [--secret ...]
 ```
 
+<% if (it.flags?.includes("declarative-manifest")) { %>
+- `appPath` — the app's `apps[].path` from `fusebase.json`; `--feature` is accepted as a deprecated alias for `--app`
+<% } else { %>
 - `appId` — get it from `fusebase.json` (`apps[].id`); `--feature` is accepted as a deprecated alias for `--app`
+<% } %>
 - Each `--secret` is `KEY` or `KEY:human-readable description`
 - Pass multiple `--secret` flags to create several secrets at once
 - After running, the CLI prints the URL where you can fill in the actual values
@@ -26,10 +30,10 @@ fusebase secret create --app <appId> --secret "KEY:description" [--secret ...]
 
 ```bash
 # Single secret
-fusebase secret create --app abc123 --secret "OPENAI_API_KEY:OpenAI API key"
+fusebase secret create --app <%= it.flags?.includes("declarative-manifest") ? "apps/my-app" : "abc123" %> --secret "OPENAI_API_KEY:OpenAI API key"
 
 # Multiple secrets at once
-fusebase secret create --app abc123 \
+fusebase secret create --app <%= it.flags?.includes("declarative-manifest") ? "apps/my-app" : "abc123" %> \
   --secret "STRIPE_SECRET_KEY:Stripe secret key" \
   --secret "DB_PASSWORD:Database connection password" \
   --secret "WEBHOOK_SECRET:Webhook signing secret"
