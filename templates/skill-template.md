@@ -55,6 +55,14 @@ Numbered steps. Each step is a single action. Use concrete identifiers (T#, sha:
 3. <Step 3>
 4. <Final step — what to produce>
 
+## Worked example
+
+Required when Procedure has 3+ steps or a decision table; otherwise omit this section. Exactly one compact example, ≤12 lines: concrete input → key step outcomes → produced artifact. Not a tutorial; variant detail goes to `references/`.
+
+1. <Input: the operator request or repo state that fires this skill>
+2. <Key step outcomes with concrete identifiers>
+3. <Produced artifact + evidence recorded>
+
 ## Output artifacts
 
 Tabular list of files or chat outputs the skill produces.
@@ -104,5 +112,7 @@ Original Fusebase Flow content. Designed after reviewing public AI coding workfl
 - [ ] Concrete identifiers (T#, file:line, command names) over vague pointers
 - [ ] No chat-style ASCII visuals (visuals belong in chat per FR-08, not in skill files)
 - [ ] Predictable sections present in this exact order
+- [ ] Procedure-heavy skills: one compact `## Worked example` (≤12 lines) after Procedure
+- [ ] Trigger/gate changes: retrofit-hygiene sweep clean — ALL surfaces in `flow-skills/skill-authoring/SKILL.md` § Retrofit-hygiene sweep updated in the SAME edit — and matcher dry-run recorded
 - [ ] Body fits in one screen of an 80-col editor when possible
 - [ ] Framework skills only: provider mirrors and `audit/skill-mirror-manifest.txt` refreshed

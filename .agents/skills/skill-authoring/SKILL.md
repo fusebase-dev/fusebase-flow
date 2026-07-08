@@ -11,6 +11,7 @@ expected_outputs:
   - clean-room skill brief with role applicability and non-overlap analysis
   - canonical SKILL.md updates when implementation is approved
   - mirror / manifest / source-leak validation notes for framework skills
+  - retrofit-hygiene sweep + matcher dry-run evidence for trigger/gate and description changes
 related_workflows:
   - knowledge-curation.md
   - eight-phase-flow.md
@@ -103,6 +104,7 @@ Use `templates/skill-template.md` section order. Keep the body Mode-B-lite:
 | Do not invoke when | negative triggers to prevent sprawl |
 | Required inputs | table with location and fallback |
 | Procedure | numbered or role-scoped steps |
+| Worked example | procedure-heavy skills only: one compact example (≤12 lines) after Procedure — input → step outcomes → output |
 | Output artifacts | paths and chat/artifact mode |
 | Failure cases | detection and response |
 | Escalation path | next skill/workflow/operator question |
@@ -140,8 +142,56 @@ Minimum validation for framework skill changes:
 | CLI provider boundary | provider CLI assets remain outside canonical `flow-skills/` unless separately approved as clean-room Flow framework skills |
 | Format check | `git diff --check` clean except known line-ending warnings |
 | Scope review | no unrelated refactors or duplicated skill responsibilities |
+| Retrofit hygiene | on any trigger/gate change: propagation sweep clean — `grep` for each pre-change trigger phrase / artifact path returns 0 unexplained hits in the skill (see Retrofit-hygiene sweep below) |
+| Matcher dry-run | on new skills / description changes: own `description` keyword-claims each of its 3-5 trigger phrases and none of its named siblings' phrases against the full description catalog (see Matcher dry-run below) |
+| Worked example | procedure-heavy skill (Procedure with 3+ steps or a decision table) contains exactly one compact `## Worked example` (≤12 lines) |
 
 If validation cannot run, report the exact missing check and treat the change as incomplete until the operator accepts that gap.
+
+#### Retrofit-hygiene sweep (mandatory on any trigger/gate change)
+
+A trigger/gate change = any edit to when the skill fires, what artifact gates it, which inputs it accepts, or which role owns it. Partial retrofits create self-contradicting skills; ALL surfaces update in the SAME edit:
+
+| Surface | Must reflect the new trigger/gate |
+|---|---|
+| Frontmatter `description` | "Use when / ONLY when" names the new trigger/artifact set; no stale names |
+| Header style line + Purpose | gating statement matches the new set |
+| When to invoke / Do not invoke when | positive and negative triggers updated symmetrically |
+| Required inputs | rows and "If missing" behavior accept the new set |
+| Procedure | every step — especially existence/first-step gates — checks the new set |
+| Failure cases + Escalation path | detection, response, and referenced artifacts use the new set |
+| External restatements | sibling skills, README catalog, `AGENTS.md` overlay, `agents/*/AGENT.md` lines quoting this trigger |
+
+Mechanical check: for each pre-change trigger phrase / artifact path, `grep -n '<old-string>' flow-skills/<slug>/SKILL.md` → 0 hits, or every remaining hit is deliberate and explained in the change evidence.
+
+Anti-example (real): `business-logic-guardian` v3.5 was retrofitted to accept `business-logic-index.md` in "When to invoke", but frontmatter `description`, Required inputs, Procedure step 1, and Escalation still gated on `business-logic.md` only — the skill no-opped on projects holding only the index and contradicted its own body. This sweep exists to make that class impossible.
+
+#### Matcher dry-run (mandatory on new skills and description changes)
+
+| Step | Action | Pass condition |
+|---|---|---|
+| 1 | List 3-5 operator phrases this skill claims (from `description` + When to invoke) | — |
+| 2 | Dump the catalog: `grep -H '^description:' flow-skills/*/SKILL.md`. Per own phrase: (a) confirm THIS skill's `description` contains the phrase's 1-2 distinctive keywords — absent keywords = phrase never fires; (b) scan every other description for those keywords — any that also plausibly claims the phrase = COLLISION | every own phrase keyword-present in own `description`; every collision resolved: add an explicit "<sibling> owns that" Do-NOT clause here or narrow the trigger |
+| 3 | List 2-3 phrases owned by the nearest siblings (skills named in this skill's "Do NOT use" line or Do-not-invoke section) | own `description` claims NONE of their keywords (step 2b scan, reversed) |
+| 4 | Record the phrase → winning-skill table in change evidence (chat or gate note) | table present |
+
+Any keyword-absent own phrase, unresolved collision, or claimed sibling phrase → fix `description` / Do-not-invoke boundaries BEFORE running `mirror-skills.sh`.
+
+#### Worked-example requirement
+
+Every procedure-heavy skill — Procedure with 3+ steps or a decision table — carries exactly ONE `## Worked example` after Procedure: ≤12 lines, Mode-B-lite, concrete input → key step outcomes → produced artifact. One example, not a tutorial; variant detail goes to `references/` only if genuinely needed. Applies to new skills at authoring time and to any existing skill on its next material update — no mass retro-edit of untouched skills.
+
+## Worked example
+
+Request: "guardian should also accept the new index doc" — a trigger/gate change to an existing framework skill.
+
+1. Classify (§1): update existing `business-logic-guardian`; no new skill.
+2. Author (§4): add `business-logic-index.md` to the activation gate.
+3. Retrofit sweep (§6): `grep -n 'business-logic\.md' flow-skills/business-logic-guardian/SKILL.md` → update frontmatter `description`, When/Do-not-invoke, Required inputs, Procedure step 1, Escalation in the SAME edit; 0 unexplained stale hits.
+4. Matcher dry-run (§6): "don't break the business logic" → guardian wins; "document the business logic" → `app-business-docs` still wins.
+5. Wire + mirror (§5): `hooks/local/mirror-skills.sh`; manifest regenerated.
+
+Evidence: sweep greps + dry-run table in the gate note.
 
 ## Output artifacts
 
@@ -164,6 +214,8 @@ If validation cannot run, report the exact missing check and treat the change as
 | Mirror drift | Preflight/hash check finds mirror mismatch | Run mirror script and re-check |
 | Role drift | PO writes production code via skill, or AI Developer changes product direction | Stop; apply `role-discipline` refusal and re-scope |
 | Overlong skill | SKILL.md grows toward large reference-guide size | Split variant detail into `references/` and keep SKILL.md procedural |
+| Stale retrofit | retrofit-hygiene sweep finds a section still describing the pre-change trigger/gate | propagate in the same edit; re-sweep to 0 stale hits before mirroring |
+| Trigger collision | matcher dry-run finds a keyword-absent own phrase, an unresolved description collision, or a claimed sibling phrase | rewrite `description` / Do-not-invoke boundary; re-run dry-run |
 
 ## Escalation path
 
@@ -197,6 +249,7 @@ The *authoring method here* is generic (ships with Flow); the *produced domain s
 - Do not make Product Owner sessions implement code or AI Developer sessions lock product decisions.
 - Do not ask skill-authoring questions through popup / clickable menus; use chat text per FR-19.
 - Do not leave mirrors, manifests, counts, or release docs stale after adding a framework skill.
+- Do not change a skill's trigger/gate in one section and leave any other § Retrofit-hygiene sweep surface on the old gate — that section owns the ONLY surface list (never re-enumerate it elsewhere); run the sweep in the same edit or do not ship.
 
 ## Clean-room note
 

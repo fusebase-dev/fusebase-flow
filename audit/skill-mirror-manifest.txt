@@ -72,8 +72,8 @@
 .claude/skills/role-discipline/references/product-owner.md  2910f4f0d6dca8c717868efcb0e9db32aa1d8975a1b39e056a780f5b0655297c
 .agents/skills/security-permissions-review/SKILL.md  23dfff25d3f60fff9d3f8d34e1fd40a46bc24b26b0e2bb8554159b4dd0016825
 .claude/skills/security-permissions-review/SKILL.md  23dfff25d3f60fff9d3f8d34e1fd40a46bc24b26b0e2bb8554159b4dd0016825
-.agents/skills/skill-authoring/SKILL.md  c363b6428cbe645a2018b052ec9723a41acb834d3139322eb346326e3660ed2d
-.claude/skills/skill-authoring/SKILL.md  c363b6428cbe645a2018b052ec9723a41acb834d3139322eb346326e3660ed2d
+.agents/skills/skill-authoring/SKILL.md  7a42bdeda00698c6dc8b0e95139ce2610a3e1a15e690fefa56d83353a0053b28
+.claude/skills/skill-authoring/SKILL.md  7a42bdeda00698c6dc8b0e95139ce2610a3e1a15e690fefa56d83353a0053b28
 .agents/skills/smoke-testing/SKILL.md  cccfdcf051103494c286d8367f3e4086b1fce80215c896e2214a9a406e282f41
 .claude/skills/smoke-testing/SKILL.md  cccfdcf051103494c286d8367f3e4086b1fce80215c896e2214a9a406e282f41
 .agents/skills/task-delegation/SKILL.md  637a53a474216245a917e06e281eaecda761b8cf5126b1b36cdc86ecb1943f86
