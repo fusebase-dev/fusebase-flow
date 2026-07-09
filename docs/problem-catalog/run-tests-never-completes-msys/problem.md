@@ -23,6 +23,7 @@ The harness did NOT reuse the v3.30.2 bounded-run engine reap: raw `$(...)` capt
 | Status | Detail |
 |---|---|
 | Shipped | v3.30.3 G2 (WS3) — harness sources the bounded core, replaces `$(...)` with `ffhc_run_bounded` (tempfile capture + strict-scoped reap), adds an EXIT-trap reaping ONLY its own recorded child winpid, bounds `test-cli-flow-recovery` (INCONCLUSIVE on bound-hit), flushes per-phase progress |
+| Shipped | v4.2.0 (`hook-manifest-verify`) — DEEPER fix. The bounded-run above stopped the HANG, but the suite was still too SLOW on MSYS (fork-per-case, ~100× MSYS spawn cost) to COMPLETE the health check's hook-tests critical — so a full **HEALTHY** verdict was structurally UNREACHABLE on Windows (capped at `PARTIAL_UNVERIFIED`/exit 4 forever, on every install + upgrade). v4.2.0 DECOUPLED the health verdict from the suite: the hook-tests critical is now a fast content-hash **manifest verify** (`audit/hook-layer-manifest.json`; full HEALTHY in ~31s on Win11/Git-Bash, and it also catches local tampering), plus a single-process fixture runner (fork-loop → one process; parity-proven) and a platform-adaptive `--run-hook-tests`. See [[ci-red-invisible-no-release-gate]] + [[ci-linux-msys-test-divergence]]. |
 
 ## Recurrence triggers (so future sessions recognize this)
 
