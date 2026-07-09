@@ -93,19 +93,23 @@ FFHC_ALLOW_UNBOUNDED="${FFHC_ALLOW_UNBOUNDED:-0}"
 OPT_NO_UPSTREAM=0
 OPT_FAST=0
 OPT_RUN_HOOK_TESTS=0
+OPT_RUN_HOOK_TESTS_FULL=0
 for arg in "$@"; do
   case "$arg" in
     --no-upstream) OPT_NO_UPSTREAM=1 ;;
     --fast|--skip-hook-tests) OPT_FAST=1; OPT_NO_UPSTREAM=1 ;;   # --skip-hook-tests = --fast alias (B3): the Windows escape for the slow critical
-    --run-hook-tests) OPT_RUN_HOOK_TESTS=1 ;;                    # OPTIONAL deep diagnostic (D5): FULL run-tests.sh; never required for the verdict
+    --run-hook-tests) OPT_RUN_HOOK_TESTS=1 ;;                    # OPTIONAL deep diagnostic (D5/D14 v4): platform-adaptive (POSIX=full run-tests.sh; MSYS=fast subset); never required for the verdict
+    --run-hook-tests-full) OPT_RUN_HOOK_TESTS=1; OPT_RUN_HOOK_TESTS_FULL=1 ;;   # force the FULL suite even on MSYS (also: FFHC_RUN_HOOK_TESTS_FULL=1)
     -h|--help)
-      echo "Usage: bash hooks/local/fusebase-flow-health-check.sh [--fast|--skip-hook-tests] [--run-hook-tests] [--no-upstream]"
+      echo "Usage: bash hooks/local/fusebase-flow-health-check.sh [--fast|--skip-hook-tests] [--run-hook-tests|--run-hook-tests-full] [--no-upstream]"
       echo "  --no-upstream      skip the optional upstream comparison (full local verdict; exit 0 OK)"
       echo "  --fast             skip the hook-layer-integrity critical + upstream for a quick verdict (PARTIAL; exit 4, never 0)"
       echo "  --skip-hook-tests  alias for --fast (skips the integrity critical; PARTIAL; exit 4, never 0)"
-      echo "  --run-hook-tests   ALSO run the FULL hooks/tests/run-tests.sh suite as an optional deep diagnostic (never required for the verdict)"
+      echo "  --run-hook-tests   optional deep diagnostic (never required for the verdict). PLATFORM-ADAPTIVE: POSIX runs the FULL run-tests.sh; MSYS/Git-Bash runs the FAST subset (single-process fixtures + git-smoke + hook-manifest, < 120s)"
+      echo "  --run-hook-tests-full  force the FULL run-tests.sh suite even on MSYS (also: FFHC_RUN_HOOK_TESTS_FULL=1)"
       echo "Env knobs (seconds): FFHC_FETCH_TIMEOUT FFHC_PREFLIGHT_TIMEOUT FFHC_CONFLICT_TIMEOUT FFHC_MANIFEST_TIMEOUT FFHC_TESTS_TIMEOUT"
       echo "  FFHC_ALLOW_UNBOUNDED=1  run bounded ops unbounded when no timeout binary exists"
+      echo "  FFHC_RUN_HOOK_TESTS_FULL=1  force the full deep-run suite on MSYS (same as --run-hook-tests-full)"
       exit 0 ;;
     *) echo "[health-check] unknown argument: $arg (try --help)" >&2; exit 2 ;;
   esac

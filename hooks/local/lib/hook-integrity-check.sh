@@ -94,12 +94,29 @@ ffhc_hook_manifest_verify() {
 }
 
 # ffhc_hook_tests_deep_run: OPTIONAL deep diagnostic (D5), gated by OPT_RUN_HOOK_TESTS.
-# Runs the FULL bash hooks/tests/run-tests.sh (D5/D7 — no tier). Outcome mapping:
-#   strict N/N PASS -> LOCAL_OK        observed FAIL / crash -> LOCAL_BROKEN
-#   timeout / skip / INCONCLUSIVE -> NOTE only (an optional check NEVER forces exit 4).
-# Bounded at FFHC_TESTS_TIMEOUT (defaults unchanged). Flag-independent of --fast (D5).
+# PLATFORM-ADAPTIVE (D14 v4 — supersedes "full suite everywhere"):
+#   POSIX/Linux/macOS -> the FULL bash hooks/tests/run-tests.sh (AC3 "as before").
+#   MSYS/Git-Bash     -> the FAST diagnostic (single-process fixtures + git-smoke +
+#                        hook-manifest self-test), targeting < 120s — MSYS per-process
+#                        spawn cost made "full everywhere" infeasible (T9/D14.6 -> v4).
+# The FULL suite stays reachable on MSYS via --run-hook-tests-full (OPT_RUN_HOOK_TESTS_FULL)
+# or FFHC_RUN_HOOK_TESTS_FULL=1. Outcome mapping is IDENTICAL on both paths: observed
+# FAIL/crash -> LOCAL_BROKEN; timeout/skip/INCONCLUSIVE -> NOTE only (an optional check
+# NEVER forces exit 4). The DEFAULT run-tests.sh + CI stay FULL and unchanged.
 ffhc_hook_tests_deep_run() {
   [ "${OPT_RUN_HOOK_TESTS:-0}" -eq 1 ] || return 0
+  local force_full=0
+  { [ "${OPT_RUN_HOOK_TESTS_FULL:-0}" -eq 1 ] || [ "${FFHC_RUN_HOOK_TESTS_FULL:-0}" = "1" ]; } && force_full=1
+  if [ "$force_full" -eq 0 ] && ffhc_is_msys; then
+    _ffhc_deep_run_fast
+  else
+    _ffhc_deep_run_full
+  fi
+}
+
+# POSIX / --run-hook-tests-full path: the FULL run-tests.sh suite (classification
+# unchanged from v3). Bounded at FFHC_TESTS_TIMEOUT (defaults unchanged).
+_ffhc_deep_run_full() {
   if [ ! -x "$ROOT/hooks/tests/run-tests.sh" ]; then
     DEEP_RUN_NOTES+=("--run-hook-tests: NOTE — run-tests.sh not present/executable (optional deep run; verdict unaffected)")
     return 0
@@ -125,5 +142,40 @@ ffhc_hook_tests_deep_run() {
     LOCAL_BROKEN+=("--run-hook-tests: harness exited rc=$rc with no parsable result — crashed before reporting (run 'bash hooks/tests/run-tests.sh' to inspect)")
   else
     DEEP_RUN_NOTES+=("--run-hook-tests: NOTE — completed but no strict 'N/N PASS' summary parsed (optional deep run; verdict unaffected)")
+  fi
+}
+
+# MSYS fast path (D14 v4): the three manifest-adjacent phases only — single-process
+# fixtures + git-wrapper smoke + manifest self-test (each bounded at FFHC_TESTS_TIMEOUT).
+# Aggregate ^PASS:/^FAIL: across all three; SAME asymmetric mapping as the full path:
+# any observed FAIL or a crash-before-report -> LOCAL_BROKEN; any component timeout/skip
+# -> NOTE only; all-pass -> LOCAL_OK. The heavy bash-surface phases (cli-flow-recovery,
+# secret-scan, bootstrap, …) are the ones that blow the MSYS budget — reachable via
+# --run-hook-tests-full / FFHC_RUN_HOOK_TESTS_FULL=1 / the default run-tests.sh / CI.
+_ffhc_deep_run_fast() {
+  local tot_pass=0 tot_fail=0 broke=0 noted=0 parts=""
+  _ffhc_deep_fast_one() {   # <label> CMD...
+    local lbl="$1"; shift
+    ffhc_run_bounded "$FFHC_TESTS_TIMEOUT" "$@"
+    local out="$FFHC_LAST_OUT" rc="$FFHC_LAST_RC" to="$FFHC_LAST_TIMED_OUT" sk="$FFHC_LAST_SKIPPED"
+    FFHC_LAST_WINPID=""; FFHC_LAST_CHILD_PID=""
+    local pf ff
+    pf="$(echo "$out" | grep -cE '^PASS:')"; ff="$(echo "$out" | grep -cE '^FAIL:')"
+    tot_pass=$((tot_pass + pf)); tot_fail=$((tot_fail + ff))
+    parts="$parts $lbl=$pf/$((pf + ff))"
+    if [ "$to" -eq 1 ] || [ "$sk" -eq 1 ]; then noted=1
+    elif [ "$ff" -gt 0 ]; then broke=1
+    elif [ "$rc" -ne 0 ] && [ "$pf" -eq 0 ]; then broke=1   # crash before reporting
+    fi
+  }
+  _ffhc_deep_fast_one "fixtures"      python3 "$ROOT/hooks/tests/run_hook_tests.py"
+  _ffhc_deep_fast_one "git-smoke"     bash "$ROOT/hooks/tests/test-git-hooks-smoke.sh"
+  _ffhc_deep_fast_one "hook-manifest" bash "$ROOT/hooks/tests/test-hook-manifest.sh"
+  if [ "$broke" -eq 1 ]; then
+    LOCAL_BROKEN+=("--run-hook-tests (MSYS fast diagnostic): hook-test FAILURE/crash observed —$parts (run --run-hook-tests-full or FFHC_RUN_HOOK_TESTS_FULL=1 for the full suite)")
+  elif [ "$noted" -eq 1 ]; then
+    DEEP_RUN_NOTES+=("--run-hook-tests (MSYS fast diagnostic): NOTE — a component timed out/skipped (optional deep run; verdict unaffected;$parts)")
+  else
+    LOCAL_OK+=("--run-hook-tests (MSYS fast diagnostic): $tot_pass/$((tot_pass + tot_fail)) PASS —$parts (full suite via --run-hook-tests-full)")
   fi
 }

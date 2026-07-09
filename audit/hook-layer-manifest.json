@@ -62,7 +62,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-health-check.sh",
-      "sha256": "20c0680c75a6bbfaba7f7655c5b56baa770ab82c7f0ea9cd7786cc7184bc924e"
+      "sha256": "cc92157dbc2ed76eaf3cd8b4e2ce891a40894173fe9b95f670fed7c5042ed519"
     },
     {
       "path": "hooks/local/install-codex-prompts.sh",
@@ -82,7 +82,7 @@
     },
     {
       "path": "hooks/local/lib/hook-integrity-check.sh",
-      "sha256": "9e7ce176106159e702bb1a11064d65ede523b95cd9fe27b05f60bade62a491ee"
+      "sha256": "ab991c13c5459bcd2bda2c1891278f4304237ba83655f96e2fa5d492632d62b5"
     },
     {
       "path": "hooks/local/lib/hook_manifest.py",
@@ -338,7 +338,7 @@
     },
     {
       "path": "hooks/tests/test-health-check-timeout.sh",
-      "sha256": "091425642d2be6dd346a7a0051c613614d1d836c90ff6f2fa67efa2493af1e93"
+      "sha256": "6438f0d7d84075221fd4d029cb0f22669d06db00f226866cf43142f32c7be495"
     },
     {
       "path": "hooks/tests/test-hook-install-rc.sh",
@@ -393,5 +393,5 @@
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "f9df1bb61234fd1c15f934e06e2a8752566acbdf92c28a9abbf302bf3e16429a"
+  "manifest_self_sha256": "488170659799ea5f51207396b7f627f0c1aab98bb31d93d686aca008a079ddf3"
 }

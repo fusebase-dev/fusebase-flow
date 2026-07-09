@@ -53,8 +53,14 @@ build_golden() {
   printf '#!/usr/bin/env bash\nexit 0\n' > "$dir/hooks/local/preflight.sh"
   printf '#!/usr/bin/env bash\necho "[run-tests] 1/1 PASS"\nexit 0\n' > "$dir/hooks/tests/run-tests.sh"
   printf '#!/usr/bin/env bash\nprintf %%s "{\\"verdict\\": \\"HEALTHY\\", \\"findings\\": []}"\nexit 0\n' > "$dir/hooks/local/check-cli-flow-conflicts.sh"
+  # MSYS fast-path deep-run components (D14 v4): PASS stubs so --run-hook-tests takes
+  # the fast path in the fixture. run_hook_tests.py is invoked as `python3 <file>`.
+  printf '#!/usr/bin/env python3\nprint("PASS: stub-fixture")\n' > "$dir/hooks/tests/run_hook_tests.py"
+  printf '#!/usr/bin/env bash\necho "PASS: git-smoke stub"\nexit 0\n' > "$dir/hooks/tests/test-git-hooks-smoke.sh"
+  printf '#!/usr/bin/env bash\necho "PASS: hook-manifest stub"\nexit 0\n' > "$dir/hooks/tests/test-hook-manifest.sh"
   chmod +x "$dir/hooks/local/post-fusebase-update.sh" "$dir/hooks/local/preflight.sh" \
-           "$dir/hooks/tests/run-tests.sh" "$dir/hooks/local/check-cli-flow-conflicts.sh"
+           "$dir/hooks/tests/run-tests.sh" "$dir/hooks/local/check-cli-flow-conflicts.sh" \
+           "$dir/hooks/tests/run_hook_tests.py" "$dir/hooks/tests/test-git-hooks-smoke.sh" "$dir/hooks/tests/test-hook-manifest.sh"
   ( cd "$dir" && bash hooks/local/stamp-hook-manifest.sh >/dev/null 2>&1 )   # ONE stamp
 }
 fx() { rm -rf "$1"; cp -R "$GOLDEN" "$1"; }   # per-scenario clone of the golden fixture
@@ -140,38 +146,63 @@ mv_fast_partial() {
   ht_pass "mv-fast (T8e): --fast skips the integrity critical => exit 4 + 'not a full verdict', keeps preflight (--skip-hook-tests aliases it)"
 }
 
-# MV-f: --run-hook-tests deep run TIMEOUT => verdict UNAFFECTED (HEALTHY/0) + note.
-mv_deeprun_timeout_note() {
-  local D="$TMP_BASE/mv-deeprun-timeout"; fx "$D"
-  printf '#!/usr/bin/env bash\nsleep 30\n' > "$D/hooks/tests/run-tests.sh"; chmod +x "$D/hooks/tests/run-tests.sh"
-  hc_stamp "$D"   # re-stamp so the sleeping stub is the manifest baseline (MATCH)
-  local OUT; OUT="$(cd "$D" && FFHC_PREFLIGHT_TIMEOUT=10 FFHC_CONFLICT_TIMEOUT=10 FFHC_TESTS_TIMEOUT=1 FFHC_TIMEOUT_KILL_GRACE=1 bash hooks/local/fusebase-flow-health-check.sh --no-upstream --run-hook-tests 2>&1; echo "EXIT=$?")"
-  echo "$OUT" | grep -q "Verdict: HEALTHY" || { ht_fail "mv-deeprun-timeout" "$OUT"; return; }
-  echo "$OUT" | grep -q "^EXIT=0$" || { ht_fail "mv-deeprun-timeout" "$OUT"; return; }
-  echo "$OUT" | grep -qi "run-hook-tests: NOTE" || { ht_fail "mv-deeprun-timeout (no deep-run NOTE)" "$OUT"; return; }
-  ht_pass "mv-deeprun-timeout (T8f): --run-hook-tests deep-run timeout => verdict UNAFFECTED (HEALTHY/0) + visible note"
+# MV-adaptive: --run-hook-tests is PLATFORM-ADAPTIVE (D14 v4). Verdict UNAFFECTED on
+# pass (HEALTHY/0). On MSYS it takes the FAST diagnostic path; on POSIX the FULL suite.
+mv_deeprun_adaptive_pass() {
+  # shellcheck source=/dev/null
+  . hooks/local/lib/run-with-timeout.sh
+  local D="$TMP_BASE/mv-deeprun-adaptive"; fx "$D"
+  local OUT; OUT="$(cd "$D" && FFHC_PREFLIGHT_TIMEOUT=10 FFHC_CONFLICT_TIMEOUT=10 FFHC_TESTS_TIMEOUT=15 bash hooks/local/fusebase-flow-health-check.sh --no-upstream --run-hook-tests 2>&1; echo "EXIT=$?")"
+  echo "$OUT" | grep -q "Verdict: HEALTHY" || { ht_fail "mv-deeprun-adaptive-pass" "$OUT"; return; }
+  echo "$OUT" | grep -q "^EXIT=0$" || { ht_fail "mv-deeprun-adaptive-pass" "$OUT"; return; }
+  if ffhc_is_msys; then
+    echo "$OUT" | grep -qi "run-hook-tests (MSYS fast diagnostic)" || { ht_fail "mv-deeprun-adaptive-pass (MSYS did not take the fast path)" "$OUT"; return; }
+    ht_pass "mv-deeprun-adaptive-pass (D14 v4): MSYS --run-hook-tests => FAST diagnostic path, HEALTHY/0 (verdict unaffected)"
+  else
+    echo "$OUT" | grep -qi "run-hook-tests: .* (full suite)" || { ht_fail "mv-deeprun-adaptive-pass (POSIX did not take the full path)" "$OUT"; return; }
+    ht_pass "mv-deeprun-adaptive-pass (D14 v4): POSIX --run-hook-tests => FULL suite, HEALTHY/0"
+  fi
 }
 
-# MV-g: --run-hook-tests with a FAILING suite stub => BROKEN/exit 2.
-mv_deeprun_fail_broken() {
+# MV-full-optin: --run-hook-tests-full forces the FULL run-tests.sh even on MSYS.
+mv_deeprun_full_optin() {
+  local D="$TMP_BASE/mv-deeprun-full"; fx "$D"
+  local OUT; OUT="$(cd "$D" && FFHC_PREFLIGHT_TIMEOUT=10 FFHC_CONFLICT_TIMEOUT=10 FFHC_TESTS_TIMEOUT=15 bash hooks/local/fusebase-flow-health-check.sh --no-upstream --run-hook-tests-full 2>&1; echo "EXIT=$?")"
+  echo "$OUT" | grep -q "Verdict: HEALTHY" || { ht_fail "mv-deeprun-full-optin" "$OUT"; return; }
+  echo "$OUT" | grep -q "^EXIT=0$" || { ht_fail "mv-deeprun-full-optin" "$OUT"; return; }
+  echo "$OUT" | grep -qi "run-hook-tests: \[run-tests\] 1/1 PASS (full suite)" || { ht_fail "mv-deeprun-full-optin (did not force the full suite)" "$OUT"; return; }
+  ht_pass "mv-deeprun-full-optin (D14 v4): --run-hook-tests-full forces the FULL run-tests.sh even on MSYS => HEALTHY/0 + full-suite line (FFHC_RUN_HOOK_TESTS_FULL=1 equivalent)"
+}
+
+# MV-fail: a forced-FAIL deep run => BROKEN/exit 2, on whichever path the platform takes
+# (MSYS fast: a failing fast component; POSIX full: a failing run-tests.sh).
+mv_deeprun_fail() {
+  # shellcheck source=/dev/null
+  . hooks/local/lib/run-with-timeout.sh
   local D="$TMP_BASE/mv-deeprun-fail"; fx "$D"
-  printf '#!/usr/bin/env bash\necho "FAIL: 07_x.json (desc) -> expected=deny got=allow"\nexit 1\n' > "$D/hooks/tests/run-tests.sh"; chmod +x "$D/hooks/tests/run-tests.sh"
+  if ffhc_is_msys; then
+    printf '#!/usr/bin/env python3\nprint("FAIL: broken-fixture")\nimport sys; sys.exit(1)\n' > "$D/hooks/tests/run_hook_tests.py"
+  else
+    printf '#!/usr/bin/env bash\necho "FAIL: 07_x.json (desc) -> expected=deny got=allow"\nexit 1\n' > "$D/hooks/tests/run-tests.sh"; chmod +x "$D/hooks/tests/run-tests.sh"
+  fi
   hc_stamp "$D"
   local OUT; OUT="$(cd "$D" && FFHC_PREFLIGHT_TIMEOUT=10 FFHC_CONFLICT_TIMEOUT=10 FFHC_TESTS_TIMEOUT=10 bash hooks/local/fusebase-flow-health-check.sh --no-upstream --run-hook-tests 2>&1; echo "EXIT=$?")"
   echo "$OUT" | grep -q "Verdict: BROKEN" || { ht_fail "mv-deeprun-fail" "$OUT"; return; }
   echo "$OUT" | grep -q "^EXIT=2$" || { ht_fail "mv-deeprun-fail" "$OUT"; return; }
-  echo "$OUT" | grep -qi "run-hook-tests: hook-test FAILURE" || { ht_fail "mv-deeprun-fail (no failure item)" "$OUT"; return; }
-  ht_pass "mv-deeprun-fail (T8g): --run-hook-tests observed FAIL => LOCAL_BROKEN => BROKEN/exit 2"
+  echo "$OUT" | grep -qi "run-hook-tests.*FAILURE" || { ht_fail "mv-deeprun-fail (no failure item)" "$OUT"; return; }
+  ht_pass "mv-deeprun-fail (T8g/v4): forced-FAIL deep run => LOCAL_BROKEN => BROKEN/exit 2 (MSYS fast path OR POSIX full path)"
 }
 
-# MV-deeprun-pass: --run-hook-tests with a passing suite stub => HEALTHY/0 + OK line.
-mv_deeprun_pass() {
-  local D="$TMP_BASE/mv-deeprun-pass"; fx "$D"   # golden run-tests stub already emits "[run-tests] 1/1 PASS"
-  local OUT; OUT="$(cd "$D" && FFHC_PREFLIGHT_TIMEOUT=10 FFHC_CONFLICT_TIMEOUT=10 FFHC_TESTS_TIMEOUT=10 bash hooks/local/fusebase-flow-health-check.sh --no-upstream --run-hook-tests 2>&1; echo "EXIT=$?")"
-  echo "$OUT" | grep -q "Verdict: HEALTHY" || { ht_fail "mv-deeprun-pass" "$OUT"; return; }
-  echo "$OUT" | grep -q "^EXIT=0$" || { ht_fail "mv-deeprun-pass" "$OUT"; return; }
-  echo "$OUT" | grep -qi "run-hook-tests: \[run-tests\] 1/1 PASS (full suite)" || { ht_fail "mv-deeprun-pass (no full-suite OK line)" "$OUT"; return; }
-  ht_pass "mv-deeprun-pass (D5): --run-hook-tests passing full suite => HEALTHY/0 + LOCAL_OK deep-run line"
+# MV-full-timeout: a full-path deep-run timeout => verdict UNAFFECTED (HEALTHY/0) + NOTE.
+mv_deeprun_full_timeout() {
+  local D="$TMP_BASE/mv-deeprun-full-timeout"; fx "$D"
+  printf '#!/usr/bin/env bash\nsleep 30\n' > "$D/hooks/tests/run-tests.sh"; chmod +x "$D/hooks/tests/run-tests.sh"
+  hc_stamp "$D"   # re-stamp so the sleeping stub is the manifest baseline (MATCH)
+  local OUT; OUT="$(cd "$D" && FFHC_PREFLIGHT_TIMEOUT=10 FFHC_CONFLICT_TIMEOUT=10 FFHC_TESTS_TIMEOUT=1 FFHC_TIMEOUT_KILL_GRACE=1 bash hooks/local/fusebase-flow-health-check.sh --no-upstream --run-hook-tests-full 2>&1; echo "EXIT=$?")"
+  echo "$OUT" | grep -q "Verdict: HEALTHY" || { ht_fail "mv-deeprun-full-timeout" "$OUT"; return; }
+  echo "$OUT" | grep -q "^EXIT=0$" || { ht_fail "mv-deeprun-full-timeout" "$OUT"; return; }
+  echo "$OUT" | grep -qi "run-hook-tests: NOTE" || { ht_fail "mv-deeprun-full-timeout (no deep-run NOTE)" "$OUT"; return; }
+  ht_pass "mv-deeprun-full-timeout (D5): full deep-run timeout => verdict UNAFFECTED (HEALTHY/0) + visible note"
 }
 
 # ---- Retained bounded-execution coverage (cheap, distinct paths) --------------
@@ -266,9 +297,10 @@ mv_absent_manifest
 mv_corrupt_selfhash
 mv_covered_tamper
 mv_fast_partial
-mv_deeprun_timeout_note
-mv_deeprun_fail_broken
-mv_deeprun_pass
+mv_deeprun_adaptive_pass
+mv_deeprun_full_optin
+mv_deeprun_fail
+mv_deeprun_full_timeout
 ht6_no_timeout_bin
 ht_ws4_knob_surfacing
 ht_ws6_preflight_dual_accept
