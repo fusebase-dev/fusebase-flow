@@ -6,6 +6,8 @@ Public release versions ship as annotated git tags on `main`. Per-version detail
 
 ## [Unreleased]
 
+## [4.2.0] — 2026-07-09
+
 ### Added — hook-layer manifest verification + single-process test runner (`hook-manifest-verify`)
 
 Windows/Git-Bash operators can reach full **HEALTHY** without the fork-heavy hook-test suite, and GitHub Release publication is gated in-repo on the full verify suite.
