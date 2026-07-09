@@ -40,6 +40,11 @@ jobs:
 
       - name: Make scripts executable
         run: |
+          # Ignore executable-bit changes: many hook .sh ship 100644 in git (Windows
+          # contributors can't reliably set exec bits) and are always invoked via `bash`,
+          # so the `chmod +x` below must NOT register as a working-tree modification — else
+          # the "Working-tree clean check" fails on the harmless 644->755 mode flip.
+          git config core.fileMode false
           chmod +x hooks/local/*.sh \
                    hooks/tests/*.sh \
                    hooks/git/pre-commit \
