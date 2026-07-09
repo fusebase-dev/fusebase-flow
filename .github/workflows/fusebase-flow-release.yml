@@ -1,0 +1,31 @@
+name: fusebase-flow-release
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: read
+jobs:
+  verify:
+    uses: ./.github/workflows/fusebase-flow-verify.yml
+  publish:
+    needs: verify        # ← THE GATE: red verify ⇒ this job never runs
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write    # create the GitHub Release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Create GitHub Release (reachable only when verify passed)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="$GITHUB_REF_NAME"
+          notes="docs/release-notes/${tag}.md"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists — nothing to publish."; exit 0
+          fi
+          if [ -f "$notes" ]; then
+            gh release create "$tag" --verify-tag -t "$tag" -F "$notes"
+          else
+            gh release create "$tag" --verify-tag -t "$tag" --generate-notes
+          fi

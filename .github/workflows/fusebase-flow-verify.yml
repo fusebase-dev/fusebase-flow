@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+  # Reusable: fusebase-flow-release.yml calls this job so the release publish gate
+  # runs ONE definition of the full suite (no step drift). NO push.tags / release:
+  # triggers (v3/B4 — release: published fires after publication; a bare tag verify
+  # gates nothing and would double-run alongside the release workflow's call).
+  workflow_call:
 
 permissions:
   contents: read
@@ -40,6 +45,16 @@ jobs:
 
       - name: Hook tests (deterministic fixtures)
         run: bash hooks/tests/run-tests.sh
+
+      - name: Runner parity (in-process == subprocess)
+        run: python3 hooks/tests/run_hook_tests.py --compare-subprocess
+
+      - name: Hook-layer manifest freshness
+        run: |
+          bash hooks/local/stamp-hook-manifest.sh
+          git diff --exit-code -- audit/hook-layer-manifest.json \
+            || (echo "Stale hook-layer manifest; run stamp-hook-manifest.sh and commit." && exit 1)
+          bash hooks/local/verify-hook-manifest.sh
 
       - name: Module-size ratchet (FR-25, full scan vs committed baseline)
         run: bash hooks/local/check-module-size.sh --all
