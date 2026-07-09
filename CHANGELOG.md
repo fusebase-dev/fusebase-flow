@@ -4,6 +4,20 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [Unreleased]
+
+### Added — hook-layer manifest verification + single-process test runner (`hook-manifest-verify`)
+
+Windows/Git-Bash operators can reach full **HEALTHY** without the fork-heavy hook-test suite, and GitHub Release publication is gated in-repo on the full verify suite.
+
+- **Manifest-verify critical.** The health check's hook-test CRITICAL is replaced by a **byte-stable** content-hash manifest of the Flow-owned hook layer (`audit/hook-layer-manifest.json`, committed, NO timestamps — a pure function of covered bytes + `VERSION`). `bash hooks/local/verify-hook-manifest.sh` is a seconds-long, OS-independent hash compare (exit `0/1/2/4` = MATCH/DRIFT/BROKEN/ABSENT; exit 3 reserved) that also catches local tampering. Full HEALTHY / exit 0 is now reachable on stock Win11 + Git-Bash (< 60 s). Two DRIFT scans flag injected extras (import-adjacent `hooks/handlers|shared/*.py`; recursive `sitecustomize.py`/`usercustomize.py` anywhere under `hooks/`). New: `hooks/local/lib/hook_manifest.py`, `stamp-hook-manifest.sh`, `verify-hook-manifest.sh`, and the sourced engine lib `hooks/local/lib/hook-integrity-check.sh`.
+- **Single-process fixture runner.** `hooks/tests/run_hook_tests.py` imports each handler and drives `main()` in-process (same 21 fixtures + assertions as the retired fork-per-case loop); `--compare-subprocess` proves in-process ≡ subprocess for the **(exit_code, decision, rule_id)** triple — 21/21 on MSYS and in CI. The MSYS fixture phase drops from minutes to ~0 s. Handlers/shared unmodified (FR-07).
+- **Two new default-suite phases.** `test-git-hooks-smoke.sh` (git-wrapper smoke) and `test-hook-manifest.sh` (stamp/verify self-test); the default `run-tests.sh` is now a strict SUPERSET (24 tags) with per-phase `took Ns` timing on stderr.
+- **In-repo release gate.** `.github/workflows/fusebase-flow-verify.yml` becomes reusable (`workflow_call:`) and gains runner-parity + manifest-freshness steps; NEW `.github/workflows/fusebase-flow-release.yml` publishes the GitHub Release only via a `publish` job gated `needs: verify` — a red suite ⇒ no Release for that tag. Manual `gh release create` is forbidden; `PUBLISHING.md` § Release prerequisites documents the `v*` tag-ruleset + `main` branch-protection backstops.
+- **Optional deep run.** `--run-hook-tests` runs the FULL suite (observed FAIL/crash ⇒ BROKEN; timeout/skip ⇒ NOTE only — never forces PARTIAL).
+- **Upgrade propagation.** `upgrade.sh` carries `audit/hook-layer-manifest.json` in its copy-set (with an `audit/` mkdir guard) so consumers pick up integrity verification with no manual step.
+- **Known open item (AC3).** On a real Win11/Git-Bash box the `--run-hook-tests` full suite still exceeds the < 120 s target — several bash-surface shell phases each cost tens of seconds under MSYS spawn overhead; the CI **Linux** run is the authoritative full-suite proof. Tracked for a follow-up (see `docs/specs/hook-manifest-verify` D14).
+
 ## [3.30.7] — 2026-07-04
 
 ### Fixed — Phase C Fable whole-system audit fixes (live enforcement fires + fail-closed tooling + po-investigate hardening + release-doc/consistency)

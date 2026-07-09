@@ -41,6 +41,25 @@ ONLY added (`+`) lines of the staged diff. Two deliberate scope limits — by de
 
 To get a real-secret BLOCK past pre-commit: rotate the credential + `git reset HEAD -- <file>` to unstage. NEVER add a `whitelist:` entry — a non-empty whitelist disables a pattern globally and breaks fixtures 10/11.
 
+## Windows / Git-Bash (MSYS)
+
+Full `bash hooks/local/fusebase-flow-health-check.sh` (no flags) now reaches
+**HEALTHY / exit 0 on stock Windows + Git-Bash**: the CRITICAL is a hook-layer
+**manifest verify** (one python hash pass over ~100 files — seconds, OS-independent),
+not a re-run of the fork-heavy test suite. `--fast` / `--skip-hook-tests` stay the
+quick escape (they skip the integrity critical ⇒ PARTIAL_UNVERIFIED / exit 4, never 0).
+
+`--run-hook-tests` is an OPTIONAL deep diagnostic that runs the FULL
+`hooks/tests/run-tests.sh` suite on all platforms; its fixture phase is now a single
+python process (the old fork-per-case loop cost ~one MSYS spawn per fixture-case, so
+the fixture phase dropped from minutes to ~0 s). **Known open item:** on a real
+Win11/Git-Bash box the full suite still exceeds the target < 120 s wall — several shell
+phases exercising genuinely-bash surfaces (bounded-run/liveness, git-wrapper, installer,
+upgrade, CLI-recovery, secret-scan via `mktemp`-per-scenario repos) each cost tens of
+seconds under MSYS spawn overhead. The authoritative full-suite green proof is the CI
+**Linux** run (`fusebase-flow-verify`), where spawn cost is negligible; the MSYS
+wall-time budget is tracked separately (see `docs/specs/hook-manifest-verify` D14).
+
 ## Last amended
 
 ```

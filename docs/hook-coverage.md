@@ -39,7 +39,7 @@ All handlers read a JSON event from stdin matching `flow_hook_event.schema.json`
 
 ## Test coverage
 
-19 deterministic fixtures at `hooks/tests/fixtures/*.json` (plus companion `*.jsonl` transcripts the runner ignores), runner at `hooks/tests/run-tests.sh`. Latest run output is written to `state/audit/hook-test-results.md` (gitignored runtime path) and uploaded by the GitHub Action as the `fusebase-flow-audit` workflow artifact. Coverage matrix:
+21 deterministic fixtures at `hooks/tests/fixtures/*.json` (plus companion `*.jsonl` transcripts referenced by the stop fixtures 18–21), driven by the **single-process runner** `hooks/tests/run_hook_tests.py`: one python process imports each handler and drives `main()` in-process — same fixtures, same assertions as the retired fork-per-case loop, and a `--compare-subprocess` mode proves in-process ≡ subprocess for the **(exit_code, decision, rule_id)** triple (21/21, run as a permanent CI step). The full local gate `bash hooks/tests/run-tests.sh` runs **24 phases** (the fixture runner + module-size + health-check-timeout + git-smoke + hook-manifest + the upgrade/installer/CLI/security shell suites + cli-flow-recovery). Latest run output is written to `state/audit/hook-test-results.md` (gitignored runtime path) and uploaded by the GitHub Action as the `fusebase-flow-audit` workflow artifact. Coverage matrix:
 
 | Test | Hook tested | Decision |
 |---|---|---|
@@ -62,6 +62,47 @@ All handlers read a JSON event from stdin matching `flow_hook_event.schema.json`
 | 17 | `user_prompt_submit` | warn on pasted GitHub PAT via **native** `prompt` key (host field-shape) |
 | 18 | `stop` | deny done-claim via **native** `transcript_path` (no `agent_message`) |
 | 19 | `stop` | allow when done-claim is EARLIER in transcript (no over-trigger) |
+| 20 | `stop` | deny **native** corrupt/format-drifted transcript that carries a done-claim but yields no extractable final message (fail-closed) |
+| 21 | `stop` | allow **native** corrupt transcript with NO done-claim (no false-deny) |
+
+## Manifest verification & trust model
+
+The health check's critical is a **hook-layer content-hash manifest**, not a re-run
+of the test suite. `audit/hook-layer-manifest.json` is a committed, **byte-stable**
+manifest (no timestamps — a pure function of the covered file bytes + `VERSION`; the
+stamp date is git history) covering the Flow-owned hook layer: `hooks/handlers/*.py`,
+`hooks/shared/*.py`, `hooks/git/*`, `hooks/tests/*.sh` + `run_hook_tests.py` +
+`fixtures/*`, `hooks/local/*.sh` (excluding operator `*.local.*`), and
+`hooks/local/lib/*` (`*.sh` + `hook_manifest.py`). Regenerate with
+`bash hooks/local/stamp-hook-manifest.sh`; CI freshness-gates it
+(`stamp && git diff --exit-code`).
+
+- **What each layer attests.** The *manifest* attests *this install's Flow hook layer
+  byte-matches release X* (a membership proof, not a re-derivation of correctness).
+  *CI* attests *release X passes its full hook-test suite on Linux* — the verify job
+  runs on `main` pushes/PRs and is re-run on the tagged sha by the release workflow,
+  whose Release-creating `publish` job is gated `needs: verify`. Consumer verification
+  is a fast hash compare (`bash hooks/local/verify-hook-manifest.sh`, seconds,
+  OS-independent) — it also catches **local tampering** that re-running tests does not
+  (tampered code can still pass tests).
+- **Verifier exit codes:** `0` MATCH · `1` DRIFT (modified/missing/flagged-extra) ·
+  `2` BROKEN (corrupt manifest / self-hash mismatch) · `4` ABSENT (pre-upgrade
+  install — run `upgrade.sh`). Exit `3` is RESERVED (the engine's public exit 3 =
+  EXCEPTION_IN_EFFECT). The health-check maps these to
+  HEALTHY / FLOW_LAYER_DRIFT / BROKEN / PARTIAL_UNVERIFIED.
+- **Injection surface (two DRIFT scans).** Beyond hashing listed files, verify flags
+  UNEXPECTED extras: **Scan A** — any `hooks/handlers/*.py` or `hooks/shared/*.py` not
+  in the manifest (the cheapest import-adjacent injection vector); **Scan B** — any
+  file named `sitecustomize.py` / `usercustomize.py` at **any** depth under `hooks/`
+  (a python startup file runs before any check), with **no exclusions** (`*.local.*`
+  and `__pycache__` included), mirroring `policies/protected-paths.yml:93–100`.
+- **Self-hash** (`manifest_self_sha256` over version + asset list) detects corruption
+  and hand-edits; it is not a cryptographic defense against a recomputing attacker —
+  that backstop is the committed manifest + git history + the CI freshness gate.
+- **Deep diagnostic.** `fusebase-flow-health-check.sh --run-hook-tests` optionally runs
+  the FULL `run-tests.sh` suite; an observed FAIL/crash ⇒ BROKEN, a timeout/skip ⇒
+  a NOTE only (an optional check never forces PARTIAL). It is never required for the
+  verdict.
 
 ## Audit-log integration
 
