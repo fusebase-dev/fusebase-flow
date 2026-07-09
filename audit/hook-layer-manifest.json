@@ -310,7 +310,7 @@
     },
     {
       "path": "hooks/tests/test-bootstrap-exception.sh",
-      "sha256": "5352d287a663f37d205c1aa200eb9737f53f57dcb7acee4bfdff0a0e12989abc"
+      "sha256": "9061a7f8d3933990c49f530988abab404d58d31e3cd154ee328173c320813c6d"
     },
     {
       "path": "hooks/tests/test-cli-0259-compat.sh",
@@ -393,5 +393,5 @@
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "45bb1ad432ca3b8435a9e57389ac59c49dcb081774a5cd55562e66707356cb3c"
+  "manifest_self_sha256": "a63b6977fc463e0732b01bec86da551e8ea86dd9db40b58ac05da8a46af0c49b"
 }

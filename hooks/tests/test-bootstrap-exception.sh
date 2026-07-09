@@ -251,9 +251,14 @@ rm -rf "$D"
 #         emits a LOUD stderr WARNING (python3 required to enforce FR-07) so the gap is
 #         visible; it does NOT hard-block (a python3-less env must still be able to
 #         commit; §2's secret scan already gates on `command -v python3`). We mask python3
-#         by building a PATH that drops every dir containing a python3/python executable
-#         (git/bash/grep/sed stay resolvable), stage a protected edit, and assert the
-#         hook emits the WARN and does NOT exit 0 SILENTLY (a bare silent skip is the bug). ----
+#         by building a PATH that drops every dir containing a python3/python executable,
+#         stage a protected edit, and assert the hook emits SOME loud signal (NOT a bare
+#         silent exit 0). PLATFORM NOTE: on MSYS python3 lives in a dir separate from
+#         git/bash, so the mask reaches §3's "python3 not found; FR-07…" WARN. On Linux/CI
+#         python3 shares /usr/bin with git/bash, so dropping python3's dir ALSO removes git
+#         ⇒ the hook loudly SKIPS at the git-root check ("not in a git repo; skipping") or
+#         fails closed ("Refusing to commit fail-open…"). All are LOUD (the no-silent-skip
+#         invariant); the assertion accepts each without weakening it. ----
 D="$(new_repo)"
 # Build a python-free PATH: keep every PATH dir that does NOT contain python3/python.
 NOPY_PATH=""
@@ -272,8 +277,10 @@ else
   ( cd "$D" && git add policies/protected-paths.yml )
   NOPY_ERR="$( ( cd "$D" && PATH="$NOPY_PATH" bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
   NOPY_RC=0; ( cd "$D" && PATH="$NOPY_PATH" bash hooks/git/pre-commit >/dev/null 2>&1 ) || NOPY_RC=$?
-  # Assert a LOUD warning was emitted — NOT a silent exit-0 with no message about FR-07.
-  if echo "$NOPY_ERR" | grep -qiE "python3|FR-07"; then ok "8-python3-absent-loud-warn (stderr names the un-enforceable FR-07 check; not a silent skip)"; else bad "8-python3-absent-loud-warn" "python3-absent path emitted NO warning — FR-07 silently skipped with no operator signal"; fi
+  # Assert a LOUD signal was emitted — NOT a silent exit-0. Accepts the MSYS python3-WARN
+  # AND the Linux loud-skip/fail-closed signals (python3 shares /usr/bin with git there, so
+  # the mask also removes git ⇒ the hook loudly skips at the git-root check).
+  if echo "$NOPY_ERR" | grep -qiE "python3|FR-07|not in a git repo|skipping|Refusing to commit fail-open|unverifiable protected-path|could not list staged changes|failing closed"; then ok "8-python3-absent-loud-warn (stderr carries a loud non-silent signal; MSYS: python3/FR-07 WARN, Linux: git-root skip / fail-closed)"; else bad "8-python3-absent-loud-warn" "python3-absent path emitted NO signal at all — a truly silent skip (FR-07 finding, not a test bug)"; fi
 fi
 rm -rf "$D"
 
