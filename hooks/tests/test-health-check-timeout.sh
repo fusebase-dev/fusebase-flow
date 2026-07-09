@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
-# Fusebase Flow — health-check bounded-execution + verdict/exit contract tests.
-# Spec: docs/specs/health-check-fast-timeout/spec.md (the LOCKED verdict/exit
-# contract, decisions H1-H6, AC1-AC8). Extracted from test-cli-flow-recovery.sh
-# per FR-25 (responsibility seam: this is the timeout/verdict concern, distinct
-# from CLI-vs-Flow recovery) so neither file grows past its size budget.
+# Fusebase Flow — health-check verdict/exit contract tests (hook-manifest-verify).
+# Retargeted (T8) to the NEW hook-layer-integrity CRITICAL (manifest verify, D4)
+# that replaced the run-tests critical, plus the OPTIONAL --run-hook-tests deep run
+# (D5). Bounded-execution / knob-surfacing / marker-migration coverage that is
+# independent of the critical change is preserved.
 #
-# No real network and no real slow sub-scripts: each test builds a minimal
-# scratch project whose sub-scripts are STUBS (sleep to force a timeout against a
-# 1s budget, or exit a crafted rc) and runs the REAL engine against them.
-# Stubbing keeps these deterministic and fast (vs the real preflight/run-tests
-# which take tens of seconds — those time out on impaired hosts, which is the
-# whole point of this ticket).
+# COST DISCIPLINE (D14.4): a MSYS engine run spawns ~10 processes (~4-5s). The old
+# ~35-scenario file was a dominant chunk of the 7-8 min suite. This retarget keeps a
+# LEAN, focused engine-scenario set + a GOLDEN fixture (stamp ONCE, cp per scenario)
+# + --no-upstream + tight FFHC_* knobs, so the phase stays cheap. Deep marker/install
+# coverage (ws6 c/d/e) drives extracted functions with NO engine run.
 #
 # Output contract (parsed by run-tests.sh, mirrors test-module-size.sh):
 #   "PASS: health-check-timeout <name>" / "FAIL: health-check-timeout <name>";
@@ -33,510 +32,182 @@ trap cleanup EXIT
 
 pass_count=0
 fail_count=0
-
-# require <name> <condition-rc> <message>: record PASS/FAIL for one assertion.
-# A failed assertion aborts the current fixture (returns 1) but NOT the suite, so
-# remaining fixtures still run and the exit code reflects the failure count.
 ht_fail() { fail_count=$((fail_count + 1)); echo "FAIL: health-check-timeout $1"; [ -n "${2:-}" ] && echo "$2" >&2; return 1; }
 ht_pass() { pass_count=$((pass_count + 1)); echo "PASS: health-check-timeout $1"; }
 
-# ---- shared fixture builders ------------------------------------------------
-# Build a minimal scratch project the engine can run against with a clean
-# baseline (proper AGENTS.md overlay marker + instant-OK stub sub-scripts) so
-# each test isolates ONE variable. The engine resolves its lib via BASH_SOURCE
-# so we copy lib/ alongside it. Per-test, overwrite the relevant stub.
-hc_stub_ok_subscripts() {  # $1=dir — preflight OK, run-tests PASS, conflict HEALTHY
-  local dir="$1"
-  printf '#!/usr/bin/env bash\nexit 0\n' > "$dir/hooks/local/preflight.sh"
-  printf '#!/usr/bin/env bash\necho "[run-tests] 1/1 PASS"\nexit 0\n' > "$dir/hooks/tests/run-tests.sh"
-  printf '#!/usr/bin/env bash\nprintf %%s "{\\"verdict\\": \\"HEALTHY\\", \\"findings\\": []}"\nexit 0\n' > "$dir/hooks/local/check-cli-flow-conflicts.sh"
-  chmod +x "$dir/hooks/local/preflight.sh" "$dir/hooks/tests/run-tests.sh" "$dir/hooks/local/check-cli-flow-conflicts.sh"
-}
-setup_hc_fixture() {
-  local dir="$1"
-  rm -rf "$dir"
-  mkdir -p "$dir/hooks/local/lib" "$dir/hooks/tests" "$dir/.claude/skills/fusebase-flow-health-check" "$dir/.claude/agents"
+# ---- golden fixture (built ONCE; every scenario cp -R's it) -------------------
+GOLDEN="$TMP_BASE/_golden"
+build_golden() {
+  local dir="$GOLDEN"
+  mkdir -p "$dir/hooks/local/lib" "$dir/hooks/tests" "$dir/audit" \
+           "$dir/.claude/skills/fusebase-flow-health-check" "$dir/.claude/agents" \
+           "$dir/hooks/local/fusebase-flow-overlays"
   cp hooks/local/fusebase-flow-health-check.sh "$dir/hooks/local/"
-  cp hooks/local/lib/run-with-timeout.sh "$dir/hooks/local/lib/"
+  cp hooks/local/lib/run-with-timeout.sh hooks/local/lib/hook-integrity-check.sh \
+     hooks/local/lib/hook_manifest.py "$dir/hooks/local/lib/"
+  cp hooks/local/verify-hook-manifest.sh hooks/local/stamp-hook-manifest.sh "$dir/hooks/local/"
   cp VERSION "$dir/VERSION"
-  # Clean baseline so the inventory section adds no unrelated drift/broken items.
   printf '# AGENTS\n\n## Fusebase Flow — workflow lifecycle overlay\n' > "$dir/AGENTS.md"
   : > "$dir/.claude/skills/fusebase-flow-health-check/SKILL.md"
   printf '#!/usr/bin/env bash\nexit 0\n' > "$dir/hooks/local/post-fusebase-update.sh"
-  mkdir -p "$dir/hooks/local/fusebase-flow-overlays"
-  chmod +x "$dir/hooks/local/post-fusebase-update.sh"
-  hc_stub_ok_subscripts "$dir"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$dir/hooks/local/preflight.sh"
+  printf '#!/usr/bin/env bash\necho "[run-tests] 1/1 PASS"\nexit 0\n' > "$dir/hooks/tests/run-tests.sh"
+  printf '#!/usr/bin/env bash\nprintf %%s "{\\"verdict\\": \\"HEALTHY\\", \\"findings\\": []}"\nexit 0\n' > "$dir/hooks/local/check-cli-flow-conflicts.sh"
+  chmod +x "$dir/hooks/local/post-fusebase-update.sh" "$dir/hooks/local/preflight.sh" \
+           "$dir/hooks/tests/run-tests.sh" "$dir/hooks/local/check-cli-flow-conflicts.sh"
+  ( cd "$dir" && bash hooks/local/stamp-hook-manifest.sh >/dev/null 2>&1 )   # ONE stamp
 }
+fx() { rm -rf "$1"; cp -R "$GOLDEN" "$1"; }   # per-scenario clone of the golden fixture
+hc_stamp() { ( cd "$1" && bash hooks/local/stamp-hook-manifest.sh >/dev/null 2>&1 ); }
 
-# Run the engine in a fixture dir with extra env; echo "EXIT=<rc>" + the report.
 run_hc() {  # $1=dir; rest=args/env already exported by caller
   local dir="$1"; shift
   local out rc
-  out="$(cd "$dir" && "$@" bash hooks/local/fusebase-flow-health-check.sh 2>&1)"; rc=$?
+  out="$(cd "$dir" && "$@" bash hooks/local/fusebase-flow-health-check.sh --no-upstream 2>&1)"; rc=$?
   printf '%s\nEXIT=%s\n' "$out" "$rc"
 }
 
-# ---- HT1 (AC1): upstream git fetch unreachable => bounded + "upstream not
-# verified" NOTE, and upstream alone does NOT force exit 4 (it's optional). ----
-ht1() {
-  local HT1="$TMP_BASE/ht1-fetch-timeout"
-  setup_hc_fixture "$HT1"   # criticals are instant-OK from the baseline
-  # Fake an upstream clone + a `git` stub on PATH whose `fetch` hangs.
-  mkdir -p "$HT1/.fusebase-flow-source/.git" "$HT1/stubbin"
-  cat > "$HT1/stubbin/git" <<'GITSTUB'
-#!/usr/bin/env bash
-case "$*" in
-  *fetch*) sleep 30 ;;                       # network hang -> must be bounded
-  *rev-parse\ --show-toplevel*) pwd ;;
-  *rev-parse\ --is-shallow-repository*) echo "false" ;;
-  *rev-parse\ HEAD*) echo "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" ;;
-  *rev-parse\ origin/main*) echo "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef" ;;
-  *show\ origin/main:VERSION*) cat VERSION 2>/dev/null ;;
-  *) exit 0 ;;
-esac
-GITSTUB
-  chmod +x "$HT1/stubbin/git"
-  local OUT; OUT="$(run_hc "$HT1" env "PATH=$HT1/stubbin:$PATH" FFHC_FETCH_TIMEOUT=1)"
-  echo "$OUT" | grep -q "upstream not verified" || { ht_fail "HT1-fetch-timeout-bounded" "$OUT"; return; }
-  echo "$OUT" | grep -q "^EXIT=0$" || { ht_fail "HT1-fetch-timeout-bounded" "$OUT"; return; }
-  ht_pass "HT1-fetch-timeout-bounded (AC1): fetch timeout bounded + 'upstream not verified'; upstream alone does NOT force exit 4 (exit 0)"
+build_golden
+
+# ===== Manifest-verify CRITICAL (D4) — the retargeted core =====================
+
+# MV0 (baseline): a matching manifest => HEALTHY/0; integrity line names file count.
+mv_baseline_healthy() {
+  local D="$TMP_BASE/mv-baseline"; fx "$D"
+  local OUT; OUT="$(run_hc "$D" env FFHC_PREFLIGHT_TIMEOUT=10 FFHC_CONFLICT_TIMEOUT=10)"
+  echo "$OUT" | grep -q "Verdict: HEALTHY" || { ht_fail "mv-baseline-healthy" "$OUT"; return; }
+  echo "$OUT" | grep -q "^EXIT=0$" || { ht_fail "mv-baseline-healthy" "$OUT"; return; }
+  echo "$OUT" | grep -qi "hook layer integrity: .* files match release" || { ht_fail "mv-baseline-healthy (no integrity OK line)" "$OUT"; return; }
+  ht_pass "mv-baseline-healthy (D4): matching manifest => HEALTHY/0, integrity critical reports files-match"
 }
 
-# ---- HT2 (AC2): a CRITICAL check (preflight) times out => PARTIAL_UNVERIFIED
-# exit 4, never 0; the report names the unverified check. ----
-ht2() {
-  local HT2="$TMP_BASE/ht2-critical-timeout"
-  setup_hc_fixture "$HT2"
-  printf '#!/usr/bin/env bash\nsleep 30\n' > "$HT2/hooks/local/preflight.sh"; chmod +x "$HT2/hooks/local/preflight.sh"   # hangs -> timeout
-  local OUT; OUT="$(run_hc "$HT2" env FFHC_PREFLIGHT_TIMEOUT=1)"
-  echo "$OUT" | grep -q "Verdict: PARTIAL_UNVERIFIED" || { ht_fail "HT2-critical-timeout" "$OUT"; return; }
-  echo "$OUT" | grep -q "^EXIT=4$" || { ht_fail "HT2-critical-timeout" "$OUT"; return; }
-  echo "$OUT" | grep -qi "preflight: UNVERIFIED" || { ht_fail "HT2-critical-timeout" "$OUT"; return; }
-  ht_pass "HT2-critical-timeout (AC2): critical (preflight) timeout => PARTIAL_UNVERIFIED / exit 4, names the unverified check"
+# MV-a: verify-hook-manifest.sh hangs => bounded timeout => UNVERIFIED/exit 4.
+mv_verify_timeout() {
+  local D="$TMP_BASE/mv-verify-timeout"; fx "$D"
+  printf '#!/usr/bin/env bash\nsleep 30\n' > "$D/hooks/local/verify-hook-manifest.sh"; chmod +x "$D/hooks/local/verify-hook-manifest.sh"
+  local OUT; OUT="$(run_hc "$D" env FFHC_MANIFEST_TIMEOUT=1 FFHC_TIMEOUT_KILL_GRACE=1)"
+  echo "$OUT" | grep -q "Verdict: PARTIAL_UNVERIFIED" || { ht_fail "mv-verify-timeout" "$OUT"; return; }
+  echo "$OUT" | grep -q "^EXIT=4$" || { ht_fail "mv-verify-timeout" "$OUT"; return; }
+  echo "$OUT" | grep -qi "hook layer integrity: UNVERIFIED" || { ht_fail "mv-verify-timeout (no UNVERIFIED integrity item)" "$OUT"; return; }
+  ht_pass "mv-verify-timeout (T8a): verify timeout => hook layer integrity UNVERIFIED => PARTIAL_UNVERIFIED/exit 4, never 0"
 }
 
-# ---- HT3 (AC4a): a real preflight FAILURE still => BROKEN/2 even with timeouts
-# in place (a completed critical that fails is breakage, not unverified). ----
-ht3() {
-  local HT3="$TMP_BASE/ht3-preflight-fail"
-  setup_hc_fixture "$HT3"
-  printf '#!/usr/bin/env bash\nexit 1\n' > "$HT3/hooks/local/preflight.sh"; chmod +x "$HT3/hooks/local/preflight.sh"   # completes, fails
-  local OUT; OUT="$(run_hc "$HT3" env FFHC_PREFLIGHT_TIMEOUT=10)"
-  echo "$OUT" | grep -q "Verdict: BROKEN" || { ht_fail "HT3-preflight-fail" "$OUT"; return; }
-  echo "$OUT" | grep -q "^EXIT=2$" || { ht_fail "HT3-preflight-fail" "$OUT"; return; }
-  ht_pass "HT3-preflight-fail (AC4a): a completed preflight failure => BROKEN / exit 2 (not UNVERIFIED) even with timeouts in place"
+# MV-b: absent manifest => verifier rc 4 => engine exit 4 (SF8), "manifest absent".
+mv_absent_manifest() {
+  local D="$TMP_BASE/mv-absent"; fx "$D"
+  rm -f "$D/audit/hook-layer-manifest.json"
+  local OUT; OUT="$(run_hc "$D" env FFHC_MANIFEST_TIMEOUT=10)"
+  echo "$OUT" | grep -q "Verdict: PARTIAL_UNVERIFIED" || { ht_fail "mv-absent" "$OUT"; return; }
+  echo "$OUT" | grep -q "^EXIT=4$" || { ht_fail "mv-absent" "$OUT"; return; }
+  echo "$OUT" | grep -qi "manifest absent" || { ht_fail "mv-absent (no 'manifest absent')" "$OUT"; return; }
+  ht_pass "mv-absent (T8b): absent manifest => standalone verifier rc 4 => engine PARTIAL_UNVERIFIED/exit 4 (SF8: never rc 3)"
 }
 
-# ---- HT4 (AC4b / H6): a run-tests harness CRASH (rc!=0, no FAIL:) => BROKEN/2,
-# NOT HEALTHY (the pre-existing '|| true' false-HEALTHY). ----
-ht4() {
-  local HT4="$TMP_BASE/ht4-harness-crash"
-  setup_hc_fixture "$HT4"
-  printf '#!/usr/bin/env bash\necho "boom: mktemp failed" >&2\nexit 3\n' > "$HT4/hooks/tests/run-tests.sh"; chmod +x "$HT4/hooks/tests/run-tests.sh"   # rc!=0, no FAIL:
-  local OUT; OUT="$(run_hc "$HT4" env FFHC_TESTS_TIMEOUT=10)"
-  echo "$OUT" | grep -q "Verdict: BROKEN" || { ht_fail "HT4-harness-crash" "$OUT"; return; }
-  echo "$OUT" | grep -q "^EXIT=2$" || { ht_fail "HT4-harness-crash" "$OUT"; return; }
-  echo "$OUT" | grep -qi "harness exited rc=" || { ht_fail "HT4-harness-crash" "$OUT"; return; }
-  ht_pass "HT4-harness-crash (AC4b / H6): run-tests harness crash (rc!=0, no FAIL:) => BROKEN / exit 2, not HEALTHY"
+# MV-c: corrupt self-hash => verifier rc 2 => BROKEN/exit 2.
+mv_corrupt_selfhash() {
+  local D="$TMP_BASE/mv-corrupt"; fx "$D"
+  python3 - "$D/audit/hook-layer-manifest.json" <<'PY'
+import json, sys, pathlib
+p = pathlib.Path(sys.argv[1]); d = json.loads(p.read_text())
+d["manifest_self_sha256"] = "0" * 64
+p.write_text(json.dumps(d, indent=2) + "\n")
+PY
+  local OUT; OUT="$(run_hc "$D" env FFHC_MANIFEST_TIMEOUT=10)"
+  echo "$OUT" | grep -q "Verdict: BROKEN" || { ht_fail "mv-corrupt" "$OUT"; return; }
+  echo "$OUT" | grep -q "^EXIT=2$" || { ht_fail "mv-corrupt" "$OUT"; return; }
+  echo "$OUT" | grep -qi "hook layer integrity: BROKEN" || { ht_fail "mv-corrupt (no BROKEN integrity item)" "$OUT"; return; }
+  ht_pass "mv-corrupt (T8c): corrupt manifest self-hash => verifier rc 2 => BROKEN/exit 2"
 }
 
-# ---- HT5 (AC4c / AC5): --fast => exit 4 + 'not a full verdict', never 0; keeps
-# preflight. ----
-ht5() {
-  local HT5="$TMP_BASE/ht5-fast"
-  setup_hc_fixture "$HT5"
-  # run-tests would PASS, but --fast must skip it; make it emit a tripwire if run.
-  printf '#!/usr/bin/env bash\necho "FAIL: should-not-run"\nexit 9\n' > "$HT5/hooks/tests/run-tests.sh"; chmod +x "$HT5/hooks/tests/run-tests.sh"
-  local OUT; OUT="$(cd "$HT5" && FFHC_PREFLIGHT_TIMEOUT=10 FFHC_CONFLICT_TIMEOUT=10 bash hooks/local/fusebase-flow-health-check.sh --fast 2>&1; echo "EXIT=$?")"
-  echo "$OUT" | grep -q "^EXIT=4$" || { ht_fail "HT5-fast" "$OUT"; return; }
-  echo "$OUT" | grep -qi "not a full health verdict" || { ht_fail "HT5-fast" "$OUT"; return; }
-  echo "$OUT" | grep -qi "preflight: clean" || { ht_fail "HT5-fast" "$OUT"; return; }
-  if echo "$OUT" | grep -q "FAIL: should-not-run"; then ht_fail "HT5-fast" "$OUT"; return; fi
-  ht_pass "HT5-fast (AC4c / AC5): --fast => exit 4 + 'not a full verdict' + keeps preflight + skips hook tests"
+# MV-d: covered-file tamper => verifier rc 1 => FLOW_LAYER_DRIFT/exit 1, names file.
+mv_covered_tamper() {
+  local D="$TMP_BASE/mv-tamper"; fx "$D"
+  printf '\n# tamper\n' >> "$D/hooks/tests/run-tests.sh"   # covered file, not run without --run-hook-tests
+  local OUT; OUT="$(run_hc "$D" env FFHC_MANIFEST_TIMEOUT=10)"
+  echo "$OUT" | grep -q "Verdict: FLOW_LAYER_DRIFT" || { ht_fail "mv-tamper" "$OUT"; return; }
+  echo "$OUT" | grep -q "^EXIT=1$" || { ht_fail "mv-tamper" "$OUT"; return; }
+  echo "$OUT" | grep -qi "FLOW_LAYER_DRIFT — .*run-tests.sh" || { ht_fail "mv-tamper (drift does not name the file)" "$OUT"; return; }
+  ht_pass "mv-tamper (T8d): covered-file tamper => verifier rc 1 => FLOW_LAYER_DRIFT/exit 1, names the drifted file"
 }
 
-# ---- HT5b (AC-B3): --skip-hook-tests is an exact alias for --fast (Windows
-# escape) — same exit 4, same 'not a full verdict', same hook-test skip. ----
-ht5b() {
-  local D="$TMP_BASE/ht5b-skip-hook-tests"
-  setup_hc_fixture "$D"
-  printf '#!/usr/bin/env bash\necho "FAIL: should-not-run"\nexit 9\n' > "$D/hooks/tests/run-tests.sh"; chmod +x "$D/hooks/tests/run-tests.sh"
-  local OUT; OUT="$(cd "$D" && FFHC_PREFLIGHT_TIMEOUT=10 FFHC_CONFLICT_TIMEOUT=10 bash hooks/local/fusebase-flow-health-check.sh --skip-hook-tests 2>&1; echo "EXIT=$?")"
-  echo "$OUT" | grep -q "^EXIT=4$" || { ht_fail "ht5b-skip-hook-tests-alias" "$OUT"; return; }
-  echo "$OUT" | grep -qi "not a full health verdict" || { ht_fail "ht5b-skip-hook-tests-alias" "$OUT"; return; }
-  echo "$OUT" | grep -qi "preflight: clean" || { ht_fail "ht5b-skip-hook-tests-alias" "$OUT"; return; }
-  if echo "$OUT" | grep -q "FAIL: should-not-run"; then ht_fail "ht5b-skip-hook-tests-alias" "$OUT"; return; fi
-  ht_pass "ht5b-skip-hook-tests-alias (AC-B3): --skip-hook-tests == --fast (exit 4, not-a-full-verdict, keeps preflight, skips hook tests)"
+# MV-e: --fast skips the integrity critical => PARTIAL_UNVERIFIED/exit 4, never 0.
+mv_fast_partial() {
+  local D="$TMP_BASE/mv-fast"; fx "$D"
+  local OUT; OUT="$(cd "$D" && FFHC_PREFLIGHT_TIMEOUT=10 FFHC_CONFLICT_TIMEOUT=10 bash hooks/local/fusebase-flow-health-check.sh --fast 2>&1; echo "EXIT=$?")"
+  echo "$OUT" | grep -q "^EXIT=4$" || { ht_fail "mv-fast" "$OUT"; return; }
+  echo "$OUT" | grep -qi "not a full health verdict" || { ht_fail "mv-fast" "$OUT"; return; }
+  echo "$OUT" | grep -qi "preflight: clean" || { ht_fail "mv-fast (preflight not kept)" "$OUT"; return; }
+  ht_pass "mv-fast (T8e): --fast skips the integrity critical => exit 4 + 'not a full verdict', keeps preflight (--skip-hook-tests aliases it)"
 }
 
-# ---- HT6 (AC6): neither timeout nor gtimeout present => engine still returns (no
-# hang, no crash) with PARTIAL_UNVERIFIED (bounded ops skipped). ----
-ht6() {
-  local HT6="$TMP_BASE/ht6-no-timeout-bin"
-  setup_hc_fixture "$HT6"   # baseline OK stubs; the variable here is the missing timeout binary
-  # Force the no-timeout-binary path deterministically (FFHC_FORCE_NO_TIMEOUT) so
-  # the test doesn't depend on tearing apart PATH. The bounded criticals must be
-  # SKIPPED (not run unbounded) => PARTIAL_UNVERIFIED, no hang.
-  local OUT; OUT="$(run_hc "$HT6" env FFHC_FORCE_NO_TIMEOUT=1)"
-  echo "$OUT" | grep -q "Verdict: PARTIAL_UNVERIFIED" || { ht_fail "HT6-no-timeout-bin" "$OUT"; return; }
-  echo "$OUT" | grep -q "^EXIT=4$" || { ht_fail "HT6-no-timeout-bin" "$OUT"; return; }
-  echo "$OUT" | grep -qi "no timeout binary" || { ht_fail "HT6-no-timeout-bin" "$OUT"; return; }
-  ht_pass "HT6-no-timeout-bin (AC6): no timeout/gtimeout => bounded ops skipped => PARTIAL_UNVERIFIED / exit 4 (no hang)"
+# MV-f: --run-hook-tests deep run TIMEOUT => verdict UNAFFECTED (HEALTHY/0) + note.
+mv_deeprun_timeout_note() {
+  local D="$TMP_BASE/mv-deeprun-timeout"; fx "$D"
+  printf '#!/usr/bin/env bash\nsleep 30\n' > "$D/hooks/tests/run-tests.sh"; chmod +x "$D/hooks/tests/run-tests.sh"
+  hc_stamp "$D"   # re-stamp so the sleeping stub is the manifest baseline (MATCH)
+  local OUT; OUT="$(cd "$D" && FFHC_PREFLIGHT_TIMEOUT=10 FFHC_CONFLICT_TIMEOUT=10 FFHC_TESTS_TIMEOUT=1 FFHC_TIMEOUT_KILL_GRACE=1 bash hooks/local/fusebase-flow-health-check.sh --no-upstream --run-hook-tests 2>&1; echo "EXIT=$?")"
+  echo "$OUT" | grep -q "Verdict: HEALTHY" || { ht_fail "mv-deeprun-timeout" "$OUT"; return; }
+  echo "$OUT" | grep -q "^EXIT=0$" || { ht_fail "mv-deeprun-timeout" "$OUT"; return; }
+  echo "$OUT" | grep -qi "run-hook-tests: NOTE" || { ht_fail "mv-deeprun-timeout (no deep-run NOTE)" "$OUT"; return; }
+  ht_pass "mv-deeprun-timeout (T8f): --run-hook-tests deep-run timeout => verdict UNAFFECTED (HEALTHY/0) + visible note"
 }
 
-# ---- HT7 (AC6 escape hatch): no timeout binary BUT FFHC_ALLOW_UNBOUNDED=1 => run
-# the (fast-stub) criticals unbounded => HEALTHY/0 (opt-in, never the default). ----
-ht7() {
-  local HT7="$TMP_BASE/ht7-no-timeout-unbounded"
-  setup_hc_fixture "$HT7"
-  local OUT; OUT="$(cd "$HT7" && FFHC_FORCE_NO_TIMEOUT=1 FFHC_ALLOW_UNBOUNDED=1 bash hooks/local/fusebase-flow-health-check.sh --no-upstream 2>&1; echo "EXIT=$?")"
-  echo "$OUT" | grep -q "Verdict: HEALTHY" || { ht_fail "HT7-no-timeout-unbounded" "$OUT"; return; }
-  echo "$OUT" | grep -q "^EXIT=0$" || { ht_fail "HT7-no-timeout-unbounded" "$OUT"; return; }
-  ht_pass "HT7-no-timeout-unbounded (AC6): FFHC_ALLOW_UNBOUNDED=1 opt-in runs criticals unbounded => HEALTHY/0 (never the default)"
+# MV-g: --run-hook-tests with a FAILING suite stub => BROKEN/exit 2.
+mv_deeprun_fail_broken() {
+  local D="$TMP_BASE/mv-deeprun-fail"; fx "$D"
+  printf '#!/usr/bin/env bash\necho "FAIL: 07_x.json (desc) -> expected=deny got=allow"\nexit 1\n' > "$D/hooks/tests/run-tests.sh"; chmod +x "$D/hooks/tests/run-tests.sh"
+  hc_stamp "$D"
+  local OUT; OUT="$(cd "$D" && FFHC_PREFLIGHT_TIMEOUT=10 FFHC_CONFLICT_TIMEOUT=10 FFHC_TESTS_TIMEOUT=10 bash hooks/local/fusebase-flow-health-check.sh --no-upstream --run-hook-tests 2>&1; echo "EXIT=$?")"
+  echo "$OUT" | grep -q "Verdict: BROKEN" || { ht_fail "mv-deeprun-fail" "$OUT"; return; }
+  echo "$OUT" | grep -q "^EXIT=2$" || { ht_fail "mv-deeprun-fail" "$OUT"; return; }
+  echo "$OUT" | grep -qi "run-hook-tests: hook-test FAILURE" || { ht_fail "mv-deeprun-fail (no failure item)" "$OUT"; return; }
+  ht_pass "mv-deeprun-fail (T8g): --run-hook-tests observed FAIL => LOCAL_BROKEN => BROKEN/exit 2"
 }
 
-# ---- HT8 (Codex A1 / AC4b / H6): run-tests rc=0 with garbled output — NO
-# parsable "N/N PASS" line AND NO FAIL: line => BROKEN/2, NEVER HEALTHY. A check
-# that exits clean but never CONFIRMS a pass must not read full health (the
-# residual false-HEALTHY the run-tests parsing left open). The real "N/N PASS"
-# path (HT7 / the baseline stub) still records OK. ----
-ht8() {
-  local HT8="$TMP_BASE/ht8-rc0-no-pass-no-fail"
-  setup_hc_fixture "$HT8"
-  # rc=0, prints chatter but neither "[run-tests] N/N PASS" nor "FAIL:".
-  printf '#!/usr/bin/env bash\necho "some unrelated chatter"\nexit 0\n' > "$HT8/hooks/tests/run-tests.sh"; chmod +x "$HT8/hooks/tests/run-tests.sh"
-  local OUT; OUT="$(run_hc "$HT8" env FFHC_TESTS_TIMEOUT=10)"
-  echo "$OUT" | grep -q "Verdict: BROKEN" || { ht_fail "HT8-rc0-no-pass-no-fail" "$OUT"; return; }
-  echo "$OUT" | grep -q "^EXIT=2$" || { ht_fail "HT8-rc0-no-pass-no-fail" "$OUT"; return; }
-  echo "$OUT" | grep -qi "no parsable 'N/N PASS' line" || { ht_fail "HT8-rc0-no-pass-no-fail" "$OUT"; return; }
-  if echo "$OUT" | grep -q "Verdict: HEALTHY"; then ht_fail "HT8-rc0-no-pass-no-fail" "$OUT"; return; fi
-  ht_pass "HT8-rc0-no-pass-no-fail (Codex A1 / H6): run-tests rc=0 + no PASS + no FAIL => BROKEN / exit 2, never HEALTHY"
+# MV-deeprun-pass: --run-hook-tests with a passing suite stub => HEALTHY/0 + OK line.
+mv_deeprun_pass() {
+  local D="$TMP_BASE/mv-deeprun-pass"; fx "$D"   # golden run-tests stub already emits "[run-tests] 1/1 PASS"
+  local OUT; OUT="$(cd "$D" && FFHC_PREFLIGHT_TIMEOUT=10 FFHC_CONFLICT_TIMEOUT=10 FFHC_TESTS_TIMEOUT=10 bash hooks/local/fusebase-flow-health-check.sh --no-upstream --run-hook-tests 2>&1; echo "EXIT=$?")"
+  echo "$OUT" | grep -q "Verdict: HEALTHY" || { ht_fail "mv-deeprun-pass" "$OUT"; return; }
+  echo "$OUT" | grep -q "^EXIT=0$" || { ht_fail "mv-deeprun-pass" "$OUT"; return; }
+  echo "$OUT" | grep -qi "run-hook-tests: \[run-tests\] 1/1 PASS (full suite)" || { ht_fail "mv-deeprun-pass (no full-suite OK line)" "$OUT"; return; }
+  ht_pass "mv-deeprun-pass (D5): --run-hook-tests passing full suite => HEALTHY/0 + LOCAL_OK deep-run line"
 }
 
-# ---- HT9 (Codex round-2 A1 / AC4b / H6): run-tests rc=0 reporting "0/0 PASS" —
-# the prefix matches but ZERO tests ran (total==0). A summary that confirms a
-# pass of nothing must NOT read HEALTHY => BROKEN/2. ----
-ht9() {
-  local HT9="$TMP_BASE/ht9-zero-zero-pass"
-  setup_hc_fixture "$HT9"
-  printf '#!/usr/bin/env bash\necho "[run-tests] 0/0 PASS"\nexit 0\n' > "$HT9/hooks/tests/run-tests.sh"; chmod +x "$HT9/hooks/tests/run-tests.sh"
-  local OUT; OUT="$(run_hc "$HT9" env FFHC_TESTS_TIMEOUT=10)"
-  echo "$OUT" | grep -q "Verdict: BROKEN" || { ht_fail "HT9-zero-zero-pass" "$OUT"; return; }
-  echo "$OUT" | grep -q "^EXIT=2$" || { ht_fail "HT9-zero-zero-pass" "$OUT"; return; }
-  if echo "$OUT" | grep -q "Verdict: HEALTHY"; then ht_fail "HT9-zero-zero-pass" "$OUT"; return; fi
-  ht_pass "HT9-zero-zero-pass (Codex round-2 A1 / H6): run-tests '0/0 PASS' (total==0) => BROKEN / exit 2, never HEALTHY"
+# ---- Retained bounded-execution coverage (cheap, distinct paths) --------------
+
+# HT6 (AC6): no timeout binary => bounded ops SKIPPED (not run unbounded) =>
+# PARTIAL_UNVERIFIED/exit 4, no hang. The anti-hang safety property.
+ht6_no_timeout_bin() {
+  local D="$TMP_BASE/ht6-no-timeout-bin"; fx "$D"
+  local OUT; OUT="$(run_hc "$D" env FFHC_FORCE_NO_TIMEOUT=1)"
+  echo "$OUT" | grep -q "Verdict: PARTIAL_UNVERIFIED" || { ht_fail "ht6-no-timeout-bin" "$OUT"; return; }
+  echo "$OUT" | grep -q "^EXIT=4$" || { ht_fail "ht6-no-timeout-bin" "$OUT"; return; }
+  echo "$OUT" | grep -qi "no timeout binary" || { ht_fail "ht6-no-timeout-bin" "$OUT"; return; }
+  ht_pass "ht6-no-timeout-bin (AC6): no timeout/gtimeout => bounded ops skipped => PARTIAL_UNVERIFIED/exit 4 (no hang)"
 }
 
-# ---- HT10 (Codex round-2 A1 / AC4b / H6): run-tests rc=0 reporting "1/2 PASS" —
-# passed != total, i.e. a real failure the summary undercounts. Must NOT read
-# HEALTHY => BROKEN/2. ----
-ht10() {
-  local HT10="$TMP_BASE/ht10-passed-lt-total"
-  setup_hc_fixture "$HT10"
-  printf '#!/usr/bin/env bash\necho "[run-tests] 1/2 PASS"\nexit 0\n' > "$HT10/hooks/tests/run-tests.sh"; chmod +x "$HT10/hooks/tests/run-tests.sh"
-  local OUT; OUT="$(run_hc "$HT10" env FFHC_TESTS_TIMEOUT=10)"
-  echo "$OUT" | grep -q "Verdict: BROKEN" || { ht_fail "HT10-passed-lt-total" "$OUT"; return; }
-  echo "$OUT" | grep -q "^EXIT=2$" || { ht_fail "HT10-passed-lt-total" "$OUT"; return; }
-  if echo "$OUT" | grep -q "Verdict: HEALTHY"; then ht_fail "HT10-passed-lt-total" "$OUT"; return; fi
-  ht_pass "HT10-passed-lt-total (Codex round-2 A1 / H6): run-tests '1/2 PASS' (passed!=total) => BROKEN / exit 2, never HEALTHY"
-}
-
-# ---- HT11 (Codex round-2 A1 / AC4b / H6): run-tests rc=0 reporting "1/1 PASS but
-# not really" — counts look clean but trailing suffix text means the summary is
-# garbled/spoofed and cannot be trusted. Must NOT read HEALTHY => BROKEN/2. ----
-ht11() {
-  local HT11="$TMP_BASE/ht11-pass-suffix"
-  setup_hc_fixture "$HT11"
-  printf '#!/usr/bin/env bash\necho "[run-tests] 1/1 PASS but not really"\nexit 0\n' > "$HT11/hooks/tests/run-tests.sh"; chmod +x "$HT11/hooks/tests/run-tests.sh"
-  local OUT; OUT="$(run_hc "$HT11" env FFHC_TESTS_TIMEOUT=10)"
-  echo "$OUT" | grep -q "Verdict: BROKEN" || { ht_fail "HT11-pass-suffix" "$OUT"; return; }
-  echo "$OUT" | grep -q "^EXIT=2$" || { ht_fail "HT11-pass-suffix" "$OUT"; return; }
-  if echo "$OUT" | grep -q "Verdict: HEALTHY"; then ht_fail "HT11-pass-suffix" "$OUT"; return; fi
-  ht_pass "HT11-pass-suffix (Codex round-2 A1 / H6): run-tests '1/1 PASS but not really' (trailing suffix) => BROKEN / exit 2, never HEALTHY"
-}
-
-# ---- HT12 (Codex round-2 A1 regression guard): the genuine clean "N/N PASS" path
-# with N>1 (passed==total>0, no suffix) must STILL => HEALTHY/0. The count
-# validation must not over-reject the legitimate summary. ----
-ht12() {
-  local HT12="$TMP_BASE/ht12-clean-pass-n"
-  setup_hc_fixture "$HT12"
-  printf '#!/usr/bin/env bash\necho "[run-tests] 3/3 PASS"\nexit 0\n' > "$HT12/hooks/tests/run-tests.sh"; chmod +x "$HT12/hooks/tests/run-tests.sh"
-  local OUT; OUT="$(cd "$HT12" && FFHC_PREFLIGHT_TIMEOUT=10 FFHC_CONFLICT_TIMEOUT=10 FFHC_TESTS_TIMEOUT=10 bash hooks/local/fusebase-flow-health-check.sh --no-upstream 2>&1; echo "EXIT=$?")"
-  echo "$OUT" | grep -q "Verdict: HEALTHY" || { ht_fail "HT12-clean-pass-n" "$OUT"; return; }
-  echo "$OUT" | grep -q "^EXIT=0$" || { ht_fail "HT12-clean-pass-n" "$OUT"; return; }
-  echo "$OUT" | grep -q "hook tests: \[run-tests\] 3/3 PASS" || { ht_fail "HT12-clean-pass-n" "$OUT"; return; }
-  ht_pass "HT12-clean-pass-n (Codex round-2 A1 regression guard): clean '3/3 PASS' (N>1, passed==total>0, no suffix) => HEALTHY / exit 0"
-}
-
-# ---- PASS-classifier spoof table (Codex round-3 A1+A2) -----------------------
-# The run-tests PASS summary is the one signal that flips the engine to HEALTHY/0,
-# so the parser kept yielding new spoof edges. These fixtures LOCK the whole Codex
-# table so the classifier stops regressing. Each asserts the exact verdict + exit.
-#
-# Two shared drivers stub run-tests to emit a crafted summary, then run the REAL
-# engine with criticals fast and upstream off, isolating the PASS-line classifier.
-
-# hc_broken_pass <name> <printf-emitted-output>: stub run-tests to print the given
-# output (rc 0) and assert the engine => BROKEN / exit 2 (never HEALTHY). The
-# payload is a printf format string (use \n for newlines, %% for literal %).
-hc_broken_pass() {  # $1=name  $2=printf-format-for-run-tests-stdout
-  local name="$1" payload="$2"
-  local D="$TMP_BASE/$name"
-  setup_hc_fixture "$D"
-  { printf '#!/usr/bin/env bash\n'; printf 'printf '\''%s'\''\n' "$payload"; printf 'exit 0\n'; } > "$D/hooks/tests/run-tests.sh"
-  chmod +x "$D/hooks/tests/run-tests.sh"
-  local OUT; OUT="$(run_hc "$D" env FFHC_TESTS_TIMEOUT=10)"
-  echo "$OUT" | grep -q "Verdict: BROKEN" || { ht_fail "$name" "$OUT"; return; }
-  echo "$OUT" | grep -q "^EXIT=2$" || { ht_fail "$name" "$OUT"; return; }
-  if echo "$OUT" | grep -q "Verdict: HEALTHY"; then ht_fail "$name" "$OUT"; return; fi
-  ht_pass "$name (spoof => BROKEN/2)"
-}
-
-# hc_healthy_pass <name> <printf-emitted-output>: stub run-tests to print the given
-# output (rc 0) and assert the engine => HEALTHY / exit 0 (the genuine clean path
-# must NOT be over-rejected). Upstream off + criticals fast so the only variable
-# is the PASS summary.
-hc_healthy_pass() {  # $1=name  $2=printf-format-for-run-tests-stdout
-  local name="$1" payload="$2"
-  local D="$TMP_BASE/$name"
-  setup_hc_fixture "$D"
-  { printf '#!/usr/bin/env bash\n'; printf 'printf '\''%s'\''\n' "$payload"; printf 'exit 0\n'; } > "$D/hooks/tests/run-tests.sh"
-  chmod +x "$D/hooks/tests/run-tests.sh"
-  local OUT; OUT="$(cd "$D" && FFHC_PREFLIGHT_TIMEOUT=10 FFHC_CONFLICT_TIMEOUT=10 FFHC_TESTS_TIMEOUT=10 bash hooks/local/fusebase-flow-health-check.sh --no-upstream 2>&1; echo "EXIT=$?")"
-  echo "$OUT" | grep -q "Verdict: HEALTHY" || { ht_fail "$name" "$OUT"; return; }
-  echo "$OUT" | grep -q "^EXIT=0$" || { ht_fail "$name" "$OUT"; return; }
-  ht_pass "$name (clean => HEALTHY/0)"
-}
-
-# A2: two strict PASS summaries — tail -1 used to collapse them to the last clean
-# line => false HEALTHY. Now ambiguous => BROKEN with the duplicate message.
-ht_dup_pass() {
-  local D="$TMP_BASE/spoof-two-pass-lines"
-  setup_hc_fixture "$D"
-  printf '#!/usr/bin/env bash\necho "[run-tests] 1/1 PASS"\necho "[run-tests] 1/1 PASS"\nexit 0\n' > "$D/hooks/tests/run-tests.sh"
-  chmod +x "$D/hooks/tests/run-tests.sh"
-  local OUT; OUT="$(run_hc "$D" env FFHC_TESTS_TIMEOUT=10)"
-  echo "$OUT" | grep -q "Verdict: BROKEN" || { ht_fail "spoof-two-pass-lines" "$OUT"; return; }
-  echo "$OUT" | grep -q "^EXIT=2$" || { ht_fail "spoof-two-pass-lines" "$OUT"; return; }
-  echo "$OUT" | grep -qi "ambiguous/duplicate hook-test summary" || { ht_fail "spoof-two-pass-lines" "$OUT"; return; }
-  if echo "$OUT" | grep -q "Verdict: HEALTHY"; then ht_fail "spoof-two-pass-lines" "$OUT"; return; fi
-  ht_pass "spoof-two-pass-lines (Codex r3 A2): two 'N/N PASS' summaries => BROKEN/2 'ambiguous/duplicate', never HEALTHY"
-}
-
-# A2 variant: a clean PASS summary AND a later FAIL: line => the FAIL path wins
-# (genuine failure), never HEALTHY.
-ht_pass_then_fail() {
-  local D="$TMP_BASE/spoof-pass-then-fail"
-  setup_hc_fixture "$D"
-  printf '#!/usr/bin/env bash\necho "[run-tests] 1/1 PASS"\necho "FAIL: 07_pretend_test.json (desc) -> expected=x got=y"\nexit 1\n' > "$D/hooks/tests/run-tests.sh"
-  chmod +x "$D/hooks/tests/run-tests.sh"
-  local OUT; OUT="$(run_hc "$D" env FFHC_TESTS_TIMEOUT=10)"
-  echo "$OUT" | grep -q "Verdict: BROKEN" || { ht_fail "spoof-pass-then-fail" "$OUT"; return; }
-  echo "$OUT" | grep -q "^EXIT=2$" || { ht_fail "spoof-pass-then-fail" "$OUT"; return; }
-  if echo "$OUT" | grep -q "Verdict: HEALTHY"; then ht_fail "spoof-pass-then-fail" "$OUT"; return; fi
-  ht_pass "spoof-pass-then-fail (Codex r3 A2): clean PASS summary + later FAIL: => BROKEN/2, never HEALTHY"
-}
-
-# ---- B2 defense (D-B2 / AC-B2), RED-then-GREEN ------------------------------
-# The narrowed reclassification at fusebase-flow-health-check.sh:406. A run-tests
-# harness that exits on a SIGNAL/timeout rc (124, or 128+sig) with no FAIL: and no
-# strict N/N PASS is INCONCLUSIVE => PARTIAL_UNVERIFIED/exit 4 (advisory), NOT a
-# false BROKEN. Pre-fix RED: rc!=0 + no FAIL: => BROKEN/2 unconditionally. A GENUINE
-# crash rc (1..123/125..127) still => BROKEN/2 (the narrowing must not over-reach).
-
-# B2 #1 (GREEN target): signal rc 143 (128+SIGTERM), no FAIL:, no PASS => INCONCLUSIVE.
-ht_b2_signal_inconclusive() {
-  local D="$TMP_BASE/b2-signal-inconclusive"
-  setup_hc_fixture "$D"
-  printf '#!/usr/bin/env bash\necho "partial output, no summary" >&2\nexit 143\n' > "$D/hooks/tests/run-tests.sh"; chmod +x "$D/hooks/tests/run-tests.sh"
-  local OUT; OUT="$(run_hc "$D" env FFHC_TESTS_TIMEOUT=10)"
-  echo "$OUT" | grep -q "Verdict: PARTIAL_UNVERIFIED" || { ht_fail "b2-signal-inconclusive" "$OUT"; return; }
-  echo "$OUT" | grep -q "^EXIT=4$" || { ht_fail "b2-signal-inconclusive" "$OUT"; return; }
-  echo "$OUT" | grep -qi "HOOK_TESTS_INCONCLUSIVE" || { ht_fail "b2-signal-inconclusive" "$OUT"; return; }
-  if echo "$OUT" | grep -q "Verdict: BROKEN"; then ht_fail "b2-signal-inconclusive" "$OUT"; return; fi
-  ht_pass "b2-signal-inconclusive (AC-B2): signal rc=143 + no FAIL: + no PASS => HOOK_TESTS_INCONCLUSIVE/PARTIAL_UNVERIFIED/exit 4, never BROKEN"
-}
-
-# B2 #2 (regression guard): a GENUINE crash rc 3 (NOT a signal rc) STAYS BROKEN/2.
-ht_b2_genuine_crash_broken() {
-  local D="$TMP_BASE/b2-genuine-crash-broken"
-  setup_hc_fixture "$D"
-  printf '#!/usr/bin/env bash\necho "boom: cp failed" >&2\nexit 3\n' > "$D/hooks/tests/run-tests.sh"; chmod +x "$D/hooks/tests/run-tests.sh"
-  local OUT; OUT="$(run_hc "$D" env FFHC_TESTS_TIMEOUT=10)"
-  echo "$OUT" | grep -q "Verdict: BROKEN" || { ht_fail "b2-genuine-crash-broken" "$OUT"; return; }
-  echo "$OUT" | grep -q "^EXIT=2$" || { ht_fail "b2-genuine-crash-broken" "$OUT"; return; }
-  echo "$OUT" | grep -qi "harness exited rc=3" || { ht_fail "b2-genuine-crash-broken" "$OUT"; return; }
-  if echo "$OUT" | grep -q "HOOK_TESTS_INCONCLUSIVE"; then ht_fail "b2-genuine-crash-broken" "$OUT"; return; fi
-  ht_pass "b2-genuine-crash-broken (AC-B2 guard): genuine crash rc=3 (non-signal) STAYS BROKEN/exit 2, NOT downgraded to INCONCLUSIVE"
-}
-
-# B2 #3 (Codex BLOCKER / AC-B2): a crash-AFTER-PASS — run-tests prints a strict
-# "N/N PASS" then exits on a SIGNAL rc (143 = 128+SIGTERM) with no FAIL:. The
-# INCONCLUSIVE branch requires NO strict PASS; with a real PASS line present this
-# is a harness that confirmed a pass then died on a signal => genuine breakage =>
-# BROKEN/exit 2, NOT downgraded to INCONCLUSIVE. RED on the pre-fix predicate
-# (which omitted the no-strict-PASS guard and masked this as INCONCLUSIVE/exit 4).
-ht_b2_pass_then_signal_broken() {
-  local D="$TMP_BASE/b2-pass-then-signal-broken"
-  setup_hc_fixture "$D"
-  printf '#!/usr/bin/env bash\necho "[run-tests] 1/1 PASS"\nexit 143\n' > "$D/hooks/tests/run-tests.sh"; chmod +x "$D/hooks/tests/run-tests.sh"
-  local OUT; OUT="$(run_hc "$D" env FFHC_TESTS_TIMEOUT=10)"
-  echo "$OUT" | grep -q "Verdict: BROKEN" || { ht_fail "b2-pass-then-signal-broken" "$OUT"; return; }
-  echo "$OUT" | grep -q "^EXIT=2$" || { ht_fail "b2-pass-then-signal-broken" "$OUT"; return; }
-  if echo "$OUT" | grep -q "HOOK_TESTS_INCONCLUSIVE"; then ht_fail "b2-pass-then-signal-broken" "$OUT"; return; fi
-  if echo "$OUT" | grep -q "Verdict: PARTIAL_UNVERIFIED"; then ht_fail "b2-pass-then-signal-broken" "$OUT"; return; fi
-  ht_pass "b2-pass-then-signal-broken (Codex BLOCKER / AC-B2): strict 'N/N PASS' + signal rc=143 + no FAIL: => BROKEN/exit 2, NOT INCONCLUSIVE (no-strict-PASS guard)"
-}
-
-ht1; ht2; ht3; ht4; ht5; ht5b; ht6; ht7; ht8; ht9; ht10; ht11; ht12
-
-# --- Codex round-3 spoof table, BROKEN/2 rows ---
-hc_broken_pass "spoof-zero-zero"          '[run-tests] 0/0 PASS\n'
-hc_broken_pass "spoof-passed-lt-total"    '[run-tests] 1/2 PASS\n'
-hc_broken_pass "spoof-passed-gt-total"    '[run-tests] 2/1 PASS\n'
-hc_broken_pass "spoof-leading-zero"       '[run-tests] 01/01 PASS\n'
-hc_broken_pass "spoof-passed-word"        '[run-tests] 1/1 PASSED\n'
-hc_broken_pass "spoof-pass-extra"         '[run-tests] 1/1 PASS extra\n'
-hc_broken_pass "spoof-leading-whitespace" ' [run-tests] 1/1 PASS\n'
-hc_broken_pass "spoof-midline-embedded"   'preamble [run-tests] 1/1 PASS trailing\n'
-ht_dup_pass
-ht_pass_then_fail
-
-# --- B2 defense RED-then-GREEN (D-B2 / AC-B2) ---
-ht_b2_signal_inconclusive
-ht_b2_genuine_crash_broken
-ht_b2_pass_then_signal_broken
-
-# --- Codex round-3 spoof table, HEALTHY/0 (genuine clean) rows ---
-hc_healthy_pass "clean-three-three"       '[run-tests] 3/3 PASS\n'
-hc_healthy_pass "clean-trailing-space"    '[run-tests] 1/1 PASS \n'
-hc_healthy_pass "clean-trailing-tab"      '[run-tests] 1/1 PASS\t\n'
-hc_healthy_pass "clean-very-large-equal"  '[run-tests] 999/999 PASS\n'
-
-# ---- WS4 (v3.30.3): MSYS timeout defaults + knob surfacing + fail-closed guard --
-# The engine sources hooks/local/lib/run-with-timeout.sh, so ffhc_is_msys is the
-# same predicate the test host resolves — these assertions stay correct on BOTH
-# POSIX (30/60) and MSYS (60/120) CI without hard-coding one platform.
-
-# HT-WS4a (AC: MSYS defaults applied on MINGW, POSIX defaults on non-MSYS AND the
-# PARTIAL_UNVERIFIED recommendation surfaces the exact knob NAMES + current
-# effective VALUES). Force PARTIAL via --fast (skips the hook tests => UNVERIFIED
-# => exit 4) with NO env override, so the printed FFHC_*_TIMEOUT values ARE the
-# platform defaults. Assert the value matches the platform the test itself detects.
-ht_ws4_msys_defaults() {
-  local D="$TMP_BASE/ws4-msys-defaults"
-  setup_hc_fixture "$D"
+# WS4: --fast PARTIAL surfaces the knob NAMES + current effective VALUES; platform
+# defaults applied (MSYS 60/120, POSIX 30/60).
+ht_ws4_knob_surfacing() {
+  local D="$TMP_BASE/ws4-msys-defaults"; fx "$D"
   # shellcheck source=/dev/null
   . hooks/local/lib/run-with-timeout.sh
   local exp_pre exp_tests plat
   if ffhc_is_msys; then exp_pre=60; exp_tests=120; plat="MSYS/Git-Bash"; else exp_pre=30; exp_tests=60; plat="POSIX"; fi
-  # --fast: skips hook tests + upstream, keeps preflight => PARTIAL_UNVERIFIED/exit 4.
-  # Assert the platform DEFAULTS — unset any operator FFHC_* budget overrides in the subshell,
-  # so an env that raises these (common on slow MSYS hosts) can't fail the defaults assertion.
   local OUT; OUT="$(cd "$D" && env -u FFHC_PREFLIGHT_TIMEOUT -u FFHC_TESTS_TIMEOUT -u FFHC_FETCH_TIMEOUT -u FFHC_CONFLICT_TIMEOUT bash hooks/local/fusebase-flow-health-check.sh --fast 2>&1; echo "EXIT=$?")"
-  echo "$OUT" | grep -q "^EXIT=4$" || { ht_fail "ws4-msys-defaults" "$OUT"; return; }
-  echo "$OUT" | grep -q "Current effective timeout budgets" || { ht_fail "ws4-msys-defaults (no knob-values recommendation)" "$OUT"; return; }
-  echo "$OUT" | grep -qF "FFHC_PREFLIGHT_TIMEOUT=${exp_pre}s" || { ht_fail "ws4-msys-defaults (preflight default != ${exp_pre}s for $plat)" "$OUT"; return; }
-  echo "$OUT" | grep -qF "FFHC_TESTS_TIMEOUT=${exp_tests}s" || { ht_fail "ws4-msys-defaults (tests default != ${exp_tests}s for $plat)" "$OUT"; return; }
-  ht_pass "ws4-msys-defaults (WS4): $plat defaults (preflight ${exp_pre}s / tests ${exp_tests}s) applied + knob names+values surfaced in the PARTIAL recommendation"
+  echo "$OUT" | grep -q "^EXIT=4$" || { ht_fail "ws4-knob-surfacing" "$OUT"; return; }
+  echo "$OUT" | grep -q "Current effective timeout budgets" || { ht_fail "ws4-knob-surfacing (no knob-values recommendation)" "$OUT"; return; }
+  echo "$OUT" | grep -qF "FFHC_PREFLIGHT_TIMEOUT=${exp_pre}s" || { ht_fail "ws4-knob-surfacing (preflight default != ${exp_pre}s for $plat)" "$OUT"; return; }
+  echo "$OUT" | grep -qF "FFHC_TESTS_TIMEOUT=${exp_tests}s" || { ht_fail "ws4-knob-surfacing (tests default != ${exp_tests}s for $plat)" "$OUT"; return; }
+  ht_pass "ws4-knob-surfacing (WS4): $plat defaults (preflight ${exp_pre}s / tests ${exp_tests}s) + knob names+values surfaced in the PARTIAL recommendation"
 }
 
-# HT-WS4b (AC: env override still wins over the platform default). Set an explicit
-# FFHC_TESTS_TIMEOUT; the recommendation must echo THAT value, not the default.
-ht_ws4_env_override_wins() {
-  local D="$TMP_BASE/ws4-env-override"
-  setup_hc_fixture "$D"
-  local OUT; OUT="$(cd "$D" && FFHC_TESTS_TIMEOUT=999 bash hooks/local/fusebase-flow-health-check.sh --fast 2>&1; echo "EXIT=$?")"
-  echo "$OUT" | grep -q "^EXIT=4$" || { ht_fail "ws4-env-override-wins" "$OUT"; return; }
-  echo "$OUT" | grep -qF "FFHC_TESTS_TIMEOUT=999s" || { ht_fail "ws4-env-override-wins (override not honored)" "$OUT"; return; }
-  ht_pass "ws4-env-override-wins (WS4): explicit FFHC_TESTS_TIMEOUT=999 overrides the platform default (recommendation echoes 999s)"
-}
-
-# HT-WS4c (AC: a killed hook-test run — engine rc 124, no FAIL:, no strict PASS —
-# is INCONCLUSIVE => PARTIAL_UNVERIFIED/exit 4, never BROKEN). This is the
-# Ovation rc124-on-kill path handled by the existing :407 branch — WS4 must NOT
-# regress it into BROKEN. (Distinct from the rc143 signal case in
-# ht_b2_signal_inconclusive: this asserts the timeout rc 124 specifically.)
-ht_ws4_killed_rc124_partial() {
-  local D="$TMP_BASE/ws4-killed-rc124"
-  setup_hc_fixture "$D"
-  printf '#!/usr/bin/env bash\necho "partial, no summary" >&2\nexit 124\n' > "$D/hooks/tests/run-tests.sh"; chmod +x "$D/hooks/tests/run-tests.sh"
-  local OUT; OUT="$(run_hc "$D" env FFHC_TESTS_TIMEOUT=10)"
-  echo "$OUT" | grep -q "Verdict: PARTIAL_UNVERIFIED" || { ht_fail "ws4-killed-rc124-partial" "$OUT"; return; }
-  echo "$OUT" | grep -q "^EXIT=4$" || { ht_fail "ws4-killed-rc124-partial" "$OUT"; return; }
-  if echo "$OUT" | grep -q "Verdict: BROKEN"; then ht_fail "ws4-killed-rc124-partial (regressed to BROKEN)" "$OUT"; return; fi
-  ht_pass "ws4-killed-rc124-partial (WS4): killed hook-test engine rc=124 + no FAIL: + no PASS => PARTIAL_UNVERIFIED/exit 4, never BROKEN"
-}
-
-# HT-WS4d (AC / fail-closed no-regression: a genuine no-run crash — rc0, no PASS,
-# no FAIL: — STILL => BROKEN, exactly as HT8, proving WS4 did NOT reclassify rc0).
-# The :417 rc0-no-run guard MUST survive the WS4 timeout-default change.
-ht_ws4_genuine_no_run_broken() {
-  local D="$TMP_BASE/ws4-rc0-no-run"
-  setup_hc_fixture "$D"
-  printf '#!/usr/bin/env bash\necho "crashed before reporting"\nexit 0\n' > "$D/hooks/tests/run-tests.sh"; chmod +x "$D/hooks/tests/run-tests.sh"
-  local OUT; OUT="$(run_hc "$D" env FFHC_TESTS_TIMEOUT=10)"
-  echo "$OUT" | grep -q "Verdict: BROKEN" || { ht_fail "ws4-rc0-no-run-broken" "$OUT"; return; }
-  echo "$OUT" | grep -q "^EXIT=2$" || { ht_fail "ws4-rc0-no-run-broken" "$OUT"; return; }
-  if echo "$OUT" | grep -q "Verdict: HEALTHY"; then ht_fail "ws4-rc0-no-run-broken (false HEALTHY)" "$OUT"; return; fi
-  ht_pass "ws4-rc0-no-run-broken (WS4 fail-closed guard): rc0 + no PASS + no FAIL => BROKEN/exit 2 (rc0 NOT reclassified)"
-}
-
-ht_ws4_msys_defaults
-ht_ws4_env_override_wins
-ht_ws4_killed_rc124_partial
-ht_ws4_genuine_no_run_broken
-
-# ============================================================================
-# WS6 (v3.30.3): BACKWARD-COMPATIBLE dual-marker migration + install hygiene.
-# The overlay heading marker was recapitalized Fusebase->FuseBase; a bare rename
-# would break every installed base, so validators DUAL-ACCEPT both spellings,
-# templates emit NEW, and post-fusebase-update migrates OLD->NEW in place.
-# ============================================================================
-
-# HT-WS6a (AC: an OLD-marker AGENTS.md still validates HEALTHY on the health-check
-# — the installed base is not broken). The baseline fixture writes the OLD marker
-# (`## Fusebase Flow — …`); assert a full clean run reads HEALTHY/0 with it.
-ht_ws6_old_marker_healthy() {
-  local D="$TMP_BASE/ws6-old-marker-healthy"
-  setup_hc_fixture "$D"   # writes the OLD `## Fusebase Flow — workflow lifecycle overlay`
-  grep -qF "## Fusebase Flow — workflow lifecycle overlay" "$D/AGENTS.md" || { ht_fail "ws6-old-marker-healthy (fixture not OLD marker)" ""; return; }
-  local OUT; OUT="$(cd "$D" && FFHC_PREFLIGHT_TIMEOUT=10 FFHC_CONFLICT_TIMEOUT=10 FFHC_TESTS_TIMEOUT=10 bash hooks/local/fusebase-flow-health-check.sh --no-upstream 2>&1; echo "EXIT=$?")"
-  echo "$OUT" | grep -q "Verdict: HEALTHY" || { ht_fail "ws6-old-marker-healthy" "$OUT"; return; }
-  echo "$OUT" | grep -q "^EXIT=0$" || { ht_fail "ws6-old-marker-healthy" "$OUT"; return; }
-  echo "$OUT" | grep -qi "AGENTS.md overlay block: present" || { ht_fail "ws6-old-marker-healthy (marker not accepted)" "$OUT"; return; }
-  ht_pass "ws6-old-marker-healthy (WS6): OLD '## Fusebase Flow — …' AGENTS.md still validates HEALTHY (installed base not broken)"
-}
-
-# HT-WS6b (AC: a NEW-marker AGENTS.md/CLAUDE.md validates HEALTHY). Rewrite the
-# fixture markers to the NEW capitalized form and assert the same clean verdict.
-ht_ws6_new_marker_healthy() {
-  local D="$TMP_BASE/ws6-new-marker-healthy"
-  setup_hc_fixture "$D"
-  printf '# AGENTS\n\n## FuseBase Flow — workflow lifecycle overlay\n' > "$D/AGENTS.md"
-  printf '# CLAUDE\n\n## FuseBase Flow — additional rules (overlay)\n' > "$D/CLAUDE.md"
-  local OUT; OUT="$(cd "$D" && FFHC_PREFLIGHT_TIMEOUT=10 FFHC_CONFLICT_TIMEOUT=10 FFHC_TESTS_TIMEOUT=10 bash hooks/local/fusebase-flow-health-check.sh --no-upstream 2>&1; echo "EXIT=$?")"
-  echo "$OUT" | grep -q "Verdict: HEALTHY" || { ht_fail "ws6-new-marker-healthy" "$OUT"; return; }
-  echo "$OUT" | grep -q "^EXIT=0$" || { ht_fail "ws6-new-marker-healthy" "$OUT"; return; }
-  echo "$OUT" | grep -qi "AGENTS.md overlay block: present" || { ht_fail "ws6-new-marker-healthy (new AGENTS marker not accepted)" "$OUT"; return; }
-  echo "$OUT" | grep -qi "CLAUDE.md overlay block: present" || { ht_fail "ws6-new-marker-healthy (new CLAUDE marker not accepted)" "$OUT"; return; }
-  ht_pass "ws6-new-marker-healthy (WS6): NEW '## FuseBase Flow — …' AGENTS.md + CLAUDE.md validate HEALTHY"
-}
-
-# HT-WS6c (AC: preflight DUAL-ACCEPTS both markers — preflight ⟷ health-check
-# agree). Drives the REAL §5e AGENTS overlay-marker ERE by EXTRACTING it from the
-# copied preflight.sh (grep the actual `grep -qE "…"` pattern out — same technique
-# ht_ws6_migrate_idempotent uses to extract ff_migrate_marker), NOT a hand-copied
-# duplicate. If the shipped §5e ERE regresses, the extracted ERE changes with it and
-# the dual-accept / non-marker assertions catch it.
+# ---- WS6: BACKWARD-COMPATIBLE dual-marker migration + install hygiene (NO engine) -
 ht_ws6_preflight_dual_accept() {
   local D="$TMP_BASE/ws6-preflight"
   rm -rf "$D"; mkdir -p "$D"
   cp hooks/local/preflight.sh "$D/preflight.sh"
-  # EXTRACT the real §5e AGENTS ERE from the copied preflight (the `## Fuse[bB]ase Flow
-  # — workflow lifecycle overlay` dual-accept predicate). Fails loudly if the marker
-  # line can't be found (a §5e regression that removed/renamed the predicate).
   local ere
   ere="$(grep -oE 'grep -qE "\^## Fuse\[bB\]ase Flow[^"]*workflow lifecycle overlay"' "$D/preflight.sh" | head -1 | sed -E 's/^grep -qE "//; s/"$//')"
   [ -n "$ere" ] || { ht_fail "ws6-preflight-dual-accept (could not extract the real §5e ERE from preflight.sh — predicate regressed?)" "$(grep -n 'lifecycle overlay' "$D/preflight.sh")"; return; }
@@ -546,17 +217,12 @@ ht_ws6_preflight_dual_accept() {
   grep -qE "$ere" "$D/agents-old.md" || { ht_fail "ws6-preflight-dual-accept (OLD rejected by the REAL §5e ERE)" "ere=$ere"; return; }
   grep -qE "$ere" "$D/agents-new.md" || { ht_fail "ws6-preflight-dual-accept (NEW rejected by the REAL §5e ERE)" "ere=$ere"; return; }
   if grep -qE "$ere" "$D/agents-none.md"; then ht_fail "ws6-preflight-dual-accept (REAL §5e ERE matched a non-marker heading)" "ere=$ere"; return; fi
-  ht_pass "ws6-preflight-dual-accept (WS6): the REAL §5e ERE extracted from preflight.sh accepts OLD+NEW markers, rejects a non-marker heading (preflight ⟷ health-check agree)"
+  ht_pass "ws6-preflight-dual-accept (WS6): the REAL §5e ERE from preflight.sh accepts OLD+NEW markers, rejects a non-marker heading"
 }
 
-# HT-WS6d (AC: the upgrade path migrates OLD->NEW in place, idempotently — no
-# double-rename, no-op on an already-NEW file). Drives ff_migrate_marker from
-# post-fusebase-update.sh directly (sourced function under test).
 ht_ws6_migrate_idempotent() {
   local D="$TMP_BASE/ws6-migrate"
   rm -rf "$D"; mkdir -p "$D"
-  # Extract ONLY ff_migrate_marker from post-fusebase-update.sh (avoid running the
-  # whole recovery). The function is self-contained (mktemp + awk).
   local F="$D/agents.md"
   printf '# proj\n\n## Fusebase Flow — workflow lifecycle overlay\n\nbody\n' > "$F"
   # shellcheck source=/dev/null
@@ -565,47 +231,46 @@ ht_ws6_migrate_idempotent() {
   grep -qF "## FuseBase Flow — workflow lifecycle overlay" "$F" || { ht_fail "ws6-migrate-idempotent (NEW marker absent after migrate)" "$(cat "$F")"; return; }
   grep -qF "## Fusebase Flow — workflow lifecycle overlay" "$F" && { ht_fail "ws6-migrate-idempotent (OLD marker survived)" "$(cat "$F")"; return; }
   [ "$(grep -cF "## FuseBase Flow — workflow lifecycle overlay" "$F")" -eq 1 ] || { ht_fail "ws6-migrate-idempotent (double NEW marker)" "$(cat "$F")"; return; }
-  # Idempotency: a second migrate finds no OLD -> returns nonzero (nothing rewritten), file unchanged.
   local BEFORE; BEFORE="$(cat "$F")"
   ff_migrate_marker "$F" "## Fusebase Flow — workflow lifecycle overlay" "## FuseBase Flow — workflow lifecycle overlay" && { ht_fail "ws6-migrate-idempotent (2nd migrate claimed a rewrite on an already-NEW file)" ""; return; }
   [ "$(cat "$F")" = "$BEFORE" ] || { ht_fail "ws6-migrate-idempotent (2nd migrate changed the file)" "$(cat "$F")"; return; }
-  ht_pass "ws6-migrate-idempotent (WS6): post-fusebase-update ff_migrate_marker rewrites OLD->NEW once, idempotent (no double, no-op when already NEW)"
+  ht_pass "ws6-migrate-idempotent (WS6): post-fusebase-update ff_migrate_marker rewrites OLD->NEW once, idempotent"
 }
 
-# HT-WS6e (AC: install.sh overlay append is idempotent — no double-append when the
-# marker is already present, in EITHER spelling). Drives the REAL install.sh
-# `append_overlay` (SOURCED/extracted from install.sh — same technique WS6d uses for
-# ff_migrate_marker), so the idempotency test guards the SHIPPED code path: if
-# install.sh's append guard regresses (e.g. drops the OLD-marker check), this FAILS.
 ht_ws6_install_append_idempotent() {
   local D="$TMP_BASE/ws6-append"
   rm -rf "$D"; mkdir -p "$D/overlays"
   local TMPL="$D/overlays/agents-md-overlay.md"
   cp hooks/local/fusebase-flow-overlays/agents-md-overlay.md "$TMPL"
-  # Extract ONLY append_overlay from install.sh and drive it (self-contained: grep/cat).
-  # append_overlay writes progress lines to $REPORT — route it to a throwaway file.
   local REPORT="$D/report.txt"; : > "$REPORT"
   # shellcheck source=/dev/null
   eval "$(awk '/^append_overlay\(\) \{/{p=1} p{print} p&&/^}/{exit}' install.sh)"
   command -v append_overlay >/dev/null 2>&1 || { ht_fail "ws6-install-append (could not source append_overlay from install.sh — function regressed/renamed?)" ""; return; }
   local newm="## FuseBase Flow — workflow lifecycle overlay" oldm="## Fusebase Flow — workflow lifecycle overlay"
   local F="$D/AGENTS.md"
-  # Fresh file: no marker -> the real append_overlay appends exactly one block.
   printf '# fresh proj\n' > "$F"
   append_overlay "$F" "$TMPL" "$newm" "$oldm" >/dev/null 2>&1
   [ "$(grep -cE "^## Fuse[bB]ase Flow — workflow lifecycle overlay" "$F")" -eq 1 ] || { ht_fail "ws6-install-append (fresh append not exactly 1 marker)" "$(cat "$F")"; return; }
-  # Second run: marker present -> the real guard prevents a second append.
   append_overlay "$F" "$TMPL" "$newm" "$oldm" >/dev/null 2>&1
   [ "$(grep -cE "^## Fuse[bB]ase Flow — workflow lifecycle overlay" "$F")" -eq 1 ] || { ht_fail "ws6-install-append (DOUBLE-append on 2nd run — real guard regressed)" "$(cat "$F")"; return; }
-  # An OLD-marker file must ALSO be recognized by the real guard (no re-append onto legacy).
   printf '# legacy proj\n\n## Fusebase Flow — workflow lifecycle overlay\n' > "$F"
   append_overlay "$F" "$TMPL" "$newm" "$oldm" >/dev/null 2>&1
   [ "$(grep -cE "^## Fuse[bB]ase Flow — workflow lifecycle overlay" "$F")" -eq 1 ] || { ht_fail "ws6-install-append (re-appended onto OLD-marker legacy tree — real OLD-marker guard regressed)" "$(cat "$F")"; return; }
-  ht_pass "ws6-install-append-idempotent (WS6): the REAL install.sh append_overlay runs once on a fresh file, no double-append, dual-marker guard skips an OLD or NEW legacy tree"
+  ht_pass "ws6-install-append-idempotent (WS6): the REAL install.sh append_overlay runs once on a fresh file, no double-append, dual-marker guard skips a legacy tree"
 }
 
-ht_ws6_old_marker_healthy
-ht_ws6_new_marker_healthy
+# ---- run everything ----------------------------------------------------------
+mv_baseline_healthy
+mv_verify_timeout
+mv_absent_manifest
+mv_corrupt_selfhash
+mv_covered_tamper
+mv_fast_partial
+mv_deeprun_timeout_note
+mv_deeprun_fail_broken
+mv_deeprun_pass
+ht6_no_timeout_bin
+ht_ws4_knob_surfacing
 ht_ws6_preflight_dual_accept
 ht_ws6_migrate_idempotent
 ht_ws6_install_append_idempotent

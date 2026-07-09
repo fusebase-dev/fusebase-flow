@@ -338,7 +338,7 @@
     },
     {
       "path": "hooks/tests/test-health-check-timeout.sh",
-      "sha256": "c9f008146a6de7e780f45839269821d9b63a7528327e1a949c9b9b10e0f5b243"
+      "sha256": "091425642d2be6dd346a7a0051c613614d1d836c90ff6f2fa67efa2493af1e93"
     },
     {
       "path": "hooks/tests/test-hook-install-rc.sh",
@@ -393,5 +393,5 @@
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "2da403556a4da34917f959f99d1b7d77e2f36661c821c318cf0185f1c0888a45"
+  "manifest_self_sha256": "4d3e351f2f51c053ab449bf1eb714c82b7cd4a385b936fabce6f41b90a0e6c7a"
 }
