@@ -41,7 +41,7 @@ FF_PHASE_TIMEOUT="${FF_PHASE_TIMEOUT:-600}"
 # --- FF_ONLY scoped-gate parse (implement-loop iteration speed) ---------------------
 # Canonical phase tags, in run order. This list is the FF_LIST discovery source and the
 # FF_ONLY validation set; add a tag here (and its guard) when a phase is added.
-FF_TAGS=(fixtures module-size health-check-timeout newline-preserve baseline-merge \
+FF_TAGS=(fixtures module-size health-check-timeout git-smoke hook-manifest newline-preserve baseline-merge \
   sync-allowlist policy-state bootstrap-baseline-hop fr22-delivery po-verifiable-boot \
   po-investigate liveness codex-parity cli-0259 secret-scan-staged bootstrap-exception \
   trusted-enforcer hook-install-rc msys-tree-cleanup ws5-upgrade ff-only cli-flow-recovery)
@@ -118,7 +118,11 @@ progress() { printf '[run-tests] starting %s\n' "$1" >&2; }
 run_bounded_phase() {
     local label="$1"; shift
     progress "$label"
+    local _t0=$SECONDS
     ffhc_run_bounded "$FF_PHASE_TIMEOUT" "$@"
+    # D14.1: per-phase wall time on STDERR (progress() precedent :112) — stdout parse
+    # contracts (strict summary, ^PASS:/^FAIL: counting) stay byte-clean.
+    printf '[run-tests] %s took %ss\n' "$label" "$((SECONDS - _t0))" >&2
     FFHC_LAST_WINPID=""; FFHC_LAST_CHILD_PID=""   # phase returned => child reaped; no stale sweep on exit
 }
 
@@ -249,6 +253,8 @@ run_shell_phase() { # run_shell_phase <test-script> <tag>
         report_rows="$report_rows| $1 | (harness) | FAIL | crashed with exit $rc, no scenario output |"$'\n'
     fi
 }
+run_shell_phase test-git-hooks-smoke.sh      "git-smoke"
+run_shell_phase test-hook-manifest.sh        "hook-manifest"
 run_shell_phase test-newline-preserve.sh     "newline-preserve"
 run_shell_phase test-baseline-merge.sh       "baseline-merge"
 run_shell_phase test-sync-allowlist.sh       "sync-allowlist"
@@ -289,8 +295,10 @@ run_exitcode_phase() { # run_exitcode_phase <test-script> <tag> <label>
         return 0
     fi
     progress "$label"
+    local _t0=$SECONDS
     ffhc_run_bounded_stdout "${FF_CLI_RECOVERY_TIMEOUT:-240}" bash "$script"
     local rc=$FFHC_LAST_RC
+    printf '[run-tests] %s took %ss\n' "$label" "$((SECONDS - _t0))" >&2   # D14.1 per-phase wall time
     FFHC_LAST_WINPID=""; FFHC_LAST_CHILD_PID=""   # phase returned => child reaped; no stale sweep on exit
     if [ "$rc" -eq 0 ]; then
         pass=$((pass + 1)); echo "PASS: $label (exit 0)"
