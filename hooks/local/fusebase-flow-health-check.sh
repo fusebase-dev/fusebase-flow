@@ -32,12 +32,12 @@
 #   2  BROKEN  (a completed critical check failed, or a sub-script rc!=0 with no
 #      parsable result — a harness crash)
 #   3  EXCEPTION_IN_EFFECT (drift attributable to active operator approval artifact(s))
-#   4  PARTIAL_UNVERIFIED (a CRITICAL check — preflight, hook tests, conflict
-#      reporter — was skipped/timed-out/unavailable and nothing proves BROKEN;
-#      NOT a full health verdict. Never exit 0 when a critical check did not run.)
+#   4  PARTIAL_UNVERIFIED (a CRITICAL check — preflight, hook layer integrity,
+#      conflict reporter — was skipped/timed-out/unavailable and nothing proves
+#      BROKEN; NOT a full health verdict. Never exit 0 when a critical did not run.)
 #
-# CRITICAL checks (must run to claim full health): preflight, hook tests
-#   (run-tests), CLI/Flow conflict reporter (check-cli-flow-conflicts).
+# CRITICAL checks (must run to claim full health): preflight, hook layer
+#   integrity (manifest verify), CLI/Flow conflict reporter (check-cli-flow-conflicts).
 # OPTIONAL check: upstream comparison (git fetch + version diff) — may be
 #   unavailable WITHOUT forcing exit 4; the verdict text then says
 #   "upstream not verified".
@@ -78,6 +78,9 @@ FFHC_FETCH_TIMEOUT="${FFHC_FETCH_TIMEOUT:-15}"
 FFHC_PREFLIGHT_TIMEOUT="${FFHC_PREFLIGHT_TIMEOUT:-$(ffhc_default_timeout preflight)}"
 FFHC_CONFLICT_TIMEOUT="${FFHC_CONFLICT_TIMEOUT:-30}"
 FFHC_TESTS_TIMEOUT="${FFHC_TESTS_TIMEOUT:-$(ffhc_default_timeout tests)}"
+# Manifest verify replaces the run-tests CRITICAL (D4) — one python hash pass
+# (seconds); budget = the preflight default (30 POSIX / 60 MSYS).
+FFHC_MANIFEST_TIMEOUT="${FFHC_MANIFEST_TIMEOUT:-$(ffhc_default_timeout preflight)}"
 # Opt-in escape hatch: when no timeout binary exists, run the bounded ops
 # UNbounded instead of skipping them (H5 — off by default so a network-impaired
 # host can never hang).
@@ -89,16 +92,19 @@ FFHC_ALLOW_UNBOUNDED="${FFHC_ALLOW_UNBOUNDED:-0}"
 # (hook tests) deliberately did not run. Both keep preflight.
 OPT_NO_UPSTREAM=0
 OPT_FAST=0
+OPT_RUN_HOOK_TESTS=0
 for arg in "$@"; do
   case "$arg" in
     --no-upstream) OPT_NO_UPSTREAM=1 ;;
-    --fast|--skip-hook-tests) OPT_FAST=1; OPT_NO_UPSTREAM=1 ;;   # --skip-hook-tests = --fast alias (B3): the Windows escape for the slow hook tests
+    --fast|--skip-hook-tests) OPT_FAST=1; OPT_NO_UPSTREAM=1 ;;   # --skip-hook-tests = --fast alias (B3): the Windows escape for the slow critical
+    --run-hook-tests) OPT_RUN_HOOK_TESTS=1 ;;                    # OPTIONAL deep diagnostic (D5): FULL run-tests.sh; never required for the verdict
     -h|--help)
-      echo "Usage: bash hooks/local/fusebase-flow-health-check.sh [--fast|--skip-hook-tests] [--no-upstream]"
+      echo "Usage: bash hooks/local/fusebase-flow-health-check.sh [--fast|--skip-hook-tests] [--run-hook-tests] [--no-upstream]"
       echo "  --no-upstream      skip the optional upstream comparison (full local verdict; exit 0 OK)"
-      echo "  --fast             skip hook tests + upstream for a quick verdict (PARTIAL; exit 4, never 0)"
-      echo "  --skip-hook-tests  alias for --fast (skips hook tests; PARTIAL; exit 4, never 0)"
-      echo "Env knobs (seconds): FFHC_FETCH_TIMEOUT FFHC_PREFLIGHT_TIMEOUT FFHC_CONFLICT_TIMEOUT FFHC_TESTS_TIMEOUT"
+      echo "  --fast             skip the hook-layer-integrity critical + upstream for a quick verdict (PARTIAL; exit 4, never 0)"
+      echo "  --skip-hook-tests  alias for --fast (skips the integrity critical; PARTIAL; exit 4, never 0)"
+      echo "  --run-hook-tests   ALSO run the FULL hooks/tests/run-tests.sh suite as an optional deep diagnostic (never required for the verdict)"
+      echo "Env knobs (seconds): FFHC_FETCH_TIMEOUT FFHC_PREFLIGHT_TIMEOUT FFHC_CONFLICT_TIMEOUT FFHC_MANIFEST_TIMEOUT FFHC_TESTS_TIMEOUT"
       echo "  FFHC_ALLOW_UNBOUNDED=1  run bounded ops unbounded when no timeout binary exists"
       exit 0 ;;
     *) echo "[health-check] unknown argument: $arg (try --help)" >&2; exit 2 ;;
@@ -121,6 +127,7 @@ DEFERRED_BY_ARTIFACT=()  # parallel array — for each entry in DEFERRED_CHECKS,
 DRIFT_SIGNATURE=""
 RECOMMENDATIONS=()
 PARTIAL_UPGRADE_FINDINGS=()   # U7: stale derived-fact mismatches (version/FR/plugin vs live strings)
+DEEP_RUN_NOTES=()             # --run-hook-tests optional deep-run notes (NEVER affect the verdict)
 
 ###############################################################################
 # Section 0 — Active approval artifacts (informational, before any checks)
@@ -384,77 +391,21 @@ if [ -x hooks/local/preflight.sh ]; then
   fi
 fi
 
-# Hook tests (CRITICAL, slow regardless of network — bounded). Timed-out/skipped
-# => UNVERIFIED. The ran-case rc is preserved for the H6 harness-crash guard (Td).
-# --fast deliberately skips this critical => UNVERIFIED by design => exit 4 (H3).
-if [ "$OPT_FAST" -eq 1 ]; then
-  LOCAL_UNVERIFIED+=("hook tests: UNVERIFIED — skipped by --fast (fast mode is NOT a full health verdict; drop --fast for a full run)")
-elif [ -x hooks/tests/run-tests.sh ]; then
-  ffhc_run_bounded "$FFHC_TESTS_TIMEOUT" bash hooks/tests/run-tests.sh
-  HOOK_TEST_OUTPUT="$FFHC_LAST_OUT"
-  HOOK_TEST_RC="$FFHC_LAST_RC"
-  HOOK_TEST_PASS_LINE=$(ffhc_select_pass_line "$HOOK_TEST_OUTPUT")  # "" + FFHC_PASS_LINE_REASON unless EXACTLY one strict PASS summary (no tail -1; Codex A2)
-  HOOK_TEST_FAILS=$(echo "$HOOK_TEST_OUTPUT" | grep -E "^FAIL:" || true)
-
-  if [ "$FFHC_LAST_TIMED_OUT" -eq 1 ] && [ -z "$HOOK_TEST_FAILS" ]; then
-    # Timeout with no observed FAIL: => UNVERIFIED (spec D / H6). If a FAIL: was
-    # already printed before the timeout, fall through so it counts as BROKEN.
-    LOCAL_UNVERIFIED+=("hook tests: UNVERIFIED — timed out after ${FFHC_TESTS_TIMEOUT}s with no FAIL: observed (raise FFHC_TESTS_TIMEOUT or run 'bash hooks/tests/run-tests.sh')")
-  elif [ "$FFHC_LAST_SKIPPED" -eq 1 ]; then
-    LOCAL_UNVERIFIED+=("hook tests: UNVERIFIED — skipped (no timeout binary; install coreutils or set FFHC_ALLOW_UNBOUNDED=1)")
-  elif [ -z "$HOOK_TEST_FAILS" ] && [ -z "$HOOK_TEST_PASS_LINE" ] && { [ "$HOOK_TEST_RC" = "124" ] || [ "$HOOK_TEST_RC" -ge 128 ]; }; then
-    # B2 defense (D-B2): no FAIL: + no strict PASS + a SIGNAL/timeout rc (124/128+sig)
-    # => advisory HOOK_TESTS_INCONCLUSIVE => PARTIAL_UNVERIFIED/exit 4 (no new verdict).
-    # TRIPWIRE (Codex BLOCKER): the `-z HOOK_TEST_PASS_LINE` guard is load-bearing — a
-    # strict PASS + signal rc + no FAIL: = pass-then-DIED, MUST fall through to BROKEN.
-    LOCAL_UNVERIFIED+=("hook tests: HOOK_TESTS_INCONCLUSIVE — harness exited on a signal/timeout rc=$HOOK_TEST_RC with no FAIL: and no parsable 'N/N PASS' (likely an un-reaped bounded sub-run; raise FFHC_TESTS_TIMEOUT or run 'bash hooks/tests/run-tests.sh')")
-  elif [ -z "$HOOK_TEST_FAILS" ] && echo "$HOOK_TEST_OUTPUT" | grep -qE "^INCONCLUSIVE:"; then
-    # L12 TRIPWIRE: order-critical — a completed run with `^INCONCLUSIVE:` rows reached reporting (=> UNVERIFIED, not a crash); must stay AFTER the FAIL: check, and a genuine crash prints no INCONCLUSIVE row so it stays BROKEN below.
-    LOCAL_UNVERIFIED+=("hook tests: HOOK_TESTS_INCONCLUSIVE — run completed with visible INCONCLUSIVE row(s) (rc=$HOOK_TEST_RC; e.g. a bounded cli-flow-recovery timeout or FF_SKIP_CLI_RECOVERY escape) — inconclusive on this host, re-run on a quiet host or 'bash hooks/tests/run-tests.sh')")
-  elif [ -z "$HOOK_TEST_FAILS" ] && [ "$HOOK_TEST_RC" -ne 0 ]; then
-    # H6: a GENUINE crash (rc 1..123/125..127, non-signal) with no FAIL: — crashed
-    # before reporting. Pre-fix `|| true` read this as a false-HEALTHY; it is breakage.
-    LOCAL_BROKEN+=("hook tests: harness exited rc=$HOOK_TEST_RC with no parsable result — likely crashed before reporting (run 'bash hooks/tests/run-tests.sh' to inspect)")
-  elif [ -z "$HOOK_TEST_PASS_LINE" ]; then
-    # rc=0, no FAIL:, but ffhc_select_pass_line did not return EXACTLY one strict
-    # "N/N PASS" line: zero (unparseable/no summary) or >=2 (the tail -1 duplicate
-    # spoof — Codex round-3 A2). Per H6 a check that didn't confirm a single pass
-    # must NOT read HEALTHY => BROKEN, never 0. The message re-derives which case.
-    LOCAL_BROKEN+=("$(ffhc_pass_line_broken_msg "$HOOK_TEST_RC" "$HOOK_TEST_OUTPUT")")
-  elif [ -z "$HOOK_TEST_FAILS" ] && ffhc_run_tests_pass_ok "$HOOK_TEST_PASS_LINE"; then
-    # STRICT "N/N PASS" only (Codex round-2 A1: a prefix match alone is not proof).
-    LOCAL_OK+=("hook tests: $HOOK_TEST_PASS_LINE")
-  elif [ -z "$HOOK_TEST_FAILS" ]; then
-    LOCAL_BROKEN+=("hook tests: PASS summary malformed or not all tests passed ('$HOOK_TEST_PASS_LINE') — cannot confirm pass (run 'bash hooks/tests/run-tests.sh' to inspect)")
-  else
-    artifact_attributable=0
-    true_failures=0
-    failed_names=()
-    while IFS= read -r line; do
-      [ -z "$line" ] && continue
-      # Example line:
-      # FAIL: 07_pre_tool_use_blocked_protected_path_edit.json  (description) -> expected=deny got=allow ...
-      test_name=$(echo "$line" | sed -E 's|^FAIL: ([0-9]+_[a-zA-Z_]+)\.json.*|\1|')
-      failed_names+=("$test_name")
-      case "$test_name" in
-        *protected_path_edit*|*protected_paths*)
-          if [ "${#ACTIVE_ARTIFACTS[@]}" -gt 0 ]; then
-            artifact_attributable=$((artifact_attributable + 1))
-          else
-            true_failures=$((true_failures + 1))
-          fi ;;
-        *)
-          true_failures=$((true_failures + 1)) ;;
-      esac
-    done <<< "$HOOK_TEST_FAILS"
-
-    if [ "$true_failures" -gt 0 ]; then
-      LOCAL_BROKEN+=("hook tests: $true_failures genuine failure(s) — ${failed_names[*]} (run 'bash hooks/tests/run-tests.sh' to inspect)")
-    fi
-    if [ "$artifact_attributable" -gt 0 ]; then
-      LOCAL_DRIFT+=("hook tests: $artifact_attributable failure(s) attributable to active approval artifact(s); see Active Approvals section")
-    fi
-  fi
+# Hook layer integrity (CRITICAL) — manifest verify replaces the run-tests critical
+# (D4): one python hash pass (seconds, OS-independent) that ALSO catches local
+# tampering (which re-running tests does NOT — tampered code can still pass tests).
+# The logic lives in a sourced lib (FR-25 — the engine is at the line ceiling); a
+# missing lib degrades to LOCAL_UNVERIFIED + a re-upgrade hint (degrade-sane,
+# consistent with the absent-manifest class — never a false HEALTHY). --run-hook-tests
+# adds the OPTIONAL full run-tests.sh deep diagnostic (D5), gated inside the lib.
+FFHC_INTEGRITY_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/hook-integrity-check.sh"
+if [ -f "$FFHC_INTEGRITY_LIB" ]; then
+  # shellcheck source=lib/hook-integrity-check.sh
+  . "$FFHC_INTEGRITY_LIB"
+  ffhc_hook_manifest_verify
+  ffhc_hook_tests_deep_run
+else
+  LOCAL_UNVERIFIED+=("hook layer integrity: UNVERIFIED — missing $FFHC_INTEGRITY_LIB (re-clone or run 'bash hooks/local/upgrade.sh')")
 fi
 
 # CLI/Flow ownership report (CRITICAL, read-only — bounded; does full-tree scans
@@ -775,7 +726,13 @@ for x in "${UPSTREAM_NOTES[@]}"; do echo "  $x"; done
 echo ""
 
 if [ "$OPT_FAST" -eq 1 ]; then
-  echo "fast mode — not a full health verdict (hook tests skipped; exit 4)."
+  echo "fast mode — not a full health verdict (hook-layer-integrity critical skipped; exit 4)."
+  echo ""
+fi
+
+if [ "${#DEEP_RUN_NOTES[@]}" -gt 0 ]; then
+  echo "Deep hook-test run (--run-hook-tests; optional, verdict-neutral):"
+  for x in "${DEEP_RUN_NOTES[@]}"; do echo "  • $x"; done
   echo ""
 fi
 
