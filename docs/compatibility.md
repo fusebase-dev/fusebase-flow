@@ -49,16 +49,17 @@ Full `bash hooks/local/fusebase-flow-health-check.sh` (no flags) now reaches
 not a re-run of the fork-heavy test suite. `--fast` / `--skip-hook-tests` stay the
 quick escape (they skip the integrity critical ⇒ PARTIAL_UNVERIFIED / exit 4, never 0).
 
-`--run-hook-tests` is an OPTIONAL deep diagnostic that runs the FULL
-`hooks/tests/run-tests.sh` suite on all platforms; its fixture phase is now a single
-python process (the old fork-per-case loop cost ~one MSYS spawn per fixture-case, so
-the fixture phase dropped from minutes to ~0 s). **Known open item:** on a real
-Win11/Git-Bash box the full suite still exceeds the target < 120 s wall — several shell
-phases exercising genuinely-bash surfaces (bounded-run/liveness, git-wrapper, installer,
-upgrade, CLI-recovery, secret-scan via `mktemp`-per-scenario repos) each cost tens of
-seconds under MSYS spawn overhead. The authoritative full-suite green proof is the CI
-**Linux** run (`fusebase-flow-verify`), where spawn cost is negligible; the MSYS
-wall-time budget is tracked separately (see `docs/specs/hook-manifest-verify` D14).
+`--run-hook-tests` is an OPTIONAL deep diagnostic and is **platform-adaptive**: on
+POSIX/Linux/macOS it runs the FULL `hooks/tests/run-tests.sh` suite (as before); on
+MSYS/Git-Bash it runs the FAST subset — single-process fixtures + git-wrapper smoke +
+manifest self-test — completing in **< 120 s** (measured ~52 s end-to-end incl. the
+base health check). This is the AC3 resolution: the MSYS full suite (~950–1085 s —
+bash-surface phases like `liveness` / `secret-scan` / `bootstrap` cost tens of seconds
+each under MSYS spawn overhead) is impractical as a Windows default gate. The full MSYS
+suite stays reachable via `--run-hook-tests-full` or `FFHC_RUN_HOOK_TESTS_FULL=1`, and
+the authoritative full-suite green is the CI **Linux** run (`fusebase-flow-verify`),
+where spawn cost is negligible. The DEFAULT `bash hooks/tests/run-tests.sh` stays FULL
+on all platforms (unchanged).
 
 ## Last amended
 

@@ -99,10 +99,13 @@ stamp date is git history) covering the Flow-owned hook layer: `hooks/handlers/*
 - **Self-hash** (`manifest_self_sha256` over version + asset list) detects corruption
   and hand-edits; it is not a cryptographic defense against a recomputing attacker —
   that backstop is the committed manifest + git history + the CI freshness gate.
-- **Deep diagnostic.** `fusebase-flow-health-check.sh --run-hook-tests` optionally runs
-  the FULL `run-tests.sh` suite; an observed FAIL/crash ⇒ BROKEN, a timeout/skip ⇒
-  a NOTE only (an optional check never forces PARTIAL). It is never required for the
-  verdict.
+- **Deep diagnostic (platform-adaptive).** `fusebase-flow-health-check.sh
+  --run-hook-tests` optionally runs a deep suite — the FULL `run-tests.sh` on
+  POSIX/Linux/macOS, and on MSYS/Git-Bash the FAST subset (single-process fixtures +
+  git-smoke + hook-manifest self-test) completing < 120 s. `--run-hook-tests-full` /
+  `FFHC_RUN_HOOK_TESTS_FULL=1` forces the full suite on MSYS too. Observed FAIL/crash ⇒
+  BROKEN; timeout/skip ⇒ a NOTE only (never forces PARTIAL). Never required for the
+  verdict; the DEFAULT `run-tests.sh` + CI stay FULL.
 
 ## Audit-log integration
 
