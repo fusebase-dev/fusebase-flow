@@ -230,7 +230,9 @@ echo ""
 # upgrade landed with a version-mismatch ERROR (same installer-parity class as
 # the slash-command gap).
 CONTENT_DIRS=( "flow-skills" "agents" "workflows" "policies" "templates" "hooks" ".claude-plugin" )
-CONTENT_FILES=( "FLOW_RULES.md" )
+# D11 (AC5): the committed hook-layer manifest travels with the upgrade so a consumer
+# picks up integrity verification with no manual step (audit/ is outside CONTENT_DIRS).
+CONTENT_FILES=( "FLOW_RULES.md" "audit/hook-layer-manifest.json" )
 # Framework reference docs (top-level docs/*.md). U4: NOT copied into the consumer
 # by default (they're framework-dev docs that collide with consumer doc layouts).
 # With --with-framework-docs they land under docs/_fusebase-flow/ (namespaced),
@@ -333,6 +335,7 @@ done
 for f in "${CONTENT_FILES[@]}"; do
   if [ -f "$SOURCE_CLONE/$f" ] && ! diff -q "$SOURCE_CLONE/$f" "$f" >/dev/null 2>&1; then
     [ -f "$f" ] && cp "$f" "$f.pre-upgrade-$TS"
+    mkdir -p "$(dirname "$f")"   # D11: older installs may lack audit/ entirely
     cp "$SOURCE_CLONE/$f" "$f"
   fi
 done

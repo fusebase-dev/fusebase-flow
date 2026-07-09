@@ -142,7 +142,7 @@
     },
     {
       "path": "hooks/local/upgrade.sh",
-      "sha256": "e30c0d2308f81ba2e1690ef10bbb1ac895f0541b5e58277a2a2172610bf0e72b"
+      "sha256": "2f326b9780d76a80126023af8640d905fadbc53f11f99bdb828283736841ec8f"
     },
     {
       "path": "hooks/local/verify-gate.sh",
@@ -393,5 +393,5 @@
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "4d3e351f2f51c053ab449bf1eb714c82b7cd4a385b936fabce6f41b90a0e6c7a"
+  "manifest_self_sha256": "f9df1bb61234fd1c15f934e06e2a8752566acbdf92c28a9abbf302bf3e16429a"
 }
