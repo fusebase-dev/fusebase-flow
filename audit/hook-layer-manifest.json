@@ -1,0 +1,381 @@
+{
+  "schema_version": 1,
+  "flow_version": "4.1.0",
+  "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
+  "asset_count": 93,
+  "assets": [
+    {
+      "path": "hooks/git/commit-msg",
+      "sha256": "7c29acf5623ad5299a3f4de7d094d19c5bbc90dd5c3bd2002a63151e88a6af78"
+    },
+    {
+      "path": "hooks/git/pre-commit",
+      "sha256": "cd8d45c220b2ae9bebb831e879307c7a0eb47fd4f0e4e629a2f766167ec0cb33"
+    },
+    {
+      "path": "hooks/handlers/permission_request.py",
+      "sha256": "5f293d5d5e7396c624d4dfe136312623f0455e55539137d640e913141c7f1b52"
+    },
+    {
+      "path": "hooks/handlers/post_tool_use.py",
+      "sha256": "05aff11ae8dca5bb800bd8cb885ceff3bbe46cd9abdde340546279c2b6b315a2"
+    },
+    {
+      "path": "hooks/handlers/pre_compact.py",
+      "sha256": "a0bcc95bdd5bceff2d2afae920a268c72ba61f56478427ec34343d3d662a3ac0"
+    },
+    {
+      "path": "hooks/handlers/pre_tool_use.py",
+      "sha256": "9ea7e3acc848f2f3e66eb708760e0b9b0e9747ec714a92035cf86f1f82301782"
+    },
+    {
+      "path": "hooks/handlers/session_start.py",
+      "sha256": "21d584f73cb189f7eeafa26da0c3bc3c98f4ae36326518658ed52a2535ba933e"
+    },
+    {
+      "path": "hooks/handlers/stop.py",
+      "sha256": "bdf79237c2fef5567fe5f3ab5876d9b31a07702a04cfb5fb51268e216a3668f2"
+    },
+    {
+      "path": "hooks/handlers/user_prompt_submit.py",
+      "sha256": "d3afc54547241943beaf7c37e8520fab92493c8ea19452cce5d042bc40679710"
+    },
+    {
+      "path": "hooks/local/approve-local.sh",
+      "sha256": "d2ae5d4d400b1697e923a90ab5d89a21a1182d093d804f731c382741775515d6"
+    },
+    {
+      "path": "hooks/local/bootstrap-upgrade.sh",
+      "sha256": "c4f81fcfbba85908f7a93de8853575c2330bd9d89ee55b3cf72754a912e1c4c3"
+    },
+    {
+      "path": "hooks/local/check-cli-flow-conflicts.sh",
+      "sha256": "044c69e7688c441a9595827345457f9d0d633e591107909123462cc24c4288f2"
+    },
+    {
+      "path": "hooks/local/check-module-size.sh",
+      "sha256": "c16b77f34988ee48ad7f3dc78114185ba7e2153d6452da961c266ce8f49285ae"
+    },
+    {
+      "path": "hooks/local/eslint-ignore-flow-paths.sh",
+      "sha256": "5d3d4850be3892a2cad07b7d8b914cd2d6dbd77dec30aff5c06e3b8aaefeee39"
+    },
+    {
+      "path": "hooks/local/fusebase-flow-health-check.sh",
+      "sha256": "ec60323ac7a5c3aeac620b5b55f7c8ff9f99fd91d2692900bacf887c737f736b"
+    },
+    {
+      "path": "hooks/local/install-codex-prompts.sh",
+      "sha256": "58f58b1e4ae627c9c0d065e7ae6e97f8ee5f577a75630f2316ef8084eadf5de8"
+    },
+    {
+      "path": "hooks/local/install-git-hooks.sh",
+      "sha256": "fec2a318700e263d62c5008e09544dab077d19c631da2c32d2e5f16f94e8afca"
+    },
+    {
+      "path": "hooks/local/lib/active-approvals.sh",
+      "sha256": "96d20d08cc9b718166b3d1e4868f7b7db7fa4606eaa9300681a6df7174eb3b0c"
+    },
+    {
+      "path": "hooks/local/lib/bounded-run.sh",
+      "sha256": "91bea5023707011070f522ecf7070242923528ea1bdd843faf726a0aba6d8e77"
+    },
+    {
+      "path": "hooks/local/lib/hook_manifest.py",
+      "sha256": "6ffecd3221a88d4e2d5fcd79fed11ea492ba5f4a9bc9fef41fd969a943db88eb"
+    },
+    {
+      "path": "hooks/local/lib/merge-module-size-baseline.sh",
+      "sha256": "ae8a4c43d3c833e291e09ecc04b78a3e9c7f5d370509f2e8c1d42ff278aab8cc"
+    },
+    {
+      "path": "hooks/local/lib/partial-upgrade-check.sh",
+      "sha256": "e1e8ec52f3173150bc493cd3f3dda4b667b8fd12976118d5caa7c10c561f1a01"
+    },
+    {
+      "path": "hooks/local/lib/run-with-timeout.sh",
+      "sha256": "e3af00a7bbe258e4815772514c9cbc82ef3df50ea3b05efbaf91a1e24866f8ad"
+    },
+    {
+      "path": "hooks/local/mirror-agents.sh",
+      "sha256": "7a7917dc60cf90734cef6b60851eeb3a4932fb3a9a9c4455c07cf3f70eb6cf04"
+    },
+    {
+      "path": "hooks/local/mirror-skills.sh",
+      "sha256": "5664939c88124f64c72145897bae0de0705b319f4ee7714235c811478882ab9b"
+    },
+    {
+      "path": "hooks/local/po-investigate.sh",
+      "sha256": "76179cfdb3851defb66e4ae3a1f155b0587b9892763c228d6bd2d34a04d16547"
+    },
+    {
+      "path": "hooks/local/post-fusebase-update.sh",
+      "sha256": "73f2ef4435ae4eba2ed35f473075da4736a80eabf0f6edee90c0e16ad1d7d6a9"
+    },
+    {
+      "path": "hooks/local/preflight.sh",
+      "sha256": "823d335c5979ca1c82e55a878074360b145db653b4705376929f5ce5edea31b1"
+    },
+    {
+      "path": "hooks/local/run-handler.sh",
+      "sha256": "3083e36fe46a5e376692e9e6e800ae75f5d892afc6d8ad45a4a33e489da26492"
+    },
+    {
+      "path": "hooks/local/stamp-cli-provenance.sh",
+      "sha256": "76f186c58322f5ab2318f13afb26bcae37e8dcaf81f5cf15b9b69f2ff1ed3041"
+    },
+    {
+      "path": "hooks/local/stamp-hook-manifest.sh",
+      "sha256": "46f4818e9dc040f599d83751824b8a4248ba4cfb1950b6073995e356007f10ce"
+    },
+    {
+      "path": "hooks/local/sync-version-strings.sh",
+      "sha256": "f1706a351cb9c7f8bc710edcfdc94fb18955dd600825868cbf7c519ff2ef8e4b"
+    },
+    {
+      "path": "hooks/local/upgrade-engine.sh",
+      "sha256": "fe134863a4b09e2ca6f5f3e1f08e1b1121e8b83c63c4bf0c88d3fa2fe758bdec"
+    },
+    {
+      "path": "hooks/local/upgrade.sh",
+      "sha256": "e30c0d2308f81ba2e1690ef10bbb1ac895f0541b5e58277a2a2172610bf0e72b"
+    },
+    {
+      "path": "hooks/local/verify-gate.sh",
+      "sha256": "e9b2d13e9eca2b611d5ef0a8752bf213ca06c66903c622e50cb7f0d09d8ddf8f"
+    },
+    {
+      "path": "hooks/local/verify-hook-manifest.sh",
+      "sha256": "f475298d092e728a78d8d6e52c9f2d9ebc131b367b11a60883c1e82291fb2b24"
+    },
+    {
+      "path": "hooks/local/write-bootstrap-approval.sh",
+      "sha256": "8a24dfce12edacc2d84a98abf05cd883256195b8ca7c13a7500dcc2aa99ea27f"
+    },
+    {
+      "path": "hooks/shared/__init__.py",
+      "sha256": "a17fa14158188b1c02621a2d5cad7a96470578b007abb973a7327a6a00163538"
+    },
+    {
+      "path": "hooks/shared/audit_logger.py",
+      "sha256": "69355d2cfb94e5efd9a71bbaa543e764d342f3c7687d45cb2030049ee5a1012a"
+    },
+    {
+      "path": "hooks/shared/command_policy.py",
+      "sha256": "c7fa555de7a00bf09bf1215d44a4da5559a85a0e93de7a0517bff2f40da8cb58"
+    },
+    {
+      "path": "hooks/shared/git_utils.py",
+      "sha256": "2e86be791cfe5e2b895e91875f93dd97dd4e88e1b2856a9525bcb9e2b8c1aee7"
+    },
+    {
+      "path": "hooks/shared/module_size.py",
+      "sha256": "16a5d64e11544327ea04ff225d011b23b7417e4f135cfec0c675493c3835351d"
+    },
+    {
+      "path": "hooks/shared/path_policy.py",
+      "sha256": "294f37311524c44eaa60694c7ef3edf3d5151ff4620d41cbbfb3130642e034b6"
+    },
+    {
+      "path": "hooks/shared/policy_loader.py",
+      "sha256": "47cfd60e09a58bb33f64c8d6295219f2060bae6140b1c65e49dd7961f766fb1b"
+    },
+    {
+      "path": "hooks/shared/secret_scanner.py",
+      "sha256": "fecb30ef246aaf2dc90dc55200de5d1b0bab92242c8cbbd5cbd3e9c0d8d784fa"
+    },
+    {
+      "path": "hooks/shared/staged_secret_scan.py",
+      "sha256": "52ea6462aeec71a68fac9cf3aaeeabd100585b34209afa57ae4c035d86b6a414"
+    },
+    {
+      "path": "hooks/tests/fixtures/01_pre_tool_use_blocked_rm_rf.json",
+      "sha256": "d230bb78f29ae09df9355de659cfa7f6f63309a17df0732b633cb98fc60fef2e"
+    },
+    {
+      "path": "hooks/tests/fixtures/02_pre_tool_use_blocked_git_add_dot.json",
+      "sha256": "f82bdc0926ebce5abded500a3420495408e9153303c19175c3e51aca4585f92a"
+    },
+    {
+      "path": "hooks/tests/fixtures/03_pre_tool_use_blocked_git_add_A.json",
+      "sha256": "9ddb19037a3d044f4da4b1b37416e25731ce2e39200398c291b0604b3c5368d1"
+    },
+    {
+      "path": "hooks/tests/fixtures/04_pre_tool_use_blocked_git_reset_hard.json",
+      "sha256": "447ec0a153ea34c588e6c0265cc602b4fe015f144ac5742ce9dc0b6d41788643"
+    },
+    {
+      "path": "hooks/tests/fixtures/05_pre_tool_use_blocked_no_verify.json",
+      "sha256": "8fbadfdcad6bc297f22247312f987fe12348443ff35730ea91bf95db61711de4"
+    },
+    {
+      "path": "hooks/tests/fixtures/06_pre_tool_use_blocked_env_write.json",
+      "sha256": "2a72336905b66ca06e49591a28dcc6f1a9d6667799123065bf78e665615037cc"
+    },
+    {
+      "path": "hooks/tests/fixtures/07_pre_tool_use_blocked_protected_path_edit.json",
+      "sha256": "c5dff9e183c28eeace17a684bfec84633d26bcbe6a6a7c55b24fc1c4e40242d5"
+    },
+    {
+      "path": "hooks/tests/fixtures/08_pre_tool_use_allowed_harmless.json",
+      "sha256": "e307340d541d4860332b2c11275440e978f7b54d0d2e654a455ecce6ca15f17a"
+    },
+    {
+      "path": "hooks/tests/fixtures/09_stop_blocks_done_without_gate.json",
+      "sha256": "5fdae9411914a9f770b7cca21039a138ccbf5fe750a5bf892544803eec55ab93"
+    },
+    {
+      "path": "hooks/tests/fixtures/10_user_prompt_submit_secret.json",
+      "sha256": "052a2dfa5a5bcd91d1a9b5941ef221650c389494dc7389d40c052e86f0e3474a"
+    },
+    {
+      "path": "hooks/tests/fixtures/11_pre_tool_use_secret_in_write.json",
+      "sha256": "7742b8ec023c561bbcfdd773b31d94ca754ebbc665f168b56ea9b3cd5b71f333"
+    },
+    {
+      "path": "hooks/tests/fixtures/12_pre_tool_use_cookie_escalation.json",
+      "sha256": "81741933f964591f14ab92571819fbbd3178869830343f99ac5c92f9ae69aa7e"
+    },
+    {
+      "path": "hooks/tests/fixtures/13_stop_blocks_deploy_complete_without_cleanup_marker.json",
+      "sha256": "f8717bd5cae71ba9466aabfd3a59ae97f56bb607e96813fb636d3d0851fecadb"
+    },
+    {
+      "path": "hooks/tests/fixtures/14_stop_allows_deploy_complete_with_cleanup_marker.json",
+      "sha256": "aea438ef3b4c424542da13f6e08734376207274c41829b0ea1b4b45923cb52e7"
+    },
+    {
+      "path": "hooks/tests/fixtures/15_stop_allows_lightweight_deploy_complete.json",
+      "sha256": "6e0b730f474b01d22b4678e4bf60d97e07b36c447886cdde1c8d0d0d43440ff8"
+    },
+    {
+      "path": "hooks/tests/fixtures/16_stop_blocks_lightweight_deploy_complete_without_rollback.json",
+      "sha256": "9f5caed50d0364f7fd680967a23de043b3b37e98c6a79b338f81021004319cc5"
+    },
+    {
+      "path": "hooks/tests/fixtures/17_user_prompt_submit_native_prompt_key_secret.json",
+      "sha256": "925b573244642720eb4b30314b1278efffeee299da21c718168d60874cf3d7d2"
+    },
+    {
+      "path": "hooks/tests/fixtures/18_stop_native_transcript_doneclaim.json",
+      "sha256": "7e9361518496e0839137bfb4a0f27625ae90a37d086eede1e92d3f7678eb90ed"
+    },
+    {
+      "path": "hooks/tests/fixtures/18_stop_native_transcript_doneclaim_transcript.jsonl",
+      "sha256": "ae5a2beabfb1e065d89a61cb8914369c074a49b3ec9a51350332beef63b85f0a"
+    },
+    {
+      "path": "hooks/tests/fixtures/19_stop_native_transcript_midclaim_no_overtrigger.json",
+      "sha256": "ce11524d1fbe2692abeb81d9291f29ee3daaa4a7cb8d9bbfeeeea502a7da3c68"
+    },
+    {
+      "path": "hooks/tests/fixtures/19_stop_native_transcript_midclaim_no_overtrigger_transcript.jsonl",
+      "sha256": "59633135d9663b43186b6a406ade86a8e4bda7d25f3c3ee6ebf280112f267927"
+    },
+    {
+      "path": "hooks/tests/fixtures/20_stop_native_corrupt_transcript_claim_failclosed.json",
+      "sha256": "4bc8c6306499047dd70e8d41a908a2981006a3602add139cc4b6d1b9d6a1d1df"
+    },
+    {
+      "path": "hooks/tests/fixtures/20_stop_native_corrupt_transcript_claim_failclosed_transcript.jsonl",
+      "sha256": "1d590694d49cda27def0cbb41711019ce7acbc0a190b5c9cf29e9fb744a58073"
+    },
+    {
+      "path": "hooks/tests/fixtures/21_stop_native_corrupt_transcript_noclaim_allow.json",
+      "sha256": "92d9cac51aa108e5c939c525c738263a4ffa29335fa23ac112703741df16cb2b"
+    },
+    {
+      "path": "hooks/tests/fixtures/21_stop_native_corrupt_transcript_noclaim_allow_transcript.jsonl",
+      "sha256": "6cc8959562dac385b31da1f5dd304b00de4e374fc0c76327876cd329a7a37575"
+    },
+    {
+      "path": "hooks/tests/run-tests.sh",
+      "sha256": "9d6a0b8bdde86316d07cc6c25aaa3af530e3e04272a41864bf7a2149d411e69a"
+    },
+    {
+      "path": "hooks/tests/test-baseline-merge.sh",
+      "sha256": "a7b98dfe67ebb5edcc25c29c7f4ddef8be52772a88d530e81d0d5da947ea981e"
+    },
+    {
+      "path": "hooks/tests/test-bootstrap-baseline-hop.sh",
+      "sha256": "c28a91c849403bf9d49e811faeaa29a0c1acf14c3e831da01131631473089552"
+    },
+    {
+      "path": "hooks/tests/test-bootstrap-exception.sh",
+      "sha256": "5352d287a663f37d205c1aa200eb9737f53f57dcb7acee4bfdff0a0e12989abc"
+    },
+    {
+      "path": "hooks/tests/test-cli-0259-compat.sh",
+      "sha256": "9ab052a30a5803dafc5f0982d026fb9aea151a3e8777fa7c5685f80976c40f72"
+    },
+    {
+      "path": "hooks/tests/test-cli-flow-recovery.sh",
+      "sha256": "4c57e8738bc204183e9a53ae5083a65e0d96dc66318124a00552042d6f89af23"
+    },
+    {
+      "path": "hooks/tests/test-codex-prompt-parity.sh",
+      "sha256": "351e94a6e2a32299cab205d6e8ebe3c7db7dfef14d14ae12554a80bf212c79f4"
+    },
+    {
+      "path": "hooks/tests/test-ff-only.sh",
+      "sha256": "acf564838a4e8cc5094f4e96efd4d739a8a8781361772299a3ecef9879dafb00"
+    },
+    {
+      "path": "hooks/tests/test-fr22-delivery-guarantee.sh",
+      "sha256": "7c5863819c7b787e15da35f6bb03e6623fd961680d6fb687f35b665cb8f4c524"
+    },
+    {
+      "path": "hooks/tests/test-health-check-timeout.sh",
+      "sha256": "c9f008146a6de7e780f45839269821d9b63a7528327e1a949c9b9b10e0f5b243"
+    },
+    {
+      "path": "hooks/tests/test-hook-install-rc.sh",
+      "sha256": "163c95777b76956acfcc742095db59c76198db4512e5766eec34b1ca50f1ccb2"
+    },
+    {
+      "path": "hooks/tests/test-liveness-bounded-run.sh",
+      "sha256": "8cf77264557d373e7fee0a1e51086a0ec7d7766f049afa9c5f7422be8322a513"
+    },
+    {
+      "path": "hooks/tests/test-module-size.sh",
+      "sha256": "b64af27e1485e8f0bfe4a2b019a43cc159d707698601ea7179e4cd5790260c31"
+    },
+    {
+      "path": "hooks/tests/test-msys-tree-cleanup.sh",
+      "sha256": "78b08b615ed412139f902d33b54bed3b0c9e57664dc9062e99f99f91ac8378e7"
+    },
+    {
+      "path": "hooks/tests/test-newline-preserve.sh",
+      "sha256": "f0da399c294dcd11bd1ab2fd9a4707988b2d03c8fa651ed1a6b953baea188a0d"
+    },
+    {
+      "path": "hooks/tests/test-po-investigate.sh",
+      "sha256": "76ec2e8fb0e7475f2fb0b4ba6f85eaaaba31c4e175544738dbb4ca5954a1055e"
+    },
+    {
+      "path": "hooks/tests/test-po-verifiable-boot.sh",
+      "sha256": "8c77c806e4d777788746d26dc6ebf9ba2457a85415ad52d8deb31af3e6cac100"
+    },
+    {
+      "path": "hooks/tests/test-policy-state-preserve.sh",
+      "sha256": "8e766d89a53130139fb210dbfe5ede6c50ddaf917d7ef3df4c0a04526a12e8f3"
+    },
+    {
+      "path": "hooks/tests/test-secret-scan-staged.sh",
+      "sha256": "97e497de482026cc2aa134695260e39e53373c96608e75c346824b2791461515"
+    },
+    {
+      "path": "hooks/tests/test-sync-allowlist.sh",
+      "sha256": "be083bfce38ee95e193dc58369fe0cd4c4cdf068c8b492b54a9562cb18dbdb86"
+    },
+    {
+      "path": "hooks/tests/test-trusted-enforcer.sh",
+      "sha256": "b6463191675f12efbcf7ce835a62338f7243079f5caefdcbca2750e79bb67a3a"
+    },
+    {
+      "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
+      "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
+    }
+  ],
+  "manifest_self_sha256": "bcb069cf478bfd5538a692b7c3739e5017f23ff773c4812fe39b285c37ceedaf"
+}
