@@ -141,149 +141,28 @@ if [ "$FF_SCOPED" -eq 1 ]; then
 fi
 
 if ff_selected fixtures; then
-progress "fixture handler tests"
-
-# F5(c): ONE python start for ALL fixture metadata (not one-per-fixture). Emit a
-# TAB-separated row per fixture — path + the 6 fields — to a tempfile via a FILE
-# REDIRECT; the loop reads its row with the builtin `read` (zero python spawns in the
-# loop for metadata). Any tab/newline in a value is neutralized to a space so the TSV
-# stays one-row-per-fixture (the fields are short handler/decision tokens + a one-line
-# description — plumbing only; the handler runs + assertions below are unchanged).
-_ff_meta_tsv="$(mktemp "${TMPDIR:-/tmp}/ffhc-fixture-meta.XXXXXX")"
-"$python_bin" - "$TESTS_DIR" > "$_ff_meta_tsv" <<'PY'
-import json, os, sys, glob
-# LF-only writer: on Windows/MSYS text-mode stdout appends \r, which would land in the
-# LAST tab field read by the shell (a spurious \r in expected_rule_id_contains => a
-# non-empty invisible value that never matches). Write bytes with an explicit \n.
-def emit(line):
-    sys.stdout.buffer.write((line + "\n").encode("utf-8"))
-tests_dir = sys.argv[1]
-def clean(v):
-    return str(v or "").replace("\t", " ").replace("\n", " ").replace("\r", " ")
-for path in sorted(glob.glob(os.path.join(tests_dir, "*.json"))):
-    try:
-        with open(path) as f:
-            data = json.load(f)
-    except Exception:
-        data = {}
-    fields = [
-        data.get("_test", ""),
-        data.get("_handler", ""),
-        data.get("_expected_decision", ""),
-        data.get("_expected_rule_id", ""),
-        data.get("_expected_rule_id_contains", ""),
-    ]
-    # Key by BASENAME (identical in shell + python; os.path.join uses a backslash on
-    # Windows so the full path would not match the shell glob key).
-    emit(os.path.basename(path) + "\t" + "\t".join(clean(x) for x in fields))
-PY
-# Load the TSV into a basename -> "field1\tfield2..." map (keyed so loop order can't
-# desync from the pre-pass; builtin read, no per-row spawn).
-declare -A _ff_meta=()
-while IFS=$'\t' read -r _mp _rest; do
-    [ -n "$_mp" ] && _ff_meta["$_mp"]="$_rest"
-done < "$_ff_meta_tsv"
-rm -f "$_ff_meta_tsv"
-
-for fixture in "$TESTS_DIR"/*.json; do
-    [ -f "$fixture" ] || continue
-    total=$((total + 1))
-    name="$(basename "$fixture")"
-
-    # F5(b): pull this fixture's metadata from the pre-pass TSV via the builtin `mapfile`
-    # (no per-fixture python + no 5x sed spawns). TRIPWIRE: split with `mapfile -td $'\t'`,
-    # NOT `IFS=$'\t' read` — tab is an IFS-WHITESPACE char, so `read` collapses an EMPTY
-    # middle field (e.g. an empty `_expected_rule_id` before a non-empty
-    # `_expected_rule_id_contains`) and shifts later fields LEFT, silently flipping the
-    # authored substring assertion into an exact-match. mapfile splits on the delimiter
-    # (empties preserved), matching the baseline python-print+sed parse. printf '%s' emits
-    # no trailing newline => no phantom trailing element. Same five fields; keyed by name.
-    mapfile -td $'\t' _ff_row < <(printf '%s' "${_ff_meta[$name]:-}")
-    test_name="${_ff_row[0]-}"
-    handler="${_ff_row[1]-}"
-    expected_decision="${_ff_row[2]-}"
-    expected_rule_id="${_ff_row[3]-}"
-    expected_rule_contains="${_ff_row[4]-}"
-
-    if [ -z "$handler" ]; then
-        echo "[run-tests] $name SKIP — no _handler set"
-        continue
+    # F5/D6: ALL fixtures in ONE python process via the single-process runner
+    # (hooks/tests/run_hook_tests.py). Same 21 fixtures + assertion semantics +
+    # PASS:/FAIL: line shapes as the retired fork-loop, plus the synthetic
+    # _parse-invariant row. Counted like run_shell_phase (^PASS:/^FAIL:); the
+    # bounded phase is one spawn, not 21x(>=3) MSYS spawns.
+    run_bounded_phase "fixture handler tests (single-process)" "$python_bin" "$ROOT/hooks/tests/run_hook_tests.py"
+    fx_out="$FFHC_LAST_OUT"; fx_rc=$FFHC_LAST_RC
+    echo "$fx_out" | grep -E '^(PASS|FAIL):' || true
+    fx_pass="$(echo "$fx_out" | grep -c '^PASS:')"
+    fx_failed="$(echo "$fx_out" | grep -c '^FAIL:')"
+    total=$((total + fx_pass + fx_failed)); pass=$((pass + fx_pass)); fail=$((fail + fx_failed))
+    while IFS= read -r line; do
+        result="${line%%:*}"; rest="${line#*: }"
+        report_rows="$report_rows| run_hook_tests.py | $rest | $result | single-process fixture |"$'\n'
+    done < <(echo "$fx_out" | grep -E '^(PASS|FAIL):')
+    # Crash guard (same contract as run_shell_phase): a non-zero exit with zero
+    # parsed FAIL lines means the runner died before reporting a single fixture.
+    if [ "$fx_rc" -ne 0 ] && [ "$fx_failed" -eq 0 ]; then
+        total=$((total + 1)); fail=$((fail + 1))
+        echo "FAIL: run_hook_tests.py crashed (exit $fx_rc) before reporting fixtures"
+        report_rows="$report_rows| run_hook_tests.py | (harness) | FAIL | crashed with exit $fx_rc, no fixture output |"$'\n'
     fi
-
-    # Run handler with the fixture as stdin; capture stdout + exit code. Bounded via
-    # ffhc_run_bounded_stdin_stdout (tempfile capture + T1 strict-scoped reap; stderr
-    # dropped to preserve the ORIGINAL 2>/dev/null stdout-only capture the JSON parse
-    # relies on) so a hung handler (or an MSYS native grandchild holding a $(...) pipe)
-    # can't freeze the loop past the deadline. TRIPWIRE: the STDIN variant — a
-    # backgrounded child's fd 0 otherwise defaults to /dev/null and the `< "$fixture"`
-    # never reaches the handler (empty stdin => wrong `allow` on deny-fixtures on MSYS).
-    # FFHC_LAST_OUT holds stdout only; the '{' parse below is unchanged.
-    ffhc_run_bounded_stdin_stdout "$FF_PHASE_TIMEOUT" "$python_bin" "$HANDLERS_DIR/$handler" < "$fixture"
-    output="$FFHC_LAST_OUT"
-    exit_code=$FFHC_LAST_RC
-
-    # Parse decision and rule_id from JSON stdout. F5(b): read the two python-emitted
-    # lines with the builtin `read` (no 2x sed spawn per fixture); the python JSON parse
-    # is unchanged (it is the load-bearing decode of the handler's stdout).
-    actual="$("$python_bin" - <<PY
-import json, sys
-out = json.loads('''$output''') if '''$output'''.strip().startswith("{") else {}
-print(out.get("decision", ""))
-print(out.get("rule_id", "") or "")
-PY
-)"
-    { IFS= read -r actual_decision; IFS= read -r actual_rule_id; } <<< "$actual"
-    # python print() emits \r on MSYS; strip a trailing CR so the values match the
-    # prior `echo|sed` extraction byte-for-byte (an unstripped \r would never compare equal).
-    actual_decision="${actual_decision%$'\r'}"; actual_rule_id="${actual_rule_id%$'\r'}"
-
-    ok=1
-    detail=""
-    if [ -n "$expected_decision" ] && [ "$expected_decision" != "$actual_decision" ]; then
-        ok=0
-        detail="$detail expected=$expected_decision got=$actual_decision"
-    fi
-    if [ -n "$expected_rule_id" ] && [ "$expected_rule_id" != "$actual_rule_id" ]; then
-        ok=0
-        detail="$detail expected_rule=$expected_rule_id got=$actual_rule_id"
-    fi
-    if [ -n "$expected_rule_contains" ]; then
-        if [[ "$actual_rule_id" != *"$expected_rule_contains"* ]]; then
-            ok=0
-            detail="$detail expected_rule_contains=$expected_rule_contains got=$actual_rule_id"
-        fi
-    fi
-
-    if [ $ok -eq 1 ]; then
-        pass=$((pass + 1))
-        echo "PASS: $name  ($test_name) -> decision=$actual_decision"
-        report_rows="$report_rows| $name | $test_name | PASS | decision=$actual_decision rule=$actual_rule_id |"$'\n'
-    else
-        fail=$((fail + 1))
-        echo "FAIL: $name  ($test_name) ->$detail"
-        report_rows="$report_rows| $name | $test_name | FAIL |$detail (raw=$output) |"$'\n'
-    fi
-done
-FFHC_LAST_WINPID=""; FFHC_LAST_CHILD_PID=""   # fixture loop done — clear the last handler's ids before the trap window
-
-# F5(b) parse invariant (guards the mapfile-vs-`read` fix above): an EMPTY middle field
-# must be PRESERVED, not collapsed. Fixture 10 (empty _expected_rule_id + non-empty
-# _expected_rule_id_contains) parses as rule_id=EMPTY / contains=FR-12 — the authored
-# SUBSTRING assertion, not a shifted exact-match. This bites even though fixture 10's
-# handler emits rule_id exactly "FR-12" (both parses PASS the fixture; only the parse
-# itself distinguishes the regression). A synthesized worst-case row makes it deterministic.
-total=$((total + 1))
-_inv_row=$'inv test\thandler.py\twarn\t\tFR-12'
-mapfile -td $'\t' _inv_f < <(printf '%s' "$_inv_row")
-if [ "${_inv_f[3]-}" = "" ] && [ "${_inv_f[4]-}" = "FR-12" ]; then
-    pass=$((pass + 1))
-    echo "PASS: _parse-invariant  (empty _expected_rule_id preserved; substring FR-12 not shifted into rule_id)"
-    report_rows="$report_rows| _parse-invariant | empty-middle-field preserved | PASS | rule_id=empty contains=FR-12 |"$'\n'
-else
-    fail=$((fail + 1))
-    echo "FAIL: _parse-invariant  (empty middle TSV field collapsed: rule_id=[${_inv_f[3]-}] contains=[${_inv_f[4]-}] — expected rule_id=empty contains=FR-12)"
-    report_rows="$report_rows| _parse-invariant | empty-middle-field preserved | FAIL | rule_id=[${_inv_f[3]-}] contains=[${_inv_f[4]-}] |"$'\n'
-fi
 else
     ff_skip_note fixtures
 fi
