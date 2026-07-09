@@ -318,7 +318,7 @@
     },
     {
       "path": "hooks/tests/test-cli-flow-recovery.sh",
-      "sha256": "4c57e8738bc204183e9a53ae5083a65e0d96dc66318124a00552042d6f89af23"
+      "sha256": "34d959e61086e0fa9a7243a1783c9f63501077625ba454f90e3ce5e32a060e6f"
     },
     {
       "path": "hooks/tests/test-codex-prompt-parity.sh",
@@ -393,5 +393,5 @@
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "03f8d935bcd6e8a350cc3f1ea0fed94380fef85c744aabe77acf9aecc5492705"
+  "manifest_self_sha256": "45bb1ad432ca3b8435a9e57389ac59c49dcb081774a5cd55562e66707356cb3c"
 }

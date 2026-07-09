@@ -51,8 +51,8 @@ cp hooks/local/mirror-skills.sh "$PROJECT/hooks/local/"
 cp hooks/local/mirror-agents.sh "$PROJECT/hooks/local/"
 cp hooks/local/post-fusebase-update.sh "$PROJECT/hooks/local/"
 cp hooks/local/check-cli-flow-conflicts.sh "$PROJECT/hooks/local/"
-cp hooks/local/stamp-cli-provenance.sh "$PROJECT/hooks/local/"
-cp -R hooks/local/lib "$PROJECT/hooks/local/lib"   # health engine sources lib/run-with-timeout.sh
+cp hooks/local/stamp-cli-provenance.sh hooks/local/stamp-hook-manifest.sh hooks/local/verify-hook-manifest.sh "$PROJECT/hooks/local/"   # +stamp/verify: engine integrity critical (hook-manifest-verify)
+cp -R hooks/local/lib "$PROJECT/hooks/local/lib"   # health engine sources lib/run-with-timeout.sh (+ hook-integrity-check.sh, hook_manifest.py)
 cp -R hooks/local/fusebase-flow-overlays "$PROJECT/hooks/local/fusebase-flow-overlays"
 cp -R hooks/handlers "$PROJECT/hooks/handlers"
 cp FLOW_RULES.md "$PROJECT/FLOW_RULES.md"
@@ -493,7 +493,7 @@ cat > "$F2P/.claude/settings.json" <<'EOF'
 EOF
 (
   cd "$F2P"
-  FFHC_PREFLIGHT_TIMEOUT=600 FFHC_TESTS_TIMEOUT=600 FFHC_CONFLICT_TIMEOUT=600 FFHC_FETCH_TIMEOUT=30 bash hooks/local/fusebase-flow-health-check.sh > "$TMP_BASE/f2.out" 2>&1 || true
+  bash hooks/local/stamp-hook-manifest.sh >/dev/null 2>&1; FFHC_PREFLIGHT_TIMEOUT=600 FFHC_TESTS_TIMEOUT=600 FFHC_CONFLICT_TIMEOUT=600 FFHC_MANIFEST_TIMEOUT=600 FFHC_FETCH_TIMEOUT=30 bash hooks/local/fusebase-flow-health-check.sh > "$TMP_BASE/f2.out" 2>&1 || true   # stamp: integrity critical MATCH (hook-manifest-verify)
 )
 grep -q "Verdict: SHARED_MERGE_DRIFT" "$TMP_BASE/f2.out" && { sed -n '/Verdict/,$p' "$TMP_BASE/f2.out" >&2; fail "F2: main health engine verdict SHARED_MERGE_DRIFT for deliberate hooks-off (should be benign)"; } || true
 grep -qE "lifecycle events wired \(stop.py present|stop.py missing from Stop chain" "$TMP_BASE/f2.out" && fail "F2: main engine recorded a settings.json drift for the opt-in-off state" || true
@@ -505,7 +505,7 @@ pass "F2 (U16): main health engine reads deliberate hooks-off as benign (no SHAR
 # flag-gated absence (U10 class); U18 = .agents/.codex gap (U13 class).
 run_main_engine_verdict() {  # $1=project dir → Verdict line; `|| true`+budgets => exit 4 won't abort the suite
   local out
-  out="$(cd "$1" 2>/dev/null && FFHC_PREFLIGHT_TIMEOUT=600 FFHC_TESTS_TIMEOUT=600 FFHC_CONFLICT_TIMEOUT=600 FFHC_FETCH_TIMEOUT=30 bash hooks/local/fusebase-flow-health-check.sh 2>/dev/null)" || true
+  out="$(cd "$1" 2>/dev/null && bash hooks/local/stamp-hook-manifest.sh >/dev/null 2>&1; FFHC_PREFLIGHT_TIMEOUT=600 FFHC_TESTS_TIMEOUT=600 FFHC_CONFLICT_TIMEOUT=600 FFHC_MANIFEST_TIMEOUT=600 FFHC_FETCH_TIMEOUT=30 bash hooks/local/fusebase-flow-health-check.sh 2>/dev/null)" || true   # stamp first => integrity critical MATCH (hook-manifest-verify)
   printf '%s\n' "$out" | grep -m1 "^Verdict:" || echo "Verdict: (none captured)"
 }
 
