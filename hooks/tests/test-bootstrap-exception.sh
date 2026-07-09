@@ -246,43 +246,53 @@ if echo "$IMPORT_ERR" | grep -qiE "FR-07|could not load|import"; then ok "7-impo
 rm -rf "$D"
 
 # ---- 8. PYTHON3-ABSENT NO-SILENT-SKIP (T25): §3's outer gate used to silently skip
-#         FR-07 when python3 was unavailable AND changes were staged. That is a quiet
-#         hole — a protected edit committing with no enforcement and no message. The fix
-#         emits a LOUD stderr WARNING (python3 required to enforce FR-07) so the gap is
-#         visible; it does NOT hard-block (a python3-less env must still be able to
-#         commit; §2's secret scan already gates on `command -v python3`). We mask python3
-#         by building a PATH that drops every dir containing a python3/python executable,
-#         stage a protected edit, and assert the hook emits SOME loud signal (NOT a bare
-#         silent exit 0). PLATFORM NOTE: on MSYS python3 lives in a dir separate from
-#         git/bash, so the mask reaches §3's "python3 not found; FR-07…" WARN. On Linux/CI
-#         python3 shares /usr/bin with git/bash, so dropping python3's dir ALSO removes git
-#         ⇒ the hook loudly SKIPS at the git-root check ("not in a git repo; skipping") or
-#         fails closed ("Refusing to commit fail-open…"). All are LOUD (the no-silent-skip
-#         invariant); the assertion accepts each without weakening it. ----
+#         FR-07 when python3 was unavailable AND changes were staged. The fix emits a
+#         LOUD stderr WARNING (python3 required to enforce FR-07); it does NOT hard-block
+#         (a python3-less env must still commit; §2's secret scan already gates on
+#         `command -v python3`). We mask python3 with a GIT-PRESERVING mask: a dir holding
+#         no python passes through PATH unchanged; a dir holding python is FILTERED into a
+#         temp bin (symlink every executable EXCEPT python/python3). WHY: a naive
+#         drop-every-python-dir mask ALSO removes git on Linux/CI, where python3 + git
+#         share /usr/bin — with git gone the hook's `git diff --cached` returns EMPTY, §3
+#         sees nothing staged, and it exits 0 SILENTLY (a TEST ARTIFACT, not a fail-open).
+#         We only symlink the python-holding dir(s) (not all of PATH — System32 alone is
+#         ~5k files on Windows) and pass the rest through, so git/bash/coreutils survive;
+#         the precondition asserts python3 GONE and git PRESENT, so the scenario tests the
+#         REAL python3-absent path on BOTH platforms. ----
 D="$(new_repo)"
-# Build a python-free PATH: keep every PATH dir that does NOT contain python3/python.
-NOPY_PATH=""
+MASKBIN="$(mktemp -d "${TMPDIR:-/tmp}/ffbe-nopy.XXXXXX")"
+MASK_PATH="$MASKBIN"
 _ifs_save="$IFS"; IFS=':'
 for _d in $PATH; do
-  [ -n "$_d" ] || continue
-  if [ -x "$_d/python3" ] || [ -x "$_d/python" ] || [ -x "$_d/python3.exe" ] || [ -x "$_d/python.exe" ]; then continue; fi
-  NOPY_PATH="${NOPY_PATH:+$NOPY_PATH:}$_d"
+  [ -d "$_d" ] || continue
+  if [ -e "$_d/python3" ] || [ -e "$_d/python" ] || [ -e "$_d/python3.exe" ] || [ -e "$_d/python.exe" ]; then
+    for _exe in "$_d"/*; do
+      [ -e "$_exe" ] || continue
+      _b="$(basename "$_exe")"
+      case "$_b" in python|python3|python2*|python3.*|python.exe|python3.exe) continue;; esac
+      [ -e "$MASKBIN/$_b" ] || ln -s "$_exe" "$MASKBIN/$_b" 2>/dev/null || cp -p "$_exe" "$MASKBIN/$_b" 2>/dev/null || true
+    done
+  else
+    MASK_PATH="$MASK_PATH:$_d"   # no python here — pass through (keeps git/bash/coreutils resolvable)
+  fi
 done
 IFS="$_ifs_save"
-# Sanity: with the curated PATH, python3 must be gone but bash/git still present.
-if PATH="$NOPY_PATH" command -v python3 >/dev/null 2>&1; then
-  bad "8-python3-mask-precondition" "could not mask python3 from PATH for the test (python3 still resolvable)"
+# Precondition: python3 MASKED (gone) AND git PRESERVED. A git-less mask would make the
+# hook see nothing staged (silent exit 0) — never let that pass as a "loud warn".
+if PATH="$MASK_PATH" command -v python3 >/dev/null 2>&1; then
+  bad "8-python3-mask-precondition" "could not mask python3 (still resolvable under the git-preserving mask)"
+elif ! PATH="$MASK_PATH" command -v git >/dev/null 2>&1; then
+  bad "8-python3-mask-precondition" "git not preserved by the mask (a git-less hook sees nothing staged — cannot isolate python3-absence)"
 else
   printf '\n# python3-absent edit\n' >> "$D/policies/protected-paths.yml"
   ( cd "$D" && git add policies/protected-paths.yml )
-  NOPY_ERR="$( ( cd "$D" && PATH="$NOPY_PATH" bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
-  NOPY_RC=0; ( cd "$D" && PATH="$NOPY_PATH" bash hooks/git/pre-commit >/dev/null 2>&1 ) || NOPY_RC=$?
-  # Assert a LOUD signal was emitted — NOT a silent exit-0. Accepts the MSYS python3-WARN
-  # AND the Linux loud-skip/fail-closed signals (python3 shares /usr/bin with git there, so
-  # the mask also removes git ⇒ the hook loudly skips at the git-root check).
-  if echo "$NOPY_ERR" | grep -qiE "python3|FR-07|not in a git repo|skipping|Refusing to commit fail-open|unverifiable protected-path|could not list staged changes|failing closed"; then ok "8-python3-absent-loud-warn (stderr carries a loud non-silent signal; MSYS: python3/FR-07 WARN, Linux: git-root skip / fail-closed)"; else bad "8-python3-absent-loud-warn" "python3-absent path emitted NO signal at all — a truly silent skip (FR-07 finding, not a test bug)"; fi
+  NOPY_ERR="$( ( cd "$D" && PATH="$MASK_PATH" bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
+  NOPY_RC=0; ( cd "$D" && PATH="$MASK_PATH" bash hooks/git/pre-commit >/dev/null 2>&1 ) || NOPY_RC=$?
+  # python3 ABSENT + git PRESENT ⇒ §3 must emit the loud FR-07 warn (NOT a silent skip). If
+  # nothing is emitted here, it IS a genuine fail-open (FR-07 finding) — the message says so.
+  if echo "$NOPY_ERR" | grep -qiE "python3|FR-07"; then ok "8-python3-absent-loud-warn (git-preserving mask; §3 names the un-enforceable FR-07 check — a loud WARN, not a silent skip)"; else bad "8-python3-absent-loud-warn" "python3-absent path emitted NO warning with git PRESENT — a GENUINE FR-07 silent-skip (fail-open), not a test artifact"; fi
 fi
-rm -rf "$D"
+rm -rf "$D" "$MASKBIN"
 
 # ---- 9. ENUMERATION FAIL-CLOSED (T26 BLOCKER): T25 closed the IMPORT fail-open, but
 #         path_policy.staged_change_paths() returns [] on ANY subprocess exception AND on a
