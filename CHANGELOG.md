@@ -6,6 +6,21 @@ Public release versions ship as annotated git tags on `main`. Per-version detail
 
 ## [Unreleased]
 
+## [4.2.1] — 2026-07-09
+
+### Fixed — adversarial-review hardening: test rigor + skill build-correctness
+
+A multi-model adversarial pass (Codex `gpt-5.6-sol` xhigh + Fable 5) over the v4.2.0 work and the `flow-skills` catalog surfaced tests that passed without pinning their contract, plus skill matcher/body inconsistencies. All closed; each tightened test is regression-proven (reverting the code it guards makes it fail).
+
+- **Release-gate integrity.** `run-tests.sh` now exits boolean (`fail>0 ⇒ 1`) instead of `exit $fail` — 8-bit truncation meant exactly 256 failures exited 0, so CI (which judges the step by exit code) could go green with 256 real failures.
+- **Fixture coverage can no longer silently vanish.** `run_hook_tests.py` treats malformed-JSON / missing-`_handler` fixtures as FAIL (was silent SKIP), enforces an expected-fixture floor (21) in both normal and `--compare-subprocess` modes, and fails `--compare-subprocess` on an in-process handler crash BEFORE the parity check (previously identical crashes reported "parity 21/21 identical" and exited 0).
+- **`--run-hook-tests` deep diagnostic no longer under-reports a crash.** The full path requires `rc==0` alongside a strict `N/N PASS` (a PASS line then a signal/nonzero exit is BROKEN, matching the main engine); the MSYS fast path flags any nonzero rc and treats empty `0/0` output as broken. New permanent, platform-independent regression tests (`mv_deeprun_unit_*` in `test-health-check-timeout.sh`) lock the contract.
+- **Test rigor.** `test-hook-manifest.sh` now locks the covered-set contract (asserts `.jsonl` inclusion, `*.local.*`/`__pycache__` exclusion, and a deleted listed file ⇒ DRIFT); `test-bootstrap-exception.sh` scenario 8 asserts the masked git lists the staged file, the python3-absent path is non-blocking (`NOPY_RC==0`), and matches the EXACT non-enforcement warning (was a loose `python3|FR-07` grep a hard-block could satisfy).
+- **Skill build-correctness (Fable 5 catalog rating).** `client-vs-internal` — the operator-explicit trigger is now reachable end-to-end (skill body, `requirements-specification` consumer gate, `README`, `audience.md`); `communication` — description/anti-pattern reflect the v2.9.0 `references/patterns.md` lazy-load; `comment-policy` — FR-22 reference de-brittled; spec-status + lock vocabulary across `code-review`/`implementation-planning`/`task-delegation`/`requirements-specification`/`communication`/`templates/spec.md` aligned to the real `decisions.md` convention (`Lock status: LOCKED`; no fictional `Locked: yes`); `business-logic-guardian` — mandated impact-verdict block emitted AFTER the code check; `fusebase-flow-health-check` — `PARTIAL_UNVERIFIED` surfaced + `risk_level` normalized; worked examples added to the two materially-changed skills.
+- **Problem-catalog.** `ci-linux-msys-test-divergence` root cause corrected (git-less pre-commit exits at the top `git rev-parse` guard, not `git diff --cached`); `transient-subagent-retry-discipline` extended with the non-rate-limit silent-wedge failure mode + poll-every-turn / self-verify-from-source discipline.
+
+No FR-07 protected logic changed (handlers / shared / git hooks / policies / `FLOW_RULES.md` untouched except the version banner). Manifest re-stamped; skill mirrors re-synced (0 drift). Known deferred: `hook_manifest.py` `collect_assets` silently omits covered files whose absolute path exceeds Windows `MAX_PATH` (harmless at normal install depths; pre-existing).
+
 ## [4.2.0] — 2026-07-09
 
 ### Added — hook-layer manifest verification + single-process test runner (`hook-manifest-verify`)

@@ -10,6 +10,8 @@
 
 During the autonomous roadmap run, delegated ai-developer / deploy / Codex-companion sessions occasionally DIED mid-task on a server-side transient (API rate-limit / 529 / connection drop). Treating that death as a real failure would abandon intact WIP; passively waiting on the auto-completion notification would idle silently.
 
+**Not always a clean death, and not always a rate-limit.** 2026-07-09: a Workflow verifier sub-agent WEDGED (didn't die, didn't complete) for 7 min after a StructuredOutput **schema-validation rejection** ("must have required property 'evidence'") interleaved with 429/529 — the transcript file stayed open but hadn't been written since the rejection, and no completion ping ever came. A stalled agent can look identical to a working one if you only check "is the file there / is the process listed".
+
 ## Reproduction
 
 | Step | Action | Observed |
@@ -32,9 +34,10 @@ The failure is on the SERVER side (API rate-limit / 529 / connection drop), not 
 ## Mitigation / workaround
 
 1. On a server transient: RETRY immediately; if it repeats, wait ~1 min and retry until it starts.
-2. Resume a dead ai-developer/deploy agent via SendMessage from its intact WIP.
-3. Proactively POLL subagent/Codex liveness every ~15-90s via git-progress/process/file-growth — do NOT rely solely on the auto-completion notification.
-4. Before trusting any agent's output, verify final git state: clean linear history, 0 mirror drift, consumed FR-07 approvals.
+2. Resume a dead ai-developer/deploy agent via SendMessage from its intact WIP; resume a Workflow via `resumeFromRunId` (completed agents replay from cache).
+3. Proactively POLL subagent/Codex liveness **every turn** (not every several minutes) via git-progress/process/**last-write mtime**/file-growth — do NOT rely solely on the auto-completion notification. Diagnose a wedge by **`mtime` vs now** (silent for minutes after a `tool_result` = suspect) and `grep` the transcript for `429|529|schema|Error`; "process listed / file exists" is NOT proof of progress.
+4. **When a background agent wedges and you already hold its raw inputs, stop depending on it — do the check yourself from source** (faster than resuming), then `TaskStop` the zombie so it doesn't hold a concurrency slot.
+5. Before trusting any agent's output, verify final git state: clean linear history, 0 mirror drift, consumed FR-07 approvals.
 
 ## Permanent fix
 
@@ -52,7 +55,7 @@ Future sessions hitting these signals should load this entry:
 
 ## Guardrail (the lesson)
 
-Never treat a transient death as a real failure — retry (immediately, then ~1 min backoff until it starts); resume from intact WIP via SendMessage; proactively poll liveness (git/process/file-growth, not the completion ping); verify final git state (clean linear history, 0 mirror drift, consumed FR-07 approvals) before trusting any agent.
+Never treat a transient death as a real failure — retry (immediately, then ~1 min backoff until it starts); resume from intact WIP via SendMessage / Workflow `resumeFromRunId`; proactively poll liveness **every turn** (git/process/last-write-mtime/file-growth, not the completion ping — it is unreliable and stalls are not always rate-limits); when a background agent wedges and you hold its inputs, self-verify from source and `TaskStop` the zombie; verify final git state (clean linear history, 0 mirror drift, consumed FR-07 approvals) before trusting any agent.
 
 ## Related
 
@@ -64,3 +67,4 @@ Never treat a transient death as a real failure — retry (immediately, then ~1 
 | Date | Event | Source |
 |---|---|---|
 | 2026-07-03 | filed + resolved | release v3.30.5 (`180f4a1`) |
+| 2026-07-09 | extended: non-rate-limit wedge (schema-rejection + 429/529 silent 7 min); poll every turn by mtime; self-verify-from-source + TaskStop-the-zombie fallback | operator "check them often yourself; update docs" |

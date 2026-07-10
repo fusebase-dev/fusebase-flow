@@ -1,6 +1,6 @@
 ---
 name: client-vs-internal
-description: Use ONLY when docs/audience.md exists (audiences defined during onboarding) OR the operator explicitly asks to optimize a surface for client-facing vs internal use. Steers app surfaces differently — client-facing = simple/guided/trust-first; internal = robust controls/power-features. If docs/audience.md is absent, this skill does nothing (silent no-op) — do NOT activate or create the file. Not for projects without defined audiences.
+description: Use ONLY when docs/audience.md exists (audiences defined during onboarding) OR the operator explicitly asks to optimize a surface for client-facing vs internal use. Steers app surfaces differently — client-facing = simple/guided/trust-first; internal = robust controls/power-features. If docs/audience.md is absent and the operator did not explicitly request the posture check, this skill does nothing (silent no-op) — do NOT create the file. Not for projects without defined audiences.
 source_inspiration: conceptual-only
 license_status: clean-room-original
 fusebase_flow_version: 3.5
@@ -18,11 +18,11 @@ hook_dependencies:
 
 # Client vs Internal
 
-> **Style:** Mode-B-lite. **Artifact-gated** — inert unless `docs/audience.md` exists.
+> **Style:** Mode-B-lite. **Artifact-gated by default** — inert unless `docs/audience.md` exists or the operator explicitly requests the posture check.
 
 ## Purpose
 
-Client-facing teams build for two very different audiences. Clients need simplicity and trust (never Salesforce-complex); internal teams need robust controls and power-features. This skill applies the right posture to each surface, using the audiences the operator defined at onboarding.
+Client-facing teams build for two very different audiences. Clients need simplicity and trust (never Salesforce-complex); internal teams need robust controls and power-features. This skill applies the right posture to each surface, using the audiences defined at onboarding (or the audience the operator states when explicitly requesting the check).
 
 ## When to invoke
 
@@ -31,25 +31,35 @@ Client-facing teams build for two very different audiences. Clients need simplic
 
 ## Do not invoke when
 
-- **`docs/audience.md` absent** → silent no-op; do not activate or create it.
+- **`docs/audience.md` absent and no explicit operator request** → silent no-op; do not activate or create it.
 - Non-UI / backend-only work with no audience-facing surface.
 
 ## Required inputs
 
 | Input | Where it lives | If missing |
 |---|---|---|
-| Audience definitions | `docs/audience.md` | **STOP — no-op.** Onboarding (`/onboard`) creates it. |
+| Audience definitions | `docs/audience.md` or the audience stated in an explicit operator posture-check request | **STOP — no-op** only when both are absent. Do not create the file; onboarding (`/onboard`) creates it. |
 | Surface being built | current task | nothing to classify; exit |
 
 ## Procedure
 
-1. **Existence gate (FIRST STEP).** No `docs/audience.md` → exit silently. Do not create it.
-2. **Read** `docs/audience.md` (which surfaces are client-facing vs internal; per-audience needs).
+1. **Existence gate (FIRST STEP).** No `docs/audience.md` and no explicit operator posture-check request → exit silently. If the operator explicitly requested the check and stated the audience, continue with that audience without creating the file.
+2. **Read** `docs/audience.md` when present (which surfaces are client-facing vs internal; per-audience needs); otherwise use the audience stated in the explicit operator request.
 3. **Classify** the surface in scope: client-facing, internal, or shared.
 4. **Apply the matching posture checklist** (§ Posture checklists below): client-facing, internal, or shared — walk every row for the surface in scope; each row is pass / fail / N-A, not vibes.
 5. **Persist — the classification must not evaporate in chat.** If a spec is in flight (or being drafted) for this surface, hand the result to `requirements-specification`: the posture + each applicable checklist row becomes a numbered spec AC citing its ID (e.g., "AC7 — client-facing surface: destructive actions confirm with object + consequence before executing (client-vs-internal C2)"), alongside the QP-xx ACs from `app-quality-patterns` (C2/C4 overlap the QP delete-policy and empty/loading/error patterns — cite both IDs on one AC line, don't duplicate the AC). No spec in flight → record posture + failed rows in the design brief or change-note so Implement and `code-review` inherit them.
 6. **Flag mismatches** (e.g. exposing internal complexity to a client surface) and recommend the audience-appropriate alternative.
 7. **Ambiguous audience → ask** the operator (FR-19).
+
+## Worked example
+
+Operator: "This billing settings page is client-facing; run the posture check."
+
+1. Classify `Billing settings` as client-facing from the explicit request.
+2. Apply C2 because cancellation is destructive.
+3. Spec AC: `AC4 — Cancellation confirms the subscription and consequence before executing (client-vs-internal C2).`
+
+Output: client-facing posture + AC4 handed to `requirements-specification`.
 
 ## Posture checklists
 
@@ -93,7 +103,7 @@ Apply per classified surface. Row IDs (C/I/S-n) are citable in spec ACs (step 5)
 
 | Failure | Detection | Response |
 |---|---|---|
-| Artifact absent | step 1 | silent no-op (correct) |
+| Artifact absent with no explicit operator request | step 1 | silent no-op (correct) |
 | Client surface over-complex | step 6 | flag; recommend simplification |
 
 ## Escalation path
@@ -103,7 +113,7 @@ Apply per classified surface. Row IDs (C/I/S-n) are citable in spec ACs (step 5)
 
 ## Anti-patterns
 
-- Do not activate/create the file when `docs/audience.md` is absent.
+- Do not activate when `docs/audience.md` is absent unless the operator explicitly requests the posture check and states the audience; never create the file from this skill.
 - Do not make client surfaces Salesforce-complex.
 - Do not strip necessary controls from internal surfaces for "simplicity".
 - Do not leave the classification chat-only when a spec is in flight — posture rows become ACs (step 5) or they evaporate.

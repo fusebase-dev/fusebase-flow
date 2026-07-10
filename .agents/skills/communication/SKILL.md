@@ -1,6 +1,6 @@
 ---
 name: communication
-description: ALWAYS apply on every chat output (Mode A — visual, concrete, brief) and on every internal-artifact write (Mode B — dense, tabular, front-loaded; no narrative padding). Mandatory at session start; not on-demand. Contains the full ASCII pattern library and the 12 Mode B principles with concrete anti-patterns.
+description: ALWAYS apply on every chat output (Mode A — visual, concrete, brief) and on every internal-artifact write (Mode B — dense, tabular, front-loaded; no narrative padding). Mandatory at session start; not on-demand. The ASCII pattern library is lazy-loaded from references/patterns.md; this skill contains the 12 Mode B principles with concrete anti-patterns.
 source_inspiration: conceptual-only
 license_status: clean-room-original
 fusebase_flow_version: 2.1
@@ -266,7 +266,7 @@ Adjacent loaded files (`FLOW_RULES.md`, `spec.md`, `decisions.md`) are already i
 
 ### B9. Status fields explicit and tag-style
 
-Use `Status: DONE`, `Owner: PO`, `Locked: yes` — not free-text descriptions like "This is currently done by the PO and locked".
+Use `Status: DONE`, `Owner: PO`, `Lock status: LOCKED` — not free-text descriptions like "This is currently done by the PO and locked".
 
 ### B10. Avoid hedging unless genuinely uncertain
 
@@ -375,11 +375,11 @@ Quick check: open any `spec.md` / `decisions.md` / `tasks.md` you've drafted. Co
 ## Escalation path
 
 - Recurring Mode B violations across 3+ tickets → propose adding a new principle or anti-pattern to this skill (operator decides).
-- Operator wants to add a 9th visual pattern → propose addition to the pattern library; lives here, not in any per-ticket file.
+- Operator wants to add a 9th visual pattern → propose addition to `references/patterns.md`, not any per-ticket file.
 
 ## Anti-patterns (skill-level, not artifact-level)
 
-- Do NOT split this skill across multiple files. The pattern library + 12 principles + anti-patterns must stay in one place so a single skill load gives the full reference.
+- Keep the mode rules, 12 principles, and anti-patterns in this file; keep only the visual pattern library in `references/patterns.md`, lazy-loaded on demand.
 - Do NOT downgrade to "on-demand". This skill is mandatory at session start; communication discipline applies to every session.
 - Do NOT rewrite as rules in `FLOW_RULES.md`. Rule statements that point at this skill are fine; the discipline content stays here.
 

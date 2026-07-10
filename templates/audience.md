@@ -26,4 +26,4 @@ onboarded_by: project-onboarding
 
 ---
 
-*Absent-by-default: this file does not ship with Fusebase Flow. If missing, the `client-vs-internal` skill is a silent no-op and Flow runs generically.*
+*Absent-by-default: this file does not ship with Fusebase Flow. If missing, the `client-vs-internal` skill is a silent no-op by default (unless the operator explicitly requests the posture check) and Flow runs generically.*

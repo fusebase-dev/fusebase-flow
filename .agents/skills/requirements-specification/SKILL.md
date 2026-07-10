@@ -30,7 +30,7 @@ Turn vague operator intent into a versioned spec with explicit acceptance criter
 
 ## Do not invoke when
 
-- A spec at `docs/specs/<slug>/spec.md` already exists and is scope-locked (decisions frozen; `decisions.md` shows `Locked: yes`) or its status is `DONE` (spec Status is DRAFT-until-DONE; scope-lock is a `decisions.md` flag, not a Status value)
+- A spec at `docs/specs/<slug>/spec.md` already exists and is scope-locked (decisions frozen; `decisions.md` shows **Lock status: LOCKED**) or its status is `DONE` (spec Status is DRAFT-until-DONE; scope-lock is a `decisions.md` flag, not a Status value)
 - Operator is asking how something already works (use code-review or repo-onboarding-context-map instead)
 - Task is a one-line bug fix that does not need clarify (see "Skip-clarify gate" below)
 
@@ -54,7 +54,7 @@ The clarify phase exists to surface hidden ambiguity before code is written. Ski
 
 If ANY condition is unmet: run clarify, even if the operator pushes for speed. The phrase "the spec for a small fix is two paragraphs" applies (per `docs/operator-discipline.md` OD-6).
 
-When skipping: spec.md is still drafted and its scope is frozen in the same step (spec `Status: DRAFT` — scope-lock is recorded in `decisions.md` (`Locked: yes`), NOT as a `Status: LOCKED` value; the Status stays DRAFT until the deploy session flips it to DONE). The clarify-conversation.md file is replaced by a one-line note: `Clarify skipped per operator request; ticket meets skip-clarify gate (see requirements-specification/SKILL.md).`
+When skipping: spec.md is still drafted and its scope is frozen in the same step (spec `Status: DRAFT` — scope-lock is recorded in `decisions.md` (**Lock status: LOCKED**), NOT as a `Status: LOCKED` value; the Status stays DRAFT until the deploy session flips it to DONE). The clarify-conversation.md file is replaced by a one-line note: `Clarify skipped per operator request; ticket meets skip-clarify gate (see requirements-specification/SKILL.md).`
 
 ## Phase 1 / Phase 2 split (diagnostic vs fix)
 
@@ -86,7 +86,7 @@ When NOT to split: the bug is already understood (e.g., known typo, obvious off-
 5. Present clarify questions in chat text (FR-19): no popup / clickable menu tools. Use a short options table or numbered list when there are multiple choices, with **(Recommended)** marked when appropriate.
 6. Wait for operator answers. Update `clarify-conversation.md` with locked answers.
 7. Draft `docs/specs/<slug>/spec.md` using `templates/spec.md`. Status: DRAFT.
-8. Spec must include: problem statement, why-now, in-scope, out-of-scope, acceptance criteria (numbered AC1..ACn), risks, constraints from FLOW_RULES (worker-undisturbed, mixed-fleet if applicable). **For app-feature tickets — quality-pattern scan:** check the category index in `flow-skills/app-quality-patterns/SKILL.md`; every pattern whose Trigger matches this feature becomes an AC citing its ID (e.g., "AC4 — filter/report state encoded in URL; refresh restores the exact view (QP-01)"). Cite IDs only — do not paste pattern bodies (FR-23). **For audience-classified surfaces** (`docs/audience.md` exists and `client-vs-internal` classified the surface): each applicable posture checklist row becomes an AC citing its C/I/S ID (e.g., "AC7 — destructive actions confirm before executing (client-vs-internal C2)"); where a row overlaps a QP pattern, cite both IDs on one AC line.
+8. Spec must include: problem statement, why-now, in-scope, out-of-scope, acceptance criteria (numbered AC1..ACn), risks, constraints from FLOW_RULES (worker-undisturbed, mixed-fleet if applicable). **For app-feature tickets — quality-pattern scan:** check the category index in `flow-skills/app-quality-patterns/SKILL.md`; every pattern whose Trigger matches this feature becomes an AC citing its ID (e.g., "AC4 — filter/report state encoded in URL; refresh restores the exact view (QP-01)"). Cite IDs only — do not paste pattern bodies (FR-23). **For audience-classified surfaces** (`docs/audience.md` exists — or the operator explicitly requested a client-vs-internal posture check — and `client-vs-internal` classified the surface): each applicable posture checklist row becomes an AC citing its C/I/S ID (e.g., "AC7 — destructive actions confirm before executing (client-vs-internal C2)"); where a row overlaps a QP pattern, cite both IDs on one AC line.
 9. State announcement footer in chat: phase advances from `Specify` to `Plan` once spec.md is saved.
 
 ## Output artifacts

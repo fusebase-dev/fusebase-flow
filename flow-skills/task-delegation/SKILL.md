@@ -149,7 +149,7 @@ The main session must:
 
 ### Delegated return shape
 
-For **delegated returns only** — gate reports keep PASS/FAIL, spec statuses keep DRAFT/LOCKED/DONE/BLOCKED.
+For **delegated returns only** — gate reports keep PASS/FAIL; spec Status values remain DRAFT/DONE/BLOCKED (or ABORTED after an investigated no-work outcome), while scope-lock is recorded only as `decisions.md` **Lock status: LOCKED**, never `Status: LOCKED`.
 
 | Field | Content |
 |---|---|

@@ -1,10 +1,10 @@
 ---
 name: fusebase-flow-health-check
-description: Use when the operator asks "is Fusebase Flow healthy", "check Fusebase Flow", "did fusebase update break anything", "Fusebase Flow status", "restore Fusebase Flow", or asks whether Fusebase CLI and Fusebase Flow agent files conflict. Runs the read-only health engine, reports layer verdicts (`HEALTHY`, `CLI_LAYER_DRIFT`, `FLOW_LAYER_DRIFT`, `SHARED_MERGE_DRIFT`, `EXCEPTION_IN_EFFECT`, `BROKEN`), and offers Flow recovery only when the drift is Flow-owned or shared-merge. For CLI-owned drift, instruct the operator to run the current FuseBase CLI refresh/update first, then Flow recovery.
+description: Use when the operator asks "is Fusebase Flow healthy", "check Fusebase Flow", "did fusebase update break anything", "Fusebase Flow status", "restore Fusebase Flow", or asks whether Fusebase CLI and Fusebase Flow agent files conflict. Runs the read-only health engine, reports layer verdicts (`HEALTHY`, `CLI_LAYER_DRIFT`, `FLOW_LAYER_DRIFT`, `SHARED_MERGE_DRIFT`, `EXCEPTION_IN_EFFECT`, `PARTIAL_UNVERIFIED`, `BROKEN`), and offers Flow recovery only when the drift is Flow-owned or shared-merge. For CLI-owned drift, instruct the operator to run the current FuseBase CLI refresh/update first, then Flow recovery.
 source_inspiration: original (operator-maintained recovery infrastructure)
 license_status: clean-room-original
 fusebase_flow_version: 3.1
-risk_level: low - diagnosis phase is read-only; recovery phase executes hooks/local/post-fusebase-update.sh only after explicit operator affirmative reply in chat
+risk_level: medium
 invocation: automatic (description match) - also via /fusebase-health slash command
 expected_outputs:
   - Health check report printed to chat

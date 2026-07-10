@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "flow_version": "4.2.0",
+  "flow_version": "4.2.1",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
   "asset_count": 97,
   "assets": [
@@ -82,7 +82,7 @@
     },
     {
       "path": "hooks/local/lib/hook-integrity-check.sh",
-      "sha256": "ab991c13c5459bcd2bda2c1891278f4304237ba83655f96e2fa5d492632d62b5"
+      "sha256": "5cee38a35f4df33399f67d4d0ec5e667272a850ee9af845d1be3033f07f54cb7"
     },
     {
       "path": "hooks/local/lib/hook_manifest.py",
@@ -294,11 +294,11 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "fb4b4fd264a8aa077e1b30b7ecce1eb7d6b083345970f399edfa6a7829b845fc"
+      "sha256": "25f4a23c415a531cb36847de89ed60d0e3135cbe3ed4983d30b76b9ff4c44ee6"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
-      "sha256": "5c401f50171fa9dd9a61f8d8e58ebb2b19dd6e9d97e330f71acb93702544d91f"
+      "sha256": "51efcfc68ccc8eb079c1e87e302181cd84c35766e691b6b2b9ae788026779487"
     },
     {
       "path": "hooks/tests/test-baseline-merge.sh",
@@ -310,7 +310,7 @@
     },
     {
       "path": "hooks/tests/test-bootstrap-exception.sh",
-      "sha256": "d5e154f79cf9c599f05b0ca711fcea717b9a4f09c41988fe069a227621d336a7"
+      "sha256": "180d300ffc56a307f580c5fba2f972d0591bb0e4e692692a636186b7c65a6a1b"
     },
     {
       "path": "hooks/tests/test-cli-0259-compat.sh",
@@ -338,7 +338,7 @@
     },
     {
       "path": "hooks/tests/test-health-check-timeout.sh",
-      "sha256": "6438f0d7d84075221fd4d029cb0f22669d06db00f226866cf43142f32c7be495"
+      "sha256": "d9fc588399d0934e697fd354e9930a52f75b02316b2f53845ba9e8b319d64546"
     },
     {
       "path": "hooks/tests/test-hook-install-rc.sh",
@@ -346,7 +346,7 @@
     },
     {
       "path": "hooks/tests/test-hook-manifest.sh",
-      "sha256": "269142085a358728978d4b79b281b5ee6fac757113e958b3994fe74184968f89"
+      "sha256": "8945ab2633994e5065d92c4b2ac9019e90439295cb5829be4e29570741380175"
     },
     {
       "path": "hooks/tests/test-liveness-bounded-run.sh",
@@ -393,5 +393,5 @@
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "a4363d3fafe0515087dc749ed0dfa39932b18790694587dba020b7f96a42640d"
+  "manifest_self_sha256": "481b1f7664c769f11f030b43d189235d1f86c250fb371fe03956a394671d4478"
 }

@@ -379,7 +379,7 @@ Skills are on-demand expertise the agent loads when a task matches the skill's d
 | Debug | `git-history-diagnostic` | Regression archaeology — locate the causing commit |
 | Project setup | `project-onboarding` | `/onboard` discovery interview → writes project artifacts |
 | Project focus | `north-star` | Steers work to `docs/north-star.md` (no-op if absent) |
-| Audience | `client-vs-internal` | Simple-for-client / robust-for-internal (no-op if absent) |
+| Audience | `client-vs-internal` | Simple-for-client / robust-for-internal (no-op if absent unless the operator explicitly requests it) |
 | Product | `product-docs-first` | Design per-app product docs before code (no-op if absent) |
 | Guard | `business-logic-guardian` | Protect documented business logic during fixes (no-op if absent) |
 | Architecture | `product-apps-decomposition` | Product → focused apps (generic + steers to product doc) |
@@ -392,7 +392,7 @@ Skills are on-demand expertise the agent loads when a task matches the skill's d
 | Liveness | `liveness-discipline` | FR-27 — never launch long/silent background work bare; ≥1 liveness guarantee before launch (bound via `hooks/local/lib/bounded-run.sh`, complete in-turn, or return `BLOCKED-AT-<gate>` + a record-then-read pointer) so a hung job reaches completion-or-death instead of a silent idle; diagnose a suspected hang by activity/mtime not 0-byte existence; **no blocking gate, no verification hook** (a hang is undetectable by construction — enforcement = bounded-run tooling + present-by-construction delivery) |
 | Ceremony audit | `find-wasted-effort` | A2 — process-per-outcome ceremony audit (`/find-wasted-effort`); reads Flow artifacts on disk for ceremony that bought no safety outcome; read-only, findings are review candidates (never auto-prune); sibling of `/token-waste-audit` on a different axis |
 
-★ = mandatory, loaded every session. The last 9 (zoom-out … product-apps-decomposition) shipped in v3.3–v3.5; `lightweight-lane` v3.7, `comment-policy` v3.11, `documentation-budget` v3.12, `handoff` v3.14, `module-size-discipline` v3.16, `app-quality-patterns` v3.19, `token-economy` v3.20, `find-wasted-effort` v3.22, `liveness-discipline` v3.28. The project-* / north-star / client-vs-internal / product-* / guard skills are **artifact-gated** — dormant until onboarding creates their `docs/` artifact.
+★ = mandatory, loaded every session. The last 9 (zoom-out … product-apps-decomposition) shipped in v3.3–v3.5; `lightweight-lane` v3.7, `comment-policy` v3.11, `documentation-budget` v3.12, `handoff` v3.14, `module-size-discipline` v3.16, `app-quality-patterns` v3.19, `token-economy` v3.20, `find-wasted-effort` v3.22, `liveness-discipline` v3.28. The project-* / north-star / client-vs-internal / product-* / guard skills are **artifact-gated by default** — dormant until onboarding creates their `docs/` artifact (client-vs-internal also activates on an explicit operator posture-check request).
 
 ### FuseBase CLI provider skills (20)
 

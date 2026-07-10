@@ -34,7 +34,7 @@ Convert a drafted spec into the artifacts an AI Developer session needs to execu
 ## Do not invoke when
 
 - Spec status is still `DRAFT` with unresolved clarify questions (re-invoke `requirements-specification` instead)
-- Spec is `LOCKED` and decisions/tasks already exist (use `code-review` or `validation-and-qa` instead)
+- decisions are locked (`decisions.md` **Lock status: LOCKED**) and decisions/tasks already exist (use `code-review` or `validation-and-qa` instead)
 - Operator wants to skip planning and start coding directly — STOP. FR-02 (plan before edit) requires written tasks.
 
 ## Documentation tier gate (FR-23)

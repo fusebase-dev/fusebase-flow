@@ -42,6 +42,8 @@ def _git_root() -> Path:
 
 
 ROOT = _git_root()
+# Release gate contract: all 21 currently shipped handler fixtures must execute.
+EXPECTED_HANDLER_FIXTURES = 21
 # hooks/ on sys.path so `from shared...` resolves before any handler import (the
 # handlers also self-insert their parent; this makes reset_cache importable now).
 sys.path.insert(0, str(ROOT / "hooks"))
@@ -146,18 +148,27 @@ def _assert(meta: dict, actual_decision: str, actual_rule_id: str) -> tuple[bool
 def run_normal() -> int:
     os.chdir(ROOT)  # relative transcript_path fixtures resolve from the git root
     fail = 0
+    exercised = 0
     for fx in _fixtures():
         name = fx.name
         raw = fx.read_bytes()
         try:
             meta = json.loads(raw.decode("utf-8"))
         except Exception:
-            meta = {}
+            fail += 1
+            print(f"FAIL: {name} — malformed/no _handler")
+            continue
+        if not isinstance(meta, dict):
+            fail += 1
+            print(f"FAIL: {name} — malformed/no _handler")
+            continue
         handler = meta.get("_handler", "")
         test_name = meta.get("_test", "")
         if not handler:
-            print(f"{name} SKIP — no _handler set")
+            fail += 1
+            print(f"FAIL: {name} — malformed/no _handler")
             continue
+        exercised += 1
         mod = _load_handler(handler)
         rc, out, crash = _run_in_process(mod, raw)
         actual_decision, actual_rule_id = _parse(out)
@@ -183,6 +194,10 @@ def run_normal() -> int:
     else:
         fail += 1
         print("FAIL: _parse-invariant  (empty _expected_rule_id not preserved — substring path not selected)")
+    if exercised != EXPECTED_HANDLER_FIXTURES:
+        fail += 1
+        print(f"FAIL: handler fixture coverage — exercised {exercised}, "
+              f"expected {EXPECTED_HANDLER_FIXTURES}")
     return fail
 
 
@@ -195,17 +210,29 @@ def run_compare() -> int:
         try:
             meta = json.loads(raw.decode("utf-8"))
         except Exception:
-            meta = {}
+            mism += 1
+            print(f"FAIL: {fx.name} — malformed/no _handler")
+            continue
+        if not isinstance(meta, dict):
+            mism += 1
+            print(f"FAIL: {fx.name} — malformed/no _handler")
+            continue
         handler = meta.get("_handler", "")
         if not handler:
+            mism += 1
+            print(f"FAIL: {fx.name} — malformed/no _handler")
             continue
         n += 1
         mod = _load_handler(handler)
-        ip_rc, ip_out, _crash = _run_in_process(mod, raw)
+        ip_rc, ip_out, ip_crash = _run_in_process(mod, raw)
         ip_dec, ip_rid = _parse(ip_out)
         sp_rc, sp_dec, sp_rid = _run_subprocess(handler, raw)
         ip = (ip_rc, ip_dec, ip_rid)
         sp = (sp_rc, sp_dec, sp_rid)
+        if ip_crash is not None:
+            mism += 1
+            print(f"FAIL: {fx.name} — in-process crash: {ip_crash}")
+            continue
         if ip != sp:
             mism += 1
             print(f"MISMATCH: {fx.name} "
@@ -213,8 +240,14 @@ def run_compare() -> int:
                   f"subprocess=(exit={sp_rc}, decision={sp_dec!r}, rule_id={sp_rid!r})")
         else:
             print(f"OK: {fx.name} (exit={ip_rc}, decision={ip_dec!r}, rule_id={ip_rid!r})")
-    print(f"[run_hook_tests] parity {n - mism}/{n} identical (exit_code, decision, rule_id)")
-    return 1 if mism else 0
+    if n != EXPECTED_HANDLER_FIXTURES:
+        mism += 1
+        print(f"FAIL: handler fixture coverage — exercised {n}, "
+              f"expected {EXPECTED_HANDLER_FIXTURES}")
+    if mism == 0 and n == EXPECTED_HANDLER_FIXTURES:
+        print(f"[run_hook_tests] parity {n}/{n} identical (exit_code, decision, rule_id)")
+        return 0
+    return 1
 
 
 def main(argv=None) -> int:

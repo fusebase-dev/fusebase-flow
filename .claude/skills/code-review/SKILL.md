@@ -32,7 +32,7 @@ Independent review of a diff against the spec contract, locked decisions, and FL
 ## Do not invoke when
 
 - No diff exists yet (review needs concrete code)
-- Spec is still DRAFT — review against an incomplete contract is noise
+- Clarifications are unresolved or scope is not yet locked — review against an incomplete contract is noise
 - Operator wants the code fixed — review surfaces issues; fixes go through implementation
 
 ## Required inputs

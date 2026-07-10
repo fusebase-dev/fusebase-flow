@@ -205,6 +205,60 @@ mv_deeprun_full_timeout() {
   ht_pass "mv-deeprun-full-timeout (D5): full deep-run timeout => verdict UNAFFECTED (HEALTHY/0) + visible note"
 }
 
+mv_deeprun_unit_full_rc_contract() {
+  local OUT
+  OUT="$(env ROOT="$ROOT" bash <<'BASH'
+set -uo pipefail
+. "$ROOT/hooks/local/lib/run-with-timeout.sh"
+. "$ROOT/hooks/local/lib/hook-integrity-check.sh"
+FFHC_TESTS_TIMEOUT=1
+ffhc_run_bounded() { :; }
+
+LOCAL_OK=(); LOCAL_BROKEN=(); DEEP_RUN_NOTES=()
+FFHC_LAST_OUT='[run-tests] 1/1 PASS'; FFHC_LAST_RC=143
+FFHC_LAST_TIMED_OUT=0; FFHC_LAST_SKIPPED=0
+_ffhc_deep_run_full
+printf 'rc143 ok=%s broken=%s notes=%s\n' "${#LOCAL_OK[@]}" "${#LOCAL_BROKEN[@]}" "${#DEEP_RUN_NOTES[@]}"
+
+LOCAL_OK=(); LOCAL_BROKEN=(); DEEP_RUN_NOTES=()
+FFHC_LAST_OUT='[run-tests] 1/1 PASS'; FFHC_LAST_RC=0
+FFHC_LAST_TIMED_OUT=0; FFHC_LAST_SKIPPED=0
+_ffhc_deep_run_full
+printf 'rc0 ok=%s broken=%s notes=%s\n' "${#LOCAL_OK[@]}" "${#LOCAL_BROKEN[@]}" "${#DEEP_RUN_NOTES[@]}"
+BASH
+)"
+  echo "$OUT" | grep -q '^rc143 ok=0 broken=1 notes=0$' || { ht_fail "mv-deeprun-unit-full-rc-contract (strict PASS + rc=143 must be LOCAL_BROKEN)" "$OUT"; return; }
+  echo "$OUT" | grep -q '^rc0 ok=1 broken=0 notes=0$' || { ht_fail "mv-deeprun-unit-full-rc-contract (strict PASS + rc=0 positive control)" "$OUT"; return; }
+  ht_pass "mv-deeprun-unit-full-rc-contract (A2): strict PASS requires rc=0; rc=143 => LOCAL_BROKEN, rc=0 => LOCAL_OK"
+}
+
+mv_deeprun_unit_fast_rc_contract() {
+  local OUT
+  OUT="$(env ROOT="$ROOT" bash <<'BASH'
+set -uo pipefail
+. "$ROOT/hooks/local/lib/hook-integrity-check.sh"
+FFHC_TESTS_TIMEOUT=1
+ffhc_run_bounded() {
+  case "$FFHC_CASE" in
+    rc143) FFHC_LAST_OUT='PASS: x'; FFHC_LAST_RC=143 ;;
+    empty) FFHC_LAST_OUT=''; FFHC_LAST_RC=0 ;;
+    pass)  FFHC_LAST_OUT='PASS: x'; FFHC_LAST_RC=0 ;;
+  esac
+  FFHC_LAST_TIMED_OUT=0; FFHC_LAST_SKIPPED=0
+}
+for FFHC_CASE in rc143 empty pass; do
+  LOCAL_OK=(); LOCAL_BROKEN=(); DEEP_RUN_NOTES=()
+  _ffhc_deep_run_fast
+  printf '%s ok=%s broken=%s notes=%s\n' "$FFHC_CASE" "${#LOCAL_OK[@]}" "${#LOCAL_BROKEN[@]}" "${#DEEP_RUN_NOTES[@]}"
+done
+BASH
+)"
+  echo "$OUT" | grep -q '^rc143 ok=0 broken=1 notes=0$' || { ht_fail "mv-deeprun-unit-fast-rc-contract (PASS row + rc=143 must be LOCAL_BROKEN)" "$OUT"; return; }
+  echo "$OUT" | grep -q '^empty ok=0 broken=1 notes=0$' || { ht_fail "mv-deeprun-unit-fast-rc-contract (empty + rc=0 must be LOCAL_BROKEN)" "$OUT"; return; }
+  echo "$OUT" | grep -q '^pass ok=1 broken=0 notes=0$' || { ht_fail "mv-deeprun-unit-fast-rc-contract (PASS row + rc=0 positive control)" "$OUT"; return; }
+  ht_pass "mv-deeprun-unit-fast-rc-contract (A2): nested helper rejects rc!=0 and 0/0; PASS + rc=0 => LOCAL_OK"
+}
+
 # ---- Retained bounded-execution coverage (cheap, distinct paths) --------------
 
 # HT6 (AC6): no timeout binary => bounded ops SKIPPED (not run unbounded) =>
@@ -301,6 +355,8 @@ mv_deeprun_adaptive_pass
 mv_deeprun_full_optin
 mv_deeprun_fail
 mv_deeprun_full_timeout
+mv_deeprun_unit_full_rc_contract
+mv_deeprun_unit_fast_rc_contract
 ht6_no_timeout_bin
 ht_ws4_knob_surfacing
 ht_ws6_preflight_dual_accept

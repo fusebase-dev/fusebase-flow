@@ -18,7 +18,7 @@ hook_dependencies:
 
 # Comment policy (FR-22 write-time carrier)
 
-> **Style:** Mode-B-lite. The write-time home of FR-22. Loads for code-writing agents (and their sub-agents) so the rule reaches the writer's context at the moment comments are written — not just at review. Rule body aligns with `FLOW_RULES.md:68`; rationale + evidence live in `docs/comment-policy.md`.
+> **Style:** Mode-B-lite. The write-time home of FR-22. Loads for code-writing agents (and their sub-agents) so the rule reaches the writer's context at the moment comments are written — not just at review. Rule body aligns with FR-22 in `FLOW_RULES.md`; rationale + evidence live in `docs/comment-policy.md`.
 
 ## Purpose
 

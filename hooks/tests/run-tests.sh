@@ -347,4 +347,8 @@ else
 fi
 echo "[run-tests] report written: $RESULTS_FILE"
 
-exit $fail
+if [ "$fail" -gt 0 ]; then
+    exit 1
+else
+    exit 0
+fi

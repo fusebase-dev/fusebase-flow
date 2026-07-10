@@ -59,16 +59,39 @@ If several exist: index first, narratives supplementary. The gate no-ops only wh
 
 1. **Existence gate (FIRST STEP).** Check ALL § Doc-path resolution paths: `docs/<app>/business-logic-index.md`, `docs/<app>/business-logic.md`, `docs/en/business-logic.md`. None exists → exit silently; do not create any. At least one exists → it is the guard layer (index primary).
 2. **Read** the documented business logic / main flows / edge cases.
-3. **Impact-check** the change: does it alter, remove, or contradict any documented behavior or edge case?
+3. **Impact-check.** Does the change alter, remove, or contradict any documented behavior or edge case?
 4. **Verify against code** — the doc is the navigation layer; confirm the actual code path matches before trusting the doc (code is source of truth).
-5. **Flag** any documented behavior the change would break; recommend preserving it or, if the change is intentional, updating the doc (via `app-business-docs`) in the same change.
-6. **Ambiguity → ask** operator (FR-19).
+5. **Compute and emit** the Required output block below using the impact answer and code verification.
+6. **Flag** any documented behavior the change would break; recommend preserving it or, if the change is intentional, updating the doc (via `app-business-docs`) in the same change.
+7. **Ambiguity → ask** operator (FR-19).
+
+## Worked example
+
+Change: allow editing approved invoices; `BL-7` says approved invoices are immutable. Code check: `src/invoices/service.ts:updateInvoice()` enforces the lock.
+
+```
+Business logic: Drift
+Guard source:   docs/billing/business-logic-index.md — BL-7
+Code check:     src/invoices/service.ts:updateInvoice() — matches doc
+Action:         preserve behavior
+```
+
+## Required output — business-logic impact verdict (4 lines)
+
+Every activation that reaches step 3 MUST emit this block after step 4's code verification, in chat and verbatim into the gate/ticket note when one is written. An impact-check claim without the block is unverifiable and does not count as a check.
+
+```
+Business logic: <Preserved | Drift | Blocked (intent unclear, FR-11)>
+Guard source:   <business-logic doc path + rule/flow/edge-case identifier>
+Code check:     <source path/symbol — matches doc | doc stale | behavior differs>
+Action:         <proceed | preserve behavior | update doc in same change | question for operator (FR-19)>
+```
 
 ## Output artifacts
 
 | Artifact | Location | Mode |
 |---|---|---|
-| Business-logic impact check | chat / gate note | Mode A / Mode-B-lite |
+| Business-logic impact verdict block (4 lines, above) | chat / gate note | Mode A / Mode-B-lite |
 
 ## Failure cases
 

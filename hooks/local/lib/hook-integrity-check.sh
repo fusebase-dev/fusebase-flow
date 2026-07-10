@@ -134,7 +134,7 @@ _ffhc_deep_run_full() {
     DEEP_RUN_NOTES+=("--run-hook-tests: NOTE — skipped (no timeout binary; optional deep run; verdict unaffected)")
   elif [ -n "$fails" ]; then
     LOCAL_BROKEN+=("--run-hook-tests: hook-test FAILURE(s) observed — $(echo "$fails" | head -3 | tr '\n' ';') (run 'bash hooks/tests/run-tests.sh' to inspect)")
-  elif [ -n "$pass_line" ] && ffhc_run_tests_pass_ok "$pass_line"; then
+  elif [ -n "$pass_line" ] && [ "$rc" -eq 0 ] && ffhc_run_tests_pass_ok "$pass_line"; then
     LOCAL_OK+=("--run-hook-tests: $pass_line (full suite)")
   elif echo "$out" | grep -qE '^INCONCLUSIVE:'; then
     DEEP_RUN_NOTES+=("--run-hook-tests: NOTE — full suite reported INCONCLUSIVE row(s) (bounded phase timeout / FF_SKIP_CLI_RECOVERY; optional deep run; verdict unaffected)")
@@ -165,7 +165,8 @@ _ffhc_deep_run_fast() {
     parts="$parts $lbl=$pf/$((pf + ff))"
     if [ "$to" -eq 1 ] || [ "$sk" -eq 1 ]; then noted=1
     elif [ "$ff" -gt 0 ]; then broke=1
-    elif [ "$rc" -ne 0 ] && [ "$pf" -eq 0 ]; then broke=1   # crash before reporting
+    elif [ "$rc" -ne 0 ]; then broke=1
+    elif [ "$pf" -eq 0 ]; then broke=1
     fi
   }
   _ffhc_deep_fast_one "fixtures"      python3 "$ROOT/hooks/tests/run_hook_tests.py"

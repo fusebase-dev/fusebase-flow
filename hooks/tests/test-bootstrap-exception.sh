@@ -253,8 +253,8 @@ rm -rf "$D"
 #         no python passes through PATH unchanged; a dir holding python is FILTERED into a
 #         temp bin (symlink every executable EXCEPT python/python3). WHY: a naive
 #         drop-every-python-dir mask ALSO removes git on Linux/CI, where python3 + git
-#         share /usr/bin — with git gone the hook's `git diff --cached` returns EMPTY, §3
-#         sees nothing staged, and it exits 0 SILENTLY (a TEST ARTIFACT, not a fail-open).
+#         share /usr/bin — with git gone the hook exits 0 at its top
+#         `git rev-parse --show-toplevel` guard (a TEST ARTIFACT, not a fail-open).
 #         We only symlink the python-holding dir(s) (not all of PATH — System32 alone is
 #         ~5k files on Windows) and pass the rest through, so git/bash/coreutils survive;
 #         the precondition asserts python3 GONE and git PRESENT, so the scenario tests the
@@ -277,8 +277,8 @@ for _d in $PATH; do
   fi
 done
 IFS="$_ifs_save"
-# Precondition: python3 MASKED (gone) AND git PRESERVED. A git-less mask would make the
-# hook see nothing staged (silent exit 0) — never let that pass as a "loud warn".
+# Precondition: python3 MASKED (gone) AND git PRESERVED. A git-less mask exits 0 at the
+# hook's top `git rev-parse --show-toplevel` guard — never let that pass as a "loud warn".
 if PATH="$MASK_PATH" command -v python3 >/dev/null 2>&1; then
   bad "8-python3-mask-precondition" "could not mask python3 (still resolvable under the git-preserving mask)"
 elif ! PATH="$MASK_PATH" command -v git >/dev/null 2>&1; then
@@ -286,11 +286,18 @@ elif ! PATH="$MASK_PATH" command -v git >/dev/null 2>&1; then
 else
   printf '\n# python3-absent edit\n' >> "$D/policies/protected-paths.yml"
   ( cd "$D" && git add policies/protected-paths.yml )
+  if PATH="$MASK_PATH" git -C "$D" diff --cached --name-only | grep -qx 'policies/protected-paths.yml'; then
+    ok "8-git-mask-lists-staged-file"
+  else
+    bad "8-git-mask-lists-staged-file" "masked git could not list the staged protected-path edit"
+  fi
   NOPY_ERR="$( ( cd "$D" && PATH="$MASK_PATH" bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
   NOPY_RC=0; ( cd "$D" && PATH="$MASK_PATH" bash hooks/git/pre-commit >/dev/null 2>&1 ) || NOPY_RC=$?
+  if [ "$NOPY_RC" -eq 0 ]; then ok "8-python3-absent-non-blocking"
+  else bad "8-python3-absent-non-blocking" "python3-absent hard-blocked (exit $NOPY_RC); a python3-less env must still commit"; fi
   # python3 ABSENT + git PRESENT ⇒ §3 must emit the loud FR-07 warn (NOT a silent skip). If
   # nothing is emitted here, it IS a genuine fail-open (FR-07 finding) — the message says so.
-  if echo "$NOPY_ERR" | grep -qiE "python3|FR-07"; then ok "8-python3-absent-loud-warn (git-preserving mask; §3 names the un-enforceable FR-07 check — a loud WARN, not a silent skip)"; else bad "8-python3-absent-loud-warn" "python3-absent path emitted NO warning with git PRESENT — a GENUINE FR-07 silent-skip (fail-open), not a test artifact"; fi
+  if echo "$NOPY_ERR" | grep -qF "python3 not found; FR-07 protected-path check was NOT enforced for this commit. Install python3 to enforce FR-07."; then ok "8-python3-absent-loud-warn (git-preserving mask; §3 names the un-enforceable FR-07 check — a loud WARN, not a silent skip)"; else bad "8-python3-absent-loud-warn" "python3-absent path emitted NO specific non-enforcement warning with git PRESENT — a GENUINE FR-07 silent-skip (fail-open), not a test artifact"; fi
 fi
 rm -rf "$D" "$MASKBIN"
 
