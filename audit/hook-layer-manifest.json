@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "flow_version": "4.3.1",
+  "flow_version": "4.3.2",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
   "asset_count": 97,
   "assets": [
@@ -54,7 +54,7 @@
     },
     {
       "path": "hooks/local/check-module-size.sh",
-      "sha256": "f1feb79072b54b148772df173b3a7912f2d79bb1603a24fec18b05ae0c778860"
+      "sha256": "e9d192b09e351091350d6d4b6f04e865f5611f5268bd0c5c4a24d5cbcd83d582"
     },
     {
       "path": "hooks/local/eslint-ignore-flow-paths.sh",
@@ -62,7 +62,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-health-check.sh",
-      "sha256": "cc92157dbc2ed76eaf3cd8b4e2ce891a40894173fe9b95f670fed7c5042ed519"
+      "sha256": "2432cf17f31c93156db3b05cdbfa0b600a0b98ef150596cbd28116d252760e0d"
     },
     {
       "path": "hooks/local/install-codex-prompts.sh",
@@ -90,7 +90,7 @@
     },
     {
       "path": "hooks/local/lib/merge-module-size-baseline.sh",
-      "sha256": "ae8a4c43d3c833e291e09ecc04b78a3e9c7f5d370509f2e8c1d42ff278aab8cc"
+      "sha256": "857ffb7b3341e44d7bad2c5c66c7fa86fbe89ccc1579de095a826b3d41f42b27"
     },
     {
       "path": "hooks/local/lib/partial-upgrade-check.sh",
@@ -102,11 +102,11 @@
     },
     {
       "path": "hooks/local/mirror-agents.sh",
-      "sha256": "4c1d8c7989b8307a13d75efaec7c8c6ee2cf11b39afe34550ef904c855c10775"
+      "sha256": "71c17db5a2fb1af251ceb43a2f7f6ee703c51bef87f5beace6ee200f0b048f59"
     },
     {
       "path": "hooks/local/mirror-skills.sh",
-      "sha256": "e81564dc64defa3a156ad14a2a92780eddf36946e21b4f78054acb6c4e549ab1"
+      "sha256": "9a41cac23267e7839b5964b2c8eeabfc8e3ed2044672a0a2e54668d4882bc9e5"
     },
     {
       "path": "hooks/local/po-investigate.sh",
@@ -114,7 +114,7 @@
     },
     {
       "path": "hooks/local/post-fusebase-update.sh",
-      "sha256": "73f2ef4435ae4eba2ed35f473075da4736a80eabf0f6edee90c0e16ad1d7d6a9"
+      "sha256": "f01dbc8abb6f4ac41a3319c95211fe6e8c8248d07236d619a7785dc10407d882"
     },
     {
       "path": "hooks/local/preflight.sh",
@@ -142,7 +142,7 @@
     },
     {
       "path": "hooks/local/upgrade.sh",
-      "sha256": "2f326b9780d76a80126023af8640d905fadbc53f11f99bdb828283736841ec8f"
+      "sha256": "38fd8a3d11d6dec06086b49953798f7206bc440db900e4d9bcb616211dbdd4a9"
     },
     {
       "path": "hooks/local/verify-gate.sh",
@@ -154,7 +154,7 @@
     },
     {
       "path": "hooks/local/write-bootstrap-approval.sh",
-      "sha256": "8a24dfce12edacc2d84a98abf05cd883256195b8ca7c13a7500dcc2aa99ea27f"
+      "sha256": "0e2f5ec285a93ab119c24b464bed7556e8d7188480b868236c38b8f5d22f794b"
     },
     {
       "path": "hooks/shared/__init__.py",
@@ -166,7 +166,7 @@
     },
     {
       "path": "hooks/shared/command_policy.py",
-      "sha256": "c7fa555de7a00bf09bf1215d44a4da5559a85a0e93de7a0517bff2f40da8cb58"
+      "sha256": "eee8aaeeb5703a4f41b9c52d989f8733b7f8d333e945829126aa0f5088233964"
     },
     {
       "path": "hooks/shared/git_utils.py",
@@ -174,7 +174,7 @@
     },
     {
       "path": "hooks/shared/module_size.py",
-      "sha256": "21a8c9d1d3754100e0843777ffda1d273087c195a44521a5960e638d67f25a99"
+      "sha256": "da74a713f30c28f0f980829b7fe7df134de3d94670635a9b452cfc9b9fbcee56"
     },
     {
       "path": "hooks/shared/path_policy.py",
@@ -354,7 +354,7 @@
     },
     {
       "path": "hooks/tests/test-module-size.sh",
-      "sha256": "9581923d2e814e2946ecdac4bb36d4d403fb0fa2bd793e0e1e67e6c9e9e4375b"
+      "sha256": "c7f4d1a904477bf46b0be740bd2d9e1ffd8acb1e4ce92424aed6b1d366f41ece"
     },
     {
       "path": "hooks/tests/test-msys-tree-cleanup.sh",
@@ -393,5 +393,5 @@
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "b08e3e159d0a2dcae7d2c44b6606ea454bd5274d931659ae0dc690b9e809ad2e"
+  "manifest_self_sha256": "64294906e584da43c280b24ae9cff1ad73372a2a07c0b429da2552d780ca9176"
 }

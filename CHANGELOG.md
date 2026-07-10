@@ -6,6 +6,19 @@ Public release versions ship as annotated git tags on `main`. Per-version detail
 
 ## [Unreleased]
 
+## [4.3.2] — 2026-07-10
+
+### Changed — operator-gate friction removed framework-wide · Fixed — mirror robustness + FR-25 `--write-baseline` hardening
+
+Generalizes v4.3.0's deploy-approval ergonomics into one governing rule and closes two robustness gaps flagged by v4.3.1's review. Multi-model adversarial review (Codex gpt-5.6-sol xhigh + a 4-lens Opus-4.8-max / Fable-5 workflow — the safety-regression lens independently confirmed **no self-approval loophole**) caught 2 HIGH + several MEDIUM issues in the first-draft fixes, all closed before ship.
+
+- **Operator Gate Protocol (new; every role loads it).** The operator's only gate/approval action is a decision **in chat**; the **agent** runs every command it requires (mint the FR-07 bootstrap approval, run FR-25 `--write-baseline`, `git add`/`commit`, `--consume`, deploy). The deploy path already worked this way (v4.3.0) — this extends it to FR-07 protected-path adoption and FR-25 baseline adoption, which still printed "operator-run / never agent-initiated" terminal rituals from hook stderr. Keystroke ownership changes, **not** role authority: only the Deploy session runs a Full-lane deploy, only the AI Developer a Lightweight one; PO/Architect never perform side effects. Reworded ~30 carriers (`FLOW_RULES.md` FR-25, the `module-size-discipline` skill, `module_size.py`/`check-module-size.sh`, `write-bootstrap-approval.sh`, `upgrade.sh`/`post-fusebase-update.sh`, `command_policy.py` deny reason, `policies/module-size.yml` + `protected-paths.yml`, both install guides, the health-check family, provider security rules). **No enforcement logic changed** — the git-hook protected-path block, secret scan, and `--no-verify` deny are unchanged; self-approval (acting with no operator authorization, or adopting on the agent's own initiative to dodge a block) stays forbidden.
+- **Mirror-manifest robustness.** `mirror-skills.sh` + `mirror-agents.sh` now build the manifest in memory and write it once via a temp-file + atomic rename (no per-row `>>` that two concurrent runs could interleave into duplicate rows — the v4.3.1 CI-drift incident); `mirror-skills.sh --check` now also detects duplicate manifest rows (the hash map silently collapsed them).
+- **FR-25 `--write-baseline` HEAD-derivation + fail-closed.** The write target is derived from the HEAD-committed policy (not the worktree), so a worktree `baseline_file:` redirect can't even create a stray file; write-mode **fails closed** (exit 2) when the policy can't be loaded, and the wrapper consumes the engine's printed resolved-path marker instead of independently reparsing the policy — so the staged/mint target can never diverge from where the engine wrote. Containment rejects absolute / Windows-drive-relative / UNC / repo-escaping committed values. New tests: `test-module-size.sh` S11a/b/c + S12 (missing-policy fail-closed) → 21/21.
+- **Problem-catalog.** Filed `gate-command-operator-friction` (the deploy-only fix was never generalized).
+
+Protected-path edits: FR-25 text (`FLOW_RULES.md`), `hooks/**`, `policies/*.yml` — all intentional; no approval-enforcement logic changed. The shipped `policies/module-size-baseline.txt` header was refreshed to match the generator (also drops one genuinely-stale row — `fusebase-flow-health-check.sh`, now 764 ≤ ceiling).
+
 ## [4.3.1] — 2026-07-10
 
 ### Fixed — FR-25 `--write-baseline` refuses to clobber a non-baseline file (redirect-DoS)

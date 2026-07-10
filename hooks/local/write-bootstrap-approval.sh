@@ -10,11 +10,11 @@
 # and mode, the artifact authorizes ONLY this changeset — a later, unrelated
 # protected-path edit produces a different digest and still DENIES (single-use).
 #
-# OPERATOR-DRIVEN, not auto-consumed: upgrade.sh / post-fusebase-update.sh PRINT the
-# `mint -> git commit -> --consume` steps as recommended next actions; the operator
-# runs them. Single-use holds even if `--consume` is skipped: a lingering post-commit
-# artifact is digest-bound to the (now-committed) changeset, so it matches NO new
-# staged changeset, and it self-expires (TTL, default 15 min; FF_BOOTSTRAP_TTL_MIN).
+# AGENT-EXECUTED on the operator's chat approval, NOT an operator terminal ritual: when the
+# operator OKs the protected-path change in chat, the AGENT runs `mint -> git commit -> --consume`
+# on their behalf (upgrade.sh / post-fusebase-update.sh print them; operator runs nothing; minting
+# with no operator approval = self-approval, forbidden). Single-use holds even if `--consume` is
+# skipped: the artifact is digest-bound to the committed changeset and self-expires (TTL 15 min).
 #
 # Usage:
 #   bash hooks/local/write-bootstrap-approval.sh              # mint for the staged internals

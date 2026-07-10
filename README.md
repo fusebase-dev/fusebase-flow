@@ -653,7 +653,7 @@ hooks/local/fusebase-flow-overlays/                 ← overlay templates + cano
 | **Policies** | Machine-readable rule data (deny lists, secret patterns, approval rules) | `policies/` |
 | **Hooks** | Deterministic enforcement at lifecycle events (Python; stdin → stdout) | `hooks/handlers/` |
 | **Git fallback** | Always-on safety net for any IDE without native hooks | `hooks/git/{pre-commit,commit-msg}` |
-| **Local scripts** | Operator-run helpers (preflight, install-git-hooks, mirror-skills, approve-local) | `hooks/local/` |
+| **Local scripts** | Local helpers (preflight, install-git-hooks, mirror-skills, approve-local) — run by the agent, or the operator | `hooks/local/` |
 
 Hooks read a unified JSON event from stdin (schema at `hooks/flow_hook_event.schema.json`) and emit a JSON decision. They are **local guardrails**, not a complete security boundary; combine with git hooks and operator vigilance.
 

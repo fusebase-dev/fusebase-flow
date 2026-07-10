@@ -356,11 +356,7 @@ The `--skip-skills` flag tells the CLI to skip the AGENTS.md / `.claude/*` regen
 
 ## Post-install validation
 
-First, re-key the module-size ratchet (FR-25) to **this** repo — the copied baseline is the template's, and your existing over-ceiling files would block on first touch otherwise:
-
-```bash
-bash hooks/local/check-module-size.sh --write-baseline   # then commit the baseline
-```
+First, the module-size ratchet (FR-25) must be re-keyed to **this** repo — the copied baseline is the template's, and your existing over-ceiling files would block on first touch otherwise. **You don't run this** — tell your Flow agent *"adopt the module-size baseline for this repo"* and on that go-ahead it runs the adoption for you (regenerates the baseline, auto-mints the FR-07 approval, commits, consumes). For reference, the command it runs is `bash hooks/local/check-module-size.sh --write-baseline`.
 
 Then run:
 

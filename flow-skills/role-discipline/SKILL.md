@@ -65,10 +65,10 @@ Role sections live in `references/` (same lazy-load pattern as `communication/re
 
 | Your self-attested role | Read (role reference file) | Plus shared (always, this file) |
 |---|---|---|
-| **Product Owner** | `references/product-owner.md` + `references/architect.md` on Architect escalation | § Operator Relay Protocol + § Chat-Text Questions Protocol + § Forward Momentum Protocol + § Supersede Convention |
-| **AI Developer** | `references/ai-developer.md` | § Chat-Text Questions Protocol + § Forward Momentum Protocol + § Supersede Convention |
-| **Deploy phase** | `references/deploy.md` | § Chat-Text Questions Protocol + § Forward Momentum Protocol + § Supersede Convention |
-| **Architect (standalone, not via PO escalation)** | `references/architect.md` | § Chat-Text Questions Protocol + § Forward Momentum Protocol + § Supersede Convention |
+| **Product Owner** | `references/product-owner.md` + `references/architect.md` on Architect escalation | § Operator Relay Protocol + § Operator Gate Protocol + § Chat-Text Questions Protocol + § Forward Momentum Protocol + § Supersede Convention |
+| **AI Developer** | `references/ai-developer.md` | § Operator Gate Protocol + § Chat-Text Questions Protocol + § Forward Momentum Protocol + § Supersede Convention |
+| **Deploy phase** | `references/deploy.md` | § Operator Gate Protocol + § Chat-Text Questions Protocol + § Forward Momentum Protocol + § Supersede Convention |
+| **Architect (standalone, not via PO escalation)** | `references/architect.md` | § Operator Gate Protocol + § Chat-Text Questions Protocol + § Forward Momentum Protocol + § Supersede Convention |
 
 If you genuinely need another role's don't-list (violation-recovery investigation, or drafting a handoff the receiving role will consume), Read just that reference file on demand.
 
@@ -155,6 +155,28 @@ If you catch yourself about to use a popup tool, stop and write:
 > Per FR-19, I’ll put the options in chat text instead.
 
 Then provide the options as a short table or numbered list. If the host UI automatically offers clickable suggestions, treat them as decorative only; the authoritative question and options must still be present in chat text.
+
+---
+
+## Operator Gate Protocol (mandatory for all roles; v4.3.2 / FR-12 · FR-19)
+
+The operator's ONLY gate / approval action is a decision expressed **in chat**. **Never instruct the operator to run terminal / bash / git commands** as a gate, approval, adoption, or authorization step. When the operator approves in chat, **YOU (the agent) run every command the approval requires** — author the required approval artifact (the FR-07 bootstrap mint or `approve-local.sh`), run the FR-25 `--write-baseline` adoption, `git add` / `git commit`, `--consume`, deploy — on their behalf. This is *executing the operator's decision*, not self-approval.
+
+**This changes WHO TYPES the command (the agent, not the operator) — NEVER which role may perform the action.** Role authority is unchanged: only the **Deploy session** runs a Full-lane deploy, only the **AI Developer** runs a Lightweight-lane deploy, and the **Product Owner / Architect never** perform deploy or side-effect commands (task-delegation / DP.11). If a gate is approved in the wrong role — e.g. the operator types the deploy phrase in a PO chat — route it to the owning role; do not execute it out of role. Deploy still runs the DP.2 pre-deploy worker-undisturbed re-check and every Deploy-phase rail. The protocol removes the operator's *terminal typing*, not the role gate.
+
+| Gate | Operator does (chat only) | Agent does (on that approval) — in the owning role |
+|---|---|---|
+| Deploy — Full lane (DP.6) | types the literal `APPROVE-DEPLOY-NOW` phrase | **Deploy session** authors every `approve-local.sh` artifact + runs the deploy |
+| Deploy — Lightweight lane (DP.12) | plain go-ahead ("ship it") | **AI Developer** records the go-ahead + deploys in the same pass |
+| Flow-internals protected-path edit (FR-07: `hooks/**`, `policies/*.yml`, `FLOW_RULES.md`, `.github/workflows/**`) | OKs the specific edit in chat | mints the digest-bound bootstrap approval (`write-bootstrap-approval.sh`), commits, consumes |
+| Module-size adoption (FR-25) | OKs adopting the baseline in chat | runs `--write-baseline`, commits, consumes |
+| Any other approval-gated action (other protected-path categories, migration, auth/permission, session-key use) | OKs that specific action in chat | authors the artifact (`approve-local.sh <action> <slug>` — e.g. `protected_path_edit` + paths), runs the command |
+
+**The invariant that stays (unchanged):** an approval must be **operator-authorized** — a clear chat decision for *that specific action*. Acting with NO operator authorization, or minting/adopting on the agent's own initiative to dodge a block, is **self-approval and forbidden**. An action not presented before the approval is not covered by it (re-present and re-ask). What changed in v4.3.2: the operator authorizes in chat and the agent is the *hands* — the operator never types a gate command. Enforcement backstops (the git-hook protected-path block, the §2 secret scan, the `--no-verify` deny) are unchanged; they are mechanical safety, not operator rituals — do NOT weaken them.
+
+**Deflection phrasing** when tempted to hand the operator a terminal command:
+
+> "You don't run anything — approve here in chat and I'll {mint the approval / adopt the baseline / author the artifact} and {commit / deploy}."
 
 ---
 

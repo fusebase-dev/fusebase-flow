@@ -44,10 +44,11 @@ if [ ! -d "$CANON" ]; then
 fi
 
 MANIFEST="$ROOT/audit/skill-mirror-manifest.txt"
-# Write mode truncates + rebuilds the manifest; --check must NOT touch it (read-only).
+# Write mode rebuilds the manifest via a single atomic temp-write + rename at the end
+# (NOT per-row appends — see Phase 3), so no early truncate here. --check must NOT touch
+# it (read-only).
 if [ "$CHECK_ONLY" -eq 0 ]; then
     mkdir -p "$(dirname "$MANIFEST")"
-    : > "$MANIFEST"
 fi
 
 # Batched hash command (chunked for ARG_MAX safety). Reads NUL-delimited paths on
@@ -116,7 +117,11 @@ declare -A HASHCACHE=()
 # (and in the recovery-sim's plain $PROJECT). mktemp + an EXIT trap clean it up
 # on any exit path, including a signal.
 HASH_RAW="$(mktemp "${TMPDIR:-/tmp}/mirror-hash-cache.XXXXXX")"
-trap 'rm -f "$HASH_RAW"' EXIT
+# manifest_tmp is set just before the atomic manifest write (Phase 3); pre-declared
+# here so the EXIT trap (set -u safe) also sweeps a half-written manifest temp if sort
+# or mv fails mid-write. Empty until then -> rm -f "" is a harmless no-op.
+manifest_tmp=""
+trap 'rm -f "$HASH_RAW" "$manifest_tmp"' EXIT
 # Feed canon sources + any existing targets (NUL-delimited) to ONE chunked sha
 # pass; capture the raw "<hash>  <path>" output to a temp file. Kept off a
 # pipefail pipeline whose tail `read` would return EOF=1 and trip `set -e` in a
@@ -159,11 +164,24 @@ if [ "$CHECK_ONLY" -eq 1 ]; then
         exit 1
     fi
     declare -A COMMITTED=()
+    declare -A ROWCOUNT=()
     while IFS= read -r mline; do
         [ -n "$mline" ] || continue
-        COMMITTED["${mline%%  *}"]="${mline##*  }"   # "<rel>  <hash>" (two-space sep)
+        mrel="${mline%%  *}"                          # "<rel>  <hash>" (two-space sep)
+        COMMITTED["$mrel"]="${mline##*  }"
+        ROWCOUNT["$mrel"]=$(( ${ROWCOUNT["$mrel"]:-0} + 1 ))
     done < "$MANIFEST"
     drifted=0
+    # Duplicate manifest rows: a concurrent mirror run (overlapping per-row appends,
+    # pre-v4.3.2) could repeat a <rel> path. The COMMITTED map collapses dupes (last
+    # wins), so the per-file drift loop below is blind to them — flag repeats explicitly
+    # from the occurrence counts so a race-corrupted manifest can never pass --check.
+    for mrel in "${!ROWCOUNT[@]}"; do
+        if [ "${ROWCOUNT[$mrel]}" -gt 1 ]; then
+            drifted=$((drifted + 1))
+            echo "[mirror-skills] --check DRIFT: duplicate manifest row(s) for $mrel (${ROWCOUNT[$mrel]}× — corrupt manifest, likely a concurrent mirror run)" >&2
+        fi
+    done
     for line in "${MIRROR_LINES[@]}"; do
         rel="${line%%$'\t'*}"
         canon_file="${line#*$'\t'}"
@@ -201,6 +219,7 @@ fi
 # per-file $(dirname) fork — one less spawn per mirrored file (MSYS 255-fork relief).
 mirrored=0
 drifted=0
+manifest_rows=""
 for line in "${MIRROR_LINES[@]}"; do
     rel="${line%%$'\t'*}"
     canon_file="${line#*$'\t'}"
@@ -214,16 +233,25 @@ for line in "${MIRROR_LINES[@]}"; do
     mkdir -p "${target%/*}"
     cp "$canon_file" "$target"
     mirrored=$((mirrored + 1))
-    echo "$rel  $canon_hash" >> "$MANIFEST"
+    manifest_rows+="$rel  $canon_hash"$'\n'
 done
 
-# Byte-deterministic manifest order (cross-platform): rows are emitted in glob
-# order above, which is LC_COLLATE-dependent — a Windows regen otherwise re-orders
-# the manifest vs Linux CI's, failing the mirror-drift gate on a mismatch that
-# carries no content change. LC_ALL=C sort pins byte order identically everywhere.
-# The manifest is header-less (truncated at start), so sorting the whole file is safe;
-# --check reads it into a hash map, so order does not affect drift detection.
-LC_ALL=C sort -o "$MANIFEST" "$MANIFEST"
+# Atomic, byte-deterministic manifest write (cross-platform AND concurrency-safe).
+# Rows are collected in-memory above, then written ONCE to a temp file and renamed into
+# place — never appended per-row. Two failure modes this closes:
+#   1. Locale drift — glob order is LC_COLLATE-dependent, so a Windows regen would
+#      re-order rows vs Linux CI and fail the mirror-drift gate on a no-op diff.
+#      LC_ALL=C sort pins byte order identically everywhere.
+#   2. Concurrent-run corruption — two overlapping mirror-skills runs doing per-row >>
+#      appends interleave into a DUPLICATED manifest (real incident: 71 dup rows that
+#      the hash-based --check could not see). A single temp-write + atomic rename means
+#      the last writer wins with a COMPLETE manifest; rows can never interleave. The temp
+#      name carries $$ so parallel runs never share a temp.
+# The manifest is header-less, so sorting the whole file is safe; --check reads it into a
+# hash map, so order does not affect drift detection.
+manifest_tmp="$MANIFEST.tmp.$$"
+printf '%s' "$manifest_rows" | LC_ALL=C sort > "$manifest_tmp"
+mv -f "$manifest_tmp" "$MANIFEST"
 
 echo "[mirror-skills] mirrored $mirrored files (across ${#MIRRORS[@]} mirrors); $drifted had pre-existing drift."
 echo "[mirror-skills] manifest: $MANIFEST"

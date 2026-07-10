@@ -443,7 +443,7 @@ fi
 echo "Recommended next steps:"
 echo "  1. Review changes:   git diff"
 echo "  2. Run validation:   bash hooks/local/preflight.sh && bash hooks/tests/run-tests.sh"
-echo "  3. Stage + commit (through the wired pre-commit — NO --no-verify):"
+echo "  3. On the operator's go-ahead the AGENT stages + commits (the operator runs nothing; NO --no-verify):"
 echo "       git add AGENTS.md CLAUDE.md .claude/settings.json .claude/commands .claude/skills .agents/skills .claude/agents .codex/agents"
 echo "       # if the changeset touches Flow-internal protected paths, mint the single-use"
 echo "       # bootstrap approval FIRST (digest-bound to exactly this staged changeset):"

@@ -157,20 +157,64 @@ gen_lines 950 "$TMP/mono2.py"   # renamed AND grown past its old size
 check --staged >/dev/null 2>&1; verdict "rename-grown-monolith-still-blocks" 1 $?
 "${GIT[@]}" reset -q >/dev/null 2>&1
 
-# S11 — DoS guard: a redirected baseline_file pointing at an existing NON-baseline file is
-# REFUSED (exit 2) and the victim file is never clobbered with baseline text.
+# S11 — baseline_file REDIRECT hardening. The write target for --write-baseline is derived
+# from the HEAD-committed policy, never the worktree copy (v4.3.2), with a clobber guard on
+# top (v4.3.1). Setup: an existing committed non-baseline "victim" config file. HEAD's
+# module-size.yml commits baseline_file at the shipped default, so the HEAD-derived target
+# is the default; an appended worktree redirect (S11a/b) or committed redirect (S11c) is the
+# last duplicate YAML key and wins for that read.
+POLICY="$TMP/policies/module-size.yml"
 printf 'important: config\n' > "$TMP/policies/victim.yml"
 "${GIT[@]}" add policies/victim.yml >/dev/null 2>&1
 "${GIT[@]}" commit -q -m "victim config" >/dev/null 2>&1
-printf 'baseline_file: policies/victim.yml\n' >> "$TMP/policies/module-size.yml"   # worktree redirect
-check --write-baseline >/dev/null 2>&1; verdict "write-baseline-refuses-non-baseline-clobber" 2 $?
+
+# S11a — a WORKTREE-only redirect is IGNORED: --write-baseline derives the target from the
+# HEAD-committed policy (default), writes the REAL baseline, and never touches the redirect
+# target. Exit 0; victim intact.
+printf 'baseline_file: policies/victim.yml\n' >> "$POLICY"   # worktree redirect (uncommitted)
+check --write-baseline >/dev/null 2>&1; verdict "write-baseline-worktree-redirect-ignored" 0 $?
 if grep -q '^important: config$' "$TMP/policies/victim.yml"; then
-    pass=$((pass + 1)); echo "PASS: module-size victim-file-not-clobbered"
+    pass=$((pass + 1)); echo "PASS: module-size worktree-redirect-victim-intact"
 else
-    fail=$((fail + 1)); echo "FAIL: module-size victim-file-not-clobbered (baseline text overwrote it)"
+    fail=$((fail + 1)); echo "FAIL: module-size worktree-redirect-victim-intact (baseline text overwrote it)"
 fi
-# restore policy (drop the redirect line)
-grep -v '^baseline_file: policies/victim.yml$' "$TMP/policies/module-size.yml" > "$TMP/policies/module-size.yml.tmp" && mv "$TMP/policies/module-size.yml.tmp" "$TMP/policies/module-size.yml"
+"${GIT[@]}" reset -q >/dev/null 2>&1; "${GIT[@]}" checkout -q -- policies/module-size.yml >/dev/null 2>&1
+
+# S11b — a WORKTREE redirect to a NON-EXISTENT path creates NO stray file (the v4.3.1
+# residual): HEAD-derivation writes the real baseline instead. Exit 0; stray absent.
+printf 'baseline_file: policies/stray-baseline.txt\n' >> "$POLICY"   # worktree redirect (uncommitted)
+check --write-baseline >/dev/null 2>&1; verdict "write-baseline-worktree-redirect-nonexistent-ignored" 0 $?
+if [ ! -e "$TMP/policies/stray-baseline.txt" ]; then
+    pass=$((pass + 1)); echo "PASS: module-size worktree-redirect-no-stray-file"
+else
+    fail=$((fail + 1)); echo "FAIL: module-size worktree-redirect-no-stray-file (stray baseline created at redirect path)"
+fi
+"${GIT[@]}" reset -q >/dev/null 2>&1; "${GIT[@]}" checkout -q -- policies/module-size.yml >/dev/null 2>&1
+
+# S11c — belt-and-suspenders clobber guard: even a COMMITTED redirect to an existing
+# non-baseline file is REFUSED (exit 2) rather than clobbering it with baseline text.
+printf 'baseline_file: policies/victim.yml\n' >> "$POLICY"
+"${GIT[@]}" add policies/module-size.yml >/dev/null 2>&1
+"${GIT[@]}" commit -q -m "commit baseline_file redirect (hostile)" >/dev/null 2>&1
+check --write-baseline >/dev/null 2>&1; verdict "write-baseline-committed-redirect-refused" 2 $?
+if grep -q '^important: config$' "$TMP/policies/victim.yml"; then
+    pass=$((pass + 1)); echo "PASS: module-size committed-redirect-victim-intact"
+else
+    fail=$((fail + 1)); echo "FAIL: module-size committed-redirect-victim-intact (baseline text overwrote it)"
+fi
+
+# S12 — FAIL-CLOSED (Codex review): with the worktree policy DELETED, --write-baseline must
+# refuse (exit 2) and must NOT stage/mint an attacker-pre-edited (amnesty) baseline. The
+# engine can't load the policy in WRITE mode -> returns nonzero -> the wrapper exits before
+# staging or minting. (Guards the missing-worktree-policy + dirty-baseline vector.)
+rm -f "$POLICY"
+printf '999 attacker/amnesty.py\n' >> "$TMP/policies/module-size-baseline.txt"   # attacker pre-edit
+check --write-baseline >/dev/null 2>&1; verdict "write-baseline-missing-policy-failclosed" 2 $?
+if ( cd "$TMP" && git diff --cached --name-only 2>/dev/null | grep -q 'module-size-baseline.txt' ); then
+    fail=$((fail + 1)); echo "FAIL: module-size missing-policy-baseline-not-staged (amnesty baseline was staged)"
+else
+    pass=$((pass + 1)); echo "PASS: module-size missing-policy-baseline-not-staged"
+fi
 
 echo "[test-module-size] $pass/$((pass + fail)) PASS"
 exit $fail

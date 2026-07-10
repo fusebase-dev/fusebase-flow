@@ -26,7 +26,7 @@ hooks/
 ├── git/                           ← git fallback hooks (bash; symlinked into .git/hooks/)
 │   ├── pre-commit
 │   └── commit-msg
-├── local/                         ← operator-run scripts
+├── local/                         ← local helper scripts (agent- or operator-run)
 │   ├── install-git-hooks.sh
 │   ├── preflight.sh
 │   ├── verify-gate.sh

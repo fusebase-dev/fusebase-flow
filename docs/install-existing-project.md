@@ -214,14 +214,11 @@ The installer is interactive and opt-in. Pass `--auto-yes` (or `-y`) to accept a
 
 ## Activate the module-size ratchet for your codebase (FR-25)
 
-The copied `policies/module-size-baseline.txt` is the **template's** baseline, not yours — your repo's existing over-ceiling files would block on first touch. Regenerate it once (freezes your current over-ceiling files at their present size; new growth then blocks):
+The copied `policies/module-size-baseline.txt` is the **template's** baseline, not yours — your repo's existing over-ceiling files would block on first touch. It needs regenerating once for this repo (freezes your current over-ceiling files at their present size; new growth then blocks).
 
-```bash
-bash hooks/local/check-module-size.sh --write-baseline
-git add policies/module-size-baseline.txt && git commit -m "chore: FR-25 module-size baseline for this repo"
-```
+**You don't run terminal commands for this.** Once Flow is installed, tell your Flow agent: *"adopt the module-size baseline for this repo."* On that go-ahead the agent regenerates the baseline, auto-mints the single-use FR-07 approval, commits it, and consumes the approval — you approve in chat, it runs everything.
 
-Add your justified monolith classes (generated code, vendored mirrors, data-as-code catalogs) to `policies/module-size.yml: exempt_globs` first if you don't want them frozen in the baseline.
+Add your justified monolith classes (generated code, vendored mirrors, data-as-code catalogs) to `policies/module-size.yml: exempt_globs` first if you don't want them frozen in the baseline. For reference, the command the agent runs is `bash hooks/local/check-module-size.sh --write-baseline` (then commit + `--consume`).
 
 ## Validate the installation
 

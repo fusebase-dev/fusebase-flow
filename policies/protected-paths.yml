@@ -99,8 +99,9 @@ categories:
       - "**/sitecustomize.py"
       - "**/usercustomize.py"
 
-# Exception artifact format. When an operator wants to allow an edit to a
-# protected path, they create a JSON file at:
+# Exception artifact format. When the operator OKs an edit to a protected path
+# in chat, the AGENT creates a JSON file (via approve-local.sh; Flow-internals
+# changesets use the digest-bound write-bootstrap-approval.sh) at:
 #   state/approvals/protected_path_edit-<slug>-<YYYYMMDD>.json
 # The artifact must contain { "approved_by", "scope", "expires_at", "reason",
 # "paths": [<list of approved paths>] }.

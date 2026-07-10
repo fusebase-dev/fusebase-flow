@@ -20,7 +20,7 @@
 .agents/skills/implementation-planning/SKILL.md  09e39f95ae6895aea8c958579b4e2a5d7679e03c33e50751e4ebbf8729ccc6a0
 .agents/skills/lightweight-lane/SKILL.md  c97f01cb78f5b8a6925bdf258b121e094f04d8474131fe2ba5fe19abda83261d
 .agents/skills/liveness-discipline/SKILL.md  3e3e5bd91813ce8f7ed5011389ba9a012d9651d044d8556664988e6ca7abc143
-.agents/skills/module-size-discipline/SKILL.md  1ba8f6c45027e9361ece34664a482e28845890643b247e32fd1c890d5451ea48
+.agents/skills/module-size-discipline/SKILL.md  192702fd3774df95f6c1bbac08a58fce0e36603ee594bd43df7e8dfcb18d6120
 .agents/skills/north-star/SKILL.md  53d83bae6f5539c134a995c80ec3ef9f59178b9aee7e2cd8870c73379c7ba89d
 .agents/skills/phase-audit/SKILL.md  7410f5a2f6d1b9eb5ebf57849fa4378dc3fac059c02637ec913acc1ef8b3e5ae
 .agents/skills/product-apps-decomposition/SKILL.md  1f189351b44ed93203f777cba55d3a58f76fabaaed1ab9fd2437ba5e50f96e4b
@@ -29,7 +29,7 @@
 .agents/skills/release-deploy-reporting/SKILL.md  5970d19f7accfccc6cb6090f32594b093f6ee79a4edb1a47f02aad4c6dc734a7
 .agents/skills/repo-onboarding-context-map/SKILL.md  d0e8c40165353b454a7ee48cc77edc77bc136de1e35cafef1cd86046ed1c19c0
 .agents/skills/requirements-specification/SKILL.md  497d6128bee8d9c70f90091ac6f54d0ea4efc38dcf2e7d8883fd88be68ccf57a
-.agents/skills/role-discipline/SKILL.md  f1287ec7607a6ae50abc421d3856101ae1e928e4a244995e113fe7f96ae08c29
+.agents/skills/role-discipline/SKILL.md  569c62b3db8b0401a26ff2395d79877564eb3d27eccebf49a456b482994fb027
 .agents/skills/role-discipline/references/ai-developer.md  140da055ffd1d560bec5b504c21dfa7194901af089be4ad12c66c60935e5a657
 .agents/skills/role-discipline/references/architect.md  fd7f0edf600a618b34284e61025b7ad97ad51fd2e2dfa005eec6596cac996744
 .agents/skills/role-discipline/references/deploy.md  83213a270806a1e5845d5d92c0b8f1a24486dc13be5210aa7c2c125d5b73ecbe
@@ -63,7 +63,7 @@
 .claude/skills/implementation-planning/SKILL.md  09e39f95ae6895aea8c958579b4e2a5d7679e03c33e50751e4ebbf8729ccc6a0
 .claude/skills/lightweight-lane/SKILL.md  c97f01cb78f5b8a6925bdf258b121e094f04d8474131fe2ba5fe19abda83261d
 .claude/skills/liveness-discipline/SKILL.md  3e3e5bd91813ce8f7ed5011389ba9a012d9651d044d8556664988e6ca7abc143
-.claude/skills/module-size-discipline/SKILL.md  1ba8f6c45027e9361ece34664a482e28845890643b247e32fd1c890d5451ea48
+.claude/skills/module-size-discipline/SKILL.md  192702fd3774df95f6c1bbac08a58fce0e36603ee594bd43df7e8dfcb18d6120
 .claude/skills/north-star/SKILL.md  53d83bae6f5539c134a995c80ec3ef9f59178b9aee7e2cd8870c73379c7ba89d
 .claude/skills/phase-audit/SKILL.md  7410f5a2f6d1b9eb5ebf57849fa4378dc3fac059c02637ec913acc1ef8b3e5ae
 .claude/skills/product-apps-decomposition/SKILL.md  1f189351b44ed93203f777cba55d3a58f76fabaaed1ab9fd2437ba5e50f96e4b
@@ -72,7 +72,7 @@
 .claude/skills/release-deploy-reporting/SKILL.md  5970d19f7accfccc6cb6090f32594b093f6ee79a4edb1a47f02aad4c6dc734a7
 .claude/skills/repo-onboarding-context-map/SKILL.md  d0e8c40165353b454a7ee48cc77edc77bc136de1e35cafef1cd86046ed1c19c0
 .claude/skills/requirements-specification/SKILL.md  497d6128bee8d9c70f90091ac6f54d0ea4efc38dcf2e7d8883fd88be68ccf57a
-.claude/skills/role-discipline/SKILL.md  f1287ec7607a6ae50abc421d3856101ae1e928e4a244995e113fe7f96ae08c29
+.claude/skills/role-discipline/SKILL.md  569c62b3db8b0401a26ff2395d79877564eb3d27eccebf49a456b482994fb027
 .claude/skills/role-discipline/references/ai-developer.md  140da055ffd1d560bec5b504c21dfa7194901af089be4ad12c66c60935e5a657
 .claude/skills/role-discipline/references/architect.md  fd7f0edf600a618b34284e61025b7ad97ad51fd2e2dfa005eec6596cac996744
 .claude/skills/role-discipline/references/deploy.md  83213a270806a1e5845d5d92c0b8f1a24486dc13be5210aa7c2c125d5b73ecbe

@@ -81,7 +81,7 @@ The agent loads this workflow when a refusal happens and needs to surface concre
 
 1. Verify the change was actually intended (not an accidental edit).
 2. If accidental: `git checkout HEAD -- <path>` to revert that file.
-3. If intended: file an exception artifact at `state/approvals/protected_path_edit-<slug>-<date>.json` with `paths` array listing the approved paths. Operator authors.
+3. If intended: on the operator's chat go-ahead, the **agent** authors the exception artifact at `state/approvals/protected_path_edit-<slug>-<date>.json` with a `paths` array listing the approved paths (`approve-local.sh protected_path_edit <slug>`; Flow-internals changesets use the digest-bound `write-bootstrap-approval.sh`) — the operator runs nothing.
 4. Re-run `git diff` against `protected-paths.yml`. With the artifact in place, the protected-path check passes.
 
 ### FR-08 / FR-09 — Mode A / Mode B
@@ -117,7 +117,7 @@ The agent loads this workflow when a refusal happens and needs to surface concre
 
 | Action | Recovery |
 |---|---|
-| Production deploy without artifact | Verify deploy success / failure. Author the artifact retroactively (`bash hooks/local/approve-local.sh production_deploy <slug> "<reason>"`). Document the bypass in spec.md audit log. |
+| Production deploy without artifact | Verify deploy success / failure. The agent authors the artifact retroactively on the operator's go-ahead — the operator runs nothing (`bash hooks/local/approve-local.sh production_deploy <slug> "<reason>"`). Document the bypass in spec.md audit log. |
 | Schema migration without artifact | Verify migration applied cleanly. Author artifact retroactively. Verify rollback procedure documented. |
 | Secret-file write without artifact | If actual secret was written: rotate immediately. Reset commit if not pushed. |
 | Customer-visible message sent without artifact | Cannot un-send. Document; if outbound was wrong, send a correction; file `docs/problem-catalog/<date>-unintended-outbound/problem.md`. |
@@ -155,7 +155,7 @@ The agent loads this workflow when a refusal happens and needs to surface concre
 The hook's `reason` field names the rule and the matched pattern. Steps:
 
 1. Read the `reason` carefully; it cites the FR-NN.
-2. If the operator wants to proceed anyway: check whether `require_approval` applies. If so, author the artifact via `bash hooks/local/approve-local.sh`.
+2. If the operator wants to proceed anyway (their chat go-ahead is the authorization): check whether `require_approval` applies. If so, the agent authors the artifact via `bash hooks/local/approve-local.sh` — the operator runs nothing.
 3. If `deny` was a deny-list match (no approval path): the action is forbidden. Use the alternative documented in the FR section above.
 
 ### `stop` hook blocked a "done" claim

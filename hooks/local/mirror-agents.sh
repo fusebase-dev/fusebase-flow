@@ -35,7 +35,12 @@ fi
 
 MANIFEST="$ROOT/audit/agent-mirror-manifest.txt"
 mkdir -p "$(dirname "$MANIFEST")"
-: > "$MANIFEST"
+# Manifest is rebuilt via a single atomic temp-write + rename at the end (NOT per-row
+# appends — see the write below), so no early truncate here. manifest_tmp is set just
+# before that write; pre-declared + trapped so a sort/mv failure mid-write can't leave a
+# half-written temp behind (set -u safe; rm -f "" is a no-op until it is set).
+manifest_tmp=""
+trap 'rm -f "$manifest_tmp"' EXIT
 
 sha_cmd() {
     if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | awk '{print $1}'
@@ -44,6 +49,7 @@ sha_cmd() {
 
 mirrored=0
 drifted=0
+manifest_rows=""
 
 for agent_dir in "$CANON"/*/; do
     agent_name="$(basename "$agent_dir")"
@@ -63,15 +69,19 @@ for agent_dir in "$CANON"/*/; do
         fi
         cp "$canon_file" "$target_file"
         mirrored=$((mirrored + 1))
-        echo "$mirror_root/$agent_name.md  $canon_hash" >> "$MANIFEST"
+        manifest_rows+="$mirror_root/$agent_name.md  $canon_hash"$'\n'
     done
 done
 
-# Byte-deterministic manifest order (cross-platform) — see mirror-skills.sh: rows are
-# emitted in LC_COLLATE-dependent glob order, so a Windows regen would re-order vs
-# Linux. LC_ALL=C sort pins byte order everywhere. Header-less file; drift check is
+# Atomic, byte-deterministic manifest write (cross-platform AND concurrency-safe) — see
+# mirror-skills.sh for the full rationale. Rows are collected in-memory above, then
+# written ONCE to a temp file and renamed into place — never appended per-row, so two
+# overlapping runs can never interleave into a duplicated manifest. LC_ALL=C sort pins
+# byte order everywhere (LC_COLLATE-independent). Header-less file; drift check is
 # hash-map-based, so order does not affect it.
-LC_ALL=C sort -o "$MANIFEST" "$MANIFEST"
+manifest_tmp="$MANIFEST.tmp.$$"
+printf '%s' "$manifest_rows" | LC_ALL=C sort > "$manifest_tmp"
+mv -f "$manifest_tmp" "$MANIFEST"
 
 echo "[mirror-agents] mirrored $mirrored files (across ${#MIRRORS[@]} mirrors); $drifted had pre-existing drift."
 echo "[mirror-agents] manifest: $MANIFEST"

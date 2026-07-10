@@ -2,7 +2,7 @@
 
 **Available since:** Fusebase Flow v2.4.0
 
-A **deferral artifact** is an operator-authored JSON file at `state/approvals/health_check_deferral-<slug>-<YYYYMMDD>.json` that tells the health-check engine: *"this drift is by design — don't classify it as DRIFTED or BROKEN."*
+A **deferral artifact** is an operator-authorized (decided in chat), **agent-authored** JSON file at `state/approvals/health_check_deferral-<slug>-<YYYYMMDD>.json` that tells the health-check engine: *"this drift is by design — don't classify it as DRIFTED or BROKEN."* The operator decides to defer in chat; the agent writes the file — the operator runs no command.
 
 When all non-OK items are covered by an active deferral artifact, the engine returns verdict `EXCEPTION_IN_EFFECT` (exit code 3) instead of `DRIFTED` (exit 1) or `BROKEN` (exit 2). The drift items show with the `⊘` symbol in the report and are explicitly tagged with the artifact filename for traceability.
 
@@ -19,8 +19,8 @@ This is the canonical mechanism for situations where an install brief or operato
 | Situation | Use deferral? |
 |---|:---:|
 | Install brief deliberately omits a part of canonical setup | ✅ yes — file an artifact |
-| You forgot to run the recovery script and got drift | ❌ no — run the recovery script (`bash hooks/local/post-fusebase-update.sh`) |
-| `fusebase update` reverted parts of the overlay | ❌ no — run the recovery script |
+| You forgot to run the recovery script and got drift | ❌ no — the agent runs the recovery script (`bash hooks/local/post-fusebase-update.sh`) on your go-ahead |
+| `fusebase update` reverted parts of the overlay | ❌ no — the agent runs the recovery script on your go-ahead |
 | Hook tests are failing on a non-`protected_path_edit` test | ❌ no — those are real failures; investigate them |
 | You want to silence health-check noise without thinking about why | ❌ no — that defeats the safety purpose; understand the drift first |
 

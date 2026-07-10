@@ -6,7 +6,8 @@
 #   bash hooks/local/check-module-size.sh --worktree        # changes vs HEAD (Stop-hook use)
 #   bash hooks/local/check-module-size.sh --all             # every tracked source file
 #   bash hooks/local/check-module-size.sh --write-baseline  # (re)generate the committed
-#                                                           # baseline — operator-run only
+#                                                           # baseline — agent runs it on
+#                                                           # the operator's chat go-ahead
 #   bash hooks/local/check-module-size.sh --write-baseline <path>  # re-key ONE row
 #                                                           # (rename remedy; no global amnesty)
 #
@@ -15,8 +16,10 @@
 #
 # ADOPTION (FR-07): the baseline is a protected path. --write-baseline stages the new
 # baseline and mints a single-use FR-07 approval bound to that staged change, so the
-# operator can commit the adoption the sanctioned way (NOT --no-verify). Non-write
-# modes exec module_size.py directly (unchanged behavior).
+# AGENT can commit the adoption the sanctioned way (NOT --no-verify) on the operator's
+# chat go-ahead — the operator never runs a terminal command. Adoption is the operator's
+# DECISION (given in chat), executed by the agent; the agent must not adopt on its own
+# initiative to dodge a block. Non-write modes exec module_size.py directly (unchanged).
 
 set -uo pipefail
 
@@ -35,16 +38,24 @@ is_write_baseline=0
 for a in "$@"; do [ "$a" = "--write-baseline" ] && is_write_baseline=1; done
 
 if [ "$is_write_baseline" -eq 1 ]; then
-    "$python_bin" "$ROOT/hooks/shared/module_size.py" "$@"
+    # Capture the engine's stdout so we can consume its resolved-path MARKER; stderr
+    # (block / error messages) still streams straight to the terminal.
+    engine_out="$("$python_bin" "$ROOT/hooks/shared/module_size.py" "$@")"
     rc=$?
+    [ -n "$engine_out" ] && printf '%s\n' "$engine_out"
+    # Fail closed: the engine returns nonzero when the policy can't be loaded (write mode)
+    # or a clobber is refused — never stage/mint on that.
     [ "$rc" -ne 0 ] && exit "$rc"
-    # Derive the baseline path from the COMMITTED policy (HEAD:policies/module-size.yml),
-    # NOT the worktree copy — a worktree edit of the (protected) module-size.yml could
-    # otherwise redirect the auto-mint at a DIFFERENT protected file (Fable review). Fall
-    # back to the shipped default. Reading from HEAD means a redirect requires a COMMITTED
-    # policy change, which itself hits FR-07.
-    baseline_file="$(cd "$ROOT" && git show HEAD:policies/module-size.yml 2>/dev/null | "$python_bin" -c "import sys,yaml; d=(yaml.safe_load(sys.stdin.read()) or {}); print(d.get('baseline_file') or 'policies/module-size-baseline.txt')" 2>/dev/null)"
-    [ -z "$baseline_file" ] && baseline_file="policies/module-size-baseline.txt"
+    # Derive the baseline path from the ENGINE's own `[module-size] baseline-path:` marker,
+    # NOT a second independent policy reparse. The engine HEAD-derives + containment-checks
+    # the target; consuming its printed result means the staged/mint target can NEVER
+    # diverge from where the engine actually wrote (Codex / Fable review). No marker (the
+    # engine no-op'd, e.g. missing policy, or fail-closed) -> do NOT stage or mint.
+    baseline_file="$(printf '%s\n' "$engine_out" | sed -n 's/^\[module-size\] baseline-path: //p' | head -n1)"
+    if [ -z "$baseline_file" ]; then
+        echo "[module-size] engine reported no baseline path (nothing written) — not staging/minting." >&2
+        exit 0
+    fi
     approval="$ROOT/hooks/local/write-bootstrap-approval.sh"
     if [ -f "$approval" ] && [ -f "$ROOT/$baseline_file" ] && ( cd "$ROOT" && git rev-parse --git-dir >/dev/null 2>&1 ); then
         ( cd "$ROOT" && git add -- "$baseline_file" 2>/dev/null )
@@ -82,12 +93,12 @@ PY
         scope_first="$(printf '%s\n' "$scope_out" | head -n1)"
         if [ "$scope_rc" -eq 0 ] && [ "$scope_first" = "SCOPE_OK" ] && bash "$approval" >/dev/null 2>&1; then
             echo "[module-size] FR-07 approval minted (single-use, baseline-only) for the staged baseline change."
-            echo "[module-size] Sanctioned adoption commit (baseline is a protected path; NOT --no-verify):"
+            echo "[module-size] The AGENT now commits the adoption and consumes the approval (the operator runs nothing; NOT --no-verify):"
             echo "    git commit -m 'chore(fr25): adopt module-size baseline' && bash hooks/local/write-bootstrap-approval.sh --consume"
         else
             echo "[module-size] NOT auto-minting (fail-closed): could not affirmatively verify the baseline is the ONLY staged protected path." >&2
             printf '%s\n' "$scope_out" | grep -vxE 'SCOPE_OK|OTHER_PROTECTED' | sed 's/^/      staged protected: /' >&2
-            echo "[module-size] Adopt the baseline on its own — unstage any other protected path, then:" >&2
+            echo "[module-size] Adopt the baseline on its own — the agent unstages any other protected path, then runs (the operator runs nothing):" >&2
             echo "      git add -- $baseline_file && bash hooks/local/write-bootstrap-approval.sh && git commit -m 'chore(fr25): adopt module-size baseline' && bash hooks/local/write-bootstrap-approval.sh --consume" >&2
         fi
     fi

@@ -1,7 +1,7 @@
 {
   "name": "fusebase-flow",
   "description": "The framework client-facing teams use to build internal and client apps with AI. Two agents (Product Owner + AI Developer) run a disciplined spec-to-deploy lifecycle, packaged with FuseBase Apps domain skills. Closes the gaps that break real AI app development: drift, context rot, scope creep, unreliable hand-offs.",
-  "version": "4.3.1",
+  "version": "4.3.2",
   "author": {
     "name": "FuseBase (Nimbus Web Inc.)"
   },

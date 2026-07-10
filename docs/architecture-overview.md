@@ -137,6 +137,8 @@ In this edition, `.agents/skills/` and `.claude/skills/` also contain CLI provid
 
 ## Approval-artifact flow (FR-12)
 
+> The operator's contribution is the **chat approval** (the DP.6 phrase or a plain go-ahead); the **agent** runs `approve-local.sh` on that approval — the operator never types the command. The lanes below show the mechanism, not who types it.
+
 ```
 operator                   approve-local.sh                    state/approvals/
    │                              │                                   │

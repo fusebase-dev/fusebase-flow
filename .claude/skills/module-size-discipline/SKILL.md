@@ -9,7 +9,7 @@ invocation: automatic
 expected_outputs:
   - per-task target-file declarations (tasks.md) with extraction-or-exemption for over-ceiling targets
   - extraction into a new module along a responsibility seam, or an explicit exemption
-  - policies/module-size-baseline.txt via operator-run --write-baseline
+  - policies/module-size-baseline.txt via agent-run --write-baseline (on the operator's chat go-ahead)
 related_workflows:
   - greenlight-implement.md
   - verification-gate.md
@@ -40,13 +40,13 @@ Config: `policies/module-size.yml` (`ceiling` default 800 · `source_globs` · `
 | File matches `exempt_globs` | never gated |
 | No `baseline_file` committed | **warn-only** + generation instruction (adoption-safe) |
 
-Modes: `--staged` (pre-commit default) · `--worktree` (vs HEAD; optional Stop-hook wiring) · `--all` (full scan; also a CI step in `fusebase-flow-verify.yml`) · `--write-baseline` (**operator-run only** — freezes current over-ceiling files; commit the result; presence switches warn → block) · `--write-baseline <path>` (re-keys ONE row — the targeted refresh; a full regen grandfathers every current violation, so prefer the single-file form).
+Modes: `--staged` (pre-commit default) · `--worktree` (vs HEAD; optional Stop-hook wiring) · `--all` (full scan; also a CI step in `fusebase-flow-verify.yml`) · `--write-baseline` (**agent-run on the operator's chat go-ahead** — freezes current over-ceiling files; the agent commits the result; presence switches warn → block) · `--write-baseline <path>` (re-keys ONE row — the targeted refresh; a full regen grandfathers every current violation, so prefer the single-file form).
 
-Baseline shipping: the template **ships its own committed baseline** (Flow's own over-ceiling files), so the gate is live from commit #1 on greenfield instantiations. Installing into an **existing** repo with pre-existing monoliths: those files are **not** hard-blocked on first touch — the delta-aware change gate lets you touch/shrink a pre-existing over-ceiling file (only NEW-over-ceiling files and growth block). To freeze them at their current size (so future growth is caught against a recorded value, and to clear the `--all` audit), run `--write-baseline` once — it **auto-mints a single-use FR-07 approval** for the protected baseline path and prints the commit → consume steps (the sanctioned path; never `--no-verify`).
+Baseline shipping: the template **ships its own committed baseline** (Flow's own over-ceiling files), so the gate is live from commit #1 on greenfield instantiations. Installing into an **existing** repo with pre-existing monoliths: those files are **not** hard-blocked on first touch — the delta-aware change gate lets you touch/shrink a pre-existing over-ceiling file (only NEW-over-ceiling files and growth block). To freeze them at their current size (so future growth is caught against a recorded value, and to clear the `--all` audit), the agent runs `--write-baseline` once **on the operator's chat go-ahead** — it **auto-mints a single-use FR-07 approval** for the protected baseline path, and the agent then commits and consumes it (the sanctioned path; never `--no-verify`). The operator approves adoption in chat; they run no terminal command.
 
 Local override (`policies/module-size.local.yml`, gitignored) is **additive-only**: it may append `exempt_globs` / `source_globs` entries; `enforcement`, `ceiling`, and `baseline_file` cannot be overridden locally (a gitignored kill switch would disarm the gate invisibly). The engine prints a notice whenever a local override is active.
 
-Rename tripwire: the baseline keys by path — after renaming a baselined over-ceiling file, its first content edit blocks (fail-closed, zero-growth included) until the operator re-keys it: `--write-baseline <new-path>` (and the old row disappears on the next targeted or full refresh; stale rows for absent files are inert).
+Rename tripwire: the baseline keys by path — after renaming a baselined over-ceiling file, its first content edit blocks (fail-closed, zero-growth included) until it is re-keyed — the agent runs `--write-baseline <new-path>` on the operator's go-ahead (and the old row disappears on the next targeted or full refresh; stale rows for absent files are inert).
 
 ## Plan-time rule (where the problem starts)
 
@@ -71,7 +71,7 @@ Justified monolith classes go in `exempt_globs`: generated code (SDK/OpenAPI out
 ## Anti-patterns
 
 - Splitting mechanically to satisfy the gate — observable criterion: an extraction landing in a file whose name does not state a responsibility (`utils2`, `helpers2`, `misc`, `extra`, `more`-style names) is a review blocker; a named seam is judged by reading.
-- Raising the baseline to make a violation pass — `--write-baseline` is operator-run, never agent-initiated; prefer the single-file form so refreshes are never global amnesties.
+- Raising the baseline to make a violation pass — adoption needs the operator's explicit go-ahead (given in chat), never the agent's own initiative to dodge a block; on that go-ahead the agent runs `--write-baseline` (prefer the single-file form so refreshes are never global amnesties). The guard is the operator's *decision*, not making the operator *type the command*.
 - Treating the ratchet warning as noise in warn-only mode — surface it to the operator with the activation instruction instead.
 - Adding `exempt_globs` entries for ordinary source because extraction is inconvenient.
 

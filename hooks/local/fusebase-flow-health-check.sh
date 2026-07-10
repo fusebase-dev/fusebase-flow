@@ -8,9 +8,10 @@
 # PURPOSE:
 #   Diagnostic inventory of the Fusebase Flow overlay state plus upstream-vs-local
 #   comparison. Surfaces drift signatures (especially the `fusebase update`
-#   aftermath signature) and recommends a recovery path. NEVER repairs. Operator
-#   reads the report and runs `bash hooks/local/post-fusebase-update.sh` themselves
-#   if recovery is desired (or replies affirmatively to the recovery offer in chat).
+#   aftermath signature) and recommends a recovery path. NEVER repairs. The agent
+#   surfaces the report; on the operator's go-ahead (an affirmative reply to the
+#   recovery offer in chat) the AGENT runs `bash hooks/local/post-fusebase-update.sh`
+#   — the operator runs nothing.
 #
 # UPGRADE POSTURE:
 #   The expected sets of skills, agents, and lifecycle events are auto-discovered

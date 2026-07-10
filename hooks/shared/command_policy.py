@@ -104,7 +104,8 @@ def _evaluate_require_approval(
             reason=(
                 f"FR-12: command requires approval ({action}); no artifact found in "
                 f"state/approvals/. "
-                f"Author one with `bash hooks/local/approve-local.sh {action} <slug>`. "
+                f"On the operator's approval, the agent authors it (the operator runs nothing): "
+                f"`bash hooks/local/approve-local.sh {action} <slug>`. "
                 f"See workflows/violation-recovery.md for full recovery procedure; "
                 f"role-specific don't-list at flow-skills/role-discipline/references/<role>.md."
             ),

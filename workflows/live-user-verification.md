@@ -59,6 +59,8 @@ The operator has full agency. PO highlights risks AND benefits. Document the ope
 
 ### Step 3 — Author the approval artifact
 
+On the operator's consent from Step 2, the **agent** runs this — the operator runs no command:
+
 ```bash
 bash hooks/local/approve-local.sh session_key_or_cookie_use <slug> "live-user verification for ticket: <reason>"
 ```

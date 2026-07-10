@@ -10,7 +10,7 @@
 #     over the ceiling (touching / shrinking it is always fine)
 #   - no baseline file committed yet -> the gate WARNS only and prints the
 #     generation instruction (adoption-safe on repos with existing monoliths)
-# Generate/refresh (operator-run, deliberate):
+# Generate/refresh (agent-run on the operator's go-ahead, deliberate):
 #   bash hooks/local/check-module-size.sh --write-baseline
 schema_version: 1
 
@@ -20,8 +20,9 @@ ceiling: 800
 # Committed ratchet baseline ("<lines> <path>" rows, over-ceiling files only).
 # The template SHIPS its own (dogfood) baseline, so the gate is live from
 # commit #1 on greenfield instantiations. Installing into an EXISTING repo:
-# regenerate before your first commit (one command, also printed by any block):
-#   bash hooks/local/check-module-size.sh --write-baseline   # then commit it
+# the agent regenerates it on the operator's go-ahead before the first commit
+# (the operator runs no command; also printed by any block):
+#   bash hooks/local/check-module-size.sh --write-baseline
 # Targeted refresh (rename remedy; never a global amnesty):
 #   bash hooks/local/check-module-size.sh --write-baseline <path>
 baseline_file: policies/module-size-baseline.txt

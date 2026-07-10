@@ -47,7 +47,7 @@ merge_module_size_baseline() {
   local local_bl="$1" upstream_bl="$2" out="$3"
 
   local header='# FR-25 module-size baseline — over-ceiling files frozen at current size.
-# Regenerate (operator-run): bash hooks/local/check-module-size.sh --write-baseline
+# Regenerate (agent runs on the operator'"'"'s go-ahead): bash hooks/local/check-module-size.sh --write-baseline
 # Re-key ONE file (no global amnesty): ... --write-baseline <path>'
 
   # upstream rows: path -> lines (flow_owned membership = keys of this map).
