@@ -6,6 +6,17 @@ Public release versions ship as annotated git tags on `main`. Per-version detail
 
 ## [Unreleased]
 
+## [4.2.2] — 2026-07-09
+
+### Fixed — third-reviewer (Opus 4.8 max) findings on v4.2.1 + MAX_PATH manifest hardening
+
+An independent Opus 4.8 (max-effort) confirmation pass over v4.2.1 found it functionally sound but caught two follow-ups both prior reviewers (Codex xhigh, Fable 5) missed, plus Fable 5's deferred manifest fix now lands.
+
+- **Completed the lock-vocabulary sweep.** v4.2.1 claimed "no fictional `Locked: yes`", but that sweep used a `*.md`-only grep and missed non-`.md` surfaces: `.cursor/rules/fusebase-flow-specs.mdc` (a condensed mirror of `communication`'s Mode-B principles) and `docs/specs/delegation-resilience/spec.md` still carried the removed marker. Both now use `Lock status: LOCKED`; a repo-wide grep across ALL file types confirms zero real occurrences remain.
+- **MAX_PATH manifest coverage (`hook_manifest.py`).** On Windows with long paths disabled, `collect_assets()` silently dropped covered files whose absolute path exceeded ~260 chars — `pathlib.is_file()` swallows the `WinError 3` to `False`, so an over-limit covered file vanished from the manifest at stamp time with no error (a latent coverage/tamper-detection hole; end-user verify already fails closed via a loud DRIFT). Fixed at the root with a Windows extended-length (`\\?\`) resolved-root helper applied at all four stamp/verify entry points. Byte-identical manifest at normal depths (D1 preserved); also removes a spurious DRIFT false-positive at deep consumer installs.
+
+Known / tracked (design-first spec planned, NOT in this release): the **FR-25 upgrade-adoption gap** — v4.2.0 enables the module-size ratchet and ships a non-empty baseline (Flow's own two files), which defeats the "warn-only while no baseline" grace for a consumer with pre-existing over-ceiling files; and the FR-25 "re-key the baseline" remedy self-collides with FR-07 (`policies/module-size-baseline.txt` is a protected path). Consumer workaround meanwhile: operator-run `check-module-size.sh --write-baseline` + a bootstrap approval for the commit.
+
 ## [4.2.1] — 2026-07-09
 
 ### Fixed — adversarial-review hardening: test rigor + skill build-correctness

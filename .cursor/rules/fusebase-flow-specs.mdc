@@ -18,7 +18,7 @@ Files in this glob are read by AI sessions, not human readers. Optimize for AI c
 6. No narrative storytelling — "Decision: X. Reason: Y. Alternatives: Z (rejected: A)." not "I considered X then thought about Y..."
 7. Cross-references precise — `spec.md:42-58` not "see above".
 8. No restatement of context already in adjacent loaded files.
-9. Status fields tag-style — `Status: DONE`, `Locked: yes`.
+9. Status fields tag-style — `Status: DONE`, `Lock status: LOCKED`.
 10. No hedging unless filing as a clarify item.
 11. Consistent vocabulary — use FLOW_RULES.md / AGENTS.md project-specific terms verbatim.
 12. No human-onboarding preamble — open with payload.

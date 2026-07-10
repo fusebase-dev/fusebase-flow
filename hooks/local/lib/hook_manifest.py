@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -41,6 +42,23 @@ DESCRIPTION = (
 STARTUP_BASENAMES = {"sitecustomize.py", "usercustomize.py"}
 
 
+def _resolve_root(root: Path) -> Path:
+    r"""Resolve; on Windows return the extended-length (\\?\) form so covered files
+    whose absolute path exceeds MAX_PATH (~260) stat/open normally instead of
+    silently vanishing from the walk. pathlib's is_file() swallows the OSError
+    (WinError 3) to False, so an over-260 covered file would be dropped from the
+    manifest with no error at STAMP time (a silent coverage hole). The \\?\ prefix
+    also removes today's spurious DRIFT at deep consumer installs during verify.
+    No-op at normal depths: build_manifest under the prefixed root is byte-identical
+    to the un-prefixed root (D1 byte-stability preserved)."""
+    p = Path(root).resolve()
+    s = str(p)
+    if os.name == "nt" and not s.startswith("\\\\?\\"):
+        s = ("\\\\?\\UNC\\" + s[2:]) if s.startswith("\\\\") else "\\\\?\\" + s
+        p = Path(s)
+    return p
+
+
 def _rel(root: Path, p: Path) -> str:
     return str(p.relative_to(root)).replace("\\", "/")
 
@@ -60,7 +78,7 @@ def collect_assets(root: Path) -> list[str]:
     Resolver of record: stamp AND verify both call this — one code path, no
     drift between what is stamped and what is checked.
     """
-    root = Path(root).resolve()
+    root = _resolve_root(root)
     out: list[Path] = []
     # hooks/handlers/*.py, hooks/shared/*.py (skip __pycache__/ + *.pyc)
     for sub in ("hooks/handlers", "hooks/shared"):
@@ -106,7 +124,7 @@ def _self_hash(schema_version, flow_version, assets: list) -> str:
 
 
 def build_manifest(root: Path) -> dict:
-    root = Path(root).resolve()
+    root = _resolve_root(root)
     flow_version = _flow_version(root)
     assets = [{"path": rel, "sha256": sha256_of(root / rel)} for rel in collect_assets(root)]
     return {
@@ -120,7 +138,7 @@ def build_manifest(root: Path) -> dict:
 
 
 def stamp(root: Path) -> int:
-    root = Path(root).resolve()
+    root = _resolve_root(root)
     doc = build_manifest(root)
     out_path = root / MANIFEST_REL
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -155,7 +173,7 @@ def _emit(result: dict, as_json: bool, rc: int) -> int:
 
 
 def verify(root: Path, as_json: bool) -> int:
-    root = Path(root).resolve()
+    root = _resolve_root(root)
     manifest_path = root / MANIFEST_REL
 
     # ABSENT => exit 4 (NOT 3 — SF8; 3 is reserved for the engine's EXCEPTION_IN_EFFECT).
