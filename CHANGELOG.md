@@ -6,6 +6,12 @@ Public release versions ship as annotated git tags on `main`. Per-version detail
 
 ## [Unreleased]
 
+## [4.3.1] — 2026-07-10
+
+### Fixed — FR-25 `--write-baseline` refuses to clobber a non-baseline file (redirect-DoS)
+
+Closes the residual deferred from v4.3.0's review: `module_size.py --write-baseline` derives its target from the (worktree) policy `baseline_file`, so a tampered worktree `policies/module-size.yml` (e.g. `baseline_file: policies/approval-policy.yml`) could make it overwrite an arbitrary file with baseline text — a recoverable but real DoS. Now `--write-baseline` refuses (exit 2) to write when the target exists and is NOT a module-size baseline (does not start with the `# FR-25 module-size baseline` header); a first write (absent target) or a legitimate re-write (header present) proceeds. v4.3.0's self-approval fix (HEAD-derived, fail-closed mint scope) already prevented the *approval* from being redirected; this closes the file-overwrite half. Test: `hooks/tests/test-module-size.sh` S11.
+
 ## [4.3.0] — 2026-07-10
 
 ### Changed — FR-25 delta-aware adoption + deploy-approval ergonomics · Fixed — cross-platform mirror determinism

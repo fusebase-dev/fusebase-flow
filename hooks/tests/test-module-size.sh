@@ -157,5 +157,20 @@ gen_lines 950 "$TMP/mono2.py"   # renamed AND grown past its old size
 check --staged >/dev/null 2>&1; verdict "rename-grown-monolith-still-blocks" 1 $?
 "${GIT[@]}" reset -q >/dev/null 2>&1
 
+# S11 — DoS guard: a redirected baseline_file pointing at an existing NON-baseline file is
+# REFUSED (exit 2) and the victim file is never clobbered with baseline text.
+printf 'important: config\n' > "$TMP/policies/victim.yml"
+"${GIT[@]}" add policies/victim.yml >/dev/null 2>&1
+"${GIT[@]}" commit -q -m "victim config" >/dev/null 2>&1
+printf 'baseline_file: policies/victim.yml\n' >> "$TMP/policies/module-size.yml"   # worktree redirect
+check --write-baseline >/dev/null 2>&1; verdict "write-baseline-refuses-non-baseline-clobber" 2 $?
+if grep -q '^important: config$' "$TMP/policies/victim.yml"; then
+    pass=$((pass + 1)); echo "PASS: module-size victim-file-not-clobbered"
+else
+    fail=$((fail + 1)); echo "FAIL: module-size victim-file-not-clobbered (baseline text overwrote it)"
+fi
+# restore policy (drop the redirect line)
+grep -v '^baseline_file: policies/victim.yml$' "$TMP/policies/module-size.yml" > "$TMP/policies/module-size.yml.tmp" && mv "$TMP/policies/module-size.yml.tmp" "$TMP/policies/module-size.yml"
+
 echo "[test-module-size] $pass/$((pass + fail)) PASS"
 exit $fail

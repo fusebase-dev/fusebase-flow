@@ -200,6 +200,18 @@ def main(argv: list[str]) -> int:
             "# Re-key ONE file (no global amnesty): ... --write-baseline <path>\n"
         )
         baseline_path.parent.mkdir(parents=True, exist_ok=True)
+        # Refuse to CLOBBER a non-baseline file. baseline_file comes from the (worktree)
+        # policy; a redirect (`baseline_file: policies/approval-policy.yml`) would otherwise
+        # make --write-baseline overwrite an arbitrary file with baseline text (a DoS). A
+        # legitimate baseline is either absent (first write) or already starts with this
+        # header; anything else is refused, fail-closed.
+        if baseline_path.is_file():
+            head = baseline_path.read_text(encoding="utf-8", errors="replace").lstrip()
+            if not head.startswith("# FR-25 module-size baseline"):
+                print(f"[module-size] refusing to overwrite {baseline_rel}: it is not a module-size "
+                      f"baseline — policy baseline_file may be misconfigured or redirected. Fix "
+                      f"policies/module-size.yml.", file=sys.stderr)
+                return 2
         if target:
             # Single-file re-key (rename remedy / targeted refresh). Full regen
             # grandfathers EVERY current violation — keep refreshes targeted.
