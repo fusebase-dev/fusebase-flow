@@ -2,9 +2,13 @@
 """Fusebase Flow — FR-25 module-size ratchet.
 
 Checks gated source files against policies/module-size.yml. Ratchet semantics:
-an over-ceiling file not in the committed baseline is a violation; a baselined
-file may shrink or hold but not grow while over the ceiling. No baseline file
-=> warn-only (adoption-safe). See flow-skills/module-size-discipline/SKILL.md.
+a baselined file may shrink or hold but not grow while over the ceiling; a NEW
+over-ceiling file (one crossing the ceiling in this change) is a violation. In a
+change gate (--staged/--worktree) a PRE-EXISTING over-ceiling file not in the
+baseline may be touched or shrunk (the refactor path) but not grown — the adoption
+grace, so turning FR-25 on for a repo with pre-existing monoliths does not hard-block
+the first touch. --all (audit) still reports every over-ceiling not-baselined file.
+No baseline file => warn-only. See flow-skills/module-size-discipline/SKILL.md.
 
 Modes: --staged (pre-commit) | --worktree (vs HEAD) | --all | --write-baseline [path]
 (--write-baseline with a path re-keys ONE row — no global amnesty.)
@@ -115,12 +119,28 @@ def _line_count(root: Path, path: str, staged: bool) -> int | None:
     return len(f.read_text(encoding="utf-8", errors="replace").splitlines())
 
 
+def _head_line_count(root: Path, path: str) -> int | None:
+    # Line count at HEAD (the pre-change baseline for a change gate). None => the
+    # path did not exist at HEAD (a newly added file). Used by the delta-aware
+    # ratchet so a pre-existing over-ceiling file may be touched/shrunk (a refactor)
+    # without blocking, while NEW over-ceiling files and GROWTH still block.
+    blob = _git(["-C", str(root), "show", f"HEAD:{path}"], binary=True)
+    if blob is None:
+        return None
+    return len(blob.decode("utf-8", errors="replace").splitlines())
+
+
 def _candidate_files(root: Path, mode: str) -> list[str]:
     # quotepath=off: octal-escaped non-ASCII names would silently miss the globs.
+    # --no-renames: a rename is otherwise classified R and dropped by --diff-filter=ACM,
+    # so a RENAMED-and-grown monolith would escape the delta gate entirely. With
+    # --no-renames git reports the move as delete+add, surfacing the destination as an
+    # Added path -> the delta branch sees prev=None -> BLOCK (matches path_policy's -M
+    # enumerator intent: a moved over-ceiling file is re-gated at its new path).
     if mode == "staged":
-        out = _git(["-C", str(root), "-c", "core.quotepath=off", "diff", "--cached", "--name-only", "--diff-filter=ACM"])
+        out = _git(["-C", str(root), "-c", "core.quotepath=off", "diff", "--cached", "--no-renames", "--name-only", "--diff-filter=ACMT"])
     elif mode == "worktree":
-        out = _git(["-C", str(root), "-c", "core.quotepath=off", "diff", "--name-only", "--diff-filter=ACM", "HEAD"])
+        out = _git(["-C", str(root), "-c", "core.quotepath=off", "diff", "--no-renames", "--name-only", "--diff-filter=ACMT", "HEAD"])
     else:  # all / write-baseline
         out = _git(["-C", str(root), "-c", "core.quotepath=off", "ls-files"])
     return [p for p in (out or "").splitlines() if p.strip()]
@@ -206,18 +226,35 @@ def main(argv: list[str]) -> int:
 
     baseline = _read_baseline(baseline_path)
     warn_only = baseline is None or enforcement == "warn"
+    # A change gate (pre-commit --staged / vs-HEAD --worktree) is delta-aware for
+    # un-adopted files; --all is an absolute audit (no HEAD delta to compare).
+    delta_gate = mode in ("staged", "worktree")
 
     violations: list[str] = []
     for path, lines in gated:
         if lines <= ceiling:
             continue
         allowed = (baseline or {}).get(path)
-        if allowed is not None and lines <= allowed:
-            continue
-        if allowed is None:
-            violations.append(f"{path}: {lines} lines > ceiling {ceiling} (not in baseline)")
-        else:
+        if allowed is not None:
+            # Baselined: may hold or shrink, never grow while over the ceiling.
+            if lines <= allowed:
+                continue
             violations.append(f"{path}: {lines} lines > baseline {allowed} (ceiling {ceiling}) — over-ceiling files may not grow")
+            continue
+        # Not in baseline. In a change gate, a PRE-EXISTING over-ceiling file (already
+        # over the ceiling at HEAD) may be touched or shrunk (the refactor path) — only
+        # a file that NEWLY crosses the ceiling, or GROWS while already over it, is a
+        # violation. This is the adoption grace: an upgrade that turns FR-25 on for a
+        # repo with pre-existing monoliths does not hard-block the first touch. In
+        # --all (audit) any over-ceiling not-baselined file is still reported.
+        if delta_gate:
+            prev = _head_line_count(root, path)
+            if prev is not None and prev > ceiling:
+                if lines <= prev:
+                    continue  # pre-existing monolith, not growing -> allow the touch
+                violations.append(f"{path}: {lines} lines > previous {prev} (ceiling {ceiling}) — a pre-existing over-ceiling file may be touched or shrunk but not grown; extract the addition, or adopt+freeze it (--write-baseline)")
+                continue
+        violations.append(f"{path}: {lines} lines > ceiling {ceiling} (not in baseline)")
 
     if not violations:
         return 0
@@ -229,14 +266,20 @@ def main(argv: list[str]) -> int:
     print(
         "  Remedy: extract the addition into a new module along a responsibility seam\n"
         "  (extraction is in-scope for the current task, not scope creep; not a\n"
-        "  mechanical utilsN split), or get an operator exemption\n"
-        "  (policies/module-size.yml exempt_globs, or operator-run --write-baseline).",
+        "  mechanical utilsN split). A PRE-EXISTING over-ceiling file may be touched or\n"
+        "  shrunk without blocking — only NEW over-ceiling files and GROWTH block.\n"
+        "  To adopt+freeze the current over-ceiling files (grandfather them) — operator-run\n"
+        "  (adoption is an operator decision, never agent-initiated):\n"
+        "    bash hooks/local/check-module-size.sh --write-baseline\n"
+        f"  {baseline_rel} is an FR-07 protected path — --write-baseline mints a scoped,\n"
+        "  single-use approval and prints the commit -> consume steps (the sanctioned\n"
+        "  FR-07 path; NOT --no-verify). Or add an exempt glob to policies/module-size.yml.",
         file=sys.stderr,
     )
     if baseline is None:
         print(
-            f"  Note: no baseline at {baseline_rel} — warn-only. Activate the ratchet with:\n"
-            "    bash hooks/local/check-module-size.sh --write-baseline   (then commit the baseline)",
+            f"  Note: no baseline at {baseline_rel} — currently warn-only. --write-baseline\n"
+            "  activates the ratchet (freezes current over-ceiling files at their size).",
             file=sys.stderr,
         )
     return 0 if warn_only else 1

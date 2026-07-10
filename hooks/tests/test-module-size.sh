@@ -113,5 +113,49 @@ gen_lines 880 "$TMP/legacy.py"   # 880 > re-keyed 850 (old baseline 900 would ha
 check --staged >/dev/null 2>&1; verdict "single-file-rekey-ratchets" 1 $?
 "${GIT[@]}" reset -q legacy.py >/dev/null 2>&1; "${GIT[@]}" checkout -q -- legacy.py >/dev/null 2>&1
 
+# S9 — DELTA-AWARE adoption grace: a PRE-EXISTING over-ceiling file NOT in the baseline
+# may be touched/shrunk in a change gate (--staged/--worktree) without blocking (the
+# refactor path); only NEW-over-ceiling files and GROWTH block. Commit it over-ceiling
+# at HEAD; do NOT re-baseline it.
+gen_lines 900 "$TMP/preexisting.py"
+"${GIT[@]}" add preexisting.py >/dev/null 2>&1
+"${GIT[@]}" commit -q -m "pre-existing monolith (not baselined)" >/dev/null 2>&1
+
+# S9a — touch it non-growing (900 -> 880) -> ALLOW, exit 0 (old code hard-blocked this).
+gen_lines 880 "$TMP/preexisting.py"
+"${GIT[@]}" add preexisting.py >/dev/null 2>&1
+check --staged >/dev/null 2>&1; verdict "preexisting-nonbaselined-shrink-allowed" 0 $?
+"${GIT[@]}" reset -q preexisting.py >/dev/null 2>&1; "${GIT[@]}" checkout -q -- preexisting.py >/dev/null 2>&1
+
+# S9b — grow it (900 -> 950) -> BLOCK, exit 1 (growing an un-adopted monolith is a violation).
+gen_lines 950 "$TMP/preexisting.py"
+"${GIT[@]}" add preexisting.py >/dev/null 2>&1
+check --staged >/dev/null 2>&1; verdict "preexisting-nonbaselined-growth-blocked" 1 $?
+"${GIT[@]}" reset -q preexisting.py >/dev/null 2>&1; "${GIT[@]}" checkout -q -- preexisting.py >/dev/null 2>&1
+
+# S9c — worktree gate is delta-aware too: a non-growing worktree edit of the pre-existing
+# monolith passes (exit 0).
+gen_lines 890 "$TMP/preexisting.py"
+check --worktree >/dev/null 2>&1; verdict "preexisting-nonbaselined-worktree-touch-allowed" 0 $?
+"${GIT[@]}" checkout -q -- preexisting.py >/dev/null 2>&1
+
+# S9d — --all (audit) is ABSOLUTE, not delta-aware: it still REPORTS the un-baselined
+# over-ceiling file (exit 1), so the audit view tells you what to adopt.
+check --all >/dev/null 2>&1; verdict "preexisting-nonbaselined-audit-still-reports" 1 $?
+"${GIT[@]}" rm -q preexisting.py >/dev/null 2>&1; "${GIT[@]}" commit -q -m "drop preexisting" >/dev/null 2>&1
+
+# S10 — RENAME must not bypass the gate: a pre-existing over-ceiling file RENAMED and
+# GROWN must still BLOCK. Without --no-renames the move is classified R and dropped by
+# --diff-filter=ACM, so the grown monolith escapes; --no-renames surfaces the destination
+# as an Added path -> delta branch sees prev=None (new path) -> BLOCK.
+gen_lines 900 "$TMP/mono.py"
+"${GIT[@]}" add mono.py >/dev/null 2>&1
+"${GIT[@]}" commit -q -m "monolith to rename" >/dev/null 2>&1
+"${GIT[@]}" mv mono.py mono2.py >/dev/null 2>&1
+gen_lines 950 "$TMP/mono2.py"   # renamed AND grown past its old size
+"${GIT[@]}" add mono2.py >/dev/null 2>&1
+check --staged >/dev/null 2>&1; verdict "rename-grown-monolith-still-blocks" 1 $?
+"${GIT[@]}" reset -q >/dev/null 2>&1
+
 echo "[test-module-size] $pass/$((pass + fail)) PASS"
 exit $fail

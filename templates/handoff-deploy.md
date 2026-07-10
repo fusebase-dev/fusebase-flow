@@ -8,7 +8,7 @@
 
 ## Role bootstrap (read this BEFORE any other reads)
 
-You are operating as the **AI Developer in the Deploy phase** under Fusebase Flow v4.2.2.
+You are operating as the **AI Developer in the Deploy phase** under Fusebase Flow v4.3.0.
 
 > **This is the Full-lane deploy handoff** (DP.1 artifact + DP.6 magic phrase). A **Lightweight-lane** change (FR-21) does NOT use this template — it deploys in the same single build→verify→deploy pass on a plain operator go-ahead; see `flow-skills/lightweight-lane/SKILL.md` and `workflows/lightweight-lane.md`.
 
@@ -21,7 +21,7 @@ You are operating as the **AI Developer in the Deploy phase** under Fusebase Flo
 - **DP.6 magic-phrase confirm + FR-19 chat-text discipline.** Before running the deploy command, ask the operator in chat text to type the literal `APPROVE-DEPLOY-NOW`. Do not use popup / clickable menu tools. If the response is anything other than that exact phrase, **ABORT**. Do NOT accept "yes," "go," "ship it," or any paraphrase. This is the operator-attentiveness gate; it is not negotiable. <!-- prevents: unattended-prod-cutover (catastrophic-low-frequency) -->
 - **DP.10 smoke evidence integrity.** If this handoff includes S1..Sn, run `flow-skills/smoke-testing/SKILL.md`. Smoke PASS requires operator-visible outcome evidence plus ground-truth diagnostic inspection. Exit code, file hash, service active, symbol presence, and auth sanity are supporting checks only. <!-- prevents: false-green-deploy -->
 - **DP.11 no delegated deploy side effects.** Do not delegate deploy command, rollback, approval artifacts, secret handling, or live-session smoke. Delegation during deploy is read-only triage only.
-- **DP.1 approval artifact required.** Verify `state/approvals/production_deploy-<slug>-<date>.json` exists and is unexpired before deploy. If absent: when this handoff's `dp1_waiver` field says `eligible` (reversible-deploy waiver — see `policies/approval-policy.yml`), stamp it yourself immediately after the operator types the DP.6 phrase (`bash hooks/local/approve-local.sh production_deploy <slug> 'APPROVE-DEPLOY-NOW'`); otherwise ABORT. <!-- prevents: unauthorized-deploy (catastrophic-low-frequency) -->
+- **DP.1 approval artifact(s) — authored on the DP.6 phrase (all tickets).** The deploy needs `state/approvals/<action>-<slug>-<date>.json` for each action it triggers (`production_deploy` + any `database_migration` / `auth_or_permission_change` / `protected_path_edit`). If absent, do NOT abort and do NOT make the operator run commands: PRESENT the full scope (every action) in chat, then — once the operator types the DP.6 phrase — author every required artifact yourself (`bash hooks/local/approve-local.sh <action> <slug> 'APPROVE-DEPLOY-NOW'`). An action NOT presented before the phrase is NOT covered by it. Authoring WITHOUT the phrase is self-approval and forbidden. <!-- prevents: unauthorized-deploy (catastrophic-low-frequency) -->
 - **Blocker-waiver verification (open code-review blockers).** If this handoff's **Blocker waivers** section lists any open code-review blocker, verify each carries a recorded waiver entry — verbatim blocker + the operator's own accept-phrase + the accepted consequence. An open blocker with no matching entry (or only a chat-relayed, paraphrased "operator accepted") means **STOP**: do not deploy; surface the missing waiver to the operator. This holds especially for a code-review step-4d correctness or step-5 test (safety) blocker, which is never downgradable to "non-blocker" (`flow-skills/release-deploy-reporting/SKILL.md` § When to invoke + failure table). Refuse the handoff exactly as you would a surface-mismatched rollback plan. <!-- prevents: laundered-blocker-ship (catastrophic-low-frequency) -->
 - **Liveness (FR-27) — never launch bare (this MAIN session too, not only delegated ones).** Any long/silent step here — the deploy command, a post-deploy probe, a fetch/health loop, browser-automation smoke — gets ≥1 liveness guarantee BEFORE launch: bound it (`source hooks/local/lib/bounded-run.sh`), complete it in-turn, or return `BLOCKED-AT-<gate>` + a record-then-read pointer. A hung probe emits no completion event and the deploy session idles silently. Bounds the monitored process only — don't `&`-detach under the wrapper (`flow-skills/liveness-discipline`).
 - **Turn-completion + progress ledger (delegated sessions — `task-delegation` §3).** Complete all evidence IN-TURN (poll bounded or read durable records — you cannot self-resume). Write durable facts AS THEY OCCUR: the deploy hash the moment it lands, probe rows as each one runs — skeleton first, never everything-at-the-end. At an unbounded wait (human gate, no-ETA event) return `BLOCKED-AT-<gate>` + a pointer to where reality is recorded. State-change claims cite the ground-truth check performed.
@@ -42,7 +42,7 @@ Other invariants (FR-05/-06/-07/-14, Mode A/B, supersede discipline FR-18) — s
 4. `docs/specs/<slug>/verification-gate.md` — probe contract you'll run
 5. `policies/approval-policy.yml` — `production_deploy` approval requirements
 6. `policies/protected-paths.yml` — worker-undisturbed list
-7. `state/approvals/production_deploy-<slug>-<date>.json` — verify exists + unexpired, **or** confirm the header says `dp1_waiver: eligible` (you stamp it at the DP.6 step)
+7. Approval artifact(s) `state/approvals/<action>-<slug>-<date>.json` — verify exist + unexpired, **or** note they'll be authored by the Deploy session on the operator's DP.6 phrase (all tickets; present the full scope in chat first for sensitive actions)
 8. `flow-skills/role-discipline/references/deploy.md` — DP.1..DP.12 don't-list; shared protocols in `flow-skills/role-discipline/SKILL.md`
 9. `flow-skills/smoke-testing/SKILL.md` — required if S1..Sn are present
 10. `workflows/greenlight-deploy.md` — the deploy procedure this handoff executes (step-7 in-turn evidence + progress-ledger rules)
@@ -56,7 +56,7 @@ Other invariants (FR-05/-06/-07/-14, Mode A/B, supersede discipline FR-18) — s
 | **Slug** | `<slug>` |
 | **Status** | ready for Deploy phase |
 | **Approval artifact** | `state/approvals/production_deploy-<slug>-<date>.json` |
-| **DP.1 waiver** | `dp1_waiver: eligible / excluded — <reason>` (eligible iff reversible AND no protected-path / security-surface / migration touch; eligible = Deploy session stamps DP.1 itself on the operator's DP.6 phrase) |
+| **DP.1 authoring** | The Deploy session authors every required approval artifact on the operator's DP.6 phrase (ALL tickets; the operator never runs approval commands). `dp1_waiver: eligible / excluded — <reason>`: `eligible` (reversible AND no protected-path / security / migration touch) = minimal-scope fast-path; `excluded`/sensitive are still session-authored on the phrase, but present the full scope in chat first |
 | **Source spec** | `docs/specs/<slug>/spec.md` |
 | **Gate verified** | `<date>` (gate report SHA `<hash>`) |
 | **Deploy command** | `<exact command from AGENTS.md>` |
@@ -103,7 +103,7 @@ If the end-to-end smoke cannot run because credentials/session/operator action a
 
 When you reach the deploy command step, output exactly:
 
-> Pre-deploy checks complete. <`Approval artifact verified.` | on `dp1_waiver: eligible`: `Waiver-eligible — I will stamp the DP.1 artifact on your phrase.`> Worker-undisturbed re-check clean. Probes ready.
+> Pre-deploy checks complete. Scope I'll authorize on your phrase: <list every action — production_deploy + any migration / auth / protected-path>. I'll author the approval artifact(s) for these when you type the phrase (you run nothing). Worker-undisturbed re-check clean. Probes ready.
 >
 > **Type `APPROVE-DEPLOY-NOW` to authorize deploy.** Any other response will abort.
 

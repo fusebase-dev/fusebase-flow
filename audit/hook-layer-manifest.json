@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "flow_version": "4.2.2",
+  "flow_version": "4.3.0",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
   "asset_count": 97,
   "assets": [
@@ -42,7 +42,7 @@
     },
     {
       "path": "hooks/local/approve-local.sh",
-      "sha256": "d2ae5d4d400b1697e923a90ab5d89a21a1182d093d804f731c382741775515d6"
+      "sha256": "90301d4a8598d3be47c52de9b8c202bc48cdec5b238954d3564344d63b3a102e"
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
@@ -54,7 +54,7 @@
     },
     {
       "path": "hooks/local/check-module-size.sh",
-      "sha256": "c16b77f34988ee48ad7f3dc78114185ba7e2153d6452da961c266ce8f49285ae"
+      "sha256": "f1feb79072b54b148772df173b3a7912f2d79bb1603a24fec18b05ae0c778860"
     },
     {
       "path": "hooks/local/eslint-ignore-flow-paths.sh",
@@ -102,11 +102,11 @@
     },
     {
       "path": "hooks/local/mirror-agents.sh",
-      "sha256": "7a7917dc60cf90734cef6b60851eeb3a4932fb3a9a9c4455c07cf3f70eb6cf04"
+      "sha256": "4c1d8c7989b8307a13d75efaec7c8c6ee2cf11b39afe34550ef904c855c10775"
     },
     {
       "path": "hooks/local/mirror-skills.sh",
-      "sha256": "5664939c88124f64c72145897bae0de0705b319f4ee7714235c811478882ab9b"
+      "sha256": "e81564dc64defa3a156ad14a2a92780eddf36946e21b4f78054acb6c4e549ab1"
     },
     {
       "path": "hooks/local/po-investigate.sh",
@@ -174,7 +174,7 @@
     },
     {
       "path": "hooks/shared/module_size.py",
-      "sha256": "16a5d64e11544327ea04ff225d011b23b7417e4f135cfec0c675493c3835351d"
+      "sha256": "12770170567ffcf41347c89c47a22c78e56dc1d4b45ca0880a841eb4161cb7f5"
     },
     {
       "path": "hooks/shared/path_policy.py",
@@ -354,7 +354,7 @@
     },
     {
       "path": "hooks/tests/test-module-size.sh",
-      "sha256": "b64af27e1485e8f0bfe4a2b019a43cc159d707698601ea7179e4cd5790260c31"
+      "sha256": "9331a3bc9a9e567121627aa22ab53677c432dea8475d8b997c8de4eb4260abbd"
     },
     {
       "path": "hooks/tests/test-msys-tree-cleanup.sh",
@@ -393,5 +393,5 @@
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "ba0a7888dcd7d73c585d694c6e4dcb6c00546d66eeb43efcde19388b5cb34fd4"
+  "manifest_self_sha256": "7cf7cc95643772352a2efec56e157ddd8955b3a5f4a6270437589022cc002a55"
 }

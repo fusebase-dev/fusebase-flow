@@ -53,18 +53,18 @@ If the ticket was classified **Lightweight** (`flow-skills/lightweight-lane/SKIL
 | Spec | `docs/specs/<slug>/spec.md` (status DRAFT) | Stop; cannot deploy without spec |
 | Verification gate report | chat paste from `validation-and-qa` | Stop; cannot deploy without gate pass |
 | Deploy command | project-specific section of `AGENTS.md` | Stop; ask operator for deploy command |
-| Approval artifact for `production_deploy` | `state/approvals/production_deploy-<slug>-<YYYYMMDD>.json` | Stop; operator authors artifact per FR-12 — OR mark `dp1_waiver: eligible` in the handoff when the ticket qualifies (reversible-deploy waiver; Deploy session stamps it at DP.6) |
+| Approval artifact for `production_deploy` (+ `database_migration` / `auth_or_permission_change` / `protected_path_edit` as the deploy needs) | `state/approvals/<action>-<slug>-<YYYYMMDD>.json` | After the operator types the **DP.6 phrase**, the **Deploy session authors** every required artifact on their behalf (`approve-local.sh`) — never require the operator to run terminal commands (FR-12 needs the artifact on disk; the gate does not check the author). Present the full scope in chat BEFORE the phrase. (`dp1_waiver: eligible` = reversible fast-path; excluded/sensitive classes still need the phrase, but the session — not the operator — authors.) |
 | Worker-undisturbed list | `policies/protected-paths.yml` | Stop; cannot run final pre-deploy check without it |
 | CLI edition map, for Fusebase Apps deploys | `docs/fusebase-cli-edition.md` | Continue with generic deploy handoff, but mark CLI probes/log diagnostics unknown |
 
 ## Procedure
 
-1. Verify all preconditions: gate passed, code-review clean **or every open blocker recorded in `blocker_waivers:` (verbatim blocker + operator accept-phrase + accepted consequence — § When to invoke)**, security clean **or recorded `security: N/A — no sensitive surface`**, approval artifact present **or `dp1_waiver: eligible` (Deploy session stamps it on the DP.6 phrase)**.
+1. Verify all preconditions: gate passed, code-review clean **or every open blocker recorded in `blocker_waivers:` (verbatim blocker + operator accept-phrase + accepted consequence — § When to invoke)**, security clean **or recorded `security: N/A — no sensitive surface`**, approval artifact(s) present **or authored by the Deploy session on the operator's DP.6 phrase (all tickets; present the full scope in chat first for sensitive actions)**.
 2. Final pre-deploy worker-undisturbed check: re-run `git diff` against `protected-paths.yml`. If anything changed since the gate report, STOP and report.
 3. For Fusebase Apps deploys, use `docs/fusebase-cli-edition.md` to identify supporting CLI assets for commands, logs, app quality checks, and post-deploy diagnostics.
 4. Draft deploy handoff from `templates/handoff-deploy.md` (canonical; see `workflows/greenlight-deploy.md`). Include:
    - Self-attestation phrase the deployer should output first
-   - **DP.1 waiver eligibility** — `dp1_waiver: eligible|excluded — <reason>`: `eligible` iff the ticket is reversible AND touches no protected path / security surface / migration (Deploy session then stamps the DP.1 artifact itself on the operator's DP.6 phrase); the excluded classes keep operator-run DP.1
+   - **DP.1 authoring** — the Deploy session authors the DP.1 (and any `database_migration` / `auth_or_permission_change` / `protected_path_edit`) approval artifact(s) on the operator's DP.6 phrase, for ALL tickets — the operator never runs approval commands. `dp1_waiver: eligible|excluded — <reason>`: `eligible` (reversible AND no protected-path / security / migration surface) is the fast-path where the artifact is minimal bookkeeping; excluded/sensitive classes require presenting the full scope in chat before the phrase, but the session still authors the artifact(s) on that phrase (not the operator)
    - **`blocker_waivers:` block** (only when open code-review blockers exist) — one entry per blocker: verbatim review-summary line + operator's accept-phrase + accepted consequence. A step-4d/step-5 safety blocker with no entry means the handoff cannot be drafted — STOP and surface the blocker instead
    - Pre-deploy worker-undisturbed re-check instructions
    - Deploy command (exact)
@@ -115,7 +115,7 @@ handoff whose rollback plan does not match its surface class.
 
 | Failure mode | Detection | Response |
 |---|---|---|
-| Approval artifact missing | `state/approvals/` lacks file matching `approval-policy.yml: require_approval.production_deploy` | STOP. Surface which artifact is missing and how to author it. |
+| Approval artifact missing | `state/approvals/` lacks file matching `approval-policy.yml: require_approval.production_deploy` | Present the full deploy scope + ask for the DP.6 phrase; author the artifact(s) yourself on that phrase (`approve-local.sh`). Do NOT tell the operator to run terminal commands. |
 | Worker-undisturbed file changed since gate | `git diff` against `protected-paths.yml` non-empty | STOP. Per FR-07, do NOT deploy on changed protected paths. |
 | Probe failure | Pasted report shows `Pn FAIL` | Do NOT mark spec DONE. Surface rollback / fix-forward options. |
 | Smoke threshold not met | Pass ratio below gate contract | Do NOT mark spec DONE. Surface failure with concrete `Sn observed Y, expected Z`. |
@@ -132,7 +132,8 @@ handoff whose rollback plan does not match its surface class.
 ## Anti-patterns
 
 - Do NOT auto-invoke (`invocation: manual-for-side-effects` enforces this)
-- Do NOT deploy without approval artifact (FR-12)
+- Do NOT deploy without the approval artifact(s) (FR-12) — but author them yourself on the operator's DP.6 phrase; never force the operator to run approval commands
+- Do NOT self-approve: authoring artifacts WITHOUT the operator's DP.6 phrase (or a plain go-ahead in the Lightweight lane) is forbidden — the phrase is the authorization, not your judgment
 - Do NOT mark spec DONE before all probes pass
 - Do NOT split deploy docs across multiple commits (FR-14)
 - Do NOT print or persist secrets / session keys in handoff or report

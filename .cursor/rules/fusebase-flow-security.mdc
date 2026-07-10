@@ -16,7 +16,7 @@ alwaysApply: false
 
 ## Approval artifacts
 
-If an action requires approval per `policies/approval-policy.yml`, the operator authors an artifact:
+If an action requires approval per `policies/approval-policy.yml`, an approval artifact must exist on disk. The operator authors it — OR, for a deploy, the Deploy session authors it on the operator's behalf once the operator types the DP.6 phrase `APPROVE-DEPLOY-NOW` (authoring without that operator signal is self-approval and forbidden):
 
 ```
 state/approvals/<action>-<slug>-<YYYYMMDD>.json

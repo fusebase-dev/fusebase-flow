@@ -22,7 +22,7 @@ You are an AI Developer session that has just completed `T<first>..T<gate>` and 
 **Status:** Gate reached; awaiting PO review and deploy handoff
 **Slug:** `<slug>`
 **Task range:** T<first>..T<gate>
-**Reporting session:** AI Developer (under Fusebase Flow v4.2.2, FR-01..FR-27)
+**Reporting session:** AI Developer (under Fusebase Flow v4.3.0, FR-01..FR-27)
 **Date:** <YYYY-MM-DD>
 
 ---

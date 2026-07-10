@@ -217,5 +217,13 @@ for line in "${MIRROR_LINES[@]}"; do
     echo "$rel  $canon_hash" >> "$MANIFEST"
 done
 
+# Byte-deterministic manifest order (cross-platform): rows are emitted in glob
+# order above, which is LC_COLLATE-dependent — a Windows regen otherwise re-orders
+# the manifest vs Linux CI's, failing the mirror-drift gate on a mismatch that
+# carries no content change. LC_ALL=C sort pins byte order identically everywhere.
+# The manifest is header-less (truncated at start), so sorting the whole file is safe;
+# --check reads it into a hash map, so order does not affect drift detection.
+LC_ALL=C sort -o "$MANIFEST" "$MANIFEST"
+
 echo "[mirror-skills] mirrored $mirrored files (across ${#MIRRORS[@]} mirrors); $drifted had pre-existing drift."
 echo "[mirror-skills] manifest: $MANIFEST"

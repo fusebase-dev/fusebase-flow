@@ -6,6 +6,20 @@ Public release versions ship as annotated git tags on `main`. Per-version detail
 
 ## [Unreleased]
 
+## [4.3.0] — 2026-07-10
+
+### Changed — FR-25 delta-aware adoption + deploy-approval ergonomics · Fixed — cross-platform mirror determinism
+
+Two consumer-reported upgrade-friction defects and a CI-flake root cause, closed under a multi-model adversarial review (Codex / Fable 5 / Opus 4.8-max) that caught and fixed **three** successive real security holes in the first-draft fixes before ship.
+
+- **FR-25 delta-aware ratchet (upgrade adoption).** Enabling the module-size ratchet on an existing repo no longer hard-blocks the first touch of a pre-existing monolith: in a change gate (`--staged`/`--worktree`) a PRE-EXISTING over-ceiling file (over the ceiling at HEAD, not baselined) may be **touched or shrunk** — only NEW-over-ceiling files and GROWTH block; `--all` stays an absolute audit. A renamed-and-grown monolith still blocks (`--no-renames`), and a symlink→file typechange still blocks (`--diff-filter=ACMT`). Zero impact on the framework's own gating (its two over-ceiling files are baselined).
+- **Smooth FR-07-sanctioned adoption, fail-closed.** `check-module-size.sh --write-baseline` (operator-run) auto-mints the single-use FR-07 approval for the protected baseline — but **fail-closed**: it mints only after affirmatively verifying (env-passed, injection-proof) that the baseline is the sole staged protected path, and it derives the baseline path from the **committed** policy (HEAD) so a worktree edit can't redirect the mint. Any failure refuses and prints the manual steps. Closes the FR-25 ↔ FR-07 circular dead-end.
+- **Deploy-approval ergonomics (FR-12 / DP.1).** After the operator types the DP.6 phrase `APPROVE-DEPLOY-NOW`, the Deploy session **authors every required approval artifact on the operator's behalf** (`production_deploy` + any `database_migration` / `auth_or_permission_change` / `protected_path_edit`) — for ALL tickets, never forcing the operator to run terminal commands after they've approved in chat. Safety boundary preserved: authoring WITHOUT the phrase is self-approval and forbidden; the full scope is presented in chat before the phrase, and an action not presented is not covered. Swept consistently across `role-discipline/deploy.md`, `release-deploy-reporting`, `ai-developer` AGENT, `greenlight-deploy`, the canonical `templates/handoff-deploy.md`, the `approval-policy.yml` comment, and the Cursor/Copilot security instructions. **Enforcement (`command_policy.py`) unchanged** — this is a discipline change (the gate never checked the artifact's author).
+- **Cross-platform mirror determinism.** `mirror-skills.sh` + `mirror-agents.sh` emit their manifests under `LC_ALL=C sort`, so a Windows regen and Linux CI produce byte-identical order (fixes the v4.2.2 mirror-drift CI flake); `mirror-agents.sh` rejects unknown args.
+- **Problem-catalog.** Filed `fr25-upgrade-adoption-collision` and `deploy-approval-terminal-friction`.
+
+Protected-path edits: FR-25 text (`FLOW_RULES.md`), `hooks/shared/module_size.py` (delta logic), `policies/approval-policy.yml` (comment) — all intentional; no approval-enforcement logic changed.
+
 ## [4.2.2] — 2026-07-09
 
 ### Fixed — third-reviewer (Opus 4.8 max) findings on v4.2.1 + MAX_PATH manifest hardening

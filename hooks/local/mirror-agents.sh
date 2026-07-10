@@ -15,6 +15,15 @@
 
 set -euo pipefail
 
+# No supported flags — this script only performs the write mirror. Reject any argument
+# (notably --check) so it can't be silently misread as a read-only run. Agent-mirror drift
+# is detected by preflight.sh (against audit/agent-mirror-manifest.txt); the `--check` flag
+# exists only on mirror-skills.sh.
+if [ "$#" -gt 0 ]; then
+    echo "[mirror-agents] unknown argument: $* (this script takes no flags; it writes the agent mirror)" >&2
+    exit 2
+fi
+
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 CANON="$ROOT/agents"
 MIRRORS=( ".claude/agents" ".codex/agents" )
@@ -57,6 +66,12 @@ for agent_dir in "$CANON"/*/; do
         echo "$mirror_root/$agent_name.md  $canon_hash" >> "$MANIFEST"
     done
 done
+
+# Byte-deterministic manifest order (cross-platform) — see mirror-skills.sh: rows are
+# emitted in LC_COLLATE-dependent glob order, so a Windows regen would re-order vs
+# Linux. LC_ALL=C sort pins byte order everywhere. Header-less file; drift check is
+# hash-map-based, so order does not affect it.
+LC_ALL=C sort -o "$MANIFEST" "$MANIFEST"
 
 echo "[mirror-agents] mirrored $mirrored files (across ${#MIRRORS[@]} mirrors); $drifted had pre-existing drift."
 echo "[mirror-agents] manifest: $MANIFEST"

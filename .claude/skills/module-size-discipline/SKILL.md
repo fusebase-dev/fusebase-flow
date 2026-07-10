@@ -31,7 +31,10 @@ Config: `policies/module-size.yml` (`ceiling` default 800 · `source_globs` · `
 | Case | Verdict |
 |---|---|
 | Gated file NOT in baseline, lines ≤ ceiling | pass |
-| Gated file NOT in baseline, lines > ceiling | **BLOCK** — extract or get operator exemption |
+| NOT in baseline, **NEW** over ceiling (crosses the ceiling in this change) | **BLOCK** — extract, or adopt (`--write-baseline`) |
+| NOT in baseline, **PRE-EXISTING** over ceiling (over ceiling at HEAD), touched/shrunk in a change gate (`--staged`/`--worktree`, not growing) | pass — the refactor path (delta-aware adoption grace) |
+| NOT in baseline, **PRE-EXISTING** over ceiling, **GROWN** | **BLOCK** — a monolith may be touched/shrunk, never grown |
+| Any over-ceiling not-baselined file under `--all` (audit) | **reported** (absolute; no HEAD delta) — tells you what to adopt |
 | Baselined file, lines ≤ its baseline value | pass (shrinking/holding is always fine) |
 | Baselined file, lines > its baseline value | **BLOCK** — over-ceiling files may not grow |
 | File matches `exempt_globs` | never gated |
@@ -39,7 +42,7 @@ Config: `policies/module-size.yml` (`ceiling` default 800 · `source_globs` · `
 
 Modes: `--staged` (pre-commit default) · `--worktree` (vs HEAD; optional Stop-hook wiring) · `--all` (full scan; also a CI step in `fusebase-flow-verify.yml`) · `--write-baseline` (**operator-run only** — freezes current over-ceiling files; commit the result; presence switches warn → block) · `--write-baseline <path>` (re-keys ONE row — the targeted refresh; a full regen grandfathers every current violation, so prefer the single-file form).
 
-Baseline shipping: the template **ships its own committed baseline**, so the gate is live from commit #1 on greenfield instantiations. Installing into an **existing** repo: regenerate it once (`--write-baseline`, then commit) right after copying — until then legacy over-ceiling files block on first touch (the block message prints this exact remedy).
+Baseline shipping: the template **ships its own committed baseline** (Flow's own over-ceiling files), so the gate is live from commit #1 on greenfield instantiations. Installing into an **existing** repo with pre-existing monoliths: those files are **not** hard-blocked on first touch — the delta-aware change gate lets you touch/shrink a pre-existing over-ceiling file (only NEW-over-ceiling files and growth block). To freeze them at their current size (so future growth is caught against a recorded value, and to clear the `--all` audit), run `--write-baseline` once — it **auto-mints a single-use FR-07 approval** for the protected baseline path and prints the commit → consume steps (the sanctioned path; never `--no-verify`).
 
 Local override (`policies/module-size.local.yml`, gitignored) is **additive-only**: it may append `exempt_globs` / `source_globs` entries; `enforcement`, `ceiling`, and `baseline_file` cannot be overridden locally (a gitignored kill switch would disarm the gate invisibly). The engine prints a notice whenever a local override is active.
 
