@@ -54,6 +54,11 @@ ffhc_partial_upgrade_findings() {
     pv="$(python3 -c "import json,sys; print(json.load(open('.claude-plugin/plugin.json')).get('version',''))" 2>/dev/null)"
     [ -n "$pv" ] && [ "$pv" != "$ver" ] && echo ".claude-plugin/plugin.json: version $pv != VERSION $ver"
   fi
+  if [ -f .codex-plugin/plugin.json ] && command -v python3 >/dev/null 2>&1; then
+    local cpv
+    cpv="$(python3 -c "import json,sys; print(json.load(open('.codex-plugin/plugin.json')).get('version',''))" 2>/dev/null)"
+    [ -n "$cpv" ] && [ "$cpv" != "$ver" ] && echo ".codex-plugin/plugin.json: version $cpv != VERSION $ver"
+  fi
 
   # Live "Fusebase Flow v<semver>" banner/attestation strings per adapter must read
   # the current VERSION. The U5 regex form (optional Local / 2-or-3-part) is matched

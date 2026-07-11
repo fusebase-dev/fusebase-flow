@@ -61,7 +61,7 @@ rewrites `AGENTS.md`, `post-fusebase-update.sh --refresh-overlays` writes a
    **only-if-absent** (`cp -Rn` / `Copy-Item` without `-Force`); Flow-owned
    framework folders copy normally. See those docs for the exact commands.
 2. **Recovery never writes CLI-owned paths.** `mirror-skills.sh` writes only the
-   32 canonical Flow skills; `post-fusebase-update.sh` excludes
+   33 canonical Flow skills; `post-fusebase-update.sh` excludes
    `.claude/hooks/**`, CLI provider skills, MCP/`fusebase.json`/`skills-lock.json`,
    and active `.codex/config.toml`; the ownership map marks all 20 CLI provider
    skills `flow_write_mode:"never"`.

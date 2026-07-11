@@ -18,6 +18,7 @@ Use this guide if your repository already contains any of the following:
 - `.claude/agents/`
 - `.agents/skills/`
 - `.claude/skills/`
+- `.codex-plugin/plugin.json`
 - `.codex/config.toml`
 - `.cursor/mcp.json`
 - `.mcp.json`
@@ -38,6 +39,7 @@ Never overwrite these files blindly:
 - `.cursor/mcp.json`
 - `.mcp.json`
 - `fusebase.json`
+- `.codex-plugin/plugin.json`
 - `skills-lock.json`
 - existing skill folders (`.agents/skills/`, `.claude/skills/`)
 - existing GitHub workflows under `.github/workflows/`

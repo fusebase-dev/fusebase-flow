@@ -6,6 +6,15 @@ Public release versions ship as annotated git tags on `main`. Per-version detail
 
 ## [Unreleased]
 
+## [4.4.0] - 2026-07-11
+
+### Added - Codex Product Owner discovery + plugin packaging
+
+- Added `.codex-plugin/plugin.json` so Codex can load Fusebase Flow as a first-class plugin with a shorter display name and the repo-mirrored skill catalog.
+- Added a canonical `product-owner` skill bridge, mirrored to `.agents/skills/` and `.claude/skills/`, so Codex `/product` discovery exposes an obvious Product Owner activation path instead of hiding it behind a long Flow-prefixed row.
+- Added `hooks/tests/test-codex-plugin-surface.sh` and wired it into the test runner/preflight surfaces that protect the Codex plugin manifest, Product Owner skill mirror, and skill-trigger text.
+- Updated install, compatibility, backlog, publishing, upgrade, and mirror-count docs for 33 canonical Flow skills and the new `.codex-plugin/` distribution surface.
+
 ## [4.3.2] — 2026-07-10
 
 ### Changed — operator-gate friction removed framework-wide · Fixed — mirror robustness + FR-25 `--write-baseline` hardening

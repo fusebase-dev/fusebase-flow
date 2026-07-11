@@ -78,7 +78,7 @@ ALLOWED=(
   "FLOW_RULES.md" "VERSION" "install.sh"
   "CHANGELOG.md" "CONTRIBUTING.md" "SECURITY.md" "CODE_OF_CONDUCT.md" "ROADMAP.md"
   ".gitignore" ".gitattributes" ".python-version"
-  ".agents" ".claude" ".claude-plugin" ".codex" ".cursor" ".github"
+  ".agents" ".claude" ".claude-plugin" ".codex-plugin" ".codex" ".cursor" ".github"
   "agents" "audit" "docs" "flow-skills" "hooks" "policies" "state" "templates" "workflows"
 )
 actual=$(git ls-files | awk -F/ '{print $1}' | sort -u)

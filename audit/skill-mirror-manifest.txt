@@ -25,6 +25,7 @@
 .agents/skills/phase-audit/SKILL.md  7410f5a2f6d1b9eb5ebf57849fa4378dc3fac059c02637ec913acc1ef8b3e5ae
 .agents/skills/product-apps-decomposition/SKILL.md  1f189351b44ed93203f777cba55d3a58f76fabaaed1ab9fd2437ba5e50f96e4b
 .agents/skills/product-docs-first/SKILL.md  ed929e9b96570425d7d9a939c544f68520fedcaa0917dbb3b6f27157ee4d198a
+.agents/skills/product-owner/SKILL.md  b347f9a30616da84662a1a7fc0e40a7e5a236b9986b98bbedb69db91f0e2adc8
 .agents/skills/project-onboarding/SKILL.md  bd0eb1bc5f11a4c8f0bd76a3e383d05015fc28e6a1b165a7bef01d3f7176db82
 .agents/skills/release-deploy-reporting/SKILL.md  5970d19f7accfccc6cb6090f32594b093f6ee79a4edb1a47f02aad4c6dc734a7
 .agents/skills/repo-onboarding-context-map/SKILL.md  d0e8c40165353b454a7ee48cc77edc77bc136de1e35cafef1cd86046ed1c19c0
@@ -68,6 +69,7 @@
 .claude/skills/phase-audit/SKILL.md  7410f5a2f6d1b9eb5ebf57849fa4378dc3fac059c02637ec913acc1ef8b3e5ae
 .claude/skills/product-apps-decomposition/SKILL.md  1f189351b44ed93203f777cba55d3a58f76fabaaed1ab9fd2437ba5e50f96e4b
 .claude/skills/product-docs-first/SKILL.md  ed929e9b96570425d7d9a939c544f68520fedcaa0917dbb3b6f27157ee4d198a
+.claude/skills/product-owner/SKILL.md  b347f9a30616da84662a1a7fc0e40a7e5a236b9986b98bbedb69db91f0e2adc8
 .claude/skills/project-onboarding/SKILL.md  bd0eb1bc5f11a4c8f0bd76a3e383d05015fc28e6a1b165a7bef01d3f7176db82
 .claude/skills/release-deploy-reporting/SKILL.md  5970d19f7accfccc6cb6090f32594b093f6ee79a4edb1a47f02aad4c6dc734a7
 .claude/skills/repo-onboarding-context-map/SKILL.md  d0e8c40165353b454a7ee48cc77edc77bc136de1e35cafef1cd86046ed1c19c0

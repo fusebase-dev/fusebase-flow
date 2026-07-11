@@ -308,6 +308,12 @@ if [ -f .claude-plugin/plugin.json ] && command -v python3 >/dev/null 2>&1; then
         err ".claude-plugin/plugin.json version ($plugin_ver) != VERSION ($VER_FILE); bump them together"
     fi
 fi
+if [ -f .codex-plugin/plugin.json ] && command -v python3 >/dev/null 2>&1; then
+    codex_plugin_ver="$(python3 -c "import json,sys; print(json.load(open('.codex-plugin/plugin.json')).get('version',''))" 2>/dev/null)"
+    if [ -n "$codex_plugin_ver" ] && [ -n "$VER_FILE" ] && [ "$codex_plugin_ver" != "$VER_FILE" ]; then
+        err ".codex-plugin/plugin.json version ($codex_plugin_ver) != VERSION ($VER_FILE); bump them together"
+    fi
+fi
 # marketplace.json is NOT written by sync-version-strings.sh — same manual-bump
 # parity as plugin.json, or it silently drifts (it lagged ~20 minor versions).
 if [ -f .claude-plugin/marketplace.json ] && command -v python3 >/dev/null 2>&1; then

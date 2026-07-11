@@ -1,0 +1,42 @@
+{
+  "name": "fusebase-flow",
+  "version": "4.4.0",
+  "description": "Spec-to-deploy AI app-development workflow for client-facing teams, packaged with FuseBase Apps domain skills.",
+  "author": {
+    "name": "FuseBase (Nimbus Web Inc.)",
+    "url": "https://ai-dev.thefusebase.com/"
+  },
+  "homepage": "https://ai-dev.thefusebase.com/",
+  "repository": "https://github.com/fusebase-dev/fusebase-flow",
+  "license": "MIT",
+  "keywords": [
+    "ai-coding-assistant",
+    "codex",
+    "ai-agents",
+    "product-owner",
+    "client-facing",
+    "spec-driven-development",
+    "fusebase",
+    "workflow-framework"
+  ],
+  "skills": "./.agents/skills/",
+  "interface": {
+    "displayName": "Flow",
+    "shortDescription": "Fusebase Flow skills for Codex",
+    "longDescription": "Activates Fusebase Flow lifecycle skills in Codex, including Product Owner and AI Developer workflows for spec-to-deploy app development.",
+    "developerName": "FuseBase",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://ai-dev.thefusebase.com/",
+    "defaultPrompt": [
+      "Use Product Owner to plan a new ticket.",
+      "Use Fusebase Flow to verify this change.",
+      "Use AI Developer to run the implementation handoff."
+    ],
+    "brandColor": "#2563EB"
+  }
+}

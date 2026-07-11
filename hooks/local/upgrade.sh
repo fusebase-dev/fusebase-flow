@@ -229,7 +229,7 @@ echo ""
 # == VERSION, but nothing refreshed it on upgrade, so every 3.14.1+ consumer
 # upgrade landed with a version-mismatch ERROR (same installer-parity class as
 # the slash-command gap).
-CONTENT_DIRS=( "flow-skills" "agents" "workflows" "policies" "templates" "hooks" ".claude-plugin" )
+CONTENT_DIRS=( "flow-skills" "agents" "workflows" "policies" "templates" "hooks" ".claude-plugin" ".codex-plugin" )
 # D11 (AC5): the committed hook-layer manifest travels with the upgrade so a consumer
 # picks up integrity verification with no manual step (audit/ is outside CONTENT_DIRS).
 CONTENT_FILES=( "FLOW_RULES.md" "audit/hook-layer-manifest.json" )

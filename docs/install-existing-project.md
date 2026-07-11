@@ -6,7 +6,7 @@ Your existing development setup keeps working exactly as before. Fusebase Flow b
 
 ## Existing Fusebase CLI / MCP projects
 
-If your repository was already initialized by Fusebase CLI, has MCP configuration, or already contains `AGENTS.md`, `.claude/settings.json`, `.agents/skills/`, `.claude/skills/`, `.mcp.json`, `.cursor/mcp.json`, `fusebase.json`, or `skills-lock.json`, do not use the generic bulk copy commands below without review.
+If your repository was already initialized by Fusebase CLI, has MCP configuration, or already contains `AGENTS.md`, `.claude/settings.json`, `.agents/skills/`, `.claude/skills/`, `.mcp.json`, `.cursor/mcp.json`, `.codex-plugin/plugin.json`, `fusebase.json`, or `skills-lock.json`, do not use the generic bulk copy commands below without review.
 
 Use the safe install guide:
 
@@ -21,7 +21,7 @@ Fusebase Flow is provider- and IDE-neutral. It works with any tool that reads fi
 | Surface | Configuration files | Hooks support | Skills support | Notes |
 |---|---|---|---|---|
 | Claude Code | `CLAUDE.md`, `.claude/settings.json.example`, `.claude/skills/` | Yes, when project hooks are enabled | Yes, via `.claude/skills/` | First-class provider surface. Claude Code loads project memory from `CLAUDE.md`. |
-| OpenAI / ChatGPT Codex | `AGENTS.md`, `.agents/skills/`, `.codex/` | Codex config/hooks where enabled + git fallback | Yes, via `.agents/skills/` | Reads repo-local instructions and skill metadata. |
+| OpenAI / ChatGPT Codex | `AGENTS.md`, `.agents/skills/`, `.codex/`, `.codex-plugin/plugin.json` | Codex config/hooks where enabled + git fallback | Yes, via `.agents/skills/` | Reads repo-local instructions, skill metadata, and plugin metadata. |
 | Cursor | `.cursor/rules/`, `AGENTS.md` | Git fallback hooks | Repo-file guidance | Uses repo-local rules and instructions. |
 | GitHub Copilot / VS Code | `.github/copilot-instructions.md`, `.github/instructions/*.instructions.md`, `AGENTS.md` | Git hooks + GitHub Actions | Repository instructions | Uses repository-wide and path-specific instructions. |
 | Gemini / Antigravity-style IDE agents | `GEMINI.md`, `AGENTS.md` | Git fallback hooks | Repo-file guidance | Any agent that reads repo files can follow the workflow. |

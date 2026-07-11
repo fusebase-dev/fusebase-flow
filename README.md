@@ -6,7 +6,7 @@
 
 ![FuseBase Flow — you design and decide with the Product Owner agent, which hands off to the AI Developer agent that implements, runs the verification gate, and deploys](docs/assets/two-agent-banner.svg)
 
-[![Version](https://img.shields.io/badge/version-3.30.7-blue.svg)](VERSION)
+[![Version](https://img.shields.io/badge/version-4.4.0-blue.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![CI](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml/badge.svg)](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml)
 [![Use this template](https://img.shields.io/badge/GitHub-Use_this_template-brightgreen.svg?logo=github)](https://github.com/fusebase-dev/fusebase-flow/generate)
@@ -292,7 +292,7 @@ The full eight-phase lifecycle lives at [`workflows/eight-phase-flow.md`](workfl
 Compatibility files per tool:
 
 - **Anthropic Claude Code** — `CLAUDE.md`, `.claude/skills/`, `.claude/settings.json.example`
-- **OpenAI / ChatGPT Codex** — `AGENTS.md`, `.agents/skills/`, `.codex/config.toml.example`, `.codex/hooks.json.example`
+- **OpenAI / ChatGPT Codex** — `AGENTS.md`, `.agents/skills/`, `.codex/config.toml.example`, `.codex/hooks.json.example`, `.codex-plugin/plugin.json`
 - **Cursor** — `.cursor/rules/*.mdc`, `AGENTS.md`
 - **GitHub Copilot / VS Code** — `.github/copilot-instructions.md`, `.github/instructions/*.instructions.md`, `AGENTS.md`
 - **Gemini / Antigravity-style IDE agents** — `GEMINI.md`, `AGENTS.md`
@@ -329,7 +329,13 @@ Claude Code auto-discovers `.claude/agents/<name>.md`.
 
 ### Invoking from Codex
 
-Codex doesn't auto-discover sub-agent files. Reference them in the first message of a fresh session:
+Codex discovers skills from `.agents/skills/` and, when installed as a plugin, from `.codex-plugin/plugin.json`. Use the `product-owner` skill or search `/product` / `/skills` to activate Product Owner:
+
+```
+> Use the product-owner skill. Let's ship pagination.
+```
+
+The direct agent-file fallback still works when the skill surface is unavailable:
 
 ```
 > Read .codex/agents/product-owner.md and operate as Product Owner per its instructions.
@@ -353,9 +359,9 @@ Preflight will warn on drift if the mirrors and canonical fall out of sync. Full
 
 ## Skill catalog
 
-Skills are on-demand expertise the agent loads when a task matches the skill's description. **32 canonical Flow skills** govern the lifecycle and project-optimization; **20 FuseBase Apps domain skills** supply the app-building knowledge. You never invoke them by hand — describe the work and the matcher loads the right one.
+Skills are on-demand expertise the agent loads when a task matches the skill's description. **33 canonical Flow skills** govern the lifecycle and project-optimization; **20 FuseBase Apps domain skills** supply the app-building knowledge. You usually describe the work and let the matcher load the right one; Codex can also expose the `product-owner` bridge when you search `/product` or `/skills`.
 
-### Flow lifecycle skills (32)
+### Flow lifecycle skills (33)
 
 | Phase | Skill | What it does |
 |---|---|---|
@@ -377,6 +383,7 @@ Skills are on-demand expertise the agent loads when a task matches the skill's d
 | Anti-drift | `zoom-out` | FR-20 — root-cause-vs-patch check before a fix |
 | Review | `phase-audit` | Independent sub-agent audit of all slices of a phase |
 | Debug | `git-history-diagnostic` | Regression archaeology — locate the causing commit |
+| Role activation | `product-owner` | Codex-visible bridge for `/product-owner` and Product Owner session activation; reuses the canonical Product Owner role agent instead of duplicating it |
 | Project setup | `project-onboarding` | `/onboard` discovery interview → writes project artifacts |
 | Project focus | `north-star` | Steers work to `docs/north-star.md` (no-op if absent) |
 | Audience | `client-vs-internal` | Simple-for-client / robust-for-internal (no-op if absent unless the operator explicitly requests it) |
@@ -392,7 +399,7 @@ Skills are on-demand expertise the agent loads when a task matches the skill's d
 | Liveness | `liveness-discipline` | FR-27 — never launch long/silent background work bare; ≥1 liveness guarantee before launch (bound via `hooks/local/lib/bounded-run.sh`, complete in-turn, or return `BLOCKED-AT-<gate>` + a record-then-read pointer) so a hung job reaches completion-or-death instead of a silent idle; diagnose a suspected hang by activity/mtime not 0-byte existence; **no blocking gate, no verification hook** (a hang is undetectable by construction — enforcement = bounded-run tooling + present-by-construction delivery) |
 | Ceremony audit | `find-wasted-effort` | A2 — process-per-outcome ceremony audit (`/find-wasted-effort`); reads Flow artifacts on disk for ceremony that bought no safety outcome; read-only, findings are review candidates (never auto-prune); sibling of `/token-waste-audit` on a different axis |
 
-★ = mandatory, loaded every session. The last 9 (zoom-out … product-apps-decomposition) shipped in v3.3–v3.5; `lightweight-lane` v3.7, `comment-policy` v3.11, `documentation-budget` v3.12, `handoff` v3.14, `module-size-discipline` v3.16, `app-quality-patterns` v3.19, `token-economy` v3.20, `find-wasted-effort` v3.22, `liveness-discipline` v3.28. The project-* / north-star / client-vs-internal / product-* / guard skills are **artifact-gated by default** — dormant until onboarding creates their `docs/` artifact (client-vs-internal also activates on an explicit operator posture-check request).
+★ = mandatory, loaded every session. The last 9 (zoom-out … product-apps-decomposition) shipped in v3.3–v3.5; `lightweight-lane` v3.7, `comment-policy` v3.11, `documentation-budget` v3.12, `handoff` v3.14, `module-size-discipline` v3.16, `app-quality-patterns` v3.19, `token-economy` v3.20, `find-wasted-effort` v3.22, `liveness-discipline` v3.28. The project-* / north-star / client-vs-internal / product-* / guard skills are **artifact-gated by default** — dormant until onboarding creates their `docs/` artifact (client-vs-internal also activates on an explicit operator posture-check request). `product-owner` is an activation bridge, not an alternate role definition.
 
 ### FuseBase CLI provider skills (20)
 
@@ -424,7 +431,7 @@ Skills are on-demand expertise the agent loads when a task matches the skill's d
 
 Do not blindly copy this repository over an existing project.
 
-If the target repo already contains `AGENTS.md`, `CLAUDE.md`, `.gitignore`, `.claude/settings.json`, `.mcp.json`, `.cursor/mcp.json`, `.agents/skills/`, `.claude/skills/`, `fusebase.json`, or `skills-lock.json`, use the FuseBase CLI / MCP-safe install path:
+If the target repo already contains `AGENTS.md`, `CLAUDE.md`, `.gitignore`, `.claude/settings.json`, `.mcp.json`, `.cursor/mcp.json`, `.agents/skills/`, `.claude/skills/`, `.codex-plugin/plugin.json`, `fusebase.json`, or `skills-lock.json`, use the FuseBase CLI / MCP-safe install path:
 
 - append to `AGENTS.md`
 - append to `CLAUDE.md`
@@ -757,7 +764,7 @@ fusebase-flow/
 ├── VERSION                         ← (current release)
 ├── .gitattributes                  ← LF line endings for shell/python/yaml/md
 ├── .python-version                 ← 3.12 (recommended)
-├── flow-skills/                         ← 32 canonical skills (2 mandatory + 30 on-demand, incl. liveness-discipline (v3.28) + find-wasted-effort (v3.22) + token-economy (v3.20) + app-quality-patterns (v3.19) + module-size-discipline (v3.16) + handoff (v3.14) + documentation-budget (v3.12) + comment-policy (v3.11) + lightweight-lane (v3.7) + the v3.3–v3.5 additions: zoom-out, phase-audit, git-history-diagnostic, project-onboarding, north-star, client-vs-internal, product-docs-first, business-logic-guardian, product-apps-decomposition)
+├── flow-skills/                         ← 33 canonical skills (2 mandatory + 31 on-demand, incl. product-owner bridge + liveness-discipline (v3.28) + find-wasted-effort (v3.22) + token-economy (v3.20) + app-quality-patterns (v3.19) + module-size-discipline (v3.16) + handoff (v3.14) + documentation-budget (v3.12) + comment-policy (v3.11) + lightweight-lane (v3.7) + the v3.3–v3.5 additions: zoom-out, phase-audit, git-history-diagnostic, project-onboarding, north-star, client-vs-internal, product-docs-first, business-logic-guardian, product-apps-decomposition)
 ├── agents/                         ← 2 canonical sub-agents (product-owner, ai-developer)
 ├── workflows/                      ← 13 procedures (incl. lightweight-lane)
 ├── policies/                       ← 9 YAML policies (incl. module-size ratchet + ratchet-governance)
@@ -780,12 +787,13 @@ fusebase-flow/
 │   └── agent-mirror-manifest.txt   ← sha256 manifest for sub-agent mirrors
 ├── state/                          ← runtime state (gitignored contents)
 ├── docs/                           ← public reference docs + per-project artifacts
-├── .agents/skills/                 ← Codex skill surface (32 Flow mirrors + 20 CLI provider skills)
-├── .claude/skills/                 ← Claude Code skill surface (32 Flow mirrors + 20 CLI provider skills)
+├── .agents/skills/                 ← Codex skill surface (33 Flow mirrors + 20 CLI provider skills)
+├── .claude/skills/                 ← Claude Code skill surface (33 Flow mirrors + 20 CLI provider skills)
 ├── .claude/agents/                 ← Claude Code agent surface (2 Flow role agents + 2 CLI app agents)
 ├── .claude/commands/               ← Anthropic Claude Code slash commands (incl. /fusebase-health)
 ├── .claude/settings.json.example   ← Claude Code hook wiring
 ├── .codex/agents/                  ← Codex agent surface (2 Flow role agents + 2 CLI app agents)
+├── .codex-plugin/plugin.json       ← Codex plugin metadata pointing at the Codex skill surface
 ├── .codex/{config.toml,hooks.json}.example ← Codex hook wiring + project trust note
 ├── .cursor/rules/                  ← Cursor rules (always + scoped)
 └── .github/

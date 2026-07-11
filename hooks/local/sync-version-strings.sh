@@ -110,7 +110,8 @@ SKILL_COUNT="$(find "$SKILLS_CANON" -mindepth 1 -maxdepth 1 -type d 2>/dev/null 
 # explicit standalone files. The under-reach guard test (test-sync-allowlist.sh)
 # scans these roots for token-bearing files and FAILS on any omission; it also
 # FAILS if a consumer doc root is added here. Plugin metadata (.claude-plugin/
-# plugin.json) is version-checked by preflight §8 (a parity check, NOT a sed here).
+# and .codex-plugin/plugin.json) is version-checked by preflight §8 (a parity check,
+# NOT a sed here).
 SYNC_ROOTS=(
   "agents"                                  # agents/**/AGENT.md (canonical sub-agents)
   "flow-skills"                             # flow-skills/**/*.md (SKILL.md + references/*)
