@@ -72,7 +72,7 @@ If no handoff path is provided in the operator's first message, **STOP** and ask
 |---|---|
 | Pre-deploy | Verify the required approval artifact(s) exist (`state/approvals/<action>-<slug>-<date>.json`, DP.1). If absent, that's fine — you AUTHOR them on the operator's DP.6 phrase (below), for ALL tickets. Never require the operator to run approval commands. `dp1_waiver: eligible` (reversible AND no protected-path / security / migration touch) is the fast-path (minimal-scope artifact); `excluded`/sensitive classes just need the full scope presented in chat before the phrase — you still author, not the operator. |
 | Pre-deploy | Run final worker-undisturbed re-check (DP.2) |
-| **Operator confirm (DP.6)** | **STOP.** Ask the operator in chat text to type the literal phrase `APPROVE-DEPLOY-NOW` to proceed with the deploy command. Do not use `AskUserQuestion`, clickable buttons, or modal confirmation UI. If the response is anything other than the exact literal `APPROVE-DEPLOY-NOW`, abort the deploy and surface the abort to the operator. Do NOT proceed on `yes`, `y`, `ok`, partial matches, or near-matches. **The typed phrase authorizes you to AUTHOR every required approval artifact on the operator's behalf** — run `bash hooks/local/approve-local.sh <action> <slug> 'APPROVE-DEPLOY-NOW'` for EACH action this deploy needs (`production_deploy` + `database_migration` / `auth_or_permission_change` / `protected_path_edit` …), then deploy. Do NOT make the operator run these commands — the phrase is their one action. BEFORE asking for the phrase, present the full scope in chat (deploy + each side effect needing approval) so the phrase is informed consent — **an action NOT presented before the phrase is NOT covered by it** (authoring it = authoring without the phrase; re-present and re-ask). This is executing their decision, not self-approval; authoring WITHOUT the phrase is forbidden. |
+| **Operator confirm (DP.6)** | **STOP.** Ask the operator in chat text to reply `approve deploy now` to proceed with the deploy command. Match is **forgiving** — any case / spacing / hyphenation counts (`approve deploy now`, `Approve Deploy Now`, legacy `APPROVE-DEPLOY-NOW` all pass) — but it must be that deliberate three-word phrase; abort on a bare `yes` / `y` / `ok` / `go` / `approve`. Do not use `AskUserQuestion`, clickable buttons, or modal confirmation UI. **The operator types ONLY the phrase — never ask them to compose a sentence, prepend the ticket name / scope, or answer other questions in the same message.** **The phrase authorizes you to AUTHOR every required approval artifact on the operator's behalf** — run `bash hooks/local/approve-local.sh <action> <slug> 'approve deploy now'` for EACH action this deploy needs (`production_deploy` + `database_migration` / `auth_or_permission_change` / `protected_path_edit` …), then deploy. Do NOT make the operator run these commands — the phrase is their one action. BEFORE asking, present the full scope in chat as YOUR one-line summary (deploy + each side effect needing approval) so the phrase is informed consent — **an action NOT presented before the phrase is NOT covered by it** (re-present and re-ask). This is executing their decision, not self-approval; authoring WITHOUT the phrase is forbidden. |
 | Deploy | Execute the deploy command from the deploy handoff |
 | Capture | Capture deploy hash (no "TBD" / "see commit" placeholders — DP.3) |
 | Verify | Run all probes + smoke prompts named in the deploy handoff; smoke PASS requires operator-visible outcome evidence + ground-truth diagnostics |
@@ -98,9 +98,9 @@ For a Lightweight-eligible ticket, the AI Developer runs build → verify → de
 
 #### Why the deploy-time operator confirm (DP.6)
 
-Production cutovers benefit from a human-at-the-keyboard moment. DP.1 (approval artifact) and DP.2 (worker-undisturbed re-check) are machine-verified gates. The DP.6 pause is the operator-attentiveness gate: if a probe fails or the deploy itself misbehaves, you want the operator looking at the terminal in real time, not in a different tab. The `APPROVE-DEPLOY-NOW` magic phrase is structural friction — the operator must type, not reflexively click — mirroring the existing `APPEND-ONLY` pattern in `install.sh`. Cost: ~5 seconds. Value: no surprise prod cutovers when the operator's attention is elsewhere.
+Production cutovers benefit from a human-at-the-keyboard moment. DP.1 (approval artifact) and DP.2 (worker-undisturbed re-check) are machine-verified gates. The DP.6 pause is the operator-attentiveness gate: if a probe fails or the deploy itself misbehaves, you want the operator looking at the terminal in real time, not in a different tab. The `approve deploy now` phrase is structural friction — the operator types a deliberate three-word phrase (any case/spacing), not a reflexive click — mirroring the existing `APPEND-ONLY` pattern in `install.sh`. Cost: ~5 seconds. Value: no surprise prod cutovers when the operator's attention is elsewhere.
 
-If the operator types anything other than `APPROVE-DEPLOY-NOW`, treat it as an abort. The operator can re-issue the deploy by re-running the deploy handoff in a fresh AI Developer session.
+If the operator's reply isn't the deploy phrase `approve deploy now` (forgiving match — any case/spacing; but not a bare "yes"/"ok"), treat it as an abort. The operator can re-issue the deploy by re-running the deploy handoff in a fresh AI Developer session.
 
 ## Skills the agent invokes
 
@@ -165,7 +165,7 @@ Full list with refusal phrasing in `flow-skills/role-discipline/references/ai-de
 | DP.3 | Don't mark spec DRAFT→DONE without the deploy hash captured (no "TBD" / "see commit") |
 | DP.4 | Don't split deploy docs across multiple commits — one bundled docs commit |
 | DP.5 | Don't mark spec DONE if any post-deploy probe or smoke prompt failed |
-| DP.6 | Don't run the deploy command without the operator typing the literal `APPROVE-DEPLOY-NOW` phrase |
+| DP.6 | Don't run the deploy command without the operator replying `approve deploy now` (forgiving match — any case/spacing; not a bare "yes"/"ok") |
 | DP.9 | Don't use popup / clickable menu tools for deploy confirmations or recovery choices |
 | DP.10 | Don't mark deploy smoke PASS without outcome evidence and ground-truth diagnostics |
 | DP.11 | Don't delegate deploy side effects; delegation during deploy is read-only triage only |
@@ -231,8 +231,8 @@ If cookie / session-key handling is detected by the secret scanner (`policies/se
 | Locked decision contradicts code reality | STOP. Surface to PO via chat. Use IM.2 refusal phrasing. (IM.2) |
 | Operator request would violate IM/DP don't-list | Refuse with section's exact phrasing |
 | Working tree was dirty when starting T1 | Refuse to start. Demand `git status --short` clean (IM.10) |
-| Approval artifact(s) missing during Deploy | Present the full scope; on the operator's DP.6 phrase, author every required artifact yourself (`approve-local.sh <action> <slug> 'APPROVE-DEPLOY-NOW'` per action) and deploy — for ALL tickets. Do NOT refuse and do NOT direct the operator to run approval commands. Authoring WITHOUT the phrase is self-approval and forbidden (DP.1; see DP.6 row) |
-| Operator's response to the DP.6 confirm prompt is anything other than `APPROVE-DEPLOY-NOW` | Abort the deploy. Surface the abort. Operator can re-issue the deploy in a fresh session (DP.6) |
+| Approval artifact(s) missing during Deploy | Present the full scope; on the operator's DP.6 phrase, author every required artifact yourself (`approve-local.sh <action> <slug> 'approve deploy now'` per action) and deploy — for ALL tickets. Do NOT refuse and do NOT direct the operator to run approval commands. Authoring WITHOUT the phrase is self-approval and forbidden (DP.1; see DP.6 row) |
+| Operator's response to the DP.6 confirm prompt isn't the deploy phrase `approve deploy now` (forgiving match) | Abort the deploy. Surface the abort. Operator can re-issue the deploy in a fresh session (DP.6) |
 | Probe / smoke failed during Deploy | Surface failure; do NOT mark DONE (DP.5) |
 
 ## Output style

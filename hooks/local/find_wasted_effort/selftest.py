@@ -200,6 +200,20 @@ def _evidence_sourcing_cases(check_bool):
     fired = E.collect_firing_evidence(together)
     check_bool("evidence: abort+APPROVE-DEPLOY-NOW within ONE report DOES fire",
                "unattended-prod-cutover" in fired, True)
+    # (c2) v4.3.3 forgiving phrase — the SPACE and mixed-separator forms fire (separator-agnostic).
+    for form in ("approve deploy now", "Approve-Deploy  Now"):
+        rep = [("docs/specs/z/deploy-report.md",
+                f"# Deploy report\n## Status\nDeploy aborted: operator never typed {form}.\n")]
+        fired = E.collect_firing_evidence(rep)
+        check_bool(f"evidence: abort+'{form}' within ONE report DOES fire",
+                   "unattended-prod-cutover" in fired, True)
+    # (c3) bounded match — embedded / negated / spillover forms must NOT fire (no false cutover).
+    for bad in ("approvedeploynow", "disapprove deploy now", "approve deploy nowhere"):
+        rep = [("docs/specs/z/deploy-report.md",
+                f"# Deploy report\n## Status\nDeploy aborted: token {bad} was malformed.\n")]
+        fired = E.collect_firing_evidence(rep)
+        check_bool(f"evidence: abort+'{bad}' (not the phrase) does NOT fire",
+                   "unattended-prod-cutover" not in fired, True)
 
     # (d) artifact_kind classifies the recorded-report vs instructional surfaces.
     check_bool("evidence: gate-report classified recorded",

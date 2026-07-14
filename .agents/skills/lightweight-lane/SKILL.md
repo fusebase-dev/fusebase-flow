@@ -52,7 +52,7 @@ Classify **Full** or **Lightweight** when the ticket is opened. `requirements-sp
 | Planning artifacts | spec.md + decisions.md + tasks.md + verification-gate.md | **One change-note** (problem · change · how verified · rollback · tier) — inline in the commit body or `docs/changes/<date>-<slug>.md` |
 | Handoffs | implement-handoff + deploy-handoff | **One** combined note, or none (inline) |
 | Agent passes | build-agent (stop at gate) → separate deploy-agent | **One agent pass**: build → live-verify → deploy in a single run (no redundant rebuild) |
-| Deploy approval | DP.1 JSON artifact + DP.6 literal magic phrase | **One explicit plain operator go-ahead** ("ship it"); no magic phrase, no hand-authored JSON |
+| Deploy approval | DP.1 JSON artifact + DP.6 deploy phrase (`approve deploy now`) | **One explicit plain operator go-ahead** ("ship it"); no deploy phrase, no hand-authored JSON |
 | Verification | full gate report (P1..Pn) | **Live-proof kept**, the 3-question empirical test still applied to the one acceptance criterion, reported in 1–3 lines |
 | Traceability | full counter + index + backlog updates | **Minimal**: `change_tier: lightweight` + the commit SHA recorded in the commit body (always); an optional one-line ledger entry if the project keeps one |
 
@@ -67,7 +67,7 @@ Classify **Full** or **Lightweight** when the ticket is opened. `requirements-sp
 ## What LL DROPS (planning/traceability overhead, not safety)
 
 - Separate spec / decisions / tasks / verification-gate / two handoff docs / DP.1 artifact.
-- The DP.6 literal magic phrase (replaced by a plain explicit go-ahead).
+- The DP.6 deploy phrase (replaced by a plain explicit go-ahead).
 - The build-then-deploy two-agent split (→ no redundant rebuild).
 - The long-form gate report (replaced by a 1–3 line live-proof summary).
 

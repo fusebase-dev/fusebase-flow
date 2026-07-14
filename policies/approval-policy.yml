@@ -29,8 +29,8 @@ require_approval:
     # matching value. Backward-compat: a flat integer here also works (legacy
     # v1 schema).
     #
-    # Why mode-aware: in solo direct-to-main, DP.6 (the APPROVE-DEPLOY-NOW
-    # magic phrase typed at deploy time) is the real per-deploy gate. The
+    # Why mode-aware: in solo direct-to-main, DP.6 (the `approve deploy now`
+    # phrase typed at deploy time) is the real per-deploy gate. The
     # artifact's TTL serves only stale-state protection, which barely matters
     # for one operator iterating on one machine. 60 min was over-engineered
     # for solo and produced friction during multi-attempt deploy debugging.
@@ -45,10 +45,11 @@ require_approval:
     # artifact stays mandatory and on-disk, but the gate does NOT check its author
     # (command_policy.py checks filename + expires_at only). So the Deploy session AUTHORS
     # every required approval artifact on the operator's behalf once the operator types the
-    # literal DP.6 phrase — for ALL tickets, INCLUDING database_migration,
+    # DP.6 phrase (`approve deploy now`) — for ALL tickets, INCLUDING database_migration,
     # auth_or_permission_change, protected_path_edit, secret_file_write — never forcing the
     # operator to run commands (`bash hooks/local/approve-local.sh <action> <slug>
-    # 'APPROVE-DEPLOY-NOW'`). The typed phrase IS the authorization; authoring WITHOUT it is
+    # 'approve deploy now'`). The typed phrase (forgiving match — any case/spacing of "approve
+    # deploy now") IS the authorization; authoring WITHOUT it is
     # self-approval and forbidden. For sensitive classes, PRESENT the full scope in chat
     # BEFORE the phrase so it is informed consent (an action not presented is not covered).
     # `dp1_waiver: eligible` (reversible + no sensitive surface) is the minimal-scope

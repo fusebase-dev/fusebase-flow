@@ -42,7 +42,7 @@
     },
     {
       "path": "hooks/local/approve-local.sh",
-      "sha256": "90301d4a8598d3be47c52de9b8c202bc48cdec5b238954d3564344d63b3a102e"
+      "sha256": "0a4b0145e5cd90afebdd648837aeb6dc0511d6a5f94a70892bd59d9f173b4d9b"
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
@@ -397,5 +397,5 @@
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "ba5062b788d16ea48581a9ce1fcecf2bdaf4942a7fd0cf1532540266050ec03e"
+  "manifest_self_sha256": "b7bec6bf9bc34bffaa3d7d505f3d06b6eaf7a8fed24af59b47f41b37dde05a6b"
 }

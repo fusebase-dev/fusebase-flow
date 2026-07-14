@@ -741,7 +741,9 @@ def collect_firing_evidence(artifacts):
                  ("drift" in low and "detected" in low)):
             fired.add("silent-protected-path-drift")
         # an unattended-cutover catch: BOTH tokens must appear in THIS report's
-        # outcome text (per-artifact), describing a real aborted cutover.
-        if "abort" in low and "approve-deploy-now" in low:
+        # outcome text (per-artifact), describing a real aborted cutover. The deploy
+        # phrase is separator-agnostic (v4.3.3 forgiving match): "approve deploy now",
+        # "approve-deploy-now", any case — all count.
+        if "abort" in low and re.search(r"(?<!\w)approve[\s-]+deploy[\s-]+now(?!\w)", low):
             fired.add("unattended-prod-cutover")
     return fired

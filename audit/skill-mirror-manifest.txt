@@ -18,7 +18,7 @@
 .agents/skills/git-history-diagnostic/SKILL.md  c6d7cb33a4c64db6464dcfff158d00cf84d3b802f5bbd2afa6592c3d0614890c
 .agents/skills/handoff/SKILL.md  679fe59e24fe7bdd2cf7647e886ac9b4d6e79513e73c9f6c6d55e719e9e01614
 .agents/skills/implementation-planning/SKILL.md  09e39f95ae6895aea8c958579b4e2a5d7679e03c33e50751e4ebbf8729ccc6a0
-.agents/skills/lightweight-lane/SKILL.md  c97f01cb78f5b8a6925bdf258b121e094f04d8474131fe2ba5fe19abda83261d
+.agents/skills/lightweight-lane/SKILL.md  842f209a91a7886a2cd2f3916be7a2a6e0c3091c9d75e3854d32c54cff412db3
 .agents/skills/liveness-discipline/SKILL.md  3e3e5bd91813ce8f7ed5011389ba9a012d9651d044d8556664988e6ca7abc143
 .agents/skills/module-size-discipline/SKILL.md  192702fd3774df95f6c1bbac08a58fce0e36603ee594bd43df7e8dfcb18d6120
 .agents/skills/north-star/SKILL.md  53d83bae6f5539c134a995c80ec3ef9f59178b9aee7e2cd8870c73379c7ba89d
@@ -30,10 +30,10 @@
 .agents/skills/release-deploy-reporting/SKILL.md  5970d19f7accfccc6cb6090f32594b093f6ee79a4edb1a47f02aad4c6dc734a7
 .agents/skills/repo-onboarding-context-map/SKILL.md  d0e8c40165353b454a7ee48cc77edc77bc136de1e35cafef1cd86046ed1c19c0
 .agents/skills/requirements-specification/SKILL.md  497d6128bee8d9c70f90091ac6f54d0ea4efc38dcf2e7d8883fd88be68ccf57a
-.agents/skills/role-discipline/SKILL.md  569c62b3db8b0401a26ff2395d79877564eb3d27eccebf49a456b482994fb027
+.agents/skills/role-discipline/SKILL.md  fe9c8ba1bec13ceceffa525819bfeb6eab4bb9861060bb2aa997e26391c1436e
 .agents/skills/role-discipline/references/ai-developer.md  140da055ffd1d560bec5b504c21dfa7194901af089be4ad12c66c60935e5a657
 .agents/skills/role-discipline/references/architect.md  fd7f0edf600a618b34284e61025b7ad97ad51fd2e2dfa005eec6596cac996744
-.agents/skills/role-discipline/references/deploy.md  83213a270806a1e5845d5d92c0b8f1a24486dc13be5210aa7c2c125d5b73ecbe
+.agents/skills/role-discipline/references/deploy.md  e2084988d93cb9719c2bbc87eef8bdc44047509f4da02c8a13221d042a2fb966
 .agents/skills/role-discipline/references/product-owner.md  2910f4f0d6dca8c717868efcb0e9db32aa1d8975a1b39e056a780f5b0655297c
 .agents/skills/security-permissions-review/SKILL.md  23dfff25d3f60fff9d3f8d34e1fd40a46bc24b26b0e2bb8554159b4dd0016825
 .agents/skills/skill-authoring/SKILL.md  7a42bdeda00698c6dc8b0e95139ce2610a3e1a15e690fefa56d83353a0053b28
@@ -62,7 +62,7 @@
 .claude/skills/git-history-diagnostic/SKILL.md  c6d7cb33a4c64db6464dcfff158d00cf84d3b802f5bbd2afa6592c3d0614890c
 .claude/skills/handoff/SKILL.md  679fe59e24fe7bdd2cf7647e886ac9b4d6e79513e73c9f6c6d55e719e9e01614
 .claude/skills/implementation-planning/SKILL.md  09e39f95ae6895aea8c958579b4e2a5d7679e03c33e50751e4ebbf8729ccc6a0
-.claude/skills/lightweight-lane/SKILL.md  c97f01cb78f5b8a6925bdf258b121e094f04d8474131fe2ba5fe19abda83261d
+.claude/skills/lightweight-lane/SKILL.md  842f209a91a7886a2cd2f3916be7a2a6e0c3091c9d75e3854d32c54cff412db3
 .claude/skills/liveness-discipline/SKILL.md  3e3e5bd91813ce8f7ed5011389ba9a012d9651d044d8556664988e6ca7abc143
 .claude/skills/module-size-discipline/SKILL.md  192702fd3774df95f6c1bbac08a58fce0e36603ee594bd43df7e8dfcb18d6120
 .claude/skills/north-star/SKILL.md  53d83bae6f5539c134a995c80ec3ef9f59178b9aee7e2cd8870c73379c7ba89d
@@ -74,10 +74,10 @@
 .claude/skills/release-deploy-reporting/SKILL.md  5970d19f7accfccc6cb6090f32594b093f6ee79a4edb1a47f02aad4c6dc734a7
 .claude/skills/repo-onboarding-context-map/SKILL.md  d0e8c40165353b454a7ee48cc77edc77bc136de1e35cafef1cd86046ed1c19c0
 .claude/skills/requirements-specification/SKILL.md  497d6128bee8d9c70f90091ac6f54d0ea4efc38dcf2e7d8883fd88be68ccf57a
-.claude/skills/role-discipline/SKILL.md  569c62b3db8b0401a26ff2395d79877564eb3d27eccebf49a456b482994fb027
+.claude/skills/role-discipline/SKILL.md  fe9c8ba1bec13ceceffa525819bfeb6eab4bb9861060bb2aa997e26391c1436e
 .claude/skills/role-discipline/references/ai-developer.md  140da055ffd1d560bec5b504c21dfa7194901af089be4ad12c66c60935e5a657
 .claude/skills/role-discipline/references/architect.md  fd7f0edf600a618b34284e61025b7ad97ad51fd2e2dfa005eec6596cac996744
-.claude/skills/role-discipline/references/deploy.md  83213a270806a1e5845d5d92c0b8f1a24486dc13be5210aa7c2c125d5b73ecbe
+.claude/skills/role-discipline/references/deploy.md  e2084988d93cb9719c2bbc87eef8bdc44047509f4da02c8a13221d042a2fb966
 .claude/skills/role-discipline/references/product-owner.md  2910f4f0d6dca8c717868efcb0e9db32aa1d8975a1b39e056a780f5b0655297c
 .claude/skills/security-permissions-review/SKILL.md  23dfff25d3f60fff9d3f8d34e1fd40a46bc24b26b0e2bb8554159b4dd0016825
 .claude/skills/skill-authoring/SKILL.md  7a42bdeda00698c6dc8b0e95139ce2610a3e1a15e690fefa56d83353a0053b28

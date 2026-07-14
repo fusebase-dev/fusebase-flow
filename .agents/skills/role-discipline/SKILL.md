@@ -166,7 +166,7 @@ The operator's ONLY gate / approval action is a decision expressed **in chat**. 
 
 | Gate | Operator does (chat only) | Agent does (on that approval) — in the owning role |
 |---|---|---|
-| Deploy — Full lane (DP.6) | types the literal `APPROVE-DEPLOY-NOW` phrase | **Deploy session** authors every `approve-local.sh` artifact + runs the deploy |
+| Deploy — Full lane (DP.6) | types `approve deploy now` (forgiving — any case/spacing; nothing to compose) | **Deploy session** authors every `approve-local.sh` artifact + runs the deploy |
 | Deploy — Lightweight lane (DP.12) | plain go-ahead ("ship it") | **AI Developer** records the go-ahead + deploys in the same pass |
 | Flow-internals protected-path edit (FR-07: `hooks/**`, `policies/*.yml`, `FLOW_RULES.md`, `.github/workflows/**`) | OKs the specific edit in chat | mints the digest-bound bootstrap approval (`write-bootstrap-approval.sh`), commits, consumes |
 | Module-size adoption (FR-25) | OKs adopting the baseline in chat | runs `--write-baseline`, commits, consumes |
@@ -189,7 +189,7 @@ Every turn, every role, every output ends with a **next forward action** — nev
 | Forward action examples (allowed) | Retreat-disguised-as-advice (forbidden) |
 |---|---|
 | "Reply with `A`, `B`, or `C` to lock decision X." | "You might want to close this and continue tomorrow." |
-| "Switch to the Deploy session and type `APPROVE-DEPLOY-NOW`." | "Let's let this bake for a few hours." |
+| "Switch to the Deploy session and reply `approve deploy now`." | "Let's let this bake for a few hours." |
 | "Run `bash hooks/local/post-fusebase-update.sh` to refresh the overlay." | "Save it for tomorrow when you're fresh." |
 | "Open the gate report file at `<path>` and paste it back to PO chat." | "Ready to wrap up?" |
 | "No pending action — your call on what's next." | "I'd stop here." |

@@ -99,7 +99,7 @@ coverage:
     scope and is a candidate for a later annotation pass.
   annotated_elements:
     - file: templates/handoff-deploy.md
-      element: "DP.6 magic-phrase confirm (APPROVE-DEPLOY-NOW)"
+      element: "DP.6 deploy-phrase confirm (approve deploy now)"
       prevents: [unattended-prod-cutover]
       severity: catastrophic-low-frequency
     - file: templates/handoff-deploy.md

@@ -15,6 +15,15 @@ Public release versions ship as annotated git tags on `main`. Per-version detail
 - Added `hooks/tests/test-codex-plugin-surface.sh` and wired it into the test runner/preflight surfaces that protect the Codex plugin manifest, Product Owner skill mirror, and skill-trigger text.
 - Updated install, compatibility, backlog, publishing, upgrade, and mirror-count docs for 33 canonical Flow skills and the new `.codex-plugin/` distribution surface.
 
+### Changed - deploy-approval phrase made natural & forgiving (operator UX)
+
+Operator report: an agent asked them to type a long composed sentence — *"Publish M12-A #272 to production — auth/permission change approved. APPROVE-DEPLOY-NOW"* — plus "(or your words + the phrase)", bundled with three unrelated questions. The one gate we deliberately keep (the deploy phrase) had become ceremonious.
+
+- **Forgiving phrase.** The Full-lane DP.6 deploy-approval phrase is now **`approve deploy now`** with a **forgiving match**: any case / spacing / hyphenation counts (`approve deploy now`, `Approve Deploy Now`, legacy `APPROVE-DEPLOY-NOW` all still pass), but it must be that deliberate three-word phrase — a bare `yes`/`ok`/`go` still does NOT count (the ~5s attentiveness friction survives; Lightweight-lane DP.12 keeps its plain go-ahead). This is a **behavioral gate only** — `approve-local.sh` takes the reason as free text and enforcement (`command_policy.py`) checks the artifact filename + `expires_at`, never the phrase — so NO enforcement changed.
+- **Presentation guardrail.** The operator types **only** the phrase; the agent must never ask them to compose a sentence, prepend the ticket/scope, type "your words + the phrase", or answer other questions in the same message — scope is the agent's own one-line summary shown above the ask. Reworded across `deploy.md` (DP.1/DP.6/DP.9/DP.12), the Operator Gate Protocol, `greenlight-deploy.md`, `ai-developer` AGENT, `lightweight-lane`, the deploy templates, `approval-policy.yml` + `ratchet-governance.yml`, and the provider security rules.
+- **Audit detector** (`find_wasted_effort/evidence.py`) made separator-agnostic (bounded, word-boundaried regex) so aborted-cutover detection recognizes any phrase form without false positives; selftest extended with mixed-separator + negative cases.
+- Reviewed by Codex gpt-5.6-sol (High): 2 blockers + 1 medium (stale hook manifest, mid-edit mirror drift, regex over-match) found and fixed before ship.
+
 ## [4.3.2] — 2026-07-10
 
 ### Changed — operator-gate friction removed framework-wide · Fixed — mirror robustness + FR-25 `--write-baseline` hardening

@@ -16,7 +16,7 @@ These instructions apply when changes touch auth, permissions, secrets, env file
 
 ## Approval artifacts
 
-If an action requires approval per `policies/approval-policy.yml`, an approval artifact must exist on disk. **The agent authors it on the operator's approval — never the operator by hand at a terminal.** For a Full-lane deploy, on the DP.6 phrase `APPROVE-DEPLOY-NOW` (Lightweight lane: a plain chat go-ahead, recorded via `approve-local.sh lightweight_deploy` — DP.12); for any other approval-gated action (protected-path edit, FR-25 baseline adoption, database migration, auth/permission change), once the operator OKs that specific action in chat. Authoring with NO operator authorization is self-approval and forbidden:
+If an action requires approval per `policies/approval-policy.yml`, an approval artifact must exist on disk. **The agent authors it on the operator's approval — never the operator by hand at a terminal.** For a Full-lane deploy, on the DP.6 phrase `approve deploy now` (forgiving — any case/spacing; legacy `APPROVE-DEPLOY-NOW` also passes) — the operator types only the phrase, never a composed sentence (Lightweight lane: a plain chat go-ahead, recorded via `approve-local.sh lightweight_deploy` — DP.12); for any other approval-gated action (protected-path edit, FR-25 baseline adoption, database migration, auth/permission change), once the operator OKs that specific action in chat. Authoring with NO operator authorization is self-approval and forbidden:
 
 ```
 state/approvals/<action>-<slug>-<YYYYMMDD>.json

@@ -33,7 +33,7 @@ You are an AI Developer Deploy-phase session that has just completed T<deploy> (
 | Check | Result |
 |---|---|
 | DP.1: approval artifact exists + unexpired | ✓ |
-| DP.6: operator typed `APPROVE-DEPLOY-NOW` literal | ✓ |
+| DP.6: operator typed the deploy phrase (`approve deploy now`) | ✓ |
 | Final worker-undisturbed re-check | ✓ (all protected paths empty diff) |
 
 ---
@@ -111,7 +111,7 @@ Per IM.11 (v2.8.0+), separate active deploy work from operator-wait time. Retros
 
 | Phase | Started (UTC) | Ended (UTC) | Wall-clock |
 |---|---|---|---|
-| Operator typed `APPROVE-DEPLOY-NOW` → deploy command started | `<HH:MM:SS>` | `<HH:MM:SS>` | `<m:ss>` |
+| Operator typed `approve deploy now` → deploy command started | `<HH:MM:SS>` | `<HH:MM:SS>` | `<m:ss>` |
 | Deploy command running | `<HH:MM:SS>` | `<HH:MM:SS>` | `<m:ss>` |
 | Probes running | `<HH:MM:SS>` | `<HH:MM:SS>` | `<m:ss>` |
 | Smoke prompts running (if any) | `<HH:MM:SS>` | `<HH:MM:SS>` | `<m:ss>` |
@@ -199,6 +199,6 @@ When filling this template, the Deploy phase should consult `templates/reference
 
 ## Why the operator-relay block matters (FR-16 / v2.6.0)
 
-The operator just typed `APPROVE-DEPLOY-NOW` and waited 5–8 minutes. They want to know two things: **did it work?** and **what do I do now?** The relay block answers both in 10 lines. The technical body is for the PO to verify; the operator doesn't have to read it.
+The operator just typed `approve deploy now` and waited 5–8 minutes. They want to know two things: **did it work?** and **what do I do now?** The relay block answers both in 10 lines. The technical body is for the PO to verify; the operator doesn't have to read it.
 
 Pre-v2.6.0, deploy reports were 50-line technical documents the operator had to skim. Per FR-16, that's friction we now remove.

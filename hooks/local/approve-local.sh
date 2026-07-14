@@ -4,9 +4,10 @@
 # defined in policies/approval-policy.yml.
 #
 # WHO RUNS THIS: the operator, OR the Deploy/AI-Developer session ON THE OPERATOR'S
-# BEHALF once the operator has given the authorization signal — the DP.6 magic phrase
-# `APPROVE-DEPLOY-NOW` (Full lane) or a plain go-ahead (Lightweight lane, DP.12). The
-# phrase/go-ahead IS the authorization; this artifact is bookkeeping the deploy gate
+# BEHALF once the operator has given the authorization signal — the DP.6 deploy phrase
+# `approve deploy now` (Full lane; forgiving match — any case/spacing) or a plain go-ahead
+# (Lightweight lane, DP.12). The phrase/go-ahead IS the authorization; the artifact is
+# bookkeeping the deploy gate
 # consumes (it checks the file + `expires_at`, NOT the author). Do NOT force the operator
 # to run this by hand after they've approved in chat. Authoring an approval WITHOUT that
 # operator signal is self-approval and is forbidden (role-discipline Deploy phase DP.1).
@@ -14,7 +15,7 @@
 # Usage:
 #   bash hooks/local/approve-local.sh <action> <slug> [reason]
 # Example (Deploy session, on the operator's typed DP.6 phrase):
-#   bash hooks/local/approve-local.sh production_deploy priority-fix 'APPROVE-DEPLOY-NOW'
+#   bash hooks/local/approve-local.sh production_deploy priority-fix 'approve deploy now'
 
 set -euo pipefail
 
