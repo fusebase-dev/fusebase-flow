@@ -46,7 +46,7 @@
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
-      "sha256": "fe4cee1a3c0955dbf5534362f2998537de37babdeed3812cadc4fab25dd1a25f"
+      "sha256": "003b10970ca4d1641d0c6794e7de523d742dad4f8522f5ea59560abedd0697d9"
     },
     {
       "path": "hooks/local/check-cli-flow-conflicts.sh",
@@ -114,7 +114,7 @@
     },
     {
       "path": "hooks/local/post-fusebase-update.sh",
-      "sha256": "ed5874e0650f4a443466c0c7706e008b7f230a6fd2530fbbc6d492e3a7bca77c"
+      "sha256": "cd4c2cb28ff2e975ed89c73837bd7c6d96cd647361804606614e0fefe6680f4f"
     },
     {
       "path": "hooks/local/preflight.sh",
@@ -142,7 +142,7 @@
     },
     {
       "path": "hooks/local/upgrade.sh",
-      "sha256": "73667d302c58a9c4532eee1e6f394340ec0e8168a2cd8fd0f779863accee5260"
+      "sha256": "27965be3ecb695adb02d5552bf33728f97f8475d673d5f8606ee4dbfb8ce3d56"
     },
     {
       "path": "hooks/local/verify-gate.sh",
@@ -397,5 +397,5 @@
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "547ce5b8c662ede4b1c5c1206215646e02847260484f4e41dfa00fd8d5610bdd"
+  "manifest_self_sha256": "183e1a98aab6c0e230224c9b4b5fb014da00b498270f05e9b4041db07296ca23"
 }

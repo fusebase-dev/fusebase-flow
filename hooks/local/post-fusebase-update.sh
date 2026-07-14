@@ -32,8 +32,8 @@ cd "$ROOT"
 # wholesale add clean (field escalation, v4.3.2). Local + idempotent.
 ff_git_exclude_backups() {
   local ex line d
-  ex="$(git rev-parse --git-path info/exclude 2>/dev/null)" || return 1
-  [ -n "$ex" ] || return 1
+  ex="$(git rev-parse --git-path info/exclude 2>/dev/null)" || return 0   # not a git repo -> no staging risk -> no-op
+  [ -n "$ex" ] || return 0
   mkdir -p "$(dirname "$ex")" 2>/dev/null || return 1
   [ -e "$ex" ] && { [ -r "$ex" ] || return 1; }
   if [ -s "$ex" ] && [ -n "$(tail -c1 "$ex" 2>/dev/null)" ]; then
@@ -83,10 +83,10 @@ if [ ! -d "$OVERLAYS" ]; then
 fi
 
 # Git-exclude the .pre-refresh backups this recovery drops (after arg parsing, so --help is
-# a pure no-op). Failure -> WARNINGS so the parent (upgrade.sh) surfaces it, not a lost echo.
-if ! ff_git_exclude_backups; then
-  WARNINGS+=("could not update .git/info/exclude — .pre-refresh backups may be stageable by a later 'git add -A' (delete or unstage them before committing)")
-fi
+# a pure no-op). Best-effort + NON-fatal: a non-git dir is a no-op success (helper returns
+# 0); a genuine write failure in a git repo is a plain note — NOT a WARNING (which would
+# `exit 1` below and wrongly fail an overlay recovery that actually succeeded).
+ff_git_exclude_backups || echo "[post-fusebase-update] note: could not update .git/info/exclude — .pre-refresh backups may be stageable by a later 'git add -A' (delete or unstage them before committing)." >&2
 
 TS_REFRESH=$(date -u +%Y%m%dT%H%M%SZ)
 

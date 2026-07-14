@@ -329,10 +329,12 @@ fi
 ff_git_exclude_backups() {
   local ex line d
   # git-path resolves info/exclude to the COMMON dir for linked worktrees (--git-dir would
-  # point at .git/worktrees/<id>/, whose info/exclude git does NOT read). Return NONZERO on
-  # any failure so the caller WARNs (never silently claims the backups are git-excluded).
-  ex="$(git rev-parse --git-path info/exclude 2>/dev/null)" || return 1
-  [ -n "$ex" ] || return 1
+  # point at .git/worktrees/<id>/, whose info/exclude git does NOT read). NOT a git repo (or
+  # git unavailable) => no `git add -A` staging risk => nothing to exclude => success no-op
+  # (return 0). Only a real WRITE failure inside a git repo returns nonzero (so the caller
+  # can note it without silently claiming the backups are git-excluded).
+  ex="$(git rev-parse --git-path info/exclude 2>/dev/null)" || return 0
+  [ -n "$ex" ] || return 0
   mkdir -p "$(dirname "$ex")" 2>/dev/null || return 1
   # If the file exists it must be READABLE (so grep rc1 = "absent" is trustworthy, not an I/O
   # error) and, if non-empty, END IN A NEWLINE — else the first append glues onto an

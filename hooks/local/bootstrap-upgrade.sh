@@ -98,8 +98,8 @@ echo "[bootstrap-upgrade] Source VERSION: $(tr -d '\n\r' < "$SOURCE_CLONE/VERSIO
 # .pre-bootstrap ones) keeps a wholesale add clean (field escalation, v4.3.2). Local + idempotent.
 ff_git_exclude_backups() {
   local ex line d
-  ex="$(git rev-parse --git-path info/exclude 2>/dev/null)" || return 1
-  [ -n "$ex" ] || return 1
+  ex="$(git rev-parse --git-path info/exclude 2>/dev/null)" || return 0   # not a git repo -> no staging risk -> no-op
+  [ -n "$ex" ] || return 0
   mkdir -p "$(dirname "$ex")" 2>/dev/null || return 1
   [ -e "$ex" ] && { [ -r "$ex" ] || return 1; }
   if [ -s "$ex" ] && [ -n "$(tail -c1 "$ex" 2>/dev/null)" ]; then
