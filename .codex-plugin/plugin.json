@@ -1,6 +1,6 @@
 {
   "name": "fusebase-flow",
-  "version": "4.4.0",
+  "version": "4.4.1",
   "description": "Spec-to-deploy AI app-development workflow for client-facing teams, packaged with FuseBase Apps domain skills.",
   "author": {
     "name": "FuseBase (Nimbus Web Inc.)",
