@@ -91,6 +91,34 @@ if [ ! -f "$SOURCE_CLONE/VERSION" ]; then
 fi
 echo "[bootstrap-upgrade] Source VERSION: $(tr -d '\n\r' < "$SOURCE_CLONE/VERSION")"
 
+# Git-exclude the *.pre-*-<ts> backup snapshots we are about to drop, so a downstream
+# `git add -A` (notably FuseBase CLI's `fusebase update` checkpoint) never stages them.
+# upgrade.sh's hooks.pre-upgrade/policies.pre-upgrade snapshots carry the OLD secret-scan
+# fixtures that HARD-BLOCK such a checkpoint; git-excluding ALL backup families (incl. these
+# .pre-bootstrap ones) keeps a wholesale add clean (field escalation, v4.3.2). Local + idempotent.
+ff_git_exclude_backups() {
+  local ex line d
+  ex="$(git rev-parse --git-path info/exclude 2>/dev/null)" || return 1
+  [ -n "$ex" ] || return 1
+  mkdir -p "$(dirname "$ex")" 2>/dev/null || return 1
+  [ -e "$ex" ] && { [ -r "$ex" ] || return 1; }
+  if [ -s "$ex" ] && [ -n "$(tail -c1 "$ex" 2>/dev/null)" ]; then
+    printf '\n' >> "$ex" 2>/dev/null || return 1
+  fi
+  d='[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]T[0-9][0-9][0-9][0-9][0-9][0-9]Z'
+  for line in \
+    "# Fusebase Flow upgrade/refresh backups (transient; keep until validated) — never stage them." \
+    "*.pre-upgrade-$d" \
+    "*.pre-bootstrap-$d" \
+    "*.pre-refresh-$d"; do
+    if ! grep -qxF "$line" "$ex" 2>/dev/null; then
+      printf '%s\n' "$line" >> "$ex" 2>/dev/null || return 1
+    fi
+  done
+  return 0
+}
+ff_git_exclude_backups || echo "[bootstrap-upgrade] WARN: could not update .git/info/exclude — backups may be stageable by a later 'git add -A' (delete or unstage before committing)." >&2
+
 # ---- Step 2: copy the engine scripts in (with backups) ----
 ENGINE_SCRIPTS=(
   "hooks/local/upgrade.sh"
@@ -116,7 +144,7 @@ for s in "${ENGINE_SCRIPTS[@]}"; do
 done
 # Overlay templates the engine needs (post-fusebase-update / refresh).
 if [ -d "$SOURCE_CLONE/hooks/local/fusebase-flow-overlays" ]; then
-  [ -d hooks/local/fusebase-flow-overlays ] && cp -R hooks/local/fusebase-flow-overlays "hooks/local/fusebase-flow-overlays.pre-bootstrap-$TS"
+  [ -d hooks/local/fusebase-flow-overlays ] && [ ! -e "hooks/local/fusebase-flow-overlays.pre-bootstrap-$TS" ] && cp -R hooks/local/fusebase-flow-overlays "hooks/local/fusebase-flow-overlays.pre-bootstrap-$TS"
   mkdir -p hooks/local/fusebase-flow-overlays
   cp -R "$SOURCE_CLONE/hooks/local/fusebase-flow-overlays/." hooks/local/fusebase-flow-overlays/
 fi
@@ -125,7 +153,7 @@ fi
 # the merge function is undefined when Step 1a runs and the W2 baseline-clobber fix
 # silently no-ops on the adoption hop. Stage the WHOLE dir (future libs too).
 if [ -d "$SOURCE_CLONE/hooks/local/lib" ]; then
-  [ -d hooks/local/lib ] && cp -R hooks/local/lib "hooks/local/lib.pre-bootstrap-$TS"
+  [ -d hooks/local/lib ] && [ ! -e "hooks/local/lib.pre-bootstrap-$TS" ] && cp -R hooks/local/lib "hooks/local/lib.pre-bootstrap-$TS"
   mkdir -p hooks/local/lib
   cp -R "$SOURCE_CLONE/hooks/local/lib/." hooks/local/lib/
   chmod +x hooks/local/lib/*.sh 2>/dev/null || true

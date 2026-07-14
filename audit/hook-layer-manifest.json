@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "flow_version": "4.4.0",
+  "flow_version": "4.4.1",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
   "asset_count": 98,
   "assets": [
@@ -10,7 +10,7 @@
     },
     {
       "path": "hooks/git/pre-commit",
-      "sha256": "cd8d45c220b2ae9bebb831e879307c7a0eb47fd4f0e4e629a2f766167ec0cb33"
+      "sha256": "cfa44732aafacd686724180e4737336bd7cbbbd79b554b3e1df32cefc201ff89"
     },
     {
       "path": "hooks/handlers/permission_request.py",
@@ -46,7 +46,7 @@
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
-      "sha256": "c4f81fcfbba85908f7a93de8853575c2330bd9d89ee55b3cf72754a912e1c4c3"
+      "sha256": "fe4cee1a3c0955dbf5534362f2998537de37babdeed3812cadc4fab25dd1a25f"
     },
     {
       "path": "hooks/local/check-cli-flow-conflicts.sh",
@@ -114,7 +114,7 @@
     },
     {
       "path": "hooks/local/post-fusebase-update.sh",
-      "sha256": "f01dbc8abb6f4ac41a3319c95211fe6e8c8248d07236d619a7785dc10407d882"
+      "sha256": "ed5874e0650f4a443466c0c7706e008b7f230a6fd2530fbbc6d492e3a7bca77c"
     },
     {
       "path": "hooks/local/preflight.sh",
@@ -142,7 +142,7 @@
     },
     {
       "path": "hooks/local/upgrade.sh",
-      "sha256": "37d4775609bac7885044a1cec6a8b108932afb4a1759541b59246c47046162a9"
+      "sha256": "73667d302c58a9c4532eee1e6f394340ec0e8168a2cd8fd0f779863accee5260"
     },
     {
       "path": "hooks/local/verify-gate.sh",
@@ -190,7 +190,7 @@
     },
     {
       "path": "hooks/shared/staged_secret_scan.py",
-      "sha256": "52ea6462aeec71a68fac9cf3aaeeabd100585b34209afa57ae4c035d86b6a414"
+      "sha256": "4d7e59cbdd0fffa1fc3ffe7dcf937c372ff232c70d45c497c0b56e2fde8b3e8a"
     },
     {
       "path": "hooks/tests/fixtures/01_pre_tool_use_blocked_rm_rf.json",
@@ -382,7 +382,7 @@
     },
     {
       "path": "hooks/tests/test-secret-scan-staged.sh",
-      "sha256": "97e497de482026cc2aa134695260e39e53373c96608e75c346824b2791461515"
+      "sha256": "613f960b44d760381edb3b55b55d3b1fc4b21be3cc8f7c134f05f8dc9760fb05"
     },
     {
       "path": "hooks/tests/test-sync-allowlist.sh",
@@ -397,5 +397,5 @@
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "b7bec6bf9bc34bffaa3d7d505f3d06b6eaf7a8fed24af59b47f41b37dde05a6b"
+  "manifest_self_sha256": "547ce5b8c662ede4b1c5c1206215646e02847260484f4e41dfa00fd8d5610bdd"
 }

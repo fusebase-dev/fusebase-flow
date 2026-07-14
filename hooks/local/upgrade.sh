@@ -318,12 +318,58 @@ if [ -f "$BASELINE_REL" ]; then
   cp "$BASELINE_REL" "$LOCAL_BASELINE_SNAPSHOT"
 fi
 
+# Git-exclude the *.pre-*-<ts> backup snapshots we are about to drop, so a downstream
+# `git add -A` (notably FuseBase CLI's `fusebase update` pre-update checkpoint) never
+# stages them. Flow's own backups carry the OLD secret-scan test fixtures (dummy
+# ghp_/sk-ant-/cookie literals), which otherwise trip the pre-commit secret scan and
+# HARD-BLOCK the checkpoint (field escalation, v4.3.2). Local + idempotent. Keep the
+# backups until validated: only previously-COMMITTED content is recoverable from git
+# history; an uncommitted/untracked local customization overwritten during refresh survives
+# only in its backup.
+ff_git_exclude_backups() {
+  local ex line d
+  # git-path resolves info/exclude to the COMMON dir for linked worktrees (--git-dir would
+  # point at .git/worktrees/<id>/, whose info/exclude git does NOT read). Return NONZERO on
+  # any failure so the caller WARNs (never silently claims the backups are git-excluded).
+  ex="$(git rev-parse --git-path info/exclude 2>/dev/null)" || return 1
+  [ -n "$ex" ] || return 1
+  mkdir -p "$(dirname "$ex")" 2>/dev/null || return 1
+  # If the file exists it must be READABLE (so grep rc1 = "absent" is trustworthy, not an I/O
+  # error) and, if non-empty, END IN A NEWLINE — else the first append glues onto an
+  # unterminated last line and the pattern is swallowed (commented out).
+  [ -e "$ex" ] && { [ -r "$ex" ] || return 1; }
+  if [ -s "$ex" ] && [ -n "$(tail -c1 "$ex" 2>/dev/null)" ]; then
+    printf '\n' >> "$ex" 2>/dev/null || return 1
+  fi
+  # EXACT [0-9]{8}T[0-9]{6}Z stamp (date -u +%Y%m%dT%H%M%SZ) — NOT a loose *T*Z, which would
+  # also hide a legit config.pre-upgrade-template.yml / foo.pre-upgrade-TZ. Per-line
+  # idempotency (not a comment sentinel) so a partial prior write self-heals.
+  d='[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]T[0-9][0-9][0-9][0-9][0-9][0-9]Z'
+  for line in \
+    "# Fusebase Flow upgrade/refresh backups (transient; keep until validated) — never stage them." \
+    "*.pre-upgrade-$d" \
+    "*.pre-bootstrap-$d" \
+    "*.pre-refresh-$d"; do
+    if ! grep -qxF "$line" "$ex" 2>/dev/null; then
+      printf '%s\n' "$line" >> "$ex" 2>/dev/null || return 1
+    fi
+  done
+  return 0
+}
+if ff_git_exclude_backups; then FF_BACKUPS_GITIGNORED=1; else
+  FF_BACKUPS_GITIGNORED=0
+  echo "[upgrade] WARN: could not update .git/info/exclude — upgrade backups may be stageable by a later 'git add -A' (delete or unstage them before committing)." >&2
+fi
+
 # ---- Step 1: refresh canonical content (with backups) ----
 echo "[upgrade] Step 1/5: refreshing canonical content (${#CONTENT_DIRS[@]} dir(s) + ${#CONTENT_FILES[@]} file(s))…"
 copy_dir() {
   local d="$1"
   [ -d "$SOURCE_CLONE/$d" ] || return 0
-  if [ -d "$d" ]; then cp -R "$d" "$d.pre-upgrade-$TS"; fi
+  # Guard the dest: GNU `cp -R src existing-dir` copies INTO it (a same-second $TS collision
+  # / retry would yield `<d>.pre-upgrade-<ts>/<d>/tests/fixtures/…` — nested, so the scanner's
+  # root-anchored fixture exclusion would miss it). A backup at this $TS already exists ⇒ skip.
+  if [ -d "$d" ] && [ ! -e "$d.pre-upgrade-$TS" ]; then cp -R "$d" "$d.pre-upgrade-$TS"; fi
   # Replace contents (canonical is source of truth; do not delete extra local files
   # blindly — copy upstream over, leaving any project-local additions in place).
   mkdir -p "$d"   # new dir on first migration (e.g. flow-skills/ on a pre-3.9.0 tree)
@@ -390,7 +436,7 @@ fi
 # FuseBase CLI's "obsolete ./skills" warning no longer applies and there's a single
 # canonical source. Backed up; idempotent (no-op if already migrated).
 if [ "$MIGRATE_LEGACY_SKILLS" -eq 1 ] && [ -d "skills" ] && [ -d "flow-skills" ]; then
-  cp -R "skills" "skills.pre-upgrade-$TS"
+  [ -e "skills.pre-upgrade-$TS" ] || cp -R "skills" "skills.pre-upgrade-$TS"   # skip on $TS collision (existing backup preserves state; no nested cp)
   rm -rf "skills"
   echo "[upgrade] migrated canonical: retired legacy root skills/ (now flow-skills/; backup skills.pre-upgrade-$TS)"
 fi
@@ -560,7 +606,18 @@ prune_pre_backups || echo "[upgrade] WARN: backup prune reported an error — co
 
 echo ""
 echo "[upgrade] Content upgrade applied. VERSION now: $(tr -d '\n\r' < VERSION)"
-echo "[upgrade] Backups written with suffix .pre-upgrade-$TS — remove once validated."
+if [ "${FF_BACKUPS_GITIGNORED:-0}" = 1 ]; then
+  echo "[upgrade] Backups written with suffix .pre-upgrade-$TS (git-excluded via .git/info/exclude,"
+  echo "          so 'git add -A' / fusebase-update checkpoints won't stage them) — remove once validated."
+else
+  echo "[upgrade] Backups written with suffix .pre-upgrade-$TS — remove once validated. (Could NOT git-exclude"
+  echo "          them; a later 'git add -A' may stage them — delete or unstage the .pre-* backups before committing.)"
+fi
+echo "[upgrade] NOTE: the pre-commit secret scan skips ONLY Flow's fixture/policy backup twins, so a BLOCK on a"
+echo "          .pre-* path is NOT automatically 'just a fixture' — inspect it: rotate if it is a real credential;"
+echo "          if it is only a Flow backup you don't want committed, unstage it (git restore --staged <path>)."
+echo "          Mid-ticket, answer 'No' to the CLI checkpoint prompt so WIP growth in grandfathered over-ceiling"
+echo "          files doesn't trip the FR-25 ratchet on a wholesale add."
 echo "[upgrade] NOTE: the hooks/ layer (incl. this engine + sync-version-strings.sh) was"
 echo "          refreshed. The in-memory run finished on the OLD engine; any NEW engine"
 echo "          logic takes effect on the NEXT run. Operator overrides (hooks/local/*.local.*)"

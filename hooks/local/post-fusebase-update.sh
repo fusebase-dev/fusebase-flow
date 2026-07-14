@@ -25,6 +25,35 @@ set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$ROOT"
 
+# Git-exclude the *.pre-refresh-<ts> backups this recovery drops, so a downstream
+# `git add -A` (FuseBase CLI `fusebase update` checkpoint) never stages them. upgrade.sh's
+# hooks.pre-upgrade/policies.pre-upgrade snapshots carry the OLD secret-scan fixtures that
+# HARD-BLOCK such a checkpoint; git-excluding these .pre-refresh backups too keeps a
+# wholesale add clean (field escalation, v4.3.2). Local + idempotent.
+ff_git_exclude_backups() {
+  local ex line d
+  ex="$(git rev-parse --git-path info/exclude 2>/dev/null)" || return 1
+  [ -n "$ex" ] || return 1
+  mkdir -p "$(dirname "$ex")" 2>/dev/null || return 1
+  [ -e "$ex" ] && { [ -r "$ex" ] || return 1; }
+  if [ -s "$ex" ] && [ -n "$(tail -c1 "$ex" 2>/dev/null)" ]; then
+    printf '\n' >> "$ex" 2>/dev/null || return 1
+  fi
+  d='[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]T[0-9][0-9][0-9][0-9][0-9][0-9]Z'
+  for line in \
+    "# Fusebase Flow upgrade/refresh backups (transient; keep until validated) — never stage them." \
+    "*.pre-upgrade-$d" \
+    "*.pre-bootstrap-$d" \
+    "*.pre-refresh-$d"; do
+    if ! grep -qxF "$line" "$ex" 2>/dev/null; then
+      printf '%s\n' "$line" >> "$ex" 2>/dev/null || return 1
+    fi
+  done
+  return 0
+}
+# NOTE: called AFTER argument parsing below (so `--help` never mutates .git/info/exclude),
+# and its failure routes through WARNINGS (so it isn't swallowed when upgrade.sh filters output).
+
 OVERLAYS="hooks/local/fusebase-flow-overlays"
 ACTIONS_TAKEN=()
 ACTIONS_SKIPPED=()
@@ -51,6 +80,12 @@ done
 if [ ! -d "$OVERLAYS" ]; then
   echo "[post-fusebase-update] FATAL: $OVERLAYS not found. Cannot restore Fusebase Flow overlay." >&2
   exit 1
+fi
+
+# Git-exclude the .pre-refresh backups this recovery drops (after arg parsing, so --help is
+# a pure no-op). Failure -> WARNINGS so the parent (upgrade.sh) surfaces it, not a lost echo.
+if ! ff_git_exclude_backups; then
+  WARNINGS+=("could not update .git/info/exclude — .pre-refresh backups may be stageable by a later 'git add -A' (delete or unstage them before committing)")
 fi
 
 TS_REFRESH=$(date -u +%Y%m%dT%H%M%SZ)

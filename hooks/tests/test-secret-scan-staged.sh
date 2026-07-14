@@ -97,6 +97,41 @@ echo "$SECRET" > "$D/hooks/tests/fixtures/99_designed.txt"
 if run_helper "$D"; then ok "a1-fixtures-excluded-deliberate-gap"; else bad "a1-fixtures-excluded-deliberate-gap" "fixtures/ secret blocked — exclusion not applied"; fi
 rm -rf "$D"
 
+# v4.4.1 (field escalation, hardened under Codex-High review): the scanner excludes ONLY the
+# EXACT root producers of the D-A1 files — `hooks.pre-upgrade-<ts>/tests/fixtures/**` and
+# `policies.pre-upgrade-<ts>/secret-patterns*.yml` (ts = [0-9]{8}T[0-9]{6}Z) — so a wholesale
+# `git add -A` (fusebase-update checkpoint) does not false-block on Flow's own fixture/policy
+# backups, while NOTHING else is waved through.
+TS="20260101T000000Z"
+# (positive) the exact root fixture/policy twins are excluded -> no block
+D="$(new_repo)"
+mkdir -p "$D/hooks.pre-upgrade-$TS/tests/fixtures" "$D/policies.pre-upgrade-$TS"
+echo "$SECRET" > "$D/hooks.pre-upgrade-$TS/tests/fixtures/10_designed.txt"
+echo "$SECRET" > "$D/policies.pre-upgrade-$TS/secret-patterns.yml"
+( cd "$D" && git add "hooks.pre-upgrade-$TS/tests/fixtures/10_designed.txt" "policies.pre-upgrade-$TS/secret-patterns.yml" )
+if run_helper "$D"; then ok "backup-fixture-policy-twins-excluded"; else bad "backup-fixture-policy-twins-excluded" "a timestamped root fixture/policy backup twin false-blocked"; fi
+rm -rf "$D"
+
+# (negative) the exclusion is EXACT + ROOT-ANCHORED: every one of these STILL BLOCKS.
+#   - backup of a NON-fixture real file (an upgrade overwriting a secret leaves it here)
+#   - a backup-shaped name with no timestamp / a bare "1"
+#   - a fixtures path with a bogus timestamp ("plain")
+#   - the `*T*Z`-glob spoof: a literal "TZ" where a real stamp should be
+#   - an EXACT timestamp but NOT at the repo root (nested) / under the WRONG dir prefix
+for spoof in \
+  "backup-of-real-file:hooks.pre-upgrade-$TS/local/leak.sh" \
+  "name-spoof-no-ts:src/x.pre-upgrade-1/credentials.txt" \
+  "untimestamped-fixtures:z.pre-upgrade-plain/tests/fixtures/creds.txt" \
+  "tz-glob-spoof:src/x.pre-upgrade-TZ/tests/fixtures/creds.txt" \
+  "exact-ts-non-root:sub/hooks.pre-upgrade-$TS/tests/fixtures/creds.txt" \
+  "exact-ts-wrong-prefix:evil.pre-upgrade-$TS/tests/fixtures/creds.txt"; do
+  name="${spoof%%:*}"; path="${spoof#*:}"
+  D="$(new_repo)"; mkdir -p "$D/$(dirname "$path")"; echo "$SECRET" > "$D/$path"
+  ( cd "$D" && git add "$path" )
+  if run_helper "$D"; then bad "secret-still-blocks-$name" "a real secret at $path bypassed the scanner"; else ok "secret-still-blocks-$name"; fi
+  rm -rf "$D"
+done
+
 # AC-A2: no whitelist entry was added to ship the fix, and the scanner's own fixtures
 # 10/11 still detect (scan() semantics unchanged). Assert (a) the committed
 # secret-patterns.yml whitelist is still empty, and (b) the two handler fixtures

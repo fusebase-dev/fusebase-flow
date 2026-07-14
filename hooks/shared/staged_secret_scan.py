@@ -27,10 +27,33 @@ from pathlib import Path
 
 # Designed-token inputs excluded from the staged content scan (D-A1). A `git diff`
 # pathspec exclude is exact: the two policy files by path, the fixtures by prefix.
+#
+# The `hooks.pre-upgrade-<ts>/tests/fixtures/**` and `policies.pre-upgrade-<ts>/secret-
+# patterns*.yml` entries exclude the BACKUP TWINS of those exact three D-A1 files — and
+# ONLY those — as produced by `upgrade.sh` (CONTENT_DIRS `hooks`/`policies` snapshot to
+# `<dir>.pre-upgrade-<ts>/` at the repo ROOT; ts = `date -u +%Y%m%dT%H%M%SZ`). Those twins
+# carry the OLD dummy fixtures / `secret-patterns.yml`, so a wholesale `git add -A` —
+# notably FuseBase CLI's `fusebase update` pre-update checkpoint — hit a FALSE-POSITIVE
+# block on Flow's own backups (field escalation). SECURITY: these twins are copies of the
+# SAME files the three plain `:(exclude)` entries above already exempt (the LIVE
+# `hooks/tests/fixtures/` and `secret-patterns.yml` — the documented D-A1 gap, where a real
+# secret is likewise not caught). So this EXTENDS that existing exemption to their
+# upgrade-backup copies; it does NOT exempt any new content category. Pathspec matches by
+# NAME only (no provenance), so the exact `[0-9]{8}T[0-9]{6}Z` stamp + ROOT-anchoring to the
+# real `hooks.`/`policies.` producers + the `tests/fixtures/` / `secret-patterns*.yml` shape
+# keep the exempted set exactly as narrow as the live D-A1 set. Deliberately NOT a
+# namespace-wide `*.pre-*` NOR a loose `*T*Z` (which matches literal "TZ" at any depth) —
+# both would be real bypasses. A backup of ANY OTHER file, a `x.pre-upgrade-TZ/...` spoof, a
+# non-root or wrong-prefix look-alike all stay SCANNED (verified). `upgrade.sh` also
+# git-excludes backups so they never stage.
+_BACKUP_TS = "[0-9]" * 8 + "T" + "[0-9]" * 6 + "Z"   # date -u +%Y%m%dT%H%M%SZ
 _EXCLUDE_PATHSPECS = [
     ":(exclude)policies/secret-patterns.yml",
     ":(exclude)policies/secret-patterns.local.yml",
     ":(exclude)hooks/tests/fixtures/",
+    f":(exclude,glob)hooks.pre-upgrade-{_BACKUP_TS}/tests/fixtures/**",
+    f":(exclude,glob)policies.pre-upgrade-{_BACKUP_TS}/secret-patterns.yml",
+    f":(exclude,glob)policies.pre-upgrade-{_BACKUP_TS}/secret-patterns.local.yml",
 ]
 
 
@@ -141,8 +164,14 @@ def main() -> int:
         for m in matches:
             print(f"  {m.pattern_id} ({m.confidence}) — redacted", file=sys.stderr)
         print(
-            "Per FR-12: rotate the credential, then `git reset HEAD -- <file>` to unstage. "
-            "Do NOT whitelist the value to get past this.",
+            "Per FR-12: if this is a REAL credential, rotate it, then `git reset HEAD -- <file>` "
+            "to unstage. Do NOT whitelist the value to get past this.\n"
+            "The scanner skips ONLY Flow's exact fixture/policy backup twins "
+            "(`hooks.pre-upgrade-<ts>/tests/fixtures/**`, `policies.pre-upgrade-<ts>/secret-patterns*.yml`), "
+            "so treat a hit here as potentially real — inspect it. If it is instead a Flow backup a "
+            "wholesale `git add -A` (e.g. a `fusebase update` checkpoint on a pre-fix tree) staged, unstage "
+            "that exact path (`git restore --staged <path>`) — it should never be committed; see "
+            "docs/problem-catalog/upgrade-backups-trip-secret-scan/ for a safe timestamp-filtered listing.",
             file=sys.stderr,
         )
         return 1

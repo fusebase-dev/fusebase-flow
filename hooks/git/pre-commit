@@ -257,7 +257,7 @@ if matches and block_decision(matches) == "deny":
     print("[fusebase-flow:pre-commit] BLOCK — secret pattern in staged added lines:", file=sys.stderr)
     for m in matches:
         print(f"  {m.pattern_id} ({m.confidence}) — redacted", file=sys.stderr)
-    print("Per FR-12: rotate the credential, then `git reset HEAD -- <file>` to unstage. Do NOT whitelist the value to get past this.", file=sys.stderr)
+    print("Per FR-12: if this is a REAL credential, rotate it, then `git reset HEAD -- <file>` to unstage. Do NOT whitelist. The scanner skips ONLY Flow's exact fixture/policy backup twins, so treat a hit as potentially real — inspect it; if it is instead a Flow backup a `git add -A` staged, unstage that exact path (`git restore --staged <path>`). See docs/problem-catalog/upgrade-backups-trip-secret-scan/.", file=sys.stderr)
     sys.exit(1)
 SECPY
     # Run the MAIN §2 check as a FILE SCRIPT (T32): sys.path[0] = the trusted temp dir, not the
