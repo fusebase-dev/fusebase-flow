@@ -11,6 +11,9 @@
 .agents/skills/communication/references/patterns.md  cede01ced79d33bf2368ef705a2ba7a23c39baaf0c24ba48b327539f295d9340
 .agents/skills/design-discovery-ideation/SKILL.md  90d5b0219d6802dc47e3d51e11ad0177dba45c502dff60c5298c317b69b16d79
 .agents/skills/documentation-budget/SKILL.md  ac49c0e5f603674cb33b27f1c95282d82b1d9cdbd09f86832165eccf2aa7c612
+.agents/skills/find-wasted-code/SKILL.md  d8a047a79ba9157fb499c1797bd0c2afa0a6c6b3c0f5b103e340e9ec707e6307
+.agents/skills/find-wasted-code/references/false-positive-examples.md  17271bda4e86a68ae7b52eba04b56e22685ed67f66d57b4eca461d1631e3d2c8
+.agents/skills/find-wasted-code/references/rule-catalog.md  adff1098f447a9dfeda830545bba7df48e8064324f3bd8c31844565b013d6036
 .agents/skills/find-wasted-effort/SKILL.md  0a88ec0440f42d4bff5a96b1da8885d623c874b1de0cd556ac6087ebc5ad91a7
 .agents/skills/find-wasted-effort/references/false-positive-examples.md  889674d446a1849c9aef72cf27ae724388fe3599e4f379fe62411ca2c2ba128f
 .agents/skills/find-wasted-effort/references/rule-signatures.md  f115cc035a5ba4c34130e22216f49a5535e11264c50073a335f61105f993afb6
@@ -55,6 +58,9 @@
 .claude/skills/communication/references/patterns.md  cede01ced79d33bf2368ef705a2ba7a23c39baaf0c24ba48b327539f295d9340
 .claude/skills/design-discovery-ideation/SKILL.md  90d5b0219d6802dc47e3d51e11ad0177dba45c502dff60c5298c317b69b16d79
 .claude/skills/documentation-budget/SKILL.md  ac49c0e5f603674cb33b27f1c95282d82b1d9cdbd09f86832165eccf2aa7c612
+.claude/skills/find-wasted-code/SKILL.md  d8a047a79ba9157fb499c1797bd0c2afa0a6c6b3c0f5b103e340e9ec707e6307
+.claude/skills/find-wasted-code/references/false-positive-examples.md  17271bda4e86a68ae7b52eba04b56e22685ed67f66d57b4eca461d1631e3d2c8
+.claude/skills/find-wasted-code/references/rule-catalog.md  adff1098f447a9dfeda830545bba7df48e8064324f3bd8c31844565b013d6036
 .claude/skills/find-wasted-effort/SKILL.md  0a88ec0440f42d4bff5a96b1da8885d623c874b1de0cd556ac6087ebc5ad91a7
 .claude/skills/find-wasted-effort/references/false-positive-examples.md  889674d446a1849c9aef72cf27ae724388fe3599e4f379fe62411ca2c2ba128f
 .claude/skills/find-wasted-effort/references/rule-signatures.md  f115cc035a5ba4c34130e22216f49a5535e11264c50073a335f61105f993afb6

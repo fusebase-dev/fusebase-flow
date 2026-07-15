@@ -4,7 +4,7 @@
 # the AGENTS.md command-equivalents table (AC1), the installer's single-sourced
 # transform (AC2 drift-guard), and the installer's structural safety (AC3).
 #
-# AC1 — AGENTS.md carries the 6-row table: all 6 commands + the Portable column,
+# AC1 — AGENTS.md carries the command table: all 7 commands + the Portable column,
 #       outside FLOW:PRESERVE.
 # AC2 — install-codex-prompts.sh generates each prompt FROM the canonical command
 #       body (description kept, .claude/agents -> .codex/agents, Flow marker).
@@ -34,7 +34,7 @@ finish() { echo "[test-codex-prompt-parity] $pass/$((pass + fail)) PASS"; exit $
 [ -d "$SRC_DIR" ]   || { bad "setup-src-present"       "missing $SRC_DIR"; finish; }
 ok "setup-inputs-present"
 
-COMMANDS=(product-owner onboard handoff fusebase-health token-waste-audit find-wasted-effort)
+COMMANDS=(product-owner onboard handoff fusebase-health token-waste-audit find-wasted-effort find-wasted-code)
 
 ###############################################################################
 # AC1 — the AGENTS.md command-equivalents table.
@@ -46,16 +46,16 @@ else
   bad "ac1-table-header-present" "command-equivalents table header (with Portable column) not found in AGENTS.md"
 fi
 
-# Each of the 6 commands appears in a table row with its /prompts:<cmd> equivalent.
+# Each of the 7 commands appears in a table row with its /prompts:<cmd> equivalent.
 ac1_missing=""
 for cmd in "${COMMANDS[@]}"; do
   grep -qF "\`/$cmd\`" "$AGENTS" || ac1_missing="$ac1_missing /$cmd"
   grep -qF "/prompts:$cmd" "$AGENTS" || ac1_missing="$ac1_missing /prompts:$cmd"
 done
 if [ -z "$ac1_missing" ]; then
-  ok "ac1-all-six-commands-listed"
+  ok "ac1-all-commands-listed"
 else
-  bad "ac1-all-six-commands-listed" "missing from AGENTS.md table:$ac1_missing"
+  bad "ac1-all-commands-listed" "missing from AGENTS.md table:$ac1_missing"
 fi
 
 # The portable fallback column actually carries the skill-invocation guidance.
@@ -155,7 +155,7 @@ fi
 ###############################################################################
 # AC3 — installer structural safety: marked, idempotent, collision-safe.
 ###############################################################################
-# Every installed file carries the marker (already covered for one; assert all 6).
+# Every installed file carries the marker (already covered for one; assert all 7).
 ac3_unmarked=""
 for cmd in "${COMMANDS[@]}"; do
   grep -qF 'FUSEBASE-FLOW-GENERATED' "$CH/prompts/$cmd.md" 2>/dev/null || ac3_unmarked="$ac3_unmarked $cmd"

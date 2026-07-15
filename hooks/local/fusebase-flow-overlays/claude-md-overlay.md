@@ -16,7 +16,7 @@ This repository follows **Fusebase Flow** in addition to project-specific rules.
 The canonical catalog lives in README § Skill catalog and the `AGENTS.md` overlay skill list.
 The 2 mandatory skills remain listed above (always loaded at session start).
 
-**Slash commands (`.claude/commands/`):** `/fusebase-health`, `/onboard`, `/product-owner`, `/handoff`, `/token-waste-audit`, `/find-wasted-effort`.
+**Slash commands (`.claude/commands/`):** `/fusebase-health`, `/onboard`, `/product-owner`, `/handoff`, `/token-waste-audit`, `/find-wasted-effort`, `/find-wasted-code`.
 
 **Active project context:** if `docs/north-star.md` / `docs/<app>/product.md` exist, read and follow them; if absent, run generically — never auto-create. Run `/onboard` to capture project vision.
 

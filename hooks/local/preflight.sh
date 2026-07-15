@@ -295,7 +295,7 @@ fi
 #    installer step), and the CLAUDE.md reference. New command = one array
 #    entry + the snapshot copy; preflight fails the release otherwise.
 VER_FILE="$(tr -d '\n\r' < VERSION 2>/dev/null)"
-FLOW_COMMANDS=(fusebase-health onboard product-owner handoff token-waste-audit find-wasted-effort)
+FLOW_COMMANDS=(fusebase-health onboard product-owner handoff token-waste-audit find-wasted-effort find-wasted-code)
 for c in "${FLOW_COMMANDS[@]}"; do
     [ -f ".claude/commands/$c.md" ] || err "missing .claude/commands/$c.md (/$c slash command)"
     [ -f "$OVL/commands/$c.md" ] || err "command '/$c' missing from recovery snapshot fusebase-flow-overlays/commands/ — a command surface may only ship with its installer step (upgrade would land BROKEN downstream)"

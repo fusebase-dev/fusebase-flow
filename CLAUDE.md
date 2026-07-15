@@ -1,6 +1,6 @@
 # CLAUDE.md - Claude Code adapter for Fusebase Flow
 
-This repo runs **Fusebase Flow v4.4.1**. The portable always-on baseline is in `AGENTS.md`. The full rule set is in `FLOW_RULES.md`. Read both before any other action (stop `FLOW_RULES.md` at `## Amendment log` — dated history, never load it).
+This repo runs **Fusebase Flow v4.5.0**. The portable always-on baseline is in `AGENTS.md`. The full rule set is in `FLOW_RULES.md`. Read both before any other action (stop `FLOW_RULES.md` at `## Amendment log` — dated history, never load it).
 
 ## Claude Code-specific notes
 
@@ -75,7 +75,7 @@ This repository follows **Fusebase Flow** in addition to project-specific rules.
 The canonical catalog lives in README § Skill catalog and the `AGENTS.md` overlay skill list.
 The 2 mandatory skills remain listed above (always loaded at session start).
 
-**Slash commands (`.claude/commands/`):** `/fusebase-health`, `/onboard`, `/product-owner`, `/handoff`, `/token-waste-audit`, `/find-wasted-effort` — native here. The cross-agent equivalents (Codex `/prompts:<cmd>` + the portable skill-name fallback) are in the `AGENTS.md` command-equivalents table.
+**Slash commands (`.claude/commands/`):** `/fusebase-health`, `/onboard`, `/product-owner`, `/handoff`, `/token-waste-audit`, `/find-wasted-effort`, `/find-wasted-code` — native here. The cross-agent equivalents (Codex `/prompts:<cmd>` + the portable skill-name fallback) are in the `AGENTS.md` command-equivalents table.
 
 **Active project context:** if `docs/north-star.md` / `docs/<app>/product.md` exist, read and follow them; if absent, run generically — never auto-create. Run `/onboard` to capture project vision.
 

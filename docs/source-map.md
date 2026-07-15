@@ -8,8 +8,8 @@ This document records source boundaries for the Fusebase CLI provider layer. Can
 
 This wording is used in:
 
-- All 33 canonical SKILL.md `Clean-room note` sections (`flow-skills/<slug>/SKILL.md`).
-- All 66 mirror SKILL.md files (regenerated from canonical via `mirror-skills.sh`).
+- All 34 canonical SKILL.md `Clean-room note` sections (`flow-skills/<slug>/SKILL.md`).
+- All 68 mirror SKILL.md files (regenerated from canonical via `mirror-skills.sh`).
 - `templates/skill-template.md` (substrate for future skills).
 - `hooks/README.md` (hook framework attestation).
 
@@ -52,7 +52,7 @@ The following design patterns are common to public AI coding workflow discussion
 The clean-room property is validated by:
 
 1. Original wording check — the public-template tree is verified against a word-boundary search for non-target tool names; expected result is zero matches.
-2. Standard wording presence - `preflight.sh` is configured to inspect skill frontmatter; manual review of clean-room notes confirms the standard wording in all 33 canonical + 66 Flow mirror SKILL.md files.
+2. Standard wording presence - `preflight.sh` is configured to inspect skill frontmatter; manual review of clean-room notes confirms the standard wording in all 34 canonical + 68 Flow mirror SKILL.md files.
 3. Edition boundary check - CLI provider assets remain under provider surfaces and are not added to `flow-skills/` or canonical Flow mirror manifests.
 4. License attestation - see [`docs/clean-room.md`](clean-room.md) for the explicit clean-room statement for canonical Flow files.
 
@@ -72,5 +72,5 @@ The FR-26 context-compression discipline update — `flow-skills/token-economy/S
 2026-06-15 - FR-26 context-compression discipline (large-context/large-output) noted as
               clean-room original; no third-party dependency or content introduced.
 2026-07-11 - `product-owner` skill bridge added as clean-room Flow content; count now
-              33 canonical skills / 66 Flow mirror SKILL.md files.
+              34 canonical skills / 68 Flow mirror SKILL.md files.
 ```

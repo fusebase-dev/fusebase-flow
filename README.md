@@ -6,7 +6,7 @@
 
 ![FuseBase Flow — you design and decide with the Product Owner agent, which hands off to the AI Developer agent that implements, runs the verification gate, and deploys](docs/assets/two-agent-banner.svg)
 
-[![Version](https://img.shields.io/badge/version-4.4.1-blue.svg)](VERSION)
+[![Version](https://img.shields.io/badge/version-4.5.0-blue.svg)](VERSION)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![CI](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml/badge.svg)](https://github.com/fusebase-dev/fusebase-flow/actions/workflows/fusebase-flow-verify.yml)
 [![Use this template](https://img.shields.io/badge/GitHub-Use_this_template-brightgreen.svg?logo=github)](https://github.com/fusebase-dev/fusebase-flow/generate)
@@ -89,7 +89,7 @@ flowchart LR
 
 ## Commands & capabilities
 
-Six slash commands are the only things you invoke directly — everything else is a **skill** that activates automatically when its trigger matches. The tables below are the use-case view; for the phase-mapped trigger view of every skill, see [§ Skill catalog](#skill-catalog).
+Seven slash commands are the only things you invoke directly — everything else is a **skill** that activates automatically when its trigger matches. The tables below are the use-case view; for the phase-mapped trigger view of every skill, see [§ Skill catalog](#skill-catalog).
 
 ### Slash commands
 
@@ -101,6 +101,7 @@ Six slash commands are the only things you invoke directly — everything else i
 | **/fusebase-health** | Read-only health check — reports drift between the FuseBase CLI layer and the Flow layer, and offers recovery for Flow-owned drift. | After a `fusebase update` you're unsure if Flow still works → confirms what (if anything) drifted and offers to fix it. |
 | **/token-waste-audit** | Parses this project's transcripts and lists token-waste *candidates* (big reads, re-reads, polling, `large-output`, `repeat-output`) mapped to FR-26. | A session felt expensive → see where the tokens actually went and what to do differently next time. |
 | **/find-wasted-effort** | Audits Flow *artifacts on disk* (gate reports, handoffs, approvals, git log) for ceremony that bought no safety outcome. Read-only; findings are review candidates. | You suspect the process has overhead that isn't earning its keep → spot ceremony to trim (nothing auto-removed). |
+| **/find-wasted-code** | Statically scans the *repo source* (docs, skills, commands, hooks, settings) for friction footguns — dead-end tool calls, broken links, missing helpers, footgun configs, plus a silent-push-through baseline — and writes a tracked report to `docs/wasted-code/report.md`. Manual-trigger only; read-only; findings are review candidates. | Before a release you want to catch the papercuts that make an agent or teammate silently dead-end → get a low-false-positive list of what's broken. |
 
 These are native Claude Code slash commands. On **Codex, Cursor, Copilot, and Gemini** the same commands work via the `AGENTS.md` command-equivalents table — invoke the named skill, or type the command as text. Codex users who want native `/prompts:<cmd>` can additionally run the per-machine opt-in `bash hooks/local/install-codex-prompts.sh` (user-global, namespaced, Codex-deprecated in favor of skills).
 
@@ -147,6 +148,7 @@ These are native Claude Code slash commands. On **Codex, Cursor, Copilot, and Ge
 | **token-economy** (FR-26) | Token-efficient execution + context-compression discipline (route-by-type, extract-before-reasoning, pointer-backed summaries); measured via `/token-waste-audit`. | The AI reads the slice it needs and references big results instead of re-pasting them. |
 | **liveness-discipline** (FR-27) | Never launch long/silent background work bare — bound it with a timeout/watchdog (`bounded-run.sh`), finish it in-turn, or return `BLOCKED-AT-<gate>` so a hung job can't leave the agent idling silently. | A background re-verify probe stalls against a cold-start proxy → it times out with a visible line instead of the agent sitting idle until you ask "is it done?". |
 | **find-wasted-effort** | Ceremony audit — process-per-outcome; reads Flow artifacts for steps that bought no safety (the sibling of `/token-waste-audit` on a different axis). | Surfaces gate stops or handoffs that never prevented anything, so you can trim ceremony deliberately. |
+| **find-wasted-code** | Static friction-footgun audit — code-per-friction; scans repo source for dead-end tool calls, broken links, missing helpers, footgun configs, and a silent-push-through baseline (`/find-wasted-code`, manual-trigger, tracked report). | Surfaces the papercuts that silently dead-end an agent or teammate, with a conservative low-false-positive contract. |
 | **app-quality-patterns** | Cross-project behavioral quality patterns (URL reflects view state, delete-cascade policy, empty/loading/error states…) that become spec ACs. | Building a list view → "show empty/loading/error states" and "URL reflects filters" are baked in as acceptance criteria. |
 
 **Project setup & product (dormant until you `/onboard`)**
@@ -359,7 +361,7 @@ Preflight will warn on drift if the mirrors and canonical fall out of sync. Full
 
 ## Skill catalog
 
-Skills are on-demand expertise the agent loads when a task matches the skill's description. **33 canonical Flow skills** govern the lifecycle and project-optimization; **20 FuseBase Apps domain skills** supply the app-building knowledge. You usually describe the work and let the matcher load the right one; Codex can also expose the `product-owner` bridge when you search `/product` or `/skills`.
+Skills are on-demand expertise the agent loads when a task matches the skill's description. **34 canonical Flow skills** govern the lifecycle and project-optimization; **20 FuseBase Apps domain skills** supply the app-building knowledge. You usually describe the work and let the matcher load the right one; Codex can also expose the `product-owner` bridge when you search `/product` or `/skills`.
 
 ### Flow lifecycle skills (33)
 
@@ -398,8 +400,9 @@ Skills are on-demand expertise the agent loads when a task matches the skill's d
 | Economy | `token-economy` | FR-26 — token-efficient execution (scoped reads, no re-reads of unchanged files, two-strike retry rule, targeted edits) with per-rule quality guards; measured via `/token-waste-audit` — plus **context-compression discipline** for large context/output (route-by-type, extract-before-reasoning, pointer-backed summaries, reopen-original-before-deciding); `/token-waste-audit` now flags `large-output` + `repeat-output` candidates across built-in **and MCP** tools |
 | Liveness | `liveness-discipline` | FR-27 — never launch long/silent background work bare; ≥1 liveness guarantee before launch (bound via `hooks/local/lib/bounded-run.sh`, complete in-turn, or return `BLOCKED-AT-<gate>` + a record-then-read pointer) so a hung job reaches completion-or-death instead of a silent idle; diagnose a suspected hang by activity/mtime not 0-byte existence; **no blocking gate, no verification hook** (a hang is undetectable by construction — enforcement = bounded-run tooling + present-by-construction delivery) |
 | Ceremony audit | `find-wasted-effort` | A2 — process-per-outcome ceremony audit (`/find-wasted-effort`); reads Flow artifacts on disk for ceremony that bought no safety outcome; read-only, findings are review candidates (never auto-prune); sibling of `/token-waste-audit` on a different axis |
+| Code audit | `find-wasted-code` | Static friction-footgun audit (`/find-wasted-code`, manual-trigger only via `disable-model-invocation`); scans repo source for dead-end tool calls, broken links, missing helpers, footgun configs + a silent-push-through baseline; conservative confirmed-only-when-provable contract; tracked report at `docs/wasted-code/report.md`; sibling of the two audits on the code-per-friction axis |
 
-★ = mandatory, loaded every session. The last 9 (zoom-out … product-apps-decomposition) shipped in v3.3–v3.5; `lightweight-lane` v3.7, `comment-policy` v3.11, `documentation-budget` v3.12, `handoff` v3.14, `module-size-discipline` v3.16, `app-quality-patterns` v3.19, `token-economy` v3.20, `find-wasted-effort` v3.22, `liveness-discipline` v3.28. The project-* / north-star / client-vs-internal / product-* / guard skills are **artifact-gated by default** — dormant until onboarding creates their `docs/` artifact (client-vs-internal also activates on an explicit operator posture-check request). `product-owner` is an activation bridge, not an alternate role definition.
+★ = mandatory, loaded every session. The last 9 (zoom-out … product-apps-decomposition) shipped in v3.3–v3.5; `lightweight-lane` v3.7, `comment-policy` v3.11, `documentation-budget` v3.12, `handoff` v3.14, `module-size-discipline` v3.16, `app-quality-patterns` v3.19, `token-economy` v3.20, `find-wasted-effort` v3.22, `liveness-discipline` v3.28, `find-wasted-code` v4.5. The project-* / north-star / client-vs-internal / product-* / guard skills are **artifact-gated by default** — dormant until onboarding creates their `docs/` artifact (client-vs-internal also activates on an explicit operator posture-check request). `product-owner` is an activation bridge, not an alternate role definition.
 
 ### FuseBase CLI provider skills (20)
 
@@ -764,7 +767,7 @@ fusebase-flow/
 ├── VERSION                         ← (current release)
 ├── .gitattributes                  ← LF line endings for shell/python/yaml/md
 ├── .python-version                 ← 3.12 (recommended)
-├── flow-skills/                         ← 33 canonical skills (2 mandatory + 31 on-demand, incl. product-owner bridge + liveness-discipline (v3.28) + find-wasted-effort (v3.22) + token-economy (v3.20) + app-quality-patterns (v3.19) + module-size-discipline (v3.16) + handoff (v3.14) + documentation-budget (v3.12) + comment-policy (v3.11) + lightweight-lane (v3.7) + the v3.3–v3.5 additions: zoom-out, phase-audit, git-history-diagnostic, project-onboarding, north-star, client-vs-internal, product-docs-first, business-logic-guardian, product-apps-decomposition)
+├── flow-skills/                         ← 34 canonical skills (2 mandatory + 32 on-demand, incl. product-owner bridge + find-wasted-code (v4.5) + liveness-discipline (v3.28) + find-wasted-effort (v3.22) + token-economy (v3.20) + app-quality-patterns (v3.19) + module-size-discipline (v3.16) + handoff (v3.14) + documentation-budget (v3.12) + comment-policy (v3.11) + lightweight-lane (v3.7) + the v3.3–v3.5 additions: zoom-out, phase-audit, git-history-diagnostic, project-onboarding, north-star, client-vs-internal, product-docs-first, business-logic-guardian, product-apps-decomposition)
 ├── agents/                         ← 2 canonical sub-agents (product-owner, ai-developer)
 ├── workflows/                      ← 13 procedures (incl. lightweight-lane)
 ├── policies/                       ← 9 YAML policies (incl. module-size ratchet + ratchet-governance)
@@ -787,8 +790,8 @@ fusebase-flow/
 │   └── agent-mirror-manifest.txt   ← sha256 manifest for sub-agent mirrors
 ├── state/                          ← runtime state (gitignored contents)
 ├── docs/                           ← public reference docs + per-project artifacts
-├── .agents/skills/                 ← Codex skill surface (33 Flow mirrors + 20 CLI provider skills)
-├── .claude/skills/                 ← Claude Code skill surface (33 Flow mirrors + 20 CLI provider skills)
+├── .agents/skills/                 ← Codex skill surface (34 Flow mirrors + 20 CLI provider skills)
+├── .claude/skills/                 ← Claude Code skill surface (34 Flow mirrors + 20 CLI provider skills)
 ├── .claude/agents/                 ← Claude Code agent surface (2 Flow role agents + 2 CLI app agents)
 ├── .claude/commands/               ← Anthropic Claude Code slash commands (incl. /fusebase-health)
 ├── .claude/settings.json.example   ← Claude Code hook wiring

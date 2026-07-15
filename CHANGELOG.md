@@ -6,6 +6,17 @@ Public release versions ship as annotated git tags on `main`. Per-version detail
 
 ## [Unreleased]
 
+## [4.5.0] — 2026-07-15
+
+### Added — `/find-wasted-code`: static friction-footgun audit
+
+New audit command — the code-per-friction sibling of `/token-waste-audit` (tokens) and `/find-wasted-effort` (ceremony). The active, static inverse of a papercuts log: instead of waiting for an agent to notice friction and file it, it scans repo source for the same north-star footguns — **dead-end tool calls, broken links, missing helpers, footgun configs, and a silent-push-through baseline** — and writes a tracked report to `docs/wasted-code/report.md`. Manual-trigger ONLY.
+
+- **Rules (conservative by construction).** W1 dead-end tool/script references (execution-context only), W2 broken internal links (faithful GitHub slug + path/anchor contract), W3 missing helpers (full-statement shell `source` + frontmatter `related_workflows`), W4 footgun config (a settings hook wired to a missing handler → blocker), W5 silent push-through (a measured swallowed-error **baseline** for review, never a confirmed finding). A finding is `broken`/`confirmed` ONLY when provable from repository state; every ambiguity routes to `unresolved`/Coverage, never a false positive — so the audit never blocks or annoys the operator.
+- **Manual-trigger isolation.** The skill carries `disable-model-invocation: true` (hard guarantee on Claude Code — the model cannot auto-load it; only `/find-wasted-code` runs it) and no lifecycle hook wires the analyzer.
+- **Safety.** stdlib-only + deterministic; inventory via `git ls-files` (host-independent, exact-case); read-only except one report write that is containment-checked, symlink/hardlink-refusing, atomic (`mkstemp`), and sentinel-guarded. The report is redaction-safe — verified in `--selftest` against the repo's own secret scanner — so it can never trip the pre-commit secret scan (`docs/wasted-code/` is not scan-excluded).
+- **Verification.** `hooks/local/find-wasted-code.py --selftest` runs 102 golden-fixture assertions (adversarial GitHub-slug corpus, W5 baseline, scope exclusions, output containment, 15 secret-token redaction probes cross-checked against the canonical scanner). Reviewed adversarially across 6 Codex-xHigh rounds (~21 defects found + fixed, each locked with a regression). Dogfooded on this repo: 0 false positives across 312 files. Ships the full command surface (live + overlay command, preflight/parity inventories, AGENTS/CLAUDE + overlays, README/docs counts, both skill mirrors + manifest). Skill count 33→34, mirrors 66→68, commands 6→7.
+
 ## [4.4.1] — 2026-07-14
 
 ### Fixed — upgrade backups no longer trip the pre-commit secret scan (blocked `fusebase update`)

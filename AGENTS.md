@@ -149,7 +149,7 @@ Fusebase Flow ships:
 
 - **Always-on rules:** `FLOW_RULES.md` (FR-01..FR-27; read it down to `## Amendment log` — the log is dated history, never load it)
 - **Mandatory skills (auto-loaded via `.claude/skills/` and `.agents/skills/`):** `communication`, `role-discipline`
-- **On-demand skills (description-matched):** `code-review`, `design-discovery-ideation`, `implementation-planning`, `release-deploy-reporting`, `repo-onboarding-context-map`, `requirements-specification`, `security-permissions-review`, `smoke-testing`, `task-delegation`, `validation-and-qa`, `skill-authoring`, `fusebase-flow-health-check`, `zoom-out`, `phase-audit`, `git-history-diagnostic`, `product-owner`, `project-onboarding`, `north-star`, `client-vs-internal`, `product-docs-first`, `business-logic-guardian`, `product-apps-decomposition`, `lightweight-lane`, `comment-policy`, `documentation-budget`, `handoff`, `module-size-discipline`, `app-quality-patterns`, `token-economy`, `liveness-discipline`, `find-wasted-effort` (33 canonical skills total)
+- **On-demand skills (description-matched):** `code-review`, `design-discovery-ideation`, `implementation-planning`, `release-deploy-reporting`, `repo-onboarding-context-map`, `requirements-specification`, `security-permissions-review`, `smoke-testing`, `task-delegation`, `validation-and-qa`, `skill-authoring`, `fusebase-flow-health-check`, `zoom-out`, `phase-audit`, `git-history-diagnostic`, `product-owner`, `project-onboarding`, `north-star`, `client-vs-internal`, `product-docs-first`, `business-logic-guardian`, `product-apps-decomposition`, `lightweight-lane`, `comment-policy`, `documentation-budget`, `handoff`, `module-size-discipline`, `app-quality-patterns`, `token-economy`, `liveness-discipline`, `find-wasted-effort`, `find-wasted-code` (34 canonical skills total)
 - **Sub-agents (description-matched from `.claude/agents/`):** `product-owner` (phases 1–6 + Architect inline), `ai-developer` (phase 7 AI Developer + phase 8b Deploy attestation)
 - **Workflows:** `workflows/*.md`
 - **Policies:** `policies/*.yml` (machine-readable; consumed by hooks)
@@ -158,11 +158,11 @@ Fusebase Flow ships:
 
 **Self-attestation (every session's first response):**
 
-> "Operating as {role} under Fusebase Flow v4.4.1. I will follow FR-01 through FR-27. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+> "Operating as {role} under Fusebase Flow v4.5.0. I will follow FR-01 through FR-27. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 **Operator questions:** per FR-19, ask questions in chat text, not popup / clickable menu tools. Use short option tables or numbered lists so the operator can copy, forward, quote, and follow up.
 
-**Command equivalents.** The 6 commands are native Claude Code slash commands; on every other agent invoke the named skill (or type the command as text). Canonical command bodies live in `hooks/local/fusebase-flow-overlays/commands/*.md` (no body re-paste here — pointer only).
+**Command equivalents.** The 7 commands are native Claude Code slash commands; on every other agent invoke the named skill (or type the command as text). Canonical command bodies live in `hooks/local/fusebase-flow-overlays/commands/*.md` (no body re-paste here — pointer only).
 
 | Command | Claude Code | Codex (`/prompts:<cmd>` if installed) | Portable (any agent) |
 |---|---|---|---|
@@ -172,6 +172,7 @@ Fusebase Flow ships:
 | `/fusebase-health` | `/fusebase-health` | `/prompts:fusebase-health` | invoke the `fusebase-flow-health-check` skill / type `/fusebase-health` |
 | `/token-waste-audit` | `/token-waste-audit` | `/prompts:token-waste-audit` | invoke the `token-economy` skill / type `/token-waste-audit` |
 | `/find-wasted-effort` | `/find-wasted-effort` | `/prompts:find-wasted-effort` | invoke the `find-wasted-effort` skill / type `/find-wasted-effort` |
+| `/find-wasted-code` | `/find-wasted-code` | `/prompts:find-wasted-code` | invoke the `find-wasted-code` skill / type `/find-wasted-code` |
 
 Claude Code surfaces these from `.claude/commands/`. The Codex `/prompts:<cmd>` column applies only after the per-machine opt-in install (`bash hooks/local/install-codex-prompts.sh`; user-global, Codex-deprecated). Cursor/Copilot/Gemini have no native command mechanism — use the Portable column (invoke the skill, or type the command as text and the agent follows it).
 
