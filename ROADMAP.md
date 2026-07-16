@@ -38,7 +38,7 @@ Considered and **deliberately deferred or rejected**. Surfacing them prevents mi
 |---|---|
 | **A required CLI / install daemon / SaaS** | The whole framework is plain files in your repo. No external dependency, no runtime service. |
 | **Plugin-marketplace-only distribution** | The copy/`install.sh` model is the canonical provider-neutral path. The Claude Code plugin (v3.3.0+) is an optional convenience on one surface, never the only path. |
-| **Slash commands as the primary entry point** | Slash commands work on one provider. Skills, sub-agents, and trigger phrases work across all 5 supported surfaces; `/onboard`, `/product-owner`, `/fusebase-health`, `/handoff`, `/token-waste-audit` are Claude Code conveniences only. |
+| **Slash commands as the primary entry point** | Slash commands work on one provider. Skills, sub-agents, and trigger phrases work across all 5 supported surfaces; the seven slash commands (`/onboard`, `/product-owner`, `/fusebase-health`, `/handoff`, `/token-waste-audit`, `/find-wasted-effort`, `/find-wasted-code`) are Claude Code conveniences only. |
 | **Telemetry / analytics / phone-home** | Local-only is a feature, not a missing capability. |
 | **Heavy framework dependencies (FastAPI, daemons, etc.)** | Stdlib-first by design; one runtime dep (PyYAML). |
 | **Vendor-specific content outside provider mirrors** | Canonical `flow-skills/` / `agents/` / `workflows/` / `templates/` are vendor-neutral; provider folders (`.claude/`, `.agents/`, `.codex/`, `.cursor/`, `.github/`) are generated mirrors or scoped adapters. |
