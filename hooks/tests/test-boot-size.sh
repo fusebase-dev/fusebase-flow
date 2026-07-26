@@ -14,7 +14,7 @@
 #                                injected, bodies are not. A false eager claim makes a
 #                                mandatory skill silently never load.
 #
-# Ceilings are decisions.md A2 (token-floor-remediation), amended twice (T7, then T13).
+# Ceilings are decisions.md A2 (token-floor-remediation), amended 3x (T7, T13, T22/T23).
 # Changing one is a decision amendment, never a test edit.
 #
 # Usage:
@@ -26,15 +26,15 @@
 
 set -uo pipefail
 
-# --- ceilings (decisions.md A2 — 2nd amendment 2026-07-26, correction round T13) -----
+# --- ceilings (decisions.md A2 — 3rd amendment 2026-07-26, correction round T22/T23) --
 # Residency outranks the budget: a prohibition is NEVER moved to a lazy reference to fit
 # a ceiling. If every prohibition cannot be held resident under these numbers, the answer
 # is BLOCKED-AT-budget + a decision amendment — never a rule demotion.
 CEIL_COMMUNICATION=7000
-CEIL_ROLE_DISCIPLINE=13500
-CEIL_FLOW_RULES=11000
+CEIL_ROLE_DISCIPLINE=14500
+CEIL_FLOW_RULES=11500
 CEIL_ROLE_REFERENCE=9200
-CEIL_TOTAL=40700
+CEIL_TOTAL=42200
 
 COMM_SKILL="flow-skills/communication/SKILL.md"
 ROLE_SKILL="flow-skills/role-discipline/SKILL.md"

@@ -96,6 +96,10 @@ Each section is a **stub carrying its prohibition**; all apply to every role (§
 
 > "[deleting accumulated content per FR-18 / supersede]. Replacing the prior &lt;section&gt; with the corrected version. Prior state is in git history at &lt;commit&gt;."
 
+### Write primitive — Edit is the default, Write is for structure changes
+
+**Supersede replaces stale *semantics*, not the file.** FR-18 governs authoritative content, never the write tool: most sections unchanged → targeted `Edit` (default); structure/mode/ticket changed, or most sections changed → full `Write` — correct there, **not** token waste (`token-economy` TE-06 agrees). Regenerating a mostly-unchanged file to "supersede" it is the waste, and FR-18 never asked for it. Case table: `references/shared-protocols.md` § Write primitive detail.
+
 ## Operator don't-list (OD-1..7 — surface it, never enforce it)
 
 Operator is human — the agent **REMINDS** on symptom ("partial gate report → per OD-2, paste the full one"), **never enforces or blocks**.
