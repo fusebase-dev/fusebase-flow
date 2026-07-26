@@ -9,6 +9,10 @@
 #                                in BOTH mandatory skills, and every required lazy
 #                                references/*.md exists (preflight mirrors only what
 #                                exists, so a deleted reference looks clean to it)
+#   4. body-eager claim        — no surface carrier may assert a mandatory skill BODY is
+#                                already in context (AC11 / A5 amended): descriptions are
+#                                injected, bodies are not. A false eager claim makes a
+#                                mandatory skill silently never load.
 #
 # Ceilings are decisions.md A2 (token-floor-remediation), amended at T7 on measurement.
 # Changing one is a decision amendment, never a test edit.
@@ -46,7 +50,49 @@ REQUIRED_REFS=(
 )
 ANTI_REREAD="Do not re-Read this file if it is already in your context"
 
+# Surface carriers that tell an agent what is/isn't in its context at session start.
+# AC11 (A5 amended, T15): descriptions/metadata are injected, bodies are NOT — on every
+# surface. A row claiming eager BODY loading suppresses a mandatory read.
+SURFACE_CARRIERS=(
+    "AGENTS.md"
+    "CLAUDE.md"
+    "hooks/local/fusebase-flow-overlays/agents-md-overlay.md"
+    "hooks/local/fusebase-flow-overlays/claude-md-overlay.md"
+    ".codex/config.toml.example"
+    "GEMINI.md"
+    ".github/copilot-instructions.md"
+    ".cursor/rules/fusebase-flow-always.mdc"
+    "$COMM_SKILL"
+    "$ROLE_SKILL"
+)
+
 bytes() { [ -f "$1" ] && wc -c < "$1" | tr -d ' \r' || echo 0; }
+
+# body_eager_hits FILE -> "<file>:<lineno>: <verdict>" per offending line.
+# Three claim shapes, matched semantically (not by a phrase blacklist):
+#   A  a bare presence assertion ("already in context") with no body-presence condition
+#   B  an auto-load/auto-inject verb applied to a body noun with no negator before it
+#   C  a "do not Read" instruction with no body-presence condition attached
+# COND is the only escape hatch: the instruction must be conditioned on whether the exact
+# body is present. A surface NAME is never a valid condition — that is the T15 defect.
+body_eager_hits() {
+    awk -v f="$1" '
+    function cond(s) { return (s ~ /unless|if it is not|if the exact|not already|is not present|not in (your )?context|body-presence|body not in context/) }
+    {
+        low = tolower($0)
+        gsub(/\*|`|_/, "", low)                      # markdown emphasis is not semantics
+        noun = (low ~ /bod(y|ies)|skill\.md|both files|either file|those files|these files|mandatory skills?/)
+        if (low ~ /already (present )?in (your )?context/ && !cond(low))
+            print f ":" NR ": bare presence assertion"
+        if (noun && match(low, /auto-?(load|inject)[a-z]*/)) {
+            pre = substr(low, 1, RSTART - 1)
+            if (pre !~ /(no surface|nothing|never|not|no)[^a-z]*$/ && !cond(low))
+                print f ":" NR ": unnegated auto-load claim over a skill body"
+        }
+        if (low ~ /do +not +(re-?)?read/ && !cond(low))
+            print f ":" NR ": unconditional do-not-Read instruction"
+    }' "$1"
+}
 
 # largest_role_ref ROOT -> "<bytes> <name>"; 0 when none are readable.
 largest_role_ref() {
@@ -115,6 +161,18 @@ check_root() {
         [ -f "$root/$f" ] || { echo "required-references|bad|missing $f"; r=1; break; }
     done
     [ "$r" -eq 0 ] && echo "required-references|ok|${#REQUIRED_REFS[@]} present"
+
+    local hits="" n=0
+    for f in "${SURFACE_CARRIERS[@]}"; do
+        [ -f "$root/$f" ] || { echo "body-eager-claim|bad|surface carrier missing: $f"; return 0; }
+        hits="$(body_eager_hits "$root/$f")"
+        if [ -n "$hits" ]; then
+            echo "body-eager-claim|bad|$f: $(printf '%s' "$hits" | head -1 | cut -d: -f2-)"
+            return 0
+        fi
+        n=$((n + 1))
+    done
+    echo "body-eager-claim|ok|$n surface carriers claim descriptions only"
 }
 
 # --- --check MODE: silent; exit code = number of bad assertions (fixture driver) -----
@@ -158,6 +216,9 @@ fixture() {
     done
     local f
     for f in "${REQUIRED_REFS[@]}"; do [ -f "$d/$f" ] || : > "$d/$f"; done
+    for f in "${SURFACE_CARRIERS[@]}"; do
+        mkdir -p "$d/$(dirname "$f")"; cp "$ROOT/$f" "$d/$f"
+    done
     echo "$d"
 }
 
@@ -190,6 +251,9 @@ strip_frontmatter() { printf 'no frontmatter\n' | cat - "$1/$ROLE_SKILL" > "$1/t
 strip_antireread()  { grep -vF "$ANTI_REREAD" "$1/$COMM_SKILL" > "$1/tmp" \
                         && mv "$1/tmp" "$1/$COMM_SKILL"; }
 drop_reference()    { rm -f "$1/flow-skills/role-discipline/references/shared-protocols.md"; }
+# The verbatim pre-T15 claim: it is what shipped, and it is what must never ship again.
+plant_body_claim()  { printf 'Because Claude Code auto-injects both bodies, do not Read either file again.\n' \
+                        >> "$1/CLAUDE.md"; }
 
 red "ceiling-communication"      grow_comm           "ceiling-communication"
 red "ceiling-role-discipline"    grow_role           "ceiling-role-discipline"
@@ -199,6 +263,7 @@ red "total-boot-floor"           grow_comm           "total-boot-floor"
 red "frontmatter-first"          strip_frontmatter   "frontmatter-first-role-discipline"
 red "anti-reread"                strip_antireread    "anti-reread-communication"
 red "missing-required-reference" drop_reference      "required-references"
+red "body-eager-claim"           plant_body_claim    "body-eager-claim"
 
 # The four per-artifact ceilings sum to EXACTLY the total, so the total arm can never
 # fire on its own — it is a backstop, and this invariant is what makes it non-vacuous.

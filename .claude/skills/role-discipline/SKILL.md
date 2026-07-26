@@ -19,7 +19,7 @@ hook_dependencies:
 
 > **Do not re-Read this file if it is already in your context.** If this exact SKILL.md body is already present in your context (surfaces that auto-load `.claude/skills/` or `.agents/skills/`), do not Read this file again — seeing the name/description in a skill index does **not** count. If it is not present, read it once. Delegated sub-agent sessions do not inherit an auto-load: they read it. This exemption covers **this file only** — `references/<role>.md` is a separate required read (§ Per-role scoped loading), and an auto-load never delivers it.
 >
-> Auto-load by surface (AC11): **Claude Code** — yes (`.claude/skills/`) · **Codex** — yes (`.agents/skills/`) · **Gemini** — **no**, read it · **Copilot** — **no**, read canonical `flow-skills/` on invocation · **Cursor** — per `.cursor/rules/fusebase-flow-always.mdc`; read it unless the rule file has already injected this body.
+> Surface truth (AC11, verified): **no surface injects this body.** Claude Code (`.claude/skills/`) and Codex (`.agents/skills/`, optional `skills_dir`) supply the description/metadata only; Gemini, Copilot, Cursor and delegated sub-agents supply nothing. Read it once when the body is not already in your context.
 
 # Role discipline
 

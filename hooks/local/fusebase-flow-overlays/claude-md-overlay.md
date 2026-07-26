@@ -7,16 +7,16 @@
 
 This repository follows **Fusebase Flow** in addition to project-specific rules. See `AGENTS.md` § "FuseBase Flow — workflow lifecycle overlay" for the full reference.
 
-**Always loaded at session start (Fusebase Flow mandatory skills, auto-loaded via `.claude/skills/`):**
+**Mandatory skills — required at session start (`.claude/skills/` supplies their descriptions, never their bodies):**
 
 - `flow-skills/communication/SKILL.md` — Mode A (operator chat) / Mode B (internal artifacts)
 - `flow-skills/role-discipline/SKILL.md` — shared role protocols + role index (don't-lists lazy-load from `references/<role>.md`)
 
-Because Claude Code auto-injects both bodies, **do not `Read` either file again** — seeing a name/description in the skill index is not the body, but the body itself is already in context. Two exceptions, both real reads: `role-discipline/references/<role>.md` (never auto-loaded) and a **delegated sub-agent session** (`session_start` doesn't fire for it — it inherits nothing). Other surfaces differ; the per-surface matrix is in the `AGENTS.md` overlay.
+Claude Code injects skill **descriptions/metadata only — the bodies are not injected** (verified first-hand; `hooks/handlers/session_start.py` existence-checks these files and emits reminders, it never injects a body). So: if the exact body is not already in your context, `Read` it once. Skip the Read **only** on that body-presence check — never because the surface is Claude Code, and never because the name/description appeared in the skill index. Always separate real reads: `role-discipline/references/<role>.md` and a **delegated sub-agent session** (`session_start` doesn't fire for it — it inherits nothing). Other surfaces: the per-surface matrix is in the `AGENTS.md` overlay.
 
 **On-demand Fusebase Flow skills:** Claude Code auto-injects every skill description from `.claude/skills/` for matching — no in-file catalog needed.
 The canonical catalog lives in README § Skill catalog and the `AGENTS.md` overlay skill list.
-The 2 mandatory skills remain listed above (always loaded at session start).
+The 2 mandatory skills remain listed above (read at session start — descriptions inject, bodies do not).
 
 **Slash commands (`.claude/commands/`):** `/fusebase-health`, `/onboard`, `/product-owner`, `/handoff`, `/token-waste-audit`, `/find-wasted-effort`, `/find-wasted-code`.
 

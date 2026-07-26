@@ -10,16 +10,16 @@ This repository follows **Fusebase Flow** (https://github.com/fusebase-dev/fuseb
 Fusebase Flow ships:
 
 - **Always-on rules:** `FLOW_RULES.md` (FR-01..FR-27; read it down to `## Amendment log` — the log is dated history, never load it)
-- **Mandatory skills:** `communication`, `role-discipline` — **auto-loaded on Claude Code (`.claude/skills/`) and Codex (`.agents/skills/`) only.** Every other surface must Read them from canonical `flow-skills/`:
+- **Mandatory skills:** `communication`, `role-discipline` — **no surface auto-injects their bodies**; Claude Code and Codex inject skill *descriptions/metadata* only (verified first-hand). Read each body once from canonical `flow-skills/` unless that exact body is already in your context. Every "do not re-Read" instruction is conditioned on that body-presence check, never on a surface name — a name/description in a skill index is not the body:
 
-| Surface | Mandatory skills auto-load? | What you do at session start |
+| Surface | What is auto-injected | What you do at session start |
 |---|---|---|
-| Claude Code | yes — `.claude/skills/` | already in context; do **not** re-Read (a name/description in a skill index is not the body) |
-| Codex | yes — `.agents/skills/` (`skills_dir`) | already in context; do **not** re-Read |
-| Gemini | **no** | Read `flow-skills/communication/SKILL.md` + `flow-skills/role-discipline/SKILL.md` once |
-| Copilot | **no** | Read canonical `flow-skills/` on invocation; cite paths explicitly |
-| Cursor | via `.cursor/rules/fusebase-flow-always.mdc` | Read them once unless that rule file has already injected the body |
-| Delegated sub-agent (any surface) | **no** — `session_start` doesn't fire | Read them; an auto-load is never inherited |
+| Claude Code | description/metadata only (`.claude/skills/`) — **not** the body | body not in context → Read both once (`hooks/handlers/session_start.py` existence-checks the files and emits reminders; it never injects a body) |
+| Codex | description/metadata only, and only when the optional `skills_dir` is set (`.codex/config.toml.example`; no active config ships) — **not** the body | body not in context → Read both once |
+| Gemini | **nothing** | Read `flow-skills/communication/SKILL.md` + `flow-skills/role-discipline/SKILL.md` once |
+| Copilot | **nothing** | Read canonical `flow-skills/` on invocation; cite paths explicitly |
+| Cursor | `.cursor/rules/fusebase-flow-always.mdc` rule text — **not** the skill bodies | Read them once unless that rule file has already injected the body |
+| Delegated sub-agent (any surface) | **nothing** — `session_start` doesn't fire | Read them; an auto-load is never inherited |
 - **On-demand skills (description-matched):** `code-review`, `design-discovery-ideation`, `implementation-planning`, `release-deploy-reporting`, `repo-onboarding-context-map`, `requirements-specification`, `security-permissions-review`, `smoke-testing`, `task-delegation`, `validation-and-qa`, `skill-authoring`, `fusebase-flow-health-check`, `zoom-out`, `phase-audit`, `git-history-diagnostic`, `product-owner`, `project-onboarding`, `north-star`, `client-vs-internal`, `product-docs-first`, `business-logic-guardian`, `product-apps-decomposition`, `lightweight-lane`, `comment-policy`, `documentation-budget`, `handoff`, `module-size-discipline`, `app-quality-patterns`, `token-economy`, `liveness-discipline`, `find-wasted-effort`, `find-wasted-code` (34 canonical skills total)
 - **Sub-agents (description-matched from `.claude/agents/`):** `product-owner` (phases 1–6 + Architect inline), `ai-developer` (phase 7 AI Developer + phase 8b Deploy attestation)
 - **Workflows:** `workflows/*.md`

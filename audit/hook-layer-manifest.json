@@ -350,7 +350,7 @@
     },
     {
       "path": "hooks/tests/test-boot-size.sh",
-      "sha256": "14e47c2df390fe976268bd4d0e61f0ea8e9b20ed9fbcf43d788326d5d2d32ffd"
+      "sha256": "fb0eed3635fa709135627f05af39f6060bcdc2ee00c34e0b5779f3c5f22ffd7a"
     },
     {
       "path": "hooks/tests/test-bootstrap-baseline-hop.sh",
@@ -461,5 +461,5 @@
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "87cb5e870a7e1fb1dd5a8fbc1931b0cfe1401afa974ac7574b02e9c5d3acc1e1"
+  "manifest_self_sha256": "4825ee27772ea0b33cdfce3e572276fc9785dd0eb77334b9e5f2e37fadbd858a"
 }
