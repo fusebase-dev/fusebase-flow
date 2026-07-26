@@ -18,13 +18,13 @@ Claude Code injects skill **descriptions/metadata only — the bodies are not in
 The canonical catalog lives in README § Skill catalog and the `AGENTS.md` overlay skill list.
 The 2 mandatory skills remain listed above (read at session start — descriptions inject, bodies do not).
 
-**Slash commands (`.claude/commands/`):** `/fusebase-health`, `/onboard`, `/product-owner`, `/handoff`, `/token-waste-audit`, `/find-wasted-effort`, `/find-wasted-code`.
+**Slash commands (`.claude/commands/`):** `/fusebase-health`, `/onboard`, `/product-owner`, `/handoff`, `/token-waste-audit`, `/find-wasted-effort`, `/find-wasted-code` — native here. The cross-agent equivalents (Codex `/prompts:<cmd>` + the portable skill-name fallback) are in the `AGENTS.md` command-equivalents table.
 
 **Active project context:** if `docs/north-star.md` / `docs/<app>/product.md` exist, read and follow them; if absent, run generically — never auto-create. Run `/onboard` to capture project vision.
 
 **Fusebase Flow sub-agents (description-matched from `.claude/agents/`):**
 
-- `product-owner` — covers phases 1–6 + Architect inline. PO Bash gated by `hooks/local/po-investigate.sh` allowlist (read-only investigation only).
+- `product-owner` — covers phases 1–6 + Architect inline. PO Bash is instructed to route through the `hooks/local/po-investigate.sh` read-only wrapper (the structural allowlist lives inside the wrapper; a direct Bash call bypassing it is a discipline breach, not a hook-blocked action).
 - `ai-developer` — covers phase 7 (AI Developer attestation when given `*-implement.md` handoff) and phase 8b (Deploy phase attestation when given `*-deploy.md` handoff). Deploy gated by DP.6 magic-phrase confirm + DP.1 approval artifact.
 
 **State announcement footer (every output):**
