@@ -53,7 +53,9 @@ Use one when: 3+ phases with tickets → roadmap · multiple tickets with progre
 
 Don't when: a sentence suffices · data is naturally tabular · wider than ~100 chars · decorative. Test: *"whiteboard in person?"* — if no, prose or table. A box around prose is worse than no diagram.
 
-**Lazy-load:** the 8 patterns + character/width discipline are in `references/patterns.md` — do NOT preload; read it only when a reply will carry a visual. The state-announcement footer is text, never a visual.
+**Width + decoration (applies whenever you do emit a visual):** keep diagrams under 80 characters where possible, **never over-decorate** (a box around every element is noise), and verify alignment in monospace before output.
+
+**Lazy-load:** the 8 patterns + the character table are in `references/patterns.md` — do NOT preload; read it only when a reply will carry a visual. The state-announcement footer is text, never a visual.
 
 ## Mode A — operator questions are chat text (FR-19)
 
@@ -72,16 +74,16 @@ Choose / clarify / confirm / approve → full question as chat text. Never popup
 |---|---|
 | B1 | Front-load the answer — first sentence or cell IS the answer |
 | B2 | Tables over prose for structured data — 3+ comparable rows |
-| B3 | Bullet lists over paragraphs for enumerables |
-| B4 | Concrete over abstract — `T17`, `repository.ts:42-58` |
-| B5 | Predictable section names — the template's exact headers |
-| B6 | No narrative storytelling |
-| B7 | Cross-references precise — never "see above" |
-| B8 | No restatement of context |
+| B3 | Bullet lists over paragraphs for enumerables — 3+ items of one kind → bullets; never "First X, then Y, finally Z" prose |
+| B4 | Concrete over abstract — `T17`, commit `3b1bfaa`, `repository.ts:42-58`; never "the earlier change" / "the recent commit" |
+| B5 | Predictable section names — the template's exact headers verbatim; never paraphrase a heading (AI navigates by heading) |
+| B6 | No narrative storytelling — never "I considered X, then thought Y, and decided Z"; write decision + alternatives + reason in tag form |
+| B7 | Cross-references precise — `spec.md:42-58`, `decisions.md G2`, `repository.ts:42`; never "see above" / "the earlier decision" |
+| B8 | No restatement of context — adjacent loaded files (`FLOW_RULES.md`, `spec.md`, `decisions.md`) are already in context: cite them, never re-explain or restate the constitution |
 | B9 | Status fields explicit and tag-style |
 | B10 | Avoid hedging unless genuinely uncertain — real doubt → clarify item |
-| B11 | Consistent vocabulary |
-| B12 | No human-onboarding preamble |
+| B11 | Consistent vocabulary — project terms verbatim; never switch synonyms within or across files |
+| B12 | No human-onboarding preamble — never open with "This document captures…"; open with the payload (or one ≤15-word summary line) |
 
 **Lazy-load:** ❌/✅ examples, anti-patterns, pitfalls, verification, and failure cases are in `references/mode-b-detail.md` — read it when a write or review needs an example; the rules above stand without it.
 

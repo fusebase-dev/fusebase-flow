@@ -45,7 +45,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke hook-manifest newli
   sync-allowlist policy-state bootstrap-baseline-hop fr22-delivery po-verifiable-boot \
   po-investigate liveness codex-parity codex-plugin cli-0259 secret-scan-staged bootstrap-exception \
   trusted-enforcer hook-install-rc msys-tree-cleanup ws5-upgrade ff-only return-budget \
-  supersede-primitive rule-inventory boot-size token-waste-classify cli-flow-recovery)
+  supersede-primitive rule-inventory boot-size prohibition-residency token-waste-classify \n  cli-flow-recovery)
 
 declare -A FF_SEL=()      # selected tags (populated only when scoped)
 FF_SCOPED=0               # 1 iff FF_ONLY is a non-empty selection
@@ -279,6 +279,7 @@ run_shell_phase test-return-budget.sh          "return-budget"
 run_shell_phase test-supersede-primitive.sh    "supersede-primitive"
 run_shell_phase test-rule-inventory.sh         "rule-inventory"
 run_shell_phase test-boot-size.sh              "boot-size"
+run_shell_phase test-prohibition-residency.sh  "prohibition-residency"
 run_shell_phase test-token-waste-classify.sh   "token-waste-classify"
 
 # Exit-code phase — all-or-nothing shell tests that fail-fast (set -e + fail()→exit)
