@@ -72,7 +72,10 @@ mode == "principle" {
     }
     sub(/^[ ]*[-*+][ ]+/, "", line); sub(/^#+[ ]*/, "", line)
     gsub(/\*\*/, "", line); gsub(/`/, "", line)
-    if (line ~ /^B[0-9]+([ .:)]|-|—|–|$)/) emitname(line)
+    # TRIPWIRE: the id must be followed by whitespace or a "." / ":" / ")" — never a bare
+    # dash. "B1–B12 worked examples" is a RANGE, not a principle definition; accepting a
+    # dash separator here mints a phantom principle and a permanently non-empty diff.
+    if (line ~ /^B[0-9]+([ .:)]|$)/) emitname(line)
 }
 '
 

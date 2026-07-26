@@ -53,16 +53,34 @@ CM_FILE=flow-skills/communication/SKILL.md
 
 m_drop_fr()        { edit "$1/$FR_FILE" '/^[|] *FR-13 *[|]/d'; }
 m_drop_dont()      { edit "$1/$IM_FILE" '/^[|] *IM\.4 *[|]/d'; }
-m_drop_principle() { edit "$1/$CM_FILE" '/^#+ *B7\./d'; }
+m_drop_principle() { edit "$1/$CM_FILE" '/^#+ *B7\./d; /^[|] *B7 *[|]/d'; }
 m_reword_statement()   { col "$1/$FR_FILE" '^[|] *FR-03 *[|]' 4 'a completely different rule statement'; }
 m_reword_enforcement() { col "$1/$FR_FILE" '^[|] *FR-03 *[|]' 5 'enforcement reworded: hook renamed, wording rewritten end to end'; }
-m_principle_table()    { edit "$1/$CM_FILE" 's,^#+ *(B[0-9]+)\. (.+)$,| \1 | \2 | see references/mode-b-detail.md |,'; }
-m_principle_bullet()   { edit "$1/$CM_FILE" 's,^#+ *(B[0-9]+)\. (.+)$,- **\1** — \2 (detail: references/mode-b-detail.md),'; }
+# The resident layout is free to change (T6 moved headings -> table rows), so each relayout
+# mutator flips whichever form it finds. The no-op guard in mutate() is what stops a
+# stale mutator from passing vacuously once the layout moves again.
+headings_form() { grep -qE '^#+ *B[0-9]+\.' "$1/$CM_FILE"; }
+m_principle_relayout() {
+    if headings_form "$1"; then edit "$1/$CM_FILE" 's,^#+ *(B[0-9]+)\. (.+)$,| \1 | \2 | see references/mode-b-detail.md |,'
+    else edit "$1/$CM_FILE" 's,^\| *(B[0-9]+) *\| *([^|]+)\|.*$,### \1. \2,'; fi
+}
+m_principle_bullet() {
+    if headings_form "$1"; then edit "$1/$CM_FILE" 's,^#+ *(B[0-9]+)\. (.+)$,- **\1** — \2 (detail: references/mode-b-detail.md),'
+    else edit "$1/$CM_FILE" 's,^\| *(B[0-9]+) *\| *([^|]+)\|.*$,- **\1** — \2,'; fi
+}
+# A heading naming the RANGE ("B1–B12 worked examples") is prose, not a definition —
+# it must not mint a phantom principle (which would poison the diff forever).
+m_range_heading()      { printf '\n## B1-B12 worked examples\n\n## B1–B12 worked examples\n' >> "$1/$CM_FILE"; }
 
 # mutate <name> <red|green> <mutator-fn>
 mutate() {
     local name="$1" expect="$2" fn="$3" d="$TMP/m-$1"
     mkfix "$d"; "$fn" "$d"
+    # No-op guard: a mutator that stopped matching (source layout moved on) would make
+    # a RED case silently green and a GREEN case prove nothing. Fail loudly instead.
+    if diff -r -q "$BASE" "$d" >/dev/null 2>&1; then
+        bad "$name" "mutator changed nothing — the case proves nothing"; return
+    fi
     inv "$d" > "$TMP/out-$name.txt" 2>/dev/null
     if cmp -s "$TMP/baseline.txt" "$TMP/out-$name.txt"; then
         if [ "$expect" = "green" ]; then ok "$name"
@@ -108,8 +126,9 @@ mutate drop-principle     red   m_drop_principle
 mutate reword-statement   red   m_reword_statement
 # --- GREEN arms (each MUST keep the diff empty) --------------------------------------
 mutate reword-enforcement green m_reword_enforcement
-mutate principle-as-table green m_principle_table
+mutate principle-relayout   green m_principle_relayout
 mutate principle-as-bullet green m_principle_bullet
+mutate range-heading-ignored green m_range_heading
 
 # --- fail-closed: an unreadable/empty source must never look like "nothing lost" -----
 D="$TMP/fc-nofr"; mkfix "$D"; edit "$D/$FR_FILE" '/^[|] *FR-[0-9]+ *[|]/d'
