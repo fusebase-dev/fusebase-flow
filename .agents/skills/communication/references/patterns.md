@@ -6,6 +6,23 @@
 
 ---
 
+## Character + width discipline
+
+| Element | Character | Notes |
+|---|---|---|
+| Box corners | `┌ ┐ └ ┘` | Single-line boxes |
+| Box edges | `─ │` | Horizontal and vertical |
+| Tee joints | `├ ┤ ┬ ┴ ┼` | Trees and intersections |
+| Heavy corners | `╔ ╗ ╚ ╝` | Double-line for emphasis |
+| Heavy edges | `═ ║` | Double-line emphasis |
+| Arrows | `→ ←  ↑ ↓ ▶ ◀ ▲ ▼` | Direction indicators |
+| Status emoji | `✅ 🟡 ⏸ 🚧 ❌ 🔄 📋 📨 📦 📅` | Status communication |
+| Tree branches | `├── └──` | List hierarchy |
+
+Width: keep diagrams under 80 characters when possible. Don't over-decorate (a box around every element is noise). Test alignment in monospace before output.
+
+---
+
 ## Pattern library
 
 ### Pattern 1 — Project roadmap (phases + slices/tickets + status)
