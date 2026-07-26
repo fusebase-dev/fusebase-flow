@@ -85,6 +85,58 @@ lacks "ac15-error-result-not-dismissed"        "$DISMISSED" "token-waste-05"
 lacks "ac16-nonprobe-triple-not-dismissed"     "$DISMISSED" "token-waste-07"
 lacks "ac16-nonprobe-quad-not-dismissed"       "$DISMISSED" "token-waste-08"
 
+# --- AC27: absence is not enough — pin each survivor's EXACT row and evidence ----------
+# TRIPWIRE: an aggregate count plus "fixture N is not in the dismissed list" lets one
+# vanished candidate hide behind one extra candidate elsewhere. Each row below is matched
+# verbatim INSIDE that fixture's own session section, so a substitution cannot net out.
+TE02="FR-26 TE-02 — no re-reads of unchanged in-context files"
+TE08="FR-26 TE-08 — record-then-read (smoke-testing § Verification cost discipline)"
+READ3="re-read | Read x3 identical window: /repo/src/service.log | — | $TE02"
+section() { printf '%s\n' "$RPT" | awk -v f="### token-waste-$1-" 'index($0,f)==1{on=1;next} on&&/^#/{on=0} on'; }
+row() { says "ac27-row-$1" "$(section "$1")" "| $2 |"; }
+
+row 02 "$READ3 | sizes [7, 3, 7], 1 distinct digest(s) — neither monotonic growth nor all-differing digests (size difference alone is not sufficient)"
+row 03 "$READ3 | growth signal present but contradicted — intervening write to the read path at event 10"
+row 04 "$READ3 | growth signal present but contradicted — context compaction between the reads at event 9"
+row 05 "$READ3 | growth signal present but contradicted — error-shaped tool_result for one of the reads"
+row 07 "polling | Bash x3 (no intervening Edit/Write): curl -sS https://example.invalid/api | possible-FR-10-triple | $TE08 | exactly 3 runs since the last write (not necessarily consecutive); command is NOT probe-shaped — 3 failed retries and 3 polls are count-identical to a genuine FR-10 reproduction triple, so this stays live"
+row 08 "polling | Bash x4 (no intervening Edit/Write): curl -sS https://example.invalid/other | — | $TE08 | 4 runs since the last write (not necessarily consecutive)"
+
+# --- AC27: mutation controls — each arm must FAIL under ITS unsafe classifier ----------
+# A green assertion that can never fire proves nothing. Each control patches exactly the
+# predicate that keeps its fixture live and requires the fixture to then be DISMISSED; a
+# missing patch anchor fails the control instead of passing it vacuously.
+cat > "$TMP/mutate.py" <<'PY'
+import sys
+src, dst = sys.argv[1], sys.argv[2]
+text = open(src, encoding="utf-8").read()
+pairs = sys.argv[3:]
+for old, new in zip(pairs[::2], pairs[1::2]):
+    if old not in text:
+        sys.exit("MUTATION-ANCHOR-MISSING: " + old)
+    text = text.replace(old, new, 1)
+open(dst, "w", encoding="utf-8", newline="\n").write(text)
+PY
+mutctl() { # mutctl <fixture-id> <old> <new> [<old> <new> ...]
+    local fx="$1"; shift
+    local dir="$TMP/mut$fx" mutant="$TMP/mutant-$fx.py" out
+    mkdir -p "$dir"; cp "$FIX"/token-waste-"$fx"-*.jsonl "$dir/"
+    "$PY" "$TMP/mutate.py" "$AUDIT" "$mutant" "$@" >/dev/null 2>&1 \
+        || { bad "ac27-mutctl-$fx" "patch anchor missing — control would pass vacuously"; return; }
+    out="$( cd "$TMP" && PYTHONIOENCODING=utf-8 "$PY" "$mutant" --dir "$dir" 2>&1 )"
+    printf '%s' "$out" | grep -F 'auto-classified:' | grep -qF "token-waste-$fx" \
+        && ok "ac27-mutctl-$fx" \
+        || bad "ac27-mutctl-$fx" "unsafe classifier did NOT dismiss fx-$fx — the arm proves nothing"
+}
+mutctl 02 'if not (grew or all_differ):' 'if not (len(set(sizes)) > 1):' \
+          'if any(b < a for a, b in zip(sizes, sizes[1:])) and len({e[2] for e in events}) == 1:' 'if False:'
+mutctl 03 'if lo < wseq < hi and wpath == path:' 'if False:'
+mutctl 04 'if lo < cseq < hi:' 'if False:'
+mutctl 05 'if any(e[3] for e in events):' 'if False:'
+mutctl 07 'shape = probe_shaped(cmd, probe_cmds)' 'shape = "unsafe: exactly-3 dismissal"'
+mutctl 08 'if n != FR10_TRIPLE:' 'if n < FR10_TRIPLE:' \
+          'shape = probe_shaped(cmd, probe_cmds)' 'shape = "unsafe: any-repeat dismissal"'
+
 # --- AC17: every disposition prints the rule AND the evidence that triggered it -------
 says "ac17-growing-tail-evidence"      "$OUT" "monotonic growth (sizes [100, 200, 300], 3 distinct digests); no contradictory event"
 says "ac17-probe-triple-evidence"      "$OUT" "probe-shaped: test runner (run-tests)"

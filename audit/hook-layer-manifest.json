@@ -466,11 +466,11 @@
     },
     {
       "path": "hooks/tests/test-sync-allowlist.sh",
-      "sha256": "bf85e99b3b56bbc5d63725a180bcff0c3aa4c0520686e8b8360e71a987552624"
+      "sha256": "3e6e0110b8ad7e8d5f7c9265db3df32d0ab6b2efaf1aa4263f5b375b169920ef"
     },
     {
       "path": "hooks/tests/test-token-waste-classify.sh",
-      "sha256": "b0e52b9200adab9acedd7a139785f676480bb8c9d49dc719c6948adc87679f5a"
+      "sha256": "a8073ab3429801666b80d93f175c0f434501492abb5a978df35f20ff9315c62e"
     },
     {
       "path": "hooks/tests/test-trusted-enforcer.sh",
@@ -481,5 +481,5 @@
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "3b72af558b8aa4b57e33f0beedba26b9968a06d9c8fdd1d9363fff875b527c71"
+  "manifest_self_sha256": "4f5ac67bf7e793a08d8441ddb3c5903eaa75b93c72cf8459165cb6fd396a3156"
 }

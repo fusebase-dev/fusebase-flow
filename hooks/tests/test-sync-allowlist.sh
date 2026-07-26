@@ -54,8 +54,21 @@ reachable_set() { # echoes every md/mdc the allowlist reaches, NUL-safe-ish (no 
   for f in "${SYNC_FILES[@]}"; do [ -f "$f" ] && echo "$f"; done
 }
 mapfile -t REACHABLE < <(reachable_set | sed 's#^\./##' | sort -u)
+REACHABLE_LIST="$(printf '%s\n' "${REACHABLE[@]}")"
 
 is_reachable() { local p="$1" x; for x in "${REACHABLE[@]}"; do [ "$x" = "$p" ] && return 0; done; return 1; }
+
+# THE production under-reach calculation, factored so the self-verification below runs
+# THIS function against a mutated reachable set instead of restating the algorithm.
+# TRIPWIRE: never inline a second copy of this loop — the previous self-test filtered
+# FLOW_RULES.md out of a stream and then searched that filtered stream for it, so the
+# "omission detected" branch was true by construction and never ran the guard.
+missing_set() { # missing_set <newline-separated reachable set> -> unreachable TRUE targets
+  local reach="$1" t
+  for t in "${TRUE_TARGET[@]}"; do
+    printf '%s\n' "$reach" | grep -qxF "$t" || printf '%s\n' "$t"
+  done
+}
 
 # --- TRUE framework target: files with a LIVE string, minus generated mirrors,
 #     dated history, local diagnostics, and the consumer doc trees. ---
@@ -75,24 +88,28 @@ mapfile -t TRUE_TARGET < <(
 )
 
 # UNDER-REACH guard: every TRUE framework file must be reachable by the allowlist.
-missing=()
-for t in "${TRUE_TARGET[@]}"; do is_reachable "$t" || missing+=("$t"); done
+mapfile -t missing < <(missing_set "$REACHABLE_LIST")
 if [ "${#missing[@]}" -eq 0 ]; then
   ok "no-under-reach (${#TRUE_TARGET[@]} framework files all reachable)"
 else
   bad "no-under-reach" "token-bearing framework file(s) NOT in allowlist: ${missing[*]}"
 fi
 
-# Self-verification: the guard must DETECT an omission. Drop the FLOW_RULES.md
-# entry from a copy of REACHABLE and confirm a TRUE file becomes unreachable.
-if printf '%s\n' "${TRUE_TARGET[@]}" | grep -qxF "FLOW_RULES.md"; then
-  if printf '%s\n' "${REACHABLE[@]}" | grep -vxF "FLOW_RULES.md" | grep -qxF "FLOW_RULES.md"; then
-    bad "guard-detects-omission" "removal did not take effect"
+# Self-verification (AC27): mutate the reachable set by dropping FLOW_RULES.md, then run
+# the PRODUCTION missing_set against it and require FLOW_RULES.md to be REPORTED missing.
+if ! printf '%s\n' "${TRUE_TARGET[@]}" | grep -qxF "FLOW_RULES.md"; then
+  bad "guard-detects-omission" "FLOW_RULES.md not in TRUE target — can't self-verify"
+else
+  MUTATED_REACHABLE="$(printf '%s\n' "$REACHABLE_LIST" | grep -vxF "FLOW_RULES.md")"
+  if printf '%s\n' "$MUTATED_REACHABLE" | grep -qxF "FLOW_RULES.md"; then
+    bad "guard-detects-omission" "mutation did not take effect — FLOW_RULES.md still reachable"
+  elif ! missing_set "$MUTATED_REACHABLE" | grep -qxF "FLOW_RULES.md"; then
+    bad "guard-detects-omission" "production missing_set did NOT report the omitted FLOW_RULES.md"
+  elif missing_set "$REACHABLE_LIST" | grep -qxF "FLOW_RULES.md"; then
+    bad "guard-detects-omission" "missing_set reports FLOW_RULES.md missing on the UNMUTATED set too"
   else
     ok "guard-detects-omission"
   fi
-else
-  bad "guard-detects-omission" "FLOW_RULES.md not in TRUE target — can't self-verify"
 fi
 
 # --- DATED-HISTORY guard: FLOW_RULES_HISTORY.md carries live-LOOKING strings (old
