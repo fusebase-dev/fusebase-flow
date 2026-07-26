@@ -129,7 +129,7 @@ Re-dispatches inside this envelope are **not** two-strike attempts: the approach
 - `&`-detaching under `bounded_run` and assuming the deadline still bounds the detached grandchild (it does not).
 - Diagnosing a hang by "the output file exists" (0-byte existence proves nothing) instead of by activity/mtime/last-progress.
 - Blind-retrying the same bare launch after it hung (two-strike, FR-26) instead of re-running the robust, bounded, logged version.
-- Reading a delegate's transient provider-limit death as a task verdict (`FAILED` / "it couldn't") — the work was never attempted; re-dispatch "try again", wait ~60s and retry until it starts, then judge.
+- Reading a delegate's transient provider-limit death as a task verdict (`FAILED` / "it couldn't") — the work was never attempted; re-dispatch "try again", retrying only inside § Bounded delegate-retry envelope above (max 3 attempts / 5 min), then judge.
 - Treating a missing completion ping as either completion or death — it is no information; poll for progress instead.
 - Re-pasting this protocol into every handoff — it lives here; handoffs carry the promoted Hard-invariant clause + a pointer (FR-23/FR-24).
 

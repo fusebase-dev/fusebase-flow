@@ -75,7 +75,7 @@ Codex 2026-06-30 → **RESCOPE**. Confirmed: **F-a** WS2-core strict recorded-wi
 - **Sequencing (corrected):** v3.30.3 = **WS2-core FIRST → WS3**; **WS4 after WS2** true-timeout-rc; WS1 (hardened exception + narrow excludes + custom-hook safe); **WS6+WS9 as ONE backward-compatible migration**; WS7/WS8 docs. v3.30.4 = WS2 Job-Object + WS5. **Add ACs:** old-marker downstream upgrade migrates/validates · custom git-hook preserved · exact staged-index-bound exception reuse-denial · real-secret-in-non-designed-test-code still blocks · a **30+ concurrent `bash.exe` sibling-survival** test for WS2/WS3 (a bounded kill reaps ONLY its recorded child tree).
 **Baseline:** FuseBase Flow v3.30.2 (`origin/main` at author time).
 **Authorization (operator, 2026-06-30):** full — migrations permitted (no real data/users on prod), **production deploy permitted**, execute all slices **end-to-end in one run** while the operator is away. Deploy discipline gates (verify-before-push, adversarial reviews) still apply; the operator's standing go-ahead replaces the per-release DP.6 prompt.
-**Execution protocol:** per-workstream loop = spec/handoff → implement (ai-developer subagent) → gate → adversarial review → fold → ship. **Subagent liveness = zero-trust:** poll git/process progress every ~60–90s; on transient rate-limit/stall, re-dispatch or SendMessage-resume (wait ~60s and retry until it starts); verify final git state (clean linear history, 0 mirror drift) before trusting any agent. See [[retry-failed-subagents-and-poll-liveness]].
+**Execution protocol:** per-workstream loop = spec/handoff → implement (ai-developer subagent) → gate → adversarial review → fold → ship. **Subagent liveness = zero-trust:** poll git/process progress every ~60–90s; on transient rate-limit/stall, re-dispatch or SendMessage-resume inside the bounded delegate-retry envelope (max 3 attempts / 5 min); verify final git state (clean linear history, 0 mirror drift) before trusting any agent. See [[retry-failed-subagents-and-poll-liveness]].
 
 ---
 
@@ -164,7 +164,7 @@ The "UI/UX" surfaces in scope are all **operator/developer-facing CLI + IDE expe
 **UX class:** internal (docs). **Risk:** low.
 
 ### WS8 — Mandatory zero-trust subagent-liveness rule · v3.30.3
-**Deliverable.** Extend FR-27 / the `liveness-discipline` skill with a mandatory clause: *never trust or passively wait on a subagent/Codex completion ping; proactively poll its liveness often (git-progress/process, not the 0-byte transcript); on transient rate-limit/stall, re-dispatch or SendMessage-resume (wait ~60s, retry until it starts); verify final git state before trusting it.* Deliver via the FR-24 write-time digest so it's present-by-construction. (Improves the operator's example wording.)
+**Deliverable.** Extend FR-27 / the `liveness-discipline` skill with a mandatory clause: *never trust or passively wait on a subagent/Codex completion ping; proactively poll its liveness often (git-progress/process, not the 0-byte transcript); on transient rate-limit/stall, re-dispatch or SendMessage-resume inside the bounded delegate-retry envelope (max 3 attempts / 5 min); verify final git state before trusting it.* Deliver via the FR-24 write-time digest so it's present-by-construction. (Improves the operator's example wording.)
 **UX class:** internal (rule/skill). **Risk:** low (no gate; safe-default guidance).
 
 ### WS9 — Slash-command naming + capitalization · v3.30.3

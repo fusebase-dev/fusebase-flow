@@ -18,7 +18,7 @@ During the autonomous roadmap run, delegated ai-developer / deploy / Codex-compa
 |---|---|---|
 | 1 | Delegate a multi-step task to a subagent/Codex | runs |
 | 2 | Server returns 529 / rate-limit / drops the connection mid-turn | subagent dies; WIP on disk intact |
-| 3 | Retry immediately (or wait ~1 min, retry until it starts); resume via SendMessage from WIP | completes |
+| 3 | Retry immediately, then inside the bounded delegate-retry envelope (max 3 attempts / 5 min); resume via SendMessage from WIP | completes |
 
 Reproduces: intermittent (server-load dependent — see FR-10)
 
@@ -33,7 +33,7 @@ The failure is on the SERVER side (API rate-limit / 529 / connection drop), not 
 
 ## Mitigation / workaround
 
-1. On a server transient: RETRY immediately; if it repeats, wait ~1 min and retry until it starts.
+1. On a server transient: RETRY immediately; if it repeats, retry only inside the bounded delegate-retry envelope — max 3 attempts / 5 min, labeled ~60s→~90s→~120s backoff, then successor-or-`BLOCKED-AT-delegate-no-start` (`flow-skills/liveness-discipline` § Bounded delegate-retry envelope).
 2. Resume a dead ai-developer/deploy agent via SendMessage from its intact WIP; resume a Workflow via `resumeFromRunId` (completed agents replay from cache).
 3. Proactively POLL subagent/Codex liveness **every turn** (not every several minutes) via git-progress/process/**last-write mtime**/file-growth — do NOT rely solely on the auto-completion notification. Diagnose a wedge by **`mtime` vs now** (silent for minutes after a `tool_result` = suspect) and `grep` the transcript for `429|529|schema|Error`; "process listed / file exists" is NOT proof of progress.
 4. **When a background agent wedges and you already hold its raw inputs, stop depending on it — do the check yourself from source** (faster than resuming), then `TaskStop` the zombie so it doesn't hold a concurrency slot.
@@ -55,7 +55,7 @@ Future sessions hitting these signals should load this entry:
 
 ## Guardrail (the lesson)
 
-Never treat a transient death as a real failure — retry (immediately, then ~1 min backoff until it starts); resume from intact WIP via SendMessage / Workflow `resumeFromRunId`; proactively poll liveness **every turn** (git/process/last-write-mtime/file-growth, not the completion ping — it is unreliable and stalls are not always rate-limits); when a background agent wedges and you hold its inputs, self-verify from source and `TaskStop` the zombie; verify final git state (clean linear history, 0 mirror drift, consumed FR-07 approvals) before trusting any agent.
+Never treat a transient death as a real failure — retry (immediately, then labeled backoff) only inside the bounded delegate-retry envelope (max 3 attempts / 5 min); resume from intact WIP via SendMessage / Workflow `resumeFromRunId`; proactively poll liveness **every turn** (git/process/last-write-mtime/file-growth, not the completion ping — it is unreliable and stalls are not always rate-limits); when a background agent wedges and you hold its inputs, self-verify from source and `TaskStop` the zombie; verify final git state (clean linear history, 0 mirror drift, consumed FR-07 approvals) before trusting any agent.
 
 ## Related
 

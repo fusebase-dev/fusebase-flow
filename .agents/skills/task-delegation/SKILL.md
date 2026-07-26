@@ -195,7 +195,7 @@ Subagent output is evidence, not proof. Fusebase Flow success still requires the
 | Frontend worker invents product scope | new route/entity/workflow not in brief | Reject or park as backlog; do not merge silently |
 | Primary UI flow is fake | click/save/auth path has placeholder behavior | Mark incomplete; implement real behavior or revise scope |
 | Deploy side effect delegated | subtask attempts deploy/rollback/approval artifact | Stop; deploy phase main session owns side effects |
-| Delegate died on a transient provider limit | return names a rate/session limit, or the session ends with no progress | Not a verdict — re-dispatch "try again" to the same agent id; on a repeat limit wait ~60s and retry until it starts |
+| Delegate died on a transient provider limit | return names a rate/session limit, or the session ends with no progress | Not a verdict — re-dispatch "try again" to the same agent id; on a repeat limit retry only inside the bounded delegate-retry envelope (max 3 attempts / 5 min, then successor-or-`BLOCKED-AT-delegate-no-start`) |
 | No completion ping | nothing came back by the expected interval | Poll progress (commits/process/file growth); absence of a ping is not a result either way |
 
 ## Escalation path
@@ -216,7 +216,7 @@ Subagent output is evidence, not proof. Fusebase Flow success still requires the
 - Do not delegate frontend work with only a file path; include the product identity, surface map, data contract, selector strategy, stack conventions if applicable, and trust-critical flows.
 - Do not delegate deploy commands, rollback, approval artifacts, or secret handling.
 - Do not use popup / clickable menu tools to coordinate delegation decisions; ask in chat text per FR-19.
-- Do not turn a delegate's provider-limit death into a task verdict, and do not respawn a fresh agent for it — re-dispatch "try again" to the same agent id and retry until it starts.
+- Do not turn a delegate's provider-limit death into a task verdict, and do not respawn a fresh agent for it — re-dispatch "try again" to the same agent id, retrying only inside the bounded delegate-retry envelope (max 3 attempts / 5 min; `liveness-discipline`) — never unbounded.
 - Do not passively background-and-wait on a delegate, and do not add a blocking gate or a "watchdog applied" attestation hook to compensate — poll progress instead (FR-27: a hang is undetectable by construction).
 
 ## Clean-room note
