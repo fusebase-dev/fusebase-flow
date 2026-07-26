@@ -31,7 +31,8 @@ finish() { echo "[test-ff-only] $pass/$((pass + fail)) PASS"; exit $fail; }
 
 # Canonical tag count (FF_LIST is the discovery source). A scoped run to ONE tag must
 # skip (count - 1) phases — robust to future tag additions, no hardcoded 19/20.
-TAG_COUNT="$(FF_LIST=1 bash "$RT" 2>/dev/null | grep -c '^RUN')"
+# TRIPWIRE: clear FF_ONLY — an inherited outer scope makes FF_LIST report 1 tag, not all.
+TAG_COUNT="$(FF_ONLY= FF_LIST=1 bash "$RT" 2>/dev/null | grep -c '^RUN')"
 if [ "$TAG_COUNT" -ge 2 ]; then
   ok "ff-list-tag-count ($TAG_COUNT canonical tags)"
 else

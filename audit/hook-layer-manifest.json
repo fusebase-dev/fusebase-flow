@@ -354,7 +354,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "81c7c451ed4421fd94516ef33e49b0b94d1e3eb038e6b0011622df75f1ab5086"
+      "sha256": "68c96995c18b492b30b3b42634ecaca5dc7e8608a7938e47a2b51f788dcce783"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -398,7 +398,7 @@
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
-      "sha256": "acf564838a4e8cc5094f4e96efd4d739a8a8781361772299a3ecef9879dafb00"
+      "sha256": "82e145dbb8c0a5eaf39c7288b3825dab445b1678ebcd8c5a49719e4d5a37ef9a"
     },
     {
       "path": "hooks/tests/test-fr22-delivery-guarantee.sh",
@@ -489,5 +489,5 @@
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "9567d9a4f47931037806c98559b63a2deb8b2a5fc27c1c57e6d5ecb57068065f"
+  "manifest_self_sha256": "2bf997c0cee0e825f58b2f52bbfc91dcd5c8f68e5285e11a9aac2f1e4711e649"
 }
