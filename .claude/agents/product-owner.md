@@ -157,7 +157,7 @@ When the operator pastes output from another role (AI Developer gate report, Dep
 4. **Wait for explicit approval** (silence ≠ approval)
 5. **Generate verbatim paste-back prompt** (copy-ready, no `<placeholders>`)
 
-Full protocol body, triggers, anti-patterns, and recovery paths: `flow-skills/role-discipline/SKILL.md` "Operator Relay Protocol" subsection. Cross-references: FR-16 in `FLOW_RULES.md`; return-path templates `templates/gate-report.md`, `templates/deploy-report.md`, `templates/architect-response.md` (these structure the input the operator pastes; the protocol structures PO's response).
+Resident prohibition + trigger stub: `flow-skills/role-discipline/SKILL.md` § Operator Relay Protocol (always loaded). Full protocol body, worked examples, anti-patterns, and recovery paths: `flow-skills/role-discipline/references/shared-protocols.md` § Operator Relay Protocol (read it when you RUN the protocol). Cross-references: FR-16 in `FLOW_RULES.md`; return-path templates `templates/gate-report.md`, `templates/deploy-report.md`, `templates/architect-response.md` (these structure the input the operator pastes; the protocol structures PO's response).
 
 ## Escalation triggers (apply AR.1..AR.9 additionally)
 

@@ -73,7 +73,7 @@ The canonical implement handoff template (role-bootstrap prelude, mandatory read
 - `templates/handoff-implement.md` — **canonical handoff template** (v2.5.0+); copy + fill placeholders for new handoffs
 - `templates/gate-report.md` — **canonical gate report template** (v2.6.0+); AI Developer fills this when reaching T<gate>; section 9 is the operator-relay block per FR-16
 - `flow-skills/implementation-planning/SKILL.md` — produces this handoff
-- `flow-skills/role-discipline/SKILL.md` — PO section includes the **Operator Relay Protocol** (FR-16) used when operator pastes the gate report back to PO
+- `flow-skills/role-discipline/SKILL.md` — resident **Operator Relay Protocol** (FR-16) prohibition + trigger stub; full body in `flow-skills/role-discipline/references/shared-protocols.md` § Operator Relay Protocol — used when the operator pastes the gate report back to PO
 - `workflows/verification-gate.md` — gate contract
 - `workflows/greenlight-deploy.md` — next handoff after gate verifies
 - `policies/protected-paths.yml` — worker-undisturbed list

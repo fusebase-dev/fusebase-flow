@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.5.0",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 119,
+  "asset_count": 121,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -354,7 +354,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "ee524bd7d06fd20a246f5314099e7eeb33448ae54d2a96a36b895c3a19166177"
+      "sha256": "81c7c451ed4421fd94516ef33e49b0b94d1e3eb038e6b0011622df75f1ab5086"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -375,6 +375,10 @@
     {
       "path": "hooks/tests/test-bootstrap-exception.sh",
       "sha256": "180d300ffc56a307f580c5fba2f972d0591bb0e4e692692a636186b7c65a6a1b"
+    },
+    {
+      "path": "hooks/tests/test-budget-literals.sh",
+      "sha256": "59b06caea2738ec3508d9f20d5431c162904fe6ec15bffe4b32b93d5dd238be4"
     },
     {
       "path": "hooks/tests/test-cli-0259-compat.sh",
@@ -407,6 +411,10 @@
     {
       "path": "hooks/tests/test-health-check-timeout.sh",
       "sha256": "d9fc588399d0934e697fd354e9930a52f75b02316b2f53845ba9e8b319d64546"
+    },
+    {
+      "path": "hooks/tests/test-history-extraction.sh",
+      "sha256": "088723a81418a0c1abb2519b513f0f0788524c27b3fcfb4145d7168afdc6be7a"
     },
     {
       "path": "hooks/tests/test-hook-install-rc.sh",
@@ -481,5 +489,5 @@
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "4f5ac67bf7e793a08d8441ddb3c5903eaa75b93c72cf8459165cb6fd396a3156"
+  "manifest_self_sha256": "9567d9a4f47931037806c98559b63a2deb8b2a5fc27c1c57e6d5ecb57068065f"
 }

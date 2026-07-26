@@ -24,7 +24,7 @@ Runtime, MCP, SDK, and app-domain rules from CLI skills win over generic Flow im
 
 ## How to use this repo as an agent
 
-1. **First action of every session:** load `FLOW_RULES.md` **down to `## Amendment log`** (the log is dated history — never load it; ~40% of the file). Then load the active workflow if a ticket is in progress.
+1. **First action of every session:** load `FLOW_RULES.md` **down to `## Amendment log`** (27 always-on rules, FR-01..FR-27). `## Amendment log` is now a two-line compatibility stub — the dated history was extracted to `FLOW_RULES_HISTORY.md`, which is never a session read. Then load the active workflow if a ticket is in progress.
 2. **Self-attest your role** (Product Owner, AI Developer, Architect, Deploy) — see `FLOW_RULES.md` role table.
 3. **Append the state-announcement footer** to every output.
 4. **Ask before you act** when the task is non-trivial (multi-file, deploy, schema, auth, secrets).

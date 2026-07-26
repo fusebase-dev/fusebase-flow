@@ -97,7 +97,7 @@ The canonical deploy handoff template (role-bootstrap prelude, ticket header inc
 - `templates/handoff-deploy.md` — **canonical deploy handoff template** (v2.5.0+); copy + fill placeholders for new handoffs
 - `templates/deploy-report.md` — **canonical deploy report template** (v2.6.0+); Deploy phase fills this after T<deploy>; section 8 is the operator-relay block per FR-16
 - `flow-skills/release-deploy-reporting/SKILL.md` — produces this handoff (manual-invoke)
-- `flow-skills/role-discipline/SKILL.md` — PO section includes the **Operator Relay Protocol** (FR-16) used when operator pastes the deploy report back to PO for closeout
+- `flow-skills/role-discipline/SKILL.md` — resident **Operator Relay Protocol** (FR-16) prohibition + trigger stub; full body in `flow-skills/role-discipline/references/shared-protocols.md` § Operator Relay Protocol — used when the operator pastes the deploy report back to PO for closeout
 - `flow-skills/smoke-testing/SKILL.md` — outcome-based smoke definition/execution discipline
 - `workflows/verification-gate.md` — gate contract referenced for probes
 - `workflows/smoke-verification.md` — smoke procedure

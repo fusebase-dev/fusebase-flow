@@ -3,7 +3,8 @@
 This repo runs **Fusebase Flow v4.5.0**. Read these files before any other action:
 
 - `AGENTS.md` — portable always-on baseline (rules vs skills vs workflows vs hooks vs policies)
-- `FLOW_RULES.md` — full always-on rules (FR-01..FR-27) with enforcement-surface map (stop at `## Amendment log` — dated history, never load it)
+- `FLOW_RULES.md` — full always-on rules (FR-01..FR-27) (stop at `## Amendment log` — a compatibility stub; the dated history lives in `FLOW_RULES_HISTORY.md` and is never a session read)
+- `docs/rail-mapping.md` — the enforcement-surface map (which hook/policy/test enforces each rule); moved out of `FLOW_RULES.md`
 
 ## Self-attestation (first response of every session)
 
@@ -29,7 +30,7 @@ This repo runs **Fusebase Flow v4.5.0**. Read these files before any other actio
 - **FR-12** Approval-gated side effects — DB migrations, customer-visible messages, auth/permission changes, secrets handling, production deploys require an approval artifact in `state/approvals/`.
 - **FR-19** Chat-text questions — never use popup / clickable menu tools for operator choices; write options in chat text.
 
-Full enforcement details in `FLOW_RULES.md`.
+Full rule statements in `FLOW_RULES.md`; the enforcement-surface map (rule → hook / policy / test) is `docs/rail-mapping.md`.
 
 ## Communication discipline
 

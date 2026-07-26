@@ -657,7 +657,7 @@ hooks/local/fusebase-flow-overlays/                 ← overlay templates + cano
 
 | Layer | What it does | Where |
 |---|---|---|
-| **Always-on rules** | 25 baseline rules every session attests to | `FLOW_RULES.md` |
+| **Always-on rules** | 27 baseline rules (FR-01..FR-27) every session attests to | `FLOW_RULES.md` |
 | **Workflows** | Step-by-step procedures (eight-phase, greenlight-implement, greenlight-deploy, etc.) | `workflows/` |
 | **Skills** | On-demand expertise loaded when triggered by description match | `flow-skills/` (canonical) + provider mirrors |
 | **Sub-agents** | Role-shaped specialists (Product Owner, AI Developer) with tight tool surfaces and self-attestation | `agents/` (canonical) + `.claude/agents/`, `.codex/agents/` mirrors |
