@@ -2,16 +2,20 @@
 # Fusebase Flow — AC4: sync-version-strings.sh allowlist UNDER-REACH guard
 # (the anti-GEMINI test) + consumer-doc-NOT-synced.
 #
-# Two failure modes guarded:
+# Three failure modes guarded (3 added v4.6.1 after the v4.6.0 red-main):
 #   1. UNDER-REACH: a token-bearing FRAMEWORK file omitted from the allowlist
 #      would silently never sync (recreates GEMINI-stuck-at-v2.1 in reverse).
 #      This test enumerates the allowlist's own reachable set, derives the TRUE
 #      set of framework files carrying a LIVE attestation string, and FAILS on
 #      any TRUE file the allowlist does not reach. It also self-verifies it would
 #      catch an omission (drops a known root and asserts a miss is detected).
-#   2. OVER-REACH: a consumer doc tree (docs/product-backlog|problem-catalog|
-#      product-execution|client-workflows/**) with an FR-.. token must NOT be in
-#      the reachable set.
+#   2. OVER-REACH: a consumer/record doc tree (any docs/<subdir>/**, e.g. this repo's
+#      docs/backlog + docs/problem-catalog, or a consumer's docs/product-backlog)
+#      with an FR-.. token must NOT be in the reachable set.
+#   3. DOCS-SURFACE SYMMETRY: the framework doc surface under docs/ is TOP-LEVEL
+#      `docs/*.md` only, so no allowlisted path may live under a docs/ subdirectory.
+#      Guards 1 and 2 are then two views of ONE structural rule instead of two
+#      hand-maintained name lists that can silently disagree.
 #
 # Output contract (parsed by run-tests.sh): "PASS: sync-allowlist <name>" /
 # "FAIL: sync-allowlist <name>"; exit code = number of failures.
@@ -58,6 +62,18 @@ REACHABLE_LIST="$(printf '%s\n' "${REACHABLE[@]}")"
 
 is_reachable() { local p="$1" x; for x in "${REACHABLE[@]}"; do [ "$x" = "$p" ] && return 0; done; return 1; }
 
+# TRIPWIRE (v4.6.1): exact-line membership is PURE BASH — never `producer | grep -qxF`.
+# Under this file's `set -o pipefail`, `grep -q` exits at the first match and every
+# further byte the producer writes raises SIGPIPE, so the PIPELINE reports 141 even
+# though the line WAS found. That turned the multi-line case into a silent false
+# verdict (v4.6.0 red-main: the AC27 self-verification reported "missing_set did NOT
+# report FLOW_RULES.md" the moment a second entry existed after it). Pattern-matching
+# a quoted "$2" inside `case` is literal, so paths need no escaping.
+has_line() { # has_line <newline-separated haystack> <exact line>
+  case $'\n'"$1"$'\n' in *$'\n'"$2"$'\n'*) return 0 ;; esac
+  return 1
+}
+
 # THE production under-reach calculation, factored so the self-verification below runs
 # THIS function against a mutated reachable set instead of restating the algorithm.
 # TRIPWIRE: never inline a second copy of this loop — the previous self-test filtered
@@ -66,26 +82,32 @@ is_reachable() { local p="$1" x; for x in "${REACHABLE[@]}"; do [ "$x" = "$p" ] 
 missing_set() { # missing_set <newline-separated reachable set> -> unreachable TRUE targets
   local reach="$1" t
   for t in "${TRUE_TARGET[@]}"; do
-    printf '%s\n' "$reach" | grep -qxF "$t" || printf '%s\n' "$t"
+    has_line "$reach" "$t" || printf '%s\n' "$t"
   done
 }
 
 # --- TRUE framework target: files with a LIVE string, minus generated mirrors,
-#     dated history, local diagnostics, and the consumer doc trees. ---
+#     dated history, local diagnostics, and the record/consumer doc trees. ---
+# `-path './docs/*'` (STRUCTURAL, v4.6.1) is the whole docs classification: the
+# framework doc surface under docs/ is TOP-LEVEL `docs/*.md` ONLY — exactly what
+# SYNC_FILES declares ("top-level docs/*.md only — NOT consumer doc trees") — so every
+# `docs/<subdir>/**` is a dated record/consumer tree whose version literals are history.
+# TRIPWIRE: do NOT go back to enumerating record trees by name. The v4.6.0 red-main was
+# an enumeration that listed the CONSUMER layout `docs/product-backlog` (a path this repo
+# has never had) while missing this repo's own `docs/backlog` — so a records tree
+# defaulted to FRAMEWORK and broke main the day a backlog note first quoted the
+# attestation string. Enumeration fails open for every doc tree nobody remembered.
 mapfile -t TRUE_TARGET < <(
   find . \( -type d \( \
         -name '.git' -o -name '.fusebase-flow-source' -o -name 'node_modules' \
         -o -name '.claude' -o -name '.agents' -o -name '.codex' \
-        -o -path './internal' -o -path './state' \
-        -o -path './docs/release-notes' -o -path './docs/handoff' -o -path './docs/tmp' \
-        -o -path './docs/specs' -o -path './docs/changes' -o -path './docs/fusebase-health' \
-        -o -path './docs/product-backlog' -o -path './docs/problem-catalog' \
-        -o -path './docs/product-execution' -o -path './docs/client-workflows' \
+        -o -path './internal' -o -path './state' -o -path './docs/*' \
       \) -prune \) -o \
     \( -type f \( -name '*.md' -o -name '*.mdc' \) \
          ! -name 'CHANGELOG.md' ! -name 'FLOW_RULES_HISTORY.md' -print \) \
   | xargs grep -lE "$LIVE_RE" 2>/dev/null | sed 's#^\./##' | sort -u
 )
+TRUE_TARGET_LIST="$(printf '%s\n' "${TRUE_TARGET[@]}")"
 
 # UNDER-REACH guard: every TRUE framework file must be reachable by the allowlist.
 mapfile -t missing < <(missing_set "$REACHABLE_LIST")
@@ -95,21 +117,40 @@ else
   bad "no-under-reach" "token-bearing framework file(s) NOT in allowlist: ${missing[*]}"
 fi
 
-# Self-verification (AC27): mutate the reachable set by dropping FLOW_RULES.md, then run
-# the PRODUCTION missing_set against it and require FLOW_RULES.md to be REPORTED missing.
-if ! printf '%s\n' "${TRUE_TARGET[@]}" | grep -qxF "FLOW_RULES.md"; then
-  bad "guard-detects-omission" "FLOW_RULES.md not in TRUE target — can't self-verify"
+# Self-verification (AC27): mutate the reachable set by dropping TWO framework files,
+# then run the PRODUCTION missing_set against it and require BOTH to be REPORTED missing.
+# TRIPWIRE: drop TWO, never one. A single-entry expectation is satisfied by a producer
+# that stops after the first line, which is precisely how the v4.6.0 SIGPIPE defect hid —
+# the control only exercises multi-entry output when more than one entry is missing.
+DROP_A="AGENTS.md"; DROP_B="FLOW_RULES.md"
+if ! has_line "$TRUE_TARGET_LIST" "$DROP_A" || ! has_line "$TRUE_TARGET_LIST" "$DROP_B"; then
+  bad "guard-detects-omission" "$DROP_A/$DROP_B not both in TRUE target — can't self-verify"
 else
-  MUTATED_REACHABLE="$(printf '%s\n' "$REACHABLE_LIST" | grep -vxF "FLOW_RULES.md")"
-  if printf '%s\n' "$MUTATED_REACHABLE" | grep -qxF "FLOW_RULES.md"; then
-    bad "guard-detects-omission" "mutation did not take effect — FLOW_RULES.md still reachable"
-  elif ! missing_set "$MUTATED_REACHABLE" | grep -qxF "FLOW_RULES.md"; then
-    bad "guard-detects-omission" "production missing_set did NOT report the omitted FLOW_RULES.md"
-  elif missing_set "$REACHABLE_LIST" | grep -qxF "FLOW_RULES.md"; then
-    bad "guard-detects-omission" "missing_set reports FLOW_RULES.md missing on the UNMUTATED set too"
+  MUTATED_REACHABLE="$(printf '%s\n' "$REACHABLE_LIST" | grep -vxF "$DROP_A" | grep -vxF "$DROP_B")"
+  MUT_MISSING="$(missing_set "$MUTATED_REACHABLE")"
+  UNMUT_MISSING="$(missing_set "$REACHABLE_LIST")"
+  if has_line "$MUTATED_REACHABLE" "$DROP_A" || has_line "$MUTATED_REACHABLE" "$DROP_B"; then
+    bad "guard-detects-omission" "mutation did not take effect — dropped file still reachable"
+  elif ! has_line "$MUT_MISSING" "$DROP_A" || ! has_line "$MUT_MISSING" "$DROP_B"; then
+    bad "guard-detects-omission" "production missing_set did NOT report both omitted files (got: ${MUT_MISSING//$'\n'/, })"
+  elif has_line "$UNMUT_MISSING" "$DROP_A" || has_line "$UNMUT_MISSING" "$DROP_B"; then
+    bad "guard-detects-omission" "missing_set reports a dropped file missing on the UNMUTATED set too"
   else
-    ok "guard-detects-omission"
+    ok "guard-detects-omission (2-entry mutation: $DROP_A + $DROP_B)"
   fi
+fi
+
+# --- DOCS-SURFACE guard (v4.6.1): the two halves of the structural docs rule must agree.
+#     TRUE_TARGET prunes every `docs/<subdir>/**` as a record tree; this asserts the
+#     allowlist does not REACH one either. Without it the classification is one-sided:
+#     an allowlist edit adding a docs subtree to SYNC_ROOTS would start rewriting dated
+#     records while the pruned TRUE_TARGET stayed silent about it. ---
+mapfile -t DOCS_SUBTREE_REACHED < <(printf '%s\n' "$REACHABLE_LIST" | grep -E '^docs/[^/]+/' || true)
+if [ "${#DOCS_SUBTREE_REACHED[@]}" -eq 0 ]; then
+  ok "docs-surface-is-top-level-only"
+else
+  bad "docs-surface-is-top-level-only" \
+      "allowlist reaches docs/<subdir>/ record tree(s): ${DOCS_SUBTREE_REACHED[*]}"
 fi
 
 # --- DATED-HISTORY guard: FLOW_RULES_HISTORY.md carries live-LOOKING strings (old
