@@ -67,3 +67,4 @@ When installing Fusebase Flow into an existing repository, never overwrite exist
 - Copilot does not have native lifecycle hooks (PreToolUse, PostToolUse, etc.) in v0.1. The git fallback hooks at `hooks/git/` and the operator's vigilance are the active enforcement layer.
 - Skill files at `flow-skills/` are reference material; cite paths explicitly when invoking them.
 - For full skill content, read the SKILL.md from canonical source rather than duplicating into Copilot instructions.
+- **The two mandatory skills do NOT auto-load here.** Read `flow-skills/communication/SKILL.md` and `flow-skills/role-discipline/SKILL.md` from canonical source on invocation, plus `flow-skills/role-discipline/references/<role>.md` for your attested role. The anti-reread rule at the top of each file exempts only surfaces that auto-load (`.claude/skills/` / `.agents/skills/`) — this surface is not one of them.

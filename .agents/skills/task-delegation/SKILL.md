@@ -100,6 +100,8 @@ For code-edit subtasks, tell the worker: "You are not alone in the codebase. Do 
 
 > Your deliverable must be COMPLETE within this turn — you cannot self-resume; poll in-turn (bounded) or read durable records, never end with "I'll resume when…". Write durable facts into your owed artifacts AS THEY OCCUR (skeleton first, rows as earned), never everything-at-the-end. If you hit an unbounded wait (human gate, no-ETA event), return `BLOCKED-AT-<gate>` + a pointer to where reality is recorded. Return per the delegated return shape: verdict · SHAs · deltas · artifact pointers — never re-paste a body an artifact already holds; state-change claims cite the ground-truth check performed (surface read + what it showed). **Chat-return budget: ≤80 lines and ≤6,000 characters. Longer → write a sanctioned durable artifact and return its path; commit only when the owning workflow requires it.**
 
+**No inherited auto-load.** A delegated sub-agent session does **not** inherit the orchestrator's auto-loaded skills or the always-on FR-24 digest — `session_start` does not fire for it. The anti-reread exemption in `communication` / `role-discipline` therefore does not apply to a worker: it reads them (or the delegating prompt inlines what it needs). Never tell a worker "the skill is already loaded".
+
 **Mandatory (code-writing / implementation slices):** the delegating prompt MUST inline the comment-policy **Delegation push block** from `flow-skills/comment-policy/SKILL.md` (push, not pull — sub-agents do not reliably auto-load skills, so don't just tell the worker to "load comment-policy"). Read-only / triage delegation is exempt (no code is written).
 
 For frontend/design subtasks, add:

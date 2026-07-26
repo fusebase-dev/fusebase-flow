@@ -71,6 +71,8 @@ This repository follows **Fusebase Flow** in addition to project-specific rules.
 - `flow-skills/communication/SKILL.md` — Mode A (operator chat) / Mode B (internal artifacts)
 - `flow-skills/role-discipline/SKILL.md` — shared role protocols + role index (don't-lists lazy-load from `references/<role>.md`)
 
+Because Claude Code auto-injects both bodies, **do not `Read` either file again** — seeing a name/description in the skill index is not the body, but the body itself is already in context. Two exceptions, both real reads: `role-discipline/references/<role>.md` (never auto-loaded) and a **delegated sub-agent session** (`session_start` doesn't fire for it — it inherits nothing). Other surfaces differ; the per-surface matrix is in the `AGENTS.md` overlay.
+
 **On-demand Fusebase Flow skills:** Claude Code auto-injects every skill description from `.claude/skills/` for matching — no in-file catalog needed.
 The canonical catalog lives in README § Skill catalog and the `AGENTS.md` overlay skill list.
 The 2 mandatory skills remain listed above (always loaded at session start).

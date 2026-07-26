@@ -39,6 +39,7 @@ Per FR-19, ask operator questions in chat text. Do not use popup / clickable men
 
 - No native pre-tool-use hook coverage; rely on git pre-commit + operator vigilance.
 - Skills are not auto-loaded by description match; operator references them explicitly ("invoke the `validation-and-qa` skill").
+- **The two mandatory skills do NOT auto-load here.** Read `flow-skills/communication/SKILL.md` and `flow-skills/role-discipline/SKILL.md` from canonical source once at session start — the anti-reread rule at the top of each file exempts only surfaces that auto-load (`.claude/skills/` / `.agents/skills/`), which this surface is not. Also read `flow-skills/role-discipline/references/<role>.md` for your attested role.
 - CLI provider skills are supporting domain guidance for Fusebase Apps work; Flow lifecycle artifacts and role boundaries still govern the session.
 - Permission-request hook coverage is unknown; require explicit confirmation in chat for every destructive op.
 

@@ -28,6 +28,11 @@ Review hooks/README.md before approving project trust.
 # OPTIONAL: skill-loading hint. Codex matches skill descriptions against
 # operator prompts; concise descriptions improve match quality. Fusebase Flow
 # canonical skills are mirrored to .agents/skills/ for Codex to load.
+# With skills_dir set, the two mandatory skill BODIES (communication,
+# role-discipline) are auto-loaded — do not Read those files again (their
+# anti-reread rule covers this surface). Still-required real reads:
+# role-discipline/references/<role>.md, and any delegated sub-agent session
+# (it inherits no auto-load). Unset skills_dir => nothing auto-loads; read both.
 skills_dir = ".agents/skills"
 
 # OPTIONAL: forbid network for hook handlers (defense-in-depth).

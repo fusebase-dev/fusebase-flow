@@ -104,6 +104,8 @@ Verification gate (T<gate>) and deploy (T<deploy>) serialize after all tracks la
 
 When delegating a code-writing slice, inline the **Write-time discipline digest** + the **Comment policy (FR-22) — Delegation push block** rendered verbatim in the § below into the sub-agent prompt (FR-24 / FR-22 push; sub-agents don't auto-load skills or the always-on digest), plus the **Delegation contract push block** (`task-delegation` §3): *"complete within this turn (no self-resume; poll in-turn or read durable records); write durable facts into your owed artifacts AS THEY OCCUR — skeleton first, rows as earned; on an unbounded wait (human gate, no-ETA event) return `BLOCKED-AT-<gate>` + where reality is recorded; return verdict · SHAs · deltas · artifact pointers, never re-pasted bodies; state-change claims cite the ground-truth check performed; chat return ≤80 lines and ≤6,000 characters — longer → write a sanctioned durable artifact and return its path; commit only when the owning workflow requires it."*
 
+A delegated sub-agent does **not** inherit an auto-loaded skill or the always-on digest (`session_start` doesn't fire for it) — the `communication` / `role-discipline` anti-reread exemption does not apply to it; it reads them. Never tell a worker a skill is already loaded.
+
 The chat-return budget binds **delegated** returns. The canonical gate report (§ Gate report contract below) and the canonical deploy report (`templates/handoff-deploy.md` § Deploy report contract) are **exempt** — evidence completeness outranks the cap; never truncate them to fit.
 
 ---
