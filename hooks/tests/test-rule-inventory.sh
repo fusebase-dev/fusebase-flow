@@ -6,8 +6,11 @@
 # committed baseline is EMPTY. An instrument that cannot fail is worthless, so both arms
 # are proven here against a throwaway fixture tree (never the live repo):
 #
-#   RED   — deleting an FR row / a don't-list row / a principle name, or rewording a rule
-#           STATEMENT, makes the diff non-empty.
+#   RED   — deleting an FR row / a don't-list row / a principle name, rewording a rule
+#           STATEMENT, moving a rule resident->lazy, or moving a don't-list row between
+#           roles, makes the diff non-empty. The last two are the T14 additions: under
+#           the pre-T14 two-column schema both mutations produced a CLEAN diff, which is
+#           how the correction round's BLOCKERs reached the gate unseen.
 #   GREEN — rewording the Enforcement column, or re-laying-out a principle from heading
 #           to table row to bullet, keeps the diff EMPTY. This is what lets T6/T7/T8
 #           restructure carriers without the instrument crying wolf.
@@ -35,7 +38,9 @@ mkfix() {
     mkdir -p "$1/flow-skills/role-discipline/references" "$1/flow-skills/communication/references"
     cp "$ROOT/FLOW_RULES.md" "$1/FLOW_RULES.md"
     cp "$ROOT"/flow-skills/role-discipline/references/*.md "$1/flow-skills/role-discipline/references/"
+    cp "$ROOT"/flow-skills/communication/references/*.md "$1/flow-skills/communication/references/"
     cp "$ROOT/flow-skills/communication/SKILL.md" "$1/flow-skills/communication/SKILL.md"
+    cp "$ROOT/flow-skills/role-discipline/SKILL.md" "$1/flow-skills/role-discipline/SKILL.md"
 }
 inv() { bash "$INV" --root "$1"; }
 
@@ -49,6 +54,8 @@ col() {
 
 FR_FILE=FLOW_RULES.md
 IM_FILE=flow-skills/role-discipline/references/ai-developer.md
+DP_FILE=flow-skills/role-discipline/references/deploy.md
+RD_FILE=flow-skills/role-discipline/SKILL.md
 CM_FILE=flow-skills/communication/SKILL.md
 
 m_drop_fr()        { edit "$1/$FR_FILE" '/^[|] *FR-13 *[|]/d'; }
@@ -71,6 +78,17 @@ m_principle_bullet() {
 # A heading naming the RANGE ("B1–B12 worked examples") is prose, not a definition —
 # it must not mint a phantom principle (which would poison the diff forever).
 m_range_heading()      { printf '\n## B1-B12 worked examples\n\n## B1–B12 worked examples\n' >> "$1/$CM_FILE"; }
+
+# T14 residency arms. Both mutations keep the rule TEXT alive somewhere in the tree —
+# only its home changes, which is exactly what the pre-T14 schema could not see.
+# (a) resident -> lazy: OD-3 is carried by BOTH the resident SKILL.md and the lazy
+#     shared-protocols.md; deleting only the resident copy must still be RED.
+m_move_resident_to_lazy() { edit "$1/$RD_FILE" '/^[|] *OD-3 *[|]/d'; }
+# (b) cross-role move: row text and ID unchanged, only the owning role file differs.
+m_move_dont_between_roles() {
+    grep -E '^[|] *IM\.4 *[|]' "$1/$IM_FILE" >> "$1/$DP_FILE"
+    edit "$1/$IM_FILE" '/^[|] *IM\.4 *[|]/d'
+}
 
 # mutate <name> <red|green> <mutator-fn>
 mutate() {
@@ -115,6 +133,34 @@ for n in 1 2 3 4 5 6 7 8 9 10 11 12; do
 done
 [ -z "$missing" ] && ok "covers-b1-b12" || bad "covers-b1-b12" "absent:$missing"
 
+# --- schema: 4 columns; residency is a source-file property (T14 / AC2 amended) ------
+if awk -F'\t' 'NF != 4 { bad = 1 } END { exit bad + 0 }' "$TMP/baseline.txt"; then
+    ok "schema-four-columns"
+else bad "schema-four-columns" "a row is not <id>TAB<text>TAB<path>TAB<residency>"; fi
+
+if awk -F'\t' '$4 != "resident" && $4 != "lazy" { bad = 1 } END { exit bad + 0 }' "$TMP/baseline.txt"; then
+    ok "schema-residency-values"
+else bad "schema-residency-values" "residency column is not resident|lazy"; fi
+
+# Both residencies must be populated: an all-resident inventory makes the resident->lazy
+# arm untestable; an all-lazy one means the parser lost the resident carriers.
+for want in resident lazy; do
+    awk -F'\t' -v w="$want" '$4 == w { n++ } END { exit (n > 0) ? 0 : 1 }' "$TMP/baseline.txt" \
+      && ok "schema-has-$want-rows" || bad "schema-has-$want-rows" "no $want rows"
+done
+
+# Every path column must be repo-relative: an absolute checkout path would make the
+# baseline machine-specific and every diff permanently non-empty.
+if awk -F'\t' '$3 ~ /^([A-Za-z]:)?\// { bad = 1 } END { exit bad + 0 }' "$TMP/baseline.txt"; then
+    ok "schema-relative-paths"
+else bad "schema-relative-paths" "an absolute source path leaked into the inventory"; fi
+
+missing=""
+for cat in "WT\." "PROT\." "OD-" "FAIL\." "REF\." "QS\." "FC\." "MODE\." "ROLE\." "BOOT\."; do
+    grep -qE "^$cat" "$TMP/baseline.txt" || missing="$missing $cat"
+done
+[ -z "$missing" ] && ok "covers-amended-categories" || bad "covers-amended-categories" "absent:$missing"
+
 inv "$BASE" > "$TMP/rerun.txt"
 cmp -s "$TMP/baseline.txt" "$TMP/rerun.txt" && ok "deterministic-rerun" \
   || bad "deterministic-rerun" "two runs on an unchanged tree differ"
@@ -124,6 +170,8 @@ mutate drop-fr-row        red   m_drop_fr
 mutate drop-dont-row      red   m_drop_dont
 mutate drop-principle     red   m_drop_principle
 mutate reword-statement   red   m_reword_statement
+mutate move-resident-to-lazy   red m_move_resident_to_lazy
+mutate move-dont-between-roles red m_move_dont_between_roles
 # --- GREEN arms (each MUST keep the diff empty) --------------------------------------
 mutate reword-enforcement green m_reword_enforcement
 mutate principle-relayout   green m_principle_relayout
