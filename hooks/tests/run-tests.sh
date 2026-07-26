@@ -290,9 +290,13 @@ run_shell_phase test-history-extraction.sh     "history-extraction"
 # PASS iff exit 0. test-cli-flow-recovery.sh is heavy (copies the skill tree + drives
 # the health engine — minutes) and was UNBOUNDED, so it hung the whole harness on
 # MSYS (the universal run-tests-never-completes defect). Now bounded via
-# ffhc_run_bounded_stdout at FF_CLI_RECOVERY_TIMEOUT (default 240s) with an
+# ffhc_run_bounded_stdout at FF_CLI_RECOVERY_TIMEOUT (default 480s) with an
 # FF_SKIP_CLI_RECOVERY=1 opt-out; a timeout (rc 124/137) is reported INCONCLUSIVE —
 # counted as a non-pass so the suite never goes silently green on a bound-hit.
+# TRIPWIRE: the bound tracks repo SIZE, not this test's correctness — it copies the whole
+# skill tree, so every added skill/test/fixture lengthens it (199s at T11 → 304s measured
+# to completion at T24, 31/31 assertions, exit 0). Set it with headroom, never to the
+# measured edge: the 240s bound was the measured edge and this ticket's growth crossed it.
 run_exitcode_phase() { # run_exitcode_phase <test-script> <tag> <label>
     local script="$ROOT/hooks/tests/$1" tag="$2" label="$3"
     ff_selected "$tag" || { ff_skip_note "$tag"; return 0; }
@@ -307,7 +311,7 @@ run_exitcode_phase() { # run_exitcode_phase <test-script> <tag> <label>
     fi
     progress "$label"
     local _t0=$SECONDS
-    ffhc_run_bounded_stdout "${FF_CLI_RECOVERY_TIMEOUT:-240}" bash "$script"
+    ffhc_run_bounded_stdout "${FF_CLI_RECOVERY_TIMEOUT:-480}" bash "$script"
     local rc=$FFHC_LAST_RC
     printf '[run-tests] %s took %ss\n' "$label" "$((SECONDS - _t0))" >&2   # D14.1 per-phase wall time
     FFHC_LAST_WINPID=""; FFHC_LAST_CHILD_PID=""   # phase returned => child reaped; no stale sweep on exit
@@ -316,7 +320,7 @@ run_exitcode_phase() { # run_exitcode_phase <test-script> <tag> <label>
         report_rows="$report_rows| $1 | $label | PASS | exit 0 |"$'\n'
     elif ffhc_timed_out "$rc"; then
         # Bound-hit on a loaded/slow host: INCONCLUSIVE, not FAIL and NOT silent-green.
-        fail=$((fail + 1)); echo "INCONCLUSIVE: $label (bounded timeout rc $rc at ${FF_CLI_RECOVERY_TIMEOUT:-240}s — re-run on a quiet host or FF_SKIP_CLI_RECOVERY=1)"
+        fail=$((fail + 1)); echo "INCONCLUSIVE: $label (bounded timeout rc $rc at ${FF_CLI_RECOVERY_TIMEOUT:-480}s — re-run on a quiet host or FF_SKIP_CLI_RECOVERY=1)"
         report_rows="$report_rows| $1 | $label | INCONCLUSIVE | bounded timeout rc $rc |"$'\n'
     else
         fail=$((fail + 1)); echo "FAIL: $label (exit $rc)"
