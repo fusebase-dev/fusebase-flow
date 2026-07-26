@@ -44,7 +44,7 @@ FF_PHASE_TIMEOUT="${FF_PHASE_TIMEOUT:-600}"
 FF_TAGS=(fixtures module-size health-check-timeout git-smoke hook-manifest newline-preserve baseline-merge \
   sync-allowlist policy-state bootstrap-baseline-hop fr22-delivery po-verifiable-boot \
   po-investigate liveness codex-parity codex-plugin cli-0259 secret-scan-staged bootstrap-exception \
-  trusted-enforcer hook-install-rc msys-tree-cleanup ws5-upgrade ff-only cli-flow-recovery)
+  trusted-enforcer hook-install-rc msys-tree-cleanup ws5-upgrade ff-only return-budget cli-flow-recovery)
 
 declare -A FF_SEL=()      # selected tags (populated only when scoped)
 FF_SCOPED=0               # 1 iff FF_ONLY is a non-empty selection
@@ -274,6 +274,7 @@ run_shell_phase test-hook-install-rc.sh        "hook-install-rc"
 run_shell_phase test-msys-tree-cleanup.sh      "msys-tree-cleanup"
 run_shell_phase test-ws5-upgrade-bounded.sh    "ws5-upgrade"
 run_shell_phase test-ff-only.sh                "ff-only"
+run_shell_phase test-return-budget.sh          "return-budget"
 
 # Exit-code phase — all-or-nothing shell tests that fail-fast (set -e + fail()→exit)
 # and don't emit the run_shell_phase "PASS: <tag> <name>" contract. One row per test;

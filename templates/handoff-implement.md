@@ -102,7 +102,9 @@ If an identifier needs verification (e.g., the dashboard was renamed), note it: 
 
 Verification gate (T<gate>) and deploy (T<deploy>) serialize after all tracks land.
 
-When delegating a code-writing slice, inline the **Write-time discipline digest** + the **Comment policy (FR-22) — Delegation push block** rendered verbatim in the § below into the sub-agent prompt (FR-24 / FR-22 push; sub-agents don't auto-load skills or the always-on digest), plus the **Delegation contract push block** (`task-delegation` §3): *"complete within this turn (no self-resume; poll in-turn or read durable records); write durable facts into your owed artifacts AS THEY OCCUR — skeleton first, rows as earned; on an unbounded wait (human gate, no-ETA event) return `BLOCKED-AT-<gate>` + where reality is recorded; return verdict · SHAs · deltas · artifact pointers, never re-pasted bodies; state-change claims cite the ground-truth check performed."*
+When delegating a code-writing slice, inline the **Write-time discipline digest** + the **Comment policy (FR-22) — Delegation push block** rendered verbatim in the § below into the sub-agent prompt (FR-24 / FR-22 push; sub-agents don't auto-load skills or the always-on digest), plus the **Delegation contract push block** (`task-delegation` §3): *"complete within this turn (no self-resume; poll in-turn or read durable records); write durable facts into your owed artifacts AS THEY OCCUR — skeleton first, rows as earned; on an unbounded wait (human gate, no-ETA event) return `BLOCKED-AT-<gate>` + where reality is recorded; return verdict · SHAs · deltas · artifact pointers, never re-pasted bodies; state-change claims cite the ground-truth check performed; chat return ≤80 lines and ≤6,000 characters — longer → write a sanctioned durable artifact and return its path; commit only when the owning workflow requires it."*
+
+The chat-return budget binds **delegated** returns. The canonical gate report (§ Gate report contract below) and the canonical deploy report (`templates/handoff-deploy.md` § Deploy report contract) are **exempt** — evidence completeness outranks the cap; never truncate them to fit.
 
 ---
 
@@ -179,6 +181,8 @@ If any check fails, STOP and fix before commit. No "fix in next commit" patterns
 ## Gate report contract (when you reach `T<gate>`)
 
 Produce the gate report from `templates/gate-report.md` (incl. the section-9 operator-relay block); required fields per `policies/gate-contracts.yml: gate_report`.
+
+**Exempt from the delegated chat-return budget** (≤80 lines / ≤6,000 characters): evidence completeness outranks the cap here. Never drop a required field or truncate evidence to fit.
 
 Paste the report back to operator. Then **halt**. Do not run any post-gate task.
 
