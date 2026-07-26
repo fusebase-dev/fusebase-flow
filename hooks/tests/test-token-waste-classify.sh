@@ -35,17 +35,20 @@ finish() { [ -n "${TMP:-}" ] && rm -rf "$TMP"; echo "[test-token-waste-classify]
 command -v "$PY" >/dev/null 2>&1 || PY=python
 command -v "$PY" >/dev/null 2>&1 || { bad "setup-python" "no python interpreter"; finish; }
 [ -f "$AUDIT" ] || { bad "setup-audit-present" "missing $AUDIT"; finish; }
-for i in 01 02 03 04 05 06 07 08 09 10; do
+for i in 01 02 03 04 05 06 07 08 09 10 11 12 13 14; do
     ls "$FIX"/token-waste-"$i"-*.jsonl >/dev/null 2>&1 || { bad "setup-fixtures-present" "missing fixture $i"; finish; }
 done
 ok "setup-inputs-present"
 
 TMP="$(mktemp -d)"
-mkdir -p "$TMP/mixed" "$TMP/nodata" "$TMP/clean" "$TMP/allclassified"
+mkdir -p "$TMP/mixed" "$TMP/nodata" "$TMP/clean" "$TMP/allclassified" "$TMP/falseneg"
 cp "$FIX"/token-waste-0[1-8]-*.jsonl "$TMP/mixed/"
 cp "$FIX"/token-waste-09-*.jsonl     "$TMP/nodata/"
 cp "$FIX"/token-waste-10-*.jsonl     "$TMP/clean/"
 cp "$FIX"/token-waste-01-*.jsonl     "$TMP/allclassified/"
+# fx-11..14 are the A8-amendment false negatives (AC25/AC26) — kept in their own dir so
+# the mixed-dir disposition counts above stay the AC15-AC19 contract, unchanged.
+cp "$FIX"/token-waste-1[1-4]-*.jsonl "$TMP/falseneg/"
 
 # TRIPWIRE: run from $TMP, never the repo — the parser resolves its report path from the
 # git root, so a repo-cwd run would clobber the operator's real state/audit report.
@@ -109,6 +112,18 @@ says "ac19-state-all-classified"   "$(run_audit allclassified)" "TERMINAL STATE:
 says "ac19-state-clean"            "$(run_audit clean)"         "TERMINAL STATE: no candidates above thresholds"
 says "ac19-state-parse-failure"    "$(run_audit nodata)"        "TERMINAL STATE: no transcripts / parse failure"
 says "ac19-state-no-transcripts"   "$(run_audit missing-dir)"   "TERMINAL STATE: no transcripts / parse failure"
+
+# --- AC25/AC26: the four Codex-PoC false negatives stay LIVE ---------------------------
+# Run WITH the documented probe fx-13 embeds: verb-anchored matching and normalized
+# --probe-command equality must still refuse to dismiss any of the four.
+OUT_FN="$(run_audit falseneg --probe-command 'bash hooks/local/preflight.sh')"
+says  "ac25-falseneg-none-dismissed" "$OUT_FN" "Auto-classified (dismissed, NOT counted above): 0"
+says  "ac25-falseneg-all-stay-live"      "$OUT_FN" "re-read 1 | polling 3"
+FN_DISMISSED="$(printf '%s' "$OUT_FN" | grep -F 'auto-classified:' || true)"
+lacks "ac25-echo-status-not-dismissed"    "$FN_DISMISSED" "token-waste-11"
+lacks "ac25-message-status-not-dismissed" "$FN_DISMISSED" "token-waste-12"
+lacks "ac25-probe-plus-mutation-not-dismissed" "$FN_DISMISSED" "token-waste-13"
+lacks "ac26-path-alias-not-dismissed"     "$FN_DISMISSED" "token-waste-14"
 
 # --- privacy invariant: fixture bodies never reach the report --------------------------
 lacks "privacy-no-result-bodies" "$RPT" "aaaaaaaaaa"

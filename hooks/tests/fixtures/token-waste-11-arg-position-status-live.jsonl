@@ -1,0 +1,6 @@
+{"type": "assistant", "requestId": "req-1", "cwd": "/repo", "message": {"role": "assistant", "usage": {"output_tokens": 10}, "content": [{"type": "tool_use", "id": "b1", "name": "Bash", "input": {"command": "echo status"}}]}}
+{"type": "user", "cwd": "/repo", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "b1", "content": [{"type": "text", "text": "status 1"}]}]}}
+{"type": "assistant", "requestId": "req-1", "cwd": "/repo", "message": {"role": "assistant", "usage": {"output_tokens": 10}, "content": [{"type": "tool_use", "id": "b2", "name": "Bash", "input": {"command": "echo status"}}]}}
+{"type": "user", "cwd": "/repo", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "b2", "content": [{"type": "text", "text": "status 2"}]}]}}
+{"type": "assistant", "requestId": "req-1", "cwd": "/repo", "message": {"role": "assistant", "usage": {"output_tokens": 10}, "content": [{"type": "tool_use", "id": "b3", "name": "Bash", "input": {"command": "echo status"}}]}}
+{"type": "user", "cwd": "/repo", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "b3", "content": [{"type": "text", "text": "status 3"}]}]}}

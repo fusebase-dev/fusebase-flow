@@ -19,7 +19,9 @@ import argparse
 import datetime
 import hashlib
 import json
+import posixpath
 import re
+import shlex
 import subprocess
 import sys
 from collections import namedtuple
@@ -55,20 +57,30 @@ TERMINAL_NO_DATA = (
     "TERMINAL STATE: no transcripts / parse failure (nothing was parsed — this is NOT "
     "evidence of cleanliness)")
 
-# A8 probe-shaped predicate: a test runner, an explicit --dry-run, or a health/status/
-# version verb. --probe-command adds the ticket's own documented gate probes.
-PROBE_PATTERNS = (
-    (r"\bpytest\b", "test runner (pytest)"),
-    (r"\bnpm\s+test\b", "test runner (npm test)"),
-    (r"\brun-tests\b", "test runner (run-tests)"),
-    (r"bash\s+hooks/tests/", "test runner (bash hooks/tests/)"),
-    (r"--dry-run\b", "explicit --dry-run"),
-    (r"\bgit\s+status\b", "status verb (git status)"),
-    (r"\bhealth-check\b", "health verb (health-check)"),
-    (r"\bpreflight\b", "health verb (preflight)"),
-    (r"--version\b", "version verb (--version)"),
-    (r"\bstatus\b", "status verb (status)"),
-)
+# A8 probe-shaped predicate, matched on the parsed command VERB or a known exact form.
+# TRIPWIRE: never widen any of these to an anywhere-in-the-string regex. `\bstatus\b`
+# anywhere dismissed `echo status` x3 and `deploy --message status` x3 (A8 amendment,
+# BLOCKER 5) — a probe token in argument position is not a probe.
+PROBE_VERBS = {
+    "pytest": "test runner (pytest)",
+    "py.test": "test runner (pytest)",
+    "run-tests": "test runner (run-tests)",
+    "health-check": "health verb (health-check)",
+    "preflight": "health verb (preflight)",
+    "status": "status verb (status)",
+}
+PROBE_VERB_PAIRS = {
+    ("npm", "test"): "test runner (npm test)",
+    ("git", "status"): "status verb (git status)",
+}
+PROBE_FLAGS = {"--dry-run": "explicit --dry-run", "--version": "version verb (--version)"}
+TEST_DIR_PREFIX = "hooks/tests/"
+INTERPRETERS = {"bash", "sh", "zsh", "dash", "python", "python3", "py", "env", "time",
+                "command", "nice", "stdbuf"}
+VERB_SUFFIXES = (".sh", ".py", ".exe", ".bash", ".ps1")
+SEGMENT_SPLIT = re.compile(r"\|\||&&|;|\||\n")
+ENV_ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
+DRIVE_RE = re.compile(r"^[A-Za-z]:(?:/|$)")
 
 # TRIPWIRE: matched against the whitespace-normalized result HEAD only, and only ever
 # as a boolean — the head itself never leaves result_size_and_digest (no-content-emitted).
@@ -113,6 +125,26 @@ def git_root():
 
 def munge(path_str):
     return re.sub(r"[^A-Za-z0-9]", "-", path_str)
+
+
+def canon_path(raw, cwd=""):
+    """Canonical path form for read keying and A8 contradiction checks.
+
+    TRIPWIRE: pure string work, never a filesystem call — transcripts are parsed on a
+    different host/cwd than the one that produced them, so `Path.resolve()` would silently
+    re-root them. Separator-normalized, `.`/`..` collapsed, relative paths resolved against
+    the transcript's own cwd, drive-letter paths case-folded (Windows semantics). Raw
+    string equality made `C:/Repo/a.txt` and `c:\\repo\\a.txt` look like unrelated paths
+    (A8 amendment, BLOCKER 6)."""
+    t = str(raw or "").strip().strip('"').strip("'").replace("\\", "/")
+    if not t:
+        return ""
+    if not (DRIVE_RE.match(t) or t.startswith("/")):
+        base = str(cwd or "").strip().strip('"').strip("'").replace("\\", "/").rstrip("/")
+        if base:
+            t = base + "/" + t
+    t = posixpath.normpath(t)
+    return t.lower() if DRIVE_RE.match(t) else t
 
 
 def locate_transcript_dir(root):
@@ -204,9 +236,10 @@ def parse_session(path):
         "usage_no_request": [],
         "tool_result_chars": 0,
         "tool_results": [],           # ToolResult(chars, name, target, digest, key, seq, err)
-        "read_counts": {},            # (file_path, offset, limit) -> count
+        "read_counts": {},            # (canonical file_path, offset, limit) -> count
         "read_events": {},            # full read key -> [(seq, chars, digest, err)] in order
-        "write_events": [],           # (seq, full target path) for Edit/Write/NotebookEdit
+        "read_display": {},           # read key -> first-seen raw path (display only)
+        "write_events": [],           # (seq, canonical target path) for Edit/Write/NotebookEdit
         "compaction_seqs": [],        # event index of each compaction marker
         "bash_runs": {},              # norm cmd -> max consecutive-without-write run
         "large_writes": [],           # (path, content_chars)
@@ -217,6 +250,7 @@ def parse_session(path):
     seen_paths = set()
     seen_result_ids = set()           # tool_use_id of results already counted (no double-count)
     seq = 0                           # monotonic event index: line-level, then per block
+    cwd = ""                          # last-seen transcript cwd; roots relative tool paths
     with path.open(encoding="utf-8", errors="replace") as fh:
         for line in fh:
             line = line.strip()
@@ -230,6 +264,8 @@ def parse_session(path):
             if not isinstance(obj, dict):
                 continue
             seq += 1
+            if isinstance(obj.get("cwd"), str) and obj["cwd"].strip():
+                cwd = obj["cwd"]
             # Compaction markers are their own line type — checked BEFORE the
             # assistant/user filter, or the marker is never seen.
             if is_compaction_marker(obj):
@@ -264,14 +300,16 @@ def parse_session(path):
                         tin = block.get("input") if isinstance(block.get("input"), dict) else {}
                         key = None
                         if name == "Read":
-                            key = (str(tin.get("file_path", "")), tin.get("offset"), tin.get("limit"))
+                            raw_read = str(tin.get("file_path", ""))
+                            key = (canon_path(raw_read, cwd), tin.get("offset"), tin.get("limit"))
                             s["read_counts"][key] = s["read_counts"].get(key, 0) + 1
+                            s["read_display"].setdefault(key, raw_read)
                         if tid:
                             tool_meta[tid] = (name, tool_target(name, tin), key, seq)
                         if name in WRITE_TOOLS:
                             wpath = tin.get("file_path") or tin.get("notebook_path")
                             if wpath:
-                                s["write_events"].append((seq, str(wpath)))
+                                s["write_events"].append((seq, canon_path(wpath, cwd)))
                             bash_counts.clear()
                         if name in ("Bash", "PowerShell"):
                             norm = " ".join(str(tin.get("command", "")).split())
@@ -281,10 +319,10 @@ def parse_session(path):
                         fp = tin.get("file_path") or tin.get("notebook_path")
                         if name == "Write" and fp:
                             content_len = len(str(tin.get("content", "")))
-                            if str(fp) in seen_paths and content_len >= LARGE_WRITE_CHARS:
+                            if canon_path(fp, cwd) in seen_paths and content_len >= LARGE_WRITE_CHARS:
                                 s["large_writes"].append((snippet(str(fp)), content_len))
                         if fp:
-                            seen_paths.add(str(fp))
+                            seen_paths.add(canon_path(fp, cwd))
             else:  # user line; tool results live in message.content, never top-level toolUseResult
                 content = msg.get("content")
                 if not isinstance(content, list):
@@ -328,6 +366,8 @@ def monotonic_growth(sizes):
 def contradictory_event(s, key, events):
     """A8 contradictory-event predicate. Returns the evidence string, or "" if none."""
     lo, hi = events[0][0], events[-1][0]
+    # TRIPWIRE: both sides were canonicalized at ingest (canon_path) — compare them raw
+    # here and the `C:/Repo` vs `c:\repo` alias false negative comes straight back.
     path = key[0]
     for wseq, wpath in s["write_events"]:
         if lo < wseq < hi and wpath == path:
@@ -370,16 +410,71 @@ def classify_re_read(s, key, n):
                            sizes, ndist))
 
 
-def probe_shaped(cmd, probe_cmds=()):
-    """A8 probe-shaped predicate, matched against the normalized command string."""
-    low = " ".join(cmd.split()).lower()
-    for pattern, label in PROBE_PATTERNS:
-        if re.search(pattern, low):
+def tokenize(segment):
+    try:
+        return shlex.split(segment)
+    except ValueError:
+        return segment.split()
+
+
+def command_verb(tokens):
+    """(verb, argv) for one pipeline segment: leading env assignments and one interpreter
+    wrapper stripped, verb reduced to its extension-less basename."""
+    i = 0
+    while i < len(tokens) and ENV_ASSIGN.match(tokens[i]):
+        i += 1
+    if i < len(tokens) and basename_verb(tokens[i]) in INTERPRETERS and i + 1 < len(tokens):
+        i += 1
+        while i < len(tokens) and tokens[i] in ("-m", "-u", "-l", "-c"):
+            i += 1
+    if i >= len(tokens):
+        return "", []
+    return basename_verb(tokens[i]), tokens[i:]
+
+
+def basename_verb(token):
+    base = token.replace("\\", "/").rsplit("/", 1)[-1]
+    for suf in VERB_SUFFIXES:
+        if base.lower().endswith(suf):
+            return base[: -len(suf)]
+    return base
+
+
+def segment_probe_label(segment):
+    """A8 probe shape for ONE pipeline segment — verb position or a known exact form."""
+    tokens = tokenize(segment)
+    if not tokens:
+        return ""
+    verb, argv = command_verb(tokens)
+    label = PROBE_VERBS.get(verb.lower())
+    if label:
+        return label
+    if len(argv) >= 2:
+        label = PROBE_VERB_PAIRS.get((verb.lower(), argv[1].lower()))
+        if label:
             return label
-    for extra in probe_cmds:
-        if extra and " ".join(extra.split()).lower() in low:
-            return "documented gate probe (--probe-command %s)" % snippet(extra)
+    if (len(tokens) >= 2 and basename_verb(tokens[0]) in INTERPRETERS
+            and tokens[1].replace("\\", "/").lstrip("./").startswith(TEST_DIR_PREFIX)):
+        return "test runner (bash hooks/tests/)"
+    for tok in argv[1:]:
+        if tok.lower() in PROBE_FLAGS:
+            return PROBE_FLAGS[tok.lower()]
     return ""
+
+
+def probe_shaped(cmd, probe_cmds=()):
+    """A8 probe-shaped predicate. `--probe-command` is normalized EQUALITY, and EVERY
+    chained segment must be probe-shaped — substring containment dismissed a documented
+    probe with extra mutating commands appended (A8 amendment, BLOCKER 5)."""
+    norm = " ".join(cmd.split())
+    for extra in probe_cmds:
+        if extra and " ".join(extra.split()) == norm:
+            return "documented gate probe (--probe-command %s)" % snippet(extra)
+    segments = [seg for seg in SEGMENT_SPLIT.split(norm) if seg.strip()]
+    if not segments:
+        return ""
+    labels = [segment_probe_label(seg) for seg in segments]
+    return labels[0] if all(labels) else ""
 
 
 def classify_bash(cmd, n, probe_cmds=()):
@@ -402,6 +497,7 @@ def session_findings(s, probe_cmds=()):
     for key, n in sorted(s["read_counts"].items(), key=lambda kv: -kv[1]):
         fp, off, lim = key
         if n >= READ_REPEAT_MIN and fp:
+            fp = s["read_display"].get(key, fp)
             win = "" if off is None and lim is None else " [offset=%s limit=%s]" % (off, lim)
             status, evidence = classify_re_read(s, key, n)
             f.append(Finding("re-read", "Read x%d identical window: %s%s" % (n, snippet(fp), win),
