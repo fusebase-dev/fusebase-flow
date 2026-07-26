@@ -34,11 +34,12 @@
 .agents/skills/release-deploy-reporting/SKILL.md  5970d19f7accfccc6cb6090f32594b093f6ee79a4edb1a47f02aad4c6dc734a7
 .agents/skills/repo-onboarding-context-map/SKILL.md  d0e8c40165353b454a7ee48cc77edc77bc136de1e35cafef1cd86046ed1c19c0
 .agents/skills/requirements-specification/SKILL.md  497d6128bee8d9c70f90091ac6f54d0ea4efc38dcf2e7d8883fd88be68ccf57a
-.agents/skills/role-discipline/SKILL.md  aa7f6faffe92600fb92a753ba59f9845b2a3398b05352ae5480f9f57d2057f8f
+.agents/skills/role-discipline/SKILL.md  e16716e406d0f076149b64f07242de4bc3761305f627a04c563f12cf585c0018
 .agents/skills/role-discipline/references/ai-developer.md  140da055ffd1d560bec5b504c21dfa7194901af089be4ad12c66c60935e5a657
 .agents/skills/role-discipline/references/architect.md  fd7f0edf600a618b34284e61025b7ad97ad51fd2e2dfa005eec6596cac996744
 .agents/skills/role-discipline/references/deploy.md  e2084988d93cb9719c2bbc87eef8bdc44047509f4da02c8a13221d042a2fb966
 .agents/skills/role-discipline/references/product-owner.md  2910f4f0d6dca8c717868efcb0e9db32aa1d8975a1b39e056a780f5b0655297c
+.agents/skills/role-discipline/references/shared-protocols.md  efd466729e6c87e0c0a907ad043f5a45f0d8dc6cb7ba5c081ef9c88e1797c971
 .agents/skills/security-permissions-review/SKILL.md  23dfff25d3f60fff9d3f8d34e1fd40a46bc24b26b0e2bb8554159b4dd0016825
 .agents/skills/skill-authoring/SKILL.md  7a42bdeda00698c6dc8b0e95139ce2610a3e1a15e690fefa56d83353a0053b28
 .agents/skills/smoke-testing/SKILL.md  d2119105bac78b7d0b5321675b02f033e240583ae4b8d5aad42b6d9325364317
@@ -82,11 +83,12 @@
 .claude/skills/release-deploy-reporting/SKILL.md  5970d19f7accfccc6cb6090f32594b093f6ee79a4edb1a47f02aad4c6dc734a7
 .claude/skills/repo-onboarding-context-map/SKILL.md  d0e8c40165353b454a7ee48cc77edc77bc136de1e35cafef1cd86046ed1c19c0
 .claude/skills/requirements-specification/SKILL.md  497d6128bee8d9c70f90091ac6f54d0ea4efc38dcf2e7d8883fd88be68ccf57a
-.claude/skills/role-discipline/SKILL.md  aa7f6faffe92600fb92a753ba59f9845b2a3398b05352ae5480f9f57d2057f8f
+.claude/skills/role-discipline/SKILL.md  e16716e406d0f076149b64f07242de4bc3761305f627a04c563f12cf585c0018
 .claude/skills/role-discipline/references/ai-developer.md  140da055ffd1d560bec5b504c21dfa7194901af089be4ad12c66c60935e5a657
 .claude/skills/role-discipline/references/architect.md  fd7f0edf600a618b34284e61025b7ad97ad51fd2e2dfa005eec6596cac996744
 .claude/skills/role-discipline/references/deploy.md  e2084988d93cb9719c2bbc87eef8bdc44047509f4da02c8a13221d042a2fb966
 .claude/skills/role-discipline/references/product-owner.md  2910f4f0d6dca8c717868efcb0e9db32aa1d8975a1b39e056a780f5b0655297c
+.claude/skills/role-discipline/references/shared-protocols.md  efd466729e6c87e0c0a907ad043f5a45f0d8dc6cb7ba5c081ef9c88e1797c971
 .claude/skills/security-permissions-review/SKILL.md  23dfff25d3f60fff9d3f8d34e1fd40a46bc24b26b0e2bb8554159b4dd0016825
 .claude/skills/skill-authoring/SKILL.md  7a42bdeda00698c6dc8b0e95139ce2610a3e1a15e690fefa56d83353a0053b28
 .claude/skills/smoke-testing/SKILL.md  d2119105bac78b7d0b5321675b02f033e240583ae4b8d5aad42b6d9325364317
