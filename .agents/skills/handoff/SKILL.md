@@ -57,7 +57,8 @@ Capture the exact current state of a coding session into `docs/tmp/handoff.md` s
 3. Detect real build/test/lint commands from manifests. Do not invent.
 4. Reconstruct session facts: role + authority, goal + non-goals, done/partial/not-started, locked decisions, constraints, what failed and why, open questions, the single next concrete action.
 5. **Mode + archive (paper trail).** Stamp `Mode: restart` (operator-triggered) or `Mode: run-ledger` (autonomous continuity — announce the write in chat, one line). Archive the predecessor to `docs/tmp/handoff/archive/<YYYY-MM-DD-HHMM>-handoff.md` (timestamp from its `Updated:` header when parseable, else file mtime/now) ONLY on restart supersede or **mode transition** (restart↔run-ledger, `/handoff` over a live ledger, or a different ticket's file). **Run-ledger updates supersede IN PLACE** (FR-18; git history is the audit trail) — never one archive file per ledger update. Archive files are **dated history — agents never load them**; the operator may prune the archive anytime (nothing references it).
-6. Create `docs/tmp/` if absent. Write `docs/tmp/handoff.md` fresh from `templates/handoff.md` — same section order, every section filled with content / `Unknown` / `None`, and current `Updated: <YYYY-MM-DD HH:MMZ>` + `Mode:` lines in the header. Do NOT append resumption notes above old content (FR-18); the superseded restart predecessor lives in the archive.
+6. Create `docs/tmp/` if absent. Produce `docs/tmp/handoff.md` against `templates/handoff.md` — same section order, every section filled with content / `Unknown` / `None`, and current `Updated: <YYYY-MM-DD HH:MMZ>` + `Mode:` lines in the header. Do NOT append resumption notes above old content (FR-18); the superseded restart predecessor lives in the archive.
+   **Write primitive (FR-18):** supersede replaces stale *semantics*, not the file. A **run-ledger** update where most sections are unchanged is a targeted `Edit` of the stale regions + the `Updated:`/`HEAD:` header — not a regeneration. A full `Write` is for a **restart** snapshot, a mode transition, a different ticket, or when most sections changed. "Fresh" means *no stale semantics survive*, never *retype the file*.
 7. Quality bar: factual only; pointers to canonical spec/decisions/tasks instead of reprinting them (FR-23); exactly one concrete executable Next Step; preserve repo terminology; product/user decisions separate from implementation detail; before reusing any copied procedural block, check whether a capability shipped since it was written supersedes the procedure.
 8. Report a short Mode A summary in chat (Goal, Current state, Active files, Next step, Validation). Do not paste the full file unless asked.
 
@@ -68,7 +69,7 @@ Capture the exact current state of a coding session into `docs/tmp/handoff.md` s
 1. Read the header: `Mode:`, `Updated:`, `Branch:`, `HEAD:`.
 2. **Trust gate.** Diff recorded `Branch:`/`HEAD:` vs live `git branch --show-current` / `git rev-parse --short HEAD`. Match → `Active Files in Flight` and `Next Step` are current; resume there. Mismatch → the repo moved after the write: re-derive in-flight state from `git status --short` + `git log <recorded-HEAD>..HEAD --oneline`; treat the file table as historical; `Key Decisions Made` / `Failed Attempts` stay valid (they don't decay with HEAD).
 3. `Mode: run-ledger` → resume from records: read the ledger's cited artifacts BEFORE acting; resume from the last durable fact (`task-delegation` successor contract).
-4. Never append a resumption note to the file (FR-18) — the next write is a fresh supersede.
+4. Never append a resumption note to the file (FR-18) — the next write supersedes in place (targeted `Edit` when most sections are unchanged; full `Write` on a structure/mode/ticket change).
 
 ## Run-ledger write cadence
 
@@ -89,7 +90,8 @@ Supersede the ledger at durable milestones, not per tool call: after each commit
 | Nothing meaningful to hand off | `git status` clean, no in-flight decisions | Tell operator no handoff is warranted; do not write a hollow file |
 | Facts unknown | A section can't be filled from session/repo | Write `Unknown`; never invent results/decisions |
 | Vague next step | Next Step reads "continue" / "fix issues" | Rewrite as one named file/function/command + expected result |
-| Stale existing handoff | `docs/tmp/handoff.md` describes a different/old task | Archive it, then write current state fresh (FR-18); do not merge contradictory histories |
+| Stale existing handoff | `docs/tmp/handoff.md` describes a different/old task | Archive it, then supersede with current state — a different ticket is a full `Write` (FR-18 write primitive); do not merge contradictory histories |
+| Regenerated an unchanged file to "supersede" it | whole-file `Write` whose diff touches a few regions | Use a targeted `Edit`; FR-18 replaces stale semantics, not the file |
 | Reprinting canonical docs | Handoff restates the full spec/decisions/tasks | Replace with pointers (FR-23) + current state |
 
 ## Escalation path

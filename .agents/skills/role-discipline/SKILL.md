@@ -263,7 +263,7 @@ Or just silently remove it before sending. The catch is what matters, not the ap
 |---|---|---|---|
 | FR-23 | Before creating/expanding any AI-consumed doc, tier-classify (0 none · 1 change-note · 2 active handoff · 3 spec+tasks · 4 full); canonical ownership; pointers over duplication; don't create a doc just because a template implies one | all artifact writing | `flow-skills/documentation-budget/SKILL.md` |
 | FR-09 | AI-consumed artifacts are Mode B: dense, tabular, front-loaded; no narrative padding / human-onboarding preamble | all artifact writing | `flow-skills/communication/SKILL.md` |
-| FR-18 | Revising an artifact → REPLACE stale content in place; don't accumulate old+new; git history is the audit trail | all artifact writing | this skill § Supersede Convention |
+| FR-18 | Revising an artifact → REPLACE stale content in place; don't accumulate old+new; git history is the audit trail. Supersede replaces stale *semantics*, not the file: use a targeted `Edit` when most sections are unchanged; a full `Write` is for structure/mode/ticket changes or when most sections changed | all artifact writing | this skill § Supersede Convention |
 | FR-22 | Code comments: only (1) **tripwire** (a constraint an editor could break unknowingly, not obvious from local code; ≤1 line, ≤4 lines only for security/auth/concurrency/platform) + (2) **≤1-line retrieval pointer** to the external WHY-home (e.g. `(decision B2)`, `backlog 156`); REMOVE WHAT-restating / changelog-history / rationale-recorded-elsewhere; do NOT match surrounding density upward; keep pointers (not duplicates). **This digest does NOT auto-propagate to sub-agents** — when delegating code-writing, inline the `comment-policy` Delegation push block into the sub-agent prompt. After a code diff, emit `comment-policy review: applied (FR-22)` (or `… N/A (FR-22; no code diff)`) — records the review RAN, never inspects content | code-writing (AI Developer) | `flow-skills/comment-policy/SKILL.md` |
 | FR-25 | Module size: a gated source file stays ≤ the ceiling (default 800); over-ceiling files may shrink, never grow (ratchet vs the committed baseline); extraction along a responsibility seam is in-scope for the task — NOT scope creep; tasks name target files at Plan; never bypass the gate with `--no-verify` | code-writing (AI Developer) + task planning (PO) | `flow-skills/module-size-discipline/SKILL.md` |
 | FR-26 | Token-efficient execution: scope reads to the fact needed (before an EDIT, read enough context to hold the file's invariants); no re-reads of unchanged in-context files (re-read REQUIRED after invalidation: own Edit/Write, hooks/formatters, delegated agents, git ops, failed Edit match, compaction); two-strike retry rule; targeted edits over whole-file rewrites — quality outranks tokens: never skip a needed first-read or thin verification | all tool-using execution (every role) | `flow-skills/token-economy/SKILL.md` |
@@ -278,6 +278,18 @@ Or just silently remove it before sending. The catch is what matters, not the ap
 ## Supersede Convention (FR-18 / v2.9.0)
 
 When you revise a handoff, gate report, deploy report, decision, or spec post-abort or post-correction, the default is **REPLACE the stale content with the corrected version**. Do not preserve both versions inline. Git history is the audit trail; every revision commit captures the prior state.
+
+### Write primitive — Edit is the default, Write is for structure changes
+
+**Supersede replaces stale *semantics*, not the file.** FR-18 governs authoritative *content*; it says nothing about which tool writes it. Nothing about superseding requires regenerating a file that is mostly unchanged.
+
+| Situation | Primitive |
+|---|---|
+| Most sections unchanged; one or a few regions are stale | targeted `Edit` (default) |
+| Structure changed (sections added/removed/reordered), mode changed (`restart`↔`run-ledger`), or the file now describes a different ticket | full `Write` |
+| Most sections changed | full `Write` |
+
+A full `Write` in those cases is correct and is **not** token waste (`token-economy` TE-06 / the audit tool's false-positive header both say so). Regenerating an unchanged file to "supersede" it is the waste — and it is not what FR-18 asks for.
 
 ### Default behavior — REPLACE
 

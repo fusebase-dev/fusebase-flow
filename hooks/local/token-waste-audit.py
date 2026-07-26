@@ -37,12 +37,14 @@ WRITE_TOOLS = {"Edit", "Write", "NotebookEdit"}
 
 FALSE_POSITIVE_HEADER = (
     "Findings below are CANDIDATES that MAY indicate an FR-26 rule violation — "
-    "not verdicts. Known false-positive classes: FR-18 supersede rewrites "
-    "(whole-file replace is mandated), mirror/overlay regeneration (generated "
+    "not verdicts. Known false-positive classes: a WARRANTED FR-18 full-Write "
+    "supersede (structure/mode/ticket change, or most sections changed — FR-18 "
+    "mandates the replaced semantics, not the rewrite tool; a targeted Edit is "
+    "the default primitive), mirror/overlay regeneration (generated "
     "copies), deliberate FR-10 3/3 reproduction runs, test reruns after a real "
     "change, bounded labeled flaky-external retries. For large-output: an "
     "intentional first read of a large file needed to hold its invariants, a "
-    "mandated FR-18 supersede rewrite or mirror regeneration, generated output "
+    "warranted FR-18 full-Write supersede or mirror regeneration, generated output "
     "that is itself the subject of the task, deliberate FR-10 reproduction "
     "evidence, and a one-time large diagnostic report written to disk then read once. "
     "For repeat-output: a deliberately re-run command's fresh (different) output and "
