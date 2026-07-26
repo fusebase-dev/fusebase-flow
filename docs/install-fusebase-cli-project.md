@@ -107,6 +107,7 @@ These framework files belong to Fusebase Flow and are unlikely to exist in a Fus
 - `audit/`
 - `state/`
 - `FLOW_RULES.md`
+- `FLOW_RULES_HISTORY.md`
 - `VERSION`
 - `install.sh`
 - `GEMINI.md`
@@ -124,6 +125,7 @@ cp -R .fusebase-flow-source/audit .
 cp -R .fusebase-flow-source/state .
 
 cp .fusebase-flow-source/FLOW_RULES.md .
+cp .fusebase-flow-source/FLOW_RULES_HISTORY.md .
 cp .fusebase-flow-source/VERSION .
 cp .fusebase-flow-source/install.sh .
 cp .fusebase-flow-source/GEMINI.md .
@@ -142,6 +144,7 @@ Copy-Item -Recurse -Force .fusebase-flow-source\audit .
 Copy-Item -Recurse -Force .fusebase-flow-source\state .
 
 Copy-Item -Force .fusebase-flow-source\FLOW_RULES.md .
+Copy-Item -Force .fusebase-flow-source\FLOW_RULES_HISTORY.md .
 Copy-Item -Force .fusebase-flow-source\VERSION .
 Copy-Item -Force .fusebase-flow-source\install.sh .
 Copy-Item -Force .fusebase-flow-source\GEMINI.md .

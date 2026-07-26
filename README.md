@@ -471,6 +471,7 @@ cp $SRC/AGENTS.md ./
 cp $SRC/CLAUDE.md ./
 cp $SRC/GEMINI.md ./
 cp $SRC/FLOW_RULES.md ./
+cp $SRC/FLOW_RULES_HISTORY.md ./
 cp $SRC/VERSION ./
 cp $SRC/install.sh ./
 cp $SRC/.gitattributes ./
@@ -746,7 +747,7 @@ Default is **solo / direct-to-main** with per-task commits and a verification ga
 <details>
 <summary><strong>How do I uninstall / back out?</strong></summary>
 
-Flow is just files. Remove the framework dirs (`flow-skills/ workflows/ hooks/ policies/ templates/ audit/ state/`), the adapter files (`AGENTS.md CLAUDE.md GEMINI.md FLOW_RULES.md VERSION`), and the provider surfaces you added (`.claude/ .agents/ .codex/ .cursor/ .github/`). To disable just the hooks, delete `.claude/settings.json`; if you installed the git fallback hooks, delete the copied `pre-commit` and `commit-msg` files from `.git/hooks/`. Your agent and code are untouched.
+Flow is just files. Remove the framework dirs (`flow-skills/ workflows/ hooks/ policies/ templates/ audit/ state/`), the adapter files (`AGENTS.md CLAUDE.md GEMINI.md FLOW_RULES.md FLOW_RULES_HISTORY.md VERSION`), and the provider surfaces you added (`.claude/ .agents/ .codex/ .cursor/ .github/`). To disable just the hooks, delete `.claude/settings.json`; if you installed the git fallback hooks, delete the copied `pre-commit` and `commit-msg` files from `.git/hooks/`. Your agent and code are untouched.
 </details>
 
 ## What's inside
@@ -764,6 +765,7 @@ fusebase-flow/
 ├── CLAUDE.md                       ← Anthropic Claude Code adapter
 ├── GEMINI.md                       ← Gemini-style IDE adapter
 ├── FLOW_RULES.md                   ← FR-01..FR-27 always-on rules
+├── FLOW_RULES_HISTORY.md           ← dated amendment log (never a session read)
 ├── VERSION                         ← (current release)
 ├── .gitattributes                  ← LF line endings for shell/python/yaml/md
 ├── .python-version                 ← 3.12 (recommended)

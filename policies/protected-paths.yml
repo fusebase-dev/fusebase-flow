@@ -85,6 +85,7 @@ categories:
     description: "Modifying Fusebase Flow itself within a project. Edits should be deliberate."
     paths:
       - "FLOW_RULES.md"
+      - "FLOW_RULES_HISTORY.md"
       - "policies/*.yml"
       - "policies/module-size-baseline.txt"
       - "hooks/handlers/**"

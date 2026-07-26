@@ -29,6 +29,8 @@ REQUIRED_TOP_FILES_BASE = [
     "FLOW_RULES.md",
     "VERSION",
 ]
+# TRIPWIRE: FLOW_RULES_HISTORY.md is deliberately NOT required — it is dated history,
+# never a session read, and missing on every pre-4.6.0 install. Adding it fails those.
 # {canon} is substituted with the resolved canonical skills dir name.
 REQUIRED_SKILL_FILES = [
     "{canon}/communication/SKILL.md",     # mandatory: Mode A / Mode B discipline

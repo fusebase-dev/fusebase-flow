@@ -232,7 +232,7 @@ echo ""
 CONTENT_DIRS=( "flow-skills" "agents" "workflows" "policies" "templates" "hooks" ".claude-plugin" ".codex-plugin" )
 # D11 (AC5): the committed hook-layer manifest travels with the upgrade so a consumer
 # picks up integrity verification with no manual step (audit/ is outside CONTENT_DIRS).
-CONTENT_FILES=( "FLOW_RULES.md" "audit/hook-layer-manifest.json" )
+CONTENT_FILES=( "FLOW_RULES.md" "FLOW_RULES_HISTORY.md" "audit/hook-layer-manifest.json" )
 # Framework reference docs (top-level docs/*.md). U4: NOT copied into the consumer
 # by default (they're framework-dev docs that collide with consumer doc layouts).
 # With --with-framework-docs they land under docs/_fusebase-flow/ (namespaced),

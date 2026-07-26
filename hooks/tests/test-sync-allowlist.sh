@@ -69,7 +69,8 @@ mapfile -t TRUE_TARGET < <(
         -o -path './docs/product-backlog' -o -path './docs/problem-catalog' \
         -o -path './docs/product-execution' -o -path './docs/client-workflows' \
       \) -prune \) -o \
-    \( -type f \( -name '*.md' -o -name '*.mdc' \) ! -name 'CHANGELOG.md' -print \) \
+    \( -type f \( -name '*.md' -o -name '*.mdc' \) \
+         ! -name 'CHANGELOG.md' ! -name 'FLOW_RULES_HISTORY.md' -print \) \
   | xargs grep -lE "$LIVE_RE" 2>/dev/null | sed 's#^\./##' | sort -u
 )
 
@@ -94,6 +95,22 @@ else
   bad "guard-detects-omission" "FLOW_RULES.md not in TRUE target — can't self-verify"
 fi
 
+# --- DATED-HISTORY guard: FLOW_RULES_HISTORY.md carries live-LOOKING strings (old
+#     banners, "(N canonical", FR ranges) but is history — syncing it falsifies the
+#     record. It is excluded from TRUE_TARGET above, so this asserts the other half:
+#     the allowlist must not reach it. ---
+if [ -f FLOW_RULES_HISTORY.md ]; then
+  if is_reachable "FLOW_RULES_HISTORY.md"; then
+    bad "history-not-in-allowlist" "FLOW_RULES_HISTORY.md is reachable by the sync allowlist"
+  elif grep -qE "$LIVE_RE" FLOW_RULES_HISTORY.md; then
+    ok "history-not-in-allowlist (carries live-looking tokens; excluded as dated history)"
+  else
+    ok "history-not-in-allowlist"
+  fi
+else
+  bad "history-not-in-allowlist" "FLOW_RULES_HISTORY.md missing (extracted amendment log)"
+fi
+
 # --- OVER-REACH guard: a consumer doc with an FR token must NOT be reachable. ---
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 mkdir -p "$TMP/repo/docs/product-backlog" "$TMP/repo/hooks/local" "$TMP/repo/flow-skills/d"
@@ -106,8 +123,17 @@ printf -- '---\nname: d\n---\n# d\n' > "$TMP/repo/flow-skills/d/SKILL.md"
 printf 'Backlog note: FR-01 through FR-12 were the original set.\nran under Fusebase Flow v2.0.0 back then.\n' \
   > "$TMP/repo/docs/product-backlog/old-plan.md"
 consumer_before="$(cat "$TMP/repo/docs/product-backlog/old-plan.md")"
+# Dated history carrying ALL THREE syncable token shapes: if it were ever reachable,
+# the sed would rewrite every one of them and falsify the record.
+printf 'Shipped under Fusebase Flow v2.0.0 with FR-01 through FR-12 and (9 canonical skills).\n' \
+  > "$TMP/repo/FLOW_RULES_HISTORY.md"
+history_before="$(cat "$TMP/repo/FLOW_RULES_HISTORY.md")"
 ( cd "$TMP/repo" && bash hooks/local/sync-version-strings.sh >/dev/null 2>&1 )
 consumer_after="$(cat "$TMP/repo/docs/product-backlog/old-plan.md")"
+history_after="$(cat "$TMP/repo/FLOW_RULES_HISTORY.md")"
+[ "$history_before" = "$history_after" ] \
+  && ok "history-never-synced" \
+  || bad "history-never-synced" "FLOW_RULES_HISTORY.md WAS rewritten by sync"
 [ "$consumer_before" = "$consumer_after" ] \
   && ok "consumer-doc-not-synced" \
   || bad "consumer-doc-not-synced" "a docs/product-backlog/ file with FR tokens WAS rewritten by sync"

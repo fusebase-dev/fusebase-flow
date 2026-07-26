@@ -51,7 +51,7 @@ bash hooks/local/preflight.sh
 
 1. Open your existing repository in VS Code (or your editor of choice).
 2. Clone Fusebase Flow into `.fusebase-flow-source` inside or next to your repo (see commands below).
-3. Copy or merge the framework directories you want from `.fusebase-flow-source/` into your repo root — for example: `hooks/`, `workflows/`, `policies/`, `templates/`, `flow-skills/`, plus `AGENTS.md`, `FLOW_RULES.md`, and any provider configs you use (`.claude/`, `.codex/`, `.cursor/`, `.agents/`, `.github/`).
+3. Copy or merge the framework directories you want from `.fusebase-flow-source/` into your repo root — for example: `hooks/`, `workflows/`, `policies/`, `templates/`, `flow-skills/`, plus `AGENTS.md`, `FLOW_RULES.md`, `FLOW_RULES_HISTORY.md`, and any provider configs you use (`.claude/`, `.codex/`, `.cursor/`, `.agents/`, `.github/`).
 4. Install the one runtime dependency: `pip install -r hooks/requirements.txt`.
 5. Run `bash .fusebase-flow-source/install.sh` from your repo root. The installer is interactive and opt-in. It installs git fallback hooks, runs preflight, and mirrors skills into provider folders.
 6. Remove `.fusebase-flow-source` when finished.
@@ -127,6 +127,7 @@ cp -R .fusebase-flow-source/templates .
 cp -R .fusebase-flow-source/workflows .
 
 cp .fusebase-flow-source/FLOW_RULES.md .
+cp .fusebase-flow-source/FLOW_RULES_HISTORY.md .
 
 # Live framework docs only (referenced by the always-on files). Upstream dev
 # history (docs/specs, docs/changes, docs/release-notes, docs/backlog,
@@ -170,6 +171,7 @@ Copy-Item -Recurse -Force .fusebase-flow-source\templates .
 Copy-Item -Recurse -Force .fusebase-flow-source\workflows .
 
 Copy-Item -Force .fusebase-flow-source\FLOW_RULES.md .
+Copy-Item -Force .fusebase-flow-source\FLOW_RULES_HISTORY.md .
 
 # Live framework docs only — upstream dev history is deliberately NOT copied.
 New-Item -ItemType Directory -Force -Path docs | Out-Null
@@ -327,6 +329,7 @@ my-existing-project/
 ├── workflows/               # Phase definitions and verification gates
 ├── AGENTS.md                # Always-on baseline rules
 ├── FLOW_RULES.md            # FR-01..FR-27 rule set
+├── FLOW_RULES_HISTORY.md    # dated amendment log (not a session read)
 └── ...your existing project files, untouched...
 ```
 
@@ -382,7 +385,7 @@ Fusebase Flow is removable. Delete the framework directories and provider config
 - `templates/`
 - `.claude/`, `.codex/`, `.cursor/`, `.agents/` (or just the Fusebase Flow subset)
 - The Fusebase Flow section appended to `AGENTS.md` / `CLAUDE.md`
-- `FLOW_RULES.md`
+- `FLOW_RULES.md`, `FLOW_RULES_HISTORY.md`
 
 Your application code, history, and existing tooling are untouched.
 

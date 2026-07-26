@@ -23,6 +23,8 @@ SKILLS_CANON="flow-skills"
 [ -d "$FF_DIR/$SKILLS_CANON" ] || SKILLS_CANON="skills"
 
 # 1. Required top-level files
+# TRIPWIRE: FLOW_RULES_HISTORY.md is deliberately absent here — it is dated history,
+# never a session read, and missing on every pre-4.6.0 install. Adding it fails those.
 for f in AGENTS.md CLAUDE.md GEMINI.md FLOW_RULES.md VERSION; do
     [ -f "$f" ] || err "missing required file: $f"
 done

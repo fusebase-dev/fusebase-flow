@@ -246,6 +246,13 @@
       "required": true,
       "flow_action": "Flow owns always-on lifecycle rules.",
       "flow_write_mode": "flow-source"
+    },
+    {
+      "path": "FLOW_RULES_HISTORY.md",
+      "owner": "flow-owned",
+      "required": false,
+      "flow_action": "Flow owns the dated amendment log; not a session read, absent on pre-4.6.0 installs.",
+      "flow_write_mode": "flow-source"
     }
   ]
 }

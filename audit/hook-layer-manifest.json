@@ -30,7 +30,7 @@
     },
     {
       "path": "hooks/handlers/session_start.py",
-      "sha256": "21d584f73cb189f7eeafa26da0c3bc3c98f4ae36326518658ed52a2535ba933e"
+      "sha256": "4430cfd70e22c567d82a7678b3fa31eee6182334c5f2b4af3af645854bf1ed09"
     },
     {
       "path": "hooks/handlers/stop.py",
@@ -118,7 +118,7 @@
     },
     {
       "path": "hooks/local/preflight.sh",
-      "sha256": "394e980a4a2cced1aed3c077a30c1d710fe76799b5378eda270f147ffb5a5e65"
+      "sha256": "6f5353a000259d4e54c91b6b5d0bb0e273eb57225378fc444319932c78a56387"
     },
     {
       "path": "hooks/local/run-handler.sh",
@@ -142,7 +142,7 @@
     },
     {
       "path": "hooks/local/upgrade.sh",
-      "sha256": "27965be3ecb695adb02d5552bf33728f97f8475d673d5f8606ee4dbfb8ce3d56"
+      "sha256": "51c13460c7925ce453d19e356a143f54f41eeabb5b9d335e059cc9082cb840e9"
     },
     {
       "path": "hooks/local/verify-gate.sh",
@@ -394,7 +394,7 @@
     },
     {
       "path": "hooks/tests/test-sync-allowlist.sh",
-      "sha256": "be083bfce38ee95e193dc58369fe0cd4c4cdf068c8b492b54a9562cb18dbdb86"
+      "sha256": "bf85e99b3b56bbc5d63725a180bcff0c3aa4c0520686e8b8360e71a987552624"
     },
     {
       "path": "hooks/tests/test-trusted-enforcer.sh",
@@ -405,5 +405,5 @@
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "626528bd39742a7f49bfc6966e484a3a1c5e0bb8a94b0201fcac66788efa29e4"
+  "manifest_self_sha256": "9ca770c36eb605ea8d5b0c804ecf7844c13495f53373dbb2655dad92ff4096b4"
 }

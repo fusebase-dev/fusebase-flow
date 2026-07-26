@@ -75,7 +75,7 @@ Also verify the **public-surface allowlist guard** passes — every tracked top-
 ```bash
 ALLOWED=(
   "AGENTS.md" "CLAUDE.md" "GEMINI.md" "README.md" "PUBLISHING.md" "LICENSE"
-  "FLOW_RULES.md" "VERSION" "install.sh"
+  "FLOW_RULES.md" "FLOW_RULES_HISTORY.md" "VERSION" "install.sh"
   "CHANGELOG.md" "CONTRIBUTING.md" "SECURITY.md" "CODE_OF_CONDUCT.md" "ROADMAP.md"
   ".gitignore" ".gitattributes" ".python-version"
   ".agents" ".claude" ".claude-plugin" ".codex-plugin" ".codex" ".cursor" ".github"
