@@ -22,11 +22,13 @@ import json
 import re
 import subprocess
 import sys
+from collections import namedtuple
 from pathlib import Path
 
 DEFAULT_LAST = 10
 READ_REPEAT_MIN = 3
 BASH_REPEAT_MIN = 3
+FR10_TRIPLE = 3                # exactly-3 runs: labeled, dismissed only when probe-shaped
 LARGE_WRITE_CHARS = 10_000
 SNIPPET_MAX = 100
 TOP_SINKS = 10
@@ -34,6 +36,43 @@ LARGE_TOOL_RESULT_CHARS = 20_000
 REPEAT_OUTPUT_MIN = 2          # an identical large body seen >= this many times = candidate
 LINE_TYPES = {"assistant", "user"}
 WRITE_TOOLS = {"Edit", "Write", "NotebookEdit"}
+
+# TRIPWIRE: `key` is the FULL read key (path, offset, limit) and `seq` the event index.
+# Both are the association A8/AC15 requires — `target` is a <=100-char display snippet
+# and must never be used as a classification key.
+ToolResult = namedtuple("ToolResult", "chars name target digest key seq err")
+Finding = namedtuple("Finding", "cls desc rule status label evidence")
+
+LIVE = "live"
+CLASSIFIED = "auto-classified"
+
+TERMINAL_FOUND = "TERMINAL STATE: candidates found (live candidates need adjudication)"
+TERMINAL_ALL_CLASSIFIED = (
+    "TERMINAL STATE: candidates found but all auto-classified (0 live; see the "
+    "auto-classified section for the rule and evidence behind each dismissal)")
+TERMINAL_CLEAN = "TERMINAL STATE: no candidates above thresholds (transcripts parsed successfully)"
+TERMINAL_NO_DATA = (
+    "TERMINAL STATE: no transcripts / parse failure (nothing was parsed — this is NOT "
+    "evidence of cleanliness)")
+
+# A8 probe-shaped predicate: a test runner, an explicit --dry-run, or a health/status/
+# version verb. --probe-command adds the ticket's own documented gate probes.
+PROBE_PATTERNS = (
+    (r"\bpytest\b", "test runner (pytest)"),
+    (r"\bnpm\s+test\b", "test runner (npm test)"),
+    (r"\brun-tests\b", "test runner (run-tests)"),
+    (r"bash\s+hooks/tests/", "test runner (bash hooks/tests/)"),
+    (r"--dry-run\b", "explicit --dry-run"),
+    (r"\bgit\s+status\b", "status verb (git status)"),
+    (r"\bhealth-check\b", "health verb (health-check)"),
+    (r"\bpreflight\b", "health verb (preflight)"),
+    (r"--version\b", "version verb (--version)"),
+    (r"\bstatus\b", "status verb (status)"),
+)
+
+# TRIPWIRE: matched against the whitespace-normalized result HEAD only, and only ever
+# as a boolean — the head itself never leaves result_size_and_digest (no-content-emitted).
+ERROR_SHAPE = re.compile(r"(?i)^\s*(error\b|<tool_use_error>|exception\b|traceback\b)")
 
 FALSE_POSITIVE_HEADER = (
     "Findings below are CANDIDATES that MAY indicate an FR-26 rule violation — "
@@ -108,7 +147,7 @@ def tool_target(name, tool_input):
 
 
 def result_size_and_digest(content):
-    """Return (char count, short one-way fingerprint of the result TEXT).
+    """Return (char count, short one-way fingerprint of the result TEXT, error-shaped?).
 
     The digest detects an identical large body re-sent across turns. The raw body is
     hashed in memory only — never stored or emitted — preserving the no-content-emitted
@@ -130,8 +169,9 @@ def result_size_and_digest(content):
             else:
                 parts.append(str(block))
     text = "".join(parts)
-    digest = hashlib.sha256(" ".join(text.split()).encode("utf-8", "replace")).hexdigest()[:16]
-    return len(text), digest
+    norm = " ".join(text.split())
+    digest = hashlib.sha256(norm.encode("utf-8", "replace")).hexdigest()[:16]
+    return len(text), digest, bool(ERROR_SHAPE.match(norm[:200]))
 
 
 def is_output_heavy(name):
@@ -144,6 +184,18 @@ def is_output_heavy(name):
     return name not in WRITE_TOOLS and name != "?"
 
 
+def is_compaction_marker(obj):
+    """A context compaction between two reads is an A8 contradictory event: the later
+    read may be re-establishing dropped context rather than tailing a growing source."""
+    if obj.get("isCompactSummary") is True or obj.get("compactMetadata"):
+        return True
+    for key in ("subtype", "type"):
+        val = obj.get(key)
+        if isinstance(val, str) and "compact" in val.lower():
+            return True
+    return False
+
+
 def parse_session(path):
     s = {
         "file": path.name,
@@ -151,16 +203,20 @@ def parse_session(path):
         "usage_by_request": {},       # requestId -> last usage seen
         "usage_no_request": [],
         "tool_result_chars": 0,
-        "tool_results": [],           # (chars, tool, target, digest)
+        "tool_results": [],           # ToolResult(chars, name, target, digest, key, seq, err)
         "read_counts": {},            # (file_path, offset, limit) -> count
+        "read_events": {},            # full read key -> [(seq, chars, digest, err)] in order
+        "write_events": [],           # (seq, full target path) for Edit/Write/NotebookEdit
+        "compaction_seqs": [],        # event index of each compaction marker
         "bash_runs": {},              # norm cmd -> max consecutive-without-write run
         "large_writes": [],           # (path, content_chars)
         "seen_tool_ids": set(),
     }
-    tool_meta = {}                    # tool_use id -> (name, target)
+    tool_meta = {}                    # tool_use id -> (name, target, full key, seq)
     bash_counts = {}
     seen_paths = set()
     seen_result_ids = set()           # tool_use_id of results already counted (no double-count)
+    seq = 0                           # monotonic event index: line-level, then per block
     with path.open(encoding="utf-8", errors="replace") as fh:
         for line in fh:
             line = line.strip()
@@ -171,7 +227,14 @@ def parse_session(path):
             except Exception:
                 s["malformed"] += 1
                 continue
-            if not isinstance(obj, dict) or obj.get("type") not in LINE_TYPES:
+            if not isinstance(obj, dict):
+                continue
+            seq += 1
+            # Compaction markers are their own line type — checked BEFORE the
+            # assistant/user filter, or the marker is never seen.
+            if is_compaction_marker(obj):
+                s["compaction_seqs"].append(seq)
+            if obj.get("type") not in LINE_TYPES:
                 continue
             msg = obj.get("message")
             if not isinstance(msg, dict):
@@ -196,14 +259,19 @@ def parse_session(path):
                             continue
                         if tid:
                             s["seen_tool_ids"].add(tid)
+                        seq += 1
                         name = block.get("name") or "?"
                         tin = block.get("input") if isinstance(block.get("input"), dict) else {}
-                        if tid:
-                            tool_meta[tid] = (name, tool_target(name, tin))
+                        key = None
                         if name == "Read":
                             key = (str(tin.get("file_path", "")), tin.get("offset"), tin.get("limit"))
                             s["read_counts"][key] = s["read_counts"].get(key, 0) + 1
+                        if tid:
+                            tool_meta[tid] = (name, tool_target(name, tin), key, seq)
                         if name in WRITE_TOOLS:
+                            wpath = tin.get("file_path") or tin.get("notebook_path")
+                            if wpath:
+                                s["write_events"].append((seq, str(wpath)))
                             bash_counts.clear()
                         if name in ("Bash", "PowerShell"):
                             norm = " ".join(str(tin.get("command", "")).split())
@@ -229,10 +297,17 @@ def parse_session(path):
                         continue  # same result line repeated in the transcript — count once
                     if rid_res:
                         seen_result_ids.add(rid_res)
-                    chars, digest = result_size_and_digest(block.get("content"))
+                    seq += 1
+                    chars, digest, err = result_size_and_digest(block.get("content"))
+                    err = err or block.get("is_error") is True
                     s["tool_result_chars"] += chars
-                    name, target = tool_meta.get(rid_res, ("?", "?"))
-                    s["tool_results"].append((chars, name, target, digest))
+                    name, target, key, use_seq = tool_meta.get(rid_res, ("?", "?", None, seq))
+                    s["tool_results"].append(
+                        ToolResult(chars, name, target, digest, key, use_seq, err))
+                    if name == "Read" and key is not None:
+                        s["read_events"].setdefault(key, []).append((use_seq, chars, digest, err))
+    for evs in s["read_events"].values():
+        evs.sort(key=lambda e: e[0])   # event order, not transcript-result arrival order
     return s
 
 
@@ -246,48 +321,148 @@ def usage_totals(s):
     return out
 
 
-def session_findings(s):
+def monotonic_growth(sizes):
+    return all(a <= b for a, b in zip(sizes, sizes[1:])) and sizes[-1] > sizes[0]
+
+
+def contradictory_event(s, key, events):
+    """A8 contradictory-event predicate. Returns the evidence string, or "" if none."""
+    lo, hi = events[0][0], events[-1][0]
+    path = key[0]
+    for wseq, wpath in s["write_events"]:
+        if lo < wseq < hi and wpath == path:
+            return "intervening write to the read path at event %d" % wseq
+    for cseq in s["compaction_seqs"]:
+        if lo < cseq < hi:
+            return "context compaction between the reads at event %d" % cseq
+    if any(e[3] for e in events):
+        return "error-shaped tool_result for one of the reads"
+    sizes = [e[1] for e in events]
+    # TRIPWIRE: unreachable while the growth gate below requires ALL digests distinct
+    # (identical digests already fail it). Kept because it is normative in A8 and becomes
+    # load-bearing the moment "differing digests" is loosened to "not all identical".
+    if any(b < a for a, b in zip(sizes, sizes[1:])) and len({e[2] for e in events}) == 1:
+        return "non-monotonic size sequence with identical digests"
+    return ""
+
+
+def classify_re_read(s, key, n):
+    """A8 growing-source-tail — CONJUNCTIVE: same full read key AND (monotonic growth OR
+    differing digests) AND no contradictory event. Returns (status, evidence)."""
+    events = s["read_events"].get(key, [])
+    if len(events) != n:
+        return LIVE, "result evidence for only %d of %d reads — not evaluable" % (len(events), n)
+    sizes = [e[1] for e in events]
+    digests = [e[2] for e in events]
+    ndist = len(set(digests))
+    grew = monotonic_growth(sizes)
+    all_differ = ndist == len(digests)
+    if not (grew or all_differ):
+        return LIVE, ("sizes %s, %d distinct digest(s) — neither monotonic growth nor "
+                      "all-differing digests (size difference alone is not sufficient)"
+                      % (sizes, ndist))
+    contra = contradictory_event(s, key, events)
+    if contra:
+        return LIVE, "growth signal present but contradicted — %s" % contra
+    return CLASSIFIED, ("same full read key %s; %s (sizes %s, %d distinct digests); "
+                        "no contradictory event"
+                        % (snippet(str(key)), "monotonic growth" if grew else "all digests differ",
+                           sizes, ndist))
+
+
+def probe_shaped(cmd, probe_cmds=()):
+    """A8 probe-shaped predicate, matched against the normalized command string."""
+    low = " ".join(cmd.split()).lower()
+    for pattern, label in PROBE_PATTERNS:
+        if re.search(pattern, low):
+            return label
+    for extra in probe_cmds:
+        if extra and " ".join(extra.split()).lower() in low:
+            return "documented gate probe (--probe-command %s)" % snippet(extra)
+    return ""
+
+
+def classify_bash(cmd, n, probe_cmds=()):
+    """A8 FR-10 triple — exactly 3 runs are LABELED; dismissed only when probe-shaped.
+    Returns (status, label, evidence). `n` counts runs since the last write, not
+    truly consecutive runs (parse_session clears the counter on Edit/Write)."""
+    since = "%d runs since the last write (not necessarily consecutive)" % n
+    if n != FR10_TRIPLE:
+        return LIVE, "", since
+    shape = probe_shaped(cmd, probe_cmds)
+    if shape:
+        return CLASSIFIED, "possible-FR-10-triple", "exactly %s; probe-shaped: %s" % (since, shape)
+    return LIVE, "possible-FR-10-triple", (
+        "exactly %s; command is NOT probe-shaped — 3 failed retries and 3 polls are "
+        "count-identical to a genuine FR-10 reproduction triple, so this stays live" % since)
+
+
+def session_findings(s, probe_cmds=()):
     f = []
-    for (fp, off, lim), n in sorted(s["read_counts"].items(), key=lambda kv: -kv[1]):
+    for key, n in sorted(s["read_counts"].items(), key=lambda kv: -kv[1]):
+        fp, off, lim = key
         if n >= READ_REPEAT_MIN and fp:
             win = "" if off is None and lim is None else " [offset=%s limit=%s]" % (off, lim)
-            f.append(("re-read", "Read x%d identical window: %s%s" % (n, snippet(fp), win),
-                      "FR-26 TE-02 — no re-reads of unchanged in-context files"))
+            status, evidence = classify_re_read(s, key, n)
+            f.append(Finding("re-read", "Read x%d identical window: %s%s" % (n, snippet(fp), win),
+                             "FR-26 TE-02 — no re-reads of unchanged in-context files",
+                             status, "growing-source-tail" if status == CLASSIFIED else "",
+                             evidence))
     for cmd, n in sorted(s["bash_runs"].items(), key=lambda kv: -kv[1]):
         if n >= BASH_REPEAT_MIN and cmd:
-            f.append(("polling", "Bash x%d (no intervening Edit/Write): %s" % (n, snippet(cmd)),
-                      "FR-26 TE-08 — record-then-read (smoke-testing § Verification cost discipline)"))
+            status, label, evidence = classify_bash(cmd, n, probe_cmds)
+            f.append(Finding("polling", "Bash x%d (no intervening Edit/Write): %s" % (n, snippet(cmd)),
+                             "FR-26 TE-08 — record-then-read (smoke-testing § Verification cost discipline)",
+                             status, label, evidence))
     for fp, chars in s["large_writes"]:
-        f.append(("rewrite", "Write %d chars to pre-existing path: %s" % (chars, fp),
-                  "FR-26 TE-06 — targeted edits over whole-file rewrites"))
+        f.append(Finding("rewrite", "Write %d chars to pre-existing path: %s" % (chars, fp),
+                         "FR-26 TE-06 — targeted edits over whole-file rewrites", LIVE, "", ""))
     # large-output: oversized results from any output-producing tool (built-in OR MCP;
     # write tools + unmapped "?" excluded) — candidates for extract/scope/filter before
     # reasoning (§ Context compression discipline). Capped at TOP_SINKS per session
     # (largest first) so one noisy session can't flood. Only (size, tool, target) emitted.
     large = sorted(
-        ((chars, name, target) for (chars, name, target, _d) in s["tool_results"]
-         if chars >= LARGE_TOOL_RESULT_CHARS and is_output_heavy(name)),
+        ((r.chars, r.name, r.target) for r in s["tool_results"]
+         if r.chars >= LARGE_TOOL_RESULT_CHARS and is_output_heavy(r.name)),
         key=lambda r: (-r[0], r[1], r[2]),
     )[:TOP_SINKS]
     for chars, name, target in large:
-        f.append(("large-output",
-                  "Tool result %d chars (~%d tokens): %s %s" % (chars, chars // 4, name, target),
-                  "FR-26 TE-11/TE-17 — extract/scope/filter before reasoning over large output"))
+        f.append(Finding("large-output",
+                         "Tool result %d chars (~%d tokens): %s %s" % (chars, chars // 4, name, target),
+                         "FR-26 TE-11/TE-17 — extract/scope/filter before reasoning over large output",
+                         LIVE, "", ""))
     # repeat-output: the SAME large body re-sent across turns (identical fingerprint).
     # One finding per recurring digest (count = times seen) — references-not-re-sends.
     by_digest = {}
-    for chars, name, target, digest in s["tool_results"]:
-        if chars >= LARGE_TOOL_RESULT_CHARS and is_output_heavy(name):
-            by_digest.setdefault(digest, []).append((chars, name, target))
+    for r in s["tool_results"]:
+        if r.chars >= LARGE_TOOL_RESULT_CHARS and is_output_heavy(r.name):
+            by_digest.setdefault(r.digest, []).append((r.chars, r.name, r.target))
     repeats = sorted(
         ((len(v), v[0][0], v[0][1], v[0][2]) for v in by_digest.values() if len(v) >= REPEAT_OUTPUT_MIN),
         key=lambda r: (-r[0], -r[1], r[2], r[3]),
     )[:TOP_SINKS]
     for n, chars, name, target in repeats:
-        f.append(("repeat-output",
-                  "Identical large result x%d (~%d chars each): %s %s" % (n, chars, name, target),
-                  "FR-26 TE-07 — reference an in-context body by its handle, don't re-send it"))
+        f.append(Finding("repeat-output",
+                         "Identical large result x%d (~%d chars each): %s %s" % (n, chars, name, target),
+                         "FR-26 TE-07 — reference an in-context body by its handle, don't re-send it",
+                         LIVE, "", ""))
     return f
+
+
+def session_is_empty(s):
+    return not (s["read_counts"] or s["bash_runs"] or s["tool_results"]
+                or s["usage_by_request"] or s["usage_no_request"])
+
+
+def terminal_state(sessions, live_n, classified_n):
+    """QP-21: silence must never be indistinguishable from cleanliness."""
+    if not sessions or all(session_is_empty(s) for s in sessions):
+        return TERMINAL_NO_DATA
+    if live_n:
+        return TERMINAL_FOUND
+    if classified_n:
+        return TERMINAL_ALL_CLASSIFIED
+    return TERMINAL_CLEAN
 
 
 def fallback_summary(root):
@@ -351,7 +526,7 @@ def cross_session_aggregate(sessions):
     return files[:TOP_SINKS], cmds[:TOP_SINKS]
 
 
-def build_report(sessions, root, today):
+def build_report(sessions, root, today, probe_cmds=()):
     lines = ["# Token-waste audit — %s" % today, "",
              "Scope: %d session(s), dir-resolved from git root `%s`." % (len(sessions), root),
              "", FALSE_POSITIVE_HEADER, "", "## Per-session totals", "",
@@ -367,25 +542,48 @@ def build_report(sessions, root, today):
         all_results.extend(s["tool_results"])
     lines += ["", "## Top %d largest tool results (tool, target, size estimate)" % TOP_SINKS, "",
               "| Chars (~tokens) | Tool | Target |", "|---|---|---|"]
-    for chars, name, target, _d in sorted(all_results, key=lambda r: (-r[0], r[1], r[2]))[:TOP_SINKS]:
-        lines.append("| %d (~%d) | %s | %s |" % (chars, chars // 4, name, target))
-    lines += ["", "## Findings — candidates that MAY indicate an FR-26 rule", ""]
+    for r in sorted(all_results, key=lambda r: (-r.chars, r.name, r.target))[:TOP_SINKS]:
+        lines.append("| %d (~%d) | %s | %s |" % (r.chars, r.chars // 4, r.name, r.target))
+    per_session = [(s, session_findings(s, probe_cmds)) for s in sessions]
+    live_n = sum(1 for _s, fs in per_session for f in fs if f.status == LIVE)
+    classified_n = sum(1 for _s, fs in per_session for f in fs if f.status == CLASSIFIED)
+    lines += ["", "## Findings — LIVE candidates that MAY indicate an FR-26 rule", "",
+              "Auto-classified candidates are NOT listed here — they are in their own section "
+              "below, so a dismissal neither buries nor inflates this count. Live: %d." % live_n, ""]
     any_finding = False
-    for s in sessions:
-        found = session_findings(s)
-        if not found:
+    for s, found in per_session:
+        live = [f for f in found if f.status == LIVE]
+        if not live:
             continue
         any_finding = True
-        lines.append("### %s" % s["file"])
-        lines.append("")
-        lines.append("| Class | Candidate | FR-26 rule it MAY indicate |")
-        lines.append("|---|---|---|")
-        for cls, desc, rule in found:
-            lines.append("| %s | %s | %s |" % (cls, desc, rule))
+        lines += ["### %s" % s["file"], "",
+                  "| Class | Candidate | Label | FR-26 rule it MAY indicate | Why it stayed live |",
+                  "|---|---|---|---|---|"]
+        for f in live:
+            lines.append("| %s | %s | %s | %s | %s |" % (f.cls, f.desc, f.label or "—", f.rule,
+                                                         f.evidence or "threshold match"))
         lines.append("")
     if not any_finding:
-        lines.append("No leak-signature candidates above thresholds.")
+        lines.append("No LIVE leak-signature candidates above thresholds.")
         lines.append("")
+    lines += ["## Auto-classified (dismissed — counted separately, never silently dropped)", "",
+              "Each row states the rule that fired AND the evidence that triggered it. "
+              "Auto-classified: %d." % classified_n, ""]
+    if classified_n:
+        for s, found in per_session:
+            dismissed = [f for f in found if f.status == CLASSIFIED]
+            if not dismissed:
+                continue
+            lines += ["### %s" % s["file"], "",
+                      "| Class | Candidate | Rule that fired | Evidence that triggered it |",
+                      "|---|---|---|---|"]
+            for f in dismissed:
+                lines.append("| %s | %s | auto-classified: %s | %s |"
+                             % (f.cls, f.desc, f.label, f.evidence))
+            lines.append("")
+    else:
+        lines += ["Nothing was auto-classified.", ""]
+    lines += [terminal_state(sessions, live_n, classified_n), ""]
     if len(sessions) >= 2:
         agg_files, agg_cmds = cross_session_aggregate(sessions)
         lines += ["## Cross-session aggregate (%d sessions)" % len(sessions), "",
@@ -408,10 +606,10 @@ def build_report(sessions, root, today):
         # only (count, sessions, tool, target, size) is emitted, never the body.
         body_occ, body_sess = {}, {}
         for s in sessions:
-            for chars, name, target, digest in s["tool_results"]:
-                if chars >= LARGE_TOOL_RESULT_CHARS and is_output_heavy(name):
-                    body_occ.setdefault(digest, []).append((chars, name, target))
-                    body_sess.setdefault(digest, set()).add(s["file"])
+            for r in s["tool_results"]:
+                if r.chars >= LARGE_TOOL_RESULT_CHARS and is_output_heavy(r.name):
+                    body_occ.setdefault(r.digest, []).append((r.chars, r.name, r.target))
+                    body_sess.setdefault(r.digest, set()).add(s["file"])
         repeated = sorted(
             ((len(occ), len(body_sess[d]), occ[0][0], occ[0][1], occ[0][2])
              for d, occ in body_occ.items() if len(occ) >= REPEAT_OUTPUT_MIN),
@@ -432,7 +630,11 @@ def main():
                     help="audit the N most recently modified sessions (default %d)" % DEFAULT_LAST)
     ap.add_argument("--dir", default=None, metavar="PATH",
                     help="transcript directory override (default: auto-locate under ~/.claude/projects)")
+    ap.add_argument("--probe-command", action="append", default=[], metavar="CMD",
+                    help="a documented probe command from this ticket's gate; repeatable. "
+                         "Extends the A8 probe-shaped predicate for FR-10-triple dismissal.")
     args = ap.parse_args()
+    probe_cmds = tuple(args.probe_command or ())
 
     root = git_root()
     today = datetime.date.today().isoformat()
@@ -444,10 +646,12 @@ def main():
         where = str(tdir) if tdir else str(Path.home() / ".claude" / "projects" / munge(str(root.resolve())))
         print("[token-waste-audit] transcript metrics unavailable (no transcripts at: %s)" % where)
         print(fallback_summary(root))
+        print("")
+        print(TERMINAL_NO_DATA)
         return 0
 
     sessions = [parse_session(p) for p in files[: max(args.last, 1)]]
-    report = build_report(sessions, root, today)
+    report = build_report(sessions, root, today, probe_cmds)
 
     report_path = root / "state" / "audit" / ("token-waste-audit-%s.md" % today)
     try:
@@ -462,18 +666,29 @@ def main():
     print("| Session | Requests | Output tokens | Cache read | Cache creation | Tool-result chars (~tokens) |")
     print("|---|---|---|---|---|---|")
     counts = {"re-read": 0, "polling": 0, "rewrite": 0, "large-output": 0, "repeat-output": 0}
+    dismissed = []
     for s in sessions:
         t = usage_totals(s)
         print("| %s | %d | %d | %d | %d | %d (~%d) |" % (
             s["file"], t["requests"], t["output_tokens"], t["cache_read"],
             t["cache_creation"], s["tool_result_chars"], s["tool_result_chars"] // 4))
-        for cls, _, _ in session_findings(s):
-            counts[cls] = counts.get(cls, 0) + 1
+        for f in session_findings(s, probe_cmds):
+            if f.status == CLASSIFIED:
+                dismissed.append((s["file"], f))
+            else:
+                counts[f.cls] = counts.get(f.cls, 0) + 1
     print("")
-    print("Candidates (MAY indicate -- see report header for false-positive classes): "
+    print("LIVE candidates (MAY indicate -- see report header for false-positive classes): "
           "re-read %d | polling %d | whole-file-rewrite %d | large-output %d | repeat-output %d" % (
               counts["re-read"], counts["polling"], counts["rewrite"],
               counts["large-output"], counts["repeat-output"]))
+    # AC17/AC18: dismissals are counted apart from live findings and every one prints the
+    # rule that fired AND its evidence. A silent dismissal is a false negative nobody sees.
+    print("Auto-classified (dismissed, NOT counted above): %d" % len(dismissed))
+    for fname, f in dismissed:
+        print("  - %s | %s | auto-classified: %s | evidence: %s" % (fname, f.cls, f.label, f.evidence))
+    print("")
+    print(terminal_state(sessions, sum(counts.values()), len(dismissed)))
     return 0
 
 

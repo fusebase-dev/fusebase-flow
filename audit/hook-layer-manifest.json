@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.5.0",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 103,
+  "asset_count": 114,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -297,8 +297,48 @@
       "sha256": "6cc8959562dac385b31da1f5dd304b00de4e374fc0c76327876cd329a7a37575"
     },
     {
+      "path": "hooks/tests/fixtures/token-waste-01-growing-tail-classified.jsonl",
+      "sha256": "88f6a2c6b2513495353f209b3c846890349068b3cb8d7c7b1a5ba3733e11efec"
+    },
+    {
+      "path": "hooks/tests/fixtures/token-waste-02-size-differs-only-live.jsonl",
+      "sha256": "196474f65e1909da413c3abe748ca58dd52b2fde7d7095dbd3f10a99883570aa"
+    },
+    {
+      "path": "hooks/tests/fixtures/token-waste-03-intervening-write-live.jsonl",
+      "sha256": "0f100ca7af33be2fd998d67e01f688b04ed9a1520a08533258306c6095b28146"
+    },
+    {
+      "path": "hooks/tests/fixtures/token-waste-04-compaction-live.jsonl",
+      "sha256": "2952334700a1df2ecf764873603594d8308db995a0217fa12cd0b455a555b3a7"
+    },
+    {
+      "path": "hooks/tests/fixtures/token-waste-05-error-result-live.jsonl",
+      "sha256": "a21e6df68fef633aacb992f5c3ed77760e80c9628e90d46faaaa143b9da61867"
+    },
+    {
+      "path": "hooks/tests/fixtures/token-waste-06-probe-triple-classified.jsonl",
+      "sha256": "87d9ef716f0234e6398a2c522bb1997f9a518a1c0ceadd90de12814927aa4ba0"
+    },
+    {
+      "path": "hooks/tests/fixtures/token-waste-07-nonprobe-triple-live.jsonl",
+      "sha256": "de6a9d3495e83ebb2a8e18f7b1386c41e4dfaefbf258000c0700d1fc6ed444d0"
+    },
+    {
+      "path": "hooks/tests/fixtures/token-waste-08-nonprobe-quad-live.jsonl",
+      "sha256": "0265929488879115a0ed19be0da2b424a6717552be2fd5eeb2d7d790856dc70e"
+    },
+    {
+      "path": "hooks/tests/fixtures/token-waste-09-unparseable.jsonl",
+      "sha256": "0fea9fae9410836f9bf7436b295f0992980816c7d2ee4e7d38c4aa185a93127e"
+    },
+    {
+      "path": "hooks/tests/fixtures/token-waste-10-clean.jsonl",
+      "sha256": "af51c695e2e864d730047768be8088eca859afb9f57bccc8079b5c75991f1344"
+    },
+    {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "6a4384af8887c4356312f76c5c9b8304078433879a8e96410b422ceb20861d55"
+      "sha256": "56d299e7f65843f709bb221ea4c12b5068bea14de0c6c3d54a227f1f2588ca9e"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -409,6 +449,10 @@
       "sha256": "bf85e99b3b56bbc5d63725a180bcff0c3aa4c0520686e8b8360e71a987552624"
     },
     {
+      "path": "hooks/tests/test-token-waste-classify.sh",
+      "sha256": "97e1b0b4a98c7c667603bb3bd106263d40445ddaf0dabfa99dc4e887e1ed1be8"
+    },
+    {
       "path": "hooks/tests/test-trusted-enforcer.sh",
       "sha256": "b6463191675f12efbcf7ce835a62338f7243079f5caefdcbca2750e79bb67a3a"
     },
@@ -417,5 +461,5 @@
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "fc39908f871f6f0580110297bfb307a5956a7cd58898fc23d697e3684adf31ff"
+  "manifest_self_sha256": "87cb5e870a7e1fb1dd5a8fbc1931b0cfe1401afa974ac7574b02e9c5d3acc1e1"
 }

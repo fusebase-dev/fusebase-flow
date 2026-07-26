@@ -1,0 +1,2 @@
+{"type": "assistant", "requestId": "req-1", "message": {"role": "assistant", "usage": {"output_tokens": 10}, "content": [{"type": "tool_use", "id": "r1", "name": "Read", "input": {"file_path": "/repo/src/service.log"}}]}}
+{"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "r1", "content": [{"type": "text", "text": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]}]}}
