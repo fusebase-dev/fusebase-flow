@@ -94,6 +94,8 @@ For code-edit subtasks, tell the worker: "You are not alone in the codebase. Do 
 
 **Progress ledger (every delegated session — binding):** write durable facts into the artifacts you already owe AS THEY OCCUR — the deploy hash the moment the deploy lands, probe/evidence rows as each one runs, the report skeleton first and rows as earned — never everything-at-the-end. Sessions die mid-work (provider limits, machine restarts); end-loaded reporting loses everything that wasn't yet written. **Successor contract:** a successor session resumes from records — read the ledger first, resume from the last durable fact, never redo verified steps; the delegating prompt for a successor states this explicitly (verify-from-records).
 
+**Delegated-session liveness (zero-trust — binding on the DELEGATOR):** after dispatch, poll the delegate's PROGRESS on a fixed cadence (~60–90s) — new commits / advancing SHA, process activity, output-file byte growth — never passively await a completion ping. **A missing ping is evidence of neither completion nor death**; only observed progress (or its absence past the expected interval) decides. A delegate that dies on a **transient provider rate-limit is a dispatch failure, not the slice's verdict** — never record it as `FAILED-<reason>` or `BLOCKED-AT-<gate>`, because the work was never attempted. Re-dispatch a minimal **"try again"** to the SAME agent id (it keeps its context — do not respawn, do not re-send the brief); if it reports the limit again, **wait ~60s and retry until it actually starts**, then judge the work on what it produced. After 2–3 resumes with no new progress it is a structural stall: read the progress ledger and re-brief a successor with verify-from-records. This is a discipline, not a gate — a hang is undetectable by construction, so Flow ships **no** blocking check and **no** "watchdog applied" attestation hook for it (FR-27). Protocol home: `flow-skills/liveness-discipline` § Zero-trust sub-agent liveness.
+
 **Blocked-return rule:** when the remaining wait is UNBOUNDED (human approval gate, external event with no bounded ETA) — which neither in-turn polling nor record-then-read can span — the prescribed return is an explicit `BLOCKED-AT-<gate>` verdict + what cleared looks like + a pointer to where reality is recorded, so the orchestrator re-dispatches when the gate clears. Never fake-complete; never burn an open watch on an unbounded wait.
 
 **Delegation contract push block** — inline this in every delegating prompt (push, not pull; workers do not load skills):
@@ -193,6 +195,8 @@ Subagent output is evidence, not proof. Fusebase Flow success still requires the
 | Frontend worker invents product scope | new route/entity/workflow not in brief | Reject or park as backlog; do not merge silently |
 | Primary UI flow is fake | click/save/auth path has placeholder behavior | Mark incomplete; implement real behavior or revise scope |
 | Deploy side effect delegated | subtask attempts deploy/rollback/approval artifact | Stop; deploy phase main session owns side effects |
+| Delegate died on a transient provider limit | return names a rate/session limit, or the session ends with no progress | Not a verdict — re-dispatch "try again" to the same agent id; on a repeat limit wait ~60s and retry until it starts |
+| No completion ping | nothing came back by the expected interval | Poll progress (commits/process/file growth); absence of a ping is not a result either way |
 
 ## Escalation path
 
@@ -212,6 +216,8 @@ Subagent output is evidence, not proof. Fusebase Flow success still requires the
 - Do not delegate frontend work with only a file path; include the product identity, surface map, data contract, selector strategy, stack conventions if applicable, and trust-critical flows.
 - Do not delegate deploy commands, rollback, approval artifacts, or secret handling.
 - Do not use popup / clickable menu tools to coordinate delegation decisions; ask in chat text per FR-19.
+- Do not turn a delegate's provider-limit death into a task verdict, and do not respawn a fresh agent for it — re-dispatch "try again" to the same agent id and retry until it starts.
+- Do not passively background-and-wait on a delegate, and do not add a blocking gate or a "watchdog applied" attestation hook to compensate — poll progress instead (FR-27: a hang is undetectable by construction).
 
 ## Clean-room note
 
