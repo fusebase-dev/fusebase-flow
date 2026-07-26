@@ -6,6 +6,44 @@ Public release versions ship as annotated git tags on `main`. Per-version detail
 
 ## [Unreleased]
 
+## [4.6.0] — 2026-07-26
+
+### Changed — session boot floor cut 47.1% (78,148 → 41,321 bytes), zero rule loss
+
+A consumer `/token-waste-audit` (5 sessions, 7,175 requests, ~9.0M output tokens) measured the fixed cost every Flow session pays before any work starts. The role-aware boot floor — both mandatory skills, the operative `FLOW_RULES.md`, and the per-role `references/<role>.md` that `role-discipline` requires the attested role to read — was **78,148 bytes** worst case (`wc -c`). It is now **41,321 bytes**, a **47.1% cut**, enforced by per-artifact ceilings *and* a total in `hooks/tests/test-boot-size.sh` (22/22, 9 red arms, plus an arithmetic guard proving the ceilings sum to the stated total).
+
+- **The escalation's ≤5k-token target was arithmetically impossible, and we report the honest number.** The operative `FLOW_RULES.md` alone was 19,962 B ≈ 5k tokens — before either mandatory skill. Reaching ≤5k tok total would have required deleting rule statements, moving the FR-24 write-time digest lazy, or collapsing the role don't-lists; all three are forbidden (FR-24's thesis is that those rules only work in context *at write time*). The budget was amended three times upward as correctness demanded room: **correctness outranks the byte budget**. Result is 47.1%, not the ~70% the escalation implied.
+- **Lazy `references/` content is re-tiered, not deleted.** Total content did not shrink — elaboration, worked examples, and recovery procedure moved to files that load on demand, notably `role-discipline/references/shared-protocols.md` (**21,233 B**) and `communication/references/mode-b-detail.md`. A session that opens a protocol body pays those bytes on top of the floor.
+- **Zero rule loss, structurally guarded.** `hooks/local/rule-inventory.sh` emits 170 rows of `ID + normalized text + canonical source path + resident|lazy`, so a rule moved resident→lazy — or a don't-list row moved between roles — is a non-empty diff by construction (an earlier two-column version reported CLEAN on exactly that loss). `test-prohibition-residency.sh` FAILS when any `references/*.md` carries a normative marker (`MUST`, `never`, `forbidden`, `STOP`, `refuse`, an exact-refusal-phrasing block) with no resident counterpart in its `SKILL.md`.
+
+### Added — `FLOW_RULES_HISTORY.md`: the amendment log leaves the file it bloated
+
+The dated amendment log was ~62% of `FLOW_RULES.md`, and the "never load the Amendment log" rule sat *inside the section it protects* — you had to read it to learn not to read it. The log moves to a root-level `FLOW_RULES_HISTORY.md`; `FLOW_RULES.md` keeps a compatibility `## Amendment log` stub heading with a ≤2-line pointer, so every stop-at-heading consumer and the `sync-version-strings.sh` range anchor keep working unchanged. Content-equivalent except a normalized final newline (the extraction added one LF — tested as that exact contract, rather than claiming "byte-preserved", which would have been false). Distributed via `upgrade.sh` `CONTENT_FILES`, admitted by the CI public-surface allowlist and `PUBLISHING.md`, classified in `protected-paths.yml` + `agent-surface-ownership.json`, and proven never-version-synced by `test-sync-allowlist.sh` (it contains live-looking FR/version strings).
+
+### Changed — anti-reread rule, with its premise honestly narrowed
+
+Both mandatory skills carry an exact-body anti-reread rule below their YAML frontmatter. **The escalation's premise was partly wrong and we verified it first-hand instead of shipping the claim:** on Claude Code and Codex, skill *descriptions/metadata* are injected — **bodies are not** (`hooks/handlers/session_start.py` existence-checks and emits reminders; it never injects a body). So the measured "double-pay" was largely sessions reading bodies that were never auto-injected — a floor cost, not a duplication cost. The anti-reread rule still pays on genuine within-session re-reads. It is worded so description/metadata discovery does not count as "already loaded", excludes delegated sub-agent sessions (they do not inherit), and conditions every "do not re-Read" on an actual body-presence check — **never on a surface name** (the inverse error would tell a non-auto-loading surface it auto-loads, so the mandatory skill would never load). The per-surface matrix was corrected across all five provider surfaces.
+
+### Added — delegated chat-return budget (≤80 lines AND ≤6,000 chars)
+
+Delegated report-backs had no size budget and reached 32,164 chars × 11 ≈ 88k tokens. Sub-agent **chat returns** are now capped at ≤80 lines **and** ≤6,000 characters (a single 32k-char line passes a line-only gate); overflow goes to a sanctioned durable artifact, committed only when the owning workflow requires it (read-only PO/Architect delegates are not forced to commit). Canonical **gate reports and deploy reports are exempt** — evidence completeness outranks the cap there.
+
+### Changed — supersede vs. write primitive stated without contradiction
+
+FR-18, `role-discipline § Supersede Convention` (with a resident `### Write primitive` subsection), `handoff/SKILL.md`, and `token-economy` TE-06 now agree on both dimensions: *replace stale semantics; patch unchanged structure*. Targeted `Edit` is the default when most sections are unchanged; full `Write` is for structure/mode/ticket changes. The prior "write fresh" wording nudged whole-file rewrites where an edit would do. FR-18 supersede semantics are unchanged.
+
+### Changed — `token-waste-audit.py` labels rather than hides
+
+Growing-source-tail and exactly-3-run candidates are auto-classified only under conjunctive conditions, and every auto-classification renders as a **visible labeled line stating the rule that fired and the evidence that triggered it**. Silent dismissal is forbidden; dismissals are counted in a section separate from live findings so they neither bury nor inflate the finding count; the report distinguishes *candidates found*, *candidates found but all auto-classified*, and *no transcripts / parse failure* in words. Two false negatives fixed: probe matching is now verb-anchored or known-exact-form (`\bstatus\b`-anywhere auto-dismissed `echo status` ×3) and `--probe-command` comparison is normalized equality, never substring containment; read keys and intervening-write contradiction checks canonicalize paths before keying (`C:/Repo/a.txt` vs `c:\repo\a.txt` were treated as unrelated). Both PoCs ship as retained-live fixtures.
+
+### Changed — FR-27 delegate-retry is bounded
+
+The zero-trust delegated-session liveness recipe is stated as **one bounded exception** to don't-poll-while-running / record-then-read / two-strike: max 3 attempts / 5 minutes, labeled backoff, then the explicit transition to successor-or-`blocked-at-delegate-no-start`. Every unqualified "retry until it starts" was removed from all carriers (`task-delegation`, `liveness-discipline`, `role-discipline`, `token-economy`, `FLOW_RULES.md` FR-27) — an unbounded retry is precisely the unobservable background work FR-27 exists to prohibit.
+
+### Verification
+
+`run-tests.sh` **619/619, 0 FAIL, 0 INCONCLUSIVE**; preflight 0 errors; hook manifest 121/121 MATCH; mirrors 0 drift; module-size clean; health check HEALTHY. Final gate **28/28 AC PASS**. Worth stating plainly: an earlier gate run passed **537/537 tests with 23/23 AC evidenced**, and an independent adversarial review (Codex 5.6-Sol, High) run *after* that passing gate found **six BLOCKERs** — lazy-parked prohibitions, an untrue auto-load matrix, and two classifier false negatives — plus nine further findings, all fifteen accepted. A second gate run then failed three more AC before reaching PASS. **The gate alone did not catch them.** Each is now locked by a regression arm with a proven red state.
+
 ## [4.5.0] — 2026-07-15
 
 ### Added — `/find-wasted-code`: static friction-footgun audit
