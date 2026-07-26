@@ -1,7 +1,11 @@
 # Spec — token-floor-remediation
 
 **Status:** DONE — built, gated, and released locally as **v4.6.0**. Release commit `ef7793e`; docs/closeout commit is this one. Gate `a2214b3`: **28/28 AC PASS**, `run-tests.sh` **619/619** (0 FAIL, 0 INCONCLUSIVE), preflight 0/0, hook manifest 121/121 MATCH `flow_version=4.6.0`, health check HEALTHY. Delivered boot floor **78,148 → 41,321 bytes = 47.1%** against the 42,200 budget (879 B headroom).
-**Deploy hash:** **not yet assigned — publication deliberately withheld.** Nothing is pushed; no `v4.6.0` tag exists; no GitHub release was created. The push + annotated tag (T20 step 5) awaits an explicit operator go-ahead. Fill this line with the tag/deploy hash at publication.
+**Deploy hash:** **`abd66c9`, tag `v4.6.1`** — published 2026-07-26 on operator go-ahead. CI green (`fusebase-flow-verify` + `fusebase-flow-release`).
+
+**Publication history — v4.6.0 shipped red, v4.6.1 fixed it.** `9b62819` / tag `v4.6.0` was pushed first and turned both CI workflows red. Root cause was **not** platform divergence: the v4.6.0 closeout commit added a backlog note quoting the self-attestation string verbatim, which tripped `test-sync-allowlist.sh` through two latent defects (an enumerated record-tree prune naming a consumer path this repo never had, plus `producer | grep -q` returning SIGPIPE 141 under `pipefail`). The 619/619 green was real but was measured **before** the last two commits. Full post-mortem and the durable guardrail: `docs/problem-catalog/docs-only-commit-broke-content-derived-gate/problem.md`.
+
+**Post-deploy verification at `abd66c9`:** suite **620/620** at the exact pushed tree · preflight 0/0 · `test-sync-allowlist.sh` 8/8 · P1 health HEALTHY (VERSION 4.6.1, hook layer 121 files match 4.6.1) · P2 both workflows green · P3 consumer `upgrade.sh --dry-run` lists `FLOW_RULES_HISTORY.md` · S1 boot floor 41,321 B on a clean clone of the tag · S2 inventory diff empty with the deliberate-removal control detecting · S3 history 32,634 B distributed, zero dated entries left in `FLOW_RULES.md` · S4 classify 49/49 with the size-differs-only fixture retained LIVE.
 **Created:** 2026-07-26
 **Lane:** Full (FR-21). Trigger: FR-07 protected paths (`FLOW_RULES.md`, `hooks/**`, `.github/workflows/**`), CI public-surface allowlist, cross-provider bootstrap contract, parser behavior change.
 **Linked decisions:** A1–A10 (decisions.md, LOCKED; A2 twice-amended, A3/A5/A8 extended in the 2026-07-26 correction round)
