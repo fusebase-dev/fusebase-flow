@@ -6,6 +6,25 @@ Public release versions ship as annotated git tags on `main`. Per-version detail
 
 ## [Unreleased]
 
+## [4.6.1] — 2026-07-26
+
+### Fixed — red `main`: `test-sync-allowlist.sh` failed on both platforms after the v4.6.0 closeout commit
+
+v4.6.0 was tagged with a recorded 619/619 local green and both CI workflows went red on arrival (`fusebase-flow-verify` at "Hook tests (deterministic fixtures)"; `fusebase-flow-release` only because its publish job is gated on verify — [[ci-red-invisible-no-release-gate]] working as designed). **The 619/619 was real, for a tree that was never published:** it was measured at or before the release commit `ef7793e`, and two further commits (`4323b23` docs closeout, `9b62819` ROADMAP + backlog note) landed after the gate ran. The failure was **not** platform-specific — at `9b62819` the suite fails identically on MSYS and on `ubuntu-latest` (614/616; these two assertions are the only failures, preflight 0/0), while `4323b23` is 7/7. No product behavior changed in this patch; the only functional edit is inside one test file.
+
+`9b62819` added `docs/backlog/rule-inventory-version-literal-noise/README.md`, a backlog note that quotes the self-attestation string verbatim **as an illustration** of the version-literal noise it describes. Two latent defects then fired:
+
+- **An enumerated record-tree exclusion that named a path this repo has never had.** `TRUE_TARGET` pruned record/consumer doc trees by name and listed `./docs/product-backlog` — the *consumer* layout name, absent from this repo's entire history — while never listing this repo's own `docs/backlog`. Backlog notes defaulted to "framework file", so the under-reach guard flagged a dated record as an unsynced framework file the first time one carried a live token. An enumerated exclusion fails open for every doc tree nobody remembered, and a dead entry is indistinguishable from a live one. **Fixed** by the structural rule the allowlist already declares: the framework doc surface under `docs/` is top-level `docs/*.md` **only**, so every `docs/<subdir>/**` is a record tree (`-path './docs/*'` prune). Nothing to maintain, and new doc trees are classified on creation rather than on their first token.
+- **`set -o pipefail` + `grep -q` early exit produced a FALSE failure.** The AC27 self-verification ran `! missing_set … | grep -qxF "FLOW_RULES.md"`; `grep -q` exits at the first match and the producer's next write raises SIGPIPE, so the pipeline reports 141 even though the line *was* found, and `!` flips that into the failure branch. With one missing entry the producer finished first, so the control passed **by accident**; defect 1 supplied a second entry and it emitted a claim that was simply untrue (`rc=0` direct vs `rc=141` piped). **Fixed** with pure-bash `has_line()` exact-line membership (no pipe ⇒ no SIGPIPE) plus capturing `missing_set` output into a variable instead of piping it into `grep -q`.
+
+Hardening so neither class recurs: `guard-detects-omission` now drops **two** files and requires **both** reported, so the control actually exercises multi-entry output (the shape that hid the SIGPIPE defect); and a new `docs-surface-is-top-level-only` guard asserts the other half of the structural rule — no allowlisted path may live under a `docs/` subdirectory — so prune side and reach side can no longer silently disagree.
+
+**Verification:** `test-sync-allowlist.sh` **8/8 PASS on Windows/MSYS and on `ubuntu-latest`** (docker `python:3.12-slim`, clean clone); red arms confirmed biting (drop `FLOW_RULES.md` from `SYNC_FILES` → `no-under-reach` FAILs; add `docs/backlog` to `SYNC_ROOTS` → `docs-surface-is-top-level-only` FAILs).
+
+### Added — problem-catalog: `docs-only-commit-broke-content-derived-gate`
+
+Filed per FR-15. The durable lesson: **the gate must run on the tree you actually push** — for a gate that derives its expected set from the filesystem, there is no such thing as a docs-only change, because adding a markdown file *is* a change to the gate's input. Two corollaries recorded: prefer a structural rule over an enumerated exclusion list, and treat any assertion that only ever runs in its single-element degenerate case as unproven. The entry also corrects the record that this was a Linux/MSYS divergence — the platform hypothesis came from trusting a green measured at a different commit, and [[ci-linux-msys-test-divergence]] made it plausible.
+
 ## [4.6.0] — 2026-07-26
 
 ### Changed — session boot floor cut 47.1% (78,148 → 41,321 bytes), zero rule loss
