@@ -122,7 +122,7 @@
     },
     {
       "path": "hooks/local/rule-inventory.sh",
-      "sha256": "69c9e7f60f47d56306f90aef470098fbc169703f478920002c7b9f0de04730d8"
+      "sha256": "46c93fc2aef389f70912b98648fe367e6e737334353505467d6f7a8247dc5abe"
     },
     {
       "path": "hooks/local/run-handler.sh",
@@ -462,7 +462,7 @@
     },
     {
       "path": "hooks/tests/test-rule-inventory.sh",
-      "sha256": "71cf6e95b997e41597236924e67bebb3d1cd6c550402cb56702df5e070577d4e"
+      "sha256": "3311c5ecb7e6f85e2b66fb01ee55b3e654231087ca621c0378501d3491f3c7f8"
     },
     {
       "path": "hooks/tests/test-secret-scan-staged.sh",
@@ -489,5 +489,5 @@
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "da85a10db4573240b82890e7b17dae7f4f3de9c2017e82bdc1e8af62bdbfe43b"
+  "manifest_self_sha256": "0ea4780c383b9980b37017c0b75e092a7cba81b1059a00ee257c68e0bac306fd"
 }
