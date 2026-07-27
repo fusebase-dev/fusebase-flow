@@ -3,6 +3,7 @@
 | Slug | Status | One-liner |
 |---|---|---|
 | rule-inventory-version-literal-noise | done (pending publication) | `norm()` normalizes `v<major>.<minor>.<patch>` → `vX.Y.Z`, so a version-only release bump leaves the rule-loss tripwire's diff EMPTY while an attestation reword still goes RED; 170 rows unchanged. Lightweight lane — [`docs/changes/2026-07-27-rule-inventory-version-literal-noise.md`](../changes/2026-07-27-rule-inventory-version-literal-noise.md) |
+| local-gate-misses-manifest-freshness | parked | The local full suite has no manifest-freshness assertion but CI does — a missed `stamp-hook-manifest.sh` passes locally and reddens main (caused `eca925b`) |
 | install-into-existing-fusebase-cli-project | parked | Safer installer for repos that already have FuseBase CLI and MCP configuration |
 | architect-sub-agent | parked | Dedicated 3rd sub-agent for deep cross-cutting investigation, keeping the PO lean |
 | role-path-hook-enforcement | parked | `pre_tool_use` role × path gate — PO "no app code" as a structural guarantee (FR-25 plumbing precedent) |
