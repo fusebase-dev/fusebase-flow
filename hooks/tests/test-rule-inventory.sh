@@ -11,9 +11,15 @@
 #           roles, makes the diff non-empty. The last two are the T14 additions: under
 #           the pre-T14 two-column schema both mutations produced a CLEAN diff, which is
 #           how the correction round's BLOCKERs reached the gate unseen.
-#   GREEN — rewording the Enforcement column, or re-laying-out a principle from heading
-#           to table row to bullet, keeps the diff EMPTY. This is what lets T6/T7/T8
+#   GREEN — rewording the Enforcement column, re-laying-out a principle from heading to
+#           table row to bullet, or a version-only release bump (VERSION +
+#           sync-version-strings.sh), keeps the diff EMPTY. This is what lets T6/T7/T8
 #           restructure carriers without the instrument crying wolf.
+#
+# The version pair is the backlog rule-inventory-version-literal-noise contract: the bump
+# arm is driven by the SHIPPED synchronizer against a scratch tree (never a hand-edited
+# attestation line, which would prove nothing), and the reword arm proves the vX.Y.Z
+# normalization did not blind the attestation row itself.
 #
 # Output contract (parsed by run-tests.sh run_shell_phase): "PASS: rule-inventory <name>"
 # / "FAIL: rule-inventory <name>"; exit code = number of failures.
@@ -62,6 +68,9 @@ m_drop_fr()        { edit "$1/$FR_FILE" '/^[|] *FR-13 *[|]/d'; }
 m_drop_dont()      { edit "$1/$IM_FILE" '/^[|] *IM\.4 *[|]/d'; }
 m_drop_principle() { edit "$1/$CM_FILE" '/^#+ *B7\./d; /^[|] *B7 *[|]/d'; }
 m_reword_statement()   { col "$1/$FR_FILE" '^[|] *FR-03 *[|]' 4 'a completely different rule statement'; }
+# Normalizing the version literal must not blind the attestation ROW: a genuine reword of
+# the sentence (no version touched) is still rule loss and must stay RED.
+m_reword_attestation() { edit "$1/$FR_FILE" 's,I will apply Mode A on chat output,I will apply Mode A to whichever surface I like,'; }
 m_reword_enforcement() { col "$1/$FR_FILE" '^[|] *FR-03 *[|]' 5 'enforcement reworded: hook renamed, wording rewritten end to end'; }
 # The resident layout is free to change (T6 moved headings -> table rows), so each relayout
 # mutator flips whichever form it finds. The no-op guard in mutate() is what stops a
@@ -170,6 +179,7 @@ mutate drop-fr-row        red   m_drop_fr
 mutate drop-dont-row      red   m_drop_dont
 mutate drop-principle     red   m_drop_principle
 mutate reword-statement   red   m_reword_statement
+mutate reword-attestation red   m_reword_attestation
 mutate move-resident-to-lazy   red m_move_resident_to_lazy
 mutate move-dont-between-roles red m_move_dont_between_roles
 # --- GREEN arms (each MUST keep the diff empty) --------------------------------------
@@ -177,6 +187,44 @@ mutate reword-enforcement green m_reword_enforcement
 mutate principle-relayout   green m_principle_relayout
 mutate principle-as-bullet green m_principle_bullet
 mutate range-heading-ignored green m_range_heading
+
+# --- version normalization (backlog rule-inventory-version-literal-noise) -------------
+# No raw v<semver> may reach the inventory, and the attestation row — the one the release
+# sweep rewrites — must carry the placeholder. Together these say the normalization is
+# actually exercised by the live sources, not dead code.
+if raw="$(grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' "$TMP/baseline.txt" | head -1)"; [ -n "$raw" ]; then
+    bad "no-raw-version-literals" "raw version literal reached the inventory: $raw"
+else ok "no-raw-version-literals"; fi
+
+grep -q "^BOOT\.attestation	.*vX\.Y\.Z" "$TMP/baseline.txt" && ok "attestation-version-normalized" \
+  || bad "attestation-version-normalized" "the attestation row does not carry the vX.Y.Z placeholder"
+
+# GREEN arm driven by a REAL version-only release bump: bump VERSION in a scratch tree and
+# let the SHIPPED synchronizer rewrite the live attestation, exactly as a release does. A
+# hand-edited attestation line would prove nothing about what actually churns the baseline.
+SYNC="$ROOT/hooks/local/sync-version-strings.sh"
+if [ ! -f "$SYNC" ]; then
+    bad "version-bump-green" "missing $SYNC"
+else
+    D="$TMP/verbump"; mkfix "$D"; mkdir -p "$D/hooks/local"; cp "$SYNC" "$D/hooks/local/"
+    # git init so the synchronizer's own `git rev-parse --show-toplevel` resolves to the
+    # fixture; without it the fallback `pwd` could let a sweep escape into the live repo.
+    git -C "$D" init -q >/dev/null 2>&1
+    OLD_VER="$(tr -d '\n\r' < "$ROOT/VERSION" 2>/dev/null)"
+    NEW_VER="99.98.97"
+    printf '%s\n' "$NEW_VER" > "$D/VERSION"
+    ( cd "$D" && bash hooks/local/sync-version-strings.sh >/dev/null 2>&1 )
+    # No-op guard: the bump must genuinely perturb a parsed source file, or "green" is fake.
+    if ! grep -q "under Fusebase Flow v$NEW_VER" "$D/$FR_FILE"; then
+        bad "version-bump-perturbs-source" "synchronizer did not rewrite the attestation"
+    elif [ -n "$OLD_VER" ] && grep -q "under Fusebase Flow v$OLD_VER" "$D/$FR_FILE"; then
+        bad "version-bump-perturbs-source" "old literal v$OLD_VER survived the sweep"
+    else ok "version-bump-perturbs-source"; fi
+
+    inv "$D" > "$TMP/out-verbump.txt" 2>/dev/null
+    cmp -s "$TMP/baseline.txt" "$TMP/out-verbump.txt" && ok "version-bump-green" \
+      || bad "version-bump-green" "a version-only bump changed the inventory: $(diff "$TMP/baseline.txt" "$TMP/out-verbump.txt" | head -2 | tr '\n' ' ')"
+fi
 
 # --- fail-closed: an unreadable/empty source must never look like "nothing lost" -----
 D="$TMP/fc-nofr"; mkfix "$D"; edit "$D/$FR_FILE" '/^[|] *FR-[0-9]+ *[|]/d'

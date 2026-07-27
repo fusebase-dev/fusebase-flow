@@ -57,10 +57,17 @@ done
 # TRIPWIRE: cells are split on a bare "|", which assumes no escaped "\|" inside a rule
 # cell (verified zero across all sources). Introducing one shifts that row's columns.
 AWK_PROG='
+# TRIPWIRE: version literals are normalized to vX.Y.Z. sync-version-strings.sh rewrites
+# the live attestation on every release, so a verbatim v<semver> made this instrument
+# stale by one row per bump and trained its reader to skim the diff (backlog
+# rule-inventory-version-literal-noise). The token stays uppercase because norm()
+# lowercases everything else, so it can never collide with real rule text.
 function norm(s) {
     gsub(/`/, "", s); gsub(/\*/, "", s)
     gsub(/[[:space:]]+/, " ", s); sub(/^ +/, "", s); sub(/ +$/, "", s)
-    return tolower(s)
+    s = tolower(s)
+    gsub(/v[0-9]+\.[0-9]+\.[0-9]+/, "vX.Y.Z", s)
+    return s
 }
 function nid(s) { gsub(/[^A-Za-z0-9.-]/, "", s); return s }
 function slug(s, max,   t, n, w, i, out) {

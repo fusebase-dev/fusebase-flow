@@ -1,9 +1,10 @@
 # Backlog — rule-inventory-version-literal-noise
 
-**Status:** parked
+**Status:** done (pending publication) — 2026-07-27, Lightweight lane; AC1/AC2/AC3 all met, 170 rows unchanged
+**Shipped:** `docs/changes/2026-07-27-rule-inventory-version-literal-noise.md` (change-note = the whole artifact)
 **Filed:** 2026-07-26 (v4.6.0 deploy prep)
 **Owner:** unassigned
-**Lane guess:** Lightweight (one normalization rule + one test arm)
+**Lane guess:** Lightweight (one normalization rule + one test arm) — confirmed at implementation
 
 ## Problem
 

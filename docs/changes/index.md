@@ -22,3 +22,4 @@ Format:
 2026-06-01 · u15-eslint-ignore-staging-clone · lightweight · 905037f
 2026-06-01 · f1-f5-install-upgrade-review · lightweight · 24dd371
 2026-07-26 · overlay-template-drift · lightweight · fabb747
+2026-07-27 · rule-inventory-version-literal-noise · lightweight · pending
