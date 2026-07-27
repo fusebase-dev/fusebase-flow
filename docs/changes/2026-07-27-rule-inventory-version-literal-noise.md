@@ -27,7 +27,7 @@ Verified:     AC1 (green, real bump not a hand-edit): scratch tree + `git init`,
               Suites: test-rule-inventory 30/30; full hooks/tests/run-tests.sh 625/625;
               test-sync-allowlist 8/8; preflight 0 errors.
 Rollback:     git revert <SHA>  (instrument-only; no runtime/product surface)
-Commit:       <filled with the T1 SHA in the follow-up docs commit, as for fabb747/97d230b>
+Commit:       44ac492
 Deploy:       not deployed — operator withheld publication (no push, no tag); FR-07 check: clean
               (staged set touches no protected path: hooks/local/**, hooks/tests/**, docs/**)
 ```
