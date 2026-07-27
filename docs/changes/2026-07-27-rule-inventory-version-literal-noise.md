@@ -31,3 +31,15 @@ Commit:       44ac492
 Deploy:       not deployed — operator withheld publication (no push, no tag); FR-07 check: clean
               (staged set touches no protected path: hooks/local/**, hooks/tests/**, docs/**)
 ```
+
+## PO ruling — keep the broad rule, do not anchor it (2026-07-27)
+
+The implementer flagged that a `norm()`-level rule also normalizes two *historical provenance* annotations the release sweep never touches (`IM.11` "per v2.8.0+", `PO.10` "v2.7.1+"), and offered a narrower regex anchored to `under fusebase flow v…`. **Ruling: keep the broad rule.**
+
+| | Broad `v<semver>` → `vX.Y.Z` (shipped) | Anchored to the attestation sentence (rejected) |
+|---|---|---|
+| Behavior if the attestation is reworded | still normalizes; AC2 still detects the reword as a `c` | **anchor stops matching** → the version literal goes raw again → per-release noise returns, now harder to diagnose |
+| Maintenance | nothing to keep in sync | an anchor phrase that rots the moment the sentence changes |
+| Semantic loss | provenance annotations blind to a version-literal edit — they are annotations, not rule statements, and **deleting either row is still a `d` and still caught** | none |
+
+The decisive point is the interaction: AC2 exists to catch an attestation reword, and the anchored variant *breaks precisely when that reword happens*. It is also the same trade this repo just paid for in `docs/problem-catalog/docs-only-commit-broke-content-derived-gate/` — a structural rule beats a maintained anchor, because a dead anchor is indistinguishable from a live one.
