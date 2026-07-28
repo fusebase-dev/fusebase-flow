@@ -270,10 +270,16 @@ appr = yaml.safe_load((root / "approval-policy.yml").read_text())
 appr_keys = set((appr.get("require_approval") or {}).keys())
 errs = 0
 for entry in (cmd.get("require_approval") or []):
-    action = entry.get("action")
-    if action and action not in appr_keys:
-        print(f"[preflight] ERROR: command-policy require_approval references action '{action}' not in approval-policy.yml require_approval keys", file=sys.stderr)
+    # `any_of` members are checked too (schema v2, decision K5) — an unchecked list
+    # would let a typo'd action name become an unsatisfiable, invisible gate.
+    declared = entry.get("any_of") if isinstance(entry.get("any_of"), list) else [entry.get("action")]
+    if entry.get("action") and entry.get("any_of"):
+        print("[preflight] ERROR: command-policy require_approval rule sets both 'action' and 'any_of' (mutually exclusive)", file=sys.stderr)
         errs += 1
+    for action in declared:
+        if action and action not in appr_keys:
+            print(f"[preflight] ERROR: command-policy require_approval references action '{action}' not in approval-policy.yml require_approval keys", file=sys.stderr)
+            errs += 1
 sys.exit(errs)
 PY
     then errors=$((errors + 1)); fi

@@ -17,10 +17,17 @@
 #     job it claimed. Do not reintroduce it — under all-match it would let a compound
 #     command carry an ungated `rm`.
 #
-# FAIL-CLOSED (decision K4): an unparseable regex, a rule with no `pattern`, or a
-# missing/empty/non-mapping policy file DENIES with a policy-error reason. It never
-# skips the rule and never falls through to `default`.
-schema_version: 1
+# FAIL-CLOSED (decision K4): an unparseable regex, a rule with no `pattern`, an
+# unsupported `flags` entry, or a missing/empty/non-mapping policy file DENIES with a
+# policy-error reason. It never skips the rule and never falls through to `default`.
+#
+# RULE SHAPE (schema_version 2):
+#   {pattern, action | any_of, flags?, reason, rule_id, only_when?}
+#   * `action` and `any_of` are MUTUALLY EXCLUSIVE; a require_approval rule needs
+#     exactly one. `any_of` is satisfied when ANY listed action has a valid artifact,
+#     and its FIRST entry is the rule's display name in denial messages + --inventory.
+#   * `flags` accepts ["i"] (case-insensitive) only. Unknown flags fail closed.
+schema_version: 2
 local_override_file: policies/command-policy.local.yml
 
 # Hard deny. The pre_tool_use hook returns deny with the reason cited.
@@ -56,9 +63,16 @@ deny:
 # artifact matching the action. Action names match approval-policy.yml keys.
 require_approval:
 
+  # FR-21 lane parity (decision K5). Four shipped documents state that a Lightweight
+  # deploy's one-command `lightweight_deploy` stamp REPLACES production_deploy, but this
+  # rule required production_deploy — so a documented LL deploy was denied by the hook.
+  # TRUST BOUNDARY, stated because it cannot be enforced: lane classification is
+  # PROCESS-authoritative. The hook cannot verify a change was genuinely LL-eligible;
+  # an agent could self-declare Lightweight to take the cheaper gate. FR-21 + the
+  # lightweight-lane skill own that discipline, not this file.
   - pattern: '\bfusebase\s+deploy\b'
-    action: production_deploy
-    reason: "FR-12: production deploy requires approval artifact."
+    any_of: [production_deploy, lightweight_deploy]
+    reason: "FR-12/FR-21: production deploy requires a production_deploy (Full lane) or lightweight_deploy (FR-21 Lightweight lane) approval artifact."
     rule_id: FR-12
 
   - pattern: '\bvercel\s+(deploy|--prod)\b'
@@ -92,9 +106,13 @@ require_approval:
     reason: "FR-12: schema migrations require approval artifact."
     rule_id: FR-12
 
-  - pattern: '\bpsql\b.*\b(DROP|TRUNCATE|DELETE\s+FROM)\b'
+  # Case-insensitive per-rule (AC7): `drop table users` is the same statement as
+  # `DROP TABLE users`, and lowercase SQL is the common form in shell one-liners.
+  # ALTER TABLE is gated too — it is a schema change like the rest.
+  - pattern: '\bpsql\b.*\b(DROP|TRUNCATE|DELETE\s+FROM|ALTER\s+TABLE)\b'
     action: database_migration
-    reason: "FR-12: destructive SQL on production requires approval."
+    flags: [i]
+    reason: "FR-12: destructive or schema-changing SQL on production requires approval."
     rule_id: FR-12
 
   - pattern: '\brm\s+(-r|-rf|-fr)?\s+'

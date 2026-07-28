@@ -146,6 +146,55 @@ with tempfile.TemporaryDirectory() as d:
     expect("k16-deny-still-short-circuits", decide(repo, "rm -rf /tmp/x"),
            decision="deny", rule_id="FR-06")
 
+# AC7: destructive/schema SQL is case-insensitive and ALTER TABLE is gated.
+with tempfile.TemporaryDirectory() as d:
+    repo = make_repo(Path(d))
+    for sql in ('psql -c "drop table users"',
+                'psql -c "DROP TABLE users"',
+                'psql -c "DrOp TaBlE users"',
+                'psql -c "ALTER TABLE users ADD COLUMN x int"',
+                'psql -c "alter table users add column x int"',
+                'psql -c "truncate orders"',
+                'psql -c "delete from orders"'):
+        expect(f"ac7-sql[{sql[:28]}]", decide(repo, sql),
+               decision="deny", required=["database_migration"])
+    # A non-destructive statement is still not gated.
+    dec = decide(repo, 'psql -c "select 1"')
+    if dec.decision != "allow":
+        fails.append(f"ac7-sql-select-not-gated: got {dec.decision}")
+
+# AC5: an unsupported per-rule flag fails CLOSED rather than being ignored.
+with tempfile.TemporaryDirectory() as d:
+    repo = make_repo(Path(d), command_policy={
+        "schema_version": 2, "deny": [],
+        "require_approval": [{"pattern": "x", "action": "production_deploy", "flags": ["s"]}],
+        "allow": [], "default": "allow"})
+    expect("ac5-unsupported-flag", decide(repo, "x"),
+           decision="deny", rule_id=POLICY_ERROR_RULE_ID)
+
+# AC8/K5: `any_of` is satisfied by EITHER action; neither present -> deny naming the
+# rule's display action (the first listed).
+with tempfile.TemporaryDirectory() as d:
+    repo = make_repo(Path(d))
+    expect("ac8-neither-artifact", decide(repo, "fusebase deploy"),
+           decision="deny", required=["production_deploy"])
+    mint(repo, "lightweight_deploy")
+    expect("ac8-lightweight-satisfies", decide(repo, "fusebase deploy"), decision="allow")
+with tempfile.TemporaryDirectory() as d:
+    repo = make_repo(Path(d))
+    mint(repo, "production_deploy")
+    expect("ac8-production-still-satisfies", decide(repo, "fusebase deploy"), decision="allow")
+
+# A rule declaring both `action` and `any_of` is a policy error, not a silent pick.
+with tempfile.TemporaryDirectory() as d:
+    repo = make_repo(Path(d), command_policy={
+        "schema_version": 2, "deny": [],
+        "require_approval": [{"pattern": r"\bfusebase\s+deploy\b", "action": "production_deploy",
+                              "any_of": ["production_deploy", "lightweight_deploy"]}],
+        "allow": [], "default": "allow"})
+    expect("k5-action-and-any_of-mutually-exclusive", decide(repo, "fusebase deploy"),
+           decision="deny", rule_id=POLICY_ERROR_RULE_ID)
+
 # The dead key is gone from the shipped policy (K16).
 shipped = yaml.safe_load((root / "policies" / "command-policy.yml").read_text(encoding="utf-8"))
 if any("fallthrough" in r for r in (shipped.get("require_approval") or [])):
@@ -158,6 +207,90 @@ if [ "$OUT" = "[]" ]; then
   ok "failclosed-and-all-match"
 else
   bad "failclosed-and-all-match" "$OUT"
+fi
+
+# ---- AC8 through BOTH handler entry points (not just command_policy) --------------
+# The permission_request path was never covered; testing pre_tool_use alone would miss
+# exactly the surface a Codex-style host uses.
+HANDLER_OUT="$(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$ROOT" <<'PY' 2>&1
+import json, shutil, subprocess, sys, tempfile
+from pathlib import Path
+root = Path(sys.argv[1])
+fails = []
+FUTURE = "2099-01-01T00:00:00Z"
+CMD = "fusebase deploy"
+
+HANDLER_DIRS = ("hooks/handlers", "hooks/shared")
+
+
+def build(tmp: Path) -> Path:
+    for sub in HANDLER_DIRS:
+        (tmp / sub).mkdir(parents=True, exist_ok=True)
+        for f in (root / sub).iterdir():
+            if f.is_file() and f.suffix == ".py":
+                shutil.copy(f, tmp / sub / f.name)
+    (tmp / "hooks" / "shared" / "__init__.py").touch()
+    (tmp / "policies").mkdir(parents=True, exist_ok=True)
+    for name in ("command-policy.yml", "approval-policy.yml", "protected-paths.yml",
+                 "secret-patterns.yml"):
+        src = root / "policies" / name
+        if src.is_file():
+            shutil.copy(src, tmp / "policies" / name)
+    (tmp / "state" / "approvals").mkdir(parents=True, exist_ok=True)
+    (tmp / ".git").mkdir(exist_ok=True)          # find_git_root anchor; no real repo needed
+    return tmp
+
+
+def mint(repo: Path, action: str) -> None:
+    (repo / "state" / "approvals" / f"{action}-smoke-20260728.json").write_text(
+        json.dumps({"schema_version": 2, "action": action, "expires_at": FUTURE}),
+        encoding="utf-8")
+
+
+def run(repo: Path, handler: str, payload: dict) -> tuple[int, dict]:
+    proc = subprocess.run(
+        [sys.executable, str(repo / "hooks" / "handlers" / handler)],
+        input=json.dumps(payload).encode("utf-8"), capture_output=True, cwd=str(repo))
+    out = proc.stdout.decode("utf-8", errors="replace")
+    try:
+        data = json.loads(out) if out.strip().startswith("{") else {}
+    except Exception:
+        data = {}
+    return proc.returncode, data
+
+
+def both(repo: Path, label: str, expected: str) -> None:
+    rc, data = run(repo, "pre_tool_use.py",
+                   {"event": "pre_tool_use", "cwd": str(repo), "tool_name": "Bash",
+                    "tool_input": {"command": CMD}})
+    if data.get("decision") != expected:
+        fails.append(f"{label}/pre_tool_use: expected {expected} got {data.get('decision')!r}")
+    rc, data = run(repo, "permission_request.py",
+                   {"event": "permission_request", "cwd": str(repo),
+                    "permission_request": {"tool_name": "Bash",
+                                           "tool_input": {"command": CMD}}})
+    if data.get("decision") != expected:
+        fails.append(f"{label}/permission_request: expected {expected} got {data.get('decision')!r}")
+
+
+with tempfile.TemporaryDirectory() as d:
+    repo = build(Path(d))
+    both(repo, "ac8-no-artifact", "deny")
+    mint(repo, "lightweight_deploy")
+    both(repo, "ac8-lightweight_deploy", "allow")
+
+with tempfile.TemporaryDirectory() as d:
+    repo = build(Path(d))
+    mint(repo, "production_deploy")
+    both(repo, "ac8-production_deploy", "allow")
+
+print(json.dumps(fails))
+PY
+)"
+if [ "$HANDLER_OUT" = "[]" ]; then
+  ok "ac8-lightweight-parity-both-handlers"
+else
+  bad "ac8-lightweight-parity-both-handlers" "$HANDLER_OUT"
 fi
 
 finish

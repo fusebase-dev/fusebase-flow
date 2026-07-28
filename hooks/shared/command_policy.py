@@ -6,7 +6,6 @@ checking looks in state/approvals/ for matching artifacts.
 """
 from __future__ import annotations
 
-import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -18,6 +17,7 @@ from .approval_artifact import (
     evaluate_file,
     is_acceptable,
 )
+from .command_rules import rule_actions, rule_matches
 from .denial_message import render_approval_denial
 from .policy_loader import find_git_root, get_policy
 
@@ -116,27 +116,9 @@ def _policy_error(command: str, detail: str) -> CommandDecision:
     )
 
 
-def _rule_matches(rule: Any, command: str, stage: str) -> tuple[bool, str | None]:
-    """(matched, policy-error-detail). A defective rule NEVER silently skips (K4).
-
-    TRIPWIRE: `re.error` and a malformed rule must DENY, not `continue`. The original
-    code skipped both, so a typo in a deny pattern silently disabled that rule and the
-    command fell through to `default: allow` — a gate whose failure mode is "allow".
-    """
-    if not isinstance(rule, dict):
-        return False, f"{stage} rule is not a mapping"
-    pattern = rule.get("pattern")
-    if not isinstance(pattern, str) or not pattern:
-        return False, f"{stage} rule has no usable `pattern`"
-    try:
-        return bool(re.search(pattern, command)), None
-    except re.error as e:
-        return False, f"{stage} rule pattern {pattern!r} is not a valid regex ({e})."
-
-
 def _evaluate_deny(command: str, policy: dict[str, Any]) -> CommandDecision | None:
     for rule in policy.get("deny", []) or []:
-        matched, err = _rule_matches(rule, command, "deny")
+        matched, err = rule_matches(rule, command, "deny")
         if err:
             return _policy_error(command, err)
         if matched:
@@ -174,19 +156,34 @@ def _evaluate_require_approval(
             only_when = rule.get("only_when") or {}
             if only_when.get("workflow_mode") and only_when["workflow_mode"] != workflow_mode:
                 continue
-        matched, err = _rule_matches(rule, command, "require_approval")
+        matched, err = rule_matches(rule, command, "require_approval")
         if err:
             return _policy_error(command, err)
         if not matched:
             continue
         if matched_rule is None:
             matched_rule = rule
-        action = rule.get("action", "")
-        if action in verdicts:
+        actions, err = rule_actions(rule, "require_approval")
+        if err:
+            return _policy_error(command, err)
+        display = actions[0]
+        if display in verdicts:
             continue
-        present, verdict = _approval_state(action, root=root, command=command)
-        verdicts[action] = verdict
-        (satisfied if present else unsatisfied).append(action)
+        # `any_of` (decision K5): ANY listed action satisfies the rule — that is how a
+        # documented FR-21 Lightweight deploy passes the same gate as a Full deploy. The
+        # trust boundary is process-authoritative: the hook cannot verify LL-eligibility.
+        chosen, chosen_verdict, present = display, NO_ARTIFACT, False
+        for candidate in actions:
+            ok, verdict = _approval_state(candidate, root=root, command=command)
+            if ok:
+                chosen, chosen_verdict, present = candidate, verdict, True
+                break
+            if candidate == display:
+                chosen_verdict = verdict
+        verdicts[display] = chosen_verdict
+        (satisfied if present else unsatisfied).append(display)
+        if present and chosen != display:
+            verdicts[chosen] = chosen_verdict
 
     if matched_rule is None:
         return None
@@ -222,7 +219,7 @@ def _evaluate_require_approval(
 
 def _evaluate_allow(command: str, policy: dict[str, Any]) -> CommandDecision | None:
     for rule in policy.get("allow", []) or []:
-        matched, err = _rule_matches(rule, command, "allow")
+        matched, err = rule_matches(rule, command, "allow")
         if err:
             return _policy_error(command, err)
         if matched:
