@@ -37,7 +37,7 @@
 .agents/skills/role-discipline/SKILL.md  fa5f1094b89e3409a599351274ba92712d2f24ddc27c2bd5fe0e27bd91ad26ef
 .agents/skills/role-discipline/references/ai-developer.md  140da055ffd1d560bec5b504c21dfa7194901af089be4ad12c66c60935e5a657
 .agents/skills/role-discipline/references/architect.md  fd7f0edf600a618b34284e61025b7ad97ad51fd2e2dfa005eec6596cac996744
-.agents/skills/role-discipline/references/deploy.md  e2084988d93cb9719c2bbc87eef8bdc44047509f4da02c8a13221d042a2fb966
+.agents/skills/role-discipline/references/deploy.md  d007d77acb43df27a0eae7d0a067e8a66eb8a657cc15d0fff87840357d9b99ec
 .agents/skills/role-discipline/references/product-owner.md  2910f4f0d6dca8c717868efcb0e9db32aa1d8975a1b39e056a780f5b0655297c
 .agents/skills/role-discipline/references/shared-protocols.md  efd466729e6c87e0c0a907ad043f5a45f0d8dc6cb7ba5c081ef9c88e1797c971
 .agents/skills/security-permissions-review/SKILL.md  23dfff25d3f60fff9d3f8d34e1fd40a46bc24b26b0e2bb8554159b4dd0016825
@@ -86,7 +86,7 @@
 .claude/skills/role-discipline/SKILL.md  fa5f1094b89e3409a599351274ba92712d2f24ddc27c2bd5fe0e27bd91ad26ef
 .claude/skills/role-discipline/references/ai-developer.md  140da055ffd1d560bec5b504c21dfa7194901af089be4ad12c66c60935e5a657
 .claude/skills/role-discipline/references/architect.md  fd7f0edf600a618b34284e61025b7ad97ad51fd2e2dfa005eec6596cac996744
-.claude/skills/role-discipline/references/deploy.md  e2084988d93cb9719c2bbc87eef8bdc44047509f4da02c8a13221d042a2fb966
+.claude/skills/role-discipline/references/deploy.md  d007d77acb43df27a0eae7d0a067e8a66eb8a657cc15d0fff87840357d9b99ec
 .claude/skills/role-discipline/references/product-owner.md  2910f4f0d6dca8c717868efcb0e9db32aa1d8975a1b39e056a780f5b0655297c
 .claude/skills/role-discipline/references/shared-protocols.md  efd466729e6c87e0c0a907ad043f5a45f0d8dc6cb7ba5c081ef9c88e1797c971
 .claude/skills/security-permissions-review/SKILL.md  23dfff25d3f60fff9d3f8d34e1fd40a46bc24b26b0e2bb8554159b4dd0016825

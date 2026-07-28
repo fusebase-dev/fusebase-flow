@@ -20,8 +20,12 @@ workflow_mode: direct_to_main   # direct_to_main | branch_pr
 # through. Each operation is keyed by the action name used in `command-policy.yml`.
 # An "approval artifact" is a JSON file at:
 #   state/approvals/<operation>-<slug>-<YYYYMMDD>.json
-# The artifact must contain { "approved_by": "<operator>", "scope": "<short>",
-# "expires_at": "<ISO 8601>", "reason": "<one-liner>" }.
+# Schema v2 (command approvals) — see the trust model at the bottom of this file:
+#   ENFORCED : "schema_version": 2 · "action" (MUST equal the filename action) ·
+#              "expires_at" (parseable UTC) · optional "repo_id" / "command_digest"
+#              (enforced when present)
+#   AUDIT    : "approved_by" · "ticket" · "scope" · "reason"  — metadata only,
+#              never authenticated authority (decision K3)
 require_approval:
   production_deploy:
     enforce: true
@@ -42,8 +46,9 @@ require_approval:
       branch_pr: 60            # 60 min; stale-state protection for team contexts
     rationale: "Production deploys are externally visible and irreversible without rollback ceremony. DP.6 magic phrase is the real per-deploy gate; TTL is stale-state protection only — long for solo direct-to-main, short for team branch_pr."
     # DP.6-phrase authoring (v4.3.0, documented procedure — NO enforcement change): this
-    # artifact stays mandatory and on-disk, but the gate does NOT check its author
-    # (command_policy.py checks filename + expires_at only). So the Deploy session AUTHORS
+    # artifact stays mandatory and on-disk, but the gate does NOT check its AUTHOR
+    # (it checks schema, parsed expiry, body/filename action agreement, and
+    # command/repo binding when present — never `approved_by`). So the Deploy session AUTHORS
     # every required approval artifact on the operator's behalf once the operator types the
     # DP.6 phrase (`approve deploy now`) — for ALL tickets, INCLUDING database_migration,
     # auth_or_permission_change, protected_path_edit, secret_file_write — never forcing the
@@ -100,11 +105,27 @@ require_approval:
     artifact_ttl_minutes: 60
     rationale: "Worker-undisturbed and generated paths must show empty diffs unless an exception is approved."
 
-# Roles permitted to author an approval artifact for each operation. Hooks check
-# this against the self-attested role of the requesting session.
+# TRUST MODEL — what the hooks actually enforce, and what they do not (decision K3).
+#
+# ENFORCED by hooks/shared/approval_artifact.py (read by command_policy + path_policy):
+#   schema shape · parsed UTC `expires_at` · body/filename `action` agreement ·
+#   `command_digest` / `repo_id` binding when the artifact carries them.
+# NOT ENFORCED — audit metadata only, never authenticated authority:
+#   `approved_by` · `ticket` · `scope` · `reason`.
+# The agent and the operator write as the same OS principal, so any author string an
+# agent can write it can also forge. Flow states the limitation rather than faking a
+# check (an authorship check here would be theatre, and theatre in a security control
+# is worse than an absent one — readers trust the documentation).
+#
+# `approval_authors` is retained as a DECLARATION OF INTENT for humans and external
+# review, NOT a hook-enforced control. No hook reads it. Do not re-add an
+# "$USER == approved_by" check: it is forgeable by the process it gates. Real
+# authorship needs a host-signed approval event or a key the agent cannot read;
+# Flow has neither today.
 approval_authors:
+  enforced_by_hooks: false     # declarative only — see the trust model above (K3)
   default: ["operator"]
-  # Examples (uncomment to require co-sign for high-risk ops):
+  # Examples (uncomment to record co-sign intent for high-risk ops):
   # production_deploy: ["operator"]
   # database_migration: ["operator"]
 

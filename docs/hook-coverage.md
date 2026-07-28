@@ -26,6 +26,18 @@ Warns surface via `hookSpecificOutput.additionalContext` (JSON stdout) so the mo
 | `task_complete` | n/a (Stop covers this) | n/a (stop covers this) | n/a | n/a | retired v3.18.0 (handler was wired nowhere; `stop` owns completion gating) |
 | `pre_compact` | yes (`PreCompact`) | reserved (host-dependent) | n/a | n/a | implemented |
 
+## Approval-artifact trust model (FR-12)
+
+What the approval gate enforces, and what it deliberately does not. Canonical home: `policies/approval-policy.yml` § trust model (decision K3) — this table is the hook-surface view, not a second source of truth.
+
+| Field | Status | Enforced by |
+|---|---|---|
+| `schema_version`, `expires_at`, `action` (body vs filename) | **enforced** | `hooks/shared/approval_artifact.py` |
+| `command_digest`, `repo_id` | **enforced when present** (absent → action-scoped, K2) | `hooks/shared/approval_artifact.py` |
+| `approved_by`, `ticket`, `scope`, `reason` | **audit metadata — never authenticated authority** | nothing; unenforceable (agent and operator share one OS principal) |
+
+`policies/approval-policy.yml: approval_authors` carries `enforced_by_hooks: false`: it is a declaration of intent, not a control. Do not add an `$USER == approved_by` check — it is forgeable by the process it gates.
+
 ## Surface notes
 
 - **Cursor** has no native lifecycle-hook surface in v0.1. Enforcement on Cursor sessions falls back to git hooks (`pre-commit`, `commit-msg`) and operator vigilance.
