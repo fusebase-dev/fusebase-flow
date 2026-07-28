@@ -9,28 +9,33 @@
 #   The blessed in-place upgrade path is `upgrade.sh`, but it ships *inside* the
 #   version you're trying to reach. A pre-3.6.0 "append-only overlay" install has
 #   no upgrade.sh / sync-version-strings.sh / .fusebase-flow-source/. This script
-#   is the one-shot first hop: it stages an upstream copy, copies the engine
-#   scripts into hooks/local/, then runs upgrade.sh.
+#   is the one-shot first hop: it stages an upstream copy and EXECUTES the engine
+#   FROM THAT SOURCE TREE, so classification decides every consumer write.
 #
 #   For an install that ALSO lacks this bootstrap script (truly old), copy-paste
 #   the equivalent one-liner from the README "Upgrading an installed overlay"
-#   section — it does the same clone + copy + run.
+#   section — it does the same clone + run.
 #
 # What it does:
 #   1. Ensure .fusebase-flow-source/ exists — clone upstream if absent (or reuse a
 #      plain dir you already staged).
-#   2. Copy the engine + recovery + mirror scripts from the source into hooks/local/
-#      (upgrade.sh, upgrade-engine.sh, sync-version-strings.sh, post-fusebase-update.sh,
-#      mirror-skills.sh, mirror-agents.sh, preflight.sh) + the overlay templates dir
-#      + the engine's sourced lib dir hooks/local/lib/ (the new upgrade.sh sources
-#      merge-module-size-baseline.sh from there; staging it BEFORE handoff is what
-#      lets the v3.25.x baseline merge-preserve actually run on the adoption hop).
-#   3. Hand off to upgrade.sh (passing through any flags, e.g. --dry-run / --auto-yes).
+#   2. Synthesize the classifier's base manifest from the upstream tag equal to the
+#      consumer's installed VERSION (K13a) — the ONE pre-classification write, and it
+#      is the classifier's own input, not consumer content.
+#   3. `exec` the SOURCE clone's hooks/local/upgrade.sh (passing through any flags,
+#      e.g. --dry-run / --auto-yes). Managed consumer paths — engine scripts and
+#      hooks/local/lib/ included — are written only by that engine's classified
+#      per-file apply loop.
 #
-# What it does NOT do:
+# What it does NOT do (AC25 / K10 / K20):
+#   - Copy the engine, lib, or any other managed path into the consumer tree before
+#     classification authorizes it; an aborted hop leaves the tree byte-identical
+#     except the base manifest above and logs.
 #   - Touch application code, .claude/settings.json, or CLI-owned assets.
-#   - Delete anything (every copied target that already exists is backed up
-#     .pre-bootstrap-<ts>).
+#   - Delete anything. It writes no backup of its own either (there is nothing to back
+#     up before handoff); the engine's .pre-upgrade-<ts> snapshot is the backup. The
+#     *.pre-bootstrap-<ts> git-exclude below is retained for trees that still carry
+#     snapshots from the older copy-then-handoff hop.
 #
 # Usage:
 #   bash hooks/local/bootstrap-upgrade.sh [--source <dir>] [--repo <url>] [--ref <branch>] [-- <upgrade.sh flags>]

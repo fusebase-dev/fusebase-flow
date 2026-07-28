@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "019d93b8511fd757a277008bffe1f0ef7602331d17e679c18d121a8873f91c41"
+      "sha256": "ff6a200129549c27243ffc5f676ddaf7c212ab93662c570cd5e1e21662951486"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -282,7 +282,7 @@
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
-      "sha256": "920146df730505ff8592e80d5ff8e5ff44ac30e1b481e5e48d0b195260053b67"
+      "sha256": "ac220a6cd82b2da853780199c46ef0757e83e28841f4eea5152a853328c5d8d5"
     },
     {
       "path": "hooks/local/check-cli-flow-conflicts.sh",
@@ -930,7 +930,7 @@
     },
     {
       "path": "policies/approval-policy.yml",
-      "sha256": "6e8190a381d3ae29d613f15bb8bc9f8f750a7830b9e12d2629cc6224aa935c5c"
+      "sha256": "1ca80a6f0a138d3cf3980d3b09f4deabf2a3168e88a6a4af833345b5233d60dc"
     },
     {
       "path": "policies/command-policy.yml",
@@ -990,7 +990,7 @@
     },
     {
       "path": "templates/change-note.md",
-      "sha256": "cbd5679d64cac31ada4ecbc7e190b6c92790375592d3496d0188d19376835f4c"
+      "sha256": "2ef78c415f6bd00a53f0f06b6520bc1d62c488e4e3adf1b706f59e796d0dc100"
     },
     {
       "path": "templates/clarify-conversation.md",
@@ -1010,7 +1010,7 @@
     },
     {
       "path": "templates/handoff-deploy.md",
-      "sha256": "d3b50b9fc571e85e75793e1e18d1e793cb99ec00d2110a0081555778b3314902"
+      "sha256": "079b3a62536dd819a899875f8077464a496beda6bf100a74422914fa20b92286"
     },
     {
       "path": "templates/handoff-folder-README.md",
@@ -1121,5 +1121,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "d4bbd45e09707b79da6c0002c6ca37917f559333fb42c2e560e61a1ceb896be9"
+  "manifest_self_sha256": "41e82efd7a8099a1da28e71128fb8fbe9ded324b1cd0712979133b1c525a2042"
 }

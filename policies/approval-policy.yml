@@ -53,7 +53,10 @@ require_approval:
     # DP.6 phrase (`approve deploy now`) — for ALL tickets, INCLUDING database_migration,
     # auth_or_permission_change, protected_path_edit, secret_file_write — never forcing the
     # operator to run commands (`bash hooks/local/approve-local.sh <action> <slug>
-    # 'approve deploy now'`). The typed phrase (forgiving match — any case/spacing of "approve
+    # 'approve deploy now' --command '<exact command>'`; --command is MANDATORY for every
+    # command-gated action — production_deploy, lightweight_deploy, database_migration,
+    # destructive_file_delete, external_customer_visible_message — and harmless on the
+    # rest, so always pass it). The typed phrase (forgiving match — any case/spacing of "approve
     # deploy now") IS the authorization; authoring WITHOUT it is
     # self-approval and forbidden. For sensitive classes, PRESENT the full scope in chat
     # BEFORE the phrase so it is informed consent (an action not presented is not covered).
@@ -64,7 +67,8 @@ require_approval:
     # change classified Lightweight (see flow-skills/lightweight-lane/SKILL.md), this
     # is the tier-aware deploy gate: it REPLACES production_deploy + the DP.6
     # magic phrase. It is authored by ONE command from the operator's plain
-    # go-ahead — `bash hooks/local/approve-local.sh lightweight_deploy <slug> 'ship it'`
+    # go-ahead — `bash hooks/local/approve-local.sh lightweight_deploy <slug> 'ship it'
+    # --command '<exact deploy command>'` (K19: command-gated, so --command is mandatory)
     # — not a hand-authored JSON file and not a magic-phrase pause. The point is
     # to remove friction (magic phrase, hand-authored artifact, separate deploy
     # session) while keeping a machine-checkable human-in-the-loop record + tier

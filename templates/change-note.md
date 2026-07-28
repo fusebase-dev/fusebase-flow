@@ -22,7 +22,7 @@ Deploy:       go-ahead "<operator phrase>" · deployed <SHA/hash> · FR-07 check
 - **change_tier** — `lightweight`. If it became non-trivial mid-flight, you should have STOPPED and promoted to Full (record `promoted: lightweight→full — <reason>` in the promoting commit body, or the project's ledger if it keeps one); a change-note is not the place to absorb scope creep.
 - **Verified** — the safety floor. Live proof the change works (run it on a real input, compare observed to expected, make it reproducible from this note). Never "looks right."
 - **Rollback** — the safety floor. One concrete command.
-- **Deploy** — record the explicit operator go-ahead, the deployed SHA/hash, and that the FR-07 protected-path re-check was clean. No DP.6 magic phrase / DP.1 JSON for LL; the plain go-ahead is the gate (hook-wired projects: `approve-local.sh lightweight_deploy <slug>`).
+- **Deploy** — record the explicit operator go-ahead, the deployed SHA/hash, and that the FR-07 protected-path re-check was clean. No DP.6 magic phrase / DP.1 JSON for LL; the plain go-ahead is the gate (hook-wired projects: `approve-local.sh lightweight_deploy <slug> 'ship it' --command '<exact deploy command>'`).
 
 ## Ledger (optional)
 
