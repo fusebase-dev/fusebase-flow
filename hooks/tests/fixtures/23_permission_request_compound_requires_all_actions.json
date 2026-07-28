@@ -1,5 +1,5 @@
 {
-  "_test": "permission_request renders the same all-match denial as pre_tool_use",
+  "_test": "compound command with NO artifact denies (K8 all-match, no-artifact path). NOT a first-match discriminator — this fixture is denied by the old code too; the discriminating case (first action SATISFIED, deny hinges on the second) runs through both handlers in hooks/tests/test-command-policy.sh, because run_hook_tests.py executes every fixture from the repo root and a fixture cannot carry its own state/approvals/.",
   "_handler": "permission_request.py",
   "_expected_decision": "deny",
   "_expected_rule_id": "FR-12",
@@ -9,6 +9,8 @@
   "host_tool": "codex",
   "permission_request": {
     "tool_name": "Bash",
-    "tool_input": { "command": "fusebase deploy && npx prisma migrate deploy" }
+    "tool_input": {
+      "command": "fusebase deploy && npx prisma migrate deploy"
+    }
   }
 }

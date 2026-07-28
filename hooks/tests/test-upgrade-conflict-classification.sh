@@ -341,6 +341,11 @@ cp "$ROOT/hooks/local/upgrade.sh" "$UPREPO/hooks/local/"
 cp "$ROOT/hooks/local/bootstrap-upgrade.sh" "$UPREPO/hooks/local/"
 ( cd "$UPREPO" && git add -A && git commit -qm 'v4.6.1' && git branch -M main && git tag v4.6.1 )
 # --- upstream 4.7.0 on main: control.sh changes; the validator does NOT ---
+# DELIBERATE, and NOT the AC16 abort case: this fixture proves the upgrade still DELIVERS
+# content (an abort writes nothing, so one run cannot prove both). The `changed-by-both`
+# half of AC16 — upstream rewrites the validator, --auto-yes ABORTS, sentinel survives, the
+# path is named literally — is section 6 (ac25-aborted-bootstrap-hop-writes-nothing) and
+# section 3a. Same split the PO applied to smoke S4a/S4b.
 echo "4.7.0" > "$UPREPO/VERSION"
 printf 'control v2\n'        > "$UPREPO/hooks/local/control.sh"
 printf 'new upstream file\n' > "$UPREPO/hooks/shared/brand_new.py"
@@ -550,5 +555,50 @@ else
       "rc=$NW2_RC $(tail -6 "$NW_ROOT/log2" | tr '\n' '|')"
 fi
 rm -rf "$NW_ROOT"
+
+# ---- 7. T29(c): classification is EOL-stable with core.autocrlf=true ----------------
+# Every other fixture pins core.autocrlf=false, so CRLF behaviour was unproven — and the
+# base is synthesized via `git archive`, which DOES apply core.autocrlf (measured; the
+# bootstrap tripwire depends on it). A consumer on autocrlf=true must still see an
+# untouched file as current/upstream-only, never consumer-divergent.
+EOL_ROOT="$(mktemp -d)"
+EOL_UP="$EOL_ROOT/up"
+mkdir -p "$EOL_UP/hooks/shared" "$EOL_UP/hooks/local/lib" "$EOL_UP/workflows"
+( cd "$EOL_UP" && git init -q && git config user.email t@t.t && git config user.name t \
+    && git config core.autocrlf false )
+echo "4.6.1" > "$EOL_UP/VERSION"
+printf 'validator v1\n' > "$EOL_UP/hooks/shared/command_policy.py"
+printf 'wf v1\n'        > "$EOL_UP/workflows/wf.md"
+cp "$ROOT/hooks/local/lib/managed_content_manifest.py" "$EOL_UP/hooks/local/lib/"
+cp "$ROOT/hooks/local/upgrade.sh" "$EOL_UP/hooks/local/"
+cp "$ROOT/hooks/local/bootstrap-upgrade.sh" "$EOL_UP/hooks/local/"
+( cd "$EOL_UP" && git add -A && git commit -qm 'v4.6.1' && git branch -M main && git tag v4.6.1 )
+echo "4.7.0" > "$EOL_UP/VERSION"
+printf 'validator v2\n' > "$EOL_UP/hooks/shared/command_policy.py"
+( cd "$EOL_UP" && git add -A && git commit -qm 'v4.7.0' )
+
+# The consumer checks out with core.autocrlf=TRUE — every text file lands CRLF on disk.
+EOL_C="$EOL_ROOT/cons"
+git -c core.autocrlf=true clone -q --branch main "$EOL_UP" "$EOL_C" 2>/dev/null
+( cd "$EOL_C" && git config core.autocrlf true && git checkout -q v4.6.1 -- . 2>/dev/null || true )
+echo "4.6.1" > "$EOL_C/VERSION"
+( cd "$EOL_C" && git -c core.autocrlf=true checkout -q v4.6.1 2>/dev/null || true )
+EOL_LOG="$EOL_ROOT/log"
+( cd "$EOL_C" && bash hooks/local/bootstrap-upgrade.sh --repo "$EOL_UP" --ref main -- --auto-yes ) \
+    > "$EOL_LOG" 2>&1
+eol_fail=""
+grep -q "synthesized the classifier base" "$EOL_LOG" || eol_fail="$eol_fail [no base synthesis]"
+# wf.md was NEVER touched by anyone: on an EOL-stable classifier it is current/upstream-only,
+# never consumer-only / changed-by-both / unknown-base.
+for wrong in "consumer-only" "changed-by-both" "unknown-base"; do
+  sed -n "/$wrong/,/^\$/p" "$EOL_LOG" | grep -q "workflows/wf.md" \
+    && eol_fail="$eol_fail [untouched wf.md classified $wrong under core.autocrlf=true]"
+done
+if [ -z "$eol_fail" ]; then
+  ok "t29c-classification-eol-stable-under-autocrlf-true"
+else
+  bad "t29c-classification-eol-stable-under-autocrlf-true" "$eol_fail :: $(tail -18 "$EOL_LOG" | tr '\n' '|')"
+fi
+rm -rf "$EOL_ROOT"
 
 finish

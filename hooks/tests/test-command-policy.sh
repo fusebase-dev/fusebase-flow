@@ -362,7 +362,7 @@ def run(repo: Path, handler: str, payload: dict) -> tuple[int, dict]:
 def both(repo: Path, label: str, expected: str) -> None:
     rc, data = run(repo, "pre_tool_use.py",
                    {"event": "pre_tool_use", "cwd": str(repo), "tool_name": "Bash",
-                    "tool_input": {"command": CMD}})
+                    "tool_input": {"command": CMD}})   # CMD is rebound per scenario
     if data.get("decision") != expected:
         fails.append(f"{label}/pre_tool_use: expected {expected} got {data.get('decision')!r}")
     rc, data = run(repo, "permission_request.py",
@@ -383,6 +383,29 @@ with tempfile.TemporaryDirectory() as d:
     repo = build(Path(d))
     mint(repo, "production_deploy")
     both(repo, "ac8-production_deploy", "allow")
+
+# T29(a) — the DISCRIMINATING all-match case, through both handlers.
+# Handler fixtures 22/23 carry no artifact, so the OLD first-match code would also deny
+# them: they prove nothing about all-match. Here the FIRST matched action is SATISFIED and
+# the deny hinges entirely on the second — old first-match code returns allow.
+# (This lives here rather than in a static fixture because run_hook_tests.py executes every
+# fixture from the repo root, so a fixture cannot carry its own state/approvals/.)
+CMD = "fusebase deploy && npx prisma migrate deploy"
+with tempfile.TemporaryDirectory() as d:
+    repo = build(Path(d))
+    mint(repo, "production_deploy")
+    both(repo, "t29-compound-first-action-satisfied-still-denies", "deny")
+    mint(repo, "database_migration")
+    both(repo, "t29-compound-both-actions-satisfied-allows", "allow")
+
+# T29(a) — the K18(a) display-dedup bypass, through both handlers.
+CMD = "fusebase deploy && git push origin main"
+with tempfile.TemporaryDirectory() as d:
+    repo = build(Path(d))
+    mint(repo, "lightweight_deploy")
+    both(repo, "t29-dedup-bypass-lightweight-only-denies", "deny")
+    mint(repo, "production_deploy")
+    both(repo, "t29-dedup-bypass-both-artifacts-allows", "allow")
 
 print(json.dumps(fails))
 PY

@@ -326,11 +326,11 @@
     },
     {
       "path": "hooks/tests/fixtures/22_pre_tool_use_compound_requires_all_actions.json",
-      "sha256": "4882cca0cd521738ebeb5a86d0422a34d49486c950196041c4eb86c80afa8204"
+      "sha256": "5fafcfe425297db76acda4c01b45fbda34f8e1a7a300d395150f108776fe5fd8"
     },
     {
       "path": "hooks/tests/fixtures/23_permission_request_compound_requires_all_actions.json",
-      "sha256": "4c8ca97bfae21f837b4405f01a82b0fee6df0bc8048379791316eb3368a8c0c2"
+      "sha256": "1ab4fc8c3271639e4075137eeec6b93430f7bfdaec5d6963bb73a75342275bfd"
     },
     {
       "path": "hooks/tests/fixtures/token-waste-01-growing-tail-classified.jsonl",
@@ -442,7 +442,7 @@
     },
     {
       "path": "hooks/tests/test-command-policy.sh",
-      "sha256": "a68c2445eb4832915389b22a8ebf689fd2c9e20fbfe5d5cba56910c6a81e50cc"
+      "sha256": "05219c8681fb790e841014c1f59ee535b21009724e2267b34aa859e9193185d5"
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
@@ -534,12 +534,12 @@
     },
     {
       "path": "hooks/tests/test-upgrade-conflict-classification.sh",
-      "sha256": "922a8619dddf5c40ded4462f4af09467e326179ef872e8e04652da8895877a98"
+      "sha256": "2ed5c7ed634c7171b63c14128ad18926623f1858614c16d39495f78455b1988c"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "c18a98bac8f9167c4e17fcfdcd321b3f42dae1d2bcc024d3b0289f5384d312e6"
+  "manifest_self_sha256": "aba5683a6199948c825e04e324389af76eb36ddef556694a518c54ec6557d12e"
 }
