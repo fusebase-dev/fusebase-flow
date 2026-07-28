@@ -190,7 +190,7 @@
     },
     {
       "path": "hooks/shared/command_policy.py",
-      "sha256": "5af1247c22119a9b36f96178c1e3d1fb3e5f0c7375543798691e3dd14aec4647"
+      "sha256": "aaafeb211041e37cd5040a2e127382f522777a03c787f9ea3dc618ff080e28f9"
     },
     {
       "path": "hooks/shared/command_rules.py",
@@ -438,7 +438,7 @@
     },
     {
       "path": "hooks/tests/test-command-policy.sh",
-      "sha256": "2451368e0ead29de9c1d570931fd276f95560667650250d96943f5b05d9e3450"
+      "sha256": "a3bd773e60c0a8f21b5878ad6c208ac4091cc0e1d301966f5f7bfe98f808f9a9"
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
@@ -537,5 +537,5 @@
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "b4444944b7d1cbd9934b925a81a46bd9712c2dd4173b46dceb3571838cc520b4"
+  "manifest_self_sha256": "c0d21349af1876ea7dddf0c8b8a7a2e5c1e63dee9fc76dc56ba42c9f3f4bde4d"
 }

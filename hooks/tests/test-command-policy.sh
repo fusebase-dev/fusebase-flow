@@ -127,6 +127,33 @@ with tempfile.TemporaryDirectory() as d:
     expect("ac6-compound-both-artifacts",
            decide(repo, "fusebase deploy && npx prisma migrate deploy"), decision="allow")
 
+# AC20 / K18(a) — THE bypass discriminator. Two DIFFERENT rules whose display action is
+# the same (`fusebase deploy` any_of, and the `git push .. main` rule that genuinely
+# requires production_deploy). Pre-correction the second was skipped because the display
+# name was already recorded, so a lightweight_deploy artifact alone ALLOWED this command.
+COMPOUND = "fusebase deploy && git push origin main"
+with tempfile.TemporaryDirectory() as d:
+    repo = make_repo(Path(d))
+    mint(repo, "lightweight_deploy")
+    expect("ac20-dedup-bypass-lightweight-only", decide(repo, COMPOUND),
+           decision="deny", required=["production_deploy"],
+           reason_has=("production_deploy",))
+# Discriminator pair: with BOTH artifacts the same command is allowed — proving the fix
+# is per-rule evaluation, not a blanket deny.
+with tempfile.TemporaryDirectory() as d:
+    repo = make_repo(Path(d))
+    mint(repo, "lightweight_deploy")
+    mint(repo, "production_deploy")
+    expect("ac20-dedup-bypass-both-artifacts", decide(repo, COMPOUND), decision="allow")
+# production_deploy alone satisfies both rules (any_of accepts it too).
+with tempfile.TemporaryDirectory() as d:
+    repo = make_repo(Path(d))
+    mint(repo, "production_deploy")
+    expect("ac20-production-satisfies-both-rules", decide(repo, COMPOUND), decision="allow")
+    dec = decide(repo, COMPOUND)
+    if sorted(set(dec.required_actions)) != sorted(dec.required_actions):
+        fails.append(f"ac20-no-duplicate-display: {dec.required_actions}")
+
 # K16 accepted consequence: `rm` now contributes destructive_file_delete to the set.
 # NOTE: the shipped rm pattern needs a flag or a double space (`rm build.log` alone
 # matches nothing) — an independent pre-existing gap, filed as

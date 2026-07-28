@@ -160,6 +160,11 @@ def _evaluate_deny(command: str, policy: dict[str, Any]) -> CommandDecision | No
     return None
 
 
+def _unique(names: list[str]) -> list[str]:
+    """Order-preserving de-duplication of display names."""
+    return list(dict.fromkeys(names))
+
+
 def _evaluate_require_approval(
     command: str,
     policy: dict[str, Any],
@@ -175,10 +180,17 @@ def _evaluate_require_approval(
     # set. First-match-wins let `fusebase deploy && npx prisma migrate deploy` be authorized
     # by the deploy artifact alone, leaving the migration ungated. Stage order is unchanged —
     # `deny` short-circuits, so a denied command never reaches this stage (K16).
+    # TRIPWIRE (decision K18a): requirements are PER-RULE. Never skip a matched rule
+    # because its display action was already recorded — the `fusebase deploy` any_of rule
+    # (display production_deploy) then absorbed the separate `git push origin main` rule,
+    # and a lightweight_deploy artifact alone allowed `fusebase deploy && git push origin
+    # main`. Deduplicate only AFTER satisfaction is known, and only for identical
+    # (accept-set, satisfied) outcomes, which are genuinely the same requirement.
     matched_rule: dict[str, Any] | None = None
     unsatisfied: list[str] = []
     satisfied: list[str] = []
     verdicts: dict[str, str] = {}
+    seen_outcomes: set[tuple[tuple[str, ...], bool]] = set()
 
     for rule in policy.get("require_approval", []) or []:
         if isinstance(rule, dict):
@@ -196,8 +208,6 @@ def _evaluate_require_approval(
         if err:
             return _policy_error(command, err)
         display = actions[0]
-        if display in verdicts:
-            continue
         # `any_of` (decision K5): ANY listed action satisfies the rule — that is how a
         # documented FR-21 Lightweight deploy passes the same gate as a Full deploy. The
         # trust boundary is process-authoritative: the hook cannot verify LL-eligibility.
@@ -210,13 +220,27 @@ def _evaluate_require_approval(
                 break
             if candidate == display:
                 chosen_verdict = verdict
-        verdicts[display] = chosen_verdict
-        (satisfied if present else unsatisfied).append(display)
-        if present and chosen != display:
-            verdicts[chosen] = chosen_verdict
+        outcome = (tuple(actions), present)
+        if outcome in seen_outcomes:
+            continue
+        seen_outcomes.add(outcome)
+        if present:
+            satisfied.append(display)
+            verdicts.setdefault(display, chosen_verdict)
+            if chosen != display:
+                verdicts.setdefault(chosen, chosen_verdict)
+        else:
+            unsatisfied.append(display)
+            verdicts[display] = chosen_verdict     # a failure always wins the report slot
 
     if matched_rule is None:
         return None
+
+    # Display-name folding is for RENDERING only and happens after every rule has been
+    # evaluated on its own (K18a). An action still unsatisfied by any rule stays
+    # unsatisfied even if another rule with a wider accept-set was satisfied by it.
+    unsatisfied = _unique(unsatisfied)
+    satisfied = [a for a in _unique(satisfied) if a not in unsatisfied]
 
     if not unsatisfied:
         return CommandDecision(

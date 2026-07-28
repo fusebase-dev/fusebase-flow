@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "46c2d340d4467be2f074d059b28a6f4d8c03ccf1bbb217e00fcaf4629a915e25"
+      "sha256": "9a8ce8c967a06de3953b82e9d2ab487cd801ed124c47a1c38f8594bef05f373a"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -578,7 +578,7 @@
     },
     {
       "path": "hooks/shared/command_policy.py",
-      "sha256": "5af1247c22119a9b36f96178c1e3d1fb3e5f0c7375543798691e3dd14aec4647"
+      "sha256": "aaafeb211041e37cd5040a2e127382f522777a03c787f9ea3dc618ff080e28f9"
     },
     {
       "path": "hooks/shared/command_rules.py",
@@ -826,7 +826,7 @@
     },
     {
       "path": "hooks/tests/test-command-policy.sh",
-      "sha256": "2451368e0ead29de9c1d570931fd276f95560667650250d96943f5b05d9e3450"
+      "sha256": "a3bd773e60c0a8f21b5878ad6c208ac4091cc0e1d301966f5f7bfe98f808f9a9"
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
@@ -1117,5 +1117,5 @@
       "sha256": "ed43aa0c28536f4eaf8849e5c6a08de409c07b6ebcd12dd9cf8f02f835829968"
     }
   ],
-  "manifest_self_sha256": "416d4ec0e85b004355cf8ab1951314f53d26628b028cfd4465729153f5385e4c"
+  "manifest_self_sha256": "e2e25647750bd3fd2422c6f4f61d94b0b9d46b19469d648a39be3dff9267b892"
 }
