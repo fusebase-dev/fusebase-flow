@@ -174,7 +174,7 @@
     },
     {
       "path": "hooks/shared/command_policy.py",
-      "sha256": "eee8aaeeb5703a4f41b9c52d989f8733b7f8d333e945829126aa0f5088233964"
+      "sha256": "e3f913640c77c824577013d442970e3715fa1a9162b9dc69af070b009ca380b7"
     },
     {
       "path": "hooks/shared/git_utils.py",
@@ -366,7 +366,7 @@
     },
     {
       "path": "hooks/tests/test-approval-binding.sh",
-      "sha256": "ece2fa3e73424aa370a4f3df7f4be82a592515a26e67903d31d20da74cb1c1b5"
+      "sha256": "5fddba28f7651393237c5ca6be80cf7e86e753ff1049b1a5376153a7cf593ae0"
     },
     {
       "path": "hooks/tests/test-baseline-merge.sh",
@@ -497,5 +497,5 @@
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "b70ea022d6d3c7e24277c081be47869a4e0ce5d89ac673f730c63bc50cb14197"
+  "manifest_self_sha256": "c4aa8474deaa5f8435f8c6cfa76a2f249529ad23441fc41d3e90e24672e1d617"
 }

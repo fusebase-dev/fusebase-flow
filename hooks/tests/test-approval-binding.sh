@@ -129,7 +129,113 @@ else
   bad "verdict-table-and-loader-total" "$VERDICT_OUT"
 fi
 
-# ---- 2. AC19: no authorship-enforcement claim survives in the canonical files ------
+# ---- 2. AC1 + AC4: command_policy consumes the loader; policy is root-anchored -----
+CP_OUT="$(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$ROOT" <<'PY' 2>&1
+import json, os, shutil, sys, tempfile
+from pathlib import Path
+root = Path(sys.argv[1]); sys.path.insert(0, str(root / "hooks"))
+from shared.command_policy import evaluate  # noqa: E402
+from shared.policy_loader import reset_cache  # noqa: E402
+
+FUTURE = "2099-01-01T00:00:00Z"
+fails = []
+
+
+def make_repo(tmp: Path) -> Path:
+    """A throwaway tree carrying the REAL shipped policies + an empty approvals dir."""
+    (tmp / "policies").mkdir(parents=True)
+    (tmp / "state" / "approvals").mkdir(parents=True)
+    for name in ("command-policy.yml", "approval-policy.yml"):
+        shutil.copy(root / "policies" / name, tmp / "policies" / name)
+    return tmp
+
+
+def write_artifact(repo: Path, filename: str, body) -> None:
+    (repo / "state" / "approvals" / filename).write_text(
+        json.dumps(body), encoding="utf-8")
+
+
+DEPLOY = "fusebase deploy"
+
+with tempfile.TemporaryDirectory() as d:
+    repo = make_repo(Path(d))
+    reset_cache()
+    # AC1: filename says production_deploy, body says database_migration -> DENY.
+    write_artifact(repo, "production_deploy-x-20260728.json",
+                   {"action": "database_migration", "expires_at": FUTURE})
+    dec = evaluate(DEPLOY, root=repo)
+    if dec.decision != "deny":
+        fails.append(f"ac1-action-mismatch: expected deny got {dec.decision}")
+    if dec.approval_verdict != "ACTION_MISMATCH":
+        fails.append(f"ac1-verdict: expected ACTION_MISMATCH got {dec.approval_verdict!r}")
+    if dec.required_actions != ["production_deploy"]:
+        fails.append(f"ac1-required_actions: got {dec.required_actions!r}")
+
+with tempfile.TemporaryDirectory() as d:
+    repo = make_repo(Path(d))
+    reset_cache()
+    # Agreeing body action -> ALLOW (the mismatch above is the discriminator, not the file).
+    write_artifact(repo, "production_deploy-x-20260728.json",
+                   {"action": "production_deploy", "expires_at": FUTURE})
+    dec = evaluate(DEPLOY, root=repo)
+    if dec.decision != "allow":
+        fails.append(f"ac1-agreeing-action: expected allow got {dec.decision} ({dec.reason})")
+
+with tempfile.TemporaryDirectory() as d:
+    repo = make_repo(Path(d))
+    reset_cache()
+    # AC3: a malformed artifact must not raise out of evaluate(), and must not authorize.
+    for name, blob in (
+        ("production_deploy-arr-20260728.json", "[1,2,3]"),
+        ("production_deploy-num-20260728.json", "42"),
+        ("production_deploy-nul-20260728.json", "null"),
+        ("production_deploy-txt-20260728.json", "definitely not json"),
+    ):
+        (repo / "state" / "approvals" / name).write_text(blob, encoding="utf-8")
+    try:
+        dec = evaluate(DEPLOY, root=repo)
+        if dec.decision != "deny":
+            fails.append(f"ac3-malformed: expected deny got {dec.decision}")
+        if dec.approval_verdict != "MALFORMED":
+            fails.append(f"ac3-malformed-verdict: got {dec.approval_verdict!r}")
+    except BaseException as e:                       # noqa: BLE001 — the point of AC3
+        fails.append(f"ac3-malformed: evaluate() RAISED {e!r}")
+
+with tempfile.TemporaryDirectory() as d, tempfile.TemporaryDirectory() as foreign:
+    repo = make_repo(Path(d))
+    reset_cache()
+    write_artifact(repo, "production_deploy-x-20260728.json",
+                   {"action": "production_deploy", "expires_at": FUTURE})
+    here = os.getcwd()
+    from_root = evaluate(DEPLOY, root=repo)
+    migrate_from_root = evaluate("npx prisma migrate deploy", root=repo)
+    try:
+        os.chdir(foreign)                            # AC4: policy must not follow the CWD
+        reset_cache()
+        from_foreign = evaluate(DEPLOY, root=repo)
+        migrate_from_foreign = evaluate("npx prisma migrate deploy", root=repo)
+    finally:
+        os.chdir(here)
+        reset_cache()
+    if (from_root.decision, from_root.rule_id) != (from_foreign.decision, from_foreign.rule_id):
+        fails.append(f"ac4-parity-deploy: {from_root.decision}/{from_root.rule_id} vs "
+                     f"{from_foreign.decision}/{from_foreign.rule_id}")
+    if (migrate_from_root.decision, migrate_from_root.approval_verdict) != \
+       (migrate_from_foreign.decision, migrate_from_foreign.approval_verdict):
+        fails.append("ac4-parity-migrate: foreign-CWD decision diverged from repo-root")
+    if migrate_from_root.decision != "deny":
+        fails.append(f"ac4-migrate-baseline: expected deny got {migrate_from_root.decision}")
+
+print(json.dumps(fails))
+PY
+)"
+if [ "$CP_OUT" = "[]" ]; then
+  ok "command-policy-action-agreement-and-root-anchoring"
+else
+  bad "command-policy-action-agreement-and-root-anchoring" "$CP_OUT"
+fi
+
+# ---- 3. AC19: no authorship-enforcement claim survives in the canonical files ------
 AC19_FILES=(
   "policies/approval-policy.yml"
   "flow-skills/role-discipline/references/deploy.md"
