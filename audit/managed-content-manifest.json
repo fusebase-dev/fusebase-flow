@@ -206,7 +206,7 @@
     },
     {
       "path": "flow-skills/security-permissions-review/SKILL.md",
-      "sha256": "23dfff25d3f60fff9d3f8d34e1fd40a46bc24b26b0e2bb8554159b4dd0016825"
+      "sha256": "fa694285b591f7505dbb07f7eca23e42bf652d623e2230518e623c71b21a2187"
     },
     {
       "path": "flow-skills/skill-authoring/SKILL.md",
@@ -234,7 +234,7 @@
     },
     {
       "path": "hooks/README.md",
-      "sha256": "f8ba0131e69362b948dced7ddd104e2a30023d057cb3d5f672e7ad71db6e62a0"
+      "sha256": "dc45ec662f0cac4a3965ef6eeacf3efe8d3867b9669eacdf8a2affddf9f9ef31"
     },
     {
       "path": "hooks/flow_hook_event.schema.json",
@@ -1117,5 +1117,5 @@
       "sha256": "ed43aa0c28536f4eaf8849e5c6a08de409c07b6ebcd12dd9cf8f02f835829968"
     }
   ],
-  "manifest_self_sha256": "ef7ce606da46ef10c127c77a7abe101a92ff6e4ff6a78d26bfd1e2c2020eacb4"
+  "manifest_self_sha256": "9df4a4c441272bd765119e461d53c67d05ea1af10363c989c8814ee31564a64a"
 }

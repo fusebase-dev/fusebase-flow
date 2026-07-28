@@ -2,6 +2,7 @@
 
 | Slug | Status | One-liner |
 |---|---|---|
+| approval-single-use-consumption | parked | True one-shot approval consumption (reserve -> execute -> consume). Deferred from `approval-binding-and-upgrade-classification` (K11): needs a stable host call ID across both hook entry points, success/failure finalization, orphan TTL, and Windows + network-FS atomicity. Binding (K2) covers most of the replay risk meanwhile |
 | rm-rule-pattern-single-space-gap | parked | `destructive_file_delete` rule pattern requires a flag or a double space, so plain `rm build.log` / `rm -f build.log` are ungated (reproduced 3/3; found during approval-binding T4) |
 | rule-inventory-version-literal-noise | done (pending publication) | `norm()` normalizes `v<major>.<minor>.<patch>` → `vX.Y.Z`, so a version-only release bump leaves the rule-loss tripwire's diff EMPTY while an attestation reword still goes RED; 170 rows unchanged. Lightweight lane — [`docs/changes/2026-07-27-rule-inventory-version-literal-noise.md`](../changes/2026-07-27-rule-inventory-version-literal-noise.md) |
 | local-gate-misses-manifest-freshness | parked | The local full suite has no manifest-freshness assertion but CI does — a missed `stamp-hook-manifest.sh` passes locally and reddens main (caused `eca925b`) |

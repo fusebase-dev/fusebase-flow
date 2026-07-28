@@ -157,12 +157,28 @@ operator                   approve-local.sh                    state/approvals/
    │                              │   → require_approval              │
    │                              │   → look up artifact              │
    │                              │                                   │
-   │                              ├── artifact present + unexpired? ──┤
-   │                              │   yes → allow                     │
-   │                              │   no  → deny + reason             │
+   │                              ├── approval_artifact.py verdict? ──┤
+   │                              │   VALID → allow                   │
+   │                              │   else  → deny + the SPECIFIC     │
+   │                              │           reason                  │
    │                              │                                   │
    ├──◄── decision returned ──────┤                                   │
 ```
+
+**What the verdict actually checks (v4.7.0+).** One module, `hooks/shared/approval_artifact.py`,
+judges every artifact for every carrier (`command_policy`, `path_policy`, `active-approvals.sh`,
+`--inventory`) so they cannot drift:
+
+| Check | Rule |
+|---|---|
+| `expires_at` | parsed as a UTC datetime, never string-compared. Missing/empty is a state (`MISSING_EXPIRY`), not "valid forever" |
+| `action` | the JSON body's action must equal the filename's action (`ACTION_MISMATCH`) |
+| `command_digest` / `repo_id` | enforced **when present**; absent = action-scoped, legacy-compatible (`BINDING_MISMATCH`) |
+| any malformed content | rejected inside the guard; no artifact content can raise out of `evaluate()` |
+| `approved_by` / `ticket` | **audit metadata only — never authenticated authority** (decision K3) |
+
+Verdict is artifact **state**; acceptability is the separate predicate `is_acceptable(verdict, strict=)`,
+so each carrier declares its own pass-set and `strict_approvals` has exactly one consumer (K17).
 
 ## Where to read next
 

@@ -6,6 +6,64 @@ Public release versions ship as annotated git tags on `main`. Per-version detail
 
 ## [Unreleased]
 
+### Security — FR-12 command gate: bound, parsed, fail-closed
+
+- **One canonical approval judge.** New `hooks/shared/approval_artifact.py` replaces three divergent
+  copies of the artifact/expiry logic (`command_policy.py`, `path_policy.py`,
+  `hooks/local/lib/active-approvals.sh`). Verdict is artifact **state**; acceptability is the separate
+  predicate `is_acceptable(verdict, strict=)`, so `strict_approvals` has exactly one consumer.
+- **Expiry is parsed, never string-compared.** A missing/empty/unparseable `expires_at` is no longer
+  "valid forever".
+- **Body/filename `action` agreement** and **`command_digest` / `repo_id` binding enforced when
+  present** (absent = action-scoped, so existing artifacts keep working).
+- **Fail-closed policy defects.** A bad regex, a rule without a `pattern`, an unsupported `flags`
+  entry, or a missing/empty/unparseable `command-policy.yml` now DENIES instead of skipping the rule
+  and falling through to `default: allow`.
+- **All matching `require_approval` rules apply.** `fusebase deploy && npx prisma migrate deploy`
+  requires both actions, named in one denial message.
+- **Truthful trust model.** `approval_authors` no longer claims hook enforcement (`enforced_by_hooks:
+  false`); `approved_by` / `ticket` are labelled audit metadata, never authenticated authority.
+- **Safe writer.** `approve-local.sh` serializes JSON in one language from argv, validates the action
+  against the merged policy and the slug against `[A-Za-z0-9._-]{1,64}`, writes atomically, and
+  re-parses before reporting success. Adds `--inventory` and schema v2 binding fields.
+- **Designed denial message** (`hooks/shared/denial_message.py`, <= 8 lines): what was blocked, every
+  required action, the SPECIFIC per-artifact failure reason, one exact resolving command.
+
+### Added — upgrade conflict classification
+
+- `audit/managed-content-manifest.json` + `stamp-/verify-managed-content-manifest.sh`: a byte-stable,
+  CI-freshness-gated record of what upstream shipped (the classifier's **base**).
+- `hooks/local/upgrade.sh` classifies every managed path into one of ten states and applies **per
+  file**; `--auto-yes` never overwrites `consumer-only` / `changed-by-both` / dirty
+  `upstream-deleted` / `unknown-base`, and aborts on `changed-by-both`.
+- `bootstrap-upgrade.sh` **synthesizes the base** from the upstream tag matching the installed
+  `VERSION`, so the classifier release can deliver its own content to a <= 4.6.1 install.
+- `install.sh` records a base on fresh installs; `preflight.sh` warns when it is missing or stale.
+
+### Fixed
+
+- **FR-21 Lightweight-lane gate parity.** The `fusebase deploy` rule accepts
+  `any_of: [production_deploy, lightweight_deploy]`; a documented Lightweight deploy was previously
+  denied by the hook while four shipped documents promised it worked.
+- **Destructive SQL matching is case-insensitive and `ALTER TABLE` is gated** (per-rule `flags: [i]`).
+- **EOL asymmetry in the adoption hop.** The staging clone and the tag extraction now use the
+  consumer's own `core.autocrlf`; otherwise every managed file differed by line ending alone and the
+  upgrade preserved everything, i.e. installed nothing.
+- **Trusted-enforcer import closure.** `hooks/git/pre-commit` extracts `approval_artifact.py` from
+  HEAD alongside `path_policy.py`; a module missing from that closure made the trusted enforcer die
+  with `ImportError` and block every commit.
+- **Hook-manifest coverage hole.** `hooks/local/lib/*.py` is now covered by suffix rather than an
+  explicit filename allow-list, so later local-lib Python cannot land outside integrity coverage.
+
+### Changed
+
+- `policies/command-policy.yml` is `schema_version: 2`; the dead `fallthrough` key is removed.
+- `strict_approvals: false` ships in `policies/approval-policy.yml` (K7 two-stage cutover). Legacy
+  expiry-less artifacts are accepted **and audit-logged**; the next release flips the default.
+  Legacy artifacts are never auto-migrated.
+
+Full detail: `docs/release-notes/v4.7.0.md`.
+
 ## [4.6.1] — 2026-07-26
 
 ### Fixed — red `main`: `test-sync-allowlist.sh` failed on both platforms after the v4.6.0 closeout commit

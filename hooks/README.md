@@ -22,7 +22,10 @@ hooks/
 │   ├── git_utils.py
 │   ├── secret_scanner.py
 │   ├── path_policy.py
-│   └── command_policy.py
+│   ├── command_policy.py
+│   ├── command_rules.py           ← rule shape: pattern/flags/action|any_of
+│   ├── denial_message.py          ← the one FR-12 denial renderer (both entry points)
+│   └── approval_artifact.py       ← the one approval-artifact judge (every carrier)
 ├── git/                           ← git fallback hooks (bash; symlinked into .git/hooks/)
 │   ├── pre-commit
 │   └── commit-msg
@@ -30,7 +33,9 @@ hooks/
 │   ├── install-git-hooks.sh
 │   ├── preflight.sh
 │   ├── verify-gate.sh
-│   ├── approve-local.sh
+│   ├── approve-local.sh            ← authors artifacts; --inventory reports them
+│   ├── stamp-managed-content-manifest.sh   ← records the upgrade classifier's base
+│   ├── verify-managed-content-manifest.sh  ← 0 MATCH / 1 DRIFT / 2 BROKEN / 4 ABSENT
 │   └── mirror-skills.sh
 └── tests/                         ← deterministic test fixtures
     ├── run-tests.sh

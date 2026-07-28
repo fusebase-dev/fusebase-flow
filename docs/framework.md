@@ -18,7 +18,7 @@ The framework lives here. Provider and IDE compatibility files (`.claude/`, `.co
 | `hooks/` | Deterministic enforcement. Python handlers (`handlers/`), shared utilities (`shared/`), git fallback (`git/`), local install/preflight scripts (`local/`). |
 | `templates/` | Substrate documents new artifacts copy from (spec, decisions, tasks, gate, etc.). |
 | `audit/` | Paper trail: implementation audit, source map, license attestation, compatibility matrix, hook coverage, test results, rail mapping. |
-| `state/` | Runtime state (audit log, approvals, context summary). Git-ignored. |
+| `state/` | Runtime state (audit log, approvals, context summary). Git-ignored. Approval artifacts are judged by `hooks/shared/approval_artifact.py` — schema, parsed UTC expiry, body/filename action agreement, and command/repo binding when present; `approved_by`/`ticket` are audit metadata, never authenticated authority. `bash hooks/local/approve-local.sh --inventory` shows what is on disk and how a strict cutover would judge it. |
 
 ## How sessions consume this
 

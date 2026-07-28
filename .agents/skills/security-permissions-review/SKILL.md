@@ -67,7 +67,15 @@ Targeted review for changes that touch security-sensitive surfaces. Distinct fro
    - **Data export/import.** Bulk dashboard reads (`getDashboardViewData` fan-out, CSV/JSON dumps) or bulk imports: (a) export scope = minimum views/columns needed; (b) enumerate the PII fields crossing the boundary (names, emails, phones, client identifiers) in the review summary; (c) tenant isolation — exported/imported rows respect the org/workspace boundary, and import paths validate ownership before write. `approval-policy.yml` defines no data-export key — flag bulk export/import in the review summary as requiring explicit operator go-ahead before deploy; map to real approval keys only where the same diff genuinely triggers one (`auth_or_permission_change`, `database_migration`, `secret_file_write`).
 7. Production data surface: if DB writes added, verify they go through the established repository/transaction pattern; flag direct connection-string writes.
 8. External-message surface: if outbound messages added (email, SMS, webhooks), verify they're idempotent or have a "do not send twice" safeguard. Flag missing approval artifact for `external_customer_visible_message` per `approval-policy.yml`.
-9. Build approval-required list: every operation in diff that triggers `require_approval` in `approval-policy.yml` and lacks a corresponding artifact in `state/approvals/`.
+9. Build approval-required list: every operation in diff that triggers `require_approval` in `approval-policy.yml` and lacks an **acceptable** artifact in `state/approvals/`. "Acceptable" is no longer "a file exists" (v4.7.0+): review the artifact's **state**, not its presence — run `bash hooks/local/approve-local.sh --inventory` and read the `verdict(strict)` column. `hooks/shared/approval_artifact.py` is the single judge; an artifact can be present and still authorize nothing.
+
+| Verdict | Means | Review response |
+|---|---|---|
+| `VALID` | schema, parsed UTC expiry, body/filename `action` agreement, and any `command_digest`/`repo_id` binding all hold | satisfied |
+| `MISSING_EXPIRY` | legacy artifact, no `expires_at` | accepted this release and audit-logged (K7); flag for reissue — it is REJECTED once `strict_approvals` flips |
+| `EXPIRED` / `MALFORMED` / `ACTION_MISMATCH` / `BINDING_MISMATCH` | stale / unparseable / approves a different action / bound to a different command or repo | **not satisfied** — treat as missing |
+
+**Never assert operator authorship.** `approved_by` and `ticket` are audit metadata, not authenticated authority (decision K3) — the agent and the operator write as the same OS principal. A review finding of the form "approved by the operator" is unsupportable; say "an approval artifact exists and is VALID".
 10. Output security review summary in chat (Mode A):
    - Blockers (must fix or get approval before deploy)
    - Sensitive-path findings (file:line + concern + mitigation)
@@ -87,7 +95,7 @@ Targeted review for changes that touch security-sensitive surfaces. Distinct fro
 | Failure mode | Detection | Response |
 |---|---|---|
 | Detected secret in diff | regex match on `policies/secret-patterns.yml` | BLOCK deploy. Redact value in output. Recommend `git reset --soft HEAD~1` + rotation. Per FR-12, log incident in `docs/problem-catalog/<slug>/`. |
-| Missing approval artifact for `require_approval` op | scan `state/approvals/` against `approval-policy.yml: require_approval` | BLOCK deploy. Surface which artifact is missing and how to author it. |
+| Missing OR unusable approval artifact for a `require_approval` op | `bash hooks/local/approve-local.sh --inventory`, then match `verdict(strict)` against `approval-policy.yml: require_approval` | BLOCK deploy. Name the artifact AND its verdict — a stale/mismatched artifact is not a missing one, and the operator needs to know which. Surface how to author a replacement. |
 | Auth gate missing on new endpoint | endpoint added without matching auth middleware import/decorator | BLOCK deploy. Surface specific endpoint + project auth pattern to apply. |
 | Customer-visible message added without approval | outbound message API call in diff + no `external_customer_visible_message` approval artifact | BLOCK deploy. Per FR-12 + approval-policy. |
 | Production DB write outside repository pattern | direct connection / raw SQL outside `*Repository.ts` / `*_repository.py` | BLOCK deploy. Surface migration path through repository layer. |

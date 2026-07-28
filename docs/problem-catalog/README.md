@@ -48,6 +48,7 @@ known problem instead of re-diagnosing it.
 
 | Slug | Severity | Status | One-line summary |
 |---|---|---|---|
+| `approval-gate-unbound-and-fail-open` | high | resolved | The v3.30.5 fail-closed sweep hardened `path_policy`/pre-commit/secret-scanner and MISSED `command_policy.py` — same class, sibling carrier: unparsed expiry (missing = valid forever), approval bound only to a filename prefix, `re.error` swallowed. Lesson is the recurrence: enumerate every carrier of a defect class, don't fix the ones the report named |
 | `install-upgrade-commit-self-blocked` | high | resolved | Fresh install / self-upgrade couldn't make its own documented setup commit through Flow's gates (secret self-trip + FR-07 + fixed pre-commit not re-installed) |
 | `run-tests-never-completes-msys` | high | resolved | `run-tests.sh` never reached exit 0 on any MINGW64 box — harness didn't reuse the bounded-run reap; `$(...)` capture held open by a native grandchild |
 | `bounded-run-msys-collateral-kill` | high | resolved (core v3.30.3; opt-in hard fence v3.30.4, Cummings-class reliability consumer-gated) | MSYS `taskkill //T` over-killed (255 collateral: caller/harness/other sessions) and returned rc0-on-kill; ancestor-resolution + PID reuse |
