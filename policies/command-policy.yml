@@ -4,6 +4,22 @@
 # approval for shell commands. Patterns match against `tool_input.command` for
 # Bash-style tools or equivalent. Patterns are regex; use ^ and $ anchors when
 # you want exact matches.
+#
+# MATCH SEMANTICS (decision K8/K16 — stated here because they are not obvious):
+#   * Stages run in `match_order`: deny -> require_approval -> allow -> default.
+#   * `deny` SHORT-CIRCUITS: a denied command never reaches require_approval.
+#   * Within `require_approval`, EVERY matching rule contributes its action to the
+#     required set. `fusebase deploy && npx prisma migrate deploy` therefore needs
+#     BOTH production_deploy and database_migration, reported in ONE denial.
+#     (First-match-wins was a straightforward bypass of the second action.)
+#   * There is no per-rule suppression flag. The removed `fallthrough: true` key was
+#     never read by any code; the deny->require_approval stage order already does the
+#     job it claimed. Do not reintroduce it — under all-match it would let a compound
+#     command carry an ungated `rm`.
+#
+# FAIL-CLOSED (decision K4): an unparseable regex, a rule with no `pattern`, or a
+# missing/empty/non-mapping policy file DENIES with a policy-error reason. It never
+# skips the rule and never falls through to `default`.
 schema_version: 1
 local_override_file: policies/command-policy.local.yml
 
@@ -85,7 +101,6 @@ require_approval:
     action: destructive_file_delete
     reason: "FR-12: bulk file delete (when not matching the deny entry above) requires approval."
     rule_id: FR-12
-    fallthrough: true   # only matches if not already denied above
 
   - pattern: '(curl|http|wget).*--data.*api\.(twilio|sendgrid|mailgun|postmark)\.com'
     action: external_customer_visible_message
