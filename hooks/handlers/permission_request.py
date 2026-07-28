@@ -50,7 +50,14 @@ def main() -> int:
                 decision=decision,
                 reason=reason,
                 rule_id=rule_id,
-                extra={"tool_name": tool_name, "matched_pattern": cd.matched_pattern},
+                extra={
+                    "tool_name": tool_name,
+                    "matched_pattern": cd.matched_pattern,
+                    "approval_action": cd.approval_action,
+                    "approval_verdict": cd.approval_verdict,
+                    "required_actions": cd.required_actions,
+                    "action_verdicts": cd.action_verdicts,
+                },
                 root=root,
             )
             sys.stdout.write(json.dumps({"decision": decision, "reason": reason, "rule_id": rule_id}))

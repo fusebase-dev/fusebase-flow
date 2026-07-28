@@ -1,0 +1,14 @@
+{
+  "_test": "permission_request renders the same all-match denial as pre_tool_use",
+  "_handler": "permission_request.py",
+  "_expected_decision": "deny",
+  "_expected_rule_id": "FR-12",
+  "event": "permission_request",
+  "session_id": "test-23",
+  "cwd": ".",
+  "host_tool": "codex",
+  "permission_request": {
+    "tool_name": "Bash",
+    "tool_input": { "command": "fusebase deploy && npx prisma migrate deploy" }
+  }
+}

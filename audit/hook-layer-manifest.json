@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.6.1",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 124,
+  "asset_count": 127,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -14,7 +14,7 @@
     },
     {
       "path": "hooks/handlers/permission_request.py",
-      "sha256": "5f293d5d5e7396c624d4dfe136312623f0455e55539137d640e913141c7f1b52"
+      "sha256": "cc116436a133342473dd2a8f05d43b96c504c3e3d4570b7f4bdc399431203354"
     },
     {
       "path": "hooks/handlers/post_tool_use.py",
@@ -26,7 +26,7 @@
     },
     {
       "path": "hooks/handlers/pre_tool_use.py",
-      "sha256": "9ea7e3acc848f2f3e66eb708760e0b9b0e9747ec714a92035cf86f1f82301782"
+      "sha256": "47c3d9cb28b95b2f419616c7ef78b401b71b9ff50e0d3b3825eef39a09c5ff99"
     },
     {
       "path": "hooks/handlers/session_start.py",
@@ -174,7 +174,11 @@
     },
     {
       "path": "hooks/shared/command_policy.py",
-      "sha256": "1ea30721b3d0578680bb37bd605dbdd631f40deb6359e147ef60ad340e9a97ac"
+      "sha256": "008f0f77850cf231190c842f9ff625fed5a6d48f536c951e20088a51c7846e52"
+    },
+    {
+      "path": "hooks/shared/denial_message.py",
+      "sha256": "06ef4c99fe7e72f4785fe9c76b58dce0c22b9216bc1ee2c4211816b260c0c1f8"
     },
     {
       "path": "hooks/shared/git_utils.py",
@@ -301,6 +305,14 @@
       "sha256": "6cc8959562dac385b31da1f5dd304b00de4e374fc0c76327876cd329a7a37575"
     },
     {
+      "path": "hooks/tests/fixtures/22_pre_tool_use_compound_requires_all_actions.json",
+      "sha256": "4882cca0cd521738ebeb5a86d0422a34d49486c950196041c4eb86c80afa8204"
+    },
+    {
+      "path": "hooks/tests/fixtures/23_permission_request_compound_requires_all_actions.json",
+      "sha256": "4c8ca97bfae21f837b4405f01a82b0fee6df0bc8048379791316eb3368a8c0c2"
+    },
+    {
       "path": "hooks/tests/fixtures/token-waste-01-growing-tail-classified.jsonl",
       "sha256": "88f6a2c6b2513495353f209b3c846890349068b3cb8d7c7b1a5ba3733e11efec"
     },
@@ -362,11 +374,11 @@
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
-      "sha256": "51efcfc68ccc8eb079c1e87e302181cd84c35766e691b6b2b9ae788026779487"
+      "sha256": "0297b578d9becb2fb1f0f5515c0bb3fc8a7303226fd55b1db45a0ea023e840ca"
     },
     {
       "path": "hooks/tests/test-approval-binding.sh",
-      "sha256": "d07fe909c4b1367c4feeb244610239b74c4866c64247dceae49ab346ef33638a"
+      "sha256": "6386268f693aba006feed8cf09544c873f84b429670ecdbd63b1665fec5d5af4"
     },
     {
       "path": "hooks/tests/test-baseline-merge.sh",
@@ -501,5 +513,5 @@
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "a1b389f35fdd574f252724edae5909b97219581cb981de8d89f14aaf40f89797"
+  "manifest_self_sha256": "a829c27a01d8778b4463cb26b6b995675594cdf3c6d3ac75de07fa3bb681b060"
 }

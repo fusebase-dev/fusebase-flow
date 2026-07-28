@@ -2,7 +2,7 @@
 """Fusebase Flow — single-process fixture runner (D6).
 
 Imports each handler ONCE and drives its main() in-process, per fixture, so the
-21-fixture suite is one python process instead of 21x(>=3 MSYS spawns). Handlers
+23-fixture suite is one python process instead of 21x(>=3 MSYS spawns). Handlers
 and shared/ are UNMODIFIED (FR-07) — this only DRIVES them.
 
 Default mode: run every fixtures/*.json (sorted, same order as run-tests.sh),
@@ -11,7 +11,7 @@ exit = fail count. A synthetic `_parse-invariant` row is retained (D6).
 
 `--compare-subprocess` mode: run every fixture BOTH in-process and via
 `python hooks/handlers/<h> < fixture`, diff the TRIPLE (exit_code, decision,
-rule_id). Any divergence names both triples and exits nonzero. Required 21/21.
+rule_id). Any divergence names both triples and exits nonzero. Required 23/23.
 
 Exit-code capture (B5): handlers END `raise SystemExit(main())`, so the SystemExit
 path is production; in-process rc = _norm(main() return OR SystemExit.code)
@@ -42,8 +42,8 @@ def _git_root() -> Path:
 
 
 ROOT = _git_root()
-# Release gate contract: all 21 currently shipped handler fixtures must execute.
-EXPECTED_HANDLER_FIXTURES = 21
+# Release gate contract: all 23 currently shipped handler fixtures must execute.
+EXPECTED_HANDLER_FIXTURES = 23
 # hooks/ on sys.path so `from shared...` resolves before any handler import (the
 # handlers also self-insert their parent; this makes reset_cache importable now).
 sys.path.insert(0, str(ROOT / "hooks"))

@@ -18,6 +18,7 @@ from .approval_artifact import (
     evaluate_file,
     is_acceptable,
 )
+from .denial_message import render_approval_denial
 from .policy_loader import find_git_root, get_policy
 
 
@@ -205,19 +206,10 @@ def _evaluate_require_approval(
         )
 
     lead = unsatisfied[0]
-    states = "; ".join(f"{a}: {verdicts[a]}" for a in unsatisfied)
-    mint = " && ".join(f"bash hooks/local/approve-local.sh {a} <slug>" for a in unsatisfied)
     return CommandDecision(
         command=command,
         decision="deny" if on_missing == "deny" else "ask",
-        reason=(
-            f"FR-12: command requires approval for {', '.join(unsatisfied)}; "
-            f"artifact state — {states}. "
-            f"On the operator's approval, the agent authors them (the operator runs nothing): "
-            f"`{mint}`. "
-            f"See workflows/violation-recovery.md for full recovery procedure; "
-            f"role-specific don't-list at flow-skills/role-discipline/references/<role>.md."
-        ),
+        reason=render_approval_denial(command, unsatisfied, verdicts),
         rule_id=matched_rule.get("rule_id", "FR-12"),
         matched_pattern=matched_rule["pattern"],
         approval_action=lead,

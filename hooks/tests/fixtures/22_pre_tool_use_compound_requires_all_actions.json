@@ -1,0 +1,12 @@
+{
+  "_test": "compound command cannot smuggle an ungated migration (K8 all-match)",
+  "_handler": "pre_tool_use.py",
+  "_expected_decision": "deny",
+  "_expected_rule_id": "FR-12",
+  "event": "pre_tool_use",
+  "session_id": "test-22",
+  "cwd": ".",
+  "host_tool": "claude_code",
+  "tool_name": "Bash",
+  "tool_input": { "command": "fusebase deploy && npx prisma migrate deploy" }
+}

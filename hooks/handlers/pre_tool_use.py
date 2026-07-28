@@ -69,7 +69,16 @@ def main() -> int:
                 decision=cd.decision,
                 reason=cd.reason,
                 rule_id=cd.rule_id,
-                extra={"tool_name": tool_name, "matched_pattern": cd.matched_pattern},
+                # approval_verdict / required_actions are the GROUND-TRUTH tokens smoke
+                # S1/S2/S5 assert on — stdout prose may be reworded, these may not.
+                extra={
+                    "tool_name": tool_name,
+                    "matched_pattern": cd.matched_pattern,
+                    "approval_action": cd.approval_action,
+                    "approval_verdict": cd.approval_verdict,
+                    "required_actions": cd.required_actions,
+                    "action_verdicts": cd.action_verdicts,
+                },
                 root=root,
             )
             _output_decision(cd.decision, cd.reason, cd.rule_id)

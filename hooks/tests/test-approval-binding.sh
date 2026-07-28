@@ -332,7 +332,110 @@ else
   bad "ac9-binding-enforced-when-present" "$BIND_OUT"
 fi
 
-# ---- 4. AC19: no authorship-enforcement claim survives in the canonical files ------
+# ---- 4. AC14: the denial message is specific, ordered and <= 8 lines --------------
+UX_OUT="$(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$ROOT" <<'PY' 2>&1
+import json, shutil, sys, tempfile
+from pathlib import Path
+root = Path(sys.argv[1]); sys.path.insert(0, str(root / "hooks"))
+from shared.approval_artifact import Verdict  # noqa: E402
+from shared.command_policy import evaluate  # noqa: E402
+from shared.denial_message import MAX_LINES, render_approval_denial  # noqa: E402
+from shared.policy_loader import reset_cache  # noqa: E402
+
+PAST, FUTURE = "2000-01-01T00:00:00Z", "2099-01-01T00:00:00Z"
+DEPLOY = "fusebase deploy"
+fails = []
+
+# Every verdict renders a DISTINCT message carrying its own stable token.
+seen = {}
+for verdict in [v.value for v in Verdict] + ["NO_ARTIFACT"]:
+    msg = render_approval_denial(DEPLOY, ["production_deploy"], {"production_deploy": verdict})
+    n = len(msg.splitlines())
+    if n > MAX_LINES:
+        fails.append(f"ac14-length({verdict}): {n} lines > {MAX_LINES}")
+    if verdict not in msg:
+        fails.append(f"ac14-token({verdict}): stable token absent from the message")
+    if "production_deploy" not in msg:
+        fails.append(f"ac14-action({verdict}): required action not named")
+    if "approve-local.sh" not in msg:
+        fails.append(f"ac14-fix({verdict}): no resolving command")
+    if msg in seen:
+        fails.append(f"ac14-distinct: {verdict} renders identically to {seen[msg]}")
+    seen[msg] = verdict
+
+# Ordering: blocked -> required actions -> per-artifact reason -> fix command.
+lines = render_approval_denial(DEPLOY, ["production_deploy"],
+                               {"production_deploy": "EXPIRED"}).splitlines()
+if not lines[0].startswith("BLOCKED"):
+    fails.append(f"ac14-order-1: {lines[0]!r}")
+if not lines[1].startswith("Requires approval:"):
+    fails.append(f"ac14-order-2: {lines[1]!r}")
+if "EXPIRED" not in lines[2]:
+    fails.append(f"ac14-order-3: {lines[2]!r}")
+if "approve-local.sh" not in lines[-1]:
+    fails.append(f"ac14-order-4: {lines[-1]!r}")
+
+# Many actions still fit the budget and still name every one on line 2.
+many = [f"action_{i}" for i in range(6)]
+msg = render_approval_denial(DEPLOY, many, {a: "NO_ARTIFACT" for a in many})
+if len(msg.splitlines()) > MAX_LINES:
+    fails.append("ac14-length-many: exceeded the line budget")
+for a in many:
+    if a not in msg:
+        fails.append(f"ac14-every-action-named: {a} missing")
+
+# No ANSI / emoji (explicit non-goal for MSYS + Windows consoles).
+if "\x1b[" in msg or any(ord(c) > 0x2500 for c in msg):
+    fails.append("ac14-plain-text: message carries ANSI or emoji")
+
+
+def make_repo(tmp: Path) -> Path:
+    (tmp / "policies").mkdir(parents=True)
+    (tmp / "state" / "approvals").mkdir(parents=True)
+    for name in ("command-policy.yml", "approval-policy.yml"):
+        shutil.copy(root / "policies" / name, tmp / "policies" / name)
+    reset_cache()
+    return tmp
+
+
+# The regression AC14 exists to kill: STALE must not read as ABSENT.
+with tempfile.TemporaryDirectory() as a, tempfile.TemporaryDirectory() as b:
+    stale_repo = make_repo(Path(a))
+    (stale_repo / "state" / "approvals" / "production_deploy-t-20260728.json").write_text(
+        json.dumps({"action": "production_deploy", "expires_at": PAST}), encoding="utf-8")
+    reset_cache()
+    stale = evaluate(DEPLOY, root=stale_repo)
+    absent_repo = make_repo(Path(b))
+    reset_cache()
+    absent = evaluate(DEPLOY, root=absent_repo)
+    if stale.reason == absent.reason:
+        fails.append("ac14-stale-vs-absent: identical messages (the exact defect AC14 kills)")
+    if stale.approval_verdict != "EXPIRED" or absent.approval_verdict != "NO_ARTIFACT":
+        fails.append(f"ac14-stale-vs-absent verdicts: {stale.approval_verdict} / "
+                     f"{absent.approval_verdict}")
+    if "EXPIRED" not in stale.reason:
+        fails.append("ac14-stale-reason: message does not say the artifact expired")
+
+# Action-mismatch (the S1 scenario) reports its own reason, not "no artifact found".
+with tempfile.TemporaryDirectory() as d:
+    repo = make_repo(Path(d))
+    (repo / "state" / "approvals" / "production_deploy-unrelated-20260728.json").write_text(
+        json.dumps({"action": "database_migration", "expires_at": FUTURE}), encoding="utf-8")
+    reset_cache()
+    dec = evaluate(DEPLOY, root=repo)
+    if dec.decision != "deny" or "ACTION_MISMATCH" not in dec.reason:
+        fails.append(f"ac14-action-mismatch-message: {dec.decision} / {dec.reason!r}")
+
+print(json.dumps(fails))
+PY
+)"
+if [ "$UX_OUT" = "[]" ]; then
+  ok "ac14-denial-message-specific-and-bounded"
+else
+  bad "ac14-denial-message-specific-and-bounded" "$UX_OUT"
+fi
+
+# ---- 5. AC19: no authorship-enforcement claim survives in the canonical files ------
 AC19_FILES=(
   "policies/approval-policy.yml"
   "flow-skills/role-discipline/references/deploy.md"
