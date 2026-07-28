@@ -525,7 +525,107 @@ else
 fi
 rm -rf "$WRITER_REPO"
 
-# ---- 6. AC19: no authorship-enforcement claim survives in the canonical files ------
+# ---- 6. AC12: the inventory names every artifact and the strict reject count -------
+INV_REPO="$(mktemp -d)"
+INV_REPO_NATIVE="$( cd "$INV_REPO" && { pwd -W 2>/dev/null || pwd; } )"
+mkdir -p "$INV_REPO/state/approvals"
+cat > "$INV_REPO/state/approvals/production_deploy-good-20260728.json" <<'EOF'
+{"schema_version":2,"action":"production_deploy","expires_at":"2099-01-01T00:00:00Z"}
+EOF
+cat > "$INV_REPO/state/approvals/production_deploy-legacy-20260728.json" <<'EOF'
+{"action":"production_deploy"}
+EOF
+cat > "$INV_REPO/state/approvals/production_deploy-stale-20260728.json" <<'EOF'
+{"action":"production_deploy","expires_at":"2000-01-01T00:00:00Z"}
+EOF
+printf '[1,2,3]' > "$INV_REPO/state/approvals/production_deploy-broken-20260728.json"
+INV="$(python3 "$ROOT/hooks/local/lib/approval_inventory.py" --root "$INV_REPO_NATIVE" 2>&1)"
+inv_fail=""
+for needle in "production_deploy-good-20260728.json" "production_deploy-legacy-20260728.json" \
+              "production_deploy-stale-20260728.json" "production_deploy-broken-20260728.json" \
+              "legacy-no-expiry" "expired" "MALFORMED" "MISSING_EXPIRY" "EXPIRED" \
+              "3 would be REJECTED"; do
+  case "$INV" in *"$needle"*) ;; *) inv_fail="$inv_fail [$needle]" ;; esac
+done
+case "$INV" in *"ACCEPT"*) ;; *) inv_fail="$inv_fail [no ACCEPT row]" ;; esac
+if [ -z "$inv_fail" ]; then
+  ok "ac12-inventory-four-verdicts-and-reject-count"
+else
+  bad "ac12-inventory-four-verdicts-and-reject-count" "missing:$inv_fail"
+fi
+
+# Strict really denies what compat allows, and the compat acceptance is LOGGED (K7).
+STRICT_OUT="$(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$ROOT" <<'PY' 2>&1
+import json, shutil, sys, tempfile
+from pathlib import Path
+import yaml
+root = Path(sys.argv[1]); sys.path.insert(0, str(root / "hooks"))
+from shared.command_policy import evaluate  # noqa: E402
+from shared.policy_loader import reset_cache  # noqa: E402
+fails = []
+
+
+def repo_with(tmp: Path, strict: bool) -> Path:
+    (tmp / "policies").mkdir(parents=True)
+    (tmp / "state" / "approvals").mkdir(parents=True)
+    shutil.copy(root / "policies" / "command-policy.yml", tmp / "policies" / "command-policy.yml")
+    appr = yaml.safe_load((root / "policies" / "approval-policy.yml").read_text(encoding="utf-8"))
+    appr["strict_approvals"] = strict
+    (tmp / "policies" / "approval-policy.yml").write_text(yaml.safe_dump(appr), encoding="utf-8")
+    (tmp / "state" / "approvals" / "production_deploy-legacy-20260728.json").write_text(
+        json.dumps({"action": "production_deploy"}), encoding="utf-8")
+    reset_cache()
+    return tmp
+
+
+with tempfile.TemporaryDirectory() as d:
+    repo = repo_with(Path(d), strict=False)
+    dec = evaluate("fusebase deploy", root=repo)
+    if dec.decision != "allow":
+        fails.append(f"compat: expiry-less artifact should be allowed, got {dec.decision}")
+    log = repo / "state" / "audit.log.jsonl"
+    if not log.is_file():
+        fails.append("compat: acceptance was SILENT — K7 requires an audit entry")
+    else:
+        text = log.read_text(encoding="utf-8")
+        if "approval_legacy_accepted" not in text or "MISSING_EXPIRY" not in text:
+            fails.append(f"compat: audit entry missing the legacy-acceptance record: {text[:200]}")
+
+with tempfile.TemporaryDirectory() as d:
+    repo = repo_with(Path(d), strict=True)
+    dec = evaluate("fusebase deploy", root=repo)
+    if dec.decision != "deny":
+        fails.append(f"strict: expiry-less artifact must be rejected, got {dec.decision}")
+    if dec.approval_verdict != "MISSING_EXPIRY":
+        fails.append(f"strict: expected MISSING_EXPIRY verdict, got {dec.approval_verdict!r}")
+
+# Tighten-only: a local override cannot turn strict back OFF once the base is ON.
+with tempfile.TemporaryDirectory() as d:
+    tmp = Path(d)
+    (tmp / "policies").mkdir(parents=True)
+    (tmp / "policies" / "approval-policy.yml").write_text(
+        yaml.safe_dump({"strict_approvals": True, "local_override_may_relax": False}),
+        encoding="utf-8")
+    (tmp / "policies" / "approval-policy.local.yml").write_text(
+        yaml.safe_dump({"strict_approvals": False}), encoding="utf-8")
+    reset_cache()
+    from shared.policy_loader import get_policy  # noqa: E402
+    merged = get_policy("approval-policy", root=tmp)
+    if merged.get("strict_approvals") is not True:
+        fails.append("tighten-only: a local override relaxed strict_approvals back to false")
+    reset_cache()
+
+print(json.dumps(fails))
+PY
+)"
+if [ "$STRICT_OUT" = "[]" ]; then
+  ok "ac12-strict-vs-compat-and-audited-legacy-acceptance"
+else
+  bad "ac12-strict-vs-compat-and-audited-legacy-acceptance" "$STRICT_OUT"
+fi
+rm -rf "$INV_REPO"
+
+# ---- 7. AC19: no authorship-enforcement claim survives in the canonical files ------
 AC19_FILES=(
   "policies/approval-policy.yml"
   "flow-skills/role-discipline/references/deploy.md"

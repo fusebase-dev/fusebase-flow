@@ -42,7 +42,7 @@
     },
     {
       "path": "hooks/local/approve-local.sh",
-      "sha256": "f657cd9fde7ac973f424b03976adb165316985595b19567741e09e01ecf2c993"
+      "sha256": "6f25842ecd87df5e8b63748f51340ff393656121e7b57a919339b75d849a7a16"
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
@@ -174,7 +174,7 @@
     },
     {
       "path": "hooks/shared/command_policy.py",
-      "sha256": "8baa7b140ad8594a6097744c2a3d3843d3903cb62b94f32d6270e0783e8329ec"
+      "sha256": "5af1247c22119a9b36f96178c1e3d1fb3e5f0c7375543798691e3dd14aec4647"
     },
     {
       "path": "hooks/shared/command_rules.py",
@@ -198,7 +198,7 @@
     },
     {
       "path": "hooks/shared/policy_loader.py",
-      "sha256": "47cfd60e09a58bb33f64c8d6295219f2060bae6140b1c65e49dd7961f766fb1b"
+      "sha256": "b3761a81151973a02e543b2f8347bc764259546d10879da99dbfc628df17af5a"
     },
     {
       "path": "hooks/shared/secret_scanner.py",
@@ -382,7 +382,7 @@
     },
     {
       "path": "hooks/tests/test-approval-binding.sh",
-      "sha256": "bf1c6bab8221bffcc734aa4e5259c44cde9f7578175f15e50c21d9f102628036"
+      "sha256": "ba07e7f9dc529d06ce2143a637cdff68f774d3592efd2c440462558083da5849"
     },
     {
       "path": "hooks/tests/test-baseline-merge.sh",
@@ -517,5 +517,5 @@
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "0a86c1beaa26122ecdf8ca405124ff6dc54330b54a52cacffa69c3300187c81f"
+  "manifest_self_sha256": "84401b7a7ab5c4fddc957f8f6c26e362c12081fa252347c50848ad481b255432"
 }

@@ -16,6 +16,7 @@
 #
 # Usage:
 #   bash hooks/local/approve-local.sh <action> <slug> [reason] [--command '<exact command>']
+#   bash hooks/local/approve-local.sh --inventory      # AC12: what is on disk + strict verdict
 # Example (Deploy session, on the operator's typed DP.6 phrase):
 #   bash hooks/local/approve-local.sh production_deploy priority-fix 'approve deploy now'
 #
@@ -35,10 +36,12 @@ ACTION=""
 SLUG=""
 REASON="operator local approval"
 COMMAND_STR=""
+INVENTORY=0
 positional=0
 
 while [ "$#" -gt 0 ]; do
     case "$1" in
+        --inventory) INVENTORY=1; shift ;;
         --command) COMMAND_STR="${2:-}"; shift 2 ;;
         --help|-h) sed -n '2,29p' "$0"; exit 0 ;;
         --*) echo "[approve-local] unknown option: $1" >&2; exit 2 ;;
@@ -58,9 +61,14 @@ if ! command -v python3 >/dev/null 2>&1; then
     exit 1
 fi
 
+if [ "$INVENTORY" -eq 1 ]; then
+    exec python3 "$ROOT/hooks/local/lib/approval_inventory.py" --root "$ROOT"
+fi
+
 if [ -z "$ACTION" ] || [ -z "$SLUG" ]; then
     cat >&2 <<EOF
 Usage: $0 <action> <slug> [reason] [--command '<exact command>']
+       $0 --inventory
 
 Available actions come from policies/approval-policy.yml require_approval keys
 (plus any approval-policy.local.yml override).

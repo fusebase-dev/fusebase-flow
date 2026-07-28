@@ -90,10 +90,38 @@ def _approval_state(
             f, expected_action=action, command_digest=digest, repo_id=repo_id
         )
         if is_acceptable(verdict, strict=strict):
+            if verdict is Verdict.MISSING_EXPIRY:
+                _log_legacy_acceptance(f, action, root=resolved)
             return True, verdict.value
         if best is None or _VERDICT_RANK.get(verdict, 0) > _VERDICT_RANK.get(best, 0):
             best = verdict
     return False, best.value if best else NO_ARTIFACT
+
+
+def _log_legacy_acceptance(path: Path, action: str, *, root: Path | None) -> None:
+    """Compat-mode acceptance of an expiry-less artifact must be AUDITABLE (K7).
+
+    Silent acceptance is the pre-fix behaviour; the one release of warning only buys the
+    consumer anything if the acceptance leaves a trace they can grep before the flip.
+    Import is local so approval evaluation never hard-depends on the logger.
+    """
+    try:
+        from .audit_logger import emit
+        emit(
+            "approval_legacy_accepted",
+            decision="allow",
+            reason=(
+                f"K7 compat: {path.name} has no parseable expires_at and was accepted. "
+                f"Strict mode (strict_approvals: true) will REJECT it — reissue with "
+                f"`bash hooks/local/approve-local.sh {action} <slug>`."
+            ),
+            rule_id="FR-12",
+            extra={"artifact": path.name, "action": action,
+                   "approval_verdict": Verdict.MISSING_EXPIRY.value},
+            root=root,
+        )
+    except BaseException:                            # noqa: BLE001 — logging never gates
+        pass
 
 
 def _approval_artifact_present(action: str, *, root: Path | None = None) -> bool:
@@ -141,6 +169,7 @@ def _evaluate_require_approval(
 ) -> CommandDecision | None:
     workflow_mode = approval_policy.get("workflow_mode", "direct_to_main")
     on_missing = approval_policy.get("on_missing_artifact", "deny")
+    strict = approval_policy.get("strict_approvals") is True      # K7; default compat
 
     # ALL-MATCH (decision K8): every matching rule contributes its action to the required
     # set. First-match-wins let `fusebase deploy && npx prisma migrate deploy` be authorized
@@ -174,7 +203,8 @@ def _evaluate_require_approval(
         # trust boundary is process-authoritative: the hook cannot verify LL-eligibility.
         chosen, chosen_verdict, present = display, NO_ARTIFACT, False
         for candidate in actions:
-            ok, verdict = _approval_state(candidate, root=root, command=command)
+            ok, verdict = _approval_state(candidate, root=root, command=command,
+                                          strict=strict)
             if ok:
                 chosen, chosen_verdict, present = candidate, verdict, True
                 break

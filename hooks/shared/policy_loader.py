@@ -141,6 +141,12 @@ def _restrict_to_tightening(base: dict[str, Any], local: dict[str, Any]) -> dict
         out["on_missing_artifact"] = "deny"
     if local.get("on_expired_artifact") == "warn" and base.get("on_expired_artifact") == "deny":
         out["on_expired_artifact"] = "deny"
+    # TRIPWIRE (K7): strict_approvals is tighten-only. Once the base default flips to
+    # true, a gitignored approval-policy.local.yml must not be able to set it back to
+    # false — that would be an invisible kill switch on the schema gate. Local may only
+    # turn it ON.
+    if base.get("strict_approvals") is True and local.get("strict_approvals") is False:
+        out["strict_approvals"] = True
     return out
 
 

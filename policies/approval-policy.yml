@@ -132,6 +132,23 @@ approval_authors:
 # Where approval artifacts live. Path is relative to git root.
 approval_artifact_dir: "state/approvals/"
 
+# Strict approval-schema mode (decision K7). FALSE this release.
+#
+#   false (compat) — an artifact with a missing/empty `expires_at` is ACCEPTED and the
+#                    acceptance is LOGGED once per artifact via hooks/shared/audit_logger
+#                    (never silent). Everything else — expired, malformed, action
+#                    mismatch, binding mismatch — is rejected in BOTH modes.
+#   true  (strict) — only a fully VALID artifact authorizes anything.
+#
+# The NEXT release flips this default. Run `bash hooks/local/approve-local.sh --inventory`
+# to see exactly which artifacts a strict cutover would reject, and reissue them before
+# the flip. Legacy artifacts are NEVER auto-migrated: synthesizing an `expires_at` onto a
+# stale artifact would be Flow inventing an approval no operator gave.
+#
+# TRIPWIRE: this key is in policy_loader's tighten-only set (local_override_may_relax is
+# false), so a gitignored approval-policy.local.yml can turn it ON but never back OFF.
+strict_approvals: false
+
 # Behavior when no artifact is found for a require_approval operation.
 on_missing_artifact: deny      # deny | warn
 
