@@ -194,7 +194,7 @@
     },
     {
       "path": "flow-skills/role-discipline/references/deploy.md",
-      "sha256": "73eff3ff2efe2426cdc4224adc92eb7371688352b3b452e8cee3e7c87c9c3b67"
+      "sha256": "eba4982a539040f0124261413f295e8353a0c22f731b26e0741873843549b65f"
     },
     {
       "path": "flow-skills/role-discipline/references/product-owner.md",
@@ -1117,5 +1117,5 @@
       "sha256": "ed43aa0c28536f4eaf8849e5c6a08de409c07b6ebcd12dd9cf8f02f835829968"
     }
   ],
-  "manifest_self_sha256": "9df4a4c441272bd765119e461d53c67d05ea1af10363c989c8814ee31564a64a"
+  "manifest_self_sha256": "40a301128fe326a57558a167e63a91eae14a48f3b3a15e00006266d797f8dcd8"
 }
