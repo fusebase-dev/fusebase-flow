@@ -11,7 +11,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .approval_artifact import Verdict, evaluate_file, is_acceptable
+from .approval_artifact import (
+    Verdict,
+    compute_command_digest,
+    compute_repo_id,
+    evaluate_file,
+    is_acceptable,
+)
 from .policy_loader import find_git_root, get_policy
 
 
@@ -56,18 +62,33 @@ def resolve_root(root: Path | None) -> Path | None:
         return None
 
 
-def _approval_state(action: str, *, root: Path | None = None) -> tuple[bool, str]:
-    """(acceptable-artifact-present, worst-failing-verdict) for one action name."""
+def _approval_state(
+    action: str,
+    *,
+    root: Path | None = None,
+    command: str | None = None,
+    strict: bool = False,
+) -> tuple[bool, str]:
+    """(acceptable-artifact-present, worst-failing-verdict) for one action name.
+
+    Binding (decision K2) is ADDITIVE: an artifact carrying `command_digest` and/or
+    `repo_id` authorizes only a matching command in a matching repo; one carrying
+    neither stays action-scoped, plus the AC1-AC3 tightening.
+    """
     resolved = resolve_root(root)
     if resolved is None:
         return False, NO_ARTIFACT
     approvals_dir = resolved / "state" / "approvals"
     if not approvals_dir.exists():
         return False, NO_ARTIFACT
+    digest = compute_command_digest(command) if command is not None else None
+    repo_id = compute_repo_id(resolved)
     best: Verdict | None = None
     for f in sorted(approvals_dir.glob(f"{action}-*.json")):
-        verdict = evaluate_file(f, expected_action=action)
-        if is_acceptable(verdict, strict=False):
+        verdict = evaluate_file(
+            f, expected_action=action, command_digest=digest, repo_id=repo_id
+        )
+        if is_acceptable(verdict, strict=strict):
             return True, verdict.value
         if best is None or _VERDICT_RANK.get(verdict, 0) > _VERDICT_RANK.get(best, 0):
             best = verdict
@@ -162,7 +183,7 @@ def _evaluate_require_approval(
         action = rule.get("action", "")
         if action in verdicts:
             continue
-        present, verdict = _approval_state(action, root=root)
+        present, verdict = _approval_state(action, root=root, command=command)
         verdicts[action] = verdict
         (satisfied if present else unsatisfied).append(action)
 

@@ -166,7 +166,7 @@
     },
     {
       "path": "hooks/shared/approval_artifact.py",
-      "sha256": "a88c69f9bc194de5f841d7e2909962042ad65bd986272c4111d3d016240b7d4d"
+      "sha256": "1f1d2ea9ed7e7e11ed812ce688e2495571a9d84af5a3017e58d0210fdd697112"
     },
     {
       "path": "hooks/shared/audit_logger.py",
@@ -174,7 +174,7 @@
     },
     {
       "path": "hooks/shared/command_policy.py",
-      "sha256": "f28e11047fe0db555bb486ccda160cb6baddc3193823e90de1722c455c7b90e9"
+      "sha256": "1ea30721b3d0578680bb37bd605dbdd631f40deb6359e147ef60ad340e9a97ac"
     },
     {
       "path": "hooks/shared/git_utils.py",
@@ -366,7 +366,7 @@
     },
     {
       "path": "hooks/tests/test-approval-binding.sh",
-      "sha256": "5fddba28f7651393237c5ca6be80cf7e86e753ff1049b1a5376153a7cf593ae0"
+      "sha256": "d07fe909c4b1367c4feeb244610239b74c4866c64247dceae49ab346ef33638a"
     },
     {
       "path": "hooks/tests/test-baseline-merge.sh",
@@ -501,5 +501,5 @@
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "447253b9450c7517798cfea638510200a94e4b7009666cc515273de5cf3c5202"
+  "manifest_self_sha256": "a1b389f35fdd574f252724edae5909b97219581cb981de8d89f14aaf40f89797"
 }

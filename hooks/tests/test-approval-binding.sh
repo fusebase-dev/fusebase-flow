@@ -235,7 +235,104 @@ else
   bad "command-policy-action-agreement-and-root-anchoring" "$CP_OUT"
 fi
 
-# ---- 3. AC19: no authorship-enforcement claim survives in the canonical files ------
+# ---- 3. AC9: command_digest / repo_id are enforced when present, absent = legacy ---
+BIND_OUT="$(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$ROOT" <<'PY' 2>&1
+import json, shutil, sys, tempfile
+from pathlib import Path
+root = Path(sys.argv[1]); sys.path.insert(0, str(root / "hooks"))
+from shared.approval_artifact import (  # noqa: E402
+    Verdict, compute_command_digest, compute_repo_id, evaluate_artifact, is_acceptable,
+)
+from shared.command_policy import evaluate  # noqa: E402
+from shared.policy_loader import reset_cache  # noqa: E402
+
+FUTURE = "2099-01-01T00:00:00Z"
+DEPLOY = "fusebase deploy"
+fails = []
+
+
+def make_repo(tmp: Path) -> Path:
+    (tmp / "policies").mkdir(parents=True)
+    (tmp / "state" / "approvals").mkdir(parents=True)
+    for name in ("command-policy.yml", "approval-policy.yml"):
+        shutil.copy(root / "policies" / name, tmp / "policies" / name)
+    reset_cache()
+    return tmp
+
+
+def mint(repo: Path, **extra) -> None:
+    body = {"schema_version": 2, "action": "production_deploy", "expires_at": FUTURE}
+    body.update(extra)
+    (repo / "state" / "approvals" / "production_deploy-t-20260728.json").write_text(
+        json.dumps(body), encoding="utf-8")
+
+
+def decide(repo: Path, command: str = DEPLOY):
+    reset_cache()
+    return evaluate(command, root=repo)
+
+
+# Digest binding: exact match allows; one character different denies.
+with tempfile.TemporaryDirectory() as d:
+    repo = make_repo(Path(d))
+    mint(repo, command_digest=compute_command_digest(DEPLOY), repo_id=compute_repo_id(repo))
+    if decide(repo).decision != "allow":
+        fails.append(f"digest-match: expected allow got {decide(repo).reason}")
+    # Whitespace-only difference still matches (K6 collapse), semantics-changing does not.
+    if decide(repo, "  fusebase   deploy  ").decision != "allow":
+        fails.append("digest-whitespace-collapse: expected allow")
+    for variant in ("fusebase deploy2", "fusebase deploy --prod", "fusebase  deploy x"):
+        dec = decide(repo, variant)
+        if dec.decision == "allow" and dec.approval_artifact_present:
+            fails.append(f"digest-mismatch({variant!r}): unexpectedly authorized")
+
+# Repo binding: an artifact minted for a different repo must not authorize here.
+with tempfile.TemporaryDirectory() as d:
+    repo = make_repo(Path(d))
+    mint(repo, repo_id=compute_repo_id(Path(d) / "some" / "other" / "repo"))
+    dec = decide(repo)
+    if dec.decision != "deny":
+        fails.append(f"repo-mismatch: expected deny got {dec.decision}")
+    if dec.approval_verdict != Verdict.BINDING_MISMATCH.value:
+        fails.append(f"repo-mismatch-verdict: got {dec.approval_verdict!r}")
+
+# K2 additive rule: an artifact carrying NEITHER binding field stays action-scoped.
+with tempfile.TemporaryDirectory() as d:
+    repo = make_repo(Path(d))
+    mint(repo)
+    if decide(repo).decision != "allow":
+        fails.append("no-binding-fields: expected legacy action-scoped allow")
+
+# Fail-closed: a bound artifact whose binding cannot be checked does NOT authorize.
+bound = {"action": "production_deploy", "expires_at": FUTURE, "command_digest": "abc"}
+if evaluate_artifact(bound, expected_action="production_deploy") is not Verdict.BINDING_MISMATCH:
+    fails.append("unverifiable-binding: expected BINDING_MISMATCH when the digest is unknown")
+
+# K7 two-stage cutover: an expiry-less legacy artifact is compat-allowed, strict-rejected.
+legacy = {"action": "production_deploy"}
+v = evaluate_artifact(legacy, expected_action="production_deploy")
+if v is not Verdict.MISSING_EXPIRY:
+    fails.append(f"legacy-no-expiry: expected MISSING_EXPIRY got {v}")
+if not (is_acceptable(v, strict=False) and not is_acceptable(v, strict=True)):
+    fails.append("legacy-no-expiry: compat must allow and strict must reject")
+
+# Binding is checked ONLY after the artifact is otherwise sound (precedence).
+stale_bound = {"action": "production_deploy", "expires_at": "2000-01-01T00:00:00Z",
+               "command_digest": compute_command_digest(DEPLOY)}
+if evaluate_artifact(stale_bound, expected_action="production_deploy",
+                     command_digest=compute_command_digest(DEPLOY)) is not Verdict.EXPIRED:
+    fails.append("expired-bound: expiry must be reported, not masked by the binding check")
+
+print(json.dumps(fails))
+PY
+)"
+if [ "$BIND_OUT" = "[]" ]; then
+  ok "ac9-binding-enforced-when-present"
+else
+  bad "ac9-binding-enforced-when-present" "$BIND_OUT"
+fi
+
+# ---- 4. AC19: no authorship-enforcement claim survives in the canonical files ------
 AC19_FILES=(
   "policies/approval-policy.yml"
   "flow-skills/role-discipline/references/deploy.md"

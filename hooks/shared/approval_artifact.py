@@ -10,12 +10,17 @@ its own pass-set and the loader never needs to know who called it.
 """
 from __future__ import annotations
 
+import hashlib
 import json
+import os
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
+
+_WS = re.compile(r"\s+")
 
 
 class Verdict(str, Enum):
@@ -91,6 +96,30 @@ def parse_expiry(value: Any) -> datetime | None:
 
 def now_utc() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def compute_command_digest(command: str) -> str:
+    """sha256 over the hook-received command after whitespace collapse ONLY (K6).
+
+    TRIPWIRE (decision K6): collapse runs of whitespace and trim — normalize NOTHING
+    else. Every "smarter" normalization (stripping env prefixes, resolving executable
+    paths, unquoting, reordering flags) WIDENS what one artifact authorizes and can
+    make two semantically different commands collide. A false negative costs one
+    re-approval; a false positive costs an unapproved production deploy.
+    """
+    canonical = _WS.sub(" ", command or "").strip()
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def compute_repo_id(root: Path | str | None) -> str:
+    """sha256 of the realpath of the repository root; "" when the root is unknown."""
+    if root is None:
+        return ""
+    try:
+        real = os.path.realpath(str(root))
+    except (OSError, ValueError):
+        return ""
+    return hashlib.sha256(real.encode("utf-8")).hexdigest() if real else ""
 
 
 def load(path: Path | str) -> Artifact | None:
@@ -229,7 +258,7 @@ def binding_state(data: Any) -> str:
 
 
 __all__ = [
-    "Artifact", "SCHEMA_VERSION", "Verdict", "binding_state", "evaluate_artifact",
-    "evaluate_file", "expiry_state", "filename_action", "is_acceptable", "load",
-    "now_utc", "parse_expiry",
+    "Artifact", "SCHEMA_VERSION", "Verdict", "binding_state", "compute_command_digest",
+    "compute_repo_id", "evaluate_artifact", "evaluate_file", "expiry_state",
+    "filename_action", "is_acceptable", "load", "now_utc", "parse_expiry",
 ]
