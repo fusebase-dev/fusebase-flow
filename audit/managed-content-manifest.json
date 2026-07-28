@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "671302dcd462dff877e49844b6dc719debe9962ddffb105434535fac62ed882a"
+      "sha256": "46c2d340d4467be2f074d059b28a6f4d8c03ccf1bbb217e00fcaf4629a915e25"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -278,7 +278,7 @@
     },
     {
       "path": "hooks/local/approve-local.sh",
-      "sha256": "6f25842ecd87df5e8b63748f51340ff393656121e7b57a919339b75d849a7a16"
+      "sha256": "6a78f714075c34f8614380b176cda696762d85535febb7516ae9bb4daf29a8c6"
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
@@ -570,7 +570,7 @@
     },
     {
       "path": "hooks/shared/approval_artifact.py",
-      "sha256": "e29ec8070d5e491653789a7cd4dddd43638af66c2fde6e67bd140b691cfb0d66"
+      "sha256": "6ad8dd93400210cb82347f7215b841a76a5070bcb73f1a7cc60a1a06406e95fa"
     },
     {
       "path": "hooks/shared/audit_logger.py",
@@ -786,7 +786,7 @@
     },
     {
       "path": "hooks/tests/test-approval-binding.sh",
-      "sha256": "a7bfa5ac04ff17cfa109b40427a9fbc8d148df21c86292bd92f12b2fd4e0526b"
+      "sha256": "9182216739cbf65cb3e39160bd0f1e22e7783e053082fc92f6cbe0dab0f2f320"
     },
     {
       "path": "hooks/tests/test-baseline-merge.sh",
@@ -1117,5 +1117,5 @@
       "sha256": "ed43aa0c28536f4eaf8849e5c6a08de409c07b6ebcd12dd9cf8f02f835829968"
     }
   ],
-  "manifest_self_sha256": "41e1b9cf08436f89af510e310734c5d29d71f919d5fbe88e682beb225e81ffd7"
+  "manifest_self_sha256": "416d4ec0e85b004355cf8ab1951314f53d26628b028cfd4465729153f5385e4c"
 }

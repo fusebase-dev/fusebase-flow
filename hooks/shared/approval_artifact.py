@@ -13,14 +13,11 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
-
-_WS = re.compile(r"\s+")
 
 
 class Verdict(str, Enum):
@@ -104,15 +101,17 @@ def now_utc() -> datetime:
 
 
 def compute_command_digest(command: str) -> str:
-    """sha256 over the hook-received command after whitespace collapse ONLY (K6).
+    """sha256 over the hook-received command, TRIMMED ONLY (decision K6, REVISED).
 
-    TRIPWIRE (decision K6): collapse runs of whitespace and trim — normalize NOTHING
-    else. Every "smarter" normalization (stripping env prefixes, resolving executable
-    paths, unquoting, reordering flags) WIDENS what one artifact authorizes and can
-    make two semantically different commands collide. A false negative costs one
-    re-approval; a false positive costs an unapproved production deploy.
+    TRIPWIRE (decision K6 revised): `.strip()` and nothing else. Do NOT collapse
+    interior whitespace — inside a quoted argument it is data, not formatting, and
+    collapsing it made `--app "safe  prod"` and `--app "safe prod"` hash identically,
+    so one approval authorized a command targeting a different value. Every "smarter"
+    normalization (env prefixes, executable paths, unquoting, flag order) WIDENS what
+    one artifact authorizes. A false negative costs one re-approval; a false positive
+    costs an unapproved production deploy.
     """
-    canonical = _WS.sub(" ", command or "").strip()
+    canonical = (command or "").strip()
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 

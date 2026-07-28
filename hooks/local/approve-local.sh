@@ -20,10 +20,11 @@
 # Example (Deploy session, on the operator's typed DP.6 phrase):
 #   bash hooks/local/approve-local.sh production_deploy priority-fix 'approve deploy now'
 #
-# Binding (decision K2/K6): --command records a sha256 of the exact command string after
-# whitespace collapse, so the artifact authorizes THAT command only. repo_id is always
-# recorded. Both are enforced by the gate when present; an artifact without them stays
-# action-scoped (legacy-compatible).
+# Binding (decision K2/K6 revised): --command records a sha256 of the exact command
+# string TRIMMED ONLY — interior whitespace is never collapsed, because inside a quoted
+# argument it is data. Pass the command byte-for-byte as it will be run. repo_id is
+# always recorded. Both are enforced by the gate when present; an artifact without them
+# stays action-scoped (legacy-compatible).
 #
 # Exit: 0 written and re-parsed OK; 2 bad usage / unknown action / unsafe slug (NO file
 # written); 1 write or verification failure.

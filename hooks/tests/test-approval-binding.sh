@@ -352,13 +352,39 @@ with tempfile.TemporaryDirectory() as d:
     mint(repo, command_digest=compute_command_digest(DEPLOY), repo_id=compute_repo_id(repo))
     if decide(repo).decision != "allow":
         fails.append(f"digest-match: expected allow got {decide(repo).reason}")
-    # Whitespace-only difference still matches (K6 collapse), semantics-changing does not.
-    if decide(repo, "  fusebase   deploy  ").decision != "allow":
-        fails.append("digest-whitespace-collapse: expected allow")
+    # K6 REVISED: leading/trailing trim is semantics-free, so it still matches...
+    if decide(repo, "  fusebase deploy  ").decision != "allow":
+        fails.append("digest-strip-only: leading/trailing whitespace must still match")
+    # ...but INTERIOR whitespace is data and must NOT match any more.
+    if decide(repo, "fusebase  deploy").approval_artifact_present:
+        fails.append("digest-interior-whitespace: collapse-era matching is back (K6 revised)")
     for variant in ("fusebase deploy2", "fusebase deploy --prod", "fusebase  deploy x"):
         dec = decide(repo, variant)
         if dec.decision == "allow" and dec.approval_artifact_present:
             fails.append(f"digest-mismatch({variant!r}): unexpectedly authorized")
+
+# T18 / K6 REVISED discriminator: interior whitespace inside a quoted argument is DATA.
+# Pre-correction these two hashed identically, so one approval authorized a command
+# targeting a different value.
+if compute_command_digest('fusebase deploy --app "safe  prod"') == \
+   compute_command_digest('fusebase deploy --app "safe prod"'):
+    fails.append("k6-quoted-interior-collision: digests are equal (collapse is back)")
+if compute_command_digest("  fusebase deploy  ") != compute_command_digest("fusebase deploy"):
+    fails.append("k6-strip-retained: trimming the ends must remain semantics-free")
+if compute_command_digest("cmd  arg") == compute_command_digest("cmd arg"):
+    fails.append("k6-interior-run: interior whitespace runs must hash differently")
+
+# End-to-end: an artifact bound to `x  y` must NOT authorize `x y`.
+with tempfile.TemporaryDirectory() as d:
+    repo = make_repo(Path(d))
+    bound_cmd = 'fusebase deploy --app "safe  prod"'
+    mint(repo, command_digest=compute_command_digest(bound_cmd), repo_id=compute_repo_id(repo))
+    if decide(repo, bound_cmd).decision != "allow":
+        fails.append("k6-e2e-exact: the exact bound command must be authorized")
+    dec = decide(repo, 'fusebase deploy --app "safe prod"')
+    if dec.decision != "deny" or dec.approval_verdict != Verdict.BINDING_MISMATCH.value:
+        fails.append(f"k6-e2e-collapsed: expected BINDING_MISMATCH deny, got "
+                     f"{dec.decision}/{dec.approval_verdict!r}")
 
 # Repo binding: an artifact minted for a different repo must not authorize here.
 with tempfile.TemporaryDirectory() as d:
