@@ -125,13 +125,15 @@ Every path below is `fusebase_flow_internals` in `policies/protected-paths.yml`.
 - `audit/**`
 - `flow-skills/**` and their `.claude/skills/**` / `.agents/skills/**` mirrors
 
-Empty diff **is** required on: `templates/**`, `.claude/settings.json.example` (no PostToolUse added; K11 defers consumption).
+Empty diff **is** required on: `.claude/settings.json.example` (no PostToolUse added; K11 defers consumption). `templates/**` was originally listed here; **amended per D8** — the two templates carrying `approve-local.sh` mint examples had to change when K19 made `--command` mandatory. All other template content stays zero-diff.
 
 **Ratified deviations (PO, 2026-07-28) — both were unavoidable and are approved retroactively:**
 
 | # | Path | Ruling |
 |---|---|---|
 | D1 | `hooks/git/pre-commit` (+8/-1, `4d23f30`) | **RATIFIED.** Originally listed zero-diff; that was a PO error. `FR07_SENTINELS` and the PREP extractor list are the **import closure** of `path_policy`, so T2's `approval_artifact.py` must appear in both or the trusted-HEAD enforcer dies `ImportError` and blocks every commit in the repo — which it did, for real, at T11. The change is two list entries plus a tripwire and it *strengthens* the boundary: the new module is now integrity-checked from HEAD. Any **further** `hooks/git/**` change remains out of scope and must be reported, not made. |
+| D8 | `templates/handoff-deploy.md`, `templates/change-note.md` (`5f84188`) | **RATIFIED, and the zero-diff line below is amended.** K19 made `--command` mandatory; both templates carried `approve-local.sh` mint examples that, run verbatim, now exit 2 and write nothing. Shipping a template whose documented command refuses to run is the exact K3/K19 failure this ticket exists to eliminate, so fixing them was required, not optional. `templates/**` is therefore **no longer** a zero-diff path for this ticket — only for changes unrelated to the mint contract. |
+| D9 | `test-cli-flow-recovery.sh` INCONCLUSIVE (bounded-run rc 124 @ 480s) | **ACCEPTED, not a defect.** Reproduced 2/2 on the corrected tree **and again on the pre-round commit `87e8598`** in a throwaway worktree — pre-existing host-load on this machine, not caused by T30..T32. The FR-27 bound surfaced it as INCONCLUSIVE instead of hanging, which is the bound working as designed. The prior 665/665 was recorded on a quieter host. Not a release blocker; re-run on a quiet host or with `FF_SKIP_CLI_RECOVERY=1` to restore a full green. |
 | D2 | `.github/workflows/fusebase-flow-verify.yml` (`ci_cd_config`) | **RATIFIED.** `tasks.md` T11 names the file explicitly and AC13 requires the managed-content manifest be CI-freshness-gated, so the edit was on the locked plan's authority; only the handoff's posture table failed to list the class. The narrow single-path 15-minute `protected_path_edit` artifact, committed then deleted, was the correct FR-07 instrument. |
 
 ## Smoke prompts (post-deploy)
