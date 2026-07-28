@@ -56,6 +56,7 @@ def main() -> int:
                     "approval_action": cd.approval_action,
                     "approval_verdict": cd.approval_verdict,
                     "required_actions": cd.required_actions,
+                    "all_required_actions": cd.all_required_actions,
                     "action_verdicts": cd.action_verdicts,
                 },
                 root=root,

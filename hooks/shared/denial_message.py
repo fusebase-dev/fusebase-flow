@@ -37,34 +37,49 @@ def _truncate(text: str, limit: int = _MAX_COMMAND_CHARS) -> str:
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
 
+SATISFIED = "SATISFIED"
+
+
 def render_approval_denial(
     command: str,
     required_actions: list[str],
     action_verdicts: dict[str, str],
     *,
+    unsatisfied_actions: list[str] | None = None,
     slug: str = "<slug>",
 ) -> str:
-    """The AC14 message: blocked -> every required action -> per-artifact reason -> fix.
+    """The AC14 message: blocked -> EVERY required action + status -> reason -> fix.
 
-    Guaranteed <= MAX_LINES lines. Per-action detail rows are capped and the overflow is
-    counted, but line 2 always names EVERY required action (K8's single-round-trip rule).
+    `required_actions` is the COMPLETE set every matched rule demands (K18b), each
+    rendered on line 2 with its status; `unsatisfied_actions` is the subset that still
+    needs an artifact and is what the resolving invocation covers. Rendering only the
+    unsatisfied set is the serial-denial UX AC14 exists to prevent.
+
+    Guaranteed <= MAX_LINES lines. Detail rows are capped and the overflow counted, but
+    line 2 always names every required action.
     """
     actions = [a for a in required_actions if a] or ["<unknown action>"]
+    pending = [a for a in (unsatisfied_actions if unsatisfied_actions is not None else actions)
+               if a] or actions
+
+    def status(action: str) -> str:
+        return action_verdicts.get(action, "NO_ARTIFACT") if action in pending else SATISFIED
+
     lines = [
         f"BLOCKED (FR-12): {_truncate(command)}",
-        f"Requires approval: {', '.join(actions)}",
+        "Requires approval: " + ", ".join(f"{a} [{status(a)}]" for a in actions),
     ]
-    for action in actions[:_MAX_DETAIL_ROWS]:
-        verdict = action_verdicts.get(action, "NO_ARTIFACT")
+    for action in pending[:_MAX_DETAIL_ROWS]:
+        verdict = status(action)
         lines.append(f"  {action}: {verdict} - {reason_for(verdict)}")
-    hidden = len(actions) - _MAX_DETAIL_ROWS
+    hidden = len(pending) - _MAX_DETAIL_ROWS
     if hidden > 0:
         lines.append(f"  (+{hidden} more action(s); see policies/command-policy.yml)")
     lines.append("Fix - on your chat go-ahead the agent runs this; you type no command:")
     lines.append(
-        "  " + " && ".join(f"bash hooks/local/approve-local.sh {a} {slug}" for a in actions)
+        "  " + " && ".join(f"bash hooks/local/approve-local.sh {a} {slug}" for a in pending)
     )
     return "\n".join(lines[:MAX_LINES])
 
 
-__all__ = ["MAX_LINES", "reason_for", "render_approval_denial"]
+__all__ = ["MAX_LINES", "SATISFIED", "reason_for", "render_approval_denial"]

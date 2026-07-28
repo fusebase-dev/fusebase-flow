@@ -14,7 +14,7 @@
     },
     {
       "path": "hooks/handlers/permission_request.py",
-      "sha256": "cc116436a133342473dd2a8f05d43b96c504c3e3d4570b7f4bdc399431203354"
+      "sha256": "41384a75b4412c8e5c86caf3bfc8bea4cdccdd8d6392f02589c1c5a578ba6b08"
     },
     {
       "path": "hooks/handlers/post_tool_use.py",
@@ -26,7 +26,7 @@
     },
     {
       "path": "hooks/handlers/pre_tool_use.py",
-      "sha256": "47c3d9cb28b95b2f419616c7ef78b401b71b9ff50e0d3b3825eef39a09c5ff99"
+      "sha256": "98fa679eabcabc306aa22acaaac0ae646e266e6e1f09c7eca21c6f1cee9b3ac0"
     },
     {
       "path": "hooks/handlers/session_start.py",
@@ -190,7 +190,7 @@
     },
     {
       "path": "hooks/shared/command_policy.py",
-      "sha256": "aaafeb211041e37cd5040a2e127382f522777a03c787f9ea3dc618ff080e28f9"
+      "sha256": "e70f0d5f7b87d05e5e157b996b9abb8fbcd0e1b72f4b31a8686e3f45167ce729"
     },
     {
       "path": "hooks/shared/command_rules.py",
@@ -198,7 +198,7 @@
     },
     {
       "path": "hooks/shared/denial_message.py",
-      "sha256": "06ef4c99fe7e72f4785fe9c76b58dce0c22b9216bc1ee2c4211816b260c0c1f8"
+      "sha256": "66be6c610e8baa2f836fec112a43aef7e161cddc31ec706fb286af2335692b40"
     },
     {
       "path": "hooks/shared/git_utils.py",
@@ -438,7 +438,7 @@
     },
     {
       "path": "hooks/tests/test-command-policy.sh",
-      "sha256": "a3bd773e60c0a8f21b5878ad6c208ac4091cc0e1d301966f5f7bfe98f808f9a9"
+      "sha256": "92f13de7dad2b9b20785d4b213209573345e54fcf0c3f212519f2a7498d376f1"
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
@@ -537,5 +537,5 @@
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "c0d21349af1876ea7dddf0c8b8a7a2e5c1e63dee9fc76dc56ba42c9f3f4bde4d"
+  "manifest_self_sha256": "3f91d579f2b5aa96c8f54cb71e85e293c5a22281be42ce216f75884b0006e6da"
 }

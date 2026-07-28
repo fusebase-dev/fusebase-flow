@@ -114,14 +114,24 @@ with tempfile.TemporaryDirectory() as d:
     expect("ac5-policy-absent-file", decide(repo, "echo hello"),
            decision="deny", rule_id=POLICY_ERROR_RULE_ID)
 
-# AC6: compound command needs BOTH actions, named in ONE message.
+# AC6 / AC21 (K18b): a compound command's ONE denial names EVERY required action with
+# per-action status — not only the unsatisfied one. `required_actions` stays the
+# unsatisfied set; `all_required_actions` carries the full set.
 with tempfile.TemporaryDirectory() as d:
     repo = make_repo(Path(d))
     mint(repo, "production_deploy")
-    expect("ac6-compound-migration-not-smuggled",
-           decide(repo, "fusebase deploy && npx prisma migrate deploy"),
+    dec = decide(repo, "fusebase deploy && npx prisma migrate deploy")
+    expect("ac6-compound-migration-not-smuggled", dec,
            decision="deny", required=["database_migration"],
-           reason_has=("database_migration",))
+           reason_has=("database_migration", "production_deploy"))
+    if sorted(dec.all_required_actions) != ["database_migration", "production_deploy"]:
+        fails.append(f"ac21-all_required_actions: got {dec.all_required_actions}")
+    if len(dec.required_actions) != 1:
+        fails.append(f"ac21-unsatisfied-count: got {dec.required_actions}")
+    if "production_deploy [SATISFIED]" not in dec.reason:
+        fails.append(f"ac21-satisfied-status-missing: {dec.reason!r}")
+    if len(dec.reason.splitlines()) > 8:
+        fails.append("ac21-message-length: denial exceeded the 8-line budget")
     # ... and the same command with BOTH artifacts is allowed.
     mint(repo, "database_migration")
     expect("ac6-compound-both-artifacts",

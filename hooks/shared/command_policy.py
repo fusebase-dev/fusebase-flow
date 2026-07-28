@@ -34,6 +34,10 @@ class CommandDecision:
     approval_verdict: str = ""   # the failing Verdict, for the AC14 denial renderer
     required_actions: list[str] = field(default_factory=list)
     action_verdicts: dict[str, str] = field(default_factory=dict)
+    # TRIPWIRE (K18b): `required_actions` stays the UNSATISFIED set (its long-standing
+    # meaning for callers); `all_required_actions` is every action the matched rules
+    # demand, satisfied or not. AC6/AC14/S5 require the denial to name the full set.
+    all_required_actions: list[str] = field(default_factory=list)
 
 
 # Reporting priority when several artifacts for one action all fail: name the most
@@ -254,13 +258,16 @@ def _evaluate_require_approval(
             approval_verdict=verdicts.get(satisfied[0], "") if satisfied else "",
             required_actions=list(satisfied),
             action_verdicts=verdicts,
+            all_required_actions=list(satisfied),
         )
 
     lead = unsatisfied[0]
+    all_required = _unique(satisfied + unsatisfied)
     return CommandDecision(
         command=command,
         decision="deny" if on_missing == "deny" else "ask",
-        reason=render_approval_denial(command, unsatisfied, verdicts),
+        reason=render_approval_denial(command, all_required, verdicts,
+                                      unsatisfied_actions=unsatisfied),
         rule_id=matched_rule.get("rule_id", "FR-12"),
         matched_pattern=matched_rule["pattern"],
         approval_action=lead,
@@ -268,6 +275,7 @@ def _evaluate_require_approval(
         approval_verdict=verdicts[lead],
         required_actions=list(unsatisfied),
         action_verdicts=verdicts,
+        all_required_actions=all_required,
     )
 
 
