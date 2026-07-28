@@ -200,6 +200,44 @@ with tempfile.TemporaryDirectory() as d:
     if dec.decision != "allow":
         fails.append(f"ac7-sql-select-not-gated: got {dec.decision}")
 
+# AC5 extended / T21 (K4 totality): whole-policy shape defects deny before evaluation.
+# Pre-correction (a) raised AttributeError out of evaluate() and (b) silently skipped the
+# approval stage, reaching `default: allow` with every gated command ungated.
+RULE = {"pattern": r"\bfusebase\s+deploy\b", "action": "production_deploy",
+        "reason": "x", "rule_id": "FR-12"}
+for label, pol in (
+    ("only_when-string", {"schema_version": 2, "deny": [], "allow": [], "default": "allow",
+                          "require_approval": [dict(RULE, only_when="direct_to_main")]}),
+    ("only_when-list", {"schema_version": 2, "deny": [], "allow": [], "default": "allow",
+                        "require_approval": [dict(RULE, only_when=["direct_to_main"])]}),
+    ("match_order-omits-require_approval",
+     {"schema_version": 2, "deny": [], "allow": [], "default": "allow",
+      "require_approval": [dict(RULE)], "match_order": ["deny", "allow"]}),
+    ("match_order-unknown-stage",
+     {"schema_version": 2, "deny": [], "allow": [], "default": "allow",
+      "require_approval": [dict(RULE)],
+      "match_order": ["deny", "require_approval", "allow", "nonsense"]}),
+    ("match_order-not-a-list",
+     {"schema_version": 2, "deny": [], "allow": [], "default": "allow",
+      "require_approval": [dict(RULE)], "match_order": "deny"}),
+):
+    with tempfile.TemporaryDirectory() as d:
+        repo = make_repo(Path(d), command_policy=pol)
+        try:
+            dec = decide(repo, "fusebase deploy")
+        except BaseException as e:                   # noqa: BLE001 — the point of the test
+            fails.append(f"ac5-{label}: evaluate() RAISED {e!r}")
+            continue
+        expect(f"ac5-{label}", dec, decision="deny", rule_id=POLICY_ERROR_RULE_ID)
+
+# A match_order that omits a stage with NO declared rules is fine (not a false positive).
+with tempfile.TemporaryDirectory() as d:
+    repo = make_repo(Path(d), command_policy={
+        "schema_version": 2, "deny": [], "allow": [], "default": "allow",
+        "require_approval": [dict(RULE)], "match_order": ["require_approval"]})
+    expect("ac5-match_order-subset-ok", decide(repo, "fusebase deploy"),
+           decision="deny", required=["production_deploy"])
+
 # AC5: an unsupported per-rule flag fails CLOSED rather than being ignored.
 with tempfile.TemporaryDirectory() as d:
     repo = make_repo(Path(d), command_policy={

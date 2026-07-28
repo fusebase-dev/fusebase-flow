@@ -164,6 +164,41 @@ def _evaluate_deny(command: str, policy: dict[str, Any]) -> CommandDecision | No
     return None
 
 
+_STAGES = ("deny", "require_approval", "allow")
+
+
+def _validate_policy(policy: dict[str, Any]) -> str | None:
+    """Whole-policy shape check run BEFORE any command is evaluated (decision K4).
+
+    TRIPWIRE: both defects here fail OPEN, so they must be caught at load time, not at
+    use time. A non-mapping `only_when` raised AttributeError out of evaluate(); a
+    `match_order` omitting `require_approval` silently skipped the approval stage and
+    every gated command reached `default: allow`.
+    """
+    order = policy.get("match_order")
+    if order is not None:
+        if not isinstance(order, list) or not all(isinstance(s, str) for s in order):
+            return "`match_order` must be a list of stage names."
+        unknown = [s for s in order if s not in _STAGES]
+        if unknown:
+            return f"`match_order` names unknown stage(s) {unknown} (known: {list(_STAGES)})."
+        if len(set(order)) != len(order):
+            return f"`match_order` repeats a stage: {order}."
+        missing = [s for s in _STAGES if policy.get(s) and s not in order]
+        if missing:
+            return (f"`match_order` omits stage(s) {missing} for which rules ARE declared — "
+                    f"those rules would never run.")
+    for stage in _STAGES:
+        for rule in policy.get(stage) or []:
+            if not isinstance(rule, dict):
+                continue                      # rule_matches reports this per-rule
+            only_when = rule.get("only_when")
+            if only_when is not None and not isinstance(only_when, dict):
+                return (f"{stage} rule {rule.get('rule_id', '?')!r} has a non-mapping "
+                        f"`only_when` ({type(only_when).__name__}).")
+    return None
+
+
 def _unique(names: list[str]) -> list[str]:
     """Order-preserving de-duplication of display names."""
     return list(dict.fromkeys(names))
@@ -311,9 +346,12 @@ def evaluate(command: str, *, root: Path | None = None) -> CommandDecision:
         return _policy_error(command, "command-policy is missing or empty.")
     if not isinstance(approval_policy, dict):
         return _policy_error(command, "approval-policy is not a mapping.")
-    if not any(policy.get(stage) for stage in ("deny", "require_approval", "allow")):
+    if not any(policy.get(stage) for stage in _STAGES):
         return _policy_error(command, "command-policy declares no deny/require_approval/allow rules.")
-    order = policy.get("match_order", ["deny", "require_approval", "allow"])
+    shape_error = _validate_policy(policy)
+    if shape_error:
+        return _policy_error(command, shape_error)
+    order = policy.get("match_order", list(_STAGES))
     default = policy.get("default", "allow")
 
     for stage in order:
