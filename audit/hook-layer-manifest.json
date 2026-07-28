@@ -46,7 +46,7 @@
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
-      "sha256": "003b10970ca4d1641d0c6794e7de523d742dad4f8522f5ea59560abedd0697d9"
+      "sha256": "650b40bcfeb6d20ba58a3fe9ea1341113180c79ceb3ce509f680814ff94cbb84"
     },
     {
       "path": "hooks/local/check-cli-flow-conflicts.sh",
@@ -126,7 +126,7 @@
     },
     {
       "path": "hooks/local/preflight.sh",
-      "sha256": "d28daac73aa29449f29af49f334e91d21996fc4841f1d18d96827ba5757767aa"
+      "sha256": "10f9df7bcd41081758de56f1c9dda7dcaa6212437ae9d56102ea13f3040d4ac1"
     },
     {
       "path": "hooks/local/rule-inventory.sh",
@@ -530,12 +530,12 @@
     },
     {
       "path": "hooks/tests/test-upgrade-conflict-classification.sh",
-      "sha256": "a29b98ab02f87d04072a8ad006a4c77339df0bf39dff84196452abf66cc502ac"
+      "sha256": "8e0cc999a428e5587c6a279052120357b8510642bbed6d1ca6de9d39b837c670"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "9446d90cedc716adaf6ea86d98a96bf7ef5aeeed2881c6796fe92fbd42c04835"
+  "manifest_self_sha256": "7e737c21508e1495dffe3e264aa354f55886d9f5300d9a0dea30f99210db5614"
 }

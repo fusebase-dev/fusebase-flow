@@ -285,6 +285,23 @@ PY
     then errors=$((errors + 1)); fi
 fi
 
+# 6b. Managed-content base manifest (upgrade classifier). WARNING only — an absent or
+#     stale base never destroys anything (K9 makes `unknown-base` preserve + report), but
+#     it makes an upgrade deliver little or nothing, which is easy to mistake for success.
+if command -v python3 >/dev/null 2>&1 && [ -f hooks/local/lib/managed_content_manifest.py ]; then
+    if [ ! -f audit/managed-content-manifest.json ]; then
+        warn "no managed-content base manifest (audit/managed-content-manifest.json). The upgrade classifier has no reference, so every managed path will read 'unknown-base' -> preserved but NOT refreshed. Record one with: bash hooks/local/stamp-managed-content-manifest.sh (or upgrade via bash hooks/local/bootstrap-upgrade.sh, which synthesizes it from the upstream tag matching your VERSION)"
+    else
+        bash hooks/local/verify-managed-content-manifest.sh >/dev/null 2>&1
+        case $? in
+            0) ;;
+            1) warn "managed-content base manifest is STALE (working tree differs from the recorded base). Until it is restamped, your own edits since the last upgrade are indistinguishable from upstream's. Refresh with: bash hooks/local/stamp-managed-content-manifest.sh" ;;
+            2) warn "managed-content base manifest is BROKEN (unparseable or self-hash mismatch). Restamp with: bash hooks/local/stamp-managed-content-manifest.sh" ;;
+            *) ;;
+        esac
+    fi
+fi
+
 # 7. Existing Fusebase CLI / MCP overlay sanity check (warning only).
 #    If MCP / runtime config is present, ensure Fusebase Flow was installed
 #    as an append/merge overlay and not via blind bulk copy.

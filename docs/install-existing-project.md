@@ -365,7 +365,34 @@ You opt into the level of ceremony your team needs. The framework does not force
 
 ## Updating Fusebase Flow later
 
-To pick up newer rules, hooks, or templates:
+**Preferred (4.7.0+): the classifier-aware path.**
+
+```bash
+bash hooks/local/bootstrap-upgrade.sh -- --auto-yes
+```
+
+From 4.7.0 the upgrade engine classifies every managed path three ways — against the **base**
+(`audit/managed-content-manifest.json`: what upstream shipped you last time), your tree, and the
+incoming tree — so an upstream change and a local edit are no longer indistinguishable. Apply is
+**per file**, so a directory holding one file you edited still gets every other file refreshed.
+
+| Classification | What happens |
+|---|---|
+| `upstream-only`, `upstream-added` | refreshed / installed |
+| `consumer-only` | **preserved** and listed by path in the report |
+| `changed-by-both` | **nothing is written**; `--auto-yes` aborts and names each path |
+| `upstream-deleted` (you edited it) | preserved and reported |
+| `unknown-base` | preserved and reported (no base to compare against) |
+
+Coming from **≤ 4.6.1** you have no base manifest. Use the bootstrap path: it stages the new engine
+before running it, and **synthesizes the base from the upstream tag matching your installed
+`VERSION`** — byte-identical to what your last upgrade actually wrote. Without that step every path
+reads `unknown-base`, everything is preserved, and the upgrade delivers nothing while appearing to
+succeed. If the tag cannot be resolved (forked or unreleased `VERSION`), nothing is lost — the run
+preserves and reports instead. `bash hooks/local/preflight.sh` warns when the base is missing or stale;
+`bash hooks/local/stamp-managed-content-manifest.sh` records one.
+
+**Manual path** (still supported; no classification — you do the diffing):
 
 1. Re-clone the source: `git clone <fusebase-flow-url> .fusebase-flow-source`.
 2. Diff the framework directories against your repo (for example `diff -r .fusebase-flow-source/hooks ./hooks`) and stage updates deliberately.

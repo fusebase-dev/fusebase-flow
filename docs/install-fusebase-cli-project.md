@@ -359,6 +359,25 @@ fusebase update --skip-skills
 
 The `--skip-skills` flag tells the CLI to skip the AGENTS.md / `.claude/*` regeneration entirely, so your Fusebase Flow overlay stays intact. Use the full CLI refresh only when you actively want current CLI-side skill, agent, hook, or settings updates, then run Flow recovery.
 
+## Recording the upgrade classifier's base (4.7.0+)
+
+After the copy, record what upstream shipped you:
+
+```bash
+bash hooks/local/stamp-managed-content-manifest.sh
+```
+
+This writes `audit/managed-content-manifest.json`, the **base** the 4.7.0+ upgrade engine
+compares against so it can tell an upstream change from your own edit and stop overwriting
+local customization. `install.sh` does it for you (step 4b); do it by hand if you copied files
+manually. Without a base, every managed path classifies `unknown-base` — which **preserves** it
+(nothing is lost) but means a later upgrade delivers little or nothing while appearing to
+succeed. `preflight.sh` warns when the base is missing or stale.
+
+Upgrading an existing ≤4.6.1 install: use `bash hooks/local/bootstrap-upgrade.sh -- --auto-yes`,
+which stages the new engine first and synthesizes the base from the upstream tag matching your
+installed `VERSION`.
+
 ## Post-install validation
 
 First, the module-size ratchet (FR-25) must be re-keyed to **this** repo — the copied baseline is the template's, and your existing over-ceiling files would block on first touch otherwise. **You don't run this** — tell your Flow agent *"adopt the module-size baseline for this repo"* and on that go-ahead it runs the adoption for you (regenerates the baseline, auto-mints the FR-07 approval, commits, consumes). For reference, the command it runs is `bash hooks/local/check-module-size.sh --write-baseline`.

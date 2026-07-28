@@ -271,4 +271,90 @@ else
 fi
 rm -rf "$E2E_ROOT"
 
+# ---- 4. AC13b/AC16 base SYNTHESIS through the real bootstrap-upgrade.sh -------------
+# The adoption hop for a consumer arriving from <= 4.6.1 with NO base manifest. Without
+# synthesis every path reads `unknown-base`, K9 preserves all of them, and the upgrade
+# reports success while installing NOTHING — a green run that preserved everything is a
+# FAIL, which is exactly what the control-file assertion below exists to catch.
+SYN_ROOT="$(mktemp -d)"
+UPREPO="$SYN_ROOT/upstream"
+mkdir -p "$UPREPO/hooks/shared" "$UPREPO/hooks/local/lib" "$UPREPO/workflows"
+( cd "$UPREPO" && git init -q && git config user.email t@t.t && git config user.name t \
+    && git config core.autocrlf false )
+# --- upstream v4.6.1 (what the consumer was shipped) ---
+echo "4.6.1" > "$UPREPO/VERSION"
+printf 'validator v1\n' > "$UPREPO/hooks/shared/command_policy.py"
+printf 'control v1\n'   > "$UPREPO/hooks/local/control.sh"
+printf 'wf v1\n'        > "$UPREPO/workflows/wf.md"
+cp "$ROOT/hooks/local/lib/managed_content_manifest.py" "$UPREPO/hooks/local/lib/"
+cp "$ROOT/hooks/local/upgrade.sh" "$UPREPO/hooks/local/"
+cp "$ROOT/hooks/local/bootstrap-upgrade.sh" "$UPREPO/hooks/local/"
+( cd "$UPREPO" && git add -A && git commit -qm 'v4.6.1' && git branch -M main && git tag v4.6.1 )
+# --- upstream 4.7.0 on main: control.sh changes; the validator does NOT ---
+echo "4.7.0" > "$UPREPO/VERSION"
+printf 'control v2\n'        > "$UPREPO/hooks/local/control.sh"
+printf 'new upstream file\n' > "$UPREPO/hooks/shared/brand_new.py"
+( cd "$UPREPO" && git add -A && git commit -qm 'v4.7.0' )
+
+# --- the consumer: 4.6.1 content, a local edit, and NO base manifest ---
+CONS="$SYN_ROOT/consumer"
+mkdir -p "$CONS/hooks/shared" "$CONS/hooks/local/lib" "$CONS/workflows"
+( cd "$CONS" && git init -q && git config user.email t@t.t && git config user.name t     && git config core.autocrlf false )
+echo "4.6.1" > "$CONS/VERSION"
+printf 'validator v1\n# SENTINEL local hardening\n' > "$CONS/hooks/shared/command_policy.py"
+printf 'control v1\n' > "$CONS/hooks/local/control.sh"
+printf 'wf v1\n'      > "$CONS/workflows/wf.md"
+cp "$ROOT/hooks/local/bootstrap-upgrade.sh" "$CONS/hooks/local/"
+CONTROL_BEFORE="$( ( cd "$CONS" && sha256sum hooks/local/control.sh ) | cut -d' ' -f1)"
+SYN_LOG="$SYN_ROOT/bootstrap.log"
+( cd "$CONS" && bash hooks/local/bootstrap-upgrade.sh --repo "$UPREPO" --ref main -- --auto-yes ) \
+    > "$SYN_LOG" 2>&1
+SYN_RC=$?
+CONTROL_AFTER="$( ( cd "$CONS" && sha256sum hooks/local/control.sh ) | cut -d' ' -f1)"
+
+syn_fail=""
+grep -q "synthesized the classifier base from upstream tag v4.6.1" "$SYN_LOG" \
+  || syn_fail="$syn_fail [no base was synthesized from the v4.6.1 tag]"
+[ -f "$CONS/audit/managed-content-manifest.json" ] || syn_fail="$syn_fail [base manifest absent after the hop]"
+grep -q SENTINEL "$CONS/hooks/shared/command_policy.py" \
+  || syn_fail="$syn_fail [the consumer's local hardening was OVERWRITTEN — the reported defect]"
+grep -q -- "- hooks/shared/command_policy.py" "$SYN_LOG" \
+  || syn_fail="$syn_fail [preserved-but-UNREPORTED: the consumer is not told which file diverged (AC15)]"
+# The control file is the anti-no-op assertion: if synthesis silently failed, everything
+# would be `unknown-base`, everything preserved, and this hash would NOT have moved.
+[ "$CONTROL_BEFORE" != "$CONTROL_AFTER" ] \
+  || syn_fail="$syn_fail [control file NOT refreshed — base synthesis failed and the 'successful' upgrade installed nothing]"
+grep -q "control v2" "$CONS/hooks/local/control.sh" || syn_fail="$syn_fail [control file content is not upstream 4.7.0]"
+[ -f "$CONS/hooks/shared/brand_new.py" ] || syn_fail="$syn_fail [upstream-added file not installed]"
+grep -q "unknown-base" "$SYN_LOG" && syn_fail="$syn_fail [paths still fell through to unknown-base despite a synthesized base]"
+if [ -z "$syn_fail" ]; then
+  ok "ac13b-base-synthesis-from-the-version-tag-delivers-content"
+else
+  bad "ac13b-base-synthesis-from-the-version-tag-delivers-content" \
+      "rc=$SYN_RC$syn_fail :: $(tail -25 "$SYN_LOG" | tr '\n' '|')"
+fi
+
+# --- 4b. Unresolvable tag (forked/unreleased VERSION) degrades to preserve, never loss.
+FORK="$SYN_ROOT/forked"
+mkdir -p "$FORK/hooks/shared" "$FORK/hooks/local/lib" "$FORK/workflows"
+( cd "$FORK" && git init -q && git config user.email t@t.t && git config user.name t     && git config core.autocrlf false )
+echo "4.6.1-mycompany" > "$FORK/VERSION"
+printf 'validator v1\n# SENTINEL local hardening\n' > "$FORK/hooks/shared/command_policy.py"
+printf 'control v1\n' > "$FORK/hooks/local/control.sh"
+cp "$ROOT/hooks/local/bootstrap-upgrade.sh" "$FORK/hooks/local/"
+FORK_LOG="$SYN_ROOT/forked.log"
+( cd "$FORK" && bash hooks/local/bootstrap-upgrade.sh --repo "$UPREPO" --ref main -- --auto-yes ) \
+    > "$FORK_LOG" 2>&1
+fork_fail=""
+grep -q "could not be resolved" "$FORK_LOG" || fork_fail="$fork_fail [no diagnosis for the unresolvable tag]"
+grep -q SENTINEL "$FORK/hooks/shared/command_policy.py" \
+  || fork_fail="$fork_fail [unknown-base must PRESERVE, never overwrite (K9 row 10)]"
+grep -q "unknown-base" "$FORK_LOG" || fork_fail="$fork_fail [unknown-base paths were not REPORTED]"
+if [ -z "$fork_fail" ]; then
+  ok "k9-row10-unresolvable-tag-preserves-and-reports-never-aborts"
+else
+  bad "k9-row10-unresolvable-tag-preserves-and-reports-never-aborts" "$fork_fail"
+fi
+rm -rf "$SYN_ROOT"
+
 finish

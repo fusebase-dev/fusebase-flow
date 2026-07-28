@@ -82,7 +82,13 @@ else
     exit 1
   fi
   echo "[bootstrap-upgrade] Cloning $REPO_URL ($REF) -> $SOURCE_CLONE/ ..."
-  git clone --depth 1 --branch "$REF" "$REPO_URL" "$SOURCE_CLONE"
+  # TRIPWIRE (line endings): the staging clone MUST check out with the consumer's own
+  # core.autocrlf. If it inherits a different global value, every managed file differs by
+  # EOL alone — the classifier then reads the whole tree as upstream-changed (or
+  # consumer-changed) and either overwrites or preserves everything for the wrong reason.
+  FF_EOL="$(git config --get core.autocrlf 2>/dev/null || true)"
+  [ -n "$FF_EOL" ] || FF_EOL="false"
+  git -c core.autocrlf="$FF_EOL" clone --depth 1 --branch "$REF" "$REPO_URL" "$SOURCE_CLONE"
 fi
 
 if [ ! -f "$SOURCE_CLONE/VERSION" ]; then
@@ -164,6 +170,81 @@ if [ ! -x hooks/local/upgrade.sh ] && [ ! -f hooks/local/upgrade.sh ]; then
   echo "[bootstrap-upgrade] FATAL: upgrade.sh was not staged; cannot continue." >&2
   exit 1
 fi
+
+# ---- Step 2b: SYNTHESIZE the classifier's base for a consumer arriving without one ----
+#
+# WHY THIS IS LOAD-BEARING (decision K13a): a consumer on <= 4.6.1 has no
+# audit/managed-content-manifest.json. Without a base, EVERY managed path classifies
+# `unknown-base`, K9 preserves all of them, and the upgrade reports success while
+# installing NOTHING. The classifier release could not deliver its own content.
+#
+# The fix is not a guess: the upstream tag equal to the consumer's installed VERSION is
+# BYTE-IDENTICAL to what their last install/upgrade wrote. Stamping a base from that tag
+# is a reconstruction of a fact, not an inference. Only when the tag cannot be resolved
+# (a forked or unreleased VERSION) does the tree fall through to `unknown-base` — which is
+# preserve + report, never abort (K9 row 10).
+BASE_REL="audit/managed-content-manifest.json"
+MCM_SRC="$SOURCE_CLONE/hooks/local/lib/managed_content_manifest.py"
+
+ff_synthesize_base() {
+  local ver tag tmp rc
+  if [ -f "$BASE_REL" ]; then
+    echo "[bootstrap-upgrade] base manifest already present ($BASE_REL) — no synthesis needed."
+    return 0
+  fi
+  if [ ! -f "$MCM_SRC" ] || ! command -v python3 >/dev/null 2>&1; then
+    echo "[bootstrap-upgrade] NOTE: the source tree has no managed-content module (pre-4.7.0)" >&2
+    echo "                    or python3 is unavailable — no base can be synthesized." >&2
+    return 1
+  fi
+  [ -f VERSION ] || { echo "[bootstrap-upgrade] NOTE: no local VERSION — cannot pick a base tag." >&2; return 1; }
+  ver="$(tr -d '\n\r' < VERSION)"
+  tag="v$ver"
+  if [ ! -d "$SOURCE_CLONE/.git" ]; then
+    echo "[bootstrap-upgrade] NOTE: $SOURCE_CLONE is a plain directory (no .git), so the" >&2
+    echo "                    $tag tree cannot be recovered — skipping base synthesis." >&2
+    return 1
+  fi
+  # A --depth 1 --branch <ref> clone carries no tags; fetch just the one we need.
+  if ! git -C "$SOURCE_CLONE" rev-parse -q --verify "refs/tags/$tag" >/dev/null 2>&1; then
+    git -C "$SOURCE_CLONE" fetch --depth 1 origin "refs/tags/$tag:refs/tags/$tag" >/dev/null 2>&1 || true
+  fi
+  if ! git -C "$SOURCE_CLONE" rev-parse -q --verify "refs/tags/$tag" >/dev/null 2>&1; then
+    echo "[bootstrap-upgrade] NOTE: upstream tag $tag could not be resolved (forked or"
+    echo "                    unreleased VERSION). Proceeding with NO base: every managed"
+    echo "                    path will classify 'unknown-base', which PRESERVES it and"
+    echo "                    reports it — nothing is overwritten, but little is refreshed."
+    return 1
+  fi
+  tmp="$(mktemp -d)"
+  # TRIPWIRE (line endings): `git archive` applies the EOL conversion of the repo it runs
+  # in — the staging CLONE, which inherits the machine's global core.autocrlf. On a Windows
+  # consumer that silently produces a CRLF base while their working tree is LF (or the
+  # reverse), so EVERY managed path hashes differently, classifies consumer-divergent, and
+  # the upgrade preserves everything = installs NOTHING. Force the CONSUMER's own
+  # convention so the synthesized base matches what their git actually wrote to disk.
+  local eol
+  eol="$(git config --get core.autocrlf 2>/dev/null || true)"
+  [ -n "$eol" ] || eol="false"
+  # `git archive` reads the tag without touching the clone's checkout or index.
+  if ! git -C "$SOURCE_CLONE" -c core.autocrlf="$eol" archive "$tag" | tar -x -C "$tmp" 2>/dev/null; then
+    echo "[bootstrap-upgrade] WARN: could not extract $tag — skipping base synthesis." >&2
+    rm -rf "$tmp"; return 1
+  fi
+  python3 "$MCM_SRC" stamp --root "$tmp" >/dev/null 2>&1; rc=$?
+  if [ "$rc" -ne 0 ] || [ ! -f "$tmp/$BASE_REL" ]; then
+    echo "[bootstrap-upgrade] WARN: base stamp from $tag failed (rc $rc) — skipping." >&2
+    rm -rf "$tmp"; return 1
+  fi
+  mkdir -p "$(dirname "$BASE_REL")"
+  cp "$tmp/$BASE_REL" "$BASE_REL"
+  rm -rf "$tmp"
+  echo "[bootstrap-upgrade] synthesized the classifier base from upstream tag $tag -> $BASE_REL"
+  echo "                    (this is what upstream shipped you at $ver, so the upgrade can now"
+  echo "                     tell YOUR edits from upstream's.)"
+  return 0
+}
+ff_synthesize_base || true
 
 # ---- Step 3: hand off to upgrade.sh ----
 echo "[bootstrap-upgrade] Handing off to upgrade.sh ${PASSTHROUGH[*]:-}"

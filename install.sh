@@ -221,6 +221,22 @@ else
     echo "- step 4: overlay append skipped" >> "$REPORT"
 fi
 
+# 4b. Capture the upgrade classifier's BASE (decision K13a).
+# A fresh install must record WHAT UPSTREAM SHIPPED IT, or the first upgrade has no
+# reference: every managed path would classify `unknown-base`, be preserved, and the
+# upgrade would deliver nothing. Recorded here, right after content is in place and
+# before preflight validates it. Not opt-in and not interactive — it writes one
+# generated file and is what makes the next upgrade non-destructive.
+if command -v python3 >/dev/null 2>&1 && [ -f hooks/local/lib/managed_content_manifest.py ]; then
+    if bash hooks/local/stamp-managed-content-manifest.sh >/dev/null 2>&1; then
+        echo "- step 4b: managed-content base manifest recorded (audit/managed-content-manifest.json)" >> "$REPORT"
+    else
+        echo "- step 4b: managed-content base manifest FAILED to record — the first upgrade will classify everything 'unknown-base' (preserve + report, no data loss). Re-run: bash hooks/local/stamp-managed-content-manifest.sh" >> "$REPORT"
+    fi
+else
+    echo "- step 4b: managed-content base manifest skipped (python3 or the module missing)" >> "$REPORT"
+fi
+
 # 5. Run preflight (LAST — mirrors + overlays are in place so it validates cleanly)
 if confirm "(5/5) Run preflight (validate framework structure, policies, mirrors)?"; then
     if bash hooks/local/preflight.sh; then
