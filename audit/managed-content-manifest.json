@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "6d5b2df3ff9a6cfc42ac8e00eed2165d608f9201edc5debed7e4760e8dd66cd8"
+      "sha256": "0670c0f777d1474d82cf4586d81e74dd46e011235f3d3116d1508ef2638b1dc4"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -830,7 +830,7 @@
     },
     {
       "path": "hooks/tests/test-command-policy.sh",
-      "sha256": "a2e6b5276364aa21a8697e24eba21651cb20d3278fafbdf95e60bd4addb52a97"
+      "sha256": "a68c2445eb4832915389b22a8ebf689fd2c9e20fbfe5d5cba56910c6a81e50cc"
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
@@ -934,7 +934,7 @@
     },
     {
       "path": "policies/command-policy.yml",
-      "sha256": "a7eb580932288b1f6b8582fb71d63b3bda7c205f336db9c3a35cf68f9ed691d0"
+      "sha256": "e663347cd8966013fdc1a8aa143da01ff150ed4defbb83059068d90fddb56253"
     },
     {
       "path": "policies/comment-policy.yml",
@@ -1121,5 +1121,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "5318cb932c937afe878d6fc41263c7753e6b0c6cfcb250ccbdfd7902a7fac04a"
+  "manifest_self_sha256": "18c6e2a2306bed9c81ea753c6db97079f493500e959ffe32066f417fe1d0526d"
 }

@@ -17,6 +17,17 @@
 #     job it claimed. Do not reintroduce it — under all-match it would let a compound
 #     command carry an ungated `rm`.
 #
+# MATCHING IS REGEX OVER THE RAW COMMAND STRING — a guardrail, not a sandbox (K21).
+# Stated because the opposite is easy to assume: every rule sees the literal text the hook
+# received, so the gate is defeatable by
+#   * quote-fragmentation — `fusebase de'pl'oy` and `npx prisma mi"grate" deploy` execute
+#     the gated command but match no pattern;
+#   * dynamic construction — eval, command substitution, variables, aliases.
+# Closing this needs shell-aware parsing (or a conservative deny of dynamically constructed
+# gated commands); tracked in docs/backlog/command-gate-shell-evasion/. Do NOT write a
+# half-parser here — one wrong in either direction either breaks ordinary approvals or
+# opens a new evasion class. Process discipline is the control; this file is defence in depth.
+#
 # FAIL-CLOSED (decision K4): an unparseable regex, a rule with no `pattern`, an
 # unsupported `flags` entry, or a missing/empty/non-mapping policy file DENIES with a
 # policy-error reason. It never skips the rule and never falls through to `default`.
@@ -115,9 +126,13 @@ require_approval:
     reason: "FR-12: destructive or schema-changing SQL on production requires approval."
     rule_id: FR-12
 
-  - pattern: '\brm\s+(-r|-rf|-fr)?\s+'
+  # Both the flag group and any second whitespace run are OPTIONAL. The old
+  # `\brm\s+(-r|-rf|-fr)?\s+` required a second run, so plain `rm build.log` matched
+  # nothing (docs/backlog/rm-rule-pattern-single-space-gap/). The `(?<![-\w])` guard keeps
+  # `docker run --rm image` and `npm run ...` out.
+  - pattern: '(?<![-\w])rm\s+(-[A-Za-z]+\s+)*\S'
     action: destructive_file_delete
-    reason: "FR-12: bulk file delete (when not matching the deny entry above) requires approval."
+    reason: "FR-12: file delete (when not matching the deny entry above) requires approval."
     rule_id: FR-12
 
   - pattern: '(curl|http|wget).*--data.*api\.(twilio|sendgrid|mailgun|postmark)\.com'

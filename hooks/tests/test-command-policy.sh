@@ -164,11 +164,36 @@ with tempfile.TemporaryDirectory() as d:
     if sorted(set(dec.required_actions)) != sorted(dec.required_actions):
         fails.append(f"ac20-no-duplicate-display: {dec.required_actions}")
 
-# K16 accepted consequence: `rm` now contributes destructive_file_delete to the set.
-# NOTE: the shipped rm pattern needs a flag or a double space (`rm build.log` alone
-# matches nothing) — an independent pre-existing gap, filed as
-# docs/backlog/rm-rule-pattern-single-space-gap/. Asserted with a form the rule
-# actually matches so this case tests all-match, not the pattern.
+# AC26 / T28: the flagless delete is gated. Pre-correction `rm build.log` matched nothing
+# and fell through to `default: allow` (docs/backlog/rm-rule-pattern-single-space-gap/).
+with tempfile.TemporaryDirectory() as d:
+    repo = make_repo(Path(d))
+    for cmd in ("rm build.log", "rm -f build.log", "rm ./a ./b", "rm  build.log"):
+        expect(f"ac26-rm-gated[{cmd}]", decide(repo, cmd),
+               decision="deny", required=["destructive_file_delete"])
+    # The deny stage still short-circuits for rm -rf (never reaches require_approval).
+    expect("ac26-rm-rf-still-denied", decide(repo, "rm -rf /tmp/x"),
+           decision="deny", rule_id="FR-06")
+    # Negative cases the widened pattern must NOT catch.
+    for cmd in ("docker run --rm alpine sh", "npm run build", "git commit -m 'confirm x'"):
+        dec = decide(repo, cmd)
+        if dec.decision != "allow":
+            fails.append(f"ac26-rm-false-positive[{cmd}]: {dec.decision} ({dec.reason[:80]})")
+
+# AC26 / K21 DOCUMENTED LIMITATION — these assert TODAY's behaviour on purpose. Rule
+# matching is regex over the raw command string, so quote-fragmented and dynamically
+# constructed gated commands execute ungated. Tracked in
+# docs/backlog/command-gate-shell-evasion/; when that lands these flip to deny and the
+# assertion below must be inverted, not deleted.
+with tempfile.TemporaryDirectory() as d:
+    repo = make_repo(Path(d))
+    for cmd in ("fusebase de'pl'oy", 'npx prisma mi"grate" deploy'):
+        dec = decide(repo, cmd)
+        if dec.decision != "allow":
+            fails.append(f"k21-documented-limitation[{cmd}]: behaviour changed to "
+                         f"{dec.decision} — if this is the shell-evasion fix, invert this case")
+
+# K16 accepted consequence: `rm` contributes destructive_file_delete to the required set.
 with tempfile.TemporaryDirectory() as d:
     repo = make_repo(Path(d))
     mint(repo, "production_deploy")
@@ -366,6 +391,21 @@ if [ "$HANDLER_OUT" = "[]" ]; then
   ok "ac8-lightweight-parity-both-handlers"
 else
   bad "ac8-lightweight-parity-both-handlers" "$HANDLER_OUT"
+fi
+
+# ---- AC26 (K21): the limitation is stated where a reader will meet it ---------------
+ev_fail=""
+for f in "policies/command-policy.yml" "docs/hook-coverage.md"; do
+  grep -qi "regex over the raw command" "$ROOT/$f" || ev_fail="$ev_fail [$f does not state the regex/raw-command limit]"
+  grep -qi "quote-fragmentation\|quote fragmentation" "$ROOT/$f" || ev_fail="$ev_fail [$f does not name quote-fragmentation]"
+  grep -q "command-gate-shell-evasion" "$ROOT/$f" || ev_fail="$ev_fail [$f does not link the backlog ticket]"
+done
+[ -f "$ROOT/docs/backlog/command-gate-shell-evasion/README.md" ] || ev_fail="$ev_fail [backlog ticket missing]"
+grep -q "command-gate-shell-evasion" "$ROOT/docs/backlog/index.md" || ev_fail="$ev_fail [backlog ticket not indexed]"
+if [ -z "$ev_fail" ]; then
+  ok "ac26-evasion-limit-documented-and-backlogged"
+else
+  bad "ac26-evasion-limit-documented-and-backlogged" "$ev_fail"
 fi
 
 finish

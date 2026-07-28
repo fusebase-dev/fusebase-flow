@@ -38,6 +38,17 @@ What the approval gate enforces, and what it deliberately does not. Canonical ho
 
 `policies/approval-policy.yml: approval_authors` carries `enforced_by_hooks: false`: it is a declaration of intent, not a control. Do not add an `$USER == approved_by` check — it is forgeable by the process it gates.
 
+### Rule matching is regex over the raw command — a guardrail, not a sandbox (K21)
+
+`hooks/shared/command_rules.py::rule_matches` runs `re.search` against the literal command string the hook received. Consequences, stated because the opposite is easy to assume:
+
+| Evasion class | Example | Gated today |
+|---|---|---|
+| Quote fragmentation | `fusebase de'pl'oy`, `npx prisma mi"grate" deploy` | **no** |
+| Dynamic construction | `eval "$CMD"`, `$(printf 'fusebase deploy')`, aliases | **no** |
+
+Both are pre-existing properties of regex-on-raw-command, not regressions, and both are deliberately unfixed this release (K21): the real fix is shell-aware parsing or a conservative deny of dynamically constructed gated commands, tracked in `docs/backlog/command-gate-shell-evasion/`. `hooks/tests/test-command-policy.sh` pins the current behaviour so the future fix flips a red case rather than inventing one. Treat the command gate as defence-in-depth behind process discipline, never as a containment boundary.
+
 ## Surface notes
 
 - **Cursor** has no native lifecycle-hook surface in v0.1. Enforcement on Cursor sessions falls back to git hooks (`pre-commit`, `commit-msg`) and operator vigilance.

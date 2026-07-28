@@ -1,6 +1,6 @@
 # rm-rule-pattern-single-space-gap
 
-**Status:** parked
+**Status:** done — closed by `approval-binding-and-upgrade-classification` T28 (corrections round)
 **Found:** 2026-07-28, while implementing `approval-binding-and-upgrade-classification` T4 (K16 consequence assertion)
 **Surface:** `policies/command-policy.yml` — the `destructive_file_delete` `require_approval` rule
 **Severity:** medium — an FR-12 gate that does not fire on the most common form of the gated command
@@ -41,3 +41,18 @@ against the `deny`-stage `rm -rf` rule so the two do not double-report.
 - `rm build.log`, `rm -f build.log`, `rm ./a ./b` all require `destructive_file_delete`.
 - `rm -rf x` still hits the `deny` stage first (rule_id `FR-06`), never `require_approval`.
 - `git rm x` / `npm rm pkg` are NOT gated as destructive file deletes.
+
+## Resolution (T28, 2026-07-28)
+
+Fixed under decision K21(i) as part of the corrections round — the review reclassified it from
+"separate lane" to "a one-line fix to a live hole in the ticket's own file".
+
+| | |
+|---|---|
+| New pattern | `(?<![-\w])rm\s+(-[A-Za-z]+\s+)*\S` |
+| Now gated | `rm build.log`, `rm -f build.log`, `rm ./a ./b` (all `destructive_file_delete`) |
+| Still denied earlier | `rm -rf ...` — the `deny` stage short-circuits, unchanged |
+| Deliberately NOT matched | `docker run --rm image`, `npm run ...` — the `(?<![-\w])` guard |
+| Test | `hooks/tests/test-command-policy.sh` — flagless-delete case + the two negative cases |
+
+The broader evasion class this rule cannot cover is `docs/backlog/command-gate-shell-evasion/`.
