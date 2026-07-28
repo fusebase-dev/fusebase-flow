@@ -3,7 +3,7 @@
 **Linked spec:** `docs/specs/approval-binding-and-upgrade-classification/spec.md`
 **Linked tasks:** `docs/specs/approval-binding-and-upgrade-classification/tasks.md`
 **Gate task:** T15
-**Pass threshold for smoke:** 5/5 PASS
+**Pass threshold for smoke:** 6/6 PASS (S4 split into S4a/S4b — see § Smoke prompts)
 
 ## Acceptance-criterion → task mapping
 
@@ -62,7 +62,14 @@ Every path below is `fusebase_flow_internals` in `policies/protected-paths.yml`.
 - `audit/**`
 - `flow-skills/**` and their `.claude/skills/**` / `.agents/skills/**` mirrors
 
-Empty diff **is** required on: `hooks/git/**` (git fallback hooks — untouched by this ticket), `templates/**`, `.claude/settings.json.example` (no PostToolUse added; K11 defers consumption).
+Empty diff **is** required on: `templates/**`, `.claude/settings.json.example` (no PostToolUse added; K11 defers consumption).
+
+**Ratified deviations (PO, 2026-07-28) — both were unavoidable and are approved retroactively:**
+
+| # | Path | Ruling |
+|---|---|---|
+| D1 | `hooks/git/pre-commit` (+8/-1, `4d23f30`) | **RATIFIED.** Originally listed zero-diff; that was a PO error. `FR07_SENTINELS` and the PREP extractor list are the **import closure** of `path_policy`, so T2's `approval_artifact.py` must appear in both or the trusted-HEAD enforcer dies `ImportError` and blocks every commit in the repo — which it did, for real, at T11. The change is two list entries plus a tripwire and it *strengthens* the boundary: the new module is now integrity-checked from HEAD. Any **further** `hooks/git/**` change remains out of scope and must be reported, not made. |
+| D2 | `.github/workflows/fusebase-flow-verify.yml` (`ci_cd_config`) | **RATIFIED.** `tasks.md` T11 names the file explicitly and AC13 requires the managed-content manifest be CI-freshness-gated, so the edit was on the locked plan's authority; only the handoff's posture table failed to list the class. The narrow single-path 15-minute `protected_path_edit` artifact, committed then deleted, was the correct FR-07 instrument. |
 
 ## Smoke prompts (post-deploy)
 <!-- prevents: false-green-deploy — taxonomy: policies/ratchet-governance.yml (A3). Outcome + ground-truth columns are the safety-bearing part. -->
@@ -74,7 +81,8 @@ Smoke runs against a **fresh clone of the released tag in a scratch directory wi
 | S1 | Replayed unrelated approval no longer authorizes a deploy | `bash hooks/local/run-handler.sh pre_tool_use` with a `fusebase deploy` command | Hook **denies**; message names `production_deploy` and states the artifact's action did not match | `state/audit/*.log` hook decision entry showing verdict `ACTION_MISMATCH` | N/A | Scratch clone; hand-written artifact `production_deploy-other-20260728.json` with body `{"action":"database_migration"}` | Same run on 4.6.1 must **allow** — proves the fix, not the fixture | command transcript + audit-log excerpt |
 | S2 | Expiry-less legacy artifact is visible and rejected under strict | `bash hooks/local/approve-local.sh --inventory`, then strict run | Inventory row shows `legacy-no-expiry` and `verdict(strict)=REJECT`; with `strict_approvals: true` the deploy is denied | Inventory stdout + hook decision entry | N/A | Scratch clone; artifact with `expires_at` key absent | With strict OFF the same artifact is **allowed and logged** — proves K7 compat, not silent acceptance | inventory stdout + both decision entries |
 | S3 | Documented Lightweight deploy actually passes the gate | `pre_tool_use` and `permission_request` with `fusebase deploy` | Both handlers **allow** with only a `lightweight_deploy` artifact present | Decision entries from both handlers | N/A | `bash hooks/local/approve-local.sh lightweight_deploy smoke-ll 'ship it'` | Removing the artifact denies through both handlers; a `production_deploy` artifact also allows | two decision entries per case |
-| S4 | Consumer's patched validator survives an upgrade, and the upgrade still delivers content | `bash hooks/local/bootstrap-upgrade.sh` on a 4.6.1 fixture carrying a locally edited `hooks/shared/command_policy.py` | Report lists that exact path under **`changed-by-both`**; the local edit is **still present**; AND a file the fixture never touched **was** refreshed to 4.7.0 | `git diff` of the fixture tree + `grep` for the sentinel + `sha256sum` of an untouched control file | N/A | Scratch 4.6.1 clone; sentinel comment inserted into the validator; a control file recorded before the run | Same fixture through the **old** `upgrade.sh` loses the edit — proves the classifier preserved it. The control file proves base synthesis worked and the run was not a silent no-op | report stdout + pre/post `sha256sum` of both files |
+| S4a | Consumer's patched validator is preserved and reported | `bash hooks/local/bootstrap-upgrade.sh --auto-yes` on a 4.6.1 fixture carrying a locally edited `hooks/shared/command_policy.py` | Run **aborts**; report names that exact path under **`changed-by-both`**; the local edit is **still present**; nothing was written | `sha256sum` of the patched file pre/post + `grep` for the sentinel + report stdout | N/A | Scratch 4.6.1 clone; sentinel comment inserted into the validator | Same fixture through the **old** `upgrade.sh` loses the edit — proves the classifier preserved it | report stdout + pre/post `sha256sum` |
+| S4b | Base synthesis makes the upgrade actually deliver content | Same command on a **clean** 4.6.1 fixture (no local edits) | Run **completes**; a file 4.7.0 changed **was** refreshed | `sha256sum` of a control file pre/post; report shows a non-zero `upstream-only` count | N/A | Scratch 4.6.1 clone, unmodified | If the control file is unchanged, base synthesis failed, everything fell to `unknown-base`, and the "successful" upgrade silently installed nothing | report stdout + pre/post `sha256sum` |
 | S5 | Compound command cannot smuggle an ungated migration | `pre_tool_use` with `fusebase deploy && npx prisma migrate deploy` | Denied; the single message names **both** `production_deploy` and `database_migration` | Decision entry listing `required_actions` with two entries | N/A | Valid `production_deploy` artifact present, no migration artifact | Same command on 4.6.1 is **allowed** by the deploy artifact alone | command transcript + decision entry |
 
 ### S1: Replayed unrelated approval no longer authorizes a deploy
@@ -116,19 +124,37 @@ Pass criterion: all six observations. This is the direct regression for the cont
 Ground-truth diagnostic: decision entries from both handlers — testing only `pre_tool_use` misses the `permission_request` path entirely.
 Evidence dir: `.../S3-*.{log,md}`
 
-### S4: Consumer's patched validator survives an upgrade that still delivers content
+### S4a / S4b: preservation and delivery are two runs, not one
+
+**PO correction (2026-07-28), raised by the AI Developer at the gate.** The original single S4 was self-contradictory: it demanded both an abort on `changed-by-both` **and** a refreshed control file in the same run. An abort writes nothing, so those cannot both hold. Split into two fixtures — S4a proves the patch survives (dirty tree, aborts), S4b proves the upgrade still delivers (clean tree, completes). Both behaviours are already proven at unit level by the `upgrade-classify` phase; these are the deployed-surface versions. Prior wording is in git history.
+
+**Pass threshold is now 6/6** (S1, S2, S3, S4a, S4b, S5).
+
+### S4a: Consumer's patched validator is preserved and reported
 
 Steps:
-1. Clone 4.6.1 to `/scratch/s4`; insert a sentinel comment into `hooks/shared/command_policy.py`; `sha256sum` it. Also `sha256sum` an untouched **control** file that 4.7.0 changes (e.g. `hooks/local/upgrade.sh`).
-2. Run the documented adoption path (`bash hooks/local/bootstrap-upgrade.sh`) targeting 4.7.0
-3. Re-`sha256sum` both; `grep` the sentinel
+1. Clone 4.6.1 to `/scratch/s4a`; insert a sentinel comment into `hooks/shared/command_policy.py`; `sha256sum` it
+2. Run `bash hooks/local/bootstrap-upgrade.sh --auto-yes` targeting 4.7.0
+3. Re-`sha256sum`; `grep` the sentinel; inspect the report
 
-Expected: report lists `hooks/shared/command_policy.py` under **`changed-by-both`**; sentinel still present; its hash unchanged. Control file hash **changed** to the 4.7.0 content.
-Pass criterion: all four observations. Two distinct failure modes are being excluded at once — (i) sentinel gone = the overwrite defect is unfixed; (ii) control file unchanged = base synthesis failed, every path fell to `unknown-base`, and the "successful" upgrade silently installed nothing. A run that preserves everything is **not** a pass.
-Preserved-but-unreported is also a **FAIL** (AC15 — the consumer's core complaint was not being told which files diverged).
-Ground-truth diagnostic: pre/post `sha256sum` of both files plus the report stdout.
+Expected: non-zero exit (abort); report lists `hooks/shared/command_policy.py` under **`changed-by-both`**; sentinel still present; hash unchanged.
+Pass criterion: all four. Preserved-but-unreported is a **FAIL** (AC15 — the consumer's core complaint was not being told which files diverged). Silently proceeding is a FAIL (K9 row 4).
+Ground-truth diagnostic: pre/post `sha256sum` plus report stdout.
 Adversarial check: the same fixture through the old 4.6.1 `upgrade.sh` must lose the sentinel. If it survives there too, the test is not exercising the overwrite path.
-Evidence dir: `.../S4-*.{log,md}`
+Evidence dir: `.../S4a-*.{log,md}`
+
+### S4b: Base synthesis makes the upgrade actually deliver content
+
+Steps:
+1. Clone 4.6.1 to `/scratch/s4b`, **unmodified**; `sha256sum` a control file that 4.7.0 changes (e.g. `hooks/local/upgrade.sh`)
+2. Run `bash hooks/local/bootstrap-upgrade.sh --auto-yes` targeting 4.7.0
+3. Re-`sha256sum` the control file; read the classification counts in the report
+
+Expected: run completes; control file hash **changed** to 4.7.0 content; report shows a non-zero `upstream-only` count and a zero or near-zero `unknown-base` count.
+Pass criterion: the control file changed. **A run that preserves everything is not a pass** — it means base synthesis failed, every path fell to `unknown-base`, and the upgrade reported success while installing nothing. This is the specific silent failure K13 exists to prevent.
+Ground-truth diagnostic: pre/post `sha256sum` plus the report's per-classification counts.
+Adversarial check: delete the synthesized base mid-run (or point `VERSION` at an unresolvable tag) — the counts must flip to `unknown-base` and the control file must stay unchanged, proving the control assertion is actually sensitive to synthesis.
+Evidence dir: `.../S4b-*.{log,md}`
 
 ### S5: Compound command cannot smuggle an ungated migration
 
