@@ -76,3 +76,14 @@ The pre-commit import closure is complete: `approval_artifact.py` appears in bot
 🧭 Phase: Verify  
 🎫 Ticket: approval-binding-and-upgrade-classification  
 ➡️ Next: Route the BLOCKER/MAJOR table to the AI Developer, then re-review the corrected range.
+---
+
+## PO adjudication (2026-07-28) — one row struck
+
+| Row | Ruling |
+|---|---|
+| MINOR — "`git archive` does not apply `core.autocrlf`; the config passed at bootstrap-upgrade.sh:230 has no EOL-conversion effect" | **STRUCK — empirically false.** The AI Developer implemented the "fix", which caused the entire managed tree to misclassify `changed-by-both` and the upgrade to deliver nothing. PO verified independently on this platform (Git for Windows, MSYS): `git -c core.autocrlf=true archive HEAD` emits **CRLF**; `false` and `input` emit **LF**. The flag is load-bearing. The flag was restored and the comment now records the measurement. `test-upgrade-conflict-classification.sh`'s `core.autocrlf=true` fixture is the standing proof. |
+
+Every other row was actioned — see `docs/specs/approval-binding-and-upgrade-classification/tasks.md` § Corrections round (T17..T29).
+
+**Process note worth keeping:** the AI Developer did not comply with an authoritative-sounding instruction that its own test run contradicted. It reproduced, measured, refuted, and reported. That is the behaviour FR-10 exists to produce, and it is why the corrections round did not ship a regression on a reviewer's incorrect claim.
