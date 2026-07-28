@@ -46,7 +46,7 @@ try:
     # this report can never disagree with them. Replaces the old `expires and expires <
     # now` string compare, under which a missing/empty expires_at read as "valid forever".
     from shared.approval_artifact import (
-        evaluate_artifact, expiry_state, filename_action, is_acceptable, load,
+        accept_with_audit, evaluate_artifact, expiry_state, filename_action, load,
     )
     # strict_approvals (K7) is read from the INSPECTED project's merged policy, not the
     # Flow install's: under strict an expiry-less artifact no longer authorizes anything,
@@ -67,7 +67,11 @@ try:
     # exit 0 (= land in ACTIVE_ARTIFACTS); the new status text goes in the NOTE only.
     # Changing which artifacts exit 0, or the note/array shape, silently breaks that
     # classification.
-    if not is_acceptable(verdict, strict=strict):
+    # TRIPWIRE: accept through accept_with_audit, never bare is_acceptable — a compat
+    # acceptance that leaves no audit entry is the pre-fix silent behaviour (AC11 / K7).
+    if not accept_with_audit(verdict, strict=strict, carrier="active-approvals",
+                             artifact_path=p, action=filename_action(p),
+                             root=Path(project)):
         sys.exit(1)
     status = expiry_state(data)
     expires = (data or {}).get('expires_at', '') or ''

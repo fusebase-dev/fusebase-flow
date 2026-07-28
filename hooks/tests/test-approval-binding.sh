@@ -607,11 +607,24 @@ strict_lib_probe() {   # $1 = strict_approvals value; echoes the ACTIVE_ARTIFACT
     && ffhc_collect_active_approvals >/dev/null 2>&1; echo "${#ACTIVE_ARTIFACTS[@]}" )
 }
 COMPAT_N="$(strict_lib_probe false)"
+STRICT_LIB_LOG="$STRICT_LIB_REPO/state/audit.log.jsonl"
+COMPAT_LOG="$( [ -f "$STRICT_LIB_LOG" ] && cat "$STRICT_LIB_LOG" || echo '' )"
 STRICT_N="$(strict_lib_probe true)"
 if [ "$COMPAT_N" = "1" ] && [ "$STRICT_N" = "0" ]; then
   ok "ac11-active-approvals-honors-strict"
 else
   bad "ac11-active-approvals-honors-strict" "compat=$COMPAT_N (want 1) strict=$STRICT_N (want 0)"
+fi
+
+# T30 discriminator: the health lib accepted through BARE is_acceptable(), so its compat
+# acceptance left no greppable trace at all — AC11 requires every carrier's compat
+# acceptance to be audit-logged and to NAME the accepting carrier.
+if printf '%s' "$COMPAT_LOG" | grep -q 'approval_legacy_accepted' \
+  && printf '%s' "$COMPAT_LOG" | grep -q 'active-approvals'; then
+  ok "ac11-active-approvals-compat-acceptance-audited"
+else
+  bad "ac11-active-approvals-compat-acceptance-audited" \
+    "no approval_legacy_accepted entry naming the active-approvals carrier: ${COMPAT_LOG:-<no log>}"
 fi
 rm -rf "$STRICT_LIB_REPO"
 

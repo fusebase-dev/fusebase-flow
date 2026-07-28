@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "91d6fccde56a05bd6b1c4b0093bbeebd053c9cb07ffbb3256761545562230fdf"
+      "sha256": "019d93b8511fd757a277008bffe1f0ef7602331d17e679c18d121a8873f91c41"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -454,7 +454,7 @@
     },
     {
       "path": "hooks/local/lib/active-approvals.sh",
-      "sha256": "345e631c28ee108c40a9f67e8dd8f6d9b72486e176274cea5d35d44c52ecef26"
+      "sha256": "b12bda4547a5411513ad5dff412ecabe7c20293e9306224346040b32f67d0651"
     },
     {
       "path": "hooks/local/lib/approval_inventory.py",
@@ -786,7 +786,7 @@
     },
     {
       "path": "hooks/tests/test-approval-binding.sh",
-      "sha256": "e9b4ced2801b86f31242ec0f9bbfe16c2c6b6008a292719512689badcd14e5a3"
+      "sha256": "a8b4bbbd2204fae775e61b113118b5eb1741858778c88cb0a8dcb7de1ec00e75"
     },
     {
       "path": "hooks/tests/test-approval-writer.sh",
@@ -1121,5 +1121,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "eb94d9b95627cf8bcd5cd8b8ed9406a959a14b376618c584b7e2f27bf37ceefd"
+  "manifest_self_sha256": "d4bbd45e09707b79da6c0002c6ca37917f559333fb42c2e560e61a1ceb896be9"
 }
