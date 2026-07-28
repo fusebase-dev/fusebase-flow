@@ -402,7 +402,7 @@
     },
     {
       "path": "hooks/tests/test-approval-writer.sh",
-      "sha256": "a5efa7195e3f25bcead10b74e326ebe24b7b85bd2c155aa568468bfc829ac20f"
+      "sha256": "b81a52f83547b31865ad64a40acdd34f8c2bc9293b9f06f7343d0d25b510d246"
     },
     {
       "path": "hooks/tests/test-baseline-merge.sh",
@@ -541,5 +541,5 @@
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "24a4d67e831d4cb42624a60cc6ff2508a4d3bc628b0779102f798fc468e829f4"
+  "manifest_self_sha256": "6b315fff337016ffafd4679b414a220477f9db463e5e2a424a53aba249bbca5b"
 }

@@ -47,15 +47,28 @@ else
   ok "ac10-unknown-action-rejected"
 fi
 
-# Traversal / unsafe slugs -> exit 2 and NO file created.
+# Traversal / unsafe slugs -> exit 2, NO file created, and the SLUG is the stated reason.
+# TRIPWIRE (T32): pass a VALID --command here. Without it the K19 mandatory-command check
+# also exits 2, so a build with slug validation deleted would still pass this block on the
+# wrong rejection — the assertion would stop constraining slug safety entirely.
+writer_err() { ( cd "$WRITER_REPO" && bash hooks/local/approve-local.sh "$@" 2>&1 >/dev/null ); }
 slug_fails=""
 for badslug in '../escape' 'a/b' 'has space' '' "$(printf 'x%.0s' $(seq 1 65))" 'semi;colon'; do
-  if writer production_deploy "$badslug" 'x'; then slug_fails="$slug_fails [$badslug]"; fi
+  if writer production_deploy "$badslug" 'x' --command 'fusebase deploy'; then
+    slug_fails="$slug_fails [accepted:$badslug]"
+  else
+    # An EMPTY slug is caught one layer earlier, by the shell usage guard (a required
+    # positional is absent); every other unsafe slug must hit the slug regex.
+    want='ERROR: slug'; [ -z "$badslug" ] && want='Usage:'
+    printf '%s' "$(writer_err production_deploy "$badslug" 'x' --command 'fusebase deploy')" \
+      | grep -q "$want" ||
+    slug_fails="$slug_fails [not-a-slug-rejection:$badslug]"
+  fi
 done
 if [ -z "$slug_fails" ] && [ "$(approvals_count)" = "0" ]; then
   ok "ac10-unsafe-slug-rejected"
 else
-  bad "ac10-unsafe-slug-rejected" "accepted:$slug_fails count=$(approvals_count)"
+  bad "ac10-unsafe-slug-rejected" "$slug_fails count=$(approvals_count)"
 fi
 
 # AC22 / K19 discriminator: a command-gated action WITHOUT --command must exit 2 and
