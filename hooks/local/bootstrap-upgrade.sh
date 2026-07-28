@@ -125,49 +125,22 @@ ff_git_exclude_backups() {
 }
 ff_git_exclude_backups || echo "[bootstrap-upgrade] WARN: could not update .git/info/exclude — backups may be stageable by a later 'git add -A' (delete or unstage before committing)." >&2
 
-# ---- Step 2: copy the engine scripts in (with backups) ----
-ENGINE_SCRIPTS=(
-  "hooks/local/upgrade.sh"
-  "hooks/local/upgrade-engine.sh"
-  "hooks/local/sync-version-strings.sh"
-  "hooks/local/post-fusebase-update.sh"
-  "hooks/local/mirror-skills.sh"
-  "hooks/local/mirror-agents.sh"
-  "hooks/local/preflight.sh"
-)
-mkdir -p hooks/local
-COPIED=0
-for s in "${ENGINE_SCRIPTS[@]}"; do
-  if [ -f "$SOURCE_CLONE/$s" ]; then
-    if [ -f "$s" ] && ! diff -q "$SOURCE_CLONE/$s" "$s" >/dev/null 2>&1; then
-      cp "$s" "$s.pre-bootstrap-$TS"
-    fi
-    mkdir -p "$(dirname "$s")"
-    cp "$SOURCE_CLONE/$s" "$s"
-    chmod +x "$s" 2>/dev/null || true
-    COPIED=$((COPIED + 1))
-  fi
-done
-# Overlay templates the engine needs (post-fusebase-update / refresh).
-if [ -d "$SOURCE_CLONE/hooks/local/fusebase-flow-overlays" ]; then
-  [ -d hooks/local/fusebase-flow-overlays ] && [ ! -e "hooks/local/fusebase-flow-overlays.pre-bootstrap-$TS" ] && cp -R hooks/local/fusebase-flow-overlays "hooks/local/fusebase-flow-overlays.pre-bootstrap-$TS"
-  mkdir -p hooks/local/fusebase-flow-overlays
-  cp -R "$SOURCE_CLONE/hooks/local/fusebase-flow-overlays/." hooks/local/fusebase-flow-overlays/
-fi
-# Engine-sourced lib dir (hooks/local/lib/). The new upgrade.sh sources its merge
-# rule (merge-module-size-baseline.sh) from here; if it isn't staged before handoff,
-# the merge function is undefined when Step 1a runs and the W2 baseline-clobber fix
-# silently no-ops on the adoption hop. Stage the WHOLE dir (future libs too).
-if [ -d "$SOURCE_CLONE/hooks/local/lib" ]; then
-  [ -d hooks/local/lib ] && [ ! -e "hooks/local/lib.pre-bootstrap-$TS" ] && cp -R hooks/local/lib "hooks/local/lib.pre-bootstrap-$TS"
-  mkdir -p hooks/local/lib
-  cp -R "$SOURCE_CLONE/hooks/local/lib/." hooks/local/lib/
-  chmod +x hooks/local/lib/*.sh 2>/dev/null || true
-fi
-echo "[bootstrap-upgrade] Staged $COPIED engine script(s) + hooks/local/lib/ into hooks/local/ (backups: .pre-bootstrap-$TS)."
-
-if [ ! -x hooks/local/upgrade.sh ] && [ ! -f hooks/local/upgrade.sh ]; then
-  echo "[bootstrap-upgrade] FATAL: upgrade.sh was not staged; cannot continue." >&2
+# ---- Step 2: NOTHING is written here (decision K10/K20) ----
+#
+# TRIPWIRE: this step used to copy the fetched engine scripts and the WHOLE
+# hooks/local/lib/ into the consumer tree BEFORE any classification ran, then exec the
+# installed copy. A later `changed-by-both` abort therefore could not truthfully say
+# "nothing was written", and a consumer's engine/lib customizations were already gone.
+# The engine now runs FROM THE SOURCE CLONE; every managed consumer path — including the
+# engine scripts and hooks/local/lib/ — is written only by upgrade.sh's classified
+# per-file apply loop, which already treats them as managed content.
+#
+# The ONE pre-classification write that remains is Step 2b's audit/managed-content-
+# manifest.json: it is the classifier's own INPUT, not consumer content, and without it
+# the classifier cannot distinguish the consumer's edits from upstream's at all.
+ENGINE_SRC="$SOURCE_CLONE/hooks/local/upgrade.sh"
+if [ ! -f "$ENGINE_SRC" ]; then
+  echo "[bootstrap-upgrade] FATAL: $ENGINE_SRC missing — not a usable source tree." >&2
   exit 1
 fi
 
@@ -217,16 +190,17 @@ ff_synthesize_base() {
     return 1
   fi
   tmp="$(mktemp -d)"
-  # TRIPWIRE (line endings): `git archive` applies the EOL conversion of the repo it runs
-  # in — the staging CLONE, which inherits the machine's global core.autocrlf. On a Windows
-  # consumer that silently produces a CRLF base while their working tree is LF (or the
-  # reverse), so EVERY managed path hashes differently, classifies consumer-divergent, and
-  # the upgrade preserves everything = installs NOTHING. Force the CONSUMER's own
-  # convention so the synthesized base matches what their git actually wrote to disk.
+  # TRIPWIRE (line endings) — VERIFIED, do not "simplify" this away: `git archive` DOES
+  # apply core.autocrlf to files without an eol attribute (measured: autocrlf=true emits
+  # CRLF, false/input emit LF). Without this flag the staging clone's own autocrlf wins and
+  # the synthesized base hashes differ from the consumer's working tree for EVERY managed
+  # path — they then classify changed-by-both and the upgrade aborts having delivered
+  # nothing. Force the CONSUMER's convention so the base matches what their git wrote.
+  # (A 2026-07-28 review claimed archive ignores autocrlf; removing the flag reproduced the
+  # whole-tree misclassification above, so the claim is false on this platform.)
   local eol
   eol="$(git config --get core.autocrlf 2>/dev/null || true)"
   [ -n "$eol" ] || eol="false"
-  # `git archive` reads the tag without touching the clone's checkout or index.
   if ! git -C "$SOURCE_CLONE" -c core.autocrlf="$eol" archive "$tag" | tar -x -C "$tmp" 2>/dev/null; then
     echo "[bootstrap-upgrade] WARN: could not extract $tag — skipping base synthesis." >&2
     rm -rf "$tmp"; return 1
@@ -246,11 +220,11 @@ ff_synthesize_base() {
 }
 ff_synthesize_base || true
 
-# ---- Step 3: hand off to upgrade.sh ----
-echo "[bootstrap-upgrade] Handing off to upgrade.sh ${PASSTHROUGH[*]:-}"
+# ---- Step 3: hand off to the SOURCE engine (never the installed one) ----
+echo "[bootstrap-upgrade] Handing off to $ENGINE_SRC ${PASSTHROUGH[*]:-}"
 echo ""
 if [ "${#PASSTHROUGH[@]}" -gt 0 ]; then
-  exec bash hooks/local/upgrade.sh "${PASSTHROUGH[@]}"
+  exec bash "$ENGINE_SRC" "${PASSTHROUGH[@]}"
 else
-  exec bash hooks/local/upgrade.sh
+  exec bash "$ENGINE_SRC"
 fi

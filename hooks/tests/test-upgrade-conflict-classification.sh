@@ -472,4 +472,83 @@ else
 fi
 rm -rf "$RS_ROOT"
 
+# ---- 6. AC25 / K10+K20: the bootstrap hop writes NOTHING before classification -------
+# T27 discriminator: Step 2 used to copy the fetched engine scripts and the whole
+# hooks/local/lib/ into the consumer, then exec the INSTALLED copy — so a later
+# changed-by-both abort could not truthfully claim "nothing was written", and a consumer's
+# own engine customization was already replaced. The sentinel below lives in
+# hooks/local/upgrade.sh precisely because that is the file Step 2 overwrote first.
+NW_ROOT="$(mktemp -d)"
+NW_UP="$NW_ROOT/up"
+mkdir -p "$NW_UP/hooks/shared" "$NW_UP/hooks/local/lib" "$NW_UP/workflows"
+( cd "$NW_UP" && git init -q && git config user.email t@t.t && git config user.name t \
+    && git config core.autocrlf false )
+echo "4.6.1" > "$NW_UP/VERSION"
+printf 'validator v1\n' > "$NW_UP/hooks/shared/command_policy.py"
+printf 'wf v1\n'        > "$NW_UP/workflows/wf.md"
+cp "$ROOT/hooks/local/lib/managed_content_manifest.py" "$NW_UP/hooks/local/lib/"
+cp "$ROOT/hooks/local/upgrade.sh" "$NW_UP/hooks/local/"
+cp "$ROOT/hooks/local/bootstrap-upgrade.sh" "$NW_UP/hooks/local/"
+( cd "$NW_UP" && git add -A && git commit -qm 'v4.6.1' && git branch -M main && git tag v4.6.1 )
+echo "4.7.0" > "$NW_UP/VERSION"
+printf 'validator v2 upstream rewrite\n' > "$NW_UP/hooks/shared/command_policy.py"
+( cd "$NW_UP" && git add -A && git commit -qm 'v4.7.0' )
+
+NW_C="$NW_ROOT/cons"
+mkdir -p "$NW_C/hooks/shared" "$NW_C/hooks/local/lib" "$NW_C/workflows"
+( cd "$NW_C" && git init -q && git config user.email t@t.t && git config user.name t \
+    && git config core.autocrlf false )
+echo "4.6.1" > "$NW_C/VERSION"
+printf 'validator v1\n# SENTINEL local hardening\n' > "$NW_C/hooks/shared/command_policy.py"
+printf 'wf v1\n' > "$NW_C/workflows/wf.md"
+cp "$ROOT/hooks/local/lib/managed_content_manifest.py" "$NW_C/hooks/local/lib/"
+cp "$ROOT/hooks/local/bootstrap-upgrade.sh" "$NW_C/hooks/local/"
+# The consumer's OWN customization of the engine — Step 2's first casualty pre-correction.
+cp "$ROOT/hooks/local/upgrade.sh" "$NW_C/hooks/local/"
+printf '\n# ENGINE-SENTINEL consumer customization\n' >> "$NW_C/hooks/local/upgrade.sh"
+# Snapshot everything except .git and the transient source clone.
+nw_hash() { ( cd "$NW_C" && find . -path ./.git -prune -o -path ./.fusebase-flow-source -prune \
+  -o -path ./audit -prune -o -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum ); }
+NW_BEFORE="$(nw_hash)"
+( cd "$NW_C" && bash hooks/local/bootstrap-upgrade.sh --repo "$NW_UP" --ref main -- --auto-yes ) \
+    > "$NW_ROOT/log" 2>&1
+NW_RC=$?
+NW_AFTER="$(nw_hash)"
+nw_fail=""
+[ "$NW_RC" -ne 0 ] || nw_fail="$nw_fail [expected an abort on changed-by-both, got rc 0]"
+grep -q "changed-by-both" "$NW_ROOT/log" || nw_fail="$nw_fail [no changed-by-both classification]"
+grep -q "ENGINE-SENTINEL" "$NW_C/hooks/local/upgrade.sh" \
+  || nw_fail="$nw_fail [the consumer's engine customization was replaced BEFORE classification]"
+grep -q "SENTINEL local hardening" "$NW_C/hooks/shared/command_policy.py" \
+  || nw_fail="$nw_fail [the consumer's validator patch was lost]"
+[ "$NW_BEFORE" = "$NW_AFTER" ] \
+  || nw_fail="$nw_fail [tree changed during an aborted hop — 'NOTHING was written' is false]"
+if [ -z "$nw_fail" ]; then
+  ok "ac25-aborted-bootstrap-hop-writes-nothing"
+else
+  bad "ac25-aborted-bootstrap-hop-writes-nothing" "rc=$NW_RC$nw_fail"
+fi
+
+# The non-abort path must still upgrade end-to-end with the engine run from source.
+NW_C2="$NW_ROOT/cons2"
+mkdir -p "$NW_C2/hooks/shared" "$NW_C2/hooks/local/lib" "$NW_C2/workflows"
+( cd "$NW_C2" && git init -q && git config user.email t@t.t && git config user.name t \
+    && git config core.autocrlf false )
+echo "4.6.1" > "$NW_C2/VERSION"
+printf 'validator v1\n' > "$NW_C2/hooks/shared/command_policy.py"
+printf 'wf v1\n' > "$NW_C2/workflows/wf.md"
+cp "$ROOT/hooks/local/lib/managed_content_manifest.py" "$NW_C2/hooks/local/lib/"
+cp "$ROOT/hooks/local/upgrade.sh" "$NW_C2/hooks/local/"
+cp "$ROOT/hooks/local/bootstrap-upgrade.sh" "$NW_C2/hooks/local/"
+( cd "$NW_C2" && bash hooks/local/bootstrap-upgrade.sh --repo "$NW_UP" --ref main -- --auto-yes ) \
+    > "$NW_ROOT/log2" 2>&1
+NW2_RC=$?
+if [ "$NW2_RC" -eq 0 ] && grep -q "validator v2 upstream rewrite" "$NW_C2/hooks/shared/command_policy.py"; then
+  ok "ac25-source-executed-engine-still-upgrades-end-to-end"
+else
+  bad "ac25-source-executed-engine-still-upgrades-end-to-end" \
+      "rc=$NW2_RC $(tail -6 "$NW_ROOT/log2" | tr '\n' '|')"
+fi
+rm -rf "$NW_ROOT"
+
 finish
