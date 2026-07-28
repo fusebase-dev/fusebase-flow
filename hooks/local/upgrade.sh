@@ -171,12 +171,16 @@ SOURCE_CLONE=".fusebase-flow-source"
 AUTO_YES=0
 DRY_RUN=0
 WITH_DOCS=0          # U4: framework docs are NOT copied into the consumer by default
+# TRIPWIRE (K20a): --unsafe-legacy-copy re-enables the pre-4.7.0 destructive whole-tree
+# copy. No diagnostic anywhere may suggest it; it exists only as a deliberate escape.
+UNSAFE_LEGACY=0
 
 for arg in "$@"; do
   case "$arg" in
     --auto-yes|-y) AUTO_YES=1 ;;
     --dry-run|-n) DRY_RUN=1 ;;
     --with-framework-docs) WITH_DOCS=1 ;;
+    --unsafe-legacy-copy) UNSAFE_LEGACY=1 ;;
     --help|-h) sed -n '2,52p' "$0"; exit 0 ;;
     *) echo "Unknown argument: $arg" >&2; echo "Run with --help for usage." >&2; exit 2 ;;
   esac
@@ -230,11 +234,9 @@ echo ""
 # upgrade landed with a version-mismatch ERROR (same installer-parity class as
 # the slash-command gap).
 #
-# K14: the managed list is NOT declared here any more. Its single home is
-# hooks/local/lib/managed_content_manifest.py, read via `list-managed`, so the manifest
-# tooling and this engine can never disagree about what "managed" means. The SOURCE
-# clone's copy is authoritative (it is the incoming definition); the local copy is the
-# fallback, and a hardcoded list remains as a last resort for a pre-4.7.0 source tree.
+# TRIPWIRE (decision K14): the managed list has ONE home — managed_content_manifest.py,
+# read via `list-managed`. Never re-declare it here; the manifest and this engine would
+# drift on what "managed" means. SOURCE clone's copy wins (it is the incoming definition).
 MCM_LIB="hooks/local/lib/managed_content_manifest.py"
 MCM="$SOURCE_CLONE/$MCM_LIB"
 [ -f "$MCM" ] || MCM="$MCM_LIB"
@@ -246,11 +248,29 @@ if [ -f "$MCM" ] && command -v python3 >/dev/null 2>&1; then
   while IFS= read -r line; do [ -n "$line" ] && CONTENT_FILES+=("$line"); done < <(python3 "$MCM" list-managed --files 2>/dev/null)
   [ "${#CONTENT_DIRS[@]}" -gt 0 ] && CLASSIFY_OK=1
 fi
+# FAIL CLOSED (decision K20a). The legacy whole-directory refresh IS the pre-4.7.0
+# overwrite behaviour this release exists to remove, and it bypasses --auto-yes
+# containment entirely. Trigger is "classifier EXPECTED but unavailable" — i.e. the
+# SOURCE tree ships the module — not "classifier absent from the universe": a genuinely
+# pre-4.7.0 source tree has no classification to do and may still upgrade.
+CLASSIFIER_EXPECTED=0
+[ -f "$SOURCE_CLONE/$MCM_LIB" ] && CLASSIFIER_EXPECTED=1
+if [ "$CLASSIFY_OK" -ne 1 ] && [ "$CLASSIFIER_EXPECTED" -eq 1 ] && [ "$UNSAFE_LEGACY" -ne 1 ]; then
+  echo "[upgrade] ABORT: this version ships the conflict classifier, but it cannot run here." >&2
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "          Missing prerequisite: python3 is not on PATH." >&2
+    echo "          Recovery: install Python 3.11+, then re-run this upgrade." >&2
+  else
+    echo "          Missing prerequisite: $MCM_LIB could not be read or listed no managed paths." >&2
+    echo "          Recovery: bash hooks/local/bootstrap-upgrade.sh" >&2
+  fi
+  echo "          NOTHING was written. Proceeding without classification would overwrite" >&2
+  echo "          consumer-edited managed files — the exact defect this release fixes." >&2
+  exit 1
+fi
 if [ "$CLASSIFY_OK" -ne 1 ]; then
-  echo "[upgrade] WARN: managed_content_manifest.py unavailable (pre-4.7.0 source or no python3)." >&2
-  echo "          Falling back to the LEGACY whole-directory refresh — consumer edits to managed" >&2
-  echo "          files will be OVERWRITTEN (no conflict classification). Upgrade via" >&2
-  echo "          'bash hooks/local/bootstrap-upgrade.sh' to get the classifier." >&2
+  echo "[upgrade] WARN: classifier unavailable; using the LEGACY whole-directory refresh." >&2
+  echo "          Consumer edits to managed files WILL be overwritten (no classification)." >&2
   CONTENT_DIRS=( "flow-skills" "agents" "workflows" "policies" "templates" "hooks" ".claude-plugin" ".codex-plugin" )
   CONTENT_FILES=( "FLOW_RULES.md" "FLOW_RULES_HISTORY.md" "audit/hook-layer-manifest.json" )
 fi

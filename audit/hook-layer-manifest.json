@@ -158,7 +158,7 @@
     },
     {
       "path": "hooks/local/upgrade.sh",
-      "sha256": "c006a775aae368b157d39a6c702df4b2cdc074fe49b5af68128b252b8ad1849c"
+      "sha256": "2a52bdb5adef4101924ef339d1435e09f400989d58dfb5a7c7795e78e681a666"
     },
     {
       "path": "hooks/local/verify-gate.sh",
@@ -534,12 +534,12 @@
     },
     {
       "path": "hooks/tests/test-upgrade-conflict-classification.sh",
-      "sha256": "8e0cc999a428e5587c6a279052120357b8510642bbed6d1ca6de9d39b837c670"
+      "sha256": "067122ba1060b92bcbb8559702f4c6b8d1d141deabf3004fd0e9a2898efc8ded"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "d90d8d50e58985b21f583dd3e29dc31db09bb4f0f64d313fb5651fbc69e73274"
+  "manifest_self_sha256": "ca0c497cbdefbb43a2a896ea1af4ee89ee7f96735150f9fb89147c651b4ce2a4"
 }

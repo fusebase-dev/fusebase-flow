@@ -269,6 +269,56 @@ if [ -z "$co2_fail" ]; then
 else
   bad "ac13b-base-refresh-keeps-the-classifier-correct-on-the-next-upgrade" "$co2_fail"
 fi
+# --- 3d. AC23 / K20(a): classifier EXPECTED but unavailable -> abort, write NOTHING.
+# T25 discriminator: pre-correction the engine warned and fell back to the whole-directory
+# copy, overwriting the consumer's edit — the pre-4.7.0 behaviour, reachable on any
+# hooks-off Windows install without python3.
+FC="$(build_case "$E2E_ROOT/fc" "validator v2 upstream rewrite")"
+# Make the classifier unusable while the SOURCE still SHIPS the module (so "classifier
+# expected" is true). Snapshot AFTER the sabotage, so the no-write assertion measures the
+# upgrade run and nothing else.
+mv "$FC/.fusebase-flow-source/hooks/local/lib/managed_content_manifest.py" \
+   "$FC/.fusebase-flow-source/hooks/local/lib/managed_content_manifest.py.disabled"
+: > "$FC/.fusebase-flow-source/hooks/local/lib/managed_content_manifest.py"   # present, lists nothing
+mv "$FC/hooks/local/lib/managed_content_manifest.py" "$FC/hooks/local/lib/mcm.disabled"
+fc_tree_before="$( cd "$FC" && find . -path ./.git -prune -o -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum )"
+FC_LOG="$E2E_ROOT/fc.log"
+( cd "$FC" && bash hooks/local/upgrade.sh --auto-yes ) > "$FC_LOG" 2>&1
+FC_RC=$?
+fc_tree_after="$( cd "$FC" && find . -path ./.git -prune -o -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum )"
+fc_fail=""
+[ "$FC_RC" -ne 0 ] || fc_fail="$fc_fail [classifier-less run exited 0 — it proceeded]"
+grep -q "ABORT" "$FC_LOG" || fc_fail="$fc_fail [no abort diagnostic]"
+grep -q "NOTHING was written" "$FC_LOG" || fc_fail="$fc_fail [abort does not state nothing was written]"
+grep -q -- "--unsafe-legacy-copy" "$FC_LOG" && fc_fail="$fc_fail [a diagnostic SUGGESTED the unsafe flag (K20a forbids)]"
+[ "$fc_tree_before" = "$fc_tree_after" ] || fc_fail="$fc_fail [tree changed during a fail-closed abort]"
+grep -q SENTINEL "$FC/hooks/shared/command_policy.py" || fc_fail="$fc_fail [consumer edit overwritten]"
+if [ -z "$fc_fail" ]; then
+  ok "ac23-classifier-unavailable-fails-closed-and-writes-nothing"
+else
+  bad "ac23-classifier-unavailable-fails-closed-and-writes-nothing" "rc=$FC_RC$fc_fail"
+fi
+
+# --- 3e. AC23: --unsafe-legacy-copy is the ONLY route back to the legacy copy.
+( cd "$FC" && bash hooks/local/upgrade.sh --auto-yes --unsafe-legacy-copy ) > "$E2E_ROOT/fc2.log" 2>&1
+if grep -q "control v2" "$FC/hooks/local/control.sh"; then
+  ok "ac23-unsafe-legacy-copy-is-the-only-legacy-route"
+else
+  bad "ac23-unsafe-legacy-copy-is-the-only-legacy-route" "$(tail -5 "$E2E_ROOT/fc2.log" | tr '\n' '|')"
+fi
+
+# --- 3f. AC23: a genuinely PRE-classifier source tree still upgrades (no false abort).
+PRE="$(build_case "$E2E_ROOT/pre" "validator v1")"
+rm -f "$PRE/.fusebase-flow-source/hooks/local/lib/managed_content_manifest.py" \
+      "$PRE/hooks/local/lib/managed_content_manifest.py"
+( cd "$PRE" && bash hooks/local/upgrade.sh --auto-yes ) > "$E2E_ROOT/pre.log" 2>&1
+PRE_RC=$?
+if [ "$PRE_RC" -eq 0 ] && grep -q "control v2" "$PRE/hooks/local/control.sh"; then
+  ok "ac23-pre-classifier-source-still-upgrades"
+else
+  bad "ac23-pre-classifier-source-still-upgrades" "rc=$PRE_RC $(tail -5 "$E2E_ROOT/pre.log" | tr '\n' '|')"
+fi
+
 rm -rf "$E2E_ROOT"
 
 # ---- 4. AC13b/AC16 base SYNTHESIS through the real bootstrap-upgrade.sh -------------
