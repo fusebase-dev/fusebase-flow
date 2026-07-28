@@ -435,7 +435,97 @@ else
   bad "ac14-denial-message-specific-and-bounded" "$UX_OUT"
 fi
 
-# ---- 5. AC19: no authorship-enforcement claim survives in the canonical files ------
+# ---- 5. AC10: the writer survives adversarial input and validates before writing ---
+# A REAL scratch git repo, because approve-local.sh resolves its root via git.
+WRITER_REPO="$(mktemp -d)"
+mkdir -p "$WRITER_REPO/hooks/local" "$WRITER_REPO/hooks/shared" "$WRITER_REPO/policies"
+cp "$ROOT/hooks/local/approve-local.sh" "$WRITER_REPO/hooks/local/"
+cp "$ROOT/hooks/shared/"*.py            "$WRITER_REPO/hooks/shared/"
+: > "$WRITER_REPO/hooks/shared/__init__.py"
+cp "$ROOT/policies/approval-policy.yml" "$WRITER_REPO/policies/"
+( cd "$WRITER_REPO" && git init -q && git config user.email t@t.t && git config user.name t )
+# TRIPWIRE (MSYS): the python assertions below run under WINDOWS python, which cannot
+# resolve an MSYS "/tmp/..." path. Hand them the native form or every glob silently
+# returns nothing and the test passes/fails for the wrong reason.
+WRITER_REPO_NATIVE="$( cd "$WRITER_REPO" && { pwd -W 2>/dev/null || pwd; } )"
+
+writer() { ( cd "$WRITER_REPO" && bash hooks/local/approve-local.sh "$@" >/dev/null 2>&1 ); }
+approvals_count() { find "$WRITER_REPO/state/approvals" -name '*.json' 2>/dev/null | wc -l | tr -d ' '; }
+
+# Unknown action -> exit 2 and NO file created.
+if writer not_a_real_action myslug 'x'; then
+  bad "ac10-unknown-action-rejected" "exit 0 for an unknown action"
+elif [ "$(approvals_count)" != "0" ]; then
+  bad "ac10-unknown-action-rejected" "an artifact was written for an unknown action"
+else
+  ok "ac10-unknown-action-rejected"
+fi
+
+# Traversal / unsafe slugs -> exit 2 and NO file created.
+slug_fails=""
+for badslug in '../escape' 'a/b' 'has space' '' "$(printf 'x%.0s' $(seq 1 65))" 'semi;colon'; do
+  if writer production_deploy "$badslug" 'x'; then slug_fails="$slug_fails [$badslug]"; fi
+done
+if [ -z "$slug_fails" ] && [ "$(approvals_count)" = "0" ]; then
+  ok "ac10-unsafe-slug-rejected"
+else
+  bad "ac10-unsafe-slug-rejected" "accepted:$slug_fails count=$(approvals_count)"
+fi
+
+# Adversarial reason: quotes, backslash, newline, command substitution, unicode — the
+# artifact must still parse and the value must round-trip EXACTLY.
+ADV_REASON='he said "yes" \ then $(id) `whoami`
+second line — приветÜñî 🚀'
+( cd "$WRITER_REPO" && bash hooks/local/approve-local.sh production_deploy adv-slug "$ADV_REASON" \
+    --command 'fusebase deploy' >/dev/null 2>&1 )
+ADV_OUT="$(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$ROOT" "$WRITER_REPO_NATIVE" "$ADV_REASON" <<'PY' 2>&1
+import json, sys
+from pathlib import Path
+root, repo, expected_reason = Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3]
+sys.path.insert(0, str(root / "hooks"))
+from shared.approval_artifact import (  # noqa: E402
+    Verdict, compute_command_digest, compute_repo_id, evaluate_artifact, load,
+)
+fails = []
+files = sorted((repo / "state" / "approvals").glob("production_deploy-adv-slug-*.json"))
+if len(files) != 1:
+    fails.append(f"expected exactly 1 artifact, found {len(files)}")
+else:
+    art = load(files[0])
+    if art is None or art.data is None:
+        fails.append("artifact did not parse as a JSON object")
+    else:
+        d = art.data
+        if d.get("reason") != expected_reason:
+            fails.append(f"reason did not round-trip exactly: {d.get('reason')!r}")
+        if d.get("schema_version") != 2:
+            fails.append(f"expected schema_version 2, got {d.get('schema_version')!r}")
+        if d.get("action") != "production_deploy":
+            fails.append("body action missing/disagrees with the filename")
+        if d.get("repo_id") != compute_repo_id(repo):
+            fails.append("repo_id absent or not bound to this repo")
+        if d.get("command_digest") != compute_command_digest("fusebase deploy"):
+            fails.append("command_digest absent or wrong")
+        v = evaluate_artifact(d, expected_action="production_deploy",
+                              command_digest=compute_command_digest("fusebase deploy"),
+                              repo_id=compute_repo_id(repo))
+        if v is not Verdict.VALID:
+            fails.append(f"freshly written artifact is not VALID: {v}")
+# No temp files left behind.
+leftovers = list((repo / "state" / "approvals").glob(".approve-local-*"))
+if leftovers:
+    fails.append(f"temp files left behind: {[p.name for p in leftovers]}")
+print(json.dumps(fails))
+PY
+)"
+if [ "$ADV_OUT" = "[]" ]; then
+  ok "ac10-adversarial-values-round-trip"
+else
+  bad "ac10-adversarial-values-round-trip" "$ADV_OUT"
+fi
+rm -rf "$WRITER_REPO"
+
+# ---- 6. AC19: no authorship-enforcement claim survives in the canonical files ------
 AC19_FILES=(
   "policies/approval-policy.yml"
   "flow-skills/role-discipline/references/deploy.md"

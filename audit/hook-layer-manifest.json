@@ -42,7 +42,7 @@
     },
     {
       "path": "hooks/local/approve-local.sh",
-      "sha256": "0a4b0145e5cd90afebdd648837aeb6dc0511d6a5f94a70892bd59d9f173b4d9b"
+      "sha256": "f657cd9fde7ac973f424b03976adb165316985595b19567741e09e01ecf2c993"
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
@@ -382,7 +382,7 @@
     },
     {
       "path": "hooks/tests/test-approval-binding.sh",
-      "sha256": "6386268f693aba006feed8cf09544c873f84b429670ecdbd63b1665fec5d5af4"
+      "sha256": "bf1c6bab8221bffcc734aa4e5259c44cde9f7578175f15e50c21d9f102628036"
     },
     {
       "path": "hooks/tests/test-baseline-merge.sh",
@@ -517,5 +517,5 @@
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "796ffac450914616393daea034dc529ee6389b188f846bccbca26decb3ce37d8"
+  "manifest_self_sha256": "0a86c1beaa26122ecdf8ca405124ff6dc54330b54a52cacffa69c3300187c81f"
 }
