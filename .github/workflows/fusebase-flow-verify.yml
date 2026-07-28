@@ -66,6 +66,13 @@ jobs:
             || (echo "Stale hook-layer manifest; run stamp-hook-manifest.sh and commit." && exit 1)
           bash hooks/local/verify-hook-manifest.sh
 
+      - name: Managed-content manifest freshness (upgrade-classifier base)
+        run: |
+          bash hooks/local/stamp-managed-content-manifest.sh
+          git diff --exit-code -- audit/managed-content-manifest.json \
+            || (echo "Stale managed-content manifest; run stamp-managed-content-manifest.sh and commit. A stale base makes the upgrade classifier misread consumer edits." && exit 1)
+          bash hooks/local/verify-managed-content-manifest.sh
+
       - name: Module-size ratchet (FR-25, full scan vs committed baseline)
         run: bash hooks/local/check-module-size.sh --all
 

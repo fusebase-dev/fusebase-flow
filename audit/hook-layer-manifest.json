@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.6.1",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 128,
+  "asset_count": 133,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -77,6 +77,10 @@
       "sha256": "4466b6d9c7c8fb06c47dd32bdc83a92d028647fe9787078711613e66b87ad5fe"
     },
     {
+      "path": "hooks/local/lib/approval_inventory.py",
+      "sha256": "1a0b64ab2b859687fec0530610875e0ebee5d07ecdc526ee90e196f351ab1e70"
+    },
+    {
       "path": "hooks/local/lib/bounded-run.sh",
       "sha256": "91bea5023707011070f522ecf7070242923528ea1bdd843faf726a0aba6d8e77"
     },
@@ -86,7 +90,11 @@
     },
     {
       "path": "hooks/local/lib/hook_manifest.py",
-      "sha256": "929fd4a0b3ae5dd38042f19d75236d5fab3cdb4ca1e1d78299a381305c0a642b"
+      "sha256": "08c7c312eaeb95a6e5632498fa910113f438afcd2e2a52e24e0e06b3a26e8ad9"
+    },
+    {
+      "path": "hooks/local/lib/managed_content_manifest.py",
+      "sha256": "e7449f442c82741da4c7aebe98b13ab20023040ec4ed04ad18fae383e842c0cc"
     },
     {
       "path": "hooks/local/lib/merge-module-size-baseline.sh",
@@ -137,6 +145,10 @@
       "sha256": "46f4818e9dc040f599d83751824b8a4248ba4cfb1950b6073995e356007f10ce"
     },
     {
+      "path": "hooks/local/stamp-managed-content-manifest.sh",
+      "sha256": "439a14f98a2cb6f1abb2fb5dcf8d378f04bf99a05209efef48827ea744882413"
+    },
+    {
       "path": "hooks/local/sync-version-strings.sh",
       "sha256": "fc1d5444fd96715b6aa5a8a5c23bee11ab3ff4c85cc86be08e6c8fcee53e82e2"
     },
@@ -155,6 +167,10 @@
     {
       "path": "hooks/local/verify-hook-manifest.sh",
       "sha256": "f475298d092e728a78d8d6e52c9f2d9ebc131b367b11a60883c1e82291fb2b24"
+    },
+    {
+      "path": "hooks/local/verify-managed-content-manifest.sh",
+      "sha256": "f9abeb3ca67cabe80cbcc0fb86eede67f4c0b1ee5668040e8e20b3de9389b658"
     },
     {
       "path": "hooks/local/write-bootstrap-approval.sh",
@@ -374,7 +390,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "1a2a7d0b362785020abf345e308b57d41e0a7986e459839f627d06bcd79684c4"
+      "sha256": "2c2126cf2b3ab3e7550f1eced9aab4d9188afdff68c3b9bf03e0b69e0d06b15a"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -513,9 +529,13 @@
       "sha256": "d8c1432f112a1f586f3f86cff6e602933cf82776fea0df0820d61eb0e99cc414"
     },
     {
+      "path": "hooks/tests/test-upgrade-conflict-classification.sh",
+      "sha256": "4f6d06dae36af272ba6212ebb057d2e0cdc1ccc61c2bf89eab1ed8f4527a8e8d"
+    },
+    {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "bcf1771ffc0c30c363b35d7eacbf91c9652dee84807b79344d5a48a060e9f33b"
+  "manifest_self_sha256": "ae3846fa92636af082958ed405ce0b0233f2a132033b42013e4052491ddb5bbe"
 }

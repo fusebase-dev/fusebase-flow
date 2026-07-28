@@ -93,9 +93,13 @@ def collect_assets(root: Path) -> list[str]:
     # hooks/local/*.sh EXCLUDING *.local.* (operator overrides, preserved on upgrade)
     out += [f for f in _files_in(root, "hooks/local")
             if f.suffix == ".sh" and ".local." not in f.name]
-    # hooks/local/lib/* : *.sh + the manifest lib hook_manifest.py (covers itself)
+    # hooks/local/lib/* : *.sh + ALL *.py (this module covers itself).
+    # TRIPWIRE: the old form named hook_manifest.py explicitly, so every LATER local-lib
+    # Python (managed_content_manifest.py, approval_inventory.py, …) landed OUTSIDE
+    # integrity coverage — a silent hole that grows with each addition. Keep this as a
+    # suffix rule, never a filename allow-list.
     out += [f for f in _files_in(root, "hooks/local/lib")
-            if f.suffix == ".sh" or f.name == "hook_manifest.py"]
+            if f.suffix in (".sh", ".py")]
     return sorted(_rel(root, f) for f in out)
 
 

@@ -1,0 +1,1121 @@
+{
+  "schema_version": 1,
+  "flow_version": "4.6.1",
+  "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
+  "asset_count": 278,
+  "assets": [
+    {
+      "path": ".claude-plugin/marketplace.json",
+      "sha256": "8f3f447078d7f3ef665213f34d735a3a59350f9f1033477c1a47332b50b9ac4b"
+    },
+    {
+      "path": ".claude-plugin/plugin.json",
+      "sha256": "f45a1b603fcce0e13e77a0619d3b1dac33eef31f3c9aa5421ba14f78c33262ac"
+    },
+    {
+      "path": ".codex-plugin/plugin.json",
+      "sha256": "e5ef36f11cde4a311153b3d567cb4a094cec92563ab407056f1708450c08e284"
+    },
+    {
+      "path": "FLOW_RULES.md",
+      "sha256": "478da11de81541e0dbed13917f08c851983d23acf4c9e7a82030315ac8103bf5"
+    },
+    {
+      "path": "FLOW_RULES_HISTORY.md",
+      "sha256": "9401aa55b480d1860548d17153c1480a559112c2d037f6239ee80957573a1edf"
+    },
+    {
+      "path": "agents/ai-developer/AGENT.md",
+      "sha256": "b1599f6f9842aa11c216361e6df9d2d5b43e3d3955f3f66e19656d867dbb5bf7"
+    },
+    {
+      "path": "agents/product-owner/AGENT.md",
+      "sha256": "c2ea2b4f3090099ff3ff796e77824700df0b99e646c9fd746760fd3988ed129e"
+    },
+    {
+      "path": "audit/hook-layer-manifest.json",
+      "sha256": "ff804c4db088c1a09a77731b91a659df0688da9d2e7dfe2c3fe5ea68c5cd98e1"
+    },
+    {
+      "path": "flow-skills/app-quality-patterns/SKILL.md",
+      "sha256": "ce3cdcd35fb57c31dba0be38382b39e479e4666d60d5b66434e0908b95469884"
+    },
+    {
+      "path": "flow-skills/app-quality-patterns/references/data-integrity.md",
+      "sha256": "4ad0bdc4a237d609e70a827c347ec41068d967296b598e32560beeb7d3d5423a"
+    },
+    {
+      "path": "flow-skills/app-quality-patterns/references/state-and-navigation.md",
+      "sha256": "4abad99a33df7a6d409b0969831588d15b38e312cd5ebde1afda3876a4ee65ae"
+    },
+    {
+      "path": "flow-skills/app-quality-patterns/references/ui-polish.md",
+      "sha256": "53d5be00e1a2346cd1bdce0c4b9320d02c7146e69f3c75e1cf9521c54563c6d6"
+    },
+    {
+      "path": "flow-skills/business-logic-guardian/SKILL.md",
+      "sha256": "1da34d3d70ca69e9aca78a34bd43de45fed5909e1ae6af6f4fa5d4b4d2d6c18a"
+    },
+    {
+      "path": "flow-skills/client-vs-internal/SKILL.md",
+      "sha256": "614ac467d2a7f62fb9b1748db59453f9768fc9a073171888d66549e7540fd3d2"
+    },
+    {
+      "path": "flow-skills/code-review/SKILL.md",
+      "sha256": "998a5d1e2981113b7eedb9c34c61ef794e3f289fe47fe31387f5415ef0aa5442"
+    },
+    {
+      "path": "flow-skills/comment-policy/SKILL.md",
+      "sha256": "816fac77e995b6fcf5e8bfcb4800b1ba81a2c3ed65aa918711a25d11c2363403"
+    },
+    {
+      "path": "flow-skills/comment-policy/references/audit-prompt.md",
+      "sha256": "5a949b4e7906f6df6eff74a7e5247c4157a07934e3183ff6a2131e1a41c9874c"
+    },
+    {
+      "path": "flow-skills/communication/SKILL.md",
+      "sha256": "91f95da9e5b23735c7a7281d6ccae6afb8cf27435b1a04dacfb0bb58b20f2f8a"
+    },
+    {
+      "path": "flow-skills/communication/references/mode-b-detail.md",
+      "sha256": "806d7e0e9bc090e8f5baf3606923d2ba2ab2543943175648db35635ad03161a7"
+    },
+    {
+      "path": "flow-skills/communication/references/patterns.md",
+      "sha256": "224e6828d4a631f2ceb081b38aff41ef1aa0e74779236464e05693800beac84d"
+    },
+    {
+      "path": "flow-skills/design-discovery-ideation/SKILL.md",
+      "sha256": "90d5b0219d6802dc47e3d51e11ad0177dba45c502dff60c5298c317b69b16d79"
+    },
+    {
+      "path": "flow-skills/documentation-budget/SKILL.md",
+      "sha256": "ac49c0e5f603674cb33b27f1c95282d82b1d9cdbd09f86832165eccf2aa7c612"
+    },
+    {
+      "path": "flow-skills/find-wasted-code/SKILL.md",
+      "sha256": "d8a047a79ba9157fb499c1797bd0c2afa0a6c6b3c0f5b103e340e9ec707e6307"
+    },
+    {
+      "path": "flow-skills/find-wasted-code/references/false-positive-examples.md",
+      "sha256": "17271bda4e86a68ae7b52eba04b56e22685ed67f66d57b4eca461d1631e3d2c8"
+    },
+    {
+      "path": "flow-skills/find-wasted-code/references/rule-catalog.md",
+      "sha256": "adff1098f447a9dfeda830545bba7df48e8064324f3bd8c31844565b013d6036"
+    },
+    {
+      "path": "flow-skills/find-wasted-effort/SKILL.md",
+      "sha256": "0a88ec0440f42d4bff5a96b1da8885d623c874b1de0cd556ac6087ebc5ad91a7"
+    },
+    {
+      "path": "flow-skills/find-wasted-effort/references/false-positive-examples.md",
+      "sha256": "889674d446a1849c9aef72cf27ae724388fe3599e4f379fe62411ca2c2ba128f"
+    },
+    {
+      "path": "flow-skills/find-wasted-effort/references/rule-signatures.md",
+      "sha256": "f115cc035a5ba4c34130e22216f49a5535e11264c50073a335f61105f993afb6"
+    },
+    {
+      "path": "flow-skills/fusebase-flow-health-check/SKILL.md",
+      "sha256": "0c4f2a7cd493c7addef32d53da0446cbd51b25ae9cbd7c65c1c1baa9110a1199"
+    },
+    {
+      "path": "flow-skills/git-history-diagnostic/SKILL.md",
+      "sha256": "c6d7cb33a4c64db6464dcfff158d00cf84d3b802f5bbd2afa6592c3d0614890c"
+    },
+    {
+      "path": "flow-skills/handoff/SKILL.md",
+      "sha256": "b7b08faabb8152d672415957bea0f695a55b2b931bd9056c11ec6d5d1181ea2c"
+    },
+    {
+      "path": "flow-skills/implementation-planning/SKILL.md",
+      "sha256": "09e39f95ae6895aea8c958579b4e2a5d7679e03c33e50751e4ebbf8729ccc6a0"
+    },
+    {
+      "path": "flow-skills/lightweight-lane/SKILL.md",
+      "sha256": "439591ad0c686c4b2a5bd59de47ca739f34bc118f19cca411683fc7093f0247c"
+    },
+    {
+      "path": "flow-skills/liveness-discipline/SKILL.md",
+      "sha256": "c5b50984fe8a571e130a9315ee18659db01615e3570d8d0a7bcd0073a671c960"
+    },
+    {
+      "path": "flow-skills/module-size-discipline/SKILL.md",
+      "sha256": "192702fd3774df95f6c1bbac08a58fce0e36603ee594bd43df7e8dfcb18d6120"
+    },
+    {
+      "path": "flow-skills/north-star/SKILL.md",
+      "sha256": "53d83bae6f5539c134a995c80ec3ef9f59178b9aee7e2cd8870c73379c7ba89d"
+    },
+    {
+      "path": "flow-skills/phase-audit/SKILL.md",
+      "sha256": "7410f5a2f6d1b9eb5ebf57849fa4378dc3fac059c02637ec913acc1ef8b3e5ae"
+    },
+    {
+      "path": "flow-skills/product-apps-decomposition/SKILL.md",
+      "sha256": "1f189351b44ed93203f777cba55d3a58f76fabaaed1ab9fd2437ba5e50f96e4b"
+    },
+    {
+      "path": "flow-skills/product-docs-first/SKILL.md",
+      "sha256": "ed929e9b96570425d7d9a939c544f68520fedcaa0917dbb3b6f27157ee4d198a"
+    },
+    {
+      "path": "flow-skills/product-owner/SKILL.md",
+      "sha256": "b347f9a30616da84662a1a7fc0e40a7e5a236b9986b98bbedb69db91f0e2adc8"
+    },
+    {
+      "path": "flow-skills/project-onboarding/SKILL.md",
+      "sha256": "bd0eb1bc5f11a4c8f0bd76a3e383d05015fc28e6a1b165a7bef01d3f7176db82"
+    },
+    {
+      "path": "flow-skills/release-deploy-reporting/SKILL.md",
+      "sha256": "5970d19f7accfccc6cb6090f32594b093f6ee79a4edb1a47f02aad4c6dc734a7"
+    },
+    {
+      "path": "flow-skills/repo-onboarding-context-map/SKILL.md",
+      "sha256": "d0e8c40165353b454a7ee48cc77edc77bc136de1e35cafef1cd86046ed1c19c0"
+    },
+    {
+      "path": "flow-skills/requirements-specification/SKILL.md",
+      "sha256": "497d6128bee8d9c70f90091ac6f54d0ea4efc38dcf2e7d8883fd88be68ccf57a"
+    },
+    {
+      "path": "flow-skills/role-discipline/SKILL.md",
+      "sha256": "fa5f1094b89e3409a599351274ba92712d2f24ddc27c2bd5fe0e27bd91ad26ef"
+    },
+    {
+      "path": "flow-skills/role-discipline/references/ai-developer.md",
+      "sha256": "140da055ffd1d560bec5b504c21dfa7194901af089be4ad12c66c60935e5a657"
+    },
+    {
+      "path": "flow-skills/role-discipline/references/architect.md",
+      "sha256": "fd7f0edf600a618b34284e61025b7ad97ad51fd2e2dfa005eec6596cac996744"
+    },
+    {
+      "path": "flow-skills/role-discipline/references/deploy.md",
+      "sha256": "73eff3ff2efe2426cdc4224adc92eb7371688352b3b452e8cee3e7c87c9c3b67"
+    },
+    {
+      "path": "flow-skills/role-discipline/references/product-owner.md",
+      "sha256": "2910f4f0d6dca8c717868efcb0e9db32aa1d8975a1b39e056a780f5b0655297c"
+    },
+    {
+      "path": "flow-skills/role-discipline/references/shared-protocols.md",
+      "sha256": "efd466729e6c87e0c0a907ad043f5a45f0d8dc6cb7ba5c081ef9c88e1797c971"
+    },
+    {
+      "path": "flow-skills/security-permissions-review/SKILL.md",
+      "sha256": "23dfff25d3f60fff9d3f8d34e1fd40a46bc24b26b0e2bb8554159b4dd0016825"
+    },
+    {
+      "path": "flow-skills/skill-authoring/SKILL.md",
+      "sha256": "7a42bdeda00698c6dc8b0e95139ce2610a3e1a15e690fefa56d83353a0053b28"
+    },
+    {
+      "path": "flow-skills/smoke-testing/SKILL.md",
+      "sha256": "d2119105bac78b7d0b5321675b02f033e240583ae4b8d5aad42b6d9325364317"
+    },
+    {
+      "path": "flow-skills/task-delegation/SKILL.md",
+      "sha256": "57da477cf03e740cd909f3f2b92ecb247e2c595c6bdaec7e8820537b57d7501f"
+    },
+    {
+      "path": "flow-skills/token-economy/SKILL.md",
+      "sha256": "c4606dc4f8c62097b3527f0ef9a2a380536cf11ce10d6d0b6794985c85e26f19"
+    },
+    {
+      "path": "flow-skills/validation-and-qa/SKILL.md",
+      "sha256": "cbb67cbe7478fd784d1d4136800a5295b42d08bc62b23cda58bb54cbaa8ed5b7"
+    },
+    {
+      "path": "flow-skills/zoom-out/SKILL.md",
+      "sha256": "dac07aad392bd8151730330f37b1f037c5f80b7e1876b356005971fcfcd37d55"
+    },
+    {
+      "path": "hooks/README.md",
+      "sha256": "f8ba0131e69362b948dced7ddd104e2a30023d057cb3d5f672e7ad71db6e62a0"
+    },
+    {
+      "path": "hooks/flow_hook_event.schema.json",
+      "sha256": "91c2c13d343e9e2e22a26f83cedf2f1537e4183f63938907e4b1b97f99958755"
+    },
+    {
+      "path": "hooks/git/commit-msg",
+      "sha256": "7c29acf5623ad5299a3f4de7d094d19c5bbc90dd5c3bd2002a63151e88a6af78"
+    },
+    {
+      "path": "hooks/git/pre-commit",
+      "sha256": "efa1f73bfd07778d896ec4679519cec34e05105d4573edc0e08022fc7837f87b"
+    },
+    {
+      "path": "hooks/handlers/permission_request.py",
+      "sha256": "cc116436a133342473dd2a8f05d43b96c504c3e3d4570b7f4bdc399431203354"
+    },
+    {
+      "path": "hooks/handlers/post_tool_use.py",
+      "sha256": "05aff11ae8dca5bb800bd8cb885ceff3bbe46cd9abdde340546279c2b6b315a2"
+    },
+    {
+      "path": "hooks/handlers/pre_compact.py",
+      "sha256": "a0bcc95bdd5bceff2d2afae920a268c72ba61f56478427ec34343d3d662a3ac0"
+    },
+    {
+      "path": "hooks/handlers/pre_tool_use.py",
+      "sha256": "47c3d9cb28b95b2f419616c7ef78b401b71b9ff50e0d3b3825eef39a09c5ff99"
+    },
+    {
+      "path": "hooks/handlers/session_start.py",
+      "sha256": "4430cfd70e22c567d82a7678b3fa31eee6182334c5f2b4af3af645854bf1ed09"
+    },
+    {
+      "path": "hooks/handlers/stop.py",
+      "sha256": "bdf79237c2fef5567fe5f3ab5876d9b31a07702a04cfb5fb51268e216a3668f2"
+    },
+    {
+      "path": "hooks/handlers/user_prompt_submit.py",
+      "sha256": "d3afc54547241943beaf7c37e8520fab92493c8ea19452cce5d042bc40679710"
+    },
+    {
+      "path": "hooks/local/approve-local.sh",
+      "sha256": "6f25842ecd87df5e8b63748f51340ff393656121e7b57a919339b75d849a7a16"
+    },
+    {
+      "path": "hooks/local/bootstrap-upgrade.sh",
+      "sha256": "003b10970ca4d1641d0c6794e7de523d742dad4f8522f5ea59560abedd0697d9"
+    },
+    {
+      "path": "hooks/local/check-cli-flow-conflicts.sh",
+      "sha256": "044c69e7688c441a9595827345457f9d0d633e591107909123462cc24c4288f2"
+    },
+    {
+      "path": "hooks/local/check-module-size.sh",
+      "sha256": "e9d192b09e351091350d6d4b6f04e865f5611f5268bd0c5c4a24d5cbcd83d582"
+    },
+    {
+      "path": "hooks/local/eslint-ignore-flow-paths.sh",
+      "sha256": "5d3d4850be3892a2cad07b7d8b914cd2d6dbd77dec30aff5c06e3b8aaefeee39"
+    },
+    {
+      "path": "hooks/local/find-wasted-code.py",
+      "sha256": "42f4fcf7f3a7319f9a0e7581631ecbb6567d3ce43dd2152433edd348d37aa125"
+    },
+    {
+      "path": "hooks/local/find-wasted-effort.py",
+      "sha256": "adb4a6d78a509c7c6bac7b06baeb946f772afc3ba10379ae8e1f9a3fb4eb6ac3"
+    },
+    {
+      "path": "hooks/local/find_wasted_code/__init__.py",
+      "sha256": "336c95e8959c6d5f189c7d6dbb49d89158c4a12b53bd18e7f475265496ab436d"
+    },
+    {
+      "path": "hooks/local/find_wasted_code/constants.py",
+      "sha256": "89f9b70434e45aaa7a636fc81d176d910127442ff1d13817c50801915577d94c"
+    },
+    {
+      "path": "hooks/local/find_wasted_code/engine.py",
+      "sha256": "92c8fe102d30125646093a29f588fdad39205604892b4b52a1ad8c366a1e8647"
+    },
+    {
+      "path": "hooks/local/find_wasted_code/inventory.py",
+      "sha256": "e6792203cceb72d16dd812bf7f7c7e76d1826286ee2e6a69647fd6a0c3763259"
+    },
+    {
+      "path": "hooks/local/find_wasted_code/markdown.py",
+      "sha256": "57c0280679fecd1c56f3d164e649b853055e314a502043c0d67e0e33981e8c30"
+    },
+    {
+      "path": "hooks/local/find_wasted_code/model.py",
+      "sha256": "16c7e5454ac1e33b8a6aab9e8f4da62b8200d975710b54b234ae507fddd714a6"
+    },
+    {
+      "path": "hooks/local/find_wasted_code/report.py",
+      "sha256": "7c3e7b5cd86ba540ea7b81af7ce6341c63535dac8465834e19b274a14605b0f5"
+    },
+    {
+      "path": "hooks/local/find_wasted_code/rules_config.py",
+      "sha256": "a488ef5a23bedd7771d163dd6fed594aedb93c1cfbb07bfc7a14ff37068b71a7"
+    },
+    {
+      "path": "hooks/local/find_wasted_code/rules_links.py",
+      "sha256": "f1964d0f74a6e8afd9dcecec236ae85f9f88156837f3b186aff0baaf1bfe2606"
+    },
+    {
+      "path": "hooks/local/find_wasted_code/rules_refs.py",
+      "sha256": "b378a9b6b1d1f271d126d8d60cc9e15a799b72c3ecf7ddb9d743f20ae93c81cd"
+    },
+    {
+      "path": "hooks/local/find_wasted_code/rules_swallow.py",
+      "sha256": "077970133d71b1d4ae6174b128e743a21af7c7326c845591897aa25dbc435982"
+    },
+    {
+      "path": "hooks/local/find_wasted_code/selftest.py",
+      "sha256": "365323cb526a914c96c893803f8d6c5aea426c791e665d27023f52b1ba0eac05"
+    },
+    {
+      "path": "hooks/local/find_wasted_code/writer.py",
+      "sha256": "5947e1ee361859685ee22f4acd71b095fc436503034ce2cc56d170e38a23c29a"
+    },
+    {
+      "path": "hooks/local/find_wasted_effort/__init__.py",
+      "sha256": "60c33c3814e9fe266860ee84bab9dbe926387332cc1e78847e1a7656f503018f"
+    },
+    {
+      "path": "hooks/local/find_wasted_effort/constants.py",
+      "sha256": "801c87c44a146157cf018b4ebb121c52622cfbe3e889fd1a82158a59f15e3c8e"
+    },
+    {
+      "path": "hooks/local/find_wasted_effort/evidence.py",
+      "sha256": "89377d4208f43cd3231f2a3462e8fc5f1dec7c7a0248f2eecc5fda24a2fb425a"
+    },
+    {
+      "path": "hooks/local/find_wasted_effort/proposals.py",
+      "sha256": "c3b5871320c9fdb845cde2fe8df3f290120fdcd9a62ce0fdc24a6bb2b03995b1"
+    },
+    {
+      "path": "hooks/local/find_wasted_effort/rules.py",
+      "sha256": "f50ffe48edafe97fb97b4d9241e9631d077a5911f6902be60246bd58af0b5164"
+    },
+    {
+      "path": "hooks/local/find_wasted_effort/selftest.py",
+      "sha256": "715dc58236974d9a3b6a4d650da5636ef4d40a6bd121c7fab744f5ee88dd73af"
+    },
+    {
+      "path": "hooks/local/find_wasted_effort/selftest_containment.py",
+      "sha256": "60377f4f77b023275ab88006d1f2ba88a7b0110433eb2dcf089e2265335977e3"
+    },
+    {
+      "path": "hooks/local/find_wasted_effort/selftest_e2e.py",
+      "sha256": "49e18f9cb732c0b88c681bfad0734d682d43b333f2ea285e32330952dcbfb7d3"
+    },
+    {
+      "path": "hooks/local/find_wasted_effort/selftest_proposals.py",
+      "sha256": "44315d555f5f340ac814562b3f4cb42d13a037cf394bc957446a6a8aedcf7577"
+    },
+    {
+      "path": "hooks/local/fusebase-flow-health-check.sh",
+      "sha256": "2432cf17f31c93156db3b05cdbfa0b600a0b98ef150596cbd28116d252760e0d"
+    },
+    {
+      "path": "hooks/local/fusebase-flow-overlays/agent-surface-ownership.json",
+      "sha256": "8ed489706e1cb63ae9b4e4f27ea75b78fb2f2ef8011298afe7adfc7c1a507157"
+    },
+    {
+      "path": "hooks/local/fusebase-flow-overlays/agents-md-overlay.md",
+      "sha256": "4d6152bca6a69e7f7771444fbbb78db585cf1b9921864e7b33c86dac3f63638f"
+    },
+    {
+      "path": "hooks/local/fusebase-flow-overlays/claude-md-overlay.md",
+      "sha256": "e234dbec841d08b2f835988f9536bf6e4fc42161de4f0e03eeb0e3efd7acaf7e"
+    },
+    {
+      "path": "hooks/local/fusebase-flow-overlays/commands/find-wasted-code.md",
+      "sha256": "77ba093fb04339ac160af59a38c315d527e1087ecf989d93a967678b7daf2ac6"
+    },
+    {
+      "path": "hooks/local/fusebase-flow-overlays/commands/find-wasted-effort.md",
+      "sha256": "aec44f9f5cb40d659f5db2d831be73fc6476883325e915ca2cc7eca2451e7541"
+    },
+    {
+      "path": "hooks/local/fusebase-flow-overlays/commands/fusebase-health.md",
+      "sha256": "b0ae8facfcac9e34f4ebb5e135b6f6f039367bfb9bce04e3c4c4052a871cc2b5"
+    },
+    {
+      "path": "hooks/local/fusebase-flow-overlays/commands/handoff.md",
+      "sha256": "505c253c17ecbf53265062ced2a0d60913c0ee140f2eac4e3bed8cba05ef52ca"
+    },
+    {
+      "path": "hooks/local/fusebase-flow-overlays/commands/onboard.md",
+      "sha256": "e5ee367b775c33529f6283b0fa66339f02c80b6985cac6f3323fe2e52b462037"
+    },
+    {
+      "path": "hooks/local/fusebase-flow-overlays/commands/product-owner.md",
+      "sha256": "9cbbd391af016884c3b56fdaeb564b2bfa1cd21a6b231abbd753987748314f05"
+    },
+    {
+      "path": "hooks/local/fusebase-flow-overlays/commands/token-waste-audit.md",
+      "sha256": "9a78c15eae7cb45b8f351adf4ff1e88b5084c81af60de2961994d3287b6caf35"
+    },
+    {
+      "path": "hooks/local/fusebase-flow-overlays/settings-json-merge.py",
+      "sha256": "980a34926edd89daab47dc3d8556ace8c8ee32b4348889b37d8f97e3ed2d4bda"
+    },
+    {
+      "path": "hooks/local/fusebase-flow-overlays/skills/fusebase-flow-health-check/SKILL.md",
+      "sha256": "0c4f2a7cd493c7addef32d53da0446cbd51b25ae9cbd7c65c1c1baa9110a1199"
+    },
+    {
+      "path": "hooks/local/install-codex-prompts.sh",
+      "sha256": "58f58b1e4ae627c9c0d065e7ae6e97f8ee5f577a75630f2316ef8084eadf5de8"
+    },
+    {
+      "path": "hooks/local/install-git-hooks.sh",
+      "sha256": "fec2a318700e263d62c5008e09544dab077d19c631da2c32d2e5f16f94e8afca"
+    },
+    {
+      "path": "hooks/local/lib/active-approvals.sh",
+      "sha256": "4466b6d9c7c8fb06c47dd32bdc83a92d028647fe9787078711613e66b87ad5fe"
+    },
+    {
+      "path": "hooks/local/lib/approval_inventory.py",
+      "sha256": "1a0b64ab2b859687fec0530610875e0ebee5d07ecdc526ee90e196f351ab1e70"
+    },
+    {
+      "path": "hooks/local/lib/bounded-run.sh",
+      "sha256": "91bea5023707011070f522ecf7070242923528ea1bdd843faf726a0aba6d8e77"
+    },
+    {
+      "path": "hooks/local/lib/hook-integrity-check.sh",
+      "sha256": "5cee38a35f4df33399f67d4d0ec5e667272a850ee9af845d1be3033f07f54cb7"
+    },
+    {
+      "path": "hooks/local/lib/hook_manifest.py",
+      "sha256": "08c7c312eaeb95a6e5632498fa910113f438afcd2e2a52e24e0e06b3a26e8ad9"
+    },
+    {
+      "path": "hooks/local/lib/managed_content_manifest.py",
+      "sha256": "e7449f442c82741da4c7aebe98b13ab20023040ec4ed04ad18fae383e842c0cc"
+    },
+    {
+      "path": "hooks/local/lib/merge-module-size-baseline.sh",
+      "sha256": "857ffb7b3341e44d7bad2c5c66c7fa86fbe89ccc1579de095a826b3d41f42b27"
+    },
+    {
+      "path": "hooks/local/lib/partial-upgrade-check.sh",
+      "sha256": "42f58e83b6c0aa7ee6d8d80a702759dd5b41c2d9a549282a5cccd54c14cfa452"
+    },
+    {
+      "path": "hooks/local/lib/run-with-timeout.sh",
+      "sha256": "e3af00a7bbe258e4815772514c9cbc82ef3df50ea3b05efbaf91a1e24866f8ad"
+    },
+    {
+      "path": "hooks/local/mirror-agents.sh",
+      "sha256": "71c17db5a2fb1af251ceb43a2f7f6ee703c51bef87f5beace6ee200f0b048f59"
+    },
+    {
+      "path": "hooks/local/mirror-skills.sh",
+      "sha256": "9a41cac23267e7839b5964b2c8eeabfc8e3ed2044672a0a2e54668d4882bc9e5"
+    },
+    {
+      "path": "hooks/local/po-investigate.sh",
+      "sha256": "76179cfdb3851defb66e4ae3a1f155b0587b9892763c228d6bd2d34a04d16547"
+    },
+    {
+      "path": "hooks/local/post-fusebase-update.sh",
+      "sha256": "cd4c2cb28ff2e975ed89c73837bd7c6d96cd647361804606614e0fefe6680f4f"
+    },
+    {
+      "path": "hooks/local/preflight.sh",
+      "sha256": "d28daac73aa29449f29af49f334e91d21996fc4841f1d18d96827ba5757767aa"
+    },
+    {
+      "path": "hooks/local/rule-inventory.sh",
+      "sha256": "46c93fc2aef389f70912b98648fe367e6e737334353505467d6f7a8247dc5abe"
+    },
+    {
+      "path": "hooks/local/run-handler.sh",
+      "sha256": "3083e36fe46a5e376692e9e6e800ae75f5d892afc6d8ad45a4a33e489da26492"
+    },
+    {
+      "path": "hooks/local/stamp-cli-provenance.sh",
+      "sha256": "76f186c58322f5ab2318f13afb26bcae37e8dcaf81f5cf15b9b69f2ff1ed3041"
+    },
+    {
+      "path": "hooks/local/stamp-hook-manifest.sh",
+      "sha256": "46f4818e9dc040f599d83751824b8a4248ba4cfb1950b6073995e356007f10ce"
+    },
+    {
+      "path": "hooks/local/stamp-managed-content-manifest.sh",
+      "sha256": "439a14f98a2cb6f1abb2fb5dcf8d378f04bf99a05209efef48827ea744882413"
+    },
+    {
+      "path": "hooks/local/sync-version-strings.sh",
+      "sha256": "fc1d5444fd96715b6aa5a8a5c23bee11ab3ff4c85cc86be08e6c8fcee53e82e2"
+    },
+    {
+      "path": "hooks/local/token-waste-audit.py",
+      "sha256": "b158adf3e2b13ff9ec63493c965f6e52fac75375e7226b525a3f5b1cc5f82f68"
+    },
+    {
+      "path": "hooks/local/upgrade-engine.sh",
+      "sha256": "fe134863a4b09e2ca6f5f3e1f08e1b1121e8b83c63c4bf0c88d3fa2fe758bdec"
+    },
+    {
+      "path": "hooks/local/upgrade.sh",
+      "sha256": "51c13460c7925ce453d19e356a143f54f41eeabb5b9d335e059cc9082cb840e9"
+    },
+    {
+      "path": "hooks/local/verify-gate.sh",
+      "sha256": "e9b2d13e9eca2b611d5ef0a8752bf213ca06c66903c622e50cb7f0d09d8ddf8f"
+    },
+    {
+      "path": "hooks/local/verify-hook-manifest.sh",
+      "sha256": "f475298d092e728a78d8d6e52c9f2d9ebc131b367b11a60883c1e82291fb2b24"
+    },
+    {
+      "path": "hooks/local/verify-managed-content-manifest.sh",
+      "sha256": "f9abeb3ca67cabe80cbcc0fb86eede67f4c0b1ee5668040e8e20b3de9389b658"
+    },
+    {
+      "path": "hooks/local/write-bootstrap-approval.sh",
+      "sha256": "0e2f5ec285a93ab119c24b464bed7556e8d7188480b868236c38b8f5d22f794b"
+    },
+    {
+      "path": "hooks/requirements.txt",
+      "sha256": "63daf72404eb71177e26c560daf8257d7bcb63dd791983e048848cd88ae94fc8"
+    },
+    {
+      "path": "hooks/shared/__init__.py",
+      "sha256": "a17fa14158188b1c02621a2d5cad7a96470578b007abb973a7327a6a00163538"
+    },
+    {
+      "path": "hooks/shared/approval_artifact.py",
+      "sha256": "1f1d2ea9ed7e7e11ed812ce688e2495571a9d84af5a3017e58d0210fdd697112"
+    },
+    {
+      "path": "hooks/shared/audit_logger.py",
+      "sha256": "69355d2cfb94e5efd9a71bbaa543e764d342f3c7687d45cb2030049ee5a1012a"
+    },
+    {
+      "path": "hooks/shared/command_policy.py",
+      "sha256": "5af1247c22119a9b36f96178c1e3d1fb3e5f0c7375543798691e3dd14aec4647"
+    },
+    {
+      "path": "hooks/shared/command_rules.py",
+      "sha256": "80eb6a768dcdf171219b25511a6896123effa83ecea62f92d05cbfad014bf9f7"
+    },
+    {
+      "path": "hooks/shared/denial_message.py",
+      "sha256": "06ef4c99fe7e72f4785fe9c76b58dce0c22b9216bc1ee2c4211816b260c0c1f8"
+    },
+    {
+      "path": "hooks/shared/git_utils.py",
+      "sha256": "2e86be791cfe5e2b895e91875f93dd97dd4e88e1b2856a9525bcb9e2b8c1aee7"
+    },
+    {
+      "path": "hooks/shared/module_size.py",
+      "sha256": "da74a713f30c28f0f980829b7fe7df134de3d94670635a9b452cfc9b9fbcee56"
+    },
+    {
+      "path": "hooks/shared/path_policy.py",
+      "sha256": "c63cb129ffd7b6aa37b85e9d2ac807f893560b0b1954ffceb6d7d89a9e7aac6c"
+    },
+    {
+      "path": "hooks/shared/policy_loader.py",
+      "sha256": "b3761a81151973a02e543b2f8347bc764259546d10879da99dbfc628df17af5a"
+    },
+    {
+      "path": "hooks/shared/secret_scanner.py",
+      "sha256": "fecb30ef246aaf2dc90dc55200de5d1b0bab92242c8cbbd5cbd3e9c0d8d784fa"
+    },
+    {
+      "path": "hooks/shared/staged_secret_scan.py",
+      "sha256": "4d7e59cbdd0fffa1fc3ffe7dcf937c372ff232c70d45c497c0b56e2fde8b3e8a"
+    },
+    {
+      "path": "hooks/tests/fixtures/01_pre_tool_use_blocked_rm_rf.json",
+      "sha256": "d230bb78f29ae09df9355de659cfa7f6f63309a17df0732b633cb98fc60fef2e"
+    },
+    {
+      "path": "hooks/tests/fixtures/02_pre_tool_use_blocked_git_add_dot.json",
+      "sha256": "f82bdc0926ebce5abded500a3420495408e9153303c19175c3e51aca4585f92a"
+    },
+    {
+      "path": "hooks/tests/fixtures/03_pre_tool_use_blocked_git_add_A.json",
+      "sha256": "9ddb19037a3d044f4da4b1b37416e25731ce2e39200398c291b0604b3c5368d1"
+    },
+    {
+      "path": "hooks/tests/fixtures/04_pre_tool_use_blocked_git_reset_hard.json",
+      "sha256": "447ec0a153ea34c588e6c0265cc602b4fe015f144ac5742ce9dc0b6d41788643"
+    },
+    {
+      "path": "hooks/tests/fixtures/05_pre_tool_use_blocked_no_verify.json",
+      "sha256": "8fbadfdcad6bc297f22247312f987fe12348443ff35730ea91bf95db61711de4"
+    },
+    {
+      "path": "hooks/tests/fixtures/06_pre_tool_use_blocked_env_write.json",
+      "sha256": "2a72336905b66ca06e49591a28dcc6f1a9d6667799123065bf78e665615037cc"
+    },
+    {
+      "path": "hooks/tests/fixtures/07_pre_tool_use_blocked_protected_path_edit.json",
+      "sha256": "c5dff9e183c28eeace17a684bfec84633d26bcbe6a6a7c55b24fc1c4e40242d5"
+    },
+    {
+      "path": "hooks/tests/fixtures/08_pre_tool_use_allowed_harmless.json",
+      "sha256": "e307340d541d4860332b2c11275440e978f7b54d0d2e654a455ecce6ca15f17a"
+    },
+    {
+      "path": "hooks/tests/fixtures/09_stop_blocks_done_without_gate.json",
+      "sha256": "5fdae9411914a9f770b7cca21039a138ccbf5fe750a5bf892544803eec55ab93"
+    },
+    {
+      "path": "hooks/tests/fixtures/10_user_prompt_submit_secret.json",
+      "sha256": "052a2dfa5a5bcd91d1a9b5941ef221650c389494dc7389d40c052e86f0e3474a"
+    },
+    {
+      "path": "hooks/tests/fixtures/11_pre_tool_use_secret_in_write.json",
+      "sha256": "7742b8ec023c561bbcfdd773b31d94ca754ebbc665f168b56ea9b3cd5b71f333"
+    },
+    {
+      "path": "hooks/tests/fixtures/12_pre_tool_use_cookie_escalation.json",
+      "sha256": "81741933f964591f14ab92571819fbbd3178869830343f99ac5c92f9ae69aa7e"
+    },
+    {
+      "path": "hooks/tests/fixtures/13_stop_blocks_deploy_complete_without_cleanup_marker.json",
+      "sha256": "f8717bd5cae71ba9466aabfd3a59ae97f56bb607e96813fb636d3d0851fecadb"
+    },
+    {
+      "path": "hooks/tests/fixtures/14_stop_allows_deploy_complete_with_cleanup_marker.json",
+      "sha256": "aea438ef3b4c424542da13f6e08734376207274c41829b0ea1b4b45923cb52e7"
+    },
+    {
+      "path": "hooks/tests/fixtures/15_stop_allows_lightweight_deploy_complete.json",
+      "sha256": "6e0b730f474b01d22b4678e4bf60d97e07b36c447886cdde1c8d0d0d43440ff8"
+    },
+    {
+      "path": "hooks/tests/fixtures/16_stop_blocks_lightweight_deploy_complete_without_rollback.json",
+      "sha256": "9f5caed50d0364f7fd680967a23de043b3b37e98c6a79b338f81021004319cc5"
+    },
+    {
+      "path": "hooks/tests/fixtures/17_user_prompt_submit_native_prompt_key_secret.json",
+      "sha256": "925b573244642720eb4b30314b1278efffeee299da21c718168d60874cf3d7d2"
+    },
+    {
+      "path": "hooks/tests/fixtures/18_stop_native_transcript_doneclaim.json",
+      "sha256": "7e9361518496e0839137bfb4a0f27625ae90a37d086eede1e92d3f7678eb90ed"
+    },
+    {
+      "path": "hooks/tests/fixtures/18_stop_native_transcript_doneclaim_transcript.jsonl",
+      "sha256": "ae5a2beabfb1e065d89a61cb8914369c074a49b3ec9a51350332beef63b85f0a"
+    },
+    {
+      "path": "hooks/tests/fixtures/19_stop_native_transcript_midclaim_no_overtrigger.json",
+      "sha256": "ce11524d1fbe2692abeb81d9291f29ee3daaa4a7cb8d9bbfeeeea502a7da3c68"
+    },
+    {
+      "path": "hooks/tests/fixtures/19_stop_native_transcript_midclaim_no_overtrigger_transcript.jsonl",
+      "sha256": "59633135d9663b43186b6a406ade86a8e4bda7d25f3c3ee6ebf280112f267927"
+    },
+    {
+      "path": "hooks/tests/fixtures/20_stop_native_corrupt_transcript_claim_failclosed.json",
+      "sha256": "4bc8c6306499047dd70e8d41a908a2981006a3602add139cc4b6d1b9d6a1d1df"
+    },
+    {
+      "path": "hooks/tests/fixtures/20_stop_native_corrupt_transcript_claim_failclosed_transcript.jsonl",
+      "sha256": "1d590694d49cda27def0cbb41711019ce7acbc0a190b5c9cf29e9fb744a58073"
+    },
+    {
+      "path": "hooks/tests/fixtures/21_stop_native_corrupt_transcript_noclaim_allow.json",
+      "sha256": "92d9cac51aa108e5c939c525c738263a4ffa29335fa23ac112703741df16cb2b"
+    },
+    {
+      "path": "hooks/tests/fixtures/21_stop_native_corrupt_transcript_noclaim_allow_transcript.jsonl",
+      "sha256": "6cc8959562dac385b31da1f5dd304b00de4e374fc0c76327876cd329a7a37575"
+    },
+    {
+      "path": "hooks/tests/fixtures/22_pre_tool_use_compound_requires_all_actions.json",
+      "sha256": "4882cca0cd521738ebeb5a86d0422a34d49486c950196041c4eb86c80afa8204"
+    },
+    {
+      "path": "hooks/tests/fixtures/23_permission_request_compound_requires_all_actions.json",
+      "sha256": "4c8ca97bfae21f837b4405f01a82b0fee6df0bc8048379791316eb3368a8c0c2"
+    },
+    {
+      "path": "hooks/tests/fixtures/token-waste-01-growing-tail-classified.jsonl",
+      "sha256": "88f6a2c6b2513495353f209b3c846890349068b3cb8d7c7b1a5ba3733e11efec"
+    },
+    {
+      "path": "hooks/tests/fixtures/token-waste-02-size-differs-only-live.jsonl",
+      "sha256": "196474f65e1909da413c3abe748ca58dd52b2fde7d7095dbd3f10a99883570aa"
+    },
+    {
+      "path": "hooks/tests/fixtures/token-waste-03-intervening-write-live.jsonl",
+      "sha256": "0f100ca7af33be2fd998d67e01f688b04ed9a1520a08533258306c6095b28146"
+    },
+    {
+      "path": "hooks/tests/fixtures/token-waste-04-compaction-live.jsonl",
+      "sha256": "2952334700a1df2ecf764873603594d8308db995a0217fa12cd0b455a555b3a7"
+    },
+    {
+      "path": "hooks/tests/fixtures/token-waste-05-error-result-live.jsonl",
+      "sha256": "a21e6df68fef633aacb992f5c3ed77760e80c9628e90d46faaaa143b9da61867"
+    },
+    {
+      "path": "hooks/tests/fixtures/token-waste-06-probe-triple-classified.jsonl",
+      "sha256": "87d9ef716f0234e6398a2c522bb1997f9a518a1c0ceadd90de12814927aa4ba0"
+    },
+    {
+      "path": "hooks/tests/fixtures/token-waste-07-nonprobe-triple-live.jsonl",
+      "sha256": "de6a9d3495e83ebb2a8e18f7b1386c41e4dfaefbf258000c0700d1fc6ed444d0"
+    },
+    {
+      "path": "hooks/tests/fixtures/token-waste-08-nonprobe-quad-live.jsonl",
+      "sha256": "0265929488879115a0ed19be0da2b424a6717552be2fd5eeb2d7d790856dc70e"
+    },
+    {
+      "path": "hooks/tests/fixtures/token-waste-09-unparseable.jsonl",
+      "sha256": "0fea9fae9410836f9bf7436b295f0992980816c7d2ee4e7d38c4aa185a93127e"
+    },
+    {
+      "path": "hooks/tests/fixtures/token-waste-10-clean.jsonl",
+      "sha256": "af51c695e2e864d730047768be8088eca859afb9f57bccc8079b5c75991f1344"
+    },
+    {
+      "path": "hooks/tests/fixtures/token-waste-11-arg-position-status-live.jsonl",
+      "sha256": "075e04b9243fa4e676beaa6b5d81bd60cb08ba873bce25753180d844d2d9aa64"
+    },
+    {
+      "path": "hooks/tests/fixtures/token-waste-12-mutating-arg-status-live.jsonl",
+      "sha256": "a4c4eff5b326b61f71ff58c0d285d35e9fe6bb0740653e5b6f1d0e39591f0ad2"
+    },
+    {
+      "path": "hooks/tests/fixtures/token-waste-13-probe-plus-mutation-live.jsonl",
+      "sha256": "c79bd5cc130f9d37e358054942d454959f066e6636ff171c1dd577568aab6818"
+    },
+    {
+      "path": "hooks/tests/fixtures/token-waste-14-path-alias-write-live.jsonl",
+      "sha256": "0722710725d845e8e6aeaa79aed07062d98ff06e5894874a405ac41aa5d4c2d1"
+    },
+    {
+      "path": "hooks/tests/run-tests.sh",
+      "sha256": "2c2126cf2b3ab3e7550f1eced9aab4d9188afdff68c3b9bf03e0b69e0d06b15a"
+    },
+    {
+      "path": "hooks/tests/run_hook_tests.py",
+      "sha256": "0297b578d9becb2fb1f0f5515c0bb3fc8a7303226fd55b1db45a0ea023e840ca"
+    },
+    {
+      "path": "hooks/tests/test-approval-binding.sh",
+      "sha256": "ba07e7f9dc529d06ce2143a637cdff68f774d3592efd2c440462558083da5849"
+    },
+    {
+      "path": "hooks/tests/test-baseline-merge.sh",
+      "sha256": "a7b98dfe67ebb5edcc25c29c7f4ddef8be52772a88d530e81d0d5da947ea981e"
+    },
+    {
+      "path": "hooks/tests/test-boot-size.sh",
+      "sha256": "867344bad32b43490070bf0bbce473c722df7dd1c62d9038a5a7df88962188cf"
+    },
+    {
+      "path": "hooks/tests/test-bootstrap-baseline-hop.sh",
+      "sha256": "c28a91c849403bf9d49e811faeaa29a0c1acf14c3e831da01131631473089552"
+    },
+    {
+      "path": "hooks/tests/test-bootstrap-exception.sh",
+      "sha256": "ca14d770d5889291603692c926df7c69ec412295b324289e799d0ebf6e10ffad"
+    },
+    {
+      "path": "hooks/tests/test-budget-literals.sh",
+      "sha256": "59b06caea2738ec3508d9f20d5431c162904fe6ec15bffe4b32b93d5dd238be4"
+    },
+    {
+      "path": "hooks/tests/test-cli-0259-compat.sh",
+      "sha256": "9ab052a30a5803dafc5f0982d026fb9aea151a3e8777fa7c5685f80976c40f72"
+    },
+    {
+      "path": "hooks/tests/test-cli-flow-recovery.sh",
+      "sha256": "34d959e61086e0fa9a7243a1783c9f63501077625ba454f90e3ce5e32a060e6f"
+    },
+    {
+      "path": "hooks/tests/test-codex-plugin-surface.sh",
+      "sha256": "37802315cb8c146bc4fcc9dc6bd55f9e6f6f9aa3de93a8435faaa99c2c5dbfdb"
+    },
+    {
+      "path": "hooks/tests/test-codex-prompt-parity.sh",
+      "sha256": "78cc3c4bc3c88f96357b73d4a252b4d3fd9adc369a2011f13ed0322fed9eedb4"
+    },
+    {
+      "path": "hooks/tests/test-command-policy.sh",
+      "sha256": "2451368e0ead29de9c1d570931fd276f95560667650250d96943f5b05d9e3450"
+    },
+    {
+      "path": "hooks/tests/test-ff-only.sh",
+      "sha256": "82e145dbb8c0a5eaf39c7288b3825dab445b1678ebcd8c5a49719e4d5a37ef9a"
+    },
+    {
+      "path": "hooks/tests/test-fr22-delivery-guarantee.sh",
+      "sha256": "7c5863819c7b787e15da35f6bb03e6623fd961680d6fb687f35b665cb8f4c524"
+    },
+    {
+      "path": "hooks/tests/test-git-hooks-smoke.sh",
+      "sha256": "1af42dd316bc6a86a3712c6cda5f6c6b5162b8ae1fae13aa9d7a6bcde5ca7ed3"
+    },
+    {
+      "path": "hooks/tests/test-health-check-timeout.sh",
+      "sha256": "d9fc588399d0934e697fd354e9930a52f75b02316b2f53845ba9e8b319d64546"
+    },
+    {
+      "path": "hooks/tests/test-history-extraction.sh",
+      "sha256": "088723a81418a0c1abb2519b513f0f0788524c27b3fcfb4145d7168afdc6be7a"
+    },
+    {
+      "path": "hooks/tests/test-hook-install-rc.sh",
+      "sha256": "163c95777b76956acfcc742095db59c76198db4512e5766eec34b1ca50f1ccb2"
+    },
+    {
+      "path": "hooks/tests/test-hook-manifest.sh",
+      "sha256": "8945ab2633994e5065d92c4b2ac9019e90439295cb5829be4e29570741380175"
+    },
+    {
+      "path": "hooks/tests/test-liveness-bounded-run.sh",
+      "sha256": "8cf77264557d373e7fee0a1e51086a0ec7d7766f049afa9c5f7422be8322a513"
+    },
+    {
+      "path": "hooks/tests/test-module-size.sh",
+      "sha256": "c7f4d1a904477bf46b0be740bd2d9e1ffd8acb1e4ce92424aed6b1d366f41ece"
+    },
+    {
+      "path": "hooks/tests/test-msys-tree-cleanup.sh",
+      "sha256": "78b08b615ed412139f902d33b54bed3b0c9e57664dc9062e99f99f91ac8378e7"
+    },
+    {
+      "path": "hooks/tests/test-newline-preserve.sh",
+      "sha256": "f0da399c294dcd11bd1ab2fd9a4707988b2d03c8fa651ed1a6b953baea188a0d"
+    },
+    {
+      "path": "hooks/tests/test-po-investigate.sh",
+      "sha256": "76ec2e8fb0e7475f2fb0b4ba6f85eaaaba31c4e175544738dbb4ca5954a1055e"
+    },
+    {
+      "path": "hooks/tests/test-po-verifiable-boot.sh",
+      "sha256": "8c77c806e4d777788746d26dc6ebf9ba2457a85415ad52d8deb31af3e6cac100"
+    },
+    {
+      "path": "hooks/tests/test-policy-state-preserve.sh",
+      "sha256": "8e766d89a53130139fb210dbfe5ede6c50ddaf917d7ef3df4c0a04526a12e8f3"
+    },
+    {
+      "path": "hooks/tests/test-prohibition-residency.sh",
+      "sha256": "0cc3f4dedf67e5a95306b2a90a5ebf335bf7729644312dc21572febd1ed1b69c"
+    },
+    {
+      "path": "hooks/tests/test-return-budget.sh",
+      "sha256": "3ac21faf7cb0f80db76185d0f9d440fdf3c4257cd65dffe9004e087b8ec0f8a6"
+    },
+    {
+      "path": "hooks/tests/test-rule-inventory.sh",
+      "sha256": "3311c5ecb7e6f85e2b66fb01ee55b3e654231087ca621c0378501d3491f3c7f8"
+    },
+    {
+      "path": "hooks/tests/test-secret-scan-staged.sh",
+      "sha256": "613f960b44d760381edb3b55b55d3b1fc4b21be3cc8f7c134f05f8dc9760fb05"
+    },
+    {
+      "path": "hooks/tests/test-supersede-primitive.sh",
+      "sha256": "3395081243826f4a2d4b7e0a94852912669f184a68d1b3da20381f89769bd741"
+    },
+    {
+      "path": "hooks/tests/test-sync-allowlist.sh",
+      "sha256": "3cf389b71cf039a48ddcf823e042f961be61afae8a94224306a7bf1015e165ee"
+    },
+    {
+      "path": "hooks/tests/test-token-waste-classify.sh",
+      "sha256": "a8073ab3429801666b80d93f175c0f434501492abb5a978df35f20ff9315c62e"
+    },
+    {
+      "path": "hooks/tests/test-trusted-enforcer.sh",
+      "sha256": "d8c1432f112a1f586f3f86cff6e602933cf82776fea0df0820d61eb0e99cc414"
+    },
+    {
+      "path": "hooks/tests/test-upgrade-conflict-classification.sh",
+      "sha256": "4f6d06dae36af272ba6212ebb057d2e0cdc1ccc61c2bf89eab1ed8f4527a8e8d"
+    },
+    {
+      "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
+      "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
+    },
+    {
+      "path": "policies/approval-policy.yml",
+      "sha256": "6e8190a381d3ae29d613f15bb8bc9f8f750a7830b9e12d2629cc6224aa935c5c"
+    },
+    {
+      "path": "policies/command-policy.yml",
+      "sha256": "a7eb580932288b1f6b8582fb71d63b3bda7c205f336db9c3a35cf68f9ed691d0"
+    },
+    {
+      "path": "policies/comment-policy.yml",
+      "sha256": "337da41f3331371c3514f487afefe4bb5f68b68fe0fef9c834619449e4812ca7"
+    },
+    {
+      "path": "policies/gate-contracts.yml",
+      "sha256": "b2af0efc5dadf48a007a03f20d05483d804077fd40b4a8966522a8e9d6773a5d"
+    },
+    {
+      "path": "policies/module-size-baseline.txt",
+      "sha256": "ddc1f5d99e2fe9f21bacb6fed30204202424e5bc0c377c27d41f8e4ac710ae73"
+    },
+    {
+      "path": "policies/module-size.yml",
+      "sha256": "cd603634033c3eb68970210d5d2a0762c3fd0ee01ec53c36a8f4644ec7374f2f"
+    },
+    {
+      "path": "policies/protected-paths.yml",
+      "sha256": "6512a266a351c005374713adcdb41a0de4ea0c179df0d071c7a9dd5399e15973"
+    },
+    {
+      "path": "policies/ratchet-governance.yml",
+      "sha256": "1fcd760290733ba6094394438c69349f45d2f9a08d3a5ee0e50b9f6c6692b991"
+    },
+    {
+      "path": "policies/required-artifacts.yml",
+      "sha256": "6e513250d009539091785060db3292a29d49d8c590490c60229f444ceba4418e"
+    },
+    {
+      "path": "policies/secret-patterns.yml",
+      "sha256": "3ae1ef5658b7760b7d9d64ab136af4c431dd45c3554368d9f25494316d41ed0c"
+    },
+    {
+      "path": "templates/architect-response.md",
+      "sha256": "cd5827716bb50a9cae3e07858a5f793a4a14d867bc6c3bcee5552b1f7b1c7d54"
+    },
+    {
+      "path": "templates/audience.md",
+      "sha256": "2c92f93baafca054694f9e69c9726680c7f54f6f103e7069dc10842e1acea927"
+    },
+    {
+      "path": "templates/backlog-ticket-README.md",
+      "sha256": "84688d4e6392e2111ea97f7cc7e5907bf277735ef89c28f7aff93b0f90229cf4"
+    },
+    {
+      "path": "templates/business-logic-index.md",
+      "sha256": "6e377baafe0138f2f80e070faf3bd0785eae28453611b3b16cbfd8dd2b3f366c"
+    },
+    {
+      "path": "templates/business-logic.md",
+      "sha256": "cd7ea053f5f3995a9d024e4407cad7a922b87ad95856622edd68f1977daf28f6"
+    },
+    {
+      "path": "templates/change-note.md",
+      "sha256": "cbd5679d64cac31ada4ecbc7e190b6c92790375592d3496d0188d19376835f4c"
+    },
+    {
+      "path": "templates/clarify-conversation.md",
+      "sha256": "1704c9288ae864136c30803f6fc463d1c793ea7e90a482991d3e3b858101918a"
+    },
+    {
+      "path": "templates/decisions.md",
+      "sha256": "fff65ae8d808dae86559e0ca568b795f6403909f7476423066dc5dd98b47338f"
+    },
+    {
+      "path": "templates/deploy-report.md",
+      "sha256": "04ddb9d1a508e702af25235cbc9cd3e554e486daae1d8491276c2fc3dc993067"
+    },
+    {
+      "path": "templates/gate-report.md",
+      "sha256": "16611ab5d19d0b9575e58098468ffddedcf68208016ccd308a606db3cba0636c"
+    },
+    {
+      "path": "templates/handoff-deploy.md",
+      "sha256": "d3b50b9fc571e85e75793e1e18d1e793cb99ec00d2110a0081555778b3314902"
+    },
+    {
+      "path": "templates/handoff-folder-README.md",
+      "sha256": "935c6cf03ff56a109ea2abbc00589582d2e66106fbebc0dc23473c0ebd9ea5b6"
+    },
+    {
+      "path": "templates/handoff-implement.md",
+      "sha256": "23d85fc43218267f1925cae04f4a408882cfacd166af25da195d18565c22f3f3"
+    },
+    {
+      "path": "templates/handoff.md",
+      "sha256": "e1108e4741369366d1a57608ee124584f4f13c8e10128947600be829c029741f"
+    },
+    {
+      "path": "templates/north-star.md",
+      "sha256": "473b8bc42932392157eb1bcabc445f92a33e3aac0b308e12a3e3ed93ca659219"
+    },
+    {
+      "path": "templates/problem-catalog-entry.md",
+      "sha256": "093824d66fd60fc75f03bca4eff9b266a2806b81fc4c81906ee0ee301a98df2a"
+    },
+    {
+      "path": "templates/product.md",
+      "sha256": "044b25a9884256240f286891d4dda23b97fc32f20175c6c6b23f525169dd4399"
+    },
+    {
+      "path": "templates/references/architect-response-checklist.md",
+      "sha256": "14ff2b073e22202eacb6fb30686d5408f77899b28f098e8a9f41b7212429c7ba"
+    },
+    {
+      "path": "templates/references/deploy-report-checklist.md",
+      "sha256": "fd52a7447c3bab81d7de9fe94b4519b353917d15c706d584403de4d54a3a5bc8"
+    },
+    {
+      "path": "templates/references/gate-report-checklist.md",
+      "sha256": "05f6ebf8d624838f48575aa522b18d84e93ca6aa7f6a0fbc1df000c2ee1e662d"
+    },
+    {
+      "path": "templates/skill-template.md",
+      "sha256": "06a3d1bcb1190fbd3852ed241d75d5ac110f543cf76f5cd35cc7b39ff9ae5277"
+    },
+    {
+      "path": "templates/smoke-test-playwright.md",
+      "sha256": "e07a23e4739fe7b625291a8fcbb8d9e11f2a494a96ba14485514ba5172ff0b13"
+    },
+    {
+      "path": "templates/spec.md",
+      "sha256": "9efd9aa7186e9247d2d02e148074b861ab852db22f349f9b6ffb645d05c895c2"
+    },
+    {
+      "path": "templates/tasks.md",
+      "sha256": "7a44638354e524674409ef856d8f168d89109bed79c804cdbde43cc0571b50e7"
+    },
+    {
+      "path": "templates/verification-gate.md",
+      "sha256": "de90ef2662797e0334f04130288d465d21d0d527162573e167c138f2dcbf8074"
+    },
+    {
+      "path": "workflows/architect-escalation.md",
+      "sha256": "f354e39bc1db884bb793967a5637d12434d2ae82ff880ba056036360f7eeb1bd"
+    },
+    {
+      "path": "workflows/eight-phase-flow.md",
+      "sha256": "37b650e7e3a98f112cd1bdccaf6f7eda93082c871d5322fcef9faa38be2528a0"
+    },
+    {
+      "path": "workflows/git-discipline.md",
+      "sha256": "f3e32bdf67c22e0c672babc424d46926fa0efafd77c83a26a15612bb28122704"
+    },
+    {
+      "path": "workflows/greenlight-deploy.md",
+      "sha256": "d7b62f16f62df65f09c4aa170bfdffcfccc6630ac5f4b7f675fa93a8345904a2"
+    },
+    {
+      "path": "workflows/greenlight-implement.md",
+      "sha256": "1eded6166ca2965df4b39fac4a60950c44a41dcf05677e72ac92511e87be9668"
+    },
+    {
+      "path": "workflows/knowledge-curation.md",
+      "sha256": "991d8d144d5c569a20696ff0a9d88db68be80ec1c63c2342990a01df14dffd9e"
+    },
+    {
+      "path": "workflows/lightweight-lane.md",
+      "sha256": "373d95b469353b692f378226159bf7f41194ac2038f3d0429e6c306af500032c"
+    },
+    {
+      "path": "workflows/live-user-verification.md",
+      "sha256": "fdc0bb12a6e3614250697fe17f656f85aeaa26b58adbdf83808edab15bf540b2"
+    },
+    {
+      "path": "workflows/session-initiation.md",
+      "sha256": "112d37d1db72e69c7c53a2e4b2ba67c2aa85534da43433918818ed3bce85429c"
+    },
+    {
+      "path": "workflows/setup.md",
+      "sha256": "ebc115cb1d1bceca699931dd5d15264b23ee3d0554c5a32ce5af1ec7e501e4dd"
+    },
+    {
+      "path": "workflows/smoke-verification.md",
+      "sha256": "f9e2579c9c2e3d07e592f042e9095bbba3abf3c7b73cc1bd2f245074d4ea639f"
+    },
+    {
+      "path": "workflows/verification-gate.md",
+      "sha256": "60781966114bfd22a77e8e6fc9b5450f2e69d0d6c89f61e0b36a6a48285c073c"
+    },
+    {
+      "path": "workflows/violation-recovery.md",
+      "sha256": "ed43aa0c28536f4eaf8849e5c6a08de409c07b6ebcd12dd9cf8f02f835829968"
+    }
+  ],
+  "manifest_self_sha256": "5be04d6e0edf9936c40d3ed97a27a93c6a9db07e06f7d9082291494b5da1e641"
+}
