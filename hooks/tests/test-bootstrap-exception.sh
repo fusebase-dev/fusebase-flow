@@ -636,4 +636,134 @@ else
   bad "16-outer-git-list-rc-guard-present" "outer git-list rc guard (#1) not found in pre-commit source"
 fi
 
+# ---- 17. AC11 cross-carrier expiry: the "missing expires_at = valid forever" hole ----
+# path_policy now shares approval_artifact's PARSED expiry semantics (decision K1/K17).
+# Bootstrap artifacts accept VALID only; other protected categories keep K7 compat.
+AC11_OUT="$(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$ROOT" <<'PYAC11' 2>&1
+import json, shutil, sys, tempfile
+from pathlib import Path
+import yaml
+root = Path(sys.argv[1]); sys.path.insert(0, str(root / "hooks"))
+from shared.path_policy import has_active_exception  # noqa: E402
+from shared.policy_loader import reset_cache  # noqa: E402
+fails = []
+
+
+def repo(tmp: Path, *, strict=False) -> Path:
+    (tmp / "policies").mkdir(parents=True)
+    (tmp / "state" / "approvals").mkdir(parents=True)
+    shutil.copy(root / "policies" / "protected-paths.yml", tmp / "policies" / "protected-paths.yml")
+    appr = yaml.safe_load((root / "policies" / "approval-policy.yml").read_text(encoding="utf-8"))
+    appr["strict_approvals"] = strict
+    (tmp / "policies" / "approval-policy.yml").write_text(yaml.safe_dump(appr), encoding="utf-8")
+    reset_cache()
+    return tmp
+
+
+def artifact(r: Path, name: str, body: dict) -> None:
+    (r / "state" / "approvals" / name).write_text(json.dumps(body), encoding="utf-8")
+
+
+TARGET = ".env"          # env_and_secrets: a NON-bootstrap protected category
+
+# A no-expiry NON-bootstrap artifact is compat-accepted (K7 stage 1) ...
+with tempfile.TemporaryDirectory() as d:
+    r = repo(Path(d), strict=False)
+    artifact(r, "protected_path_edit-legacy-20260728.json",
+             {"action": "protected_path_edit", "paths": [TARGET]})
+    if not has_active_exception(TARGET, r, category="env_and_secrets"):
+        fails.append("compat: a no-expiry non-bootstrap artifact should still authorize (K7 stage 1)")
+
+# ... and strict-rejected, so the hole closes on the flip rather than never.
+with tempfile.TemporaryDirectory() as d:
+    r = repo(Path(d), strict=True)
+    artifact(r, "protected_path_edit-legacy-20260728.json",
+             {"action": "protected_path_edit", "paths": [TARGET]})
+    if has_active_exception(TARGET, r, category="env_and_secrets"):
+        fails.append("strict: a no-expiry artifact must NOT authorize indefinitely")
+
+# An EXPIRED artifact never authorizes, in either mode — via PARSED comparison, in a
+# format a lexicographic compare would mis-rank.
+for strict in (False, True):
+    with tempfile.TemporaryDirectory() as d:
+        r = repo(Path(d), strict=strict)
+        artifact(r, "protected_path_edit-stale-20260728.json",
+                 {"action": "protected_path_edit", "paths": [TARGET],
+                  "expires_at": "2000-01-01T00:00:00+00:00"})
+        if has_active_exception(TARGET, r, category="env_and_secrets"):
+            fails.append(f"expired artifact authorized (strict={strict})")
+
+# Malformed content never authorizes and never raises.
+for blob in ("[1,2,3]", "null", "not json"):
+    with tempfile.TemporaryDirectory() as d:
+        r = repo(Path(d))
+        (r / "state" / "approvals" / "protected_path_edit-bad-20260728.json").write_text(
+            blob, encoding="utf-8")
+        try:
+            if has_active_exception(TARGET, r, category="env_and_secrets"):
+                fails.append(f"malformed artifact ({blob!r}) authorized")
+        except BaseException as e:                   # noqa: BLE001
+            fails.append(f"malformed artifact ({blob!r}) RAISED {e!r}")
+
+# BOOTSTRAP category accepts VALID ONLY (K17): a no-expiry bootstrap artifact is dead even
+# in compat mode — that is the FR-07 single-use boundary, not a migration surface.
+with tempfile.TemporaryDirectory() as d:
+    r = repo(Path(d), strict=False)
+    artifact(r, "protected_path_edit-flow-bootstrap-20260728.json",
+             {"action": "protected_path_edit", "operation": "flow-internals-bootstrap",
+              "tree_digest": "deadbeef", "paths": ["hooks/shared/path_policy.py"]})
+    if has_active_exception("hooks/shared/path_policy.py", r,
+                            category="fusebase_flow_internals"):
+        fails.append("bootstrap: a no-expiry bootstrap artifact must never authorize")
+
+print(json.dumps(fails))
+PYAC11
+)"
+if [ "$AC11_OUT" = "[]" ]; then
+  ok "17-ac11-shared-parsed-expiry-across-carriers"
+else
+  bad "17-ac11-shared-parsed-expiry-across-carriers" "$AC11_OUT"
+fi
+
+# ---- 18. active-approvals.sh: status-aware notes, IDENTICAL array contract ----------
+# fusebase-flow-health-check.sh:162 reads these four arrays to classify EXCEPTION_IN_EFFECT.
+# The new status text belongs in ARTIFACT_NOTES ONLY — the array shape must not move.
+AA_DIR="$(mktemp -d)"
+mkdir -p "$AA_DIR/state/approvals"
+cat > "$AA_DIR/state/approvals/health_check_deferral-x-20260728.json" <<'EOFA'
+{"action":"health_check_deferral","scope":"x","expires_at":"2099-01-01T00:00:00Z","deferred_checks":["mirror_drift","rule_loss"]}
+EOFA
+cat > "$AA_DIR/state/approvals/protected_path_edit-legacy-20260728.json" <<'EOFB'
+{"action":"protected_path_edit","scope":"legacy","paths":["a","b"]}
+EOFB
+cat > "$AA_DIR/state/approvals/protected_path_edit-stale-20260728.json" <<'EOFC'
+{"action":"protected_path_edit","scope":"stale","expires_at":"2000-01-01T00:00:00Z","paths":["c"]}
+EOFC
+AA_OUT="$(
+  cd "$AA_DIR" || exit 1
+  # shellcheck source=/dev/null
+  . "$ROOT/hooks/local/lib/active-approvals.sh"
+  ACTIVE_ARTIFACTS=(); ARTIFACT_NOTES=(); DEFERRED_CHECKS=(); DEFERRED_BY_ARTIFACT=()
+  ffhc_collect_active_approvals
+  echo "ACTIVE=${#ACTIVE_ARTIFACTS[@]}"
+  echo "NOTES=${#ARTIFACT_NOTES[@]}"
+  echo "DEFERRED=${DEFERRED_CHECKS[*]:-}"
+  echo "DEFERRED_BY=${DEFERRED_BY_ARTIFACT[*]:-}"
+  printf '%s\n' "${ARTIFACT_NOTES[@]:-}"
+)"
+aa_fail=""
+case "$AA_OUT" in *"ACTIVE=2"*) ;; *) aa_fail="$aa_fail [expected 2 active, expired one dropped]" ;; esac
+case "$AA_OUT" in *"NOTES=2"*) ;; *) aa_fail="$aa_fail [notes array out of step with active]" ;; esac
+case "$AA_OUT" in *"DEFERRED=mirror_drift rule_loss"*) ;; *) aa_fail="$aa_fail [deferred check_ids lost]" ;; esac
+case "$AA_OUT" in *"DEFERRED_BY=health_check_deferral-x-20260728.json health_check_deferral-x-20260728.json"*) ;; *) aa_fail="$aa_fail [parallel by-artifact array broken]" ;; esac
+case "$AA_OUT" in *"status=legacy-no-expiry"*) ;; *) aa_fail="$aa_fail [no legacy-no-expiry status in the note]" ;; esac
+case "$AA_OUT" in *"status=active"*) ;; *) aa_fail="$aa_fail [no active status in the note]" ;; esac
+case "$AA_OUT" in *"stale"*) aa_fail="$aa_fail [an EXPIRED artifact leaked into the active set]" ;; *) ;; esac
+if [ -z "$aa_fail" ]; then
+  ok "18-active-approvals-status-aware-array-contract-intact"
+else
+  bad "18-active-approvals-status-aware-array-contract-intact" "$aa_fail :: $AA_OUT"
+fi
+rm -rf "$AA_DIR"
+
 finish

@@ -7,13 +7,12 @@ from __future__ import annotations
 
 import fnmatch
 import hashlib
-import json
 import subprocess
-import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .approval_artifact import evaluate_artifact, is_acceptable, load as load_artifact
 from .policy_loader import find_git_root, get_policy
 
 # WS1b: the internals-bootstrap category demands a genuinely SINGLE-USE exception.
@@ -68,6 +67,14 @@ def _glob_starstar(path: str, pattern: str) -> bool:
 
 def _load_categories() -> dict[str, dict[str, Any]]:
     return get_policy("protected-paths").get("categories") or {}
+
+
+def _strict_approvals(root: Path | None) -> bool:
+    """K7 mode flag, read defensively — a policy read must never gate an FR-07 check."""
+    try:
+        return get_policy("approval-policy", root=root).get("strict_approvals") is True
+    except BaseException:                            # noqa: BLE001
+        return False
 
 
 def is_protected(path: str) -> tuple[bool, str | None]:
@@ -228,17 +235,24 @@ def has_active_exception(
     approvals_dir = root / "state" / "approvals"
     if not approvals_dir.exists():
         return False
-    now_iso = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+    bootstrap = category == _BOOTSTRAP_CATEGORY
+    strict = _strict_approvals(root)
     for f in approvals_dir.glob("protected_path_edit-*.json"):
-        try:
-            data = json.loads(f.read_text(encoding="utf-8"))
-        except Exception:
+        artifact = load_artifact(f)
+        if artifact is None or artifact.data is None:
             continue
-        expires = data.get("expires_at", "")
-        if expires and expires < now_iso:
+        data = artifact.data
+        # Expiry/schema are the SHARED semantics (decision K1) — the same parsed-datetime
+        # comparison command_policy uses, replacing the `expires and expires < now` string
+        # compare that read a missing/empty expiry as valid forever. K17 pass-sets: the
+        # bootstrap category accepts VALID only; other categories keep compat unless
+        # strict_approvals is on. The digest/operation/exact-path checks below are
+        # UNCHANGED and ADDITIONAL to this.
+        verdict = evaluate_artifact(data, expected_action="protected_path_edit")
+        if not is_acceptable(verdict, strict=strict or bootstrap):
             continue
         approved_paths = data.get("paths") or []
-        if category == _BOOTSTRAP_CATEGORY:
+        if bootstrap:
             # Single-use gate for the internals-bootstrap category. Hardened (WS1b,
             # both reviews): EXACT membership only — a glob approved_path like
             # `hooks/shared/**` must NOT match a concrete queried path, so the glob

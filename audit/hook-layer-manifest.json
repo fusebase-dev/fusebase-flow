@@ -10,7 +10,7 @@
     },
     {
       "path": "hooks/git/pre-commit",
-      "sha256": "cfa44732aafacd686724180e4737336bd7cbbbd79b554b3e1df32cefc201ff89"
+      "sha256": "efa1f73bfd07778d896ec4679519cec34e05105d4573edc0e08022fc7837f87b"
     },
     {
       "path": "hooks/handlers/permission_request.py",
@@ -74,7 +74,7 @@
     },
     {
       "path": "hooks/local/lib/active-approvals.sh",
-      "sha256": "96d20d08cc9b718166b3d1e4868f7b7db7fa4606eaa9300681a6df7174eb3b0c"
+      "sha256": "4466b6d9c7c8fb06c47dd32bdc83a92d028647fe9787078711613e66b87ad5fe"
     },
     {
       "path": "hooks/local/lib/bounded-run.sh",
@@ -194,7 +194,7 @@
     },
     {
       "path": "hooks/shared/path_policy.py",
-      "sha256": "294f37311524c44eaa60694c7ef3edf3d5151ff4620d41cbbfb3130642e034b6"
+      "sha256": "c63cb129ffd7b6aa37b85e9d2ac807f893560b0b1954ffceb6d7d89a9e7aac6c"
     },
     {
       "path": "hooks/shared/policy_loader.py",
@@ -398,7 +398,7 @@
     },
     {
       "path": "hooks/tests/test-bootstrap-exception.sh",
-      "sha256": "180d300ffc56a307f580c5fba2f972d0591bb0e4e692692a636186b7c65a6a1b"
+      "sha256": "ca14d770d5889291603692c926df7c69ec412295b324289e799d0ebf6e10ffad"
     },
     {
       "path": "hooks/tests/test-budget-literals.sh",
@@ -510,12 +510,12 @@
     },
     {
       "path": "hooks/tests/test-trusted-enforcer.sh",
-      "sha256": "b6463191675f12efbcf7ce835a62338f7243079f5caefdcbca2750e79bb67a3a"
+      "sha256": "d8c1432f112a1f586f3f86cff6e602933cf82776fea0df0820d61eb0e99cc414"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "84401b7a7ab5c4fddc957f8f6c26e362c12081fa252347c50848ad481b255432"
+  "manifest_self_sha256": "bcf1771ffc0c30c363b35d7eacbf91c9652dee84807b79344d5a48a060e9f33b"
 }

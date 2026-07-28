@@ -111,7 +111,13 @@ LIE
 # doesn't exist yet can't be "tampered"). So to exercise the TRUSTED path, commit the CLEAN
 # enforcer + policy into HEAD first. (Tests 17/18; 19c separately covers the bootstrap edge.)
 head_with_enforcer() {  # $1 = repo dir
+  # TRIPWIRE: this list must be the pre-commit's FR07_SENTINELS set. A sentinel missing
+  # from HEAD makes the prep fall back to the WORKING-TREE enforcer (correct first-adoption
+  # behaviour), which in these fixtures is the LYING one — so the tamper tests would go
+  # fail-open and report a bypass that is really a stale fixture. approval_artifact.py
+  # joined the set when path_policy started delegating expiry/schema to it (decision K1).
   ( cd "$1" && git add hooks/shared/path_policy.py hooks/shared/policy_loader.py \
+      hooks/shared/approval_artifact.py \
       hooks/shared/__init__.py policies/protected-paths.yml \
       && bash hooks/local/write-bootstrap-approval.sh >/dev/null 2>&1 \
       && git commit -qm 'seed clean enforcer into HEAD' \

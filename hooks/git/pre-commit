@@ -361,7 +361,12 @@ if [ -n "$STAGED_ANY" ]; then
         # working-tree enforcer ONLY when git proves a sentinel is genuinely absent (true
         # first-adoption). The PREP python below is then a pure EXTRACTOR (git show -> temp);
         # it no longer votes on trusted-vs-fallback.
-        FR07_SENTINELS="hooks/shared/__init__.py hooks/shared/path_policy.py hooks/shared/policy_loader.py policies/protected-paths.yml"
+        # TRIPWIRE: this list and the PREP extractor `files` list below are the CLOSURE of
+        # path_policy's imports. path_policy now delegates expiry/schema to
+        # approval_artifact.py (decision K1); a module missing from BOTH lists makes the
+        # trusted enforcer die with ImportError and BLOCK every commit. Add here + below
+        # together whenever path_policy grows an intra-package import.
+        FR07_SENTINELS="hooks/shared/__init__.py hooks/shared/path_policy.py hooks/shared/policy_loader.py hooks/shared/approval_artifact.py policies/protected-paths.yml"
         FR07_DECISION="trusted"
         # T32 (RELIABILITY #3, MSYS): capture the sentinel `git ls-tree HEAD` via a FILE
         # REDIRECT, NOT `$(git ls-tree ...)` command substitution — the $(...)+git pattern
@@ -422,6 +427,8 @@ files = [
     ("hooks/shared/__init__.py",       tmp / "shared" / "__init__.py"),
     ("hooks/shared/path_policy.py",    tmp / "shared" / "path_policy.py"),
     ("hooks/shared/policy_loader.py",  tmp / "shared" / "policy_loader.py"),
+    # Import closure of path_policy (decision K1) — keep in sync with FR07_SENTINELS.
+    ("hooks/shared/approval_artifact.py", tmp / "shared" / "approval_artifact.py"),
     ("policies/protected-paths.yml",   tmp / "policies" / "protected-paths.yml"),
 ]
 

@@ -23,29 +23,56 @@
 
 ffhc_collect_active_approvals() {
   [ -d "state/approvals" ] && command -v python3 >/dev/null 2>&1 || return 0
-  local artifact_file artifact_basename summary rc deferred_list cid
+  local artifact_file artifact_basename summary rc deferred_list cid ff_root
+  # CODE root (where hooks/shared lives) is resolved from THIS FILE, not the cwd or the
+  # git root: artifacts are discovered relative to the cwd (the project being inspected),
+  # but the shared loader must be imported from the Flow install this lib belongs to.
+  ff_root="$( cd "$(dirname "${BASH_SOURCE[0]}")/../../.." 2>/dev/null && { pwd -W 2>/dev/null || pwd; } )"
+  [ -d "$ff_root/hooks/shared" ] || ff_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
   while IFS= read -r artifact_file; do
     if [ -z "$artifact_file" ]; then continue; fi
     artifact_basename=$(basename "$artifact_file")
-    summary=$(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$artifact_file" <<'PY' 2>/dev/null
-import json, sys, time
+    summary=$(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$artifact_file" "$ff_root" <<'PY' 2>/dev/null
+import sys
+from pathlib import Path
 try:
-    p = sys.argv[1]
-    data = json.loads(open(p, encoding='utf-8').read())
-    expires = data.get('expires_at', '')
-    now = time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())
-    if expires and expires < now:
-        sys.exit(1)  # expired - skip
+    p, root = sys.argv[1], sys.argv[2]
+    sys.path.insert(0, str(Path(root) / "hooks"))
+    # Shared expiry/schema semantics (decision K1) — the SAME loader the gates use, so
+    # this report can never disagree with them. Replaces the old `expires and expires <
+    # now` string compare, under which a missing/empty expires_at read as "valid forever".
+    from shared.approval_artifact import (
+        Verdict, evaluate_artifact, expiry_state, filename_action, load,
+    )
+    art = load(p)
+    if art is None:
+        sys.exit(2)
+    data = art.data
+    verdict = evaluate_artifact(data, expected_action=filename_action(p))
+    # TRIPWIRE: ARRAY CONTRACT. fusebase-flow-health-check.sh reads ACTIVE_ARTIFACTS /
+    # ARTIFACT_NOTES / DEFERRED_CHECKS / DEFERRED_BY_ARTIFACT and classifies
+    # EXCEPTION_IN_EFFECT from them. Only artifacts that genuinely still AUTHORIZE may
+    # exit 0 (= land in ACTIVE_ARTIFACTS); the new status text goes in the NOTE only.
+    # Changing which artifacts exit 0, or the note/array shape, silently breaks that
+    # classification.
+    if verdict not in (Verdict.VALID, Verdict.MISSING_EXPIRY):
+        sys.exit(1)
+    status = expiry_state(data)
+    expires = (data or {}).get('expires_at', '') or ''
+    if not isinstance(expires, str):
+        expires = ''
     # Restrict scope to ASCII so it renders cleanly on any console codec
-    scope = (data.get('scope', '') or '').encode('ascii', errors='replace').decode('ascii')[:80]
-    # Different artifact types use different list fields
-    paths = data.get('paths', []) or []
-    deferred = data.get('deferred_checks', []) or []
+    scope = ((data or {}).get('scope', '') or '')
+    scope = (scope if isinstance(scope, str) else '').encode('ascii', errors='replace').decode('ascii')[:80]
+    paths = (data or {}).get('paths', []) or []
+    deferred = (data or {}).get('deferred_checks', []) or []
     if deferred:
-        print(f"deferred_checks={len(deferred)} expires={expires} scope=\"{scope}\"")
+        print(f"deferred_checks={len(deferred)} status={status} expires={expires} scope=\"{scope}\"")
     else:
-        print(f"paths={len(paths)} expires={expires} scope=\"{scope}\"")
+        print(f"paths={len(paths)} status={status} expires={expires} scope=\"{scope}\"")
     sys.exit(0)
+except SystemExit:
+    raise
 except Exception:
     sys.exit(2)
 PY
