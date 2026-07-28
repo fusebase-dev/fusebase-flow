@@ -30,6 +30,58 @@
 | AC17 full gate green | T15 | CI sequence below |
 | AC18 zero mirror drift | T14 | `mirror-skills.sh && mirror-agents.sh && git diff --exit-code` |
 | AC19 truthful trust model | T1 | grep assertion — no authorship-enforcement claim in the three canonical files |
+| AC3 *(revised — corrections round)* incl. extreme-offset totality | T17 | `test-approval-binding.sh` — `9999-12-31T23:59:59-14:00` / `+14:00` lower bound → `MALFORMED`, no exception; both handlers |
+| AC9 *(revised — K6 rev)* strip-only digest, one-command binding | T18, T22 | `test-approval-binding.sh` — quoted-interior-whitespace pair hashes DIFFERENTLY; strip-only equivalence retained |
+| AC11 *(tightened)* compat acceptance audited; strict honored by every carrier | T23 | `test-bootstrap-exception.sh` + `test-approval-binding.sh` — compat audit-log entry; strict deferral excluded from `ACTIVE_ARTIFACTS` |
+| AC20 per-rule requirements, no display-name dedup | T19 | `test-command-policy.sh` — `fusebase deploy && git push origin main` + `lightweight_deploy` only → deny |
+| AC21 denial names ALL required actions | T20 | `test-command-policy.sh` — deploy+migration with deploy artifact: both actions in one message; `all_required_actions`=2, `unsatisfied_actions`=1 |
+| AC22 `--command` mandatory for command-gated actions; bound resolving invocation | T22 | `test-approval-binding.sh` — no `--command` → exit 2, no file; emitted invocation round-trips to allow |
+| AC23 classifier-unavailable fails closed | T25 | `test-upgrade-conflict-classification.sh` — classifier-less run aborts; tree-wide no-write; `--unsafe-legacy-copy` is the only legacy route |
+| AC24 no self-restamp of a diverged base | T26 | same — restamp advice absent from preflight/help text; tag-synthesized base preserves the local edit |
+| AC25 bootstrap writes nothing before classification authorizes | T27 | same — aborted hop leaves consumer tree byte-identical (modulo base manifest + log) |
+| AC26 `rm` gap closed; regex evasion documented | T28 | `test-command-policy.sh` — `rm build.log` denies; limitation cases linked to backlog; header/docs grep |
+| AC27 inventory never `ACCEPT`s a gate-rejected artifact | T24 | `test-approval-binding.sh` — foreign `repo_id` → `REJECT (BINDING_MISMATCH)`; command-bound → `UNCHECKED` |
+| AC6/AC16 *(coverage repair)* discriminating fixtures | T29 | fixtures 22/23 satisfied-first-action; AC16 incident file genuinely `changed-by-both`; `core.autocrlf=true` fixture |
+
+## New acceptance criteria (corrections round — canonical text lives here; spec.md AC1..AC19 unchanged)
+
+| AC | Contract | Decision |
+|---|---|---|
+| AC20 | Every matching `require_approval` rule is evaluated independently; requirements are never de-duplicated by display action. `fusebase deploy && git push origin main` with only a `lightweight_deploy` artifact is **denied** naming `production_deploy`. | K18(a) |
+| AC21 | A denial carries `all_required_actions` (every action any matched rule demands) distinct from `unsatisfied_actions`; the single message renders the full set with per-action status; both lists reach the audit log. | K18(b) |
+| AC22 | `approve-local.sh` exits 2 and writes nothing when `--command` is absent for an action reachable from a `command-policy.yml` `require_approval` rule; non-command-gated actions are unaffected. The denial message's resolving invocation includes `--command '<safely quoted blocked command>'`, so the documented path always mints a bound artifact. | K19 |
+| AC23 | When the target version ships the classifier and it cannot run (no python3 / module unavailable), `upgrade.sh` aborts non-zero writing nothing. Legacy whole-directory copy is reachable only via `--unsafe-legacy-copy`, which no diagnostic suggests. A genuinely pre-classifier source tree still upgrades. | K20(a) |
+| AC24 | No Flow tooling advises restamping the base manifest from the consumer's current tree. Missing base → `bootstrap-upgrade.sh` (tag-sourced synthesis); drifted base → recovery only from the exact prior upstream tag/package, else paths stay `unknown-base` (preserved). | K20(b) |
+| AC25 | `bootstrap-upgrade.sh` executes the fetched engine from the source clone/staging dir and writes NO managed consumer path before classification authorizes it; an aborted hop leaves the consumer tree byte-identical except `audit/managed-content-manifest.json` (the classifier's own input, documented) and logs. | K10, K20 |
+| AC26 | The `rm` `require_approval` pattern gates flagless deletes (`rm build.log`). `policies/command-policy.yml` header and `docs/hook-coverage.md` state that matching is regex over the raw command string, defeatable by quote-fragmentation and dynamic construction; `docs/backlog/command-gate-shell-evasion/README.md` exists and is indexed. | K21 |
+| AC27 | `--inventory` is truthful under K17: `repo_id` is validated against the inventory's own root (mismatch → `REJECT (BINDING_MISMATCH)`); an artifact whose only unverifiable element is `command_digest` reports `UNCHECKED (command-bound)`, never `ACCEPT`. | K7, K17 |
+
+Revised existing ACs (supersede in place, FR-18): **AC3** additionally requires totality over extreme-but-valid ISO offsets (no `OverflowError` escape). **AC9** binds via `sha256(command.strip())` — strip-only, no interior whitespace collapse (K6 REVISED); interior-whitespace variants inside quoted arguments are DIFFERENT commands. **AC11** additionally requires every compat acceptance of a legacy artifact to be audit-logged and `strict_approvals` to be honored by `path_policy` AND `active-approvals.sh`.
+
+## Regression discriminators (anti-tautology contract — corrections round)
+
+Each corrected defect names the concrete assertion that FAILS against the pre-correction code. A corrections commit whose new test would also pass on the old code does not close its finding.
+
+| Defect (review ref) | Discriminating assertion | Pre-correction result |
+|---|---|---|
+| `parse_expiry` OverflowError (BLOCKER, `approval_artifact.py:94`) | `evaluate_artifact({..., "expires_at": "9999-12-31T23:59:59-14:00"}, expected_action=a) is Verdict.MALFORMED` | raises `OverflowError` |
+| K6 collapse collision (BLOCKER, `approval_artifact.py:110`) | `digest('fusebase deploy --app "safe  prod"') != digest('fusebase deploy --app "safe prod"')` | digests equal |
+| Unbound default mint (BLOCKER, `approve-local.sh:139`) | `approve-local.sh production_deploy s1 r` without `--command` → exit 2, approvals dir unchanged | exit 0, unbound artifact written |
+| Unbound resolving invocation (BLOCKER, `denial_message.py:63-66`) | rendered fix line contains `--command '` + the exact blocked command | line has no `--command` |
+| Display-action dedup bypass (BLOCKER, `command_policy.py:198-200`) | `fusebase deploy && git push origin main` + only `lightweight_deploy` → `deny` | `allow` |
+| Unsatisfied-only denial (MAJOR, `command_policy.py:239,245`; `test-command-policy.sh:123`) | deploy+migration with deploy artifact: message contains `production_deploy` AND `database_migration` | only `database_migration` |
+| `only_when` non-mapping (MAJOR, `command_policy.py:185-186`) | rule with `only_when: "direct_to_main"` → deny `FLOW-POLICY-ERROR` | `AttributeError` escapes |
+| Malformed `match_order` (MAJOR, `command_policy.py:284`) | `match_order: [deny, allow]` with live `require_approval` rules → deny `FLOW-POLICY-ERROR` | falls to `default: allow` |
+| Compat accept unaudited (MAJOR, `path_policy.py:251-253`) | compat-accepting an expiry-less path artifact writes an audit-log entry naming it | no entry |
+| Strict ignored by health lib (MAJOR, `active-approvals.sh:58`) | `strict_approvals: true` + expiry-less deferral → NOT in `ACTIVE_ARTIFACTS` | classified active |
+| Inventory false ACCEPT (MAJOR, `approval_inventory.py:45-49`) | foreign-`repo_id` artifact row → `REJECT (BINDING_MISMATCH)`; command-bound row → `UNCHECKED` | both print `ACCEPT` |
+| Destructive classifier fallback (BLOCKER, `upgrade.sh:249-256,491-502`) | classifier-expected-but-unavailable run: non-zero exit + consumer-edited managed file byte-identical | proceeds; file overwritten |
+| Self-restamp advice (BLOCKER, `preflight.sh:293,298`) | preflight missing/stale-base output does NOT name `stamp-managed-content-manifest.sh` as the fix | names it on both paths |
+| Bootstrap pre-classification writes (MAJOR, `bootstrap-upgrade.sh:128-167`) | aborted `changed-by-both` hop: tree-wide pre/post `sha256sum` identical (modulo base manifest + log), incl. a sentinel in consumer-customized `hooks/local/upgrade.sh` | engine + `hooks/local/lib/` already replaced |
+| `rm` pattern gap (BLOCKER, `command-policy.yml:118`) | `decide("rm build.log")` → deny requiring `destructive_file_delete` | `default: allow` |
+| Non-discriminating fixtures 22/23 (MAJOR) | fixture with the FIRST matched action satisfied by a valid artifact → deny on the second | old first-match code **allows** (new fixture); old fixtures passed on old code |
+| AC16 fixture never `changed-by-both` (MAJOR, `test-upgrade-conflict-classification.sh:293`) | upstream 4.7.0 rewrites the validator; consumer-patched validator classifies `changed-by-both`; `--auto-yes` aborts; sentinel survives | fixture's upstream leaves the validator unchanged — abort path unexercised |
+| EOL fixtures pinned (MAJOR, `:283,:302`) | `core.autocrlf=true` consumer fixture: untouched file classifies `current`/`upstream-only` | no such fixture; behavior unproven (archive comment at `bootstrap-upgrade.sh:220-230` is factually wrong) |
 
 ## Required gate-report fields
 
@@ -208,8 +260,9 @@ Constitution invariants verified:
 ☐ Quality bar — 3 new test files, all registered in FF_TAGS; run_hook_tests.py EXPECTED_HANDLER_FIXTURES updated
 
 Cross-artifact:
-☐ Every AC1..AC19 (incl. AC13b, AC13c) exercised in at least one task
-☐ Every locked decision K1..K17 cited in at least one task
+☐ Every AC1..AC27 (incl. AC13b, AC13c; AC20..AC27 defined in this file's corrections section) exercised in at least one task
+☐ Every locked decision K1..K21 (K6 as REVISED) cited in at least one task
+☐ Every corrections task T17..T29's discriminating assertion verified RED against pre-correction code (§ Regression discriminators)
 ☐ K13 base lifecycle proven both ways: synthesis on first run, refresh after apply
 ☐ All clarify Q-A..Q-D resolved in spec.md
 ☐ All T1..T14 have SHAs filled in
