@@ -60,7 +60,18 @@ Revised existing ACs (supersede in place, FR-18): **AC3** additionally requires 
 
 ## Regression discriminators (anti-tautology contract — corrections round)
 
-Each corrected defect names the concrete assertion that FAILS against the pre-correction code. A corrections commit whose new test would also pass on the old code does not close its finding.
+Each corrected **defect** names the concrete assertion that FAILS against the pre-correction code. A corrections commit whose new test would also pass on the old code does not close its finding.
+
+**Scope of the claim (corrected 2026-07-28 after re-review).** The contract binds **defect discriminators**, not every assertion added in the round. The honest split:
+
+| Class | Status vs `808db35` | Examples |
+|---|---|---|
+| Defect discriminators (T17..T28) | **RED before, GREEN after** — verified | overflow escape · digest collision · display-dedup bypass (`allow`!) · unbound mint · `only_when` AttributeError · `match_order` fallthrough · inventory false ACCEPT · classifier fallback · restamp advice · bootstrap pre-writes · `rm build.log` |
+| Coverage repairs | **GREEN before by design** — they close a *coverage* gap, not a behaviour gap | `core.autocrlf=true` fixture (the flag already worked — see the struck EOL row); command-policy compat-audit (that carrier already logged) |
+| Negative / supporting controls | **GREEN before, intentionally** — they prove the fix did not over-reach | both-artifacts→allow · non-command-gated writer action · pre-classifier source still upgrades · `rm  build.log` (double space) |
+| Known-weak, retained honestly | **GREEN before** — documented as not proving what a reader might assume | static handler fixtures 22/23 (carry no artifact, so first-match and all-match both deny; `run_hook_tests.py` runs fixtures from the repo root, so a fixture cannot carry its own `state/approvals/`) · `t29-compound-first-action-satisfied-still-denies` (`808db35` already handled distinct displays) |
+
+The earlier blanket phrasing — "every corrections assertion is RED against `808db35`" — was **overstated** and is superseded. Every *defect* discriminator is red; controls and coverage repairs are green by construction and are labelled as such rather than counted as proof.
 
 | Defect (review ref) | Discriminating assertion | Pre-correction result |
 |---|---|---|
@@ -81,7 +92,7 @@ Each corrected defect names the concrete assertion that FAILS against the pre-co
 | `rm` pattern gap (BLOCKER, `command-policy.yml:118`) | `decide("rm build.log")` → deny requiring `destructive_file_delete` | `default: allow` |
 | Non-discriminating fixtures 22/23 (MAJOR) | fixture with the FIRST matched action satisfied by a valid artifact → deny on the second | old first-match code **allows** (new fixture); old fixtures passed on old code |
 | AC16 fixture never `changed-by-both` (MAJOR, `test-upgrade-conflict-classification.sh:293`) | upstream 4.7.0 rewrites the validator; consumer-patched validator classifies `changed-by-both`; `--auto-yes` aborts; sentinel survives | fixture's upstream leaves the validator unchanged — abort path unexercised |
-| EOL fixtures pinned (MAJOR, `:283,:302`) | `core.autocrlf=true` consumer fixture: untouched file classifies `current`/`upstream-only` | no such fixture; behavior unproven (archive comment at `bootstrap-upgrade.sh:220-230` is factually wrong) |
+| EOL fixtures pinned (MAJOR, `:283,:302`) | `core.autocrlf=true` consumer fixture: untouched file classifies `current`/`upstream-only` | no such fixture; behavior unproven. **This row's coverage gap was real and is now closed; the accompanying claim that the `git archive` autocrlf flag "has no effect" was FALSE and is struck** — `git -c core.autocrlf=true archive` emits CRLF on Git for Windows (verified by the AI Developer and independently by the PO). The flag is load-bearing; the fixture is the standing proof. This discriminator is therefore GREEN against `808db35` by design, because the flag already worked. |
 
 ## Required gate-report fields
 
@@ -262,7 +273,7 @@ Constitution invariants verified:
 Cross-artifact:
 ☐ Every AC1..AC27 (incl. AC13b, AC13c; AC20..AC27 defined in this file's corrections section) exercised in at least one task
 ☐ Every locked decision K1..K21 (K6 as REVISED) cited in at least one task
-☐ Every corrections task T17..T29's discriminating assertion verified RED against pre-correction code (§ Regression discriminators)
+☐ Every corrections-round DEFECT discriminator verified RED against pre-correction code; coverage repairs and controls labelled, not counted as proof (§ Regression discriminators)
 ☐ K13 base lifecycle proven both ways: synthesis on first run, refresh after apply
 ☐ All clarify Q-A..Q-D resolved in spec.md
 ☐ All T1..T14 have SHAs filled in

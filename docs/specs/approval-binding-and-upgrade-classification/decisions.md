@@ -13,7 +13,7 @@
 | K3 | Trust model is stated, not faked | `approved_by` + `ticket` = audit metadata; correct the contradictory comment | LOCKED |
 | K4 | Fail-closed on policy defects | Bad regex / empty policy / malformed artifact → deny | LOCKED |
 | K5 | Lightweight-lane gate parity | `fusebase deploy` accepts `production_deploy` **or** `lightweight_deploy`, boundary documented | LOCKED |
-| K6 | Command-digest canonicalization | Hash the exact hook-received command after whitespace collapse only | LOCKED |
+| K6 | Command-digest canonicalization | **REVISED** — hash the hook-received command after `.strip()` only; **no** interior whitespace collapse | LOCKED (revised) |
 | K7 | Two-stage strict cutover | Compat + inventory this release; strict default next release | LOCKED |
 | K8 | Compound commands require all matched actions | All-match, one denial listing every action | LOCKED |
 | K9 | `unknown-base` is preserve, not abort | Only `changed-by-both` aborts an unattended upgrade | LOCKED |
