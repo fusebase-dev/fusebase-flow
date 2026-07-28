@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.6.1",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 278,
+  "asset_count": 279,
   "assets": [
     {
       "path": ".claude-plugin/marketplace.json",
@@ -26,7 +26,7 @@
     },
     {
       "path": "agents/ai-developer/AGENT.md",
-      "sha256": "b1599f6f9842aa11c216361e6df9d2d5b43e3d3955f3f66e19656d867dbb5bf7"
+      "sha256": "9985588c676f75600b86202afd1c83199fc811bf924bfc3f704242d31ac2cf59"
     },
     {
       "path": "agents/product-owner/AGENT.md",
@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "4f10f408c507f887eff50e1144236a8762c914510b4891aa7be036f7b75af38f"
+      "sha256": "2da3cefedb9c034065cf139b786e82f3b69882037c3cb611ab1a91e48151bbd4"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -134,7 +134,7 @@
     },
     {
       "path": "flow-skills/lightweight-lane/SKILL.md",
-      "sha256": "439591ad0c686c4b2a5bd59de47ca739f34bc118f19cca411683fc7093f0247c"
+      "sha256": "95ecbfcf18db753c551163b801d6abef61a60d220c3eef9c957d98da119f91d4"
     },
     {
       "path": "flow-skills/liveness-discipline/SKILL.md",
@@ -170,7 +170,7 @@
     },
     {
       "path": "flow-skills/release-deploy-reporting/SKILL.md",
-      "sha256": "5970d19f7accfccc6cb6090f32594b093f6ee79a4edb1a47f02aad4c6dc734a7"
+      "sha256": "dcd724ec2cd80591d34c2343978af70f19225fe6b5578e1cdbac6a0bf4e36905"
     },
     {
       "path": "flow-skills/repo-onboarding-context-map/SKILL.md",
@@ -194,7 +194,7 @@
     },
     {
       "path": "flow-skills/role-discipline/references/deploy.md",
-      "sha256": "eba4982a539040f0124261413f295e8353a0c22f731b26e0741873843549b65f"
+      "sha256": "cd4eed882eef2affc605b76ccbc6539e4786298ce1d93f49bbcfe0b79e8c25ff"
     },
     {
       "path": "flow-skills/role-discipline/references/product-owner.md",
@@ -202,7 +202,7 @@
     },
     {
       "path": "flow-skills/role-discipline/references/shared-protocols.md",
-      "sha256": "efd466729e6c87e0c0a907ad043f5a45f0d8dc6cb7ba5c081ef9c88e1797c971"
+      "sha256": "24bd830c94fd34a74a6cc299c83aecb1e96582741b081f2dfb83f17805fa2f10"
     },
     {
       "path": "flow-skills/security-permissions-review/SKILL.md",
@@ -278,7 +278,7 @@
     },
     {
       "path": "hooks/local/approve-local.sh",
-      "sha256": "6a78f714075c34f8614380b176cda696762d85535febb7516ae9bb4daf29a8c6"
+      "sha256": "c1b3dd244ca900bb6d9ce8434b3bf93da1eba14eaab7ee43b1c05460bb69875a"
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
@@ -586,7 +586,7 @@
     },
     {
       "path": "hooks/shared/denial_message.py",
-      "sha256": "66be6c610e8baa2f836fec112a43aef7e161cddc31ec706fb286af2335692b40"
+      "sha256": "ec58f63e18e12b0bc45f2783f4ed9db0074e3d0cf5527fddfc83c3434d87d543"
     },
     {
       "path": "hooks/shared/git_utils.py",
@@ -778,7 +778,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "2c2126cf2b3ab3e7550f1eced9aab4d9188afdff68c3b9bf03e0b69e0d06b15a"
+      "sha256": "80904b4bab790c32e692ce522682413684ecb17071315c108f316b936122dda0"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -786,7 +786,11 @@
     },
     {
       "path": "hooks/tests/test-approval-binding.sh",
-      "sha256": "9182216739cbf65cb3e39160bd0f1e22e7783e053082fc92f6cbe0dab0f2f320"
+      "sha256": "99f517d744177499ff9efbc4a04013710a8a149f943bee4f98cd6f2a18780720"
+    },
+    {
+      "path": "hooks/tests/test-approval-writer.sh",
+      "sha256": "2f8be747653ea6bb7a2b842d7c9a8bc16be9d53f4d9cb818db2ba60a850c8166"
     },
     {
       "path": "hooks/tests/test-baseline-merge.sh",
@@ -1078,7 +1082,7 @@
     },
     {
       "path": "workflows/greenlight-deploy.md",
-      "sha256": "d7b62f16f62df65f09c4aa170bfdffcfccc6630ac5f4b7f675fa93a8345904a2"
+      "sha256": "461bc8d22918165ec87db70c943eefe7b42f4b4a06df72c7c615d4300beb624a"
     },
     {
       "path": "workflows/greenlight-implement.md",
@@ -1090,7 +1094,7 @@
     },
     {
       "path": "workflows/lightweight-lane.md",
-      "sha256": "373d95b469353b692f378226159bf7f41194ac2038f3d0429e6c306af500032c"
+      "sha256": "5d385292ba79ac293c9e7ba8c70ee5c637af577f71a72692cb3fb58c200e10a4"
     },
     {
       "path": "workflows/live-user-verification.md",
@@ -1114,8 +1118,8 @@
     },
     {
       "path": "workflows/violation-recovery.md",
-      "sha256": "ed43aa0c28536f4eaf8849e5c6a08de409c07b6ebcd12dd9cf8f02f835829968"
+      "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "50115d2b577fefc378cc991156f86487f6b6f80ce4720289ff4b983000bc938f"
+  "manifest_self_sha256": "e73962736ad9b578d33ca4fb6c5be46d85271fe00523cb8405d04021587bb652"
 }

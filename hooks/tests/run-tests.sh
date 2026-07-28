@@ -46,7 +46,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke hook-manifest newli
   po-investigate liveness codex-parity codex-plugin cli-0259 secret-scan-staged bootstrap-exception \
   trusted-enforcer hook-install-rc msys-tree-cleanup ws5-upgrade ff-only return-budget \
   supersede-primitive rule-inventory boot-size prohibition-residency token-waste-classify \
-  budget-literals history-extraction approval-binding command-policy upgrade-classify cli-flow-recovery)
+  budget-literals history-extraction approval-binding approval-writer command-policy upgrade-classify cli-flow-recovery)
 
 declare -A FF_SEL=()      # selected tags (populated only when scoped)
 FF_SCOPED=0               # 1 iff FF_ONLY is a non-empty selection
@@ -285,6 +285,7 @@ run_shell_phase test-token-waste-classify.sh   "token-waste-classify"
 run_shell_phase test-budget-literals.sh        "budget-literals"
 run_shell_phase test-history-extraction.sh     "history-extraction"
 run_shell_phase test-approval-binding.sh       "approval-binding"
+run_shell_phase test-approval-writer.sh        "approval-writer"
 run_shell_phase test-command-policy.sh        "command-policy"
 run_shell_phase test-upgrade-conflict-classification.sh "upgrade-classify"
 

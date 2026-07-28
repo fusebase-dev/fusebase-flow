@@ -15,10 +15,12 @@
 # (role-discipline Deploy phase DP.1).
 #
 # Usage:
-#   bash hooks/local/approve-local.sh <action> <slug> [reason] [--command '<exact command>']
+#   bash hooks/local/approve-local.sh <action> <slug> [reason] --command '<exact command>'
+#     --command is MANDATORY for any command-gated action (decision K19); it is optional
+#     only for actions no command-policy rule references (e.g. protected_path_edit).
 #   bash hooks/local/approve-local.sh --inventory      # AC12: what is on disk + strict verdict
 # Example (Deploy session, on the operator's typed DP.6 phrase):
-#   bash hooks/local/approve-local.sh production_deploy priority-fix 'approve deploy now'
+#   bash hooks/local/approve-local.sh production_deploy priority-fix 'approve deploy now' --command 'fusebase deploy'
 #
 # Binding (decision K2/K6 revised): --command records a sha256 of the exact command
 # string TRIMMED ONLY — interior whitespace is never collapsed, because inside a quoted
@@ -27,7 +29,8 @@
 # stays action-scoped (legacy-compatible).
 #
 # Exit: 0 written and re-parsed OK; 2 bad usage / unknown action / unsafe slug (NO file
-# written); 1 write or verification failure.
+# written); 1 write or verification failure. Exit 2 also when --command is missing for a
+# command-gated action (K19).
 
 set -euo pipefail
 
@@ -44,7 +47,7 @@ while [ "$#" -gt 0 ]; do
     case "$1" in
         --inventory) INVENTORY=1; shift ;;
         --command) COMMAND_STR="${2:-}"; shift 2 ;;
-        --help|-h) sed -n '2,29p' "$0"; exit 0 ;;
+        --help|-h) sed -n '2,32p' "$0"; exit 0 ;;
         --*) echo "[approve-local] unknown option: $1" >&2; exit 2 ;;
         *)
             case "$positional" in
@@ -68,8 +71,11 @@ fi
 
 if [ -z "$ACTION" ] || [ -z "$SLUG" ]; then
     cat >&2 <<EOF
-Usage: $0 <action> <slug> [reason] [--command '<exact command>']
+Usage: $0 <action> <slug> [reason] --command '<exact command>'
        $0 --inventory
+
+--command is mandatory for command-gated actions (K19); without it the artifact would
+authorize every matching command in this repository.
 
 Available actions come from policies/approval-policy.yml require_approval keys
 (plus any approval-policy.local.yml override).
@@ -112,6 +118,35 @@ if action not in known:
 if not SAFE_SLUG.match(slug):
     print(f"[approve-local] ERROR: slug {slug!r} must match [A-Za-z0-9._-]{{1,64}} "
           "(guards path traversal and same-day filename collisions).", file=sys.stderr)
+    sys.exit(2)
+
+# TRIPWIRE (decision K19): --command is MANDATORY for any action a command-policy
+# require_approval rule can demand. An unbound artifact authorizes EVERY matching command
+# in the repo, so the documented mint path must not be able to produce one. Actions that
+# no command rule references (protected_path_edit, health_check_deferral) stay optional.
+try:
+    cmd_policy = get_policy("command-policy", root=root_path)
+except BaseException as e:                        # noqa: BLE001 — cannot prove gating -> stop
+    print(f"[approve-local] ERROR: command-policy could not be read ({e!r}), so whether "
+          f"{action!r} is command-gated cannot be determined. Refusing to write.",
+          file=sys.stderr)
+    sys.exit(2)
+command_gated = set()
+for rule in (cmd_policy.get("require_approval") if isinstance(cmd_policy, dict) else None) or []:
+    if not isinstance(rule, dict):
+        continue
+    one = rule.get("action")
+    if isinstance(one, str) and one.strip():
+        command_gated.add(one.strip())
+    for a in rule.get("any_of") or []:
+        if isinstance(a, str) and a.strip():
+            command_gated.add(a.strip())
+if action in command_gated and not command_str.strip():
+    print(f"[approve-local] ERROR: {action!r} is command-gated, so --command is required. "
+          f"An artifact without it authorizes every matching command in this repo (K19).\n"
+          f"[approve-local] Re-run with the exact command, e.g.:\n"
+          f"  bash hooks/local/approve-local.sh {action} {slug} --command '<exact command>'",
+          file=sys.stderr)
     sys.exit(2)
 
 ra = policy.get("require_approval", {}).get(action) or {}

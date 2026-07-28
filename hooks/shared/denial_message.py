@@ -33,8 +33,16 @@ def reason_for(verdict: str) -> str:
 
 
 def _truncate(text: str, limit: int = _MAX_COMMAND_CHARS) -> str:
+    """Display-only shortening. TRIPWIRE: never apply this to the resolving invocation —
+    the digest is over the EXACT command (K6), so an elided command mints an artifact that
+    authorizes nothing. Line 1 may be shortened; the fix line runs long instead."""
     text = " ".join((text or "").split())
     return text if len(text) <= limit else text[: limit - 1] + "…"
+
+
+def _sq(text: str) -> str:
+    """POSIX single-quote a command so the emitted invocation is copy-paste safe."""
+    return "'" + (text or "").replace("'", "'\\''") + "'"
 
 
 SATISFIED = "SATISFIED"
@@ -76,8 +84,13 @@ def render_approval_denial(
     if hidden > 0:
         lines.append(f"  (+{hidden} more action(s); see policies/command-policy.yml)")
     lines.append("Fix - on your chat go-ahead the agent runs this; you type no command:")
+    # K19: the copy-paste path must mint a COMMAND-BOUND artifact, so the exact blocked
+    # command travels with the invocation, unelided.
+    quoted = _sq(command)
     lines.append(
-        "  " + " && ".join(f"bash hooks/local/approve-local.sh {a} {slug}" for a in pending)
+        "  " + " && ".join(
+            f"bash hooks/local/approve-local.sh {a} {slug} --command {quoted}" for a in pending
+        )
     )
     return "\n".join(lines[:MAX_LINES])
 

@@ -117,7 +117,7 @@ The agent loads this workflow when a refusal happens and needs to surface concre
 
 | Action | Recovery |
 |---|---|
-| Production deploy without artifact | Verify deploy success / failure. The agent authors the artifact retroactively on the operator's go-ahead — the operator runs nothing (`bash hooks/local/approve-local.sh production_deploy <slug> "<reason>"`). Document the bypass in spec.md audit log. |
+| Production deploy without artifact | Verify deploy success / failure. The agent authors the artifact retroactively on the operator's go-ahead — the operator runs nothing (`bash hooks/local/approve-local.sh production_deploy <slug> "<reason>" --command '<exact command>'`). Document the bypass in spec.md audit log. |
 | Schema migration without artifact | Verify migration applied cleanly. Author artifact retroactively. Verify rollback procedure documented. |
 | Secret-file write without artifact | If actual secret was written: rotate immediately. Reset commit if not pushed. |
 | Customer-visible message sent without artifact | Cannot un-send. Document; if outbound was wrong, send a correction; file `docs/problem-catalog/<date>-unintended-outbound/problem.md`. |
