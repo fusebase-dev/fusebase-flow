@@ -23,27 +23,39 @@
 
 ffhc_collect_active_approvals() {
   [ -d "state/approvals" ] && command -v python3 >/dev/null 2>&1 || return 0
-  local artifact_file artifact_basename summary rc deferred_list cid ff_root
+  local artifact_file artifact_basename summary rc deferred_list cid ff_root ff_project
   # CODE root (where hooks/shared lives) is resolved from THIS FILE, not the cwd or the
   # git root: artifacts are discovered relative to the cwd (the project being inspected),
   # but the shared loader must be imported from the Flow install this lib belongs to.
   ff_root="$( cd "$(dirname "${BASH_SOURCE[0]}")/../../.." 2>/dev/null && { pwd -W 2>/dev/null || pwd; } )"
   [ -d "$ff_root/hooks/shared" ] || ff_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+  # TRIPWIRE (MSYS): a Windows python cannot resolve an MSYS "/tmp/..." path, so the
+  # inspected project's root must cross as a NATIVE path or the strict_approvals read
+  # silently fails and every artifact is judged in compat mode.
+  ff_project="$( pwd -W 2>/dev/null || pwd )"
   while IFS= read -r artifact_file; do
     if [ -z "$artifact_file" ]; then continue; fi
     artifact_basename=$(basename "$artifact_file")
-    summary=$(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$artifact_file" "$ff_root" <<'PY' 2>/dev/null
+    summary=$(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$artifact_file" "$ff_root" "$ff_project" <<'PY' 2>/dev/null
 import sys
 from pathlib import Path
 try:
-    p, root = sys.argv[1], sys.argv[2]
+    p, root, project = sys.argv[1], sys.argv[2], sys.argv[3]
     sys.path.insert(0, str(Path(root) / "hooks"))
     # Shared expiry/schema semantics (decision K1) — the SAME loader the gates use, so
     # this report can never disagree with them. Replaces the old `expires and expires <
     # now` string compare, under which a missing/empty expires_at read as "valid forever".
     from shared.approval_artifact import (
-        Verdict, evaluate_artifact, expiry_state, filename_action, load,
+        evaluate_artifact, expiry_state, filename_action, is_acceptable, load,
     )
+    # strict_approvals (K7) is read from the INSPECTED project's merged policy, not the
+    # Flow install's: under strict an expiry-less artifact no longer authorizes anything,
+    # so it must not be reported as active either (the report and the gates cannot differ).
+    try:
+        from shared.policy_loader import get_policy
+        strict = get_policy("approval-policy", root=Path(project)).get("strict_approvals") is True
+    except Exception:
+        strict = False
     art = load(p)
     if art is None:
         sys.exit(2)
@@ -55,7 +67,7 @@ try:
     # exit 0 (= land in ACTIVE_ARTIFACTS); the new status text goes in the NOTE only.
     # Changing which artifacts exit 0, or the note/array shape, silently breaks that
     # classification.
-    if verdict not in (Verdict.VALID, Verdict.MISSING_EXPIRY):
+    if not is_acceptable(verdict, strict=strict):
         sys.exit(1)
     status = expiry_state(data)
     expires = (data or {}).get('expires_at', '') or ''

@@ -548,5 +548,72 @@ else
   bad "ac14-denial-message-specific-and-bounded" "$UX_OUT"
 fi
 
+# ---- 5. AC11 (tightened): compat acceptance is AUDITED in every carrier -------------
+# T23 discriminator: path_policy compat-accepted an expiry-less artifact SILENTLY, so a
+# consumer had no greppable record before the K7 strict flip.
+CARRIER_OUT="$(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$ROOT" <<'PY' 2>&1
+import json, shutil, sys, tempfile
+from pathlib import Path
+root = Path(sys.argv[1]); sys.path.insert(0, str(root / "hooks"))
+from shared.path_policy import has_active_exception  # noqa: E402
+from shared.policy_loader import reset_cache  # noqa: E402
+fails = []
+TARGET = "docs/README.md"
+
+
+def repo(tmp: Path) -> Path:
+    (tmp / "policies").mkdir(parents=True)
+    (tmp / "state" / "approvals").mkdir(parents=True)
+    for name in ("protected-paths.yml", "approval-policy.yml"):
+        shutil.copy(root / "policies" / name, tmp / "policies" / name)
+    reset_cache()
+    return tmp
+
+
+with tempfile.TemporaryDirectory() as d:
+    r = repo(Path(d))
+    (r / "state" / "approvals" / "protected_path_edit-legacy-20260728.json").write_text(
+        json.dumps({"action": "protected_path_edit", "paths": [TARGET]}), encoding="utf-8")
+    reset_cache()
+    accepted = has_active_exception(TARGET, root=r, category="documentation")
+    log = r / "state" / "audit.log.jsonl"
+    if accepted:
+        if not log.is_file() or "approval_legacy_accepted" not in log.read_text(encoding="utf-8"):
+            fails.append("path_policy compat acceptance was SILENT — AC11 requires an audit entry")
+        elif "path_policy" not in log.read_text(encoding="utf-8"):
+            fails.append("audit entry does not name the accepting carrier")
+
+print(json.dumps(fails))
+PY
+)"
+if [ "$CARRIER_OUT" = "[]" ]; then
+  ok "ac11-compat-acceptance-audited-cross-carrier"
+else
+  bad "ac11-compat-acceptance-audited-cross-carrier" "$CARRIER_OUT"
+fi
+
+# ---- 6. AC11 (tightened): active-approvals.sh honors strict_approvals ---------------
+# T23 discriminator: the health lib accepted MISSING_EXPIRY unconditionally, so under
+# strict an expiry-less deferral still classified as active (EXCEPTION_IN_EFFECT).
+STRICT_LIB_REPO="$(mktemp -d)"
+mkdir -p "$STRICT_LIB_REPO/state/approvals" "$STRICT_LIB_REPO/policies"
+printf '{"action":"health_check_deferral","deferred_checks":["X1"]}' \
+  > "$STRICT_LIB_REPO/state/approvals/health_check_deferral-legacy-20260728.json"
+strict_lib_probe() {   # $1 = strict_approvals value; echoes the ACTIVE_ARTIFACTS count
+  printf 'strict_approvals: %s\n' "$1" > "$STRICT_LIB_REPO/policies/approval-policy.yml"
+  ( cd "$STRICT_LIB_REPO" \
+    && ACTIVE_ARTIFACTS=() ARTIFACT_NOTES=() DEFERRED_CHECKS=() DEFERRED_BY_ARTIFACT=() \
+    && . "$ROOT/hooks/local/lib/active-approvals.sh" \
+    && ffhc_collect_active_approvals >/dev/null 2>&1; echo "${#ACTIVE_ARTIFACTS[@]}" )
+}
+COMPAT_N="$(strict_lib_probe false)"
+STRICT_N="$(strict_lib_probe true)"
+if [ "$COMPAT_N" = "1" ] && [ "$STRICT_N" = "0" ]; then
+  ok "ac11-active-approvals-honors-strict"
+else
+  bad "ac11-active-approvals-honors-strict" "compat=$COMPAT_N (want 1) strict=$STRICT_N (want 0)"
+fi
+rm -rf "$STRICT_LIB_REPO"
+
 
 finish

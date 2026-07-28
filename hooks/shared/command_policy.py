@@ -12,10 +12,10 @@ from typing import Any
 
 from .approval_artifact import (
     Verdict,
+    accept_with_audit,
     compute_command_digest,
     compute_repo_id,
     evaluate_file,
-    is_acceptable,
 )
 from .command_rules import rule_actions, rule_matches
 from .denial_message import render_approval_denial
@@ -93,39 +93,12 @@ def _approval_state(
         verdict = evaluate_file(
             f, expected_action=action, command_digest=digest, repo_id=repo_id
         )
-        if is_acceptable(verdict, strict=strict):
-            if verdict is Verdict.MISSING_EXPIRY:
-                _log_legacy_acceptance(f, action, root=resolved)
+        if accept_with_audit(verdict, strict=strict, carrier="command_policy",
+                             artifact_path=f, action=action, root=resolved):
             return True, verdict.value
         if best is None or _VERDICT_RANK.get(verdict, 0) > _VERDICT_RANK.get(best, 0):
             best = verdict
     return False, best.value if best else NO_ARTIFACT
-
-
-def _log_legacy_acceptance(path: Path, action: str, *, root: Path | None) -> None:
-    """Compat-mode acceptance of an expiry-less artifact must be AUDITABLE (K7).
-
-    Silent acceptance is the pre-fix behaviour; the one release of warning only buys the
-    consumer anything if the acceptance leaves a trace they can grep before the flip.
-    Import is local so approval evaluation never hard-depends on the logger.
-    """
-    try:
-        from .audit_logger import emit
-        emit(
-            "approval_legacy_accepted",
-            decision="allow",
-            reason=(
-                f"K7 compat: {path.name} has no parseable expires_at and was accepted. "
-                f"Strict mode (strict_approvals: true) will REJECT it — reissue with "
-                f"`bash hooks/local/approve-local.sh {action} <slug>`."
-            ),
-            rule_id="FR-12",
-            extra={"artifact": path.name, "action": action,
-                   "approval_verdict": Verdict.MISSING_EXPIRY.value},
-            root=root,
-        )
-    except BaseException:                            # noqa: BLE001 — logging never gates
-        pass
 
 
 def _approval_artifact_present(action: str, *, root: Path | None = None) -> bool:

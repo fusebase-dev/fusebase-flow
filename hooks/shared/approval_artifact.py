@@ -239,6 +239,45 @@ def is_acceptable(verdict: Verdict, *, strict: bool) -> bool:
     return verdict in (_ACCEPT_STRICT if strict else _ACCEPT_COMPAT)
 
 
+def accept_with_audit(
+    verdict: Verdict,
+    *,
+    strict: bool,
+    carrier: str,
+    artifact_path: Path | str | None = None,
+    action: str = "",
+    root: Path | None = None,
+) -> bool:
+    """is_acceptable + the K7 obligation that a COMPAT acceptance leaves a trace.
+
+    TRIPWIRE: every carrier must accept through this, not bare is_acceptable — a
+    compat-accepted expiry-less artifact that is accepted SILENTLY is the pre-fix
+    behaviour, and the one release of warning (K7) only helps if it is greppable.
+    """
+    ok = is_acceptable(verdict, strict=strict)
+    if ok and verdict is Verdict.MISSING_EXPIRY:
+        name = Path(artifact_path).name if artifact_path else "<unknown>"
+        try:
+            from .audit_logger import emit
+            emit(
+                "approval_legacy_accepted",
+                decision="allow",
+                reason=(
+                    f"K7 compat [{carrier}]: {name} has no parseable expires_at and was "
+                    f"accepted. Strict mode (strict_approvals: true) will REJECT it — "
+                    f"reissue with `bash hooks/local/approve-local.sh {action or '<action>'} "
+                    f"<slug> --command '<exact command>'`."
+                ),
+                rule_id="FR-12",
+                extra={"artifact": name, "action": action, "carrier": carrier,
+                       "approval_verdict": Verdict.MISSING_EXPIRY.value},
+                root=root,
+            )
+        except BaseException:                        # noqa: BLE001 — logging never gates
+            pass
+    return ok
+
+
 def expiry_state(data: Any) -> str:
     """Human-facing expiry classification for the --inventory report (AC12)."""
     if not isinstance(data, dict):
@@ -262,7 +301,8 @@ def binding_state(data: Any) -> str:
 
 
 __all__ = [
-    "Artifact", "SCHEMA_VERSION", "Verdict", "binding_state", "compute_command_digest",
+    "Artifact", "SCHEMA_VERSION", "Verdict", "accept_with_audit", "binding_state",
+    "compute_command_digest",
     "compute_repo_id", "evaluate_artifact", "evaluate_file", "expiry_state",
     "filename_action", "is_acceptable", "load", "now_utc", "parse_expiry",
 ]

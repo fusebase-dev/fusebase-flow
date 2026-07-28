@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "2da3cefedb9c034065cf139b786e82f3b69882037c3cb611ab1a91e48151bbd4"
+      "sha256": "4fae2f5c0bfb06525702850f1d0fdda0e30c63536dcbe4ba20d6b6544f110189"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -454,7 +454,7 @@
     },
     {
       "path": "hooks/local/lib/active-approvals.sh",
-      "sha256": "4466b6d9c7c8fb06c47dd32bdc83a92d028647fe9787078711613e66b87ad5fe"
+      "sha256": "345e631c28ee108c40a9f67e8dd8f6d9b72486e176274cea5d35d44c52ecef26"
     },
     {
       "path": "hooks/local/lib/approval_inventory.py",
@@ -570,7 +570,7 @@
     },
     {
       "path": "hooks/shared/approval_artifact.py",
-      "sha256": "6ad8dd93400210cb82347f7215b841a76a5070bcb73f1a7cc60a1a06406e95fa"
+      "sha256": "36aaf7992224a825961b7f64d9fb468f328467df38f16a78ead69d1548388727"
     },
     {
       "path": "hooks/shared/audit_logger.py",
@@ -578,7 +578,7 @@
     },
     {
       "path": "hooks/shared/command_policy.py",
-      "sha256": "58327095262020a145bc2436a7cf6a45b38f350689f9b757ba2ae8380efd96e6"
+      "sha256": "69e8b62aaaa0db57e9556d60ecc40256fe324f503592b2508ada7f6ba7492540"
     },
     {
       "path": "hooks/shared/command_rules.py",
@@ -598,7 +598,7 @@
     },
     {
       "path": "hooks/shared/path_policy.py",
-      "sha256": "c63cb129ffd7b6aa37b85e9d2ac807f893560b0b1954ffceb6d7d89a9e7aac6c"
+      "sha256": "cb676d762dd4593ea315a62d78192bf00bf49467f7dbedcd245786c40c65d4ab"
     },
     {
       "path": "hooks/shared/policy_loader.py",
@@ -786,7 +786,7 @@
     },
     {
       "path": "hooks/tests/test-approval-binding.sh",
-      "sha256": "99f517d744177499ff9efbc4a04013710a8a149f943bee4f98cd6f2a18780720"
+      "sha256": "e9b4ced2801b86f31242ec0f9bbfe16c2c6b6008a292719512689badcd14e5a3"
     },
     {
       "path": "hooks/tests/test-approval-writer.sh",
@@ -1121,5 +1121,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "e73962736ad9b578d33ca4fb6c5be46d85271fe00523cb8405d04021587bb652"
+  "manifest_self_sha256": "fd5363bbfa671dd046584a6d1a42bb052672e15326a8db8adb379bb9f25b9b14"
 }

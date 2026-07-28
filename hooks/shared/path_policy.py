@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .approval_artifact import evaluate_artifact, is_acceptable, load as load_artifact
+from .approval_artifact import accept_with_audit, evaluate_artifact, load as load_artifact
 from .policy_loader import find_git_root, get_policy
 
 # WS1b: the internals-bootstrap category demands a genuinely SINGLE-USE exception.
@@ -249,7 +249,8 @@ def has_active_exception(
         # strict_approvals is on. The digest/operation/exact-path checks below are
         # UNCHANGED and ADDITIONAL to this.
         verdict = evaluate_artifact(data, expected_action="protected_path_edit")
-        if not is_acceptable(verdict, strict=strict or bootstrap):
+        if not accept_with_audit(verdict, strict=strict or bootstrap, carrier="path_policy",
+                                 artifact_path=f, action="protected_path_edit", root=root):
             continue
         approved_paths = data.get("paths") or []
         if bootstrap:
