@@ -94,7 +94,7 @@
     },
     {
       "path": "hooks/local/lib/managed_content_manifest.py",
-      "sha256": "e7449f442c82741da4c7aebe98b13ab20023040ec4ed04ad18fae383e842c0cc"
+      "sha256": "e73d3d2e6a62a13f01b1dbf52eaa3294c3d9a3980dc8db970d4e54363a8d8f58"
     },
     {
       "path": "hooks/local/lib/merge-module-size-baseline.sh",
@@ -158,7 +158,7 @@
     },
     {
       "path": "hooks/local/upgrade.sh",
-      "sha256": "51c13460c7925ce453d19e356a143f54f41eeabb5b9d335e059cc9082cb840e9"
+      "sha256": "c006a775aae368b157d39a6c702df4b2cdc074fe49b5af68128b252b8ad1849c"
     },
     {
       "path": "hooks/local/verify-gate.sh",
@@ -530,12 +530,12 @@
     },
     {
       "path": "hooks/tests/test-upgrade-conflict-classification.sh",
-      "sha256": "4f6d06dae36af272ba6212ebb057d2e0cdc1ccc61c2bf89eab1ed8f4527a8e8d"
+      "sha256": "a29b98ab02f87d04072a8ad006a4c77339df0bf39dff84196452abf66cc502ac"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "ae3846fa92636af082958ed405ce0b0233f2a132033b42013e4052491ddb5bbe"
+  "manifest_self_sha256": "9446d90cedc716adaf6ea86d98a96bf7ef5aeeed2881c6796fe92fbd42c04835"
 }

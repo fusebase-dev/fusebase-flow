@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "ff804c4db088c1a09a77731b91a659df0688da9d2e7dfe2c3fe5ea68c5cd98e1"
+      "sha256": "330e5e4631d3fbcd0262518d0c1e8dd2befea1f5c9e9fe56ef063635cee51648"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -474,7 +474,7 @@
     },
     {
       "path": "hooks/local/lib/managed_content_manifest.py",
-      "sha256": "e7449f442c82741da4c7aebe98b13ab20023040ec4ed04ad18fae383e842c0cc"
+      "sha256": "e73d3d2e6a62a13f01b1dbf52eaa3294c3d9a3980dc8db970d4e54363a8d8f58"
     },
     {
       "path": "hooks/local/lib/merge-module-size-baseline.sh",
@@ -542,7 +542,7 @@
     },
     {
       "path": "hooks/local/upgrade.sh",
-      "sha256": "51c13460c7925ce453d19e356a143f54f41eeabb5b9d335e059cc9082cb840e9"
+      "sha256": "c006a775aae368b157d39a6c702df4b2cdc074fe49b5af68128b252b8ad1849c"
     },
     {
       "path": "hooks/local/verify-gate.sh",
@@ -918,7 +918,7 @@
     },
     {
       "path": "hooks/tests/test-upgrade-conflict-classification.sh",
-      "sha256": "4f6d06dae36af272ba6212ebb057d2e0cdc1ccc61c2bf89eab1ed8f4527a8e8d"
+      "sha256": "a29b98ab02f87d04072a8ad006a4c77339df0bf39dff84196452abf66cc502ac"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
@@ -1117,5 +1117,5 @@
       "sha256": "ed43aa0c28536f4eaf8849e5c6a08de409c07b6ebcd12dd9cf8f02f835829968"
     }
   ],
-  "manifest_self_sha256": "5be04d6e0edf9936c40d3ed97a27a93c6a9db07e06f7d9082291494b5da1e641"
+  "manifest_self_sha256": "2e3790f00e1a26869d024070740fe0da5f9d77afaae883b1ecd86c41ca289809"
 }

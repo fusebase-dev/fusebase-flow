@@ -232,7 +232,11 @@ def classify(base_manifest: Path | None, local_root: Path, upstream_root: Path) 
     upstream = {p: sha256_of(upstream_root / p) for p in collect_paths(upstream_root)}
 
     rows: list[dict] = []
-    for path in sorted(set(local) | set(upstream) | set(base or {})):
+    # TRIPWIRE (K13b): the base manifest is NOT classifiable content — it is never in its
+    # own asset list, so it would always land on `unknown-base` and pollute every report.
+    # It is replaced wholesale by the base refresh that build_plan appends last.
+    candidates = (set(local) | set(upstream) | set(base or {})) - {MANIFEST_REL}
+    for path in sorted(candidates):
         b = (base or {}).get(path)
         loc = local.get(path)
         up = upstream.get(path)
@@ -280,6 +284,105 @@ CLASSIFICATIONS = {
 }
 
 
+#: Attended-mode default decision per conflict class (decision K9's "Attended" column).
+ATTENDED_DEFAULTS = {
+    "consumer-only": "keep",
+    "changed-by-both": "abort",
+    "upstream-deleted-dirty": "keep",
+    "consumer-deleted": "keep",          # leave absent
+    "unknown-base": "keep",
+}
+#: Groups that are safe to collapse to a count in the report (AC15).
+_SAFE_GROUPS = ("current", "upstream-only", "upstream-added",
+                "upstream-deleted-clean", "consumer-added")
+
+
+def build_plan(rows: list[dict], *, auto_yes: bool,
+               decisions: dict[str, str] | None = None) -> tuple[list[tuple[str, str]], bool]:
+    """(ordered [(op, path)], abort) where op is copy | delete | skip.
+
+    `auto_yes` applies K9's unattended column verbatim: the four protected classes are
+    PRESERVED, and `changed-by-both` ABORTS. Attended runs pass `decisions` (per class:
+    keep | overwrite | abort) collected by the shell, defaulting to ATTENDED_DEFAULTS.
+    """
+    decisions = decisions or {}
+    plan: list[tuple[str, str]] = []
+    abort = False
+    for row in rows:
+        cls = row["classification"]
+        cfg = CLASSIFICATIONS.get(cls, {"auto_overwrite": False, "abort": False})
+        if auto_yes:
+            choice = "overwrite" if cfg["auto_overwrite"] else "keep"
+            if cfg["abort"]:
+                abort = True
+        else:
+            choice = decisions.get(cls, ATTENDED_DEFAULTS.get(
+                cls, "overwrite" if cfg["auto_overwrite"] else "keep"))
+            if choice == "abort":
+                abort = True
+        if choice == "overwrite":
+            # Upstream dropped the file -> the "overwrite" action is a DELETE.
+            op = "delete" if not row["in_upstream"] else "copy"
+        else:
+            op = "skip"
+        plan.append((op, row["path"]))
+    # BASE REFRESH, ALWAYS LAST (decision K13b). The new base is the SOURCE tree's
+    # manifest — "what upstream shipped you this time" — so the NEXT upgrade classifies
+    # against reality instead of calling every 4.7.0 file consumer-divergent. Appending it
+    # last matters: if it landed first, a mid-run failure would leave a base claiming
+    # content that was never written.
+    if not abort:
+        plan.append(("copy", MANIFEST_REL))
+    return plan, abort
+
+
+def render_report(rows: list[dict], *, auto_yes: bool, backup_suffix: str,
+                  resume_command: str, aborting: bool = False) -> str:
+    """The AC15 conflict report.
+
+    Safe groups collapse to a count; every path that needs a human decision is listed in
+    full and NEVER elided behind "N files" — being told only that "some files differed"
+    was the consumer's actual complaint. Backup dir named; exact resume command last.
+    """
+    by_class: dict[str, list[str]] = {}
+    for row in rows:
+        by_class.setdefault(row["classification"], []).append(row["path"])
+
+    out: list[str] = ["", "[upgrade] Managed-content classification:"]
+    for cls in _SAFE_GROUPS:
+        paths = by_class.get(cls)
+        if paths:
+            out.append(f"  {cls:<24} {len(paths):>4} file(s)")
+
+    needs_decision = [c for c, cfg in CLASSIFICATIONS.items() if cfg["report"]]
+    conflicts = {c: by_class[c] for c in needs_decision if by_class.get(c)}
+    if not conflicts:
+        out.append("  (no consumer divergence — every managed path was safe to refresh)")
+    for cls, paths in conflicts.items():
+        verb = {
+            "consumer-only": "YOU changed these; upstream did not — PRESERVED",
+            "changed-by-both": "BOTH changed these — cannot be merged automatically",
+            "upstream-deleted-dirty": "upstream removed these but YOU changed them — PRESERVED",
+            "consumer-deleted": "YOU deleted these; upstream still ships them — LEFT ABSENT",
+            "unknown-base": "no recorded base for these — PRESERVED (cannot tell who changed them)",
+        }.get(cls, cls)
+        out.append("")
+        out.append(f"  {cls} ({len(paths)}) — {verb}:")
+        out.extend(f"    - {p}" for p in paths)
+
+    out.append("")
+    out.append(f"[upgrade] Backups of every touched directory: *.pre-upgrade-{backup_suffix}")
+    if aborting:
+        out.append("[upgrade] ABORTED: 'changed-by-both' paths need a human decision and")
+        out.append("          --auto-yes must not guess. NOTHING was written.")
+        out.append("          Reconcile the files listed above (or take upstream's copy from")
+        out.append(f"          the source clone), then resume with:")
+    else:
+        out.append("[upgrade] Resume / re-run with:")
+    out.append(f"    {resume_command}")
+    return "\n".join(out)
+
+
 def _git_root() -> Path:
     try:
         out = subprocess.run(["git", "rev-parse", "--show-toplevel"],
@@ -292,13 +395,21 @@ def _git_root() -> Path:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="managed_content_manifest.py")
     parser.add_argument("command",
-                        choices=["stamp", "verify", "classify", "list-managed"])
+                        choices=["stamp", "verify", "classify", "plan", "list-managed"])
     parser.add_argument("--root", default=None)
     parser.add_argument("--out", default=MANIFEST_REL, help="stamp: manifest destination")
     parser.add_argument("--base", default=None, help="classify: base manifest path")
     parser.add_argument("--upstream", default=None, help="classify: upstream tree root")
     parser.add_argument("--dirs", action="store_true", help="list-managed: dirs only")
     parser.add_argument("--files", action="store_true", help="list-managed: files only")
+    parser.add_argument("--auto-yes", action="store_true", help="plan: unattended K9 column")
+    parser.add_argument("--decisions", default="",
+                        help="plan: attended choices, e.g. consumer-only=keep,changed-by-both=abort")
+    parser.add_argument("--plan-file", default=None, help="plan: write the TSV apply plan here")
+    parser.add_argument("--report-file", default=None, help="plan: write the AC15 report here")
+    parser.add_argument("--backup-suffix", default="<TS>", help="plan: report the backup stamp")
+    parser.add_argument("--resume-command", default="bash hooks/local/upgrade.sh",
+                        help="plan: exact command printed last in the report")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     root = Path(args.root).resolve() if args.root else _git_root()
@@ -320,15 +431,39 @@ def main(argv=None) -> int:
         return verify(root, args.json)
 
     if not args.upstream:
-        print("[managed-content] classify requires --upstream <tree>", file=sys.stderr)
+        print(f"[managed-content] {args.command} requires --upstream <tree>", file=sys.stderr)
         return 2
-    rows = classify(Path(args.base) if args.base else None, root, Path(args.upstream))
-    if args.json:
-        print(json.dumps(rows, indent=2))
+    base = Path(args.base) if args.base else None
+    if base is not None and not base.is_file():
+        base = None                     # no recorded base -> K9 row 10 (unknown-base)
+    rows = classify(base, root, Path(args.upstream))
+
+    if args.command == "classify":
+        if args.json:
+            print(json.dumps(rows, indent=2))
+        else:
+            for r in rows:
+                print(f"{r['classification']}\t{r['path']}")
+        return 0
+
+    decisions = {}
+    for item in (args.decisions or "").split(","):
+        if "=" in item:
+            k, v = item.split("=", 1)
+            decisions[k.strip()] = v.strip()
+    plan, abort = build_plan(rows, auto_yes=args.auto_yes, decisions=decisions)
+    report = render_report(rows, auto_yes=args.auto_yes, backup_suffix=args.backup_suffix,
+                           resume_command=args.resume_command, aborting=abort)
+    if args.report_file:
+        Path(args.report_file).write_text(report + "\n", encoding="utf-8", newline="\n")
     else:
-        for r in rows:
-            print(f"{r['classification']}\t{r['path']}")
-    return 0
+        print(report)
+    if args.plan_file and not abort:
+        Path(args.plan_file).write_text(
+            "".join(f"{op}\t{path}\n" for op, path in plan), encoding="utf-8", newline="\n")
+    # rc 9 = ABORT (changed-by-both needs a human). Distinct from 1/2/4 so the shell can
+    # tell "stop, nothing written" from a verify verdict.
+    return 9 if abort else 0
 
 
 if __name__ == "__main__":

@@ -176,4 +176,99 @@ else
   bad "k9-ten-state-truth-table-and-auto-yes-containment" "$K9_OUT"
 fi
 
+# ---- 3. END-TO-END through the REAL upgrade.sh -------------------------------------
+# Builds a 4.6.1 consumer tree with a recorded base, a local edit, and a 4.7.0 staging
+# clone, then runs the shipped engine. This is the direct regression for the incident
+# that produced this ticket (AC16) plus AC13b/AC13c.
+E2E_ROOT="$(mktemp -d)"
+
+# build_case <dir> <upstream-validator-content>
+#   Upstream content equal to the base  => consumer-only (row 3)
+#   Upstream content different          => changed-by-both (row 4)
+build_case() {
+  local D="$1" up_validator="$2" L U
+  L="$D/local"; U="$L/.fusebase-flow-source"
+  mkdir -p "$L/hooks/shared" "$L/hooks/local/lib" "$L/workflows"
+  ( cd "$L" && git init -q && git config user.email t@t.t && git config user.name t )
+  echo "4.6.1" > "$L/VERSION"
+  printf 'validator v1\n' > "$L/hooks/shared/command_policy.py"
+  printf 'control v1\n'   > "$L/hooks/local/control.sh"
+  printf 'wf v1\n'        > "$L/workflows/wf.md"
+  cp "$ROOT/hooks/local/lib/managed_content_manifest.py" "$L/hooks/local/lib/"
+  cp "$ROOT/hooks/local/upgrade.sh" "$L/hooks/local/"
+  ( cd "$L" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null )
+  # The consumer's local hardening, applied AFTER the base was recorded.
+  printf 'validator v1\n# SENTINEL local hardening\n' > "$L/hooks/shared/command_policy.py"
+  mkdir -p "$U/hooks/shared" "$U/hooks/local/lib" "$U/workflows"
+  echo "4.7.0" > "$U/VERSION"
+  printf '%s\n' "$up_validator" > "$U/hooks/shared/command_policy.py"
+  printf 'control v2\n'          > "$U/hooks/local/control.sh"
+  printf 'wf v1\n'               > "$U/workflows/wf.md"
+  printf 'new upstream file\n'   > "$U/hooks/shared/brand_new.py"
+  cp "$ROOT/hooks/local/lib/managed_content_manifest.py" "$U/hooks/local/lib/"
+  cp "$ROOT/hooks/local/upgrade.sh" "$U/hooks/local/"
+  ( cd "$U" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null )
+  echo "$L"
+}
+
+# --- 3a. AC16: upstream ALSO rewrote the file -> changed-by-both -> --auto-yes ABORTS.
+CB="$(build_case "$E2E_ROOT/cb" "validator v2 upstream rewrite")"
+CB_LOG="$E2E_ROOT/cb.log"
+( cd "$CB" && bash hooks/local/upgrade.sh --auto-yes ) > "$CB_LOG" 2>&1
+CB_RC=$?
+cb_fail=""
+[ "$CB_RC" -eq 3 ] || cb_fail="$cb_fail [expected clean-abort rc 3, got $CB_RC]"
+grep -q "changed-by-both" "$CB_LOG" || cb_fail="$cb_fail [report never says changed-by-both]"
+grep -q -- "- hooks/shared/command_policy.py" "$CB_LOG" || cb_fail="$cb_fail [the conflicting path is not listed LITERALLY (AC15)]"
+grep -q "ABORTED" "$CB_LOG" || cb_fail="$cb_fail [no abort notice]"
+grep -q "pre-upgrade-" "$CB_LOG" || cb_fail="$cb_fail [backup dir not named (AC15)]"
+tail -1 "$CB_LOG" | grep -q "upgrade.sh" || cb_fail="$cb_fail [resume command is not last (AC15)]"
+grep -q SENTINEL "$CB/hooks/shared/command_policy.py" || cb_fail="$cb_fail [the consumer edit was LOST — the reported defect]"
+grep -q "control v1" "$CB/hooks/local/control.sh" || cb_fail="$cb_fail [abort was not clean: content was written anyway]"
+if [ -z "$cb_fail" ]; then
+  ok "ac16-changed-by-both-aborts-auto-yes-and-preserves-the-patch"
+else
+  bad "ac16-changed-by-both-aborts-auto-yes-and-preserves-the-patch" "$cb_fail"
+fi
+
+# --- 3b. AC13c + AC13b: consumer-only preserved while the rest of the SAME directory
+#         refreshes, and the base is refreshed so a SECOND upgrade is not a no-op.
+CO="$(build_case "$E2E_ROOT/co" "validator v1")"
+CO_LOG="$E2E_ROOT/co.log"
+( cd "$CO" && bash hooks/local/upgrade.sh --auto-yes ) > "$CO_LOG" 2>&1
+co_fail=""
+grep -q -- "- hooks/shared/command_policy.py" "$CO_LOG" || co_fail="$co_fail [consumer-only path not enumerated (AC15)]"
+grep -q SENTINEL "$CO/hooks/shared/command_policy.py" || co_fail="$co_fail [consumer-only file was overwritten]"
+grep -q "control v2" "$CO/hooks/local/control.sh" || co_fail="$co_fail [upstream-only sibling was NOT refreshed — partial apply broken (AC13c)]"
+[ -f "$CO/hooks/shared/brand_new.py" ] || co_fail="$co_fail [upstream-added file was not installed]"
+[ "$(tr -d '\n\r' < "$CO/VERSION")" = "4.7.0" ] || co_fail="$co_fail [VERSION did not advance]"
+NEW_BASE_VER="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['flow_version'])" "$CO/audit/managed-content-manifest.json" 2>/dev/null)"
+[ "$NEW_BASE_VER" = "4.7.0" ] || co_fail="$co_fail [base manifest was NOT refreshed to 4.7.0 (K13b) — got '$NEW_BASE_VER']"
+if [ -z "$co_fail" ]; then
+  ok "ac13c-partial-apply-preserves-one-refreshes-siblings"
+else
+  bad "ac13c-partial-apply-preserves-one-refreshes-siblings" "$co_fail"
+fi
+
+# --- 3c. AC13b second half: a SECOND consecutive upgrade must still deliver content
+#         and must NOT invent consumer-only rows for files it just installed itself.
+U2="$CO/.fusebase-flow-source"
+echo "4.7.1" > "$U2/VERSION"
+printf 'control v3\n' > "$U2/hooks/local/control.sh"
+( cd "$U2" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null )
+CO2_LOG="$E2E_ROOT/co2.log"
+( cd "$CO" && bash hooks/local/upgrade.sh --auto-yes ) > "$CO2_LOG" 2>&1
+co2_fail=""
+grep -q "control v3" "$CO/hooks/local/control.sh" || co2_fail="$co2_fail [second upgrade delivered NO content — the classifier is single-shot]"
+grep -q SENTINEL "$CO/hooks/shared/command_policy.py" || co2_fail="$co2_fail [the genuine consumer edit was lost on run 2]"
+# Exactly ONE consumer-only path may appear: the file the consumer really edited.
+CO2_CONSUMER_ONLY="$(grep -c "^    - " "$CO2_LOG" 2>/dev/null || echo 0)"
+[ "$CO2_CONSUMER_ONLY" = "1" ] || co2_fail="$co2_fail [run 2 flagged $CO2_CONSUMER_ONLY divergent paths, expected exactly 1]"
+if [ -z "$co2_fail" ]; then
+  ok "ac13b-base-refresh-keeps-the-classifier-correct-on-the-next-upgrade"
+else
+  bad "ac13b-base-refresh-keeps-the-classifier-correct-on-the-next-upgrade" "$co2_fail"
+fi
+rm -rf "$E2E_ROOT"
+
 finish

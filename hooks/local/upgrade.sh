@@ -229,10 +229,33 @@ echo ""
 # == VERSION, but nothing refreshed it on upgrade, so every 3.14.1+ consumer
 # upgrade landed with a version-mismatch ERROR (same installer-parity class as
 # the slash-command gap).
-CONTENT_DIRS=( "flow-skills" "agents" "workflows" "policies" "templates" "hooks" ".claude-plugin" ".codex-plugin" )
-# D11 (AC5): the committed hook-layer manifest travels with the upgrade so a consumer
-# picks up integrity verification with no manual step (audit/ is outside CONTENT_DIRS).
-CONTENT_FILES=( "FLOW_RULES.md" "FLOW_RULES_HISTORY.md" "audit/hook-layer-manifest.json" )
+#
+# K14: the managed list is NOT declared here any more. Its single home is
+# hooks/local/lib/managed_content_manifest.py, read via `list-managed`, so the manifest
+# tooling and this engine can never disagree about what "managed" means. The SOURCE
+# clone's copy is authoritative (it is the incoming definition); the local copy is the
+# fallback, and a hardcoded list remains as a last resort for a pre-4.7.0 source tree.
+MCM_LIB="hooks/local/lib/managed_content_manifest.py"
+MCM="$SOURCE_CLONE/$MCM_LIB"
+[ -f "$MCM" ] || MCM="$MCM_LIB"
+CLASSIFY_OK=0
+CONTENT_DIRS=()
+CONTENT_FILES=()
+if [ -f "$MCM" ] && command -v python3 >/dev/null 2>&1; then
+  while IFS= read -r line; do [ -n "$line" ] && CONTENT_DIRS+=("$line"); done < <(python3 "$MCM" list-managed --dirs 2>/dev/null)
+  while IFS= read -r line; do [ -n "$line" ] && CONTENT_FILES+=("$line"); done < <(python3 "$MCM" list-managed --files 2>/dev/null)
+  [ "${#CONTENT_DIRS[@]}" -gt 0 ] && CLASSIFY_OK=1
+fi
+if [ "$CLASSIFY_OK" -ne 1 ]; then
+  echo "[upgrade] WARN: managed_content_manifest.py unavailable (pre-4.7.0 source or no python3)." >&2
+  echo "          Falling back to the LEGACY whole-directory refresh — consumer edits to managed" >&2
+  echo "          files will be OVERWRITTEN (no conflict classification). Upgrade via" >&2
+  echo "          'bash hooks/local/bootstrap-upgrade.sh' to get the classifier." >&2
+  CONTENT_DIRS=( "flow-skills" "agents" "workflows" "policies" "templates" "hooks" ".claude-plugin" ".codex-plugin" )
+  CONTENT_FILES=( "FLOW_RULES.md" "FLOW_RULES_HISTORY.md" "audit/hook-layer-manifest.json" )
+fi
+# The consumer's recorded base: what upstream shipped THEM last time (decision K13).
+BASE_MANIFEST="audit/managed-content-manifest.json"
 # Framework reference docs (top-level docs/*.md). U4: NOT copied into the consumer
 # by default (they're framework-dev docs that collide with consumer doc layouts).
 # With --with-framework-docs they land under docs/_fusebase-flow/ (namespaced),
@@ -245,16 +268,66 @@ PLAN=()
 
 dir_differs() { ! diff -rq "$SOURCE_CLONE/$1" "$1" >/dev/null 2>&1; }
 
-for d in "${CONTENT_DIRS[@]}"; do
-  if [ -d "$SOURCE_CLONE/$d" ] && dir_differs "$d"; then
-    PLAN+=("refresh dir:  $d/")
+# ---- Three-way classification (K9) -> per-file apply plan (K15) ---------------------
+# The OLD engine asked only "does this directory differ" and then `cp -R`'d upstream over
+# it wholesale, so it could not tell an upstream change from a consumer edit and silently
+# overwrote local hardening. Classification is per PATH and apply is per FILE: a directory
+# holding one consumer-edited file among a hundred upstream-updated ones refreshes the
+# hundred and preserves the one.
+APPLY_PLAN=""
+CLASSIFY_REPORT=""
+CLASSIFY_ABORT=0
+if [ "$CLASSIFY_OK" -eq 1 ]; then
+  APPLY_PLAN="$(mktemp)"
+  CLASSIFY_REPORT="$(mktemp)"
+  MCM_DECISIONS=""
+  if [ "$AUTO_YES" -ne 1 ]; then
+    # Attended: K9's per-class defaults, applied non-interactively per CLASS (never a
+    # per-file prompt storm). The report below names every affected path, and
+    # changed-by-both still stops the run so a human reconciles it deliberately.
+    MCM_DECISIONS="consumer-only=keep,upstream-deleted-dirty=keep,consumer-deleted=keep,unknown-base=keep,changed-by-both=abort"
   fi
-done
-for f in "${CONTENT_FILES[@]}"; do
-  if [ -f "$SOURCE_CLONE/$f" ] && ! diff -q "$SOURCE_CLONE/$f" "$f" >/dev/null 2>&1; then
-    PLAN+=("refresh file: $f")
+  MCM_BASE_ARG=()
+  [ -f "$BASE_MANIFEST" ] && MCM_BASE_ARG=(--base "$BASE_MANIFEST")
+  set +e
+  python3 "$MCM" plan --root "$ROOT" --upstream "$SOURCE_CLONE" \
+    "${MCM_BASE_ARG[@]}" \
+    $( [ "$AUTO_YES" -eq 1 ] && echo --auto-yes ) \
+    ${MCM_DECISIONS:+--decisions "$MCM_DECISIONS"} \
+    --plan-file "$APPLY_PLAN" --report-file "$CLASSIFY_REPORT" \
+    --backup-suffix "$TS" --resume-command "bash hooks/local/upgrade.sh"
+  MCM_RC=$?
+  set -e
+  cat "$CLASSIFY_REPORT"
+  if [ "$MCM_RC" -eq 9 ]; then
+    CLASSIFY_ABORT=1
+  elif [ "$MCM_RC" -ne 0 ]; then
+    echo "[upgrade] FATAL: classification failed (rc $MCM_RC) — refusing to apply blind." >&2
+    exit 1
   fi
-done
+  if [ "$CLASSIFY_ABORT" -eq 1 ]; then
+    # NOTHING has been written yet (the plan stage is read-only), so this is a clean stop.
+    exit 3
+  fi
+  while IFS=$'\t' read -r op path; do
+    [ -n "${path:-}" ] || continue
+    case "$op" in
+      copy)   PLAN+=("refresh file: $path") ;;
+      delete) PLAN+=("remove file:  $path (upstream dropped it)") ;;
+    esac
+  done < "$APPLY_PLAN"
+else
+  for d in "${CONTENT_DIRS[@]}"; do
+    if [ -d "$SOURCE_CLONE/$d" ] && dir_differs "$d"; then
+      PLAN+=("refresh dir:  $d/")
+    fi
+  done
+  for f in "${CONTENT_FILES[@]}"; do
+    if [ -f "$SOURCE_CLONE/$f" ] && ! diff -q "$SOURCE_CLONE/$f" "$f" >/dev/null 2>&1; then
+      PLAN+=("refresh file: $f")
+    fi
+  done
+fi
 # Top-level framework docs (docs/*.md) — only with --with-framework-docs, and
 # namespaced under docs/_fusebase-flow/ so they never collide with consumer docs.
 if [ "$WITH_DOCS" -eq 1 ] && [ -d "$SOURCE_CLONE/$DOC_GLOB" ]; then
@@ -377,16 +450,56 @@ copy_dir() {
   mkdir -p "$d"   # new dir on first migration (e.g. flow-skills/ on a pre-3.9.0 tree)
   cp -R "$SOURCE_CLONE/$d/." "$d/"
 }
-for d in "${CONTENT_DIRS[@]}"; do
-  if [ -d "$SOURCE_CLONE/$d" ] && dir_differs "$d"; then copy_dir "$d"; fi
-done
-for f in "${CONTENT_FILES[@]}"; do
-  if [ -f "$SOURCE_CLONE/$f" ] && ! diff -q "$SOURCE_CLONE/$f" "$f" >/dev/null 2>&1; then
-    [ -f "$f" ] && cp "$f" "$f.pre-upgrade-$TS"
-    mkdir -p "$(dirname "$f")"   # D11: older installs may lack audit/ entirely
-    cp "$SOURCE_CLONE/$f" "$f"
-  fi
-done
+if [ "$CLASSIFY_OK" -eq 1 ]; then
+  # ---- PER-FILE apply (decision K15) ----
+  # Driven by the classification plan, NOT by whole-directory `cp -R`. The existing
+  # DIRECTORY-level .pre-upgrade-<TS> snapshot is retained unchanged: it already captures
+  # everything before any write, so no second (per-file) backup scheme is introduced and
+  # the U10 retention prune below stays correct.
+  for d in "${CONTENT_DIRS[@]}"; do
+    if [ -d "$d" ] && [ ! -e "$d.pre-upgrade-$TS" ] && grep -qE "^(copy|delete)"$'\t'"$d/" "$APPLY_PLAN" 2>/dev/null; then
+      cp -R "$d" "$d.pre-upgrade-$TS"
+    fi
+  done
+  ff_applied=0; ff_removed=0; ff_preserved=0
+  while IFS=$'\t' read -r op path; do
+    [ -n "${path:-}" ] || continue
+    # TRIPWIRE (K13b): the base manifest is the LAST thing written, after all content —
+    # the plan already orders it last. Reordering makes the classifier single-shot: the
+    # next upgrade would compare new content against a base that predates it.
+    case "$op" in
+      copy)
+        [ -f "$SOURCE_CLONE/$path" ] || continue
+        mkdir -p "$(dirname "$path")"
+        [ -f "$path" ] && [ ! -e "$path.pre-upgrade-$TS" ] && \
+          case "$path" in */*) : ;; *) cp "$path" "$path.pre-upgrade-$TS" ;; esac
+        cp "$SOURCE_CLONE/$path" "$path"
+        ff_applied=$((ff_applied + 1)) ;;
+      delete)
+        if [ -e "$path" ]; then
+          # Recoverable: top-level managed FILES get their own twin (they have no parent
+          # dir snapshot); files inside a managed dir are already in that dir's snapshot.
+          case "$path" in */*) : ;; *) cp "$path" "$path.pre-upgrade-$TS" 2>/dev/null || true ;; esac
+          rm -f "$path"
+          ff_removed=$((ff_removed + 1))
+        fi ;;
+      skip) ff_preserved=$((ff_preserved + 1)) ;;
+    esac
+  done < "$APPLY_PLAN"
+  echo "[upgrade] applied $ff_applied file(s), removed $ff_removed, preserved $ff_preserved (per-file, K15)."
+  rm -f "$APPLY_PLAN" "$CLASSIFY_REPORT"
+else
+  for d in "${CONTENT_DIRS[@]}"; do
+    if [ -d "$SOURCE_CLONE/$d" ] && dir_differs "$d"; then copy_dir "$d"; fi
+  done
+  for f in "${CONTENT_FILES[@]}"; do
+    if [ -f "$SOURCE_CLONE/$f" ] && ! diff -q "$SOURCE_CLONE/$f" "$f" >/dev/null 2>&1; then
+      [ -f "$f" ] && cp "$f" "$f.pre-upgrade-$TS"
+      mkdir -p "$(dirname "$f")"   # D11: older installs may lack audit/ entirely
+      cp "$SOURCE_CLONE/$f" "$f"
+    fi
+  done
+fi
 
 # ---- Step 1a (U3 / W2): merge-preserve the module-size baseline project state ----
 # policies/ was just refreshed wholesale, which OVERWROTE the consumer's baseline
