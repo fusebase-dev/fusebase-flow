@@ -78,7 +78,7 @@
     },
     {
       "path": "hooks/local/lib/approval_inventory.py",
-      "sha256": "1a0b64ab2b859687fec0530610875e0ebee5d07ecdc526ee90e196f351ab1e70"
+      "sha256": "8140108e0b0efff0e4277d66fbcfe017eb6403937421e37315796363bc3f8d14"
     },
     {
       "path": "hooks/local/lib/bounded-run.sh",
@@ -402,7 +402,7 @@
     },
     {
       "path": "hooks/tests/test-approval-writer.sh",
-      "sha256": "2f8be747653ea6bb7a2b842d7c9a8bc16be9d53f4d9cb818db2ba60a850c8166"
+      "sha256": "a5efa7195e3f25bcead10b74e326ebe24b7b85bd2c155aa568468bfc829ac20f"
     },
     {
       "path": "hooks/tests/test-baseline-merge.sh",
@@ -541,5 +541,5 @@
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "4d48aa16038666ed08bb867210392d156c7a1558b3b62f3997f1d1e78b2e8579"
+  "manifest_self_sha256": "d90d8d50e58985b21f583dd3e29dc31db09bb4f0f64d313fb5651fbc69e73274"
 }

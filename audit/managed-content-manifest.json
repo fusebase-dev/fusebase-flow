@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "4fae2f5c0bfb06525702850f1d0fdda0e30c63536dcbe4ba20d6b6544f110189"
+      "sha256": "0bef6c19b5e5df21b8208fbaa7e997aeacdde164ca5cc6d0fdf3b991fbbfe60a"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -458,7 +458,7 @@
     },
     {
       "path": "hooks/local/lib/approval_inventory.py",
-      "sha256": "1a0b64ab2b859687fec0530610875e0ebee5d07ecdc526ee90e196f351ab1e70"
+      "sha256": "8140108e0b0efff0e4277d66fbcfe017eb6403937421e37315796363bc3f8d14"
     },
     {
       "path": "hooks/local/lib/bounded-run.sh",
@@ -790,7 +790,7 @@
     },
     {
       "path": "hooks/tests/test-approval-writer.sh",
-      "sha256": "2f8be747653ea6bb7a2b842d7c9a8bc16be9d53f4d9cb818db2ba60a850c8166"
+      "sha256": "a5efa7195e3f25bcead10b74e326ebe24b7b85bd2c155aa568468bfc829ac20f"
     },
     {
       "path": "hooks/tests/test-baseline-merge.sh",
@@ -1121,5 +1121,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "fd5363bbfa671dd046584a6d1a42bb052672e15326a8db8adb379bb9f25b9b14"
+  "manifest_self_sha256": "9d9f08ca6bfab9f6c221099b31f396626698db3777acd28391be50306b01c58a"
 }

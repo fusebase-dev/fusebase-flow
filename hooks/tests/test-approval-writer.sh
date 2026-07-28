@@ -205,6 +205,48 @@ else
   bad "ac12-inventory-four-verdicts-and-reject-count" "missing:$inv_fail"
 fi
 
+# AC27 / T24 discriminator: the inventory must never print ACCEPT for something the gate
+# rejects. Pre-correction BOTH binding fields were stripped on mismatch, so a foreign-repo
+# artifact AND a command-bound artifact both printed ACCEPT.
+INV2_REPO="$(mktemp -d)"
+INV2_NATIVE="$( cd "$INV2_REPO" && { pwd -W 2>/dev/null || pwd; } )"
+mkdir -p "$INV2_REPO/state/approvals"
+MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$ROOT" "$INV2_NATIVE" <<'PY' >/dev/null 2>&1
+import json, sys
+from pathlib import Path
+root, repo = Path(sys.argv[1]), Path(sys.argv[2])
+sys.path.insert(0, str(root / "hooks"))
+from shared.approval_artifact import compute_command_digest, compute_repo_id  # noqa: E402
+d = repo / "state" / "approvals"
+base = {"schema_version": 2, "action": "production_deploy",
+        "expires_at": "2099-01-01T00:00:00Z"}
+(d / "production_deploy-foreignrepo-20260728.json").write_text(
+    json.dumps(dict(base, repo_id=compute_repo_id(repo / "somewhere" / "else"))), encoding="utf-8")
+(d / "production_deploy-cmdbound-20260728.json").write_text(
+    json.dumps(dict(base, repo_id=compute_repo_id(repo),
+                    command_digest=compute_command_digest("fusebase deploy"))), encoding="utf-8")
+(d / "production_deploy-plain-20260728.json").write_text(
+    json.dumps(dict(base, repo_id=compute_repo_id(repo))), encoding="utf-8")
+PY
+INV2="$(python3 "$ROOT/hooks/local/lib/approval_inventory.py" --root "$INV2_NATIVE" 2>&1)"
+inv2_fail=""
+case "$(echo "$INV2" | grep foreignrepo)" in
+  *"REJECT (BINDING_MISMATCH)"*) ;; *) inv2_fail="$inv2_fail [foreign repo_id not REJECTed]" ;;
+esac
+case "$(echo "$INV2" | grep cmdbound)" in
+  *"UNCHECKED (command-bound)"*) ;; *) inv2_fail="$inv2_fail [command-bound row not UNCHECKED]" ;;
+esac
+case "$(echo "$INV2" | grep 'plain')" in
+  *ACCEPT*) ;; *) inv2_fail="$inv2_fail [valid repo-bound row is not ACCEPT]" ;;
+esac
+if [ -z "$inv2_fail" ]; then
+  ok "ac27-inventory-never-accepts-a-gate-rejected-artifact"
+else
+  bad "ac27-inventory-never-accepts-a-gate-rejected-artifact" "$inv2_fail
+$INV2"
+fi
+rm -rf "$INV2_REPO"
+
 # Strict really denies what compat allows, and the compat acceptance is LOGGED (K7).
 STRICT_OUT="$(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$ROOT" <<'PY' 2>&1
 import json, shutil, sys, tempfile
