@@ -290,13 +290,18 @@ fi
 #     it makes an upgrade deliver little or nothing, which is easy to mistake for success.
 if command -v python3 >/dev/null 2>&1 && [ -f hooks/local/lib/managed_content_manifest.py ]; then
     if [ ! -f audit/managed-content-manifest.json ]; then
-        warn "no managed-content base manifest (audit/managed-content-manifest.json). The upgrade classifier has no reference, so every managed path will read 'unknown-base' -> preserved but NOT refreshed. Record one with: bash hooks/local/stamp-managed-content-manifest.sh (or upgrade via bash hooks/local/bootstrap-upgrade.sh, which synthesizes it from the upstream tag matching your VERSION)"
+        # TRIPWIRE (decision K20b): NEVER advise stamping a base from the working tree.
+        # That records the consumer's local edits as "upstream base"; the next upstream
+        # change to the same file then classifies upstream-only and OVERWRITES it —
+        # reproducing the original incident through the machinery built to prevent it.
+        # The only safe source is the exact upstream tag/package.
+        warn "no managed-content base manifest (audit/managed-content-manifest.json). The upgrade classifier has no reference, so every managed path will read 'unknown-base' -> preserved but NOT refreshed. Get one with: bash hooks/local/bootstrap-upgrade.sh (it synthesizes the base from the upstream tag matching your VERSION). Do NOT stamp a base from this working tree — that would record your local edits as upstream's, and the next upgrade would overwrite them."
     else
         bash hooks/local/verify-managed-content-manifest.sh >/dev/null 2>&1
         case $? in
             0) ;;
-            1) warn "managed-content base manifest is STALE (working tree differs from the recorded base). Until it is restamped, your own edits since the last upgrade are indistinguishable from upstream's. Refresh with: bash hooks/local/stamp-managed-content-manifest.sh" ;;
-            2) warn "managed-content base manifest is BROKEN (unparseable or self-hash mismatch). Restamp with: bash hooks/local/stamp-managed-content-manifest.sh" ;;
+            1) warn "managed-content base manifest reports DRIFT (working tree differs from the recorded base). This is EXPECTED if you have edited managed files since your last upgrade — the base records what upstream shipped you, not what you have now, and the classifier needs that difference to protect your edits. Do NOT restamp it from this tree. If the base is genuinely wrong, recover it only from the exact prior upstream tag/package (bash hooks/local/bootstrap-upgrade.sh); otherwise those paths stay 'unknown-base' and are preserved." ;;
+            2) warn "managed-content base manifest is BROKEN (unparseable or self-hash mismatch). Recover it from the exact prior upstream tag/package: bash hooks/local/bootstrap-upgrade.sh. Do NOT restamp from this working tree — that records your local edits as upstream's base." ;;
             *) ;;
         esac
     fi

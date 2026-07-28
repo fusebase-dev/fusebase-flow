@@ -126,7 +126,7 @@
     },
     {
       "path": "hooks/local/preflight.sh",
-      "sha256": "10f9df7bcd41081758de56f1c9dda7dcaa6212437ae9d56102ea13f3040d4ac1"
+      "sha256": "b0e4c41048dba1daca278bfd46a52c04d58f788f1f202785b0c6fe85373df909"
     },
     {
       "path": "hooks/local/rule-inventory.sh",
@@ -146,7 +146,7 @@
     },
     {
       "path": "hooks/local/stamp-managed-content-manifest.sh",
-      "sha256": "439a14f98a2cb6f1abb2fb5dcf8d378f04bf99a05209efef48827ea744882413"
+      "sha256": "0e37054809ff2507dfba07cf2657ac344553e4bdc683b35c85ccd3f3c652f661"
     },
     {
       "path": "hooks/local/sync-version-strings.sh",
@@ -534,12 +534,12 @@
     },
     {
       "path": "hooks/tests/test-upgrade-conflict-classification.sh",
-      "sha256": "067122ba1060b92bcbb8559702f4c6b8d1d141deabf3004fd0e9a2898efc8ded"
+      "sha256": "c97a892a4ed98dff926b7702726dc5ad0e8989f4907731322bac0baff7143317"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "ca0c497cbdefbb43a2a896ea1af4ee89ee7f96735150f9fb89147c651b4ce2a4"
+  "manifest_self_sha256": "652c482f67850fce7b53a05f3deee82de16344e7e4a0bceb805299bff851aaf5"
 }

@@ -8,6 +8,12 @@
 #
 # Thin wrapper — all logic lives in hooks/local/lib/managed_content_manifest.py (K14).
 #
+# TRIPWIRE (decision K20b): this is an UPSTREAM/CI tool. A CONSUMER must never be advised
+# to run it to "fix" a missing or drifted base — stamping from a consumer tree records
+# their local edits as upstream's base, and the next upstream change to those files then
+# classifies upstream-only and OVERWRITES them. Consumer-side base recovery comes only
+# from the exact prior upstream tag/package (hooks/local/bootstrap-upgrade.sh).
+#
 # Usage: bash hooks/local/stamp-managed-content-manifest.sh [--root <dir>] [--out <path>]
 set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"

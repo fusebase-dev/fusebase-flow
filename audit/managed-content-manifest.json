@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "9f016bbcbf56ee324c8e175803175a70de8fc3f0ee92de7edfb2219e0d29fd91"
+      "sha256": "24d5d9118573eddd2ec6c8f163add097c723361e8e023da128e8792e39466749"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -506,7 +506,7 @@
     },
     {
       "path": "hooks/local/preflight.sh",
-      "sha256": "10f9df7bcd41081758de56f1c9dda7dcaa6212437ae9d56102ea13f3040d4ac1"
+      "sha256": "b0e4c41048dba1daca278bfd46a52c04d58f788f1f202785b0c6fe85373df909"
     },
     {
       "path": "hooks/local/rule-inventory.sh",
@@ -526,7 +526,7 @@
     },
     {
       "path": "hooks/local/stamp-managed-content-manifest.sh",
-      "sha256": "439a14f98a2cb6f1abb2fb5dcf8d378f04bf99a05209efef48827ea744882413"
+      "sha256": "0e37054809ff2507dfba07cf2657ac344553e4bdc683b35c85ccd3f3c652f661"
     },
     {
       "path": "hooks/local/sync-version-strings.sh",
@@ -922,7 +922,7 @@
     },
     {
       "path": "hooks/tests/test-upgrade-conflict-classification.sh",
-      "sha256": "067122ba1060b92bcbb8559702f4c6b8d1d141deabf3004fd0e9a2898efc8ded"
+      "sha256": "c97a892a4ed98dff926b7702726dc5ad0e8989f4907731322bac0baff7143317"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
@@ -1121,5 +1121,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "37d50e3a851d64b7b2f599bc80f9108e38f2dc312f06960518ea09202205fc47"
+  "manifest_self_sha256": "7cb67140009c2228d299e93e313d40cb6f94653c07783799e614f45702b06264"
 }

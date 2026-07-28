@@ -407,4 +407,69 @@ else
 fi
 rm -rf "$SYN_ROOT"
 
+# ---- 5. AC24 / K20(b): no Flow tooling advises restamping a base from the local tree --
+# T26 discriminator: preflight named stamp-managed-content-manifest.sh as the fix on BOTH
+# the missing-base and the stale-base path. Following that advice records the consumer's
+# local edits as "upstream base", and the next upstream change to those files classifies
+# upstream-only and overwrites them — the original incident, via the machinery built to
+# prevent it. The check is on the CONSUMER-FACING advice lines only; the upstream/CI
+# stamp tool itself keeps its name.
+adv_fail=""
+ADV_LINES="$(grep -n "warn \"" "$ROOT/hooks/local/preflight.sh" | grep -i "managed-content base manifest")"
+case "$ADV_LINES" in
+  *stamp-managed-content-manifest.sh*) adv_fail="$adv_fail [preflight still advises the self-restamp]" ;;
+esac
+case "$ADV_LINES" in
+  *bootstrap-upgrade.sh*) ;; *) adv_fail="$adv_fail [preflight does not name the tag-sourced recovery]" ;;
+esac
+# Every consumer-facing carrier of the advice must be corrected, not just the reported one.
+grep -q "never restamp\|NEVER advise stamping\|Do NOT restamp\|never be advised" \
+  "$ROOT/hooks/local/stamp-managed-content-manifest.sh" \
+  || adv_fail="$adv_fail [the stamp tool does not warn that it is not consumer base-recovery]"
+grep -qi "consumer must NEVER restamp\|never restamp a missing or drifted base" "$ROOT/audit/README.md" \
+  || adv_fail="$adv_fail [audit/README.md still presents restamping as the consumer's fix]"
+if [ -z "$adv_fail" ]; then
+  ok "ac24-no-self-restamp-advice-in-any-carrier"
+else
+  bad "ac24-no-self-restamp-advice-in-any-carrier" "$adv_fail"
+fi
+
+# Behavioural half: a base restamped FROM a diverged tree makes the consumer edit look
+# like upstream's own content, so the next upstream change silently overwrites it. The
+# tag-synthesized base (the corrected advice) classifies and PRESERVES it instead.
+RS_ROOT="$(mktemp -d)"
+rs_case() {   # $1 = base-source: "self" (restamp from the diverged tree) | "tag"
+  local D="$RS_ROOT/$1" L U
+  L="$D/local"; U="$L/.fusebase-flow-source"
+  mkdir -p "$L/hooks/shared" "$L/hooks/local/lib" "$U/hooks/shared" "$U/hooks/local/lib"
+  ( cd "$L" && git init -q && git config user.email t@t.t && git config user.name t )
+  echo "4.6.1" > "$L/VERSION"
+  printf 'validator v1\n' > "$L/hooks/shared/command_policy.py"
+  cp "$ROOT/hooks/local/lib/managed_content_manifest.py" "$L/hooks/local/lib/"
+  cp "$ROOT/hooks/local/upgrade.sh" "$L/hooks/local/"
+  if [ "$1" = "tag" ]; then    # the base upstream ACTUALLY shipped (pre-edit)
+    ( cd "$L" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null )
+  fi
+  printf 'validator v1\n# SENTINEL local hardening\n' > "$L/hooks/shared/command_policy.py"
+  if [ "$1" = "self" ]; then   # the advice under test: stamp from the DIVERGED tree
+    ( cd "$L" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null )
+  fi
+  echo "4.7.0" > "$U/VERSION"
+  printf 'validator v2 upstream rewrite\n' > "$U/hooks/shared/command_policy.py"
+  cp "$ROOT/hooks/local/lib/managed_content_manifest.py" "$U/hooks/local/lib/"
+  cp "$ROOT/hooks/local/upgrade.sh" "$U/hooks/local/"
+  ( cd "$U" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null )
+  ( cd "$L" && bash hooks/local/upgrade.sh --auto-yes ) >/dev/null 2>&1
+  grep -q SENTINEL "$L/hooks/shared/command_policy.py" && echo preserved || echo lost
+}
+SELF_RESULT="$(rs_case self)"
+TAG_RESULT="$(rs_case tag)"
+if [ "$SELF_RESULT" = "lost" ] && [ "$TAG_RESULT" = "preserved" ]; then
+  ok "ac24-self-restamped-base-loses-the-edit-tag-sourced-base-preserves-it"
+else
+  bad "ac24-self-restamped-base-loses-the-edit-tag-sourced-base-preserves-it" \
+      "self=$SELF_RESULT (want lost) tag=$TAG_RESULT (want preserved)"
+fi
+rm -rf "$RS_ROOT"
+
 finish
