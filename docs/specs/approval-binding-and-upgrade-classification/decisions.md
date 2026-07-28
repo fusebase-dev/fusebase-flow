@@ -25,6 +25,10 @@
 | K15 | Per-file apply, directory-level backup | Rewrite apply loop per file; keep existing dir snapshot | LOCKED |
 | K16 | `fallthrough` is dead config — remove it | Delete the key; all-match semantics stated explicitly | LOCKED |
 | K17 | Artifact verdict = state; acceptability = predicate | `Verdict` is state only; `is_acceptable(verdict, strict)` decides | LOCKED |
+| K18 | Per-rule requirements; denials name all | No dedup by display action; render all + unsatisfied | LOCKED |
+| K19 | `--command` mandatory for command-gated actions | Writer exits 2 without it; denial emits the bound invocation | LOCKED |
+| K20 | Fail closed, never self-restamp a base | No destructive fallback; no restamp from a diverged tree | LOCKED |
+| K21 | Regex evasion documented, not hidden | Fix `rm` gap; document the limitation; backlog the real fix | LOCKED |
 
 ## K1. Where artifact validation lives
 
@@ -105,18 +109,27 @@
 
 ---
 
-## K6. Command-digest canonicalization
+## K6. Command-digest canonicalization — **REVISED 2026-07-28 (post-implementation review)**
 
-**Recommendation:** `command_digest = sha256(collapse_whitespace(command))` over the exact command string the hook receives. Collapse runs of whitespace and trim; normalize nothing else. Document the rule beside the field.
+**Recommendation (current):** `command_digest = sha256(command.strip())` over the exact command string the hook receives. **Trim leading/trailing whitespace only. Do not collapse interior whitespace. Normalize nothing else.**
 
-**Reasoning:** Codex's over-fixing table is right that shell wrappers, env prefixes, executable paths and quoting differ between mint and execution — but every "smarter" normalization risks treating two semantically different commands as equal, which is the failure that matters. Whitespace collapse covers the realistic mint/execute difference (the writer captures the same string the hook later sees) without touching semantics. When the digest does not match, the artifact simply does not authorize that command — a false negative costs one re-approval; a false positive costs an unapproved production deploy.
+**Reasoning:** The original decision said "collapse runs of whitespace", and the adversarial implementation review proved that unsafe with a concrete collision:
 
-**Alternatives considered:**
+```
+fusebase deploy --app "safe  prod"   ==   fusebase deploy --app "safe prod"     → same digest
+```
 
-- **Option A: full shell-aware canonicalization (tokenize, strip env prefixes, resolve paths)** — rejected: unbounded complexity, and every normalization rule is a potential collision between distinct commands.
-- **Option B: hash the raw string with no normalization** — rejected: a single trailing space would break every approval, producing friction with no security gain.
+Interior whitespace inside a quoted argument is *data*, not formatting. Collapsing it makes one approval authorize a command targeting a different value — which is precisely the "one artifact authorizes a command it was not minted for" failure this ticket exists to eliminate. My original reasoning had it backwards: I justified collapse as covering "the realistic mint/execute difference", but the writer captures the **same string the hook later sees**, so there is no such difference to absorb. The friction I was avoiding does not exist; the collision I created does.
 
-**Lock status:** LOCKED
+Trimming the ends is retained because it is provably semantics-free in shell.
+
+**Alternatives considered (revised):**
+
+- **Option A: quote-aware canonicalization** — rejected: to know which whitespace is inside quotes you must parse shell, and a parser that is wrong in either direction either breaks approvals or creates a new collision class. Complexity with no gain over raw.
+- **Option B: collapse interior whitespace (the original K6)** — **rejected on evidence**; see the collision above.
+- **Option C: hash the fully raw string, not even trimmed** — rejected only because trailing-newline differences between capture paths are a real and semantics-free nuisance; `.strip()` is the minimal safe concession.
+
+**Lock status:** LOCKED (revised). Supersedes the original; prior wording is in git history.
 
 ---
 
@@ -325,11 +338,75 @@ Synthesis is sound because the tag *is* the ground truth for "what upstream ship
 
 ---
 
+## K18. Requirements are per-rule, and denials name every requirement
+
+**Recommendation:** Two corrections to the all-match loop, both proven necessary by the implementation review.
+
+**(a) No de-duplication by display action.** Every matching `require_approval` rule is evaluated **independently**. The shipped code de-duplicated requirements by display name, so the `fusebase deploy` `any_of` rule (display name `production_deploy`) absorbed the *separate* `git push origin main` rule that genuinely requires `production_deploy`. Result: with only a `lightweight_deploy` artifact, `fusebase deploy && git push origin main` was **allowed**. That is a live gate bypass, and it is the exact class K8 existed to close.
+
+**(b) Denials name every requirement, not only the unsatisfied ones.** AC6/AC14/S5 all say the operator sees the complete required-action set in one message. The shipped code rendered only unsatisfied actions — and the test encoded that wrong result as expected. Track `all_required_actions` separately from `unsatisfied_actions`; render and audit both.
+
+**Reasoning:** (a) is a correctness defect with a concrete exploit. (b) is the difference between "here is everything this command needs" and "here is the next thing you're missing" — the latter is the serial-denial UX AC14 was written to prevent, and it silently re-appeared through the rendering path rather than the loop.
+
+**Lock status:** LOCKED
+
+---
+
+## K19. Command binding is mandatory for command-gated actions
+
+**Recommendation:** `approve-local.sh` **requires** `--command` for any action reachable from a `require_approval` rule; without it, exit 2 and write nothing. The FR-12 denial message emits the exact resolving invocation **including the safely quoted blocked command**, so the agent's copy-paste path always produces a bound artifact.
+
+**Reasoning:** The review found that the normal DP.6 and recovery paths omit `--command`, so every artifact minted the documented way was repo-bound but **not** command-bound — replayable against every matching command in that repo. AC9's binding therefore existed in code and was absent in practice: the path users are told to take produced the weaker artifact. This is the same failure shape as K3's `approval_authors` (a control that is real in documentation and absent in the field), which makes it exactly the thing this ticket must not ship.
+
+The Deploy session always knows the command it is about to run, so requiring it costs no operator interaction — DP.6 is unchanged, the agent fills it in.
+
+**Alternatives considered:**
+
+- **Option A: default to unbound, warn** — rejected: the warning path becomes the normal path, which is how we got here.
+- **Option B: bind to the command only when supplied (shipped behaviour)** — rejected on evidence.
+
+**Lock status:** LOCKED
+
+---
+
+## K20. Fail closed when the classifier cannot run; never restamp a base from a diverged tree
+
+**Recommendation:** Two upgrade-safety corrections.
+
+**(a) No destructive fallback.** When Python or the classifier is unavailable, `upgrade.sh` **fails closed** with a diagnostic. The shipped code fell back to whole-directory copying — which is the pre-4.7.0 overwrite behaviour, reachable on any hooks-off Windows install without `python3`, and it bypasses `--auto-yes` containment entirely. Legacy copying, if retained at all, sits behind a separately named explicit unsafe override that is never suggested by a diagnostic.
+
+**(b) No self-restamping.** `preflight.sh` must **not** tell a consumer to restamp a missing or drifted base from their current tree. Doing so records their local security edits as "upstream base"; the next upstream change to the same file then classifies `upstream-only` and overwrites it — reproducing the original incident *through the machinery built to prevent it*. Base recovery comes only from the exact prior upstream tag/package; otherwise the path stays `unknown-base` and is preserved.
+
+**Reasoning:** Both defects share a shape: a convenience path that quietly restores the destructive behaviour the ticket removed. (b) is the more insidious — it would have been recommended to the consumer by our own tooling.
+
+**Lock status:** LOCKED
+
+---
+
+## K21. Regex matching is defeatable by quote-fragmentation — document it, don't pretend otherwise
+
+**Recommendation:** Do **not** attempt shell parsing in this ticket. Instead: (i) fix the `rm` pattern gap (`docs/backlog/rm-rule-pattern-single-space-gap/`) as part of the corrections, since it is a one-line regex fix to a live hole; (ii) **document truthfully** in `policies/command-policy.yml` and `docs/hook-coverage.md` that rule matching is regex over the raw command string and is therefore defeatable by quote-fragmentation (`fusebase de'pl'oy`, `npx prisma mi"grate" deploy`) and by dynamic construction; (iii) file `docs/backlog/command-gate-shell-evasion/README.md` for the real fix.
+
+**Reasoning:** The review is right that the gate is evadable. But this property is **pre-existing** — it is inherent to regex-on-raw-command and was equally true before this ticket. Closing it properly means parsing shell (or conservatively denying dynamically-constructed commands), which is a design change with its own large blast radius and its own false-positive risk against ordinary developer usage. Shipping a half-parser under time pressure is how you get a gate that is both evadable *and* obstructive.
+
+The K3 principle governs the interim: **a limitation that is written down is safer than one that is implied not to exist.** An operator who knows the gate is regex-based will not treat it as a sandbox. What would be unacceptable is the current state — documentation that implies completeness the implementation cannot deliver.
+
+**Alternatives considered:**
+
+- **Option A: implement shell-aware matching now** — rejected: unbounded scope inside a corrections round, and a wrong parser fails in both directions.
+- **Option B: say nothing and file the backlog quietly** — rejected: this is precisely the `approval_authors` mistake (K3) that this ticket exists to correct.
+
+**Lock status:** LOCKED
+
+---
+
 ## Lock confirmation
 
 | ID | Final option | Locked by | Date |
 |---|---|---|---|
 | K1..K17 | as recommended above | PO under operator's standing autonomous-run authorization | 2026-07-28 |
+| K6 | **REVISED** — trim only, no interior collapse | PO, on adversarial-review evidence | 2026-07-28 |
+| K18..K21 | corrections round | PO under the same authorization | 2026-07-28 |
 
 Implementation may start: every decision is LOCKED. K3, K5, K7, K9, K11 carry **ASSUMPTION** flags — an operator reversal on any of them re-opens that decision only, not the whole set.
 
