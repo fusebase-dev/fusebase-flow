@@ -57,6 +57,13 @@ cases = [
     ("toplevel-number",         42,                                         Verdict.MALFORMED),
     ("toplevel-null",           None,                                       Verdict.MALFORMED),
     ("unicode-fields-ok",       {"action": A, "expires_at": FUTURE, "reason": "приветÜñî 🚀"}, Verdict.VALID),
+    # T17 discriminator (AC3): valid ISO stamps whose UTC conversion overflows the
+    # datetime range. Pre-correction these raised OverflowError out of evaluate_artifact()
+    # and the handler emitted NO deny.
+    ("expiry-extreme-offset-hi", {"action": A, "expires_at": "9999-12-31T23:59:59-14:00"}, Verdict.MALFORMED),
+    ("expiry-extreme-offset-lo", {"action": A, "expires_at": "0001-01-01T00:00:00+14:00"}, Verdict.MALFORMED),
+    ("expiry-max-convertible",   {"action": A, "expires_at": "9999-12-31T23:59:59+00:00"}, Verdict.VALID),
+    ("expiry-min-convertible",   {"action": A, "expires_at": "0001-01-01T00:00:00+00:00"}, Verdict.EXPIRED),
 ]
 fails = []
 for name, body, expected in cases:
@@ -95,7 +102,8 @@ with tempfile.TemporaryDirectory() as d:
         fails.append(f"load-absent: RAISED {e!r}")
 
 # parse_expiry never string-compares and never raises.
-for bad_value in (None, 5, True, [], {}, "", "   ", "yesterday", "2026-13-45T99:99:99Z"):
+for bad_value in (None, 5, True, [], {}, "", "   ", "yesterday", "2026-13-45T99:99:99Z",
+                  "9999-12-31T23:59:59-14:00", "0001-01-01T00:00:00+14:00"):
     try:
         if parse_expiry(bad_value) is not None:
             fails.append(f"parse_expiry({bad_value!r}) should be None")
@@ -127,6 +135,72 @@ if [ "$VERDICT_OUT" = "[]" ]; then
   ok "verdict-table-and-loader-total"
 else
   bad "verdict-table-and-loader-total" "$VERDICT_OUT"
+fi
+
+# ---- 1b. AC3 through BOTH handlers: a far-boundary artifact denies, never tracebacks -
+# The unit case above proves the verdict; this proves the handler still EMITS a decision.
+# Pre-correction the OverflowError escaped and neither handler produced a deny.
+BOUNDARY_OUT="$(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$ROOT" <<'PY' 2>&1
+import json, shutil, subprocess, sys, tempfile
+from pathlib import Path
+root = Path(sys.argv[1])
+fails = []
+CMD = "fusebase deploy"
+
+
+def build(tmp: Path) -> Path:
+    for sub in ("hooks/handlers", "hooks/shared"):
+        (tmp / sub).mkdir(parents=True, exist_ok=True)
+        for f in (root / sub).iterdir():
+            if f.is_file() and f.suffix == ".py":
+                shutil.copy(f, tmp / sub / f.name)
+    (tmp / "hooks" / "shared" / "__init__.py").touch()
+    (tmp / "policies").mkdir(parents=True, exist_ok=True)
+    for name in ("command-policy.yml", "approval-policy.yml", "protected-paths.yml",
+                 "secret-patterns.yml"):
+        src = root / "policies" / name
+        if src.is_file():
+            shutil.copy(src, tmp / "policies" / name)
+    (tmp / "state" / "approvals").mkdir(parents=True, exist_ok=True)
+    (tmp / ".git").mkdir(exist_ok=True)
+    return tmp
+
+
+for stamp in ("9999-12-31T23:59:59-14:00", "0001-01-01T00:00:00+14:00"):
+    with tempfile.TemporaryDirectory() as d:
+        repo = build(Path(d))
+        (repo / "state" / "approvals" / "production_deploy-edge-20260728.json").write_text(
+            json.dumps({"schema_version": 2, "action": "production_deploy",
+                        "expires_at": stamp}), encoding="utf-8")
+        for handler, payload in (
+            ("pre_tool_use.py", {"event": "pre_tool_use", "cwd": str(repo),
+                                 "tool_name": "Bash", "tool_input": {"command": CMD}}),
+            ("permission_request.py", {"event": "permission_request", "cwd": str(repo),
+                                       "permission_request": {
+                                           "tool_name": "Bash",
+                                           "tool_input": {"command": CMD}}}),
+        ):
+            proc = subprocess.run([sys.executable, str(repo / "hooks" / "handlers" / handler)],
+                                  input=json.dumps(payload).encode("utf-8"),
+                                  capture_output=True, cwd=str(repo))
+            out = proc.stdout.decode("utf-8", errors="replace")
+            err = proc.stderr.decode("utf-8", errors="replace")
+            if "OverflowError" in err or "Traceback" in err:
+                fails.append(f"{handler}[{stamp}]: handler tracebacked -> {err.strip()[-160:]}")
+            try:
+                data = json.loads(out) if out.strip().startswith("{") else {}
+            except Exception:
+                data = {}
+            if data.get("decision") != "deny":
+                fails.append(f"{handler}[{stamp}]: expected deny got {data.get('decision')!r}")
+
+print(json.dumps(fails))
+PY
+)"
+if [ "$BOUNDARY_OUT" = "[]" ]; then
+  ok "ac3-extreme-offset-denies-through-both-handlers"
+else
+  bad "ac3-extreme-offset-denies-through-both-handlers" "$BOUNDARY_OUT"
 fi
 
 # ---- 2. AC1 + AC4: command_policy consumes the loader; policy is root-anchored -----

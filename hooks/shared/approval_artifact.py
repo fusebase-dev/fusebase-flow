@@ -79,6 +79,11 @@ def parse_expiry(value: Any) -> datetime | None:
     strings — lexicographic ordering silently mis-ranks any format variation (offset
     forms, fractional seconds, a naive vs Z-suffixed stamp) and a missing/empty value
     read as "valid forever". Do not reintroduce a string comparison here.
+
+    TRIPWIRE: the UTC CONVERSION is artifact content too and must stay inside the try —
+    a valid extreme aware stamp (`9999-12-31T23:59:59-14:00`) parses fine and then
+    OverflowErrors on astimezone(); that exception escaped evaluate_artifact() and the
+    handler emitted no deny at all (AC3).
     """
     if isinstance(value, bool) or not isinstance(value, str):
         return None
@@ -89,9 +94,9 @@ def parse_expiry(value: Any) -> datetime | None:
         text = text[:-1] + "+00:00"
     try:
         dt = datetime.fromisoformat(text)
-    except (ValueError, TypeError):
+        return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt.astimezone(timezone.utc)
+    except (ValueError, TypeError, OverflowError, OSError):
         return None
-    return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt.astimezone(timezone.utc)
 
 
 def now_utc() -> datetime:

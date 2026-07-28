@@ -182,7 +182,7 @@
     },
     {
       "path": "hooks/shared/approval_artifact.py",
-      "sha256": "1f1d2ea9ed7e7e11ed812ce688e2495571a9d84af5a3017e58d0210fdd697112"
+      "sha256": "e29ec8070d5e491653789a7cd4dddd43638af66c2fde6e67bd140b691cfb0d66"
     },
     {
       "path": "hooks/shared/audit_logger.py",
@@ -398,7 +398,7 @@
     },
     {
       "path": "hooks/tests/test-approval-binding.sh",
-      "sha256": "ba07e7f9dc529d06ce2143a637cdff68f774d3592efd2c440462558083da5849"
+      "sha256": "a7bfa5ac04ff17cfa109b40427a9fbc8d148df21c86292bd92f12b2fd4e0526b"
     },
     {
       "path": "hooks/tests/test-baseline-merge.sh",
@@ -537,5 +537,5 @@
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "7e737c21508e1495dffe3e264aa354f55886d9f5300d9a0dea30f99210db5614"
+  "manifest_self_sha256": "8525e2cfe88c78d9f47406ed48b9f50b178589e98ce1bef4591c611dc5768c18"
 }
