@@ -164,7 +164,7 @@ file in the repo cannot. Applying the settings is operator-owned.
 - **Do NOT run `gh release create` manually** — it bypasses the `needs: verify`
   gate (AC4). If a tag went red on a transient failure, fix on `main`, then re-run
   the release workflow from the Actions UI on the same tag.
-- Update `VERSION` only when a new release ships.
+- Update `VERSION` only when a new release ships. **There are FOUR version carriers**, not three — `VERSION`, `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, and `.claude-plugin/marketplace.json` (`plugins[0].version`). The marketplace one is easy to miss; `preflight.sh` catches it (`marketplace.json plugins[0].version != VERSION`), but bump it with the others rather than discovering it at the gate. Then run `bash hooks/local/sync-version-strings.sh` and restamp **both** audit manifests — `flow_version` is embedded in each, so they change with every bump.
 - Document any post-publication changes in a `CHANGELOG.md` (planned for v0.2).
 
 ## What this template promises consumers
