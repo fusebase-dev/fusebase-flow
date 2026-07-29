@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "flow_version": "4.6.1",
+  "flow_version": "4.7.0",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
   "asset_count": 134,
   "assets": [
@@ -541,5 +541,5 @@
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "6b315fff337016ffafd4679b414a220477f9db463e5e2a424a53aba249bbca5b"
+  "manifest_self_sha256": "feb9d19ef2c890a2523ee32f08ec097d6ef8a03db6f74653f08e5712e54d16ae"
 }
