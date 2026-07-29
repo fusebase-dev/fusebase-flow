@@ -57,7 +57,7 @@
 **Tests:** `bash hooks/tests/test-prohibition-residency.sh`; `bash hooks/local/rule-inventory.sh`; grep assertion that no authorship-enforcement claim survives in the three canonical files (AC19)
 **Worker-undisturbed:** `policies/**`, `flow-skills/**`, `workflows/**` are `fusebase_flow_internals` — mint the FR-07 bootstrap approval (`bash hooks/local/write-bootstrap-approval.sh`), commit, then `--consume`. Never `--no-verify`.
 **Mirrors:** re-run `bash hooks/local/mirror-skills.sh`; stage the regenerated `.claude/skills/**`, `.agents/skills/**`, `audit/skill-mirror-manifest.txt` in the SAME commit.
-**SHA:** <captured on commit>
+**SHA:** `f618338`
 
 ---
 
@@ -80,7 +80,7 @@ All type coercion happens inside the guard: a JSON array, a numeric `expires_at`
 **Acceptance:** AC2, AC3
 **Tests:** table-driven cases for every `Verdict`: missing key, empty string, `null`, integer, non-UTC string, malformed ISO, valid-future, valid-past, top-level array, top-level string, non-dict, unicode. Assert `load()` raises on nothing. Separately assert `is_acceptable` matches K17's per-carrier pass-set for both `strict` values.
 **Worker-undisturbed:** `hooks/**` — FR-07 bootstrap approval as T1.
-**SHA:** <captured on commit>
+**SHA:** `bf2d0ca`
 
 ---
 
@@ -95,7 +95,7 @@ All type coercion happens inside the guard: a JSON array, a numeric `expires_at`
 **Acceptance:** AC1, AC3, AC4
 **Tests:** AC1 mismatch case; AC4 foreign-CWD evaluation asserting decision parity with repo-root evaluation
 **Worker-undisturbed:** `hooks/**` — FR-07 bootstrap approval.
-**SHA:** <captured on commit>
+**SHA:** `42bfdaf`
 
 ---
 
@@ -118,7 +118,7 @@ All type coercion happens inside the guard: a JSON array, a numeric `expires_at`
 **Acceptance:** AC5, AC6
 **Tests:** deliberately broken regex in each of the three stages → deny; empty policy file → deny; `fusebase deploy && npx prisma migrate deploy` with only a deploy artifact → deny naming `database_migration`; `fusebase deploy && rm build.log` → deny naming `destructive_file_delete` (the K16 consequence, asserted deliberately rather than discovered); a `rm -rf` command still hits the `deny` stage and never reaches all-match
 **Worker-undisturbed:** `hooks/**` — FR-07 bootstrap approval.
-**SHA:** <captured on commit>
+**SHA:** `5745d08`
 
 ---
 
@@ -133,7 +133,7 @@ All type coercion happens inside the guard: a JSON array, a numeric `expires_at`
 **Acceptance:** AC9
 **Tests:** matching digest → allow; one-character-different command → deny; same command different repo → deny; artifact with neither field → legacy allow (compat) and reject (strict); leading/trailing-whitespace-only difference → allow; **interior**-whitespace difference inside a quoted argument → deny (K6 revised; asserted in T18)
 **Worker-undisturbed:** `hooks/**` — FR-07 bootstrap approval.
-**SHA:** <captured on commit>
+**SHA:** `4c1f8d1`
 
 ---
 
@@ -150,7 +150,7 @@ All type coercion happens inside the guard: a JSON array, a numeric `expires_at`
 **Acceptance:** AC14, and AC6's "single message" half
 **Tests:** fixture per verdict asserting the specific reason token appears and that a stale-vs-absent artifact produce **different** messages; assert ≤8 lines; `python3 hooks/tests/run_hook_tests.py --compare-subprocess` stays 100%
 **Worker-undisturbed:** `hooks/**` — FR-07 bootstrap approval.
-**SHA:** <captured on commit>
+**SHA:** `69813cc`
 
 ---
 
@@ -168,7 +168,7 @@ All type coercion happens inside the guard: a JSON array, a numeric `expires_at`
 **Tests:** `psql -c "drop table users"`, `psql -c "DROP TABLE users"`, `psql -c "ALTER TABLE users ADD COLUMN x int"` all require `database_migration`; `fusebase deploy` allowed with a `lightweight_deploy` artifact and separately with a `production_deploy` artifact, **through both handlers**
 **Worker-undisturbed:** `policies/**`, `flow-skills/**`, `workflows/**` — FR-07 bootstrap approval.
 **Mirrors:** re-run `mirror-skills.sh`; stage regenerated mirrors + `audit/skill-mirror-manifest.txt` in the same commit.
-**SHA:** <captured on commit>
+**SHA:** `30ca6e3`
 
 ---
 
@@ -185,7 +185,7 @@ All type coercion happens inside the guard: a JSON array, a numeric `expires_at`
 **Acceptance:** AC10
 **Tests:** slug/reason containing `"`, `\`, literal newline, `$(id)`, and unicode → artifact parses and values round-trip exactly; unknown action → exit 2 and **no file created**; `../escape` slug → exit 2; interrupted write leaves no partial artifact
 **Worker-undisturbed:** `hooks/**` — FR-07 bootstrap approval.
-**SHA:** <captured on commit>
+**SHA:** `fd4db2b`
 
 ---
 
@@ -200,7 +200,7 @@ All type coercion happens inside the guard: a JSON array, a numeric `expires_at`
 **Acceptance:** AC12
 **Tests:** fixture dir containing one valid v2, one expiry-less legacy, one expired, one malformed → inventory reports four distinct verdicts and a reject-count of 3 under strict; strict=true denies the legacy artifact that compat allows
 **Worker-undisturbed:** `hooks/**`, `policies/**` — FR-07 bootstrap approval.
-**SHA:** <captured on commit>
+**SHA:** `635cb34`
 
 ---
 
@@ -217,7 +217,7 @@ All type coercion happens inside the guard: a JSON array, a numeric `expires_at`
 **Acceptance:** AC11
 **Tests:** `bash hooks/tests/test-bootstrap-exception.sh` stays green unmodified in intent; new case — a `protected_path_edit` artifact with no `expires_at` no longer authorizes indefinitely; health-deferral artifacts still surface in `active-approvals`; `bash hooks/local/fusebase-flow-health-check.sh` still reports `EXCEPTION_IN_EFFECT` for a deferral artifact (array-contract regression)
 **Worker-undisturbed:** `hooks/**` — FR-07 bootstrap approval.
-**SHA:** <captured on commit>
+**SHA:** `4d23f30`
 
 ---
 
@@ -234,7 +234,7 @@ All type coercion happens inside the guard: a JSON array, a numeric `expires_at`
 **Acceptance:** AC13 (manifest half)
 **Tests:** stamp twice → byte-identical output (no timestamps); mutate one covered file → verify fails naming that path; CI freshness gate fails on an unstamped change; new local-lib file is hook-manifest-covered; `list-managed` output and the set `upgrade.sh` actually iterates are asserted identical (the K14 single-home property)
 **Worker-undisturbed:** `hooks/**`, `audit/**` — FR-07 bootstrap approval.
-**SHA:** <captured on commit>
+**SHA:** `22e1b89`
 
 ---
 
@@ -255,7 +255,7 @@ Handle upstream deletion explicitly (`:366-378` currently leaves upstream-remove
 **Acceptance:** AC13, AC13b, AC13c, AC15
 **Tests:** full ten-state matrix from K9, including `consumer-added`, `upstream-added` and `consumer-deleted`; a **mixed-class directory** proving partial apply (AC13c); `--auto-yes` proven non-destructive on all four protected classes and proven to abort on `changed-by-both`; two consecutive upgrades proving the base refresh (AC13b); report asserted to name every `consumer-only` path literally
 **Worker-undisturbed:** `hooks/**` — FR-07 bootstrap approval.
-**SHA:** <captured on commit>
+**SHA:** `af18431`
 
 ---
 
@@ -276,7 +276,7 @@ Add base capture to `install.sh` (whose steps at `:12-37` capture no consumer-si
 **Acceptance:** AC16, AC13b
 **Tests:** end-to-end fixture — a 4.6.1 tree with a locally patched `hooks/shared/command_policy.py`; run the documented bootstrap path; assert the patch is **still present** afterwards and that the path is **named literally in the report**. Expected classification is **`changed-by-both`** (K9 row 4), because 4.7.0 also rewrites that file — not `consumer-only`, which the first draft of this plan wrongly assumed. Assert `--auto-yes` **aborts** on it. Second assertion: a 4.6.1 file the consumer never touched classifies `upstream-only` and **is** refreshed — this is what proves base synthesis worked and the upgrade is not a silent no-op. This test is the direct regression for the incident that produced this ticket.
 **Worker-undisturbed:** `hooks/**` — FR-07 bootstrap approval.
-**SHA:** <captured on commit>
+**SHA:** `e64c5f2`
 
 ---
 
@@ -291,7 +291,7 @@ Add base capture to `install.sh` (whose steps at `:12-37` capture no consumer-si
 **Acceptance:** AC18
 **Tests:** `bash hooks/local/mirror-skills.sh && bash hooks/local/mirror-agents.sh && git diff --exit-code`; `bash hooks/local/rule-inventory.sh`; `bash hooks/local/stamp-hook-manifest.sh && git diff --exit-code audit/hook-layer-manifest.json`
 **Worker-undisturbed:** `flow-skills/**`, `audit/**` — FR-07 bootstrap approval.
-**SHA:** <captured on commit>
+**SHA:** `f69fb41, 808db35`
 
 ---
 
@@ -312,7 +312,7 @@ Add base capture to `install.sh` (whose steps at `:12-37` capture no consumer-si
 **Acceptance:** AC3 (restored to true)
 **Tests:** RED without fix — `evaluate_artifact({"action": a, "expires_at": "9999-12-31T23:59:59-14:00"}, expected_action=a)` currently raises `OverflowError`; after fix it returns `MALFORMED` without raising. Same for the `-14:00`/`+14:00` lower bound. Boundary-but-convertible stamps (`9999-12-31T23:59:59+00:00`) still parse. Run through BOTH handlers via a fixture artifact (a hand-written far-boundary artifact + `run_hook_tests.py`) asserting a deny decision, not a traceback.
 **Worker-undisturbed:** `hooks/**` — FR-07 bootstrap approval (mint → commit → `--consume`); never `--no-verify`.
-**SHA:** <captured on commit>
+**SHA:** `7d60bdd`
 
 ---
 
@@ -328,7 +328,7 @@ Add base capture to `install.sh` (whose steps at `:12-37` capture no consumer-si
 **Acceptance:** AC9 (binding is one-command binding)
 **Tests:** RED without fix — `compute_command_digest('fusebase deploy --app "safe  prod"') != compute_command_digest('fusebase deploy --app "safe prod"')` currently FAILS (digests are equal). Also: `"  cmd  "` and `"cmd"` still hash equal (strip retained); `"cmd  arg"` vs `"cmd arg"` hash differently; end-to-end — artifact minted with `--command 'x  y'` denies command `x y` with `BINDING_MISMATCH`.
 **Worker-undisturbed:** `hooks/**` — FR-07 bootstrap approval.
-**SHA:** <captured on commit>
+**SHA:** `be0820f`
 
 ---
 
@@ -343,7 +343,7 @@ Add base capture to `install.sh` (whose steps at `:12-37` capture no consumer-si
 **Acceptance:** AC20
 **Tests:** RED without fix — repo with only a `lightweight_deploy` artifact: `decide(repo, "fusebase deploy && git push origin main")` currently returns `allow`; must return `deny` with `production_deploy` in `required_actions`. Discriminator pair: same command with `lightweight_deploy` **and** `production_deploy` artifacts → allow (proves the fix is per-rule, not blanket-deny). Existing all-match cases stay green.
 **Worker-undisturbed:** `hooks/**` — FR-07 bootstrap approval.
-**SHA:** <captured on commit>
+**SHA:** `e1c80be`
 
 ---
 
@@ -358,7 +358,7 @@ Add base capture to `install.sh` (whose steps at `:12-37` capture no consumer-si
 **Acceptance:** AC21, AC6, AC14
 **Tests:** RED without fix — `fusebase deploy && npx prisma migrate deploy` with a valid `production_deploy` artifact: the denial message currently omits `production_deploy`; assert BOTH `production_deploy` and `database_migration` appear in the single message and `all_required_actions` has two entries while `unsatisfied_actions` has one. Message stays ≤8 lines (`MAX_LINES`, `denial_message.py:14`).
 **Worker-undisturbed:** `hooks/**` — FR-07 bootstrap approval.
-**SHA:** <captured on commit>
+**SHA:** `a16a4a6`
 
 ---
 
@@ -376,7 +376,7 @@ Fix per K4: validate the policy shape **before** evaluating any command — `onl
 **Acceptance:** AC5 (extended to full policy-schema totality)
 **Tests:** RED without fix — (a) a `require_approval` rule with `only_when: "direct_to_main"` (string): `decide()` currently raises `AttributeError`; must return deny with `rule_id=POLICY_ERROR_RULE_ID`. (b) policy with `match_order: [deny, allow]` and a live `require_approval` rule: `decide(repo, "fusebase deploy")` currently returns `allow` (default); must deny as `FLOW-POLICY-ERROR`.
 **Worker-undisturbed:** `hooks/**` — FR-07 bootstrap approval.
-**SHA:** <captured on commit>
+**SHA:** `5e77690`
 
 ---
 
@@ -393,7 +393,7 @@ Fix per K4: validate the policy shape **before** evaluating any command — `onl
 **Acceptance:** AC22, AC9
 **Tests:** RED without fix — (a) `bash hooks/local/approve-local.sh production_deploy s1 'r'` (no `--command`) currently exits 0 and writes an unbound artifact; must exit 2 and write nothing (assert the approvals dir is unchanged). (b) the rendered denial currently contains `approve-local.sh <action> <slug>` with no `--command`; assert the resolving line contains `--command` and the exact blocked command, including one with an embedded single quote round-tripping safely. (c) end-to-end: run the emitted invocation verbatim, re-run the blocked command → allow; run a one-character-different command → deny.
 **Worker-undisturbed:** `hooks/**` — FR-07 bootstrap approval.
-**SHA:** <captured on commit>
+**SHA:** `91e4c10`
 
 ---
 
@@ -410,7 +410,7 @@ Fix per K4: validate the policy shape **before** evaluating any command — `onl
 **Acceptance:** AC11 (tightened: compat acceptance is audited; strict is honored by every carrier)
 **Tests:** RED without fix — (a) compat-accept an expiry-less `protected_path_edit` artifact through `path_policy.has_active_exception()` and assert an audit-log entry naming the artifact exists; currently no entry is written. (b) with `strict_approvals: true` in a temp policy, an expiry-less `health_check_deferral` artifact must NOT land in `ACTIVE_ARTIFACTS` / defer checks; currently it does. (c) `bash hooks/local/fusebase-flow-health-check.sh` still reports `EXCEPTION_IN_EFFECT` for a valid v2 deferral (array-contract regression stays green).
 **Worker-undisturbed:** `hooks/**` — FR-07 bootstrap approval.
-**SHA:** <captured on commit>
+**SHA:** `308f11b`
 
 ---
 
@@ -425,7 +425,7 @@ Fix per K4: validate the policy shape **before** evaluating any command — `onl
 **Acceptance:** AC27, AC12
 **Tests:** RED without fix — an artifact with a `repo_id` of a **different** repo currently prints `ACCEPT`; must print `REJECT (BINDING_MISMATCH)`. A command-bound artifact valid in every other respect currently prints `ACCEPT`; must print `UNCHECKED (command-bound)`. A fully valid repo-bound unbound-command artifact still prints `ACCEPT`.
 **Worker-undisturbed:** `hooks/**` — FR-07 bootstrap approval.
-**SHA:** <captured on commit>
+**SHA:** `a8ae028`
 
 ---
 
@@ -440,7 +440,7 @@ Fix per K4: validate the policy shape **before** evaluating any command — `onl
 **Acceptance:** AC23
 **Tests:** RED without fix — fixture where the source clone ships `managed_content_manifest.py` but the run is forced classifier-less (e.g. `PATH` without `python3` shims for the classify step, or the module made unreadable): current engine proceeds and a consumer-edited managed file is overwritten; must abort non-zero with the file byte-identical before/after (tree-wide `sha256sum` no-write assertion). With `--unsafe-legacy-copy` the copy proceeds (flag exists and is the only route). Pre-4.7.0 source tree without the module still upgrades (no false abort).
 **Worker-undisturbed:** `hooks/**` — FR-07 bootstrap approval.
-**SHA:** <captured on commit>
+**SHA:** `4d6a8f9`
 
 ---
 
@@ -455,7 +455,7 @@ Fix per K4: validate the policy shape **before** evaluating any command — `onl
 **Acceptance:** AC24
 **Tests:** RED without fix — grep-discriminator: `bash hooks/local/preflight.sh` output (and the named files) currently contains `stamp-managed-content-manifest.sh` as consumer-facing restamp advice on the missing/stale paths; assert the advice is absent and `bootstrap-upgrade.sh` is named instead. Behavioral discriminator: consumer tree with a local edit + base restamped from that tree, then an upstream change to the same file → current classification is `upstream-only` (overwrite); the corrected guidance path (tag-synthesized base) classifies it `changed-by-both`/`consumer-only` and preserves — assert the tag-synthesized-base run preserves the edit.
 **Worker-undisturbed:** `hooks/**` — FR-07 bootstrap approval.
-**SHA:** <captured on commit>
+**SHA:** `9af4256`
 
 ---
 
@@ -470,7 +470,7 @@ Fix per K4: validate the policy shape **before** evaluating any command — `onl
 **Acceptance:** AC25
 **Tests:** RED without fix — fixture: consumer with a locally customized `hooks/local/upgrade.sh` (sentinel) whose bootstrap run hits a `changed-by-both` abort on another file: currently the sentinel is already gone post-abort (engine overwritten at Step 2); assert a tree-wide pre/post `sha256sum` over the consumer tree (minus `audit/managed-content-manifest.json` and the log) is **identical** after an aborted run. Non-abort run still upgrades normally (engine executed from source works end-to-end).
 **Worker-undisturbed:** `hooks/**` — FR-07 bootstrap approval.
-**SHA:** <captured on commit>
+**SHA:** `e9f5d8c`
 
 ---
 
@@ -485,7 +485,7 @@ Fix per K4: validate the policy shape **before** evaluating any command — `onl
 **Acceptance:** AC26
 **Tests:** RED without fix — `decide(repo, "rm build.log")` currently falls through to `default: allow`; must deny requiring `destructive_file_delete`. `rm -rf /tmp/x` still hits the `deny` stage first. Adversarial cases `fusebase de'pl'oy` and `npx prisma mi"grate" deploy` are added as **documented-limitation** cases asserting current behavior (allow) with a comment linking the backlog ticket — they exist so the future fix flips them, not to pretend coverage.
 **Worker-undisturbed:** `policies/**` — FR-07 bootstrap approval. **Mirrors:** none (no flow-skills touched).
-**SHA:** <captured on commit>
+**SHA:** `7a1372f`
 
 ---
 
@@ -503,7 +503,7 @@ Fix per K4: validate the policy shape **before** evaluating any command — `onl
 **Acceptance:** AC6, AC16 (test-coverage halves); regression-discriminators section of `verification-gate.md`
 **Tests:** each reworked case is itself the deliverable; the RED criterion is against **old** code, verified analytically per case and recorded in the gate's Regression discriminators table: (a) old first-match ⇒ fixture allows (wrong), new ⇒ denies; (b) old whole-tree copy ⇒ sentinel lost, new ⇒ abort + sentinel intact; (c) if T27 leaves the archive EOL behavior broken, the autocrlf=true fixture fails — it must pass at gate.
 **Worker-undisturbed:** `hooks/**` — FR-07 bootstrap approval.
-**SHA:** <captured on commit>
+**SHA:** `c2bdb58`
 
 ---
 
@@ -543,6 +543,20 @@ After the gate report, the AI Developer waits for an explicit deploy handoff. Do
 7. Output deploy report
 
 **Approval artifact required:** `state/approvals/production_deploy-approval-binding-and-upgrade-classification-<YYYYMMDD>.json` per `policies/approval-policy.yml`, authored by the Deploy session on the operator's DP.6 phrase.
+
+**VERIFIED 2026-07-28 (Deploy phase).** Artifact minted `production_deploy-approval-binding-and-upgrade-classification-20260728.json` (schema v2, repo-bound, command-bound). Release commit / deploy hash `6224bbe`, tag `v4.7.0` — **local only, not pushed, not merged to `main`**.
+
+| Probe | Verdict | Evidence |
+|---|---|---|
+| G-M version sync | PASS | `VERSION`=4.7.0; `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `.codex-plugin/plugin.json` all 4.7.0; `sync-version-strings.sh` → empty diff |
+| G-N fresh-clone preflight | PASS | clone of `6224bbe`: errors 0, warnings 1 (benign `.claude/settings.json` overlay notice) |
+| G-O full unscoped suite on released state | PASS | 665/666, **0 FAIL**, 1 INCONCLUSIVE = `cli-flow-recovery` (ratified D9, host load) — `…-smoke/G-O-hook-test-results.md` |
+| G-P both manifests verify | PASS | hook-layer 134 MATCH · managed-content 279 MATCH, `flow_version=4.7.0` |
+| G-Q single docs commit | PASS | this commit — spec flip + tasks SHAs + backlog index together |
+
+**Smoke 6/6 PASS** (threshold 6/6) on fresh consumer clones with hooks wired — S1, S2, S3, S4a, S4b, S5, each with its adversarial control. Evidence + recorded execution deviations: `docs/tmp/handoff/2026-07-28-approval-binding-and-upgrade-classification-smoke/README.md`.
+
+**Post-plan corrections (T30..T32, ratified before the gate):** T30 `1e3fbc3` · T31 `5f84188` · T32 `ee2f295`.
 
 ## Parallelism diagram
 

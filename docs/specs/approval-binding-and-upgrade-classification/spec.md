@@ -1,11 +1,12 @@
 # Spec — approval-binding-and-upgrade-classification
 
-**Status:** DRAFT
+**Status:** DONE
 **Scope lock:** locked 2026-07-28 — decisions frozen; see `decisions.md`
 **Created:** 2026-07-28
 **Linked decisions:** K1..K17
 **Promoted from:** consumer proposal `paperclip+hermes-v1/docs/fusebase-flow-proposals/2026-07-28-approval-artifact-binding-and-upgrade-conflict-classification.md`
-**Deploy hash:** <captured at DRAFT → DONE flip>
+**Deploy hash:** `6224bbe` — release commit, tag `v4.7.0` (**local only: not pushed, not merged to `main`**; operator retains the publish decision)
+**Deployed:** 2026-07-28 · gate at 4.7.0 665/666 PASS, 0 FAIL, 1 INCONCLUSIVE (`cli-flow-recovery`, ratified D9) · probes G-M..G-Q PASS · smoke 6/6 PASS (`docs/tmp/handoff/2026-07-28-approval-binding-and-upgrade-classification-smoke/README.md`)
 **Lane:** Full (FR-21) — security-enforcement surface, multi-file, behaviour-tightening for existing consumers
 **Doc tier:** 4 (FR-23) — spec + decisions + tasks + verification-gate
 
