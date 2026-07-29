@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "cd6b47ec32ae5a158cbd8d99045aa9f920cb4aa76a92b43e804e3d58d05d52ed"
+      "sha256": "184d5750f7fd8eefeab285428d64ada8820b587ab480c2f06aae672f9861aff9"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -922,7 +922,7 @@
     },
     {
       "path": "hooks/tests/test-upgrade-conflict-classification.sh",
-      "sha256": "2ed5c7ed634c7171b63c14128ad18926623f1858614c16d39495f78455b1988c"
+      "sha256": "f465083dc2036002502e92627c1ef004039881296e851796d0ad1ee554771761"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
@@ -1121,5 +1121,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "f73edc0f6aec96176274859a98c118c6d0daf16f1bf202c0fe6fd0c9018f8149"
+  "manifest_self_sha256": "705d987ad369aa264bfaf96974a40545bd2f04302ee89face9958519d4b25841"
 }

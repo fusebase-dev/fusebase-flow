@@ -572,6 +572,11 @@ printf 'wf v1\n'        > "$EOL_UP/workflows/wf.md"
 cp "$ROOT/hooks/local/lib/managed_content_manifest.py" "$EOL_UP/hooks/local/lib/"
 cp "$ROOT/hooks/local/upgrade.sh" "$EOL_UP/hooks/local/"
 cp "$ROOT/hooks/local/bootstrap-upgrade.sh" "$EOL_UP/hooks/local/"
+# TRIPWIRE (platform): mirrors the SHIPPED .gitattributes pin for executables only.
+# Unpinned, `clone -c core.autocrlf=true` lands *.sh CRLF and Linux bash refuses the
+# script ("set: pipefail: invalid option name") — MSYS bash tolerates CR, so this was
+# green locally and red on CI. Do NOT widen to *.md: wf.md must stay CRLF, it is the measurand.
+printf '*.sh text eol=lf\n' > "$EOL_UP/.gitattributes"
 ( cd "$EOL_UP" && git add -A && git commit -qm 'v4.6.1' && git branch -M main && git tag v4.6.1 )
 echo "4.7.0" > "$EOL_UP/VERSION"
 printf 'validator v2\n' > "$EOL_UP/hooks/shared/command_policy.py"

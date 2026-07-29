@@ -534,12 +534,12 @@
     },
     {
       "path": "hooks/tests/test-upgrade-conflict-classification.sh",
-      "sha256": "2ed5c7ed634c7171b63c14128ad18926623f1858614c16d39495f78455b1988c"
+      "sha256": "f465083dc2036002502e92627c1ef004039881296e851796d0ad1ee554771761"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
       "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
     }
   ],
-  "manifest_self_sha256": "feb9d19ef2c890a2523ee32f08ec097d6ef8a03db6f74653f08e5712e54d16ae"
+  "manifest_self_sha256": "c218b481066fa667b5a8a30448c21dee10f20c84ece8705289885e94bbee2dbb"
 }
