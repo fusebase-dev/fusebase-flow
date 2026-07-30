@@ -236,14 +236,71 @@ for f in d.get("files", []) or []:
   done | sed '/^$/d' | sort -u
 }
 
+# _ff_repair_dest_ok <root> <root-resolved> <repo-relative path>
+#   Destination-side authority: rc 1 + FF_REPAIR_REASON when writing this path could escape
+#   the repo. TRIPWIRE (destructive): a symlink at the LEAF or at ANY parent component is
+#   refused outright — `cp`/`mv` write THROUGH an existing destination symlink, and the
+#   verifier reports such a path in the first place because its own is_file()/hashing follow
+#   the link too. Containment is then re-checked on the RESOLVED parent (defence in depth).
+_ff_repair_dest_ok() {
+  local root="$1" rr="$2" p="$3" cur="$root" rel="" rest="$3" seg parent res
+  FF_REPAIR_REASON=""
+  while [ -n "$rest" ]; do
+    seg="${rest%%/*}"
+    if [ "$seg" = "$rest" ]; then rest=""; else rest="${rest#*/}"; fi
+    [ -n "$seg" ] || continue
+    cur="$cur/$seg"; rel="${rel:+$rel/}$seg"
+    if [ -L "$cur" ]; then
+      FF_REPAIR_REASON="'$rel' is a symlink — refused outright (a write would follow it, possibly outside the repo)"
+      return 1
+    fi
+  done
+  # A managed FILE path that is not a regular file is an anomaly, never a repair target:
+  # `cp`/`mv` onto a directory silently writes INSIDE it (dir/<name>) and reports success.
+  if [ -e "$root/$p" ] && [ ! -f "$root/$p" ]; then
+    FF_REPAIR_REASON="the destination exists and is not a regular file — repair replaces file bytes, it never writes into a directory or a special file"
+    return 1
+  fi
+  parent="$(dirname "$root/$p")"
+  if [ -d "$parent" ]; then
+    res="$(cd "$parent" 2>/dev/null && pwd -P)" || {
+      FF_REPAIR_REASON="the destination's parent directory is unreachable"; return 1; }
+    case "$res" in
+      "$rr"|"$rr"/*) ;;
+      *) FF_REPAIR_REASON="the destination resolves outside the repo root ($res)"; return 1 ;;
+    esac
+  fi
+  return 0
+}
+
+_ff_repair_unstage() {   # <root> <ts> <staged path>...
+  local root="$1" ts="$2"; shift 2
+  local p
+  for p in "$@"; do
+    rm -f "$root/$p.ff-repair-staged" "$root/$p.ff-repair-orig"
+  done
+}
+
 # ff_repair_managed <root> <tree> <ts> <path>...
 #   Replaces ONLY paths the verifier reported, from the already-verified tree U, after a
 #   per-path authority check. Refuses (rc 1, nothing written) on: path syntax, a path the
-#   verifier did not report, or a path the source does not ship. Naming the exact paths on
-#   the command line IS the operator authorization — --auto-yes never reaches here.
+#   verifier did not report, a path the source does not ship, or a destination that a write
+#   could escape through. Naming the exact paths on the command line IS the operator
+#   authorization — --auto-yes never reaches here.
+#
+#   TRIPWIRE (write atomicity): the batch is all-or-nothing on the WRITE side too, not only on
+#   validation. Every replacement is copied to a sibling `.ff-repair-staged` first, so the
+#   visible change is a same-directory `mv`; a failure part-way through restores the paths
+#   already swapped from their private `.ff-repair-orig` copies and removes the backup twins
+#   this run created. Never "simplify" this back to a straight cp loop — path 2 failing then
+#   leaves path 1 already replaced, which is the state a consumer cannot reason about.
 ff_repair_managed() {
   local root="$1" tree="$2" ts="$3"; shift 3
-  local reported p bad="" n=0
+  local reported p bad="" n=0 root_resolved
+  root_resolved="$(cd "$root" 2>/dev/null && pwd -P)" || {
+    echo "[repair-managed] REFUSED — cannot resolve the repo root '$root'; nothing was written." >&2
+    return 1
+  }
   # Verify with the CANONICAL modules from the verified tree, not the consumer's possibly
   # drifted copies — the report is the repair's only authority.
   reported="$(ff_managed_drift_paths "$root" "$tree/hooks/local/lib")"
@@ -262,6 +319,14 @@ ff_repair_managed() {
       bad="$bad
   - $p (rejected: the verified source tree does not ship this path)"; continue
     fi
+    if ! _ff_repair_dest_ok "$root" "$root_resolved" "$p"; then
+      bad="$bad
+  - $p (rejected: $FF_REPAIR_REASON)"; continue
+    fi
+    if [ -e "$root/$p.ff-repair-staged" ] || [ -e "$root/$p.ff-repair-orig" ]; then
+      bad="$bad
+  - $p (rejected: a stale repair artifact is in the way — remove $p.ff-repair-staged / $p.ff-repair-orig)"; continue
+    fi
     n=$((n + 1))
   done
   if [ -n "$bad" ]; then
@@ -271,11 +336,60 @@ ff_repair_managed() {
     return 1
   fi
   [ "$n" -gt 0 ] || { echo "[repair-managed] no paths given." >&2; return 1; }
+
+  # ---- stage: nothing visible changes here, so any failure means "nothing was written" ----
+  local staged=() twinned=() origed="" failed=""
   for p in "$@"; do
-    mkdir -p "$(dirname "$root/$p")"
-    [ -f "$root/$p" ] && [ ! -e "$root/$p.pre-upgrade-$ts" ] && cp "$root/$p" "$root/$p.pre-upgrade-$ts"
-    cp "$tree/$p" "$root/$p"
-    echo "[repair-managed] replaced from verified source: $p"
+    if ! mkdir -p "$(dirname "$root/$p")" 2>/dev/null; then
+      failed="could not create the parent directory for $p"; break
+    fi
+    if ! cp "$tree/$p" "$root/$p.ff-repair-staged" 2>/dev/null; then
+      failed="could not stage the verified bytes for $p"; break
+    fi
+    staged+=("$p")
+    if [ -f "$root/$p" ]; then
+      if ! cp "$root/$p" "$root/$p.ff-repair-orig" 2>/dev/null; then
+        failed="could not take a rollback copy of $p"; break
+      fi
+      origed="$origed
+$p"
+      if [ ! -e "$root/$p.pre-upgrade-$ts" ]; then
+        if cp "$root/$p" "$root/$p.pre-upgrade-$ts" 2>/dev/null; then twinned+=("$p"); fi
+      fi
+    fi
   done
+  if [ -n "$failed" ]; then
+    for p in ${twinned[@]+"${twinned[@]}"}; do rm -f "$root/$p.pre-upgrade-$ts"; done
+    _ff_repair_unstage "$root" "$ts" ${staged[@]+"${staged[@]}"}
+    echo "[repair-managed] REFUSED — $failed; NOTHING was written." >&2
+    return 1
+  fi
+
+  # ---- apply: same-directory swaps, rolled back as a unit if any one of them fails ----
+  local applied=()
+  for p in "${staged[@]}"; do
+    if mv -f "$root/$p.ff-repair-staged" "$root/$p" 2>/dev/null; then
+      applied+=("$p")
+      echo "[repair-managed] replaced from verified source: $p"
+    else
+      failed="could not replace $p"
+      break
+    fi
+  done
+  if [ -n "$failed" ]; then
+    local q
+    for q in ${applied[@]+"${applied[@]}"}; do
+      case $'\n'"$origed"$'\n' in
+        *$'\n'"$q"$'\n'*) mv -f "$root/$q.ff-repair-orig" "$root/$q" 2>/dev/null || true ;;
+        *) rm -f "$root/$q" || true ;;
+      esac
+      echo "[repair-managed] rolled back: $q" >&2
+    done
+    for q in ${twinned[@]+"${twinned[@]}"}; do rm -f "$root/$q.pre-upgrade-$ts"; done
+    _ff_repair_unstage "$root" "$ts" "${staged[@]}"
+    echo "[repair-managed] REFUSED — $failed; the whole batch was rolled back (no path was left replaced)." >&2
+    return 1
+  fi
+  _ff_repair_unstage "$root" "$ts" "${staged[@]}"
   return 0
 }

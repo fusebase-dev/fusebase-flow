@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "0085c642cff9d03486b6c7bdbe7b1b0ebb12fd78eab33aebffc5a83e3b38e99d"
+      "sha256": "7420cfb47d2fe6aec46c597e14417330f6c0c9c98d92ff3d478fa9561ef15573"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -486,7 +486,7 @@
     },
     {
       "path": "hooks/local/lib/materialize-managed-source.sh",
-      "sha256": "118bda96706c2ce1677f28a640c3f74bd7746da2ea0e15d2ce96690283ab5941"
+      "sha256": "5dda45c3bfc31cb88171242e6a2b6a1879fc2d83e3753f5f2650c18b58070096"
     },
     {
       "path": "hooks/local/lib/merge-module-size-baseline.sh",
@@ -938,7 +938,7 @@
     },
     {
       "path": "hooks/tests/test-upgrade-source-boundary.sh",
-      "sha256": "ba580fef6ddc2bd5e81f81ea8633ff13a7a8b179e55b77eaeb6e9946cc5f1b49"
+      "sha256": "35c88683cb2d08b84907bafd378e45100716c2648f09d5fe57c03165f28a5638"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
@@ -1137,5 +1137,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "8c4ccbb06b6bdd51d0337dd2ab5685c8b4aa71df4057b8485a7395364b83f92d"
+  "manifest_self_sha256": "abf5027759f79e2a23823a6903307d87f642fca955aecd520edf6e7f656e10e5"
 }

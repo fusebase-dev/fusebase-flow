@@ -106,7 +106,7 @@
     },
     {
       "path": "hooks/local/lib/materialize-managed-source.sh",
-      "sha256": "118bda96706c2ce1677f28a640c3f74bd7746da2ea0e15d2ce96690283ab5941"
+      "sha256": "5dda45c3bfc31cb88171242e6a2b6a1879fc2d83e3753f5f2650c18b58070096"
     },
     {
       "path": "hooks/local/lib/merge-module-size-baseline.sh",
@@ -550,12 +550,12 @@
     },
     {
       "path": "hooks/tests/test-upgrade-source-boundary.sh",
-      "sha256": "ba580fef6ddc2bd5e81f81ea8633ff13a7a8b179e55b77eaeb6e9946cc5f1b49"
+      "sha256": "35c88683cb2d08b84907bafd378e45100716c2648f09d5fe57c03165f28a5638"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "5e328afbb8cac0be4c0f3cc39fded4f238340afb8a34adcb07d7b6e8519080a4"
+  "manifest_self_sha256": "e6f7f15054a1cf9c9fc74ace080946265adf692b190a85e0dfac09082d5c214d"
 }
