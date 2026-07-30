@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "b14e9201aeafd0ebda14681513c25b476fc5643d063a92db8e92eb77c72947f2"
+      "sha256": "3999d304b64a3a5c44cde3d46fb8b44194ae3a06c17b1d6199ac73504285d4e7"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -858,7 +858,7 @@
     },
     {
       "path": "hooks/tests/test-health-check-timeout.sh",
-      "sha256": "e921ed0c9a7b2ddbe118e378aefa5c792ab308941c1552d19b01b8078bad7513"
+      "sha256": "3c8ae052f06f3c168ad5394f211268756ea0a1d52c8a3d023e22db45646d11aa"
     },
     {
       "path": "hooks/tests/test-history-extraction.sh",
@@ -1137,5 +1137,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "eb40fff1fed3c2de3348b61fd2587edcdde3e6e28877963a8365c9b3d4bce729"
+  "manifest_self_sha256": "00324665eb3e37e82ec590ea8fc6b16c924ea92684d261ac81c817dc1908fbe6"
 }

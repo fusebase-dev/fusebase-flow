@@ -529,8 +529,14 @@ ht_m9_unit_array_contract
 # redirected into a tempfile the parent reads only after completion, so progress MUST come from
 # the PARENT and the captured payload MUST stay byte-exact.
 # ============================================================================================
-AC5_SAMPLE_SECS=2     # sample stderr here, while the 4s child is provably still running
 AC5_CAP_SECS=30       # bounded wait (FR-27); also catches a heartbeat that BLOCKS the parent
+# TRIPWIRE (C3 / F-A): do NOT go back to sampling stderr at ONE fixed wall-clock instant. A single
+# read at 2s against a 4s child with a 1s heartbeat interval expected exactly 1 line, so ANY MSYS
+# scheduling delay flipped it to 0 — green in isolation, flaky in the composed suite. The margin
+# now comes from a COUNT RATIO instead of an instant: the child (4s) and the heartbeat (1s) both
+# use `sleep`, so a loaded host stretches them together and the ratio survives. Never relax this
+# to >= 0 and never delete it: pre-M3 code emits ZERO bytes mid-run, which is what it discriminates.
+AC5_MIN_HB_LINES=2    # >= 2 of the ~4 a 1s interval yields on a ~4s child
 
 # TRIPWIRE: sets AC5_PROBE_PID instead of echoing it — a `$( … )` wrapper around a background
 # launch is the very hang this feature must not reintroduce (see _ffhc_heartbeat_start).
@@ -542,23 +548,36 @@ _ac5_start_probe() {   # <dir> <tag> <heartbeat-secs>
   AC5_PROBE_PID=$!
 }
 
+_ac5_count_hb() {   # <err-file> -> heartbeat line count on stdout (0 when unreadable)
+  local n; n="$(grep -c 'still running' "$1" 2>/dev/null || true)"
+  case "$n" in ''|*[!0-9]*) n=0 ;; esac
+  printf '%s' "$n"
+}
+
 # Completion is observed via the done-FILE, not `kill -0` (a reaped-but-unwaited child is a
 # zombie and still answers it). Returns 1 iff the cap elapsed with the probe still running.
-_ac5_wait_probe() {   # <dir> <tag> <sample-at-secs|0>
-  local D="$1" tag="$2" sample="$3" w=0
-  AC5_MID_LINES=0; AC5_MID_BYTES=0; AC5_ALIVE_AT_SAMPLE=0
+# With <poll-heartbeat>=1, EVERY tick up to the bounded cap looks for the first parent heartbeat
+# line and records whether the child was provably alive (done-file absent) at that moment — so the
+# discriminator has as many chances as the child has seconds, not exactly one.
+_ac5_wait_probe() {   # <dir> <tag> <poll-heartbeat:1|0>
+  local D="$1" tag="$2" poll="$3" w=0 n alive_now
+  AC5_MID_LINES=0; AC5_MID_BYTES=0; AC5_ALIVE_AT_FIRST_HB=0; AC5_FIRST_HB_AT=""; AC5_END_LINES=0
   while [ ! -f "$D/done.$tag" ] && [ "$w" -lt "$AC5_CAP_SECS" ]; do
     sleep 1; w=$((w + 1))
-    if [ "$sample" -gt 0 ] && [ "$w" -eq "$sample" ]; then
-      [ -f "$D/done.$tag" ] || AC5_ALIVE_AT_SAMPLE=1
-      AC5_MID_BYTES="$(wc -c < "$D/err.$tag" 2>/dev/null | tr -d ' ' || true)"
-      AC5_MID_LINES="$(grep -c 'still running' "$D/err.$tag" 2>/dev/null || true)"
-    fi
+    [ "$poll" -eq 1 ] && [ -z "$AC5_FIRST_HB_AT" ] || continue
+    # Aliveness is read BEFORE the count, so a line seen a moment later cannot be credited to a
+    # child that had already exited.
+    if [ -f "$D/done.$tag" ]; then alive_now=0; else alive_now=1; fi
+    n="$(_ac5_count_hb "$D/err.$tag")"
+    [ "$n" -ge 1 ] || continue
+    AC5_FIRST_HB_AT="$w"; AC5_ALIVE_AT_FIRST_HB="$alive_now"; AC5_MID_LINES="$n"
+    AC5_MID_BYTES="$(wc -c < "$D/err.$tag" 2>/dev/null | tr -d ' ' || true)"
   done
   if [ ! -f "$D/done.$tag" ]; then
     kill -9 "$AC5_PROBE_PID" 2>/dev/null; wait "$AC5_PROBE_PID" 2>/dev/null; return 1
   fi
   wait "$AC5_PROBE_PID" 2>/dev/null
+  AC5_END_LINES="$(_ac5_count_hb "$D/err.$tag")"
   return 0
 }
 
@@ -592,15 +611,23 @@ AC5_PROBE
   local ac5_fail="" capped_on=""
   # DISCRIMINATOR: read the parent's stderr BEFORE the child exits.
   _ac5_start_probe "$D" "hb" 1
-  _ac5_wait_probe  "$D" "hb" "$AC5_SAMPLE_SECS" || capped_on="hb"
-  local mid_lines="${AC5_MID_LINES:-0}" mid_bytes="${AC5_MID_BYTES:-0}" alive="${AC5_ALIVE_AT_SAMPLE:-0}"
-  # NEGATIVE CONTROL: same run with the heartbeat OFF must yield a byte-identical payload.
+  _ac5_wait_probe  "$D" "hb" 1 || capped_on="hb"
+  local mid_bytes="${AC5_MID_BYTES:-0}" alive="${AC5_ALIVE_AT_FIRST_HB:-0}"
+  local first_hb="${AC5_FIRST_HB_AT:-}" hb_lines="${AC5_END_LINES:-0}"
+  # NEGATIVE CONTROL: same run with the heartbeat OFF must yield a byte-identical payload AND no
+  # progress lines at all (proves the count above comes from the knob, not from ambient stderr).
   _ac5_start_probe "$D" "off" 0
   _ac5_wait_probe  "$D" "off" 0 || capped_on="${capped_on:+$capped_on,}off"
+  local off_lines="${AC5_END_LINES:-0}"
 
   [ -z "$capped_on" ] || ac5_fail="$ac5_fail [probe($capped_on) still running after ${AC5_CAP_SECS}s - the wrapper did not return; a heartbeat started under \$( ) blocks the parent until its cap]"
-  [ "$alive" -eq 1 ] || ac5_fail="$ac5_fail [PRECONDITION: the probe had already finished at the ${AC5_SAMPLE_SECS}s sample - it proves nothing about mid-run visibility]"
-  [ "$mid_lines" -ge 1 ] 2>/dev/null || ac5_fail="$ac5_fail [no heartbeat line on the parent's stderr before the child exited (${mid_bytes} bytes)]"
+  if [ -z "$first_hb" ]; then
+    ac5_fail="$ac5_fail [no heartbeat line appeared on the parent's stderr at ANY poll tick while the child ran (${mid_bytes} bytes) - pre-M3 code emits exactly this]"
+  elif [ "$alive" -ne 1 ]; then
+    ac5_fail="$ac5_fail [PRECONDITION: the probe had already finished at the first heartbeat observation (t=${first_hb}s) - it proves nothing about mid-run visibility]"
+  fi
+  [ "$hb_lines" -ge "$AC5_MIN_HB_LINES" ] 2>/dev/null || ac5_fail="$ac5_fail [only ${hb_lines} heartbeat line(s) over the whole run; >= ${AC5_MIN_HB_LINES} expected from a 1s interval on a ~4s child - one line is not margin]"
+  [ "$off_lines" -eq 0 ] 2>/dev/null || ac5_fail="$ac5_fail [the heartbeat-OFF run still emitted ${off_lines} progress line(s) - FFHC_HEARTBEAT_SECS=0 is not actually OFF]"
   if [ -f "$D/out.hb" ] && [ -f "$D/out.off" ]; then
     cmp -s "$D/out.hb" "$D/out.off" \
       || ac5_fail="$ac5_fail [captured payload DIFFERS from a heartbeat-off run - the heartbeat contaminated the capture]"
@@ -615,7 +642,7 @@ AC5_PROBE
     || ac5_fail="$ac5_fail [child rc not preserved through the heartbeat path: $(cat "$D/rc.hb" 2>/dev/null)]"
   rm -rf "$D"
   if [ -z "$ac5_fail" ]; then
-    ht_pass "ac5-heartbeat-before-child-exit (${mid_lines} progress line(s) at ${AC5_SAMPLE_SECS}s while the child was alive; capture byte-identical to heartbeat-off)"
+    ht_pass "ac5-heartbeat-before-child-exit (first progress line observed at t=${first_hb}s with the child provably alive; ${hb_lines} line(s) over the run >= ${AC5_MIN_HB_LINES}; heartbeat-off run emitted ${off_lines}; capture byte-identical to heartbeat-off)"
   else
     ht_fail "ac5-heartbeat-before-child-exit" "$ac5_fail"
   fi

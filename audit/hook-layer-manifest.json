@@ -470,7 +470,7 @@
     },
     {
       "path": "hooks/tests/test-health-check-timeout.sh",
-      "sha256": "e921ed0c9a7b2ddbe118e378aefa5c792ab308941c1552d19b01b8078bad7513"
+      "sha256": "3c8ae052f06f3c168ad5394f211268756ea0a1d52c8a3d023e22db45646d11aa"
     },
     {
       "path": "hooks/tests/test-history-extraction.sh",
@@ -557,5 +557,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "de9fd9855510b8a3163390e7dd2788667b6f190af1677b0438ef510b27930db1"
+  "manifest_self_sha256": "12c826d074d3e38ee3022b063cc9a621af5a4820088d9d4c37d9704e896d04d7"
 }
