@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "743b233cd30a84c5337298902a6f3e8e6bab323c9c35a58d4dcc3294ff82a9b3"
+      "sha256": "8c1183771ca003a08303751526f8986babc8a3cbf0ad947a6504a92755956581"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -278,7 +278,7 @@
     },
     {
       "path": "hooks/local/approve-local.sh",
-      "sha256": "c1b3dd244ca900bb6d9ce8434b3bf93da1eba14eaab7ee43b1c05460bb69875a"
+      "sha256": "7409b0a5dbf9ac21111a68412ddfc6162a8ffd416361c7a52ec8e08e1dd99026"
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
@@ -398,7 +398,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-health-check.sh",
-      "sha256": "2432cf17f31c93156db3b05cdbfa0b600a0b98ef150596cbd28116d252760e0d"
+      "sha256": "e3a587cec557c615bbd3e924cf1b13831ea42ccb51441b6c4cd3e8f7ea1984e9"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/agent-surface-ownership.json",
@@ -458,11 +458,11 @@
     },
     {
       "path": "hooks/local/lib/active-approvals.sh",
-      "sha256": "b12bda4547a5411513ad5dff412ecabe7c20293e9306224346040b32f67d0651"
+      "sha256": "33ab64ca044050afd369bf26f78f2c9f1ef48036cbc6cf82524dbb82817539ef"
     },
     {
       "path": "hooks/local/lib/approval_inventory.py",
-      "sha256": "8140108e0b0efff0e4277d66fbcfe017eb6403937421e37315796363bc3f8d14"
+      "sha256": "48b3fb6f2b6b16075633f7a44938a21958d403db9152c5f25b352207237280f9"
     },
     {
       "path": "hooks/local/lib/backup-hygiene.sh",
@@ -570,7 +570,7 @@
     },
     {
       "path": "hooks/local/write-bootstrap-approval.sh",
-      "sha256": "0e2f5ec285a93ab119c24b464bed7556e8d7188480b868236c38b8f5d22f794b"
+      "sha256": "e203afa1e0f9794ee81b438f0eb57f2a653bce823a5fa61115c544ebc1add2be"
     },
     {
       "path": "hooks/requirements.txt",
@@ -614,7 +614,7 @@
     },
     {
       "path": "hooks/shared/policy_loader.py",
-      "sha256": "b3761a81151973a02e543b2f8347bc764259546d10879da99dbfc628df17af5a"
+      "sha256": "50919a984d82bb661afd53fedfd80ec407c0088772408978cd6e144d3d22171d"
     },
     {
       "path": "hooks/shared/secret_scanner.py",
@@ -802,7 +802,7 @@
     },
     {
       "path": "hooks/tests/test-approval-writer.sh",
-      "sha256": "b81a52f83547b31865ad64a40acdd34f8c2bc9293b9f06f7343d0d25b510d246"
+      "sha256": "f9ff21008afe57a3115f429378fef6f50eec0537dcecc4ece6edd974d0c25b04"
     },
     {
       "path": "hooks/tests/test-baseline-merge.sh",
@@ -858,7 +858,7 @@
     },
     {
       "path": "hooks/tests/test-health-check-timeout.sh",
-      "sha256": "85b7d60188323f03cc4d2d4505804744dbce21e9c57fdd1917f745b94e189323"
+      "sha256": "9f9ca57d72aca2e209295da8bd55e446cfaf16984a89c0ba0a3e8b89228a75db"
     },
     {
       "path": "hooks/tests/test-history-extraction.sh",
@@ -946,7 +946,7 @@
     },
     {
       "path": "policies/approval-policy.yml",
-      "sha256": "1ca80a6f0a138d3cf3980d3b09f4deabf2a3168e88a6a4af833345b5233d60dc"
+      "sha256": "cb7c57aa163f83aeaff378d1c61114a0afa7abc098a81745fb11c35f506fde47"
     },
     {
       "path": "policies/command-policy.yml",
@@ -1137,5 +1137,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "d910de57e354258c58e31d78a964658341e4e25b167e353dc337acae4b0d459f"
+  "manifest_self_sha256": "3633b72682b89a013f3dae63b0bc9e8a7440eca673f3f196bb3225369d01bf77"
 }

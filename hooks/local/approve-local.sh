@@ -167,6 +167,9 @@ data = {
     "action": action,                       # MUST equal the filename action (AC1)
     "scope": slug,
     "expires_at": expires_at,               # mandatory, parseable UTC (AC2)
+    # Additive (M9): drives the stale-approval age warning. Schema-optional — an artifact
+    # written before this field shipped reports age=unknown; it is never a reject reason.
+    "created_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
     "approved_by": os.environ.get("USER") or os.environ.get("USERNAME") or "operator",
     "ticket": slug,                         # AUDIT METADATA ONLY — not a binding (K3)
     "reason": reason,

@@ -20,12 +20,25 @@ sys.path.insert(0, str(_HERE))
 
 from shared.approval_artifact import (  # noqa: E402
     Verdict, binding_state, compute_repo_id, evaluate_artifact, expiry_state,
-    filename_action, load,
+    filename_action, load, now_utc, parse_expiry,
 )
 
 UNCHECKED = "UNCHECKED (command-bound)"
 
-_COLUMNS = ("file", "action", "schema", "expiry-state", "binding-state", "verdict(strict)")
+_COLUMNS = ("file", "action", "schema", "expiry-state", "age", "binding-state", "verdict(strict)")
+# Index, never a literal: the reject/unchecked tallies below read the verdict column, and a
+# later column insertion must not silently start counting a different column.
+_VERDICT_COL = _COLUMNS.index("verdict(strict)")
+
+
+def _age(data: object) -> str:
+    """Age from `created_at` (M9), or "unknown" for an artifact written before that field.
+
+    parse_expiry is the repo's ONE ISO-8601 parser (K1) — reused here so age and expiry are
+    never read under different rules. Age is REPORTING only; it rejects nothing.
+    """
+    created = parse_expiry(data.get("created_at")) if isinstance(data, dict) else None
+    return "unknown" if created is None else f"{(now_utc() - created).days}d"
 
 
 def _git_root() -> Path:
@@ -37,7 +50,7 @@ def _git_root() -> Path:
         return Path.cwd().resolve()
 
 
-def _row(path: Path, root: Path) -> tuple[str, str, str, str, str, str]:
+def _row(path: Path, root: Path) -> tuple[str, ...]:
     """One inventory row. TRIPWIRE (K17 / AC27): the verdict column must never claim
     ACCEPT for something the gate rejects. `repo_id` IS checkable here (against this
     inventory's own root) and is checked; only `command_digest` is genuinely unknowable
@@ -65,6 +78,7 @@ def _row(path: Path, root: Path) -> tuple[str, str, str, str, str, str]:
         action or "-",
         f"v{schema}" if isinstance(schema, int) else "legacy",
         expiry_state(data),
+        _age(data),
         binding_state(data),
         column,
     )
@@ -85,8 +99,8 @@ def inventory(root: Path) -> int:
     for r in rows:
         print(fmt.format(*r))
 
-    rejected = sum(1 for r in rows if r[5].startswith("REJECT"))
-    unchecked = sum(1 for r in rows if r[5] == UNCHECKED)
+    rejected = sum(1 for r in rows if r[_VERDICT_COL].startswith("REJECT"))
+    unchecked = sum(1 for r in rows if r[_VERDICT_COL] == UNCHECKED)
     print()
     print(f"[approve-local] {len(rows)} artifact(s); {rejected} would be REJECTED under "
           f"strict_approvals: true.")

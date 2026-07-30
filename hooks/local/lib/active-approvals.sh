@@ -11,9 +11,16 @@
 # WHAT IT POPULATES (in the sourcing shell's scope — same as the inline code it
 # replaced; the engine declares these arrays before sourcing/calling):
 #   ACTIVE_ARTIFACTS[]      basenames of non-expired approval artifacts
-#   ARTIFACT_NOTES[]        "<basename>: <summary>" lines for the report
+#   ARTIFACT_NOTES[]        "<basename>: <summary>" lines for the report (ONE line each)
 #   DEFERRED_CHECKS[]       check_ids deferred via health_check_deferral-*.json
 #   DEFERRED_BY_ARTIFACT[]  parallel array — the artifact that authorized each check_id
+#   APPROVAL_WARNINGS[]     "<basename>: <age/expiry/paths>" for still-active
+#                           protected_path_edit artifacts older than
+#                           approval-policy.yml: stale_approval_warn_after_days (M9).
+#                           VISIBILITY ONLY: the engine prints these OUTSIDE every verdict
+#                           array and count — never LOCAL_DRIFT / LOCAL_BROKEN /
+#                           LOCAL_UNVERIFIED — and they invalidate no approval. An artifact
+#                           that warns still authorizes and still lands in ACTIVE_ARTIFACTS.
 #
 # Two artifact types under state/approvals/:
 #   - protected_path_edit-*.json  — authorizes protected-path edits (lists `paths`).
@@ -23,7 +30,7 @@
 
 ffhc_collect_active_approvals() {
   [ -d "state/approvals" ] && command -v python3 >/dev/null 2>&1 || return 0
-  local artifact_file artifact_basename summary rc deferred_list cid ff_root ff_project
+  local artifact_file artifact_basename summary warn_line rc deferred_list cid ff_root ff_project
   # CODE root (where hooks/shared lives) is resolved from THIS FILE, not the cwd or the
   # git root: artifacts are discovered relative to the cwd (the project being inspected),
   # but the shared loader must be imported from the Flow install this lib belongs to.
@@ -47,13 +54,23 @@ try:
     # now` string compare, under which a missing/empty expires_at read as "valid forever".
     from shared.approval_artifact import (
         accept_with_audit, evaluate_artifact, expiry_state, filename_action, load,
+        now_utc, parse_expiry,
     )
     # strict_approvals (K7) is read from the INSPECTED project's merged policy, not the
     # Flow install's: under strict an expiry-less artifact no longer authorizes anything,
     # so it must not be reported as active either (the report and the gates cannot differ).
+    # stale_approval_warn_after_days (M9) comes from the SAME merged read: one policy load
+    # per artifact, and the age report can never be based on a different policy than the
+    # strictness it reports beside it. A policy that will not load leaves BOTH at their
+    # shipped-safe defaults — this report must never change the health verdict or exit code.
+    threshold_days = 7
     try:
         from shared.policy_loader import get_policy
-        strict = get_policy("approval-policy", root=Path(project)).get("strict_approvals") is True
+        _appr = get_policy("approval-policy", root=Path(project))
+        strict = _appr.get("strict_approvals") is True
+        _thr = _appr.get("stale_approval_warn_after_days")
+        if isinstance(_thr, int) and not isinstance(_thr, bool) and _thr > 0:
+            threshold_days = _thr
     except Exception:
         strict = False
     art = load(p)
@@ -86,6 +103,26 @@ try:
         print(f"deferred_checks={len(deferred)} status={status} expires={expires} scope=\"{scope}\"")
     else:
         print(f"paths={len(paths)} status={status} expires={expires} scope=\"{scope}\"")
+    # M9 age warning — SECOND line, prefixed STALE_WARN:, so ARTIFACT_NOTES stays one line
+    # per artifact (the array contract above). Only still-active protected_path_edit
+    # artifacts qualify: an expired/deferral artifact authorizes no protected path, so its
+    # age is not a finding. Warning-or-not never affects this script's exit code.
+    if filename_action(p) == "protected_path_edit" and status in ("active", "legacy-no-expiry"):
+        # parse_expiry is the repo's ONE ISO-8601 parser (K1); reused for created_at so the
+        # age can never be read under different rules than the expiry printed beside it.
+        created = parse_expiry((data or {}).get("created_at"))
+        if created is None:
+            age, stale = "age=unknown (no created_at)", True
+        else:
+            days = (now_utc() - created).days
+            age, stale = f"age={days}d", days >= threshold_days
+        if stale:
+            shown = [x for x in paths if isinstance(x, str) and x][:3]
+            more = f" +{len(paths) - len(shown)} more" if len(paths) > len(shown) else ""
+            plist = (", ".join(shown) + more) if shown else "(none listed)"
+            plist = plist.encode('ascii', errors='replace').decode('ascii')[:200]
+            print(f"STALE_WARN:{age}; threshold={threshold_days}d; "
+                  f"expires={expires or 'none'}; protected paths: {plist}")
     sys.exit(0)
 except SystemExit:
     raise
@@ -98,9 +135,19 @@ PY
     # trailing LF only, leaving a stray CR. Defensive strip so ARTIFACT_NOTES renders
     # cleanly on any platform.
     summary="${summary//$'\r'/}"
+    # Split the optional STALE_WARN: second line off BEFORE the note is built — an
+    # ARTIFACT_NOTES entry must stay exactly one line (array contract above), and the
+    # warning must land in its own array so the engine can print it outside every count.
+    warn_line=""
+    case "$summary" in
+      *$'\n'STALE_WARN:*)
+        warn_line="${summary#*$'\n'STALE_WARN:}"
+        summary="${summary%%$'\n'STALE_WARN:*}" ;;
+    esac
     if [ "$rc" -eq 0 ]; then
       ACTIVE_ARTIFACTS+=("$artifact_basename")
       ARTIFACT_NOTES+=("$artifact_basename: $summary")
+      if [ -n "$warn_line" ]; then APPROVAL_WARNINGS+=("$artifact_basename: $warn_line"); fi
       if [[ "$artifact_basename" == health_check_deferral-* ]]; then
         deferred_list=$(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$artifact_file" <<'PY' 2>/dev/null
 import json, sys

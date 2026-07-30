@@ -129,6 +129,7 @@ ACTIVE_ARTIFACTS=()      # filenames of non-expired approval artifacts (informat
 ARTIFACT_NOTES=()        # human-readable summaries of each active artifact
 DEFERRED_CHECKS=()       # check_ids deferred via active health_check_deferral-*.json (engine v2.4.0+)
 DEFERRED_BY_ARTIFACT=()  # parallel array — for each entry in DEFERRED_CHECKS, the artifact filename that authorized it
+APPROVAL_WARNINGS=()     # M9 stale-approval age warnings. VISIBILITY ONLY: printed outside every verdict array/count — never LOCAL_DRIFT/LOCAL_BROKEN/LOCAL_UNVERIFIED — so they can move neither the verdict nor the exit code, and invalidate no approval
 DRIFT_SIGNATURE=""
 RECOMMENDATIONS=()
 PARTIAL_UPGRADE_FINDINGS=()   # U7: stale derived-fact mismatches (version/FR/plugin vs live strings)
@@ -154,7 +155,8 @@ DEEP_RUN_NOTES=()             # --run-hook-tests optional deep-run notes (NEVER 
 
 # Extracted to a sourced lib per FR-25 (the U7 PARTIAL_UPGRADE section pushed the
 # engine to the ceiling). The function populates ACTIVE_ARTIFACTS / ARTIFACT_NOTES /
-# DEFERRED_CHECKS / DEFERRED_BY_ARTIFACT in THIS scope (sourced => shared scope).
+# DEFERRED_CHECKS / DEFERRED_BY_ARTIFACT / APPROVAL_WARNINGS in THIS scope (sourced =>
+# shared scope). APPROVAL_WARNINGS is age visibility only (M9) — it feeds no verdict array.
 FFHC_APPROVALS_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/active-approvals.sh"
 # shellcheck source=lib/active-approvals.sh
 if [ -f "$FFHC_APPROVALS_LIB" ]; then
@@ -723,6 +725,18 @@ fi
 if [ "${#ACTIVE_ARTIFACTS[@]}" -gt 0 ]; then
   echo "Active approval artifacts (${#ACTIVE_ARTIFACTS[@]}):"
   for x in "${ARTIFACT_NOTES[@]}"; do echo "  • $x"; done
+  echo ""
+fi
+
+# M9: age visibility for approvals nobody remembers. Printed BESIDE the active artifacts and
+# OUTSIDE every verdict array/count — these lines cannot change 'Local state (N checks)',
+# the verdict, or the exit code, and they invalidate nothing. Each listed artifact still
+# authorizes its paths; only its age is being reported.
+if [ "${#APPROVAL_WARNINGS[@]}" -gt 0 ]; then
+  echo "Approval age warnings (${#APPROVAL_WARNINGS[@]} — visibility only; NOT part of the verdict, counts, or exit code):"
+  for x in "${APPROVAL_WARNINGS[@]}"; do echo "  ! $x"; done
+  echo "  Each artifact above STILL AUTHORIZES its protected paths until expires_at."
+  echo "  If the work it covered is done, delete the file to revoke it now."
   echo ""
 fi
 

@@ -159,6 +159,18 @@ on_missing_artifact: deny      # deny | warn
 # Behavior when artifact is expired.
 on_expired_artifact: deny      # deny | warn
 
+# Age in days after which a still-ACTIVE protected_path_edit artifact draws a health-check
+# warning (decision M9). VISIBILITY ONLY: it never expires an artifact, never changes
+# authorization, and never enters a health-check verdict, count, or exit status. An artifact
+# with no `created_at` (written before that field shipped) reports age=unknown and warns.
+#
+# TRIPWIRE: tighten-only, and LOWER days = TIGHTER. policy_loader REJECTS a local override
+# that raises this value (or that is non-integer/boolean/zero/negative) with a policy error
+# instead of coercing it to the shipped value — a silent coercion is indistinguishable from
+# an accepted relax to whoever wrote the override, and this key exists precisely so a
+# forgotten exception cannot stay invisible.
+stale_approval_warn_after_days: 7
+
 # Whether the local override file may relax (vs. only tighten) this default.
 # When false, local override may only deny more, never approve more.
 local_override_may_relax: false

@@ -81,11 +81,13 @@ if not paths:
     sys.exit(0)
 
 digest = compute_staged_tree_digest(paths, Path(root))
-expires = (datetime.datetime.utcnow() + datetime.timedelta(minutes=ttl_min)).strftime("%Y-%m-%dT%H:%M:%SZ")
+now = datetime.datetime.utcnow()
+expires = (now + datetime.timedelta(minutes=ttl_min)).strftime("%Y-%m-%dT%H:%M:%SZ")
 data = {
     "approved_by": "flow-bootstrap",
     "scope": "flow-internals-bootstrap",
     "expires_at": expires,
+    "created_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"),   # additive (M9); age, never authority
     "reason": "install/upgrade setup commit — single-use, digest-bound (WS1b)",
     "action": "protected_path_edit",
     "operation": operation,

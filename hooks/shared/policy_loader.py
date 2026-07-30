@@ -147,6 +147,24 @@ def _restrict_to_tightening(base: dict[str, Any], local: dict[str, Any]) -> dict
     # turn it ON.
     if base.get("strict_approvals") is True and local.get("strict_approvals") is False:
         out["strict_approvals"] = True
+    # TRIPWIRE (M9): stale_approval_warn_after_days is tighten-only and LOWER days is
+    # TIGHTER. An invalid or raised value RAISES rather than being coerced to base: a
+    # silent coercion is indistinguishable from acceptance to whoever wrote the override,
+    # and this key exists so a forgotten approval cannot stay invisible.
+    if "stale_approval_warn_after_days" in local:
+        want = local["stale_approval_warn_after_days"]
+        have = base.get("stale_approval_warn_after_days")
+        if isinstance(want, bool) or not isinstance(want, int) or want < 1:
+            raise ValueError(
+                "approval-policy.local.yml: stale_approval_warn_after_days must be a "
+                f"positive integer number of days, got {want!r}."
+            )
+        if isinstance(have, int) and not isinstance(have, bool) and want > have:
+            raise ValueError(
+                "approval-policy.local.yml: stale_approval_warn_after_days may only be "
+                f"lowered or equal (lower days = tighter). Shipped value is {have}, local "
+                f"asked for {want}, and local_override_may_relax is false."
+            )
     return out
 
 

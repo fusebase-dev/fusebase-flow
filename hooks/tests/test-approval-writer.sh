@@ -101,7 +101,8 @@ from pathlib import Path
 root, repo, expected_reason = Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3]
 sys.path.insert(0, str(root / "hooks"))
 from shared.approval_artifact import (  # noqa: E402
-    Verdict, compute_command_digest, compute_repo_id, evaluate_artifact, load,
+    Verdict, compute_command_digest, compute_repo_id, evaluate_artifact, load, now_utc,
+    parse_expiry,
 )
 fails = []
 files = sorted((repo / "state" / "approvals").glob("production_deploy-adv-slug-*.json"))
@@ -123,6 +124,13 @@ else:
             fails.append("repo_id absent or not bound to this repo")
         if d.get("command_digest") != compute_command_digest("fusebase deploy"):
             fails.append("command_digest absent or wrong")
+        # M9: created_at is written by the writer and must parse through the SAME parser the
+        # age report uses. Without it every new artifact reads as unknown-age forever.
+        created = parse_expiry(d.get("created_at"))
+        if created is None:
+            fails.append(f"created_at absent or unparseable: {d.get('created_at')!r}")
+        elif abs((now_utc() - created).total_seconds()) > 600:
+            fails.append(f"created_at is not the mint time: {d.get('created_at')!r}")
         v = evaluate_artifact(d, expected_action="production_deploy",
                               command_digest=compute_command_digest("fusebase deploy"),
                               repo_id=compute_repo_id(repo))
@@ -320,6 +328,48 @@ with tempfile.TemporaryDirectory() as d:
     if merged.get("strict_approvals") is not True:
         fails.append("tighten-only: a local override relaxed strict_approvals back to false")
     reset_cache()
+
+# M9 tighten-only, days edition: LOWER days = TIGHTER. Lower/equal is accepted; a raised or
+# invalid value must RAISE, never be silently coerced to the shipped value (a coercion is
+# indistinguishable from acceptance to whoever wrote the override).
+from shared.policy_loader import get_policy  # noqa: E402
+
+
+def merged_with(local_value) -> object:
+    """Returns the merged threshold, or the exception a rejected override raised."""
+    with tempfile.TemporaryDirectory() as d:
+        tmp = Path(d)
+        (tmp / "policies").mkdir(parents=True)
+        (tmp / "policies" / "approval-policy.yml").write_text(
+            yaml.safe_dump({"stale_approval_warn_after_days": 7,
+                            "local_override_may_relax": False}), encoding="utf-8")
+        (tmp / "policies" / "approval-policy.local.yml").write_text(
+            yaml.safe_dump({"stale_approval_warn_after_days": local_value}), encoding="utf-8")
+        reset_cache()
+        try:
+            return get_policy("approval-policy", root=tmp).get("stale_approval_warn_after_days")
+        except Exception as e:                       # noqa: BLE001 — the rejection IS the result
+            return e
+        finally:
+            reset_cache()
+
+
+shipped = yaml.safe_load(
+    (root / "policies" / "approval-policy.yml").read_text(encoding="utf-8")
+).get("stale_approval_warn_after_days")
+if shipped != 7:
+    fails.append(f"shipped stale_approval_warn_after_days should be 7, got {shipped!r}")
+for lower in (1, 3, 7):
+    got = merged_with(lower)
+    if got != lower:
+        fails.append(f"tighten-only-days: a lowered/equal override ({lower}) was not honored: {got!r}")
+for relaxing in (8, 30, 365, 0, -1, True, False, "7", 7.5, None, [7]):
+    got = merged_with(relaxing)
+    if not isinstance(got, Exception):
+        fails.append(f"tighten-only-days: {relaxing!r} was ACCEPTED (merged={got!r}) — a raised "
+                     f"or invalid threshold must be rejected with a policy error")
+    elif "stale_approval_warn_after_days" not in str(got):
+        fails.append(f"tighten-only-days: {relaxing!r} was rejected without naming the key: {got!r}")
 
 print(json.dumps(fails))
 PY

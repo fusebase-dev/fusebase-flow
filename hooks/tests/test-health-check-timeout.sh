@@ -41,10 +41,21 @@ build_golden() {
   local dir="$GOLDEN"
   mkdir -p "$dir/hooks/local/lib" "$dir/hooks/tests" "$dir/audit" \
            "$dir/.claude/skills/fusebase-flow-health-check" "$dir/.claude/agents" \
-           "$dir/hooks/local/fusebase-flow-overlays"
+           "$dir/hooks/local/fusebase-flow-overlays" \
+           "$dir/hooks/shared" "$dir/policies" "$dir/state/approvals"
   cp hooks/local/fusebase-flow-health-check.sh "$dir/hooks/local/"
   cp hooks/local/lib/run-with-timeout.sh hooks/local/lib/hook-integrity-check.sh \
      hooks/local/lib/hook_manifest.py "$dir/hooks/local/lib/"
+  # M9: the approval-collection path must be LIVE in the fixture, or the exit-status half
+  # of the staleness contract cannot be asserted at all — the engine silently skips
+  # section 0 when the lib is absent, and the shared loader/policy are what it imports.
+  # These land BEFORE the one-time stamp so the manifest still MATCHes (they are covered
+  # assets: hooks/shared/*.py + hooks/local/lib/*).  state/approvals/ ships EMPTY here;
+  # each scenario installs the artifact it needs.
+  cp hooks/local/lib/active-approvals.sh "$dir/hooks/local/lib/"
+  cp hooks/shared/__init__.py hooks/shared/approval_artifact.py \
+     hooks/shared/policy_loader.py hooks/shared/audit_logger.py "$dir/hooks/shared/"
+  cp policies/approval-policy.yml "$dir/policies/"
   cp hooks/local/verify-hook-manifest.sh hooks/local/stamp-hook-manifest.sh "$dir/hooks/local/"
   cp VERSION "$dir/VERSION"
   printf '# AGENTS\n\n## Fusebase Flow — workflow lifecycle overlay\n' > "$dir/AGENTS.md"
@@ -84,6 +95,9 @@ mv_baseline_healthy() {
   echo "$OUT" | grep -q "Verdict: HEALTHY" || { ht_fail "mv-baseline-healthy" "$OUT"; return; }
   echo "$OUT" | grep -q "^EXIT=0$" || { ht_fail "mv-baseline-healthy" "$OUT"; return; }
   echo "$OUT" | grep -qi "hook layer integrity: .* files match release" || { ht_fail "mv-baseline-healthy (no integrity OK line)" "$OUT"; return; }
+  # The artifact-free check-count line; ht_m9_aged_warn_verdict_neutral asserts a stale
+  # warning does not move it (M9 warnings live outside every count).
+  MV_BASELINE_LOCAL_STATE="$(echo "$OUT" | grep -o '^Local state ([0-9]* checks):' | head -1)"
   ht_pass "mv-baseline-healthy (D4): matching manifest => HEALTHY/0, integrity critical reports files-match"
 }
 
@@ -344,6 +358,139 @@ ht_ws6_install_append_idempotent() {
   ht_pass "ws6-install-append-idempotent (WS6): the REAL install.sh append_overlay runs once on a fresh file, no double-append, dual-marker guard skips a legacy tree"
 }
 
+# ---- M9: stale-approval visibility (verdict-neutral) --------------------------
+
+# <dir> <filename> <action> <created-days-ago|none> <expires-days-from-now> [json array]
+# TRIPWIRE (MSYS): the artifact path crosses into a WINDOWS python, which cannot resolve an
+# MSYS "/tmp/..." path — hand it the native form or the file lands nowhere and the scenario
+# passes for the wrong reason.
+m9_artifact() {
+  local d="$1" f="$2"; shift 2
+  local nat; nat="$( cd "$d" && { pwd -W 2>/dev/null || pwd; } )"
+  MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$nat/$f" "$@" <<'PY'
+import datetime, json, sys
+path, action, created, expires = sys.argv[1:5]
+extra = sys.argv[5] if len(sys.argv) > 5 else ""
+now = datetime.datetime.now(datetime.timezone.utc)
+FMT = "%Y-%m-%dT%H:%M:%SZ"
+d = {"schema_version": 2, "action": action, "scope": "m9-test",
+     "expires_at": (now + datetime.timedelta(days=float(expires))).strftime(FMT)}
+if created != "none":
+    d["created_at"] = (now - datetime.timedelta(days=float(created))).strftime(FMT)
+if action == "protected_path_edit":
+    d["paths"] = json.loads(extra) if extra else ["policies/protected-paths.yml"]
+else:
+    d["deferred_checks"] = json.loads(extra) if extra else []
+with open(path, "w", encoding="utf-8", newline="\n") as fh:
+    fh.write(json.dumps(d, indent=2) + "\n")
+PY
+}
+
+# Discriminator (RED at 85b97dd): an AGED still-active protected_path_edit is merely LISTED
+# today. After M9 it draws an explicit warning naming path + age + expiry, while the verdict,
+# the 'Local state (N checks)' count, and the exit code stay exactly as the artifact-free
+# baseline. HEALTHY/0 is itself the verdict-neutrality proof: an entry in LOCAL_DRIFT,
+# LOCAL_BROKEN, LOCAL_UNVERIFIED or LOCAL_DEFERRED moves the verdict off HEALTHY by
+# precedence, so it could not survive this assertion.
+ht_m9_aged_warn_verdict_neutral() {
+  local D="$TMP_BASE/m9-aged"; fx "$D"
+  m9_artifact "$D/state/approvals" "protected_path_edit-legacy-20260401.json" \
+    protected_path_edit 94 365 '["config/deploy.yml","policies/protected-paths.yml"]'
+  local OUT; OUT="$(run_hc "$D" env FFHC_PREFLIGHT_TIMEOUT=10 FFHC_CONFLICT_TIMEOUT=10)"
+  local f=""
+  echo "$OUT" | grep -q "Approval age warnings (1" || f="$f [no APPROVAL_WARNINGS block — the aged artifact is only listed]"
+  echo "$OUT" | grep -q "^  ! protected_path_edit-legacy-20260401.json: age=94d" || f="$f [warning missing or does not carry the age]"
+  echo "$OUT" | grep -q "^  ! .*expires=2" || f="$f [warning does not name the expiry]"
+  echo "$OUT" | grep -q "^  ! .*protected paths: config/deploy.yml" || f="$f [warning does not name the protected path(s)]"
+  echo "$OUT" | grep -q "Active approval artifacts (1)" || f="$f [the artifact stopped being reported as active — a warning must invalidate nothing]"
+  echo "$OUT" | grep -q "Verdict: HEALTHY" || f="$f [verdict moved: the warning entered a verdict array]"
+  echo "$OUT" | grep -q "^EXIT=0$" || f="$f [exit status moved off 0]"
+  echo "$OUT" | grep -qE "^  (✗|⚠|\?|⊘) .*age=94d" && f="$f [the warning was ALSO recorded as drift/broken/unverified/deferred]"
+  if [ -n "${MV_BASELINE_LOCAL_STATE:-}" ]; then
+    echo "$OUT" | grep -qF "$MV_BASELINE_LOCAL_STATE" || f="$f [the 'Local state (N checks)' count changed vs the artifact-free baseline: $MV_BASELINE_LOCAL_STATE]"
+  fi
+  if [ -z "$f" ]; then
+    ht_pass "m9-aged-warn-verdict-neutral (M9): aged active protected_path_edit => explicit warning with path+age+expiry, still ACTIVE, verdict/count/exit unchanged (HEALTHY/0)"
+  else
+    ht_fail "m9-aged-warn-verdict-neutral" "$f
+$OUT"
+  fi
+}
+
+# Negative controls in ONE engine run (cost discipline D14.4): a FRESH protected_path_edit
+# must not warn; an AGED health_check_deferral must not warn (it authorizes no protected
+# path); and EXCEPTION_IN_EFFECT must still classify off that same deferral — the
+# classification the array contract exists to protect.
+ht_m9_negative_controls() {
+  local D="$TMP_BASE/m9-negative"; fx "$D"
+  printf '# proj\n\nno overlay marker here\n' > "$D/CLAUDE.md"   # => claude_md_overlay drift
+  m9_artifact "$D/state/approvals" "protected_path_edit-fresh-20260730.json" \
+    protected_path_edit 0 1 '["config/deploy.yml"]'
+  m9_artifact "$D/state/approvals" "health_check_deferral-old-20260401.json" \
+    health_check_deferral 94 365 '["claude_md_overlay"]'
+  local OUT; OUT="$(run_hc "$D" env FFHC_PREFLIGHT_TIMEOUT=10 FFHC_CONFLICT_TIMEOUT=10)"
+  local f=""
+  echo "$OUT" | grep -q "Approval age warnings" && f="$f [a fresh approval and/or an aged DEFERRAL produced a staleness warning]"
+  echo "$OUT" | grep -q "Verdict: EXCEPTION_IN_EFFECT" || f="$f [EXCEPTION_IN_EFFECT stopped classifying — the deferral path regressed]"
+  echo "$OUT" | grep -q "^EXIT=3$" || f="$f [EXCEPTION_IN_EFFECT exit is no longer 3]"
+  echo "$OUT" | grep -q "Active approval artifacts (2)" || f="$f [both artifacts should still be reported active]"
+  echo "$OUT" | grep -q "⊘ CLAUDE.md overlay block: MISSING" || f="$f [the deferred item was not reclassified to LOCAL_DEFERRED]"
+  if [ -z "$f" ]; then
+    ht_pass "m9-negative-controls (M9): fresh approval => no warning, aged health_check_deferral => no warning, EXCEPTION_IN_EFFECT still classifies (exit 3)"
+  else
+    ht_fail "m9-negative-controls" "$f
+$OUT"
+  fi
+}
+
+# Unit-level (NO engine run): the array contract itself. A missing created_at is
+# unknown-age -> warns; an EXPIRED artifact is neither active nor warned; ARTIFACT_NOTES
+# stays exactly one line per artifact and carries no age text (overloading it is what
+# would break EXCEPTION_IN_EFFECT classification); and a LOWERED local threshold is honored.
+ht_m9_unit_array_contract() {
+  local D="$TMP_BASE/m9-unit"; rm -rf "$D"; mkdir -p "$D/state/approvals" "$D/policies"
+  m9_artifact "$D/state/approvals" "protected_path_edit-nocreated-20260401.json" \
+    protected_path_edit none 365 '["config/deploy.yml"]'
+  m9_artifact "$D/state/approvals" "protected_path_edit-expired-20260401.json" \
+    protected_path_edit 94 -1 '["config/deploy.yml"]'
+  m9_artifact "$D/state/approvals" "protected_path_edit-twodays-20260728.json" \
+    protected_path_edit 2 365 '["config/deploy.yml"]'
+  local OUT
+  OUT="$(env ROOT="$ROOT" D="$D" bash <<'BASH'
+set -uo pipefail
+. "$ROOT/hooks/local/lib/active-approvals.sh"
+report() {   # <label>
+  ACTIVE_ARTIFACTS=(); ARTIFACT_NOTES=(); DEFERRED_CHECKS=(); DEFERRED_BY_ARTIFACT=()
+  APPROVAL_WARNINGS=()
+  ffhc_collect_active_approvals
+  printf '%s active=%s notes=%s warns=%s\n' "$1" "${#ACTIVE_ARTIFACTS[@]}" \
+    "${#ARTIFACT_NOTES[@]}" "${#APPROVAL_WARNINGS[@]}"
+  for x in "${ARTIFACT_NOTES[@]}"; do printf '%s NOTE %s\n' "$1" "$x"; done
+  for x in "${APPROVAL_WARNINGS[@]}"; do printf '%s WARN %s\n' "$1" "$x"; done
+}
+cd "$D"
+report default
+printf 'stale_approval_warn_after_days: 1\n' > policies/approval-policy.local.yml
+report lowered
+BASH
+)"
+  local f=""
+  echo "$OUT" | grep -q '^default active=2 notes=2 warns=1$' || f="$f [default threshold: expected 2 active / 2 notes / 1 warn (unknown-age only)]"
+  echo "$OUT" | grep -q '^default WARN protected_path_edit-nocreated-20260401.json: age=unknown (no created_at); threshold=7d; expires=2' || f="$f [missing created_at did not produce an age=unknown warning naming the threshold+expiry]"
+  echo "$OUT" | grep -q 'WARN protected_path_edit-expired-' && f="$f [an EXPIRED artifact was warned about — it authorizes nothing]"
+  echo "$OUT" | grep -q 'NOTE protected_path_edit-expired-' && f="$f [an EXPIRED artifact was reported ACTIVE]"
+  echo "$OUT" | grep -qE '^default NOTE [^ ]+\.json: paths=1 status=(active|legacy-no-expiry) expires=[^ ]+ scope="m9-test"$' || f="$f [ARTIFACT_NOTES shape changed — the note must stay one line of status text]"
+  echo "$OUT" | grep -E '^default NOTE ' | grep -qE 'age=|STALE_WARN' && f="$f [age text leaked into ARTIFACT_NOTES — that is the overload M9 forbids]"
+  echo "$OUT" | grep -q '^lowered active=2 notes=2 warns=2$' || f="$f [a LOWERED local threshold (1d) was not honored: the 2-day-old artifact should also warn]"
+  echo "$OUT" | grep -q '^lowered WARN protected_path_edit-twodays-20260728.json: age=2d; threshold=1d;' || f="$f [the lowered-threshold warning does not report the local threshold]"
+  if [ -z "$f" ]; then
+    ht_pass "m9-unit-array-contract (M9): unknown-age warns, expired neither active nor warned, ARTIFACT_NOTES stays one status-only line, lowered local threshold honored"
+  else
+    ht_fail "m9-unit-array-contract" "$f
+$OUT"
+  fi
+}
+
 # ---- run everything ----------------------------------------------------------
 mv_baseline_healthy
 mv_verify_timeout
@@ -362,6 +509,9 @@ ht_ws4_knob_surfacing
 ht_ws6_preflight_dual_accept
 ht_ws6_migrate_idempotent
 ht_ws6_install_append_idempotent
+ht_m9_aged_warn_verdict_neutral
+ht_m9_negative_controls
+ht_m9_unit_array_contract
 
 # ============================================================================================
 # AC5 / decision M3 — parent-owned heartbeat on a CAPTURED run. The child's ENTIRE stream is
