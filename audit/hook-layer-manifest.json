@@ -442,7 +442,7 @@
     },
     {
       "path": "hooks/tests/test-cli-flow-recovery.sh",
-      "sha256": "34d959e61086e0fa9a7243a1783c9f63501077625ba454f90e3ce5e32a060e6f"
+      "sha256": "98f50aca7d4077f88b884fa15b3b5e81c418a35cdc951a67769bc59c8b81d77a"
     },
     {
       "path": "hooks/tests/test-codex-plugin-surface.sh",
@@ -557,5 +557,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "cc3f5ecec5d75db2de17d558cb56656801c1c02207614c15d2a97a1785e375c7"
+  "manifest_self_sha256": "bacb3c3eddc70ed1d32e18b744dbe7f492fb139bdbfcc15f37cef7fc6fa9c3c5"
 }

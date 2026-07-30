@@ -32,6 +32,21 @@ state required **seven manual interventions**.
 | **F7** | MEDIUM | Command scanner denies commands that merely *mention* a blocked pattern | `pre_tool_use` command policy |
 | **S1** | suggestion | No staleness warning on unconsumed approval artifacts | `approve-local.sh` / health check |
 
+## Upstream disposition (added by Flow maintainers 2026-07-30)
+
+Read this before the findings — three of them are not defects at 4.7.0. Verdicts + rationale: `docs/specs/upgrade-source-integrity-and-observability/decisions.md` (M1–M10). Consumer-facing form: `docs/release-notes/v4.7.0.md` §§ "source integrity, backup hygiene, and observability" · "three reported findings need no code" · "Known limitation — F7".
+
+| # | Disposition | Where |
+|---|---|---|
+| F1 | **already fixed** — K14 manifest-driven refresh; `hooks/local/upgrade.sh:263-274` + `hooks/local/lib/managed_content_manifest.py:34-49` (`FLOW_RULES_HISTORY.md` at `:44`). Cause: run under the stale installed **4.5** engine, not the documented bootstrap route | M7 |
+| F2 | **fixed** — managed source materialized from git objects, never the staging worktree (`hooks/local/lib/materialize-managed-source.sh`) | M1, M10 · `1fc082e` |
+| F3 | **already fixed** — K9 per-file classifier preserves + reports `consumer-only` (`managed_content_manifest.py:220-294`). Same cause as F1 | M7 |
+| F4 | **refuted** — `hooks/local/lib/merge-module-size-baseline.sh:85-101` keys rows by path and emits one row per path | M7 |
+| F5 | **fixed** — backup families pruned from allowlist discovery (`d5a4ced`); sanctioned `hooks/local/cleanup-flow-backups.sh` replaces the `rm -rf` guidance, FR-06 deny unchanged (`c88a56e`) | M4, M5 |
+| F6 | **fixed** — optional parent-owned heartbeat on captured long runs (`47a0028`) | M3 |
+| F7 | **confirmed, deferred** — every proposed narrowing opens an evasion; promoted to `docs/backlog/command-gate-shell-evasion/`. Sanctioned path today: `git commit -F <file>` | M8 |
+| S1 | **implemented** — `created_at` + verdict-neutral stale-approval warning + `--inventory` age column (`e357993`) | M9 |
+
 ---
 
 ## F1 — `upgrade.sh` cannot fully install its own release · HIGH

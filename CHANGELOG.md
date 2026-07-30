@@ -62,6 +62,68 @@ Public release versions ship as annotated git tags on `main`. Per-version detail
   expiry-less artifacts are accepted **and audit-logged**; the next release flips the default.
   Legacy artifacts are never auto-migrated.
 
+### Fixed — upgrade source integrity, backup hygiene, observability (prerelease consumer report)
+
+A prerelease tester ran the 4.5.0 → 4.7.0 adoption hop and filed 7 bugs + 1 suggestion
+(`docs/tmp/handoff/2026-07-30-workhub-upstream-report.md`). Decisions M1–M10:
+`docs/specs/upgrade-source-integrity-and-observability/`.
+
+- **F2 — permanent, undiagnosable `FLOW_LAYER_DRIFT` on Windows.** Incoming managed content is
+  materialized from **git objects** (`archive` at a resolved commit, `core.autocrlf=false`,
+  `core.eol=lf`) on every OS, never read from the persistent staging worktree — which keeps its
+  pre-EOL-pin bytes forever while `git status` stays clean. New
+  `hooks/local/lib/materialize-managed-source.sh` is the single source boundary;
+  `hook-integrity-check.sh` names `bootstrap-upgrade.sh --repair-managed <path>` instead of
+  `git checkout --`, which restores the same wrong bytes.
+- **F5a — Flow's own `.pre-upgrade-<UTC>` backups failed `test-sync-allowlist.sh`.** Allowlist
+  discovery prunes exactly that family: authorized managed stem **and** an exact UTC stamp; no
+  `.pre-*` wildcard.
+- **F5b — the recommended backup cleanup was `rm -rf`, which Flow's own FR-06 deny blocks.** New
+  `hooks/local/cleanup-flow-backups.sh`, whose destructive authority is exact managed-stem
+  membership plus an exact `.pre-upgrade-<YYYYMMDDTHHMMSSZ>` suffix. The FR-06 deny is
+  **unchanged** — the fix is a sanctioned tool, not an exception to the rail.
+- **F6 — `run-tests.sh` silent for ~13 minutes**, the FR-27 failure mode inside Flow's own tooling.
+  Optional parent-owned heartbeat (`FFHC_HEARTBEAT_SECS`; default `0` = off, so every existing
+  caller stays byte-identical); `run-tests.sh` and the health deep run opt in.
+- **S1 — no staleness signal on unconsumed approvals.** `created_at` at mint time,
+  `stale_approval_warn_after_days: 7` (a local override may only lower it), an `--inventory` age
+  column, and a health-check warning block that is **verdict-neutral**: it never moves the verdict,
+  the check count or the exit code, and invalidates no approval. Missing `created_at` warns as
+  unknown-age, never rejects.
+
+### Not defects — three reported findings need no code
+
+Recorded so the record is not corrupted. **F1** (new top-level `FLOW_RULES_HISTORY.md` never
+installed) and **F3** (`policies/` refresh reverts consumer `exempt_globs`) were the stale **4.5**
+engine, not 4.7.0: the managed set is already manifest-driven (`hooks/local/upgrade.sh:263-274` →
+`hooks/local/lib/managed_content_manifest.py:34-49`, which lists `FLOW_RULES_HISTORY.md`), and the
+per-file classifier already preserves-and-reports consumer edits
+(`managed_content_manifest.py:220-294`). **F4** (duplicate baseline row) is refuted:
+`hooks/local/lib/merge-module-size-baseline.sh:85-101` keys rows by path and emits one row per path.
+Cause of F1/F3: the upgrade was started with the repo's installed `upgrade.sh` instead of the
+documented bootstrap route, which is now stated as **unsupported** in `README.md`, both install
+guides, and the canonical `AGENTS.md` overlay. Rationale: decision M7.
+
+### Known limitation — command gate denies prose that quotes a destructive pattern (F7)
+
+Confirmed, **not fixed** in this release. `pre_tool_use` matches destructive patterns anywhere in
+the command string, including a quoted `-m` payload and a heredoc body, so an honest commit message
+about the guard is denied. Sanctioned path: `git commit -F <file>`, now stated in
+`policies/command-policy.yml`'s header. Every narrowing proposed in the report opens a real
+evasion — `git commit -m "$(rm -rf /)"` expands before git runs, argv-splitting worsens the K21
+quote-fragmentation gap — so the fix is a parser with its own adversarial corpus, scoped in
+`docs/backlog/command-gate-shell-evasion/README.md` together with the explicit
+**must-not-be-attempted** list. Decision M8.
+
+### Release mechanics — the `v4.7.0` tag was re-pointed
+
+No GitHub Release was ever published for the earlier `v4.7.0` tag, but the tag was consumer-visible
+and at least one prerelease tester fetched it. Re-pointing it is therefore a published-ref mutation:
+it required explicit operator authorization of the exact old and new commits and ships with a
+moved-tag notice (decision M6). The version number is deliberately unchanged — no `v4.7.1`.
+**If you fetched `v4.7.0` before this notice, run `git fetch --force --tags origin`** — a plain
+`git fetch` will not move an existing local tag.
+
 Full detail: `docs/release-notes/v4.7.0.md`.
 
 ## [4.6.1] — 2026-07-26

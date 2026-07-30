@@ -194,7 +194,7 @@ SETTINGS_BEFORE="$(sha_cmd "$PROJECT/.claude/settings.json")"
 
 grep -q "CURRENT CLI AGENTS SENTINEL" "$PROJECT/AGENTS.md" || fail "CLI AGENTS baseline was lost"
 # WS6 dual-accept: recovery emits the NEW marker; a legacy tree may carry either.
-grep -qE "^## Fuse[bB]ase Flow — workflow lifecycle overlay" "$PROJECT/AGENTS.md" || fail "current Flow AGENTS overlay was not restored"
+grep -qE "^## Fuse[bB]ase Flow — workflow lifecycle overlay" "$PROJECT/AGENTS.md" && grep -qF -- "bootstrap-upgrade.sh -- --auto-yes" "$PROJECT/AGENTS.md" || fail "current Flow AGENTS overlay was not restored (heading, or T6/M7 supported-upgrade-route guidance — the latter is CANONICAL-overlay content, so a root-AGENTS.md-only edit is discarded here)"
 grep -q "CURRENT CLI CLAUDE SENTINEL" "$PROJECT/CLAUDE.md" || fail "CLI CLAUDE baseline was lost"
 grep -qE "^## Fuse[bB]ase Flow — additional rules \(overlay\)" "$PROJECT/CLAUDE.md" || fail "current Flow CLAUDE overlay was not restored"
 
@@ -585,7 +585,7 @@ printf '\nDRIFTED-FLOW-BLOCK-EXTRA-LINE\n' >> "$PROJECT/AGENTS.md"
   || fail "F2: after refreshing a DRIFTED AGENTS.md, END count is $(count_marker "$PROJECT/AGENTS.md" "$ME") (expected 1)"
 grep -q "DRIFTED-FLOW-BLOCK-EXTRA-LINE" "$PROJECT/AGENTS.md" && fail "F2: drift survived the refresh (block not replaced)" || true
 ls "$PROJECT"/AGENTS.md.pre-refresh-* >/dev/null 2>&1 || fail "F2: refresh of a drifted block wrote no backup"
-grep -q "CURRENT CLI AGENTS SENTINEL" "$PROJECT/AGENTS.md" || fail "F2: refresh dropped the CLI-owned AGENTS baseline"
+grep -q "CURRENT CLI AGENTS SENTINEL" "$PROJECT/AGENTS.md" && grep -qF -- "bootstrap-upgrade.sh -- --auto-yes" "$PROJECT/AGENTS.md" || fail "F2: refresh dropped the CLI-owned AGENTS baseline or the T6/M7 supported-upgrade-route guidance"
 [ "$(sha_cmd "$PROJECT/AGENTS.md")" = "$AGENTS_GOOD" ] \
   || fail "F2: drift refresh did not converge byte-exactly to the clean block (trailing-blank-before-BEGIN regression?)"
 pass "F2: --refresh-overlays restores a drifted block byte-exactly (== clean block; single balanced BEGIN/END; CLI baseline kept)"

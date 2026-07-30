@@ -374,9 +374,15 @@ manually. Without a base, every managed path classifies `unknown-base` — which
 (nothing is lost) but means a later upgrade delivers little or nothing while appearing to
 succeed. `preflight.sh` warns when the base is missing or stale.
 
-Upgrading an existing ≤4.6.1 install: use `bash hooks/local/bootstrap-upgrade.sh -- --auto-yes`,
-which stages the new engine first and synthesizes the base from the upstream tag matching your
-installed `VERSION`.
+> ### ⚠️ Upgrading an existing ≤4.6.1 install: bootstrap is the ONLY supported route
+>
+> ```bash
+> bash hooks/local/bootstrap-upgrade.sh -- --auto-yes
+> ```
+>
+> Do **not** run the `hooks/local/upgrade.sh` already in your repo for this hop. That engine predates the classifier, so it copies upstream over `hooks/**` — including the new engine — before any classification runs; and with no base manifest every managed path classifies `unknown-base`, so the run reports success while installing little or nothing. The bootstrap path stages the new engine first and synthesizes the base from the upstream tag matching your installed `VERSION`.
+>
+> **Two HIGH bugs filed against 4.7.0 came from taking the unsupported route**, not from 4.7.0: a new top-level file never installed, and a hand-edited `policies/` entry silently reverted. See `docs/release-notes/v4.7.0.md` § "three reported findings need no code".
 
 ## Post-install validation
 

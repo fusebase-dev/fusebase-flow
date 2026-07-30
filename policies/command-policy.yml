@@ -23,6 +23,10 @@
 #   * quote-fragmentation — `fusebase de'pl'oy` and `npx prisma mi"grate" deploy` execute
 #     the gated command but match no pattern;
 #   * dynamic construction — eval, command substitution, variables, aliases.
+# The same raw-string matching also over-fires: PROSE that merely QUOTES a destructive pattern
+# is DENIED (a `git commit -m` message, a heredoc body) — the sanctioned path for such text is
+# `git commit -F <file>`, not a narrowing of these patterns (M8; docs/backlog/command-gate-shell-evasion/
+# lists the narrowings that MUST NOT be attempted and why each opens an evasion hole).
 # Closing this needs shell-aware parsing (or a conservative deny of dynamically constructed
 # gated commands); tracked in docs/backlog/command-gate-shell-evasion/. Do NOT write a
 # half-parser here — one wrong in either direction either breaks ordinary approvals or
