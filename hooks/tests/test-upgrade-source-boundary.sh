@@ -388,6 +388,17 @@ has_cr "$RP/workflows/wf.md" || rp_fail="$rp_fail [ordinary upgrade REPLACED the
 grep -q -- "- workflows/wf.md" "$RP_LOG" || rp_fail="$rp_fail [the preserved path was not reported]"
 python3 "$MCM" verify --root "$RP" >/dev/null 2>&1 \
   && rp_fail="$rp_fail [manifest verifies MATCH while the file is still CRLF — the fixture is not seeded]"
+# A path named TWICE is refused up front: staging it over its own staging file would fail the
+# second swap into a rollback instead of a clean "nothing was written".
+( cd "$RP" && bash hooks/local/bootstrap-upgrade.sh --source .fusebase-flow-source \
+    --repair-managed workflows/wf.md --repair-managed workflows/wf.md ) > "$RP_ROOT/dup.log" 2>&1
+rc=$?
+[ "$rc" -ne 0 ] || rp_fail="$rp_fail [repair ACCEPTED the same path twice]"
+grep -q "named more than once" "$RP_ROOT/dup.log" || rp_fail="$rp_fail [the duplicate path was not refused by name :: $(tail -4 "$RP_ROOT/dup.log" | tr '\n' '|')]"
+has_cr "$RP/workflows/wf.md" || rp_fail="$rp_fail [the duplicate-path run replaced the file anyway]"
+# Staging residue only: the ordinary upgrade above legitimately left .pre-upgrade-<ts> twins.
+[ -z "$(find "$RP" -name '*.ff-repair-*' 2>/dev/null)" ] \
+  || rp_fail="$rp_fail [the duplicate-path refusal left staging residue behind]"
 # Negative controls: repair refuses a path no verifier reported, an unmanaged path, and traversal.
 for badpath in "hooks/local/control.sh" "docs/not-managed.md" "../escape.md"; do
   ( cd "$RP" && bash hooks/local/bootstrap-upgrade.sh --source .fusebase-flow-source \
@@ -443,8 +454,14 @@ for kind in leaf parent; do
   fi
   r2s_ran=$((r2s_ran + 1))
   # PRECONDITION: the path must actually be REPORTED, or the refusal proves nothing about symlinks.
-  python3 "$MCM" verify --root "$S" --json 2>/dev/null | grep -q '"workflows/wf.md"' \
-    || r2s_fail="$r2s_fail [$kind: PRECONDITION — the verifier does not report workflows/wf.md, so this fixture cannot exercise the accepted-symlink path]"
+  # TRIPWIRE (pipefail): capture first, match with `case` — never `producer | grep -q`. grep -q
+  # exits at the first match, the producer takes SIGPIPE, and under `set -o pipefail` the PIPELINE
+  # reports 141 even though the line WAS found (this precondition went falsely red on Linux).
+  R2_VERIFY="$(python3 "$MCM" verify --root "$S" --json 2>/dev/null || true)"
+  case "$R2_VERIFY" in
+    *'"workflows/wf.md"'*) ;;
+    *) r2s_fail="$r2s_fail [$kind: PRECONDITION — the verifier does not report workflows/wf.md, so this fixture cannot exercise the accepted-symlink path :: $(printf '%s' "$R2_VERIFY" | tr '\n' ' ' | cut -c1-200)]" ;;
+  esac
   R2_LOG="$R2_ROOT/sym-$kind.log"
   ( cd "$S" && bash hooks/local/bootstrap-upgrade.sh --source .fusebase-flow-source \
       --repair-managed workflows/wf.md ) > "$R2_LOG" 2>&1

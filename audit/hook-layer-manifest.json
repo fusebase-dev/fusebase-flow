@@ -106,7 +106,7 @@
     },
     {
       "path": "hooks/local/lib/materialize-managed-source.sh",
-      "sha256": "a8f32cd8b93eab6f2ab036ff41c94b84df63c69f9ce46b3e839287d8d451a8b4"
+      "sha256": "21597c7cbe0cee02108534e86b73fb13e6fa7643bf6562afe89077b4171d95c6"
     },
     {
       "path": "hooks/local/lib/merge-module-size-baseline.sh",
@@ -458,7 +458,7 @@
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
-      "sha256": "9770d68de891e71a1a8634109f32272b04320e5695ccd564ba19a0b2c26b877a"
+      "sha256": "043b476397d8aa4e74b4fa677b10cc6014bd5b07ee59998132751e928811d055"
     },
     {
       "path": "hooks/tests/test-fr22-delivery-guarantee.sh",
@@ -550,12 +550,12 @@
     },
     {
       "path": "hooks/tests/test-upgrade-source-boundary.sh",
-      "sha256": "ddb4ab661d3012134df1bc558367c7e7e49be598a1a5345d7a833248956344b6"
+      "sha256": "ab6e5d6e5f088ace08b74d1eec1da53e2f7393122fb2a277270e7cc1ae07c41a"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "00d407087a6aa2d0ed5db8367ceb9bc143348aa15b6464b491fd56776d6650b0"
+  "manifest_self_sha256": "6b1e5615f9d1df99b786bbc741cf238f0699e046d18d813324774b6e981a4ac8"
 }

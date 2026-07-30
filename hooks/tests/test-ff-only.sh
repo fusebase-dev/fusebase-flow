@@ -136,12 +136,16 @@ exit 1
 EOF
 diag_err="$( ( cd "$DIAGREPO" && FF_ONLY=boot-size bash hooks/tests/run-tests.sh >/dev/null ) 2>&1 )"
 diag_artifact="$DIAGREPO/state/audit/hook-test-results-scoped.md"
-printf '%s' "$diag_err" | grep -q "$DIAG_SENTINEL" \
-  && ok "phase-diagnostics-reach-composed-stderr" \
-  || bad "phase-diagnostics-reach-composed-stderr" "the failing phase's stderr-only reason was dropped from the harness stderr"
-printf '%s' "$diag_err" | grep -q "diagnostics (unparsed phase output" \
-  && ok "phase-diagnostics-block-labelled" \
-  || bad "phase-diagnostics-block-labelled" "no diagnostics block header on stderr"
+# TRIPWIRE (pipefail): match with `case`, never `producer | grep -q` — grep -q exits at the first
+# match, the producer takes SIGPIPE, and the pipeline then reports 141 even on a match.
+case "$diag_err" in
+  *"$DIAG_SENTINEL"*) ok "phase-diagnostics-reach-composed-stderr" ;;
+  *) bad "phase-diagnostics-reach-composed-stderr" "the failing phase's stderr-only reason was dropped from the harness stderr" ;;
+esac
+case "$diag_err" in
+  *"diagnostics (unparsed phase output"*) ok "phase-diagnostics-block-labelled" ;;
+  *) bad "phase-diagnostics-block-labelled" "no diagnostics block header on stderr" ;;
+esac
 if [ -f "$diag_artifact" ] && grep -q "$DIAG_SENTINEL" "$diag_artifact" \
    && grep -q "^## Failure diagnostics" "$diag_artifact"; then
   ok "phase-diagnostics-reach-the-results-artifact"

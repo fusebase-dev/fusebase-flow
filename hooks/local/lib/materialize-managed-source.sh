@@ -294,7 +294,7 @@ _ff_repair_unstage() {   # <root> <ts> <staged path>...
   local root="$1" ts="$2"; shift 2
   local p
   for p in "$@"; do
-    rm -f "$root/$p.ff-repair-staged" "$root/$p.ff-repair-orig"
+    rm -f "$root/$p.ff-repair-staged" "$root/$p.ff-repair-orig" || true
   done
 }
 
@@ -313,7 +313,7 @@ _ff_repair_unstage() {   # <root> <ts> <staged path>...
 #   leaves path 1 already replaced, which is the state a consumer cannot reason about.
 ff_repair_managed() {
   local root="$1" tree="$2" ts="$3"; shift 3
-  local reported p bad="" n=0 root_resolved
+  local reported p bad="" seen="" n=0 root_resolved
   root_resolved="$(cd "$root" 2>/dev/null && pwd -P)" || {
     echo "[repair-managed] REFUSED — cannot resolve the repo root '$root'; nothing was written." >&2
     return 1
@@ -344,6 +344,14 @@ ff_repair_managed() {
       bad="$bad
   - $p (rejected: a stale repair artifact is in the way — remove $p.ff-repair-staged / $p.ff-repair-orig)"; continue
     fi
+    # A repeated path would stage over its own staging file and make the second swap fail into a
+    # rollback — refuse it up front instead, while nothing has been written.
+    case $'\n'"$seen"$'\n' in
+      *$'\n'"$p"$'\n'*) bad="$bad
+  - $p (rejected: named more than once)"; continue ;;
+    esac
+    seen="$seen
+$p"
     n=$((n + 1))
   done
   if [ -n "$bad" ]; then
@@ -376,7 +384,7 @@ $p"
     fi
   done
   if [ -n "$failed" ]; then
-    for p in ${twinned[@]+"${twinned[@]}"}; do rm -f "$root/$p.pre-upgrade-$ts"; done
+    for p in ${twinned[@]+"${twinned[@]}"}; do rm -f "$root/$p.pre-upgrade-$ts" || true; done
     _ff_repair_unstage "$root" "$ts" ${staged[@]+"${staged[@]}"}
     echo "[repair-managed] REFUSED — $failed; NOTHING was written." >&2
     return 1
@@ -402,7 +410,7 @@ $p"
       esac
       echo "[repair-managed] rolled back: $q" >&2
     done
-    for q in ${twinned[@]+"${twinned[@]}"}; do rm -f "$root/$q.pre-upgrade-$ts"; done
+    for q in ${twinned[@]+"${twinned[@]}"}; do rm -f "$root/$q.pre-upgrade-$ts" || true; done
     _ff_repair_unstage "$root" "$ts" "${staged[@]}"
     echo "[repair-managed] REFUSED — $failed; the whole batch was rolled back (no path was left replaced)." >&2
     return 1
