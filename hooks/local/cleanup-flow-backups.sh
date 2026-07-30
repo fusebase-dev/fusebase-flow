@@ -1,38 +1,23 @@
 #!/usr/bin/env bash
 # Fusebase Flow — sanctioned removal of Flow's own upgrade backups (decision M5).
 #
-# PROVENANCE:
-#   Shipped v4.7.0+. Lives at hooks/local/ — outside the FuseBase CLI refresh manifest.
+# TRIPWIRE (M5): authorization is EXACT repo-relative stem membership — never a string prefix,
+# glob, `startsWith`, or bare-basename alias. `agentsX.pre-upgrade-<ts>`,
+# `agents.pre-upgrade-<ts>.bak` and a root-level `hook-layer-manifest.json.pre-upgrade-<ts>` are
+# NOT members. Widening this predicate turns a validated tool back into `rm -rf` with extra steps.
 #
-# WHY THIS EXISTS:
-#   upgrade.sh told consumers to "remove once validated" and printed a raw
-#   `rm -rf .fusebase-flow-source`, which policies/command-policy.yml hard-DENIES (FR-06).
-#   Both halves were individually right and the framework was contradicting itself. The wrong
-#   fix is an exception to the destructive-command deny; the right fix is a purpose-built tool
-#   whose destructive authority is EXACT SET MEMBERSHIP plus resolved-path validation, so the
-#   deny stays intact and the surface it guards gets narrower, not wider.
-#
-# TRIPWIRE (M5): authorization is exact stem membership — NEVER a string prefix, glob, or
-# `startsWith` test. `agentsX.pre-upgrade-<ts>` and `agents.pre-upgrade-<ts>.bak` are NOT
-# members. Widening this predicate turns a validated tool back into `rm -rf` with extra steps.
-#
-# Usage (exactly one mode; they cannot be combined):
+# TRIPWIRE (M5): exactly two CLI forms, and they cannot be combined:
 #   bash hooks/local/cleanup-flow-backups.sh --all
 #   bash hooks/local/cleanup-flow-backups.sh <exact-repo-relative-target> [<target> ...]
-#   bash hooks/local/cleanup-flow-backups.sh --list        # show eligible targets, delete nothing
-#   bash hooks/local/cleanup-flow-backups.sh --dry-run --all
+# Adding another form (--list / --dry-run / a pattern mode) needs the decision redirected first.
 #
-# Eligible targets:
-#   1. `<authorized-stem>.pre-upgrade-<YYYYMMDDTHHMMSSZ>` where <authorized-stem> is an exact
-#      managed dir/file name from `managed_content_manifest.py list-managed` (the K14 single
-#      home), plus VERSION, legacy `skills`, policies/module-size-baseline.txt, and each exact
-#      installed docs/_fusebase-flow/<source-top-level-doc-basename>.md.
-#   2. `.fusebase-flow-source` — the transient staging clone, a separate explicit target.
-#
-# Rejected, always, exiting non-zero BEFORE deleting anything: absolute paths, `..` segments,
-# glob metacharacters, symlinks, non-members, malformed timestamps, and any target whose
-# resolved path falls outside the resolved repo root. An invalid explicit batch deletes none
-# of its members (all-or-nothing).
+# Eligible: `<authorized-stem>.pre-upgrade-<YYYYMMDDTHHMMSSZ>`, where <authorized-stem> is an exact
+#   repo-relative name from `managed_content_manifest.py list-managed` (the K14 single home) plus
+#   VERSION, legacy `skills`, policies/module-size-baseline.txt and each installed
+#   docs/_fusebase-flow/<doc>.md; and the exact `.fusebase-flow-source` staging clone.
+# Refused before ANY deletion: absolute paths, `..`, glob/shell metacharacters, symlinks,
+#   non-members, malformed stamps, and anything resolving outside the repo root. An invalid
+#   explicit batch deletes none of its members.
 #
 # Exit: 0 success / nothing to do; 1 refused or error; 2 bad arg.
 
@@ -45,15 +30,12 @@ ROOT_RESOLVED="$(cd "$ROOT" && pwd -P)"
 SOURCE_CLONE_TARGET=".fusebase-flow-source"
 
 MODE=""
-DRY_RUN=0
 TARGETS=()
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --all)      [ -z "$MODE" ] || { echo "[cleanup-flow-backups] FATAL: --all cannot be combined with explicit targets." >&2; exit 2; }; MODE="all" ;;
-    --list)     MODE="list" ;;
-    --dry-run|-n) DRY_RUN=1 ;;
-    --help|-h)  sed -n '2,40p' "$0"; exit 0 ;;
+    --help|-h)  sed -n '2,22p' "$0"; exit 0 ;;
     -*)         echo "[cleanup-flow-backups] FATAL: unknown option: $1" >&2; exit 2 ;;
     *)
       [ "$MODE" = "all" ] && { echo "[cleanup-flow-backups] FATAL: --all cannot be combined with explicit targets." >&2; exit 2; }
@@ -62,7 +44,7 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 if [ -z "$MODE" ]; then
-  echo "[cleanup-flow-backups] FATAL: choose exactly one mode — --all, --list, or one or more exact repo-relative targets." >&2
+  echo "[cleanup-flow-backups] FATAL: choose exactly one mode — --all, or one or more exact repo-relative targets." >&2
   echo "                       Run with --help for the eligibility rules." >&2
   exit 2
 fi
@@ -159,7 +141,7 @@ validate_target() {   # <repo-relative target>
   return 0
 }
 
-# ---- --all / --list enumeration ----------------------------------------------------------
+# ---- --all enumeration -------------------------------------------------------------------
 # Enumerates ONLY what validate_target already authorizes: the same predicate, never a wider
 # find. Depth is bounded to the two places Flow actually writes backups.
 enumerate_eligible() {
@@ -173,12 +155,6 @@ enumerate_eligible() {
         validate_target "$p" && printf '%s\n' "$p"
       done
 }
-
-if [ "$MODE" = "list" ]; then
-  echo "[cleanup-flow-backups] eligible targets (nothing deleted):"
-  enumerate_eligible | sed 's/^/  /'
-  exit 0
-fi
 
 if [ "$MODE" = "all" ]; then
   mapfile -t TARGETS < <(enumerate_eligible)
@@ -205,10 +181,6 @@ fi
 removed=0
 for t in "${TARGETS[@]}"; do
   t="${t%/}"
-  if [ "$DRY_RUN" -eq 1 ]; then
-    echo "[cleanup-flow-backups] (dry-run) would remove $t"
-    continue
-  fi
   if rm -rf -- "$t"; then
     echo "[cleanup-flow-backups] removed $t"
     removed=$((removed + 1))
@@ -216,6 +188,5 @@ for t in "${TARGETS[@]}"; do
     echo "[cleanup-flow-backups] WARN: could not remove $t" >&2
   fi
 done
-[ "$DRY_RUN" -eq 1 ] && exit 0
 echo "[cleanup-flow-backups] done — $removed target(s) removed."
 exit 0

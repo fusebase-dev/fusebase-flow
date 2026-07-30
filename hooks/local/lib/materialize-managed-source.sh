@@ -1,17 +1,10 @@
 #!/usr/bin/env bash
 # Fusebase Flow — canonical managed-source boundary (decisions M1, M10).
 #
-# PROVENANCE:
-#   Shipped v4.7.0+. Sourced by hooks/local/bootstrap-upgrade.sh and
-#   hooks/local/upgrade.sh. Lives in hooks/local/lib/ per FR-25 (the engine sits at the
-#   800-line ceiling, so this logic may not live in the shell).
-#
-# WHY (decision M1): the engine used to read incoming content from the persistent staging
-# clone's WORKING TREE. A worktree populated under core.autocrlf=true before an EOL pin
-# landed keeps the pre-pin bytes on disk forever — changing .gitattributes does not rewrite
-# an unchanged file — so the consumer received CRLF where the shipped byte-exact manifest
-# expects LF, producing permanent FLOW_LAYER_DRIFT. Incoming content therefore comes from
-# git OBJECTS, never from the worktree.
+# TRIPWIRE (decision M1): incoming content comes from git OBJECTS, never from the staging
+# clone's working tree — a worktree populated under core.autocrlf=true before an EOL pin keeps
+# its pre-pin bytes forever (changing .gitattributes does not rewrite an unchanged file), so the
+# consumer receives CRLF where the byte-exact manifest expects LF: permanent FLOW_LAYER_DRIFT.
 #
 # API — all state lands in FF_SOURCE_* globals the caller reads:
 #   ff_source_boundary <source-dir> [<ref>]        materialize + verify; rc 1 => abort before writes

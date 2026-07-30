@@ -113,4 +113,41 @@ trap - EXIT
 [ "$inj_rc" -ne 0 ] && ok "scoped-with-injected-failure-exits-nonzero (rc=$inj_rc)" \
   || bad "scoped-with-injected-failure-exits-nonzero" "scoped run with an injected failing fixture returned rc 0 (must be non-zero)"
 
+# --- emit_phase_diagnostics (C4/FR-27): a FAILING phase's stderr-only reason must reach BOTH the
+#     harness's composed stderr and the results artifact. ffhc_run_bounded captures the phase's
+#     streams into a tempfile, so a reason written outside the ^PASS:/^FAIL: contract reaches
+#     neither surface unless the diagnostics replay runs — and that replay fires only when another
+#     phase already fails, which is why removing it left the ordinary green suite green.
+#     Driven in an ISOLATED fixture repo (its own .git => its own state/audit), with a SYNTHETIC
+#     failing phase, so this is an always-running test and never touches the real results files.
+#     Homed here because this file is the run-tests.sh harness-behavior suite. ---
+DIAGREPO="$(mktemp -d)"
+mkdir -p "$DIAGREPO/hooks/tests" "$DIAGREPO/hooks/local/lib"
+cp "$RT" "$DIAGREPO/hooks/tests/run-tests.sh"
+cp "$ROOT/hooks/local/lib/run-with-timeout.sh" "$DIAGREPO/hooks/local/lib/"
+( cd "$DIAGREPO" && git init -q )
+DIAG_SENTINEL="FFDIAG-STDERR-ONLY-$$"
+cat > "$DIAGREPO/hooks/tests/test-boot-size.sh" <<EOF
+#!/usr/bin/env bash
+# Synthetic failing phase: one contract FAIL line on stdout, the REASON on stderr only.
+echo "FAIL: boot-size synthetic-diagnostics-probe"
+echo "$DIAG_SENTINEL reason that only exists on stderr" >&2
+exit 1
+EOF
+diag_err="$( ( cd "$DIAGREPO" && FF_ONLY=boot-size bash hooks/tests/run-tests.sh >/dev/null ) 2>&1 )"
+diag_artifact="$DIAGREPO/state/audit/hook-test-results-scoped.md"
+printf '%s' "$diag_err" | grep -q "$DIAG_SENTINEL" \
+  && ok "phase-diagnostics-reach-composed-stderr" \
+  || bad "phase-diagnostics-reach-composed-stderr" "the failing phase's stderr-only reason was dropped from the harness stderr"
+printf '%s' "$diag_err" | grep -q "diagnostics (unparsed phase output" \
+  && ok "phase-diagnostics-block-labelled" \
+  || bad "phase-diagnostics-block-labelled" "no diagnostics block header on stderr"
+if [ -f "$diag_artifact" ] && grep -q "$DIAG_SENTINEL" "$diag_artifact" \
+   && grep -q "^## Failure diagnostics" "$diag_artifact"; then
+  ok "phase-diagnostics-reach-the-results-artifact"
+else
+  bad "phase-diagnostics-reach-the-results-artifact" "the reason is not recoverable from $diag_artifact alone"
+fi
+rm -rf "$DIAGREPO"
+
 finish

@@ -58,7 +58,7 @@
     },
     {
       "path": "hooks/local/cleanup-flow-backups.sh",
-      "sha256": "2cbb144c4b71a420c851f6f387767a3ae26e44550195515550057cbc8ecf53fc"
+      "sha256": "27779087161f5459883b35753f8bb3f71824729dca25fc8ee7eaf3586fee2ffb"
     },
     {
       "path": "hooks/local/eslint-ignore-flow-paths.sh",
@@ -106,7 +106,7 @@
     },
     {
       "path": "hooks/local/lib/materialize-managed-source.sh",
-      "sha256": "1a7b632c96b7f725e5ef9081caaa018b3948c4f28ecfaff117224a39a1a1607a"
+      "sha256": "a8f32cd8b93eab6f2ab036ff41c94b84df63c69f9ce46b3e839287d8d451a8b4"
     },
     {
       "path": "hooks/local/lib/merge-module-size-baseline.sh",
@@ -170,7 +170,7 @@
     },
     {
       "path": "hooks/local/upgrade.sh",
-      "sha256": "84eda0b4931efb8def98a78dcbe775111d9839bab98449dfc3f8fba009aa46d5"
+      "sha256": "f98ea297c5e406644019877c1b315603eee4402a310324c4265d01ed6bd12514"
     },
     {
       "path": "hooks/local/verify-gate.sh",
@@ -458,7 +458,7 @@
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
-      "sha256": "82e145dbb8c0a5eaf39c7288b3825dab445b1678ebcd8c5a49719e4d5a37ef9a"
+      "sha256": "9770d68de891e71a1a8634109f32272b04320e5695ccd564ba19a0b2c26b877a"
     },
     {
       "path": "hooks/tests/test-fr22-delivery-guarantee.sh",
@@ -534,7 +534,7 @@
     },
     {
       "path": "hooks/tests/test-sync-allowlist.sh",
-      "sha256": "45e7ee5fb33dd4987ad62e3737c1d1233f8b348a669df8abd0ab6f329d0bd32a"
+      "sha256": "090e9d0d50f5e04d57e27d05ca59ac2cd7ae2189790fb785a1f128126e6d9bd9"
     },
     {
       "path": "hooks/tests/test-token-waste-classify.sh",
@@ -550,12 +550,12 @@
     },
     {
       "path": "hooks/tests/test-upgrade-source-boundary.sh",
-      "sha256": "f1962af690e199ba86ee4288c1187af90d9df6b7373212cd30923694557198d1"
+      "sha256": "ddb4ab661d3012134df1bc558367c7e7e49be598a1a5345d7a833248956344b6"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "26f89cd44ae035316fc2eb59922e6532d282d4a2eb83ff19093bb661ab3289b0"
+  "manifest_self_sha256": "00d407087a6aa2d0ed5db8367ceb9bc143348aa15b6464b491fd56776d6650b0"
 }

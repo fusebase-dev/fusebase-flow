@@ -715,7 +715,6 @@ fi
 # `rm -rf` (FR-06) and the framework contradicting its own guard is what this replaced. The
 # sanctioned tool's authority is exact stem membership + resolved-path validation.
 echo "[upgrade] Once validated, remove them through the sanctioned, validated entry point:"
-echo "            bash hooks/local/cleanup-flow-backups.sh --list   # show eligible targets"
 echo "            bash hooks/local/cleanup-flow-backups.sh --all    # or name exact targets"
 echo "[upgrade] NOTE: the pre-commit secret scan skips ONLY Flow's fixture/policy backup twins, so a BLOCK on a"
 echo "          .pre-* path is NOT automatically 'just a fixture' — inspect it: rotate if it is a real credential;"

@@ -209,11 +209,21 @@ for keep in 'agents/ai-developer/AGENT.md' 'agents.pre-upgrade-notatimestamp/ai-
             'unreachable/note.md' 'config.pre-upgrade-template.yml.md'; do
   has_line "$M4_SET" "$keep" || m4_fail="$m4_fail [OVER-REACH: the prune swallowed $keep]"
 done
+# Only DIRECTORY families can reach the prune: discovery's name filter is `*.md`/`*.mdc`, and a
+# Flow backup name always ends in the timestamp (`FLOW_RULES.md.pre-upgrade-<ts>`), so a
+# file-level backup never enters the find in the first place. A `gone` entry for one would be
+# satisfied by the name filter, not by the prune — vacuous. `config.pre-upgrade-template.yml.md`
+# above is the real file-level control: it DOES enter discovery and must be KEPT.
 for gone in 'agents.pre-upgrade-20260730T120000Z/ai-developer/AGENT.md' \
-            'flow-skills.pre-upgrade-20260730T120000Z/communication/SKILL.md' \
-            'FLOW_RULES.md.pre-upgrade-20260730T120000Z'; do
+            'flow-skills.pre-upgrade-20260730T120000Z/communication/SKILL.md'; do
   has_line "$M4_SET" "$gone" && m4_fail="$m4_fail [UNDER-REACH: Flow's own backup $gone is still a framework target]"
 done
+# The file-level shape the prune WOULD have to handle if the name filter ever widened: assert the
+# authority itself, not the filter, so this stays a real check either way.
+FR_BAK="FLOW_RULES.md.pre-upgrade-20260730T120000Z"
+printf '%s\n' "$M4_TOKEN" > "$M4_FIX/$FR_BAK"
+is_flow_backup_path "$FR_BAK" || m4_fail="$m4_fail [the exact-shape authority does not recognise the file-level backup $FR_BAK]"
+is_flow_backup_path "FLOW_RULES.md.pre-upgrade-notatimestamp" && m4_fail="$m4_fail [OVER-REACH: a malformed stamp was accepted as a Flow backup]"
 rm -rf "$M4_FIX"
 if [ -z "$m4_fail" ]; then
   ok "ac6-exact-shape-backup-prune (Flow families leave discovery; 6 lookalike/real controls stay)"

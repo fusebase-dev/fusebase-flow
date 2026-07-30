@@ -139,13 +139,72 @@ if [ -z "$f2_fail" ]; then
 else
   bad "ac1-incoming-U-materialized-from-objects-forced-LF" "$f2_fail :: $(tail -12 "$F2_LOG" | tr '\n' '|')"
 fi
-# AC2 half: the boundary really crossed into the engine as an internal absolute handoff.
-if grep -q "materialized git source @" "$F2_LOG" && grep -q "caller-materialized canonical tree" "$F2_LOG"; then
-  ok "ac2-absolute-source-tree-handoff-reaches-the-engine"
-else
-  bad "ac2-absolute-source-tree-handoff-reaches-the-engine" "$(tail -8 "$F2_LOG" | tr '\n' '|')"
-fi
 rm -rf "$F2_ROOT"
+
+# ---- 1b. AC2: the handoff is asserted on the engine's ACTUAL ARGV -------------------------
+# Log text only proves the boundary logged something. A RECORDER engine in the source tree writes
+# its "$@" to disk, so the internal flags, their ABSOLUTE values and the full-OID commit are read
+# from the real handoff. The recorder carries the `--source-tree)` token bootstrap greps for
+# before it passes the flags, and it is stamped INTO the source manifest so the source still
+# verifies MATCH.
+ARGV_ROOT="$(mktemp -d)"
+AV="$(bnd_plain_case "$ARGV_ROOT/case")"
+AV_SRC="$AV/.fusebase-flow-source"
+cat > "$AV_SRC/hooks/local/upgrade.sh" <<'REC'
+#!/usr/bin/env bash
+# Not an engine: it records the argv the boundary handed over. The `--source-tree)` token below
+# is what bootstrap-upgrade.sh greps for before passing the internal flags — do not remove it.
+case "${1:-}" in --source-tree) : ;; esac
+printf '%s\n' "$@" > "$PWD/../engine-argv.txt"
+exit 0
+REC
+( cd "$AV_SRC" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null )
+( cd "$AV_SRC" && git init -q && git config user.email t@t.t && git config user.name t \
+    && git config core.autocrlf false && git add -A && git commit -qm recorder && git branch -M main )
+AV_LOG="$ARGV_ROOT/handoff.log"
+( cd "$AV" && bash hooks/local/bootstrap-upgrade.sh --source .fusebase-flow-source --ref main \
+    -- --auto-yes ) > "$AV_LOG" 2>&1
+av_fail=""
+AV_ARGV_FILE="$ARGV_ROOT/case/engine-argv.txt"
+if [ ! -f "$AV_ARGV_FILE" ]; then
+  av_fail=" [the engine was never invoked — no argv recorded :: $(tail -6 "$AV_LOG" | tr '\n' '|')]"
+else
+  mapfile -t AV_ARGV < "$AV_ARGV_FILE"
+  av_val() { local k="$1" i; for i in "${!AV_ARGV[@]}"; do [ "${AV_ARGV[$i]}" = "$k" ] \
+    && { printf '%s' "${AV_ARGV[$((i + 1))]:-}"; return 0; }; done; return 1; }
+  av_has() { local x; for x in "${AV_ARGV[@]}"; do [ "$x" = "$1" ] && return 0; done; return 1; }
+  AV_TREE="$(av_val --source-tree || true)"
+  AV_REPO="$(av_val --source-repo || true)"
+  AV_OID="$(av_val --source-commit || true)"
+  case "$AV_TREE" in
+    /*|[A-Za-z]:[/\\]*) ;;
+    *) av_fail="$av_fail [--source-tree is not ABSOLUTE: '$AV_TREE']" ;;
+  esac
+  case "$AV_REPO" in
+    /*|[A-Za-z]:[/\\]*) ;;
+    *) av_fail="$av_fail [--source-repo is not ABSOLUTE: '$AV_REPO']" ;;
+  esac
+  [ -n "$AV_TREE" ] && [ "$AV_TREE" != "$AV_REPO" ] \
+    || av_fail="$av_fail [--source-tree equals --source-repo — the engine was pointed at the mutable worktree, not a materialized tree]"
+  case "$AV_TREE" in
+    *.fusebase-flow-source*) av_fail="$av_fail [--source-tree points INTO the staging clone: '$AV_TREE']" ;;
+  esac
+  case "$AV_OID" in
+    [0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*)
+      [ "${#AV_OID}" -eq 40 ] || av_fail="$av_fail [--source-commit is not a full 40-char OID: '$AV_OID']" ;;
+    *) av_fail="$av_fail [--source-commit missing or not a hex OID: '$AV_OID']" ;;
+  esac
+  av_has --source-tree-owned || av_fail="$av_fail [--source-tree-owned not passed: the engine would not clean up the temp tree]"
+  av_has --auto-yes || av_fail="$av_fail [the operator passthrough flag did not survive the handoff]"
+  # The recorder is not the engine, so nobody consumed the transferred ownership — remove it here.
+  case "${AV_TREE##*/}" in ff-source-*) [ -d "$AV_TREE" ] && rm -rf -- "$AV_TREE" ;; esac
+fi
+if [ -z "$av_fail" ]; then
+  ok "ac2-absolute-source-tree-handoff-reaches-the-engine (asserted on the recorded engine argv)"
+else
+  bad "ac2-absolute-source-tree-handoff-reaches-the-engine" "$av_fail"
+fi
+rm -rf "$ARGV_ROOT"
 
 # ---- 2. AC2 / M10: the non-git source compatibility contract ------------------------------
 M10_ROOT="$(mktemp -d)"
