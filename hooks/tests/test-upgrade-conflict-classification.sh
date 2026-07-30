@@ -296,6 +296,11 @@ mv "$FC/.fusebase-flow-source/hooks/local/lib/managed_content_manifest.py" \
    "$FC/.fusebase-flow-source/hooks/local/lib/managed_content_manifest.py.disabled"
 : > "$FC/.fusebase-flow-source/hooks/local/lib/managed_content_manifest.py"   # present, lists nothing
 mv "$FC/hooks/local/lib/managed_content_manifest.py" "$FC/hooks/local/lib/mcm.disabled"
+# TRIPWIRE (M10 fail-closed): the source must be PRE-manifest here, or the source boundary
+# refuses it first (a manifest-bearing source whose verifier cannot report MATCH aborts before
+# any classification) and this case would assert the boundary's abort instead of the classifier
+# gate's. The sabotaged module IS the verifier, so no re-stamp can make it self-verify.
+rm -f "$FC/.fusebase-flow-source/audit/managed-content-manifest.json"
 fc_tree_before="$( cd "$FC" && find . -path ./.git -prune -o -type f -print0 | sort -z | xargs -0 sha256sum | sha256sum )"
 FC_LOG="$E2E_ROOT/fc.log"
 ( cd "$FC" && bash hooks/local/upgrade.sh --auto-yes ) > "$FC_LOG" 2>&1
@@ -324,7 +329,11 @@ fi
 
 # --- 3f. AC23: a genuinely PRE-classifier source tree still upgrades (no false abort).
 PRE="$(build_case "$E2E_ROOT/pre" "validator v1")"
+# A GENUINELY pre-classifier source ships neither the module nor the manifest. Leaving the
+# manifest behind models an impossible tree (manifest with no verifier), which M10 fail-closed
+# correctly refuses — the compatibility contract under test is the manifest-ABSENT one.
 rm -f "$PRE/.fusebase-flow-source/hooks/local/lib/managed_content_manifest.py" \
+      "$PRE/.fusebase-flow-source/audit/managed-content-manifest.json" \
       "$PRE/hooks/local/lib/managed_content_manifest.py"
 ( cd "$PRE" && bash hooks/local/upgrade.sh --auto-yes ) > "$E2E_ROOT/pre.log" 2>&1
 PRE_RC=$?

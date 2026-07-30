@@ -114,45 +114,48 @@ print(s)
 }
 
 # Verify the materialized tree against its OWN shipped manifest (decision M10):
-#   MATCH            -> VERIFIED, proceed
-#   DRIFT / BROKEN    -> rc 1, abort before any write, name the reason and paths
-#   manifest ABSENT   -> UNVERIFIED_LEGACY_SOURCE (pre-4.7.0 sources keep upgrading)
-#   verifier unusable -> UNVERIFIED_LEGACY_SOURCE; never a silent false MATCH
+#   manifest ABSENT -> UNVERIFIED_LEGACY_SOURCE (pre-4.7.0 sources keep upgrading)
+#   manifest PRESENT -> only an explicit MATCH proceeds; EVERY other outcome is rc 1
+#
+# TRIPWIRE (decision M10): UNVERIFIED_LEGACY_SOURCE is reachable ONLY from the manifest-ABSENT
+# branch. A manifest-bearing source with a missing/emptied/replaced verifier, no verdict, or an
+# unexpected rc must ABORT — routing any of those to the legacy fallback installs bytes nobody
+# can prove upstream shipped, and an emptied verifier is exactly what an attacker or a truncated
+# transport produces. Never widen the rc-0 success case beyond a literal MATCH verdict either.
 _ff_mms_verify() {   # <tree>
   local tree="$1" mcm="$1/hooks/local/lib/managed_content_manifest.py"
-  if [ ! -f "$tree/audit/managed-content-manifest.json" ]; then
+  local mrel="audit/managed-content-manifest.json"
+  if [ ! -f "$tree/$mrel" ]; then
     FF_SOURCE_STATE="UNVERIFIED_LEGACY_SOURCE"
-    FF_SOURCE_REASON="source ships no audit/managed-content-manifest.json (pre-4.7.0 source)"
+    FF_SOURCE_REASON="source ships no $mrel (pre-4.7.0 source)"
     return 0
   fi
-  if [ ! -f "$mcm" ] || ! command -v python3 >/dev/null 2>&1; then
-    FF_SOURCE_STATE="UNVERIFIED_LEGACY_SOURCE"
-    FF_SOURCE_REASON="source ships no usable managed-content verifier"
-    return 0
+  if [ ! -f "$mcm" ]; then
+    FF_SOURCE_REASON="source ships $mrel but no hooks/local/lib/managed_content_manifest.py to check it against — these bytes cannot be proven to be what upstream shipped"
+    return 1
+  fi
+  if ! command -v python3 >/dev/null 2>&1; then
+    FF_SOURCE_REASON="source ships $mrel but python3 is unavailable to verify it — these bytes cannot be proven to be what upstream shipped"
+    return 1
   fi
   local out rc
   out="$(python3 "$mcm" verify --root "$tree" --json 2>/dev/null)"; rc=$?
   case "$rc" in
     0)
-      # A truncated/replaced module exits 0 with no verdict — treat that as "cannot
-      # verify", never as MATCH (a false MATCH is the one outcome that must be impossible).
       case "$out" in
-        *'"verdict"'*) FF_SOURCE_STATE="VERIFIED"; return 0 ;;
-        *) FF_SOURCE_STATE="UNVERIFIED_LEGACY_SOURCE"
-           FF_SOURCE_REASON="source verifier produced no verdict"; return 0 ;;
+        *'"verdict": "MATCH"'*|*'"verdict":"MATCH"'*) FF_SOURCE_STATE="VERIFIED"; return 0 ;;
+        *) FF_SOURCE_REASON="the source verifier exited 0 without a MATCH verdict for $mrel (truncated or replaced managed_content_manifest.py?)"
+           FF_SOURCE_DRIFT="$(_ff_mms_json_paths "$out")"; return 1 ;;
       esac ;;
     1)
-      FF_SOURCE_REASON="the source tree does not match its own shipped manifest (DRIFT)"
+      FF_SOURCE_REASON="the source tree does not match its own shipped $mrel (DRIFT)"
       FF_SOURCE_DRIFT="$(_ff_mms_json_paths "$out")"; return 1 ;;
     2)
-      FF_SOURCE_REASON="the source tree's manifest is corrupt or self-hash mismatched (BROKEN)"
+      FF_SOURCE_REASON="the source tree's $mrel is corrupt or self-hash mismatched (BROKEN)"
       return 1 ;;
-    4)
-      FF_SOURCE_STATE="UNVERIFIED_LEGACY_SOURCE"
-      FF_SOURCE_REASON="source manifest absent"; return 0 ;;
     *)
-      FF_SOURCE_STATE="UNVERIFIED_LEGACY_SOURCE"
-      FF_SOURCE_REASON="source verifier exited rc=$rc"; return 0 ;;
+      FF_SOURCE_REASON="the source verifier could not check $mrel (exited rc=$rc)"
+      FF_SOURCE_DRIFT="$(_ff_mms_json_paths "$out")"; return 1 ;;
   esac
 }
 

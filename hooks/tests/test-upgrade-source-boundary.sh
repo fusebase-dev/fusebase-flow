@@ -182,6 +182,41 @@ if [ -z "$l_fail" ]; then
 else
   bad "m10-pre-manifest-source-upgrades-as-named-unverified-legacy" "rc=$L_RC$l_fail :: $(tail -8 "$L_LOG" | tr '\n' '|')"
 fi
+
+# 2c. M10 fail-closed: once a source SHIPS a manifest, the only success is an explicit MATCH.
+# Every mutation below leaves the manifest PRESENT and breaks the VERIFIER (or the manifest
+# itself) instead of the payload — the 2a case mutates the payload with the verifier intact, so
+# it cannot reach any of these branches. Falling back to UNVERIFIED_LEGACY_SOURCE here would
+# install bytes nobody can prove upstream shipped, which is exactly what M10 reserves for a
+# manifest-ABSENT source.
+r1_fail=""
+r1_mut_missing_verifier() { rm -f "$1/hooks/local/lib/managed_content_manifest.py"; }
+r1_mut_empty_verifier()   { : > "$1/hooks/local/lib/managed_content_manifest.py"; }
+r1_mut_unexpected_rc()    { printf 'import sys\nsys.exit(9)\n' > "$1/hooks/local/lib/managed_content_manifest.py"; }
+r1_mut_broken_manifest()  { printf 'not json at all\n' > "$1/audit/managed-content-manifest.json"; }
+r1_case() {   # <label> <mutator-fn>
+  local label="$1" mut="$2" S LOG rc
+  S="$(bnd_plain_case "$M10_ROOT/r1-$label")"
+  "$mut" "$S/.fusebase-flow-source"
+  LOG="$M10_ROOT/r1-$label.log"
+  ( cd "$S" && bash hooks/local/upgrade.sh --auto-yes ) > "$LOG" 2>&1; rc=$?
+  [ "$rc" -ne 0 ] || r1_fail="$r1_fail [$label: a manifest-bearing source whose verifier cannot report MATCH upgraded anyway (rc 0)]"
+  grep -q "ABORT" "$LOG" || r1_fail="$r1_fail [$label: no abort diagnostic]"
+  grep -q "audit/managed-content-manifest.json" "$LOG" \
+    || r1_fail="$r1_fail [$label: the abort does not name audit/managed-content-manifest.json]"
+  grep -q "UNVERIFIED_LEGACY_SOURCE" "$LOG" \
+    && r1_fail="$r1_fail [$label: fell back to UNVERIFIED_LEGACY_SOURCE with a manifest PRESENT — M10 allows that fallback ONLY when the manifest is absent]"
+  grep -q "control v1" "$S/hooks/local/control.sh" || r1_fail="$r1_fail [$label: content WAS written during an abort]"
+}
+r1_case "missing-verifier"  r1_mut_missing_verifier
+r1_case "empty-verifier"    r1_mut_empty_verifier
+r1_case "unexpected-rc"     r1_mut_unexpected_rc
+r1_case "broken-manifest"   r1_mut_broken_manifest
+if [ -z "$r1_fail" ]; then
+  ok "m10-manifest-bearing-source-requires-a-usable-verifier-and-MATCH (missing / empty / unexpected-rc verifier + BROKEN manifest all abort)"
+else
+  bad "m10-manifest-bearing-source-requires-a-usable-verifier-and-MATCH" "$r1_fail"
+fi
 rm -rf "$M10_ROOT"
 
 # ---- 3. AC3: the already-corrupted consumer — preserve, then deliberate repair -------------
