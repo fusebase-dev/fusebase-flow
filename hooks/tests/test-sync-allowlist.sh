@@ -30,6 +30,42 @@ pass=0; fail=0
 ok()  { pass=$((pass + 1)); echo "PASS: sync-allowlist $1"; }
 bad() { fail=$((fail + 1)); echo "FAIL: sync-allowlist $1 ($2)"; }
 
+# --- Flow's OWN upgrade backups are not framework targets (decision M4) -------------------
+# `<managed-stem>.pre-upgrade-<UTC>` trees are transient copies of framework files, so they
+# carry the same live attestation tokens and used to enter TRUE_TARGET as unreachable
+# targets — the suite failing on the framework's own artifacts.
+#
+# EXACT SHAPE ONLY (M4): the stem must be an authorized managed name AND the suffix an exact
+# `date -u +%Y%m%dT%H%M%SZ` stamp. No `.pre-*` / `.pre-upgrade-*` wildcard — a lookalike must
+# stay visible, which is what the negative controls below assert. `.pre-refresh-` /
+# `.pre-bootstrap-` families are deliberately NOT pruned here: M4 authorizes the
+# `.pre-upgrade-` family only.
+BH_LIB="$ROOT/hooks/local/lib/backup-hygiene.sh"
+if [ -f "$BH_LIB" ]; then . "$BH_LIB"; else
+  bad "backup-prune-lib-available" "missing $BH_LIB — ff_backup_stem is the exact-shape authority; without it the prune silently does nothing"
+fi
+MCM="$ROOT/hooks/local/lib/managed_content_manifest.py"
+AUTHORIZED_STEMS=""
+if command -v python3 >/dev/null 2>&1 && [ -f "$MCM" ]; then
+  # K14: the managed list has ONE home. Never re-declare it here.
+  AUTHORIZED_STEMS="$(
+    { python3 "$MCM" list-managed --dirs; python3 "$MCM" list-managed --files; } 2>/dev/null \
+      | sed 's#.*/##' | sed '/^$/d'
+    printf 'VERSION\nskills\nmodule-size-baseline.txt\n'
+  )"
+fi
+[ -n "$AUTHORIZED_STEMS" ] || bad "backup-prune-stems-available" "could not derive the managed stem set (python3/list-managed) — the prune would silently do nothing"
+
+is_flow_backup_path() {   # <repo-relative path> -> 0 iff a path SEGMENT is an exact Flow backup
+  local p="$1" seg stem
+  local IFS=/
+  for seg in $p; do
+    stem="$(ff_backup_stem "$seg" 2>/dev/null)" || continue
+    case $'\n'"$AUTHORIZED_STEMS"$'\n' in *$'\n'"$stem"$'\n'*) return 0 ;; esac
+  done
+  return 1
+}
+
 # A live attestation/banner/FR/skill-count string (the set the sed actually
 # rewrites) — NOT any historical/provenance "v2.3.0+" mention.
 LIVE_RE='(under Fusebase Flow |runs \*\*Fusebase Flow )(Local )?v[0-9]|FR-01 (through FR-|\.\.FR-)[0-9]|\([0-9]+ canonical'
@@ -97,16 +133,26 @@ missing_set() { # missing_set <newline-separated reachable set> -> unreachable T
 # has never had) while missing this repo's own `docs/backlog` — so a records tree
 # defaulted to FRAMEWORK and broke main the day a backlog note first quoted the
 # attestation string. Enumeration fails open for every doc tree nobody remembered.
-mapfile -t TRUE_TARGET < <(
-  find . \( -type d \( \
-        -name '.git' -o -name '.fusebase-flow-source' -o -name 'node_modules' \
-        -o -name '.claude' -o -name '.agents' -o -name '.codex' \
-        -o -path './internal' -o -path './state' -o -path './docs/*' \
-      \) -prune \) -o \
-    \( -type f \( -name '*.md' -o -name '*.mdc' \) \
-         ! -name 'CHANGELOG.md' ! -name 'FLOW_RULES_HISTORY.md' -print \) \
-  | xargs grep -lE "$LIVE_RE" 2>/dev/null | sed 's#^\./##' | sort -u
-)
+# Factored so the M4 discriminator below drives THIS discovery against a fixture tree instead
+# of restating it — a second copy of the pipeline could pass while production still fails.
+true_target_set() {   # <root> -> token-bearing framework files, one per line
+  local r="$1" p
+  ( cd "$r" 2>/dev/null || return 0
+    find . \( -type d \( \
+          -name '.git' -o -name '.fusebase-flow-source' -o -name 'node_modules' \
+          -o -name '.claude' -o -name '.agents' -o -name '.codex' \
+          -o -path './internal' -o -path './state' -o -path './docs/*' \
+        \) -prune \) -o \
+      \( -type f \( -name '*.md' -o -name '*.mdc' \) \
+           ! -name 'CHANGELOG.md' ! -name 'FLOW_RULES_HISTORY.md' -print \) \
+    | xargs grep -lE "$LIVE_RE" 2>/dev/null | sed 's#^\./##' | sort -u
+  ) | while IFS= read -r p; do
+        [ -n "$p" ] || continue
+        is_flow_backup_path "$p" && continue      # M4: Flow's own transient backup families
+        printf '%s\n' "$p"
+      done
+}
+mapfile -t TRUE_TARGET < <(true_target_set ".")
 TRUE_TARGET_LIST="$(printf '%s\n' "${TRUE_TARGET[@]}")"
 
 # UNDER-REACH guard: every TRUE framework file must be reachable by the allowlist.
@@ -138,6 +184,41 @@ else
   else
     ok "guard-detects-omission (2-entry mutation: $DROP_A + $DROP_B)"
   fi
+fi
+
+# --- AC6 / M4: Flow's OWN upgrade backups leave discovery; lookalikes do NOT. -------------
+# Driven through the PRODUCTION true_target_set against a fixture tree, so a prune that works
+# only in a paraphrase cannot pass. Every fixture carries the same LIVE_RE token, so the ONLY
+# thing separating them is the exact-shape authority.
+M4_FIX="$(mktemp -d)"
+M4_TOKEN='Operating as AI Developer under Fusebase Flow v4.7.0'
+m4_put() { mkdir -p "$M4_FIX/$(dirname "$1")"; printf '%s\n' "$M4_TOKEN" > "$M4_FIX/$1"; }
+m4_put 'agents/ai-developer/AGENT.md'                                  # a real framework file
+m4_put 'agents.pre-upgrade-20260730T120000Z/ai-developer/AGENT.md'     # PRUNE: exact Flow family
+m4_put 'flow-skills.pre-upgrade-20260730T120000Z/communication/SKILL.md'
+m4_put 'agents.pre-upgrade-notatimestamp/ai-developer/AGENT.md'        # KEEP: malformed stamp
+m4_put 'agents.pre-upgrade-20260730T120000/ai-developer/AGENT.md'      # KEEP: stamp missing Z
+m4_put 'notagents.pre-upgrade-20260730T120000Z/ai-developer/AGENT.md'  # KEEP: unmanaged stem
+m4_put 'unreachable/note.md'                                           # KEEP: genuine unreachable
+m4_put 'config.pre-upgrade-template.yml.md'                            # KEEP: not a timestamp
+M4_SET="$(true_target_set "$M4_FIX")"
+m4_fail=""
+for keep in 'agents/ai-developer/AGENT.md' 'agents.pre-upgrade-notatimestamp/ai-developer/AGENT.md' \
+            'agents.pre-upgrade-20260730T120000/ai-developer/AGENT.md' \
+            'notagents.pre-upgrade-20260730T120000Z/ai-developer/AGENT.md' \
+            'unreachable/note.md' 'config.pre-upgrade-template.yml.md'; do
+  has_line "$M4_SET" "$keep" || m4_fail="$m4_fail [OVER-REACH: the prune swallowed $keep]"
+done
+for gone in 'agents.pre-upgrade-20260730T120000Z/ai-developer/AGENT.md' \
+            'flow-skills.pre-upgrade-20260730T120000Z/communication/SKILL.md' \
+            'FLOW_RULES.md.pre-upgrade-20260730T120000Z'; do
+  has_line "$M4_SET" "$gone" && m4_fail="$m4_fail [UNDER-REACH: Flow's own backup $gone is still a framework target]"
+done
+rm -rf "$M4_FIX"
+if [ -z "$m4_fail" ]; then
+  ok "ac6-exact-shape-backup-prune (Flow families leave discovery; 6 lookalike/real controls stay)"
+else
+  bad "ac6-exact-shape-backup-prune" "$m4_fail"
 fi
 
 # --- DOCS-SURFACE guard (v4.6.1): the two halves of the structural docs rule must agree.

@@ -530,7 +530,7 @@
     },
     {
       "path": "hooks/tests/test-sync-allowlist.sh",
-      "sha256": "3cf389b71cf039a48ddcf823e042f961be61afae8a94224306a7bf1015e165ee"
+      "sha256": "45e7ee5fb33dd4987ad62e3737c1d1233f8b348a669df8abd0ab6f329d0bd32a"
     },
     {
       "path": "hooks/tests/test-token-waste-classify.sh",
@@ -553,5 +553,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "9b35221ce58092c1fe77fac65ee54223157197c632433ebb87fc5ff976cf0c81"
+  "manifest_self_sha256": "2d32a18bef7d71fb45ddcc58b762cd1f707d6d3975485940bd29de6c2ebc1b38"
 }
