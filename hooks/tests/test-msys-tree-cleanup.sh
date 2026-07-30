@@ -388,95 +388,6 @@ else
   skip "ws2hard-fast-opt-in-returns-promptly" "off-MSYS or no powershell.exe/timeout — fence is Windows-only"
 fi
 
-case "$(uname -s 2>/dev/null)" in
-  MINGW*|MSYS*|CYGWIN*) : ;;  # MSYS — run the real RED-then-GREEN + sibling-survival
-  *) skip "native-descendant-reap" "off-MSYS — POSIX timeout reaps the tree; native-escape repro is MSYS-only"; skip "ws2-concurrent-sibling-survives" "off-MSYS — taskkill scoping is MSYS-only; strict-scoping asserted by code + true-124/no-hang above"; finish ;;
-esac
-
-if [ -z "${FFHC_TIMEOUT_BIN:-}" ]; then
-  skip "native-descendant-reap" "no timeout binary on PATH"; finish
-fi
-
-# The native-descendant payload: a detached native process (`start //b`) holds a
-# SHORT FINITE-sleep `ping`, plus a long bash `sleep` the bounded timeout must cut.
-# Deadline 1s; grace 1s. If the capture honored only the direct child it would block
-# on the native ping (~6-8s = the RED signal); the fix returns at ~deadline+grace.
-PAYLOAD=(bash -c 'cmd //c start //b cmd //c "ping -n 8 127.0.0.1 >NUL" & sleep 12')
-DEADLINE=1
-export FFHC_TIMEOUT_KILL_GRACE=1s
-GREEN_CEILING=6   # deadline + grace + epsilon (host-load slack); still under the ~8-10s native-ping RED block
-
-# --- GREEN: the fixed ffhc_run_bounded (tempfile capture + MSYS tree-kill) ---
-start=$(date +%s)
-ffhc_run_bounded "$DEADLINE" "${PAYLOAD[@]}"
-green_rc=$FFHC_LAST_RC
-end=$(date +%s); green_elapsed=$((end - start))
-
-if [ "$green_elapsed" -le "$GREEN_CEILING" ]; then
-  ok "native-descendant-returns-at-deadline (${green_elapsed}s <= ${GREEN_CEILING}s)"
-else
-  bad "native-descendant-returns-at-deadline" "ffhc_run_bounded blocked ${green_elapsed}s past the ${DEADLINE}s deadline — the native descendant starved the capture (regression)"
-fi
-
-if ffhc_timed_out "$green_rc"; then
-  ok "native-descendant-rc-preserved (rc=$green_rc is timeout-induced 124/137)"
-else
-  bad "native-descendant-rc-preserved" "expected timeout rc 124/137, got $green_rc"
-fi
-
-# --- Best-effort reap (T7): the early-captured winpid lets the fixed path taskkill
-# the bounded wrapper tree on timeout. ASSERT no-hang + rc 124/137 (above) — the
-# GUARANTEED contract. The tree-reap is BEST-EFFORT: a descendant reparented/detached
-# after its ancestor exited (Windows does NOT reparent to init) may linger, so a
-# surviving native orphan is NOT a test failure here (the tempfile capture is what
-# guarantees the parent never starves). We surface a reparented-orphan as a NOTE only. ---
-# Confirm the early-capture plumbing is present (the T7 fix); absence is a real regression.
-if grep -q "ffhc_msys_winpid" "$LIB" && grep -q "ffhc_msys_taskkill_winpid" "$LIB"; then
-  ok "early-winpid-capture-plumbing-present (T7: winpid resolved at launch, taskkill on timeout)"
-else
-  bad "early-winpid-capture-plumbing-present" "ffhc_msys_winpid / ffhc_msys_taskkill_winpid missing from $LIB — T7 early-capture reap not wired"
-fi
-
-# --- RED demonstration (bounded, best-effort proof): the OLD `$(run_with_timeout …)`
-# pipe capture on the SAME payload tends to block materially longer (the descendant
-# holds the pipe). Run it inside its own outer timeout so a RED machine can't hang the
-# suite. This delta is a BEST-EFFORT regression signal, not a correctness gate — on a
-# heavily-loaded host or a fast-returning ping it can be inconclusive; report it as a
-# NOTE (still a PASS) rather than failing the suite on an environmental wobble. ---
-rs=$(date +%s)
-timeout -k 2 15 bash -c '. "'"$LIB"'"; ffhc_detect_timeout; OUT="$(run_with_timeout 1 bash -c '"'"'cmd //c start //b cmd //c "ping -n 8 127.0.0.1 >NUL" & sleep 12'"'"' 2>&1)"' >/dev/null 2>&1
-re=$(date +%s); red_elapsed=$((re - rs))
-
-if [ "$red_elapsed" -gt "$green_elapsed" ]; then
-  ok "tempfile-capture-faster-than-pipe (pipe ${red_elapsed}s > tempfile ${green_elapsed}s)"
-else
-  skip "tempfile-capture-faster-than-pipe" "delta inconclusive on this host (pipe ${red_elapsed}s, tempfile ${green_elapsed}s) — no-hang + rc 124/137 already proved the guaranteed contract; relative speed is a best-effort signal only"
-fi
-
-# --- WS2-core concurrent-sibling-survival (the load-bearing strict-scoping proof).
-# Spawn an UNRELATED `bash sleep` sibling in its OWN process tree (record its PID),
-# then run a bounded op that OVERRUNS its deadline (triggering the taskkill reap).
-# The reap is strictly scoped to the bounded op's OWN recorded child winpid subtree,
-# so the unrelated sibling MUST SURVIVE. A broad/ancestor taskkill (the 255-collateral
-# bug) would reap the sibling too. This is the WS2/WS3 30+-sibling-survival AC in miniature. ---
-bash -c 'sleep 25' &
-sib_pid=$!
-sleep 1   # let the sibling establish its own tree
-if kill -0 "$sib_pid" 2>/dev/null; then
-  export FFHC_TIMEOUT_KILL_GRACE=1s
-  ffhc_run_bounded 1 bash -c 'sleep 20'   # overruns => strict-scoped taskkill reap
-  if kill -0 "$sib_pid" 2>/dev/null; then
-    ok "ws2-concurrent-sibling-survives (unrelated bash sleep pid=$sib_pid alive after a bounded op's timeout-taskkill — reap scoped to recorded child only)"
-  else
-    bad "ws2-concurrent-sibling-survives" "unrelated sibling pid=$sib_pid was reaped by the bounded op's taskkill — over-broad/ancestor kill (255-collateral regression)"
-  fi
-  kill "$sib_pid" 2>/dev/null; wait "$sib_pid" 2>/dev/null
-else
-  # Sibling died on its own before the bounded op — environmental; don't false-fail.
-  skip "ws2-concurrent-sibling-survives" "sibling exited before the bounded op could run (environmental; strict-scoping still asserted by true-124/no-hang + code)"
-  wait "$sib_pid" 2>/dev/null
-fi
-
 # ============================================================================================
 # AC4 / decision M5 — the SANCTIONED backup cleanup entry point.
 # upgrade.sh used to print a raw `rm -rf`, which policies/command-policy.yml hard-DENIES: the
@@ -672,6 +583,99 @@ else
   else
     bad "ac4-fr06-destructive-deny-untouched" "the rm -rf pattern is gone from command-policy.yml — M5 forbids an exception"
   fi
+fi
+
+# TRIPWIRE: this gate's off-MSYS arm calls `finish`, which EXITS. Everything platform-independent
+# (T8, WS2-core, ws2hard hash-gates, the whole AC4 cleanup-authority group) MUST stay ABOVE this
+# line or it silently vanishes from every Linux/CI run. Never move a portable group below it, and
+# never add a portable group after it — append above instead.
+case "$(uname -s 2>/dev/null)" in
+  MINGW*|MSYS*|CYGWIN*) : ;;  # MSYS — run the real RED-then-GREEN + sibling-survival
+  *) skip "native-descendant-reap" "off-MSYS — POSIX timeout reaps the tree; native-escape repro is MSYS-only"; skip "ws2-concurrent-sibling-survives" "off-MSYS — taskkill scoping is MSYS-only; strict-scoping asserted by code + true-124/no-hang above"; finish ;;
+esac
+
+if [ -z "${FFHC_TIMEOUT_BIN:-}" ]; then
+  skip "native-descendant-reap" "no timeout binary on PATH"; finish
+fi
+
+# The native-descendant payload: a detached native process (`start //b`) holds a
+# SHORT FINITE-sleep `ping`, plus a long bash `sleep` the bounded timeout must cut.
+# Deadline 1s; grace 1s. If the capture honored only the direct child it would block
+# on the native ping (~6-8s = the RED signal); the fix returns at ~deadline+grace.
+PAYLOAD=(bash -c 'cmd //c start //b cmd //c "ping -n 8 127.0.0.1 >NUL" & sleep 12')
+DEADLINE=1
+export FFHC_TIMEOUT_KILL_GRACE=1s
+GREEN_CEILING=6   # deadline + grace + epsilon (host-load slack); still under the ~8-10s native-ping RED block
+
+# --- GREEN: the fixed ffhc_run_bounded (tempfile capture + MSYS tree-kill) ---
+start=$(date +%s)
+ffhc_run_bounded "$DEADLINE" "${PAYLOAD[@]}"
+green_rc=$FFHC_LAST_RC
+end=$(date +%s); green_elapsed=$((end - start))
+
+if [ "$green_elapsed" -le "$GREEN_CEILING" ]; then
+  ok "native-descendant-returns-at-deadline (${green_elapsed}s <= ${GREEN_CEILING}s)"
+else
+  bad "native-descendant-returns-at-deadline" "ffhc_run_bounded blocked ${green_elapsed}s past the ${DEADLINE}s deadline — the native descendant starved the capture (regression)"
+fi
+
+if ffhc_timed_out "$green_rc"; then
+  ok "native-descendant-rc-preserved (rc=$green_rc is timeout-induced 124/137)"
+else
+  bad "native-descendant-rc-preserved" "expected timeout rc 124/137, got $green_rc"
+fi
+
+# --- Best-effort reap (T7): the early-captured winpid lets the fixed path taskkill
+# the bounded wrapper tree on timeout. ASSERT no-hang + rc 124/137 (above) — the
+# GUARANTEED contract. The tree-reap is BEST-EFFORT: a descendant reparented/detached
+# after its ancestor exited (Windows does NOT reparent to init) may linger, so a
+# surviving native orphan is NOT a test failure here (the tempfile capture is what
+# guarantees the parent never starves). We surface a reparented-orphan as a NOTE only. ---
+# Confirm the early-capture plumbing is present (the T7 fix); absence is a real regression.
+if grep -q "ffhc_msys_winpid" "$LIB" && grep -q "ffhc_msys_taskkill_winpid" "$LIB"; then
+  ok "early-winpid-capture-plumbing-present (T7: winpid resolved at launch, taskkill on timeout)"
+else
+  bad "early-winpid-capture-plumbing-present" "ffhc_msys_winpid / ffhc_msys_taskkill_winpid missing from $LIB — T7 early-capture reap not wired"
+fi
+
+# --- RED demonstration (bounded, best-effort proof): the OLD `$(run_with_timeout …)`
+# pipe capture on the SAME payload tends to block materially longer (the descendant
+# holds the pipe). Run it inside its own outer timeout so a RED machine can't hang the
+# suite. This delta is a BEST-EFFORT regression signal, not a correctness gate — on a
+# heavily-loaded host or a fast-returning ping it can be inconclusive; report it as a
+# NOTE (still a PASS) rather than failing the suite on an environmental wobble. ---
+rs=$(date +%s)
+timeout -k 2 15 bash -c '. "'"$LIB"'"; ffhc_detect_timeout; OUT="$(run_with_timeout 1 bash -c '"'"'cmd //c start //b cmd //c "ping -n 8 127.0.0.1 >NUL" & sleep 12'"'"' 2>&1)"' >/dev/null 2>&1
+re=$(date +%s); red_elapsed=$((re - rs))
+
+if [ "$red_elapsed" -gt "$green_elapsed" ]; then
+  ok "tempfile-capture-faster-than-pipe (pipe ${red_elapsed}s > tempfile ${green_elapsed}s)"
+else
+  skip "tempfile-capture-faster-than-pipe" "delta inconclusive on this host (pipe ${red_elapsed}s, tempfile ${green_elapsed}s) — no-hang + rc 124/137 already proved the guaranteed contract; relative speed is a best-effort signal only"
+fi
+
+# --- WS2-core concurrent-sibling-survival (the load-bearing strict-scoping proof).
+# Spawn an UNRELATED `bash sleep` sibling in its OWN process tree (record its PID),
+# then run a bounded op that OVERRUNS its deadline (triggering the taskkill reap).
+# The reap is strictly scoped to the bounded op's OWN recorded child winpid subtree,
+# so the unrelated sibling MUST SURVIVE. A broad/ancestor taskkill (the 255-collateral
+# bug) would reap the sibling too. This is the WS2/WS3 30+-sibling-survival AC in miniature. ---
+bash -c 'sleep 25' &
+sib_pid=$!
+sleep 1   # let the sibling establish its own tree
+if kill -0 "$sib_pid" 2>/dev/null; then
+  export FFHC_TIMEOUT_KILL_GRACE=1s
+  ffhc_run_bounded 1 bash -c 'sleep 20'   # overruns => strict-scoped taskkill reap
+  if kill -0 "$sib_pid" 2>/dev/null; then
+    ok "ws2-concurrent-sibling-survives (unrelated bash sleep pid=$sib_pid alive after a bounded op's timeout-taskkill — reap scoped to recorded child only)"
+  else
+    bad "ws2-concurrent-sibling-survives" "unrelated sibling pid=$sib_pid was reaped by the bounded op's taskkill — over-broad/ancestor kill (255-collateral regression)"
+  fi
+  kill "$sib_pid" 2>/dev/null; wait "$sib_pid" 2>/dev/null
+else
+  # Sibling died on its own before the bounded op — environmental; don't false-fail.
+  skip "ws2-concurrent-sibling-survives" "sibling exited before the bounded op could run (environmental; strict-scoping still asserted by true-124/no-hang + code)"
+  wait "$sib_pid" 2>/dev/null
 fi
 
 finish
