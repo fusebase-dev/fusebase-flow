@@ -436,6 +436,15 @@ else
     printf 'k\n' > "$F/agents.pre-upgrade-$TS_OK.bak"
     printf 'k\n' > "$F/keep-me.md"
     mkdir -p "$F/real-agents"; printf 'k\n' > "$F/real-agents/a.md"
+    # MISPLACED — the authorized stem is the WHOLE repo-relative path (M5), so a nested
+    # authority's bare BASENAME at the root, and a root authority inside a nested directory, are
+    # different paths and must be refused. Each of these is eligible under a basename alias,
+    # which is why they are the discriminator for exact-set authority.
+    printf 'k\n' > "$F/hook-layer-manifest.json.pre-upgrade-$TS_OK"        # authority: audit/…
+    printf 'k\n' > "$F/module-size-baseline.txt.pre-upgrade-$TS_OK"        # authority: policies/…
+    printf 'k\n' > "$F/framework.md.pre-upgrade-$TS_OK"                    # authority: docs/_fusebase-flow/…
+    printf 'k\n' > "$F/audit/FLOW_RULES.md.pre-upgrade-$TS_OK"             # root authority, nested target
+    mkdir -p "$F/audit/agents.pre-upgrade-$TS_OK"; printf 'k\n' > "$F/audit/agents.pre-upgrade-$TS_OK/a.md"
   }
   # Symlink fixtures are built ON DEMAND and PRECONDITION-CHECKED: MSYS `ln -s` silently
   # COPIES unless winsymlinks is enabled, and a copy named `<managed>.pre-upgrade-<ts>` is a
@@ -451,7 +460,12 @@ else
     local F="$1" p
     for p in "agents.pre-upgrade-notatimestamp/a.md" "agentsX.pre-upgrade-$TS_OK/a.md" \
              "config.pre-upgrade-template.yml" "agents.pre-upgrade-$TS_OK.bak" \
-             "keep-me.md" "real-agents/a.md"; do
+             "keep-me.md" "real-agents/a.md" \
+             "hook-layer-manifest.json.pre-upgrade-$TS_OK" \
+             "module-size-baseline.txt.pre-upgrade-$TS_OK" \
+             "framework.md.pre-upgrade-$TS_OK" \
+             "audit/FLOW_RULES.md.pre-upgrade-$TS_OK" \
+             "audit/agents.pre-upgrade-$TS_OK/a.md"; do
       [ -e "$F/$p" ] || { echo "$p"; return 1; }
     done
     return 0
@@ -492,8 +506,14 @@ else
   cl_case "no-mode"
   cl_case "mixed-valid-invalid"     "agents.pre-upgrade-$TS_OK" "agentsX.pre-upgrade-$TS_OK"
   cl_case "all-plus-target"         "--all" "agents.pre-upgrade-$TS_OK"
+  # Misplaced-path classes: same basename, different repo-relative path (M5 exact-set authority).
+  cl_case "nested-basename-at-root"        "hook-layer-manifest.json.pre-upgrade-$TS_OK"
+  cl_case "nested-basename-at-root-policy" "module-size-baseline.txt.pre-upgrade-$TS_OK"
+  cl_case "nested-basename-at-root-docs"   "framework.md.pre-upgrade-$TS_OK"
+  cl_case "root-authority-nested-file"     "audit/FLOW_RULES.md.pre-upgrade-$TS_OK"
+  cl_case "root-authority-nested-dir"      "audit/agents.pre-upgrade-$TS_OK"
   if [ -z "$cl_neg_fail" ]; then
-    ok "ac4-cleanup-refuses-every-unauthorized-target (16 refusal classes; nothing deleted in any)"
+    ok "ac4-cleanup-refuses-every-unauthorized-target (21 refusal classes incl. 5 misplaced-path aliases; nothing deleted in any)"
   else
     bad "ac4-cleanup-refuses-every-unauthorized-target" "$cl_neg_fail"
   fi

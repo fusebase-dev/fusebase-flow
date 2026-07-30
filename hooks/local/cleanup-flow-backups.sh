@@ -89,20 +89,20 @@ if [ -z "$AUTHORIZED_STEMS" ]; then
   echo "                       Refusing to delete anything without its exact authority list." >&2
   exit 1
 fi
-# The managed list gives repo-relative paths; a backup twin sits beside its original, so both
-# the full relative path and the bare basename are legitimate stems.
+# TRIPWIRE (M5): every entry is an EXACT repo-relative stem. Never add a bare-basename alias for
+# a nested path — `audit/hook-layer-manifest.json` must not make a ROOT-level
+# hook-layer-manifest.json.pre-upgrade-<ts> eligible. A basename alias is string-prefix
+# authorization by another name: the authority set stops describing paths and starts describing
+# names, and every same-named file anywhere in the tree inherits the authority.
 AUTHORIZED_STEMS="$AUTHORIZED_STEMS
-$(printf '%s\n' "$AUTHORIZED_STEMS" | sed 's#.*/##')
 VERSION
 skills
-policies/module-size-baseline.txt
-module-size-baseline.txt"
+policies/module-size-baseline.txt"
 # Framework docs land namespaced; only stems that are actually INSTALLED are authorized.
 if [ -d docs/_fusebase-flow ]; then
   while IFS= read -r d; do
     [ -n "$d" ] && AUTHORIZED_STEMS="$AUTHORIZED_STEMS
-$d
-${d##*/}"
+$d"
   done < <(find docs/_fusebase-flow -maxdepth 1 -name '*.md' -type f 2>/dev/null | sed 's#^\./##')
 fi
 
@@ -116,7 +116,7 @@ is_authorized_stem() {   # <stem>
 # most dangerous), then membership, then filesystem identity.
 REJECT_REASON=""
 validate_target() {   # <repo-relative target>
-  local t="$1" stem base dir resolved
+  local t="$1" stem base dir full resolved
   REJECT_REASON=""
   case "$t" in
     "")            REJECT_REASON="empty target"; return 1 ;;
@@ -140,8 +140,11 @@ validate_target() {   # <repo-relative target>
     stem="$(ff_backup_stem "$base" 2>/dev/null)" || {
       REJECT_REASON="not a '<managed-name>.pre-upgrade-<YYYYMMDDTHHMMSSZ>' backup name"; return 1; }
     dir="${t%/*}"; [ "$dir" = "$t" ] && dir=""
-    if ! is_authorized_stem "$stem" && ! { [ -n "$dir" ] && is_authorized_stem "$dir/$stem"; }; then
-      REJECT_REASON="'$stem' is not an exact member of the managed set (no prefix matching)"
+    # The authority is the WHOLE repo-relative stem, so a nested authority never leaks to the
+    # root and a root authority never leaks into a subdirectory.
+    full="${dir:+$dir/}$stem"
+    if ! is_authorized_stem "$full"; then
+      REJECT_REASON="'$full' is not an exact member of the managed set (exact repo-relative stems only — no basename or prefix matching)"
       return 1
     fi
   fi

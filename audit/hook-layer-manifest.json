@@ -58,7 +58,7 @@
     },
     {
       "path": "hooks/local/cleanup-flow-backups.sh",
-      "sha256": "1445dad9ffbd3407cc005e3d7e6f8e995cf82976dc365e905960eb8e1f1465be"
+      "sha256": "2cbb144c4b71a420c851f6f387767a3ae26e44550195515550057cbc8ecf53fc"
     },
     {
       "path": "hooks/local/eslint-ignore-flow-paths.sh",
@@ -494,7 +494,7 @@
     },
     {
       "path": "hooks/tests/test-msys-tree-cleanup.sh",
-      "sha256": "3628d50ae7456ed346a5da5c3f03d742265e3bc5290732184d845700a6949d95"
+      "sha256": "07ca8014a18fbad9c6ff3dd797ca29a734adb5c49e9742b12e1743b1a9810887"
     },
     {
       "path": "hooks/tests/test-newline-preserve.sh",
@@ -557,5 +557,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "b65bdfeb76cc3e42ed4c245eb298c647311d3d0031b10bd79300b353acf667ca"
+  "manifest_self_sha256": "a2cf7ebb5420706f0cecfa81e371fca4249004c9af2a4113845d571044d9095d"
 }
