@@ -211,3 +211,36 @@ The correct fix is parsing execution structure — distinguishing executed comma
 | M1..M10 | as recommended above | PO under the operator's standing autonomous-run authorization | 2026-07-30 |
 
 Implementation may start. M4, M6, M8 carry **ASSUMPTION** flags — an operator reversal re-opens that decision only. M6 still requires action-specific tag-move authorization at release time.
+
+---
+
+## M11. `--unsafe-legacy-copy` does not bypass the integrity boundary
+
+**Recommendation:** RATIFIED as implemented in R1 (`470f7d2`). The K20a `--unsafe-legacy-copy` escape is reachable only for a **pre-manifest** source. A manifest-bearing source whose bytes cannot be proven — missing verifier, no verdict, unexpected exit, DRIFT or BROKEN — **aborts**, and the flag does not override that.
+
+**Reasoning:** K20a exists so a genuinely pre-classifier source can still upgrade; it was never meant to be a way to install unverifiable bytes when a manifest *is* present. Letting the flag bypass a failed verification would recreate F2 behind an opt-in — and an opt-in that a diagnostic could eventually suggest is exactly how the `preflight` self-restamp hole (K20b) happened. If the source has a manifest, we can prove the bytes or we stop.
+
+The `ac23` fixtures that previously modelled a manifest-with-no-verifier tree were impossible states; corrected to genuinely pre-manifest so they assert the classifier gate rather than the boundary abort.
+
+**Lock status:** LOCKED
+
+---
+
+## M12. Allowlist-discovery basename matching is out of scope, and stays that way
+
+**Recommendation:** `hooks/tests/test-sync-allowlist.sh`'s discovery prune matches by path-segment basename. Leave it. Do **not** extend M5's exact-stem rule to it in this ticket.
+
+**Reasoning:** M5 governs **destructive authority** — what `cleanup-flow-backups.sh` may delete — where over-broad matching means deleting a file nobody authorized. Allowlist discovery decides only which files a *documentation sweep* considers reachable; an over-broad prune there hides a file from a sweep, it does not destroy anything. Different blast radius, different bar.
+
+Widening the fix mid-round would also have meant changing a test's semantics under a finding that did not name it, which is how scope creep enters a corrections round. Filed as an observation for a future ticket rather than actioned here.
+
+**Lock status:** LOCKED
+
+---
+
+## Lock confirmation (updated)
+
+| ID | Final option | Locked by | Date |
+|---|---|---|---|
+| M1..M10 | as recorded above | PO under the operator's standing autonomous-run authorization | 2026-07-30 |
+| M11, M12 | ratifications from the review-findings fix round | PO, same authorization | 2026-07-30 |
