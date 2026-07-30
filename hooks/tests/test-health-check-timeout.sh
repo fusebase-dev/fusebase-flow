@@ -32,7 +32,18 @@ trap cleanup EXIT
 
 pass_count=0
 fail_count=0
-ht_fail() { fail_count=$((fail_count + 1)); echo "FAIL: health-check-timeout $1"; [ -n "${2:-}" ] && echo "$2" >&2; return 1; }
+# TRIPWIRE (C4 / F-A2): the reason goes on the SAME stdout line as the FAIL marker — the shape
+# every run_shell_phase test uses. run-tests.sh prints and rows ONLY lines matching
+# `^(PASS|FAIL): health-check-timeout `, so a reason written to stderr instead reached neither the
+# composed log nor state/audit/hook-test-results.md and the FAIL was undiagnosable. Newlines are
+# flattened for the same reason: a continuation line would not match the parse and be dropped.
+ht_fail() {
+  fail_count=$((fail_count + 1))
+  local why="${2:-}"
+  [ -z "$why" ] || why=" ($(printf '%s' "$why" | tr '\n\r\t' '   '))"
+  echo "FAIL: health-check-timeout $1$why"
+  return 1
+}
 ht_pass() { pass_count=$((pass_count + 1)); echo "PASS: health-check-timeout $1"; }
 
 # ---- golden fixture (built ONCE; every scenario cp -R's it) -------------------

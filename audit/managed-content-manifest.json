@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "6613c2dde25a4acf9f28b4cd07856b6b9bf1b8026becb229b5e2c5f9f61f8aef"
+      "sha256": "b14e9201aeafd0ebda14681513c25b476fc5643d063a92db8e92eb77c72947f2"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -790,7 +790,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "a45a58846fe5038249b0aee9c36cc18c0c36f3c6831b5cd93ce185de172ef55f"
+      "sha256": "33a79ea44291e56bf0fbfde67300eb2668c0f4aeb62fe880752853231ba87528"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -858,7 +858,7 @@
     },
     {
       "path": "hooks/tests/test-health-check-timeout.sh",
-      "sha256": "9f9ca57d72aca2e209295da8bd55e446cfaf16984a89c0ba0a3e8b89228a75db"
+      "sha256": "e921ed0c9a7b2ddbe118e378aefa5c792ab308941c1552d19b01b8078bad7513"
     },
     {
       "path": "hooks/tests/test-history-extraction.sh",
@@ -1137,5 +1137,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "191c7b6cd1af59207586796199ca8a4e9a92dbe6461776b151b5efa1bac5573d"
+  "manifest_self_sha256": "eb40fff1fed3c2de3348b61fd2587edcdde3e6e28877963a8365c9b3d4bce729"
 }

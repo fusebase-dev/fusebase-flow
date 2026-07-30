@@ -402,7 +402,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "a45a58846fe5038249b0aee9c36cc18c0c36f3c6831b5cd93ce185de172ef55f"
+      "sha256": "33a79ea44291e56bf0fbfde67300eb2668c0f4aeb62fe880752853231ba87528"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -470,7 +470,7 @@
     },
     {
       "path": "hooks/tests/test-health-check-timeout.sh",
-      "sha256": "9f9ca57d72aca2e209295da8bd55e446cfaf16984a89c0ba0a3e8b89228a75db"
+      "sha256": "e921ed0c9a7b2ddbe118e378aefa5c792ab308941c1552d19b01b8078bad7513"
     },
     {
       "path": "hooks/tests/test-history-extraction.sh",
@@ -557,5 +557,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "a4221c09d3c28adc09ca64af1e9a3db259ec04b150e6112a541c73fe7bb01ea6"
+  "manifest_self_sha256": "de9fd9855510b8a3163390e7dd2788667b6f190af1677b0438ef510b27930db1"
 }

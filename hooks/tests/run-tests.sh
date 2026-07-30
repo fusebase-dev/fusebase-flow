@@ -139,6 +139,27 @@ pass=0
 fail=0
 total=0
 report_rows=""
+diag_blocks=""
+
+# emit_phase_diagnostics <label> <captured-phase-output> <fail-count>
+# C4 / FR-27: every phase parser prints and rows ONLY the lines matching its
+# `^(PASS|FAIL): <tag>` contract. A test that writes its failure reason anywhere else — its own
+# stderr, which ffhc_run_bounded merges into the tempfile capture — had that reason silently
+# dropped, so a gate FAIL was undiagnosable from the log OR from RESULTS_FILE. On a FAILING phase
+# only, replay the unparsed remainder to STDERR (stdout stays byte-clean for the strict summary
+# and the ^PASS:/^FAIL: counting) and record it in the artifact's diagnostics section.
+emit_phase_diagnostics() {
+    [ "${3:-0}" -gt 0 ] || return 0
+    local rest
+    rest="$(printf '%s\n' "$2" | grep -vE '^(PASS|FAIL|INCONCLUSIVE):' | sed '/^[[:space:]]*$/d')"
+    [ -n "$rest" ] || return 0
+    {
+        printf '[run-tests] --- %s diagnostics (unparsed phase output, replayed because the phase FAILED) ---\n' "$1"
+        printf '%s\n' "$rest"
+        printf '[run-tests] --- end %s diagnostics ---\n' "$1"
+    } >&2
+    diag_blocks="$diag_blocks### $1"$'\n\n```\n'"$rest"$'\n```\n\n'
+}
 
 mkdir -p "$(dirname "$RESULTS_FILE")"
 
@@ -176,6 +197,8 @@ if ff_selected fixtures; then
         echo "FAIL: run_hook_tests.py crashed (exit $fx_rc) before reporting fixtures"
         report_rows="$report_rows| run_hook_tests.py | (harness) | FAIL | crashed with exit $fx_rc, no fixture output |"$'\n'
     fi
+    fx_bad=$fx_failed; [ "$fx_rc" -eq 0 ] || fx_bad=$((fx_bad + 1))
+    emit_phase_diagnostics "fixture handler tests" "$fx_out" "$fx_bad"
 else
     ff_skip_note fixtures
 fi
@@ -206,6 +229,8 @@ elif [ -f "$MS_TEST" ]; then
         echo "FAIL: test-module-size.sh crashed (exit $ms_fail) before reporting scenarios"
         report_rows="$report_rows| test-module-size.sh | (harness) | FAIL | crashed with exit $ms_fail, no scenario output |"$'\n'
     fi
+    ms_bad=$ms_failed; [ "$ms_fail" -eq 0 ] || ms_bad=$((ms_bad + 1))
+    emit_phase_diagnostics "module-size ratchet" "$ms_out" "$ms_bad"
 fi
 
 # Phase 3 — health-check bounded-execution + verdict/exit contract scenarios
@@ -235,6 +260,8 @@ elif [ -f "$HT_TEST" ]; then
         echo "FAIL: test-health-check-timeout.sh crashed (exit $ht_rc) before reporting scenarios"
         report_rows="$report_rows| test-health-check-timeout.sh | (harness) | FAIL | crashed with exit $ht_rc, no scenario output |"$'\n'
     fi
+    ht_bad=$ht_failed; [ "$ht_rc" -eq 0 ] || ht_bad=$((ht_bad + 1))
+    emit_phase_diagnostics "health-check-timeout scenarios" "$ht_out" "$ht_bad"
 fi
 
 # Phases 4-7 — upgrade-tooling-hardening shell scenarios (v3.24.x). Same parse
@@ -261,6 +288,8 @@ run_shell_phase() { # run_shell_phase <test-script> <tag>
         echo "FAIL: $1 crashed (exit $rc) before reporting scenarios"
         report_rows="$report_rows| $1 | (harness) | FAIL | crashed with exit $rc, no scenario output |"$'\n'
     fi
+    local bad=$f; [ "$rc" -eq 0 ] || bad=$((bad + 1))
+    emit_phase_diagnostics "$tag" "$out" "$bad"
 }
 run_shell_phase test-git-hooks-smoke.sh      "git-smoke"
 run_shell_phase test-hook-manifest.sh        "hook-manifest"
@@ -360,6 +389,16 @@ run_exitcode_phase test-cli-flow-recovery.sh "cli-flow-recovery" "cli-flow-recov
     echo "| Fixture | Test | Result | Detail |"
     echo "|---|---|---|---|"
     echo -n "$report_rows"
+    # C4 / FR-27: a FAIL must be diagnosable from THIS artifact alone. Only present when a phase
+    # failed, so a clean run's file stays byte-identical to before.
+    if [ -n "$diag_blocks" ]; then
+        echo
+        echo "## Failure diagnostics"
+        echo
+        echo "Unparsed output of each FAILING phase (the reason strings the ^PASS:/^FAIL: parse drops)."
+        echo
+        printf '%s' "$diag_blocks"
+    fi
 } > "$RESULTS_FILE"
 
 echo
