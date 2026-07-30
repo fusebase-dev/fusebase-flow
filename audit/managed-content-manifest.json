@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "52303d371f76c426e3e3ab99a7e6b7d98d34910cedb2666585a93e58d2989fbe"
+      "sha256": "be8236a1a4f4f251ba8073e7aef1b6d26500252d521a3a5c7b2abe6ad3751d24"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -486,7 +486,7 @@
     },
     {
       "path": "hooks/local/lib/materialize-managed-source.sh",
-      "sha256": "21597c7cbe0cee02108534e86b73fb13e6fa7643bf6562afe89077b4171d95c6"
+      "sha256": "c322cf0dde1089897cfc194cb39085792b84b47f9f84b04ae18c30800b8e0d90"
     },
     {
       "path": "hooks/local/lib/merge-module-size-baseline.sh",
@@ -1145,5 +1145,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "5e81d21dffe68536441b93ac4e2f4229cd77fe7b691715589d2cfba49e0acfe5"
+  "manifest_self_sha256": "ff9663caa607c93bb27ecf66e19d5cbc740fc8ac22556d97eb433aa920a4a6fd"
 }

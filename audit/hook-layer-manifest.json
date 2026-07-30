@@ -106,7 +106,7 @@
     },
     {
       "path": "hooks/local/lib/materialize-managed-source.sh",
-      "sha256": "21597c7cbe0cee02108534e86b73fb13e6fa7643bf6562afe89077b4171d95c6"
+      "sha256": "c322cf0dde1089897cfc194cb39085792b84b47f9f84b04ae18c30800b8e0d90"
     },
     {
       "path": "hooks/local/lib/merge-module-size-baseline.sh",
@@ -561,5 +561,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "8a41049b116596f90b0b5e0bb52829061a190b364d6f09b1247558208396160d"
+  "manifest_self_sha256": "b747ed929220439addc78e6485e7675d31fa86641b733b977f40f1e4f0e3fa6e"
 }

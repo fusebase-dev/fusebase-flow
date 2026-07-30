@@ -213,11 +213,14 @@ _ff_mms_report_abort() {
   return 0
 }
 
-# ff_source_verify_tree <tree>: run the M10 verdict on a tree the caller materialized ITSELF.
-# The bootstrap entry point uses this when the consumer install predates this lib: it materializes
-# from git objects (or an immutable snapshot) with its own minimal code, then sources THIS file
-# from that materialized tree — never from the mutable source worktree — and verifies here.
-# rc 1 => the caller MUST abort before any write.
+# ff_source_verify_tree <tree>: run the M10 verdict on a tree the caller materialized ITSELF,
+# from a copy of this lib the caller ALREADY TRUSTS. rc 1 => the caller MUST abort before any write.
+#
+# TRIPWIRE (R3): the bootstrap hop deliberately does NOT call this on the tree it just made when
+# the consumer has no installed copy of this lib — sourcing this file OUT OF that tree and then
+# asking it for the verdict lets a tampered source redefine this very function and approve itself.
+# That path uses bootstrap-upgrade.sh's own embedded ff_boot_verify instead. Never "simplify" the
+# hop back onto this entry point.
 ff_source_verify_tree() {
   FF_SOURCE_STATE=""; FF_SOURCE_REASON=""; FF_SOURCE_DRIFT=""
   if _ff_mms_verify "$1"; then
