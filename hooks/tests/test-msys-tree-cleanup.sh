@@ -498,7 +498,15 @@ else
     bad "ac4-cleanup-refuses-every-unauthorized-target" "$cl_neg_fail"
   fi
   # --- Symlink refusal (precondition-checked; visible SKIP, never false-green) --------------
-  cl_sym_fail=""; cl_sym_ran=0
+  # TRIPWIRE (C2 / F-C): this is a CONTRACT-REQUIRED negative control, and it is only proof if
+  # symlink-ness is the reason the target was refused. Both link names are otherwise fully
+  # eligible (`templates`/`workflows` are exact MANAGED_DIRS members and the refusal order in
+  # cleanup-flow-backups.sh puts the -L check BEFORE membership), so the assertions below pin
+  # the refusal REASON, not just "some refusal happened" — a fixture drift that made the name
+  # ineligible would otherwise refuse for the wrong reason and still report PASS. Coverage is
+  # all-or-nothing: 0 built => honest SKIP; anything between 1 and the full class set is a FAIL,
+  # never a partial "ok".
+  cl_sym_fail=""; cl_sym_ran=0; cl_sym_expected=2
   CL_OUTSIDE="$(mktemp -d "${TMPDIR:-/tmp}/ff-outside.XXXXXX")"; printf 'o
 ' > "$CL_OUTSIDE/secret.md"
   for pair in "templates.pre-upgrade-$TS_OK|real-agents" "workflows.pre-upgrade-$TS_OK|$CL_OUTSIDE"; do
@@ -509,6 +517,20 @@ else
     cl_out="$( cd "$F" && bash hooks/local/cleanup-flow-backups.sh "$cl_link" 2>&1 )"; cl_rc=$?
     [ "$cl_rc" -ne 0 ] || cl_sym_fail="$cl_sym_fail [$cl_link: a symlink was ACCEPTED as a backup target]"
     case "$cl_out" in *REFUSED*) ;; *) cl_sym_fail="$cl_sym_fail [$cl_link: no refusal diagnostic]" ;; esac
+    # The reason must be symlink-ness. Anything else means the fixture stopped being eligible and
+    # the control proved nothing about symlinks.
+    case "$cl_out" in
+      *symlink*) ;;
+      *) cl_sym_fail="$cl_sym_fail [$cl_link: refused for the WRONG reason — no 'symlink' in the diagnostic, so this control does not prove symlink refusal: $(printf '%s' "$cl_out" | tr '\n' '/')]" ;;
+    esac
+    # Same name WITHOUT the link must be ACCEPTED — proves eligibility, i.e. that the refusal
+    # above can only have come from symlink-ness.
+    G="$(mktemp -d "${TMPDIR:-/tmp}/ff-cleanup.XXXXXX")"; cl_fixture "$G"
+    mkdir -p "$G/$cl_link"; printf 'b\n' > "$G/$cl_link/probe.md"
+    ( cd "$G" && bash hooks/local/cleanup-flow-backups.sh "$cl_link" ) >/dev/null 2>&1 \
+      || cl_sym_fail="$cl_sym_fail [$cl_link: the SAME name as a real dir was also refused — the name is not otherwise-eligible, so the symlink control is vacuous]"
+    [ ! -e "$G/$cl_link" ] || cl_sym_fail="$cl_sym_fail [$cl_link: the non-symlink twin survived — name not eligible, control vacuous]"
+    rm -rf "$G"
     [ -L "$F/$cl_link" ] || cl_sym_fail="$cl_sym_fail [$cl_link: the symlink itself was deleted]"
     [ -e "$F/real-agents/a.md" ] || cl_sym_fail="$cl_sym_fail [$cl_link: followed the link and deleted inside the repo]"
     [ -e "$CL_OUTSIDE/secret.md" ] || cl_sym_fail="$cl_sym_fail [$cl_link: followed the link and deleted OUTSIDE the repo]"
@@ -518,10 +540,12 @@ else
     rm -rf "$F"
   done
   rm -rf "$CL_OUTSIDE"
+  [ "$cl_sym_ran" -eq 0 ] || [ "$cl_sym_ran" -eq "$cl_sym_expected" ] \
+    || cl_sym_fail="$cl_sym_fail [PARTIAL COVERAGE: only $cl_sym_ran/$cl_sym_expected symlink classes were built — an in-repo AND an outside-repo target are both required; a partial run is not proof]"
   if [ "$cl_sym_ran" -eq 0 ]; then
-    skip "ac4-cleanup-refuses-symlink-targets" "this platform's ln -s copies instead of linking (MSYS winsymlinks off) — the fixture cannot be built, so the control is NOT claimed as proof"
+    skip "ac4-cleanup-refuses-symlink-targets" "this platform's ln -s copies instead of linking (MSYS winsymlinks off) — the fixture cannot be built, so the control is NOT claimed as proof (its proof home is the Linux/CI run)"
   elif [ -z "$cl_sym_fail" ]; then
-    ok "ac4-cleanup-refuses-symlink-targets ($cl_sym_ran otherwise-eligible symlink name(s) refused; nothing followed)"
+    ok "ac4-cleanup-refuses-symlink-targets ($cl_sym_ran/$cl_sym_expected classes: in-repo + outside-repo targets, each refused WITH a 'symlink' reason while the same name as a real dir is accepted; nothing followed)"
   else
     bad "ac4-cleanup-refuses-symlink-targets" "$cl_sym_fail"
   fi

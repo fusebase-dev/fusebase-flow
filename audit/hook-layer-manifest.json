@@ -494,7 +494,7 @@
     },
     {
       "path": "hooks/tests/test-msys-tree-cleanup.sh",
-      "sha256": "c5766b322174749649ee17152f0753af7bb53de869af0daa45c571f1af2e3f81"
+      "sha256": "3628d50ae7456ed346a5da5c3f03d742265e3bc5290732184d845700a6949d95"
     },
     {
       "path": "hooks/tests/test-newline-preserve.sh",
@@ -557,5 +557,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "f5616265bbf036e040388430f7c9bd39768e5d21249478928492e77c134a02e2"
+  "manifest_self_sha256": "a4221c09d3c28adc09ca64af1e9a3db259ec04b150e6112a541c73fe7bb01ea6"
 }
