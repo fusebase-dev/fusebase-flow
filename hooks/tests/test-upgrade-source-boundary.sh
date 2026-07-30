@@ -222,6 +222,98 @@ else
 fi
 rm -rf "$M10_ROOT"
 
+# ---- 2d. AC2 / R3: the boundary is never bootstrapped FROM the mutable source worktree ------
+# Both entry points used to `source` the materializer out of $SOURCE_REPO/$SOURCE_CLONE before
+# anything was materialized or verified, so the code deciding whether the source is canonical was
+# itself unverified. The tampered worktree copy below does exactly what that allows: it redefines
+# ff_source_open to report VERIFIED while pointing straight back at the worktree, and drops a
+# marker OUTSIDE the consumer root so "was it sourced?" is directly observable.
+B3_ROOT="$(mktemp -d)"
+b3_tamper() {   # <consumer root>
+  cat >> "$1/.fusebase-flow-source/hooks/local/lib/materialize-managed-source.sh" <<'TAMPER'
+ff_source_open() {
+  FF_SOURCE_REPO="$PWD/.fusebase-flow-source"; FF_SOURCE_TREE="$PWD/.fusebase-flow-source"
+  FF_SOURCE_COMMIT=""; FF_SOURCE_KIND="plain"; FF_SOURCE_STATE="VERIFIED"; FF_SOURCE_TREE_TEMP=0
+  touch "$PWD/../worktree-helper-was-sourced"
+  return 0
+}
+TAMPER
+  printf 'control TAMPERED\n' > "$1/.fusebase-flow-source/hooks/local/control.sh"
+}
+b3_fail=""
+b3_case() {   # <label> <entry command...>
+  local label="$1"; shift
+  local S LOG rc
+  S="$(bnd_plain_case "$B3_ROOT/$label")"
+  b3_tamper "$S"
+  LOG="$B3_ROOT/$label.log"
+  ( cd "$S" && "$@" ) > "$LOG" 2>&1; rc=$?
+  [ ! -e "$B3_ROOT/$label/worktree-helper-was-sourced" ] \
+    || b3_fail="$b3_fail [$label: the SOURCE WORKTREE's materialize-managed-source.sh was sourced — the boundary bootstrapped itself from unverified source code]"
+  grep -q "control v1" "$S/hooks/local/control.sh" \
+    || b3_fail="$b3_fail [$label: tampered source bytes were installed :: $(tail -4 "$LOG" | tr '\n' '|')]"
+  [ "$rc" -ne 0 ] || b3_fail="$b3_fail [$label: a tampered source upgraded anyway (rc 0)]"
+}
+b3_case "hop"    bash hooks/local/bootstrap-upgrade.sh --source .fusebase-flow-source -- --auto-yes
+b3_case "direct" bash hooks/local/upgrade.sh --auto-yes
+if [ -z "$b3_fail" ]; then
+  ok "ac2-boundary-never-sourced-from-the-mutable-source-worktree (bootstrap hop + direct engine)"
+else
+  bad "ac2-boundary-never-sourced-from-the-mutable-source-worktree" "$b3_fail"
+fi
+
+# 2e. AC2 / R3: the direct engine REFUSES a pre-boundary execution rather than falling back to the
+# worktree copy, and names the supported route.
+NB="$(bnd_plain_case "$B3_ROOT/no-installed-lib")"
+rm -f "$NB/hooks/local/lib/materialize-managed-source.sh"
+NB_LOG="$B3_ROOT/no-installed-lib.log"
+( cd "$NB" && bash hooks/local/upgrade.sh --auto-yes ) > "$NB_LOG" 2>&1
+NB_RC=$?
+nb_fail=""
+[ "$NB_RC" -ne 0 ] || nb_fail="$nb_fail [an install with no trusted boundary lib upgraded anyway (rc 0) — it fell back to the worktree copy]"
+grep -q "bootstrap-upgrade.sh" "$NB_LOG" || nb_fail="$nb_fail [the refusal does not name the supported route]"
+grep -q "control v1" "$NB/hooks/local/control.sh" || nb_fail="$nb_fail [content was written during the refusal]"
+if [ -z "$nb_fail" ]; then
+  ok "ac2-direct-engine-refuses-pre-boundary-execution"
+else
+  bad "ac2-direct-engine-refuses-pre-boundary-execution" "rc=$NB_RC$nb_fail :: $(tail -6 "$NB_LOG" | tr '\n' '|')"
+fi
+
+# 2f. K10 non-regression: an install that predates the boundary lib must STILL upgrade through the
+# bootstrap hop — the hop materializes with its own minimal embedded logic (plain snapshot AND git
+# objects), sources the shared lib from THAT tree, verifies, then runs the new engine from it.
+for k10 in plain git; do
+  K="$(bnd_plain_case "$B3_ROOT/k10-$k10")"
+  rm -f "$K/hooks/local/lib/materialize-managed-source.sh"    # consumer predates the boundary lib
+  K_REF=()
+  if [ "$k10" = "git" ]; then
+    ( cd "$K/.fusebase-flow-source" && git init -q && git config user.email t@t.t \
+        && git config user.name t && git config core.autocrlf false \
+        && git add -A && git commit -qm src && git branch -M main )
+    K_REF=(--ref main)
+  fi
+  K_LOG="$B3_ROOT/k10-$k10.log"
+  ( cd "$K" && bash hooks/local/bootstrap-upgrade.sh --source .fusebase-flow-source \
+      ${K_REF[@]+"${K_REF[@]}"} -- --auto-yes ) > "$K_LOG" 2>&1
+  K_RC=$?
+  k_fail=""
+  [ "$K_RC" -eq 0 ] || k_fail="$k_fail [rc $K_RC — the hop no longer upgrades an install without the boundary lib (K10 regression)]"
+  grep -q "control v2" "$K/hooks/local/control.sh" || k_fail="$k_fail [no content delivered]"
+  grep -q "embedded boundary" "$K_LOG" || k_fail="$k_fail [the embedded materialization did not run — the hop found the lib somewhere it should not have]"
+  if [ "$k10" = "git" ]; then
+    grep -q "materialized git source @" "$K_LOG" || k_fail="$k_fail [the git-objects path did not run]"
+  fi
+  # No post-upgrade MATCH assertion here: this fixture DELETES a managed file to model the
+  # pre-boundary install, and K9 legitimately preserves that deletion. Post-upgrade MATCH is the
+  # AC1 case's job.
+  if [ -z "$k_fail" ]; then
+    ok "k10-embedded-boundary-still-upgrades-a-pre-boundary-install-$k10"
+  else
+    bad "k10-embedded-boundary-still-upgrades-a-pre-boundary-install-$k10" "$k_fail :: $(tail -8 "$K_LOG" | tr '\n' '|')"
+  fi
+done
+rm -rf "$B3_ROOT"
+
 # ---- 3. AC3: the already-corrupted consumer — preserve, then deliberate repair -------------
 # Seeds the reported end state: base == upstream == LF, local == CRLF. An ordinary upgrade must
 # call that consumer-only and PRESERVE it (it cannot know the CRLF was accidental); only an

@@ -46,7 +46,7 @@
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
-      "sha256": "42f4797c2e92016c6e645ec3e5711dbe6bf9ca8a942f9e86438afd8e87e2f016"
+      "sha256": "2c92813feefe990326b14d2f43ae8267a367bab512e7061ef7cfff6edc11f664"
     },
     {
       "path": "hooks/local/check-cli-flow-conflicts.sh",
@@ -106,7 +106,7 @@
     },
     {
       "path": "hooks/local/lib/materialize-managed-source.sh",
-      "sha256": "5dda45c3bfc31cb88171242e6a2b6a1879fc2d83e3753f5f2650c18b58070096"
+      "sha256": "1a7b632c96b7f725e5ef9081caaa018b3948c4f28ecfaff117224a39a1a1607a"
     },
     {
       "path": "hooks/local/lib/merge-module-size-baseline.sh",
@@ -170,7 +170,7 @@
     },
     {
       "path": "hooks/local/upgrade.sh",
-      "sha256": "5acd9ce30c3f4f8ec603e3573d8be0100d78d6b3390fdbd53885b737da91cd0a"
+      "sha256": "84eda0b4931efb8def98a78dcbe775111d9839bab98449dfc3f8fba009aa46d5"
     },
     {
       "path": "hooks/local/verify-gate.sh",
@@ -546,16 +546,16 @@
     },
     {
       "path": "hooks/tests/test-upgrade-conflict-classification.sh",
-      "sha256": "e698d2274c85d199c258e53bd2ea43ccff1cdca22c21e4d5e75a09d6c9431187"
+      "sha256": "142ade45b7e474317cc0ff721c337fd3822c1fbf172cef1a1ecadc6999dd1414"
     },
     {
       "path": "hooks/tests/test-upgrade-source-boundary.sh",
-      "sha256": "35c88683cb2d08b84907bafd378e45100716c2648f09d5fe57c03165f28a5638"
+      "sha256": "f1962af690e199ba86ee4288c1187af90d9df6b7373212cd30923694557198d1"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "e6f7f15054a1cf9c9fc74ace080946265adf692b190a85e0dfac09082d5c214d"
+  "manifest_self_sha256": "b65bdfeb76cc3e42ed4c245eb298c647311d3d0031b10bd79300b353acf667ca"
 }

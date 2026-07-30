@@ -476,6 +476,11 @@ rs_case() {   # $1 = base-source: "self" (restamp from the diverged tree) | "tag
   printf 'validator v1\n' > "$L/hooks/shared/command_policy.py"
   cp "$ROOT/hooks/local/lib/managed_content_manifest.py" "$L/hooks/local/lib/"
   cp "$ROOT/hooks/local/upgrade.sh" "$L/hooks/local/"
+  # The consumer is a 4.7.0 install (it carries the 4.7 engine + classifier), so it also carries
+  # the boundary lib: the direct engine sources that TRUSTED LOCAL copy and refuses to run
+  # pre-boundary rather than falling back to the source worktree's copy.
+  [ -f "$ROOT/hooks/local/lib/materialize-managed-source.sh" ] \
+    && cp "$ROOT/hooks/local/lib/materialize-managed-source.sh" "$L/hooks/local/lib/"
   if [ "$1" = "tag" ]; then    # the base upstream ACTUALLY shipped (pre-edit)
     ( cd "$L" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null )
   fi

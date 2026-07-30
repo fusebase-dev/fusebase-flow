@@ -209,17 +209,35 @@ fi
 # content read below uses SOURCE_TREE. Reading source content from the mutable staging
 # WORKTREE is the F2 defect (stale pre-pin CRLF -> permanent manifest drift) this removes.
 SOURCE_TREE="$SOURCE_REPO"
-FF_MMS_LIB="$SOURCE_REPO/hooks/local/lib/materialize-managed-source.sh"
-[ -f "$FF_MMS_LIB" ] || FF_MMS_LIB="$ROOT/hooks/local/lib/materialize-managed-source.sh"
-if [ -f "$FF_MMS_LIB" ]; then
+[ -n "$SOURCE_TREE_ARG" ] && SOURCE_TREE="$SOURCE_TREE_ARG"
+# TRIPWIRE (source trust): the boundary implementation comes from the tree the CALLER already
+# materialized and verified (the bootstrap hop's --source-tree), else from TRUSTED LOCAL CODE
+# (this install's own copy). NEVER from $SOURCE_REPO's mutable worktree: that copy could redefine
+# materialization and verification before any canonical tree exists.
+FF_MMS_LIB=""
+if [ -n "$SOURCE_TREE_ARG" ] && [ -f "$SOURCE_TREE_ARG/hooks/local/lib/materialize-managed-source.sh" ]; then
+  FF_MMS_LIB="$SOURCE_TREE_ARG/hooks/local/lib/materialize-managed-source.sh"
+elif [ -f "$ROOT/hooks/local/lib/materialize-managed-source.sh" ]; then
+  FF_MMS_LIB="$ROOT/hooks/local/lib/materialize-managed-source.sh"
+fi
+if [ -n "$FF_MMS_LIB" ]; then
   . "$FF_MMS_LIB"
   trap 'ff_source_cleanup' EXIT     # armed BEFORE materialization so every abort path cleans up
   ff_source_open "$SOURCE_REPO" "$SOURCE_TREE_ARG" "$SOURCE_TREE_OWNED" "${FF_SOURCE_REF:-}" || exit 1
   SOURCE_TREE="$FF_SOURCE_TREE"
   [ -n "$SRC_COMMIT" ] || SRC_COMMIT="$FF_SOURCE_COMMIT"
+elif [ -n "$SOURCE_TREE_ARG" ]; then
+  echo "[upgrade] WARN: the caller materialized $SOURCE_TREE_ARG but ships no canonical materializer" >&2
+  echo "          (pre-4.7.0 source) — reading that tree as-is; it can carry stale pre-EOL-pin bytes (F2)." >&2
 else
-  echo "[upgrade] WARN: this source tree ships no canonical materializer (pre-4.7.0) — reading" >&2
-  echo "          the source WORKTREE, which can carry stale pre-EOL-pin bytes (F2)." >&2
+  echo "[upgrade] FATAL: this install ships no hooks/local/lib/materialize-managed-source.sh, so the" >&2
+  echo "          canonical source boundary (decision M1 / AC2) cannot run here. Reading the mutable" >&2
+  echo "          $SOURCE_REPO/ worktree instead would let unverified source code define its own" >&2
+  echo "          verification — refusing. Run the bootstrap hop, which materializes and verifies" >&2
+  echo "          the source before handing off to this engine:" >&2
+  echo "            bash hooks/local/bootstrap-upgrade.sh" >&2
+  echo "          NOTHING was written." >&2
+  exit 1
 fi
 
 # Backup hygiene (git-exclude + retention prune) — one home, shared with bootstrap-upgrade.sh

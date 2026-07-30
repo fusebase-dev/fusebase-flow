@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "7420cfb47d2fe6aec46c597e14417330f6c0c9c98d92ff3d478fa9561ef15573"
+      "sha256": "35a37acdf86f5e645287ab81d0c6b12882ebdb1cc0341373cfcdb62a44b4222e"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -282,7 +282,7 @@
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
-      "sha256": "42f4797c2e92016c6e645ec3e5711dbe6bf9ca8a942f9e86438afd8e87e2f016"
+      "sha256": "2c92813feefe990326b14d2f43ae8267a367bab512e7061ef7cfff6edc11f664"
     },
     {
       "path": "hooks/local/check-cli-flow-conflicts.sh",
@@ -486,7 +486,7 @@
     },
     {
       "path": "hooks/local/lib/materialize-managed-source.sh",
-      "sha256": "5dda45c3bfc31cb88171242e6a2b6a1879fc2d83e3753f5f2650c18b58070096"
+      "sha256": "1a7b632c96b7f725e5ef9081caaa018b3948c4f28ecfaff117224a39a1a1607a"
     },
     {
       "path": "hooks/local/lib/merge-module-size-baseline.sh",
@@ -554,7 +554,7 @@
     },
     {
       "path": "hooks/local/upgrade.sh",
-      "sha256": "5acd9ce30c3f4f8ec603e3573d8be0100d78d6b3390fdbd53885b737da91cd0a"
+      "sha256": "84eda0b4931efb8def98a78dcbe775111d9839bab98449dfc3f8fba009aa46d5"
     },
     {
       "path": "hooks/local/verify-gate.sh",
@@ -934,11 +934,11 @@
     },
     {
       "path": "hooks/tests/test-upgrade-conflict-classification.sh",
-      "sha256": "e698d2274c85d199c258e53bd2ea43ccff1cdca22c21e4d5e75a09d6c9431187"
+      "sha256": "142ade45b7e474317cc0ff721c337fd3822c1fbf172cef1a1ecadc6999dd1414"
     },
     {
       "path": "hooks/tests/test-upgrade-source-boundary.sh",
-      "sha256": "35c88683cb2d08b84907bafd378e45100716c2648f09d5fe57c03165f28a5638"
+      "sha256": "f1962af690e199ba86ee4288c1187af90d9df6b7373212cd30923694557198d1"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
@@ -1137,5 +1137,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "abf5027759f79e2a23823a6903307d87f642fca955aecd520edf6e7f656e10e5"
+  "manifest_self_sha256": "f073e1969ee3dd739e1b43557aeb364854429f6b435a94a3eeba16a3e32f1bda"
 }

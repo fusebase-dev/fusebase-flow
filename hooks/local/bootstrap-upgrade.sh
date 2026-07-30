@@ -106,14 +106,101 @@ else
   git -c core.autocrlf="$FF_EOL" clone --depth 1 --branch "$REF" "$REPO_URL" "$SOURCE_CLONE"
 fi
 
-# ---- Step 1b: canonical source boundary BEFORE any source-derived read (decision M1) ----
-# TRIPWIRE: the materializer itself is read from the source WORKTREE — you cannot materialize
-# without it (bootstrap chicken-and-egg). It is a script we execute, not managed content we
-# install; every CONTENT read below uses $SOURCE_TREE.
-FF_MMS_LIB="$SOURCE_CLONE/hooks/local/lib/materialize-managed-source.sh"
-[ -f "$FF_MMS_LIB" ] || FF_MMS_LIB="$ROOT/hooks/local/lib/materialize-managed-source.sh"
+# ---- Step 1b: canonical source boundary BEFORE any source-derived read (decision M1 / AC2) ----
+# TRIPWIRE (source trust): the boundary implementation comes from TRUSTED LOCAL CODE — the
+# installed copy — or, when this install predates it, from the tree the minimal embedded
+# materialization below produced out of git OBJECTS. NEVER from $SOURCE_CLONE's mutable
+# WORKTREE: that copy could redefine materialization and verification before any canonical tree
+# exists, i.e. the code deciding whether the source is canonical would itself be unverified.
+FF_MMS_LIB="$ROOT/hooks/local/lib/materialize-managed-source.sh"
 SOURCE_TREE="$SOURCE_CLONE"
 SOURCE_TREE_FLAGS=()
+FF_BOOT_TREE=""
+FF_BOOT_TREE_OWNED=0
+BOOT_COMMIT=""
+
+ff_boot_cleanup() {
+  [ "${FF_BOOT_TREE_OWNED:-0}" = "1" ] || return 0
+  local t="$FF_BOOT_TREE"
+  FF_BOOT_TREE_OWNED=0
+  # TRIPWIRE (destructive): only a directory WE created from the ff-source- template.
+  case "${t##*/}" in
+    ff-source-*) [ -d "$t" ] && rm -rf -- "$t" ;;
+  esac
+  return 0
+}
+
+# Minimal embedded materialization for an install that predates hooks/local/lib/
+# materialize-managed-source.sh. Deliberately duplicates only the two primitives that cannot be
+# borrowed from the source without trusting it first; the VERDICT still comes from the shared lib,
+# sourced afterwards from the materialized tree.
+ff_boot_materialize() {
+  local dest cand oid lib
+  dest="$(mktemp -d "${TMPDIR:-/tmp}/ff-source-XXXXXX" 2>/dev/null || true)"
+  if [ -z "$dest" ] || [ ! -d "$dest" ]; then
+    echo "[bootstrap-upgrade] FATAL: could not create a temporary source tree." >&2
+    return 1
+  fi
+  FF_BOOT_TREE="$dest"; FF_BOOT_TREE_OWNED=1
+  trap 'ff_boot_cleanup' EXIT
+  trap 'rc=$?; ff_boot_cleanup; exit $rc' INT TERM
+  if [ -e "$SOURCE_CLONE/.git" ] && command -v git >/dev/null 2>&1; then
+    for cand in "$REF" "origin/$REF" "HEAD"; do
+      [ -n "$cand" ] || continue
+      oid="$(git -C "$SOURCE_CLONE" rev-parse --verify -q "${cand}^{commit}" 2>/dev/null || true)"
+      [ -n "$oid" ] && break
+    done
+    if [ -z "${oid:-}" ]; then
+      echo "[bootstrap-upgrade] FATAL: cannot resolve '$REF', 'origin/$REF' or HEAD to a commit in $SOURCE_CLONE." >&2
+      return 1
+    fi
+    # TRIPWIRE (decision M1): incoming U is forced core.autocrlf=false + core.eol=lf on EVERY OS,
+    # exactly as materialize-managed-source.sh does. The consumer's EOL belongs to the K13
+    # historical base B below — never to incoming content.
+    if ! git -C "$SOURCE_CLONE" -c core.autocrlf=false -c core.eol=lf archive "$oid" | tar -x -C "$dest"; then
+      echo "[bootstrap-upgrade] FATAL: git archive of $oid failed." >&2
+      return 1
+    fi
+    BOOT_COMMIT="$oid"
+    echo "[bootstrap-upgrade] materialized git source @ $oid from objects (embedded boundary)."
+  else
+    if ! cp -R "$SOURCE_CLONE/." "$dest/" 2>/dev/null; then
+      echo "[bootstrap-upgrade] FATAL: could not snapshot the plain source directory." >&2
+      return 1
+    fi
+    rm -rf "$dest/.git" 2>/dev/null || true
+    echo "[bootstrap-upgrade] materialized plain source -> immutable snapshot (embedded boundary)."
+  fi
+  SOURCE_TREE="$dest"
+  lib="$dest/hooks/local/lib/materialize-managed-source.sh"
+  if [ -f "$lib" ]; then
+    # shellcheck source=/dev/null
+    . "$lib"
+    ff_source_adopt "$dest" 1        # ownership + cleanup move to the lib
+    FF_BOOT_TREE_OWNED=0
+    trap 'ff_source_cleanup' EXIT
+    trap 'rc=$?; ff_source_cleanup; exit $rc' INT TERM
+    FF_SOURCE_REPO="$(cd "$SOURCE_CLONE" && pwd)"
+    FF_SOURCE_COMMIT="$BOOT_COMMIT"
+    FF_SOURCE_KIND="$([ -n "$BOOT_COMMIT" ] && echo git || echo plain)"
+    ff_source_verify_tree "$dest" || return 1
+    return 0
+  fi
+  # No boundary lib in the materialized tree = a genuinely pre-4.7.0 source. It may still
+  # upgrade, but a manifest-BEARING tree with no verifier is refused (same rule as M10's).
+  if [ -f "$dest/audit/managed-content-manifest.json" ]; then
+    echo "[bootstrap-upgrade] FATAL: the source ships audit/managed-content-manifest.json but no" >&2
+    echo "                    hooks/local/lib/materialize-managed-source.sh to verify it with, and" >&2
+    echo "                    this install has no trusted copy either — these bytes cannot be proven" >&2
+    echo "                    to be what upstream shipped. NOTHING was written." >&2
+    return 1
+  fi
+  FF_SOURCE_STATE="UNVERIFIED_LEGACY_SOURCE"
+  echo "[bootstrap-upgrade] NOTE: pre-boundary source (no manifest, no materializer) — proceeding as"
+  echo "                    UNVERIFIED_LEGACY_SOURCE from the materialized tree (decision M10)."
+  return 0
+}
+
 if [ -f "$FF_MMS_LIB" ]; then
   # shellcheck source=/dev/null
   . "$FF_MMS_LIB"
@@ -122,8 +209,7 @@ if [ -f "$FF_MMS_LIB" ]; then
   ff_source_open "$SOURCE_CLONE" "" 0 "$REF" || exit 1
   SOURCE_TREE="$FF_SOURCE_TREE"
 else
-  echo "[bootstrap-upgrade] WARN: this source ships no canonical materializer (pre-4.7.0) —" >&2
-  echo "                    reading its WORKTREE, which can carry stale pre-EOL-pin bytes (F2)." >&2
+  ff_boot_materialize || exit 1
 fi
 
 if [ ! -f "$SOURCE_TREE/VERSION" ]; then
@@ -273,6 +359,10 @@ if grep -q -- '--source-tree)' "$ENGINE_SRC" 2>/dev/null; then
   [ "${FF_SOURCE_TREE_TEMP:-0}" = "1" ] && SOURCE_TREE_FLAGS+=(--source-tree-owned)
   [ -n "${FF_SOURCE_COMMIT:-}" ] && SOURCE_TREE_FLAGS+=(--source-commit "$FF_SOURCE_COMMIT")
   FF_SOURCE_TREE_TEMP=0        # handed over; our EXIT trap must not delete the engine's tree
+else
+  # A pre-boundary engine reads $SOURCE_REPO itself and can neither receive nor clean up an
+  # embedded-boundary temp tree, so release it here rather than leaking it past the exec.
+  ff_boot_cleanup
 fi
 echo "[bootstrap-upgrade] Handing off to $ENGINE_SRC ${PASSTHROUGH[*]:-}"
 echo ""

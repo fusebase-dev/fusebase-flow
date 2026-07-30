@@ -16,6 +16,7 @@
 # API — all state lands in FF_SOURCE_* globals the caller reads:
 #   ff_source_boundary <source-dir> [<ref>]        materialize + verify; rc 1 => abort before writes
 #   ff_source_adopt <tree> <owned>                 adopt a tree a caller already materialized
+#   ff_source_verify_tree <tree>                   M10 verdict on a caller-materialized tree
 #   ff_source_cleanup                              remove the temp tree we own (idempotent)
 #   ff_managed_drift_paths <root>                  manifest-reported drift paths, one per line
 #   ff_repair_managed <root> <tree> <ts> <path>...  exact-path repair from verified U
@@ -208,9 +209,32 @@ ff_source_open() {
     fi
     return 0
   fi
+  _ff_mms_report_abort
+  return 1
+}
+
+_ff_mms_report_abort() {
   echo "[source] ABORT: $FF_SOURCE_REASON" >&2
   [ -n "$FF_SOURCE_DRIFT" ] && echo "[source]        offending path(s): $FF_SOURCE_DRIFT" >&2
   echo "[source] NOTHING was written. Re-stage a clean source tree and retry." >&2
+  return 0
+}
+
+# ff_source_verify_tree <tree>: run the M10 verdict on a tree the caller materialized ITSELF.
+# The bootstrap entry point uses this when the consumer install predates this lib: it materializes
+# from git objects (or an immutable snapshot) with its own minimal code, then sources THIS file
+# from that materialized tree — never from the mutable source worktree — and verifies here.
+# rc 1 => the caller MUST abort before any write.
+ff_source_verify_tree() {
+  FF_SOURCE_STATE=""; FF_SOURCE_REASON=""; FF_SOURCE_DRIFT=""
+  if _ff_mms_verify "$1"; then
+    echo "[source] verified the caller-materialized canonical tree; state=$FF_SOURCE_STATE"
+    if [ "$FF_SOURCE_STATE" = "UNVERIFIED_LEGACY_SOURCE" ]; then
+      echo "[source] UNVERIFIED_LEGACY_SOURCE: $FF_SOURCE_REASON — proceeding for pre-manifest source compatibility (decision M10)."
+    fi
+    return 0
+  fi
+  _ff_mms_report_abort
   return 1
 }
 
