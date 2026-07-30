@@ -459,6 +459,43 @@ _ffhc_job_fence() {
 # if the temp can't be created/written, route to the SKIPPED sentinel (rc 125,
 # FFHC_LAST_SKIPPED=1) so the engine reads UNVERIFIED — NOT an empty-output run that
 # would read as a false BROKEN, and NEVER a launch into a broken redirect.
+# --- Parent-owned heartbeat for a CAPTURED run (decision M3) --------------------------------
+# TRIPWIRE (M3): the tempfile capture below is retained ON PURPOSE. Do NOT "simplify" it into
+# `tee`/a pipe to get progress (an MSYS native grandchild can hold an inherited pipe open past
+# the deadline and freeze the harness — docs/problem-catalog/), and do NOT add child-side
+# unbuffering (nothing the child flushes can escape a PARENT redirect). Progress is printed by
+# the parent instead, so the captured payload stays byte-exact.
+# Opt-in, OFF by default (FFHC_HEARTBEAT_SECS=0) => existing callers unchanged.
+_ffhc_heartbeat_loop() {   # <interval> <deadline-secs> <label>
+  local interval="$1" deadline="$2" label="$3" waited=0 cap=$(( $2 + 10 ))
+  while [ "$waited" -lt "$cap" ]; do
+    sleep "$interval" 2>/dev/null || return 0
+    waited=$((waited + interval))
+    printf '[bounded] still running (%ss/%ss) — %s\n' "$waited" "$deadline" "$label" >&2
+  done
+}
+
+# Sets FFHC_HEARTBEAT_HPID ("" when disabled). Self-caps at deadline+grace so a parent that
+# died without reaping it still leaves nothing behind.
+# TRIPWIRE: call DIRECTLY, never `$( … )` — the backgrounded loop inherits the substitution's
+# stdout pipe, so the parent would block on it until that cap (same hazard as _ffhc_job_fence).
+_ffhc_heartbeat_start() {   # <deadline-secs> <label>
+  FFHC_HEARTBEAT_HPID=""
+  local hb="${FFHC_HEARTBEAT_SECS:-0}"
+  case "$hb" in ''|*[!0-9]*) return 0 ;; esac
+  [ "$hb" -gt 0 ] || return 0
+  _ffhc_heartbeat_loop "$hb" "$1" "$2" >/dev/null &   # stdout dropped: never hold a caller's pipe
+  FFHC_HEARTBEAT_HPID=$!
+}
+
+_ffhc_heartbeat_stop() {   # <pid>
+  [ -n "${1:-}" ] || return 0
+  kill "$1" 2>/dev/null
+  wait "$1" 2>/dev/null
+  FFHC_HEARTBEAT_HPID=""
+  return 0
+}
+
 _ffhc_tempfile_capture() {
   local stderr_mode="$1" stdin_mode="$2" secs="$3"; shift 3
   local _tf
@@ -503,6 +540,10 @@ _ffhc_tempfile_capture() {
   # path. Both are cleared the instant we return below (the child is reaped by then), so
   # they are non-empty ONLY while the child is provably alive.
   FFHC_LAST_WINPID="$_winpid"; FFHC_LAST_CHILD_PID="$_bpid"
+  # Parent-owned progress while the capture is opaque. Ours to reap (below) — internal
+  # plumbing, not `&`-detached user work, so it does not contradict the don't-detach rule.
+  _ffhc_heartbeat_start "$secs" "${FFHC_HEARTBEAT_LABEL:-$1}"   # direct call (see its tripwire)
+  local _hbpid="$FFHC_HEARTBEAT_HPID"
   # WS2-hard OUTER FENCE (opt-in, guarded). Purely additive: when off/unavailable/inherit,
   # _trig="" and the wait_reap call below is IDENTICAL to WS2-core (byte-behavior-unchanged
   # default). KNOB-FIRST GATE: the cheap string compare `FFHC_USE_JOB_OBJECT==1` is the
@@ -522,6 +563,7 @@ _ffhc_tempfile_capture() {
   fi
   if ffhc_is_msys; then ffhc_msys_wait_reap "$_bpid" "$secs" "$_winpid" "$_trig"; else wait "$_bpid"; fi
   FFHC_LAST_RC=$?
+  _ffhc_heartbeat_stop "$_hbpid"    # never outlive the run we were reporting on
   # Release + reap the fence helper (ours): touch the trigger so a still-waiting helper
   # TerminateJobObjects the (now-exited, harmless no-op) tree and exits, then reap it so
   # it never lingers. Bounded by the helper's own deadline cap regardless.

@@ -94,7 +94,7 @@
     },
     {
       "path": "hooks/local/lib/hook-integrity-check.sh",
-      "sha256": "5d57d30373712569da38676538235d6b5a588d1ef1172547e7c5fb53f1a963b5"
+      "sha256": "3200c0cb26718822c5631ee4caf86d1dc53efc065e710e59d5190d02fd893d0d"
     },
     {
       "path": "hooks/local/lib/hook_manifest.py",
@@ -118,7 +118,7 @@
     },
     {
       "path": "hooks/local/lib/run-with-timeout.sh",
-      "sha256": "e3af00a7bbe258e4815772514c9cbc82ef3df50ea3b05efbaf91a1e24866f8ad"
+      "sha256": "856bff384af5e510f7eac0efdc55576152ed23170e65853aa000b25422881531"
     },
     {
       "path": "hooks/local/mirror-agents.sh",
@@ -402,7 +402,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "e5244544d4c44afad29f56648b3ca991ab749dd0f01ed5bc03f32f3731b653b0"
+      "sha256": "a45a58846fe5038249b0aee9c36cc18c0c36f3c6831b5cd93ce185de172ef55f"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -470,7 +470,7 @@
     },
     {
       "path": "hooks/tests/test-health-check-timeout.sh",
-      "sha256": "d9fc588399d0934e697fd354e9930a52f75b02316b2f53845ba9e8b319d64546"
+      "sha256": "85b7d60188323f03cc4d2d4505804744dbce21e9c57fdd1917f745b94e189323"
     },
     {
       "path": "hooks/tests/test-history-extraction.sh",
@@ -557,5 +557,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "1f68008c46aaeb4aeb7b8bccfa783d5588bdcd93f8fcff234327aa73d9e97cfc"
+  "manifest_self_sha256": "246872c2d951152efe1b226f8c94b0d3353e8c580f7886bb454a871e0ce780c6"
 }

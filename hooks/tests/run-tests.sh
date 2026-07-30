@@ -38,6 +38,11 @@ ffhc_detect_timeout
 # + drives the health engine — minutes on MSYS); operator-overridable.
 FF_PHASE_TIMEOUT="${FF_PHASE_TIMEOUT:-600}"
 
+# Opt into the parent-owned heartbeat (decision M3); FFHC_HEARTBEAT_SECS=0 silences it.
+# TRIPWIRE: deliberately NOT exported — a child test script must not inherit a heartbeat that
+# would land inside ITS captured payload.
+FFHC_HEARTBEAT_SECS="${FFHC_HEARTBEAT_SECS:-30}"
+
 # --- FF_ONLY scoped-gate parse (implement-loop iteration speed) ---------------------
 # Canonical phase tags, in run order. This list is the FF_LIST discovery source and the
 # FF_ONLY validation set; add a tag here (and its guard) when a phase is added.
@@ -122,6 +127,7 @@ run_bounded_phase() {
     local label="$1"; shift
     progress "$label"
     local _t0=$SECONDS
+    FFHC_HEARTBEAT_LABEL="$label"
     ffhc_run_bounded "$FF_PHASE_TIMEOUT" "$@"
     # D14.1: per-phase wall time on STDERR (progress() precedent :112) — stdout parse
     # contracts (strict summary, ^PASS:/^FAIL: counting) stay byte-clean.

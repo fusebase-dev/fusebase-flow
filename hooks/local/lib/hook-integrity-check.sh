@@ -108,6 +108,10 @@ ffhc_hook_manifest_verify() {
 # NEVER forces exit 4). The DEFAULT run-tests.sh + CI stay FULL and unchanged.
 ffhc_hook_tests_deep_run() {
   [ "${OPT_RUN_HOOK_TESTS:-0}" -eq 1 ] || return 0
+  # AC5/M3: the deep run is the longest opaque capture window in the framework. Opt into the
+  # parent-owned heartbeat (both branches); classification below is unaffected because it lands
+  # on the parent's stderr, not in the parsed payload.
+  FFHC_HEARTBEAT_SECS="${FFHC_HEARTBEAT_SECS:-30}"
   local force_full=0
   { [ "${OPT_RUN_HOOK_TESTS_FULL:-0}" -eq 1 ] || [ "${FFHC_RUN_HOOK_TESTS_FULL:-0}" = "1" ]; } && force_full=1
   if [ "$force_full" -eq 0 ] && ffhc_is_msys; then
@@ -124,6 +128,7 @@ _ffhc_deep_run_full() {
     DEEP_RUN_NOTES+=("--run-hook-tests: NOTE — run-tests.sh not present/executable (optional deep run; verdict unaffected)")
     return 0
   fi
+  FFHC_HEARTBEAT_LABEL="--run-hook-tests: full suite"
   ffhc_run_bounded "$FFHC_TESTS_TIMEOUT" bash hooks/tests/run-tests.sh
   local out="$FFHC_LAST_OUT" rc="$FFHC_LAST_RC"
   local timed_out="$FFHC_LAST_TIMED_OUT" skipped="$FFHC_LAST_SKIPPED"
@@ -159,6 +164,7 @@ _ffhc_deep_run_fast() {
   local tot_pass=0 tot_fail=0 broke=0 noted=0 parts=""
   _ffhc_deep_fast_one() {   # <label> CMD...
     local lbl="$1"; shift
+    FFHC_HEARTBEAT_LABEL="--run-hook-tests: $lbl"
     ffhc_run_bounded "$FFHC_TESTS_TIMEOUT" "$@"
     local out="$FFHC_LAST_OUT" rc="$FFHC_LAST_RC" to="$FFHC_LAST_TIMED_OUT" sk="$FFHC_LAST_SKIPPED"
     FFHC_LAST_WINPID=""; FFHC_LAST_CHILD_PID=""
