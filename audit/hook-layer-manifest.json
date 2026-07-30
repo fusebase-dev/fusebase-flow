@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.7.0",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 138,
+  "asset_count": 139,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -46,7 +46,7 @@
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
-      "sha256": "439e3fb1a02952d6fae01a6bfb0db886a21d0320030cf004fc063a13fa555a28"
+      "sha256": "4498c07c146dc4765f7c499e4012520e99bba20ac1269ba91e44025319475c29"
     },
     {
       "path": "hooks/local/check-cli-flow-conflicts.sh",
@@ -402,7 +402,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "33a79ea44291e56bf0fbfde67300eb2668c0f4aeb62fe880752853231ba87528"
+      "sha256": "7af2ed6e4f66ff2a9a7b21801b59a927b509decba46759e394accc0ac47728b3"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -549,13 +549,17 @@
       "sha256": "142ade45b7e474317cc0ff721c337fd3822c1fbf172cef1a1ecadc6999dd1414"
     },
     {
+      "path": "hooks/tests/test-upgrade-repair-managed.sh",
+      "sha256": "e082ef7666b7c799a0918a1bd99980b3fd88ae646231b31f37457ec97827b34d"
+    },
+    {
       "path": "hooks/tests/test-upgrade-source-boundary.sh",
-      "sha256": "cd5b45862e43ba6e122892c95b6e7f34c57a28d0c98796931309275d3d83e8b4"
+      "sha256": "1f0902aae0730fb3d30cfbfade9076f8aa5b507f5357e58efbd43e6db6cc556a"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "04e3e8665a964b53cc0750cfc5cdd919f29b5b4c0eb97896826120946d104c00"
+  "manifest_self_sha256": "8a41049b116596f90b0b5e0bb52829061a190b364d6f09b1247558208396160d"
 }

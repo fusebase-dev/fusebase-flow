@@ -107,17 +107,20 @@ else
 fi
 
 # ---- Step 1b: canonical source boundary BEFORE any source-derived read (decision M1 / AC2) ----
-# TRIPWIRE (source trust): the boundary implementation comes from TRUSTED LOCAL CODE — the
-# installed copy — or, when this install predates it, from the tree the minimal embedded
-# materialization below produced out of git OBJECTS. NEVER from $SOURCE_CLONE's mutable
-# WORKTREE: that copy could redefine materialization and verification before any canonical tree
-# exists, i.e. the code deciding whether the source is canonical would itself be unverified.
+# TRIPWIRE (source trust): the VERDICT is always reached by TRUSTED CODE — the installed lib, or,
+# when this install predates it, the minimal embedded materialize+verify pair below. NEVER by
+# shell sourced out of the source: neither $SOURCE_CLONE's mutable worktree nor the snapshot taken
+# from it. A source-supplied materialize-managed-source.sh can redefine ff_source_verify_tree and
+# approve itself, so "source it, then verify with it" proves nothing. Source-derived shell may
+# enter this process only AFTER trusted code has proven the tree, and only for the repair API.
 FF_MMS_LIB="$ROOT/hooks/local/lib/materialize-managed-source.sh"
 SOURCE_TREE="$SOURCE_CLONE"
 SOURCE_TREE_FLAGS=()
 FF_BOOT_TREE=""
 FF_BOOT_TREE_OWNED=0
 BOOT_COMMIT=""
+FF_SOURCE_REPO=""; FF_SOURCE_COMMIT=""; FF_SOURCE_KIND=""
+FF_SOURCE_STATE=""; FF_SOURCE_REASON=""; FF_SOURCE_DRIFT=""
 
 ff_boot_cleanup() {
   [ "${FF_BOOT_TREE_OWNED:-0}" = "1" ] || return 0
@@ -130,12 +133,62 @@ ff_boot_cleanup() {
   return 0
 }
 
+# The M10/M11 verdict, embedded. Mirrors _ff_mms_verify in the shared lib on purpose: this is the
+# one piece of the boundary that cannot be borrowed from the tree it judges (R3 / re-review B1).
+# What it drives IS the source's own managed_content_manifest.py — the same trust model the
+# installed lib uses: a manifest-bearing tree is proven by its shipped verifier or it aborts, and
+# a manifest+verifier source needs no materialize-managed-source.sh to be provable (M11).
+ff_boot_verify() {   # <tree>; sets FF_SOURCE_STATE / _REASON / _DRIFT. rc 1 => abort before writes
+  local tree="$1" mrel="audit/managed-content-manifest.json" mcm out rc
+  mcm="$tree/hooks/local/lib/managed_content_manifest.py"
+  FF_SOURCE_STATE=""; FF_SOURCE_REASON=""; FF_SOURCE_DRIFT=""
+  if [ ! -f "$tree/$mrel" ]; then
+    FF_SOURCE_STATE="UNVERIFIED_LEGACY_SOURCE"
+    FF_SOURCE_REASON="source ships no $mrel (pre-4.7.0 source)"
+    return 0
+  fi
+  if [ ! -f "$mcm" ]; then
+    FF_SOURCE_REASON="source ships $mrel but no hooks/local/lib/managed_content_manifest.py to check it against — these bytes cannot be proven to be what upstream shipped"
+    return 1
+  fi
+  if ! command -v python3 >/dev/null 2>&1; then
+    FF_SOURCE_REASON="source ships $mrel but python3 is unavailable to verify it — these bytes cannot be proven to be what upstream shipped"
+    return 1
+  fi
+  out="$(python3 "$mcm" verify --root "$tree" --json 2>/dev/null)"; rc=$?
+  FF_SOURCE_DRIFT="$(printf '%s' "$out" | python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+fs = [f.get("path", "?") for f in d.get("files", []) or []]
+s = ", ".join(fs[:8])
+if len(fs) > 8:
+    s += " (+%d more)" % (len(fs) - 8)
+print(s)
+' 2>/dev/null)"
+  # TRIPWIRE (decision M10): UNVERIFIED_LEGACY_SOURCE is reachable ONLY from the manifest-ABSENT
+  # branch above. Never widen the rc-0 success case beyond a literal MATCH verdict either.
+  case "$rc" in
+    0)
+      case "$out" in
+        *'"verdict": "MATCH"'*|*'"verdict":"MATCH"'*)
+          FF_SOURCE_STATE="VERIFIED"; FF_SOURCE_DRIFT=""; return 0 ;;
+        *) FF_SOURCE_REASON="the source verifier exited 0 without a MATCH verdict for $mrel (truncated or replaced managed_content_manifest.py?)"
+           return 1 ;;
+      esac ;;
+    1) FF_SOURCE_REASON="the source tree does not match its own shipped $mrel (DRIFT)"; return 1 ;;
+    2) FF_SOURCE_REASON="the source tree's $mrel is corrupt or self-hash mismatched (BROKEN)"; return 1 ;;
+    *) FF_SOURCE_REASON="the source verifier could not check $mrel (exited rc=$rc)"; return 1 ;;
+  esac
+}
+
 # Minimal embedded materialization for an install that predates hooks/local/lib/
-# materialize-managed-source.sh. Deliberately duplicates only the two primitives that cannot be
-# borrowed from the source without trusting it first; the VERDICT still comes from the shared lib,
-# sourced afterwards from the materialized tree.
+# materialize-managed-source.sh. Deliberately duplicates only the primitives that cannot be
+# borrowed from the source without trusting it first: the two materializations and the verdict.
 ff_boot_materialize() {
-  local dest cand oid lib
+  local dest cand oid lib repo kind
   dest="$(mktemp -d "${TMPDIR:-/tmp}/ff-source-XXXXXX" 2>/dev/null || true)"
   if [ -z "$dest" ] || [ ! -d "$dest" ]; then
     echo "[bootstrap-upgrade] FATAL: could not create a temporary source tree." >&2
@@ -172,32 +225,28 @@ ff_boot_materialize() {
     echo "[bootstrap-upgrade] materialized plain source -> immutable snapshot (embedded boundary)."
   fi
   SOURCE_TREE="$dest"
-  lib="$dest/hooks/local/lib/materialize-managed-source.sh"
-  if [ -f "$lib" ]; then
-    # shellcheck source=/dev/null
-    . "$lib"
-    ff_source_adopt "$dest" 1        # ownership + cleanup move to the lib
-    FF_BOOT_TREE_OWNED=0
-    trap 'ff_source_cleanup' EXIT
-    trap 'rc=$?; ff_source_cleanup; exit $rc' INT TERM
-    FF_SOURCE_REPO="$(cd "$SOURCE_CLONE" && pwd)"
-    FF_SOURCE_COMMIT="$BOOT_COMMIT"
-    FF_SOURCE_KIND="$([ -n "$BOOT_COMMIT" ] && echo git || echo plain)"
-    ff_source_verify_tree "$dest" || return 1
-    return 0
-  fi
-  # No boundary lib in the materialized tree = a genuinely pre-4.7.0 source. It may still
-  # upgrade, but a manifest-BEARING tree with no verifier is refused (same rule as M10's).
-  if [ -f "$dest/audit/managed-content-manifest.json" ]; then
-    echo "[bootstrap-upgrade] FATAL: the source ships audit/managed-content-manifest.json but no" >&2
-    echo "                    hooks/local/lib/materialize-managed-source.sh to verify it with, and" >&2
-    echo "                    this install has no trusted copy either — these bytes cannot be proven" >&2
-    echo "                    to be what upstream shipped. NOTHING was written." >&2
+  repo="$(cd "$SOURCE_CLONE" && pwd)"
+  kind="$([ -n "$BOOT_COMMIT" ] && echo git || echo plain)"
+  # The verdict runs on THIS script's code, before any shell comes out of $dest.
+  if ! ff_boot_verify "$dest"; then
+    echo "[bootstrap-upgrade] ABORT: $FF_SOURCE_REASON" >&2
+    [ -n "$FF_SOURCE_DRIFT" ] && echo "[bootstrap-upgrade]        offending path(s): $FF_SOURCE_DRIFT" >&2
+    echo "[bootstrap-upgrade] NOTHING was written. Re-stage a clean source tree and retry." >&2
     return 1
   fi
-  FF_SOURCE_STATE="UNVERIFIED_LEGACY_SOURCE"
-  echo "[bootstrap-upgrade] NOTE: pre-boundary source (no manifest, no materializer) — proceeding as"
-  echo "                    UNVERIFIED_LEGACY_SOURCE from the materialized tree (decision M10)."
+  echo "[bootstrap-upgrade] embedded-boundary verdict on the materialized tree: state=$FF_SOURCE_STATE"
+  [ "$FF_SOURCE_STATE" = "UNVERIFIED_LEGACY_SOURCE" ] \
+    && echo "[bootstrap-upgrade] UNVERIFIED_LEGACY_SOURCE: $FF_SOURCE_REASON — proceeding for pre-manifest source compatibility (decision M10)."
+  # Only a PROVEN tree may contribute shell to this process, and only for the shared repair API
+  # (--repair-managed). Sourcing the lib resets the FF_SOURCE_* contract, so re-assert it after.
+  lib="$dest/hooks/local/lib/materialize-managed-source.sh"
+  if [ "$FF_SOURCE_STATE" = "VERIFIED" ] && [ -f "$lib" ]; then
+    # shellcheck source=/dev/null
+    . "$lib"
+    ff_source_adopt "$dest" 0        # ownership stays with ff_boot_cleanup — one owner only
+    FF_SOURCE_STATE="VERIFIED"; FF_SOURCE_REASON=""; FF_SOURCE_DRIFT=""
+  fi
+  FF_SOURCE_REPO="$repo"; FF_SOURCE_COMMIT="$BOOT_COMMIT"; FF_SOURCE_KIND="$kind"
   return 0
 }
 
@@ -221,8 +270,11 @@ echo "[bootstrap-upgrade] Source VERSION: $(tr -d '\n\r' < "$SOURCE_TREE/VERSION
 # Git-exclude the *.pre-*-<ts> backup snapshots so a downstream `git add -A` (notably
 # FuseBase CLI's `fusebase update` checkpoint) never stages them — the rule and its rationale
 # live in the shared lib, which upgrade.sh uses too (no second copy to drift).
-FF_BH_LIB="$SOURCE_TREE/hooks/local/lib/backup-hygiene.sh"
-[ -f "$FF_BH_LIB" ] || FF_BH_LIB="$ROOT/hooks/local/lib/backup-hygiene.sh"
+# The target-version copy wins, but only out of a tree the boundary PROVED — an unverified
+# legacy source contributes no shell to this process (same rule as the materializer above).
+FF_BH_LIB="$ROOT/hooks/local/lib/backup-hygiene.sh"
+[ "$FF_SOURCE_STATE" = "VERIFIED" ] && [ -f "$SOURCE_TREE/hooks/local/lib/backup-hygiene.sh" ] \
+  && FF_BH_LIB="$SOURCE_TREE/hooks/local/lib/backup-hygiene.sh"
 # shellcheck source=/dev/null
 [ -f "$FF_BH_LIB" ] && . "$FF_BH_LIB"
 if command -v ff_git_exclude_backups >/dev/null 2>&1; then

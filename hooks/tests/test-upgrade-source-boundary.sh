@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
-# Fusebase Flow — canonical source boundary + byte-model tests (T1 / AC1-AC3).
-# Spec: docs/specs/upgrade-source-integrity-and-observability/ (decisions M1, M2, M10).
+# Fusebase Flow — canonical source boundary + byte-model tests (T1 / AC1, AC2; decisions M1, M2,
+# M10, M11). Spec: docs/specs/upgrade-source-integrity-and-observability/.
 #
-# Separate from test-upgrade-conflict-classification.sh on a responsibility seam: that file
-# owns K9 classification, this one owns WHICH BYTES enter the consumer. The three byte models
+# Two responsibility seams around this file: test-upgrade-conflict-classification.sh owns K9
+# classification, test-upgrade-repair-managed.sh owns AC3's deliberate byte repair, and this one
+# owns WHICH BYTES enter the consumer — and, per the source-shape matrix below, which source
+# shapes are admitted at all. Fixture builders are shared from lib/upgrade-fixtures.sh. The three
+# byte models
 # are not interchangeable and the whole point of these cases is that collapsing them is silent:
 #   U  incoming  — forced core.autocrlf=false + core.eol=lf on EVERY OS, from git OBJECTS
 #   L  local     — consumer bytes exactly as found
@@ -24,45 +27,38 @@ bad() { fail=$((fail + 1)); echo "FAIL: upgrade-boundary $1 (${2:-})"; }
 skip() { pass=$((pass + 1)); echo "PASS: upgrade-boundary $1 [SKIP — $2]"; }
 finish() { echo "[test-upgrade-source-boundary] $pass/$((pass + fail)) PASS"; exit $fail; }
 
+# ---- source-shape matrix -------------------------------------------------------------------
+# The bootstrap hop behaves differently along three axes, and the round that produced this file
+# shipped two BLOCKERs in cells nobody had named. Every cell is therefore dispositioned here:
+#   transport  plain | git
+#   source     A manifest + materializer · B manifest + verifier only (the shipped v4.7.0 tag)
+#              C no manifest, no materializer (genuine pre-4.7.0)
+#   consumer   H+ trusted local materialize-managed-source.sh installed · H- old install
+# RUN cells name the case that exercises them and must actually run; WAIVE cells carry a reason.
+# The closing assertion re-derives the 12 combinations, so dropping or renaming a cell is visible.
+MX_ROWS=(
+  "plain/A/H+|RUN|m10-manifest-bearing-source-drift-aborts-before-writes + ac2-boundary-never-sourced-from-the-mutable-source-worktree"
+  "plain/A/H-|RUN|k10-embedded-boundary-still-upgrades-a-pre-boundary-install-plain + r3-old-install-cannot-be-verified-by-the-source-own-helper"
+  "plain/B/H+|WAIVE|the trusted-helper path takes its verdict from the INSTALLED lib and never reads the source's materializer, so shapes B and C collapse onto A there (cell plain/A/H+)"
+  "plain/B/H-|RUN|m11-manifest-plus-verifier-without-materializer-is-provable-plain + m11-verifier-only-source-still-aborts-on-drift"
+  "plain/C/H+|WAIVE|same shape-blindness as plain/B/H+; the manifest-ABSENT branch itself is proven by m10-pre-manifest-source-upgrades-as-named-unverified-legacy"
+  "plain/C/H-|RUN|m10-pre-boundary-source-completes-the-unverified-legacy-route-plain"
+  "git/A/H+|RUN|ac1-incoming-U-materialized-from-objects-forced-LF"
+  "git/A/H-|RUN|k10-embedded-boundary-still-upgrades-a-pre-boundary-install-git"
+  "git/B/H+|WAIVE|same shape-blindness as plain/B/H+"
+  "git/B/H-|RUN|m11-manifest-plus-verifier-without-materializer-is-provable-git"
+  "git/C/H+|WAIVE|same shape-blindness as plain/C/H+"
+  "git/C/H-|RUN|m10-pre-boundary-source-completes-the-unverified-legacy-route-git"
+)
+MX_SEEN=""
+mx_ran() { MX_SEEN="$MX_SEEN
+$1"; }
+
 command -v python3 >/dev/null 2>&1 || { echo "PASS: upgrade-boundary skipped-no-python3"; pass=1; finish; }
 command -v git >/dev/null 2>&1 || { echo "PASS: upgrade-boundary skipped-no-git"; pass=1; finish; }
 
-MCM="$ROOT/hooks/local/lib/managed_content_manifest.py"
-
-# has_cr <file>: 0 iff the file holds >=1 CR byte. THE measurand for every assertion here —
-# `diff` normalizes line endings, so it can never answer this question (that is why the
-# original report read a true-positive byte drift as a false positive).
-has_cr() { [ -n "$(tr -dc '\r' < "$1" 2>/dev/null)" ]; }
-
-# The 4.7.0+ boundary libs, `[ -f ]`-guarded so this fixture still BUILDS against a
-# pre-boundary baseline tree — that is how these discriminators are observed RED.
-copy_boundary_libs() {   # <lib-dest-dir>
-  local f
-  for f in materialize-managed-source.sh backup-hygiene.sh; do
-    [ -f "$ROOT/hooks/local/lib/$f" ] && cp "$ROOT/hooks/local/lib/$f" "$1/"
-  done
-  return 0
-}
-
-# A plain-directory (non-git) source case: a consumer with a VALID recorded base and a
-# copy-eligible upstream change (control.sh v1 -> v2), so a "nothing was written" assertion
-# can never pass through unknown-base preservation instead of a real abort.
-bnd_plain_case() {   # <dir> -> echoes the consumer root
-  local D="$1" L U d
-  L="$D/local"; U="$L/.fusebase-flow-source"
-  mkdir -p "$L/hooks/local/lib" "$L/workflows" "$U/hooks/local/lib" "$U/workflows"
-  ( cd "$L" && git init -q && git config user.email t@t.t && git config user.name t )
-  echo "4.6.1" > "$L/VERSION"; printf 'control v1\n' > "$L/hooks/local/control.sh"
-  echo "4.7.0" > "$U/VERSION"; printf 'control v2\n' > "$U/hooks/local/control.sh"
-  printf 'wf v1\n' > "$L/workflows/wf.md"; printf 'wf v1\n' > "$U/workflows/wf.md"
-  for d in "$L" "$U"; do
-    cp "$ROOT/hooks/local/upgrade.sh" "$ROOT/hooks/local/bootstrap-upgrade.sh" "$d/hooks/local/"
-    cp "$MCM" "$d/hooks/local/lib/"
-    copy_boundary_libs "$d/hooks/local/lib"
-    ( cd "$d" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null )
-  done
-  echo "$L"
-}
+# shellcheck source=lib/upgrade-fixtures.sh
+. "$ROOT/hooks/tests/lib/upgrade-fixtures.sh"
 
 # ---- 1. AC1 (F2): incoming U comes from git OBJECTS, never the staging WORKTREE ------------
 # THE reported defect. A persistent staging worktree populated at commit A (before an EOL pin
@@ -139,6 +135,7 @@ if [ -z "$f2_fail" ]; then
 else
   bad "ac1-incoming-U-materialized-from-objects-forced-LF" "$f2_fail :: $(tail -12 "$F2_LOG" | tr '\n' '|')"
 fi
+mx_ran "git/A/H+"
 rm -rf "$F2_ROOT"
 
 # ---- 1b. AC2: the handoff is asserted on the engine's ACTUAL ARGV -------------------------
@@ -227,6 +224,7 @@ if [ -z "$d_fail" ]; then
 else
   bad "m10-manifest-bearing-source-drift-aborts-before-writes" "rc=$D_RC$d_fail :: $(tail -8 "$D_LOG" | tr '\n' '|')"
 fi
+mx_ran "plain/A/H+"
 
 # 2b. A genuinely PRE-manifest source keeps upgrading, through a NAMED logged fallback —
 #     never silently, and never labelled verified. Revoking this breaks every pre-4.7.0 source.
@@ -370,6 +368,7 @@ for k10 in plain git; do
   else
     bad "k10-embedded-boundary-still-upgrades-a-pre-boundary-install-$k10" "$k_fail :: $(tail -8 "$K_LOG" | tr '\n' '|')"
   fi
+  mx_ran "$k10/A/H-"
 done
 
 # 2g. M10 end to end: a source with NEITHER manifest NOR materializer — the genuine pre-4.7.0
@@ -377,21 +376,6 @@ done
 # cannot see this: its source still ships the new materializer AND the new engine, so the hop takes
 # the --source-tree handoff. Here the source engine predates that flag, which is what makes
 # "release the canonical tree, then exec the engine inside it" a 127 instead of an upgrade.
-bnd_legacy_engine() {   # <source tree>: a PRE-boundary engine — no `--source-tree)` token, and it
-  # reads the staging directory itself, exactly as every engine before the canonical tree did.
-  cat > "$1/hooks/local/upgrade.sh" <<'LEGACY'
-#!/usr/bin/env bash
-set -eu
-printf '%s\n' "$@" > "./legacy-engine-argv.txt"
-cp ".fusebase-flow-source/hooks/local/control.sh" "hooks/local/control.sh"
-echo "[legacy-upgrade] refreshed content from .fusebase-flow-source"
-exit 0
-LEGACY
-}
-bnd_git_source() {   # <source dir>
-  ( cd "$1" && git init -q && git config user.email t@t.t && git config user.name t \
-      && git config core.autocrlf false && git add -A && git commit -qm src && git branch -M main )
-}
 for kind in plain git; do
   P="$(bnd_plain_case "$B3_ROOT/legacyroute-$kind")"
   PS="$P/.fusebase-flow-source"
@@ -420,216 +404,126 @@ for kind in plain git; do
   else
     bad "m10-pre-boundary-source-completes-the-unverified-legacy-route-$kind" "$p_fail :: $(tail -8 "$P_LOG" | tr '\n' '|')"
   fi
+  mx_ran "$kind/C/H-"
 done
-rm -rf "$B3_ROOT"
 
-# ---- 3. AC3: the already-corrupted consumer — preserve, then deliberate repair -------------
-# Seeds the reported end state: base == upstream == LF, local == CRLF. An ordinary upgrade must
-# call that consumer-only and PRESERVE it (it cannot know the CRLF was accidental); only an
-# explicitly named repair may replace it. Exactly ONE path drifts, so the post-repair
-# "manifest verifies MATCH" assertion is meaningful.
-RP_ROOT="$(mktemp -d)"
-RP="$(bnd_plain_case "$RP_ROOT/case")"
-printf 'wf v1\r\n' > "$RP/workflows/wf.md"        # the corruption: local CRLF, base+upstream LF
-RP_LOG="$RP_ROOT/ordinary.log"
-( cd "$RP" && bash hooks/local/upgrade.sh --auto-yes ) > "$RP_LOG" 2>&1
-rp_fail=""
-has_cr "$RP/workflows/wf.md" || rp_fail="$rp_fail [ordinary upgrade REPLACED the corrupted file — it must preserve and report it]"
-grep -q -- "- workflows/wf.md" "$RP_LOG" || rp_fail="$rp_fail [the preserved path was not reported]"
-python3 "$MCM" verify --root "$RP" >/dev/null 2>&1 \
-  && rp_fail="$rp_fail [manifest verifies MATCH while the file is still CRLF — the fixture is not seeded]"
-# A path named TWICE is refused up front: staging it over its own staging file would fail the
-# second swap into a rollback instead of a clean "nothing was written".
-( cd "$RP" && bash hooks/local/bootstrap-upgrade.sh --source .fusebase-flow-source \
-    --repair-managed workflows/wf.md --repair-managed workflows/wf.md ) > "$RP_ROOT/dup.log" 2>&1
-rc=$?
-[ "$rc" -ne 0 ] || rp_fail="$rp_fail [repair ACCEPTED the same path twice]"
-grep -q "named more than once" "$RP_ROOT/dup.log" || rp_fail="$rp_fail [the duplicate path was not refused by name :: $(tail -4 "$RP_ROOT/dup.log" | tr '\n' '|')]"
-has_cr "$RP/workflows/wf.md" || rp_fail="$rp_fail [the duplicate-path run replaced the file anyway]"
-# Staging residue only: the ordinary upgrade above legitimately left .pre-upgrade-<ts> twins.
-[ -z "$(find "$RP" -name '*.ff-repair-*' 2>/dev/null)" ] \
-  || rp_fail="$rp_fail [the duplicate-path refusal left staging residue behind]"
-# Negative controls: repair refuses a path no verifier reported, an unmanaged path, and traversal.
-for badpath in "hooks/local/control.sh" "docs/not-managed.md" "../escape.md"; do
-  ( cd "$RP" && bash hooks/local/bootstrap-upgrade.sh --source .fusebase-flow-source \
-      --repair-managed "$badpath" ) > "$RP_ROOT/refuse.log" 2>&1
-  rc=$?
-  [ "$rc" -ne 0 ] || rp_fail="$rp_fail [repair ACCEPTED unreported/unmanaged path $badpath]"
-  grep -q "REFUSED" "$RP_ROOT/refuse.log" || rp_fail="$rp_fail [no refusal diagnostic for $badpath]"
+# 2h. M11: a source that ships audit/managed-content-manifest.json AND
+# hooks/local/lib/managed_content_manifest.py but NO materialize-managed-source.sh — the shape the
+# published v4.7.0 tag actually has, and one a prerelease tester already fetched. It carries its own
+# verifier, so its bytes CAN be proven and it must upgrade; refusing it strands a real historical
+# source. M11 is unweakened: the drift control below still aborts on the same shape.
+for kind in plain git; do
+  V="$(bnd_plain_case "$B3_ROOT/verifieronly-$kind")"
+  VS="$V/.fusebase-flow-source"
+  rm -f "$V/hooks/local/lib/materialize-managed-source.sh"     # consumer predates the boundary lib
+  rm -f "$VS/hooks/local/lib/materialize-managed-source.sh"    # …and so does the source
+  bnd_legacy_engine "$VS"
+  ( cd "$VS" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null )
+  V_REF=()
+  if [ "$kind" = "git" ]; then bnd_git_source "$VS"; V_REF=(--ref main); fi
+  V_LOG="$B3_ROOT/verifieronly-$kind.log"
+  ( cd "$V" && bash hooks/local/bootstrap-upgrade.sh --source .fusebase-flow-source \
+      ${V_REF[@]+"${V_REF[@]}"} -- --auto-yes ) > "$V_LOG" 2>&1
+  V_RC=$?
+  v_fail=""
+  [ "$V_RC" -eq 0 ] || v_fail="$v_fail [rc $V_RC — a source that SHIPS its own verifier was refused]"
+  grep -q "control v2" "$V/hooks/local/control.sh" 2>/dev/null || v_fail="$v_fail [no content delivered]"
+  grep -q "cannot be proven" "$V_LOG" \
+    && v_fail="$v_fail [refused as unprovable although the source ships managed_content_manifest.py]"
+  grep -q "UNVERIFIED_LEGACY_SOURCE" "$V_LOG" \
+    && v_fail="$v_fail [a manifest-BEARING source was routed to the legacy fallback — M10/M11 reserve that for manifest-ABSENT sources]"
+  grep -q "state=VERIFIED" "$V_LOG" || v_fail="$v_fail [the source was never reported VERIFIED]"
+  if [ -z "$v_fail" ]; then
+    ok "m11-manifest-plus-verifier-without-materializer-is-provable-$kind"
+  else
+    bad "m11-manifest-plus-verifier-without-materializer-is-provable-$kind" "$v_fail :: $(tail -8 "$V_LOG" | tr '\n' '|')"
+  fi
+  mx_ran "$kind/B/H-"
 done
-grep -q "control v2" "$RP/hooks/local/control.sh" || rp_fail="$rp_fail [a refused repair still wrote something]"
-# The authorized repair: the exact verifier-reported path, named explicitly on the CLI.
-RP_FIX="$RP_ROOT/repair.log"
-( cd "$RP" && bash hooks/local/bootstrap-upgrade.sh --source .fusebase-flow-source \
-    --repair-managed workflows/wf.md ) > "$RP_FIX" 2>&1
-RP_FIX_RC=$?
-has_cr "$RP/workflows/wf.md" && rp_fail="$rp_fail [authorized repair did not replace the CRLF bytes]"
-[ "$RP_FIX_RC" -eq 0 ] || rp_fail="$rp_fail [post-repair verification did not reach MATCH (rc $RP_FIX_RC)]"
-python3 "$MCM" verify --root "$RP" >/dev/null 2>&1 \
-  || rp_fail="$rp_fail [manifest still does not verify MATCH after repair]"
-if [ -z "$rp_fail" ]; then
-  ok "ac3-ordinary-upgrade-preserves-only-named-repair-replaces"
+
+# NEGATIVE CONTROL for 2h: the same shape with drifted bytes still ABORTS. Without this, "the
+# verifier-only shape upgrades" could be satisfied by simply not verifying it. The verdict is
+# reached on the materialized tree, so the transport axis cannot change it — plain covers both.
+VD="$(bnd_plain_case "$B3_ROOT/verifieronly-drift")"
+rm -f "$VD/hooks/local/lib/materialize-managed-source.sh"
+rm -f "$VD/.fusebase-flow-source/hooks/local/lib/materialize-managed-source.sh"
+bnd_legacy_engine "$VD/.fusebase-flow-source"
+( cd "$VD/.fusebase-flow-source" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null )
+printf 'control TAMPERED\n' > "$VD/.fusebase-flow-source/hooks/local/control.sh"
+VD_LOG="$B3_ROOT/verifieronly-drift.log"
+( cd "$VD" && bash hooks/local/bootstrap-upgrade.sh --source .fusebase-flow-source -- --auto-yes ) > "$VD_LOG" 2>&1
+VD_RC=$?
+vd_fail=""
+[ "$VD_RC" -ne 0 ] || vd_fail="$vd_fail [a DRIFTed manifest-bearing source upgraded anyway (rc 0)]"
+grep -q "ABORT" "$VD_LOG" || vd_fail="$vd_fail [no abort diagnostic]"
+grep -q "DRIFT" "$VD_LOG" || vd_fail="$vd_fail [the abort does not name the DRIFT verdict]"
+grep -q "hooks/local/control.sh" "$VD_LOG" || vd_fail="$vd_fail [the offending path is not named]"
+grep -q "control v1" "$VD/hooks/local/control.sh" || vd_fail="$vd_fail [tampered bytes were installed]"
+[ ! -f "$VD/legacy-engine-argv.txt" ] || vd_fail="$vd_fail [the engine ran despite the abort]"
+if [ -z "$vd_fail" ]; then
+  ok "m11-verifier-only-source-still-aborts-on-drift"
 else
-  bad "ac3-ordinary-upgrade-preserves-only-named-repair-replaces" "$rp_fail :: $(tail -10 "$RP_FIX" | tr '\n' '|')"
+  bad "m11-verifier-only-source-still-aborts-on-drift" "rc=$VD_RC$vd_fail :: $(tail -8 "$VD_LOG" | tr '\n' '|')"
 fi
-rm -rf "$RP_ROOT"
 
-# ---- 3c. AC3 / R2: repair never writes THROUGH a destination symlink ----------------------
-# The verifier's own is_file()/hashing FOLLOW a consumer symlink, so a managed path linked to an
-# external file is reported as drifted and used to be accepted — `cp` then overwrote the external
-# target. Both fixtures are otherwise fully eligible (the exact path the verifier reported, shipped
-# by the source), so symlink-ness is the ONLY reason either may be refused, and the assertions pin
-# that reason. Coverage is all-or-nothing: MSYS `ln -s` silently COPIES unless winsymlinks is on,
-# and a copy is a legitimate repair target, so an unchecked fixture would pass for the wrong reason.
-R2_ROOT="$(mktemp -d)"
-R2_OUT="$(mktemp -d)"
-r2s_fail=""; r2s_ran=0; r2s_expected=2
-r2_mk_symlink() {   # <link> <target> -> rc 1 if the platform made a copy instead
-  ln -s "$2" "$1" 2>/dev/null || return 1
-  [ -L "$1" ] || return 1
+# 2i. R3 completed: the OLD-INSTALL half of the tamper matrix. 2d keeps the consumer's trusted
+# helper installed, so the hop never had to decide the verdict from source-supplied shell. Here the
+# consumer has NO local helper, so the hop must materialize and verify with its own embedded code —
+# and the source's helper, which redefines ff_source_verify_tree to approve anything and drops a
+# marker OUTSIDE the consumer root, must never be sourced at all.
+T="$(bnd_plain_case "$B3_ROOT/selfapprove")"
+rm -f "$T/hooks/local/lib/materialize-managed-source.sh"
+cat >> "$T/.fusebase-flow-source/hooks/local/lib/materialize-managed-source.sh" <<'TAMPER'
+ff_source_verify_tree() {
+  FF_SOURCE_STATE="VERIFIED"; FF_SOURCE_REASON=""; FF_SOURCE_DRIFT=""
+  touch "$PWD/../source-helper-approved-itself"
   return 0
 }
-for kind in leaf parent; do
-  S="$(bnd_plain_case "$R2_ROOT/sym-$kind")"
-  if [ "$kind" = "leaf" ]; then
-    printf 'outside bytes\n' > "$R2_OUT/leaf-wf.md"
-    rm -f "$S/workflows/wf.md"
-    r2_mk_symlink "$S/workflows/wf.md" "$R2_OUT/leaf-wf.md" || { rm -rf "$S"; continue; }
-    OUTFILE="$R2_OUT/leaf-wf.md"; LINK="$S/workflows/wf.md"
-  else
-    mkdir -p "$R2_OUT/wfdir"; printf 'outside bytes\n' > "$R2_OUT/wfdir/wf.md"
-    rm -rf "$S/workflows"
-    r2_mk_symlink "$S/workflows" "$R2_OUT/wfdir" || { rm -rf "$S"; continue; }
-    OUTFILE="$R2_OUT/wfdir/wf.md"; LINK="$S/workflows"
-  fi
-  r2s_ran=$((r2s_ran + 1))
-  # PRECONDITION: the path must actually be REPORTED, or the refusal proves nothing about symlinks.
-  # TRIPWIRE (pipefail): capture first, match with `case` — never `producer | grep -q`. grep -q
-  # exits at the first match, the producer takes SIGPIPE, and under `set -o pipefail` the PIPELINE
-  # reports 141 even though the line WAS found (this precondition went falsely red on Linux).
-  R2_VERIFY="$(python3 "$MCM" verify --root "$S" --json 2>/dev/null || true)"
-  case "$R2_VERIFY" in
-    *'"workflows/wf.md"'*) ;;
-    *) r2s_fail="$r2s_fail [$kind: PRECONDITION — the verifier does not report workflows/wf.md, so this fixture cannot exercise the accepted-symlink path :: $(printf '%s' "$R2_VERIFY" | tr '\n' ' ' | cut -c1-200)]" ;;
+TAMPER
+printf 'control TAMPERED\n' > "$T/.fusebase-flow-source/hooks/local/control.sh"
+T_LOG="$B3_ROOT/selfapprove.log"
+( cd "$T" && bash hooks/local/bootstrap-upgrade.sh --source .fusebase-flow-source -- --auto-yes ) > "$T_LOG" 2>&1
+T_RC=$?
+t_fail=""
+[ ! -e "$B3_ROOT/selfapprove/source-helper-approved-itself" ] \
+  || t_fail="$t_fail [the SOURCE tree's own materialize-managed-source.sh decided the verdict — it redefined ff_source_verify_tree and approved itself]"
+[ "$T_RC" -ne 0 ] || t_fail="$t_fail [a tampered source upgraded anyway (rc 0)]"
+grep -q "control v1" "$T/hooks/local/control.sh" || t_fail="$t_fail [tampered source bytes were installed]"
+grep -q "ABORT" "$T_LOG" || t_fail="$t_fail [no abort diagnostic]"
+grep -q "audit/managed-content-manifest.json\|DRIFT" "$T_LOG" \
+  || t_fail="$t_fail [the abort names neither the manifest nor the DRIFT verdict]"
+if [ -z "$t_fail" ]; then
+  ok "r3-old-install-cannot-be-verified-by-the-source-own-helper"
+else
+  bad "r3-old-install-cannot-be-verified-by-the-source-own-helper" "rc=$T_RC$t_fail :: $(tail -8 "$T_LOG" | tr '\n' '|')"
+fi
+mx_ran "plain/A/H-"
+rm -rf "$B3_ROOT"
+
+# ---- 2j. the matrix itself: every cell named, every RUN cell actually run ------------------
+mx_fail=""; mx_run=0; mx_waive=0
+for t in plain git; do for s in A B C; do for h in "H+" "H-"; do
+  key="$t/$s/$h"; row=""
+  for r in "${MX_ROWS[@]}"; do case "$r" in "$key|"*) row="$r" ;; esac; done
+  if [ -z "$row" ]; then mx_fail="$mx_fail [$key: no matrix row — a source shape is undispositioned]"; continue; fi
+  case "$row" in
+    *"|RUN|"*)
+      mx_run=$((mx_run + 1))
+      case $'\n'"$MX_SEEN"$'\n' in
+        *$'\n'"$key"$'\n'*) ;;
+        *) mx_fail="$mx_fail [$key: declared RUN by '${row##*|}' but no case reported it — the cell was dropped]" ;;
+      esac ;;
+    *"|WAIVE|"*)
+      mx_waive=$((mx_waive + 1))
+      [ -n "${row##*|}" ] || mx_fail="$mx_fail [$key: WAIVE with no reason]" ;;
+    *) mx_fail="$mx_fail [$key: row is neither RUN nor WAIVE]" ;;
   esac
-  R2_LOG="$R2_ROOT/sym-$kind.log"
-  ( cd "$S" && bash hooks/local/bootstrap-upgrade.sh --source .fusebase-flow-source \
-      --repair-managed workflows/wf.md ) > "$R2_LOG" 2>&1
-  r2_rc=$?
-  [ "$r2_rc" -ne 0 ] || r2s_fail="$r2s_fail [$kind: repair ACCEPTED a symlinked destination (rc 0)]"
-  grep -q "REFUSED" "$R2_LOG" || r2s_fail="$r2s_fail [$kind: no refusal diagnostic]"
-  grep -q "symlink" "$R2_LOG" || r2s_fail="$r2s_fail [$kind: refused for the WRONG reason — no 'symlink' in the diagnostic :: $(tail -4 "$R2_LOG" | tr '\n' '|')]"
-  grep -q "outside bytes" "$OUTFILE" || r2s_fail="$r2s_fail [$kind: the file OUTSIDE the repo was overwritten through the link]"
-  [ -L "$LINK" ] || r2s_fail="$r2s_fail [$kind: the symlink itself was replaced]"
-  [ -z "$(find "$S" -name '*.pre-upgrade-*' -o -name '*.ff-repair-*' 2>/dev/null)" ] \
-    || r2s_fail="$r2s_fail [$kind: a refused repair left backup/staging artifacts behind]"
-  [ -z "$(find "$R2_OUT" -name '*.pre-upgrade-*' 2>/dev/null)" ] \
-    || r2s_fail="$r2s_fail [$kind: a backup twin was written OUTSIDE the repo]"
-  rm -rf "$S"
-done
-[ "$r2s_ran" -eq 0 ] || [ "$r2s_ran" -eq "$r2s_expected" ] \
-  || r2s_fail="$r2s_fail [PARTIAL COVERAGE: only $r2s_ran/$r2s_expected symlink classes were built — leaf AND parent are both required]"
-if [ "$r2s_ran" -eq 0 ]; then
-  skip "ac3-repair-refuses-symlinked-destinations" "this platform's ln -s copies instead of linking (MSYS winsymlinks off) — the fixture cannot be built, so the control is NOT claimed as proof (its proof home is the Linux/CI run)"
-elif [ -z "$r2s_fail" ]; then
-  ok "ac3-repair-refuses-symlinked-destinations ($r2s_ran/$r2s_expected classes: leaf + parent symlink to an outside target, each refused WITH a 'symlink' reason; the external file untouched)"
+  echo "[source-shape-matrix] $row"
+done; done; done
+if [ -z "$mx_fail" ]; then
+  ok "source-shape-matrix-is-complete ($mx_run RUN + $mx_waive WAIVE = 12 cells; transport x source shape x consumer helper)"
 else
-  bad "ac3-repair-refuses-symlinked-destinations" "$r2s_fail"
-fi
-rm -rf "$R2_OUT"
-
-# ---- 3d/3e. AC3 / R2: a multi-path repair is WRITE-atomic, not just validation-atomic -------
-# Shared fixture: TWO genuinely drifted, genuinely repairable managed paths, so "path 1 was left
-# replaced" is the only way either case can go red.
-rb_case() {   # <dir> -> echoes the consumer root; path1 = workflows/wf.md, path2 = workflows/extra.md
-  local C
-  C="$(bnd_plain_case "$1")"
-  printf 'extra v1\n' > "$C/workflows/extra.md"
-  printf 'extra v1\n' > "$C/.fusebase-flow-source/workflows/extra.md"
-  ( cd "$C" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null )
-  ( cd "$C/.fusebase-flow-source" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null )
-  printf 'wf v1\r\n'    > "$C/workflows/wf.md"      # drift 1: CRLF corruption
-  printf 'extra EDIT\n' > "$C/workflows/extra.md"   # drift 2: content divergence
-  echo "$C"
-}
-rb_residue() {   # <root> -> echoes every artifact a clean refusal/rollback must not leave
-  find "$1" -name '*.pre-upgrade-*' -o -name '*.ff-repair-*' 2>/dev/null
-}
-
-# 3d. PREFLIGHT (portable): path 2's destination is a DIRECTORY. `cp file dir` and `mv file dir`
-# both write INSIDE it and report success, so this must be refused before anything is staged —
-# path 1 included.
-RB="$(rb_case "$R2_ROOT/preflight")"
-rm -f "$RB/workflows/extra.md"; mkdir -p "$RB/workflows/extra.md"
-printf 'blocker\n' > "$RB/workflows/extra.md/blocker"
-RB_LOG="$R2_ROOT/preflight.log"
-( cd "$RB" && bash hooks/local/bootstrap-upgrade.sh --source .fusebase-flow-source \
-    --repair-managed workflows/wf.md --repair-managed workflows/extra.md ) > "$RB_LOG" 2>&1
-RB_RC=$?
-rb_fail=""
-[ "$RB_RC" -ne 0 ] || rb_fail="$rb_fail [a batch whose second destination is a directory exited 0]"
-grep -q "REFUSED" "$RB_LOG" || rb_fail="$rb_fail [no refusal diagnostic]"
-has_cr "$RB/workflows/wf.md" || rb_fail="$rb_fail [PARTIAL APPLY: path 1 was replaced although path 2 was rejected]"
-[ -f "$RB/workflows/extra.md/blocker" ] || rb_fail="$rb_fail [path 2's blocking directory was damaged]"
-[ ! -e "$RB/workflows/extra.md/extra.md" ] || rb_fail="$rb_fail [repair wrote INSIDE the directory (cp/mv target-directory semantics) and called it a replacement]"
-[ -z "$(rb_residue "$RB")" ] || rb_fail="$rb_fail [refusal left artifacts behind: $(rb_residue "$RB" | tr '\n' ' ')]"
-if [ -z "$rb_fail" ]; then
-  ok "ac3-repair-preflights-every-destination-before-writing-any"
-else
-  bad "ac3-repair-preflights-every-destination-before-writing-any" "rc=$RB_RC$rb_fail :: $(tail -8 "$RB_LOG" | tr '\n' '|')"
-fi
-
-# 3e. ROLLBACK (portable): drive ff_repair_managed directly with `mv` stubbed to fail on the
-# SECOND staged swap. Once preflight rejects every PREDICTABLE failure, the apply-phase rollback
-# is only reachable through an unpredictable one (ENOSPC, a permission race) — and an untested
-# rollback is exactly the branch a later "simplification" deletes. A shell function shadows the
-# external command inside the sourced lib, so no test-only hook exists in production code.
-RB2="$(rb_case "$R2_ROOT/rollback")"
-RB2_LOG="$R2_ROOT/rollback.log"
-(
-  set +e
-  . "$ROOT/hooks/local/lib/materialize-managed-source.sh"
-  _mv_swaps=0
-  mv() {
-    case "$*" in
-      *.ff-repair-staged*)
-        _mv_swaps=$((_mv_swaps + 1))
-        [ "$_mv_swaps" -eq 2 ] && return 1 ;;
-    esac
-    command mv "$@"
-  }
-  ff_repair_managed "$RB2" "$RB2/.fusebase-flow-source" "20260730T120000Z" \
-    workflows/wf.md workflows/extra.md
-  echo "rc=$?"
-) > "$RB2_LOG" 2>&1
-rb2_fail=""
-grep -q "^rc=0$" "$RB2_LOG" && rb2_fail="$rb2_fail [a failed swap reported success]"
-has_cr "$RB2/workflows/wf.md" || rb2_fail="$rb2_fail [PARTIAL APPLY: path 1 stayed REPLACED after path 2's swap failed — no rollback]"
-grep -q "extra EDIT" "$RB2/workflows/extra.md" || rb2_fail="$rb2_fail [path 2 was modified although its swap failed]"
-grep -q "rolled back" "$RB2_LOG" || rb2_fail="$rb2_fail [no rollback diagnostic — the operator cannot tell the batch was undone]"
-[ -z "$(rb_residue "$RB2")" ] || rb2_fail="$rb2_fail [rollback left artifacts behind: $(rb_residue "$RB2" | tr '\n' ' ')]"
-if [ -z "$rb2_fail" ]; then
-  ok "ac3-repair-rolls-the-whole-batch-back-when-a-swap-fails"
-else
-  bad "ac3-repair-rolls-the-whole-batch-back-when-a-swap-fails" "$rb2_fail :: $(tail -8 "$RB2_LOG" | tr '\n' '|')"
-fi
-rm -rf "$R2_ROOT"
-
-# 3b. AC3 carrier: the integrity checker names the repair command and no longer offers
-#     `git checkout -- <file>` for a BYTE mismatch (it restores the same wrong bytes).
-HIC="$ROOT/hooks/local/lib/hook-integrity-check.sh"
-hic_line="$(grep -n "FLOW_LAYER_DRIFT" "$HIC" | head -1)"
-hic_fail=""
-case "$hic_line" in
-  *"--repair-managed"*) ;; *) hic_fail="$hic_fail [drift recovery text does not name --repair-managed]" ;;
-esac
-case "$hic_line" in
-  *"git checkout -- "*) hic_fail="$hic_fail [drift recovery text still offers 'git checkout --' for a byte mismatch]" ;;
-esac
-if [ -z "$hic_fail" ]; then
-  ok "ac3-integrity-checker-names-the-repair-not-git-checkout"
-else
-  bad "ac3-integrity-checker-names-the-repair-not-git-checkout" "$hic_fail"
+  bad "source-shape-matrix-is-complete" "$mx_fail"
 fi
 
 # ---- 4. M2: the integrity hashers stay BYTE-EXACT ----------------------------------------

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.7.0",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 283,
+  "asset_count": 285,
   "assets": [
     {
       "path": ".claude-plugin/marketplace.json",
@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "db3507a1b6e79c8e2e832e383e462818aac79ad38180410f1d81432042b557c2"
+      "sha256": "52303d371f76c426e3e3ab99a7e6b7d98d34910cedb2666585a93e58d2989fbe"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -282,7 +282,7 @@
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
-      "sha256": "439e3fb1a02952d6fae01a6bfb0db886a21d0320030cf004fc063a13fa555a28"
+      "sha256": "4498c07c146dc4765f7c499e4012520e99bba20ac1269ba91e44025319475c29"
     },
     {
       "path": "hooks/local/check-cli-flow-conflicts.sh",
@@ -789,8 +789,12 @@
       "sha256": "0722710725d845e8e6aeaa79aed07062d98ff06e5894874a405ac41aa5d4c2d1"
     },
     {
+      "path": "hooks/tests/lib/upgrade-fixtures.sh",
+      "sha256": "cbef901b4a735e71f822daf02e62d26673e3bb63b279d0bd0333897f8b696659"
+    },
+    {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "33a79ea44291e56bf0fbfde67300eb2668c0f4aeb62fe880752853231ba87528"
+      "sha256": "7af2ed6e4f66ff2a9a7b21801b59a927b509decba46759e394accc0ac47728b3"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -937,8 +941,12 @@
       "sha256": "142ade45b7e474317cc0ff721c337fd3822c1fbf172cef1a1ecadc6999dd1414"
     },
     {
+      "path": "hooks/tests/test-upgrade-repair-managed.sh",
+      "sha256": "e082ef7666b7c799a0918a1bd99980b3fd88ae646231b31f37457ec97827b34d"
+    },
+    {
       "path": "hooks/tests/test-upgrade-source-boundary.sh",
-      "sha256": "cd5b45862e43ba6e122892c95b6e7f34c57a28d0c98796931309275d3d83e8b4"
+      "sha256": "1f0902aae0730fb3d30cfbfade9076f8aa5b507f5357e58efbd43e6db6cc556a"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
@@ -1137,5 +1145,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "3207763441b68716dbb0896d8b71291db82c45f5421df5e735ef9ec8c35a8edc"
+  "manifest_self_sha256": "5e81d21dffe68536441b93ac4e2f4229cd77fe7b691715589d2cfba49e0acfe5"
 }
