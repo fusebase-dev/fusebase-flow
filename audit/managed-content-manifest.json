@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.7.0",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 282,
+  "asset_count": 283,
   "assets": [
     {
       "path": ".claude-plugin/marketplace.json",
@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "dc3503a46f32ddfd87ba4d3567e43976a66f193cf17292487df6f8dc567f21a8"
+      "sha256": "f305d61342dc7ed9b5a19130713c1524f04c2fc9628e29ba4e5fe4ae85fbe822"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -291,6 +291,10 @@
     {
       "path": "hooks/local/check-module-size.sh",
       "sha256": "e9d192b09e351091350d6d4b6f04e865f5611f5268bd0c5c4a24d5cbcd83d582"
+    },
+    {
+      "path": "hooks/local/cleanup-flow-backups.sh",
+      "sha256": "1445dad9ffbd3407cc005e3d7e6f8e995cf82976dc365e905960eb8e1f1465be"
     },
     {
       "path": "hooks/local/eslint-ignore-flow-paths.sh",
@@ -550,7 +554,7 @@
     },
     {
       "path": "hooks/local/upgrade.sh",
-      "sha256": "787feed940c73cfdbf0f8af410de550a9affd7fc94ef66b87db3fd95e86b380f"
+      "sha256": "5acd9ce30c3f4f8ec603e3573d8be0100d78d6b3390fdbd53885b737da91cd0a"
     },
     {
       "path": "hooks/local/verify-gate.sh",
@@ -878,7 +882,7 @@
     },
     {
       "path": "hooks/tests/test-msys-tree-cleanup.sh",
-      "sha256": "78b08b615ed412139f902d33b54bed3b0c9e57664dc9062e99f99f91ac8378e7"
+      "sha256": "792550124acbfb1118ab6412db653522ee76699fe8880adf8cc6a29b4fe04297"
     },
     {
       "path": "hooks/tests/test-newline-preserve.sh",
@@ -1133,5 +1137,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "2fabd10ac4e5bba3d8a626d4574fbf3b1818beafa0413ce4f6b95ccd48bd5b96"
+  "manifest_self_sha256": "44af69104ab25563d4ed86a9b3dab167a1821ae2c48ecdecb95e810767fc8e57"
 }

@@ -477,4 +477,201 @@ else
   wait "$sib_pid" 2>/dev/null
 fi
 
+# ============================================================================================
+# AC4 / decision M5 — the SANCTIONED backup cleanup entry point.
+# upgrade.sh used to print a raw `rm -rf`, which policies/command-policy.yml hard-DENIES: the
+# framework contradicting its own FR-06 guard. The fix is NOT an exception to the deny, it is a
+# tool whose destructive authority is exact stem membership + resolved-path validation.
+# Every control below must REFUSE, exit non-zero, and delete NOTHING.
+# ============================================================================================
+CLEANUP="$ROOT/hooks/local/cleanup-flow-backups.sh"
+TS_OK="20260730T120000Z"
+
+# Discriminator half 1: the guidance itself. A raw recursive delete in the engine's
+# consumer-facing text is the defect — it teaches a command the guard denies.
+if grep -nE '^echo .*rm -rf' "$ROOT/hooks/local/upgrade.sh" >/dev/null 2>&1; then
+  bad "ac4-no-raw-recursive-delete-in-guidance" "upgrade.sh still prints a raw recursive delete ($(grep -nE '^echo .*rm -rf' "$ROOT/hooks/local/upgrade.sh" | head -2 | tr '\n' '|'))"
+else
+  ok "ac4-no-raw-recursive-delete-in-guidance"
+fi
+
+if [ ! -f "$CLEANUP" ]; then
+  bad "ac4-cleanup-entry-point-exists" "missing $CLEANUP — the sanctioned entry point is absent"
+else
+  ok "ac4-cleanup-entry-point-exists"
+
+  # A throwaway repo carrying one member of every eligibility class plus every refusal class.
+  cl_fixture() {   # <dir>
+    local F="$1"
+    mkdir -p "$F/hooks/local/lib" "$F/audit" "$F/policies" "$F/docs/_fusebase-flow"
+    ( cd "$F" && git init -q && git config user.email t@t.t && git config user.name t )
+    cp "$ROOT/hooks/local/cleanup-flow-backups.sh" "$F/hooks/local/"
+    cp "$ROOT/hooks/local/lib/backup-hygiene.sh" "$F/hooks/local/lib/"
+    cp "$ROOT/hooks/local/lib/managed_content_manifest.py" "$F/hooks/local/lib/"
+    printf 'doc\n' > "$F/docs/_fusebase-flow/framework.md"
+    # ELIGIBLE
+    mkdir -p "$F/agents.pre-upgrade-$TS_OK/x"; printf 'b\n' > "$F/agents.pre-upgrade-$TS_OK/x/a.md"
+    mkdir -p "$F/flow-skills.pre-upgrade-$TS_OK";  printf 'b\n' > "$F/flow-skills.pre-upgrade-$TS_OK/s.md"
+    printf 'b\n' > "$F/FLOW_RULES.md.pre-upgrade-$TS_OK"
+    printf 'b\n' > "$F/VERSION.pre-upgrade-$TS_OK"
+    printf 'b\n' > "$F/audit/hook-layer-manifest.json.pre-upgrade-$TS_OK"
+    printf 'b\n' > "$F/policies/module-size-baseline.txt.pre-upgrade-$TS_OK"
+    printf 'b\n' > "$F/docs/_fusebase-flow/framework.md.pre-upgrade-$TS_OK"
+    mkdir -p "$F/.fusebase-flow-source"; printf 'b\n' > "$F/.fusebase-flow-source/VERSION"
+    # NOT ELIGIBLE — each is a distinct refusal class; all must survive every run.
+    mkdir -p "$F/agents.pre-upgrade-notatimestamp"; printf 'k\n' > "$F/agents.pre-upgrade-notatimestamp/a.md"
+    mkdir -p "$F/agentsX.pre-upgrade-$TS_OK";       printf 'k\n' > "$F/agentsX.pre-upgrade-$TS_OK/a.md"
+    printf 'k\n' > "$F/config.pre-upgrade-template.yml"
+    printf 'k\n' > "$F/agents.pre-upgrade-$TS_OK.bak"
+    printf 'k\n' > "$F/keep-me.md"
+    mkdir -p "$F/real-agents"; printf 'k\n' > "$F/real-agents/a.md"
+  }
+  # Symlink fixtures are built ON DEMAND and PRECONDITION-CHECKED: MSYS `ln -s` silently
+  # COPIES unless winsymlinks is enabled, and a copy named `<managed>.pre-upgrade-<ts>` is a
+  # legitimately eligible target — so an unchecked fixture tests the wrong thing and passes for
+  # the wrong reason. Both link names below are otherwise fully eligible, so symlink-ness is the
+  # ONLY reason either may be refused.
+  cl_mk_symlink() {   # <fixture-dir> <link-name> <target>  -> rc 1 if the platform made a copy
+    ln -s "$3" "$1/$2" 2>/dev/null || return 1
+    [ -L "$1/$2" ] || return 1
+    return 0
+  }
+  cl_survivors_intact() {   # <dir> -> 0 iff every not-eligible fixture still exists
+    local F="$1" p
+    for p in "agents.pre-upgrade-notatimestamp/a.md" "agentsX.pre-upgrade-$TS_OK/a.md" \
+             "config.pre-upgrade-template.yml" "agents.pre-upgrade-$TS_OK.bak" \
+             "keep-me.md" "real-agents/a.md"; do
+      [ -e "$F/$p" ] || { echo "$p"; return 1; }
+    done
+    return 0
+  }
+
+  # --- Negative controls FIRST: every refusal class, each in a pristine fixture -------------
+  # TRIPWIRE: run these BEFORE the happy path. If a refusal silently deleted something, a
+  # happy-path-first ordering would attribute the loss to the authorized delete.
+  cl_neg_fail=""
+  cl_case() {   # <label> <arg>...
+    local label="$1"; shift
+    local F p out rc missing
+    F="$(mktemp -d "${TMPDIR:-/tmp}/ff-cleanup.XXXXXX")"
+    cl_fixture "$F"
+    out="$( cd "$F" && bash hooks/local/cleanup-flow-backups.sh "$@" 2>&1 )"; rc=$?
+    [ "$rc" -ne 0 ] || cl_neg_fail="$cl_neg_fail [$label: exited 0 — it accepted the target]"
+    case "$out" in *REFUSED*|*FATAL*) ;; *) cl_neg_fail="$cl_neg_fail [$label: no refusal diagnostic]" ;; esac
+    # Nothing may be gone — not the invalid target, and above all not the VALID siblings.
+    for p in "agents.pre-upgrade-$TS_OK/x/a.md" "FLOW_RULES.md.pre-upgrade-$TS_OK" ".fusebase-flow-source/VERSION"; do
+      [ -e "$F/$p" ] || cl_neg_fail="$cl_neg_fail [$label: DELETED the valid sibling $p during a refused run]"
+    done
+    missing="$(cl_survivors_intact "$F")" || cl_neg_fail="$cl_neg_fail [$label: deleted the not-eligible $missing]"
+    rm -rf "$F"
+  }
+  cl_case "malformed-timestamp"     "agents.pre-upgrade-notatimestamp"
+  cl_case "unmanaged-stem"          "agentsX.pre-upgrade-$TS_OK"
+  cl_case "string-prefix-lookalike" "agents.pre-upgrade-$TS_OK.bak"
+  cl_case "not-a-backup-name"       "config.pre-upgrade-template.yml"
+  cl_case "plain-file"              "keep-me.md"
+  cl_case "absolute-path"           "/tmp"
+  cl_case "parent-traversal"        "../agents.pre-upgrade-$TS_OK"
+  cl_case "traversal-mid-path"      "audit/../../agents.pre-upgrade-$TS_OK"
+  cl_case "glob-star"               "agents.pre-upgrade-*"
+  cl_case "glob-question"           "agents.pre-upgrade-2026073?T120000Z"
+  cl_case "glob-bracket"            "agents.pre-upgrade-[0-9]*"
+  cl_case "glob-brace"              "{agents,flow-skills}.pre-upgrade-$TS_OK"
+  cl_case "shell-substitution"      'agents.pre-upgrade-$(echo x)'
+  cl_case "no-mode"
+  cl_case "mixed-valid-invalid"     "agents.pre-upgrade-$TS_OK" "agentsX.pre-upgrade-$TS_OK"
+  cl_case "all-plus-target"         "--all" "agents.pre-upgrade-$TS_OK"
+  if [ -z "$cl_neg_fail" ]; then
+    ok "ac4-cleanup-refuses-every-unauthorized-target (16 refusal classes; nothing deleted in any)"
+  else
+    bad "ac4-cleanup-refuses-every-unauthorized-target" "$cl_neg_fail"
+  fi
+  # --- Symlink refusal (precondition-checked; visible SKIP, never false-green) --------------
+  cl_sym_fail=""; cl_sym_ran=0
+  CL_OUTSIDE="$(mktemp -d "${TMPDIR:-/tmp}/ff-outside.XXXXXX")"; printf 'o
+' > "$CL_OUTSIDE/secret.md"
+  for pair in "templates.pre-upgrade-$TS_OK|real-agents" "workflows.pre-upgrade-$TS_OK|$CL_OUTSIDE"; do
+    cl_link="${pair%%|*}"; cl_tgt="${pair#*|}"
+    F="$(mktemp -d "${TMPDIR:-/tmp}/ff-cleanup.XXXXXX")"; cl_fixture "$F"
+    if ! cl_mk_symlink "$F" "$cl_link" "$cl_tgt"; then rm -rf "$F"; continue; fi
+    cl_sym_ran=$((cl_sym_ran + 1))
+    cl_out="$( cd "$F" && bash hooks/local/cleanup-flow-backups.sh "$cl_link" 2>&1 )"; cl_rc=$?
+    [ "$cl_rc" -ne 0 ] || cl_sym_fail="$cl_sym_fail [$cl_link: a symlink was ACCEPTED as a backup target]"
+    case "$cl_out" in *REFUSED*) ;; *) cl_sym_fail="$cl_sym_fail [$cl_link: no refusal diagnostic]" ;; esac
+    [ -L "$F/$cl_link" ] || cl_sym_fail="$cl_sym_fail [$cl_link: the symlink itself was deleted]"
+    [ -e "$F/real-agents/a.md" ] || cl_sym_fail="$cl_sym_fail [$cl_link: followed the link and deleted inside the repo]"
+    [ -e "$CL_OUTSIDE/secret.md" ] || cl_sym_fail="$cl_sym_fail [$cl_link: followed the link and deleted OUTSIDE the repo]"
+    ( cd "$F" && bash hooks/local/cleanup-flow-backups.sh --all ) >/dev/null 2>&1
+    [ -L "$F/$cl_link" ] || cl_sym_fail="$cl_sym_fail [$cl_link: --all swept the symlink]"
+    [ -e "$CL_OUTSIDE/secret.md" ] || cl_sym_fail="$cl_sym_fail [$cl_link: --all deleted OUTSIDE the repo through the link]"
+    rm -rf "$F"
+  done
+  rm -rf "$CL_OUTSIDE"
+  if [ "$cl_sym_ran" -eq 0 ]; then
+    skip "ac4-cleanup-refuses-symlink-targets" "this platform's ln -s copies instead of linking (MSYS winsymlinks off) — the fixture cannot be built, so the control is NOT claimed as proof"
+  elif [ -z "$cl_sym_fail" ]; then
+    ok "ac4-cleanup-refuses-symlink-targets ($cl_sym_ran otherwise-eligible symlink name(s) refused; nothing followed)"
+  else
+    bad "ac4-cleanup-refuses-symlink-targets" "$cl_sym_fail"
+  fi
+
+  # --- Explicit exact-target mode -----------------------------------------------------------
+  F1="$(mktemp -d "${TMPDIR:-/tmp}/ff-cleanup.XXXXXX")"; cl_fixture "$F1"
+  cl_t_fail=""
+  ( cd "$F1" && bash hooks/local/cleanup-flow-backups.sh "agents.pre-upgrade-$TS_OK" \
+      "FLOW_RULES.md.pre-upgrade-$TS_OK" ) > "$F1/.log" 2>&1 \
+    || cl_t_fail="$cl_t_fail [exact-target run exited non-zero: $(tail -3 "$F1/.log" | tr '\n' '|')]"
+  [ -e "$F1/agents.pre-upgrade-$TS_OK" ]        && cl_t_fail="$cl_t_fail [named dir target survived]"
+  [ -e "$F1/FLOW_RULES.md.pre-upgrade-$TS_OK" ] && cl_t_fail="$cl_t_fail [named file target survived]"
+  [ -e "$F1/flow-skills.pre-upgrade-$TS_OK" ]   || cl_t_fail="$cl_t_fail [an UNNAMED eligible target was deleted — explicit targets must not widen]"
+  [ -e "$F1/.fusebase-flow-source" ]            || cl_t_fail="$cl_t_fail [the staging clone was deleted without being named]"
+  cl_missing="$(cl_survivors_intact "$F1")"     || cl_t_fail="$cl_t_fail [deleted the not-eligible $cl_missing]"
+  rm -rf "$F1"
+  if [ -z "$cl_t_fail" ]; then
+    ok "ac4-cleanup-exact-target-mode-deletes-only-what-was-named"
+  else
+    bad "ac4-cleanup-exact-target-mode-deletes-only-what-was-named" "$cl_t_fail"
+  fi
+
+  # --- --all mode ---------------------------------------------------------------------------
+  F2="$(mktemp -d "${TMPDIR:-/tmp}/ff-cleanup.XXXXXX")"; cl_fixture "$F2"
+  cl_a_fail=""
+  ( cd "$F2" && bash hooks/local/cleanup-flow-backups.sh --all ) > "$F2/.log" 2>&1 \
+    || cl_a_fail="$cl_a_fail [--all exited non-zero: $(tail -3 "$F2/.log" | tr '\n' '|')]"
+  for gone in "agents.pre-upgrade-$TS_OK" "flow-skills.pre-upgrade-$TS_OK" \
+              "FLOW_RULES.md.pre-upgrade-$TS_OK" "VERSION.pre-upgrade-$TS_OK" \
+              "audit/hook-layer-manifest.json.pre-upgrade-$TS_OK" \
+              "policies/module-size-baseline.txt.pre-upgrade-$TS_OK" \
+              "docs/_fusebase-flow/framework.md.pre-upgrade-$TS_OK" ".fusebase-flow-source"; do
+    [ -e "$F2/$gone" ] && cl_a_fail="$cl_a_fail [--all left the eligible $gone behind]"
+  done
+  cl_missing="$(cl_survivors_intact "$F2")" || cl_a_fail="$cl_a_fail [--all deleted the not-eligible $cl_missing]"
+  rm -rf "$F2"
+  if [ -z "$cl_a_fail" ]; then
+    ok "ac4-cleanup-all-mode-enumerates-only-the-authorized-set"
+  else
+    bad "ac4-cleanup-all-mode-enumerates-only-the-authorized-set" "$cl_a_fail"
+  fi
+
+  # --- Fail closed when the authority list cannot be read ----------------------------------
+  # An empty authority set must NEVER mean "everything is eligible".
+  F3="$(mktemp -d "${TMPDIR:-/tmp}/ff-cleanup.XXXXXX")"; cl_fixture "$F3"
+  rm -f "$F3/hooks/local/lib/managed_content_manifest.py"
+  ( cd "$F3" && bash hooks/local/cleanup-flow-backups.sh --all ) > "$F3/.log" 2>&1
+  cl_fc_rc=$?
+  if [ "$cl_fc_rc" -ne 0 ] && [ -e "$F3/agents.pre-upgrade-$TS_OK" ] && grep -q "FATAL" "$F3/.log"; then
+    ok "ac4-cleanup-fails-closed-without-its-authority-list"
+  else
+    bad "ac4-cleanup-fails-closed-without-its-authority-list" "rc=$cl_fc_rc; target present=$([ -e "$F3/agents.pre-upgrade-$TS_OK" ] && echo yes || echo NO)"
+  fi
+  rm -rf "$F3"
+
+  # --- M5: the FR-06 destructive deny stays intact -----------------------------------------
+  if grep -qE 'rm[[:space:]]+-rf|rm[[:space:]]+-fr' "$ROOT/policies/command-policy.yml"; then
+    ok "ac4-fr06-destructive-deny-untouched (command-policy still carries the rm -rf pattern)"
+  else
+    bad "ac4-fr06-destructive-deny-untouched" "the rm -rf pattern is gone from command-policy.yml — M5 forbids an exception"
+  fi
+fi
+
 finish

@@ -688,11 +688,17 @@ echo ""
 echo "[upgrade] Content upgrade applied. VERSION now: $(tr -d '\n\r' < VERSION)"
 if [ "${FF_BACKUPS_GITIGNORED:-0}" = 1 ]; then
   echo "[upgrade] Backups written with suffix .pre-upgrade-$TS (git-excluded via .git/info/exclude,"
-  echo "          so 'git add -A' / fusebase-update checkpoints won't stage them) — remove once validated."
+  echo "          so 'git add -A' / fusebase-update checkpoints won't stage them)."
 else
-  echo "[upgrade] Backups written with suffix .pre-upgrade-$TS — remove once validated. (Could NOT git-exclude"
-  echo "          them; a later 'git add -A' may stage them — delete or unstage the .pre-* backups before committing.)"
+  echo "[upgrade] Backups written with suffix .pre-upgrade-$TS. (Could NOT git-exclude them; a later"
+  echo "          'git add -A' may stage them — delete or unstage the .pre-* backups before committing.)"
 fi
+# TRIPWIRE (decision M5): NEVER print a raw recursive delete here. command-policy.yml denies
+# `rm -rf` (FR-06) and the framework contradicting its own guard is what this replaced. The
+# sanctioned tool's authority is exact stem membership + resolved-path validation.
+echo "[upgrade] Once validated, remove them through the sanctioned, validated entry point:"
+echo "            bash hooks/local/cleanup-flow-backups.sh --list   # show eligible targets"
+echo "            bash hooks/local/cleanup-flow-backups.sh --all    # or name exact targets"
 echo "[upgrade] NOTE: the pre-commit secret scan skips ONLY Flow's fixture/policy backup twins, so a BLOCK on a"
 echo "          .pre-* path is NOT automatically 'just a fixture' — inspect it: rotate if it is a real credential;"
 echo "          if it is only a Flow backup you don't want committed, unstage it (git restore --staged <path>)."
@@ -721,7 +727,7 @@ echo ""
 echo "[upgrade] NOTE: .fusebase-flow-source/ is a transient staging clone. ESLint flat"
 echo "          config does NOT honor .gitignore, so if 'fusebase deploy' runs lint it"
 echo "          will lint this clone's CommonJS hooks and fail. Either:"
-echo "            rm -rf .fusebase-flow-source                         # transient; re-created next upgrade"
+echo "            bash hooks/local/cleanup-flow-backups.sh .fusebase-flow-source   # transient; re-created next upgrade"
 echo "          or add it to your eslint ignores (next to .claude/**):"
 echo "            bash hooks/local/eslint-ignore-flow-paths.sh"
 
