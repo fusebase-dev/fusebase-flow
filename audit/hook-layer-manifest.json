@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.7.0",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 134,
+  "asset_count": 137,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -46,7 +46,7 @@
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
-      "sha256": "ac220a6cd82b2da853780199c46ef0757e83e28841f4eea5152a853328c5d8d5"
+      "sha256": "42f4797c2e92016c6e645ec3e5711dbe6bf9ca8a942f9e86438afd8e87e2f016"
     },
     {
       "path": "hooks/local/check-cli-flow-conflicts.sh",
@@ -81,12 +81,16 @@
       "sha256": "8140108e0b0efff0e4277d66fbcfe017eb6403937421e37315796363bc3f8d14"
     },
     {
+      "path": "hooks/local/lib/backup-hygiene.sh",
+      "sha256": "8f54251d25c8db20b07afbbb40c642768d609edafdbe3d67e47d97b218bf6593"
+    },
+    {
       "path": "hooks/local/lib/bounded-run.sh",
       "sha256": "91bea5023707011070f522ecf7070242923528ea1bdd843faf726a0aba6d8e77"
     },
     {
       "path": "hooks/local/lib/hook-integrity-check.sh",
-      "sha256": "5cee38a35f4df33399f67d4d0ec5e667272a850ee9af845d1be3033f07f54cb7"
+      "sha256": "5d57d30373712569da38676538235d6b5a588d1ef1172547e7c5fb53f1a963b5"
     },
     {
       "path": "hooks/local/lib/hook_manifest.py",
@@ -95,6 +99,10 @@
     {
       "path": "hooks/local/lib/managed_content_manifest.py",
       "sha256": "e73d3d2e6a62a13f01b1dbf52eaa3294c3d9a3980dc8db970d4e54363a8d8f58"
+    },
+    {
+      "path": "hooks/local/lib/materialize-managed-source.sh",
+      "sha256": "1fee50bc1a36a7b72556086dfda010e14b1e3f3138289c006c06b504bec4cbf0"
     },
     {
       "path": "hooks/local/lib/merge-module-size-baseline.sh",
@@ -158,7 +166,7 @@
     },
     {
       "path": "hooks/local/upgrade.sh",
-      "sha256": "2a52bdb5adef4101924ef339d1435e09f400989d58dfb5a7c7795e78e681a666"
+      "sha256": "787feed940c73cfdbf0f8af410de550a9affd7fc94ef66b87db3fd95e86b380f"
     },
     {
       "path": "hooks/local/verify-gate.sh",
@@ -390,7 +398,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "80904b4bab790c32e692ce522682413684ecb17071315c108f316b936122dda0"
+      "sha256": "e5244544d4c44afad29f56648b3ca991ab749dd0f01ed5bc03f32f3731b653b0"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -414,7 +422,7 @@
     },
     {
       "path": "hooks/tests/test-bootstrap-baseline-hop.sh",
-      "sha256": "c28a91c849403bf9d49e811faeaa29a0c1acf14c3e831da01131631473089552"
+      "sha256": "31fdb838bd2b08a473c2d7c77462b33356182332b97993239396ad6bdcabb969"
     },
     {
       "path": "hooks/tests/test-bootstrap-exception.sh",
@@ -534,12 +542,16 @@
     },
     {
       "path": "hooks/tests/test-upgrade-conflict-classification.sh",
-      "sha256": "f465083dc2036002502e92627c1ef004039881296e851796d0ad1ee554771761"
+      "sha256": "7b775eb7a30cee665f1083a7109e66669879d0955328b3d34500fc04ce9ba970"
+    },
+    {
+      "path": "hooks/tests/test-upgrade-source-boundary.sh",
+      "sha256": "779b3bc0cbda71f171a9de265ecfb69903ab5015b7c7233cd19c575683f24f76"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
-      "sha256": "c8c5ced89b1c9eecd9d4b25a62c6fa80adbaf7c9262210c5b63ea369aac99ef5"
+      "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "c218b481066fa667b5a8a30448c21dee10f20c84ece8705289885e94bbee2dbb"
+  "manifest_self_sha256": "9b35221ce58092c1fe77fac65ee54223157197c632433ebb87fc5ff976cf0c81"
 }

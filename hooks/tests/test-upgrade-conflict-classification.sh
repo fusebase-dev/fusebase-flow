@@ -182,6 +182,17 @@ fi
 # that produced this ticket (AC16) plus AC13b/AC13c.
 E2E_ROOT="$(mktemp -d)"
 
+# The 4.7.0+ source-boundary libs — staged so these end-to-end cases exercise the real
+# boundary. `[ -f ]`-guarded so the fixture still builds against a pre-boundary tree.
+# Byte-model / boundary assertions live in test-upgrade-source-boundary.sh.
+copy_boundary_libs() {   # <lib-dest-dir>
+  local f
+  for f in materialize-managed-source.sh backup-hygiene.sh; do
+    [ -f "$ROOT/hooks/local/lib/$f" ] && cp "$ROOT/hooks/local/lib/$f" "$1/"
+  done
+  return 0
+}
+
 # build_case <dir> <upstream-validator-content>
 #   Upstream content equal to the base  => consumer-only (row 3)
 #   Upstream content different          => changed-by-both (row 4)
@@ -196,6 +207,8 @@ build_case() {
   printf 'wf v1\n'        > "$L/workflows/wf.md"
   cp "$ROOT/hooks/local/lib/managed_content_manifest.py" "$L/hooks/local/lib/"
   cp "$ROOT/hooks/local/upgrade.sh" "$L/hooks/local/"
+  cp "$ROOT/hooks/local/bootstrap-upgrade.sh" "$L/hooks/local/"
+  copy_boundary_libs "$L/hooks/local/lib"
   ( cd "$L" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null )
   # The consumer's local hardening, applied AFTER the base was recorded.
   printf 'validator v1\n# SENTINEL local hardening\n' > "$L/hooks/shared/command_policy.py"
@@ -207,6 +220,8 @@ build_case() {
   printf 'new upstream file\n'   > "$U/hooks/shared/brand_new.py"
   cp "$ROOT/hooks/local/lib/managed_content_manifest.py" "$U/hooks/local/lib/"
   cp "$ROOT/hooks/local/upgrade.sh" "$U/hooks/local/"
+  cp "$ROOT/hooks/local/bootstrap-upgrade.sh" "$U/hooks/local/"
+  copy_boundary_libs "$U/hooks/local/lib"
   ( cd "$U" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null )
   echo "$L"
 }

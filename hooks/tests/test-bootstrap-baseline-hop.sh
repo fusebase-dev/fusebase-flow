@@ -10,7 +10,7 @@
 # RED-then-GREEN, in one run, against the REAL fixed upgrade.sh source-load logic:
 #   RED  — PRE-FIX source logic (local-only; lib absent) leaves the merge function
 #          UNDEFINED, so the project row is LOST after the wholesale policies/ copy.
-#   GREEN — POST-FIX source logic (source_merge_lib: $SOURCE_CLONE first) DEFINES the
+#   GREEN — POST-FIX source logic (source_merge_lib: $SOURCE_TREE first) DEFINES the
 #          function, the merge runs, the project row SURVIVES, and
 #          check-module-size.sh --all passes.
 # The RED arm proves this test genuinely detects the bug (no false-green); the GREEN
@@ -56,9 +56,10 @@ if [ ! -s "$ENGINE_FUNCS" ] || ! head -1 "$ENGINE_FUNCS" | grep -q '^source_merg
    || ! tail -1 "$ENGINE_FUNCS" | grep -q '^}'; then
   bad "extract-source-merge-lib" "source_merge_lib not found/complete in upgrade.sh (P2 missing?)"; finish
 fi
-# It must source from $SOURCE_CLONE (the authoritative-tree fix), not local-only.
-grep -q 'SOURCE_CLONE/hooks/local/lib/merge-module-size-baseline.sh' "$ENGINE_FUNCS" \
-  || { bad "extract-source-merge-lib" "source_merge_lib does not source from \$SOURCE_CLONE (P2 incomplete)"; finish; }
+# It must source from the SOURCE tree (the authoritative-tree fix), not local-only. The
+# variable is $SOURCE_TREE since the M1 boundary split metadata ($SOURCE_REPO) from content.
+grep -q 'SOURCE_TREE/hooks/local/lib/merge-module-size-baseline.sh' "$ENGINE_FUNCS" \
+  || { bad "extract-source-merge-lib" "source_merge_lib does not source from \$SOURCE_TREE (P2 incomplete)"; finish; }
 ok "extract-source-merge-lib"
 
 ###############################################################################
@@ -128,7 +129,9 @@ run_hop_arm() {
   cp "$SOURCE_CLONE/policies/module-size-baseline.txt" "$REPO/policies/module-size-baseline.txt"  # wholesale clobber
   (
     set +e
-    ROOT="$REPO"; SOURCE_CLONE="$SOURCE_CLONE"
+    # SOURCE_TREE is the engine's CONTENT-read variable after the M1 boundary split; the
+    # staged dir doubles as both here because this arm only exercises the lib load.
+    ROOT="$REPO"; SOURCE_TREE="$SOURCE_CLONE"; SOURCE_REPO="$SOURCE_CLONE"
     MERGE_LIB="$ROOT/hooks/local/lib/merge-module-size-baseline.sh"
     if [ "$strategy" = "prefix" ]; then
       # PRE-FIX (v3.25.0) source logic: local tree ONLY. lib is absent -> no-op.

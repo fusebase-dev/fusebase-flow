@@ -82,8 +82,11 @@ ffhc_hook_manifest_verify() {
       n="${summary%%$'\t'*}"; ver="${summary#*$'\t'}"
       LOCAL_OK+=("hook layer integrity: ${n:-?} files match release ${ver:-?}") ;;
     1)
+      # AC3: `git checkout -- <file>` is NOT offered for this class — for a BYTE mismatch it
+      # restores the same wrong bytes the consumer already has (they are what git tracked).
+      # The repair replaces the named path from a verified upstream tree instead.
       local paths; paths="$(_ffhc_manifest_drift_paths "$out")"
-      record_drift "hook_layer_manifest" "hook layer integrity: FLOW_LAYER_DRIFT — ${paths:-covered files drifted} (recover: 'bash hooks/local/upgrade.sh' or 'git checkout -- <file>')" ;;
+      record_drift "hook_layer_manifest" "hook layer integrity: FLOW_LAYER_DRIFT — ${paths:-covered files drifted} (repair: 'bash hooks/local/bootstrap-upgrade.sh --repair-managed <path>' — repeat the flag per reported path; or re-run 'bash hooks/local/upgrade.sh')" ;;
     2)
       LOCAL_BROKEN+=("hook layer integrity: BROKEN — manifest corrupt or self-hash mismatch (run 'bash hooks/local/verify-hook-manifest.sh')") ;;
     4)

@@ -154,91 +154,117 @@ ffhc_run_step() {
 # starts, so sourcing only $ROOT/... left merge_module_size_baseline undefined and
 # the Step 1a guard silently skipped the merge → baseline clobbered. The merge MUST
 # be driven by the TARGET-version lib (the running engine may predate it), so we
-# source from $SOURCE_CLONE FIRST (authoritative), falling back to the local copy.
-# Defined here; called after SOURCE_CLONE is validated (and again, belt-and-suspenders,
+# source from $SOURCE_TREE FIRST (authoritative), falling back to the local copy.
+# Defined here; called after the source boundary is established (and again, belt-and-suspenders,
 # right before the Step 1a guard) — never silently skipped.
 MERGE_LIB="$ROOT/hooks/local/lib/merge-module-size-baseline.sh"
 source_merge_lib() {
   command -v merge_module_size_baseline >/dev/null 2>&1 && return 0
-  local src_lib="$SOURCE_CLONE/hooks/local/lib/merge-module-size-baseline.sh"
+  local src_lib="$SOURCE_TREE/hooks/local/lib/merge-module-size-baseline.sh"
   [ -f "$src_lib" ] && . "$src_lib" 2>/dev/null
   command -v merge_module_size_baseline >/dev/null 2>&1 && return 0
   [ -f "$MERGE_LIB" ] && . "$MERGE_LIB" 2>/dev/null
   command -v merge_module_size_baseline >/dev/null 2>&1
 }
 
-SOURCE_CLONE=".fusebase-flow-source"
+SOURCE_REPO=".fusebase-flow-source"
 AUTO_YES=0
 DRY_RUN=0
 WITH_DOCS=0          # U4: framework docs are NOT copied into the consumer by default
 # TRIPWIRE (K20a): --unsafe-legacy-copy re-enables the pre-4.7.0 destructive whole-tree
 # copy. No diagnostic anywhere may suggest it; it exists only as a deliberate escape.
 UNSAFE_LEGACY=0
+SOURCE_TREE_ARG=""       # internal boundary handoff (decision M1) — not an operator flag
+SOURCE_TREE_OWNED=0
+SRC_COMMIT=""
 
-for arg in "$@"; do
-  case "$arg" in
+while [ "$#" -gt 0 ]; do
+  case "$1" in
     --auto-yes|-y) AUTO_YES=1 ;;
     --dry-run|-n) DRY_RUN=1 ;;
     --with-framework-docs) WITH_DOCS=1 ;;
     --unsafe-legacy-copy) UNSAFE_LEGACY=1 ;;
+    --source-tree)         SOURCE_TREE_ARG="${2:-}"; shift ;;
+    --source-tree=*)       SOURCE_TREE_ARG="${1#*=}" ;;
+    --source-tree-owned)   SOURCE_TREE_OWNED=1 ;;
+    --source-repo)         SOURCE_REPO="${2:-}"; shift ;;
+    --source-repo=*)       SOURCE_REPO="${1#*=}" ;;
+    --source-commit)       SRC_COMMIT="${2:-}"; shift ;;
+    --source-commit=*)     SRC_COMMIT="${1#*=}" ;;
     --help|-h) sed -n '2,52p' "$0"; exit 0 ;;
-    *) echo "Unknown argument: $arg" >&2; echo "Run with --help for usage." >&2; exit 2 ;;
+    *) echo "Unknown argument: $1" >&2; echo "Run with --help for usage." >&2; exit 2 ;;
   esac
+  shift
 done
 
-if [ ! -d "$SOURCE_CLONE" ]; then
-  echo "[upgrade] FATAL: $SOURCE_CLONE/ not found." >&2
+if [ ! -d "$SOURCE_REPO" ]; then
+  echo "[upgrade] FATAL: $SOURCE_REPO/ not found." >&2
   echo "          Provide an upstream copy first, e.g.:" >&2
-  echo "            git clone https://github.com/fusebase-dev/fusebase-flow.git $SOURCE_CLONE" >&2
+  echo "            git clone https://github.com/fusebase-dev/fusebase-flow.git $SOURCE_REPO" >&2
   exit 1
 fi
 
-# Load the baseline-merge lib now that $SOURCE_CLONE is confirmed present — from the
+# ---- Canonical source boundary (decision M1) ----
+# TRIPWIRE: SOURCE_REPO is metadata / kind detection / ref resolution ONLY. EVERY incoming
+# content read below uses SOURCE_TREE. Reading source content from the mutable staging
+# WORKTREE is the F2 defect (stale pre-pin CRLF -> permanent manifest drift) this removes.
+SOURCE_TREE="$SOURCE_REPO"
+FF_MMS_LIB="$SOURCE_REPO/hooks/local/lib/materialize-managed-source.sh"
+[ -f "$FF_MMS_LIB" ] || FF_MMS_LIB="$ROOT/hooks/local/lib/materialize-managed-source.sh"
+if [ -f "$FF_MMS_LIB" ]; then
+  . "$FF_MMS_LIB"
+  trap 'ff_source_cleanup' EXIT     # armed BEFORE materialization so every abort path cleans up
+  ff_source_open "$SOURCE_REPO" "$SOURCE_TREE_ARG" "$SOURCE_TREE_OWNED" "${FF_SOURCE_REF:-}" || exit 1
+  SOURCE_TREE="$FF_SOURCE_TREE"
+  [ -n "$SRC_COMMIT" ] || SRC_COMMIT="$FF_SOURCE_COMMIT"
+else
+  echo "[upgrade] WARN: this source tree ships no canonical materializer (pre-4.7.0) — reading" >&2
+  echo "          the source WORKTREE, which can carry stale pre-EOL-pin bytes (F2)." >&2
+fi
+
+# Backup hygiene (git-exclude + retention prune) — one home, shared with bootstrap-upgrade.sh
+# and cleanup-flow-backups.sh. Target-version copy wins; a missing lib degrades to a warning
+# (both consumers are already best-effort steps that never fail an otherwise-valid upgrade).
+FF_BH_LIB="$SOURCE_TREE/hooks/local/lib/backup-hygiene.sh"
+[ -f "$FF_BH_LIB" ] || FF_BH_LIB="$ROOT/hooks/local/lib/backup-hygiene.sh"
+[ -f "$FF_BH_LIB" ] && . "$FF_BH_LIB"
+
+# Load the baseline-merge lib now that $SOURCE_TREE is confirmed present — from the
 # authoritative target-version tree first (the running engine may predate the merge
 # rule). Step 1a re-checks and warns loudly if it is somehow still undefined.
 source_merge_lib || true
 
 # F5: a git clone enables HEAD reporting; a plain dir is accepted with a warning.
-if [ -d "$SOURCE_CLONE/.git" ]; then
-  SRC_HEAD=$(cd "$SOURCE_CLONE" && git rev-parse --short HEAD 2>/dev/null || echo "?")
+if [ -n "$SRC_COMMIT" ]; then
+  SRC_HEAD="${SRC_COMMIT:0:12} (resolved commit)"
+elif [ -e "$SOURCE_REPO/.git" ]; then
+  SRC_HEAD=$(cd "$SOURCE_REPO" && git rev-parse --short HEAD 2>/dev/null || echo "?")
 else
   SRC_HEAD="(plain dir — no .git; HEAD/diff unavailable)"
-  echo "[upgrade] NOTE: $SOURCE_CLONE/ is a plain directory (no .git). Proceeding with"
+  echo "[upgrade] NOTE: $SOURCE_REPO/ is a plain directory (no .git). Proceeding with"
   echo "          file-content comparison only; upstream HEAD/diff is unavailable."
 fi
 
-if [ ! -f "$SOURCE_CLONE/VERSION" ]; then
-  echo "[upgrade] FATAL: $SOURCE_CLONE/VERSION missing — cannot determine target version." >&2
+if [ ! -f "$SOURCE_TREE/VERSION" ]; then
+  echo "[upgrade] FATAL: $SOURCE_TREE/VERSION missing — cannot determine target version." >&2
   exit 1
 fi
-SRC_VERSION=$(tr -d '\n\r' < "$SOURCE_CLONE/VERSION")
+SRC_VERSION=$(tr -d '\n\r' < "$SOURCE_TREE/VERSION")
 LOCAL_VERSION=$(tr -d '\n\r' < VERSION 2>/dev/null || echo "?")
 
-echo "[upgrade] Source: $SOURCE_CLONE/  (HEAD $SRC_HEAD, VERSION $SRC_VERSION)"
+echo "[upgrade] Source: $SOURCE_REPO/  (HEAD $SRC_HEAD, VERSION $SRC_VERSION)"
 echo "[upgrade] Local:  VERSION $LOCAL_VERSION"
 echo ""
 
-# Canonical content trees + files to refresh (NOT provider mirrors; those are
-# regenerated by the mirror scripts in step 2). U2: `hooks` is included so the
-# Flow-owned hook layer (handlers, shared, git, tests, local *.sh — incl. this
-# engine + sync-version-strings) is refreshed too; otherwise a downstream gets new
-# skills/rules but a stale hook layer (e.g. the v3.7.0 tier-aware deploy gate would
-# silently not work). copy_dir copies upstream OVER local without deleting extras,
-# so operator overrides (hooks/local/*.local.*) and CLI-owned `.claude/hooks/**`
-# (a separate tree) are preserved/untouched.
-# v3.9.0: canonical skills moved root skills/ -> flow-skills/ (the FuseBase CLI
-# deprecates the root ./skills name). Step 1b below migrates an existing install's
-# legacy root skills/ away after the new flow-skills/ lands.
-# v3.20.1: .claude-plugin included — preflight §8 requires plugin.json version
-# == VERSION, but nothing refreshed it on upgrade, so every 3.14.1+ consumer
-# upgrade landed with a version-mismatch ERROR (same installer-parity class as
-# the slash-command gap).
+# Canonical content trees + files to refresh (NOT provider mirrors; step 2 regenerates
+# those). copy_dir copies upstream OVER local without deleting extras, so operator
+# overrides (hooks/local/*.local.*) and CLI-owned `.claude/hooks/**` stay untouched.
 #
 # TRIPWIRE (decision K14): the managed list has ONE home — managed_content_manifest.py,
 # read via `list-managed`. Never re-declare it here; the manifest and this engine would
-# drift on what "managed" means. SOURCE clone's copy wins (it is the incoming definition).
+# drift on what "managed" means. The SOURCE tree's copy wins (the incoming definition).
 MCM_LIB="hooks/local/lib/managed_content_manifest.py"
-MCM="$SOURCE_CLONE/$MCM_LIB"
+MCM="$SOURCE_TREE/$MCM_LIB"
 [ -f "$MCM" ] || MCM="$MCM_LIB"
 CLASSIFY_OK=0
 CONTENT_DIRS=()
@@ -254,7 +280,7 @@ fi
 # SOURCE tree ships the module — not "classifier absent from the universe": a genuinely
 # pre-4.7.0 source tree has no classification to do and may still upgrade.
 CLASSIFIER_EXPECTED=0
-[ -f "$SOURCE_CLONE/$MCM_LIB" ] && CLASSIFIER_EXPECTED=1
+[ -f "$SOURCE_TREE/$MCM_LIB" ] && CLASSIFIER_EXPECTED=1
 if [ "$CLASSIFY_OK" -ne 1 ] && [ "$CLASSIFIER_EXPECTED" -eq 1 ] && [ "$UNSAFE_LEGACY" -ne 1 ]; then
   echo "[upgrade] ABORT: this version ships the conflict classifier, but it cannot run here." >&2
   if ! command -v python3 >/dev/null 2>&1; then
@@ -286,7 +312,7 @@ DOC_DEST_PREFIX="docs/_fusebase-flow/"
 TS=$(date -u +%Y%m%dT%H%M%SZ)
 PLAN=()
 
-dir_differs() { ! diff -rq "$SOURCE_CLONE/$1" "$1" >/dev/null 2>&1; }
+dir_differs() { ! diff -rq "$SOURCE_TREE/$1" "$1" >/dev/null 2>&1; }
 
 # ---- Three-way classification (K9) -> per-file apply plan (K15) ---------------------
 # The OLD engine asked only "does this directory differ" and then `cp -R`'d upstream over
@@ -310,7 +336,7 @@ if [ "$CLASSIFY_OK" -eq 1 ]; then
   MCM_BASE_ARG=()
   [ -f "$BASE_MANIFEST" ] && MCM_BASE_ARG=(--base "$BASE_MANIFEST")
   set +e
-  python3 "$MCM" plan --root "$ROOT" --upstream "$SOURCE_CLONE" \
+  python3 "$MCM" plan --root "$ROOT" --upstream "$SOURCE_TREE" \
     "${MCM_BASE_ARG[@]}" \
     $( [ "$AUTO_YES" -eq 1 ] && echo --auto-yes ) \
     ${MCM_DECISIONS:+--decisions "$MCM_DECISIONS"} \
@@ -338,19 +364,19 @@ if [ "$CLASSIFY_OK" -eq 1 ]; then
   done < "$APPLY_PLAN"
 else
   for d in "${CONTENT_DIRS[@]}"; do
-    if [ -d "$SOURCE_CLONE/$d" ] && dir_differs "$d"; then
+    if [ -d "$SOURCE_TREE/$d" ] && dir_differs "$d"; then
       PLAN+=("refresh dir:  $d/")
     fi
   done
   for f in "${CONTENT_FILES[@]}"; do
-    if [ -f "$SOURCE_CLONE/$f" ] && ! diff -q "$SOURCE_CLONE/$f" "$f" >/dev/null 2>&1; then
+    if [ -f "$SOURCE_TREE/$f" ] && ! diff -q "$SOURCE_TREE/$f" "$f" >/dev/null 2>&1; then
       PLAN+=("refresh file: $f")
     fi
   done
 fi
 # Top-level framework docs (docs/*.md) — only with --with-framework-docs, and
 # namespaced under docs/_fusebase-flow/ so they never collide with consumer docs.
-if [ "$WITH_DOCS" -eq 1 ] && [ -d "$SOURCE_CLONE/$DOC_GLOB" ]; then
+if [ "$WITH_DOCS" -eq 1 ] && [ -d "$SOURCE_TREE/$DOC_GLOB" ]; then
   while IFS= read -r srcdoc; do
     dest="${DOC_DEST_PREFIX}$(basename "$srcdoc")"
     if [ -f "$dest" ] && ! diff -q "$srcdoc" "$dest" >/dev/null 2>&1; then
@@ -358,13 +384,13 @@ if [ "$WITH_DOCS" -eq 1 ] && [ -d "$SOURCE_CLONE/$DOC_GLOB" ]; then
     elif [ ! -f "$dest" ]; then
       PLAN+=("add doc:      $dest")
     fi
-  done < <(find "$SOURCE_CLONE/$DOC_GLOB" -maxdepth 1 -name "*.md" -type f 2>/dev/null)
+  done < <(find "$SOURCE_TREE/$DOC_GLOB" -maxdepth 1 -name "*.md" -type f 2>/dev/null)
 fi
 
 # v3.9.0 migration: a legacy root skills/ alongside the incoming flow-skills/ will
 # be retired (backed up). Only when the source actually ships flow-skills/.
 MIGRATE_LEGACY_SKILLS=0
-if [ -d "skills" ] && [ -d "$SOURCE_CLONE/flow-skills" ]; then
+if [ -d "skills" ] && [ -d "$SOURCE_TREE/flow-skills" ]; then
   MIGRATE_LEGACY_SKILLS=1
   PLAN+=("migrate:      retire legacy root skills/ (canonical -> flow-skills/)")
 fi
@@ -411,47 +437,7 @@ if [ -f "$BASELINE_REL" ]; then
   cp "$BASELINE_REL" "$LOCAL_BASELINE_SNAPSHOT"
 fi
 
-# Git-exclude the *.pre-*-<ts> backup snapshots we are about to drop, so a downstream
-# `git add -A` (notably FuseBase CLI's `fusebase update` pre-update checkpoint) never
-# stages them. Flow's own backups carry the OLD secret-scan test fixtures (dummy
-# ghp_/sk-ant-/cookie literals), which otherwise trip the pre-commit secret scan and
-# HARD-BLOCK the checkpoint (field escalation, v4.3.2). Local + idempotent. Keep the
-# backups until validated: only previously-COMMITTED content is recoverable from git
-# history; an uncommitted/untracked local customization overwritten during refresh survives
-# only in its backup.
-ff_git_exclude_backups() {
-  local ex line d
-  # git-path resolves info/exclude to the COMMON dir for linked worktrees (--git-dir would
-  # point at .git/worktrees/<id>/, whose info/exclude git does NOT read). NOT a git repo (or
-  # git unavailable) => no `git add -A` staging risk => nothing to exclude => success no-op
-  # (return 0). Only a real WRITE failure inside a git repo returns nonzero (so the caller
-  # can note it without silently claiming the backups are git-excluded).
-  ex="$(git rev-parse --git-path info/exclude 2>/dev/null)" || return 0
-  [ -n "$ex" ] || return 0
-  mkdir -p "$(dirname "$ex")" 2>/dev/null || return 1
-  # If the file exists it must be READABLE (so grep rc1 = "absent" is trustworthy, not an I/O
-  # error) and, if non-empty, END IN A NEWLINE — else the first append glues onto an
-  # unterminated last line and the pattern is swallowed (commented out).
-  [ -e "$ex" ] && { [ -r "$ex" ] || return 1; }
-  if [ -s "$ex" ] && [ -n "$(tail -c1 "$ex" 2>/dev/null)" ]; then
-    printf '\n' >> "$ex" 2>/dev/null || return 1
-  fi
-  # EXACT [0-9]{8}T[0-9]{6}Z stamp (date -u +%Y%m%dT%H%M%SZ) — NOT a loose *T*Z, which would
-  # also hide a legit config.pre-upgrade-template.yml / foo.pre-upgrade-TZ. Per-line
-  # idempotency (not a comment sentinel) so a partial prior write self-heals.
-  d='[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]T[0-9][0-9][0-9][0-9][0-9][0-9]Z'
-  for line in \
-    "# Fusebase Flow upgrade/refresh backups (transient; keep until validated) — never stage them." \
-    "*.pre-upgrade-$d" \
-    "*.pre-bootstrap-$d" \
-    "*.pre-refresh-$d"; do
-    if ! grep -qxF "$line" "$ex" 2>/dev/null; then
-      printf '%s\n' "$line" >> "$ex" 2>/dev/null || return 1
-    fi
-  done
-  return 0
-}
-if ff_git_exclude_backups; then FF_BACKUPS_GITIGNORED=1; else
+if command -v ff_git_exclude_backups >/dev/null 2>&1 && ff_git_exclude_backups; then FF_BACKUPS_GITIGNORED=1; else
   FF_BACKUPS_GITIGNORED=0
   echo "[upgrade] WARN: could not update .git/info/exclude — upgrade backups may be stageable by a later 'git add -A' (delete or unstage them before committing)." >&2
 fi
@@ -460,7 +446,7 @@ fi
 echo "[upgrade] Step 1/5: refreshing canonical content (${#CONTENT_DIRS[@]} dir(s) + ${#CONTENT_FILES[@]} file(s))…"
 copy_dir() {
   local d="$1"
-  [ -d "$SOURCE_CLONE/$d" ] || return 0
+  [ -d "$SOURCE_TREE/$d" ] || return 0
   # Guard the dest: GNU `cp -R src existing-dir` copies INTO it (a same-second $TS collision
   # / retry would yield `<d>.pre-upgrade-<ts>/<d>/tests/fixtures/…` — nested, so the scanner's
   # root-anchored fixture exclusion would miss it). A backup at this $TS already exists ⇒ skip.
@@ -468,7 +454,7 @@ copy_dir() {
   # Replace contents (canonical is source of truth; do not delete extra local files
   # blindly — copy upstream over, leaving any project-local additions in place).
   mkdir -p "$d"   # new dir on first migration (e.g. flow-skills/ on a pre-3.9.0 tree)
-  cp -R "$SOURCE_CLONE/$d/." "$d/"
+  cp -R "$SOURCE_TREE/$d/." "$d/"
 }
 if [ "$CLASSIFY_OK" -eq 1 ]; then
   # ---- PER-FILE apply (decision K15) ----
@@ -489,11 +475,11 @@ if [ "$CLASSIFY_OK" -eq 1 ]; then
     # next upgrade would compare new content against a base that predates it.
     case "$op" in
       copy)
-        [ -f "$SOURCE_CLONE/$path" ] || continue
+        [ -f "$SOURCE_TREE/$path" ] || continue
         mkdir -p "$(dirname "$path")"
         [ -f "$path" ] && [ ! -e "$path.pre-upgrade-$TS" ] && \
           case "$path" in */*) : ;; *) cp "$path" "$path.pre-upgrade-$TS" ;; esac
-        cp "$SOURCE_CLONE/$path" "$path"
+        cp "$SOURCE_TREE/$path" "$path"
         ff_applied=$((ff_applied + 1)) ;;
       delete)
         if [ -e "$path" ]; then
@@ -510,13 +496,13 @@ if [ "$CLASSIFY_OK" -eq 1 ]; then
   rm -f "$APPLY_PLAN" "$CLASSIFY_REPORT"
 else
   for d in "${CONTENT_DIRS[@]}"; do
-    if [ -d "$SOURCE_CLONE/$d" ] && dir_differs "$d"; then copy_dir "$d"; fi
+    if [ -d "$SOURCE_TREE/$d" ] && dir_differs "$d"; then copy_dir "$d"; fi
   done
   for f in "${CONTENT_FILES[@]}"; do
-    if [ -f "$SOURCE_CLONE/$f" ] && ! diff -q "$SOURCE_CLONE/$f" "$f" >/dev/null 2>&1; then
+    if [ -f "$SOURCE_TREE/$f" ] && ! diff -q "$SOURCE_TREE/$f" "$f" >/dev/null 2>&1; then
       [ -f "$f" ] && cp "$f" "$f.pre-upgrade-$TS"
       mkdir -p "$(dirname "$f")"   # D11: older installs may lack audit/ entirely
-      cp "$SOURCE_CLONE/$f" "$f"
+      cp "$SOURCE_TREE/$f" "$f"
     fi
   done
 fi
@@ -531,11 +517,11 @@ fi
 # by policy_loader.py; the wholesale copy never ships a *.local.yml so it can't
 # clobber them) + the policy-state-preserve test (AC7).
 # Belt-and-suspenders: Step 1 just refreshed hooks/ (so the local lib is now
-# definitely present) AND $SOURCE_CLONE/hooks/local/lib/ is authoritative — re-source
+# definitely present) AND $SOURCE_TREE/hooks/local/lib/ is authoritative — re-source
 # in case the early load was a no-op (pre-v3.25 install / un-staged bootstrap).
 source_merge_lib || true
 if [ -n "$LOCAL_BASELINE_SNAPSHOT" ] && command -v merge_module_size_baseline >/dev/null 2>&1; then
-  UPSTREAM_BASELINE="$SOURCE_CLONE/$BASELINE_REL"
+  UPSTREAM_BASELINE="$SOURCE_TREE/$BASELINE_REL"
   MERGED_BASELINE="$(mktemp)"
   merge_module_size_baseline "$LOCAL_BASELINE_SNAPSHOT" "$UPSTREAM_BASELINE" "$MERGED_BASELINE"
   if ! diff -q "$MERGED_BASELINE" "$BASELINE_REL" >/dev/null 2>&1; then
@@ -545,14 +531,14 @@ if [ -n "$LOCAL_BASELINE_SNAPSHOT" ] && command -v merge_module_size_baseline >/
   fi
   rm -f "$MERGED_BASELINE" "$LOCAL_BASELINE_SNAPSHOT"
 elif [ -n "$LOCAL_BASELINE_SNAPSHOT" ]; then
-  # The merge lib could not be loaded from $SOURCE_CLONE OR locally — the W2 fix
+  # The merge lib could not be loaded from $SOURCE_TREE OR locally — the W2 fix
   # cannot run. NEVER silently skip: the wholesale policies/ copy has clobbered the
   # consumer's module-size baseline with upstream's, so `check-module-size --all` may
   # now fail. Tell the operator loudly + give the exact recovery.
   echo "" >&2
   echo "[upgrade] ============================ WARNING ============================" >&2
   echo "[upgrade] module-size baseline was NOT merge-preserved — merge_module_size_baseline" >&2
-  echo "[upgrade] could not be sourced from $SOURCE_CLONE/hooks/local/lib/ or $MERGE_LIB." >&2
+  echo "[upgrade] could not be sourced from $SOURCE_TREE/hooks/local/lib/ or $MERGE_LIB." >&2
   echo "[upgrade] Your project rows in $BASELINE_REL may have been clobbered by upstream's." >&2
   echo "[upgrade] RECOVER (restore your pre-upgrade baseline):" >&2
   echo "    cp $BASELINE_REL.pre-upgrade-$TS $BASELINE_REL" >&2
@@ -575,7 +561,7 @@ if [ "$MIGRATE_LEGACY_SKILLS" -eq 1 ] && [ -d "skills" ] && [ -d "flow-skills" ]
   rm -rf "skills"
   echo "[upgrade] migrated canonical: retired legacy root skills/ (now flow-skills/; backup skills.pre-upgrade-$TS)"
 fi
-if [ "$WITH_DOCS" -eq 1 ] && [ -d "$SOURCE_CLONE/$DOC_GLOB" ]; then
+if [ "$WITH_DOCS" -eq 1 ] && [ -d "$SOURCE_TREE/$DOC_GLOB" ]; then
   mkdir -p "$DOC_DEST_PREFIX"
   while IFS= read -r srcdoc; do
     dest="${DOC_DEST_PREFIX}$(basename "$srcdoc")"
@@ -583,7 +569,7 @@ if [ "$WITH_DOCS" -eq 1 ] && [ -d "$SOURCE_CLONE/$DOC_GLOB" ]; then
       [ -f "$dest" ] && cp "$dest" "$dest.pre-upgrade-$TS"
       cp "$srcdoc" "$dest"
     fi
-  done < <(find "$SOURCE_CLONE/$DOC_GLOB" -maxdepth 1 -name "*.md" -type f 2>/dev/null)
+  done < <(find "$SOURCE_TREE/$DOC_GLOB" -maxdepth 1 -name "*.md" -type f 2>/dev/null)
 fi
 
 # ---- Step 2: re-mirror canonical -> providers (OPTIONAL, bounded) ----
@@ -597,14 +583,10 @@ echo "[upgrade] Step 2/3: re-mirroring skills + agents (canonical -> providers)�
 [ -x hooks/local/mirror-agents.sh ] && ffhc_run_step "${FF_MIRROR_TIMEOUT:-300}" 0 "re-mirror agents" bash hooks/local/mirror-agents.sh
 echo "[upgrade] Step 2/3: re-mirror done." >&2
 
-# ---- Step 3: sync embedded version strings (uses LOCAL VERSION; bumped in step 5,
-# so run AFTER bump? No — strings should reflect the TARGET version. Write VERSION
-# first into a temp, but per F1 VERSION file itself is bumped LAST. Resolve by
-# passing the target explicitly: temporarily VERSION is still old, so we bump the
-# file, then sync strings, then the "VERSION never leads content" invariant still
-# holds because content (steps 1-2) already landed.) ----
-
 # ---- Step 5 (bump VERSION) BEFORE string-sync, but AFTER content (steps 1-2). ----
+# TRIPWIRE: string-sync reads VERSION, so VERSION must already hold the TARGET value —
+# but never before content landed ("VERSION never leads content", F1). This order is the
+# only one satisfying both; do not move the bump back after the sync.
 # WS5: VERSION write is a CRITICAL step. It is a fast atomic local write (no busy-loop /
 # nothing to bound), but if it does not land, the upgrade must FAIL with the recovery hint —
 # never leave content refreshed while VERSION still reads the old value (or is truncated).
@@ -690,54 +672,17 @@ fi
 find . -path ./.fusebase-flow-source -prune -o -name "*.pyc" -print -delete 2>/dev/null | grep -q . \
   && echo "[upgrade] scrubbed stray .pyc files" || true
 
-# ---- U10: .pre-* backup retention (keep the most-recent N per stem) ----
-# Every upgrade drops *.pre-upgrade-<ts> (and recovery drops *.pre-refresh-<ts>)
-# backups; left unpruned they accrete (~70 observed, dotfile-prefixed so easy to
-# miss). Keep the newest N per backup STEM (the path before the .pre-*-<ts> suffix),
-# delete older ones. The <ts> is a sortable UTC stamp (date -u +%Y%m%dT%H%M%SZ), so
-# lexicographic reverse-sort == newest-first. Conservative: only OUR timestamped
-# suffixes, never the clone / .git. Default N=3 (FF_PRE_RETAIN override).
 PRE_RETAIN="${FF_PRE_RETAIN:-3}"
-# WS5 busy-loop ROOT FIX (not just a bound): the prior prune ran a FULL-TREE `find .`
-# PER unique stem (K stems x M files = O(K*M) traversals, each a fork), so a large
-# backup set fork-storms MSYS into a apparent busy-loop / 255-at-tail. This rewrite is
-# SINGLE-PASS: ONE `find`, tag each backup with its stem, sort by (stem, ts-descending)
-# so same-stem newest-first are adjacent, then one awk pass emits only the ones BEYOND
-# N to delete. O(M) + a fixed handful of forks regardless of stem count.
-prune_pre_backups() {
-  local retain="${PRE_RETAIN}"
-  case "$retain" in ''|*[!0-9]*) retain=3 ;; esac
-  local to_delete bak
-  # ONE traversal. For each backup path, emit "<stem>\t<ts>\t<fullpath>"; sort by stem
-  # then ts DESCENDING (newest first within a stem); awk keeps the first `retain` per stem
-  # and prints the rest (the deletions). All forks are constant (find|sed|sort|awk), not
-  # per-stem. Only OUR timestamped suffixes; never .git / the source clone.
-  # TRIPWIRE (DELETE-path defense-in-depth): the suffix is `date -u +%Y%m%dT%H%M%SZ`, so
-  # BOTH the find glob AND the sed capture require the exact [0-9]{8}T[0-9]{6}Z shape —
-  # a non-backup file that merely contains ".pre-upgrade-" (e.g. config.pre-upgrade-
-  # template.yml) can never match and is never eligible for `rm -rf`. sed dropping a
-  # non-conforming name (no capture => empty line, no tab) makes it fall out of the list.
-  local _tsg='[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]T[0-9][0-9][0-9][0-9][0-9][0-9]Z'
-  to_delete="$(
-    find . -path ./.git -prune -o -path ./.fusebase-flow-source -prune -o \
-      \( -name "*.pre-upgrade-$_tsg" -o -name "*.pre-refresh-$_tsg" \) -print 2>/dev/null \
-    | sed -nE 's|^(.*)\.pre-(upgrade\|refresh)-([0-9]{8}T[0-9]{6}Z)$|\1\t\3\t&|p' \
-    | sort -t "$(printf '\t')" -k1,1 -k2,2r \
-    | awk -F '\t' -v n="$retain" '{ if ($1==prev) c++; else { c=1; prev=$1 } if (c>n) print $3 }'
-  )"
-  [ -n "$to_delete" ] || return 0
-  while IFS= read -r bak; do
-    [ -n "$bak" ] && [ -e "$bak" ] || continue
-    rm -rf -- "$bak" && echo "[upgrade] U10: pruned old backup $bak"
-  done <<< "$to_delete"
-}
-# OPTIONAL step. The single-pass rewrite above is the busy-loop FIX (O(M), linear
-# pipeline — it cannot busy-loop), so bounding is belt-only. It is NOT routed through
-# ffhc_run_step: that helper runs the step via `timeout <cmd>`, and `timeout` cannot
-# invoke a bash FUNCTION (only an executable). Instead run it directly, flushed, and
-# `|| true` so a prune hiccup never fails an upgrade whose content + version landed.
+# OPTIONAL step. ff_prune_pre_backups is single-pass (O(M) forks) so bounding is belt-only,
+# and it is NOT routed through ffhc_run_step: that helper runs the step via `timeout <cmd>`,
+# and `timeout` cannot invoke a bash FUNCTION. Run it directly, flushed, `|| true` so a
+# prune hiccup never fails an upgrade whose content + version landed.
 echo "[upgrade] step: prune old .pre-* backups (single-pass, keep newest $PRE_RETAIN/stem)…" >&2
-prune_pre_backups || echo "[upgrade] WARN: backup prune reported an error — continuing (upgrade still valid)." >&2
+if command -v ff_prune_pre_backups >/dev/null 2>&1; then
+  ff_prune_pre_backups "$PRE_RETAIN" || echo "[upgrade] WARN: backup prune reported an error — continuing (upgrade still valid)." >&2
+else
+  echo "[upgrade] WARN: backup-hygiene lib absent — old .pre-* backups were NOT pruned." >&2
+fi
 
 echo ""
 echo "[upgrade] Content upgrade applied. VERSION now: $(tr -d '\n\r' < VERSION)"

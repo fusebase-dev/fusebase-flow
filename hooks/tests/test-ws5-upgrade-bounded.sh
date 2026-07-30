@@ -2,14 +2,14 @@
 # Fusebase Flow — WS5 (v3.30.4) upgrade-engine Windows-safe bounded-exit tests.
 # Roadmap: docs/specs/windows-msys-hardening/roadmap.md § WS5. Engine: hooks/local/upgrade.sh.
 #
-# WS5 fixes the upgrade busy-loop / 255-at-tail on MSYS by (1) making prune_pre_backups
+# WS5 fixes the upgrade busy-loop / 255-at-tail on MSYS by (1) making ff_prune_pre_backups
 # SINGLE-PASS (the busy-loop ROOT — the old code ran a full-tree `find .` PER stem =
 # O(K*M) fork-storm) and (2) bounding the long OPTIONAL steps via ffhc_run_step so a
 # killed step is killable + observable. CRITICAL steps (content copy/merge, VERSION
 # write) FAIL with the recovery hint when killed (never mask a partial upgrade as
 # success); OPTIONAL steps (re-mirror, sync-strings, backup-prune) WARN + continue.
 #
-# The functions under test (prune_pre_backups, ffhc_run_step, print_recovery_hint) are
+# The functions under test (ff_prune_pre_backups, ffhc_run_step, print_recovery_hint) are
 # EXTRACTED from the SHIPPED upgrade.sh (awk between the `name() {` and the matching
 # `}`), so these assertions guard the real code path — a regression in the shipped
 # function changes the extract and trips the test. A full end-to-end `upgrade.sh
@@ -24,6 +24,8 @@ set -uo pipefail
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 UPGRADE="$ROOT/hooks/local/upgrade.sh"
 LIB="$ROOT/hooks/local/lib/run-with-timeout.sh"
+# The prune moved to the backup-hygiene lib (FR-25 extraction); drive it from its real home.
+BH_LIB="$ROOT/hooks/local/lib/backup-hygiene.sh"
 
 pass=0; fail=0
 ok()   { pass=$((pass + 1)); echo "PASS: ws5-upgrade $1"; }
@@ -33,6 +35,7 @@ finish() { echo "[test-ws5-upgrade-bounded] $pass/$((pass + fail)) PASS"; exit $
 
 [ -f "$UPGRADE" ] || { bad "setup-upgrade-present" "missing $UPGRADE"; finish; }
 [ -f "$LIB" ] || { bad "setup-lib-present" "missing $LIB"; finish; }
+[ -f "$BH_LIB" ] || { bad "setup-backup-hygiene-lib-present" "missing $BH_LIB"; finish; }
 
 # Extract a named shell function VERBATIM from a script (the region from `name() {`
 # through the first line that is exactly `}`). Used to drive the shipped functions.
@@ -58,13 +61,12 @@ w1_prune() {
 
   local before after pruned rc start end el
   before="$(find "$FIX" -name '*.pre-*' 2>/dev/null | wc -l | tr -d ' ')"
-  local FN; FN="$(extract_fn prune_pre_backups "$UPGRADE")"
-  [ -n "$FN" ] || { rm -rf "$FIX"; bad "w1-prune-single-pass" "could not extract prune_pre_backups from upgrade.sh (regressed/renamed?)"; return; }
+  grep -q "^ff_prune_pre_backups() {" "$BH_LIB" \n    || { rm -rf "$FIX"; bad "w1-prune-single-pass" "ff_prune_pre_backups missing from $BH_LIB (regressed/renamed?)"; return; }
   # Bound the whole prune so a REGRESSION to the per-stem busy-loop FAILS here (rc 124)
   # instead of hanging the suite. 60s is generous for 154 files single-pass; the OLD
   # per-stem algorithm on 30 stems alone measured ~40s+ of pure traversal.
   start=$(date +%s)
-  ( cd "$FIX" && timeout -k 3 60 bash -c "PRE_RETAIN=3; $FN; prune_pre_backups" ) > "$FIX/.plog" 2>&1
+  ( cd "$FIX" && timeout -k 3 60 bash -c ". \"$BH_LIB\"; ff_prune_pre_backups 3" ) > "$FIX/.plog" 2>&1
   rc=$?
   end=$(date +%s); el=$((end - start))
   after="$(find "$FIX" -name '*.pre-*' 2>/dev/null | wc -l | tr -d ' ')"
@@ -279,9 +281,8 @@ w13_prune_ignores_non_backup() {
       : > "real.txt.pre-upgrade-$t"
     done
   ) || { rm -rf "$FIX"; bad "w13-prune-ignores-non-backup" "fixture setup failed"; return; }
-  local FN; FN="$(extract_fn prune_pre_backups "$UPGRADE")"
-  [ -n "$FN" ] || { rm -rf "$FIX"; bad "w13-prune-ignores-non-backup" "could not extract prune_pre_backups"; return; }
-  ( cd "$FIX" && timeout -k 3 30 bash -c "PRE_RETAIN=3; $FN; prune_pre_backups" ) >/dev/null 2>&1
+  grep -q "^ff_prune_pre_backups() {" "$BH_LIB" \n    || { rm -rf "$FIX"; bad "w13-prune-ignores-non-backup" "ff_prune_pre_backups missing from $BH_LIB"; return; }
+  ( cd "$FIX" && timeout -k 3 30 bash -c ". \"$BH_LIB\"; ff_prune_pre_backups 3" ) >/dev/null 2>&1
   local pruned_ok=1 kept
   [ -f "$FIX/config.pre-upgrade-template.yml" ] || pruned_ok=0
   [ -f "$FIX/notes.pre-refresh-draft.md" ] || pruned_ok=0
@@ -329,9 +330,8 @@ w8_no_runaway_after_prune() {
   # real guard is w1's bounded termination. This asserts the prune leaves no background job.
   local jobs_before jobs_after
   jobs_before="$(jobs -p 2>/dev/null | wc -l | tr -d ' ')"
-  local FN; FN="$(extract_fn prune_pre_backups "$UPGRADE")"
   local FIX; FIX="$(mktemp -d "${TMPDIR:-/tmp}/ws5-noruna.XXXXXX")"
-  ( cd "$FIX" && : > a.txt.pre-upgrade-20260101T000001Z && bash -c "PRE_RETAIN=3; $FN; prune_pre_backups" >/dev/null 2>&1 )
+  ( cd "$FIX" && : > a.txt.pre-upgrade-20260101T000001Z && bash -c ". \"$BH_LIB\"; ff_prune_pre_backups 3" >/dev/null 2>&1 )
   jobs_after="$(jobs -p 2>/dev/null | wc -l | tr -d ' ')"
   rm -rf "$FIX"
   if [ "$jobs_after" -le "$jobs_before" ]; then

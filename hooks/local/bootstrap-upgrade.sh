@@ -39,10 +39,17 @@
 #
 # Usage:
 #   bash hooks/local/bootstrap-upgrade.sh [--source <dir>] [--repo <url>] [--ref <branch>] [-- <upgrade.sh flags>]
+#   bash hooks/local/bootstrap-upgrade.sh --repair-managed <repo-relative-path> [--repair-managed <path> ...]
 # Examples:
 #   bash hooks/local/bootstrap-upgrade.sh --dry-run
 #   bash hooks/local/bootstrap-upgrade.sh -- --auto-yes
 #   bash hooks/local/bootstrap-upgrade.sh --source ../fusebase-flow
+#   bash hooks/local/bootstrap-upgrade.sh --repair-managed hooks/handlers/stop.py
+#
+# --repair-managed (AC3): repeatable, deliberate byte repair for a managed path a manifest
+# verifier reported as drifted. It materializes + verifies the source, then replaces ONLY the
+# named paths from those verified bytes and re-runs both verifiers. Naming each path IS the
+# authorization: --auto-yes never repairs, and an unreported/unmanaged path is refused.
 #
 # Exit: 0 success; 1 error; 2 bad arg.
 
@@ -56,13 +63,16 @@ REPO_URL="https://github.com/fusebase-dev/fusebase-flow.git"
 REF="main"
 SRC_OVERRIDE=""
 PASSTHROUGH=()
+REPAIR_PATHS=()
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --source) SRC_OVERRIDE="${2:-}"; shift 2 ;;
     --repo)   REPO_URL="${2:-}"; shift 2 ;;
     --ref)    REF="${2:-}"; shift 2 ;;
-    --help|-h) sed -n '2,38p' "$0"; exit 0 ;;
+    --repair-managed)   REPAIR_PATHS+=("${2:-}"); shift 2 ;;
+    --repair-managed=*) REPAIR_PATHS+=("${1#*=}"); shift ;;
+    --help|-h) sed -n '2,46p' "$0"; exit 0 ;;
     --) shift; PASSTHROUGH=("$@"); break ;;
     *) echo "[bootstrap-upgrade] Unknown argument: $1" >&2; echo "Run with --help for usage." >&2; exit 2 ;;
   esac
@@ -96,39 +106,65 @@ else
   git -c core.autocrlf="$FF_EOL" clone --depth 1 --branch "$REF" "$REPO_URL" "$SOURCE_CLONE"
 fi
 
-if [ ! -f "$SOURCE_CLONE/VERSION" ]; then
+# ---- Step 1b: canonical source boundary BEFORE any source-derived read (decision M1) ----
+# TRIPWIRE: the materializer itself is read from the source WORKTREE — you cannot materialize
+# without it (bootstrap chicken-and-egg). It is a script we execute, not managed content we
+# install; every CONTENT read below uses $SOURCE_TREE.
+FF_MMS_LIB="$SOURCE_CLONE/hooks/local/lib/materialize-managed-source.sh"
+[ -f "$FF_MMS_LIB" ] || FF_MMS_LIB="$ROOT/hooks/local/lib/materialize-managed-source.sh"
+SOURCE_TREE="$SOURCE_CLONE"
+SOURCE_TREE_FLAGS=()
+if [ -f "$FF_MMS_LIB" ]; then
+  # shellcheck source=/dev/null
+  . "$FF_MMS_LIB"
+  trap 'ff_source_cleanup' EXIT
+  trap 'rc=$?; ff_source_cleanup; exit $rc' INT TERM
+  ff_source_open "$SOURCE_CLONE" "" 0 "$REF" || exit 1
+  SOURCE_TREE="$FF_SOURCE_TREE"
+else
+  echo "[bootstrap-upgrade] WARN: this source ships no canonical materializer (pre-4.7.0) —" >&2
+  echo "                    reading its WORKTREE, which can carry stale pre-EOL-pin bytes (F2)." >&2
+fi
+
+if [ ! -f "$SOURCE_TREE/VERSION" ]; then
   echo "[bootstrap-upgrade] FATAL: $SOURCE_CLONE/VERSION missing — not a Fusebase Flow source tree." >&2
   exit 1
 fi
-echo "[bootstrap-upgrade] Source VERSION: $(tr -d '\n\r' < "$SOURCE_CLONE/VERSION")"
+echo "[bootstrap-upgrade] Source VERSION: $(tr -d '\n\r' < "$SOURCE_TREE/VERSION")"
 
-# Git-exclude the *.pre-*-<ts> backup snapshots we are about to drop, so a downstream
-# `git add -A` (notably FuseBase CLI's `fusebase update` checkpoint) never stages them.
-# upgrade.sh's hooks.pre-upgrade/policies.pre-upgrade snapshots carry the OLD secret-scan
-# fixtures that HARD-BLOCK such a checkpoint; git-excluding ALL backup families (incl. these
-# .pre-bootstrap ones) keeps a wholesale add clean (field escalation, v4.3.2). Local + idempotent.
-ff_git_exclude_backups() {
-  local ex line d
-  ex="$(git rev-parse --git-path info/exclude 2>/dev/null)" || return 0   # not a git repo -> no staging risk -> no-op
-  [ -n "$ex" ] || return 0
-  mkdir -p "$(dirname "$ex")" 2>/dev/null || return 1
-  [ -e "$ex" ] && { [ -r "$ex" ] || return 1; }
-  if [ -s "$ex" ] && [ -n "$(tail -c1 "$ex" 2>/dev/null)" ]; then
-    printf '\n' >> "$ex" 2>/dev/null || return 1
+# Git-exclude the *.pre-*-<ts> backup snapshots so a downstream `git add -A` (notably
+# FuseBase CLI's `fusebase update` checkpoint) never stages them — the rule and its rationale
+# live in the shared lib, which upgrade.sh uses too (no second copy to drift).
+FF_BH_LIB="$SOURCE_TREE/hooks/local/lib/backup-hygiene.sh"
+[ -f "$FF_BH_LIB" ] || FF_BH_LIB="$ROOT/hooks/local/lib/backup-hygiene.sh"
+# shellcheck source=/dev/null
+[ -f "$FF_BH_LIB" ] && . "$FF_BH_LIB"
+if command -v ff_git_exclude_backups >/dev/null 2>&1; then
+  ff_git_exclude_backups || echo "[bootstrap-upgrade] WARN: could not update .git/info/exclude — backups may be stageable by a later 'git add -A' (delete or unstage before committing)." >&2
+fi
+
+# ---- --repair-managed (AC3): deliberate exact-path byte repair, then re-verify ----
+if [ "${#REPAIR_PATHS[@]}" -gt 0 ]; then
+  if ! command -v ff_repair_managed >/dev/null 2>&1; then
+    echo "[bootstrap-upgrade] FATAL: --repair-managed needs hooks/local/lib/materialize-managed-source.sh" >&2
+    echo "                    from a 4.7.0+ source tree; none was found." >&2
+    exit 1
   fi
-  d='[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]T[0-9][0-9][0-9][0-9][0-9][0-9]Z'
-  for line in \
-    "# Fusebase Flow upgrade/refresh backups (transient; keep until validated) — never stage them." \
-    "*.pre-upgrade-$d" \
-    "*.pre-bootstrap-$d" \
-    "*.pre-refresh-$d"; do
-    if ! grep -qxF "$line" "$ex" 2>/dev/null; then
-      printf '%s\n' "$line" >> "$ex" 2>/dev/null || return 1
-    fi
+  if [ "$FF_SOURCE_STATE" != "VERIFIED" ]; then
+    echo "[bootstrap-upgrade] FATAL: repair requires a VERIFIED source; state is $FF_SOURCE_STATE" >&2
+    echo "                    ($FF_SOURCE_REASON). Repairing from unverified bytes would install" >&2
+    echo "                    content nobody can prove upstream shipped." >&2
+    exit 1
+  fi
+  ff_repair_managed "$ROOT" "$SOURCE_TREE" "$TS" "${REPAIR_PATHS[@]}" || exit 1
+  echo "[bootstrap-upgrade] re-verifying both manifests after repair…"
+  REPAIR_RC=0
+  for v in verify-hook-manifest.sh verify-managed-content-manifest.sh; do
+    [ -f "hooks/local/$v" ] || continue
+    bash "hooks/local/$v" || REPAIR_RC=$?
   done
-  return 0
-}
-ff_git_exclude_backups || echo "[bootstrap-upgrade] WARN: could not update .git/info/exclude — backups may be stageable by a later 'git add -A' (delete or unstage before committing)." >&2
+  exit "$REPAIR_RC"
+fi
 
 # ---- Step 2: NOTHING is written here (decision K10/K20) ----
 #
@@ -143,7 +179,7 @@ ff_git_exclude_backups || echo "[bootstrap-upgrade] WARN: could not update .git/
 # The ONE pre-classification write that remains is Step 2b's audit/managed-content-
 # manifest.json: it is the classifier's own INPUT, not consumer content, and without it
 # the classifier cannot distinguish the consumer's edits from upstream's at all.
-ENGINE_SRC="$SOURCE_CLONE/hooks/local/upgrade.sh"
+ENGINE_SRC="$SOURCE_TREE/hooks/local/upgrade.sh"
 if [ ! -f "$ENGINE_SRC" ]; then
   echo "[bootstrap-upgrade] FATAL: $ENGINE_SRC missing — not a usable source tree." >&2
   exit 1
@@ -162,7 +198,7 @@ fi
 # (a forked or unreleased VERSION) does the tree fall through to `unknown-base` — which is
 # preserve + report, never abort (K9 row 10).
 BASE_REL="audit/managed-content-manifest.json"
-MCM_SRC="$SOURCE_CLONE/hooks/local/lib/managed_content_manifest.py"
+MCM_SRC="$SOURCE_TREE/hooks/local/lib/managed_content_manifest.py"
 
 ff_synthesize_base() {
   local ver tag tmp rc
@@ -195,12 +231,14 @@ ff_synthesize_base() {
     return 1
   fi
   tmp="$(mktemp -d)"
-  # TRIPWIRE (line endings) — VERIFIED, do not "simplify" this away: `git archive` DOES
-  # apply core.autocrlf to files without an eol attribute (measured: autocrlf=true emits
-  # CRLF, false/input emit LF). Without this flag the staging clone's own autocrlf wins and
-  # the synthesized base hashes differ from the consumer's working tree for EVERY managed
-  # path — they then classify changed-by-both and the upgrade aborts having delivered
-  # nothing. Force the CONSUMER's convention so the base matches what their git wrote.
+  # TRIPWIRE (line endings, decision M1) — VERIFIED, do not "simplify" this away, and do NOT
+  # make it match the incoming-U call in materialize-managed-source.sh. This is the historical
+  # base B: it models what the consumer's own git WROTE at $tag, so it must keep the
+  # CONSUMER's EOL convention. `git archive` DOES apply core.autocrlf to files without an eol
+  # attribute (measured: true emits CRLF, false/input emit LF), so without this flag the base
+  # hashes differ from the consumer's working tree for EVERY managed path — all of them
+  # classify changed-by-both and the upgrade aborts having delivered nothing. Forcing LF here
+  # is the OPPOSITE error: it makes every untouched CRLF consumer file look locally edited.
   # (A 2026-07-28 review claimed archive ignores autocrlf; removing the flag reproduced the
   # whole-tree misclassification above, so the claim is false on this platform.)
   local eol
@@ -226,10 +264,16 @@ ff_synthesize_base() {
 ff_synthesize_base || true
 
 # ---- Step 3: hand off to the SOURCE engine (never the installed one) ----
+# The boundary crosses here as ABSOLUTE internal flags (decision M1 / AC2). We `exec`, so this
+# process is replaced and its EXIT trap never runs: ownership of the temp tree transfers to the
+# engine via --source-tree-owned, which arms the identical cleanup on its own side. Only pass
+# the flags when the source engine understands them (an older --source tree would exit 2).
+if grep -q -- '--source-tree)' "$ENGINE_SRC" 2>/dev/null; then
+  SOURCE_TREE_FLAGS=(--source-tree "$SOURCE_TREE" --source-repo "${FF_SOURCE_REPO:-$SOURCE_CLONE}")
+  [ "${FF_SOURCE_TREE_TEMP:-0}" = "1" ] && SOURCE_TREE_FLAGS+=(--source-tree-owned)
+  [ -n "${FF_SOURCE_COMMIT:-}" ] && SOURCE_TREE_FLAGS+=(--source-commit "$FF_SOURCE_COMMIT")
+  FF_SOURCE_TREE_TEMP=0        # handed over; our EXIT trap must not delete the engine's tree
+fi
 echo "[bootstrap-upgrade] Handing off to $ENGINE_SRC ${PASSTHROUGH[*]:-}"
 echo ""
-if [ "${#PASSTHROUGH[@]}" -gt 0 ]; then
-  exec bash "$ENGINE_SRC" "${PASSTHROUGH[@]}"
-else
-  exec bash "$ENGINE_SRC"
-fi
+exec bash "$ENGINE_SRC" ${SOURCE_TREE_FLAGS[@]+"${SOURCE_TREE_FLAGS[@]}"} ${PASSTHROUGH[@]+"${PASSTHROUGH[@]}"}
