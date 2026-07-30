@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "3558994b8820184f072a423b45f0327d37e88c29181caf2ff767bc4871a75206"
+      "sha256": "db3507a1b6e79c8e2e832e383e462818aac79ad38180410f1d81432042b557c2"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -282,7 +282,7 @@
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
-      "sha256": "2c92813feefe990326b14d2f43ae8267a367bab512e7061ef7cfff6edc11f664"
+      "sha256": "439e3fb1a02952d6fae01a6bfb0db886a21d0320030cf004fc063a13fa555a28"
     },
     {
       "path": "hooks/local/check-cli-flow-conflicts.sh",
@@ -938,7 +938,7 @@
     },
     {
       "path": "hooks/tests/test-upgrade-source-boundary.sh",
-      "sha256": "ab6e5d6e5f088ace08b74d1eec1da53e2f7393122fb2a277270e7cc1ae07c41a"
+      "sha256": "cd5b45862e43ba6e122892c95b6e7f34c57a28d0c98796931309275d3d83e8b4"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
@@ -1137,5 +1137,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "ea06bca5042c9423bce345ae2793abd16f951e5b2a9ed7f9d2be56cc3ea310eb"
+  "manifest_self_sha256": "3207763441b68716dbb0896d8b71291db82c45f5421df5e735ef9ec8c35a8edc"
 }

@@ -356,12 +356,28 @@ ff_synthesize_base || true
 # the flags when the source engine understands them (an older --source tree would exit 2).
 if grep -q -- '--source-tree)' "$ENGINE_SRC" 2>/dev/null; then
   SOURCE_TREE_FLAGS=(--source-tree "$SOURCE_TREE" --source-repo "${FF_SOURCE_REPO:-$SOURCE_CLONE}")
-  [ "${FF_SOURCE_TREE_TEMP:-0}" = "1" ] && SOURCE_TREE_FLAGS+=(--source-tree-owned)
+  if [ "${FF_SOURCE_TREE_TEMP:-0}" = "1" ] || [ "${FF_BOOT_TREE_OWNED:-0}" = "1" ]; then
+    SOURCE_TREE_FLAGS+=(--source-tree-owned)
+  fi
   [ -n "${FF_SOURCE_COMMIT:-}" ] && SOURCE_TREE_FLAGS+=(--source-commit "$FF_SOURCE_COMMIT")
-  FF_SOURCE_TREE_TEMP=0        # handed over; our EXIT trap must not delete the engine's tree
+  # handed over; no trap of ours may delete the tree the engine now owns
+  FF_SOURCE_TREE_TEMP=0; FF_BOOT_TREE_OWNED=0
 else
-  # A pre-boundary engine reads $SOURCE_REPO itself and can neither receive nor clean up an
-  # embedded-boundary temp tree, so release it here rather than leaking it past the exec.
+  # TRIPWIRE (M10 legacy route): a PRE-boundary engine can neither receive nor clean up the
+  # canonical tree, and it reads $SOURCE_CLONE itself — so the tree is released HERE and the
+  # engine runs from $SOURCE_CLONE. NEVER `exec` a path inside the tree this branch just
+  # deleted: that is what stopped a genuine pre-4.7.0 source (M10's named
+  # UNVERIFIED_LEGACY_SOURCE route) from upgrading at all — bash exits 127 on a vanished engine.
+  ENGINE_SRC="$SOURCE_CLONE/hooks/local/upgrade.sh"
+  if [ ! -f "$ENGINE_SRC" ]; then
+    echo "[bootstrap-upgrade] FATAL: the source engine predates the canonical-tree handoff and" >&2
+    echo "                    $ENGINE_SRC is missing — nothing to hand off to." >&2
+    exit 1
+  fi
+  echo "[bootstrap-upgrade] NOTE: the source engine predates the canonical-tree handoff; it reads"
+  echo "                    $SOURCE_CLONE itself, so the canonical tree is released here and the"
+  echo "                    engine runs from $SOURCE_CLONE (source state: ${FF_SOURCE_STATE:-unknown})."
+  command -v ff_source_cleanup >/dev/null 2>&1 && ff_source_cleanup
   ff_boot_cleanup
 fi
 echo "[bootstrap-upgrade] Handing off to $ENGINE_SRC ${PASSTHROUGH[*]:-}"

@@ -371,6 +371,56 @@ for k10 in plain git; do
     bad "k10-embedded-boundary-still-upgrades-a-pre-boundary-install-$k10" "$k_fail :: $(tail -8 "$K_LOG" | tr '\n' '|')"
   fi
 done
+
+# 2g. M10 end to end: a source with NEITHER manifest NOR materializer — the genuine pre-4.7.0
+# shape — must COMPLETE the named UNVERIFIED_LEGACY_SOURCE route, not merely enter it. 2f above
+# cannot see this: its source still ships the new materializer AND the new engine, so the hop takes
+# the --source-tree handoff. Here the source engine predates that flag, which is what makes
+# "release the canonical tree, then exec the engine inside it" a 127 instead of an upgrade.
+bnd_legacy_engine() {   # <source tree>: a PRE-boundary engine — no `--source-tree)` token, and it
+  # reads the staging directory itself, exactly as every engine before the canonical tree did.
+  cat > "$1/hooks/local/upgrade.sh" <<'LEGACY'
+#!/usr/bin/env bash
+set -eu
+printf '%s\n' "$@" > "./legacy-engine-argv.txt"
+cp ".fusebase-flow-source/hooks/local/control.sh" "hooks/local/control.sh"
+echo "[legacy-upgrade] refreshed content from .fusebase-flow-source"
+exit 0
+LEGACY
+}
+bnd_git_source() {   # <source dir>
+  ( cd "$1" && git init -q && git config user.email t@t.t && git config user.name t \
+      && git config core.autocrlf false && git add -A && git commit -qm src && git branch -M main )
+}
+for kind in plain git; do
+  P="$(bnd_plain_case "$B3_ROOT/legacyroute-$kind")"
+  PS="$P/.fusebase-flow-source"
+  rm -f "$P/hooks/local/lib/materialize-managed-source.sh"     # consumer predates the boundary lib
+  rm -f "$PS/hooks/local/lib/materialize-managed-source.sh" "$PS/audit/managed-content-manifest.json"
+  bnd_legacy_engine "$PS"
+  P_REF=()
+  if [ "$kind" = "git" ]; then bnd_git_source "$PS"; P_REF=(--ref main); fi
+  P_LOG="$B3_ROOT/legacyroute-$kind.log"
+  ( cd "$P" && bash hooks/local/bootstrap-upgrade.sh --source .fusebase-flow-source \
+      ${P_REF[@]+"${P_REF[@]}"} -- --auto-yes ) > "$P_LOG" 2>&1
+  P_RC=$?
+  p_fail=""
+  [ "$P_RC" -eq 0 ] || p_fail="$p_fail [rc $P_RC — a source with neither manifest nor materializer did not upgrade]"
+  [ -f "$P/legacy-engine-argv.txt" ] || p_fail="$p_fail [the source engine never ran]"
+  grep -q "control v2" "$P/hooks/local/control.sh" 2>/dev/null || p_fail="$p_fail [no content delivered]"
+  grep -q "UNVERIFIED_LEGACY_SOURCE" "$P_LOG" || p_fail="$p_fail [the unverified state was not NAMED in the log]"
+  if [ -f "$P/legacy-engine-argv.txt" ]; then
+    grep -q -- "--source-tree" "$P/legacy-engine-argv.txt" \
+      && p_fail="$p_fail [internal boundary flags were handed to an engine that cannot parse them]"
+    grep -q -- "--auto-yes" "$P/legacy-engine-argv.txt" \
+      || p_fail="$p_fail [the operator passthrough flag did not survive the handoff]"
+  fi
+  if [ -z "$p_fail" ]; then
+    ok "m10-pre-boundary-source-completes-the-unverified-legacy-route-$kind"
+  else
+    bad "m10-pre-boundary-source-completes-the-unverified-legacy-route-$kind" "$p_fail :: $(tail -8 "$P_LOG" | tr '\n' '|')"
+  fi
+done
 rm -rf "$B3_ROOT"
 
 # ---- 3. AC3: the already-corrupted consumer — preserve, then deliberate repair -------------

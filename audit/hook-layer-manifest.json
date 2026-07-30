@@ -46,7 +46,7 @@
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
-      "sha256": "2c92813feefe990326b14d2f43ae8267a367bab512e7061ef7cfff6edc11f664"
+      "sha256": "439e3fb1a02952d6fae01a6bfb0db886a21d0320030cf004fc063a13fa555a28"
     },
     {
       "path": "hooks/local/check-cli-flow-conflicts.sh",
@@ -550,12 +550,12 @@
     },
     {
       "path": "hooks/tests/test-upgrade-source-boundary.sh",
-      "sha256": "ab6e5d6e5f088ace08b74d1eec1da53e2f7393122fb2a277270e7cc1ae07c41a"
+      "sha256": "cd5b45862e43ba6e122892c95b6e7f34c57a28d0c98796931309275d3d83e8b4"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "6b1e5615f9d1df99b786bbc741cf238f0699e046d18d813324774b6e981a4ac8"
+  "manifest_self_sha256": "04e3e8665a964b53cc0750cfc5cdd919f29b5b4c0eb97896826120946d104c00"
 }
