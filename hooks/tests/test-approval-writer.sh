@@ -404,4 +404,67 @@ else
   bad "ac19-approval-authors-marked-declarative" "approval_authors is not marked enforced_by_hooks: false"
 fi
 
+# ---- 8. M9 / FR-07: an unloadable approval policy fails CLOSED in the CONSUMER ------
+# Section 6 proves the loader RAISES on a raised/invalid threshold. This is the other half the
+# review found fail-open: path_policy swallowed that raise and read strict=False, so a local file
+# that ENABLES strict_approvals disabled its own strict mode. A loader-level test cannot see it —
+# these assertions go through path_policy.evaluate / has_active_exception, with a VALID artifact
+# on disk so the deny can only come from the policy error.
+P5="$(mktemp -d)"
+mkdir -p "$P5/hooks/shared" "$P5/policies" "$P5/state/approvals"
+cp "$ROOT/hooks/shared/"*.py "$P5/hooks/shared/"
+: > "$P5/hooks/shared/__init__.py"
+cp "$ROOT/policies/approval-policy.yml" "$ROOT/policies/protected-paths.yml" "$P5/policies/"
+( cd "$P5" && git init -q && git config user.email t@t.t && git config user.name t )
+P5_NATIVE="$( cd "$P5" && { pwd -W 2>/dev/null || pwd; } )"
+MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$P5_NATIVE" <<'PY'
+import datetime, json, sys
+from pathlib import Path
+now = datetime.datetime.now(datetime.timezone.utc)
+FMT = "%Y-%m-%dT%H:%M:%SZ"
+art = {"schema_version": 2, "action": "protected_path_edit", "approved_by": "operator",
+       "scope": "r5-consumer-failclosed", "reason": "fixture", "paths": [".env"],
+       "created_at": now.strftime(FMT),
+       "expires_at": (now + datetime.timedelta(days=2)).strftime(FMT)}
+out = Path(sys.argv[1]) / "state" / "approvals" / "protected_path_edit-r5-20260730.json"
+out.write_text(json.dumps(art, indent=2) + "\n", encoding="utf-8")
+PY
+r5_probe() {   # -> "<evaluate-decision>|<raised|no-raise>|<reason-names-the-policy>"
+  ( cd "$P5" && MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - <<'PY' 2>&1
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path.cwd() / "hooks"))
+from shared.path_policy import evaluate, has_active_exception
+try:                                  # absent in a pre-fix build: keep the probe on the
+    from shared.path_policy import ApprovalPolicyError   # SUBSTANTIVE assertion, not an ImportError
+except ImportError:
+    class ApprovalPolicyError(Exception):
+        pass
+d = evaluate(".env")
+try:
+    has_active_exception(".env", Path.cwd(), category="env_and_secrets")
+    raised = "no-raise"
+except ApprovalPolicyError:
+    raised = "raised"
+print(f"{d.decision}|{raised}|{'approval-policy' in (d.reason or '')}")
+PY
+)
+}
+R5_CONTROL="$(r5_probe)"
+printf 'strict_approvals: true\nstale_approval_warn_after_days: 30\n' > "$P5/policies/approval-policy.local.yml"
+R5_BROKEN="$(r5_probe)"
+r5_fail=""
+[ "$R5_CONTROL" = "allow|no-raise|False" ] \
+  || r5_fail="$r5_fail [PRECONDITION: with a loadable policy the artifact must AUTHORIZE .env, got '$R5_CONTROL' — otherwise the deny below proves nothing]"
+case "$R5_BROKEN" in
+  "deny|raised|True") ;;
+  *) r5_fail="$r5_fail [an unloadable approval policy did not fail closed: got '$R5_BROKEN', want 'deny|raised|True' (a local file that ENABLES strict_approvals must never end up disabling it)]" ;;
+esac
+rm -rf "$P5"
+if [ -z "$r5_fail" ]; then
+  ok "m9-consumer-fails-closed-on-an-unloadable-approval-policy (path_policy denies + raises; the same artifact authorizes when the policy loads)"
+else
+  bad "m9-consumer-fails-closed-on-an-unloadable-approval-policy" "$r5_fail"
+fi
+
 finish

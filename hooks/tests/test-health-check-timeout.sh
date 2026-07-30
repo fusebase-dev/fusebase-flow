@@ -460,6 +460,10 @@ $OUT"
 # would break EXCEPTION_IN_EFFECT classification); and a LOWERED local threshold is honored.
 ht_m9_unit_array_contract() {
   local D="$TMP_BASE/m9-unit"; rm -rf "$D"; mkdir -p "$D/state/approvals" "$D/policies"
+  # The SHIPPED base policy, not an empty dir: without it local_override_may_relax is absent, the
+  # tighten-only layer never runs, and every local threshold merges plainly — the 'lowered' and
+  # 'broken' scenarios below would then assert nothing about tighten-only at all.
+  cp "$ROOT/policies/approval-policy.yml" "$D/policies/"
   m9_artifact "$D/state/approvals" "protected_path_edit-nocreated-20260401.json" \
     protected_path_edit none 365 '["config/deploy.yml"]'
   m9_artifact "$D/state/approvals" "protected_path_edit-expired-20260401.json" \
@@ -472,30 +476,45 @@ set -uo pipefail
 . "$ROOT/hooks/local/lib/active-approvals.sh"
 report() {   # <label>
   ACTIVE_ARTIFACTS=(); ARTIFACT_NOTES=(); DEFERRED_CHECKS=(); DEFERRED_BY_ARTIFACT=()
-  APPROVAL_WARNINGS=()
+  APPROVAL_WARNINGS=(); APPROVAL_POLICY_ERRORS=()
   ffhc_collect_active_approvals
-  printf '%s active=%s notes=%s warns=%s\n' "$1" "${#ACTIVE_ARTIFACTS[@]}" \
-    "${#ARTIFACT_NOTES[@]}" "${#APPROVAL_WARNINGS[@]}"
+  printf '%s active=%s notes=%s warns=%s policyerr=%s\n' "$1" "${#ACTIVE_ARTIFACTS[@]}" \
+    "${#ARTIFACT_NOTES[@]}" "${#APPROVAL_WARNINGS[@]}" "${#APPROVAL_POLICY_ERRORS[@]}"
   for x in "${ARTIFACT_NOTES[@]}"; do printf '%s NOTE %s\n' "$1" "$x"; done
   for x in "${APPROVAL_WARNINGS[@]}"; do printf '%s WARN %s\n' "$1" "$x"; done
+  for x in "${APPROVAL_POLICY_ERRORS[@]}"; do printf '%s POLICYERR %s\n' "$1" "$x"; done
 }
 cd "$D"
 report default
 printf 'stale_approval_warn_after_days: 1\n' > policies/approval-policy.local.yml
 report lowered
+# FAIL CLOSED: a local override the tighten-only validation REJECTS makes the merged policy
+# unreadable, so acceptance strictness is unknown. Reporting a configuration error and NO active
+# artifact is the only honest outcome; substituting strict=false + the shipped threshold is what
+# let a file enabling strict_approvals disable its own strict mode.
+printf 'strict_approvals: true\nstale_approval_warn_after_days: 30\n' > policies/approval-policy.local.yml
+report broken
+rm -f policies/approval-policy.local.yml state/approvals/*.json
+report noartifacts-brokenpolicy-control
+printf 'strict_approvals: true\nstale_approval_warn_after_days: 30\n' > policies/approval-policy.local.yml
+report noartifacts-brokenpolicy
 BASH
 )"
   local f=""
-  echo "$OUT" | grep -q '^default active=2 notes=2 warns=1$' || f="$f [default threshold: expected 2 active / 2 notes / 1 warn (unknown-age only)]"
+  echo "$OUT" | grep -q '^default active=2 notes=2 warns=1 policyerr=0$' || f="$f [default threshold: expected 2 active / 2 notes / 1 warn / 0 policy errors]"
   echo "$OUT" | grep -q '^default WARN protected_path_edit-nocreated-20260401.json: age=unknown (no created_at); threshold=7d; expires=2' || f="$f [missing created_at did not produce an age=unknown warning naming the threshold+expiry]"
   echo "$OUT" | grep -q 'WARN protected_path_edit-expired-' && f="$f [an EXPIRED artifact was warned about — it authorizes nothing]"
   echo "$OUT" | grep -q 'NOTE protected_path_edit-expired-' && f="$f [an EXPIRED artifact was reported ACTIVE]"
   echo "$OUT" | grep -qE '^default NOTE [^ ]+\.json: paths=1 status=(active|legacy-no-expiry) expires=[^ ]+ scope="m9-test"$' || f="$f [ARTIFACT_NOTES shape changed — the note must stay one line of status text]"
   echo "$OUT" | grep -E '^default NOTE ' | grep -qE 'age=|STALE_WARN' && f="$f [age text leaked into ARTIFACT_NOTES — that is the overload M9 forbids]"
-  echo "$OUT" | grep -q '^lowered active=2 notes=2 warns=2$' || f="$f [a LOWERED local threshold (1d) was not honored: the 2-day-old artifact should also warn]"
+  echo "$OUT" | grep -q '^lowered active=2 notes=2 warns=2 policyerr=0$' || f="$f [a LOWERED local threshold (1d) was not honored: the 2-day-old artifact should also warn]"
   echo "$OUT" | grep -q '^lowered WARN protected_path_edit-twodays-20260728.json: age=2d; threshold=1d;' || f="$f [the lowered-threshold warning does not report the local threshold]"
+  echo "$OUT" | grep -q '^broken active=0 notes=0 warns=0 policyerr=1$' || f="$f [FAIL-OPEN: a REJECTED local override (strict_approvals: true + a raised threshold) was swallowed — expected 0 active / 1 configuration error, got: $(echo "$OUT" | grep '^broken active=' || echo none)]"
+  echo "$OUT" | grep -q '^broken POLICYERR approval-policy did not load: .*stale_approval_warn_after_days' || f="$f [the configuration error does not name approval-policy and the offending key]"
+  echo "$OUT" | grep -q '^noartifacts-brokenpolicy-control active=0 notes=0 warns=0 policyerr=0$' || f="$f [PRECONDITION: an empty approvals dir with a VALID policy must report no policy error]"
+  echo "$OUT" | grep -q '^noartifacts-brokenpolicy active=0 notes=0 warns=0 policyerr=1$' || f="$f [a broken policy went unreported when no artifact was on disk — the probe must not depend on the artifact loop running]"
   if [ -z "$f" ]; then
-    ht_pass "m9-unit-array-contract (M9): unknown-age warns, expired neither active nor warned, ARTIFACT_NOTES stays one status-only line, lowered local threshold honored"
+    ht_pass "m9-unit-array-contract (M9): unknown-age warns, expired neither active nor warned, ARTIFACT_NOTES stays one status-only line, lowered local threshold honored, an unloadable policy reports a configuration error and activates nothing (with or without artifacts on disk)"
   else
     ht_fail "m9-unit-array-contract" "$f
 $OUT"

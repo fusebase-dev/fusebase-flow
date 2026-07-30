@@ -130,6 +130,7 @@ ARTIFACT_NOTES=()        # human-readable summaries of each active artifact
 DEFERRED_CHECKS=()       # check_ids deferred via active health_check_deferral-*.json (engine v2.4.0+)
 DEFERRED_BY_ARTIFACT=()  # parallel array — for each entry in DEFERRED_CHECKS, the artifact filename that authorized it
 APPROVAL_WARNINGS=()     # M9 stale-approval age warnings. VISIBILITY ONLY: printed outside every verdict array/count — never LOCAL_DRIFT/LOCAL_BROKEN/LOCAL_UNVERIFIED — so they can move neither the verdict nor the exit code, and invalidate no approval
+APPROVAL_POLICY_ERRORS=()  # approval-policy could not be loaded (e.g. a local override the tighten-only validation rejects). Reported as a CONFIGURATION ERROR instead of silently substituting compatibility defaults; while set, no artifact is reported active and the FR-07 gates deny
 DRIFT_SIGNATURE=""
 RECOMMENDATIONS=()
 PARTIAL_UPGRADE_FINDINGS=()   # U7: stale derived-fact mismatches (version/FR/plugin vs live strings)
@@ -725,6 +726,17 @@ fi
 if [ "${#ACTIVE_ARTIFACTS[@]}" -gt 0 ]; then
   echo "Active approval artifacts (${#ACTIVE_ARTIFACTS[@]}):"
   for x in "${ARTIFACT_NOTES[@]}"; do echo "  • $x"; done
+  echo ""
+fi
+
+# A policy that will not load is a CONFIGURATION ERROR, never a silent fall back to
+# compatibility defaults: approval acceptance strictness is unknown, so no artifact above is
+# reported active and every FR-07 approval evaluation denies until the file is fixed.
+if [ "${#APPROVAL_POLICY_ERRORS[@]}" -gt 0 ]; then
+  echo "Approval policy CONFIGURATION ERROR (${#APPROVAL_POLICY_ERRORS[@]}):"
+  for x in "${APPROVAL_POLICY_ERRORS[@]}"; do echo "  ✗ $x"; done
+  echo "  No approval artifact is reported active while this stands, and FR-07 approval"
+  echo "  evaluation DENIES. Fix policies/approval-policy.yml / approval-policy.local.yml."
   echo ""
 fi
 

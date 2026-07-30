@@ -69,12 +69,27 @@ def _load_categories() -> dict[str, dict[str, Any]]:
     return get_policy("protected-paths").get("categories") or {}
 
 
+class ApprovalPolicyError(RuntimeError):
+    """approval-policy could not be loaded, so approvals cannot be evaluated at all."""
+
+
 def _strict_approvals(root: Path | None) -> bool:
-    """K7 mode flag, read defensively — a policy read must never gate an FR-07 check."""
+    """K7 mode flag. FAIL-CLOSED: a policy that will not load RAISES.
+
+    Swallowing the error and returning False was an actual fail-open path: approval-policy is
+    the file that says HOW STRICT acceptance is, so a local file that enables strict_approvals
+    and also carries an invalid/raised stale_approval_warn_after_days disabled its own strict
+    mode. command_policy already denies on a policy load failure; this matches it. Callers that
+    do not catch ApprovalPolicyError inherit the raise, which the pre-commit body wrapper turns
+    into a BLOCK (same contract as staged_change_paths).
+    """
     try:
         return get_policy("approval-policy", root=root).get("strict_approvals") is True
-    except BaseException:                            # noqa: BLE001
-        return False
+    except BaseException as e:                       # noqa: BLE001 — load errors must not pass
+        raise ApprovalPolicyError(
+            f"approval-policy could not be loaded ({e!r}); FR-07 approval evaluation cannot run "
+            "— fix policies/approval-policy.yml / approval-policy.local.yml"
+        ) from e
 
 
 def is_protected(path: str) -> tuple[bool, str | None]:
@@ -232,11 +247,13 @@ def has_active_exception(
     root = root or find_git_root()
     if category is None:
         _, category = is_protected(path)
+    bootstrap = category == _BOOTSTRAP_CATEGORY
+    # Read the strictness mode FIRST: an unloadable approval policy must deny even when the
+    # approvals directory is absent, so the outcome never depends on which check ran first.
+    strict = _strict_approvals(root)
     approvals_dir = root / "state" / "approvals"
     if not approvals_dir.exists():
         return False
-    bootstrap = category == _BOOTSTRAP_CATEGORY
-    strict = _strict_approvals(root)
     for f in approvals_dir.glob("protected_path_edit-*.json"):
         artifact = load_artifact(f)
         if artifact is None or artifact.data is None:
@@ -299,7 +316,16 @@ def evaluate(path: str, *, root: Path | None = None) -> PathDecision:
     protected, category = is_protected(path)
     if not protected:
         return PathDecision(path=path, protected=False, category=None, has_exception=False, decision="allow")
-    exception = has_active_exception(path, root, category=category)
+    try:
+        exception = has_active_exception(path, root, category=category)
+    except ApprovalPolicyError as e:
+        # DENY regardless of on_unapproved_edit: with no loadable approval policy there is no
+        # basis for accepting any exception artifact, so `warn` would be a configuration-driven
+        # FR-07 bypass.
+        return PathDecision(
+            path=path, protected=True, category=category, has_exception=False, decision="deny",
+            reason=f"FR-07 fail-closed: {e}",
+        )
     if exception:
         return PathDecision(
             path=path,
@@ -326,6 +352,7 @@ def evaluate_many(paths: list[str], *, root: Path | None = None) -> list[PathDec
 
 
 __all__ = [
-    "PathDecision", "is_protected", "has_active_exception", "compute_staged_tree_digest",
-    "staged_change_paths", "evaluate", "evaluate_many", "assert_protected_policy_loaded",
+    "ApprovalPolicyError", "PathDecision", "is_protected", "has_active_exception",
+    "compute_staged_tree_digest", "staged_change_paths", "evaluate", "evaluate_many",
+    "assert_protected_policy_loaded",
 ]

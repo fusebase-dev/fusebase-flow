@@ -66,7 +66,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-health-check.sh",
-      "sha256": "e3a587cec557c615bbd3e924cf1b13831ea42ccb51441b6c4cd3e8f7ea1984e9"
+      "sha256": "36cfbc7b1f8900614377d19833272e8bf4b639798e135a350c774fc39fcf569a"
     },
     {
       "path": "hooks/local/install-codex-prompts.sh",
@@ -78,7 +78,7 @@
     },
     {
       "path": "hooks/local/lib/active-approvals.sh",
-      "sha256": "33ab64ca044050afd369bf26f78f2c9f1ef48036cbc6cf82524dbb82817539ef"
+      "sha256": "c60c6cc05e83cbf049eff777ad380e9bbeb1abb1c2e0e9897404f67672d4348c"
     },
     {
       "path": "hooks/local/lib/approval_inventory.py",
@@ -222,7 +222,7 @@
     },
     {
       "path": "hooks/shared/path_policy.py",
-      "sha256": "cb676d762dd4593ea315a62d78192bf00bf49467f7dbedcd245786c40c65d4ab"
+      "sha256": "1782f5dd94e19fdd63c6ac0c39947f327073904cd236f5e5320e7a0ea57116f6"
     },
     {
       "path": "hooks/shared/policy_loader.py",
@@ -414,7 +414,7 @@
     },
     {
       "path": "hooks/tests/test-approval-writer.sh",
-      "sha256": "f9ff21008afe57a3115f429378fef6f50eec0537dcecc4ece6edd974d0c25b04"
+      "sha256": "317d3b3fb2db80605a729be5cddffc20bb9245d535b60488e05d02a8d481a52d"
     },
     {
       "path": "hooks/tests/test-baseline-merge.sh",
@@ -470,7 +470,7 @@
     },
     {
       "path": "hooks/tests/test-health-check-timeout.sh",
-      "sha256": "3c8ae052f06f3c168ad5394f211268756ea0a1d52c8a3d023e22db45646d11aa"
+      "sha256": "d6aaf53c5a9d8ba5eca76e40572d5ddad921fb6ae8784cf33351350b47610216"
     },
     {
       "path": "hooks/tests/test-history-extraction.sh",
@@ -557,5 +557,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "a2cf7ebb5420706f0cecfa81e371fca4249004c9af2a4113845d571044d9095d"
+  "manifest_self_sha256": "26f89cd44ae035316fc2eb59922e6532d282d4a2eb83ff19093bb661ab3289b0"
 }

@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "76c897bf369f2d6fa2c207734023c159175a6a28410b76d2916f3d7c28a3dbd9"
+      "sha256": "96b0ea6f19d8a958d7758e2619d72b3b87b8206da637b5623676eb428e473f27"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -398,7 +398,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-health-check.sh",
-      "sha256": "e3a587cec557c615bbd3e924cf1b13831ea42ccb51441b6c4cd3e8f7ea1984e9"
+      "sha256": "36cfbc7b1f8900614377d19833272e8bf4b639798e135a350c774fc39fcf569a"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/agent-surface-ownership.json",
@@ -458,7 +458,7 @@
     },
     {
       "path": "hooks/local/lib/active-approvals.sh",
-      "sha256": "33ab64ca044050afd369bf26f78f2c9f1ef48036cbc6cf82524dbb82817539ef"
+      "sha256": "c60c6cc05e83cbf049eff777ad380e9bbeb1abb1c2e0e9897404f67672d4348c"
     },
     {
       "path": "hooks/local/lib/approval_inventory.py",
@@ -610,7 +610,7 @@
     },
     {
       "path": "hooks/shared/path_policy.py",
-      "sha256": "cb676d762dd4593ea315a62d78192bf00bf49467f7dbedcd245786c40c65d4ab"
+      "sha256": "1782f5dd94e19fdd63c6ac0c39947f327073904cd236f5e5320e7a0ea57116f6"
     },
     {
       "path": "hooks/shared/policy_loader.py",
@@ -802,7 +802,7 @@
     },
     {
       "path": "hooks/tests/test-approval-writer.sh",
-      "sha256": "f9ff21008afe57a3115f429378fef6f50eec0537dcecc4ece6edd974d0c25b04"
+      "sha256": "317d3b3fb2db80605a729be5cddffc20bb9245d535b60488e05d02a8d481a52d"
     },
     {
       "path": "hooks/tests/test-baseline-merge.sh",
@@ -858,7 +858,7 @@
     },
     {
       "path": "hooks/tests/test-health-check-timeout.sh",
-      "sha256": "3c8ae052f06f3c168ad5394f211268756ea0a1d52c8a3d023e22db45646d11aa"
+      "sha256": "d6aaf53c5a9d8ba5eca76e40572d5ddad921fb6ae8784cf33351350b47610216"
     },
     {
       "path": "hooks/tests/test-history-extraction.sh",
@@ -1137,5 +1137,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "d79528f422901812202f1d0ffa83f952d91b039184eb3010a4615e1c25d5681b"
+  "manifest_self_sha256": "93cfe5438196540d81f92e24abacb5b670455118874b8daa964ac75e836e8501"
 }

@@ -21,6 +21,13 @@
 #                           array and count — never LOCAL_DRIFT / LOCAL_BROKEN /
 #                           LOCAL_UNVERIFIED — and they invalidate no approval. An artifact
 #                           that warns still authorizes and still lands in ACTIVE_ARTIFACTS.
+#   APPROVAL_POLICY_ERRORS[]  configuration errors that make approval-policy unloadable.
+#                           FAIL CLOSED: while one is present NO artifact is reported active,
+#                           because the merged policy that decides acceptance strictness could
+#                           not be read. Substituting strict=false + the shipped threshold is
+#                           what let a local file enabling strict_approvals disable its own
+#                           strict mode. The FR-07 gates deny in this state (path_policy raises
+#                           ApprovalPolicyError); this array is how the operator SEES why.
 #
 # Two artifact types under state/approvals/:
 #   - protected_path_edit-*.json  — authorizes protected-path edits (lists `paths`).
@@ -28,8 +35,35 @@
 #     (lists `deferred_checks`; the engine reclassifies matching drift to
 #     LOCAL_DEFERRED -> EXCEPTION_IN_EFFECT). See docs/health-check-deferrals.md.
 
+# Report a configuration error that makes the merged approval policy unreadable. Runs BEFORE the
+# artifact loop and independently of it: a broken policy with zero artifacts on disk is still a
+# finding, and the loop body would never execute to surface it.
+_ffhc_probe_approval_policy() {   # <flow-code-root> <inspected-project-root>
+  local out rc
+  out=$(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$1" "$2" <<'PY' 2>&1
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(sys.argv[1]) / "hooks"))
+# An ImportError / SystemExit here is a missing hook runtime, not a policy defect: it exits
+# non-3 and is reported by the environment checks, not as a configuration error.
+from shared.policy_loader import get_policy
+try:
+    get_policy("approval-policy", root=Path(sys.argv[2]))
+except Exception as e:
+    print(str(e).replace("\n", " ")[:300])
+    sys.exit(3)
+sys.exit(0)
+PY
+)
+  rc=$?
+  [ "$rc" -eq 3 ] || return 0
+  out="${out//$'\r'/}"; out="${out//$'\n'/ }"
+  APPROVAL_POLICY_ERRORS+=("approval-policy did not load: ${out:-unknown error}")
+  return 1
+}
+
 ffhc_collect_active_approvals() {
-  [ -d "state/approvals" ] && command -v python3 >/dev/null 2>&1 || return 0
+  command -v python3 >/dev/null 2>&1 || return 0
   local artifact_file artifact_basename summary warn_line rc deferred_list cid ff_root ff_project
   # CODE root (where hooks/shared lives) is resolved from THIS FILE, not the cwd or the
   # git root: artifacts are discovered relative to the cwd (the project being inspected),
@@ -40,6 +74,8 @@ ffhc_collect_active_approvals() {
   # inspected project's root must cross as a NATIVE path or the strict_approvals read
   # silently fails and every artifact is judged in compat mode.
   ff_project="$( pwd -W 2>/dev/null || pwd )"
+  _ffhc_probe_approval_policy "$ff_root" "$ff_project" || return 0
+  [ -d "state/approvals" ] || return 0
   while IFS= read -r artifact_file; do
     if [ -z "$artifact_file" ]; then continue; fi
     artifact_basename=$(basename "$artifact_file")
@@ -61,18 +97,20 @@ try:
     # so it must not be reported as active either (the report and the gates cannot differ).
     # stale_approval_warn_after_days (M9) comes from the SAME merged read: one policy load
     # per artifact, and the age report can never be based on a different policy than the
-    # strictness it reports beside it. A policy that will not load leaves BOTH at their
-    # shipped-safe defaults — this report must never change the health verdict or exit code.
+    # strictness it reports beside it.
+    # FAIL CLOSED: a policy that will not load exits 3, so this artifact is NOT reported active
+    # and the caller records a configuration error. Substituting strict=False here let a local
+    # file that ENABLES strict_approvals disable its own strict mode.
     threshold_days = 7
+    from shared.policy_loader import get_policy
     try:
-        from shared.policy_loader import get_policy
         _appr = get_policy("approval-policy", root=Path(project))
-        strict = _appr.get("strict_approvals") is True
-        _thr = _appr.get("stale_approval_warn_after_days")
-        if isinstance(_thr, int) and not isinstance(_thr, bool) and _thr > 0:
-            threshold_days = _thr
     except Exception:
-        strict = False
+        sys.exit(3)
+    strict = _appr.get("strict_approvals") is True
+    _thr = _appr.get("stale_approval_warn_after_days")
+    if isinstance(_thr, int) and not isinstance(_thr, bool) and _thr > 0:
+        threshold_days = _thr
     art = load(p)
     if art is None:
         sys.exit(2)
