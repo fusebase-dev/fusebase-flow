@@ -142,8 +142,40 @@ ff_boot_cleanup() {
 # TRIPWIRE (re-review B4): $2 exists so a caller can supply a verifier it ALREADY PROVED. A tree
 # whose own verifier is part of what is in question — the mutable worktree at Step 2c — must be
 # judged with that argument, never with the default below.
+#
+# TRIPWIRE (re-review B5): EVERY interpreter that carries this verdict runs through ff_boot_py.
+# Choosing a trusted verifier FILE is not enough — plain `python3 <file>` still executes whatever
+# `site` finds first, so a sitecustomize.py/usercustomize.py/.pth reachable from the JUDGED tree
+# (an inherited PYTHONPATH is all it takes) runs BEFORE the verifier and can print a MATCH token
+# then os._exit(0). That is B4 again one layer down, in the interpreter instead of the script.
+# `-S` drops site processing, `-E` drops PYTHONPATH/PYTHONHOME; the same close the pre-commit
+# already shipped for this class (hooks/tests/test-trusted-enforcer.sh T29/T30). Never call a
+# bare `python3` for anything that decides, or feeds, an integrity verdict.
+ff_boot_py() { python3 -S -E "$@"; }
+
+# The verdict is PARSED, never substring-matched (re-review B5): output that merely CONTAINS
+# `"verdict": "MATCH"` — truncated, wrapped, or attacker-chosen prose — is not a MATCH. Prints
+# line 1 = verdict (empty when unparseable), line 2 = drifted paths.
+ff_boot_verdict() {   # stdin = `verify --json` output
+  ff_boot_py -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    assert isinstance(d, dict)
+except Exception:
+    print(""); print(""); raise SystemExit(0)
+v = d.get("verdict")
+fs = [f.get("path", "?") for f in (d.get("files") or []) if isinstance(f, dict)]
+s = ", ".join(fs[:8])
+if len(fs) > 8:
+    s += " (+%d more)" % (len(fs) - 8)
+print(v if isinstance(v, str) else "")
+print(s)
+' 2>/dev/null
+}
+
 ff_boot_verify() {   # <tree> [<trusted verifier>]; sets FF_SOURCE_STATE/_REASON/_DRIFT. rc 1 => abort
-  local tree="$1" mcm="${2:-}" mrel="$FF_MCM_REL" out rc
+  local tree="$1" mcm="${2:-}" mrel="$FF_MCM_REL" out rc parsed verdict
   [ -n "$mcm" ] || mcm="$tree/hooks/local/lib/managed_content_manifest.py"
   FF_SOURCE_STATE=""; FF_SOURCE_REASON=""; FF_SOURCE_DRIFT=""
   if [ ! -f "$tree/$mrel" ]; then
@@ -159,27 +191,18 @@ ff_boot_verify() {   # <tree> [<trusted verifier>]; sets FF_SOURCE_STATE/_REASON
     FF_SOURCE_REASON="source ships $mrel but python3 is unavailable to verify it — these bytes cannot be proven to be what upstream shipped"
     return 1
   fi
-  out="$(python3 "$mcm" verify --root "$tree" --json 2>/dev/null)"; rc=$?
-  FF_SOURCE_DRIFT="$(printf '%s' "$out" | python3 -c '
-import json, sys
-try:
-    d = json.load(sys.stdin)
-except Exception:
-    sys.exit(0)
-fs = [f.get("path", "?") for f in d.get("files", []) or []]
-s = ", ".join(fs[:8])
-if len(fs) > 8:
-    s += " (+%d more)" % (len(fs) - 8)
-print(s)
-' 2>/dev/null)"
+  out="$(ff_boot_py "$mcm" verify --root "$tree" --json 2>/dev/null)"; rc=$?
+  parsed="$(printf '%s' "$out" | ff_boot_verdict)"
+  verdict="$(printf '%s\n' "$parsed" | sed -n '1p')"
+  FF_SOURCE_DRIFT="$(printf '%s\n' "$parsed" | sed -n '2p')"
   # TRIPWIRE (decision M10): UNVERIFIED_LEGACY_SOURCE is reachable ONLY from the manifest-ABSENT
-  # branch above. Never widen the rc-0 success case beyond a literal MATCH verdict either.
+  # branch above. Never widen the rc-0 success case beyond a PARSED, literal MATCH verdict either.
   case "$rc" in
     0)
-      case "$out" in
-        *'"verdict": "MATCH"'*|*'"verdict":"MATCH"'*)
+      case "$verdict" in
+        MATCH)
           FF_SOURCE_STATE="VERIFIED"; FF_SOURCE_DRIFT=""; return 0 ;;
-        *) FF_SOURCE_REASON="the source verifier exited 0 without a MATCH verdict for $mrel (truncated or replaced managed_content_manifest.py?)"
+        *) FF_SOURCE_REASON="the source verifier exited 0 without a parseable MATCH verdict for $mrel (truncated or replaced managed_content_manifest.py?)"
            return 1 ;;
       esac ;;
     1) FF_SOURCE_REASON="the source tree does not match its own shipped $mrel (DRIFT)"; return 1 ;;
@@ -457,7 +480,9 @@ ff_synthesize_base() {
     echo "[bootstrap-upgrade] WARN: could not extract $tag — skipping base synthesis." >&2
     rm -rf "$tmp"; return 1
   fi
-  python3 "$MCM_SRC" stamp --root "$tmp" >/dev/null 2>&1; rc=$?
+  # ff_boot_py, not python3: the synthesized base IS the classifier's input, so a startup-file
+  # injection here decides what counts as a consumer edit later (re-review B5).
+  ff_boot_py "$MCM_SRC" stamp --root "$tmp" >/dev/null 2>&1; rc=$?
   if [ "$rc" -ne 0 ] || [ ! -f "$tmp/$BASE_REL" ]; then
     echo "[bootstrap-upgrade] WARN: base stamp from $tag failed (rc $rc) — skipping." >&2
     rm -rf "$tmp"; return 1

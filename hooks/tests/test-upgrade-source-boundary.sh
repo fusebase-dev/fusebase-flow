@@ -633,6 +633,96 @@ for helper in "H-" "H+"; do
   fi
   mx_ran "git/B/$helper"
 done
+
+# ---- 2i-quater. B5: choosing a TRUSTED verifier FILE is not enough ---------------------------
+# B4 made Step 2c run the canonical tree's managed_content_manifest.py. That fixes WHICH SCRIPT
+# runs and says nothing about WHICH CODE the interpreter executes first: plain `python3 <file>`
+# still imports `sitecustomize` from sys.path, so a startup file reachable from the JUDGED tree
+# (an inherited PYTHONPATH is the whole exploit) runs BEFORE the trusted verifier, prints a MATCH
+# document and os._exit(0)s. The verifier never executes. This is the repository's own catalogued
+# class (test-trusted-enforcer.sh T29/T30, hook_manifest.py STARTUP_BASENAMES), one layer below
+# B4. Here the WORKTREE VERIFIER IS HONEST and the payload alone is tampered: the only thing
+# standing between the consumer and those bytes is whether the interpreter was hardened.
+for helper in "H-" "H+"; do
+  SV="$(bnd_plain_case "$B3_ROOT/startupinject-$helper")"
+  SVS="$SV/.fusebase-flow-source"
+  [ "$helper" = "H-" ] && rm -f "$SV/hooks/local/lib/materialize-managed-source.sh"
+  rm -f "$SVS/hooks/local/lib/materialize-managed-source.sh"
+  bnd_legacy_engine "$SVS"
+  ( cd "$SVS" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null )
+  bnd_git_source "$SVS"
+  # Payload tampered AFTER the commit; the verifier is left exactly as committed.
+  printf 'control TAMPERED\n' > "$SVS/hooks/local/control.sh"
+  mkdir -p "$SVS/hooks"
+  cat > "$SVS/hooks/sitecustomize.py" <<'STARTUP'
+import os, sys
+sys.stdout.write('{"verdict": "MATCH", "listed": 0, "files": []}\n')
+sys.stdout.flush()
+os._exit(0)
+STARTUP
+  SV_LOG="$B3_ROOT/startupinject-$helper.log"
+  ( cd "$SV" && PYTHONPATH="$SVS/hooks" bash hooks/local/bootstrap-upgrade.sh \
+      --source .fusebase-flow-source --ref main -- --auto-yes ) > "$SV_LOG" 2>&1
+  SV_RC=$?
+  sv_fail=""
+  [ "$SV_RC" -ne 0 ] || sv_fail="$sv_fail [a hostile python startup file forged the verdict and the upgrade completed (rc 0)]"
+  grep -q "ABORT" "$SV_LOG" || sv_fail="$sv_fail [no abort diagnostic]"
+  grep -q "audit/managed-content-manifest.json" "$SV_LOG" \
+    || sv_fail="$sv_fail [the abort does not name audit/managed-content-manifest.json]"
+  grep -q "hooks/local/control.sh" "$SV_LOG" \
+    || sv_fail="$sv_fail [the offending payload path is not named]"
+  grep -q "control v1" "$SV/hooks/local/control.sh" || sv_fail="$sv_fail [tampered bytes were installed]"
+  [ ! -f "$SV/legacy-engine-argv.txt" ] || sv_fail="$sv_fail [the engine ran despite the abort]"
+  if [ -z "$sv_fail" ]; then
+    ok "b5-hostile-python-startup-file-cannot-forge-the-source-verdict-git-$helper"
+  else
+    bad "b5-hostile-python-startup-file-cannot-forge-the-source-verdict-git-$helper" "rc=$SV_RC$sv_fail :: $(tail -8 "$SV_LOG" | tr '\n' '|')"
+  fi
+  mx_ran "git/B/$helper"
+done
+
+# ---- 2i-quinquies. B5b: a MATCH TOKEN is not a MATCH VERDICT ---------------------------------
+# The rc-0 success case used to be a substring test for `"verdict": "MATCH"` anywhere in the
+# payload. A verifier replaced with something that emits an unparseable blob CONTAINING that
+# token — a truncated write, a wrapper that prepends noise, an attacker who only controls part
+# of the output — was therefore read as a clean tree. PLAIN transport on purpose: the snapshot
+# is a byte copy of the worktree, so the source's OWN verifier is the one that answers and the
+# trusted-verifier fix of B4 cannot mask the parsing question. Both helper shapes run because
+# the two carriers (bootstrap's embedded ff_boot_verify, the lib's _ff_mms_verify) each had
+# their own copy of the substring test.
+for helper in "H-" "H+"; do
+  TK="$(bnd_plain_case "$B3_ROOT/matchtoken-$helper")"
+  TKS="$TK/.fusebase-flow-source"
+  [ "$helper" = "H-" ] && rm -f "$TK/hooks/local/lib/materialize-managed-source.sh"
+  rm -f "$TKS/hooks/local/lib/materialize-managed-source.sh"
+  bnd_legacy_engine "$TKS"
+  ( cd "$TKS" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null )
+  printf 'control TAMPERED\n' > "$TKS/hooks/local/control.sh"
+  cat > "$TKS/hooks/local/lib/managed_content_manifest.py" <<'TOKEN'
+import sys
+sys.stdout.write('managed-content OK -- "verdict": "MATCH" (listed 285, drifted 0)\n')
+sys.exit(0)
+TOKEN
+  TK_LOG="$B3_ROOT/matchtoken-$helper.log"
+  ( cd "$TK" && bash hooks/local/bootstrap-upgrade.sh --source .fusebase-flow-source --ref main \
+      -- --auto-yes ) > "$TK_LOG" 2>&1
+  TK_RC=$?
+  tk_fail=""
+  [ "$TK_RC" -ne 0 ] || tk_fail="$tk_fail [an unparseable payload carrying a MATCH token was accepted as a verdict (rc 0)]"
+  grep -q "ABORT" "$TK_LOG" || tk_fail="$tk_fail [no abort diagnostic]"
+  grep -q "audit/managed-content-manifest.json" "$TK_LOG" \
+    || tk_fail="$tk_fail [the abort does not name audit/managed-content-manifest.json]"
+  grep -q "parseable MATCH verdict" "$TK_LOG" \
+    || tk_fail="$tk_fail [the diagnostic does not say the verdict failed to PARSE — an operator reading it cannot tell this from ordinary drift]"
+  grep -q "control v1" "$TK/hooks/local/control.sh" || tk_fail="$tk_fail [tampered bytes were installed]"
+  [ ! -f "$TK/legacy-engine-argv.txt" ] || tk_fail="$tk_fail [the engine ran despite the abort]"
+  if [ -z "$tk_fail" ]; then
+    ok "b5-match-token-in-unparseable-output-is-not-a-verdict-plain-$helper"
+  else
+    bad "b5-match-token-in-unparseable-output-is-not-a-verdict-plain-$helper" "rc=$TK_RC$tk_fail :: $(tail -8 "$TK_LOG" | tr '\n' '|')"
+  fi
+  mx_ran "plain/B/$helper"
+done
 rm -rf "$B3_ROOT"
 
 # ---- 2j. the matrix itself: every cell named, every RUN cell actually run ------------------

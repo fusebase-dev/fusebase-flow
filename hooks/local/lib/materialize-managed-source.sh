@@ -92,18 +92,44 @@ _ff_mms_snapshot() {   # <src> <dest> — non-git source (decision M10)
   return 0
 }
 
+# TRIPWIRE (re-review B5): every interpreter that carries or feeds the source verdict goes
+# through _ff_mms_py. Plain `python3 <file>` still runs whatever `site` finds first, so a
+# sitecustomize.py/usercustomize.py/.pth reachable from the JUDGED tree — an inherited
+# PYTHONPATH is all it takes — executes BEFORE the verifier and can print a MATCH token then
+# os._exit(0). `-S` drops site processing, `-E` drops PYTHONPATH/PYTHONHOME. Mirrors
+# ff_boot_py in bootstrap-upgrade.sh and the pre-commit close for the same class
+# (hooks/tests/test-trusted-enforcer.sh T29/T30). managed_content_manifest.py imports stdlib
+# only, so `-S` costs it nothing.
+_ff_mms_py() { python3 -S -E "$@"; }
+
 _ff_mms_json_paths() {   # <verify --json output> -> "p1, p2 (+N more)"
-  printf '%s' "$1" | python3 -c '
+  printf '%s' "$1" | _ff_mms_py -c '
 import json, sys
 try:
     d = json.load(sys.stdin)
+    assert isinstance(d, dict)
 except Exception:
     sys.exit(0)
-fs = [f.get("path", "?") for f in d.get("files", []) or []]
+fs = [f.get("path", "?") for f in (d.get("files") or []) if isinstance(f, dict)]
 s = ", ".join(fs[:8])
 if len(fs) > 8:
     s += " (+%d more)" % (len(fs) - 8)
 print(s)
+' 2>/dev/null
+}
+
+# Parsed verdict, never a substring: output that merely CONTAINS `"verdict": "MATCH"` is not a
+# MATCH. Echoes the verdict string, empty when the payload does not parse as a JSON object.
+_ff_mms_json_verdict() {   # <verify --json output>
+  printf '%s' "$1" | _ff_mms_py -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+    assert isinstance(d, dict)
+except Exception:
+    print(""); raise SystemExit(0)
+v = d.get("verdict")
+print(v if isinstance(v, str) else "")
 ' 2>/dev/null
 }
 
@@ -133,12 +159,12 @@ _ff_mms_verify() {   # <tree>
     return 1
   fi
   local out rc
-  out="$(python3 "$mcm" verify --root "$tree" --json 2>/dev/null)"; rc=$?
+  out="$(_ff_mms_py "$mcm" verify --root "$tree" --json 2>/dev/null)"; rc=$?
   case "$rc" in
     0)
-      case "$out" in
-        *'"verdict": "MATCH"'*|*'"verdict":"MATCH"'*) FF_SOURCE_STATE="VERIFIED"; return 0 ;;
-        *) FF_SOURCE_REASON="the source verifier exited 0 without a MATCH verdict for $mrel (truncated or replaced managed_content_manifest.py?)"
+      case "$(_ff_mms_json_verdict "$out")" in
+        MATCH) FF_SOURCE_STATE="VERIFIED"; return 0 ;;
+        *) FF_SOURCE_REASON="the source verifier exited 0 without a parseable MATCH verdict for $mrel (truncated or replaced managed_content_manifest.py?)"
            FF_SOURCE_DRIFT="$(_ff_mms_json_paths "$out")"; return 1 ;;
       esac ;;
     1)
@@ -242,11 +268,12 @@ ff_managed_drift_paths() {   # <root> [<lib-dir>]
   command -v python3 >/dev/null 2>&1 || return 0
   for mod in hook_manifest.py managed_content_manifest.py; do
     [ -f "$lib/$mod" ] || continue
-    out="$(python3 "$lib/$mod" verify --root "$root" --json 2>/dev/null || true)"
-    printf '%s' "$out" | python3 -c '
+    out="$(_ff_mms_py "$lib/$mod" verify --root "$root" --json 2>/dev/null || true)"
+    printf '%s' "$out" | _ff_mms_py -c '
 import json, sys
 try:
     d = json.load(sys.stdin)
+    assert isinstance(d, dict)
 except Exception:
     sys.exit(0)
 for f in d.get("files", []) or []:
