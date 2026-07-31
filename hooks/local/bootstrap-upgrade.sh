@@ -323,6 +323,39 @@ if [ ! -f "$ENGINE_SRC" ]; then
   exit 1
 fi
 
+# ---- Step 2c: the tree we PROVED must be the tree the engine CONSUMES ----------------------
+# TRIPWIRE (verified-tree/consumed-tree split): a PRE-boundary engine cannot receive
+# --source-tree, so Step 3 below runs it from $SOURCE_CLONE — the MUTABLE WORKTREE — and it
+# reads `.fusebase-flow-source` BY NAME. For a git source the canonical tree comes from COMMITTED
+# OBJECTS, so a clean commit with a tampered worktree would verify MATCH and then install the
+# tampered bytes: VERIFIED about bytes nobody installs (same fail-open class as F2 / M11).
+# Keeping the canonical tree alive does NOT fix it — the engine would still read the worktree by
+# name. So on this route the verdict is re-reached, by THIS SCRIPT's embedded code (never shell
+# out of either tree), on $SOURCE_CLONE itself. Both trees matching the same manifest is also what
+# makes the engine we grepped in the canonical tree the engine we execute from the worktree.
+LEGACY_ENGINE=0
+if ! grep -q -- '--source-tree)' "$ENGINE_SRC" 2>/dev/null; then
+  LEGACY_ENGINE=1
+  BOOT_PROVEN_STATE="$FF_SOURCE_STATE"
+  if ! ff_boot_verify "$SOURCE_CLONE"; then
+    echo "[bootstrap-upgrade] ABORT: the source engine predates the canonical-tree handoff, so it reads" >&2
+    echo "                    $SOURCE_CLONE directly — and $FF_SOURCE_REASON" >&2
+    [ -n "$FF_SOURCE_DRIFT" ] && echo "[bootstrap-upgrade]        offending path(s): $FF_SOURCE_DRIFT" >&2
+    echo "[bootstrap-upgrade] NOTHING was written: no managed path was touched and the engine never ran." >&2
+    exit 1
+  fi
+  if [ "$BOOT_PROVEN_STATE" = "VERIFIED" ] && [ "$FF_SOURCE_STATE" != "VERIFIED" ]; then
+    echo "[bootstrap-upgrade] ABORT: the canonical tree proved VERIFIED, but $SOURCE_CLONE — the tree this" >&2
+    echo "                    pre-boundary engine actually reads — ships no manifest, so those bytes" >&2
+    echo "                    cannot be proven to be what upstream shipped (M10/M11: the legacy" >&2
+    echo "                    fallback is for a source that has no manifest anywhere, not for one" >&2
+    echo "                    whose worktree hides it)." >&2
+    echo "[bootstrap-upgrade] NOTHING was written: no managed path was touched and the engine never ran." >&2
+    exit 1
+  fi
+  echo "[bootstrap-upgrade] re-verified the tree the pre-boundary engine consumes ($SOURCE_CLONE): state=$FF_SOURCE_STATE"
+fi
+
 # ---- Step 2b: SYNTHESIZE the classifier's base for a consumer arriving without one ----
 #
 # WHY THIS IS LOAD-BEARING (decision K13a): a consumer on <= 4.6.1 has no
@@ -405,8 +438,9 @@ ff_synthesize_base || true
 # The boundary crosses here as ABSOLUTE internal flags (decision M1 / AC2). We `exec`, so this
 # process is replaced and its EXIT trap never runs: ownership of the temp tree transfers to the
 # engine via --source-tree-owned, which arms the identical cleanup on its own side. Only pass
-# the flags when the source engine understands them (an older --source tree would exit 2).
-if grep -q -- '--source-tree)' "$ENGINE_SRC" 2>/dev/null; then
+# the flags when the source engine understands them (an older --source tree would exit 2 —
+# Step 2c decided that, and re-proved the consumed tree for the legacy branch below).
+if [ "$LEGACY_ENGINE" = "0" ]; then
   SOURCE_TREE_FLAGS=(--source-tree "$SOURCE_TREE" --source-repo "${FF_SOURCE_REPO:-$SOURCE_CLONE}")
   if [ "${FF_SOURCE_TREE_TEMP:-0}" = "1" ] || [ "${FF_BOOT_TREE_OWNED:-0}" = "1" ]; then
     SOURCE_TREE_FLAGS+=(--source-tree-owned)
@@ -420,6 +454,8 @@ else
   # engine runs from $SOURCE_CLONE. NEVER `exec` a path inside the tree this branch just
   # deleted: that is what stopped a genuine pre-4.7.0 source (M10's named
   # UNVERIFIED_LEGACY_SOURCE route) from upgrading at all — bash exits 127 on a vanished engine.
+  # What makes releasing it safe is Step 2c: $SOURCE_CLONE, the tree this engine reads, carries
+  # the verdict below on its OWN bytes. Never reach this branch without that re-verification.
   ENGINE_SRC="$SOURCE_CLONE/hooks/local/upgrade.sh"
   if [ ! -f "$ENGINE_SRC" ]; then
     echo "[bootstrap-upgrade] FATAL: the source engine predates the canonical-tree handoff and" >&2

@@ -40,13 +40,13 @@ MX_ROWS=(
   "plain/A/H+|RUN|m10-manifest-bearing-source-drift-aborts-before-writes + ac2-boundary-never-sourced-from-the-mutable-source-worktree"
   "plain/A/H-|RUN|k10-embedded-boundary-still-upgrades-a-pre-boundary-install-plain + r3-old-install-cannot-be-verified-by-the-source-own-helper"
   "plain/B/H+|WAIVE|the trusted-helper path takes its verdict from the INSTALLED lib and never reads the source's materializer, so shapes B and C collapse onto A there (cell plain/A/H+)"
-  "plain/B/H-|RUN|m11-manifest-plus-verifier-without-materializer-is-provable-plain + m11-verifier-only-source-still-aborts-on-drift"
+  "plain/B/H-|RUN|m11-manifest-plus-verifier-without-materializer-is-provable-plain + m11-verifier-only-source-still-aborts-on-drift-plain-H-"
   "plain/C/H+|WAIVE|same shape-blindness as plain/B/H+; the manifest-ABSENT branch itself is proven by m10-pre-manifest-source-upgrades-as-named-unverified-legacy"
   "plain/C/H-|RUN|m10-pre-boundary-source-completes-the-unverified-legacy-route-plain"
   "git/A/H+|RUN|ac1-incoming-U-materialized-from-objects-forced-LF"
   "git/A/H-|RUN|k10-embedded-boundary-still-upgrades-a-pre-boundary-install-git"
   "git/B/H+|WAIVE|same shape-blindness as plain/B/H+"
-  "git/B/H-|RUN|m11-manifest-plus-verifier-without-materializer-is-provable-git"
+  "git/B/H-|RUN|m11-manifest-plus-verifier-without-materializer-is-provable-git + m11-verifier-only-source-still-aborts-on-drift-git-H-"
   "git/C/H+|WAIVE|same shape-blindness as plain/C/H+"
   "git/C/H-|RUN|m10-pre-boundary-source-completes-the-unverified-legacy-route-git"
 )
@@ -442,29 +442,48 @@ for kind in plain git; do
 done
 
 # NEGATIVE CONTROL for 2h: the same shape with drifted bytes still ABORTS. Without this, "the
-# verifier-only shape upgrades" could be satisfied by simply not verifying it. The verdict is
-# reached on the materialized tree, so the transport axis cannot change it — plain covers both.
-VD="$(bnd_plain_case "$B3_ROOT/verifieronly-drift")"
-rm -f "$VD/hooks/local/lib/materialize-managed-source.sh"
-rm -f "$VD/.fusebase-flow-source/hooks/local/lib/materialize-managed-source.sh"
-bnd_legacy_engine "$VD/.fusebase-flow-source"
-( cd "$VD/.fusebase-flow-source" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null )
-printf 'control TAMPERED\n' > "$VD/.fusebase-flow-source/hooks/local/control.sh"
-VD_LOG="$B3_ROOT/verifieronly-drift.log"
-( cd "$VD" && bash hooks/local/bootstrap-upgrade.sh --source .fusebase-flow-source -- --auto-yes ) > "$VD_LOG" 2>&1
-VD_RC=$?
-vd_fail=""
-[ "$VD_RC" -ne 0 ] || vd_fail="$vd_fail [a DRIFTed manifest-bearing source upgraded anyway (rc 0)]"
-grep -q "ABORT" "$VD_LOG" || vd_fail="$vd_fail [no abort diagnostic]"
-grep -q "DRIFT" "$VD_LOG" || vd_fail="$vd_fail [the abort does not name the DRIFT verdict]"
-grep -q "hooks/local/control.sh" "$VD_LOG" || vd_fail="$vd_fail [the offending path is not named]"
-grep -q "control v1" "$VD/hooks/local/control.sh" || vd_fail="$vd_fail [tampered bytes were installed]"
-[ ! -f "$VD/legacy-engine-argv.txt" ] || vd_fail="$vd_fail [the engine ran despite the abort]"
-if [ -z "$vd_fail" ]; then
-  ok "m11-verifier-only-source-still-aborts-on-drift"
-else
-  bad "m11-verifier-only-source-still-aborts-on-drift" "rc=$VD_RC$vd_fail :: $(tail -8 "$VD_LOG" | tr '\n' '|')"
-fi
+# verifier-only shape upgrades" could be satisfied by simply not verifying it.
+#
+# THE TREE THAT WAS PROVEN MUST BE THE TREE THE ENGINE CONSUMES — and that is why transport is
+# NOT interchangeable here (an earlier round waived git on the claim that it was):
+#   plain  the materialized tree is a COPY of the worktree, so a tamper is caught at
+#          materialization, before the pre-boundary engine is reached at all.
+#   git    the materialized tree comes from COMMITTED OBJECTS. A source whose commit is clean
+#          and whose WORKTREE is tampered therefore verifies MATCH — and the pre-boundary engine
+#          then reads `.fusebase-flow-source` BY NAME (lib/upgrade-fixtures.sh), i.e. the
+#          tampered worktree. VERIFIED followed by installing bytes nobody verified.
+# Both consumer states run: the installed helper changes WHICH CODE materializes the tree, never
+# WHICH TREE the legacy engine reads, so H+ is exposed to the same split as H-.
+for helper in "H-" "H+"; do for kind in plain git; do
+  VD="$(bnd_plain_case "$B3_ROOT/vdrift-$kind-$helper")"
+  VDS="$VD/.fusebase-flow-source"
+  [ "$helper" = "H-" ] && rm -f "$VD/hooks/local/lib/materialize-managed-source.sh"
+  rm -f "$VDS/hooks/local/lib/materialize-managed-source.sh"
+  bnd_legacy_engine "$VDS"
+  ( cd "$VDS" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null )
+  VD_REF=()
+  if [ "$kind" = "git" ]; then bnd_git_source "$VDS"; VD_REF=(--ref main); fi
+  # AFTER the commit on purpose: the objects stay clean, so only a verdict reached on the tree
+  # the engine actually consumes can see this.
+  printf 'control TAMPERED\n' > "$VDS/hooks/local/control.sh"
+  VD_LOG="$B3_ROOT/vdrift-$kind-$helper.log"
+  ( cd "$VD" && bash hooks/local/bootstrap-upgrade.sh --source .fusebase-flow-source \
+      ${VD_REF[@]+"${VD_REF[@]}"} -- --auto-yes ) > "$VD_LOG" 2>&1
+  VD_RC=$?
+  vd_fail=""
+  [ "$VD_RC" -ne 0 ] || vd_fail="$vd_fail [a DRIFTed manifest-bearing source upgraded anyway (rc 0)]"
+  grep -q "ABORT" "$VD_LOG" || vd_fail="$vd_fail [no abort diagnostic]"
+  grep -q "DRIFT" "$VD_LOG" || vd_fail="$vd_fail [the abort does not name the DRIFT verdict]"
+  grep -q "hooks/local/control.sh" "$VD_LOG" || vd_fail="$vd_fail [the offending path is not named]"
+  grep -q "control v1" "$VD/hooks/local/control.sh" || vd_fail="$vd_fail [tampered bytes were installed]"
+  [ ! -f "$VD/legacy-engine-argv.txt" ] || vd_fail="$vd_fail [the engine ran despite the abort]"
+  if [ -z "$vd_fail" ]; then
+    ok "m11-verifier-only-source-still-aborts-on-drift-$kind-$helper"
+  else
+    bad "m11-verifier-only-source-still-aborts-on-drift-$kind-$helper" "rc=$VD_RC$vd_fail :: $(tail -8 "$VD_LOG" | tr '\n' '|')"
+  fi
+  mx_ran "$kind/B/$helper"
+done; done
 
 # 2i. R3 completed: the OLD-INSTALL half of the tamper matrix. 2d keeps the consumer's trusted
 # helper installed, so the hop never had to decide the verdict from source-supplied shell. Here the
