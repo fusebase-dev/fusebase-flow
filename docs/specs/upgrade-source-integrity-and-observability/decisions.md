@@ -244,3 +244,27 @@ Widening the fix mid-round would also have meant changing a test's semantics und
 |---|---|---|---|
 | M1..M10 | as recorded above | PO under the operator's standing autonomous-run authorization | 2026-07-30 |
 | M11, M12 | ratifications from the review-findings fix round | PO, same authorization | 2026-07-30 |
+
+---
+
+## M13. The repair-verification contract — bind the layer set at authorization
+
+**Recommendation:** Option (b). `--repair-managed` binds the **required manifest set at authorization time**, before any write, and that set cannot shrink mid-run. Every layer in the bound set must return **`rc == 0` AND a parsed verdict of exactly `MATCH`**. A layer that is in the bound set but whose manifest or wrapper is absent at verification time is a **failure**, not a skip.
+
+**Reasoning:** The round-4 defects were both instances of one ambiguity — nobody had decided what "repair confirmed" *means* when a consumer may not carry every layer, so the implementation invented an answer twice and got it wrong twice:
+
+- `ff_boot_repair_verify` captured the verifier's stdout but never `rc`, returning success on a parsed `MATCH` regardless of exit code — while `ff_boot_verify` and `_ff_mms_verify` both require rc 0 *and* exact MATCH. Three verifiers, two contracts.
+- The layer-skip was keyed on the **manifest** where the prior loop keyed on the **wrapper**. Deleting `audit/managed-content-manifest.json` therefore silently skipped that layer and exited 0, where the old loop returned rc 4. The asymmetry is real and one-directional: the hook manifest is anchored by being managed content; the managed-content manifest has no reciprocal anchor, so its absence cannot be self-certifying.
+
+Binding at authorization removes the ambiguity structurally rather than by another predicate: the set is fixed when the operator authorizes the repair, so a mid-run absence is a detectable contradiction instead of an input to the decision. Options (a) and (c) were both coherent — (a) is stricter but breaks installs that legitimately lack a layer, and (c) is honest but reduces repair to a claim too weak to act on ("these paths were replaced" without "and the tree is now clean" gives the operator nothing to verify against).
+
+**Also required, independent of the above:** disclose plain-source trust. `docs/release-notes/v4.7.0.md:127` claims a re-stamped manifest aborts for any manifest-bearing source. That holds for **git** transport, where the canonical tree comes from committed objects. It is **false for a plain `--source` directory**, where snapshot, payload, verifier and manifest share one authority and can be made self-consistent. Say so plainly rather than leaving the stronger claim standing.
+
+**Alternatives considered:**
+
+- **(a) require both layers unconditionally** — rejected: fails installs that legitimately carry only one layer, converting a coverage question into an outage.
+- **(c) narrow the claim** — rejected as the primary answer: it is the most honest framing but leaves the operator without a whole-tree assertion after a repair, which is the thing a repair exists to restore. Its honesty is preserved by the disclosure requirement above.
+
+**Process note:** this decision exists because the previous three rounds tried to *patch* the ambiguity. One implementation pass against a decided contract, then one review — not another iterate-until-green loop.
+
+**Lock status:** LOCKED 2026-07-31, PO, on the operator's "proceed with your recommendations".
