@@ -325,4 +325,214 @@ else
 fi
 rm -rf "$B8_ROOT"
 
+# ---- 3h. M13: the repair confirms the manifest layer set BOUND AT AUTHORIZATION -------------
+# Decision M13 settles the question three review rounds kept re-inventing: what "repair
+# confirmed" means when a consumer may not carry every manifest layer. The required set is bound
+# BEFORE any write and cannot shrink; every bound layer must return rc 0 AND a parsed exact
+# MATCH; a bound layer whose manifest or wrapper is gone at verification time FAILS rather than
+# being skipped. These cases are the discriminators for each half of that contract.
+#
+# The verifier doubles below live in the SOURCE tree and are re-stamped into its manifest,
+# because that is exactly what a plain --source directory can do: snapshot, payload, verifier
+# and manifest share ONE authority there, so a swap is self-consistent by construction (the
+# plain-source trust disclosure this release carries). Each double delegates every call to the
+# real module — the source verdict and the drift enumeration that authorizes the repair are
+# unchanged — and adds its named behaviour only against a root that is NOT its own tree.
+m13_double() {   # <source tree> <mode: liar|unlink-manifest|unlink-wrapper>
+  local U="$1" mode="$2" L="$1/hooks/local/lib"
+  mv "$L/managed_content_manifest.py" "$L/_ff_real_manifest.py"
+  { echo "MODE = \"$mode\""; cat <<'PYDOUBLE'
+import io, os, runpy, sys
+from contextlib import redirect_stdout
+HERE = os.path.dirname(os.path.abspath(__file__))
+REAL = os.path.join(HERE, "_ff_real_manifest.py")
+argv = sys.argv[1:]
+root = ""
+for i, a in enumerate(argv):
+    if a == "--root" and i + 1 < len(argv):
+        root = argv[i + 1]
+buf = io.StringIO()
+rc = 0
+try:
+    with redirect_stdout(buf):
+        runpy.run_path(REAL, run_name="__main__")
+except SystemExit as e:
+    rc = e.code if isinstance(e.code, int) else 0
+sys.stdout.write(buf.getvalue())
+sys.stdout.flush()
+own = bool(root) and os.path.realpath(HERE).startswith(os.path.realpath(root) + os.sep)
+if argv[:1] == ["verify"] and not own:
+    if MODE == "liar" and rc == 0:
+        sys.exit(1)          # stdout says MATCH; the exit code says the run did not finish
+    if MODE == "unlink-manifest":
+        try:
+            os.unlink(os.path.join(root, "audit", "managed-content-manifest.json"))
+        except OSError:
+            pass
+    if MODE == "unlink-wrapper":
+        try:
+            os.unlink(os.path.join(root, "hooks", "local", "verify-managed-content-manifest.sh"))
+        except OSError:
+            pass
+sys.exit(rc)
+PYDOUBLE
+  } > "$L/managed_content_manifest.py"
+  # Re-stamp what the swap changed, hook layer first: audit/hook-layer-manifest.json is itself
+  # managed content, so a stale one would abort the source verdict for the wrong reason.
+  [ -f "$U/audit/hook-layer-manifest.json" ] \
+    && ( cd "$U" && python3 hooks/local/lib/hook_manifest.py stamp --root . >/dev/null )
+  ( cd "$U" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null )
+}
+
+# A consumer that carries BOTH manifest layers and both verify wrappers — the shape in which
+# "which layers must confirm this repair" is a real question. hooks/handlers/session_start.py is
+# covered by both layers; workflows/wf.md by the managed layer only, which is what makes an
+# unnoticed managed-layer skip observable.
+m13_dual_case() {   # <dir> -> echoes the consumer root
+  local C d
+  C="$(bnd_plain_case "$1")"
+  for d in "$C" "$C/.fusebase-flow-source"; do
+    mkdir -p "$d/hooks/handlers"
+    printf 'handler v1\n' > "$d/hooks/handlers/session_start.py"
+    cp "$ROOT/hooks/local/lib/hook_manifest.py" "$d/hooks/local/lib/"
+    cp "$ROOT/hooks/local/verify-hook-manifest.sh" \
+       "$ROOT/hooks/local/verify-managed-content-manifest.sh" "$d/hooks/local/"
+    ( cd "$d" && python3 hooks/local/lib/hook_manifest.py stamp --root . >/dev/null )
+    ( cd "$d" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null )
+  done
+  echo "$C"
+}
+
+m13_repair() {   # <consumer root> <log> <path>... -> echoes rc
+  local C="$1" LOG="$2"; shift 2
+  local args=() p rc=0
+  for p in "$@"; do args+=(--repair-managed "$p"); done
+  ( cd "$C" && bash hooks/local/bootstrap-upgrade.sh --source .fusebase-flow-source \
+      "${args[@]}" ) > "$LOG" 2>&1 || rc=$?
+  echo "$rc"
+}
+
+M13_ROOT="$(mktemp -d)"
+
+# 3h-1. rc is half the verdict. ff_boot_verify and _ff_mms_verify both require rc 0 AND an exact
+# MATCH; the post-repair check parsed the verdict and never captured $?. A verifier that reports
+# MATCH and then dies — truncated write, an error after the report, a signal — was therefore a
+# confirmed repair. The double prints the REAL MATCH json and exits 1.
+A1="$(bnd_plain_case "$M13_ROOT/rc")"
+printf 'wf v1\r\n' > "$A1/workflows/wf.md"
+m13_double "$A1/.fusebase-flow-source" liar
+A1_LOG="$M13_ROOT/rc.log"
+A1_RC="$(m13_repair "$A1" "$A1_LOG" workflows/wf.md)"
+a1_fail=""
+[ "$A1_RC" -ne 0 ] \
+  || a1_fail="$a1_fail [the hop confirmed a repair on a verifier that printed MATCH and exited 1]"
+grep -q "REPAIR UNVERIFIED" "$A1_LOG" || a1_fail="$a1_fail [no REPAIR UNVERIFIED diagnostic]"
+has_cr "$A1/workflows/wf.md" \
+  && a1_fail="$a1_fail [the named path was not repaired — this case must fail for the VERDICT, not for a broken repair]"
+if [ -z "$a1_fail" ]; then
+  ok "m13-a-parsed-match-with-a-nonzero-verifier-rc-is-not-a-confirmed-repair"
+else
+  bad "m13-a-parsed-match-with-a-nonzero-verifier-rc-is-not-a-confirmed-repair" "rc=$A1_RC$a1_fail :: $(tail -6 "$A1_LOG" | tr '\n' '|')"
+fi
+
+# 3h-2. The set is bound BEFORE the first write, so a layer cannot leave it mid-run. The double
+# unlinks the consumer's managed-content manifest during the drift enumeration that authorizes
+# the repair — after the bind, before the re-check. Keyed on the manifest, the re-check called
+# that "this install ships no manifest" and exited 0.
+B1="$(bnd_plain_case "$M13_ROOT/vanish")"
+printf 'wf v1\r\n' > "$B1/workflows/wf.md"
+m13_double "$B1/.fusebase-flow-source" unlink-manifest
+B1_LOG="$M13_ROOT/vanish.log"
+B1_RC="$(m13_repair "$B1" "$B1_LOG" workflows/wf.md)"
+b1_fail=""
+[ -f "$B1/audit/managed-content-manifest.json" ] \
+  && b1_fail="$b1_fail [PRECONDITION: the manifest did not disappear, so nothing was exercised]"
+[ "$B1_RC" -ne 0 ] \
+  || b1_fail="$b1_fail [a bound layer left the set mid-run and the hop still confirmed the repair]"
+grep -q "REPAIR UNVERIFIED" "$B1_LOG" || b1_fail="$b1_fail [no REPAIR UNVERIFIED diagnostic]"
+grep -q "authoriz" "$B1_LOG" || b1_fail="$b1_fail [the diagnostic does not say the layer was bound at authorization]"
+has_cr "$B1/workflows/wf.md" \
+  && b1_fail="$b1_fail [the named path was not repaired — this case must fail for the VERDICT, not for a broken repair]"
+if [ -z "$b1_fail" ]; then
+  ok "m13-a-manifest-that-disappears-after-authorization-fails-instead-of-skipping"
+else
+  bad "m13-a-manifest-that-disappears-after-authorization-fails-instead-of-skipping" "rc=$B1_RC$b1_fail :: $(tail -6 "$B1_LOG" | tr '\n' '|')"
+fi
+
+# 3h-3. The asymmetry that made the manifest the wrong key: audit/hook-layer-manifest.json is
+# itself managed content, so deleting it surfaces in the managed verdict — but the managed
+# manifest has NO reciprocal anchor. Its wrapper is that anchor at authorization time. Fixture:
+# the hook layer reports the drift (so the repair is authorized) while the managed manifest is
+# already gone and unrelated managed-only drift sits in the tree. Keyed on the manifest, the
+# managed layer was skipped, the hook layer said MATCH, and the hop exited 0 with the tree dirty.
+C1="$(m13_dual_case "$M13_ROOT/anchor")"
+printf 'handler TAMPERED\n' > "$C1/hooks/handlers/session_start.py"
+printf 'wf v1\r\n'          > "$C1/workflows/wf.md"
+rm -f "$C1/audit/managed-content-manifest.json"
+c1_fail=""
+[ -f "$C1/hooks/local/verify-managed-content-manifest.sh" ] \
+  || c1_fail="$c1_fail [PRECONDITION: the wrapper that anchors the layer is not installed]"
+C1_REPORT="$(python3 "$ROOT/hooks/local/lib/hook_manifest.py" verify --root "$C1" --json 2>/dev/null || true)"
+case "$C1_REPORT" in
+  *'"hooks/handlers/session_start.py"'*) ;;
+  *) c1_fail="$c1_fail [PRECONDITION: the hook layer does not report the path, so the repair could not be authorized]" ;;
+esac
+C1_LOG="$M13_ROOT/anchor.log"
+C1_RC="$(m13_repair "$C1" "$C1_LOG" hooks/handlers/session_start.py)"
+[ "$C1_RC" -ne 0 ] \
+  || c1_fail="$c1_fail [deleting the managed manifest bought a skip: the hop exited 0 with workflows/wf.md still drifted]"
+grep -q "REPAIR UNVERIFIED" "$C1_LOG" || c1_fail="$c1_fail [no REPAIR UNVERIFIED diagnostic]"
+grep -q "authoriz" "$C1_LOG" || c1_fail="$c1_fail [the diagnostic does not say the layer was bound at authorization]"
+has_cr "$C1/workflows/wf.md" \
+  || c1_fail="$c1_fail [PRECONDITION: the unrelated managed-only drift is not in the tree, so a skip would hide nothing]"
+grep -q "handler v1" "$C1/hooks/handlers/session_start.py" \
+  || c1_fail="$c1_fail [the named path was not repaired — this case must fail for the VERDICT, not for a broken repair]"
+if [ -z "$c1_fail" ]; then
+  ok "m13-an-absent-manifest-anchored-only-by-its-wrapper-is-a-required-layer"
+else
+  bad "m13-an-absent-manifest-anchored-only-by-its-wrapper-is-a-required-layer" "rc=$C1_RC$c1_fail :: $(tail -6 "$C1_LOG" | tr '\n' '|')"
+fi
+
+# 3h-4. The mirror image, and an honest label: COVERAGE REPAIR, not a discriminator. Both verify
+# wrappers are themselves covered by both manifests, so a wrapper that disappears mid-run already
+# failed the re-check as `missing` drift. What is new is WHY it fails — the bound-set check fires
+# before the verifier runs and names the shrink — so only the diagnostic is red at baseline.
+D1="$(m13_dual_case "$M13_ROOT/wrapper-vanish")"
+printf 'handler TAMPERED\n' > "$D1/hooks/handlers/session_start.py"
+m13_double "$D1/.fusebase-flow-source" unlink-wrapper
+D1_LOG="$M13_ROOT/wrapper-vanish.log"
+D1_RC="$(m13_repair "$D1" "$D1_LOG" hooks/handlers/session_start.py)"
+d1_fail=""
+[ -f "$D1/hooks/local/verify-managed-content-manifest.sh" ] \
+  && d1_fail="$d1_fail [PRECONDITION: the wrapper did not disappear, so nothing was exercised]"
+[ "$D1_RC" -ne 0 ] || d1_fail="$d1_fail [a bound wrapper vanished mid-run and the hop confirmed the repair]"
+grep -q "the bound layer set cannot shrink" "$D1_LOG" \
+  || d1_fail="$d1_fail [the failure is not attributed to the bound set shrinking]"
+if [ -z "$d1_fail" ]; then
+  ok "m13-a-wrapper-that-disappears-after-authorization-fails-as-a-shrunk-bound-set [COVERAGE REPAIR — the FAIL already held via manifest coverage; only the attribution is new]"
+else
+  bad "m13-a-wrapper-that-disappears-after-authorization-fails-as-a-shrunk-bound-set" "rc=$D1_RC$d1_fail :: $(tail -6 "$D1_LOG" | tr '\n' '|')"
+fi
+
+# 3h-5. CONTROL: two layers present, one genuine drift, a genuine repair — still confirmed. Every
+# case above fails closed, so without this the whole contract could be satisfied by refusing
+# everything. Must be green at BOTH baselines.
+E1="$(m13_dual_case "$M13_ROOT/control")"
+printf 'handler TAMPERED\n' > "$E1/hooks/handlers/session_start.py"
+E1_LOG="$M13_ROOT/control.log"
+E1_RC="$(m13_repair "$E1" "$E1_LOG" hooks/handlers/session_start.py)"
+e1_fail=""
+[ "$E1_RC" -eq 0 ] || e1_fail="$e1_fail [a clean two-layer repair was not confirmed (rc $E1_RC)]"
+grep -q "handler v1" "$E1/hooks/handlers/session_start.py" || e1_fail="$e1_fail [the drifted path was not repaired]"
+python3 "$ROOT/hooks/local/lib/hook_manifest.py" verify --root "$E1" >/dev/null 2>&1 \
+  || e1_fail="$e1_fail [the hook layer does not verify MATCH after the repair]"
+python3 "$MCM" verify --root "$E1" >/dev/null 2>&1 \
+  || e1_fail="$e1_fail [the managed layer does not verify MATCH after the repair]"
+if [ -z "$e1_fail" ]; then
+  ok "m13-a-clean-repair-with-both-layers-present-is-still-confirmed"
+else
+  bad "m13-a-clean-repair-with-both-layers-present-is-still-confirmed" "$e1_fail :: $(tail -8 "$E1_LOG" | tr '\n' '|')"
+fi
+rm -rf "$M13_ROOT"
+
 finish
