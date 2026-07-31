@@ -366,11 +366,18 @@ fi
 # self-consistent and prove nothing — matching manifests on both trees is what makes the engine we
 # grepped in the canonical tree the engine we execute from the worktree.
 #
-# ACCEPTED LIMITATION (TOCTOU, local threat model): $SOURCE_CLONE stays mutable between this
-# verdict and the engine's reads, and Step 2b's tag fetch widens that window. Verifying AFTER
-# Step 2b would trade a truthful "NOTHING was written" abort for a shorter window; closing it
-# entirely means replacing the operator's staging area. A local process that can race this can
-# already edit this script. See docs/release-notes/v4.7.0.md § Known limitation (pre-boundary route).
+# ACCEPTED LIMITATION (TOCTOU): $SOURCE_CLONE stays mutable THROUGHOUT. The verdict itself takes
+# two reads — verify the tree, then compare its manifest against the canonical one — so the race
+# window opens BETWEEN THOSE READS, not merely between the verdict and the engine's reads; Step
+# 2b's tag fetch widens the later window. Verifying AFTER Step 2b would trade a truthful "no
+# managed path was touched" abort for a shorter window; closing it entirely means replacing the
+# operator's staging area.
+# THE ASSUMPTION, stated so it can be checked: staging dir, this script and the engine are
+# writable by ONE principal and no co-tenant shares the workspace — then winning the race buys
+# nothing, because the racer could edit this script instead. It does NOT hold for a root-owned or
+# read-only hop over a user-writable staging dir, a group-writable/CI/shared runner, or a
+# container bind-mount. On such a host this route is unsafe; use a source whose engine accepts
+# --source-tree. See docs/release-notes/v4.7.0.md § Known limitation (pre-boundary route).
 
 # Comparison for the unmanifested inputs below is CR-INSENSITIVE by design: a legitimate staging
 # worktree is checked out under the CONSUMER's core.autocrlf (Step 1a) while the canonical tree is
