@@ -59,6 +59,7 @@ ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$ROOT"
 
 SOURCE_CLONE=".fusebase-flow-source"
+FF_MCM_REL="audit/managed-content-manifest.json"
 REPO_URL="https://github.com/fusebase-dev/fusebase-flow.git"
 REF="main"
 SRC_OVERRIDE=""
@@ -138,9 +139,12 @@ ff_boot_cleanup() {
 # What it drives IS the source's own managed_content_manifest.py — the same trust model the
 # installed lib uses: a manifest-bearing tree is proven by its shipped verifier or it aborts, and
 # a manifest+verifier source needs no materialize-managed-source.sh to be provable (M11).
-ff_boot_verify() {   # <tree>; sets FF_SOURCE_STATE / _REASON / _DRIFT. rc 1 => abort before writes
-  local tree="$1" mrel="audit/managed-content-manifest.json" mcm out rc
-  mcm="$tree/hooks/local/lib/managed_content_manifest.py"
+# TRIPWIRE (re-review B4): $2 exists so a caller can supply a verifier it ALREADY PROVED. A tree
+# whose own verifier is part of what is in question — the mutable worktree at Step 2c — must be
+# judged with that argument, never with the default below.
+ff_boot_verify() {   # <tree> [<trusted verifier>]; sets FF_SOURCE_STATE/_REASON/_DRIFT. rc 1 => abort
+  local tree="$1" mcm="${2:-}" mrel="$FF_MCM_REL" out rc
+  [ -n "$mcm" ] || mcm="$tree/hooks/local/lib/managed_content_manifest.py"
   FF_SOURCE_STATE=""; FF_SOURCE_REASON=""; FF_SOURCE_DRIFT=""
   if [ ! -f "$tree/$mrel" ]; then
     FF_SOURCE_STATE="UNVERIFIED_LEGACY_SOURCE"
@@ -330,14 +334,37 @@ fi
 # OBJECTS, so a clean commit with a tampered worktree would verify MATCH and then install the
 # tampered bytes: VERIFIED about bytes nobody installs (same fail-open class as F2 / M11).
 # Keeping the canonical tree alive does NOT fix it — the engine would still read the worktree by
-# name. So on this route the verdict is re-reached, by THIS SCRIPT's embedded code (never shell
-# out of either tree), on $SOURCE_CLONE itself. Both trees matching the same manifest is also what
-# makes the engine we grepped in the canonical tree the engine we execute from the worktree.
+# name. So on this route the verdict is re-reached on $SOURCE_CLONE itself, and it is reached with
+# TRUSTED CODE ONLY (re-review B4): the verifier out of the canonical tree THIS RUN ALREADY PROVED,
+# plus this script's own embedded logic — NEVER the worktree's own managed_content_manifest.py,
+# which is part of what is in question (a tamper that rewrites it too can print MATCH for itself:
+# B1 in Python instead of shell). No trusted verifier available => abort; never "ask it about
+# itself". The two manifests must also be BYTE-IDENTICAL, or a re-stamped worktree would be
+# self-consistent and prove nothing — matching manifests on both trees is what makes the engine we
+# grepped in the canonical tree the engine we execute from the worktree.
+#
+# ACCEPTED LIMITATION (TOCTOU, local threat model): $SOURCE_CLONE stays mutable between this
+# verdict and the engine's reads, and Step 2b's tag fetch widens that window. Verifying AFTER
+# Step 2b would trade a truthful "NOTHING was written" abort for a shorter window; closing it
+# entirely means replacing the operator's staging area. A local process that can race this can
+# already edit this script. See docs/releases/v4.7.0.md § Known limitations.
 LEGACY_ENGINE=0
 if ! grep -q -- '--source-tree)' "$ENGINE_SRC" 2>/dev/null; then
   LEGACY_ENGINE=1
   BOOT_PROVEN_STATE="$FF_SOURCE_STATE"
-  if ! ff_boot_verify "$SOURCE_CLONE"; then
+  BOOT_TRUSTED_MCM=""
+  [ "$BOOT_PROVEN_STATE" = "VERIFIED" ] \
+    && [ -f "$SOURCE_TREE/hooks/local/lib/managed_content_manifest.py" ] \
+    && BOOT_TRUSTED_MCM="$SOURCE_TREE/hooks/local/lib/managed_content_manifest.py"
+  if [ -f "$SOURCE_CLONE/$FF_MCM_REL" ] && [ -z "$BOOT_TRUSTED_MCM" ]; then
+    echo "[bootstrap-upgrade] ABORT: $SOURCE_CLONE ships $FF_MCM_REL — the tree this pre-boundary" >&2
+    echo "                    engine actually reads — but the canonical tree this run proved" >&2
+    echo "                    (state=$BOOT_PROVEN_STATE) supplies no verifier this script can trust," >&2
+    echo "                    and the worktree's own copy cannot answer a question about itself." >&2
+    echo "[bootstrap-upgrade] NOTHING was written: no managed path was touched and the engine never ran." >&2
+    exit 1
+  fi
+  if ! ff_boot_verify "$SOURCE_CLONE" "$BOOT_TRUSTED_MCM"; then
     echo "[bootstrap-upgrade] ABORT: the source engine predates the canonical-tree handoff, so it reads" >&2
     echo "                    $SOURCE_CLONE directly — and $FF_SOURCE_REASON" >&2
     [ -n "$FF_SOURCE_DRIFT" ] && echo "[bootstrap-upgrade]        offending path(s): $FF_SOURCE_DRIFT" >&2
@@ -346,14 +373,25 @@ if ! grep -q -- '--source-tree)' "$ENGINE_SRC" 2>/dev/null; then
   fi
   if [ "$BOOT_PROVEN_STATE" = "VERIFIED" ] && [ "$FF_SOURCE_STATE" != "VERIFIED" ]; then
     echo "[bootstrap-upgrade] ABORT: the canonical tree proved VERIFIED, but $SOURCE_CLONE — the tree this" >&2
-    echo "                    pre-boundary engine actually reads — ships no manifest, so those bytes" >&2
-    echo "                    cannot be proven to be what upstream shipped (M10/M11: the legacy" >&2
+    echo "                    pre-boundary engine actually reads — ships no $FF_MCM_REL, so those" >&2
+    echo "                    bytes cannot be proven to be what upstream shipped (M10/M11: the legacy" >&2
     echo "                    fallback is for a source that has no manifest anywhere, not for one" >&2
     echo "                    whose worktree hides it)." >&2
     echo "[bootstrap-upgrade] NOTHING was written: no managed path was touched and the engine never ran." >&2
     exit 1
   fi
-  echo "[bootstrap-upgrade] re-verified the tree the pre-boundary engine consumes ($SOURCE_CLONE): state=$FF_SOURCE_STATE"
+  if [ -n "$BOOT_TRUSTED_MCM" ] && ! cmp -s "$SOURCE_TREE/$FF_MCM_REL" "$SOURCE_CLONE/$FF_MCM_REL"; then
+    echo "[bootstrap-upgrade] ABORT: $SOURCE_CLONE ships a DIFFERENT $FF_MCM_REL than the canonical" >&2
+    echo "                    tree this run proved. A worktree re-stamped against its own bytes is" >&2
+    echo "                    self-consistent and proves nothing about what upstream shipped." >&2
+    echo "[bootstrap-upgrade] NOTHING was written: no managed path was touched and the engine never ran." >&2
+    exit 1
+  fi
+  if [ -n "$BOOT_TRUSTED_MCM" ]; then
+    echo "[bootstrap-upgrade] re-verified the tree the pre-boundary engine consumes ($SOURCE_CLONE) with the proven canonical verifier: state=$FF_SOURCE_STATE"
+  else
+    echo "[bootstrap-upgrade] re-verified the tree the pre-boundary engine consumes ($SOURCE_CLONE): state=$FF_SOURCE_STATE"
+  fi
 fi
 
 # ---- Step 2b: SYNTHESIZE the classifier's base for a consumer arriving without one ----
@@ -368,7 +406,7 @@ fi
 # is a reconstruction of a fact, not an inference. Only when the tag cannot be resolved
 # (a forked or unreleased VERSION) does the tree fall through to `unknown-base` — which is
 # preserve + report, never abort (K9 row 10).
-BASE_REL="audit/managed-content-manifest.json"
+BASE_REL="$FF_MCM_REL"
 MCM_SRC="$SOURCE_TREE/hooks/local/lib/managed_content_manifest.py"
 
 ff_synthesize_base() {
