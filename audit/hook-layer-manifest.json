@@ -170,7 +170,7 @@
     },
     {
       "path": "hooks/local/upgrade.sh",
-      "sha256": "f98ea297c5e406644019877c1b315603eee4402a310324c4265d01ed6bd12514"
+      "sha256": "46e45a038f1bccb300073f74f7b31410fdd84e1ab39eb17fc7e792fe3c9b6a6b"
     },
     {
       "path": "hooks/local/verify-gate.sh",
@@ -554,12 +554,12 @@
     },
     {
       "path": "hooks/tests/test-upgrade-source-boundary.sh",
-      "sha256": "262c37f7986bb52841c5064a52bc471de07aad15f0d67d6c45347b60f9cc7dbf"
+      "sha256": "6694c384df0034397f9f53f58bfb5173dede77050fb00255b7458dbede8d4228"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "596676d0bc95f6303b59c5ada73472e35cb8c6b4dea8b5e9652ffbe9f4845d32"
+  "manifest_self_sha256": "23265ad17f71098d7ee3aa8d2bf7089bfbee523026f81eabc8172f3e11aac893"
 }

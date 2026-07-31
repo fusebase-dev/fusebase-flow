@@ -494,6 +494,34 @@ for helper in "H-" "H+"; do for kind in plain git; do
   mx_ran "$kind/B/$helper"
 done; done
 
+# 2h-bis. The self-consistent HYBRID: manifest + verifier + a BOUNDARY-AWARE engine, but no
+# materialize-managed-source.sh anywhere. The hop transfers temp-tree OWNERSHIP with
+# --source-tree-owned; the engine then takes its warning-only path (no lib to arm
+# ff_source_cleanup with), so the tree it now owns has nobody to release it. TMPDIR is
+# fixture-owned here, which makes the leak an observable empty-or-not directory rather than a
+# log claim. Not the published tag shape — but ownership must be deterministic for every shape
+# the hop is willing to hand over to.
+HY="$(bnd_plain_case "$B3_ROOT/hybrid-owned-tree")"
+rm -f "$HY/hooks/local/lib/materialize-managed-source.sh"
+rm -f "$HY/.fusebase-flow-source/hooks/local/lib/materialize-managed-source.sh"
+( cd "$HY/.fusebase-flow-source" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null )
+HY_TMP="$B3_ROOT/hybrid-tmp"; mkdir -p "$HY_TMP"
+HY_LOG="$B3_ROOT/hybrid-owned-tree.log"
+( cd "$HY" && TMPDIR="$HY_TMP" bash hooks/local/bootstrap-upgrade.sh --source .fusebase-flow-source \
+    -- --auto-yes ) > "$HY_LOG" 2>&1
+HY_RC=$?
+hy_fail=""
+[ "$HY_RC" -eq 0 ] || hy_fail="$hy_fail [rc $HY_RC — a manifest+verifier source with a boundary-aware engine did not upgrade]"
+grep -q "control v2" "$HY/hooks/local/control.sh" 2>/dev/null || hy_fail="$hy_fail [no content delivered]"
+HY_LEFT="$(find "$HY_TMP" -maxdepth 1 -name 'ff-source-*' 2>/dev/null | wc -l | tr -d ' ')"
+[ "$HY_LEFT" = "0" ] \
+  || hy_fail="$hy_fail [$HY_LEFT transferred temp tree(s) left under TMPDIR — the engine accepted ownership on a path that releases nothing]"
+if [ -z "$hy_fail" ]; then
+  ok "m1-transferred-temp-tree-is-released-even-without-a-source-materializer"
+else
+  bad "m1-transferred-temp-tree-is-released-even-without-a-source-materializer" "$hy_fail :: $(tail -8 "$HY_LOG" | tr '\n' '|')"
+fi
+
 # 2i. R3 completed: the OLD-INSTALL half of the tamper matrix. 2d keeps the consumer's trusted
 # helper installed, so the hop never had to decide the verdict from source-supplied shell. Here the
 # consumer has NO local helper, so the hop must materialize and verify with its own embedded code —

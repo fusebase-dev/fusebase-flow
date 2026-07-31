@@ -229,6 +229,22 @@ if [ -n "$FF_MMS_LIB" ]; then
 elif [ -n "$SOURCE_TREE_ARG" ]; then
   echo "[upgrade] WARN: the caller materialized $SOURCE_TREE_ARG but ships no canonical materializer" >&2
   echo "          (pre-4.7.0 source) — reading that tree as-is; it can carry stale pre-EOL-pin bytes (F2)." >&2
+  # --source-tree-owned still transferred ownership, and the caller `exec`d, so its own trap will
+  # never run: without this the tree we now own outlives the process. Same one-owner rule and same
+  # ff-source- template guard as ff_source_cleanup, which is simply not loadable on this path.
+  if [ "$SOURCE_TREE_OWNED" = "1" ]; then
+    ff_orphan_tree_cleanup() {
+      local t="$SOURCE_TREE_ARG"
+      SOURCE_TREE_OWNED=0
+      # TRIPWIRE (destructive): only a directory the boundary created from the ff-source- template.
+      case "${t##*/}" in
+        ff-source-*) [ -d "$t" ] && rm -rf -- "$t" ;;
+      esac
+      return 0
+    }
+    trap 'ff_orphan_tree_cleanup' EXIT
+    trap 'rc=$?; ff_orphan_tree_cleanup; exit $rc' INT TERM
+  fi
 else
   echo "[upgrade] FATAL: this install ships no hooks/local/lib/materialize-managed-source.sh, so the" >&2
   echo "          canonical source boundary (decision M1 / AC2) cannot run here. Reading the mutable" >&2
