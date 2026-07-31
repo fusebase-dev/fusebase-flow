@@ -1,64 +1,63 @@
-# Active handoff — v4.7.0 release, blocked on one fail-open
+# Active handoff — v4.7.0 unpublished; one design decision blocks it
 
-**Updated:** 2026-07-30 · **Branch:** `fix/msys-v3307-hardening` · **HEAD:** `f77c49e` · **VERSION:** 4.7.0
-**Operator authorization on file:** DP.6 phrase `approve deploy now` given 2026-07-30 for the `v4.7.0` tag re-point. **Still valid — do not re-ask.** It authorizes releasing a verified-good candidate; the candidate is not yet one.
+**Updated:** 2026-07-31 · **Branch:** `fix/msys-v3307-hardening` · **HEAD:** `d44618f` · **VERSION:** 4.7.0
+**Stopped by rule, not by defect count.** Four review rounds this session, ten across the ticket. Round 4 returned NO-SHIP and the hard stop was honored — **do not start a round 5.**
 
-## State
+## State — nothing shipped, nothing to undo
 
 | | |
 |---|---|
-| `origin/main` | `85b97dd` — CI green, untouched |
-| Local | ~24 commits ahead, unpushed |
-| Tag `v4.7.0` | `664503b`; **no GitHub Release** (API 404, verified) |
-| Linux gate | 703/703 PASS at `d0a980d` |
-| Windows gate | all assertion-level PASS; non-passes have a named external cause (concurrent suite, pid 634763 from `paperclip+hermes-v1`, `ps` evidence) |
+| `origin/main` | `85b97dd` — untouched, CI green |
+| Tag `v4.7.0` | `b11c60d` — **not** moved; no GitHub Release (404) |
+| Local | `d44618f`, tree clean, 48 commits unpushed |
+| Gates at `d44618f` | Windows **732/732**, Linux `ubuntu:24.04` **729/729**, both `GATE_ALL_GREEN`, manifests MATCH, module-size clean |
+| FR-07 | empty diff across `dea4445..d44618f` on every protected path |
+| Operator DP.6 | `approve deploy now` given 2026-07-30, **conditioned on a SHIP verdict — never became live, still unused** |
 
-## The one blocker
+## The decision that blocks release
 
-Full detail: `docs/tmp/handoff/2026-07-30-release-review-findings.md`.
+**What does "repair confirmed" mean when the consumer may not carry every manifest layer?**
 
-**A verifier-only GIT source installs unverified bytes after reporting VERIFIED.**
+Three options, and they are three different products — not three spellings of one check:
 
-1. `bootstrap-upgrade.sh:200` archives committed objects → temp tree; embedded verification returns `MATCH`.
-2. Engine is pre-boundary → `:417-431` switches `ENGINE_SRC` to `$SOURCE_CLONE/hooks/local/upgrade.sh` (**the mutable worktree**) and deletes the verified tree.
-3. `:437` execs it; that legacy engine copies from `.fusebase-flow-source` (`hooks/tests/lib/upgrade-fixtures.sh:53`), not the verified snapshot.
+| | Option | Consequence |
+|---|---|---|
+| a | Require both manifest layers unconditionally; fail otherwise | Strictest; breaks installs that legitimately lack a layer |
+| b *(recommended)* | Bind the required manifest set at authorization time so it cannot shrink mid-run, and require `rc == 0` **and** parsed verdict `== MATCH` | Small, closes both live blockers, preserves the old loop's guarantee |
+| c | Narrow repair's claim to "the named paths were replaced from verified bytes"; stop asserting whole-tree cleanliness | Honest and simplest; weaker promise |
 
-A source whose *committed* objects are clean but whose *worktree* is tampered therefore passes verification and installs tampered bytes. Same class as F2/M11 — re-entered through the fix that unstranded B3. The existing negative control is plain-only (`test-upgrade-source-boundary.sh:444`), so the git shape is uncovered.
+Plus, independent of a/b/c: **disclose plain-source trust explicitly.** `docs/release-notes/v4.7.0.md:127` claims a re-stamped manifest aborts for any manifest-bearing source. True for **git** transport (canonical tree comes from committed objects); **false for a plain `--source` directory**, where snapshot, payload, verifier and manifest share one authority and can be self-consistent.
 
-### Two smaller items from the same review
+## The three round-4 blockers (all in `bootstrap-upgrade.sh:248-268` + one release-note paragraph)
 
-- **Matrix waiver premise is insufficient.** The B/H+ WAIVE claims shapes B/C collapse onto A with a trusted installed helper. True for the *verdict*, false for the *complete route* — the consumed-tree split above is exactly the difference. Re-disposition those cells.
-- **Temp-tree leak.** A boundary-aware engine with no materializer takes `upgrade.sh:229-231`'s warning-only path without arming cleanup. Not the published shape; low priority.
+1. **`ff_boot_repair_verify` never captures the verifier's exit code** — `out="$(ff_boot_py …)"` with no `rc=$?`, so it returns 0 on a parsed `MATCH` regardless of rc. `ff_boot_verify` and `_ff_mms_verify` both require rc 0 **and** exact MATCH. `:262-268`
+2. **Layer-skip keyed on the wrong artifact.** The skip is keyed on the *manifest*; the old loop keyed on the *wrapper script*. Delete `audit/managed-content-manifest.json` → the check is skipped, unrelated drift stays invisible, repair exits 0. The old loop would have returned rc 4. The hook manifest is anchored by being managed content; the managed-content manifest has **no reciprocal anchor**, so the justification only holds one way. `:248-251`
+3. Release-note overclaim above.
 
-## Recommended fix
+Neither 1 nor 2 is a live exploit today — the verifier is the proven canonical module and does not print MATCH-then-fail — but both are contract violations in a security check, and 2 regresses a behaviour that was claimed preserved.
 
-Make the **verified tree the consumed tree**, or refuse the combination:
+## Why this stopped rather than continued
 
-1. *(preferred)* If the engine is pre-boundary, do **not** claim `VERIFIED` — route that source through `UNVERIFIED_LEGACY_SOURCE` with the state named, since the bytes actually installed were never verified.
-2. Or point the legacy engine's `.fusebase-flow-source` at the verified tree so it consumes what was proven.
+Rounds 2, 3 and 4 each found defects **in the previous round's fix**, not new layers of the original problem. Round 4's reviewer calls the architecture coherent — one materialization boundary, verifier from the proven tree, isolated interpreters, exact verdict parsers, capability branch, binary-safe comparator — and the remaining items "localized inconsistencies."
 
-Do **not** merely keep the temp tree alive — the engine reads `.fusebase-flow-source` by name, so survival alone does not make it consume verified bytes.
+That read of the code is probably right. What failed is the *process* of closing them unsupervised at the end of a long release run. The PO overrode the three-round breaker on a convergence argument that was then falsified. **Do not re-run that reasoning.** Disposition the contract above first; then one implementation pass against a decided contract, then one review.
 
-**Required test:** a **git** verifier-only source with clean committed objects and a tampered worktree. Must fail against `f77c49e`. Then re-run both platform gates and repeat the review.
+## Landed this session — 9 commits, all gated, each with a RED-at-baseline discriminator
 
-## Already CLOSED — do not re-touch
+`3f429e0` B5 startup-file forgery · `0f1ac51` B6 unmanifested inputs · `bbb58d3` TOCTOU disclosure · `081238a` FF_TAGS · `2121489` B5c `sys.path[0]` module shadow + exact-MATCH · `f676f94` B7 binary-safe comparator · `490e569` manifest-bearing scoping · `5e9cbab` B8 post-repair verdict · `d44618f` scope corrections
 
-R1, R2, R4, R5 and all MINORs from the implementation review; B1 and B2 from the re-review. Each verified at HEAD by an independent pass.
+## Constraints (unchanged, all still binding)
 
-## Constraints that keep biting
+Never `--no-verify`. FR-07 protected = `policies/*.yml`, `hooks/handlers/**`, `hooks/shared/**`, `hooks/git/**` only. Locked: M2 byte-exact hashers, M3 tempfile capture, `.gitattributes`, `templates/**`, the FR-06 deny. Linux parity is mandatory before any release claim. Before diagnosing a timing FAIL, run `ps -W | grep run-tests` — a competing suite on this host has caused that once.
 
-- **Linux parity is mandatory** before any release claim (`docs/problem-catalog/ci-linux-msys-test-divergence/problem.md`). A green MSYS run alone has now been wrong twice.
-- **A timing FAIL on this host is usually a competing suite.** Check `ps -W | grep run-tests` before diagnosing a design flaw — that mistake was made once in this chain.
-- Never `--no-verify`. FR-07 protected: `policies/*.yml`, `hooks/handlers/**`, `hooks/shared/**`, `hooks/git/**` only.
-- M2 (byte-exact hashers), M3 (tempfile capture), `.gitattributes` — locked, empty-diff required.
+## Release sequence once the contract is decided and green
 
-## Deferred, filed
+Restamp both manifests → unscoped Windows + Linux container → one review → `git push origin HEAD:refs/heads/main` → `git push origin :refs/tags/v4.7.0` → re-tag → `git push origin v4.7.0`. Publish is `needs: verify`, so a red suite cannot release. Push permissions already in `.claude/settings.local.json`. **The operator must re-authorize** — the prior DP.6 was consumed by a NO-SHIP outcome.
 
-`docs/backlog/`: `command-gate-shell-evasion` (F7 parser), `approval-single-use-consumption`, `approval-binding-omits-head`, `rm-rule-pattern-single-space-gap`, `provenance-and-single-seam-guarantees`.
-One-liner: `hooks/tests/run-tests.sh:342` — `run_exitcode_phase` never sets `FFHC_HEARTBEAT_LABEL`, so a stuck phase is misnamed during an FR-27 hang.
+Release notes must carry: the moved-tag notice (`git fetch --force --tags origin`), the F7 limitation with `git commit -F` as the sanctioned path, that downgrading from 4.7.0 restores the replayable gate, and the plain-source trust disclosure above.
 
-## Release sequence once green
+## Filed, deferred
 
-Restamp both manifests → full unscoped Windows + Linux container → repeat the review → `git push origin :refs/tags/v4.7.0` → re-tag at the green commit → `git push origin v4.7.0`. The release workflow publishes only if verify passes. Permission rules for all three pushes are already in `.claude/settings.local.json`.
-
-Release notes must carry: the moved-tag notice (`git fetch --force --tags origin`), the F7 known limitation with `git commit -F` as the sanctioned path, and that downgrading from 4.7.0 restores the replayable gate.
+`docs/backlog/`: `command-gate-shell-evasion` (F7 parser) · `approval-single-use-consumption` · `approval-binding-omits-head` · `rm-rule-pattern-single-space-gap` · `provenance-and-single-seam-guarantees`.
+Follow-up: `hooks/tests/run-tests.sh:342` — `run_exitcode_phase` never sets `FFHC_HEARTBEAT_LABEL`, so a stuck phase is misnamed during an FR-27 hang.
+Reviews: `c:/tmp/ffrev7/r.md`, `r2.md`, `r3.md`, `r4.md`; earlier rounds in `docs/tmp/handoff/2026-07-2[89]-*`, `2026-07-3[01]-*`.
