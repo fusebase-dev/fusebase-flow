@@ -1,42 +1,64 @@
-# Handoff — token-floor-remediation
+# Active handoff — v4.7.0 release, blocked on one fail-open
 
-**Mode:** run-ledger · **Updated:** 2026-07-26 12:15Z · **Branch:** fix/msys-v3307-hardening · **HEAD:** abd66c9
+**Updated:** 2026-07-30 · **Branch:** `fix/msys-v3307-hardening` · **HEAD:** `f77c49e` · **VERSION:** 4.7.0
+**Operator authorization on file:** DP.6 phrase `approve deploy now` given 2026-07-30 for the `v4.7.0` tag re-point. **Still valid — do not re-ask.** It authorizes releasing a verified-good candidate; the candidate is not yet one.
 
-## Session Role
-Product Owner, delegated-authority autonomous run. Ticket complete and published.
+## State
 
-## Goal
-Ship the remediation of the measured session-token floor (consumer /token-waste-audit findings F1–F6 + the operator's zero-trust delegation ask). **Done — released as v4.6.1.**
+| | |
+|---|---|
+| `origin/main` | `85b97dd` — CI green, untouched |
+| Local | ~24 commits ahead, unpushed |
+| Tag `v4.7.0` | `664503b`; **no GitHub Release** (API 404, verified) |
+| Linux gate | 703/703 PASS at `d0a980d` |
+| Windows gate | all assertion-level PASS; non-passes have a named external cause (concurrent suite, pid 634763 from `paperclip+hermes-v1`, `ps` evidence) |
 
-## Current State
+## The one blocker
 
-| Item | State | Pointer |
-|---|---|---|
-| Ticket | DONE, published | `docs/specs/token-floor-remediation/spec.md` |
-| Released | v4.6.1, deploy hash `abd66c9` | CI green (verify + release) |
-| Boot floor | 78,148 → 41,321 bytes (47.1%) | AC1, budget 42,200 |
-| Gate | 28/28 AC; suite 620/620 at the pushed tree | `gate-report.md` |
-| Probes + smoke | P1–P3, S1–S4 all pass | spec.md § Deploy hash |
+Full detail: `docs/tmp/handoff/2026-07-30-release-review-findings.md`.
 
-## Changed This Session
-29 commits, `18f2ffa..abd66c9`. T1–T10 implementation · T13–T18 correction round (6 BLOCKERs from Codex review) · T21–T25 gate repairs and release · v4.6.1 hotfix (T1–T3).
+**A verifier-only GIT source installs unverified bytes after reporting VERIFIED.**
 
-## Key Decisions Made
-A1–A10 LOCKED — `decisions.md`. A2 amended three times (budget 36,000 → 36,800 → 40,700 → 42,200); residency and correctness outrank the byte budget. A3 (prohibitions resident) is now mechanically gated.
+1. `bootstrap-upgrade.sh:200` archives committed objects → temp tree; embedded verification returns `MATCH`.
+2. Engine is pre-boundary → `:417-431` switches `ENGINE_SRC` to `$SOURCE_CLONE/hooks/local/upgrade.sh` (**the mutable worktree**) and deletes the verified tree.
+3. `:437` execs it; that legacy engine copies from `.fusebase-flow-source` (`hooks/tests/lib/upgrade-fixtures.sh:53`), not the verified snapshot.
 
-## Known Issues / Open Questions
-- `docs/backlog/rule-inventory-version-literal-noise/` — every version bump makes the rule-loss baseline stale by one row.
-- `docs/specs/repo-context.md` still untracked and stale (says v4.3.2).
-- v4.6.0 tag remains on origin pointing at a red commit; v4.6.1 supersedes it.
+A source whose *committed* objects are clean but whose *worktree* is tampered therefore passes verification and installs tampered bytes. Same class as F2/M11 — re-entered through the fix that unstranded B3. The existing negative control is plain-only (`test-upgrade-source-boundary.sh:444`), so the git shape is uncovered.
 
-## Next Step
-No pending action on this ticket. Operator decides what is next.
+### Two smaller items from the same review
 
-## Failed Attempts
-v4.6.0 published red — a post-gate docs commit tripped a content-derived gate. Post-mortem: `docs/problem-catalog/docs-only-commit-broke-content-derived-gate/problem.md`. Guardrail: the gate must run on the tree you actually push.
+- **Matrix waiver premise is insufficient.** The B/H+ WAIVE claims shapes B/C collapse onto A with a trusted installed helper. True for the *verdict*, false for the *complete route* — the consumed-tree split above is exactly the difference. Re-disposition those cells.
+- **Temp-tree leak.** A boundary-aware engine with no materializer takes `upgrade.sh:229-231`'s warning-only path without arming cleanup. Not the published shape; low priority.
 
-## Environment / Branch / Repo State
-Branch `fix/msys-v3307-hardening` level with origin/main at `abd66c9`. VERSION 4.6.1. Health HEALTHY.
+## Recommended fix
 
-## Completion Criteria
-Met: all ACs evidenced, CI green, probes and smoke pass, spec DONE.
+Make the **verified tree the consumed tree**, or refuse the combination:
+
+1. *(preferred)* If the engine is pre-boundary, do **not** claim `VERIFIED` — route that source through `UNVERIFIED_LEGACY_SOURCE` with the state named, since the bytes actually installed were never verified.
+2. Or point the legacy engine's `.fusebase-flow-source` at the verified tree so it consumes what was proven.
+
+Do **not** merely keep the temp tree alive — the engine reads `.fusebase-flow-source` by name, so survival alone does not make it consume verified bytes.
+
+**Required test:** a **git** verifier-only source with clean committed objects and a tampered worktree. Must fail against `f77c49e`. Then re-run both platform gates and repeat the review.
+
+## Already CLOSED — do not re-touch
+
+R1, R2, R4, R5 and all MINORs from the implementation review; B1 and B2 from the re-review. Each verified at HEAD by an independent pass.
+
+## Constraints that keep biting
+
+- **Linux parity is mandatory** before any release claim (`docs/problem-catalog/ci-linux-msys-test-divergence/problem.md`). A green MSYS run alone has now been wrong twice.
+- **A timing FAIL on this host is usually a competing suite.** Check `ps -W | grep run-tests` before diagnosing a design flaw — that mistake was made once in this chain.
+- Never `--no-verify`. FR-07 protected: `policies/*.yml`, `hooks/handlers/**`, `hooks/shared/**`, `hooks/git/**` only.
+- M2 (byte-exact hashers), M3 (tempfile capture), `.gitattributes` — locked, empty-diff required.
+
+## Deferred, filed
+
+`docs/backlog/`: `command-gate-shell-evasion` (F7 parser), `approval-single-use-consumption`, `approval-binding-omits-head`, `rm-rule-pattern-single-space-gap`, `provenance-and-single-seam-guarantees`.
+One-liner: `hooks/tests/run-tests.sh:342` — `run_exitcode_phase` never sets `FFHC_HEARTBEAT_LABEL`, so a stuck phase is misnamed during an FR-27 hang.
+
+## Release sequence once green
+
+Restamp both manifests → full unscoped Windows + Linux container → repeat the review → `git push origin :refs/tags/v4.7.0` → re-tag at the green commit → `git push origin v4.7.0`. The release workflow publishes only if verify passes. Permission rules for all three pushes are already in `.claude/settings.local.json`.
+
+Release notes must carry: the moved-tag notice (`git fetch --force --tags origin`), the F7 known limitation with `git commit -F` as the sanctioned path, and that downgrading from 4.7.0 restores the replayable gate.
