@@ -284,7 +284,7 @@ Binding at authorization removes the ambiguity structurally rather than by anoth
 
 **Accepted corollary, stated so it is not discovered later:** an artifact absent at authorization is not in the record, so a partial install still verifies through whichever half it has. That is deliberate — it is the difference between "this install does not carry that layer" and "that layer disappeared mid-run", and only the second is an attack.
 
-**Lock status:** LOCKED 2026-07-31
+**Lock status:** **UNLOCKED 2026-07-31 — REFUTED.** Adversarial review: *"neither artifact present" is indistinguishable from "both artifacts were removed before authorization"* — the corollary above is a **pre-authorization downgrade**, no race required. Membership must be derived from a source the consumer's tree does not control (the verified upstream tree's own coverage list, or the install/upgrade record of which layers were written), so that *never carried* and *both removed* are distinguishable. **Do not re-lock M14 without that anchor.** See `docs/tmp/handoff/2026-07-31-m13-review.md`.
 
 ---
 
