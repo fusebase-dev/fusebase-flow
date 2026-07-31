@@ -52,7 +52,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke hook-manifest newli
   trusted-enforcer hook-install-rc msys-tree-cleanup ws5-upgrade ff-only return-budget \
   supersede-primitive rule-inventory boot-size prohibition-residency token-waste-classify \
   budget-literals history-extraction approval-binding approval-writer command-policy upgrade-classify \
-  upgrade-boundary upgrade-repair cli-flow-recovery)
+  upgrade-boundary preboundary-consumed upgrade-repair cli-flow-recovery)
 
 declare -A FF_SEL=()      # selected tags (populated only when scoped)
 FF_SCOPED=0               # 1 iff FF_ONLY is a non-empty selection

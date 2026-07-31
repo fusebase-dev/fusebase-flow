@@ -402,7 +402,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "463013b89bf6d31c1763f4a932a2ef043f8a34737dca9026980c224bb82bb798"
+      "sha256": "b35f2eb78fcab7db34f052752cab8471b6443cdd517a1398f8c70f704bd1cead"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -565,5 +565,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "5201d680f237e92a4689d7f7900e01d4edc793b64655d614b4621390039caa52"
+  "manifest_self_sha256": "dbd0399401aef54051c4911b9b90f1f0aa43ed875f5d4155ccd45c6eaea34c34"
 }
