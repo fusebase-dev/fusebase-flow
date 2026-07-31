@@ -373,5 +373,82 @@ else
   bad "r1-match-is-an-exact-whole-verdict-not-a-prefix-or-a-duplicate-key" "$r1_fail"
 fi
 
+
+# ---- 2i-nonies. B7: the binding is only as good as the comparator ---------------------------
+# The unmanifested inputs must tolerate CRLF-vs-LF and NOTHING else. The round-1 comparator read
+# both files into shell variables after `tr -d '\r'`, which accepted three tampers that a
+# pre-boundary engine copies verbatim into a consumer's docs/: a LONE CR (`ab` vs `a\rb` — a real
+# Markdown line ending, not an EOL-representation artifact), a changed TRAILING-newline count
+# (command substitution strips them from both sides), and NUL bytes (dropped entirely). Managed
+# content was never at risk here — this is exactly and only the unmanaged surface B6 bound.
+for style in lone-cr trailing-newlines nul-byte; do
+  CM="$(bnd_plain_case "$B3_ROOT/comparator-$style")"
+  CMS="$CM/.fusebase-flow-source"
+  rm -f "$CM/hooks/local/lib/materialize-managed-source.sh" \
+        "$CMS/hooks/local/lib/materialize-managed-source.sh"
+  mkdir -p "$CMS/docs" "$CM/docs"
+  printf 'alpha\nbeta\n' > "$CMS/docs/framework.md"
+  printf 'consumer doc\n'  > "$CM/docs/framework.md"
+  cat > "$CMS/hooks/local/upgrade.sh" <<'LEGACYCM'
+#!/usr/bin/env bash
+set -eu
+printf '%s\n' "$@" > "./legacy-engine-argv.txt"
+cp ".fusebase-flow-source/docs/framework.md" "docs/framework.md"
+exit 0
+LEGACYCM
+  ( cd "$CMS" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null )
+  bnd_git_source "$CMS"
+  # AFTER the commit: change the doc in a way the OLD comparator could not see.
+  case "$style" in
+    lone-cr)           printf 'al\rpha\nbeta\n'   > "$CMS/docs/framework.md" ;;
+    trailing-newlines) printf 'alpha\nbeta\n\n\n' > "$CMS/docs/framework.md" ;;
+    nul-byte)          printf 'alpha\nbeta\n\000' > "$CMS/docs/framework.md" ;;
+  esac
+  CM_LOG="$B3_ROOT/comparator-$style.log"
+  ( cd "$CM" && bash hooks/local/bootstrap-upgrade.sh --source .fusebase-flow-source --ref main \
+      -- --auto-yes ) > "$CM_LOG" 2>&1
+  CM_RC=$?
+  cm_fail=""
+  [ "$CM_RC" -ne 0 ] || cm_fail="$cm_fail [a $style tamper compared equal and the upgrade ran (rc 0)]"
+  grep -qE '^ +docs/framework\.md' "$CM_LOG" \
+    || cm_fail="$cm_fail [the abort does not name docs/framework.md]"
+  [ ! -f "$CM/legacy-engine-argv.txt" ] || cm_fail="$cm_fail [the engine ran despite the abort]"
+  grep -q "consumer doc" "$CM/docs/framework.md" || cm_fail="$cm_fail [the tampered doc was installed]"
+  if [ -z "$cm_fail" ]; then
+    ok "b7-comparator-normalizes-crlf-only-and-is-binary-safe-$style"
+  else
+    bad "b7-comparator-normalizes-crlf-only-and-is-binary-safe-$style" "rc=$CM_RC$cm_fail :: $(tail -6 "$CM_LOG" | tr '\n' '|')"
+  fi
+done
+
+# NEGATIVE CONTROL for 2i-nonies: the one difference the comparator MUST still tolerate. A whole
+# doc rewritten LF -> CRLF is what a Windows checkout of the staging worktree actually produces;
+# if this ever fails, the comparator has been tightened into a false rejection of clean consumers.
+CC="$(bnd_plain_case "$B3_ROOT/comparator-crlf-nc")"
+CCS="$CC/.fusebase-flow-source"
+rm -f "$CC/hooks/local/lib/materialize-managed-source.sh" \
+      "$CCS/hooks/local/lib/materialize-managed-source.sh"
+mkdir -p "$CCS/docs" "$CC/docs"
+printf 'alpha\nbeta\n' > "$CCS/docs/framework.md"
+printf 'consumer doc\n'  > "$CC/docs/framework.md"
+bnd_legacy_engine "$CCS"
+( cd "$CCS" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null )
+bnd_git_source "$CCS"
+printf 'alpha\r\nbeta\r\n' > "$CCS/docs/framework.md"     # same text, CRLF throughout
+CC_LOG="$B3_ROOT/comparator-crlf-nc.log"
+( cd "$CC" && bash hooks/local/bootstrap-upgrade.sh --source .fusebase-flow-source --ref main \
+    -- --auto-yes ) > "$CC_LOG" 2>&1
+CC_RC=$?
+cc_fail=""
+[ "$CC_RC" -eq 0 ] || cc_fail="$cc_fail [a whole-file CRLF checkout aborted a clean upgrade]"
+grep -q "does not cover but the engine still consumes" "$CC_LOG" \
+  && cc_fail="$cc_fail [the unbound-input guard fired on a pure CRLF difference]"
+[ -f "$CC/legacy-engine-argv.txt" ] || cc_fail="$cc_fail [the engine never ran]"
+if [ -z "$cc_fail" ]; then
+  ok "b7-negative-control-whole-file-crlf-still-upgrades"
+else
+  bad "b7-negative-control-whole-file-crlf-still-upgrades" "rc=$CC_RC$cc_fail :: $(tail -6 "$CC_LOG" | tr '\n' '|')"
+fi
+
 rm -rf "$B3_ROOT"
 finish

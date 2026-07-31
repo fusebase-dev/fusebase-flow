@@ -397,16 +397,31 @@ fi
 # container bind-mount. On such a host this route is unsafe; use a source whose engine accepts
 # --source-tree. See docs/release-notes/v4.7.0.md § Known limitation (pre-boundary route).
 
-# Comparison for the unmanifested inputs below is CR-INSENSITIVE by design: a legitimate staging
-# worktree is checked out under the CONSUMER's core.autocrlf (Step 1a) while the canonical tree is
-# forced LF (M1), so a byte cmp would abort clean upgrades on Windows. Nothing is lost that
-# matters — the engine reads VERSION through `tr -d '\n\r'`, so CR is not part of its value, and
-# an unmanaged doc is copied, never executed. Managed content keeps its byte-exact manifest (M2).
-ff_boot_same_text() {   # <canonical file> <worktree file>; rc 0 = identical ignoring CR
-  local a b
-  a="$(tr -d '\r' < "$1" 2>/dev/null)" || return 1
-  b="$(tr -d '\r' < "$2" 2>/dev/null)" || return 1
-  [ "$a" = "$b" ]
+# Comparison for the unmanifested inputs below tolerates ONE difference and no others: CRLF vs
+# LF. It has to tolerate that much — a legitimate staging worktree is checked out under the
+# CONSUMER's core.autocrlf (Step 1a) while the canonical tree is forced LF (M1), so an exact cmp
+# would abort clean Windows upgrades. It must tolerate nothing else.
+#
+# TRIPWIRE (re-review B7): this is BINARY-SAFE and normalizes CRLF ONLY. The round-1 version read
+# both files into shell variables after `tr -d '\r'`, which silently accepted three tampers that
+# a pre-boundary engine copies verbatim into the consumer: a LONE CR (a real line ending, not an
+# EOL-representation artifact — `ab` vs `a\rb` compared equal), NUL bytes (dropped by command
+# substitution), and any change in TRAILING-newline count (stripped from both sides). Never
+# reintroduce a shell-variable or `tr -d '\r'` comparison here. Exact cmp runs first because it
+# is the common case and needs no interpreter; without python3 the difference simply stands and
+# the caller aborts — fail closed.
+ff_boot_same_text() {   # <canonical file> <worktree file>; rc 0 = same after CRLF->LF only
+  cmp -s "$1" "$2" && return 0
+  command -v python3 >/dev/null 2>&1 || return 1
+  ff_boot_py -c '
+import sys
+try:
+    with open(sys.argv[1], "rb") as f: a = f.read()
+    with open(sys.argv[2], "rb") as f: b = f.read()
+except Exception:
+    raise SystemExit(1)
+sys.exit(0 if a.replace(b"\r\n", b"\n") == b.replace(b"\r\n", b"\n") else 1)
+' "$1" "$2" 2>/dev/null
 }
 
 ff_boot_unbound_inputs() {   # repo-relative paths a pre-boundary engine reads outside the manifest
