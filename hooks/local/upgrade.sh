@@ -303,9 +303,16 @@ MCM="$SOURCE_TREE/$MCM_LIB"
 CLASSIFY_OK=0
 CONTENT_DIRS=()
 CONTENT_FILES=()
+# TRIPWIRE (re-review B5): the classifier decides WHAT IS MANAGED and WHAT GETS WRITTEN, so its
+# interpreter is as trust-bearing as the source verifier's — and it is reached AFTER the source
+# verdict, where a clean verdict would otherwise buy an attacker nothing. `-I -S` keeps a
+# sitecustomize/.pth on an inherited PYTHONPATH, and a json.py sitting next to the module, from
+# forging list-managed or the apply plan. Mirrors ff_boot_py / _ff_mms_py; the module is
+# stdlib-only, so isolation costs it nothing. Never call a bare python3 for a classifier answer.
+ff_up_py() { python3 -I -S "$@"; }
 if [ -f "$MCM" ] && command -v python3 >/dev/null 2>&1; then
-  while IFS= read -r line; do [ -n "$line" ] && CONTENT_DIRS+=("$line"); done < <(python3 "$MCM" list-managed --dirs 2>/dev/null)
-  while IFS= read -r line; do [ -n "$line" ] && CONTENT_FILES+=("$line"); done < <(python3 "$MCM" list-managed --files 2>/dev/null)
+  while IFS= read -r line; do [ -n "$line" ] && CONTENT_DIRS+=("$line"); done < <(ff_up_py "$MCM" list-managed --dirs 2>/dev/null)
+  while IFS= read -r line; do [ -n "$line" ] && CONTENT_FILES+=("$line"); done < <(ff_up_py "$MCM" list-managed --files 2>/dev/null)
   [ "${#CONTENT_DIRS[@]}" -gt 0 ] && CLASSIFY_OK=1
 fi
 # FAIL CLOSED (decision K20a). The legacy whole-directory refresh IS the pre-4.7.0
@@ -370,7 +377,7 @@ if [ "$CLASSIFY_OK" -eq 1 ]; then
   MCM_BASE_ARG=()
   [ -f "$BASE_MANIFEST" ] && MCM_BASE_ARG=(--base "$BASE_MANIFEST")
   set +e
-  python3 "$MCM" plan --root "$ROOT" --upstream "$SOURCE_TREE" \
+  ff_up_py "$MCM" plan --root "$ROOT" --upstream "$SOURCE_TREE" \
     "${MCM_BASE_ARG[@]}" \
     $( [ "$AUTO_YES" -eq 1 ] && echo --auto-yes ) \
     ${MCM_DECISIONS:+--decisions "$MCM_DECISIONS"} \

@@ -144,33 +144,51 @@ ff_boot_cleanup() {
 # judged with that argument, never with the default below.
 #
 # TRIPWIRE (re-review B5): EVERY interpreter that carries this verdict runs through ff_boot_py.
-# Choosing a trusted verifier FILE is not enough — plain `python3 <file>` still executes whatever
-# `site` finds first, so a sitecustomize.py/usercustomize.py/.pth reachable from the JUDGED tree
-# (an inherited PYTHONPATH is all it takes) runs BEFORE the verifier and can print a MATCH token
-# then os._exit(0). That is B4 again one layer down, in the interpreter instead of the script.
-# `-S` drops site processing, `-E` drops PYTHONPATH/PYTHONHOME; the same close the pre-commit
-# already shipped for this class (hooks/tests/test-trusted-enforcer.sh T29/T30). Never call a
-# bare `python3` for anything that decides, or feeds, an integrity verdict.
-ff_boot_py() { python3 -S -E "$@"; }
+# Choosing a trusted verifier FILE is not enough — the interpreter runs other people's code
+# before the file does, and there are TWO ways in:
+#   site   — sitecustomize.py / usercustomize.py / .pth reachable from the JUDGED tree (an
+#            inherited PYTHONPATH is all it takes); closed by -S.
+#   sys.path[0] — for a file script that is the SCRIPT'S OWN DIRECTORY, which at Step 1b is
+#            hooks/local/lib/ INSIDE THE TREE BEING JUDGED, and for `-c` it is the CWD. A
+#            judged-tree hooks/local/lib/json.py therefore shadows stdlib `json` and runs at
+#            `import json`, BEFORE the verifier can report it as drift. Proven: under `-S -E`
+#            that shadow prints MATCH and os._exit(0)s; under `-I -S` it is not on the path.
+#            -E alone does NOT close this — only -I (isolated: no script dir, no user site, no
+#            PYTHON* env) does. managed_content_manifest.py / hook_manifest.py are stdlib-only,
+#            so neither -I nor -S costs them anything.
+# This is B4 one layer down, in the interpreter instead of the script; same class the pre-commit
+# closed in T29/T30. Never call a bare `python3` for anything that decides, or feeds, a verdict.
+ff_boot_py() { python3 -I -S "$@"; }
 
-# The verdict is PARSED, never substring-matched (re-review B5): output that merely CONTAINS
-# `"verdict": "MATCH"` — truncated, wrapped, or attacker-chosen prose — is not a MATCH. Prints
-# line 1 = verdict (empty when unparseable), line 2 = drifted paths.
+# The verdict is PARSED and matched EXACTLY (re-review B5/R1). Not a substring: output that
+# merely CONTAINS `"verdict": "MATCH"` is not a MATCH. Not a prefix either: `"MATCH\nanything"`
+# is not a MATCH — this function emits the literal token only on exact equality, so no
+# line-oriented reserialization downstream can promote a near-miss. Duplicate keys are rejected
+# outright rather than silently last-wins. Prints line 1 = MATCH or empty, line 2 = drifted paths.
 ff_boot_verdict() {   # stdin = `verify --json` output
   ff_boot_py -c '
 import json, sys
+def _nodup(pairs):
+    d = {}
+    for k, v in pairs:
+        if k in d:
+            raise ValueError("duplicate key in verifier output")
+        d[k] = v
+    return d
+verdict = ""; paths = ""
 try:
-    d = json.load(sys.stdin)
-    assert isinstance(d, dict)
+    d = json.load(sys.stdin, object_pairs_hook=_nodup)
+    if isinstance(d, dict):
+        if d.get("verdict") == "MATCH":
+            verdict = "MATCH"
+        fs = [f.get("path", "?") for f in (d.get("files") or []) if isinstance(f, dict)]
+        paths = ", ".join(str(p) for p in fs[:8])
+        if len(fs) > 8:
+            paths += " (+%d more)" % (len(fs) - 8)
 except Exception:
-    print(""); print(""); raise SystemExit(0)
-v = d.get("verdict")
-fs = [f.get("path", "?") for f in (d.get("files") or []) if isinstance(f, dict)]
-s = ", ".join(fs[:8])
-if len(fs) > 8:
-    s += " (+%d more)" % (len(fs) - 8)
-print(v if isinstance(v, str) else "")
-print(s)
+    verdict = ""; paths = ""
+print(verdict)
+print(paths.replace("\r", " ").replace("\n", " "))
 ' 2>/dev/null
 }
 

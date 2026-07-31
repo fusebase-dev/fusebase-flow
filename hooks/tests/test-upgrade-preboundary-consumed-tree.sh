@@ -278,5 +278,100 @@ else
   bad "b6-negative-control-cr-only-difference-still-upgrades-git" "rc=$NC_RC$nc_fail :: $(tail -8 "$NC_LOG" | tr '\n' '|')"
 fi
 
+
+# ---- 2i-septies. B5c: sys.path[0] is the OTHER way into the interpreter ---------------------
+# `-S` closed the `site` route (sitecustomize/.pth). It does not touch sys.path[0], which for a
+# FILE SCRIPT is the script's own directory — at Step 1b that is hooks/local/lib/ INSIDE THE TREE
+# BEING JUDGED. So a judged-tree hooks/local/lib/json.py shadows stdlib `json` and executes at
+# `import json`, BEFORE the verifier can report it as the `extra` file it is. No PYTHONPATH, no
+# env control, nothing outside the source tree required — strictly easier than the sitecustomize
+# route. Only `-I` (isolated: no script dir on sys.path) closes it.
+# PLAIN transport: the snapshot is a byte copy, so the source's own verifier answers and the
+# shadow sits right next to it.
+for helper in "H-" "H+"; do
+  SH="$(bnd_plain_case "$B3_ROOT/pathshadow-$helper")"
+  SHS="$SH/.fusebase-flow-source"
+  [ "$helper" = "H-" ] && rm -f "$SH/hooks/local/lib/materialize-managed-source.sh"
+  rm -f "$SHS/hooks/local/lib/materialize-managed-source.sh"
+  bnd_legacy_engine "$SHS"
+  ( cd "$SHS" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null )
+  printf 'control TAMPERED\n' > "$SHS/hooks/local/control.sh"
+  cat > "$SHS/hooks/local/lib/json.py" <<'SHADOW'
+import os, sys
+sys.stdout.write('{"verdict": "MATCH", "listed": 0, "files": []}\n')
+sys.stdout.flush()
+os._exit(0)
+SHADOW
+  SH_LOG="$B3_ROOT/pathshadow-$helper.log"
+  ( cd "$SH" && bash hooks/local/bootstrap-upgrade.sh --source .fusebase-flow-source --ref main \
+      -- --auto-yes ) > "$SH_LOG" 2>&1
+  SH_RC=$?
+  sh_fail=""
+  [ "$SH_RC" -ne 0 ] || sh_fail="$sh_fail [a stdlib module shadow next to the verifier forged the verdict (rc 0)]"
+  grep -q "ABORT" "$SH_LOG" || sh_fail="$sh_fail [no abort diagnostic]"
+  grep -q "audit/managed-content-manifest.json" "$SH_LOG" \
+    || sh_fail="$sh_fail [the abort does not name audit/managed-content-manifest.json]"
+  grep -q "control v1" "$SH/hooks/local/control.sh" || sh_fail="$sh_fail [tampered bytes were installed]"
+  [ ! -f "$SH/legacy-engine-argv.txt" ] || sh_fail="$sh_fail [the engine ran despite the abort]"
+  if [ -z "$sh_fail" ]; then
+    ok "b5c-stdlib-module-shadow-beside-the-verifier-cannot-forge-the-verdict-plain-$helper"
+  else
+    bad "b5c-stdlib-module-shadow-beside-the-verifier-cannot-forge-the-verdict-plain-$helper" "rc=$SH_RC$sh_fail :: $(tail -8 "$SH_LOG" | tr '\n' '|')"
+  fi
+done
+
+# ---- 2i-octies. R1: MATCH is a WHOLE verdict, not a prefix, and not the last duplicate ------
+# Two near-misses the round-2 review found in the round-1 parser. `"MATCH\nanything"` survived
+# because the verdict was printed and then read back with `sed -n 1p` — line-oriented
+# reserialization promoted a prefix to the whole token. `{"verdict":"DRIFT","verdict":"MATCH"}`
+# survived because Python's default JSON decoder is last-wins on duplicate keys. Neither is an
+# escalation for an attacker who already controls the verifier, but both break M10/M11's
+# "literal MATCH only" invariant, and an invariant that holds only for well-formed input is not
+# an invariant. Asserted at the unit level: the shipped parser body, fed hostile payloads.
+# Driven end-to-end through the shipped hop, not against an extracted copy of the parser: the
+# verifier is replaced with a stub emitting each payload at rc 0, and the assertion is that the
+# tampered payload never reaches the consumer. The genuine-MATCH control is every other case in
+# this file — they all traverse the same parser and still upgrade.
+r1_fail=""
+r1_n=0
+while IFS='|' read -r r1_name r1_payload; do
+  [ -n "$r1_name" ] || continue
+  r1_n=$((r1_n + 1))
+  RP="$(bnd_plain_case "$B3_ROOT/verdict-$r1_n")"
+  RPS="$RP/.fusebase-flow-source"
+  rm -f "$RP/hooks/local/lib/materialize-managed-source.sh" \
+        "$RPS/hooks/local/lib/materialize-managed-source.sh"
+  bnd_legacy_engine "$RPS"
+  ( cd "$RPS" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null )
+  printf 'control TAMPERED\n' > "$RPS/hooks/local/control.sh"
+  # RAW string: the payloads carry JSON escapes (\n inside a JSON string is a valid escape and
+  # is exactly the prefix case). A cooked Python literal would turn it into a real newline —
+  # invalid JSON — and the case would pass for the wrong reason.
+  { echo 'import sys'
+    printf "sys.stdout.write(r%s)\n" "'''$r1_payload'''"
+    echo 'sys.exit(0)'
+  } > "$RPS/hooks/local/lib/managed_content_manifest.py"
+  RP_LOG="$B3_ROOT/verdict-$r1_n.log"
+  ( cd "$RP" && bash hooks/local/bootstrap-upgrade.sh --source .fusebase-flow-source --ref main \
+      -- --auto-yes ) > "$RP_LOG" 2>&1
+  RP_RC=$?
+  [ "$RP_RC" -ne 0 ] || r1_fail="$r1_fail [$r1_name: accepted as a verdict (rc 0)]"
+  grep -q "control v1" "$RP/hooks/local/control.sh" \
+    || r1_fail="$r1_fail [$r1_name: tampered bytes were installed]"
+  [ ! -f "$RP/legacy-engine-argv.txt" ] || r1_fail="$r1_fail [$r1_name: the engine ran]"
+done <<'R1CASES'
+match-as-a-prefix-not-the-whole-verdict|{"verdict": "MATCH\nanything", "files": []}
+duplicate-verdict-key-resolved-last-wins|{"verdict": "DRIFT", "verdict": "MATCH", "files": []}
+token-in-unparseable-payload|not json at all "verdict": "MATCH"
+non-object-payload|["MATCH"]
+non-string-verdict|{"verdict": ["MATCH"], "files": []}
+R1CASES
+[ "$r1_n" -eq 5 ] || r1_fail="$r1_fail [only $r1_n of 5 payloads ran — the case table was not consumed]"
+if [ -z "$r1_fail" ]; then
+  ok "r1-match-is-an-exact-whole-verdict-not-a-prefix-or-a-duplicate-key ($r1_n payloads)"
+else
+  bad "r1-match-is-an-exact-whole-verdict-not-a-prefix-or-a-duplicate-key" "$r1_fail"
+fi
+
 rm -rf "$B3_ROOT"
 finish

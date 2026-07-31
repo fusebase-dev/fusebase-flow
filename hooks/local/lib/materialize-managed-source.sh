@@ -93,14 +93,16 @@ _ff_mms_snapshot() {   # <src> <dest> — non-git source (decision M10)
 }
 
 # TRIPWIRE (re-review B5): every interpreter that carries or feeds the source verdict goes
-# through _ff_mms_py. Plain `python3 <file>` still runs whatever `site` finds first, so a
-# sitecustomize.py/usercustomize.py/.pth reachable from the JUDGED tree — an inherited
-# PYTHONPATH is all it takes — executes BEFORE the verifier and can print a MATCH token then
-# os._exit(0). `-S` drops site processing, `-E` drops PYTHONPATH/PYTHONHOME. Mirrors
-# ff_boot_py in bootstrap-upgrade.sh and the pre-commit close for the same class
-# (hooks/tests/test-trusted-enforcer.sh T29/T30). managed_content_manifest.py imports stdlib
-# only, so `-S` costs it nothing.
-_ff_mms_py() { python3 -S -E "$@"; }
+# through _ff_mms_py. A trusted verifier FILE is not a trusted interpreter — the interpreter
+# runs other people's code first, by two routes: `site` (sitecustomize.py / usercustomize.py /
+# .pth reachable from the JUDGED tree via an inherited PYTHONPATH), closed by -S; and
+# sys.path[0], which for a file script is the SCRIPT'S OWN DIRECTORY — hooks/local/lib/ inside
+# the tree being judged — so a judged-tree json.py shadows stdlib and executes at `import json`,
+# before the verifier can report it as drift. Only -I (isolated: no script dir, no user site,
+# no PYTHON* env) closes that; -E alone does not. Mirrors ff_boot_py in bootstrap-upgrade.sh
+# and the pre-commit close for the same class (hooks/tests/test-trusted-enforcer.sh T29/T30).
+# managed_content_manifest.py and hook_manifest.py are stdlib-only, so -I -S costs them nothing.
+_ff_mms_py() { python3 -I -S "$@"; }
 
 _ff_mms_json_paths() {   # <verify --json output> -> "p1, p2 (+N more)"
   printf '%s' "$1" | _ff_mms_py -c '
@@ -118,18 +120,27 @@ print(s)
 ' 2>/dev/null
 }
 
-# Parsed verdict, never a substring: output that merely CONTAINS `"verdict": "MATCH"` is not a
-# MATCH. Echoes the verdict string, empty when the payload does not parse as a JSON object.
+# Parsed and EXACT, never a substring or a prefix: output that merely CONTAINS
+# `"verdict": "MATCH"`, or whose verdict is `"MATCH\nanything"`, is not a MATCH. Duplicate keys
+# are rejected rather than silently last-wins. Echoes the literal token or nothing.
 _ff_mms_json_verdict() {   # <verify --json output>
   printf '%s' "$1" | _ff_mms_py -c '
 import json, sys
+def _nodup(pairs):
+    d = {}
+    for k, v in pairs:
+        if k in d:
+            raise ValueError("duplicate key in verifier output")
+        d[k] = v
+    return d
+out = ""
 try:
-    d = json.load(sys.stdin)
-    assert isinstance(d, dict)
+    d = json.load(sys.stdin, object_pairs_hook=_nodup)
+    if isinstance(d, dict) and d.get("verdict") == "MATCH":
+        out = "MATCH"
 except Exception:
-    print(""); raise SystemExit(0)
-v = d.get("verdict")
-print(v if isinstance(v, str) else "")
+    out = ""
+print(out)
 ' 2>/dev/null
 }
 

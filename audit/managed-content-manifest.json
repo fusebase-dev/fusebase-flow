@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "d57db033b52bb37f3cb124ce7529dae185ca6f8ff44e3cd345ef45ac17d89435"
+      "sha256": "6e20cb2e25d01b8e7023674da93bfd90d4f5c12e83ac6ab0c6de48a0628d6584"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -282,7 +282,7 @@
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
-      "sha256": "14f1c84646346dd6cc14b27decf20c2b8166c0682bb38f7123e98cc3b976a545"
+      "sha256": "88241fc9e58ef5640e767ce97edc64e2102e23ee2ec3fe646d32a788f957ee21"
     },
     {
       "path": "hooks/local/check-cli-flow-conflicts.sh",
@@ -486,7 +486,7 @@
     },
     {
       "path": "hooks/local/lib/materialize-managed-source.sh",
-      "sha256": "e59e37b8edeffc9abdc0939160b753fba62b50f5c3e9d1a46d56b5a39578c8be"
+      "sha256": "58505a548210bdfe6de83518c627b1b3f5e6c70748bf654cd6afd86bc57867fd"
     },
     {
       "path": "hooks/local/lib/merge-module-size-baseline.sh",
@@ -554,7 +554,7 @@
     },
     {
       "path": "hooks/local/upgrade.sh",
-      "sha256": "46e45a038f1bccb300073f74f7b31410fdd84e1ab39eb17fc7e792fe3c9b6a6b"
+      "sha256": "d887754a699c8e1ad0f99b084fe9b484cad556d9b15466c9541fead49346786f"
     },
     {
       "path": "hooks/local/verify-gate.sh",
@@ -942,7 +942,7 @@
     },
     {
       "path": "hooks/tests/test-upgrade-preboundary-consumed-tree.sh",
-      "sha256": "cc900fde1fa3e14970e1b15fcb73bce918ea353de605ce4d44e1198efb0348e8"
+      "sha256": "38aea7b66fc01fd3665a1e43ecb49c78a4efca39847cdfc64a578bfa8740de20"
     },
     {
       "path": "hooks/tests/test-upgrade-repair-managed.sh",
@@ -1149,5 +1149,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "53492a27206d5c86dcaf7706b699983546878cd3eec39188aa2a5e9d9d6f9be3"
+  "manifest_self_sha256": "e88ca2aa67375659c9eb80bcbdd0184fe2e1c3bb9dbbd265a6f00c4d84631fcb"
 }
