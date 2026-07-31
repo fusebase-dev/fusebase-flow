@@ -371,6 +371,30 @@ fi
 # Step 2b would trade a truthful "NOTHING was written" abort for a shorter window; closing it
 # entirely means replacing the operator's staging area. A local process that can race this can
 # already edit this script. See docs/release-notes/v4.7.0.md § Known limitation (pre-boundary route).
+
+# Comparison for the unmanifested inputs below is CR-INSENSITIVE by design: a legitimate staging
+# worktree is checked out under the CONSUMER's core.autocrlf (Step 1a) while the canonical tree is
+# forced LF (M1), so a byte cmp would abort clean upgrades on Windows. Nothing is lost that
+# matters — the engine reads VERSION through `tr -d '\n\r'`, so CR is not part of its value, and
+# an unmanaged doc is copied, never executed. Managed content keeps its byte-exact manifest (M2).
+ff_boot_same_text() {   # <canonical file> <worktree file>; rc 0 = identical ignoring CR
+  local a b
+  a="$(tr -d '\r' < "$1" 2>/dev/null)" || return 1
+  b="$(tr -d '\r' < "$2" 2>/dev/null)" || return 1
+  [ "$a" = "$b" ]
+}
+
+ff_boot_unbound_inputs() {   # repo-relative paths a pre-boundary engine reads outside the manifest
+  local d
+  {
+    echo "VERSION"
+    for d in "$SOURCE_TREE/docs" "$SOURCE_CLONE/docs"; do
+      [ -d "$d" ] || continue
+      find "$d" -maxdepth 1 -name '*.md' -type f 2>/dev/null | sed 's|.*/|docs/|'
+    done
+  } | sort -u
+}
+
 LEGACY_ENGINE=0
 if ! grep -q -- '--source-tree)' "$ENGINE_SRC" 2>/dev/null; then
   LEGACY_ENGINE=1
@@ -407,6 +431,42 @@ if ! grep -q -- '--source-tree)' "$ENGINE_SRC" 2>/dev/null; then
     echo "[bootstrap-upgrade] ABORT: $SOURCE_CLONE ships a DIFFERENT $FF_MCM_REL than the canonical" >&2
     echo "                    tree this run proved. A worktree re-stamped against its own bytes is" >&2
     echo "                    self-consistent and proves nothing about what upstream shipped." >&2
+    echo "[bootstrap-upgrade] NOTHING was written: no managed path was touched and the engine never ran." >&2
+    exit 1
+  fi
+  # ---- the inputs the manifest does NOT cover (re-review B6) --------------------------------
+  # TRIPWIRE: "the consumed worktree is VERIFIED" is only ever true of the MANAGED set.
+  # managed_content_manifest.py's MANAGED_DIRS/MANAGED_FILES deliberately exclude VERSION and
+  # docs/ — and a pre-boundary engine reads BOTH out of $SOURCE_CLONE: the shipped v4.7.0 tag
+  # engine takes SRC_VERSION from .fusebase-flow-source/VERSION and writes it into the consumer
+  # (upgrade.sh:214 -> :611), and --with-framework-docs copies .fusebase-flow-source/docs/*.md
+  # verbatim (:578-586). A clean commit with ONLY those bytes tampered passes both the verifier
+  # and the manifest cmp above, so they are bound to the canonical tree here instead.
+  # Widening the manifest is NOT the fix: MANAGED_DIRS/MANAGED_FILES is also the upgrade
+  # engine's managed set (K14), so adding VERSION there would put it under classification and
+  # change what every consumer's base means. EXTEND THIS LIST when a pre-boundary engine learns
+  # to read something new outside the managed set.
+  BOOT_UNBOUND=""
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    if [ -f "$SOURCE_TREE/$rel" ] && [ -f "$SOURCE_CLONE/$rel" ]; then
+      ff_boot_same_text "$SOURCE_TREE/$rel" "$SOURCE_CLONE/$rel" \
+        || BOOT_UNBOUND="$BOOT_UNBOUND
+$rel"
+    elif [ -f "$SOURCE_TREE/$rel" ] || [ -f "$SOURCE_CLONE/$rel" ]; then
+      BOOT_UNBOUND="$BOOT_UNBOUND
+$rel (present in only one of the two trees)"
+    fi
+  done <<FF_UNBOUND
+$(ff_boot_unbound_inputs)
+FF_UNBOUND
+  if [ -n "$BOOT_UNBOUND" ]; then
+    echo "[bootstrap-upgrade] ABORT: $SOURCE_CLONE — the tree this pre-boundary engine actually reads —" >&2
+    echo "                    differs from the canonical tree this run proved, on path(s) that" >&2
+    echo "                    $FF_MCM_REL does not cover but the engine still consumes:" >&2
+    printf '%s\n' "$BOOT_UNBOUND" | sed '/^$/d; s/^/                       /' >&2
+    echo "                    The manifest proves the MANAGED set only; VERSION and docs/*.md are read" >&2
+    echo "                    outside it, so they are bound to the canonical tree separately." >&2
     echo "[bootstrap-upgrade] NOTHING was written: no managed path was touched and the engine never ran." >&2
     exit 1
   fi

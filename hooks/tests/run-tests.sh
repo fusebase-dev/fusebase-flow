@@ -325,6 +325,7 @@ run_shell_phase test-approval-writer.sh        "approval-writer"
 run_shell_phase test-command-policy.sh        "command-policy"
 run_shell_phase test-upgrade-conflict-classification.sh "upgrade-classify"
 run_shell_phase test-upgrade-source-boundary.sh         "upgrade-boundary"
+run_shell_phase test-upgrade-preboundary-consumed-tree.sh "preboundary-consumed"
 run_shell_phase test-upgrade-repair-managed.sh           "upgrade-repair"
 
 # Exit-code phase — all-or-nothing shell tests that fail-fast (set -e + fail()→exit)

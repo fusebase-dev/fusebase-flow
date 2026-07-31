@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.7.0",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 285,
+  "asset_count": 286,
   "assets": [
     {
       "path": ".claude-plugin/marketplace.json",
@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "42799b5ca65247bd7b0b86288317c7aa3d141ecf38bdfd7b342ae73188730216"
+      "sha256": "8eba8d00168325696d55e6531452d7a4825423ed4d21f33e5d2b7c9eea666ac2"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -282,7 +282,7 @@
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
-      "sha256": "3423f654d2bac911674e2d86780feeadcba98cf716dcac171178e93e53f24d48"
+      "sha256": "35d07f6ec9a367415bd95ecd2a558e03b431993a6bc64581141b0932f3b48356"
     },
     {
       "path": "hooks/local/check-cli-flow-conflicts.sh",
@@ -794,7 +794,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "7af2ed6e4f66ff2a9a7b21801b59a927b509decba46759e394accc0ac47728b3"
+      "sha256": "463013b89bf6d31c1763f4a932a2ef043f8a34737dca9026980c224bb82bb798"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -941,12 +941,16 @@
       "sha256": "142ade45b7e474317cc0ff721c337fd3822c1fbf172cef1a1ecadc6999dd1414"
     },
     {
+      "path": "hooks/tests/test-upgrade-preboundary-consumed-tree.sh",
+      "sha256": "cc900fde1fa3e14970e1b15fcb73bce918ea353de605ce4d44e1198efb0348e8"
+    },
+    {
       "path": "hooks/tests/test-upgrade-repair-managed.sh",
       "sha256": "e082ef7666b7c799a0918a1bd99980b3fd88ae646231b31f37457ec97827b34d"
     },
     {
       "path": "hooks/tests/test-upgrade-source-boundary.sh",
-      "sha256": "860a54cd5508b9ae1a32291669c9319a867806e86d74158618ab556d75a36d3e"
+      "sha256": "e42c346a22d1b0fdbdec961cc0746d2198bbb65df544c44d1e5637b40803f514"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
@@ -1145,5 +1149,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "7a90f2c844f1e387e12cb97537b380811779fdd7178790e069ce06c5aee9fee3"
+  "manifest_self_sha256": "bb3c3a43ee5c69826524fafdf1838f5edc84b6c094101e67fe908816ba738bb1"
 }
