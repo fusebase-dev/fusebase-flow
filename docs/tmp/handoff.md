@@ -1,6 +1,6 @@
 # Active handoff — v4.7.0 unpublished; one design decision blocks it
 
-**Updated:** 2026-07-31 · **Branch:** `fix/msys-v3307-hardening` · **HEAD:** `d44618f` · **VERSION:** 4.7.0
+**Updated:** 2026-07-31 (rev 2 — M13 implemented, M14 refuted) · **Branch:** `fix/msys-v3307-hardening` · **HEAD:** `d44618f` · **VERSION:** 4.7.0
 **Stopped by rule, not by defect count.** Four review rounds this session, ten across the ticket. Round 4 returned NO-SHIP and the hard stop was honored — **do not start a round 5.**
 
 ## State — nothing shipped, nothing to undo
@@ -14,7 +14,17 @@
 | FR-07 | empty diff across `dea4445..d44618f` on every protected path |
 | Operator DP.6 | `approve deploy now` given 2026-07-30, **conditioned on a SHIP verdict — never became live, still unused** |
 
-## The decision that blocks release
+## STATUS: M13 implemented and gated; M14 REFUTED — operator decision needed
+
+`0f50c05` unlocked M14. The membership rule permits a **pre-authorization downgrade**: "neither artifact present = not carried" cannot be distinguished from "both artifacts were removed before authorization", so a layer leaves the bound set with no race. Review classification: **(b) the contract is wrong**, not a coding defect — so per the stop rule it returns here rather than into another implementation pass.
+
+**The fix direction is known:** derive bound-set membership from an anchor the consumer tree does not control — the verified upstream tree's own coverage list (it already states which layers should exist), or an install/upgrade record of which layers were written. Then *never carried* and *both removed* become distinguishable. **Do not re-lock M14 without that anchor.**
+
+M13's core (bind at authorization, no mid-run shrink, `rc == 0` AND exact `MATCH`, empty set refused) reviewed as **mostly correct** and is implemented at `1712e8e`. Gates at `257439a`: Windows **737/737**, Linux **734/734**, 0 FAIL. M15 (900s bound) stands but the reviewer notes 542s of whole-tree copying is a real performance residual worth optimizing, and a longer bound increases hang-detection latency.
+
+## Superseded — the original three options
+
+
 
 **What does "repair confirmed" mean when the consumer may not carry every manifest layer?**
 
