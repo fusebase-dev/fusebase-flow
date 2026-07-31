@@ -347,7 +347,7 @@ fi
 # verdict and the engine's reads, and Step 2b's tag fetch widens that window. Verifying AFTER
 # Step 2b would trade a truthful "NOTHING was written" abort for a shorter window; closing it
 # entirely means replacing the operator's staging area. A local process that can race this can
-# already edit this script. See docs/releases/v4.7.0.md § Known limitations.
+# already edit this script. See docs/release-notes/v4.7.0.md § Known limitation (pre-boundary route).
 LEGACY_ENGINE=0
 if ! grep -q -- '--source-tree)' "$ENGINE_SRC" 2>/dev/null; then
   LEGACY_ENGINE=1
