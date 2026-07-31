@@ -36,19 +36,26 @@ finish() { echo "[test-upgrade-source-boundary] $pass/$((pass + fail)) PASS"; ex
 #   consumer   H+ trusted local materialize-managed-source.sh installed · H- old install
 # RUN cells name the case that exercises them and must actually run; WAIVE cells carry a reason.
 # The closing assertion re-derives the 12 combinations, so dropping or renaming a cell is visible.
+#
+# The four H+ cells were once WAIVEd on "with a trusted installed helper, shapes B and C collapse
+# onto A". That is true of the VERDICT and false of the ROUTE: the helper decides which code
+# materializes and judges a tree, never which tree a PRE-boundary engine then reads — and the
+# verified-tree/consumed-tree split lived entirely in that second half (git/B/H+ failed exactly
+# like git/B/H- before Step 2c). A waiver that reasons about one half of a route cannot cover the
+# other, so every cell now RUNs.
 MX_ROWS=(
   "plain/A/H+|RUN|m10-manifest-bearing-source-drift-aborts-before-writes + ac2-boundary-never-sourced-from-the-mutable-source-worktree"
   "plain/A/H-|RUN|k10-embedded-boundary-still-upgrades-a-pre-boundary-install-plain + r3-old-install-cannot-be-verified-by-the-source-own-helper"
-  "plain/B/H+|WAIVE|the trusted-helper path takes its verdict from the INSTALLED lib and never reads the source's materializer, so shapes B and C collapse onto A there (cell plain/A/H+)"
+  "plain/B/H+|RUN|m11-verifier-only-source-still-aborts-on-drift-plain-H+"
   "plain/B/H-|RUN|m11-manifest-plus-verifier-without-materializer-is-provable-plain + m11-verifier-only-source-still-aborts-on-drift-plain-H-"
-  "plain/C/H+|WAIVE|same shape-blindness as plain/B/H+; the manifest-ABSENT branch itself is proven by m10-pre-manifest-source-upgrades-as-named-unverified-legacy"
-  "plain/C/H-|RUN|m10-pre-boundary-source-completes-the-unverified-legacy-route-plain"
+  "plain/C/H+|RUN|m10-pre-boundary-source-completes-the-unverified-legacy-route-plain-H+"
+  "plain/C/H-|RUN|m10-pre-boundary-source-completes-the-unverified-legacy-route-plain-H-"
   "git/A/H+|RUN|ac1-incoming-U-materialized-from-objects-forced-LF"
   "git/A/H-|RUN|k10-embedded-boundary-still-upgrades-a-pre-boundary-install-git"
-  "git/B/H+|WAIVE|same shape-blindness as plain/B/H+"
+  "git/B/H+|RUN|m11-verifier-only-source-still-aborts-on-drift-git-H+"
   "git/B/H-|RUN|m11-manifest-plus-verifier-without-materializer-is-provable-git + m11-verifier-only-source-still-aborts-on-drift-git-H-"
-  "git/C/H+|WAIVE|same shape-blindness as plain/C/H+"
-  "git/C/H-|RUN|m10-pre-boundary-source-completes-the-unverified-legacy-route-git"
+  "git/C/H+|RUN|m10-pre-boundary-source-completes-the-unverified-legacy-route-git-H+"
+  "git/C/H-|RUN|m10-pre-boundary-source-completes-the-unverified-legacy-route-git-H-"
 )
 MX_SEEN=""
 mx_ran() { MX_SEEN="$MX_SEEN
@@ -376,15 +383,17 @@ done
 # cannot see this: its source still ships the new materializer AND the new engine, so the hop takes
 # the --source-tree handoff. Here the source engine predates that flag, which is what makes
 # "release the canonical tree, then exec the engine inside it" a 127 instead of an upgrade.
-for kind in plain git; do
-  P="$(bnd_plain_case "$B3_ROOT/legacyroute-$kind")"
+for helper in "H-" "H+"; do for kind in plain git; do
+  P="$(bnd_plain_case "$B3_ROOT/legacyroute-$kind-$helper")"
   PS="$P/.fusebase-flow-source"
-  rm -f "$P/hooks/local/lib/materialize-managed-source.sh"     # consumer predates the boundary lib
+  # H- models the pre-boundary consumer; H+ keeps the trusted installed lib, so the verdict is
+  # reached by DIFFERENT code (the lib, not the embedded pair) on the same manifest-less source.
+  [ "$helper" = "H-" ] && rm -f "$P/hooks/local/lib/materialize-managed-source.sh"
   rm -f "$PS/hooks/local/lib/materialize-managed-source.sh" "$PS/audit/managed-content-manifest.json"
   bnd_legacy_engine "$PS"
   P_REF=()
   if [ "$kind" = "git" ]; then bnd_git_source "$PS"; P_REF=(--ref main); fi
-  P_LOG="$B3_ROOT/legacyroute-$kind.log"
+  P_LOG="$B3_ROOT/legacyroute-$kind-$helper.log"
   ( cd "$P" && bash hooks/local/bootstrap-upgrade.sh --source .fusebase-flow-source \
       ${P_REF[@]+"${P_REF[@]}"} -- --auto-yes ) > "$P_LOG" 2>&1
   P_RC=$?
@@ -400,12 +409,12 @@ for kind in plain git; do
       || p_fail="$p_fail [the operator passthrough flag did not survive the handoff]"
   fi
   if [ -z "$p_fail" ]; then
-    ok "m10-pre-boundary-source-completes-the-unverified-legacy-route-$kind"
+    ok "m10-pre-boundary-source-completes-the-unverified-legacy-route-$kind-$helper"
   else
-    bad "m10-pre-boundary-source-completes-the-unverified-legacy-route-$kind" "$p_fail :: $(tail -8 "$P_LOG" | tr '\n' '|')"
+    bad "m10-pre-boundary-source-completes-the-unverified-legacy-route-$kind-$helper" "$p_fail :: $(tail -8 "$P_LOG" | tr '\n' '|')"
   fi
-  mx_ran "$kind/C/H-"
-done
+  mx_ran "$kind/C/$helper"
+done; done
 
 # 2h. M11: a source that ships audit/managed-content-manifest.json AND
 # hooks/local/lib/managed_content_manifest.py but NO materialize-managed-source.sh — the shape the
