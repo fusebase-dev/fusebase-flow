@@ -655,6 +655,12 @@ for t in plain git; do for s in A B C; do for h in "H+" "H-"; do
   esac
   echo "[source-shape-matrix] $row"
 done; done; done
+# Without this, a cell that stops being exercised can be made "complete" again by relabelling it
+# WAIVE — the assertion above only checks that RUN cells ran. Every shape RUNs (4a24aa5); a
+# future waiver must change this line deliberately, in review, not slip in as a re-disposition.
+[ "$mx_waive" = "0" ] \
+  || mx_fail="$mx_fail [$mx_waive cell(s) WAIVEd — a RUN cell reclassified to WAIVE drops a route silently]"
+[ "$mx_run" = "12" ] || mx_fail="$mx_fail [$mx_run RUN cell(s), expected all 12]"
 if [ -z "$mx_fail" ]; then
   ok "source-shape-matrix-is-complete ($mx_run RUN + $mx_waive WAIVE = 12 cells; transport x source shape x consumer helper)"
 else

@@ -554,12 +554,12 @@
     },
     {
       "path": "hooks/tests/test-upgrade-source-boundary.sh",
-      "sha256": "4621b505dbe9d306e2122529cc427cdb9b26f0f1a248503f5fdbfe11b990c034"
+      "sha256": "47af5a6c188256aea9363ebff33e0a3132ae99212f1c4fdcef57b074d7b3bae5"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "85562b509fe250caf48d4c5186881a247db4c08353271375d01f263706dc5548"
+  "manifest_self_sha256": "2feb073a92e9abe6b96b2c6ca4f911e8549cfb3d77270be9fe8b8958b247f028"
 }
