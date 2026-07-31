@@ -268,3 +268,34 @@ Binding at authorization removes the ambiguity structurally rather than by anoth
 **Process note:** this decision exists because the previous three rounds tried to *patch* the ambiguity. One implementation pass against a decided contract, then one review — not another iterate-until-green loop.
 
 **Lock status:** LOCKED 2026-07-31, PO, on the operator's "proceed with your recommendations".
+
+---
+
+## M14. Bound-set membership: either artifact present at authorization
+
+**Recommendation:** RATIFIED as implemented. A manifest layer joins the bound set if **either** its manifest **or** its wrapper is present at authorization time. A layer with neither is genuinely not carried by this install and is not bound. An **empty** bound set is refused before any write.
+
+**Reasoning:** M13 decided what happens to a layer *in* the set; it did not decide what puts it there, and the implementer had to choose. The two alternatives are both wrong:
+
+- **Manifest-only membership** reopens round-4 blocker 2 exactly — delete the manifest and the layer silently leaves the set.
+- **Both-artifacts-unconditionally** is option (a), which M13 already rejected, and it would turn the existing AC3 control red: that fixture legitimately carries a manifest and no wrapper.
+
+"Either half anchors the layer" is the only rule that makes a *removal* detectable while leaving a legitimately partial install workable. The empty-set refusal matters for a reason that is easy to miss: "every bound layer must MATCH" is vacuously true over an empty set, so without it the strictest-sounding contract would be the weakest.
+
+**Accepted corollary, stated so it is not discovered later:** an artifact absent at authorization is not in the record, so a partial install still verifies through whichever half it has. That is deliberate — it is the difference between "this install does not carry that layer" and "that layer disappeared mid-run", and only the second is an attack.
+
+**Lock status:** LOCKED 2026-07-31
+
+---
+
+## M15. `cli-flow-recovery` bound raised 480s → 900s
+
+**Recommendation:** RATIFIED. Out of M13's contract, kept anyway.
+
+**Reasoning:** Not a flake — reproduced, and standalone on a quiet host the phase runs **542s to completion, 31/31, exit 0**. It copies an entire skill tree; its own tripwire records that 240s and then 480s were each set at the measured edge and each crossed by ordinary growth one ticket later. 900s restores headroom instead of re-setting the edge a third time.
+
+It weakens nothing: an assertion failure still FAILs, and a genuine hang is still bounded and still surfaces as INCONCLUSIVE. The alternative — leaving a bound that the phase legitimately exceeds — makes the gate unrunnable and trains the reader to ignore INCONCLUSIVE, which is worse than a longer timeout.
+
+**Pattern worth naming:** this is the third time this bound has been set at the measured edge and then crossed. A timeout chosen from one clean-host measurement is a latent failure with a delay fuse. Future bounds on growing phases should carry deliberate headroom, not a rounded-up observation.
+
+**Lock status:** LOCKED 2026-07-31
