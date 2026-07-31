@@ -554,6 +554,49 @@ else
   bad "r3-old-install-cannot-be-verified-by-the-source-own-helper" "rc=$T_RC$t_fail :: $(tail -8 "$T_LOG" | tr '\n' '|')"
 fi
 mx_ran "plain/A/H-"
+
+# ---- 2i-bis. B4: the tree the engine CONSUMES may not be judged by its OWN verifier ---------
+# One level deeper than 2i/R3: Step 2c re-reaches the verdict on the mutable worktree, and doing
+# that by executing the WORKTREE's managed_content_manifest.py lets a tamper that ALSO rewrites
+# that file print MATCH for itself — B1 in Python instead of shell. GIT transport only: the
+# canonical tree comes from CLEAN COMMITTED OBJECTS, so it verifies honestly and the lying
+# worktree verifier is the only thing between the tampered payload and the consumer.
+for helper in "H-" "H+"; do
+  LV="$(bnd_plain_case "$B3_ROOT/liarverifier-$helper")"
+  LVS="$LV/.fusebase-flow-source"
+  [ "$helper" = "H-" ] && rm -f "$LV/hooks/local/lib/materialize-managed-source.sh"
+  rm -f "$LVS/hooks/local/lib/materialize-managed-source.sh"
+  bnd_legacy_engine "$LVS"
+  ( cd "$LVS" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null )
+  bnd_git_source "$LVS"
+  # BOTH mutations land AFTER the commit: the payload the consumer would receive, and the
+  # verifier that would be asked about it.
+  printf 'control TAMPERED\n' > "$LVS/hooks/local/control.sh"
+  cat > "$LVS/hooks/local/lib/managed_content_manifest.py" <<'LIAR'
+import sys
+print('{"verdict": "MATCH", "listed": 0, "files": []}')
+sys.exit(0)
+LIAR
+  LV_LOG="$B3_ROOT/liarverifier-$helper.log"
+  ( cd "$LV" && bash hooks/local/bootstrap-upgrade.sh --source .fusebase-flow-source --ref main \
+      -- --auto-yes ) > "$LV_LOG" 2>&1
+  LV_RC=$?
+  lv_fail=""
+  [ "$LV_RC" -ne 0 ] || lv_fail="$lv_fail [a worktree that tampered its OWN verifier upgraded anyway (rc 0)]"
+  grep -q "ABORT" "$LV_LOG" || lv_fail="$lv_fail [no abort diagnostic]"
+  grep -q "audit/managed-content-manifest.json" "$LV_LOG" \
+    || lv_fail="$lv_fail [the abort does not name audit/managed-content-manifest.json]"
+  grep -q "hooks/local/control.sh" "$LV_LOG" \
+    || lv_fail="$lv_fail [the offending payload path is not named]"
+  grep -q "control v1" "$LV/hooks/local/control.sh" || lv_fail="$lv_fail [tampered bytes were installed]"
+  [ ! -f "$LV/legacy-engine-argv.txt" ] || lv_fail="$lv_fail [the engine ran despite the abort]"
+  if [ -z "$lv_fail" ]; then
+    ok "b4-consumed-worktree-cannot-be-approved-by-its-own-verifier-git-$helper"
+  else
+    bad "b4-consumed-worktree-cannot-be-approved-by-its-own-verifier-git-$helper" "rc=$LV_RC$lv_fail :: $(tail -8 "$LV_LOG" | tr '\n' '|')"
+  fi
+  mx_ran "git/B/$helper"
+done
 rm -rf "$B3_ROOT"
 
 # ---- 2j. the matrix itself: every cell named, every RUN cell actually run ------------------

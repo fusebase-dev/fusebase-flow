@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "da3f6d19181a6c486208755c1815865710fa6f3857ad9ae7479872da05c4359e"
+      "sha256": "6cd0584325edb14b7ca61214bcad93122e5b383430db9f0fccb06db637c60801"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -946,7 +946,7 @@
     },
     {
       "path": "hooks/tests/test-upgrade-source-boundary.sh",
-      "sha256": "6694c384df0034397f9f53f58bfb5173dede77050fb00255b7458dbede8d4228"
+      "sha256": "35892c40c6fb3afc611914d63d2d91b69b3f39f0a10ea68cf000138e119b5f9b"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
@@ -1145,5 +1145,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "b55ab189bacf1735e9bac59074895be65ccd31549025a4e0a4c19e48a387b70c"
+  "manifest_self_sha256": "2f3df9acbc73469f53bbfc5038a01bf9f46af1e33cb55098fb6beb1e61736373"
 }
