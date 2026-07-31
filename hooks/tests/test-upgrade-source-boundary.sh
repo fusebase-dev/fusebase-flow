@@ -597,6 +597,42 @@ LIAR
   fi
   mx_ran "git/B/$helper"
 done
+
+# ---- 2i-ter. M10/M11 downgrade: hiding the worktree manifest must not buy the legacy route --
+# The canonical tree is VERIFIED from committed objects; the WORKTREE's manifest is deleted after
+# the commit. UNVERIFIED_LEGACY_SOURCE is M10's fallback for a source that has no manifest
+# ANYWHERE — never for one whose worktree hides it, or a single `rm` downgrades "unprovable bytes
+# abort" into "unprovable bytes install". The control flow already refused this at 7f173f3; what
+# was missing is any case pinning it, and a diagnostic that names the file the consumed tree lacks.
+for helper in "H-" "H+"; do
+  MH="$(bnd_plain_case "$B3_ROOT/hidemanifest-$helper")"
+  MHS="$MH/.fusebase-flow-source"
+  [ "$helper" = "H-" ] && rm -f "$MH/hooks/local/lib/materialize-managed-source.sh"
+  rm -f "$MHS/hooks/local/lib/materialize-managed-source.sh"
+  bnd_legacy_engine "$MHS"
+  ( cd "$MHS" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null )
+  bnd_git_source "$MHS"
+  rm -f "$MHS/audit/managed-content-manifest.json"
+  MH_LOG="$B3_ROOT/hidemanifest-$helper.log"
+  ( cd "$MH" && bash hooks/local/bootstrap-upgrade.sh --source .fusebase-flow-source --ref main \
+      -- --auto-yes ) > "$MH_LOG" 2>&1
+  MH_RC=$?
+  mh_fail=""
+  [ "$MH_RC" -ne 0 ] || mh_fail="$mh_fail [hiding the worktree manifest upgraded anyway (rc 0)]"
+  grep -q "ABORT" "$MH_LOG" || mh_fail="$mh_fail [no abort diagnostic]"
+  grep -q "audit/managed-content-manifest.json" "$MH_LOG" \
+    || mh_fail="$mh_fail [the abort does not name audit/managed-content-manifest.json — the operator cannot tell WHICH file the consumed tree is missing]"
+  grep -q "UNVERIFIED_LEGACY_SOURCE" "$MH_LOG" \
+    && mh_fail="$mh_fail [routed to the legacy fallback although the canonical tree ships the manifest — M10 reserves that for manifest-ABSENT sources]"
+  [ ! -f "$MH/legacy-engine-argv.txt" ] || mh_fail="$mh_fail [the engine ran on the hidden-manifest worktree]"
+  grep -q "control v1" "$MH/hooks/local/control.sh" || mh_fail="$mh_fail [content was written during the abort]"
+  if [ -z "$mh_fail" ]; then
+    ok "m10-hiding-the-worktree-manifest-does-not-downgrade-to-the-legacy-route-git-$helper"
+  else
+    bad "m10-hiding-the-worktree-manifest-does-not-downgrade-to-the-legacy-route-git-$helper" "rc=$MH_RC$mh_fail :: $(tail -8 "$MH_LOG" | tr '\n' '|')"
+  fi
+  mx_ran "git/B/$helper"
+done
 rm -rf "$B3_ROOT"
 
 # ---- 2j. the matrix itself: every cell named, every RUN cell actually run ------------------
