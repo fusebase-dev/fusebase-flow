@@ -229,6 +229,49 @@ ff_boot_verify() {   # <tree> [<trusted verifier>]; sets FF_SOURCE_STATE/_REASON
   esac
 }
 
+# The post-repair verdict, reached the way every other verdict in this hop is: a PROVEN verifier,
+# an ISOLATED interpreter, a PARSED exact MATCH.
+# TRIPWIRE (re-review B8): this used to shell out to hooks/local/verify-*.sh and branch on their
+# EXIT CODES. Those wrappers exec a bare python3 — and verify-hook-manifest.sh took the
+# interpreter from a caller-supplied $PYTHON — so `PYTHON=/bin/true`, a sitecustomize on an
+# inherited PYTHONPATH, or a json.py beside the module all reported a repair that never happened.
+# Repair is the one operation whose entire product is the claim "these bytes are now provably what
+# upstream shipped"; an exit code nobody parsed cannot carry that claim. The verifier comes from
+# $SOURCE_TREE, which this run already proved VERIFIED (repair refuses otherwise) — never from the
+# tree being judged, which is the consumer root we just wrote into (B4).
+ff_boot_repair_verify() {   # <module> <manifest-rel>; rc 0 ONLY on a parsed exact MATCH
+  local mod="$1" mrel="$2" lib out parsed verdict drift
+  # A layer this install does not carry has nothing to re-verify — the old loop expressed the
+  # same thing as "the wrapper script isn't installed, skip it". Keying off the MANIFEST instead
+  # is not a way out: audit/hook-layer-manifest.json is itself managed content, so deleting it to
+  # dodge this check shows up as drift in the managed-content verdict below.
+  if [ ! -f "$ROOT/$mrel" ]; then
+    echo "[bootstrap-upgrade] repair re-check skipped ($mod): this install ships no $mrel."
+    return 0
+  fi
+  lib="$SOURCE_TREE/hooks/local/lib/$mod"
+  if [ ! -f "$lib" ]; then
+    echo "[bootstrap-upgrade] REPAIR UNVERIFIED ($mod): the proven source tree ships no $mod, so the" >&2
+    echo "                    repaired bytes cannot be re-checked with code this run trusts." >&2
+    return 1
+  fi
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "[bootstrap-upgrade] REPAIR UNVERIFIED ($mod): python3 is unavailable to re-check the repair." >&2
+    return 1
+  fi
+  out="$(ff_boot_py "$lib" verify --root "$ROOT" --json 2>/dev/null)"
+  parsed="$(printf '%s' "$out" | ff_boot_verdict)"
+  verdict="$(printf '%s\n' "$parsed" | sed -n '1p')"
+  drift="$(printf '%s\n' "$parsed" | sed -n '2p')"
+  if [ "$verdict" = "MATCH" ]; then
+    echo "[bootstrap-upgrade] repair re-verified with the proven canonical $mod: MATCH"
+    return 0
+  fi
+  echo "[bootstrap-upgrade] REPAIR UNVERIFIED ($mod): the repaired tree did not return a parsed MATCH." >&2
+  [ -n "$drift" ] && echo "[bootstrap-upgrade]        still-drifted path(s): $drift" >&2
+  return 1
+}
+
 # Minimal embedded materialization for an install that predates hooks/local/lib/
 # materialize-managed-source.sh. Deliberately duplicates only the primitives that cannot be
 # borrowed from the source without trusting it first: the two materializations and the verdict.
@@ -342,10 +385,14 @@ if [ "${#REPAIR_PATHS[@]}" -gt 0 ]; then
   ff_repair_managed "$ROOT" "$SOURCE_TREE" "$TS" "${REPAIR_PATHS[@]}" || exit 1
   echo "[bootstrap-upgrade] re-verifying both manifests after repair…"
   REPAIR_RC=0
-  for v in verify-hook-manifest.sh verify-managed-content-manifest.sh; do
-    [ -f "hooks/local/$v" ] || continue
-    bash "hooks/local/$v" || REPAIR_RC=$?
-  done
+  ff_boot_repair_verify hook_manifest.py "audit/hook-layer-manifest.json" || REPAIR_RC=1
+  ff_boot_repair_verify managed_content_manifest.py "$FF_MCM_REL" || REPAIR_RC=1
+  [ "$REPAIR_RC" -eq 0 ] \
+    || echo "[bootstrap-upgrade] the repair is NOT confirmed. The named paths were replaced from the" >&2
+  [ "$REPAIR_RC" -eq 0 ] \
+    || echo "                    verified source, but the tree does not verify clean — re-run the" >&2
+  [ "$REPAIR_RC" -eq 0 ] \
+    || echo "                    integrity check and repair the remaining paths it reports." >&2
   exit "$REPAIR_RC"
 fi
 

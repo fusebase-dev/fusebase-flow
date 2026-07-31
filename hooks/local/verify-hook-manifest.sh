@@ -12,7 +12,17 @@ set -uo pipefail
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 LIB="$ROOT/hooks/local/lib/hook_manifest.py"
 
-python_bin="${PYTHON:-python3}"
+# TRIPWIRE (re-review B8): this script's EXIT CODE is a verdict — the health engine
+# (hook-integrity-check.sh), preflight, CI and the upgrade hop all branch on it — so the
+# interpreter that produces it is trust-bearing and must not be caller-selectable.
+#   * NO `${PYTHON:-...}` here (deliberately unlike the stamp/tooling wrappers, which decide
+#     nothing): `PYTHON=/bin/true bash verify-hook-manifest.sh` would otherwise exit 0 and read
+#     as MATCH. Discovery still falls back python3 -> python for genuine environments.
+#   * `-I -S`: without them a sitecustomize/.pth on an inherited PYTHONPATH, or a json.py beside
+#     hook_manifest.py, runs before the verifier and can print anything then os._exit(0).
+# hook_manifest.py is stdlib-only, so isolation costs it nothing. Same close as ff_boot_py in
+# bootstrap-upgrade.sh; see hooks/tests/test-upgrade-preboundary-consumed-tree.sh.
+python_bin="python3"
 if ! command -v "$python_bin" >/dev/null 2>&1; then
   if command -v python >/dev/null 2>&1; then
     python_bin="python"
@@ -22,4 +32,4 @@ if ! command -v "$python_bin" >/dev/null 2>&1; then
   fi
 fi
 
-exec "$python_bin" "$LIB" verify --root "$ROOT" "$@"
+exec "$python_bin" -I -S "$LIB" verify --root "$ROOT" "$@"

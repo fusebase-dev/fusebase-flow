@@ -236,5 +236,93 @@ else
   bad "ac3-integrity-checker-names-the-repair-not-git-checkout" "$hic_fail"
 fi
 
+# ---- 3f. B8: the POST-REPAIR verdict is a verdict, and was reached by a bare interpreter ----
+# Repair's entire product is the claim "these bytes are now provably what upstream shipped". The
+# hop used to establish that by running hooks/local/verify-*.sh and branching on their EXIT
+# CODES — and both wrappers exec a bare python3 (verify-hook-manifest.sh even took the
+# interpreter from a caller-supplied $PYTHON). So the last step of the one operation that exists
+# to restore provable bytes could be forged by the same startup-file trick B5 closed at the
+# source boundary, one path further along.
+#
+# TWO drifted paths, ONE repaired: an honest verdict must still say DRIFT, so a run that reports
+# success can only have got there by forging. That is what makes this a discriminator rather
+# than a re-test of the happy path (case 3 already covers a genuine repair reaching MATCH).
+B8_ROOT="$(mktemp -d)"
+B8="$(bnd_plain_case "$B8_ROOT/case")"
+printf 'wf v1\r\n'          > "$B8/workflows/wf.md"          # drift 1 — the one we will repair
+printf 'control TAMPERED\n' > "$B8/hooks/local/control.sh"   # drift 2 — left alone on purpose
+mkdir -p "$B8/hooks"
+cat > "$B8/hooks/sitecustomize.py" <<'B8FORGE'
+import os, sys
+sys.stdout.write('{"verdict": "MATCH", "listed": 0, "files": []}\n')
+sys.stdout.flush()
+os._exit(0)
+B8FORGE
+B8_LOG="$B8_ROOT/repair.log"
+( cd "$B8" && PYTHONPATH="$B8/hooks" bash hooks/local/bootstrap-upgrade.sh \
+    --source .fusebase-flow-source --repair-managed workflows/wf.md ) > "$B8_LOG" 2>&1
+B8_RC=$?
+b8_fail=""
+[ "$B8_RC" -ne 0 ] \
+  || b8_fail="$b8_fail [a hostile python startup file forged the post-repair verdict: the hop reported a clean tree (rc 0) while hooks/local/control.sh was still drifted]"
+grep -q "REPAIR UNVERIFIED" "$B8_LOG" \
+  || b8_fail="$b8_fail [no REPAIR UNVERIFIED diagnostic — the operator is not told the repair is unconfirmed]"
+grep -q "hooks/local/control.sh" "$B8_LOG" \
+  || b8_fail="$b8_fail [the still-drifted path is not named]"
+has_cr "$B8/workflows/wf.md" \
+  && b8_fail="$b8_fail [the named path was not actually repaired — this case must fail for the VERDICT, not for a broken repair]"
+if [ -z "$b8_fail" ]; then
+  ok "b8-post-repair-verdict-cannot-be-forged-by-a-hostile-interpreter"
+else
+  bad "b8-post-repair-verdict-cannot-be-forged-by-a-hostile-interpreter" "rc=$B8_RC$b8_fail :: $(tail -8 "$B8_LOG" | tr '\n' '|')"
+fi
+
+# 3g. The wrapper itself: its exit code is consumed by the health engine, preflight, CI and the
+# hop, so a caller-chosen interpreter must not be able to pick the verdict. `PYTHON=<anything
+# that exits 0>` used to be enough, and so did a sitecustomize on an inherited PYTHONPATH.
+# The fixture carries its OWN copy of the wrapper and the module: running the repo's copy against
+# the repo would prove nothing (it is clean, so every interpreter agrees), and asserting on a
+# path where the script does not exist would pass on bash's 127.
+B8W="$B8_ROOT/wrapper"
+mkdir -p "$B8W/hooks/local/lib" "$B8W/hooks/handlers"
+( cd "$B8W" && git init -q && git config user.email t@t.t && git config user.name t )
+cp "$ROOT/hooks/local/lib/hook_manifest.py" "$B8W/hooks/local/lib/"
+cp "$ROOT/hooks/local/verify-hook-manifest.sh" "$B8W/hooks/local/"
+printf 'handler v1\n' > "$B8W/hooks/handlers/session_start.py"
+( cd "$B8W" && python3 hooks/local/lib/hook_manifest.py stamp --root . >/dev/null 2>&1 )
+cat > "$B8_ROOT/fakepy" <<'FAKEPY'
+#!/usr/bin/env bash
+exit 0
+FAKEPY
+chmod +x "$B8_ROOT/fakepy"
+b8w_fail=""
+[ -f "$B8W/audit/hook-layer-manifest.json" ] \
+  || b8w_fail="$b8w_fail [fixture did not stamp a hook-layer manifest — the case would prove nothing]"
+b8w_rc() { local rc=0; ( cd "$B8W" && env "$@" bash hooks/local/verify-hook-manifest.sh >/dev/null 2>&1 ) || rc=$?; echo "$rc"; }
+# Control FIRST, on a genuinely clean tree: the wrapper must still verify 0 under isolation.
+# (The sitecustomize.py below is itself hook-layer drift — hook_manifest.py Scan B flags python
+# startup files — so it cannot be dropped until after this check, or the control tests nothing.)
+[ "$(b8w_rc FF_NOOP=1)" = "0" ] \
+  || b8w_fail="$b8w_fail [the wrapper no longer verifies a CLEAN tree — isolation broke it]"
+printf 'handler TAMPERED\n' > "$B8W/hooks/handlers/session_start.py"
+[ "$(b8w_rc FF_NOOP=1)" != "0" ] \
+  || b8w_fail="$b8w_fail [the wrapper does not report drift at all — the case is vacuous]"
+# Now the forgeries, against that same drifted tree.
+cat > "$B8W/hooks/sitecustomize.py" <<'B8WFORGE'
+import os, sys
+sys.stdout.write('[hook-manifest] verify: MATCH (listed=0 matched=0)\n')
+sys.stdout.flush()
+os._exit(0)
+B8WFORGE
+[ "$(b8w_rc PYTHON="$B8_ROOT/fakepy")" != "0" ] \
+  || b8w_fail="$b8w_fail [PYTHON= chose the verdict: a drifted tree verified clean through a caller-supplied interpreter]"
+[ "$(b8w_rc PYTHONPATH="$B8W/hooks")" != "0" ] \
+  || b8w_fail="$b8w_fail [a sitecustomize on an inherited PYTHONPATH forged a clean verify-hook-manifest.sh exit]"
+if [ -z "$b8w_fail" ]; then
+  ok "b8-verify-wrapper-exit-code-is-not-caller-selectable"
+else
+  bad "b8-verify-wrapper-exit-code-is-not-caller-selectable" "$b8w_fail"
+fi
+rm -rf "$B8_ROOT"
 
 finish

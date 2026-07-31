@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "dd4f4d82949b0f450c6b1566c410ab74a1762d05d18001f2aead5e8a0540f315"
+      "sha256": "902425915da850ac2822d0f3bbc1cdc374b8b0eccb3757ee2e56fe0d35ec54d9"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -282,7 +282,7 @@
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
-      "sha256": "37131351254615a9ba755dc0bb28e036b222d7db3a84b39d9a37d69c7c65fa67"
+      "sha256": "57428cc4d3364fb37db60a1cbbcb441a2c524f7e12b25caaa0805dc8ad6c74b5"
     },
     {
       "path": "hooks/local/check-cli-flow-conflicts.sh",
@@ -562,11 +562,11 @@
     },
     {
       "path": "hooks/local/verify-hook-manifest.sh",
-      "sha256": "f475298d092e728a78d8d6e52c9f2d9ebc131b367b11a60883c1e82291fb2b24"
+      "sha256": "a5f48bd655ed20c814feec6fbc7632fbe30fd8b1f7823d0ec532803888431347"
     },
     {
       "path": "hooks/local/verify-managed-content-manifest.sh",
-      "sha256": "f9abeb3ca67cabe80cbcc0fb86eede67f4c0b1ee5668040e8e20b3de9389b658"
+      "sha256": "5c701a59b93690da305ba599ea64daf1dbd383c4f262aa82863b3ef64c624442"
     },
     {
       "path": "hooks/local/write-bootstrap-approval.sh",
@@ -946,7 +946,7 @@
     },
     {
       "path": "hooks/tests/test-upgrade-repair-managed.sh",
-      "sha256": "e082ef7666b7c799a0918a1bd99980b3fd88ae646231b31f37457ec97827b34d"
+      "sha256": "141aebf666d930d74f14360c1f1befd934aaaf6d83dbdd7b3ceef1efc4620ed3"
     },
     {
       "path": "hooks/tests/test-upgrade-source-boundary.sh",
@@ -1149,5 +1149,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "549ab64c5cf36427e545000e8c254987f6cf3febf4e20cdee243df45c6f9b1f8"
+  "manifest_self_sha256": "138cea3a714dc4e1912d42f58048fcb34241c9c68d61ef166deaa7ee7d5e1b05"
 }
