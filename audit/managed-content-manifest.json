@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "d2252d2ba73ac3de86a9631e97cfd08092b05d191fc84e95671f73b349336fe5"
+      "sha256": "56b9240deb9c07b263b8da6a0230d79f838b38e2d58aef1d13254e9671fc7e5e"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -282,7 +282,7 @@
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
-      "sha256": "e27792fef43485b0fcd19e433fe5d5dc65b332ec6c858be7602ca9a4eea3c3b4"
+      "sha256": "47b6f6eb4022c366e9e91d297ef79b89afc96769b1ba78e3a9ee544f5032836e"
     },
     {
       "path": "hooks/local/check-cli-flow-conflicts.sh",
@@ -946,7 +946,7 @@
     },
     {
       "path": "hooks/tests/test-upgrade-repair-managed.sh",
-      "sha256": "2c93431db3cd7f4623be9f047eaf76110ebca5f479083ca5ed73a3e0fc9e3079"
+      "sha256": "d6bd12441a43aa7f6e6337f3aad2b607a75e52c4865f7b24690f12256c0c1481"
     },
     {
       "path": "hooks/tests/test-upgrade-source-boundary.sh",
@@ -1149,5 +1149,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "e2cd43855679d3d449b596d8e6d45117d52dfba2d1914a0970915381c2fa6ac1"
+  "manifest_self_sha256": "d7e249bdd0b45fff37ff99dbe3df64a22f303c5d9f87cbcc718d32ecb1db8834"
 }

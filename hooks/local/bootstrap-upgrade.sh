@@ -230,40 +230,44 @@ ff_boot_verify() {   # <tree> [<trusted verifier>]; sets FF_SOURCE_STATE/_REASON
 }
 
 # The layers a repair must confirm, and the shape of one bound record:
-#   <module>|<manifest-rel>|<verify wrapper>|<manifest present at authorization>|<wrapper present>
+#   <module>|<manifest-rel>|<verify wrapper>|<wrapper shipped by the verified source>
 FF_REPAIR_LAYERS=(
   "hook_manifest.py|audit/hook-layer-manifest.json|hooks/local/verify-hook-manifest.sh"
   "managed_content_manifest.py|$FF_MCM_REL|hooks/local/verify-managed-content-manifest.sh"
 )
 FF_REPAIR_BOUND=()
 
-# TRIPWIRE (decision M13): the required layer set is decided HERE — at authorization, before
-# ff_repair_managed writes a byte — and never re-derived afterwards. Never restore a "the
-# manifest isn't there, skip the layer" branch in the re-check: that keyed the skip on the
-# MANIFEST where the old loop keyed it on the WRAPPER, and the two are not interchangeable.
-# audit/hook-layer-manifest.json is itself managed content, so deleting it surfaces in the
-# managed-content verdict; the managed-content manifest has NO reciprocal anchor, so its absence
-# cannot be self-certifying. Its wrapper is that anchor. A layer whose manifest AND wrapper are
-# both absent is genuinely not carried by this install; anything else is required, and a required
-# layer that loses either artifact mid-run is a contradiction, not an input to the decision.
+# TRIPWIRE (decision M16): membership is read from $SOURCE_TREE — the tree this run already PROVED
+# — and NEVER from $ROOT, the tree being repaired. Never restore a predicate over consumer-side
+# artifacts (M14's "either the manifest or the wrapper is present here"): whoever can delete those
+# artifacts deletes themselves out of the bound set before authorization, and "this install never
+# carried the layer" then reads identically to "both artifacts were removed a second ago" — a
+# downgrade with no race. Repair refuses unless FF_SOURCE_STATE=VERIFIED, so this coverage list
+# comes from a tree that returned rc 0 AND an exact MATCH against its own manifest through an
+# isolated interpreter, and it is version-matched: it states which layers exist at the version
+# being repaired FROM, so skew needs no consumer-side inspection.
+# TRIPWIRE (decision M13, unchanged): the set is decided HERE — before ff_repair_managed writes a
+# byte — and never re-derived afterwards; a layer that loses an artifact mid-run is a
+# contradiction, not an input to the decision.
 ff_boot_bind_repair_layers() {
-  local spec rest mod mrel wrapper have_m have_w
+  local spec rest mod mrel wrapper need_w
   FF_REPAIR_BOUND=()
   for spec in "${FF_REPAIR_LAYERS[@]}"; do
     mod="${spec%%|*}"; rest="${spec#*|}"; mrel="${rest%%|*}"; wrapper="${rest#*|}"
-    have_m=0; have_w=0
-    [ -f "$ROOT/$mrel" ] && have_m=1
-    [ -f "$ROOT/$wrapper" ] && have_w=1
-    if [ "$have_m" = 0 ] && [ "$have_w" = 0 ]; then
-      echo "[bootstrap-upgrade] repair layer NOT carried by this install: no $mrel and no $wrapper — not required."
+    if [ ! -f "$SOURCE_TREE/$mrel" ]; then
+      echo "[bootstrap-upgrade] repair layer NOT DECLARED by the verified source at this version: no $mrel — not required."
       continue
     fi
-    FF_REPAIR_BOUND+=("$mod|$mrel|$wrapper|$have_m|$have_w")
-    echo "[bootstrap-upgrade] repair layer REQUIRED (bound at authorization): $mrel (manifest=$have_m wrapper=$have_w)."
+    need_w=0
+    [ -f "$SOURCE_TREE/$wrapper" ] && need_w=1
+    FF_REPAIR_BOUND+=("$mod|$mrel|$wrapper|$need_w")
+    echo "[bootstrap-upgrade] repair layer REQUIRED — the verified source declares it (bound at authorization): $mrel (wrapper required=$need_w)."
   done
   [ "${#FF_REPAIR_BOUND[@]}" -gt 0 ] && return 0
-  echo "[bootstrap-upgrade] FATAL: this install carries no manifest layer, so nothing could confirm" >&2
-  echo "                    the repair. Refusing before any write (decision M13)." >&2
+  # Unreachable while VERIFIED implies a source-side $FF_MCM_REL — kept as the fail-closed floor,
+  # because "every bound layer MATCHed" is vacuously true over an empty set.
+  echo "[bootstrap-upgrade] FATAL: the verified source declares no manifest layer, so nothing could" >&2
+  echo "                    confirm the repair. Refusing before any write (decisions M13/M16)." >&2
   return 1
 }
 
@@ -280,17 +284,21 @@ ff_boot_bind_repair_layers() {
 # TRIPWIRE (decision M13): rc is half the verdict. ff_boot_verify and _ff_mms_verify both require
 # rc 0 AND an exact MATCH; this function once required only the latter, so a verifier that printed
 # MATCH and then died — truncated write, an error after the report, a signal — confirmed a repair.
-ff_boot_repair_verify() {   # <mod> <manifest-rel> <wrapper> <had-manifest> <had-wrapper>
-  local mod="$1" mrel="$2" wrapper="$3" had_m="$4" had_w="$5" lib out rc parsed verdict drift
+ff_boot_repair_verify() {   # <mod> <manifest-rel> <wrapper> <wrapper-required-by-source>
+  local mod="$1" mrel="$2" wrapper="$3" need_w="$4" lib out rc parsed verdict drift
   if [ ! -f "$ROOT/$mrel" ]; then
-    echo "[bootstrap-upgrade] REPAIR UNVERIFIED ($mod): $mrel is not there now, and this layer was" >&2
-    echo "                    REQUIRED when the repair was authorized (manifest=$had_m wrapper=$had_w)." >&2
-    echo "                    A required layer is never skipped — the bound set cannot shrink (M13)." >&2
+    echo "[bootstrap-upgrade] REPAIR UNVERIFIED ($mod): $mrel is not in this tree, and the verified" >&2
+    echo "                    source DECLARES this layer at this version — so it was REQUIRED when the" >&2
+    echo "                    repair was authorized, and the bound layer set cannot shrink. This tree" >&2
+    echo "                    does not decide its own coverage (decisions M13/M16). Name $mrel in" >&2
+    echo "                    --repair-managed to restore it from the verified source." >&2
     return 1
   fi
-  if [ "$had_w" = "1" ] && [ ! -f "$ROOT/$wrapper" ]; then
-    echo "[bootstrap-upgrade] REPAIR UNVERIFIED ($mod): $wrapper was present when this repair was" >&2
-    echo "                    authorized and is gone now — the bound layer set cannot shrink (M13)." >&2
+  if [ "$need_w" = "1" ] && [ ! -f "$ROOT/$wrapper" ]; then
+    echo "[bootstrap-upgrade] REPAIR UNVERIFIED ($mod): $wrapper is not in this tree, and the verified" >&2
+    echo "                    source ships it for this layer — so it was REQUIRED when the repair was" >&2
+    echo "                    authorized and the bound layer set cannot shrink (decisions M13/M16)." >&2
+    echo "                    Name $wrapper in --repair-managed to restore it from the verified source." >&2
     return 1
   fi
   lib="$SOURCE_TREE/hooks/local/lib/$mod"
@@ -400,6 +408,25 @@ if [ ! -f "$SOURCE_TREE/VERSION" ]; then
 fi
 echo "[bootstrap-upgrade] Source VERSION: $(tr -d '\n\r' < "$SOURCE_TREE/VERSION")"
 
+# ---- --repair-managed: bind the layer set BEFORE any repository write (decisions M13/M16) ----
+# TRIPWIRE: this sits ABOVE the .git/info/exclude write below on purpose. "Bound before any write"
+# is the property, and .git/info/exclude is a repository write; keeping the bind next to the repair
+# call put one write ahead of it. Nothing here writes — it reads $SOURCE_TREE's coverage list.
+if [ "${#REPAIR_PATHS[@]}" -gt 0 ]; then
+  if ! command -v ff_repair_managed >/dev/null 2>&1; then
+    echo "[bootstrap-upgrade] FATAL: --repair-managed needs hooks/local/lib/materialize-managed-source.sh" >&2
+    echo "                    from a 4.7.0+ source tree; none was found." >&2
+    exit 1
+  fi
+  if [ "$FF_SOURCE_STATE" != "VERIFIED" ]; then
+    echo "[bootstrap-upgrade] FATAL: repair requires a VERIFIED source; state is $FF_SOURCE_STATE" >&2
+    echo "                    ($FF_SOURCE_REASON). Repairing from unverified bytes would install" >&2
+    echo "                    content nobody can prove upstream shipped." >&2
+    exit 1
+  fi
+  ff_boot_bind_repair_layers || exit 1
+fi
+
 # Git-exclude the *.pre-*-<ts> backup snapshots so a downstream `git add -A` (notably
 # FuseBase CLI's `fusebase update` checkpoint) never stages them — the rule and its rationale
 # live in the shared lib, which upgrade.sh uses too (no second copy to drift).
@@ -415,30 +442,16 @@ if command -v ff_git_exclude_backups >/dev/null 2>&1; then
 fi
 
 # ---- --repair-managed (AC3): deliberate exact-path byte repair, then re-verify ----
+# The layer set was bound above, before any repository write; nothing re-derives it here.
 if [ "${#REPAIR_PATHS[@]}" -gt 0 ]; then
-  if ! command -v ff_repair_managed >/dev/null 2>&1; then
-    echo "[bootstrap-upgrade] FATAL: --repair-managed needs hooks/local/lib/materialize-managed-source.sh" >&2
-    echo "                    from a 4.7.0+ source tree; none was found." >&2
-    exit 1
-  fi
-  if [ "$FF_SOURCE_STATE" != "VERIFIED" ]; then
-    echo "[bootstrap-upgrade] FATAL: repair requires a VERIFIED source; state is $FF_SOURCE_STATE" >&2
-    echo "                    ($FF_SOURCE_REASON). Repairing from unverified bytes would install" >&2
-    echo "                    content nobody can prove upstream shipped." >&2
-    exit 1
-  fi
-  # Bind the required layer set BEFORE the first write (decision M13), so a manifest or wrapper
-  # that disappears during the repair is a detectable contradiction rather than a smaller set.
-  ff_boot_bind_repair_layers || exit 1
   ff_repair_managed "$ROOT" "$SOURCE_TREE" "$TS" "${REPAIR_PATHS[@]}" || exit 1
   echo "[bootstrap-upgrade] re-verifying the manifest layer(s) bound at authorization…"
   REPAIR_RC=0
   for FF_RL in "${FF_REPAIR_BOUND[@]}"; do
     FF_RL_MOD="${FF_RL%%|*}"; FF_RL_REST="${FF_RL#*|}"
     FF_RL_MREL="${FF_RL_REST%%|*}"; FF_RL_REST="${FF_RL_REST#*|}"
-    FF_RL_WRAP="${FF_RL_REST%%|*}"; FF_RL_REST="${FF_RL_REST#*|}"
-    FF_RL_HADM="${FF_RL_REST%%|*}"; FF_RL_HADW="${FF_RL_REST#*|}"
-    ff_boot_repair_verify "$FF_RL_MOD" "$FF_RL_MREL" "$FF_RL_WRAP" "$FF_RL_HADM" "$FF_RL_HADW" \
+    FF_RL_WRAP="${FF_RL_REST%%|*}"; FF_RL_NEEDW="${FF_RL_REST#*|}"
+    ff_boot_repair_verify "$FF_RL_MOD" "$FF_RL_MREL" "$FF_RL_WRAP" "$FF_RL_NEEDW" \
       || REPAIR_RC=1
   done
   [ "$REPAIR_RC" -eq 0 ] \

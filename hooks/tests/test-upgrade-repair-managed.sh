@@ -32,6 +32,10 @@ command -v git >/dev/null 2>&1 || { echo "PASS: upgrade-repair skipped-no-git"; 
 # call that consumer-only and PRESERVE it (it cannot know the CRLF was accidental); only an
 # explicitly named repair may replace it. Exactly ONE path drifts, so the post-repair
 # "manifest verifies MATCH" assertion is meaningful.
+# M16 disposition (unchanged, by design not by retuning): this fixture's SOURCE declares only the
+# managed layer and ships no verify wrapper, so the bound set is that one layer with no wrapper
+# requirement — and the consumer carries its manifest. M16 refuses a partial CONSUMER; it does not
+# invent a layer the source does not ship at that version.
 RP_ROOT="$(mktemp -d)"
 RP="$(bnd_plain_case "$RP_ROOT/case")"
 printf 'wf v1\r\n' > "$RP/workflows/wf.md"        # the corruption: local CRLF, base+upstream LF
@@ -325,12 +329,14 @@ else
 fi
 rm -rf "$B8_ROOT"
 
-# ---- 3h. M13: the repair confirms the manifest layer set BOUND AT AUTHORIZATION -------------
-# Decision M13 settles the question three review rounds kept re-inventing: what "repair
-# confirmed" means when a consumer may not carry every manifest layer. The required set is bound
-# BEFORE any write and cannot shrink; every bound layer must return rc 0 AND a parsed exact
-# MATCH; a bound layer whose manifest or wrapper is gone at verification time FAILS rather than
-# being skipped. These cases are the discriminators for each half of that contract.
+# ---- 3h. M13/M16: the repair confirms the layer set the VERIFIED SOURCE declares --------------
+# Decision M13 settles what "repair confirmed" means: the required set is bound BEFORE any write
+# and cannot shrink; every bound layer must return rc 0 AND a parsed exact MATCH; a bound layer
+# whose manifest or wrapper is gone at verification time FAILS rather than being skipped.
+# Decision M16 settles what puts a layer IN that set: the VERIFIED SOURCE tree's own coverage
+# list — $SOURCE_TREE/<manifest-rel> — never the consumer tree being repaired. M14's consumer-side
+# rule ("either artifact present here") made "this install never carried the layer" and "both its
+# artifacts were deleted a second ago" the same observation; 3h-6 is that exploit.
 #
 # The verifier doubles below live in the SOURCE tree and are re-stamped into its manifest,
 # because that is exactly what a plain --source directory can do: snapshot, payload, verifier
@@ -459,12 +465,12 @@ else
   bad "m13-a-manifest-that-disappears-after-authorization-fails-instead-of-skipping" "rc=$B1_RC$b1_fail :: $(tail -6 "$B1_LOG" | tr '\n' '|')"
 fi
 
-# 3h-3. The asymmetry that made the manifest the wrong key: audit/hook-layer-manifest.json is
-# itself managed content, so deleting it surfaces in the managed verdict — but the managed
-# manifest has NO reciprocal anchor. Its wrapper is that anchor at authorization time. Fixture:
-# the hook layer reports the drift (so the repair is authorized) while the managed manifest is
-# already gone and unrelated managed-only drift sits in the tree. Keyed on the manifest, the
+# 3h-3. Consumer missing ONLY the manifest of a source-declared layer, with the wrapper still in
+# place: the hook layer reports the drift (so the repair is authorized) while the managed manifest
+# is already gone and unrelated managed-only drift sits in the tree. Keyed on the manifest, the
 # managed layer was skipped, the hook layer said MATCH, and the hop exited 0 with the tree dirty.
+# COVERAGE for the M16 delta — this already FAILed at 2d88844 (M14 bound the layer through its
+# wrapper); under M16 it fails because the verified source declares the layer, wrapper or not.
 C1="$(m13_dual_case "$M13_ROOT/anchor")"
 printf 'handler TAMPERED\n' > "$C1/hooks/handlers/session_start.py"
 printf 'wf v1\r\n'          > "$C1/workflows/wf.md"
@@ -488,9 +494,9 @@ has_cr "$C1/workflows/wf.md" \
 grep -q "handler v1" "$C1/hooks/handlers/session_start.py" \
   || c1_fail="$c1_fail [the named path was not repaired — this case must fail for the VERDICT, not for a broken repair]"
 if [ -z "$c1_fail" ]; then
-  ok "m13-an-absent-manifest-anchored-only-by-its-wrapper-is-a-required-layer"
+  ok "m16-a-source-declared-layer-whose-consumer-manifest-is-absent-fails [COVERAGE — already FAILed at 2d88844 via the wrapper anchor; the reason is now the source's coverage list]"
 else
-  bad "m13-an-absent-manifest-anchored-only-by-its-wrapper-is-a-required-layer" "rc=$C1_RC$c1_fail :: $(tail -6 "$C1_LOG" | tr '\n' '|')"
+  bad "m16-a-source-declared-layer-whose-consumer-manifest-is-absent-fails" "rc=$C1_RC$c1_fail :: $(tail -6 "$C1_LOG" | tr '\n' '|')"
 fi
 
 # 3h-4. The mirror image, and an honest label: COVERAGE REPAIR, not a discriminator. Both verify
@@ -532,6 +538,85 @@ if [ -z "$e1_fail" ]; then
   ok "m13-a-clean-repair-with-both-layers-present-is-still-confirmed"
 else
   bad "m13-a-clean-repair-with-both-layers-present-is-still-confirmed" "$e1_fail :: $(tail -8 "$E1_LOG" | tr '\n' '|')"
+fi
+
+# 3h-6. M16 HEADLINE DISCRIMINATOR — the pre-authorization downgrade that refuted M14. Nothing
+# races: BOTH managed-layer artifacts are removed BEFORE the run, and the consumer's hook manifest
+# is re-stamped so their absence is not hook-layer drift either — i.e. a tree that presents itself
+# as "this install simply does not carry the managed layer". Under M14 that read as not-carried,
+# the layer never joined the bound set, the hook layer returned MATCH after its repair, and the hop
+# exited 0 while workflows/wf.md — managed-only drift — sat in the tree unverified and unreported.
+# Under M16 membership is read from the VERIFIED SOURCE, which ships audit/managed-content-manifest.json
+# at this version, so the layer is bound no matter what the consumer presents and its absent
+# manifest is a failure.
+F1="$(m13_dual_case "$M13_ROOT/dual-removal")"
+rm -f "$F1/audit/managed-content-manifest.json" "$F1/hooks/local/verify-managed-content-manifest.sh"
+( cd "$F1" && python3 hooks/local/lib/hook_manifest.py stamp --root . >/dev/null )
+printf 'handler TAMPERED\n' > "$F1/hooks/handlers/session_start.py"
+printf 'wf v1\r\n'          > "$F1/workflows/wf.md"
+f1_fail=""
+[ -f "$F1/.fusebase-flow-source/audit/managed-content-manifest.json" ] \
+  || f1_fail="$f1_fail [PRECONDITION: the source does not declare the managed layer, so M16 binds nothing]"
+[ -f "$F1/.fusebase-flow-source/hooks/local/verify-managed-content-manifest.sh" ] \
+  || f1_fail="$f1_fail [PRECONDITION: the source ships no managed-layer wrapper]"
+[ -e "$F1/audit/managed-content-manifest.json" ] \
+  && f1_fail="$f1_fail [PRECONDITION: the consumer manifest was not removed]"
+[ -e "$F1/hooks/local/verify-managed-content-manifest.sh" ] \
+  && f1_fail="$f1_fail [PRECONDITION: the consumer wrapper was not removed]"
+F1_REPORT="$(python3 "$ROOT/hooks/local/lib/hook_manifest.py" verify --root "$F1" --json 2>/dev/null || true)"
+case "$F1_REPORT" in
+  *'"hooks/handlers/session_start.py"'*) ;;
+  *) f1_fail="$f1_fail [PRECONDITION: the hook layer does not report the path, so the repair could not be authorized]" ;;
+esac
+case "$F1_REPORT" in
+  *'verify-managed-content-manifest.sh'*)
+    f1_fail="$f1_fail [PRECONDITION: the removed wrapper is still hook-layer drift, so this case would go red without M16]" ;;
+esac
+F1_LOG="$M13_ROOT/dual-removal.log"
+F1_RC="$(m13_repair "$F1" "$F1_LOG" hooks/handlers/session_start.py)"
+[ "$F1_RC" -ne 0 ] \
+  || f1_fail="$f1_fail [DOWNGRADE: removing BOTH managed-layer artifacts before authorization bought a skip — the hop exited 0 with workflows/wf.md still drifted and unverified]"
+grep -q "REPAIR UNVERIFIED" "$F1_LOG" || f1_fail="$f1_fail [no REPAIR UNVERIFIED diagnostic]"
+grep -q "declare" "$F1_LOG" \
+  || f1_fail="$f1_fail [the failure is not attributed to the layer the VERIFIED SOURCE declares]"
+has_cr "$F1/workflows/wf.md" \
+  || f1_fail="$f1_fail [PRECONDITION: the managed-only drift is not in the tree, so the downgrade would hide nothing]"
+grep -q "handler v1" "$F1/hooks/handlers/session_start.py" \
+  || f1_fail="$f1_fail [the named path was not repaired — this case must fail for the VERDICT, not for a broken repair]"
+if [ -z "$f1_fail" ]; then
+  ok "m16-removing-both-artifacts-before-authorization-cannot-drop-a-source-declared-layer"
+else
+  bad "m16-removing-both-artifacts-before-authorization-cannot-drop-a-source-declared-layer" "rc=$F1_RC$f1_fail :: $(tail -6 "$F1_LOG" | tr '\n' '|')"
+fi
+
+# 3h-7. The wrapper half of the same rule, also pre-authorization. The consumer keeps a manifest
+# that verifies MATCH — it is re-stamped after the wrapper is deleted, so the wrapper's absence is
+# invisible to BOTH layers — and the verified source ships that wrapper. Under M14 the layer was
+# bound with had_w=0 and the wrapper check was skipped, so the hop confirmed a repair on a tree
+# whose own verification tool had been removed. Under M16 the source's coverage decides.
+G1="$(m13_dual_case "$M13_ROOT/wrapper-missing")"
+rm -f "$G1/hooks/local/verify-managed-content-manifest.sh"
+( cd "$G1" && python3 hooks/local/lib/hook_manifest.py stamp --root . >/dev/null )
+( cd "$G1" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null )
+printf 'handler TAMPERED\n' > "$G1/hooks/handlers/session_start.py"
+g1_fail=""
+[ -f "$G1/.fusebase-flow-source/hooks/local/verify-managed-content-manifest.sh" ] \
+  || g1_fail="$g1_fail [PRECONDITION: the source ships no managed-layer wrapper, so nothing requires one]"
+[ -f "$G1/audit/managed-content-manifest.json" ] \
+  || g1_fail="$g1_fail [PRECONDITION: the consumer manifest is gone too — that is 3h-6, not this case]"
+[ -e "$G1/hooks/local/verify-managed-content-manifest.sh" ] \
+  && g1_fail="$g1_fail [PRECONDITION: the consumer wrapper was not removed]"
+G1_LOG="$M13_ROOT/wrapper-missing.log"
+G1_RC="$(m13_repair "$G1" "$G1_LOG" hooks/handlers/session_start.py)"
+[ "$G1_RC" -ne 0 ] \
+  || g1_fail="$g1_fail [a layer whose wrapper the source ships was confirmed with that wrapper missing from the consumer]"
+grep -q "REPAIR UNVERIFIED" "$G1_LOG" || g1_fail="$g1_fail [no REPAIR UNVERIFIED diagnostic]"
+grep -q "verify-managed-content-manifest.sh" "$G1_LOG" \
+  || g1_fail="$g1_fail [the missing wrapper is not named]"
+if [ -z "$g1_fail" ]; then
+  ok "m16-a-wrapper-the-source-ships-is-required-even-when-the-consumer-manifest-verifies"
+else
+  bad "m16-a-wrapper-the-source-ships-is-required-even-when-the-consumer-manifest-verifies" "rc=$G1_RC$g1_fail :: $(tail -6 "$G1_LOG" | tr '\n' '|')"
 fi
 rm -rf "$M13_ROOT"
 
