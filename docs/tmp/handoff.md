@@ -1,7 +1,7 @@
-# Active handoff — v4.7.0 unpublished; one design decision blocks it
+# Active handoff — v4.7.0 unpublished; M16 implemented and gated, one threat-model decision blocks it
 
-**Updated:** 2026-07-31 (rev 2 — M13 implemented, M14 refuted) · **Branch:** `fix/msys-v3307-hardening` · **HEAD:** `d44618f` · **VERSION:** 4.7.0
-**Stopped by rule, not by defect count.** Four review rounds this session, ten across the ticket. Round 4 returned NO-SHIP and the hard stop was honored — **do not start a round 5.**
+**Updated:** 2026-08-02 (rev 3 — M16 locked + implemented + gated; review 5 = NO-SHIP on source authority) · **Branch:** `fix/msys-v3307-hardening` · **HEAD:** `3557b66` · **VERSION:** 4.7.0
+**Stopped by rule, not by defect count.** Five review rounds this session. Round 5 returned NO-SHIP with one **(b)** — **do not start a round 6 implementation pass.**
 
 ## State — nothing shipped, nothing to undo
 
@@ -9,65 +9,53 @@
 |---|---|
 | `origin/main` | `85b97dd` — untouched, CI green |
 | Tag `v4.7.0` | `b11c60d` — **not** moved; no GitHub Release (404) |
-| Local | `d44618f`, tree clean, 48 commits unpushed |
-| Gates at `d44618f` | Windows **732/732**, Linux `ubuntu:24.04` **729/729**, both `GATE_ALL_GREEN`, manifests MATCH, module-size clean |
-| FR-07 | empty diff across `dea4445..d44618f` on every protected path |
-| Operator DP.6 | `approve deploy now` given 2026-07-30, **conditioned on a SHIP verdict — never became live, still unused** |
+| Local | `3557b66`, tree clean, 51 commits unpushed |
+| Gate at `3557b66` | Windows unscoped **739/739 PASS, 0 FAIL** (baseline 737 + the 2 new M16 cases) |
+| Linux parity | **NOT RUN** at this HEAD — the review returned NO-SHIP first. Required before any release claim |
+| FR-07 | empty diff `2d88844..3557b66` on `policies/*.yml`, `hooks/handlers/**`, `hooks/shared/**`, `hooks/git/**` |
+| Operator DP.6 | never consumed — the 2026-07-30 phrase was conditioned on a SHIP verdict |
 
-## STATUS: M13 implemented and gated; M14 REFUTED — operator decision needed
+## STATUS: M16 is implemented and green; the reviewer rejects its *premise*, not its code
 
-`0f50c05` unlocked M14. The membership rule permits a **pre-authorization downgrade**: "neither artifact present = not carried" cannot be distinguished from "both artifacts were removed before authorization", so a layer leaves the bound set with no race. Review classification: **(b) the contract is wrong**, not a coding defect — so per the stop rule it returns here rather than into another implementation pass.
+`1d1a2f9` locks **M16**: repair bound-set membership is read from the VERIFIED SOURCE tree's coverage (`$SOURCE_TREE/<manifest-rel>`), never from the tree being repaired; a declared layer whose consumer manifest — or whose wrapper the source ships — is missing is a FAILURE, not a skip. `54ba8bb` implements it with two RED-at-`2d88844` discriminators. The M14 pre-authorization downgrade is closed: deleting both managed-layer artifacts no longer drops the layer.
 
-**The fix direction is known:** derive bound-set membership from an anchor the consumer tree does not control — the verified upstream tree's own coverage list (it already states which layers should exist), or an install/upgrade record of which layers were written. Then *never carried* and *both removed* become distinguishable. **Do not re-lock M14 without that anchor.**
+**Round-5 blocker (b): "outside consumer control" is not established for `$SOURCE_TREE` itself.** The anchor is `.fusebase-flow-source` — reused if present (`bootstrap-upgrade.sh:92`), ref-resolved local-first (`materialize-managed-source.sh:56-58`), verified against its own shipped manifest. An actor who can delete files in the consumer root can generally also commit into that staging repo and move its ref, producing a self-consistent tree that *declares fewer layers*. `git archive <oid>` defeats worktree tampering, not authorship. So M16 relocates the downgrade from the consumer root to the staging repo; it does not eliminate it.
 
-M13's core (bind at authorization, no mid-run shrink, `rc == 0` AND exact `MATCH`, empty set refused) reviewed as **mostly correct** and is implemented at `1712e8e`. Gates at `257439a`: Windows **737/737**, Linux **734/734**, 0 FAIL. M15 (900s bound) stands but the reviewer notes 542s of whole-tree copying is a real performance residual worth optimizing, and a longer bound increases hang-detection latency.
-
-## Superseded — the original three options
-
-
-
-**What does "repair confirmed" mean when the consumer may not carry every manifest layer?**
-
-Three options, and they are three different products — not three spellings of one check:
+**The decision this needs — the threat model for `--repair-managed`, not another anchor:**
 
 | | Option | Consequence |
 |---|---|---|
-| a | Require both manifest layers unconditionally; fail otherwise | Strictest; breaks installs that legitimately lack a layer |
-| b *(recommended)* | Bind the required manifest set at authorization time so it cannot shrink mid-run, and require `rc == 0` **and** parsed verdict `== MATCH` | Small, closes both live blockers, preserves the old loop's guarantee |
-| c | Narrow repair's claim to "the named paths were replaced from verified bytes"; stop asserting whole-tree cleanliness | Honest and simplest; weaker promise |
+| a | Same-principal assumption (already documented for the pre-boundary route): staging dir, hop and engine share one principal | M16 stands as-is; fix the *wording* ("outside the repaired tree's control", not "outside consumer control") + the four (a)s. M16 is still strictly stronger than M14: a downgrade now costs authoring a self-consistent source tree instead of deleting two files |
+| b | Adversary-in-workspace: the staging directory is untrusted | Repair must anchor on an authority outside the workspace — fetch the version's tree from `--repo`/a tag, or verify a signature. That is a new capability with its own ticket, not a patch |
 
-Plus, independent of a/b/c: **disclose plain-source trust explicitly.** `docs/release-notes/v4.7.0.md:127` claims a re-stamped manifest aborts for any manifest-bearing source. True for **git** transport (canonical tree comes from committed objects); **false for a plain `--source` directory**, where snapshot, payload, verifier and manifest share one authority and can be self-consistent.
+Do not pick this inside an implementation pass. It is the same class of question M13/M14/M16 kept re-answering.
 
-## The three round-4 blockers (all in `bootstrap-upgrade.sh:248-268` + one release-note paragraph)
+## The four (a) defects (finite; fix only after the (b) is decided)
 
-1. **`ff_boot_repair_verify` never captures the verifier's exit code** — `out="$(ff_boot_py …)"` with no `rc=$?`, so it returns 0 on a parsed `MATCH` regardless of rc. `ff_boot_verify` and `_ff_mms_verify` both require rc 0 **and** exact MATCH. `:262-268`
-2. **Layer-skip keyed on the wrong artifact.** The skip is keyed on the *manifest*; the old loop keyed on the *wrapper script*. Delete `audit/managed-content-manifest.json` → the check is skipped, unrelated drift stays invisible, repair exits 0. The old loop would have returned rc 4. The hook manifest is anchored by being managed content; the managed-content manifest has **no reciprocal anchor**, so the justification only holds one way. `:248-251`
-3. Release-note overclaim above.
+1. **Layer-artifact symlink substitution.** `[ -f ]` and both hashers follow symlinks, so a consumer manifest/wrapper symlinked to byte-matching files in the staging source satisfies presence + hash. R2's symlink refusal covers repair *targets*, not the post-repair layer artifacts. Needs a discriminator.
+2. **The recovery instruction is impossible for the manifest case.** `ff_boot_repair_verify` tells the operator to name the missing artifact in `--repair-managed`, but repair only authorizes verifier-*reported* paths; an absent `audit/managed-content-manifest.json` makes its own verifier return `ABSENT` with an empty file list and nothing else covers `audit/`, so naming it hits `REFUSED: not reported as drifted`. (The *wrapper* case does work in a real tree — `hooks/local/*.sh` is hook-layer content.) Confirmed independently, not just reviewer-asserted. Same overclaim in `docs/release-notes/v4.7.0.md`.
+3. **"Before any repository write" is still literally false.** The bind now precedes `.git/info/exclude` (`bootstrap-upgrade.sh:427` vs `:441`), but a repair invoked with no staging directory clones into `$ROOT/.fusebase-flow-source` first (`:100`,`:107`). Either bind before that clone or narrow the contract wording in M13/M16 + release notes.
+4. **"Unreachable-by-construction" overclaims.** `VERIFIED ⇒ source manifest exists` holds at verification time, but `$SOURCE_TREE` stays mutable until the bind, so the empty-set branch is fail-closed rather than unreachable. Also: `test-upgrade-repair-managed.sh` 3h-4's "only the attribution is new" comment is stale w.r.t. this delta.
 
-Neither 1 nor 2 is a live exploit today — the verifier is the proven canonical module and does not print MATCH-then-fail — but both are contract violations in a security check, and 2 regresses a behaviour that was claimed preserved.
+Reviewer also flags the new M16 comment block (`bootstrap-upgrade.sh:240`) as FR-22-long — non-blocking.
 
-## Why this stopped rather than continued
+## Landed this session — 3 commits
 
-Rounds 2, 3 and 4 each found defects **in the previous round's fix**, not new layers of the original problem. Round 4's reviewer calls the architecture coherent — one materialization boundary, verifier from the proven tree, isolated interpreters, exact verdict parsers, capability branch, binary-safe comparator — and the remaining items "localized inconsistencies."
+`1d1a2f9` decisions: M16 LOCKED, M14 SUPERSEDED · `54ba8bb` T1 M16 implementation + 2 REDs + both manifests restamped · `3557b66` release-note bullet restated
 
-That read of the code is probably right. What failed is the *process* of closing them unsupervised at the end of a long release run. The PO overrode the three-round breaker on a convergence argument that was then falsified. **Do not re-run that reasoning.** Disposition the contract above first; then one implementation pass against a decided contract, then one review.
-
-## Landed this session — 9 commits, all gated, each with a RED-at-baseline discriminator
-
-`3f429e0` B5 startup-file forgery · `0f1ac51` B6 unmanifested inputs · `bbb58d3` TOCTOU disclosure · `081238a` FF_TAGS · `2121489` B5c `sys.path[0]` module shadow + exact-MATCH · `f676f94` B7 binary-safe comparator · `490e569` manifest-bearing scoping · `5e9cbab` B8 post-repair verdict · `d44618f` scope corrections
+RED-at-`2d88844` evidence (observed, not asserted): `m16-removing-both-artifacts-before-authorization-cannot-drop-a-source-declared-layer` and `m16-a-wrapper-the-source-ships-is-required-even-when-the-consumer-manifest-verifies` both FAILed at baseline with the log line `repair layer NOT carried by this install`, both PASS at HEAD. Two further cases are labelled COVERAGE (already held at baseline); AC3 stays green *by design* — its source declares only the managed layer and ships no wrapper.
 
 ## Constraints (unchanged, all still binding)
 
-Never `--no-verify`. FR-07 protected = `policies/*.yml`, `hooks/handlers/**`, `hooks/shared/**`, `hooks/git/**` only. Locked: M2 byte-exact hashers, M3 tempfile capture, `.gitattributes`, `templates/**`, the FR-06 deny. Linux parity is mandatory before any release claim. Before diagnosing a timing FAIL, run `ps -W | grep run-tests` — a competing suite on this host has caused that once.
+Never `--no-verify`. FR-07 protected = `policies/*.yml`, `hooks/handlers/**`, `hooks/shared/**`, `hooks/git/**` only. Locked: M2 byte-exact hashers, M3 tempfile capture, `.gitattributes`, `templates/**`, the FR-06 deny. Linux parity is mandatory before any release claim. Before diagnosing a timing FAIL, run `ps -W | grep run-tests`. The unscoped Windows suite needs **>40 min** — bound any wrapper timeout at ≥5400s (a 2400s bound killed one run mid-phase). `run-tests.sh:342` still misnames the running phase during a bounded wait (`cli-flow-recovery` appears as `upgrade-repair`).
 
-## Release sequence once the contract is decided and green
+## Release sequence once the (b) is decided and both platforms are green
 
-Restamp both manifests → unscoped Windows + Linux container → one review → `git push origin HEAD:refs/heads/main` → `git push origin :refs/tags/v4.7.0` → re-tag → `git push origin v4.7.0`. Publish is `needs: verify`, so a red suite cannot release. Push permissions already in `.claude/settings.local.json`. **The operator must re-authorize** — the prior DP.6 was consumed by a NO-SHIP outcome.
+Restamp both manifests → unscoped Windows + Linux `ubuntu:24.04` container → one review → DP.1 mint → `git push origin HEAD:refs/heads/main` → `git push origin :refs/tags/v4.7.0` → re-tag → `git push origin v4.7.0` → watch verify+publish via the public REST API (`gh` is not installed) → FR-14 single docs commit. Publish is `needs: verify`, so a red suite cannot release. **The operator must re-authorize** — no prior DP.6 survives a NO-SHIP.
 
-Release notes must carry: the moved-tag notice (`git fetch --force --tags origin`), the F7 limitation with `git commit -F` as the sanctioned path, that downgrading from 4.7.0 restores the replayable gate, and the plain-source trust disclosure above.
+Release notes must carry: the moved-tag notice (`git fetch --force --tags origin`), the F7 limitation with `git commit -F` as the sanctioned path, that downgrading from 4.7.0 restores the replayable gate, and the plain-source trust disclosure.
 
 ## Filed, deferred
 
 `docs/backlog/`: `command-gate-shell-evasion` (F7 parser) · `approval-single-use-consumption` · `approval-binding-omits-head` · `rm-rule-pattern-single-space-gap` · `provenance-and-single-seam-guarantees`.
-Follow-up: `hooks/tests/run-tests.sh:342` — `run_exitcode_phase` never sets `FFHC_HEARTBEAT_LABEL`, so a stuck phase is misnamed during an FR-27 hang.
-Reviews: `c:/tmp/ffrev7/r.md`, `r2.md`, `r3.md`, `r4.md`; earlier rounds in `docs/tmp/handoff/2026-07-2[89]-*`, `2026-07-3[01]-*`.
+Reviews: `c:/tmp/m16-review.md` (round 5) · `c:/tmp/ffrev7/r.md`..`r4.md`; earlier rounds in `docs/tmp/handoff/2026-07-2[89]-*`, `2026-07-3[01]-*`.
