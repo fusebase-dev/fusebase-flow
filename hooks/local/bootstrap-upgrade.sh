@@ -304,8 +304,27 @@ ff_boot_linked_seg() {   # <repo-relative path> -> echoes the first symlinked co
 ff_boot_link_refused() {   # <mod> <repo-relative artifact> <first symlinked component>
   echo "[bootstrap-upgrade] REPAIR UNVERIFIED ($1): '$3' is a symlink, so $2 is not a file THIS tree" >&2
   echo "                    owns — presence and hash both follow the link and would confirm the layer" >&2
-  echo "                    from bytes stored elsewhere. A bound layer's artifacts must be regular" >&2
-  echo "                    files here; replace the link with the real file, then re-run." >&2
+  echo "                    from bytes stored elsewhere. Replace the link with the real file." >&2
+}
+
+# TRIPWIRE (round-6): the remediation must be a command that RUNS. `--repair-managed <path>`
+# authorizes only paths a verifier REPORTED; an absent audit/managed-content-manifest.json makes
+# its own verifier return ABSENT with an EMPTY file list and no other layer covers audit/, so
+# naming it hits "not reported as drifted". Derive from the live report, never assume. The
+# `RECOVER:` line is machine-readable on purpose — test-upgrade-repair-managed.sh EXECUTES it.
+ff_boot_recover_advice() {   # <repo-relative artifact>
+  local p="$1" rep="" src=""
+  [ -n "$SRC_OVERRIDE" ] && src=" --source $SRC_OVERRIDE"
+  command -v ff_managed_drift_paths >/dev/null 2>&1 \
+    && rep="$(ff_managed_drift_paths "$ROOT" "$SOURCE_TREE/hooks/local/lib" 2>/dev/null || true)"
+  case $'\n'"$rep"$'\n' in
+    *$'\n'"$p"$'\n'*)
+      echo "[bootstrap-upgrade]        RECOVER: bash hooks/local/bootstrap-upgrade.sh$src --repair-managed $p" >&2 ;;
+    *)
+      echo "                    No verifier REPORTS $p, so a repair cannot authorize it; an ordinary" >&2
+      echo "                    upgrade reinstalls it as managed content (decision K13b)." >&2
+      echo "[bootstrap-upgrade]        RECOVER: bash hooks/local/bootstrap-upgrade.sh$src" >&2 ;;
+  esac
 }
 
 ff_boot_repair_verify() {   # <mod> <manifest-rel> <wrapper> <wrapper-required-by-source>
@@ -324,15 +343,15 @@ ff_boot_repair_verify() {   # <mod> <manifest-rel> <wrapper> <wrapper-required-b
     echo "[bootstrap-upgrade] REPAIR UNVERIFIED ($mod): $mrel is not in this tree, and the verified" >&2
     echo "                    source DECLARES this layer at this version — so it was REQUIRED when the" >&2
     echo "                    repair was authorized, and the bound layer set cannot shrink. This tree" >&2
-    echo "                    does not decide its own coverage (decisions M13/M16). Name $mrel in" >&2
-    echo "                    --repair-managed to restore it from the verified source." >&2
+    echo "                    does not decide its own coverage (decisions M13/M16)." >&2
+    ff_boot_recover_advice "$mrel"
     return 1
   fi
   if [ "$need_w" = "1" ] && [ ! -f "$ROOT/$wrapper" ]; then
     echo "[bootstrap-upgrade] REPAIR UNVERIFIED ($mod): $wrapper is not in this tree, and the verified" >&2
     echo "                    source ships it for this layer — so it was REQUIRED when the repair was" >&2
     echo "                    authorized and the bound layer set cannot shrink (decisions M13/M16)." >&2
-    echo "                    Name $wrapper in --repair-managed to restore it from the verified source." >&2
+    ff_boot_recover_advice "$wrapper"
     return 1
   fi
   lib="$SOURCE_TREE/hooks/local/lib/$mod"
@@ -532,18 +551,14 @@ fi
 # self-consistent and prove nothing — matching manifests on both trees is what makes the engine we
 # grepped in the canonical tree the engine we execute from the worktree.
 #
-# ACCEPTED LIMITATION (TOCTOU): $SOURCE_CLONE stays mutable THROUGHOUT. The verdict itself takes
-# two reads — verify the tree, then compare its manifest against the canonical one — so the race
-# window opens BETWEEN THOSE READS, not merely between the verdict and the engine's reads; Step
-# 2b's tag fetch widens the later window. Verifying AFTER Step 2b would trade a truthful "no
-# managed path was touched" abort for a shorter window; closing it entirely means replacing the
-# operator's staging area.
-# THE ASSUMPTION, stated so it can be checked: staging dir, this script and the engine are
-# writable by ONE principal and no co-tenant shares the workspace — then winning the race buys
-# nothing, because the racer could edit this script instead. It does NOT hold for a root-owned or
-# read-only hop over a user-writable staging dir, a group-writable/CI/shared runner, or a
-# container bind-mount. On such a host this route is unsafe; use a source whose engine accepts
-# --source-tree. See docs/release-notes/v4.7.0.md § Known limitation (pre-boundary route).
+# ACCEPTED LIMITATION (TOCTOU): $SOURCE_CLONE stays mutable THROUGHOUT, and the verdict takes two
+# reads (verify the tree, then compare its manifest against the canonical one), so the race window
+# opens BETWEEN THOSE READS too. Accepted under the SAME-PRINCIPAL threat model (decision M17):
+# whoever can win the race can edit this script instead. Do NOT "fix" it by verifying after Step
+# 2b — that trades a truthful "no managed path was touched" abort for a shorter window; closing it
+# means replacing the operator's staging area. Unsafe hosts (root-owned hop over a user-writable
+# staging dir, shared/CI runner, bind-mount) + rationale: docs/release-notes/v4.7.0.md § Known
+# limitation (pre-boundary route).
 
 # Comparison for the unmanifested inputs below tolerates ONE difference and no others: CRLF vs
 # LF. It has to tolerate that much — a legitimate staging worktree is checked out under the

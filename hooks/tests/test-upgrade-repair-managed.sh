@@ -666,6 +666,53 @@ else
 fi
 rm -rf "$H_OUT"
 
+# 3h-9. The remediation must be a command that RUNS. The manifest branch told the operator to name
+# the missing artifact in --repair-managed — which repair REFUSES: it authorizes only paths a
+# verifier REPORTED, an absent audit/managed-content-manifest.json makes its own verifier return
+# ABSENT with an empty file list, and no other layer covers audit/. The WRAPPER half does work
+# (hooks/local/*.sh is hook-layer content), so the advice has to be DERIVED from the live report,
+# not assumed. Each case EXECUTES the emitted RECOVER line and requires the artifact back.
+j_fail=""
+for kind in manifest wrapper; do
+  J="$(m13_dual_case "$M13_ROOT/recover-$kind")"
+  case "$kind" in
+    manifest) JART="audit/managed-content-manifest.json" ;;
+    wrapper)  JART="hooks/local/verify-managed-content-manifest.sh" ;;
+  esac
+  rm -f "$J/$JART"
+  printf 'handler TAMPERED\n' > "$J/hooks/handlers/session_start.py"
+  J_LOG="$M13_ROOT/recover-$kind.log"
+  J_RC="$(m13_repair "$J" "$J_LOG" hooks/handlers/session_start.py)"
+  [ "$J_RC" -ne 0 ] || j_fail="$j_fail [$kind: PRECONDITION — the missing artifact did not fail the repair, so there is no remediation to check]"
+  grep -q "REPAIR UNVERIFIED" "$J_LOG" || j_fail="$j_fail [$kind: no REPAIR UNVERIFIED diagnostic]"
+  JCMD="$(sed -n 's/^.*RECOVER: //p' "$J_LOG" | head -1)"
+  if [ -z "$JCMD" ]; then
+    j_fail="$j_fail [$kind: the diagnostic emits no runnable RECOVER command :: $(tail -5 "$J_LOG" | tr '\n' '|')]"
+  else
+    # `y` is the confirmation a human would type at the content-upgrade prompt; nothing else is fed.
+    ( cd "$J" && eval "timeout 600 $JCMD" <<< "y" ) > "$M13_ROOT/recover-$kind-run.log" 2>&1
+    j_rc=$?
+    [ "$j_rc" -eq 0 ] \
+      || j_fail="$j_fail [$kind: the emitted remediation does NOT run (rc $j_rc): $JCMD :: $(tail -4 "$M13_ROOT/recover-$kind-run.log" | tr '\n' '|')]"
+    [ -f "$J/$JART" ] || j_fail="$j_fail [$kind: the emitted remediation ran but did not restore $JART]"
+  fi
+  rm -rf "$J"
+done
+# GROUND TRUTH (holds at BOTH baselines — it pins WHY the old advice was impossible, not the fix):
+# naming the managed manifest in --repair-managed is refused as unreported.
+K9="$(m13_dual_case "$M13_ROOT/unreportable")"
+rm -f "$K9/audit/managed-content-manifest.json"
+K9_LOG="$M13_ROOT/unreportable.log"
+K9_RC="$(m13_repair "$K9" "$K9_LOG" audit/managed-content-manifest.json)"
+[ "$K9_RC" -ne 0 ] || j_fail="$j_fail [ground truth broke: --repair-managed accepted the absent managed manifest]"
+grep -q "not reported as drifted" "$K9_LOG" \
+  || j_fail="$j_fail [ground truth broke: the absent managed manifest was refused for another reason :: $(tail -4 "$K9_LOG" | tr '\n' '|')]"
+if [ -z "$j_fail" ]; then
+  ok "m16-the-missing-artifact-diagnostic-emits-a-remediation-that-actually-runs (manifest + wrapper; RECOVER line executed, artifact restored)"
+else
+  bad "m16-the-missing-artifact-diagnostic-emits-a-remediation-that-actually-runs" "$j_fail"
+fi
+
 rm -rf "$M13_ROOT"
 
 finish
