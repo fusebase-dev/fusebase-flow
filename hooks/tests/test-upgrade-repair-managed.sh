@@ -713,6 +713,49 @@ else
   bad "m16-the-missing-artifact-diagnostic-emits-a-remediation-that-actually-runs" "$j_fail"
 fi
 
+# 3h-10. COVERAGE, not a discriminator — this behaviour already held; the CLAIM is what was wrong.
+# "Bound before any repository write" is not literally true: a repair invoked with NO staging
+# directory materializes one into .fusebase-flow-source/ first, and that is a write. The narrowed
+# contract M13/M16 and the release note now state is what this pins — the only write that can
+# precede the bind CREATES the staging directory and touches no pre-existing file.
+if ! command -v sha256sum >/dev/null 2>&1; then
+  skip "m13-the-only-write-before-the-bind-creates-the-staging-directory" "no sha256sum on this platform — the byte-snapshot cannot be built"
+else
+  L1="$(m13_dual_case "$M13_ROOT/no-staging")"
+  L1_SRC="$M13_ROOT/gitsrc"
+  mv "$L1/.fusebase-flow-source" "$L1_SRC"
+  bnd_git_source "$L1_SRC"
+  printf 'handler TAMPERED\n' > "$L1/hooks/handlers/session_start.py"
+  l1_snap() {   # <root> <out> — hash + path for every file outside .git/ and the staging clone
+    ( cd "$1" && find . -type f -not -path './.git/*' -not -path './.fusebase-flow-source/*' \
+        -print0 | sort -z | xargs -0 sha256sum ) > "$2" 2>/dev/null
+  }
+  l1_fail=""
+  [ -e "$L1/.fusebase-flow-source" ] \
+    && l1_fail="$l1_fail [PRECONDITION: the staging directory is still present, so nothing forces the pre-bind clone]"
+  l1_snap "$L1" "$M13_ROOT/l1-before.txt"
+  L1_LOG="$M13_ROOT/no-staging.log"
+  ( cd "$L1" && timeout 600 bash hooks/local/bootstrap-upgrade.sh --repo "$L1_SRC" --ref main \
+      --repair-managed hooks/handlers/session_start.py ) > "$L1_LOG" 2>&1
+  L1_RC=$?
+  l1_snap "$L1" "$M13_ROOT/l1-after.txt"
+  [ "$L1_RC" -eq 0 ] \
+    || l1_fail="$l1_fail [a repair that had to clone its staging source was not confirmed (rc $L1_RC)]"
+  [ -d "$L1/.fusebase-flow-source" ] \
+    || l1_fail="$l1_fail [PRECONDITION: no staging clone was made, so this case did not exercise the pre-bind write]"
+  grep -q "repair layer REQUIRED" "$L1_LOG" || l1_fail="$l1_fail [the layer set was never bound]"
+  # Everything the run touched, minus the named path and its backup twin, must be EMPTY.
+  L1_DIFF="$(diff "$M13_ROOT/l1-before.txt" "$M13_ROOT/l1-after.txt" | grep '^[<>]' \
+    | grep -v 'session_start\.py' | grep -v '\.pre-upgrade-' || true)"
+  [ -z "$L1_DIFF" ] \
+    || l1_fail="$l1_fail [a pre-existing file OTHER than the named path changed: $(printf '%s' "$L1_DIFF" | tr '\n' '|')]"
+  if [ -z "$l1_fail" ]; then
+    ok "m13-the-only-write-before-the-bind-creates-the-staging-directory [COVERAGE — the behaviour already held at c77b139; the CONTRACT WORDING was the defect]"
+  else
+    bad "m13-the-only-write-before-the-bind-creates-the-staging-directory" "$l1_fail :: $(tail -5 "$L1_LOG" | tr '\n' '|')"
+  fi
+fi
+
 rm -rf "$M13_ROOT"
 
 finish

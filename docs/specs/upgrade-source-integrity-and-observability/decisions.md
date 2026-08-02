@@ -18,7 +18,7 @@
 | M8 | F7 is a parser project, not a patch | Own ticket, own review cycle; naive narrowing forbidden | LOCKED |
 | M9 | Approval staleness is visibility-only | Additive `created_at`; separate warnings; authorization/verdict unchanged | LOCKED |
 | M10 | Non-git source compatibility is explicit | Verify manifest-bearing sources; named unverified fallback only for pre-manifest sources | LOCKED |
-| M13 | The repair-verification contract | Bind the required layer set at authorization; `rc == 0` AND exact `MATCH` per bound layer; empty set refused before any write | LOCKED |
+| M13 | The repair-verification contract | Bind the required layer set at authorization; `rc == 0` AND exact `MATCH` per bound layer; empty set refused before any content write | LOCKED |
 | M14 | Bound-set membership: either consumer artifact | — | **SUPERSEDED BY M16** |
 | M15 | `cli-flow-recovery` bound 480s → 900s | Deliberate headroom, not a re-set edge | LOCKED |
 | M16 | Bound-set membership is declared by the verified upstream tree | Membership reads `$SOURCE_TREE` only; the consumer tree cannot influence it | LOCKED |
@@ -253,7 +253,7 @@ Widening the fix mid-round would also have meant changing a test's semantics und
 
 ## M13. The repair-verification contract — bind the layer set at authorization
 
-**Recommendation:** Option (b). `--repair-managed` binds the **required manifest set at authorization time**, before any write, and that set cannot shrink mid-run. Every layer in the bound set must return **`rc == 0` AND a parsed verdict of exactly `MATCH`**. A layer that is in the bound set but whose manifest or wrapper is absent at verification time is a **failure**, not a skip.
+**Recommendation:** Option (b). `--repair-managed` binds the **required manifest set at authorization time**, before any content write, and that set cannot shrink mid-run. ("Before any content write" is the exact claim, narrowed 2026-08-02: a repair invoked with no staging directory materializes one into `.fusebase-flow-source/` first. That write creates the staging directory and touches no pre-existing file — everything else, `.git/info/exclude` included, happens after the bind. Binding earlier is impossible: the bind reads the *verified* source, which does not exist until it is materialized.) Every layer in the bound set must return **`rc == 0` AND a parsed verdict of exactly `MATCH`**. A layer that is in the bound set but whose manifest or wrapper is absent at verification time is a **failure**, not a skip.
 
 **Reasoning:** The round-4 defects were both instances of one ambiguity — nobody had decided what "repair confirmed" *means* when a consumer may not carry every layer, so the implementation invented an answer twice and got it wrong twice:
 
@@ -297,7 +297,7 @@ It weakens nothing: an assertion failure still FAILs, and a genuine hang is stil
 
 ## M16. Bound-set membership is declared by the verified upstream tree
 
-**Recommendation:** A manifest layer is in the repair's bound set **iff the VERIFIED source tree declares it** — `$SOURCE_TREE/<manifest-rel>` exists at the version being repaired from. The consumer's tree contributes **nothing** to membership. For every declared layer the consumer must carry that manifest, and must carry the layer's verify wrapper whenever the verified source ships one; either absence is a **FAILURE**, not a skip. A layer the source does not declare is not bound. Everything else in M13 is unchanged: bound before any repository write, no mid-run shrink, `rc == 0` **and** parsed exact `MATCH` for every bound layer, empty bound set refused before any write.
+**Recommendation:** A manifest layer is in the repair's bound set **iff the VERIFIED source tree declares it** — `$SOURCE_TREE/<manifest-rel>` exists at the version being repaired from. The consumer's tree contributes **nothing** to membership. For every declared layer the consumer must carry that manifest, and must carry the layer's verify wrapper whenever the verified source ships one; either absence is a **FAILURE**, not a skip. A layer the source does not declare is not bound. Everything else in M13 is unchanged: bound before any content write (M13's narrowed sense — only the staging materialization may precede it), no mid-run shrink, `rc == 0` **and** parsed exact `MATCH` for every bound layer, empty bound set refused before any content write.
 
 **Why M14 failed:** it read membership out of the tree under repair. "Neither artifact present ⇒ not carried" is the same observation as "both artifacts were deleted before authorization", so the exploit needs no race: delete `audit/managed-content-manifest.json` **and** `hooks/local/verify-managed-content-manifest.sh`, leave managed-only drift in the tree, authorize a repair through the still-intact hook layer — the managed layer is never bound, the hook layer returns MATCH, and the hop exits 0 over a dirty tree. No consumer-side predicate can close this: whatever artifacts the rule reads, the party who can delete two files can delete N.
 
@@ -308,7 +308,7 @@ It weakens nothing: an assertion failure still FAILs, and a genuine hang is stil
 | Outside the **repaired tree's** control | `$SOURCE_TREE` is materialized from committed git objects (`git archive <oid>`) or an immutable snapshot; the consumer root is never read for membership. **Not** "outside the consumer's control" — M17 locks the same-principal threat model, so the party who owns the repaired tree can also author the staging tree. What M16 buys is cost: a downgrade goes from *delete two files* to *author a self-consistent source tree that lies about its own layer set* |
 | Already proven, not merely present | repair refuses unless `FF_SOURCE_STATE = VERIFIED`, i.e. the source's own `audit/managed-content-manifest.json` returned rc 0 **and** a parsed exact `MATCH` through `python3 -I -S` with a trusted verifier (B4/B5) |
 | Version-matched | the coverage statement comes from the version being repaired **from**, so skew is resolved by the anchor rather than by inspecting the consumer |
-| Non-shrinkable | the set is bound before the first repository write and re-read from nothing afterwards |
+| Non-shrinkable | the set is bound before the first content write — only the staging materialization may precede it (M13) — and re-read from nothing afterwards |
 
 **Threat model (M17, locked):** same-principal workspace. This anchor defends against accidental and mid-run corruption, not against a hostile co-tenant who can author the staging tree. Closing that case needs a trust root outside the workspace — `docs/backlog/repair-trust-root-outside-workspace/`.
 
