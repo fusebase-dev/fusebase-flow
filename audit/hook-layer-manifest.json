@@ -46,7 +46,7 @@
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
-      "sha256": "a3c634814e45af7a182d27b1b8e2f08d3c3dc160d570248bb2d014d627acacc9"
+      "sha256": "0bc4cc0b31ba0936802c3fbf14c7cebf99470e7bd002a8f879cf6bb42800c63c"
     },
     {
       "path": "hooks/local/check-cli-flow-conflicts.sh",
@@ -554,7 +554,7 @@
     },
     {
       "path": "hooks/tests/test-upgrade-repair-managed.sh",
-      "sha256": "d6bd12441a43aa7f6e6337f3aad2b607a75e52c4865f7b24690f12256c0c1481"
+      "sha256": "fe457da69def731da45739edf9df3bec4f0f213011f5b6310b1b415f984c3e3f"
     },
     {
       "path": "hooks/tests/test-upgrade-source-boundary.sh",
@@ -565,5 +565,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "c589a36547dad0bea4d3653355483ef3de17bd973dea8bacd0eacc4904c6e99c"
+  "manifest_self_sha256": "bc278d33052cfe6c029b300b9731647b02ba6c4deb3d6e44b370f39627f5d77d"
 }

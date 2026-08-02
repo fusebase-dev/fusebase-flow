@@ -284,8 +284,42 @@ ff_boot_bind_repair_layers() {
 # TRIPWIRE (decision M13): rc is half the verdict. ff_boot_verify and _ff_mms_verify both require
 # rc 0 AND an exact MATCH; this function once required only the latter, so a verifier that printed
 # MATCH and then died — truncated write, an error after the report, a signal — confirmed a repair.
+# TRIPWIRE (round-6): `[ -f ]` and BOTH hashers follow symlinks, so a bound layer's artifact linked
+# to byte-identical content OUTSIDE this tree satisfied presence AND hash — "this tree carries the
+# layer" about a file the tree does not own, and one --repair-managed can never restore (the link,
+# not the bytes, is the drift). Same refusal shape as _ff_repair_dest_ok (R2), which covers repair
+# TARGETS only: leaf or ANY parent component, refused outright.
+ff_boot_linked_seg() {   # <repo-relative path> -> echoes the first symlinked component, else ""
+  local rest="$1" cur="$ROOT" rel="" seg
+  while [ -n "$rest" ]; do
+    seg="${rest%%/*}"
+    if [ "$seg" = "$rest" ]; then rest=""; else rest="${rest#*/}"; fi
+    [ -n "$seg" ] || continue
+    cur="$cur/$seg"; rel="${rel:+$rel/}$seg"
+    [ -L "$cur" ] && { printf '%s' "$rel"; return 0; }
+  done
+  return 0
+}
+
+ff_boot_link_refused() {   # <mod> <repo-relative artifact> <first symlinked component>
+  echo "[bootstrap-upgrade] REPAIR UNVERIFIED ($1): '$3' is a symlink, so $2 is not a file THIS tree" >&2
+  echo "                    owns — presence and hash both follow the link and would confirm the layer" >&2
+  echo "                    from bytes stored elsewhere. A bound layer's artifacts must be regular" >&2
+  echo "                    files here; replace the link with the real file, then re-run." >&2
+}
+
 ff_boot_repair_verify() {   # <mod> <manifest-rel> <wrapper> <wrapper-required-by-source>
-  local mod="$1" mrel="$2" wrapper="$3" need_w="$4" lib out rc parsed verdict drift
+  local mod="$1" mrel="$2" wrapper="$3" need_w="$4" lib out rc parsed verdict drift linked
+  linked="$(ff_boot_linked_seg "$mrel")"
+  if [ -n "$linked" ]; then
+    ff_boot_link_refused "$mod" "$mrel" "$linked"; return 1
+  fi
+  if [ "$need_w" = "1" ]; then
+    linked="$(ff_boot_linked_seg "$wrapper")"
+    if [ -n "$linked" ]; then
+      ff_boot_link_refused "$mod" "$wrapper" "$linked"; return 1
+    fi
+  fi
   if [ ! -f "$ROOT/$mrel" ]; then
     echo "[bootstrap-upgrade] REPAIR UNVERIFIED ($mod): $mrel is not in this tree, and the verified" >&2
     echo "                    source DECLARES this layer at this version — so it was REQUIRED when the" >&2

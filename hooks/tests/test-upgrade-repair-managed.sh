@@ -618,6 +618,54 @@ if [ -z "$g1_fail" ]; then
 else
   bad "m16-a-wrapper-the-source-ships-is-required-even-when-the-consumer-manifest-verifies" "rc=$G1_RC$g1_fail :: $(tail -6 "$G1_LOG" | tr '\n' '|')"
 fi
+# 3h-8. Layer-artifact SYMLINK SUBSTITUTION. R2 refuses symlinked repair TARGETS; the post-repair
+# layer checks were plain `[ -f ]`, and both hashers open THROUGH a link — so a consumer manifest
+# or wrapper linked to byte-identical content OUTSIDE the tree satisfied presence AND hash, and the
+# hop confirmed "this tree carries the layer" about a file the tree does not own. Leaf and parent
+# are both required: linking the audit/ DIRECTORY moves both manifests out with one call.
+H_OUT="$(mktemp -d)"
+h1_fail=""; h1_ran=0; h1_expected=3
+for kind in manifest wrapper parent; do
+  H="$(m13_dual_case "$M13_ROOT/sym-$kind")"
+  case "$kind" in
+    manifest) HLNK="audit/managed-content-manifest.json" ;;
+    wrapper)  HLNK="hooks/local/verify-managed-content-manifest.sh" ;;
+    parent)   HLNK="audit" ;;
+  esac
+  mkdir -p "$H_OUT/$kind/$(dirname "$HLNK")"
+  mv "$H/$HLNK" "$H_OUT/$kind/$HLNK"
+  r2_mk_symlink "$H/$HLNK" "$H_OUT/$kind/$HLNK" || { rm -rf "$H"; continue; }
+  h1_ran=$((h1_ran + 1))
+  # PRECONDITION: with the link in place BOTH layers still verify MATCH — that invisibility IS the
+  # defect. Without it the case would go red for ordinary drift instead of for the substitution.
+  python3 "$MCM" verify --root "$H" >/dev/null 2>&1 \
+    || h1_fail="$h1_fail [$kind: PRECONDITION — the managed layer does not verify through the link]"
+  python3 "$ROOT/hooks/local/lib/hook_manifest.py" verify --root "$H" >/dev/null 2>&1 \
+    || h1_fail="$h1_fail [$kind: PRECONDITION — the hook layer does not verify through the link]"
+  printf 'handler TAMPERED\n' > "$H/hooks/handlers/session_start.py"
+  H_LOG="$M13_ROOT/sym-$kind.log"
+  H_RC="$(m13_repair "$H" "$H_LOG" hooks/handlers/session_start.py)"
+  [ "$H_RC" -ne 0 ] \
+    || h1_fail="$h1_fail [$kind: a layer artifact SUBSTITUTED BY A SYMLINK confirmed the repair (rc 0) — the tree does not own $HLNK]"
+  grep -q "REPAIR UNVERIFIED" "$H_LOG" || h1_fail="$h1_fail [$kind: no REPAIR UNVERIFIED diagnostic]"
+  grep -q "symlink" "$H_LOG" \
+    || h1_fail="$h1_fail [$kind: refused for the WRONG reason — no 'symlink' in the diagnostic :: $(tail -4 "$H_LOG" | tr '\n' '|')]"
+  [ -L "$H/$HLNK" ] || h1_fail="$h1_fail [$kind: the symlink itself was replaced]"
+  grep -q "handler v1" "$H/hooks/handlers/session_start.py" \
+    || h1_fail="$h1_fail [$kind: the named path was not repaired — this case must fail for the VERDICT, not for a broken repair]"
+  rm -rf "$H"
+done
+[ "$h1_ran" -eq 0 ] || [ "$h1_ran" -eq "$h1_expected" ] \
+  || h1_fail="$h1_fail [PARTIAL COVERAGE: only $h1_ran/$h1_expected symlink classes were built]"
+if [ "$h1_ran" -eq 0 ]; then
+  skip "m16-a-symlink-cannot-stand-in-for-a-bound-layer-artifact" "this platform's ln -s copies instead of linking (MSYS winsymlinks off) — the fixture cannot be built, so the control is NOT claimed as proof (its proof home is the Linux/CI run)"
+elif [ -z "$h1_fail" ]; then
+  ok "m16-a-symlink-cannot-stand-in-for-a-bound-layer-artifact ($h1_ran/$h1_expected classes: manifest leaf, wrapper leaf, audit/ parent)"
+else
+  bad "m16-a-symlink-cannot-stand-in-for-a-bound-layer-artifact" "$h1_fail"
+fi
+rm -rf "$H_OUT"
+
 rm -rf "$M13_ROOT"
 
 finish
