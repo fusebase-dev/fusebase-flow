@@ -18,6 +18,10 @@
 | M8 | F7 is a parser project, not a patch | Own ticket, own review cycle; naive narrowing forbidden | LOCKED |
 | M9 | Approval staleness is visibility-only | Additive `created_at`; separate warnings; authorization/verdict unchanged | LOCKED |
 | M10 | Non-git source compatibility is explicit | Verify manifest-bearing sources; named unverified fallback only for pre-manifest sources | LOCKED |
+| M13 | The repair-verification contract | Bind the required layer set at authorization; `rc == 0` AND exact `MATCH` per bound layer; empty set refused before any write | LOCKED |
+| M14 | Bound-set membership: either consumer artifact | — | **SUPERSEDED BY M16** |
+| M15 | `cli-flow-recovery` bound 480s → 900s | Deliberate headroom, not a re-set edge | LOCKED |
+| M16 | Bound-set membership is declared by the verified upstream tree | Membership reads `$SOURCE_TREE` only; the consumer tree cannot influence it | LOCKED |
 
 ## M1. Fix the source, not the symptom
 
@@ -271,20 +275,9 @@ Binding at authorization removes the ambiguity structurally rather than by anoth
 
 ---
 
-## M14. Bound-set membership: either artifact present at authorization
+## M14. Bound-set membership: either consumer artifact present at authorization
 
-**Recommendation:** RATIFIED as implemented. A manifest layer joins the bound set if **either** its manifest **or** its wrapper is present at authorization time. A layer with neither is genuinely not carried by this install and is not bound. An **empty** bound set is refused before any write.
-
-**Reasoning:** M13 decided what happens to a layer *in* the set; it did not decide what puts it there, and the implementer had to choose. The two alternatives are both wrong:
-
-- **Manifest-only membership** reopens round-4 blocker 2 exactly — delete the manifest and the layer silently leaves the set.
-- **Both-artifacts-unconditionally** is option (a), which M13 already rejected, and it would turn the existing AC3 control red: that fixture legitimately carries a manifest and no wrapper.
-
-"Either half anchors the layer" is the only rule that makes a *removal* detectable while leaving a legitimately partial install workable. The empty-set refusal matters for a reason that is easy to miss: "every bound layer must MATCH" is vacuously true over an empty set, so without it the strictest-sounding contract would be the weakest.
-
-**Accepted corollary, stated so it is not discovered later:** an artifact absent at authorization is not in the record, so a partial install still verifies through whichever half it has. That is deliberate — it is the difference between "this install does not carry that layer" and "that layer disappeared mid-run", and only the second is an attack.
-
-**Lock status:** **UNLOCKED 2026-07-31 — REFUTED.** Adversarial review: *"neither artifact present" is indistinguishable from "both artifacts were removed before authorization"* — the corollary above is a **pre-authorization downgrade**, no race required. Membership must be derived from a source the consumer's tree does not control (the verified upstream tree's own coverage list, or the install/upgrade record of which layers were written), so that *never carried* and *both removed* are distinguishable. **Do not re-lock M14 without that anchor.** See `docs/tmp/handoff/2026-07-31-m13-review.md`.
+**SUPERSEDED BY M16 (2026-08-02). Refuted, never shipped.** M14 derived membership from the consumer tree, so "this install never carried the layer" and "both of its artifacts were deleted a second before authorization" were the same observation — a pre-authorization downgrade needing no race. The refutation and the replacement rule are in M16; the rejected text is in git history (`0f50c05`, `257439a`).
 
 ---
 
@@ -299,3 +292,37 @@ It weakens nothing: an assertion failure still FAILs, and a genuine hang is stil
 **Pattern worth naming:** this is the third time this bound has been set at the measured edge and then crossed. A timeout chosen from one clean-host measurement is a latent failure with a delay fuse. Future bounds on growing phases should carry deliberate headroom, not a rounded-up observation.
 
 **Lock status:** LOCKED 2026-07-31
+
+---
+
+## M16. Bound-set membership is declared by the verified upstream tree
+
+**Recommendation:** A manifest layer is in the repair's bound set **iff the VERIFIED source tree declares it** — `$SOURCE_TREE/<manifest-rel>` exists at the version being repaired from. The consumer's tree contributes **nothing** to membership. For every declared layer the consumer must carry that manifest, and must carry the layer's verify wrapper whenever the verified source ships one; either absence is a **FAILURE**, not a skip. A layer the source does not declare is not bound. Everything else in M13 is unchanged: bound before any repository write, no mid-run shrink, `rc == 0` **and** parsed exact `MATCH` for every bound layer, empty bound set refused before any write.
+
+**Why M14 failed:** it read membership out of the tree under repair. "Neither artifact present ⇒ not carried" is the same observation as "both artifacts were deleted before authorization", so the exploit needs no race: delete `audit/managed-content-manifest.json` **and** `hooks/local/verify-managed-content-manifest.sh`, leave managed-only drift in the tree, authorize a repair through the still-intact hook layer — the managed layer is never bound, the hook layer returns MATCH, and the hop exits 0 over a dirty tree. No consumer-side predicate can close this: whatever artifacts the rule reads, the party who can delete two files can delete N.
+
+**Why the upstream tree is a valid anchor:**
+
+| Property | Basis |
+|---|---|
+| Outside consumer control | `$SOURCE_TREE` is materialized from committed git objects (`git archive <oid>`) or an immutable snapshot; the consumer root is never read for membership |
+| Already proven, not merely present | repair refuses unless `FF_SOURCE_STATE = VERIFIED`, i.e. the source's own `audit/managed-content-manifest.json` returned rc 0 **and** a parsed exact `MATCH` through `python3 -I -S` with a trusted verifier (B4/B5) |
+| Version-matched | the coverage statement comes from the version being repaired **from**, so skew is resolved by the anchor rather than by inspecting the consumer |
+| Non-shrinkable | the set is bound before the first repository write and re-read from nothing afterwards |
+
+**Consequences, stated so none is discovered later:**
+
+- A consumer genuinely missing a declared layer now **fails** the repair instead of silently narrowing it. This is intended, and recoverable in one command: both artifacts are themselves managed content, so the other layer's verifier reports them as `missing` and they can be named in `--repair-managed`. The diagnostic says so.
+- The managed layer is declared **by construction** for any repair-eligible source (`VERIFIED` ⇒ the source manifest exists), so M13's empty-bound-set refusal is now unreachable-by-construction rather than a live branch. It stays as the fail-closed floor; "every bound layer must MATCH" is vacuously true over an empty set.
+- The AC3 fixture stays green **by design, not by retuning**: its source declares only the managed layer and ships no verify wrapper, so the bound set is that one layer with no wrapper requirement, and the consumer carries its manifest. A partial *consumer* is refused; a source that legitimately does not ship a layer at that version is not invented into one.
+- Plain `--source` transport is unchanged and still disclosed: snapshot, payload, verifier and manifest share one authority there, so a plain source can declare a self-consistent coverage list. Git transport is the case the anchor is strong for.
+
+**Alternatives considered:**
+
+- **An install/upgrade record of which layers were written** — rejected: a new durable state file *in the consumer tree* is the same class of anchor that just failed (deletable by the same party), plus a migration for every existing install that has no such record.
+- **Keep M14 and disclose the downgrade** — rejected: the disclosure would read "the whole-tree claim is void whenever the consumer can delete two files", which is precisely the claim `--repair-managed` exists to make.
+- **Require both artifacts unconditionally, source-independent (M13 option (a))** — rejected again: it answers "which layers exist" with a constant instead of a version-matched fact, and turns a source that ships no wrapper at that version into a permanent failure.
+
+**Process note:** this is the fourth answer to one question, and the last. The three before it were invented inside an implementation pass; this one was decided first, then implemented once, then reviewed once.
+
+**Lock status:** LOCKED 2026-08-02 by the operator, on the explicit instruction to implement the upstream-declared anchor and not re-open it.
