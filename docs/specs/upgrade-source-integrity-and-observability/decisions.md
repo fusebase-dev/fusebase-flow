@@ -326,3 +326,23 @@ It weakens nothing: an assertion failure still FAILs, and a genuine hang is stil
 **Process note:** this is the fourth answer to one question, and the last. The three before it were invented inside an implementation pass; this one was decided first, then implemented once, then reviewed once.
 
 **Lock status:** LOCKED 2026-08-02 by the operator, on the explicit instruction to implement the upstream-declared anchor and not re-open it.
+
+---
+
+## M17. Threat model: same-principal workspace
+
+**Recommendation:** Option (a). `--repair-managed` defends against **accidental and mid-run corruption within a workspace owned by one principal** — not against a hostile co-tenant who can author the staging tree.
+
+**Reasoning:** This is not a new position; it is the position the whole system already holds. K3 locked that the agent and the operator write as the same OS principal, that `$USER` and self-attested roles are forgeable by the process being gated, and that Flow therefore enforces schema/expiry/binding but **not** identity. FR-07 approvals, `approve-local.sh` and `write-bootstrap-approval.sh` all rest on that same assumption. Choosing (b) here would make one command in the upgrade path stricter than the approval system that authorizes it — a guarantee that cannot be honoured end to end is worse than an accurate weaker one.
+
+Closing the co-tenant case genuinely requires truth from outside the workspace: fetching the release from the remote at repair time, or verifying a signature. K3 already recorded that Flow has no signing seam. That is a feature with its own ticket, not a patch on this one.
+
+**What M16's wording must become:** "outside the **repaired tree's** control", never "outside the consumer's control". M16 raises the cost of a downgrade from *delete two files* to *author a self-consistent source tree that lies about its own layer set*. That is a real improvement and it is all M16 may claim. Delete "unreachable by construction" — the property is **fail-closed**, not unreachable.
+
+**Alternatives considered:**
+
+- **(b) hostile co-tenant** — rejected for this ticket. Correct to want, unbuildable without a trust root Flow does not have, and it would leave `--repair-managed` claiming more than the gate that authorizes it.
+
+**Backlog:** file `docs/backlog/repair-trust-root-outside-workspace/` for the (b) case — remote fetch or signature verification at repair time — cross-linked to K3 and `provenance-and-single-seam-guarantees`.
+
+**Lock status:** LOCKED 2026-08-02
