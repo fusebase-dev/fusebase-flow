@@ -305,15 +305,17 @@ It weakens nothing: an assertion failure still FAILs, and a genuine hang is stil
 
 | Property | Basis |
 |---|---|
-| Outside consumer control | `$SOURCE_TREE` is materialized from committed git objects (`git archive <oid>`) or an immutable snapshot; the consumer root is never read for membership |
+| Outside the **repaired tree's** control | `$SOURCE_TREE` is materialized from committed git objects (`git archive <oid>`) or an immutable snapshot; the consumer root is never read for membership. **Not** "outside the consumer's control" — M17 locks the same-principal threat model, so the party who owns the repaired tree can also author the staging tree. What M16 buys is cost: a downgrade goes from *delete two files* to *author a self-consistent source tree that lies about its own layer set* |
 | Already proven, not merely present | repair refuses unless `FF_SOURCE_STATE = VERIFIED`, i.e. the source's own `audit/managed-content-manifest.json` returned rc 0 **and** a parsed exact `MATCH` through `python3 -I -S` with a trusted verifier (B4/B5) |
 | Version-matched | the coverage statement comes from the version being repaired **from**, so skew is resolved by the anchor rather than by inspecting the consumer |
 | Non-shrinkable | the set is bound before the first repository write and re-read from nothing afterwards |
 
+**Threat model (M17, locked):** same-principal workspace. This anchor defends against accidental and mid-run corruption, not against a hostile co-tenant who can author the staging tree. Closing that case needs a trust root outside the workspace — `docs/backlog/repair-trust-root-outside-workspace/`.
+
 **Consequences, stated so none is discovered later:**
 
 - A consumer genuinely missing a declared layer now **fails** the repair instead of silently narrowing it. This is intended, and recoverable in one command: both artifacts are themselves managed content, so the other layer's verifier reports them as `missing` and they can be named in `--repair-managed`. The diagnostic says so.
-- The managed layer is declared **by construction** for any repair-eligible source (`VERIFIED` ⇒ the source manifest exists), so M13's empty-bound-set refusal is now unreachable-by-construction rather than a live branch. It stays as the fail-closed floor; "every bound layer must MATCH" is vacuously true over an empty set.
+- The managed layer is declared **by construction** for any repair-eligible source (`VERIFIED` ⇒ the source manifest exists **at verification time**). That does not make M13's empty-bound-set refusal unreachable: `$SOURCE_TREE` stays mutable until the bind, so the branch is **fail-closed**, not unreachable. It stays as the floor; "every bound layer must MATCH" is vacuously true over an empty set.
 - The AC3 fixture stays green **by design, not by retuning**: its source declares only the managed layer and ships no verify wrapper, so the bound set is that one layer with no wrapper requirement, and the consumer carries its manifest. A partial *consumer* is refused; a source that legitimately does not ship a layer at that version is not invented into one.
 - Plain `--source` transport is unchanged and still disclosed: snapshot, payload, verifier and manifest share one authority there, so a plain source can declare a self-consistent coverage list. Git transport is the case the anchor is strong for.
 

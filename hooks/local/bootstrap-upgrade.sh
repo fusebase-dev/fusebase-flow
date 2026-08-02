@@ -240,12 +240,11 @@ FF_REPAIR_BOUND=()
 # TRIPWIRE (decision M16): membership is read from $SOURCE_TREE — the tree this run already PROVED
 # — and NEVER from $ROOT, the tree being repaired. Never restore a predicate over consumer-side
 # artifacts (M14's "either the manifest or the wrapper is present here"): whoever can delete those
-# artifacts deletes themselves out of the bound set before authorization, and "this install never
-# carried the layer" then reads identically to "both artifacts were removed a second ago" — a
-# downgrade with no race. Repair refuses unless FF_SOURCE_STATE=VERIFIED, so this coverage list
-# comes from a tree that returned rc 0 AND an exact MATCH against its own manifest through an
-# isolated interpreter, and it is version-matched: it states which layers exist at the version
-# being repaired FROM, so skew needs no consumer-side inspection.
+# artifacts deletes themselves out of the bound set before authorization, so "this install never
+# carried the layer" reads identically to "both were removed a second ago" — a downgrade with no
+# race. The anchor is outside the REPAIRED TREE's control, not outside the consumer's: M17 locks
+# the same-principal threat model, so this raises a downgrade's cost (author a self-consistent
+# source tree) rather than removing it.
 # TRIPWIRE (decision M13, unchanged): the set is decided HERE — before ff_repair_managed writes a
 # byte — and never re-derived afterwards; a layer that loses an artifact mid-run is a
 # contradiction, not an input to the decision.
@@ -264,8 +263,9 @@ ff_boot_bind_repair_layers() {
     echo "[bootstrap-upgrade] repair layer REQUIRED — the verified source declares it (bound at authorization): $mrel (wrapper required=$need_w)."
   done
   [ "${#FF_REPAIR_BOUND[@]}" -gt 0 ] && return 0
-  # Unreachable while VERIFIED implies a source-side $FF_MCM_REL — kept as the fail-closed floor,
-  # because "every bound layer MATCHed" is vacuously true over an empty set.
+  # FAIL-CLOSED floor, not an unreachable branch: VERIFIED implies a source-side $FF_MCM_REL at
+  # VERIFICATION time, and $SOURCE_TREE stays mutable until this bind. "Every bound layer MATCHed"
+  # is vacuously true over an empty set, so an empty set must never reach the verdict.
   echo "[bootstrap-upgrade] FATAL: the verified source declares no manifest layer, so nothing could" >&2
   echo "                    confirm the repair. Refusing before any write (decisions M13/M16)." >&2
   return 1
