@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "300ae122d4ee08cb0b2f54894f615123ca1156dbb4462704a7efeb4fbd4b2dc5"
+      "sha256": "0edbd6f77d7f6c666ff12334d223f3492c1c6fabb9c48c1bee383cbb750a0fbf"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -282,7 +282,7 @@
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
-      "sha256": "2c1ccce5c466ccb0df349b0e5589e22112731abcd2e4c297a1ac0e3233a27df0"
+      "sha256": "26577b44ebf0ea77f9ffe0855e480c10110d2ac1e430878934df43d40459c79d"
     },
     {
       "path": "hooks/local/check-cli-flow-conflicts.sh",
@@ -1149,5 +1149,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "e046939ff0c10e1d71567993803e1141a7c2b770319c854f7736ae7b3fd06d23"
+  "manifest_self_sha256": "c60fa71c1d3f61d535b849d6be39ce1ea658d11eca729453d870f5ae9c33033b"
 }

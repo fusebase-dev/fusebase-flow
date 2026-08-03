@@ -267,7 +267,7 @@ ff_boot_bind_repair_layers() {
   # VERIFICATION time, and $SOURCE_TREE stays mutable until this bind. "Every bound layer MATCHed"
   # is vacuously true over an empty set, so an empty set must never reach the verdict.
   echo "[bootstrap-upgrade] FATAL: the verified source declares no manifest layer, so nothing could" >&2
-  echo "                    confirm the repair. Refusing before any content write (M13/M16)." >&2
+  echo "                    confirm the repair. Refusing before any pre-existing file is touched (M13/M16)." >&2
   return 1
 }
 
@@ -461,10 +461,10 @@ if [ ! -f "$SOURCE_TREE/VERSION" ]; then
 fi
 echo "[bootstrap-upgrade] Source VERSION: $(tr -d '\n\r' < "$SOURCE_TREE/VERSION")"
 
-# ---- --repair-managed: bind the layer set BEFORE any content write (decisions M13/M16) ----
+# ---- --repair-managed: bind the layer set BEFORE any PRE-EXISTING file is touched (M13/M16) ----
 # TRIPWIRE: this sits ABOVE the .git/info/exclude write below on purpose — keeping the bind next to
-# the repair call put one repository write ahead of it. EXACTLY: no PRE-EXISTING file is touched
-# before this bind. Earlier writes only CREATE (the $TMPDIR canonical tree; .fusebase-flow-source/).
+# the repair call put one repository write ahead of it. Writes that precede it are legal ONLY because
+# each CREATES a new location (the $TMPDIR canonical tree; .fusebase-flow-source/), touching nothing.
 if [ "${#REPAIR_PATHS[@]}" -gt 0 ]; then
   if ! command -v ff_repair_managed >/dev/null 2>&1; then
     echo "[bootstrap-upgrade] FATAL: --repair-managed needs hooks/local/lib/materialize-managed-source.sh" >&2
@@ -495,7 +495,7 @@ if command -v ff_git_exclude_backups >/dev/null 2>&1; then
 fi
 
 # ---- --repair-managed (AC3): deliberate exact-path byte repair, then re-verify ----
-# The layer set was bound above, before any content write; nothing re-derives it here.
+# The layer set was bound above, before any pre-existing file was touched; nothing re-derives it here.
 if [ "${#REPAIR_PATHS[@]}" -gt 0 ]; then
   ff_repair_managed "$ROOT" "$SOURCE_TREE" "$TS" "${REPAIR_PATHS[@]}" || exit 1
   echo "[bootstrap-upgrade] re-verifying the manifest layer(s) bound at authorization…"
