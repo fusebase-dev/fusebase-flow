@@ -554,7 +554,7 @@
     },
     {
       "path": "hooks/tests/test-upgrade-repair-managed.sh",
-      "sha256": "a6145f80fd34c5d664cc1c188a5c64942927cf86087107d8a9fb86082c8ca428"
+      "sha256": "aead89f2692609fddf7a07b0eeeb53ca16c0271b878afd3554385d88d9aedaa8"
     },
     {
       "path": "hooks/tests/test-upgrade-source-boundary.sh",
@@ -565,5 +565,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "e4d214f8699ab2ed0f49c2796168af95854990eb7ed0251bb543b5cb06b8b2b8"
+  "manifest_self_sha256": "2d0f7d514694df2a47a1967c4ce023a6acced0fc748a78cfa219864b0dc73971"
 }

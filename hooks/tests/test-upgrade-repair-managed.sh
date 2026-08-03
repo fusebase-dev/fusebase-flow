@@ -754,10 +754,10 @@ rm -rf "$JQ" "$JS"
 # 3h-10. COVERAGE, not a discriminator — this behaviour already held; the CLAIM was wrong. "Bound
 # before any repository write" is false: a repair with no staging dir clones one, and EVERY route
 # materializes a $TMPDIR tree first. Both are writes; neither touches a PRE-EXISTING file, which is
-# what M13/M16 now claim. This is a BEFORE/AFTER byte snapshot of the consumer root: it proves no
-# pre-existing file CHANGED, it does NOT observe write ORDER — never re-title it as an ordering proof.
+# what M13/M16 now claim. MEASURED, and the name says so: FINAL bytes of regular files in the consumer
+# root minus .git/, the staging clone, the repaired path and its backup. No order, no global coverage.
 if ! command -v sha256sum >/dev/null 2>&1; then
-  skip "m13-no-pre-existing-file-changes-across-a-repair-that-had-to-clone" "no sha256sum on this platform — the byte-snapshot cannot be built"
+  skip "m13-no-collateral-change-among-measured-non-target-files-across-a-repair-that-had-to-clone" "no sha256sum on this platform — the byte-snapshot cannot be built"
 else
   L1="$(m13_dual_case "$M13_ROOT/no-staging")"
   L1_SRC="$M13_ROOT/gitsrc"
@@ -786,11 +786,11 @@ else
   L1_DIFF="$(diff "$M13_ROOT/l1-before.txt" "$M13_ROOT/l1-after.txt" | grep '^[<>]' \
     | grep -v 'session_start\.py' | grep -v '\.pre-upgrade-' || true)"
   [ -z "$L1_DIFF" ] \
-    || l1_fail="$l1_fail [a pre-existing file OTHER than the named path changed: $(printf '%s' "$L1_DIFF" | tr '\n' '|')]"
+    || l1_fail="$l1_fail [a measured non-target file changed: $(printf '%s' "$L1_DIFF" | tr '\n' '|')]"
   if [ -z "$l1_fail" ]; then
-    ok "m13-no-pre-existing-file-changes-across-a-repair-that-had-to-clone [COVERAGE — the behaviour already held; the CONTRACT WORDING was the defect. Snapshot-based: proves no pre-existing file changed, NOT write order]"
+    ok "m13-no-collateral-change-among-measured-non-target-files-across-a-repair-that-had-to-clone [COVERAGE — the behaviour already held; the CONTRACT WORDING was the defect. Compares FINAL bytes of regular files in the consumer root, excluding .git/, the staging clone, the repaired path and its backup twin: proves no collateral change among THOSE — not global coverage, not write order]"
   else
-    bad "m13-no-pre-existing-file-changes-across-a-repair-that-had-to-clone" "$l1_fail :: $(tail -5 "$L1_LOG" | tr '\n' '|')"
+    bad "m13-no-collateral-change-among-measured-non-target-files-across-a-repair-that-had-to-clone" "$l1_fail :: $(tail -5 "$L1_LOG" | tr '\n' '|')"
   fi
 fi
 
