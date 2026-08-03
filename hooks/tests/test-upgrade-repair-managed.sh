@@ -330,8 +330,8 @@ fi
 rm -rf "$B8_ROOT"
 
 # ---- 3h. M13/M16: the repair confirms the layer set the VERIFIED SOURCE declares --------------
-# Decision M13 settles what "repair confirmed" means: the required set is bound BEFORE any write
-# and cannot shrink; every bound layer must return rc 0 AND a parsed exact MATCH; a bound layer
+# Decision M13 settles what "repair confirmed" means: the required set is bound BEFORE any
+# pre-existing file is touched and cannot shrink; every bound layer returns rc 0 AND exact MATCH; a bound layer
 # whose manifest or wrapper is gone at verification time FAILS rather than being skipped.
 # Decision M16 settles what puts a layer IN that set: the VERIFIED SOURCE tree's own coverage
 # list — $SOURCE_TREE/<manifest-rel> — never the consumer tree being repaired. M14's consumer-side
@@ -441,7 +441,7 @@ else
   bad "m13-a-parsed-match-with-a-nonzero-verifier-rc-is-not-a-confirmed-repair" "rc=$A1_RC$a1_fail :: $(tail -6 "$A1_LOG" | tr '\n' '|')"
 fi
 
-# 3h-2. The set is bound BEFORE the first write, so a layer cannot leave it mid-run. The double
+# 3h-2. The set is bound BEFORE any pre-existing file is touched, so a layer cannot leave it mid-run. The double
 # unlinks the consumer's managed-content manifest during the drift enumeration that authorizes
 # the repair — after the bind, before the re-check. Keyed on the manifest, the re-check called
 # that "this install ships no manifest" and exited 0.
@@ -757,7 +757,7 @@ rm -rf "$JQ" "$JS"
 # what M13/M16 now claim. MEASURED, and the name says so: FINAL bytes of regular files in the consumer
 # root minus .git/, the staging clone, the repaired path and its backup. No order, no global coverage.
 if ! command -v sha256sum >/dev/null 2>&1; then
-  skip "m13-no-collateral-change-among-measured-non-target-files-across-a-repair-that-had-to-clone" "no sha256sum on this platform — the byte-snapshot cannot be built"
+  skip "m13-no-final-byte-change-among-measured-non-target-files-across-a-repair-that-had-to-clone" "no sha256sum on this platform — the byte-snapshot cannot be built"
 else
   L1="$(m13_dual_case "$M13_ROOT/no-staging")"
   L1_SRC="$M13_ROOT/gitsrc"
@@ -782,15 +782,15 @@ else
   [ -d "$L1/.fusebase-flow-source" ] \
     || l1_fail="$l1_fail [PRECONDITION: no staging clone was made, so this case did not exercise the pre-bind write]"
   grep -q "repair layer REQUIRED" "$L1_LOG" || l1_fail="$l1_fail [the layer set was never bound]"
-  # Everything the run touched, minus the named path and its backup twin, must be EMPTY.
+  # Every MEASURED final-byte difference, minus the named path and its backup twin, must be EMPTY.
   L1_DIFF="$(diff "$M13_ROOT/l1-before.txt" "$M13_ROOT/l1-after.txt" | grep '^[<>]' \
     | grep -v 'session_start\.py' | grep -v '\.pre-upgrade-' || true)"
   [ -z "$L1_DIFF" ] \
     || l1_fail="$l1_fail [a measured non-target file changed: $(printf '%s' "$L1_DIFF" | tr '\n' '|')]"
   if [ -z "$l1_fail" ]; then
-    ok "m13-no-collateral-change-among-measured-non-target-files-across-a-repair-that-had-to-clone [COVERAGE — the behaviour already held; the CONTRACT WORDING was the defect. Compares FINAL bytes of regular files in the consumer root, excluding .git/, the staging clone, the repaired path and its backup twin: proves no collateral change among THOSE — not global coverage, not write order]"
+    ok "m13-no-final-byte-change-among-measured-non-target-files-across-a-repair-that-had-to-clone [COVERAGE — the behaviour already held; the CONTRACT WORDING was the defect. Compares FINAL bytes of regular files in the consumer root, excluding .git/, the staging clone, the repaired path and its backup twin: proves no collateral change among THOSE — not global coverage, not write order]"
   else
-    bad "m13-no-collateral-change-among-measured-non-target-files-across-a-repair-that-had-to-clone" "$l1_fail :: $(tail -5 "$L1_LOG" | tr '\n' '|')"
+    bad "m13-no-final-byte-change-among-measured-non-target-files-across-a-repair-that-had-to-clone" "$l1_fail :: $(tail -5 "$L1_LOG" | tr '\n' '|')"
   fi
 fi
 

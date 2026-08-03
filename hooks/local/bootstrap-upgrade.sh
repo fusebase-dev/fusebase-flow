@@ -464,7 +464,7 @@ echo "[bootstrap-upgrade] Source VERSION: $(tr -d '\n\r' < "$SOURCE_TREE/VERSION
 # ---- --repair-managed: bind the layer set BEFORE any PRE-EXISTING file is touched (M13/M16) ----
 # TRIPWIRE: this sits ABOVE the .git/info/exclude write below on purpose — keeping the bind next to
 # the repair call put one repository write ahead of it. Writes that precede it are legal ONLY because
-# each CREATES a new location (the $TMPDIR canonical tree; .fusebase-flow-source/), touching nothing.
+# each CREATES a new location ($TMPDIR canonical tree; .fusebase-flow-source/), touching no existing file.
 if [ "${#REPAIR_PATHS[@]}" -gt 0 ]; then
   if ! command -v ff_repair_managed >/dev/null 2>&1; then
     echo "[bootstrap-upgrade] FATAL: --repair-managed needs hooks/local/lib/materialize-managed-source.sh" >&2
