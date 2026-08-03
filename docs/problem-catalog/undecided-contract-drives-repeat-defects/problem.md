@@ -8,7 +8,7 @@
 
 ## Symptom
 
-`upgrade-source-integrity-and-observability` (v4.7.0) took **seven** adversarial review rounds. Rounds 2–5 were not finding *new* ground: each one's blockers were defects **introduced by the previous round's fix**. The ticket looked like it was converging (findings kept shrinking) while it was actually circling one unanswered question.
+`upgrade-source-integrity-and-observability` (v4.7.0) took **eight** adversarial review rounds. Rounds 2–5 were not finding *new* ground: each one's blockers were defects **introduced by the previous round's fix**. The ticket looked like it was converging (findings kept shrinking) while it was actually circling one unanswered question. Rounds 6–8 returned zero class-(b) findings and only text defects — the difference is that by then the contract had been decided.
 
 ## Reproduction
 
@@ -18,7 +18,7 @@
 | 2 | Round N+1 reviews the patch | new blocker, **inside the round-N patch**, same underlying question |
 | 3 | Repeat rounds 2→5 | four rounds, each closing the previous round's fix; the contract question is never asked |
 | 4 | Round 4 post-mortem (M13 reasoning) | the two round-4 defects are shown to be **one** ambiguity instantiated twice — `rc` dropped in one verifier, layer-skip keyed on manifest vs wrapper in another |
-| 5 | Decide the contract instead of patching (M13 → M14 → refuted → M16 + M17) | rounds 6 and 7 return **zero class-(b) findings**; only text/wording defects remain |
+| 5 | Decide the contract instead of patching (M13 → M14 → refuted → M16, whose own review still returned a class-(b) threat-model blocker → M17) | rounds 6, 7 and 8 return **zero class-(b) findings**; only text/wording defects remain |
 
 Reproduces: N/A — process observation across one ticket's git + review history, not a code defect (FR-10).
 
@@ -32,7 +32,7 @@ The tell that it was a treadmill, not convergence: the findings were **the same 
 
 - Four review rounds bought no net progress. Review capacity is the scarcest resource on a hardening ticket, and it was spent re-reading the implementer's own last diff.
 - A locally-correct patch against an undecided contract is **indistinguishable from a fix** at review time; it passes, then fails somewhere else next round. The defect count going down is not evidence of convergence.
-- The one round that *did* end it (M16) also refuted M14, a decision made in the same period from the wrong anchor — proving the cost of deciding fast on the wrong axis is still lower than not deciding at all, but only if the decision is explicitly re-openable.
+- Deciding is not automatically enough: M14 was decided fast **on the wrong axis** (it read bound-set membership out of the tree being repaired) and had to be refuted by M16; M16's own review then returned a class-(b) threat-model blocker, which M17 closed. Only after all three did the class-(b) findings stop. A decision ends the treadmill when its anchor is outside the artifact under repair — not merely because it was written down.
 
 ## Mitigation / workaround
 
@@ -46,7 +46,7 @@ The tell that it was a treadmill, not convergence: the findings were **the same 
 
 | Status | Detail |
 |---|---|
-| Shipped | contract decided: **M13** (bind the layer set at authorization), **M16** (membership declared by the VERIFIED upstream tree — supersedes the refuted M14), **M17** (same-principal threat model) in `docs/specs/upgrade-source-integrity-and-observability/decisions.md`; v4.7.0 · 2026-08-03 |
+| Implemented — release pending | contract decided: **M13** (bind the layer set at authorization), **M16** (membership declared by the VERIFIED upstream tree — supersedes the refuted M14), **M17** (same-principal threat model) in `docs/specs/upgrade-source-integrity-and-observability/decisions.md`. Ships with v4.7.0; this row is flipped to Shipped with the deploy hash by the FR-14 docs commit |
 | Process | M13 carries an explicit **process note**: "this decision exists because the previous three rounds tried to *patch* the ambiguity. One implementation pass against a decided contract, then one review." |
 
 ## Recurrence triggers (so future sessions recognize this)
@@ -74,4 +74,4 @@ Future sessions hitting these signals should load this entry:
 
 | Date | Event | Source |
 |---|---|---|
-| 2026-08-03 | filed + resolved | v4.7.0 release round 8; contract decided in M13/M16/M17 |
+| 2026-08-03 | filed; problem resolved (contract decided in M13/M16/M17), release pending | v4.7.0 release round 8 |
