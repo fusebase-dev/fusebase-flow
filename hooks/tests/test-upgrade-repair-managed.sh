@@ -713,6 +713,44 @@ else
   bad "m16-the-missing-artifact-diagnostic-emits-a-remediation-that-actually-runs" "$j_fail"
 fi
 
+# 3h-9b. The emitted remediation must survive a SOURCE PATH CONTAINING A SPACE. That value is
+# operator-supplied (--source): interpolated unquoted it word-splits into a truncated --source plus
+# a stray argument. Not exotic — this repo's own directory name carries two spaces. Asserted on the
+# PARSED argv as well as on the run, so an eval cannot mask it behind another command's status.
+JS="$M13_ROOT/staged source"; mkdir -p "$JS"
+JQ="$(m13_dual_case "$M13_ROOT/spaced")"
+mv "$JQ/.fusebase-flow-source" "$JS/flow source"
+rm -f "$JQ/audit/managed-content-manifest.json"
+printf 'handler TAMPERED\n' > "$JQ/hooks/handlers/session_start.py"
+jq_fail=""; JQ_LOG="$M13_ROOT/spaced.log"
+( cd "$JQ" && timeout 600 bash hooks/local/bootstrap-upgrade.sh --source "$JS/flow source" \
+    --repair-managed hooks/handlers/session_start.py ) > "$JQ_LOG" 2>&1
+JQ_RC=$?
+[ "$JQ_RC" -ne 0 ] || jq_fail="$jq_fail [PRECONDITION: the missing manifest did not fail the repair, so no remediation was emitted]"
+JQCMD="$(sed -n 's/^.*RECOVER: //p' "$JQ_LOG" | head -1)"
+if [ -z "$JQCMD" ]; then
+  jq_fail="$jq_fail [no RECOVER line :: $(tail -4 "$JQ_LOG" | tr '\n' '|')]"
+else
+  JQSRC=""; if eval "set -- $JQCMD" 2>/dev/null; then
+    while [ "$#" -gt 0 ]; do [ "$1" = "--source" ] && { JQSRC="${2:-}"; break; }; shift; done
+  else
+    jq_fail="$jq_fail [the emitted RECOVER line does not parse as a shell command: $JQCMD]"
+  fi
+  [ "$JQSRC" = "$JS/flow source" ] \
+    || jq_fail="$jq_fail [the emitted --source argument is '$JQSRC', not '$JS/flow source' — the operator's path was interpolated UNQUOTED]"
+  ( cd "$JQ" && eval "timeout 600 $JQCMD" <<< "y" ) > "$M13_ROOT/spaced-run.log" 2>&1; jq_rc=$?
+  [ "$jq_rc" -eq 0 ] \
+    || jq_fail="$jq_fail [the emitted remediation does not run (rc $jq_rc): $JQCMD :: $(tail -3 "$M13_ROOT/spaced-run.log" | tr '\n' '|')]"
+  [ -f "$JQ/audit/managed-content-manifest.json" ] \
+    || jq_fail="$jq_fail [the remediation ran but did not restore the manifest]"
+fi
+if [ -z "$jq_fail" ]; then
+  ok "m16-the-remediation-survives-a-source-path-containing-a-space"
+else
+  bad "m16-the-remediation-survives-a-source-path-containing-a-space" "$jq_fail"
+fi
+rm -rf "$JQ" "$JS"
+
 # 3h-10. COVERAGE, not a discriminator — this behaviour already held; the CLAIM is what was wrong.
 # "Bound before any repository write" is not literally true: a repair invoked with NO staging
 # directory materializes one into .fusebase-flow-source/ first, and that is a write. The narrowed

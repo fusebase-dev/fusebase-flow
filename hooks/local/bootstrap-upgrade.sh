@@ -286,9 +286,8 @@ ff_boot_bind_repair_layers() {
 # MATCH and then died — truncated write, an error after the report, a signal — confirmed a repair.
 # TRIPWIRE (round-6): `[ -f ]` and BOTH hashers follow symlinks, so a bound layer's artifact linked
 # to byte-identical content OUTSIDE this tree satisfied presence AND hash — "this tree carries the
-# layer" about a file the tree does not own, and one --repair-managed can never restore (the link,
-# not the bytes, is the drift). Same refusal shape as _ff_repair_dest_ok (R2), which covers repair
-# TARGETS only: leaf or ANY parent component, refused outright.
+# layer" about a file it does not own, which no --repair-managed can restore (the link, not the
+# bytes, is the drift). Same shape as _ff_repair_dest_ok (R2, repair TARGETS only): leaf or ANY parent.
 ff_boot_linked_seg() {   # <repo-relative path> -> echoes the first symlinked component, else ""
   local rest="$1" cur="$ROOT" rel="" seg
   while [ -n "$rest" ]; do
@@ -311,10 +310,11 @@ ff_boot_link_refused() {   # <mod> <repo-relative artifact> <first symlinked com
 # authorizes only paths a verifier REPORTED; an absent audit/managed-content-manifest.json makes
 # its own verifier return ABSENT with an EMPTY file list and no other layer covers audit/, so
 # naming it hits "not reported as drifted". Derive from the live report, never assume. The
-# `RECOVER:` line is machine-readable on purpose — test-upgrade-repair-managed.sh EXECUTES it.
+# `RECOVER:` line is EXECUTED by test-upgrade-repair-managed.sh, so the operator's --source path
+# MUST stay shell-quoted — this repo's own directory name has spaces.
 ff_boot_recover_advice() {   # <repo-relative artifact>
   local p="$1" rep="" src=""
-  [ -n "$SRC_OVERRIDE" ] && src=" --source $SRC_OVERRIDE"
+  [ -n "$SRC_OVERRIDE" ] && src=" --source $(printf '%q' "$SRC_OVERRIDE")"
   command -v ff_managed_drift_paths >/dev/null 2>&1 \
     && rep="$(ff_managed_drift_paths "$ROOT" "$SOURCE_TREE/hooks/local/lib" 2>/dev/null || true)"
   case $'\n'"$rep"$'\n' in
