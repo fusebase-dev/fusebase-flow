@@ -751,13 +751,13 @@ else
 fi
 rm -rf "$JQ" "$JS"
 
-# 3h-10. COVERAGE, not a discriminator — this behaviour already held; the CLAIM is what was wrong.
-# "Bound before any repository write" is not literally true: a repair invoked with NO staging
-# directory materializes one into .fusebase-flow-source/ first, and that is a write. The narrowed
-# contract M13/M16 and the release note now state is what this pins — the only write that can
-# precede the bind CREATES the staging directory and touches no pre-existing file.
+# 3h-10. COVERAGE, not a discriminator — this behaviour already held; the CLAIM was wrong. "Bound
+# before any repository write" is false: a repair with no staging dir clones one, and EVERY route
+# materializes a $TMPDIR tree first. Both are writes; neither touches a PRE-EXISTING file, which is
+# what M13/M16 now claim. This is a BEFORE/AFTER byte snapshot of the consumer root: it proves no
+# pre-existing file CHANGED, it does NOT observe write ORDER — never re-title it as an ordering proof.
 if ! command -v sha256sum >/dev/null 2>&1; then
-  skip "m13-the-only-write-before-the-bind-creates-the-staging-directory" "no sha256sum on this platform — the byte-snapshot cannot be built"
+  skip "m13-no-pre-existing-file-changes-across-a-repair-that-had-to-clone" "no sha256sum on this platform — the byte-snapshot cannot be built"
 else
   L1="$(m13_dual_case "$M13_ROOT/no-staging")"
   L1_SRC="$M13_ROOT/gitsrc"
@@ -788,9 +788,9 @@ else
   [ -z "$L1_DIFF" ] \
     || l1_fail="$l1_fail [a pre-existing file OTHER than the named path changed: $(printf '%s' "$L1_DIFF" | tr '\n' '|')]"
   if [ -z "$l1_fail" ]; then
-    ok "m13-the-only-write-before-the-bind-creates-the-staging-directory [COVERAGE — the behaviour already held at c77b139; the CONTRACT WORDING was the defect]"
+    ok "m13-no-pre-existing-file-changes-across-a-repair-that-had-to-clone [COVERAGE — the behaviour already held; the CONTRACT WORDING was the defect. Snapshot-based: proves no pre-existing file changed, NOT write order]"
   else
-    bad "m13-the-only-write-before-the-bind-creates-the-staging-directory" "$l1_fail :: $(tail -5 "$L1_LOG" | tr '\n' '|')"
+    bad "m13-no-pre-existing-file-changes-across-a-repair-that-had-to-clone" "$l1_fail :: $(tail -5 "$L1_LOG" | tr '\n' '|')"
   fi
 fi
 
