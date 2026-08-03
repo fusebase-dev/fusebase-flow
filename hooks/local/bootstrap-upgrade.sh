@@ -416,7 +416,7 @@ ff_boot_materialize() {
       return 1
     fi
     rm -rf "$dest/.git" 2>/dev/null || true
-    echo "[bootstrap-upgrade] materialized plain source -> immutable snapshot (embedded boundary)."
+    echo "[bootstrap-upgrade] materialized plain source -> private writable copy (embedded boundary)."
   fi
   SOURCE_TREE="$dest"
   repo="$(cd "$SOURCE_CLONE" && pwd)"

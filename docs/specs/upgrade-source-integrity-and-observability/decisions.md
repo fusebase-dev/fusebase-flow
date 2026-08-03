@@ -197,7 +197,7 @@ The correct fix is parsing execution structure — distinguishing executed comma
 
 **Recommendation:** Snapshot every non-git source into temporary absolute `SOURCE_TREE` before any source-derived read. Run `managed_content_manifest.py verify --root <SOURCE_TREE>`. If a manifest is present, `MATCH` proceeds; `BROKEN` or `DRIFT` aborts before writes and reports paths/reason. `ABSENT` is supported only as the named, logged `UNVERIFIED_LEGACY_SOURCE` compatibility fallback for pre-manifest sources; preserve `test-upgrade-conflict-classification.sh:310-319`.
 
-**Reasoning:** Manifest-bearing plain directories can and must prove byte integrity. Pre-4.7 sources cannot: rejecting `ABSENT` would silently revoke the existing pre-classifier upgrade contract. A named fallback preserves compatibility without falsely labeling legacy bytes verified. The immutable snapshot also prevents the caller from changing source bytes between validation and copy.
+**Reasoning:** Manifest-bearing plain directories can and must prove byte integrity. Pre-4.7 sources cannot: rejecting `ABSENT` would silently revoke the existing pre-classifier upgrade contract. A named fallback preserves compatibility without falsely labeling legacy bytes verified. The private copy also prevents the caller from changing source bytes between validation and copy — it is a plain writable `cp -R`, not a tamper-proof or immutable snapshot (M16).
 
 **Alternatives considered:**
 

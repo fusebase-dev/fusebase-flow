@@ -82,8 +82,8 @@ _ff_mms_git() {   # <repo> <ref> <dest>
 
 _ff_mms_snapshot() {   # <src> <dest> — non-git source (decision M10)
   local src="$1" dest="$2"
-  # An immutable snapshot also stops the caller changing source bytes between the
-  # verification below and the copy the engine performs from it.
+  # A PRIVATE copy — writable, not tamper-proof (M16). It stops the caller changing
+  # source bytes between the verification below and the engine's copy from it.
   cp -R "$src/." "$dest/" 2>/dev/null || {
     FF_SOURCE_REASON="could not snapshot the plain source directory"
     return 1

@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "4dfe21b846c475c013ec7aa4b85fe0fcde11a2fb88f6d62fac93a9a17542df47"
+      "sha256": "a3631cc9485cff3f1c4a052ca8591e489a3fc85e11ddcf7d3321ddafdfd54fcf"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -282,7 +282,7 @@
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
-      "sha256": "26577b44ebf0ea77f9ffe0855e480c10110d2ac1e430878934df43d40459c79d"
+      "sha256": "cce223d0b8f24c4fb06b5a7426f4d06ed8b3956c4b1cc4d548a1e3ae4e346924"
     },
     {
       "path": "hooks/local/check-cli-flow-conflicts.sh",
@@ -486,7 +486,7 @@
     },
     {
       "path": "hooks/local/lib/materialize-managed-source.sh",
-      "sha256": "58505a548210bdfe6de83518c627b1b3f5e6c70748bf654cd6afd86bc57867fd"
+      "sha256": "cb9b69f79715c6252b80c8f27a940e5cb15366e5153958f3315d38de7ef7e2c6"
     },
     {
       "path": "hooks/local/lib/merge-module-size-baseline.sh",
@@ -1149,5 +1149,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "8ebb049a85bc87efe0598a21dd87b64399c157bcd95e428b6b7332fe379c54b6"
+  "manifest_self_sha256": "2e412c6f539b0a106de7caaa053c1a8a6a70d4f2acda353895127f536190f5b6"
 }
