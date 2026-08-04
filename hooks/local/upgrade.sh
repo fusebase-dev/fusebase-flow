@@ -58,11 +58,10 @@ set -euo pipefail
 # FILE. Without the wrapper, bash keeps streaming the (now-replaced) script at
 # a stale byte offset and aborts mid-upgrade with a syntax error (observed on
 # the 3.19.1 -> 3.20.1 hop; nondeterministic before that — offset-dependent).
-# Engines ≤3.20.0 lack this guard: from those versions, either upgrade via
-#   bash hooks/local/bootstrap-upgrade.sh -- --auto-yes   (stages the new
-# engine FIRST, so the self-overwrite is byte-identical and harmless), or
-# simply RE-RUN upgrade.sh after the abort — the refreshed engine completes
-# the remaining steps idempotently.
+# Engines ≤3.20.0 lack this guard: from those versions use
+#   bash hooks/local/bootstrap-upgrade.sh -- --auto-yes   (stages the new engine FIRST,
+# so the self-overwrite is byte-identical). A bare re-run also finishes the remaining steps,
+# but it runs the REFRESHED engine, not this one (M19) — see print_recovery_hint.
 main() {
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
@@ -78,8 +77,21 @@ UPGRADE_FINISHED=0
 print_recovery_hint() {
   [ "$UPGRADE_FINISHED" -eq 1 ] && return 0
   echo "" >&2
-  echo "[upgrade] INTERRUPTED or FAILED before completion — the tree may be HALF-APPLIED." >&2
-  echo "[upgrade] Recover by re-running (idempotent — the refreshed engine finishes the rest):" >&2
+  echo "[upgrade] INTERRUPTED or FAILED before completion - the tree may be HALF-APPLIED." >&2
+  # M19: the re-run is NOT "the same thing again". Step 1 refreshes hooks/ INCLUDING this file,
+  # so by the time this hint prints, the engine on disk may already be the REFRESHED one while
+  # the failure came from the copy bash had parsed into memory. Flow cannot enumerate a
+  # consumer's own seam (a locally wired gate is invisible upstream) - the generic statement is
+  # the whole fix, and the part that matters: a clean exit from the re-run is not evidence that
+  # a check the failed engine ran still exists. Do NOT soften this back into "idempotent, just
+  # re-run" - that phrasing is what sent a consumer into a gate-less engine after being told
+  # their security substance was gone. ASCII only: this crosses a non-UTF-8 Windows console.
+  echo "[upgrade] Recover by re-running - but read this first: the content refresh may ALREADY" >&2
+  echo "          have replaced this engine on disk, so the re-run executes the REFRESHED engine," >&2
+  echo "          not the one that just failed. Its behaviour may differ, INCLUDING seams it does" >&2
+  echo "          not invoke. A clean exit from the re-run is NOT evidence that a check the failed" >&2
+  echo "          engine ran still exists - if you rely on a local gate wired into this engine," >&2
+  echo "          run that gate yourself afterwards and read its verdict." >&2
   echo "    bash hooks/local/upgrade.sh                              # re-run; completes remaining steps" >&2
   echo "    bash hooks/local/post-fusebase-update.sh --refresh-overlays  # re-apply adapters + slash commands" >&2
   echo "    bash hooks/local/sync-version-strings.sh                 # re-sync derived attestation strings" >&2
