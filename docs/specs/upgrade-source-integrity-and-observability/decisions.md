@@ -348,3 +348,36 @@ Closing the co-tenant case genuinely requires truth from outside the workspace: 
 **Backlog:** file `docs/backlog/repair-trust-root-outside-workspace/` for the (b) case — remote fetch or signature verification at repair time — cross-linked to K3 and `provenance-and-single-seam-guarantees`.
 
 **Lock status:** LOCKED 2026-08-02
+
+---
+
+## M18. Compat-accepted approvals must be surfaced, not merely discoverable
+
+**Recommendation:** Do **not** change K7's default (`strict_approvals: false` stays until the announced flip). Instead, **surface** the consequence at the moments a consumer would care:
+
+1. **At upgrade.** When the run completes and `state/approvals/` contains artifacts that only pass under compat (`MISSING_EXPIRY`, or missing `action`), print a count and the one command that lists them. Not a prompt, not a failure — a line the operator cannot miss.
+2. **At health.** `fusebase-flow-health-check` reports the same count alongside the existing active-approval listing (M9 already established the verdict-neutral warning seam — reuse it, do not invent a second).
+3. **At denial-adjacent allow.** The audit-log line already exists (K7/AC12); it is not enough on its own because nobody reads the audit log proactively.
+
+**Reasoning:** A consumer measured this on a real tree: 98 accumulated artifacts, several with no `action` and no `expires_at`, one satisfying `production_deploy` permanently — an **open deploy gate reached by the documented upgrade path in one command, with no warning from the framework**. They explicitly do not ask us to change the default, and I agree the default is right: a hard cutover would break every in-flight approval, which is the harm K7 exists to avoid.
+
+But K7 shipped `--inventory` and an audit line and treated that as sufficient. It is not. "Discoverable by a subcommand you'd have to know to run" is the same failure shape as `approval_authors` — a property that is true in the documentation and absent in the operator's experience. The fix is not stricter enforcement; it is telling the truth at the moment it becomes relevant.
+
+**Explicitly NOT in scope:** changing the default, auto-migrating or auto-deleting legacy artifacts (Flow must never synthesize or destroy an approval the operator gave), and blocking an upgrade on their presence.
+
+**Alternatives considered:**
+
+- **Flip the default now** — rejected: K7's reasoning stands, and the reporter does not ask for it.
+- **Leave it; the inventory exists** — rejected on the measurement above.
+
+**Lock status:** LOCKED 2026-08-04
+
+---
+
+## M19. Recovery hints must not imply continuity across an engine swap
+
+**Recommendation:** The post-failure recovery block in `upgrade.sh` states plainly that a re-run executes the **refreshed** engine, whose behaviour may differ from the engine that just failed — including seams it may not invoke.
+
+**Reasoning:** The reporter's framing ("name the consumer gate the refreshed engine does not invoke") is not implementable upstream: Flow cannot enumerate a seam a consumer added. But the true and generic statement is available and is the part that matters — the instruction currently reads as "run the same thing again", and it is not the same thing. Their case is the sharp version: their gate fired from a `main()` already parsed into memory, *after* the on-disk engine had been replaced by one with zero references to it. A clean exit on re-run would have been indistinguishable from "the gate no longer exists."
+
+**Lock status:** LOCKED 2026-08-04
