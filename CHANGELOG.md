@@ -17,7 +17,8 @@ been replaced while the failure came from the copy bash parsed into memory. The 
 The reporting consumer hit the sharp version: their own gate fired from an already-parsed `main()`
 *after* the on-disk engine had been replaced by one with zero references to it. A clean exit on
 re-run would have been indistinguishable from "the gate no longer exists". The block now says so,
-and the same stale claim was removed from the `main()` header comment.
+and the same claim was deleted from its other two carriers: the trailing `# re-run; completes
+remaining steps` on the first printed command, and the `main()` header comment.
 
 Flow deliberately does **not** name a consumer's specific gate — a locally wired seam is invisible
 upstream, so any name here would be fabricated. The generic statement is the fix.
