@@ -53,12 +53,16 @@ printf '%s' "$HINT" | grep -qi 'NOT evidence' \
 $HINT"
 
 # ---- 2. The withdrawn continuity claim is gone -----------------------------------------
+# TRIPWIRE: match the phrasing FAMILY, never a literal pair. The first cut of this assertion
+# grepped 'idempotent' and 'finishes the rest' only, and stayed green while the block still
+# printed "# re-run; completes remaining steps" - the same claim in a third wording. An inline
+# `#` inside an echo string is printed to the operator, so it is in scope here.
+CONTINUITY_RE='idempotent|finishes the rest|(completes?|finishes) (the )?remaining steps'
 f=""
-printf '%s' "$HINT" | grep -qi 'idempotent' \
-  && f="$f [still calls the re-run idempotent - M19 removes exactly that continuity claim]"
-printf '%s' "$HINT" | grep -qi 'finishes the rest' \
-  && f="$f [still says the refreshed engine 'finishes the rest', which asserts continuity across an engine swap]"
-[ -z "$f" ] && ok "m19-continuity-claim-removed (no 'idempotent' / 'finishes the rest' in the printed block)" \
+if printf '%s' "$HINT" | grep -qiE "$CONTINUITY_RE"; then
+  f="$f [still claims the re-run continues what the failed engine was doing: $(printf '%s' "$HINT" | grep -oiE "$CONTINUITY_RE" | sort -u | tr '\n' ' ')]"
+fi
+[ -z "$f" ] && ok "m19-continuity-claim-removed (printed block contains none of: idempotent / finishes the rest / completes|finishes (the) remaining steps - inline comments included)" \
   || bad "m19-continuity-claim-removed" "$f
 --- print_recovery_hint ---
 $HINT"
@@ -67,18 +71,22 @@ $HINT"
 # M19 explicitly rejects the reporter's suggested wording ("name the gate the refreshed engine
 # does not invoke"): a locally wired gate is invisible upstream, so naming one would be a
 # fabricated specific. The generic statement is the fix.
+# Scope, stated because the name must not outrun it: a grep can reject the named-gate SHAPES
+# below; it cannot prove an arbitrary fabricated name absent. That half is review-time.
 f=""
 printf '%s' "$HINT" | grep -qiE 'check-post-upgrade-gate|your gate is|the gate named|does not invoke `[a-z]' \
   && f="$f [names a specific consumer gate - Flow cannot know one, so any name here is fabricated]"
 printf '%s' "$HINT" | grep -qi 'run that gate yourself' \
   || f="$f [does not tell the operator to run their own gate afterwards - the actionable half]"
-[ -z "$f" ] && ok "m19-no-fabricated-consumer-seam (generic statement only; tells the operator to run their own gate)" \
-  || bad "m19-no-fabricated-consumer-seam" "$f
+[ -z "$f" ] && ok "m19-no-known-gate-name-shape (rejects the four named-gate shapes; requires the run-your-own-gate line)" \
+  || bad "m19-no-known-gate-name-shape" "$f
 --- print_recovery_hint ---
 $HINT"
 
-# ---- 4. The recovery commands themselves are unchanged ---------------------------------
+# ---- 4. The recovery commands are all still printed -------------------------------------
 # M19 changes wording, not mechanism. If a command went missing, the hint is worse, not better.
+# This is the CONTROL: the four commands predate M19, so this is the one assertion that passes
+# on both sides of 5b5578f. Residency only - it says nothing about what the commands do.
 f=""
 for cmd in "bash hooks/local/upgrade.sh" \
            "bash hooks/local/post-fusebase-update.sh --refresh-overlays" \
@@ -86,8 +94,8 @@ for cmd in "bash hooks/local/upgrade.sh" \
            "bash hooks/local/preflight.sh"; do
   printf '%s' "$HINT" | grep -qF "$cmd" || f="$f [recovery command dropped: $cmd]"
 done
-[ -z "$f" ] && ok "m19-recovery-commands-intact (wording changed, mechanism did not)" \
-  || bad "m19-recovery-commands-intact" "$f"
+[ -z "$f" ] && ok "m19-recovery-commands-present (all four commands still printed)" \
+  || bad "m19-recovery-commands-present" "$f"
 
 # ---- 5. ASCII only ----------------------------------------------------------------------
 # This block reaches a Windows console whose codec is not UTF-8. LC_ALL=C is load-bearing:
@@ -98,14 +106,17 @@ else
   ok "m19-block-is-ascii-only (renders on a non-UTF-8 Windows console)"
 fi
 
-# ---- 6. The stale continuity claim is gone from the file header too --------------------
+# ---- 6. The continuity claim is gone from the file header too ---------------------------
 # FR-20: the same false statement lived in the main() header comment. Fixing one carrier and
-# leaving the other is how a corrected claim comes back.
-HEADER="$(sed -n '1,70p' "$UPGRADE")"
-if printf '%s' "$HEADER" | grep -qi 'remaining steps idempotently'; then
-  bad "m19-header-comment-not-left-stale" "hooks/local/upgrade.sh's main() header still tells a reader the re-run completes 'the remaining steps idempotently' - the same claim M19 removed from the printed block"
+# leaving the other is how a corrected claim comes back - it did: the header kept the claim in
+# different words ("a bare re-run also finishes the remaining steps") while an earlier literal
+# grep for 'remaining steps idempotently' passed. Same CONTINUITY_RE family as assertion 2, so
+# the two carriers cannot drift apart again.
+HEADER="$(sed -n '1,/^main() {/p' "$UPGRADE")"
+if printf '%s' "$HEADER" | grep -qiE "$CONTINUITY_RE"; then
+  bad "m19-header-carries-no-continuity-claim" "hooks/local/upgrade.sh's header still tells a source reader the re-run continues what the failed engine was doing: $(printf '%s' "$HEADER" | grep -inE "$CONTINUITY_RE" | head -3)"
 else
-  ok "m19-header-comment-not-left-stale (the header carries the same correction as the printed block)"
+  ok "m19-header-carries-no-continuity-claim (header states no continuity phrasing; it does not restate the block's correction)"
 fi
 
 finish
