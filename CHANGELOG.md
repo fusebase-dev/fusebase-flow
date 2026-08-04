@@ -4,7 +4,43 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
-## [Unreleased]
+## [4.7.1] — 2026-08-04
+
+### Fixed — the post-failure recovery hint no longer implies engine continuity (M19)
+
+`upgrade.sh` told a consumer whose upgrade had just failed to re-run it, calling the re-run
+"idempotent — the refreshed engine finishes the rest". Step 1 of an upgrade refreshes `hooks/`
+**including the engine itself**, so by the time that hint prints the on-disk file may already have
+been replaced while the failure came from the copy bash parsed into memory. The re-run is a
+**different engine**, and its behaviour may differ — including seams it does not invoke.
+
+The reporting consumer hit the sharp version: their own gate fired from an already-parsed `main()`
+*after* the on-disk engine had been replaced by one with zero references to it. A clean exit on
+re-run would have been indistinguishable from "the gate no longer exists". The block now says so,
+and the same stale claim was removed from the `main()` header comment.
+
+Flow deliberately does **not** name a consumer's specific gate — a locally wired seam is invisible
+upstream, so any name here would be fabricated. The generic statement is the fix.
+
+Wording only: no behaviour, policy, or default changed, and the same recovery commands print.
+Note the inherent reach limit — the corrected text is in the engine you are *running*, so it helps
+on the next upgrade after you adopt 4.7.1, not on the one that installs it.
+
+### Not in this release — compat-approval surfacing is parked
+
+The consumer's other finding — K7's compat default is a live open deploy gate on an aged tree
+(98 artifacts, several with no `expires_at`, one satisfying `production_deploy` permanently) — is
+real and accepted, and **not fixed here**. Three implementation rounds failed three adversarial
+reviews, each round's fix causing the next round's defect, because the contract was never designed:
+"judge as the gate judges" has no single answer (`command_policy` supplies `repo_id` +
+`command_digest`, `path_policy` supplies neither, health deferrals are not in `require_approval`).
+A reporting tool that mis-states what authorizes a deploy is worse than none. Parked with the design
+requirement in `docs/backlog/compat-approval-surfacing/README.md`; `approve-local.sh --inventory`
+remains the way to see what strict will reject. A separate pre-existing defect found in passing —
+an artifact granting itself a health-check deferral via a newline in `deferred_checks` — is filed at
+`docs/backlog/self-granting-health-deferral/README.md`.
+
+## [4.7.0] — 2026-08-04
 
 ### Security — FR-12 command gate: bound, parsed, fail-closed
 
