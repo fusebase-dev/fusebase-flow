@@ -51,3 +51,15 @@ M20 says "a body with no `action` is not compat." Strictly false: such an artifa
 ## What was NOT wrong
 
 The consumer's measurement, K7's compat default (they explicitly do not ask us to change it), and M19's recovery-hint fix — that one is independent, small and correct, and can ship separately.
+
+---
+
+## M19 residual — specified, not inferred (PO, 2026-08-04)
+
+M19 is implemented and **held unshipped** on `fix/msys-v3307-hardening` (`5b5578f..fb4e376`). It does not justify a release on its own: the corrected text lives in the engine the consumer is *running*, so it only helps on the upgrade **after** adoption, and the reporting consumer is still on 4.6.1. Fold it into the next substantive release.
+
+**The residual, answered:** `upgrade.sh`'s recovery block still prints `bash hooks/local/upgrade.sh   # re-run; completes remaining steps` four lines under a paragraph saying behaviour may differ. **Delete the inline comment. Do not qualify it.** The command stays — it is still the right recovery action. The comment is the defect: any qualification would restate what the paragraph above already says, and a shorter true line beats a longer hedged one. Same for the sibling wording at `:63` and `:95`.
+
+**The assertion names are the wider problem.** Four M19 tests carry names claiming more than their predicates check (`m19-continuity-claim-removed` greps two literals and missed a third; `m19-recovery-commands-intact` claims "mechanism did not change"; `m19-header-comment-not-left-stale` claims the header "carries the same correction" when it does not). Narrow every name to what it actually asserts, or widen the predicate to the name. **This is the same defect class as everything else in this ticket** — a claim wider than the thing it describes — and it has now appeared in the surfacing feature, the release notes, the CHANGELOG, the problem-catalog entry, and the tests written to catch it.
+
+**Recorded for whoever resumes:** the class did not appear because the work was hard. It appeared in a six-line change. Assume it is present and grep for it deliberately rather than trusting a green suite — three green gates produced three NO-SHIPs on this ticket.
