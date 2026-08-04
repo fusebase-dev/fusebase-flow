@@ -1,76 +1,48 @@
-# Active handoff — v4.7.0 unpublished; round-7 corrections landed and gated, round-7 review returns 2 × (a) — STOPPED FOR GOOD
+# Active handoff — **v4.7.0 SHIPPED**. Nothing pending on this ticket.
 
-**Updated:** 2026-08-03 (rev 5 — items 1/2/3 fixed and gated; Windows 743/743 + Linux 740/740; review 7 = NO-SHIP, two **(a)**, zero **(b)**) · **Branch:** `fix/msys-v3307-hardening` · **HEAD:** `4abbdf1` · **VERSION:** 4.7.0
-**Hard stop by operator instruction.** The round-7 authorization was explicit: *if the review is not SHIP, stop for good — do not fix, do not iterate, regardless of how small the remaining items look.* Two (a)s came back. **No further implementation pass without a fresh operator decision.**
+**Updated:** 2026-08-04 (rev 6 — released) · **Deploy hash:** `bad4d92` · **Release:** <https://github.com/fusebase-dev/fusebase-flow/releases/tag/v4.7.0>
+Ticket `upgrade-source-integrity-and-observability` is **DONE**. This file exists only so the next session does not re-derive the shipped state. **No forward action is pending here** — the next ticket starts from a clean `main`.
 
-## State — nothing shipped, nothing to undo
+## Shipped state
 
 | | |
 |---|---|
-| `origin/main` | `85b97dd` — untouched, CI green |
-| Tag `v4.7.0` | `b11c60d` — **not** moved; no GitHub Release (404) |
-| Local | `4abbdf1`, tracked tree clean, 59 commits unpushed |
-| Gate at `4abbdf1` | Windows unscoped **743/743 PASS, 0 FAIL**; Linux `ubuntu:24.04` **740/740 PASS, 0 FAIL**, every CI step rc 0 |
-| FR-07 | empty diff `c77b139..4abbdf1` on `policies/*.yml`, `hooks/handlers/**`, `hooks/shared/**`, `hooks/git/**` |
+| `origin/main` | `bad4d92` (was `85b97dd`; 77 commits) |
+| Tag `v4.7.0` | re-pointed `b11c60d` → `bad4d92` (decision M6); old remote tag deleted, new one pushed |
+| GitHub Release | **published** 2026-08-04T00:57:45Z, not draft, not prerelease, target `main` |
+| CI `fusebase-flow-release` `30867061611` | verify **success** (14/14 steps) → publish **success** (`publish` is `needs: verify`, so a red suite cannot release) |
+| CI `fusebase-flow-verify` `30867017382` (on `main`) | **success** |
+| Local gate — Windows unscoped | **742/743 PASS, 0 FAIL**; the single non-PASS is `cli-flow-recovery` **INCONCLUSIVE** (crosses its 900s liveness bound on this host). Run directly, unbounded: **rc 0, 31/31 PASS, 0 FAIL** |
+| Local gate — Linux `ubuntu:24.04` | **740/740 PASS, 0 FAIL**, every CI-mirrored step rc 0; `cli-flow-recovery` completes there in **11s** |
+| FR-07 | empty diff `c77b139..bad4d92` on `policies/*.yml`, `hooks/handlers/**`, `hooks/shared/**`, `hooks/git/**` |
 | Locked files | empty diff: M2 hashers, M3 `run-with-timeout.sh`, `.gitattributes`, `templates/**` |
-| Line ceilings | `bootstrap-upgrade.sh` **799/800**, `test-upgrade-repair-managed.sh` **799/800** — the next edit to either must shrink before it grows |
-| Release prerequisites | four version carriers 4.7.0, README badge 4.7.0, `sync-version-strings.sh` empty diff — verified twice, still unused |
-| Operator DP.6 | never consumed |
+| Approval | `state/approvals/production_deploy-upgrade-source-integrity-and-observability-20260804.json` (repo-bound, command-bound) |
 
-## Round 7 — what was authorized, and what landed
-
-Exactly three items, no more. The review confirmed **no unauthorized fourth change**.
+## Round 8 — the last four defects, all text
 
 | Item | Commit | Discriminator |
 |---|---|---|
-| 1 — shell-quote the operator's `--source` in the emitted `RECOVER:` line | `c5949cf` | **RED first**: at `c8bb73c` the emitted command died with `Unknown argument: source/flow`. GREEN after |
-| 2 — state the write-order claim as what is provable | `fca5b39` | **No discriminator claimed** — behaviour unchanged, the sentence was the defect |
-| 3 — qualify "immutable snapshot" in M16 | `4abbdf1` | wording only |
+| 1 — delete the self-contradicting "before any content write" headline; the accurate claim stands alone (release note, M13, M16, the M13 index row, `bootstrap-upgrade.sh` heading + FATAL message + 2 comments) | `1ab081c` | **none claimed — wording only**; the sentence was the defect |
+| 2 — name test 3h-10 for what it measures | `b1e35f4`, `cfa0c13` | **none claimed — naming only**; no assertion predicate changed |
+| 3 — "immutable snapshot" is wrong for a `cp -R` copy; fixed in all four homes outside M16, runtime message first | `865ec13` | **none claimed — wording only** |
+| 4 — file `undecided-contract-drives-repeat-defects` + README index row | `fe63fd2`, `bad4d92` | new process document |
 
-## Round-7 review: NO-SHIP, two (a), zero (b) — `docs/tmp/handoff/2026-08-03-round7-review.md`
+Round-8 review (`c:/tmp/round8-review-out.md`) returned NO-SHIP with **8 findings, every one class (a) and text-only, zero class-(b)**. All 8 were closed in `cfa0c13` + `bad4d92` under the operator's standing "fix exactly those, re-gate, release without a further round" authorization; one of the 8 (`state/audit/hook-test-results.md`) turned out to be a **gitignored generated artifact**, regenerated by the re-gate.
 
-Both findings are **item 2 done incompletely**, both self-inflicted in that one commit. Verified first-hand, not relayed.
+## Carried forward — recorded, deliberately NOT fixed
 
-| # | Defect | Where | Class |
-|---|---|---|---|
-| 1 | The **headline phrase was left standing while its own explanation was rewritten**, so the text contradicts itself in one breath: "binds the manifest layers it must confirm **before it writes any content** … Precisely: no file you already had is touched before the bind. **Writes can precede it.**" A consumer reads both halves | `v4.7.0.md:105` (consumer-facing), `decisions.md:256` M13, `decisions.md:300` M16 + the M13 matrix row, `bootstrap-upgrade.sh:463` section heading | **(a)** |
-| 2 | 3h-10's **title overclaims what its snapshot measures**. `m13-no-pre-existing-file-changes-…` is broader than the measurement: the snapshot excludes `.git/`, the staging clone, the repaired path and its backup twin, and compares FINAL bytes. It proves "no collateral change among the measured, non-target regular files in the consumer root". The inline comment is honest ("does NOT observe write ORDER"); the name and the `ok()` string are not | `test-upgrade-repair-managed.sh` 3h-10 | **(a)** |
+**`cli-flow-recovery` has crossed its bound a FOURTH time.** M15 raised it 480s → 900s from a measured 542s and explicitly warned "a timeout chosen from one clean-host measurement is a latent failure with a delay fuse." On this host the phase now needs **>900s even standalone on a quiet box** (measured 3/3), while Linux does it in 11s. It is INCONCLUSIVE, never FAIL, and the assertions pass (rc 0, 31/31). Fixing it is a code change to a bound and needs its own decision — M15's own lesson says the next bound must carry deliberate headroom, not another rounded-up observation. Precedent: `approval-binding-and-upgrade-classification` shipped with the same INCONCLUSIVE, ratified as D9.
 
-**Zero class-(b).** Nothing about M13/M16/M17, the bound-set rule, the symlink refusal or the remediation is wrong. Round 6's three items were confirmed fixed; every prior invariant (B1–B8, R1–R5, K10, M2, M3, FR-07) re-verified intact.
-
-## Noticed and deliberately NOT fixed (scope was three items)
-
-"immutable snapshot" survives outside M16, describing the same plain-source `cp -R` copy. The runtime one is operator-facing and therefore the one that actually misleads:
-
-- `hooks/local/bootstrap-upgrade.sh:419` — **printed to the operator**: `materialized plain source -> immutable snapshot`
-- `docs/release-notes/v4.7.0.md:122` — "immutable tree materialized from git objects", not true for a plain source
-- `docs/specs/…/decisions.md:200` (M10 reasoning) · `hooks/local/lib/materialize-managed-source.sh:85` (comment)
-
-Non-blocking from the review: `printf '%q'` is Bash-safe but not portable to arbitrary POSIX `sh` (the emitted command invokes `bash`, so this is contained).
-
-## The remaining work, if the operator restarts it
-
-Both items are text. No code, no test logic, no decision.
-
-1. Delete the "before any content write" **headline** in all four homes and let the true sentence stand alone: *no file that already existed is touched before the bind; earlier writes only create new locations.*
-2. Rename 3h-10 (and its `ok()` string) to the measurement: *no collateral change among the measured non-target files in the consumer root.*
-3. Optionally fold in the four out-of-scope "immutable" instances above — the runtime message first.
-
-Then: unscoped Windows + Linux container, one review, and the release sequence below. **The operator must re-authorize** — no DP.6 phrase survives a NO-SHIP.
-
-## Release sequence, unchanged, for when the verdict is SHIP
-
-Restamp both manifests → unscoped Windows + Linux `ubuntu:24.04` → one review → DP.1 mint (command-bound) → `git push origin HEAD:refs/heads/main` → `git push origin :refs/tags/v4.7.0` → re-tag → `git push origin v4.7.0` → watch verify+publish via the public REST API in a bounded loop (`gh` is not installed) → confirm `GET /repos/fusebase-dev/fusebase-flow/releases/tags/v4.7.0` returns 200 → FR-14 single docs commit. Publish is `needs: verify`, so a red suite cannot release.
-
-## Constraints (unchanged, all still binding)
-
-Never `--no-verify`. FR-07 protected = `policies/*.yml`, `hooks/handlers/**`, `hooks/shared/**`, `hooks/git/**` only. Locked: M2 byte-exact hashers, M3 tempfile capture, `.gitattributes`, `templates/**`, the FR-06 deny. Linux parity is mandatory before any release claim. Before diagnosing a timing FAIL, run `ps -W | grep run-tests`. The unscoped Windows suite needs **>40 min**; bound any wrapper at ≥5400s. `run-tests.sh:342` still misnames the running phase during a bounded wait (`cli-flow-recovery` appears as `upgrade-repair`).
-
-## Reproducing the gate
-
-Linux: build from `ubuntu:24.04` + `git python3 python3-pip`, clone `/src` INSIDE the container, run the CI step list (`c:/tmp/ffgate/linux-full.sh`). A container without PyYAML produces ~20 false FAILs — an environment defect, not a code defect.
+Non-blocking from review: `printf '%q'` is Bash-safe but not portable to arbitrary POSIX `sh` (the emitted command invokes `bash`, so it is contained).
 
 ## Filed, deferred
 
 `docs/backlog/`: `repair-trust-root-outside-workspace` (M17's rejected option (b)) · `command-gate-shell-evasion` · `approval-single-use-consumption` · `approval-binding-omits-head` · `rm-rule-pattern-single-space-gap` · `provenance-and-single-seam-guarantees`.
-Reviews: `docs/tmp/handoff/2026-08-03-round7-review.md` · `docs/tmp/handoff/2026-08-02-round6-review.md` · `docs/tmp/handoff/2026-08-02-m16-review.md` (round 5); earlier rounds in `docs/tmp/handoff/2026-07-2[89]-*`, `2026-07-3[01]-*`.
+Process lesson: `docs/problem-catalog/undecided-contract-drives-repeat-defects/problem.md` — a review round whose findings sit inside the previous round's fix means the contract is undecided; stop implementing and decide it.
+Reviews: `docs/tmp/handoff/2026-08-03-round7-review.md` · `2026-08-02-round6-review.md` · `2026-08-02-m16-review.md`; earlier rounds in `docs/tmp/handoff/2026-07-2[89]-*`, `2026-07-3[01]-*`.
+
+## Reproducing the gate (for the next ticket)
+
+Windows: `bash c:/tmp/ffgate/windows-full.sh` (>40 min; bound the suite ≥5400s; run it QUIET — a concurrent Codex review is enough to push `cli-flow-recovery` past its bound).
+Linux: `MSYS_NO_PATHCONV=1 docker run --rm -v "C:/<repo>:/src:ro" -v "C:/tmp/ffgate:/gate:ro" ff-gate:24.04 bash /gate/linux-full.sh` — clones `/src` INSIDE the container and mirrors the CI step list. A container without PyYAML produces ~20 false FAILs (environment defect, not code). `MSYS_NO_PATHCONV=1` is required or MSYS rewrites `/gate/...` into a Windows path.
+Before diagnosing a timing FAIL: `ps -W | grep run-tests`.

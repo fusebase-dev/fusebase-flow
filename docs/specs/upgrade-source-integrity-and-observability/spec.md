@@ -1,11 +1,12 @@
 # Spec — upgrade-source-integrity-and-observability
 
-**Status:** DRAFT
+**Status:** DONE (shipped 2026-08-04, framework v4.7.0, tag `v4.7.0`)
 **Scope lock:** re-locked 2026-07-30 after adversarial plan review; see `decisions.md`
 **Created:** 2026-07-30
-**Linked decisions:** M1..M10
+**Linked decisions:** M1..M17
 **Promoted from:** consumer report `docs/tmp/handoff/2026-07-30-workhub-upstream-report.md` (WorkHub Managed, Windows 11 / Git Bash, 4.5.0 → 4.7.0)
-**Deploy hash:** <captured at DRAFT → DONE flip>
+**Deploy hash:** `bad4d92` — pushed to `origin/main` (`85b97dd..bad4d92`, 77 commits); tag `v4.7.0` re-pointed `b11c60d` → `bad4d92` (decision M6); GitHub Release published 2026-08-04T00:57:45Z — <https://github.com/fusebase-dev/fusebase-flow/releases/tag/v4.7.0>
+**Deployed:** 2026-08-04 · CI `fusebase-flow-release` run `30867061611`: verify **success** (all 14 steps) → publish **success**; separate `fusebase-flow-verify` run `30867017382` on `main` **success** · local gate: Windows unscoped **742/743 PASS, 0 FAIL** (the one non-PASS is `cli-flow-recovery` INCONCLUSIVE — it crosses its 900s liveness bound on this host; run directly it is **rc 0, 31/31 PASS, 0 FAIL**), Linux `ubuntu:24.04` **740/740 PASS, 0 FAIL**, every CI-mirrored step rc 0 · 8 adversarial review rounds, final round 0 class-(b)
 **Lane:** Full (FR-21) — upgrade-path integrity, multi-file, one slice is security-adjacent
 **Doc tier:** 4 (FR-23)
 

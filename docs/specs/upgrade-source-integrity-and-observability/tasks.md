@@ -13,15 +13,15 @@
 
 | T# | Track | Scope | Cites | Depends on | SHA | Status |
 |---|---|---|---|---|---|---|
-| T1 | hooks | Canonical source boundary, compatibility contract, already-corrupted repair | M1, M2, M10 | — | — | pending |
-| T2 | hooks | Prune exact Flow backup families from sync-allowlist discovery | M4 | — | — | pending |
-| T3 | hooks | Exact-authority `cleanup-flow-backups.sh`; retire raw `rm -rf` guidance | M5 | T1 | — | pending |
-| T4 | hooks | Parent-owned heartbeat on captured long runs | M3 | T1 | — | pending |
-| T5 | hooks | `created_at` + verdict-neutral stale-approval warnings | M9 | — | — | pending |
-| T6 | docs | Bootstrap prominence, corrections, F7 deferral, release carriers | M6, M7, M8 | T1..T5 | — | pending |
-| T7 | — | verification gate (no commit) | — | T1..T6 | — | pending |
-| T8 | review | `code-review` + `security-permissions-review` (no commit) | M5, M6, M9 | T7 | — | pending |
-| T9 | — | release: restamp, re-point `v4.7.0`, publish | M6 | T8 | — | pending |
+| T1 | hooks | Canonical source boundary, compatibility contract, already-corrupted repair | M1, M2, M10 | — | `1fc082e` (+ R1/R2/R3 `470f7d2` `0e23e34` `5945c27`; B1..B8 `9fb379f` `0a27fb2` `18828ae` `e764da5` `3f429e0` `0f1ac51` `f676f94` `5e9cbab`; M13 `1712e8e`; M16 `54ba8bb`; M17 `b6adbbc`) | done ✅ |
+| T2 | hooks | Prune exact Flow backup families from sync-allowlist discovery | M4 | — | `d5a4ced` | done ✅ |
+| T3 | hooks | Exact-authority `cleanup-flow-backups.sh`; retire raw `rm -rf` guidance | M5 | T1 | `c88a56e` (+ R4 `cf69395`) | done ✅ |
+| T4 | hooks | Parent-owned heartbeat on captured long runs | M3 | T1 | `47a0028` | done ✅ |
+| T5 | hooks | `created_at` + verdict-neutral stale-approval warnings | M9 | — | `e357993` (+ R5 `bca3419`) | done ✅ |
+| T6 | docs | Bootstrap prominence, corrections, F7 deferral, release carriers | M6, M7, M8 | T1..T5 | `957bcb6` (+ `8ad79ea` `3557b66` `bbb58d3` `d44618f` `490e569`) | done ✅ |
+| T7 | — | verification gate (no commit) | — | T1..T6 | test fixes `f11b31b` `ea10607` `8145dad` `ee9e887` `dbbddd8` | done ✅ Windows 743/743-equiv (742/743 + `cli-flow-recovery` verified 31/31 rc 0 outside its 900s bound), Linux `ubuntu:24.04` 740/740, 0 FAIL both |
+| T8 | review | `code-review` + `security-permissions-review` (no commit) | M5, M6, M9 | T7 | reviews `68e3bee` `c54f9d9` `f77c49e` `7f173f3` + rounds 5–8 in `docs/tmp/handoff/` | done ✅ 8 rounds; final round-8 review 0 class-(b), residual (a)s closed in `cfa0c13` `bad4d92` |
+| T9 | — | release: restamp, re-point `v4.7.0`, publish | M6 | T8 | `bad4d92` — pushed to `main`, tag `v4.7.0` re-pointed `b11c60d`→`bad4d92`, Release published | done ✅ |
 
 Execution order: T1/T2/T5 may begin independently. T3 serializes after T1 because both edit `upgrade.sh`; T4 serializes after T1 because both edit `hook-integrity-check.sh`. All commits serialize because T1..T6 share manifest restamps. No “different files/no shared edits” parallel-safety claim applies.
 

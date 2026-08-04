@@ -46,7 +46,7 @@ The tell that it was a treadmill, not convergence: the findings were **the same 
 
 | Status | Detail |
 |---|---|
-| Implemented — release pending | contract decided: **M13** (bind the layer set at authorization), **M16** (membership declared by the VERIFIED upstream tree — supersedes the refuted M14), **M17** (same-principal threat model) in `docs/specs/upgrade-source-integrity-and-observability/decisions.md`. Ships with v4.7.0; this row is flipped to Shipped with the deploy hash by the FR-14 docs commit |
+| Shipped | contract decided: **M13** (bind the layer set at authorization), **M16** (membership declared by the VERIFIED upstream tree — supersedes the refuted M14), **M17** (same-principal threat model) in `docs/specs/upgrade-source-integrity-and-observability/decisions.md`; v4.7.0, deploy hash `bad4d92` · published 2026-08-04 |
 | Process | M13 carries an explicit **process note**: "this decision exists because the previous three rounds tried to *patch* the ambiguity. One implementation pass against a decided contract, then one review." |
 
 ## Recurrence triggers (so future sessions recognize this)
@@ -74,4 +74,5 @@ Future sessions hitting these signals should load this entry:
 
 | Date | Event | Source |
 |---|---|---|
-| 2026-08-03 | filed; problem resolved (contract decided in M13/M16/M17), release pending | v4.7.0 release round 8 |
+| 2026-08-03 | filed; problem resolved (contract decided in M13/M16/M17) | v4.7.0 release round 8 |
+| 2026-08-04 | shipped | v4.7.0 published, deploy hash `bad4d92` |
