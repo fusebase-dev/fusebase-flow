@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
-  "flow_version": "4.7.0",
+  "flow_version": "4.7.1",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 140,
+  "asset_count": 141,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -170,7 +170,7 @@
     },
     {
       "path": "hooks/local/upgrade.sh",
-      "sha256": "d887754a699c8e1ad0f99b084fe9b484cad556d9b15466c9541fead49346786f"
+      "sha256": "ca3ca6289f38789349e474ae43924939cc7ac54332e8957f837e0565d742d305"
     },
     {
       "path": "hooks/local/verify-gate.sh",
@@ -402,7 +402,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "999fd645608353464bbf9f512ab54a5902edb7dbf1ef8ce01cc0ed8da7af4231"
+      "sha256": "bbe6f45448f9121d2af9fa76bc0b0f73d9af53e7e6b335be1170ea75388263de"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -517,6 +517,10 @@
       "sha256": "0cc3f4dedf67e5a95306b2a90a5ebf335bf7729644312dc21572febd1ed1b69c"
     },
     {
+      "path": "hooks/tests/test-recovery-hint-honesty.sh",
+      "sha256": "f29671cc0595715a891000674f7e66abdd3f3d366b7376042da3ced4b8851d17"
+    },
+    {
       "path": "hooks/tests/test-return-budget.sh",
       "sha256": "3ac21faf7cb0f80db76185d0f9d440fdf3c4257cd65dffe9004e087b8ec0f8a6"
     },
@@ -565,5 +569,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "6595d0977ce9a983a4ce3fbc1441ae7e0f7bdbf6c22b9bd838786ea9c9cb0b91"
+  "manifest_self_sha256": "b6337a74fec276bf69e5b0eb9ab5299e996a5c795057d88e3eaf5fc230fa58bb"
 }
