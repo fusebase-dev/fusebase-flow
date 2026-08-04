@@ -60,8 +60,7 @@ set -euo pipefail
 # the 3.19.1 -> 3.20.1 hop; nondeterministic before that — offset-dependent).
 # Engines ≤3.20.0 lack this guard: from those versions use
 #   bash hooks/local/bootstrap-upgrade.sh -- --auto-yes   (stages the new engine FIRST,
-# so the self-overwrite is byte-identical). A bare re-run also finishes the remaining steps,
-# but it runs the REFRESHED engine, not this one (M19) — see print_recovery_hint.
+# so the self-overwrite is byte-identical).
 main() {
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
@@ -92,7 +91,7 @@ print_recovery_hint() {
   echo "          not invoke. A clean exit from the re-run is NOT evidence that a check the failed" >&2
   echo "          engine ran still exists - if you rely on a local gate wired into this engine," >&2
   echo "          run that gate yourself afterwards and read its verdict." >&2
-  echo "    bash hooks/local/upgrade.sh                              # re-run; completes remaining steps" >&2
+  echo "    bash hooks/local/upgrade.sh" >&2
   echo "    bash hooks/local/post-fusebase-update.sh --refresh-overlays  # re-apply adapters + slash commands" >&2
   echo "    bash hooks/local/sync-version-strings.sh                 # re-sync derived attestation strings" >&2
   echo "    bash hooks/local/preflight.sh && bash hooks/local/fusebase-flow-health-check.sh  # verify (HEALTHY)" >&2
