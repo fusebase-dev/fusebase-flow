@@ -54,12 +54,17 @@ The consumer's measurement, K7's compat default (they explicitly do not ask us t
 
 ---
 
-## M19 residual — specified, not inferred (PO, 2026-08-04)
+## M19 residual — CLOSED, shipped in v4.7.1 (2026-08-05)
 
-M19 is implemented and **held unshipped** on `fix/msys-v3307-hardening` (`5b5578f..fb4e376`). It does not justify a release on its own: the corrected text lives in the engine the consumer is *running*, so it only helps on the upgrade **after** adoption, and the reporting consumer is still on 4.6.1. Fold it into the next substantive release.
+**Status: done.** Split out of this ticket and released on its own as `m19-recovery-hint-honesty` — deploy hash `3ae1feb`, <https://github.com/fusebase-dev/fusebase-flow/releases/tag/v4.7.1>. **The surfacing feature below remains parked and unstarted**; only this residual shipped.
 
-**The residual, answered:** `upgrade.sh`'s recovery block still prints `bash hooks/local/upgrade.sh   # re-run; completes remaining steps` four lines under a paragraph saying behaviour may differ. **Delete the inline comment. Do not qualify it.** The command stays — it is still the right recovery action. The comment is the defect: any qualification would restate what the paragraph above already says, and a shorter true line beats a longer hedged one. Same for the sibling wording at `:63` and `:95`.
+| Specified | Shipped |
+|---|---|
+| Delete the inline `# re-run; completes remaining steps`, do not qualify it; command stays; same for the `:63` sibling | `d9856fc` — both deleted, nothing hedged |
+| Narrow four assertion names to their predicates, or widen the predicate to the name | `9bfba78` — #2 predicate widened to one shared `CONTINUITY_RE` family (now also guards the header, so the two carriers cannot drift apart); #3/#4/#6 renamed to what they actually check |
+| Prove the continuity assertion RED against `02d14f7` | Old test 6/6 green on that tree; widened test **4/6**, failing on the exact missed literal `completes remaining steps` and the header's `also finishes the remaining steps` |
+| Correct the release notes' overstatement and the wrong control | `c6ebf68` — per-assertion RED/PASS table; control corrected to **assertion 4** (verified against `5b5578f`: 5 RED, #4 the only PASS) |
 
-**The assertion names are the wider problem.** Four M19 tests carry names claiming more than their predicates check (`m19-continuity-claim-removed` greps two literals and missed a third; `m19-recovery-commands-intact` claims "mechanism did not change"; `m19-header-comment-not-left-stale` claims the header "carries the same correction" when it does not). Narrow every name to what it actually asserts, or widen the predicate to the name. **This is the same defect class as everything else in this ticket** — a claim wider than the thing it describes — and it has now appeared in the surfacing feature, the release notes, the CHANGELOG, the problem-catalog entry, and the tests written to catch it.
+**The prediction in the old note held.** Review found the same class *inside the fix for it*: three findings, all class (a) text-only — #2/#6 named the general absence of continuity claims while testing one finite regex family, and #4 claimed all recovery commands present while never anchoring `fusebase-flow-health-check.sh`. Fixed in `961d9f8`; #4 was renamed rather than strengthened, since strengthening the predicate would have been a logic change.
 
-**Recorded for whoever resumes:** the class did not appear because the work was hard. It appeared in a six-line change. Assume it is present and grep for it deliberately rather than trusting a green suite — three green gates produced three NO-SHIPs on this ticket.
+**The durable lesson, unchanged:** the class did not appear because the work was hard — it appeared in a six-line change, then again in the correction to it. Assume it is present and grep for it deliberately rather than trusting a green suite. A test name is a claim, and an unexamined one is the easiest place for a wider-than-true claim to hide.
