@@ -129,7 +129,7 @@ ACTIVE_ARTIFACTS=()      # filenames of non-expired approval artifacts (informat
 ARTIFACT_NOTES=()        # human-readable summaries of each active artifact
 DEFERRED_CHECKS=()       # check_ids deferred via active health_check_deferral-*.json (engine v2.4.0+)
 DEFERRED_BY_ARTIFACT=()  # parallel array — for each entry in DEFERRED_CHECKS, the artifact filename that authorized it
-APPROVAL_WARNINGS=()     # M9 stale-approval age warnings + rejected malformed deferred check_ids. VISIBILITY ONLY: printed outside every verdict array/count — never LOCAL_DRIFT/LOCAL_BROKEN/LOCAL_UNVERIFIED — so they can move neither the verdict nor the exit code, and invalidate no approval. A rejected check_id belongs here precisely BECAUSE this channel cannot move the verdict: the defect was an artifact moving it (backlog self-granting-health-deferral)
+APPROVAL_WARNINGS=()     # M9 stale-approval age warnings. VISIBILITY ONLY: printed outside every verdict array/count — never LOCAL_DRIFT/LOCAL_BROKEN/LOCAL_UNVERIFIED — so they can move neither the verdict nor the exit code, and invalidate no approval
 APPROVAL_POLICY_ERRORS=()  # approval-policy could not be loaded (e.g. a local override the tighten-only validation rejects). Reported as a CONFIGURATION ERROR instead of silently substituting compatibility defaults; while set, no artifact is reported active and the FR-07 gates deny
 DRIFT_SIGNATURE=""
 RECOMMENDATIONS=()
@@ -745,7 +745,7 @@ fi
 # the verdict, or the exit code, and they invalidate nothing. Each listed artifact still
 # authorizes its paths; only its age is being reported.
 if [ "${#APPROVAL_WARNINGS[@]}" -gt 0 ]; then
-  echo "Approval warnings (${#APPROVAL_WARNINGS[@]} — visibility only; NOT part of the verdict, counts, or exit code):"
+  echo "Approval age warnings (${#APPROVAL_WARNINGS[@]} — visibility only; NOT part of the verdict, counts, or exit code):"
   for x in "${APPROVAL_WARNINGS[@]}"; do echo "  ! $x"; done
   echo "  Each artifact above STILL AUTHORIZES its protected paths until expires_at."
   echo "  If the work it covered is done, delete the file to revoke it now."

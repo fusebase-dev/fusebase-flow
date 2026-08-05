@@ -34,11 +34,9 @@
 
 ## Open, filed, unstarted
 
-`docs/backlog/`: `compat-approval-surfacing` (parked, needs the carrier table) · `command-gate-shell-evasion` (parked by decision — no partial shell parser) · `approval-single-use-consumption` (parked by decision — prerequisites absent) · `approval-binding-omits-head` (**needs a decision**: whether a later push of a different HEAD requires re-approval is a per-action property) · `provenance-and-single-seam-guarantees` (three cross-product lessons; L2's carrier census is the actionable one).
+`docs/backlog/`: `gate-bounds-lack-headroom` (schedule before the next release — a bound has been crossed four times) · `compat-approval-surfacing` (parked, needs the carrier table) · `self-granting-health-deferral` · `command-gate-shell-evasion` · `approval-single-use-consumption` · `approval-binding-omits-head` · `provenance-and-single-seam-guarantees`.
 
-**Closed 2026-08-05** (all Lightweight lane, unpushed on `fix/msys-v3307-hardening`): `gate-bounds-lack-headroom` bounds arm (`cb0ff8b`) · `local-gate-misses-manifest-freshness` (`235f4a3`) · `self-granting-health-deferral` (`0e29ed5`). Still open inside `gate-bounds-lack-headroom`: candidate fix 2, making the expensive phases cheaper — `cli-flow-recovery` is now 1813s, 3.3x its M13 figure.
-
-**Correction:** `rm-rule-pattern-single-space-gap` was listed here as open. It shipped in v4.7.0 (closed by `approval-binding-and-upgrade-classification` T28 under K21(i); `docs/backlog/index.md` has recorded it as done since 2026-07-28). The entry was a claim wider than the thing it described — the same class this handoff warns about two sections up.
+**Correction:** `rm-rule-pattern-single-space-gap` was listed here as open. It shipped in v4.7.0 (closed by `approval-binding-and-upgrade-classification` T28 under K21(i); `docs/backlog/index.md` has recorded it done since 2026-07-28). The entry was a claim wider than the thing it described — the same class this handoff warns about two sections up.
 
 Not a Flow ticket: the Paperclip host report (`paperclip+hermes-v1`, different product) — three transferable lessons already extracted into `provenance-and-single-seam-guarantees`.
 

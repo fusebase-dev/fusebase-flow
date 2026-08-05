@@ -1,19 +1,7 @@
 # gate-bounds-lack-headroom
 
-**Status:** bounds FIXED 2026-08-05 (Lightweight lane — [`docs/changes/2026-08-05-gate-bounds-lack-headroom.md`](../../changes/2026-08-05-gate-bounds-lack-headroom.md)); **candidate fix 2 (phase cost) remains PARKED**
+**Status:** parked — real gate-infrastructure defect, independent of any feature ticket
 **Filed:** 2026-08-05
-
-## Resolution of candidate fix 1
-
-`FF_PHASE_TIMEOUT` 600s → **1800s**, `FF_CLI_RECOVERY_TIMEOUT` 900s → **5400s**, and both
-TRIPWIRE comments now carry the rule rather than only the history. Headroom measured, not
-inferred: 680s→1800s (2.65x) and 1813s→5400s (2.98x).
-
-The verification run measured `cli-flow-recovery` at **1813s** — a **fifth** crossing of the
-900s wall, on unchanged test code. The first replacement value (2700s) would have left only
-1.49x and was corrected against the measurement before commit. Recorded because it is this
-ticket's own defect class recurring inside its own fix: **a bound derived from a
-wall-truncated observation is not a loaded-host worst case.**
 
 ## Defect
 
@@ -38,16 +26,20 @@ A gate whose result flips on background load teaches the reader to explain away 
 **A bound is a liveness backstop, not a performance assertion.** It should sit far enough above the measured worst case that ordinary load cannot reach it — deliberate headroom (2–3×), never a rounded-up observation. If a phase's runtime is the concern, that is a performance ticket, not a tighter wall.
 
 Two candidate fixes, not exclusive:
-1. ~~Give every bounded phase headroom against its *loaded-host* worst case, not its quiet-host best case.~~ **DONE 2026-08-05.**
-2. **STILL OPEN.** Make the expensive phases cheaper — `cli-flow-recovery` copies a whole skill tree; `bootstrap-exception` and `upgrade-repair-managed` build full fixture trees per case.
+1. Give every bounded phase headroom against its *loaded-host* worst case, not its quiet-host best case.
+2. Make the expensive phases cheaper — `cli-flow-recovery` copies a whole skill tree; `bootstrap-exception` and `upgrade-repair-managed` build full fixture trees per case.
 
-## Why candidate fix 2 is now better evidenced
+## 2026-08-05 — attempted, reverted, and what the review found
 
-`cli-flow-recovery` measured wall time: 199s (T11) → 304s (T24) → 542s (M13) → **1813s**
-(2026-08-05) — **3.3x since M13**. It copies the whole skill tree, so it grows with the repo
-and is now a ~30-minute single phase dominating full-gate cost. Fix 1 stopped the phase from
-deciding the verdict by ambient load; it did not make the gate cheaper, and the raised
-backstop (5400s) is the ceiling this growth is now measured against.
+An attempt raised both walls (`FF_PHASE_TIMEOUT` 600→1800s, `FF_CLI_RECOVERY_TIMEOUT` 900→5400s) and was **reverted** after adversarial review (Codex 5.6-Sol, xhigh) returned `STOP-AND-ZOOM-OUT`. Only the 1800s generic bound survives, as a reviewed value.
+
+**The cost driver named in this ticket is wrong.** `cli-flow-recovery` does not grow with the skill tree: between the 542s and 1813s revisions the copied `flow-skills` tree stayed at **49 files / ~441 KB**. The actual driver is `test-cli-flow-recovery.sh` recursively copying **`$PROJECT` ten times**, plus several direct `flow-skills` copies — which on MSYS meets filesystem/Defender amplification. Any tripwire comment claiming the bound "tracks repo SIZE" is factually false and must not be reintroduced.
+
+**Why 5400s was rejected.** No single scalar wall gives both generous headroom and prompt hang detection once the healthy path is ~30 min: a 90-minute wall technically satisfies FR-27 but wastes an hour before declaring a genuine hang, and it removes the pressure that has repeatedly exposed the scaling defect. The correct design is **cheap isolated fixtures + a short no-progress (stall) deadline + a larger absolute ceiling** — not a bigger scalar.
+
+**Measured 2026-08-05 (Windows/MSYS, no competing suite, raw logs NOT retained):** `bootstrap-exception` 680s · `upgrade-repair` 527s · `cli-flow-recovery` 1813s (a **fifth** crossing of the 900s wall). Retain raw logs next time; the review could not verify these.
+
+Candidate fix 2 is **not blocked on an operator decision** — it needs profiling and a performance contract. It is the root cause and should be scheduled ahead of any further wall change.
 
 ## Related
 

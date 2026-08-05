@@ -76,10 +76,7 @@ ffhc_collect_active_approvals() {
   ff_project="$( pwd -W 2>/dev/null || pwd )"
   _ffhc_probe_approval_policy "$ff_root" "$ff_project" || return 0
   [ -d "state/approvals" ] || return 0
-  # TRIPWIRE: -print0 / read -d '' — a newline in a FILENAME splits the record before any
-  # per-artifact validation runs, so the traversal must be unsplittable for the same reason
-  # the deferred_checks transport is (backlog self-granting-health-deferral).
-  while IFS= read -r -d '' artifact_file; do
+  while IFS= read -r artifact_file; do
     if [ -z "$artifact_file" ]; then continue; fi
     artifact_basename=$(basename "$artifact_file")
     summary=$(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$artifact_file" "$ff_root" "$ff_project" <<'PY' 2>/dev/null
@@ -190,55 +187,27 @@ PY
       ARTIFACT_NOTES+=("$artifact_basename: $summary")
       if [ -n "$warn_line" ]; then APPROVAL_WARNINGS+=("$artifact_basename: $warn_line"); fi
       if [[ "$artifact_basename" == health_check_deferral-* ]]; then
-        # TRIPWIRE (backlog self-granting-health-deferral): DEFERRED_CHECKS is the one
-        # artifact-derived input that MOVES the verdict (record_drift reclassifies a matching
-        # finding to LOCAL_DEFERRED => EXCEPTION_IN_EFFECT, exit 3). A check_id is
-        # artifact-controlled text, so the old newline-delimited transport let ONE JSON element
-        # split into TWO bash entries — an artifact granting itself a canonical check_id it
-        # never carried. NUL-delimited: content cannot split the record. Read directly from
-        # process substitution, never via $(...) — command substitution DISCARDS NUL bytes.
-        while IFS= read -r -d '' entry; do
-          # entry := 'K'<accepted id> | 'R'<rejected repr>. The one-char tag travels inside the
-          # NUL record so the verdict never depends on a second, splittable channel.
-          case "${entry:0:1}" in
-            R)
-              APPROVAL_WARNINGS+=("$artifact_basename: REJECTED malformed deferred check_id ${entry:1} — must full-match [A-Za-z0-9._-]{1,120}; not repaired, not deferred")
-              continue ;;
-            K) cid="${entry:1}" ;;
-            *) continue ;;
-          esac
+        deferred_list=$(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$artifact_file" <<'PY' 2>/dev/null
+import json, sys
+try:
+    data = json.loads(open(sys.argv[1], encoding='utf-8').read())
+    for cid in (data.get('deferred_checks') or []):
+        if isinstance(cid, str) and cid:
+            print(cid)
+except Exception:
+    pass
+PY
+)
+        while IFS= read -r cid; do
           # Windows CRLF guard (idempotent on Linux/Mac): strip the stray CR so a
           # multi-entry deferral list still matches check_ids in record_drift.
           cid="${cid%$'\r'}"
           [ -z "$cid" ] && continue
           DEFERRED_CHECKS+=("$cid")
           DEFERRED_BY_ARTIFACT+=("$artifact_basename")
-        done < <(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$artifact_file" <<'PY' 2>/dev/null
-import json, re, sys
-# TRIPWIRE: full-match or REJECT — NEVER sanitize. Deleting disallowed characters
-# MANUFACTURES identifiers: 'claude\n_md_overlay' with the newline stripped becomes
-# 'claude_md_overlay', a real canonical check_id. A repaired value that collides with a
-# genuine id is strictly worse than a dropped one. re.fullmatch (not match+'$') because
-# '$' also matches before a trailing newline — the exact character being defended against.
-VALID = re.compile(r'[A-Za-z0-9._-]{1,120}')
-out = sys.stdout.buffer
-try:
-    data = json.loads(open(sys.argv[1], encoding='utf-8').read())
-    for cid in (data.get('deferred_checks') or []):
-        if isinstance(cid, str) and VALID.fullmatch(cid):
-            out.write(b'K' + cid.encode('utf-8') + b'\0')
-        else:
-            # repr() so a control character is shown, not replayed into the terminal;
-            # ASCII-folded and capped so one hostile entry cannot flood the report.
-            shown = repr(cid)[:120].encode('ascii', errors='replace')
-            out.write(b'R' + shown + b'\0')
-    out.flush()
-except Exception:
-    pass
-PY
-)
+        done <<< "$deferred_list"
       fi
     fi
-  done < <(find state/approvals -maxdepth 2 -name '*.json' -type f -print0 2>/dev/null)
+  done < <(find state/approvals -maxdepth 2 -name '*.json' -type f 2>/dev/null)
   return 0
 }

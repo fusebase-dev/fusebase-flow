@@ -34,11 +34,12 @@ fi
 . "$ROOT/hooks/local/lib/run-with-timeout.sh"
 ffhc_detect_timeout
 
-# Per-phase heavy-run bound — a LIVENESS BACKSTOP, not a performance assertion.
-# TRIPWIRE: set it with 2-3x headroom over the LOADED-host worst case, never to a
-# rounded-up quiet-host observation — 600s was the latter, and bootstrap-exception (602s)
-# and upgrade-repair-managed (603s) both exit-124'd with ZERO failed assertions while
-# Linux was 746/746 on the identical commit (backlog gate-bounds-lack-headroom).
+# Per-phase heavy-run bound — a liveness backstop, not a performance assertion.
+# 600s was a rounded-up quiet-host observation and two phases crossed it with ZERO failed
+# assertions (bootstrap-exception 602s, upgrade-repair-managed 603s) while Linux was 746/746
+# on the identical commit; bootstrap-exception then measured 680s on an unloaded host.
+# 1800s is ~2.6x that 680s. NOTE: nothing MECHANICALLY enforces a headroom multiplier — this
+# is a reviewed value, not a checked invariant. Backlog: gate-bounds-lack-headroom.
 FF_PHASE_TIMEOUT="${FF_PHASE_TIMEOUT:-1800}"
 
 # Opt into the parent-owned heartbeat (decision M3); FFHC_HEARTBEAT_SECS=0 silences it.
@@ -49,10 +50,9 @@ FFHC_HEARTBEAT_SECS="${FFHC_HEARTBEAT_SECS:-30}"
 # --- FF_ONLY scoped-gate parse (implement-loop iteration speed) ---------------------
 # Canonical phase tags, in run order. This list is the FF_LIST discovery source and the
 # FF_ONLY validation set; add a tag here (and its guard) when a phase is added.
-FF_TAGS=(fixtures module-size health-check-timeout git-smoke hook-manifest manifest-freshness newline-preserve baseline-merge \
+FF_TAGS=(fixtures module-size health-check-timeout git-smoke hook-manifest newline-preserve baseline-merge \
   sync-allowlist policy-state bootstrap-baseline-hop fr22-delivery po-verifiable-boot \
   po-investigate liveness codex-parity codex-plugin cli-0259 secret-scan-staged bootstrap-exception \
-  deferral-checkid \
   trusted-enforcer hook-install-rc msys-tree-cleanup ws5-upgrade ff-only return-budget \
   supersede-primitive rule-inventory boot-size prohibition-residency token-waste-classify \
   budget-literals history-extraction approval-binding approval-writer command-policy upgrade-classify \
@@ -297,13 +297,6 @@ run_shell_phase() { # run_shell_phase <test-script> <tag>
 }
 run_shell_phase test-git-hooks-smoke.sh      "git-smoke"
 run_shell_phase test-hook-manifest.sh        "hook-manifest"
-# CI parity: test-hook-manifest exercises the stamping MECHANISM; this one asserts the CURRENT
-# tree's freshness, which is what CI enforces and what the local gate used to miss entirely
-# (eca925b: 625/625 local PASS, main red on the two files it touched).
-run_shell_phase test-manifest-freshness.sh   "manifest-freshness"
-# DEFERRED_CHECKS is the one artifact-derived input that MOVES the health verdict, so a check_id
-# that splits its own transport is a self-granted exception (backlog self-granting-health-deferral).
-run_shell_phase test-deferral-checkid-validation.sh "deferral-checkid"
 run_shell_phase test-newline-preserve.sh     "newline-preserve"
 run_shell_phase test-baseline-merge.sh       "baseline-merge"
 run_shell_phase test-sync-allowlist.sh       "sync-allowlist"
@@ -345,16 +338,14 @@ run_shell_phase test-recovery-hint-honesty.sh            "recovery-hint"
 # PASS iff exit 0. test-cli-flow-recovery.sh is heavy (copies the skill tree + drives
 # the health engine — minutes) and was UNBOUNDED, so it hung the whole harness on
 # MSYS (the universal run-tests-never-completes defect). Now bounded via
-# ffhc_run_bounded_stdout at FF_CLI_RECOVERY_TIMEOUT (default 5400s) with an
+# ffhc_run_bounded_stdout at FF_CLI_RECOVERY_TIMEOUT (default 900s) with an
 # FF_SKIP_CLI_RECOVERY=1 opt-out; a timeout (rc 124/137) is reported INCONCLUSIVE —
 # counted as a non-pass so the suite never goes silently green on a bound-hit.
-# TRIPWIRE: this bound is a LIVENESS BACKSTOP, not a performance assertion. It tracks repo
-# SIZE, not this test's correctness — it copies the whole skill tree, so every added
-# skill/test/fixture lengthens it: 199s at T11 → 304s at T24 → 542s at M13 → 1813s measured
-# in-sequence 2026-08-05, 31/31 assertions, exit 0. 240s → 480s → 900s were each set to a
-# measured edge and each was crossed one ticket later — five crossings. 5400s is ~3x the
-# 1813s loaded worst case; set it with 2-3x headroom over a LOADED-host worst case that
-# COMPLETED, never over a wall-truncated one (backlog gate-bounds-lack-headroom).
+# TRIPWIRE: the bound tracks repo SIZE, not this test's correctness — it copies the whole
+# skill tree, so every added skill/test/fixture lengthens it (199s at T11 → 304s at T24 →
+# 542s measured to completion on a quiet MSYS host at M13, 31/31 assertions, exit 0). Set it
+# with headroom, never to the measured edge: 240s and then 480s were each the measured edge,
+# and each was crossed by ordinary repo growth one ticket later.
 run_exitcode_phase() { # run_exitcode_phase <test-script> <tag> <label>
     local script="$ROOT/hooks/tests/$1" tag="$2" label="$3"
     ff_selected "$tag" || { ff_skip_note "$tag"; return 0; }
@@ -369,7 +360,7 @@ run_exitcode_phase() { # run_exitcode_phase <test-script> <tag> <label>
     fi
     progress "$label"
     local _t0=$SECONDS
-    ffhc_run_bounded_stdout "${FF_CLI_RECOVERY_TIMEOUT:-5400}" bash "$script"
+    ffhc_run_bounded_stdout "${FF_CLI_RECOVERY_TIMEOUT:-900}" bash "$script"
     local rc=$FFHC_LAST_RC
     printf '[run-tests] %s took %ss\n' "$label" "$((SECONDS - _t0))" >&2   # D14.1 per-phase wall time
     FFHC_LAST_WINPID=""; FFHC_LAST_CHILD_PID=""   # phase returned => child reaped; no stale sweep on exit
@@ -378,7 +369,7 @@ run_exitcode_phase() { # run_exitcode_phase <test-script> <tag> <label>
         report_rows="$report_rows| $1 | $label | PASS | exit 0 |"$'\n'
     elif ffhc_timed_out "$rc"; then
         # Bound-hit on a loaded/slow host: INCONCLUSIVE, not FAIL and NOT silent-green.
-        fail=$((fail + 1)); echo "INCONCLUSIVE: $label (bounded timeout rc $rc at ${FF_CLI_RECOVERY_TIMEOUT:-5400}s — re-run on a quiet host or FF_SKIP_CLI_RECOVERY=1)"
+        fail=$((fail + 1)); echo "INCONCLUSIVE: $label (bounded timeout rc $rc at ${FF_CLI_RECOVERY_TIMEOUT:-900}s — re-run on a quiet host or FF_SKIP_CLI_RECOVERY=1)"
         report_rows="$report_rows| $1 | $label | INCONCLUSIVE | bounded timeout rc $rc |"$'\n'
     else
         fail=$((fail + 1)); echo "FAIL: $label (exit $rc)"

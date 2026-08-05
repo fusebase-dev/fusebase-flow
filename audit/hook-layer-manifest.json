@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.7.1",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 143,
+  "asset_count": 141,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -66,7 +66,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-health-check.sh",
-      "sha256": "1bbf9902543a912bf76d67902256b3db8a1954e2c2a02594eae3ce0d86b3a6a2"
+      "sha256": "36cfbc7b1f8900614377d19833272e8bf4b639798e135a350c774fc39fcf569a"
     },
     {
       "path": "hooks/local/install-codex-prompts.sh",
@@ -78,7 +78,7 @@
     },
     {
       "path": "hooks/local/lib/active-approvals.sh",
-      "sha256": "1b001dbe39376ee49a76063609a78f4ef5d43ce982c37a8719b0fc0d1c7f66ac"
+      "sha256": "c60c6cc05e83cbf049eff777ad380e9bbeb1abb1c2e0e9897404f67672d4348c"
     },
     {
       "path": "hooks/local/lib/approval_inventory.py",
@@ -98,7 +98,7 @@
     },
     {
       "path": "hooks/local/lib/hook_manifest.py",
-      "sha256": "c85b84ddc624c8973192a011eb6320c1c451938cd4a09e090f068cb32cd974b7"
+      "sha256": "08c7c312eaeb95a6e5632498fa910113f438afcd2e2a52e24e0e06b3a26e8ad9"
     },
     {
       "path": "hooks/local/lib/managed_content_manifest.py",
@@ -402,7 +402,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "4867068d2e259b004e3b47badd63a98f3f25f5e3e00c56b68cc1b5b778618323"
+      "sha256": "30131083fc5a7df59b5922957c0ca356576c5465620af2da8dd3a17c8bf5ea62"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -457,10 +457,6 @@
       "sha256": "05219c8681fb790e841014c1f59ee535b21009724e2267b34aa859e9193185d5"
     },
     {
-      "path": "hooks/tests/test-deferral-checkid-validation.sh",
-      "sha256": "e61d04ee5fd015a074a28bee960a50d2bea04468486586829ed8eccf9a172129"
-    },
-    {
       "path": "hooks/tests/test-ff-only.sh",
       "sha256": "043b476397d8aa4e74b4fa677b10cc6014bd5b07ee59998132751e928811d055"
     },
@@ -491,10 +487,6 @@
     {
       "path": "hooks/tests/test-liveness-bounded-run.sh",
       "sha256": "8cf77264557d373e7fee0a1e51086a0ec7d7766f049afa9c5f7422be8322a513"
-    },
-    {
-      "path": "hooks/tests/test-manifest-freshness.sh",
-      "sha256": "19d5beab677538962c1ab095f57f85b6649d70aa18ce8906b8e95a79343487df"
     },
     {
       "path": "hooks/tests/test-module-size.sh",
@@ -577,5 +569,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "98a4177ef7638043e681f5453228c992dbd139fc623a06edd06143b61e532d3e"
+  "manifest_self_sha256": "969e3c7eac3175fcd1b5c451d8e0d5671dc8548275ba28abd8a4798bd31c72a2"
 }

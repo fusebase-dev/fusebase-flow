@@ -23,6 +23,3 @@ Format:
 2026-06-01 · f1-f5-install-upgrade-review · lightweight · 24dd371
 2026-07-26 · overlay-template-drift · lightweight · fabb747
 2026-07-27 · rule-inventory-version-literal-noise · lightweight · 44ac492
-2026-08-05 · gate-bounds-lack-headroom · lightweight · cb0ff8b
-2026-08-05 · local-gate-misses-manifest-freshness · lightweight · 235f4a3
-2026-08-05 · self-granting-health-deferral · lightweight · 0e29ed5

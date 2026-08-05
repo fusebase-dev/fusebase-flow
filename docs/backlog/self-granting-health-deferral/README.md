@@ -1,10 +1,6 @@
 # self-granting-health-deferral
 
-**Status:** DONE 2026-08-05 (Lightweight lane — [`docs/changes/2026-08-05-self-granting-health-deferral.md`](../../changes/2026-08-05-self-granting-health-deferral.md)). validate-and-reject (`re.fullmatch` on `[A-Za-z0-9._-]{1,120}`, never sanitized), NUL-delimited transport, `find -print0` traversal, rejections surfaced via the visibility-only `APPROVAL_WARNINGS`. All four acceptance criteria met.
-
-> Red arm on the old lib reproduced the self-grant exactly: the ticket's payload yielded **two** entries, `[harmless_id]` and `[claude_md_overlay]`. End-to-end through the shipped lib, the hostile entry is rejected and reported while the honest sibling `mirror_drift` still defers.
-
-**Status was:** parked — real defect, small fix, not blocked on anything
+**Status:** parked — real defect, small fix, not blocked on anything
 **Filed:** 2026-08-04, found in passing while implementing `compat-approval-surfacing`
 **Severity:** medium-high — an artifact can suppress a health finding it was never authorized to suppress
 **Predates:** `382a05e` (untouched by the v4.7.1 work; NOT a regression)
@@ -73,6 +69,24 @@ Suggested shape:
 - A well-formed multi-entry `deferred_checks` still populates `DEFERRED_CHECKS` and
   `EXCEPTION_IN_EFFECT` still classifies — the deferral feature is unchanged for honest artifacts.
 - A malformed check_id is reported, not silently dropped.
+
+## 2026-08-05 — attempted, reverted; the acceptance list above is INCOMPLETE
+
+An attempt (validate-and-reject + NUL transport + `find -print0`) was **reverted** after adversarial review. Two things it established:
+
+**1. The acceptance criteria above do not close the defect.** They only constrain each *element*; they never require `deferred_checks` to be an **array**. Iterating a JSON object yields its keys, so this still self-grants under the attempted fix — verified by running the shipped predicate:
+
+```json
+{ "deferred_checks": { "claude_md_overlay": true } }   ->   ACCEPT 'claude_md_overlay'
+```
+
+Add to acceptance: **`deferred_checks` MUST be a list; any other JSON type is rejected whole.**
+
+**2. Severity is probably wrong, and the framing is overstated.** Under decision K3 the agent and operator write as the **same OS principal** and `approved_by` is not authenticated — so anyone able to write this artifact can simply list `claude_md_overlay` directly. This is **record-integrity correctness, not an authorization boundary**, and it should not be sold as a security fix. Open question for whoever picks it up: should a malformed check_id be warning-only (the attempt's choice), or should an invalid control object invalidate the artifact and classify `BROKEN`/`UNVERIFIED`? Warning-only partially accepts a malformed authorization object and cannot make automation fail.
+
+**3. Two implementation traps.** Renaming the health-check heading `Approval age warnings` → `Approval warnings` breaks `hooks/tests/test-health-check-timeout.sh:412`, which greps the old string — the full suite goes red, and a scoped run will not show it. And a behavioural test that embeds a *copy* of the extractor is a specification test, not a regression test: it passes against the pre-fix code and it missed the object-key bypass above.
+
+This ticket is also mis-tiered as a Lightweight candidate — the approval surface makes it Full under FR-21 and under draft C0 trigger F05.
 
 ## Related
 
