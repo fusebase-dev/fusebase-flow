@@ -17,8 +17,8 @@ Verified:     Red arm and green arm both executed on the real tree, not simulate
               restamped   -> 7/7 PASS
               via harness -> FF_ONLY=manifest-freshness,hook-manifest = 15/15 PASS, exit 0
               Bogus tag `manifest-freshnes` correctly exits 2 (tag is registered in FF_TAGS).
-Rollback:     git revert <SHA>
-Commit:       <SHA>
+Rollback:     git revert 235f4a3
+Commit:       235f4a3
 Deploy:       NOT DEPLOYED — local commit only; awaiting explicit operator go-ahead.
 ```
 

@@ -25,8 +25,8 @@ Verified:     Red arm on the OLD lib: the ticket's payload yields TWO entries â€
                                        'harmless_id\nclaude_md_overlay'
               Unit: 16/16 PASS. Harness: FF_ONLY=deferral-checkid,manifest-freshness 23/23.
               Real tree unaffected: 10 active artifacts collected, rc 0, 0 policy errors.
-Rollback:     git revert <SHA>
-Commit:       <SHA>
+Rollback:     git revert 0e29ed5
+Commit:       0e29ed5
 Deploy:       NOT DEPLOYED â€” local commit only; awaiting explicit operator go-ahead.
 ```
 
