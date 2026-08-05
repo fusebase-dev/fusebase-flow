@@ -1,70 +1,43 @@
-# Active handoff — **v4.7.1 SHIPPED**. Nothing pending on this ticket.
+# Active handoff — Flow v5 simplification, ready to execute
 
-**Updated:** 2026-08-05 (rev 7 — released) · **Deploy hash:** `3ae1feb` · **Release:** <https://github.com/fusebase-dev/fusebase-flow/releases/tag/v4.7.1>
-Ticket `m19-recovery-hint-honesty` is **DONE**. This file exists only so the next session does not re-derive the shipped state. **No forward action is pending here** — the next ticket starts from a clean `main`.
+**Updated:** 2026-08-05 · **Branch:** `fix/msys-v3307-hardening` · **`origin/main`:** `3608271` · **VERSION:** 4.7.1
+**Shipped and live:** v4.7.0 (`bad4d92`) and v4.7.1 — both published, both untouched by anything below.
 
-## Shipped state
+## Start here
 
-| | |
-|---|---|
-| `origin/main` | `cbda87e` → `3ae1feb` (14 commits, fast-forward) |
-| Tag `v4.7.1` | **new** annotated tag at `3ae1feb`. `v4.7.0` untouched (`bad4d92`, published 2026-08-04T00:57:45Z) |
-| GitHub Release | **published** 2026-08-05T05:30:48Z, not draft, not prerelease, target `main` |
-| CI `fusebase-flow-verify` `30978106861` | **success** — 15/15 steps |
-| CI `fusebase-flow-release` `30978179823` | **success** (`publish` is `needs: verify`, so a red suite cannot release) |
-| Local gate — Linux `ubuntu:24.04` | **746/746 PASS**, 0 non-PASS, every CI-mirrored step rc 0 (`FAILED_STEPS=0`), 3.5 min |
-| Local gate — Windows unscoped | **718/721 PASS**, 0 assertion failures. Three watchdog crossings — see below |
-| FR-07 | empty diff `cbda87e..3ae1feb` on `policies/*.yml`, `hooks/handlers/**`, `hooks/shared/**`, `hooks/git/**` |
-| Locked files | empty diff: M2 hashers, M3 `run-with-timeout.sh`, `.gitattributes`, `parked/` |
-| Approval | `state/approvals/production_deploy-m19-recovery-hint-honesty-20260805.json` (repo-bound, command-bound to the `main` push) |
+1. `docs/north-star.md` — **locked 2026-08-05**. Flow is for **solo builders and small teams who want low friction**. This is the anchor; without it the roadmap below is unfalsifiable, and that is not hypothetical — a simplification proposal was drafted and could not be validated because this file did not exist.
+2. `docs/tmp/handoff/2026-08-05-v5-roadmap.md` — the 11-slice roadmap, ordered by `(evidence × consumer pain) / migration risk`. Sections: slice list · risk-classification contract · enforcement-honesty table · per-rule FR-01..FR-27 disposition · do-not list · measurement plan.
+3. `docs/maintainer-execution.md` — **how to run work here**. Maintainer-side, not Flow product. Read it before starting; it is the fix for the 76% of elapsed time that was decision latency.
 
-## What shipped — the M19 residual
+## Execution order
 
-M19 corrected the recovery hint's prose but left the same continuity claim alive in two other carriers. This release removes them and fixes the tests that failed to catch them.
+| Seq | Slice | Note |
+|---:|---|---|
+| 0 | **C0** — lock the executable contracts | One decision packet *before* any code. Includes the classifier spec, the final-candidate SHA contract, the one-file Full-lane shape. **Do this first.** |
+| 1 | S1 — bind release readiness to the exact candidate SHA | Narrowest, best-evidenced. Closes the closeout-commit gap hit on 2026-08-03 |
+| 2 | S2 — local gate matches CI freshness checks | |
+| 3 | **S3 — deterministic risk classifier; Lightweight becomes default** | The keystone. Ships `policies/risk-classification.yml` — a file, not a principle |
+| 4 | S4 — close the approval-expiry fail-open | The live open deploy gate a consumer measured |
+| 5 | **M1 — instrument the ordinary-consumer baseline** | **Runs BEFORE the big cuts on purpose.** It can falsify the roadmap while changing course is still cheap |
+| 6-10 | S5..S9 — one-file tickets · approval backends · enforcement honesty · rules → 8 invariants · core/optional packaging | The simplification proper |
 
-| Task | Commit | Change |
-|---|---|---|
-| T1 | `d9856fc` | Deleted `# re-run; completes remaining steps` from the printed block and the sibling sentence from the `main()` header. Commands unchanged; nothing hedged — a qualification would restate the paragraph above it |
-| T2 | `9bfba78` | Four assertion names made to agree with their predicates; one shared `CONTINUITY_RE` family now covers both carriers |
-| T3 | `c6ebf68` | Release notes: per-assertion RED/PASS table; the control corrected from "the sixth" to **assertion 4** |
-| T4 | `e67671a` | Manifest restamp (T1/T2 files) |
-| T5 | `961d9f8` | Three review corrections, all class (a) text-only |
-| T6 | `5696d8f` | Manifest restamp (T5 rename) |
+## Non-negotiables
 
-**Discriminator.** Against `02d14f7`'s `upgrade.sh` the old test is 6/6 green; the widened test is 4/6, catching exactly `completes remaining steps` and the header's `also finishes the remaining steps`. Verified against `5b5578f`: 5 RED, assertion 4 the sole control.
+- **The safety kernel is KEEP**, per the North Star: adversarial review on security/upgrade/data/release surfaces, release publication gated on the exact verified SHA, FR-06, FR-07, fail-closed secret scanning, per-file three-way upgrade classification, the problem catalog. Low friction means less ceremony per unit of safety — not less safety.
+- **Corrected numbers are binding.** 46 days (not 38), 19 spec files (not "17 Full"), ceremony audit `0 confirmed / 1 dismissed / 5 inconclusive` (not "zero firings"). The refuted versions must not reappear.
+- **Do not re-litigate the audience.** It is locked. Work that only pays off for regulated-team auditability or maintainer tooling is out of scope.
 
-The residual comment was inherited **verbatim** from pre-M19 `5b5578f` — M19 rewrote the prose above it and left the comment untouched. Defect class for the whole ticket: **a claim wider than the thing it describes**, which recurred inside the fix for it (T5).
+## The two failure modes this repo actually has
 
-## Windows gate — three ratified watchdog crossings, stated as they were
+1. **Undecided contracts.** `docs/problem-catalog/undecided-contract-drives-repeat-defects/` — a review round whose findings sit inside the *previous round's fix* means the contract is undecided. Stop implementing and decide it. This fired three times before it was honoured; overriding it on a "the list is converging" argument was wrong both times it was tried.
+2. **Claims wider than the thing they describe.** `approval_authors` documented as enforced and never implemented; release notes ahead of code; test names ahead of predicates; a surfacing tool that could not see the artifact it existed to surface. Assume it is present and grep for it — three green gates produced three NO-SHIPs on one feature.
 
-The Windows run was **not clean**. `718/721`, three non-PASS:
+## Open, filed, unstarted
 
-| Phase | Bound | Actual | Over by | Verdict |
-|---|---|---|---|---|
-| `cli-flow-recovery` | 900s | 903s | 0.3% | INCONCLUSIVE — previously ratified (D9) |
-| `bootstrap-exception` | 600s | 602s | 0.3% | FAIL 124 — **ratified 2026-08-05** |
-| `upgrade-repair-managed` | 600s | 603s | 0.5% | FAIL 124 — **ratified 2026-08-05** |
+`docs/backlog/`: `gate-bounds-lack-headroom` (schedule before the next release — a bound has been crossed four times) · `compat-approval-surfacing` (parked, needs the carrier table) · `self-granting-health-deferral` · `command-gate-shell-evasion` · `approval-single-use-consumption` · `approval-binding-omits-head` · `rm-rule-pattern-single-space-gap` · `provenance-and-single-seam-guarantees`.
 
-All three exited **124** (the watchdog, not an assertion); **zero assertions failed** anywhere; `bootstrap-exception` passed at **577s** on this same code in an earlier run; Linux was 746/746 on the identical commit. The operator moved the line deliberately and filed the underlying defect as `docs/backlog/gate-bounds-lack-headroom/README.md` (`3ae1feb`) rather than waiving the finding.
+Not a Flow ticket: the Paperclip host report (`paperclip+hermes-v1`, different product) — three transferable lessons already extracted into `provenance-and-single-seam-guarantees`.
 
-**Do not record this gate as clean.** The bar was "the ratified `cli-flow-recovery` INCONCLUSIVE as the only non-PASS"; the release proceeded on an explicit ratification of two further crossings, not on meeting that bar.
+## Operational
 
-## Review
-
-One Codex round over `02d14f7..e67671a`: **NO-SHIP, 3 findings, every one class (a) and text-only, zero class (b)** → fixed exactly those in T5 and released without a further round, per the standing authorization. Findings: #2/#6 named the general absence of continuity claims while testing one finite regex family; #4 claimed all recovery commands present but never anchors `fusebase-flow-health-check.sh`; the notes located all six assertions inside `print_recovery_hint` when #6 reads the header. #4 was **renamed rather than strengthened** — strengthening its predicate would have been class (b).
-
-## Harness lessons (cost real time this cycle)
-
-| Trap | Reality |
-|---|---|
-| `ps -W \| grep run-tests` | **Cannot work** — `ps -W` prints only exe paths, never script args. Detect competing suites via Win32 `CommandLine` (`Get-CimInstance Win32_Process`) |
-| Linux container venv | A venv breaks `python3 -S` + `getsitepackages()` and manufactures **33 false FAILs**. CI installs flat — use `pip install --break-system-packages` on Ubuntu 24.04 |
-| Mirror-drift step | Reset `audit/` first, or the two manifest-stamp steps above it get attributed to the mirrors |
-| Manifest freshness | Any `hooks/**` edit restales both manifests; CI catches it, the local suite does not (`local-gate-misses-manifest-freshness`) |
-| `MSYS_NO_PATHCONV=1` | Required for `docker run`, or MSYS rewrites `/gate.sh` into `C:/Program Files/Git/gate.sh` |
-
-## Filed, deferred
-
-New this cycle: `docs/backlog/gate-bounds-lack-headroom/README.md` — bounds are liveness backstops, not performance assertions; they need deliberate headroom (2–3×) against a *loaded-host* worst case.
-
-Still parked: `compat-approval-surfacing` (needs a designed carrier table; M19 residual now closed out of it) · `self-granting-health-deferral` · `repair-trust-root-outside-workspace` · `command-gate-shell-evasion` · `approval-single-use-consumption` · `local-gate-misses-manifest-freshness`.
+Two-platform gating (Windows unscoped + Linux `ubuntu:24.04` container) before any release claim — a green MSYS run alone has been wrong twice. Before diagnosing a timing FAIL, check for a competing suite via Win32 `CommandLine` (`ps -W` alone misses it). Write long-running agent output to `c:/tmp/`, not the session scratchpad. Never `--no-verify`. FR-07 protected: `policies/*.yml`, `hooks/handlers/**`, `hooks/shared/**`, `hooks/git/**` only.
