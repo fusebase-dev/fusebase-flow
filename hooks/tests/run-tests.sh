@@ -52,6 +52,7 @@ FFHC_HEARTBEAT_SECS="${FFHC_HEARTBEAT_SECS:-30}"
 FF_TAGS=(fixtures module-size health-check-timeout git-smoke hook-manifest manifest-freshness newline-preserve baseline-merge \
   sync-allowlist policy-state bootstrap-baseline-hop fr22-delivery po-verifiable-boot \
   po-investigate liveness codex-parity codex-plugin cli-0259 secret-scan-staged bootstrap-exception \
+  deferral-checkid \
   trusted-enforcer hook-install-rc msys-tree-cleanup ws5-upgrade ff-only return-budget \
   supersede-primitive rule-inventory boot-size prohibition-residency token-waste-classify \
   budget-literals history-extraction approval-binding approval-writer command-policy upgrade-classify \
@@ -300,6 +301,9 @@ run_shell_phase test-hook-manifest.sh        "hook-manifest"
 # tree's freshness, which is what CI enforces and what the local gate used to miss entirely
 # (eca925b: 625/625 local PASS, main red on the two files it touched).
 run_shell_phase test-manifest-freshness.sh   "manifest-freshness"
+# DEFERRED_CHECKS is the one artifact-derived input that MOVES the health verdict, so a check_id
+# that splits its own transport is a self-granted exception (backlog self-granting-health-deferral).
+run_shell_phase test-deferral-checkid-validation.sh "deferral-checkid"
 run_shell_phase test-newline-preserve.sh     "newline-preserve"
 run_shell_phase test-baseline-merge.sh       "baseline-merge"
 run_shell_phase test-sync-allowlist.sh       "sync-allowlist"

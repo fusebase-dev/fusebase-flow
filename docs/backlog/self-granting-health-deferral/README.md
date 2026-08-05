@@ -1,6 +1,10 @@
 # self-granting-health-deferral
 
-**Status:** parked — real defect, small fix, not blocked on anything
+**Status:** DONE 2026-08-05 (Lightweight lane — [`docs/changes/2026-08-05-self-granting-health-deferral.md`](../../changes/2026-08-05-self-granting-health-deferral.md)). validate-and-reject (`re.fullmatch` on `[A-Za-z0-9._-]{1,120}`, never sanitized), NUL-delimited transport, `find -print0` traversal, rejections surfaced via the visibility-only `APPROVAL_WARNINGS`. All four acceptance criteria met.
+
+> Red arm on the old lib reproduced the self-grant exactly: the ticket's payload yielded **two** entries, `[harmless_id]` and `[claude_md_overlay]`. End-to-end through the shipped lib, the hostile entry is rejected and reported while the honest sibling `mirror_drift` still defers.
+
+**Status was:** parked — real defect, small fix, not blocked on anything
 **Filed:** 2026-08-04, found in passing while implementing `compat-approval-surfacing`
 **Severity:** medium-high — an artifact can suppress a health finding it was never authorized to suppress
 **Predates:** `382a05e` (untouched by the v4.7.1 work; NOT a regression)

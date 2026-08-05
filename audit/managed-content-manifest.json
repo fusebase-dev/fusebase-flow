@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.7.1",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 288,
+  "asset_count": 289,
   "assets": [
     {
       "path": ".claude-plugin/marketplace.json",
@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "e3048e75253f53d65461d0b359f615c52ec972fbac3841877d3f306ac4918ad2"
+      "sha256": "bae64d38656ff3a99eaf9c8d6d0f1c1b0391345f00bde2b9d1ca89fe7dd4ec6a"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -398,7 +398,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-health-check.sh",
-      "sha256": "36cfbc7b1f8900614377d19833272e8bf4b639798e135a350c774fc39fcf569a"
+      "sha256": "1bbf9902543a912bf76d67902256b3db8a1954e2c2a02594eae3ce0d86b3a6a2"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/agent-surface-ownership.json",
@@ -458,7 +458,7 @@
     },
     {
       "path": "hooks/local/lib/active-approvals.sh",
-      "sha256": "c60c6cc05e83cbf049eff777ad380e9bbeb1abb1c2e0e9897404f67672d4348c"
+      "sha256": "1b001dbe39376ee49a76063609a78f4ef5d43ce982c37a8719b0fc0d1c7f66ac"
     },
     {
       "path": "hooks/local/lib/approval_inventory.py",
@@ -794,7 +794,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "4150b1652768e492a6571026904396a0865d26f36bc3c5fca5e5a30e390c3be7"
+      "sha256": "4867068d2e259b004e3b47badd63a98f3f25f5e3e00c56b68cc1b5b778618323"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -847,6 +847,10 @@
     {
       "path": "hooks/tests/test-command-policy.sh",
       "sha256": "05219c8681fb790e841014c1f59ee535b21009724e2267b34aa859e9193185d5"
+    },
+    {
+      "path": "hooks/tests/test-deferral-checkid-validation.sh",
+      "sha256": "e61d04ee5fd015a074a28bee960a50d2bea04468486586829ed8eccf9a172129"
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
@@ -1157,5 +1161,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "ebeb30a39acab6a6c348a6ba30327c6d7e2c3d85650308764445b2a5e98c9a6e"
+  "manifest_self_sha256": "d5f8c48881f7f35553f5464b7107bb5c948aa58cb4ea68cdfdcab43ae8d6f5ec"
 }
