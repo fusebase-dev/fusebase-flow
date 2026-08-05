@@ -141,17 +141,22 @@ def build_manifest(root: Path) -> dict:
     }
 
 
-def stamp(root: Path) -> int:
+def stamp(root: Path, out: str | None = None) -> int:
     root = _resolve_root(root)
     doc = build_manifest(root)
-    out_path = root / MANIFEST_REL
+    # TRIPWIRE: --out exists so a freshness CHECK can stamp to a scratch path and diff without
+    # touching the committed manifest — a checker that stamps in place masks the drift it tests
+    # for (backlog local-gate-misses-manifest-freshness AC2). Mirrors the sibling
+    # managed_content_manifest.py --out. An absolute --out is used as-is; a relative one is
+    # root-anchored, matching the sibling's MANIFEST_REL default.
+    out_path = Path(out) if (out and Path(out).is_absolute()) else root / (out or MANIFEST_REL)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     text = json.dumps(doc, indent=2) + "\n"
     # newline="\n": LF even on Windows, so the committed manifest is byte-identical
     # across platforms and the CI freshness gate is deterministic.
     with out_path.open("w", encoding="utf-8", newline="\n") as fh:
         fh.write(text)
-    print(f"[hook-manifest] wrote {MANIFEST_REL} ({doc['asset_count']} asset(s); "
+    print(f"[hook-manifest] wrote {out or MANIFEST_REL} ({doc['asset_count']} asset(s); "
           f"flow_version={doc['flow_version']})")
     return 0
 
@@ -261,10 +266,12 @@ def main(argv=None) -> int:
     parser.add_argument("command", choices=["stamp", "verify"])
     parser.add_argument("--json", action="store_true", help="verify: emit machine-readable JSON")
     parser.add_argument("--root", default=None, help="repo root (default: git toplevel)")
+    parser.add_argument("--out", default=None,
+                        help="stamp: manifest destination (default: audit/hook-layer-manifest.json)")
     args = parser.parse_args(argv)
     root = Path(args.root).resolve() if args.root else _git_root()
     if args.command == "stamp":
-        return stamp(root)
+        return stamp(root, args.out)
     return verify(root, args.json)
 
 

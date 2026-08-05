@@ -49,7 +49,7 @@ FFHC_HEARTBEAT_SECS="${FFHC_HEARTBEAT_SECS:-30}"
 # --- FF_ONLY scoped-gate parse (implement-loop iteration speed) ---------------------
 # Canonical phase tags, in run order. This list is the FF_LIST discovery source and the
 # FF_ONLY validation set; add a tag here (and its guard) when a phase is added.
-FF_TAGS=(fixtures module-size health-check-timeout git-smoke hook-manifest newline-preserve baseline-merge \
+FF_TAGS=(fixtures module-size health-check-timeout git-smoke hook-manifest manifest-freshness newline-preserve baseline-merge \
   sync-allowlist policy-state bootstrap-baseline-hop fr22-delivery po-verifiable-boot \
   po-investigate liveness codex-parity codex-plugin cli-0259 secret-scan-staged bootstrap-exception \
   trusted-enforcer hook-install-rc msys-tree-cleanup ws5-upgrade ff-only return-budget \
@@ -296,6 +296,10 @@ run_shell_phase() { # run_shell_phase <test-script> <tag>
 }
 run_shell_phase test-git-hooks-smoke.sh      "git-smoke"
 run_shell_phase test-hook-manifest.sh        "hook-manifest"
+# CI parity: test-hook-manifest exercises the stamping MECHANISM; this one asserts the CURRENT
+# tree's freshness, which is what CI enforces and what the local gate used to miss entirely
+# (eca925b: 625/625 local PASS, main red on the two files it touched).
+run_shell_phase test-manifest-freshness.sh   "manifest-freshness"
 run_shell_phase test-newline-preserve.sh     "newline-preserve"
 run_shell_phase test-baseline-merge.sh       "baseline-merge"
 run_shell_phase test-sync-allowlist.sh       "sync-allowlist"

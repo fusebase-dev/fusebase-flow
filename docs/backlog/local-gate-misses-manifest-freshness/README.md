@@ -1,6 +1,10 @@
 # Backlog — local-gate-misses-manifest-freshness
 
-**Status:** parked
+**Status:** DONE 2026-08-05 (Lightweight lane — [`docs/changes/2026-08-05-local-gate-manifest-freshness.md`](../../changes/2026-08-05-local-gate-manifest-freshness.md)). New `manifest-freshness` phase replays both CI steps for both manifests against the actual tree; `hook_manifest.py stamp --out` keeps it non-mutating (AC2). AC1/AC2/AC3 all met — red arm 3/7, green arm 7/7, harness 15/15.
+
+> The red arm did not need planting: the immediately preceding commit `cb0ff8b` had itself left both manifests stale (two collected files modified, no re-stamp) while passing the local gate and the pre-commit hook. The gap reproduced on the next commit after this ticket was read.
+
+**Status was:** parked
 **Filed:** 2026-07-27 (during the `rule-inventory-version-literal-noise` publication)
 **Owner:** unassigned
 **Lane guess:** Lightweight (one assertion + its red arm)

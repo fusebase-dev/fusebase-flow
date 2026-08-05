@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.7.1",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 141,
+  "asset_count": 142,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -98,7 +98,7 @@
     },
     {
       "path": "hooks/local/lib/hook_manifest.py",
-      "sha256": "08c7c312eaeb95a6e5632498fa910113f438afcd2e2a52e24e0e06b3a26e8ad9"
+      "sha256": "c85b84ddc624c8973192a011eb6320c1c451938cd4a09e090f068cb32cd974b7"
     },
     {
       "path": "hooks/local/lib/managed_content_manifest.py",
@@ -402,7 +402,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "bbe6f45448f9121d2af9fa76bc0b0f73d9af53e7e6b335be1170ea75388263de"
+      "sha256": "4150b1652768e492a6571026904396a0865d26f36bc3c5fca5e5a30e390c3be7"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -489,6 +489,10 @@
       "sha256": "8cf77264557d373e7fee0a1e51086a0ec7d7766f049afa9c5f7422be8322a513"
     },
     {
+      "path": "hooks/tests/test-manifest-freshness.sh",
+      "sha256": "19d5beab677538962c1ab095f57f85b6649d70aa18ce8906b8e95a79343487df"
+    },
+    {
       "path": "hooks/tests/test-module-size.sh",
       "sha256": "c7f4d1a904477bf46b0be740bd2d9e1ffd8acb1e4ce92424aed6b1d366f41ece"
     },
@@ -569,5 +573,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "5f77a4eefae40466ad02d904a0253c56b6c3a61f184376881da1e2c292447213"
+  "manifest_self_sha256": "d718e5504127ef5437cff1a97a245ed9264339401606c1f6564348bf491e4d6b"
 }
