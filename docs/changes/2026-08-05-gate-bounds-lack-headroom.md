@@ -21,9 +21,11 @@ Verified:     FF_ONLY=bootstrap-exception,upgrade-repair,cli-flow-recovery on Wi
               680s > 600s; cli-flow-recovery 1813s > 900s) with zero failed assertions — the
               defect reproduced on demand and the new bounds absorbed it. SCOPED run: a
               subset, never release proof.
-Rollback:     git revert <SHA>
-Commit:       <SHA>
-Deploy:       <go-ahead · SHA · FR-07 check>
+Rollback:     git revert cb0ff8b
+Commit:       cb0ff8b
+Deploy:       NOT DEPLOYED — local commit only; awaiting explicit operator go-ahead.
+              FR-07 protected-path re-check: clean (run-tests.sh is not in the protected
+              set; worker_undisturbed is empty).
 ```
 
 ## Headroom basis (measured 2026-08-05, not inferred)
