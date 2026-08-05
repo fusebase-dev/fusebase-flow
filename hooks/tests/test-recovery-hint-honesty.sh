@@ -62,8 +62,8 @@ f=""
 if printf '%s' "$HINT" | grep -qiE "$CONTINUITY_RE"; then
   f="$f [still claims the re-run continues what the failed engine was doing: $(printf '%s' "$HINT" | grep -oiE "$CONTINUITY_RE" | sort -u | tr '\n' ' ')]"
 fi
-[ -z "$f" ] && ok "m19-continuity-claim-removed (printed block contains none of: idempotent / finishes the rest / completes|finishes (the) remaining steps - inline comments included)" \
-  || bad "m19-continuity-claim-removed" "$f
+[ -z "$f" ] && ok "m19-known-continuity-phrasings-absent (printed block matches none of: idempotent / finishes the rest / complete(s)|finishes (the) remaining steps - inline comments included; a finite family, NOT a proof that no continuity claim in any wording exists)" \
+  || bad "m19-known-continuity-phrasings-absent" "$f
 --- print_recovery_hint ---
 $HINT"
 
@@ -94,8 +94,8 @@ for cmd in "bash hooks/local/upgrade.sh" \
            "bash hooks/local/preflight.sh"; do
   printf '%s' "$HINT" | grep -qF "$cmd" || f="$f [recovery command dropped: $cmd]"
 done
-[ -z "$f" ] && ok "m19-recovery-commands-present (all four commands still printed)" \
-  || bad "m19-recovery-commands-present" "$f"
+[ -z "$f" ] && ok "m19-recovery-command-anchors-present (the four anchors above; does NOT cover the fusebase-flow-health-check.sh half of the final compound line)" \
+  || bad "m19-recovery-command-anchors-present" "$f"
 
 # ---- 5. ASCII only ----------------------------------------------------------------------
 # This block reaches a Windows console whose codec is not UTF-8. LC_ALL=C is load-bearing:
@@ -114,9 +114,9 @@ fi
 # the two carriers cannot drift apart again.
 HEADER="$(sed -n '1,/^main() {/p' "$UPGRADE")"
 if printf '%s' "$HEADER" | grep -qiE "$CONTINUITY_RE"; then
-  bad "m19-header-carries-no-continuity-claim" "hooks/local/upgrade.sh's header still tells a source reader the re-run continues what the failed engine was doing: $(printf '%s' "$HEADER" | grep -inE "$CONTINUITY_RE" | head -3)"
+  bad "m19-header-free-of-known-continuity-phrasings" "hooks/local/upgrade.sh's header still tells a source reader the re-run continues what the failed engine was doing: $(printf '%s' "$HEADER" | grep -inE "$CONTINUITY_RE" | head -3)"
 else
-  ok "m19-header-carries-no-continuity-claim (header states no continuity phrasing; it does not restate the block's correction)"
+  ok "m19-header-free-of-known-continuity-phrasings (same finite family as the printed-block assertion, applied to the pre-main() header)"
 fi
 
 finish
