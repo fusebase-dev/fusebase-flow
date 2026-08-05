@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "425478b5cdc3728b1d72d255689c4f2185af53f846f34245afddcf2fff235742"
+      "sha256": "5016fb969b903acc64e186de5785746cd135137b0ce75ce0032911f408029f18"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -554,7 +554,7 @@
     },
     {
       "path": "hooks/local/upgrade.sh",
-      "sha256": "ca3ca6289f38789349e474ae43924939cc7ac54332e8957f837e0565d742d305"
+      "sha256": "012be70894d79dc940419faf7c3f249f5b2787e2e4d9b0a4a9633e894aeec480"
     },
     {
       "path": "hooks/local/verify-gate.sh",
@@ -910,7 +910,7 @@
     },
     {
       "path": "hooks/tests/test-recovery-hint-honesty.sh",
-      "sha256": "f29671cc0595715a891000674f7e66abdd3f3d366b7376042da3ced4b8851d17"
+      "sha256": "ab2e71334f0ebe21be50a3522c5eea47b50dbb9ea460a7ebc45a195e2bba19d2"
     },
     {
       "path": "hooks/tests/test-return-budget.sh",
@@ -1153,5 +1153,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "ad6c7921e2de23e3ac6fe8a01687996946914fa59065ed602340b137ecf19ede"
+  "manifest_self_sha256": "57d4bf9b6dfd3a740b5a54c628137609e4d04bd4871f75132619a769cd744856"
 }
