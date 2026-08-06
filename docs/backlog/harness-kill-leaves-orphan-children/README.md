@@ -41,47 +41,37 @@ controls PASS. Full trace + provenance: `state/audit/run-tests-signal-reap/<full
 | R2 | The EXIT trap never runs. A direct SIGTERM to the harness — which is polling inside `ffhc_msys_wait_reap`, not blocked in a foreground command — is acted on late or not at all (>=12s unacted-on measured), so the outer `-k 5s` SIGKILL lands first | trap marker absent in every run; measured direct-signal latency |
 | R3 | Even when the trap DOES run, its reap is insufficient: `taskkill //F //T //PID <recorded winpid>` returns `SUCCESS`, kills only the inner `timeout`, and leaves child + grandchild alive — MSYS exec/fork emulation breaks the Win32 parent link `//T` walks | trap's own kill executed directly against a live fixture |
 
-**Consequences for the fix (T4) — CORRECTED 2026-08-06 after an independent second measurement.**
+**Consequences for the fix (T4) — settled after THREE measurements, two of which were wrong.**
 
-The first draft of this section said "a trap-based fix is ruled out … the mechanism must be
-child-side (parent-death detection) or a supervisor." **That was wrong**, and it was the sentence
-that would have steered T4 into building unnecessary machinery.
+The sequence matters, because two of these were confident and mistaken:
 
-R2 measured an **untrapped** signal. Bash defers an untrapped TERM to a command boundary, which is
-the ≥12s figure. A **trapped** signal is delivered at the next builtin boundary, and the poll loop
-hits one constantly. Measured independently, twice, in the identical poll-loop context:
+| # | Claim | Fixture | Verdict |
+|---|---|---|---|
+| 1 | "A trap is ruled out; trap never fired in 12s" | real harness, FIFO nap active | **correct** |
+| 2 | "Trap fires in 0.9s, so a trap IS viable" | simplified `sleep 0.2` poll loop | **wrong — non-representative fixture** |
+| 3 | "Trap never fires with the nap; fires in 1s with the nap forced off" | real harness, both arms | **correct, and explains 1 and 2** |
 
-```
-trap '…' TERM installed  →  trap ran 0.9s after the signal  →  harness exit 143
-```
+`_ffhc_nap` is `read -t SECS` on an RW-opened FIFO. Bash does not deliver the trap while that
+blocking read is in flight, so with the nap active an explicit `trap … TERM INT` does **not** run
+before the outer `timeout -k 5s` SIGKILLs the harness. Measurement 2 used an external `sleep`,
+which bash interrupts cleanly — it measured a loop the harness does not have.
 
-So **R2 rules out the trap's PAYLOAD, not the trap.** R3 stands: `taskkill //F //T //PID <recorded
-winpid>` reports SUCCESS and still leaves child + grandchild alive, because MSYS fork/exec breaks
-the Win32 parent link `//T` walks (the phase's Win32 `ParentProcessId` is a dead intermediate, not
-the recorded pid).
+**Therefore no harness-side cleanup can be relied on** — not an EXIT trap, not a signal trap. R2
+stands as originally written. R3 stands: `taskkill //F //T` reports SUCCESS and still leaves the
+descendants alive.
 
-**The mechanism R1 implies is a guarded POSIX process-group kill**, not a supervisor. R1's own
-topology already contains it: wrapper, phase child and grandchild share one `pgid` equal to the
-recorded `FFHC_LAST_CHILD_PID`, and the harness is in a different group. Demonstrated on a live
-orphan tree that had just survived `taskkill`:
+**The shipped mechanism is an out-of-band sentinel** (`hooks/tests/lib/orphan-sentinel.sh`),
+started once per run under its own `timeout` process group so it is immune to the group signal
+that kills the harness and carries a hard cap so it can never outlive the run. It polls the
+harness; when the harness dies with a phase still in flight, it revalidates the recorded identity
+tuple and terminates **that process group only** — R1's topology (wrapper, child and grandchild
+share one pgid; the harness is in a different group) is the handle it reaps. It never signals its
+own group, the harness's group, an ancestor, a name-wide set, or an unverified pid, so
+`bounded-run-msys-collateral-kill` stays closed.
 
-```
-taskkill //F //T //PID 406884   → "SUCCESS"   … phase + grandchild STILL ALIVE
-kill -TERM -1002613             → both gone, immediately
-```
-
-T4 therefore is: fire from `trap … TERM/INT`; revalidate identity
-(`ffhc_msys_winpid(pid) == FFHC_LAST_WINPID`); guard scope with `pgid(pid) == pid` (own group
-leader) **and** `pgid != pgid($$)`, so a mismatch kills nothing; `kill -TERM -$pgid`, wait
-`FFHC_TIMEOUT_KILL_GRACE`, then `kill -KILL -$pgid`; keep `ffhc_msys_taskkill_winpid` as the
-Windows backstop. The same-executable sibling sits in another process group and survives by
-construction, and the two pgid guards exclude the caller shell — so
-`bounded-run-msys-collateral-kill` is not reopened.
-
-**Ruled out:** the "bash defers the EXIT trap behind a foreground command" theory (E9). The bounded
-phase is backgrounded and polled (`run-with-timeout.sh:519-564`); a `bash -x` trace shows the live
-poll loop. A minimal bash with an EXIT trap DOES die promptly on TERM, so this is not a general
-property of EXIT traps.
+**Method note worth keeping.** Measurement 2 was mine. I verified a claim against a fixture that
+did not reproduce the condition under test, and used it to override a correct finding. The
+fixture must contain the mechanism being questioned — here, the FIFO nap.
 
 ## What is NOT the defect
 

@@ -88,23 +88,46 @@ echo $$ > "$D/phase.pid"; cat "/proc/$$/winpid" > "$D/phase.winpid" 2>/dev/null
 bash "$D/gc.sh" "$D" &
 while :; do sleep 1; done
 PH
-# TRIPWIRE: the reaper block below is a byte-copy of run-tests.sh:116-122. If that block
-# changes and this does not, the red arm stops describing the shipped harness.
+# TRIPWIRE: the reaper + sentinel block below mirrors run-tests.sh:108-159. If that block changes
+# and this does not, the control set stops describing the shipped harness.
 cat > "$FIX/harness.sh" <<'HN'
 #!/usr/bin/env bash
 set -uo pipefail
 D="$1"; LIB="$2"; PHASE="${3:-$D/phase.sh}"
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 . "$LIB"
 ffhc_detect_timeout
 FFHC_HEARTBEAT_SECS="${FFHC_HEARTBEAT_SECS:-30}"
 FFHC_LAST_WINPID=""
 FFHC_LAST_CHILD_PID=""
+FF_SENTINEL_PID=""
+FFHC_SENTINEL_STATE=""
+_ff_sentinel_stop() {
+    [ -n "$FF_SENTINEL_PID" ] || return 0
+    ffhc_sentinel_note
+    kill "$FF_SENTINEL_PID" 2>/dev/null
+    wait "$FF_SENTINEL_PID" 2>/dev/null
+    FF_SENTINEL_PID=""
+    [ -n "$FFHC_SENTINEL_STATE" ] && rm -f "$FFHC_SENTINEL_STATE" 2>/dev/null
+    return 0
+}
 _ff_exit_reap() {
     echo "trap-ran winpid=$FFHC_LAST_WINPID child=$FFHC_LAST_CHILD_PID" >> "$D/trap.log"
+    _ff_sentinel_stop
     ffhc_is_msys || return 0
     [ -n "$FFHC_LAST_WINPID" ] && ffhc_msys_taskkill_winpid "$FFHC_LAST_WINPID" "$FFHC_LAST_CHILD_PID"
 }
 trap _ff_exit_reap EXIT
+if ffhc_is_msys && [ -n "${FFHC_TIMEOUT_BIN:-}" ] && [ -f "$ROOT/hooks/tests/lib/orphan-sentinel.sh" ]; then
+    FFHC_SENTINEL_STATE="$(mktemp "${TMPDIR:-/tmp}/ffhc-sentinel.$$.XXXXXX" 2>/dev/null)" || FFHC_SENTINEL_STATE=""
+    if [ -n "$FFHC_SENTINEL_STATE" ]; then
+        _g="${FFHC_TIMEOUT_KILL_GRACE:-5s}"; _g="${_g%[!0-9]*}"
+        case "$_g" in ''|*[!0-9]*) _g=5 ;; esac
+        "$FFHC_TIMEOUT_BIN" "${FF_SENTINEL_CAP:-600}" bash "$ROOT/hooks/tests/lib/orphan-sentinel.sh" \
+            "$$" "$(ffhc_pgid_of $$)" "$FFHC_SENTINEL_STATE" "$_g" >/dev/null 2>&1 &
+        FF_SENTINEL_PID=$!
+    fi
+fi
 echo $$ > "$D/harness.pid"; cat "/proc/$$/winpid" > "$D/harness.winpid" 2>/dev/null
 ffhc_run_bounded 300 bash "$PHASE" "$D"
 echo "phase-returned rc=$FFHC_LAST_RC" >> "$D/harness.log"
@@ -244,20 +267,30 @@ else
 fi
 
 # --- Signal-correct exit status: TERM => 143, INT => 130 ----------------------------------
-# Signalled DIRECTLY (not through the outer wall) so the wrapper survives to record the rc —
-# `timeout`'s own 124 would otherwise mask the harness's status.
+# Signalled to the harness's PROCESS GROUP, because that is what a terminal Ctrl-C and an outer
+# `timeout` both do — and it is the only faithful model: a signal sent to the harness pid ALONE
+# leaves its foreground child running, and non-interactive bash waiting on a foreground child does
+# not act on SIGINT at all. `timeout` is the launcher purely because it puts the harness in its
+# OWN group; the cap is far above the run so 124 can never be the answer.
 sig_status() {   # sig_status <signal> ; echoes the harness's exit status or "none"
-  local sig="$1"
+  local sig="$1" own_pgid
+  own_pgid="$(awk '{print $5}' "/proc/$$/stat" 2>/dev/null)"
   rm -f "$FIX"/*.pid "$FIX"/*.winpid "$FIX"/rc.log "$FIX"/trap.log
-  bash -c 'bash "$1" "$2" "$3" >/dev/null 2>&1; echo "$?" > "$2/rc.log"' _ \
-    "$FIX/harness.sh" "$FIX" "$LIB" &
-  local w=$! i=0
+  ( timeout 300 bash "$FIX/harness.sh" "$FIX" "$LIB" >/dev/null 2>&1; echo "$?" > "$FIX/rc.log" ) &
+  local w=$! i=0 hp hpg
   while [ ! -s "$FIX/gc.pid" ] && [ "$i" -lt 30 ]; do sleep 1; i=$((i + 1)); done
-  [ -s "$FIX/harness.pid" ] || { kill -9 "$w" 2>/dev/null; echo none; return; }
-  kill -"$sig" "$(cat "$FIX/harness.pid")" 2>/dev/null
+  hp="$(cat "$FIX/harness.pid" 2>/dev/null)"
+  [ -n "$hp" ] || { kill -9 "$w" 2>/dev/null; wait 2>/dev/null; echo none; return; }
+  hpg="$(awk '{print $5}' "/proc/$hp/stat" 2>/dev/null)"
+  # HARD GUARD: never signal our own group. If the harness did not get its own group, abort the
+  # measurement rather than take the risk.
+  case "$hpg" in ''|*[!0-9]*) hpg="" ;; esac
+  if [ -z "$hpg" ] || [ "$hpg" = "$own_pgid" ]; then
+    kill -9 "$hp" "$w" 2>/dev/null; wait 2>/dev/null; echo "unisolated"; return
+  fi
+  kill -"$sig" -"$hpg" 2>/dev/null
   i=0; while [ ! -s "$FIX/rc.log" ] && [ "$i" -lt "$REAP_CEILING" ]; do sleep 1; i=$((i + 1)); done
-  kill -9 "$(cat "$FIX/gc.pid" 2>/dev/null)" "$(cat "$FIX/phase.pid" 2>/dev/null)" \
-          "$(cat "$FIX/harness.pid" 2>/dev/null)" "$w" 2>/dev/null
+  kill -9 "$(cat "$FIX/gc.pid" 2>/dev/null)" "$(cat "$FIX/phase.pid" 2>/dev/null)" "$hp" "$w" 2>/dev/null
   wait 2>/dev/null
   cat "$FIX/rc.log" 2>/dev/null || echo none
 }
@@ -265,7 +298,7 @@ term_rc="$(sig_status TERM)"; int_rc="$(sig_status INT)"
 if [ "$term_rc" = "143" ] && [ "$int_rc" = "130" ]; then
   ok "signal-exit-status (TERM => 143, INT => 130)"
 else
-  bad "signal-exit-status" "TERM => $term_rc (want 143), INT => $int_rc (want 130); 'none' means the harness never exited within ${REAP_CEILING}s of the signal — an unacted-on signal, not a wrong code"
+  bad "signal-exit-status" "TERM => $term_rc (want 143), INT => $int_rc (want 130); 'none' = the harness never exited within ${REAP_CEILING}s of the signal (an unacted-on signal, not a wrong code); 'unisolated' = the harness did not get its own process group, so the measurement was aborted rather than signal our own group"
 fi
 
 # --- Control: a NORMAL exit performs no kill (behaviour must stay byte-identical) ---------

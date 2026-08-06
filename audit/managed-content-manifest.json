@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.7.1",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 293,
+  "asset_count": 294,
   "assets": [
     {
       "path": ".claude-plugin/marketplace.json",
@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "2a3db832487a021c1ed39acf61fb816ff68f8e31779dcc13d24d4ca22f2f33e7"
+      "sha256": "7a3e5b5063f47320534bd627e514f59c3055ac5fd7e08fb844ae754441083f8a"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -502,7 +502,7 @@
     },
     {
       "path": "hooks/local/lib/run-with-timeout.sh",
-      "sha256": "856bff384af5e510f7eac0efdc55576152ed23170e65853aa000b25422881531"
+      "sha256": "90a5eda47aa5de543a787b18e928d5449084570d7b3e896c918e74b54269876e"
     },
     {
       "path": "hooks/local/mirror-agents.sh",
@@ -797,12 +797,16 @@
       "sha256": "5fefd4d5b14b2261c114f2915d140275b79bf1539a7f8cdf4d7df680bfa99819"
     },
     {
+      "path": "hooks/tests/lib/orphan-sentinel.sh",
+      "sha256": "cf342ed7e10bf3ffe5a13dbad067bbb77782bf75b7262bfb100a2a055d4ffaa5"
+    },
+    {
       "path": "hooks/tests/lib/upgrade-fixtures.sh",
       "sha256": "cbef901b4a735e71f822daf02e62d26673e3bb63b279d0bd0333897f8b696659"
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "9e8ea0a7526e7c8cf82f09a6e099fca8d6fc780a12782dfd6cb6f55ed2f9f2f7"
+      "sha256": "afd6f7fe3fb8f6ceb0c5e10ac2623472f3596c7b857ae0925582ee4a011aac0a"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -942,7 +946,7 @@
     },
     {
       "path": "hooks/tests/test-run-tests-signal-reap.sh",
-      "sha256": "9f7b913ff33e7b13656a5f549dfd4fb99f7b7aed08d8a4ea317d177132fbad19"
+      "sha256": "22dde3f8e4fe1d82b44311c3f86291dda87cf45f16a1e1827e34ce8ee336f2a2"
     },
     {
       "path": "hooks/tests/test-secret-scan-staged.sh",
@@ -1177,5 +1181,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "38938dd228da41fcc34047e3b3f7d984e0afe2ac67984966e6afc3b63b6534ed"
+  "manifest_self_sha256": "373fbd06b7b14451d17c62bae47f5d07f4ccf7bae4ec9e0c75055334512035c0"
 }

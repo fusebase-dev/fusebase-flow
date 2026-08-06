@@ -116,10 +116,47 @@ fi
 FFHC_LAST_WINPID=""
 FFHC_LAST_CHILD_PID=""
 _ff_exit_reap() {
+    _ff_sentinel_stop
     ffhc_is_msys || return 0
     [ -n "$FFHC_LAST_WINPID" ] && ffhc_msys_taskkill_winpid "$FFHC_LAST_WINPID" "$FFHC_LAST_CHILD_PID"
 }
+
+# --- S2 orphan sentinel (T4) ------------------------------------------------------------------
+# TRIPWIRE: the EXIT trap above is NOT a teardown guarantee. T3 measured that this harness is deaf
+# to TERM/INT while a bounded phase polls (an explicit TERM trap never fired in 12s), so an outer
+# `timeout -k 5s` SIGKILLs it and NOTHING harness-side runs — the phase child and its grandchild
+# then outlive the gate and corrupt the next run's timings.
+# The sentinel is the out-of-band answer: `timeout` gives it its OWN process group (immune to the
+# group signal that kills us) plus a hard cap (it can never outlive the run). It watches THIS pid
+# and, if we die with a phase in flight, revalidates the recorded identity and terminates that
+# phase's process group only. Evidence: state/audit/run-tests-signal-reap/<full-head>/summary.md.
+FF_SENTINEL_PID=""
+FFHC_SENTINEL_STATE=""
+_ff_sentinel_start() {
+    ffhc_is_msys || return 0
+    [ -n "${FFHC_TIMEOUT_BIN:-}" ] || return 0
+    local sentinel="$ROOT/hooks/tests/lib/orphan-sentinel.sh"
+    [ -f "$sentinel" ] || return 0
+    FFHC_SENTINEL_STATE="$(mktemp "${TMPDIR:-/tmp}/ffhc-sentinel.$$.XXXXXX" 2>/dev/null)" || {
+        FFHC_SENTINEL_STATE=""; return 0; }
+    local grace="${FFHC_TIMEOUT_KILL_GRACE:-5s}"; grace="${grace%[!0-9]*}"
+    case "$grace" in ''|*[!0-9]*) grace=5 ;; esac
+    # Cap is a backstop only — the sentinel exits as soon as we die or it is stopped below.
+    "$FFHC_TIMEOUT_BIN" "${FF_SENTINEL_CAP:-21600}" bash "$sentinel" \
+        "$$" "$(ffhc_pgid_of $$)" "$FFHC_SENTINEL_STATE" "$grace" >/dev/null 2>&1 &
+    FF_SENTINEL_PID=$!
+}
+_ff_sentinel_stop() {
+    [ -n "$FF_SENTINEL_PID" ] || { [ -n "$FFHC_SENTINEL_STATE" ] && rm -f "$FFHC_SENTINEL_STATE" 2>/dev/null; return 0; }
+    ffhc_sentinel_note                      # nothing in flight => a racing reap finds nothing
+    kill "$FF_SENTINEL_PID" 2>/dev/null
+    wait "$FF_SENTINEL_PID" 2>/dev/null
+    FF_SENTINEL_PID=""
+    [ -n "$FFHC_SENTINEL_STATE" ] && rm -f "$FFHC_SENTINEL_STATE" 2>/dev/null
+    return 0
+}
 trap _ff_exit_reap EXIT
+_ff_sentinel_start
 
 # progress <phase>: flush a starting marker to stderr BEFORE the (possibly multi-min)
 # phase runs, so a slow phase is visibly progressing, never mistakable for a freeze.
@@ -343,15 +380,9 @@ run_shell_phase test-install-fusebase-cli-project-doc.sh "install-doc"
 # Seconds: drives the observability seam with synthetic milestones. It does NOT run the heavy
 # cli-flow-recovery phase below, so it can never be read as evidence about that phase's result.
 run_shell_phase test-cli-flow-recovery-profile.sh       "cli-flow-profile"
-# S2 red arm (T3): registered + FF_LIST-discoverable, but a KNOWN-OPEN defect must not turn the
-# UNSCOPED gate red, so it runs only when its tag is explicitly selected (T4 removes this guard).
-# Scoped-but-unselected still routes through run_shell_phase, so the `SKIP (FF_ONLY):` line count
-# test-ff-only.sh asserts stays exact.
-if [ "$FF_SCOPED" -eq 1 ]; then
-    run_shell_phase test-run-tests-signal-reap.sh       "signal-reap"
-else
-    echo "[run-tests] signal-reap NOT run (T3 red arm — reproduces the open orphan-leak defect; run FF_ONLY=signal-reap)" >&2
-fi
+# S2 signal lifecycle (T4): the orphan-sentinel control set. Unguarded since T4 — it was a T3 red
+# arm gated behind explicit selection only while the defect was open.
+run_shell_phase test-run-tests-signal-reap.sh           "signal-reap"
 
 # Exit-code phase — all-or-nothing shell tests that fail-fast (set -e + fail()→exit)
 # and don't emit the run_shell_phase "PASS: <tag> <name>" contract. One row per test;
