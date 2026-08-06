@@ -1,6 +1,7 @@
 # Backlog ticket — adapter-overlay-refresh-parity
 
-**Status:** parked (filed 2026-06-15 as the U6 follow-up deferred from `upgrade-tooling-hardening`, shipped v3.25.0)
+**Status:** REOPENED 2026-08-06 (T1). A prior triage closed this on the rationale that the secondary adapters already point at canonical files. That rationale is FALSE: `GEMINI.md`, `.github/copilot-instructions.md` and `.cursor/rules/fusebase-flow-always.mdc` carry duplicated attestation/rule material, while `hooks/local/post-fusebase-update.sh` refreshes only the AGENTS/CLAUDE overlays. Two independent drift reports describe the same defect. Resolution is either pointer-only adapters or deterministic generation — not a third duplicated copy.
+**Originally filed:** 2026-06-15 as the U6 follow-up deferred from `upgrade-tooling-hardening` (shipped v3.25.0)
 **Source friction:** TWO independent consumer upgrade reports (paperclip+hermes-v1 I5, WorkHub Managed W3) — `v3.21.1 → v3.23.1` on Windows/Git-Bash.
 **Predecessor:** `docs/specs/upgrade-tooling-hardening/spec.md` (v3.25.0). That release shipped U5 (the GEMINI **version-string** regex fix — un-stuck the `Fusebase Flow Local v2.1` drift) but **deferred U6**: a full marker-anchored **overlay-refresh** path for the secondary adapters, because it needs a marker-strategy design of its own (per the Codex RESCOPE verdict).
 

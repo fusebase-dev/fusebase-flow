@@ -1,6 +1,6 @@
 # Backlog — local-gate-misses-manifest-freshness
 
-**Status:** parked
+**Status:** re-scoped to the maintainer lane (2026-08-06, T1). The CI/local discrepancy is REAL and is not closed; only its placement in the consumer default gate was wrong. It must not become another shipped gate phase — see the 2026-08-05 attempt below.
 **Filed:** 2026-07-27 (during the `rule-inventory-version-literal-noise` publication)
 **Owner:** unassigned
 **Lane guess:** Lightweight (one assertion + its red arm)

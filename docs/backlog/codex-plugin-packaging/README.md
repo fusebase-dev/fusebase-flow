@@ -1,6 +1,6 @@
 # Codex plugin packaging (codex-plugin-packaging)
 
-**Status:** done (pending release)
+**Status:** shipped in v4.4.0 — `.codex-plugin/plugin.json` is in the tree and v4.4.0 release notes document it. The prior "pending release" text was false and was corrected 2026-08-06 (T1).
 **Filed:** 2026-06-29 (v3.29.0 baseline)
 **Parent:** codex-slash-command-parity (shipped v3.29.0 — B command-equivalents table + A opt-in `/prompts:` installer)
 **One-liner:** Package Flow's skills/agents as a Codex **plugin** (via `codex plugin marketplace`) — a distinct distribution from the v3.29.0 per-machine prompt installer.

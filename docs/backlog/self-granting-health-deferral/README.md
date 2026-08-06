@@ -1,6 +1,6 @@
 # self-granting-health-deferral
 
-**Status:** parked — real defect, small fix, not blocked on anything
+**Status:** REOPENED 2026-08-06 (T1). Closing it as an economic non-boundary was wrong: `docs/health-check-deferrals.md:58` documents `deferred_checks` as "array of strings" and `:73` says anything else "is silently ignored". Both are FALSE against `hooks/local/lib/active-approvals.sh` — a JSON object's keys are accepted. Shipped prose does not describe the mechanism, which is a defect independent of any threat model. Severity is record-integrity, NOT authorization (K3: same OS principal).
 **Filed:** 2026-08-04, found in passing while implementing `compat-approval-surfacing`
 **Severity:** medium-high — an artifact can suppress a health finding it was never authorized to suppress
 **Predates:** `382a05e` (untouched by the v4.7.1 work; NOT a regression)
