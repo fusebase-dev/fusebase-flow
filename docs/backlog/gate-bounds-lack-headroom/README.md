@@ -41,6 +41,21 @@ An attempt raised both walls (`FF_PHASE_TIMEOUT` 600→1800s, `FF_CLI_RECOVERY_T
 
 Candidate fix 2 is **not blocked on an operator decision** — it needs profiling and a performance contract. It is the root cause and should be scheduled ahead of any further wall change.
 
+## 2026-08-06 — this now BLOCKS full-gate verification
+
+A full unscoped gate passed **768/768, exit 0** (Windows/MSYS, 2h02m) — but only with `FF_CLI_RECOVERY_TIMEOUT=2700` supplied in the environment. `cli-flow-recovery` took **1568s** against its committed **900s** default.
+
+| Run | `cli-flow-recovery` wall | vs committed 900s |
+|---|---:|---|
+| 2026-08-05 | 1813s | would fail |
+| 2026-08-06 | 1568s | would fail |
+
+**The repository cannot produce a clean full-gate run on an ordinary developer host without a hand-supplied override.** That promotes candidate fix 2 from an optimization to a prerequisite for release verification: the gate that a release claim rests on cannot pass as shipped.
+
+The 1568–1813s spread (16%) on identical code also re-confirms why a wall set to any single observation keeps being crossed. The fix remains cheap fixtures + a stall deadline, **not** a larger scalar — 2700s was reviewed down and is deliberately not committed.
+
+**Caution on future measurements:** timings taken after a killed run are unreliable — see `harness-kill-leaves-orphan-children`, where a terminated gate left CPU-consuming children alive for 38 minutes. Verify no orphans before trusting a phase time.
+
 ## Related
 
 - `docs/problem-catalog/ci-linux-msys-test-divergence/problem.md` — the MSYS-vs-Linux divergence family
