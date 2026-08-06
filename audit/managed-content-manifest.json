@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.7.1",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 290,
+  "asset_count": 292,
   "assets": [
     {
       "path": ".claude-plugin/marketplace.json",
@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "3113d68c8abe88f86ebf876d2c70dc13f1e73597d92ea243810489db7767152a"
+      "sha256": "571fc9983590735cd51337fe5c46f0c611e90588d03416e4d4d7fac2d43ce3e2"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -793,12 +793,16 @@
       "sha256": "0722710725d845e8e6aeaa79aed07062d98ff06e5894874a405ac41aa5d4c2d1"
     },
     {
+      "path": "hooks/tests/lib/cli-flow-recovery-profile.sh",
+      "sha256": "5fefd4d5b14b2261c114f2915d140275b79bf1539a7f8cdf4d7df680bfa99819"
+    },
+    {
       "path": "hooks/tests/lib/upgrade-fixtures.sh",
       "sha256": "cbef901b4a735e71f822daf02e62d26673e3bb63b279d0bd0333897f8b696659"
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "e322681aff62b47810953c212d49b7c37d7f310d8cc2850ef0bc19d7d2d61c07"
+      "sha256": "271244144404b3a162af7b98116d4c7aac656c9edbde0ef6d842b422d6341457"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -837,8 +841,12 @@
       "sha256": "9ab052a30a5803dafc5f0982d026fb9aea151a3e8777fa7c5685f80976c40f72"
     },
     {
+      "path": "hooks/tests/test-cli-flow-recovery-profile.sh",
+      "sha256": "0f227afb082e3e448338c6bc09a0490ef307ef487a490d5ea03618854d0cf27a"
+    },
+    {
       "path": "hooks/tests/test-cli-flow-recovery.sh",
-      "sha256": "98f50aca7d4077f88b884fa15b3b5e81c418a35cdc951a67769bc59c8b81d77a"
+      "sha256": "94d7fb6fe9fd7ead4efdeb65a352b2aad8ff962fbd4274274f01be90bd960e68"
     },
     {
       "path": "hooks/tests/test-codex-plugin-surface.sh",
@@ -1165,5 +1173,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "efdf1da9df58f136686ad97d7e969929a3f38c5b38efb19b316c09e1c61e0cf9"
+  "manifest_self_sha256": "b18f6e332fe0dd72e47ccf6067cbca97db17d5f20762349e59c8fc7b2ec126ee"
 }

@@ -20,14 +20,11 @@ cleanup() {
 }
 trap cleanup EXIT
 
-fail() {
-  echo "[test-cli-flow-recovery] FAIL: $*" >&2
-  exit 1
-}
-
-pass() {
-  echo "[test-cli-flow-recovery] PASS: $*"
-}
+# S3A observability seam: pass()/fail() and the timed milestone trace live here, so this
+# baselined file gains instrumentation without gaining lines (FR-25). Contract + trace schema:
+# docs/specs/backlog-triage-execution/execution-plan.md § S3A.
+. "$ROOT/hooks/tests/lib/cli-flow-recovery-profile.sh"
+ffcp_init test-cli-flow-recovery.sh
 
 sha_cmd() {
   if command -v sha256sum >/dev/null 2>&1; then
@@ -186,11 +183,13 @@ CODEX_BEFORE="$(sha_cmd "$PROJECT/.codex/config.toml")"
 HOOK_BEFORE="$(sha_cmd "$PROJECT/.claude/hooks/run-typecheck-apps.js")"
 CLI_SKILL_BEFORE="$(sha_cmd "$PROJECT/.claude/skills/fusebase-cli/SKILL.md")"
 SETTINGS_BEFORE="$(sha_cmd "$PROJECT/.claude/settings.json")"
+ffcp_substep fixture-base "(none)" "base project fixture built (E5: the outer cp -R clones)"
 
 (
   cd "$PROJECT"
   bash hooks/local/post-fusebase-update.sh > "$OUT"
 )
+ffcp_substep recovery-default post-fusebase-update.sh "first default recovery run (E3)"
 
 grep -q "CURRENT CLI AGENTS SENTINEL" "$PROJECT/AGENTS.md" || fail "CLI AGENTS baseline was lost"
 # WS6 dual-accept: recovery emits the NEW marker; a legacy tree may carry either.
