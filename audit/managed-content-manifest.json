@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.7.1",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 289,
+  "asset_count": 290,
   "assets": [
     {
       "path": ".claude-plugin/marketplace.json",
@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "0ab272c6604e16946ffbf9b64c0fa121896d8b8b14f22426dde2c501dd98b168"
+      "sha256": "3113d68c8abe88f86ebf876d2c70dc13f1e73597d92ea243810489db7767152a"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -798,7 +798,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "36386a6544330abaa7cc1c1924dd0820ec1f87bc1bcfe65f743158f3d1044a24"
+      "sha256": "e322681aff62b47810953c212d49b7c37d7f310d8cc2850ef0bc19d7d2d61c07"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -879,6 +879,10 @@
     {
       "path": "hooks/tests/test-hook-manifest.sh",
       "sha256": "8945ab2633994e5065d92c4b2ac9019e90439295cb5829be4e29570741380175"
+    },
+    {
+      "path": "hooks/tests/test-install-fusebase-cli-project-doc.sh",
+      "sha256": "dce60218ae074d6e4a212dc9c80f90a4cd7cbb703a63ebea7ffb1cc0c2a7d9b1"
     },
     {
       "path": "hooks/tests/test-lane-router.sh",
@@ -1161,5 +1165,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "afda2c5dc24284f4afe6fc1030ee3ea7cef6f67423d46f4211eeec13fd5344df"
+  "manifest_self_sha256": "efdf1da9df58f136686ad97d7e969929a3f38c5b38efb19b316c09e1c61e0cf9"
 }

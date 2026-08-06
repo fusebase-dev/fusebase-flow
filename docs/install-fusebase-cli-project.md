@@ -134,7 +134,7 @@ cp .fusebase-flow-source/GEMINI.md .
 PowerShell:
 
 ```powershell
-Copy-Item -Recurse -Force .fusebase-flow-source\skills .
+Copy-Item -Recurse -Force .fusebase-flow-source\flow-skills .
 Copy-Item -Recurse -Force .fusebase-flow-source\agents .
 Copy-Item -Recurse -Force .fusebase-flow-source\workflows .
 Copy-Item -Recurse -Force .fusebase-flow-source\policies .
@@ -161,6 +161,22 @@ Do **NOT** blind-copy these into an existing project; they overwrite or globally
 - **`PUBLISHING.md`** — Flow's own release process; irrelevant to a consumer project. Skip.
 - **`.python-version`** — pins a Python version; may conflict with your project's. Skip unless you want Flow's pin.
 
+### Publisher-only — never copied into a consumer project
+
+| Path | Ownership | Rule |
+|---|---|---|
+| `.codex-plugin/plugin.json` | Fusebase Flow **publisher** metadata | **Do not copy.** |
+| `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` | Fusebase Flow **publisher** metadata | **Do not copy.** |
+
+These manifests describe *the Fusebase Flow repository itself* as a distributable plugin: they
+carry the name `fusebase-flow`, Flow's own `VERSION`, and skill/command/agent paths relative to
+Flow's root. `preflight.sh` cross-checks their `version` against `VERSION` whenever they are
+present — so copying them into your project makes your preflight demand that *your* repo's
+`VERSION` equal Flow's. They are not install content and no install step needs them.
+
+They appear in the Golden rule list for the opposite reason: if your project already has its own
+`.codex-plugin/plugin.json` (Fusebase CLI-generated), nothing in a Flow install may overwrite it.
+
 ## Provider and IDE additions that need review
 
 These are generally additive, but require review when similar files already exist:
@@ -181,44 +197,43 @@ Guidelines:
 
 ## Skill folders
 
-Skill folders are additive. Names must not collide.
+Ownership decides the procedure:
 
-1. Check existing skill names:
+| Path | Ownership | Source of truth |
+|---|---|---|
+| `flow-skills/` | `flow-owned` — canonical | the Flow source clone (copied in the additive block above) |
+| `.agents/skills/<flow-skill>/`, `.claude/skills/<flow-skill>/` | `flow-owned` — **derived mirror** | regenerated from `flow-skills/` by `mirror-skills.sh` |
+| `.agents/skills/<cli-skill>/`, `.claude/skills/<cli-skill>/` | `cli-owned` | your own FuseBase CLI (`fusebase update`) |
+
+**Do not copy `.fusebase-flow-source/.agents/skills/` or `.fusebase-flow-source/.claude/skills/`.**
+Those directories are a *snapshot* taken at Flow's release time and they hold both kinds of skill
+mixed together. Copying them into a Fusebase CLI project is exactly the case the recovery model
+forbids — restoring CLI provider skills from this repository's bundled copy — and any CLI skill
+that lands that way is a stale copy your CLI will not manage. There is deliberately no
+PowerShell equivalent for this copy, because neither shell performs it.
+
+The Flow half needs no copy at all: it is regenerated from canonical `flow-skills/`.
+
+1. Check for name collisions before regenerating. `mirror-skills.sh` writes one directory per
+   canonical Flow skill, so a project skill that shares a Flow skill's name would be overwritten:
 
    ```bash
    find .agents/skills .claude/skills -maxdepth 2 -name SKILL.md 2>/dev/null
+   ls flow-skills
    ```
 
-2. Copy Fusebase Flow skill mirrors only if there are no name collisions.
-   Use **copy-if-absent** (`-n`) so an existing CLI-owned provider skill in
-   `.claude/skills/<cli-skill>/` or `.agents/skills/<cli-skill>/` is **never
-   overwritten** by the Flow snapshot (two-writer hazard — see the warning
-   below):
+   If a name appears in both lists, stop and rename your project skill first.
 
-   ```bash
-   mkdir -p .agents/skills .claude/skills
-   cp -Rn .fusebase-flow-source/.agents/skills/* .agents/skills/
-   cp -Rn .fusebase-flow-source/.claude/skills/* .claude/skills/
-   ```
-
-3. If a skill folder with the same name already exists, stop and compare manually.
-   Do not `-Force`/overwrite — CLI provider skills (and any `CUSTOM:SKILL`
-   blocks) are CLI-owned.
-
-4. After copying, refresh the **Flow** provider mirrors from the canonical
-   `flow-skills/`. `mirror-skills.sh` only writes the canonical Flow skills and
-   never touches CLI provider skills:
+2. Regenerate the Flow provider mirrors. `mirror-skills.sh` writes only the canonical Flow
+   skills (`SKILL.md` + `references/*` per skill) and never touches CLI provider skills:
 
    ```bash
    bash hooks/local/mirror-skills.sh
    bash hooks/local/check-cli-flow-conflicts.sh   # confirm no CLI asset drifted
    ```
 
-Notes:
-
-- Canonical Fusebase Flow skills live in `flow-skills/`.
-- Provider mirrors live in `.agents/skills/` and `.claude/skills/`.
-- Existing project skills must remain intact.
+3. If `check-cli-flow-conflicts.sh` reports `CLI_LAYER_DRIFT`, restore the CLI-owned files with
+   your current FuseBase CLI first, then re-run Flow recovery — never the reverse order.
 
 ## Manual merge files
 
@@ -347,7 +362,17 @@ Recovery is bundled into a single idempotent script:
 bash hooks/local/post-fusebase-update.sh
 ```
 
-This restores Flow skills, Flow agents, AGENTS/CLAUDE overlay blocks, Flow lifecycle settings merge, the Flow health skill mirrors, and the `/fusebase-health` command. It does not patch `.claude/hooks/**` or restore CLI provider text.
+This restores Flow skills, Flow agents, the AGENTS/CLAUDE overlay blocks, the Flow health skill mirror, and the `/fusebase-health` command. It does not patch `.claude/hooks/**` or restore CLI provider text.
+
+Two steps are **opt-in and do not run by default** — merging Flow lifecycle hooks into
+`.claude/settings.json`, and re-installing the Flow git fallback hooks. Ask for them explicitly:
+
+```bash
+bash hooks/local/post-fusebase-update.sh --wire-hooks
+```
+
+Without `--wire-hooks` the script reports `.claude/settings.json NOT modified` and leaves
+`.git/hooks` untouched. That default matches the project rule that Flow hooks are opt-in.
 
 When triggered through the chat skill, the agent will **offer** to run recovery for you — reply `yes` (or `run it` / `fix it` / `proceed`) and the agent executes the script and re-checks. The skill never runs recovery without an explicit affirmative reply.
 

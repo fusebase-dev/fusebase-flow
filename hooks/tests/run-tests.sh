@@ -57,7 +57,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke hook-manifest newli
   trusted-enforcer hook-install-rc msys-tree-cleanup ws5-upgrade ff-only return-budget \
   supersede-primitive rule-inventory boot-size prohibition-residency token-waste-classify \
   budget-literals history-extraction approval-binding approval-writer command-policy upgrade-classify \
-  upgrade-boundary preboundary-consumed upgrade-repair recovery-hint cli-flow-recovery)
+  upgrade-boundary preboundary-consumed upgrade-repair recovery-hint install-doc cli-flow-recovery)
 
 declare -A FF_SEL=()      # selected tags (populated only when scoped)
 FF_SCOPED=0               # 1 iff FF_ONLY is a non-empty selection
@@ -338,6 +338,7 @@ run_shell_phase test-upgrade-source-boundary.sh         "upgrade-boundary"
 run_shell_phase test-upgrade-preboundary-consumed-tree.sh "preboundary-consumed"
 run_shell_phase test-upgrade-repair-managed.sh           "upgrade-repair"
 run_shell_phase test-recovery-hint-honesty.sh            "recovery-hint"
+run_shell_phase test-install-fusebase-cli-project-doc.sh "install-doc"
 
 # Exit-code phase — all-or-nothing shell tests that fail-fast (set -e + fail()→exit)
 # and don't emit the run_shell_phase "PASS: <tag> <name>" contract. One row per test;
