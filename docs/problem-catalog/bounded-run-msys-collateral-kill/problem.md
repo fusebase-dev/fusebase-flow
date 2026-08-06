@@ -35,7 +35,19 @@ The MSYS `taskkill` path was unreliable in BOTH directions: it OVER-killed (255-
 
 Never `taskkill //T` a winpid you have not re-verified maps to YOUR recorded child at kill-time (ancestor + PID-reuse hazard). Capture the winpid at launch while the process is alive (`/proc/<pid>/winpid` vanishes on exit). A deadline-reap must normalize to a true 124/137, never rc0.
 
+## Scope boundary — DEADLINE reap vs EXTERNAL teardown (T3, 2026-08-06)
+
+This entry is the **deadline** reap: the bounded run hitting its OWN timeout and killing its recorded child. It is NOT the external-signal case (`harness-kill-leaves-orphan-children` / S2), where the harness is TERM/INT-ed from outside mid-phase. T3 measured two facts that bound any future work here:
+
+| Fact | Consequence |
+|---|---|
+| `taskkill //F //T //PID <recorded child winpid>` reports `SUCCESS` but kills ONLY the inner `timeout` — the phase bash and its grandchild survive | `//T` is not a descendant guarantee on MSYS: exec/fork emulation breaks the Win32 parent link the tree walk follows. Do not treat a `SUCCESS` from `//T` as proof the subtree is gone |
+| The strict identity guard holds: a recorded winpid whose child pid no longer matches kills NOTHING | The 255-collateral fix is intact and must stay intact — the S2 fix may NOT widen to a bare `taskkill //T` on an ancestor to compensate for the gap above |
+
+Evidence: `state/audit/run-tests-signal-reap/<full-head>/summary.md` (F6, F7).
+
 ## Related
 
 - `docs/problem-catalog/health-check-false-broken-rc0-on-kill/problem.md` — the verdict false-BROKEN this rc0 masking caused.
 - `docs/problem-catalog/run-tests-never-completes-msys/problem.md` — the harness reap that depends on this strict scoping.
+- `docs/backlog/harness-kill-leaves-orphan-children/README.md` — the EXTERNAL-signal sibling defect (S2); same kill primitive, different trigger.

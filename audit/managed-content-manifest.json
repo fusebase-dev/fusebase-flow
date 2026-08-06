@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.7.1",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 292,
+  "asset_count": 293,
   "assets": [
     {
       "path": ".claude-plugin/marketplace.json",
@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "571fc9983590735cd51337fe5c46f0c611e90588d03416e4d4d7fac2d43ce3e2"
+      "sha256": "2a3db832487a021c1ed39acf61fb816ff68f8e31779dcc13d24d4ca22f2f33e7"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -802,7 +802,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "271244144404b3a162af7b98116d4c7aac656c9edbde0ef6d842b422d6341457"
+      "sha256": "9e8ea0a7526e7c8cf82f09a6e099fca8d6fc780a12782dfd6cb6f55ed2f9f2f7"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -939,6 +939,10 @@
     {
       "path": "hooks/tests/test-rule-inventory.sh",
       "sha256": "3311c5ecb7e6f85e2b66fb01ee55b3e654231087ca621c0378501d3491f3c7f8"
+    },
+    {
+      "path": "hooks/tests/test-run-tests-signal-reap.sh",
+      "sha256": "9f7b913ff33e7b13656a5f549dfd4fb99f7b7aed08d8a4ea317d177132fbad19"
     },
     {
       "path": "hooks/tests/test-secret-scan-staged.sh",
@@ -1173,5 +1177,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "b18f6e332fe0dd72e47ccf6067cbca97db17d5f20762349e59c8fc7b2ec126ee"
+  "manifest_self_sha256": "38938dd228da41fcc34047e3b3f7d984e0afe2ac67984966e6afc3b63b6534ed"
 }
