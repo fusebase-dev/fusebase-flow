@@ -1,10 +1,11 @@
 # Decisions — v5-c0-contracts (C0: lock the executable contracts)
 
 **Letter prefix:** A
-**Approval status:** PENDING all locks
+**Approval status:** NOT LOCKED — adversarial review returned `WRONG-SEQUENCE` with 5 BLOCKERs. Do not lock as drafted. See `reviews.md`.
+**Known defects in this packet:** A6 calls `artifact_v2` "signed" (nothing signs anything); A1 contradicts A8 (`default_lane: full` vs three-outcome default-Lightweight); the deferral table wrongly defers SHA binding that roadmap S6 requires; A2's pre-lock test is circular.
 **Linked roadmap:** `docs/tmp/handoff/2026-08-05-v5-roadmap.md` seq 0
 **Scope rule:** roadmap seq 0 names SIX contracts (A1–A8 below cover them). **A9 is an addition beyond that list** and can be dropped without affecting any other decision.
-**Blocking:** no roadmap implementation begins until A1–A8 are LOCKED or REDIRECTED.
+**Blocking:** nothing. Superseded in part by the shipped hard-surface router (`hooks/local/lane-router.sh`), which delivers A1/A2's intent as a path list rather than an 11-trigger classifier. A4 (exact-candidate-SHA) remains independently worth doing.
 
 ## Why this exists
 
