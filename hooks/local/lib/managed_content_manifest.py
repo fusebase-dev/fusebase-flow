@@ -35,9 +35,15 @@ SCHEMA_VERSION = 1
 # both the manifest and the upgrade engine. upgrade.sh reads them via `list-managed`;
 # never re-declare them in shell. Adding a tree here puts it under classification and
 # under the CI freshness gate at the same time — which is the point.
+# PUBLISHER-ONLY, deliberately absent: `.claude-plugin/` and `.codex-plugin/`. Those manifests
+# describe THIS repository as a distributable plugin — they carry the name `fusebase-flow`,
+# Flow's own VERSION, and paths relative to Flow's root. docs/install-fusebase-cli-project.md
+# states they are never copied into a consumer project; listing them here contradicted that by
+# putting them in the set the upgrade engine owns and overwrites, so an upgrade could clobber a
+# consumer's own (Fusebase CLI-generated) `.codex-plugin/plugin.json`. Their version parity is
+# enforced by preflight §8 instead, which is publisher-side.
 MANAGED_DIRS = (
     "flow-skills", "agents", "workflows", "policies", "templates", "hooks",
-    ".claude-plugin", ".codex-plugin",
 )
 MANAGED_FILES = (
     "FLOW_RULES.md",

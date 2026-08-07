@@ -49,16 +49,24 @@ ffhc_partial_upgrade_findings() {
 
   # plugin.json version parity (preflight §8 also checks this; surfaced here as a
   # partial-upgrade signal so the operator gets a repair command, not just an error).
-  if [ -f .claude-plugin/plugin.json ] && command -v python3 >/dev/null 2>&1; then
-    local pv
-    pv="$(python3 -c "import json,sys; print(json.load(open('.claude-plugin/plugin.json')).get('version',''))" 2>/dev/null)"
-    [ -n "$pv" ] && [ "$pv" != "$ver" ] && echo ".claude-plugin/plugin.json: version $pv != VERSION $ver"
-  fi
-  if [ -f .codex-plugin/plugin.json ] && command -v python3 >/dev/null 2>&1; then
-    local cpv
-    cpv="$(python3 -c "import json,sys; print(json.load(open('.codex-plugin/plugin.json')).get('version',''))" 2>/dev/null)"
-    [ -n "$cpv" ] && [ "$cpv" != "$ver" ] && echo ".codex-plugin/plugin.json: version $cpv != VERSION $ver"
-  fi
+  # TRIPWIRE: scoped to FLOW-OWNED manifests by `name`. This runs inside CONSUMER repos, which
+  # may carry their own (Fusebase CLI-generated) .codex-plugin/plugin.json — an existence-only
+  # check reported that foreign manifest as Flow drift and demanded the consumer's version match
+  # Flow's. Existence is not ownership.
+  local pj pj_name pj_ver
+  for pj in .claude-plugin/plugin.json .codex-plugin/plugin.json; do
+    [ -f "$pj" ] && command -v python3 >/dev/null 2>&1 || continue
+    pj_name="$(FF_PJ="$pj" python3 -c "import json,os,sys
+try: d=json.load(open(os.environ['FF_PJ'],encoding='utf-8'))
+except Exception: sys.exit(0)
+print(d.get('name',''))" 2>/dev/null)"
+    [ "$pj_name" = "fusebase-flow" ] || continue
+    pj_ver="$(FF_PJ="$pj" python3 -c "import json,os,sys
+try: d=json.load(open(os.environ['FF_PJ'],encoding='utf-8'))
+except Exception: sys.exit(0)
+print(d.get('version',''))" 2>/dev/null)"
+    [ -n "$pj_ver" ] && [ "$pj_ver" != "$ver" ] && echo "$pj: version $pj_ver != VERSION $ver"
+  done
 
   # Live "Fusebase Flow v<semver>" banner/attestation strings per adapter must read
   # the current VERSION. The U5 regex form (optional Local / 2-or-3-part) is matched

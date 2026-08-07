@@ -148,4 +148,56 @@ fi
 [ -z "$f" ] && ok "wire-hooks-claim-matches-code (step 5 is WIRE_HOOKS-guarded in the script; the document's default-restore sentence claims no settings/hook work and names the opt-in flag)" \
   || bad "wire-hooks-claim-matches-code" "$f"
 
+# ---- 7. "Never copied" is checked against the UPGRADE ENGINE, not just the prose --------
+# The document said the plugin dirs are never copied while managed_content_manifest.py still
+# listed them, so the upgrade engine owned them and could overwrite a consumer's own
+# (Fusebase CLI-generated) .codex-plugin/plugin.json. Assertion 4 above only reads the document;
+# this one reads the code that actually decides what gets written.
+MCM="$ROOT/hooks/local/lib/managed_content_manifest.py"
+f=""
+if [ ! -f "$MCM" ] || ! command -v python3 >/dev/null 2>&1; then
+  bad "plugin-dirs-not-in-managed-set" "cannot run the classifier ($MCM / python3) — the ownership claim is unverified, not satisfied"
+else
+  MANAGED_DIRS_OUT="$(python3 "$MCM" list-managed --dirs 2>/dev/null)"
+  if [ -z "$MANAGED_DIRS_OUT" ]; then
+    bad "plugin-dirs-not-in-managed-set" "list-managed --dirs returned NOTHING, so this assertion would pass vacuously"
+  else
+    printf '%s\n' "$MANAGED_DIRS_OUT" | grep -qx '\.codex-plugin'  && f="$f [.codex-plugin is in the managed/upgrade set]"
+    printf '%s\n' "$MANAGED_DIRS_OUT" | grep -qx '\.claude-plugin' && f="$f [.claude-plugin is in the managed/upgrade set]"
+    # The legacy no-classifier fallback array writes the same trees; it must agree.
+    grep -n 'CONTENT_DIRS=(' "$ROOT/hooks/local/upgrade.sh" | grep -qE '(codex-plugin|claude-plugin)' \
+      && f="$f [upgrade.sh's legacy fallback CONTENT_DIRS still lists a plugin dir]"
+    [ -z "$f" ] && ok "plugin-dirs-not-in-managed-set (the document's 'never copied' claim matches the classifier AND the legacy fallback: $(printf '%s\n' "$MANAGED_DIRS_OUT" | grep -c .) managed dirs, no plugin dir among them)" \
+      || bad "plugin-dirs-not-in-managed-set" "$f"
+  fi
+fi
+
+# ---- 8. preflight plugin-version parity is scoped to FLOW-OWNED manifests ----------------
+# The guide targets repos that may ALREADY have their own .codex-plugin/plugin.json, so an
+# existence-only parity check made following the guide produce an immediate false error. Both
+# arms are driven, because only the negative arm proving nothing would be the weaker test.
+PREFLIGHT="$ROOT/hooks/local/preflight.sh"
+if [ ! -f "$PREFLIGHT" ] || ! command -v python3 >/dev/null 2>&1; then
+  bad "preflight-parity-scoped-to-flow-manifests" "cannot run $PREFLIGHT — the negative case is unverified, not satisfied"
+else
+  SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/ff-install-doc.XXXXXX")"
+  # A consumer repo: its OWN plugin manifest, a different name, a deliberately different version.
+  mkdir -p "$SCRATCH/.codex-plugin"
+  printf '%s\n' '{"name": "acme-consumer-app", "version": "0.0.1"}' > "$SCRATCH/.codex-plugin/plugin.json"
+  printf '9.9.9\n' > "$SCRATCH/VERSION"
+  PARITY_RE='(codex|claude)-plugin/plugin\.json version .* != VERSION'
+  foreign_out="$(cd "$SCRATCH" && bash "$PREFLIGHT" 2>&1)"
+  # Positive control: same file, Flow's name, still a mismatched version => it MUST be reported.
+  printf '%s\n' '{"name": "fusebase-flow", "version": "0.0.1"}' > "$SCRATCH/.codex-plugin/plugin.json"
+  owned_out="$(cd "$SCRATCH" && bash "$PREFLIGHT" 2>&1)"
+  rm -rf "$SCRATCH" 2>/dev/null
+  f=""
+  printf '%s\n' "$foreign_out" | grep -qE "$PARITY_RE" \
+    && f="$f [a consumer-owned plugin manifest (name acme-consumer-app) tripped the Flow version-parity error]"
+  printf '%s\n' "$owned_out" | grep -qE "$PARITY_RE" \
+    || f="$f [a FLOW-owned manifest with a mismatched version was NOT reported — the scoping disabled the check instead of narrowing it]"
+  [ -z "$f" ] && ok "preflight-parity-scoped-to-flow-manifests (foreign name 0.0.1 vs VERSION 9.9.9 => no parity error; same file renamed fusebase-flow => parity error still raised)" \
+    || bad "preflight-parity-scoped-to-flow-manifests" "$f"
+fi
+
 finish

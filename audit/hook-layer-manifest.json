@@ -106,7 +106,7 @@
     },
     {
       "path": "hooks/local/lib/managed_content_manifest.py",
-      "sha256": "e73d3d2e6a62a13f01b1dbf52eaa3294c3d9a3980dc8db970d4e54363a8d8f58"
+      "sha256": "8ead27f9cc649b47b065fd985e918bca23675427f1af2e645658dc86a96144ac"
     },
     {
       "path": "hooks/local/lib/materialize-managed-source.sh",
@@ -118,7 +118,7 @@
     },
     {
       "path": "hooks/local/lib/partial-upgrade-check.sh",
-      "sha256": "42f58e83b6c0aa7ee6d8d80a702759dd5b41c2d9a549282a5cccd54c14cfa452"
+      "sha256": "676bf4d88b7543d518e89fe6cbe86217c528eb93eb108493c274e7c866978ce2"
     },
     {
       "path": "hooks/local/lib/run-with-timeout.sh",
@@ -142,7 +142,7 @@
     },
     {
       "path": "hooks/local/preflight.sh",
-      "sha256": "b0e4c41048dba1daca278bfd46a52c04d58f788f1f202785b0c6fe85373df909"
+      "sha256": "8d8c8d592fb36e2cc6496488e16f792cacd83f145412cea3d0bbeb3a49fe9bb6"
     },
     {
       "path": "hooks/local/rule-inventory.sh",
@@ -174,7 +174,7 @@
     },
     {
       "path": "hooks/local/upgrade.sh",
-      "sha256": "012be70894d79dc940419faf7c3f249f5b2787e2e4d9b0a4a9633e894aeec480"
+      "sha256": "3c3cd68148df136a5ec4145f360cbadc9cb3e1b327e07e6f5f59a5925c1d10b7"
     },
     {
       "path": "hooks/local/verify-gate.sh",
@@ -494,7 +494,7 @@
     },
     {
       "path": "hooks/tests/test-install-fusebase-cli-project-doc.sh",
-      "sha256": "dce60218ae074d6e4a212dc9c80f90a4cd7cbb703a63ebea7ffb1cc0c2a7d9b1"
+      "sha256": "dc31f7e4521cdcf265ca9ef24f02fe967232524764b1672d05aca0baf29c4346"
     },
     {
       "path": "hooks/tests/test-lane-router.sh",
@@ -589,5 +589,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "5a546cc9f309f7eacc29cf1f6dfba85f81435a875ae1d95efd8e93cf84c5bc4e"
+  "manifest_self_sha256": "cf674e51cc3b6c49d5c7ebaba92ba35113ad4256b60cd2890a13a8cbe8814d74"
 }
