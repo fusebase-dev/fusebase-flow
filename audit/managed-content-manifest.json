@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.7.1",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 295,
+  "asset_count": 297,
   "assets": [
     {
       "path": ".claude-plugin/marketplace.json",
@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "5272ea36a327b411d04f51ddfdbfe575972b4dd3f8fe2982195ec12672c61040"
+      "sha256": "e61d2088ae71e24fd7b120ae53f41a7de0c4e0a8cb0a7c997a8109e4d753297c"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -502,7 +502,7 @@
     },
     {
       "path": "hooks/local/lib/run-with-timeout.sh",
-      "sha256": "90a5eda47aa5de543a787b18e928d5449084570d7b3e896c918e74b54269876e"
+      "sha256": "6f15a7f5b24d6d1027d44ad38734ec544ff6bddc9d0a452a6c998d1933e9b745"
     },
     {
       "path": "hooks/local/mirror-agents.sh",
@@ -801,8 +801,16 @@
       "sha256": "5fefd4d5b14b2261c114f2915d140275b79bf1539a7f8cdf4d7df680bfa99819"
     },
     {
+      "path": "hooks/tests/lib/orphan-reap.sh",
+      "sha256": "28a0ced32e5459398eab4538ac03a4b68fa67e7e5532af2e7bea749b17b424da"
+    },
+    {
       "path": "hooks/tests/lib/orphan-sentinel.sh",
-      "sha256": "cf342ed7e10bf3ffe5a13dbad067bbb77782bf75b7262bfb100a2a055d4ffaa5"
+      "sha256": "3a5ecb7c1b2f46053ce049f9914dc20ab88ed5fad8e68ffa3034a5b2fcc190b3"
+    },
+    {
+      "path": "hooks/tests/lib/signal-reap-fixture.sh",
+      "sha256": "400f13709ef6306f369b6ec1895e575dbc8acf564bb153580e290e61f1d2eabe"
     },
     {
       "path": "hooks/tests/lib/upgrade-fixtures.sh",
@@ -810,7 +818,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "afd6f7fe3fb8f6ceb0c5e10ac2623472f3596c7b857ae0925582ee4a011aac0a"
+      "sha256": "453ae3f65d73103ebbb556d5602da847638df2eee48fbc233c311ace348e366b"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -950,7 +958,7 @@
     },
     {
       "path": "hooks/tests/test-run-tests-signal-reap.sh",
-      "sha256": "22dde3f8e4fe1d82b44311c3f86291dda87cf45f16a1e1827e34ce8ee336f2a2"
+      "sha256": "86e13e336709c1edd5d77f701a555d726173eb665188369476dbbd60cb8acd1f"
     },
     {
       "path": "hooks/tests/test-secret-scan-staged.sh",
@@ -1185,5 +1193,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "5173756ead8aac8a3421a90ed977fa497d26f59b68e6da89c9df054fcc03cc36"
+  "manifest_self_sha256": "1d77d76c0002715f092bed9df9b3284264a76fb25f189af6d1f6198657e613b6"
 }

@@ -69,6 +69,20 @@ share one pgid; the harness is in a different group) is the handle it reaps. It 
 own group, the harness's group, an ancestor, a name-wide set, or an unverified pid, so
 `bounded-run-msys-collateral-kill` stays closed.
 
+**The guards live in `hooks/tests/lib/orphan-reap.sh`, which the harness's EXIT path sources too**
+— one guard set for both teardown paths, and the EXIT path runs the reap FIRST and disarms the
+sentinel LAST, so an in-flight guard is never cleared before cleanup. Every guard fails CLOSED:
+an unresolvable own/harness pgid, a leader start-token mismatch, an occupied-but-unverifiable
+leader pid, an ancestor on the caller's parent chain, or no process table at all all mean **kill
+nothing**. Group ownership is bound by the group LEADER's `/proc` start token, which is what makes
+a recycled pid or pgid unreapable; reaping is by group MEMBERSHIP, so the leaked topology R3
+recorded (leader dead, descendants alive) is covered rather than skipped.
+
+**Cost constraint that shaped it:** on MSYS one `/proc/<pid>/stat` read costs ~500ms while one
+whole-table `ps` costs ~350ms (measured). A per-pid `/proc` walk spent the entire outer `-k` grace
+window before it could signal anything, so the guards take ONE `ps` snapshot and read `/proc` only
+for start tokens.
+
 **Method note worth keeping.** Measurement 2 was mine. I verified a claim against a fixture that
 did not reproduce the condition under test, and used it to override a correct finding. The
 fixture must contain the mechanism being questioned — here, the FIFO nap.
@@ -88,6 +102,18 @@ So this is a gap in a guard that exists, not an absent guard. Root cause is now 
 - The existing clean-exit behaviour is unchanged (no new kills on a normal run).
 - A red arm proves it: launch under a short outer wall, let it fire mid-phase, assert no surviving children. Without a red arm this cannot be distinguished from "it happened not to leak this time." — SHIPPED at T3 as `hooks/tests/test-run-tests-signal-reap.sh`.
 - The collateral controls hold: an independently launched same-executable sibling outside the target tree survives, an identity (PID-reuse) mismatch kills nothing, and the caller shell survives.
+
+## Known open — SIGINT exit status (design decision, not covered by this fix)
+
+The harness's **own** exit status is 143 on TERM (measured on the harness, not on an enclosing
+`timeout`). On **INT** it does not act on the signal at all and has to be SIGKILLed, so there is no
+130. Adding `trap … INT` is not the fix: bash does not deliver a trap while `_ffhc_nap`'s blocking
+FIFO `read` is in flight (measurement 3 above), so the handler would defer past the outer `-k`
+SIGKILL and the status would become 137. Closing this means changing the nap primitive itself.
+`hooks/tests/test-run-tests-signal-reap.sh` reports the row `INCONCLUSIVE` rather than asserting a
+contract the code does not implement. **The orphan reap itself is unaffected** — the INT scenarios
+reap child and grandchild within the grace window, because the sentinel does not depend on the
+harness acting on the signal.
 - Signal-correct exit status: `143` for TERM, `130` for INT.
 
 ## Related

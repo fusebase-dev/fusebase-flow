@@ -122,7 +122,7 @@
     },
     {
       "path": "hooks/local/lib/run-with-timeout.sh",
-      "sha256": "90a5eda47aa5de543a787b18e928d5449084570d7b3e896c918e74b54269876e"
+      "sha256": "6f15a7f5b24d6d1027d44ad38734ec544ff6bddc9d0a452a6c998d1933e9b745"
     },
     {
       "path": "hooks/local/mirror-agents.sh",
@@ -406,7 +406,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "afd6f7fe3fb8f6ceb0c5e10ac2623472f3596c7b857ae0925582ee4a011aac0a"
+      "sha256": "453ae3f65d73103ebbb556d5602da847638df2eee48fbc233c311ace348e366b"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -546,7 +546,7 @@
     },
     {
       "path": "hooks/tests/test-run-tests-signal-reap.sh",
-      "sha256": "22dde3f8e4fe1d82b44311c3f86291dda87cf45f16a1e1827e34ce8ee336f2a2"
+      "sha256": "86e13e336709c1edd5d77f701a555d726173eb665188369476dbbd60cb8acd1f"
     },
     {
       "path": "hooks/tests/test-secret-scan-staged.sh",
@@ -589,5 +589,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "7850ca5aaf9bde17950e4467764cfe807be7beadbd2e59b65b7956c361c8e78a"
+  "manifest_self_sha256": "5a546cc9f309f7eacc29cf1f6dfba85f81435a875ae1d95efd8e93cf84c5bc4e"
 }

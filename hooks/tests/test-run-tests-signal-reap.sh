@@ -1,26 +1,23 @@
 #!/usr/bin/env bash
-# Fusebase Flow — S2 signal-reap red arm (T3). Plan: docs/specs/backlog-triage-execution/
-# execution-plan.md §S2 · Ticket: docs/backlog/harness-kill-leaves-orphan-children/.
-#
-# STATUS AT T3: RED BY DESIGN. The reap assertions FAIL against the shipped harness — that
-# failure IS the deliverable (gate G2). It is registered in FF_TAGS and has a run_shell_phase
-# line, but run-tests.sh runs it ONLY when the tag is EXPLICITLY selected, so a known-open
-# defect cannot turn the unscoped gate red. T4 removes that guard and wires it green.
+# Fusebase Flow — S2 signal-reap regression arm. Ticket: docs/backlog/harness-kill-leaves-orphan-children/.
 #
 # WHAT IT DRIVES: a miniature bounded phase (child bash + its own grandchild bash) through the
-# REAL ffhc_run_bounded path with a byte-copy of run-tests.sh's `trap _ff_exit_reap EXIT`
-# reaper, then kills the harness from outside mid-flight. The 26-min cli-flow-recovery phase is
-# never used — the defect is in the lifecycle, not in that phase.
+# REAL ffhc_run_bounded path with a copy of run-tests.sh's teardown block, killed from outside
+# mid-flight — plus direct drives of the guard primitives for the cases a live race cannot pin
+# down deterministically.
 #
-# CONTROLS (the failures matter as much as the passes): an independently launched
-# SAME-EXECUTABLE bash sibling outside the target tree must survive every capture; the caller
-# shell must survive; a PID-reuse identity mismatch must kill nothing; a normal exit must kill
-# nothing. docs/problem-catalog/bounded-run-msys-collateral-kill/problem.md is why: an
-# over-broad MSYS tree kill has already terminated unrelated sessions.
+# ROW CLASSES — read the summary line, not the count:
+#   DISCRIMINATOR  fails against the pre-fix tree. These are the rows that carry the claim.
+#   CONTROL        passed before the fix too; it exists to catch a REGRESSION (collateral, clean
+#                  exit). A control PASS proves nothing about the fix.
+#   SKIP           neither. Reported separately and NEVER counted as PASS — an off-MSYS skip
+#                  incrementing the pass count is how "8/8" came to overstate coverage.
 #
-# PROVENANCE (plan §5 / AC12): the retained trace records role, POSIX pid/ppid/pgid, Windows
-# pid, executable BASENAME, and liveness only — never a raw command line, absolute path, or
-# environment. Evidence: state/audit/run-tests-signal-reap/<full-head>/.
+# TRIPWIRE: every kill here is identity-verified (lib/signal-reap-fixture.sh). A PID-only
+# `kill -9` after a sleep can hit a recycled pid — the exact defect class under test.
+#
+# PROVENANCE (plan §5 / AC12): the retained trace records role, POSIX pid/ppid/pgid, Windows pid,
+# executable BASENAME and liveness only — never a raw command line, absolute path, or environment.
 #
 # Output contract (parsed by run-tests.sh run_shell_phase):
 #   "PASS: signal-reap <name>" / "FAIL: signal-reap <name>"; exit = fail count.
@@ -29,236 +26,239 @@ set -uo pipefail
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 LIB="$ROOT/hooks/local/lib/run-with-timeout.sh"
+REAPLIB="$ROOT/hooks/tests/lib/orphan-reap.sh"
+FIXLIB="$ROOT/hooks/tests/lib/signal-reap-fixture.sh"
 
-pass=0; fail=0
+pass=0; fail=0; skipped=0
 ok()   { pass=$((pass + 1)); echo "PASS: signal-reap $1"; }
 bad()  { fail=$((fail + 1)); echo "FAIL: signal-reap $1 (${2:-})"; }
-skip() { pass=$((pass + 1)); echo "PASS: signal-reap $1 [SKIP — $2]"; }
-finish() { echo "[test-run-tests-signal-reap] $pass/$((pass + fail)) PASS"; exit $fail; }
+skip() { skipped=$((skipped + 1)); echo "SKIP: signal-reap $1 — ${2:-}" >&2; }
+finish() {
+  echo "[test-run-tests-signal-reap] $pass/$((pass + fail)) PASS, $fail FAIL, $skipped SKIP (skips are NOT passes)"
+  exit $fail
+}
 
-[ -f "$LIB" ] || { bad "setup-lib-present" "missing $LIB"; finish; }
+for f in "$LIB" "$REAPLIB" "$FIXLIB"; do
+  [ -f "$f" ] || { bad "setup-lib-present" "missing $f"; finish; }
+done
+# shellcheck source=/dev/null
+. "$REAPLIB"
+# shellcheck source=/dev/null
+. "$FIXLIB"
 
-# Cleanup deadline is the EXISTING grace (E8) — never a second constant.
+# Cleanup deadline is the EXISTING grace (E8) — never a second constant. MSYS spawn is ~1s, so a
+# strict grace edge would flake; the leak this must catch runs for tens of minutes, so +3s cannot
+# swallow it.
 GRACE="${FFHC_TIMEOUT_KILL_GRACE:-5s}"; GSEC="${GRACE%[!0-9]*}"
 case "$GSEC" in ''|*[!0-9]*) GSEC=5 ;; esac
-# MSYS spawn is ~1s/process, so a strict grace edge would flake; the leak this must catch runs
-# for tens of minutes, so +3s cannot swallow it.
 REAP_CEILING=$((GSEC + 3))
 
 HEAD_FULL="$(git -C "$ROOT" rev-parse HEAD 2>/dev/null || echo unknown)"
+TREE=clean; git -C "$ROOT" diff --quiet HEAD 2>/dev/null || TREE=dirty
+RUN_ID="$(date -u +%Y%m%dT%H%M%SZ)-$$"
 EVID="${FF_SIGNAL_REAP_EVIDENCE_DIR:-$ROOT/state/audit/run-tests-signal-reap/$HEAD_FULL}"
 mkdir -p "$EVID" 2>/dev/null || true
-TRACE="$EVID/topology.tsv"
+# Run-unique (never one fixed name): two sessions at the same parent SHA used to truncate and
+# interleave each other's topology, and a trace keyed only by HEAD cannot say which tree it tested.
+TRACE="$EVID/topology-$TREE-$RUN_ID.tsv"
 
 case "$(uname -s 2>/dev/null)" in
   MINGW*|MSYS*|CYGWIN*) : ;;
-  *) skip "child-reaped-within-grace" "off-MSYS — POSIX process-group teardown reaps the phase tree; this defect is MSYS-only"
-     skip "grandchild-reaped-within-grace" "off-MSYS"
-     skip "sibling-survives" "off-MSYS"
-     skip "signal-exit-status" "off-MSYS"
-     skip "normal-exit-performs-no-kill" "off-MSYS"
-     skip "pid-reuse-mismatch-kills-nothing" "off-MSYS"
+  *) skip "all-scenarios" "off-MSYS — POSIX process-group teardown reaps the phase tree; this defect class is MSYS-only"
      finish ;;
 esac
-[ -n "$(command -v timeout || true)" ] || { skip "child-reaped-within-grace" "no timeout binary"; finish; }
+[ -n "$(command -v timeout || true)" ] || { skip "all-scenarios" "no timeout binary"; finish; }
 
-# ---------------------------------------------------------------------------------------
-# Miniature fixture. phase.sh + gc.sh are named so their BASENAME is the identity marker —
-# that is why the trace never needs a raw command line.
-# ---------------------------------------------------------------------------------------
 FIX="$(mktemp -d "${TMPDIR:-/tmp}/ffhc-signal-reap.XXXXXX")" || { bad "setup-fixture" "mktemp failed"; finish; }
 cleanup_fixture() {
-  for f in "$FIX"/gc.pid "$FIX"/phase.pid "$FIX"/harness.pid; do
-    [ -f "$f" ] && kill -9 "$(cat "$f" 2>/dev/null)" 2>/dev/null
-  done
+  local p
+  for p in harness phase gc; do ff_read_pid_file "$FIX" "$p"; done
+  ff_reap_tracked
   rm -rf "$FIX" 2>/dev/null
 }
 trap cleanup_fixture EXIT
+ff_write_fixture "$FIX"
 
-cat > "$FIX/gc.sh" <<'GC'
-#!/usr/bin/env bash
-D="$1"
-echo $$ > "$D/gc.pid"; cat "/proc/$$/winpid" > "$D/gc.winpid" 2>/dev/null
-while :; do sleep 1; done
-GC
-cat > "$FIX/phase.sh" <<'PH'
-#!/usr/bin/env bash
-D="$1"
-echo $$ > "$D/phase.pid"; cat "/proc/$$/winpid" > "$D/phase.winpid" 2>/dev/null
-bash "$D/gc.sh" "$D" &
-while :; do sleep 1; done
-PH
-# TRIPWIRE: the reaper + sentinel block below mirrors run-tests.sh:108-159. If that block changes
-# and this does not, the control set stops describing the shipped harness.
-cat > "$FIX/harness.sh" <<'HN'
-#!/usr/bin/env bash
-set -uo pipefail
-D="$1"; LIB="$2"; PHASE="${3:-$D/phase.sh}"
-ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-. "$LIB"
-ffhc_detect_timeout
-FFHC_HEARTBEAT_SECS="${FFHC_HEARTBEAT_SECS:-30}"
-FFHC_LAST_WINPID=""
-FFHC_LAST_CHILD_PID=""
-FF_SENTINEL_PID=""
-FFHC_SENTINEL_STATE=""
-_ff_sentinel_stop() {
-    [ -n "$FF_SENTINEL_PID" ] || return 0
-    ffhc_sentinel_note
-    kill "$FF_SENTINEL_PID" 2>/dev/null
-    wait "$FF_SENTINEL_PID" 2>/dev/null
-    FF_SENTINEL_PID=""
-    [ -n "$FFHC_SENTINEL_STATE" ] && rm -f "$FFHC_SENTINEL_STATE" 2>/dev/null
-    return 0
-}
-_ff_exit_reap() {
-    echo "trap-ran winpid=$FFHC_LAST_WINPID child=$FFHC_LAST_CHILD_PID" >> "$D/trap.log"
-    _ff_sentinel_stop
-    ffhc_is_msys || return 0
-    [ -n "$FFHC_LAST_WINPID" ] && ffhc_msys_taskkill_winpid "$FFHC_LAST_WINPID" "$FFHC_LAST_CHILD_PID"
-}
-trap _ff_exit_reap EXIT
-if ffhc_is_msys && [ -n "${FFHC_TIMEOUT_BIN:-}" ] && [ -f "$ROOT/hooks/tests/lib/orphan-sentinel.sh" ]; then
-    FFHC_SENTINEL_STATE="$(mktemp "${TMPDIR:-/tmp}/ffhc-sentinel.$$.XXXXXX" 2>/dev/null)" || FFHC_SENTINEL_STATE=""
-    if [ -n "$FFHC_SENTINEL_STATE" ]; then
-        _g="${FFHC_TIMEOUT_KILL_GRACE:-5s}"; _g="${_g%[!0-9]*}"
-        case "$_g" in ''|*[!0-9]*) _g=5 ;; esac
-        "$FFHC_TIMEOUT_BIN" "${FF_SENTINEL_CAP:-600}" bash "$ROOT/hooks/tests/lib/orphan-sentinel.sh" \
-            "$$" "$(ffhc_pgid_of $$)" "$FFHC_SENTINEL_STATE" "$_g" >/dev/null 2>&1 &
-        FF_SENTINEL_PID=$!
-    fi
-fi
-echo $$ > "$D/harness.pid"; cat "/proc/$$/winpid" > "$D/harness.winpid" 2>/dev/null
-ffhc_run_bounded 300 bash "$PHASE" "$D"
-echo "phase-returned rc=$FFHC_LAST_RC" >> "$D/harness.log"
-HN
-cat > "$FIX/fast.sh" <<'FA'
-#!/usr/bin/env bash
-D="$1"
-echo $$ > "$D/phase.pid"; cat "/proc/$$/winpid" > "$D/phase.winpid" 2>/dev/null
-bash -c 'echo $$ > "'"$1"'/gc.pid"; exit 0'
-echo fast-marker
-FA
+# Fixture knobs are EXPORTED globals set immediately before a launch and reset after: a
+# `VAR=x func` prefix on a shell FUNCTION leaks past the call in bash, which would silently
+# carry a knob into the next scenario.
+export FFSR_NAP_OFF=0 FFSR_SLOW_WINPID="" FFSR_NO_SENTINEL=0 FFSR_PHASE_SECS=300 \
+       FFSR_TRAP_TERM=0 FFSR_STATE_ONLY=0
 
-# ---------------------------------------------------------------------------------------
-# Topology capture. One `ps` + one `tasklist` snapshot per capture point (MSYS spawns are
-# ~1s, so per-role probes would distort the very timing under test).
-# ---------------------------------------------------------------------------------------
-# Truncated per run (FR-18): a stacked trace cannot be read as one run's topology.
-printf 'head\tscenario\tcapture\trole\tpid\tppid\tpgid\twinpid\texe_basename\talive_posix\talive_win\n' > "$TRACE"
+# Our OWN process group. Every scenario that signals a group compares against this FIRST and
+# aborts the measurement rather than risk signalling this test's own tree.
+OWN_PGID="$(ffor_identity $$ && printf '%s' "$FFOR_PGID")"
 
-capture() {   # capture <scenario> <label> ; roles read from the fixture's pid files + ps
-  local scen="$1" label="$2" snap tl role pid win ppid pgid exe am aw
-  snap="$(ps 2>/dev/null)"
-  tl="$(tasklist //NH //FO CSV 2>/dev/null)"
-  for role in harness child grandchild sibling wrapper heartbeat; do
+printf 'head\ttree\tscenario\tcapture\trole\tpid\tppid\tpgid\twinpid\texe_basename\talive_posix\talive_win\n' > "$TRACE"
+SIB_PID=""
+capture() {   # capture <scenario> <label>; roles read from the fixture's pid files + one ps snap
+  local scen="$1" label="$2" snap tl role pid win ppid pgid exe am aw hp
+  snap="$(ps 2>/dev/null)"; tl="$(tasklist //NH //FO CSV 2>/dev/null)"
+  hp=""; [ -s "$FIX/harness.pid" ] && IFS= read -r hp < "$FIX/harness.pid"
+  for role in harness child grandchild sibling wrapper; do
     case "$role" in
-      harness)     pid="$(cat "$FIX/harness.pid" 2>/dev/null)" ;;
-      child)       pid="$(cat "$FIX/phase.pid" 2>/dev/null)" ;;
-      grandchild)  pid="$(cat "$FIX/gc.pid" 2>/dev/null)" ;;
-      sibling)     pid="$SIB_PID" ;;
-      wrapper)     pid="$(printf '%s\n' "$snap" | awk -v h="$(cat "$FIX/harness.pid" 2>/dev/null)" '$2==h && /timeout/ {print $1; exit}')" ;;
-      heartbeat)   pid="$(printf '%s\n' "$snap" | awk -v h="$(cat "$FIX/harness.pid" 2>/dev/null)" '$2==h && /bash/ {print $1; exit}')" ;;
+      harness)    pid="$hp" ;;
+      child)      pid=""; [ -s "$FIX/phase.pid" ] && IFS= read -r pid < "$FIX/phase.pid" ;;
+      grandchild) pid=""; [ -s "$FIX/gc.pid" ] && IFS= read -r pid < "$FIX/gc.pid" ;;
+      sibling)    pid="$SIB_PID" ;;
+      wrapper)    pid="$(printf '%s\n' "$snap" | awk -v h="$hp" '$2==h && /timeout/ {print $1; exit}')" ;;
     esac
     [ -n "${pid:-}" ] || continue
     ppid="$(printf '%s\n' "$snap" | awk -v p="$pid" '$1==p{print $2; exit}')"
     pgid="$(printf '%s\n' "$snap" | awk -v p="$pid" '$1==p{print $3; exit}')"
     win="$(printf '%s\n' "$snap" | awk -v p="$pid" '$1==p{print $4; exit}')"
     exe="$(printf '%s\n' "$snap" | awk -v p="$pid" '$1==p{print $NF; exit}')"; exe="${exe##*/}"
-    kill -0 "$pid" 2>/dev/null && am=alive || am=gone
+    ff_alive "$pid" && am=alive || am=gone
     aw=gone
     [ -n "${win:-}" ] && printf '%s\n' "$tl" | grep -q "\",\"${win}\"," && aw=alive
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-      "${HEAD_FULL:0:12}" "$scen" "$label" "$role" "$pid" "${ppid:-?}" "${pgid:-?}" \
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+      "${HEAD_FULL:0:12}" "$TREE" "$scen" "$label" "$role" "$pid" "${ppid:-?}" "${pgid:-?}" \
       "${win:-?}" "${exe:-?}" "$am" "$aw" >> "$TRACE"
   done
 }
 
-alive() { kill -0 "${1:-0}" 2>/dev/null; }
-
-# gone_within <pid> <ceiling> : seconds until the pid disappears, or -1 if it never did.
-gone_within() {
-  local pid="$1" ceil="$2" i=0
-  while [ "$i" -le "$ceil" ]; do
-    alive "$pid" || { echo "$i"; return 0; }
-    sleep 1; i=$((i + 1))
-  done
-  echo "-1"; return 1
+# start_harness: reset the fixture dir and launch the harness. `timeout` is the launcher even when
+# no wall is wanted, purely because it puts the harness in its OWN process group — that is what
+# lets a scenario signal the harness's group without signalling this test's.
+# TRIPWIRE: the wall is deliberately FAR AWAY and the signal is sent by signal_harness_group()
+# once the fixture is PROVABLY established. A fixed 20s wall raced fixture setup — MSYS spawns are
+# ~1s each and slower under load — so the scenario silently degraded into "the phase never
+# started", which is not the case under test.
+HARNESS_PID=""; HARNESS_TOK=""; OUTER_PID=""; CHILD_PID=""; GC_PID=""; HARNESS_PGID=""
+start_harness() {   # start_harness <wall-secs> <isolate|none> [phase-script]
+  local wall="$1" mode="$2" phase="${3:-$FIX/phase.sh}"
+  rm -f "$FIX"/*.pid "$FIX"/*.winpid "$FIX"/trap.log "$FIX"/harness.log "$FIX"/sentinel.state \
+        "$FIX"/sentinel.wrapper.pid 2>/dev/null
+  if [ "$mode" = none ]; then
+    bash "$FIX/harness.sh" "$FIX" "$LIB" "$phase" >/dev/null 2>&1 &
+  else
+    timeout -k "$GRACE" "$wall" bash "$FIX/harness.sh" "$FIX" "$LIB" "$phase" >/dev/null 2>&1 &
+  fi
+  OUTER_PID=$!; ff_track "$OUTER_PID"
+  return 0
+}
+# signal_harness_group <signal>: reproduce what an outer `timeout -s SIG -k GRACE` does — SIG to
+# the harness's process GROUP, then SIGKILL to that group after the grace. Returns 1 (measurement
+# aborted, nothing signalled) unless the harness provably holds its own group.
+signal_harness_group() {
+  local sig="$1"
+  ffor_snapshot || return 1
+  ffor_row "$HARNESS_PID" || return 1
+  HARNESS_PGID="$FFOR_ROW_PGID"
+  # HARD GUARD: the group we signal must be the one OUR OWN launcher created (its leader is the
+  # `timeout` we started), and it must not be ours. Anything else aborts the measurement rather
+  # than take the risk — this test exists because an over-broad kill already killed real sessions.
+  ffor_numeric "$HARNESS_PGID" || return 1
+  [ "$HARNESS_PGID" -gt 1 ] || return 1
+  [ "$HARNESS_PGID" = "$OWN_PGID" ] && return 1
+  [ "$HARNESS_PGID" = "$OUTER_PID" ] || return 1
+  kill -"$sig" -"$HARNESS_PGID" 2>/dev/null
+  ( sleep "$GSEC"; kill -KILL -"$HARNESS_PGID" 2>/dev/null ) &
+  ff_track $!
+  return 0
+}
+wait_for_file() {   # wait_for_file <path> <secs>
+  local i=0
+  while [ ! -s "$1" ] && [ "$i" -lt "$2" ]; do sleep 1; i=$((i + 1)); done
+  [ -s "$1" ]
+}
+read_pids() {       # -> HARNESS_PID / CHILD_PID / GC_PID, all tracked with their identities
+  ff_read_pid_file "$FIX" harness; HARNESS_PID="$FFSR_FILE_PID"
+  ff_read_pid_file "$FIX" phase;   CHILD_PID="$FFSR_FILE_PID"
+  ff_read_pid_file "$FIX" gc;      GC_PID="$FFSR_FILE_PID"
+  HARNESS_TOK="$(ff_tok "$HARNESS_PID")"
 }
 
-# ---------------------------------------------------------------------------------------
-# Scenario driver. `timeout -s SIG -k <grace>` reproduces the field case exactly: the outer
-# wall signals the harness's process group, then SIGKILLs it after the grace.
-# ---------------------------------------------------------------------------------------
-SIB_PID=""
-run_scenario() {   # run_scenario <name> <signal> <seconds-until-signal>
-  local scen="$1" sig="$2" wall="$3"
-  rm -f "$FIX"/*.pid "$FIX"/*.winpid "$FIX"/trap.log "$FIX"/harness.log
-  # Control: a SAME-EXECUTABLE (bash) sibling in its own tree, started before the harness.
-  bash -c 'sleep 240' & SIB_PID=$!
-  timeout -s "$sig" -k "$GRACE" "$wall" bash "$FIX/harness.sh" "$FIX" "$LIB" >/dev/null 2>&1 &
-  local outer=$!
-  local i=0
-  while [ ! -s "$FIX/gc.pid" ] && [ "$i" -lt 30 ]; do sleep 1; i=$((i + 1)); done
-  if [ ! -s "$FIX/gc.pid" ]; then
-    bad "$scen-fixture-established" "the miniature phase/grandchild never started within 30s"
-    kill -9 "$SIB_PID" "$outer" 2>/dev/null; wait 2>/dev/null; return 1
+# =========================================================================================
+# CONTROL + DISCRIMINATOR scenarios driven end-to-end through the real bounded-run path
+# =========================================================================================
+
+# run_scenario <name> <signal>: signal the harness's own process group once its phase subtree is
+# provably up — the field case (an outer `timeout -s SIG -k GRACE` firing mid-phase), reproduced
+# without racing fixture setup.
+SCEN_CHILD_T=""; SCEN_GC_T=""; SCEN_SIB_ALIVE=""; SCEN_TRAP=""; SCEN_CHILD_30=""; SCEN_GC_30=""
+run_scenario() {
+  local scen="$1" sig="$2" nap_off="${3:-0}"
+  # Control: a SAME-EXECUTABLE bash sibling in its own tree, started before the harness.
+  bash -c 'sleep 240' & SIB_PID=$!; ff_track "$SIB_PID"
+  FFSR_NAP_OFF="$nap_off"; start_harness 300 isolate
+  if ! wait_for_file "$FIX/gc.pid" 90; then
+    bad "$scen-fixture-established" "the miniature phase/grandchild never started within 90s"
+    ff_reap_tracked; return 1
   fi
-  local hp cp gp
-  hp="$(cat "$FIX/harness.pid")"; cp="$(cat "$FIX/phase.pid")"; gp="$(cat "$FIX/gc.pid")"
+  read_pids
   capture "$scen" "before-signal"
-  wait "$outer" 2>/dev/null; OUTER_RC=$?
-  local t_child t_gc
-  t_child="$(gone_within "$cp" "$REAP_CEILING")"
-  t_gc="$(gone_within "$gp" "$REAP_CEILING")"
+  if ! signal_harness_group "$sig"; then
+    bad "$scen-fixture-isolated" "the harness did not hold its own process group, so the measurement was aborted rather than signal ours"
+    ff_reap_tracked; return 1
+  fi
+  SCEN_CHILD_T="$(ff_gone_within "$CHILD_PID" "$REAP_CEILING")"
+  SCEN_GC_T="$(ff_gone_within "$GC_PID" "$REAP_CEILING")"
   capture "$scen" "after-grace"
-  SCEN_CHILD_T="$t_child"; SCEN_GC_T="$t_gc"
-  SCEN_SIB_ALIVE=no; alive "$SIB_PID" && SCEN_SIB_ALIVE=yes
+  SCEN_SIB_ALIVE=no; ff_alive "$SIB_PID" && SCEN_SIB_ALIVE=yes
   SCEN_TRAP=none; [ -f "$FIX/trap.log" ] && SCEN_TRAP="$(tr '\n' ' ' < "$FIX/trap.log")"
-  SCEN_HARNESS_ALIVE=no; alive "$hp" && SCEN_HARNESS_ALIVE=yes
-  sleep 25
-  capture "$scen" "plus-30s"
-  SCEN_CHILD_30=no; alive "$cp" && SCEN_CHILD_30=yes
-  SCEN_GC_30=no; alive "$gp" && SCEN_GC_30=yes
-  # Strictly-scoped teardown of OUR OWN recorded pids only — never a tree kill on an ancestor.
-  kill -9 "$gp" "$cp" "$hp" 2>/dev/null
-  kill -9 "$SIB_PID" 2>/dev/null; wait 2>/dev/null
+  SCEN_CHILD_30=no; ff_alive "$CHILD_PID" && SCEN_CHILD_30=yes
+  SCEN_GC_30=no; ff_alive "$GC_PID" && SCEN_GC_30=yes
+  capture "$scen" "post-assert"
+  ff_reap_tracked
   return 0
 }
 
-# --- Scenario A: external TERM (the field case: an outer `timeout` wall) ------------------
-# The 20s wall is evidence hygiene, not patience: MSYS spawns (~1s each) plus the ps/tasklist
-# snapshot take seconds, and a shorter wall makes the "before-signal" capture race the signal.
-if run_scenario term TERM 20; then
+# --- Scenario A: external TERM, FIFO nap ACTIVE (the shipped poll arm) --------------------
+if run_scenario term TERM 0; then
   if [ "$SCEN_CHILD_T" -ge 0 ] 2>/dev/null; then
-    ok "child-reaped-within-grace (TERM: phase child gone ${SCEN_CHILD_T}s after the signal, <= ${REAP_CEILING}s)"
+    ok "child-reaped-within-grace [DISCRIMINATOR] (TERM/nap-active: phase child gone ${SCEN_CHILD_T}s after the signal, <= ${REAP_CEILING}s)"
   else
-    bad "child-reaped-within-grace" "TERM: the phase child was STILL ALIVE ${REAP_CEILING}s after the signal (alive at +30s: $SCEN_CHILD_30; harness alive: $SCEN_HARNESS_ALIVE; EXIT trap: $SCEN_TRAP) — the orphan leak"
+    bad "child-reaped-within-grace" "TERM/nap-active: phase child STILL ALIVE at ${REAP_CEILING}s (still alive after the assert window: $SCEN_CHILD_30; EXIT trap: $SCEN_TRAP) — the orphan leak"
   fi
   if [ "$SCEN_GC_T" -ge 0 ] 2>/dev/null; then
-    ok "grandchild-reaped-within-grace (TERM: grandchild gone ${SCEN_GC_T}s after the signal)"
+    ok "grandchild-reaped-within-grace [DISCRIMINATOR] (TERM/nap-active: grandchild gone ${SCEN_GC_T}s after the signal)"
   else
-    bad "grandchild-reaped-within-grace" "TERM: the grandchild was STILL ALIVE ${REAP_CEILING}s after the signal (alive at +30s: $SCEN_GC_30; EXIT trap: $SCEN_TRAP) — a child-only reap does not close this"
+    bad "grandchild-reaped-within-grace" "TERM/nap-active: grandchild STILL ALIVE at ${REAP_CEILING}s (still alive after the assert window: $SCEN_GC_30; EXIT trap: $SCEN_TRAP) — a child-only reap does not close this"
   fi
   if [ "$SCEN_SIB_ALIVE" = yes ]; then
-    ok "sibling-survives (TERM: the independently launched same-executable bash sibling outside the target tree is alive — no collateral)"
+    ok "sibling-survives [CONTROL] (TERM: the independently launched same-executable bash sibling outside the target tree is alive — no collateral)"
   else
     bad "sibling-survives" "TERM: the unrelated same-executable sibling was killed — over-broad teardown (the bounded-run-msys-collateral-kill class)"
   fi
-  echo "NOTE: signal-reap TERM trap-observation: ${SCEN_TRAP}" >&2
 else
   bad "child-reaped-within-grace" "TERM scenario could not be established"
 fi
 
-# --- Scenario B: external INT (operator Ctrl-C — the more common real case) ---------------
-if run_scenario int INT 20; then
-  if [ "$SCEN_CHILD_T" -ge 0 ] 2>/dev/null && [ "$SCEN_GC_T" -ge 0 ] 2>/dev/null; then
-    ok "int-child+grandchild-reaped-within-grace (INT: child ${SCEN_CHILD_T}s / grandchild ${SCEN_GC_T}s after the signal)"
+# --- Scenario B: the EXIT path that DOES run, with NO sentinel to fall back on -------------
+# B1's arm, isolated. Nap forced off + a trapped TERM => bash runs the EXIT trap with a phase
+# still in flight; the record is published but NO sentinel process exists, so the harness-side
+# path is the only thing that can reap. Under the shipped ordering that path disarmed the guard
+# and then ran the known-insufficient `taskkill //T`, so the descendants survived.
+FFSR_NAP_OFF=1; FFSR_TRAP_TERM=1; FFSR_STATE_ONLY=1
+if run_scenario exit-path TERM 1; then
+  FFSR_NAP_OFF=0; FFSR_TRAP_TERM=0; FFSR_STATE_ONLY=0
+  if [ "$SCEN_TRAP" = none ]; then
+    bad "exit-path-reaps-group-without-sentinel" "the EXIT trap did NOT run, so this scenario measured nothing about EXIT ordering (trap marker absent)"
+  elif [ "$SCEN_CHILD_T" -ge 0 ] 2>/dev/null && [ "$SCEN_GC_T" -ge 0 ] 2>/dev/null; then
+    ok "exit-path-reaps-group-without-sentinel [DISCRIMINATOR] (EXIT trap ran [$SCEN_TRAP] with no sentinel available: child gone ${SCEN_CHILD_T}s / grandchild ${SCEN_GC_T}s)"
   else
-    bad "int-child+grandchild-reaped-within-grace" "INT: child_gone_after=${SCEN_CHILD_T}s grandchild_gone_after=${SCEN_GC_T}s (-1 = still alive at the ${REAP_CEILING}s deadline; alive at +30s: child=$SCEN_CHILD_30 grandchild=$SCEN_GC_30; EXIT trap: $SCEN_TRAP)"
+    bad "exit-path-reaps-group-without-sentinel" "EXIT trap ran [$SCEN_TRAP] but child_gone=${SCEN_CHILD_T}s grandchild_gone=${SCEN_GC_T}s (-1 = alive at the ${REAP_CEILING}s deadline) — the EXIT path disarmed the guard before cleanup completed"
   fi
   if [ "$SCEN_SIB_ALIVE" = yes ]; then
-    ok "int-sibling-survives (INT: unrelated same-executable sibling alive)"
+    ok "exit-path-sibling-survives [CONTROL] (unrelated same-executable sibling alive)"
+  else
+    bad "exit-path-sibling-survives" "the unrelated same-executable sibling was killed — over-broad teardown"
+  fi
+else
+  FFSR_NAP_OFF=0; FFSR_TRAP_TERM=0; FFSR_STATE_ONLY=0
+  bad "exit-path-reaps-group-without-sentinel" "the EXIT-path scenario could not be established"
+fi
+
+# --- Scenario C: external INT (operator Ctrl-C — the more common real case) ---------------
+if run_scenario int INT 0; then
+  if [ "$SCEN_CHILD_T" -ge 0 ] 2>/dev/null && [ "$SCEN_GC_T" -ge 0 ] 2>/dev/null; then
+    ok "int-child+grandchild-reaped-within-grace [DISCRIMINATOR] (INT: child ${SCEN_CHILD_T}s / grandchild ${SCEN_GC_T}s after the signal)"
+  else
+    bad "int-child+grandchild-reaped-within-grace" "INT: child_gone=${SCEN_CHILD_T}s grandchild_gone=${SCEN_GC_T}s (-1 = alive at the ${REAP_CEILING}s deadline; EXIT trap: $SCEN_TRAP)"
+  fi
+  if [ "$SCEN_SIB_ALIVE" = yes ]; then
+    ok "int-sibling-survives [CONTROL] (INT: unrelated same-executable sibling alive)"
   else
     bad "int-sibling-survives" "INT: the unrelated same-executable sibling was killed — over-broad teardown"
   fi
@@ -266,73 +266,237 @@ else
   bad "int-child+grandchild-reaped-within-grace" "INT scenario could not be established"
 fi
 
-# --- Signal-correct exit status: TERM => 143, INT => 130 ----------------------------------
-# Signalled to the harness's PROCESS GROUP, because that is what a terminal Ctrl-C and an outer
-# `timeout` both do — and it is the only faithful model: a signal sent to the harness pid ALONE
-# leaves its foreground child running, and non-interactive bash waiting on a foreground child does
-# not act on SIGINT at all. `timeout` is the launcher purely because it puts the harness in its
-# OWN group; the cap is far above the run so 124 can never be the answer.
-sig_status() {   # sig_status <signal> ; echoes the harness's exit status or "none"
-  local sig="$1" own_pgid
-  own_pgid="$(awk '{print $5}' "/proc/$$/stat" 2>/dev/null)"
-  rm -f "$FIX"/*.pid "$FIX"/*.winpid "$FIX"/rc.log "$FIX"/trap.log
-  ( timeout 300 bash "$FIX/harness.sh" "$FIX" "$LIB" >/dev/null 2>&1; echo "$?" > "$FIX/rc.log" ) &
-  local w=$! i=0 hp hpg
-  while [ ! -s "$FIX/gc.pid" ] && [ "$i" -lt 30 ]; do sleep 1; i=$((i + 1)); done
-  hp="$(cat "$FIX/harness.pid" 2>/dev/null)"
-  [ -n "$hp" ] || { kill -9 "$w" 2>/dev/null; wait 2>/dev/null; echo none; return; }
-  hpg="$(awk '{print $5}' "/proc/$hp/stat" 2>/dev/null)"
-  # HARD GUARD: never signal our own group. If the harness did not get its own group, abort the
-  # measurement rather than take the risk.
-  case "$hpg" in ''|*[!0-9]*) hpg="" ;; esac
-  if [ -z "$hpg" ] || [ "$hpg" = "$own_pgid" ]; then
-    kill -9 "$hp" "$w" 2>/dev/null; wait 2>/dev/null; echo "unisolated"; return
+# --- Scenario D: a signal inside the LAUNCH-TO-RECORD window ------------------------------
+# The child exists but its winpid/pgid probes (MSYS spawns) have not completed. Recording only
+# AFTER those probes left this window seconds wide: a SIGKILL here published nothing, the guard
+# read "nothing in flight", and the original leak returned. FFSR_SLOW_WINPID makes the window
+# deterministic instead of hoping to hit a millisecond race.
+bash -c 'sleep 240' & SIB_PID=$!; ff_track "$SIB_PID"
+FFSR_SLOW_WINPID=25; start_harness 0 none; FFSR_SLOW_WINPID=""
+if wait_for_file "$FIX/gc.pid" 90 && wait_for_file "$FIX/harness.pid" 5; then
+  read_pids
+  capture launch-window "in-window"
+  # SIGKILL: no EXIT trap, no signal handler — only what was already PUBLISHED can save the tree.
+  ff_kill_verified "$HARNESS_PID" "$HARNESS_TOK" 9
+  lw_child="$(ff_gone_within "$CHILD_PID" "$REAP_CEILING")"
+  lw_gc="$(ff_gone_within "$GC_PID" "$REAP_CEILING")"
+  capture launch-window "after-grace"
+  if [ "$lw_child" -ge 0 ] 2>/dev/null && [ "$lw_gc" -ge 0 ] 2>/dev/null; then
+    ok "launch-window-signal-still-reaps [DISCRIMINATOR] (harness SIGKILLed while the identity probes were still in flight: child ${lw_child}s / grandchild ${lw_gc}s)"
+  else
+    bad "launch-window-signal-still-reaps" "child_gone=${lw_child}s grandchild_gone=${lw_gc}s (-1 = alive at ${REAP_CEILING}s) — the launch-to-record window published nothing, so the guard had no identity to act on"
+  fi
+  if ff_alive "$SIB_PID"; then
+    ok "launch-window-sibling-survives [CONTROL] (unrelated same-executable sibling alive)"
+  else
+    bad "launch-window-sibling-survives" "the unrelated sibling was killed during a launch-window reap"
+  fi
+else
+  bad "launch-window-signal-still-reaps" "the launch-window fixture never established within 90s"
+fi
+ff_reap_tracked
+
+# --- Scenario E: the sentinel's own `timeout` wrapper dies mid-run ------------------------
+# The wrapper supplies the hard cap and the process group; the guard itself is the bash beneath
+# it. Killing the wrapper must not disarm the guard, and must not leave a sentinel behind.
+bash -c 'sleep 240' & SIB_PID=$!; ff_track "$SIB_PID"
+start_harness 0 none
+if wait_for_file "$FIX/gc.pid" 90 && wait_for_file "$FIX/sentinel.wrapper.pid" 5; then
+  read_pids
+  IFS= read -r SW_PID < "$FIX/sentinel.wrapper.pid"
+  SENT_PID="$(ff_child_of "$SW_PID")"
+  ff_track "$SW_PID"; ff_track "$SENT_PID"
+  ff_kill_verified "$SW_PID" "$(ff_tok "$SW_PID")" 9
+  sleep 1
+  ff_kill_verified "$HARNESS_PID" "$HARNESS_TOK" 9
+  sw_child="$(ff_gone_within "$CHILD_PID" "$REAP_CEILING")"
+  sw_gc="$(ff_gone_within "$GC_PID" "$REAP_CEILING")"
+  sw_sent=""; ffor_numeric "$SENT_PID" && sw_sent="$(ff_gone_within "$SENT_PID" "$REAP_CEILING")"
+  capture sentinel-wrapper-death "after-grace"
+  if [ "$sw_child" -ge 0 ] 2>/dev/null && [ "$sw_gc" -ge 0 ] 2>/dev/null; then
+    ok "sentinel-survives-wrapper-death [DISCRIMINATOR] (wrapper SIGKILLed, guard still reaped: child ${sw_child}s / grandchild ${sw_gc}s)"
+  else
+    bad "sentinel-survives-wrapper-death" "wrapper killed => child_gone=${sw_child}s grandchild_gone=${sw_gc}s (-1 = alive at ${REAP_CEILING}s)"
+  fi
+  if [ -z "$sw_sent" ]; then
+    skip "sentinel-leaves-nothing-behind" "the guard process under the wrapper could not be resolved"
+  elif [ "$sw_sent" -ge 0 ] 2>/dev/null; then
+    ok "sentinel-leaves-nothing-behind [DISCRIMINATOR] (the guard exited ${sw_sent}s after the harness died — no orphaned sentinel outlives the run)"
+  else
+    bad "sentinel-leaves-nothing-behind" "the sentinel process was still alive ${REAP_CEILING}s after the harness died — a wrapper-less guard has no cap"
+  fi
+  if ff_alive "$SIB_PID"; then
+    ok "wrapper-death-sibling-survives [CONTROL] (unrelated same-executable sibling alive)"
+  else
+    bad "wrapper-death-sibling-survives" "the unrelated sibling was killed during a wrapper-death reap"
+  fi
+else
+  bad "sentinel-survives-wrapper-death" "the wrapper-death fixture never established within 90s"
+fi
+ff_reap_tracked
+
+# =========================================================================================
+# GUARD-LEVEL discriminators. Driven directly so the fail-closed cases are deterministic
+# rather than dependent on winning a sub-second race.
+# =========================================================================================
+# victim_case <name> <mutate>: build an independent group, run the mutation, assert it SURVIVED.
+victim_survives() {   # victim_survives <row-name> <detail> <expected-size>
+  local name="$1" detail="$2" want="$3" got
+  got="$(ff_group_size "$FFSR_V_PGID")"
+  if [ "$got" -ge "$want" ] 2>/dev/null; then
+    ok "$name [DISCRIMINATOR] ($detail — all $got members of the unrelated group survived)"
+  else
+    bad "$name" "$detail — the unrelated group was reaped ($got of $want members left); this guard failed OPEN"
+  fi
+}
+
+# --- F: a failed own/harness PGID lookup must kill NOTHING --------------------------------
+if ff_spawn_victim_group 90; then
+  ffor_reap "$FFSR_V_LEADER" "" "$FFSR_V_PGID" "$FFSR_V_LEADSTART" "" "$GSEC"
+  victim_survives "failed-pgid-lookup-kills-nothing" "harness pgid unresolvable" 3
+else
+  skip "failed-pgid-lookup-kills-nothing" "could not establish an independent victim group"
+fi
+ff_reap_tracked
+
+# --- G: a recycled group leader (identity mismatch) must kill NOTHING ---------------------
+if ff_spawn_victim_group 90; then
+  ffor_reap "$FFSR_V_LEADER" "" "$FFSR_V_PGID" "$((FFSR_V_LEADSTART + 1))" "$OWN_PGID" "$GSEC"
+  victim_survives "group-identity-mismatch-kills-nothing" "recorded leader start token does not match the live leader (pid/group reuse)" 3
+else
+  skip "group-identity-mismatch-kills-nothing" "could not establish an independent victim group"
+fi
+ff_reap_tracked
+
+# --- H: our OWN group and the harness's group are never signalled -------------------------
+if [ -n "$OWN_PGID" ]; then
+  ffor_reap "$$" "" "$OWN_PGID" "$(ffor_identity "$OWN_PGID" && printf '%s' "$FFOR_START")" "$OWN_PGID" "$GSEC"
+  if ff_alive $$; then
+    ok "never-signals-own-group [CONTROL] (a record naming this test's own process group killed nothing)"
+  else
+    bad "never-signals-own-group" "unreachable — the guard signalled our own group"
+  fi
+else
+  skip "never-signals-own-group" "own pgid unresolvable"
+fi
+
+# --- I: a DEAD group leader with surviving descendants IS reaped --------------------------
+# The topology the field report recorded: the wrapper died, its descendants did not. A guard
+# that returns early unless the leader is alive is inert in exactly the case it exists for.
+if ff_spawn_victim_group 90; then
+  DL_PGID="$FFSR_V_PGID"; DL_LEAD="$FFSR_V_LEADSTART"; DL_LEADER="$FFSR_V_LEADER"
+  ff_kill_verified "$DL_LEADER" "${FFSR_TOK[$DL_LEADER]:-}" 9
+  sleep 1
+  if ff_alive "$DL_LEADER"; then
+    skip "dead-leader-descendants-reaped" "the group leader would not die; topology not established"
+  elif [ "$(ff_group_size "$DL_PGID")" -lt 1 ] 2>/dev/null; then
+    skip "dead-leader-descendants-reaped" "killing the leader took its descendants with it; the leaked topology was not reproduced"
+  else
+    before="$(ff_group_size "$DL_PGID")"
+    ffor_reap "$DL_LEADER" "" "$DL_PGID" "$DL_LEAD" "$OWN_PGID" "$GSEC"
+    after="$(ff_group_size "$DL_PGID")"
+    if [ "$after" -eq 0 ] 2>/dev/null; then
+      ok "dead-leader-descendants-reaped [DISCRIMINATOR] (leader dead, $before surviving descendants — group reaped to 0)"
+    else
+      bad "dead-leader-descendants-reaped" "leader dead with $before surviving descendants; $after still alive after the reap — the guard requires a live leader, which is the case it exists for"
+    fi
+  fi
+else
+  skip "dead-leader-descendants-reaped" "could not establish an independent victim group"
+fi
+ff_reap_tracked
+
+# =========================================================================================
+# CONTROLS on the normal path
+# =========================================================================================
+
+# --- J: the harness's OWN exit status -----------------------------------------------------
+# `set -m` gives the harness its own process group in a non-interactive shell, so `wait` returns
+# the HARNESS's status. The previous row read the enclosing `timeout`'s status, which can be
+# 143/130 whatever the harness did — i.e. it could pass without the harness doing anything.
+#
+# TERM is asserted. INT is reported INCONCLUSIVE, not asserted, and NOT counted: measured here,
+# an untrapped SIGINT to this harness is never acted on (it has to be SIGKILLed), and the shipped
+# code installs no INT handler. Adding `trap … INT` is NOT the fix — T3 measured that a TRAPPED
+# signal is not delivered while the F3 FIFO nap's blocking `read` is in flight, so the trap would
+# defer past the outer `-k` SIGKILL. Closing INT means changing the nap primitive, which is a
+# design decision, not an implementation. Asserting 130 here would only manufacture a red row
+# for an open question; claiming it green would be the wider-than-the-code defect.
+harness_own_status() {   # harness_own_status <signal> -> status | none | unisolated
+  local sig="$1" rc_file="$FIX/own-rc.log"
+  rm -f "$FIX"/*.pid "$FIX"/*.winpid "$rc_file" "$FIX"/trap.log 2>/dev/null
+  ( set -m
+    bash "$FIX/harness.sh" "$FIX" "$LIB" >/dev/null 2>&1 &
+    hp=$!
+    echo "$hp" > "$FIX/own-harness.pid"
+    wait "$hp"; echo "$?" > "$rc_file" ) &
+  local w=$! hp hpg
+  ff_track "$w"
+  wait_for_file "$FIX/gc.pid" 90 || { ff_reap_tracked; echo none; return; }
+  IFS= read -r hp 2>/dev/null < "$FIX/harness.pid" || hp=""
+  ff_track "$hp"
+  hpg="$(ffor_identity "$hp" && printf '%s' "$FFOR_PGID")"
+  # HARD GUARD: never signal our own group. Abort the measurement rather than take the risk.
+  if ! ffor_numeric "$hpg" || [ "$hpg" = "$OWN_PGID" ] || [ "$hpg" != "$hp" ]; then
+    ff_reap_tracked; echo "unisolated"; return
   fi
   kill -"$sig" -"$hpg" 2>/dev/null
-  i=0; while [ ! -s "$FIX/rc.log" ] && [ "$i" -lt "$REAP_CEILING" ]; do sleep 1; i=$((i + 1)); done
-  kill -9 "$(cat "$FIX/gc.pid" 2>/dev/null)" "$(cat "$FIX/phase.pid" 2>/dev/null)" "$hp" "$w" 2>/dev/null
-  wait 2>/dev/null
-  cat "$FIX/rc.log" 2>/dev/null || echo none
+  local i=0
+  while [ ! -s "$rc_file" ] && [ "$i" -lt "$REAP_CEILING" ]; do sleep 1; i=$((i + 1)); done
+  read_pids; ff_reap_tracked
+  if [ -s "$rc_file" ]; then IFS= read -r i < "$rc_file"; echo "$i"; else echo none; fi
 }
-term_rc="$(sig_status TERM)"; int_rc="$(sig_status INT)"
-if [ "$term_rc" = "143" ] && [ "$int_rc" = "130" ]; then
-  ok "signal-exit-status (TERM => 143, INT => 130)"
+term_rc="$(harness_own_status TERM)"; int_rc="$(harness_own_status INT)"
+if [ "$term_rc" = "143" ]; then
+  ok "harness-own-exit-status-term [DISCRIMINATOR] (the HARNESS's own status, measured on the harness and not on an enclosing wall: TERM => 143)"
 else
-  bad "signal-exit-status" "TERM => $term_rc (want 143), INT => $int_rc (want 130); 'none' = the harness never exited within ${REAP_CEILING}s of the signal (an unacted-on signal, not a wrong code); 'unisolated' = the harness did not get its own process group, so the measurement was aborted rather than signal our own group"
+  bad "harness-own-exit-status-term" "TERM => $term_rc (want 143); 'none' = the harness never exited within ${REAP_CEILING}s of the signal (an unacted-on signal, not a wrong code); 'unisolated' = it did not get its own process group, so the measurement was aborted rather than signal our own group"
 fi
+echo "INCONCLUSIVE: signal-reap harness-own-exit-status-int (INT => $int_rc, want 130; no INT handler is shipped and a trap cannot supply one while the F3 nap blocks delivery — open design decision, deliberately NOT asserted and NOT counted)"
 
-# --- Control: a NORMAL exit performs no kill (behaviour must stay byte-identical) ---------
-rm -f "$FIX"/*.pid "$FIX"/*.winpid "$FIX"/trap.log "$FIX"/harness.log
-bash -c 'sleep 60' & SIB_PID=$!
-bash "$FIX/harness.sh" "$FIX" "$LIB" "$FIX/fast.sh" >/dev/null 2>&1
+# --- K: a NORMAL run's captured bytes are IDENTICAL with and without the sentinel ----------
+# The "byte-identical" claim, measured instead of asserted: same phase, same capture path, one
+# run with the guard armed and one with it absent.
+rm -f "$FIX"/*.pid "$FIX"/*.winpid "$FIX"/trap.log "$FIX"/harness.log 2>/dev/null
+bash -c 'sleep 60' & SIB_PID=$!; ff_track "$SIB_PID"
+FFSR_OUT="$FIX/out-sentinel.bin" bash "$FIX/harness.sh" "$FIX" "$LIB" "$FIX/fast.sh" >/dev/null 2>&1
 norm_rc=$?
-if [ "$norm_rc" -eq 0 ] && alive "$SIB_PID" && grep -q "phase-returned rc=0" "$FIX/harness.log" 2>/dev/null; then
-  ok "normal-exit-performs-no-kill (fast phase: harness rc 0, phase rc 0, unrelated sibling untouched)"
+norm_log="$(cat "$FIX/harness.log" 2>/dev/null)"
+rm -f "$FIX"/*.pid "$FIX"/*.winpid "$FIX"/harness.log 2>/dev/null
+FFSR_NO_SENTINEL=1 FFSR_OUT="$FIX/out-nosentinel.bin" bash "$FIX/harness.sh" "$FIX" "$LIB" "$FIX/fast.sh" >/dev/null 2>&1
+plain_rc=$?
+if [ "$norm_rc" -eq 0 ] && ff_alive "$SIB_PID" && printf '%s' "$norm_log" | grep -q "phase-returned rc=0"; then
+  ok "normal-exit-performs-no-kill [CONTROL] (fast phase: harness rc 0, phase rc 0, unrelated sibling untouched)"
 else
-  bad "normal-exit-performs-no-kill" "harness rc=$norm_rc sibling_alive=$(alive "$SIB_PID" && echo yes || echo no) harness.log=[$(cat "$FIX/harness.log" 2>/dev/null)]"
+  bad "normal-exit-performs-no-kill" "harness rc=$norm_rc sibling_alive=$(ff_alive "$SIB_PID" && echo yes || echo no) harness.log=[$norm_log]"
 fi
-kill -9 "$SIB_PID" 2>/dev/null; wait 2>/dev/null
+if [ ! -s "$FIX/out-sentinel.bin" ] && [ ! -s "$FIX/out-nosentinel.bin" ]; then
+  bad "normal-run-output-byte-identical" "both captures were EMPTY — the comparison would have passed vacuously"
+elif [ "$norm_rc" -eq "$plain_rc" ] && cmp -s "$FIX/out-sentinel.bin" "$FIX/out-nosentinel.bin"; then
+  ok "normal-run-output-byte-identical [DISCRIMINATOR] ($(wc -c < "$FIX/out-sentinel.bin" | tr -d ' ') captured bytes and rc $norm_rc identical with the guard armed and with it absent)"
+else
+  bad "normal-run-output-byte-identical" "the guard changed a normal run: rc $norm_rc vs $plain_rc; capture diff: $(cmp "$FIX/out-sentinel.bin" "$FIX/out-nosentinel.bin" 2>&1 | head -1)"
+fi
+ff_reap_tracked
 
-# --- Control: an identity (PID-reuse) mismatch kills NOTHING ------------------------------
-# Drives the shipped guard directly: a recorded winpid that no longer maps to the recorded
-# child must be skipped, never killed on the winpid alone.
+# --- L: a recorded winpid whose child pid no longer matches kills NOTHING ------------------
 # shellcheck source=/dev/null
 . "$LIB"
-bash -c 'sleep 60' & VICTIM=$!
+bash -c 'sleep 60' & VICTIM=$!; ff_track "$VICTIM"
 sleep 1
-VWIN="$(cat "/proc/$VICTIM/winpid" 2>/dev/null)"
-if [ -n "$VWIN" ] && alive "$VICTIM"; then
+VWIN=""; IFS= read -r VWIN 2>/dev/null < "/proc/$VICTIM/winpid" || VWIN=""
+if [ -n "$VWIN" ] && ff_alive "$VICTIM"; then
   ffhc_msys_taskkill_winpid "$VWIN" "999999"   # 999999 = a pid that cannot map to $VWIN
   sleep 1
-  if alive "$VICTIM"; then
-    ok "pid-reuse-mismatch-kills-nothing (recorded winpid + non-matching child pid => the guard skipped the taskkill; the process survived)"
+  if ff_alive "$VICTIM"; then
+    ok "pid-reuse-mismatch-kills-nothing [CONTROL] (recorded winpid + non-matching child pid => the guard skipped the taskkill; the process survived)"
   else
     bad "pid-reuse-mismatch-kills-nothing" "the taskkill fired on a winpid whose recorded child pid no longer matches — the PID-reuse guard is not holding"
   fi
 else
   skip "pid-reuse-mismatch-kills-nothing" "could not resolve a winpid for the control process"
 fi
-kill -9 "$VICTIM" 2>/dev/null; wait 2>/dev/null
+ff_reap_tracked
 
 echo "[test-run-tests-signal-reap] trace: ${TRACE#"$ROOT/"}" >&2
 finish

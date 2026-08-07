@@ -33,6 +33,11 @@ fi
 # harness. Reads FFHC_LAST_OUT / FFHC_LAST_RC after each call.
 . "$ROOT/hooks/local/lib/run-with-timeout.sh"
 ffhc_detect_timeout
+# Guarded group-reap primitives, shared with the out-of-band sentinel so both teardown paths
+# apply the SAME fail-closed guards (a second copy would drift).
+FF_ORPHAN_REAP="$ROOT/hooks/tests/lib/orphan-reap.sh"
+# shellcheck source=/dev/null
+[ -f "$FF_ORPHAN_REAP" ] && . "$FF_ORPHAN_REAP"
 
 # Per-phase heavy-run bound — a liveness backstop, not a performance assertion.
 # 600s was a rounded-up quiet-host observation and two phases crossed it with ZERO failed
@@ -115,10 +120,29 @@ fi
 # nothing and a stale/reused winpid is never swept. The reap is a no-op off-MSYS.
 FFHC_LAST_WINPID=""
 FFHC_LAST_CHILD_PID=""
+# _ff_reap_in_flight: the SAME guarded group reap the sentinel runs, executed harness-side while
+# an EXIT trap still can. It reads the PUBLISHED record, so there is exactly one definition of
+# "what is in flight". No record, no guard lib, or an unconfirmable identity => no-op.
+_ff_reap_in_flight() {
+    [ -n "${FFHC_SENTINEL_STATE:-}" ] || return 0
+    command -v ffor_state_read >/dev/null 2>&1 || return 0
+    ffor_state_read "$FFHC_SENTINEL_STATE"
+    [ -n "$FFOR_S_PID" ] || return 0
+    ffor_resolve "$FFOR_S_PID" "$FFOR_S_PGID" || return 0
+    ffor_pgid_of $$ || return 0   # snapshot-backed: a `$( )` here costs a fork this path cannot afford
+    ffor_reap "$FFOR_S_PID" "$FFOR_S_WIN" "$FFOR_R_PGID" "$FFOR_R_LEADSTART" \
+        "$FFOR_PGID_OUT" "${FF_SENTINEL_GRACE:-5}"
+    return 0
+}
+# TRIPWIRE (ordering): cleanup FIRST, disarm the sentinel LAST. The reverse order cleared the
+# in-flight record and killed the sentinel BEFORE the known-insufficient `taskkill //T` ran, so
+# on every EXIT path that does run — the nap-forced-off arm — nothing reaped the phase group.
 _ff_exit_reap() {
+    _ff_reap_in_flight
+    if ffhc_is_msys && [ -n "$FFHC_LAST_WINPID" ]; then
+        ffhc_msys_taskkill_winpid "$FFHC_LAST_WINPID" "$FFHC_LAST_CHILD_PID"
+    fi
     _ff_sentinel_stop
-    ffhc_is_msys || return 0
-    [ -n "$FFHC_LAST_WINPID" ] && ffhc_msys_taskkill_winpid "$FFHC_LAST_WINPID" "$FFHC_LAST_CHILD_PID"
 }
 
 # --- S2 orphan sentinel (T4) ------------------------------------------------------------------
@@ -131,6 +155,8 @@ _ff_exit_reap() {
 # and, if we die with a phase in flight, revalidates the recorded identity and terminates that
 # phase's process group only. Evidence: state/audit/run-tests-signal-reap/<full-head>/summary.md.
 FF_SENTINEL_PID=""
+FF_SENTINEL_PGID=""
+FF_SENTINEL_GRACE=5
 FFHC_SENTINEL_STATE=""
 _ff_sentinel_start() {
     ffhc_is_msys || return 0
@@ -141,16 +167,31 @@ _ff_sentinel_start() {
         FFHC_SENTINEL_STATE=""; return 0; }
     local grace="${FFHC_TIMEOUT_KILL_GRACE:-5s}"; grace="${grace%[!0-9]*}"
     case "$grace" in ''|*[!0-9]*) grace=5 ;; esac
+    FF_SENTINEL_GRACE="$grace"
     # Cap is a backstop only — the sentinel exits as soon as we die or it is stopped below.
     "$FFHC_TIMEOUT_BIN" "${FF_SENTINEL_CAP:-21600}" bash "$sentinel" \
         "$$" "$(ffhc_pgid_of $$)" "$FFHC_SENTINEL_STATE" "$grace" >/dev/null 2>&1 &
     FF_SENTINEL_PID=$!
+    # The sentinel runs in the wrapper's OWN group. Recording that group is what lets the stop
+    # below still reach the sentinel when its `timeout` wrapper has died — a PID-only kill on a
+    # dead wrapper would leave the guard running with nothing left to guard.
+    FF_SENTINEL_PGID="$(ffhc_pgid_of "$FF_SENTINEL_PID")"
 }
 _ff_sentinel_stop() {
     [ -n "$FF_SENTINEL_PID" ] || { [ -n "$FFHC_SENTINEL_STATE" ] && rm -f "$FFHC_SENTINEL_STATE" 2>/dev/null; return 0; }
     ffhc_sentinel_note                      # nothing in flight => a racing reap finds nothing
     kill "$FF_SENTINEL_PID" 2>/dev/null
     wait "$FF_SENTINEL_PID" 2>/dev/null
+    # Only ever the sentinel's OWN group, and never ours: an unresolved OR matching pgid signals
+    # nothing (the sentinel self-exits within a poll tick of our death regardless).
+    local own; own="$(ffhc_pgid_of $$)"
+    if [ -n "$FF_SENTINEL_PGID" ] && [ -n "$own" ] && [ "$FF_SENTINEL_PGID" != "$own" ]; then
+        case "$FF_SENTINEL_PGID" in
+            *[!0-9]*) : ;;
+            *) [ "$FF_SENTINEL_PGID" -gt 1 ] && kill -TERM -"$FF_SENTINEL_PGID" 2>/dev/null ;;
+        esac
+    fi
+    FF_SENTINEL_PGID=""
     FF_SENTINEL_PID=""
     [ -n "$FFHC_SENTINEL_STATE" ] && rm -f "$FFHC_SENTINEL_STATE" 2>/dev/null
     return 0
