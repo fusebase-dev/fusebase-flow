@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.7.1",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 294,
+  "asset_count": 295,
   "assets": [
     {
       "path": ".claude-plugin/marketplace.json",
@@ -34,7 +34,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "7a3e5b5063f47320534bd627e514f59c3055ac5fd7e08fb844ae754441083f8a"
+      "sha256": "5272ea36a327b411d04f51ddfdbfe575972b4dd3f8fe2982195ec12672c61040"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -737,6 +737,10 @@
       "sha256": "1ab4fc8c3271639e4075137eeec6b93430f7bfdaec5d6963bb73a75342275bfd"
     },
     {
+      "path": "hooks/tests/fixtures/corpus/command-gate-semantic-corpus.json",
+      "sha256": "fb92bc3b9ec05fc4fd13436570954e73158ac9d63d8a5fff2ab890247e1ad16c"
+    },
+    {
       "path": "hooks/tests/fixtures/token-waste-01-growing-tail-classified.jsonl",
       "sha256": "88f6a2c6b2513495353f209b3c846890349068b3cb8d7c7b1a5ba3733e11efec"
     },
@@ -862,7 +866,7 @@
     },
     {
       "path": "hooks/tests/test-command-policy.sh",
-      "sha256": "05219c8681fb790e841014c1f59ee535b21009724e2267b34aa859e9193185d5"
+      "sha256": "7c8066799695e25fdb97c196188587dd538cd653c0426b9628e869ce2457f3a7"
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
@@ -1181,5 +1185,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "373fbd06b7b14451d17c62bae47f5d07f4ccf7bae4ec9e0c75055334512035c0"
+  "manifest_self_sha256": "5173756ead8aac8a3421a90ed977fa497d26f59b68e6da89c9df054fcc03cc36"
 }

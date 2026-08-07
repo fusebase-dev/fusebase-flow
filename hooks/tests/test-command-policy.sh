@@ -416,6 +416,135 @@ else
   bad "ac8-lightweight-parity-both-handlers" "$HANDLER_OUT"
 fi
 
+# ---- T5 · FR-06 semantic corpus — REPORTING MATRIX, deliberately never red ---------
+# TRIPWIRE — do NOT convert a reported mismatch into an assertion. Every case whose
+# `should_gate` disagrees with today's verdict IS the documented gap; reddening it
+# forces one of the N1..N5 narrowings, or the N6 trap. WHY + the two open decisions:
+# docs/backlog/command-gate-shell-evasion/README.md (execution-plan P8/S4 scope).
+# ASSERTED here: structure only — corpus parses, contract fields present, ids unique,
+# class declared, a verdict recorded from the real evaluate(), and the mandated
+# classes + true negatives still present so rows cannot be dropped to flatter counts.
+# TRIPWIRE — corpus lives in fixtures/corpus/, not fixtures/: run_hook_tests.py globs
+# fixtures/*.json and FAILs any file without `_handler`.
+CORPUS_OUT="$(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$ROOT" <<'PY' 2>&1
+import json, shutil, sys, tempfile
+from collections import Counter
+from pathlib import Path
+
+root = Path(sys.argv[1]); sys.path.insert(0, str(root / "hooks"))
+from shared.command_policy import evaluate  # noqa: E402
+from shared.policy_loader import reset_cache  # noqa: E402
+
+CORPUS = root / "hooks" / "tests" / "fixtures" / "corpus" / "command-gate-semantic-corpus.json"
+FIELDS = ("id", "command", "should_gate", "expected_rule", "expected_actions",
+          "evasion_class", "red_arm", "source", "why")
+MANDATED_CLASSES = ("quote-splitting", "dynamic-construction", "whitespace",
+                    "path-form", "comment-heredoc", "encoding")
+MANDATED_TRUE_NEGATIVES = ("docker run --rm image", "npm rm pkg", "git rm x", "charm")
+fails = []
+
+try:
+    corpus = json.loads(CORPUS.read_text(encoding="utf-8"))
+except BaseException as e:                           # noqa: BLE001 — unreadable == fail
+    print(f"CORPUS_FAILS:{json.dumps([f'corpus unreadable: {e!r}'])}")
+    raise SystemExit(0)
+
+cases = corpus.get("cases")
+classes = corpus.get("evasion_classes") or {}
+if not isinstance(cases, list) or not cases:
+    fails.append("corpus declares no cases")
+    cases = []
+seen = set()
+for i, c in enumerate(cases):
+    cid = c.get("id", f"#{i}") if isinstance(c, dict) else f"#{i}"
+    if not isinstance(c, dict):
+        fails.append(f"{cid}: case is not a mapping")
+        continue
+    for f in FIELDS:
+        if f not in c:
+            fails.append(f"{cid}: missing field {f!r}")
+    if not isinstance(c.get("should_gate"), bool):
+        fails.append(f"{cid}: should_gate is not a bool")
+    if c.get("evasion_class") not in classes:
+        fails.append(f"{cid}: undeclared evasion_class {c.get('evasion_class')!r}")
+    if cid in seen:
+        fails.append(f"{cid}: duplicate id")
+    seen.add(cid)
+
+present_classes = {c.get("evasion_class") for c in cases if isinstance(c, dict)}
+for k in MANDATED_CLASSES:
+    if k not in present_classes:
+        fails.append(f"mandated evasion class {k!r} has no case")
+commands = {c.get("command") for c in cases if isinstance(c, dict)}
+for tn in MANDATED_TRUE_NEGATIVES:
+    if tn not in commands:
+        fails.append(f"mandated true negative {tn!r} was dropped from the corpus")
+
+# Drive the REAL rules against a throwaway tree carrying the SHIPPED policies and
+# NO approval artifacts, so "gated" == "this command could not just run".
+with tempfile.TemporaryDirectory() as d:
+    repo = Path(d)
+    (repo / "policies").mkdir(parents=True)
+    (repo / "state" / "approvals").mkdir(parents=True)
+    for name in ("command-policy.yml", "approval-policy.yml"):
+        shutil.copy(root / "policies" / name, repo / "policies" / name)
+    reset_cache()
+    rows = []
+    for c in cases:
+        if not isinstance(c, dict):
+            continue
+        try:
+            dec = evaluate(c.get("command", ""), root=repo)
+        except BaseException as e:                   # noqa: BLE001 — a raise is no verdict
+            fails.append(f"{c.get('id')}: evaluate() RAISED {e!r}")
+            continue
+        if dec.decision not in ("allow", "deny", "ask"):
+            fails.append(f"{c.get('id')}: no recorded verdict ({dec.decision!r})")
+            continue
+        rows.append((c, dec.decision != "allow", dec))
+
+if len(rows) != len(cases):
+    fails.append(f"verdict coverage: recorded {len(rows)} of {len(cases)} cases")
+
+bucket = {"caught": [], "missed": [], "over-fired": [], "correctly-open": []}
+per_class = {}
+# A case whose expected rule is a DENY (should_gate with no approvable action) but
+# which today only reaches require_approval is not "caught": an existing artifact
+# lets it run. Reported separately — a hard deny silently became approvable.
+downgraded = []
+for c, gated, dec in rows:
+    want = c["should_gate"]
+    key = ("caught" if gated else "missed") if want else \
+          ("over-fired" if gated else "correctly-open")
+    bucket[key].append(c["id"])
+    per_class.setdefault(c["evasion_class"], Counter())[key] += 1
+    if want and gated and not c["expected_actions"] and dec.required_actions:
+        downgraded.append(f"{c['id']}({dec.rule_id}:{','.join(dec.required_actions)})")
+
+print(f"[corpus] {len(rows)} cases · shipped rules today: "
+      f"{len(bucket['caught'])} gated-as-intended, {len(bucket['missed'])} MISSED, "
+      f"{len(bucket['over-fired'])} OVER-FIRED, "
+      f"{len(bucket['correctly-open'])} correctly-not-gated")
+print("[corpus] class                | want-gate: caught/missed | want-open: overfired/ok")
+for cls in sorted(per_class):
+    k = per_class[cls]
+    print(f"[corpus] {cls:<21} |            {k['caught']:>3}/{k['missed']:<3}         |"
+          f"          {k['over-fired']:>3}/{k['correctly-open']:<3}")
+for key in ("missed", "over-fired", "caught", "correctly-open"):
+    print(f"[corpus] {key}: {' '.join(bucket[key]) or '(none)'}")
+print(f"[corpus] deny-downgraded-to-approvable: {' '.join(downgraded) or '(none)'}")
+print("[corpus] mismatches above are the DOCUMENTED gap (K21/M8), not test failures.")
+print(f"CORPUS_FAILS:{json.dumps(fails)}")
+PY
+)"
+echo "$CORPUS_OUT" | grep -v '^CORPUS_FAILS:' || true
+corpus_fails="$(printf '%s\n' "$CORPUS_OUT" | sed -n 's/^CORPUS_FAILS://p')"
+if [ "$corpus_fails" = "[]" ]; then
+  ok "t5-semantic-corpus-structural-and-reported"
+else
+  bad "t5-semantic-corpus-structural-and-reported" "${corpus_fails:-runner produced no CORPUS_FAILS line: $CORPUS_OUT}"
+fi
+
 # ---- AC26 (K21): the limitation is stated where a reader will meet it ---------------
 ev_fail=""
 for f in "policies/command-policy.yml" "docs/hook-coverage.md"; do
