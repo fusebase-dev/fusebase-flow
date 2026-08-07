@@ -1,31 +1,43 @@
 # Active handoff
 
 Mode: restart  (`restart` — operator-triggered)
-**Updated:** 2026-08-07T07:20Z
+**Updated:** 2026-08-07T08:05Z
 **Branch:** `fix/msys-v3307-hardening`
-**HEAD at write time:** `0b13b2f`
+**HEAD at write time:** `186ba38`
 **Authoritative plan:** `docs/specs/backlog-triage-execution/execution-plan.md` (T1–T10, gates G0–G4)
 **Blocking review:** `docs/specs/backlog-triage-execution/implementation-review.md` — **`DO-NOT-SHIP`, 8 BLOCKERs**
 **Prior reviews:** `docs/specs/v5-c0-contracts/reviews.md`
 
 ## Next action
 
-**Close B1 — it is the one blocker the correction round did NOT fix, and its own discriminator
-proves it.** Scoped run at `0b13b2f`:
+**Re-review, then the full unscoped gate + Linux on one SHA with committed defaults.** All 8
+BLOCKERs are closed at `186ba38`. The prior review was against `b0b33b3`, before these four commits.
+
+**SUPERSEDES the "B1 remains open" entry written at `7215d55`.** That was read from an intermediate
+scoped run and its diagnosis was wrong — including the row's own failure text, which is why it
+misled. The `FAIL` was not `_ff_exit_reap` disarming the guard before cleanup. Ordering was fixed in
+`91f8748` (reap FIRST, sentinel disarmed LAST, both paths sharing `hooks/tests/lib/orphan-reap.sh`).
+The trap was being **SIGKILLed part-way through** by the outer `-k` grace, which under nested load is
+shorter than the guard's I/O takes — a grace-budget measurement, not an ordering defect.
+
+The row was itself claiming more than the mechanism gives: the harness-side EXIT path is BEST-EFFORT
+inside the `-k` window; the out-of-band sentinel is the guarantee, which is exactly why the ordering
+must not disarm it first. `186ba38` corrects the row (a `reap-returned` marker separates "ran to
+completion and reaped nothing" = FAIL from "cut short" = INCONCLUSIVE) rather than widening the
+budget to hide it. Verified at `186ba38`:
 
 ```
-FAIL: signal-reap exit-path-reaps-group-without-sentinel
-  EXIT trap ran (trap-ran winpid=..., child=...) but child_gone=-1s grandchild_gone=-1s
-  (-1 = alive at the 8s deadline) — the EXIT path disarmed the guard before cleanup completed
-19/20 PASS, 1 FAIL, 0 SKIP     (run-tests: 42/43, SCOPED — not release evidence)
+19/19 PASS, 0 FAIL, 0 SKIP, 2 INCONCLUSIVE   (standalone signal-reap)
+42/42 PASS, GATE_RC=0                        (FF_ONLY=signal-reap,cli-flow-profile,
+                                              command-policy,install-doc — SCOPED, not release evidence)
 ```
 
-`_ff_exit_reap` in `hooks/tests/run-tests.sh` still clears/stops the reap guard before cleanup has
-finished, so on an EXIT path that does run, descendants survive. Fix the ordering, then re-run
-`FF_ONLY=signal-reap`. Everything else in the correction round is green.
-
-**Then**: re-review (the prior review was against `b0b33b3`, before these three commits), then the
-full unscoped gate + Linux on one SHA with committed defaults.
+The 2 INCONCLUSIVE are declared, not hidden: the EXIT-path grace budget under load, and the
+pre-existing **INT exit-status design question** — the harness never acts on an untrapped SIGINT, so
+there is no 130, and `trap … INT` cannot supply one while `_ffhc_nap`'s blocking FIFO read defers
+delivery past the `-k` SIGKILL. Closing it means changing the nap primitive. **That is a design
+decision and is the one thing this round deliberately did not implement.** The orphan reap itself is
+unaffected — the INT scenarios reap child and grandchild within the grace window.
 
 ## What landed (T1–T5, T9 — all committed, none gated)
 
@@ -51,25 +63,24 @@ full unscoped gate + Linux on one SHA with committed defaults.
 Measurement 2 was made by the orchestrating session and used to override a correct finding.
 **A fixture must contain the mechanism under test.**
 
-## Highest-value BLOCKERs (full list in the review)
+## The 8 BLOCKERs — all CLOSED (correction round, 2026-08-07)
 
-1. `run-tests.sh:118` — `_ff_exit_reap` stops the sentinel **before** the known-insufficient
-   `taskkill //T`, disabling the stronger cleanup on any EXIT path that does run.
-2. `orphan-sentinel.sh:45` — identity is only PID/WinPID/PGID; all three are recyclable.
-3. `orphan-sentinel.sh:52` — group guards **fail open** when a PGID lookup returns empty.
-4. `orphan-sentinel.sh:56` — cleanup requires the group leader alive, but the leaked topology has
-   the leader dead — the exact case T3 demonstrated.
-5. `orphan-sentinel.sh:72` — native sweep `taskkill`s every current group member without
-   revalidation (collateral risk; `bounded-run-msys-collateral-kill` class).
-6. `run-with-timeout.sh:553` — child launched **before** its identity record exists, and the state
-   write is truncate-then-printf, not atomic. A signal in that window recreates the original leak.
-7. `install-fusebase-cli-project.md:164` — plugin dirs documented "never copied" while the upgrade
-   engine still owns them (`managed_content_manifest.py:38-41`).
-8. `preflight.sh:335` — compares any existing consumer plugin's version to Flow's `VERSION`, with
-   no `name == fusebase-flow` guard, so following the guide can produce a false preflight error.
+| # | Blocker | Closed by | Discriminator, red-before -> green-after |
+|---|---|---|---|
+| B1 | `_ff_exit_reap` stopped the guard **before** the insufficient `taskkill //T` | `91f8748` + `186ba38` | `exit-path-reaps-group-without-sentinel` (isolated: record published, sentinel absent) |
+| B2 | identity was only PID/WinPID/PGID — all recyclable | `91f8748` | group bound by the LEADER's `/proc` start token |
+| B3 | group guards **failed open** on an empty PGID lookup | `91f8748` | `failed-pgid-lookup-kills-nothing` — unrelated group 2 alive -> **0** (old) vs **2** (new) |
+| B4 | cleanup required the leader alive; the leaked topology has it dead | `91f8748` | `dead-leader-descendants-reaped` — **2 -> 2** (old, reaped nothing) vs **2 -> 0** (new) |
+| B5 | native sweep `taskkill`ed every member without revalidation | `91f8748` | `group-identity-mismatch-kills-nothing` — **2 -> 0** (old) vs **2 -> 2** (new) |
+| B6 | child launched before its record existed; non-atomic state write | `91f8748` | `launch-window-signal-still-reaps` (window widened deterministically) |
+| B7 | plugin dirs documented "never copied" while upgrade owned them | `60cb051` | `plugin-dirs-not-in-managed-set` (asserts `list-managed`, not prose) |
+| B8 | `preflight.sh` compared ANY plugin manifest's version to Flow's | `60cb051` | `preflight-parity-scoped-to-flow-manifests` (negative + positive control) |
 
-Also: `signal-reap` "8/8" overstates coverage — 4 rows are controls that passed pre-fix, and
-off-MSYS skips increment PASS.
+Coverage honesty (the "8/8 overstates" finding) is fixed: rows are labelled DISCRIMINATOR vs
+CONTROL, skips and inconclusives are counted apart from passes, and the summary line says so.
+
+**Design decision still open (NOT a blocker, deliberately not improvised):** SIGINT exit status —
+see § Next action.
 
 ## Standing constraints
 
