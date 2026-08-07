@@ -1,19 +1,31 @@
 # Active handoff
 
 Mode: restart  (`restart` — operator-triggered)
-**Updated:** 2026-08-06T21:00Z
+**Updated:** 2026-08-07T07:20Z
 **Branch:** `fix/msys-v3307-hardening`
-**HEAD at write time:** `b0b33b3`
+**HEAD at write time:** `0b13b2f`
 **Authoritative plan:** `docs/specs/backlog-triage-execution/execution-plan.md` (T1–T10, gates G0–G4)
 **Blocking review:** `docs/specs/backlog-triage-execution/implementation-review.md` — **`DO-NOT-SHIP`, 8 BLOCKERs**
 **Prior reviews:** `docs/specs/v5-c0-contracts/reviews.md`
 
 ## Next action
 
-**Fix the 8 BLOCKERs in T4 (and the 2 in T9) before any gate.** The full unscoped gate has
-deliberately **not** been run on `b0b33b3` — gating a tree the review rejects would spend ~2h
-producing evidence for code that must change. `state/audit/hook-test-results.md` still describes
-`88f7286`, not this branch tip.
+**Close B1 — it is the one blocker the correction round did NOT fix, and its own discriminator
+proves it.** Scoped run at `0b13b2f`:
+
+```
+FAIL: signal-reap exit-path-reaps-group-without-sentinel
+  EXIT trap ran (trap-ran winpid=..., child=...) but child_gone=-1s grandchild_gone=-1s
+  (-1 = alive at the 8s deadline) — the EXIT path disarmed the guard before cleanup completed
+19/20 PASS, 1 FAIL, 0 SKIP     (run-tests: 42/43, SCOPED — not release evidence)
+```
+
+`_ff_exit_reap` in `hooks/tests/run-tests.sh` still clears/stops the reap guard before cleanup has
+finished, so on an EXIT path that does run, descendants survive. Fix the ordering, then re-run
+`FF_ONLY=signal-reap`. Everything else in the correction round is green.
+
+**Then**: re-review (the prior review was against `b0b33b3`, before these three commits), then the
+full unscoped gate + Linux on one SHA with committed defaults.
 
 ## What landed (T1–T5, T9 — all committed, none gated)
 
