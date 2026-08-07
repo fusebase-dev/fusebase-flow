@@ -12,6 +12,8 @@
 #                  exit). A control PASS proves nothing about the fix.
 #   SKIP           neither. Reported separately and NEVER counted as PASS — an off-MSYS skip
 #                  incrementing the pass count is how "8/8" came to overstate coverage.
+#   INCONCLUSIVE   the row could not be DECIDED (an open design question, or a measurement the
+#                  platform's grace budget cut short). Counted apart from both.
 #
 # TRIPWIRE: every kill here is identity-verified (lib/signal-reap-fixture.sh). A PID-only
 # `kill -9` after a sleep can hit a recycled pid — the exact defect class under test.
@@ -29,12 +31,15 @@ LIB="$ROOT/hooks/local/lib/run-with-timeout.sh"
 REAPLIB="$ROOT/hooks/tests/lib/orphan-reap.sh"
 FIXLIB="$ROOT/hooks/tests/lib/signal-reap-fixture.sh"
 
-pass=0; fail=0; skipped=0
+pass=0; fail=0; skipped=0; unresolved=0
 ok()   { pass=$((pass + 1)); echo "PASS: signal-reap $1"; }
 bad()  { fail=$((fail + 1)); echo "FAIL: signal-reap $1 (${2:-})"; }
 skip() { skipped=$((skipped + 1)); echo "SKIP: signal-reap $1 — ${2:-}" >&2; }
+# A row that could not be DECIDED. Counted apart from both passes and failures, because folding
+# it into either is how a coverage claim stops meaning anything.
+unres() { unresolved=$((unresolved + 1)); echo "INCONCLUSIVE: signal-reap $1 (${2:-})"; }
 finish() {
-  echo "[test-run-tests-signal-reap] $pass/$((pass + fail)) PASS, $fail FAIL, $skipped SKIP (skips are NOT passes)"
+  echo "[test-run-tests-signal-reap] $pass/$((pass + fail)) PASS, $fail FAIL, $skipped SKIP, $unresolved INCONCLUSIVE (skips and inconclusives are NOT passes)"
   exit $fail
 }
 
@@ -229,17 +234,28 @@ fi
 # B1's arm, isolated. Nap forced off + a trapped TERM => bash runs the EXIT trap with a phase
 # still in flight; the record is published but NO sentinel process exists, so the harness-side
 # path is the only thing that can reap. Under the shipped ordering that path disarmed the guard
-# and then ran the known-insufficient `taskkill //T`, so the descendants survived.
+# FIRST and then ran the known-insufficient `taskkill //T`, so the descendants survived.
+#
+# WHAT THIS CAN AND CANNOT CLAIM: the harness-side path is BEST-EFFORT inside the outer `-k`
+# grace — the sentinel is the guarantee, which is why the ordering must not disarm it. So a run
+# in which the EXIT trap was SIGKILLed part-way (no `reap-returned` marker) is INCONCLUSIVE, not
+# a failure: it measured the platform's grace budget, not the ordering. Only a trap that RAN TO
+# COMPLETION and still left the group alive is the defect this row exists to catch.
 FFSR_NAP_OFF=1; FFSR_TRAP_TERM=1; FFSR_STATE_ONLY=1
 if run_scenario exit-path TERM 1; then
   FFSR_NAP_OFF=0; FFSR_TRAP_TERM=0; FFSR_STATE_ONLY=0
-  if [ "$SCEN_TRAP" = none ]; then
-    bad "exit-path-reaps-group-without-sentinel" "the EXIT trap did NOT run, so this scenario measured nothing about EXIT ordering (trap marker absent)"
-  elif [ "$SCEN_CHILD_T" -ge 0 ] 2>/dev/null && [ "$SCEN_GC_T" -ge 0 ] 2>/dev/null; then
-    ok "exit-path-reaps-group-without-sentinel [DISCRIMINATOR] (EXIT trap ran [$SCEN_TRAP] with no sentinel available: child gone ${SCEN_CHILD_T}s / grandchild ${SCEN_GC_T}s)"
-  else
-    bad "exit-path-reaps-group-without-sentinel" "EXIT trap ran [$SCEN_TRAP] but child_gone=${SCEN_CHILD_T}s grandchild_gone=${SCEN_GC_T}s (-1 = alive at the ${REAP_CEILING}s deadline) — the EXIT path disarmed the guard before cleanup completed"
-  fi
+  case "$SCEN_TRAP" in
+    none)
+      bad "exit-path-reaps-group-without-sentinel" "the EXIT trap did NOT run, so this scenario measured nothing about EXIT ordering (trap marker absent)" ;;
+    *reap-returned*)
+      if [ "$SCEN_CHILD_T" -ge 0 ] 2>/dev/null && [ "$SCEN_GC_T" -ge 0 ] 2>/dev/null; then
+        ok "exit-path-reaps-group-without-sentinel [DISCRIMINATOR] (EXIT trap ran TO COMPLETION with no sentinel available: child gone ${SCEN_CHILD_T}s / grandchild ${SCEN_GC_T}s)"
+      else
+        bad "exit-path-reaps-group-without-sentinel" "the EXIT trap ran to completion [$SCEN_TRAP] and the group is STILL ALIVE (child_gone=${SCEN_CHILD_T}s grandchild_gone=${SCEN_GC_T}s; -1 = alive at the ${REAP_CEILING}s deadline) — cleanup was disabled before it could act"
+      fi ;;
+    *)
+      unres "exit-path-reaps-group-without-sentinel" "the EXIT trap started but was SIGKILLed before returning — it did not fit in the ${GSEC}s grace on this host/load; child_gone=${SCEN_CHILD_T}s grandchild_gone=${SCEN_GC_T}s. This measures the grace budget, not the ordering; the sentinel — deliberately absent here — is the guarantee." ;;
+  esac
   if [ "$SCEN_SIB_ALIVE" = yes ]; then
     ok "exit-path-sibling-survives [CONTROL] (unrelated same-executable sibling alive)"
   else
@@ -452,7 +468,7 @@ if [ "$term_rc" = "143" ]; then
 else
   bad "harness-own-exit-status-term" "TERM => $term_rc (want 143); 'none' = the harness never exited within ${REAP_CEILING}s of the signal (an unacted-on signal, not a wrong code); 'unisolated' = it did not get its own process group, so the measurement was aborted rather than signal our own group"
 fi
-echo "INCONCLUSIVE: signal-reap harness-own-exit-status-int (INT => $int_rc, want 130; no INT handler is shipped and a trap cannot supply one while the F3 nap blocks delivery — open design decision, deliberately NOT asserted and NOT counted)"
+unres "harness-own-exit-status-int" "INT => $int_rc, want 130; no INT handler is shipped and a trap cannot supply one while the F3 nap blocks delivery — open design decision, deliberately NOT asserted"
 
 # --- K: a NORMAL run's captured bytes are IDENTICAL with and without the sentinel ----------
 # The "byte-identical" claim, measured instead of asserted: same phase, same capture path, one

@@ -160,6 +160,11 @@ _ff_sentinel_stop() {
 _ff_exit_reap() {
     echo "trap-ran winpid=$FFHC_LAST_WINPID child=$FFHC_LAST_CHILD_PID" >> "$D/trap.log"
     _ff_reap_in_flight
+    # TRIPWIRE: this marker is what lets a scenario tell "the EXIT path ran and reaped nothing"
+    # (an ordering defect) apart from "the EXIT path was SIGKILLed part-way through" (the outer
+    # `-k` grace running out, which is a platform cost, not a logic failure). Without it the
+    # second reads as the first and the row reports a defect that is not there.
+    echo "reap-returned" >> "$D/trap.log"
     if ffhc_is_msys && [ -n "$FFHC_LAST_WINPID" ]; then
         ffhc_msys_taskkill_winpid "$FFHC_LAST_WINPID" "$FFHC_LAST_CHILD_PID"
     fi
