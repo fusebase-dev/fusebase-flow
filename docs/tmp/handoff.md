@@ -10,25 +10,32 @@ Mode: restart  (`restart` — operator-triggered)
 
 ## Next action
 
-**Close B5 and B6. They are the two the correction round did not close** — re-review of
-`b0b33b3..c97f8d2` returned `STILL-DO-NOT-SHIP` (`docs/specs/backlog-triage-execution/re-review-c97f8d2.md`).
+**STOP optimizing the local gate. It is not on the critical path to publishing.**
 
-| # | Status | What remains |
-|---|---|---|
-| B1, B3, B8/B9 | **CLOSED** | verified in shipped code |
-| B2, B4, B7 | **PARTIAL** | leader start token cached, but the locked tuple (child start/PPID/SID/executable + Windows creation identity) is absent; native members carry no captured identity; a delayed `kill -KILL -$PGID` still acts on an unrevalidated numeric group |
-| **B5** | **NOT CLOSED** | the delayed group SIGKILL is issued unconditionally; the native sweep "revalidates" against the SAME fresh snapshot it captured from, not against pre-kill captured identity |
-| **B6** | **NOT CLOSED** | append+terminator is tear-DETECTING, not atomic. A torn first append reads as "nothing in flight"; a later tear leaves an older record authoritative; all write failures are swallowed. The launch-to-first-append window was shortened, not closed |
+Architecture review 2026-08-07 returned **`DELETE-AND-MOVE`**
+(`docs/specs/backlog-triage-execution/architecture-review.md`). The finding that reframes the
+week: the local full gate is **not mechanically required for publication — CI is**.
+`.github/workflows/fusebase-flow-release.yml` publishes only after its reusable `verify` job
+passes on the tagged SHA. The prose disagrees with the machinery (`PUBLISHING.md` demands a local
+full run; `maintainer-execution.md` demands two platforms; the enforced CI job is Ubuntu-only) —
+that is an inconsistent contract, not a reason to keep spending hours locally.
 
-The B6 performance rationale is **substantially true** (~46 bounded phases ⇒ ~92 extra MSYS `mv`
-spawns), so naive per-publication rename is correctly rejected — but that does not make append
-atomic. A persistent supervisor/handshake or equivalent ownership mechanism is still required.
-This needs a design decision, not another patch.
+**Ordered sequence, smallest first, each with its discriminator (full text in the review):**
 
-Also: no direct ancestor discriminator exists for B3, and the `launch-window-signal-still-reaps`
-test only delays the WinPID probe — it never tears, interrupts or fails the first append.
+1. Lock CI as the sole release-evidence authority — local output must not be able to match the release-pass contract.
+2. Remove `cli-flow-profile` from required execution.
+3. Make the fast phase set the local default — three loaded-host MSYS runs under 10 min, no overrides.
+4. Decompose `cli-flow-recovery` — all 31 predicates preserved, `$PROJECT` clones 10 → 1.
+5. Move `signal-reap` + heartbeat testing to Windows CI; keep the field discriminator and collateral controls.
+6. Add required Linux **and** Windows/MSYS exact-SHA jobs — either red makes `publish` unreachable.
+7. Delete the monolith, the profile helper/test, and the timeout-override guidance.
 
-**Do not run the full gate until B5/B6 close.** No gate has run on this branch tip.
+**On today's work.** The sentinel fixed a real defect and some child-lifecycle mechanism stays
+necessary — but it is symptom-support for the current architecture and must not run on every fast
+local check; scope it to the Windows/MSYS deep runner. The instrumentation seam was a temporary
+diagnostic, not permanent release coverage: remove `cli-flow-profile` from required gates now, and
+delete it once recovery is decomposed. Net today: **~1,786 added lines for ~22 minutes added to the
+required gate. That direction should not continue.**
 
 ## What landed (T1–T5, T9 — all committed, none gated)
 
