@@ -122,3 +122,39 @@ harness acting on the signal.
 - `docs/problem-catalog/health-check-false-broken-rc0-on-kill/problem.md` — the rc-on-kill sibling.
 - `docs/backlog/gate-bounds-lack-headroom/README.md` — the evidence this defect can corrupt.
 - FR-27 liveness: a task that cannot signal its own completion-or-death must never be launched bare. Here the child outlived the observer entirely.
+
+## 2026-08-07 — B5/B6 ACCEPTED as known limitations (operator decision)
+
+The S2 fix ships with two residual gaps, accepted deliberately rather than patched a third time.
+
+**What is fixed and proven.** The field failure — a killed gate leaving children alive for 38
+minutes — is closed. `signal-reap` is 19/19 with 0 FAIL, including the discriminator that matters:
+*leader dead, 4 surviving descendants, group reaped to 0*. B1, B3 and B8/B9 are closed in shipped
+code; B2, B4 and B7 are materially improved.
+
+**What is NOT fixed, precisely.**
+
+| # | Residual | Trigger | Consequence |
+|---|---|---|---|
+| B6 | The in-flight record is written by append+terminator, which DETECTS a torn record but does not PREVENT one. A torn first append reads as "nothing in flight"; a later tear leaves an older record authoritative; write failures are swallowed | The harness must be killed inside the window between launching a child and completing its first append | That one phase's descendants may survive, as before the fix |
+| B5 | The delayed group SIGKILL is unconditional, and the native sweep revalidates against the same snapshot it captured from rather than against pre-kill identity | Group membership changes between snapshot and kill | A process that joined the target group after the snapshot could be signalled |
+
+**Why accepted, not fixed.** The two correct fixes both cost more than the residual:
+
+- *Atomic publication via temp+rename* — correct, but the harness has ~46 bounded phases, so two
+  rename-backed publications per phase is ~92 additional MSYS `mv` spawns. Spawn cost in this
+  engine is itself a catalogued defect; this trades a rare race for a guaranteed slowdown.
+- *A persistent supervisor owning the child before launch* — correct and complete, but a
+  substantially larger change with a new long-lived moving part, for a failure mode that has not
+  been observed in the field.
+
+The locked North Star treats process cost as a first-class defect and rules out building
+machinery for incidents that happened once. This one has not happened at all — it is a race
+found by inspection, not by an incident.
+
+**Conditions of the acceptance.** If any of these becomes true, reopen and implement the
+supervisor: (a) an orphan is observed in the field after this fix; (b) the launch-to-record window
+widens for any reason; (c) a consumer reports flaky gate timings traceable to leftover processes.
+
+The `launch-window-signal-still-reaps` test only delays the WinPID probe — it does not tear,
+interrupt or fail the first append. A future implementer should not read it as covering B6.
