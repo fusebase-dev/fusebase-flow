@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "52e34f6f5e21e35848fe652c4a4d6503b749e2e113015894272f59f4f84f4b21"
+      "sha256": "6c66c00507940a84ceb1ed4ac61c28ade689d9cdab07b540f450b6c6062e4f4a"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -786,7 +786,7 @@
     },
     {
       "path": "hooks/tests/lib/cli-flow-recovery-profile.sh",
-      "sha256": "5fefd4d5b14b2261c114f2915d140275b79bf1539a7f8cdf4d7df680bfa99819"
+      "sha256": "6a9490580bcb506228c16027268786d776326d8b1649137ac9cf318de03c7d21"
     },
     {
       "path": "hooks/tests/lib/orphan-reap.sh",
@@ -846,7 +846,7 @@
     },
     {
       "path": "hooks/tests/test-cli-flow-recovery-profile.sh",
-      "sha256": "0f227afb082e3e448338c6bc09a0490ef307ef487a490d5ea03618854d0cf27a"
+      "sha256": "de91061b69b015aea1d68b4b59bc0455ede0a3488c9f0c289f74fad6b887fce1"
     },
     {
       "path": "hooks/tests/test-cli-flow-recovery.sh",
@@ -1181,5 +1181,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "03da9210afa25c835ae12a97a52e3ab831b31853230f5e27427ff4af2f305fa8"
+  "manifest_self_sha256": "389934993d71d3d4bcd2d3ffcd0a2d8fcbb18bb14bce080bd2c84d4798c4390e"
 }

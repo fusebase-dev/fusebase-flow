@@ -38,9 +38,33 @@ FFCP_SCENARIO_ID=""
 FFCP_READY=0
 
 # Provenance allowlist (execution-plan § 5). NAMES ONLY - the environment is never dumped, and
-# no name outside this list is read or recorded.
+# no name outside this list is read or recorded. The two FFCP_TRACE_* entries are here because
+# they CHANGE BEHAVIOUR (where the trace lands): an override with no provenance is the same
+# blind spot as an unrecorded timeout.
 FFCP_ENV_ALLOWLIST=(FF_ONLY FF_SKIP_CLI_RECOVERY FF_CLI_RECOVERY_TIMEOUT FF_PHASE_TIMEOUT \
-  FFHC_TIMEOUT_KILL_GRACE FFHC_USE_JOB_OBJECT FFHC_HEARTBEAT_SECS)
+  FFHC_TIMEOUT_KILL_GRACE FFHC_USE_JOB_OBJECT FFHC_HEARTBEAT_SECS \
+  FFCP_TRACE_FILE FFCP_TRACE_ROOT)
+FFCP_TRACE_OVERRIDE="(default)"
+
+# ffcp_env_value NAME: the value SAFE to record. Sets FFCP_ENV_VALUE.
+# TRIPWIRE: an allowlisted NAME is not a licence to record its VALUE. FF_ONLY is free text an
+# operator types on a command line, so a secret pasted there was written to the trace verbatim.
+# Only self-evidently non-secret shapes (a number, optionally with a unit suffix) are recorded
+# as-is; everything else is reduced to a shape description. FFCP_TRACE_* record their DISPOSITION
+# only - the raw value is a filesystem path, which § 5 excludes from the trace outright.
+ffcp_env_value() {
+  local name="$1" v
+  if [ -z "${!name+x}" ]; then FFCP_ENV_VALUE="(default)"; return 0; fi
+  case "$name" in FFCP_TRACE_FILE|FFCP_TRACE_ROOT) FFCP_ENV_VALUE="set ($FFCP_TRACE_OVERRIDE)"; return 0 ;; esac
+  v="${!name}"
+  case "$v" in
+    '') FFCP_ENV_VALUE="set (empty)" ;;
+    *[!0-9a-z]*|"") FFCP_ENV_VALUE="set (redacted; ${#v} chars)" ;;
+    [0-9]*) FFCP_ENV_VALUE="$v" ;;
+    *) FFCP_ENV_VALUE="set (redacted; ${#v} chars)" ;;
+  esac
+  return 0
+}
 
 # ffcp_clean <string>: collapse the field separators out of a value. Sets FFCP_CLEAN.
 # A label carrying a TAB or newline would silently shift every column to its right.
@@ -86,7 +110,16 @@ ffcp_scenario_id() {
   fi
 }
 
-ffcp_meta() { [ "$FFCP_READY" -eq 1 ] && printf 'meta\t%s\t%s\n' "$1" "$2" >> "$FFCP_TRACE_FILE"; return 0; }
+# TRIPWIRE: a trace write may NEVER surface to the caller. The harness runs under `set -e`, so an
+# unguarded append meant a full disk or a vanished trace dir aborted the run BEFORE its PASS/FAIL
+# bytes - instrumentation deciding a verdict. A failed write disarms the seam for the rest of the
+# run (FFCP_READY=0) and returns 0.
+ffcp_write() {
+  [ "$FFCP_READY" -eq 1 ] || return 0
+  printf '%s\n' "$1" >> "$FFCP_TRACE_FILE" 2>/dev/null || FFCP_READY=0
+  return 0
+}
+ffcp_meta() { ffcp_write "$(printf 'meta\t%s\t%s' "$1" "$2")"; return 0; }
 
 # ffcp_init [script-basename]: resolve the trace target, write provenance, start the clock.
 # Never fails the caller: if the trace target cannot be created, instrumentation goes quiet and
@@ -106,8 +139,33 @@ ffcp_init() {
   head="$(git -C "$repo" rev-parse HEAD 2>/dev/null || echo unknown)"
   if git -C "$repo" diff --quiet HEAD 2>/dev/null; then dirty=0; else dirty=1; fi
 
+  # CONTAINMENT: an ambient FFCP_TRACE_FILE / FFCP_TRACE_ROOT used to name ANY existing path,
+  # which the `: >` below then TRUNCATED - a profiler able to destroy an arbitrary file. Both
+  # overrides must resolve under the designated audit root; anything else (including any `..`
+  # segment, which makes a prefix test meaningless) is REJECTED and the default is used. Rejection
+  # is recorded in the provenance, never silent.
+  local audit_root="$repo/state/audit"
+  ffcp_contained() {   # ffcp_contained PATH -> 0 when safely under the audit root
+    case "${1:-}" in
+      *..*|'') return 1 ;;
+      "$audit_root"/*) return 0 ;;
+      *) return 1 ;;
+    esac
+  }
+  if [ -n "$FFCP_TRACE_FILE" ] && ! ffcp_contained "$FFCP_TRACE_FILE"; then
+    FFCP_TRACE_FILE=""; FFCP_TRACE_OVERRIDE="rejected: outside $repo/state/audit"
+  elif [ -n "$FFCP_TRACE_FILE" ]; then
+    FFCP_TRACE_OVERRIDE="accepted"
+  fi
+  local root="${FFCP_TRACE_ROOT:-}"
+  if [ -n "$root" ] && ! ffcp_contained "$root"; then
+    root=""; FFCP_TRACE_OVERRIDE="rejected: outside $repo/state/audit"
+  elif [ -n "$root" ] && [ "$FFCP_TRACE_OVERRIDE" = "(default)" ]; then
+    FFCP_TRACE_OVERRIDE="accepted"
+  fi
+
   if [ -z "$FFCP_TRACE_FILE" ]; then
-    FFCP_TRACE_DIR="${FFCP_TRACE_ROOT:-$repo/state/audit/cli-flow-recovery-profiles}/$head"
+    FFCP_TRACE_DIR="${root:-$audit_root/cli-flow-recovery-profiles}/$head"
     mkdir -p "$FFCP_TRACE_DIR" 2>/dev/null || { FFCP_READY=0; return 0; }
     FFCP_TRACE_FILE="$FFCP_TRACE_DIR/run-$(date -u +%Y%m%dT%H%M%SZ)-$$.tsv"
   else
@@ -125,11 +183,11 @@ ffcp_init() {
   ffcp_meta script "$FFCP_SCRIPT"
   ffcp_meta clock "$FFCP_CLOCK (wall clock, clamped non-decreasing; bash exposes no monotonic source)"
   ffcp_meta started_utc "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  local name val
+  local name
   for name in "${FFCP_ENV_ALLOWLIST[@]}"; do
-    val="${!name-}"
-    if [ -z "${!name+x}" ]; then val="(default)"; else ffcp_clean "$val"; val="$FFCP_CLEAN"; fi
-    ffcp_meta "env.$name" "$val"
+    ffcp_env_value "$name"
+    ffcp_clean "$FFCP_ENV_VALUE"
+    ffcp_meta "env.$name" "$FFCP_CLEAN"
   done
 
   ffcp_raw_ms; FFCP_RAW0_MS="$FFCP_NOW_MS"; FFCP_LAST_RAW_MS="$FFCP_NOW_MS"; FFCP_LAST_MS=0
@@ -152,10 +210,9 @@ ffcp_event() {
   FFCP_LAST_MS="$end"
   ffcp_clean "$label"; label="$FFCP_CLEAN"
   ffcp_clean "$sid";   sid="$FFCP_CLEAN"
-  printf 'event\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-    "$FFCP_SEQ" "$ev" "$sid" "$start" "$end" "$dur" "$result" "$script" "$label" \
-    >> "$FFCP_TRACE_FILE"
-  printf '[%s] %s %s %s %sms\n' "$FFCP_SCRIPT" "$ev" "$sid" "$result" "$dur" >&2
+  ffcp_write "$(printf 'event\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s' \
+    "$FFCP_SEQ" "$ev" "$sid" "$start" "$end" "$dur" "$result" "$script" "$label")"
+  printf '[%s] %s %s %s %sms\n' "$FFCP_SCRIPT" "$ev" "$sid" "$result" "$dur" >&2 2>/dev/null || true
   return 0
 }
 

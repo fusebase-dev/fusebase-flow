@@ -46,6 +46,23 @@ This entry is the **deadline** reap: the bounded run hitting its OWN timeout and
 
 Evidence: `state/audit/run-tests-signal-reap/<full-head>/summary.md` (F6, F7).
 
+## How the S2 fix stayed inside this boundary (T4a, 2026-08-07)
+
+The external-signal fix reaps by POSIX **process group**, not by a Win32 tree walk, so it never
+widens `//T`. Every rule below exists because of THIS entry's 255-collateral incident, and each is
+covered by a named row in `hooks/tests/test-run-tests-signal-reap.sh`:
+
+| Rule in `hooks/tests/lib/orphan-reap.sh` | Regression row |
+|---|---|
+| The target group is bound by the group LEADER's `/proc` start token, so a recycled pid or pgid is refused | `group-identity-mismatch-kills-nothing` |
+| An unresolvable own-group or harness-group lookup kills NOTHING (the first version failed OPEN here) | `failed-pgid-lookup-kills-nothing` |
+| Never the caller's own group, the harness's group, or any group on the caller's parent chain — the ancestry walk is implemented, not asserted in a comment | `never-signals-own-group` |
+| The native `taskkill` sweep is per-winpid, never `//T`, and every target is revalidated against a FRESH process-table observation taken after the group kill (pgid AND winpid must still match) | `sibling-survives` / `int-sibling-survives` / `launch-window-sibling-survives` / `wrapper-death-sibling-survives` |
+| The strict deadline-path guard from this entry is unchanged and still exercised directly | `pid-reuse-mismatch-kills-nothing` |
+
+The collateral controls are an independently launched, SAME-EXECUTABLE `bash` sibling outside the
+target tree; it survives every capture in every scenario.
+
 ## Related
 
 - `docs/problem-catalog/health-check-false-broken-rc0-on-kill/problem.md` — the verdict false-BROKEN this rc0 masking caused.

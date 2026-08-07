@@ -27,14 +27,22 @@ HARNESS="$ROOT/hooks/tests/test-cli-flow-recovery.sh"
 EXPECTED_SCENARIOS=31
 
 TMP_BASE="${TMPDIR:-/tmp}/fusebase-flow-cli-profile.$$"
+# TRIPWIRE: the seam now REFUSES any trace destination outside $ROOT/state/audit (an ambient
+# FFCP_TRACE_FILE naming an arbitrary existing path was truncated by ffcp_init). A scratch trace
+# root therefore lives INSIDE the audit root and is removed on exit — there is deliberately no
+# env escape hatch, because a containment guard with a bypass is not a containment guard.
+AUDIT_SCRATCH="$ROOT/state/audit/.cli-flow-profile-test.$$"
 cleanup() {
   case "$TMP_BASE" in
     /tmp/fusebase-flow-cli-profile.*|*/tmp/fusebase-flow-cli-profile.*|*/Temp/fusebase-flow-cli-profile.*)
       rm -rf "$TMP_BASE" ;;
   esac
+  case "$AUDIT_SCRATCH" in
+    */state/audit/.cli-flow-profile-test.*) rm -rf "$AUDIT_SCRATCH" ;;
+  esac
 }
 trap cleanup EXIT
-mkdir -p "$TMP_BASE"
+mkdir -p "$TMP_BASE" "$AUDIT_SCRATCH"
 
 pass=0; fail=0
 ok()  { pass=$((pass + 1)); echo "PASS: cli-flow-profile $1"; }
@@ -63,7 +71,7 @@ if [ ! -f "$HELPER" ]; then
 fi
 
 # ---- Drive the seam with synthetic milestones -------------------------------------------
-TRACE_ROOT="$TMP_BASE/traces"
+TRACE_ROOT="$AUDIT_SCRATCH/traces"
 DRIVER="$TMP_BASE/driver.sh"
 cat > "$DRIVER" <<'DRIVER_EOF'
 set -euo pipefail
@@ -181,11 +189,87 @@ awk -F'\t' '$1=="meta" && $2=="env.FF_ONLY" && $3=="(default)" {found=1} END{exi
 f=""
 grep -qF "$DECOY" "$TRACE" && f="$f [a decoy secret value reached the trace - the environment is being dumped]"
 stray="$(awk -F'\t' '$1=="meta" && $2 ~ /^env\./ {print $2}' "$TRACE" \
-  | grep -vxE 'env\.(FF_ONLY|FF_SKIP_CLI_RECOVERY|FF_CLI_RECOVERY_TIMEOUT|FF_PHASE_TIMEOUT|FFHC_TIMEOUT_KILL_GRACE|FFHC_USE_JOB_OBJECT|FFHC_HEARTBEAT_SECS)')"
+  | grep -vxE 'env\.(FF_ONLY|FF_SKIP_CLI_RECOVERY|FF_CLI_RECOVERY_TIMEOUT|FF_PHASE_TIMEOUT|FFHC_TIMEOUT_KILL_GRACE|FFHC_USE_JOB_OBJECT|FFHC_HEARTBEAT_SECS|FFCP_TRACE_FILE|FFCP_TRACE_ROOT)')"
 [ -z "$stray" ] || f="$f [non-allowlisted env name recorded: $(printf '%s' "$stray" | tr '\n' ' ')]"
 grep -qiE 'TOKEN|SECRET|PASSWORD|COOKIE' "$TRACE" && f="$f [trace carries a redaction-family name]"
-[ -z "$f" ] && ok "provenance-redaction-allowlist-only (three decoy values absent; env.* rows are exactly the 7 allowlisted names; no TOKEN/SECRET/PASSWORD/COOKIE family text)" \
+# A behaviour-changing override with no provenance row is the same blind spot as a missing timeout.
+for name in FFCP_TRACE_FILE FFCP_TRACE_ROOT; do
+  awk -F'\t' -v k="env.$name" '$1=="meta" && $2==k {found=1} END{exit !found}' "$TRACE" \
+    || f="$f [behaviour-changing override not recorded: $name]"
+done
+# The accepted trace ROOT must be recorded as a disposition, never as the path itself (§5 excludes
+# absolute paths from the trace outright).
+awk -F'\t' '$1=="meta" && $2=="env.FFCP_TRACE_ROOT" {print $3}' "$TRACE" | grep -qx 'set (accepted)' \
+  || f="$f [FFCP_TRACE_ROOT disposition not recorded as 'set (accepted)': $(awk -F'\t' '$1=="meta" && $2=="env.FFCP_TRACE_ROOT" {print $3}' "$TRACE")]"
+grep -qF "$AUDIT_SCRATCH" "$TRACE" && f="$f [the raw override PATH was written into the trace]"
+[ -z "$f" ] && ok "provenance-redaction-allowlist-only (three decoy values absent; env.* rows are exactly the 9 allowlisted names; both FFCP_TRACE_* overrides recorded as dispositions, not paths; no TOKEN/SECRET/PASSWORD/COOKIE family text)" \
   || bad "provenance-redaction-allowlist-only" "$f"
+
+# ---- 6b. An allowlisted NAME does not make its VALUE recordable ----------------------------
+# FF_ONLY is free text an operator types on a command line; it was written to the trace verbatim,
+# so a secret pasted there was persisted. Only self-evidently non-secret shapes (numbers) stay
+# verbatim; the shipped set/unset distinction (assertion 5) must survive the change.
+f=""
+RED_ROOT="$AUDIT_SCRATCH/traces-redact"
+env HELPER_PATH="$HELPER" FFCP_TRACE_ROOT="$RED_ROOT" FF_ONLY="cli-flow-profile,$DECOY" \
+    bash "$DRIVER" >/dev/null 2>&1
+RED_TRACE="$(ls -1 "$RED_ROOT"/*/run-*.tsv 2>/dev/null | head -n1)"
+if [ -z "$RED_TRACE" ]; then
+  bad "allowlisted-values-are-redacted" "no trace produced for the redaction probe"
+else
+  grep -qF "$DECOY" "$RED_TRACE" && f="$f [a secret placed in the ALLOWLISTED FF_ONLY was recorded verbatim]"
+  awk -F'\t' '$1=="meta" && $2=="env.FF_ONLY" {print $3}' "$RED_TRACE" | grep -q '^set (redacted' \
+    || f="$f [a set, non-numeric allowlisted value was not reduced to a shape description: $(awk -F'\t' '$1=="meta" && $2=="env.FF_ONLY" {print $3}' "$RED_TRACE")]"
+  [ -z "$f" ] && ok "allowlisted-values-are-redacted (a secret in the allowlisted FF_ONLY is absent from the trace and recorded only as a shape; numeric knobs stay verbatim per assertion 5)" \
+    || bad "allowlisted-values-are-redacted" "$f"
+fi
+
+# ---- 6c. A trace destination outside the audit root is REJECTED, not truncated --------------
+# ffcp_init opens its target with `> `, so an ambient FFCP_TRACE_FILE naming any existing path
+# destroyed that file. The victim here is a real file with real bytes.
+f=""
+VICTIM="$TMP_BASE/precious.txt"
+printf 'do-not-truncate-me\n' > "$VICTIM"
+env HELPER_PATH="$HELPER" FFCP_TRACE_FILE="$VICTIM" bash "$DRIVER" >/dev/null 2>&1
+esc_rc=$?
+[ "$esc_rc" -eq 0 ] || f="$f [the driver failed ($esc_rc) instead of ignoring the rejected override]"
+grep -qx 'do-not-truncate-me' "$VICTIM" \
+  || f="$f [the out-of-root trace target was TRUNCATED — instrumentation destroyed an unrelated file]"
+# The `..` form must be rejected too, or the prefix test is trivially bypassable.
+VICTIM2="$TMP_BASE/precious2.txt"
+printf 'also-do-not-truncate\n' > "$VICTIM2"
+env HELPER_PATH="$HELPER" FFCP_TRACE_FILE="$ROOT/state/audit/../../$(basename "$TMP_BASE")/precious2.txt" \
+    bash "$DRIVER" >/dev/null 2>&1
+grep -qx 'also-do-not-truncate' "$VICTIM2" \
+  || f="$f [a '..' traversal through the audit root truncated a file outside it]"
+[ -z "$f" ] && ok "trace-destination-contained (an out-of-root FFCP_TRACE_FILE, and a '..' traversal through the audit root, are both rejected; both victim files keep their bytes and the run still exits 0)" \
+  || bad "trace-destination-contained" "$f"
+
+# ---- 6d. A trace-write failure is INERT ------------------------------------------------------
+# The harness runs under `set -e`. An unguarded append meant a full disk aborted the run BEFORE
+# its PASS/FAIL bytes, so instrumentation could decide a verdict. Simulated by replacing the trace
+# file with a DIRECTORY after ffcp_init, which makes every later append fail.
+f=""
+INERT_DRIVER="$TMP_BASE/inert-driver.sh"
+cat > "$INERT_DRIVER" <<'INERT_EOF'
+set -euo pipefail
+. "$HELPER_PATH"
+ffcp_init test-cli-flow-recovery.sh
+rm -f "$FFCP_TRACE_FILE"; mkdir -p "$FFCP_TRACE_FILE"
+pass "F3: milestone after the trace destination broke"
+pass "U20: second milestone after the trace destination broke"
+INERT_EOF
+IOUT="$TMP_BASE/inert.out"
+env HELPER_PATH="$HELPER" FFCP_TRACE_ROOT="$AUDIT_SCRATCH/traces-inert" \
+    bash "$INERT_DRIVER" > "$IOUT" 2>/dev/null
+inert_rc=$?
+[ "$inert_rc" -eq 0 ] || f="$f [a failing trace write changed the run's exit status to $inert_rc]"
+grep -qx '\[test-cli-flow-recovery\] PASS: F3: milestone after the trace destination broke' "$IOUT" \
+  || f="$f [the first PASS byte after the write failure was lost]"
+grep -qx '\[test-cli-flow-recovery\] PASS: U20: second milestone after the trace destination broke' "$IOUT" \
+  || f="$f [the run stopped after the write failure — instrumentation aborted the verdict]"
+[ -z "$f" ] && ok "trace-write-failure-is-inert (trace destination destroyed mid-run: both later PASS lines still printed and the run still exited 0)" \
+  || bad "trace-write-failure-is-inert" "$f"
 
 # ---- 7. stdout/stderr bytes are what the pre-seam harness produced --------------------------
 # The gate parses stdout. A trace byte on stdout, or a changed PASS prefix, breaks it.
@@ -213,7 +297,7 @@ fail "U11: synthetic failure"
 echo "UNREACHABLE"
 FAIL_EOF
 FOUT="$TMP_BASE/fail.out"; FERR="$TMP_BASE/fail.err"
-env HELPER_PATH="$HELPER" FFCP_TRACE_ROOT="$TMP_BASE/traces-fail" \
+env HELPER_PATH="$HELPER" FFCP_TRACE_ROOT="$AUDIT_SCRATCH/traces-fail" \
     bash "$FAIL_DRIVER" > "$FOUT" 2> "$FERR"
 FAIL_RC=$?
 [ "$FAIL_RC" -eq 1 ] || f="$f [fail() exited $FAIL_RC, expected 1]"
@@ -221,7 +305,7 @@ grep -qx '\[test-cli-flow-recovery\] FAIL: U11: synthetic failure' "$FERR" \
   || f="$f [fail() stderr line changed: $(grep -F 'FAIL:' "$FERR" | head -1)]"
 grep -q 'UNREACHABLE' "$FOUT" && f="$f [fail() no longer terminates the script]"
 [ -s "$FOUT" ] && f="$f [fail() wrote to stdout: $(head -1 "$FOUT")]"
-FAIL_TRACE="$(ls -1 "$TMP_BASE/traces-fail"/*/run-*.tsv 2>/dev/null | head -n1)"
+FAIL_TRACE="$(ls -1 "$AUDIT_SCRATCH/traces-fail"/*/run-*.tsv 2>/dev/null | head -n1)"
 [ -n "$FAIL_TRACE" ] && awk -F'\t' '$1=="event" && $8=="FAIL" {found=1} END{exit !found}' "$FAIL_TRACE" \
   || f="$f [the failing milestone was not recorded with result FAIL]"
 [ -z "$f" ] && ok "stdout-byte-contract-preserved (pass() prints the pre-seam line and nothing else; fail() keeps stderr shape, exit 1, script termination, and records a FAIL milestone)" \

@@ -446,7 +446,7 @@
     },
     {
       "path": "hooks/tests/test-cli-flow-recovery-profile.sh",
-      "sha256": "0f227afb082e3e448338c6bc09a0490ef307ef487a490d5ea03618854d0cf27a"
+      "sha256": "de91061b69b015aea1d68b4b59bc0455ede0a3488c9f0c289f74fad6b887fce1"
     },
     {
       "path": "hooks/tests/test-cli-flow-recovery.sh",
@@ -589,5 +589,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "cf674e51cc3b6c49d5c7ebaba92ba35113ad4256b60cd2890a13a8cbe8814d74"
+  "manifest_self_sha256": "f7b2c76cc1bf2f6e51de4546ce8f6d5b12b706e0e1b315801383514633a3c467"
 }
