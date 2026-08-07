@@ -10,34 +10,25 @@ Mode: restart  (`restart` — operator-triggered)
 
 ## Next action
 
-**Re-review, then the full unscoped gate + Linux on one SHA with committed defaults.** All 8
-BLOCKERs are closed at `186ba38`. The prior review was against `b0b33b3`, before these four commits.
+**Close B5 and B6. They are the two the correction round did not close** — re-review of
+`b0b33b3..c97f8d2` returned `STILL-DO-NOT-SHIP` (`docs/specs/backlog-triage-execution/re-review-c97f8d2.md`).
 
-**SUPERSEDES the "B1 remains open" entry written at `7215d55`.** That was read from an intermediate
-scoped run and its diagnosis was wrong — including the row's own failure text, which is why it
-misled. The `FAIL` was not `_ff_exit_reap` disarming the guard before cleanup. Ordering was fixed in
-`91f8748` (reap FIRST, sentinel disarmed LAST, both paths sharing `hooks/tests/lib/orphan-reap.sh`).
-The trap was being **SIGKILLed part-way through** by the outer `-k` grace, which under nested load is
-shorter than the guard's I/O takes — a grace-budget measurement, not an ordering defect.
+| # | Status | What remains |
+|---|---|---|
+| B1, B3, B8/B9 | **CLOSED** | verified in shipped code |
+| B2, B4, B7 | **PARTIAL** | leader start token cached, but the locked tuple (child start/PPID/SID/executable + Windows creation identity) is absent; native members carry no captured identity; a delayed `kill -KILL -$PGID` still acts on an unrevalidated numeric group |
+| **B5** | **NOT CLOSED** | the delayed group SIGKILL is issued unconditionally; the native sweep "revalidates" against the SAME fresh snapshot it captured from, not against pre-kill captured identity |
+| **B6** | **NOT CLOSED** | append+terminator is tear-DETECTING, not atomic. A torn first append reads as "nothing in flight"; a later tear leaves an older record authoritative; all write failures are swallowed. The launch-to-first-append window was shortened, not closed |
 
-The row was itself claiming more than the mechanism gives: the harness-side EXIT path is BEST-EFFORT
-inside the `-k` window; the out-of-band sentinel is the guarantee, which is exactly why the ordering
-must not disarm it first. `186ba38` corrects the row (a `reap-returned` marker separates "ran to
-completion and reaped nothing" = FAIL from "cut short" = INCONCLUSIVE) rather than widening the
-budget to hide it. Verified at `186ba38`:
+The B6 performance rationale is **substantially true** (~46 bounded phases ⇒ ~92 extra MSYS `mv`
+spawns), so naive per-publication rename is correctly rejected — but that does not make append
+atomic. A persistent supervisor/handshake or equivalent ownership mechanism is still required.
+This needs a design decision, not another patch.
 
-```
-19/19 PASS, 0 FAIL, 0 SKIP, 2 INCONCLUSIVE   (standalone signal-reap)
-42/42 PASS, GATE_RC=0                        (FF_ONLY=signal-reap,cli-flow-profile,
-                                              command-policy,install-doc — SCOPED, not release evidence)
-```
+Also: no direct ancestor discriminator exists for B3, and the `launch-window-signal-still-reaps`
+test only delays the WinPID probe — it never tears, interrupts or fails the first append.
 
-The 2 INCONCLUSIVE are declared, not hidden: the EXIT-path grace budget under load, and the
-pre-existing **INT exit-status design question** — the harness never acts on an untrapped SIGINT, so
-there is no 130, and `trap … INT` cannot supply one while `_ffhc_nap`'s blocking FIFO read defers
-delivery past the `-k` SIGKILL. Closing it means changing the nap primitive. **That is a design
-decision and is the one thing this round deliberately did not implement.** The orphan reap itself is
-unaffected — the INT scenarios reap child and grandchild within the grace window.
+**Do not run the full gate until B5/B6 close.** No gate has run on this branch tip.
 
 ## What landed (T1–T5, T9 — all committed, none gated)
 
