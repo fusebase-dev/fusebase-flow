@@ -1,38 +1,81 @@
 # Active handoff
 
 Mode: restart  (`restart` — operator-triggered)
-**Updated:** 2026-08-06T22:00Z
+**Updated:** 2026-08-06T21:00Z
 **Branch:** `fix/msys-v3307-hardening`
-**HEAD at write time:** `cd094eddee7d3f7468e9433ae0e06be170429095`
-**Authoritative plan:** `docs/specs/backlog-triage-execution/execution-plan.md` (T1–T10, dependency gates G0–G4)
-**Superseded:** `docs/tmp/handoff/archive/2026-08-06-v5-roadmap-superseded.md` · sha256 `8cc37a22d4c355907b71c0debb53caa2a531c262b0cf155218e053428fb21fb0`
+**HEAD at write time:** `b0b33b3`
+**Authoritative plan:** `docs/specs/backlog-triage-execution/execution-plan.md` (T1–T10, gates G0–G4)
+**Blocking review:** `docs/specs/backlog-triage-execution/implementation-review.md` — **`DO-NOT-SHIP`, 8 BLOCKERs**
+**Prior reviews:** `docs/specs/v5-c0-contracts/reviews.md`
 
 ## Next action
 
-**Execute T1 → then the gate G0 check, then T2.** Task contracts, dependencies, commit boundaries and rollback are in the plan; do not re-derive them here.
+**Fix the 8 BLOCKERs in T4 (and the 2 in T9) before any gate.** The full unscoped gate has
+deliberately **not** been run on `b0b33b3` — gating a tree the review rejects would spend ~2h
+producing evidence for code that must change. `state/audit/hook-test-results.md` still describes
+`88f7286`, not this branch tip.
 
-## What changed, and why the previous direction is void
+## What landed (T1–T5, T9 — all committed, none gated)
 
-The superseded handoff presented the v5 roadmap as executable and directed that the C0 contract packet be locked before anything else. **That direction was rejected** — the literal wording is preserved only in the archived copy, so a search for it cannot land in an active file. Three independent adversarial reviews (Codex 5.6-sol, xhigh — condensed in `docs/specs/v5-c0-contracts/reviews.md`):
+| Commit | Task | State |
+|---|---|---|
+| `8917bc2` | T1 governance truth reset | 15 statuses restated; handoff archived w/ sha256 |
+| `0550d37` | T9 install-document audit | 6/6 scoped; **2 BLOCKERs open** (F20, F21) |
+| `685ed77` | T2 instrumentation seam | 8/8 scoped, mutation-tested; 954→953 lines; **4 MAJORs open** |
+| `d229cff` | T3 S2 red arm | reproduction + topology retained |
+| `15f4126` | — | a correction that was itself wrong (see below) |
+| `6deb143` | T4 S2 sentinel | 8/8 scoped; **6 BLOCKERs open** — do not trust this fix |
+| `b0b33b3` | T5 FR-06 corpus | 132 cases; no parser touched |
 
-| Target | Verdict |
-|---|---|
-| Three implemented backlog fixes | `STOP-AND-ZOOM-OUT` → all reverted (`5f8004f`) |
-| C0 decision packet | `WRONG-SEQUENCE`, 5 BLOCKERs → not locked |
-| M1A measurement plan | `SHIP-SMALL-FIRST`, 7 BLOCKERs → not started |
-| First execution plan | `STOP-AND-RESCOPE`, 6 BLOCKERs → reissued at `cd094ed` |
+## The three-measurement lesson — do not repeat it
 
-`docs/specs/v5-c0-contracts/decisions.md` and `m1a-baseline.md` remain parked with their own defects named in their headers. **Do not lock or execute either.**
+| # | Claim | Fixture | Verdict |
+|---|---|---|---|
+| 1 | trap never fires in 12s | real harness, FIFO nap active | correct |
+| 2 | trap fires in 0.9s, so use a trap | simplified `sleep 0.2` loop | **wrong** |
+| 3 | never with the nap; 1s without | real harness, both arms | correct |
+
+`_ffhc_nap` is `read -t` on an RW-opened FIFO; bash does not deliver the trap during it.
+Measurement 2 was made by the orchestrating session and used to override a correct finding.
+**A fixture must contain the mechanism under test.**
+
+## Highest-value BLOCKERs (full list in the review)
+
+1. `run-tests.sh:118` — `_ff_exit_reap` stops the sentinel **before** the known-insufficient
+   `taskkill //T`, disabling the stronger cleanup on any EXIT path that does run.
+2. `orphan-sentinel.sh:45` — identity is only PID/WinPID/PGID; all three are recyclable.
+3. `orphan-sentinel.sh:52` — group guards **fail open** when a PGID lookup returns empty.
+4. `orphan-sentinel.sh:56` — cleanup requires the group leader alive, but the leaked topology has
+   the leader dead — the exact case T3 demonstrated.
+5. `orphan-sentinel.sh:72` — native sweep `taskkill`s every current group member without
+   revalidation (collateral risk; `bounded-run-msys-collateral-kill` class).
+6. `run-with-timeout.sh:553` — child launched **before** its identity record exists, and the state
+   write is truncate-then-printf, not atomic. A signal in that window recreates the original leak.
+7. `install-fusebase-cli-project.md:164` — plugin dirs documented "never copied" while the upgrade
+   engine still owns them (`managed_content_manifest.py:38-41`).
+8. `preflight.sh:335` — compares any existing consumer plugin's version to Flow's `VERSION`, with
+   no `name == fusebase-flow` guard, so following the guide can produce a false preflight error.
+
+Also: `signal-reap` "8/8" overstates coverage — 4 rows are controls that passed pre-fix, and
+off-MSYS skips increment PASS.
 
 ## Standing constraints
 
-- **Evidence labels are binding.** The plan marks each fact `VERIFIED` / `HYPOTHESIS` / `UNVERIFIED`. A `HYPOTHESIS` may not drive a fix. The last plan selected an optimization from a wrong arithmetic attribution; that is why the labels exist.
-- **Full-gate evidence only.** A scoped `FF_ONLY=` run is not release proof — it was misread as such twice on 2026-08-05. Only `state/audit/hook-test-results.md` may be cited.
-- **The gate currently needs a hand override.** `cli-flow-recovery` measured 1568s and 1813s against a committed 900s bound. The 768/768 pass at `88f7286` required `FF_CLI_RECOVERY_TIMEOUT=2700` in the environment. Do not commit that value; do not treat `FF_SKIP_CLI_RECOVERY=1` as a pass (it records INCONCLUSIVE and increments `fail`).
-- **Timings taken after a killed run are void** until `harness-kill-leaves-orphan-children` is fixed — a terminated gate left children alive for 38 minutes.
-- Two-platform gating (Windows/MSYS + Linux `ubuntu:24.04`) before any release claim. Never `--no-verify`. FR-07 protected: `policies/*.yml`, `hooks/handlers/**`, `hooks/shared/**`, `hooks/git/**`.
-- Write long-running agent output to `c:/tmp/`, not the session scratchpad.
+- Scoped `FF_ONLY=` runs are **not** release evidence. Only `state/audit/hook-test-results.md`
+  from a full unscoped run may be cited. This was misread as release proof twice on 2026-08-05.
+- `cli-flow-recovery` measured 1568s/1813s against a committed 900s bound; the last full pass
+  (`88f7286`, 768/768) required `FF_CLI_RECOVERY_TIMEOUT=2700` in the environment. Do not commit
+  that value; `FF_SKIP_CLI_RECOVERY=1` is not a pass (it records INCONCLUSIVE).
+- Timings taken after a killed run are void until S2 is genuinely fixed.
+- **One AI Developer session per branch.** Two collided this round because a 0-byte transcript was
+  misread as a dead spawn and retried, then a successor was spawned. Poll **file/git activity**,
+  not transcript size — one agent read for 10 minutes before its first write.
+- Two-platform gating (Windows/MSYS + Linux `ubuntu:24.04`) before any release claim. Never
+  `--no-verify`. FR-07 protected: `policies/*.yml`, `hooks/{handlers,shared,git}/**`.
 
-## Shipped and untouched
+## Not done, and why
 
-v4.7.0 (`bad4d92`) and v4.7.1 (`3ae1feb`) are live. Nothing in the current plan touches them. `88f7286` shipped `hooks/local/lane-router.sh` — a path-only hard-surface router that makes the existing lightweight-lane eligibility rule executable; it routes its own edits Full.
+- **T6/T7/T8** (profile → decision → conditional optimization) — gated behind a working T4; the
+  profiles would be measured on a tree with a broken reaper.
+- **Full gate + Linux** — blocked by `DO-NOT-SHIP`.
+- **No release published.** v4.7.0/v4.7.1 remain live and untouched.
