@@ -64,14 +64,22 @@ SURFACES=(
     "workflows/greenlight-deploy.md"
     "workflows/greenlight-implement.md"
     "workflows/git-discipline.md"
+    "docs/compatibility.md"
+    ".github/workflows/fusebase-flow-verify.yml"
+    ".github/workflows/fusebase-flow-release.yml"
 )
 
 # Arm A ledger: the exact phrasings that shipped the false claim. ERE, matched -i.
+# Rows 5-6 are architecture-review step 6: two-platform gating was "required in prose and
+# unenforced in machinery". The machinery now enforces it, so a surface that still calls it
+# unenforced, or still calls the required job Ubuntu-only, is the false claim restored.
 BANNED=(
     "pre-deploy gate MUST be a full"
     "full unscoped two-platform run before release"
     "gate harness a release claim rests on"
     "a gate report may cite ONLY state/audit/hook-test-results.md — never"
+    "NOT YET ENFORCED"
+    "Ubuntu-only"
 )
 
 # --- guard: the surface list must resolve, else every scan below is vacuously green -----
@@ -137,8 +145,41 @@ anchor "qa-skill-mirror-agents-points-at-authority" ".agents/skills/validation-a
     "Release evidence authority"
 anchor "qa-skill-mirror-claude-points-at-authority" ".claude/skills/validation-and-qa/SKILL.md" \
     "Release evidence authority"
-# The two-platform REQUIREMENT survives; what changes is the honest admission it is unenforced.
-anchor "maintainer-doc-keeps-two-platform-and-marks-unenforced" "docs/maintainer-execution.md" \
-    "two-platform gating is mandatory" "NOT YET ENFORCED" "Ubuntu-only"
+# The two-platform REQUIREMENT survives; step 6 made it ENFORCED, so both maintainer-facing
+# surfaces must name the two required jobs rather than an Ubuntu-only gate.
+anchor "maintainer-doc-states-two-platform-enforced" "docs/maintainer-execution.md" \
+    "two-platform gating is mandatory" "verify-linux" "verify-windows-msys"
+anchor "publishing-states-two-platform-enforced" "PUBLISHING.md" \
+    "Two-platform gating is enforced" "verify-linux" "verify-windows-msys"
+
+# PROSE PINNED TO MACHINERY. The claims above are only true while the workflow graph below
+# holds; without these anchors the two surfaces could keep asserting enforcement after the
+# jobs were deleted — the exact prose/machinery divergence step 6 exists to close.
+anchor "verify-workflow-runs-both-platforms" ".github/workflows/fusebase-flow-verify.yml" \
+    "name: verify-\\\$\\{\\{ matrix.platform \\}\\}" "platform: linux" "platform: windows-msys" \
+    "ubuntu-latest" "windows-latest" "timeout-minutes: 60"
+# verify-gate is what makes a SKIPPED or TIMED-OUT leg red instead of absent.
+# TRIPWIRE: the `needs:` patterns are ANCHORED to YAML key indentation (`^    needs: verify$`).
+# A bare "needs: verify" was satisfied by the PROSE COMMENT describing the gate — mutation-tested:
+# deleting the real key left the anchor green. An assertion a comment can satisfy asserts nothing.
+anchor "verify-workflow-has-the-aggregate-gate" ".github/workflows/fusebase-flow-verify.yml" \
+    "^  verify-gate:$" "^    needs: verify$" "needs.verify.result" "!= \"success\""
+# publish must stay structurally downstream of that aggregate.
+anchor "release-workflow-publish-needs-verify" ".github/workflows/fusebase-flow-release.yml" \
+    "^    uses: \\./\\.github/workflows/fusebase-flow-verify\\.yml$" \
+    "^      sha: \\\$\\{\\{ github\\.sha \\}\\}$" \
+    "^    needs: verify$"
+
+# NEGATIVE: no committed-default override may appear in either required job. An FF_SKIP_* or an
+# FF_*_TIMEOUT in CI turns a passing gate into a gate that was told to pass.
+ovr="$(grep -nE 'FF_SKIP_|FF_ONLY|FF_CLI_RECOVERY_TIMEOUT|FF_PHASE_TIMEOUT' \
+        "$ROOT/.github/workflows/fusebase-flow-verify.yml" \
+        "$ROOT/.github/workflows/fusebase-flow-release.yml" 2>/dev/null \
+    | grep -vE ':[0-9]+:[[:space:]]*#' | cut -c1-160 | head -8 | rel)"
+if [ -z "$ovr" ]; then
+    ok "required-jobs-run-committed-defaults (no FF_SKIP_*/FF_ONLY/timeout override outside comments)"
+else
+    bad "required-jobs-run-committed-defaults" "$ovr"
+fi
 
 finish

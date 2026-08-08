@@ -6,16 +6,35 @@ permissions:
   contents: read
 jobs:
   verify:
+    # Calls the reusable suite, pinned to the EXACT commit the tag points at. A called
+    # workflow's job result is `success` only when EVERY job inside it succeeded — here that
+    # is verify-linux, verify-windows-msys and verify-gate.
     uses: ./.github/workflows/fusebase-flow-verify.yml
+    with:
+      sha: ${{ github.sha }}
   publish:
-    needs: verify        # ← THE GATE: red verify ⇒ this job never runs
+    # THE GATE (line below). `publish` is dispatched only when the called workflow succeeded
+    # in full. A red, cancelled, timed-out or skipped platform leg makes the aggregate
+    # non-success, so `publish` never starts and no Release object exists for that tag.
+    # Two-platform gating is therefore structural, not procedural.
+    needs: verify
     runs-on: ubuntu-latest
     permissions:
       contents: write    # create the GitHub Release
     steps:
+      - name: Assert the two-platform gate is green (tripwire)
+        # Unreachable while the needs: edge above is intact — its job is to go RED the moment
+        # someone adds `if: always()` / `if: success() || failure()` to this job and turns the
+        # structural gate into a procedural one.
+        run: |
+          set -euo pipefail
+          if [ '${{ needs.verify.result }}' != 'success' ]; then
+            echo "::error::publish reached with verify=${{ needs.verify.result }} — the gate edge was bypassed."
+            exit 1
+          fi
       - name: Checkout
         uses: actions/checkout@v6
-      - name: Create GitHub Release (reachable only when verify passed)
+      - name: Create GitHub Release (reachable only when BOTH platform jobs passed)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

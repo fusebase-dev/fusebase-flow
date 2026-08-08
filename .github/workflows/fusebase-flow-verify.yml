@@ -6,32 +6,94 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
-  # Reusable: fusebase-flow-release.yml calls this job so the release publish gate
-  # runs ONE definition of the full suite (no step drift). NO push.tags / release:
-  # triggers (v3/B4 — release: published fires after publication; a bare tag verify
-  # gates nothing and would double-run alongside the release workflow's call).
+  # Reusable: fusebase-flow-release.yml calls this workflow so the release publish gate
+  # runs ONE definition of the suite (no step drift). NO push.tags / release: triggers
+  # (v3/B4 — release: published fires after publication; a bare tag verify gates nothing
+  # and would double-run alongside the release workflow's call).
   workflow_call:
+    inputs:
+      sha:
+        description: >-
+          The EXACT commit both platform jobs must verify. The caller passes github.sha
+          for the tagged commit; each job checks that ref out and asserts HEAD equals it,
+          so "green on the tagged SHA" is mechanical, not implied by the trigger.
+        required: false
+        type: string
+        default: ""
 
 permissions:
   contents: read
 
 jobs:
+  # TWO REQUIRED PLATFORM JOBS. Check-run names are `verify-linux` and `verify-windows-msys`
+  # (architecture-review Q6 § Release-evidence contract). Windows runs `shell: bash` = Git Bash
+  # (MSYS), which is the platform whose defect class Linux cannot see.
+  # fail-fast: false — a red Linux leg must not CANCEL the Windows leg; both platforms report
+  # and both upload their artifact even on failure.
   verify:
-    runs-on: ubuntu-latest
+    name: verify-${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux
+            os: ubuntu-latest
+            python: python3
+          - platform: windows-msys
+            os: windows-latest
+            python: python
+    runs-on: ${{ matrix.os }}
+    # COMMITTED BOUND (architecture-review Q4 § Bound policy: 30-minute design target,
+    # 60-minute absolute wall). A timed-out job is a FAILED job, which makes `publish`
+    # unreachable. Raising this to make a job fit is the override this architecture exists
+    # to end — a phase that cannot fit leaves the tier, the wall is not raised.
+    timeout-minutes: 60
+    defaults:
+      run:
+        shell: bash
+    env:
+      # run-tests.sh reads ${PYTHON:-python3}. Git Bash has no guaranteed `python3`.
+      PYTHON: ${{ matrix.python }}
 
     steps:
-      - name: Checkout
+      - name: Checkout the exact SHA under verification
         uses: actions/checkout@v6
         with:
           # fetch-depth 0 = full history. The default shallow (depth-1) clone has no
           # HEAD~1, so history-dependent hook tests (test-po-investigate.sh runs
           # `git diff HEAD~1 HEAD`) fail with git rc=128 on CI.
           fetch-depth: 0
+          ref: ${{ inputs.sha || github.sha }}
+
+      - name: Assert HEAD is the exact SHA under verification
+        run: |
+          set -euo pipefail
+          want='${{ inputs.sha || github.sha }}'
+          got="$(git rev-parse HEAD)"
+          if [ "$got" != "$want" ]; then
+            echo "::error::Verifying $got but $want was requested — this run is NOT evidence for that SHA."
+            exit 1
+          fi
+          echo "platform=${{ matrix.platform }} runner=${{ matrix.os }} sha=$got"
 
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version-file: '.python-version'
+
+      - name: Guarantee python3 resolves (Git Bash has no python3 alias)
+        if: runner.os == 'Windows'
+        run: |
+          set -euo pipefail
+          # Provisioning only: several hook scripts hard-code `python3`. This makes the
+          # SAME interpreter setup-python installed reachable under that name. It changes
+          # no committed default, skips no phase, and relaxes no bound.
+          if ! command -v python3 >/dev/null 2>&1; then
+            mkdir -p "$HOME/bin"
+            printf '#!/usr/bin/env bash\nexec python "$@"\n' > "$HOME/bin/python3"
+            chmod +x "$HOME/bin/python3"
+            echo "$HOME/bin" >> "$GITHUB_PATH"
+          fi
 
       - name: Install runtime dependencies
         run: |
@@ -53,11 +115,14 @@ jobs:
       - name: Preflight (structure + YAML + frontmatter + mirror drift + action-name consistency)
         run: bash hooks/local/preflight.sh
 
-      - name: Hook tests (deterministic fixtures)
+      # COMMITTED DEFAULTS ONLY. CI sets GITHUB_ACTIONS, so run-tests.sh takes the FULL
+      # unscoped path by itself. No scoping flag, no skip flag and no bound override may
+      # appear here: a gate that was told to pass is not a passing gate.
+      - name: Hook tests (full unscoped suite, committed bounds)
         run: bash hooks/tests/run-tests.sh
 
       - name: Runner parity (in-process == subprocess)
-        run: python3 hooks/tests/run_hook_tests.py --compare-subprocess
+        run: ${{ matrix.python }} hooks/tests/run_hook_tests.py --compare-subprocess
 
       - name: Hook-layer manifest freshness
         run: |
@@ -128,7 +193,30 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: fusebase-flow-audit
+          name: fusebase-flow-audit-${{ matrix.platform }}
           path: state/audit/
           if-no-files-found: ignore
           retention-days: 30
+
+  # THE TWO-PLATFORM GATE, as one always-reported check run.
+  # `if: always()` is deliberate and is NOT a bypass: without it this job would be SKIPPED
+  # when a platform leg is red, and a check run that never appears is a weaker required
+  # check than one that appears RED. The job's ONLY behaviour is to fail unless the matrix
+  # aggregate is `success` — failure, cancellation, timeout and skip are all non-success,
+  # so none of them can be counted as a pass.
+  verify-gate:
+    name: verify-gate
+    if: always()
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Both platform jobs must be green on the same SHA
+        run: |
+          set -euo pipefail
+          result='${{ needs.verify.result }}'
+          echo "verify matrix aggregate (verify-linux + verify-windows-msys): $result"
+          if [ "$result" != "success" ]; then
+            echo "::error::Two-platform gate RED — verify-linux AND verify-windows-msys must both succeed on this SHA. Aggregate result: $result (failure, cancelled, timed-out and skipped are all non-success)."
+            exit 1
+          fi
+          echo "Two-platform gate GREEN for ${{ inputs.sha || github.sha }}."

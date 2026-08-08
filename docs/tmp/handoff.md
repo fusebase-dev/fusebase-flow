@@ -87,8 +87,12 @@ see § Next action.
 - **One AI Developer session per branch.** Two collided this round because a 0-byte transcript was
   misread as a dead spawn and retried, then a successor was spawned. Poll **file/git activity**,
   not transcript size — one agent read for 10 minutes before its first write.
-- Two-platform gating is still REQUIRED and is **NOT YET ENFORCED** — the required CI job is
-  Ubuntu-only. Making it real is step 6. Never `--no-verify`. FR-07 protected:
+- Two-platform gating is REQUIRED and **now enforced** (step 6): `verify-linux` +
+  `verify-windows-msys` + the `verify-gate` aggregate on the exact SHA; `publish` needs all
+  three. Committed defaults, `timeout-minutes: 60` per leg. **No `windows-latest` measurement
+  exists**; the only measured MSYS full gate is this host at 2h02m pre-step-4 (est. ~1h28m after
+  steps 4-5), i.e. over the committed wall. Do not "fix" that with an override — a leg that hits
+  the wall is RED and blocks the Release, which is correct. Never `--no-verify`. FR-07 protected:
   `policies/*.yml`, `hooks/{handlers,shared,git}/**`, `.github/workflows/**`.
 
 ## Not done, and why

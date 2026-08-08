@@ -57,8 +57,9 @@ base health check). This is the AC3 resolution: the MSYS full suite (~950–1085
 bash-surface phases like `liveness` / `secret-scan` / `bootstrap` cost tens of seconds
 each under MSYS spawn overhead) is impractical as a Windows default gate. The full MSYS
 suite stays reachable via `--run-hook-tests-full` or `FFHC_RUN_HOOK_TESTS_FULL=1`, and
-the authoritative full-suite green is the CI **Linux** run (`fusebase-flow-verify`),
-where spawn cost is negligible. Both deep paths pass `FF_FULL=1` explicitly, because the
+the authoritative full-suite green is the CI pair `verify-linux` + `verify-windows-msys`
+(`fusebase-flow-verify`) on the tagged SHA — neither platform alone. Both deep paths pass
+`FF_FULL=1` explicitly, because the
 DEFAULT `bash hooks/tests/run-tests.sh` is now the FAST LOCAL tier on all platforms; CI
 still takes the full path (it sets `GITHUB_ACTIONS`).
 
