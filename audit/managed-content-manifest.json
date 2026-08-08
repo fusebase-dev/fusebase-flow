@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.7.1",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 295,
+  "asset_count": 300,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "40d31bf252f2fdbb20d5339a3be628b234d082d19c2a28d38d762dfb0df8ca68"
+      "sha256": "d1a08597cec688a51e43c2bc8e03c327fa15f1ca48e6617915af08f649765092"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -617,6 +617,26 @@
       "sha256": "4d7e59cbdd0fffa1fc3ffe7dcf937c372ff232c70d45c497c0b56e2fde8b3e8a"
     },
     {
+      "path": "hooks/tests/cli-flow-recovery-classify.sh",
+      "sha256": "4182ff1750972b083e1bbaeb39e3a57223fa15693bbfcb42cd43e2019e83c1da"
+    },
+    {
+      "path": "hooks/tests/cli-flow-recovery-direct.sh",
+      "sha256": "530cb46e6c431b0fd37bc506ab2c45523c8196bac699e33faf2b159f2eb22b8a"
+    },
+    {
+      "path": "hooks/tests/cli-flow-recovery-e2e.sh",
+      "sha256": "167565b8ab92482661c68e3f405f97f90ec22ce2b3e291708f466cd5288b6888"
+    },
+    {
+      "path": "hooks/tests/cli-flow-recovery-engine.sh",
+      "sha256": "2f327dbcb469c4c678a762a97f6839c927e51fb32e1bd05e2f3f0124bdc2b9e4"
+    },
+    {
+      "path": "hooks/tests/cli-flow-recovery-fixture.sh",
+      "sha256": "6c9990ab1c6ebdda9e1c3f5b3cabcc730fc0e566799a8e44e579410fd91cf0f1"
+    },
+    {
       "path": "hooks/tests/fixtures/01_pre_tool_use_blocked_rm_rf.json",
       "sha256": "d230bb78f29ae09df9355de659cfa7f6f63309a17df0732b633cb98fc60fef2e"
     },
@@ -850,7 +870,7 @@
     },
     {
       "path": "hooks/tests/test-cli-flow-recovery.sh",
-      "sha256": "94d7fb6fe9fd7ead4efdeb65a352b2aad8ff962fbd4274274f01be90bd960e68"
+      "sha256": "1a48724f950d8e26fd683de0375e403281b13cc91f17bd3787c6d1db91cd4229"
     },
     {
       "path": "hooks/tests/test-codex-plugin-surface.sh",
@@ -1010,7 +1030,7 @@
     },
     {
       "path": "policies/module-size-baseline.txt",
-      "sha256": "ddc1f5d99e2fe9f21bacb6fed30204202424e5bc0c377c27d41f8e4ac710ae73"
+      "sha256": "ec2e0ce6ff3f94744eea10e683c30eef6f3278ca3d86a2f4d97c99fb7a22b7f4"
     },
     {
       "path": "policies/module-size.yml",
@@ -1185,5 +1205,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "15889b49c19dfba4615b34fe2326e5214d1c11e843c5bb8448f546ba9c5adb9b"
+  "manifest_self_sha256": "e8fe1a87de534d4c97d88fee57d1e61fe2bd41acdd0520e0b4ab1f4ce4d0d12a"
 }

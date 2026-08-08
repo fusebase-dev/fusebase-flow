@@ -1,4 +1,3 @@
 # FR-25 module-size baseline — over-ceiling files frozen at current size.
 # Regenerate (agent runs on the operator's go-ahead): bash hooks/local/check-module-size.sh --write-baseline
 # Re-key ONE file (no global amnesty): ... --write-baseline <path>
-954 hooks/tests/test-cli-flow-recovery.sh

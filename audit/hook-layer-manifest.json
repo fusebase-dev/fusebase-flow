@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.7.1",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 147,
+  "asset_count": 152,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -241,6 +241,26 @@
       "sha256": "4d7e59cbdd0fffa1fc3ffe7dcf937c372ff232c70d45c497c0b56e2fde8b3e8a"
     },
     {
+      "path": "hooks/tests/cli-flow-recovery-classify.sh",
+      "sha256": "4182ff1750972b083e1bbaeb39e3a57223fa15693bbfcb42cd43e2019e83c1da"
+    },
+    {
+      "path": "hooks/tests/cli-flow-recovery-direct.sh",
+      "sha256": "530cb46e6c431b0fd37bc506ab2c45523c8196bac699e33faf2b159f2eb22b8a"
+    },
+    {
+      "path": "hooks/tests/cli-flow-recovery-e2e.sh",
+      "sha256": "167565b8ab92482661c68e3f405f97f90ec22ce2b3e291708f466cd5288b6888"
+    },
+    {
+      "path": "hooks/tests/cli-flow-recovery-engine.sh",
+      "sha256": "2f327dbcb469c4c678a762a97f6839c927e51fb32e1bd05e2f3f0124bdc2b9e4"
+    },
+    {
+      "path": "hooks/tests/cli-flow-recovery-fixture.sh",
+      "sha256": "6c9990ab1c6ebdda9e1c3f5b3cabcc730fc0e566799a8e44e579410fd91cf0f1"
+    },
+    {
       "path": "hooks/tests/fixtures/01_pre_tool_use_blocked_rm_rf.json",
       "sha256": "d230bb78f29ae09df9355de659cfa7f6f63309a17df0732b633cb98fc60fef2e"
     },
@@ -450,7 +470,7 @@
     },
     {
       "path": "hooks/tests/test-cli-flow-recovery.sh",
-      "sha256": "94d7fb6fe9fd7ead4efdeb65a352b2aad8ff962fbd4274274f01be90bd960e68"
+      "sha256": "1a48724f950d8e26fd683de0375e403281b13cc91f17bd3787c6d1db91cd4229"
     },
     {
       "path": "hooks/tests/test-codex-plugin-surface.sh",
@@ -593,5 +613,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "8b33aa01774d5d13f523ed417b8b49e2b83160daece1f62e3e3b06e2bb326e84"
+  "manifest_self_sha256": "691dc8464319fa030c760b84715789e0a9a21199265127651d68a3cf9cf832af"
 }
