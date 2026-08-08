@@ -60,6 +60,18 @@ ff_tok() { ffor_numeric "${1:-}" || { printf ''; return 0; }; printf '%s' "${FFS
 # ff_alive PID: liveness only (no identity claim). Callers that KILL must use ff_kill_verified.
 ff_alive() { kill -0 "${1:-0}" 2>/dev/null; }
 
+# ff_spawn_sibling -> FFSR_SIB_PID: an unrelated, SAME-EXECUTABLE (bash) process outside every
+# target tree — the collateral target the "kills nothing" controls are measured on.
+# TRIPWIRE: the body must stay a LOOP. `bash -c 'sleep 240'` is a single simple command, so bash
+# execs sleep in place: ff_track then records comm=bash while the live comm becomes sleep, the
+# identity-verified reap declines to signal it, and a 240s process outlives every run. Measured —
+# two survived a completed run and would have loaded the next one's timings.
+ff_spawn_sibling() {
+  bash -c 'while :; do sleep 1; done' & FFSR_SIB_PID=$!
+  ff_track "$FFSR_SIB_PID"
+  return 0
+}
+
 # ff_gone_within PID CEIL: seconds until the pid disappears, or -1 if it never did.
 ff_gone_within() {
   local pid="$1" ceil="$2" i=0
@@ -70,24 +82,12 @@ ff_gone_within() {
   echo "-1"; return 1
 }
 
-# ff_leader_of PID: the process-group leader pid of PID (== its pgid), or "".
-ff_leader_of() { ffor_identity "${1:-}" && printf '%s' "$FFOR_PGID"; return 0; }
-
-# ff_child_of PID: first process whose ppid == PID, or "".
-ff_child_of() { ps 2>/dev/null | awk -v p="${1:-0}" '$1 ~ /^[0-9]+$/ && $2==p {print $1; exit}'; }
-
 # ff_write_fixture DIR: the miniature bounded phase + a byte-faithful copy of run-tests.sh's
 # teardown block. TRIPWIRE: harness.sh mirrors hooks/tests/run-tests.sh's reaper + sentinel
 # block. If that block changes and this does not, the control set stops describing the shipped
 # harness. Knobs (test-only, never read by shipped code):
 #   FFSR_SLOW_WINPID=<s>  widen the launch-to-record window deterministically
-#   FFSR_NO_SENTINEL=1    no state record and no sentinel at all (byte-comparison control)
-#   FFSR_STATE_ONLY=1     publish the record but do NOT start the sentinel — isolates the
-#                         harness-side EXIT path, which is the only thing left to reap
-#   FFSR_TRAP_TERM=1      install `trap 'exit 143' TERM` so the EXIT trap actually RUNS with a
-#                         phase in flight (an untrapped TERM kills bash without running it)
-#   FFSR_NAP_OFF=1        force the `sleep 1` poll arm, where a trapped signal is delivered
-#   FFSR_OUT=<file>       write the phase's captured bytes for byte-identity comparison
+#   FFSR_PHASE_SECS=<s>   the miniature phase's bound
 ff_write_fixture() {
   local d="$1"
   cat > "$d/gc.sh" <<'GC'
@@ -119,7 +119,6 @@ ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 ffhc_detect_timeout
 [ -f "$ROOT/hooks/tests/lib/orphan-reap.sh" ] && . "$ROOT/hooks/tests/lib/orphan-reap.sh"
 FFHC_HEARTBEAT_SECS="${FFHC_HEARTBEAT_SECS:-30}"
-[ "${FFSR_NAP_OFF:-0}" = "1" ] && FFHC_NAP_OK=0
 if [ -n "${FFSR_SLOW_WINPID:-}" ]; then
     ffhc_msys_winpid() { sleep "$FFSR_SLOW_WINPID"; local w=""
         IFS= read -r w 2>/dev/null < "/proc/${1:-0}/winpid" || w=""; printf '%s\n' "$w"; }
@@ -158,12 +157,10 @@ _ff_sentinel_stop() {
     return 0
 }
 _ff_exit_reap() {
+    # trap.log is a post-mortem breadcrumb: "trap-ran" without "reap-returned" means the EXIT path
+    # was SIGKILLed part-way (grace budget), not that it ran and reaped nothing (ordering defect).
     echo "trap-ran winpid=$FFHC_LAST_WINPID child=$FFHC_LAST_CHILD_PID" >> "$D/trap.log"
     _ff_reap_in_flight
-    # TRIPWIRE: this marker is what lets a scenario tell "the EXIT path ran and reaped nothing"
-    # (an ordering defect) apart from "the EXIT path was SIGKILLed part-way through" (the outer
-    # `-k` grace running out, which is a platform cost, not a logic failure). Without it the
-    # second reads as the first and the row reports a defect that is not there.
     echo "reap-returned" >> "$D/trap.log"
     if ffhc_is_msys && [ -n "$FFHC_LAST_WINPID" ]; then
         ffhc_msys_taskkill_winpid "$FFHC_LAST_WINPID" "$FFHC_LAST_CHILD_PID"
@@ -171,11 +168,7 @@ _ff_exit_reap() {
     _ff_sentinel_stop
 }
 trap _ff_exit_reap EXIT
-# An UNTRAPPED fatal signal kills bash without running the EXIT trap, so the harness-side path
-# is unreachable from an outer wall unless the signal is trapped. This knob is what makes "an
-# EXIT path that DOES run with a phase in flight" reachable at all.
-[ "${FFSR_TRAP_TERM:-0}" = "1" ] && trap 'exit 143' TERM
-if [ "${FFSR_NO_SENTINEL:-0}" != "1" ] && ffhc_is_msys && [ -n "${FFHC_TIMEOUT_BIN:-}" ] \
+if ffhc_is_msys && [ -n "${FFHC_TIMEOUT_BIN:-}" ] \
      && [ -f "$ROOT/hooks/tests/lib/orphan-sentinel.sh" ]; then
     FFHC_SENTINEL_STATE="$(mktemp "${TMPDIR:-/tmp}/ffhc-sentinel.$$.XXXXXX" 2>/dev/null)" || FFHC_SENTINEL_STATE=""
     if [ -n "$FFHC_SENTINEL_STATE" ]; then
@@ -183,19 +176,16 @@ if [ "${FFSR_NO_SENTINEL:-0}" != "1" ] && ffhc_is_msys && [ -n "${FFHC_TIMEOUT_B
         _g="${FFHC_TIMEOUT_KILL_GRACE:-5s}"; _g="${_g%[!0-9]*}"
         case "$_g" in ''|*[!0-9]*) _g=5 ;; esac
         FF_SENTINEL_GRACE="$_g"
-        if [ "${FFSR_STATE_ONLY:-0}" != "1" ]; then
-            "$FFHC_TIMEOUT_BIN" "${FF_SENTINEL_CAP:-600}" bash "$ROOT/hooks/tests/lib/orphan-sentinel.sh" \
-                "$$" "$(ffhc_pgid_of $$)" "$FFHC_SENTINEL_STATE" "$_g" >/dev/null 2>&1 &
-            FF_SENTINEL_PID=$!
-            FF_SENTINEL_PGID="$(ffhc_pgid_of "$FF_SENTINEL_PID")"
-            echo "$FF_SENTINEL_PID" > "$D/sentinel.wrapper.pid"
-        fi
+        "$FFHC_TIMEOUT_BIN" "${FF_SENTINEL_CAP:-600}" bash "$ROOT/hooks/tests/lib/orphan-sentinel.sh" \
+            "$$" "$(ffhc_pgid_of $$)" "$FFHC_SENTINEL_STATE" "$_g" >/dev/null 2>&1 &
+        FF_SENTINEL_PID=$!
+        FF_SENTINEL_PGID="$(ffhc_pgid_of "$FF_SENTINEL_PID")"
+        echo "$FF_SENTINEL_PID" > "$D/sentinel.wrapper.pid"
     fi
 fi
 echo $$ > "$D/harness.pid"; cat "/proc/$$/winpid" > "$D/harness.winpid" 2>/dev/null
 ffhc_run_bounded "${FFSR_PHASE_SECS:-300}" bash "$PHASE" "$D"
 echo "phase-returned rc=$FFHC_LAST_RC" >> "$D/harness.log"
-[ -n "${FFSR_OUT:-}" ] && printf '%s' "$FFHC_LAST_OUT" > "$FFSR_OUT"
 exit 0
 HN
   return 0

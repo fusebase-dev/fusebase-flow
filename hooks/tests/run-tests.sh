@@ -206,6 +206,10 @@ _ff_exit_reap() {
 }
 
 # --- S2 orphan sentinel (T4) ------------------------------------------------------------------
+# TIER: armed around the DEEP runner only (FF_FULL / CI / a scoped run that may name a heavy tag),
+# never on the fast local default. The sentinel is symptom-support for multi-minute MSYS process
+# trees; the fast tier has none, so paying for it on every local check is cost without coverage
+# (architecture-review Q3: "keep it only around the Windows/MSYS deep runner").
 # TRIPWIRE: the EXIT trap above is NOT a teardown guarantee. T3 measured that this harness is deaf
 # to TERM/INT while a bounded phase polls (an explicit TERM trap never fired in 12s), so an outer
 # `timeout -k 5s` SIGKILLs it and NOTHING harness-side runs — the phase child and its grandchild
@@ -220,6 +224,7 @@ FF_SENTINEL_GRACE=5
 FFHC_SENTINEL_STATE=""
 _ff_sentinel_start() {
     ffhc_is_msys || return 0
+    [ "$FF_FULL_RUN" -eq 1 ] || [ "$FF_SCOPED" -eq 1 ] || return 0
     [ -n "${FFHC_TIMEOUT_BIN:-}" ] || return 0
     local sentinel="$ROOT/hooks/tests/lib/orphan-sentinel.sh"
     [ -f "$sentinel" ] || return 0
@@ -498,8 +503,9 @@ run_shell_phase test-release-evidence-authority.sh      "release-authority"
 # seam with synthetic milestones: it does NOT run the heavy cli-flow-recovery phase below, so
 # it can never be read as evidence about that phase's result or runtime.
 run_shell_phase test-cli-flow-recovery-profile.sh       "cli-flow-profile"
-# S2 signal lifecycle (T4): the orphan-sentinel control set. Unguarded since T4 — it was a T3 red
-# arm gated behind explicit selection only while the defect was open.
+# S2 signal lifecycle (T4): the orphan-sentinel discriminator set. HEAVY + fault-injection, so it
+# lives in the CI/FF_FULL tier, not the fast local default (architecture-review Q3/Q4: Windows/MSYS
+# CI owns it). Off-MSYS it skips every row — the defect class is MSYS-only.
 run_shell_phase test-run-tests-signal-reap.sh           "signal-reap"
 
 # Exit-code phase — all-or-nothing shell tests that fail-fast (set -e + fail()→exit)
