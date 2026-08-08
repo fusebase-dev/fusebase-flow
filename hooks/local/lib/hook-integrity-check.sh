@@ -108,7 +108,8 @@ ffhc_hook_manifest_verify() {
 # The FULL suite stays reachable on MSYS via --run-hook-tests-full (OPT_RUN_HOOK_TESTS_FULL)
 # or FFHC_RUN_HOOK_TESTS_FULL=1. Outcome mapping is IDENTICAL on both paths: observed
 # FAIL/crash -> LOCAL_BROKEN; timeout/skip/INCONCLUSIVE -> NOTE only (an optional check
-# NEVER forces exit 4). The DEFAULT run-tests.sh + CI stay FULL and unchanged.
+# NEVER forces exit 4). Both deep paths run FF_FULL=1 explicitly — run-tests.sh's own default
+# is now the fast local tier; CI still takes the full path (it sets GITHUB_ACTIONS/CI).
 ffhc_hook_tests_deep_run() {
   [ "${OPT_RUN_HOOK_TESTS:-0}" -eq 1 ] || return 0
   # AC5/M3: the deep run is the longest opaque capture window in the framework. Opt into the
@@ -132,7 +133,10 @@ _ffhc_deep_run_full() {
     return 0
   fi
   FFHC_HEARTBEAT_LABEL="--run-hook-tests: full suite"
-  ffhc_run_bounded "$FFHC_TESTS_TIMEOUT" bash hooks/tests/run-tests.sh
+  # TRIPWIRE: FF_FULL=1 is load-bearing. run-tests.sh's DEFAULT is the fast local tier, whose
+  # summary the strict classifier below rejects by construction — without this the "full" path
+  # would silently degrade to "completed but no strict N/N PASS summary parsed".
+  ffhc_run_bounded "$FFHC_TESTS_TIMEOUT" env FF_FULL=1 bash hooks/tests/run-tests.sh
   local out="$FFHC_LAST_OUT" rc="$FFHC_LAST_RC"
   local timed_out="$FFHC_LAST_TIMED_OUT" skipped="$FFHC_LAST_SKIPPED"
   FFHC_LAST_WINPID=""; FFHC_LAST_CHILD_PID=""
@@ -162,7 +166,7 @@ _ffhc_deep_run_full() {
 # any observed FAIL or a crash-before-report -> LOCAL_BROKEN; any component timeout/skip
 # -> NOTE only; all-pass -> LOCAL_OK. The heavy bash-surface phases (cli-flow-recovery,
 # secret-scan, bootstrap, …) are the ones that blow the MSYS budget — reachable via
-# --run-hook-tests-full / FFHC_RUN_HOOK_TESTS_FULL=1 / the default run-tests.sh / CI.
+# --run-hook-tests-full / FFHC_RUN_HOOK_TESTS_FULL=1 / FF_FULL=1 run-tests.sh / CI.
 _ffhc_deep_run_fast() {
   local tot_pass=0 tot_fail=0 broke=0 noted=0 parts=""
   _ffhc_deep_fast_one() {   # <label> CMD...

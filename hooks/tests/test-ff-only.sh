@@ -201,4 +201,73 @@ else
 fi
 rm -rf "$OPTINREPO"
 
+# --- Run tiers: fast local default vs full unscoped (architecture-review step 3) ---------------
+# The fast default must be structurally NON-ATTESTING — it may not write the canonical
+# hook-test-results.md and may not produce a summary the strict classifier accepts — while
+# FF_FULL=1 (and CI) must still produce exactly the attesting shape.
+# TRIPWIRE: every child invocation clears FF_ONLY and unsets GITHUB_ACTIONS/CI. Both are
+# inherited, and either one silently turns the "default" arm into a full run — the arm would
+# then pass while proving nothing.
+TIERREPO="$(mktemp -d)"
+mkdir -p "$TIERREPO/hooks/tests" "$TIERREPO/hooks/local/lib"
+cp "$RT" "$TIERREPO/hooks/tests/run-tests.sh"
+cp "$ROOT/hooks/local/lib/run-with-timeout.sh" "$TIERREPO/hooks/local/lib/"
+( cd "$TIERREPO" && git init -q )
+HEAVY_SENTINEL="$TIERREPO/heavy-phase-executed"
+printf 'print("PASS: stub-fixture")\n' > "$TIERREPO/hooks/tests/run_hook_tests.py"
+printf '#!/usr/bin/env bash\necho "PASS: git-smoke stub"\n' > "$TIERREPO/hooks/tests/test-git-hooks-smoke.sh"
+cat > "$TIERREPO/hooks/tests/test-rule-inventory.sh" <<EOF
+#!/usr/bin/env bash
+touch "$HEAVY_SENTINEL"
+echo "PASS: rule-inventory stub"
+EOF
+tier_run() { ( cd "$TIERREPO" && env -u GITHUB_ACTIONS -u CI FF_ONLY= "$@" bash hooks/tests/run-tests.sh 2>/dev/null ); }
+
+fast_out="$(tier_run FF_FULL=0)"
+[ -f "$TIERREPO/state/audit/hook-test-results-fast.md" ] \
+  && ok "fast-default-writes-the-fast-results-file" \
+  || bad "fast-default-writes-the-fast-results-file" "hook-test-results-fast.md not created by the default run"
+if [ -f "$TIERREPO/state/audit/hook-test-results.md" ]; then
+  bad "fast-default-cannot-write-canonical-results-file" "the fast default wrote the attesting hook-test-results.md"
+else
+  ok "fast-default-cannot-write-canonical-results-file"
+fi
+fast_summary="$(printf '%s\n' "$fast_out" | grep -E '^\[run-tests\] [0-9]+/[0-9]+ PASS')"
+if ffhc_run_tests_pass_ok "$fast_summary"; then
+  bad "fast-default-summary-rejected-by-strict-classifier" "ffhc_run_tests_pass_ok accepted [$fast_summary]"
+else
+  ok "fast-default-summary-rejected-by-strict-classifier"
+fi
+[ "$(ffhc_count_pass_lines "$fast_out")" -eq 0 ] \
+  && ok "fast-default-scores-zero-strict-pass-lines" \
+  || bad "fast-default-scores-zero-strict-pass-lines" "ffhc_count_pass_lines != 0 on a fast-default run"
+if [ -f "$HEAVY_SENTINEL" ]; then
+  bad "heavy-phase-not-executed-by-default-run" "a heavy phase executed on the fast local default"
+else
+  ok "heavy-phase-not-executed-by-default-run"
+fi
+
+full_out="$(tier_run FF_FULL=1)"
+[ -f "$HEAVY_SENTINEL" ] \
+  && ok "heavy-phase-executes-under-ff-full" \
+  || bad "heavy-phase-executes-under-ff-full" "FF_FULL=1 did not execute the heavy phase"
+[ -f "$TIERREPO/state/audit/hook-test-results.md" ] \
+  && ok "full-run-writes-the-canonical-results-file" \
+  || bad "full-run-writes-the-canonical-results-file" "FF_FULL=1 did not write hook-test-results.md"
+full_summary="$(printf '%s\n' "$full_out" | grep -E '^\[run-tests\] [0-9]+/[0-9]+ PASS')"
+if ffhc_run_tests_pass_ok "$full_summary"; then
+  ok "full-run-summary-accepted-by-strict-classifier"
+else
+  bad "full-run-summary-accepted-by-strict-classifier" "ffhc_run_tests_pass_ok rejected [$full_summary]"
+fi
+
+# CI must never inherit the local budget tier: the CI verify job on the tagged SHA is the
+# release evidence, so it takes the full path with no flag to forget.
+rm -f "$HEAVY_SENTINEL"
+( cd "$TIERREPO" && env -u CI FF_ONLY= FF_FULL=0 GITHUB_ACTIONS=true bash hooks/tests/run-tests.sh >/dev/null 2>&1 )
+[ -f "$HEAVY_SENTINEL" ] \
+  && ok "ci-env-takes-the-full-path-without-a-flag" \
+  || bad "ci-env-takes-the-full-path-without-a-flag" "GITHUB_ACTIONS=true did not force the full set"
+rm -rf "$TIERREPO"
+
 finish

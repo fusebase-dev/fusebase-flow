@@ -98,7 +98,7 @@
     },
     {
       "path": "hooks/local/lib/hook-integrity-check.sh",
-      "sha256": "82376338f3d500b3f8c4487078f7f4893985e4fb464a8af4d70bb464cd68c734"
+      "sha256": "d70cf8e680a0eeeb4f9151a1ea8ef340443fa9d93bb6be51c0d878d7ad1c7353"
     },
     {
       "path": "hooks/local/lib/hook_manifest.py",
@@ -406,7 +406,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "f71dbc23812ca392601823f6bd1a414e44764f99da4a9f14f382e4a3bdc42511"
+      "sha256": "c849810631b233775ed8757f28f850e31cbe2a78c3eb7f323c2e883329aff874"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -466,7 +466,7 @@
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
-      "sha256": "230e445363f6f443a6d874869d0bd4afb70563792739911ca14aa3cdc9cd2b22"
+      "sha256": "c2a1e49cd2484d7880b2d5dbf440311c83d43ed2cd93835fec5f245108930109"
     },
     {
       "path": "hooks/tests/test-fr22-delivery-guarantee.sh",
@@ -593,5 +593,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "5a1f3741549aa3b05cf878a4354ca04f22fb4363a6fc2ca3420d750494efc7d3"
+  "manifest_self_sha256": "8b33aa01774d5d13f523ed417b8b49e2b83160daece1f62e3e3b06e2bb326e84"
 }

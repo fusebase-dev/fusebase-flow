@@ -8,16 +8,24 @@
 #   feedback: unpinned host, no SHA/platform recorded, gates nothing.
 #   Canonical statement: PUBLISHING.md § Release evidence authority.
 #
-# ## Gate scoping (FF_ONLY / FF_LIST) — process rule
-#   FF_ONLY="tag1,tag2" runs ONLY the named phases (implement-loop iteration speed).
-#   A LOCAL gate report may cite ONLY state/audit/hook-test-results.md — never
-#   hook-test-results-scoped.md. A scoped run is fail-closed by construction: its summary
-#   line is deliberately NOT the strict "[run-tests] N/N PASS" shape, so
-#   ffhc_run_tests_pass_ok / ffhc_count_pass_lines read it as NOT a clean full pass, and
-#   its results go to hook-test-results-scoped.md (the full-gate file is never touched).
-#   FF_LIST=1 prints the canonical tag list (RUN/SKIP) and exits 0 without running.
-#   Unknown or empty selection => exit 2 (never a "scoped to nothing" green). Canonical
-#   home for this rule: this header + flow-skills/validation-and-qa/SKILL.md (sub-mode A).
+# ## Run tiers
+#   (default)          FAST LOCAL DEFAULT — the FF_FAST_TAGS set only. Budgeted at <=10min
+#                      under loaded MSYS. Non-attesting: hook-test-results-fast.md.
+#   FF_FULL=1          the FULL unscoped set (every non-opt-in phase). The one explicit
+#                      maintainer invocation. Attesting: hook-test-results.md + the strict
+#                      summary. CI (GITHUB_ACTIONS/CI) takes this path automatically.
+#   FF_ONLY="a,b"      SCOPED subset (implement-loop iteration speed); opt-in and heavy
+#                      tags are reachable this way. Non-attesting: hook-test-results-scoped.md.
+#   FF_LIST=1          print the tag list (RUN/SKIP) for THIS invocation; exit 0, no run.
+#
+#   Every non-attesting run is fail-closed BY CONSTRUCTION: its summary line is deliberately
+#   NOT the strict "[run-tests] N/N PASS" shape, so ffhc_run_tests_pass_ok /
+#   ffhc_count_pass_lines read it as NOT a clean full pass, and its rows go to a separate
+#   file — the canonical hook-test-results.md is never touched by a subset run.
+#   A LOCAL gate report may cite ONLY state/audit/hook-test-results.md — never the -scoped
+#   or -fast file. Unknown or empty FF_ONLY selection => exit 2 (never a "scoped to
+#   nothing" green). Canonical home for this rule: this header +
+#   flow-skills/validation-and-qa/SKILL.md (sub-mode A).
 
 set -uo pipefail
 
@@ -100,16 +108,45 @@ if [ -n "${FF_ONLY:-}" ]; then
   FF_SCOPED=1
 fi
 
-# ff_selected TAG: scoped => the tag must be in the selection (an opt-in tag IS reachable
-# that way). Unscoped => every tag except the opt-in-only set.
+# --- Local tier: the FAST set is the local default -------------------------------------
+# Membership is the architecture-review Q4 "Local default" tier, minus the one member that
+# breaks the review's OWN bound policy ("Local product budget: <=10 minutes under loaded
+# MSYS. A phase that breaks the budget leaves the local tier — the wall is not raised"):
+# secret-scan-staged measured 456s of a 600s budget on this host. Its scanner still runs on
+# EVERY commit via hooks/git/pre-commit; only the scenario phase moved. release-authority
+# (14s) is added — it guards the release-evidence contract itself.
+# TRIPWIRE: this is an ALLOWLIST, so a NEW phase is heavy until measured and promoted. The
+# safe direction: a new phase runs in CI/full from day one, never silently on the budget.
+FF_FAST_TAGS=(fixtures module-size git-smoke hook-manifest lane-router \
+  approval-binding approval-writer command-policy release-authority)
+declare -A FF_FAST=(); for t in "${FF_FAST_TAGS[@]}"; do FF_FAST[$t]=1; done
+
+# FF_FULL=1 => the full unscoped run (every non-opt-in phase). CI is always full: the CI
+# `verify` job on the tagged SHA is the release evidence, so it must never inherit the
+# local budget tier. This is why .github/workflows/* needs no edit to keep its coverage.
+FF_FULL_RUN=0
+if [ "${FF_FULL:-0}" = "1" ] || [ "${GITHUB_ACTIONS:-}" = "true" ] || [ "${CI:-}" = "true" ]; then
+  FF_FULL_RUN=1
+fi
+
+# ATTESTING = the full unscoped set, and nothing else. Scoped and fast-default runs are
+# non-attesting BY CONSTRUCTION (separate results file + a summary the strict classifier
+# rejects) — a subset can never be mistaken for the complete local result.
+FF_ATTESTING=0
+[ "$FF_SCOPED" -eq 0 ] && [ "$FF_FULL_RUN" -eq 1 ] && FF_ATTESTING=1
+
+# ff_selected TAG: scoped => the tag must be in the selection (opt-in and heavy tags are BOTH
+# reachable that way). Unscoped => never an opt-in tag; heavy tags only on a full run.
 ff_selected() {
   if [ "$FF_SCOPED" -eq 1 ]; then [ -n "${FF_SEL[$1]:-}" ]; return; fi
-  [ -z "${FF_OPTIN[$1]:-}" ]
+  [ -z "${FF_OPTIN[$1]:-}" ] || return 1
+  [ "$FF_FULL_RUN" -eq 1 ] || [ -n "${FF_FAST[$1]:-}" ]
 }
 # ff_skip_note TAG: the visible per-phase skip line, naming WHY and how to get the phase back.
 ff_skip_note() {
   if [ "$FF_SCOPED" -eq 1 ]; then echo "SKIP (FF_ONLY): $1"
-  else echo "SKIP (opt-in diagnostic — FF_ONLY=$1 to run): $1"; fi
+  elif [ -n "${FF_OPTIN[$1]:-}" ]; then echo "SKIP (opt-in diagnostic — FF_ONLY=$1 to run): $1"
+  else echo "SKIP (heavy — FF_FULL=1 for the full set; CI runs it): $1"; fi
 }
 
 # FF_LIST=1: print the canonical tags with RUN/SKIP markers and exit 0 (no run).
@@ -122,11 +159,13 @@ if [ "${FF_LIST:-0}" = "1" ]; then
   exit 0
 fi
 
-# Scoped runs write to a SEPARATE results file so the full-gate hook-test-results.md is
-# never clobbered by a subset run (the health engine / gate reports read only the full
-# file). Unscoped => the canonical full-gate file, byte-behavior-unchanged.
+# Subset runs write to a SEPARATE results file so the full-gate hook-test-results.md is
+# never clobbered (the health engine / gate reports read only the full file). ONLY an
+# attesting (full unscoped) run may touch the canonical path.
 if [ "$FF_SCOPED" -eq 1 ]; then
   RESULTS_FILE="$ROOT/state/audit/hook-test-results-scoped.md"
+elif [ "$FF_ATTESTING" -eq 0 ]; then
+  RESULTS_FILE="$ROOT/state/audit/hook-test-results-fast.md"
 else
   RESULTS_FILE="$ROOT/state/audit/hook-test-results.md"
 fi
@@ -268,13 +307,26 @@ emit_phase_diagnostics() {
 
 mkdir -p "$(dirname "$RESULTS_FILE")"
 
-# Loud scoped banner: a subset run is NEVER a full gate — make that impossible to miss.
+# Loud banner: a subset run is NEVER a full gate, and no local run is release evidence —
+# make both impossible to miss.
 if [ "$FF_SCOPED" -eq 1 ]; then
   {
     echo "============================================================"
     echo "  SCOPED RUN — FF_ONLY=${FF_ONLY}"
     echo "  This is a SUBSET, not a full gate. Results -> ${RESULTS_FILE#"$ROOT/"}"
     echo "  No local run is release evidence — the CI verify job on the tagged SHA is."
+    echo "============================================================"
+  } >&2
+elif [ "$FF_ATTESTING" -eq 0 ]; then
+  {
+    echo "============================================================"
+    echo "  FAST LOCAL DEFAULT — ${#FF_FAST_TAGS[@]} of ${#FF_TAGS[@]} phases"
+    echo "  NOT release evidence. Release evidence is the CI 'verify' job"
+    echo "  on the tagged SHA (.github/workflows/fusebase-flow-release.yml"
+    echo "  -> needs: verify). See PUBLISHING.md § Release evidence authority."
+    echo "  Heavy phases are skipped here and run in CI."
+    echo "  Full local set: FF_FULL=1 bash hooks/tests/run-tests.sh"
+    echo "  Results -> ${RESULTS_FILE#"$ROOT/"}"
     echo "============================================================"
   } >&2
 fi
@@ -503,6 +555,11 @@ run_exitcode_phase test-cli-flow-recovery.sh "cli-flow-recovery" "cli-flow-recov
         echo
         echo "SUBSET RUN — not a full gate. No local run is release evidence; the CI verify job on the tagged SHA is."
         echo
+    elif [ "$FF_ATTESTING" -eq 0 ]; then
+        echo "# Hook test results — FAST LOCAL DEFAULT (${#FF_FAST_TAGS[@]} of ${#FF_TAGS[@]} phases)"
+        echo
+        echo "SUBSET RUN — heavy phases skipped. No local run is release evidence; the CI verify job on the tagged SHA is. Full local set: FF_FULL=1."
+        echo
     else
         echo "# Hook test results"
         echo
@@ -527,12 +584,14 @@ run_exitcode_phase test-cli-flow-recovery.sh "cli-flow-recovery" "cli-flow-recov
 } > "$RESULTS_FILE"
 
 echo
-# Summary line. Unscoped => the strict "[run-tests] N/N PASS" shape that
-# ffhc_run_tests_pass_ok / ffhc_count_pass_lines accept as a clean full pass.
-# Scoped => a DELIBERATELY non-strict form (trailing "(SCOPED …)") so those
-# classifiers read it as NOT a clean full pass (fail-closed by construction).
+# Summary line. ATTESTING (full unscoped) => the strict "[run-tests] N/N PASS" shape that
+# ffhc_run_tests_pass_ok / ffhc_count_pass_lines accept as a clean full pass. Every subset
+# form => a DELIBERATELY non-strict line (trailing parenthetical) so those classifiers read
+# it as NOT a clean full pass — fail-closed by construction, not by convention.
 if [ "$FF_SCOPED" -eq 1 ]; then
     echo "[run-tests] $pass/$total PASS (SCOPED FF_ONLY=${FF_ONLY} — subset, not a full gate)"
+elif [ "$FF_ATTESTING" -eq 0 ]; then
+    echo "[run-tests] $pass/$total PASS (FAST LOCAL DEFAULT — subset, not a full gate; FF_FULL=1 for the full set)"
 else
     echo "[run-tests] $pass/$total PASS"
 fi

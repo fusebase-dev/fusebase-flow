@@ -128,7 +128,8 @@ stamp date is git history) covering the Flow-owned hook layer: `hooks/handlers/*
   git-smoke + hook-manifest self-test) completing < 120 s. `--run-hook-tests-full` /
   `FFHC_RUN_HOOK_TESTS_FULL=1` forces the full suite on MSYS too. Observed FAIL/crash ⇒
   BROKEN; timeout/skip ⇒ a NOTE only (never forces PARTIAL). Never required for the
-  verdict; the DEFAULT `run-tests.sh` + CI stay FULL.
+  verdict. Both deep paths pass `FF_FULL=1` explicitly: the DEFAULT `run-tests.sh` is the
+  FAST LOCAL tier, while CI still takes the full path (it sets `GITHUB_ACTIONS`).
 
 ## Audit-log integration
 

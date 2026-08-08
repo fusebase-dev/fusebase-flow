@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "dd81deba5817131d467d2cfbcd090d8b8835ca71bde04723b4fd2631ddcab852"
+      "sha256": "40d31bf252f2fdbb20d5339a3be628b234d082d19c2a28d38d762dfb0df8ca68"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -214,7 +214,7 @@
     },
     {
       "path": "flow-skills/validation-and-qa/SKILL.md",
-      "sha256": "8a5163e27e83ab9948f06bc981ecee542a8b37ca60ddc44c5f0c817ffaa39486"
+      "sha256": "c3fb5946c071d23b9b6d9f3a5556d7bb40472369aaa4913f0c75bc841411fca5"
     },
     {
       "path": "flow-skills/zoom-out/SKILL.md",
@@ -466,7 +466,7 @@
     },
     {
       "path": "hooks/local/lib/hook-integrity-check.sh",
-      "sha256": "82376338f3d500b3f8c4487078f7f4893985e4fb464a8af4d70bb464cd68c734"
+      "sha256": "d70cf8e680a0eeeb4f9151a1ea8ef340443fa9d93bb6be51c0d878d7ad1c7353"
     },
     {
       "path": "hooks/local/lib/hook_manifest.py",
@@ -806,7 +806,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "f71dbc23812ca392601823f6bd1a414e44764f99da4a9f14f382e4a3bdc42511"
+      "sha256": "c849810631b233775ed8757f28f850e31cbe2a78c3eb7f323c2e883329aff874"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -866,7 +866,7 @@
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
-      "sha256": "230e445363f6f443a6d874869d0bd4afb70563792739911ca14aa3cdc9cd2b22"
+      "sha256": "c2a1e49cd2484d7880b2d5dbf440311c83d43ed2cd93835fec5f245108930109"
     },
     {
       "path": "hooks/tests/test-fr22-delivery-guarantee.sh",
@@ -1185,5 +1185,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "26e3ac26672104b0de5a9723f4bc4eff506c22ef373c89906e438e2630340d2a"
+  "manifest_self_sha256": "15889b49c19dfba4615b34fe2326e5214d1c11e843c5bb8448f546ba9c5adb9b"
 }
