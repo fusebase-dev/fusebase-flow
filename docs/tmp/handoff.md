@@ -10,32 +10,26 @@ Mode: restart  (`restart` — operator-triggered)
 
 ## Next action
 
-**STOP optimizing the local gate. It is not on the critical path to publishing.**
+**Steps 1–3 are DONE and pushed. Continue at step 4** of
+`docs/specs/backlog-triage-execution/architecture-review.md`.
 
-Architecture review 2026-08-07 returned **`DELETE-AND-MOVE`**
-(`docs/specs/backlog-triage-execution/architecture-review.md`). The finding that reframes the
-week: the local full gate is **not mechanically required for publication — CI is**.
-`.github/workflows/fusebase-flow-release.yml` publishes only after its reusable `verify` job
-passes on the tagged SHA. The prose disagrees with the machinery (`PUBLISHING.md` demands a local
-full run; `maintainer-execution.md` demands two platforms; the enforced CI job is Ubuntu-only) —
-that is an inconsistent contract, not a reason to keep spending hours locally.
+| Step | State |
+|---|---|
+| 1 CI is sole release authority | **DONE** `9e9904e` — new `release-authority` phase, 10/10 |
+| 2 `cli-flow-profile` opt-in | **DONE** `8fcc356` — unscoped run loses exactly that phase's 11 rows |
+| 3 fast local default | **DONE** `cd319af` — **330s / 336s / 346s**, 111/111 PASS, 0 skips-as-passes |
+| 4 decompose `cli-flow-recovery` | next — 31 predicates preserved, `$PROJECT` clones 10 → 1 |
+| 5 move `signal-reap` to Windows CI | pending |
+| 6 required Linux **and** Windows exact-SHA jobs | pending — this is what makes two-platform gating real |
+| 7 delete monolith, profile helper, override guidance | pending |
 
-**Ordered sequence, smallest first, each with its discriminator (full text in the review):**
+**Judgement call to know about (step 3).** `secret-scan-staged` measured 456s of a 600s budget, so
+it moved to CI/`FF_FULL` under the review's own bound policy — *a phase that breaks the budget
+leaves the local tier; the wall is not raised.* Its scanner still runs on **every commit** via
+`hooks/git/pre-commit`; only the scenario phase moved.
 
-1. Lock CI as the sole release-evidence authority — local output must not be able to match the release-pass contract.
-2. Remove `cli-flow-profile` from required execution.
-3. Make the fast phase set the local default — three loaded-host MSYS runs under 10 min, no overrides.
-4. Decompose `cli-flow-recovery` — all 31 predicates preserved, `$PROJECT` clones 10 → 1.
-5. Move `signal-reap` + heartbeat testing to Windows CI; keep the field discriminator and collateral controls.
-6. Add required Linux **and** Windows/MSYS exact-SHA jobs — either red makes `publish` unreachable.
-7. Delete the monolith, the profile helper/test, and the timeout-override guidance.
-
-**On today's work.** The sentinel fixed a real defect and some child-lifecycle mechanism stays
-necessary — but it is symptom-support for the current architecture and must not run on every fast
-local check; scope it to the Windows/MSYS deep runner. The instrumentation seam was a temporary
-diagnostic, not permanent release coverage: remove `cli-flow-profile` from required gates now, and
-delete it once recovery is decomposed. Net today: **~1,786 added lines for ~22 minutes added to the
-required gate. That direction should not continue.**
+`.github/workflows/**` was deliberately untouched (FR-07). CI keeps full coverage because
+`GITHUB_ACTIONS`/`CI` selects the full path automatically.
 
 ## What landed (T1–T5, T9 — all committed, none gated)
 
@@ -82,8 +76,10 @@ see § Next action.
 
 ## Standing constraints
 
-- Scoped `FF_ONLY=` runs are **not** release evidence. Only `state/audit/hook-test-results.md`
-  from a full unscoped run may be cited. This was misread as release proof twice on 2026-08-05.
+- **Release evidence is the CI `verify` job on the tagged SHA — never a local run.** Corrected
+  at `9e9904e`; `.github/workflows/fusebase-flow-release.yml` publishes only after that job
+  passes. A local full run produces `state/audit/hook-test-results.md`, which is a LOCAL gate
+  report and developer feedback, not release proof. Do not reintroduce the older claim.
 - `cli-flow-recovery` measured 1568s/1813s against a committed 900s bound; the last full pass
   (`88f7286`, 768/768) required `FF_CLI_RECOVERY_TIMEOUT=2700` in the environment. Do not commit
   that value; `FF_SKIP_CLI_RECOVERY=1` is not a pass (it records INCONCLUSIVE).
@@ -91,8 +87,9 @@ see § Next action.
 - **One AI Developer session per branch.** Two collided this round because a 0-byte transcript was
   misread as a dead spawn and retried, then a successor was spawned. Poll **file/git activity**,
   not transcript size — one agent read for 10 minutes before its first write.
-- Two-platform gating (Windows/MSYS + Linux `ubuntu:24.04`) before any release claim. Never
-  `--no-verify`. FR-07 protected: `policies/*.yml`, `hooks/{handlers,shared,git}/**`.
+- Two-platform gating is still REQUIRED and is **NOT YET ENFORCED** — the required CI job is
+  Ubuntu-only. Making it real is step 6. Never `--no-verify`. FR-07 protected:
+  `policies/*.yml`, `hooks/{handlers,shared,git}/**`, `.github/workflows/**`.
 
 ## Not done, and why
 
