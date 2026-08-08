@@ -70,6 +70,13 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke hook-manifest newli
   upgrade-boundary preboundary-consumed upgrade-repair recovery-hint install-doc release-authority cli-flow-profile \
   signal-reap cli-flow-recovery)
 
+# OPT-IN-ONLY tags: registered and reachable, but NEVER in the default/required set — they
+# run only when named in FF_ONLY. cli-flow-profile is the temporary recovery-instrumentation
+# diagnostic: it proves trace schema, containment, redaction and failure-inertness, NOT
+# recovery correctness, so it is not release coverage (architecture-review Q3).
+FF_OPTIN_TAGS=(cli-flow-profile)
+declare -A FF_OPTIN=(); for t in "${FF_OPTIN_TAGS[@]}"; do FF_OPTIN[$t]=1; done
+
 declare -A FF_SEL=()      # selected tags (populated only when scoped)
 FF_SCOPED=0               # 1 iff FF_ONLY is a non-empty selection
 if [ -n "${FF_ONLY:-}" ]; then
@@ -93,18 +100,27 @@ if [ -n "${FF_ONLY:-}" ]; then
   FF_SCOPED=1
 fi
 
+# ff_selected TAG: scoped => the tag must be in the selection (an opt-in tag IS reachable
+# that way). Unscoped => every tag except the opt-in-only set.
+ff_selected() {
+  if [ "$FF_SCOPED" -eq 1 ]; then [ -n "${FF_SEL[$1]:-}" ]; return; fi
+  [ -z "${FF_OPTIN[$1]:-}" ]
+}
+# ff_skip_note TAG: the visible per-phase skip line, naming WHY and how to get the phase back.
+ff_skip_note() {
+  if [ "$FF_SCOPED" -eq 1 ]; then echo "SKIP (FF_ONLY): $1"
+  else echo "SKIP (opt-in diagnostic — FF_ONLY=$1 to run): $1"; fi
+}
+
 # FF_LIST=1: print the canonical tags with RUN/SKIP markers and exit 0 (no run).
+# TRIPWIRE: routed through ff_selected, never a second predicate — a list that could
+# disagree with what actually runs is worse than no list.
 if [ "${FF_LIST:-0}" = "1" ]; then
   for t in "${FF_TAGS[@]}"; do
-    if [ "$FF_SCOPED" -eq 0 ] || [ -n "${FF_SEL[$t]:-}" ]; then echo "RUN  $t"; else echo "SKIP $t"; fi
+    if ff_selected "$t"; then echo "RUN  $t"; else echo "SKIP $t"; fi
   done
   exit 0
 fi
-
-# ff_selected TAG: 0 (run) when unscoped OR the tag is in the scoped selection.
-ff_selected() { [ "$FF_SCOPED" -eq 0 ] || [ -n "${FF_SEL[$1]:-}" ]; }
-# ff_skip_note TAG: emit the visible per-phase skip line (only ever called when scoped).
-ff_skip_note() { echo "SKIP (FF_ONLY): $1"; }
 
 # Scoped runs write to a SEPARATE results file so the full-gate hook-test-results.md is
 # never clobbered by a subset run (the health engine / gate reports read only the full
@@ -426,8 +442,9 @@ run_shell_phase test-install-fusebase-cli-project-doc.sh "install-doc"
 # Pins the shipped prose to the machinery: CI on the tagged SHA owns release evidence, no
 # local run does. Grep-based by nature — the claim is textual (see that file's header).
 run_shell_phase test-release-evidence-authority.sh      "release-authority"
-# Seconds: drives the observability seam with synthetic milestones. It does NOT run the heavy
-# cli-flow-recovery phase below, so it can never be read as evidence about that phase's result.
+# OPT-IN ONLY (FF_OPTIN_TAGS) — never in the default/required set. Drives the observability
+# seam with synthetic milestones: it does NOT run the heavy cli-flow-recovery phase below, so
+# it can never be read as evidence about that phase's result or runtime.
 run_shell_phase test-cli-flow-recovery-profile.sh       "cli-flow-profile"
 # S2 signal lifecycle (T4): the orphan-sentinel control set. Unguarded since T4 — it was a T3 red
 # arm gated behind explicit selection only while the defect was open.

@@ -406,7 +406,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "01d5e88d87f5d4bdb6ef73766d8b483679d43e997757f8c7c33a2c1eba6295a0"
+      "sha256": "f71dbc23812ca392601823f6bd1a414e44764f99da4a9f14f382e4a3bdc42511"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -446,7 +446,7 @@
     },
     {
       "path": "hooks/tests/test-cli-flow-recovery-profile.sh",
-      "sha256": "de91061b69b015aea1d68b4b59bc0455ede0a3488c9f0c289f74fad6b887fce1"
+      "sha256": "5e4743c53f6e0a80ef4d08b26a0869649e38377dd62db70ba2888836c496e37f"
     },
     {
       "path": "hooks/tests/test-cli-flow-recovery.sh",
@@ -466,7 +466,7 @@
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
-      "sha256": "043b476397d8aa4e74b4fa677b10cc6014bd5b07ee59998132751e928811d055"
+      "sha256": "230e445363f6f443a6d874869d0bd4afb70563792739911ca14aa3cdc9cd2b22"
     },
     {
       "path": "hooks/tests/test-fr22-delivery-guarantee.sh",
@@ -593,5 +593,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "e356de526cd906a0343857039783556894fc94fbf492cf5e8a6f71e633d41727"
+  "manifest_self_sha256": "5a1f3741549aa3b05cf878a4354ca04f22fb4363a6fc2ca3420d750494efc7d3"
 }

@@ -12,6 +12,10 @@
 #
 # P1: this is instrumentation. No assertion here may be read as selecting an optimization.
 #
+# OPT-IN ONLY (run-tests.sh FF_OPTIN_TAGS): a default/required run does NOT execute this phase.
+# Reach it with `FF_ONLY=cli-flow-profile bash hooks/tests/run-tests.sh`. It is a temporary
+# diagnostic, never release coverage (architecture-review Q3); deleted with the helper at step 7.
+#
 # Output contract (parsed by run-tests.sh run_shell_phase):
 #   "PASS: cli-flow-profile <name>" / "FAIL: cli-flow-profile <name>"; exit = fail count.
 

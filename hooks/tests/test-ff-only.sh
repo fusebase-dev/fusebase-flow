@@ -32,7 +32,10 @@ finish() { echo "[test-ff-only] $pass/$((pass + fail)) PASS"; exit $fail; }
 # Canonical tag count (FF_LIST is the discovery source). A scoped run to ONE tag must
 # skip (count - 1) phases — robust to future tag additions, no hardcoded 19/20.
 # TRIPWIRE: clear FF_ONLY — an inherited outer scope makes FF_LIST report 1 tag, not all.
-TAG_COUNT="$(FF_ONLY= FF_LIST=1 bash "$RT" 2>/dev/null | grep -c '^RUN')"
+# TRIPWIRE: count RUN **and** SKIP rows. Counting RUN alone silently under-counted the moment
+# a tag became opt-in/heavy (unscoped FF_LIST marks those SKIP) while a SCOPED run still emits
+# a skip line for every non-selected tag — the two numbers stopped being the same number.
+TAG_COUNT="$(FF_ONLY= FF_LIST=1 bash "$RT" 2>/dev/null | grep -cE '^(RUN|SKIP) ')"
 if [ "$TAG_COUNT" -ge 2 ]; then
   ok "ff-list-tag-count ($TAG_COUNT canonical tags)"
 else
@@ -153,5 +156,49 @@ else
   bad "phase-diagnostics-reach-the-results-artifact" "the reason is not recoverable from $diag_artifact alone"
 fi
 rm -rf "$DIAGREPO"
+
+# --- Opt-in-only phases (architecture-review step 2) -------------------------------------------
+# cli-flow-profile was a temporary diagnostic that became a REQUIRED gate phase. It proves trace
+# schema/containment/redaction, not recovery correctness, so it is not release coverage. It must
+# be absent from the default set and still reachable by name.
+# TRIPWIRE: both arms are proved by EXECUTION in an isolated fixture repo, not by the FF_LIST
+# advertisement — a list that disagrees with what runs is the exact failure this guards.
+list_unscoped="$(FF_ONLY= FF_LIST=1 bash "$RT" 2>/dev/null)"
+list_named="$(FF_ONLY=cli-flow-profile FF_LIST=1 bash "$RT" 2>/dev/null)"
+case "$list_unscoped" in
+  *"SKIP cli-flow-profile"*) ok "optin-listed-skip-when-unscoped" ;;
+  *) bad "optin-listed-skip-when-unscoped" "unscoped FF_LIST does not mark cli-flow-profile SKIP" ;;
+esac
+case "$list_named" in
+  *"RUN  cli-flow-profile"*) ok "optin-listed-run-when-named" ;;
+  *) bad "optin-listed-run-when-named" "FF_ONLY=cli-flow-profile FF_LIST does not mark it RUN" ;;
+esac
+
+OPTINREPO="$(mktemp -d)"
+mkdir -p "$OPTINREPO/hooks/tests" "$OPTINREPO/hooks/local/lib"
+cp "$RT" "$OPTINREPO/hooks/tests/run-tests.sh"
+cp "$ROOT/hooks/local/lib/run-with-timeout.sh" "$OPTINREPO/hooks/local/lib/"
+( cd "$OPTINREPO" && git init -q )
+OPTIN_SENTINEL="$OPTINREPO/cli-flow-profile-executed"
+# Stub standing in for the real phase script: every OTHER phase script is absent from this
+# fixture repo, so run-tests' `[ -f "$script" ]` guard no-ops them and only this one can run.
+cat > "$OPTINREPO/hooks/tests/test-cli-flow-recovery-profile.sh" <<EOF
+#!/usr/bin/env bash
+touch "$OPTIN_SENTINEL"
+echo "PASS: cli-flow-profile stub-executed"
+EOF
+( cd "$OPTINREPO" && bash hooks/tests/run-tests.sh >/dev/null 2>&1 )
+if [ -f "$OPTIN_SENTINEL" ]; then
+  bad "optin-phase-not-executed-by-default-run" "an UNSCOPED run executed the opt-in cli-flow-profile phase"
+else
+  ok "optin-phase-not-executed-by-default-run"
+fi
+( cd "$OPTINREPO" && FF_ONLY=cli-flow-profile bash hooks/tests/run-tests.sh >/dev/null 2>&1 )
+if [ -f "$OPTIN_SENTINEL" ]; then
+  ok "optin-phase-executes-when-named"
+else
+  bad "optin-phase-executes-when-named" "FF_ONLY=cli-flow-profile did not execute the phase"
+fi
+rm -rf "$OPTINREPO"
 
 finish
