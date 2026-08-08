@@ -152,7 +152,7 @@ _ffhc_deep_run_full() {
   elif [ -n "$pass_line" ] && [ "$rc" -eq 0 ] && ffhc_run_tests_pass_ok "$pass_line"; then
     LOCAL_OK+=("--run-hook-tests: $pass_line (full suite)")
   elif echo "$out" | grep -qE '^INCONCLUSIVE:'; then
-    DEEP_RUN_NOTES+=("--run-hook-tests: NOTE — full suite reported INCONCLUSIVE row(s) (bounded phase timeout / FF_SKIP_CLI_RECOVERY; optional deep run; verdict unaffected)")
+    DEEP_RUN_NOTES+=("--run-hook-tests: NOTE — full suite reported INCONCLUSIVE row(s) (optional deep run; verdict unaffected)")
   elif [ "$rc" -ne 0 ]; then
     LOCAL_BROKEN+=("--run-hook-tests: harness exited rc=$rc with no parsable result — crashed before reporting (run 'bash hooks/tests/run-tests.sh' to inspect)")
   else

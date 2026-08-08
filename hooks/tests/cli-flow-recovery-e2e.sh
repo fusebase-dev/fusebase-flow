@@ -29,10 +29,8 @@ ffcf_e2e_run() {
   HOOK_BEFORE="$(sha_cmd "$PROJECT/.claude/hooks/run-typecheck-apps.js")"
   CLI_SKILL_BEFORE="$(sha_cmd "$PROJECT/.claude/skills/fusebase-cli/SKILL.md")"
   SETTINGS_BEFORE="$(sha_cmd "$PROJECT/.claude/settings.json")"
-  ffcp_substep fixture-base "(none)" "single full fixture built (reduced canonical: ${#FFCF_SKILL_FILES[@]} files)"
 
   ( cd "$PROJECT" && bash hooks/local/post-fusebase-update.sh > "$OUT" )
-  ffcp_substep recovery-default post-fusebase-update.sh "default recovery run"
 
   grep -q "CURRENT CLI AGENTS SENTINEL" "$PROJECT/AGENTS.md" || fail "CLI AGENTS baseline was lost"
   # WS6 dual-accept: recovery emits the NEW marker; a legacy tree may carry either.
@@ -65,7 +63,6 @@ ffcf_e2e_run() {
 
   # THE one full-tree clone (see the header tripwire). Handed to U20 as a defined base.
   cp -R "$PROJECT" "$FFCF_SNAPSHOT"
-  ffcp_substep recovery-wired post-fusebase-update.sh "--wire-hooks run + the single full-tree snapshot"
 
   ffcf_assert_mirrors "$PROJECT" "recovery"
   for c in "${FFCF_COMMANDS[@]}"; do
@@ -150,5 +147,4 @@ ffcf_e2e_run() {
   grep -q "DRIFTED-FRAMEWORK-PROSE" "$PROJECT/AGENTS.md" && fail "U1: framework prose drift survived the refresh (block not refreshed)" || true
   [ "$(ffcf_count_marker "$PROJECT/AGENTS.md" "$FFCF_MB")" -eq 1 ] || fail "U1: BEGIN count not 1 after preserve-carry refresh"
   pass "U1: refresh preserves operator FLOW:PRESERVE values while refreshing framework prose"
-  ffcp_substep overlay-refresh post-fusebase-update.sh "4 --refresh-overlays runs (F2 x3 + U1)"
 }

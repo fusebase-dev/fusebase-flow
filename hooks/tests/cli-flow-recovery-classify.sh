@@ -224,5 +224,4 @@ info = [f for f in d["findings"] if f["status"] == "INFO" and "not installed" in
 assert info, "expected a benign INFO about provider skills not being installed"
 PY
   pass "F4: 0-present CLI provider surface is benign (single INFO, never CLI_LAYER_DRIFT)"
-  ffcp_substep classify check-cli-flow-conflicts.sh "12 isolated classification fixtures"
 }

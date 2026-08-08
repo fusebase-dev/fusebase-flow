@@ -10,18 +10,18 @@ Mode: restart  (`restart` — operator-triggered)
 
 ## Next action
 
-**Steps 1–3 are DONE and pushed. Continue at step 4** of
-`docs/specs/backlog-triage-execution/architecture-review.md`.
+**All 7 steps of `docs/specs/backlog-triage-execution/architecture-review.md` are DONE.** The open
+item is not a step — it is the Windows CI budget (below).
 
 | Step | State |
 |---|---|
 | 1 CI is sole release authority | **DONE** `9e9904e` — new `release-authority` phase, 10/10 |
 | 2 `cli-flow-profile` opt-in | **DONE** `8fcc356` — unscoped run loses exactly that phase's 11 rows |
 | 3 fast local default | **DONE** `cd319af` — **330s / 336s / 346s**, 111/111 PASS, 0 skips-as-passes |
-| 4 decompose `cli-flow-recovery` | next — 31 predicates preserved, `$PROJECT` clones 10 → 1 |
-| 5 move `signal-reap` to Windows CI | pending |
-| 6 required Linux **and** Windows exact-SHA jobs | pending — this is what makes two-platform gating real |
-| 7 delete monolith, profile helper, override guidance | pending |
+| 4 decompose `cli-flow-recovery` | **DONE** `0f72369` — 32 predicates, clones 10 → 1, 36m42s → 18m27s |
+| 5 move `signal-reap` to the CI/FF_FULL tier | **DONE** `b4b7baa` — 1075s → ~165s, 19 rows → 8 (4 discriminators + 4 controls) |
+| 6 required Linux **and** Windows exact-SHA jobs | **DONE** `63cb6d5` — two-platform gating is now real |
+| 7 delete profile helper + override guidance | **DONE** — per-scenario recovery rows; 900s default and both recovery escapes gone |
 
 **Judgement call to know about (step 3).** `secret-scan-staged` measured 456s of a 600s budget, so
 it moved to CI/`FF_FULL` under the review's own bound policy — *a phase that breaks the budget
@@ -80,9 +80,12 @@ see § Next action.
   at `9e9904e`; `.github/workflows/fusebase-flow-release.yml` publishes only after that job
   passes. A local full run produces `state/audit/hook-test-results.md`, which is a LOCAL gate
   report and developer feedback, not release proof. Do not reintroduce the older claim.
-- `cli-flow-recovery` measured 1568s/1813s against a committed 900s bound; the last full pass
-  (`88f7286`, 768/768) required `FF_CLI_RECOVERY_TIMEOUT=2700` in the environment. Do not commit
-  that value; `FF_SKIP_CLI_RECOVERY=1` is not a pass (it records INCONCLUSIVE).
+- `cli-flow-recovery` is 18m27s after step 4 and now runs under the ordinary committed
+  `FF_PHASE_TIMEOUT` (1800s). The 900s phase default, `FF_CLI_RECOVERY_TIMEOUT` and
+  `FF_SKIP_CLI_RECOVERY` are **deleted** (step 7): there is no way left to make this gate pass by
+  supplying an environment variable, and a bound hit is a FAIL, not an INCONCLUSIVE. The CI
+  negative arm in `test-release-evidence-authority.sh` fails if any such name reappears in either
+  required job.
 - Timings taken after a killed run are void until S2 is genuinely fixed.
 - **One AI Developer session per branch.** Two collided this round because a 0-byte transcript was
   misread as a dead spawn and retried, then a successor was spawned. Poll **file/git activity**,

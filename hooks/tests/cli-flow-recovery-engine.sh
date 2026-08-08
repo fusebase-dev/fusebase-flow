@@ -70,5 +70,4 @@ ffcf_engine_run() {
     *) fail "U18: unexpected main-engine '$v' (expected HEALTHY)";;
   esac
   pass "U18: main health engine reads a non-authoritative .agents CLI-provider gap as benign (HEALTHY)"
-  ffcp_substep engine fusebase-flow-health-check.sh "3 isolated main-engine drives"
 }

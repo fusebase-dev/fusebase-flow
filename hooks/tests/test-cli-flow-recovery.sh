@@ -15,6 +15,11 @@
 # TRIPWIRE — the suite budget is FORK COUNT, not bytes: an MSYS process spawn costs ~0.6s, so the
 # old 34-skill fixture made mirror-skills alone ~125s on EVERY recovery run. Adding a canonical
 # skill, a per-file cp loop, or another `cp -R "$PROJECT"` puts the minutes straight back.
+#
+# Output contract (parsed by run-tests.sh run_shell_phase):
+#   "PASS: cli-flow-recovery <name>" / "FAIL: cli-flow-recovery <name>"; exit = fail count.
+# Step 7 moved this phase off the single-row exit-code treatment: 32 predicates now report as 32
+# rows, so a red run names the predicate instead of one opaque "exit 1".
 
 set -euo pipefail
 
@@ -37,11 +42,17 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# S3A observability seam: pass()/fail() and the timed milestone trace live here, so this
-# baselined file gains instrumentation without gaining lines (FR-25). Contract + trace schema:
-# docs/specs/backlog-triage-execution/execution-plan.md § S3A.
-. "$ROOT/hooks/tests/lib/cli-flow-recovery-profile.sh"
-ffcp_init test-cli-flow-recovery.sh
+# Result reporters, shared by the five sourced modules. Ordinary per-test timing is sufficient
+# now that the phase is decomposed — the S3A instrumentation seam that used to own these was a
+# temporary diagnostic and was deleted in step 7 (architecture-review Q3: it proved trace schema,
+# containment and redaction, never recovery correctness, and its own review produced truncation,
+# secret-leak and symlink findings).
+# TRIPWIRE: `fail` exits, so a red run stops at the FIRST failing predicate and the rows after it
+# are absent rather than green. That is deliberate — these scenarios share a fixture tree, so a
+# failure invalidates what follows. run_shell_phase's crash guard turns the nonzero exit into a
+# counted FAIL even if no row was printed.
+pass() { echo "PASS: cli-flow-recovery $*"; }
+fail() { echo "FAIL: cli-flow-recovery $*" >&2; exit 1; }
 
 sha_cmd() {
   if command -v sha256sum >/dev/null 2>&1; then

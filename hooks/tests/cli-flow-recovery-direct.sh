@@ -190,7 +190,5 @@ ffcf_direct_run() {
   ffcf_u15_eslint
   ffcf_legacy_overlays
   ffcf_bad_settings
-  ffcp_substep direct "(mixed)" "U14/U15 + legacy overlay migration + invalid-JSON rollback"
   ffcf_u20_migration
-  ffcp_substep migration upgrade.sh "U20 on the single full-tree clone"
 }

@@ -157,47 +157,67 @@ else
 fi
 rm -rf "$DIAGREPO"
 
-# --- Opt-in-only phases (architecture-review step 2) -------------------------------------------
-# cli-flow-profile was a temporary diagnostic that became a REQUIRED gate phase. It proves trace
-# schema/containment/redaction, not recovery correctness, so it is not release coverage. It must
-# be absent from the default set and still reachable by name.
-# TRIPWIRE: both arms are proved by EXECUTION in an isolated fixture repo, not by the FF_LIST
-# advertisement — a list that disagrees with what runs is the exact failure this guards.
-list_unscoped="$(FF_ONLY= FF_LIST=1 bash "$RT" 2>/dev/null)"
-list_named="$(FF_ONLY=cli-flow-profile FF_LIST=1 bash "$RT" 2>/dev/null)"
-case "$list_unscoped" in
-  *"SKIP cli-flow-profile"*) ok "optin-listed-skip-when-unscoped" ;;
-  *) bad "optin-listed-skip-when-unscoped" "unscoped FF_LIST does not mark cli-flow-profile SKIP" ;;
-esac
-case "$list_named" in
-  *"RUN  cli-flow-profile"*) ok "optin-listed-run-when-named" ;;
-  *) bad "optin-listed-run-when-named" "FF_ONLY=cli-flow-profile FF_LIST does not mark it RUN" ;;
-esac
-
+# --- Opt-in-only tier (architecture-review step 2; registry emptied at step 7) -----------------
+# The maintainer opt-in tier is diagnostic-only: a member must be ABSENT from the default set and
+# still reachable by name. cli-flow-profile was its one member and was deleted with the
+# instrumentation seam it drove, so the shipped registry (FF_OPTIN_TAGS) is now EMPTY.
+# TRIPWIRE: this drives the MECHANISM against a SYNTHETIC member injected into a copied runner,
+# never against whichever diagnostic happens to exist. Asserting on a real member is why deleting
+# one diagnostic would otherwise silently delete the tier's only coverage. If the copy cannot be
+# patched, the rows go RED — a mechanism that could not be driven is not a mechanism that works.
 OPTINREPO="$(mktemp -d)"
 mkdir -p "$OPTINREPO/hooks/tests" "$OPTINREPO/hooks/local/lib"
-cp "$RT" "$OPTINREPO/hooks/tests/run-tests.sh"
 cp "$ROOT/hooks/local/lib/run-with-timeout.sh" "$OPTINREPO/hooks/local/lib/"
 ( cd "$OPTINREPO" && git init -q )
-OPTIN_SENTINEL="$OPTINREPO/cli-flow-profile-executed"
-# Stub standing in for the real phase script: every OTHER phase script is absent from this
-# fixture repo, so run-tests' `[ -f "$script" ]` guard no-ops them and only this one can run.
-cat > "$OPTINREPO/hooks/tests/test-cli-flow-recovery-profile.sh" <<EOF
+OPTIN_RT="$OPTINREPO/hooks/tests/run-tests.sh"
+# Register `optin-probe` as a tag AND as the opt-in registry's only member, and give it a phase.
+# TRIPWIRE: no multi-line sed replacement here — an embedded newline in an s/// replacement is
+# not portable and silently produced an UNPATCHED copy. `i\` inserts the line instead.
+sed -e 's/^  signal-reap cli-flow-recovery)$/  signal-reap cli-flow-recovery optin-probe)/' \
+    -e 's/^FF_OPTIN_TAGS=()$/FF_OPTIN_TAGS=(optin-probe)/' \
+    -e '/^run_shell_phase test-run-tests-signal-reap\.sh/i\run_shell_phase test-optin-probe.sh "optin-probe"' \
+    "$RT" > "$OPTIN_RT"
+
+patched=0
+grep -q 'FF_OPTIN_TAGS=(optin-probe)' "$OPTIN_RT"   && grep -q 'run_shell_phase test-optin-probe.sh "optin-probe"' "$OPTIN_RT"   && grep -q 'cli-flow-recovery optin-probe)' "$OPTIN_RT" && patched=1
+OPTIN_SENTINEL="$OPTINREPO/optin-probe-executed"
+# Stub standing in for a real phase script: every OTHER phase script is absent from this fixture
+# repo, so run-tests' `[ -f "$script" ]` guard no-ops them and only this one can run.
+cat > "$OPTINREPO/hooks/tests/test-optin-probe.sh" <<EOF
 #!/usr/bin/env bash
 touch "$OPTIN_SENTINEL"
-echo "PASS: cli-flow-profile stub-executed"
+echo "PASS: optin-probe stub-executed"
 EOF
-( cd "$OPTINREPO" && bash hooks/tests/run-tests.sh >/dev/null 2>&1 )
-if [ -f "$OPTIN_SENTINEL" ]; then
-  bad "optin-phase-not-executed-by-default-run" "an UNSCOPED run executed the opt-in cli-flow-profile phase"
+if [ "$patched" -ne 1 ]; then
+  bad "optin-listed-skip-when-unscoped"      "could not inject a synthetic opt-in member into the runner copy"
+  bad "optin-listed-run-when-named"          "could not inject a synthetic opt-in member into the runner copy"
+  bad "optin-phase-not-executed-by-default-run" "could not inject a synthetic opt-in member into the runner copy"
+  bad "optin-phase-executes-when-named"      "could not inject a synthetic opt-in member into the runner copy"
 else
-  ok "optin-phase-not-executed-by-default-run"
-fi
-( cd "$OPTINREPO" && FF_ONLY=cli-flow-profile bash hooks/tests/run-tests.sh >/dev/null 2>&1 )
-if [ -f "$OPTIN_SENTINEL" ]; then
-  ok "optin-phase-executes-when-named"
-else
-  bad "optin-phase-executes-when-named" "FF_ONLY=cli-flow-profile did not execute the phase"
+  list_unscoped="$( cd "$OPTINREPO" && FF_ONLY= FF_LIST=1 bash hooks/tests/run-tests.sh 2>/dev/null )"
+  list_named="$( cd "$OPTINREPO" && FF_ONLY=optin-probe FF_LIST=1 bash hooks/tests/run-tests.sh 2>/dev/null )"
+  case "$list_unscoped" in
+    *"SKIP optin-probe"*) ok "optin-listed-skip-when-unscoped" ;;
+    *) bad "optin-listed-skip-when-unscoped" "unscoped FF_LIST does not mark the opt-in member SKIP" ;;
+  esac
+  case "$list_named" in
+    *"RUN  optin-probe"*) ok "optin-listed-run-when-named" ;;
+    *) bad "optin-listed-run-when-named" "FF_ONLY=optin-probe FF_LIST does not mark it RUN" ;;
+  esac
+  # Both arms proved by EXECUTION, not by the FF_LIST advertisement — a list that disagrees with
+  # what runs is the exact failure this guards.
+  ( cd "$OPTINREPO" && bash hooks/tests/run-tests.sh >/dev/null 2>&1 )
+  if [ -f "$OPTIN_SENTINEL" ]; then
+    bad "optin-phase-not-executed-by-default-run" "an UNSCOPED run executed the opt-in phase"
+  else
+    ok "optin-phase-not-executed-by-default-run"
+  fi
+  ( cd "$OPTINREPO" && FF_ONLY=optin-probe bash hooks/tests/run-tests.sh >/dev/null 2>&1 )
+  if [ -f "$OPTIN_SENTINEL" ]; then
+    ok "optin-phase-executes-when-named"
+  else
+    bad "optin-phase-executes-when-named" "FF_ONLY=optin-probe did not execute the phase"
+  fi
 fi
 rm -rf "$OPTINREPO"
 
