@@ -47,7 +47,7 @@ HARD_SURFACES=(
   "hooks/local/bootstrap-upgrade.sh|UPGRADE consumer upgrade path"
   "hooks/local/stamp-*.sh|MANIFEST integrity manifest generation"
   "hooks/local/verify-*.sh|MANIFEST integrity manifest verification"
-  "hooks/tests/run-tests.sh|RELEASE_GATE the gate harness a release claim rests on"
+  "hooks/tests/run-tests.sh|RELEASE_GATE the harness CI runs as release evidence"
   "audit/*manifest*.json|MANIFEST committed integrity manifests"
   ".github/workflows/*|RELEASE_GATE CI that gates publication"
   "state/approvals/*|APPROVAL authorization artifacts"

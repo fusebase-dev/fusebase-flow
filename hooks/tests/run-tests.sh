@@ -2,12 +2,17 @@
 # Fusebase Flow — hook test runner
 # Pipes each fixture into its target handler and checks the response.
 #
+# ## Release evidence authority — NO run of this script is release evidence
+#   The CI `verify` job on the tagged SHA is (.github/workflows/fusebase-flow-release.yml
+#   -> needs: verify -> fusebase-flow-verify.yml). This harness run locally is developer
+#   feedback: unpinned host, no SHA/platform recorded, gates nothing.
+#   Canonical statement: PUBLISHING.md § Release evidence authority.
+#
 # ## Gate scoping (FF_ONLY / FF_LIST) — process rule
 #   FF_ONLY="tag1,tag2" runs ONLY the named phases (implement-loop iteration speed).
-#   FF_ONLY is IMPLEMENT-LOOP ONLY: the FINAL pre-commit / pre-deploy gate MUST be a
-#   full UNSCOPED run, and a gate report may cite ONLY state/audit/hook-test-results.md
-#   — never hook-test-results-scoped.md. A scoped run is fail-closed by construction:
-#   its summary line is deliberately NOT the strict "[run-tests] N/N PASS" shape, so
+#   A LOCAL gate report may cite ONLY state/audit/hook-test-results.md — never
+#   hook-test-results-scoped.md. A scoped run is fail-closed by construction: its summary
+#   line is deliberately NOT the strict "[run-tests] N/N PASS" shape, so
 #   ffhc_run_tests_pass_ok / ffhc_count_pass_lines read it as NOT a clean full pass, and
 #   its results go to hook-test-results-scoped.md (the full-gate file is never touched).
 #   FF_LIST=1 prints the canonical tag list (RUN/SKIP) and exits 0 without running.
@@ -62,7 +67,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke hook-manifest newli
   trusted-enforcer hook-install-rc msys-tree-cleanup ws5-upgrade ff-only return-budget \
   supersede-primitive rule-inventory boot-size prohibition-residency token-waste-classify \
   budget-literals history-extraction approval-binding approval-writer command-policy upgrade-classify \
-  upgrade-boundary preboundary-consumed upgrade-repair recovery-hint install-doc cli-flow-profile \
+  upgrade-boundary preboundary-consumed upgrade-repair recovery-hint install-doc release-authority cli-flow-profile \
   signal-reap cli-flow-recovery)
 
 declare -A FF_SEL=()      # selected tags (populated only when scoped)
@@ -253,7 +258,7 @@ if [ "$FF_SCOPED" -eq 1 ]; then
     echo "============================================================"
     echo "  SCOPED RUN — FF_ONLY=${FF_ONLY}"
     echo "  This is a SUBSET, not a full gate. Results -> ${RESULTS_FILE#"$ROOT/"}"
-    echo "  The final pre-commit/pre-deploy gate MUST be a full unscoped run."
+    echo "  No local run is release evidence — the CI verify job on the tagged SHA is."
     echo "============================================================"
   } >&2
 fi
@@ -418,6 +423,9 @@ run_shell_phase test-upgrade-preboundary-consumed-tree.sh "preboundary-consumed"
 run_shell_phase test-upgrade-repair-managed.sh           "upgrade-repair"
 run_shell_phase test-recovery-hint-honesty.sh            "recovery-hint"
 run_shell_phase test-install-fusebase-cli-project-doc.sh "install-doc"
+# Pins the shipped prose to the machinery: CI on the tagged SHA owns release evidence, no
+# local run does. Grep-based by nature — the claim is textual (see that file's header).
+run_shell_phase test-release-evidence-authority.sh      "release-authority"
 # Seconds: drives the observability seam with synthetic milestones. It does NOT run the heavy
 # cli-flow-recovery phase below, so it can never be read as evidence about that phase's result.
 run_shell_phase test-cli-flow-recovery-profile.sh       "cli-flow-profile"
@@ -476,7 +484,7 @@ run_exitcode_phase test-cli-flow-recovery.sh "cli-flow-recovery" "cli-flow-recov
     if [ "$FF_SCOPED" -eq 1 ]; then
         echo "# Hook test results — SCOPED (FF_ONLY=${FF_ONLY})"
         echo
-        echo "SUBSET RUN — not a full gate. The final pre-commit/pre-deploy gate must be a full unscoped run."
+        echo "SUBSET RUN — not a full gate. No local run is release evidence; the CI verify job on the tagged SHA is."
         echo
     else
         echo "# Hook test results"

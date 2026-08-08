@@ -24,7 +24,7 @@ The cost was **not** gates and **not** reviews. It was work sitting finished, wa
 | 1 | **Rule in batch.** When an agent stops on a contract question, answer it *and* pre-authorize the next two likely branches | One ruling per cycle is the 76% |
 | 2 | **Contract matrix before locking**, 45-min cap. Any decision saying "behave like X" enumerates every X first | "Judge as the gate judges" had three different answers (`command_policy` supplies `repo_id`+`command_digest`; `path_policy` supplies neither; health deferrals aren't in `require_approval`). Three rounds found that one at a time |
 | 3 | **Review before the expensive gate**, not after | Gate → review → invalidate both runs the costly step before the informative one |
-| 4 | **Tier the gate.** Scoped phases (~8 min) for intermediate rounds; one full unscoped two-platform run before release. Scoped runs are never release proof | A comment deletion took the same 45-min gate as a 400-line rewrite |
+| 4 | **Tier the gate.** Local runs are feedback, tiered by cost; release evidence is the CI `verify` job on the tagged SHA (`PUBLISHING.md` § Release evidence authority). No local run — scoped, fast, or full — is release proof | A comment deletion took the same 45-min gate as a 400-line rewrite |
 | 5 | **Lightweight-lane text-only residuals** (comments, assertion renames) | Full-lane ceremony on wording cost multiple cycles |
 | 6 | **Build only what was asked** | A consumer wrote *"this is not a request to change your default"*. It was read as a feature request: 3 rounds, 3 green gates, 3 NO-SHIPs, parked unshipped |
 | 7 | **Thin handoffs.** Don't restate rules the sub-agent already reads | Docs + generated artifacts were **38.5% of churn — more than production code** |
@@ -39,7 +39,7 @@ A review round whose findings sit **inside the previous round's fix** means the 
 
 ## Operational notes for this host
 
-- **Two-platform gating is mandatory before any release claim.** A green MSYS run alone has been wrong twice. Docker recipe: `docs/problem-catalog/ci-linux-msys-test-divergence/problem.md`.
+- **Two-platform gating is mandatory before any release claim — and is NOT YET ENFORCED.** A green MSYS run alone has been wrong twice, and a green Linux run alone carries the same risk in the other direction. The requirement stands; the machinery does not yet implement it — the required CI `verify` job is **Ubuntu-only**, so today nothing mechanically blocks a Release on missing Windows/MSYS evidence. Closing that is step 6 of `docs/specs/backlog-triage-execution/architecture-review.md` § Recommended sequence (required `verify-linux` + `verify-windows-msys` on the exact tag SHA). Until then, treat the Windows side as a manual obligation, not a gate. Docker recipe: `docs/problem-catalog/ci-linux-msys-test-divergence/problem.md`.
 - **Before diagnosing a timing FAIL, run `ps -W | grep run-tests`** — a competing suite on this machine has caused one, and `ps -W` alone can miss it (check Win32 `CommandLine`).
 - **Several gate phases sit within 0.5% of their walls** — `docs/backlog/gate-bounds-lack-headroom/`. Treat an `exit 124` with zero failed assertions as a bound problem, not a code problem, and say so explicitly rather than recording a gate as clean.
 - **Write long-running agent output to `c:/tmp/`**, not the session scratchpad — another Claude Code process can wipe it mid-run.

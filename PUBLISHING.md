@@ -47,9 +47,28 @@ git push origin v<version>
 
 > **Note:** Option 2 force-pushes `main`. If anyone has already cloned the build-time repo, coordinate before force-pushing. Option 1 (fresh repo) avoids this concern entirely.
 
-## Verification before publication
+## Release evidence authority
 
-Run all of:
+**Release evidence is the CI `verify` job on the tagged SHA. A local run is never release evidence.**
+
+Pushing a `v*` tag triggers `.github/workflows/fusebase-flow-release.yml`; its `publish` job declares
+`needs: verify`, and `verify` calls the reusable `.github/workflows/fusebase-flow-verify.yml` suite
+against that exact SHA. Red suite ⇒ no GitHub Release for that SHA.
+That `needs: verify` edge, not a terminal on a maintainer's desk, is what a release claim rests on.
+
+A local run (scoped, fast, or full) is **developer feedback**: it runs on an unpinned host, records
+neither SHA nor platform in `state/audit/hook-test-results.md`, and gates nothing. Cite the `verify`
+run for the tag, never a local result.
+
+**Known gap — not yet closed.** The enforced `verify` job is **Ubuntu-only**, so Windows/MSYS is not
+part of the required gate even though MSYS-specific defects are a recorded failure class
+(`docs/problem-catalog/ci-linux-msys-test-divergence/problem.md`). The two-platform required-check
+split is step 6 of `docs/specs/backlog-triage-execution/architecture-review.md` § Recommended
+sequence. Until it lands, a Windows-only regression can reach a Release.
+
+## Local pre-flight — developer feedback, not release evidence
+
+Run all of, so CI fails rarely — not because these authorize anything:
 
 ```bash
 bash hooks/local/preflight.sh
@@ -92,7 +111,9 @@ done
 echo "All tracked top-level entries are on the approved allowlist."
 ```
 
-If any of these checks fail, do NOT publish; correct the working tree and re-verify.
+If any of these checks fail, correct the working tree and re-run before pushing — a red local check
+is a red CI check waiting to happen. A green local run does not authorize a release; only the
+`verify` run on the tagged SHA does.
 
 **Shipping a new slash command?** The same release MUST ship its installer surface (v3.20.1 rule: *a preflight check may only ship in the same release as its installer step*): the recovery-snapshot copy in `hooks/local/fusebase-flow-overlays/commands/` (this is what `upgrade.sh`/`post-fusebase-update.sh` Step 8 install downstream) plus the command's entry in preflight §8 `FLOW_COMMANDS`. Preflight enforces all three surfaces (live file · snapshot copy · CLAUDE.md reference) per command — an incomplete command surface fails the release here instead of landing BROKEN on every consumer upgrade.
 

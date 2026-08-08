@@ -11,7 +11,10 @@
 #   ffhc_hook_manifest_verify   the CRITICAL — bounded manifest verify + D4 mapping.
 #   ffhc_hook_tests_deep_run    the OPTIONAL --run-hook-tests deep diagnostic (D5) —
 #                               runs the FULL run-tests.sh suite; FAIL/crash => BROKEN,
-#                               timeout/skip => NOTE only (never forces exit 4).
+#                               timeout/skip => NOTE only (never forces exit 4). A LOCAL
+#                               diagnostic, never release evidence — that is the CI verify
+#                               job on the tagged SHA (PUBLISHING.md § Release evidence
+#                               authority).
 #
 # Relies on run-with-timeout.sh (already sourced by the engine): ffhc_run_bounded,
 # ffhc_run_bounded_stdout, ffhc_select_pass_line, ffhc_run_tests_pass_ok, and the
