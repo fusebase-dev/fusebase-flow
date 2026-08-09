@@ -10,26 +10,28 @@ Mode: restart  (`restart` — operator-triggered)
 
 ## Next action
 
-**All 7 steps of `docs/specs/backlog-triage-execution/architecture-review.md` are DONE.** The open
-item is not a step — it is the Windows CI budget (below).
+**Fix the 4 BLOCKERs before any release attempt.** Steps 1-7 are committed and the direction is
+confirmed `SOUND-WITH-CORRECTIONS`
+(`docs/specs/backlog-triage-execution/final-architecture-review.md`).
 
-| Step | State |
-|---|---|
-| 1 CI is sole release authority | **DONE** `9e9904e` — new `release-authority` phase, 10/10 |
-| 2 `cli-flow-profile` opt-in | **DONE** `8fcc356` — unscoped run loses exactly that phase's 11 rows |
-| 3 fast local default | **DONE** `cd319af` — **330s / 336s / 346s**, 111/111 PASS, 0 skips-as-passes |
-| 4 decompose `cli-flow-recovery` | **DONE** `0f72369` — 32 predicates, clones 10 → 1, 36m42s → 18m27s |
-| 5 move `signal-reap` to the CI/FF_FULL tier | **DONE** `b4b7baa` — 1075s → ~165s, 19 rows → 8 (4 discriminators + 4 controls) |
-| 6 required Linux **and** Windows exact-SHA jobs | **DONE** `63cb6d5` — two-platform gating is now real |
-| 7 delete profile helper + override guidance | **DONE** — per-scenario recovery rows; 900s default and both recovery escapes gone |
+| # | BLOCKER | Why it matters |
+|---|---|---|
+| 1 | `verify.yml:46-50` — 60-min wall vs an evidence-based **~88m35s** Windows estimate (122m − 18m15s − 15m10s), with no hosted-runner measurement | Publication is knowingly likely to be **permanently red** |
+| 2 | `release.yml:35-49` — `gh release create --verify-tag` matches on tag NAME only; the tag target is never compared with the SHA that passed CI | **A force-moved tag can publish an unverified commit.** This is the exact class the whole effort exists to close |
+| 3 | `cli-flow-recovery-direct.sh:13-25` — predicate 32 checks mirror *parity* but never exercises production **recovery/write** mode | The 4-skill fixture can miss a production-only regression — the fixture-substitution failure class under review |
+| 4 | `test-run-tests-signal-reap.sh:47-53,225-277` — 3 of 4 discriminators can `skip()`, and skips are excluded from `finish()`'s exit status | A loaded Windows run can **silently lose most defect coverage and stay green** |
 
-**Judgement call to know about (step 3).** `secret-scan-staged` measured 456s of a 600s budget, so
-it moved to CI/`FF_FULL` under the review's own bound policy — *a phase that breaks the budget
-leaves the local tier; the wall is not raised.* Its scanner still runs on **every commit** via
-`hooks/git/pre-commit`; only the scenario phase moved.
+**MAJORs worth acting on with them:** timeout rc 124/137 is now mislabeled as a crash (removing
+INCONCLUSIVE deleted the load-vs-defect signal — #7); recovery bound headroom is 1.64x against
+documented 2-3x guidance (#8); dual-platform verify runs on ordinary pushes/PRs so template
+consumers inherit maintainer-grade cost without opt-in (#9 — a direct North Star hit);
+`release-authority` anchors are still comment-blind (#10); no shipped writer can mint the Step-6
+FR-07 approval as claimed (#11); and **"the secret scanner runs on every commit" is FALSE when
+`python3` is unavailable — the hook fails open (#12)**, which was step 3's safety justification.
 
-`.github/workflows/**` was deliberately untouched (FR-07). CI keeps full coverage because
-`GITHUB_ACTIONS`/`CI` selects the full path automatically.
+**Correction to this file (#13):** it previously said workflows were untouched and no environment
+override remains. Both are false — step 6 edited `.github/workflows/**` and `FF_PHASE_TIMEOUT`
+survives.
 
 ## What landed (T1–T5, T9 — all committed, none gated)
 
@@ -76,7 +78,7 @@ see § Next action.
 
 ## Standing constraints
 
-- **Release evidence is the CI `verify` job on the tagged SHA — never a local run.** Corrected
+- **Release evidence is the CI `verify` job — but see BLOCKER 2: the tag target is not compared with the verified SHA.** Never a local run. Corrected
   at `9e9904e`; `.github/workflows/fusebase-flow-release.yml` publishes only after that job
   passes. A local full run produces `state/audit/hook-test-results.md`, which is a LOCAL gate
   report and developer feedback, not release proof. Do not reintroduce the older claim.
