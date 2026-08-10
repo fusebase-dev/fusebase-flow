@@ -245,44 +245,49 @@ if [ "$IMPORT_RC" -ne 0 ]; then ok "7-import-error-fails-closed (pre-commit BLOC
 if echo "$IMPORT_ERR" | grep -qiE "FR-07|could not load|import"; then ok "7-import-error-diagnostic-emitted"; else bad "7-import-error-diagnostic-emitted" "no stderr diagnostic naming the import failure (operator can't diagnose)"; fi
 rm -rf "$D"
 
-# ---- 8. PYTHON3-ABSENT NO-SILENT-SKIP (T25): §3's outer gate used to silently skip
-#         FR-07 when python3 was unavailable AND changes were staged. The fix emits a
-#         LOUD stderr WARNING (python3 required to enforce FR-07); it does NOT hard-block
-#         (a python3-less env must still commit; §2's secret scan already gates on
-#         `command -v python3`). We mask python3 with a GIT-PRESERVING mask: a dir holding
-#         no python passes through PATH unchanged; a dir holding python is FILTERED into a
-#         temp bin (symlink every executable EXCEPT python/python3). WHY: a naive
-#         drop-every-python-dir mask ALSO removes git on Linux/CI, where python3 + git
-#         share /usr/bin — with git gone the hook exits 0 at its top
-#         `git rev-parse --show-toplevel` guard (a TEST ARTIFACT, not a fail-open).
-#         We only symlink the python-holding dir(s) (not all of PATH — System32 alone is
-#         ~5k files on Windows) and pass the rest through, so git/bash/coreutils survive;
-#         the precondition asserts python3 GONE and git PRESENT, so the scenario tests the
-#         REAL python3-absent path on BOTH platforms. ----
+# ---- 8. INTERPRETER CONTRACT: no interpreter + staged changes MUST BLOCK (pre-commit:87).
+#      TRIPWIRE — mask `py`/`pyw` too, not just `python*`: the Windows launcher sits in its
+#      own dir holding NO python*, so a python*-only mask leaves `py -3` discoverable and the
+#      hook takes the DISCOVERY branch — the row then measures nothing while passing.
+#      TRIPWIRE — git must SURVIVE the mask (only interpreter-holding dirs are filtered):
+#      python3+git share /usr/bin, and a git-less hook exits 0 at its `rev-parse` guard. ----
 D="$(new_repo)"
 MASKBIN="$(mktemp -d "${TMPDIR:-/tmp}/ffbe-nopy.XXXXXX")"
 MASK_PATH="$MASKBIN"
+MASK_TOOBIG=""
 _ifs_save="$IFS"; IFS=':'
 for _d in $PATH; do
   [ -d "$_d" ] || continue
-  if [ -e "$_d/python3" ] || [ -e "$_d/python" ] || [ -e "$_d/python3.exe" ] || [ -e "$_d/python.exe" ]; then
+  if [ -e "$_d/python3" ] || [ -e "$_d/python" ] || [ -e "$_d/python3.exe" ] || [ -e "$_d/python.exe" ] \
+     || [ -e "$_d/py" ] || [ -e "$_d/py.exe" ]; then
+    # TRIPWIRE — a system-wide launcher install puts py.exe in C:\Windows; mirroring a dir
+    # that size is minutes of symlinks (a full COPY where `ln -s` is unavailable). Refuse
+    # to build the mask: an honest precondition failure beats a hung CI phase.
+    _n="$(ls -1 "$_d" 2>/dev/null | wc -l)"
+    if [ "${_n:-0}" -gt 2000 ]; then MASK_TOOBIG="$_d (${_n} entries)"; break; fi
     for _exe in "$_d"/*; do
       [ -e "$_exe" ] || continue
       _b="$(basename "$_exe")"
-      case "$_b" in python|python3|python2*|python3.*|python.exe|python3.exe) continue;; esac
+      case "$_b" in python|python3|python2*|python3.*|python.exe|python3.exe|py|py.exe|pyw|pyw.exe) continue;; esac
       [ -e "$MASKBIN/$_b" ] || ln -s "$_exe" "$MASKBIN/$_b" 2>/dev/null || cp -p "$_exe" "$MASKBIN/$_b" 2>/dev/null || true
     done
   else
-    MASK_PATH="$MASK_PATH:$_d"   # no python here — pass through (keeps git/bash/coreutils resolvable)
+    MASK_PATH="$MASK_PATH:$_d"   # no interpreter here — pass through (keeps git/bash/coreutils resolvable)
   fi
 done
 IFS="$_ifs_save"
-# Precondition: python3 MASKED (gone) AND git PRESERVED. A git-less mask exits 0 at the
-# hook's top `git rev-parse --show-toplevel` guard — never let that pass as a "loud warn".
-if PATH="$MASK_PATH" command -v python3 >/dev/null 2>&1; then
+# Precondition: EVERY discovery candidate masked (python3, python, py) AND git PRESERVED —
+# either gap would read as a pass while measuring nothing.
+if [ -n "$MASK_TOOBIG" ]; then
+  bad "8-python3-mask-precondition" "refusing to mirror an oversized interpreter-holding dir: $MASK_TOOBIG"
+elif PATH="$MASK_PATH" command -v python3 >/dev/null 2>&1; then
   bad "8-python3-mask-precondition" "could not mask python3 (still resolvable under the git-preserving mask)"
+elif PATH="$MASK_PATH" command -v python >/dev/null 2>&1; then
+  bad "8-python3-mask-precondition" "could not mask python (§1b would discover it and shim — the block is not measured)"
+elif PATH="$MASK_PATH" command -v py >/dev/null 2>&1; then
+  bad "8-python3-mask-precondition" "could not mask py (§1b would discover 'py -3' and shim — the block is not measured)"
 elif ! PATH="$MASK_PATH" command -v git >/dev/null 2>&1; then
-  bad "8-python3-mask-precondition" "git not preserved by the mask (a git-less hook sees nothing staged — cannot isolate python3-absence)"
+  bad "8-python3-mask-precondition" "git not preserved by the mask (a git-less hook sees nothing staged — cannot isolate interpreter-absence)"
 else
   printf '\n# python3-absent edit\n' >> "$D/policies/protected-paths.yml"
   ( cd "$D" && git add policies/protected-paths.yml )
@@ -293,11 +298,11 @@ else
   fi
   NOPY_ERR="$( ( cd "$D" && PATH="$MASK_PATH" bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
   NOPY_RC=0; ( cd "$D" && PATH="$MASK_PATH" bash hooks/git/pre-commit >/dev/null 2>&1 ) || NOPY_RC=$?
-  if [ "$NOPY_RC" -eq 0 ]; then ok "8-python3-absent-non-blocking"
-  else bad "8-python3-absent-non-blocking" "python3-absent hard-blocked (exit $NOPY_RC); a python3-less env must still commit"; fi
-  # python3 ABSENT + git PRESENT ⇒ §3 must emit the loud FR-07 warn (NOT a silent skip). If
-  # nothing is emitted here, it IS a genuine fail-open (FR-07 finding) — the message says so.
-  if echo "$NOPY_ERR" | grep -qF "python3 not found; FR-07 protected-path check was NOT enforced for this commit. Install python3 to enforce FR-07."; then ok "8-python3-absent-loud-warn (git-preserving mask; §3 names the un-enforceable FR-07 check — a loud WARN, not a silent skip)"; else bad "8-python3-absent-loud-warn" "python3-absent path emitted NO specific non-enforcement warning with git PRESENT — a GENUINE FR-07 silent-skip (fail-open), not a test artifact"; fi
+  # rc 0 here is the fail-open hole §1b closed: FR-12 (§2) + FR-07 (§3) both unenforced.
+  if [ "$NOPY_RC" -ne 0 ]; then ok "8-interpreter-absent-blocks (staged changes + no python3/python/py ⇒ commit refused)"
+  else bad "8-interpreter-absent-blocks" "rc=0 with NO interpreter — the commit proceeded with the FR-12 secret scan and the FR-07 check both unenforced (fail-open)"; fi
+  # A bare nonzero rc could come from anything; the refusal must name this control.
+  if echo "$NOPY_ERR" | grep -qF "no supported Python 3.10+ interpreter found"; then ok "8-interpreter-absent-block-message (§1b names the contract and the two controls it protects)"; else bad "8-interpreter-absent-block-message" "blocked (rc=$NOPY_RC) but stderr does not name the interpreter contract, so the refusal is not attributable to it"; fi
 fi
 rm -rf "$D" "$MASKBIN"
 
@@ -625,16 +630,41 @@ PY
 if [ "$X15" = "branch_pr" ]; then ok "15c-cross-policy-get_policy-unchanged (approval-policy local override wins)"; else bad "15c-cross-policy-get_policy-unchanged" "approval-policy merge changed (got: $X15, expected branch_pr)"; fi
 rm -rf "$D"
 
-# ---- 16 (#1). OUTER git-list rc fail-closed. The outer bash `git diff --cached
-#      --name-only` rc is now captured; a nonzero rc fails closed (mirrors the inner
-#      python rc-check). Non-reachable via a real broken repo (it wouldn't commit), so we
-#      assert the guard EXISTS in source (grep) rather than fabricate an unreachable
-#      scenario — the inner python rc-checks (tests 9b/12) cover the reachable path.
-if grep -q 'STAGED_ANY_RC' "$ROOT/hooks/git/pre-commit" && grep -q 'outer git rc' "$ROOT/hooks/git/pre-commit"; then
-  ok "16-outer-git-list-rc-guard-present (source)"
+# ---- 16 (#1). OUTER git-list rc fails closed: an unverifiable staged set is refused, not
+#      treated as empty (mirrors the inner python rc-checks, tests 9b/12). Driven via a git
+#      shim that fails ONLY `diff --cached`, delegating the rest to real git.
+#      TRIPWIRE — never anchor this row on prose: a reworded comment reads as a missing guard.
+D="$(new_repo)"
+GITSHIM="$(mktemp -d "${TMPDIR:-/tmp}/ffbe-gitrc.XXXXXX")"
+REAL_GIT="$(command -v git)"
+# TRIPWIRE — match the whole arg list, never $1: the precondition calls `git -C <dir> diff`,
+# so a positional test sees `-C`, delegates, and leaves the guard unexercised.
+cat > "$GITSHIM/git" <<EOF
+#!/usr/bin/env bash
+_d=0; _c=0
+for _a in "\$@"; do
+  [ "\$_a" = "diff" ] && _d=1
+  [ "\$_a" = "--cached" ] && _c=1
+done
+[ "\$_d" = 1 ] && [ "\$_c" = 1 ] && exit 1
+exec "$REAL_GIT" "\$@"
+EOF
+chmod +x "$GITSHIM/git"
+# Precondition: the shim must actually break `diff --cached` while leaving the rest working.
+if PATH="$GITSHIM:$PATH" git -C "$D" diff --cached --name-only >/dev/null 2>&1; then
+  bad "16-git-shim-precondition" "shim did not fail 'git diff --cached' — the outer rc guard is not exercised"
+elif ! PATH="$GITSHIM:$PATH" git -C "$D" rev-parse --show-toplevel >/dev/null 2>&1; then
+  bad "16-git-shim-precondition" "shim broke 'git rev-parse' too — the hook exits at its top guard, measuring nothing"
 else
-  bad "16-outer-git-list-rc-guard-present" "outer git-list rc guard (#1) not found in pre-commit source"
+  RC16_ERR="$( ( cd "$D" && PATH="$GITSHIM:$PATH" bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
+  RC16=0; ( cd "$D" && PATH="$GITSHIM:$PATH" bash hooks/git/pre-commit >/dev/null 2>&1 ) || RC16=$?
+  if [ "$RC16" -ne 0 ] && echo "$RC16_ERR" | grep -qF "could not list staged changes"; then
+    ok "16-outer-git-list-rc-fails-closed (driven: unlistable staged set ⇒ commit refused)"
+  else
+    bad "16-outer-git-list-rc-fails-closed" "unlistable staged set did not fail closed (rc=$RC16) — an unverifiable staged set was treated as safe"
+  fi
 fi
+rm -rf "$D" "$GITSHIM"
 
 # ---- 17. AC11 cross-carrier expiry: the "missing expires_at = valid forever" hole ----
 # path_policy now shares approval_artifact's PARSED expiry semantics (decision K1/K17).
