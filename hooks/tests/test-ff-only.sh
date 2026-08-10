@@ -173,7 +173,12 @@ OPTIN_RT="$OPTINREPO/hooks/tests/run-tests.sh"
 # Register `optin-probe` as a tag AND as the opt-in registry's only member, and give it a phase.
 # TRIPWIRE: no multi-line sed replacement here — an embedded newline in an s/// replacement is
 # not portable and silently produced an UNPATCHED copy. `i\` inserts the line instead.
-sed -e 's/^  signal-reap cli-flow-recovery)$/  signal-reap cli-flow-recovery optin-probe)/' \
+# TRIPWIRE: the FF_TAGS anchor is PREFIX-AGNOSTIC (`.*cli-flow-recovery)$`). It used to pin the
+# whole line, `  signal-reap cli-flow-recovery)`, so adding ANY tag ahead of signal-reap silently
+# unpatched the copy and turned all four opt-in rows red with "could not inject" — which is
+# exactly what registering release-tag-binding did. Anchor to the tail of the array, not to a
+# neighbouring tag's name.
+sed -e 's/^\(.*\)cli-flow-recovery)$/\1cli-flow-recovery optin-probe)/' \
     -e 's/^FF_OPTIN_TAGS=()$/FF_OPTIN_TAGS=(optin-probe)/' \
     -e '/^run_shell_phase test-run-tests-signal-reap\.sh/i\run_shell_phase test-optin-probe.sh "optin-probe"' \
     "$RT" > "$OPTIN_RT"

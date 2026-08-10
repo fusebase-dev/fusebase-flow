@@ -486,7 +486,7 @@
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
-      "sha256": "f13adc959f7230ec15abd28644aa745df8f4c05a983664817e084e922e4efa97"
+      "sha256": "8c314d3a653c8736e498b79555bd8c722e2bf36a9dbda2c45ee4d21a0946606f"
     },
     {
       "path": "hooks/tests/test-fr22-delivery-guarantee.sh",
@@ -617,5 +617,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "9c1c72547cecbc0b02728678f6405a73a5d96357f8cbbd04769c3d55cc5738e3"
+  "manifest_self_sha256": "23efcbacb76935d41777615cc0918f28b90f70ddf336c8f40c1a84b9d41cb8b0"
 }
