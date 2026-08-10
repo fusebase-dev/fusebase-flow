@@ -10,19 +10,88 @@
 # TRIPWIRE — the reduced fixture is only safe while production BREADTH is proven elsewhere.
 # ffcf_production_breadth is that proof and must never be deleted alongside a fixture change.
 
-# Production breadth: read-only, whole-repo, zero copies. The suite's fixture carries 4 canonical
-# skills; this asserts the real tree's full set still matches the committed mirror manifest, so a
-# skill added or a mirror gone stale can never hide behind the reduced fixture.
+# B3 / final-architecture-review finding 3: predicate 32 used to run ONE read-only
+# `mirror-skills.sh --check` over the already-mirrored real tree. Parity on a clean tree cannot
+# see a defect in WRITE mode (mirror-skills.sh Phase 3-write: the mkdir/cp loop, the in-memory
+# row accumulation, the LC_ALL=C sort, the atomic temp+rename) — and write mode is the half a
+# 4-skill fixture would never stress at scale. The predicate now RUNS production write mode over
+# the whole canonical corpus and asserts its return code, its output, and that it reproduces the
+# COMMITTED manifest byte for byte.
+#
+# TRIPWIRE (cost, and why the write happens in a copy): the write is ~2 spawns per mirrored file
+# (mkdir + cp) x 98 files — the single most expensive thing in this phase on MSYS, measured at
+# 6m49s on a loaded host and dominating the phase budget. Do NOT add a second full-corpus write.
+# The mutation below deliberately runs on the REDUCED corpus: the full run proves BREADTH, the
+# mutation proves the assertions are not vacuous. Running it in a copy (never $ROOT) also keeps
+# the phase read-only with respect to the repository.
 ffcf_production_breadth() {
-  local real=0 sd out
+  local real=0 sd out rc d files
   for sd in "$ROOT"/flow-skills/*/; do [ -f "$sd/SKILL.md" ] && real=$((real + 1)); done
   [ "$real" -gt "${#FFCF_SKILL_NAMES[@]}" ] \
     || fail "breadth guard is vacuous: production has $real canonical skills, the fixture has ${#FFCF_SKILL_NAMES[@]}"
+
+  # (1) read-only parity over the real tree — the original claim, unchanged.
   out="$( cd "$ROOT" && bash hooks/local/mirror-skills.sh --check 2>&1 )" \
     || { printf '%s\n' "$out" >&2; fail "production breadth: mirror-skills.sh --check reported drift across the full $real-skill tree"; }
   printf '%s' "$out" | grep -qF "0 drift ($real skill(s)" \
     || { printf '%s\n' "$out" >&2; fail "production breadth: --check did not confirm 0 drift over all $real canonical skills"; }
   pass "production breadth: mirror-skills.sh --check is 0-drift over all $real canonical skills (reduced fixture hides nothing)"
+
+  # (2) production RECOVERY/WRITE mode over the full corpus, rc asserted.
+  d="$TMP_BASE/production-write"
+  mkdir -p "$d/hooks/local"
+  cp -R "$ROOT/flow-skills" "$d/flow-skills"
+  cp "$ROOT/hooks/local/mirror-skills.sh" "$d/hooks/local/"
+  set +e
+  ( cd "$d" && bash hooks/local/mirror-skills.sh > "$TMP_BASE/prodwrite.out" 2>&1 )
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] || { cat "$TMP_BASE/prodwrite.out" >&2; fail "production write: mirror-skills.sh exited $rc over the full $real-skill corpus (a nonzero recovery rc must never be discarded — MAJOR 5)"; }
+  grep -qF "mirroring $real skill(s)" "$TMP_BASE/prodwrite.out" \
+    || { cat "$TMP_BASE/prodwrite.out" >&2; fail "production write: the run did not report all $real canonical skills"; }
+
+  # Every mirror file the manifest names must exist on disk in BOTH provider mirrors.
+  files="$(wc -l < "$ROOT/audit/skill-mirror-manifest.txt" | tr -d ' ')"
+  local rel missing=0
+  while IFS= read -r rel; do
+    rel="${rel%%  *}"
+    [ -n "$rel" ] || continue
+    [ -f "$d/$rel" ] || missing=$((missing + 1))
+  done < "$ROOT/audit/skill-mirror-manifest.txt"
+  [ "$missing" -eq 0 ] || fail "production write: $missing of $files mirrored files were not produced by write mode over the full corpus"
+
+  # (3) the freshly WRITTEN tree must be self-consistent, and (4) byte-identical to what is
+  # committed — so write mode over the production corpus reproduces the committed artifact
+  # exactly. A locale-dependent sort, a lost row, or a duplicated row fails here and CANNOT
+  # be reached by parity on an already-mirrored tree.
+  out="$( cd "$d" && bash hooks/local/mirror-skills.sh --check 2>&1 )" \
+    || { printf '%s\n' "$out" >&2; fail "production write: --check reported drift in the tree write mode had just produced"; }
+  diff -q "$d/audit/skill-mirror-manifest.txt" "$ROOT/audit/skill-mirror-manifest.txt" >/dev/null 2>&1 \
+    || fail "production write: the manifest produced over the full corpus is not byte-identical to the committed audit/skill-mirror-manifest.txt"
+  pass "production write: mirror-skills.sh write mode over all $real canonical skills exits 0, materializes all $files mirror files, and reproduces the committed manifest byte for byte"
+
+  # (5) RETAINED RED-BEFORE MUTATION — a WRITE-ONLY defect must be caught. The mutation is the
+  # recorded incident (concurrent per-row appends producing duplicated manifest rows, which the
+  # hash-based --check on a clean tree could not see). Run on the REDUCED corpus on purpose: the
+  # full run above owns breadth, this owns "the assertions are not vacuous". If this mutation
+  # ever stops being caught, assertions (3)/(4) have gone decorative.
+  local m="$TMP_BASE/mutant"
+  mkdir -p "$m/hooks/local" "$m/flow-skills"
+  local sn
+  for sn in "${FFCF_SKILL_NAMES[@]}"; do
+    [ -d "$ROOT/flow-skills/$sn" ] && cp -R "$ROOT/flow-skills/$sn" "$m/flow-skills/"
+  done
+  sed 's#"$manifest_rows" | LC_ALL=C sort#"$manifest_rows$manifest_rows" | LC_ALL=C sort#' \
+      "$ROOT/hooks/local/mirror-skills.sh" > "$m/hooks/local/mirror-skills.sh"
+  grep -q '"$manifest_rows$manifest_rows"' "$m/hooks/local/mirror-skills.sh" \
+    || fail "production write mutation: the manifest-write anchor no longer matches, so the mutation was not applied — an unapplied mutation proves nothing"
+  set +e
+  ( cd "$m" && bash hooks/local/mirror-skills.sh >/dev/null 2>&1 )
+  ( cd "$m" && bash hooks/local/mirror-skills.sh --check > "$TMP_BASE/mutant-check.out" 2>&1 )
+  rc=$?
+  set -e
+  [ "$rc" -ne 0 ] || { cat "$TMP_BASE/mutant-check.out" >&2; fail "production write mutation: a writer that duplicates every manifest row still produced a 0-drift tree — the write-mode assertions cannot see a write-only defect"; }
+  pass "production write mutation: a duplicate-row manifest writer is caught (write-only defect class; parity on a clean tree cannot reach it)"
 }
 
 # U14 — --wire-hooks must wire stop.py (not a copied CLI command) onto a Stop chain that already
