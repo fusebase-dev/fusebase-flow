@@ -46,10 +46,16 @@ reasons, both from `plan-review-2.md`:
 
 ## Still open after the measurement
 
-| ID | Item | Note |
+**B2 and B4 were re-verified against the shipped files on 2026-08-10 and are CLOSED.** An earlier
+revision of this handoff listed them as open; that was stale, not a finding.
+
+| ID | State | Evidence (read, not inferred from commit messages) |
 |---|---|---|
-| B2 | `gh release create --verify-tag` matches tag NAME only; tag target never compared to the verified SHA | A force-moved tag can publish unverified code — the exact class this effort exists to close |
-| B4 | 3 of 4 `signal-reap` discriminators can `skip()` while the phase exits 0 | A skipped discriminator is a non-pass and must affect exit status; controls may still skip |
+| B2 | **CLOSED** | `hooks/local/verify-tag-target.sh` force-fetches the tag from the remote (a non-forced fetch of an existing ref is rejected by git, which would silently compare the stale workspace ref — the exact bypass), peels with `^{commit}` so annotated tags resolve, requires a full 40-hex SHA so a truncated value cannot match, and has no skip knob. Called in `fusebase-flow-release.yml` BEFORE publish and again AFTER (TOCTOU re-assert). Mutation-tested by `test-release-tag-binding.sh`, which strips `refresh_tag_from_remote` from a copy and asserts the moved tag is then wrongly accepted — so the fetch cannot decay into decoration. The residual window is fetch→create and is closable only by a repo-side tag ruleset (`PUBLISHING.md` § Publication paths) |
+| B4 | **CLOSED** | `test-run-tests-signal-reap.sh`: discriminators that cannot run call `err()` ("a discriminator that could not run is NOT a pass") which counts into `fail`; `skip()` is restricted to CONTROLS and never enters the exit status. The one surviving `skip` (`never-signals-own-group`) is a labelled `[CONTROL]`. `finish()` also fails when any declared row never reported — "the suite got smaller, not greener" |
+
+| ID | Still open | Note |
+|---|---|---|
 | B3 | predicate 32 checks mirror parity, never production recovery/write | Partially addressed at `b64033d`; confirm it exercises the write path |
 | MAJORs | 7 (rc 124/137 vs crash), 8 (1.64× headroom), 9 (dual-platform verify on ordinary pushes — North Star hit), 10 (comment-blind anchors), 11 (no shipped writer mints the FR-07 approval), 12 (`hooks/git/pre-commit` fails open without python3) | 12 falsifies step 3's own safety argument |
 | — | SIGINT exit status | Design decision, deliberately not improvised |
