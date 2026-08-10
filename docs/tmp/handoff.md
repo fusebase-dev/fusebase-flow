@@ -1,9 +1,9 @@
 # Active handoff
 
 Mode: run-ledger  (autonomous run, operator stepped out)
-**Updated:** 2026-08-10T21:00Z
+**Updated:** 2026-08-10T21:40Z
 **Branch:** `fix/msys-v3307-hardening`
-**HEAD at write time:** `c753d13`
+**HEAD at write time:** `800bf36`
 **Default branch:** `main` at `205e492` (measurement workflow cherry-picked; nothing else changed)
 **Authoritative plan:** `docs/specs/backlog-triage-execution/blocker-fix-plan.md` — **SUPERSEDED IN PART**
 **Governing review:** `docs/specs/backlog-triage-execution/plan-review-2.md` — `WRONG-APPROACH` on B1
@@ -32,28 +32,40 @@ fresh hosted-runner measurement — a local timing is not evidence for a CI boun
 Raw logs: `windows-measurement` artifact on the run (no `summary.md` — the step that writes it is
 downstream of the suite step and did not run; per-phase times come from stderr `took Ns` lines).
 
-## The 4 failures are ALL test-side. Production is correct and STRICTER than the tests assert.
+## The 4 failures are FIXED (`bd47aed`, `800bf36`). The MASKS were the defect, not just the assertions.
 
-| Failing row | Reality |
-|---|---|
-| `8-python3-absent-non-blocking` | Asserts *"a python3-less env must still commit"* (rc 0). The **MAJOR 12 fix deliberately reversed this**: `pre-commit:87` blocks when staged changes exist and no interpreter can be discovered. The test now demands the fail-open hole back |
-| `8-python3-absent-loud-warn` | Greps for the old warning text *"FR-07 protected-path check was NOT enforced for this commit"*. That string is gone **because the path no longer continues un-enforced** — it blocks |
-| `16-outer-git-list-rc-guard-present` | Greps `pre-commit` for the literal comment `outer git rc`. The guard itself is present and correct (`:74-77`, `STAGED_ANY_RC` + fail-closed block); only the **comment** was reworded. A prose-coupled anchor — the MAJOR 10 class |
-| `git-smoke pre-commit blocks when no python3` | Could not construct a python-less PATH that still has git on Windows. An honest ERROR ("did not measure the contract"), correctly not counted as a pass |
+Test files only; no production change. Local: 59/59 `test-bootstrap-exception.sh`, 7/7
+`test-git-hooks-smoke.sh`. **Not yet re-run on a hosted Windows runner.**
 
-**Why local/Linux was green and Windows CI red:** locally the python-less environment cannot be
-constructed, so these rows never execute the contradiction. On the hosted Windows runner they do.
-This is a genuine **MSYS-red / elsewhere-green** case — the opposite direction from every case in
-`ci-linux-msys-test-divergence`, and worth adding there.
+| Row (current name) | Was | Fix |
+|---|---|---|
+| `8-interpreter-absent-blocks` | `8-python3-absent-non-blocking` — asserted rc 0, *"a python3-less env must still commit"* | Asserts BLOCK: `pre-commit:87` refuses when changes are staged and no interpreter is discoverable |
+| `8-interpreter-absent-block-message` | `8-python3-absent-loud-warn` — grepped a warning string deleted when the fail-open closed | Asserts the refusal NAMES the contract (`no supported Python 3.10+ interpreter found`), so a bare nonzero rc cannot pass for it |
+| `16-outer-git-list-rc-fails-closed` | `16-*-guard-present` — grepped `pre-commit` for the comment `outer git rc` | DRIVEN: a git shim fails only `diff --cached`; the hook must refuse. No prose anchor |
+| `git-smoke ... no python3` | Environment ERROR on the runner — no python-less PATH retaining git | Ported row 8's git-preserving filtered mirror. Measurable on CI instead of erroring |
 
-**Required fix — do NOT simply flip the assertions to green.** The correct contract is the
-stricter one:
-1. `8-python3-absent-*` must assert **BLOCK + the block message**, i.e. that a python3-less env
-   with staged changes REFUSES to commit. Rewriting them to expect rc 0 would re-encode the
-   security hole MAJOR 12 closed.
-2. `16-*` must assert the **mechanism**, not a comment string — drive the rc path or anchor on
-   `STAGED_ANY_RC` and the block, never on prose.
-3. `git-smoke` row: keep it an ERROR when the environment cannot be built. It is honest as-is.
+**Three rows were GREEN locally while testing nothing.** That is the finding, and it outranks the
+stale-assertion framing this section previously carried:
+
+- Row 8's mask filtered `python*` but not `py`. The Windows launcher sits in its own dir holding no
+  `python*`, so that dir passed through PATH untouched, `py -3` stayed discoverable, and the hook
+  took the DISCOVERY branch — never reaching the absent path. Measured A/B against the real hook:
+  old mask → rc 0 + `using discovered 'py -3'`; new mask → rc 1 + the BLOCK message.
+- `git-smoke`'s mask dropped whole PATH dirs, which removes git on Linux (`python3` + git share
+  `/usr/bin`); a git-less hook exits 0 at its top `rev-parse` guard — an environment artifact, not
+  a verdict. Measured A/B on a simulated shared dir: old → git GONE; new → git survives with every
+  interpreter still masked.
+
+**Guard added with both widened masks:** refuse to mirror a dir over 2000 entries. A system-wide
+launcher install puts `py.exe` in `C:\Windows`, which would otherwise be symlinked — or COPIED,
+where `ln -s` is unavailable — wholesale.
+
+**MAJOR 10 (comment-blind anchors):** the failing instance is closed. The other source-greps in
+`test-secret-scan-staged.sh` / `test-trusted-enforcer.sh` were checked and anchor on EMITTED
+runtime strings (`pre-commit:161`, `:440`), not prose — no change needed.
+
+**Next on this thread:** re-run these four rows on a hosted Windows runner. Local green is exactly
+the signal that already misled this workstream once.
 
 ## Superseded next action (kept for provenance)
 
@@ -102,7 +114,7 @@ revision of this handoff listed them as open; that was stale, not a finding.
 | ID | Still open | Note |
 |---|---|---|
 | B3 | predicate 32 checks mirror parity, never production recovery/write | Partially addressed at `b64033d`; confirm it exercises the write path |
-| MAJORs | 7 (rc 124/137 vs crash), 8 (1.64× headroom), 9 (dual-platform verify on ordinary pushes — North Star hit), 10 (comment-blind anchors), 11 (no shipped writer mints the FR-07 approval), 12 (`hooks/git/pre-commit` fails open without python3) | 12 falsifies step 3's own safety argument |
+| MAJORs | 7 (rc 124/137 vs crash), 8 (1.64× headroom), 9 (dual-platform verify on ordinary pushes — North Star hit), 11 (no shipped writer mints the FR-07 approval) | **10 and 12 are CLOSED.** 12's fail-closed interpreter contract landed in `c11d4e2` and is now ASSERTED by `bd47aed` (the tests had lagged the fix, demanding the hole back); 10's comment-blind anchor is gone. 7 and 9 are also named in `c11d4e2` but were not re-verified here |
 | — | SIGINT exit status | Design decision, deliberately not improvised |
 | — | `gate-bounds-lack-headroom` | OPEN and **worse** post-B3; the scalar was deliberately NOT raised (`b09ea02`) |
 
