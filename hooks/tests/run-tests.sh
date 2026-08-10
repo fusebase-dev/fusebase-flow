@@ -76,7 +76,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke hook-manifest newli
   supersede-primitive rule-inventory boot-size prohibition-residency token-waste-classify \
   budget-literals history-extraction approval-binding approval-writer command-policy upgrade-classify \
   upgrade-boundary preboundary-consumed upgrade-repair recovery-hint install-doc release-authority \
-  signal-reap cli-flow-recovery)
+  release-tag-binding signal-reap cli-flow-recovery)
 
 # OPT-IN-ONLY tags: registered and reachable, but NEVER in the default/required set — they run
 # only when named in FF_ONLY. This is the review's "Maintainer opt-in" tier (repeated kill/load
@@ -505,6 +505,11 @@ run_shell_phase test-install-fusebase-cli-project-doc.sh "install-doc"
 # Pins the shipped prose to the machinery: CI on the tagged SHA owns release evidence, no
 # local run does. Grep-based by nature — the claim is textual (see that file's header).
 run_shell_phase test-release-evidence-authority.sh      "release-authority"
+# B2: the tag a Release is created for must be the tag CI verified. Drives
+# hooks/local/verify-tag-target.sh against a real bare origin + two clones (the tag genuinely
+# moves out from under a checkout), so it is not in the fast tier — FF_FAST_TAGS is an
+# allowlist and a new phase is heavy until measured. CI runs it.
+run_shell_phase test-release-tag-binding.sh             "release-tag-binding"
 # S2 signal lifecycle (T4): the orphan-sentinel discriminator set. HEAVY + fault-injection, so it
 # lives in the CI/FF_FULL tier, not the fast local default (architecture-review Q3/Q4: Windows/MSYS
 # CI owns it). Off-MSYS it skips every row — the defect class is MSYS-only.

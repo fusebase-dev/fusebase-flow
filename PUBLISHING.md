@@ -73,6 +73,30 @@ Both legs run with **committed defaults**: no `FF_ONLY`, no `FF_SKIP_*`, no `FF_
 and a committed `timeout-minutes: 60` per leg (architecture-review § Bound policy). A phase that
 cannot fit its wall leaves the tier; the wall is not raised.
 
+### Publication paths — what the workflow closes, and what it cannot
+
+`gh release create --verify-tag` matches on tag **name** only. A `v*` tag force-moved after CI ran
+therefore used to publish a commit no `verify` job ever saw. `publish` now runs
+`hooks/local/verify-tag-target.sh`, which re-fetches the tag from the remote, peels it to a commit,
+and refuses unless it equals `github.sha` — before creating the Release and again after.
+
+Every route to a Release object, and its status:
+
+| Path | Status | Closed by |
+|---|---|---|
+| Tag push → this workflow, tag unmoved | verified | `needs: verify` on the exact SHA |
+| Tag push → this workflow, tag force-moved after CI | **closed** | tag re-fetch + peel + compare, pre- and post-create |
+| Annotated tag whose object ≠ its commit | **closed** | the peel (`^{commit}`), mutation-tested |
+| Release already exists for the tag (created manually) | **narrowed** | the run now proves the tag targets the SHA it just verified instead of exiting 0 on mere existence |
+| Tag moves *between* the check and `gh release create` | **OPEN — operator action** | a repository **tag ruleset** restricting `v*` updates/deletes. The workflow makes the window audible (the post-create re-assert goes red), it cannot remove it |
+| A write collaborator creates a Release by hand in the UI/API | **OPEN — operator action** | restrict who may publish; enable **immutable releases** so a published tag cannot be re-pointed |
+| Re-running a pre-fix release workflow run (eligible ~30 days) | **OPEN — operator action** | a re-run keeps the ORIGINAL workflow definition, `GITHUB_SHA` and `GITHUB_REF`, so it can verify the old SHA and publish today's moved tag without this check. Audit and delete eligible old runs |
+| Any other credential/workflow with `contents: write` calling the Releases API | **OPEN — operator action** | none exists in this tree today; the check cannot enforce repository-wide exclusivity |
+
+The four **OPEN** rows are repository settings and housekeeping, not code. They are listed here
+rather than described as closed: a partial fix presented as complete is the failure mode this
+section exists to prevent.
+
 > **Unmeasured:** no `windows-latest` run of the full suite exists yet. The only measured MSYS full
 > gate is a loaded developer host at ~2h02m before the step-4/step-5 reductions (est. ~1h28m after),
 > which is **over** the committed 60-minute wall. If `verify-windows-msys` hits that wall the gate is
