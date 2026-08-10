@@ -1,6 +1,33 @@
 # Plan — close the 4 BLOCKERs, split CI by platform, and find the remaining test time
 
-**Status:** DRAFT, pending adversarial review. **Base:** `3089f09`.
+**Status:** SUPERSEDED IN PART — review returned `WRONG-APPROACH` on B1
+(`docs/specs/backlog-triage-execution/plan-review-2.md`). B2/B3/B4 and the MAJORs stand; the
+per-platform tier does not. Do not implement B1 as written.
+
+**Two errors of mine, corrected by that review:**
+1. **I stated the divergence direction backwards, twice.** Every recorded case in
+   `ci-linux-msys-test-divergence` is **MSYS-green / Linux-red**, not Linux-green/MSYS-red. The
+   proposed split would have missed 0 of 5 — but only because Linux stays full, which is luck, not
+   design.
+2. **My ownership criteria collapse.** Those failures came from checkout depth, PATH topology, Git
+   file modes, fixture completeness and line-ending policy — not from phase semantics. Since
+   *every* shell phase spawns processes and most touch files, "derive the split from evidence"
+   either keeps nearly everything on Windows or gets selectively ignored. There is no honest
+   middle.
+
+**Corrected order (the review's):** measure first, then choose.
+1. Run a **non-publishing, exact-SHA** Windows measurement with enough wall to actually finish.
+2. Prefer the **full Windows set with a larger absolute ceiling + a short no-progress watchdog**,
+   if release latency is acceptable — least machinery, no coverage traded away.
+3. Only if =<60 min is mandatory, **shard** the complete set into independently required jobs.
+4. Platform ownership **only** for phases demonstrably N/A by construction, enforced by a complete
+   manifest and mutation tests — never by written justification.
+
+**Why I got this wrong:** I rejected "raise the ceiling" by pattern-match, because raising a bound
+to make a gate pass is exactly what I was criticised for on 2026-08-05. But those are different
+acts. Raising a *phase bound* to mask a defect hides information; sizing a *CI job ceiling* to fit
+measured work is just an honest budget. Applying the lesson without re-deriving it produced the
+least defensible option. **Base:** `3089f09`.
 **Source of findings:** `docs/specs/backlog-triage-execution/final-architecture-review.md`
 (`SOUND-WITH-CORRECTIONS`, 4 BLOCKERs + 8 MAJORs).
 
