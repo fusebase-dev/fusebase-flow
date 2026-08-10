@@ -10,7 +10,52 @@ Mode: run-ledger  (autonomous run, operator stepped out)
 **Superseded state:** `docs/tmp/handoff/archive/2026-08-07-restart-186ba38.md`
 (sha256 `c4ac658dda263c74caced5015a7a09c5cfe2bed6e22a982dbb15810eddc1e5e4`)
 
-## Next action
+## B1 IS ANSWERED — the estimate was wrong by ~6x. No architecture change is needed.
+
+Run `31431353353`, `windows-latest`, SHA `c753d130`, committed defaults, unscoped.
+
+| | |
+|---|---|
+| **Full Windows suite wall** | **15m17s** (46 phases; per-phase sum 15m06s — no unaccounted gap) |
+| Committed CI wall | 60 min → **~4x headroom** |
+| Superseded estimate | ~88m35s |
+| Result | 889/893 PASS, 4 FAIL |
+
+**Root cause of the bad estimate: the dev host was never representative.** `cli-flow-recovery`
+took **1107s locally vs 82s on the hosted runner — 13.5x faster**. Every projection built on local
+timings inherited that error.
+
+**Decision: no per-platform tier, no sharding, no ceiling change. Close B1 as no-action.** The
+whole gate-speed workstream was solving a problem that did not exist. Do not reopen it without a
+fresh hosted-runner measurement — a local timing is not evidence for a CI bound.
+
+Raw logs: `windows-measurement` artifact on the run (no `summary.md` — the step that writes it is
+downstream of the suite step and did not run; per-phase times come from stderr `took Ns` lines).
+
+## The 4 failures are ALL test-side. Production is correct and STRICTER than the tests assert.
+
+| Failing row | Reality |
+|---|---|
+| `8-python3-absent-non-blocking` | Asserts *"a python3-less env must still commit"* (rc 0). The **MAJOR 12 fix deliberately reversed this**: `pre-commit:87` blocks when staged changes exist and no interpreter can be discovered. The test now demands the fail-open hole back |
+| `8-python3-absent-loud-warn` | Greps for the old warning text *"FR-07 protected-path check was NOT enforced for this commit"*. That string is gone **because the path no longer continues un-enforced** — it blocks |
+| `16-outer-git-list-rc-guard-present` | Greps `pre-commit` for the literal comment `outer git rc`. The guard itself is present and correct (`:74-77`, `STAGED_ANY_RC` + fail-closed block); only the **comment** was reworded. A prose-coupled anchor — the MAJOR 10 class |
+| `git-smoke pre-commit blocks when no python3` | Could not construct a python-less PATH that still has git on Windows. An honest ERROR ("did not measure the contract"), correctly not counted as a pass |
+
+**Why local/Linux was green and Windows CI red:** locally the python-less environment cannot be
+constructed, so these rows never execute the contradiction. On the hosted Windows runner they do.
+This is a genuine **MSYS-red / elsewhere-green** case — the opposite direction from every case in
+`ci-linux-msys-test-divergence`, and worth adding there.
+
+**Required fix — do NOT simply flip the assertions to green.** The correct contract is the
+stricter one:
+1. `8-python3-absent-*` must assert **BLOCK + the block message**, i.e. that a python3-less env
+   with staged changes REFUSES to commit. Rewriting them to expect rc 0 would re-encode the
+   security hole MAJOR 12 closed.
+2. `16-*` must assert the **mechanism**, not a comment string — drive the rc path or anchor on
+   `STAGED_ANY_RC` and the block, never on prose.
+3. `git-smoke` row: keep it an ERROR when the environment cannot be built. It is honest as-is.
+
+## Superseded next action (kept for provenance)
 
 **Read the Windows measurement, then choose the B1 architecture from the number.**
 
