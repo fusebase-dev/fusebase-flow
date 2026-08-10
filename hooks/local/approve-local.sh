@@ -18,6 +18,12 @@
 #   bash hooks/local/approve-local.sh <action> <slug> [reason] --command '<exact command>'
 #     --command is MANDATORY for any command-gated action (decision K19); it is optional
 #     only for actions no command-policy rule references (e.g. protected_path_edit).
+#   bash hooks/local/approve-local.sh protected_path_edit <slug> --path <p> [--path <p>]…
+#     --path is MANDATORY for protected_path_edit (MAJOR 11): path_policy authorizes a
+#     concrete path by membership in the artifact's `paths` array, so an artifact without
+#     it is a file that LOOKS like an approval and can never authorize anything. Paths in
+#     a DIGEST-BOUND category (fusebase_flow_internals, ci_cd_config) are refused here and
+#     redirected to hooks/local/write-bootstrap-approval.sh, whose artifact is single-use.
 #   bash hooks/local/approve-local.sh --inventory      # AC12: what is on disk + strict verdict
 # Example (Deploy session, on the operator's typed DP.6 phrase):
 #   bash hooks/local/approve-local.sh production_deploy priority-fix 'approve deploy now' --command 'fusebase deploy'
@@ -40,6 +46,7 @@ ACTION=""
 SLUG=""
 REASON="operator local approval"
 COMMAND_STR=""
+PATHS_NL=""          # newline-separated --path values; crosses to python as ONE argv
 INVENTORY=0
 positional=0
 
@@ -47,7 +54,8 @@ while [ "$#" -gt 0 ]; do
     case "$1" in
         --inventory) INVENTORY=1; shift ;;
         --command) COMMAND_STR="${2:-}"; shift 2 ;;
-        --help|-h) sed -n '2,32p' "$0"; exit 0 ;;
+        --path) PATHS_NL="${PATHS_NL}${2:-}"$'\n'; shift 2 ;;
+        --help|-h) sed -n '2,40p' "$0"; exit 0 ;;
         --*) echo "[approve-local] unknown option: $1" >&2; exit 2 ;;
         *)
             case "$positional" in
@@ -89,19 +97,22 @@ fi
 # AND $ACTION into Python source, so a quote, backslash, newline or $(...) in any of them
 # produced a corrupt (or executable) artifact.
 MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - \
-    "$ROOT" "$ACTION" "$SLUG" "$REASON" "$COMMAND_STR" <<'PY'
+    "$ROOT" "$ACTION" "$SLUG" "$REASON" "$COMMAND_STR" "$PATHS_NL" <<'PY'
 import json, os, re, sys, tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-root, action, slug, reason, command_str = (sys.argv[1], sys.argv[2], sys.argv[3],
-                                           sys.argv[4], sys.argv[5])
+root, action, slug, reason, command_str, paths_nl = (
+    sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], sys.argv[6])
 root_path = Path(root)
 sys.path.insert(0, str(root_path / "hooks"))
 from shared.approval_artifact import (  # noqa: E402
     SCHEMA_VERSION, compute_command_digest, compute_repo_id, evaluate_artifact,
 )
+from shared.path_policy import _DIGEST_BOUND_OPERATIONS, is_protected  # noqa: E402
 from shared.policy_loader import get_policy  # noqa: E402
+
+approved_paths = [p for p in paths_nl.split("\n") if p.strip()]
 
 # TRIPWIRE: validate BEFORE any filesystem write. Both guards below are NEW — the old
 # script constructed the filename from unvalidated components, so `../../escape` was a
@@ -149,6 +160,33 @@ if action in command_gated and not command_str.strip():
           file=sys.stderr)
     sys.exit(2)
 
+# TRIPWIRE (MAJOR 11): `protected_path_edit` is authorized by PATH MEMBERSHIP — path_policy
+# accepts an artifact only when the queried path is in its `paths` array. This writer emitted
+# no `paths` at all, so every artifact it produced for this action authorized NOTHING while
+# printing "artifact written + re-verified". A gate-shaped file that gates nothing is worse
+# than no file: the operator/agent believes the sanctioned path was taken. Refuse instead.
+if action == "protected_path_edit":
+    if not approved_paths:
+        print("[approve-local] ERROR: protected_path_edit requires at least one --path. "
+              "path_policy authorizes a concrete path by membership in the artifact's `paths` "
+              "array, so an artifact without it can never authorize any edit.\n"
+              f"[approve-local] e.g.  bash hooks/local/approve-local.sh {action} {slug} "
+              "--path <repo-relative-path>", file=sys.stderr)
+        sys.exit(2)
+    # A digest-bound category needs the SINGLE-USE writer; a plain path+TTL artifact is
+    # rejected there by construction (no `operation`, no `tree_digest`), so writing one here
+    # would again produce a file that silently authorizes nothing.
+    for p in approved_paths:
+        cat = is_protected(p)[1]
+        if cat in _DIGEST_BOUND_OPERATIONS:
+            print(f"[approve-local] ERROR: {p!r} is in the digest-bound category {cat!r}, which "
+                  "requires a SINGLE-USE artifact bound to the exact staged changeset. This "
+                  "writer cannot produce one.\n"
+                  "[approve-local] Stage the change, then:\n"
+                  f"  bash hooks/local/write-bootstrap-approval.sh --category {cat}",
+                  file=sys.stderr)
+            sys.exit(2)
+
 ra = policy.get("require_approval", {}).get(action) or {}
 ttl = ra.get("artifact_ttl_minutes", 60)
 if isinstance(ttl, dict):
@@ -177,6 +215,8 @@ data = {
 }
 if command_str:
     data["command_digest"] = compute_command_digest(command_str)
+if approved_paths:
+    data["paths"] = approved_paths          # protected-paths.yml exception_artifact contract
 
 approvals = root_path / "state" / "approvals"
 approvals.mkdir(parents=True, exist_ok=True)
@@ -216,8 +256,7 @@ bound = " command-bound" if "command_digest" in data else ""
 print(f"[approve-local] artifact written + re-verified: {artifact} "
       f"(schema v{SCHEMA_VERSION}; expires {expires_at}; repo-bound{bound})")
 if action == "protected_path_edit":
-    print("[approve-local] note: protected_path_edit also needs a 'paths' array. For a "
-          "Flow-internals changeset use hooks/local/write-bootstrap-approval.sh instead — "
-          "it is digest-bound and single-use.")
+    print(f"[approve-local] paths authorized ({len(approved_paths)}): "
+          f"{', '.join(approved_paths)}")
 print("[approve-local] hooks honor this until it expires. Delete the file to revoke.")
 PY

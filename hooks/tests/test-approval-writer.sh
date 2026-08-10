@@ -467,4 +467,115 @@ else
   bad "m9-consumer-fails-closed-on-an-unloadable-approval-policy" "$r5_fail"
 fi
 
+# ---- 9. MAJOR 11: the DOCUMENTED protected-path approval path must actually authorize ----
+# final-architecture-review finding 11: no shipped writer could mint the Step-6 FR-07 approval
+# as documented. approve-local.sh emitted no `paths` (so path_policy's membership test could
+# never match) AND recorded a `repo_id` the consumer never passed (so evaluate_artifact returned
+# BINDING_MISMATCH for every artifact it wrote). Both failures were SILENT — the writer printed
+# "artifact written + re-verified". These rows are red against that tree.
+P6="$(mktemp -d)"
+mkdir -p "$P6/hooks/local" "$P6/hooks/shared" "$P6/policies" "$P6/.github/workflows"
+cp "$ROOT/hooks/local/approve-local.sh" "$ROOT/hooks/local/write-bootstrap-approval.sh" "$P6/hooks/local/"
+cp "$ROOT/hooks/shared/"*.py "$P6/hooks/shared/"
+: > "$P6/hooks/shared/__init__.py"
+cp "$ROOT/policies/approval-policy.yml" "$ROOT/policies/protected-paths.yml" \
+   "$ROOT/policies/command-policy.yml" "$P6/policies/"
+( cd "$P6" && git init -q && git config user.email t@t.t && git config user.name t )
+
+p6_allows() {   # p6_allows <path> -> 0 iff path_policy would ALLOW editing it
+  ( cd "$P6" && MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$1" <<'PY' >/dev/null 2>&1
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path.cwd() / "hooks"))
+from shared.path_policy import evaluate
+sys.exit(0 if evaluate(sys.argv[1], root=Path.cwd()).decision == "allow" else 1)
+PY
+  )
+}
+
+# 9a. DISCRIMINATOR — the writer's own artifact must be accepted by the consumer that reads it.
+# Pre-fix this was False for BOTH reasons above; the artifact existed and authorized nothing.
+( cd "$P6" && bash hooks/local/approve-local.sh protected_path_edit m11 'fixture' \
+    --path vercel.json >/dev/null 2>&1 )
+if p6_allows vercel.json; then
+  ok "m11-approve-local-artifact-is-honored-by-path-policy [DISCRIMINATOR] (writer emits \`paths\`; consumer verifies the recorded repo_id instead of rejecting it)"
+else
+  bad "m11-approve-local-artifact-is-honored-by-path-policy" "the documented writer produced an artifact path_policy still refuses — the sanctioned FR-07 path does not work"
+fi
+
+# 9b. CONTROL — repo binding still means something: the same artifact must not travel.
+P6_OTHER="$(mktemp -d)"
+mkdir -p "$P6_OTHER/hooks" "$P6_OTHER/policies" "$P6_OTHER/state/approvals"
+cp -R "$P6/hooks/shared" "$P6_OTHER/hooks/"
+cp "$P6/policies/"*.yml "$P6_OTHER/policies/"
+cp "$P6/state/approvals/"protected_path_edit-m11-*.json "$P6_OTHER/state/approvals/" 2>/dev/null
+( cd "$P6_OTHER" && git init -q && git config user.email t@t.t && git config user.name t )
+if ( cd "$P6_OTHER" && MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - <<'PY' >/dev/null 2>&1
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path.cwd() / "hooks"))
+from shared.path_policy import evaluate
+sys.exit(0 if evaluate("vercel.json", root=Path.cwd()).decision == "allow" else 1)
+PY
+); then
+  bad "m11-repo-binding-still-rejects-a-foreign-checkout" "an artifact minted in another repository authorized an edit here — repo_id became decorative"
+else
+  ok "m11-repo-binding-still-rejects-a-foreign-checkout [CONTROL] (the recorded repo_id is verified, not ignored)"
+fi
+rm -rf "$P6_OTHER"
+
+# 9c. DISCRIMINATOR — a pathless protected_path_edit must be REFUSED, not written.
+if ( cd "$P6" && bash hooks/local/approve-local.sh protected_path_edit m11b 'fixture' >/dev/null 2>&1 ); then
+  bad "m11-pathless-protected-approval-refused" "the writer produced a protected_path_edit artifact with no \`paths\` — a gate-shaped file that gates nothing"
+elif ls "$P6/state/approvals/"protected_path_edit-m11b-*.json >/dev/null 2>&1; then
+  bad "m11-pathless-protected-approval-refused" "exit was nonzero but an artifact was written anyway"
+else
+  ok "m11-pathless-protected-approval-refused [DISCRIMINATOR] (no --path => exit 2, no file, and the reason names the membership contract)"
+fi
+
+# 9d. DISCRIMINATOR — a digest-bound category must be redirected, never plain-minted.
+# TRIPWIRE: capture stderr to a VARIABLE, never `cmd | grep` — this file runs under
+# `pipefail`, so the writer's (correct) exit 2 would become the pipeline status and the
+# assertion would report "no redirect" for a redirect that was printed.
+m11c_err="$( cd "$P6" && bash hooks/local/approve-local.sh protected_path_edit m11c 'fixture' \
+               --path .github/workflows/x.yml 2>&1 >/dev/null )"
+m11c_rc=$?
+if [ "$m11c_rc" -eq 0 ]; then
+  bad "m11-digest-bound-category-redirected" "approve-local minted a REUSABLE artifact for a digest-bound category"
+elif printf '%s' "$m11c_err" | grep -q "write-bootstrap-approval.sh --category ci_cd_config"; then
+  ok "m11-digest-bound-category-redirected [DISCRIMINATOR] (a workflow path is refused here and routed to the single-use writer by name)"
+else
+  bad "m11-digest-bound-category-redirected" "refused, but without naming the writer that CAN mint it — the documented path stays broken and silent"
+fi
+
+# 9e. DISCRIMINATOR — the single-use writer must cover ci_cd_config, and bind to THIS changeset.
+# Before this change it collected fusebase_flow_internals paths only, so the published
+# protocol ("mint the digest-bound approval for a .github/workflows edit") had no implementation.
+printf 'name: x\non: workflow_dispatch\njobs: {}\n' > "$P6/.github/workflows/x.yml"
+( cd "$P6" && git add .github/workflows/x.yml >/dev/null 2>&1 )
+( cd "$P6" && bash hooks/local/write-bootstrap-approval.sh --category ci_cd_config >/dev/null 2>&1 )
+m11_minted=0
+if ! ls "$P6/state/approvals/"protected_path_edit-ci-workflow-*.json >/dev/null 2>&1; then
+  bad "m11-workflow-approval-mintable" "write-bootstrap-approval.sh --category ci_cd_config minted nothing for a staged workflow edit"
+elif p6_allows .github/workflows/x.yml; then
+  m11_minted=1
+  ok "m11-workflow-approval-mintable [DISCRIMINATOR] (a staged .github/workflows edit gets a digest-bound, single-use approval the gate honors)"
+else
+  bad "m11-workflow-approval-mintable" "an artifact was minted but path_policy still denies the staged workflow edit"
+fi
+
+# 9f. DISCRIMINATOR — single-use: change the staged content and the SAME artifact must deny.
+# TRIPWIRE: gated on 9e. Without the precondition this row is VACUOUSLY green on any tree
+# where no artifact was minted at all — "still denies" would prove nothing about the binding.
+printf 'name: x\non: workflow_dispatch\njobs: {}\n# drifted after approval\n' > "$P6/.github/workflows/x.yml"
+( cd "$P6" && git add .github/workflows/x.yml >/dev/null 2>&1 )
+if [ "$m11_minted" -ne 1 ]; then
+  bad "m11-workflow-approval-is-single-use" "no honored workflow approval existed to invalidate, so this row could not discriminate (reported red, never as a pass)"
+elif p6_allows .github/workflows/x.yml; then
+  bad "m11-workflow-approval-is-single-use" "the workflow approval survived a change to the staged content — it is a reusable FR-07 bypass, not a digest binding"
+else
+  ok "m11-workflow-approval-is-single-use [DISCRIMINATOR] (staged content changed => tree_digest no longer matches => still DENIES)"
+fi
+rm -rf "$P6"
+
 finish

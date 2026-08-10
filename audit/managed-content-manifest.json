@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "3b751e2df243171a9796e58f606f4955cecad35536f8da752d06794b9a8207d4"
+      "sha256": "d3e8e4a98d97e5ff6459331a61033017e16ad64dbe85f3f3b49f925f919bf889"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -266,7 +266,7 @@
     },
     {
       "path": "hooks/local/approve-local.sh",
-      "sha256": "7409b0a5dbf9ac21111a68412ddfc6162a8ffd416361c7a52ec8e08e1dd99026"
+      "sha256": "61d24d867a23ff56162bf27a22b2b1149838c2d49c4b35fd718e80598d75dfed"
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
@@ -562,7 +562,7 @@
     },
     {
       "path": "hooks/local/write-bootstrap-approval.sh",
-      "sha256": "e203afa1e0f9794ee81b438f0eb57f2a653bce823a5fa61115c544ebc1add2be"
+      "sha256": "bb5f877a0448be6755529107599e536ff5917e299557a1a81b0e54a622de3835"
     },
     {
       "path": "hooks/requirements.txt",
@@ -602,7 +602,7 @@
     },
     {
       "path": "hooks/shared/path_policy.py",
-      "sha256": "1782f5dd94e19fdd63c6ac0c39947f327073904cd236f5e5320e7a0ea57116f6"
+      "sha256": "aa629e0517a7c41fa9b15271b757b45fddb0178935a8c439a4a0787c765e91bc"
     },
     {
       "path": "hooks/shared/policy_loader.py",
@@ -834,7 +834,7 @@
     },
     {
       "path": "hooks/tests/test-approval-writer.sh",
-      "sha256": "317d3b3fb2db80605a729be5cddffc20bb9245d535b60488e05d02a8d481a52d"
+      "sha256": "23effe7cc43d3ca5edafea648cd153ee8daeb64eddff5250a37fcec5aa776bb2"
     },
     {
       "path": "hooks/tests/test-baseline-merge.sh",
@@ -1197,5 +1197,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "0fd70f21ce08aeb4f036c4e64d4f6a9c8861253f5b35d527099d849764d6a824"
+  "manifest_self_sha256": "92536d49cf10922965c3c1d2024ad9a377311b6f26778231904cb0ff440b8f4f"
 }
