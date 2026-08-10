@@ -10,7 +10,7 @@
     },
     {
       "path": "hooks/git/pre-commit",
-      "sha256": "efa1f73bfd07778d896ec4679519cec34e05105d4573edc0e08022fc7837f87b"
+      "sha256": "c6ee51792b649e1af3bebd7921a962002cc2400f69d3c75246c1ce781833a488"
     },
     {
       "path": "hooks/handlers/permission_request.py",
@@ -430,7 +430,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "9a879c05485692cd9572ad2724a4d99c4885f345f62ae5004bb88f1941572a7e"
+      "sha256": "96982466072dbdcd64f619be9bc60d97d4367096ed441b53c5dd90ded65f1ba1"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -494,7 +494,7 @@
     },
     {
       "path": "hooks/tests/test-git-hooks-smoke.sh",
-      "sha256": "1af42dd316bc6a86a3712c6cda5f6c6b5162b8ae1fae13aa9d7a6bcde5ca7ed3"
+      "sha256": "654cf9ae0d95541252a5571c7e8e37e98ff6acf1168b4348dafe1564e3d74b0b"
     },
     {
       "path": "hooks/tests/test-health-check-timeout.sh",
@@ -558,7 +558,7 @@
     },
     {
       "path": "hooks/tests/test-release-evidence-authority.sh",
-      "sha256": "5b97f395797c83042c39f6cf16a4c47d90dd91d09ea01c80444f5fa6a4b0d58f"
+      "sha256": "7a16acecafec3f90f992b2ba511291b1303cee4ee45d946296cb7e90daad4f02"
     },
     {
       "path": "hooks/tests/test-release-tag-binding.sh",
@@ -617,5 +617,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "b9390b31325013e8f48262de94930de835f8181b17556a2fe405a1ca5aa011ec"
+  "manifest_self_sha256": "9c1c72547cecbc0b02728678f6405a73a5d96357f8cbbd04769c3d55cc5738e3"
 }

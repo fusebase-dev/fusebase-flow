@@ -1,10 +1,18 @@
 name: fusebase-flow-verify
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  # RELEASE / MAINTAINER PATHS ONLY (MAJOR 9, final-architecture-review finding 9). This is the
+  # full dual-platform exact-SHA suite: two hosted runners, the complete unscoped phase set, a
+  # 60-minute wall per leg. It used to fire on every `push: main` and every `pull_request: main`,
+  # and `.github/` SHIPS with the template — so a solo builder inherited maintainer-grade CI
+  # latency and runner cost for ordinary work, with no way to opt in. That is the North-Star
+  # drift the review named ("keep ordinary CI fast; preserve complete release coverage").
+  # Reachable two ways now, both deliberate:
+  #   workflow_dispatch — a maintainer asks for it on a branch.
+  #   workflow_call     — fusebase-flow-release.yml calls it for the tagged SHA.
+  # CONSEQUENCE, stated rather than hidden: ordinary pushes and PRs now run NO CI in this
+  # template. Release coverage is unchanged — it is the same one definition of the suite, on the
+  # same two required platforms, gating publication exactly as before.
   workflow_dispatch:
   # Reusable: fusebase-flow-release.yml calls this workflow so the release publish gate
   # runs ONE definition of the suite (no step drift). NO push.tags / release: triggers

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.7.1",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 300,
+  "asset_count": 301,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "ffa03069dc8ac8c2d3e7ad42dd3ec3ac9c979aa76fa6f18f89b6e6e63f96d133"
+      "sha256": "9d492da643a2a3ae77853204fb7a77f9b628fd63c8ff15c9cb96449b0e865460"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -234,7 +234,7 @@
     },
     {
       "path": "hooks/git/pre-commit",
-      "sha256": "efa1f73bfd07778d896ec4679519cec34e05105d4573edc0e08022fc7837f87b"
+      "sha256": "c6ee51792b649e1af3bebd7921a962002cc2400f69d3c75246c1ce781833a488"
     },
     {
       "path": "hooks/handlers/permission_request.py",
@@ -825,8 +825,12 @@
       "sha256": "cbef901b4a735e71f822daf02e62d26673e3bb63b279d0bd0333897f8b696659"
     },
     {
+      "path": "hooks/tests/lib/workflow_graph_check.py",
+      "sha256": "3a235dde159adaf2f9e57fb84a7662b6943c26f2515addf4494137aea846ea94"
+    },
+    {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "9a879c05485692cd9572ad2724a4d99c4885f345f62ae5004bb88f1941572a7e"
+      "sha256": "96982466072dbdcd64f619be9bc60d97d4367096ed441b53c5dd90ded65f1ba1"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -890,7 +894,7 @@
     },
     {
       "path": "hooks/tests/test-git-hooks-smoke.sh",
-      "sha256": "1af42dd316bc6a86a3712c6cda5f6c6b5162b8ae1fae13aa9d7a6bcde5ca7ed3"
+      "sha256": "654cf9ae0d95541252a5571c7e8e37e98ff6acf1168b4348dafe1564e3d74b0b"
     },
     {
       "path": "hooks/tests/test-health-check-timeout.sh",
@@ -954,7 +958,7 @@
     },
     {
       "path": "hooks/tests/test-release-evidence-authority.sh",
-      "sha256": "5b97f395797c83042c39f6cf16a4c47d90dd91d09ea01c80444f5fa6a4b0d58f"
+      "sha256": "7a16acecafec3f90f992b2ba511291b1303cee4ee45d946296cb7e90daad4f02"
     },
     {
       "path": "hooks/tests/test-release-tag-binding.sh",
@@ -1205,5 +1209,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "4fd96457de7fa8f17256b324d5ab1f8e6e343ec9823eaa530c71e21385e3f8e7"
+  "manifest_self_sha256": "521c3188c3e570a483a38fb272bcc2c9b9d00a841c422958ccdef8162f092015"
 }

@@ -296,6 +296,23 @@ total=0
 report_rows=""
 diag_blocks=""
 
+# phase_abnormal_label <rc>: how a phase ENDED when it exited non-zero without reporting rows.
+# MAJOR 7 (final-architecture-review finding 7): rc 124/137 are the bounded runner's OWN codes
+# (GNU timeout's "duration elapsed", and 128+SIGKILL after the -k grace). Folding them into the
+# generic "crashed" branch erased the only signal that distinguishes a liveness bound or a
+# loaded host from a broken assertion harness — an operator reading the log could no longer tell
+# "this box was too slow" from "this test is wrong".
+# TRIPWIRE: this restores the DISTINCTION, not an escape hatch. A bound hit is still a FAIL and
+# still counts into the exit status; there is no INCONCLUSIVE state and no rc a green total can
+# swallow. The label is diagnostic, never a verdict.
+phase_abnormal_label() {
+    if ffhc_timed_out "${1:-}"; then
+        printf 'TIMED OUT at the %ss phase bound' "$FF_PHASE_TIMEOUT"
+    else
+        printf 'crashed'
+    fi
+}
+
 # emit_phase_diagnostics <label> <captured-phase-output> <fail-count>
 # C4 / FR-27: every phase parser prints and rows ONLY the lines matching its
 # `^(PASS|FAIL): <tag>` contract. A test that writes its failure reason anywhere else — its own
@@ -362,8 +379,8 @@ if ff_selected fixtures; then
     # parsed FAIL lines means the runner died before reporting a single fixture.
     if [ "$fx_rc" -ne 0 ] && [ "$fx_failed" -eq 0 ]; then
         total=$((total + 1)); fail=$((fail + 1))
-        echo "FAIL: run_hook_tests.py crashed (exit $fx_rc) before reporting fixtures"
-        report_rows="$report_rows| run_hook_tests.py | (harness) | FAIL | crashed with exit $fx_rc, no fixture output |"$'\n'
+        echo "FAIL: run_hook_tests.py $(phase_abnormal_label "$fx_rc") (exit $fx_rc) before reporting fixtures"
+        report_rows="$report_rows| run_hook_tests.py | (harness) | FAIL | $(phase_abnormal_label "$fx_rc") with exit $fx_rc, no fixture output |"$'\n'
     fi
     fx_bad=$fx_failed; [ "$fx_rc" -eq 0 ] || fx_bad=$((fx_bad + 1))
     emit_phase_diagnostics "fixture handler tests" "$fx_out" "$fx_bad"
@@ -394,8 +411,8 @@ elif [ -f "$MS_TEST" ]; then
     if [ "$ms_fail" -ne 0 ] && [ "$ms_failed" -eq 0 ]; then
         total=$((total + 1))
         fail=$((fail + 1))
-        echo "FAIL: test-module-size.sh crashed (exit $ms_fail) before reporting scenarios"
-        report_rows="$report_rows| test-module-size.sh | (harness) | FAIL | crashed with exit $ms_fail, no scenario output |"$'\n'
+        echo "FAIL: test-module-size.sh $(phase_abnormal_label "$ms_fail") (exit $ms_fail) before reporting scenarios"
+        report_rows="$report_rows| test-module-size.sh | (harness) | FAIL | $(phase_abnormal_label "$ms_fail") with exit $ms_fail, no scenario output |"$'\n'
     fi
     ms_bad=$ms_failed; [ "$ms_fail" -eq 0 ] || ms_bad=$((ms_bad + 1))
     emit_phase_diagnostics "module-size ratchet" "$ms_out" "$ms_bad"
@@ -425,8 +442,8 @@ elif [ -f "$HT_TEST" ]; then
     if [ "$ht_rc" -ne 0 ] && [ "$ht_failed" -eq 0 ]; then
         total=$((total + 1))
         fail=$((fail + 1))
-        echo "FAIL: test-health-check-timeout.sh crashed (exit $ht_rc) before reporting scenarios"
-        report_rows="$report_rows| test-health-check-timeout.sh | (harness) | FAIL | crashed with exit $ht_rc, no scenario output |"$'\n'
+        echo "FAIL: test-health-check-timeout.sh $(phase_abnormal_label "$ht_rc") (exit $ht_rc) before reporting scenarios"
+        report_rows="$report_rows| test-health-check-timeout.sh | (harness) | FAIL | $(phase_abnormal_label "$ht_rc") with exit $ht_rc, no scenario output |"$'\n'
     fi
     ht_bad=$ht_failed; [ "$ht_rc" -eq 0 ] || ht_bad=$((ht_bad + 1))
     emit_phase_diagnostics "health-check-timeout scenarios" "$ht_out" "$ht_bad"
@@ -453,8 +470,8 @@ run_shell_phase() { # run_shell_phase <test-script> <tag>
     done < <(echo "$out" | grep -E "^(PASS|FAIL): $tag ")
     if [ "$rc" -ne 0 ] && [ "$f" -eq 0 ]; then
         total=$((total + 1)); fail=$((fail + 1))
-        echo "FAIL: $1 crashed (exit $rc) before reporting scenarios"
-        report_rows="$report_rows| $1 | (harness) | FAIL | crashed with exit $rc, no scenario output |"$'\n'
+        echo "FAIL: $1 $(phase_abnormal_label "$rc") (exit $rc) before reporting scenarios"
+        report_rows="$report_rows| $1 | (harness) | FAIL | $(phase_abnormal_label "$rc") with exit $rc, no scenario output |"$'\n'
     fi
     local bad=$f; [ "$rc" -eq 0 ] || bad=$((bad + 1))
     emit_phase_diagnostics "$tag" "$out" "$bad"

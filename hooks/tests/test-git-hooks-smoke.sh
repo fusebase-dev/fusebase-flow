@@ -71,4 +71,65 @@ else fail_case "pre-commit blocks staged .env" "rc=$PC_RC expected nonzero"; fi
 if [ "$PC_RC2" -eq 0 ]; then pass_case "pre-commit passes benign staged file"
 else fail_case "pre-commit passes benign staged file" "rc=$PC_RC2 expected 0"; fi
 
+# --- MAJOR 12: no interpreter => BLOCK, never a silent skip / warn-and-commit ---------------
+# final-architecture-review finding 12: without python3 the §2 secret scan did not run at all
+# (an `if` with no else) and §3 printed a WARN and committed with FR-07 unenforced. Both rows
+# below are red against that tree: the first committed cleanly, the second warned and returned 0.
+# Build the python-less PATH by REMOVING the directories that hold python3/python/py, not by
+# rebuilding a minimal bin dir — the hook legitimately needs git, coreutils and mktemp, and a
+# hand-built PATH that misses one produces rc 127 for the wrong reason (measured).
+NOPY_PATH=""
+PY_DIRS=" "
+for n in python3 python py; do
+  p="$(command -v "$n" 2>/dev/null)" || continue
+  [ -n "$p" ] && PY_DIRS="$PY_DIRS$(dirname "$p") "
+done
+_old_ifs="$IFS"; IFS=":"
+for d in $PATH; do
+  case "$PY_DIRS" in *" $d "*) continue ;; esac
+  NOPY_PATH="${NOPY_PATH:+$NOPY_PATH:}$d"
+done
+IFS="$_old_ifs"
+nopy_precondition=1
+PATH="$NOPY_PATH" command -v python3 >/dev/null 2>&1 && nopy_precondition=0
+PATH="$NOPY_PATH" command -v git     >/dev/null 2>&1 || nopy_precondition=0
+nopy_out="$( cd "$CONSUMER" \
+  && printf '# staged under a python-less PATH\n' > nopy.md \
+  && git add nopy.md >/dev/null 2>&1 \
+  && PATH="$NOPY_PATH" bash "$PC" 2>&1 )"
+nopy_rc=$?
+if [ "$nopy_precondition" -ne 1 ]; then
+  fail_case "pre-commit blocks when no python3 interpreter exists" \
+            "could not construct a python-less PATH that still has git — the row did not measure the interpreter contract"
+elif [ "$nopy_rc" -eq 0 ]; then
+  fail_case "pre-commit blocks when no python3 interpreter exists" \
+            "rc=0 — the commit proceeded with the FR-12 secret scan and the FR-07 check both unenforced"
+elif printf '%s' "$nopy_out" | grep -q "no supported Python 3.10+ interpreter found"; then
+  pass_case "pre-commit blocks when no python3 interpreter exists"
+else
+  fail_case "pre-commit blocks when no python3 interpreter exists" \
+            "rc=$nopy_rc but the reason does not name the interpreter contract, so the block is not attributable to it"
+fi
+
+# ... and when python3 is merely UNNAMED (Git Bash ships `python`, not `python3`), the hook
+# must DISCOVER it and still enforce, rather than block a perfectly capable environment.
+PY_REAL="$(command -v python 2>/dev/null || true)"
+if [ -n "$PY_REAL" ] && [ "$nopy_precondition" -eq 1 ]; then
+  # Put ONLY `python` back (a copy under its own dir), leaving python3 still unreachable.
+  UNNAMED_BIN="$TMP/unnamed-py"; mkdir -p "$UNNAMED_BIN"
+  printf '#!/usr/bin/env bash\nexec "%s" "$@"\n' "$PY_REAL" > "$UNNAMED_BIN/python"
+  chmod +x "$UNNAMED_BIN/python"
+  shim_out="$( cd "$CONSUMER" && PATH="$UNNAMED_BIN:$NOPY_PATH" bash "$PC" 2>&1 )"
+  shim_rc=$?
+  if [ "$shim_rc" -eq 0 ] && printf '%s' "$shim_out" | grep -q "using discovered 'python'"; then
+    pass_case "pre-commit discovers an unnamed python3 instead of blocking"
+  else
+    fail_case "pre-commit discovers an unnamed python3 instead of blocking" \
+              "rc=$shim_rc — a host with a usable Python 3 under the name \`python\` must not be refused"
+  fi
+else
+  # Not a skip-as-pass: state plainly that the discovery half was not measured here.
+  echo "N/A: git-smoke pre-commit discovers an unnamed python3 — no bare \`python\` on this host to discover" >&2
+fi
+
 exit "$fail"

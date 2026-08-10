@@ -27,7 +27,7 @@ The public template does not advertise compatibility with any AI coding assistan
 | `preflight.sh` mirror drift check | validates canonical Flow skill mirrors only |
 | Hook tests | `bash hooks/tests/run-tests.sh` is the FAST LOCAL DEFAULT (heavy phases skipped, `<=10` min); `FF_FULL=1 bash hooks/tests/run-tests.sh` is the full unscoped set and the only tier that prints the strict `[run-tests] N/N PASS`. Either way a clean run is 0 FAIL; N is the live tier total, not a fixed number |
 | Preflight | 0 errors / 0 warnings |
-| GitHub Action | runs preflight + hook tests + mirror drift check on every push / PR |
+| GitHub Action | runs preflight + hook tests + mirror drift check on `workflow_dispatch` and on the release workflow's call for a tagged SHA — **not** on ordinary pushes / PRs |
 
 ## Secret-scan scope (pre-commit + PreToolUse)
 

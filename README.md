@@ -693,7 +693,9 @@ Both must pass cleanly:
 [run-tests] 24/24 PASS
 ```
 
-CI runs both on every push / PR via `.github/workflows/fusebase-flow-verify.yml`.
+CI does **not** run on ordinary pushes or PRs — `.github/workflows/fusebase-flow-verify.yml` is the
+maintainer/release suite (dual-platform, exact SHA) and runs only on `workflow_dispatch` or when the
+release workflow calls it for a tagged SHA. You inherit no runner cost for ordinary work.
 
 ## FAQ & troubleshooting
 

@@ -152,34 +152,38 @@ anchor "maintainer-doc-states-two-platform-enforced" "docs/maintainer-execution.
 anchor "publishing-states-two-platform-enforced" "PUBLISHING.md" \
     "Two-platform gating is enforced" "verify-linux" "verify-windows-msys"
 
-# PROSE PINNED TO MACHINERY. The claims above are only true while the workflow graph below
-# holds; without these anchors the two surfaces could keep asserting enforcement after the
-# jobs were deleted — the exact prose/machinery divergence step 6 exists to close.
-anchor "verify-workflow-runs-both-platforms" ".github/workflows/fusebase-flow-verify.yml" \
-    "name: verify-\\\$\\{\\{ matrix.platform \\}\\}" "platform: linux" "platform: windows-msys" \
-    "ubuntu-latest" "windows-latest" "timeout-minutes: 60"
-# verify-gate is what makes a SKIPPED or TIMED-OUT leg red instead of absent.
-# TRIPWIRE: the `needs:` patterns are ANCHORED to YAML key indentation (`^    needs: verify$`).
-# A bare "needs: verify" was satisfied by the PROSE COMMENT describing the gate — mutation-tested:
-# deleting the real key left the anchor green. An assertion a comment can satisfy asserts nothing.
-anchor "verify-workflow-has-the-aggregate-gate" ".github/workflows/fusebase-flow-verify.yml" \
-    "^  verify-gate:$" "^    needs: verify$" "needs.verify.result" "!= \"success\""
-# publish must stay structurally downstream of that aggregate.
-anchor "release-workflow-publish-needs-verify" ".github/workflows/fusebase-flow-release.yml" \
-    "^    uses: \\./\\.github/workflows/fusebase-flow-verify\\.yml$" \
-    "^      sha: \\\$\\{\\{ github\\.sha \\}\\}$" \
-    "^    needs: verify$"
-
-# NEGATIVE: no committed-default override may appear in either required job. An FF_SKIP_* or an
-# FF_*_TIMEOUT in CI turns a passing gate into a gate that was told to pass.
-ovr="$(grep -nE 'FF_SKIP_|FF_ONLY|FF_CLI_RECOVERY_TIMEOUT|FF_PHASE_TIMEOUT' \
-        "$ROOT/.github/workflows/fusebase-flow-verify.yml" \
-        "$ROOT/.github/workflows/fusebase-flow-release.yml" 2>/dev/null \
-    | grep -vE ':[0-9]+:[[:space:]]*#' | cut -c1-160 | head -8 | rel)"
-if [ -z "$ovr" ]; then
-    ok "required-jobs-run-committed-defaults (no FF_SKIP_*/FF_ONLY/timeout override outside comments)"
+# PROSE PINNED TO MACHINERY — STRUCTURALLY (MAJOR 10, final-architecture-review finding 10).
+# The claims above are only true while the workflow job graph holds. That used to be asserted by
+# distributed grep anchors over workflow TEXT, and those were comment-blind: an in-memory
+# mutation commenting out the Windows matrix row retained EVERY anchor, and an unsafe publish
+# condition retained them too. "An assertion a comment can satisfy asserts nothing."
+# hooks/tests/lib/workflow_graph_check.py parses both workflows as YAML — a parser cannot see a
+# comment, so comment-blindness stops being a property anyone has to remember to re-check — and
+# asserts the graph: reusability, trigger scope, both matrix legs, fail-fast, absence of job-level
+# `if:`/continue-on-error, the committed wall, the always-reporting aggregate gate, the publish
+# needs-edge, the tripwire, the B2 tag binding before AND after `gh release create`, least
+# privilege, and committed defaults in both required jobs.
+# It RETAINS six red-before mutations; each must turn its named assertion red, and a mutation that
+# leaves the graph green is reported as a FAILURE (a vacuous assertion), never skipped.
+GRAPH="$ROOT/hooks/tests/lib/workflow_graph_check.py"
+graph_py="${PYTHON:-python3}"
+command -v "$graph_py" >/dev/null 2>&1 || graph_py=python
+if [ ! -f "$GRAPH" ]; then
+    bad "workflow-graph-validation" "missing $GRAPH — the structural assertions are ABSENT, which is not the same as passing"
+elif ! command -v "$graph_py" >/dev/null 2>&1; then
+    bad "workflow-graph-validation" "no python interpreter, so the structural assertions could not run — reported red, never as a pass"
 else
-    bad "required-jobs-run-committed-defaults" "$ovr"
+    graph_out="$("$graph_py" "$GRAPH" --root "$ROOT" 2>&1)"; graph_rc=$?
+    printf '%s\n' "$graph_out" | grep -E '^(PASS|FAIL): release-authority ' || true
+    graph_p="$(printf '%s\n' "$graph_out" | grep -c '^PASS: release-authority ')"
+    graph_f="$(printf '%s\n' "$graph_out" | grep -c '^FAIL: release-authority ')"
+    pass=$((pass + graph_p)); fail=$((fail + graph_f))
+    # A validator that dies before reporting (missing PyYAML, unparseable workflow) must not
+    # vanish into a green phase.
+    if [ "$graph_rc" -ne 0 ] && [ "$graph_f" -eq 0 ]; then
+        bad "workflow-graph-validation" "the validator exited $graph_rc without reporting any row: $(printf '%s' "$graph_out" | tr '\n' ' ' | cut -c1-200)"
+    fi
+    printf '%s\n' "$graph_out" | grep -vE '^(PASS|FAIL): release-authority ' >&2 || true
 fi
 
 finish
