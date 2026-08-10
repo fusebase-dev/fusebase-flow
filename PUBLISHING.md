@@ -101,6 +101,14 @@ section exists to prevent.
 > gate is a loaded developer host at ~2h02m before the step-4/step-5 reductions (est. ~1h28m after),
 > which is **over** the committed 60-minute wall. If `verify-windows-msys` hits that wall the gate is
 > RED and no Release is published — correct fail-closed behaviour, and the thing to fix before a tag.
+>
+> **How to replace that estimate with a number:** dispatch `fusebase-flow-measure-windows` manually.
+> It runs the committed default suite on `windows-latest` at an exact SHA with a 180-minute wall (so
+> it finishes rather than re-reporting a timeout) and uploads per-phase wall times, the total and the
+> SHA as the `windows-measurement` artifact. It is **non-publishing** and gates nothing — it exists
+> only to produce the measurement. Which remedy the number then argues for (a larger absolute wall
+> plus a stall watchdog, sharding into independently required jobs, or platform ownership) is
+> deliberately **not** decided here: choosing before measuring is what the plan review rejected.
 
 ## Local pre-flight — developer feedback, not release evidence
 

@@ -1,0 +1,159 @@
+name: fusebase-flow-measure-windows
+
+# MEASUREMENT ONLY. This workflow exists to produce ONE number that does not exist yet: how long
+# the full committed suite actually takes on a hosted `windows-latest` runner, per phase.
+#
+# WHY IT IS ONLY A MEASUREMENT (B1 / docs/specs/backlog-triage-execution/plan-review-2.md):
+# the 60-minute wall on `verify-windows-msys` is set against a ~88m35s ESTIMATE derived from a
+# loaded developer host. Every proposed remedy — a per-platform tier, sharding, a larger absolute
+# ceiling plus a stall watchdog — is an ARCHITECTURE choice, and the review returned
+# WRONG-APPROACH precisely because one was chosen before the measurement that should decide it.
+# So this job deliberately does NOT:
+#   - change the phase set (no FF_ONLY, no FF_SKIP_*, no platform ownership map),
+#   - change any bound or ceiling (it does not touch FF_PHASE_TIMEOUT or verify's timeout-minutes),
+#   - shard anything,
+#   - gate publication, or appear anywhere in fusebase-flow-release.yml.
+# Its own `timeout-minutes` is sized to let the run FINISH (a measurement that is itself cut off
+# at 60 minutes would just re-report the estimate). That is not a gate bound being raised: no
+# publication depends on this job, so this number authorizes nothing.
+#
+# HOW TO READ THE RESULT: download the `windows-measurement` artifact. `summary.md` carries the
+# SHA, the suite exit code, the total wall, and the per-phase wall times; the raw stdout/stderr
+# logs are retained alongside it so the numbers can be re-derived rather than trusted.
+#
+# TRIPWIRE: it runs COMMITTED DEFAULTS. run-tests.sh sees GITHUB_ACTIONS and takes the full
+# unscoped path by itself — no flag is passed here, and none may be added. A measurement of a
+# scoped run measures nothing about the gate.
+
+on:
+  # Manual only. No push, no pull_request, no workflow_call, no schedule: nothing may reach this
+  # job automatically, and nothing may depend on it.
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Exact commit to measure. Empty = the commit this dispatch was run against."
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    name: measure-windows-msys
+    runs-on: windows-latest
+    # Sized to FINISH against the ~88m estimate with real headroom, so the run produces a number
+    # instead of another timeout. This bound gates nothing.
+    timeout-minutes: 180
+    defaults:
+      run:
+        shell: bash
+    env:
+      # run-tests.sh reads ${PYTHON:-python3}. Git Bash has no guaranteed `python3`.
+      PYTHON: python
+
+    steps:
+      - name: Checkout the exact SHA under measurement
+        uses: actions/checkout@v6
+        with:
+          # fetch-depth 0: history-dependent hook tests (test-po-investigate.sh runs
+          # `git diff HEAD~1 HEAD`) fail with git rc=128 on a shallow clone.
+          fetch-depth: 0
+          ref: ${{ inputs.sha || github.sha }}
+
+      - name: Assert HEAD is the exact SHA under measurement
+        run: |
+          set -euo pipefail
+          want='${{ inputs.sha || github.sha }}'
+          got="$(git rev-parse HEAD)"
+          if [ "$got" != "$want" ]; then
+            echo "::error::Measuring $got but $want was requested — this timing is NOT about that SHA."
+            exit 1
+          fi
+          echo "sha=$got runner=windows-latest"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: '.python-version'
+
+      - name: Guarantee python3 resolves (Git Bash has no python3 alias)
+        run: |
+          set -euo pipefail
+          if ! command -v python3 >/dev/null 2>&1; then
+            mkdir -p "$HOME/bin"
+            printf '#!/usr/bin/env bash\nexec python "$@"\n' > "$HOME/bin/python3"
+            chmod +x "$HOME/bin/python3"
+            echo "$HOME/bin" >> "$GITHUB_PATH"
+          fi
+
+      - name: Install runtime dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r hooks/requirements.txt
+
+      - name: Make scripts executable
+        run: |
+          git config core.fileMode false
+          chmod +x hooks/local/*.sh hooks/tests/*.sh hooks/git/pre-commit hooks/git/commit-msg
+
+      - name: Full suite on committed defaults, timed per phase
+        id: run
+        run: |
+          set -uo pipefail
+          mkdir -p measurement
+          # run-tests.sh already emits "[run-tests] <phase> took <N>s" per phase on STDERR
+          # (D14.1). Capture both streams verbatim; derive nothing the logs cannot re-derive.
+          started="$(date -u +%s)"
+          bash hooks/tests/run-tests.sh \
+            > measurement/run-tests.stdout.log 2> measurement/run-tests.stderr.log
+          rc=$?
+          finished="$(date -u +%s)"
+          total=$((finished - started))
+          {
+            echo "# windows-latest full-suite measurement"
+            echo
+            echo "| field | value |"
+            echo "|---|---|"
+            echo "| sha | \`$(git rev-parse HEAD)\` |"
+            echo "| runner | windows-latest (shell: bash = Git Bash/MSYS) |"
+            echo "| started_utc | $(date -u -d "@$started" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo "$started") |"
+            echo "| total_wall_seconds | $total |"
+            echo "| total_wall | $((total / 60))m$((total % 60))s |"
+            echo "| suite_exit_code | $rc |"
+            echo "| overrides | none — committed defaults (no scope, skip or bound override) |"
+            echo
+            echo "## Per-phase wall time"
+            echo
+            echo "| phase | seconds |"
+            echo "|---|---:|"
+            grep -E '^\[run-tests\] .* took [0-9]+s$' measurement/run-tests.stderr.log \
+              | sed -E 's/^\[run-tests\] (.*) took ([0-9]+)s$/| \1 | \2 |/' || true
+            echo
+            echo "## Phases skipped by the harness (should be none on a full CI run)"
+            echo
+            grep -E '^SKIP \(' measurement/run-tests.stdout.log || echo "(none)"
+          } > measurement/summary.md
+          cp state/audit/hook-test-results.md measurement/ 2>/dev/null || true
+          cat measurement/summary.md
+          echo "suite_rc=$rc" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the measurement
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-measurement
+          path: measurement/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Report the suite exit code
+        if: always()
+        run: |
+          # The job status mirrors the suite so a RED suite is not read as a clean measurement.
+          # Nothing depends on this job either way — it gates no publication and is not a
+          # required check.
+          rc='${{ steps.run.outputs.suite_rc }}'
+          echo "suite exit code: ${rc:-unknown}"
+          [ "${rc:-1}" = "0" ]
