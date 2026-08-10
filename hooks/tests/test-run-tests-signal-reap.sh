@@ -14,8 +14,27 @@
 #   DISCRIMINATOR  fails against the pre-fix tree (91f8748^). These are the rows that carry the claim.
 #   CONTROL        passed before the fix too; it exists to catch a REGRESSION (collateral, clean
 #                  exit). A control PASS proves nothing about the fix.
-#   SKIP           neither. Reported separately and NEVER counted as PASS — an off-MSYS skip
-#                  incrementing the pass count is how "8/8" came to overstate coverage.
+#
+# RESULT STATES (B4 / final-architecture-review finding 4). Three of four discriminators used to
+# call skip(), and finish() excluded skips from the exit status — so a loaded Windows run could
+# lose most of the defect coverage and still exit 0. The states are now:
+#   PASS   the mechanism ran and produced the expected result.
+#   FAIL   the mechanism ran and produced the wrong result.
+#   ERROR  a DISCRIMINATOR's required topology could not be established. NON-GREEN: it is counted
+#          into the exit status. "I could not test it" is not "it works" — that equivalence is
+#          exactly what a loaded MSYS host used to buy.
+#   SKIP   permitted for CONTROLS only, reported separately, never counted as a PASS. A control
+#          that did not run reports nothing about the fix, but it also carries no claim.
+#   N/A    declared STATICALLY, before any row is constructed, for a platform where the defect
+#          class cannot exist. Off-MSYS this whole phase is N/A: POSIX process-group teardown
+#          reaps the phase tree, so there is no MSYS orphan to leak. That is "absent by
+#          construction" (zero rows exist, nothing attempted-then-escaped), and the coverage is
+#          owned by the REQUIRED verify-windows-msys leg. It is not a runtime escape: no row can
+#          reach N/A, only the platform gate above them can.
+#
+# ROW MANIFEST (DECLARED_ROWS below) — every declared row must report exactly one terminal state.
+# A row that vanishes entirely (an early `return`, a refactor that drops a block) is reported as a
+# missing row, not as a smaller-but-green suite. The old counter could not see that at all.
 #
 # SCOPE — deliberately 4 discriminators + 4 collateral controls. re-review-c97f8d2.md § "Coverage
 # honesty" measured the previous 19-row suite at 4 real discriminators; the other 15 rows were
@@ -44,12 +63,44 @@ LIB="$ROOT/hooks/local/lib/run-with-timeout.sh"
 REAPLIB="$ROOT/hooks/tests/lib/orphan-reap.sh"
 FIXLIB="$ROOT/hooks/tests/lib/signal-reap-fixture.sh"
 
-pass=0; fail=0; skipped=0
-ok()   { pass=$((pass + 1)); echo "PASS: signal-reap $1"; }
-bad()  { fail=$((fail + 1)); echo "FAIL: signal-reap $1 (${2:-})"; }
-skip() { skipped=$((skipped + 1)); echo "SKIP: signal-reap $1 — ${2:-}" >&2; }
+# Every row this phase promises to report. Order is cosmetic; membership is the contract.
+DECLARED_ROWS=(
+  launch-window-signal-still-reaps            # DISCRIMINATOR
+  launch-window-sibling-survives              # CONTROL
+  failed-pgid-lookup-kills-nothing            # DISCRIMINATOR
+  group-identity-mismatch-kills-nothing       # DISCRIMINATOR
+  never-signals-own-group                     # CONTROL
+  dead-leader-descendants-reaped              # DISCRIMINATOR
+  normal-exit-performs-no-kill                # CONTROL
+  pid-reuse-mismatch-kills-nothing            # CONTROL
+)
+
+pass=0; fail=0; skipped=0; errors=0
+PHASE_APPLICABLE=1
+declare -A ROW_SEEN=()
+# TRIPWIRE: the row NAME is the first word of $1 (the rest is the class tag + detail), so every
+# reporter records ${1%% *}. A reporter that forgets this silently drops its row from the
+# completeness check, which is the one thing that check exists to catch.
+ok()   { ROW_SEEN[${1%% *}]=PASS;  pass=$((pass + 1)); echo "PASS: signal-reap $1"; }
+bad()  { ROW_SEEN[${1%% *}]=FAIL;  fail=$((fail + 1)); echo "FAIL: signal-reap $1 (${2:-})"; }
+# err: a DISCRIMINATOR could not establish the mechanism it tests. Emitted on the FAIL channel
+# on purpose — run_shell_phase counts ^FAIL: rows, so this reaches the exit status the same way
+# a wrong answer does, while the [ERROR] label keeps "could not run" distinguishable from
+# "ran and was wrong" for whoever reads the log.
+err()  { ROW_SEEN[${1%% *}]=ERROR; fail=$((fail + 1)); errors=$((errors + 1))
+         echo "FAIL: signal-reap $1 ([ERROR] required topology not established: ${2:-}) — a discriminator that could not run is NOT a pass"; }
+# skip: CONTROLS only. Never counted as a pass, never counted into the exit status.
+skip() { ROW_SEEN[${1%% *}]=SKIP;  skipped=$((skipped + 1)); echo "SKIP: signal-reap $1 — ${2:-}" >&2; }
 finish() {
-  echo "[test-run-tests-signal-reap] $pass/$((pass + fail)) PASS, $fail FAIL, $skipped SKIP (skips are NOT passes)"
+  if [ "$PHASE_APPLICABLE" -eq 1 ]; then
+    local n missing=""
+    for n in "${DECLARED_ROWS[@]}"; do [ -n "${ROW_SEEN[$n]:-}" ] || missing="$missing $n"; done
+    if [ -n "$missing" ]; then
+      fail=$((fail + 1))
+      echo "FAIL: signal-reap rows-complete ([ERROR] declared row(s) never reported:$missing — the suite got smaller, not greener)"
+    fi
+  fi
+  echo "[test-run-tests-signal-reap] $pass/$((pass + fail)) PASS, $fail FAIL (of which $errors are ERROR: mechanism not established), $skipped SKIP (skips are CONTROLS only and are NOT passes)"
   exit $fail
 }
 
@@ -77,12 +128,21 @@ mkdir -p "$EVID" 2>/dev/null || true
 # interleave each other's topology, and a trace keyed only by HEAD cannot say which tree it tested.
 TRACE="$EVID/topology-$TREE-$RUN_ID.tsv"
 
+# STATIC PLATFORM GATE (see § RESULT STATES). Off-MSYS this phase is N/A by construction: the
+# gate fires here, before a single row is constructed, so no discriminator is ever present-and-
+# escaping. The coverage is owned by the REQUIRED verify-windows-msys leg.
 case "$(uname -s 2>/dev/null)" in
   MINGW*|MSYS*|CYGWIN*) : ;;
-  *) skip "all-scenarios" "off-MSYS — POSIX process-group teardown reaps the phase tree; this defect class is MSYS-only"
+  *) PHASE_APPLICABLE=0
+     echo "N/A: signal-reap all-scenarios — off-MSYS. POSIX process-group teardown reaps the phase tree, so this defect class cannot exist here. Declared statically; owned by the required verify-windows-msys job."
      finish ;;
 esac
-[ -n "$(command -v timeout || true)" ] || { skip "all-scenarios" "no timeout binary"; finish; }
+# On MSYS the timeout binary is a REQUIRED mechanism, not a platform property — every
+# discriminator below is driven through it. Missing it is an ERROR, never a green skip.
+if [ -z "$(command -v timeout || true)" ]; then
+  for _r in "${DECLARED_ROWS[@]}"; do err "$_r" "no timeout binary on PATH; the bounded runner every scenario drives cannot start"; done
+  finish
+fi
 
 FIX="$(mktemp -d "${TMPDIR:-/tmp}/ffhc-signal-reap.XXXXXX")" || { bad "setup-fixture" "mktemp failed"; finish; }
 cleanup_fixture() {
@@ -226,7 +286,7 @@ if ff_spawn_victim_group 90; then
   ffor_reap "$FFSR_V_LEADER" "" "$FFSR_V_PGID" "$FFSR_V_LEADSTART" "" "$GSEC"
   victim_survives "failed-pgid-lookup-kills-nothing" "harness pgid unresolvable" 3
 else
-  skip "failed-pgid-lookup-kills-nothing" "could not establish an independent victim group"
+  err "failed-pgid-lookup-kills-nothing" "could not establish an independent victim group"
 fi
 ff_reap_tracked
 
@@ -235,7 +295,7 @@ if ff_spawn_victim_group 90; then
   ffor_reap "$FFSR_V_LEADER" "" "$FFSR_V_PGID" "$((FFSR_V_LEADSTART + 1))" "$OWN_PGID" "$GSEC"
   victim_survives "group-identity-mismatch-kills-nothing" "recorded leader start token does not match the live leader (pid/group reuse)" 3
 else
-  skip "group-identity-mismatch-kills-nothing" "could not establish an independent victim group"
+  err "group-identity-mismatch-kills-nothing" "could not establish an independent victim group"
 fi
 ff_reap_tracked
 
@@ -259,9 +319,9 @@ if ff_spawn_victim_group 90; then
   ff_kill_verified "$DL_LEADER" "${FFSR_TOK[$DL_LEADER]:-}" 9
   sleep 1
   if ff_alive "$DL_LEADER"; then
-    skip "dead-leader-descendants-reaped" "the group leader would not die; topology not established"
+    err "dead-leader-descendants-reaped" "the group leader would not die; the dead-leader topology was not established"
   elif [ "$(ff_group_size "$DL_PGID")" -lt 1 ] 2>/dev/null; then
-    skip "dead-leader-descendants-reaped" "killing the leader took its descendants with it; the leaked topology was not reproduced"
+    err "dead-leader-descendants-reaped" "killing the leader took its descendants with it; the leaked topology was not reproduced"
   else
     before="$(ff_group_size "$DL_PGID")"
     ffor_reap "$DL_LEADER" "" "$DL_PGID" "$DL_LEAD" "$OWN_PGID" "$GSEC"
@@ -273,7 +333,7 @@ if ff_spawn_victim_group 90; then
     fi
   fi
 else
-  skip "dead-leader-descendants-reaped" "could not establish an independent victim group"
+  err "dead-leader-descendants-reaped" "could not establish an independent victim group"
 fi
 ff_reap_tracked
 
@@ -299,6 +359,9 @@ ff_reap_tracked
 ff_spawn_sibling; VICTIM="$FFSR_SIB_PID"
 sleep 1
 VWIN=""; IFS= read -r VWIN 2>/dev/null < "/proc/$VICTIM/winpid" || VWIN=""
+# Test-only knob (never read by shipped code): force a CONTROL's skip branch, so the other half
+# of the B4 claim — a control may still skip and the phase still passes — is demonstrable too.
+[ "${FFSR_FORCE_NO_WINPID:-0}" = "1" ] && VWIN=""
 if [ -n "$VWIN" ] && ff_alive "$VICTIM"; then
   ffhc_msys_taskkill_winpid "$VWIN" "999999"   # 999999 = a pid that cannot map to $VWIN
   sleep 1

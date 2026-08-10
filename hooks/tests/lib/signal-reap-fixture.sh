@@ -196,6 +196,10 @@ HN
 # Sets FFSR_V_LEADER / FFSR_V_PGID / FFSR_V_LEADSTART; tracks all three pids for teardown.
 ff_spawn_victim_group() {
   FFSR_V_LEADER=""; FFSR_V_PGID=""; FFSR_V_LEADSTART=""
+  # Test-only knob (never read by shipped code): force the "topology not established" branch so
+  # B4's own claim — a discriminator that cannot run must make the phase non-zero — is itself
+  # mechanically demonstrable instead of waiting for a loaded host to produce it by accident.
+  [ "${FFSR_FORCE_NO_VICTIM_GROUP:-0}" = "1" ] && return 1
   local secs="${1:-120}" i=0
   timeout "$secs" bash -c 'bash -c "while :; do sleep 1; done" & while :; do sleep 1; done' \
     >/dev/null 2>&1 &
