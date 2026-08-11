@@ -1,11 +1,11 @@
 # Active handoff
 
 Mode: run-ledger  (autonomous run, operator stepped out)
-**Updated:** 2026-08-10T21:40Z
+**Updated:** 2026-08-11T01:55Z
 **Branch:** `fix/msys-v3307-hardening`
-**HEAD at write time:** `800bf36`
+**HEAD at write time:** `06c0b3b`
 **Default branch:** `main` at `205e492` (measurement workflow cherry-picked; nothing else changed)
-**Authoritative plan:** `docs/specs/backlog-triage-execution/blocker-fix-plan.md` — **SUPERSEDED IN PART**
+**Authoritative roadmap:** `docs/specs/msys-hardening-roadmap/roadmap.md` — owns S0..S14 slice scheduling
 **Governing review:** `docs/specs/backlog-triage-execution/plan-review-2.md` — `WRONG-APPROACH` on B1
 **Superseded state:** `docs/tmp/handoff/archive/2026-08-07-restart-186ba38.md`
 (sha256 `c4ac658dda263c74caced5015a7a09c5cfe2bed6e22a982dbb15810eddc1e5e4`)
@@ -32,64 +32,25 @@ fresh hosted-runner measurement — a local timing is not evidence for a CI boun
 Raw logs: `windows-measurement` artifact on the run (no `summary.md` — the step that writes it is
 downstream of the suite step and did not run; per-phase times come from stderr `took Ns` lines).
 
-## The 4 failures are FIXED (`bd47aed`, `800bf36`). The MASKS were the defect, not just the assertions.
+## S1 fixture rework invalidates the four-row FIXED claim
 
-Test files only; no production change. Local: 59/59 `test-bootstrap-exception.sh`, 7/7
-`test-git-hooks-smoke.sh`. **Not yet re-run on a hosted Windows runner.**
+**Status: `6ffd8da`'s FIXED claim is invalidated (`VERDICT: WRONG-LAYER`).** `bd47aed` / `800bf36`
+asserted the contract at the wrong layer; S1 replaces subtractive PATH masking with causal fixture
+and mutation proof.
 
-| Row (current name) | Was | Fix |
-|---|---|---|
-| `8-interpreter-absent-blocks` | `8-python3-absent-non-blocking` — asserted rc 0, *"a python3-less env must still commit"* | Asserts BLOCK: `pre-commit:87` refuses when changes are staged and no interpreter is discoverable |
-| `8-interpreter-absent-block-message` | `8-python3-absent-loud-warn` — grepped a warning string deleted when the fail-open closed | Asserts the refusal NAMES the contract (`no supported Python 3.10+ interpreter found`), so a bare nonzero rc cannot pass for it |
-| `16-outer-git-list-rc-fails-closed` | `16-*-guard-present` — grepped `pre-commit` for the comment `outer git rc` | DRIVEN: a git shim fails only `diff --cached`; the hook must refuse. No prose anchor |
-| `git-smoke ... no python3` | Environment ERROR on the runner — no python-less PATH retaining git | Ported row 8's git-preserving filtered mirror. Measurable on CI instead of erroring |
-
-**Three rows were GREEN locally while testing nothing.** That is the finding, and it outranks the
-stale-assertion framing this section previously carried:
-
-- Row 8's mask filtered `python*` but not `py`. The Windows launcher sits in its own dir holding no
-  `python*`, so that dir passed through PATH untouched, `py -3` stayed discoverable, and the hook
-  took the DISCOVERY branch — never reaching the absent path. Measured A/B against the real hook:
-  old mask → rc 0 + `using discovered 'py -3'`; new mask → rc 1 + the BLOCK message.
-- `git-smoke`'s mask dropped whole PATH dirs, which removes git on Linux (`python3` + git share
-  `/usr/bin`); a git-less hook exits 0 at its top `rev-parse` guard — an environment artifact, not
-  a verdict. Measured A/B on a simulated shared dir: old → git GONE; new → git survives with every
-  interpreter still masked.
-
-**Guard added with both widened masks:** refuse to mirror a dir over 2000 entries. A system-wide
-launcher install puts `py.exe` in `C:\Windows`, which would otherwise be symlinked — or COPIED,
-where `ln -s` is unavailable — wholesale.
-
-**MAJOR 10 (comment-blind anchors):** the failing instance is closed. The other source-greps in
-`test-secret-scan-staged.sh` / `test-trusted-enforcer.sh` were checked and anchor on EMITTED
-runtime strings (`pre-commit:161`, `:440`), not prose — no change needed.
-
-**Next on this thread:** re-run these four rows on a hosted Windows runner. Local green is exactly
-the signal that already misled this workstream once.
-
-## Superseded next action (kept for provenance)
-
-**Read the Windows measurement, then choose the B1 architecture from the number.**
-
-Run `31431353353` was dispatched 2026-08-10T20:55Z on `fix/msys-v3307-hardening` @ `c753d130`
-(exact branch head). Non-publishing by construction.
-`https://github.com/fusebase-dev/fusebase-flow/actions/runs/31431353353`
-
-Download the `windows-measurement` artifact; `summary.md` carries the SHA, suite exit code,
-total wall, and per-phase walls.
-
-| Measured total | Decision | Why |
-|---|---|---|
-| < 50 min | Do nothing — the committed 60-min wall holds | Headroom already adequate |
-| 50–90 min | Raise `timeout-minutes` on `verify-windows-msys`, record the measurement as justification | Sizing a CI job ceiling to measured work is an honest budget, not a masked defect |
-| > 90 min | Shard the complete set into independently-required jobs | Coverage preserved; wall divided |
-
-**Per-platform tiering is RULED OUT** and must not be re-proposed without new evidence. Two
-reasons, both from `plan-review-2.md`:
-1. Every recorded case in `ci-linux-msys-test-divergence` is **MSYS-green / Linux-red** — the
-   opposite of the direction the split assumed (the prior plan stated it backwards twice).
-2. The ownership criteria collapse: every shell phase spawns processes, so "derive the split from
-   evidence" either keeps nearly everything on Windows or gets selectively ignored.
+| Fact | Value |
+|---|---|
+| Invalidated repair | Deleting `hooks/git/pre-commit:96`'s `exit 1` left both absent-interpreter rows GREEN; stderr and rc came from separate invocations; row 8 staged a PROTECTED path, so `rc != 0` could pass for the wrong reason; the PATH mask was duplicated in two files with an arbitrary 2000-entry cap |
+| Superseding work | S1 `msys-test-fixture-rework`: `fcddf10` (T1), `b7d5545` (T2), `06c0b3b` (T3) |
+| Root cause | The PATH **masks**, not the assertions — subtractive masking is host-dependent by construction |
+| Remedy | ONE additive fixture, `hooks/tests/lib/minimal-path-fixture.sh`: resolves ~26 allowlisted tools to absolute paths, never adds an interpreter, never enumerates/mirrors/symlinks/copies PATH dirs |
+| Mutation proof | Deleting `pre-commit:96`'s `exit 1` now flips EXACTLY `8-interpreter-absent-blocks` PASS→FAIL; all control rows are identical; an unmutated copy presented as the mutant is rejected (verdict rc 1); production hook byte-unchanged |
+| Critical detail | The mutant still returns **rc 1**, so a bare "named RED" oracle would have passed it; a terminality clause (no post-§1b marker) was required |
+| Rows | Changed phases 66 → 101 (+35); `bootstrap-exception` 59 → 56 (3 rows RELOCATED to the new contract test, not lost) |
+| Module size | `test-bootstrap-exception.sh` 799 → 740 |
+| Local gate | `929/929 PASS`, 0 FAIL — developer evidence only, never release evidence |
+| Hosted | Run `31450469371` explicitly dispatched on exact SHA `06c0b3b`: **IN FLIGHT / result pending**. Pushes do not trigger `fusebase-flow-verify.yml`; hosted verification requires explicit dispatch |
+| Side effect | `bootstrap-exception` phase 600–680s → ~95s; relevant to `gate-bounds-lack-headroom` |
 
 ## What is real vs. what is still an estimate
 
@@ -106,22 +67,24 @@ reasons, both from `plan-review-2.md`:
 **B2 and B4 were re-verified against the shipped files on 2026-08-10 and are CLOSED.** An earlier
 revision of this handoff listed them as open; that was stale, not a finding.
 
+**Slice scheduling:** `docs/specs/msys-hardening-roadmap/roadmap.md` owns S0..S14; this ledger
+records current finding state only.
+
 | ID | State | Evidence (read, not inferred from commit messages) |
 |---|---|---|
 | B2 | **CLOSED** | `hooks/local/verify-tag-target.sh` force-fetches the tag from the remote (a non-forced fetch of an existing ref is rejected by git, which would silently compare the stale workspace ref — the exact bypass), peels with `^{commit}` so annotated tags resolve, requires a full 40-hex SHA so a truncated value cannot match, and has no skip knob. Called in `fusebase-flow-release.yml` BEFORE publish and again AFTER (TOCTOU re-assert). Mutation-tested by `test-release-tag-binding.sh`, which strips `refresh_tag_from_remote` from a copy and asserts the moved tag is then wrongly accepted — so the fetch cannot decay into decoration. The residual window is fetch→create and is closable only by a repo-side tag ruleset (`PUBLISHING.md` § Publication paths) |
 | B4 | **CLOSED** | `test-run-tests-signal-reap.sh`: discriminators that cannot run call `err()` ("a discriminator that could not run is NOT a pass") which counts into `fail`; `skip()` is restricted to CONTROLS and never enters the exit status. The one surviving `skip` (`never-signals-own-group`) is a labelled `[CONTROL]`. `finish()` also fails when any declared row never reported — "the suite got smaller, not greener" |
 
-| ID | Still open | Note |
+| ID | State | Evidence / residual |
 |---|---|---|
-| B3 | predicate 32 checks mirror parity, never production recovery/write | Partially addressed at `b64033d`; confirm it exercises the write path |
-| MAJORs | 7 (rc 124/137 vs crash), 8 (1.64× headroom), 9 (dual-platform verify on ordinary pushes — North Star hit), 11 (no shipped writer mints the FR-07 approval) | **10 and 12 are CLOSED.** 12's fail-closed interpreter contract landed in `c11d4e2` and is now ASSERTED by `bd47aed` (the tests had lagged the fix, demanding the hole back); 10's comment-blind anchor is gone. 7 and 9 are also named in `c11d4e2` but were not re-verified here |
-| — | SIGINT exit status | Design decision, deliberately not improvised |
-| — | `gate-bounds-lack-headroom` | OPEN and **worse** post-B3; the scalar was deliberately NOT raised (`b09ea02`) |
-
-**MAJOR 11 note:** minting the FR-07 approval for the `main` cherry-pick had to be done by hand
-against `hooks/shared/path_policy.py`, because no shipped writer emits a usable `paths` list. That
-is direct confirmation of the finding, not a workaround to normalise. A working example now exists
-at `state/approvals/protected_path_edit-measure-workflow-to-main-20260810.json`.
+| B3 | **CLOSED** | `hooks/tests/cli-flow-recovery-direct.sh:40,46,69,257` — predicate 32 runs the shipped writer over the production corpus and byte-compares the manifest |
+| MAJOR 9 | **CLOSED (deliberate)** | `.github/workflows/fusebase-flow-verify.yml:3,16,21` — `workflow_dispatch` + `workflow_call` only; ordinary pushes/PRs run NO CI by design |
+| MAJOR 10 | **CLOSED by `c11d4e2`** | Attribution correction: not closed by the row-16 repair |
+| MAJOR 11 | **CLOSED** | `hooks/local/write-bootstrap-approval.sh:113,123,132`; `hooks/local/approve-local.sh:168,218` — both writers emit a populated `paths` array |
+| MAJOR 12 | **PARTIAL** | Narrow defect closed in `c11d4e2`; `hooks/local/preflight.sh:42` still silently skips Python checks when Python is absent, so `docs/specs/backlog-triage-execution/plan-review-2.md:69` remains unsatisfied (roadmap S3) |
+| MAJOR 7 | **PARTIAL** | 124/137 are labelled TIMED OUT vs `crashed`, but classification is rc-only; a test's own 124/137 is indistinguishable from watchdog action (`hooks/tests/run-tests.sh:299,305`; `hooks/local/lib/run-with-timeout.sh:49,52`) |
+| SIGINT | **OPEN (confirmed)** | No `INT` trap; nothing branches on 130 (`hooks/tests/run-tests.sh:219,270,596`) |
+| MAJOR 8 / `gate-bounds-lack-headroom` | **OPEN** | Roadmap S8; updated `bootstrap-exception` timing is recorded in the S1 table above |
 
 ## Lessons this run — do not re-derive
 
