@@ -69,7 +69,7 @@ FFHC_HEARTBEAT_SECS="${FFHC_HEARTBEAT_SECS:-30}"
 # Canonical phase tags, in run order. This list is the FF_LIST discovery source and the
 # FF_ONLY validation set; add a tag here (and its guard) when a phase is added.
 FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixture \
-  interpreter-contract hook-manifest newline-preserve baseline-merge \
+  interpreter-contract interpreter-mutation hook-manifest newline-preserve baseline-merge \
   sync-allowlist policy-state bootstrap-baseline-hop fr22-delivery po-verifiable-boot \
   po-investigate liveness codex-parity codex-plugin cli-0259 secret-scan-staged bootstrap-exception \
   lane-router \
@@ -484,6 +484,9 @@ run_shell_phase test-git-hooks-smoke.sh      "git-smoke"
 run_shell_phase test-minimal-path-fixture.sh "minimal-path-fixture"
 # The direct §1b missing-interpreter contract, relocated out of test-bootstrap-exception.sh.
 run_shell_phase test-pre-commit-interpreter-contract.sh "interpreter-contract"
+# Drives that contract as an ORACLE against copies of the hook: a named RED is not proof, so the
+# verdict is a one-row delta plus control invariance plus a rejected unmutated negative control.
+run_shell_phase test-pre-commit-interpreter-mutation.sh "interpreter-mutation"
 run_shell_phase test-hook-manifest.sh        "hook-manifest"
 # Makes the EXISTING lightweight-lane eligibility gate executable for path-observable surfaces.
 # Its FULL fixtures are the actual changed paths of cb0ff8b / 235f4a3 / 0e29ed5 — three changes
