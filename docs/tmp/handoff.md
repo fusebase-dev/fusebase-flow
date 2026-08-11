@@ -49,8 +49,9 @@ and mutation proof.
 | Rows | Changed phases 66 → 101 (+35); `bootstrap-exception` 59 → 56 (3 rows RELOCATED to the new contract test, not lost) |
 | Module size | `test-bootstrap-exception.sh` 799 → 740 |
 | Local gate | `929/929 PASS`, 0 FAIL — developer evidence only, never release evidence |
-| Hosted | Run `31450469371` explicitly dispatched on exact SHA `06c0b3b`: **IN FLIGHT / result pending**. Pushes do not trigger `fusebase-flow-verify.yml`; hosted verification requires explicit dispatch |
-| Side effect | `bootstrap-exception` phase 600–680s → ~95s; relevant to `gate-bounds-lack-headroom` |
+| Hosted | **GREEN on exact SHA `1227652`** — run `31451240122`: `verify-linux` + `verify-windows-msys` + `verify-gate` all success (wall 16m24s; suite 2m37s Linux / 15m38s Windows). AC8 satisfied; S1 CLOSED. Pushes do not trigger `fusebase-flow-verify.yml` — hosted verification requires explicit dispatch |
+| First dispatch | Run `31450469371` on `06c0b3b` failed BOTH legs at step 12 (managed-content manifest), never at the tests — step 9 passed on both platforms. Fixed by `9585f54`. This is `local-gate-misses-manifest-freshness` (S11) reproducing live: the local suite has no managed-content freshness assertion, CI does, so 929/929 local still reddened CI |
+| Side effect | `bootstrap-exception` phase 600–680s → ~95s **on this dev host**. NOT demonstrated on the runner: Windows suite was 13m05s on `06c0b3b` and 15m38s on `1227652` for essentially the same tests — that spread is variance, not signal. Do not cite a hosted speedup without a controlled measurement (`gate-bounds-lack-headroom` / S8) |
 
 ## What is real vs. what is still an estimate
 
