@@ -84,6 +84,44 @@ trap _ffpc_cleanup_shim EXIT
 # 3.10+ is the floor the handlers/scanner are written against (see .python-version).
 _ffpc_is_py3() { "$@" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] >= (3, 10) else 1)' >/dev/null 2>&1; }
 
+# 1b-v. PRIMARY-INTERPRETER VERSION SYMMETRY (S2d; docs/specs/pre-commit-trusted-tool-contract/).
+#     §1b probed only the DISCOVERED fallbacks, so a resolved `python3` reached §2/§3 unversioned.
+#     TRIPWIRE: `-S -c` support is NOT a consumer requirement — a wrapper honouring only
+#     `-S <file>` must keep working, so an unusable `-c` falls through to the file probe.
+_ffpc_bounded() {   # <secs> <out> <err> <mark> CMD… — rc 124 == killed at the bound
+    local s=$1 o=$2 e=$3 m=$4 p w r; shift 4; rm -f "$m" 2>/dev/null
+    "$@" >"$o" 2>"$e" & p=$!
+    # TRIPWIRE: the deadline is CLOCK-based and one poll tick SHORT — counting N sleeps lets a 1s
+    # tick push an attempt past its stated bound.
+    ( d=$((SECONDS + s - 1)); while [ "$SECONDS" -lt "$d" ]; do kill -0 $p 2>/dev/null || exit 0; sleep 1; done
+      : > "$m"; kill -9 $p 2>/dev/null ) >/dev/null 2>&1 & w=$!
+    wait $p; r=$?; kill $w 2>/dev/null; wait $w 2>/dev/null
+    [ -f "$m" ] && r=124
+    return $r
+}
+_ffpc_ver() {   # one bounded probe; sets FFPC_VER (maj.min; empty = unproven), appends FFPC_DIAG
+    # TRIPWIRE: 2>/dev/null hides only the SHELL's "Killed" job report; the probe's own stderr is
+    # captured in $FFPC_VD/e and replayed in the BLOCK diagnostic — never discard it.
+    _ffpc_bounded 10 "$FFPC_VD/o" "$FFPC_VD/e" "$FFPC_VD/m" python3 -S "$@" 2>/dev/null; local r=$?
+    FFPC_VER="$(sed -n 's/^FFPCVER \([0-9][0-9]*\) \([0-9][0-9]*\)$/\1.\2/p' "$FFPC_VD/o" 2>/dev/null | head -1)"
+    FFPC_DIAG="$FFPC_DIAG [-S ${1##*/} rc=$r$([ $r -eq 124 ] && printf ' TIMEOUT@10s')] $(tr '\r\n' '  ' < "$FFPC_VD/e" 2>/dev/null | cut -c1-160)"
+}
+if [ -n "$STAGED_ANY" ] && command -v python3 >/dev/null 2>&1; then
+    FFPC_VD="$(mktemp -d 2>/dev/null || mktemp -d -t ffflow-pyver)"
+    [ -d "${FFPC_VD:-/nonexistent}" ] || { echo "[fusebase-flow:pre-commit] BLOCK — no temp dir for the python3 version probe — failing closed. NEVER use --no-verify." >&2; exit 1; }
+    FFPC_VSRC='import sys; print("FFPCVER %d %d" % sys.version_info[:2])'
+    printf '%s\n' "$FFPC_VSRC" > "$FFPC_VD/v.py"
+    FFPC_VER=""; FFPC_DIAG=""
+    _ffpc_ver -c "$FFPC_VSRC"
+    [ -n "$FFPC_VER" ] || _ffpc_ver "$FFPC_VD/v.py"
+    rm -rf "$FFPC_VD"
+    if [ -z "$FFPC_VER" ] || [ "${FFPC_VER%%.*}" -lt 3 ] || { [ "${FFPC_VER%%.*}" -eq 3 ] && [ "${FFPC_VER##*.}" -lt 10 ]; }; then
+        echo "[fusebase-flow:pre-commit] BLOCK — the resolved 'python3' did not prove Python 3.10+ (version=${FFPC_VER:-unproven}); probes:$FFPC_DIAG" >&2
+        echo "§2 (FR-12 staged secret scan) and §3 (FR-07 protected-path check) both run under it, so this commit is refused rather than run on an unsupported interpreter. Point python3 at Python 3.10+. NEVER use --no-verify." >&2
+        exit 1
+    fi
+fi
+
 if [ -n "$STAGED_ANY" ] && ! command -v python3 >/dev/null 2>&1; then
     FFPC_FOUND=""
     if _ffpc_is_py3 python; then FFPC_FOUND="python"
