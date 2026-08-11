@@ -332,22 +332,37 @@ for c in "${FLOW_COMMANDS[@]}"; do
     grep -q "/$c\b" CLAUDE.md || err "CLAUDE.md does not list the /$c slash command"
 done
 grep -qi 'invoke the `handoff` skill' AGENTS.md || err "AGENTS.md does not explain the portable (non-Claude) handoff invocation"
-if [ -f .claude-plugin/plugin.json ] && command -v python3 >/dev/null 2>&1; then
-    plugin_ver="$(python3 -c "import json,sys; print(json.load(open('.claude-plugin/plugin.json')).get('version',''))" 2>/dev/null)"
-    if [ -n "$plugin_ver" ] && [ -n "$VER_FILE" ] && [ "$plugin_ver" != "$VER_FILE" ]; then
-        err ".claude-plugin/plugin.json version ($plugin_ver) != VERSION ($VER_FILE); bump them together"
+# Plugin-manifest VERSION parity — scoped to FLOW-OWNED manifests only.
+# TRIPWIRE: existence is NOT ownership. docs/install-fusebase-cli-project.md targets projects that
+# may already carry their own (Fusebase CLI-generated) .codex-plugin/plugin.json, so an
+# existence-only check made following the install guide produce an immediate false error about a
+# manifest Flow does not own. The `name` field is the ownership test; a foreign name is skipped.
+# ff_plugin_field FILE PYEXPR: echo a field, or "" when the file is absent/unparsable.
+ff_plugin_field() {
+    command -v python3 >/dev/null 2>&1 || return 0
+    [ -f "$1" ] || return 0
+    FF_PJ="$1" python3 -c "
+import json, os, sys
+try:
+    d = json.load(open(os.environ['FF_PJ'], encoding='utf-8'))
+except Exception:
+    sys.exit(0)
+print($2 or '')
+" 2>/dev/null
+}
+for pj in .claude-plugin/plugin.json .codex-plugin/plugin.json; do
+    pj_name="$(ff_plugin_field "$pj" "d.get('name','')")"
+    [ "$pj_name" = "fusebase-flow" ] || continue
+    pj_ver="$(ff_plugin_field "$pj" "d.get('version','')")"
+    if [ -n "$pj_ver" ] && [ -n "$VER_FILE" ] && [ "$pj_ver" != "$VER_FILE" ]; then
+        err "$pj version ($pj_ver) != VERSION ($VER_FILE); bump them together"
     fi
-fi
-if [ -f .codex-plugin/plugin.json ] && command -v python3 >/dev/null 2>&1; then
-    codex_plugin_ver="$(python3 -c "import json,sys; print(json.load(open('.codex-plugin/plugin.json')).get('version',''))" 2>/dev/null)"
-    if [ -n "$codex_plugin_ver" ] && [ -n "$VER_FILE" ] && [ "$codex_plugin_ver" != "$VER_FILE" ]; then
-        err ".codex-plugin/plugin.json version ($codex_plugin_ver) != VERSION ($VER_FILE); bump them together"
-    fi
-fi
-# marketplace.json is NOT written by sync-version-strings.sh — same manual-bump
-# parity as plugin.json, or it silently drifts (it lagged ~20 minor versions).
-if [ -f .claude-plugin/marketplace.json ] && command -v python3 >/dev/null 2>&1; then
-    mkt_ver="$(python3 -c "import json,sys; print((json.load(open('.claude-plugin/marketplace.json')).get('plugins') or [{}])[0].get('version',''))" 2>/dev/null)"
+done
+# marketplace.json is NOT written by sync-version-strings.sh — same manual-bump parity as
+# plugin.json, or it silently drifts (it lagged ~20 minor versions). Same ownership scoping.
+mkt_name="$(ff_plugin_field .claude-plugin/marketplace.json "(d.get('plugins') or [{}])[0].get('name', d.get('name',''))")"
+if [ "$mkt_name" = "fusebase-flow" ]; then
+    mkt_ver="$(ff_plugin_field .claude-plugin/marketplace.json "(d.get('plugins') or [{}])[0].get('version','')")"
     if [ -n "$mkt_ver" ] && [ -n "$VER_FILE" ] && [ "$mkt_ver" != "$VER_FILE" ]; then
         err ".claude-plugin/marketplace.json plugins[0].version ($mkt_ver) != VERSION ($VER_FILE); bump them together"
     fi

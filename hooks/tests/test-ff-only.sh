@@ -32,7 +32,10 @@ finish() { echo "[test-ff-only] $pass/$((pass + fail)) PASS"; exit $fail; }
 # Canonical tag count (FF_LIST is the discovery source). A scoped run to ONE tag must
 # skip (count - 1) phases — robust to future tag additions, no hardcoded 19/20.
 # TRIPWIRE: clear FF_ONLY — an inherited outer scope makes FF_LIST report 1 tag, not all.
-TAG_COUNT="$(FF_ONLY= FF_LIST=1 bash "$RT" 2>/dev/null | grep -c '^RUN')"
+# TRIPWIRE: count RUN **and** SKIP rows. Counting RUN alone silently under-counted the moment
+# a tag became opt-in/heavy (unscoped FF_LIST marks those SKIP) while a SCOPED run still emits
+# a skip line for every non-selected tag — the two numbers stopped being the same number.
+TAG_COUNT="$(FF_ONLY= FF_LIST=1 bash "$RT" 2>/dev/null | grep -cE '^(RUN|SKIP) ')"
 if [ "$TAG_COUNT" -ge 2 ]; then
   ok "ff-list-tag-count ($TAG_COUNT canonical tags)"
 else
@@ -153,5 +156,143 @@ else
   bad "phase-diagnostics-reach-the-results-artifact" "the reason is not recoverable from $diag_artifact alone"
 fi
 rm -rf "$DIAGREPO"
+
+# --- Opt-in-only tier (architecture-review step 2; registry emptied at step 7) -----------------
+# The maintainer opt-in tier is diagnostic-only: a member must be ABSENT from the default set and
+# still reachable by name. cli-flow-profile was its one member and was deleted with the
+# instrumentation seam it drove, so the shipped registry (FF_OPTIN_TAGS) is now EMPTY.
+# TRIPWIRE: this drives the MECHANISM against a SYNTHETIC member injected into a copied runner,
+# never against whichever diagnostic happens to exist. Asserting on a real member is why deleting
+# one diagnostic would otherwise silently delete the tier's only coverage. If the copy cannot be
+# patched, the rows go RED — a mechanism that could not be driven is not a mechanism that works.
+OPTINREPO="$(mktemp -d)"
+mkdir -p "$OPTINREPO/hooks/tests" "$OPTINREPO/hooks/local/lib"
+cp "$ROOT/hooks/local/lib/run-with-timeout.sh" "$OPTINREPO/hooks/local/lib/"
+( cd "$OPTINREPO" && git init -q )
+OPTIN_RT="$OPTINREPO/hooks/tests/run-tests.sh"
+# Register `optin-probe` as a tag AND as the opt-in registry's only member, and give it a phase.
+# TRIPWIRE: no multi-line sed replacement here — an embedded newline in an s/// replacement is
+# not portable and silently produced an UNPATCHED copy. `i\` inserts the line instead.
+# TRIPWIRE: the FF_TAGS anchor is PREFIX-AGNOSTIC (`.*cli-flow-recovery)$`). It used to pin the
+# whole line, `  signal-reap cli-flow-recovery)`, so adding ANY tag ahead of signal-reap silently
+# unpatched the copy and turned all four opt-in rows red with "could not inject" — which is
+# exactly what registering release-tag-binding did. Anchor to the tail of the array, not to a
+# neighbouring tag's name.
+sed -e 's/^\(.*\)cli-flow-recovery)$/\1cli-flow-recovery optin-probe)/' \
+    -e 's/^FF_OPTIN_TAGS=()$/FF_OPTIN_TAGS=(optin-probe)/' \
+    -e '/^run_shell_phase test-run-tests-signal-reap\.sh/i\run_shell_phase test-optin-probe.sh "optin-probe"' \
+    "$RT" > "$OPTIN_RT"
+
+patched=0
+grep -q 'FF_OPTIN_TAGS=(optin-probe)' "$OPTIN_RT"   && grep -q 'run_shell_phase test-optin-probe.sh "optin-probe"' "$OPTIN_RT"   && grep -q 'cli-flow-recovery optin-probe)' "$OPTIN_RT" && patched=1
+OPTIN_SENTINEL="$OPTINREPO/optin-probe-executed"
+# Stub standing in for a real phase script: every OTHER phase script is absent from this fixture
+# repo, so run-tests' `[ -f "$script" ]` guard no-ops them and only this one can run.
+cat > "$OPTINREPO/hooks/tests/test-optin-probe.sh" <<EOF
+#!/usr/bin/env bash
+touch "$OPTIN_SENTINEL"
+echo "PASS: optin-probe stub-executed"
+EOF
+if [ "$patched" -ne 1 ]; then
+  bad "optin-listed-skip-when-unscoped"      "could not inject a synthetic opt-in member into the runner copy"
+  bad "optin-listed-run-when-named"          "could not inject a synthetic opt-in member into the runner copy"
+  bad "optin-phase-not-executed-by-default-run" "could not inject a synthetic opt-in member into the runner copy"
+  bad "optin-phase-executes-when-named"      "could not inject a synthetic opt-in member into the runner copy"
+else
+  list_unscoped="$( cd "$OPTINREPO" && FF_ONLY= FF_LIST=1 bash hooks/tests/run-tests.sh 2>/dev/null )"
+  list_named="$( cd "$OPTINREPO" && FF_ONLY=optin-probe FF_LIST=1 bash hooks/tests/run-tests.sh 2>/dev/null )"
+  case "$list_unscoped" in
+    *"SKIP optin-probe"*) ok "optin-listed-skip-when-unscoped" ;;
+    *) bad "optin-listed-skip-when-unscoped" "unscoped FF_LIST does not mark the opt-in member SKIP" ;;
+  esac
+  case "$list_named" in
+    *"RUN  optin-probe"*) ok "optin-listed-run-when-named" ;;
+    *) bad "optin-listed-run-when-named" "FF_ONLY=optin-probe FF_LIST does not mark it RUN" ;;
+  esac
+  # Both arms proved by EXECUTION, not by the FF_LIST advertisement — a list that disagrees with
+  # what runs is the exact failure this guards.
+  ( cd "$OPTINREPO" && bash hooks/tests/run-tests.sh >/dev/null 2>&1 )
+  if [ -f "$OPTIN_SENTINEL" ]; then
+    bad "optin-phase-not-executed-by-default-run" "an UNSCOPED run executed the opt-in phase"
+  else
+    ok "optin-phase-not-executed-by-default-run"
+  fi
+  ( cd "$OPTINREPO" && FF_ONLY=optin-probe bash hooks/tests/run-tests.sh >/dev/null 2>&1 )
+  if [ -f "$OPTIN_SENTINEL" ]; then
+    ok "optin-phase-executes-when-named"
+  else
+    bad "optin-phase-executes-when-named" "FF_ONLY=optin-probe did not execute the phase"
+  fi
+fi
+rm -rf "$OPTINREPO"
+
+# --- Run tiers: fast local default vs full unscoped (architecture-review step 3) ---------------
+# The fast default must be structurally NON-ATTESTING — it may not write the canonical
+# hook-test-results.md and may not produce a summary the strict classifier accepts — while
+# FF_FULL=1 (and CI) must still produce exactly the attesting shape.
+# TRIPWIRE: every child invocation clears FF_ONLY and unsets GITHUB_ACTIONS/CI. Both are
+# inherited, and either one silently turns the "default" arm into a full run — the arm would
+# then pass while proving nothing.
+TIERREPO="$(mktemp -d)"
+mkdir -p "$TIERREPO/hooks/tests" "$TIERREPO/hooks/local/lib"
+cp "$RT" "$TIERREPO/hooks/tests/run-tests.sh"
+cp "$ROOT/hooks/local/lib/run-with-timeout.sh" "$TIERREPO/hooks/local/lib/"
+( cd "$TIERREPO" && git init -q )
+HEAVY_SENTINEL="$TIERREPO/heavy-phase-executed"
+printf 'print("PASS: stub-fixture")\n' > "$TIERREPO/hooks/tests/run_hook_tests.py"
+printf '#!/usr/bin/env bash\necho "PASS: git-smoke stub"\n' > "$TIERREPO/hooks/tests/test-git-hooks-smoke.sh"
+cat > "$TIERREPO/hooks/tests/test-rule-inventory.sh" <<EOF
+#!/usr/bin/env bash
+touch "$HEAVY_SENTINEL"
+echo "PASS: rule-inventory stub"
+EOF
+tier_run() { ( cd "$TIERREPO" && env -u GITHUB_ACTIONS -u CI FF_ONLY= "$@" bash hooks/tests/run-tests.sh 2>/dev/null ); }
+
+fast_out="$(tier_run FF_FULL=0)"
+[ -f "$TIERREPO/state/audit/hook-test-results-fast.md" ] \
+  && ok "fast-default-writes-the-fast-results-file" \
+  || bad "fast-default-writes-the-fast-results-file" "hook-test-results-fast.md not created by the default run"
+if [ -f "$TIERREPO/state/audit/hook-test-results.md" ]; then
+  bad "fast-default-cannot-write-canonical-results-file" "the fast default wrote the attesting hook-test-results.md"
+else
+  ok "fast-default-cannot-write-canonical-results-file"
+fi
+fast_summary="$(printf '%s\n' "$fast_out" | grep -E '^\[run-tests\] [0-9]+/[0-9]+ PASS')"
+if ffhc_run_tests_pass_ok "$fast_summary"; then
+  bad "fast-default-summary-rejected-by-strict-classifier" "ffhc_run_tests_pass_ok accepted [$fast_summary]"
+else
+  ok "fast-default-summary-rejected-by-strict-classifier"
+fi
+[ "$(ffhc_count_pass_lines "$fast_out")" -eq 0 ] \
+  && ok "fast-default-scores-zero-strict-pass-lines" \
+  || bad "fast-default-scores-zero-strict-pass-lines" "ffhc_count_pass_lines != 0 on a fast-default run"
+if [ -f "$HEAVY_SENTINEL" ]; then
+  bad "heavy-phase-not-executed-by-default-run" "a heavy phase executed on the fast local default"
+else
+  ok "heavy-phase-not-executed-by-default-run"
+fi
+
+full_out="$(tier_run FF_FULL=1)"
+[ -f "$HEAVY_SENTINEL" ] \
+  && ok "heavy-phase-executes-under-ff-full" \
+  || bad "heavy-phase-executes-under-ff-full" "FF_FULL=1 did not execute the heavy phase"
+[ -f "$TIERREPO/state/audit/hook-test-results.md" ] \
+  && ok "full-run-writes-the-canonical-results-file" \
+  || bad "full-run-writes-the-canonical-results-file" "FF_FULL=1 did not write hook-test-results.md"
+full_summary="$(printf '%s\n' "$full_out" | grep -E '^\[run-tests\] [0-9]+/[0-9]+ PASS')"
+if ffhc_run_tests_pass_ok "$full_summary"; then
+  ok "full-run-summary-accepted-by-strict-classifier"
+else
+  bad "full-run-summary-accepted-by-strict-classifier" "ffhc_run_tests_pass_ok rejected [$full_summary]"
+fi
+
+# CI must never inherit the local budget tier: the CI verify job on the tagged SHA is the
+# release evidence, so it takes the full path with no flag to forget.
+rm -f "$HEAVY_SENTINEL"
+( cd "$TIERREPO" && env -u CI FF_ONLY= FF_FULL=0 GITHUB_ACTIONS=true bash hooks/tests/run-tests.sh >/dev/null 2>&1 )
+[ -f "$HEAVY_SENTINEL" ] \
+  && ok "ci-env-takes-the-full-path-without-a-flag" \
+  || bad "ci-env-takes-the-full-path-without-a-flag" "GITHUB_ACTIONS=true did not force the full set"
+rm -rf "$TIERREPO"
 
 finish

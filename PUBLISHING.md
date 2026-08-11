@@ -47,23 +47,95 @@ git push origin v<version>
 
 > **Note:** Option 2 force-pushes `main`. If anyone has already cloned the build-time repo, coordinate before force-pushing. Option 1 (fresh repo) avoids this concern entirely.
 
-## Verification before publication
+## Release evidence authority
 
-Run all of:
+**Release evidence is the CI `verify` job on the tagged SHA. A local run is never release evidence.**
+
+Pushing a `v*` tag triggers `.github/workflows/fusebase-flow-release.yml`; its `publish` job declares
+`needs: verify`, and `verify` calls the reusable `.github/workflows/fusebase-flow-verify.yml` suite
+against that exact SHA. Red suite ⇒ no GitHub Release for that SHA.
+That `needs: verify` edge, not a terminal on a maintainer's desk, is what a release claim rests on.
+
+A local run (scoped, fast, or full) is **developer feedback**: it runs on an unpinned host, records
+neither SHA nor platform in `state/audit/hook-test-results.md`, and gates nothing. Cite the `verify`
+run for the tag, never a local result.
+
+**Two-platform gating is enforced.** `fusebase-flow-verify.yml` runs the suite as a two-leg matrix —
+`verify-linux` (`ubuntu-latest`) and `verify-windows-msys` (`windows-latest`, `shell: bash` = Git
+Bash/MSYS) — both checking out the exact SHA passed by the caller and asserting `git rev-parse HEAD`
+equals it. A third job, `verify-gate`, runs `if: always()` and fails unless the matrix aggregate is
+`success`, so a leg that is red, cancelled, **timed out, or skipped** is never counted as a pass.
+`publish` reaches `gh release create` only when the whole called workflow succeeded. A Windows-only
+regression therefore cannot reach a Release — the failure class recorded in
+`docs/problem-catalog/ci-linux-msys-test-divergence/problem.md`.
+
+Both legs run with **committed defaults**: no `FF_ONLY`, no `FF_SKIP_*`, no `FF_*_TIMEOUT` override,
+and a committed `timeout-minutes: 60` per leg (architecture-review § Bound policy). A phase that
+cannot fit its wall leaves the tier; the wall is not raised.
+
+### Publication paths — what the workflow closes, and what it cannot
+
+`gh release create --verify-tag` matches on tag **name** only. A `v*` tag force-moved after CI ran
+therefore used to publish a commit no `verify` job ever saw. `publish` now runs
+`hooks/local/verify-tag-target.sh`, which re-fetches the tag from the remote, peels it to a commit,
+and refuses unless it equals `github.sha` — before creating the Release and again after.
+
+Every route to a Release object, and its status:
+
+| Path | Status | Closed by |
+|---|---|---|
+| Tag push → this workflow, tag unmoved | verified | `needs: verify` on the exact SHA |
+| Tag push → this workflow, tag force-moved after CI | **closed** | tag re-fetch + peel + compare, pre- and post-create |
+| Annotated tag whose object ≠ its commit | **closed** | the peel (`^{commit}`), mutation-tested |
+| Release already exists for the tag (created manually) | **narrowed** | the run now proves the tag targets the SHA it just verified instead of exiting 0 on mere existence |
+| Tag moves *between* the check and `gh release create` | **OPEN — operator action** | a repository **tag ruleset** restricting `v*` updates/deletes. The workflow makes the window audible (the post-create re-assert goes red), it cannot remove it |
+| A write collaborator creates a Release by hand in the UI/API | **OPEN — operator action** | restrict who may publish; enable **immutable releases** so a published tag cannot be re-pointed |
+| Re-running a pre-fix release workflow run (eligible ~30 days) | **OPEN — operator action** | a re-run keeps the ORIGINAL workflow definition, `GITHUB_SHA` and `GITHUB_REF`, so it can verify the old SHA and publish today's moved tag without this check. Audit and delete eligible old runs |
+| Any other credential/workflow with `contents: write` calling the Releases API | **OPEN — operator action** | none exists in this tree today; the check cannot enforce repository-wide exclusivity |
+
+The four **OPEN** rows are repository settings and housekeeping, not code. They are listed here
+rather than described as closed: a partial fix presented as complete is the failure mode this
+section exists to prevent.
+
+> **Unmeasured:** no `windows-latest` run of the full suite exists yet. The only measured MSYS full
+> gate is a loaded developer host at ~2h02m before the step-4/step-5 reductions (est. ~1h28m after),
+> which is **over** the committed 60-minute wall. If `verify-windows-msys` hits that wall the gate is
+> RED and no Release is published — correct fail-closed behaviour, and the thing to fix before a tag.
+>
+> **How to replace that estimate with a number:** dispatch `fusebase-flow-measure-windows` manually.
+> It runs the committed default suite on `windows-latest` at an exact SHA with a 180-minute wall (so
+> it finishes rather than re-reporting a timeout) and uploads per-phase wall times, the total and the
+> SHA as the `windows-measurement` artifact. It is **non-publishing** and gates nothing — it exists
+> only to produce the measurement. Which remedy the number then argues for (a larger absolute wall
+> plus a stall watchdog, sharding into independently required jobs, or platform ownership) is
+> deliberately **not** decided here: choosing before measuring is what the plan review rejected.
+
+## Local pre-flight — developer feedback, not release evidence
+
+Run all of, so CI fails rarely — not because these authorize anything:
 
 ```bash
 bash hooks/local/preflight.sh
-bash hooks/tests/run-tests.sh
+bash hooks/tests/run-tests.sh              # FAST LOCAL DEFAULT (<=10 min); heavy phases skipped
+FF_FULL=1 bash hooks/tests/run-tests.sh    # the full local set, when you want it (hours on MSYS)
 bash hooks/local/mirror-skills.sh
 git status --short
 ```
+
+`run-tests.sh` has three tiers: the fast default, `FF_FULL=1` (full unscoped), and
+`FF_ONLY="tag1,tag2"` (scoped). Only the full unscoped run is attesting — it alone writes
+`state/audit/hook-test-results.md` and prints the strict `[run-tests] N/N PASS`. The other two
+write `-fast.md` / `-scoped.md` and print a summary the strict classifier rejects, so a subset
+result can never be read as a complete one. CI takes the full path automatically.
+None of the three tiers is release evidence — see § Release evidence authority above.
 
 Expected (self-derived — do not hardcode counts that re-stale; the live source is authoritative):
 
 ```
 preflight:    0 errors / 0 warnings
-hook tests:   run-tests.sh prints "[run-tests] N/N PASS" (0 FAIL); N is whatever the
-              current suite totals — a clean run is N/N with 0 FAIL, not a fixed number
+hook tests:   0 FAIL. The full run prints "[run-tests] N/N PASS"; the fast default prints the
+              same counts with a "(FAST LOCAL DEFAULT …)" suffix. N is whatever the current
+              tier totals — a clean run is N/N with 0 FAIL, not a fixed number
 mirror:       mirror-skills.sh reports 0 drift; the mirrored file count == the row count
               in audit/skill-mirror-manifest.txt (which == the live canonical set:
               one row per flow-skills/*/SKILL.md + flow-skills/*/references/* × 2 mirrors)
@@ -92,7 +164,9 @@ done
 echo "All tracked top-level entries are on the approved allowlist."
 ```
 
-If any of these checks fail, do NOT publish; correct the working tree and re-verify.
+If any of these checks fail, correct the working tree and re-run before pushing — a red local check
+is a red CI check waiting to happen. A green local run does not authorize a release; only the
+`verify` run on the tagged SHA does.
 
 **Shipping a new slash command?** The same release MUST ship its installer surface (v3.20.1 rule: *a preflight check may only ship in the same release as its installer step*): the recovery-snapshot copy in `hooks/local/fusebase-flow-overlays/commands/` (this is what `upgrade.sh`/`post-fusebase-update.sh` Step 8 install downstream) plus the command's entry in preflight §8 `FLOW_COMMANDS`. Preflight enforces all three surfaces (live file · snapshot copy · CLAUDE.md reference) per command — an incomplete command surface fails the release here instead of landing BROKEN on every consumer upgrade.
 
@@ -103,8 +177,16 @@ Publication is gated **in-repo**: pushing a `v*` tag triggers
 `gh release create` under `.github/`) declares `needs: verify`, where `verify`
 calls the full `fusebase-flow-verify` suite (hook tests → runner parity →
 hook-layer manifest freshness → module-size → mirror → public-surface →
-working-tree clean) on the tagged sha. A red suite ⇒ `publish` never runs ⇒ **no
-GitHub Release is ever published for that sha**. This gate travels with **both**
+working-tree clean) on the tagged sha, **on Linux and on Windows/MSYS**. The
+exact publication-gating condition is:
+
+> `publish` runs **iff** the called `fusebase-flow-verify` workflow result is
+> `success`, which requires `verify-linux`, `verify-windows-msys` **and**
+> `verify-gate` to all succeed on the SHA passed as `with: sha`.
+
+Any other aggregate — one leg red, cancelled, timed out at its committed
+`timeout-minutes: 60`, or skipped — leaves `publish` undispatched ⇒ **no GitHub
+Release is ever published for that sha**. This gate travels with **both**
 publication options above — `.github/` ships with the published tree, and the
 first `v<version>` tag push in the published repo triggers the same gated
 workflow there (`uses: ./…` resolves on the same ref, so verify + release always
@@ -120,17 +202,22 @@ the tag can be pushed:
 
 ```bash
 gh api repos/{owner}/{repo}/rulesets --method POST --input - <<'JSON'
-{ "name": "v* tags require green verify", "target": "tag",
+{ "name": "v* tags require green verify on BOTH platforms", "target": "tag",
   "enforcement": "active",
   "conditions": { "ref_name": { "include": ["refs/tags/v*"], "exclude": [] } },
   "rules": [ { "type": "required_status_checks", "parameters": {
         "strict_required_status_checks_policy": false,
-        "required_status_checks": [ { "context": "verify" } ] } } ] }
+        "required_status_checks": [ { "context": "verify-linux" },
+                                    { "context": "verify-windows-msys" },
+                                    { "context": "verify-gate" } ] } } ] }
 JSON
 ```
 
-The check context is the verify JOB name as Actions reports it (`verify`) —
-**confirm the exact string** against the repo's check runs (`gh api
+Require all three: `verify-gate` alone would be satisfiable if a platform leg were
+removed from the matrix, and either platform leg alone is single-platform evidence.
+Contexts are the JOB names as Actions reports them — for a run dispatched *through*
+the release workflow they are prefixed by the calling job (`verify / verify-linux`),
+so **confirm the exact strings** against the repo's check runs (`gh api
 repos/{owner}/{repo}/commits/<sha>/check-runs`) before saving the ruleset.
 
 **2. A repo admin manually running `gh release create`** in defiance of § After
@@ -139,13 +226,15 @@ status check (so `main` only advances through green CI):
 
 ```bash
 gh api repos/{owner}/{repo}/branches/main/protection --method PUT --input - <<'JSON'
-{ "required_status_checks": { "strict": true, "contexts": ["verify"] },
+{ "required_status_checks": { "strict": true,
+    "contexts": ["verify-linux", "verify-windows-msys", "verify-gate"] },
   "enforce_admins": true, "required_pull_request_reviews": null, "restrictions": null }
 JSON
 ```
 
 (UI click-path: Settings → Branches → Add branch protection rule → branch name
-pattern `main` → Require status checks to pass → select `verify`.)
+pattern `main` → Require status checks to pass → select `verify-linux`,
+`verify-windows-msys` and `verify-gate`.)
 
 **Honest boundary:** the `needs: verify` edge in the release workflow is the
 PRIMARY enforcement and stands alone even if an operator forgets these settings;
@@ -154,13 +243,14 @@ file in the repo cannot. Applying the settings is operator-owned.
 
 ## After publication
 
-- Watch the GitHub Action `fusebase-flow-verify` on the first push; it must pass.
+- Watch the GitHub Action `fusebase-flow-verify` on the first push; **both**
+  `verify-linux` and `verify-windows-msys` must pass.
 - **Push the `v<version>` tag** (`git push origin v<version>`) — that is the ONLY
   release step. `.github/workflows/fusebase-flow-release.yml` runs the full
-  `verify` suite on the tagged sha and, ONLY if it is green, its gated `publish`
-  job creates the GitHub Release from `docs/release-notes/v<version>.md` (or
-  `--generate-notes` when that file is absent). The `gh release view` guard +
-  `--verify-tag` make a re-run idempotent.
+  `verify` suite on the tagged sha on both platforms and, ONLY if every leg is
+  green, its gated `publish` job creates the GitHub Release from
+  `docs/release-notes/v<version>.md` (or `--generate-notes` when that file is
+  absent). The `gh release view` guard + `--verify-tag` make a re-run idempotent.
 - **Do NOT run `gh release create` manually** — it bypasses the `needs: verify`
   gate (AC4). If a tag went red on a transient failure, fix on `main`, then re-run
   the release workflow from the Actions UI on the same tag.

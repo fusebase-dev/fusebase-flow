@@ -44,7 +44,10 @@ Expected:
 [run-tests] 24/24 PASS
 ```
 
-CI runs both on every push / PR via `.github/workflows/fusebase-flow-verify.yml`.
+CI does **not** run on ordinary pushes or PRs. `.github/workflows/fusebase-flow-verify.yml` is the
+full dual-platform exact-SHA suite (two hosted runners, complete phase set) and is reachable two
+ways on purpose: `workflow_dispatch` when a maintainer asks for it, and `workflow_call` from the
+release workflow for a tagged SHA. Run the checks locally before you push.
 
 ## Commits & pull requests
 

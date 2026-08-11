@@ -6,26 +6,66 @@ permissions:
   contents: read
 jobs:
   verify:
+    # Calls the reusable suite, pinned to the EXACT commit the tag points at. A called
+    # workflow's job result is `success` only when EVERY job inside it succeeded — here that
+    # is verify-linux, verify-windows-msys and verify-gate.
     uses: ./.github/workflows/fusebase-flow-verify.yml
+    with:
+      sha: ${{ github.sha }}
   publish:
-    needs: verify        # ← THE GATE: red verify ⇒ this job never runs
+    # THE GATE (line below). `publish` is dispatched only when the called workflow succeeded
+    # in full. A red, cancelled, timed-out or skipped platform leg makes the aggregate
+    # non-success, so `publish` never starts and no Release object exists for that tag.
+    # Two-platform gating is therefore structural, not procedural.
+    needs: verify
     runs-on: ubuntu-latest
     permissions:
       contents: write    # create the GitHub Release
     steps:
+      - name: Assert the two-platform gate is green (tripwire)
+        # Unreachable while the needs: edge above is intact — its job is to go RED the moment
+        # someone adds `if: always()` / `if: success() || failure()` to this job and turns the
+        # structural gate into a procedural one.
+        run: |
+          set -euo pipefail
+          if [ '${{ needs.verify.result }}' != 'success' ]; then
+            echo "::error::publish reached with verify=${{ needs.verify.result }} — the gate edge was bypassed."
+            exit 1
+          fi
       - name: Checkout
         uses: actions/checkout@v6
-      - name: Create GitHub Release (reachable only when verify passed)
+        with:
+          # Full history + the ability to fetch refs: the binding step below re-resolves the
+          # tag from the remote, which a depth-1 checkout cannot do reliably.
+          fetch-depth: 0
+      - name: Refuse to publish a tag whose target is not the verified SHA (B2)
+        # `gh release create --verify-tag` matches on tag NAME only — it never compares the
+        # tag's TARGET with the commit `verify` ran on, so a force-moved v* tag published
+        # code no job ever verified (final-architecture-review finding 2). This peels the
+        # REMOTE tag and refuses on any mismatch. It does NOT close every route to a Release:
+        # see PUBLISHING.md § Publication paths for the ones that need a repository setting.
+        run: bash hooks/local/verify-tag-target.sh "$GITHUB_REF_NAME" "$GITHUB_SHA"
+      - name: Create GitHub Release (reachable only when BOTH platform jobs passed)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           tag="$GITHUB_REF_NAME"
           notes="docs/release-notes/${tag}.md"
           if gh release view "$tag" >/dev/null 2>&1; then
-            echo "Release $tag already exists — nothing to publish."; exit 0
+            # A Release already exists for this tag — created manually, or by an earlier run.
+            # The step above just proved the tag targets the SHA this run verified, so the
+            # existing Release points at verified code. Report it; never treat "it exists"
+            # alone as evidence, which is what the bare early-exit used to do.
+            echo "Release $tag already exists and its tag targets the verified SHA $GITHUB_SHA — nothing to publish."; exit 0
           fi
           if [ -f "$notes" ]; then
             gh release create "$tag" --verify-tag -t "$tag" -F "$notes"
           else
             gh release create "$tag" --verify-tag -t "$tag" --generate-notes
           fi
+      - name: Re-assert the tag still targets the verified SHA after publication (TOCTOU)
+        # The interval between the pre-check and `gh release create` cannot be closed from
+        # inside a workflow: a tag can move again in that window. This makes the window
+        # AUDIBLE — a job that goes red with a Release already created is the signal to pull
+        # it. Closing it requires a tag ruleset (PUBLISHING.md § Publication paths).
+        run: bash hooks/local/verify-tag-target.sh "$GITHUB_REF_NAME" "$GITHUB_SHA"

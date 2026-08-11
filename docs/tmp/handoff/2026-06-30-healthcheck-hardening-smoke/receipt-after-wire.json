@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "cli_stop_hooks": [
+    "run-lint-on-stop.sh",
+    "run-typecheck-on-stop.sh",
+    "quality-check-apps.js"
+  ],
+  "written_by": "post-fusebase-update --wire-hooks"
+}

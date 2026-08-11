@@ -55,6 +55,56 @@ if [ -n "$SECRET_HITS" ]; then
     exit 1
 fi
 
+# 1b. INTERPRETER CONTRACT (MAJOR 12) — ONE fail-closed rule covering BOTH §2 and §3.
+#     final-architecture-review finding 12: "the scanner runs on every commit" — step 3's stated
+#     justification for moving the secret-scan scenario phase out of the local default — was
+#     FALSE without python3. §2 was wrapped in `if command -v python3` with NO else (the content
+#     scan silently did not happen) and §3 printed a WARN and committed anyway (FR-07 not
+#     enforced). Both are security controls; neither may depend on an interpreter being reachable
+#     under one particular name.
+#     DISCOVERY, then BLOCK. Git Bash has no guaranteed `python3` alias even where a supported
+#     Python 3 is installed, so look for one under the names Windows/Git-Bash actually ship
+#     (`python`, `py -3`) and put a `python3` shim on PATH for this hook's lifetime — the same
+#     provisioning the CI workflow already does. It changes no committed default and relaxes no
+#     check; every invocation below still runs `python3 -S <file>` with a controlled PYTHONPATH.
+#     If NOTHING supported is found, the commit is BLOCKED with a fixable message. There is no
+#     env override: an override is the fail-open branch this replaces.
+#     Scoped to commits that actually stage something — an empty staged set has nothing to
+#     protect, and git rejects that commit on its own.
+STAGED_ANY="$(git diff --cached --name-only 2>/dev/null)"; STAGED_ANY_RC=$?
+if [ "$STAGED_ANY_RC" -ne 0 ]; then
+    echo "[fusebase-flow:pre-commit] BLOCK — could not list staged changes (git rc=$STAGED_ANY_RC) — failing closed." >&2
+    echo "Refusing to commit fail-open on an unverifiable staged set; NEVER use --no-verify." >&2
+    exit 1
+fi
+
+FFPC_SHIM_DIR=""
+_ffpc_cleanup_shim() { [ -n "$FFPC_SHIM_DIR" ] && rm -rf "$FFPC_SHIM_DIR" 2>/dev/null; return 0; }
+trap _ffpc_cleanup_shim EXIT
+# 3.10+ is the floor the handlers/scanner are written against (see .python-version).
+_ffpc_is_py3() { "$@" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] >= (3, 10) else 1)' >/dev/null 2>&1; }
+
+if [ -n "$STAGED_ANY" ] && ! command -v python3 >/dev/null 2>&1; then
+    FFPC_FOUND=""
+    if _ffpc_is_py3 python; then FFPC_FOUND="python"
+    elif _ffpc_is_py3 py -3; then FFPC_FOUND="py -3"
+    fi
+    if [ -z "$FFPC_FOUND" ]; then
+        echo "[fusebase-flow:pre-commit] BLOCK — no supported Python 3.10+ interpreter found (tried: python3, python, py -3)." >&2
+        echo "Two security controls need one: the FR-12 staged secret scan (§2) and the FR-07 protected-path check (§3). Neither can run, so this commit is refused rather than committed unscanned and unenforced." >&2
+        echo "Install Python 3.10+ (or put it on PATH) and re-run the commit. NEVER use --no-verify." >&2
+        exit 1
+    fi
+    FFPC_SHIM_DIR="$(mktemp -d 2>/dev/null || mktemp -d -t ffflow-py3)"
+    if [ -z "$FFPC_SHIM_DIR" ] || ! printf '#!/usr/bin/env bash\nexec %s "$@"\n' "$FFPC_FOUND" > "$FFPC_SHIM_DIR/python3" 2>/dev/null; then
+        echo "[fusebase-flow:pre-commit] BLOCK — found '$FFPC_FOUND' but could not provision a python3 shim — failing closed. NEVER use --no-verify." >&2
+        exit 1
+    fi
+    chmod +x "$FFPC_SHIM_DIR/python3" 2>/dev/null
+    PATH="$FFPC_SHIM_DIR:$PATH"; export PATH
+    echo "[fusebase-flow:pre-commit] note: python3 was not on PATH; using discovered '$FFPC_FOUND' for §2/§3 (shim is temporary, this commit only)." >&2
+fi
+
 # 2. Secret content scan (FR-12): ONLY added (+) lines, designed-token files path-excluded
 #    (D-A1 — secret-patterns.yml self-trip + whitelist trap). scan() semantics UNCHANGED
 #    (hooks/tests/fixtures 10/11 call scan() directly).
@@ -268,6 +318,12 @@ SECPY
     # BEFORE acting on the rc so a BLOCK never leaks the temp dir.
     [ -n "$SEC_TMP" ] && rm -rf "$SEC_TMP"
     if [ "${exit_secret:-0}" -ne 0 ]; then exit 1; fi
+elif [ -n "$STAGED_ANY" ]; then
+    # Unreachable while §1b holds (it blocks or provisions python3). Kept as the fail-closed
+    # else the original `if` never had: if this branch is ever reached, the content scan did
+    # NOT run, and a silent skip is what made step 3's safety claim false.
+    echo "[fusebase-flow:pre-commit] BLOCK — §2 secret scan could not run (python3 unreachable after the interpreter contract) — failing closed. NEVER use --no-verify." >&2
+    exit 1
 fi
 
 # 3. Reject protected-path edits without an active exception artifact. Covers the
@@ -279,13 +335,14 @@ fi
 #    This is a SECURITY control: it FAILS CLOSED. An import error (missing dep, broken/
 #    tampered path_policy, a syntax error introduced in the SAME commit) or any unexpected
 #    error inside the check EXITS 1 (block) — never exit 0. A silent fail-open would let a
-#    protected edit through the moment path_policy can't load. python3 absent + staged
-#    changes => a LOUD warn (not a hard block: a python3-less env must still be able to
-#    commit, and §2 already gates on python3), so the un-enforceable gap is never silent.
-# #1 (T27): capture the OUTER git-list rc too (mirrors the inner python rc-check). A
-# nonzero rc here means we can't reliably know whether protected paths are staged, so
-# fail closed rather than skip §3 on an empty-because-broken list. (Non-reachable in a
-# healthy repo — a broken repo won't commit — but cheap and consistent.)
+#    protected edit through the moment path_policy can't load. python3 absent + staged changes
+#    is now a BLOCK too (MAJOR 12): §1b either provisions an interpreter or refuses the commit,
+#    so the old "LOUD warn and commit anyway" branch — which left FR-07 unenforced on exactly
+#    the environments least likely to notice — is gone.
+# #1 (T27): the OUTER git-list rc is captured too (mirrors the inner python rc-check). A
+# nonzero rc there means we can't reliably know whether protected paths are staged, so we
+# fail closed rather than skip §3 on an empty-because-broken list. That check now lives in
+# §1b (it also gates the interpreter contract); STAGED_ANY is computed exactly once.
 #
 # TRUSTED-HEAD ENFORCER (T28→T29, UNCONDITIONAL): the enforcement code (path_policy.py /
 # policy_loader.py / shared/__init__.py) and the protected-paths.yml policy are THEMSELVES
@@ -329,12 +386,6 @@ fi
 # are rule-forbidden and/or out of band): `--no-verify` (FR rule-forbidden), deleting/replacing
 # `.git/hooks/pre-commit` on disk, and a full repo write that never invokes this hook. Documented
 # in the deploy problem-catalog; enforcement of those relies on FR discipline + review, not §3.
-STAGED_ANY="$(git diff --cached --name-only 2>/dev/null)"; STAGED_ANY_RC=$?
-if [ "$STAGED_ANY_RC" -ne 0 ]; then
-    echo "[fusebase-flow:pre-commit] BLOCK — FR-07 could not list staged changes (outer git rc=$STAGED_ANY_RC) — failing closed." >&2
-    echo "Refusing to commit fail-open on an unverifiable protected-path check; NEVER use --no-verify." >&2
-    exit 1
-fi
 if [ -n "$STAGED_ANY" ]; then
     if command -v python3 >/dev/null 2>&1; then
         # UNCONDITIONAL trusted-HEAD (T29): the working-tree enforcer is never trusted to
@@ -630,10 +681,12 @@ PY
         [ -n "$FR07_TMP" ] && rm -rf "$FR07_TMP"
         if [ "${exit_proto:-0}" -ne 0 ]; then exit 1; fi
     else
-        # python3 absent + staged changes: DON'T silently skip FR-07. Loud warn (not a
-        # hard block — a python3-less env must still commit; §2's secret scan already
-        # gates on python3) so the un-enforceable gap is visible, never silent.
-        echo "[fusebase-flow:pre-commit] WARN — python3 not found; FR-07 protected-path check was NOT enforced for this commit. Install python3 to enforce FR-07." >&2
+        # python3 absent + staged changes: BLOCK (MAJOR 12). Unreachable while §1b holds; a
+        # WARN here used to mean FR-07 was simply not enforced for that commit, which is the
+        # fail-open branch the review found. An un-enforceable security control refuses.
+        echo "[fusebase-flow:pre-commit] BLOCK — python3 unreachable, so the FR-07 protected-path check cannot run — failing closed rather than committing unenforced." >&2
+        echo "Install Python 3.10+ (or put it on PATH); NEVER use --no-verify." >&2
+        exit 1
     fi
 fi
 

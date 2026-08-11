@@ -51,6 +51,13 @@ cp .claude/settings.json.example .claude/settings.json
 bash hooks/local/install-git-hooks.sh
 ```
 
+## Maintainer-side execution (this repo only)
+
+**Read `docs/maintainer-execution.md` at session start**, alongside `AGENTS.md`. It is how the maintaining agent runs tickets *in this repository* — not part of Fusebase Flow, and not copied into consumers.
+
+The headline, measured on the v4.7.0/v4.7.1 cycle: **PO decision latency was 76% of elapsed time** (89h06m of 117h12m; one pause 52h32m), while adversarial-review thinking totalled ~2h20m. Gates and reviews were not the cost. Rule in batch, build a contract matrix before locking, review before the expensive gate, tier the gate, Lightweight-lane text residuals, build only what was asked, thin the handoffs. Keep the adversarial reviews — they found 100% of real defects while three consecutive green suites found zero.
+
+
 ## See also
 
 - Portable always-on baseline: `AGENTS.md`

@@ -73,7 +73,11 @@ Validate changed behavior with deterministic checks before a deploy is approved.
    - Browser-visible evidence plus backend/log/API diagnostic evidence when the feature spans frontend and backend.
 7. If passes, output approval to operator with explicit phrase "Gate verified. Phase advances to Deploy."
 
-**Gate scoping (FF_ONLY) — the final gate MUST be full/unscoped.** `bash hooks/tests/run-tests.sh` supports `FF_ONLY="tag1,tag2"` to run a SUBSET of phases for implement-loop iteration speed. FF_ONLY is implement-loop only: the FINAL pre-commit / pre-deploy gate MUST be a full **unscoped** run, and a gate report may cite ONLY `state/audit/hook-test-results.md` — **never** `hook-test-results-scoped.md`. A scoped run is fail-closed by construction (its summary line is deliberately not the strict `[run-tests] N/N PASS` shape, so `ffhc_run_tests_pass_ok` / `ffhc_count_pass_lines` read it as NOT a clean full pass; its rows go to the separate scoped file). If a pasted gate report cites the scoped file or a `(SCOPED FF_ONLY=…)` summary, redirect the implementer to re-run the full gate. `FF_LIST=1` prints the canonical tag list without running.
+**Release evidence is CI, never a local run.** No `hooks/tests/run-tests.sh` invocation on a developer host is release evidence — the CI `verify` job on the tagged SHA is (`PUBLISHING.md` § Release evidence authority). A local run is unpinned-host feedback; it records neither SHA nor platform. Do not accept a local result as a release claim.
+
+**Local run tiers.** `bash hooks/tests/run-tests.sh` = the FAST LOCAL DEFAULT (cheap phases only, ≤10 min budget). `FF_FULL=1 bash hooks/tests/run-tests.sh` = the full unscoped set (CI takes this path automatically). `FF_ONLY="tag1,tag2"` = a scoped subset for implement-loop speed. `FF_LIST=1` prints the tag list for that invocation without running.
+
+**Only the full unscoped run is attesting.** It alone writes `state/audit/hook-test-results.md` and prints the strict `[run-tests] N/N PASS`. Fast and scoped runs are fail-closed by construction: their summary lines carry a trailing `(FAST LOCAL DEFAULT …)` / `(SCOPED FF_ONLY=…)` marker that `ffhc_run_tests_pass_ok` / `ffhc_count_pass_lines` reject, and their rows go to `hook-test-results-fast.md` / `hook-test-results-scoped.md`. A LOCAL gate report may cite ONLY `hook-test-results.md` — **never** the `-fast` or `-scoped` file. If a pasted gate report cites either, or a suffixed summary, redirect the implementer to re-run with `FF_FULL=1`.
 
 ### Sub-mode E — Lightweight-lane live-proof (FR-21)
 

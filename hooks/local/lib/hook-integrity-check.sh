@@ -11,7 +11,10 @@
 #   ffhc_hook_manifest_verify   the CRITICAL — bounded manifest verify + D4 mapping.
 #   ffhc_hook_tests_deep_run    the OPTIONAL --run-hook-tests deep diagnostic (D5) —
 #                               runs the FULL run-tests.sh suite; FAIL/crash => BROKEN,
-#                               timeout/skip => NOTE only (never forces exit 4).
+#                               timeout/skip => NOTE only (never forces exit 4). A LOCAL
+#                               diagnostic, never release evidence — that is the CI verify
+#                               job on the tagged SHA (PUBLISHING.md § Release evidence
+#                               authority).
 #
 # Relies on run-with-timeout.sh (already sourced by the engine): ffhc_run_bounded,
 # ffhc_run_bounded_stdout, ffhc_select_pass_line, ffhc_run_tests_pass_ok, and the
@@ -105,7 +108,8 @@ ffhc_hook_manifest_verify() {
 # The FULL suite stays reachable on MSYS via --run-hook-tests-full (OPT_RUN_HOOK_TESTS_FULL)
 # or FFHC_RUN_HOOK_TESTS_FULL=1. Outcome mapping is IDENTICAL on both paths: observed
 # FAIL/crash -> LOCAL_BROKEN; timeout/skip/INCONCLUSIVE -> NOTE only (an optional check
-# NEVER forces exit 4). The DEFAULT run-tests.sh + CI stay FULL and unchanged.
+# NEVER forces exit 4). Both deep paths run FF_FULL=1 explicitly — run-tests.sh's own default
+# is now the fast local tier; CI still takes the full path (it sets GITHUB_ACTIONS/CI).
 ffhc_hook_tests_deep_run() {
   [ "${OPT_RUN_HOOK_TESTS:-0}" -eq 1 ] || return 0
   # AC5/M3: the deep run is the longest opaque capture window in the framework. Opt into the
@@ -129,7 +133,10 @@ _ffhc_deep_run_full() {
     return 0
   fi
   FFHC_HEARTBEAT_LABEL="--run-hook-tests: full suite"
-  ffhc_run_bounded "$FFHC_TESTS_TIMEOUT" bash hooks/tests/run-tests.sh
+  # TRIPWIRE: FF_FULL=1 is load-bearing. run-tests.sh's DEFAULT is the fast local tier, whose
+  # summary the strict classifier below rejects by construction — without this the "full" path
+  # would silently degrade to "completed but no strict N/N PASS summary parsed".
+  ffhc_run_bounded "$FFHC_TESTS_TIMEOUT" env FF_FULL=1 bash hooks/tests/run-tests.sh
   local out="$FFHC_LAST_OUT" rc="$FFHC_LAST_RC"
   local timed_out="$FFHC_LAST_TIMED_OUT" skipped="$FFHC_LAST_SKIPPED"
   FFHC_LAST_WINPID=""; FFHC_LAST_CHILD_PID=""
@@ -145,7 +152,7 @@ _ffhc_deep_run_full() {
   elif [ -n "$pass_line" ] && [ "$rc" -eq 0 ] && ffhc_run_tests_pass_ok "$pass_line"; then
     LOCAL_OK+=("--run-hook-tests: $pass_line (full suite)")
   elif echo "$out" | grep -qE '^INCONCLUSIVE:'; then
-    DEEP_RUN_NOTES+=("--run-hook-tests: NOTE — full suite reported INCONCLUSIVE row(s) (bounded phase timeout / FF_SKIP_CLI_RECOVERY; optional deep run; verdict unaffected)")
+    DEEP_RUN_NOTES+=("--run-hook-tests: NOTE — full suite reported INCONCLUSIVE row(s) (optional deep run; verdict unaffected)")
   elif [ "$rc" -ne 0 ]; then
     LOCAL_BROKEN+=("--run-hook-tests: harness exited rc=$rc with no parsable result — crashed before reporting (run 'bash hooks/tests/run-tests.sh' to inspect)")
   else
@@ -159,7 +166,7 @@ _ffhc_deep_run_full() {
 # any observed FAIL or a crash-before-report -> LOCAL_BROKEN; any component timeout/skip
 # -> NOTE only; all-pass -> LOCAL_OK. The heavy bash-surface phases (cli-flow-recovery,
 # secret-scan, bootstrap, …) are the ones that blow the MSYS budget — reachable via
-# --run-hook-tests-full / FFHC_RUN_HOOK_TESTS_FULL=1 / the default run-tests.sh / CI.
+# --run-hook-tests-full / FFHC_RUN_HOOK_TESTS_FULL=1 / FF_FULL=1 run-tests.sh / CI.
 _ffhc_deep_run_fast() {
   local tot_pass=0 tot_fail=0 broke=0 noted=0 parts=""
   _ffhc_deep_fast_one() {   # <label> CMD...

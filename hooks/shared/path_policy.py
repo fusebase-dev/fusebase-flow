@@ -12,7 +12,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from .approval_artifact import accept_with_audit, evaluate_artifact, load as load_artifact
+from .approval_artifact import (
+    accept_with_audit, compute_repo_id, evaluate_artifact, load as load_artifact,
+)
 from .policy_loader import find_git_root, get_policy
 
 # WS1b: the internals-bootstrap category demands a genuinely SINGLE-USE exception.
@@ -22,8 +24,21 @@ from .policy_loader import find_git_root, get_policy
 # metacharacter in an approved_path invalidates the artifact), and require every
 # approved_path to actually be staged. A second, unrelated protected-path edit
 # produces a different staged digest -> no match -> still DENIES.
+#
+# MAJOR 11 (final-architecture-review finding 11): the digest-bound contract was written
+# for ONE category while `ci_cd_config` — the category that actually gates
+# `.github/workflows/**`, the release machinery itself — accepted a plain, reusable
+# path+TTL artifact. The published protocol (role-discipline shared-protocols § FR-07)
+# told the agent to mint a "digest-bound" approval for a workflow edit, and no shipped
+# writer/consumer pair could produce or enforce one. The category->operation map below is
+# the single place that contract is stated, for writer (write-bootstrap-approval.sh) and
+# verifier (this module) alike.
+_DIGEST_BOUND_OPERATIONS = {
+    "fusebase_flow_internals": "flow-internals-bootstrap",
+    "ci_cd_config": "ci-workflow-edit",
+}
 _BOOTSTRAP_CATEGORY = "fusebase_flow_internals"
-_BOOTSTRAP_OPERATION = "flow-internals-bootstrap"
+_BOOTSTRAP_OPERATION = _DIGEST_BOUND_OPERATIONS[_BOOTSTRAP_CATEGORY]
 
 
 @dataclass
@@ -238,16 +253,17 @@ def has_active_exception(
 ) -> bool:
     """True iff a non-expired approval artifact authorizes editing `path`.
 
-    Backward-compatible for every category EXCEPT fusebase_flow_internals: for that
-    category the artifact must ALSO carry operation == flow-internals-bootstrap and a
-    tree_digest that matches the CURRENT staged content of its approved paths
-    (single-use — a second unrelated protected-path edit changes the digest and
-    still DENIES). Other categories keep plain path+TTL matching.
+    Backward-compatible for every category EXCEPT those in `_DIGEST_BOUND_OPERATIONS`
+    (fusebase_flow_internals, ci_cd_config): for those the artifact must ALSO carry the
+    category's exact `operation` and a tree_digest that matches the CURRENT staged content
+    of its approved paths (single-use — a second unrelated protected-path edit changes the
+    digest and still DENIES). Other categories keep plain path+TTL matching.
     """
     root = root or find_git_root()
     if category is None:
         _, category = is_protected(path)
-    bootstrap = category == _BOOTSTRAP_CATEGORY
+    expected_operation = _DIGEST_BOUND_OPERATIONS.get(category or "")
+    bootstrap = expected_operation is not None
     # Read the strictness mode FIRST: an unloadable approval policy must deny even when the
     # approvals directory is absent, so the outcome never depends on which check ran first.
     strict = _strict_approvals(root)
@@ -265,13 +281,20 @@ def has_active_exception(
         # bootstrap category accepts VALID only; other categories keep compat unless
         # strict_approvals is on. The digest/operation/exact-path checks below are
         # UNCHANGED and ADDITIONAL to this.
-        verdict = evaluate_artifact(data, expected_action="protected_path_edit")
+        # repo_id binding (MAJOR 11): approve-local.sh RECORDS a repo_id, and this consumer
+        # passed none — so `_binding_ok` saw a recorded-but-unobserved binding and returned
+        # BINDING_MISMATCH for every artifact that writer produced. The documented mint path
+        # could not authorize anything, silently. Supplying the real repo id makes the
+        # recorded binding VERIFIABLE (and still rejects an artifact carried into another
+        # checkout), instead of making every bound artifact unusable.
+        verdict = evaluate_artifact(data, expected_action="protected_path_edit",
+                                    repo_id=compute_repo_id(root))
         if not accept_with_audit(verdict, strict=strict or bootstrap, carrier="path_policy",
                                  artifact_path=f, action="protected_path_edit", root=root):
             continue
         approved_paths = data.get("paths") or []
         if bootstrap:
-            # Single-use gate for the internals-bootstrap category. Hardened (WS1b,
+            # Single-use gate for every digest-bound category. Hardened (WS1b,
             # both reviews): EXACT membership only — a glob approved_path like
             # `hooks/shared/**` must NOT match a concrete queried path, so the glob
             # fallback (`_matches_any`) that other categories keep is DROPPED here.
@@ -281,9 +304,10 @@ def has_active_exception(
             # ANY approved_path invalidates the whole artifact for this category.
             if any(_has_glob_meta(p) for p in approved_paths):
                 continue
-            # operation + staged-digest binding required; a plain path+TTL artifact
-            # is NOT sufficient for the internals category.
-            if data.get("operation") != _BOOTSTRAP_OPERATION:
+            # operation + staged-digest binding required; a plain path+TTL artifact is NOT
+            # sufficient for a digest-bound category. The operation is category-SPECIFIC, so
+            # an internals approval cannot be replayed to authorize a workflow edit.
+            if data.get("operation") != expected_operation:
                 continue
             recorded = data.get("tree_digest", "")
             if not recorded:

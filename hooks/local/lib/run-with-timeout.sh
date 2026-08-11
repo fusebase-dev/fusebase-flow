@@ -488,6 +488,44 @@ _ffhc_heartbeat_start() {   # <deadline-secs> <label>
   FFHC_HEARTBEAT_HPID=$!
 }
 
+# --- S2 orphan-sentinel identity record (T4) -------------------------------------------------
+# The bounded child's PROCESS GROUP is the handle that reaps its whole subtree: GNU timeout puts
+# the child in its own group, so a group signal reaches the child AND its grandchildren while
+# reaching nothing of ours (T3/R1). taskkill //T does not (T3/R3).
+# DEFAULT-INERT: no FFHC_SENTINEL_STATE => every function below is a no-op, so every other
+# consumer of this lib (health engine, upgrade engine) is byte-behavior-unchanged.
+FFHC_LAST_CHILD_PGID=""
+# Fork-free (/proc/<pid>/stat field 5 via a `read` builtin — the old cat|awk pair cost two MSYS
+# spawns per call). The comm field can contain spaces, so it is split off by pattern first.
+ffhc_pgid_of() {
+  local s rest tok n=0
+  IFS= read -r s 2>/dev/null < "/proc/${1:-0}/stat" || return 0
+  case "$s" in *') '*) : ;; *) return 0 ;; esac
+  rest="${s#*) }"                     # after "(comm) ": 1 state, 2 ppid, 3 pgrp
+  while [ -n "$rest" ]; do            # parameter expansion only — `<<<` costs a temp file on MSYS
+    tok="${rest%% *}"; n=$((n + 1))
+    [ "$n" -eq 3 ] && { printf '%s\n' "$tok"; return 0; }
+    [ "$tok" = "$rest" ] && break
+    rest="${rest#* }"
+  done
+  return 0
+}
+# ffhc_sentinel_note [CHILD_PID [WINPID PGID]]: publish the in-flight child, or truncate to
+# "nothing in flight" when called with no args (that truncation is what makes a normal exit reap
+# NOTHING). ATOMIC BY CONSTRUCTION: a record is one short APPEND (a single write), and the clear
+# is a truncate — so a signal landing mid-publication can leave a stale record or an empty file,
+# never a partial one that a reader would misread as "nothing in flight". Deliberately fork-free
+# (no temp+rename): the reader tolerates a stale tail, and an `mv` per phase would add MSYS
+# spawns to the very engine whose spawn cost is a catalogued defect.
+# WINPID/PGID are OPTIONAL — the pid alone is published the instant it exists, and the sentinel
+# completes the tuple out-of-band. That is what closes the launch-to-record window.
+ffhc_sentinel_note() {
+  [ -n "${FFHC_SENTINEL_STATE:-}" ] || return 0
+  if [ -z "${1:-}" ]; then : > "$FFHC_SENTINEL_STATE" 2>/dev/null; return 0; fi
+  printf 'v1 %s %s %s END\n' "$1" "${2:--}" "${3:--}" >> "$FFHC_SENTINEL_STATE" 2>/dev/null
+  return 0
+}
+
 _ffhc_heartbeat_stop() {   # <pid>
   [ -n "${1:-}" ] || return 0
   kill "$1" 2>/dev/null
@@ -530,6 +568,11 @@ _ffhc_tempfile_capture() {
     fi
   fi
   local _bpid=$!
+  # TRIPWIRE (launch-to-record window): publish the pid HERE, before the winpid/pgid probes
+  # below. Those probes are MSYS spawns, so recording only after them left a window seconds
+  # wide in which a signalled harness published NOTHING and the sentinel saw "nothing in
+  # flight" — the original leak, restored. The sentinel completes the tuple itself.
+  ffhc_sentinel_note "$_bpid"
   # T7: capture the Windows pid NOW, while _bpid is still alive (the /proc/<pid>/winpid
   # node vanishes on exit; a post-deadline read races the wrapper's exit and reads empty).
   local _winpid=""; if ffhc_is_msys; then _winpid="$(ffhc_msys_winpid "$_bpid")"; fi
@@ -540,6 +583,14 @@ _ffhc_tempfile_capture() {
   # path. Both are cleared the instant we return below (the child is reaped by then), so
   # they are non-empty ONLY while the child is provably alive.
   FFHC_LAST_WINPID="$_winpid"; FFHC_LAST_CHILD_PID="$_bpid"
+  # Record the child's own process group for the orphan sentinel, while it is provably alive.
+  # DEFAULT-INERT (as this block's header claims): gated on FFHC_SENTINEL_STATE, so every other
+  # consumer of this lib — health engine, upgrade engine — adds ZERO probe here.
+  FFHC_LAST_CHILD_PGID=""
+  if [ -n "${FFHC_SENTINEL_STATE:-}" ]; then
+    FFHC_LAST_CHILD_PGID="$(ffhc_pgid_of "$_bpid")"
+    ffhc_sentinel_note "$_bpid" "$_winpid" "$FFHC_LAST_CHILD_PGID"
+  fi
   # Parent-owned progress while the capture is opaque. Ours to reap (below) — internal
   # plumbing, not `&`-detached user work, so it does not contradict the don't-detach rule.
   _ffhc_heartbeat_start "$secs" "${FFHC_HEARTBEAT_LABEL:-$1}"   # direct call (see its tripwire)
@@ -573,6 +624,7 @@ _ffhc_tempfile_capture() {
     rm -f "$_trig" 2>/dev/null; FFHC_JOB_FENCE_HPID=""
   fi
   FFHC_LAST_WINPID=""; FFHC_LAST_CHILD_PID=""   # child reaped => a later EXIT-trap reap is a no-op
+  FFHC_LAST_CHILD_PGID=""; ffhc_sentinel_note   # nothing in flight => the sentinel reaps nothing
   # F5(a): builtin file read of the capture tempfile (no cat spawn). $_tf is a REGULAR
   # file, so the $(<file)+native-grandchild pipe hazard (which applies to PIPES) does not
   # apply. Guarded by [ -r ] so an unreadable/vanished tempfile leaves an empty capture,

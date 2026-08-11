@@ -25,9 +25,9 @@ The public template does not advertise compatibility with any AI coding assistan
 | Mirror dirs allowed | `.agents/skills/`, `.claude/skills/`; this edition also keeps CLI provider skills in those dirs |
 | `mirror-skills.sh` target list | mirrors canonical Flow skills only (source `flow-skills/`) and preserves extra CLI provider skills |
 | `preflight.sh` mirror drift check | validates canonical Flow skill mirrors only |
-| Hook tests | `bash hooks/tests/run-tests.sh` prints `[run-tests] N/N PASS` with 0 FAIL — N is the live suite total (handler fixtures + module-size + health-check-timeout + the CLI/security suites), not a fixed number; a clean run is N/N, 0 FAIL |
+| Hook tests | `bash hooks/tests/run-tests.sh` is the FAST LOCAL DEFAULT (heavy phases skipped, `<=10` min); `FF_FULL=1 bash hooks/tests/run-tests.sh` is the full unscoped set and the only tier that prints the strict `[run-tests] N/N PASS`. Either way a clean run is 0 FAIL; N is the live tier total, not a fixed number |
 | Preflight | 0 errors / 0 warnings |
-| GitHub Action | runs preflight + hook tests + mirror drift check on every push / PR |
+| GitHub Action | runs preflight + hook tests + mirror drift check on `workflow_dispatch` and on the release workflow's call for a tagged SHA — **not** on ordinary pushes / PRs |
 
 ## Secret-scan scope (pre-commit + PreToolUse)
 
@@ -57,9 +57,11 @@ base health check). This is the AC3 resolution: the MSYS full suite (~950–1085
 bash-surface phases like `liveness` / `secret-scan` / `bootstrap` cost tens of seconds
 each under MSYS spawn overhead) is impractical as a Windows default gate. The full MSYS
 suite stays reachable via `--run-hook-tests-full` or `FFHC_RUN_HOOK_TESTS_FULL=1`, and
-the authoritative full-suite green is the CI **Linux** run (`fusebase-flow-verify`),
-where spawn cost is negligible. The DEFAULT `bash hooks/tests/run-tests.sh` stays FULL
-on all platforms (unchanged).
+the authoritative full-suite green is the CI pair `verify-linux` + `verify-windows-msys`
+(`fusebase-flow-verify`) on the tagged SHA — neither platform alone. Both deep paths pass
+`FF_FULL=1` explicitly, because the
+DEFAULT `bash hooks/tests/run-tests.sh` is now the FAST LOCAL tier on all platforms; CI
+still takes the full path (it sets `GITHUB_ACTIONS`).
 
 ## Last amended
 

@@ -349,7 +349,9 @@ fi
 if [ "$CLASSIFY_OK" -ne 1 ]; then
   echo "[upgrade] WARN: classifier unavailable; using the LEGACY whole-directory refresh." >&2
   echo "          Consumer edits to managed files WILL be overwritten (no classification)." >&2
-  CONTENT_DIRS=( "flow-skills" "agents" "workflows" "policies" "templates" "hooks" ".claude-plugin" ".codex-plugin" )
+  # Mirrors managed_content_manifest.py MANAGED_DIRS exactly — including its deliberate omission
+  # of the publisher-only .claude-plugin/ and .codex-plugin/, which are never consumer content.
+  CONTENT_DIRS=( "flow-skills" "agents" "workflows" "policies" "templates" "hooks" )
   CONTENT_FILES=( "FLOW_RULES.md" "FLOW_RULES_HISTORY.md" "audit/hook-layer-manifest.json" )
 fi
 # The consumer's recorded base: what upstream shipped THEM last time (decision K13).
