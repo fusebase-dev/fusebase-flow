@@ -1,88 +1,113 @@
 # Pre-commit trusted-tool contract verification gate
 
-Status: `PENDING — STOP AT GATE`  
-Decision basis: `A2 + B1 LOCKED` (`decisions.md`)  
-Deploy/release: `OUT OF SCOPE`
+Status: `PENDING - STOP AT EACH TASK GATE`
+Decision basis: `A2 LOCKED; B1 REOPENED` (`decisions.md`)
+Implementation scope: `T1/S2d + T2/S2b only`
+Deploy/release/smoke: `OUT OF SCOPE; deterministic hook proof only`
 
 ## Entry conditions
 
-- T1, T2, T3 exist as three serial verified commits; each message cites its T-number.
-- Each commit contains its control change and mutation discriminator; no fix-only or test-later commit exists.
-- FR-07 approval was minted through a sanctioned writer for each protected-path commit, used by a normal commit, and consumed. `--no-verify` was not used.
+- T1 and T2 are two serial, independently releasable commits; each message cites its T-number and contains its control plus discriminator.
+- T2 does not start until T1 targeted, full-suite, exact-SHA hosted, FR-07, and semantic gates are GREEN.
+- S2c/B1 verdict code, helper code, nonces, artifacts, or tests are absent.
 - Planned paths only are changed; pre-existing `?? docs/wasted-code/` remains untouched/untracked.
 
-## Required proof
+## Per-task release gates
 
-| ID | Probe | Pass condition |
-|---|---|---|
-| P1 | `bash -n hooks/git/pre-commit` | rc=0 on the final T3 SHA. |
-| P2 | Run the S2d version contract and mutation harness. | Supported paths pass; unsupported primary blocks; discriminator proves one unique target, exact named-row RED, identical controls, rejected unmutated negative. |
-| P3 | Run the S2b Git-context contract and mutation harness. | AC2-AC4 matrix passes; discriminator satisfies the same four-clause proof. |
-| P4 | Run the S2c verdict contract and mutation harness. | All four absent-artifact/rc=0 rows block; each of four independent mutants fails exactly its own row with identical controls and rejected unmutated negative. |
-| P5 | Wrong/stale verdict probes | Wrong ID, wrong/stale nonce, cross-control artifact, and prior-run artifact all block; verdict files remain after neither success nor failure. |
-| P6 | Mitigation inventory against T1 parent and final SHA | Environment scrub, `PYTHONSAFEPATH=1`, `-S` everywhere, controlled `PYTHONPATH`, file-script wrappers, `git ls-tree` sentinels, and trusted-HEAD extraction are present and exercised. |
-| P7 | `bash hooks/local/preflight.sh` | rc=0. |
-| P8 | `bash hooks/tests/run-tests.sh` | Full committed suite GREEN; report total/total, not only rc. |
-| P9 | `python hooks/tests/run_hook_tests.py --compare-subprocess` | In-process/subprocess parity GREEN. |
-| P10 | `bash hooks/local/check-module-size.sh --all` plus line count | Gate GREEN; `hooks/git/pre-commit` ≤800, or named verdict-protocol extraction seam landed and is covered. |
-| P11 | Mutation production-integrity rows | Every harness byte-compares its baseline and production hook; no harness writes the tracked hook. |
-| P12 | Claim-boundary review | No new text implies Git/Python authentication, trust-root creation, tamper-proofing, or executable identity proof. |
-| P13 | Git/worktree audit | Diff contains only T1-T3 targets; unrelated `docs/wasted-code/` unchanged; three SHAs are linear. |
+| ID | SHA | Required proof | Pass condition |
+|---|---|---|---|
+| P1 | T1 | S2d contract + structured mutation record | Every S2d row GREEN; mutation satisfies the full observable contract below. |
+| P2 | T1 | `bash -n`, preflight, full hook suite, subprocess parity, module-size `--all`, production integrity | All GREEN; report totals; hook <=800 lines. |
+| P3 | T1 | `workflow_dispatch` exact-SHA run | `verify-linux`, `verify-windows-msys`, `verify-gate` GREEN on T1 SHA; actual provisioned shim exercised. |
+| P4 | T2 | Complete A2 matrix + structured mutation record | Every A2 row returns its defined outcome; mutation satisfies the full observable contract below. |
+| P5 | T2 | P2 full gate repeated; T1 targeted regression repeated | All GREEN on T2 SHA; report totals; hook <=800 lines. |
+| P6 | T2 | `workflow_dispatch` exact-SHA run | All three jobs GREEN on T2 SHA. |
+| P7 | Each | Mitigation inventory | Environment scrub, `PYTHONSAFEPATH=1`, `-S`, controlled `PYTHONPATH`, file-script controls, shell sentinels, and trusted-HEAD extraction remain present and exercised. |
+| P8 | Each | FR-07 + worktree audit | Named paths staged before mint; bootstrap approval unstaged; normal commit; consumed/inactive; no unrelated change. |
+| P9 | Each | Human/reviewer semantic review | `AC9` passes by meaning, not vocabulary grep. |
+
+Aggregate GREEN at T2 cannot substitute for missing T1 proof. Failure at P1-P3/P7-P9 is `BLOCKED-AT-T1-release`; failure at P4-P9 is `BLOCKED-AT-T2-release`.
 
 ## Mutation evidence contract
 
-Record one row for each discriminator: `python3-version`, `git-context`, `s2-head-extract`, `s2-secret-scan`, `s3-head-extract`, `s3-protected-path`.
+Each mutation record is predeclared before execution.
 
 | Field | Required value |
 |---|---|
-| Unique target | Exact file/line or stable anchor; occurrence count = 1. |
-| Baseline | Unmutated copy GREEN; row set and total recorded. |
-| Mutant | Exactly the named row changes PASS→FAIL; mutant FAIL count = 1. |
-| Controls | Every other prerequisite/control row byte-identical after normalization. |
-| Negative control | Unmutated copy presented as mutant is rejected; harness returns failure for the false claim. |
-| Production integrity | Tracked production hook unchanged by the harness. |
+| ID / unique target | Stable anchor, expected occurrence count=1, named compatibility row. |
+| Expected observable | Exact expected delta for rc, stdout/stderr, artifact state, timeout class, and side effects. |
+| Baseline snapshot | Structured rc; exact stdout/stderr after only declared nondeterminism normalization; artifact manifest with path/type/size/content hash; elapsed/timeout class; tracked-hook hash; index/worktree state; temp residue. |
+| Mutant snapshot | Same structure; only the predeclared target observables may differ. |
+| Comparator | Compares fields above, not reduced `row=PASS|FAIL`; undeclared diagnostic, artifact, timing-class, or side-effect change fails proof. |
+| Negative control | Unmutated copy presented as mutant is rejected. |
+| Production integrity | Tracked hook byte-identical before/after harness; mutation occurs only in temporary copies. |
 
-Aggregate suite GREEN without all six complete records is `BLOCKED-AT-mutation-proof`.
+Missing structured fields or a row-status-only comparison is `BLOCKED-AT-mutation-proof`.
 
-## Compatibility matrix
+## S2d compatibility rows
 
-| Context | Git works | Git unavailable/unusable |
+| ID | Context | Expected outcome |
 |---|---|---|
-| Normal repo / nested directory (`.git` directory) | Existing controls run | Attributable BLOCK |
-| Linked worktree (`.git` file) | Existing controls run | Attributable BLOCK |
-| Submodule (`.git` file) | Existing controls run | Attributable BLOCK |
-| Explicit `GIT_DIR` / `GIT_WORK_TREE` | Existing behavior retained | Attributable BLOCK |
-| Bare repository | Current no-worktree non-blocking behavior retained | Attributable BLOCK |
-| Genuine outside-repo, no evidence | Existing skip, rc=0 | Existing skip, rc=0 |
+| PY1 | Real CPython >=3.10 | `-S -c` probe succeeds; controls run. |
+| PY2 | Real CPython <3.10 | Attributable BLOCK before sections 2/3. |
+| PY3 | CI Windows shim (`fusebase-flow-verify.yml:92-104`) | Hosted Windows job GREEN without workflow edit. |
+| PY4 | Wrapper rejects/mishandles `-c`, supports `-S <file>` | Bounded file-script fallback proves >=3.10; controls run; `-S -c` is not required. |
+| PY5 | Probe/fallback error, malformed output, or timeout | Attributable BLOCK includes bounded stderr and rc/timeout; <=10 seconds each, <=20 seconds total. |
+| PY6 | Supported `python` and `py -3` fallbacks | Existing behavior retained. |
+| PY7 | Empty staged set | Early no-op rc=0; no Python probe, temp residue, or control side effect. |
 
-Every row is required on the platforms where the context is supported; any platform-specific setup must be reported, not silently skipped.
+## A2 compatibility rows
 
-## Exact-SHA dual-platform gate
+| ID | Context | Expected outcome |
+|---|---|---|
+| G1 | Normal repo / nested directory | Working Git reaches controls; unavailable/unusable Git BLOCKS. |
+| G2 | Invocation inside `.git/`; no top-level | Distinct repository/no-worktree rc=0; not outside-repo skip. |
+| G3 | Linked worktree / submodule `.git` file | Working Git reaches controls; broken Git BLOCKS. |
+| G4 | Valid explicit `GIT_DIR` / `GIT_WORK_TREE` | Existing working behavior; broken Git BLOCKS. |
+| G5 | Stale explicit `GIT_DIR` / `GIT_WORK_TREE` | Attributable BLOCK. |
+| G6 | Valid separate git dir + `core.worktree` | Working Git reaches controls; valid context + broken Git BLOCKS. |
+| G7 | `.git` symlink valid / dangling / inaccessible | Valid works; dangling/inaccessible BLOCK as indeterminate evidence. |
+| G8 | `.git` only above `GIT_CEILING_DIRECTORIES` | Stop before ceiling; no other evidence => outside-repo skip. |
+| G9 | `.git` across filesystem/mount boundary | Default stop/skip; enabled `GIT_DISCOVERY_ACROSS_FILESYSTEM` crosses then works/BLOCKS by Git usability. |
+| G10 | Windows UNC/share root | Terminate at share root; evidence works/BLOCKS by Git usability; no evidence skips. |
+| G11 | Windows network stat failure | Bounded attributable BLOCK; no skip/hang. |
+| G12 | False bare-layout lookalike | Not bare evidence; no other context => outside-repo skip. |
+| G13 | Functioning bare repository | Distinct no-worktree rc=0; complete bare evidence + broken Git BLOCKS. |
+| G14 | Genuine outside repo, no evidence | Existing outside-repo diagnostic and rc=0 even with unavailable/unusable Git. |
+| G15 | First adoption / unborn HEAD | Staged content checked against empty base; no HEAD bypass/fatal lookup. |
+| G16 | Empty staged set | Early no-op rc=0; no temp or control side effect. |
 
-1. Trigger `.github/workflows/fusebase-flow-verify.yml` with `workflow_dispatch` on the final T3 SHA.
-2. Record run URL, requested SHA, checked-out SHA, and results for `verify-linux`, `verify-windows-msys`, and `verify-gate`.
-3. All three jobs must be GREEN on the same SHA. Cancelled, skipped, timed-out, or different-SHA evidence is failure.
-4. Confirm workflow triggers remain only `workflow_dispatch` and `workflow_call`; `push` and `pull_request` remain absent. A push is not verification evidence and must start no run.
+Search proof for G8-G11: physical strict-parent ascent; each candidate once; stop before ceiling, at disallowed mount crossing, drive root, or UNC share root; stat/permission/network failure BLOCKS; no retry loop or unbounded wait.
+
+## Claim-boundary gate
+
+Mandatory human/reviewer question: does any new comment, diagnostic, test name, or doc imply executable identity, authenticity, or unforgeability beyond the same-principal model? Reviewer records `PASS` plus inspected files and rationale. A vocabulary scan is supplemental/non-authoritative: it misses `genuine interpreter`, `verified binary`, `identity assurance`, and `cannot be forged`, and false-positives on explicit disclaimers.
+
+## Exact-SHA hosted gate
+
+1. Dispatch `.github/workflows/fusebase-flow-verify.yml` separately on T1 and T2 SHA.
+2. Record run URL, requested SHA, checked-out SHA, and three job results for each.
+3. Cancelled, skipped, timed-out, different-SHA, or final-SHA-only evidence fails independent releasability.
+4. Confirm no `.github/**` diff and triggers remain `workflow_dispatch` / `workflow_call` only.
 
 ## Gate report
 
 ```text
-final_sha:
-commits: T1=<sha> T2=<sha> T3=<sha>
-fr07_approval: <mint/use/consume evidence per commit>; no_verify=absent
-line_count: before=731 after=<n> ceiling=800 extraction=<none|path+seam>
-targeted_contracts: <P2-P5 results>
-mutation_proof: <six records or BLOCKED-AT-mutation-proof>
-mitigations: <P6 inventory>
-local_suite: <P1,P7-P11 totals/results>
-compatibility: <matrix results>
-workflow_dispatch: <url> sha=<sha> linux=<result> windows-msys=<result> gate=<result>
-trigger_audit: push=absent pull_request=absent
-claim_boundary: <P12 result>
-worktree: <P13 result; unrelated pre-existing state>
+T1_sha: <sha>
+T1_targeted_mutation: <P1 structured record>
+T1_full_suite: <P2 totals>
+T1_hosted: <P3 url/sha/linux/windows/gate>
+T2_sha: <sha>
+T2_targeted_mutation: <P4 structured record>
+T2_full_suite: <P5 totals + T1 regression>
+T2_hosted: <P6 url/sha/linux/windows/gate>
+compatibility: <PY1-PY7; G1-G16>
+invariants: <P7; line_count before=731 after=<n> ceiling=800 helper=absent>
+fr07_worktree: <P8 per task; approval_staged=no; inactive=yes>
+semantic_review: <P9 reviewer/files/rationale>
 verdict: PASS | BLOCKED-AT-<probe>
 ```
 
 ## Rollback
 
-Revert T3, then T2, then T1 in separate newest-first commits. Each revert touching `hooks/git/pre-commit` requires a newly minted sanctioned FR-07 approval, normal verification, and consumption; never use reset, checkout discard, force push, or `--no-verify`. Re-run P1-P13 and the exact-SHA workflow gate on the rollback tip.
+Revert T2 alone to return to the independently verified T1 state; revert T1 only if its behavior must also be removed. Each revert touching protected paths uses a new stage -> bootstrap-mint -> normal-commit -> consume -> inactive FR-07 sequence and repeats its own targeted/full/hosted gate. Never reset, discard checkout, force push, or use `--no-verify`.

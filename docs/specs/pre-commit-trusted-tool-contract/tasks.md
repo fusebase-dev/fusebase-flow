@@ -1,20 +1,19 @@
 # Pre-commit trusted-tool contract tasks
 
-Status: `READY`  
-Decision dependency: `A2 + B1 LOCKED` (`decisions.md`)  
-Execution order: `T1 → T2 → T3 → verification gate`  
-Commit rule: one task = one commit; no task may be split or combined.
+Status: `READY - T1/T2 ONLY`
+Decision dependency: `A2 LOCKED; B1 REOPENED` (`decisions.md`)
+Execution order: `T1 -> T1 release gate -> T2 -> T2 release gate -> STOP`
+Commit rule: one independently releasable task = one commit; no S2c/T3 work.
 
 ## Shared execution contract
 
-- Before T1, record `git status --short`; preserve the pre-existing `?? docs/wasted-code/` entry and every unrelated change.
-- Before and after each task, count `hooks/git/pre-commit`. Baseline is 731; ceiling is 800. If projected above 800, use the extraction seam in `spec.md#invariants` before adding more inline logic.
-- For each T1/T2/T3 commit touching `hooks/git/pre-commit`, mint a single-use FR-07 approval with `hooks/local/write-bootstrap-approval.sh` or `hooks/local/approve-local.sh --path hooks/git/pre-commit ...`; stage only named task paths and the approval artifact; commit normally; consume the approval using the sanctioned writer flow and prove it is no longer active.
-- `--no-verify`, `git add .`, and `git add -A` are forbidden. Mutation harnesses operate only on temporary copies and byte-compare the production hook afterward.
-- Every discriminator follows `hooks/tests/test-pre-commit-interpreter-mutation.sh`: unique target, baseline GREEN, exact named-row mutant RED, identical controls, and rejected unmutated negative control.
-- Each commit message cites its T-number. Stop after T3 for `verification-gate.md`; do not deploy or release.
+- Record `git status --short`; preserve pre-existing `?? docs/wasted-code/` and every unrelated change.
+- `hooks/git/pre-commit` is 731 lines at `e1b43f9`, leaving 69 lines below the 800-line ceiling. T1/T2 keep changes inline and final size <=800. If projected above 800, STOP for Product Owner revision and a prior independently releasable helper task; do not bootstrap a helper first added by the same commit.
+- Mutation harnesses use temporary copies only. Before each mutation, predeclare target plus expected observable delta; compare structured rc, stdout/stderr, artifact manifest/content, timeout class/budget, production-hook hash, index/worktree state, and temp side effects. `row=PASS|FAIL` alone is insufficient.
+- FR-07 sequence for each task: stage only named code/test paths -> mint with `hooks/local/write-bootstrap-approval.sh` after staging -> confirm the gitignored approval artifact is unstaged -> commit normally -> run `write-bootstrap-approval.sh --consume` -> verify approval inactive. `approve-local.sh`, `--no-verify`, `git add .`, and `git add -A` are forbidden.
+- A task SHA is not complete and the next task may not start until its targeted proof, full local suite, and exact-SHA Linux + Windows MSYS hosted gate are GREEN.
 
-## T1 — S2d primary-python3 version symmetry
+## T1 - S2d primary-python3 version symmetry
 
 Depends on: none  
 Commit: `T1 refuse unsupported primary python3`
@@ -24,20 +23,28 @@ Targets:
 - `hooks/git/pre-commit`
 - `hooks/tests/test-pre-commit-python3-version-contract.sh` (new)
 - `hooks/tests/test-pre-commit-python3-version-mutation.sh` (new)
-- `hooks/tests/run-tests.sh` (register new tests)
+- `hooks/tests/run-tests.sh` (register tests)
 
 Work:
 
-- Probe a resolved `python3` with the same ≥3.10 predicate used for `python` / `py -3`; use startup-minimal `-S` and fail closed through the existing diagnostic.
-- Preserve supported-primary and both fallback paths; do not describe the probe as interpreter authentication.
-- Contract rows cover supported primary, below-floor primary, probe-error primary, supported fallbacks, and attributable terminal refusal.
-- Mutation discriminator has one unique primary-probe target and named row `python3-below-floor-blocks`; require baseline GREEN, exact one-row mutant RED, identical controls, and rejected unmutated negative control.
+- Attempt a <=10-second `python3 -S -c` >=3.10 probe; total primary/fallback budget <=20 seconds.
+- On rejected/mishandled `-c`, use a bounded trusted `-S <file>` version-probe fallback so existing wrappers remain compatible. `python3 -S -c` support does not become a consumer requirement.
+- On final BLOCK, retain bounded stderr and rc/timeout attribution in the existing attributable diagnostic; do not discard probe failure output.
+- Contract rows: real CPython supported/below-floor/error/timeout; actual CI-provisioned Windows shim contract (`.github/workflows/fusebase-flow-verify.yml:92-104`); `-c`-rejecting but `-S <file>`-working wrapper; both fallbacks; empty staged set; first-adoption/unborn HEAD regression.
+- Mutation discriminator: one unique primary-version target and named expected delta; baseline/mutant comparison satisfies `AC7`, including diagnostic/artifact/side-effect state and rejected unmutated negative control.
 
-Acceptance: `AC1, AC7-AC11`.
+Acceptance: `AC1-AC2, AC6-AC12`.
 
-## T2 — S2b A2 Git fail-closed classifier
+### T1 release gate - before T2
 
-Depends on: T1 SHA recorded  
+1. Targeted T1 contract + structured mutation proof GREEN on the T1 SHA.
+2. `bash -n`, preflight, full `hooks/tests/run-tests.sh`, subprocess parity, module-size `--all`, and production-integrity checks GREEN on the T1 SHA.
+3. `fusebase-flow-verify` dispatched on the T1 SHA; Linux, Windows MSYS, and verify-gate jobs GREEN on that exact SHA, exercising the provisioned shim without `.github/**` edits.
+4. FR-07 approval consumed/inactive; T1 commit and worktree audit recorded.
+
+## T2 - S2b A2 Git fail-closed classifier
+
+Depends on: T1 release gate GREEN and T1 SHA recorded
 Commit: `T2 fail closed on broken git in repository context`
 
 Targets:
@@ -45,38 +52,24 @@ Targets:
 - `hooks/git/pre-commit`
 - `hooks/tests/test-pre-commit-git-context-contract.sh` (new)
 - `hooks/tests/test-pre-commit-git-context-mutation.sh` (new)
-- `hooks/tests/run-tests.sh` (register new tests)
+- `hooks/tests/run-tests.sh` (register tests)
 
 Work:
 
-- Add bounded shell-side context classification before permitting the root-query skip: upward `.git` directory/file, explicit `GIT_DIR` / `GIT_WORK_TREE`, and bare-layout evidence.
-- Block repository evidence plus missing/unusable Git, empty/bogus root, or unusable returned root with an attributable diagnostic; preserve genuine outside-repo exit 0 and functioning bare no-worktree behavior.
-- Parameterized contract rows cover normal/nested repos, both `.git` forms, linked worktree, submodule, explicit environment, bare repo, broken Git, and outside-repo regression.
-- Mutation discriminator has one unique fail-closed target and named row `repo-evidence-broken-git-blocks`; require the full baseline/exact-row/identical-controls/negative-control contract.
+- Add bounded inline context classification before permitting the root-query skip; implement `spec.md`'s ceiling, mount-boundary, drive/UNC-root, lstat/stat-failure, and strict-parent termination rules.
+- Distinguish worktree, inside-`.git` no-worktree, functioning bare no-worktree, indeterminate/BLOCK, and proven outside-repository skip outcomes.
+- Parameterize every A2 compatibility row: normal/nested, `.git` file, linked worktree, submodule, valid/stale explicit environment, `core.worktree`, `.git` symlink valid/dangling/inaccessible, ceiling, mount crossing on/off, UNC/share root, Windows network-stat failure, false bare lookalike, functioning bare, outside repo, unborn HEAD, and empty staged set.
+- Mutation discriminator: one unique fail-closed classifier target and named expected delta; baseline/mutant comparison satisfies `AC7`, including diagnostic/artifact/side-effect state and rejected unmutated negative control.
 
-Acceptance: `AC2-AC4, AC7-AC12`.
+Acceptance: `AC3-AC12`.
 
-## T3 — S2c B1 per-control positive verdict
+### T2 release gate - final
 
-Depends on: T2 SHA recorded  
-Commit: `T3 require per-control positive verdicts`
-
-Targets:
-
-- `hooks/git/pre-commit`
-- `hooks/tests/test-pre-commit-verdict-contract.sh` (new)
-- `hooks/tests/test-pre-commit-verdict-mutation.sh` (new, four-case parameterized discriminator)
-- `hooks/tests/run-tests.sh` (register new tests)
-
-Work:
-
-- Add one reusable shell verdict protocol and instrument the four fixed IDs from `spec.md`: shell-issued fresh nonce, producer write only at successful completion, exact shell match plus rc=0, and cleanup on every path.
-- Keep environment scrubbing, `PYTHONSAFEPATH=1`, `-S`, controlled `PYTHONPATH`, file scripts, `git ls-tree` sentinels, and trusted-HEAD extraction unchanged and operative.
-- Contract rows independently substitute a targeted rc=0/no-artifact control at each site; add wrong-ID, stale/wrong-nonce, cross-control reuse, successive-nonce freshness, and cleanup rows.
-- For each of the four sites, mutate one unique shell requirement independently. Each mutant must fail exactly its site row (`verdict-s2-head-extract`, `verdict-s2-secret-scan`, `verdict-s3-head-extract`, `verdict-s3-protected-path`), leave all controls identical, and be rejected when an unmutated copy is supplied as the mutant.
-
-Acceptance: `AC5-AC12`.
+1. Targeted T2 matrix + structured mutation proof GREEN on the T2 SHA; all T1 targeted rows remain GREEN.
+2. `bash -n`, preflight, full `hooks/tests/run-tests.sh`, subprocess parity, module-size `--all`, and production-integrity checks GREEN on the T2 SHA.
+3. `fusebase-flow-verify` dispatched on the T2 SHA; Linux, Windows MSYS, and verify-gate jobs GREEN on that exact SHA.
+4. FR-07 approval consumed/inactive; T2 commit and worktree audit recorded.
 
 ## Gate handoff
 
-After T3, provide the three SHAs, approval mint/consumption evidence, pre/post line counts, targeted and full-suite results, six discriminator records (S2d, S2b, four S2c), mitigation inventory, and exact-SHA dual-platform workflow URLs. No implementation claim is accepted from aggregate GREEN without the named mutation evidence.
+Provide T1/T2 SHAs; per-SHA targeted/full/hosted results; predeclared mutation records; full compatibility outcomes; bounded-probe diagnostics; 731 -> final line count; semantic-review attestation; and FR-07 stage/mint/unstaged/commit/consume/inactive evidence. Stop at `verification-gate.md`; no S2c, deploy, or release work.
