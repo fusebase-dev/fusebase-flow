@@ -17,8 +17,38 @@
 
 set -uo pipefail
 
+# 0. REPOSITORY-CONTEXT CLASSIFIER (A2; docs/specs/pre-commit-trusted-tool-contract/spec.md).
+#    TRIPWIRE: an empty `--show-toplevel` means EITHER outside-a-repository OR git-unusable-INSIDE
+#    one; both used to exit 0, skipping §2 (FR-12) + §3 (FR-07). Only independent `.git` evidence
+#    separates them. FAULT detection only: a PATH-controlling caller can still supply a shim.
+# TRIPWIRE: _ffpc_par stays ONE line (the G10 row extracts and evals it); POSIX + UNC only — any other form returns "" and TERMINATES the ascent, under-searching rather than mis-ascending.
+_ffpc_par() { case "$1" in //*/*/*|/[!/]*/*) printf '%s' "${1%/*}" ;; /[!/]*) printf '/' ;; esac; }
+_ffpc_block() {
+    echo "[fusebase-flow:pre-commit] BLOCK — git resolved no worktree here, but $1. Failing closed: skipping would drop the FR-12 staged secret scan (§2) and the FR-07 protected-path check (§3) inside a repository. Repair git (or the declared context) and re-run. NEVER use --no-verify." >&2
+    exit 1
+}
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
 if [ -z "$ROOT" ]; then
+    git rev-parse --git-dir >/dev/null 2>&1 && { echo "[fusebase-flow:pre-commit] a git repository without a worktree here (bare, or invoked inside .git/); no staged worktree content to check; skipping" >&2; exit 0; }
+    [ -n "${GIT_DIR:-}${GIT_WORK_TREE:-}" ] && _ffpc_block "the environment declares repository context (GIT_DIR/GIT_WORK_TREE) that git could not resolve"
+    # TRIPWIRE: strict-parent ascent, each candidate once — stop BEFORE a ceiling entry, before a
+    # mount change unless GIT_DISCOVERY_ACROSS_FILESYSTEM, at the root _ffpc_par reports. NO stat
+    # binary disables the mount stop (search runs FURTHER, erring toward BLOCK); a stat that EXISTS
+    # and FAILS is indeterminate and blocks — never merge those. Device anchors to the STARTING dir.
+    # TRIPWIRE: bare evidence needs `bare = true` — a merely bare-LOOKING layout is not evidence, because newly blocking a commit that works today is the worse outcome.
+    FFPC_D="$(pwd -P 2>/dev/null)"; FFPC_DEV0=""; FFPC_NOSTAT=""; FFPC_CEIL=":$(printf %s "${GIT_CEILING_DIRECTORIES:-}" | tr ';' ':'):"
+    command -v stat >/dev/null 2>&1 || FFPC_NOSTAT=1
+    while [ -n "$FFPC_D" ]; do
+        case "$FFPC_CEIL" in *":$FFPC_D:"*|*":$FFPC_D/:"*) break ;; esac
+        FFPC_DEV="$(stat -c %d "$FFPC_D" 2>/dev/null || stat -f %d "$FFPC_D" 2>/dev/null)"
+        [ -n "$FFPC_DEV$FFPC_NOSTAT" ] || _ffpc_block "'$FFPC_D' could not be stat'd, so repository context is indeterminate"
+        [ -n "$FFPC_DEV0" ] || FFPC_DEV0="$FFPC_DEV"
+        [ "$FFPC_DEV" = "$FFPC_DEV0" ] || [ -n "${GIT_DISCOVERY_ACROSS_FILESYSTEM:-}" ] || break
+        [ -L "$FFPC_D/.git" ] && [ ! -e "$FFPC_D/.git" ] && _ffpc_block "'$FFPC_D/.git' is a dangling symlink, so repository context is indeterminate"
+        [ -e "$FFPC_D/.git" ] && _ffpc_block "'$FFPC_D' carries repository evidence (a .git entry)"
+        [ -d "$FFPC_D/objects" ] && [ -d "$FFPC_D/refs" ] && grep -Eq '^(ref: refs/|[0-9a-f]{40}$)' "$FFPC_D/HEAD" 2>/dev/null && grep -Eqi '^[[:space:]]*bare[[:space:]]*=[[:space:]]*true' "$FFPC_D/config" 2>/dev/null && _ffpc_block "'$FFPC_D' carries repository evidence (a bare repository layout)"
+        FFPC_D="$(_ffpc_par "$FFPC_D")"
+    done
     echo "[fusebase-flow:pre-commit] not in a git repo; skipping" >&2
     exit 0
 fi

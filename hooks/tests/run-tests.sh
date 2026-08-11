@@ -70,6 +70,7 @@ FFHC_HEARTBEAT_SECS="${FFHC_HEARTBEAT_SECS:-30}"
 # FF_ONLY validation set; add a tag here (and its guard) when a phase is added.
 FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixture \
   interpreter-contract interpreter-mutation python3-version python3-version-mutation \
+  git-context git-context-mutation \
   hook-manifest newline-preserve baseline-merge \
   sync-allowlist policy-state bootstrap-baseline-hop fr22-delivery po-verifiable-boot \
   po-investigate liveness codex-parity codex-plugin cli-0259 secret-scan-staged bootstrap-exception \
@@ -495,6 +496,11 @@ run_shell_phase test-pre-commit-python3-version-contract.sh "python3-version"
 # compares rc + normalized stdout/stderr + artifact manifest + index/HEAD + timeout class + temp
 # residue, never a reduced row status.
 run_shell_phase test-pre-commit-python3-version-mutation.sh "python3-version-mutation"
+# S2b/A2: an unusable git INSIDE a repository must not reach the outside-repo skip that drops §2/§3.
+# Rows G1-G16 (ceiling, mount boundary, UNC/drive root, stat failure, symlink, bare, unborn HEAD).
+run_shell_phase test-pre-commit-git-context-contract.sh "git-context"
+# Structured predeclare/baseline/mutant/negative-control proof for that classifier (AC7).
+run_shell_phase test-pre-commit-git-context-mutation.sh "git-context-mutation"
 run_shell_phase test-hook-manifest.sh        "hook-manifest"
 # Makes the EXISTING lightweight-lane eligibility gate executable for path-observable surfaces.
 # Its FULL fixtures are the actual changed paths of cb0ff8b / 235f4a3 / 0e29ed5 — three changes
