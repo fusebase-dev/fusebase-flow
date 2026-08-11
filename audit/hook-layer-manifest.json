@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.8.0",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 156,
+  "asset_count": 160,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -10,7 +10,7 @@
     },
     {
       "path": "hooks/git/pre-commit",
-      "sha256": "c6ee51792b649e1af3bebd7921a962002cc2400f69d3c75246c1ce781833a488"
+      "sha256": "69d9547f21f8e23b7902c73648f519bf9fff4f3b300de0f854cb150ed8b8b563"
     },
     {
       "path": "hooks/handlers/permission_request.py",
@@ -430,7 +430,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "a1e8d16c422810aaaf67c640b0bda7771f98e2391fd20196e7a6a71babb3045e"
+      "sha256": "83ea4488d56ecb822e8aedf229778d01fca76e97b3ad0659925870be4ce1519c"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -553,12 +553,28 @@
       "sha256": "8e766d89a53130139fb210dbfe5ede6c50ddaf917d7ef3df4c0a04526a12e8f3"
     },
     {
+      "path": "hooks/tests/test-pre-commit-git-context-contract.sh",
+      "sha256": "80914fbd2ac02b8634ce3c07904dbc6dfb92af09d5ea45e7598272415f09310c"
+    },
+    {
+      "path": "hooks/tests/test-pre-commit-git-context-mutation.sh",
+      "sha256": "d89c48bdfb22036cf9645f40e9c60806944d18446997ffa6e092d2eea5fe697e"
+    },
+    {
       "path": "hooks/tests/test-pre-commit-interpreter-contract.sh",
       "sha256": "e21a07395703fc88115aa0dca704bd9c6a2da867b14d03c2fd9eb6d8c1711b08"
     },
     {
       "path": "hooks/tests/test-pre-commit-interpreter-mutation.sh",
       "sha256": "0146b4d9e3bf9c880d5b05ff90bb34c067e14455d9064c5380dd7439b8c5ab23"
+    },
+    {
+      "path": "hooks/tests/test-pre-commit-python3-version-contract.sh",
+      "sha256": "1bee49da210a1978e02e5bd5b771da740fa894d07b77440fb7b909c690111068"
+    },
+    {
+      "path": "hooks/tests/test-pre-commit-python3-version-mutation.sh",
+      "sha256": "a9e0a97f5ae170c14894a7754582e1973c46168e48f55692bd1e87739ad9d067"
     },
     {
       "path": "hooks/tests/test-prohibition-residency.sh",
@@ -629,5 +645,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "df4a04f7cc5b673725feed031870fa53dcc46e592f93a2abe6976a36f2a5e787"
+  "manifest_self_sha256": "5365f13bfbc1e24ce587c02f12b83ecda73bef4d21ee555be4ff6258db34ccc2"
 }

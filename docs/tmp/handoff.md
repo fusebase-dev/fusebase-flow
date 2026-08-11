@@ -1,10 +1,57 @@
 # Active handoff
 
 Mode: run-ledger  (autonomous run, operator stepped out)
-**Updated:** 2026-08-11T01:55Z
-**Branch:** `fix/msys-v3307-hardening`
-**HEAD at write time:** `06c0b3b`
-**Default branch:** `main` at `205e492` (measurement workflow cherry-picked; nothing else changed)
+**Updated:** 2026-08-11T21:05Z
+**Branch:** `fix/trusted-tool-contract` (T1+T2); `fix/msys-v3307-hardening` merged and released
+**HEAD at write time:** `9a83c51`
+**Default branch:** `main` at `20fd707` — **v4.8.0 PUBLISHED** (tag `v4.8.0`, release run `31459937396` attempt 2)
+
+## v4.8.0 shipped — and what publishing it cost
+
+Four blockers + eight MAJORs. Two consumer-visible behaviour changes are in `CHANGELOG.md` §[4.8.0]
+and `docs/release-notes/v4.8.0.md`: a missing Python 3.10+ now REFUSES a commit with staged
+changes, and the shipped verify workflow no longer runs on push/PR.
+
+**Do not re-derive the release procedure — `PUBLISHING.md:257` has three steps, not one.** Bumping
+the four version carriers is insufficient; you must also run `hooks/local/sync-version-strings.sh`
+AND restamp BOTH audit manifests (`flow_version` is embedded in each). Skipping steps 2-3 leaves the
+attestation surfaces at the old version, the health engine returns `PARTIAL_UPGRADE`, and
+`cli-flow-recovery U17` fails — 907/908, one row, whole gate. Cost two CI cycles.
+
+Also: `sync-version-strings.sh` edits `FLOW_RULES.md`, an FR-07 protected path, so the release
+itself requires minting and consuming a bootstrap approval.
+
+## S2b + S2d done on `fix/trusted-tool-contract` — NOT merged
+
+| SHA | Content |
+|---|---|
+| `d5abf3d` | T1/S2d — a resolved `python3` must prove >=3.10. Bounded `-S -c` probe with file-script fallback, so `-c` support is NOT a new consumer requirement |
+| `facae26` | T2/S2b — broken git in repository context now BLOCKS; genuine outside-repo `exit 0` preserved |
+| `9a83c51` | manifest stamp for the four new test files |
+
+Gates: local `1006/1006 PASS` (artifact `2026-08-11T20:54:20Z`, 77 rows for these phases) · hosted
+run `31520333589` GREEN on `verify-linux` + `verify-windows-msys` + `verify-gate` for `9a83c51`.
+
+**`wip-t2-falsified` (`83d0d09`) — DO NOT REVIVE.** It accepted any dir with `objects/`+`refs/`+a
+well-formed `HEAD` as a bare repo without requiring `bare = true`, so it REFUSED commits in
+directories that are not repositories. Measured: 33/34 vs 34/34. That is the outcome the governing
+review ranked worst — newly blocking a commit that works today.
+
+`hooks/git/pre-commit` is at **799/800**. Further inline growth needs the prior helper task the plan
+names; it must not be compressed.
+
+**Open:** AC9 says "human/reviewer" semantic check. An independent AI reviewer passed it; no human
+has read the diff. Operator's reading to settle. Also `docs/specs/pre-commit-trusted-tool-contract/`
+still reads DRAFT/PENDING — the FR-14 docs flip is a Deploy-phase action.
+
+## Process lesson that cost the most this run
+
+**A 0-byte agent transcript is NOT proof of death.** An `ai-developer` ran 107 minutes with its
+transcript at 0 bytes; it was declared dead, a successor was spawned, and two writers then shared
+one tree — voiding three full-suite runs, producing a bundled commit, and causing a `G15` failure
+misdiagnosed as a fixture defect (it was contamination; 33/33 green once quiet). Check live child
+processes and new untracked files, never transcript size. A fourth run died to an orphan-cleanup
+filter that matched the cleaner's own run by age.
 **Authoritative roadmap:** `docs/specs/msys-hardening-roadmap/roadmap.md` — owns S0..S14 slice scheduling
 **Governing review:** `docs/specs/backlog-triage-execution/plan-review-2.md` — `WRONG-APPROACH` on B1
 **Superseded state:** `docs/tmp/handoff/archive/2026-08-07-restart-186ba38.md`
