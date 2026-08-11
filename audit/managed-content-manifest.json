@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.8.0",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 305,
+  "asset_count": 309,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "454d1a37210bc72900b22d5f0a7df9155db58857e2fe39d52b0af3456691daea"
+      "sha256": "c71c4d7c95405ce8fce19da4cc745c497c53ba541fda3bd5ec815dccd2833f1c"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -234,7 +234,7 @@
     },
     {
       "path": "hooks/git/pre-commit",
-      "sha256": "c6ee51792b649e1af3bebd7921a962002cc2400f69d3c75246c1ce781833a488"
+      "sha256": "69d9547f21f8e23b7902c73648f519bf9fff4f3b300de0f854cb150ed8b8b563"
     },
     {
       "path": "hooks/handlers/permission_request.py",
@@ -834,7 +834,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "a1e8d16c422810aaaf67c640b0bda7771f98e2391fd20196e7a6a71babb3045e"
+      "sha256": "83ea4488d56ecb822e8aedf229778d01fca76e97b3ad0659925870be4ce1519c"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -957,12 +957,28 @@
       "sha256": "8e766d89a53130139fb210dbfe5ede6c50ddaf917d7ef3df4c0a04526a12e8f3"
     },
     {
+      "path": "hooks/tests/test-pre-commit-git-context-contract.sh",
+      "sha256": "80914fbd2ac02b8634ce3c07904dbc6dfb92af09d5ea45e7598272415f09310c"
+    },
+    {
+      "path": "hooks/tests/test-pre-commit-git-context-mutation.sh",
+      "sha256": "d89c48bdfb22036cf9645f40e9c60806944d18446997ffa6e092d2eea5fe697e"
+    },
+    {
       "path": "hooks/tests/test-pre-commit-interpreter-contract.sh",
       "sha256": "e21a07395703fc88115aa0dca704bd9c6a2da867b14d03c2fd9eb6d8c1711b08"
     },
     {
       "path": "hooks/tests/test-pre-commit-interpreter-mutation.sh",
       "sha256": "0146b4d9e3bf9c880d5b05ff90bb34c067e14455d9064c5380dd7439b8c5ab23"
+    },
+    {
+      "path": "hooks/tests/test-pre-commit-python3-version-contract.sh",
+      "sha256": "1bee49da210a1978e02e5bd5b771da740fa894d07b77440fb7b909c690111068"
+    },
+    {
+      "path": "hooks/tests/test-pre-commit-python3-version-mutation.sh",
+      "sha256": "a9e0a97f5ae170c14894a7754582e1973c46168e48f55692bd1e87739ad9d067"
     },
     {
       "path": "hooks/tests/test-prohibition-residency.sh",
@@ -1225,5 +1241,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "8d81303e329320ae8e9437394370cb9a4044f15392a3b2b96eae49cc2a0371c2"
+  "manifest_self_sha256": "161f0fbaf79081170f8a4895cf1f5212d451b6ab040102cada879e1aad41088f"
 }
