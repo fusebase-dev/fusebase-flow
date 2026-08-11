@@ -4,6 +4,71 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [4.8.0] — 2026-08-11
+
+Safety-kernel release. Four blockers and eight MAJORs from the v4.7.1 architecture review, plus a
+test-layer rework that proves the interpreter block is real rather than merely green.
+
+### Changed — two consumer-visible behaviour changes, stated plainly
+
+- **A commit is now REFUSED when no supported Python 3.10+ interpreter can be found** and changes
+  are staged (`hooks/git/pre-commit` §1b). Previously the FR-12 staged secret scan silently did not
+  run and the FR-07 protected-path check printed a warning and committed anyway — two security
+  controls unenforced, with a clean exit. The hook now discovers `python3`, else `python`, else
+  `py -3`, provisions a temporary shim, and blocks with a fixable message only when none exists.
+  If you commit on a host without Python 3.10+, install it or remove the hook; `--no-verify` is not
+  the answer.
+- **`.github/workflows/fusebase-flow-verify.yml` no longer runs on ordinary pushes or PRs.** It is
+  reachable by `workflow_dispatch` and by `workflow_call` from the release workflow only. The
+  template ships with `.github/`, so a solo builder previously inherited maintainer-grade CI cost
+  and latency on every push with no way to opt out. Release coverage is unchanged — the same one
+  definition of the suite, on the same two required platforms, still gates publication.
+
+### Fixed — security and release integrity
+
+- **FR-07 protected-path approvals now actually authorize** (MAJOR 11). Both shipped writers emit a
+  populated `paths` array; `path_policy` authorizes by path membership, so the previous artifacts
+  authorized nothing while printing "artifact written + re-verified" — a gate-shaped file that
+  gated nothing.
+- **Publication is bound to the verified SHA, not the tag name** (B2). `verify-tag-target.sh`
+  force-fetches the tag from the remote, peels annotated tags with `^{commit}`, requires a full
+  40-hex SHA, and is asserted before and after `gh release create`. Mutation-tested: stripping the
+  re-fetch makes a force-moved tag wrongly accepted.
+- **Watchdog timeouts are labelled, not conflated with crashes** (MAJOR 7): rc 124/137 report as
+  `TIMED OUT` rather than `crashed`. Classification remains rc-only — a test's own 124/137 is still
+  indistinguishable from watchdog action.
+- **A skipped discriminator is a non-pass** (B4). A check that could not run counts as a failure,
+  and the suite fails when a declared row never reports — "the suite got smaller, not greener".
+- **Recovery predicate 32 exercises the production write path** (B3), running the shipped writer
+  over the full skill corpus and byte-comparing the generated manifest, instead of asserting mirror
+  parity only.
+
+### Fixed — tests that were green while proving nothing
+
+The absent-interpreter rows passed on developer hosts without ever reaching the branch they claimed
+to test: the PATH mask filtered `python*` but not `py`, so the Windows launcher directory passed
+through and the hook took its discovery path. A second copy of the same host-dependent mask lived in
+the smoke suite, where dropping whole PATH directories also removed `git` — and a git-less hook
+exits 0 at its top `rev-parse` guard, an environment artifact that reads as a fail-open.
+
+Both are replaced by one additive fixture (`hooks/tests/lib/minimal-path-fixture.sh`) that resolves
+an allowlist of tools to absolute paths and never enumerates, mirrors, symlinks or copies a PATH
+directory, so host layout cannot leak an interpreter. A causally constrained mutation discriminator
+now proves the control: deleting the missing-interpreter `exit 1` flips exactly one named row, every
+control row stays identical, and an unmutated copy presented as the mutant makes the harness itself
+fail. Assertion rows across the changed phases went 66 → 101.
+
+### Known residuals — not closed by this release
+
+- `hooks/git/pre-commit` still exits 0 when `git` itself is unresolvable, so a broken git is
+  indistinguishable from "not in a repo". Decided (A2) and planned, not yet built.
+- A resolved `python3` is accepted without the ≥3.10 probe that the `python` / `py -3` fallbacks
+  must pass — the fallback path is stricter than the primary path. Planned.
+- `hooks/local/preflight.sh` still skips Python checks silently when Python is absent, so the
+  dependency-preflight requirement is unsatisfied.
+- Under the locked same-principal threat model, nothing here authenticates git or the interpreter.
+  A caller who controls `PATH` can still supply a shim. Flow has no trust root and no signing seam.
+
 ## [4.7.1] — 2026-08-04
 
 ### Fixed — the post-failure recovery hint no longer implies engine continuity (M19)
