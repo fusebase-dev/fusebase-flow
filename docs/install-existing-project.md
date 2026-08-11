@@ -397,6 +397,42 @@ incoming tree — so an upstream change and a local edit are no longer indisting
 >
 > If the tag cannot be resolved (forked or unreleased `VERSION`), nothing is lost — the run preserves and reports instead. `bash hooks/local/preflight.sh` warns when the base is missing or stale; `bash hooks/local/stamp-managed-content-manifest.sh` records one.
 
+### What an upgrade records: `INSTALLED_FROM` (4.8.0+)
+
+A successful upgrade writes a one-line marker at your repo root naming the source tree it
+actually consumed. Two source shapes are supported, so the marker is **typed**:
+
+| `source_kind` | Marker body | Written when |
+|---|---|---|
+| `git` | `{"schema":"fusebase-flow/installed-from/v1","source_kind":"git","git_commit":"<40 lowercase hex>"}` | the source is a git clone; the value is the **exact commit the upgrade archived**, never a tag, branch, `VERSION` or your own HEAD |
+| `plain` | `{"schema":"fusebase-flow/installed-from/v1","source_kind":"plain","content_digest":"sha256:<64 lowercase hex>"}` | the source is a plain directory (no `.git`) — a supported shape with no commit SHA, so the tree is content-addressed instead |
+
+Exactly one line, UTF-8, no insignificant whitespace, keys in the order shown, one trailing
+newline. Anything else is **malformed** and the health check reports an integrity failure — a
+malformed marker is never quietly downgraded to "unknown".
+
+Ownership and lifecycle:
+
+- **Generated-unmanaged.** It is target-repository state, not framework content: absent from
+  `audit/managed-content-manifest.json` and `audit/hook-layer-manifest.json`, never copied from
+  the source tree, and never shipped by upstream. Commit it or gitignore it as you prefer —
+  Flow never reads it as source.
+- **Atomic replacement.** Written to a same-directory temporary file and renamed, so a reader
+  never sees a half-written marker.
+- **Preserved on anything short of success.** An already-current no-op, a classification abort,
+  or a failure after the source was materialized all leave a prior marker byte-identical.
+- **`unknown` is normal.** No marker means the install predates 4.8.0, or the only runs since
+  were already-current no-ops, or the file was removed. The health check prints
+  `unknown (provenance marker unavailable)` and stays healthy.
+
+`plain` digest, for third-party recomputation: SHA-256 over every regular file of the consumed
+snapshot, ordered by UTF-8 repo-relative POSIX path, feeding `<path>\0<byte-length>\0<bytes>`
+per file. `__pycache__/` and `*.pyc` / `*.pyo` are excluded; symlinks are not followed.
+
+**Scope, stated plainly:** this makes future consumption *attributable*. It does **not** detect
+a moved tag, prove tag immutability, or reach a consumer who never upgrades — that consumer
+keeps reporting `unknown`.
+
 **Manual path** (still supported; no classification — you do the diffing):
 
 1. Re-clone the source: `git clone <fusebase-flow-url> .fusebase-flow-source`.

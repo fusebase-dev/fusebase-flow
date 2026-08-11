@@ -54,6 +54,12 @@ MANAGED_FILES = (
     MANIFEST_REL,
 )
 
+# GENERATED-UNMANAGED target-repository state: written by the consumer's own upgrade run,
+# never shipped as source content. TRIPWIRE: this exclusion must survive any later addition to
+# MANAGED_FILES — a managed INSTALLED_FROM would be copied FROM the source tree, so every
+# consumer would inherit the publisher's provenance and their own would be overwritten.
+GENERATED_UNMANAGED = ("INSTALLED_FROM",)
+
 # Never part of the managed set: operator overrides that upgrade deliberately preserves,
 # build noise, and the transient backup twins upgrade/bootstrap drop.
 _EXCLUDED_DIR_NAMES = {"__pycache__", ".git", "node_modules"}
@@ -63,6 +69,8 @@ _BACKUP_MARKERS = (".pre-upgrade-", ".pre-bootstrap-", ".pre-refresh-")
 
 def _excluded(rel: str) -> bool:
     name = rel.rsplit("/", 1)[-1]
+    if rel in GENERATED_UNMANAGED:
+        return True
     if any(part in _EXCLUDED_DIR_NAMES for part in rel.split("/")):
         return True
     if rel.endswith(_EXCLUDED_SUFFIXES):

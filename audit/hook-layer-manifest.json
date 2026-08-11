@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.8.0",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 160,
+  "asset_count": 162,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -66,7 +66,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-health-check.sh",
-      "sha256": "36cfbc7b1f8900614377d19833272e8bf4b639798e135a350c774fc39fcf569a"
+      "sha256": "310d3d6bb7843ff7bbb18ea832ccf8eb1b4b969efbe29853abf5f958bc209f0d"
     },
     {
       "path": "hooks/local/install-codex-prompts.sh",
@@ -105,8 +105,12 @@
       "sha256": "08c7c312eaeb95a6e5632498fa910113f438afcd2e2a52e24e0e06b3a26e8ad9"
     },
     {
+      "path": "hooks/local/lib/installed-provenance.sh",
+      "sha256": "fa45d6d4b0776d192a5e48ae2114ba9ae571a321a4416bad47ce542bcacbdaf0"
+    },
+    {
       "path": "hooks/local/lib/managed_content_manifest.py",
-      "sha256": "8ead27f9cc649b47b065fd985e918bca23675427f1af2e645658dc86a96144ac"
+      "sha256": "6b4881bcf4315782ed3e83d78c2d98763ed8feb14fac380c3411743678abf44f"
     },
     {
       "path": "hooks/local/lib/materialize-managed-source.sh",
@@ -174,7 +178,7 @@
     },
     {
       "path": "hooks/local/upgrade.sh",
-      "sha256": "3c3cd68148df136a5ec4145f360cbadc9cb3e1b327e07e6f5f59a5925c1d10b7"
+      "sha256": "4d7913fc99c7fbf75dec1189dfd989f962727d93ab609f10b311a93c447c99e8"
     },
     {
       "path": "hooks/local/verify-gate.sh",
@@ -430,7 +434,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "83ea4488d56ecb822e8aedf229778d01fca76e97b3ad0659925870be4ce1519c"
+      "sha256": "7d70440b07a94f9bd6ca60343edf0aef6e5c1123b5165837cfde358a871481f4"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -515,6 +519,10 @@
     {
       "path": "hooks/tests/test-install-fusebase-cli-project-doc.sh",
       "sha256": "dc31f7e4521cdcf265ca9ef24f02fe967232524764b1672d05aca0baf29c4346"
+    },
+    {
+      "path": "hooks/tests/test-installed-from-provenance.sh",
+      "sha256": "f9efb7468259ffc29828099ab4b356277464f889cc95f12ef1edbb4f50ab9682"
     },
     {
       "path": "hooks/tests/test-lane-router.sh",
@@ -645,5 +653,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "5365f13bfbc1e24ce587c02f12b83ecda73bef4d21ee555be4ff6258db34ccc2"
+  "manifest_self_sha256": "2754469b010db1ad050970b789b012aef6b005ffe390202095e998b2e2486bfa"
 }

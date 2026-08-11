@@ -78,7 +78,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixtur
   trusted-enforcer hook-install-rc msys-tree-cleanup ws5-upgrade ff-only return-budget \
   supersede-primitive rule-inventory boot-size prohibition-residency token-waste-classify \
   budget-literals history-extraction approval-binding approval-writer command-policy upgrade-classify \
-  upgrade-boundary preboundary-consumed upgrade-repair recovery-hint install-doc release-authority \
+  upgrade-boundary preboundary-consumed upgrade-repair installed-from recovery-hint install-doc release-authority \
   release-tag-binding signal-reap cli-flow-recovery)
 
 # OPT-IN-ONLY tags: registered and reachable, but NEVER in the default/required set — they run
@@ -541,6 +541,9 @@ run_shell_phase test-upgrade-conflict-classification.sh "upgrade-classify"
 run_shell_phase test-upgrade-source-boundary.sh         "upgrade-boundary"
 run_shell_phase test-upgrade-preboundary-consumed-tree.sh "preboundary-consumed"
 run_shell_phase test-upgrade-repair-managed.sh           "upgrade-repair"
+# S1 INSTALLED_FROM provenance: drives real upgrade + bootstrap runs against throwaway consumer
+# trees, so it is heavy (CI/FF_FULL tier) — FF_FAST_TAGS is an allowlist.
+run_shell_phase test-installed-from-provenance.sh        "installed-from"
 run_shell_phase test-recovery-hint-honesty.sh            "recovery-hint"
 run_shell_phase test-install-fusebase-cli-project-doc.sh "install-doc"
 # Pins the shipped prose to the machinery: CI on the tagged SHA owns release evidence, no

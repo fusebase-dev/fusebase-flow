@@ -15,6 +15,10 @@ state/approvals/*
 state/audit/*
 !state/audit/.gitkeep
 
+# Generated-unmanaged upgrade output: which source tree THIS checkout consumed. A
+# development-tree marker describes nobody's install and must never be committed.
+INSTALLED_FROM
+
 # Local overrides of committed policies (committed defaults live at policies/*.yml;
 # a committed *.local.yml could silently neutralize gates for every clone)
 policies/approval-policy.local.yml

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.8.0",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 309,
+  "asset_count": 311,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "c71c4d7c95405ce8fce19da4cc745c497c53ba541fda3bd5ec815dccd2833f1c"
+      "sha256": "eafd386d43487393f7e266b9aedb517dfeba58291c72c7f37310387bbd2a5811"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -386,7 +386,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-health-check.sh",
-      "sha256": "36cfbc7b1f8900614377d19833272e8bf4b639798e135a350c774fc39fcf569a"
+      "sha256": "310d3d6bb7843ff7bbb18ea832ccf8eb1b4b969efbe29853abf5f958bc209f0d"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/agent-surface-ownership.json",
@@ -473,8 +473,12 @@
       "sha256": "08c7c312eaeb95a6e5632498fa910113f438afcd2e2a52e24e0e06b3a26e8ad9"
     },
     {
+      "path": "hooks/local/lib/installed-provenance.sh",
+      "sha256": "fa45d6d4b0776d192a5e48ae2114ba9ae571a321a4416bad47ce542bcacbdaf0"
+    },
+    {
       "path": "hooks/local/lib/managed_content_manifest.py",
-      "sha256": "8ead27f9cc649b47b065fd985e918bca23675427f1af2e645658dc86a96144ac"
+      "sha256": "6b4881bcf4315782ed3e83d78c2d98763ed8feb14fac380c3411743678abf44f"
     },
     {
       "path": "hooks/local/lib/materialize-managed-source.sh",
@@ -546,7 +550,7 @@
     },
     {
       "path": "hooks/local/upgrade.sh",
-      "sha256": "3c3cd68148df136a5ec4145f360cbadc9cb3e1b327e07e6f5f59a5925c1d10b7"
+      "sha256": "4d7913fc99c7fbf75dec1189dfd989f962727d93ab609f10b311a93c447c99e8"
     },
     {
       "path": "hooks/local/verify-gate.sh",
@@ -826,7 +830,7 @@
     },
     {
       "path": "hooks/tests/lib/upgrade-fixtures.sh",
-      "sha256": "cbef901b4a735e71f822daf02e62d26673e3bb63b279d0bd0333897f8b696659"
+      "sha256": "f1000656e2d4ee6b2e1972a46d06c355bb49c45a8b958528ccb9f28e0aa62680"
     },
     {
       "path": "hooks/tests/lib/workflow_graph_check.py",
@@ -834,7 +838,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "83ea4488d56ecb822e8aedf229778d01fca76e97b3ad0659925870be4ce1519c"
+      "sha256": "7d70440b07a94f9bd6ca60343edf0aef6e5c1123b5165837cfde358a871481f4"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -919,6 +923,10 @@
     {
       "path": "hooks/tests/test-install-fusebase-cli-project-doc.sh",
       "sha256": "dc31f7e4521cdcf265ca9ef24f02fe967232524764b1672d05aca0baf29c4346"
+    },
+    {
+      "path": "hooks/tests/test-installed-from-provenance.sh",
+      "sha256": "f9efb7468259ffc29828099ab4b356277464f889cc95f12ef1edbb4f50ab9682"
     },
     {
       "path": "hooks/tests/test-lane-router.sh",
@@ -1241,5 +1249,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "161f0fbaf79081170f8a4895cf1f5212d451b6ab040102cada879e1aad41088f"
+  "manifest_self_sha256": "c772abb8b34dce4d8dbae7ab781ac129da481afd24020600ee3994c8cf4f6164"
 }
