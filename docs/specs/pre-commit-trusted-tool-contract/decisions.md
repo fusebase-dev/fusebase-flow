@@ -1,11 +1,13 @@
 # Trusted-tool contract decisions
 
-**Status:** `A2 LOCKED; B1 REOPENED - operator decision required`. A2 was operator-locked on 2026-08-11. The DO-NOT-BUILD review invalidated B1's implementation authorization; T1/S2d and T2/S2b may proceed, S2c may not.
+**Status:** `A2 LOCKED; B1 CLOSED - NOT BUILT`. Both operator-decided on 2026-08-11: A2 locked for implementation, B1 closed as path (a) after the DO-NOT-BUILD review. T1/S2d and T2/S2b may proceed; S2c does not exist as work.
 
 | Decision | Status | Implementation effect |
 |---|---|---|
 | A2 - independent repository-context evidence | `LOCKED` | T2 authorized subject to `spec.md` compatibility/termination contract. |
-| B1 - per-control positive verdict | `REOPENED - operator decision required` | S2c removed from spec/tasks/gate implementation scope. |
+| B1 - per-control positive verdict | `CLOSED - NOT BUILT` (operator, 2026-08-11) | No S2c task, gate row, helper, verdict artifact, nonce or control ID exists or may be created. The per-control `rc == 0` contract stands unchanged. |
+
+**Reviving B1 requires a changed threat model, not a new implementation idea.** It was closed because a PATH-controlling same-principal attacker can read the nonce and fabricate the verdict, so the mechanism cannot deliver the guarantee its name implies — not because the design was rough. A smaller or cleverer protocol under the same model is the same decision and must be refused on this record.
 
 North-star result: retain A2's concrete fail-closed mechanism; withhold B1 because its mechanism cost exceeds its modeled same-principal benefit (`docs/north-star.md:18,31-34`).
 
@@ -46,14 +48,14 @@ North-star result: retain A2's concrete fail-closed mechanism; withhold B1 becau
 
 `hooks/git/pre-commit` deletes `SEC_TMP` and `FR07_TMP` immediately after each Python call and before acting on rc (`hooks/git/pre-commit:316-320,678-682`). A verdict placed in either natural per-control directory would therefore be deleted before validation; every commit with staged changes would BLOCK. This is a reason not to build B1 as specified, not an implementation detail to improvise around.
 
-### Reopened paths
+### Decision — path (a), closed 2026-08-11
 
-| Path | Scope | Security claim | Status |
+| Path | Scope | Security claim | Outcome |
 |---|---|---|---|
-| **(a) Drop B1 entirely** | Keep existing per-control rc contract and existing mitigations. | None; same-principal interpreter integrity remains outside the model. | **Recommended** on current evidence; operator decision required. |
-| (b) Narrow accidental completion-fault detection | Design a materially smaller protocol only for accidental/non-cooperating completion faults; re-evaluate lifecycle/concurrency before any task exists. | Explicitly NOT a security control and NOT resistance to a PATH-controlling attacker. | Operator decision required; new plan/review required before implementation. |
+| **(a) Drop B1 entirely** | Keep the existing per-control `rc == 0` contract and the existing mitigations unchanged. | None; same-principal interpreter integrity stays outside the model and is documented as such. | **CHOSEN by the operator.** |
+| (b) Narrow accidental completion-fault detection | A materially smaller protocol for accidental/non-cooperating completion faults only. | Explicitly not a security control. | Rejected with (a): a control that exits 0 without doing its work is a defect in that control, caught by its own tests — not worth a permanent runtime protocol in a consumer-shipped hook. |
 
-No S2c task, gate row, helper, verdict artifact, nonce, or control ID may be implemented until the operator chooses (a) or (b). Choosing (b) does not revive the rejected design; it starts a smaller design review.
+No S2c task, gate row, helper, verdict artifact, nonce or control ID exists. What remains in force from this analysis is the **prohibition**, not a deferred plan: nothing in this repository may describe `rc == 0` from a Python control, or any future local artifact, as proof that the control ran or that the interpreter is genuine.
 
 ## S2d implementation contract - no operator decision open
 
