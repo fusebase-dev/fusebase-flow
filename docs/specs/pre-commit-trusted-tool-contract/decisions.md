@@ -1,6 +1,6 @@
 # Trusted-tool contract decisions
 
-**Status:** `RECOMMENDED — A2 + B1; AWAITING OPERATOR LOCK`. This DESIGN-only slice may record decisions and discriminating evidence; it may not create implementation tasks or authorize implementation (`docs/specs/msys-hardening-roadmap/roadmap.md:69-74`).
+**Status:** `LOCKED — A2 + B1`. Operator locked both recommendations in chat on 2026-08-11; implementation of S2b (A2, Git fail-closed) and S2c (B1, per-control positive verdict) is authorized. The residual limits recorded below are locked WITH the decisions: neither A2 nor B1 authenticates git or the interpreter, and no implementation may claim that it does.
 
 North-star: On-vision — the safety kernel retains fail-closed secret scanning and protected paths (`docs/north-star.md:31-34`).  
 Dimension: constraint — mechanism must carry the guarantee; prose alone is not a control (`docs/north-star.md:18`).  
