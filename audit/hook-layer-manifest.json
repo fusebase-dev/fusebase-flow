@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.8.0",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 162,
+  "asset_count": 163,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -214,7 +214,7 @@
     },
     {
       "path": "hooks/shared/command_policy.py",
-      "sha256": "69e8b62aaaa0db57e9556d60ecc40256fe324f503592b2508ada7f6ba7492540"
+      "sha256": "67f7dd1d028ff7b80092b21e29f996fbbe360f56cfbcbec6734948d0ac8786e2"
     },
     {
       "path": "hooks/shared/command_rules.py",
@@ -434,7 +434,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "7d70440b07a94f9bd6ca60343edf0aef6e5c1123b5165837cfde358a871481f4"
+      "sha256": "4dab6b82e868a197ca2d4d08062d9a66bae56e541d7da5dac488879a3c503223"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -483,6 +483,10 @@
     {
       "path": "hooks/tests/test-codex-prompt-parity.sh",
       "sha256": "78cc3c4bc3c88f96357b73d4a252b4d3fd9adc369a2011f13ed0322fed9eedb4"
+    },
+    {
+      "path": "hooks/tests/test-command-policy-denial-message.sh",
+      "sha256": "2260d528c6c2f08ab92f321c9f22beb8fb3a933423c4b39ecb2bcd7b5f4616f8"
     },
     {
       "path": "hooks/tests/test-command-policy.sh",
@@ -653,5 +657,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "2754469b010db1ad050970b789b012aef6b005ffe390202095e998b2e2486bfa"
+  "manifest_self_sha256": "8c16ba9db5bc415f15a77a01c65ed71181bbf409c1b9b0e410cd0a0fe0641b6b"
 }

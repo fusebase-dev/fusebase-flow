@@ -77,7 +77,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixtur
   lane-router \
   trusted-enforcer hook-install-rc msys-tree-cleanup ws5-upgrade ff-only return-budget \
   supersede-primitive rule-inventory boot-size prohibition-residency token-waste-classify \
-  budget-literals history-extraction approval-binding approval-writer command-policy upgrade-classify \
+  budget-literals history-extraction approval-binding approval-writer command-policy denial-message upgrade-classify \
   upgrade-boundary preboundary-consumed upgrade-repair installed-from recovery-hint install-doc release-authority \
   release-tag-binding signal-reap cli-flow-recovery)
 
@@ -537,6 +537,8 @@ run_shell_phase test-history-extraction.sh     "history-extraction"
 run_shell_phase test-approval-binding.sh       "approval-binding"
 run_shell_phase test-approval-writer.sh        "approval-writer"
 run_shell_phase test-command-policy.sh        "command-policy"
+# S4a: the deny-rule explanation, and the negative half — no location claim, no matching change.
+run_shell_phase test-command-policy-denial-message.sh "denial-message"
 run_shell_phase test-upgrade-conflict-classification.sh "upgrade-classify"
 run_shell_phase test-upgrade-source-boundary.sh         "upgrade-boundary"
 run_shell_phase test-upgrade-preboundary-consumed-tree.sh "preboundary-consumed"
