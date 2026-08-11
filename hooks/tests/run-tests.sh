@@ -68,7 +68,8 @@ FFHC_HEARTBEAT_SECS="${FFHC_HEARTBEAT_SECS:-30}"
 # --- FF_ONLY scoped-gate parse (implement-loop iteration speed) ---------------------
 # Canonical phase tags, in run order. This list is the FF_LIST discovery source and the
 # FF_ONLY validation set; add a tag here (and its guard) when a phase is added.
-FF_TAGS=(fixtures module-size health-check-timeout git-smoke hook-manifest newline-preserve baseline-merge \
+FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixture \
+  hook-manifest newline-preserve baseline-merge \
   sync-allowlist policy-state bootstrap-baseline-hop fr22-delivery po-verifiable-boot \
   po-investigate liveness codex-parity codex-plugin cli-0259 secret-scan-staged bootstrap-exception \
   lane-router \
@@ -477,6 +478,10 @@ run_shell_phase() { # run_shell_phase <test-script> <tag>
     emit_phase_diagnostics "$tag" "$out" "$bad"
 }
 run_shell_phase test-git-hooks-smoke.sh      "git-smoke"
+# Self-test of hooks/tests/lib/minimal-path-fixture.sh: the one interpreter-less PATH constructor
+# its consumers share. Outside FF_FAST_TAGS until its runtime is measured (that list is an
+# allowlist by design).
+run_shell_phase test-minimal-path-fixture.sh "minimal-path-fixture"
 run_shell_phase test-hook-manifest.sh        "hook-manifest"
 # Makes the EXISTING lightweight-lane eligibility gate executable for path-observable surfaces.
 # Its FULL fixtures are the actual changed paths of cb0ff8b / 235f4a3 / 0e29ed5 — three changes
