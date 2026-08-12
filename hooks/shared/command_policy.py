@@ -121,18 +121,39 @@ def _policy_error(command: str, detail: str) -> CommandDecision:
     )
 
 
+#: S4a. Rendered verbatim from facts the deny decision ALREADY retains — no re-match, no
+#: tokenizing, no quote parsing, no payload extraction, no span inference.
+#:
+#: TRIPWIRE: it claims NO location, deliberately. Pointing at the offending span requires the
+#: shell-aware parsing decisions K21 and M8 reserve (see policies/command-policy.yml § MATCHING
+#: IS REGEX OVER THE RAW COMMAND STRING and docs/backlog/command-gate-shell-evasion/). A wrong
+#: location attached to a correct denial is worse than no explanation — never add one here.
+_DENY_EXPLANATION = (
+    "Denied: raw command matched rule {rule_id}, pattern {pattern}. "
+    "Quoted prose can match this pattern; no match location is claimed."
+)
+
+
+def explain_rule_denial(rule_id: str, matched_pattern: str) -> str:
+    """Why a deny-rule fired: which rule, which pattern, and that prose can trip it."""
+    return _DENY_EXPLANATION.format(rule_id=rule_id, pattern=matched_pattern)
+
+
 def _evaluate_deny(command: str, policy: dict[str, Any]) -> CommandDecision | None:
     for rule in policy.get("deny", []) or []:
         matched, err = rule_matches(rule, command, "deny")
         if err:
             return _policy_error(command, err)
         if matched:
+            rule_id = rule.get("rule_id", "FR-06")
+            pattern = rule["pattern"]
             return CommandDecision(
                 command=command,
                 decision="deny",
-                reason=rule.get("reason", "denied by command-policy"),
-                rule_id=rule.get("rule_id", "FR-06"),
-                matched_pattern=rule["pattern"],
+                reason=(f"{rule.get('reason', 'denied by command-policy')}\n"
+                        f"{explain_rule_denial(rule_id, pattern)}"),
+                rule_id=rule_id,
+                matched_pattern=pattern,
             )
     return None
 
@@ -348,4 +369,4 @@ def evaluate(command: str, *, root: Path | None = None) -> CommandDecision:
     )
 
 
-__all__ = ["CommandDecision", "NO_ARTIFACT", "evaluate", "resolve_root"]
+__all__ = ["CommandDecision", "NO_ARTIFACT", "evaluate", "explain_rule_denial", "resolve_root"]

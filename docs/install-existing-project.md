@@ -391,7 +391,7 @@ incoming tree — so an upstream change and a local edit are no longer indisting
 > 1. **The classifier ships inside the version you are upgrading to.** The old engine copies upstream over `hooks/**` — including the new engine — before any classification runs.
 > 2. **An install from ≤ 4.6.1 has no base manifest.** Without one every managed path classifies `unknown-base`, which *preserves* it (nothing is lost) but means the upgrade reports success while installing little or nothing.
 >
-> The bootstrap path fixes both: it stages the new engine first, then **synthesizes the base from the upstream tag matching your installed `VERSION`** — byte-identical to what your last upgrade actually wrote.
+> The bootstrap path fixes both: it stages the new engine first, then **synthesizes the base from the current target of the upstream tag matching your installed `VERSION`**. If that tag has moved since your last upgrade, its current target cannot be assumed byte-identical to the bytes the earlier upgrade installed. To identify the exact managed tree you have, compare your manifest fingerprint with the [release fingerprint table](release-fingerprints.md).
 >
 > **Two HIGH bugs filed against 4.7.0 were caused by taking the unsupported route** — a new top-level file never installed, and a hand-edited `policies/` entry silently reverted. Neither is 4.7.0 behaviour; both are what the stale engine does. See `docs/release-notes/v4.7.0.md` § "three reported findings need no code".
 >

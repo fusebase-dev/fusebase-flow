@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.8.0",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 309,
+  "asset_count": 310,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "c71c4d7c95405ce8fce19da4cc745c497c53ba541fda3bd5ec815dccd2833f1c"
+      "sha256": "bcd81b67ae2514e8b7fd26765a4b8bf48a8d0f1657d38acf9b91e680b60e1971"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -586,7 +586,7 @@
     },
     {
       "path": "hooks/shared/command_policy.py",
-      "sha256": "69e8b62aaaa0db57e9556d60ecc40256fe324f503592b2508ada7f6ba7492540"
+      "sha256": "67f7dd1d028ff7b80092b21e29f996fbbe360f56cfbcbec6734948d0ac8786e2"
     },
     {
       "path": "hooks/shared/command_rules.py",
@@ -834,7 +834,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "83ea4488d56ecb822e8aedf229778d01fca76e97b3ad0659925870be4ce1519c"
+      "sha256": "75d93303e2bc029cdcaf8ee540792bc605ab992b59e47e446195cafea95c5bd4"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -883,6 +883,10 @@
     {
       "path": "hooks/tests/test-codex-prompt-parity.sh",
       "sha256": "78cc3c4bc3c88f96357b73d4a252b4d3fd9adc369a2011f13ed0322fed9eedb4"
+    },
+    {
+      "path": "hooks/tests/test-command-policy-denial-message.sh",
+      "sha256": "2260d528c6c2f08ab92f321c9f22beb8fb3a933423c4b39ecb2bcd7b5f4616f8"
     },
     {
       "path": "hooks/tests/test-command-policy.sh",
@@ -1241,5 +1245,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "161f0fbaf79081170f8a4895cf1f5212d451b6ab040102cada879e1aad41088f"
+  "manifest_self_sha256": "0872a7d5219f9ab993cc96e4a639e157375701bbf26babd49cdea1dfbec5ad92"
 }
