@@ -38,7 +38,13 @@ For Git, the materializer resolves the exact commit before archiving it. Direct 
 8. **AC8 - health states:** valid Git and plain markers print their typed value; missing marker prints the exact unknown text and names possible causes: pre-marker install, early already-current no-op, or removed marker; malformed marker fails integrity.
 9. **AC9 - regression matrix:** registered tests cover Git direct, Git bootstrap, plain source, early no-op with and without prior marker, failure after materialization, prior-marker preservation, atomic replacement, source-manifest exclusion, missing marker, and malformed marker; `VERSION` and existing tag/manifest verification stay unchanged.
 
-## S2 closure C3 - proposed receipt contract
+## S2 closure C3 - LOCKED receipt contract
+
+**Status: LOCKED by the operator on 2026-08-11.** Closure C3 and the exact v1 field set below are
+approved; AC10's decision gate is satisfied and T2 implementation is authorized. The reporting
+consumer reviewed C3 and recorded "we support it as specified and have no further design input".
+The field set is the locked surface: adding, renaming or dropping a field is a new decision, not an
+implementation detail.
 
 The committed deploy report contains one `fusebase-flow/deploy-approval-receipt/v1` receipt:
 
