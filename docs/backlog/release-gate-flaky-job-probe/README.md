@@ -3,6 +3,15 @@
 **Status:** active — reproduction first
 **Found:** 2026-08-11, during the v4.8.0 publication
 
+## Occurrence 2 — 2026-08-12, main `59668e1`
+
+Same row, same shape: `probe gating wrong (knob=1 rc=1 expect 0; …)` on `verify-windows-msys`,
+1028/1029, in run `31611434833`. A local Windows full run on the same content was 1029/1029.
+
+Two hosted occurrences now, both on Windows, both a single row deciding a whole gate, and both with
+a green local run on the same content. This is no longer "it happened once" — the reproduction step
+below has a second data point and should be scheduled rather than left open.
+
 ## Symptom
 
 `msys-tree-cleanup ws2hard-probe-gating` failed on `verify-windows-msys` for SHA `20fd707`

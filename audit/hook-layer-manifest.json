@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.8.0",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 162,
+  "asset_count": 164,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -42,7 +42,7 @@
     },
     {
       "path": "hooks/local/approve-local.sh",
-      "sha256": "61d24d867a23ff56162bf27a22b2b1149838c2d49c4b35fd718e80598d75dfed"
+      "sha256": "ef70b080f81fc348b3288831da434c330f244e7e28e7824d4875ae43d4de741a"
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
@@ -83,6 +83,10 @@
     {
       "path": "hooks/local/lib/active-approvals.sh",
       "sha256": "c60c6cc05e83cbf049eff777ad380e9bbeb1abb1c2e0e9897404f67672d4348c"
+    },
+    {
+      "path": "hooks/local/lib/approval-receipt.sh",
+      "sha256": "2763adc5ea9ccaff03992f597b300c8129b5208162ea796dbbb478039e786f38"
     },
     {
       "path": "hooks/local/lib/approval_inventory.py",
@@ -434,7 +438,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "4cd9889c47847c718dee6274b8911611bfac2a3b8f9cfa9e0f4766bbbf3140f4"
+      "sha256": "0f4c9b0b090fe082ada0f8e30bfef9d05361d213c37cb22dd24f7ab54e82320f"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -443,6 +447,10 @@
     {
       "path": "hooks/tests/test-approval-binding.sh",
       "sha256": "a8b4bbbd2204fae775e61b113118b5eb1741858778c88cb0a8dcb7de1ec00e75"
+    },
+    {
+      "path": "hooks/tests/test-approval-receipt-durability.sh",
+      "sha256": "f599d509b2bd0e6af3897bf3c094794b4614de7d65836f8a630bfac6fcfee26b"
     },
     {
       "path": "hooks/tests/test-approval-writer.sh",
@@ -594,7 +602,7 @@
     },
     {
       "path": "hooks/tests/test-release-evidence-authority.sh",
-      "sha256": "7a16acecafec3f90f992b2ba511291b1303cee4ee45d946296cb7e90daad4f02"
+      "sha256": "ea7942106dec8f0c2b40b4336533f4d7c32b36f4396bb53245541cc37050662a"
     },
     {
       "path": "hooks/tests/test-release-tag-binding.sh",
@@ -653,5 +661,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "9eb0359b5723aba107928143e444b24cd1daeeda39b37dc2004a9bd9c130f776"
+  "manifest_self_sha256": "0b6b749bf73894cdd91afb65f1be15eae6a331e8ceb07f672f829dc2fc54deae"
 }
