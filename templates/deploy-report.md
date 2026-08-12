@@ -23,7 +23,7 @@ You are an AI Developer Deploy-phase session that has just completed T<deploy> (
 **Slug:** `<slug>`
 **Deploy hash:** `<hash>` ← rollback: `<from the handoff's Rollback surface — `git revert <hash>` only if code-only; else the surface-appropriate plan>`
 **Approval receipt:** `sha256:<64-hex>` — see § 1a. The live approval artifact is gitignored, so a committed report cites **the receipt, never a local approvals path** (a path citation dangles on every fresh clone).
-**Reporting session:** AI Developer / Deploy phase under Fusebase Flow v4.9.0 (FR-01..FR-27)
+**Reporting session:** AI Developer / Deploy phase under Fusebase Flow v4.9.1 (FR-01..FR-27)
 **Date:** <YYYY-MM-DD>
 
 ---
