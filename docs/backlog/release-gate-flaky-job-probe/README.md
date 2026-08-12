@@ -3,6 +3,36 @@
 **Status:** active — reproduction first
 **Found:** 2026-08-11, during the v4.8.0 publication
 
+## Occurrence 4 — 2026-08-12, `16ec277` (v4.9.1 pre-tag) — **NOT transient; escalate**
+
+This one breaks the pattern and is the most informative so far. Run `31647388965`:
+
+| | Occurrences 1-3 | **Occurrence 4** |
+|---|---|---|
+| Failing rows | 1 (`ws2hard-probe-gating`) | **2** (+ `ws2hard-job-mechanism-must-run-here`) |
+| Suite total | 1028/1029 | **1022/1024** — total DROPPED by 5 |
+| Later parent-shell probe | succeeded | **also failed** |
+
+`ws2hard-job-mechanism-must-run-here` (`test-msys-tree-cleanup.sh:376`) fires only when the host is
+MSYS, has `powershell.exe`, and `ffhc_job_available` still returns false. It is the deliberate
+refusal to skip. Its firing means the probe failed at the parent-shell call too, not just in the
+first subshell — so the mechanism rows never ran, which is why the denominator fell from 1029 to
+1024.
+
+**This invalidates the transient-first-call inference for THIS run.** Occurrences 1-3 were consistent
+with a first-call failure recovering immediately; occurrence 4 is a persistent failure within the
+same run.
+
+**Runner-image change is EXCLUDED.** Checked immediately rather than left as speculation: occurrence
+3 (one row, recovered) and occurrence 4 (two rows, persistent) both ran on runner `2.336.0`, image
+provisioner `20260729.566` — identical. The environment did not change between them, so the same
+image produces both outcomes. That points at a load- or timing-dependent failure that can take out
+both probe calls when the host is busy enough, not at a changed platform.
+
+**Do not re-run to get a green.** With a persistent failure a re-run is no longer a sanctioned
+transient remedy; it would be manufacturing a pass. The release is blocked here until the probe is
+instrumented per the steps below.
+
 ## HYPOTHESIS — not established (occurrence 3)
 
 `ffhc_job_available` (`hooks/local/lib/run-with-timeout.sh:376-390`) probes Windows Job Object
