@@ -201,14 +201,6 @@ else
   LOCAL_DRIFT+=("VERSION file missing at repo root")
 fi
 
-# INSTALLED_FROM (S1/AC8): `unknown` (pre-marker install / early already-current no-op) is a normal state and never unhealthy; a MALFORMED marker is an integrity failure and is never normalized to unknown.
-FFHC_PROV_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/installed-provenance.sh"
-if [ -f "$FFHC_PROV_LIB" ]; then
-  . "$FFHC_PROV_LIB"; ff_prov_read "$ROOT" || true
-  if [ "$FF_PROV_STATE" = "invalid" ]; then record_drift "installed_from_marker" "$(ff_prov_health_line)"
-  else LOCAL_OK+=("$(ff_prov_health_line)"); fi
-fi
-
 # AGENTS.md overlay marker — count occurrences to catch duplicates.
 # WS6 dual-marker: the ERE accepts BOTH legacy `## Fusebase Flow — …` and new
 # `## FuseBase Flow — …` so the capitalization migration never breaks the installed

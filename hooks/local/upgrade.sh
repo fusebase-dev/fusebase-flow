@@ -738,11 +738,6 @@ else
   echo "[upgrade] WARN: backup-hygiene lib absent — old .pre-* backups were NOT pruned." >&2
 fi
 
-# S1 (contract: docs/install-existing-project.md): record the consumed source LAST — every
-# earlier exit path (no-op, abort, FATAL) must leave a prior INSTALLED_FROM untouched.
-FF_PROV_LIB="$SOURCE_TREE/hooks/local/lib/installed-provenance.sh"
-[ -f "$FF_PROV_LIB" ] || FF_PROV_LIB="$ROOT/hooks/local/lib/installed-provenance.sh"
-if [ -f "$FF_PROV_LIB" ]; then . "$FF_PROV_LIB"; ff_prov_record "$ROOT" "$SOURCE_TREE" "$SRC_COMMIT" || true; fi
 echo ""
 echo "[upgrade] Content upgrade applied. VERSION now: $(tr -d '\n\r' < VERSION)"
 if [ "${FF_BACKUPS_GITIGNORED:-0}" = 1 ]; then
