@@ -102,11 +102,21 @@ deleted, or re-pointed. Moving a published tag is a **release incident**, not a 
 `audit/managed-content-manifest.json`'s `manifest_self_sha256`; adopters can identify the tree they
 hold with the [release fingerprint table](docs/release-fingerprints.md).
 
-This policy is **not yet enforced**. Enforcement remains an operator action: add a repository
-ruleset that restricts updates and deletion of `v*` tags, and enable immutable releases. The
-publication-paths table above records those settings and the release paths they close.
+**How this is enforced: by operator confirmation, not by a repository ruleset.** No agent or script
+moves, deletes or re-points a published `v*` tag on its own; any such operation is proposed to the
+operator and executed only on explicit confirmation. That is a deliberate choice — a ruleset would
+also block the operator, and this project keeps release control with a human rather than a setting.
 
-The `v4.7.0` tag move from `664503b` to `bad4d92` is the release incident that prompted this policy.
+**What that control does not cover**, stated so no reader assumes more than exists: a human gate is
+not a mechanical one. It cannot stop a tag moved directly on the hosting platform, by a collaborator
+who is not following this document, or by an automation that never asks. If you need a guarantee
+rather than a practice, the mechanical option is a repository ruleset restricting `v*` update and
+delete plus immutable releases — see the publication-paths table above, which records which release
+paths each setting closes.
+
+The `v4.7.0` tag move from `664503b` to `bad4d92` is the release incident that prompted this policy,
+and it is the reason the fingerprint table exists: with a procedural control, **identification is the
+backstop**. Adopters should verify their tree by fingerprint rather than trusting a version string.
 
 The four **OPEN** rows are repository settings and housekeeping, not code. They are listed here
 rather than described as closed: a partial fix presented as complete is the failure mode this
