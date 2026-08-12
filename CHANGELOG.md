@@ -4,6 +4,65 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [4.9.0] — 2026-08-12
+
+Consumer-escalation release. Closes the two git-hook fail-open residuals v4.8.0 published as known,
+and answers a consumer report that re-verified nine findings against the v4.8.0 tree.
+
+### Fixed — the two residuals v4.8.0 listed as open
+
+- **A resolved `python3` is no longer trusted without proving its version.** `hooks/git/pre-commit`
+  §1b probed only the discovered `python` / `py -3` fallbacks, so a `python3` already on `PATH`
+  reached the FR-12 secret scan and FR-07 protected-path check with no version check at all — the
+  fallback path was strictly stricter than the primary one. The probe now applies to it, bounded,
+  with a file-script fallback so a wrapper that supports `-S <file>` but not `-c` keeps working:
+  `python3 -S -c` support is **not** a new consumer requirement.
+- **A broken or missing `git` inside a repository now blocks instead of skipping.** The hook mapped
+  both "git is unusable" and "genuinely not in a repository" to `exit 0`, silently skipping both
+  security controls. It now classifies repository context from independent `.git` evidence: evidence
+  present plus unusable git blocks; no evidence preserves the outside-repo `exit 0`. The
+  compatibility matrix covers linked worktrees, submodules, explicit `GIT_DIR`/`GIT_WORK_TREE`,
+  `core.worktree`, `.git` symlinks, ceiling directories, filesystem boundaries, UNC paths and bare
+  repositories — newly blocking a commit that works today would have been the worse outcome.
+
+Neither authenticates git or the interpreter. Both are fault/context detection, and the source says
+so: a caller who controls `PATH` can still supply a shim.
+
+### Added — identify exactly which release tree you hold
+
+`docs/release-fingerprints.md` maps each released tree to its manifest fingerprint, so an adopter can
+name their tree from a file they already have, with no upgrade. Two rows share `VERSION` 4.7.0
+because that tag was moved; the fingerprint distinguishes them. The hook-layer manifest is documented
+as a fallback because `audit/managed-content-manifest.json` is absent on repositories upgraded by a
+pre-4.7.0 engine — the identifying artifact was a casualty of the very bug (F1) that made it needed.
+
+`PUBLISHING.md` now states that published `v*` tags are immutable, that moving one is a release
+incident, and — plainly — that this is enforced by operator confirmation rather than a repository
+ruleset, with the limits of a procedural control spelled out.
+
+### Changed — deploy evidence survives a clone
+
+A committed deploy report used to cite `state/approvals/…json`, a path `.gitignore` excludes, so the
+evidence dangled on a fresh clone. Reports now embed a `fusebase-flow/deploy-approval-receipt/v1`
+receipt: the approval's stored facts plus the sha256 of the exact validated bytes, bound to the
+deploy hash. The live approval stays gitignored and still gates the deploy — this adds evidence, not
+permission. The receipt states its own limit: it shows an approval was validated and what it bound,
+it does not authenticate who approved.
+
+### Changed — denials explain themselves
+
+A denied command now reports which rule and pattern matched, and notes that quoted prose can match
+it. It claims **no match location**: locating a match needs shell parsing that decisions K21/M8
+reserve, and a confident wrong explanation attached to a correct denial is worse than none. The
+over-matching itself is unchanged and still open.
+
+### Known residuals — not closed by this release
+
+- The command gate still denies honest prose that quotes a destructive pattern. Only the diagnostic
+  improved; `policies/command-policy.yml` still names `git commit -F <file>` as the sanctioned route.
+- Tag immutability is procedural, not mechanical.
+- Nothing here authenticates git, the interpreter, or the operator.
+
 ## [4.8.0] — 2026-08-11
 
 Safety-kernel release. Four blockers and eight MAJORs from the v4.7.1 architecture review, plus a
