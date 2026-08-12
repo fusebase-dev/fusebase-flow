@@ -3,32 +3,32 @@
 **Status:** active — reproduction first
 **Found:** 2026-08-11, during the v4.8.0 publication
 
-## Root cause — identified 2026-08-12 (occurrence 3)
+## HYPOTHESIS — not established (occurrence 3)
 
 `ffhc_job_available` (`hooks/local/lib/run-with-timeout.sh:376-390`) probes Windows Job Object
-support by running `powershell.exe -NoProfile` under `run_with_timeout 15`, then:
+support by running `powershell.exe -NoProfile` under `run_with_timeout 15`.
 
-```sh
-case "$out" in *ASSIGN-OK*) FFHC_JOB_PROBE_RESULT="ok"; return 0 ;;
-              *)            FFHC_JOB_PROBE_RESULT="no"; return 1 ;;
-esac
-```
+### Established
 
-**Any** non-`ASSIGN-OK` outcome is recorded as "unavailable" — including a 15s timeout. A PowerShell
-cold start on a loaded hosted runner can exceed that, so *the probe timed out* and *this host lacks
-job objects* are the same verdict, and the result is cached for the process.
+| Finding | Evidence |
+|---|---|
+| Watchdog rc preserved | `run_with_timeout` preserves rc 124/137 (`run-with-timeout.sh:17,65`). |
+| Probe rc discarded | `ffhc_job_available` captures stdout but never saves `$?`; classification uses only `ASSIGN-OK` (`run-with-timeout.sh:376-390`). |
+| Timeout classification is marker-dependent | A timeout with no captured `ASSIGN-OK` becomes `no`; if the marker reached captured stdout before termination, the same rc 124 can return success. |
+| Deadline waste | `DeadlineSecs=1` becomes 30 × 100 ms because both polling loops add 20 ticks (`run-with-timeout.sh:313,349`), imposing an unnecessary ~3s wait. |
+| Failure shape | Only one row failed; the later parent-shell probe (`test-msys-tree-cleanup.sh:279`) succeeded immediately after the subshell probe failed. This proves a transient first-call failure, not its cause. |
 
-That is the defect class this repository keeps finding: a mechanism reporting a conclusion it has not
-established. The assertion is right to demand availability; the probe is wrong to infer absence from
-silence.
+### Excluded
 
-**Fix direction (do NOT simply raise the bound** — a rounded-up observation is what
-`gate-bounds-lack-headroom` warns against): distinguish a timeout from a definite negative. On
-timeout, retry once — the cold start is one-time, so a second call is warm — and only then conclude
-unavailable. Keep the final verdict strict; only stop converting "no answer yet" into "no".
+- `FFHC_TIMEOUT_BIN` absence: the test supplies it (`test-msys-tree-cleanup.sh:253`).
+- Cache interaction between gating calls: each call deliberately runs in its own subshell
+  (`test-msys-tree-cleanup.sh:267`).
 
-Do not relax `ws2hard-probe-gating`: `test-msys-tree-cleanup.sh:376` deliberately fails loudly when
-the mechanism cannot run, and that refusal is correct.
+### Still open
+
+- PowerShell cold start exceeding 15s is plausible but unproven.
+- `_ffhc_job_helper_path` may fail on its first call (`run-with-timeout.sh:306`).
+- Runner load, helper creation, and process startup remain candidate causes.
 
 ## Occurrence 3 — 2026-08-12, pre-tag `f4795ab`
 
@@ -75,19 +75,21 @@ rather than by the code:
 | `harness-kill-leaves-orphan-children` | survivors inflate the next run's timings |
 | **this** | a powershell-backed capability probe returns a different answer for the same SHA |
 
-## Required first step — reproduction, not a fix
+## Required first step — instrument before retry policy
 
-Do not "stabilize" the assertion by relaxing it: an unavailable job object is a real condition the
-mechanism smoke depends on (`test-msys-tree-cleanup.sh:376` already fails loudly when the
-mechanism cannot run, deliberately refusing to skip). Establish first:
+Do not relax `ws2hard-probe-gating`; `test-msys-tree-cleanup.sh:376` correctly fails when the
+mechanism cannot run. Instrument the probe before choosing retry behavior:
 
-1. Whether the probe has a timeout/cold-start dependency on `powershell.exe` under runner load.
-2. Whether `FFHC_JOB_PROBE_RESULT` caching or a prior phase's residue can influence it.
-3. Whether the failure correlates with runner class, concurrent phases, or elapsed suite position.
+1. Capture watchdog rc, elapsed time, `_ffhc_job_helper_path` outcome, and whether `ASSIGN-OK`
+   reached captured output.
+2. Represent the result as `ok | definite-negative | timeout-or-error`; never cache
+   `timeout-or-error` as capability absence.
+3. When create/setinfo returns `WinPid=0`, exit immediately instead of entering the polling wait.
+4. Remove the `+20` tick inflation from the one-second create/setinfo deadlines.
+5. Collect first-call and immediate-follow-up evidence, then decide whether retry is justified.
 
-Then decide: bound and retry the probe with an explicit budget, or make unavailability a
-distinguishable *reported* state rather than a bare rc, so a transient probe failure is
-attributable instead of indistinguishable from a genuine capability gap.
+Retry-once is not yet prescribed: the evidence proves transience but does not establish PowerShell
+cold start, helper-path initialization, or any other root cause.
 
 ## Provenance
 

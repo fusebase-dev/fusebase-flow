@@ -276,6 +276,12 @@ file in the repo cannot. Applying the settings is operator-owned.
   green, its gated `publish` job creates the GitHub Release from
   `docs/release-notes/v<version>.md` (or `--generate-notes` when that file is
   absent). The `gh release view` guard + `--verify-tag` make a re-run idempotent.
+- **After tagging, append the tagged tree's fingerprint row**: run
+  `bash hooks/local/print-release-fingerprints.sh v<version>` and append the emitted row to
+  `docs/release-fingerprints.md` on `main`. Commit that row for the next release; the tagged tree
+  cannot contain its own row because the edit changes its digest. Never move or amend the tag. If
+  publication failed, label the row as an unpublished tagged tree. Update the external index too
+  when one exists.
 - **Do NOT run `gh release create` manually** — it bypasses the `needs: verify`
   gate (AC4). If a tag went red on a transient failure, fix on `main`, then re-run
   the release workflow from the Actions UI on the same tag.
