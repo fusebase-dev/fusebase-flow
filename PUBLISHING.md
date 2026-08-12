@@ -93,6 +93,21 @@ Every route to a Release object, and its status:
 | Re-running a pre-fix release workflow run (eligible ~30 days) | **OPEN — operator action** | a re-run keeps the ORIGINAL workflow definition, `GITHUB_SHA` and `GITHUB_REF`, so it can verify the old SHA and publish today's moved tag without this check. Audit and delete eligible old runs |
 | Any other credential/workflow with `contents: write` calling the Releases API | **OPEN — operator action** | none exists in this tree today; the check cannot enforce repository-wide exclusivity |
 
+### Published tag immutability policy
+
+Published `v*` tags are **immutable**. Once a release is published, its tag must not be moved,
+deleted, or re-pointed. Moving a published tag is a **release incident**, not a routine correction.
+
+`VERSION` alone does **not** identify a tree, and never did. The identity of the managed tree is
+`audit/managed-content-manifest.json`'s `manifest_self_sha256`; adopters can identify the tree they
+hold with the [release fingerprint table](docs/release-fingerprints.md).
+
+This policy is **not yet enforced**. Enforcement remains an operator action: add a repository
+ruleset that restricts updates and deletion of `v*` tags, and enable immutable releases. The
+publication-paths table above records those settings and the release paths they close.
+
+The `v4.7.0` tag move from `664503b` to `bad4d92` is the release incident that prompted this policy.
+
 The four **OPEN** rows are repository settings and housekeeping, not code. They are listed here
 rather than described as closed: a partial fix presented as complete is the failure mode this
 section exists to prevent.
