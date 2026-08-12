@@ -3,6 +3,41 @@
 **Status:** active — reproduction first
 **Found:** 2026-08-11, during the v4.8.0 publication
 
+## Root cause — identified 2026-08-12 (occurrence 3)
+
+`ffhc_job_available` (`hooks/local/lib/run-with-timeout.sh:376-390`) probes Windows Job Object
+support by running `powershell.exe -NoProfile` under `run_with_timeout 15`, then:
+
+```sh
+case "$out" in *ASSIGN-OK*) FFHC_JOB_PROBE_RESULT="ok"; return 0 ;;
+              *)            FFHC_JOB_PROBE_RESULT="no"; return 1 ;;
+esac
+```
+
+**Any** non-`ASSIGN-OK` outcome is recorded as "unavailable" — including a 15s timeout. A PowerShell
+cold start on a loaded hosted runner can exceed that, so *the probe timed out* and *this host lacks
+job objects* are the same verdict, and the result is cached for the process.
+
+That is the defect class this repository keeps finding: a mechanism reporting a conclusion it has not
+established. The assertion is right to demand availability; the probe is wrong to infer absence from
+silence.
+
+**Fix direction (do NOT simply raise the bound** — a rounded-up observation is what
+`gate-bounds-lack-headroom` warns against): distinguish a timeout from a definite negative. On
+timeout, retry once — the cold start is one-time, so a second call is warm — and only then conclude
+unavailable. Keep the final verdict strict; only stop converting "no answer yet" into "no".
+
+Do not relax `ws2hard-probe-gating`: `test-msys-tree-cleanup.sh:376` deliberately fails loudly when
+the mechanism cannot run, and that refusal is correct.
+
+## Occurrence 3 — 2026-08-12, pre-tag `f4795ab`
+
+Run `31635696002`, 1028/1029, identical text. Linux green on the same SHA.
+
+**Three hosted occurrences in one day**, all Windows, all a single row failing an otherwise-green
+suite: the v4.8.0 release run, `main` at `59668e1`, and this pre-tag verification. It is blocking
+roughly every other Windows run, not occasionally flaking. Priority should rise accordingly.
+
 ## Occurrence 2 — 2026-08-12, main `59668e1`
 
 Same row, same shape: `probe gating wrong (knob=1 rc=1 expect 0; …)` on `verify-windows-msys`,
