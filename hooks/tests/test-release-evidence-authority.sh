@@ -73,13 +73,27 @@ SURFACES=(
 # Rows 5-6 are architecture-review step 6: two-platform gating was "required in prose and
 # unenforced in machinery". The machinery now enforces it, so a surface that still calls it
 # unenforced, or still calls the required job Ubuntu-only, is the false claim restored.
+# TRIPWIRE: row 5 is SUBJECT-BOUND, not the bare phrase. "not yet enforced" is a sentence this
+# project must be able to write truthfully about anything that genuinely is not enforced — banning
+# it outright pushes every surface toward overclaiming, which is the defect this whole file exists
+# to prevent. It is a false claim ONLY about two-platform/release gating, which the machinery now
+# enforces. Arm A-positive below proves the narrowed row still catches the original.
 BANNED=(
     "pre-deploy gate MUST be a full"
     "full unscoped two-platform run before release"
     "gate harness a release claim rests on"
     "a gate report may cite ONLY state/audit/hook-test-results.md — never"
-    "NOT YET ENFORCED"
+    "(two-platform|both platforms|release gat[ei]|verify job)[^.]*NOT YET ENFORCED"
+    "NOT YET ENFORCED[^.]*(two-platform|both platforms|release gat[ei]|verify job)"
     "Ubuntu-only"
+)
+
+# The exact shapes the narrowed rows must still catch — a positive control for arm A. Without it,
+# narrowing row 5 could quietly defeat the guard and every surface would read green.
+BANNED_MUST_CATCH=(
+    "two-platform gating is not yet enforced"
+    "Not Yet Enforced: the release gate runs on one platform"
+    "the verify job is NOT YET ENFORCED"
 )
 
 # --- guard: the surface list must resolve, else every scan below is vacuously green -----
@@ -105,6 +119,19 @@ if [ -z "$hits" ]; then
     ok "no-legacy-local-is-release-gate-phrasing (${#BANNED[@]} ledger rows)"
 else
     bad "no-legacy-local-is-release-gate-phrasing" "$hits"
+fi
+
+# --- arm A-positive: the ledger still catches the claims it exists for --------------------
+# A narrowed row that matches nothing is worse than no row: it reports green while the false
+# claim it was written for walks through. Each shape below MUST match.
+uncaught=""
+for shape in "${BANNED_MUST_CATCH[@]}"; do
+    printf '%s\n' "$shape" | grep -qiE "$banned_re" || uncaught="$uncaught[$shape]"
+done
+if [ -z "$uncaught" ]; then
+    ok "banned-ledger-still-catches-the-original-claims (${#BANNED_MUST_CATCH[@]} shapes)"
+else
+    bad "banned-ledger-still-catches-the-original-claims" "ledger no longer matches: $uncaught"
 fi
 
 # --- arm B: a release-authority sentence must name CI or negate ---------------------------

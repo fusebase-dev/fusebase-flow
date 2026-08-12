@@ -77,7 +77,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixtur
   lane-router \
   trusted-enforcer hook-install-rc msys-tree-cleanup ws5-upgrade ff-only return-budget \
   supersede-primitive rule-inventory boot-size prohibition-residency token-waste-classify \
-  budget-literals history-extraction approval-binding approval-writer command-policy denial-message upgrade-classify \
+  budget-literals history-extraction approval-binding approval-writer approval-receipt command-policy denial-message upgrade-classify \
   upgrade-boundary preboundary-consumed upgrade-repair recovery-hint install-doc release-authority \
   release-tag-binding signal-reap cli-flow-recovery)
 
@@ -536,6 +536,11 @@ run_shell_phase test-budget-literals.sh        "budget-literals"
 run_shell_phase test-history-extraction.sh     "history-extraction"
 run_shell_phase test-approval-binding.sh       "approval-binding"
 run_shell_phase test-approval-writer.sh        "approval-writer"
+# S2: a committed deploy report cites a CLONE-DURABLE receipt, never the gitignored artifact
+# path. Each evidence row is paired with a control, so a receipt that stops discriminating fails
+# instead of passing quietly. Outside FF_FAST_TAGS — that list is an allowlist and a new phase
+# runs in CI/full first (the tripwire on that array).
+run_shell_phase test-approval-receipt-durability.sh "approval-receipt"
 run_shell_phase test-command-policy.sh        "command-policy"
 # S4a: the deny-rule explanation, and the negative half — no location claim, no matching change.
 run_shell_phase test-command-policy-denial-message.sh "denial-message"

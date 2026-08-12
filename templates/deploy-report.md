@@ -22,7 +22,7 @@ You are an AI Developer Deploy-phase session that has just completed T<deploy> (
 **Status:** Deploy complete; awaiting PO closeout
 **Slug:** `<slug>`
 **Deploy hash:** `<hash>` ← rollback: `<from the handoff's Rollback surface — `git revert <hash>` only if code-only; else the surface-appropriate plan>`
-**Approval artifact:** `state/approvals/production_deploy-<slug>-<date>.json` (expires `<timestamp>`)
+**Approval receipt:** `sha256:<64-hex>` — see § 1a. The live approval artifact is gitignored, so a committed report cites **the receipt, never a local approvals path** (a path citation dangles on every fresh clone).
 **Reporting session:** AI Developer / Deploy phase under Fusebase Flow v4.8.0 (FR-01..FR-27)
 **Date:** <YYYY-MM-DD>
 
@@ -32,9 +32,31 @@ You are an AI Developer Deploy-phase session that has just completed T<deploy> (
 
 | Check | Result |
 |---|---|
-| DP.1: approval artifact exists + unexpired | ✓ |
+| DP.1: approval artifact exists + unexpired (live gate, gitignored artifact — unchanged) | ✓ |
 | DP.6: operator typed the deploy phrase (`approve deploy now`) | ✓ |
 | Final worker-undisturbed re-check | ✓ (all protected paths empty diff) |
+
+---
+
+## 1a. Deploy-approval receipt (clone-durable evidence)
+
+Emit it after capturing the deploy hash, then paste the block verbatim:
+
+```
+bash hooks/local/approve-local.sh --receipt emit production_deploy <slug> \
+  --deploy-hash <hash> --command '<exact deploy command>'
+```
+
+<paste the emitted `fusebase-flow/deploy-approval-receipt/v1` block here — it already carries the
+digest, the copied stored fields, the computed observations, the deploy binding, and its own
+evidence-limits line>
+
+Self-check before committing this report: `bash hooks/local/approve-local.sh --receipt verify <this file>`.
+
+`observed_at` is when the **emitter** read and validated the artifact — a post-deploy observation,
+not a replay of the pre-deploy hook gate (that gate ran at § 1 and is unchanged). On a long deploy
+the approval can lapse between the two; the emitter records the truthful `observed_verdict` and
+exits 3. Report that as-is — do not re-emit until it looks clean.
 
 ---
 
@@ -152,7 +174,7 @@ Backlog index: row flipped DONE with deploy hash
 Operator actions still pending post-deploy:
   <list — or "none" if self-contained>
 
-Approval artifact <state/approvals/production_deploy-<slug>-<date>.json> remains on disk; will be naturally expired by its expires_at timestamp (<expiry>) — no manual cleanup needed.
+Approval receipt (§ 1a): digest <sha256:64-hex>, observed_verdict <VALID>, expires_at <timestamp> — the committed evidence of what was authorized. The live approval file is gitignored and expires on its own; no manual cleanup needed. The receipt shows an approval was validated and what it bound — it does not authenticate who approved.
 
 Full deploy report attached above. PO: please follow Operator Relay Protocol — brief me in Mode A, surface any operator-side PATCH commands as a copy-paste block, mark backlog ticket CLOSED, update memory entry.
 ````
