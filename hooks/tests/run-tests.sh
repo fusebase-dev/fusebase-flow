@@ -75,7 +75,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixtur
   sync-allowlist policy-state bootstrap-baseline-hop fr22-delivery po-verifiable-boot \
   po-investigate liveness codex-parity codex-plugin cli-0259 secret-scan-staged bootstrap-exception \
   lane-router \
-  trusted-enforcer hook-install-rc msys-tree-cleanup ws5-upgrade ff-only return-budget \
+  trusted-enforcer hook-install-rc msys-tree-cleanup job-probe ws5-upgrade ff-only return-budget \
   supersede-primitive rule-inventory boot-size prohibition-residency token-waste-classify \
   budget-literals history-extraction approval-binding approval-writer approval-receipt command-policy denial-message upgrade-classify \
   upgrade-boundary preboundary-consumed upgrade-repair recovery-hint install-doc release-authority \
@@ -524,6 +524,9 @@ run_shell_phase test-bootstrap-exception.sh    "bootstrap-exception"
 run_shell_phase test-trusted-enforcer.sh       "trusted-enforcer"
 run_shell_phase test-hook-install-rc.sh        "hook-install-rc"
 run_shell_phase test-msys-tree-cleanup.sh      "msys-tree-cleanup"
+# Platform-independent honesty rows for the Job Object capability probe (FR-25 seam out of the
+# MSYS-centric phase above): stubbed run_with_timeout, so Linux asserts the same guarantee.
+run_shell_phase test-job-probe-honesty.sh      "job-probe"
 run_shell_phase test-ws5-upgrade-bounded.sh    "ws5-upgrade"
 run_shell_phase test-ff-only.sh                "ff-only"
 run_shell_phase test-return-budget.sh          "return-budget"

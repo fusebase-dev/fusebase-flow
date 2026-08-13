@@ -353,20 +353,34 @@ FENCE_PS1
 # default path forks nothing), ffhc_is_msys, powershell.exe, FFHC_TIMEOUT_BIN, then one live
 # create+setinfo+terminate probe. FFHC_JOB_PROBE_FORCE_FAIL=1 => forced definite negative (test).
 # TRIPWIRE (backlog release-gate-flaky-job-probe): a probe that got NO ANSWER (watchdog 124/137,
-# unwritable helper, no marker printed) must NEVER be cached as capability absence — that turns a
-# timing flake into a permanent "unavailable" and silently deletes the fence. Only an explicit
-# ASSIGN-FAIL (the helper's own answer) and the pre-flight gates are definite negatives; a
-# no-answer is re-probed up to FFHC_JOB_PROBE_MAX_ATTEMPTS times per process (safe — the probe
-# launches no bounded child, see NO-RERUN CONTRACT above), then parked "err" = unavailable here,
-# still not absence. Every non-ok probe prints one stderr diagnosis line.
+# unwritable helper, no/partial markers) must NEVER be cached as capability absence — that turns
+# a timing flake into a permanent "unavailable" and silently deletes the fence — and must never
+# be cached as SUCCESS either (rc 0 is required for ok; see _ffhc_job_probe_classify). Only an
+# explicit ASSIGN-FAIL and the pre-flight gates are definite negatives. A no-answer is left
+# uncached, so a LATER call in this process DOES probe again — a deferred cross-call retry,
+# bounded by FFHC_JOB_PROBE_MAX_ATTEMPTS, after which it parks "err" = unavailable here, still
+# not absence. One call still performs at most ONE live probe, so a single transient no-answer
+# fails its caller exactly as before. Every non-ok probe prints one stderr diagnosis line.
 FFHC_JOB_PROBE_RESULT=""   # "" unknown | "ok" | "no" definite-negative | "err" no-answer, budget spent
 FFHC_JOB_PROBE_CLASS=""    # last probe: ok | definite-negative | timeout-or-error
 FFHC_JOB_PROBE_TRIES=0
 _ffhc_now_ms() { if [ -n "${EPOCHREALTIME:-}" ]; then echo $(( 10#${EPOCHREALTIME/./} / 1000 )); else echo $(( ${SECONDS:-0} * 1000 )); fi; }
-# ok = ASSIGN-OK reached the capture; definite-negative = the helper answered ASSIGN-FAIL;
-# timeout-or-error = no marker at all, i.e. no answer.
+# _ffhc_job_probe_classify RC OUT (probe-only — the fence's own ASSIGN check is separate).
+# TRIPWIRE: the verdict needs the rc, not just the markers. `ok` requires ALL THREE — rc 0 AND
+# ASSIGN-OK AND the PROBE-DONE end sentinel — so ASSIGN-OK followed by a watchdog kill is a
+# no-answer, not a capability proof; caching "answered, then killed" as success is the same
+# false-green one level down. ASSIGN-FAIL OUTRANKS ASSIGN-OK: mixed output is an answered failure.
 _ffhc_job_probe_classify() {
-  case "${1:-}" in *ASSIGN-OK*) echo "ok" ;; *ASSIGN-FAIL*) echo "definite-negative" ;; *) echo "timeout-or-error" ;; esac
+  local rc="${1:-1}" out="${2:-}"
+  case "$out" in
+    *ASSIGN-FAIL*) echo "definite-negative" ;;
+    *ASSIGN-OK*)
+      case "$out" in
+        *PROBE-DONE*) if [ "$rc" = "0" ]; then echo "ok"; else echo "timeout-or-error"; fi ;;
+        *) echo "timeout-or-error" ;;
+      esac ;;
+    *) echo "timeout-or-error" ;;
+  esac
 }
 # ONE stderr line (run-tests replays a FAILING phase's unparsed output to the log + audit artifact).
 _ffhc_job_probe_diag() {
@@ -395,12 +409,12 @@ _ffhc_job_probe_run() {
   out="$(run_with_timeout 15 powershell.exe -NoProfile -ExecutionPolicy Bypass \
     -File "$(cygpath -w "$helper" 2>/dev/null || echo "$helper")" -WinPid 0 -TriggerFile "" -DeadlineSecs 1 2>&1)"; rc=$?
   ms=$(( $(_ffhc_now_ms) - t0 ))
-  case "$out" in *ASSIGN-OK*) marker="seen" ;; *) marker="absent" ;; esac
-  FFHC_JOB_PROBE_CLASS="$(_ffhc_job_probe_classify "$out")"
+  case "$out" in *ASSIGN-OK*PROBE-DONE*) marker="complete" ;; *ASSIGN-OK*) marker="partial" ;; *) marker="absent" ;; esac
+  FFHC_JOB_PROBE_CLASS="$(_ffhc_job_probe_classify "$rc" "$out")"
   case "$FFHC_JOB_PROBE_CLASS" in
     ok) FFHC_JOB_PROBE_RESULT="ok" ;; definite-negative) FFHC_JOB_PROBE_RESULT="no" ;; *) _ffhc_job_probe_park ;;
   esac
-  if [ "$FFHC_JOB_PROBE_CLASS" != "ok" ] || [ "$rc" != "0" ]; then _ffhc_job_probe_diag "$FFHC_JOB_PROBE_CLASS" "$rc" "$ms" ok "$marker" "$out"; fi
+  if [ "$FFHC_JOB_PROBE_CLASS" != "ok" ]; then _ffhc_job_probe_diag "$FFHC_JOB_PROBE_CLASS" "$rc" "$ms" ok "$marker" "$out"; fi
   [ "$FFHC_JOB_PROBE_CLASS" = "ok" ]
 }
 
