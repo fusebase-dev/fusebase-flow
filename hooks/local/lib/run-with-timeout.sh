@@ -257,7 +257,6 @@ ffhc_msys_wait_reap() {
 
 # ============================================================================
 # WS2-hard (v3.30.4) — Windows Job Object OUTER FENCE (DEFAULT OFF / opt-in).
-#
 # ADDITIVE hard-kill fence around the EXISTING bounded run — NOT a PowerShell reimplementation of
 # `timeout`. Launch, rc (124/137), tempfile capture and stdin semantics all stay in
 # _ffhc_tempfile_capture / ffhc_msys_wait_reap; the fence only ASSIGNS the already-launched child's
@@ -414,8 +413,8 @@ _ffhc_job_probe_run() {
     _ffhc_job_probe_diag timeout-or-error - "$(( $(_ffhc_now_ms) - t0 ))" fail absent "helper path unavailable"
     return 1
   fi
-  # stderr is MERGED into the capture on purpose: a powershell that fails to start or parse says
-  # so only on stderr, and dropping it is why a hosted failure could not be diagnosed.
+  # TRIPWIRE: stderr is MERGED on purpose — a powershell that fails to start or parse says so ONLY
+  # on stderr, and dropping it is why a hosted failure could not be diagnosed.
   out="$(run_with_timeout 15 powershell.exe -NoProfile -ExecutionPolicy Bypass \
     -File "$(cygpath -w "$helper" 2>/dev/null || echo "$helper")" -WinPid 0 -TriggerFile "" -DeadlineSecs 1 2>&1)"; rc=$?
   ms=$(( $(_ffhc_now_ms) - t0 ))
@@ -458,6 +457,7 @@ _ffhc_job_fence() {
   local helper; helper="$(_ffhc_job_helper_path)"; [ -n "$helper" ] || return 0
   local grace="${FFHC_TIMEOUT_KILL_GRACE:-5s}"; local gsec="${grace%[!0-9]*}"
   case "$gsec" in ''|*[!0-9]*) gsec=5 ;; esac
+  # TRIPWIRE: dl must stay ABOVE ffhc_msys_wait_reap's cap (secs+gsec+2) — the reap owns the kill; since the helper's tick loop lost its +20 padding, dl IS the wall and the margin is 1s, not 3s.
   local dl=$(( secs + gsec + 3 ))
   local trig; trig="$(mktemp "${TMPDIR:-/tmp}/ffhc-jobtrig.$$.XXXXXX" 2>/dev/null)"; rm -f "$trig" 2>/dev/null
   local hstat; hstat="$(mktemp "${TMPDIR:-/tmp}/ffhc-jobstat.$$.XXXXXX" 2>/dev/null)" || return 0
