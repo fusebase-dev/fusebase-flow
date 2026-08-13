@@ -245,6 +245,73 @@ else
   skip "ws2hard-default-off-no-extra-fork" "no timeout binary — default path takes the SKIP sentinel, fence gate not exercised"
 fi
 
+# --- Probe honesty, ALL PLATFORMS (backlog release-gate-flaky-job-probe). The probe used to
+# discard run_with_timeout's rc and classify on the ASSIGN-OK substring alone, so a watchdog kill
+# (124/137) or a powershell that never started was cached as CAPABILITY ABSENCE for the process —
+# a no-answer silently deleting the fence, and the flaky-gate defect class. These drive
+# _ffhc_job_probe_run directly (the platform-independent seam) with run_with_timeout STUBBED: no
+# powershell, no timing, no host dependence, so the guarantee is asserted on Linux CI too. ---
+(
+  FFHC_JOB_PROBE_RESULT=""; FFHC_JOB_PROBE_CLASS=""; FFHC_JOB_PROBE_TRIES=0
+  run_with_timeout() { return 124; }                       # watchdog kill, nothing captured
+  _ffhc_job_probe_run 2>/dev/null; r1=$?
+  [ "$r1" -ne 0 ] && [ "$FFHC_JOB_PROBE_CLASS" = "timeout-or-error" ] && [ -z "$FFHC_JOB_PROBE_RESULT" ] || exit 1
+  _ffhc_job_probe_run 2>/dev/null                          # budget spent => parked, never "no"
+  [ "$FFHC_JOB_PROBE_RESULT" = "err" ] && [ "$FFHC_JOB_PROBE_TRIES" -eq 2 ] || exit 1
+  FFHC_USE_JOB_OBJECT=1 ffhc_job_available 2>/dev/null
+  [ $? -ne 0 ] && [ "$FFHC_JOB_PROBE_TRIES" -eq 2 ]        # parked => unavailable, no 3rd probe
+); probe_noanswer=$?
+if [ "$probe_noanswer" -eq 0 ]; then
+  ok "probe-no-answer-never-cached-as-absence (watchdog rc 124 + no marker => class timeout-or-error, cache left UNKNOWN so the next call re-probes; after FFHC_JOB_PROBE_MAX_ATTEMPTS it parks as 'err' — never 'no', and never a 3rd live probe)"
+else
+  bad "probe-no-answer-never-cached-as-absence" "a no-answer probe (rc 124, no marker) was misclassified or memoised as capability absence — that is the flaky-gate defect: class=$FFHC_JOB_PROBE_CLASS cache=[$FFHC_JOB_PROBE_RESULT]"
+fi
+
+(
+  FFHC_JOB_PROBE_RESULT=""; FFHC_JOB_PROBE_CLASS=""; FFHC_JOB_PROBE_TRIES=0
+  run_with_timeout() { echo "ASSIGN-FAIL setinfo 24"; return 3; }   # the helper's OWN answer
+  _ffhc_job_probe_run 2>/dev/null
+  [ "$FFHC_JOB_PROBE_CLASS" = "definite-negative" ] && [ "$FFHC_JOB_PROBE_RESULT" = "no" ] || exit 1
+  FFHC_USE_JOB_OBJECT=1 ffhc_job_available 2>/dev/null
+  [ $? -ne 0 ] && [ "$FFHC_JOB_PROBE_TRIES" -eq 1 ]
+); probe_defneg=$?
+if [ "$probe_defneg" -eq 0 ]; then
+  ok "probe-definite-negative-is-cached (an explicit ASSIGN-FAIL is the helper ANSWERING no => cached, no re-probe — the retry budget is for no-answers only)"
+else
+  bad "probe-definite-negative-is-cached" "ASSIGN-FAIL was not treated as a definite negative (class=$FFHC_JOB_PROBE_CLASS cache=[$FFHC_JOB_PROBE_RESULT]) — a real negative must not burn the retry budget"
+fi
+
+diag="$( ( FFHC_JOB_PROBE_RESULT=""; FFHC_JOB_PROBE_CLASS=""; FFHC_JOB_PROBE_TRIES=0
+           run_with_timeout() { return 124; }; _ffhc_job_probe_run ) 2>&1 >/dev/null )"
+diag_n="$(printf '%s\n' "$diag" | grep -c '^\[ffhc-job-probe\] ')"
+if [ "$diag_n" -eq 1 ] && [ "$(printf '%s\n' "$diag" | wc -l)" -eq 1 ] && printf '%s' "$diag" \
+     | grep -qE 'result=timeout-or-error rc=124 elapsed_ms=[0-9]+ helper=ok marker=absent attempt=1/[0-9]+ cache=unknown'; then
+  ok "probe-emits-one-line-diagnosis (a non-ok probe prints exactly ONE stderr line carrying result/rc/elapsed_ms/helper/marker/attempt/cache — run-tests replays a failing phase's unparsed output, so a hosted run explains itself without a re-run)"
+else
+  bad "probe-emits-one-line-diagnosis" "expected exactly one '[ffhc-job-probe]' stderr line with rc/elapsed/helper/marker; got $diag_n line(s): [$diag]"
+fi
+
+if [ "$(_ffhc_job_probe_classify 'x ASSIGN-OK y')" = "ok" ] \
+     && [ "$(_ffhc_job_probe_classify 'ASSIGN-FAIL assign 5')" = "definite-negative" ] \
+     && [ "$(_ffhc_job_probe_classify '')" = "timeout-or-error" ] \
+     && [ "$(_ffhc_job_probe_classify 'powershell.exe : File cannot be loaded')" = "timeout-or-error" ]; then
+  ok "probe-classify-tri-state (ASSIGN-OK => ok; ASSIGN-FAIL => definite-negative; empty or a powershell start/parse error => timeout-or-error, i.e. NO ANSWER — never absence)"
+else
+  bad "probe-classify-tri-state" "_ffhc_job_probe_classify collapsed the tri-state (ok='$(_ffhc_job_probe_classify 'x ASSIGN-OK y')' fail='$(_ffhc_job_probe_classify 'ASSIGN-FAIL assign 5')' empty='$(_ffhc_job_probe_classify '')')"
+fi
+
+# Source-structure belts — deterministic and host-independent, like the knob-first belt above.
+# Each names a property a "simplifying" edit would silently drop, on a platform that cannot
+# execute the Windows path at all.
+grep -q -- '-DeadlineSecs 1 2>&1' "$LIB"                                          && src_err=0 || src_err=1
+grep -q 'if ($WinPid -le 0)' "$LIB"                                               && src_w0=0  || src_w0=1
+grep -qE '^\s*\$ticks = \[int\]\(\[math\]::Ceiling\(\$DeadlineSecs / 0\.1\)\)\s*$' "$LIB" && src_tick=0 || src_tick=1
+if [ "$src_err" -eq 0 ] && [ "$src_w0" -eq 0 ] && [ "$src_tick" -eq 0 ]; then
+  ok "probe-source-invariants (probe captures powershell stderr (2>&1, not 2>/dev/null) so a start/parse failure is diagnosable; WinPid<=0 exits the helper right after create+setinfo; the helper tick count is the bare ceil(DeadlineSecs/0.1) with no +20 inflation)"
+else
+  bad "probe-source-invariants" "lost a probe invariant: stderr-captured=$src_err winpid0-early-exit=$src_w0 no-tick-inflation=$src_tick (0=good) — dropping stderr makes a hosted failure undiagnosable, and the +20 turned a 1s deadline into 3s"
+fi
+
 # --- T19 (WS2-hard) parts A/B/C — Windows Job Object OUTER FENCE mechanism smoke. The
 # publish host is MSYS + has powershell.exe, so this MUST RUN (non-skipped): default OFF is
 # byte-identity, opt-in adds an atomic strictly-scoped TerminateJobObject hard-kill. Only the
