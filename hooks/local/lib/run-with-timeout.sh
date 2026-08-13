@@ -305,7 +305,7 @@ ffhc_msys_wait_reap() {
 # <code>") goes to stdout (the caller captures it to a tempfile, never a pipe).
 _ffhc_job_helper_path() {
   local dir="${TMPDIR:-/tmp}"
-  local p="$dir/ffhc-job-fence.ps1"
+  local p="$dir/ffhc-job-fence-v2.ps1"   # TRIPWIRE: bump on ANY helper edit — write is create-once
   if [ ! -f "$p" ]; then
     cat > "$p" <<'FENCE_PS1' 2>/dev/null || return 1
 param([int]$WinPid, [string]$TriggerFile, [int]$DeadlineSecs = 60)
@@ -347,6 +347,9 @@ try {
     if (-not [FfhcJob]::AssignProcessToJobObject($job, $h)) { Write-Output ("ASSIGN-FAIL assign " + [Runtime.InteropServices.Marshal]::GetLastWin32Error()); exit 5 }
   }
   Write-Output "ASSIGN-OK"
+  # WinPid 0 is the capability PROBE: create+setinfo have already answered and there is nothing
+  # fenced, so exit NOW — entering the trigger wait only added probe latency (backlog 3).
+  if ($WinPid -le 0) { [FfhcJob]::TerminateJobObject($job, 0) | Out-Null; [FfhcJob]::CloseHandle($job) | Out-Null; Write-Output "PROBE-DONE"; exit 0 }
   # Bounded wait for the trigger (deadline cap => never hang), then hard-kill the tree.
   $ticks = [int]([math]::Ceiling($DeadlineSecs / 0.1)) + 20
   for ($i = 0; $i -lt $ticks; $i++) {
