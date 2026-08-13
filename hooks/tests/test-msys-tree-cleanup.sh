@@ -245,11 +245,13 @@ else
   skip "ws2hard-default-off-no-extra-fork" "no timeout binary — default path takes the SKIP sentinel, fence gate not exercised"
 fi
 
-# --- T19 (WS2-hard) parts A/B/C — Windows Job Object OUTER FENCE mechanism smoke. The
-# publish host is MSYS + has powershell.exe, so this MUST RUN (non-skipped): default OFF is
-# byte-identity, opt-in adds an atomic strictly-scoped TerminateJobObject hard-kill. Only the
-# Cummings ac3d→rc137 RELIABILITY under that host's condition stays consumer-gated; the
-# mechanism is proven here. ---
+# --- Probe honesty rows (tri-state classification, no-answer never cached, one-line
+# diagnosis, source invariants) moved to hooks/tests/test-job-probe-honesty.sh: they are
+# platform-independent, this phase is MSYS-centric (FR-25 seam). ---
+
+# --- T19 (WS2-hard) parts A/B/C — Windows Job Object OUTER FENCE mechanism smoke. The publish
+# host is MSYS + has powershell.exe, so this MUST RUN (non-skipped); only the rc137 RELIABILITY
+# under that host's condition stays consumer-gated. ---
 if command -v powershell.exe >/dev/null 2>&1 && [ -n "${FFHC_TIMEOUT_BIN:-}" ] && case "$(uname -s 2>/dev/null)" in MINGW*|MSYS*|CYGWIN*) true ;; *) false ;; esac; then
   export FFHC_TIMEOUT_KILL_GRACE=1s
 
@@ -293,19 +295,11 @@ if command -v powershell.exe >/dev/null 2>&1 && [ -n "${FFHC_TIMEOUT_BIN:-}" ] &
       bad "ws2hard-job-124-on-timeout" "job ON overrun returned rc=$FFHC_LAST_RC (expected 124/137)"
     fi
 
-    # Part A(iii) — 137 on a stubborn TERM-ignoring child hard-killed. HONEST CLAIM (v3.30.4
-    # review correction): on this host GNU `timeout -k` ALONE already SIGKILLs the child to
-    # 137, so this smoke EXERCISES the opt-in fence path (mechanism runs, rc + capture intact)
-    # but does NOT prove the Job Object's TerminateJobObject performed the kill — the
-    # Job-Object-vs-timeout-k distinction is CONSUMER-GATED (not constructible as a clean
-    # discriminator on this host). The rc still comes from wait "$_bpid" (not a PowerShell rc).
-    # NOTE: stderr_mode=merge folds bash's job-control "Killed" line into FFHC_LAST_OUT, so
-    # match 'started' as a SUBSTRING (the pre-kill stdout), not byte-exact equality.
-    # HONEST about the CAPTURE too (measured flake, ~2/5 runs): when the TERM lands at the 1s
-    # deadline before the child's buffered `echo started` flushes to the tempfile, the rc is a
-    # true timeout-induced 124 with an EMPTY capture — an honest best-effort-capture outcome,
-    # NOT a failure. The LOAD-BEARING assertion is the timeout-induced rc (124/137, never 0);
-    # the 'started' substring is a bonus when the child flushed in time.
+    # Part A(iii) — 137 on a stubborn TERM-ignoring child. The LOAD-BEARING assertion is the
+    # timeout-induced rc (124/137, never 0); 'started' is a SUBSTRING bonus (stderr_mode=merge
+    # folds in bash's "Killed" line, and a ~2/5 flake kills the child before its buffer flushes).
+    # HONEST CLAIM: GNU `timeout -k` alone already reaches 137 here, so this exercises the fence
+    # without proving TerminateJobObject did the kill (consumer-gated); rc is from wait "$_bpid".
     FFHC_USE_JOB_OBJECT=1 ffhc_run_bounded 1 bash -c 'trap "" TERM; echo started; sleep 30'
     if [ "$FFHC_LAST_RC" = "137" ] && printf '%s' "$FFHC_LAST_OUT" | grep -q "started"; then
       ok "ws2hard-job-137-on-hard-kill (job ON path: stubborn TERM-ignoring child => rc 137 (128+SIGKILL) + captured 'started'; rc from wait \$_bpid — mechanism exercised; NOT claimed as Job-Object-vs-timeout-k proof (consumer-gated))"
@@ -349,19 +343,11 @@ if command -v powershell.exe >/dev/null 2>&1 && [ -n "${FFHC_TIMEOUT_BIN:-}" ] &
       bad "ws2hard-forced-probe-fail-clean-fallback" "forced probe fail did not fall back cleanly: rc=$FFHC_LAST_RC out=[$FFHC_LAST_OUT] elapsed=${fb_el}s (expected 5 / fb-marker / <=30s)"
     fi
 
-    # Part E (v3.30.4 review correction — the #1 T21 regression) — a FAST opt-in command
-    # RETURNS PROMPTLY. The old call site ran the fence in `_trig="$(_ffhc_job_fence …)"`: a
-    # SUBSHELL that (a) LOST FFHC_JOB_FENCE_HPID so the caller's helper reap never ran (an
-    # orphaned powershell lingered to its deadline cap) and (b) blocked the parent on the
-    # backgrounded helper's stdout until that cap — a fast command with a LARGE secs stalled
-    # ~secs+grace. The fix calls _ffhc_job_fence DIRECTLY (helper stdout -> tempfile), setting
-    # both globals in THIS shell. Assert: quick return with secs=30 (a stall would be ~35s+),
-    # own rc + capture intact, AND FFHC_JOB_FENCE_HPID is CLEARED after the run (the reap ran,
-    # no orphan). The deterministic host-independent signal is the cleared HPID (a real hang is
-    # environment-sensitive); the promptness ceiling catches a stall regression too.
-    # Source-structure guard (the deterministic, host-independent RED signal): the fence must
-    # be called DIRECTLY, never in `$(_ffhc_job_fence …)`. The OLD command-substitution form is
-    # the defect; a regression back to it re-introduces the HPID-loss + potential stall.
+    # Part E — a FAST opt-in command RETURNS PROMPTLY. TRIPWIRE: the fence must be called
+    # DIRECTLY, never as `_trig="$(_ffhc_job_fence …)"` — that subshell lost FFHC_JOB_FENCE_HPID
+    # (orphaned powershell) and blocked the parent on the helper's stdout until its cap. The
+    # deterministic host-independent signals are the source form + the CLEARED HPID; the
+    # promptness ceiling (secs=30, a stall would be ~35s+) catches the stall regression too.
     if grep -q '_trig="\$(_ffhc_job_fence' "$LIB"; then fence_direct=1; else fence_direct=0; fi
     export FFHC_TIMEOUT_KILL_GRACE=5s
     fe_start=$(date +%s)
