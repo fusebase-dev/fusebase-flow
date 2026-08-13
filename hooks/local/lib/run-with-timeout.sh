@@ -258,13 +258,11 @@ ffhc_msys_wait_reap() {
 # ============================================================================
 # WS2-hard (v3.30.4) — Windows Job Object OUTER FENCE (DEFAULT OFF / opt-in).
 #
-# ADDITIVE hard-kill fence around the EXISTING bounded run — NOT a PowerShell
-# reimplementation of `timeout`. Launch, rc (124/137), tempfile capture and stdin
-# semantics all stay in _ffhc_tempfile_capture / ffhc_msys_wait_reap; the fence only
-# ASSIGNS the already-launched child's winpid to a KILL_ON_JOB_CLOSE Job Object so the
-# deadline reap can add a TerminateJobObject — atomic, and strictly scoped to the
-# assigned Win32 tree (a sibling survives). The rc still comes from `wait "$_bpid"`.
-#
+# ADDITIVE hard-kill fence around the EXISTING bounded run — NOT a PowerShell reimplementation of
+# `timeout`. Launch, rc (124/137), tempfile capture and stdin semantics all stay in
+# _ffhc_tempfile_capture / ffhc_msys_wait_reap; the fence only ASSIGNS the already-launched child's
+# winpid to a KILL_ON_JOB_CLOSE Job Object so the deadline reap can add a TerminateJobObject —
+# atomic, strictly scoped to the assigned Win32 tree (a sibling survives). rc: `wait "$_bpid"`.
 # TRIPWIRE — DEFAULT OFF is the safety basis: FFHC_USE_JOB_OBJECT default 0 => the branch
 # is INERT, so the default path is byte-behavior-unchanged WS2-core. There is no `auto`.
 # stdin_mode=inherit DISABLES the branch (fenced-child stdin passthrough is unproven).
@@ -281,11 +279,19 @@ ffhc_msys_wait_reap() {
 # path (create-once) and echo it. TRIPWIRE: params go via -File args (winpid, trigger file,
 # deadline), NEVER an inline -Command built from input. Status lines (ASSIGN-OK /
 # ASSIGN-FAIL <code> / PROBE-DONE / TERMINATED) go to stdout, captured to a tempfile.
+# TRIPWIRE (TOCTOU): NEVER write directly to $p. A `cat > $p` behind an existence test publishes
+# the path the instant it opens, so a concurrent probe passes the test and executes a half-written
+# script — a load-dependent parse failure that reads exactly like capability absence. Write the
+# COMPLETE content to a unique SAME-DIRECTORY temp (rename is atomic only within a filesystem),
+# verify the FENCE-EOF sentinel, then rename: a reader sees the old state or the whole file. A
+# losing racer DISCARDS its temp rather than replacing a valid $p (on Windows a replacing rename
+# can degrade to unlink+rename — pointless churn); a failed rename falls back to an existing $p.
 _ffhc_job_helper_path() {
-  local dir="${TMPDIR:-/tmp}"
-  local p="$dir/ffhc-job-fence-v2.ps1"   # TRIPWIRE: bump on ANY helper edit — write is create-once
-  if [ ! -f "$p" ]; then
-    cat > "$p" <<'FENCE_PS1' 2>/dev/null || return 1
+  local dir="${TMPDIR:-/tmp}" p tmp
+  p="$dir/ffhc-job-fence-v2.ps1"   # TRIPWIRE: bump on ANY helper edit — write is create-once
+  if [ ! -s "$p" ]; then
+    tmp="$(mktemp "$dir/ffhc-job-fence.XXXXXX" 2>/dev/null)" || return 1
+    cat > "$tmp" <<'FENCE_PS1' 2>/dev/null || { rm -f "$tmp" 2>/dev/null; return 1; }
 param([int]$WinPid, [string]$TriggerFile, [int]$DeadlineSecs = 60)
 $ErrorActionPreference = 'Stop'
 Add-Type @'
@@ -342,16 +348,20 @@ try {
   Write-Output ("ASSIGN-FAIL exception " + $_.Exception.Message)
   exit 9
 }
+# FENCE-EOF
 FENCE_PS1
+    if [ "$(tail -1 "$tmp" 2>/dev/null)" != "# FENCE-EOF" ]; then rm -f "$tmp" 2>/dev/null; return 1; fi
+    if [ -s "$p" ]; then rm -f "$tmp" 2>/dev/null; else mv -f "$tmp" "$p" 2>/dev/null || { rm -f "$tmp" 2>/dev/null; [ -s "$p" ] || return 1; }; fi
   fi
-  [ -f "$p" ] && echo "$p"
+  [ -s "$p" ] || sleep 0.2   # contended: another racer is mid-publish; never report "no helper"
+  [ -s "$p" ] && echo "$p"
 }
 
-# ffhc_job_available: 0 (true) iff the Job Object fence is ENABLED and USABLE here. CACHED and
-# BOUNDED (the probe runs the helper with NO winpid under run_with_timeout, so it can never hang
-# before the fallback exists). Gates in order: FFHC_USE_JOB_OBJECT=1 (default 0; FIRST so the
-# default path forks nothing), ffhc_is_msys, powershell.exe, FFHC_TIMEOUT_BIN, then one live
-# create+setinfo+terminate probe. FFHC_JOB_PROBE_FORCE_FAIL=1 => forced definite negative (test).
+# ffhc_job_available: 0 (true) iff the Job Object fence is ENABLED and USABLE here. Gates in
+# order: FFHC_USE_JOB_OBJECT=1 (default 0; FIRST so the default path forks nothing), ffhc_is_msys,
+# powershell.exe, FFHC_TIMEOUT_BIN, then one live create+setinfo+terminate probe — bounded, and
+# with NO winpid, so it can never hang before the fallback exists.
+# FFHC_JOB_PROBE_FORCE_FAIL=1 => forced definite negative (test hook).
 # TRIPWIRE (backlog release-gate-flaky-job-probe): a probe that got NO ANSWER (watchdog 124/137,
 # unwritable helper, no/partial markers) must NEVER be cached as capability absence — that turns
 # a timing flake into a permanent "unavailable" and silently deletes the fence — and must never

@@ -109,6 +109,66 @@ else
   bad "probe-mixed-markers-are-negative" "mixed ASSIGN-OK/ASSIGN-FAIL output did not resolve to definite-negative (class=$FFHC_JOB_PROBE_CLASS cache=[$FFHC_JOB_PROBE_RESULT])"
 fi
 
+# Helper materialisation is ATOMIC (all platforms). The old writer was `cat > $p` behind an
+# existence test: the destination becomes visible the instant cat opens it, so a concurrent probe
+# passed the test and executed a half-written script — a load-dependent parse failure that reads
+# exactly like capability absence. Eight racers into an empty TMPDIR, while the parent samples the
+# destination continuously: every racer must get a COMPLETE file and the destination must never be
+# observed present-but-incomplete.
+jr_dir="$(mktemp -d "${TMPDIR:-/tmp}/ffhc-jobrace.XXXXXX" 2>/dev/null)"
+if [ -n "$jr_dir" ] && [ -d "$jr_dir" ]; then
+  jr_res="$jr_dir/res"; : > "$jr_res"
+  ( export TMPDIR="$jr_dir"
+    # THE DEFECT IS A NON-EMPTY, UNTERMINATED READ — a half-written script that parses as garbage.
+    # A momentarily ABSENT destination is NOT that defect (a replacing rename can degrade to
+    # unlink+rename on Windows) and the probe now classifies a missing helper honestly as
+    # timeout-or-error, never as absence. So a racer records `partialread` (the failure) only for
+    # a file that exists, is non-empty, and still lacks the sentinel on a re-read.
+    for _ in 1 2 3 4 5 6 7 8; do
+      ( p="$(_ffhc_job_helper_path)"
+        if [ -z "$p" ]; then echo empty >> "$jr_res"
+        else
+          t="$(tail -1 "$p" 2>/dev/null)"
+          [ "$t" = "# FENCE-EOF" ] || { sleep 0.2; t="$(tail -1 "$p" 2>/dev/null)"; }
+          if [ "$t" = "# FENCE-EOF" ]; then echo ok >> "$jr_res"
+          elif [ -s "$p" ]; then echo partialread >> "$jr_res"
+          else echo empty >> "$jr_res"; fi
+        fi
+      ) >/dev/null 2>&1 &
+    done
+    # Sample the destination continuously. PARTIAL means present, NON-EMPTY and not sentinel-
+    # terminated: `-s` excludes the momentary ENOENT of a replacing rename, and the confirm
+    # re-read excludes any residue of that window — a genuinely half-written file stays
+    # half-written (nothing rewrites it in place), so a real defect survives both.
+    jr_f="$jr_dir/ffhc-job-fence-v2.ps1"; jr_partial=0; jr_n=0
+    while [ "$jr_n" -lt 400 ]; do
+      if [ -s "$jr_f" ] && [ "$(tail -1 "$jr_f" 2>/dev/null)" != "# FENCE-EOF" ] \
+           && [ "$(tail -1 "$jr_f" 2>/dev/null)" != "# FENCE-EOF" ]; then jr_partial=1; break; fi
+      jr_n=$((jr_n + 1))
+    done
+    wait
+    # Uncontended control: with the race over, a plain call must yield a complete file — so the
+    # row can never pass vacuously on 8 empty answers.
+    jr_ctl="$(_ffhc_job_helper_path)"
+    [ -n "$jr_ctl" ] && [ "$(tail -1 "$jr_ctl" 2>/dev/null)" = "# FENCE-EOF" ] && jr_ctl_ok=0 || jr_ctl_ok=1
+    printf 'sampler-partial=%s ok=%s partialread=%s empty=%s temps=%s control=%s' "$jr_partial" \
+      "$(grep -c '^ok$' "$jr_res")" "$(grep -c '^partialread$' "$jr_res")" "$(grep -c '^empty$' "$jr_res")" \
+      "$(ls "$jr_dir" | grep -c '^ffhc-job-fence\.')" "$jr_ctl_ok" > "$jr_dir/metrics"
+    [ "$jr_partial" -eq 0 ] && [ "$jr_ctl_ok" -eq 0 ] && ! grep -q '^partialread$' "$jr_res" \
+      && [ "$(( $(grep -c '^ok$' "$jr_res") + $(grep -c '^empty$' "$jr_res") ))" -eq 8 ] \
+      && [ "$(ls "$jr_dir" | grep -c '^ffhc-job-fence\.')" -eq 0 ]   # no orphaned staging temps
+  ); jr_rc=$?
+  jr_metrics="$(cat "$jr_dir/metrics" 2>/dev/null)"; [ -n "$jr_metrics" ] || jr_metrics="metrics missing"
+  rm -rf "$jr_dir"
+  if [ "$jr_rc" -eq 0 ]; then
+    ok "helper-materialise-is-atomic (8 concurrent _ffhc_job_helper_path calls into one empty TMPDIR: the destination was NEVER observed present-but-unterminated across 400 samples, no caller read a non-empty unterminated helper, the uncontended control call yielded a complete file, and no staging temp leaked)"
+  else
+    bad "helper-materialise-is-atomic" "concurrent materialisation exposed a partial helper or leaked a staging temp ($jr_metrics; expected sampler-partial=0 partialread=0 ok+empty=8 temps=0 control=0) — a half-written .ps1 fails to parse and the probe reads it as capability absence"
+  fi
+else
+  bad "helper-materialise-is-atomic" "could not create a temp dir for the race fixture"
+fi
+
 # Source-structure belts — deterministic and host-independent, like the knob-first belt above.
 # Each names a property a "simplifying" edit would silently drop, on a platform that cannot
 # execute the Windows path at all.
@@ -116,10 +176,11 @@ grep -q -- '-DeadlineSecs 1 2>&1' "$LIB"                                        
 grep -q 'if ($WinPid -le 0)' "$LIB"                                               && src_w0=0  || src_w0=1
 grep -qE '^\s*\$ticks = \[int\]\(\[math\]::Ceiling\(\$DeadlineSecs / 0\.1\)\)\s*$' "$LIB" && src_tick=0 || src_tick=1
 grep -q '_ffhc_job_probe_classify "$rc" "$out"' "$LIB"                            && src_rc=0  || src_rc=1
-if [ "$src_err" -eq 0 ] && [ "$src_w0" -eq 0 ] && [ "$src_tick" -eq 0 ] && [ "$src_rc" -eq 0 ]; then
-  ok "probe-source-invariants (probe captures powershell stderr (2>&1, not 2>/dev/null) so a start/parse failure is diagnosable; WinPid<=0 exits the helper right after create+setinfo; the tick count is the bare ceil(DeadlineSecs/0.1) with no +20 inflation; the watchdog rc is PASSED to the classifier, not merely logged)"
+grep -q 'mv -f "$tmp" "$p"' "$LIB" && ! grep -qE '^\s*cat > "\$p" <<' "$LIB"       && src_mv=0  || src_mv=1
+if [ "$src_err" -eq 0 ] && [ "$src_w0" -eq 0 ] && [ "$src_tick" -eq 0 ] && [ "$src_rc" -eq 0 ] && [ "$src_mv" -eq 0 ]; then
+  ok "probe-source-invariants (probe captures powershell stderr (2>&1, not 2>/dev/null) so a start/parse failure is diagnosable; WinPid<=0 exits the helper right after create+setinfo; the tick count is the bare ceil(DeadlineSecs/0.1) with no +20 inflation; the watchdog rc is PASSED to the classifier, not merely logged; the helper is published by rename, never by a direct cat into the destination)"
 else
-  bad "probe-source-invariants" "lost a probe invariant: stderr-captured=$src_err winpid0-early-exit=$src_w0 no-tick-inflation=$src_tick rc-reaches-classifier=$src_rc (0=good) — dropping stderr makes a hosted failure undiagnosable; classifying without the rc re-opens the marker-then-timeout false green"
+  bad "probe-source-invariants" "lost a probe invariant: stderr-captured=$src_err winpid0-early-exit=$src_w0 no-tick-inflation=$src_tick rc-reaches-classifier=$src_rc atomic-publish=$src_mv (0=good) — dropping stderr makes a hosted failure undiagnosable; classifying without the rc re-opens the marker-then-timeout false green"
 fi
 
 
