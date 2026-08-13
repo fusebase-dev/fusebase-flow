@@ -351,7 +351,7 @@ try {
   # fenced, so exit NOW — entering the trigger wait only added probe latency (backlog 3).
   if ($WinPid -le 0) { [FfhcJob]::TerminateJobObject($job, 0) | Out-Null; [FfhcJob]::CloseHandle($job) | Out-Null; Write-Output "PROBE-DONE"; exit 0 }
   # Bounded wait for the trigger (deadline cap => never hang), then hard-kill the tree.
-  $ticks = [int]([math]::Ceiling($DeadlineSecs / 0.1)) + 20
+  $ticks = [int]([math]::Ceiling($DeadlineSecs / 0.1))
   for ($i = 0; $i -lt $ticks; $i++) {
     if ($TriggerFile -and (Test-Path $TriggerFile)) { break }
     Start-Sleep -Milliseconds 100
