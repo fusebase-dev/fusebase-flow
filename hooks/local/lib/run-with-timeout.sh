@@ -366,27 +366,71 @@ FENCE_PS1
   [ -f "$p" ] && echo "$p"
 }
 
-# ffhc_job_available: 0 (true) iff the Job Object fence is ENABLED and USABLE on this
-# host. One-time, CACHED, and BOUNDED (the probe runs the helper with no winpid under
-# run_with_timeout so it can never hang before the fallback exists). Gates: opt-in knob
-# FFHC_USE_JOB_OBJECT=1 (default 0 => always unavailable), ffhc_is_msys, powershell.exe
-# present, and a live create+setinfo+terminate probe. FFHC_JOB_PROBE_FORCE_FAIL=1 forces
-# the probe to fail (test hook) => clean pre-launch fallback to WS2-core.
-FFHC_JOB_PROBE_RESULT=""   # "" unknown | "ok" | "no"
+# ffhc_job_available: 0 (true) iff the Job Object fence is ENABLED and USABLE here. CACHED and
+# BOUNDED (the probe runs the helper with NO winpid under run_with_timeout, so it can never hang
+# before the fallback exists). Gates in order: FFHC_USE_JOB_OBJECT=1 (default 0; FIRST so the
+# default path forks nothing), ffhc_is_msys, powershell.exe, FFHC_TIMEOUT_BIN, then one live
+# create+setinfo+terminate probe. FFHC_JOB_PROBE_FORCE_FAIL=1 => forced definite negative (test).
+# TRIPWIRE (backlog release-gate-flaky-job-probe): a probe that got NO ANSWER (watchdog 124/137,
+# unwritable helper, no marker printed) must NEVER be cached as capability absence — that turns a
+# timing flake into a permanent "unavailable" and silently deletes the fence. Only an explicit
+# ASSIGN-FAIL (the helper's own answer) and the pre-flight gates are definite negatives; a
+# no-answer is re-probed up to FFHC_JOB_PROBE_MAX_ATTEMPTS times per process (safe — the probe
+# launches no bounded child, see NO-RERUN CONTRACT above), then parked "err" = unavailable here,
+# still not absence. Every non-ok probe prints one stderr diagnosis line.
+FFHC_JOB_PROBE_RESULT=""   # "" unknown | "ok" | "no" definite-negative | "err" no-answer, budget spent
+FFHC_JOB_PROBE_CLASS=""    # last probe: ok | definite-negative | timeout-or-error
+FFHC_JOB_PROBE_TRIES=0
+_ffhc_now_ms() { if [ -n "${EPOCHREALTIME:-}" ]; then echo $(( 10#${EPOCHREALTIME/./} / 1000 )); else echo $(( ${SECONDS:-0} * 1000 )); fi; }
+# ok = ASSIGN-OK reached the capture; definite-negative = the helper answered ASSIGN-FAIL;
+# timeout-or-error = no marker at all, i.e. no answer.
+_ffhc_job_probe_classify() {
+  case "${1:-}" in *ASSIGN-OK*) echo "ok" ;; *ASSIGN-FAIL*) echo "definite-negative" ;; *) echo "timeout-or-error" ;; esac
+}
+# ONE stderr line (run-tests replays a FAILING phase's unparsed output to the log + audit artifact).
+_ffhc_job_probe_diag() {
+  local d="${6:-}"; d="${d//$'\r'/ }"; d="${d//$'\n'/ }"
+  printf '[ffhc-job-probe] result=%s rc=%s elapsed_ms=%s helper=%s marker=%s attempt=%s/%s cache=%s detail=%s\n' \
+    "$1" "$2" "$3" "$4" "$5" "$FFHC_JOB_PROBE_TRIES" "${FFHC_JOB_PROBE_MAX_ATTEMPTS:-2}" \
+    "${FFHC_JOB_PROBE_RESULT:-unknown}" "${d:0:160}" >&2
+}
+
+_ffhc_job_probe_park() { FFHC_JOB_PROBE_CLASS="timeout-or-error"   # no-answer: never absence
+  if [ "$FFHC_JOB_PROBE_TRIES" -ge "${FFHC_JOB_PROBE_MAX_ATTEMPTS:-2}" ]; then FFHC_JOB_PROBE_RESULT="err"; else FFHC_JOB_PROBE_RESULT=""; fi; }
+# Records the watchdog rc, elapsed ms, the _ffhc_job_helper_path outcome and marker-seen, then
+# classifies from those facts. Returns 0 only on a proven ok.
+_ffhc_job_probe_run() {
+  local helper out rc ms marker t0
+  FFHC_JOB_PROBE_TRIES=$(( FFHC_JOB_PROBE_TRIES + 1 ))
+  t0="$(_ffhc_now_ms)"
+  helper="$(_ffhc_job_helper_path 2>/dev/null)" || helper=""
+  if [ -z "$helper" ]; then
+    _ffhc_job_probe_park
+    _ffhc_job_probe_diag timeout-or-error - "$(( $(_ffhc_now_ms) - t0 ))" fail absent "helper path unavailable"
+    return 1
+  fi
+  # stderr is MERGED into the capture on purpose: a powershell that fails to start or parse says
+  # so only on stderr, and dropping it is why a hosted failure could not be diagnosed.
+  out="$(run_with_timeout 15 powershell.exe -NoProfile -ExecutionPolicy Bypass \
+    -File "$(cygpath -w "$helper" 2>/dev/null || echo "$helper")" -WinPid 0 -TriggerFile "" -DeadlineSecs 1 2>&1)"; rc=$?
+  ms=$(( $(_ffhc_now_ms) - t0 ))
+  case "$out" in *ASSIGN-OK*) marker="seen" ;; *) marker="absent" ;; esac
+  FFHC_JOB_PROBE_CLASS="$(_ffhc_job_probe_classify "$out")"
+  case "$FFHC_JOB_PROBE_CLASS" in
+    ok) FFHC_JOB_PROBE_RESULT="ok" ;; definite-negative) FFHC_JOB_PROBE_RESULT="no" ;; *) _ffhc_job_probe_park ;;
+  esac
+  if [ "$FFHC_JOB_PROBE_CLASS" != "ok" ] || [ "$rc" != "0" ]; then _ffhc_job_probe_diag "$FFHC_JOB_PROBE_CLASS" "$rc" "$ms" ok "$marker" "$out"; fi
+  [ "$FFHC_JOB_PROBE_CLASS" = "ok" ]
+}
+
 ffhc_job_available() {
   [ "${FFHC_USE_JOB_OBJECT:-0}" = "1" ] || return 1
-  case "$FFHC_JOB_PROBE_RESULT" in ok) return 0 ;; no) return 1 ;; esac
-  if [ "${FFHC_JOB_PROBE_FORCE_FAIL:-0}" = "1" ]; then FFHC_JOB_PROBE_RESULT="no"; return 1; fi
-  ffhc_is_msys || { FFHC_JOB_PROBE_RESULT="no"; return 1; }
-  command -v powershell.exe >/dev/null 2>&1 || { FFHC_JOB_PROBE_RESULT="no"; return 1; }
-  [ -n "${FFHC_TIMEOUT_BIN:-}" ] || { FFHC_JOB_PROBE_RESULT="no"; return 1; }
-  local helper; helper="$(_ffhc_job_helper_path)" || { FFHC_JOB_PROBE_RESULT="no"; return 1; }
-  [ -n "$helper" ] || { FFHC_JOB_PROBE_RESULT="no"; return 1; }
-  # Bounded no-assign probe (winpid 0 => create+setinfo+terminate only). Trigger absent
-  # => the helper hits its short cap and terminates; run_with_timeout bounds it hard.
-  local out; out="$(run_with_timeout 15 powershell.exe -NoProfile -ExecutionPolicy Bypass \
-    -File "$(cygpath -w "$helper" 2>/dev/null || echo "$helper")" -WinPid 0 -TriggerFile "" -DeadlineSecs 1 2>/dev/null)"
-  case "$out" in *ASSIGN-OK*) FFHC_JOB_PROBE_RESULT="ok"; return 0 ;; *) FFHC_JOB_PROBE_RESULT="no"; return 1 ;; esac
+  case "$FFHC_JOB_PROBE_RESULT" in ok) return 0 ;; no|err) return 1 ;; esac
+  if [ "${FFHC_JOB_PROBE_FORCE_FAIL:-0}" = "1" ] || ! ffhc_is_msys \
+       || ! command -v powershell.exe >/dev/null 2>&1 || [ -z "${FFHC_TIMEOUT_BIN:-}" ]; then
+    FFHC_JOB_PROBE_RESULT="no"; FFHC_JOB_PROBE_CLASS="definite-negative"; return 1
+  fi
+  _ffhc_job_probe_run
 }
 
 # _ffhc_job_fence WINPID SECS: launch the fence helper for an ALREADY-LAUNCHED child's
