@@ -258,51 +258,29 @@ ffhc_msys_wait_reap() {
 # ============================================================================
 # WS2-hard (v3.30.4) — Windows Job Object OUTER FENCE (DEFAULT OFF / opt-in).
 #
-# WHAT: an ADDITIVE hard-kill fence around the EXISTING bounded run. It does NOT
-# reimplement `timeout` in PowerShell — the launch + rc (124/137) + tempfile
-# capture + stdin semantics ALL stay in _ffhc_tempfile_capture / ffhc_msys_wait_reap
-# below. The fence only ASSIGNS the already-launched child's winpid to a Windows
-# Job Object (JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE) so the deadline reap can add a
-# TerminateJobObject — an ATOMIC, strictly-scoped kill of the assigned Win32 tree
-# that can never reach the harness/caller/other session (a sibling survives). The
-# rc still comes from `wait "$_bpid"`; the job kill AUGMENTS taskkill, never replaces
-# the reap.
+# ADDITIVE hard-kill fence around the EXISTING bounded run — NOT a PowerShell
+# reimplementation of `timeout`. Launch, rc (124/137), tempfile capture and stdin
+# semantics all stay in _ffhc_tempfile_capture / ffhc_msys_wait_reap; the fence only
+# ASSIGNS the already-launched child's winpid to a KILL_ON_JOB_CLOSE Job Object so the
+# deadline reap can add a TerminateJobObject — atomic, and strictly scoped to the
+# assigned Win32 tree (a sibling survives). The rc still comes from `wait "$_bpid"`.
 #
-# DEFAULT OFF (load-bearing safety basis): FFHC_USE_JOB_OBJECT default 0 => the
-# branch is INERT on every host, so the default path is byte-behavior-unchanged
-# WS2-core (zero regression by construction). =1 opts in; then it ALSO requires
-# ffhc_is_msys + powershell.exe + a one-time BOUNDED capability probe. There is NO
-# `auto` default. stdin_mode=inherit DISABLES the branch (stdin passthrough to the
-# fenced child is unproven — fall to WS2-core).
-#
-# HONEST LIMIT (same as taskkill's, run-with-timeout.sh:143): a native descendant
-# that MSYS-fork/`start //b`-DETACHES out of the assigned winpid's Win32 tree before
-# assignment is not in the job — best-effort, exactly like the existing reap.
-# HONEST LIMIT #2 — the LAUNCH->ASSIGN RACE: the fence assigns an ALREADY-LAUNCHED
-# winpid (the child starts under run_with_timeout, THEN the job assign happens), so a
-# descendant spawned in the narrow launch->assign window can escape the job. We shrink
-# the window (winpid is captured immediately post-launch and the assign fires right
-# after) but do NOT eliminate it — best-effort, like limit #1. Also HONEST about the
-# TEST claim: on this host GNU `timeout -k` alone already SIGKILLs a stubborn child to
-# rc 137, so the 137 smoke EXERCISES the mechanism but does NOT prove the Job Object
-# performed the kill (the Job-Object-vs-timeout-k distinction is consumer-gated). What
-# the fence GUARANTEES: the assigned tree dies atomically (a stubborn TERM-ignoring
-# child under run_with_timeout => rc 137 on TerminateJobObject) and the kill is strictly
-# scoped (an unrelated sibling survives). The tempfile capture, not the kill, remains
-# the anti-hang guarantee.
-#
-# NO-RERUN CONTRACT: the probe runs BEFORE any child launches (a probe failure just
-# skips the branch — WS2-core re-run is safe, nothing launched). The helper ASSIGN
-# runs AFTER launch; if it fails, we DO NOT re-execute — we fall back to the plain
-# taskkill reap for the already-launched _bpid and return its bounded rc.
+# TRIPWIRE — DEFAULT OFF is the safety basis: FFHC_USE_JOB_OBJECT default 0 => the branch
+# is INERT, so the default path is byte-behavior-unchanged WS2-core. There is no `auto`.
+# stdin_mode=inherit DISABLES the branch (fenced-child stdin passthrough is unproven).
+# TRIPWIRE — NO-RERUN CONTRACT: the probe runs BEFORE any child launches, so a probe
+# failure just skips the branch; the ASSIGN runs AFTER launch and, if it fails, we fall
+# back to the plain taskkill reap for the already-launched _bpid — never a re-execute.
+# HONEST LIMITS: (1) a descendant that detaches out of the winpid's Win32 tree before
+# assignment escapes the job; (2) the launch->assign window is shrunk, not eliminated;
+# (3) GNU `timeout -k` alone already reaches rc 137 here, so the 137 smoke exercises the
+# mechanism without proving the Job Object performed the kill (consumer-gated); (4) the
+# tempfile capture, NOT the kill, remains the anti-hang guarantee.
 
-# _ffhc_job_helper_path: write the PowerShell fence helper to a stable per-user temp
-# path once (idempotent) and echo it. The helper is passed params via -File args
-# (winpid, trigger-file, deadline), NEVER an inline -Command built from user input.
-# It creates a KILL_ON_JOB_CLOSE job, OpenProcess+AssignProcessToJobObject the winpid,
-# then waits (bounded by its own deadline cap) for the trigger file — TerminateJobObject
-# on trigger OR on its own cap, so it can never hang. Status ("ASSIGN-OK"/"ASSIGN-FAIL
-# <code>") goes to stdout (the caller captures it to a tempfile, never a pipe).
+# _ffhc_job_helper_path: materialise the PowerShell fence helper at a stable per-user temp
+# path (create-once) and echo it. TRIPWIRE: params go via -File args (winpid, trigger file,
+# deadline), NEVER an inline -Command built from input. Status lines (ASSIGN-OK /
+# ASSIGN-FAIL <code> / PROBE-DONE / TERMINATED) go to stdout, captured to a tempfile.
 _ffhc_job_helper_path() {
   local dir="${TMPDIR:-/tmp}"
   local p="$dir/ffhc-job-fence-v2.ps1"   # TRIPWIRE: bump on ANY helper edit — write is create-once
