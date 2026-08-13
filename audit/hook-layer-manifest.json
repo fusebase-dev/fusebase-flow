@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.9.1",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 164,
+  "asset_count": 165,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -126,7 +126,7 @@
     },
     {
       "path": "hooks/local/lib/run-with-timeout.sh",
-      "sha256": "c40b2addc9d9510ca1fcbade2baa315fc2717e3e345cbb874eaa68a036718c3a"
+      "sha256": "964bc6ebd2c51d5ba633b65429d3b37ceafe481249302282a9e1825485461041"
     },
     {
       "path": "hooks/local/mirror-agents.sh",
@@ -438,7 +438,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "0f4c9b0b090fe082ada0f8e30bfef9d05361d213c37cb22dd24f7ab54e82320f"
+      "sha256": "69437b3aa884b31f43df12205146bc5abb3cb921e80d6234dfd12b649f74846a"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -533,6 +533,10 @@
       "sha256": "dc31f7e4521cdcf265ca9ef24f02fe967232524764b1672d05aca0baf29c4346"
     },
     {
+      "path": "hooks/tests/test-job-probe-honesty.sh",
+      "sha256": "8e66f8a77ecab529f640e09aecea132417a8a3701f7676a8f4f0f0804a9f55e2"
+    },
+    {
       "path": "hooks/tests/test-lane-router.sh",
       "sha256": "8a4b1cc13d7cf037ca5dd1a7d806b3d054d32e5fe55c4401828aaa7afffa4ed7"
     },
@@ -550,7 +554,7 @@
     },
     {
       "path": "hooks/tests/test-msys-tree-cleanup.sh",
-      "sha256": "56fdf4fe8c160f91226867da41baea901ce71dc5cb3a035fb673033671297d40"
+      "sha256": "b0133612945bf3bfcca2e3aef008af62e79ec5f5dc9c0d26bd2884aacd0d3d82"
     },
     {
       "path": "hooks/tests/test-newline-preserve.sh",
@@ -661,5 +665,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "01c7c1763533dfbbd895f6ab53ffe76270adfd1160a265ad06dc23166b9c0791"
+  "manifest_self_sha256": "74e090c580bc09c8b51058537147ba300774af831b72494be73f70fb6367fb9c"
 }
