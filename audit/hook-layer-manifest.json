@@ -126,7 +126,7 @@
     },
     {
       "path": "hooks/local/lib/run-with-timeout.sh",
-      "sha256": "964bc6ebd2c51d5ba633b65429d3b37ceafe481249302282a9e1825485461041"
+      "sha256": "387a38a1e466fb633b2c9655c261c513af2f3df87e37d4a90115d0a5781c1986"
     },
     {
       "path": "hooks/local/mirror-agents.sh",
@@ -665,5 +665,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "74e090c580bc09c8b51058537147ba300774af831b72494be73f70fb6367fb9c"
+  "manifest_self_sha256": "8e561250d35f3cb9a8aa8ab90f0cad454bfa60967a25a73e4c7ece5de1f27be7"
 }

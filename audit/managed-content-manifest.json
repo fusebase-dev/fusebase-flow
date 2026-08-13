@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "6193a85ccf0d736f2cea3f17d7b4ab16c8785a02515e037cdcffd737851801b1"
+      "sha256": "0a53a294a5fb4f9a066efb8dfe1213b78ce5733e3e8a62d649142e2741d8f990"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -494,7 +494,7 @@
     },
     {
       "path": "hooks/local/lib/run-with-timeout.sh",
-      "sha256": "964bc6ebd2c51d5ba633b65429d3b37ceafe481249302282a9e1825485461041"
+      "sha256": "387a38a1e466fb633b2c9655c261c513af2f3df87e37d4a90115d0a5781c1986"
     },
     {
       "path": "hooks/local/mirror-agents.sh",
@@ -1261,5 +1261,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "b1ce8426e984bae15ebdacf9755e25fbe162cc20819c4b9a0acfe0c334a8f8f7"
+  "manifest_self_sha256": "ed4fc0cd755fa10707d5de8b6480dda2086840db5ecd3c30e4e56617ef644120"
 }
