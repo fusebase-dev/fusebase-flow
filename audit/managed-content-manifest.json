@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
-  "flow_version": "4.9.1",
+  "flow_version": "4.9.2",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
   "asset_count": 315,
   "assets": [
     {
       "path": "FLOW_RULES.md",
-      "sha256": "234f304be51416510c13302c34cb049c865b053f7fc8c37640bc3acbdd703e35"
+      "sha256": "aad15fec245f705207173fde5166e608b3aa7a589e00c0b2badaf0a2307eefd5"
     },
     {
       "path": "FLOW_RULES_HISTORY.md",
@@ -14,15 +14,15 @@
     },
     {
       "path": "agents/ai-developer/AGENT.md",
-      "sha256": "cdc418a604131c33ce7aec4eec5570ec43cf02bbc4c0e3a5664b3fff3734a026"
+      "sha256": "658ffde5fe80b99ec7f978db177acf69630354902e8035838cc270dff0ac0a7c"
     },
     {
       "path": "agents/product-owner/AGENT.md",
-      "sha256": "3f010171b911d7a7a64c349791cf10650bed121ef0b993e061d313076e49f2bf"
+      "sha256": "6b2bd3ee632e1ea347651d993f61bef6f78504e6392d4a3e10b41f167ef36336"
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "b261cf5dc4c7f6e94bc07207b6baa80300dc49396d01a32e6c887e78aebbd63e"
+      "sha256": "5004e7bdabb391e12a58cf34a90457fe4e813577b7cc57677db2beb9f520fb02"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -394,7 +394,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/agents-md-overlay.md",
-      "sha256": "836ae1d7cad9a1df2e56490dd7e713135174634f98eadaf06ac0059c0a0f7a9e"
+      "sha256": "4151354c19a4d0a079437a6365fd8f26d45091a6206e05ee6c8cbb1c5c61be0c"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/claude-md-overlay.md",
@@ -1114,7 +1114,7 @@
     },
     {
       "path": "templates/architect-response.md",
-      "sha256": "05a72f39161a0edb65a4d8f15f7032d0eed6274cfe91afdf4278375099096898"
+      "sha256": "02b22d0faba81d760438cd9a82471e4a1dd2b67ceb6124236f3dbc4883b20d54"
     },
     {
       "path": "templates/audience.md",
@@ -1146,15 +1146,15 @@
     },
     {
       "path": "templates/deploy-report.md",
-      "sha256": "10407c508b9f929f110ab620eb6addfd8f67324d6788df88491002d97158bb02"
+      "sha256": "872b19c02cde46914ea63ece0feb10caf29b6e6f74a759995e6fd769b19d4e85"
     },
     {
       "path": "templates/gate-report.md",
-      "sha256": "2155f7ad2b9108d6dcae904e17cf06f007767337898027209a343d16ef41b8af"
+      "sha256": "1797bcf954a1fa36b6273b7fb0dcb1123f90f8ed90729d45597d4da1ef8c527f"
     },
     {
       "path": "templates/handoff-deploy.md",
-      "sha256": "e41cf011cd73fbce0918a97facb7a43489dba061a771608785157ab64e2c0899"
+      "sha256": "21d48a6b4d4bc8f6ba28eeb43b42a4f792ea2efa902d64341d039fd85c27d175"
     },
     {
       "path": "templates/handoff-folder-README.md",
@@ -1162,7 +1162,7 @@
     },
     {
       "path": "templates/handoff-implement.md",
-      "sha256": "59550318a515025b140ab292734c0e5206d363e88c5622e71f2f9b8a0cfc87d7"
+      "sha256": "242d17cdd655932b4af80994314f7214191141d23e06120f8cdf2a1fe989ae7e"
     },
     {
       "path": "templates/handoff.md",
@@ -1214,7 +1214,7 @@
     },
     {
       "path": "workflows/architect-escalation.md",
-      "sha256": "dfb7b8ab40f8677df37758ccf9f64e543f4256b50f2f32c7638ed166ed422908"
+      "sha256": "f557d35f666e45fa1c14062c55a9614601440ffc8bcd5cd3444129d57294dc89"
     },
     {
       "path": "workflows/eight-phase-flow.md",
@@ -1226,11 +1226,11 @@
     },
     {
       "path": "workflows/greenlight-deploy.md",
-      "sha256": "adfe1813e9518146f1c14be77fc41856e470fd951838f1621de2e983c5560898"
+      "sha256": "d9ac552c28853bd801d43c66181624da5de1637871cc16ceac1bec20d1273acd"
     },
     {
       "path": "workflows/greenlight-implement.md",
-      "sha256": "a2a4ad41835b4a9ee55962804180400d5e203f288db8f33e15156c0aa75af3b3"
+      "sha256": "4dd9e68e8d514c77861d6a8871f8bf1245a47ba26aa7f644444fc397231c1f5f"
     },
     {
       "path": "workflows/knowledge-curation.md",
@@ -1246,7 +1246,7 @@
     },
     {
       "path": "workflows/session-initiation.md",
-      "sha256": "224ea60dd3fa6b4a4e7456a4263d8f29330c00216bbbb122e647dc94e9ad265c"
+      "sha256": "770d8c966e62051259f2a51e3855d3b2c5228a73524a742c70674683502fe02f"
     },
     {
       "path": "workflows/setup.md",
@@ -1265,5 +1265,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "27aca4c7dcc644602067cd178dab241f61b8fc765c0f74a14612fa4bd100c244"
+  "manifest_self_sha256": "57cae17b7db4ed1cd7e3ac17b4120062abb85e5804f2a386f60c2ba0791c6513"
 }

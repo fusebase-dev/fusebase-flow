@@ -4,7 +4,51 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
-## [4.9.1] — 2026-08-12
+## [4.9.2] — 2026-08-14
+
+Corrective release. **v4.9.1 was tagged but never published**, for the same reason v4.9.0 was not:
+its release run went red on `verify-windows-msys`. This release fixes the cause of that red run.
+Neither tag was moved. Everything v4.9.0 and v4.9.1 intended to ship is here.
+
+### Fixed — the release gate's verdict was decided by runner load, not by the code
+
+`msys-tree-cleanup ws2hard-probe-gating` failed five hosted Windows runs while Linux passed every
+time and local Windows runs passed every time. The v4.9.1 notes recorded the cause as an unresolved
+hypothesis. It is now measured.
+
+The probe was instrumented rather than guessed at, and the first hosted failure after instrumentation
+named its own cause:
+
+```
+[ffhc-job-probe] result=timeout-or-error rc=124 elapsed_ms=15271 helper=ok marker=absent detail=
+```
+
+PowerShell cold start on a loaded hosted runner overran the probe's 15s watchdog by 271ms and
+produced no output at all. The bound was sized to a clean host; the shipped hook code was never
+implicated in any of the five occurrences.
+
+- The bound is now **46s** — ~3× the measured loaded-host worst case, chosen as a deliberate
+  multiple. Not a rounded-up observation: `docs/backlog/gate-bounds-lack-headroom` records
+  `cli-flow-recovery` crossing its bound four times (240 → 480 → 900s) because every bump was
+  rounded up from the last thing seen. The measurement, its run id, its date and the multiple are
+  recorded in a tripwire at the call site so the basis survives the next person to touch it.
+- A genuinely hung PowerShell is still killed — the bound remains a liveness backstop, not a
+  performance assertion.
+- The same measurement **excluded** two competing theories: a first-call helper-path failure
+  (`helper=ok`) and a partial-write race on the shared helper (`marker=absent` with an empty
+  `detail=`). That race was real and is fixed anyway, recorded as correct-but-unrelated.
+
+Neither gate assertion was ever relaxed. `ws2hard-job-mechanism-must-run-here` still refuses to skip
+when the host can run the mechanism, and that refusal is what kept the diagnosis honest.
+
+### Changed — the opt-in Windows fence has its own module
+
+`hooks/local/lib/job-fence.sh` (new) owns the opt-in Job Object fence and its capability probe;
+`run-with-timeout.sh` keeps the platform-neutral bounded run. Behaviour is unchanged, the FR-25
+module-size ratchet is satisfied on a real seam rather than by compressing comments, and the source
+degrades to "capability unavailable" when the fence file is absent.
+
+## [4.9.1] — 2026-08-12 — TAGGED, NEVER PUBLISHED
 
 Corrective release. **v4.9.0 was tagged but never published** — its release run failed, and a review
 then found the tagged tree carried documents describing a repository state that does not exist. The
