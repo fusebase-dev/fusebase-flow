@@ -14,13 +14,14 @@ set -uo pipefail
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 LIB="$ROOT/hooks/local/lib/run-with-timeout.sh"
+FENCE="$ROOT/hooks/local/lib/job-fence.sh"   # the fence + probe source (FR-25 extraction)
 
 pass=0; fail=0
 ok()   { pass=$((pass + 1)); echo "PASS: job-probe $1"; }
 bad()  { fail=$((fail + 1)); echo "FAIL: job-probe $1 (${2:-})"; }
 finish() { echo "[test-job-probe-honesty] $pass/$((pass + fail)) PASS"; exit $fail; }
 
-[ -f "$LIB" ] || { bad "setup-lib-present" "missing $LIB"; finish; }
+[ -f "$LIB" ] && [ -f "$FENCE" ] || { bad "setup-lib-present" "missing $LIB or $FENCE"; finish; }
 # shellcheck source=/dev/null
 . "$LIB"
 ffhc_detect_timeout
@@ -172,11 +173,11 @@ fi
 # Source-structure belts — deterministic and host-independent, like the knob-first belt above.
 # Each names a property a "simplifying" edit would silently drop, on a platform that cannot
 # execute the Windows path at all.
-grep -q -- '-DeadlineSecs 1 2>&1' "$LIB"                                          && src_err=0 || src_err=1
-grep -q 'if ($WinPid -le 0)' "$LIB"                                               && src_w0=0  || src_w0=1
-grep -qE '^\s*\$ticks = \[int\]\(\[math\]::Ceiling\(\$DeadlineSecs / 0\.1\)\)\s*$' "$LIB" && src_tick=0 || src_tick=1
-grep -q '_ffhc_job_probe_classify "$rc" "$out"' "$LIB"                            && src_rc=0  || src_rc=1
-grep -q 'mv -f "$tmp" "$p"' "$LIB" && ! grep -qE '^\s*cat > "\$p" <<' "$LIB"       && src_mv=0  || src_mv=1
+grep -q -- '-DeadlineSecs 1 2>&1' "$FENCE"                                          && src_err=0 || src_err=1
+grep -q 'if ($WinPid -le 0)' "$FENCE"                                               && src_w0=0  || src_w0=1
+grep -qE '^\s*\$ticks = \[int\]\(\[math\]::Ceiling\(\$DeadlineSecs / 0\.1\)\)\s*$' "$FENCE" && src_tick=0 || src_tick=1
+grep -q '_ffhc_job_probe_classify "$rc" "$out"' "$FENCE"                            && src_rc=0  || src_rc=1
+grep -q 'mv -f "$tmp" "$p"' "$FENCE" && ! grep -qE '^\s*cat > "\$p" <<' "$FENCE"       && src_mv=0  || src_mv=1
 if [ "$src_err" -eq 0 ] && [ "$src_w0" -eq 0 ] && [ "$src_tick" -eq 0 ] && [ "$src_rc" -eq 0 ] && [ "$src_mv" -eq 0 ]; then
   ok "probe-source-invariants (probe captures powershell stderr (2>&1, not 2>/dev/null) so a start/parse failure is diagnosable; WinPid<=0 exits the helper right after create+setinfo; the tick count is the bare ceil(DeadlineSecs/0.1) with no +20 inflation; the watchdog rc is PASSED to the classifier, not merely logged; the helper is published by rename, never by a direct cat into the destination)"
 else

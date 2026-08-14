@@ -348,7 +348,9 @@ if command -v powershell.exe >/dev/null 2>&1 && [ -n "${FFHC_TIMEOUT_BIN:-}" ] &
     # (orphaned powershell) and blocked the parent on the helper's stdout until its cap. The
     # deterministic host-independent signals are the source form + the CLEARED HPID; the
     # promptness ceiling (secs=30, a stall would be ~35s+) catches the stall regression too.
-    if grep -q '_trig="\$(_ffhc_job_fence' "$LIB"; then fence_direct=1; else fence_direct=0; fi
+    # The fence lives in lib/job-fence.sh since the FR-25 extraction; grep THERE or this
+    # negative check passes vacuously against a file that no longer contains the call site.
+    if grep -q '_trig="\$(_ffhc_job_fence' "$ROOT/hooks/local/lib/job-fence.sh" "$LIB"; then fence_direct=1; else fence_direct=0; fi
     export FFHC_TIMEOUT_KILL_GRACE=5s
     fe_start=$(date +%s)
     FFHC_USE_JOB_OBJECT=1 ffhc_run_bounded 30 bash -c 'echo fast-opt-in; exit 0'
