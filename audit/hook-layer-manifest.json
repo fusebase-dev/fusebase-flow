@@ -510,7 +510,7 @@
     },
     {
       "path": "hooks/tests/test-fingerprint-row-per-tag.sh",
-      "sha256": "54792a7f02bc89ca963adae37bd81919c244392cd29a556911ad7970be8e0033"
+      "sha256": "6eb13138906f9efba95ce21ae75b302f91ec7e7f16481331c0aa12ceb31b6336"
     },
     {
       "path": "hooks/tests/test-fr22-delivery-guarantee.sh",
@@ -673,5 +673,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "167b2d38511478bb41265dd07ac6e30597a944abbebbf4f6aca1cd6b3ff083e1"
+  "manifest_self_sha256": "f2f8bdaf78c2a2ac006e94996d291ee0f1e5f5fdb951dedd110c8b02c19f6cd3"
 }
