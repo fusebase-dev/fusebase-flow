@@ -276,12 +276,23 @@ file in the repo cannot. Applying the settings is operator-owned.
   green, its gated `publish` job creates the GitHub Release from
   `docs/release-notes/v<version>.md` (or `--generate-notes` when that file is
   absent). The `gh release view` guard + `--verify-tag` make a re-run idempotent.
-- **After tagging, append the tagged tree's fingerprint row**: run
+- **After TAGGING — not after publishing — append the tagged tree's fingerprint row.** This step is
+  triggered by the tag existing, and by nothing else. Run
   `bash hooks/local/print-release-fingerprints.sh v<version>` and append the emitted row to
-  `docs/release-fingerprints.md` on `main`. Commit that row for the next release; the tagged tree
-  cannot contain its own row because the edit changes its digest. Never move or amend the tag. If
-  publication failed, label the row as an unpublished tagged tree. Update the external index too
-  when one exists.
+  `docs/release-fingerprints.md` on `main` (regenerate, never hand-transcribe). The tagged tree
+  cannot contain its own row — the edit changes the digest being identified — so the row lands on
+  `main` and ships in the NEXT release. Never move or amend the tag.
+  - **A RED release run does NOT excuse the row.** A tag whose workflow failed is still a permanent
+    tree an adopter can be holding; label its row an unpublished tagged tree and append it anyway.
+    Skipping the row on a red run is exactly how `v4.9.1` shipped inside `v4.9.2` with no row, and
+    how `v4.7.1` got none at all (consumer finding N3 — `docs/backlog/fingerprint-row-driven-by-publish-not-tag/`).
+  - **Ordering: every prior tag must already have a row before the next tag is cut.** Once the next
+    tag exists, the missed row can never be added to the tree that should have carried it.
+  - **Enforced, not remembered:** `hooks/local/preflight.sh` fails if any `v*` tag in the table's
+    coverage window has no row, naming the tag and the exact command that generates it. The only
+    exemption is a tag pointing at `HEAD` (the self-reference limit above). Preflight runs in the
+    release gate, so a missed row BLOCKS the next cut instead of being discovered by a consumer.
+  - Update the external index too when one exists.
 - **Do NOT run `gh release create` manually** — it bypasses the `needs: verify`
   gate (AC4). If a tag went red on a transient failure, fix on `main`, then re-run
   the release workflow from the Actions UI on the same tag.

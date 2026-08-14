@@ -47,6 +47,14 @@ rename, `hooks/local/lib/job-fence.sh`) — but it is **correct-but-unrelated** 
 failures. Leaving it unfixed during the instrumented run was deliberate: fixing it would have been
 a guess, and would have destroyed the evidence had it been the cause.
 
+### Consequence filed separately
+
+The two consecutive RED Windows runs this flake caused (v4.9.0 and v4.9.1) are what exposed
+`fingerprint-row-driven-by-publish-not-tag`: the post-tag fingerprint-row step ran only after a
+SUCCESSFUL publish, so two reds in a row dropped `v4.9.1`'s row from `v4.9.2`'s permanent tree
+(consumer finding N3). Fixing this probe removes the TRIGGER, not that defect — it is now
+enforced independently by `hooks/local/preflight.sh`.
+
 ### Still open (not causal here, worth knowing)
 
 - `_ffhc_job_fence`'s bash-side ASSIGN-OK confirm loop still allows only ~3s for PowerShell to
