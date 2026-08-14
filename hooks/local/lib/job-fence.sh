@@ -176,7 +176,20 @@ _ffhc_job_probe_run() {
   fi
   # TRIPWIRE: stderr is MERGED on purpose — a powershell that fails to start or parse says so ONLY
   # on stderr, and dropping it is why a hosted failure could not be diagnosed.
-  out="$(run_with_timeout 15 powershell.exe -NoProfile -ExecutionPolicy Bypass \
+  #
+  # TRIPWIRE — THE BOUND IS A LIVENESS BACKSTOP, NOT A PERFORMANCE ASSERTION (backlog
+  # gate-bounds-lack-headroom). BASIS, measured, not guessed: hosted run 31753213227 on
+  # 2026-08-13 (verify-windows-msys, v4.9.1 release attempt) emitted
+  #   result=timeout-or-error rc=124 elapsed_ms=15271 helper=ok marker=absent detail=
+  # for THIS probe — powershell startup on a loaded hosted runner overran the old 15s bound by
+  # 271ms and produced NO output at all. 46s is ~3x that 15271ms loaded-host worst case, chosen
+  # as a deliberate MULTIPLE. Do NOT "fix" a future overrun by rounding up what you just saw:
+  # the same backlog records cli-flow-recovery crossing its bound four times (240 -> 480 -> 900s)
+  # because every bump was a rounded-up observation. A genuinely hung powershell is still killed.
+  # COST: at most 3 live probes per test-msys-tree-cleanup.sh run (one in the first gating
+  # subshell, up to two in the parent via the deferred cross-call retry), so the worst case a
+  # wedged powershell can add is 3 x 46s = 138s against that phase's 1800s bound.
+  out="$(run_with_timeout 46 powershell.exe -NoProfile -ExecutionPolicy Bypass \
     -File "$(cygpath -w "$helper" 2>/dev/null || echo "$helper")" -WinPid 0 -TriggerFile "" -DeadlineSecs 1 2>&1)"; rc=$?
   ms=$(( $(_ffhc_now_ms) - t0 ))
   case "$out" in *ASSIGN-OK*PROBE-DONE*) marker="complete" ;; *ASSIGN-OK*) marker="partial" ;; *) marker="absent" ;; esac
