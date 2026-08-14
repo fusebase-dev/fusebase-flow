@@ -35,9 +35,14 @@ Match your output to either fingerprint column below; both identify the same tre
 | `v4.7.0` current target `bad4d92` | 4.7.0 | `d929ac3a5203199e5000260a1f7d7a828e7d6162a5e75063533f7c8ae04cd478` | 286 | `6595d0977ce9a983a4ce3fbc1441ae7e0f7bdbf6c22b9bd838786ea9c9cb0b91` | 140 |
 | `v4.8.0` target `20fd707` | 4.8.0 | `8d81303e329320ae8e9437394370cb9a4044f15392a3b2b96eae49cc2a0371c2` | 305 | `df4a04f7cc5b673725feed031870fa53dcc46e592f93a2abe6976a36f2a5e787` | 156 |
 | `v4.9.0` | 4.9.0 | `d514dd1c1888c76ec15cd711826231a25bfdf4239bf6a87dbcbfe9733e55b348` | 313 | `3a4881fe01bec0ad4439e3c5a1c17097151ceb352001eb55f1eee9b232830e35` | 164 |
+| `v4.9.1` | 4.9.1 | `ed4fc0cd755fa10707d5de8b6480dda2086840db5ecd3c30e4e56617ef644120` | 314 | `8e561250d35f3cb9a8aa8ab90f0cad454bfa60967a25a73e4c7ece5de1f27be7` | 165 |
+| `v4.9.2` | 4.9.2 | `57cae17b7db4ed1cd7e3ac17b4120062abb85e5804f2a386f60c2ba0791c6513` | 315 | `a38e92abaccdeade5ad25a8f3ce16c697f98152654a12c4eccd62c916e4966c2` | 166 |
 
-`v4.9.0` is an unpublished tagged tree: its release workflow failed on 2026-08-12 and published
-nothing. The row identifies the immutable tag target; it is not evidence of publication.
+`v4.9.0` and `v4.9.1` are unpublished tagged trees: their release workflows failed (2026-08-12 and
+2026-08-13) and published nothing. Both rows identify an immutable tag target; neither is evidence
+of publication. Neither tag was moved — `v4.9.2` supersedes them and is the published release.
+A tree cloned from `main` during either window is identifiable here rather than absent from the
+table.
 
 Every value above is read from the tagged tree, never transcribed by hand. Regenerate them with
 `hooks/local/print-release-fingerprints.sh <ref>…`; a hand-typed hook-layer count in the first
