@@ -368,5 +368,63 @@ if [ "$mkt_name" = "fusebase-flow" ]; then
     fi
 fi
 
+# 10. Release-fingerprint rows are TAG-driven, not publish-driven
+#     (backlog fingerprint-row-driven-by-publish-not-tag). The post-tag append step in
+#     PUBLISHING.md ran in practice only after a SUCCESSFUL publish, so a red release skipped it
+#     and the next release only remembered the tag it superseded — two reds in a row silently drop
+#     one. v4.9.1 shipped inside v4.9.2's tree with no row, and v4.7.1 never got one at all. Both
+#     tags are permanent and can never be re-cut, so the miss is unrecoverable for an adopter
+#     holding either tree. Driving the assertion off the TAG (not off a release run) is what makes
+#     it unskippable: a row missing here BLOCKS the next cut instead of being noticed afterwards.
+#
+# TRIPWIRE — the two scoping rules are load-bearing, not conveniences:
+#   (a) SELF-REFERENCE EXEMPTION: a tag pointing at HEAD is exempt. A tagged tree cannot contain
+#       its own row (adding it changes the manifest digest being identified — stated in the file
+#       itself). Without this, cutting any release would be impossible.
+#   (b) COVERAGE WINDOW: only tags at or after the OLDEST version the table already covers. The
+#       table starts at v4.7.0 by design; the ~85 older tags predate it and were never in scope.
+#       The window is derived FROM the file, so it advances by itself and hardcodes nothing.
+# Ownership (VERSION at the tag == the tag's version) is verified ONLY for a candidate miss, so
+# the healthy path costs zero extra git object reads, and a consumer's own `v*` tags — which this
+# file does not describe — can never fail their preflight.
+# TRIPWIRE (cost): this runs on EVERY preflight, and MSYS spawns cost ~1s each. The healthy path
+# must therefore be SPAWN-FREE per tag — the file is slurped once with $(<file) and matched with
+# builtin `case`, and versions compare via bash arithmetic. A first cut used grep + sort per tag
+# and added 4m15s to preflight over 92 tags.
+_fp_key() {   # sets FP_KEY from a vX.Y.Z string; no subshell, no fork
+    local v="${1#v}" a b c
+    a="${v%%.*}"; v="${v#*.}"; b="${v%%.*}"; c="${v#*.}"; c="${c%%[!0-9]*}"
+    a="${a%%[!0-9]*}"; b="${b%%[!0-9]*}"
+    FP_KEY=$(( 10#${a:-0} * 1000000 + 10#${b:-0} * 1000 + 10#${c:-0} ))
+}
+FP_FILE="docs/release-fingerprints.md"
+if [ -f "$FP_FILE" ] && git rev-parse --git-dir >/dev/null 2>&1; then
+    fp_body="$(<"$FP_FILE")"
+    fp_floor=""
+    for fp_v in $(grep -oE '`v[0-9]+\.[0-9]+\.[0-9]+`' "$FP_FILE" | tr -d '`'); do
+        _fp_key "$fp_v"; fp_k=$FP_KEY
+        if [ -z "$fp_floor" ] || [ "$fp_k" -lt "$fp_floor" ]; then fp_floor=$fp_k; fi
+    done
+    fp_head="$(git rev-parse HEAD 2>/dev/null || echo "")"
+    fp_missing=""
+    if [ -n "$fp_floor" ]; then
+        while read -r fp_tag fp_sha; do
+            [ -n "$fp_tag" ] || continue
+            _fp_key "$fp_tag"
+            [ "$FP_KEY" -lt "$fp_floor" ] && continue      # (b) coverage window
+            case "$fp_body" in *'`'"$fp_tag"'`'*) continue ;; esac
+            [ "$fp_sha" = "$fp_head" ] && continue         # (a) self-reference exemption
+            # Candidate miss — now (and only now) pay for the ownership check.
+            [ "$(git show "$fp_tag:VERSION" 2>/dev/null | tr -d '[:space:]')" = "${fp_tag#v}" ] || continue
+            fp_missing="$fp_missing $fp_tag"
+        done <<EOF
+$(git for-each-ref --format='%(refname:short) %(*objectname)%(objectname)' 'refs/tags/v*' 2>/dev/null)
+EOF
+    fi
+    if [ -n "$fp_missing" ]; then
+        err "docs/release-fingerprints.md has no row for tag(s):$fp_missing — a tagged tree is permanent, so a missing row can never be added to it. A RED release run does NOT excuse the row. Generate and append before cutting the next tag: bash hooks/local/print-release-fingerprints.sh$fp_missing"
+    fi
+fi
+
 note "preflight finished — errors: $errors, warnings: $warnings"
 exit $errors
