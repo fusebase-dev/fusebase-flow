@@ -1,8 +1,27 @@
 # release-gate-flaky-job-probe
 
-**Status:** cause ESTABLISHED by measurement — bound raised, awaiting hosted confirmation
+**Status:** CLOSED — cause established by measurement, bound raised, confirmed on three hosted runs
 **Found:** 2026-08-11, during the v4.8.0 publication
 **Diagnosed:** 2026-08-14, from run `31753213227` (occurrence 5)
+**Confirmed:** 2026-08-14, three consecutive green `verify-windows-msys` runs on three different SHAs
+
+## CONFIRMATION — three hosted Windows runs, zero probe diagnostics
+
+The bound landed. Every one of these emitted **no `[ffhc-job-probe]` line at all**, meaning every
+probe returned `ok` on its first attempt — and the diagnostic fires on any rc≠0, so silence here is
+positive evidence, not absence of instrumentation.
+
+| Run | SHA | Result |
+|---|---|---|
+| `31832137608` | `3999a4a` | 1037/1037, mechanism rows exercised |
+| `31834351442` | `c329931` | the **v4.9.2 release run** — `publish` succeeded |
+| (N3 re-verify) | `29e621a` | 1043/1043 |
+
+`ws2hard-probe-gating` and `ws2hard-job-mechanism-must-run-here` both passed in each, so the
+mechanism ran rather than being skipped — the failure mode this ticket existed to prevent.
+
+Before the fix this row failed roughly every other Windows run and blocked publication twice
+(`v4.9.0`, `v4.9.1`). A 271ms overrun of a clean-host-sized bound held a release for two versions.
 
 ## CAUSE — ESTABLISHED (occurrence 5, run `31753213227`, 2026-08-13)
 
