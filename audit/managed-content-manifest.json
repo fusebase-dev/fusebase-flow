@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.9.1",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 314,
+  "asset_count": 315,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "0a53a294a5fb4f9a066efb8dfe1213b78ce5733e3e8a62d649142e2741d8f990"
+      "sha256": "b261cf5dc4c7f6e94bc07207b6baa80300dc49396d01a32e6c887e78aebbd63e"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -477,6 +477,10 @@
       "sha256": "08c7c312eaeb95a6e5632498fa910113f438afcd2e2a52e24e0e06b3a26e8ad9"
     },
     {
+      "path": "hooks/local/lib/job-fence.sh",
+      "sha256": "d66defb1eeb1ba5569193f0f1635699b359ebeee3bb514c312a9f7c5cb7ba5c1"
+    },
+    {
       "path": "hooks/local/lib/managed_content_manifest.py",
       "sha256": "8ead27f9cc649b47b065fd985e918bca23675427f1af2e645658dc86a96144ac"
     },
@@ -494,7 +498,7 @@
     },
     {
       "path": "hooks/local/lib/run-with-timeout.sh",
-      "sha256": "387a38a1e466fb633b2c9655c261c513af2f3df87e37d4a90115d0a5781c1986"
+      "sha256": "6b13301e3d4fa6d0ba5e55d26e652602d9c445cb3ddf4e3e054645fd3be7e15c"
     },
     {
       "path": "hooks/local/mirror-agents.sh",
@@ -938,7 +942,7 @@
     },
     {
       "path": "hooks/tests/test-job-probe-honesty.sh",
-      "sha256": "8e66f8a77ecab529f640e09aecea132417a8a3701f7676a8f4f0f0804a9f55e2"
+      "sha256": "0c85366288c809a5a3ebc571fd77630a4df24d1c164591aeb062714db844af95"
     },
     {
       "path": "hooks/tests/test-lane-router.sh",
@@ -958,7 +962,7 @@
     },
     {
       "path": "hooks/tests/test-msys-tree-cleanup.sh",
-      "sha256": "b0133612945bf3bfcca2e3aef008af62e79ec5f5dc9c0d26bd2884aacd0d3d82"
+      "sha256": "5d1967055a564896e13cc38d7df63410f965d5a95ecfde43b9be07614e496bac"
     },
     {
       "path": "hooks/tests/test-newline-preserve.sh",
@@ -1261,5 +1265,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "ed4fc0cd755fa10707d5de8b6480dda2086840db5ecd3c30e4e56617ef644120"
+  "manifest_self_sha256": "27aca4c7dcc644602067cd178dab241f61b8fc765c0f74a14612fa4bd100c244"
 }
