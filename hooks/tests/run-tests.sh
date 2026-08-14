@@ -79,7 +79,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixtur
   supersede-primitive rule-inventory boot-size prohibition-residency token-waste-classify \
   budget-literals history-extraction approval-binding approval-writer approval-receipt command-policy denial-message upgrade-classify \
   upgrade-boundary preboundary-consumed upgrade-repair recovery-hint install-doc release-authority \
-  release-tag-binding signal-reap cli-flow-recovery)
+  release-tag-binding fingerprint-rows signal-reap cli-flow-recovery)
 
 # OPT-IN-ONLY tags: registered and reachable, but NEVER in the default/required set — they run
 # only when named in FF_ONLY. This is the review's "Maintainer opt-in" tier (repeated kill/load
@@ -561,6 +561,9 @@ run_shell_phase test-release-evidence-authority.sh      "release-authority"
 # moves out from under a checkout), so it is not in the fast tier — FF_FAST_TAGS is an
 # allowlist and a new phase is heavy until measured. CI runs it.
 run_shell_phase test-release-tag-binding.sh             "release-tag-binding"
+# N3: every v* tag must carry a docs/release-fingerprints.md row. Heavy (clones the repo and runs
+# preflight 4x) — the oracle is the real tag history, which no string fixture can stand in for.
+run_shell_phase test-fingerprint-row-per-tag.sh       "fingerprint-rows"
 # S2 signal lifecycle (T4): the orphan-sentinel discriminator set. HEAVY + fault-injection, so it
 # lives in the CI/FF_FULL tier, not the fast local default (architecture-review Q3/Q4: Windows/MSYS
 # CI owns it). Off-MSYS it skips every row — the defect class is MSYS-only.

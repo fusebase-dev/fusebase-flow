@@ -399,11 +399,26 @@ _fp_key() {   # sets FP_KEY from a vX.Y.Z string; no subshell, no fork
 }
 FP_FILE="docs/release-fingerprints.md"
 if [ -f "$FP_FILE" ] && git rev-parse --git-dir >/dev/null 2>&1; then
-    fp_body="$(<"$FP_FILE")"
-    fp_floor=""
-    for fp_v in $(grep -oE '`v[0-9]+\.[0-9]+\.[0-9]+`' "$FP_FILE" | tr -d '`'); do
-        _fp_key "$fp_v"; fp_k=$FP_KEY
-        if [ -z "$fp_floor" ] || [ "$fp_k" -lt "$fp_floor" ]; then fp_floor=$fp_k; fi
+    # TRIPWIRE: collect tags from the ROW's first column ONLY, never from the whole file. Line 42
+    # is prose naming `v4.9.0` and `v4.9.1`; a whole-file match therefore reported "row present"
+    # for a release whose row had been deleted — caught by the RED arm of
+    # hooks/tests/test-fingerprint-row-per-tag.sh, which is exactly why that arm drives the real
+    # v4.9.1 deletion instead of a synthetic one.
+    fp_rows=""
+    while IFS= read -r fp_line; do
+        case "$fp_line" in '|'*) : ;; *) continue ;; esac
+        fp_cell="${fp_line#|}"; fp_cell="${fp_cell%%|*}"
+        fp_rows="$fp_rows$fp_cell"
+    done < "$FP_FILE"
+    fp_floor=""; fp_scan="$fp_rows"
+    while [ -n "$fp_scan" ]; do
+        case "$fp_scan" in *'`'*) : ;; *) break ;; esac
+        fp_scan="${fp_scan#*\`}"; fp_tok="${fp_scan%%\`*}"; fp_scan="${fp_scan#*\`}"
+        case "$fp_tok" in
+            v[0-9]*.[0-9]*.[0-9]*)
+                _fp_key "$fp_tok"
+                if [ -z "$fp_floor" ] || [ "$FP_KEY" -lt "$fp_floor" ]; then fp_floor=$FP_KEY; fi ;;
+        esac
     done
     fp_head="$(git rev-parse HEAD 2>/dev/null || echo "")"
     fp_missing=""
@@ -412,7 +427,7 @@ if [ -f "$FP_FILE" ] && git rev-parse --git-dir >/dev/null 2>&1; then
             [ -n "$fp_tag" ] || continue
             _fp_key "$fp_tag"
             [ "$FP_KEY" -lt "$fp_floor" ] && continue      # (b) coverage window
-            case "$fp_body" in *'`'"$fp_tag"'`'*) continue ;; esac
+            case "$fp_rows" in *'`'"$fp_tag"'`'*) continue ;; esac
             [ "$fp_sha" = "$fp_head" ] && continue         # (a) self-reference exemption
             # Candidate miss — now (and only now) pay for the ownership check.
             [ "$(git show "$fp_tag:VERSION" 2>/dev/null | tr -d '[:space:]')" = "${fp_tag#v}" ] || continue
