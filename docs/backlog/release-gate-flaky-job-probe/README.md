@@ -1,7 +1,58 @@
 # release-gate-flaky-job-probe
 
-**Status:** active — reproduction first
+**Status:** cause ESTABLISHED by measurement — bound raised, awaiting hosted confirmation
 **Found:** 2026-08-11, during the v4.8.0 publication
+**Diagnosed:** 2026-08-14, from run `31753213227` (occurrence 5)
+
+## CAUSE — ESTABLISHED (occurrence 5, run `31753213227`, 2026-08-13)
+
+Not a hypothesis. The instrumented probe named its own cause on the first hosted failure after
+instrumentation, verbatim:
+
+```
+[ffhc-job-probe] result=timeout-or-error rc=124 elapsed_ms=15271 helper=ok marker=absent attempt=1/2 cache=unknown detail=
+```
+
+| Field | Reads as |
+|---|---|
+| `rc=124` | the 15s watchdog killed it — not a PowerShell exit code, not a script error |
+| `elapsed_ms=15271` | PowerShell startup on a loaded hosted runner exceeds 15s. Previously "plausible but unproven"; now measured, 271ms over the bound |
+| `helper=ok` | `_ffhc_job_helper_path` succeeded |
+| `marker=absent` + `detail=` empty | PowerShell produced NO output on stdout OR stderr — it never got far enough to fail at anything |
+
+**Cause:** the probe's 15s bound was sized to a clean-host observation, and a loaded hosted runner's
+PowerShell cold start crosses it. The gate's verdict was therefore decided by runner load. The
+shipped hook code was never implicated in any of the five occurrences.
+
+**Fix:** bound raised 15s -> **46s**, ~3x the 15271ms loaded-host worst case, per
+`docs/backlog/gate-bounds-lack-headroom` (a bound is a liveness backstop, not a performance
+assertion; deliberate 2-3x headroom over a LOADED-host worst case, never a rounded-up clean-host
+observation). Deliberately NOT 20s: that backlog records `cli-flow-recovery` crossing its bound
+four times (240 -> 480 -> 900s) because each bump was rounded up from the last observation. The
+measurement, its run id, its date and the multiple are recorded in a tripwire at the call site
+(`hooks/local/lib/job-fence.sh`). Worst case a wedged PowerShell can now add is 3 x 46s = 138s
+against the 1800s phase bound; a genuinely hung PowerShell is still killed (verified locally at
+46.9s, rc 124).
+
+### EXCLUDED by this measurement
+
+| Theory | Killed by |
+|---|---|
+| `_ffhc_job_helper_path` fails on first call | `helper=ok` |
+| Partial-write TOCTOU on the create-once helper (`cat > $p` behind an existence test) — a concurrent probe executing a half-written `.ps1` | `marker=absent` with `detail=` EMPTY. A truncated script produces a PowerShell parse error on stderr, which the instrumented probe captures. There was no output at all |
+| PowerShell exited on its own (execution policy, `Add-Type` failure, exception) | `rc=124` is the watchdog's own code, and the helper's own failure paths all print `ASSIGN-FAIL` |
+
+The TOCTOU race was **real and is fixed** (atomic same-directory temp + sentinel validation +
+rename, `hooks/local/lib/job-fence.sh`) — but it is **correct-but-unrelated** to this ticket's
+failures. Leaving it unfixed during the instrumented run was deliberate: fixing it would have been
+a guess, and would have destroyed the evidence had it been the cause.
+
+### Still open (not causal here, worth knowing)
+
+- `_ffhc_job_fence`'s bash-side ASSIGN-OK confirm loop still allows only ~3s for PowerShell to
+  start. On a runner slow enough to produce this ticket's 15s cold start, the fence would fall back
+  to WS2-core rather than fence. That is SAFE (the taskkill reap still applies) and was out of
+  scope here — but it is the same clean-host sizing mistake one layer down.
 
 ## Occurrence 4 — 2026-08-12, `16ec277` (v4.9.1 pre-tag) — **NOT transient; escalate**
 
@@ -33,32 +84,23 @@ both probe calls when the host is busy enough, not at a changed platform.
 transient remedy; it would be manufacturing a pass. The release is blocked here until the probe is
 instrumented per the steps below.
 
-## HYPOTHESIS — not established (occurrence 3)
+## Pre-diagnosis analysis (occurrences 1-4) — superseded by the CAUSE section above
 
-`ffhc_job_available` (`hooks/local/lib/run-with-timeout.sh:376-390`) probes Windows Job Object
-support by running `powershell.exe -NoProfile` under `run_with_timeout 15`.
+Kept because the defect-shape findings drove the instrumentation that produced the diagnosis. The
+probe lives in `hooks/local/lib/job-fence.sh` since the FR-25 extraction.
 
-### Established
-
-| Finding | Evidence |
-|---|---|
-| Watchdog rc preserved | `run_with_timeout` preserves rc 124/137 (`run-with-timeout.sh:17,65`). |
-| Probe rc discarded | `ffhc_job_available` captures stdout but never saves `$?`; classification uses only `ASSIGN-OK` (`run-with-timeout.sh:376-390`). |
-| Timeout classification is marker-dependent | A timeout with no captured `ASSIGN-OK` becomes `no`; if the marker reached captured stdout before termination, the same rc 124 can return success. |
-| Deadline waste | `DeadlineSecs=1` becomes 30 × 100 ms because both polling loops add 20 ticks (`run-with-timeout.sh:313,349`), imposing an unnecessary ~3s wait. |
-| Failure shape | Only one row failed; the later parent-shell probe (`test-msys-tree-cleanup.sh:279`) succeeded immediately after the subshell probe failed. This proves a transient first-call failure, not its cause. |
-
-### Excluded
-
-- `FFHC_TIMEOUT_BIN` absence: the test supplies it (`test-msys-tree-cleanup.sh:253`).
-- Cache interaction between gating calls: each call deliberately runs in its own subshell
-  (`test-msys-tree-cleanup.sh:267`).
-
-### Still open
-
-- PowerShell cold start exceeding 15s is plausible but unproven.
-- `_ffhc_job_helper_path` may fail on its first call (`run-with-timeout.sh:306`).
-- Runner load, helper creation, and process startup remain candidate causes.
+| Finding | Evidence | Now |
+|---|---|---|
+| Watchdog rc preserved | `run_with_timeout` preserves rc 124/137 | still true — and is what made `rc=124` readable |
+| Probe rc discarded | classification used only `ASSIGN-OK`; `$?` was never saved | FIXED: `ok` requires rc 0 + `ASSIGN-OK` + `PROBE-DONE`; a no-answer is never cached as absence |
+| Timeout classification marker-dependent | a timeout with no marker became `no`; with the marker it returned success | FIXED (same change); a marker-then-kill is `timeout-or-error` |
+| Deadline waste | `DeadlineSecs=1` became 30 × 100 ms via a `+20` tick pad | FIXED; `WinPid=0` now exits right after create+setinfo |
+| Failure shape (occ. 1-3) | a later parent-shell probe succeeded right after a subshell probe failed | consistent with load-dependent startup: same host, different moment |
+| `FFHC_TIMEOUT_BIN` absence | the test supplies it | EXCLUDED, unchanged |
+| Cache interaction between gating calls | each gating call runs in its own subshell | EXCLUDED, unchanged |
+| Runner-image change | occ. 3 and 4 ran on identical runner `2.336.0` / image `20260729.566` | EXCLUDED, unchanged — and consistent with a LOAD-dependent cause |
+| PowerShell cold start > 15s | "plausible but unproven" | **ESTABLISHED** — measured at 15271ms, see the CAUSE section |
+| `_ffhc_job_helper_path` fails on first call | open | **EXCLUDED by measurement** (`helper=ok`) |
 
 ## Occurrence 3 — 2026-08-12, pre-tag `f4795ab`
 
@@ -105,21 +147,20 @@ rather than by the code:
 | `harness-kill-leaves-orphan-children` | survivors inflate the next run's timings |
 | **this** | a powershell-backed capability probe returns a different answer for the same SHA |
 
-## Required first step — instrument before retry policy
+## Prescribed steps — DONE
 
-Do not relax `ws2hard-probe-gating`; `test-msys-tree-cleanup.sh:376` correctly fails when the
-mechanism cannot run. Instrument the probe before choosing retry behavior:
+`ws2hard-probe-gating` and `ws2hard-job-mechanism-must-run-here` were never relaxed; both still
+fail loudly, and that refusal to skip is what kept the ticket honest.
 
-1. Capture watchdog rc, elapsed time, `_ffhc_job_helper_path` outcome, and whether `ASSIGN-OK`
-   reached captured output.
-2. Represent the result as `ok | definite-negative | timeout-or-error`; never cache
-   `timeout-or-error` as capability absence.
-3. When create/setinfo returns `WinPid=0`, exit immediately instead of entering the polling wait.
-4. Remove the `+20` tick inflation from the one-second create/setinfo deadlines.
-5. Collect first-call and immediate-follow-up evidence, then decide whether retry is justified.
+| # | Step | State |
+|---|---|---|
+| 1 | Capture watchdog rc, elapsed, `_ffhc_job_helper_path` outcome, `ASSIGN-OK` seen | DONE — and it is what produced the diagnosis |
+| 2 | Classify `ok \| definite-negative \| timeout-or-error`; never cache `timeout-or-error` as absence | DONE; `ok` additionally requires rc 0 + `PROBE-DONE` (review finding: rc must decide the verdict, not just the log) |
+| 3 | `WinPid=0` exits immediately after create/setinfo | DONE |
+| 4 | Remove the `+20` tick inflation | DONE — note it also shortened the real fence's internal deadline; margin over the reap cap is now 1s, tripwired at the `dl` assignment |
+| 5 | Collect evidence, then decide whether retry is justified | **Retry NOT added, and not needed.** The cause is a bound sized to a clean host, so the fix is headroom on the bound. Retrying a probe that needs 15s under a 15s bound would have masked the cause and normalised re-running until green |
 
-Retry-once is not yet prescribed: the evidence proves transience but does not establish PowerShell
-cold start, helper-path initialization, or any other root cause.
+**Do not re-run to get a green** still stands for any future occurrence.
 
 ## Provenance
 
