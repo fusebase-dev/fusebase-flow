@@ -40,9 +40,21 @@ CLONE="$(mktemp -d "${TMPDIR:-/tmp}/ffhc-fprow.XXXXXX" 2>/dev/null)"
 [ -n "$CLONE" ] || { bad "setup" "could not create a temp dir"; finish; }
 cleanup() { rm -rf "$CLONE" 2>/dev/null; }
 trap cleanup EXIT
-# --local: hardlinked object store, so this is cheap and carries every tag.
-if ! git clone --quiet --local "$ROOT" "$CLONE/repo" >/dev/null 2>&1; then
-  bad "setup" "could not clone the repo into $CLONE"; finish
+# TRIPWIRE - NEVER send this clone's stderr to /dev/null. The first cut did, and when it failed on
+# hosted Windows the row could only say "could not clone into <tmpdir>": a setup failure that named
+# a path instead of a reason, with an EMPTY replayed diagnostics block. Capture rc + stderr and put
+# them in the row, same shape as [ffhc-job-probe].
+#
+# TRIPWIRE - --no-hardlinks is REQUIRED, not a preference. An explicit `--local` makes hardlinking
+# mandatory and dies cross-volume; measured on Windows 2026-08-14:
+#   fatal: failed to create link 'E:/.../.git/objects/00/...': Improper link   (rc 128)
+# The hosted runner puts the workspace on D: while MSYS /tmp maps under C:, so every hosted Windows
+# run took that path while every same-volume local run passed. Copying objects costs ~4s here and
+# works on any volume.
+CLONE_ERR="$(git clone --quiet --no-hardlinks "$ROOT" "$CLONE/repo" 2>&1)"; CLONE_RC=$?
+CLONE_ERR1="$(printf '%s' "$CLONE_ERR" | tr -s '[:space:]' ' ' | cut -c1-200)"
+if [ "$CLONE_RC" -ne 0 ] || [ ! -d "$CLONE/repo/.git" ]; then
+  bad "setup" "git clone --no-hardlinks failed: rc=$CLONE_RC src=[$ROOT] dst=[$CLONE/repo] stderr=[$CLONE_ERR1]"; finish
 fi
 REPO="$CLONE/repo"
 FP="$REPO/$FP_REL"
@@ -64,7 +76,7 @@ fp_preflight() {
 # --- CONTROL: the clone as-committed must be quiet -------------------------------------------
 ctl="$(fp_preflight)"
 if [ -z "$ctl" ]; then
-  ok "green-tree-stays-green (every tag in the coverage window has a row => no error; a check that fires on a healthy tree would block every release)"
+  ok "green-tree-stays-green (every tag in the coverage window has a row => no error; a check that fires on a healthy tree would block every release) [clone=--no-hardlinks rc=$CLONE_RC tags=$(git -C "$REPO" tag -l 'v*' | wc -l | tr -d ' ')]"
 else
   bad "green-tree-stays-green" "clean clone reported a missing row: $ctl"
 fi
