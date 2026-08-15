@@ -2,9 +2,11 @@
   "schema_version": 2,
   "generated_at": "2026-08-15",
   "source_cli_version": "0.29.8",
-  "reviewed_cli_range": {
-    "floor": "0.29.0",
-    "ceiling_exclusive": "0.30.0",
+  "reviewed_cli_policy": {
+    "reviewed_versions": [
+      "0.29.8"
+    ],
+    "incompatible_below": "0.29.0",
     "source": "hooks/local/lib/cli-version-check.sh"
   },
   "description": "Provenance for vendored FuseBase CLI-owned assets shipped in this Fusebase Flow edition. source_cli_version is DERIVED from audit/cli-upstream-manifest.json (written by hooks/local/refresh-cli-vendor.sh from the source CLI tree), or the literal 'unknown' sentinel when no re-vendor has been recorded. Per-file sha256 feeds the CLI_SNAPSHOT_STALE advisory in check-cli-flow-conflicts.sh; upstream_sha256/matches_upstream distinguish 'matches upstream' from 'matches whatever we shipped'. merge_derived files carry a Flow-authored CUSTOM:SKILL block and are exempt from exact match. Regenerate with hooks/local/stamp-cli-provenance.sh.",

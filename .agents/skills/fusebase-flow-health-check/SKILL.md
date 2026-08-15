@@ -55,19 +55,21 @@ Env knobs (seconds; POSIX defaults in parentheses): `FFHC_FETCH_TIMEOUT` (15), `
 
 ### Installed-CLI version gate (verdict-affecting — the ONE CLI signal that is)
 
-`hooks/local/lib/cli-version-check.sh` probes `fusebase --version` at health-check time and compares it to the **reviewed-compatible range** this Flow edition's vendored CLI assets were built against.
+`hooks/local/lib/cli-version-check.sh` probes `fusebase --version` at health-check time and compares it to the **exact set of versions** this Flow edition's vendored CLI assets were actually reviewed against.
 
 | Installed CLI | Verdict | Exit |
 |---|---|---:|
-| Inside the reviewed range | contributes `HEALTHY` | 0 |
-| **Below** the floor | `CLI_VERSION_UNSUPPORTED` | 1 |
-| **Above** the ceiling, unreadable, or `fusebase` not on PATH | `PARTIAL_UNVERIFIED` | 4 |
+| Exactly a reviewed version (`FFHC_CLI_REVIEWED_VERSIONS`) | contributes `HEALTHY` | 0 |
+| Below `FFHC_CLI_INCOMPATIBLE_BELOW` | `CLI_VERSION_UNSUPPORTED` | 1 |
+| Any other version — unreviewed, unreadable, ambiguous, probe exited non-zero, or `fusebase` not on PATH | `PARTIAL_UNVERIFIED` | 4 |
 
-Every non-green outcome states three things: the version found, the reviewed range, and the next step (below the floor → the upgrade command; above the ceiling → supply the new CLI tree for review).
+Every non-green outcome states three things: the version found, the reviewed policy, and the next step (below the incompatible line → the upgrade command; unreviewed → supply that CLI tree for review).
 
-**Above-range is deliberately exit 4, not a red.** The CLI ships ~4 minors per 5 weeks and Flow's vendoring is operator-supplied trees, so Flow always trails. A hard red on every CLI release day — carrying a remediation that cannot work yet, because no Flow release has reviewed the new version — trains operators to widen the range unreviewed, which neutralizes the check. Exit 4 also keeps CI and any host without the CLI installed from being permanently red. `fusebase` absent from PATH is therefore **exit 4, not a failure**.
+**A set, not a range.** A `>=x <y` range greens versions nobody has compared to these assets — a future patch of the same minor reports HEALTHY on the strength of a guess. On a pre-1.0 CLI shipping ~4 minors per 5 weeks that is not an earned guarantee, so only versions a re-vendor actually verified are green.
 
-The range is **not** env-overridable by design: widening it is a code change in a commit, paired with the re-vendor that earns it.
+**Unreviewed is deliberately exit 4, not a red.** Flow's vendoring is operator-supplied trees, so Flow always trails. A hard red on every CLI release day — carrying a remediation that cannot work yet, because no Flow release has reviewed the new version — trains operators to widen the reviewed set unreviewed, which neutralizes the check. Exit 4 also keeps CI and any host without the CLI installed from being permanently red. `fusebase` absent from PATH is therefore **exit 4, not a failure**.
+
+**Nothing is trusted that was not established.** The probe's exit code must be 0, and the version must be declared on a whole line in one of the two documented shapes (bare `X.Y.Z`, or `FuseBase CLI X.Y.Z`). A version embedded in a banner line, a pre-release/build suffix, a fourth component, trailing text, or two conflicting declarations all read as **unverified** — never as the nearest reviewed version. The reviewed set is **not** env-overridable: widening it is a code change in a commit, paired with the re-vendor that earns it.
 
 ### Advisory signals (informational — never change the verdict or exit code)
 

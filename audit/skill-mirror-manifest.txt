@@ -18,7 +18,7 @@
 .agents/skills/find-wasted-effort/SKILL.md  0a88ec0440f42d4bff5a96b1da8885d623c874b1de0cd556ac6087ebc5ad91a7
 .agents/skills/find-wasted-effort/references/false-positive-examples.md  889674d446a1849c9aef72cf27ae724388fe3599e4f379fe62411ca2c2ba128f
 .agents/skills/find-wasted-effort/references/rule-signatures.md  f115cc035a5ba4c34130e22216f49a5535e11264c50073a335f61105f993afb6
-.agents/skills/fusebase-flow-health-check/SKILL.md  8eb7ec07f74e80807768f9eb93b1d8b13735f0a52c552a1ea027d17ad919f0c6
+.agents/skills/fusebase-flow-health-check/SKILL.md  c78f6ebf1a2027bfd9bebc39012f6e0d2e41641b5a9ee1e856771049e168f87c
 .agents/skills/git-history-diagnostic/SKILL.md  c6d7cb33a4c64db6464dcfff158d00cf84d3b802f5bbd2afa6592c3d0614890c
 .agents/skills/handoff/SKILL.md  b7b08faabb8152d672415957bea0f695a55b2b931bd9056c11ec6d5d1181ea2c
 .agents/skills/implementation-planning/SKILL.md  09e39f95ae6895aea8c958579b4e2a5d7679e03c33e50751e4ebbf8729ccc6a0
@@ -67,7 +67,7 @@
 .claude/skills/find-wasted-effort/SKILL.md  0a88ec0440f42d4bff5a96b1da8885d623c874b1de0cd556ac6087ebc5ad91a7
 .claude/skills/find-wasted-effort/references/false-positive-examples.md  889674d446a1849c9aef72cf27ae724388fe3599e4f379fe62411ca2c2ba128f
 .claude/skills/find-wasted-effort/references/rule-signatures.md  f115cc035a5ba4c34130e22216f49a5535e11264c50073a335f61105f993afb6
-.claude/skills/fusebase-flow-health-check/SKILL.md  8eb7ec07f74e80807768f9eb93b1d8b13735f0a52c552a1ea027d17ad919f0c6
+.claude/skills/fusebase-flow-health-check/SKILL.md  c78f6ebf1a2027bfd9bebc39012f6e0d2e41641b5a9ee1e856771049e168f87c
 .claude/skills/git-history-diagnostic/SKILL.md  c6d7cb33a4c64db6464dcfff158d00cf84d3b802f5bbd2afa6592c3d0614890c
 .claude/skills/handoff/SKILL.md  b7b08faabb8152d672415957bea0f695a55b2b931bd9056c11ec6d5d1181ea2c
 .claude/skills/implementation-planning/SKILL.md  09e39f95ae6895aea8c958579b4e2a5d7679e03c33e50751e4ebbf8729ccc6a0

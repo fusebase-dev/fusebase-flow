@@ -17,7 +17,7 @@
 #     "schema_version": 2,
 #     "generated_at": "<UTC date>",
 #     "source_cli_version": "<x.y.z>" | "unknown",
-#     "reviewed_cli_range": { "floor", "ceiling_exclusive", "source" } | null,
+#     "reviewed_cli_policy": { "reviewed_versions", "incompatible_below", "source" } | null,
 #     "assets": [ { "path", "sha256",
 #                   "upstream_sha256", "matches_upstream", "merge_derived" }, ... ]
 #   }
@@ -153,17 +153,21 @@ if upstream_path.is_file():
     source_cli_version = up.get("cli_version") or "unknown"
     upstream_by_path = {a["path"]: a for a in up.get("assets", [])}
 
-# The reviewed-compatible range is owned by the health check's gate (single source of
-# truth); echo it here so the manifest and the gate can never disagree.
+# The reviewed-version policy is owned by the health check's gate (single source of truth);
+# echo it here so the manifest and the gate can never disagree.
+# TRIPWIRE: these constant NAMES are the contract with cli-version-check.sh. Renaming them
+# there without updating this regex drops `reviewed_cli_policy` from the manifest SILENTLY —
+# the stamp still succeeds and the field just becomes null.
 cliver = root / "hooks" / "local" / "lib" / "cli-version-check.sh"
 if cliver.is_file():
     txt = cliver.read_text(encoding="utf-8")
     def _const(name: str) -> str | None:
         m = re.search(rf'^{name}="([^"]+)"', txt, re.MULTILINE)
         return m.group(1) if m else None
-    floor, ceil_x = _const("FFHC_CLI_REVIEWED_FLOOR"), _const("FFHC_CLI_REVIEWED_CEILING_EXCL")
-    if floor and ceil_x:
-        reviewed_range = {"floor": floor, "ceiling_exclusive": ceil_x,
+    reviewed, incompat = _const("FFHC_CLI_REVIEWED_VERSIONS"), _const("FFHC_CLI_INCOMPATIBLE_BELOW")
+    if reviewed and incompat:
+        reviewed_range = {"reviewed_versions": reviewed.split(),
+                          "incompatible_below": incompat,
                           "source": "hooks/local/lib/cli-version-check.sh"}
 
 # Deterministic ordering by repo-relative path.
@@ -191,7 +195,7 @@ manifest = {
     "schema_version": 2,
     "generated_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d"),
     "source_cli_version": source_cli_version,
-    "reviewed_cli_range": reviewed_range,
+    "reviewed_cli_policy": reviewed_range,
     "description": (
         "Provenance for vendored FuseBase CLI-owned assets shipped in this "
         "Fusebase Flow edition. source_cli_version is DERIVED from "
