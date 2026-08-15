@@ -66,6 +66,16 @@ No recommendation is recorded here on purpose — the trade-off is the ticket.
 - **AC2** — The tamper-detection property is either preserved, or its loss is explicitly ratified by the operator and the health-check skill text is corrected in the same change (it currently promises tamper detection).
 - **AC3** — RED-first: reproduce with a CRLF-created covered file on a Windows host (or a synthetic equivalent), fail, fix, pass.
 
+## Second question for the same ticket — do we need TWO provenance manifests?
+
+Raised by the 2026-08-15 zoom-out review and marked `UNVERIFIED` there: it found **no established adopter need** for both `audit/cli-vendor-manifest.json` and `audit/cli-upstream-manifest.json`.
+
+They were split deliberately — the vendor manifest records what we shipped (local sha256, the `CLI_SNAPSHOT_STALE` input), the upstream manifest records what the source CLI tree held, which is what makes `source_cli_version` *derived* rather than asserted. But the vendor manifest already carries `upstream_sha256` / `matches_upstream` / `merge_derived` per asset, so the second file may be redundant to everything except `refresh-cli-vendor.sh`'s own bookkeeping.
+
+**Question to decide:** can `cli-upstream-manifest.json`'s fields live inside `cli-vendor-manifest.json`, leaving one artifact?
+
+Deliberately **not** collapsed in `cli-0298-compatibility` — that ticket already carried six review-driven fixes, and merging two published audit artifacts under time pressure is how a provenance surface acquires a silent regression. Whoever takes it should note that both files are consumer-facing and that `preflight.sh` accepts `schema_version` 1 **and** 2, so any collapse needs a schema story for trees stamped by an older Flow.
+
 ## Notes
 
-Related: `docs/backlog/local-gate-misses-manifest-freshness/README.md` (the detection half, and the open placement decision) · `docs/problem-catalog/mutable-python-load-point/problem.md` (why job 2 exists) · `docs/problem-catalog/ci-linux-msys-test-divergence/problem.md` (same family: local green that did not mean what the pusher thought).
+Related: `docs/backlog/local-gate-misses-manifest-freshness/README.md` (the detection half — built, proven, and removed from the shipped gate on placement grounds; code preserved at `s9-manifest-fresh/`) · `docs/problem-catalog/mutable-python-load-point/problem.md` (why job 2 exists) · `docs/problem-catalog/ci-linux-msys-test-divergence/problem.md` (same family: local green that did not mean what the pusher thought).

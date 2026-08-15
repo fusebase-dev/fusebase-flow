@@ -72,15 +72,29 @@ It is also invisible to every other local signal **by construction**: the stampe
 
 Evidence: hosted verify RED on **both** platforms at `22873d6` (linux 1076/1080, windows 1087/1091), identical rows, deterministic. Fixed in `b57c62f`. Reproducible locally against the pre-fix commit: `FFMF_REF=22873d6 bash hooks/tests/test-manifest-freshness.sh` fails the two stamp-compare rows.
 
-### Open operator decision — NOT settled by this retry
+### Outcome — built, proven, and REMOVED from the shipped gate on placement grounds
 
-Whether this phase belongs in the **shipped default gate** or the **S9 maintainer-governance pack** is now an open call for the operator. It is deliberately **not** in `FF_FAST_TAGS` (full tier only) so that promoting it does not pre-empt the ruling; an earlier version of the retry did promote it, and that escalation is withdrawn.
+The phase is **not** in the default gate. Its code and RED-first evidence are preserved at
+`s9-manifest-fresh/` in this directory, with adoption instructions.
 
-- **For the shipped gate:** the class it catches is a consumer-facing artifact defect, not a maintainer convenience — which is the specific claim point 1 rested on.
-- **For S9:** the North-Star argument about maintainer tooling in the default product is unchanged in principle; only its factual premise moved.
-- **Asymmetry worth weighing:** moving a full-tier phase into the maintainer pack later is a small change; re-adding a deleted check after a further occurrence costs more.
+It works, and that is recorded so nobody re-derives it: hosted CI **GREEN on both platforms,
+1094/1094, zero skips** at `2e9315d` — every row ran, including both controls.
 
-Also confirmed during the retry, re-verifying this entry's own note that `verify` and stamp-compare catch different things: an extra file planted in `hooks/tests/` leaves `verify-hook-manifest.sh` reporting **MATCH** (`extra=0`) while `verify-managed-content-manifest.sh` reports `extra:`. The stamp-compare arm is load-bearing; a read-only-verify-only design has a hole.
+It was removed because the argument for keeping it does not survive inspection. That argument
+was *"it caught a real consumer-visible defect."* True — but `b57c62f` fixed that defect and
+its root cause, and `b57c62f` is independent of this phase. The defect stays fixed whether or
+not the phase ships, so the phase was being credited with a benefit that belongs to a
+different commit. Three independent judgements agreed on removal (the 2026-08-05 revert
+`5f8004f`, the implementer's own reading on encountering this entry, and the 2026-08-15
+zoom-out review citing `north-star.md:7,15`).
+
+**What is genuinely lost:** local pre-push detection of the class. CI still catches it — that
+is where it went red — so the guard is later, not absent.
+
+**If an operator later rules for the shipped gate or the S9 pack,** adoption is a copy plus
+two lines in `run-tests.sh` (see `s9-manifest-fresh/README.md`). Do not restore it into
+`FF_FAST_TAGS` without a fresh ruling; that escalation was withdrawn once already.
+
 
 ## Notes
 

@@ -68,7 +68,7 @@ FFHC_HEARTBEAT_SECS="${FFHC_HEARTBEAT_SECS:-30}"
 # --- FF_ONLY scoped-gate parse (implement-loop iteration speed) ---------------------
 # Canonical phase tags, in run order. This list is the FF_LIST discovery source and the
 # FF_ONLY validation set; add a tag here (and its guard) when a phase is added.
-FF_TAGS=(fixtures module-size manifest-fresh health-check-timeout git-smoke minimal-path-fixture \
+FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixture \
   interpreter-contract interpreter-mutation python3-version python3-version-mutation \
   git-context git-context-mutation \
   hook-manifest newline-preserve baseline-merge \
@@ -479,11 +479,6 @@ run_shell_phase() { # run_shell_phase <test-script> <tag>
     local bad=$f; [ "$rc" -eq 0 ] || bad=$((bad + 1))
     emit_phase_diagnostics "$tag" "$out" "$bad"
 }
-# The local half of CI's manifest-freshness steps. Deliberately NOT in FF_FAST_TAGS: whether
-# this belongs in the shipped default gate at all, or in the S9 maintainer pack, is an OPEN
-# OPERATOR DECISION (docs/backlog/local-gate-misses-manifest-freshness). It is cheap enough
-# to promote (~10s measured), but promoting it would pre-empt that ruling.
-run_shell_phase test-manifest-freshness.sh   "manifest-fresh"
 run_shell_phase test-git-hooks-smoke.sh      "git-smoke"
 # Self-test of hooks/tests/lib/minimal-path-fixture.sh: the one interpreter-less PATH constructor
 # its consumers share. Outside FF_FAST_TAGS until its runtime is measured (that list is an
