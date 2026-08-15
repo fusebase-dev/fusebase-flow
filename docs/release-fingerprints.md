@@ -38,12 +38,21 @@ Match your output to either fingerprint column below; both identify the same tre
 | `v4.9.0` | 4.9.0 | `d514dd1c1888c76ec15cd711826231a25bfdf4239bf6a87dbcbfe9733e55b348` | 313 | `3a4881fe01bec0ad4439e3c5a1c17097151ceb352001eb55f1eee9b232830e35` | 164 |
 | `v4.9.1` | 4.9.1 | `ed4fc0cd755fa10707d5de8b6480dda2086840db5ecd3c30e4e56617ef644120` | 314 | `8e561250d35f3cb9a8aa8ab90f0cad454bfa60967a25a73e4c7ece5de1f27be7` | 165 |
 | `v4.9.2` | 4.9.2 | `57cae17b7db4ed1cd7e3ac17b4120062abb85e5804f2a386f60c2ba0791c6513` | 315 | `a38e92abaccdeade5ad25a8f3ce16c697f98152654a12c4eccd62c916e4966c2` | 166 |
+| `v4.10.0` | 4.10.0 | `fa7bb5cf4a4fefd8e86f35e24555f0dc82daf47e498f24c8b888e5b3fff10f65` | 323 | `faf2199c81ca9c816cb203a4f71892fd8c5353cb931a45d16f33032d70cafbe5` | 174 |
 
-`v4.9.0` and `v4.9.1` are unpublished tagged trees: their release workflows failed (2026-08-12 and
-2026-08-13) and published nothing. Both rows identify an immutable tag target; neither is evidence
-of publication. Neither tag was moved — `v4.9.2` supersedes them and is the published release.
-A tree cloned from `main` during either window is identifiable here rather than absent from the
-table.
+`v4.9.0`, `v4.9.1` and `v4.10.0` are unpublished tagged trees: their release workflows failed
+(2026-08-12, 2026-08-13 and 2026-08-15) and published nothing. Each row identifies an immutable tag
+target; none is evidence of publication. No tag was moved — `v4.9.2` superseded the first two, and
+`v4.10.1` supersedes `v4.10.0`. A tree cloned from `main` during any of those windows is identifiable
+here rather than absent from the table.
+
+`v4.10.0` failed for a reason worth recording, because it was self-inflicted: the fingerprint-row
+check added in `v4.9.2` read a tag's target with
+`--format='%(*objectname)%(objectname)'`, which CONCATENATES the commit and the tag object for an
+**annotated** tag. Its self-reference exemption compared that 80-character field against a
+40-character `HEAD` and never matched, so the tag being cut always looked like a missing row and no
+release could pass its own gate. Its test passed because the fixture built a lightweight tag — a
+shape this project never ships. Fixed in `v4.10.1` (prefix comparison, annotated + lightweight rows).
 
 Every value above is read from the tagged tree, never transcribed by hand. Regenerate them with
 `hooks/local/print-release-fingerprints.sh <ref>…`; a hand-typed hook-layer count in the first

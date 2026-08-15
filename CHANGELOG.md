@@ -4,7 +4,38 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
-## [4.10.0] — 2026-08-15
+## [4.10.1] — 2026-08-15
+
+Corrective release. **v4.10.0 was tagged but never published** — its release run failed at preflight,
+and the cause was self-inflicted. The tag was left in place rather than moved; this release supersedes
+it and contains everything v4.10.0 intended to ship.
+
+### Fixed — no release could pass its own gate
+
+The fingerprint-row check added in v4.9.2 read a tag's target with
+`git for-each-ref --format='%(refname:short) %(*objectname)%(objectname)'`. For an **annotated** tag
+those fields concatenate: the commit SHA followed by the tag-object SHA, 80 characters. The
+self-reference exemption — which excuses the tag being cut, because a tree cannot contain a row
+describing its own digest — compared that against a 40-character `HEAD` and could never match.
+
+Every release tag here is annotated, so the tag under cut always looked like a missing row. The check
+that exists to stop a fingerprint row from being forgotten instead made publication impossible, and it
+deadlocked against `PUBLISHING.md`'s correct instruction to append the row *after* tagging.
+
+The comparison is now a prefix match, exact for both shapes: `%(*objectname)` is empty for a
+lightweight tag and leads for an annotated one.
+
+**The fixture was the real defect.** `head-tag-is-exempt` passed throughout because it built a
+lightweight tag — a shape this project never ships. The test and the code agreed with each other while
+both were wrong about the artifact, the same class as two other defects found in this cycle (a
+`--local` clone that cannot cross volumes, and a manifest hashing CRLF bytes that git never stores).
+The oracle now uses `git tag -a`, with a second pair of rows retaining lightweight coverage rather
+than trading one blind spot for another. RED against the pre-fix code reproduced the live failure by
+name (`v4.10.0`); GREEN is 8/8 across both tag shapes.
+
+Everything under [4.10.0] below is included in this release.
+
+## [4.10.0] — 2026-08-15 — TAGGED, NEVER PUBLISHED
 
 FuseBase Apps CLI **0.29.8** compatibility. Flow's vendored CLI-owned assets were last refreshed at
 CLI 0.25.16 — four minor versions back. Nothing Flow *executes* against the CLI was broken; what was
