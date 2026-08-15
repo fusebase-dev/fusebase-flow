@@ -31,13 +31,20 @@ FFCF_SKILL_FILES=(
 # Canonical skill DIRECTORY names (what the conflict reporter + health engine enumerate).
 FFCF_SKILL_NAMES=(communication role-discipline zz-fixture-flat zz-fixture-nested)
 FFCF_AGENTS=(zz-fixture-agent-a zz-fixture-agent-b)
-# The CLI provider surface. 19 of the manifest's 20 known_names; the omitted
+# The CLI provider surface. 21 of the ownership map's 22 known_names; the omitted
 # app-api-contract-testing is flag-gated, so its absence is the benign default (U10 class).
+# TRIPWIRE: this list must track the `<cli-provider-skill>` known_names in
+# hooks/local/fusebase-flow-overlays/agent-surface-ownership.json minus the flag-gated
+# entries. A name added there but not here is reported MISSING => CLI_LAYER_DRIFT => the
+# reporter exits 1 => the `CONFLICT_OUTPUT="$( … )"` assignment in cli-flow-recovery-e2e.sh
+# aborts the whole phase under `set -e` with NO diagnostic. (That is exactly how adding
+# app-e2e-tests + invite-with-password in cli-0298-compatibility T4 broke this phase.)
 FFCF_PROVIDERS=(
-  api-exploration app-backend app-business-docs app-dev-practices app-routing app-secrets
-  app-sidecar app-ui-design dev-debug-logs file-upload fusebase-cli fusebase-dashboards
-  fusebase-gate fusebase-portal-specific-apps git-workflow handling-authentication-errors
-  managed-integrations mcp-gate-debug remote-logs
+  api-exploration app-backend app-business-docs app-dev-practices app-e2e-tests app-routing
+  app-secrets app-sidecar app-ui-design dev-debug-logs file-upload fusebase-cli
+  fusebase-dashboards fusebase-gate fusebase-portal-specific-apps git-workflow
+  handling-authentication-errors invite-with-password managed-integrations mcp-gate-debug
+  remote-logs
 )
 FFCF_CLI_AGENTS=(app-architect app-create-checker)
 # 2 of the 7 shipped command templates. Step 8 of the recovery is data-driven, so the

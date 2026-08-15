@@ -290,7 +290,7 @@
     },
     {
       "path": "hooks/tests/cli-flow-recovery-fixture.sh",
-      "sha256": "6c9990ab1c6ebdda9e1c3f5b3cabcc730fc0e566799a8e44e579410fd91cf0f1"
+      "sha256": "c5fda1ddbea1c7ed5e7deaa990fe847717dfb68c0629da6f8ea9a8b10a9a26b7"
     },
     {
       "path": "hooks/tests/fixtures/01_pre_tool_use_blocked_rm_rf.json",
@@ -701,5 +701,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "aedac3297024c39374af389f4bea0ed9d840f13e26fe3f0e8a8034f75721d7d9"
+  "manifest_self_sha256": "40398c6bd3ec0938603cd3efa1bf32ae145c03e69d338334cfe57fc083fe9489"
 }
