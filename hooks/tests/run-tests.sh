@@ -73,7 +73,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixtur
   git-context git-context-mutation \
   hook-manifest newline-preserve baseline-merge \
   sync-allowlist policy-state bootstrap-baseline-hop fr22-delivery po-verifiable-boot \
-  po-investigate liveness codex-parity codex-plugin cli-0259 cli-version cli-vendor secret-scan-staged bootstrap-exception \
+  po-investigate liveness codex-parity codex-plugin cli-0259 cli-version cli-vendor cli-rendered secret-scan-staged bootstrap-exception \
   lane-router \
   trusted-enforcer hook-install-rc msys-tree-cleanup job-probe ws5-upgrade ff-only return-budget \
   supersede-primitive rule-inventory boot-size prohibition-residency token-waste-classify \
@@ -528,6 +528,11 @@ run_shell_phase test-cli-version-gate.sh       "cli-version"
 # `--blind` control that destroys the block on the same fixture — a bare "the block is still
 # there" assertion would pass against a hardcoded block. Synthetic CLI trees only.
 run_shell_phase test-cli-vendor-refresh.sh     "cli-vendor"
+# S4: no vendored asset may carry `<%=`. B2 (40 unrendered interpolations across 12 files,
+# two on the sign-in surface) shipped because nothing asserted it. Scope is driven from
+# audit/cli-vendor-manifest.json, so it follows the vendored surface as it grows. Cheap
+# (no engine spawns) — promote to FF_FAST_TAGS only after it is measured there.
+run_shell_phase test-vendored-rendered.sh      "cli-rendered"
 run_shell_phase test-secret-scan-staged.sh     "secret-scan-staged"
 run_shell_phase test-bootstrap-exception.sh    "bootstrap-exception"
 run_shell_phase test-trusted-enforcer.sh       "trusted-enforcer"
