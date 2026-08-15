@@ -98,6 +98,7 @@
         "app-backend",
         "app-business-docs",
         "app-dev-practices",
+        "app-e2e-tests",
         "app-routing",
         "app-secrets",
         "app-sidecar",
@@ -110,6 +111,7 @@
         "fusebase-portal-specific-apps",
         "git-workflow",
         "handling-authentication-errors",
+        "invite-with-password",
         "managed-integrations",
         "mcp-gate-debug",
         "remote-logs"
@@ -128,6 +130,7 @@
         "app-backend",
         "app-business-docs",
         "app-dev-practices",
+        "app-e2e-tests",
         "app-routing",
         "app-secrets",
         "app-sidecar",
@@ -140,6 +143,7 @@
         "fusebase-portal-specific-apps",
         "git-workflow",
         "handling-authentication-errors",
+        "invite-with-password",
         "managed-integrations",
         "mcp-gate-debug",
         "remote-logs"

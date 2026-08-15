@@ -8,7 +8,7 @@
     "source": "hooks/local/lib/cli-version-check.sh"
   },
   "description": "Provenance for vendored FuseBase CLI-owned assets shipped in this Fusebase Flow edition. source_cli_version is DERIVED from audit/cli-upstream-manifest.json (written by hooks/local/refresh-cli-vendor.sh from the source CLI tree), or the literal 'unknown' sentinel when no re-vendor has been recorded. Per-file sha256 feeds the CLI_SNAPSHOT_STALE advisory in check-cli-flow-conflicts.sh; upstream_sha256/matches_upstream distinguish 'matches upstream' from 'matches whatever we shipped'. merge_derived files carry a Flow-authored CUSTOM:SKILL block and are exempt from exact match. Regenerate with hooks/local/stamp-cli-provenance.sh.",
-  "asset_count": 138,
+  "asset_count": 142,
   "assets": [
     {
       "path": ".agents/skills/api-exploration/SKILL.md",
@@ -42,6 +42,13 @@
       "path": ".agents/skills/app-dev-practices/SKILL.md",
       "sha256": "ffd62bef890d38f48fb95ecc72ec5d3c07557f2995a2108a5161eea8b11b2417",
       "upstream_sha256": "ffd62bef890d38f48fb95ecc72ec5d3c07557f2995a2108a5161eea8b11b2417",
+      "merge_derived": false,
+      "matches_upstream": true
+    },
+    {
+      "path": ".agents/skills/app-e2e-tests/SKILL.md",
+      "sha256": "01255cc713d7e892f056f77809ca741424cee7d6a0928bfeb9f354916afc9fec",
+      "upstream_sha256": "01255cc713d7e892f056f77809ca741424cee7d6a0928bfeb9f354916afc9fec",
       "merge_derived": false,
       "matches_upstream": true
     },
@@ -417,6 +424,13 @@
       "matches_upstream": true
     },
     {
+      "path": ".agents/skills/invite-with-password/SKILL.md",
+      "sha256": "d8c5de17dea0cdddf380b3867a5bc5d2480a9de4e580b351f94f8316d374950b",
+      "upstream_sha256": "d8c5de17dea0cdddf380b3867a5bc5d2480a9de4e580b351f94f8316d374950b",
+      "merge_derived": false,
+      "matches_upstream": true
+    },
+    {
       "path": ".agents/skills/managed-integrations/SKILL.md",
       "sha256": "1dcbb9258ae7684af538d6f3eee92b3aa3f6f8e76abbaa48b1bc1e41c09135b1",
       "upstream_sha256": "1dcbb9258ae7684af538d6f3eee92b3aa3f6f8e76abbaa48b1bc1e41c09135b1",
@@ -527,6 +541,13 @@
       "path": ".claude/skills/app-dev-practices/SKILL.md",
       "sha256": "ffd62bef890d38f48fb95ecc72ec5d3c07557f2995a2108a5161eea8b11b2417",
       "upstream_sha256": "ffd62bef890d38f48fb95ecc72ec5d3c07557f2995a2108a5161eea8b11b2417",
+      "merge_derived": false,
+      "matches_upstream": true
+    },
+    {
+      "path": ".claude/skills/app-e2e-tests/SKILL.md",
+      "sha256": "01255cc713d7e892f056f77809ca741424cee7d6a0928bfeb9f354916afc9fec",
+      "upstream_sha256": "01255cc713d7e892f056f77809ca741424cee7d6a0928bfeb9f354916afc9fec",
       "merge_derived": false,
       "matches_upstream": true
     },
@@ -898,6 +919,13 @@
       "path": ".claude/skills/handling-authentication-errors/SKILL.md",
       "sha256": "e0c3e8cb3c80980743ca41877818013aec9450edb7d89b84b4e970e981d8a4a7",
       "upstream_sha256": "e0c3e8cb3c80980743ca41877818013aec9450edb7d89b84b4e970e981d8a4a7",
+      "merge_derived": false,
+      "matches_upstream": true
+    },
+    {
+      "path": ".claude/skills/invite-with-password/SKILL.md",
+      "sha256": "d8c5de17dea0cdddf380b3867a5bc5d2480a9de4e580b351f94f8316d374950b",
+      "upstream_sha256": "d8c5de17dea0cdddf380b3867a5bc5d2480a9de4e580b351f94f8316d374950b",
       "merge_derived": false,
       "matches_upstream": true
     },

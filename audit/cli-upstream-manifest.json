@@ -3,7 +3,7 @@
   "generated_at": "2026-08-15",
   "cli_version": "0.29.8",
   "description": "UPSTREAM provenance for vendored FuseBase CLI-owned assets: each sha256 is computed from the SOURCE CLI tree, not from the local copy, so freshness can be derived rather than asserted. merge_derived=true marks a file that carries a Flow-authored CUSTOM:SKILL block and is therefore exempt from exact upstream match. Regenerate with hooks/local/refresh-cli-vendor.sh.",
-  "asset_count": 134,
+  "asset_count": 138,
   "superseded_custom_blocks": [],
   "assets": [
     {
@@ -34,6 +34,12 @@
       "path": ".agents/skills/app-dev-practices/SKILL.md",
       "upstream_source": "project-template/.claude/skills/app-dev-practices/SKILL.md",
       "upstream_sha256": "ffd62bef890d38f48fb95ecc72ec5d3c07557f2995a2108a5161eea8b11b2417",
+      "merge_derived": false
+    },
+    {
+      "path": ".agents/skills/app-e2e-tests/SKILL.md",
+      "upstream_source": "project-template/.claude/skills/app-e2e-tests/SKILL.md",
+      "upstream_sha256": "01255cc713d7e892f056f77809ca741424cee7d6a0928bfeb9f354916afc9fec",
       "merge_derived": false
     },
     {
@@ -355,6 +361,12 @@
       "merge_derived": false
     },
     {
+      "path": ".agents/skills/invite-with-password/SKILL.md",
+      "upstream_source": "project-template/.claude/skills/invite-with-password/SKILL.md",
+      "upstream_sha256": "d8c5de17dea0cdddf380b3867a5bc5d2480a9de4e580b351f94f8316d374950b",
+      "merge_derived": false
+    },
+    {
       "path": ".agents/skills/managed-integrations/SKILL.md",
       "upstream_source": "project-template/.claude/skills/managed-integrations/SKILL.md",
       "upstream_sha256": "1dcbb9258ae7684af538d6f3eee92b3aa3f6f8e76abbaa48b1bc1e41c09135b1",
@@ -436,6 +448,12 @@
       "path": ".claude/skills/app-dev-practices/SKILL.md",
       "upstream_source": "project-template/.claude/skills/app-dev-practices/SKILL.md",
       "upstream_sha256": "ffd62bef890d38f48fb95ecc72ec5d3c07557f2995a2108a5161eea8b11b2417",
+      "merge_derived": false
+    },
+    {
+      "path": ".claude/skills/app-e2e-tests/SKILL.md",
+      "upstream_source": "project-template/.claude/skills/app-e2e-tests/SKILL.md",
+      "upstream_sha256": "01255cc713d7e892f056f77809ca741424cee7d6a0928bfeb9f354916afc9fec",
       "merge_derived": false
     },
     {
@@ -754,6 +772,12 @@
       "path": ".claude/skills/handling-authentication-errors/SKILL.md",
       "upstream_source": "project-template/.claude/skills/handling-authentication-errors/SKILL.md",
       "upstream_sha256": "e0c3e8cb3c80980743ca41877818013aec9450edb7d89b84b4e970e981d8a4a7",
+      "merge_derived": false
+    },
+    {
+      "path": ".claude/skills/invite-with-password/SKILL.md",
+      "upstream_source": "project-template/.claude/skills/invite-with-password/SKILL.md",
+      "upstream_sha256": "d8c5de17dea0cdddf380b3867a5bc5d2480a9de4e580b351f94f8316d374950b",
       "merge_derived": false
     },
     {
