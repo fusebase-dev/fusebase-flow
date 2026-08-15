@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.9.2",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 316,
+  "asset_count": 324,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "b90b86c46ae8e8c7fee4614bc2b61556d6a5af8ef62dacdc4789e0ab8ff76856"
+      "sha256": "98717a65a018f2388a3decf76e6055f9f4fd53add8a55e5c38821ff6023b6c8f"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -106,7 +106,7 @@
     },
     {
       "path": "flow-skills/fusebase-flow-health-check/SKILL.md",
-      "sha256": "0c4f2a7cd493c7addef32d53da0446cbd51b25ae9cbd7c65c1c1baa9110a1199"
+      "sha256": "c78f6ebf1a2027bfd9bebc39012f6e0d2e41641b5a9ee1e856771049e168f87c"
     },
     {
       "path": "flow-skills/git-history-diagnostic/SKILL.md",
@@ -281,6 +281,10 @@
       "sha256": "e9d192b09e351091350d6d4b6f04e865f5611f5268bd0c5c4a24d5cbcd83d582"
     },
     {
+      "path": "hooks/local/check-vendored-rendered.sh",
+      "sha256": "4145ce9c5081a11b5083855f37e602ef5f879003b7bb05b058007f265cb272ae"
+    },
+    {
       "path": "hooks/local/cleanup-flow-backups.sh",
       "sha256": "27779087161f5459883b35753f8bb3f71824729dca25fc8ee7eaf3586fee2ffb"
     },
@@ -386,11 +390,11 @@
     },
     {
       "path": "hooks/local/fusebase-flow-health-check.sh",
-      "sha256": "36cfbc7b1f8900614377d19833272e8bf4b639798e135a350c774fc39fcf569a"
+      "sha256": "077357f434f29e8792a8e81187f2e49668d2bc35104a2a53fad411770290fad0"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/agent-surface-ownership.json",
-      "sha256": "8ed489706e1cb63ae9b4e4f27ea75b78fb2f2ef8011298afe7adfc7c1a507157"
+      "sha256": "b0517956f5f45db60d342b8fe7d81c0bae7e746b48feb0b39214cff42e35ba55"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/agents-md-overlay.md",
@@ -434,7 +438,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/skills/fusebase-flow-health-check/SKILL.md",
-      "sha256": "0c4f2a7cd493c7addef32d53da0446cbd51b25ae9cbd7c65c1c1baa9110a1199"
+      "sha256": "c78f6ebf1a2027bfd9bebc39012f6e0d2e41641b5a9ee1e856771049e168f87c"
     },
     {
       "path": "hooks/local/install-codex-prompts.sh",
@@ -467,6 +471,14 @@
     {
       "path": "hooks/local/lib/bounded-run.sh",
       "sha256": "91bea5023707011070f522ecf7070242923528ea1bdd843faf726a0aba6d8e77"
+    },
+    {
+      "path": "hooks/local/lib/cli-version-check.sh",
+      "sha256": "312b616d7ad10634b3b7479c155dde571a1a9c636e7fe23635f0bcb78593ce61"
+    },
+    {
+      "path": "hooks/local/lib/health-recommendations.sh",
+      "sha256": "0fde87bf606134a16d335f6ebe87333c3ffc1f1d74bc6aef6b079a1bff90e467"
     },
     {
       "path": "hooks/local/lib/hook-integrity-check.sh",
@@ -518,11 +530,15 @@
     },
     {
       "path": "hooks/local/preflight.sh",
-      "sha256": "3401cc3758f4267c3a9bcca81739888ab16556833f97f673c5bd5de1369a4cbc"
+      "sha256": "f13b3eddf5586e0ae81e5d6220b15bcbc8245677349ddcba6b1d126838357b64"
     },
     {
       "path": "hooks/local/print-release-fingerprints.sh",
       "sha256": "4014ed2e8a2fba5ff69fd39019865789e7a5db0db9fcbdedf0ca1cfa14c0754c"
+    },
+    {
+      "path": "hooks/local/refresh-cli-vendor.sh",
+      "sha256": "b1c7887b4a326279b7bdb53490f9947cd4735bbde077ad3ed4c2fad862f75260"
     },
     {
       "path": "hooks/local/rule-inventory.sh",
@@ -534,7 +550,7 @@
     },
     {
       "path": "hooks/local/stamp-cli-provenance.sh",
-      "sha256": "76f186c58322f5ab2318f13afb26bcae37e8dcaf81f5cf15b9b69f2ff1ed3041"
+      "sha256": "fad29b1ce654e46943fa6f91bef495d924e3d9dd22556662dc75a6430f717d9c"
     },
     {
       "path": "hooks/local/stamp-hook-manifest.sh",
@@ -650,7 +666,7 @@
     },
     {
       "path": "hooks/tests/cli-flow-recovery-fixture.sh",
-      "sha256": "6c9990ab1c6ebdda9e1c3f5b3cabcc730fc0e566799a8e44e579410fd91cf0f1"
+      "sha256": "f6083405873d970dc5f62d2375491b13cd8e627287c849a517ad76557b29e406"
     },
     {
       "path": "hooks/tests/fixtures/01_pre_tool_use_blocked_rm_rf.json",
@@ -846,7 +862,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "0a9bd6fc6b366c78d14f000b0b273cffb727cdb5bf2f79b2098e43fffecb46a8"
+      "sha256": "56e18f439fe8e0e2cdb812d3f1a55d14c08284b2cb400aac856caebf17febe0b"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -890,7 +906,15 @@
     },
     {
       "path": "hooks/tests/test-cli-flow-recovery.sh",
-      "sha256": "025fe5c264b63a2ebbd7a8487ae24a67bf185cd692896c5d65db0ee0e8727e4f"
+      "sha256": "c5e289bf2084911033f199cc095af8706a030ec4b91001e25dfe2c6daf09e1fe"
+    },
+    {
+      "path": "hooks/tests/test-cli-vendor-refresh.sh",
+      "sha256": "dfbb92aa83b504d0e2a4d42e95fa580d772d2ccda5453f9f057dcaf62edbed4c"
+    },
+    {
+      "path": "hooks/tests/test-cli-version-gate.sh",
+      "sha256": "01dcde1b41bcbe962c2ce44b52ee6ea4393ae74f1850fbf7571acf000c11812b"
     },
     {
       "path": "hooks/tests/test-codex-plugin-surface.sh",
@@ -926,7 +950,7 @@
     },
     {
       "path": "hooks/tests/test-health-check-timeout.sh",
-      "sha256": "d6aaf53c5a9d8ba5eca76e40572d5ddad921fb6ae8784cf33351350b47610216"
+      "sha256": "8152bf3ad5002902a30dfca79c2105298f7f0c7fbbab4a3d3686112369535931"
     },
     {
       "path": "hooks/tests/test-history-extraction.sh",
@@ -955,6 +979,10 @@
     {
       "path": "hooks/tests/test-liveness-bounded-run.sh",
       "sha256": "8cf77264557d373e7fee0a1e51086a0ec7d7766f049afa9c5f7422be8322a513"
+    },
+    {
+      "path": "hooks/tests/test-manifest-freshness.sh",
+      "sha256": "4377027795e3fa36f20923734f036147fbd38af498949a2fed1401c30a2685ac"
     },
     {
       "path": "hooks/tests/test-minimal-path-fixture.sh",
@@ -1071,6 +1099,10 @@
     {
       "path": "hooks/tests/test-upgrade-source-boundary.sh",
       "sha256": "e42c346a22d1b0fdbdec961cc0746d2198bbb65df544c44d1e5637b40803f514"
+    },
+    {
+      "path": "hooks/tests/test-vendored-rendered.sh",
+      "sha256": "c65d86337773c037310636847e7fd84c536fa275d75bec322b23fcf8435361de"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
@@ -1269,5 +1301,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "5ae280c37956c9d7fc364b5ac88db5153c528689e7278dfa0cd64ffec5650f24"
+  "manifest_self_sha256": "e1334f1d708be4243ac723c64154f1ba86b7f8145f07fce1825b1a0fbd3260fe"
 }
