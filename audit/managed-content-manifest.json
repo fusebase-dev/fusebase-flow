@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "5f6144a42993978f7b31c30d6ded9e9da7ec8600cd05ef4521a78da65533723b"
+      "sha256": "b64b90cc902ef23381a6185153e47e5ffddf7ef33b2285a9e569bce27831e186"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -282,7 +282,7 @@
     },
     {
       "path": "hooks/local/check-vendored-rendered.sh",
-      "sha256": "4145ce9c5081a11b5083855f37e602ef5f879003b7bb05b058007f265cb272ae"
+      "sha256": "b084434258f3970e3046ad6ae949db729a413dcd6c7a320cd9b5b50044382852"
     },
     {
       "path": "hooks/local/cleanup-flow-backups.sh",
@@ -538,7 +538,7 @@
     },
     {
       "path": "hooks/local/refresh-cli-vendor.sh",
-      "sha256": "b1c7887b4a326279b7bdb53490f9947cd4735bbde077ad3ed4c2fad862f75260"
+      "sha256": "41534c1f4303aaf9dbbfe1eb50f0132f8893755de7267a33abfe18a1da366ee6"
     },
     {
       "path": "hooks/local/rule-inventory.sh",
@@ -550,7 +550,7 @@
     },
     {
       "path": "hooks/local/stamp-cli-provenance.sh",
-      "sha256": "fad29b1ce654e46943fa6f91bef495d924e3d9dd22556662dc75a6430f717d9c"
+      "sha256": "be6b02f378b3301316e4e9ad6f08368a82442e18fb1e46def4dcf99a10eb6d76"
     },
     {
       "path": "hooks/local/stamp-hook-manifest.sh",
@@ -982,7 +982,7 @@
     },
     {
       "path": "hooks/tests/test-manifest-freshness.sh",
-      "sha256": "8b2e65cbf2ebe73a0221be894c6282f882c79a92753203bbac01c63b6cc6b5c5"
+      "sha256": "3a47da47022bb22e01da65875ca58b0b8bbe1266e31f4512cf438243f5076943"
     },
     {
       "path": "hooks/tests/test-minimal-path-fixture.sh",
@@ -1301,5 +1301,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "15a3872b10a60ec4ea676c4d7288aee9c72872288909273b66138ecf870e00ba"
+  "manifest_self_sha256": "b0fc38fbf1140d38821c34479b8d863708737e49901f39033cc1f9a519c04335"
 }

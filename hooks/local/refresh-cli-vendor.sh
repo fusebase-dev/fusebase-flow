@@ -292,7 +292,10 @@ manifest = {
 if not dry and not blind:
     out = dest_root / "audit" / "cli-upstream-manifest.json"
     out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    # newline="\n": see the tripwire in stamp-cli-provenance.sh. A CRLF manifest describes
+    # bytes that never ship, and the local stamper/verifier pair cannot see it by construction.
+    with out.open("w", encoding="utf-8", newline="\n") as fh:
+        fh.write(json.dumps(manifest, indent=2) + "\n")
 
 mode = "BLIND (diagnostic)" if blind else ("dry-run" if dry else "guarded")
 print(f"[refresh-cli-vendor] mode={mode} cli_version={cli_version} assets={len(assets)} changed={len(changed)}")

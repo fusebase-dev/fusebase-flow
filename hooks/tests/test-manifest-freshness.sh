@@ -37,6 +37,9 @@ ok()  { pass=$((pass + 1)); echo "PASS: manifest-fresh $1"; }
 bad() { fail=$((fail + 1)); local w="${2:-}"; [ -z "$w" ] || w=" ($(printf '%s' "$w" | tr '\n\r\t' '   ' | cut -c1-400))"; echo "FAIL: manifest-fresh $1$w"; }
 finish() { echo "[test-manifest-freshness] $pass/$((pass + fail)) PASS"; exit $fail; }
 
+python_bin="${PYTHON:-python3}"
+command -v "$python_bin" >/dev/null 2>&1 || python_bin="python"
+
 HOOK_MF="audit/hook-layer-manifest.json"
 MANAGED_MF="audit/managed-content-manifest.json"
 
@@ -124,6 +127,66 @@ if [ "$mrc" -eq 0 ] && printf '%s' "$mout" | grep -q "MATCH"; then
   ok "verify-managed-content-manifest-MATCH"
 else
   bad verify-managed-content-manifest-MATCH "rc=$mrc $mout"
+fi
+
+###############################################################################
+# EOL normalization — the one class the four rows above CANNOT see, by construction.
+#
+# WHY: the stamper hashes WORKING-TREE bytes. A file created on Windows with CRLF is
+# normalized to LF in the index by `.gitattributes` (`*.sh`/`*.json text eol=lf`), but the
+# working tree keeps the original CRLF until the path is re-checked-out. So the manifest
+# records a digest of bytes that never ship. Locally the stamper and the verifier read the
+# SAME wrong bytes and agree with each other — MATCH, every time — while CI checks out LF
+# and disagrees. Same shape as the two defects this branch already fixed: provenance that
+# describes the local copy instead of the artifact, and a check that cannot fail.
+#
+# This is why the row exists at all: no amount of re-stamping or re-verifying finds it.
+# Discriminator: only paths whose attributes REQUIRE lf in the worktree (`eol=lf`) count.
+# `text=auto` paths are legitimately `w/crlf` on Windows — flagging those would be noise.
+###############################################################################
+eol_offenders() {   # eol_offenders <ls-files-eol-listing-file> -> one "path (i/x w/y)" per line
+  "$python_bin" - "$1" <<'PY'
+import re, sys, pathlib
+for line in pathlib.Path(sys.argv[1]).read_text(encoding="utf-8", errors="replace").splitlines():
+    # TRIPWIRE: the attr field CONTAINS A SPACE ("attr/text eol=lf"), so it must be matched
+    # non-greedily up to the TAB before the path — not with \S+, which stops at that space,
+    # matches nothing, and makes this detector silently report zero offenders on every input.
+    # Its first version did exactly that, and only the control row caught it.
+    m = re.match(r"^i/(\S+)\s+w/(\S+)\s+attr/(.*?)\t(.*)$", line)
+    if not m:
+        continue
+    idx, work, attr, path = m.groups()
+    if "eol=lf" not in attr:      # text=auto: w/crlf on Windows is correct, not a defect
+        continue
+    # "-" binary · "none" empty / no line endings at all (e.g. .gitkeep) · "lf" already correct
+    if work in ("-", "none", "lf"):
+        continue
+    print(f"{path} (i/{idx} w/{work} attr/{attr})")
+PY
+}
+
+# CONTROL: feed the detector a synthetic listing carrying a known offender plus the two
+# shapes that must NOT be flagged. A detector that flags nothing would sail through the real
+# row on a clean tree and prove nothing — the same trap the freshness control fell into.
+cat > "$TMP_BASE/eol-control.txt" <<'EOL'
+i/lf	w/crlf	attr/text eol=lf      	fake/offender.sh
+i/lf	w/crlf	attr/text=auto        	fake/legit-autocrlf.example
+i/lf	w/lf	attr/text eol=lf      	fake/correct.sh
+i/-	w/-	attr/-                	fake/binary.png
+EOL
+cout="$(eol_offenders "$TMP_BASE/eol-control.txt")"
+if [ "$(printf '%s' "$cout" | grep -c .)" = "1" ] && printf '%s' "$cout" | grep -q "fake/offender.sh"; then
+  ok "control-eol-detector-discriminates (flags the eol=lf offender; ignores text=auto, correct-lf and binary)"
+else
+  bad control-eol-detector-discriminates "expected exactly fake/offender.sh, got: $cout"
+fi
+
+git ls-files --eol > "$TMP_BASE/eol-real.txt" 2>/dev/null
+offenders="$(eol_offenders "$TMP_BASE/eol-real.txt")"
+if [ -z "$offenders" ]; then
+  ok "no-eol-mismatched-covered-paths (every eol=lf path is lf in the working tree, so the stamper hashes the bytes that actually ship)"
+else
+  bad no-eol-mismatched-covered-paths "$(printf '%s' "$offenders" | tr '\n' ' ') -- the stamper hashes working-tree bytes, so these manifests describe bytes that never ship; CI checks out lf and disagrees. Fix: git rm --cached -- <path> is NOT it; remove the worktree copy and re-checkout so git materializes it per .gitattributes"
 fi
 
 finish

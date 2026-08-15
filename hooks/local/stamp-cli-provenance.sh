@@ -211,7 +211,13 @@ manifest = {
     "assets": assets,
 }
 
-out_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+# TRIPWIRE — newline="\n": LF even on Windows, matching hooks/local/lib/hook_manifest.py.
+# The stampers hash WORKING-TREE bytes, so a CRLF artifact makes every manifest that covers
+# it describe bytes that never ship (.gitattributes normalizes *.json to LF in the index).
+# Locally the stamper and the verifier read the same wrong bytes and agree; CI checks out LF
+# and disagrees. Python's default text mode translates "\n" to CRLF on Windows — never use it here.
+with out_path.open("w", encoding="utf-8", newline="\n") as fh:
+    fh.write(json.dumps(manifest, indent=2) + "\n")
 mismatched = sum(1 for a in assets if a.get("matches_upstream") is False)
 print(f"[stamp-cli-provenance] wrote {out_path.relative_to(root)} "
       f"({len(assets)} asset(s); source_cli_version={source_cli_version}; "
