@@ -14,7 +14,7 @@
 #                  contain its own row, so without this the check makes releasing impossible.
 #                  Paired with a scoping control: the exemption must not silence OTHER misses.
 #
-# TIER: heavy (clones the repo, runs preflight 4x). FF_ONLY=fingerprint-rows or FF_FULL=1.
+# TIER: heavy (clones the repo, runs preflight 5x). FF_ONLY=fingerprint-rows or FF_FULL=1.
 #
 # Output contract (parsed by run-tests.sh run_shell_phase):
 #   "PASS: fingerprint-rows <name>" / "FAIL: fingerprint-rows <name>"; exit = fail count.
@@ -119,7 +119,13 @@ grep -v '^| `v4.9.1` |' "$CLONE/fingerprints.orig" > "$FP"
   echo "4.9.3" > VERSION
   git add VERSION "$FP_REL" >/dev/null 2>&1
   git commit -q -m "simulate the next release cut" >/dev/null 2>&1
-  git tag v4.9.3
+  # TRIPWIRE: ANNOTATED (-a), because every real release tag in this repo is annotated
+  # (`git tag -a`, PUBLISHING.md). The first version of this row used a LIGHTWEIGHT tag and
+  # therefore passed against code that could never exempt a real one: for an annotated tag
+  # `%(*objectname)%(objectname)` CONCATENATES commit+tag-object into 80 chars, so an equality
+  # test against HEAD never matched and v4.10.0's own release run failed its own gate. A
+  # fixture that tests a shape which never ships is agreement between two wrong things.
+  git tag -a v4.9.3 -m "simulate the next release cut"
 ) >/dev/null 2>&1
 ex="$(fp_preflight)"
 if printf '%s' "$ex" | grep -q 'v4\.9\.3'; then
@@ -131,6 +137,29 @@ if printf '%s' "$ex" | grep -q 'v4\.9\.1'; then
   ok "exemption-is-scoped-not-a-mute (the same run still names v4.9.1 — exempting the HEAD tag does not switch the assertion off for every other tag)"
 else
   bad "exemption-is-scoped-not-a-mute" "with a HEAD tag present the check stopped reporting the genuinely missing v4.9.1: [$ex]"
+fi
+
+# --- BOTH TAG SHAPES ---------------------------------------------------------------------------
+# The row above uses an ANNOTATED tag because that is what ships. This one re-runs the same
+# exemption against a LIGHTWEIGHT tag, so the fix is not a swap of one blind spot for the other:
+# the ORIGINAL code passed only the lightweight shape, and a prefix match must satisfy both.
+# `%(*objectname)` is empty for a lightweight tag (field = the 40-char commit) and the commit for
+# an annotated one (field = commit+tagobject, 80 chars) — the commit leads in both cases.
+(
+  cd "$REPO" || exit 1
+  git tag -d v4.9.3 >/dev/null 2>&1
+  git tag v4.9.3                       # LIGHTWEIGHT this time; same commit, still HEAD
+) >/dev/null 2>&1
+lw="$(fp_preflight)"
+if printf '%s' "$lw" | grep -q 'v4\.9\.3'; then
+  bad "head-tag-is-exempt-lightweight" "a LIGHTWEIGHT tag at HEAD was reported missing — the prefix match must cover both tag shapes: [$lw]"
+else
+  ok "head-tag-is-exempt-lightweight (the same exemption holds for a lightweight tag at HEAD, so annotated support was added without dropping the shape that already worked)"
+fi
+if printf '%s' "$lw" | grep -q 'v4\.9\.1'; then
+  ok "lightweight-exemption-is-scoped-not-a-mute (v4.9.1 still named alongside the lightweight HEAD tag)"
+else
+  bad "lightweight-exemption-is-scoped-not-a-mute" "the lightweight HEAD tag silenced the genuinely missing v4.9.1: [$lw]"
 fi
 
 finish

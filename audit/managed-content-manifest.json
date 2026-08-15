@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "edff8c32227410647ec42e76e983c8a8a1bffd20e38de1c2144be5bcce87be26"
+      "sha256": "20685c488750958459e0217159842e3c2c7a4dd57303560e0c038e849b4e4a68"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -530,7 +530,7 @@
     },
     {
       "path": "hooks/local/preflight.sh",
-      "sha256": "f13b3eddf5586e0ae81e5d6220b15bcbc8245677349ddcba6b1d126838357b64"
+      "sha256": "9621ce63e6c710133b704e052a8add85fae2c4a32b0ec56c700d85f922161351"
     },
     {
       "path": "hooks/local/print-release-fingerprints.sh",
@@ -938,7 +938,7 @@
     },
     {
       "path": "hooks/tests/test-fingerprint-row-per-tag.sh",
-      "sha256": "6eb13138906f9efba95ce21ae75b302f91ec7e7f16481331c0aa12ceb31b6336"
+      "sha256": "e09e6002255e20c0c6291609c34c5c8eafccb14b53fa85d79934e9966e2cd9bb"
     },
     {
       "path": "hooks/tests/test-fr22-delivery-guarantee.sh",
@@ -1297,5 +1297,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "fa7bb5cf4a4fefd8e86f35e24555f0dc82daf47e498f24c8b888e5b3fff10f65"
+  "manifest_self_sha256": "269a4852bc36488acb3403784b9faacba50098c291c23787b6f5319273f2921f"
 }

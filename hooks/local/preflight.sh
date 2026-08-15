@@ -431,7 +431,16 @@ if [ -f "$FP_FILE" ] && git rev-parse --git-dir >/dev/null 2>&1; then
             _fp_key "$fp_tag"
             [ "$FP_KEY" -lt "$fp_floor" ] && continue      # (b) coverage window
             case "$fp_rows" in *'`'"$fp_tag"'`'*) continue ;; esac
-            [ "$fp_sha" = "$fp_head" ] && continue         # (a) self-reference exemption
+            # (a) self-reference exemption. PREFIX match, never equality.
+            # TRIPWIRE: for an ANNOTATED tag `%(*objectname)%(objectname)` CONCATENATES the
+            # commit and the tag object into 80 chars; for a LIGHTWEIGHT tag `%(*objectname)`
+            # is empty and the field is the 40-char commit. Either way the COMMIT is the first
+            # 40 chars, so a prefix test is exact for both shapes. An equality test matched
+            # only lightweight tags — and every release tag here is annotated (`git tag -a`),
+            # so the tag being cut always looked like a missing row and NO release could pass
+            # its own gate (v4.10.0 died on exactly this). Keep it spawn-free: this is the hot
+            # path that cost 4m15s once already.
+            case "$fp_sha" in "$fp_head"*) continue ;; esac
             # Candidate miss — now (and only now) pay for the ownership check.
             [ "$(git show "$fp_tag:VERSION" 2>/dev/null | tr -d '[:space:]')" = "${fp_tag#v}" ] || continue
             fp_missing="$fp_missing $fp_tag"
