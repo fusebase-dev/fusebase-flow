@@ -361,7 +361,7 @@ Preflight will warn on drift if the mirrors and canonical fall out of sync. Full
 
 ## Skill catalog
 
-Skills are on-demand expertise the agent loads when a task matches the skill's description. **34 canonical Flow skills** govern the lifecycle and project-optimization; **20 FuseBase Apps domain skills** supply the app-building knowledge. You usually describe the work and let the matcher load the right one; Codex can also expose the `product-owner` bridge when you search `/product` or `/skills`.
+Skills are on-demand expertise the agent loads when a task matches the skill's description. **34 canonical Flow skills** govern the lifecycle and project-optimization; **22 FuseBase Apps domain skills** supply the app-building knowledge. You usually describe the work and let the matcher load the right one; Codex can also expose the `product-owner` bridge when you search `/product` or `/skills`.
 
 ### Flow lifecycle skills (33)
 
@@ -404,7 +404,7 @@ Skills are on-demand expertise the agent loads when a task matches the skill's d
 
 ★ = mandatory, loaded every session. The last 9 (zoom-out … product-apps-decomposition) shipped in v3.3–v3.5; `lightweight-lane` v3.7, `comment-policy` v3.11, `documentation-budget` v3.12, `handoff` v3.14, `module-size-discipline` v3.16, `app-quality-patterns` v3.19, `token-economy` v3.20, `find-wasted-effort` v3.22, `liveness-discipline` v3.28, `find-wasted-code` v4.5. The project-* / north-star / client-vs-internal / product-* / guard skills are **artifact-gated by default** — dormant until onboarding creates their `docs/` artifact (client-vs-internal also activates on an explicit operator posture-check request). `product-owner` is an activation bridge, not an alternate role definition.
 
-### FuseBase CLI provider skills (20)
+### FuseBase CLI provider skills (22)
 
 <details>
 <summary><strong>App build · runtime · data · ops domain skills</strong></summary>
@@ -414,8 +414,8 @@ Skills are on-demand expertise the agent loads when a task matches the skill's d
 | **Build & structure** | `fusebase-cli`, `app-dev-practices`, `app-routing`, `app-ui-design` |
 | **Backend & infra** | `app-backend`, `app-secrets`, `app-sidecar`, `managed-integrations` |
 | **Data & dashboards** | `fusebase-dashboards`, `fusebase-gate`, `file-upload`, `fusebase-portal-specific-apps` |
-| **Auth & errors** | `handling-authentication-errors` |
-| **Debug & ops** | `dev-debug-logs`, `remote-logs`, `api-exploration`, `mcp-gate-debug`, `app-api-contract-testing` |
+| **Auth & errors** | `handling-authentication-errors`, `invite-with-password` |
+| **Debug & ops** | `dev-debug-logs`, `remote-logs`, `api-exploration`, `mcp-gate-debug`, `app-api-contract-testing`, `app-e2e-tests` |
 | **Docs & git** | `app-business-docs`, `git-workflow` |
 
 </details>

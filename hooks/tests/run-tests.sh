@@ -68,7 +68,7 @@ FFHC_HEARTBEAT_SECS="${FFHC_HEARTBEAT_SECS:-30}"
 # --- FF_ONLY scoped-gate parse (implement-loop iteration speed) ---------------------
 # Canonical phase tags, in run order. This list is the FF_LIST discovery source and the
 # FF_ONLY validation set; add a tag here (and its guard) when a phase is added.
-FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixture \
+FF_TAGS=(fixtures module-size manifest-fresh health-check-timeout git-smoke minimal-path-fixture \
   interpreter-contract interpreter-mutation python3-version python3-version-mutation \
   git-context git-context-mutation \
   hook-manifest newline-preserve baseline-merge \
@@ -125,7 +125,7 @@ fi
 # (14s) is added — it guards the release-evidence contract itself.
 # TRIPWIRE: this is an ALLOWLIST, so a NEW phase is heavy until measured and promoted. The
 # safe direction: a new phase runs in CI/full from day one, never silently on the budget.
-FF_FAST_TAGS=(fixtures module-size git-smoke hook-manifest lane-router \
+FF_FAST_TAGS=(fixtures module-size manifest-fresh git-smoke hook-manifest lane-router \
   approval-binding approval-writer command-policy release-authority)
 declare -A FF_FAST=(); for t in "${FF_FAST_TAGS[@]}"; do FF_FAST[$t]=1; done
 
@@ -479,6 +479,11 @@ run_shell_phase() { # run_shell_phase <test-script> <tag>
     local bad=$f; [ "$rc" -eq 0 ] || bad=$((bad + 1))
     emit_phase_diagnostics "$tag" "$out" "$bad"
 }
+# The local half of CI's manifest-freshness steps. PROMOTED into FF_FAST_TAGS on a
+# measurement (8s on loaded MSYS), per that array's measure-before-promote tripwire: an
+# assertion that only ran in the full tier would not have caught any of the six occurrences
+# of the stale-manifest class it exists to stop.
+run_shell_phase test-manifest-freshness.sh   "manifest-fresh"
 run_shell_phase test-git-hooks-smoke.sh      "git-smoke"
 # Self-test of hooks/tests/lib/minimal-path-fixture.sh: the one interpreter-less PATH constructor
 # its consumers share. Outside FF_FAST_TAGS until its runtime is measured (that list is an
