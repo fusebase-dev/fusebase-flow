@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "98717a65a018f2388a3decf76e6055f9f4fd53add8a55e5c38821ff6023b6c8f"
+      "sha256": "5f6144a42993978f7b31c30d6ded9e9da7ec8600cd05ef4521a78da65533723b"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -982,7 +982,7 @@
     },
     {
       "path": "hooks/tests/test-manifest-freshness.sh",
-      "sha256": "4377027795e3fa36f20923734f036147fbd38af498949a2fed1401c30a2685ac"
+      "sha256": "8b2e65cbf2ebe73a0221be894c6282f882c79a92753203bbac01c63b6cc6b5c5"
     },
     {
       "path": "hooks/tests/test-minimal-path-fixture.sh",
@@ -1301,5 +1301,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "e1334f1d708be4243ac723c64154f1ba86b7f8145f07fce1825b1a0fbd3260fe"
+  "manifest_self_sha256": "15a3872b10a60ec4ea676c4d7288aee9c72872288909273b66138ecf870e00ba"
 }
