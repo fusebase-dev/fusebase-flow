@@ -1,12 +1,13 @@
 # Decisions — N5 upgrade silent no-op
 
-Prefix `N`. Two of the three questions were already decided elsewhere and are applied, not reopened; only N3 is new.
+Prefix `N`. N1/N2 were already decided elsewhere and are applied, not reopened. N3 and N4 are new — N4 was forced by the oracle, which showed N3's predicate could never fire as first written.
 
 | ID | Decision | Rests on | Lock status |
 |---|---|---|---|
 | N1 | Port K13a synthesis to `upgrade.sh` via a shared lib — extract, never copy | K13a, K14 | LOCKED |
 | N2 | `unknown-base` remains preserve+report; no abort | K9 (unchanged) | LOCKED |
 | N3 | A run that refreshed nothing must not bump VERSION and must not exit 0 | new | LOCKED |
+| N4 | Delivering only the classifier's own base manifest is NOT delivery | new | LOCKED |
 
 ---
 
@@ -59,5 +60,55 @@ Exiting non-zero is not decoration. N5's complaint is not only that VERSION adva
 - **Refuse the bump but exit 0** — rejected: keeps the silence that made N5 undetectable.
 - **Trigger on zero-refreshed alone** — rejected: false-positives a legitimately current tree and a docs-only release.
 - **Trigger on synthesis failure** — rejected: strands the forked consumer who still received files. The refusal must key on outcome, not on cause.
+
+**Lock status:** LOCKED
+
+---
+
+## N4. `audit/managed-content-manifest.json` does not count toward delivery
+
+**Decision:** when evaluating N3's "was anything delivered" clause, exclude
+`audit/managed-content-manifest.json` from the delivered count. Exclude **that path only** —
+not `audit/*` generally.
+
+**Reasoning:** the base manifest is the classifier's own **reference data** — the artifact that
+lets the engine tell the consumer's edits from upstream's. It is bookkeeping the engine writes
+*for itself*, not content the consumer's tree exists to receive. Counting it as delivery lets
+the engine satisfy its own honesty check with an artifact it authored: the same shape as a
+self-referential provenance stamp, where the check passes because both sides of the comparison
+come from the same place.
+
+It is also causally entangled with the trigger in a way nothing else is. The base manifest is
+absent **exactly** in the N5 scenario — that absence is what produces the whole-tree
+`unknown-base` classification — so upstream is guaranteed to "deliver" it precisely when the
+guard most needs to fire. A predicate that can never fire in the one scenario it was written
+for is not conservative; it is a decoration.
+
+Found by the oracle, not by review: with the base manifest counted, `n3-refuses-and-says-so`
+and `n3-dry-run-surfaces-it` both reported `VERSION advanced to 4.7.0` — the guard as first
+written would have shipped **inert**.
+
+**Scope is deliberately narrow.** The other `audit/*` manifests stay in the count: a release
+that genuinely ships only manifest changes is legitimate delivery, and excluding them would
+trade an inert guard for a false refusal — the opposite failure, and the worse one for a
+consumer who then cannot upgrade at all.
+
+**The principle, for whoever adds the next such artifact:** *classifier bookkeeping the engine
+writes for itself does not count toward delivery.* It belongs in this exclusion; anything the
+consumer's tree exists to receive does not. The tripwire carrying this sits with the exclusion
+in `hooks/local/lib/upgrade-delivery-guard.sh`, so it is read at the point of change.
+
+**Placement:** the delivered-count lives in the guard lib, not in `upgrade.sh` — "what counts
+as delivery" is that lib's concern. (It also keeps `upgrade.sh` off its 821 baseline pin, but
+the seam is right independently of the line budget.)
+
+**Alternatives considered:**
+
+- **Exclude all of `audit/**`** — rejected: a manifest-only release is real delivery; this
+  converts an inert guard into a false refusal.
+- **Count it, and instead require >=2 delivered files** — rejected: an arbitrary threshold that
+  silently mis-handles a legitimate one-file release.
+- **Leave it, and let the guard be inert** — rejected on the finding above: it cannot fire in
+  the scenario it exists for.
 
 **Lock status:** LOCKED

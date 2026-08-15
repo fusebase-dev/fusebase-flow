@@ -695,70 +695,21 @@ fi
 BASE_REL="$FF_MCM_REL"
 MCM_SRC="$SOURCE_TREE/hooks/local/lib/managed_content_manifest.py"
 
-ff_synthesize_base() {
-  local ver tag tmp rc
-  if [ -f "$BASE_REL" ]; then
-    echo "[bootstrap-upgrade] base manifest already present ($BASE_REL) — no synthesis needed."
-    return 0
-  fi
-  if [ ! -f "$MCM_SRC" ] || ! command -v python3 >/dev/null 2>&1; then
-    echo "[bootstrap-upgrade] NOTE: the source tree has no managed-content module (pre-4.7.0)" >&2
-    echo "                    or python3 is unavailable — no base can be synthesized." >&2
-    return 1
-  fi
-  [ -f VERSION ] || { echo "[bootstrap-upgrade] NOTE: no local VERSION — cannot pick a base tag." >&2; return 1; }
-  ver="$(tr -d '\n\r' < VERSION)"
-  tag="v$ver"
-  if [ ! -d "$SOURCE_CLONE/.git" ]; then
-    echo "[bootstrap-upgrade] NOTE: $SOURCE_CLONE is a plain directory (no .git), so the" >&2
-    echo "                    $tag tree cannot be recovered — skipping base synthesis." >&2
-    return 1
-  fi
-  # A --depth 1 --branch <ref> clone carries no tags; fetch just the one we need.
-  if ! git -C "$SOURCE_CLONE" rev-parse -q --verify "refs/tags/$tag" >/dev/null 2>&1; then
-    git -C "$SOURCE_CLONE" fetch --depth 1 origin "refs/tags/$tag:refs/tags/$tag" >/dev/null 2>&1 || true
-  fi
-  if ! git -C "$SOURCE_CLONE" rev-parse -q --verify "refs/tags/$tag" >/dev/null 2>&1; then
-    echo "[bootstrap-upgrade] NOTE: upstream tag $tag could not be resolved (forked or"
-    echo "                    unreleased VERSION). Proceeding with NO base: every managed"
-    echo "                    path will classify 'unknown-base', which PRESERVES it and"
-    echo "                    reports it — nothing is overwritten, but little is refreshed."
-    return 1
-  fi
-  tmp="$(mktemp -d)"
-  # TRIPWIRE (line endings, decision M1) — VERIFIED, do not "simplify" this away, and do NOT
-  # make it match the incoming-U call in materialize-managed-source.sh. This is the historical
-  # base B: it models what the consumer's own git WROTE at $tag, so it must keep the
-  # CONSUMER's EOL convention. `git archive` DOES apply core.autocrlf to files without an eol
-  # attribute (measured: true emits CRLF, false/input emit LF), so without this flag the base
-  # hashes differ from the consumer's working tree for EVERY managed path — all of them
-  # classify changed-by-both and the upgrade aborts having delivered nothing. Forcing LF here
-  # is the OPPOSITE error: it makes every untouched CRLF consumer file look locally edited.
-  # (A 2026-07-28 review claimed archive ignores autocrlf; removing the flag reproduced the
-  # whole-tree misclassification above, so the claim is false on this platform.)
-  local eol
-  eol="$(git config --get core.autocrlf 2>/dev/null || true)"
-  [ -n "$eol" ] || eol="false"
-  if ! git -C "$SOURCE_CLONE" -c core.autocrlf="$eol" archive "$tag" | tar -x -C "$tmp" 2>/dev/null; then
-    echo "[bootstrap-upgrade] WARN: could not extract $tag — skipping base synthesis." >&2
-    rm -rf "$tmp"; return 1
-  fi
-  # ff_boot_py, not python3: the synthesized base IS the classifier's input, so a startup-file
-  # injection here decides what counts as a consumer edit later (re-review B5).
-  ff_boot_py "$MCM_SRC" stamp --root "$tmp" >/dev/null 2>&1; rc=$?
-  if [ "$rc" -ne 0 ] || [ ! -f "$tmp/$BASE_REL" ]; then
-    echo "[bootstrap-upgrade] WARN: base stamp from $tag failed (rc $rc) — skipping." >&2
-    rm -rf "$tmp"; return 1
-  fi
-  mkdir -p "$(dirname "$BASE_REL")"
-  cp "$tmp/$BASE_REL" "$BASE_REL"
-  rm -rf "$tmp"
-  echo "[bootstrap-upgrade] synthesized the classifier base from upstream tag $tag -> $BASE_REL"
-  echo "                    (this is what upstream shipped you at $ver, so the upgrade can now"
-  echo "                     tell YOUR edits from upstream's.)"
-  return 0
-}
-ff_synthesize_base || true
+# The function itself now lives in hooks/local/lib/synthesize-base.sh so the ORDINARY
+# upgrade path can use it too (decision N1). It was here only, which is why upgrade.sh
+# never synthesized a base and reported success while installing nothing (N5).
+# TRIPWIRE: source from the SOURCE tree when we have one — the same rule as every other
+# managed helper — falling back to the installed copy for a legacy/plain-dir source.
+FFSB_LIB="$SOURCE_TREE/hooks/local/lib/synthesize-base.sh"
+[ -f "$FFSB_LIB" ] || FFSB_LIB="hooks/local/lib/synthesize-base.sh"
+if [ -f "$FFSB_LIB" ]; then
+  # shellcheck source=lib/synthesize-base.sh
+  . "$FFSB_LIB"
+  ffsb_synthesize_base "bootstrap-upgrade" "$BASE_REL" "$MCM_SRC" "$SOURCE_CLONE" ff_boot_py || true
+else
+  echo "[bootstrap-upgrade] NOTE: $FFSB_LIB missing — no base can be synthesized." >&2
+fi
+
 
 # ---- Step 3: hand off to the SOURCE engine (never the installed one) ----
 # The boundary crosses here as ABSOLUTE internal flags (decision M1 / AC2). We `exec`, so this

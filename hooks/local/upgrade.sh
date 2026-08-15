@@ -377,6 +377,20 @@ dir_differs() { ! diff -rq "$SOURCE_TREE/$1" "$1" >/dev/null 2>&1; }
 APPLY_PLAN=""
 CLASSIFY_REPORT=""
 CLASSIFY_ABORT=0
+FF_UNKNOWN_BASE=0        # N3 third clause; set from the classify report below (reasoning: libs)
+FFSB_LIB="$SOURCE_TREE/hooks/local/lib/synthesize-base.sh"
+[ -f "$FFSB_LIB" ] || FFSB_LIB="hooks/local/lib/synthesize-base.sh"
+FFDG_LIB="$SOURCE_TREE/hooks/local/lib/upgrade-delivery-guard.sh"
+[ -f "$FFDG_LIB" ] || FFDG_LIB="hooks/local/lib/upgrade-delivery-guard.sh"
+# shellcheck source=lib/upgrade-delivery-guard.sh
+[ -f "$FFDG_LIB" ] && . "$FFDG_LIB"
+FF_BASE_FOR_CLASSIFY="$BASE_MANIFEST"
+if [ "$CLASSIFY_OK" -eq 1 ] && [ ! -f "$BASE_MANIFEST" ] && [ -f "$FFSB_LIB" ]; then
+  # shellcheck source=lib/synthesize-base.sh
+  . "$FFSB_LIB"                 # ff_up_py, never bare python3: the base IS classifier input
+  FF_BASE_FOR_CLASSIFY="$(ffsb_prepare_base "upgrade" "$BASE_MANIFEST" "$MCM" "$SOURCE_REPO" ff_up_py "$DRY_RUN")"
+fi
+
 if [ "$CLASSIFY_OK" -eq 1 ]; then
   APPLY_PLAN="$(mktemp)"
   CLASSIFY_REPORT="$(mktemp)"
@@ -388,7 +402,7 @@ if [ "$CLASSIFY_OK" -eq 1 ]; then
     MCM_DECISIONS="consumer-only=keep,upstream-deleted-dirty=keep,consumer-deleted=keep,unknown-base=keep,changed-by-both=abort"
   fi
   MCM_BASE_ARG=()
-  [ -f "$BASE_MANIFEST" ] && MCM_BASE_ARG=(--base "$BASE_MANIFEST")
+  [ -f "$FF_BASE_FOR_CLASSIFY" ] && MCM_BASE_ARG=(--base "$FF_BASE_FOR_CLASSIFY")
   set +e
   ff_up_py "$MCM" plan --root "$ROOT" --upstream "$SOURCE_TREE" \
     "${MCM_BASE_ARG[@]}" \
@@ -399,6 +413,9 @@ if [ "$CLASSIFY_OK" -eq 1 ]; then
   MCM_RC=$?
   set -e
   cat "$CLASSIFY_REPORT"
+  # N3 third clause, captured before the report is deleted after apply.
+  FF_UNKNOWN_BASE="$(sed -n 's/^  unknown-base (\([0-9][0-9]*\)).*/\1/p' "$CLASSIFY_REPORT" | head -1)"
+  [ -n "$FF_UNKNOWN_BASE" ] || FF_UNKNOWN_BASE=0
   if [ "$MCM_RC" -eq 9 ]; then
     CLASSIFY_ABORT=1
   elif [ "$MCM_RC" -ne 0 ]; then
@@ -468,6 +485,10 @@ echo "  • restore Flow slash commands: recovery snapshot -> .claude/commands/ 
 echo ""
 
 if [ "$DRY_RUN" -eq 1 ]; then
+  # AC5 — the preview must surface the refusal too (lib/upgrade-delivery-guard.sh).
+  if command -v ff_n5_dry_run_refuses >/dev/null 2>&1 && ff_n5_dry_run_refuses "$APPLY_PLAN" "$BASE_MANIFEST"; then
+    exit 4
+  fi
   echo "[upgrade] (dry-run; nothing written)"
   exit 0
 fi
@@ -547,7 +568,7 @@ if [ "$CLASSIFY_OK" -eq 1 ]; then
     esac
   done < "$APPLY_PLAN"
   echo "[upgrade] applied $ff_applied file(s), removed $ff_removed, preserved $ff_preserved (per-file, K15)."
-  rm -f "$APPLY_PLAN" "$CLASSIFY_REPORT"
+  command -v ff_n5_delivery_count >/dev/null 2>&1 && FF_DELIVERED="$(ff_n5_delivery_count "$APPLY_PLAN" "$BASE_MANIFEST")"; rm -f "$APPLY_PLAN" "$CLASSIFY_REPORT"
 else
   for d in "${CONTENT_DIRS[@]}"; do
     if [ -d "$SOURCE_TREE/$d" ] && dir_differs "$d"; then copy_dir "$d"; fi
@@ -641,6 +662,12 @@ echo "[upgrade] Step 2/3: re-mirror done." >&2
 # TRIPWIRE: string-sync reads VERSION, so VERSION must already hold the TARGET value —
 # but never before content landed ("VERSION never leads content", F1). This order is the
 # only one satisfying both; do not move the bump back after the sync.
+# N3 gate — BEFORE the write (lib/upgrade-delivery-guard.sh); exit 4 != 3 != 0.
+if command -v ff_n5_nothing_delivered >/dev/null 2>&1    && ff_n5_nothing_delivered "${FF_DELIVERED:-0}"; then
+  ff_n5_report
+  exit 4
+fi
+
 # WS5: VERSION write is a CRITICAL step. It is a fast atomic local write (no busy-loop /
 # nothing to bound), but if it does not land, the upgrade must FAIL with the recovery hint —
 # never leave content refreshed while VERSION still reads the old value (or is truncated).

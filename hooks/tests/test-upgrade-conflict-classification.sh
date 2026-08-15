@@ -187,7 +187,10 @@ E2E_ROOT="$(mktemp -d)"
 # Byte-model / boundary assertions live in test-upgrade-source-boundary.sh.
 copy_boundary_libs() {   # <lib-dest-dir>
   local f
-  for f in materialize-managed-source.sh backup-hygiene.sh; do
+  # N1/N3 (n5-upgrade-silent-no-op): upgrade.sh sources these two. Absent, synthesis is
+  # skipped and the delivery guard is undefined — the fixtures would silently test the
+  # pre-N5 engine while claiming to test this one.
+  for f in materialize-managed-source.sh backup-hygiene.sh synthesize-base.sh upgrade-delivery-guard.sh; do
     [ -f "$ROOT/hooks/local/lib/$f" ] && cp "$ROOT/hooks/local/lib/$f" "$1/"
   done
   return 0
@@ -363,6 +366,9 @@ printf 'wf v1\n'        > "$UPREPO/workflows/wf.md"
 cp "$ROOT/hooks/local/lib/managed_content_manifest.py" "$UPREPO/hooks/local/lib/"
 cp "$ROOT/hooks/local/upgrade.sh" "$UPREPO/hooks/local/"
 cp "$ROOT/hooks/local/bootstrap-upgrade.sh" "$UPREPO/hooks/local/"
+# N1: bootstrap-upgrade.sh and upgrade.sh now SOURCE these; absent, synthesis is skipped
+# and the delivery guard is undefined — the fixture would test the pre-N5 engine.
+copy_boundary_libs "$UPREPO/hooks/local/lib"
 ( cd "$UPREPO" && git add -A && git commit -qm 'v4.6.1' && git branch -M main && git tag v4.6.1 )
 # --- upstream 4.7.0 on main: control.sh changes; the validator does NOT ---
 # DELIBERATE, and NOT the AC16 abort case: this fixture proves the upgrade still DELIVERS
@@ -384,6 +390,7 @@ printf 'validator v1\n# SENTINEL local hardening\n' > "$CONS/hooks/shared/comman
 printf 'control v1\n' > "$CONS/hooks/local/control.sh"
 printf 'wf v1\n'      > "$CONS/workflows/wf.md"
 cp "$ROOT/hooks/local/bootstrap-upgrade.sh" "$CONS/hooks/local/"
+mkdir -p "$CONS/hooks/local/lib"; copy_boundary_libs "$CONS/hooks/local/lib"
 CONTROL_BEFORE="$( ( cd "$CONS" && sha256sum hooks/local/control.sh ) | cut -d' ' -f1)"
 SYN_LOG="$SYN_ROOT/bootstrap.log"
 ( cd "$CONS" && bash hooks/local/bootstrap-upgrade.sh --repo "$UPREPO" --ref main -- --auto-yes ) \

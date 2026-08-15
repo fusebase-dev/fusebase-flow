@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.10.1",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 323,
+  "asset_count": 326,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "969362f0e17247c8bb4d0c597b8e1c47bfdf461d1087b8d58bb5f5ede60bdd51"
+      "sha256": "ed5f43b39ca96d30c255fcd3002df1f47f33baf730e8d5d5b0833d63ec3ab86f"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -270,7 +270,7 @@
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
-      "sha256": "efc92e7c06298ff3f6e4645b87743bc509c5aedef4cdc2b5c3aa16a61be2ec63"
+      "sha256": "daf23bb10c6e63c1fd2b18e3da4122db6c1f9e7697a485565ed06010759f4c46"
     },
     {
       "path": "hooks/local/check-cli-flow-conflicts.sh",
@@ -513,6 +513,14 @@
       "sha256": "6b13301e3d4fa6d0ba5e55d26e652602d9c445cb3ddf4e3e054645fd3be7e15c"
     },
     {
+      "path": "hooks/local/lib/synthesize-base.sh",
+      "sha256": "e5436f46f2046cf8a1b892fc5dff4818df289f1e62ff11a13881732bcf09979d"
+    },
+    {
+      "path": "hooks/local/lib/upgrade-delivery-guard.sh",
+      "sha256": "be386f573f09bbf052fd5b328ca836135a0aabd1b248535b5dffa14c3574893b"
+    },
+    {
       "path": "hooks/local/mirror-agents.sh",
       "sha256": "71c17db5a2fb1af251ceb43a2f7f6ee703c51bef87f5beace6ee200f0b048f59"
     },
@@ -574,7 +582,7 @@
     },
     {
       "path": "hooks/local/upgrade.sh",
-      "sha256": "3c3cd68148df136a5ec4145f360cbadc9cb3e1b327e07e6f5f59a5925c1d10b7"
+      "sha256": "3fcac4b8977a7b99feae40aec45a68ac9790e4821b731c0ae47284831402f0eb"
     },
     {
       "path": "hooks/local/verify-gate.sh",
@@ -862,7 +870,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "316411394d17409bbfb0b9b7b1931f13dd5b8d476ae00e9803134c27957cac38"
+      "sha256": "0dfe34a239de2fc27f8fe7cf299fba0697054cff3d65b3ebab449fc959d501ef"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -1082,7 +1090,11 @@
     },
     {
       "path": "hooks/tests/test-upgrade-conflict-classification.sh",
-      "sha256": "142ade45b7e474317cc0ff721c337fd3822c1fbf172cef1a1ecadc6999dd1414"
+      "sha256": "6a3935e19c0b9ec953621a04ebe5974215419c5e2e980359a7e3c058bb5fd018"
+    },
+    {
+      "path": "hooks/tests/test-upgrade-delivers-or-refuses.sh",
+      "sha256": "002ba1e9fa2e16be43ccf845653b70f05edd81b7af8458ade7898031804e34f2"
     },
     {
       "path": "hooks/tests/test-upgrade-preboundary-consumed-tree.sh",
@@ -1122,7 +1134,7 @@
     },
     {
       "path": "policies/module-size-baseline.txt",
-      "sha256": "7747637a42919bf6548600fc78a9f53866ed655dfff00370958a0707674f3840"
+      "sha256": "b5b4e8872d7143f9cabf37d267e78500a4a5110a8e8846fb1193fb71ede7d834"
     },
     {
       "path": "policies/module-size.yml",
@@ -1297,5 +1309,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "1e0b4fbab00a6c8578d2773c91c2f370eb2eebc8e57c416237283d9b61b6b2dd"
+  "manifest_self_sha256": "489bd061bfb08bfb500cf4882d9f71071931164ba954fdf1ee4308a80a49dc39"
 }
