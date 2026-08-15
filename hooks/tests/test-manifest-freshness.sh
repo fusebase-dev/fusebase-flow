@@ -71,16 +71,27 @@ stamp_is_noop() {
 
 ###############################################################################
 # CONTROL FIRST — prove the assertion can fail before trusting that it passes.
-# A freshness check that cannot detect a stale manifest is exactly the gap that let
-# six occurrences through, so it is demonstrated, not assumed.
+# A freshness check that cannot detect staleness is exactly the gap that let six
+# occurrences through, so it is demonstrated, not assumed.
+#
+# TRIPWIRE: the control must mutate a COVERED FILE, never the manifest. Mutating the
+# manifest proves nothing — `stamp_is_noop` runs the stamp FIRST, which regenerates the
+# manifest from the covered files and silently erases the mutation, so the diff comes back
+# clean and the control "passes" while testing nothing. (That is exactly what the first
+# version of this row did.) An untracked NEW file under a covered path reproduces the real
+# shape of the class: a covered path moved, no re-stamp followed.
 ###############################################################################
-printf '\n' >> "$ROOT/$HOOK_MF"                       # a stale/edited manifest
+CONTROL_FILE="$ROOT/hooks/tests/zz-manifest-freshness-control.sh"
+control_cleanup() { rm -f "$CONTROL_FILE" 2>/dev/null; }
+trap 'control_cleanup; restore' EXIT
+printf '#!/usr/bin/env bash\n# transient control artifact; deleted by test-manifest-freshness.sh\nexit 0\n' > "$CONTROL_FILE"
 if stamp_is_noop hooks/local/stamp-hook-manifest.sh "$HOOK_MF"; then
-  bad control-detects-a-stale-manifest "a deliberately mutated $HOOK_MF still read as fresh — this phase proves nothing"
+  bad control-detects-an-unstamped-covered-file "a NEW covered file under hooks/tests/ did not make the re-stamp diff — this phase cannot detect the class it exists to stop"
 else
-  ok "control-detects-a-stale-manifest (a mutated hook-layer manifest is caught; the check discriminates)"
+  ok "control-detects-an-unstamped-covered-file (a new covered file is caught; the check discriminates)"
 fi
-cp "$TMP_BASE/hook.json" "$ROOT/$HOOK_MF"             # undo the control mutation
+control_cleanup
+cp "$TMP_BASE/hook.json" "$ROOT/$HOOK_MF"             # undo the control's re-stamp
 
 ###############################################################################
 # The real assertions — the same two properties CI enforces.
