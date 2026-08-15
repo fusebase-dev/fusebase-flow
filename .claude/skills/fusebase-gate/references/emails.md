@@ -1,7 +1,7 @@
 ---
 version: "1.0.0"
 mcp_prompt: emails
-last_synced: "2026-04-09"
+last_synced: "2026-07-23"
 title: "Fusebase Gate Email Operations"
 category: specialized
 ---
@@ -31,8 +31,8 @@ These operations send one-off emails to existing organization members through Ga
 ## Message Rules
 
 - Send both `subject` and `body` under the request `body` payload.
-- `variables` and `links` are accepted for forward compatibility, but Gate does not currently apply them during sending.
-- Put the final human-readable message content in `body` instead of relying on template substitution.
+- `body` is HTML or plain text; bare URLs are auto-linked and sanitized before delivery.
+- The email is sent through the unbranded app layout with a noreply sender — no FuseBase branding — so put the final human-readable content in `body`.
 
 ## Access Model
 
@@ -57,5 +57,5 @@ These operations send one-off emails to existing organization members through Ga
 
 - **Version**: 1.0.0
 - **Category**: specialized
-- **Last synced**: 2026-04-09
+- **Last synced**: 2026-07-23
 - **Priority rule**: If the MCP prompt has a higher version, follow the prompt's API Reference as source of truth.

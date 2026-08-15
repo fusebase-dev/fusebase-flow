@@ -2,31 +2,40 @@
 # Fusebase Flow — CLI vendor provenance stamp (B2 / v3.2.0).
 #
 # Writes a read-only provenance manifest for every VENDORED FuseBase CLI-owned
-# asset that ships inside this Fusebase Flow edition (FuseBase CLI 0.25.16): the
-# 20 provider skills (SKILL.md + references/**) under .claude/skills and
-# .agents/skills, the CLI app-agents under .claude/agents and .codex/agents, and
-# the .claude/hooks/* quality hooks. The skill/agent name lists are data-driven
-# from agent-surface-ownership.json, so the count tracks that map, not this text.
-#
-# The skill and agent NAME lists are driven from the known_names arrays in
-# hooks/local/fusebase-flow-overlays/agent-surface-ownership.json, so this stays
-# in lock-step with the ownership map (no second hand-maintained list).
+# asset that ships inside this Fusebase Flow edition: the provider skills
+# (SKILL.md + references/**) under .claude/skills and .agents/skills, the CLI
+# app-agents under .claude/agents and .codex/agents, and the .claude/hooks/*
+# quality hooks. The skill/agent NAME lists are driven from the known_names arrays
+# in hooks/local/fusebase-flow-overlays/agent-surface-ownership.json, so this stays
+# in lock-step with the ownership map (no second hand-maintained list) and no CLI
+# version is hardcoded in this text.
 #
 # Output: audit/cli-vendor-manifest.json (COMMITTED — a document of record like
 # audit/skill-mirror-manifest.txt; it is NOT gitignored).
 #
 #   {
-#     "schema_version": 1,
+#     "schema_version": 2,
 #     "generated_at": "<UTC date>",
-#     "source_cli_version": "unknown",   # UNVERIFIABLE_LOCALLY — see below
-#     "assets": [ { "path": "<repo-rel>", "sha256": "<hex>" }, ... ]
+#     "source_cli_version": "<x.y.z>" | "unknown",
+#     "reviewed_cli_range": { "floor", "ceiling_exclusive", "source" } | null,
+#     "assets": [ { "path", "sha256",
+#                   "upstream_sha256", "matches_upstream", "merge_derived" }, ... ]
 #   }
 #
-# source_cli_version is the literal "unknown" sentinel: the bundling tool cannot
-# know which live FuseBase CLI bundle a vendored copy came from. Freshness is
-# advisory only and never blocks. generated_at records when this manifest was
-# stamped; the per-file sha256 is the drift-detection source for
-# check-cli-flow-conflicts.sh (CLI_SNAPSHOT_STALE).
+# source_cli_version is READ FROM audit/cli-upstream-manifest.json — the artifact
+# hooks/local/refresh-cli-vendor.sh writes with each asset's sha256 computed from the
+# SOURCE CLI tree. That is what makes the version DERIVED rather than asserted: this
+# script alone can only ever hash our own copies and prove "matches what we shipped".
+# When the upstream manifest is absent (a consumer that has never re-vendored), the
+# literal "unknown" sentinel is kept — the pre-S2 behaviour, freshness advisory only.
+#
+# Per asset, when upstream provenance is available:
+#   upstream_sha256  the 0.29.8 source bytes
+#   matches_upstream true iff our copy is byte-identical to the source
+#   merge_derived    true for a file carrying a Flow-authored CUSTOM:SKILL block; such a
+#                    file is EXEMPT from exact match rather than pretending to match
+# generated_at records when this manifest was stamped; the per-file sha256 is the
+# drift-detection source for check-cli-flow-conflicts.sh (CLI_SNAPSHOT_STALE).
 #
 # Read-only / idempotent: only writes audit/cli-vendor-manifest.json. Running it
 # twice with no asset change produces a byte-identical manifest (modulo the
@@ -63,6 +72,7 @@ from __future__ import annotations
 import datetime
 import hashlib
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -132,6 +142,30 @@ if hooks_dir.is_dir():
         if fp.is_file():
             asset_paths.append(fp)
 
+# Upstream provenance, when a re-vendor has recorded it (S2). Absent => keep the
+# pre-S2 "unknown" sentinel; never guess a version from local bytes.
+upstream_path = root / "audit" / "cli-upstream-manifest.json"
+upstream_by_path: dict[str, dict] = {}
+source_cli_version = "unknown"
+reviewed_range = None
+if upstream_path.is_file():
+    up = json.loads(upstream_path.read_text(encoding="utf-8"))
+    source_cli_version = up.get("cli_version") or "unknown"
+    upstream_by_path = {a["path"]: a for a in up.get("assets", [])}
+
+# The reviewed-compatible range is owned by the health check's gate (single source of
+# truth); echo it here so the manifest and the gate can never disagree.
+cliver = root / "hooks" / "local" / "lib" / "cli-version-check.sh"
+if cliver.is_file():
+    txt = cliver.read_text(encoding="utf-8")
+    def _const(name: str) -> str | None:
+        m = re.search(rf'^{name}="([^"]+)"', txt, re.MULTILINE)
+        return m.group(1) if m else None
+    floor, ceil_x = _const("FFHC_CLI_REVIEWED_FLOOR"), _const("FFHC_CLI_REVIEWED_CEILING_EXCL")
+    if floor and ceil_x:
+        reviewed_range = {"floor": floor, "ceiling_exclusive": ceil_x,
+                          "source": "hooks/local/lib/cli-version-check.sh"}
+
 # Deterministic ordering by repo-relative path.
 seen: set[str] = set()
 assets = []
@@ -140,25 +174,42 @@ for fp in sorted(asset_paths, key=rel):
     if r in seen:
         continue
     seen.add(r)
-    assets.append({"path": r, "sha256": sha256_of(fp)})
+    local_sha = sha256_of(fp)
+    entry = {"path": r, "sha256": local_sha}
+    up_entry = upstream_by_path.get(r)
+    if up_entry:
+        entry["upstream_sha256"] = up_entry["upstream_sha256"]
+        entry["merge_derived"] = bool(up_entry.get("merge_derived"))
+        # A merge-derived file legitimately differs from upstream (it carries a
+        # Flow-authored CUSTOM block), so it is exempt rather than "mismatched".
+        entry["matches_upstream"] = (
+            True if entry["merge_derived"] else local_sha == up_entry["upstream_sha256"]
+        )
+    assets.append(entry)
 
 manifest = {
-    "schema_version": 1,
+    "schema_version": 2,
     "generated_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d"),
-    "source_cli_version": "unknown",
+    "source_cli_version": source_cli_version,
+    "reviewed_cli_range": reviewed_range,
     "description": (
         "Provenance for vendored FuseBase CLI-owned assets shipped in this "
-        "Fusebase Flow edition. source_cli_version is UNVERIFIABLE_LOCALLY "
-        "(literal 'unknown' sentinel); freshness is advisory only. Per-file "
-        "sha256 feeds the CLI_SNAPSHOT_STALE advisory in "
-        "check-cli-flow-conflicts.sh. Regenerate with "
-        "hooks/local/stamp-cli-provenance.sh."
+        "Fusebase Flow edition. source_cli_version is DERIVED from "
+        "audit/cli-upstream-manifest.json (written by hooks/local/refresh-cli-vendor.sh "
+        "from the source CLI tree), or the literal 'unknown' sentinel when no "
+        "re-vendor has been recorded. Per-file sha256 feeds the CLI_SNAPSHOT_STALE "
+        "advisory in check-cli-flow-conflicts.sh; upstream_sha256/matches_upstream "
+        "distinguish 'matches upstream' from 'matches whatever we shipped'. "
+        "merge_derived files carry a Flow-authored CUSTOM:SKILL block and are exempt "
+        "from exact match. Regenerate with hooks/local/stamp-cli-provenance.sh."
     ),
     "asset_count": len(assets),
     "assets": assets,
 }
 
 out_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+mismatched = sum(1 for a in assets if a.get("matches_upstream") is False)
 print(f"[stamp-cli-provenance] wrote {out_path.relative_to(root)} "
-      f"({len(assets)} asset(s); source_cli_version=unknown)")
+      f"({len(assets)} asset(s); source_cli_version={source_cli_version}; "
+      f"{mismatched} not matching upstream)")
 PY

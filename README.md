@@ -541,7 +541,7 @@ Plus active approval artifacts in `state/approvals/` are surfaced informationall
 
 ### CLI vendor provenance & drift advisory (v3.2.0+)
 
-FuseBase Flow vendors a frozen copy of FuseBase CLI-owned assets (20 provider skills + `references/`, 2 app-agents, 4 quality hooks; FuseBase CLI 0.25.16). `bash hooks/local/stamp-cli-provenance.sh` records a per-file sha256 of each in `audit/cli-vendor-manifest.json` (a committed document of record), with `source_cli_version: "unknown"` — the bundling tool cannot know which live CLI bundle a copy came from, so freshness is advisory only.
+FuseBase Flow vendors a frozen copy of FuseBase CLI-owned assets (20 provider skills + `references/`, 2 app-agents, 4 quality hooks; FuseBase CLI 0.29.8). Re-vendoring goes through `bash hooks/local/refresh-cli-vendor.sh --source <cli-tree> --cli-version <x.y.z>`, which takes upstream content while preserving Flow-authored `CUSTOM:SKILL` blocks byte-for-byte (a plain `cp -r` destroys them) and records each file's sha256 **computed from the source CLI tree** in `audit/cli-upstream-manifest.json`. `bash hooks/local/stamp-cli-provenance.sh` then writes `audit/cli-vendor-manifest.json` (a committed document of record) with `source_cli_version` **derived** from that upstream record rather than asserted, plus per-file `upstream_sha256` / `matches_upstream`, so "matches upstream" is distinguishable from "matches whatever we shipped". A tree that has never been re-vendored keeps the `"unknown"` sentinel and stays advisory-only.
 
 `check-cli-flow-conflicts.sh` then hashes each **present** CLI asset against that manifest and surfaces two **advisory** findings (informational only — they never change the verdict or exit code):
 

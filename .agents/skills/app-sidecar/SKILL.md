@@ -26,7 +26,7 @@ Sidecars are pre-built Docker images deployed alongside an app backend in the sa
 
 ```bash
 fusebase sidecar add \
-  --app <appId> \
+  --app <appPath> \
   --name <name> \
   --image <dockerImage> \
   [--port <port>] \
@@ -51,13 +51,13 @@ fusebase sidecar add \
 ### Remove a Sidecar
 
 ```bash
-fusebase sidecar remove --app <appId> --name <name>
+fusebase sidecar remove --app <appPath> --name <name>
 ```
 
 ### List Sidecars
 
 ```bash
-fusebase sidecar list --app <appId>
+fusebase sidecar list --app <appPath>
 ```
 
 `--feature` (`-f`) is accepted as a deprecated alias for `--app` (`-a`).
@@ -86,7 +86,7 @@ fusebase sidecar add --app my-scraper --name redis \
 Secrets must be **registered** with the app beforehand (or alongside) via:
 
 ```bash
-fusebase secret create --app <%= it.flags?.includes("declarative-manifest") ? "<appPath>" : "<appId>" %> --secret "DB_PASSWORD:Redis auth"
+fusebase secret create --app <appPath> --secret "DB_PASSWORD:Redis auth"
 ```
 
 Set the actual values in the FuseBase web UI (the URL is printed by `secret create`). Only registered keys may be referenced from `--secret`. See the **app-secrets** skill for the full secret lifecycle.
@@ -256,7 +256,6 @@ fusebase deploy
 # Output includes:
 # Deploying app "my-scraper" with sidecars: chromium
 ```
-<% if (it.flags?.includes("job-sidecars")) { %>
 
 ## Job Sidecars
 
@@ -268,7 +267,7 @@ To give a job its own auxiliary container (for example a headless browser used o
 
 ```bash
 fusebase sidecar add \
-  --app <appId> \
+  --app <appPath> \
   --job <jobName> \
   --name <name> \
   --image <dockerImage> \
@@ -377,7 +376,6 @@ When `process.exit(0)` runs, the replica completes and `chromium` is torn down w
 ### Local Dev
 
 `fusebase dev start` does **not** start cron jobs nor any sidecars (backend or job). Job sidecars take effect only after `fusebase deploy`.
-<% } %>
 
 ## Checklist
 
@@ -388,7 +386,5 @@ When `process.exit(0)` runs, the replica completes and `chromium` is torn down w
 - [ ] Tested sidecar locally with Docker (optional but recommended)
 - [ ] Deployed and verified with `fusebase remote-logs runtime`
 - [ ] Total CPU/memory = backend (small, 0.5/1 Gi) + Σ sidecar tiers ≤ 2 CPU / 4 Gi (Azure cap)
-<% if (it.flags?.includes("job-sidecars")) { %>
 - [ ] If a cron job needs an auxiliary container, attached sidecars to the **job** (not the backend) using `fusebase sidecar add --job <jobName>`
 - [ ] Verified job sidecar count is at most 3 per job (independent of backend cap)
-<% } %>

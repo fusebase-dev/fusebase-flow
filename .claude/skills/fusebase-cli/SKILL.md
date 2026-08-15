@@ -7,6 +7,12 @@ description: "Complete guide for using the Fusebase CLI (fusebase) tool to initi
 
 This skill describes how to use the Fusebase CLI tool to manage and deploy Fusebase Apps apps.
 
+For environment migrations, pair this skill with the local project guides
+**App Environments Guide** and **App Environment Migration Guide**. When e2e
+tests are part of the work, also load skill **app-e2e-tests** and local guide
+**E2E Playwright Setup Guide**; when backend runtime env or Gate access is
+involved, also load **app-backend** and **fusebase-gate** as applicable.
+
 ## Overview
 
 The Fusebase CLI (`fusebase`) is a command-line tool for:
@@ -33,7 +39,6 @@ Every Fusebase Apps project requires a `fusebase.json` file in the project root.
 
 For details on the `fusebase.json` schema, see references/fusebase-json-schema.md.
 
-<% if (it.flags?.includes("declarative-manifest")) { %>
 ### Declarative manifest — never invent an app `id`
 
 `apps[]` is **declarative**: an app entry carries `subdomain` + `name` and **omits the
@@ -58,7 +63,6 @@ to the app with a matching `subdomain`, or creates it if missing. The product `i
   "build": { "command": "npm run build", "outputDir": "dist" }
 }
 ```
-<% } %>
 
 ## App Permissions
 
@@ -238,7 +242,7 @@ This command **always creates a new app** on Fusebase servers and configures its
 **Optional Options:**
 
 - `--access <principals>` - Set access principals, comma-separated (e.g., `visitor`, `orgRole:member`, `visitor,orgRole:guest`)
-- `--permissions <permissions>` - Set dashboard view permissions (format: `dashboardView.dashboardId:viewId.read,write;...`)
+- `--permissions <permissions>` - Set dashboard view permissions (format: `dashboardView.dashboardId:viewId.read,write;...`). Entries that are Gate privileges instead — e.g. `app_api.<namespace>.<capability>.<action>` or `org.members.read` — are **added** to the app's Gate permissions rather than replacing them.
 - `--backend-dev-command <command>` - Backend dev command (e.g., `npm run dev`). Only if the app has a `backend/` folder.
 - `--backend-build-command <command>` - Backend build command (e.g., `npm run build`). Only if the app has a `backend/` folder.
 - `--backend-start-command <command>` - Backend start command for production (e.g., `npm run start`). Only if the app has a `backend/` folder.
@@ -269,17 +273,41 @@ Update settings for an existing app.
 **Options:**
 
 - `--access <principals>` - Set access principals, comma-separated (e.g., `visitor`, `orgRole:member`, `visitor,orgRole:guest`)
-- `--permissions <permissions>` - Set dashboard view permissions (format: `dashboardView.dashboardId:viewId.read,write;...`)
-- `--sync-gate-permissions` - Analyze Gate SDK calls in the app's runtime code and sync the detected operations as Gate permissions on the app. Required before an app that uses `@fusebase/fusebase-gate-sdk` can be considered fully published.
+- `--permissions <permissions>` - Set dashboard view permissions (format: `dashboardView.dashboardId:viewId.read,write;...`). Entries that are Gate privileges instead — e.g. `app_api.<namespace>.<capability>.<action>` or `org.members.read` — are **added** to the app's Gate permissions rather than replacing them.
+- `--sync-gate-permissions` - Analyze Gate SDK calls in the app's runtime code and sync the detected operations as Gate permissions on the app. It **merges** with the privileges already granted, so a hand-granted capability such as `app_api.<ns>.<cap>.<action>` survives a sync. Required before an app that uses `@fusebase/fusebase-gate-sdk` can be considered fully published.
+- `--prune-gate-permissions` - Revoke Gate privileges outside the analyzed set. This is the only way to remove a granted privilege; it prints every removal and also prunes it from `fusebase.json` so the next deploy does not re-grant it. Requires `--sync-gate-permissions` and cannot be combined with `--permissions`.
 
 **Access Principals:**
 
-The `--access` option replaces the entire access principal list. Principals are comma-separated entries of the form `type` or `type:id`:
+The `--access` option **replaces the entire access principal list**. **Always run
+`fusebase app get <appId>` first** — it is read-only and prints the current
+principals in the same syntax, so you can see what the overwrite would drop
+instead of silently locking people (or production) out. Add `--json` for the
+raw payload when you want to snapshot the grants first.
+
+```bash
+fusebase app get аgjg851jguanadi41
+#   My App
+#     ID:   аgjg851jguanadi41
+#     URL:  https://.../my-app
+#     Access: visitor, orgRole:member
+```
+
+If that output carries a `!` line, the app has principals `--access` cannot
+express (`user:<id>`, `orgGroup:<id>`, granted from the UI). Running
+`app update --access` at all would revoke them — change those grants in the UI.
+
+Principals are comma-separated entries of the form `type` or `type:id`:
 
 | Principal      | Example          | Description                                                                                  |
 | -------------- | ---------------- | -------------------------------------------------------------------------------------------- |
 | `visitor`      | `visitor`        | Any unauthenticated visitor (public access).                                                 |
 | `orgRole:<id>` | `orgRole:member` | Org members with the given role. Valid ids: `guest`, `client`, `member`, `manager`, `owner`. |
+| `portalMember`  | `portalMember`  | Member of the portal the app is embedded in (portal-scoped, no id).                          |
+| `portalManager` | `portalManager` | Portal member who is an org `manager`/`owner` (portal-scoped, no id).                        |
+| `portalClient`  | `portalClient`  | Portal member who is an org `client` (portal-scoped, no id).                                 |
+
+Portal principals are **context-relative**: they only match when the app is opened from inside a portal; outside a portal they never match.
 
 **Permissions:**
 The `--permissions` option specifies which dashboard views the app can access and with what privileges.
@@ -306,6 +334,9 @@ fusebase app update аgjg851jguanadi41 --access=orgRole:member,orgRole:client
 # Public + org members
 fusebase app update аgjg851jguanadi41 --access=visitor,orgRole:member
 
+# Portal-embedded app: only clients and managers of the embedding portal
+fusebase app update аgjg851jguanadi41 --access=portalClient,portalManager
+
 # Remove all access principals (pass empty string), it will allow access for every role in organization, but not for visitors
 fusebase app update аgjg851jguanadi41 --access=""
 
@@ -317,7 +348,21 @@ fusebase app update аgjg851jguanadi41 --permissions="dashboardView.dash1:view1.
 
 # Update both access and permissions
 fusebase app update аgjg851jguanadi41 --access=visitor --permissions="dashboardView.dash1:view1.read"
+
+# Grant an app API capability so this app may call another app's protected operation
+fusebase app update аgjg851jguanadi41 --permissions="app_api.analytics.vse_usage.read"
 ```
+
+The grant is written back into `apps[].permissions` in `fusebase.json` — commit it. Deploy
+rebuilds the app's permissions from `fusebase.json`, so a grant that lives only on the remote
+app record is reverted by the next `fusebase deploy`.
+
+> App API policy extensions (`x-fusebase-allowed-callers`, `x-fusebase-required-permissions`)
+> are published and read by `callAppApi`, but **enforcement is switched on per environment** by
+> the platform. Grant the capability now so it is durable and in place when enforcement reaches
+> your environment, but do not rely on the extensions as your only authorization check.
+> A caller id in `x-fusebase-allowed-callers` is the calling project's `productId`
+> (`client:<productId>`), not an app id.
 
 ### Smart update (`fusebase update`)
 
@@ -327,9 +372,10 @@ fusebase update
 
 Single update command for both CLI and app:
 
-- in app directory (`fusebase.json` exists): runs CLI self-update first (skip with `--skip-cli-update`; local linked/source mode auto-skips), then refreshes agent assets (`AGENTS.md`, `.claude/skills`, `.claude/agents`, `.claude/hooks`, `.claude/settings.json`), then runs selective MCP token refresh + IDE MCP config refresh, then syncs managed SDK deps and runs targeted `npm install`;
+- in app directory (`fusebase.json` exists): runs CLI self-update first (skip with `--skip-cli-update`; local linked/source mode auto-skips), then optional pre-update Git checkpoint, then refreshes agent assets (`AGENTS.md`, `.claude/skills`, `.claude/agents`, `.claude/hooks`, `.claude/settings.json`), then runs selective MCP token refresh + IDE MCP config refresh, then syncs managed SDK deps and runs targeted `npm install`, then optional post-update Git commit when the tree is dirty (always prints changed paths);
 - outside app directory: runs only CLI self-update;
-- use `--skip-product` to force CLI-only mode even inside an app directory.
+- use `--skip-product` to force CLI-only mode even inside an app directory;
+- `--skip-commit` / `--commit` gate both pre- and post-update Git checkpoints.
 
 On Windows the CLI self-update is a **cache swap** (updates the cached CLI under `%LOCALAPPDATA%\FuseBase\CLI\` with no admin elevation and no installer download), so the remaining app stages continue in the same run — just like macOS/Linux.
 
@@ -347,6 +393,52 @@ fusebase env create
 Creates or overwrites `.env` with `DASHBOARDS_MCP_TOKEN` and `DASHBOARDS_MCP_URL`. Use after `fusebase init` or when the MCP token has expired. Requires `fusebase.json` (with `orgId`) and `fusebase auth` to be set.
 
 On successful create/update, CLI refreshes both Dashboards and Gate MCP tokens. In interactive terminals, it offers to run `fusebase config ide --force` immediately for all IDE MCP configs; if declined, it prints that command as the next step.
+
+Default Dashboards MCP grants (see `lib/mcp-token-policy.ts`): discover/read existing dashboards, write row data (`data.write`), write relations (`relation.write`), and mutate existing view schema (`view.write`). It does **not** create or delete dashboard DBs/dashboards unless the global flag `legacy-dashboards-db` is enabled.
+
+### App environments (experimental, flag `environments`)
+
+Named environment profiles let one project target several platform contexts
+(e.g. `prod` customer org, `prod-beta` beta stage, `dev` org on the dev
+platform). Per environment: `environments/<name>.json` (committed lockfile —
+backend, org, product, resolved app ids, per-env subdomains, store ids,
+test-user fixtures, `protected` marker) plus a gitignored `.env.<name>`
+(MCP tokens/secrets); the active env's dotenv is materialized into `.env`.
+
+```bash
+fusebase env init                 # adopt: current context becomes the first env
+fusebase env add dev --backend dev --org <orgId>
+fusebase env use dev              # switch (offers re-auth + token refresh, and an
+                                  # IDE MCP config refresh when they hold the old env's tokens)
+fusebase env list                 # envs, backends, auth state
+fusebase env status               # active env: ids resolved? tokens fresh? IDE MCP configs in sync?
+fusebase env tokens               # write MCP tokens into .env.<active>
+fusebase deploy --env dev         # first deploy bootstraps product/apps + provisions stores
+fusebase env provision-store --env dev   # (also run by deploy) create store, migrate, verify RLS
+```
+
+If an app has an isolated SQL store (`isolatedStores.sql[]`), `deploy` also
+provisions it in the target env — create-or-get the store, apply migrations,
+verify RLS, and record the `storeId` in the lockfile — so a fresh env never
+serves code against a missing database. Store aliases are unique per org, so the
+Gate-side alias is env-suffixed automatically; your app code and the lockfile
+keep the logical alias. Provision by hand with `fusebase env provision-store`, or
+skip it with `fusebase deploy --skip-store-provision`.
+
+Any command accepts `--env <name>`; CI can use `FUSEBASE_ENV` +
+`FUSEBASE_API_KEY`. Auth is per backend: `fusebase auth --dev` and
+`fusebase auth` store separate keys. Never copy platform ids between
+environment files — deploy reconcile resolves and records them.
+
+Deployed bundles include `fusebase-env.json`; the template's `EnvPanel`
+component (`?envpanel=1`) shows the current stage (red PROD badge for
+protected envs) with links to counterpart deployments, and tests can read it
+to assert they target the intended stage.
+
+When converting an existing app, follow the local guide **App Environment
+Migration Guide**: normalize `fusebase.json`, run `fusebase env init --strip`,
+add/clone non-prod envs, remove hardcoded backend/org/app ids from runtime
+code, then add readonly e2e smoke tests and CI.
 
 ### Configure optional MCP integrations
 
@@ -375,30 +467,30 @@ During `fusebase init`, only **required** MCP servers (per the catalog, respecti
 ### Create App Secrets
 
 ```bash
-fusebase secret create --app <%= it.flags?.includes("declarative-manifest") ? "<appPath>" : "<appId>" %> --secret <KEY:description> [--secret ...]
+fusebase secret create --app <appPath> --secret <KEY:description> [--secret ...]
 ```
 
-Creates secrets (with empty values) for an app and prints the URL where you can set the actual values.
+Declares secret keys for an app in `fusebase.json`. This is a local file edit only — no network call, and no URL is printed. The keys are created on the platform (with empty values) by the next `fusebase deploy` / `fusebase dev start`, which prints the URL where you set the actual values.
 
 **Required Options:**
 
-- `--app <%= it.flags?.includes("declarative-manifest") ? "<appPath>" : "<appId>" %>` - <%= it.flags?.includes("declarative-manifest") ? "App path (from `apps[].path` in `fusebase.json`)" : "App ID" %> to create secrets for. `--feature` is accepted as a deprecated alias.
+- `--app <appPath>` - App path (from `apps[].path` in `fusebase.json`) to create secrets for. `--feature` is accepted as a deprecated alias.
 - `--secret <KEY:description>` - Secret to create. Format: `KEY` or `KEY:description`. **Repeatable** — pass multiple `--secret` flags to create several secrets at once.
 
 **Examples:**
 
 ```bash
 # Create a single secret
-fusebase secret create --app <%= it.flags?.includes("declarative-manifest") ? "apps/my-app" : "abc123" %> --secret "API_KEY:Third-party API key"
+fusebase secret create --app apps/my-app --secret "API_KEY:Third-party API key"
 
 # Create multiple secrets at once
-fusebase secret create --app <%= it.flags?.includes("declarative-manifest") ? "apps/my-app" : "abc123" %> \
+fusebase secret create --app apps/my-app \
   --secret "API_KEY:Third-party API key" \
   --secret "DB_PASSWORD:Database connection password" \
   --secret "WEBHOOK_SECRET"
 ```
 
-After creating the secrets, the CLI prints `https://{org-domain}/dashboard/{orgId}/apps/apps/{appId}/secrets` — open that URL to fill in the actual secret values.
+After declaring the secrets, run `fusebase deploy` (or `fusebase dev start`). When it registers new keys it prints `https://{org-domain}/dashboard/{orgId}/apps/features/{appId}/secrets` — open that URL to fill in the actual secret values. Nothing is printed if the keys already exist on the platform.
 
 ### Scaffold an App
 
@@ -460,13 +552,14 @@ Options:
 - `--force` — ignore hash matches and re-upload + redeploy every app
 - `--app <subdomain|id|name|path>` — deploy only the matching app
 - `--nocode` — only reconcile infrastructure (bind/create apps on the platform), skip code deployment
+- `--skip-store-provision` — skip automatic isolated-store provisioning (env mode)
 
 The project template includes ESLint (`npm run lint`) and root `npm run typecheck` (TypeScript across apps — catches errors ESLint does not). Run both before saying "Done" so deploy succeeds; see AGENTS.md "Final Gate". Claude Code runs lint and typecheck on Stop via `.claude/settings.json` hooks.
 
 ### Isolated SQL Bundle / RLS Manifest
 
 ```bash
-fusebase isolated-store sql bundle --app <%= it.flags?.includes("declarative-manifest") ? "<appPath>" : "<appId>" %> [--alias <alias>] [--stage dev|prod] [--json|--status|--dry-run|--apply --yes]
+fusebase isolated-store sql bundle --app <appPath> [--alias <alias>] [--stage dev|prod] [--json|--status|--dry-run|--apply --yes]
 ```
 
 Use this for app-owned isolated SQL schema work. It reads `apps[].isolatedStores.sql[]` from `fusebase.json`, loads `postgres/migrations/manifest.json`, and computes Gate-canonical checksums from SQL file bytes.
@@ -480,13 +573,21 @@ fusebase config set-flag postgres-rls
 Examples:
 
 ```bash
-fusebase isolated-store sql bundle --app <%= it.flags?.includes("declarative-manifest") ? "apps/client-portal" : "client-portal" %> --json
-fusebase isolated-store sql bundle --app <%= it.flags?.includes("declarative-manifest") ? "apps/client-portal" : "client-portal" %> --stage dev --status
-fusebase isolated-store sql bundle --app <%= it.flags?.includes("declarative-manifest") ? "apps/client-portal" : "client-portal" %> --stage dev --dry-run
-fusebase isolated-store sql bundle --app <%= it.flags?.includes("declarative-manifest") ? "apps/client-portal" : "client-portal" %> --stage dev --apply --yes
+fusebase isolated-store sql bundle --app apps/client-portal --json
+fusebase isolated-store sql bundle --app apps/client-portal --stage dev --status
+fusebase isolated-store sql bundle --app apps/client-portal --stage dev --dry-run
+fusebase isolated-store sql bundle --app apps/client-portal --stage dev --apply --yes
 ```
 
-Gate calls use `GATE_MCP_TOKEN` from `.env`. Do `--status` and `--dry-run` before any real `--apply`.
+Gate calls use `GATE_MCP_TOKEN` from `.env`. Do `--status` and `--dry-run` before any real `--apply`. `--stage` defaults to the active environment's backend, so `FUSEBASE_ENV=prod` targets the prod stage — pass `--stage` only to override it.
+
+**CI store contract.** `--status`/`--rls-status` report; `--assert-migrations`/`--assert-rls` fail the build:
+
+```bash
+fusebase isolated-store sql bundle --app apps/<app> --assert-migrations --assert-rls
+```
+
+`--assert-migrations` fails on pending migrations, a drifted journal, or a required baseline adoption. `--assert-rls` fails when the runtime role can bypass RLS (`bypassRls`/`superuser`) or when no data table carries a policy. Run this in CI alongside e2e: a Playwright spec cannot tell "RLS is working" from "this user has no rows", so a migration shipped without a policy would otherwise leave the suite green while the data is unprotected.
 
 ### Gate MCP Token Scope
 
@@ -508,7 +609,7 @@ Sidecar containers are pre-built Docker images deployed alongside an app's backe
 ```bash
 # Add a sidecar to an app backend
 fusebase sidecar add \
-  --app <appId> \
+  --app <appPath> \
   --name <name> \
   --image <image> \
   [--port <port>] \
@@ -517,10 +618,10 @@ fusebase sidecar add \
   [--secret KEY|KEY:ALIAS ...]
 
 # Remove a sidecar by name
-fusebase sidecar remove --app <appId> --name <name>
+fusebase sidecar remove --app <appPath> --name <name>
 
 # List configured sidecars
-fusebase sidecar list --app <appId>
+fusebase sidecar list --app <appPath>
 ```
 
 `--feature` (`-f`) is accepted as a deprecated alias for `--app` (`-a`).
@@ -535,24 +636,23 @@ fusebase sidecar list --app <appId>
 
 Sidecars are stored in `fusebase.json` under `apps[].backend.sidecars[]` and deployed on the next `fusebase deploy`.
 
-<% if (it.flags?.includes("job-sidecars")) { %>**Per-job sidecars (`--job <jobName>`):**
+**Per-job sidecars (`--job <jobName>`):**
 
 Cron jobs declared under `apps[].backend.jobs[]` deploy as **independent** Azure Container Apps Jobs and do **not** share the backend container app's network namespace. To give a specific cron job its own auxiliary container (e.g. a headless browser used only by a screenshot cron), pass `--job <jobName>` to all three subcommands:
 
 ```bash
 # Add a sidecar to a job
-fusebase sidecar add --app <appId> --job <jobName> \
+fusebase sidecar add --app <appPath> --job <jobName> \
   --name <name> --image <image> [--port <port>] [--tier ...] [--env ...] [--secret ...]
 
 # Remove a sidecar from a job
-fusebase sidecar remove --app <appId> --job <jobName> --name <name>
+fusebase sidecar remove --app <appPath> --job <jobName> --name <name>
 
 # List sidecars on a job
-fusebase sidecar list --app <appId> --job <jobName>
+fusebase sidecar list --app <appPath> --job <jobName>
 ```
 
 When `--job` is omitted, all three subcommands target backend sidecars exactly as before. Each job has its own 3-sidecar cap, independent of the backend cap. Sidecar names are unique per scope — the same name (e.g. `chromium`) may exist on the backend and on a job. Per-job sidecars are stored under `apps[].backend.jobs[].sidecars[]` in `fusebase.json` and deployed on the next `fusebase deploy`. See the **app-sidecar** skill for full details (networking, termination, examples).
-<% } %>
 
 ### Remote Logs (Deployed Backends)
 

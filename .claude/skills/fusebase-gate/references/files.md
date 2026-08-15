@@ -1,7 +1,7 @@
 ---
-version: "1.10.0"
+version: "1.11.0"
 mcp_prompt: files
-last_synced: "2026-04-29"
+last_synced: "2026-08-07"
 title: "Fusebase Gate Files Flows"
 category: specialized
 ---
@@ -42,11 +42,17 @@ This reference covers only Gate file operations and their auth/scope behavior. F
 
 - Upload, multipart, and delete flows require `files.write` and org access.
 - Gate delegates upload URLs to file-service and returns `readUrl` from the completion flow; actual bytes never flow through Gate.
+
+## Hard rules (attachments / app storage)
+
+- **Never** store file bytes in isolated SQL (base64/`bytea`/data URL) as an alternative to this flow. SQL holds only `storedFileUUID` + `readUrl` (+ small metadata). No MVP exception — see MCP prompt **`isolatedSql`**.
+- Needing **`files.write`** is **not** a reason to put attachments in the database. Sync permissions (`fusebase app update <appId> --sync-gate-permissions`) instead of changing storage architecture.
+- **Visitor / anonymous / public-link apps:** browser visitor tokens usually **cannot** call `files.write` (org access). Broker the upload on the **app feature backend** with `process.env.FBS_FEATURE_TOKEN` (service token that already has `files.write`), then return `storedFileUUID` / `readUrl` to the client. Do not invent SQL blob storage because the skill looked browser-only.
 ---
 
 ## Version
 
-- **Version**: 1.10.0
+- **Version**: 1.11.0
 - **Category**: specialized
-- **Last synced**: 2026-04-29
+- **Last synced**: 2026-08-07
 - **Priority rule**: If the MCP prompt has a higher version, follow the prompt's API Reference as source of truth.

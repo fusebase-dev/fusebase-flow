@@ -40,6 +40,7 @@ Each reference is in a separate file under `references/`. Load the file when you
 - [Dashboard Rows](references/rows.md)
 - [Dashboard View Filters](references/filters.md)
 - [Dashboard View Representations](references/representations.md)
+- [Members (system dashboard)](references/members.md)
 
 ---
 

@@ -1,7 +1,7 @@
 ---
-version: "1.9.0"
+version: "1.10.0"
 mcp_prompt: isolatedSql
-last_synced: "2026-07-01"
+last_synced: "2026-08-07"
 title: "FuseBase PostgreSQL Database"
 category: specialized
 ---
@@ -20,6 +20,7 @@ category: specialized
   - [Standard sequence (schema + store)](#standard-sequence-schema--store)
   - [Data path (no DDL)](#data-path-no-ddl)
   - [Structured SQL limits](#structured-sql-limits)
+  - [Hard rule — no file / binary bytes in the SQL store](#hard-rule--no-file--binary-bytes-in-the-sql-store)
   - [MCP bundle size](#mcp-bundle-size)
   - [Tokens](#tokens)
   - [PostgreSQL RLS native mode](#postgresql-rls-native-mode)
@@ -61,6 +62,9 @@ Load MCP prompt **`isolatedSqlMigrationDiscipline`** (`prompts_search`, groups `
 ### Data path (no DDL)
 
 Prefer structured APIs: **`getIsolatedStoreSqlStats`**, **`countIsolatedStoreSqlRows`**, **`selectIsolatedStoreSqlRows`**, **`insertIsolatedStoreSqlRow`**, **`batchInsertIsolatedStoreSqlRows`**, **`importIsolatedStoreSqlRows`**, **`updateIsolatedStoreSqlRows`**, **`deleteIsolatedStoreSqlRows`**. Raw: **`queryIsolatedStoreSql`** (read); **`executeIsolatedStoreSql`** — DML only, **no DDL**; schema only via **`applyIsolatedStoreSqlMigrations`**.
+Need several SQL steps for one user action? Send them as **one** **`runIsolatedStoreSqlBatch`** call instead of K sequential calls. Every SQL call pays a ~200-300ms infrastructure floor regardless of query cost; a batch pays it **once** and runs all operations in **one** transaction with the RLS context applied once.
+- **`runIsolatedStoreSqlBatch`**: up to **25** operations (`query`, `execute`, `count`, `select`, `insert`, `batchInsert`, `update`, `delete`); each operation carries the same fields as its single-operation request, while `rlsContext` / `trustedRuntimeContext` are set **once for the batch**. Results come back in request order. **All-or-nothing** — the first failure rolls the whole batch back and the error names the failing index. Each operation still needs its own permission. RLS-bypass reads and **`importIsolatedStoreSqlRows`** are **not** batchable. Each statement in a batch is bounded by a **30s** timeout.
+- **`queryIsolatedStoreSql`** — and a `query` op in an **all-read** batch — runs inside a Postgres **`READ ONLY` transaction**: `nextval()`, `SELECT … FOR UPDATE`/`FOR SHARE`, `SELECT … INTO`, `EXPLAIN ANALYZE <write>` and any write made by a called function are rejected by the server. Use **`executeIsolatedStoreSql`** or a structured row operation for those. A batch that also carries a write operation is not read-only, so a `query` op in it needs the **`isolated_store.execute`** permission.
 Runtime app path does **not** require a custom backend by default. Frontend/browser code can call Gate SDK methods such as **`selectIsolatedStoreSqlRows`**, **`countIsolatedStoreSqlRows`**, and other allowed structured operations directly with the app token. Add a feature backend only when you need privileged logic, external secrets, heavy orchestration, or non-user-context work.
 Runtime app path also does **not** require users to create secrets for Gate-resolved store identity. Do not put `storeId`, database IDs, physical database names, or provider connection details into app secrets/env. Resolve the store through Gate from the app token/source scope and stable alias, or use the platform-provided binding when available.
 Public/visitor apps can open with `--access=visitor`, but visitor tokens normally do **not** receive isolated-store permissions. For public portal reads/writes, use an app backend with a service token plus trusted portal/workspace context; do not expect direct visitor-token Gate SDK calls to the store to work.
@@ -76,7 +80,15 @@ A service-token backend must derive the portal/workspace scope from trusted plat
 - Under PostgreSQL RLS, `INSERT ... RETURNING` and structured `insert` with `returning` require the inserted row to pass the table's `SELECT` policy. If a row becomes visible only after a second portal/link-table insert, generate the id in app code and insert without `returning`.
 - Migration bundles are **schema-only**. Gate rejects top-level `INSERT` / `UPDATE` / `DELETE` / `TRUNCATE` / `MERGE` / `COPY` inside migration SQL.
 - Large **data** seeds: **`importIsolatedStoreSqlRows`** (`csv`/`tsv`, **`COPY FROM STDIN`**); default payload cap **64MiB** UTF-8 per call (`ISOLATED_SQL_IMPORT_MAX_PAYLOAD_BYTES`, hard cap **256MiB**); split larger files.
+- **Do not confuse that 64MiB import cap with ordinary SQL writes.** `executeIsolatedStoreSql`, structured `insert`/`batchInsert`/`update`, and `queryIsolatedStoreSql` ride the Gate JSON/proxy path. Practical reliable request bodies are on the order of **~100–150 KB**; failures become common well below **1 MB** and are **not** a clean hard threshold (retries can appear to "work" once). Never design user file attachments against the 64MiB import figure.
 - Small demo seeds or backfills: structured row APIs (`insert…`, `batchInsert…`) after schema apply, not inside migration SQL.
+
+### Hard rule — no file / binary bytes in the SQL store
+
+- **Never** store user-uploaded files or other binary content in a FuseBase PostgreSQL isolated store — not as `base64` in `TEXT`/`JSONB`, not as `bytea`, not as a data URL, not "for MVP".
+- Upload via Gate file service (`startMultipartFileUpload` → direct `PUT` → `completeMultipartFileUpload`; see MCP prompt **`files`** and skill **`file-upload`**). Persist only **`storedFileUUID`**, **`readUrl`**, and small metadata (name, size, contentType).
+- Needing **`files.write`** (or any new Gate permission) is **not** a reason to choose SQL blob storage. Grant/sync permissions with `fusebase app update <appId> --sync-gate-permissions` (and `--permissions` when required). Permission setup is expected product work, not an architecture escape hatch.
+- A SQL-backed attachment design that later "moves to file service" is a full rewrite — do not lock it as temporary.
 
 ### MCP bundle size
 
@@ -162,7 +174,7 @@ Per migration: **`version`**, **`name`**, **`checksum`** — prefer SDK helpers 
 
 ## Version
 
-- **Version**: 1.9.0
+- **Version**: 1.10.0
 - **Category**: specialized
-- **Last synced**: 2026-07-01
+- **Last synced**: 2026-08-07
 - **Priority rule**: If the MCP prompt has a higher version, follow the prompt's API Reference as source of truth.

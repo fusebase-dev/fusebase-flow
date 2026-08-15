@@ -203,8 +203,11 @@ fi
 if command -v python3 >/dev/null 2>&1; then
     prov="$FF_DIR/audit/cli-vendor-manifest.json"
     if [ -f "$prov" ]; then
-        python3 -c "import json,sys; d=json.load(open('$prov')); sys.exit(0 if d.get('schema_version')==1 and isinstance(d.get('assets'),list) else 1)" 2>/dev/null \
-            || warn "cli-vendor-manifest.json present but invalid (schema_version!=1 or no assets); regenerate with hooks/local/stamp-cli-provenance.sh"
+        # schema 1 = pre-S2 (local sha256 only). schema 2 adds derived upstream provenance
+        # (source_cli_version, reviewed_cli_range, per-asset upstream_sha256). Accept both:
+        # a consumer that has not re-vendored legitimately still ships schema 1.
+        python3 -c "import json,sys; d=json.load(open('$prov')); sys.exit(0 if d.get('schema_version') in (1,2) and isinstance(d.get('assets'),list) else 1)" 2>/dev/null \
+            || warn "cli-vendor-manifest.json present but invalid (schema_version not in {1,2} or no assets); regenerate with hooks/local/stamp-cli-provenance.sh"
     else
         warn "cli-vendor-manifest.json absent; run bash hooks/local/stamp-cli-provenance.sh to stamp CLI vendor provenance"
     fi

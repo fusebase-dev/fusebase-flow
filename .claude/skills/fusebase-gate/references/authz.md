@@ -1,7 +1,7 @@
 ---
-version: "1.2.0"
+version: "1.3.0"
 mcp_prompt: authz
-last_synced: "2026-05-22"
+last_synced: "2026-07-10"
 title: "Authorization and Scopes"
 category: meta
 ---
@@ -38,7 +38,9 @@ In addition to argument scopes, access may be restricted by the token's resource
 
 ## Session forwarding (AI Apps / magic links)
 
-Gate proxy and app backends can attach a Fusebase user session to a request using header **`EverHelper-Session-ID`** (also accepted as `everhelper-session-id` on some proxies). Use it with `x-app-feature-token` when calling user-context operations (for example `getMyOrgAccess`) after `activateAppMagicLink`. The feature token authenticates the app; the session header identifies the user.
+**Platform email (`/_auth/magiclink/{key}`):** after NH1, identify the recipient on the app backend with `x-app-feature-token` from the `fbsfeaturetoken` cookie only. Org `eversessionid` is on the org domain and is not sent to the app host. Call `getMyOrgAccess` and **fail-closed** on `source === 'member'`.
+
+**Legacy SPA `/link` + `activateAppMagicLink`:** forward activation `sessionToken` as header **`EverHelper-Session-ID`** (also accepted as `everhelper-session-id`) together with `x-app-feature-token`, or POST both tokens in the `/api/account/from-magic-link` body.
 
 Load the `appMagicLinks` and `fusebaseAuth` prompts for the full post-activation exchange pattern (`POST /api/account/from-magic-link`, app-owned session cookie).
 
@@ -52,7 +54,7 @@ Load the `appMagicLinks` and `fusebaseAuth` prompts for the full post-activation
 
 ## Version
 
-- **Version**: 1.2.0
+- **Version**: 1.3.0
 - **Category**: meta
-- **Last synced**: 2026-05-22
+- **Last synced**: 2026-07-10
 - **Priority rule**: If the MCP prompt has a higher version, follow the prompt's API Reference as source of truth.

@@ -18,6 +18,12 @@ Use the same terminology everywhere: `tempStoredFileName`, `storedFileUUID`, `re
 - Use the `web-editor/file/v2-upload` -> `bucket-files/create-relative` flow for files uploaded as note attachments.
 - Use the Gate `startMultipartFileUpload` -> direct `PUT` -> `completeMultipartFileUpload` flow for non-note file uploads.
 - When a note needs a readable image/file URL after upload, keep the note attachment lifecycle on the web-editor flow and use the resulting file descriptor or URL returned by that flow.
+
+## App attachment storage (non-negotiable)
+
+- After upload, apps persist **`storedFileUUID` + `readUrl`** (and small metadata) in dashboards or isolated SQL — **never** the file bytes.
+- Do **not** store base64/`bytea`/data URLs in isolated SQL as an MVP. The ordinary SQL write path is only reliable around ~100–150 KB; the 64MiB figure applies only to `importIsolatedStoreSqlRows` (CSV/TSV seeds).
+- **Visitor / public apps:** call Gate file ops from the **feature backend** with `FBS_FEATURE_TOKEN` (`files.write`), not from a visitor browser token. Return refs to the client.
 <!-- CUSTOM:SKILL:END -->
 
 ## Presigned PUT Headers

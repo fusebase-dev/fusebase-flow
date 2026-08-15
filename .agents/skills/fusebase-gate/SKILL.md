@@ -42,6 +42,8 @@ Each reference is in a separate file under `references/`. Load the file when you
 - [Fusebase Gate Notes Operations](references/notes.md)
 - [Fusebase Gate Org Group Operations](references/org-groups.md)
 - [Fusebase Gate Organization URLs](references/orgs.md)
+- [Fusebase Gate Portals — Create Operations](references/portals-create.md)
+- [Fusebase Gate Portals Operations](references/portals.md)
 - [Fusebase Gate Stripe App And Agent Integration](references/stripe-apps.md)
 - [Fusebase Gate Users Operations](references/users.md)
 - [FuseBase PostgreSQL Database](references/isolated.md)
@@ -50,6 +52,7 @@ Each reference is in a separate file under `references/`. Load the file when you
 - [Isolated stores hierarchy: Gate vs Neon](references/isolated-store-hierarchy.md)
 - [Isolated stores release checklist](references/isolated-stores-release-checklist.md)
 - [Portal iframe embed context (Gate SQL RLS)](references/portal-embed-context.md)
+- [Portal theme styling (custom CSS override contract)](references/portal-theme-variables.md)
 - [Stripe for apps and agents (Gate)](references/stripe-for-apps-and-agents.md)
 
 ---

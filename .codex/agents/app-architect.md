@@ -59,7 +59,7 @@ Determine whether the app needs a backend (`backend/` folder with Hono server). 
 **NO — does NOT need backend:**
 - All data operations are CRUD on dashboards (use SDK directly)
 - Only reads/writes rows in dashboards via the dashboard SDK
-- File uploads (use the file-upload service directly from the browser)
+- File uploads for **org members** (Gate / file-upload from the browser with `files.write`). For **visitor/public-link** uploads, use a feature backend that brokers with `FBS_FEATURE_TOKEN` — never store file bytes in isolated SQL.
 - Authentication is handled by the platform's app token
 - Simple data display, forms, filtering, sorting
 

@@ -1,7 +1,7 @@
 ---
-version: "1.1.0"
+version: "1.3.0"
 mcp_prompt: membership
-last_synced: "2026-07-03"
+last_synced: "2026-07-23"
 title: "Fusebase Gate Membership And Portal Flows"
 category: specialized
 ---
@@ -22,6 +22,8 @@ These prompts cover organization member invites/removal, workspace selection, po
 - getOrgUrl: resolve the organization's canonical HTTPS base URL (subdomain or custom CNAME domain).
 - listWorkspaces: list workspaces visible in an organization and identify the default workspace.
 - listPortals: list portals visible in an organization.
+- listWorkspaceMembers: list members of a single workspace scoped to the org.
+- listPortalMembers: portal-named alias for listing underlying workspace members by `workspaceId`.
 - addOrgUser: create an org invite, workspace invite, or portal invite depending on payload shape.
 - removeOrgMember: remove an organization member by numeric `userId`.
 - removeWorkspaceMember: remove a workspace member by `workspaceId` plus numeric `userId`.
@@ -49,6 +51,7 @@ These prompts cover organization member invites/removal, workspace selection, po
 - Use listPortals when the caller needs existing portal domains for the organization.
 - A portal belongs to both an `orgId` and a `workspaceId`.
 - Portal listing is discovery-only; invitation still happens through addOrgUser.
+- To list who belongs to a portal/facility workspace, call listWorkspaceMembers with the portal's `workspaceId` (or listPortalMembers with the same id). Do not use listOrgUsers when you need a workspace-scoped roster.
 
 ## Invite Flow Rules For addOrgUser
 
@@ -70,11 +73,21 @@ These prompts cover organization member invites/removal, workspace selection, po
 - `result: "link"` means org-service returned a portal magic link; inspect `magicLink` and related workspace membership fields.
 - After addOrgUser, verify access through getMyOrgAccess before treating the target user as fully provisioned in the org.
 
+## Workspace And Portal Member Listing
+
+- listWorkspaceMembers returns `{ members: OrgWorkspaceMember[] }` for one workspace after Gate confirms it belongs to `orgId`.
+- Each member includes `id` (workspaceMember globalId), `userId`, workspace `role`, `workspaceId`, and timestamps, plus org-membership fields joined by `userId`: `orgRole` (guest|client|member|manager|owner), `email`, `firstname`, `lastname`, and `isPortalManager`.
+- Portal chat/provisioning: one listPortalMembers call is enough to (a) filter clients via `orgRole === 'client'`, (b) filter portal managers via `isPortalManager` (the official flag; `true` when `orgRole` is `manager` (what invitePortalManager grants) or `owner` — do not re-derive it), and (c) build a `Chat with <firstname lastname | email>` channel name. No separate listOrgUsers join needed.
+- listPortalMembers uses the same response shape; pass the portal's underlying `workspaceId`, not the portal global id.
+- Workspace outside the org returns 404. Requires org.members.read and org access.
+- For per-facility or per-portal user management, prefer listWorkspaceMembers over listOrgUsers to avoid cross-workspace leakage.
+
 ## Removal And Client Account Deletion Rules
 
 - Use listOrgUsers first when you need to verify a target user's org role before account-level deletion.
 - removeOrgMember uses the numeric user id available from listOrgUsers. Gate resolves the internal org membership global id.
-- removeWorkspaceMember and removePortalMember use workspaceId plus numeric userId. Gate resolves the internal workspace membership global id.
+- removeOrgMember is unconditional unless you pass a precondition. When undoing your own invite, pass **both** `expectedRole` (the role you invited with) and `expectedJoinedAfter` (unix seconds taken before the invite) so a pre-existing or since-promoted member is never removed — either one alone still allows removing a since-re-invited or unrelated newer member. A mismatch fails with 409 and removes nothing; a param sent with an empty value fails with 400 rather than removing unconditionally.
+- removeWorkspaceMember and removePortalMember use workspaceId plus numeric userId. Gate resolves the internal workspace membership global id when userId is passed; `members[].id` from listWorkspaceMembers is the same globalId.
 - Removing an org member removes org membership; org-service owns related workspace/group cleanup.
 - scheduleClientAccountDeletion takes numeric `userId` in the body and is allowed only for Client-role users in the requested org.
 - Client account deletion is scheduled/delayed by user-service; do not promise immediate permanent deletion.
@@ -88,7 +101,7 @@ These prompts cover organization member invites/removal, workspace selection, po
 
 ## Version
 
-- **Version**: 1.1.0
+- **Version**: 1.3.0
 - **Category**: specialized
-- **Last synced**: 2026-07-03
+- **Last synced**: 2026-07-23
 - **Priority rule**: If the MCP prompt has a higher version, follow the prompt's API Reference as source of truth.

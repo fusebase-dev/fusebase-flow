@@ -1,7 +1,7 @@
 ---
-version: "1.6.4"
+version: "1.6.8"
 mcp_prompt: sdk
-last_synced: "2026-06-08"
+last_synced: "2026-08-04"
 title: "Fusebase Gate SDK"
 category: meta
 ---
@@ -37,7 +37,12 @@ Start with published app API discovery through Gate:
 Only then move to callAppApi or direct runtime probing if behavior still needs verification.
 Do not start by asking for raw OpenAPI export, manual endpoint lists, local source code, or dashboard/storage schema spelunking when a published app API exists.
 For security-sensitive app API operations, use contract-level policy: `x-fusebase-allowed-callers` for caller identity and `x-fusebase-required-permissions` for caller capability.
-`x-fusebase-required-permissions` must use the app API namespace `app_api.<namespace>.<capability>.<action>` (for example `app_api.client_portal.provision.write`), not built-in Gate permissions such as `isolated_store.read`.
+`x-fusebase-required-permissions` must use the app API namespace `app_api.<namespace>.<capability>.<action>` (for example `app_api.client_portal.provision.write`), not built-in Gate permissions such as `isolated_store.read`. Spell every segment lowercase: `app_api.clientPortal.provision.write` cannot be granted to any caller, and the operation is rejected with a 400 naming it.
+A required permission is only satisfied if the **calling** app was granted that exact capability (`fusebase app update <appId> --permissions app_api.<namespace>.<capability>.<action>`). Grant it before relying on the guard: declaring a permission no caller holds locks the operation out. These extensions were ignored at runtime until NIM-42740, so an operation that has always been callable may start returning `403 app_api_missing_permissions` once your environment enforces them.
+Those guards are evaluated against the **calling identity**. A browser `fbsfeaturetoken` embeds a Gate service token carrying `client:<productId>`, so it satisfies `x-fusebase-allowed-callers` for its own product and any end user can replay it from devtools. Only `x-fusebase-required-permissions` is browser-proof (`app_api.*` is backend-only and stripped from the browser mint) — pair the two guards on anything sensitive.
+To run a guarded operation for an end user, call `callAppApi` from the app backend with its service token and pass the user's `fbsfeaturetoken` as `onBehalfOfUserToken` in the body. Gate verifies it fail-closed (401 `obo_user_token_invalid`, 403 `obo_user_token_org_mismatch`) and forwards `X-Fusebase-Verified-User-Id` / `X-Fusebase-Verified-User-Source: obo` to the provider runtime — read the user id from those headers instead of hand-rolling dual-token forwarding.
+The platform proxy strips inbound `X-Fusebase-Verified-*` headers it cannot prove came from Gate, so they cannot be forged through the app URL. Your backend's deploy FQDN is a separate public origin that the proxy does not front, and the backend cannot tell the two apart — so OBO removes the dual-token plumbing, not the trust requirement. Do not treat a verified header as a bearer credential for anything you would not expose to any authenticated peer in the org.
+Denials come back as 403 with a machine-readable `errorCode` under `data` in the error body (`app_api_caller_not_allowed`, `app_api_missing_permissions`, `app_api_operation_private`); an unknown operation is a 404 `app_api_operation_not_found`. Branch on `errorCode`, not on the message.
 
 ## Main SDK Clients
 
@@ -58,7 +63,7 @@ For session-backed org access checks, use AccessApi.getMyOrgAccess instead of in
 After sign-up, sign-in, or provisioning writes, re-check AccessApi.getMyOrgAccess before unlocking org content.
 Treat `result: "invite"` from addOrgUser as pending membership rather than granted access.
 Do not treat a custom /me or account endpoint as the source of truth unless it delegates to getMyOrgAccess.
-For magic-link activation and other user-context Gate calls from an app backend, forward the activation `sessionToken` as header `EverHelper-Session-ID` together with `x-app-feature-token`. The activation `featureToken` (Gate bearer) alone does not resolve the authenticated user on `getMyOrgAccess`.
+For platform email magic links (`/_auth/magiclink/{key}`), call `getMyOrgAccess` from the app backend with `x-app-feature-token` from the `fbsfeaturetoken` cookie and verify `source === 'member'`. For legacy SPA `activateAppMagicLink`, forward `sessionToken` as `EverHelper-Session-ID` together with `x-app-feature-token`, or POST both in the exchange body.
 For Stripe onboarding, product, checkout, and subscription-cancel flows, start with BillingApi methods such as getStripeOauth, createStripeProduct, updateStripeProduct, deleteStripeProduct, getStripePaymentLink, cancelStripeSubscription, and getStripePaymentState.
 Treat BillingApi.updateStripeMode as a compatibility surface for now rather than a normal app workflow: Gate billing should currently be considered live-mode only.
 Use stable app-owned `kind` and `kindId` values in BillingApi. Keep `kind` at 32 chars max and `kindId` at 64 chars max so webhook-backed payment state can be checked later for the same entitlement.
@@ -97,7 +102,7 @@ Always handle SDK operation failures explicitly.
 
 ## Version
 
-- **Version**: 1.6.4
+- **Version**: 1.6.8
 - **Category**: meta
-- **Last synced**: 2026-06-08
+- **Last synced**: 2026-08-04
 - **Priority rule**: If the MCP prompt has a higher version, follow the prompt's API Reference as source of truth.

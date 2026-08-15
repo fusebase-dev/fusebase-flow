@@ -60,7 +60,7 @@ Sidecars are pre-built Docker images that run alongside the app backend in the s
 
 ```bash
 # Add a sidecar to an app backend
-fusebase sidecar add --app <appId> --name chromium --image browserless/chrome:latest --port 9222
+fusebase sidecar add --app <appPath> --name chromium --image browserless/chrome:latest --port 9222
 ```
 
 The sidecar is accessible from the backend at `http://localhost:<port>`. Max 3 sidecars per app.
@@ -82,7 +82,7 @@ const data = await response.json();
 Each sidecar can have its own env vars (not shared with the backend):
 
 ```bash
-fusebase sidecar add --app <appId> --name redis --image redis:7 --port 6379 --env REDIS_MAXMEMORY=256mb
+fusebase sidecar add --app <appPath> --name redis --image redis:7 --port 6379 --env REDIS_MAXMEMORY=256mb
 ```
 
 ### Debugging Sidecars
@@ -313,6 +313,11 @@ Practical guidance:
 
 - Use `x-fusebase-visibility: org` for business operations that other apps/agents in the org may discover and call
 - Use `x-fusebase-visibility: private` for internal-only routes such as `health`, debug/admin endpoints, and routes that should not appear in org-wide discovery
+
+`org` means **every member of the organization**, including **external members** (`orgRole: client` / `guest`), not just internal roles (`member`/`manager`/`owner`). A cross-app caller with any valid org role can discover and call an `org` operation — op lookup returns the operation, never 404-by-role. Enforce per-user, per-resource authorization (channel/record membership, ownership) **inside your handler** and return **200 or 403**; do not rely on `visibility` to hide an operation from a subset of org members. Use `x-fusebase-allowed-callers` to restrict which caller **project** may invoke the op — a caller id is the calling project's `productId` (`client:<productId>`), not an app id, so sibling apps of one project share it. It filters caller identity, not org role —
+and not end users either: the browser `fbsfeaturetoken` embeds a Gate token with the same
+`client:<productId>`, so any user of an allowed project matches it from devtools. Pair it with
+`x-fusebase-required-permissions` (backend-only, never in the browser token) on anything sensitive.
 - Use `x-fusebase-execution-mode: sync` for normal request/response APIs
 - Use `x-fusebase-execution-mode: async` for long-running or async-style operations
 
@@ -339,6 +344,17 @@ When an app has a backend, the `/api` path prefix is **reserved for the backend*
 - Backend routes: `/api/*` (REST endpoints, WebSocket upgrades)
 - SPA routes: everything else (`/`, `/items/:id`, `/settings`, etc.)
 
+## Cold Starts (Scale-to-Zero)
+
+`backend.minReplicas` defaults to **`0`**: the backend scales to zero when idle and there is no
+post-deploy warm-up, so the first request after idle *or* deploy pays a **~10s** cold start.
+
+- Time out app → backend requests at **≥15s**; the platform ceiling is **30s** (CloudFront).
+- Leave the SDKs' **30000ms** default alone — one `AbortController` spans all `fetchWithRetry`
+  attempts, so retries do not get a fresh deadline.
+- A slow first response is not a session error — never clear the session or force login.
+- Need a fast first request? [Keep a replica warm](#keep-a-replica-warm-for-webhook-apps-backendminreplicas-1).
+
 ## Webhooks and External WebSocket Callbacks (Inbound)
 
 Inbound integrations from external services (for example, Monday.com, GitHub, Stripe) can use regular HTTP webhooks and, when needed, WebSocket upgrades (for example, Twilio media streams). These requests typically do not carry a `fbsfeaturetoken` cookie or `x-app-feature-token` header.
@@ -353,7 +369,8 @@ starts slower than the provider's timeout and is silently dropped.
 **Rule:** if the app receives webhooks (or any always-on inbound integration), set
 `backend.minReplicas: 1` in `fusebase.json` to keep one replica warm — see
 [fusebase.json Backend Config](#fusebasejson-backend-config). Cap `3`; each warm replica
-runs 24/7, so prefer `1`. Apps without webhooks omit it (or `0`) to keep scale-to-zero.
+runs 24/7, so prefer `1`. Apps without webhooks omit it (or `0`) to keep scale-to-zero — and
+must then follow [Cold Starts (Scale-to-Zero)](#cold-starts-scale-to-zero) for client timeouts.
 
 ### Register external webhooks yourself
 
@@ -383,18 +400,111 @@ Use `process.env.FBS_FEATURE_TOKEN` when the backend must call Gate **without** 
 
 1. **Webhooks / cron** — no browser session at all
 2. **Privileged provisioning** — public signup BFF routes that call `registerFusebaseOrgMember` or `addOrgUser` on behalf of a new visitor
+3. **Isolated-store system routes** — visitor-facing writes that need `isolated_store.*` when no user session exists
 
 `FBS_FEATURE_TOKEN` is the platform-issued service token minted at deploy (with permissions such as `org.members.write`). See **`fusebase-gate/references/fusebase-auth.md`** (§ Public Registration With Org Membership, § Two Names For Feature Token).
 
 **Security rules:**
 
 - Never expose `FBS_FEATURE_TOKEN` to the browser or SPA bundles.
-- Do **not** use it as a fallback when resolving **who the current user is** (`getMyOrgAccess`, role-gated UI) — those need the visitor/user app token plus `EverHelper-Session-ID` when applicable.
+- Do **not** use it as a fallback when resolving **who the current user is** (`getMyOrgAccess`, role-gated UI) — use the request `fbsfeaturetoken` cookie (post-NH1 magic-link flow) or `EverHelper-Session-ID` when an org session is on the same request path.
 - **Do** use it inside trusted BFF handlers that perform org membership writes after validating signup input server-side.
 - On routes like `POST /api/account/register`, incoming `header || cookie('fbsfeaturetoken')` is only for app-proxy auth; the Gate SDK client inside the handler must use `FBS_FEATURE_TOKEN`, not the forwarded visitor cookie.
 - In local `fusebase dev`, backend-only provisioning may use `process.env.FBS_FEATURE_TOKEN ?? process.env.GATE_MCP_TOKEN`.
+- User-facing routes must fail closed (`401/403`) on a missing/invalid app token — do not fall back to the service-account token.
 
-**Not a service-token route:** ordinary user-context Gate reads/writes where the acting user is the logged-in visitor — use the request app token and session header, not `FBS_FEATURE_TOKEN`.
+### Deployed backend: `FBS_FEATURE_TOKEN` + isolated stores (system routes)
+
+Public apps often need a **backend system route** (webhook, `POST /api/leads`, etc.) that writes to an isolated SQL store. The platform injects **`FBS_FEATURE_TOKEN`** (and usually **`FBS_ORG_ID`**, **`FBS_APP_ID`**) into the deployed backend env. Local dev typically has no `FBS_FEATURE_TOKEN`; use **`GATE_MCP_TOKEN`** from `.env` there instead.
+
+**Token source (one helper, both environments):**
+
+```typescript
+const token =
+  process.env.GATE_TOKEN?.trim() ||
+  process.env.FBS_FEATURE_TOKEN?.trim() ||
+  process.env.GATE_MCP_TOKEN?.trim();
+if (!token) throw new Error("No Gate token in env");
+```
+
+**Transport — do not send deploy token as `Authorization: Bearer`**
+
+| Environment | Token | Gate client headers |
+|-------------|-------|---------------------|
+| **Deployed** | `FBS_FEATURE_TOKEN` | `x-app-feature-token: <token>` only — Bearer → `401 Invalid or expired token` |
+| **Local dev** | `GATE_MCP_TOKEN` | `Authorization: Bearer <token>` (MCP/service token) |
+
+Probe both when unsure: try `feature` header first, then `bearer`; keep the transport that actually passes a capability check (below).
+
+**`getMe` — no `health.read` grant required**
+
+`AccessApi.getMe` is an identity introspection call. It requires a valid user or app token but **no named Gate permission** (same class as `getHealth`). Do not add `health.read` to `fusebaseGateMeta.permissions` solely to call `getMe`, and do not treat a missing `health.read` grant as the reason `getMe` fails — look for transport/header issues first.
+
+**Gate SDK typing — use full `*Api` factories (not `Pick<>`)**
+
+`fusebase analyze gate` / `--sync-gate-permissions` derive the published grant from static analysis. **Production code must use straightforward SDK patterns:**
+
+```typescript
+// GOOD
+export function createAccessApi(token: string): AccessApi {
+  return new AccessApi(createGateSdkClient(token));
+}
+await createAccessApi(token).getMe();
+```
+
+```typescript
+// BAD — do not use in production (hides ops from analyze gate; caused prod lockouts)
+type Client = Pick<AccessApi, "getMe">;
+function loadMe(api: Client) { return api.getMe(); }
+```
+
+- Factory return type = full SDK class (`AccessApi`, `OrgUsersApi`, `IsolatedStoresApi`, …).
+- No `Pick` / `Omit` / minimal interfaces for Gate clients.
+- No destructuring Gate methods (`const { getMe } = api`).
+- Before deploy: `fusebase analyze gate --feature <id>` → `usedOps` must match runtime calls.
+
+See `fusebase-gate` skill § Gate SDK runtime patterns and `references/sdk.md` § Permission sync typing rules.
+
+**Org id — do not derive from `getMe().scopes` on deploy**
+
+On deploy, `getMe()` for `FBS_FEATURE_TOKEN` may return `type: "user"` with **empty `scopes` and `permissions`** even when `listIsolatedStores` / `insertIsolatedStoreSqlRow` work. Do **not** gate store access on `getMe().auth.scopes`.
+
+```typescript
+// Deployed: platform injects FBS_ORG_ID — prefer over getMe
+const orgId =
+  process.env.FBS_ORG_ID?.trim() ||
+  (await getMeWithTransport(token, transport)).auth.scopes.find(
+    (s) => s.scopeType === "org",
+  )?.scopeId;
+if (!orgId) throw new Error("orgId unresolved");
+```
+
+**Capability check — probe the store, not `getMe`**
+
+Before insert/update, confirm the token can reach the target store:
+
+1. `listIsolatedStores({ orgId, clientId: process.env.FBS_APP_ID })` (or product id from `fusebase.json`)
+2. Match store by stable **`alias`**
+3. Only then call structured row APIs
+
+If step 1–2 succeed, proceed even when `getMe` looks empty.
+
+**Diagnostics on deploy**
+
+Deployed `/api/*` is behind the platform auth wall — tokenless `curl` from outside will not reach your handler. To debug live backend env and Gate behavior:
+
+1. Add a temporary **`/api/_diag`** route (redact token values; log presence + `getMe` / `listIsolatedStores` / probe insert outcomes per transport).
+2. Invoke it via platform **`callAppApi`** (mints a real app token and hits the live backend).
+
+Remove `_diag` before shipping.
+
+#### System-route backend checklist (isolated store / webhooks)
+
+- [ ] Deployed Gate calls use **`x-app-feature-token`** for `FBS_FEATURE_TOKEN`, not Bearer.
+- [ ] **`orgId`** on deploy comes from **`FBS_ORG_ID`** (or `fusebase.json` `orgId`), not from `getMe().scopes`.
+- [ ] Store resolution is verified with **`listIsolatedStores` + alias**, not `getMe` permissions/scopes.
+- [ ] Local dev uses **`GATE_MCP_TOKEN`** as Bearer; deploy uses **`FBS_FEATURE_TOKEN`** as feature header.
+- [ ] User-facing routes do **not** silently fall back to `FBS_FEATURE_TOKEN` when the visitor app token is missing.
 
 ## Dev Proxy
 
@@ -429,7 +539,60 @@ Backend commands (`dev`, `build`, `start`) run from the `backend/` subdirectory 
 
 ### `backend.minReplicas` (keep the backend warm)
 
-Optional integer. Minimum number of backend replicas to keep running. 0 by default. 0 means scale to zero (cold starts).
+Optional integer `0..3`. Minimum replicas the platform keeps running. **`0` (default)** = scale to zero when idle — see [Cold Starts (Scale-to-Zero)](#cold-starts-scale-to-zero).
+
+| `minReplicas` | Platform behavior (today) |
+| ------------- | ------------------------- |
+| omitted / `0` | Scale to zero; `maxReplicas` defaults to **3** when scaled up |
+| `1` | One warm replica; deploy logs show `Resolved scale: minReplicas=1, maxReplicas=3` |
+| `2`–`3` | N warm replicas; `maxReplicas` = `max(3, minReplicas)` |
+
+Use **`1`** for webhook / always-on inbound integrations (see above). Prefer `1` over `3` — each warm replica runs 24/7.
+
+### `backend.maxReplicas` — **not supported (do not use)**
+
+**There is no `backend.maxReplicas` in the platform contract today.** If you add it to `fusebase.json`, the CLI may accept it in the file but **deploy ignores it silently** — nimbus-ai always resolves `maxReplicas` via `resolveBackendScale()` (default cap **3**, bumped only when `minReplicas > 3`).
+
+**Never document or code against `maxReplicas=1` in fusebase.json.** A comment like “we pin single replica in fusebase.json” is false unless you also accept that the platform may run up to 3 replicas under load.
+
+**If your backend assumes one process** (in-memory rate limiter, module-level cache, KB version stamp):
+
+- Treat multi-replica as possible even with `minReplicas: 1` (HPA can scale to 3).
+- Move counters/cache to **isolated store**, dashboard rows, or Redis sidecar — or document the multiplied limit as acceptable.
+- Do **not** rely on `maxReplicas` in fusebase.json until the platform implements and validates it.
+
+### Deploy restarts the backend (SPA must tolerate it)
+
+Every **`fusebase deploy`** rolls the backend container. Users refreshing during rollout may see **502** from app-wrapper while the pod is not ready.
+
+Apps with an httpOnly session cookie (`app_session`, etc.) **must** implement session bootstrap per skill **handling-authentication-errors** § session probe invariant:
+
+- Only **401** on `/api/account/me` means logged out.
+- **5xx / network** → retry (e.g. 400 ms + 1200 ms), then “Can't reach server” — **do not** clear the session cookie.
+
+Without this, every deploy briefly “logs out” users who refresh in the rollout window.
+
+### Logout: clear session cookies correctly
+
+Call Gate `logoutFusebaseUser` from the **app backend** (user-context token), then clear **app-owned** cookies in the response. Gate returns which platform cookies to clear; your BFF must apply them on the app domain.
+
+**Rules:**
+
+1. **Backend first** — run logout on the server; do not only clear cookies client-side from localStorage flags.
+2. **Overwrite, do not delete-only** — some browsers/proxies ignore `Max-Age=0` deletes on `Set-Cookie`. Prefer setting an **expired tombstone** cookie (`value=""`, `maxAge: 0`, same `name`/`path`/`domain`/`sameSite`/`secure` as the live cookie).
+3. **Client logout flag** — if the SPA keeps a “signed out” flag, it must win over stale cookies until the next successful login probe.
+4. **Tests** — assert **`Set-Cookie` attributes** (`Max-Age`, `Path`, `HttpOnly`), not merely that a `Set-Cookie` header exists.
+
+```typescript
+// After logoutFusebaseUser — tombstone app session
+setCookie(c, 'app_session', '', {
+  httpOnly: true,
+  secure: true,
+  sameSite: 'Lax',
+  path: '/',
+  maxAge: 0,
+})
+```
 
 ## Deriving the Public Base URL from the Request
 
@@ -492,11 +655,12 @@ if (!appToken) {
 
 ### Magic-link session exchange (Memberspace)
 
-Platform activation at `/_auth/magiclink/{key}` sets HttpOnly cookies and redirects; **that is not enough** for knowing which user opened the link. Implement in your app backend:
+Platform activation at `/_auth/magiclink/{key}` mints `fbsfeaturetoken` on the app host and redirects; **that is not enough** for durable Memberspace identity. Implement in your app backend:
 
-1. `POST /api/account/from-magic-link` — same-origin call from the SPA after the activation redirect; the HttpOnly cookies ride along automatically (JS cannot read them).
-2. Call Gate `GET /:orgId/me/access` with `x-app-feature-token: <fbsfeaturetoken cookie>` + **`EverHelper-Session-ID: <eversessionid cookie>`**.
-3. Issue an app-owned httpOnly session cookie (HMAC, bound to `userId`); `GET /api/account/me` reads only that cookie.
+1. `POST /api/account/from-magic-link` — same-origin call from the SPA **immediately** after the activation redirect; the HttpOnly `fbsfeaturetoken` cookie rides along automatically (JS cannot read it).
+2. Call Gate `GET /:orgId/me/access` with `x-app-feature-token: <fbsfeaturetoken cookie>` only (see § Magic-link session exchange below — org `eversessionid` is on a different domain after NH1).
+3. **Fail-closed:** accept only `source === 'member'` with a real user id.
+4. Issue an app-owned httpOnly session cookie (HMAC, bound to `userId`); `GET /api/account/me` reads only that cookie.
 
 See `fusebase-gate/references/app-magic-links.md` (§ App Session Exchange) and `fusebase-auth.md` (§ Magic-Link → App Session Exchange). Env: `FUSEBASE_ORG_ID`, `APP_SESSION_SECRET`.
 
@@ -508,18 +672,54 @@ When backend routes call Gate on behalf of the current user, keep auth in app-to
 - On missing/invalid app token or Gate auth rejection, return `401/403` and require re-auth/permission sync.
 - Service-token usage is allowed only for explicitly system/admin routes, not as an automatic fallback path.
 
+### Gate 403 triage: permission drift and `--sync-gate-permissions`
+
+When Gate calls fail with **403** and messages like **`Token missing required permission: …`** or **`token subject not allowed for this operation`**, especially after a **Gate SDK bump** or platform deploy while app source did not change:
+
+1. **Read** `fusebase.json` → `fusebaseGateMeta.usedOps` vs `permissions`. A used op without its derived permission (e.g. `listPortals` but no `portals.read`) means **remote permissions are stale**.
+2. **Analyze** (read-only): `fusebase analyze gate --operations --json --feature <featureId>`.
+3. **Propose or run** (with user approval if mutating remote state):
+
+   ```bash
+   fusebase app update <appId> --sync-gate-permissions
+   ```
+
+   Run this after changing Gate SDK usage or upgrading `@fusebase/fusebase-gate-sdk`, and **before** `fusebase deploy` when publishing permission changes. `deploy` does **not** sync permissions.
+
+4. **Re-test** with a fresh session / new feature token after sync.
+
+**Limits of sync**
+
+- Fixes **missing permissions on the minted `gst`** when ops are `userOrToken(permission)`.
+- Does **not** fix **`getMyOrgAccess`** called from the SPA — use the backend exchange (see § Magic-link session exchange).
+- Does **not** replace fixing wrong call patterns (bare gst on user-context ops).
+
+Full permission model: `apps-cli/docs/PERMISSIONS.md`. Incident skill (issues workspace): **gate-feature-token-debug** § Gate 403 authz.
+
 ### Magic-link session exchange (`/api/account/from-magic-link`)
 
-If the app uses Fusebase Gate magic links (`requestAppMagicLink` / `activateAppMagicLink` — see the `fusebase-gate/references/app-magic-links.md` and `fusebase-gate/references/fusebase-auth.md` skill references), the backend exchange after activation is **mandatory for every app**, but the cookie policy splits cleanly into Test and Production.
+If the app uses Fusebase Gate magic links (`requestAppMagicLink` / platform `/_auth/magiclink/{key}` — see `fusebase-gate/references/app-magic-links.md` and `fusebase-gate/references/fusebase-auth.md`), the backend exchange after activation is **mandatory for every app**, but the cookie policy splits cleanly into Test and Production.
 
-**Mandatory exchange (same in Test and Production):**
+**Cookie model after NH1 (platform email links):**
 
-1. Visitor opens `/_auth/magiclink/{key}`; the platform activates the link, sets HttpOnly `eversessionid` / `fbsfeaturetoken` / `fbsdashboardtoken` cookies, and redirects to `redirectPath`.
-2. The SPA calls a backend route (default: `POST /api/account/from-magic-link`) as a plain same-origin request — the HttpOnly cookies are attached automatically; JS cannot (and must not) read or forward the tokens itself.
-3. Backend reads the cookies and builds a Gate client with `x-app-feature-token: <fbsfeaturetoken>` **and** `EverHelper-Session-ID: <eversessionid>`, then calls `getMyOrgAccess` to resolve `userId`. The feature token alone does not identify the user on `getMyOrgAccess`.
-4. Backend responds with whatever the SPA needs (typically just `{ userId }`).
+| Cookie | Domain | Available on app backend? |
+| --- | --- | --- |
+| `eversessionid` | org domain (`*.thefusebase.com` / org CNAME) | **No** — different registrable domain |
+| `fbsfeaturetoken` | app host (`*.thefusebase-app.com` / app CNAME) | **Yes** — same-origin cookie |
 
-That is the **only** mandatory part of the exchange. The `EverHelper-Session-ID` header pattern is the rule that protects against a stale browser session masquerading as the magic-link recipient.
+Do **not** expect `eversessionid` on a same-origin `POST /api/account/from-magic-link` from the app host. That is intentional (see `apps-cli/docs/proposals/APP-AUTH-FORM-SESSION-EXCHANGES.md`).
+
+**Mandatory exchange — platform email (`/_auth/magiclink/{key}`):**
+
+1. Visitor opens the email link; platform activates, auth-form sets org `eversessionid`, app-wrapper mints recipient-scoped `fbsfeaturetoken` on the app host, then redirects to `redirectPath`.
+2. SPA **immediately** calls `POST /api/account/from-magic-link` as a plain same-origin request — only `fbsfeaturetoken` is attached; JS cannot (and must not) read or forward tokens.
+3. Backend reads `fbsfeaturetoken` from the cookie, calls `getMyOrgAccess` with `x-app-feature-token` only. The app-api proxy resolves the recipient `userId` from the JWE embedded at mint time.
+4. **Fail-closed:** accept only `source === 'member'` with a real user id. Reject `source: 'none'` (visitor), `source: 'owner'` (owner-scoped / legacy), and missing/invalid responses — do not log in the wrong user.
+5. Backend responds with whatever the SPA needs (typically `{ userId }`).
+
+**Legacy SPA activation (`activateAppMagicLink` on `/link`):** the activation JSON still returns `{ featureToken, sessionToken, … }`. **`featureToken` alone is not enough** — bare `x-app-feature-token` to gate-proxy returns **`401 UNAUTHORIZED`**. Always POST both in the **body** to `/api/account/from-magic-link`, or forward the **mandatory** pair `x-app-feature-token: <featureToken>` + `EverHelper-Session-ID: <sessionToken>`. Dual-token in the request body still works here because tokens do not rely on cross-domain cookies.
+
+Run the exchange **before** `window.location.replace` to a protected route — the next HTML load may re-mint `fbsfeaturetoken` for a different Fusebase user already signed into the browser.
 
 #### Test vs Production cookie policy
 
@@ -527,7 +727,7 @@ Pick the recipe based on what the app actually needs. **Do not auto-upgrade a sm
 
 **Test mode — smoke test of the magic-link flow, no Memberspace, no role-gated UI:**
 
-- The mandatory exchange above is enough. The SPA can keep the `fbsfeaturetoken` / `eversessionid` cookies set by activation; re-running the exchange on the next protected page-load is acceptable for a smoke test.
+- The mandatory exchange above is enough. The SPA can keep the platform `fbsfeaturetoken` cookie; re-running the exchange on the next protected page-load is acceptable for a smoke test.
 - Do **not** issue an HMAC-signed app session cookie.
 - Do **not** register `APP_SESSION_SECRET` (or any other HMAC secret) via `fusebase secret create`.
 - Result: a Test-mode magic-link app needs **zero** `fusebase secret create` calls for the magic-link flow itself.
@@ -535,9 +735,16 @@ Pick the recipe based on what the app actually needs. **Do not auto-upgrade a sm
 **Production mode — Memberspace, role-gated UI, anything that must remember which user opened the link across navigations:**
 
 - After step 3, issue an **app-owned** session cookie (HMAC-signed or equivalent integrity-protected payload, bound to the resolved `userId`). Verify it on every protected request; do not re-infer identity from `fbsfeaturetoken` after the initial redirect.
-- Register the HMAC secret here and only here: `fusebase secret create --app <%= it.flags?.includes("declarative-manifest") ? "<appPath>" : "<appId>" %> --secret "APP_SESSION_SECRET:HMAC signing key for app-owned session cookie"`. Read it from `process.env.APP_SESSION_SECRET` at runtime.
+- Register the HMAC secret here and only here: `fusebase secret create --app <appPath> --secret "APP_SESSION_SECRET:HMAC signing key for app-owned session cookie"`. Read it from `process.env.APP_SESSION_SECRET` at runtime.
 - Cookie attributes: `httpOnly`, `secure`, `sameSite=Lax`, `path=/`. Rotate by changing the secret and invalidating active cookies; do not rely on Fusebase platform cookies for revocation.
 - Result: a Production-mode magic-link app needs exactly **one** `fusebase secret create` call (the HMAC secret).
+
+**Platform token lifetime (not a durable visitor session):**
+
+- **Invite link TTL** (`ttlSeconds`, default 24h, max 7d) is only how long the email link can be **activated** — not how long the signed-in session lasts.
+- After activation, `fbsfeaturetoken` on the app host is **short-lived** (typically ~24h). There is **no** supported silent renew from the app host for magic-link visitors (post-NH1 `eversessionid` is org-domain only). Do not treat `…/auth/?appSuccess=…` failures as a broken visitor renew path.
+- Day-scale “stay signed in” = **app-owned HMAC session** (Production recipe above). When the platform token lapses, keep the app session and re-check entitlement from your store / service token — do not bounce to sign-in solely on expired-platform-token `getMyOrgAccess` 401.
+- Anything that still needs a **live** platform feature token (browser proxy to Gate/Dashboard, some embeds) dies when that token expires — keep those behind the app backend or accept a fresh magic link.
 
 #### What is **not** a secret — never `fusebase secret create`
 
@@ -553,12 +760,13 @@ If `fusebase secret list --feature <appId>` shows any of the above, remove them 
 
 Before claiming the magic-link flow is done, verify:
 
-- [ ] After the platform `/_auth/magiclink/{key}` redirect, the SPA calls `/api/account/from-magic-link` (or another app-owned route) as a same-origin request; no code reads or forwards tokens via JS.
-- [ ] Backend builds the Gate client with **both** `x-app-feature-token` (from the `fbsfeaturetoken` cookie) and `EverHelper-Session-ID` (from the `eversessionid` cookie) before calling `getMyOrgAccess`. The feature token alone is not enough.
+- [ ] After the platform `/_auth/magiclink/{key}` redirect, the SPA calls `/api/account/from-magic-link` (or another app-owned route) **immediately** as a same-origin request; no code reads or forwards tokens via JS.
+- [ ] Platform email flow: backend calls `getMyOrgAccess` with `x-app-feature-token` from the `fbsfeaturetoken` cookie only (no `eversessionid` on app host — expected).
+- [ ] Exchange **fail-closed:** `getMyOrgAccess` must return `source === 'member'` with a real user id before unlocking protected UI.
+- [ ] Legacy `/link` + `activateAppMagicLink`: if using activation JSON, POST `{ featureToken, sessionToken }` in the body (dual-token still valid for this path).
 - [ ] Test mode: no `APP_SESSION_SECRET`, no HMAC-signed app cookie, no `fusebase secret create` call for the magic-link flow.
-- [ ] Production mode (only if Memberspace/role-gated UI is required): exactly one `fusebase secret create … APP_SESSION_SECRET:…`, HMAC-signed app-owned session cookie, verified on every protected request.
+- [ ] Production mode (only if Memberspace/role-gated UI is required): exactly one `fusebase secret create … APP_SESSION_SECRET:…`, HMAC-signed app-owned session cookie, verified on every protected request; durable “stay signed in” does **not** depend on `fbsfeaturetoken` lasting beyond ~24h.
 - [ ] `fusebase secret list --feature <appId>` does **not** include `FUSEBASE_ORG_ID`, `productId`, app subdomain, or any other value that already lives in `fusebase.json`.
-- [ ] Backend does not call `getMyOrgAccess` with only the feature token to gate protected content — it always forwards the session header.
 
 For WebSockets:
 
@@ -618,7 +826,7 @@ config.refreshToken = tokens.refresh_token; // lost on restart
 ## Dev Workflow
 
 1. `cd apps/my-app/backend && npm install` — install backend deps
-2. `fusebase secret create --app <%= it.flags?.includes("declarative-manifest") ? "<appPath>" : "<appId>" %> --secret "KEY:description"` — register secrets (if needed), set values via the printed URL
+2. `fusebase secret create --app <appPath> --secret "KEY:description"` — declare secrets in `fusebase.json` (if needed); deploy/dev start registers them and prints the UI URL where you set the values
 3. `fusebase dev start` — starts both SPA and backend; secrets are injected automatically as env vars
 
 **No `.env` files or `dotenv` needed** — `fusebase dev start` injects secrets into the backend process.
@@ -651,13 +859,13 @@ Before adding a backend:
 
 Cron jobs run on a schedule using the **same Docker image** as the app backend. Each job is an independent process that executes a command on a cron schedule and exits.
 
-> **⚠️ Cron jobs cannot reach backend sidecars on `localhost`.** Cron jobs are deployed as **independent Azure Container Apps Jobs**, not as part of the backend container app, so they do not share the backend's network namespace. A cron container that calls `http://localhost:9222` (or any other backend sidecar port) will fail with `fetch failed`.<% if (it.flags?.includes("job-sidecars")) { %> If a cron needs an auxiliary container, declare a **per-job sidecar** — see [Job Sidecars](#job-sidecars) below.<% } else { %> If a cron needs an auxiliary container, call back to the main backend over its public URL (`/api/...`), where the backend can use its own sidecars.<% } %>
+> **⚠️ Cron jobs cannot reach backend sidecars on `localhost`.** Cron jobs are deployed as **independent Azure Container Apps Jobs**, not as part of the backend container app, so they do not share the backend's network namespace. A cron container that calls `http://localhost:9222` (or any other backend sidecar port) will fail with `fetch failed`. If a cron needs an auxiliary container, declare a **per-job sidecar** — see [Job Sidecars](#job-sidecars) below.
 
 ### 1. Register the job in fusebase.json
 
 ```bash
 fusebase job create \
-  --app <%= it.flags?.includes("declarative-manifest") ? "<appPath>" : "<appId>" %> \
+  --app <appPath> \
   --name <job-name> \
   --cron "0 * * * *" \
   --command "npm run cron:my-job"
@@ -712,12 +920,11 @@ Key points:
 ### Removing a Job
 
 ```bash
-fusebase job delete --app <%= it.flags?.includes("declarative-manifest") ? "<appPath>" : "<appId>" %> --name <job-name>
+fusebase job delete --app <appPath> --name <job-name>
 ```
 
 This removes the job from `backend.jobs` in `fusebase.json`. On the next `fusebase deploy` the job will be automatically deleted from cloud infrastructure.
 
-<% if (it.flags?.includes("job-sidecars")) { %>
 ### Job Sidecars
 
 Each cron job can declare its own sidecar containers under `apps[].backend.jobs[].sidecars`. Sidecars share the **job replica's** network namespace, not the backend's, so the main job container talks to them on `localhost:<port>` exactly the way the backend talks to its own sidecars.
@@ -726,7 +933,7 @@ Add a sidecar to a job:
 
 ```bash
 fusebase sidecar add \
-  --app <appId> \
+  --app <appPath> \
   --job <jobName> \
   --name <name> \
   --image <dockerImage> \
@@ -759,11 +966,10 @@ Key constraints:
 
 For full details (config format, networking, debugging), see the **app-sidecar** skill.
 
-<% } %>### Cron Jobs Checklist
+### Cron Jobs Checklist
 
 - [ ] App already has a `backend/` folder and a `backend` block in `fusebase.json` (backend is scaffolded first)
 - [ ] Added `cron:<job-name>` npm script to `backend/package.json`
 - [ ] Ran `fusebase job create` to register the job
 - [ ] Ran `fusebase deploy` to deploy the app — **cron jobs only run after deployment**, not during `fusebase dev start`
-<% if (it.flags?.includes("job-sidecars")) { %>- [ ] If the cron needs an auxiliary container (browser, cache, etc.), attached sidecars to the **job** via `fusebase sidecar add --job <jobName>` (not the backend)
-<% } %>
+- [ ] If the cron needs an auxiliary container (browser, cache, etc.), attached sidecars to the **job** via `fusebase sidecar add --job <jobName>` (not the backend)

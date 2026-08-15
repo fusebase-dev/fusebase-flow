@@ -21,7 +21,8 @@ The public template does not advertise compatibility with any AI coding assistan
 |---|---|
 | Public-surface grep (case-insensitive, full tree) for non-target tool names | 0 true-positive matches |
 | Canonical Flow skill mirror count | 68 = 34 canonical (`flow-skills/`) x 2 approved provider mirrors |
-| CLI provider skill count | 40 = 20 CLI provider skills x 2 provider surfaces (FuseBase CLI 0.25.16) |
+| CLI provider skill count | 40 = 20 CLI provider skills x 2 provider surfaces (FuseBase CLI 0.29.8) |
+| CLI provenance | `audit/cli-vendor-manifest.json` `source_cli_version: 0.29.8`, DERIVED from `audit/cli-upstream-manifest.json` (per-file sha256 computed from the source CLI tree by `hooks/local/refresh-cli-vendor.sh`), not asserted |
 | Mirror dirs allowed | `.agents/skills/`, `.claude/skills/`; this edition also keeps CLI provider skills in those dirs |
 | `mirror-skills.sh` target list | mirrors canonical Flow skills only (source `flow-skills/`) and preserves extra CLI provider skills |
 | `preflight.sh` mirror drift check | validates canonical Flow skill mirrors only |
@@ -80,4 +81,5 @@ still takes the full path (it sets `GITHUB_ACTIONS`).
 2026-06-29 - FuseBase CLI 0.25.9 re-vendor; 20 CLI provider skills (adds app-api-contract-testing), 40 CLI mirrors (20 x 2). The 0.25.9 Stop set wires run-lint-on-stop.sh, run-typecheck-on-stop.sh, quality-check-apps.js (run-typecheck-apps.js shipped but unwired); the merge is preserve-only.
 2026-07-07 - FuseBase CLI 0.25.16 re-vendor; 7 provider skills refreshed (magic-link activation now platform-server-side, apps[].id declarative-optional, gate SDK ^v2.3.28-sdk.1); fusebase-gate drops isolated-sql-stores.md + isolated-sql-rls-plan.md, adds isolated-sql-integrator-troubleshooting.md; manifest 132->130 assets. Wired Stop set unchanged.
 2026-07-11 - Codex plugin wrapper + `product-owner` skill bridge; 33 canonical Flow skills, 66 Flow mirrors.
+2026-08-14 - FuseBase CLI 0.29.8 guarded re-vendor (hooks/local/refresh-cli-vendor.sh); manifest 130->138 assets, source_cli_version unknown->0.29.8 (derived from the source tree, not asserted). Fixes: app-sidecar `--app <appId>` -> `<appPath>` (0.29.8 matches --app by local path only), and 40 unrendered `<%=` ETA interpolations across 12 vendored files -> 0. app-architect.md now requires visitor/public-link uploads to broker through a feature backend using FBS_FEATURE_TOKEN. Both Flow-authored CUSTOM:SKILL blocks were SUPERSEDED: 0.29.8 ships the same titled sections as supersets, correcting `client:<clientId>` -> `client:<productId>`. Health check gains a verdict-affecting CLI version gate (reviewed range >=0.29.0 <0.30.0). Wired Stop set and the 4 quality hooks unchanged.
 ```

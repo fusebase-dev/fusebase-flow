@@ -12,13 +12,13 @@ When you're unsure about an API endpoint's behavior, response shape, or want to 
 ### 1. Create a temporary token
 
 ```bash
-fusebase token create --feature <featureId>
+fusebase token create --app <appId>
 ```
 
 This outputs a short-lived token (15 min) to stdout. Capture it:
 
 ```bash
-TOKEN=$(fusebase token create --feature <featureId>)
+TOKEN=$(fusebase token create --app <appId>)
 ```
 
 The `appId` comes from `fusebase.json` → `apps[].id`.
@@ -40,7 +40,7 @@ console.log(await res.json());
 Run it:
 
 ```bash
-TOKEN=$(fusebase token create --feature <featureId>) bun _test-api.ts
+TOKEN=$(fusebase token create --app <appId>) bun _test-api.ts
 ```
 
 ### 3. Inspect results and iterate
@@ -91,7 +91,7 @@ console.log("rows:", JSON.stringify(rows, null, 2));
 Run it:
 
 ```bash
-TOKEN=$(fusebase token create --feature <featureId>) bun _test-sdk.ts
+TOKEN=$(fusebase token create --app <appId>) bun _test-sdk.ts
 ```
 
 Replace `BASE_URL` host with the value matching your environment's `FUSEBASE_HOST` (e.g. `app-api.thefusebase.com` for prod).

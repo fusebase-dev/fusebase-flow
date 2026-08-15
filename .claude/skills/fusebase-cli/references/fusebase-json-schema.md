@@ -44,6 +44,10 @@ always required.
 | `apps[].backend.dev.command` | No | Command to start the backend dev mode (e.g., `npm run dev`) |
 | `apps[].backend.build.command` | Yes (if backend) | Command to build the backend |
 | `apps[].backend.start.command` | Yes (if backend) | Command to start the built backend in production (e.g., `npm run start`) |
+| `apps[].backend.minReplicas` | No | `0..3` — minimum warm replicas (`1` for webhooks). Default `0` = scale to zero; the next request pays a cold start → see skill **app-backend** § Cold Starts (Scale-to-Zero). |
+| `apps[].backend.maxReplicas` | **Unsupported** | **Do not add.** Silently ignored by deploy; platform defaults `maxReplicas` to 3 (or `minReplicas` when higher). |
+
+**Unknown keys:** do not add fields that are not listed here expecting platform behavior — silent ignore causes false confidence (e.g. pinning “single replica” via `maxReplicas`).
 
 ## Deploy reconcile
 

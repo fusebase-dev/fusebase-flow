@@ -1,8 +1,8 @@
 ---
-version: "1.0.0"
+version: "1.1.0"
 mcp_prompt: none
 source: "docs/stripe-for-apps-and-agents.md"
-last_synced: "2026-04-16"
+last_synced: "2026-07-31"
 title: "Stripe for apps and agents (Gate)"
 category: specialized
 ---
@@ -13,11 +13,11 @@ category: specialized
 ---
 # Gate Stripe For Apps And Agents
 
-This guide explains what Fusebase Gate currently supports for Stripe, how app code should call it, and how an agent should be authorized.
+This guide explains what Fusebase Gate currently supports for Stripe, when an app should call Stripe directly, and how an agent should be authorized.
 
 ## What Gate Supports Today
 
-Gate currently exposes an org-scoped Stripe billing facade, not a generic Stripe passthrough.
+Gate currently exposes an org-scoped Stripe billing facade, not a generic Stripe passthrough. That boundary describes Gate's API surface; it is not a rule that all Stripe work must go through Gate.
 
 Available Stripe operations:
 
@@ -42,7 +42,7 @@ Available Stripe operations:
 
 - A generic Stripe API proxy
 - Test/live mode switching through the current Gate billing backend
-- Direct Stripe product administration outside the Gate `kind` and `kindId` model
+- Direct Stripe product administration outside the Gate `kind` and `kindId` model through Gate
 - Stripe customer list endpoints
 - Stripe invoice history endpoints
 - Stripe subscription list endpoints
@@ -50,6 +50,11 @@ Available Stripe operations:
 
 ## Key Rules
 
+- The rule not to invent HTTP calls to Fusebase APIs applies only to Fusebase and Gate endpoints. It does not prohibit documented calls to the Stripe API.
+- Gate org OAuth and its live-only billing surface describe Gate-managed billing. They do not make Gate the owner of an app's separate Stripe account or secret.
+- If the app has its own Stripe account and a server-side Stripe secret, use Stripe's official server SDK or documented API directly for app-owned Stripe resources outside the Gate facade. Creating or updating a Stripe webhook endpoint is a normal direct Stripe API operation.
+- When the task authorizes the action and the server-side credential is available, the agent may implement or execute that direct Stripe call. Do not delegate it to a human operator solely because Gate has no matching operation.
+- Choose one owner for each billing object and flow. Do not create an object directly in Stripe and then assume Gate will track it.
 - Always call `getStripeOauth` before product or checkout flows if the org may not be connected yet.
 - Treat `stripeAccountId` as the source-of-truth connected Stripe account identifier.
 - Use stable app-owned `kind` and `kindId` values. Keep `kind` at 32 chars max and `kindId` at 64 chars max. That is how Gate maps checkout and webhook-backed payment state back to your app concept.
@@ -119,7 +124,7 @@ App policy recommendation:
 
 ### Frontend
 
-Do not give the browser raw Stripe platform keys and do not use Gate internal auth from the browser.
+Never put a Stripe secret in browser code. Also do not use Gate internal auth from the browser.
 
 Recommended pattern:
 
@@ -132,12 +137,16 @@ This keeps Stripe connection state and product management behind your applicatio
 
 ### Backend Or BFF
 
-Use the Gate SDK and call `BillingApi`.
+For Gate-managed billing, use the Gate SDK and call `BillingApi`.
 
 Use a credential that is both:
 
 - scoped to the target org
 - limited to `billing.read` and or `billing.write` as needed
+
+For app-owned Stripe resources outside Gate, backend code may instead use the
+official Stripe server SDK with a Stripe secret loaded from an environment
+variable or secret store. Do not print, return, or embed the secret.
 
 ### Agent
 
@@ -147,7 +156,11 @@ For an agent, the safest pattern is:
 2. The token only includes the billing permissions the agent actually needs.
 3. The agent calls Gate through the SDK or MCP.
 
-Do not give the agent raw Stripe API secrets. Let Gate enforce org scope and billing permissions.
+Do not put a raw Stripe secret in an agent prompt, response, or client bundle.
+An authorized agent may still write or run server-side code that reads the
+existing secret from an environment variable or secret store without revealing
+the value. Use Gate credentials for Gate-managed flows and the app's Stripe
+credential for app-owned direct Stripe flows.
 
 ## SDK Example
 
@@ -387,6 +400,18 @@ Use Gate when the flow needs:
 
 Do not bypass Gate for the same commercial object if your app expects Gate billing webhooks and payment-state tracking to stay correct.
 
+Use Stripe directly from trusted server-side code when:
+
+- the app owns the Stripe account and server-side secret
+- the resource is outside the current Gate facade
+- the flow does not rely on Gate product records or Gate webhook-backed payment state
+- the operation is documented by Stripe, such as creating or updating a webhook endpoint
+
+The absence of a Gate operation is not a reason to delegate an otherwise
+authorized direct Stripe call to an operator. If the credential is already
+available to the backend, implement or execute the documented Stripe call
+without exposing the credential.
+
 ## Likely Next Additions
 
 If app teams need more Stripe surface soon, these are the best next Gate additions:
@@ -396,11 +421,13 @@ If app teams need more Stripe surface soon, these are the best next Gate additio
 - list subscriptions for a member or customer
 - list invoices with Stripe invoice links
 
-Those should still be curated Gate operations rather than a raw Stripe passthrough.
+Those should still be curated Gate operations for Gate-managed billing rather
+than a raw Stripe passthrough. Apps with their own Stripe account may use
+documented direct Stripe APIs for app-owned flows in the meantime.
 ---
 
 ## Version
 
-- **Version**: 1.0.0
+- **Version**: 1.1.0
 - **Category**: specialized
-- **Last synced**: 2026-04-16
+- **Last synced**: 2026-07-31

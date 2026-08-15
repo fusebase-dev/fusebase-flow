@@ -114,9 +114,10 @@ If a published app API exists, it is the primary cross-app integration surface.
 
 For security-sensitive operations, prefer contract-level app API policy:
 
-- `x-fusebase-allowed-callers` restricts the caller identity, e.g. `client:<clientId>`.
+- `x-fusebase-allowed-callers` restricts the caller identity: a caller id is the calling project's `productId`, e.g. `client:<productId>`, not an app id — sibling apps of one project share it.
 - `x-fusebase-required-permissions` restricts caller capability and must use the app API namespace `app_api.<namespace>.<capability>.<action>`, e.g. `app_api.client_portal.provision.write`.
 - Do not use built-in Gate permissions such as `isolated_store.read` for app-to-app operation authorization.
+- **Enforcement arrives per environment.** Both extensions are published to the registry and read by `callAppApi`, but enforcement is switched on per environment by the platform. Declare them now and grant the matching capability to caller apps with `fusebase app update <callerAppId> --permissions "app_api.<namespace>.<capability>.<action>"`, so the grants are in place when enforcement reaches yours. Never rely on them as your only authorization check today.
 <!-- CUSTOM:SKILL:END -->
 
 ## Authentication
@@ -140,6 +141,16 @@ Apps run as the main window. The platform sets a `fbsfeaturetoken` cookie automa
 
 **All apps MUST handle token expiration** (`AppTokenValidationError` / 401). See skill **handling-authentication-errors** for the implementation pattern.
 
+### Backend session apps (httpOnly cookie)
+
+If the app has a **backend** and the SPA boots auth from **`GET /api/account/me`** (or similar) with `credentials: 'include'`:
+
+- Load **handling-authentication-errors** § **session probe invariant** before writing auth bootstrap code.
+- **401 only** → login screen. **502/5xx/network** → retry with deploy tolerance, then transient error — **never** `setState('anon')` on proxy errors.
+- **`fusebase deploy` restarts the backend** — session probe must survive the rollout window (see skill for retry delays).
+
+Do not conflate this with platform `fbsfeaturetoken` expiry (`AppTokenValidationError` modal) — they are separate layers.
+
 ## User Details
 
 <% if (it.flags?.includes("portal-specific-apps")) { %>
@@ -154,6 +165,9 @@ type AuthContextResponse = {
   org?: {
     globalId: string
   }
+  // Portal context. Optional in the type because it is absent outside a portal;
+  // see "Portal context contract" below for exactly when it is present.
+  // `portalId` and `workspaceId` are always set together, or both absent.
   runtimeContext?: {
     portalId?: string
     workspaceId?: string
@@ -167,8 +181,55 @@ const authContext: AuthContextResponse = response.ok ? await response.json() : {
 const user = authContext.user ?? null
 // authenticated: { id: 4124, email: "testemail@gmail.com" }
 // anonymous visitor on a public app: null (user field is missing)
-// portal/workspace context (if available): authContext.runtimeContext
+
+const insidePortal = Boolean(authContext.runtimeContext?.portalId)
 ```
+
+### Portal context contract
+
+`portalId` and `workspaceId` are always set together, or both absent. Where they come from: the
+portal app block stores a portal context token, the portal appends it to the app's iframe URL, and
+the platform stamps its `portalId` / `workspaceId` into the `x-app-feature-token` minted when the
+app opens. The token is stored **on the block**, not derived from the viewer's session.
+
+**Present** — app opened from a portal embed whose block carries a portal context token. Because
+the token is a property of the block, this does not depend on who is looking: it is present for
+**every portal role (client, manager, anonymous visitor) and every portal access mode**. Role and
+access mode never cause it to go missing.
+
+**Absent** — the exhaustive list:
+
+1. The app is opened directly by its own URL, outside any portal.
+2. Local `fusebase dev start` — there is no portal embed locally, same as case 1.
+3. **Legacy portal blocks.** App blocks added to a portal before the platform started storing the
+   portal context token (April 2026) carry no token, so the fields are absent even though the app
+   *is* embedded in a portal — for every viewer. Fixable per block, see below.
+
+**Possibly stale** — if the block was **copied from another portal**, the stored token still carries
+the **source** portal's id, so `portalId` can name a different portal than the one the app is
+currently displayed in. All of these copy the block verbatim, and nothing re-mints the token:
+
+- block copy-paste,
+- duplicating a page or folder from another portal ("Create from another portal"),
+- duplicating a whole portal, or creating a portal from a template — **every** app block in the new
+  portal carries the source/template portal's id,
+- synced-copy propagation into a page that lives in another portal.
+
+**Fixing a block** (cases 3 and stale) — in the portal customizer, the block's app selection has to
+actually **change** for a token to be minted: pick a different app in that block, then the intended
+one again. Re-picking the *same* app is a no-op — the App picker ignores an unchanged value and no
+token is minted. If the product has only one app, delete the app block and add it again.
+
+**What this means in practice.** `Boolean(runtimeContext?.portalId)` is a good instant UX signal and
+is correct for every portal embed created normally today. Absence almost always means "not in a
+portal" — but because of case 3, do not make it an unrecoverable dead end: prefer degrading to the
+standalone UI, or offer a way forward, rather than a hard "open me from a portal" wall that leaves a
+user on a legacy embed stuck.
+
+**This is a UX hint, not an authorization fact.** Use it to choose what to render. Anything that
+grants access to portal data must still be authorized server-side by verifying the
+`portalFeatureContextToken` — which is also what protects you from the stale-token case above. Do
+not derive permissions from `runtimeContext`.
 
 Important for public apps:
 

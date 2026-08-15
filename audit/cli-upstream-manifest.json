@@ -1,968 +1,814 @@
 {
-  "schema_version": 2,
+  "schema_version": 1,
   "generated_at": "2026-08-15",
-  "source_cli_version": "0.29.8",
-  "reviewed_cli_range": {
-    "floor": "0.29.0",
-    "ceiling_exclusive": "0.30.0",
-    "source": "hooks/local/lib/cli-version-check.sh"
-  },
-  "description": "Provenance for vendored FuseBase CLI-owned assets shipped in this Fusebase Flow edition. source_cli_version is DERIVED from audit/cli-upstream-manifest.json (written by hooks/local/refresh-cli-vendor.sh from the source CLI tree), or the literal 'unknown' sentinel when no re-vendor has been recorded. Per-file sha256 feeds the CLI_SNAPSHOT_STALE advisory in check-cli-flow-conflicts.sh; upstream_sha256/matches_upstream distinguish 'matches upstream' from 'matches whatever we shipped'. merge_derived files carry a Flow-authored CUSTOM:SKILL block and are exempt from exact match. Regenerate with hooks/local/stamp-cli-provenance.sh.",
-  "asset_count": 138,
+  "cli_version": "0.29.8",
+  "description": "UPSTREAM provenance for vendored FuseBase CLI-owned assets: each sha256 is computed from the SOURCE CLI tree, not from the local copy, so freshness can be derived rather than asserted. merge_derived=true marks a file that carries a Flow-authored CUSTOM:SKILL block and is therefore exempt from exact upstream match. Regenerate with hooks/local/refresh-cli-vendor.sh.",
+  "asset_count": 134,
+  "superseded_custom_blocks": [],
   "assets": [
     {
       "path": ".agents/skills/api-exploration/SKILL.md",
-      "sha256": "a19b1397bc0bee204d6f0d51064a846ac594f119a99dad4d46684e637949400f",
+      "upstream_source": "project-template/.claude/skills/api-exploration/SKILL.md",
       "upstream_sha256": "a19b1397bc0bee204d6f0d51064a846ac594f119a99dad4d46684e637949400f",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/app-api-contract-testing/SKILL.md",
-      "sha256": "ec2b60fdc69b938a0f00f482bd75655c492135e01f00f7103b8e5eeba4e919da",
+      "upstream_source": "project-template/.claude/skills/app-api-contract-testing/SKILL.md",
       "upstream_sha256": "ec2b60fdc69b938a0f00f482bd75655c492135e01f00f7103b8e5eeba4e919da",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/app-backend/SKILL.md",
-      "sha256": "137e7b07cb35eccc4574c93e6e169ccd5ae24bc22bcadc70a19a8fbb59a6846a",
+      "upstream_source": "project-template/.claude/skills/app-backend/SKILL.md",
       "upstream_sha256": "137e7b07cb35eccc4574c93e6e169ccd5ae24bc22bcadc70a19a8fbb59a6846a",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/app-business-docs/SKILL.md",
-      "sha256": "2f6595f0dfdfdbfcb555258edf0cff8faefe382045fe9b2b3d97b08d1194a402",
+      "upstream_source": "project-template/.claude/skills/app-business-docs/SKILL.md",
       "upstream_sha256": "2f6595f0dfdfdbfcb555258edf0cff8faefe382045fe9b2b3d97b08d1194a402",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/app-dev-practices/SKILL.md",
-      "sha256": "ffd62bef890d38f48fb95ecc72ec5d3c07557f2995a2108a5161eea8b11b2417",
+      "upstream_source": "project-template/.claude/skills/app-dev-practices/SKILL.md",
       "upstream_sha256": "ffd62bef890d38f48fb95ecc72ec5d3c07557f2995a2108a5161eea8b11b2417",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/app-routing/SKILL.md",
-      "sha256": "b940a39fe3412af4c619bfa281c3399b5d9e3838a0df971923348b17477e393d",
+      "upstream_source": "project-template/.claude/skills/app-routing/SKILL.md",
       "upstream_sha256": "b940a39fe3412af4c619bfa281c3399b5d9e3838a0df971923348b17477e393d",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/app-secrets/SKILL.md",
-      "sha256": "b68b38021940ba9c325e9eb38ceaed125201b8ee9821b5bce23f42cb67727b56",
+      "upstream_source": "project-template/.claude/skills/app-secrets/SKILL.md",
       "upstream_sha256": "b68b38021940ba9c325e9eb38ceaed125201b8ee9821b5bce23f42cb67727b56",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/app-sidecar/SKILL.md",
-      "sha256": "6412c6ee62d86a0f33821bfd256c87e915517c7b6d255370f0217cca806b5a51",
+      "upstream_source": "project-template/.claude/skills/app-sidecar/SKILL.md",
       "upstream_sha256": "6412c6ee62d86a0f33821bfd256c87e915517c7b6d255370f0217cca806b5a51",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/app-ui-design/SKILL.md",
-      "sha256": "4c7885c6ea271549fafcd658e89d23bb55b28538d6eb9beb30d8e7c4cf90af1b",
+      "upstream_source": "project-template/.claude/skills/app-ui-design/SKILL.md",
       "upstream_sha256": "4c7885c6ea271549fafcd658e89d23bb55b28538d6eb9beb30d8e7c4cf90af1b",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/dev-debug-logs/SKILL.md",
-      "sha256": "9e5eb7ddb8793c099c379170794e3652ef5827483b352c647819b1b7d2a6e03a",
+      "upstream_source": "project-template/.claude/skills/dev-debug-logs/SKILL.md",
       "upstream_sha256": "9e5eb7ddb8793c099c379170794e3652ef5827483b352c647819b1b7d2a6e03a",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/file-upload/SKILL.md",
-      "sha256": "f62094faea2fa61fc505c7eb9ff799607bea2d04d6785f3e89c5790787dbfd0b",
+      "upstream_source": "project-template/.claude/skills/file-upload/SKILL.md",
       "upstream_sha256": "f62094faea2fa61fc505c7eb9ff799607bea2d04d6785f3e89c5790787dbfd0b",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/file-upload/references/upload-lifecycle.md",
-      "sha256": "b9b96225f9840f0041a31027540dde38c8133e26fb37bb9c42088d38329f3e46",
+      "upstream_source": "project-template/.claude/skills/file-upload/references/upload-lifecycle.md",
       "upstream_sha256": "b9b96225f9840f0041a31027540dde38c8133e26fb37bb9c42088d38329f3e46",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-cli/SKILL.md",
-      "sha256": "cbf0c333b3723725f8ebf5ff04b81149106b655a02d13ee30f85038ad291fa43",
+      "upstream_source": "project-template/.claude/skills/fusebase-cli/SKILL.md",
       "upstream_sha256": "cbf0c333b3723725f8ebf5ff04b81149106b655a02d13ee30f85038ad291fa43",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-cli/references/fusebase-json-schema.md",
-      "sha256": "e08123a54f1b5dab6397363f35d8980c3dedca89a6237cba6bc6efdc85532a70",
+      "upstream_source": "project-template/.claude/skills/fusebase-cli/references/fusebase-json-schema.md",
       "upstream_sha256": "e08123a54f1b5dab6397363f35d8980c3dedca89a6237cba6bc6efdc85532a70",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-dashboards/SKILL.md",
-      "sha256": "c56aa57e9fb9bcf27465a0010ae411bf62ba96cb3c5142d01790d51249636cb6",
+      "upstream_source": "project-template/.claude/skills/fusebase-dashboards/SKILL.md",
       "upstream_sha256": "c56aa57e9fb9bcf27465a0010ae411bf62ba96cb3c5142d01790d51249636cb6",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-dashboards/references/authz.md",
-      "sha256": "4a2190ca886d17d7c05b04da757bf53e1ec544af5d05a6ab394b3aaf59a38d72",
+      "upstream_source": "project-template/.claude/skills/fusebase-dashboards/references/authz.md",
       "upstream_sha256": "4a2190ca886d17d7c05b04da757bf53e1ec544af5d05a6ab394b3aaf59a38d72",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-dashboards/references/bootstrap.md",
-      "sha256": "afa0458d594fe07e8ae63ad02fbc1af032fa1950c87439a320bd74987fb77475",
+      "upstream_source": "project-template/.claude/skills/fusebase-dashboards/references/bootstrap.md",
       "upstream_sha256": "afa0458d594fe07e8ae63ad02fbc1af032fa1950c87439a320bd74987fb77475",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-dashboards/references/child-tables.md",
-      "sha256": "c95e8b07a578e34ae14eb27368a912b3a411ccdac584b848cc05fcbe14f7ca3b",
+      "upstream_source": "project-template/.claude/skills/fusebase-dashboards/references/child-tables.md",
       "upstream_sha256": "c95e8b07a578e34ae14eb27368a912b3a411ccdac584b848cc05fcbe14f7ca3b",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-dashboards/references/core-concepts.md",
-      "sha256": "afa3713afd66364872543633276f6476068072022d9a3f1a0ddcfc9eea04989a",
+      "upstream_source": "project-template/.claude/skills/fusebase-dashboards/references/core-concepts.md",
       "upstream_sha256": "afa3713afd66364872543633276f6476068072022d9a3f1a0ddcfc9eea04989a",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-dashboards/references/data-patterns.md",
-      "sha256": "de73a77455827799c5a646c810cd5b233c13284c4a4387590df17425cbaf5ece",
+      "upstream_source": "project-template/.claude/skills/fusebase-dashboards/references/data-patterns.md",
       "upstream_sha256": "de73a77455827799c5a646c810cd5b233c13284c4a4387590df17425cbaf5ece",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-dashboards/references/filters.md",
-      "sha256": "73b4beb1dceb84d182f0486881803cb3963f1d44678183f7777db8479e161f44",
+      "upstream_source": "project-template/.claude/skills/fusebase-dashboards/references/filters.md",
       "upstream_sha256": "73b4beb1dceb84d182f0486881803cb3963f1d44678183f7777db8479e161f44",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-dashboards/references/members.md",
-      "sha256": "65ca4250be1f696652b5c214fcc85391522ff2b75e59ccb6352a12acc617d5cb",
+      "upstream_source": "project-template/.claude/skills/fusebase-dashboards/references/members.md",
       "upstream_sha256": "65ca4250be1f696652b5c214fcc85391522ff2b75e59ccb6352a12acc617d5cb",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-dashboards/references/relations-guide.md",
-      "sha256": "ad7af6a2c8a9934f149f6d78299539d10c7848f90fe06cfc7da5d09ff8a897ca",
+      "upstream_source": "project-template/.claude/skills/fusebase-dashboards/references/relations-guide.md",
       "upstream_sha256": "ad7af6a2c8a9934f149f6d78299539d10c7848f90fe06cfc7da5d09ff8a897ca",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-dashboards/references/representations.md",
-      "sha256": "b988abd865b051383a1011c2bad3485405017492c9791c364e204f1c1a692126",
+      "upstream_source": "project-template/.claude/skills/fusebase-dashboards/references/representations.md",
       "upstream_sha256": "b988abd865b051383a1011c2bad3485405017492c9791c364e204f1c1a692126",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-dashboards/references/rows.md",
-      "sha256": "1426f060b858cfaff90020b41a5b4575555c23b8ef0837fe9680d94d170f2a26",
+      "upstream_source": "project-template/.claude/skills/fusebase-dashboards/references/rows.md",
       "upstream_sha256": "1426f060b858cfaff90020b41a5b4575555c23b8ef0837fe9680d94d170f2a26",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-dashboards/references/schema-fundamentals.md",
-      "sha256": "02f2cbd4799b25a99ce7ecf1804ab5056784b8b044acad3fd464708a1c932cb0",
+      "upstream_source": "project-template/.claude/skills/fusebase-dashboards/references/schema-fundamentals.md",
       "upstream_sha256": "02f2cbd4799b25a99ce7ecf1804ab5056784b8b044acad3fd464708a1c932cb0",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-dashboards/references/sdk.md",
-      "sha256": "ac9e0d54dbc33f876b5882bbf44f1c8aefd0cec4579d502d70097f366077cc39",
+      "upstream_source": "project-template/.claude/skills/fusebase-dashboards/references/sdk.md",
       "upstream_sha256": "ac9e0d54dbc33f876b5882bbf44f1c8aefd0cec4579d502d70097f366077cc39",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-dashboards/references/tooling.md",
-      "sha256": "ac3b627406ad59f9bdeae9e05fd952ab3880219435cd1b79c1bb89bb41dfce6b",
+      "upstream_source": "project-template/.claude/skills/fusebase-dashboards/references/tooling.md",
       "upstream_sha256": "ac3b627406ad59f9bdeae9e05fd952ab3880219435cd1b79c1bb89bb41dfce6b",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-gate/SKILL.md",
-      "sha256": "bf37f49b917e8e7dfa61c6dc2cc1832424d91d07c21e462a09c8579dfcdcffd6",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/SKILL.md",
       "upstream_sha256": "bf37f49b917e8e7dfa61c6dc2cc1832424d91d07c21e462a09c8579dfcdcffd6",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-gate/references/app-magic-links.md",
-      "sha256": "2ab195d44cae43fb797dbd884d2ded0ac32c8e0a67cd1211eda432ff2ae57d92",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/app-magic-links.md",
       "upstream_sha256": "2ab195d44cae43fb797dbd884d2ded0ac32c8e0a67cd1211eda432ff2ae57d92",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-gate/references/authz.md",
-      "sha256": "58103b15aae1a048fc169bdcce426a9cd0756e653d804cd5cc46b1b5b166ea3c",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/authz.md",
       "upstream_sha256": "58103b15aae1a048fc169bdcce426a9cd0756e653d804cd5cc46b1b5b166ea3c",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-gate/references/billing.md",
-      "sha256": "d99a9a493b0fea431453df95fb986d110d5077ac9fde66de5bb112151dc0e16f",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/billing.md",
       "upstream_sha256": "d99a9a493b0fea431453df95fb986d110d5077ac9fde66de5bb112151dc0e16f",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-gate/references/bootstrap.md",
-      "sha256": "3bf1fa10da5e7075303522f4dbdb5604517641eb7227f8a553b1d847422fb499",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/bootstrap.md",
       "upstream_sha256": "3bf1fa10da5e7075303522f4dbdb5604517641eb7227f8a553b1d847422fb499",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-gate/references/emails.md",
-      "sha256": "483ab801d6f4f3565ad5f3fa887a41998f4f56350f30cdaffe5fd15a1dc44873",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/emails.md",
       "upstream_sha256": "483ab801d6f4f3565ad5f3fa887a41998f4f56350f30cdaffe5fd15a1dc44873",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-gate/references/files.md",
-      "sha256": "878ee9a11ac19e49d8d85b2bce5ff601f801065ccc1fe37fe83fe98dd443fbe1",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/files.md",
       "upstream_sha256": "878ee9a11ac19e49d8d85b2bce5ff601f801065ccc1fe37fe83fe98dd443fbe1",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-gate/references/fusebase-auth.md",
-      "sha256": "dba76e8b76a0802393a85fdac86286bce5e2cab321c8f99df17ed1ee563859bd",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/fusebase-auth.md",
       "upstream_sha256": "dba76e8b76a0802393a85fdac86286bce5e2cab321c8f99df17ed1ee563859bd",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-gate/references/isolated-sql-integrator-troubleshooting.md",
-      "sha256": "ad3c62288dbc0fd8447b6ae130aba82ba7226bc5bc9b9264bb2968a8327d8e78",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/isolated-sql-integrator-troubleshooting.md",
       "upstream_sha256": "ad3c62288dbc0fd8447b6ae130aba82ba7226bc5bc9b9264bb2968a8327d8e78",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-gate/references/isolated-sql-migration-discipline.md",
-      "sha256": "6aeb4592aadb3d90ce4ff51be58d30edaec93f395eed33e28b160d0b891ec803",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/isolated-sql-migration-discipline.md",
       "upstream_sha256": "6aeb4592aadb3d90ce4ff51be58d30edaec93f395eed33e28b160d0b891ec803",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-gate/references/isolated-sql.md",
-      "sha256": "8722fbb90c5b04b79af4793f87cc78b662315d375b3f49d03c988227f99c62d6",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/isolated-sql.md",
       "upstream_sha256": "8722fbb90c5b04b79af4793f87cc78b662315d375b3f49d03c988227f99c62d6",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-gate/references/isolated-store-hierarchy.md",
-      "sha256": "23d7c881d61541813a108515f58bacdc29257c9509ef39e9e480d73c53db8a67",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/isolated-store-hierarchy.md",
       "upstream_sha256": "23d7c881d61541813a108515f58bacdc29257c9509ef39e9e480d73c53db8a67",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-gate/references/isolated-stores-release-checklist.md",
-      "sha256": "37a797786e7442d432d9b187627a8a67d719ccde639ff52a5395f4c66c2fed59",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/isolated-stores-release-checklist.md",
       "upstream_sha256": "37a797786e7442d432d9b187627a8a67d719ccde639ff52a5395f4c66c2fed59",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-gate/references/isolated.md",
-      "sha256": "6fd5ed7b75f72b6371045eafc98752821162874deb2a0405d510fe22ccceb3ed",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/isolated.md",
       "upstream_sha256": "6fd5ed7b75f72b6371045eafc98752821162874deb2a0405d510fe22ccceb3ed",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-gate/references/membership.md",
-      "sha256": "efc07d5b1a06f9828bd3d35964a900292470d59953336d09971206386f48845c",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/membership.md",
       "upstream_sha256": "efc07d5b1a06f9828bd3d35964a900292470d59953336d09971206386f48845c",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-gate/references/notes.md",
-      "sha256": "d9218580dd2c3375a005a9fb41686a95047942ae6c2620abd7b5e93e523c905c",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/notes.md",
       "upstream_sha256": "d9218580dd2c3375a005a9fb41686a95047942ae6c2620abd7b5e93e523c905c",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-gate/references/org-groups.md",
-      "sha256": "8e3e88096882fdf1e1b7b3bab331520b52564034de4e407eb61700a5e9090a31",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/org-groups.md",
       "upstream_sha256": "8e3e88096882fdf1e1b7b3bab331520b52564034de4e407eb61700a5e9090a31",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-gate/references/orgs.md",
-      "sha256": "d4ca774da3e185ca56639d5b6f478a538a655259e015352e36410955095f84f7",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/orgs.md",
       "upstream_sha256": "d4ca774da3e185ca56639d5b6f478a538a655259e015352e36410955095f84f7",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-gate/references/portal-embed-context.md",
-      "sha256": "b19afd5fe550da7f8359372e6a3ba8b91682ceea0a5eae43da63f9d796fa30f2",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/portal-embed-context.md",
       "upstream_sha256": "b19afd5fe550da7f8359372e6a3ba8b91682ceea0a5eae43da63f9d796fa30f2",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-gate/references/portal-theme-variables.md",
-      "sha256": "f959fcb72e10df080e47ca4fff7084c846ef03b019f2c7d3bcd1a18c59e4e3c7",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/portal-theme-variables.md",
       "upstream_sha256": "f959fcb72e10df080e47ca4fff7084c846ef03b019f2c7d3bcd1a18c59e4e3c7",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-gate/references/portals-create.md",
-      "sha256": "236ce835bfb33a76848fcedffea5c1286d12b5756cfc7bb23673e64e0518b1cc",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/portals-create.md",
       "upstream_sha256": "236ce835bfb33a76848fcedffea5c1286d12b5756cfc7bb23673e64e0518b1cc",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-gate/references/portals.md",
-      "sha256": "f45333ef3604f53f4c632577292fa75cb14d541a6b859e230fb963aa68f39769",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/portals.md",
       "upstream_sha256": "f45333ef3604f53f4c632577292fa75cb14d541a6b859e230fb963aa68f39769",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-gate/references/sdk.md",
-      "sha256": "4bf8d2587465328c2d8529d54f9e9bae89a4527fa0d04e628cfa3b2463961d72",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/sdk.md",
       "upstream_sha256": "4bf8d2587465328c2d8529d54f9e9bae89a4527fa0d04e628cfa3b2463961d72",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-gate/references/stripe-apps.md",
-      "sha256": "a5ccca52456ffe10bec444eae71b220d4603faec6dd9ca44dee51487881e3d58",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/stripe-apps.md",
       "upstream_sha256": "a5ccca52456ffe10bec444eae71b220d4603faec6dd9ca44dee51487881e3d58",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-gate/references/stripe-for-apps-and-agents.md",
-      "sha256": "86ba8ec9944e744f17993e5fae8161663b9fa99758cb86493a3a825d887c7a31",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/stripe-for-apps-and-agents.md",
       "upstream_sha256": "86ba8ec9944e744f17993e5fae8161663b9fa99758cb86493a3a825d887c7a31",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-gate/references/tooling.md",
-      "sha256": "514bcebade685e0e658c1e9d0e623bfae454ed3639590fd9160549a915a21451",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/tooling.md",
       "upstream_sha256": "514bcebade685e0e658c1e9d0e623bfae454ed3639590fd9160549a915a21451",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-gate/references/users.md",
-      "sha256": "ba82008fcda69a02b2a4b1ce2637ecde866e868278ebef7adcfacf57584089b3",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/users.md",
       "upstream_sha256": "ba82008fcda69a02b2a4b1ce2637ecde866e868278ebef7adcfacf57584089b3",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/fusebase-portal-specific-apps/SKILL.md",
-      "sha256": "5bd82df0d8a893f00a817f1599435d5d19281eb026b67c3549432e643ec37033",
+      "upstream_source": "project-template/.claude/skills/fusebase-portal-specific-apps/SKILL.md",
       "upstream_sha256": "5bd82df0d8a893f00a817f1599435d5d19281eb026b67c3549432e643ec37033",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/git-workflow/SKILL.md",
-      "sha256": "e624771804d74e6a4d1258137162bd898b1c352a7a3e4dd8382148ba65454dcf",
+      "upstream_source": "project-template/.claude/skills/git-workflow/SKILL.md",
       "upstream_sha256": "e624771804d74e6a4d1258137162bd898b1c352a7a3e4dd8382148ba65454dcf",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/handling-authentication-errors/SKILL.md",
-      "sha256": "e0c3e8cb3c80980743ca41877818013aec9450edb7d89b84b4e970e981d8a4a7",
+      "upstream_source": "project-template/.claude/skills/handling-authentication-errors/SKILL.md",
       "upstream_sha256": "e0c3e8cb3c80980743ca41877818013aec9450edb7d89b84b4e970e981d8a4a7",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/managed-integrations/SKILL.md",
-      "sha256": "1dcbb9258ae7684af538d6f3eee92b3aa3f6f8e76abbaa48b1bc1e41c09135b1",
+      "upstream_source": "project-template/.claude/skills/managed-integrations/SKILL.md",
       "upstream_sha256": "1dcbb9258ae7684af538d6f3eee92b3aa3f6f8e76abbaa48b1bc1e41c09135b1",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/managed-integrations/references/calling-server-tool.md",
-      "sha256": "678e09f32f64014c7dbb25470fa8390806925420226357f18dcc08c8226cfd49",
+      "upstream_source": "project-template/.claude/skills/managed-integrations/references/calling-server-tool.md",
       "upstream_sha256": "678e09f32f64014c7dbb25470fa8390806925420226357f18dcc08c8226cfd49",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/managed-integrations/references/creating-mcp-server.md",
-      "sha256": "1dd7cea09d72660e732fa8a602038b1db4c062c85c1645567cb7a6a42602a4c9",
+      "upstream_source": "project-template/.claude/skills/managed-integrations/references/creating-mcp-server.md",
       "upstream_sha256": "1dd7cea09d72660e732fa8a602038b1db4c062c85c1645567cb7a6a42602a4c9",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/managed-integrations/references/personal-auth-flow.md",
-      "sha256": "f9d8b91d4506833e36f538b67136eab192328b8e0c9e325c0c15f19c32333e59",
+      "upstream_source": "project-template/.claude/skills/managed-integrations/references/personal-auth-flow.md",
       "upstream_sha256": "f9d8b91d4506833e36f538b67136eab192328b8e0c9e325c0c15f19c32333e59",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/managed-integrations/references/shared-auth-flow.md",
-      "sha256": "1ff16cd2060ac74b4e2769c065d743b76909f9491848fda2fc1620c6d539d810",
+      "upstream_source": "project-template/.claude/skills/managed-integrations/references/shared-auth-flow.md",
       "upstream_sha256": "1ff16cd2060ac74b4e2769c065d743b76909f9491848fda2fc1620c6d539d810",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/mcp-gate-debug/SKILL.md",
-      "sha256": "aeb201f0cf553d6d73c1a584b6770e8dc2af053253dd2924c739e93f33f7d598",
+      "upstream_source": "project-template/.claude/skills/mcp-gate-debug/SKILL.md",
       "upstream_sha256": "aeb201f0cf553d6d73c1a584b6770e8dc2af053253dd2924c739e93f33f7d598",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".agents/skills/remote-logs/SKILL.md",
-      "sha256": "551abc90796d6f3833f2d19e4eb2ec96ddcbfed1077d3d1308e8f1a4822fc57f",
+      "upstream_source": "project-template/.claude/skills/remote-logs/SKILL.md",
       "upstream_sha256": "551abc90796d6f3833f2d19e4eb2ec96ddcbfed1077d3d1308e8f1a4822fc57f",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/agents/app-architect.md",
-      "sha256": "81395b43e04ef465dac72be16a986a864ddf1558497caa5a631f56053796868c",
+      "upstream_source": "project-template/.claude/agents/app-architect.md",
       "upstream_sha256": "81395b43e04ef465dac72be16a986a864ddf1558497caa5a631f56053796868c",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/agents/app-create-checker.md",
-      "sha256": "4832244beed2462c36634cf5d1a991676c1739eef01f7661c15bf6833958fcdd",
+      "upstream_source": "project-template/.claude/agents/app-create-checker.md",
       "upstream_sha256": "4832244beed2462c36634cf5d1a991676c1739eef01f7661c15bf6833958fcdd",
-      "merge_derived": false,
-      "matches_upstream": true
-    },
-    {
-      "path": ".claude/hooks/quality-check-apps.js",
-      "sha256": "f4e3a17991dbc7160d430c2dcbea3d2a625255057700697591059e1edeafac40"
-    },
-    {
-      "path": ".claude/hooks/run-lint-on-stop.sh",
-      "sha256": "ff363486b4e0657dd1285ba8ad3089689db2f012607dc2fd925cfb39b0a419c0"
-    },
-    {
-      "path": ".claude/hooks/run-typecheck-apps.js",
-      "sha256": "1d0d75f6dcc3c9ab5535a9707c250ea3fc1cf17eac3441215bc80f38298ad2aa"
-    },
-    {
-      "path": ".claude/hooks/run-typecheck-on-stop.sh",
-      "sha256": "da6412f2f49e75175bbb718ef887bb9140189e0a225e9fbd0e03567f1801a4f7"
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/api-exploration/SKILL.md",
-      "sha256": "a19b1397bc0bee204d6f0d51064a846ac594f119a99dad4d46684e637949400f",
+      "upstream_source": "project-template/.claude/skills/api-exploration/SKILL.md",
       "upstream_sha256": "a19b1397bc0bee204d6f0d51064a846ac594f119a99dad4d46684e637949400f",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/app-api-contract-testing/SKILL.md",
-      "sha256": "ec2b60fdc69b938a0f00f482bd75655c492135e01f00f7103b8e5eeba4e919da",
+      "upstream_source": "project-template/.claude/skills/app-api-contract-testing/SKILL.md",
       "upstream_sha256": "ec2b60fdc69b938a0f00f482bd75655c492135e01f00f7103b8e5eeba4e919da",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/app-backend/SKILL.md",
-      "sha256": "137e7b07cb35eccc4574c93e6e169ccd5ae24bc22bcadc70a19a8fbb59a6846a",
+      "upstream_source": "project-template/.claude/skills/app-backend/SKILL.md",
       "upstream_sha256": "137e7b07cb35eccc4574c93e6e169ccd5ae24bc22bcadc70a19a8fbb59a6846a",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/app-business-docs/SKILL.md",
-      "sha256": "2f6595f0dfdfdbfcb555258edf0cff8faefe382045fe9b2b3d97b08d1194a402",
+      "upstream_source": "project-template/.claude/skills/app-business-docs/SKILL.md",
       "upstream_sha256": "2f6595f0dfdfdbfcb555258edf0cff8faefe382045fe9b2b3d97b08d1194a402",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/app-dev-practices/SKILL.md",
-      "sha256": "ffd62bef890d38f48fb95ecc72ec5d3c07557f2995a2108a5161eea8b11b2417",
+      "upstream_source": "project-template/.claude/skills/app-dev-practices/SKILL.md",
       "upstream_sha256": "ffd62bef890d38f48fb95ecc72ec5d3c07557f2995a2108a5161eea8b11b2417",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/app-routing/SKILL.md",
-      "sha256": "b940a39fe3412af4c619bfa281c3399b5d9e3838a0df971923348b17477e393d",
+      "upstream_source": "project-template/.claude/skills/app-routing/SKILL.md",
       "upstream_sha256": "b940a39fe3412af4c619bfa281c3399b5d9e3838a0df971923348b17477e393d",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/app-secrets/SKILL.md",
-      "sha256": "b68b38021940ba9c325e9eb38ceaed125201b8ee9821b5bce23f42cb67727b56",
+      "upstream_source": "project-template/.claude/skills/app-secrets/SKILL.md",
       "upstream_sha256": "b68b38021940ba9c325e9eb38ceaed125201b8ee9821b5bce23f42cb67727b56",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/app-sidecar/SKILL.md",
-      "sha256": "6412c6ee62d86a0f33821bfd256c87e915517c7b6d255370f0217cca806b5a51",
+      "upstream_source": "project-template/.claude/skills/app-sidecar/SKILL.md",
       "upstream_sha256": "6412c6ee62d86a0f33821bfd256c87e915517c7b6d255370f0217cca806b5a51",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/app-ui-design/SKILL.md",
-      "sha256": "4c7885c6ea271549fafcd658e89d23bb55b28538d6eb9beb30d8e7c4cf90af1b",
+      "upstream_source": "project-template/.claude/skills/app-ui-design/SKILL.md",
       "upstream_sha256": "4c7885c6ea271549fafcd658e89d23bb55b28538d6eb9beb30d8e7c4cf90af1b",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/dev-debug-logs/SKILL.md",
-      "sha256": "9e5eb7ddb8793c099c379170794e3652ef5827483b352c647819b1b7d2a6e03a",
+      "upstream_source": "project-template/.claude/skills/dev-debug-logs/SKILL.md",
       "upstream_sha256": "9e5eb7ddb8793c099c379170794e3652ef5827483b352c647819b1b7d2a6e03a",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/file-upload/SKILL.md",
-      "sha256": "f62094faea2fa61fc505c7eb9ff799607bea2d04d6785f3e89c5790787dbfd0b",
+      "upstream_source": "project-template/.claude/skills/file-upload/SKILL.md",
       "upstream_sha256": "f62094faea2fa61fc505c7eb9ff799607bea2d04d6785f3e89c5790787dbfd0b",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/file-upload/references/upload-lifecycle.md",
-      "sha256": "b9b96225f9840f0041a31027540dde38c8133e26fb37bb9c42088d38329f3e46",
+      "upstream_source": "project-template/.claude/skills/file-upload/references/upload-lifecycle.md",
       "upstream_sha256": "b9b96225f9840f0041a31027540dde38c8133e26fb37bb9c42088d38329f3e46",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-cli/SKILL.md",
-      "sha256": "cbf0c333b3723725f8ebf5ff04b81149106b655a02d13ee30f85038ad291fa43",
+      "upstream_source": "project-template/.claude/skills/fusebase-cli/SKILL.md",
       "upstream_sha256": "cbf0c333b3723725f8ebf5ff04b81149106b655a02d13ee30f85038ad291fa43",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-cli/references/fusebase-json-schema.md",
-      "sha256": "e08123a54f1b5dab6397363f35d8980c3dedca89a6237cba6bc6efdc85532a70",
+      "upstream_source": "project-template/.claude/skills/fusebase-cli/references/fusebase-json-schema.md",
       "upstream_sha256": "e08123a54f1b5dab6397363f35d8980c3dedca89a6237cba6bc6efdc85532a70",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-dashboards/SKILL.md",
-      "sha256": "c56aa57e9fb9bcf27465a0010ae411bf62ba96cb3c5142d01790d51249636cb6",
+      "upstream_source": "project-template/.claude/skills/fusebase-dashboards/SKILL.md",
       "upstream_sha256": "c56aa57e9fb9bcf27465a0010ae411bf62ba96cb3c5142d01790d51249636cb6",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-dashboards/references/authz.md",
-      "sha256": "4a2190ca886d17d7c05b04da757bf53e1ec544af5d05a6ab394b3aaf59a38d72",
+      "upstream_source": "project-template/.claude/skills/fusebase-dashboards/references/authz.md",
       "upstream_sha256": "4a2190ca886d17d7c05b04da757bf53e1ec544af5d05a6ab394b3aaf59a38d72",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-dashboards/references/bootstrap.md",
-      "sha256": "afa0458d594fe07e8ae63ad02fbc1af032fa1950c87439a320bd74987fb77475",
+      "upstream_source": "project-template/.claude/skills/fusebase-dashboards/references/bootstrap.md",
       "upstream_sha256": "afa0458d594fe07e8ae63ad02fbc1af032fa1950c87439a320bd74987fb77475",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-dashboards/references/child-tables.md",
-      "sha256": "c95e8b07a578e34ae14eb27368a912b3a411ccdac584b848cc05fcbe14f7ca3b",
+      "upstream_source": "project-template/.claude/skills/fusebase-dashboards/references/child-tables.md",
       "upstream_sha256": "c95e8b07a578e34ae14eb27368a912b3a411ccdac584b848cc05fcbe14f7ca3b",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-dashboards/references/core-concepts.md",
-      "sha256": "afa3713afd66364872543633276f6476068072022d9a3f1a0ddcfc9eea04989a",
+      "upstream_source": "project-template/.claude/skills/fusebase-dashboards/references/core-concepts.md",
       "upstream_sha256": "afa3713afd66364872543633276f6476068072022d9a3f1a0ddcfc9eea04989a",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-dashboards/references/data-patterns.md",
-      "sha256": "de73a77455827799c5a646c810cd5b233c13284c4a4387590df17425cbaf5ece",
+      "upstream_source": "project-template/.claude/skills/fusebase-dashboards/references/data-patterns.md",
       "upstream_sha256": "de73a77455827799c5a646c810cd5b233c13284c4a4387590df17425cbaf5ece",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-dashboards/references/filters.md",
-      "sha256": "73b4beb1dceb84d182f0486881803cb3963f1d44678183f7777db8479e161f44",
+      "upstream_source": "project-template/.claude/skills/fusebase-dashboards/references/filters.md",
       "upstream_sha256": "73b4beb1dceb84d182f0486881803cb3963f1d44678183f7777db8479e161f44",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-dashboards/references/members.md",
-      "sha256": "65ca4250be1f696652b5c214fcc85391522ff2b75e59ccb6352a12acc617d5cb",
+      "upstream_source": "project-template/.claude/skills/fusebase-dashboards/references/members.md",
       "upstream_sha256": "65ca4250be1f696652b5c214fcc85391522ff2b75e59ccb6352a12acc617d5cb",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-dashboards/references/relations-guide.md",
-      "sha256": "ad7af6a2c8a9934f149f6d78299539d10c7848f90fe06cfc7da5d09ff8a897ca",
+      "upstream_source": "project-template/.claude/skills/fusebase-dashboards/references/relations-guide.md",
       "upstream_sha256": "ad7af6a2c8a9934f149f6d78299539d10c7848f90fe06cfc7da5d09ff8a897ca",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-dashboards/references/representations.md",
-      "sha256": "b988abd865b051383a1011c2bad3485405017492c9791c364e204f1c1a692126",
+      "upstream_source": "project-template/.claude/skills/fusebase-dashboards/references/representations.md",
       "upstream_sha256": "b988abd865b051383a1011c2bad3485405017492c9791c364e204f1c1a692126",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-dashboards/references/rows.md",
-      "sha256": "1426f060b858cfaff90020b41a5b4575555c23b8ef0837fe9680d94d170f2a26",
+      "upstream_source": "project-template/.claude/skills/fusebase-dashboards/references/rows.md",
       "upstream_sha256": "1426f060b858cfaff90020b41a5b4575555c23b8ef0837fe9680d94d170f2a26",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-dashboards/references/schema-fundamentals.md",
-      "sha256": "02f2cbd4799b25a99ce7ecf1804ab5056784b8b044acad3fd464708a1c932cb0",
+      "upstream_source": "project-template/.claude/skills/fusebase-dashboards/references/schema-fundamentals.md",
       "upstream_sha256": "02f2cbd4799b25a99ce7ecf1804ab5056784b8b044acad3fd464708a1c932cb0",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-dashboards/references/sdk.md",
-      "sha256": "ac9e0d54dbc33f876b5882bbf44f1c8aefd0cec4579d502d70097f366077cc39",
+      "upstream_source": "project-template/.claude/skills/fusebase-dashboards/references/sdk.md",
       "upstream_sha256": "ac9e0d54dbc33f876b5882bbf44f1c8aefd0cec4579d502d70097f366077cc39",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-dashboards/references/tooling.md",
-      "sha256": "ac3b627406ad59f9bdeae9e05fd952ab3880219435cd1b79c1bb89bb41dfce6b",
+      "upstream_source": "project-template/.claude/skills/fusebase-dashboards/references/tooling.md",
       "upstream_sha256": "ac3b627406ad59f9bdeae9e05fd952ab3880219435cd1b79c1bb89bb41dfce6b",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-gate/SKILL.md",
-      "sha256": "bf37f49b917e8e7dfa61c6dc2cc1832424d91d07c21e462a09c8579dfcdcffd6",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/SKILL.md",
       "upstream_sha256": "bf37f49b917e8e7dfa61c6dc2cc1832424d91d07c21e462a09c8579dfcdcffd6",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-gate/references/app-magic-links.md",
-      "sha256": "2ab195d44cae43fb797dbd884d2ded0ac32c8e0a67cd1211eda432ff2ae57d92",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/app-magic-links.md",
       "upstream_sha256": "2ab195d44cae43fb797dbd884d2ded0ac32c8e0a67cd1211eda432ff2ae57d92",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-gate/references/authz.md",
-      "sha256": "58103b15aae1a048fc169bdcce426a9cd0756e653d804cd5cc46b1b5b166ea3c",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/authz.md",
       "upstream_sha256": "58103b15aae1a048fc169bdcce426a9cd0756e653d804cd5cc46b1b5b166ea3c",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-gate/references/billing.md",
-      "sha256": "d99a9a493b0fea431453df95fb986d110d5077ac9fde66de5bb112151dc0e16f",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/billing.md",
       "upstream_sha256": "d99a9a493b0fea431453df95fb986d110d5077ac9fde66de5bb112151dc0e16f",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-gate/references/bootstrap.md",
-      "sha256": "3bf1fa10da5e7075303522f4dbdb5604517641eb7227f8a553b1d847422fb499",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/bootstrap.md",
       "upstream_sha256": "3bf1fa10da5e7075303522f4dbdb5604517641eb7227f8a553b1d847422fb499",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-gate/references/emails.md",
-      "sha256": "483ab801d6f4f3565ad5f3fa887a41998f4f56350f30cdaffe5fd15a1dc44873",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/emails.md",
       "upstream_sha256": "483ab801d6f4f3565ad5f3fa887a41998f4f56350f30cdaffe5fd15a1dc44873",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-gate/references/files.md",
-      "sha256": "878ee9a11ac19e49d8d85b2bce5ff601f801065ccc1fe37fe83fe98dd443fbe1",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/files.md",
       "upstream_sha256": "878ee9a11ac19e49d8d85b2bce5ff601f801065ccc1fe37fe83fe98dd443fbe1",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-gate/references/fusebase-auth.md",
-      "sha256": "dba76e8b76a0802393a85fdac86286bce5e2cab321c8f99df17ed1ee563859bd",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/fusebase-auth.md",
       "upstream_sha256": "dba76e8b76a0802393a85fdac86286bce5e2cab321c8f99df17ed1ee563859bd",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-gate/references/isolated-sql-integrator-troubleshooting.md",
-      "sha256": "ad3c62288dbc0fd8447b6ae130aba82ba7226bc5bc9b9264bb2968a8327d8e78",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/isolated-sql-integrator-troubleshooting.md",
       "upstream_sha256": "ad3c62288dbc0fd8447b6ae130aba82ba7226bc5bc9b9264bb2968a8327d8e78",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-gate/references/isolated-sql-migration-discipline.md",
-      "sha256": "6aeb4592aadb3d90ce4ff51be58d30edaec93f395eed33e28b160d0b891ec803",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/isolated-sql-migration-discipline.md",
       "upstream_sha256": "6aeb4592aadb3d90ce4ff51be58d30edaec93f395eed33e28b160d0b891ec803",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-gate/references/isolated-sql.md",
-      "sha256": "8722fbb90c5b04b79af4793f87cc78b662315d375b3f49d03c988227f99c62d6",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/isolated-sql.md",
       "upstream_sha256": "8722fbb90c5b04b79af4793f87cc78b662315d375b3f49d03c988227f99c62d6",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-gate/references/isolated-store-hierarchy.md",
-      "sha256": "23d7c881d61541813a108515f58bacdc29257c9509ef39e9e480d73c53db8a67",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/isolated-store-hierarchy.md",
       "upstream_sha256": "23d7c881d61541813a108515f58bacdc29257c9509ef39e9e480d73c53db8a67",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-gate/references/isolated-stores-release-checklist.md",
-      "sha256": "37a797786e7442d432d9b187627a8a67d719ccde639ff52a5395f4c66c2fed59",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/isolated-stores-release-checklist.md",
       "upstream_sha256": "37a797786e7442d432d9b187627a8a67d719ccde639ff52a5395f4c66c2fed59",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-gate/references/isolated.md",
-      "sha256": "6fd5ed7b75f72b6371045eafc98752821162874deb2a0405d510fe22ccceb3ed",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/isolated.md",
       "upstream_sha256": "6fd5ed7b75f72b6371045eafc98752821162874deb2a0405d510fe22ccceb3ed",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-gate/references/membership.md",
-      "sha256": "efc07d5b1a06f9828bd3d35964a900292470d59953336d09971206386f48845c",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/membership.md",
       "upstream_sha256": "efc07d5b1a06f9828bd3d35964a900292470d59953336d09971206386f48845c",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-gate/references/notes.md",
-      "sha256": "d9218580dd2c3375a005a9fb41686a95047942ae6c2620abd7b5e93e523c905c",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/notes.md",
       "upstream_sha256": "d9218580dd2c3375a005a9fb41686a95047942ae6c2620abd7b5e93e523c905c",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-gate/references/org-groups.md",
-      "sha256": "8e3e88096882fdf1e1b7b3bab331520b52564034de4e407eb61700a5e9090a31",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/org-groups.md",
       "upstream_sha256": "8e3e88096882fdf1e1b7b3bab331520b52564034de4e407eb61700a5e9090a31",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-gate/references/orgs.md",
-      "sha256": "d4ca774da3e185ca56639d5b6f478a538a655259e015352e36410955095f84f7",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/orgs.md",
       "upstream_sha256": "d4ca774da3e185ca56639d5b6f478a538a655259e015352e36410955095f84f7",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-gate/references/portal-embed-context.md",
-      "sha256": "b19afd5fe550da7f8359372e6a3ba8b91682ceea0a5eae43da63f9d796fa30f2",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/portal-embed-context.md",
       "upstream_sha256": "b19afd5fe550da7f8359372e6a3ba8b91682ceea0a5eae43da63f9d796fa30f2",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-gate/references/portal-theme-variables.md",
-      "sha256": "f959fcb72e10df080e47ca4fff7084c846ef03b019f2c7d3bcd1a18c59e4e3c7",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/portal-theme-variables.md",
       "upstream_sha256": "f959fcb72e10df080e47ca4fff7084c846ef03b019f2c7d3bcd1a18c59e4e3c7",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-gate/references/portals-create.md",
-      "sha256": "236ce835bfb33a76848fcedffea5c1286d12b5756cfc7bb23673e64e0518b1cc",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/portals-create.md",
       "upstream_sha256": "236ce835bfb33a76848fcedffea5c1286d12b5756cfc7bb23673e64e0518b1cc",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-gate/references/portals.md",
-      "sha256": "f45333ef3604f53f4c632577292fa75cb14d541a6b859e230fb963aa68f39769",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/portals.md",
       "upstream_sha256": "f45333ef3604f53f4c632577292fa75cb14d541a6b859e230fb963aa68f39769",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-gate/references/sdk.md",
-      "sha256": "4bf8d2587465328c2d8529d54f9e9bae89a4527fa0d04e628cfa3b2463961d72",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/sdk.md",
       "upstream_sha256": "4bf8d2587465328c2d8529d54f9e9bae89a4527fa0d04e628cfa3b2463961d72",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-gate/references/stripe-apps.md",
-      "sha256": "a5ccca52456ffe10bec444eae71b220d4603faec6dd9ca44dee51487881e3d58",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/stripe-apps.md",
       "upstream_sha256": "a5ccca52456ffe10bec444eae71b220d4603faec6dd9ca44dee51487881e3d58",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-gate/references/stripe-for-apps-and-agents.md",
-      "sha256": "86ba8ec9944e744f17993e5fae8161663b9fa99758cb86493a3a825d887c7a31",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/stripe-for-apps-and-agents.md",
       "upstream_sha256": "86ba8ec9944e744f17993e5fae8161663b9fa99758cb86493a3a825d887c7a31",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-gate/references/tooling.md",
-      "sha256": "514bcebade685e0e658c1e9d0e623bfae454ed3639590fd9160549a915a21451",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/tooling.md",
       "upstream_sha256": "514bcebade685e0e658c1e9d0e623bfae454ed3639590fd9160549a915a21451",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-gate/references/users.md",
-      "sha256": "ba82008fcda69a02b2a4b1ce2637ecde866e868278ebef7adcfacf57584089b3",
+      "upstream_source": "project-template/.claude/skills/fusebase-gate/references/users.md",
       "upstream_sha256": "ba82008fcda69a02b2a4b1ce2637ecde866e868278ebef7adcfacf57584089b3",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/fusebase-portal-specific-apps/SKILL.md",
-      "sha256": "5bd82df0d8a893f00a817f1599435d5d19281eb026b67c3549432e643ec37033",
+      "upstream_source": "project-template/.claude/skills/fusebase-portal-specific-apps/SKILL.md",
       "upstream_sha256": "5bd82df0d8a893f00a817f1599435d5d19281eb026b67c3549432e643ec37033",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/git-workflow/SKILL.md",
-      "sha256": "e624771804d74e6a4d1258137162bd898b1c352a7a3e4dd8382148ba65454dcf",
+      "upstream_source": "project-template/.claude/skills/git-workflow/SKILL.md",
       "upstream_sha256": "e624771804d74e6a4d1258137162bd898b1c352a7a3e4dd8382148ba65454dcf",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/handling-authentication-errors/SKILL.md",
-      "sha256": "e0c3e8cb3c80980743ca41877818013aec9450edb7d89b84b4e970e981d8a4a7",
+      "upstream_source": "project-template/.claude/skills/handling-authentication-errors/SKILL.md",
       "upstream_sha256": "e0c3e8cb3c80980743ca41877818013aec9450edb7d89b84b4e970e981d8a4a7",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/managed-integrations/SKILL.md",
-      "sha256": "1dcbb9258ae7684af538d6f3eee92b3aa3f6f8e76abbaa48b1bc1e41c09135b1",
+      "upstream_source": "project-template/.claude/skills/managed-integrations/SKILL.md",
       "upstream_sha256": "1dcbb9258ae7684af538d6f3eee92b3aa3f6f8e76abbaa48b1bc1e41c09135b1",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/managed-integrations/references/calling-server-tool.md",
-      "sha256": "678e09f32f64014c7dbb25470fa8390806925420226357f18dcc08c8226cfd49",
+      "upstream_source": "project-template/.claude/skills/managed-integrations/references/calling-server-tool.md",
       "upstream_sha256": "678e09f32f64014c7dbb25470fa8390806925420226357f18dcc08c8226cfd49",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/managed-integrations/references/creating-mcp-server.md",
-      "sha256": "1dd7cea09d72660e732fa8a602038b1db4c062c85c1645567cb7a6a42602a4c9",
+      "upstream_source": "project-template/.claude/skills/managed-integrations/references/creating-mcp-server.md",
       "upstream_sha256": "1dd7cea09d72660e732fa8a602038b1db4c062c85c1645567cb7a6a42602a4c9",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/managed-integrations/references/personal-auth-flow.md",
-      "sha256": "f9d8b91d4506833e36f538b67136eab192328b8e0c9e325c0c15f19c32333e59",
+      "upstream_source": "project-template/.claude/skills/managed-integrations/references/personal-auth-flow.md",
       "upstream_sha256": "f9d8b91d4506833e36f538b67136eab192328b8e0c9e325c0c15f19c32333e59",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/managed-integrations/references/shared-auth-flow.md",
-      "sha256": "1ff16cd2060ac74b4e2769c065d743b76909f9491848fda2fc1620c6d539d810",
+      "upstream_source": "project-template/.claude/skills/managed-integrations/references/shared-auth-flow.md",
       "upstream_sha256": "1ff16cd2060ac74b4e2769c065d743b76909f9491848fda2fc1620c6d539d810",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/mcp-gate-debug/SKILL.md",
-      "sha256": "aeb201f0cf553d6d73c1a584b6770e8dc2af053253dd2924c739e93f33f7d598",
+      "upstream_source": "project-template/.claude/skills/mcp-gate-debug/SKILL.md",
       "upstream_sha256": "aeb201f0cf553d6d73c1a584b6770e8dc2af053253dd2924c739e93f33f7d598",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".claude/skills/remote-logs/SKILL.md",
-      "sha256": "551abc90796d6f3833f2d19e4eb2ec96ddcbfed1077d3d1308e8f1a4822fc57f",
+      "upstream_source": "project-template/.claude/skills/remote-logs/SKILL.md",
       "upstream_sha256": "551abc90796d6f3833f2d19e4eb2ec96ddcbfed1077d3d1308e8f1a4822fc57f",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".codex/agents/app-architect.md",
-      "sha256": "81395b43e04ef465dac72be16a986a864ddf1558497caa5a631f56053796868c",
+      "upstream_source": "project-template/.claude/agents/app-architect.md",
       "upstream_sha256": "81395b43e04ef465dac72be16a986a864ddf1558497caa5a631f56053796868c",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     },
     {
       "path": ".codex/agents/app-create-checker.md",
-      "sha256": "4832244beed2462c36634cf5d1a991676c1739eef01f7661c15bf6833958fcdd",
+      "upstream_source": "project-template/.claude/agents/app-create-checker.md",
       "upstream_sha256": "4832244beed2462c36634cf5d1a991676c1739eef01f7661c15bf6833958fcdd",
-      "merge_derived": false,
-      "matches_upstream": true
+      "merge_derived": false
     }
   ]
 }
