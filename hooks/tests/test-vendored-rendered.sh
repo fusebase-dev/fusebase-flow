@@ -168,4 +168,41 @@ echo "$OUT" | grep -q "^EXIT=2$" || f="$f [a manifest path missing from the tree
 [ -z "$f" ] && ok "t6-vacuity-guards (empty manifest / absent manifest / missing listed path all exit 2, never a silent 0)" \
             || bad t6-vacuity-guards "$f"
 
+###############################################################################
+# T7 — vacuity, second and third forms (added after review; each one PASSED
+# with `OK: 0 vendored asset(s) scanned` before the fix)
+###############################################################################
+f=""
+# [WAS-VACUOUS] a NON-EMPTY array of pathless entries: the emptiness guard above sees a
+# non-empty list, every entry is then skipped, and the check reports success on 0 files.
+printf '{ "schema_version": 2, "assets": [{}] }\n' > "$SCRATCH/audit/cli-vendor-manifest.json"
+OUT="$(run_check "$SCRATCH")"
+echo "$OUT" | grep -q "^EXIT=2$"   || f="$f [pathless entry did not exit 2: $(echo "$OUT" | grep '^EXIT=')]"
+echo "$OUT" | grep -q "MALFORMED"  || f="$f [pathless entry did not name the malformed entry]"
+printf '{ "schema_version": 2, "assets": ["nope"] }\n' > "$SCRATCH/audit/cli-vendor-manifest.json"
+OUT="$(run_check "$SCRATCH")"
+echo "$OUT" | grep -q "^EXIT=2$"   || f="$f [non-object entry did not exit 2]"
+printf '{ "schema_version": 2, "assets": [{"path": "   "}] }\n' > "$SCRATCH/audit/cli-vendor-manifest.json"
+OUT="$(run_check "$SCRATCH")"
+echo "$OUT" | grep -q "^EXIT=2$"   || f="$f [whitespace-only path did not exit 2]"
+# The manifest must not disagree with itself about its own size.
+cat > "$SCRATCH/audit/cli-vendor-manifest.json" <<'JSON'
+{ "schema_version": 2, "asset_count": 99,
+  "assets": [ { "path": ".claude/agents/app-architect.md", "sha256": "y" } ] }
+JSON
+OUT="$(run_check "$SCRATCH")"
+echo "$OUT" | grep -q "^EXIT=2$"        || f="$f [asset_count/list-length mismatch did not exit 2]"
+echo "$OUT" | grep -q "disagrees with itself" || f="$f [count mismatch did not explain itself]"
+# Control: the SAME shape with an honest count must still pass, or the guard above is
+# just rejecting everything.
+cat > "$SCRATCH/audit/cli-vendor-manifest.json" <<'JSON'
+{ "schema_version": 2, "asset_count": 1,
+  "assets": [ { "path": ".claude/agents/app-architect.md", "sha256": "y" } ] }
+JSON
+OUT="$(run_check "$SCRATCH")"
+echo "$OUT" | grep -q "^EXIT=0$" || f="$f [CONTROL: an honest 1-asset manifest was rejected — the guards reject everything]"
+echo "$OUT" | grep -q "1 vendored asset(s) scanned" || f="$f [CONTROL: honest manifest did not report 1 scanned]"
+[ -z "$f" ] && ok "t7-malformed-entry-and-count-guards (pathless / non-object / blank-path entries and an asset_count that disagrees with the list all exit 2; an honest 1-asset manifest still passes)" \
+            || bad t7-malformed-entry-and-count-guards "$f"
+
 finish

@@ -76,11 +76,19 @@ if not assets:
 
 violations: list[tuple[str, int, str, int]] = []
 missing: list[str] = []
+malformed: list[str] = []
 scanned = 0
 
-for asset in assets:
+# TRIPWIRE (vacuity, second form): an entry that is not an object, or carries no usable
+# `path`, used to be SKIPPED — so `{"assets":[{}]}` reported success having scanned zero
+# files. A manifest that cannot be read is a broken manifest, never a clean tree.
+for i, asset in enumerate(assets):
+    if not isinstance(asset, dict):
+        malformed.append(f"assets[{i}] is {type(asset).__name__}, not an object")
+        continue
     rel = asset.get("path")
-    if not rel:
+    if not isinstance(rel, str) or not rel.strip():
+        malformed.append(f"assets[{i}] has no usable 'path' (got {rel!r})")
         continue
     fp = root / rel
     if not fp.is_file():
@@ -101,11 +109,33 @@ for asset in assets:
         if NEEDLE in line:
             violations.append((rel, n, line.strip()[:120], line.count(NEEDLE)))
 
+if malformed:
+    print(f"[check-vendored-rendered] CANNOT RUN: {len(malformed)} malformed manifest "
+          f"entr(y/ies) — re-stamp with hooks/local/stamp-cli-provenance.sh:", file=sys.stderr)
+    for m in malformed[:10]:
+        print(f"  MALFORMED {m}", file=sys.stderr)
+    sys.exit(2)
+
 if missing:
     print(f"[check-vendored-rendered] CANNOT RUN: {len(missing)} manifest path(s) missing from "
           f"the tree — re-stamp with hooks/local/stamp-cli-provenance.sh:", file=sys.stderr)
     for rel in missing[:10]:
         print(f"  MISSING {rel}", file=sys.stderr)
+    sys.exit(2)
+
+# TRIPWIRE (vacuity, third form): the three counts must agree. `asset_count` is the
+# manifest's own claim about its size; `len(assets)` is the list actually present;
+# `scanned` is what this check really opened. Any divergence means the check did not
+# cover what the manifest says it covers, which is indistinguishable from a pass.
+declared = manifest.get("asset_count")
+if declared is not None and declared != len(assets):
+    print(f"[check-vendored-rendered] CANNOT RUN: manifest asset_count={declared} but the "
+          f"assets list holds {len(assets)} entr(y/ies) — the manifest disagrees with itself; "
+          f"re-stamp with hooks/local/stamp-cli-provenance.sh", file=sys.stderr)
+    sys.exit(2)
+if scanned != len(assets):
+    print(f"[check-vendored-rendered] CANNOT RUN: scanned {scanned} of {len(assets)} listed "
+          f"asset(s) — the check did not cover the whole vendored surface", file=sys.stderr)
     sys.exit(2)
 
 if violations:
