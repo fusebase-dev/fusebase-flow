@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.9.2",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 167,
+  "asset_count": 170,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -66,7 +66,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-health-check.sh",
-      "sha256": "36cfbc7b1f8900614377d19833272e8bf4b639798e135a350c774fc39fcf569a"
+      "sha256": "077357f434f29e8792a8e81187f2e49668d2bc35104a2a53fad411770290fad0"
     },
     {
       "path": "hooks/local/install-codex-prompts.sh",
@@ -99,6 +99,14 @@
     {
       "path": "hooks/local/lib/bounded-run.sh",
       "sha256": "91bea5023707011070f522ecf7070242923528ea1bdd843faf726a0aba6d8e77"
+    },
+    {
+      "path": "hooks/local/lib/cli-version-check.sh",
+      "sha256": "e06eaed93e853f40c2c5bed0693c2e7d443f6ebad969d132a4e59d00dbfc33b7"
+    },
+    {
+      "path": "hooks/local/lib/health-recommendations.sh",
+      "sha256": "0fde87bf606134a16d335f6ebe87333c3ffc1f1d74bc6aef6b079a1bff90e467"
     },
     {
       "path": "hooks/local/lib/hook-integrity-check.sh",
@@ -442,7 +450,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "0a9bd6fc6b366c78d14f000b0b273cffb727cdb5bf2f79b2098e43fffecb46a8"
+      "sha256": "bf9ea579c1e86ef1db31e08db72d91397499743b7c18850bd1c16639ef9cf3c1"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -486,7 +494,11 @@
     },
     {
       "path": "hooks/tests/test-cli-flow-recovery.sh",
-      "sha256": "025fe5c264b63a2ebbd7a8487ae24a67bf185cd692896c5d65db0ee0e8727e4f"
+      "sha256": "c5e289bf2084911033f199cc095af8706a030ec4b91001e25dfe2c6daf09e1fe"
+    },
+    {
+      "path": "hooks/tests/test-cli-version-gate.sh",
+      "sha256": "9b42890513306cd70510d4c961f9c477b891b338e6d061bc4ebc200e3b0e9902"
     },
     {
       "path": "hooks/tests/test-codex-plugin-surface.sh",
@@ -522,7 +534,7 @@
     },
     {
       "path": "hooks/tests/test-health-check-timeout.sh",
-      "sha256": "d6aaf53c5a9d8ba5eca76e40572d5ddad921fb6ae8784cf33351350b47610216"
+      "sha256": "9f01272361aba68cf4031b791c60c3731c226385db0cdbba3cc43e4ae5e1b799"
     },
     {
       "path": "hooks/tests/test-history-extraction.sh",
@@ -673,5 +685,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "f2f8bdaf78c2a2ac006e94996d291ee0f1e5f5fdb951dedd110c8b02c19f6cd3"
+  "manifest_self_sha256": "d074a27d384e8e87c91d6a52fce0f167b96a7e5583e19853afc9d548f22bccfb"
 }

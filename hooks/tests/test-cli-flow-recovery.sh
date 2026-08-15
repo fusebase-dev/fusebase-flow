@@ -42,6 +42,16 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# S1 (cli-0298-compatibility): the health engine now probes `fusebase --version`; a CLI absent
+# from PATH is PARTIAL_UNVERIFIED (exit 4). U17/U18 assert the MAIN engine reads specific CLI
+# gaps as benign HEALTHY, so they need an in-range CLI present or they would measure the
+# version gate instead of the ownership classification they exist to test.
+# TRIPWIRE: prepend, never replace PATH — python3/git/timeout must stay reachable.
+mkdir -p "$TMP_BASE/_clibin"
+printf '#!/usr/bin/env bash\necho 0.29.8\n' > "$TMP_BASE/_clibin/fusebase"
+chmod +x "$TMP_BASE/_clibin/fusebase"
+export PATH="$TMP_BASE/_clibin:$PATH"
+
 # Result reporters, shared by the five sourced modules. Ordinary per-test timing is sufficient
 # now that the phase is decomposed — the S3A instrumentation seam that used to own these was a
 # temporary diagnostic and was deleted in step 7 (architecture-review Q3: it proved trace schema,

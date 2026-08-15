@@ -29,7 +29,9 @@
 # EXIT CODES:
 #   0  HEALTHY (ALL critical checks ran and passed; no drift; upstream may be
 #      unverified — upstream is optional and does NOT block exit 0)
-#   1  CLI_LAYER_DRIFT / FLOW_LAYER_DRIFT / SHARED_MERGE_DRIFT
+#   1  CLI_LAYER_DRIFT / FLOW_LAYER_DRIFT / SHARED_MERGE_DRIFT /
+#      CLI_VERSION_UNSUPPORTED (installed CLI below the reviewed floor — the only
+#      verdict-affecting CLI signal; see lib/cli-version-check.sh)
 #   2  BROKEN  (a completed critical check failed, or a sub-script rc!=0 with no
 #      parsable result — a harness crash)
 #   3  EXCEPTION_IN_EFFECT (drift attributable to active operator approval artifact(s))
@@ -123,6 +125,7 @@ LOCAL_BROKEN=()
 LOCAL_UNVERIFIED=()      # CRITICAL checks that could not run (timed out / skipped / no timeout binary) — drive PARTIAL_UNVERIFIED/exit 4; NEVER let exit be 0 (engine v3.x+ / H4)
 LOCAL_DEFERRED=()        # drift items deferred via active health_check_deferral artifact (engine v2.4.0+)
 CLI_LAYER_DRIFT=()
+CLI_VERSION_UNSUPPORTED=()  # S1: installed CLI below the reviewed floor. Named drift sub-class (exit 1); the ONLY verdict-affecting CLI signal
 SHARED_MERGE_DRIFT=()
 UPSTREAM_NOTES=()
 ACTIVE_ARTIFACTS=()      # filenames of non-expired approval artifacts (informational)
@@ -478,6 +481,17 @@ else
   LOCAL_DRIFT+=("hooks/local/check-cli-flow-conflicts.sh: MISSING (ownership report unavailable)")
 fi
 
+# Installed-CLI version compatibility (CRITICAL, S1). The one CLI signal allowed to
+# move the verdict: below the reviewed floor => CLI_VERSION_UNSUPPORTED (exit 1);
+# above it / unreadable / not on PATH => LOCAL_UNVERIFIED (exit 4, never a false green).
+FFHC_CLIVER_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/cli-version-check.sh"
+if [ -f "$FFHC_CLIVER_LIB" ]; then
+  . "$FFHC_CLIVER_LIB"                  # shellcheck source=lib/cli-version-check.sh
+  ffhc_cli_version_check
+else
+  LOCAL_UNVERIFIED+=("CLI version compatibility: UNVERIFIED — missing $FFHC_CLIVER_LIB (re-clone or run 'bash hooks/local/upgrade.sh')")
+fi
+
 ###############################################################################
 # Section 1b — PARTIAL_UPGRADE derived-facts check (U7, read-only, local).
 ###############################################################################
@@ -596,6 +610,11 @@ if [ "$DRIFT_COUNT" -eq 0 ] && [ "$BROKEN_COUNT" -eq 0 ] && [ "$UNVERIFIED_COUNT
 elif [ "$BROKEN_COUNT" -gt 0 ]; then
   # Genuine breakage trumps everything (including deferrals — operator can't defer real breakage)
   DRIFT_SIGNATURE="BROKEN"
+elif [ "${#CLI_VERSION_UNSUPPORTED[@]}" -gt 0 ]; then
+  # S1: the installed CLI is below the reviewed floor, so Flow's vendored CLI documents
+  # are known-incompatible with it. Named FIRST among drift classes because it is the
+  # root cause that makes the other CLI findings ambiguous. Drift class => exit 1 via *).
+  DRIFT_SIGNATURE="CLI_VERSION_UNSUPPORTED"
 elif [ "$PARTIAL_UPGRADE_DRIFT_COUNT" -gt 0 ] && [ "$PARTIAL_UPGRADE_DRIFT_COUNT" -eq "$DRIFT_COUNT" ] \
      && [ "$CLI_LAYER_DRIFT_COUNT" -eq 0 ] && [ "$SHARED_MERGE_DRIFT_COUNT" -eq 0 ]; then
   # U7: stale derived facts (version/FR/plugin vs live strings) account for ALL real
@@ -638,49 +657,15 @@ fi
 # Section 4 — Recommendations
 ###############################################################################
 
-case "$DRIFT_SIGNATURE" in
-  HEALTHY)
-    RECOMMENDATIONS+=("No action required. Fusebase Flow overlay is intact.") ;;
-  PARTIAL_UPGRADE)
-    RECOMMENDATIONS+=("PARTIAL UPGRADE — VERSION/content advanced but live attestation strings are STALE (an interrupted upgrade, or an adapter with no overlay-refresh path). The stale-fact items are listed above as 'PARTIAL_UPGRADE — …'.")
-    RECOMMENDATIONS+=("Repair (re-syncs the derived strings + re-applies adapter overlays):")
-    RECOMMENDATIONS+=("  bash hooks/local/sync-version-strings.sh")
-    RECOMMENDATIONS+=("  bash hooks/local/post-fusebase-update.sh --refresh-overlays")
-    RECOMMENDATIONS+=("Then re-run this health check (expect HEALTHY). If a re-run still reports the same surface, that adapter has no overlay-refresh path yet (e.g. GEMINI.md before the U6 follow-up) — sync-version-strings now covers it (U5).") ;;
-  EXCEPTION_IN_EFFECT)
-    if [ "${#LOCAL_DEFERRED[@]}" -gt 0 ]; then
-      RECOMMENDATIONS+=("All non-OK items are operator-authored deferrals (active health_check_deferral-*.json artifact(s) in state/approvals/). This is engine v2.4.0+ acknowledging that the install brief or operator deliberately omitted parts of the canonical Fusebase Flow setup.")
-      RECOMMENDATIONS+=("Recovery script CAN fix the underlying state if you decide to revisit any deferral — the script is additive + idempotent. Run: bash hooks/local/post-fusebase-update.sh")
-      RECOMMENDATIONS+=("To clear the deferral artifact(s) themselves: delete the listed artifact file(s) or wait for their expires_at to pass.")
-    else
-      RECOMMENDATIONS+=("All drift is attributable to active approval artifact(s) in state/approvals/. This is the protected-paths exception mechanism working as designed.")
-      RECOMMENDATIONS+=("Recovery script will NOT fix this — it doesn't touch state/approvals/.")
-      RECOMMENDATIONS+=("To clear: when the protected work is done, delete the listed artifact(s) or wait for their expires_at to pass. Then re-run this health check.")
-    fi ;;
-  CLI_LAYER_DRIFT)
-    RECOMMENDATIONS+=("CLI-owned agent assets are missing or structurally damaged.")
-    RECOMMENDATIONS+=("Run the current FuseBase CLI refresh/update for this project first so the CLI restores its own files.")
-    RECOMMENDATIONS+=("After CLI refresh, run: bash hooks/local/post-fusebase-update.sh") ;;
-  SHARED_MERGE_DRIFT)
-    RECOMMENDATIONS+=("Shared CLI/Flow files are missing Flow overlay or merge additions.")
-    RECOMMENDATIONS+=("Run: bash hooks/local/post-fusebase-update.sh")
-    RECOMMENDATIONS+=("The script restores Flow overlay blocks, Flow lifecycle settings, Flow skill/agent mirrors, and does not patch CLI hook helper files.") ;;
-  FLOW_LAYER_DRIFT)
-    RECOMMENDATIONS+=("Flow-owned overlay assets are missing or drifted.")
-    RECOMMENDATIONS+=("Run: bash hooks/local/post-fusebase-update.sh")
-    RECOMMENDATIONS+=("If CLI-owned assets are also damaged, refresh the current FuseBase CLI first, then rerun Flow recovery.") ;;
-  BROKEN)
-    RECOMMENDATIONS+=("Genuine failure detected (NOT attributable to an active approval artifact).")
-    RECOMMENDATIONS+=("Inspect the LOCAL_BROKEN items above; address each manually.")
-    RECOMMENDATIONS+=("After fixes, re-run this health check.") ;;
-  PARTIAL_UNVERIFIED)
-    RECOMMENDATIONS+=("PARTIAL — not a full health verdict. One or more CRITICAL checks did not run (timed out, skipped, or no timeout binary available); see the 'unverified' items above.")
-    RECOMMENDATIONS+=("This is NOT a failure and NOT full health. Exit code 4. Nothing that DID run proved drift or breakage.")
-    # WS4 DX: name the exact knob + current effective value (copy-ready re-run), + platform.
-    if ffhc_is_msys; then FFHC_PLATFORM_NOTE="MSYS/Git-Bash (higher defaults auto-applied)"; else FFHC_PLATFORM_NOTE="POSIX"; fi
-    RECOMMENDATIONS+=("Current effective timeout budgets ($FFHC_PLATFORM_NOTE): FFHC_PREFLIGHT_TIMEOUT=${FFHC_PREFLIGHT_TIMEOUT}s  FFHC_TESTS_TIMEOUT=${FFHC_TESTS_TIMEOUT}s  FFHC_FETCH_TIMEOUT=${FFHC_FETCH_TIMEOUT}s  FFHC_CONFLICT_TIMEOUT=${FFHC_CONFLICT_TIMEOUT}s. Raise the one named in the unverified item above (e.g. FFHC_TESTS_TIMEOUT=240) and re-run.")
-    RECOMMENDATIONS+=("To get a full verdict: re-run on a host with more time/CPU, raise the relevant FFHC_*_TIMEOUT env knob (values above), or run the named check directly. If a timeout binary is missing, install coreutils (provides 'timeout'/'gtimeout') or opt into unbounded runs with FFHC_ALLOW_UNBOUNDED=1.") ;;
-esac
+# Verdict -> operator guidance lives in a sourced lib (FR-25 seam; the engine owns
+# diagnosis, the lib owns what to tell the operator). A missing lib leaves
+# RECOMMENDATIONS empty — the verdict and exit code are unaffected, so it degrades
+# to "less advice", never to a wrong verdict.
+FFHC_RECS_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/health-recommendations.sh"
+if [ -f "$FFHC_RECS_LIB" ]; then
+  . "$FFHC_RECS_LIB"                    # shellcheck source=lib/health-recommendations.sh
+  ffhc_build_recommendations
+fi
 
 ###############################################################################
 # Section 5 — Output

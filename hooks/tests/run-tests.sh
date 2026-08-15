@@ -73,7 +73,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixtur
   git-context git-context-mutation \
   hook-manifest newline-preserve baseline-merge \
   sync-allowlist policy-state bootstrap-baseline-hop fr22-delivery po-verifiable-boot \
-  po-investigate liveness codex-parity codex-plugin cli-0259 secret-scan-staged bootstrap-exception \
+  po-investigate liveness codex-parity codex-plugin cli-0259 cli-version secret-scan-staged bootstrap-exception \
   lane-router \
   trusted-enforcer hook-install-rc msys-tree-cleanup job-probe ws5-upgrade ff-only return-budget \
   supersede-primitive rule-inventory boot-size prohibition-residency token-waste-classify \
@@ -519,6 +519,11 @@ run_shell_phase test-liveness-bounded-run.sh   "liveness"
 run_shell_phase test-codex-prompt-parity.sh    "codex-parity"
 run_shell_phase test-codex-plugin-surface.sh   "codex-plugin"
 run_shell_phase test-cli-0259-compat.sh        "cli-0259"
+# S1: the installed-CLI version gate — the one CLI signal allowed to move the verdict. Three
+# of its rows carry a mutation control (gate neutered => the same fixture reads HEALTHY/0),
+# because "the health check cannot fail on an incompatible CLI" was the defect. HEAVY (8
+# bounded engine runs), so CI/FF_FULL tier — FF_FAST_TAGS is an allowlist.
+run_shell_phase test-cli-version-gate.sh       "cli-version"
 run_shell_phase test-secret-scan-staged.sh     "secret-scan-staged"
 run_shell_phase test-bootstrap-exception.sh    "bootstrap-exception"
 run_shell_phase test-trusted-enforcer.sh       "trusted-enforcer"

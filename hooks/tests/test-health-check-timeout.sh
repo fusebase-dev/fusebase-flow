@@ -22,6 +22,17 @@ cd "$ROOT"
 
 TMP_BASE="${TMPDIR:-/tmp}/fusebase-flow-hc-timeout.$$"
 mkdir -p "$TMP_BASE"
+
+# S1 (cli-0298-compatibility): the engine now probes `fusebase --version` and a CLI outside
+# the reviewed range / absent from PATH is PARTIAL_UNVERIFIED (exit 4). Every HEALTHY/0
+# baseline below therefore needs a compatible CLI present. Put an in-range stub FIRST on PATH
+# so these scenarios keep testing what they are about (timeouts, manifest integrity, marker
+# migration) and not the CLI-version gate — which test-cli-version-gate.sh owns.
+# TRIPWIRE: prepend, never replace PATH — python3/git/timeout must stay reachable.
+mkdir -p "$TMP_BASE/_clibin"
+printf '#!/usr/bin/env bash\necho 0.29.8\n' > "$TMP_BASE/_clibin/fusebase"
+chmod +x "$TMP_BASE/_clibin/fusebase"
+export PATH="$TMP_BASE/_clibin:$PATH"
 cleanup() {
   case "$TMP_BASE" in
     /tmp/fusebase-flow-hc-timeout.*|*/tmp/fusebase-flow-hc-timeout.*|*/Temp/fusebase-flow-hc-timeout.*)
@@ -57,6 +68,12 @@ build_golden() {
   cp hooks/local/fusebase-flow-health-check.sh "$dir/hooks/local/"
   cp hooks/local/lib/run-with-timeout.sh hooks/local/lib/hook-integrity-check.sh \
      hooks/local/lib/hook_manifest.py "$dir/hooks/local/lib/"
+  # S1 (cli-0298-compatibility): the engine sources these two. Without cli-version-check.sh
+  # every scenario inherits a spurious "CLI version: UNVERIFIED" critical (exit 4) and without
+  # health-recommendations.sh the Recommendations block is empty — both would make the
+  # scenarios below measure a missing lib instead of what they exist to test.
+  cp hooks/local/lib/cli-version-check.sh hooks/local/lib/health-recommendations.sh \
+     "$dir/hooks/local/lib/"
   # M9: the approval-collection path must be LIVE in the fixture, or the exit-status half
   # of the staleness contract cannot be asserted at all — the engine silently skips
   # section 0 when the lib is absent, and the shared loader/policy are what it imports.

@@ -1,0 +1,277 @@
+#!/usr/bin/env bash
+# Fusebase Flow — installed-CLI version gate (S1) verdict/exit contract tests.
+# Spec: docs/specs/cli-0298-compatibility/spec.md § S1.
+#
+# WHAT IS BEING PROVEN
+#   Before this ticket the health check could not fail on an incompatible CLI (F1):
+#   source_cli_version was the "unknown" sentinel and every CLI signal was advisory, so
+#   /fusebase-health returned HEALTHY against ANY installed CLI. The three arms whose
+#   verdict CHANGED are therefore paired with a MUTATION CONTROL: the same engine with
+#   the version-gate call neutered, on the same fixture, must read HEALTHY/0. A row that
+#   passes with and without the gate proves nothing; the control is what makes it count.
+#
+# The five contract arms (spec § S1 Oracle):
+#   simulated 0.25.16   -> CLI_VERSION_UNSUPPORTED, exit 1, names the range
+#   0.29.8              -> HEALTHY, exit 0
+#   simulated 0.30.0    -> PARTIAL_UNVERIFIED, exit 4 (NEVER a hard red — see spec)
+#   unreadable version  -> PARTIAL_UNVERIFIED, exit 4
+#   no fusebase on PATH -> PARTIAL_UNVERIFIED, exit 4
+#
+# COST DISCIPLINE: an engine run on MSYS costs ~40-70s. Only rows whose subject is the
+#   ENGINE's verdict/exit plumbing spawn the engine (8 runs). Parser/boundary/override
+#   rows drive ffhc_cli_version_check directly — same code, no spawn.
+#
+# Output contract (parsed by run-tests.sh run_shell_phase):
+#   "PASS: cli-version <name>" / "FAIL: cli-version <name>"; exit code = failure count.
+
+set -uo pipefail
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+cd "$ROOT"
+
+pass=0; fail=0
+ok()  { pass=$((pass + 1)); echo "PASS: cli-version $1"; }
+# TRIPWIRE (C4): the reason goes on the SAME stdout line as the FAIL marker and newlines are
+# flattened — run-tests.sh rows ONLY lines matching `^(PASS|FAIL): cli-version `, so a reason
+# on a continuation line or on stderr reaches neither the log nor hook-test-results.md.
+bad() { fail=$((fail + 1)); local w="${2:-}"; [ -z "$w" ] || w=" ($(printf '%s' "$w" | tr '\n\r\t' '   ' | cut -c1-400))"; echo "FAIL: cli-version $1$w"; }
+finish() { echo "[test-cli-version-gate] $pass/$((pass + fail)) PASS"; exit $fail; }
+
+TMP_BASE="${TMPDIR:-/tmp}/fusebase-flow-cli-version.$$"
+mkdir -p "$TMP_BASE"
+cleanup() {
+  case "$TMP_BASE" in
+    /tmp/fusebase-flow-cli-version.*|*/tmp/fusebase-flow-cli-version.*|*/Temp/fusebase-flow-cli-version.*)
+      rm -rf "$TMP_BASE" ;;
+  esac
+}
+trap cleanup EXIT
+
+# shellcheck source=../local/lib/run-with-timeout.sh
+. hooks/local/lib/run-with-timeout.sh
+ffhc_detect_timeout
+# shellcheck source=../local/lib/cli-version-check.sh
+. hooks/local/lib/cli-version-check.sh
+
+RANGE=">= 0.29.0 and < 0.30.0 (vendored from 0.29.8)"
+
+# stub_bin <dir> <output>: a `fusebase` shim printing <output> for --version.
+stub_bin() {
+  mkdir -p "$1"
+  { printf '#!/usr/bin/env bash\n'; printf 'cat <<%s\n%s\nEOF_V\n' "'EOF_V'" "$2"; } > "$1/fusebase"
+  chmod +x "$1/fusebase"
+}
+
+# path_without_fusebase: the ambient PATH minus every dir that actually provides a
+# `fusebase` executable. Needed so the not-on-PATH arm is deterministic on a host that
+# HAS the CLI installed — dropping PATH entirely would take python3/git with it.
+path_without_fusebase() {
+  local out="" d
+  local OLD_IFS="$IFS"; IFS=:
+  for d in $PATH; do
+    [ -n "$d" ] || continue
+    if [ -x "$d/fusebase" ] || [ -x "$d/fusebase.exe" ] || [ -x "$d/fusebase.cmd" ] || [ -x "$d/fusebase.bat" ]; then
+      continue
+    fi
+    out="${out:+$out:}$d"
+  done
+  IFS="$OLD_IFS"
+  printf '%s' "$out"
+}
+BASE_PATH="$(path_without_fusebase)"
+
+###############################################################################
+# Part 1 — unit rows (no engine spawn)
+###############################################################################
+
+sem_expect() {  # sem_expect <a> <b> <lt|ge>
+  local got
+  if ffhc_semver_lt "$1" "$2"; then got=lt; else got=ge; fi
+  [ "$got" = "$3" ] || { bad "semver-$1-vs-$2" "expected $3, got $got"; return 1; }
+  return 0
+}
+sem_f=0
+sem_expect 0.25.16 0.29.0 lt || sem_f=1
+sem_expect 0.29.0  0.29.0 ge || sem_f=1
+sem_expect 0.29.8  0.30.0 lt || sem_f=1
+sem_expect 0.30.0  0.30.0 ge || sem_f=1
+sem_expect 0.9.0   0.29.0 lt || sem_f=1     # component-numeric, not lexicographic
+sem_expect 0.29.10 0.29.2 ge || sem_f=1     # 10 > 2 numerically; "0.29.10" < "0.29.2" as strings
+[ "$sem_f" -eq 0 ] && ok "semver-comparator (6 orderings incl. the two lexicographic traps)"
+
+# ffhc_cli_version_parse must cover BOTH shapes lib/version-output.ts can print.
+p_bare="$(ffhc_cli_version_parse '0.29.8')"
+p_launcher="$(ffhc_cli_version_parse 'FuseBase CLI 0.29.8
+Launcher 1.4.2
+Channel prod')"
+p_junk="$(ffhc_cli_version_parse 'command not found')"
+if [ "$p_bare" = "0.29.8" ] && [ "$p_launcher" = "0.29.8" ] && [ -z "$p_junk" ]; then
+  ok "version-parse (bare + 3-line launcher block + unreadable => empty)"
+else
+  bad "version-parse" "bare=$p_bare launcher=$p_launcher junk=$p_junk"
+fi
+
+# lib_classify <version-output|__ABSENT__> [env-assignments...]
+#   -> "UNSUPPORTED|UNVERIFIED|OK<TAB><first message>". Drives the SAME function the engine
+#   calls, in a subshell with the engine's four arrays declared. No engine spawn.
+lib_classify() {
+  local ver="$1"; shift
+  local d="$TMP_BASE/lib.$RANDOM" p="$BASE_PATH"
+  if [ "$ver" != "__ABSENT__" ]; then stub_bin "$d" "$ver"; p="$d:$BASE_PATH"; fi
+  (
+    export PATH="$p"
+    [ "$#" -eq 0 ] || export "$@"
+    # TRIPWIRE: re-source INSIDE the subshell, after the env assignments. The engine sources
+    # the lib in its own process too, so the constants' source-time assignment is what makes
+    # the range non-overridable. Reusing the outer shell's already-sourced copy would let an
+    # exported var win and the env-override row would assert the opposite of the truth.
+    . hooks/local/lib/run-with-timeout.sh; ffhc_detect_timeout
+    . hooks/local/lib/cli-version-check.sh
+    LOCAL_OK=(); LOCAL_DRIFT=(); LOCAL_UNVERIFIED=(); CLI_VERSION_UNSUPPORTED=()
+    ffhc_cli_version_check
+    if   [ "${#CLI_VERSION_UNSUPPORTED[@]}" -gt 0 ]; then printf 'UNSUPPORTED\t%s' "${CLI_VERSION_UNSUPPORTED[0]}"
+    elif [ "${#LOCAL_UNVERIFIED[@]}"        -gt 0 ]; then printf 'UNVERIFIED\t%s'  "${LOCAL_UNVERIFIED[0]}"
+    elif [ "${#LOCAL_OK[@]}"                -gt 0 ]; then printf 'OK\t%s'          "${LOCAL_OK[0]}"
+    else printf 'NONE\t(no classification recorded)'
+    fi
+  )
+}
+
+lib_row() {  # lib_row <name> <version> <expected-class> [required substrings...]
+  local name="$1" ver="$2" want="$3"; shift 3
+  local got s
+  got="$(lib_classify "$ver")"
+  [ "${got%%$'\t'*}" = "$want" ] || { bad "$name" "expected $want, got: $got"; return; }
+  for s in "$@"; do
+    printf '%s' "$got" | grep -qF -- "$s" || { bad "$name" "message missing '$s': $got"; return; }
+  done
+  ok "$name"
+}
+
+# Boundary + parser rows: the classification, not the engine plumbing.
+lib_row floor-inclusive-0.29.0 "0.29.0"  OK          "installed 0.29.0 is within the reviewed range"
+lib_row just-below-floor       "0.28.99" UNSUPPORTED "installed FuseBase Apps CLI is 0.28.99" "$RANGE"
+lib_row launcher-block "FuseBase CLI 0.29.8
+Launcher 1.4.2
+Channel prod" OK "installed 0.29.8 is within the reviewed range"
+# Never a hard red above the ceiling, however far above (spec § S1: a red with a
+# remediation that cannot work yet trains operators to widen the range unreviewed).
+lib_row far-above-0.31.0 "0.31.0" UNVERIFIED "ABOVE the reviewed ceiling" "supply the 0.31.0 CLI tree for review"
+
+# The reviewed range is NOT env-overridable — an env kill switch would let a consumer
+# widen it without re-reviewing a CLI tree, which is the failure mode S1 exists to prevent.
+ov="$(lib_classify "0.25.16" FFHC_CLI_REVIEWED_FLOOR=0.1.0 FFHC_CLI_REVIEWED_CEILING_EXCL=9.9.9)"
+if [ "${ov%%$'\t'*}" = "UNSUPPORTED" ]; then
+  ok "env-override-rejected (FFHC_CLI_REVIEWED_* cannot widen the reviewed range)"
+else
+  bad "env-override-rejected" "an env var widened the range: $ov"
+fi
+
+###############################################################################
+# Part 2 — end-to-end engine rows (verdict + exit code)
+###############################################################################
+
+GOLDEN="$TMP_BASE/_golden"
+build_golden() {
+  local dir="$GOLDEN"
+  mkdir -p "$dir/hooks/local/lib" "$dir/hooks/tests" "$dir/audit" \
+           "$dir/.claude/skills/fusebase-flow-health-check" "$dir/.claude/agents" \
+           "$dir/hooks/local/fusebase-flow-overlays" \
+           "$dir/hooks/shared" "$dir/policies" "$dir/state/approvals"
+  cp hooks/local/fusebase-flow-health-check.sh "$dir/hooks/local/"
+  cp hooks/local/lib/run-with-timeout.sh hooks/local/lib/hook-integrity-check.sh \
+     hooks/local/lib/hook_manifest.py hooks/local/lib/active-approvals.sh \
+     hooks/local/lib/cli-version-check.sh hooks/local/lib/health-recommendations.sh \
+     "$dir/hooks/local/lib/"
+  cp hooks/shared/__init__.py hooks/shared/approval_artifact.py \
+     hooks/shared/policy_loader.py hooks/shared/audit_logger.py "$dir/hooks/shared/"
+  cp policies/approval-policy.yml "$dir/policies/"
+  cp hooks/local/verify-hook-manifest.sh hooks/local/stamp-hook-manifest.sh "$dir/hooks/local/"
+  cp VERSION "$dir/VERSION"
+  printf '# AGENTS\n\n## Fusebase Flow — workflow lifecycle overlay\n' > "$dir/AGENTS.md"
+  : > "$dir/.claude/skills/fusebase-flow-health-check/SKILL.md"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$dir/hooks/local/post-fusebase-update.sh"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$dir/hooks/local/preflight.sh"
+  printf '#!/usr/bin/env bash\necho "[run-tests] 1/1 PASS"\nexit 0\n' > "$dir/hooks/tests/run-tests.sh"
+  printf '#!/usr/bin/env bash\nprintf %%s "{\\"verdict\\": \\"HEALTHY\\", \\"findings\\": []}"\nexit 0\n' > "$dir/hooks/local/check-cli-flow-conflicts.sh"
+  chmod +x "$dir/hooks/local/post-fusebase-update.sh" "$dir/hooks/local/preflight.sh" \
+           "$dir/hooks/tests/run-tests.sh" "$dir/hooks/local/check-cli-flow-conflicts.sh"
+  ( cd "$dir" && bash hooks/local/stamp-hook-manifest.sh >/dev/null 2>&1 )   # ONE stamp
+}
+fx() { rm -rf "$1"; cp -R "$GOLDEN" "$1"; }
+
+# neuter_gate <fixture>: the MUTATION CONTROL. Replace the two lines that invoke the S1
+# gate with `:` so the engine runs every OTHER check unchanged and has no CLI-version
+# signal at all — i.e. the pre-ticket engine's behaviour, reproduced from the current one.
+# Returns nonzero if the mutation did not apply (a control that silently didn't mutate is
+# worse than no control).
+neuter_gate() {
+  local e="$1/hooks/local/fusebase-flow-health-check.sh"
+  sed -e 's/^  ffhc_cli_version_check$/  :/' \
+      -e 's|^  LOCAL_UNVERIFIED+=("CLI version compatibility: UNVERIFIED — missing.*|  :|' \
+      "$e" > "$e.mut" || return 1
+  grep -q '^  ffhc_cli_version_check$' "$e.mut" && return 1      # call still present => not mutated
+  cmp -s "$e" "$e.mut" && return 1                               # byte-identical => not mutated
+  mv "$e.mut" "$e" || return 1
+  bash -n "$e" || return 1                                       # mutant must still be valid bash
+  ( cd "$1" && bash hooks/local/stamp-hook-manifest.sh >/dev/null 2>&1 )   # re-stamp the covered edit
+  return 0
+}
+
+run_hc() {  # run_hc <dir> <path>
+  local dir="$1" p="$2" out rc
+  out="$(cd "$dir" && PATH="$p" FFHC_PREFLIGHT_TIMEOUT=10 FFHC_CONFLICT_TIMEOUT=10 \
+        bash hooks/local/fusebase-flow-health-check.sh --no-upstream 2>&1)"; rc=$?
+  printf '%s\nEXIT=%s\n' "$out" "$rc"
+}
+
+# scenario <name> <version|__ABSENT__> <verdict> <exit> <control:yes|no> [required substrings...]
+scenario() {
+  local name="$1" ver="$2" verdict="$3" xit="$4" ctl="$5"; shift 5
+  local D="$TMP_BASE/$name" P="$BASE_PATH" OUT s
+  fx "$D"
+  if [ "$ver" != "__ABSENT__" ]; then stub_bin "$D/_bin" "$ver"; P="$D/_bin:$BASE_PATH"; fi
+  OUT="$(run_hc "$D" "$P")"
+  echo "$OUT" | grep -q "Verdict: $verdict" || { bad "$name" "expected Verdict: $verdict -- $OUT"; return; }
+  echo "$OUT" | grep -q "^EXIT=$xit$"       || { bad "$name" "expected EXIT=$xit -- $OUT"; return; }
+  for s in "$@"; do
+    echo "$OUT" | grep -qF -- "$s" || { bad "$name" "output missing required text '$s' -- $OUT"; return; }
+  done
+  if [ "$ctl" = "no" ]; then ok "$name"; return; fi
+  local C="$TMP_BASE/$name-control" COUT
+  fx "$C"
+  neuter_gate "$C" || { bad "$name-control" "mutation did not apply — the control is not a control"; return; }
+  COUT="$(run_hc "$C" "$P")"
+  if echo "$COUT" | grep -q "Verdict: HEALTHY" && echo "$COUT" | grep -q "^EXIT=0$"; then
+    ok "$name (+ mutation control: gate neutered => same fixture reads HEALTHY/0)"
+  else
+    bad "$name-control" "gate-neutered engine did not read HEALTHY/0, so the row above proves nothing -- $COUT"
+  fi
+}
+
+build_golden
+
+# A1 — below the reviewed floor: NOT HEALTHY, exit 1, states version + range + next step.
+scenario below-floor-0.25.16 "0.25.16" CLI_VERSION_UNSUPPORTED 1 yes \
+  "installed FuseBase Apps CLI is 0.25.16" "$RANGE" "npm install -g fusebase-apps-cli@latest"
+
+# A2 — in range: HEALTHY, exit 0. No control: the pre-ticket engine also read HEALTHY here,
+# so a control would assert nothing. What this row guards is that the gate did not make
+# the compatible case red.
+scenario in-range-0.29.8 "0.29.8" HEALTHY 0 no \
+  "CLI version compatibility: installed 0.29.8 is within the reviewed range"
+
+# A3 — above the ceiling: PARTIAL_UNVERIFIED (exit 4), never a hard red.
+scenario above-ceiling-0.30.0 "0.30.0" PARTIAL_UNVERIFIED 4 yes \
+  "installed FuseBase Apps CLI is 0.30.0, ABOVE the reviewed ceiling" "$RANGE" "supply the 0.30.0 CLI tree for review"
+
+# A4 — version unreadable: PARTIAL_UNVERIFIED (exit 4), never a silent green.
+scenario unreadable-version "fusebase: command failed" PARTIAL_UNVERIFIED 4 no \
+  "returned no readable version" "$RANGE"
+
+# A5 — fusebase absent from PATH: PARTIAL_UNVERIFIED (exit 4). Controlled, because this is
+# the state of CI and of the maintainer repo itself: the pre-ticket engine called it HEALTHY.
+scenario absent-from-path "__ABSENT__" PARTIAL_UNVERIFIED 4 yes \
+  "is not on PATH" "$RANGE"
+
+finish

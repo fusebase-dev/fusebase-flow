@@ -1,6 +1,6 @@
 ---
 name: fusebase-flow-health-check
-description: Use when the operator asks "is Fusebase Flow healthy", "check Fusebase Flow", "did fusebase update break anything", "Fusebase Flow status", "restore Fusebase Flow", or asks whether Fusebase CLI and Fusebase Flow agent files conflict. Runs the read-only health engine, reports layer verdicts (`HEALTHY`, `CLI_LAYER_DRIFT`, `FLOW_LAYER_DRIFT`, `SHARED_MERGE_DRIFT`, `EXCEPTION_IN_EFFECT`, `PARTIAL_UNVERIFIED`, `BROKEN`), and offers Flow recovery only when the drift is Flow-owned or shared-merge. For CLI-owned drift, instruct the operator to run the current FuseBase CLI refresh/update first, then Flow recovery.
+description: Use when the operator asks "is Fusebase Flow healthy", "check Fusebase Flow", "did fusebase update break anything", "Fusebase Flow status", "restore Fusebase Flow", or asks whether Fusebase CLI and Fusebase Flow agent files conflict. Runs the read-only health engine, reports layer verdicts (`HEALTHY`, `CLI_LAYER_DRIFT`, `CLI_VERSION_UNSUPPORTED`, `FLOW_LAYER_DRIFT`, `SHARED_MERGE_DRIFT`, `EXCEPTION_IN_EFFECT`, `PARTIAL_UNVERIFIED`, `BROKEN`), and offers Flow recovery only when the drift is Flow-owned or shared-merge. For CLI-owned drift, instruct the operator to run the current FuseBase CLI refresh/update first, then Flow recovery.
 source_inspiration: original (operator-maintained recovery infrastructure)
 license_status: clean-room-original
 fusebase_flow_version: 3.1
@@ -29,6 +29,7 @@ Verify the local Fusebase Flow overlay and the shared FuseBase CLI / Flow agent 
 |---|---|---|
 | `HEALTHY` | CLI-owned, Flow-owned, and shared-merge surfaces look intact AND every critical check ran clean. | No action. |
 | `CLI_LAYER_DRIFT` | CLI-owned assets are **missing** or structurally damaged. | Do not run Flow recovery first. Run the current FuseBase CLI refresh/update, then Flow recovery. |
+| `CLI_VERSION_UNSUPPORTED` | The installed FuseBase Apps CLI is **below** the reviewed-compatible floor, so the CLI documents this Flow edition vendors are known-incompatible with it (`--app` resolution and command templates changed across the gap). | Upgrade the CLI to the reviewed range, then re-run. Flow recovery does not help — the mismatch is the CLI, not the overlay. |
 | `SHARED_MERGE_DRIFT` | Shared files are missing Flow overlay/merge additions. | Offer Flow recovery. |
 | `FLOW_LAYER_DRIFT` | Flow-owned mirrors or overlay files are missing/drifted. | Offer Flow recovery. |
 | `EXCEPTION_IN_EFFECT` | Drift is covered by active approval/deferral artifacts. | Do not run recovery automatically. Surface the artifact. |
@@ -51,6 +52,22 @@ The verdict-affecting operations (preflight, conflict reporter, the upstream `gi
 Env knobs (seconds; POSIX defaults in parentheses): `FFHC_FETCH_TIMEOUT` (15), `FFHC_PREFLIGHT_TIMEOUT` (30), `FFHC_CONFLICT_TIMEOUT` (30), `FFHC_MANIFEST_TIMEOUT` (30, the hook-layer integrity critical), `FFHC_TESTS_TIMEOUT` (60, the optional `--run-hook-tests` deep run only). An explicit env value always wins over the default on either platform. If neither `timeout` nor `gtimeout` exists, the bounded ops are **skipped** ⇒ `PARTIAL_UNVERIFIED` (install coreutils, or opt into unbounded runs with `FFHC_ALLOW_UNBOUNDED=1`). Worst-case bounded full run ≈ 155s.
 
 **Windows/MSYS under load (WS4, v3.30.3).** Git-Bash/MSYS spawns each process in ~0.8–1.4s (vs ~1–3ms on Linux/macOS), so the flat 30/60s preflight/tests budgets routinely time out a *healthy* MSYS install under CPU load and surface a spurious `PARTIAL_UNVERIFIED`. On MINGW*/MSYS*/CYGWIN the engine auto-raises the defaults to `FFHC_PREFLIGHT_TIMEOUT` **60** / `FFHC_TESTS_TIMEOUT` **120** (fetch/conflict stay flat — network/git are platform-agnostic). When a run still lands `PARTIAL_UNVERIFIED`, the recommendation prints the **exact knob name + its current effective value** (e.g. `FFHC_TESTS_TIMEOUT=120s`) plus the detected platform, so raising the named budget and re-running is copy-ready. This is a *timeout budget* only — it never changes the verdict logic: a genuine `FAIL:` or an rc0-no-run crash still reads `BROKEN` regardless of platform (the fail-closed guard is untouched).
+
+### Installed-CLI version gate (verdict-affecting — the ONE CLI signal that is)
+
+`hooks/local/lib/cli-version-check.sh` probes `fusebase --version` at health-check time and compares it to the **reviewed-compatible range** this Flow edition's vendored CLI assets were built against.
+
+| Installed CLI | Verdict | Exit |
+|---|---|---:|
+| Inside the reviewed range | contributes `HEALTHY` | 0 |
+| **Below** the floor | `CLI_VERSION_UNSUPPORTED` | 1 |
+| **Above** the ceiling, unreadable, or `fusebase` not on PATH | `PARTIAL_UNVERIFIED` | 4 |
+
+Every non-green outcome states three things: the version found, the reviewed range, and the next step (below the floor → the upgrade command; above the ceiling → supply the new CLI tree for review).
+
+**Above-range is deliberately exit 4, not a red.** The CLI ships ~4 minors per 5 weeks and Flow's vendoring is operator-supplied trees, so Flow always trails. A hard red on every CLI release day — carrying a remediation that cannot work yet, because no Flow release has reviewed the new version — trains operators to widen the range unreviewed, which neutralizes the check. Exit 4 also keeps CI and any host without the CLI installed from being permanently red. `fusebase` absent from PATH is therefore **exit 4, not a failure**.
+
+The range is **not** env-overridable by design: widening it is a code change in a commit, paired with the re-vendor that earns it.
 
 ### Advisory signals (informational — never change the verdict or exit code)
 
@@ -90,7 +107,7 @@ The conflict reporter (`check-cli-flow-conflicts.sh`) also emits advisory findin
    | Exit | Verdicts |
    |---:|---|
    | 0 | `HEALTHY` (every critical check ran clean) |
-   | 1 | `CLI_LAYER_DRIFT`, `FLOW_LAYER_DRIFT`, `SHARED_MERGE_DRIFT` |
+   | 1 | `CLI_LAYER_DRIFT`, `CLI_VERSION_UNSUPPORTED`, `FLOW_LAYER_DRIFT`, `SHARED_MERGE_DRIFT` |
    | 2 | `BROKEN` |
    | 3 | `EXCEPTION_IN_EFFECT` |
    | 4 | `PARTIAL_UNVERIFIED` (a critical check did not run — partial/unverified; **not** full health, **not** a hard failure) |

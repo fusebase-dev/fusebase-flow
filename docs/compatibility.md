@@ -43,11 +43,18 @@ To get a real-secret BLOCK past pre-commit: rotate the credential + `git reset H
 
 ## Windows / Git-Bash (MSYS)
 
-Full `bash hooks/local/fusebase-flow-health-check.sh` (no flags) now reaches
+Full `bash hooks/local/fusebase-flow-health-check.sh` (no flags) reaches
 **HEALTHY / exit 0 on stock Windows + Git-Bash**: the CRITICAL is a hook-layer
 **manifest verify** (one python hash pass over ~100 files — seconds, OS-independent),
 not a re-run of the fork-heavy test suite. `--fast` / `--skip-hook-tests` stay the
 quick escape (they skip the integrity critical ⇒ PARTIAL_UNVERIFIED / exit 4, never 0).
+
+**Precondition for exit 0 (S1, cli-0298-compatibility):** the installed FuseBase Apps
+CLI must be inside the reviewed-compatible range. On a host where `fusebase` is not on
+PATH — CI runners and this maintainer repo included — the run is `PARTIAL_UNVERIFIED` /
+**exit 4**: partial, not a failure, and deliberately never a false green. Below the
+reviewed floor is `CLI_VERSION_UNSUPPORTED` / exit 1; above the ceiling is exit 4.
+See `flow-skills/fusebase-flow-health-check/SKILL.md` § Installed-CLI version gate.
 
 `--run-hook-tests` is an OPTIONAL deep diagnostic and is **platform-adaptive**: on
 POSIX/Linux/macOS it runs the FULL `hooks/tests/run-tests.sh` suite (as before); on
