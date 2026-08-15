@@ -458,7 +458,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "56e18f439fe8e0e2cdb812d3f1a55d14c08284b2cb400aac856caebf17febe0b"
+      "sha256": "4fc7934c5645ba6d022aef18d715ff327ad551fa0a7178b8d0d4143ffe8e5634"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -578,7 +578,7 @@
     },
     {
       "path": "hooks/tests/test-manifest-freshness.sh",
-      "sha256": "3a47da47022bb22e01da65875ca58b0b8bbe1266e31f4512cf438243f5076943"
+      "sha256": "3afd8555ad0f35bc3773f8dbb6c32d2ceb39b7e2f2ed24855cc618efe7041a14"
     },
     {
       "path": "hooks/tests/test-minimal-path-fixture.sh",
@@ -705,5 +705,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "e6deb50af466ed6b10c0666fd527e2e9ca25b6a1f0ee25b1671700f48ba6a70b"
+  "manifest_self_sha256": "7638d30724d6508037af43b3da6c402a7bf9d422b24d39d0632882d0cf7ae65d"
 }
