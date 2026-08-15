@@ -31,21 +31,46 @@ FFCF_SKILL_FILES=(
 # Canonical skill DIRECTORY names (what the conflict reporter + health engine enumerate).
 FFCF_SKILL_NAMES=(communication role-discipline zz-fixture-flat zz-fixture-nested)
 FFCF_AGENTS=(zz-fixture-agent-a zz-fixture-agent-b)
-# The CLI provider surface. 21 of the ownership map's 22 known_names; the omitted
-# app-api-contract-testing is flag-gated, so its absence is the benign default (U10 class).
-# TRIPWIRE: this list must track the `<cli-provider-skill>` known_names in
-# hooks/local/fusebase-flow-overlays/agent-surface-ownership.json minus the flag-gated
-# entries. A name added there but not here is reported MISSING => CLI_LAYER_DRIFT => the
-# reporter exits 1 => the `CONFLICT_OUTPUT="$( … )"` assignment in cli-flow-recovery-e2e.sh
-# aborts the whole phase under `set -e` with NO diagnostic. (That is exactly how adding
-# app-e2e-tests + invite-with-password in cli-0298-compatibility T4 broke this phase.)
-FFCF_PROVIDERS=(
-  api-exploration app-backend app-business-docs app-dev-practices app-e2e-tests app-routing
-  app-secrets app-sidecar app-ui-design dev-debug-logs file-upload fusebase-cli
-  fusebase-dashboards fusebase-gate fusebase-portal-specific-apps git-workflow
-  handling-authentication-errors invite-with-password managed-integrations mcp-gate-debug
-  remote-logs
-)
+# The CLI provider surface — DERIVED from the ownership map, never handwritten.
+#
+# WHY (cli-0298-compatibility): this was a hardcoded list. T4 added app-e2e-tests +
+# invite-with-password to the ownership map, the list did not follow, the reporter called
+# them MISSING => CLI_LAYER_DRIFT => exit 1, and the `CONFLICT_OUTPUT="$( … )"` capture in
+# cli-flow-recovery-e2e.sh aborted the whole phase under `set -e` with NO stderr and no FAIL
+# row — run-tests could only report "crashed before reporting scenarios". Re-typing the list
+# with the two new names would have left the same trap armed for the next addition; deriving
+# it disarms the trap instead.
+#
+# app-api-contract-testing is deliberately EXCLUDED: it is flag-gated, so its absence is the
+# benign default the U10/AC3b rows assert. The other flag-gated names stay present — being
+# gated makes absence benign, it does not make presence wrong.
+FFCF_PROVIDER_EXCLUDE="app-api-contract-testing"
+ffcf_derive_providers() {
+  local ownership="$ROOT/hooks/local/fusebase-flow-overlays/agent-surface-ownership.json"
+  [ -f "$ownership" ] || { echo "[cli-flow-recovery] ownership map not found: $ownership" >&2; return 1; }
+  local names
+  names="$("$python_bin" - "$ownership" "$FFCF_PROVIDER_EXCLUDE" <<'PY'
+import json, sys
+own = json.load(open(sys.argv[1], encoding="utf-8"))
+skip = set(sys.argv[2].split())
+names: set[str] = set()
+for e in own.get("paths", []):
+    if "<cli-provider-skill>" in e.get("path", ""):
+        names.update(e.get("known_names") or [])
+names -= skip
+if not names:
+    raise SystemExit(1)          # deriving an EMPTY provider set would silently pass every row
+print(" ".join(sorted(names)))
+PY
+)" || return 1
+  [ -n "$names" ] || return 1
+  # shellcheck disable=SC2206
+  FFCF_PROVIDERS=($names)
+}
+if ! ffcf_derive_providers; then
+  echo "[cli-flow-recovery] FATAL: could not derive the CLI provider set from the ownership map" >&2
+  exit 1
+fi
 FFCF_CLI_AGENTS=(app-architect app-create-checker)
 # 2 of the 7 shipped command templates. Step 8 of the recovery is data-driven, so the
 # assertion is "every template in the snapshot landed" — copying all 7 only buys forks.
