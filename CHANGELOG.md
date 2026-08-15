@@ -4,6 +4,67 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [4.10.0] — 2026-08-15
+
+FuseBase Apps CLI **0.29.8** compatibility. Flow's vendored CLI-owned assets were last refreshed at
+CLI 0.25.16 — four minor versions back. Nothing Flow *executes* against the CLI was broken; what was
+broken is what Flow *taught*. In a framework whose product is the artifacts agents read, that is a
+product defect, not stale documentation.
+
+Minor rather than patch: new health-check behaviour, two provider skills adopted (20 → 22), and the
+vendored CLI layer moved four minor versions.
+
+### Fixed — Flow documented a command the CLI can no longer resolve
+
+CLI 0.29.8 matches `--app` against the local `apps[].path` **only** (`lib/commands/sidecar.ts`,
+`lib/commands/secret-create.ts` both say so in their own source). Flow's vendored `app-sidecar` still
+said `--app <appId>`. An agent following it passed a platform ID to a matcher comparing paths, and
+the failure surfaced as *"app not found"* — which reads as a missing app rather than a wrong argument.
+
+This was reachable in practice, not merely wrong in the repo: `AGENTS.md` makes the vendored skill
+files the authoritative agent-discovery surface, and the documented routine update
+(`fusebase update --skip-skills`) *preserves* existing provider skills — so an adopter on the
+recommended path stays on the stale copy indefinitely, not until their next refresh.
+
+### Fixed — Flow shipped template source as agent instructions
+
+40 occurrences of raw `<%=` ETA expressions across 12 vendored files (6 files × 2 provider surfaces),
+including two auth references. CLI 0.29.8 ships rendered output and contains zero such expressions
+anywhere in its tree. A reader was handed template-engine source and left to guess which branch
+applied. Now **0**, with a manifest-driven tripwire asserting no vendored asset may contain `<%=`.
+
+### Added — the health check reports CLI version
+
+`/fusebase-health` previously returned HEALTHY against **any** CLI version, which is why four minor
+versions of drift went unnoticed. Now a CLI **below 0.29.0** fails: Flow's vendored guidance is
+known-incompatible with it. Every other case — newer, older-but-supported, unreadable, absent —
+prints a **verdict-neutral advisory** that moves neither verdict nor exit code.
+
+The asymmetry is deliberate. Flow ships a *materialized installation snapshot*, not a compatibility
+certification. After a full `fusebase update` an adopter's local docs come from the newer CLI and are
+correct; failing them because *Flow* has not reviewed that version would measure Flow's maintainer
+backlog rather than their actual compatibility, and would paint every adopter yellow on every CLI
+release until a maintainer caught up.
+
+### Added — two provider skills, and a platform-level catalog entry
+
+`app-e2e-tests` and `invite-with-password` (20 → 22 skills, 40 → 44 mirrors).
+
+`docs/problem-catalog/` gains an entry for a FuseBase platform behaviour Flow previously taught
+incorrectly: **a 502 during `fusebase deploy` is misread as a logout**, falsely signing users out.
+The corrected pattern is a four-state session verdict (`authenticated | anon | blocked | unknown`) so
+a deploy blip is never treated as anonymous, plus the proxy-returns-`302`-not-`401` case and `getMe`
+status `0` (CORS, not auth).
+
+### Fixed — manifests described bytes that never ship
+
+`stamp-cli-provenance.sh` and `refresh-cli-vendor.sh` wrote via `Path.write_text()`, which emits CRLF
+on Windows. `.gitattributes` normalizes those paths to LF in git, so `audit/hook-layer-manifest.json`
+recorded a digest of the local copy rather than the shipped artifact — `4145ce9c…` against a blob that
+hashed `b084434258f3970e`. Undetectable locally by construction: the stamper and the verifier read the
+same wrong bytes and agree. Both writers now pin `newline="\n"`, and provenance for the vendored
+layer is derived from the upstream CLI tree rather than restamped from local bytes.
+
 ## [4.9.2] — 2026-08-14
 
 Corrective release. **v4.9.1 was tagged but never published**, for the same reason v4.9.0 was not:
