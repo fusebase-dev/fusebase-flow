@@ -578,7 +578,7 @@
     },
     {
       "path": "hooks/tests/test-manifest-freshness.sh",
-      "sha256": "3afd8555ad0f35bc3773f8dbb6c32d2ceb39b7e2f2ed24855cc618efe7041a14"
+      "sha256": "d3e223317f24d0a77b45afb15229f2e672cd696db8a4f1a397c397992d168f05"
     },
     {
       "path": "hooks/tests/test-minimal-path-fixture.sh",
@@ -705,5 +705,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "7638d30724d6508037af43b3da6c402a7bf9d422b24d39d0632882d0cf7ae65d"
+  "manifest_self_sha256": "d8b4cda68b52389a0d02ab021c2212dbaa6b8e8c6cf6904caab0e84dfe098877"
 }

@@ -64,8 +64,14 @@ mkdir -p "$TMP_BASE"
 WT="$TMP_BASE/wt"
 
 cleanup() {
+  # TRIPWIRE: remove ONLY this phase's own worktree, by path. Never a blanket
+  # `git worktree prune` — that deregisters ANY worktree whose directory is momentarily
+  # unavailable, including other sessions' (four unrelated ones are registered in this repo
+  # right now). A test phase must not touch shared repo metadata it does not own, and prune
+  # is not needed for correctness: the $$-unique path means `worktree add` always succeeds.
+  # A SIGKILL therefore leaks at most one stale admin entry, which a human `git worktree
+  # prune` clears — strictly less harm than pruning other people's registrations every run.
   git worktree remove --force "$WT" >/dev/null 2>&1
-  git worktree prune >/dev/null 2>&1
   case "$TMP_BASE" in
     /tmp/fusebase-flow-manifest-fresh.*|*/tmp/fusebase-flow-manifest-fresh.*|*/Temp/fusebase-flow-manifest-fresh.*)
       rm -rf "$TMP_BASE" ;;
@@ -78,7 +84,6 @@ for f in "$HOOK_MF" "$MANAGED_MF"; do
 done
 ok setup-manifests-present
 
-git worktree prune >/dev/null 2>&1     # clear any registration a previous SIGKILL orphaned
 if ! git worktree add --detach "$WT" "$FFMF_REF" >/dev/null 2>&1; then
   bad setup-scratch-worktree "could not create a scratch worktree at $FFMF_REF"
   finish
