@@ -125,7 +125,7 @@ fi
 # (14s) is added — it guards the release-evidence contract itself.
 # TRIPWIRE: this is an ALLOWLIST, so a NEW phase is heavy until measured and promoted. The
 # safe direction: a new phase runs in CI/full from day one, never silently on the budget.
-FF_FAST_TAGS=(fixtures module-size manifest-fresh git-smoke hook-manifest lane-router \
+FF_FAST_TAGS=(fixtures module-size git-smoke hook-manifest lane-router \
   approval-binding approval-writer command-policy release-authority)
 declare -A FF_FAST=(); for t in "${FF_FAST_TAGS[@]}"; do FF_FAST[$t]=1; done
 
@@ -479,10 +479,10 @@ run_shell_phase() { # run_shell_phase <test-script> <tag>
     local bad=$f; [ "$rc" -eq 0 ] || bad=$((bad + 1))
     emit_phase_diagnostics "$tag" "$out" "$bad"
 }
-# The local half of CI's manifest-freshness steps. PROMOTED into FF_FAST_TAGS on a
-# measurement (8s on loaded MSYS), per that array's measure-before-promote tripwire: an
-# assertion that only ran in the full tier would not have caught any of the six occurrences
-# of the stale-manifest class it exists to stop.
+# The local half of CI's manifest-freshness steps. Deliberately NOT in FF_FAST_TAGS: whether
+# this belongs in the shipped default gate at all, or in the S9 maintainer pack, is an OPEN
+# OPERATOR DECISION (docs/backlog/local-gate-misses-manifest-freshness). It is cheap enough
+# to promote (~10s measured), but promoting it would pre-empt that ruling.
 run_shell_phase test-manifest-freshness.sh   "manifest-fresh"
 run_shell_phase test-git-hooks-smoke.sh      "git-smoke"
 # Self-test of hooks/tests/lib/minimal-path-fixture.sh: the one interpreter-less PATH constructor
