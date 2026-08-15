@@ -29,7 +29,7 @@ Verify the local Fusebase Flow overlay and the shared FuseBase CLI / Flow agent 
 |---|---|---|
 | `HEALTHY` | CLI-owned, Flow-owned, and shared-merge surfaces look intact AND every critical check ran clean. | No action. |
 | `CLI_LAYER_DRIFT` | CLI-owned assets are **missing** or structurally damaged. | Do not run Flow recovery first. Run the current FuseBase CLI refresh/update, then Flow recovery. |
-| `CLI_VERSION_UNSUPPORTED` | The installed FuseBase Apps CLI is **below** the reviewed-compatible floor, so the CLI documents this Flow edition vendors are known-incompatible with it (`--app` resolution and command templates changed across the gap). | Upgrade the CLI to the reviewed range, then re-run. Flow recovery does not help — the mismatch is the CLI, not the overlay. |
+| `CLI_VERSION_UNSUPPORTED` | The installed FuseBase Apps CLI is **below the established incompatibility line**, so the CLI documents this Flow edition vendors are known-incompatible with it (`--app` resolution and command templates changed across the gap). The only CLI-version condition that changes the verdict. | Upgrade the CLI, then re-run. Flow recovery does not help — the mismatch is the CLI, not the overlay. |
 | `SHARED_MERGE_DRIFT` | Shared files are missing Flow overlay/merge additions. | Offer Flow recovery. |
 | `FLOW_LAYER_DRIFT` | Flow-owned mirrors or overlay files are missing/drifted. | Offer Flow recovery. |
 | `EXCEPTION_IN_EFFECT` | Drift is covered by active approval/deferral artifacts. | Do not run recovery automatically. Surface the artifact. |
@@ -53,23 +53,25 @@ Env knobs (seconds; POSIX defaults in parentheses): `FFHC_FETCH_TIMEOUT` (15), `
 
 **Windows/MSYS under load (WS4, v3.30.3).** Git-Bash/MSYS spawns each process in ~0.8–1.4s (vs ~1–3ms on Linux/macOS), so the flat 30/60s preflight/tests budgets routinely time out a *healthy* MSYS install under CPU load and surface a spurious `PARTIAL_UNVERIFIED`. On MINGW*/MSYS*/CYGWIN the engine auto-raises the defaults to `FFHC_PREFLIGHT_TIMEOUT` **60** / `FFHC_TESTS_TIMEOUT` **120** (fetch/conflict stay flat — network/git are platform-agnostic). When a run still lands `PARTIAL_UNVERIFIED`, the recommendation prints the **exact knob name + its current effective value** (e.g. `FFHC_TESTS_TIMEOUT=120s`) plus the detected platform, so raising the named budget and re-running is copy-ready. This is a *timeout budget* only — it never changes the verdict logic: a genuine `FAIL:` or an rc0-no-run crash still reads `BROKEN` regardless of platform (the fail-closed guard is untouched).
 
-### Installed-CLI version gate (verdict-affecting — the ONE CLI signal that is)
+### Installed-CLI version gate
 
-`hooks/local/lib/cli-version-check.sh` probes `fusebase --version` at health-check time and compares it to the **exact set of versions** this Flow edition's vendored CLI assets were actually reviewed against.
+`hooks/local/lib/cli-version-check.sh` probes `fusebase --version` at health-check time and compares it to the CLI snapshot this Flow edition's assets were vendored from.
 
 | Installed CLI | Verdict | Exit |
 |---|---|---:|
-| Exactly a reviewed version (`FFHC_CLI_REVIEWED_VERSIONS`) | contributes `HEALTHY` | 0 |
-| Below `FFHC_CLI_INCOMPATIBLE_BELOW` | `CLI_VERSION_UNSUPPORTED` | 1 |
-| Any other version — unreviewed, unreadable, ambiguous, probe exited non-zero, or `fusebase` not on PATH | `PARTIAL_UNVERIFIED` | 4 |
+| Below `FFHC_CLI_INCOMPATIBLE_BELOW` (today `0.29.0`) | `CLI_VERSION_UNSUPPORTED` | 1 |
+| Exactly `FFHC_CLI_BUNDLED_VERSION` (today `0.29.8`) | contributes `HEALTHY` | 0 |
+| Anything else — newer, older, unreadable, ambiguous, probe exited non-zero, or `fusebase` not on PATH | `HEALTHY` + a **CLI version advisory** | 0 |
 
-Every non-green outcome states three things: the version found, the reviewed policy, and the next step (below the incompatible line → the upgrade command; unreviewed → supply that CLI tree for review).
+Every outcome states three things: the version found, the bundled snapshot, and the next step.
 
-**A set, not a range.** A `>=x <y` range greens versions nobody has compared to these assets — a future patch of the same minor reports HEALTHY on the strength of a guess. On a pre-1.0 CLI shipping ~4 minors per 5 weeks that is not an earned guarantee, so only versions a re-vendor actually verified are green.
+**Exactly one hard failure, and it is the only one backed by evidence.** Below `0.29.0` the vendored documents are known-incompatible — verified at `0.25.16`, where `--app` resolves by local path (not app id) and the commands Flow shipped were unrendered ETA templates.
 
-**Unreviewed is deliberately exit 4, not a red.** Flow's vendoring is operator-supplied trees, so Flow always trails. A hard red on every CLI release day — carrying a remediation that cannot work yet, because no Flow release has reviewed the new version — trains operators to widen the reviewed set unreviewed, which neutralizes the check. Exit 4 also keeps CI and any host without the CLI installed from being permanently red. `fusebase` absent from PATH is therefore **exit 4, not a failure**.
+**Newer than the snapshot is an advisory, not a problem.** After a full `fusebase update` the CLI rewrites the adopter's provider skills from its *own* current template, so their local documents are correct for their installed CLI. The only thing unknown is whether a Flow maintainer has reviewed that version — that is Flow's status, not the adopter's defect, and reporting it as a non-green verdict asks them to fix something that is not broken. (It also does not fit `PARTIAL_UNVERIFIED`, whose remediation is re-running an incomplete check; "supply an upstream CLI tree" is a different condition.)
 
-**Nothing is trusted that was not established.** The probe's exit code must be 0, and the version must be declared on a whole line in one of the two documented shapes (bare `X.Y.Z`, or `FuseBase CLI X.Y.Z`). A version embedded in a banner line, a pre-release/build suffix, a fourth component, trailing text, or two conflicting declarations all read as **unverified** — never as the nearest reviewed version. The reviewed set is **not** env-overridable: widening it is a code change in a commit, paired with the re-vendor that earns it.
+**`fusebase` absent is likewise exit 0.** CI runners, containers and any machine that only edits the framework have nothing to fix. The advisory is verdict-neutral and, like the approval age warnings, is printed outside every count — it can move neither the verdict nor the exit code.
+
+**Nothing is trusted that was not established.** The probe's exit code must be 0, and the version must be declared on a whole line in one of the two documented shapes (bare `X.Y.Z`, or `FuseBase CLI X.Y.Z`). A version embedded in a banner line, a pre-release/build suffix, a fourth component, trailing text, or two conflicting declarations all read as **not determined** — never as the nearest known version. Softening the outcome to an advisory does not soften this: an advisory reporting a version nobody established is a false claim with a gentler exit code. The incompatibility line is **not** env-overridable — it is the one remaining hard failure, so it is the one that must not be movable.
 
 ### Advisory signals (informational — never change the verdict or exit code)
 

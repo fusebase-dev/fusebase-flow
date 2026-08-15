@@ -16,51 +16,49 @@
 #
 # CONTRACT (the engine relies on these):
 #   ffhc_cli_version_check  -> appends to LOCAL_OK / LOCAL_DRIFT /
-#                              CLI_VERSION_UNSUPPORTED / LOCAL_UNVERIFIED in the
+#                              CLI_VERSION_UNSUPPORTED / CLI_VERSION_ADVISORY in the
 #                              CALLER's scope (sourced => shared scope).
 #
-#   Verdict mapping (the engine's call, mirroring the PARTIAL_UPGRADE precedent):
-#     exactly a reviewed version    -> LOCAL_OK                (HEALTHY / 0)
+#   Verdict mapping:
+#     exactly the bundled snapshot  -> LOCAL_OK                 (HEALTHY / 0)
 #     below the incompatible line   -> LOCAL_DRIFT + CLI_VERSION_UNSUPPORTED
-#                                                              (NOT HEALTHY / exit 1)
-#     any other version (unreviewed)-> LOCAL_UNVERIFIED        (PARTIAL_UNVERIFIED / 4)
-#     `fusebase --version` rc != 0  -> LOCAL_UNVERIFIED        (PARTIAL_UNVERIFIED / 4)
-#     no unambiguous version        -> LOCAL_UNVERIFIED        (PARTIAL_UNVERIFIED / 4)
-#     not on PATH / timed out       -> LOCAL_UNVERIFIED        (PARTIAL_UNVERIFIED / 4)
+#                                                               (NOT HEALTHY / exit 1)
+#     any other version             -> CLI_VERSION_ADVISORY     (verdict-neutral / 0)
+#     rc != 0 / unreadable / absent -> CLI_VERSION_ADVISORY     (verdict-neutral / 0)
 #
-#   Why unreviewed is 4 and not 1: the CLI ships ~4 minors per 5 weeks and Flow's
-#   vendoring is operator-supplied trees, so Flow ALWAYS trails. A hard red on every
-#   CLI release day — with a remediation that cannot work yet, because no Flow
-#   release has reviewed the new version — trains operators to widen the reviewed set
-#   unreviewed, which kills the check outright. Exit 4 also keeps CI and any host
-#   without the CLI installed from being permanently red.
+#   WHY ONLY ONE HARD FAIL (superseded design, kept because the reasoning matters):
+#   this check first hard-failed anything outside a reviewed range, then softened to
+#   PARTIAL_UNVERIFIED (exit 4) for everything unreviewed. Both were wrong for the same
+#   reason, visible only when you ask what the adopter's tree actually looks like:
 #
-#   Everything that is not positively known is UNVERIFIED. This function must never
-#   emit LOCAL_OK on a guess: an unreadable, ambiguous, failed or unreviewed probe is
-#   exit 4, because the defect class this check closes (F1) was precisely a health
-#   report that returned green when it had not established anything.
+#     After a FULL `fusebase update`, the CLI rewrites the adopter's provider skills from
+#     its OWN current template. Their local documents are then CORRECT for their installed
+#     CLI — yet Flow would still report a problem, purely because no FLOW release has
+#     reviewed that version. That measures Flow's maintainer review status, not the
+#     adopter's compatibility, and it is not the adopter's problem to resolve.
 #
-# BLAST RADIUS (deliberate): only THIS signal is verdict-affecting. The four
-#   pre-existing CLI advisories (CLI_SNAPSHOT_STALE, CLI_CUSTOM_AT_RISK,
-#   CLI_STOP_UNVERIFIED, CLI_STOP_BASELINE_DRIFT) stay informational — flipping four
-#   signals fail-closed at once reds every adopter's first health run.
+#   Exit 4 was also the wrong channel on its own terms: PARTIAL_UNVERIFIED's documented
+#   remediation is re-running an incomplete check (fusebase-flow-health-check/SKILL.md),
+#   and "supply an upstream CLI tree for review" is a different condition entirely.
+#
+#   What survives is the ONE claim backed by evidence: below 0.29.0 the vendored documents
+#   are known-incompatible (verified at 0.25.16 — `--app` resolves by local path, and the
+#   commands Flow ships were unrendered ETA templates). Everything else is advisory.
+#
+# BLAST RADIUS (deliberate): exactly one verdict-affecting condition. The four pre-existing
+#   CLI advisories (CLI_SNAPSHOT_STALE, CLI_CUSTOM_AT_RISK, CLI_STOP_UNVERIFIED,
+#   CLI_STOP_BASELINE_DRIFT) stay informational, and the newer/unreadable/absent cases join
+#   them rather than becoming a fifth blocker.
 
-# Reviewed-compatible range, half-open: FLOOR <= installed < CEILING_EXCL.
-# TRIPWIRE (FR-07-adjacent): these are DELIBERATELY not env-overridable. An env knob
-# here is a silent kill switch — widening the range without re-reviewing a CLI tree is
-# exactly the failure mode this check exists to prevent. Widening is a code change, in
-# a commit, with the re-vendor that earns it. Tests simulate versions by putting a
-# `fusebase` stub on PATH, never by moving these.
-# The EXACT versions whose tree was reviewed against these vendored assets. Space-separated;
-# a version earns a place here only by a re-vendor that actually compared it.
+# TRIPWIRE (FR-07-adjacent): these are DELIBERATELY not env-overridable. An env knob here is
+# a silent kill switch — moving the incompatibility line without evidence for the version
+# being excused is exactly the failure mode this check exists to prevent. Changing it is a
+# code change, in a commit, with the re-vendor that earns it. Tests simulate versions by
+# putting a `fusebase` stub on PATH, never by moving these.
 #
-# TRIPWIRE — this is a SET, not a range, and the difference is load-bearing. A `>=0.29.0
-# <0.30.0` range greened every future 0.29.x the moment it was written: a not-yet-released
-# 0.29.9 would report HEALTHY against assets nobody had compared to it. On a pre-1.0 CLI
-# shipping ~4 minors per 5 weeks, "every future patch of this minor is compatible" is not an
-# earned guarantee — it is the same unbacked claim as the `source_cli_version: "unknown"`
-# sentinel this ticket retired. Unreviewed is exit 4 (partial), never exit 0.
-FFHC_CLI_REVIEWED_VERSIONS="0.29.8"
+# The CLI snapshot these vendored assets were taken from. Reported in every advisory so the
+# operator can compare it against what they have installed.
+FFHC_CLI_BUNDLED_VERSION="0.29.8"
 
 # Below this, the vendored guidance is INCOMPATIBLE, not merely unreviewed (exit 1).
 # Verified at 0.25.16: `--app` resolves by local path only, and Flow's vendored commands were
@@ -70,19 +68,10 @@ FFHC_CLI_INCOMPATIBLE_BELOW="0.29.0"
 FFHC_CLI_VERSION_TIMEOUT="${FFHC_CLI_VERSION_TIMEOUT:-10}"
 
 # ffhc_cli_range_text: the one human-readable policy string, so every message quotes the SAME
-# policy (a non-green outcome must state version found + what is reviewed + next step).
+# policy (every outcome must state version found + the bundled snapshot + next step).
 ffhc_cli_range_text() {
-  printf 'Reviewed version(s): %s (exact). Below %s is incompatible; every other version is unreviewed' \
-    "$FFHC_CLI_REVIEWED_VERSIONS" "$FFHC_CLI_INCOMPATIBLE_BELOW"
-}
-
-# ffhc_cli_version_is_reviewed <version> -> rc 0 iff it is an exact member of the reviewed set.
-ffhc_cli_version_is_reviewed() {
-  local v
-  for v in $FFHC_CLI_REVIEWED_VERSIONS; do
-    [ "$v" = "$1" ] && return 0
-  done
-  return 1
+  printf 'Vendored CLI snapshot: %s. Below %s is known-incompatible (the only hard failure); anything else is advisory' \
+    "$FFHC_CLI_BUNDLED_VERSION" "$FFHC_CLI_INCOMPATIBLE_BELOW"
 }
 
 # ffhc_semver_lt A B -> rc 0 iff A < B. Numeric per component; missing components are 0.
@@ -134,35 +123,36 @@ ffhc_cli_version_check() {
   range="$(ffhc_cli_range_text)"
 
   if ! command -v fusebase >/dev/null 2>&1; then
-    LOCAL_UNVERIFIED+=("CLI version compatibility: UNVERIFIED — \`fusebase\` is not on PATH, so the installed CLI version could not be read. $range. Next step: install/activate the FuseBase Apps CLI in this environment and re-run, or ignore on a host that never runs the CLI (this is exit 4, not a failure).")
+    CLI_VERSION_ADVISORY+=("CLI version: not determined — \`fusebase\` is not on PATH. $range. Next step: none required on a host that never runs the CLI (CI, containers, a machine that only edits the framework); install or activate the CLI if you expected it here.")
     return 0
   fi
 
   ffhc_run_bounded_stdout "$FFHC_CLI_VERSION_TIMEOUT" fusebase --version
   raw="$FFHC_LAST_OUT"; rc="$FFHC_LAST_RC"
   if [ "$FFHC_LAST_TIMED_OUT" -eq 1 ] || [ "$FFHC_LAST_SKIPPED" -eq 1 ]; then
-    LOCAL_UNVERIFIED+=("CLI version compatibility: UNVERIFIED — \`fusebase --version\` timed out after ${FFHC_CLI_VERSION_TIMEOUT}s or was skipped (no timeout binary). $range. Next step: run \`fusebase --version\` directly, raise FFHC_CLI_VERSION_TIMEOUT, or install coreutils.")
+    CLI_VERSION_ADVISORY+=("CLI version: not determined — \`fusebase --version\` timed out after ${FFHC_CLI_VERSION_TIMEOUT}s or was skipped (no timeout binary). $range. Next step: run \`fusebase --version\` directly, raise FFHC_CLI_VERSION_TIMEOUT, or install coreutils.")
     return 0
   fi
 
   # TRIPWIRE: a non-zero exit invalidates the output, whatever it printed. The runner has
   # always recorded FFHC_LAST_RC (run-with-timeout.sh); the first version of this function
   # never read it, so a `fusebase` that failed while printing a version string still produced
-  # LOCAL_OK -> HEALTHY. Trusting stdout from a failed process is the fail-open this whole
-  # ticket exists to close.
+  # LOCAL_OK -> HEALTHY. Trusting stdout from a failed process stays forbidden even though the
+  # outcome is now advisory: an advisory that reports a version nobody established is a lie
+  # with a softer exit code.
   if [ "$rc" -ne 0 ]; then
-    LOCAL_UNVERIFIED+=("CLI version compatibility: UNVERIFIED — \`fusebase --version\` exited $rc, so its output cannot be trusted (printed: $(printf '%s' "$raw" | tr '\n' ' ' | cut -c1-80)). $range. Next step: run \`fusebase --version\` directly and fix the CLI install before relying on this check.")
+    CLI_VERSION_ADVISORY+=("CLI version: not determined — \`fusebase --version\` exited $rc, so its output cannot be trusted (printed: $(printf '%s' "$raw" | tr '\n' ' ' | cut -c1-80)). $range. Next step: run \`fusebase --version\` directly and fix the CLI install.")
     return 0
   fi
 
   found="$(ffhc_cli_version_parse "$raw")"
   if [ -z "$found" ]; then
-    LOCAL_UNVERIFIED+=("CLI version compatibility: UNVERIFIED — \`fusebase --version\` declared no single unambiguous version in a documented shape (bare \`X.Y.Z\`, or a \`FuseBase CLI X.Y.Z\` line). Output: $(printf '%s' "$raw" | tr '\n' ' ' | cut -c1-80). $range. Next step: run \`fusebase --version\` directly and report the output.")
+    CLI_VERSION_ADVISORY+=("CLI version: not determined — \`fusebase --version\` declared no single unambiguous version in a documented shape (bare \`X.Y.Z\`, or a \`FuseBase CLI X.Y.Z\` line). Output: $(printf '%s' "$raw" | tr '\n' ' ' | cut -c1-80). $range. Next step: run \`fusebase --version\` directly and report the output.")
     return 0
   fi
 
-  if ffhc_cli_version_is_reviewed "$found"; then
-    LOCAL_OK+=("CLI version compatibility: installed $found is a reviewed version ($range)")
+  if [ "$found" = "$FFHC_CLI_BUNDLED_VERSION" ]; then
+    LOCAL_OK+=("CLI version: installed $found matches the vendored CLI snapshot ($range)")
     return 0
   fi
 
@@ -173,6 +163,15 @@ ffhc_cli_version_check() {
     return 0
   fi
 
-  # Unreviewed but not known-incompatible: exit 4, never a green and never a red.
-  LOCAL_UNVERIFIED+=("CLI version compatibility: UNVERIFIED — installed FuseBase Apps CLI is $found, which this Flow edition has NOT reviewed. $range. Nothing is known to be broken; the vendored assets were simply never checked against $found. Next step: supply the $found CLI tree for review so the vendored assets and the reviewed set can be re-stamped.")
+  # Not the bundled snapshot, but not known-incompatible either — ADVISORY, exit 0.
+  # TRIPWIRE: do NOT escalate this. After a full `fusebase update` the adopter's provider
+  # skills were rewritten by their own CLI, so their local documents are correct for their
+  # installed version; the only thing "unverified" is whether a FLOW maintainer reviewed it.
+  # That is Flow's status, not the adopter's problem, and reporting it as a non-green verdict
+  # asks them to fix something that is not broken.
+  if ffhc_semver_lt "$found" "$FFHC_CLI_BUNDLED_VERSION"; then
+    CLI_VERSION_ADVISORY+=("CLI version: installed $found is OLDER than the vendored CLI snapshot $FFHC_CLI_BUNDLED_VERSION. $range. Nothing is known to be broken; the vendored documents may describe behaviour your CLI does not have yet. Next step: upgrade the CLI, or ignore if your workflow does not use the newer surfaces.")
+  else
+    CLI_VERSION_ADVISORY+=("CLI version: installed $found is NEWER than the vendored CLI snapshot $FFHC_CLI_BUNDLED_VERSION. $range. Nothing is known to be broken — a full \`fusebase update\` refreshes these documents from your own CLI. Next step: none required; supply the $found CLI tree to the Flow maintainers if you want the bundled snapshot advanced.")
+  fi
 }

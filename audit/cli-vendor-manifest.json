@@ -3,9 +3,7 @@
   "generated_at": "2026-08-15",
   "source_cli_version": "0.29.8",
   "reviewed_cli_policy": {
-    "reviewed_versions": [
-      "0.29.8"
-    ],
+    "bundled_cli_version": "0.29.8",
     "incompatible_below": "0.29.0",
     "source": "hooks/local/lib/cli-version-check.sh"
   },

@@ -11,11 +11,17 @@
 #   passes with and without the gate proves nothing; the control is what makes it count.
 #
 # The five contract arms (spec § S1 Oracle):
-#   simulated 0.25.16   -> CLI_VERSION_UNSUPPORTED, exit 1, names the policy
-#   0.29.8              -> HEALTHY, exit 0
-#   simulated 0.30.0    -> PARTIAL_UNVERIFIED, exit 4 (NEVER a hard red — see spec)
-#   unreadable version  -> PARTIAL_UNVERIFIED, exit 4
-#   no fusebase on PATH -> PARTIAL_UNVERIFIED, exit 4
+#   simulated 0.25.16   -> CLI_VERSION_UNSUPPORTED, exit 1  (the ONE hard failure)
+#   0.29.8              -> HEALTHY, exit 0                   (matches the bundled snapshot)
+#   simulated 0.30.0    -> HEALTHY, exit 0 + ADVISORY text   (newer: not the adopter's defect)
+#   unreadable version  -> HEALTHY, exit 0 + ADVISORY text
+#   no fusebase on PATH -> HEALTHY, exit 0 + ADVISORY text
+#
+# The three advisory arms were exit 4 until the zoom-out review. After a full `fusebase
+# update` the adopter's provider skills are rewritten from their OWN CLI, so their documents
+# are correct and only FLOW's review status is unknown — reporting that as a non-green verdict
+# asked them to fix something that is not broken, and overloaded PARTIAL_UNVERIFIED, whose
+# documented remediation is re-running an incomplete check.
 #
 # ADVERSARIAL ROWS (added after review). The five arms above are the EXPECTED inputs, and a
 # row set built only from expected inputs is how a fail-open survives: adversarial review
@@ -62,7 +68,7 @@ ffhc_detect_timeout
 # shellcheck source=../local/lib/cli-version-check.sh
 . hooks/local/lib/cli-version-check.sh
 
-RANGE="Reviewed version(s): 0.29.8 (exact). Below 0.29.0 is incompatible; every other version is unreviewed"
+RANGE="Vendored CLI snapshot: 0.29.8. Below 0.29.0 is known-incompatible (the only hard failure); anything else is advisory"
 
 # stub_bin <dir> <output>: a `fusebase` shim printing <output> for --version.
 stub_bin() {
@@ -158,10 +164,11 @@ lib_classify() {
     # exported var win and the env-override row would assert the opposite of the truth.
     . hooks/local/lib/run-with-timeout.sh; ffhc_detect_timeout
     . hooks/local/lib/cli-version-check.sh
-    LOCAL_OK=(); LOCAL_DRIFT=(); LOCAL_UNVERIFIED=(); CLI_VERSION_UNSUPPORTED=()
+    LOCAL_OK=(); LOCAL_DRIFT=(); LOCAL_UNVERIFIED=(); CLI_VERSION_UNSUPPORTED=(); CLI_VERSION_ADVISORY=()
     ffhc_cli_version_check
     if   [ "${#CLI_VERSION_UNSUPPORTED[@]}" -gt 0 ]; then printf 'UNSUPPORTED\t%s' "${CLI_VERSION_UNSUPPORTED[0]}"
     elif [ "${#LOCAL_UNVERIFIED[@]}"        -gt 0 ]; then printf 'UNVERIFIED\t%s'  "${LOCAL_UNVERIFIED[0]}"
+    elif [ "${#CLI_VERSION_ADVISORY[@]}"    -gt 0 ]; then printf 'ADVISORY\t%s'    "${CLI_VERSION_ADVISORY[0]}"
     elif [ "${#LOCAL_OK[@]}"                -gt 0 ]; then printf 'OK\t%s'          "${LOCAL_OK[0]}"
     else printf 'NONE\t(no classification recorded)'
     fi
@@ -180,19 +187,20 @@ lib_row() {  # lib_row <name> <version> <expected-class> [required substrings...
 }
 
 # Classification rows: reviewed SET semantics, not a range.
-# [WAS-GREEN-UNDER-RANGE] 0.29.0 and 0.29.9 sit inside the retired `>=0.29.0 <0.30.0` range
-# and reported HEALTHY there. Only 0.29.8 was ever compared against these vendored assets, so
-# every other version — including a future patch of the same minor — is unreviewed (exit 4).
-lib_row unreviewed-same-minor-floor "0.29.0" UNVERIFIED "has NOT reviewed" "$RANGE"
-lib_row unreviewed-future-patch     "0.29.9" UNVERIFIED "installed FuseBase Apps CLI is 0.29.9" "supply the 0.29.9 CLI tree for review"
-lib_row reviewed-exact-0.29.8       "0.29.8" OK          "installed 0.29.8 is a reviewed version"
-lib_row below-incompatible-line     "0.28.99" UNSUPPORTED "installed FuseBase Apps CLI is 0.28.99" "$RANGE"
+# Only 0.29.8 was ever compared against these vendored assets. Everything else that is not
+# below the incompatibility line is ADVISORY (exit 0): it names the gap without asserting the
+# adopter has a problem. [WAS-GREEN-UNDER-RANGE] 0.29.0/0.29.9 were silently HEALTHY under the
+# retired `>=0.29.0 <0.30.0` range — they must still be distinguishable from a snapshot match.
+lib_row older-than-snapshot     "0.29.0"  ADVISORY    "installed 0.29.0 is OLDER than the vendored CLI snapshot" "$RANGE"
+lib_row newer-than-snapshot     "0.29.9"  ADVISORY    "installed 0.29.9 is NEWER than the vendored CLI snapshot" "none required"
+lib_row matches-snapshot-0.29.8 "0.29.8"  OK          "installed 0.29.8 matches the vendored CLI snapshot"
+lib_row below-incompatible-line "0.28.99" UNSUPPORTED "installed FuseBase Apps CLI is 0.28.99" "$RANGE"
 lib_row launcher-block "FuseBase CLI 0.29.8
 Launcher 1.4.2
-Channel prod" OK "installed 0.29.8 is a reviewed version"
-# Never a hard red on an unreviewed-but-newer CLI (spec § S1: a red with a remediation that
-# cannot work yet trains operators to widen the reviewed set unreviewed).
-lib_row far-above-0.31.0 "0.31.0" UNVERIFIED "has NOT reviewed" "supply the 0.31.0 CLI tree for review"
+Channel prod" OK "installed 0.29.8 matches the vendored CLI snapshot"
+# A much newer CLI is not merely "not red" — it is exit 0, because a full `fusebase update`
+# has already refreshed those documents from the adopter's own CLI.
+lib_row far-above-0.31.0 "0.31.0" ADVISORY "installed 0.31.0 is NEWER than the vendored CLI snapshot" "supply the 0.31.0 CLI tree"
 
 # [WAS-FAIL-OPEN] a `fusebase` that FAILS while printing a valid version string. The first
 # version of this check never read FFHC_LAST_RC, so this produced LOCAL_OK => HEALTHY.
@@ -204,25 +212,28 @@ rcout="$(
   export PATH="$rcfail_dir:$BASE_PATH"
   . hooks/local/lib/run-with-timeout.sh; ffhc_detect_timeout
   . hooks/local/lib/cli-version-check.sh
-  LOCAL_OK=(); LOCAL_DRIFT=(); LOCAL_UNVERIFIED=(); CLI_VERSION_UNSUPPORTED=()
+  LOCAL_OK=(); LOCAL_DRIFT=(); LOCAL_UNVERIFIED=(); CLI_VERSION_UNSUPPORTED=(); CLI_VERSION_ADVISORY=()
   ffhc_cli_version_check
-  if [ "${#LOCAL_UNVERIFIED[@]}" -gt 0 ]; then printf 'UNVERIFIED\t%s' "${LOCAL_UNVERIFIED[0]}"
-  elif [ "${#LOCAL_OK[@]}" -gt 0 ];        then printf 'OK\t%s' "${LOCAL_OK[0]}"
+  if [ "${#CLI_VERSION_ADVISORY[@]}" -gt 0 ]; then printf 'ADVISORY\t%s' "${CLI_VERSION_ADVISORY[0]}"
+  elif [ "${#LOCAL_OK[@]}" -gt 0 ];          then printf 'OK\t%s' "${LOCAL_OK[0]}"
   else printf 'NONE\t'; fi
 )"
-if [ "${rcout%%$'\t'*}" = "UNVERIFIED" ] && printf '%s' "$rcout" | grep -qF "exited 3"; then
-  ok "nonzero-exit-is-not-trusted (a failing \`fusebase\` that prints 0.29.8 => UNVERIFIED, not HEALTHY)"
+# Softening the OUTCOME does not soften this: an advisory that reports a version nobody
+# established is a lie with a gentler exit code. rc!=0 must never reach the snapshot-match arm.
+if [ "${rcout%%$'\t'*}" = "ADVISORY" ] && printf '%s' "$rcout" | grep -qF "exited 3"; then
+  ok "nonzero-exit-is-not-trusted (a failing \`fusebase\` printing 0.29.8 => 'not determined', never a snapshot match)"
 else
   bad "nonzero-exit-is-not-trusted" "output of a rc=3 probe was trusted: $rcout"
 fi
 
-# The reviewed set is NOT env-overridable — an env kill switch would let a consumer widen it
-# without re-reviewing a CLI tree, which is the failure mode S1 exists to prevent.
-ov="$(lib_classify "0.25.16" FFHC_CLI_REVIEWED_VERSIONS="0.25.16 0.29.8" FFHC_CLI_INCOMPATIBLE_BELOW=0.1.0)"
+# The incompatibility line is NOT env-overridable — an env kill switch would let a consumer
+# excuse a version nobody has evidence for, which is the failure mode this gate exists to
+# prevent. It is the one remaining hard failure, so it is the one that must not be movable.
+ov="$(lib_classify "0.25.16" FFHC_CLI_BUNDLED_VERSION=0.25.16 FFHC_CLI_INCOMPATIBLE_BELOW=0.1.0)"
 if [ "${ov%%$'\t'*}" = "UNSUPPORTED" ]; then
-  ok "env-override-rejected (FFHC_CLI_REVIEWED_VERSIONS / _INCOMPATIBLE_BELOW cannot widen the reviewed set)"
+  ok "env-override-rejected (FFHC_CLI_BUNDLED_VERSION / _INCOMPATIBLE_BELOW cannot move the incompatibility line)"
 else
-  bad "env-override-rejected" "an env var widened the reviewed set: $ov"
+  bad "env-override-rejected" "an env var moved the incompatibility line: $ov"
 fi
 
 ###############################################################################
@@ -300,6 +311,17 @@ scenario() {
   fx "$C"
   neuter_gate "$C" || { bad "$name-control" "mutation did not apply — the control is not a control"; return; }
   COUT="$(run_hc "$C" "$P")"
+  # TRIPWIRE: for an ADVISORY arm the verdict is HEALTHY/0 on BOTH sides, so "neutered reads
+  # HEALTHY/0" discriminates nothing. The control must instead prove the advisory TEXT is
+  # absent without the gate — otherwise these rows would pass against a gate that does nothing.
+  if [ "$verdict" = "HEALTHY" ]; then
+    if echo "$COUT" | grep -qF -- "$1"; then
+      bad "$name-control" "the advisory text survives with the gate neutered, so this row proves nothing -- $COUT"
+    else
+      ok "$name (+ control: gate neutered => the advisory text disappears, verdict HEALTHY/0 either way)"
+    fi
+    return
+  fi
   if echo "$COUT" | grep -q "Verdict: HEALTHY" && echo "$COUT" | grep -q "^EXIT=0$"; then
     ok "$name (+ mutation control: gate neutered => same fixture reads HEALTHY/0)"
   else
@@ -309,27 +331,30 @@ scenario() {
 
 build_golden
 
-# A1 — below the reviewed floor: NOT HEALTHY, exit 1, states version + range + next step.
+# A1 — below the established incompatibility line: the ONE hard failure. States version,
+# policy and the remediation command.
 scenario below-incompatible-0.25.16 "0.25.16" CLI_VERSION_UNSUPPORTED 1 yes \
   "installed FuseBase Apps CLI is 0.25.16, below 0.29.0" "$RANGE" "npm install -g fusebase-apps-cli@latest"
 
-# A2 — in range: HEALTHY, exit 0. No control: the pre-ticket engine also read HEALTHY here,
-# so a control would assert nothing. What this row guards is that the gate did not make
-# the compatible case red.
-scenario reviewed-0.29.8 "0.29.8" HEALTHY 0 no \
-  "CLI version compatibility: installed 0.29.8 is a reviewed version"
+# A2 — matches the bundled snapshot: HEALTHY, exit 0. No control: the pre-ticket engine also
+# read HEALTHY here, so a control would assert nothing. This row guards that the gate did not
+# make the compatible case red.
+scenario matches-snapshot-0.29.8 "0.29.8" HEALTHY 0 no \
+  "CLI version: installed 0.29.8 matches the vendored CLI snapshot"
 
-# A3 — above the ceiling: PARTIAL_UNVERIFIED (exit 4), never a hard red.
-scenario unreviewed-0.30.0 "0.30.0" PARTIAL_UNVERIFIED 4 yes \
-  "installed FuseBase Apps CLI is 0.30.0, which this Flow edition has NOT reviewed" "$RANGE" "supply the 0.30.0 CLI tree for review"
+# A3 — NEWER than the snapshot: HEALTHY, exit 0, advisory only. Was exit 4; a full
+# `fusebase update` already refreshed those documents from the adopter's own CLI, so a
+# non-green verdict reported Flow's review status as their defect.
+scenario newer-0.30.0 "0.30.0" HEALTHY 0 yes \
+  "installed 0.30.0 is NEWER than the vendored CLI snapshot" "$RANGE" "supply the 0.30.0 CLI tree"
 
-# A4 — version unreadable: PARTIAL_UNVERIFIED (exit 4), never a silent green.
-scenario unreadable-version "fusebase: command failed" PARTIAL_UNVERIFIED 4 no \
+# A4 — version unreadable: advisory, exit 0 — but it must NOT claim a version.
+scenario unreadable-version "fusebase: command failed" HEALTHY 0 yes \
   "declared no single unambiguous version" "$RANGE"
 
-# A5 — fusebase absent from PATH: PARTIAL_UNVERIFIED (exit 4). Controlled, because this is
-# the state of CI and of the maintainer repo itself: the pre-ticket engine called it HEALTHY.
-scenario absent-from-path "__ABSENT__" PARTIAL_UNVERIFIED 4 yes \
+# A5 — fusebase absent from PATH: advisory, exit 0. This is the state of CI, containers, and
+# any machine that only edits the framework; none of them has a problem to fix.
+scenario absent-from-path "__ABSENT__" HEALTHY 0 yes \
   "is not on PATH" "$RANGE"
 
 finish

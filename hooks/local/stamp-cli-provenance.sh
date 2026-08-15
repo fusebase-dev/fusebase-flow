@@ -17,7 +17,7 @@
 #     "schema_version": 2,
 #     "generated_at": "<UTC date>",
 #     "source_cli_version": "<x.y.z>" | "unknown",
-#     "reviewed_cli_policy": { "reviewed_versions", "incompatible_below", "source" } | null,
+#     "reviewed_cli_policy": { "bundled_cli_version", "incompatible_below", "source" } | null,
 #     "assets": [ { "path", "sha256",
 #                   "upstream_sha256", "matches_upstream", "merge_derived" }, ... ]
 #   }
@@ -164,9 +164,9 @@ if cliver.is_file():
     def _const(name: str) -> str | None:
         m = re.search(rf'^{name}="([^"]+)"', txt, re.MULTILINE)
         return m.group(1) if m else None
-    reviewed, incompat = _const("FFHC_CLI_REVIEWED_VERSIONS"), _const("FFHC_CLI_INCOMPATIBLE_BELOW")
-    if reviewed and incompat:
-        reviewed_range = {"reviewed_versions": reviewed.split(),
+    bundled, incompat = _const("FFHC_CLI_BUNDLED_VERSION"), _const("FFHC_CLI_INCOMPATIBLE_BELOW")
+    if bundled and incompat:
+        reviewed_range = {"bundled_cli_version": bundled,
                           "incompatible_below": incompat,
                           "source": "hooks/local/lib/cli-version-check.sh"}
 

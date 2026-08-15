@@ -30,8 +30,8 @@
 #   0  HEALTHY (ALL critical checks ran and passed; no drift; upstream may be
 #      unverified — upstream is optional and does NOT block exit 0)
 #   1  CLI_LAYER_DRIFT / FLOW_LAYER_DRIFT / SHARED_MERGE_DRIFT /
-#      CLI_VERSION_UNSUPPORTED (installed CLI below the reviewed floor — the only
-#      verdict-affecting CLI signal; see lib/cli-version-check.sh)
+#      CLI_VERSION_UNSUPPORTED (installed CLI below the established incompatibility
+#      line — the only verdict-affecting CLI signal; see lib/cli-version-check.sh)
 #   2  BROKEN  (a completed critical check failed, or a sub-script rc!=0 with no
 #      parsable result — a harness crash)
 #   3  EXCEPTION_IN_EFFECT (drift attributable to active operator approval artifact(s))
@@ -125,7 +125,8 @@ LOCAL_BROKEN=()
 LOCAL_UNVERIFIED=()      # CRITICAL checks that could not run (timed out / skipped / no timeout binary) — drive PARTIAL_UNVERIFIED/exit 4; NEVER let exit be 0 (engine v3.x+ / H4)
 LOCAL_DEFERRED=()        # drift items deferred via active health_check_deferral artifact (engine v2.4.0+)
 CLI_LAYER_DRIFT=()
-CLI_VERSION_UNSUPPORTED=()  # S1: installed CLI below the reviewed floor. Named drift sub-class (exit 1); the ONLY verdict-affecting CLI signal
+CLI_VERSION_UNSUPPORTED=()  # S1: installed CLI below the established incompatibility line. Named drift sub-class (exit 1); the ONLY verdict-affecting CLI signal
+CLI_VERSION_ADVISORY=()     # S1: CLI newer/older than the bundled snapshot, or not readable. VISIBILITY ONLY, like APPROVAL_WARNINGS — printed outside every verdict array/count, so it moves neither the verdict nor the exit code
 SHARED_MERGE_DRIFT=()
 UPSTREAM_NOTES=()
 ACTIVE_ARTIFACTS=()      # filenames of non-expired approval artifacts (informational)
@@ -481,15 +482,17 @@ else
   LOCAL_DRIFT+=("hooks/local/check-cli-flow-conflicts.sh: MISSING (ownership report unavailable)")
 fi
 
-# Installed-CLI version compatibility (CRITICAL, S1). The one CLI signal allowed to
-# move the verdict: below the reviewed floor => CLI_VERSION_UNSUPPORTED (exit 1);
-# above it / unreadable / not on PATH => LOCAL_UNVERIFIED (exit 4, never a false green).
+# Installed-CLI version compatibility (S1). Exactly ONE condition may move the verdict:
+# an installed CLI below the established incompatibility line => CLI_VERSION_UNSUPPORTED
+# (exit 1). Newer/older than the bundled snapshot, unreadable, or absent => a verdict-neutral
+# advisory: after a full `fusebase update` the adopter's documents came from their OWN CLI and
+# are correct, so a non-green verdict there would report Flow's review status as their defect.
 FFHC_CLIVER_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/cli-version-check.sh"
 if [ -f "$FFHC_CLIVER_LIB" ]; then
   . "$FFHC_CLIVER_LIB"                  # shellcheck source=lib/cli-version-check.sh
   ffhc_cli_version_check
 else
-  LOCAL_UNVERIFIED+=("CLI version compatibility: UNVERIFIED — missing $FFHC_CLIVER_LIB (re-clone or run 'bash hooks/local/upgrade.sh')")
+  LOCAL_UNVERIFIED+=("CLI version check: UNVERIFIED — missing $FFHC_CLIVER_LIB (re-clone or run 'bash hooks/local/upgrade.sh')")
 fi
 
 ###############################################################################
@@ -729,6 +732,15 @@ fi
 # OUTSIDE every verdict array/count — these lines cannot change 'Local state (N checks)',
 # the verdict, or the exit code, and they invalidate nothing. Each listed artifact still
 # authorizes its paths; only its age is being reported.
+# S1 CLI-version advisory. Printed BESIDE the verdict and OUTSIDE every verdict array/count,
+# exactly like the approval age warnings below: it cannot change 'Local state (N checks)', the
+# verdict, or the exit code. An adopter whose CLI is newer than our snapshot is not broken.
+if [ "${#CLI_VERSION_ADVISORY[@]}" -gt 0 ]; then
+  echo "CLI version advisory (${#CLI_VERSION_ADVISORY[@]} — informational; NOT part of the verdict, counts, or exit code):"
+  for x in "${CLI_VERSION_ADVISORY[@]}"; do echo "  i $x"; done
+  echo ""
+fi
+
 if [ "${#APPROVAL_WARNINGS[@]}" -gt 0 ]; then
   echo "Approval age warnings (${#APPROVAL_WARNINGS[@]} — visibility only; NOT part of the verdict, counts, or exit code):"
   for x in "${APPROVAL_WARNINGS[@]}"; do echo "  ! $x"; done

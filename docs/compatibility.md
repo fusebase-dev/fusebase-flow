@@ -50,15 +50,15 @@ Full `bash hooks/local/fusebase-flow-health-check.sh` (no flags) reaches
 not a re-run of the fork-heavy test suite. `--fast` / `--skip-hook-tests` stay the
 quick escape (they skip the integrity critical ⇒ PARTIAL_UNVERIFIED / exit 4, never 0).
 
-**Precondition for exit 0 (S1, cli-0298-compatibility):** the installed FuseBase Apps
-CLI must be **exactly** a reviewed version (today: `0.29.8`) — a set, not a range, because
-a range would green versions nobody compared against these assets. Below `0.29.0` is
-`CLI_VERSION_UNSUPPORTED` / exit 1. Everything else — an unreviewed version, an unreadable
-or ambiguous `--version`, a probe that exits non-zero, or `fusebase` not on PATH (CI
-runners, containers, any machine that only edits the framework) — is `PARTIAL_UNVERIFIED` /
-**exit 4**: partial, not a failure, and deliberately never a false green. No CI workflow
-invokes the health engine, so exit 4 gates nothing there.
-See `flow-skills/fusebase-flow-health-check/SKILL.md` § Installed-CLI version gate.
+**Installed-CLI version (S1, cli-0298-compatibility):** exactly ONE condition is
+verdict-affecting - an installed CLI **below `0.29.0`** is `CLI_VERSION_UNSUPPORTED` /
+exit 1, the one claim backed by evidence (verified at `0.25.16`). An installed CLI matching
+the bundled snapshot (`0.29.8`) contributes `HEALTHY`. Everything else - newer, older,
+unreadable, a probe that exits non-zero, or `fusebase` not on PATH (CI runners, containers,
+any machine that only edits the framework) - is a **verdict-neutral advisory, exit 0**.
+Newer is deliberately not a failure: a full `fusebase update` rewrites the adopter's provider
+skills from their own CLI, so their documents are correct and only Flow's review status is
+unknown. See `flow-skills/fusebase-flow-health-check/SKILL.md` § Installed-CLI version gate.
 
 `--run-hook-tests` is an OPTIONAL deep diagnostic and is **platform-adaptive**: on
 POSIX/Linux/macOS it runs the FULL `hooks/tests/run-tests.sh` suite (as before); on
@@ -85,5 +85,5 @@ still takes the full path (it sets `GITHUB_ACTIONS`).
 2026-07-07 - FuseBase CLI 0.25.16 re-vendor; 7 provider skills refreshed (magic-link activation now platform-server-side, apps[].id declarative-optional, gate SDK ^v2.3.28-sdk.1); fusebase-gate drops isolated-sql-stores.md + isolated-sql-rls-plan.md, adds isolated-sql-integrator-troubleshooting.md; manifest 132->130 assets. Wired Stop set unchanged.
 2026-07-11 - Codex plugin wrapper + `product-owner` skill bridge; 33 canonical Flow skills, 66 Flow mirrors.
 2026-08-14 - Adopt the 2 CLI skills Flow lacked: app-e2e-tests, invite-with-password. 20 -> 22 CLI provider skills, 40 -> 44 mirrors, manifest 138 -> 142 assets. invite-with-password checked against the vendored fusebase-auth.md / handling-authentication-errors deltas before merge: purely additive (same 403-on-FBS_FEATURE_TOKEN, 409-once, needsInitialPassword semantics fusebase-auth.md already documents), no contradiction.
-2026-08-14 - FuseBase CLI 0.29.8 guarded re-vendor (hooks/local/refresh-cli-vendor.sh); manifest 130->138 assets, source_cli_version unknown->0.29.8 (derived from the source tree, not asserted). Fixes: app-sidecar `--app <appId>` -> `<appPath>` (0.29.8 matches --app by local path only), and 40 unrendered `<%=` ETA interpolations across 12 vendored files -> 0. app-architect.md now requires visitor/public-link uploads to broker through a feature backend using FBS_FEATURE_TOKEN. Both Flow-authored CUSTOM:SKILL blocks were SUPERSEDED: 0.29.8 ships the same titled sections as supersets, correcting `client:<clientId>` -> `client:<productId>`. Health check gains a verdict-affecting CLI version gate (reviewed set: exactly 0.29.8; below 0.29.0 incompatible; everything else unreviewed/exit 4). Wired Stop set and the 4 quality hooks unchanged.
+2026-08-14 - FuseBase CLI 0.29.8 guarded re-vendor (hooks/local/refresh-cli-vendor.sh); manifest 130->138 assets, source_cli_version unknown->0.29.8 (derived from the source tree, not asserted). Fixes: app-sidecar `--app <appId>` -> `<appPath>` (0.29.8 matches --app by local path only), and 40 unrendered `<%=` ETA interpolations across 12 vendored files -> 0. app-architect.md now requires visitor/public-link uploads to broker through a feature backend using FBS_FEATURE_TOKEN. Both Flow-authored CUSTOM:SKILL blocks were SUPERSEDED: 0.29.8 ships the same titled sections as supersets, correcting `client:<clientId>` -> `client:<productId>`. Health check gains a CLI version gate whose only hard failure is an installed CLI below 0.29.0; the bundled snapshot is 0.29.8 and every other state is a verdict-neutral advisory. Wired Stop set and the 4 quality hooks unchanged.
 ```
