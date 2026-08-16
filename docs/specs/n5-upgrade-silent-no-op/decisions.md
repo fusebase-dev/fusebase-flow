@@ -112,3 +112,53 @@ the seam is right independently of the line budget.)
   the scenario it exists for.
 
 **Lock status:** LOCKED
+
+---
+
+## Findings — evidence, not decisions
+
+Recorded during implementation. No decision authority; no LOCKED decision altered. PO owns whether
+any of these is promoted to a decision or re-homed.
+
+### F-N5-1. A green assertion was certifying the defect
+
+`upgrade-repair m16-the-missing-artifact-diagnostic-emits-a-remediation-that-actually-runs`
+asserted `rc == 0` on the emitted recovery command. Measured, same fixture, one variable — whether
+the tree carried `lib/upgrade-delivery-guard.sh`:
+
+| guard lib in fixture | rc | VERSION after | artifact restored |
+|---|---|---|---|
+| present | 4 | 4.6.1 — refused | yes |
+| absent (as shipped in the fixture) | 0 | **4.7.0** | yes |
+
+The passing row advanced VERSION with 2 paths `unknown-base` and zero files refreshed — **the N5
+defect itself**. The assertion had been green *because* the bug existed, and it went green again the
+moment the fixture stopped modelling a real release.
+
+**Generalization:** an oracle can be green because it is measuring the defect. Same family as N4's
+inert guard (a predicate that could not fire in the one scenario it was written for) and the fake
+control. A fixture that omits what a real release ships does not test a weaker version of the
+system — it tests a different system, and reports the difference as a pass.
+
+Carrier: `hooks/tests/lib/upgrade-fixtures.sh: ff_m16_remediation_ran` tripwire. Repro:
+`m16.sh` / `m16-noguard.sh` counterfactual pair.
+
+**Release-note line (one line, for whichever version ships N5):**
+> A test asserting the recovery command exits 0 had been passing *because* of the bug it was meant
+> to guard — it certified an upgrade that advanced VERSION while delivering nothing.
+
+### F-N5-2. Three phases measured the pre-N5 engine
+
+`ac25` (x2), `ac1` and `t29c` failed because their fixture trees omitted `lib/synthesize-base.sh` +
+`lib/upgrade-delivery-guard.sh`, which both engines now source. `ac25`'s "tree changed during an
+aborted hop" fired on a run that never aborted: `rc 0`, zero abort markers, and the writes it saw
+were a normal successful upgrade. Same root cause as F-N5-1 — engine-sourced libs must reach every
+fixture, so `copy_boundary_libs` is now the single home that carries them.
+
+### F-N5-3. N3's recovery advice was circular on two shapes
+
+`ff_n5_report` shipped one blanket string naming `bootstrap-upgrade.sh`. On `no-git` that run *was*
+`bootstrap-upgrade.sh`; on `no-tag` no engine can resolve `v$(cat VERSION)`. Fixed in
+`lib/upgrade-delivery-guard.sh: ff_n5_recovery` by branching on `FFSB_REASON`. `FFSB_REASON` could
+not reach the guard at all — `upgrade.sh` read `ffsb_prepare_base` through a command substitution
+and the subshell discarded it.
