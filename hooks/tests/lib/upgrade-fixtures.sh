@@ -20,9 +20,14 @@ has_cr() { [ -n "$(tr -dc '\r' < "$1" 2>/dev/null)" ]; }
 
 # `[ -f ]`-guarded so a fixture still BUILDS against a pre-boundary baseline tree — that is how
 # these discriminators are observed RED.
+#
+# TRIPWIRE (N1/N3, n5-upgrade-silent-no-op): synthesize-base.sh + upgrade-delivery-guard.sh are
+# SOURCED by both engines. A fixture tree that omits them synthesizes no base, classifies every
+# path `unknown-base`, and preserves the lot — so the phase silently measures the PRE-N5 engine
+# while claiming to measure this one. Adding an engine-sourced lib means adding it here.
 copy_boundary_libs() {   # <lib-dest-dir>
   local f
-  for f in materialize-managed-source.sh backup-hygiene.sh; do
+  for f in materialize-managed-source.sh backup-hygiene.sh synthesize-base.sh upgrade-delivery-guard.sh; do
     [ -f "$ROOT/hooks/local/lib/$f" ] && cp "$ROOT/hooks/local/lib/$f" "$1/"
   done
   return 0
