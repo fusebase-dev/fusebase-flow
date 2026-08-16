@@ -114,24 +114,30 @@ ffsb_synthesize_base() {
 }
 
 # ffsb_prepare_base <prefix> <base-rel> <mcm-src> <source-repo> <py-fn> <dry-run 0|1>
-#   Echoes the path the classifier should use for --base ("" when none could be made).
+#   Sets FFSB_BASE to the path the classifier should use for --base ("" when none could be
+#   made), and leaves FFSB_REASON holding WHY.
 #
-# TRIPWIRE: a dry run writes NOTHING — "(dry-run; nothing written)" must stay true, and the
-# base manifest is the one artifact whose mere presence changes every later classification.
-# So a dry run synthesizes to a TEMP path and classifies against that: the preview still
-# reflects what a real run would deliver. Skipping synthesis in dry-run instead would make
-# the preview predict a refusal the real run would never perform — the opposite lie.
+# TRIPWIRE (N3 recovery text): this SETS a variable instead of echoing the path, so the caller
+# can invoke it WITHOUT a command substitution. A subshell would discard FFSB_REASON, and
+# ff_n5_delivery_guard branches its recovery advice on exactly that value — a lost reason
+# silently reverts the guard to its one blanket message, which is circular on a plain-directory
+# or forked source (it re-suggests the command already running). Do not restore the echo form.
 ffsb_prepare_base() {
   local prefix="$1" base_rel="$2" mcm_src="$3" source_repo="$4" py_fn="$5" dry="${6:-0}"
-  if [ -f "$base_rel" ]; then printf '%s' "$base_rel"; return 0; fi
+  FFSB_BASE=""
+  if [ -f "$base_rel" ]; then FFSB_REASON="present"; FFSB_BASE="$base_rel"; return 0; fi
+  # TRIPWIRE: a dry run writes NOTHING — "(dry-run; nothing written)" must stay true, and the
+  # base manifest is the one artifact whose mere presence changes every later classification.
+  # So a dry run synthesizes to a TEMP path and classifies against that: the preview still
+  # reflects what a real run would deliver. Skipping synthesis in dry-run instead would make
+  # the preview predict a refusal the real run would never perform — the opposite lie.
   if [ "$dry" = "1" ]; then
     local d; d="$(mktemp -d)"
-    if ffsb_synthesize_base "$prefix" "$d/base.json" "$mcm_src" "$source_repo" "$py_fn" >&2; then
-      printf '%s' "$d/base.json"; return 0
-    fi
+    ffsb_synthesize_base "$prefix" "$d/base.json" "$mcm_src" "$source_repo" "$py_fn" >&2 \
+      && FFSB_BASE="$d/base.json"
     return 0
   fi
   ffsb_synthesize_base "$prefix" "$base_rel" "$mcm_src" "$source_repo" "$py_fn" >&2 || true
-  [ -f "$base_rel" ] && printf '%s' "$base_rel"
+  [ -f "$base_rel" ] && FFSB_BASE="$base_rel"
   return 0
 }

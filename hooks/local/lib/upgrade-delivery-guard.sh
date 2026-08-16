@@ -78,6 +78,54 @@ ff_n5_nothing_delivered() {
   return 0
 }
 
+# Recovery advice, branched on WHY no base could be reconstructed (FFSB_REASON, set by
+# lib/synthesize-base.sh).
+#
+# TRIPWIRE — advice the operator cannot follow is worse than none. The single blanket message
+# this replaced said "run bootstrap-upgrade.sh, it synthesizes the base from that tag". On a
+# plain-directory source (no-git) that run WAS bootstrap-upgrade.sh and no tag can be recovered
+# from a directory; on a forked VERSION (no-tag) the tag does not exist upstream and re-running
+# ANY engine re-derives the same `v$(cat VERSION)` and fails identically. Both arms therefore
+# sent the operator in a circle — in the release that exists because a consumer had to hand-grep
+# to find what an upgrade silently skipped. Keep every arm runnable, or say plainly that no
+# automatic recovery exists for that shape. Do NOT collapse these back into one string.
+ff_n5_recovery() {
+  case "${FFSB_REASON:-}" in
+    no-git)
+      echo "          Recovery — the source this run read is a PLAIN DIRECTORY with no git" >&2
+      echo "          history, so NO upstream tag can be recovered from it. Re-running the same" >&2
+      echo "          command against the same source will fail identically." >&2
+      echo "            1. docs/release-fingerprints.md identifies the upstream tag matching your" >&2
+      echo "               installed VERSION (${LOCAL_VERSION:-?})." >&2
+      echo "            2. Point the upgrade at a source that CARRIES that history:" >&2
+      echo "               bash hooks/local/bootstrap-upgrade.sh --repo <git-url-or-clone> \\" >&2
+      echo "                    --ref <branch-or-tag> -- --auto-yes" >&2
+      ;;
+    no-tag)
+      echo "          Recovery — there is NO AUTOMATIC recovery for this shape, and saying" >&2
+      echo "          otherwise would waste your time: your installed VERSION" >&2
+      echo "          (${LOCAL_VERSION:-?}) has no upstream tag — it is forked or unreleased —" >&2
+      echo "          so no engine can reconstruct a base from history. A human decides:" >&2
+      echo "            1. docs/release-fingerprints.md lists each released tree's fingerprint." >&2
+      echo "               Match YOUR tree against them to find the release you descend from." >&2
+      echo "               Match it by fingerprint, never by guess: seeding from the wrong" >&2
+      echo "               release misclassifies every path it disagrees with." >&2
+      echo "            2. Set VERSION to that release, then re-run — synthesis resolves the tag" >&2
+      echo "               from VERSION, so this is what makes the tag findable." >&2
+      echo "            3. Or accept this outcome: NOTHING was lost. Every path was preserved;" >&2
+      echo "               little was refreshed. Re-run when you can identify the base." >&2
+      ;;
+    *)
+      echo "          Recovery — seed the base from the tag you are actually on:" >&2
+      echo "            1. docs/release-fingerprints.md identifies the upstream tag for your" >&2
+      echo "               installed VERSION (${LOCAL_VERSION:-?})." >&2
+      echo "            2. bash hooks/local/bootstrap-upgrade.sh -- --auto-yes" >&2
+      echo "               (it synthesizes audit/managed-content-manifest.json from that tag," >&2
+      echo "                then upgrades; that path already does what this run could not)." >&2
+      ;;
+  esac
+}
+
 ff_n5_report() {
   echo "" >&2
   echo "[upgrade] DELIVERED NOTHING — refusing to bump VERSION." >&2
@@ -89,12 +137,7 @@ ff_n5_report() {
   echo "          exit 3). It means no classifier base could be reconstructed, so the engine" >&2
   echo "          could not tell YOUR edits from upstream's and safely kept everything." >&2
   echo "" >&2
-  echo "          Recovery — seed the base from the tag you are actually on:" >&2
-  echo "            1. docs/release-fingerprints.md identifies the upstream tag for your" >&2
-  echo "               installed VERSION (${LOCAL_VERSION:-?})." >&2
-  echo "            2. bash hooks/local/bootstrap-upgrade.sh -- --auto-yes" >&2
-  echo "               (it synthesizes audit/managed-content-manifest.json from that tag," >&2
-  echo "                then upgrades; that path already does what this run could not)." >&2
+  ff_n5_recovery
   echo "" >&2
   echo "          Do NOT stamp a base from your current tree: that records your local edits" >&2
   echo "          as 'upstream base', and the next upstream change then overwrites them (K13b)." >&2

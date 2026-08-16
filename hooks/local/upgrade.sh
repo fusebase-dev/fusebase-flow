@@ -388,7 +388,7 @@ FF_BASE_FOR_CLASSIFY="$BASE_MANIFEST"
 if [ "$CLASSIFY_OK" -eq 1 ] && [ ! -f "$BASE_MANIFEST" ] && [ -f "$FFSB_LIB" ]; then
   # shellcheck source=lib/synthesize-base.sh
   . "$FFSB_LIB"                 # ff_up_py, never bare python3: the base IS classifier input
-  FF_BASE_FOR_CLASSIFY="$(ffsb_prepare_base "upgrade" "$BASE_MANIFEST" "$MCM" "$SOURCE_REPO" ff_up_py "$DRY_RUN")"
+  ffsb_prepare_base "upgrade" "$BASE_MANIFEST" "$MCM" "$SOURCE_REPO" ff_up_py "$DRY_RUN"; FF_BASE_FOR_CLASSIFY="$FFSB_BASE"   # NOT a subshell: FFSB_REASON must survive for ff_n5_report
 fi
 
 if [ "$CLASSIFY_OK" -eq 1 ]; then
