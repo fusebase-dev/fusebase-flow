@@ -671,7 +671,7 @@ rm -rf "$H_OUT"
 # verifier REPORTED, an absent audit/managed-content-manifest.json makes its own verifier return
 # ABSENT with an empty file list, and no other layer covers audit/. The WRAPPER half does work
 # (hooks/local/*.sh is hook-layer content), so the advice has to be DERIVED from the live report,
-# not assumed. Each case EXECUTES the emitted RECOVER line and requires the artifact back.
+# not assumed. Each case EXECUTES the RECOVER line, requires the artifact back, and accepts rc 0 or N3's rc 4 (ff_m16_remediation_ran, lib/upgrade-fixtures.sh — read its tripwire before retuning).
 j_fail=""
 for kind in manifest wrapper; do
   J="$(m13_dual_case "$M13_ROOT/recover-$kind")"
@@ -692,7 +692,7 @@ for kind in manifest wrapper; do
     # `y` is the confirmation a human would type at the content-upgrade prompt; nothing else is fed.
     ( cd "$J" && eval "timeout 600 $JCMD" <<< "y" ) > "$M13_ROOT/recover-$kind-run.log" 2>&1
     j_rc=$?
-    [ "$j_rc" -eq 0 ] \
+    ff_m16_remediation_ran "$j_rc" "$M13_ROOT/recover-$kind-run.log" \
       || j_fail="$j_fail [$kind: the emitted remediation does NOT run (rc $j_rc): $JCMD :: $(tail -4 "$M13_ROOT/recover-$kind-run.log" | tr '\n' '|')]"
     [ -f "$J/$JART" ] || j_fail="$j_fail [$kind: the emitted remediation ran but did not restore $JART]"
   fi
@@ -739,7 +739,7 @@ else
   [ "$JQSRC" = "$JS/flow source" ] \
     || jq_fail="$jq_fail [the emitted --source argument is '$JQSRC', not '$JS/flow source' — the operator's path was interpolated UNQUOTED]"
   ( cd "$JQ" && eval "timeout 600 $JQCMD" <<< "y" ) > "$M13_ROOT/spaced-run.log" 2>&1; jq_rc=$?
-  [ "$jq_rc" -eq 0 ] \
+  ff_m16_remediation_ran "$jq_rc" "$M13_ROOT/spaced-run.log" \
     || jq_fail="$jq_fail [the emitted remediation does not run (rc $jq_rc): $JQCMD :: $(tail -3 "$M13_ROOT/spaced-run.log" | tr '\n' '|')]"
   [ -f "$JQ/audit/managed-content-manifest.json" ] \
     || jq_fail="$jq_fail [the remediation ran but did not restore the manifest]"

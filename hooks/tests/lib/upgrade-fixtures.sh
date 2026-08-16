@@ -70,3 +70,33 @@ bnd_git_source() {   # <source dir>
   ( cd "$1" && git init -q && git config user.email t@t.t && git config user.name t \
       && git config core.autocrlf false && git add -A && git commit -qm src && git branch -M main )
 }
+
+# ff_m16_remediation_ran <rc> <run-log>  — 0 iff this rc is a legitimate outcome for an M16
+# remediation that RAN. M16's contract is "the emitted remediation is a command that RUNS and
+# restores the artifact"; `rc == 0` was a PROXY for that, and N3 legitimately introduced a second
+# honest outcome. Callers assert restoration separately — this decides only the rc half.
+#
+# WHY TWO RCs ARE LEGITIMATE (N3 + N4, ticket n5-upgrade-silent-no-op): the missing-manifest shape
+# has a plain-directory source, so no tag resolves, no base is synthesized, every managed path
+# classifies unknown-base and is preserved. The only thing the run can deliver is
+# audit/managed-content-manifest.json — which N4 EXCLUDES from the delivered count by design,
+# because classifier bookkeeping the engine writes for itself is not delivery. So N3 fires: the
+# artifact is restored, VERSION is correctly NOT bumped, and the run exits 4.
+#
+# TRIPWIRE — how this was found, because the lesson generalizes: before the fixture carried
+# lib/upgrade-delivery-guard.sh, this assertion passed with rc 0 — and it passed by advancing
+# VERSION 4.6.1 -> 4.7.0 with 2 paths unknown-base and NOT ONE file refreshed. That is the exact
+# N5 defect. The green assertion was CERTIFYING THE BUG. An oracle can be green because it is
+# measuring the defect; that is why these fixtures must model a real release rather than a
+# convenient one. Same family as the inert guard (N4) and the fake control.
+#
+# A NAKED 4 MUST NOT SATISFY M16 — an unrelated future failure that happens to exit 4 is not an
+# honest refusal, so the N3 report itself must be present. Do not relax this to a bare rc test.
+ff_m16_remediation_ran() {   # <rc> <run-log>
+  case "${1:-}" in
+    0) return 0 ;;
+    4) grep -q "DELIVERED NOTHING" "${2:-}" 2>/dev/null \
+         && grep -q "refusing to bump VERSION" "${2:-}" 2>/dev/null && return 0 ;;
+  esac
+  return 1
+}
