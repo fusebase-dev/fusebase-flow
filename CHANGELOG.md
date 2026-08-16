@@ -4,6 +4,68 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [4.11.0] — 2026-08-16
+
+An upgrade that cannot deliver no longer claims it did. Reported by a consumer as finding N5 (HIGH)
+against v4.10.1, with a mechanical reproduction.
+
+Minor rather than patch: a run that previously reported success and exited `0` can now refuse and
+exit `4`. Automation reading the exit code should see that in the version number.
+
+### Fixed — the upgrade reported success while installing nothing
+
+With `audit/managed-content-manifest.json` absent, every pre-existing managed path classified
+`unknown-base` → `keep` → **not refreshed**, while VERSION advanced and the run reported success. The
+dry run showed no conflicts. Same trees, one variable:
+
+| `--base` | upstream-only (refreshed) | unknown-base (silently kept) | consumer-only |
+|---|---:|---:|---:|
+| absent | 0 | 26 | 0 |
+| present | 24 | 0 | 2 |
+
+24 upstream changes silently dropped; the 2 genuinely consumer-edited files also lost their
+`consumer-only` protection. The consumer found it only by hand-grepping for three fixes they knew
+should have arrived.
+
+The exposed population is exactly the one that most needed the release — installs whose last upgrade
+ran a pre-4.7.0 engine, which never delivered a base manifest.
+
+**This completes a locked decision rather than amending one.** K13a already stated the invariant
+unconditionally, and `ff_synthesize_base` already existed — it lived only in `bootstrap-upgrade.sh`,
+and the ordinary `upgrade.sh` path never called it. Synthesis is now extracted to
+`hooks/local/lib/synthesize-base.sh` and runs on both engines.
+
+A run-level guard refuses to advance VERSION when three conditions hold together: VERSION would
+change, nothing was applied or removed, and at least one path classified `unknown-base`. The third
+clause separates *"nothing to do"* from *"couldn't tell what to do"*, so a current tree and a
+docs-only release never trip it. The refusal exits `4` — distinct from success and from the
+`changed-by-both` abort — names the recovery, and is surfaced by the dry run.
+
+Aborting on `unknown-base` was **rejected, not overlooked**: it is K9's Option A, already rejected as
+*"unusable first adoption"*, and it would strand the forked consumer for whom no tag can resolve.
+
+### Fixed — recovery advice that could not be followed
+
+The refusal could tell an operator to run `bootstrap-upgrade.sh` when the failing run **was**
+`bootstrap-upgrade.sh` and no tag could resolve from its source. Advice now branches on the reason:
+a plain-directory source is pointed at a source carrying history; an unresolvable tag is told plainly
+there is **no automatic recovery for this shape**, with the fingerprint-matching route instead of an
+invented one.
+
+### Fixed — a manifest describing bytes that never ship
+
+`policies/module-size-baseline.txt` was written with CRLF and stored as LF, so the manifest recorded
+the local copy's digest. The stamper and the verifier both read the same wrong bytes and agreed;
+only a clean checkout disagreed. Fourth occurrence of that class, and evidence for the open
+`stamper-hashes-worktree-not-artifact` ticket.
+
+### A test was green because of the bug
+
+An assertion requiring the repair remediation to exit `0` had been passing *because* it reproduced
+the defect — certifying an upgrade that advanced VERSION while delivering nothing. Its measurand is
+now the contract (the remediation runs **and** restores the artifact), accepting exit 4 only when the
+delivery refusal was genuinely reported.
+
 ## [4.10.1] — 2026-08-15
 
 Corrective release. **v4.10.0 was tagged but never published** — its release run failed at preflight,
