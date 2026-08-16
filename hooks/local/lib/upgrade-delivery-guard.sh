@@ -89,6 +89,13 @@ ff_n5_nothing_delivered() {
 # sent the operator in a circle — in the release that exists because a consumer had to hand-grep
 # to find what an upgrade silently skipped. Keep every arm runnable, or say plainly that no
 # automatic recovery exists for that shape. Do NOT collapse these back into one string.
+#
+# TRIPWIRE (decision N3 / AC4) — EVERY arm must name BOTH docs/release-fingerprints.md AND
+# hooks/local/bootstrap-upgrade.sh; the n5-delivery oracle asserts it on the no-tag shape. That is
+# not in tension with the anti-circularity rule above: what made the old text circular was
+# re-suggesting the SAME command against the SAME unchanged inputs. Naming it as the step AFTER
+# the actual blocker is cleared (point the run at a git source / correct VERSION to a release that
+# exists) is advice that works. Do not drop the command to avoid the circle — sequence it.
 ff_n5_recovery() {
   case "${FFSB_REASON:-}" in
     no-git)
@@ -105,13 +112,14 @@ ff_n5_recovery() {
       echo "          Recovery — there is NO AUTOMATIC recovery for this shape, and saying" >&2
       echo "          otherwise would waste your time: your installed VERSION" >&2
       echo "          (${LOCAL_VERSION:-?}) has no upstream tag — it is forked or unreleased —" >&2
-      echo "          so no engine can reconstruct a base from history. A human decides:" >&2
+      echo "          so no engine can reconstruct a base until a human names the release:" >&2
       echo "            1. docs/release-fingerprints.md lists each released tree's fingerprint." >&2
       echo "               Match YOUR tree against them to find the release you descend from." >&2
       echo "               Match it by fingerprint, never by guess: seeding from the wrong" >&2
       echo "               release misclassifies every path it disagrees with." >&2
-      echo "            2. Set VERSION to that release, then re-run — synthesis resolves the tag" >&2
-      echo "               from VERSION, so this is what makes the tag findable." >&2
+      echo "            2. Set VERSION to that release — the tag is DERIVED from VERSION, so" >&2
+      echo "               this is the step that makes it resolvable at all — then run:" >&2
+      echo "                 bash hooks/local/bootstrap-upgrade.sh -- --auto-yes" >&2
       echo "            3. Or accept this outcome: NOTHING was lost. Every path was preserved;" >&2
       echo "               little was refreshed. Re-run when you can identify the base." >&2
       ;;
