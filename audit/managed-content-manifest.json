@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "eff82874469a3e668dbc3f9c4a10889be23df0c345146ef9b9c1fedf69be258b"
+      "sha256": "9fd13c1c66c43b8237cb23df2cb2bf5d1b3981f5e362f9f2a13c8a0b9a4eefec"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -514,11 +514,11 @@
     },
     {
       "path": "hooks/local/lib/synthesize-base.sh",
-      "sha256": "e5436f46f2046cf8a1b892fc5dff4818df289f1e62ff11a13881732bcf09979d"
+      "sha256": "0d1e0975cc0b1691e85aa1357f398aa3ab2ca06469ef686d6c7e44904690c47d"
     },
     {
       "path": "hooks/local/lib/upgrade-delivery-guard.sh",
-      "sha256": "be386f573f09bbf052fd5b328ca836135a0aabd1b248535b5dffa14c3574893b"
+      "sha256": "12a358f619e4603a633eb7bc00e20012363c98fdc47f375ee86801875f51fae2"
     },
     {
       "path": "hooks/local/mirror-agents.sh",
@@ -582,7 +582,7 @@
     },
     {
       "path": "hooks/local/upgrade.sh",
-      "sha256": "3fcac4b8977a7b99feae40aec45a68ac9790e4821b731c0ae47284831402f0eb"
+      "sha256": "c9c8a63cdfb249685f2b0c8c0d3cb67b6468368a3f3283be0bb4c4ec07acb8e4"
     },
     {
       "path": "hooks/local/verify-gate.sh",
@@ -862,7 +862,7 @@
     },
     {
       "path": "hooks/tests/lib/upgrade-fixtures.sh",
-      "sha256": "46433652df7f23bc5e16470b9e098a765621347fd737e5887ff59386b0f139f2"
+      "sha256": "e102746ce6ca31c9cf7d4825ba2094b4f0b834b7259c138fdbe1e60c12f18a71"
     },
     {
       "path": "hooks/tests/lib/workflow_graph_check.py",
@@ -1102,7 +1102,7 @@
     },
     {
       "path": "hooks/tests/test-upgrade-repair-managed.sh",
-      "sha256": "ee94e2d82467be9b63f0f7e5cf1a8ce3081eb7e4e936094d4ded5c808db7fb93"
+      "sha256": "8299a78422152f28ca73ec407e966da4cf7fcbac58e86d72a1dd7d969e57a465"
     },
     {
       "path": "hooks/tests/test-upgrade-source-boundary.sh",
@@ -1309,5 +1309,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "4e46ba3ea01719a2b4c8d5b840794b921d7d7363dbbf5a951070a1b79dc69114"
+  "manifest_self_sha256": "2e6eddf0bb88ffd779ca08ea8ce2350da03a6e7d9928b8668bcec7ddb6735b9d"
 }
