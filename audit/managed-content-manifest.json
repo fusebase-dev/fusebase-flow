@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "ed5f43b39ca96d30c255fcd3002df1f47f33baf730e8d5d5b0833d63ec3ab86f"
+      "sha256": "eff82874469a3e668dbc3f9c4a10889be23df0c345146ef9b9c1fedf69be258b"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -862,7 +862,7 @@
     },
     {
       "path": "hooks/tests/lib/upgrade-fixtures.sh",
-      "sha256": "cbef901b4a735e71f822daf02e62d26673e3bb63b279d0bd0333897f8b696659"
+      "sha256": "46433652df7f23bc5e16470b9e098a765621347fd737e5887ff59386b0f139f2"
     },
     {
       "path": "hooks/tests/lib/workflow_graph_check.py",
@@ -1090,7 +1090,7 @@
     },
     {
       "path": "hooks/tests/test-upgrade-conflict-classification.sh",
-      "sha256": "6a3935e19c0b9ec953621a04ebe5974215419c5e2e980359a7e3c058bb5fd018"
+      "sha256": "8b1f67c568217c1d1516d1a2a1f9bf5bd11eb7cff4f24ac977d1b893336ef02a"
     },
     {
       "path": "hooks/tests/test-upgrade-delivers-or-refuses.sh",
@@ -1309,5 +1309,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "489bd061bfb08bfb500cf4882d9f71071931164ba954fdf1ee4308a80a49dc39"
+  "manifest_self_sha256": "4e46ba3ea01719a2b4c8d5b840794b921d7d7363dbbf5a951070a1b79dc69114"
 }
