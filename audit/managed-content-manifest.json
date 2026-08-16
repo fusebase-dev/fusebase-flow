@@ -1134,7 +1134,7 @@
     },
     {
       "path": "policies/module-size-baseline.txt",
-      "sha256": "b5b4e8872d7143f9cabf37d267e78500a4a5110a8e8846fb1193fb71ede7d834"
+      "sha256": "0983d2276c29674064c1cd2e35d6ba58bfa8a36a883213ff473967e4788e2682"
     },
     {
       "path": "policies/module-size.yml",
@@ -1309,5 +1309,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "2e6eddf0bb88ffd779ca08ea8ce2350da03a6e7d9928b8668bcec7ddb6735b9d"
+  "manifest_self_sha256": "5048b7ddc03c76b085e7b7e5834d429d2c1c546792ea41b02f8e26d7374e8523"
 }
