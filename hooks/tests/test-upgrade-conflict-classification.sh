@@ -530,6 +530,12 @@ printf 'wf v1\n'        > "$NW_UP/workflows/wf.md"
 cp "$ROOT/hooks/local/lib/managed_content_manifest.py" "$NW_UP/hooks/local/lib/"
 cp "$ROOT/hooks/local/upgrade.sh" "$NW_UP/hooks/local/"
 cp "$ROOT/hooks/local/bootstrap-upgrade.sh" "$NW_UP/hooks/local/"
+# N1 (n5): the SOURCE tree is where both engines look for the libs they source. Omit them and
+# the hop synthesizes no base, every path classifies unknown-base, K9 preserves all of them, and
+# there is no changed-by-both left to abort on — so this case would assert "the abort wrote
+# nothing" against a run that never aborted. The CONSUMER deliberately still has none (it models
+# a pre-4.7.0 install); only upstream ships them, exactly as a real release does.
+copy_boundary_libs "$NW_UP/hooks/local/lib"
 ( cd "$NW_UP" && git add -A && git commit -qm 'v4.6.1' && git branch -M main && git tag v4.6.1 )
 echo "4.7.0" > "$NW_UP/VERSION"
 printf 'validator v2 upstream rewrite\n' > "$NW_UP/hooks/shared/command_policy.py"
@@ -608,6 +614,10 @@ printf 'wf v1\n'        > "$EOL_UP/workflows/wf.md"
 cp "$ROOT/hooks/local/lib/managed_content_manifest.py" "$EOL_UP/hooks/local/lib/"
 cp "$ROOT/hooks/local/upgrade.sh" "$EOL_UP/hooks/local/"
 cp "$ROOT/hooks/local/bootstrap-upgrade.sh" "$EOL_UP/hooks/local/"
+# N1 (n5): both engines SOURCE these; without them there is no base synthesis at all, so the
+# "no base synthesis" arm of this case would fire for a missing file rather than for an EOL bug.
+# The consumer is a clone of this tree, so it inherits them — which is what a real install does.
+copy_boundary_libs "$EOL_UP/hooks/local/lib"
 # TRIPWIRE (platform): mirrors the SHIPPED .gitattributes pin for executables only.
 # Unpinned, `clone -c core.autocrlf=true` lands *.sh CRLF and Linux bash refuses the
 # script ("set: pipefail: invalid option name") — MSYS bash tolerates CR, so this was
