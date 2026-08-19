@@ -126,7 +126,7 @@
     },
     {
       "path": "hooks/local/lib/hook_manifest.py",
-      "sha256": "639156e1eb8c51eb564b8d5b6ae8a304f3ff7d6b48f27bb41cb709717400bd02"
+      "sha256": "3e49025adbbd3bd42c66324ae53bf957ffeb8ff2fac783148c50d3204140337b"
     },
     {
       "path": "hooks/local/lib/job-fence.sh",
@@ -134,7 +134,7 @@
     },
     {
       "path": "hooks/local/lib/managed_content_manifest.py",
-      "sha256": "2fd4c84b28d85cde4f88b64566772567ca4a61eefdf1a6622a624a4830b1cd4b"
+      "sha256": "85f7641cffabcff8bce712c4016d4441bd924032225293d8cb95f0ca1e07ddd9"
     },
     {
       "path": "hooks/local/lib/materialize-managed-source.sh",
@@ -198,7 +198,7 @@
     },
     {
       "path": "hooks/local/stamp-cli-provenance.sh",
-      "sha256": "d90af9a2177b15c92b0a4f4521f93ee8d5d1a8e689bea91aaed853822b70eab5"
+      "sha256": "a139184bb0eb3564c1c95563542ba270c657d468dafd307f3e58121c2a0012f8"
     },
     {
       "path": "hooks/local/stamp-hook-manifest.sh",
@@ -682,7 +682,7 @@
     },
     {
       "path": "hooks/tests/test-stamp-eol-guard.sh",
-      "sha256": "d9abd98f741de30b7327f71f738db06835c2b717e29d1c9ed387a9c24f6e5a4d"
+      "sha256": "1d399e7474faec70d43159926fd2d822ba1399ef3ee392dfb87ead35b7533560"
     },
     {
       "path": "hooks/tests/test-supersede-primitive.sh",
@@ -729,5 +729,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "9698c39a3eaae39a465024acb524c8f9d123a447436978bc260c48507103b055"
+  "manifest_self_sha256": "5f3bb343e66ad9b11a7e2353fd055324f84ad1895f700dbde14cbc535f577175"
 }
