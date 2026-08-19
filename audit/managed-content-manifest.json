@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.11.0",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 326,
+  "asset_count": 330,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "1346500af8fcf0aab9f4e27560609dca0937953e2085b0c1bff05ae7b4f5c0ab"
+      "sha256": "87570e0fd63b88b7121d1f64c0b06376e889eb3a039737b2a8495d5bc549738a"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -390,7 +390,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-health-check.sh",
-      "sha256": "38883ac49c1adbf4a3e54a2fdda7109f06fab1bd936906a3aa7d631918a00e24"
+      "sha256": "5311bbee0f7a1b6ea6ed03a55c87934c8f91c160457607304ba56945909b1df7"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/agent-surface-ownership.json",
@@ -477,6 +477,10 @@
       "sha256": "6431e77d7808ac5f0d103aa519f3640ef23519765b9756be914bf4b0ce671757"
     },
     {
+      "path": "hooks/local/lib/eol_guard.py",
+      "sha256": "6d6c4c54018d24072db46e8db5d4177ee24caa8df4dca4d96cc6adfdaf7c5b13"
+    },
+    {
       "path": "hooks/local/lib/health-recommendations.sh",
       "sha256": "0fde87bf606134a16d335f6ebe87333c3ffc1f1d74bc6aef6b079a1bff90e467"
     },
@@ -485,8 +489,12 @@
       "sha256": "b62105c90968d90cc2d50f46402bab5b3dc6fd98253a21a64a8d46d27be41019"
     },
     {
+      "path": "hooks/local/lib/hook-wiring-intent.sh",
+      "sha256": "72ce1e25a81b73eeb663cb6d71f1f3797953837b8ebc227558fe15bf1b57e2f2"
+    },
+    {
       "path": "hooks/local/lib/hook_manifest.py",
-      "sha256": "08c7c312eaeb95a6e5632498fa910113f438afcd2e2a52e24e0e06b3a26e8ad9"
+      "sha256": "639156e1eb8c51eb564b8d5b6ae8a304f3ff7d6b48f27bb41cb709717400bd02"
     },
     {
       "path": "hooks/local/lib/job-fence.sh",
@@ -494,7 +502,7 @@
     },
     {
       "path": "hooks/local/lib/managed_content_manifest.py",
-      "sha256": "8ead27f9cc649b47b065fd985e918bca23675427f1af2e645658dc86a96144ac"
+      "sha256": "2fd4c84b28d85cde4f88b64566772567ca4a61eefdf1a6622a624a4830b1cd4b"
     },
     {
       "path": "hooks/local/lib/materialize-managed-source.sh",
@@ -534,7 +542,7 @@
     },
     {
       "path": "hooks/local/post-fusebase-update.sh",
-      "sha256": "cd4c2cb28ff2e975ed89c73837bd7c6d96cd647361804606614e0fefe6680f4f"
+      "sha256": "06f07a9a9f1a03f090c415285a83bdc5b257f4b962adeb47b8fde7a373b9b984"
     },
     {
       "path": "hooks/local/preflight.sh",
@@ -558,7 +566,7 @@
     },
     {
       "path": "hooks/local/stamp-cli-provenance.sh",
-      "sha256": "5ef3507623fdaf2843dca67801985a0e732d27cfad797c440b47fe51bb09b9b2"
+      "sha256": "d90af9a2177b15c92b0a4f4521f93ee8d5d1a8e689bea91aaed853822b70eab5"
     },
     {
       "path": "hooks/local/stamp-hook-manifest.sh",
@@ -870,7 +878,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "0dfe34a239de2fc27f8fe7cf299fba0697054cff3d65b3ebab449fc959d501ef"
+      "sha256": "bac6ab697cc74ee40b03581a58e3e35386ea2b485ea2afd9c9307d8ea97c967c"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -973,6 +981,10 @@
       "sha256": "8945ab2633994e5065d92c4b2ac9019e90439295cb5829be4e29570741380175"
     },
     {
+      "path": "hooks/tests/test-hook-wiring-intent.sh",
+      "sha256": "6079d0909ad6cecc853d43b4b323d19af3fc262b98ee0b6ec9b2aaa5e9d3a403"
+    },
+    {
       "path": "hooks/tests/test-install-fusebase-cli-project-doc.sh",
       "sha256": "dc31f7e4521cdcf265ca9ef24f02fe967232524764b1672d05aca0baf29c4346"
     },
@@ -1071,6 +1083,10 @@
     {
       "path": "hooks/tests/test-secret-scan-staged.sh",
       "sha256": "613f960b44d760381edb3b55b55d3b1fc4b21be3cc8f7c134f05f8dc9760fb05"
+    },
+    {
+      "path": "hooks/tests/test-stamp-eol-guard.sh",
+      "sha256": "d9abd98f741de30b7327f71f738db06835c2b717e29d1c9ed387a9c24f6e5a4d"
     },
     {
       "path": "hooks/tests/test-supersede-primitive.sh",
@@ -1309,5 +1325,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "c0bd8faad60785a62cadce5626e92baa606fbb09547e4352b5fa0ae67a667a82"
+  "manifest_self_sha256": "d6bbbb79e38aa5a65785757c41e4e69826dda436fff1c75c0c116f4712e16818"
 }
