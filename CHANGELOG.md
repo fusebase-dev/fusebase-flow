@@ -4,6 +4,56 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [4.12.0] — 2026-08-19
+
+The health check can see the enforcement layer. Reported by the paperclip+hermes-v1 consumer, fifth
+in their escalation chain; every claim in it survived an independent adversarial review before filing.
+
+Minor rather than patch: `/fusebase-health` gains a verdict it could not previously reach, and the
+manifest stampers can now refuse to write.
+
+### Fixed — a stripped enforcement layer reported as a pass
+
+The settings arm keyed on two facts — expected event-key count, and `hooks/handlers/stop.py` in the
+Stop chain. `PreToolUse` was never inspected, so a tree where the CLI regenerated
+`.claude/settings.json` and stripped everything was indistinguishable from one that never opted in.
+Both printed the same ✓. The consumer observed it twice: minutes after finding enforcement stripped,
+and again after restoring it.
+
+`/fusebase-health` is the command an operator runs to answer *"did the update break anything?"*, and
+it answered yes-only-for-content while the runtime enforcement layer (FR-06/07/12) could be absent.
+
+A dedicated schema-validated intent marker (`state/audit/flow-hook-wiring-intent.json`), written only
+after a successful `--wire-hooks` on a surface the CLI never rewrites, now separates *never opted in*
+from *opted in, then stripped*. The check matches the canonical handler inside the chain, not the
+`"PreToolUse":` key — a chain carrying someone else's handler is not Flow enforcement. Drift exits 1
+and carries the recovery command including `--wire-hooks`, because the default recovery does not touch
+settings; without that, detection would only relocate the forensics.
+
+Deliberate opt-out is first-class (`--forget-hook-wiring`). Six states where the marker could lie are
+each handled and tested, because a false alarm would be worse than the old silence — it teaches
+operators to ignore the alarm.
+
+### Fixed — stampers no longer attest bytes that never ship
+
+All three manifest stampers emit a diagnostic, return non-zero, and leave the manifest untouched when
+a covered file holds CRLF under a resolved `eol=lf`. A warning that still writes a knowingly
+non-canonical attestation is observability, not a guard.
+
+This closes the proven CRLF subclass only; `stamper-hashes-worktree-not-artifact` stays open and
+undecided, because hashing committed bytes would trade away local-tamper detection.
+
+A guard that cannot **load** never fails a stamp — it degrades open and says so. The net is optional;
+the manifest is not. That distinction was itself a defect found by CI: shipping it fail-closed took
+out 68 rows in one cascade, none of which were about line endings.
+
+### Fixed — the v4.7.0 notes printed the command their own caveat warns against
+
+The note said *"use the 4.7.0 `bootstrap-upgrade.sh`, not the copy already installed"* and then
+printed the installed path. The v4.6.1 copy has no base-synthesis step, so which copy runs decides
+whether a base exists. The README and install docs print the same command and were deliberately left
+alone — v4.11.0 made it correct for them.
+
 ## [4.11.0] — 2026-08-16
 
 An upgrade that cannot deliver no longer claims it did. Reported by a consumer as finding N5 (HIGH)

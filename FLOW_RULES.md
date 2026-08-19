@@ -44,7 +44,7 @@ Named on first response; the other rules anchor on it. Code written outside role
 | Architect (escalation) | no | yes | no | no |
 | Deploy phase | deploy command only | flips status fields | no | probes; user accepts |
 
-**Self-attestation (mandatory, first response):** "Operating as {role} under Fusebase Flow v4.11.0. I will follow FR-01 through FR-27. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+**Self-attestation (mandatory, first response):** "Operating as {role} under Fusebase Flow v4.12.0. I will follow FR-01 through FR-27. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
 
 **State announcement (mandatory, every output):**
 
