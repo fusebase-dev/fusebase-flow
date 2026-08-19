@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "b39c6aa61470cb759cbc2b9b21451e364c16f6f42d530f6b62f2a156a60207e9"
+      "sha256": "94a349b1eb370222ae4811daa7ee2288ff67dea648530ee2c8581b7719a52217"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -1106,7 +1106,7 @@
     },
     {
       "path": "hooks/tests/test-upgrade-conflict-classification.sh",
-      "sha256": "8b1f67c568217c1d1516d1a2a1f9bf5bd11eb7cff4f24ac977d1b893336ef02a"
+      "sha256": "ca9c5e9f2ee42fbcab9cae4ef19a4c565eb8fb5267146635c2cfc39c6c96aad6"
     },
     {
       "path": "hooks/tests/test-upgrade-delivers-or-refuses.sh",
@@ -1325,5 +1325,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "7be7db56e05abc1a6ca87b1e120b34278d8e966e954f428f17e6b401fd244d8c"
+  "manifest_self_sha256": "91552d373a4f212b76cabdbd4a00e22bcc68adfb1c4959f2779506c50b99a239"
 }

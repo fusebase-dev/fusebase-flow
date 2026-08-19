@@ -702,7 +702,7 @@
     },
     {
       "path": "hooks/tests/test-upgrade-conflict-classification.sh",
-      "sha256": "8b1f67c568217c1d1516d1a2a1f9bf5bd11eb7cff4f24ac977d1b893336ef02a"
+      "sha256": "ca9c5e9f2ee42fbcab9cae4ef19a4c565eb8fb5267146635c2cfc39c6c96aad6"
     },
     {
       "path": "hooks/tests/test-upgrade-delivers-or-refuses.sh",
@@ -729,5 +729,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "5f3bb343e66ad9b11a7e2353fd055324f84ad1895f700dbde14cbc535f577175"
+  "manifest_self_sha256": "a1757114e7f1ef66845a792650e0f1560225cee499b8e484721fe4c68aa5bdba"
 }
