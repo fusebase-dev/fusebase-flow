@@ -47,6 +47,10 @@ Three files affected (`hooks/local/check-vendored-rendered.sh`, `audit/cli-vendo
 - Worktrees normalized; manifests re-stamped.
 - `hooks/tests/test-manifest-freshness.sh` now stamps a **clean scratch worktree** and requires a no-op, which catches this class regardless of cause, plus a direct row naming any `eol=lf` path that is non-lf in the worktree.
 
+`health-check-enforcement-blind-spot` S3a (2026-08-19) added the **stamp-time refusal** for the one proven subclass: `hooks/local/lib/eol_guard.py` resolves `eol` via `git check-attr -z --stdin`, and a covered file holding CRLF under a resolved `eol=lf` makes all three stampers emit the diagnostic, return non-zero, and **not write the manifest**. Wired into `hook_manifest.py::stamp`, `managed_content_manifest.py::stamp`, `stamp-cli-provenance.sh`; phase `stamp-eol-guard`.
+
+**This ticket is NOT closed by it, and S3a is none of options A–D below.** It is a refusal, not a hashing change: it prevents the wrong baseline for `eol=lf` only, degrades open off git, and deliberately leaves a CRLF file with no `eol` pin alone. AC1 is still open for every non-eol divergence (filters, smudge/clean, case-folding), and AC2 — the tamper-detection trade — is untouched and still the decision this ticket exists to make.
+
 What remains unfixed is the **general** property: the stamper still describes the local copy, so a future divergence of a different kind (a filter, a smudge/clean driver, a case-folding checkout) reappears silently until the freshness phase runs.
 
 ## Options

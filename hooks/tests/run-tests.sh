@@ -71,7 +71,7 @@ FFHC_HEARTBEAT_SECS="${FFHC_HEARTBEAT_SECS:-30}"
 FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixture \
   interpreter-contract interpreter-mutation python3-version python3-version-mutation \
   git-context git-context-mutation \
-  hook-manifest newline-preserve baseline-merge hook-wiring-intent \
+  hook-manifest newline-preserve baseline-merge hook-wiring-intent stamp-eol-guard \
   sync-allowlist policy-state bootstrap-baseline-hop fr22-delivery po-verifiable-boot \
   po-investigate liveness codex-parity codex-plugin cli-0259 cli-version cli-vendor cli-rendered secret-scan-staged bootstrap-exception \
   lane-router \
@@ -515,6 +515,11 @@ run_shell_phase test-baseline-merge.sh       "baseline-merge"
 # enforcement. Outside FF_FAST_TAGS: one isolated interpreter spawn per row (that list is an
 # allowlist and a new phase runs in CI/full first).
 run_shell_phase test-hook-wiring-intent.sh   "hook-wiring-intent"
+# S3a: the stamper refuses to attest CRLF bytes held under an `eol=lf` pin. Its core row is
+# THIS repo's own failure — policies/module-size-baseline.txt, hashed CRLF and shipped LF,
+# invisible locally because stamper and verifier read the same wrong bytes and agreed. Paired
+# negative rows keep the scope honest: an unpinned CRLF file and a non-Git tree must still stamp.
+run_shell_phase test-stamp-eol-guard.sh      "stamp-eol-guard"
 run_shell_phase test-sync-allowlist.sh       "sync-allowlist"
 run_shell_phase test-policy-state-preserve.sh "policy-state"
 run_shell_phase test-bootstrap-baseline-hop.sh "bootstrap-baseline-hop"

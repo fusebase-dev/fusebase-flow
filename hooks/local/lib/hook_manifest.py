@@ -141,8 +141,23 @@ def build_manifest(root: Path) -> dict:
     }
 
 
+def _eol_guard():
+    """TRIPWIRE: imported HERE, never at module scope. This module is executed under
+    `python3 -I` by the bootstrap source boundary, and -I drops the script's own directory
+    from sys.path — a top-level `import eol_guard` would make that verdict path raise."""
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import eol_guard
+    return eol_guard
+
+
 def stamp(root: Path) -> int:
     root = _resolve_root(root)
+    # S3a: refuse BEFORE any write. A manifest built from CRLF bytes under an `eol=lf` pin
+    # attests content that never ships, and stamp+verify agree with each other locally while
+    # only CI disagrees.
+    rc = _eol_guard().enforce(root, collect_assets(root), "hook-manifest")
+    if rc:
+        return rc
     doc = build_manifest(root)
     out_path = root / MANIFEST_REL
     out_path.parent.mkdir(parents=True, exist_ok=True)

@@ -170,6 +170,19 @@ if cliver.is_file():
                           "incompatible_below": incompat,
                           "source": "hooks/local/lib/cli-version-check.sh"}
 
+# S3a: refuse BEFORE any write, on the same terms as the two manifest stampers. The
+# cli-vendor manifests were one of this class's four occurrences in two days.
+sys.path.insert(0, str(root / "hooks" / "local" / "lib"))
+try:
+    import eol_guard
+except ImportError:
+    eol_guard = None
+if eol_guard is not None:
+    _rels = sorted({rel(fp) for fp in asset_paths})
+    _rc = eol_guard.enforce(root, _rels, "stamp-cli-provenance")
+    if _rc:
+        sys.exit(_rc)
+
 # Deterministic ordering by repo-relative path.
 seen: set[str] = set()
 assets = []
