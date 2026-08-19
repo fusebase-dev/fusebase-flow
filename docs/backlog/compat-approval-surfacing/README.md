@@ -18,6 +18,25 @@
 
 A consumer measured K7's compat default as a **live open deploy gate**: 98 accumulated artifacts, several expiry-less, one satisfying `production_deploy` permanently — reached by the documented upgrade path in one command with no warning. `--inventory` exists but requires knowing to run it. Discoverable is not surfaced.
 
+## Snapshot — measured 2026-08-17 (a dated reading, not a current state)
+
+| Fact | Value |
+|---|---|
+| `production_deploy` artifacts, unexpired | **61** |
+| artifacts, all actions, total | **98** (kept distinct from the 61 — the filing figure at the top is this one) |
+| of the 61: lack **both** `command_digest` and `repo_id` | 61 / 61 |
+| of the 61: lack a body `action` | 29 |
+| of the 61: carry `schema_version: 2` | 0 |
+| latest `expires_at` across the 61 | 2026-09-01 |
+
+**61 decays; the date is what keeps it honest.** Re-measure before citing it — an undated count reads as timeless and is wrong within weeks.
+
+### The dynamics — this is the part that sharpens the parked contract
+
+Expiry-bearing artifacts **age out**; expiry-less ones **never do**. So an aged tree's accepted-artifact population converges on exactly the set the compat default accepts **forever**.
+
+Consequence for the design: an `--inventory`-style reporter scoped to *"what a strict cutover would reject"* reports a **shrinking, self-resolving** set while **missing the permanent one** — it gets quieter as the real exposure concentrates. The carrier table (below) needs its recorded-bindings column **more** as a tree ages, not less; the report must be scoped to what the gate *accepts* and cannot revoke, not to what a future cutover would reject.
+
 ## Why three rounds failed
 
 | Round | The fix | What it broke |
