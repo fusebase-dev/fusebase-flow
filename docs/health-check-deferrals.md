@@ -69,6 +69,7 @@ The engine recognizes these check_ids in the `deferred_checks` array:
 | `claude_skills_mirror_count` | `.claude/skills/` mirror count below the upstream skill count |
 | `claude_agents_mirror_count` | `.claude/agents/` mirror count below the upstream sub-agent count |
 | `windows_shell_patch` | Windows `shell:true` patch on `.claude/hooks/run-typecheck-apps.js` not applied (CVE-2024-27980 mitigation) |
+| `settings_json_flow_enforcement` | `.claude/settings.json` carries no canonical Flow `PreToolUse` handler (`hooks/handlers/pre_tool_use.py`), or is absent entirely, **while** `state/audit/flow-hook-wiring-intent.json` records an active wiring intent for this tree. Fires only for a tree that opted in and then lost the enforcement chain; recovery is `post-fusebase-update.sh --wire-hooks`. Prefer `--forget-hook-wiring` (records `enabled: false`) over a deferral artifact when the removal was deliberate — deferral is for a temporary exception, opt-out is the permanent one |
 
 Anything else in `deferred_checks` is silently ignored. Engine prefers explicit, documented check_ids over a wildcard suppression mechanism.
 

@@ -297,6 +297,15 @@ if [ -f .claude/settings.json ]; then
   fi
 fi
 
+# S1 — PreToolUse ENFORCEMENT arm. Everything above keys on the event-key COUNT and on
+# stop.py, so a settings rewrite that strips EVERY Flow hook at once reads identical to a
+# tree that never opted in — the blind spot two consumers hit. lib/hook-wiring-intent.sh owns
+# the intent marker, the canonical-handler match, and the six states in which that marker can
+# lie (FR-25 seam). A missing lib degrades to today's silence, never to a wrong verdict.
+FFHC_HWI_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/hook-wiring-intent.sh"
+# shellcheck source=lib/hook-wiring-intent.sh
+[ -f "$FFHC_HWI_LIB" ] && { . "$FFHC_HWI_LIB"; ffhc_hwi_check "$ROOT"; }
+
 # Auto-discover canonical Fusebase Flow skill names. Canonical lives at
 # flow-skills/ (v3.9.0+); root skills/ is the legacy pre-3.9.0 location, still
 # accepted as a fallback. Prefer the upstream staging clone, then local.

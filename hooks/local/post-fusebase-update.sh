@@ -19,6 +19,17 @@
 #   .claude/hooks/** is CLI-owned. Flow recovery does not patch or restore CLI
 #   hook helper files. If CLI-owned hook helpers are missing or stale, run the
 #   current FuseBase CLI refresh/update first, then run this script.
+#
+# Flags:
+#   --wire-hooks           opt-in: merge Flow lifecycle hooks into .claude/settings.json
+#                          and RECORD the wiring intent (state/audit/flow-hook-wiring-intent.json)
+#                          so the health check can tell "never opted in" from "opted in,
+#                          then stripped".
+#   --forget-hook-wiring   record a deliberate opt-out (intent enabled=false) and exit.
+#                          Does NOT edit .claude/settings.json — removing the hooks is
+#                          yours to do; this stops the health check reporting their
+#                          absence as enforcement drift.
+#   --refresh-overlays     replace a PRESENT but DRIFTED AGENTS.md/CLAUDE.md overlay block.
 
 set -euo pipefail
 
@@ -68,14 +79,39 @@ WARNINGS=()
 #                      backup) instead of skipping. Used by upgrade.sh.
 WIRE_HOOKS=0
 REFRESH_OVERLAYS=0
+FORGET_HOOK_WIRING=0
 for arg in "$@"; do
   case "$arg" in
     --wire-hooks) WIRE_HOOKS=1 ;;
+    --forget-hook-wiring) FORGET_HOOK_WIRING=1 ;;
     --refresh-overlays) REFRESH_OVERLAYS=1 ;;
-    --help|-h) sed -n '2,20p' "$0"; exit 0 ;;
+    --help|-h) sed -n '2,31p' "$0"; exit 0 ;;
     *) echo "[post-fusebase-update] Unknown argument: $arg" >&2; exit 2 ;;
   esac
 done
+
+# The intent marker's read/write contract (S1). Sourced by the health engine too — one
+# definition of the marker's schema, path and validation, never two.
+FF_HWI_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/hook-wiring-intent.sh"
+# shellcheck source=lib/hook-wiring-intent.sh
+[ -f "$FF_HWI_LIB" ] && . "$FF_HWI_LIB"
+
+if [ "$FORGET_HOOK_WIRING" -eq 1 ]; then
+  if [ "$WIRE_HOOKS" -eq 1 ]; then
+    echo "[post-fusebase-update] --wire-hooks and --forget-hook-wiring are contradictory; pick one." >&2
+    exit 2
+  fi
+  if ! command -v ffhc_hwi_revoke >/dev/null 2>&1; then
+    echo "[post-fusebase-update] FATAL: $FF_HWI_LIB missing; cannot record a hook-wiring opt-out." >&2
+    exit 1
+  fi
+  ffhc_hwi_revoke "$ROOT" || { echo "[post-fusebase-update] FATAL: could not write $FFHC_HWI_REL" >&2; exit 1; }
+  echo "[post-fusebase-update] Recorded a hook-wiring OPT-OUT in $FFHC_HWI_REL (enabled=false)."
+  echo "[post-fusebase-update] .claude/settings.json was NOT modified. The health check will no"
+  echo "[post-fusebase-update] longer report a missing Flow PreToolUse chain as enforcement drift."
+  echo "[post-fusebase-update] Re-enable with: bash hooks/local/post-fusebase-update.sh --wire-hooks"
+  exit 0
+fi
 
 if [ ! -d "$OVERLAYS" ]; then
   echo "[post-fusebase-update] FATAL: $OVERLAYS not found. Cannot restore Fusebase Flow overlay." >&2
@@ -341,7 +377,16 @@ else
   MERGE_OUTPUT=$(python3 "$MERGE_SCRIPT" .claude/settings.json --baseline-out "$CLI_STOP_BASELINE" 2>&1)
   MERGE_EXIT=$?
   set -e
+  # S1 intent: recorded ONLY on a merge that actually succeeded (the helper is a no-op on any
+  # nonzero rc), so a failed or aborted merge never leaves an intent the health check would
+  # then report as stripped enforcement. Covers the no-op "already wired" path too — that is
+  # still a successful --wire-hooks run.
+  if command -v ffhc_hwi_record_wiring >/dev/null 2>&1; then
+    ffhc_hwi_record_wiring "$ROOT" "$MERGE_EXIT" \
+      || WARNINGS+=("could not record the hook-wiring intent marker ($FFHC_HWI_REL); the health check will read this tree as 'not known to have opted in'")
+  fi
   if [ "$MERGE_EXIT" -eq 0 ]; then
+    ACTIONS_TAKEN+=(".claude/settings.json: recorded Flow hook-wiring intent ($FFHC_HWI_REL)")
     ACTIONS_TAKEN+=(".claude/settings.json: wrote CLI Stop baseline receipt ($CLI_STOP_BASELINE)")
     if echo "$MERGE_OUTPUT" | grep -q "already up to date\|byte-identical"; then
       ACTIONS_SKIPPED+=(".claude/settings.json: Fusebase Flow events already wired")

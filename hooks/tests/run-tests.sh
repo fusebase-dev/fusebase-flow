@@ -71,7 +71,7 @@ FFHC_HEARTBEAT_SECS="${FFHC_HEARTBEAT_SECS:-30}"
 FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixture \
   interpreter-contract interpreter-mutation python3-version python3-version-mutation \
   git-context git-context-mutation \
-  hook-manifest newline-preserve baseline-merge \
+  hook-manifest newline-preserve baseline-merge hook-wiring-intent \
   sync-allowlist policy-state bootstrap-baseline-hop fr22-delivery po-verifiable-boot \
   po-investigate liveness codex-parity codex-plugin cli-0259 cli-version cli-vendor cli-rendered secret-scan-staged bootstrap-exception \
   lane-router \
@@ -509,6 +509,12 @@ run_shell_phase test-hook-manifest.sh        "hook-manifest"
 run_shell_phase test-lane-router.sh          "lane-router"
 run_shell_phase test-newline-preserve.sh     "newline-preserve"
 run_shell_phase test-baseline-merge.sh       "baseline-merge"
+# S1: the intent marker + the health engine's PreToolUse enforcement arm. Most rows are
+# NEGATIVE — the six states in which the marker can lie must never produce drift, because a
+# false alarm here trains operators to ignore the one check that reports missing FR-06/07/12
+# enforcement. Outside FF_FAST_TAGS: one isolated interpreter spawn per row (that list is an
+# allowlist and a new phase runs in CI/full first).
+run_shell_phase test-hook-wiring-intent.sh   "hook-wiring-intent"
 run_shell_phase test-sync-allowlist.sh       "sync-allowlist"
 run_shell_phase test-policy-state-preserve.sh "policy-state"
 run_shell_phase test-bootstrap-baseline-hop.sh "bootstrap-baseline-hop"
