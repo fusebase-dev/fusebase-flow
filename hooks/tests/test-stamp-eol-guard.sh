@@ -148,6 +148,41 @@ else
 fi
 
 ###############################################################################
+# Row 5b — PARTIAL INSTALL: a tree carrying the stamper but NOT eol_guard.py.
+#
+# This is a REGRESSION ROW, not a hypothetical. Shipping the guard as a hard
+# import made every such tree fail to stamp at all — no manifest was written, the
+# error went to a swallowed stderr, and the hook-layer integrity critical then read
+# "manifest absent" and downgraded the verdict to PARTIAL_UNVERIFIED/4. It reddened
+# 68 rows on both CI platforms.
+#
+# A missing guard must cost the GUARD, never the STAMP: the safety net is optional,
+# the manifest is not. Failing closed here has the worst possible silent mode —
+# nothing written, nothing said, every downstream verdict quietly degraded.
+###############################################################################
+for mod in managed-content hook-layer; do
+  fx="$(mkfix)"
+  case "$mod" in
+    managed-content) lib="$MCM"; runner=stamp_mcm; manifest="audit/managed-content-manifest.json" ;;
+    hook-layer)      lib="$HKM"; runner=stamp_hkm; manifest="audit/hook-layer-manifest.json" ;;
+  esac
+  # Mirror the golden fixtures' allow-list: the stamper's module, no eol_guard.py.
+  mkdir -p "$fx/lib-only"
+  cp "$lib" "$fx/lib-only/"
+  out="$("$python_bin" "$fx/lib-only/$(basename "$lib")" stamp --root "$fx" 2>&1)"; rc=$?
+  if [ "$rc" -eq 0 ] && [ -f "$fx/$manifest" ]; then
+    ok "missing-guard-$mod-still-stamps"
+  else
+    bad "missing-guard-$mod-still-stamps" "rc=$rc manifest=$([ -f "$fx/$manifest" ] && echo yes || echo no) :: $out"
+  fi
+  if printf '%s' "$out" | grep -qi "NOT VERIFIED"; then
+    ok "missing-guard-$mod-says-so"
+  else
+    bad "missing-guard-$mod-says-so" "degraded silently :: $out"
+  fi
+done
+
+###############################################################################
 # Row 6 — THIS repo, right now: every covered path already satisfies its pin.
 # A guard that goes red on the tree that ships it is not adoptable.
 ###############################################################################

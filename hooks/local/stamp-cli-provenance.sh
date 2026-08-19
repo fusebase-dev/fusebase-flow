@@ -172,10 +172,14 @@ if cliver.is_file():
 
 # S3a: refuse BEFORE any write, on the same terms as the two manifest stampers. The
 # cli-vendor manifests were one of this class's four occurrences in two days.
+# TRIPWIRE: a guard that cannot be LOADED degrades OPEN and says so — it must never fail
+# the stamp (see hook_manifest.py's tripwire for the 68-row CI failure that rule comes from).
 sys.path.insert(0, str(root / "hooks" / "local" / "lib"))
 try:
     import eol_guard
-except ImportError:
+except Exception as exc:
+    print(f"[stamp-cli-provenance] eol guard NOT VERIFIED — eol_guard.py is not loadable "
+          f"({exc.__class__.__name__}); stamping the worktree bytes as-is.", file=sys.stderr)
     eol_guard = None
 if eol_guard is not None:
     _rels = sorted({rel(fp) for fp in asset_paths})

@@ -155,13 +155,25 @@ def build_manifest(root: Path) -> dict:
     }
 
 
-def _eol_guard():
-    """TRIPWIRE: imported HERE, never at module scope. This module is the verifier the
+def _eol_enforce(root: Path, rels: list[str], tool: str) -> int:
+    """S3a guard, loaded lazily and degrading OPEN when it is not installed.
+
+    TRIPWIRE: imported HERE, never at module scope. This module is the verifier the
     bootstrap source boundary runs under `python3 -I`, and -I drops the script's own
-    directory from sys.path — a top-level `import eol_guard` would break that verdict."""
+    directory from sys.path — a top-level `import eol_guard` would break that verdict.
+
+    TRIPWIRE: a guard that cannot be LOADED must never fail the stamp. See the same tripwire
+    in hook_manifest.py for the failure it caused. The net is optional; the manifest is not.
+    """
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    import eol_guard
-    return eol_guard
+    try:
+        import eol_guard
+    except Exception as exc:
+        print(f"[{tool}] eol guard NOT VERIFIED — eol_guard.py is not loadable beside "
+              f"{Path(__file__).name} ({exc.__class__.__name__}); stamping the worktree "
+              f"bytes as-is.", file=sys.stderr)
+        return 0
+    return eol_guard.enforce(root, rels, tool)
 
 
 def stamp(root: Path, out_rel: str = MANIFEST_REL) -> int:
@@ -169,7 +181,7 @@ def stamp(root: Path, out_rel: str = MANIFEST_REL) -> int:
     # S3a: refuse BEFORE any write. The proven case is policies/module-size-baseline.txt —
     # hashed CRLF, shipped LF, reddened CI twice, invisible locally because the stamper and
     # the verifier read the same wrong bytes and agreed.
-    rc = _eol_guard().enforce(root, collect_paths(root), "managed-content")
+    rc = _eol_enforce(root, collect_paths(root), "managed-content")
     if rc:
         return rc
     doc = build_manifest(root)

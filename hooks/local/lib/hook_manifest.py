@@ -141,13 +141,30 @@ def build_manifest(root: Path) -> dict:
     }
 
 
-def _eol_guard():
-    """TRIPWIRE: imported HERE, never at module scope. This module is executed under
+def _eol_enforce(root: Path, rels: list[str], tool: str) -> int:
+    """S3a guard, loaded lazily and degrading OPEN when it is not installed.
+
+    TRIPWIRE: imported HERE, never at module scope. This module is executed under
     `python3 -I` by the bootstrap source boundary, and -I drops the script's own directory
-    from sys.path — a top-level `import eol_guard` would make that verdict path raise."""
+    from sys.path — a top-level `import eol_guard` would make that verdict path raise.
+
+    TRIPWIRE: a guard that cannot be LOADED must never fail the stamp. Shipping it as a hard
+    import broke every tree carrying this module without eol_guard.py (partial install,
+    selective copy, mid-upgrade lib ordering): nothing was written, the traceback went to a
+    swallowed stderr, and the hook-layer integrity critical then read `manifest absent` and
+    downgraded the verdict — 68 rows red on both CI platforms. The net is optional; the
+    manifest is not. A load failure degrades and SAYS SO; only enforce()'s own verdict may
+    stop a stamp.
+    """
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    import eol_guard
-    return eol_guard
+    try:
+        import eol_guard
+    except Exception as exc:
+        print(f"[{tool}] eol guard NOT VERIFIED — eol_guard.py is not loadable beside "
+              f"{Path(__file__).name} ({exc.__class__.__name__}); stamping the worktree "
+              f"bytes as-is.", file=sys.stderr)
+        return 0
+    return eol_guard.enforce(root, rels, tool)
 
 
 def stamp(root: Path) -> int:
@@ -155,7 +172,7 @@ def stamp(root: Path) -> int:
     # S3a: refuse BEFORE any write. A manifest built from CRLF bytes under an `eol=lf` pin
     # attests content that never ships, and stamp+verify agree with each other locally while
     # only CI disagrees.
-    rc = _eol_guard().enforce(root, collect_assets(root), "hook-manifest")
+    rc = _eol_enforce(root, collect_assets(root), "hook-manifest")
     if rc:
         return rc
     doc = build_manifest(root)
