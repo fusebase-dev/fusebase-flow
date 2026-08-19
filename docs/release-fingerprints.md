@@ -41,6 +41,7 @@ Match your output to either fingerprint column below; both identify the same tre
 | `v4.10.0` | 4.10.0 | `fa7bb5cf4a4fefd8e86f35e24555f0dc82daf47e498f24c8b888e5b3fff10f65` | 323 | `faf2199c81ca9c816cb203a4f71892fd8c5353cb931a45d16f33032d70cafbe5` | 174 |
 | `v4.10.1` | 4.10.1 | `1e0b4fbab00a6c8578d2773c91c2f370eb2eebc8e57c416237283d9b61b6b2dd` | 323 | `665de96876ad5137f467e8ce247728726e8568a76864708e22b2a4933f55db01` | 174 |
 | `v4.11.0` | 4.11.0 | `c0bd8faad60785a62cadce5626e92baa606fbb09547e4352b5fa0ae67a667a82` | 326 | `343031372b215473a388c87c544e308b84e63103ee3e7af6b8c20fde66ca9aca` | 177 |
+| `v4.12.0` | 4.12.0 | `cdf2f1470a1f911b6beda7d4a2cdc42f79de947a97d8e1fc4607a70491fef272` | 330 | `e3e1de0bceb53da3eaf6d64e0389e307ff589c026b25652f12d65a9698b199bf` | 181 |
 
 `v4.9.0`, `v4.9.1` and `v4.10.0` are unpublished tagged trees: their release workflows failed
 (2026-08-12, 2026-08-13 and 2026-08-15) and published nothing. Each row identifies an immutable tag
