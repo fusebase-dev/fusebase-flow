@@ -19,6 +19,20 @@ finish() { echo "[test-upgrade-conflict-classification] $pass/$((pass + fail)) P
 
 command -v python3 >/dev/null 2>&1 || { echo "PASS: upgrade-classify skipped-no-python3"; pass=1; finish; }
 
+# verdict_line: the JSON verdict is the LAST line of a captured block, not the whole stream.
+#
+# Each heredoc below already neutralises stamper STDOUT in-process (its `sys.stdout` swap,
+# "only the JSON verdict may reach the harness") and folds STDERR in with `2>&1` so a Python
+# traceback still lands in the failure text. Those two intents conflict for anything that
+# legitimately writes to STDERR — e.g. the eol guard reporting that a fixture's non-git
+# tempdir has no resolvable .gitattributes, which is a true statement about the tree and must
+# stay loud. Comparing the WHOLE stream read that diagnostic as an assertion failure.
+#
+# Sensitivity is unchanged: a non-empty verdict, an absent verdict, and a traceback all leave
+# a last line that is not `[]`, and `bad` still prints the entire captured stream.
+# CR strip mirrors the health engine's Windows guard — python print() can emit CRLF on MSYS.
+verdict_line() { printf '%s\n' "$1" | tr -d '\r' | tail -1; }
+
 # ---- 1. Manifest: byte-stable stamp, drift detection, exclusions, K14 single home ----
 STAMP_OUT="$(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$ROOT" <<'PYSTAMP' 2>&1
 import json, subprocess, sys, tempfile
@@ -96,7 +110,7 @@ sys.stdout = _real_stdout
 print(json.dumps(fails))
 PYSTAMP
 )"
-if [ "$STAMP_OUT" = "[]" ]; then
+if [ "$(verdict_line "$STAMP_OUT")" = "[]" ]; then
   ok "manifest-byte-stable-drift-and-single-home"
 else
   bad "manifest-byte-stable-drift-and-single-home" "$STAMP_OUT"
@@ -170,7 +184,7 @@ sys.stdout = _real_stdout
 print(json.dumps(fails))
 PYK9
 )"
-if [ "$K9_OUT" = "[]" ]; then
+if [ "$(verdict_line "$K9_OUT")" = "[]" ]; then
   ok "k9-ten-state-truth-table-and-auto-yes-containment"
 else
   bad "k9-ten-state-truth-table-and-auto-yes-containment" "$K9_OUT"
