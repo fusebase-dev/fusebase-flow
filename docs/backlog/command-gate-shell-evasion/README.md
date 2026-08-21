@@ -109,6 +109,15 @@ Partition of the 36 misses by the smallest mechanism that closes them:
 
 **Accepted residual under any option:** DC-08..DC-12 and DC-14 are unreachable in principle from a command string (the gated text lives in a file, a package script, or a runtime variable). Process discipline (FR-05/FR-12/FR-19) remains the control there; the hook is defence in depth. This is unchanged from the header of `policies/command-policy.yml` and must stay stated there.
 
+**PowerShell rows are now a REACHABLE gap, not a hypothetical one (E6, 2026-08-21).** Until
+`COMMAND_TOOL_NAMES` was widened, a PowerShell event never reached the gate at all, so the absent
+PowerShell corpus rows cost nothing. They now do: the tool is routed, and the rules are bash-shaped.
+Measured against the shipped policy — `Remove-Item -Recurse -Force <p>`, `ri -r -fo <p>` and
+`... | Remove-Item -Recurse` are OPEN; `rm -Recurse -Force <p>` degrades to `destructive_file_delete`
+(FR-12) instead of the FR-06 deny; every shell-agnostic gated command (`git reset --hard`,
+`git push --force`, `--no-verify`, `npx prisma migrate deploy`, `fusebase deploy`) is caught. Adding
+PowerShell rows/rules stays blocked on D1 + D2 below — do NOT patch cmdlet patterns in ahead of them.
+
 **Platform assumption of the corpus:** POSIX `sh`/`bash` semantics, as executed by MSYS bash on Windows and by any Linux host. PowerShell and `cmd.exe` hosts quote and escape differently (backtick escape, no `$(…)`, different word splitting), so a bash-shaped parser would misjudge them; no PowerShell rows are present. Any implementation must state which host shell it claims to model, and `command-policy.yml` is shell-agnostic today.
 
 ## Decisions the operator must lock before implementation

@@ -8,10 +8,35 @@ Lists every Fusebase Flow lifecycle hook handler and which provider / fallback s
 |---|---|---|---|---|---|
 | `session_start` | yes (`SessionStart`) | yes (`session_start`) | n/a | `preflight.sh` runs equivalent checks | implemented |
 | `user_prompt_submit` | yes (`UserPromptSubmit`; reads both `prompt` (native) and `user_prompt` (Flow-schema) — see § Host field-shape) | yes (`user_prompt_submit`) | n/a | n/a | implemented |
-| `pre_tool_use` | yes (`PreToolUse`; matchers: Bash, Edit, Write, MultiEdit) | yes (`pre_tool_use`; matchers: Bash, Edit, Write, MultiEdit) | partial (`pre-commit` blocks at commit time) | n/a | implemented |
+| `pre_tool_use` | yes (`PreToolUse`; matchers: Bash, **PowerShell**, Edit, Write, MultiEdit, NotebookEdit) | yes (`pre_tool_use`; matchers: Bash, **PowerShell**, Edit, Write, MultiEdit) | partial (`pre-commit` blocks at commit time) | n/a | implemented |
 | `permission_request` | reserved (returned `ask` decision honored when host invokes) | yes (`permission_request`) | n/a | `approve-local.sh` authors approval artifacts the handler reads | implemented |
 | `post_tool_use` | yes (`PostToolUse`; matchers: Edit, Write, MultiEdit) | yes (`post_tool_use`; matchers: Edit, Write, MultiEdit) | n/a | n/a | implemented |
 | `stop` | yes (`Stop`; claim detection reads the final assistant message from `transcript_path` (native) or `agent_message` (Flow-schema) — see § Host field-shape) | yes (`stop`) | partial (`verify-gate.sh` checks pasted gate report shape) | `verify-gate.sh` for ad-hoc validation | implemented |
+
+## Command-tool coverage (E6)
+
+The command arm (FR-06 deny, FR-12 `require_approval`, K4 policy-error fail-closed) reaches
+a tool only if BOTH are true: the host matcher routes the event to `pre_tool_use`, AND the
+tool name is in `COMMAND_TOOL_NAMES` (`hooks/shared/command_policy.py` — the single set both
+`pre_tool_use.py` and `permission_request.py` read). Claude Code exposes a `PowerShell` tool
+beside `Bash` on Windows and it was in neither, so the whole command arm was bypassable there
+by choosing the other shell tool. Fixed; frozen by fixtures 24/25/26. The protected-path and
+secret arms were never affected — they key on Edit/Write.
+
+**Measured residual — patterns are bash-shaped, not shell-aware.** Routing a PowerShell event
+to the gate does not make the *rules* PowerShell-aware. Measured against the shipped policy:
+
+| Command shape | Example | Gated |
+|---|---|---|
+| Shell-agnostic gated commands | `git reset --hard`, `git push --force`, `--no-verify`, `npx prisma migrate deploy`, `fusebase deploy` | yes (identical text in both shells) |
+| bash destructive form | `rm -rf <path>` | yes |
+| PowerShell alias + native flags | `rm -Recurse -Force <path>` | partial — `destructive_file_delete` (FR-12), not the FR-06 deny |
+| PowerShell cmdlet / short alias / pipeline | `Remove-Item -Recurse -Force <path>`, `ri -r -fo <path>`, `... \| Remove-Item -Recurse` | **no** |
+
+`policies/command-policy.yml` is shell-agnostic by design and models POSIX `sh`/`bash`; adding
+PowerShell-native patterns is rule authoring blocked on decisions D1/D2 in
+`docs/backlog/command-gate-shell-evasion/`. Do not read "PowerShell is gated" as "PowerShell-native
+destructive commands are denied" — the shell-agnostic majority is, the cmdlet forms are not.
 
 ## Host field-shape (per-host input coverage)
 
