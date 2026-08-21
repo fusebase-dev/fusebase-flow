@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.12.0",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 330,
+  "asset_count": 338,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "62cc5d1fc727d04dd7c99412dde1356a4915e07ddcedaf552c60289689042b7e"
+      "sha256": "c2055b65a6dd296d4f125c85ca6110b9ab15cc152946a684f49f6857b20e03ec"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -390,7 +390,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-health-check.sh",
-      "sha256": "5311bbee0f7a1b6ea6ed03a55c87934c8f91c160457607304ba56945909b1df7"
+      "sha256": "7f4062ade399fde6f7122180a40bc56d14855cca9ab799ba35996af8fdb08b1e"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/agent-surface-ownership.json",
@@ -502,7 +502,7 @@
     },
     {
       "path": "hooks/local/lib/managed_content_manifest.py",
-      "sha256": "85f7641cffabcff8bce712c4016d4441bd924032225293d8cb95f0ca1e07ddd9"
+      "sha256": "b4a04fb912a21d9ed2518efa51909aee2977ab2d2af531b08972ca2f69ca6304"
     },
     {
       "path": "hooks/local/lib/materialize-managed-source.sh",
@@ -513,8 +513,16 @@
       "sha256": "857ffb7b3341e44d7bad2c5c66c7fa86fbe89ccc1579de095a826b3d41f42b27"
     },
     {
+      "path": "hooks/local/lib/missing-base-check.sh",
+      "sha256": "e8a4e8f5bfc2cc9f8a60a0b454001b1329fed2693824805c927ab8f15f8b2d44"
+    },
+    {
       "path": "hooks/local/lib/partial-upgrade-check.sh",
       "sha256": "676bf4d88b7543d518e89fe6cbe86217c528eb93eb108493c274e7c866978ce2"
+    },
+    {
+      "path": "hooks/local/lib/plugin-parity.sh",
+      "sha256": "8ffb9e679236003f550acf81d9c7fdca15930b35be9ad6edc0c3f4dcf777b9e3"
     },
     {
       "path": "hooks/local/lib/run-with-timeout.sh",
@@ -523,6 +531,10 @@
     {
       "path": "hooks/local/lib/synthesize-base.sh",
       "sha256": "0d1e0975cc0b1691e85aa1357f398aa3ab2ca06469ef686d6c7e44904690c47d"
+    },
+    {
+      "path": "hooks/local/lib/truthful-base.sh",
+      "sha256": "4ba20d5298836fc17f0213f8ad02e4b60452954e2477eb7b833231353429d96b"
     },
     {
       "path": "hooks/local/lib/upgrade-delivery-guard.sh",
@@ -546,11 +558,15 @@
     },
     {
       "path": "hooks/local/preflight.sh",
-      "sha256": "9621ce63e6c710133b704e052a8add85fae2c4a32b0ec56c700d85f922161351"
+      "sha256": "7714048e1752c81dfdab8639f9ad30eeea770f8b3032e103c8bfa5ecfe48eb46"
     },
     {
       "path": "hooks/local/print-release-fingerprints.sh",
       "sha256": "4014ed2e8a2fba5ff69fd39019865789e7a5db0db9fcbdedf0ca1cfa14c0754c"
+    },
+    {
+      "path": "hooks/local/recover-missing-base.sh",
+      "sha256": "588999f1b9fab5baf3c88a0a0169de129a1ae6976649856a45d35cbe894072d4"
     },
     {
       "path": "hooks/local/refresh-cli-vendor.sh",
@@ -590,7 +606,7 @@
     },
     {
       "path": "hooks/local/upgrade.sh",
-      "sha256": "c9c8a63cdfb249685f2b0c8c0d3cb67b6468368a3f3283be0bb4c4ec07acb8e4"
+      "sha256": "d6ea50ba57c4e0fa72a9d4b087c62ecdf125cc6e294f46cd5c2b8958a06af1fb"
     },
     {
       "path": "hooks/local/verify-gate.sh",
@@ -870,7 +886,7 @@
     },
     {
       "path": "hooks/tests/lib/upgrade-fixtures.sh",
-      "sha256": "e102746ce6ca31c9cf7d4825ba2094b4f0b834b7259c138fdbe1e60c12f18a71"
+      "sha256": "2f8c543fcf4c629573d075891e06f1bb1e86bba6b862446af3d1774232f0c780"
     },
     {
       "path": "hooks/tests/lib/workflow_graph_check.py",
@@ -878,7 +894,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "bac6ab697cc74ee40b03581a58e3e35386ea2b485ea2afd9c9307d8ea97c967c"
+      "sha256": "ae62307917fbd4a3f5a9494e9576dc3e3a808af252558bf7b23f7e7ca81cedac"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -1005,6 +1021,10 @@
       "sha256": "c65495769f164ae88d5098fc5637db85901aced4cdefa100de5fece6d52f902a"
     },
     {
+      "path": "hooks/tests/test-missing-base-detection.sh",
+      "sha256": "c21a23ef9bfd32dbf0b67d1b66831e097ff5fb31f41df814baa70d26873df548"
+    },
+    {
       "path": "hooks/tests/test-module-size.sh",
       "sha256": "c7f4d1a904477bf46b0be740bd2d9e1ffd8acb1e4ce92424aed6b1d366f41ece"
     },
@@ -1015,6 +1035,10 @@
     {
       "path": "hooks/tests/test-newline-preserve.sh",
       "sha256": "f0da399c294dcd11bd1ab2fd9a4707988b2d03c8fa651ed1a6b953baea188a0d"
+    },
+    {
+      "path": "hooks/tests/test-plugin-parity-scope.sh",
+      "sha256": "2fcece866e2dacfd05db092dda73186d7da6cbe707a76569300f1ffd039becd4"
     },
     {
       "path": "hooks/tests/test-po-investigate.sh",
@@ -1055,6 +1079,10 @@
     {
       "path": "hooks/tests/test-prohibition-residency.sh",
       "sha256": "0cc3f4dedf67e5a95306b2a90a5ebf335bf7729644312dc21572febd1ed1b69c"
+    },
+    {
+      "path": "hooks/tests/test-recover-missing-base.sh",
+      "sha256": "88d2f31c88555ffa19adb47d9c041fe40c31c3a7ac7e6d875f01f2f101ed1cb7"
     },
     {
       "path": "hooks/tests/test-recovery-hint-honesty.sh",
@@ -1122,7 +1150,11 @@
     },
     {
       "path": "hooks/tests/test-upgrade-source-boundary.sh",
-      "sha256": "e42c346a22d1b0fdbdec961cc0746d2198bbb65df544c44d1e5637b40803f514"
+      "sha256": "0f653d9b9a98ed4d708fe7ef005bc460140714a9c1ef23e9c4e55213df4e529c"
+    },
+    {
+      "path": "hooks/tests/test-upgrade-truthful-base.sh",
+      "sha256": "8c8b464e15dfa73205a12f0653a003b22acb9a7a856b9800e3157dc3c086c963"
     },
     {
       "path": "hooks/tests/test-vendored-rendered.sh",
@@ -1325,5 +1357,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "cdf2f1470a1f911b6beda7d4a2cdc42f79de947a97d8e1fc4607a70491fef272"
+  "manifest_self_sha256": "7700ee655d6fafab5227fa91ebac60a3d645e331173855bc255af93100d91626"
 }
