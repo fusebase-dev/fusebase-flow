@@ -27,7 +27,7 @@ has_cr() { [ -n "$(tr -dc '\r' < "$1" 2>/dev/null)" ]; }
 # while claiming to measure this one. Adding an engine-sourced lib means adding it here.
 copy_boundary_libs() {   # <lib-dest-dir>
   local f
-  for f in materialize-managed-source.sh backup-hygiene.sh synthesize-base.sh upgrade-delivery-guard.sh; do
+  for f in materialize-managed-source.sh backup-hygiene.sh synthesize-base.sh upgrade-delivery-guard.sh truthful-base.sh; do
     [ -f "$ROOT/hooks/local/lib/$f" ] && cp "$ROOT/hooks/local/lib/$f" "$1/"
   done
   return 0
