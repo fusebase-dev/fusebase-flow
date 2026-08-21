@@ -18,7 +18,10 @@ _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE.parent))
 
 from shared.audit_logger import emit  # noqa: E402
-from shared.command_policy import evaluate as evaluate_command  # noqa: E402
+from shared.command_policy import (  # noqa: E402
+    evaluate as evaluate_command,
+    is_command_tool,
+)
 from shared.policy_loader import find_git_root  # noqa: E402
 
 
@@ -37,8 +40,12 @@ def main() -> int:
     tool_name = pr.get("tool_name") or event.get("tool_name") or ""
     tool_input = pr.get("tool_input") or event.get("tool_input") or {}
 
-    # If this is a Bash-like permission request, defer to command_policy.
-    if tool_name and tool_name.lower() in {"bash", "shell", "terminal"}:
+    # If this is a command-carrying tool, defer to command_policy (E6). The set is
+    # shared.command_policy.COMMAND_TOOL_NAMES — this handler used to keep its own
+    # literal, which was narrower still than pre_tool_use's (no ExecuteCommand, no
+    # PowerShell), so a gated command arriving here fell through to the "ask" default
+    # and an FR-06 hard deny silently degraded to an operator prompt.
+    if is_command_tool(tool_name):
         command = tool_input.get("command") or ""
         if command:
             cd = evaluate_command(command, root=root)

@@ -40,6 +40,39 @@ class CommandDecision:
     all_required_actions: list[str] = field(default_factory=list)
 
 
+# TRIPWIRE (E6): the SINGLE list of host tool names that carry a shell command. Every
+# FR-06 deny and FR-12 require_approval below is reachable only for a tool named here — a
+# host tool left out runs commands ungated (Claude Code exposes `PowerShell` beside `Bash`
+# on Windows; that omission bypassed the whole command gate). Both hook entry points
+# (pre_tool_use, permission_request) MUST read this set, never a local copy: the two
+# handlers previously carried different, silently narrower sets. Membership is compared
+# case-insensitively. Widen freely — a name no host emits never matches, while a missing
+# name is a hole; only remove one when the host tool is proven gone.
+COMMAND_TOOL_NAMES = frozenset({
+    "Bash",            # Claude Code / Codex / most hosts (observed on this host)
+    "PowerShell",      # Claude Code on Windows (observed on this host) — the E6 bypass
+    "pwsh",            # PowerShell Core binary name, should a host use it
+    "Shell",
+    "Terminal",
+    "ExecuteCommand",
+})
+
+# TRIPWIRE: COMMAND_TOOL_NAMES keeps each host's CANONICAL SPELLING because downstream
+# consumers assert set membership against it directly (the E6 filing froze a
+# `VETO_ONLY_TOOLS & BASH_LIKE_TOOLS == set()` arm designed to flip when we widen).
+# Lower-casing the public set would silently defeat those arms. Matching normalizes here.
+_COMMAND_TOOL_NAMES_LOWER = frozenset(n.lower() for n in COMMAND_TOOL_NAMES)
+
+
+def is_command_tool(tool_name: str | None) -> bool:
+    """True iff `tool_name` is a host tool that executes a shell command (E6).
+
+    Case-insensitive: pre_tool_use matched exact-case and permission_request lower-cased,
+    so the two gates disagreed on `powershell` vs `PowerShell`. One rule now, the wider one.
+    """
+    return bool(tool_name) and tool_name.strip().lower() in _COMMAND_TOOL_NAMES_LOWER
+
+
 # Reporting priority when several artifacts for one action all fail: name the most
 # specific failure, so the operator can tell a stale approval from an absent one (AC14).
 _VERDICT_RANK = {
@@ -369,4 +402,5 @@ def evaluate(command: str, *, root: Path | None = None) -> CommandDecision:
     )
 
 
-__all__ = ["CommandDecision", "NO_ARTIFACT", "evaluate", "explain_rule_denial", "resolve_root"]
+__all__ = ["COMMAND_TOOL_NAMES", "CommandDecision", "NO_ARTIFACT", "evaluate",
+           "explain_rule_denial", "is_command_tool", "resolve_root"]

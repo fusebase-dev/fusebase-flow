@@ -21,7 +21,11 @@ _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE.parent))
 
 from shared.audit_logger import emit  # noqa: E402
-from shared.command_policy import evaluate as evaluate_command  # noqa: E402
+from shared.command_policy import (  # noqa: E402
+    COMMAND_TOOL_NAMES,
+    evaluate as evaluate_command,
+    is_command_tool,
+)
 from shared.path_policy import (  # noqa: E402
     assert_protected_policy_loaded,
     evaluate as evaluate_path,
@@ -30,14 +34,18 @@ from shared.policy_loader import find_git_root  # noqa: E402
 from shared.secret_scanner import scan, block_decision  # noqa: E402
 
 
-BASH_LIKE_TOOLS = {"Bash", "Shell", "Terminal", "ExecuteCommand"}
+# TRIPWIRE (E6): re-export only. The authoritative set is shared.command_policy.
+# COMMAND_TOOL_NAMES so this handler and permission_request.py can never diverge
+# again; a tool absent from it runs commands ungated. Never re-inline a literal here,
+# and route every membership test through is_command_tool() (case-insensitive).
+BASH_LIKE_TOOLS = COMMAND_TOOL_NAMES
 EDIT_LIKE_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit", "ApplyDiff", "create_file"}
 
 
 def _command_path(event: dict) -> tuple[str | None, str | None]:
     """Return (command, target_path) extracted from event['tool_input']."""
     inp = event.get("tool_input") or {}
-    if event.get("tool_name") in BASH_LIKE_TOOLS:
+    if is_command_tool(event.get("tool_name")):
         return inp.get("command") or "", None
     if event.get("tool_name") in EDIT_LIKE_TOOLS:
         target = inp.get("file_path") or inp.get("path") or inp.get("filePath") or ""
@@ -60,7 +68,7 @@ def main() -> int:
     tool_name = event.get("tool_name", "")
 
     # 1. Command-policy check (Bash-like)
-    if tool_name in BASH_LIKE_TOOLS:
+    if is_command_tool(tool_name):
         command = (event.get("tool_input") or {}).get("command") or ""
         cd = evaluate_command(command, root=root)
         if cd.decision != "allow":
