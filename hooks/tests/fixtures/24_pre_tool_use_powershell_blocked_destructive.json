@@ -1,0 +1,12 @@
+{
+  "_test": "E6 REGRESSION GUARD — an FR-06 hard deny must fire for the PowerShell tool, not only for Bash. Claude Code exposes a PowerShell tool beside Bash on Windows; while BASH_LIKE_TOOLS omitted it, this exact event returned allow and the command ran ungated. Do not narrow COMMAND_TOOL_NAMES in hooks/shared/command_policy.py.",
+  "_handler": "pre_tool_use.py",
+  "_expected_decision": "deny",
+  "_expected_rule_id": "FR-06",
+  "event": "pre_tool_use",
+  "session_id": "test-24",
+  "cwd": ".",
+  "host_tool": "claude_code",
+  "tool_name": "PowerShell",
+  "tool_input": { "command": "git reset --hard HEAD~1" }
+}

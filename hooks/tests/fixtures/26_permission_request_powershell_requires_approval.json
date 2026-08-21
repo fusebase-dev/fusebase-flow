@@ -1,0 +1,14 @@
+{
+  "_test": "E6 REGRESSION GUARD — the SECOND entry point. permission_request.py kept its own tool literal {bash,shell,terminal}, narrower still than pre_tool_use's, so a gated PowerShell (or ExecuteCommand) request fell through to the handler's 'ask' default and an FR-12 deny degraded to an operator prompt. Both handlers must read shared.command_policy.COMMAND_TOOL_NAMES.",
+  "_handler": "permission_request.py",
+  "_expected_decision": "deny",
+  "_expected_rule_id": "FR-12",
+  "event": "permission_request",
+  "session_id": "test-26",
+  "cwd": ".",
+  "host_tool": "claude_code",
+  "permission_request": {
+    "tool_name": "PowerShell",
+    "tool_input": { "command": "npx prisma migrate deploy" }
+  }
+}

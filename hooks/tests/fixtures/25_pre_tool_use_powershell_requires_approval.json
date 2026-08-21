@@ -1,0 +1,12 @@
+{
+  "_test": "E6 REGRESSION GUARD — an FR-12 require_approval rule must fire for the PowerShell tool. Sibling of fixture 24 for the approval stage rather than the deny stage: deny short-circuits, so a tool-set narrowing could be masked by the deny arm alone. Carries no artifact, so database_migration is NO_ARTIFACT (same basis as fixtures 22/23).",
+  "_handler": "pre_tool_use.py",
+  "_expected_decision": "deny",
+  "_expected_rule_id": "FR-12",
+  "event": "pre_tool_use",
+  "session_id": "test-25",
+  "cwd": ".",
+  "host_tool": "claude_code",
+  "tool_name": "PowerShell",
+  "tool_input": { "command": "npx prisma migrate deploy" }
+}
