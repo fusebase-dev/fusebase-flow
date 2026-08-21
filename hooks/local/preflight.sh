@@ -335,40 +335,19 @@ for c in "${FLOW_COMMANDS[@]}"; do
     grep -q "/$c\b" CLAUDE.md || err "CLAUDE.md does not list the /$c slash command"
 done
 grep -qi 'invoke the `handoff` skill' AGENTS.md || err "AGENTS.md does not explain the portable (non-Claude) handoff invocation"
-# Plugin-manifest VERSION parity — scoped to FLOW-OWNED manifests only.
-# TRIPWIRE: existence is NOT ownership. docs/install-fusebase-cli-project.md targets projects that
-# may already carry their own (Fusebase CLI-generated) .codex-plugin/plugin.json, so an
-# existence-only check made following the install guide produce an immediate false error about a
-# manifest Flow does not own. The `name` field is the ownership test; a foreign name is skipped.
-# ff_plugin_field FILE PYEXPR: echo a field, or "" when the file is absent/unparsable.
-ff_plugin_field() {
-    command -v python3 >/dev/null 2>&1 || return 0
-    [ -f "$1" ] || return 0
-    FF_PJ="$1" python3 -c "
-import json, os, sys
-try:
-    d = json.load(open(os.environ['FF_PJ'], encoding='utf-8'))
-except Exception:
-    sys.exit(0)
-print($2 or '')
-" 2>/dev/null
-}
-for pj in .claude-plugin/plugin.json .codex-plugin/plugin.json; do
-    pj_name="$(ff_plugin_field "$pj" "d.get('name','')")"
-    [ "$pj_name" = "fusebase-flow" ] || continue
-    pj_ver="$(ff_plugin_field "$pj" "d.get('version','')")"
-    if [ -n "$pj_ver" ] && [ -n "$VER_FILE" ] && [ "$pj_ver" != "$VER_FILE" ]; then
-        err "$pj version ($pj_ver) != VERSION ($VER_FILE); bump them together"
-    fi
-done
-# marketplace.json is NOT written by sync-version-strings.sh — same manual-bump parity as
-# plugin.json, or it silently drifts (it lagged ~20 minor versions). Same ownership scoping.
-mkt_name="$(ff_plugin_field .claude-plugin/marketplace.json "(d.get('plugins') or [{}])[0].get('name', d.get('name',''))")"
-if [ "$mkt_name" = "fusebase-flow" ]; then
-    mkt_ver="$(ff_plugin_field .claude-plugin/marketplace.json "(d.get('plugins') or [{}])[0].get('version','')")"
-    if [ -n "$mkt_ver" ] && [ -n "$VER_FILE" ] && [ "$mkt_ver" != "$VER_FILE" ]; then
-        err ".claude-plugin/marketplace.json plugins[0].version ($mkt_ver) != VERSION ($VER_FILE); bump them together"
-    fi
+# Plugin-manifest + marketplace VERSION parity — hooks/local/lib/plugin-parity.sh.
+# TRIPWIRE: the rule is scoped TWICE and both halves are load-bearing — the manifest must be
+# FLOW-OWNED (`name`, because existence is not ownership) AND this must be the PUBLISHER repo
+# (the release ledger, because a consumer's manifests are named fusebase-flow too — they were
+# generated from Flow's — and firing there left them hand-editing after every release). The
+# reasoning, and why adopting these files into the managed set is the WRONG fix, lives in the
+# lib. Do not re-inline this loop: two implementations of one rule means the unscoped one
+# keeps firing.
+FFPP_LIB="hooks/local/lib/plugin-parity.sh"   # ROOT-relative: preflight cd's to $ROOT at :11
+# shellcheck source=lib/plugin-parity.sh
+[ -f "$FFPP_LIB" ] && . "$FFPP_LIB"
+if command -v ffpp_errors >/dev/null 2>&1; then
+    while IFS= read -r pperr; do [ -n "$pperr" ] && err "$pperr"; done < <(ffpp_errors)
 fi
 
 # 10. Release-fingerprint rows are TAG-driven, not publish-driven
