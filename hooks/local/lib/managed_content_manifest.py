@@ -369,6 +369,60 @@ def build_plan(rows: list[dict], *, auto_yes: bool,
     return plan, abort
 
 
+def unclassified_preserved(rows: list[dict], plan: list[tuple[str, str]]) -> list[str]:
+    """Paths this run PRESERVED because it could not classify them (decision N6-D1).
+
+    `unknown-base` (K9 row 10) is the only class meaning "no historical base entry existed
+    for this path", and only a `skip` op means the run left the local bytes alone. Both
+    halves are required: an attended run may choose `overwrite` for `unknown-base`, and that
+    path IS then delivered, so the base has earned the right to record it.
+
+    TRIPWIRE — the scope is exactly this intersection. `consumer-only` is EARNED (upstream
+    did not change the file, so upstream's manifest entry equals the old base's) and must
+    stay recorded. Widening this to "everything preserved" would strip legitimate entries
+    and re-manufacture the missing-base state N6 exists to kill.
+    """
+    skipped = {path for op, path in plan if op == "skip"}
+    return [r["path"] for r in rows
+            if r["classification"] == "unknown-base" and r["path"] in skipped]
+
+
+def prune_base(manifest_path: Path, omit: set[str]) -> int:
+    """Drop `omit` entries from a written base manifest and RE-SEAL it (decision N6-D1).
+
+    WHY (N6): build_plan appends the base refresh as a wholesale copy of the SOURCE tree's
+    manifest — "what upstream shipped you this time" (K13b). That claim is true only for
+    paths the run actually applied. For a path preserved as `unknown-base` it records
+    UPSTREAM's bytes as the CONSUMER's history, so the next run reads L != B, U == B and
+    reports `consumer-only` — "YOU changed these" — for a file the consumer never touched;
+    one release later it is `changed-by-both` and the upgrade aborts. Measured against the
+    v4.12.0 engine on hooks/local/control.sh.
+
+    A missing entry re-classifies as `unknown-base`: preserved AND REPORTED every run, K9's
+    designed safe residue. A false entry is silent and permanent. That asymmetry is the
+    decision; see docs/specs/half-apply-self-seals/decisions.md N6-D1.
+
+    TRIPWIRE — asset_count and manifest_self_sha256 MUST be recomputed here. `verify` checks
+    the self-hash before anything else and returns BROKEN on a mismatch, which would make
+    every downstream integrity check useless. Pruned paths then report `extra` instead of
+    `modified`; both are DRIFT.
+    """
+    try:
+        doc = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
+        assets = [a for a in doc["assets"] if a["path"] not in omit]
+    except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
+        return 2
+    if len(assets) == len(doc["assets"]):
+        return 0
+    doc["assets"] = assets
+    doc["asset_count"] = len(assets)
+    doc["manifest_self_sha256"] = _self_hash(
+        doc.get("schema_version"), doc.get("flow_version", ""), assets)
+    with Path(manifest_path).open("w", encoding="utf-8", newline="\n") as fh:
+        fh.write(json.dumps(doc, indent=2) + "\n")
+    return 0
+
+
 def render_report(rows: list[dict], *, auto_yes: bool, backup_suffix: str,
                   resume_command: str, aborting: bool = False) -> str:
     """The AC15 conflict report.
@@ -428,7 +482,8 @@ def _git_root() -> Path:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="managed_content_manifest.py")
     parser.add_argument("command",
-                        choices=["stamp", "verify", "classify", "plan", "list-managed"])
+                        choices=["stamp", "verify", "classify", "plan", "list-managed",
+                                 "prune-base"])
     parser.add_argument("--root", default=None)
     parser.add_argument("--out", default=MANIFEST_REL, help="stamp: manifest destination")
     parser.add_argument("--base", default=None, help="classify: base manifest path")
@@ -439,6 +494,9 @@ def main(argv=None) -> int:
     parser.add_argument("--decisions", default="",
                         help="plan: attended choices, e.g. consumer-only=keep,changed-by-both=abort")
     parser.add_argument("--plan-file", default=None, help="plan: write the TSV apply plan here")
+    parser.add_argument("--manifest", default=None, help="prune-base: manifest to re-seal")
+    parser.add_argument("--omit-file", default=None,
+                        help="prune-base: newline-separated paths to drop from the manifest")
     parser.add_argument("--report-file", default=None, help="plan: write the AC15 report here")
     parser.add_argument("--backup-suffix", default="<TS>", help="plan: report the backup stamp")
     parser.add_argument("--resume-command", default="bash hooks/local/upgrade.sh",
@@ -462,6 +520,17 @@ def main(argv=None) -> int:
         return stamp(root, args.out)
     if args.command == "verify":
         return verify(root, args.json)
+    if args.command == "prune-base":
+        if not args.manifest or not args.omit_file:
+            print("[managed-content] prune-base requires --manifest and --omit-file",
+                  file=sys.stderr)
+            return 2
+        try:
+            omit = {ln.strip() for ln in
+                    Path(args.omit_file).read_text(encoding="utf-8").splitlines() if ln.strip()}
+        except OSError:
+            return 0
+        return prune_base(Path(args.manifest), omit) if omit else 0
 
     if not args.upstream:
         print(f"[managed-content] {args.command} requires --upstream <tree>", file=sys.stderr)
@@ -494,6 +563,15 @@ def main(argv=None) -> int:
     if args.plan_file and not abort:
         Path(args.plan_file).write_text(
             "".join(f"{op}\t{path}\n" for op, path in plan), encoding="utf-8", newline="\n")
+        # N6-D1 sidecar, NOT a plan column. TRIPWIRE: the plan's TSV shape is FROZEN —
+        # hooks/local/upgrade.sh reads it with `read -r op path`, and the engine consuming
+        # this plan is the consumer's INSTALLED one while the module is the SOURCE's
+        # (upgrade.sh:312), so a third field would be swallowed into $path by every older
+        # engine. A sidecar is invisible to them: they simply do not prune, which is
+        # exactly today's behaviour.
+        Path(args.plan_file + ".unclassified").write_text(
+            "".join(p + "\n" for p in unclassified_preserved(rows, plan)),
+            encoding="utf-8", newline="\n")
     # rc 9 = ABORT (changed-by-both needs a human). Distinct from 1/2/4 so the shell can
     # tell "stop, nothing written" from a verify verdict.
     return 9 if abort else 0

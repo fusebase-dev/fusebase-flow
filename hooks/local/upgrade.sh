@@ -383,7 +383,7 @@ FFSB_LIB="$SOURCE_TREE/hooks/local/lib/synthesize-base.sh"
 FFDG_LIB="$SOURCE_TREE/hooks/local/lib/upgrade-delivery-guard.sh"
 [ -f "$FFDG_LIB" ] || FFDG_LIB="hooks/local/lib/upgrade-delivery-guard.sh"
 # shellcheck source=lib/upgrade-delivery-guard.sh
-[ -f "$FFDG_LIB" ] && . "$FFDG_LIB"
+[ -f "$FFDG_LIB" ] && . "$FFDG_LIB"; FFTB_LIB="${FFDG_LIB%/*}/truthful-base.sh"; [ -f "$FFTB_LIB" ] && . "$FFTB_LIB"   # N6-D1
 FF_BASE_FOR_CLASSIFY="$BASE_MANIFEST"
 if [ "$CLASSIFY_OK" -eq 1 ] && [ ! -f "$BASE_MANIFEST" ] && [ -f "$FFSB_LIB" ]; then
   # shellcheck source=lib/synthesize-base.sh
@@ -568,7 +568,7 @@ if [ "$CLASSIFY_OK" -eq 1 ]; then
     esac
   done < "$APPLY_PLAN"
   echo "[upgrade] applied $ff_applied file(s), removed $ff_removed, preserved $ff_preserved (per-file, K15)."
-  command -v ff_n5_delivery_count >/dev/null 2>&1 && FF_DELIVERED="$(ff_n5_delivery_count "$APPLY_PLAN" "$BASE_MANIFEST")"; rm -f "$APPLY_PLAN" "$CLASSIFY_REPORT"
+  command -v ff_n5_delivery_count >/dev/null 2>&1 && FF_DELIVERED="$(ff_n5_delivery_count "$APPLY_PLAN" "$BASE_MANIFEST")"; command -v fftb_prune_base >/dev/null 2>&1 && fftb_prune_base "$BASE_MANIFEST" "$APPLY_PLAN.unclassified" "$MCM" ff_up_py; rm -f "$APPLY_PLAN" "$APPLY_PLAN.unclassified" "$CLASSIFY_REPORT"
 else
   for d in "${CONTENT_DIRS[@]}"; do
     if [ -d "$SOURCE_TREE/$d" ] && dir_differs "$d"; then copy_dir "$d"; fi
