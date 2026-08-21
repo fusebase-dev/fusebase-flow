@@ -4,6 +4,41 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [4.13.1] — 2026-08-21
+
+**A test could delete your temp directory on Windows.** Reported by the paperclip+hermes-v1 consumer
+as escalation E7, after losing data to it three times. Take this release if you run the test suite.
+
+### Fixed — cleanup ran before the variable it deletes was assigned
+
+Three tests defined `finish() { [ -n "${TMP:-}" ] && rm -rf "$TMP"; ... }` and only assigned
+`TMP="$(mktemp -d)"` many lines later. On Windows `TMP` is a **pre-set environment variable** naming
+the operator's own temp directory, so any early exit in that window ran `rm -rf` against it. The
+`[ -n ... ]` guard did not help — a non-empty value is exactly what caused it.
+
+The trigger is a shallow `.fusebase-flow-source` clone, which is the **documented adoption command**,
+run under the verification command the adoption docs recommend.
+
+Variables are renamed to script-namespaced names that cannot collide with the environment, and every
+delete is now conditional on a path the script itself created. `test-po-investigate.sh` was hardened
+too; its tripwire states plainly that it was *not* destructive, only unguarded.
+
+### Added — a regression rule, third attempt
+
+Two rows in a fast-tier phase, so they run on every local default run rather than only in CI. The
+first two rules were wrong in an instructive way: banning `rm -r` on environment-named variables
+flagged 22 safe files; banning cleanup-reachable-before-assignment flagged 106, nearly all harmless
+because an unassigned variable aborts under `set -u`. Only the **conjunction** is the defect — an
+unassigned `TMP` does not abort, it silently resolves to a real directory. That rule flags exactly 3
+before the fix and 0 after, and independently corroborates that the fourth file was never destructive.
+
+### Changed — shallow clones skip with a reason, gated
+
+A depth-1 clone genuinely lacks the pre-extraction blob, so it now skips rather than crashing. The
+skip is gated on the repository actually being shallow: on a full clone an unreachable parent means
+history was rewritten and remains a hard FAIL. Each skipped assertion emits its own row stating NOT
+VERIFIED, so it cannot read as a pass.
+
 ## [4.13.0] — 2026-08-20
 
 An upgrade no longer records history it did not earn. Reported by the WorkHub Managed consumer as
