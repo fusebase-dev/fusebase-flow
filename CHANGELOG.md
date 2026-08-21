@@ -4,6 +4,52 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [4.13.0] — 2026-08-20
+
+An upgrade no longer records history it did not earn. Reported by the WorkHub Managed consumer as
+finding N6 (HIGH) with a three-run sandbox reproduction across two release boundaries.
+
+Minor rather than patch: the upgrade writes a different base, `/fusebase-health` gains a missing-base
+finding, and `hooks/local/recover-missing-base.sh` is new.
+
+### Fixed — the upgrade blamed consumers for files they never touched, then aborted
+
+An upgrade that cannot classify a file preserves it, correctly — but it then recorded **upstream's
+current bytes** as that file's base. One release later the classifier compared the consumer's
+untouched file against that base, concluded they had edited it, and reported `consumer-only — YOU
+changed these`. Across a release boundary the same paths became `changed-by-both` and the run
+**aborted, exit 3**.
+
+Reproduced live on the shipped v4.12.0 engine. `hooks/local/control.sh` — never touched by the
+consumer — was preserved as unclassifiable, recorded with upstream's bytes, then blamed on them.
+
+Because the repair lives in `hooks/local/upgrade.sh`, the file an affected install never receives,
+**v4.11.0's own fix could not reach the population it was written for.**
+
+**The new base omits entries for paths the run preserved as `unknown-base`.** A path omitted
+classifies `unknown-base` next run — preserve and report, every run. A path recorded with bytes the
+run did not earn classifies `consumer-only` and freezes silently. A missing entry is visible and
+recoverable; a false entry is neither.
+
+**It keys on outcome, not cause, and so reverses nothing.** Refusing the upgrade on synthesis failure
+was already rejected in this project's decision record — *"strands the forked consumer who still
+received files; the refusal must key on outcome, not on cause"*. The shipped assertion protecting
+that consumer stayed green with a zero-byte diff, verified twice.
+
+### Added
+
+- `/fusebase-health` detects the missing-base state and routes to `bootstrap-upgrade.sh`; for a tree that already has a base it emits a conditional pointer, never a verdict.
+- `hooks/local/recover-missing-base.sh` — repairs a poisoned tree only where external ground truth exists. Three refusal shapes; it never invents a baseline.
+- Base provenance stamping, so a poisoned base self-identifies from the next upgrade onward.
+- Plugin-manifest parity is publisher-only; consumer plugin manifests stay unmanaged.
+
+### Limits, each asserted by a test
+
+This does not repair installs already poisoned. The health check cannot reach one, because the check
+is itself among the frozen files. **No local signal distinguishes a poisoned tree from a healthy
+one** — measured identical on every candidate signal, including the consumer's own forensic tell,
+which is non-discriminating by design. Affected paths stay stale but visible rather than refreshed.
+
 ## [4.12.0] — 2026-08-19
 
 The health check can see the enforcement layer. Reported by the paperclip+hermes-v1 consumer, fifth
