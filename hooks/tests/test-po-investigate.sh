@@ -22,10 +22,17 @@ WRAPPER="$ROOT/hooks/local/po-investigate.sh"
 pass=0; fail=0
 ok()  { pass=$((pass + 1)); echo "PASS: po-investigate $1"; }
 bad() { fail=$((fail + 1)); echo "FAIL: po-investigate $1 ($2)"; }
-finish() { echo "[test-po-investigate] $pass/$((pass + fail)) PASS"; rm -rf "$TMP" 2>/dev/null; exit $fail; }
+# TRIPWIRE (incident E7, 2026-08-21) — platform/data-loss: never name this TMP/TEMP/TMPDIR.
+# On Windows those are PRE-SET env vars holding the operator's profile temp dir. No `finish`
+# call precedes the mkdtemp here (verified — this file did NOT destroy), so the guard exists so
+# that inserting an early exit above the assignment cannot silently make it destructive.
+PI_TMP=""
+pi_cleanup() { case "$PI_TMP" in "${TMPDIR:-/tmp}"/ffhc-poinv.*) rm -rf -- "$PI_TMP" ;; esac; }
+finish() { echo "[test-po-investigate] $pass/$((pass + fail)) PASS"; pi_cleanup; exit $fail; }
 
-TMP="$(mktemp -d 2>/dev/null || echo "${TMPDIR:-/tmp}/po-inv-$$")"
-mkdir -p "$TMP"
+# The former `|| echo .../po-inv-$$` fallback is dropped on purpose: a path this script did not
+# mkdtemp must never reach the recursive delete above.
+PI_TMP="$(mktemp -d "${TMPDIR:-/tmp}/ffhc-poinv.XXXXXX")" || { bad "setup-tmpdir" "mktemp -d failed"; finish; }
 
 [ -f "$WRAPPER" ] || { bad "setup-wrapper-present" "missing $WRAPPER"; finish; }
 command -v git >/dev/null 2>&1 || { bad "setup-git-present" "git not on PATH"; finish; }
@@ -48,13 +55,13 @@ if [ -n "$LAST_WRAP_COMMIT" ]; then
     fi
 fi
 
-RED_WRAPPER="$TMP/po-investigate.red.sh"
+RED_WRAPPER="$PI_TMP/po-investigate.red.sh"
 if [ -n "$RED_REF" ] && git -C "$ROOT" show "${RED_REF}:hooks/local/po-investigate.sh" > "$RED_WRAPPER" 2>/dev/null && [ -s "$RED_WRAPPER" ]; then
     if grep -q "_reject_git_escapes" "$RED_WRAPPER"; then
         # The chosen RED ref is already hardened — premise moved; surface loudly.
         bad "red-baseline-is-prefix" "RED ref $RED_REF already carries the fix (cannot prove the vector was live)"
     else
-        red_out="$TMP/red-breach.txt"; rm -f "$red_out"
+        red_out="$PI_TMP/red-breach.txt"; rm -f "$red_out"
         bash "$RED_WRAPPER" diff --output="$red_out" HEAD~1 HEAD >/dev/null 2>&1 || true
         if [ -f "$red_out" ]; then
             ok "red-prefix-wrapper-breaches (--output wrote a file pre-fix)"
@@ -87,16 +94,16 @@ refuse_case() { # refuse_case <name> <expect-file> <cmd...>
     fi
 }
 
-refuse_case "green-diff-output-refused"  "$TMP/g-diff.txt"  bash "$WRAPPER" diff --output="$TMP/g-diff.txt" HEAD~1 HEAD
-refuse_case "green-diff-output-eq-o"     "$TMP/g-o.txt"     bash "$WRAPPER" diff -o "$TMP/g-o.txt" HEAD~1 HEAD
-refuse_case "green-show-output-refused"  "$TMP/g-show.txt"  bash "$WRAPPER" show --output="$TMP/g-show.txt" HEAD
-refuse_case "green-log-output-refused"   "$TMP/g-log.txt"   bash "$WRAPPER" log --output="$TMP/g-log.txt" --oneline -3
-refuse_case "green-ext-diff-flag-refused" "$TMP/g-ext.txt"  env GIT_EXTERNAL_DIFF="touch $TMP/g-ext.txt;" bash "$WRAPPER" diff --ext-diff HEAD~1 HEAD
-refuse_case "green-c-config-refused"     "$TMP/g-cfg.txt"   bash "$WRAPPER" diff -c "diff.external=touch $TMP/g-cfg.txt;" --ext-diff HEAD~1 HEAD
-refuse_case "green-paginate-refused"     "$TMP/g-pag.txt"   env GIT_PAGER="touch $TMP/g-pag.txt; cat" bash "$WRAPPER" log --paginate --oneline -3
+refuse_case "green-diff-output-refused"  "$PI_TMP/g-diff.txt"  bash "$WRAPPER" diff --output="$PI_TMP/g-diff.txt" HEAD~1 HEAD
+refuse_case "green-diff-output-eq-o"     "$PI_TMP/g-o.txt"     bash "$WRAPPER" diff -o "$PI_TMP/g-o.txt" HEAD~1 HEAD
+refuse_case "green-show-output-refused"  "$PI_TMP/g-show.txt"  bash "$WRAPPER" show --output="$PI_TMP/g-show.txt" HEAD
+refuse_case "green-log-output-refused"   "$PI_TMP/g-log.txt"   bash "$WRAPPER" log --output="$PI_TMP/g-log.txt" --oneline -3
+refuse_case "green-ext-diff-flag-refused" "$PI_TMP/g-ext.txt"  env GIT_EXTERNAL_DIFF="touch $PI_TMP/g-ext.txt;" bash "$WRAPPER" diff --ext-diff HEAD~1 HEAD
+refuse_case "green-c-config-refused"     "$PI_TMP/g-cfg.txt"   bash "$WRAPPER" diff -c "diff.external=touch $PI_TMP/g-cfg.txt;" --ext-diff HEAD~1 HEAD
+refuse_case "green-paginate-refused"     "$PI_TMP/g-pag.txt"   env GIT_PAGER="touch $PI_TMP/g-pag.txt; cat" bash "$WRAPPER" log --paginate --oneline -3
 
 # Env scrub: an inherited GIT_EXTERNAL_DIFF must NOT fire even on a legit diff (no --ext-diff).
-scrub_out="$TMP/g-scrub.txt"; rm -f "$scrub_out"
+scrub_out="$PI_TMP/g-scrub.txt"; rm -f "$scrub_out"
 if GIT_EXTERNAL_DIFF="touch $scrub_out;" bash "$WRAPPER" diff HEAD~1 HEAD >/dev/null 2>&1 && [ ! -f "$scrub_out" ]; then
     ok "green-env-scrub-no-external-exec"
 else

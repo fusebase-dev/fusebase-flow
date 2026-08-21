@@ -24,7 +24,13 @@ RULES="FLOW_RULES.md"
 pass=0; fail=0
 ok()  { pass=$((pass + 1)); echo "PASS: history-extraction $1"; }
 bad() { fail=$((fail + 1)); echo "FAIL: history-extraction $1 ($2)"; }
-finish() { [ -n "${TMP:-}" ] && rm -rf "$TMP"; echo "[test-history-extraction] $pass/$((pass + fail)) PASS"; exit $fail; }
+# TRIPWIRE (incident E7, 2026-08-21) — platform/data-loss: never name this TMP/TEMP/TMPDIR.
+# On Windows those are PRE-SET env vars holding the operator's profile temp dir, and the four
+# `finish` calls below (missing-input x2, extraction-commit-resolved x2) run BEFORE the mkdtemp
+# assignment — a non-empty check passed and deleted the operator's whole %TEMP% on a shallow clone.
+HX_TMP=""
+hx_cleanup() { case "$HX_TMP" in "${TMPDIR:-/tmp}"/ffhc-histext.*) rm -rf -- "$HX_TMP" ;; esac; }
+finish() { hx_cleanup; echo "[test-history-extraction] $pass/$((pass + fail)) PASS"; exit $fail; }
 
 [ -f "$HIST" ]  || { bad "setup-history-present" "missing $HIST"; finish; }
 [ -f "$RULES" ] || { bad "setup-rules-present" "missing $RULES"; finish; }
@@ -45,37 +51,37 @@ git cat-file -e "$ADD_SHA^:$RULES" 2>/dev/null \
     || { bad "extraction-commit-resolved" "pre-extraction $RULES unreachable at $ADD_SHA^"; finish; }
 ok "extraction-commit-resolved (${ADD_SHA:0:7})"
 
-TMP="$(mktemp -d)"
+HX_TMP="$(mktemp -d "${TMPDIR:-/tmp}/ffhc-histext.XXXXXX")" || { bad "setup-tmpdir" "mktemp -d failed"; finish; }
 # The payload is the fenced log block; the surrounding prose banner is deliberately NEW
 # (it points back at the live file), so equivalence is asserted on the payload, not the file.
-git show "$ADD_SHA^:$RULES" | sed -n '/^## Amendment log/,$p' | sed -n '/^```$/,$p' > "$TMP/old.raw"
-sed -n '/^```$/,$p' "$HIST" > "$TMP/new.raw"
-[ -s "$TMP/old.raw" ] && [ -s "$TMP/new.raw" ] \
+git show "$ADD_SHA^:$RULES" | sed -n '/^## Amendment log/,$p' | sed -n '/^```$/,$p' > "$HX_TMP/old.raw"
+sed -n '/^```$/,$p' "$HIST" > "$HX_TMP/new.raw"
+[ -s "$HX_TMP/old.raw" ] && [ -s "$HX_TMP/new.raw" ] \
     && ok "payloads-extracted" || { bad "payloads-extracted" "one side extracted empty"; finish; }
 
 # THE amended contract: old payload with trailing newlines normalized to exactly one == new.
-printf '%s\n' "$(cat "$TMP/old.raw")" > "$TMP/old.norm"
-cmp -s "$TMP/old.norm" "$TMP/new.raw" \
+printf '%s\n' "$(cat "$HX_TMP/old.raw")" > "$HX_TMP/old.norm"
+cmp -s "$HX_TMP/old.norm" "$HX_TMP/new.raw" \
     && ok "content-equivalent-modulo-final-newline" \
     || bad "content-equivalent-modulo-final-newline" \
-           "$(diff "$TMP/old.norm" "$TMP/new.raw" | head -3 | tr '\n' ' ')"
+           "$(diff "$HX_TMP/old.norm" "$HX_TMP/new.raw" | head -3 | tr '\n' ' ')"
 
 # ...and the normalization is the ONLY difference: raw sizes differ by at most one byte.
-OLD_B="$(wc -c < "$TMP/old.raw")"; NEW_B="$(wc -c < "$TMP/new.raw")"
+OLD_B="$(wc -c < "$HX_TMP/old.raw")"; NEW_B="$(wc -c < "$HX_TMP/new.raw")"
 DELTA=$((NEW_B - OLD_B))
 [ "$DELTA" -ge 0 ] && [ "$DELTA" -le 1 ] \
     && ok "only-difference-is-the-final-newline (raw delta ${DELTA}B)" \
     || bad "only-difference-is-the-final-newline" "raw payload delta is ${DELTA}B, not 0 or 1"
 
 # --- red controls: the comparison must FAIL on any real content change ------------------
-sed '$d' "$TMP/new.raw" > "$TMP/truncated.raw"
-cmp -s "$TMP/old.norm" "$TMP/truncated.raw" \
+sed '$d' "$HX_TMP/new.raw" > "$HX_TMP/truncated.raw"
+cmp -s "$HX_TMP/old.norm" "$HX_TMP/truncated.raw" \
     && bad "red-truncated-payload-detected" "a truncated payload still compared equal" \
     || ok "red-truncated-payload-detected"
-sed '1,/^2026-/s/^2026-/2027-/' "$TMP/new.raw" > "$TMP/edited.raw"
-if cmp -s "$TMP/new.raw" "$TMP/edited.raw"; then
+sed '1,/^2026-/s/^2026-/2027-/' "$HX_TMP/new.raw" > "$HX_TMP/edited.raw"
+if cmp -s "$HX_TMP/new.raw" "$HX_TMP/edited.raw"; then
     bad "red-edited-payload-detected" "mutation anchor missing — the control would pass vacuously"
-elif cmp -s "$TMP/old.norm" "$TMP/edited.raw"; then
+elif cmp -s "$HX_TMP/old.norm" "$HX_TMP/edited.raw"; then
     bad "red-edited-payload-detected" "an edited log date still compared equal"
 else
     ok "red-edited-payload-detected"

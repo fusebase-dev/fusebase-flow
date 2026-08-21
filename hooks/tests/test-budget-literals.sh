@@ -28,7 +28,13 @@ BOOT_TEST="hooks/tests/test-boot-size.sh"
 pass=0; fail=0
 ok()  { pass=$((pass + 1)); echo "PASS: budget-literals $1"; }
 bad() { fail=$((fail + 1)); echo "FAIL: budget-literals $1 ($2)"; }
-finish() { [ -n "${TMP:-}" ] && rm -rf "$TMP"; echo "[test-budget-literals] $pass/$((pass + fail)) PASS"; exit $fail; }
+# TRIPWIRE (incident E7, 2026-08-21) — platform/data-loss: never name this TMP/TEMP/TMPDIR.
+# On Windows those are PRE-SET env vars holding the operator's profile temp dir, and the two
+# `finish` calls below (missing boot-test, no CEIL_* parsed) run BEFORE the mkdtemp assignment —
+# a non-empty check would pass and recursively delete the operator's entire %TEMP%.
+BL_TMP=""
+bl_cleanup() { case "$BL_TMP" in "${TMPDIR:-/tmp}"/ffhc-budgetlit.*) rm -rf -- "$BL_TMP" ;; esac; }
+finish() { bl_cleanup; echo "[test-budget-literals] $pass/$((pass + fail)) PASS"; exit $fail; }
 
 [ -f "$BOOT_TEST" ] || { bad "setup-boot-test-present" "missing $BOOT_TEST"; finish; }
 
@@ -85,22 +91,22 @@ STATERS="$(carrier_files . | xargs grep -lF "$TOTAL_PRETTY" 2>/dev/null | wc -l)
     || bad "enforced-total-stated-in-prose" "only $STATERS carrier(s) state $TOTAL_PRETTY"
 
 # --- red/green controls: the scan must FIRE, and must not fire indiscriminately ---------
-TMP="$(mktemp -d)"
-mkdir -p "$TMP/red" "$TMP/green" "$TMP/annotated"
+BL_TMP="$(mktemp -d "${TMPDIR:-/tmp}/ffhc-budgetlit.XXXXXX")" || { bad "setup-tmpdir" "mktemp -d failed"; finish; }
+mkdir -p "$BL_TMP/red" "$BL_TMP/green" "$BL_TMP/annotated"
 # TRIPWIRE: the stale fixture literal is interpolated, never spelled inline next to a
 # context keyword — spelling it out would make this file its own first violation.
 STALE_LIT="36,800"
-printf 'The role-aware boot floor budget is ≤%s bytes.\n' "$STALE_LIT"    > "$TMP/red/stale.md"
-printf 'The role-aware boot floor budget is ≤%s bytes.\n' "$TOTAL_PRETTY" > "$TMP/green/current.md"
+printf 'The role-aware boot floor budget is ≤%s bytes.\n' "$STALE_LIT"    > "$BL_TMP/red/stale.md"
+printf 'The role-aware boot floor budget is ≤%s bytes.\n' "$TOTAL_PRETTY" > "$BL_TMP/green/current.md"
 printf 'Boot-floor total was ≤%s — since superseded by the A2 2nd amendment.\n' "$STALE_LIT" \
-    > "$TMP/annotated/history.md"
-printf '%s' "$(scan "$TMP/red")" | grep -q '36800' \
+    > "$BL_TMP/annotated/history.md"
+printf '%s' "$(scan "$BL_TMP/red")" | grep -q '36800' \
     && ok "red-stale-literal-detected" \
     || bad "red-stale-literal-detected" "planted ≤36,800 carrier was NOT reported — the scan proves nothing"
-[ -z "$(scan "$TMP/green")" ] \
+[ -z "$(scan "$BL_TMP/green")" ] \
     && ok "green-current-literal-accepted" \
     || bad "green-current-literal-accepted" "planted current-total carrier was wrongly reported"
-[ -z "$(scan "$TMP/annotated")" ] \
+[ -z "$(scan "$BL_TMP/annotated")" ] \
     && ok "annotated-history-exempt" \
     || bad "annotated-history-exempt" "an explicitly superseded line was reported as divergent"
 

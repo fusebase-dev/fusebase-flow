@@ -30,7 +30,13 @@ PY="${PYTHON:-python3}"
 pass=0; fail=0
 ok()  { pass=$((pass + 1)); echo "PASS: token-waste-classify $1"; }
 bad() { fail=$((fail + 1)); echo "FAIL: token-waste-classify $1 ($2)"; }
-finish() { [ -n "${TMP:-}" ] && rm -rf "$TMP"; echo "[test-token-waste-classify] $pass/$((pass + fail)) PASS"; exit $fail; }
+# TRIPWIRE (incident E7, 2026-08-21) — platform/data-loss: never name this TMP/TEMP/TMPDIR.
+# On Windows those are PRE-SET env vars holding the operator's profile temp dir, and the three
+# `finish` calls below (no python, missing audit, missing fixture) run BEFORE the mkdtemp
+# assignment — a non-empty check would pass and recursively delete the operator's entire %TEMP%.
+TW_TMP=""
+tw_cleanup() { case "$TW_TMP" in "${TMPDIR:-/tmp}"/ffhc-tokenwaste.*) rm -rf -- "$TW_TMP" ;; esac; }
+finish() { tw_cleanup; echo "[test-token-waste-classify] $pass/$((pass + fail)) PASS"; exit $fail; }
 
 command -v "$PY" >/dev/null 2>&1 || PY=python
 command -v "$PY" >/dev/null 2>&1 || { bad "setup-python" "no python interpreter"; finish; }
@@ -40,27 +46,27 @@ for i in 01 02 03 04 05 06 07 08 09 10 11 12 13 14; do
 done
 ok "setup-inputs-present"
 
-TMP="$(mktemp -d)"
-mkdir -p "$TMP/mixed" "$TMP/nodata" "$TMP/clean" "$TMP/allclassified" "$TMP/falseneg"
-cp "$FIX"/token-waste-0[1-8]-*.jsonl "$TMP/mixed/"
-cp "$FIX"/token-waste-09-*.jsonl     "$TMP/nodata/"
-cp "$FIX"/token-waste-10-*.jsonl     "$TMP/clean/"
-cp "$FIX"/token-waste-01-*.jsonl     "$TMP/allclassified/"
+TW_TMP="$(mktemp -d "${TMPDIR:-/tmp}/ffhc-tokenwaste.XXXXXX")" || { bad "setup-tmpdir" "mktemp -d failed"; finish; }
+mkdir -p "$TW_TMP/mixed" "$TW_TMP/nodata" "$TW_TMP/clean" "$TW_TMP/allclassified" "$TW_TMP/falseneg"
+cp "$FIX"/token-waste-0[1-8]-*.jsonl "$TW_TMP/mixed/"
+cp "$FIX"/token-waste-09-*.jsonl     "$TW_TMP/nodata/"
+cp "$FIX"/token-waste-10-*.jsonl     "$TW_TMP/clean/"
+cp "$FIX"/token-waste-01-*.jsonl     "$TW_TMP/allclassified/"
 # fx-11..14 are the A8-amendment false negatives (AC25/AC26) — kept in their own dir so
 # the mixed-dir disposition counts above stay the AC15-AC19 contract, unchanged.
-cp "$FIX"/token-waste-1[1-4]-*.jsonl "$TMP/falseneg/"
+cp "$FIX"/token-waste-1[1-4]-*.jsonl "$TW_TMP/falseneg/"
 
-# TRIPWIRE: run from $TMP, never the repo — the parser resolves its report path from the
+# TRIPWIRE: run from $TW_TMP, never the repo — the parser resolves its report path from the
 # git root, so a repo-cwd run would clobber the operator's real state/audit report.
 run_audit() { # run_audit <subdir> [extra args...]
     local sub="$1"; shift
     # No MSYS_NO_PATHCONV here: --dir MUST be MSYS-converted, or a Windows Python
     # resolves the raw /tmp/... string against the wrong drive and finds no transcripts.
-    ( cd "$TMP" && PYTHONIOENCODING=utf-8 "$PY" "$AUDIT" --dir "$TMP/$sub" "$@" 2>&1 )
+    ( cd "$TW_TMP" && PYTHONIOENCODING=utf-8 "$PY" "$AUDIT" --dir "$TW_TMP/$sub" "$@" 2>&1 )
 }
 
 OUT="$(run_audit mixed)"
-# TRIPWIRE: read the report path off stdout, never rebuild it from $TMP — MSYS and the
+# TRIPWIRE: read the report path off stdout, never rebuild it from $TW_TMP — MSYS and the
 # Windows Python disagree about how /tmp/... spells the same directory.
 REPORT="$(printf '%s\n' "$OUT" | sed -n 's/.*| report: //p' | head -1)"
 command -v cygpath >/dev/null 2>&1 && REPORT="$(cygpath -u "$REPORT" 2>/dev/null || printf '%s' "$REPORT")"
@@ -106,7 +112,7 @@ row 08 "polling | Bash x4 (no intervening Edit/Write): curl -sS https://example.
 # A green assertion that can never fire proves nothing. Each control patches exactly the
 # predicate that keeps its fixture live and requires the fixture to then be DISMISSED; a
 # missing patch anchor fails the control instead of passing it vacuously.
-cat > "$TMP/mutate.py" <<'PY'
+cat > "$TW_TMP/mutate.py" <<'PY'
 import sys
 src, dst = sys.argv[1], sys.argv[2]
 text = open(src, encoding="utf-8").read()
@@ -119,11 +125,11 @@ open(dst, "w", encoding="utf-8", newline="\n").write(text)
 PY
 mutctl() { # mutctl <fixture-id> <old> <new> [<old> <new> ...]
     local fx="$1"; shift
-    local dir="$TMP/mut$fx" mutant="$TMP/mutant-$fx.py" out
+    local dir="$TW_TMP/mut$fx" mutant="$TW_TMP/mutant-$fx.py" out
     mkdir -p "$dir"; cp "$FIX"/token-waste-"$fx"-*.jsonl "$dir/"
-    "$PY" "$TMP/mutate.py" "$AUDIT" "$mutant" "$@" >/dev/null 2>&1 \
+    "$PY" "$TW_TMP/mutate.py" "$AUDIT" "$mutant" "$@" >/dev/null 2>&1 \
         || { bad "ac27-mutctl-$fx" "patch anchor missing — control would pass vacuously"; return; }
-    out="$( cd "$TMP" && PYTHONIOENCODING=utf-8 "$PY" "$mutant" --dir "$dir" 2>&1 )"
+    out="$( cd "$TW_TMP" && PYTHONIOENCODING=utf-8 "$PY" "$mutant" --dir "$dir" 2>&1 )"
     printf '%s' "$out" | grep -F 'auto-classified:' | grep -qF "token-waste-$fx" \
         && ok "ac27-mutctl-$fx" \
         || bad "ac27-mutctl-$fx" "unsafe classifier did NOT dismiss fx-$fx — the arm proves nothing"
