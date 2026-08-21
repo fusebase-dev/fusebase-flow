@@ -387,7 +387,8 @@ def unclassified_preserved(rows: list[dict], plan: list[tuple[str, str]]) -> lis
             if r["classification"] == "unknown-base" and r["path"] in skipped]
 
 
-def prune_base(manifest_path: Path, omit: set[str]) -> int:
+def prune_base(manifest_path: Path, omit: set[str],
+               prior_base: str = "", prior_version: str = "") -> int:
     """Drop `omit` entries from a written base manifest and RE-SEAL it (decision N6-D1).
 
     WHY (N6): build_plan appends the base refresh as a wholesale copy of the SOURCE tree's
@@ -412,12 +413,36 @@ def prune_base(manifest_path: Path, omit: set[str]) -> int:
         assets = [a for a in doc["assets"] if a["path"] not in omit]
     except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError):
         return 2
-    if len(assets) == len(doc["assets"]):
+    pruned = len(doc["assets"]) - len(assets)
+    if not pruned and not prior_base:
         return 0
-    doc["assets"] = assets
-    doc["asset_count"] = len(assets)
-    doc["manifest_self_sha256"] = _self_hash(
-        doc.get("schema_version"), doc.get("flow_version", ""), assets)
+    if pruned:
+        doc["assets"] = assets
+        doc["asset_count"] = len(assets)
+        doc["manifest_self_sha256"] = _self_hash(
+            doc.get("schema_version"), doc.get("flow_version", ""), assets)
+    if prior_base:
+        # DECISION N6-D2 — the forward-only half. A poisoned base and a healthy one are
+        # locally INDISTINGUISHABLE: both are present, self-consistent, and byte-identical to
+        # a published upstream manifest, because K13b installs the source tree's manifest as
+        # the new base after EVERY successful upgrade. The one fact that separates them is
+        # whether a base existed BEFORE the run that wrote this one, and nothing in the tree
+        # recorded it. This records it.
+        #
+        # TRIPWIRE — ADDITIVE ONLY, and it must stay that way. `_self_hash` covers
+        # schema_version + flow_version + assets, so a new TOP-LEVEL key is invisible to
+        # `verify`. Never move provenance inside `assets` and never fold it into the
+        # self-hash: older engines read this file and must keep parsing it.
+        #
+        # TRIPWIRE — this reaches ZERO already-affected installs, by construction: their base
+        # was written by an engine that predates this code. They are reached out-of-band by
+        # docs/ADVISORY-2026-08-20-missing-base-upgrade.md. Do not let anything claim
+        # otherwise.
+        doc["base_provenance"] = {
+            "prior_base": prior_base,
+            "prior_version": prior_version,
+            "preserved_unclassified": len(omit),
+        }
     with Path(manifest_path).open("w", encoding="utf-8", newline="\n") as fh:
         fh.write(json.dumps(doc, indent=2) + "\n")
     return 0
@@ -497,6 +522,10 @@ def main(argv=None) -> int:
     parser.add_argument("--manifest", default=None, help="prune-base: manifest to re-seal")
     parser.add_argument("--omit-file", default=None,
                         help="prune-base: newline-separated paths to drop from the manifest")
+    parser.add_argument("--prior-base", default="",
+                        help="prune-base: present|synthesized|absent — what the run started from")
+    parser.add_argument("--prior-version", default="",
+                        help="prune-base: the VERSION the tree held before this run")
     parser.add_argument("--report-file", default=None, help="plan: write the AC15 report here")
     parser.add_argument("--backup-suffix", default="<TS>", help="plan: report the backup stamp")
     parser.add_argument("--resume-command", default="bash hooks/local/upgrade.sh",
@@ -530,7 +559,8 @@ def main(argv=None) -> int:
                     Path(args.omit_file).read_text(encoding="utf-8").splitlines() if ln.strip()}
         except OSError:
             return 0
-        return prune_base(Path(args.manifest), omit) if omit else 0
+        return prune_base(Path(args.manifest), omit,
+                          prior_base=args.prior_base, prior_version=args.prior_version)
 
     if not args.upstream:
         print(f"[managed-content] {args.command} requires --upstream <tree>", file=sys.stderr)

@@ -72,7 +72,7 @@ ffhc_detect_timeout   # sets FFHC_TIMEOUT_BIN to "timeout" | "gtimeout" | ""
 # a HEALTHY tree to BROKEN.
 FFHC_PARTIAL_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/partial-upgrade-check.sh"
 # shellcheck source=lib/partial-upgrade-check.sh
-[ -f "$FFHC_PARTIAL_LIB" ] && . "$FFHC_PARTIAL_LIB"
+[ -f "$FFHC_PARTIAL_LIB" ] && . "$FFHC_PARTIAL_LIB"; FFHC_MBASE_LIB="${FFHC_PARTIAL_LIB%/*}/missing-base-check.sh"; [ -f "$FFHC_MBASE_LIB" ] && . "$FFHC_MBASE_LIB"   # N6-D2
 
 # SLO-budgeted timeouts (seconds), env-overridable. WS4: preflight/tests defaults
 # are platform-gated by ffhc_default_timeout (MSYS 60/120, POSIX 30/60) — see the
@@ -519,7 +519,7 @@ if command -v ffhc_partial_upgrade_findings >/dev/null 2>&1; then
     PARTIAL_UPGRADE_FINDINGS+=("$pu")
     record_drift "partial_upgrade" "PARTIAL_UPGRADE — $pu"
   done < <(ffhc_partial_upgrade_findings 2>/dev/null)
-fi
+fi; command -v ffmb_collect >/dev/null 2>&1 && ffmb_collect   # N6-D2: State 1 => record_drift, State 2 => visibility-only pointer
 
 ###############################################################################
 # Section 2 — Upstream comparison (.fusebase-flow-source/)
@@ -756,7 +756,7 @@ if [ "${#APPROVAL_WARNINGS[@]}" -gt 0 ]; then
   echo "  Each artifact above STILL AUTHORIZES its protected paths until expires_at."
   echo "  If the work it covered is done, delete the file to revoke it now."
   echo ""
-fi
+fi; command -v ffmb_print_pointers >/dev/null 2>&1 && ffmb_print_pointers
 
 echo "Upstream comparison:"
 for x in "${UPSTREAM_NOTES[@]}"; do echo "  $x"; done

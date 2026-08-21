@@ -39,29 +39,44 @@
 # claiming content that was never written, which is the failure K13b ordered against.
 #
 # CONTRACT
-#   fftb_prune_base <base-manifest> <omit-list> <mcm-module> <py-fn>
+#   fftb_prune_base <base-manifest> <omit-list> <mcm-module> <py-fn> [prior-base] [prior-version]
 #     base-manifest  the base this run just wrote (repo-relative)
 #     omit-list      <plan-file>.unclassified, written by managed_content_manifest.py plan
 #     mcm-module     managed_content_manifest.py to run (the SOURCE tree's — upgrade.sh:312)
 #     py-fn          the caller's ISOLATED python runner (ff_up_py), never a bare python3:
 #                    this rewrites the classifier's own reference data, so a startup-file
 #                    injection here would decide what counts as a consumer edit later.
+#     prior-base     present | synthesized | absent — what this run STARTED from (N6-D2).
+#                    Derived from FFSB_REASON: `present`/`synthesized` pass through, every
+#                    failure reason (no-git / no-tag / no-module / extract-failed /
+#                    stamp-failed) means the run classified with NO base and maps to `absent`.
+#     prior-version  the VERSION the tree held BEFORE this run bumped it.
 #   rc 0 always — a missing sidecar, a missing manifest or an older module is a NO-OP, never
 #   a failed upgrade. The engine that could not prune behaves exactly as it does today.
+#
+# TRIPWIRE — this runs on EVERY classified run, not only when something is pruned: the
+# provenance record (N6-D2) is the point. A tree whose base carries `prior_base: absent` is
+# the one shape that can be judged with certainty later, and it is written exactly when
+# nothing was pruned as often as when something was. Do NOT restore an early return on an
+# empty omit list.
 
 fftb_prune_base() {
-  local base="${1:-}" omit="${2:-}" mcm="${3:-}" py_fn="${4:-}" n
+  local base="${1:-}" omit="${2:-}" mcm="${3:-}" py_fn="${4:-}" reason="${5:-}" pver="${6:-}" n prior
   [ -n "$base" ] && [ -f "$base" ] || return 0
-  [ -n "$omit" ] && [ -s "$omit" ] || return 0
   [ -n "$mcm" ] && [ -f "$mcm" ] || return 0
   command -v "$py_fn" >/dev/null 2>&1 || return 0
+  [ -n "$omit" ] && [ -f "$omit" ] || omit=/dev/null
   n="$(grep -c . "$omit" 2>/dev/null || echo 0)"
-  if "$py_fn" "$mcm" prune-base --manifest "$base" --omit-file "$omit" >/dev/null 2>&1; then
+  case "$reason" in present|synthesized) prior="$reason" ;; *) prior="absent" ;; esac
+  if "$py_fn" "$mcm" prune-base --manifest "$base" --omit-file "$omit" \
+       --prior-base "$prior" --prior-version "$pver" >/dev/null 2>&1; then
+    [ "$n" -gt 0 ] || return 0
     echo "[upgrade] base records only what this run delivered: omitted $n unclassified path(s)"
     echo "                    (they had no historical base entry, so they were PRESERVED, not"
     echo "                     applied — recording upstream's bytes for them would report them"
     echo "                     as YOUR edits next release. They stay reported as 'unknown-base'.)"
   else
+    [ "$n" -gt 0 ] || return 0
     echo "[upgrade] WARN: could not prune unearned entries from $base (decision N6-D1)." >&2
     echo "                The upgrade itself is unaffected, but the NEXT run may report the" >&2
     echo "                $n preserved path(s) as 'consumer-only'. Recovery:" >&2
