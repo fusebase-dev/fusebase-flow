@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "c2055b65a6dd296d4f125c85ca6110b9ab15cc152946a684f49f6857b20e03ec"
+      "sha256": "adedc9a27f6057ca823dfab463b7f690dbfc9743a4913153d2e9b42c126ad9a5"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -558,7 +558,7 @@
     },
     {
       "path": "hooks/local/preflight.sh",
-      "sha256": "7714048e1752c81dfdab8639f9ad30eeea770f8b3032e103c8bfa5ecfe48eb46"
+      "sha256": "1e87c01c322ca1f2dd75c0656c033a38c8f2350b9aa4b0c9e9ef6e5babc52d15"
     },
     {
       "path": "hooks/local/print-release-fingerprints.sh",
@@ -694,7 +694,7 @@
     },
     {
       "path": "hooks/tests/cli-flow-recovery-engine.sh",
-      "sha256": "689a5443c10d7cad89e35d20d7a89a2fcbecaa6a9ed383192ccbba2888aca864"
+      "sha256": "df6751ab86dd4fc1f4e776f8ac6fb056ca44a58722d7eee214bff448d686458a"
     },
     {
       "path": "hooks/tests/cli-flow-recovery-fixture.sh",
@@ -1002,7 +1002,7 @@
     },
     {
       "path": "hooks/tests/test-install-fusebase-cli-project-doc.sh",
-      "sha256": "dc31f7e4521cdcf265ca9ef24f02fe967232524764b1672d05aca0baf29c4346"
+      "sha256": "717cacb4e131d877bcd3fbbc2f6f97cb2f78c3a7c574bcf4a79e0302af3c3632"
     },
     {
       "path": "hooks/tests/test-job-probe-honesty.sh",
@@ -1357,5 +1357,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "7700ee655d6fafab5227fa91ebac60a3d645e331173855bc255af93100d91626"
+  "manifest_self_sha256": "bd249d4cdbb2b3d0fd60a02a82da11e310ba1dfb5f01edb71f2739bbf77db414"
 }
