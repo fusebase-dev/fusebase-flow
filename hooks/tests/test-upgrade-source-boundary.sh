@@ -143,6 +143,55 @@ if [ -z "$f2_fail" ]; then
 else
   bad "ac1-incoming-U-materialized-from-objects-forced-LF" "$f2_fail :: $(tail -12 "$F2_LOG" | tr '\n' '|')"
 fi
+
+# ---------------------------------------------------------------------------------------
+# F2 THROUGH THE ORDINARY ENGINE (ticket N6, slice S4 — regression test only, no engine
+# change). The row above proves the boundary on the BOOTSTRAP path. The consumer who
+# reported F2 did not use it, and neither do most: `upgrade.sh` is the ordinary path, and
+# it invokes the same materializer (upgrade.sh:218-239). That gap is exactly the shape of
+# N5 — "synthesis shipped only in bootstrap, and bootstrap is not the path most consumers
+# take" — so it gets its own row rather than an assumption of symmetry.
+#
+# DO NOT "fix" a failure here by adding normalize-on-copy to the engine (draft S4, CUT):
+# v4.12.0 already canonicalizes at the source boundary, from git OBJECTS with LF forced
+# (materialize-managed-source.sh:4-7,64-78). A second normalizer would be a second
+# canonicalization authority that must agree with the first forever, and it cannot be added
+# without growing an FR-25-pinned file (the raw copies are upgrade.sh:552-558,576-580).
+# This row exists to keep the ONE authority honest, not to justify a second.
+F2B_C="$F2_ROOT/cons2"
+git -c core.autocrlf=true clone -q --branch v4.6.1 "$F2_UP" "$F2B_C" 2>/dev/null
+( cd "$F2B_C" && git config core.autocrlf true )
+F2B_SRC="$F2B_C/.fusebase-flow-source"
+# The stale staging clone: populated at A, then advanced to B. git leaves the unchanged blob
+# alone, so the WORKTREE keeps CRLF while the OBJECT is LF — and `git status` stays clean,
+# which is why this is invisible in the field.
+git -c core.autocrlf=true clone -q --branch v4.6.1 "$F2_UP" "$F2B_SRC" 2>/dev/null
+( cd "$F2B_SRC" && git config core.autocrlf true && git fetch -q origin main \
+    && git checkout -q -B main FETCH_HEAD )
+
+f2b_fail=""
+# Preconditions: without these the fixture does not model F2 and any green here is vacuous
+# (F-N5-1: an oracle can be green because it is measuring a different system).
+has_cr "$F2B_SRC/policies/data.jsonl" || f2b_fail="$f2b_fail [PRECONDITION: staging worktree .jsonl is not CRLF — fixture does not model the stale clone]"
+has_cr "$F2B_C/policies/data.jsonl"   || f2b_fail="$f2b_fail [PRECONDITION: consumer .jsonl is not CRLF]"
+F2B_LOG="$F2_ROOT/log-ordinary"
+( cd "$F2B_C" && bash hooks/local/upgrade.sh --auto-yes ) > "$F2B_LOG" 2>&1
+F2B_RC=$?
+[ "$F2B_RC" -eq 0 ] || f2b_fail="$f2b_fail [ordinary upgrade exited $F2B_RC]"
+# The measurands must arrive as LF even though the staging WORKTREE holds CRLF.
+has_cr "$F2B_C/policies/data.jsonl" \
+  && f2b_fail="$f2b_fail [PINNED .jsonl arrived with CRLF through upgrade.sh — the ordinary engine read the staging WORKTREE instead of the git object, so the boundary is bootstrap-only]"
+has_cr "$F2B_C/policies/unpinned.dat" \
+  && f2b_fail="$f2b_fail [UNPINNED .dat arrived with CRLF — incoming U inherited the consumer's core.autocrlf instead of forcing false (M1)]"
+# ANTI-VACUITY: prove the run actually DELIVERED these paths. A run that refreshed nothing
+# also leaves no CRLF behind, and would report a green that measures nothing.
+grep -qE "applied [1-9][0-9]* file" "$F2B_LOG" \
+  || f2b_fail="$f2b_fail [the run delivered NOTHING, so 'no CRLF arrived' is vacuous :: $(grep -E 'applied |unknown-base|DELIVERED' "$F2B_LOG" | tr '\n' '|')]"
+if [ -z "$f2b_fail" ]; then
+  ok "f2-ordinary-engine-also-materializes-from-objects-forced-LF"
+else
+  bad "f2-ordinary-engine-also-materializes-from-objects-forced-LF" "$f2b_fail :: $(tail -12 "$F2B_LOG" | tr '\n' '|')"
+fi
 mx_ran "git/A/H+"
 rm -rf "$F2_ROOT"
 
