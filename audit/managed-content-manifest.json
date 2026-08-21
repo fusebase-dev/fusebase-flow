@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "63446bb00de3d1965a92909463dbad8fbea89ff31c5737c1145dcaccbce020b3"
+      "sha256": "8f0fe9d9c9d60fdfbbb34a4be18db76472202d0b5555fac833990cba8b56929b"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -930,7 +930,7 @@
     },
     {
       "path": "hooks/tests/test-budget-literals.sh",
-      "sha256": "59b06caea2738ec3508d9f20d5431c162904fe6ec15bffe4b32b93d5dd238be4"
+      "sha256": "d2b5daed907ec5e8ffeca87c625fd235f565fc6da7068df4380a7e120bff5802"
     },
     {
       "path": "hooks/tests/test-cli-0259-compat.sh",
@@ -962,7 +962,7 @@
     },
     {
       "path": "hooks/tests/test-command-policy.sh",
-      "sha256": "7c8066799695e25fdb97c196188587dd538cd653c0426b9628e869ce2457f3a7"
+      "sha256": "1d7c979a43719f9a60b6c168144b673c1852e02799e81aeff6d77c6739c476a7"
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
@@ -986,7 +986,7 @@
     },
     {
       "path": "hooks/tests/test-history-extraction.sh",
-      "sha256": "088723a81418a0c1abb2519b513f0f0788524c27b3fcfb4145d7168afdc6be7a"
+      "sha256": "fff578f21d3309d03a87061fe1255fc3509e77e0693932d19f2ec7d462ae8742"
     },
     {
       "path": "hooks/tests/test-hook-install-rc.sh",
@@ -1042,7 +1042,7 @@
     },
     {
       "path": "hooks/tests/test-po-investigate.sh",
-      "sha256": "76ec2e8fb0e7475f2fb0b4ba6f85eaaaba31c4e175544738dbb4ca5954a1055e"
+      "sha256": "124b72e2977cfe60e819d713e1123bc5ecc3130bace35b1874bc0c4c58f7a7ac"
     },
     {
       "path": "hooks/tests/test-po-verifiable-boot.sh",
@@ -1126,7 +1126,7 @@
     },
     {
       "path": "hooks/tests/test-token-waste-classify.sh",
-      "sha256": "a8073ab3429801666b80d93f175c0f434501492abb5a978df35f20ff9315c62e"
+      "sha256": "27d7a016a5a3fcd24f2c6b91e1fe66f28daa1af13777ba573d509174efbd34c5"
     },
     {
       "path": "hooks/tests/test-trusted-enforcer.sh",
@@ -1357,5 +1357,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "1ba7eca049ecdc83563312fd46bf27a9d1c56143d6b9989c6fafbad7d3f01d12"
+  "manifest_self_sha256": "123e7778b34163db6d3b2b79fbc51f7ab2dcbfc5de05ae228a24fcbf7ac2cf0a"
 }
