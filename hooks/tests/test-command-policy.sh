@@ -560,4 +560,115 @@ else
   bad "ac26-evasion-limit-documented-and-backlogged" "$ev_fail"
 fi
 
+# ---- E7 (2026-08-21) regression: a cleanup must never delete a path it did not create ----
+# A consumer lost their entire Windows %TEMP% three times: four test scripts named their
+# scratch dir $TMP — a PRE-SET env var on Windows — and called finish() before assigning it,
+# so `[ -n "$TMP" ] && rm -rf "$TMP"` deleted the operator's profile temp on a shallow clone.
+
+# E7-A (static, generic — covers scripts that do not exist yet). The defect is a CONJUNCTION:
+# a recursive delete is reachable before its variable is assigned AND the variable's name is one
+# the environment pre-populates. Either alone is harmless — an unassigned $FIX aborts under
+# `set -u`, while an unassigned $TMP silently resolves to the operator's real temp directory.
+E7_OUT="$(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$ROOT" <<'PY' 2>&1
+import re, sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+# TRIPWIRE: names are assembled, never spelled inline beside a recursive delete — spelling
+# them out would make this guard its own first violation.
+PRESET = {"T" + "MP", "TE" + "MP", "TMP" + "DIR", "TEMP" + "DIR", "HO" + "ME",
+          "USER" + "PROFILE", "APP" + "DATA", "LOCAL" + "APPDATA", "PROGRAM" + "DATA",
+          "ALLUSERS" + "PROFILE", "SYSTEM" + "ROOT", "WIN" + "DIR", "PU" + "BLIC"}
+RM_VAR = re.compile(r"\brm\s+(?:-{1,2}[A-Za-z-]+\s+)*(?:--\s+)?[\"']?\$\{?([A-Za-z_][A-Za-z0-9_]*)")
+FNDEF = re.compile(r"^\s*(?:function\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*\(\)\s*\{")
+TRAP = re.compile(r"(?<![A-Za-z0-9_-])trap\s")
+
+viol = []
+files = sorted(root.glob("hooks/tests/*.sh")) + sorted(root.glob("hooks/tests/lib/*.sh")) \
+      + sorted(root.glob("hooks/local/*.sh")) + sorted(root.glob("hooks/local/lib/*.sh"))
+for f in files:
+    lines = f.read_text(encoding="utf-8", errors="replace").split("\n")
+    rel = f.relative_to(root).as_posix()
+    assign = {}
+    for i, l in enumerate(lines, 1):
+        m = re.match(r"^\s*(?:local\s+|export\s+)?([A-Za-z_][A-Za-z0-9_]*)=", l)
+        if m and m.group(1) not in assign:
+            assign[m.group(1)] = (i, m.start(1))
+    for i, l in enumerate(lines, 1):
+        if l.lstrip().startswith("#"):
+            continue
+        mv = RM_VAR.search(l)
+        if not mv or mv.group(1) not in PRESET:
+            continue
+        var = mv.group(1)
+        if var not in assign:
+            viol.append("%s:%d: rm -r on $%s, a name the environment pre-sets, which this "
+                        "script never assigns" % (rel, i, var))
+            continue
+        aline, acol = assign[var]
+        tm = TRAP.search(l)
+        if tm:
+            # A trap is armed where it is written; a same-line assignment must precede it.
+            if aline > i or (aline == i and acol > tm.start()):
+                viol.append("%s:%d: trap deletes $%s but assigns it later (line %d)"
+                            % (rel, i, var, aline))
+            continue
+        fn = fdef = None
+        for j in range(i, 0, -1):
+            fm = FNDEF.match(lines[j - 1])
+            if not fm:
+                continue
+            # A one-line definition `f() { ...; }` ends on its own line.
+            if j < i and lines[j - 1].rstrip().endswith("}"):
+                break
+            fn, fdef = fm.group(1), j
+            break
+        if fn is None:
+            continue
+        call = re.compile(r"(?<![A-Za-z0-9_.-])%s(?![A-Za-z0-9_(])" % re.escape(fn))
+        for k, cl in enumerate(lines, 1):
+            if k == fdef or k >= aline or cl.lstrip().startswith("#"):
+                continue
+            if call.search(cl) and not FNDEF.match(cl):
+                viol.append("%s:%d: %s() deletes $%s and is CALLED at line %d, before $%s is "
+                            "assigned at line %d — on Windows that delete runs against the "
+                            "inherited value" % (rel, i, fn, var, k, var, aline))
+                break
+print("VIOLATIONS=%d" % len(viol))
+for v in viol:
+    print(v)
+PY
+)"
+if printf '%s' "$E7_OUT" | grep -q '^VIOLATIONS=0$'; then
+  ok "e7-no-env-named-delete-reachable-before-assignment"
+else
+  bad "e7-no-env-named-delete-reachable-before-assignment" "$(printf '%s' "$E7_OUT" | tr '\n' ' ')"
+fi
+
+# E7-B (live): force each subject script down its earliest exit path with TMP/TEMP pointed at
+# a throwaway dir. A cleanup that deletes only what it created leaves the throwaway intact.
+# This row is RED against the pre-fix scripts (proven at 7aae867) and GREEN from 2607cd9 on.
+CP_TMP=""
+cp_cleanup() { case "$CP_TMP" in "${TMPDIR:-/tmp}"/ffhc-cmdpol.*) rm -rf -- "$CP_TMP" ;; esac; }
+if CP_TMP="$(mktemp -d "${TMPDIR:-/tmp}/ffhc-cmdpol.XXXXXX" 2>/dev/null)" \
+   && git -C "$CP_TMP" init -q >/dev/null 2>&1; then
+  e7_destroyed=""
+  for e7s in test-history-extraction.sh test-budget-literals.sh \
+             test-token-waste-classify.sh test-po-investigate.sh; do
+    [ -f "$ROOT/hooks/tests/$e7s" ] || continue
+    e7v="$CP_TMP/victim-$e7s"; mkdir -p "$e7v/precious"; echo data > "$e7v/keep.txt"
+    ( cd "$CP_TMP" && env TMP="$e7v" TEMP="$e7v" bash "$ROOT/hooks/tests/$e7s" ) >/dev/null 2>&1
+    [ -f "$e7v/keep.txt" ] || e7_destroyed="$e7_destroyed $e7s"
+  done
+  if [ -z "$e7_destroyed" ]; then
+    ok "e7-cleanup-cannot-delete-uncreated-path (4 subjects, poisoned TMP/TEMP)"
+  else
+    bad "e7-cleanup-cannot-delete-uncreated-path" \
+        "these deleted a directory they did not create:$e7_destroyed"
+  fi
+  cp_cleanup
+else
+  bad "e7-cleanup-cannot-delete-uncreated-path" "could not build the scratch git fixture"
+fi
+
 finish
