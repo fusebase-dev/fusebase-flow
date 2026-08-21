@@ -23,7 +23,7 @@
       "command": "bash",
       "args": ["hooks/local/run-handler.sh", "hooks/handlers/pre_tool_use.py"],
       "timeout_ms": 5000,
-      "matchers": ["Bash", "Edit", "Write", "MultiEdit"]
+      "matchers": ["Bash", "PowerShell", "Edit", "Write", "MultiEdit"]
     },
     "permission_request": {
       "command": "bash",

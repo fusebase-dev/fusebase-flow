@@ -16,7 +16,8 @@
     "The run-handler.sh wrapper is passed the FULL handler path so the `hooks/handlers/<x>.py` substring stays in the command — settings-json-merge.py and the health-check detect a wired Flow hook by that substring.",
     "This example keeps CLI Stop hooks and Flow lifecycle hooks together additively.",
     "Stop hooks mirror the FuseBase CLI 0.25.9 wired set (run-lint-on-stop.sh, run-typecheck-on-stop.sh, quality-check-apps.js) followed by Flow stop.py. The merge is preserve-only: it appends stop.py and keeps every existing CLI Stop hook; it never static-injects a hook from a name (an older-CLI project that still wires run-typecheck-apps.js keeps it).",
-    "PreToolUse uses the current hookSpecificOutput.permissionDecision style."
+    "PreToolUse uses the current hookSpecificOutput.permissionDecision style.",
+    "The PreToolUse matcher MUST name every command-carrying tool your host exposes — on Windows Claude Code exposes PowerShell beside Bash, and a tool missing from this matcher never reaches the handler, so FR-06 denies and FR-12 approvals do not apply to it. Keep this list in sync with COMMAND_TOOL_NAMES in hooks/shared/command_policy.py."
   ],
   "hooks": {
     "SessionStart": [
@@ -41,7 +42,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash|Edit|Write|MultiEdit|NotebookEdit",
+        "matcher": "Bash|PowerShell|Edit|Write|MultiEdit|NotebookEdit",
         "hooks": [
           {
             "type": "command",
