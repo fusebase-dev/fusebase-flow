@@ -24,6 +24,9 @@ RULES="FLOW_RULES.md"
 pass=0; fail=0
 ok()  { pass=$((pass + 1)); echo "PASS: history-extraction $1"; }
 bad() { fail=$((fail + 1)); echo "FAIL: history-extraction $1 ($2)"; }
+# Repo convention: a skip is a visible row whose NAME carries the reason. run-tests.sh counts
+# only ^PASS:/^FAIL:, so a bare "SKIP:" line would vanish from the report entirely.
+skip() { pass=$((pass + 1)); echo "PASS: history-extraction $1 [SKIP — NOT VERIFIED: $2]"; }
 # TRIPWIRE (incident E7, 2026-08-21) — platform/data-loss: never name this TMP/TEMP/TMPDIR.
 # On Windows those are PRE-SET env vars holding the operator's profile temp dir, and the four
 # `finish` calls below (missing-input x2, extraction-commit-resolved x2) run BEFORE the mkdtemp
@@ -46,9 +49,33 @@ printf '%s' "$STUB" | grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2} ' \
     || ok "stub-carries-no-dated-entries"
 
 ADD_SHA="$(git log --diff-filter=A --format=%H -- "$HIST" 2>/dev/null | tail -1)"
-[ -n "$ADD_SHA" ] || { bad "extraction-commit-resolved" "cannot find the commit that added $HIST"; finish; }
-git cat-file -e "$ADD_SHA^:$RULES" 2>/dev/null \
-    || { bad "extraction-commit-resolved" "pre-extraction $RULES unreachable at $ADD_SHA^"; finish; }
+if [ -z "$ADD_SHA" ] || ! git cat-file -e "$ADD_SHA^:$RULES" 2>/dev/null; then
+    # The documented adoption clone is `git clone --depth 1`, where the pre-extraction blob is
+    # legitimately absent — a missing PREMISE, not a failed contract. Crashing the phase there
+    # makes every consumer's first verification run red with no defect behind it.
+    # TRIPWIRE: gate the skip on the repo ACTUALLY being shallow. On a full clone an unreachable
+    # parent means history was rewritten and MUST stay a hard FAIL — a skip that fired there
+    # would hide the exact regression this phase exists to catch.
+    if [ "$(git rev-parse --is-shallow-repository 2>/dev/null || echo false)" = "true" ]; then
+        SHALLOW_WHY="shallow clone — pre-extraction $RULES is absent here, so equivalence was not"
+        SHALLOW_WHY="$SHALLOW_WHY checked; re-run on a full clone (git fetch --unshallow)"
+        # Every assertion the missing blob makes unrunnable gets its own NOT VERIFIED row.
+        # Reporting one skip and silently dropping the other five would understate the gap.
+        skip "extraction-commit-resolved"              "$SHALLOW_WHY"
+        skip "payloads-extracted"                      "$SHALLOW_WHY"
+        skip "content-equivalent-modulo-final-newline" "$SHALLOW_WHY"
+        skip "only-difference-is-the-final-newline"    "$SHALLOW_WHY"
+        skip "red-truncated-payload-detected"          "$SHALLOW_WHY"
+        skip "red-edited-payload-detected"             "$SHALLOW_WHY"
+        finish
+    fi
+    if [ -z "$ADD_SHA" ]; then
+        bad "extraction-commit-resolved" "cannot find the commit that added $HIST"
+    else
+        bad "extraction-commit-resolved" "pre-extraction $RULES unreachable at $ADD_SHA^"
+    fi
+    finish
+fi
 ok "extraction-commit-resolved (${ADD_SHA:0:7})"
 
 HX_TMP="$(mktemp -d "${TMPDIR:-/tmp}/ffhc-histext.XXXXXX")" || { bad "setup-tmpdir" "mktemp -d failed"; finish; }
