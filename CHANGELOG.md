@@ -4,6 +4,46 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [4.14.0] — 2026-08-21
+
+**Security fix — the command gate could be bypassed by choosing another shell tool.** Reported by the
+paperclip+hermes-v1 consumer as escalation E6.
+
+**Existing installs stay exposed until they re-merge:** `bash hooks/local/post-fusebase-update.sh
+--wire-hooks`. Upgrading the tree alone does not update the installed matcher.
+
+### Fixed — PowerShell never reached the gate
+
+On Windows, Claude Code exposes a `PowerShell` tool beside `Bash`. Neither carrier saw it: the
+handler's tool set omitted it, and the shipped PreToolUse matcher
+(`Bash|Edit|Write|MultiEdit|NotebookEdit`) meant the event never reached the handler at all. Every
+FR-06 hard deny, every FR-12 approval requirement, and the K4 fail-closed was bypassable by choosing
+the other shell tool. Protected-path and secret arms were unaffected — they key on Edit/Write.
+
+**A second, narrower bypass surfaced during the fix.** `permission_request.py` carried its own inline
+set — `{"bash", "shell", "terminal"}` — missing PowerShell *and* `ExecuteCommand`. Its fall-through is
+`ask`, so a hard deny was silently degrading to an operator prompt. The two divergent copies are now
+one shared set in `hooks/shared/command_policy.py`; divergence was the second bypass.
+
+Exposure was measured, not assumed: ~400 transcripts on the maintainer host showed **1,104 PowerShell
+tool calls**, including production-touching commands.
+
+### Scope — routing is fixed, the rules are not yet PowerShell-shaped
+
+Shell-agnostic patterns now catch PowerShell (`git reset --hard`, `--no-verify`, `npx prisma migrate
+deploy`, `fusebase deploy`). PowerShell-native cmdlets are **still open**: `Remove-Item -Recurse
+-Force`, `ri -r -fo`, and piped forms. `rm -Recurse -Force` degrades to approval rather than the
+hard deny. Writing those patterns is rule authoring blocked on D1/D2 in
+`docs/backlog/command-gate-shell-evasion/`; that gap was hypothetical while the tool was unreachable
+and is reachable now. Measured coverage is recorded in `docs/hook-coverage.md` so "PowerShell is
+gated" cannot be over-read.
+
+### Changed — re-merge widens an existing matcher
+
+`_widen_matchers()` unions Flow's required tokens into an already-installed matcher rather than only
+writing on fresh installs, touching only the block whose chain names a Flow handler. Hand-written
+regex matchers are never rewritten — the merge warns instead of corrupting them.
+
 ## [4.13.1] — 2026-08-21
 
 **A test could delete your temp directory on Windows.** Reported by the paperclip+hermes-v1 consumer
