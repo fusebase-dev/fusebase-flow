@@ -59,8 +59,13 @@ DEFAULT_FLOW_HOOKS = {
 
 # Default matchers per Claude Code conventions. Auto-discovered from upstream
 # when available.
+#
+# TRIPWIRE (E6): PreToolUse must name EVERY command-carrying tool the host exposes —
+# Claude Code exposes `PowerShell` beside `Bash` on Windows, and a tool absent from the
+# matcher never reaches pre_tool_use.py, so FR-06 denies and FR-12 approvals simply do not
+# apply to it. Keep in sync with COMMAND_TOOL_NAMES in hooks/shared/command_policy.py.
 DEFAULT_EVENT_MATCHERS = {
-    "PreToolUse":  "Bash|Edit|Write|MultiEdit|NotebookEdit",
+    "PreToolUse":  "Bash|PowerShell|Edit|Write|MultiEdit|NotebookEdit",
     "PostToolUse": "Edit|Write|MultiEdit|NotebookEdit",
 }
 
@@ -197,6 +202,63 @@ def _migrate_blocks(blocks: Any, event: str) -> bool:
     return migrated
 
 
+_SIMPLE_MATCHER_TOKEN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+
+def _matcher_tokens(matcher: Any) -> list[str] | None:
+    """Tokens of `matcher` iff it is a plain `Tok|Tok|Tok` alternation, else None.
+
+    None means "do not touch": an absent/empty matcher already matches every tool, and
+    anything with regex structure (groups, anchors, classes) is an operator expression a
+    naive `|` split would corrupt."""
+    if not isinstance(matcher, str) or not matcher.strip():
+        return None
+    parts = [p.strip() for p in matcher.split("|")]
+    if not all(_SIMPLE_MATCHER_TOKEN.match(p) for p in parts):
+        return None
+    return parts
+
+
+def _widen_matchers(blocks: Any, event: str) -> bool:
+    """Union Flow's required matcher tokens into an ALREADY-INSTALLED matcher (E6).
+
+    Without this, only a FRESH install got a widened matcher: the add-if-missing branch
+    below never runs for a consumer who already wired the event, so a security-relevant
+    tool added upstream (PowerShell) would never reach the handler on an existing install
+    no matter how many times they re-ran --wire-hooks. Union, never overwrite — a consumer
+    who added their own tools keeps them. Only OUR block is touched (its hook chain must
+    name a hooks/handlers/ command); somebody else's PreToolUse block is left alone."""
+    required = _matcher_tokens(EVENT_MATCHERS.get(event, ""))
+    if not required or not isinstance(blocks, list):
+        return False
+    changed = False
+    for block in blocks:
+        if not isinstance(block, dict):
+            continue
+        if not any(isinstance(h, dict) and "hooks/handlers/" in (h.get("command") or "")
+                   for h in block.get("hooks") or []):
+            continue
+        existing = _matcher_tokens(block.get("matcher"))
+        if existing is None:
+            # A hand-written regex is never rewritten (a `|` split would corrupt it), but
+            # silence here would leave that consumer ungated on the new tool without ever
+            # saying so. `*`/absent already match every tool, so only a regex is warned on.
+            raw = block.get("matcher")
+            if isinstance(raw, str) and raw.strip() and raw.strip() != "*":
+                absent = [t for t in required if t not in raw]
+                if absent:
+                    print(f"[settings-merge] WARNING: {event} matcher {raw!r} is a regex this "
+                          f"merge will not rewrite, and it does not name {', '.join(absent)}. "
+                          f"Tools it omits never reach the Flow hook (FR-06/FR-12 do not apply "
+                          f"to them). Add them by hand.", file=sys.stderr)
+            continue
+        missing = [t for t in required if t not in existing]
+        if missing:
+            block["matcher"] = "|".join(existing + missing)
+            changed = True
+    return changed
+
+
 def merge_settings(settings: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     """Return (updated settings, list of changes applied)."""
     changes: list[str] = []
@@ -218,10 +280,15 @@ def merge_settings(settings: dict[str, Any]) -> tuple[dict[str, Any], list[str]]
         if event not in hooks or not hooks[event]:
             hooks[event] = [make_event_block(event)]
             changes.append(f"added {event} event")
-        elif _migrate_blocks(hooks[event], event):
+            continue
+        if _migrate_blocks(hooks[event], event):
             # Existing install wired with bare python3 -> route through run-handler.sh so a
             # python-less machine self-degrades instead of erroring every event.
             changes.append(f"migrated {event} to run-handler.sh wrapper")
+        if _widen_matchers(hooks[event], event):
+            # E6: an existing install must pick up a newly-gated tool on re-merge, not only
+            # on a fresh `cp settings.json.example`.
+            changes.append(f"widened {event} matcher to cover every command-carrying tool")
 
     # Stop event: preserve existing CLI hooks; append Fusebase Flow stop.py only if missing
     if "Stop" not in hooks or not hooks["Stop"]:
