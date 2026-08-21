@@ -176,6 +176,17 @@ fi
 # The guide targets repos that may ALREADY have their own .codex-plugin/plugin.json, so an
 # existence-only parity check made following the guide produce an immediate false error. Both
 # arms are driven, because only the negative arm proving nothing would be the weaker test.
+#
+# THE VARIABLE HERE IS THE NAME, and only the name. Parity is scoped TWICE since N4/S5 —
+# FLOW-OWNED (name) AND PUBLISHER CONTEXT (docs/release-fingerprints.md, the release ledger),
+# because a consumer's manifests are named fusebase-flow too and firing there left them
+# hand-editing after every release. So the scratch repo below carries the ledger: the publisher
+# dimension is held CONSTANT so this row still measures what its name says. The publisher
+# dimension itself is driven in both directions by hooks/tests/test-plugin-parity-scope.sh.
+#
+# TRIPWIRE — do NOT drop the ledger to "simplify" this fixture. Without it the positive control
+# cannot fire, and a green negative arm would then mean "the check is off", not "the check is
+# scoped" — the vacuity this row's own comment warns about.
 PREFLIGHT="$ROOT/hooks/local/preflight.sh"
 if [ ! -f "$PREFLIGHT" ] || ! command -v python3 >/dev/null 2>&1; then
   bad "preflight-parity-scoped-to-flow-manifests" "cannot run $PREFLIGHT — the negative case is unverified, not satisfied"
@@ -185,6 +196,8 @@ else
   mkdir -p "$SCRATCH/.codex-plugin"
   printf '%s\n' '{"name": "acme-consumer-app", "version": "0.0.1"}' > "$SCRATCH/.codex-plugin/plugin.json"
   printf '9.9.9\n' > "$SCRATCH/VERSION"
+  mkdir -p "$SCRATCH/docs"
+  printf '# Release fingerprints\n\n| tag |\n|---|\n| v9.9.9 |\n' > "$SCRATCH/docs/release-fingerprints.md"
   PARITY_RE='(codex|claude)-plugin/plugin\.json version .* != VERSION'
   foreign_out="$(cd "$SCRATCH" && bash "$PREFLIGHT" 2>&1)"
   # Positive control: same file, Flow's name, still a mismatched version => it MUST be reported.

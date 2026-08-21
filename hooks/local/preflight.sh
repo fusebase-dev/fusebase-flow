@@ -7,6 +7,11 @@
 
 set -uo pipefail
 
+# Captured BEFORE the cd: sourced libs live beside THIS SCRIPT, not inside the tree being
+# checked. preflight is run against other trees (fixtures, a consumer repo via an absolute
+# path), where $ROOT is that tree and a ROOT-relative lib path silently resolves to nothing —
+# which turns a scoped check into a disabled one. Caught by install-doc §8.
+FF_PF_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$ROOT" || exit 1
 FF_DIR="$ROOT"
@@ -343,7 +348,7 @@ grep -qi 'invoke the `handoff` skill' AGENTS.md || err "AGENTS.md does not expla
 # reasoning, and why adopting these files into the managed set is the WRONG fix, lives in the
 # lib. Do not re-inline this loop: two implementations of one rule means the unscoped one
 # keeps firing.
-FFPP_LIB="hooks/local/lib/plugin-parity.sh"   # ROOT-relative: preflight cd's to $ROOT at :11
+FFPP_LIB="$FF_PF_DIR/lib/plugin-parity.sh"
 # shellcheck source=lib/plugin-parity.sh
 [ -f "$FFPP_LIB" ] && . "$FFPP_LIB"
 if command -v ffpp_errors >/dev/null 2>&1; then

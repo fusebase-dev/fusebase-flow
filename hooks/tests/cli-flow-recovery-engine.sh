@@ -17,6 +17,15 @@ ffcf_engine_tree() {
   cp hooks/local/fusebase-flow-health-check.sh hooks/local/stamp-hook-manifest.sh \
      hooks/local/verify-hook-manifest.sh "$d/hooks/local/"
   cp VERSION "$d/VERSION"   # the engine reads VERSION at repo root
+  # Same reason the hook manifest is stamped above (see this file's second tripwire): the engine
+  # now also inspects the MANAGED-CONTENT base, and an absent base is a real, reportable state
+  # (N6-D2 State 1 — the pre-exposure tree that must be routed to bootstrap-upgrade.sh). Without
+  # this stamp every scenario here would carry an unrelated missing-base finding and the verdict
+  # under test would be masked by fixture incompleteness — finding F-N5-2's lesson exactly: a
+  # fixture that omits what a real install has does not test a weaker system, it tests a
+  # different one.
+  cp hooks/local/lib/managed_content_manifest.py "$d/hooks/local/lib/" 2>/dev/null || true
+  ( cd "$d" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null 2>&1 ) || true
 }
 
 # Generous per-check budgets: this asserts the VERDICT, never the host's speed. `|| true` plus
