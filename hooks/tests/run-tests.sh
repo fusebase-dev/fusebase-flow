@@ -78,7 +78,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixtur
   trusted-enforcer hook-install-rc msys-tree-cleanup job-probe ws5-upgrade ff-only return-budget \
   supersede-primitive rule-inventory boot-size prohibition-residency token-waste-classify \
   budget-literals history-extraction approval-binding approval-writer approval-receipt command-policy denial-message upgrade-classify \
-  upgrade-boundary preboundary-consumed upgrade-repair n5-delivery n6-truthful-base n6-missing-base recovery-hint install-doc release-authority \
+  upgrade-boundary preboundary-consumed upgrade-repair n5-delivery n6-truthful-base n6-missing-base n6-recover recovery-hint install-doc release-authority \
   release-tag-binding fingerprint-rows signal-reap cli-flow-recovery)
 
 # OPT-IN-ONLY tags: registered and reachable, but NEVER in the default/required set — they run
@@ -590,6 +590,10 @@ run_shell_phase test-upgrade-truthful-base.sh            "n6-truthful-base"
 # VISIBILITY-ONLY pointer because the two states are locally indistinguishable — measured.
 # Drives the lib directly (fast); the wiring row greps the engine.
 run_shell_phase test-missing-base-detection.sh           "n6-missing-base"
+# N6 recovery: establish the last truthful VERSION before rebuilding anything (deleting the
+# base while VERSION still reads the advanced value re-derives the same poison). Also pins the
+# three REFUSALS — no ground truth, no tag, ambiguous candidates — which are the point.
+run_shell_phase test-recover-missing-base.sh             "n6-recover"
 run_shell_phase test-recovery-hint-honesty.sh            "recovery-hint"
 run_shell_phase test-install-fusebase-cli-project-doc.sh "install-doc"
 # Pins the shipped prose to the machinery: CI on the tagged SHA owns release evidence, no
