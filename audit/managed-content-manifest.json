@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.13.1",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 338,
+  "asset_count": 341,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "dbfbeb6bd42e80d739381ca30d98df956f21a809703ac37c0bafc59ca5ce4907"
+      "sha256": "a66ab2c0d4f4995a4219ac5f400b423ae6e567b072a4b30d76fed3c6af8448bc"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -238,7 +238,7 @@
     },
     {
       "path": "hooks/handlers/permission_request.py",
-      "sha256": "41384a75b4412c8e5c86caf3bfc8bea4cdccdd8d6392f02589c1c5a578ba6b08"
+      "sha256": "2d046048de095d46825b2fa7a76be2ec1d4f87651c6e88e7c3b9fee58db9166f"
     },
     {
       "path": "hooks/handlers/post_tool_use.py",
@@ -250,7 +250,7 @@
     },
     {
       "path": "hooks/handlers/pre_tool_use.py",
-      "sha256": "98fa679eabcabc306aa22acaaac0ae646e266e6e1f09c7eca21c6f1cee9b3ac0"
+      "sha256": "9d8567b3ff19564f447c640404d0c419eb716c6fac9d064132a6673559a04a85"
     },
     {
       "path": "hooks/handlers/session_start.py",
@@ -434,7 +434,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/settings-json-merge.py",
-      "sha256": "980a34926edd89daab47dc3d8556ace8c8ee32b4348889b37d8f97e3ed2d4bda"
+      "sha256": "ff0efb0146c7d1b6cce7340fd15f819d076074a03c593811f561d6091dc0ad84"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/skills/fusebase-flow-health-check/SKILL.md",
@@ -646,7 +646,7 @@
     },
     {
       "path": "hooks/shared/command_policy.py",
-      "sha256": "67f7dd1d028ff7b80092b21e29f996fbbe360f56cfbcbec6734948d0ac8786e2"
+      "sha256": "fc50834d6e854911aabf9cff03e789c7f6550d23f55dd8ec99c3c4502478aa10"
     },
     {
       "path": "hooks/shared/command_rules.py",
@@ -809,6 +809,18 @@
       "sha256": "1ab4fc8c3271639e4075137eeec6b93430f7bfdaec5d6963bb73a75342275bfd"
     },
     {
+      "path": "hooks/tests/fixtures/24_pre_tool_use_powershell_blocked_destructive.json",
+      "sha256": "5dabefc8293d91511fa101ec7fe65feec7d4427cd79eb9054086e75806b4c52f"
+    },
+    {
+      "path": "hooks/tests/fixtures/25_pre_tool_use_powershell_requires_approval.json",
+      "sha256": "4c5608669c39a9883bf21decae06150799c7ce14af5554f0c9c0567a2376f104"
+    },
+    {
+      "path": "hooks/tests/fixtures/26_permission_request_powershell_requires_approval.json",
+      "sha256": "ca5d95ba28725e881cc8e0eb85dea7435ec14403403e918a4df064b397d3fa03"
+    },
+    {
       "path": "hooks/tests/fixtures/corpus/command-gate-semantic-corpus.json",
       "sha256": "fb92bc3b9ec05fc4fd13436570954e73158ac9d63d8a5fff2ab890247e1ad16c"
     },
@@ -898,7 +910,7 @@
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
-      "sha256": "0297b578d9becb2fb1f0f5515c0bb3fc8a7303226fd55b1db45a0ea023e840ca"
+      "sha256": "062f9c43f4f8e30fe775a20298ebcb2be61a4d7ed86b717bb2c623d4594bff85"
     },
     {
       "path": "hooks/tests/test-approval-binding.sh",
@@ -1357,5 +1369,5 @@
       "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
     }
   ],
-  "manifest_self_sha256": "a58970e42a5decae4c35581de69a9c0111d9ec37b5d7b21a8eacc4ae11e5f36a"
+  "manifest_self_sha256": "d4eb7b8436092f517786683ce3c547b30ec32adec6dc69516fc23be5c94c4117"
 }
