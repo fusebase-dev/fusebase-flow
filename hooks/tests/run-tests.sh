@@ -71,7 +71,7 @@ FFHC_HEARTBEAT_SECS="${FFHC_HEARTBEAT_SECS:-30}"
 FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixture \
   interpreter-contract interpreter-mutation python3-version python3-version-mutation \
   git-context git-context-mutation \
-  hook-manifest newline-preserve baseline-merge hook-wiring-intent stamp-eol-guard \
+  hook-manifest newline-preserve baseline-merge hook-wiring-intent wire-hooks-beside stamp-eol-guard \
   sync-allowlist policy-state bootstrap-baseline-hop fr22-delivery po-verifiable-boot \
   po-investigate liveness codex-parity codex-plugin cli-0259 cli-version cli-vendor cli-rendered secret-scan-staged bootstrap-exception \
   lane-router \
@@ -515,6 +515,14 @@ run_shell_phase test-baseline-merge.sh       "baseline-merge"
 # enforcement. Outside FF_FAST_TAGS: one isolated interpreter spawn per row (that list is an
 # allowlist and a new phase runs in CI/full first).
 run_shell_phase test-hook-wiring-intent.sh   "hook-wiring-intent"
+# The other half of that arm: --wire-hooks must ADD BESIDE an occupied event array, and must
+# never record an intent it did not achieve. Its oracle is the CONTROL SET (key-absent / [] /
+# consumer+flow all wired BEFORE the fix), so only the consumer-only row separates fixed from
+# pre-fix. Carries the convergence property: the health arm must not report ENFORCEMENT
+# STRIPPED on a tree --wire-hooks just succeeded on. Measured 8s on this host (two real
+# post-fusebase-update.sh runs), but FF_FAST_TAGS is an ALLOWLIST: a new phase runs in CI/full
+# first and is promoted deliberately, never on its first green.
+run_shell_phase test-wire-hooks-add-beside.sh "wire-hooks-beside"
 # S3a: the stamper refuses to attest CRLF bytes held under an `eol=lf` pin. Its core row is
 # THIS repo's own failure — policies/module-size-baseline.txt, hashed CRLF and shipped LF,
 # invisible locally because stamper and verifier read the same wrong bytes and agreed. Paired
