@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.14.0",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 341,
+  "asset_count": 342,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "148964916eafec4e5739a9baf5ba34245c151b6d5cbf0bdeab1d1900d38b50ff"
+      "sha256": "fb3aad5608a46b62178b3583459f4695c1b229368bcf5104edc6cb2516c00491"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -434,7 +434,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/settings-json-merge.py",
-      "sha256": "ff0efb0146c7d1b6cce7340fd15f819d076074a03c593811f561d6091dc0ad84"
+      "sha256": "55fe17d3427bd9176508269768444336a073584fb49f24d52762b55fb3c4bc30"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/skills/fusebase-flow-health-check/SKILL.md",
@@ -490,7 +490,7 @@
     },
     {
       "path": "hooks/local/lib/hook-wiring-intent.sh",
-      "sha256": "72ce1e25a81b73eeb663cb6d71f1f3797953837b8ebc227558fe15bf1b57e2f2"
+      "sha256": "f95e9554efb61df4598b44e3ba4ea2fe6cca9cc8ee4464d5df7602bfa0a30dde"
     },
     {
       "path": "hooks/local/lib/hook_manifest.py",
@@ -554,7 +554,7 @@
     },
     {
       "path": "hooks/local/post-fusebase-update.sh",
-      "sha256": "06f07a9a9f1a03f090c415285a83bdc5b257f4b962adeb47b8fde7a373b9b984"
+      "sha256": "351b28dc4a8bb1f35e1678696b6b2dd43fa31298e2060327073bea5e1288c524"
     },
     {
       "path": "hooks/local/preflight.sh",
@@ -906,7 +906,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "ae62307917fbd4a3f5a9494e9576dc3e3a808af252558bf7b23f7e7ca81cedac"
+      "sha256": "83888dfaf44cbcea0c77bbf42a7f599e5a020bacdc8c57bcb7276072607fcd87"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -1010,7 +1010,7 @@
     },
     {
       "path": "hooks/tests/test-hook-wiring-intent.sh",
-      "sha256": "6079d0909ad6cecc853d43b4b323d19af3fc262b98ee0b6ec9b2aaa5e9d3a403"
+      "sha256": "f4ae98870bd87b74134867516b4e311007c2ee40864dad3b5511a3bace93ae55"
     },
     {
       "path": "hooks/tests/test-install-fusebase-cli-project-doc.sh",
@@ -1171,6 +1171,10 @@
     {
       "path": "hooks/tests/test-vendored-rendered.sh",
       "sha256": "c65d86337773c037310636847e7fd84c536fa275d75bec322b23fcf8435361de"
+    },
+    {
+      "path": "hooks/tests/test-wire-hooks-add-beside.sh",
+      "sha256": "32ea971f270024831f5ef247aebddece53c4d7e0dd518957c36e71506a96ff13"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
@@ -1369,5 +1373,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "381a041af46d0e0c2beab377353b22893c1041bcd6e1459ef3567460ae7d7078"
+  "manifest_self_sha256": "fb2afe438a61dfc21bfd16a73a1f2969ae09a6a2192e0be0fee73337ec5844b6"
 }
