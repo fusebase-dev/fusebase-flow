@@ -49,3 +49,4 @@ version that burns the artifact before first use.
 - `docs/specs/approval-binding-and-upgrade-classification/decisions.md` — K11 (defer), K2 (binding as
   the interim risk reduction), K7 (strict cutover)
 - `docs/problem-catalog/approval-gate-unbound-and-fail-open/problem.md`
+- `docs/backlog/host-call-identity-feature-request/README.md` — the UPSTREAM request for prerequisite 1 (the host already mints a per-invocation `tool_use_id` in the transcript; the ask is to surface it in the hook payload) + the consumer's withdrawn `O_EXCL` claim-at-evaluation NEGATIVE RESULT, which passed its own tests for three weeks and still produced both a wrong denial and a wrong allow
