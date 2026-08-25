@@ -93,6 +93,20 @@ Every handler reads a JSON event from stdin matching `flow_hook_event.schema.jso
 | git | `hooks/git/*` | copied into `.git/hooks/` by `install-git-hooks.sh` |
 | Other providers | route via `AGENTS.md` + git fallback hooks | host-specific shim, when host supports stdin/stdout hook handlers |
 
+## Consumer-authored hooks (your own hook beside Flow's)
+
+If you wire your own enforcement hook — a veto, a composed security gate — three host behaviours govern the shared surface, and the third is security-relevant:
+
+| # | Host behaviour | Consequence for your hook |
+|---|---|---|
+| 1 | Hooks in a matcher group run **in parallel** | Order is not a control — never assume your hook runs after Flow's, or that it sees Flow's result |
+| 2 | **Deny takes precedence** | Any denying hook blocks the call, so yours need not be first, and Flow's allow never overrides your deny |
+| 3 | A hook that **cannot start, or that exceeds its configured `timeout`, is NON-BLOCKING** — the host fails open | A hung, crashed or slow security hook does not deny: the tool call proceeds, and nothing in your hook's own output says it was abandoned |
+
+Fact 3 is what turns a security hook into decoration. So a consumer security hook must **bound its own runtime well below its configured `timeout`** with its own watchdog — the reporting consumer's veto bounds itself at **≤8 s under `timeout: 20`**, and that ratio is the shape to copy — and must **convert every local failure into a deny** (exit 2), never an error exit and never a silent fallthrough: missing interpreter, unreadable policy, unexpected exception all deny. Flow's own handlers follow the same rule; `docs/problem-catalog/security-check-fail-open-class/problem.md` records what it costs when they don't.
+
+**Source of the three claims.** Read from the Claude Code hooks reference by the consumer who filed them (their strength label: `INFERRED`). Fusebase Flow has **not** measured host fail-open-on-timeout in its own suite — treat these as documented host behaviour, not a Flow-verified result, and check your own host's hook documentation before relying on them on another surface.
+
 ## Audit log
 
 Every handler appends a JSONL event to `state/audit.log.jsonl` (gitignored). Rotation is the operator's responsibility (e.g., a periodic move to `audit.log.<date>.jsonl`).
