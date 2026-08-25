@@ -121,6 +121,18 @@ require_approval:
 # check (an authorship check here would be theatre, and theatre in a security control
 # is worse than an absent one — readers trust the documentation).
 #
+# WHAT A VALID VERDICT GRANTS — NOT single-use (E3 ask 2): a VALID artifact authorizes its
+# action REPEATEDLY until `expires_at`. The TTLs above are a LIFETIME, never a use count, and
+# nothing consumes an artifact on use. Binding narrows WHICH action an artifact covers
+# (`command_digest` + `repo_id` = "this exact command in this checkout"); it does not SPEND it
+# — the same command may be re-run any number of times inside the TTL, which is what keeps a
+# failed deploy retryable without re-approval. Sole narrowing: a digest-bound
+# `protected_path_edit` artifact (`write-bootstrap-approval.sh`) is single-CHANGESET, because
+# its `tree_digest` stops matching once the staged content changes
+# (`path_policy.has_active_exception`) — still not single-USE within that one changeset. True
+# one-shot consumption (reserve -> execute -> consume) needs a stable host call identity no
+# shipped host provides; parked at `docs/backlog/approval-single-use-consumption/`.
+#
 # `approval_authors` is retained as a DECLARATION OF INTENT for humans and external
 # review, NOT a hook-enforced control. No hook reads it. Do not re-add an
 # "$USER == approved_by" check: it is forgeable by the process it gates. Real
