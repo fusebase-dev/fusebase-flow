@@ -6,9 +6,10 @@ No `jq` dependency — Python 3 is already a Fusebase Flow hook-runtime requirem
 (see hooks/handlers/*.py + hooks/requirements.txt), so this adds zero new
 dependencies and works on Windows out of the box.
 
-Adds the missing Fusebase Flow lifecycle event keys and appends Fusebase Flow's
-stop.py hook to the existing Stop array — only if each piece is not already
-present.
+Adds the missing Fusebase Flow lifecycle event keys, adds Flow's block BESIDE a
+consumer's own blocks when an event array is already occupied, and appends Fusebase
+Flow's stop.py hook to the existing Stop array — only if each piece is not already
+present. Consumer blocks are never dropped, reordered or rewritten.
 
 UPGRADE POSTURE:
     The set of events, handler commands, and matchers is auto-discovered at
@@ -259,6 +260,27 @@ def _widen_matchers(blocks: Any, event: str) -> bool:
     return changed
 
 
+def _flow_handler_present(blocks: Any, event: str) -> bool:
+    """True iff some block in `blocks` names this event's canonical Flow handler.
+
+    Same detection contract the health arm applies (hooks/local/lib/hook-wiring-intent.sh):
+    the `hooks/handlers/<stem>.py` SUBSTRING, never the event key. Every wiring form — the
+    run-handler.sh wrapper and the legacy `python3 …` variants _migrate_blocks still
+    recognises — carries it, so a migrated block reads present and is never duplicated."""
+    stem_m = _HANDLER_RE.search(FLOW_HOOKS.get(event, ""))
+    if not stem_m or not isinstance(blocks, list):
+        return False
+    needle = f"hooks/handlers/{stem_m.group(1)}.py"
+    for block in blocks:
+        if not isinstance(block, dict):
+            continue
+        for hook in block.get("hooks") or []:
+            cmd = hook.get("command") if isinstance(hook, dict) else None
+            if isinstance(cmd, str) and needle in cmd:
+                return True
+    return False
+
+
 def merge_settings(settings: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     """Return (updated settings, list of changes applied)."""
     changes: list[str] = []
@@ -272,7 +294,8 @@ def merge_settings(settings: dict[str, Any]) -> tuple[dict[str, Any], list[str]]
 
     hooks = settings.setdefault("hooks", {})
 
-    # All non-Stop events from FLOW_HOOKS get added wholesale if missing.
+    # All non-Stop events from FLOW_HOOKS: added wholesale when the array is absent/empty,
+    # added BESIDE the existing blocks when it is occupied by somebody else's hook.
     # Stop is handled separately below (it merges into existing CLI hook chain).
     for event in FLOW_HOOKS:
         if event == "Stop":
@@ -281,13 +304,34 @@ def merge_settings(settings: dict[str, Any]) -> tuple[dict[str, Any], list[str]]
             hooks[event] = [make_event_block(event)]
             changes.append(f"added {event} event")
             continue
+        if not isinstance(hooks[event], list):
+            # Hand-edited to a non-array. Never coerce or clobber an operator's file — and
+            # never let one malformed key abort the whole merge (that would take the OTHER
+            # events' wiring down with it). Say so; the health arm reports the absence.
+            print(f"[settings-merge] WARNING: hooks.{event} is a "
+                  f"{type(hooks[event]).__name__}, not an array — leaving it untouched. Flow's "
+                  f"{event} handler is NOT wired. Fix the array by hand, then re-run.",
+                  file=sys.stderr)
+            continue
         if _migrate_blocks(hooks[event], event):
             # Existing install wired with bare python3 -> route through run-handler.sh so a
             # python-less machine self-degrades instead of erroring every event.
             changes.append(f"migrated {event} to run-handler.sh wrapper")
-        if _widen_matchers(hooks[event], event):
+        if not _flow_handler_present(hooks[event], event):
+            # ADD BESIDE, never replace. The array is occupied by somebody else's block(s), so
+            # the wholesale-add branch above correctly did not fire — and _migrate_blocks /
+            # _widen_matchers both skip a block naming no hooks/handlers/ command, so before
+            # this branch NOTHING added Flow's block and --wire-hooks exited 0 unwired.
+            # TRIPWIRE: append a SEPARATE block, never Flow's command into the consumer's chain
+            # — that would inherit the consumer's matcher (measured: `Bash|Edit|Write`) and
+            # re-open E6, leaving PowerShell ungated by FR-06/FR-12 on every consumer tree.
+            existing = len(hooks[event])
+            hooks[event].append(make_event_block(event))
+            changes.append(f"added Fusebase Flow {event} block beside {existing} existing block(s)")
+        elif _widen_matchers(hooks[event], event):
             # E6: an existing install must pick up a newly-gated tool on re-merge, not only
-            # on a fresh `cp settings.json.example`.
+            # on a fresh `cp settings.json.example`. (A block just appended above already
+            # carries the full matcher, so widening is only for a pre-existing Flow block.)
             changes.append(f"widened {event} matcher to cover every command-carrying tool")
 
     # Stop event: preserve existing CLI hooks; append Fusebase Flow stop.py only if missing
