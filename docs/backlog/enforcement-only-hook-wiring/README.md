@@ -1,6 +1,6 @@
 # enforcement-only-hook-wiring
 
-**Status:** filed, NOT built — E5 ask 2 was ALREADY SHIPPED in v4.14.0; asks 1 + 4 are the remainder
+**Status:** ask 2 SHIPPED (v4.14.0); **ask 1 UNBLOCKED and its predicate now BUILT** (`fix/wire-hooks-add-beside-preserve`, T2 `c5a2b36`) — the flag itself is not built; ask 4 still needs its own design
 **Filed:** 2026-08-25
 **Source:** paperclip+hermes-v1 escalation E5 (`2026-08-20-E5-wiring-intent-api.md`), asks 1 + 4
 **One-liner:** a record-only wiring-intent flag for a consumer that wires ONLY enforcement, plus an optional consumer-declared "also expected in the chain" list so a stripped consumer entry counts as drift too.
@@ -27,9 +27,18 @@
 
 `post-fusebase-update.sh --record-wiring-intent` (or `--wire-hooks=pretooluse`): record intent for the CURRENT settings file **iff** the canonical handler is present in the PreToolUse chain. No merge.
 
-Their evidence, re-confirmed at v4.14.0:
+**The predicate is now BUILT — ask 1 is a flag that calls it, not new detection logic.** `wire-hooks-skips-occupied-pretooluse` T2 re-keyed the marker on the ACHIEVED state, so `ffhc_hwi_record_wiring` already composes exactly what ask 1 asks for:
 
-- The marker has exactly ONE creation path — `ffhc_hwi_record_wiring` (`hooks/local/lib/hook-wiring-intent.sh:76-83`, documented in the source as "the ONLY creation path"), called from `post-fusebase-update.sh:384-385` with the merge rc.
+| Piece | Where | Contract |
+|---|---|---|
+| The predicate | `ffhc_hwi_wired <root>` | rc 0 canonical handler present · 1 absent · 2 no `.claude/settings.json` |
+| Recorded iff achieved | `ffhc_hwi_record_wiring <root> <merge_rc>` | rc 0 recorded · 1 write failed · 3 merge rc nonzero · 4 merge rc 0 with the handler absent (nothing recorded) |
+
+Remaining work for ask 1 is the ARGUMENT PARSING and the no-merge path: a `--record-wiring-intent` branch that calls `ffhc_hwi_record_wiring "$ROOT" 0` without running the merge, plus its own exit-status contract for "not wired, nothing recorded".
+
+Their original evidence, re-confirmed at v4.14.0:
+
+- The marker still has exactly ONE creation path — `ffhc_hwi_record_wiring` (`hooks/local/lib/hook-wiring-intent.sh`, documented in the source as "the ONLY creation path"), called from `post-fusebase-update.sh` Step 5.
 - `--wire-hooks` merges the FULL lifecycle set (`merge_settings` loops over every event in `FLOW_HOOKS`), so a consumer who wants only enforcement must take, then trim, five unrelated events. Their §1 documents exactly that mint-then-trim procedure — *"a procedure, not an API; every consumer doing enforcement-only wiring will repeat it."*
 
 ### Ask 4 — consumer-declared chain expectations
@@ -38,9 +47,9 @@ Let the health arm accept a consumer-declared "also expected in the chain" subst
 
 ## Why they are NOT being built now
 
-1. **A defect in the same code path outranks the feature.** `wire-hooks-skips-occupied-pretooluse` (MEASURED this session, not reported by any consumer): `--wire-hooks` never adds Flow's PreToolUse handler when the array is already non-empty, exits rc 0, and the marker is recorded on that rc 0. Ask 1's predicate — *record intent iff the canonical handler is present* — is the SAME predicate that defect needs as its fail-closed backstop. Building the flag before fixing the merge would ship a record-only mode into a path that can already record an intent it did not achieve. **Resolve together, defect first.**
+1. ~~**A defect in the same code path outranks the feature.**~~ **CLEARED.** `wire-hooks-skips-occupied-pretooluse` is FIXED (`fix/wire-hooks-add-beside-preserve`): `--wire-hooks` now adds Flow's block beside an occupied array on all five non-Stop events, and the marker is recorded only for a wiring the tree achieved. The blocker was that a record-only mode would have shipped into a path that could already record an intent it did not achieve; that path no longer can. **Ask 1 is unblocked, and cheaper than filed** — the shared predicate is built.
 2. **Ask 4 raises the false-drift budget the arm was built to protect.** `hook-wiring-intent.sh:26-31` is explicit: *"a false alarm here is WORSE than the silence it replaces — it trains operators to ignore the one check that reports missing FR-06/07/12 enforcement,"* and only two states may reach `record_drift`. A consumer-supplied substring list is consumer-authored input feeding a drift verdict — it needs its own validate-and-reject design (see `self-granting-health-deferral` for what a newline in a consumer-supplied health field already does).
-3. **Not urgent.** Their mint-then-trim procedure works, is disclosed, and is re-run after every CLI strip.
+3. **Not urgent.** Their mint-then-trim procedure works, is disclosed, and is re-run after every CLI strip. (It also routes AROUND the fixed defect — keeping upstream's PreToolUse object is why they never hit it.)
 
 ## Recorded because it is useful and nobody should re-derive it
 
