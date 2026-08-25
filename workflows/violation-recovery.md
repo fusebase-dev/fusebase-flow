@@ -84,6 +84,32 @@ The agent loads this workflow when a refusal happens and needs to surface concre
 3. If intended: on the operator's chat go-ahead, the **agent** authors the exception artifact at `state/approvals/protected_path_edit-<slug>-<date>.json` with a `paths` array listing the approved paths (`approve-local.sh protected_path_edit <slug>`; Flow-internals changesets use the digest-bound `write-bootstrap-approval.sh`) — the operator runs nothing.
 4. Re-run `git diff` against `protected-paths.yml`. With the artifact in place, the protected-path check passes.
 
+#### The FIRST edit of a protected path is not a violation — it is the normal path (E4)
+
+**Different symptom:** a tool-time `pre_tool_use` FR-07 deny on the **first** `Edit`/`Write` of a protected path, with no way to mint the approval that would permit it. This is a structural deadlock, not a misconfiguration, and it has no tool-time recovery:
+
+| Constraint | Source |
+|---|---|
+| `has_active_exception` requires a `tree_digest` matching the CURRENT STAGED content for a digest-bound category (`fusebase_flow_internals`, `ci_cd_config`) | `hooks/shared/path_policy.py` — digest-bound branch |
+| `pre_tool_use` evaluates the `Edit` **before** the new content exists | `hooks/handlers/pre_tool_use.py` §2 path-policy check |
+| The approval writer derives the digest from staged changes and exits when no category path is staged | `hooks/local/write-bootstrap-approval.sh` |
+
+So the first `Edit` of a protected path cannot mint the approval that would permit itself. Do **not** work around it — the boundary is elsewhere:
+
+- **The tool-time arm is defense-in-depth for content that is ALREADY STAGED.** It is not the FR-07 boundary and was never a complete one: `pre_tool_use` §1 routes a command tool through `evaluate_command` only, so a `Bash`-authored write of the same bytes never reaches the path policy at all.
+- **The commit gate IS the boundary.** `hooks/git/pre-commit` §3 re-evaluates every staged path against `path_policy` from a trusted HEAD copy and fails closed on every reachable error. Nothing reaches a commit without passing it.
+
+**Sanctioned path for a first protected-path edit** — the flow this repository uses for its own protected-path commits, and the one `write-bootstrap-approval.sh`, `upgrade.sh` and `post-fusebase-update.sh` already print:
+
+1. Write the file with `Bash` (heredoc / `python3` / `sed`).
+2. `git add <exact paths>` — never `git add -A` (FR-06).
+3. Mint AFTER staging: `bash hooks/local/write-bootstrap-approval.sh [--category ci_cd_config]`. The **agent** runs it on the operator's chat go-ahead (§ Operator Gate Protocol); minting without that go-ahead is self-approval and forbidden.
+4. `git commit` — the pre-commit FR-07 check now finds a digest bound to exactly this staged changeset.
+5. `bash hooks/local/write-bootstrap-approval.sh --consume`.
+6. Say so in the commit body. A `Bash`-authored protected-path edit is **disclosed, never silent**.
+
+**Never `--no-verify`.** It does not route around the deadlock; it routes around the boundary.
+
 ### FR-08 / FR-09 — Mode A / Mode B
 
 **Symptom:** ASCII visual ended up in a Mode-B file (spec.md, decisions.md, etc.), OR Mode-B file opens with multi-paragraph preamble.
@@ -194,4 +220,9 @@ The hook prints whether T-number is missing or the message is too vague. Steps:
 ```
 2026-05-08 — initial v0.1.1 draft; per-rule recovery procedures consolidated from
               prototype HARD-RAILS "Recovery if violated" sections.
+2026-08-25 — consumer escalation E4; FR-07 gains § "The FIRST edit of a protected path
+              is not a violation": the digest-bound approval cannot authorize the Edit that
+              produces the bytes it binds, the tool-time arm is defense-in-depth for
+              already-staged content, the commit gate is the boundary, and the sanctioned
+              stage → mint → commit → consume flow is written down. No enforcement changed.
 ```
