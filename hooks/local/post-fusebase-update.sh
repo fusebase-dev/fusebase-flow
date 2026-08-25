@@ -377,16 +377,24 @@ else
   MERGE_OUTPUT=$(python3 "$MERGE_SCRIPT" .claude/settings.json --baseline-out "$CLI_STOP_BASELINE" 2>&1)
   MERGE_EXIT=$?
   set -e
-  # S1 intent: recorded ONLY on a merge that actually succeeded (the helper is a no-op on any
-  # nonzero rc), so a failed or aborted merge never leaves an intent the health check would
-  # then report as stripped enforcement. Covers the no-op "already wired" path too — that is
-  # still a successful --wire-hooks run.
+  # S1 intent: recorded ONLY when the tree ACHIEVED the wiring (the canonical handler is in the
+  # merged file), never on the merge's exit code — see the TRIPWIRE on ffhc_hwi_record_wiring.
+  # A failed merge (rc 3) stays silent: the merge failure is already reported below.
+  HWI_RC=""
   if command -v ffhc_hwi_record_wiring >/dev/null 2>&1; then
-    ffhc_hwi_record_wiring "$ROOT" "$MERGE_EXIT" \
-      || WARNINGS+=("could not record the hook-wiring intent marker ($FFHC_HWI_REL); the health check will read this tree as 'not known to have opted in'")
+    set +e
+    ffhc_hwi_record_wiring "$ROOT" "$MERGE_EXIT"; HWI_RC=$?
+    set -e
+    case "$HWI_RC" in
+      0|3) : ;;
+      4) WARNINGS+=("hook wiring NOT achieved: the settings merge exited 0 but $FFHC_HWI_HANDLER is still absent from .claude/settings.json, so Flow runtime enforcement (FR-06/07/12) is NOT wired. No intent marker was written — recording one here would make the health check report ENFORCEMENT STRIPPED and prescribe this same command. Inspect the PreToolUse array by hand, or start from the shipped wiring: cp .claude/settings.json.example .claude/settings.json") ;;
+      *) WARNINGS+=("could not record the hook-wiring intent marker ($FFHC_HWI_REL); the health check will read this tree as 'not known to have opted in'") ;;
+    esac
   fi
   if [ "$MERGE_EXIT" -eq 0 ]; then
-    ACTIONS_TAKEN+=(".claude/settings.json: recorded Flow hook-wiring intent ($FFHC_HWI_REL)")
+    if [ "$HWI_RC" = "0" ]; then
+      ACTIONS_TAKEN+=(".claude/settings.json: recorded Flow hook-wiring intent ($FFHC_HWI_REL)")
+    fi
     ACTIONS_TAKEN+=(".claude/settings.json: wrote CLI Stop baseline receipt ($CLI_STOP_BASELINE)")
     if echo "$MERGE_OUTPUT" | grep -q "already up to date\|byte-identical"; then
       ACTIONS_SKIPPED+=(".claude/settings.json: Fusebase Flow events already wired")

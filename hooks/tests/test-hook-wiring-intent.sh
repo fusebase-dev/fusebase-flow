@@ -98,8 +98,11 @@ else
 fi
 
 ###############################################################################
-# Row 1b — the marker is written ONLY after a SUCCESSFUL merge (never on a
-# failed/aborted one). This is the writer's whole contract.
+# Row 1b — the marker is written ONLY for a wiring the tree ACHIEVED: never after a
+# failed/aborted merge, and never after a merge that exited 0 without wiring the handler.
+# This is the writer's whole contract. The second half is the v4.14.0 defect: --wire-hooks
+# exits 0 having applied every other change, so rc alone recorded intent with enforcement
+# absent, and the health arm then prescribed the command that produced the state.
 ###############################################################################
 fx="$(mkfixture)"; wire_settings "$fx"
 ffhc_hwi_record_wiring "$fx" 1 >/dev/null 2>&1
@@ -107,6 +110,13 @@ if [ ! -f "$fx/state/audit/flow-hook-wiring-intent.json" ]; then
   ok "failed-merge-writes-nothing"
 else
   bad "failed-merge-writes-nothing" "marker written after a nonzero merge exit"
+fi
+fx="$(mkfixture)"; wrong_pretooluse "$fx"
+ffhc_hwi_record_wiring "$fx" 0 >/dev/null 2>&1; hwi_rc=$?
+if [ ! -f "$fx/state/audit/flow-hook-wiring-intent.json" ] && [ "$hwi_rc" -ne 0 ]; then
+  ok "unachieved-wiring-writes-nothing"
+else
+  bad "unachieved-wiring-writes-nothing" "rc=$hwi_rc, marker=$([ -f "$fx/state/audit/flow-hook-wiring-intent.json" ] && echo written || echo absent)"
 fi
 
 ###############################################################################
@@ -116,7 +126,10 @@ fi
 # dead end and the ticket would only relocate the forensics).
 ###############################################################################
 fx="$(mkfixture)"; strip_settings "$fx"
-ffhc_hwi_record_wiring "$fx" 0 >/dev/null 2>&1
+# ffhc_hwi_write, not ffhc_hwi_record_wiring: the recorder now refuses to record a wiring it
+# did not achieve, and this row's subject is a tree that opted in EARLIER and was stripped
+# LATER — a state that arises over time, never in one call.
+ffhc_hwi_write "$fx" true >/dev/null 2>&1
 run_arm "$fx"
 if [ "${#LOCAL_DRIFT[@]}" -eq 1 ]; then ok "strip-drifts"; else
   bad "strip-drifts" "expected 1 drift, got ${#LOCAL_DRIFT[@]}"; fi
@@ -130,7 +143,7 @@ if joined "${LOCAL_DRIFT[@]}" | grep -q -- "--wire-hooks"; then ok "strip-recove
 # not. Matching `"PreToolUse":` alone would call this wired; it is not.
 ###############################################################################
 fx="$(mkfixture)"; wrong_pretooluse "$fx"
-ffhc_hwi_record_wiring "$fx" 0 >/dev/null 2>&1
+ffhc_hwi_write "$fx" true >/dev/null 2>&1   # opted in earlier, stripped later (see Row 2)
 run_arm "$fx"
 if [ "${#LOCAL_DRIFT[@]}" -eq 1 ]; then ok "wrong-pretooluse-drifts"; else
   bad "wrong-pretooluse-drifts" "expected 1 drift, got ${#LOCAL_DRIFT[@]}"; fi
@@ -141,7 +154,7 @@ if [ "${#LOCAL_DRIFT[@]}" -eq 1 ]; then ok "wrong-pretooluse-drifts"; else
 # lifecycle, not just a creation event.
 ###############################################################################
 fx="$(mkfixture)"; strip_settings "$fx"
-ffhc_hwi_record_wiring "$fx" 0 >/dev/null 2>&1
+ffhc_hwi_write "$fx" true >/dev/null 2>&1   # opted in earlier, stripped later (see Row 2)
 ffhc_hwi_revoke "$fx" >/dev/null 2>&1
 run_arm "$fx"
 if [ "${#LOCAL_DRIFT[@]}" -eq 0 ] && [ "${#LOCAL_UNVERIFIED[@]}" -eq 0 ]; then
@@ -177,7 +190,7 @@ done
 # exist at all.
 ###############################################################################
 fx="$(mkfixture)"
-ffhc_hwi_record_wiring "$fx" 0 >/dev/null 2>&1
+ffhc_hwi_write "$fx" true >/dev/null 2>&1   # opted in earlier, settings.json deleted later
 rm -f "$fx/.claude/settings.json"
 run_arm "$fx"
 if [ "${#LOCAL_DRIFT[@]}" -eq 1 ] && [ "${DRIFT_IDS[0]:-}" = "settings_json_flow_enforcement" ]; then
@@ -226,7 +239,7 @@ done
 ###############################################################################
 fx="$(mkfixture)"; strip_settings "$fx"
 other="$(mkfixture)"
-ffhc_hwi_record_wiring "$other" 0 >/dev/null 2>&1
+ffhc_hwi_write "$other" true >/dev/null 2>&1   # the OTHER checkout's intent, inherited by copy
 cp "$other/state/audit/flow-hook-wiring-intent.json" "$fx/state/audit/"
 run_arm "$fx"
 if [ "${#LOCAL_DRIFT[@]}" -eq 0 ] && [ "${#LOCAL_UNVERIFIED[@]}" -eq 1 ]; then

@@ -74,12 +74,27 @@ ffhc_hwi_write() {
 }
 
 # ffhc_hwi_record_wiring <root> <merge_rc> — the ONLY creation path. Records intent iff the
-# settings merge actually SUCCEEDED; a failed or aborted merge leaves no marker, so the
-# engine never reports drift against wiring that was never installed.
+# tree ACHIEVED the wiring: ffhc_hwi_wired says the canonical handler is in .claude/settings.json
+# NOW. A successful merge is necessary, never sufficient.
+#
+# TRIPWIRE (measured, v4.14.0): keying this on the merge's EXIT CODE recorded intent while
+# enforcement was absent. settings-json-merge.py exits 0 having applied every other change, so a
+# tree whose PreToolUse array was already occupied got an ENABLED marker with no handler — after
+# which ffhc_hwi_check reports ENFORCEMENT STRIPPED and prescribes --wire-hooks, the command that
+# produced the state. A loop that cannot converge. Do not reduce this back to `[ "$rc" = 0 ]`:
+# "the merge exited 0" and "the handler is wired" are different facts.
+#
+# Return codes (the caller must be able to TELL — a silent no-op only moves the silence out):
+#   0  intent recorded
+#   1  marker write failed
+#   3  merge rc nonzero        — caller may stay silent; it already reports the merge failure
+#   4  merge rc 0, handler ABSENT (or settings.json gone) — caller MUST warn; nothing recorded
 ffhc_hwi_record_wiring() {
   local root="$1" rc="$2"
-  [ "$rc" = "0" ] || return 0
-  ffhc_hwi_write "$root" true
+  [ "$rc" = "0" ] || return 3
+  ffhc_hwi_wired "$root" || return 4
+  ffhc_hwi_write "$root" true || return 1
+  return 0
 }
 
 # ffhc_hwi_revoke <root> — the revocation lifecycle. Intent that can only ever be created is
