@@ -4,6 +4,46 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [4.14.1] — 2026-08-23
+
+**Corrects v4.14.0.** That release told exposed consumers to run `--wire-hooks`. If their
+`.claude/settings.json` already carried a `PreToolUse` array of their own, that command **did not wire
+Flow's enforcement handler** — it exited 0, reported "applied 7 changes", and recorded an intent marker
+saying they had opted in. Re-run on this release and confirm with
+`grep -c 'hooks/handlers/pre_tool_use.py' .claude/settings.json` (must be >= 1).
+
+### Fixed — the add branch could not add beside existing content
+
+`settings-json-merge.py`'s add branch was a wholesale replace, guarded to fire only when there was
+nothing to preserve. A non-empty array fell through to two functions that both skip any block not
+already naming a Flow handler, so an absent Flow block was never added. **All five non-Stop events had
+the gap**; `Stop` was the only event with an add-beside path.
+
+Worse than a missing feature: the wiring-intent marker was recorded on that exit 0, so the tree
+recorded intent while enforcement was absent. The health arm added in v4.12.0 then correctly reported
+`ENFORCEMENT STRIPPED` and prescribed `--wire-hooks` — the command that had just produced the state.
+A loop that could not converge.
+
+The recording site already carried a guard for a near version of this, stating intent is written only
+on a merge that "actually succeeded". It did not cover this case because the merge **did** succeed:
+success was measured as exit 0, not as achieved the thing.
+
+Flow's block is now appended **beside** a consumer's, never replacing or reordering it, and the intent
+marker keys on the achieved state — the canonical handler verifiably present in the merged chain.
+Flow's block stays separate rather than joining the consumer's chain, because joining it would inherit
+their matcher and re-open the v4.14.0 bypass on every such install.
+
+Evidence: 35-row control set, 20/35 before and 35/35 after, with the three control rows passing
+beforehand — only the consumer-only row discriminates. Regression 227/227.
+
+### Also — E2-E5 consumer-proposal close-out
+
+Three documentation additions, each closing a real misreading: a VALID approval authorizes its action
+**repeatedly until expiry** (not single-use); consumer-authored hooks run in parallel with deny
+precedence and **fail open on timeout**, so they must bound their own runtime; and the FR-07 first-edit
+deadlock is documented — the tool-time arm is defence-in-depth, the commit gate is the boundary. Five
+proposals filed to backlog rather than built, including one measured defect neither consumer reported.
+
 ## [4.14.0] — 2026-08-21
 
 **Security fix — the command gate could be bypassed by choosing another shell tool.** Reported by the
