@@ -45,6 +45,7 @@ Match your output to either fingerprint column below; both identify the same tre
 | `v4.13.0` | 4.13.0 | `1ba7eca049ecdc83563312fd46bf27a9d1c56143d6b9989c6fafbad7d3f01d12` | 338 | `4533bf38fbc26a1ac464fd0ab3741fd61b0eed63c85fb2d34b3f9de8d167a1ec` | 189 |
 | `v4.13.1` | 4.13.1 | `a58970e42a5decae4c35581de69a9c0111d9ec37b5d7b21a8eacc4ae11e5f36a` | 338 | `bda07f44f2378e75ba55fca1f7cc6484e440c3cb760c284324cee09c836bc066` | 189 |
 | `v4.14.0` | 4.14.0 | `8e2148042e2cd3e470f3b91af52c3ee4c5e64863fbd2e9e22f9ac110b67bc7f8` | 341 | `e44537591a44bdb6a67209b70dc6e8b0b9242287dd29bb92047ec17e4a8803ad` | 192 |
+| `v4.14.1` | 4.14.1 | `70adc826c268d11db863f3fbdeb878b0423fad70ae1132549dbf7c28d15c209c` | 342 | `e48b7a040b206765ec47466b0f6ec56f0aa059c9c8cdb71a8c74e69862ab01d8` | 193 |
 
 `v4.9.0`, `v4.9.1` and `v4.10.0` are unpublished tagged trees: their release workflows failed
 (2026-08-12, 2026-08-13 and 2026-08-15) and published nothing. Each row identifies an immutable tag
