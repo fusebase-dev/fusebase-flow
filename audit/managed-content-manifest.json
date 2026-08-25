@@ -222,7 +222,7 @@
     },
     {
       "path": "hooks/README.md",
-      "sha256": "dc45ec662f0cac4a3965ef6eeacf3efe8d3867b9669eacdf8a2affddf9f9ef31"
+      "sha256": "3d9c7c4f92abe9c50c86b874b8d4d48cc3b24f8fee0fdcd6083c37e66b2b6c2d"
     },
     {
       "path": "hooks/flow_hook_event.schema.json",
@@ -1178,7 +1178,7 @@
     },
     {
       "path": "policies/approval-policy.yml",
-      "sha256": "cb7c57aa163f83aeaff378d1c61114a0afa7abc098a81745fb11c35f506fde47"
+      "sha256": "2a22bd3f2bb555e8293c814f06ef0301aec387ddc3a27977e46d86543b9bfacd"
     },
     {
       "path": "policies/command-policy.yml",
@@ -1366,8 +1366,8 @@
     },
     {
       "path": "workflows/violation-recovery.md",
-      "sha256": "82c5dbc4fe6b49f2af87521b25a4a55e12b629cb5f5991ea3c293d6adcef8014"
+      "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "8e2148042e2cd3e470f3b91af52c3ee4c5e64863fbd2e9e22f9ac110b67bc7f8"
+  "manifest_self_sha256": "381a041af46d0e0c2beab377353b22893c1041bcd6e1459ef3567460ae7d7078"
 }
