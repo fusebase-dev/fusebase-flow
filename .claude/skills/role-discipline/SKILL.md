@@ -1,12 +1,14 @@
 ---
 name: role-discipline
-description: ALWAYS load at session start; mandatory, never on-demand. After self-attesting, Read references/<role>.md for your role (Product Owner / AI Developer / Architect / Deploy phase) — don't-list + refusal phrasing. Shared-protocol prohibitions and the FR-24 write-time digest stay resident here; bodies lazy-load from references/shared-protocols.md.
+description: ALWAYS load at session start; mandatory, never on-demand. After self-attesting, Read references/<role>.md for your role (Product Owner / AI Developer / Architect / Deploy phase) — don't-list + refusal phrasing. Shared-protocol prohibitions and FR-24 digest stay resident; bodies load from references/shared-protocols.md.
 source_inspiration: conceptual-only
 license_status: clean-room-original
 fusebase_flow_version: 2.1
 risk_level: medium
 invocation: automatic
 mandatory_load: true
+expected_outputs: [refusal, adherence]
+related_workflows: [violation-recovery.md]
 hook_dependencies:
   - session_start                       # presence enforced via REQUIRED_TOP_FILES
 ---
@@ -17,7 +19,7 @@ hook_dependencies:
 
 # Role discipline
 
-Resident role rails and write-time invariants. Load procedure detail only when invoked.
+Resident role rails; load procedures only when invoked.
 
 ## Required inputs
 

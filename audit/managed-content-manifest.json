@@ -170,7 +170,7 @@
     },
     {
       "path": "flow-skills/role-discipline/SKILL.md",
-      "sha256": "652c597b013a29d3be34bbdbed1807d20c04be23a7bc3faed6f587f72cdaf004"
+      "sha256": "024ee687e4131ef3b3fbea76660ee4761a7ec5bb1cd69e6516cb739e113ebabf"
     },
     {
       "path": "flow-skills/role-discipline/references/ai-developer.md",
@@ -410,7 +410,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/claude-md-overlay.md",
-      "sha256": "045173f9a230293dcf4fa12257280a2a75ac665884d987271525e43b57a21417"
+      "sha256": "8aa7ca14d092bbf5ffcf430cf5af1bb4f5ec1fd4942ed314a74ccfba8c12bb51"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/commands/find-wasted-code.md",
@@ -1437,5 +1437,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "edd7053be579a35d2c0ebe2516d88fed90fcd450439d26478e0553529d7d871b"
+  "manifest_self_sha256": "b111bf17941d36d51c7cec2a053bb240cb202388e06924c4bbca1db8f5be8194"
 }

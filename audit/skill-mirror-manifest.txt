@@ -34,7 +34,7 @@
 .agents/skills/release-deploy-reporting/SKILL.md  dcd724ec2cd80591d34c2343978af70f19225fe6b5578e1cdbac6a0bf4e36905
 .agents/skills/repo-onboarding-context-map/SKILL.md  d0e8c40165353b454a7ee48cc77edc77bc136de1e35cafef1cd86046ed1c19c0
 .agents/skills/requirements-specification/SKILL.md  627a285eb665bf991cad110b26e4e8181730f68f95d6638d704949086d0948fa
-.agents/skills/role-discipline/SKILL.md  652c597b013a29d3be34bbdbed1807d20c04be23a7bc3faed6f587f72cdaf004
+.agents/skills/role-discipline/SKILL.md  024ee687e4131ef3b3fbea76660ee4761a7ec5bb1cd69e6516cb739e113ebabf
 .agents/skills/role-discipline/references/ai-developer.md  c64772338241af89863239f95fcca64c0846f5bf462a0125c111ed391b92883a
 .agents/skills/role-discipline/references/architect.md  fd7f0edf600a618b34284e61025b7ad97ad51fd2e2dfa005eec6596cac996744
 .agents/skills/role-discipline/references/deploy.md  cd4eed882eef2affc605b76ccbc6539e4786298ce1d93f49bbcfe0b79e8c25ff
@@ -83,7 +83,7 @@
 .claude/skills/release-deploy-reporting/SKILL.md  dcd724ec2cd80591d34c2343978af70f19225fe6b5578e1cdbac6a0bf4e36905
 .claude/skills/repo-onboarding-context-map/SKILL.md  d0e8c40165353b454a7ee48cc77edc77bc136de1e35cafef1cd86046ed1c19c0
 .claude/skills/requirements-specification/SKILL.md  627a285eb665bf991cad110b26e4e8181730f68f95d6638d704949086d0948fa
-.claude/skills/role-discipline/SKILL.md  652c597b013a29d3be34bbdbed1807d20c04be23a7bc3faed6f587f72cdaf004
+.claude/skills/role-discipline/SKILL.md  024ee687e4131ef3b3fbea76660ee4761a7ec5bb1cd69e6516cb739e113ebabf
 .claude/skills/role-discipline/references/ai-developer.md  c64772338241af89863239f95fcca64c0846f5bf462a0125c111ed391b92883a
 .claude/skills/role-discipline/references/architect.md  fd7f0edf600a618b34284e61025b7ad97ad51fd2e2dfa005eec6596cac996744
 .claude/skills/role-discipline/references/deploy.md  cd4eed882eef2affc605b76ccbc6539e4786298ce1d93f49bbcfe0b79e8c25ff

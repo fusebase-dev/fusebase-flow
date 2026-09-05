@@ -16,7 +16,7 @@ Read `AGENTS.md`, then `FLOW_RULES.md` through `## Amendment log`. Claude Code s
 |---|---|
 | lifecycle skills | `flow-skills/` mirrored to `.claude/skills/` |
 | role agents | `agents/` mirrored to `.claude/agents/` |
-| commands | `hooks/local/fusebase-flow-overlays/commands/` mirrored to `.claude/commands/` |
+| commands (`/fusebase-health`, `/onboard`, `/product-owner`, `/handoff`, `/token-waste-audit`, `/find-wasted-effort`, `/find-wasted-code`) | `hooks/local/fusebase-flow-overlays/commands/` mirrored to `.claude/commands/` |
 | lifecycle hooks | `hooks/handlers/` via `.claude/settings.json.example` |
 | CLI runtime/quality guidance | CLI-owned `.claude/skills/`, `.claude/agents/`, `.claude/hooks/` |
 
