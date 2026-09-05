@@ -150,15 +150,18 @@ ff_prevalidate_recovery() {
       || { echo ".claude/settings.json is invalid"; return 1; }
   fi
   if [ "$REFRESH_OVERLAYS" -eq 1 ]; then
-    local row file heading legacy template
+    local row file heading legacy legacy2 template
     for row in \
-      "AGENTS.md|## FuseBase Flow — workflow lifecycle overlay|## Fusebase Flow — workflow lifecycle overlay|$OVERLAYS/agents-md-overlay.md" \
-      "CLAUDE.md|## FuseBase Flow — additional rules (overlay)|## Fusebase Flow — additional rules (overlay)|$OVERLAYS/claude-md-overlay.md"; do
-      IFS='|' read -r file heading legacy template <<<"$row"
+      "AGENTS.md|## FuseBase Flow — workflow lifecycle overlay|## Fusebase Flow — workflow lifecycle overlay||$OVERLAYS/agents-md-overlay.md" \
+      "CLAUDE.md|## FuseBase Flow — Claude Code adapter|## FuseBase Flow — additional rules (overlay)|## Fusebase Flow — additional rules (overlay)|$OVERLAYS/claude-md-overlay.md"; do
+      IFS='|' read -r file heading legacy legacy2 template <<<"$row"
       [ -f "$file" ] || continue
-      if grep -qF "$heading" "$file" || grep -qF "$legacy" "$file"; then
+      if grep -qF "$heading" "$file" || grep -qF "$legacy" "$file" \
+          || { [ -n "$legacy2" ] && grep -qF "$legacy2" "$file"; }; then
+        local -a legacy_args=(--legacy-heading "$legacy")
+        [ -n "$legacy2" ] && legacy_args+=(--legacy-heading "$legacy2")
         python3 "$OVERLAYS/overlay-block-replace.py" "$file" "$template" "$heading" "$file.preflight-unused" \
-          --legacy-heading "$legacy" --validate-only >/dev/null \
+          "${legacy_args[@]}" --validate-only >/dev/null \
           || { echo "$file has ambiguous or invalid Flow overlay markers"; return 1; }
       fi
     done
@@ -207,14 +210,16 @@ TS_REFRESH=$(date -u +%Y%m%dT%H%M%SZ)
 # place (with a .pre-refresh backup) only when they genuinely differ. A legacy
 # marker-less block is treated as drifted and migrated to the wrapped form.
 refresh_overlay_block() {
-  local file="$1" heading="$2" legacy_heading="$3" template="$4" label="$5"
+  local file="$1" heading="$2" legacy_heading="$3" template="$4" label="$5" legacy_heading2="${6:-}"
   [ -f "$template" ] || { WARNINGS+=("$template missing; cannot refresh $label overlay"); return 0; }
 
   local helper="$OVERLAYS/overlay-block-replace.py" backup="$file.pre-refresh-$TS_REFRESH"
   [ -f "$helper" ] || { WARNINGS+=("$helper missing; cannot refresh $label overlay"); return 0; }
   local output rc
+  local -a legacy_args=(--legacy-heading "$legacy_heading")
+  [ -n "$legacy_heading2" ] && legacy_args+=(--legacy-heading "$legacy_heading2")
   set +e
-  output=$(python3 "$helper" "$file" "$template" "$heading" "$backup" --legacy-heading "$legacy_heading" 2>&1)
+  output=$(python3 "$helper" "$file" "$template" "$heading" "$backup" "${legacy_args[@]}" 2>&1)
   rc=$?
   set -e
   if [ "$rc" -ne 0 ]; then
@@ -329,18 +334,25 @@ fi
 command -v ffrp_applied >/dev/null 2>&1 && ffrp_applied "agents_overlay"
 echo "[post-fusebase-update] Step 4: CLAUDE.md overlay check..."
 # WS6 marker migration (idempotent) — same as AGENTS.md above.
-CLAUDE_MARKER="## FuseBase Flow — additional rules (overlay)"
-CLAUDE_MARKER_OLD="## Fusebase Flow — additional rules (overlay)"
-if [ "$REFRESH_OVERLAYS" -ne 1 ] && [ -f CLAUDE.md ] && grep -qF "$CLAUDE_MARKER_OLD" CLAUDE.md && ! grep -qF "$CLAUDE_MARKER" CLAUDE.md; then
-  ff_migrate_marker CLAUDE.md "$CLAUDE_MARKER_OLD" "$CLAUDE_MARKER" \
-    && ACTIONS_TAKEN+=("CLAUDE.md: migrated overlay heading marker Fusebase->FuseBase (WS6)")
+CLAUDE_MARKER="## FuseBase Flow — Claude Code adapter"
+CLAUDE_MARKER_OLD="## FuseBase Flow — additional rules (overlay)"
+CLAUDE_MARKER_OLDER="## Fusebase Flow — additional rules (overlay)"
+if [ "$REFRESH_OVERLAYS" -ne 1 ] && [ -f CLAUDE.md ] && ! grep -qF "$CLAUDE_MARKER" CLAUDE.md; then
+  for old_marker in "$CLAUDE_MARKER_OLD" "$CLAUDE_MARKER_OLDER"; do
+    if grep -qF "$old_marker" CLAUDE.md; then
+      ff_migrate_marker CLAUDE.md "$old_marker" "$CLAUDE_MARKER" \
+        && ACTIONS_TAKEN+=("CLAUDE.md: migrated legacy overlay heading")
+      break
+    fi
+  done
 fi
 if [ ! -f CLAUDE.md ]; then
   ACTIONS_SKIPPED+=("CLAUDE.md not present (Claude Code not configured for this project)")
-elif grep -qF "$CLAUDE_MARKER" CLAUDE.md || grep -qF "$CLAUDE_MARKER_OLD" CLAUDE.md; then
+elif grep -qF "$CLAUDE_MARKER" CLAUDE.md || grep -qF "$CLAUDE_MARKER_OLD" CLAUDE.md \
+    || grep -qF "$CLAUDE_MARKER_OLDER" CLAUDE.md; then
   # F2: present — refresh if DRIFTED, only under --refresh-overlays (marker-anchored).
   if [ "$REFRESH_OVERLAYS" -eq 1 ]; then
-    refresh_overlay_block CLAUDE.md "$CLAUDE_MARKER" "$CLAUDE_MARKER_OLD" "$OVERLAYS/claude-md-overlay.md" "CLAUDE.md"
+    refresh_overlay_block CLAUDE.md "$CLAUDE_MARKER" "$CLAUDE_MARKER_OLD" "$OVERLAYS/claude-md-overlay.md" "CLAUDE.md" "$CLAUDE_MARKER_OLDER"
   else
     ACTIONS_SKIPPED+=("CLAUDE.md overlay already present (use --refresh-overlays to update a drifted block)")
   fi

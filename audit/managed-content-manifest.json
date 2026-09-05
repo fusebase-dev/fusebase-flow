@@ -2,11 +2,11 @@
   "schema_version": 1,
   "flow_version": "4.14.1",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 342,
+  "asset_count": 358,
   "assets": [
     {
       "path": "FLOW_RULES.md",
-      "sha256": "45bda90922994ab9dfaf2e27c0d5a053129a59334d0c77836c5570dd5ff8ff33"
+      "sha256": "9db0d5bb4c8627929db6341aafb0cad608c818a2ac02c26cb295d75cea94b267"
     },
     {
       "path": "FLOW_RULES_HISTORY.md",
@@ -14,11 +14,11 @@
     },
     {
       "path": "agents/ai-developer/AGENT.md",
-      "sha256": "b5e07586b4838a28e608e8639f30827cac5b1ceff944622aa6ad4ae9cb221e83"
+      "sha256": "c00feba5e0c1f3e25fc840c8c49c3552a7f1af0dd9a8bfc3b6cb01b8fc541c46"
     },
     {
       "path": "agents/product-owner/AGENT.md",
-      "sha256": "358bbbf1f9c55147dee59212de500dcadf110ee7ad6cb9769ba6847638ebb416"
+      "sha256": "99caf1bc19ef6150a3292a01b5065a7eb5e30c70c2e73dce95c449544d85d05f"
     },
     {
       "path": "audit/hook-layer-manifest.json",
@@ -62,7 +62,7 @@
     },
     {
       "path": "flow-skills/communication/SKILL.md",
-      "sha256": "91f95da9e5b23735c7a7281d6ccae6afb8cf27435b1a04dacfb0bb58b20f2f8a"
+      "sha256": "c90ebc9d89ac5a4d62f47d2df1d3b7e5c363cda3ba41f193d445d46da9ca15a3"
     },
     {
       "path": "flow-skills/communication/references/mode-b-detail.md",
@@ -78,7 +78,7 @@
     },
     {
       "path": "flow-skills/documentation-budget/SKILL.md",
-      "sha256": "ac49c0e5f603674cb33b27f1c95282d82b1d9cdbd09f86832165eccf2aa7c612"
+      "sha256": "638c10803c8111cc61cfdaa77be58f605c141ff774c137fc857b07577744521a"
     },
     {
       "path": "flow-skills/find-wasted-code/SKILL.md",
@@ -118,11 +118,11 @@
     },
     {
       "path": "flow-skills/implementation-planning/SKILL.md",
-      "sha256": "09e39f95ae6895aea8c958579b4e2a5d7679e03c33e50751e4ebbf8729ccc6a0"
+      "sha256": "6a1d04d5044e4a90ed22cc03e35894191b1c668804374c6698678d86c5317d39"
     },
     {
       "path": "flow-skills/lightweight-lane/SKILL.md",
-      "sha256": "95ecbfcf18db753c551163b801d6abef61a60d220c3eef9c957d98da119f91d4"
+      "sha256": "f326cf410c6961295e9fffae9d1ee8551131d6d5220c55df22a1d4cecc3f09d2"
     },
     {
       "path": "flow-skills/liveness-discipline/SKILL.md",
@@ -166,15 +166,15 @@
     },
     {
       "path": "flow-skills/requirements-specification/SKILL.md",
-      "sha256": "497d6128bee8d9c70f90091ac6f54d0ea4efc38dcf2e7d8883fd88be68ccf57a"
+      "sha256": "627a285eb665bf991cad110b26e4e8181730f68f95d6638d704949086d0948fa"
     },
     {
       "path": "flow-skills/role-discipline/SKILL.md",
-      "sha256": "fa5f1094b89e3409a599351274ba92712d2f24ddc27c2bd5fe0e27bd91ad26ef"
+      "sha256": "652c597b013a29d3be34bbdbed1807d20c04be23a7bc3faed6f587f72cdaf004"
     },
     {
       "path": "flow-skills/role-discipline/references/ai-developer.md",
-      "sha256": "140da055ffd1d560bec5b504c21dfa7194901af089be4ad12c66c60935e5a657"
+      "sha256": "c64772338241af89863239f95fcca64c0846f5bf462a0125c111ed391b92883a"
     },
     {
       "path": "flow-skills/role-discipline/references/architect.md",
@@ -186,7 +186,7 @@
     },
     {
       "path": "flow-skills/role-discipline/references/product-owner.md",
-      "sha256": "2910f4f0d6dca8c717868efcb0e9db32aa1d8975a1b39e056a780f5b0655297c"
+      "sha256": "af2a7f1ada615de21d0f6fc71fb040e2d9761151259062d5abbcf073945a4ab7"
     },
     {
       "path": "flow-skills/role-discipline/references/shared-protocols.md",
@@ -214,7 +214,7 @@
     },
     {
       "path": "flow-skills/validation-and-qa/SKILL.md",
-      "sha256": "c3fb5946c071d23b9b6d9f3a5556d7bb40472369aaa4913f0c75bc841411fca5"
+      "sha256": "3ff86ed9efbc5667f93c73de4cbf6ff1f41a1bc4a26591328c73c18645c67676"
     },
     {
       "path": "flow-skills/zoom-out/SKILL.md",
@@ -234,7 +234,7 @@
     },
     {
       "path": "hooks/git/pre-commit",
-      "sha256": "69d9547f21f8e23b7902c73648f519bf9fff4f3b300de0f854cb150ed8b8b563"
+      "sha256": "b7226c463a69a121a3ad8743e51860d7fb34d2342384b37798caec73df689db1"
     },
     {
       "path": "hooks/handlers/permission_request.py",
@@ -258,7 +258,7 @@
     },
     {
       "path": "hooks/handlers/stop.py",
-      "sha256": "bdf79237c2fef5567fe5f3ab5876d9b31a07702a04cfb5fb51268e216a3668f2"
+      "sha256": "deec92f622d4b7fd02ef455ef9175bd81f26cfed4a9f433e9b17bfae4e813709"
     },
     {
       "path": "hooks/handlers/user_prompt_submit.py",
@@ -298,7 +298,7 @@
     },
     {
       "path": "hooks/local/find-wasted-effort.py",
-      "sha256": "adb4a6d78a509c7c6bac7b06baeb946f772afc3ba10379ae8e1f9a3fb4eb6ac3"
+      "sha256": "75ec0c8577e44fd9939f87064819771199c71169aa0854b10336ad55d5b739d5"
     },
     {
       "path": "hooks/local/find_wasted_code/__init__.py",
@@ -374,7 +374,7 @@
     },
     {
       "path": "hooks/local/find_wasted_effort/selftest.py",
-      "sha256": "715dc58236974d9a3b6a4d650da5636ef4d40a6bd121c7fab744f5ee88dd73af"
+      "sha256": "d759bf35d863979d93c4e1162338c7d91803bd0254d35832037fd0625d570e68"
     },
     {
       "path": "hooks/local/find_wasted_effort/selftest_containment.py",
@@ -389,8 +389,16 @@
       "sha256": "44315d555f5f340ac814562b3f4cb42d13a037cf394bc957446a6a8aedcf7577"
     },
     {
+      "path": "hooks/local/find_wasted_effort/selftest_windowing.py",
+      "sha256": "eb24ef7abad200300d4adcbe44f82dc2392d674bab1f86cccf7071bcdfb3dce7"
+    },
+    {
+      "path": "hooks/local/find_wasted_effort/windowing.py",
+      "sha256": "6dd6230c2649d7992dc00b652d44dba17c1daf1850a429ad54facc1786598da8"
+    },
+    {
       "path": "hooks/local/fusebase-flow-health-check.sh",
-      "sha256": "7f4062ade399fde6f7122180a40bc56d14855cca9ab799ba35996af8fdb08b1e"
+      "sha256": "d1fe1cac4dde93216ff55387fc89dfb9f1c37bd2f29e39cddbfdf955102c5b80"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/agent-surface-ownership.json",
@@ -398,11 +406,11 @@
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/agents-md-overlay.md",
-      "sha256": "f4aa7a3c572d47499e66a2326c67eb12a432131514cb2afd5a48aa7ea507c6b2"
+      "sha256": "e24223c821e82f1a876b2b0aa838b9333dd86d76ca34ac756d8da63935dda36b"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/claude-md-overlay.md",
-      "sha256": "e234dbec841d08b2f835988f9536bf6e4fc42161de4f0e03eeb0e3efd7acaf7e"
+      "sha256": "045173f9a230293dcf4fa12257280a2a75ac665884d987271525e43b57a21417"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/commands/find-wasted-code.md",
@@ -433,8 +441,12 @@
       "sha256": "9a78c15eae7cb45b8f351adf4ff1e88b5084c81af60de2961994d3287b6caf35"
     },
     {
+      "path": "hooks/local/fusebase-flow-overlays/overlay-block-replace.py",
+      "sha256": "f079a4f7f9c4ebf00035be1c155f47a512ae2f889ffde7d7acad95c6e7a28f6c"
+    },
+    {
       "path": "hooks/local/fusebase-flow-overlays/settings-json-merge.py",
-      "sha256": "55fe17d3427bd9176508269768444336a073584fb49f24d52762b55fb3c4bc30"
+      "sha256": "951c64099200d869cd6cd18bf415a06af40da9edb2fb4ca771344cfd98a57006"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/skills/fusebase-flow-health-check/SKILL.md",
@@ -446,11 +458,15 @@
     },
     {
       "path": "hooks/local/install-git-hooks.sh",
-      "sha256": "fec2a318700e263d62c5008e09544dab077d19c631da2c32d2e5f16f94e8afca"
+      "sha256": "c7af93c178980b175e92d70094dd993ca908fbaeb48e12f639e9ae445d2dd1b9"
+    },
+    {
+      "path": "hooks/local/lane-assessment.py",
+      "sha256": "45956a77e31ab298db7d7bce808ed5402d9ce0028852e934245c637097e98676"
     },
     {
       "path": "hooks/local/lane-router.sh",
-      "sha256": "fdae8402d96658c04b145aa6fd964b97e34b1eee643185726faacdccf14d8261"
+      "sha256": "698f8e6b8a3afd881d72658cf18c65222a4d3f2c1c0a5584dfc3be691a4510ee"
     },
     {
       "path": "hooks/local/lib/active-approvals.sh",
@@ -481,6 +497,10 @@
       "sha256": "6d6c4c54018d24072db46e8db5d4177ee24caa8df4dca4d96cc6adfdaf7c5b13"
     },
     {
+      "path": "hooks/local/lib/flow-recovery-plan.sh",
+      "sha256": "40c0b94c9c7875c4eec27f7e7b4eafaf19822d3f982399baa27ccdb099a8ba76"
+    },
+    {
       "path": "hooks/local/lib/health-recommendations.sh",
       "sha256": "0fde87bf606134a16d335f6ebe87333c3ffc1f1d74bc6aef6b079a1bff90e467"
     },
@@ -490,7 +510,7 @@
     },
     {
       "path": "hooks/local/lib/hook-wiring-intent.sh",
-      "sha256": "f95e9554efb61df4598b44e3ba4ea2fe6cca9cc8ee4464d5df7602bfa0a30dde"
+      "sha256": "95bed05d42863df91e412a0a41d180339e22570dfe7830005c653314540c3863"
     },
     {
       "path": "hooks/local/lib/hook_manifest.py",
@@ -541,12 +561,16 @@
       "sha256": "12a358f619e4603a633eb7bc00e20012363c98fdc47f375ee86801875f51fae2"
     },
     {
+      "path": "hooks/local/lib/validator-evidence.py",
+      "sha256": "0e3015ac4772fe0b6ab54f4f8bebffe386760a9a211d6eb38d898dbeb4a38cd1"
+    },
+    {
       "path": "hooks/local/mirror-agents.sh",
-      "sha256": "71c17db5a2fb1af251ceb43a2f7f6ee703c51bef87f5beace6ee200f0b048f59"
+      "sha256": "dc0db1f025836fcfa5f92037658d8059a36012e0e8e93ee4f662131dfb642ca4"
     },
     {
       "path": "hooks/local/mirror-skills.sh",
-      "sha256": "9a41cac23267e7839b5964b2c8eeabfc8e3ed2044672a0a2e54668d4882bc9e5"
+      "sha256": "848759210d72005de7207fc3cdb889723e8c77d6efa6e154b57ea275214225ef"
     },
     {
       "path": "hooks/local/po-investigate.sh",
@@ -554,7 +578,7 @@
     },
     {
       "path": "hooks/local/post-fusebase-update.sh",
-      "sha256": "351b28dc4a8bb1f35e1678696b6b2dd43fa31298e2060327073bea5e1288c524"
+      "sha256": "5f3c525a6673f02558d955c8d6b321ca0b48ce7dc4dba02243ec89e6b0e4257b"
     },
     {
       "path": "hooks/local/preflight.sh",
@@ -579,6 +603,10 @@
     {
       "path": "hooks/local/run-handler.sh",
       "sha256": "3083e36fe46a5e376692e9e6e800ae75f5d892afc6d8ad45a4a33e489da26492"
+    },
+    {
+      "path": "hooks/local/run-validators.sh",
+      "sha256": "5a75465de4153fd5286285486b8ad23b64b3d8a0225e2ddb16334737494a70df"
     },
     {
       "path": "hooks/local/stamp-cli-provenance.sh",
@@ -681,16 +709,24 @@
       "sha256": "4d7e59cbdd0fffa1fc3ffe7dcf937c372ff232c70d45c497c0b56e2fde8b3e8a"
     },
     {
+      "path": "hooks/tests/benchmark-flow-consumers.py",
+      "sha256": "57d6a37597c61302a0a3561c58a484769654fda9e7b15617337707cd6349969b"
+    },
+    {
+      "path": "hooks/tests/benchmark-stop-transcript.py",
+      "sha256": "e5242109b3618dfd64bda81f24d50f1378410b0abe28103623a0f51e79361420"
+    },
+    {
       "path": "hooks/tests/cli-flow-recovery-classify.sh",
       "sha256": "6bf6c15f45302c7fee0356bfc44187678819e6b39e4a0a8275113b1f8b84dd07"
     },
     {
       "path": "hooks/tests/cli-flow-recovery-direct.sh",
-      "sha256": "71bf05f8dae0a9e4870dbc0bc13ddfc0e5aac6662abc71187cdbada6982d0bcb"
+      "sha256": "f8c53e1ffc1a33ce7fd068c80fbc00bde738580e970839c3c6ab1cd40a2d4042"
     },
     {
       "path": "hooks/tests/cli-flow-recovery-e2e.sh",
-      "sha256": "8ca2ffc4af313b528d68f2c207d7d4eea96225008826ba294838c5c7b66442a7"
+      "sha256": "f83f024ebae87fed7ca43d6c27da2cad1c0cdf2fb8654555c11108aebee13829"
     },
     {
       "path": "hooks/tests/cli-flow-recovery-engine.sh",
@@ -698,7 +734,7 @@
     },
     {
       "path": "hooks/tests/cli-flow-recovery-fixture.sh",
-      "sha256": "f6083405873d970dc5f62d2375491b13cd8e627287c849a517ad76557b29e406"
+      "sha256": "7a56377616b409618edf6b0ed4c69a95422e6f48085fdfd6b1b2fdf46e299274"
     },
     {
       "path": "hooks/tests/fixtures/01_pre_tool_use_blocked_rm_rf.json",
@@ -881,6 +917,10 @@
       "sha256": "0722710725d845e8e6aeaa79aed07062d98ff06e5894874a405ac41aa5d4c2d1"
     },
     {
+      "path": "hooks/tests/lane-workflow-fixture.py",
+      "sha256": "eaeb71c00f7b663d55618fbe2466f29ac518f5ab20da30ff6076dfb17f1c1262"
+    },
+    {
       "path": "hooks/tests/lib/minimal-path-fixture.sh",
       "sha256": "a5c90585b67dad0b7007debf35593b781539e73ba224679df1cd2e7d5424d33a"
     },
@@ -906,7 +946,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "83888dfaf44cbcea0c77bbf42a7f599e5a020bacdc8c57bcb7276072607fcd87"
+      "sha256": "43c14c2c12be763ddb9df98a0b71139172003c61c487ff039e73f04774485ee4"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -950,7 +990,7 @@
     },
     {
       "path": "hooks/tests/test-cli-flow-recovery.sh",
-      "sha256": "c5e289bf2084911033f199cc095af8706a030ec4b91001e25dfe2c6daf09e1fe"
+      "sha256": "697a4716bc847b3ffe04251b5b652f7570cdc01ed52355940dc5dfecbfbc4ed5"
     },
     {
       "path": "hooks/tests/test-cli-vendor-refresh.sh",
@@ -985,6 +1025,10 @@
       "sha256": "e09e6002255e20c0c6291609c34c5c8eafccb14b53fa85d79934e9966e2cd9bb"
     },
     {
+      "path": "hooks/tests/test-flow-consumer-benchmark.sh",
+      "sha256": "b3be04ae06720a183dcfb3a5104b99aa04dc33b613275595349affde16f74a39"
+    },
+    {
       "path": "hooks/tests/test-fr22-delivery-guarantee.sh",
       "sha256": "7c5863819c7b787e15da35f6bb03e6623fd961680d6fb687f35b665cb8f4c524"
     },
@@ -1010,7 +1054,7 @@
     },
     {
       "path": "hooks/tests/test-hook-wiring-intent.sh",
-      "sha256": "f4ae98870bd87b74134867516b4e311007c2ee40864dad3b5511a3bace93ae55"
+      "sha256": "86afcff354e40278e7ec89ed73075ba3200b719eacc375e3650f56e63c978af6"
     },
     {
       "path": "hooks/tests/test-install-fusebase-cli-project-doc.sh",
@@ -1022,7 +1066,11 @@
     },
     {
       "path": "hooks/tests/test-lane-router.sh",
-      "sha256": "8a4b1cc13d7cf037ca5dd1a7d806b3d054d32e5fe55c4401828aaa7afffa4ed7"
+      "sha256": "1a78f5fbc2a0b8b2abd6624445533e3b754863b11994f6163690db71c8739f3c"
+    },
+    {
+      "path": "hooks/tests/test-lane-workflow.sh",
+      "sha256": "15eab8fcb0329e4b7d4e69764a7380af24033e64e52d605bcd825ae6a7c6fba7"
     },
     {
       "path": "hooks/tests/test-liveness-bounded-run.sh",
@@ -1129,6 +1177,10 @@
       "sha256": "1d399e7474faec70d43159926fd2d822ba1399ef3ee392dfb87ead35b7533560"
     },
     {
+      "path": "hooks/tests/test-startup-context.sh",
+      "sha256": "5baa63a8325feb119ab8e8a595672687f6ca7128b97b5a18a80d24472dd81c5c"
+    },
+    {
       "path": "hooks/tests/test-supersede-primitive.sh",
       "sha256": "3395081243826f4a2d4b7e0a94852912669f184a68d1b3da20381f89769bd741"
     },
@@ -1169,12 +1221,24 @@
       "sha256": "8c8b464e15dfa73205a12f0653a003b22acb9a7a856b9800e3157dc3c086c963"
     },
     {
+      "path": "hooks/tests/test-validation-instructions.sh",
+      "sha256": "9b93c803a42d7f377fddcc140807ef5b7fae8fb8b6b9adc3360c68b7360d0425"
+    },
+    {
+      "path": "hooks/tests/test-validator-evidence.sh",
+      "sha256": "760a6abd67b56d926f1ca4e3f413c27a570058b51df7d4707d4bc65cd60f1cf0"
+    },
+    {
       "path": "hooks/tests/test-vendored-rendered.sh",
       "sha256": "c65d86337773c037310636847e7fd84c536fa275d75bec322b23fcf8435361de"
     },
     {
+      "path": "hooks/tests/test-wasted-effort-windowing.sh",
+      "sha256": "17327c153c992d79dd98705e3b5a179dd8b59dbd0812fcf33799746c9d28821e"
+    },
+    {
       "path": "hooks/tests/test-wire-hooks-add-beside.sh",
-      "sha256": "32ea971f270024831f5ef247aebddece53c4d7e0dd518957c36e71506a96ff13"
+      "sha256": "44ccdd174c0d4594592d03f5f2e6825e93a7379bf3feef1e54d8082ce6c1f1c6"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
@@ -1242,7 +1306,7 @@
     },
     {
       "path": "templates/change-note.md",
-      "sha256": "2ef78c415f6bd00a53f0f06b6520bc1d62c488e4e3adf1b706f59e796d0dc100"
+      "sha256": "fb63450f904cb361b609be3ca0b6a7d57adcfe2bf9ae3de7f68777192fd6900d"
     },
     {
       "path": "templates/clarify-conversation.md",
@@ -1270,7 +1334,7 @@
     },
     {
       "path": "templates/handoff-implement.md",
-      "sha256": "235460796f01ca26a22909b0b2d3c5819639aa6b494d2fe59b4dc33cf354de56"
+      "sha256": "db0268a0aa813539babe37a84c52f680476ce609c338a89dc5e8240cd5c0334c"
     },
     {
       "path": "templates/handoff.md",
@@ -1326,7 +1390,7 @@
     },
     {
       "path": "workflows/eight-phase-flow.md",
-      "sha256": "37b650e7e3a98f112cd1bdccaf6f7eda93082c871d5322fcef9faa38be2528a0"
+      "sha256": "1b0a10ab636c6a207c6dc3a8a51a4b4b8aeb35c3e70f69fbfd5c25e8a52f5e1d"
     },
     {
       "path": "workflows/git-discipline.md",
@@ -1338,7 +1402,7 @@
     },
     {
       "path": "workflows/greenlight-implement.md",
-      "sha256": "71e771ba4b6cdb4a82c2edfb1ce1a3f5db37de37c30185590ca2e09617c3be68"
+      "sha256": "47bd404dcf16e4300c3621dac4775132be95cd7bbc87ad3b65fbe9fd96906f39"
     },
     {
       "path": "workflows/knowledge-curation.md",
@@ -1346,7 +1410,7 @@
     },
     {
       "path": "workflows/lightweight-lane.md",
-      "sha256": "5d385292ba79ac293c9e7ba8c70ee5c637af577f71a72692cb3fb58c200e10a4"
+      "sha256": "264e26f029616b3846fdbae53d05a032c443ab34715544cb8c7841c85db42f87"
     },
     {
       "path": "workflows/live-user-verification.md",
@@ -1373,5 +1437,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "70adc826c268d11db863f3fbdeb878b0423fad70ae1132549dbf7c28d15c209c"
+  "manifest_self_sha256": "edd7053be579a35d2c0ebe2516d88fed90fcd450439d26478e0553529d7d871b"
 }

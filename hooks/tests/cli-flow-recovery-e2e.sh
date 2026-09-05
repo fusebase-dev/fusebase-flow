@@ -62,7 +62,7 @@ ffcf_e2e_run() {
   # WS6 dual-accept: recovery emits the NEW marker; a legacy tree may carry either.
   grep -qE "^## Fuse[bB]ase Flow — workflow lifecycle overlay" "$PROJECT/AGENTS.md" && grep -qF -- "bootstrap-upgrade.sh -- --auto-yes" "$PROJECT/AGENTS.md" || fail "current Flow AGENTS overlay was not restored (heading, or T6/M7 supported-upgrade-route guidance — the latter is CANONICAL-overlay content, so a root-AGENTS.md-only edit is discarded here)"
   grep -q "CURRENT CLI CLAUDE SENTINEL" "$PROJECT/CLAUDE.md" || fail "CLI CLAUDE baseline was lost"
-  grep -qE "^## Fuse[bB]ase Flow — additional rules \(overlay\)" "$PROJECT/CLAUDE.md" || fail "current Flow CLAUDE overlay was not restored"
+  grep -qE "^## FuseBase Flow — Claude Code adapter$" "$PROJECT/CLAUDE.md" || fail "current Flow CLAUDE overlay was not restored"
 
   [ "$CODEX_BEFORE" = "$(sha_cmd "$PROJECT/.codex/config.toml")" ] || fail ".codex/config.toml changed"
   [ "$HOOK_BEFORE" = "$(sha_cmd "$PROJECT/.claude/hooks/run-typecheck-apps.js")" ] || fail "CLI hook helper changed"
@@ -157,7 +157,7 @@ ffcf_e2e_run() {
   pass "F2: --refresh-overlays on a current block is a no-op (byte-identical; BEGIN/END balanced at 1)"
 
   # (2) drift AGENTS.md, refresh -> restored to one balanced block, drift removed.
-  sed -i '0,/Fusebase Flow ships:/s//DRIFTED-FLOW-BLOCK-EXTRA-LINE/' "$PROJECT/AGENTS.md"
+  sed -i '0,/Provider adapters point here/s//DRIFTED-FLOW-BLOCK-EXTRA-LINE/' "$PROJECT/AGENTS.md"
   ( cd "$PROJECT" && bash hooks/local/post-fusebase-update.sh --refresh-overlays > "$OUT.refresh2" )
   [ "$(ffcf_count_marker "$PROJECT/AGENTS.md" "$FFCF_MB")" -eq 1 ] \
     || fail "F2: after refreshing a DRIFTED AGENTS.md, BEGIN count is $(ffcf_count_marker "$PROJECT/AGENTS.md" "$FFCF_MB") (expected 1)"
@@ -184,7 +184,7 @@ ffcf_e2e_run() {
   grep -q "<!-- FLOW:PRESERVE:BEGIN" "$PROJECT/AGENTS.md" || fail "U1 precondition: AGENTS.md block lacks FLOW:PRESERVE markers"
   sed -i -E 's/\| Project name \| [^|]*\|/| Project name | WORKHUB-MANAGED |/' "$PROJECT/AGENTS.md"
   grep -q "WORKHUB-MANAGED" "$PROJECT/AGENTS.md" || fail "U1 setup: could not set the operator project value"
-  sed -i '0,/Fusebase Flow ships:/s//DRIFTED-FRAMEWORK-PROSE/' "$PROJECT/AGENTS.md"
+  sed -i '0,/Provider adapters point here/s//DRIFTED-FRAMEWORK-PROSE/' "$PROJECT/AGENTS.md"
   rm -f "$PROJECT"/AGENTS.md.pre-refresh-*
   ( cd "$PROJECT" && bash hooks/local/post-fusebase-update.sh --refresh-overlays > "$OUT.u1" )
   grep -q "WORKHUB-MANAGED" "$PROJECT/AGENTS.md" || fail "U1: refresh WIPED the operator's project value (data loss!)"

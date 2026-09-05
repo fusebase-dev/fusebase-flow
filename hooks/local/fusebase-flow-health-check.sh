@@ -229,7 +229,7 @@ fi
 
 # CLAUDE.md overlay marker (Claude Code only) — same count logic + WS6 dual-accept.
 if [ -f CLAUDE.md ]; then
-  CLAUDE_OVERLAY_COUNT=$(grep -cE "^## Fuse[bB]ase Flow — additional rules \(overlay\)" CLAUDE.md 2>/dev/null || true)
+  CLAUDE_OVERLAY_COUNT=$(grep -cE "^## Fuse[bB]ase Flow — (Claude Code adapter|additional rules \(overlay\))" CLAUDE.md 2>/dev/null || true)
   if [ "$CLAUDE_OVERLAY_COUNT" -eq 0 ]; then
     if grep -qF "Claude Code adapter for Fusebase Flow" CLAUDE.md 2>/dev/null; then
       LOCAL_OK+=("CLAUDE.md baseline: present (source-template / edition mode)")

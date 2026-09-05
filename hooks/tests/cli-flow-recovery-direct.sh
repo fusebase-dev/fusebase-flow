@@ -355,7 +355,7 @@ customized = template_bytes.replace(
     b"| Project name | (run `/onboard` or edit) |",
     "| Project name | München-東京 |".encode(),
 )
-customized = customized.replace(b"Fusebase Flow ships:", b"STALE Flow ships:")
+customized = customized.replace(b"Provider adapters point here", b"STALE Flow adapter pointer")
 prefix = b"CLI-PREFIX-\xc3\xa9\r\n<!-- CUSTOM:SKILL:BEGIN -->\r\nUNRELATED-A\r\n<!-- CUSTOM:SKILL:END -->\r\n"
 suffix = b"\r\nCLI-SUFFIX-\xe6\x9d\xb1\xe4\xba\xac\r\n<!-- CUSTOM:SKILL:BEGIN -->\r\nUNRELATED-B\r\n<!-- CUSTOM:SKILL:END -->\r\n"
 target = work / "AGENTS.md"
@@ -370,7 +370,7 @@ updated = target.read_bytes()
 assert updated.startswith(prefix)
 assert updated.endswith(suffix)
 assert preserve in updated
-assert b"STALE Flow ships:" not in updated
+assert b"STALE Flow adapter pointer" not in updated
 assert b"\n" not in updated.replace(b"\r\n", b"")
 mtime = target.stat().st_mtime_ns
 backup_mtime = backup.stat().st_mtime_ns

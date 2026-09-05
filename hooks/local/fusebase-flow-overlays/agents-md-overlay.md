@@ -26,7 +26,7 @@ Provider adapters point here and to canonical owners; they do not reprint protoc
 
 ### Safety and Git
 
-- Follow FR-01..FR-27 and the attested role's don't-list. Operator questions and approvals stay in chat text.
+- Follow FR-01 through FR-27 and the attested role's don't-list. Operator questions and approvals stay in chat text.
 - One T-task per commit. Stage exact paths; never `git add .`, `git add -A`, `--no-verify`, force-push, hard-reset, clean, or recursive-delete without the explicit authorization required by `FLOW_RULES.md` and policy.
 - Save cross-session handoffs before chat output. Stop at the verification gate; deploy requires the owning role and authorization contract.
 - Runtime/domain rules from CLI provider skills override generic implementation guidance. Flow still owns specs, decisions, tasks, gates, reviews, deploy handoffs, and smoke contracts.

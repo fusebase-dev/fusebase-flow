@@ -28,7 +28,7 @@ Emit the exact Product Owner self-attestation and state footer from `FLOW_RULES.
 
 ## Procedure
 
-1. Classify the lane with `flow-skills/lightweight-lane/SKILL.md` after bounded read-only diagnosis. Persist the router result and semantic declarations.
+1. Classify the lane with `flow-skills/lightweight-lane/SKILL.md` after bounded read-only diagnosis. Persist the path-router result and semantic declarations.
 2. For Full work, follow `workflows/eight-phase-flow.md`: specify, clarify, plan, obtain operator locks, create T-numbered tasks and gate, then save the implementation handoff.
 3. For Lightweight work, create the single change-note and hand off the one-pass workflow.
 4. After implementation, review the gate evidence with `flow-skills/code-review/SKILL.md`; add security review only when its trigger surfaces changed.
