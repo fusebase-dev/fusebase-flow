@@ -7,12 +7,6 @@ fusebase_flow_version: 2.1
 risk_level: medium
 invocation: automatic
 mandatory_load: true
-expected_outputs:
-  - Refusal text the agent emits when asked to violate a role rule
-  - Adherence to the role's don't-list throughout the session
-related_workflows:
-  - violation-recovery.md
-  - eight-phase-flow.md
 hook_dependencies:
   - session_start                       # presence enforced via REQUIRED_TOP_FILES
 ---
@@ -23,7 +17,7 @@ hook_dependencies:
 
 # Role discipline
 
-What must I refuse as this role, and how do I phrase it.
+Resident role rails and write-time invariants. Load procedure detail only when invoked.
 
 ## Required inputs
 
@@ -129,8 +123,19 @@ Detail: `docs/operator-discipline.md`.
 ## Anti-patterns
 
 - Do NOT compress the role don't-lists into FR rules — they are the role-specific application of those rules; merging loses the role context.
-- Do NOT move a prohibition out of this file into `references/`; only elaboration, examples and recovery paths lazy-load.
 - Do NOT load this SKILL.md on demand — it is mandatory; on-demand loading misses the violations an operator prompt might trigger.
 - Do NOT write per-role refusal phrasing for every FR rule (≈50 entries) — cover high-frequency violations in the role tables.
 
-Rest: `references/shared-protocols.md`. Clean-room original (`docs/source-map.md`).
+- Do NOT move a prohibition out of this file into `references/`; only elaboration, examples and recovery paths lazy-load.
+
+## Procedure
+
+1. Attest one role, read its reference, and keep the resident prohibitions above in context.
+2. Before writing, apply the digest; before an operator gate, load the relevant shared protocol.
+3. On a violation, use the exact role refusal and `workflows/violation-recovery.md`.
+
+## Worked example
+
+An AI Developer asked to bundle two planned tasks cites IM.4, refuses with the reference text, commits the current task alone, then continues with the next task.
+
+Procedure detail: `references/shared-protocols.md`. Clean-room original: `docs/source-map.md`.

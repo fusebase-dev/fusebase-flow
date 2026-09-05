@@ -1,107 +1,66 @@
-
 <!-- CUSTOM:SKILL:BEGIN -->
 
 ---
 
 ## FuseBase Flow — workflow lifecycle overlay
 
-This repository follows **Fusebase Flow** (https://github.com/fusebase-dev/fusebase-flow) for AI agent workflow discipline. The Fusebase Flow framework governs the workflow lifecycle (specification → planning → decisions → tasks → verification → implementation → review → deploy readiness). Existing project rules (Fusebase CLI, MCP, SDK, runtime conventions) remain authoritative for runtime behavior.
+Fusebase Flow owns the development lifecycle; existing Fusebase CLI runtime, MCP, SDK, provider, and project rules remain authoritative for their domains. Project-specific rules win on conflict. Full boundary map: `docs/fusebase-cli-edition.md`.
 
-Fusebase Flow ships:
+### Session bootstrap
 
-- **Always-on rules:** `FLOW_RULES.md` (FR-01..FR-27; read it down to `## Amendment log` — the log is dated history, never load it)
-- **Mandatory skills:** `communication`, `role-discipline` — **no surface auto-injects their bodies**; Claude Code and Codex inject skill *descriptions/metadata* only (verified first-hand). Read each body once from canonical `flow-skills/` unless that exact body is already in your context. Every "do not re-Read" instruction is conditioned on that body-presence check, never on a surface name — a name/description in a skill index is not the body:
+1. Read `FLOW_RULES.md` through `## Amendment log`; it is the single resident safety/ownership core.
+2. Read `flow-skills/communication/SKILL.md` and `flow-skills/role-discipline/SKILL.md` once unless each exact body is already in context. A skill name or description does not count as its body.
+3. Self-attest one role using `FLOW_RULES.md`, then read `flow-skills/role-discipline/references/<role>.md`.
+4. Read the active workflow and ticket/handoff artifacts. If `docs/north-star.md`, an applicable product doc, or a business-logic index/doc exists, read it; do not create absent onboarding artifacts.
 
-| Surface | What is auto-injected | What you do at session start |
+| Surface | Startup delivery | Required action |
 |---|---|---|
-| Claude Code | description/metadata only (`.claude/skills/`) — **not** the body | body not in context → Read both once (`hooks/handlers/session_start.py` existence-checks the files and emits reminders; it never injects a body) |
-| Codex | description/metadata only, and only when the optional `skills_dir` is set (`.codex/config.toml.example`; no active config ships) — **not** the body | body not in context → Read both once |
-| Gemini | **nothing** | Read `flow-skills/communication/SKILL.md` + `flow-skills/role-discipline/SKILL.md` once |
-| Copilot | **nothing** | Read canonical `flow-skills/` on invocation; cite paths explicitly |
-| Cursor | `.cursor/rules/fusebase-flow-always.mdc` rule text — **not** the skill bodies | Read them once unless that rule file has already injected the body |
-| Delegated sub-agent (any surface) | **nothing** — `session_start` doesn't fire | Read them; an auto-load is never inherited |
-- **On-demand skills (description-matched):** `code-review`, `design-discovery-ideation`, `implementation-planning`, `release-deploy-reporting`, `repo-onboarding-context-map`, `requirements-specification`, `security-permissions-review`, `smoke-testing`, `task-delegation`, `validation-and-qa`, `skill-authoring`, `fusebase-flow-health-check`, `zoom-out`, `phase-audit`, `git-history-diagnostic`, `product-owner`, `project-onboarding`, `north-star`, `client-vs-internal`, `product-docs-first`, `business-logic-guardian`, `product-apps-decomposition`, `lightweight-lane`, `comment-policy`, `documentation-budget`, `handoff`, `module-size-discipline`, `app-quality-patterns`, `token-economy`, `liveness-discipline`, `find-wasted-effort`, `find-wasted-code` (34 canonical skills total)
-- **Sub-agents (description-matched from `.claude/agents/`):** `product-owner` (phases 1–6 + Architect inline), `ai-developer` (phase 7 AI Developer + phase 8b Deploy attestation)
-- **Workflows:** `workflows/*.md`
-- **Policies:** `policies/*.yml` (machine-readable; consumed by hooks)
-- **Hooks:** `hooks/handlers/*.py` (lifecycle events wired in `.claude/settings.json`)
-- **Templates:** `templates/*.md`
+| Claude Code | skill descriptions/metadata, not bodies | read both mandatory bodies + role reference |
+| Codex | optional skill descriptions/metadata, not bodies | read both mandatory bodies + role reference |
+| Cursor | always-on adapter text, not skill bodies | read both mandatory bodies + role reference |
+| Copilot / VS Code | repository instruction adapters, not skill bodies | read both mandatory bodies + role reference |
+| Gemini-style IDEs | no Flow skill bodies | read both mandatory bodies + role reference |
+| Delegated sub-agent | inherits no mandatory body | delegating prompt supplies required digest; sub-agent reads both bodies + role reference |
 
-**Self-attestation (every session's first response):**
+Provider adapters point here and to canonical owners; they do not reprint protocol bodies. On-demand skills live in `flow-skills/`; workflows in `workflows/`; policies in `policies/`; hooks in `hooks/`; templates in `templates/`. Portable commands map to their same-named skills; provider command adapters live under `hooks/local/fusebase-flow-overlays/commands/`.
 
-> "Operating as {role} under Fusebase Flow v4.14.1. I will follow FR-01 through FR-27. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
+### Safety and Git
 
-**Operator questions:** per FR-19, ask questions in chat text, not popup / clickable menu tools. Use short option tables or numbered lists so the operator can copy, forward, quote, and follow up.
+- Follow FR-01..FR-27 and the attested role's don't-list. Operator questions and approvals stay in chat text.
+- One T-task per commit. Stage exact paths; never `git add .`, `git add -A`, `--no-verify`, force-push, hard-reset, clean, or recursive-delete without the explicit authorization required by `FLOW_RULES.md` and policy.
+- Save cross-session handoffs before chat output. Stop at the verification gate; deploy requires the owning role and authorization contract.
+- Runtime/domain rules from CLI provider skills override generic implementation guidance. Flow still owns specs, decisions, tasks, gates, reviews, deploy handoffs, and smoke contracts.
 
-**Command equivalents.** The 7 commands are native Claude Code slash commands; on every other agent invoke the named skill (or type the command as text). Canonical command bodies live in `hooks/local/fusebase-flow-overlays/commands/*.md` (no body re-paste here — pointer only).
+### Portable commands
 
 | Command | Claude Code | Codex (`/prompts:<cmd>` if installed) | Portable (any agent) |
 |---|---|---|---|
-| `/product-owner` | `/product-owner` | `/prompts:product-owner` | invoke the `product-owner` skill / type `/product-owner` |
-| `/onboard` | `/onboard` | `/prompts:onboard` | invoke the `project-onboarding` skill / type `/onboard` |
-| `/handoff` | `/handoff` | `/prompts:handoff` | invoke the `handoff` skill / type `/handoff` |
-| `/fusebase-health` | `/fusebase-health` | `/prompts:fusebase-health` | invoke the `fusebase-flow-health-check` skill / type `/fusebase-health` |
-| `/token-waste-audit` | `/token-waste-audit` | `/prompts:token-waste-audit` | invoke the `token-economy` skill / type `/token-waste-audit` |
-| `/find-wasted-effort` | `/find-wasted-effort` | `/prompts:find-wasted-effort` | invoke the `find-wasted-effort` skill / type `/find-wasted-effort` |
-| `/find-wasted-code` | `/find-wasted-code` | `/prompts:find-wasted-code` | invoke the `find-wasted-code` skill / type `/find-wasted-code` |
+| `/product-owner` | `/product-owner` | `/prompts:product-owner` | invoke the `product-owner` skill |
+| `/onboard` | `/onboard` | `/prompts:onboard` | invoke the `project-onboarding` skill |
+| `/handoff` | `/handoff` | `/prompts:handoff` | invoke the `handoff` skill |
+| `/fusebase-health` | `/fusebase-health` | `/prompts:fusebase-health` | invoke the `fusebase-flow-health-check` skill |
+| `/token-waste-audit` | `/token-waste-audit` | `/prompts:token-waste-audit` | invoke the `token-economy` skill |
+| `/find-wasted-effort` | `/find-wasted-effort` | `/prompts:find-wasted-effort` | invoke the `find-wasted-effort` skill |
+| `/find-wasted-code` | `/find-wasted-code` | `/prompts:find-wasted-code` | invoke the `find-wasted-code` skill |
 
-Claude Code surfaces these from `.claude/commands/`. The Codex `/prompts:<cmd>` column applies only after the per-machine opt-in install (`bash hooks/local/install-codex-prompts.sh`; user-global, Codex-deprecated). Cursor/Copilot/Gemini have no native command mechanism — use the Portable column (invoke the skill, or type the command as text and the agent follows it).
+### Installation and update safety
 
-### Active project context — read first
+Merge existing consumer content; never overwrite `AGENTS.md`, `CLAUDE.md`, `.gitignore`, `.claude/settings.json`, `.mcp.json`, `.cursor/mcp.json`, `fusebase.json`, `.codex-plugin/plugin.json`, `skills-lock.json`, existing `.agents/skills/`, `.claude/skills/`, or `.github/workflows/`. Procedure: `docs/install-fusebase-cli-project.md`.
 
-Check whether this project has been onboarded. These artifacts are **absent by default** (created only by `/onboard` or manually):
-
-| Artifact | If present → | If absent → |
-|---|---|---|
-| `docs/north-star.md` | read it; keep work aligned to the vision (`north-star` skill) | run generically; do not create it |
-| `docs/<app>/product.md` | read it for that app's product intent | run generically |
-| `docs/<app>/business-logic-index.md` (AI-default index), `docs/<app>/business-logic.md`, or `docs/en/business-logic.md` (Fusebase CLI teams) | treat documented logic as a guard during fixes (`business-logic-guardian`; the index is the primary guard when present) | run generically |
-
-This check is universal across every surface (it lives in this file, which every agent reads). On Claude Code the `SessionStart` hook also surfaces these automatically, but discovery does not depend on hooks. If an artifact is absent, Fusebase Flow runs as a generic install — no clutter. Run `/onboard` to capture project vision.
-
-### Maintenance posture (Fusebase CLI ↔ Fusebase Flow coexistence)
-
-> **Upgrading Flow from an install ≤ 4.6.1: `bash hooks/local/bootstrap-upgrade.sh -- --auto-yes` is the ONLY supported route.** Never run the `hooks/local/upgrade.sh` already present in the repo for that hop, and never tell the operator to. That engine predates the 4.7.0 three-way classifier: it copies upstream over `hooks/**` — including the new engine — before any classification runs, and with no `audit/managed-content-manifest.json` base every managed path classifies `unknown-base`, so the run **reports success while installing little or nothing**. The bootstrap script stages the new engine first, then synthesizes the base from the upstream tag matching the installed `VERSION`. Two HIGH bugs filed against 4.7.0 were artifacts of taking the unsupported route, not of 4.7.0 (`docs/release-notes/v4.7.0.md` § "three reported findings need no code"). Already on 4.7.0+: `bash hooks/local/upgrade.sh` is correct.
-
-> **Flow's canonical skills live in `flow-skills/` (v3.9.0+), not root `skills/`.** The FuseBase CLI deprecates the root `./skills` folder (`⚠️ The ./skills folder is obsolete and should be deleted`); Flow now uses the Flow-namespaced `flow-skills/`, which the CLI never touches, so that warning is safe to follow. `hooks/local/mirror-skills.sh`, `hooks/local/upgrade.sh`, and the health check's mirror-count all build on `flow-skills/`. Upgrading from a pre-3.9.0 install: `bash hooks/local/upgrade.sh` auto-migrates (moves `skills/` → `flow-skills/`, retires the old dir with a backup). The health check flags an empty/absent `flow-skills/` while Flow mirrors exist, with restore steps.
-
-> **`.fusebase-flow-source/` and ESLint (deploy lint).** The upstream staging clone `.fusebase-flow-source/` contains CLI-owned CommonJS hooks; ESLint **flat config does not read `.gitignore`**, and the CLI's `eslint.config` only ignores `.claude/**` — so if your `fusebase deploy` runs lint, the staged clone fails it (`@typescript-eslint/no-require-imports`) even with zero app errors. The clone is **transient** — either delete it after an upgrade (`rm -rf .fusebase-flow-source`; it's re-created on the next upgrade), or add `".fusebase-flow-source/**"` to your `eslint.config` `ignores` (next to `".claude/**"`). One-shot helper: `bash hooks/local/eslint-ignore-flow-paths.sh`.
-
-`.claude/skills/`, `.claude/agents/`, `.claude/hooks/`, `.claude/settings.json`, and `AGENTS.md` are touched by `fusebase update` (without `--skip-skills`). Use either:
-
-**Option A (recommended for routine updates):**
-
-```bash
-fusebase update --skip-skills
-```
-
-Skips the Fusebase Flow regeneration entirely. Doesn't get CLI-side skill / hook updates but keeps Fusebase Flow overlay intact.
-
-**Option B (when you want full CLI updates):**
-
-```bash
-fusebase update                              # let CLI regenerate; Fusebase Flow overlay is destroyed
-bash hooks/local/post-fusebase-update.sh     # idempotent recovery: re-mirrors skills+agents,
-                                             # re-appends AGENTS.md/CLAUDE.md overlays,
-                                             # re-merges settings.json hook chain,
-                                             # re-applies Windows shell:true patch
-```
-
-The recovery script is self-detecting: it skips parts that don't need restoration (idempotent; safe to run multiple times).
-
-**Or use the in-chat health check:** type `/fusebase-health` (or ask "is Fusebase Flow healthy?") — the skill diagnoses any drift and offers to run recovery on your confirmation.
+- Flow ≤4.6.1 → only `bash hooks/local/bootstrap-upgrade.sh -- --auto-yes`; Flow 4.7.0+ → `bash hooks/local/upgrade.sh`.
+- Routine CLI refresh → `fusebase update --skip-skills`.
+- Full CLI refresh → `fusebase update`, then `bash hooks/local/post-fusebase-update.sh` to restore the Flow overlay and wiring. Use only in an authorized/disposable target; never infer permission from this documentation.
+- `.fusebase-flow-source/` is transient and can affect flat-config lint; see `docs/fusebase-cli-edition.md` for the supported cleanup/ignore path.
 
 <!-- FLOW:PRESERVE:BEGIN (operator-owned — overlay refresh carries this region forward verbatim; edit freely) -->
 ### Project-specific values
 
-> Fill these by running **`/onboard`** (the canonical step — the `project-onboarding` skill populates them), or just edit the table directly. Either way your values are preserved across overlay refreshes (they live inside the `FLOW:PRESERVE` markers).
-
-| Field | Value | Where the data is enforced |
+| Field | Value | Where enforced |
 |---|---|---|
-| Project name | (run `/onboard` or edit) | (informational) |
-| Stack | (run `/onboard` or edit) | (informational) |
-| Workflow mode | `direct_to_main` | `policies/approval-policy.yml: workflow_mode` |
-| Worker-undisturbed paths | `none` (extend if needed) | `policies/protected-paths.yml: worker_undisturbed` |
+| Project name | (run `/onboard` or edit) | informational |
+| Stack | (run `/onboard` or edit) | informational |
+| Workflow mode | `direct_to_main` | `policies/approval-policy.yml` |
+| Worker-undisturbed paths | `none` (extend if needed) | `policies/protected-paths.yml` |
 | Decision letter prefix | `A` | `templates/decisions.md` |
 | T-counter | `0` | `templates/tasks.md` |
 

@@ -44,10 +44,4 @@
 
 ### Recovery if an AI Developer rail is tripped
 
-See `workflows/violation-recovery.md` section "AI Developer" for per-rule recovery. High-level:
-
-- IM.1 / IM.8 (deployed without handoff): treat as production incident. Verify worker-undisturbed paths still empty-diff. Retroactively produce the gate report. File `docs/problem-catalog/<date>-deploy-without-handoff/problem.md`.
-- IM.3 (committed broken state): immediate fix-forward commit OR revert. Document in next gate report's "deviations" field.
-- IM.4 (bundled commits): leave as-is for shipped commits; note in next gate report; one-task-one-commit going forward.
-- IM.6 (destructive op without confirmation): assess damage; coordinate with team; file incident.
-- IM.7 (session key persisted): immediate `git reset --soft HEAD~1`; rotate the credential; file `docs/problem-catalog/<date>-cookie-leak/problem.md`.
+Use `workflows/violation-recovery.md` section "AI Developer".

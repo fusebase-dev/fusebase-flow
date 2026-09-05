@@ -7,7 +7,7 @@
 .agents/skills/code-review/SKILL.md  998a5d1e2981113b7eedb9c34c61ef794e3f289fe47fe31387f5415ef0aa5442
 .agents/skills/comment-policy/SKILL.md  816fac77e995b6fcf5e8bfcb4800b1ba81a2c3ed65aa918711a25d11c2363403
 .agents/skills/comment-policy/references/audit-prompt.md  5a949b4e7906f6df6eff74a7e5247c4157a07934e3183ff6a2131e1a41c9874c
-.agents/skills/communication/SKILL.md  91f95da9e5b23735c7a7281d6ccae6afb8cf27435b1a04dacfb0bb58b20f2f8a
+.agents/skills/communication/SKILL.md  c90ebc9d89ac5a4d62f47d2df1d3b7e5c363cda3ba41f193d445d46da9ca15a3
 .agents/skills/communication/references/mode-b-detail.md  806d7e0e9bc090e8f5baf3606923d2ba2ab2543943175648db35635ad03161a7
 .agents/skills/communication/references/patterns.md  224e6828d4a631f2ceb081b38aff41ef1aa0e74779236464e05693800beac84d
 .agents/skills/design-discovery-ideation/SKILL.md  90d5b0219d6802dc47e3d51e11ad0177dba45c502dff60c5298c317b69b16d79
@@ -34,8 +34,8 @@
 .agents/skills/release-deploy-reporting/SKILL.md  dcd724ec2cd80591d34c2343978af70f19225fe6b5578e1cdbac6a0bf4e36905
 .agents/skills/repo-onboarding-context-map/SKILL.md  d0e8c40165353b454a7ee48cc77edc77bc136de1e35cafef1cd86046ed1c19c0
 .agents/skills/requirements-specification/SKILL.md  627a285eb665bf991cad110b26e4e8181730f68f95d6638d704949086d0948fa
-.agents/skills/role-discipline/SKILL.md  fa5f1094b89e3409a599351274ba92712d2f24ddc27c2bd5fe0e27bd91ad26ef
-.agents/skills/role-discipline/references/ai-developer.md  6fcda04cdb904305f48aad4c3a7d65745bff455bd65cded1fe43c7869a120b64
+.agents/skills/role-discipline/SKILL.md  652c597b013a29d3be34bbdbed1807d20c04be23a7bc3faed6f587f72cdaf004
+.agents/skills/role-discipline/references/ai-developer.md  c64772338241af89863239f95fcca64c0846f5bf462a0125c111ed391b92883a
 .agents/skills/role-discipline/references/architect.md  fd7f0edf600a618b34284e61025b7ad97ad51fd2e2dfa005eec6596cac996744
 .agents/skills/role-discipline/references/deploy.md  cd4eed882eef2affc605b76ccbc6539e4786298ce1d93f49bbcfe0b79e8c25ff
 .agents/skills/role-discipline/references/product-owner.md  af2a7f1ada615de21d0f6fc71fb040e2d9761151259062d5abbcf073945a4ab7
@@ -56,7 +56,7 @@
 .claude/skills/code-review/SKILL.md  998a5d1e2981113b7eedb9c34c61ef794e3f289fe47fe31387f5415ef0aa5442
 .claude/skills/comment-policy/SKILL.md  816fac77e995b6fcf5e8bfcb4800b1ba81a2c3ed65aa918711a25d11c2363403
 .claude/skills/comment-policy/references/audit-prompt.md  5a949b4e7906f6df6eff74a7e5247c4157a07934e3183ff6a2131e1a41c9874c
-.claude/skills/communication/SKILL.md  91f95da9e5b23735c7a7281d6ccae6afb8cf27435b1a04dacfb0bb58b20f2f8a
+.claude/skills/communication/SKILL.md  c90ebc9d89ac5a4d62f47d2df1d3b7e5c363cda3ba41f193d445d46da9ca15a3
 .claude/skills/communication/references/mode-b-detail.md  806d7e0e9bc090e8f5baf3606923d2ba2ab2543943175648db35635ad03161a7
 .claude/skills/communication/references/patterns.md  224e6828d4a631f2ceb081b38aff41ef1aa0e74779236464e05693800beac84d
 .claude/skills/design-discovery-ideation/SKILL.md  90d5b0219d6802dc47e3d51e11ad0177dba45c502dff60c5298c317b69b16d79
@@ -83,8 +83,8 @@
 .claude/skills/release-deploy-reporting/SKILL.md  dcd724ec2cd80591d34c2343978af70f19225fe6b5578e1cdbac6a0bf4e36905
 .claude/skills/repo-onboarding-context-map/SKILL.md  d0e8c40165353b454a7ee48cc77edc77bc136de1e35cafef1cd86046ed1c19c0
 .claude/skills/requirements-specification/SKILL.md  627a285eb665bf991cad110b26e4e8181730f68f95d6638d704949086d0948fa
-.claude/skills/role-discipline/SKILL.md  fa5f1094b89e3409a599351274ba92712d2f24ddc27c2bd5fe0e27bd91ad26ef
-.claude/skills/role-discipline/references/ai-developer.md  6fcda04cdb904305f48aad4c3a7d65745bff455bd65cded1fe43c7869a120b64
+.claude/skills/role-discipline/SKILL.md  652c597b013a29d3be34bbdbed1807d20c04be23a7bc3faed6f587f72cdaf004
+.claude/skills/role-discipline/references/ai-developer.md  c64772338241af89863239f95fcca64c0846f5bf462a0125c111ed391b92883a
 .claude/skills/role-discipline/references/architect.md  fd7f0edf600a618b34284e61025b7ad97ad51fd2e2dfa005eec6596cac996744
 .claude/skills/role-discipline/references/deploy.md  cd4eed882eef2affc605b76ccbc6539e4786298ce1d93f49bbcfe0b79e8c25ff
 .claude/skills/role-discipline/references/product-owner.md  af2a7f1ada615de21d0f6fc71fb040e2d9761151259062d5abbcf073945a4ab7

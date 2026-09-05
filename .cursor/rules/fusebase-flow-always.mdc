@@ -1,54 +1,9 @@
 ---
-description: Always-on Fusebase Flow baseline. Loads on every request.
+description: Always-on Fusebase Flow bootstrap pointers.
 globs: ["**/*"]
 alwaysApply: true
 ---
 
-# Fusebase Flow — always-on rules
+# Fusebase Flow — Cursor adapter
 
-Read `FLOW_RULES.md` (stop at `## Amendment log` — dated history, never load it) and `AGENTS.md` first. The 27 always-on rules (FR-01..FR-27) govern every action in this repo.
-
-**Mandatory skills.** This rule file is always-on, but it does **not** inject skill bodies. Read `flow-skills/communication/SKILL.md` and `flow-skills/role-discipline/SKILL.md` once at session start (plus `flow-skills/role-discipline/references/<role>.md` for your attested role) unless their exact bodies are already in your context. The anti-reread rule at the top of each file exempts surfaces that auto-load `.claude/skills/` / `.agents/skills/` — Cursor is not one of them.
-
-## Self-attestation (first response of every session)
-
-State: "Operating as {Product Owner | AI Developer | Architect (escalated) | Deploy phase} under Fusebase Flow v4.14.1. I will follow FR-01 through FR-27. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for {role}."
-
-## State announcement (every output)
-
-Append:
-
-```
----
-📍 Phase: {Specify | Clarify | Plan | Decisions | Tasks | Verify | Implement | Deploy}
-🎯 Ticket: {slug or "—"}
-⏭️ Next: {what the operator does next}
-```
-
-## Hard rails to respect
-
-- **FR-01** Spec before code — never edit production code without an approved spec at `docs/specs/<slug>/spec.md`.
-- **FR-03** One task = one commit — implementation commits cite a `T<number>`.
-- **FR-04** Persist handoffs — every cross-session prompt saved to `docs/tmp/handoff/<YYYY-MM-DD>-<slug>-<stage>.md` BEFORE chat output.
-- **FR-05** Stop at gate — implementation halts at the verification gate; deploy requires explicit greenlight.
-- **FR-06** Reversible by default — never `rm -rf`, `git push --force`, `git reset --hard`, `git add -A`, `--no-verify` without explicit operator confirmation.
-- **FR-07** Worker-undisturbed — paths in `policies/protected-paths.yml` show empty diff between deploys unless an approved exception is on file.
-- **FR-12** Approval-gated side effects — DB migrations, customer-visible messages, auth/permission changes, secrets handling, production deploys require an approval artifact in `state/approvals/`.
-- **FR-19** Chat-text questions — never use popup / clickable menu tools for operator choices; write options in chat text.
-
-## Communication discipline
-
-- **Mode A (chat):** visual, concrete, brief; ASCII roadmap / decision-tree / comparison only when state has spatial relationships.
-- **Mode B (Mode-B files):** dense, tabular, front-loaded; no narrative padding; no chat-style visuals; concrete identifiers (T#, sha:abc1234, file:line).
-- **Questions:** use markdown tables or numbered lists in chat, with **(Recommended)** marked when appropriate.
-
-## Where things live
-
-- Always-on rules: `FLOW_RULES.md`
-- Workflows: `workflows/`
-- Skills: `flow-skills/`
-- Policies: `policies/`
-- Hooks (local guardrails): `hooks/`
-- Templates: `templates/`
-
-If you find yourself drifting from any FR, name it: "FR-{N} alert — correcting course." Then correct.
+Read `AGENTS.md`, then `FLOW_RULES.md` through `## Amendment log`. This rule does not inject skill bodies: read `flow-skills/communication/SKILL.md`, `flow-skills/role-discipline/SKILL.md`, and `flow-skills/role-discipline/references/<role>.md`. Then read the active workflow and ticket/handoff. Use the attestation and state footer from `FLOW_RULES.md`. Canonical lifecycle and provider/runtime ownership are indexed from `AGENTS.md`; do not reprint them here.

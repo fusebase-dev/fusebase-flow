@@ -17,9 +17,7 @@ hook_dependencies:
   - session_start
 ---
 
-> **Do not re-Read this file if it is already in your context.** If this exact SKILL.md body is already present in your context (surfaces that auto-load `.claude/skills/` or `.agents/skills/`), do not Read this file again — seeing the name/description in a skill index does **not** count. If it is not present, read it once. Delegated sub-agent sessions do not inherit an auto-load: they read it.
->
-> Surface truth (AC11, verified): **no surface injects this body.** Claude Code (`.claude/skills/`) and Codex (`.agents/skills/`, optional `skills_dir`) supply the description/metadata only; Gemini, Copilot, Cursor and delegated sub-agents supply nothing. Read it once when the body is not already in your context.
+> **Do not re-Read this file if it is already in your context.** A name/description is not the body. No supported surface guarantees this body; read it once unless the exact body is present. Delegated sub-agents read it.
 
 # Communication
 
@@ -47,7 +45,7 @@ docs/problem-catalog/{<slug>/problem.md,README.md} · docs/skills/{<slug>/SKILL.
 
 Unclear → default Mode B. Whether an artifact should exist **at all** is FR-23 (`documentation-budget`); this governs only HOW. Active continuity is `docs/tmp/handoff.md` alone, never the `docs/tmp/handoff/` subtree (relays, `-smoke/` dirs, `archive/`).
 
-## Mode A — visual triggers
+## Mode A
 
 Use one when: 3+ phases with tickets → roadmap · multiple tickets with progress → status table · options A/B/C → decision tree or comparison table · X blocks Y → dependency graph · ticket through the 8 phases → state diagram · when things shipped → timeline · trade-offs → side-by-side · architecture → box-and-arrow.
 
@@ -55,11 +53,9 @@ Don't when: a sentence suffices · data is naturally tabular · wider than ~100 
 
 **Width + decoration (applies whenever you do emit a visual):** keep diagrams under 80 characters where possible, **never over-decorate** (a box around every element is noise), and verify alignment in monospace before output.
 
-**Lazy-load:** the 8 patterns + the character table are in `references/patterns.md` — do NOT preload; read it only when a reply will carry a visual. The state-announcement footer is text, never a visual.
-
 ## Mode A — operator questions are chat text (FR-19)
 
-Choose / clarify / confirm / approve → full question as chat text. Never popup or clickable menu tools (`AskUserQuestion` etc.): chat text can be copied, forwarded, quoted, and followed up across sessions; popups can't.
+Operator questions are chat text, never popup/clickable menu tools.
 
 | Question type | Mode A shape |
 |---|---|
@@ -68,7 +64,7 @@ Choose / clarify / confirm / approve → full question as chat text. Never popup
 | Clarify | One concise question, then 2-3 concrete options if useful |
 | Relay prompt | Copy-ready code block or quote block |
 
-## Mode B — the 12 principles
+## Mode B — resident principles
 
 | # | Principle — rule |
 |---|---|
@@ -85,10 +81,16 @@ Choose / clarify / confirm / approve → full question as chat text. Never popup
 | B11 | Consistent vocabulary — project terms verbatim; never switch synonyms within or across files |
 | B12 | No human-onboarding preamble — never open with "This document captures…"; open with the payload (or one ≤15-word summary line) |
 
-**Lazy-load:** ❌/✅ examples, anti-patterns, pitfalls, verification, and failure cases are in `references/mode-b-detail.md` — read it when a write or review needs an example; the rules above stand without it.
+Details and failure examples: `references/mode-b-detail.md`. Visual patterns: `references/patterns.md`. Load either only when needed.
 
-## Skill-level constraints
+## Procedure
 
-Definitions, classification, prohibitions, and the 12 principle **names** stay resident — only elaboration moves to `references/`; a prohibition that loads only when you already remembered it is worthless. Never restate this skill as `FLOW_RULES.md` rules.
+1. Classify the output surface using the table above.
+2. Apply Mode A or Mode B and the resident constraints.
+3. Load a reference only when its examples resolve a live formatting choice.
+
+## Worked example
+
+Input: a gate report result for the operator and the saved report file. Chat uses two concrete sentences plus the state footer. The report uses template headings, a check table, exact SHAs/paths, and no diagram. No reference loads unless a diagram or Mode-B edge case is actually needed.
 
 Clean-room original; no third-party content copied. See `docs/source-map.md`.
