@@ -240,8 +240,8 @@ The recovery script is self-detecting: it skips parts that don't need restoratio
 | Stack | (run `/onboard` or edit) | (informational) |
 | Workflow mode | `direct_to_main` | `policies/approval-policy.yml: workflow_mode` |
 | Worker-undisturbed paths | `none` (extend if needed) | `policies/protected-paths.yml: worker_undisturbed` |
-| Decision letter prefix | `A` | `templates/decisions.md` |
-| T-counter | `0` | `templates/tasks.md` |
+| Decision letter prefix | `B` | `templates/decisions.md` |
+| T-counter | `11` | `templates/tasks.md` |
 
 **Where Fusebase Flow and project-specific rules conflict, project-specific rules win.**
 <!-- FLOW:PRESERVE:END -->
