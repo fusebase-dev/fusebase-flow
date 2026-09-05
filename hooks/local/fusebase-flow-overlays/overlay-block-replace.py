@@ -150,6 +150,7 @@ def replace_overlay(
     backup: Path,
     *,
     replace_fn: Callable[[str, str], None] = os.replace,
+    validate_only: bool = False,
 ) -> str:
     original = target.read_bytes()
     template_bytes = template.read_bytes()
@@ -172,6 +173,8 @@ def replace_overlay(
     updated = original[:start] + effective + original[end:]
     if not legacy and updated == original:
         return "current"
+    if validate_only:
+        return "refresh-needed"
 
     backup.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(target, backup)
@@ -201,6 +204,7 @@ def main() -> int:
     parser.add_argument("heading")
     parser.add_argument("backup", type=Path)
     parser.add_argument("--legacy-heading", action="append", default=[])
+    parser.add_argument("--validate-only", action="store_true")
     args = parser.parse_args()
     try:
         result = replace_overlay(
@@ -209,6 +213,7 @@ def main() -> int:
             args.heading,
             tuple(args.legacy_heading),
             args.backup,
+            validate_only=args.validate_only,
         )
     except (OSError, OverlayError) as exc:
         print(f"overlay replacement refused: {exc}", file=os.sys.stderr)

@@ -8,9 +8,12 @@ hook source is accepted only through --flow-config after complete handler/matche
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
+import stat
+import tempfile
 from typing import Any
 
 # Commands route through hooks/local/run-handler.sh (interpreter auto-detect +
@@ -390,6 +393,23 @@ def write_baseline(settings: dict[str, Any], out_path: Path) -> None:
           f"({len(receipt['cli_stop_hooks'])} CLI Stop hook(s))")
 
 
+def _atomic_write_text(path: Path, content: str) -> None:
+    descriptor, temp_name = tempfile.mkstemp(prefix=f".{path.name}.flow-", dir=path.parent)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.chmod(temp_name, stat.S_IMODE(path.stat().st_mode))
+        os.replace(temp_name, path)
+    except Exception:
+        try:
+            os.unlink(temp_name)
+        except FileNotFoundError:
+            pass
+        raise
+
+
 def main() -> int:
     global FLOW_HOOKS, EVENT_MATCHERS
     args = sys.argv[1:]
@@ -441,7 +461,7 @@ def main() -> int:
     elif new_text == original_text:
         print(f"[settings-merge] {path}: byte-identical after merge (no-op)")
     else:
-        path.write_text(new_text, encoding="utf-8")
+        _atomic_write_text(path, new_text)
         print(f"[settings-merge] {path}: applied {len(changes)} change(s):")
         for c in changes:
             print(f"  - {c}")

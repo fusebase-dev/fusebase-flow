@@ -275,4 +275,127 @@ if grep -q "ffhc_hwi_record_wiring" "$RECOVERY"; then ok "recovery-records-inten
 if grep -q -- "--forget-hook-wiring" "$RECOVERY"; then ok "recovery-offers-opt-out"; else
   bad "recovery-offers-opt-out" "no --forget-hook-wiring flag in post-fusebase-update.sh"; fi
 
+t3_fixture() {
+  local d="$1"
+  mkdir -p "$d/hooks/local/lib" "$d/hooks/local/fusebase-flow-overlays/commands" \
+    "$d/hooks/local/fusebase-flow-overlays/skills/fusebase-flow-health-check" \
+    "$d/flow-skills/fixture" "$d/agents/fixture" "$d/.claude"
+  cp "$ROOT/hooks/local/post-fusebase-update.sh" "$d/hooks/local/"
+  cp "$ROOT/hooks/local/lib/hook-wiring-intent.sh" "$ROOT/hooks/local/lib/flow-recovery-plan.sh" "$d/hooks/local/lib/"
+  cp "$ROOT/hooks/local/fusebase-flow-overlays/agents-md-overlay.md" \
+    "$ROOT/hooks/local/fusebase-flow-overlays/claude-md-overlay.md" \
+    "$ROOT/hooks/local/fusebase-flow-overlays/overlay-block-replace.py" \
+    "$ROOT/hooks/local/fusebase-flow-overlays/settings-json-merge.py" \
+    "$d/hooks/local/fusebase-flow-overlays/"
+  printf '# fixture\n' > "$d/flow-skills/fixture/SKILL.md"
+  printf '# fixture\n' > "$d/agents/fixture/AGENT.md"
+  printf '# command\n' > "$d/hooks/local/fusebase-flow-overlays/commands/fusebase-health.md"
+  printf '# health\n' > "$d/hooks/local/fusebase-flow-overlays/skills/fusebase-flow-health-check/SKILL.md"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$d/hooks/local/mirror-skills.sh"
+  printf '#!/usr/bin/env bash\nexit 0\n' > "$d/hooks/local/mirror-agents.sh"
+  printf '#!/usr/bin/env bash\nprintf installed\nprintf wired > .git/hooks/pre-commit\n' > "$d/hooks/local/install-git-hooks.sh"
+  chmod +x "$d/hooks/local/"*.sh
+  printf '# CLI AGENTS\n' > "$d/AGENTS.md"
+  cat "$d/hooks/local/fusebase-flow-overlays/agents-md-overlay.md" >> "$d/AGENTS.md"
+  printf '# CLI CLAUDE\n' > "$d/CLAUDE.md"
+  cat "$d/hooks/local/fusebase-flow-overlays/claude-md-overlay.md" >> "$d/CLAUDE.md"
+  ( cd "$d" && git init -q )
+}
+
+fx="$TMP/t3-missing-settings"; t3_fixture "$fx"
+( cd "$fx" && ffhc_hwi_write "$(git rev-parse --show-toplevel)" true "claude_settings" ) >/dev/null
+set +e
+( cd "$fx" && bash hooks/local/post-fusebase-update.sh > recovery.log 2>&1 )
+t3_rc=$?
+set -e
+if [ "$t3_rc" -eq 1 ] && python3 - "$fx" <<'PY'
+import json, pathlib, sys
+root = pathlib.Path(sys.argv[1])
+settings = json.loads((root / ".claude/settings.json").read_text(encoding="utf-8"))
+commands = [h.get("command", "") for blocks in settings["hooks"].values()
+            for block in blocks for h in block.get("hooks", [])]
+assert len([c for c in commands if "hooks/handlers/" in c]) == 6
+status = json.loads((root / "state/audit/flow-recovery-status.json").read_text())
+assert status["status"] == "partial" and status["exit_code"] == 1
+assert "external settings bytes were unavailable" in status["note"]
+assert not (root / ".git/hooks/pre-commit").exists()
+PY
+then ok "recovery-valid-intent-restores-missing-settings-as-partial"; else
+  bad "recovery-valid-intent-restores-missing-settings-as-partial" "rc=$t3_rc"; fi
+
+fx="$TMP/t3-schema1"; t3_fixture "$fx"
+strip_settings "$fx"
+( cd "$fx" && ffhc_hwi_write "$(git rev-parse --show-toplevel)" true "claude_settings" ) >/dev/null
+python3 - "$fx/state/audit/flow-hook-wiring-intent.json" <<'PY'
+import json, pathlib, sys
+path = pathlib.Path(sys.argv[1])
+doc = json.loads(path.read_text())
+doc["schema_version"] = 1
+doc.pop("surfaces")
+path.write_text(json.dumps(doc), encoding="utf-8")
+PY
+( cd "$fx" && bash hooks/local/post-fusebase-update.sh > recovery.log 2>&1 )
+if grep -q "hooks/handlers/pre_tool_use.py" "$fx/.claude/settings.json" \
+   && [ ! -f "$fx/.git/hooks/pre-commit" ]; then
+  ok "recovery-schema1-restores-settings-without-git-authorization"
+else
+  bad "recovery-schema1-restores-settings-without-git-authorization" "legacy intent widened its surface"
+fi
+
+fx="$TMP/t3-git-surface"; t3_fixture "$fx"
+strip_settings "$fx"
+( cd "$fx" && ffhc_hwi_write "$(git rev-parse --show-toplevel)" true "claude_settings,git_hooks" ) >/dev/null
+( cd "$fx" && bash hooks/local/post-fusebase-update.sh > recovery.log 2>&1 )
+if grep -q "hooks/handlers/pre_tool_use.py" "$fx/.claude/settings.json" \
+   && grep -q "wired" "$fx/.git/hooks/pre-commit"; then
+  ok "recovery-schema2-restores-recorded-git-surface"
+else
+  bad "recovery-schema2-restores-recorded-git-surface" "recorded Git surface was not restored: $(tr '\n' ' ' < "$fx/recovery.log")"
+fi
+
+fx="$TMP/t3-prevalidation"; t3_fixture "$fx"
+printf '{ invalid\n' > "$fx/.claude/settings.json"
+( cd "$fx" && ffhc_hwi_write "$(git rev-parse --show-toplevel)" true "claude_settings" ) >/dev/null
+before="$(sha256sum "$fx/AGENTS.md" | awk '{print $1}')"
+set +e
+( cd "$fx" && bash hooks/local/post-fusebase-update.sh > recovery.log 2>&1 )
+t3_rc=$?
+set -e
+after="$(sha256sum "$fx/AGENTS.md" | awk '{print $1}')"
+if [ "$t3_rc" -eq 2 ] && [ "$before" = "$after" ] && python3 - "$fx/state/audit/flow-recovery-status.json" <<'PY'
+import json, sys
+doc = json.load(open(sys.argv[1], encoding="utf-8"))
+assert doc["status"] == "failed" and doc["exit_code"] == 2
+assert doc["applied_surfaces"] == []
+PY
+then ok "recovery-prevalidation-fails-before-target-writes"; else
+  bad "recovery-prevalidation-fails-before-target-writes" "rc=$t3_rc"; fi
+
+fx="$TMP/t3-interrupted"; t3_fixture "$fx"
+strip_settings "$fx"
+( cd "$fx" && ffhc_hwi_write "$(git rev-parse --show-toplevel)" true "claude_settings" ) >/dev/null
+set +e
+( cd "$fx" && FUSEBASE_FLOW_TEST_FAIL_AFTER_SURFACE=agents_overlay \
+  bash hooks/local/post-fusebase-update.sh > first.log 2>&1 )
+t3_rc=$?
+set -e
+if [ "$t3_rc" -ne 0 ] && python3 - "$fx/state/audit/flow-recovery-status.json" <<'PY'
+import json, sys
+doc = json.load(open(sys.argv[1], encoding="utf-8"))
+assert doc["status"] == "partial"
+assert "agents_overlay" in doc["applied_surfaces"]
+assert "claude_settings" in doc["pending_surfaces"]
+PY
+then ok "recovery-mid-apply-persists-partial-inventory"; else
+  bad "recovery-mid-apply-persists-partial-inventory" "rc=$t3_rc"; fi
+( cd "$fx" && bash hooks/local/post-fusebase-update.sh > retry.log 2>&1 )
+if python3 - "$fx/state/audit/flow-recovery-status.json" <<'PY'
+import json, sys
+doc = json.load(open(sys.argv[1], encoding="utf-8"))
+assert doc["status"] == "complete" and doc["exit_code"] == 0
+assert doc["pending_surfaces"] == []
+PY
+then ok "recovery-retry-converges-to-complete"; else
+  bad "recovery-retry-converges-to-complete" "status did not converge"; fi
+
 finish

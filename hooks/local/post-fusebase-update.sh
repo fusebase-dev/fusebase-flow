@@ -78,11 +78,15 @@ WARNINGS=()
 #                      PRESENT but DRIFTED from the template, replace it (with a
 #                      backup) instead of skipping. Used by upgrade.sh.
 WIRE_HOOKS=0
+WIRE_HOOKS_REQUESTED=0
+RESTORE_GIT_HOOKS=0
+AUTO_RESTORE=0
+RECOVERY_PARTIAL_REASON=""
 REFRESH_OVERLAYS=0
 FORGET_HOOK_WIRING=0
 for arg in "$@"; do
   case "$arg" in
-    --wire-hooks) WIRE_HOOKS=1 ;;
+    --wire-hooks) WIRE_HOOKS=1; WIRE_HOOKS_REQUESTED=1; RESTORE_GIT_HOOKS=1 ;;
     --forget-hook-wiring) FORGET_HOOK_WIRING=1 ;;
     --refresh-overlays) REFRESH_OVERLAYS=1 ;;
     --help|-h) sed -n '2,31p' "$0"; exit 0 ;;
@@ -95,6 +99,8 @@ done
 FF_HWI_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/hook-wiring-intent.sh"
 # shellcheck source=lib/hook-wiring-intent.sh
 [ -f "$FF_HWI_LIB" ] && . "$FF_HWI_LIB"
+FF_RECOVERY_PLAN_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/flow-recovery-plan.sh"
+[ -f "$FF_RECOVERY_PLAN_LIB" ] && . "$FF_RECOVERY_PLAN_LIB"
 
 if [ "$FORGET_HOOK_WIRING" -eq 1 ]; then
   if [ "$WIRE_HOOKS" -eq 1 ]; then
@@ -113,10 +119,74 @@ if [ "$FORGET_HOOK_WIRING" -eq 1 ]; then
   exit 0
 fi
 
+HWI_STATE="ABSENT"
+HWI_SURFACES=""
+if command -v ffhc_hwi_state >/dev/null 2>&1; then
+  HWI_STATE="$(ffhc_hwi_state "$ROOT")"
+fi
+if [ "$WIRE_HOOKS_REQUESTED" -eq 0 ] && [ "$HWI_STATE" = "ENABLED" ]; then
+  HWI_SURFACES="$(ffhc_hwi_surfaces "$ROOT" 2>/dev/null || true)"
+  if printf '%s\n' "$HWI_SURFACES" | grep -qxF "claude_settings"; then
+    WIRE_HOOKS=1
+    AUTO_RESTORE=1
+  fi
+  if printf '%s\n' "$HWI_SURFACES" | grep -qxF "git_hooks"; then
+    RESTORE_GIT_HOOKS=1
+  fi
+fi
+
 if [ ! -d "$OVERLAYS" ]; then
   echo "[post-fusebase-update] FATAL: $OVERLAYS not found. Cannot restore Fusebase Flow overlay." >&2
   exit 1
 fi
+
+ff_prevalidate_recovery() {
+  [ -d flow-skills ] || { echo "canonical flow-skills/ missing"; return 1; }
+  [ -d agents ] || { echo "canonical agents/ missing"; return 1; }
+  [ -f "$OVERLAYS/overlay-block-replace.py" ] || { echo "overlay replacement helper missing"; return 1; }
+  [ -f "$OVERLAYS/settings-json-merge.py" ] || { echo "settings merge helper missing"; return 1; }
+  if [ "$WIRE_HOOKS" -eq 1 ] && [ -f .claude/settings.json ]; then
+    python3 -I -S -c 'import json,sys; json.load(open(sys.argv[1], encoding="utf-8"))' .claude/settings.json \
+      || { echo ".claude/settings.json is invalid"; return 1; }
+  fi
+  if [ "$REFRESH_OVERLAYS" -eq 1 ]; then
+    local row file heading legacy template
+    for row in \
+      "AGENTS.md|## FuseBase Flow — workflow lifecycle overlay|## Fusebase Flow — workflow lifecycle overlay|$OVERLAYS/agents-md-overlay.md" \
+      "CLAUDE.md|## FuseBase Flow — additional rules (overlay)|## Fusebase Flow — additional rules (overlay)|$OVERLAYS/claude-md-overlay.md"; do
+      IFS='|' read -r file heading legacy template <<<"$row"
+      [ -f "$file" ] || continue
+      if grep -qF "$heading" "$file" || grep -qF "$legacy" "$file"; then
+        python3 "$OVERLAYS/overlay-block-replace.py" "$file" "$template" "$heading" "$file.preflight-unused" \
+          --legacy-heading "$legacy" --validate-only >/dev/null \
+          || { echo "$file has ambiguous or invalid Flow overlay markers"; return 1; }
+      fi
+    done
+  fi
+}
+
+if ! PREVALIDATION_OUTPUT="$(ff_prevalidate_recovery 2>&1)"; then
+  echo "[post-fusebase-update] FATAL: recovery plan validation failed: $PREVALIDATION_OUTPUT" >&2
+  if command -v ffrp_write >/dev/null 2>&1; then
+    FFRP_ROOT="$ROOT"; FFRP_PLANNED=""; FFRP_APPLIED=""
+    ffrp_write "failed" "2" "$PREVALIDATION_OUTPUT" || true
+  fi
+  exit 2
+fi
+
+if command -v ffrp_begin >/dev/null 2>&1; then
+  ffrp_begin "$ROOT" "skill_mirrors,agent_mirrors,agents_overlay,claude_overlay,claude_settings,git_hooks,health_skill,commands"
+fi
+RECOVERY_FINALIZED=0
+ff_recovery_on_exit() {
+  local rc="$1"
+  if [ "$RECOVERY_FINALIZED" -eq 0 ] && command -v ffrp_finish >/dev/null 2>&1; then
+    ffrp_finish "partial" "${rc:-1}" "recovery ended before final verification" || true
+  fi
+}
+trap 'ff_recovery_on_exit $?' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 # Git-exclude the .pre-refresh backups this recovery drops (after arg parsing, so --help is
 # a pure no-op). Best-effort + NON-fatal: a non-git dir is a no-op success (helper returns
@@ -196,6 +266,7 @@ fi
 # Step 2 - Re-mirror Fusebase Flow sub-agents.
 ###############################################################################
 
+command -v ffrp_applied >/dev/null 2>&1 && ffrp_applied "skill_mirrors"
 echo "[post-fusebase-update] Step 2: re-mirror Fusebase Flow sub-agents..."
 if [ -x hooks/local/mirror-agents.sh ]; then
   bash hooks/local/mirror-agents.sh >/dev/null 2>&1 || WARNINGS+=("mirror-agents.sh exited non-zero")
@@ -208,6 +279,7 @@ fi
 # Step 3 - Re-append AGENTS.md overlay if missing.
 ###############################################################################
 
+command -v ffrp_applied >/dev/null 2>&1 && ffrp_applied "agent_mirrors"
 echo "[post-fusebase-update] Step 3: AGENTS.md overlay check..."
 # WS6 marker migration: the heading was recapitalized Fusebase->FuseBase. Migrate
 # an existing OLD marker to the NEW one IN PLACE (idempotent: only rewrites the
@@ -244,6 +316,7 @@ fi
 # Step 4 - Re-append CLAUDE.md overlay if missing.
 ###############################################################################
 
+command -v ffrp_applied >/dev/null 2>&1 && ffrp_applied "agents_overlay"
 echo "[post-fusebase-update] Step 4: CLAUDE.md overlay check..."
 # WS6 marker migration (idempotent) — same as AGENTS.md above.
 CLAUDE_MARKER="## FuseBase Flow — additional rules (overlay)"
@@ -274,8 +347,17 @@ fi
 # Step 5 - Merge .claude/settings.json with Fusebase Flow lifecycle hooks.
 ###############################################################################
 
+command -v ffrp_applied >/dev/null 2>&1 && ffrp_applied "claude_overlay"
 echo "[post-fusebase-update] Step 5: .claude/settings.json merge check..."
 MERGE_SCRIPT="$OVERLAYS/settings-json-merge.py"
+if [ "$WIRE_HOOKS" -eq 1 ] && [ ! -f .claude/settings.json ]; then
+  mkdir -p .claude
+  SETTINGS_SEED="$(mktemp .claude/.settings.json.flow-XXXXXX)"
+  printf '{}\n' > "$SETTINGS_SEED"
+  mv "$SETTINGS_SEED" .claude/settings.json
+  RECOVERY_PARTIAL_REASON="created minimal Flow-only settings; prior external settings bytes were unavailable"
+  ACTIONS_TAKEN+=(".claude/settings.json: created minimal Flow-only settings from valid intent")
+fi
 if [ "$WIRE_HOOKS" -ne 1 ]; then
   # F3: opt-in. By default recovery does NOT touch settings.json — this matches
   # CLAUDE.md's "hooks are opt-in: nothing runs until you copy settings.json.example."
@@ -305,7 +387,7 @@ else
   # merged file), never on the merge's exit code — see the TRIPWIRE on ffhc_hwi_record_wiring.
   # A failed merge (rc 3) stays silent: the merge failure is already reported below.
   HWI_RC=""
-  if command -v ffhc_hwi_record_wiring >/dev/null 2>&1; then
+  if [ "$WIRE_HOOKS_REQUESTED" -eq 1 ] && command -v ffhc_hwi_record_wiring >/dev/null 2>&1; then
     set +e
     ffhc_hwi_record_wiring "$ROOT" "$MERGE_EXIT"; HWI_RC=$?
     set -e
@@ -340,8 +422,9 @@ fi
 # pre-commit is live after an upgrade (the "upgrade doesn't wire the fixed
 # pre-commit" gap). install-git-hooks.sh is SAFE: a custom .git/hooks/pre-commit
 # is backed up + preserved, never silently clobbered (needs --force to replace).
+command -v ffrp_applied >/dev/null 2>&1 && ffrp_applied "claude_settings"
 echo "[post-fusebase-update] Step 5b: Flow git-hook (re)install check..."
-if [ "$WIRE_HOOKS" -eq 1 ] && [ -d .git/hooks ] && [ -x hooks/local/install-git-hooks.sh ]; then
+if [ "$RESTORE_GIT_HOOKS" -eq 1 ] && [ -d .git/hooks ] && [ -x hooks/local/install-git-hooks.sh ]; then
   # TRIPWIRE (T24): capture OUTPUT + RC SEPARATELY. The old `install-git-hooks.sh | grep`
   # keyed off `$?` of grep, not the installer — an rc≠0 install that didn't print the
   # custom-preserve line was recorded as "(re)installed" (a silent false success).
@@ -355,6 +438,10 @@ if [ "$WIRE_HOOKS" -eq 1 ] && [ -d .git/hooks ] && [ -x hooks/local/install-git-
     WARNINGS+=("custom .git/hooks preserved (not overwritten); re-run 'bash hooks/local/install-git-hooks.sh --force' to install the Flow hook")
   else
     ACTIONS_TAKEN+=("(re)installed Flow git fallback hooks (.git/hooks/pre-commit, commit-msg)")
+    if [ "$WIRE_HOOKS_REQUESTED" -eq 1 ] && command -v ffhc_hwi_write >/dev/null 2>&1; then
+      ffhc_hwi_write "$ROOT" true "claude_settings,git_hooks" \
+        || WARNINGS+=("could not extend hook-wiring intent to the verified Git-hook surface")
+    fi
   fi
 else
   ACTIONS_SKIPPED+=(".git/hooks NOT touched (git-hook (re)install runs under --wire-hooks only)")
@@ -364,6 +451,7 @@ fi
 # Step 6 - CLI hook ownership guardrail.
 ###############################################################################
 
+command -v ffrp_applied >/dev/null 2>&1 && ffrp_applied "git_hooks"
 echo "[post-fusebase-update] Step 6: CLI hook ownership guardrail..."
 ACTIONS_SKIPPED+=(".claude/hooks/** is CLI-owned; Flow recovery does not patch CLI hook helpers")
 
@@ -399,6 +487,7 @@ fi
 #          recovery snapshot — this is the installer step new commands ship in).
 ###############################################################################
 
+command -v ffrp_applied >/dev/null 2>&1 && ffrp_applied "health_skill"
 echo "[post-fusebase-update] Step 8: Fusebase Flow slash commands restore..."
 CMD_TEMPLATE_DIR="$OVERLAYS/commands"
 CMD_TARGET_DIR=".claude/commands"
@@ -433,6 +522,7 @@ fi
 
 echo ""
 echo "============================================================"
+command -v ffrp_applied >/dev/null 2>&1 && ffrp_applied "commands"
 echo "[post-fusebase-update] Summary"
 echo "============================================================"
 echo ""
@@ -463,7 +553,12 @@ echo "       bash hooks/local/write-bootstrap-approval.sh"
 echo "       git commit -m 'chore(flow): restore Fusebase Flow overlay after fusebase update'"
 echo "       bash hooks/local/write-bootstrap-approval.sh --consume   # single-use: clean up after"
 
-if [ "${#WARNINGS[@]}" -gt 0 ]; then
+if [ "${#WARNINGS[@]}" -gt 0 ] || [ -n "$RECOVERY_PARTIAL_REASON" ]; then
+  command -v ffrp_finish >/dev/null 2>&1 \
+    && ffrp_finish "partial" "1" "${RECOVERY_PARTIAL_REASON:-recovery completed with warnings}"
+  RECOVERY_FINALIZED=1
   exit 1
 fi
+command -v ffrp_finish >/dev/null 2>&1 && ffrp_finish "complete" "0" "all authorized surfaces verified"
+RECOVERY_FINALIZED=1
 exit 0

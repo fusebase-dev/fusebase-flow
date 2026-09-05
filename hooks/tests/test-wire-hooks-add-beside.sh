@@ -270,8 +270,11 @@ if [ ! -f "$t/state/audit/flow-hook-wiring-intent.json" ]; then ok "B3-failed-me
 # and exits 1) — asserting the ACHIEVED state instead of the exit code is this ticket's subject.
 ###############################################################################
 t="$(newtree)"
-mkdir -p "$t/hooks/local/fusebase-flow-overlays"
-cp "$MERGE" "$t/hooks/local/fusebase-flow-overlays/"
+mkdir -p "$t/hooks/local/fusebase-flow-overlays" "$t/flow-skills" "$t/agents"
+cp "$MERGE" "$ROOT/hooks/local/fusebase-flow-overlays/overlay-block-replace.py" \
+  "$ROOT/hooks/local/fusebase-flow-overlays/agents-md-overlay.md" \
+  "$ROOT/hooks/local/fusebase-flow-overlays/claude-md-overlay.md" \
+  "$t/hooks/local/fusebase-flow-overlays/"
 consumer_only "$t/.claude/settings.json" "PreToolUse"
 ( cd "$t" && bash "$RECOVERY" --wire-hooks >"$t/wire.log" 2>&1 )
 if [ "$(handler_count "$t" pre_tool_use)" -ge 1 ]; then ok "C1-e2e-wire-hooks-wires-handler"; else
@@ -291,7 +294,11 @@ fi
 # recorded intent is what made the recovery loop non-convergent.
 ###############################################################################
 t="$(newtree)"
-mkdir -p "$t/hooks/local/fusebase-flow-overlays"
+mkdir -p "$t/hooks/local/fusebase-flow-overlays" "$t/flow-skills" "$t/agents"
+cp "$ROOT/hooks/local/fusebase-flow-overlays/overlay-block-replace.py" \
+  "$ROOT/hooks/local/fusebase-flow-overlays/agents-md-overlay.md" \
+  "$ROOT/hooks/local/fusebase-flow-overlays/claude-md-overlay.md" \
+  "$t/hooks/local/fusebase-flow-overlays/"
 printf '#!/usr/bin/env python3\nimport sys\nsys.exit(0)\n' > "$t/hooks/local/fusebase-flow-overlays/settings-json-merge.py"
 consumer_only "$t/.claude/settings.json" "PreToolUse"
 ( cd "$t" && bash "$RECOVERY" --wire-hooks >"$t/wire.log" 2>&1 )

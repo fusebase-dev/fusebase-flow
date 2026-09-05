@@ -32,7 +32,7 @@
 
 FFHC_HWI_REL="state/audit/flow-hook-wiring-intent.json"
 FFHC_HWI_HANDLER="hooks/handlers/pre_tool_use.py"
-FFHC_HWI_SCHEMA=1
+FFHC_HWI_SCHEMA=2
 FFHC_HWI_CHECK_ID="settings_json_flow_enforcement"
 FFHC_HWI_RECOVER="bash hooks/local/post-fusebase-update.sh --wire-hooks"
 FFHC_HWI_OPTOUT="bash hooks/local/post-fusebase-update.sh --forget-hook-wiring"
@@ -64,12 +64,31 @@ ffhc_hwi_have_py() {
 # The recorded repo_root is what makes an INHERITED marker (archive/zip copy of a tree that
 # carries gitignored state/) legible as copied state instead of a false drift.
 ffhc_hwi_write() {
-  local root="$1" enabled="$2" path="$1/$FFHC_HWI_REL"
+  local root="$1" enabled="$2" surfaces="${3:-claude_settings}" path="$1/$FFHC_HWI_REL"
   mkdir -p "$(dirname "$path")" 2>/dev/null || return 1
-  printf '{\n  "schema_version": %s,\n  "enabled": %s,\n  "repo_root": "%s",\n  "updated_at": "%s",\n  "written_by": "post-fusebase-update.sh"\n}\n' \
-    "$FFHC_HWI_SCHEMA" "$enabled" \
-    "$(printf '%s' "$root" | sed 's/\\/\\\\/g; s/"/\\"/g')" \
-    "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$path" || return 1
+  MSYS2_ENV_CONV_EXCL=FFHC_HWI_ROOT FFHC_HWI_ROOT="$root" \
+  FFHC_HWI_ENABLED="$enabled" FFHC_HWI_SURFACES="$surfaces" \
+    ffhc_hwi_py -c '
+import json, os, pathlib, tempfile
+path = pathlib.Path(os.sys.argv[1])
+enabled = os.environ["FFHC_HWI_ENABLED"] == "true"
+surfaces = [item for item in os.environ["FFHC_HWI_SURFACES"].split(",") if item]
+doc = {
+    "schema_version": 2,
+    "enabled": enabled,
+    "repo_root": os.environ["FFHC_HWI_ROOT"],
+    "surfaces": surfaces,
+    "updated_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    "written_by": "post-fusebase-update.sh",
+}
+fd, tmp = tempfile.mkstemp(prefix=path.name + ".", dir=path.parent)
+with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
+    json.dump(doc, handle, indent=2)
+    handle.write("\n")
+    handle.flush()
+    os.fsync(handle.fileno())
+os.replace(tmp, path)
+' "$path" || return 1
   return 0
 }
 
@@ -90,17 +109,17 @@ ffhc_hwi_write() {
 #   3  merge rc nonzero        — caller may stay silent; it already reports the merge failure
 #   4  merge rc 0, handler ABSENT (or settings.json gone) — caller MUST warn; nothing recorded
 ffhc_hwi_record_wiring() {
-  local root="$1" rc="$2"
+  local root="$1" rc="$2" surfaces="${3:-claude_settings}"
   [ "$rc" = "0" ] || return 3
   ffhc_hwi_wired "$root" || return 4
-  ffhc_hwi_write "$root" true || return 1
+  ffhc_hwi_write "$root" true "$surfaces" || return 1
   return 0
 }
 
 # ffhc_hwi_revoke <root> — the revocation lifecycle. Intent that can only ever be created is
 # a false-drift generator: a tree that removed the block ON PURPOSE would alarm forever.
 ffhc_hwi_revoke() {
-  ffhc_hwi_write "$1" false
+  ffhc_hwi_write "$1" false ""
 }
 
 # ffhc_hwi_norm <path> — lowercased, forward-slashed, trailing-slash-free, MSYS-drive-folded.
@@ -136,19 +155,26 @@ ffhc_hwi_state() {
   local root="$1" path="$1/$FFHC_HWI_REL" out token recorded
   [ -f "$path" ] || { echo "ABSENT"; return 0; }
   ffhc_hwi_have_py || { echo "NOPARSER"; return 0; }
-  out="$(FFHC_HWI_WANT="$FFHC_HWI_SCHEMA" ffhc_hwi_py -c '
-import json, os, sys
+  out="$(ffhc_hwi_py -c '
+import json, sys
+allowed = {"claude_settings", "git_hooks"}
 try:
     doc = json.loads(open(sys.argv[1], encoding="utf-8").read())
 except Exception:
-    print("INVALID"); print(""); sys.exit(0)
-# Presence alone must never imply opt-in: the shape is validated, not assumed.
-if not isinstance(doc, dict) or doc.get("schema_version") != int(os.environ["FFHC_HWI_WANT"]) \
-        or not isinstance(doc.get("enabled"), bool):
-    print("INVALID"); print(""); sys.exit(0)
-print("ENABLED" if doc["enabled"] else "REVOKED")
-recorded = doc.get("repo_root")
-print(recorded if isinstance(recorded, str) else "")
+    print("INVALID"); print(""); raise SystemExit
+schema = doc.get("schema_version")
+enabled = doc.get("enabled")
+root = doc.get("repo_root")
+if schema not in (1, 2) or not isinstance(enabled, bool) or not isinstance(root, str) or not root.strip():
+    print("INVALID"); print(""); raise SystemExit
+if schema == 2:
+    surfaces = doc.get("surfaces")
+    if not isinstance(surfaces, list) or any(not isinstance(x, str) or x not in allowed for x in surfaces):
+        print("INVALID"); print(""); raise SystemExit
+    if enabled and not surfaces:
+        print("INVALID"); print(""); raise SystemExit
+print("ENABLED" if enabled else "REVOKED")
+print(root)
 ' "$path" 2>/dev/null)" || { echo "INVALID"; return 0; }
   token="$(printf '%s' "$out" | sed -n '1p' | tr -d '\r')"
   recorded="$(printf '%s' "$out" | sed -n '2p' | tr -d '\r')"
@@ -156,10 +182,23 @@ print(recorded if isinstance(recorded, str) else "")
     ENABLED|REVOKED) ;;
     *) echo "INVALID"; return 0 ;;
   esac
-  if [ -n "$recorded" ] && [ "$(ffhc_hwi_norm "$recorded")" != "$(ffhc_hwi_norm "$root")" ]; then
+  if [ "$(ffhc_hwi_norm "$recorded")" != "$(ffhc_hwi_norm "$root")" ]; then
     echo "FOREIGN"; return 0
   fi
   echo "$token"
+}
+
+ffhc_hwi_surfaces() {
+  local root="$1" path="$1/$FFHC_HWI_REL"
+  [ "$(ffhc_hwi_state "$root")" = "ENABLED" ] || return 1
+  ffhc_hwi_py -c '
+import json, sys
+doc = json.loads(open(sys.argv[1], encoding="utf-8").read())
+if doc["schema_version"] == 1:
+    print("claude_settings")
+else:
+    print("\n".join(doc["surfaces"]))
+' "$path" 2>/dev/null
 }
 
 # ffhc_hwi_wired <root> — 0 iff .claude/settings.json carries the canonical Flow PreToolUse
