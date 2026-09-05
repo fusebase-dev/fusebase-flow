@@ -114,7 +114,7 @@ def _signals_from_transcript(transcript_text: str, signal_defs: dict) -> dict[st
     return detected
 
 
-def _final_assistant_text(transcript_path: str) -> str:
+def _final_assistant_text(transcript_text: str) -> str:
     """Return the text of the LAST assistant message in a Claude Code transcript
     JSONL, or "" if none. Claim detection runs against THIS message only — never the
     whole transcript — so a historical claim phrase earlier in the session cannot
@@ -122,11 +122,7 @@ def _final_assistant_text(transcript_path: str) -> str:
     ({"type":"assistant","message":{"role":"assistant","content":[{"type":"text",
     "text":...}]}}) and a bare {"role":"assistant","content":...} line; content may be
     a string or a list of typed blocks."""
-    try:
-        lines = Path(transcript_path).read_text(encoding="utf-8", errors="ignore").splitlines()
-    except OSError:
-        return ""
-    for raw in reversed(lines):
+    for raw in reversed(transcript_text.splitlines()):
         raw = raw.strip()
         if not raw:
             continue
@@ -171,8 +167,6 @@ def main() -> int:
             transcript_text = Path(tp).read_text(encoding="utf-8", errors="ignore")
         except OSError:
             transcript_text = ""
-    transcript_text = transcript_text + "\n" + (event.get("agent_message") or "")
-
     # Host-shape: Claude Code's Stop event carries NO agent_message — the final model
     # message lives at the tail of transcript_path. When agent_message is absent, run
     # CLAIM_PATTERNS against the LAST assistant message only (never the whole transcript
@@ -181,7 +175,9 @@ def main() -> int:
     # agent_message path is unchanged (backward-compatible with the flow-schema fixtures).
     claim_text = agent_message
     if not claim_text and tp:
-        claim_text = _final_assistant_text(tp).lower()
+        claim_text = _final_assistant_text(transcript_text).lower()
+
+    transcript_text = transcript_text + "\n" + (event.get("agent_message") or "")
 
     # Dedicated PO-activation path (spec D1/D2): runs OUTSIDE the CLAIM_PATTERNS
     # gate so it fires on a PO first reply (which carries no claim phrase). Emits
