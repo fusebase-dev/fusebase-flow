@@ -4,12 +4,12 @@
 
 ## Lane selection (FR-21 — do this first, at Specify)
 
-Before Phase 1, classify the ticket **Full** or **Lightweight** using the eligibility gate in `flow-skills/lightweight-lane/SKILL.md`.
+Before Phase 1, use bounded read-only diagnosis to identify the behavior, likely diff, and risk evidence. Then classify the ticket **Full** or **Lightweight** using the path-router and semantic-assessment contract in `flow-skills/lightweight-lane/SKILL.md`.
 
-- **Lightweight** (small + reversible + security-neutral + mechanically-verifiable + no decision needed + root cause known) → take `workflows/lightweight-lane.md` instead of the eight phases below: one change-note, one build→verify→deploy agent pass, plain operator go-ahead. The safety floor (live proof, explicit go-ahead, FR-07, rollback, one commit + SHA) is kept. <!-- prevents: false-green-deploy, unattended-prod-cutover, silent-protected-path-drift, irreversible-loss, regression-attribution-loss — taxonomy: policies/ratchet-governance.yml (A3) -->
-- **Full** (anything risky/uncertain, or any doubt) → the eight phases below.
+- **Lightweight** (ordinary + reversible + mechanically verifiable + complete assessment with no objective Full trigger) → take `workflows/lightweight-lane.md` instead of the eight phases below: one product outcome decision in a change-note, one build→verify→deploy agent pass, plain operator go-ahead. The safety floor (live proof, explicit go-ahead, FR-07, rollback, one commit + SHA) is kept. <!-- prevents: false-green-deploy, unattended-prod-cutover, silent-protected-path-drift, irreversible-loss, regression-attribution-loss — taxonomy: policies/ratchet-governance.yml (A3) -->
+- **Full** (mechanical match or semantic auth, permissions, secrets, data/schema, public-contract, production/release, protected-path, cross-cutting architecture, or unresolved product-decision trigger) → the eight phases below.
 
-In doubt → Full. If a Lightweight change turns non-trivial mid-flight, STOP and promote to Full (`flow-skills/lightweight-lane/SKILL.md` → "Mid-flight promotion").
+An initially unknown cause or file count alone is not a Full trigger. If assessment remains incomplete after bounded diagnosis, stop at `BLOCKED-AT-lane-assessment`; never infer safety. If a Lightweight change activates an objective trigger mid-flight, stop and promote to Full (`flow-skills/lightweight-lane/SKILL.md` → "Mid-flight promotion").
 
 ## Phases (Full lane)
 

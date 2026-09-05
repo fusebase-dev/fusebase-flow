@@ -4,14 +4,14 @@
 
 ## When to run
 
-Chosen at Specify when the eligibility gate in `flow-skills/lightweight-lane/SKILL.md` passes (ALL of): small implementation + single concern · reversible · mechanically-verifiable acceptance · no new security surface · no public-contract decision · root cause understood. **In doubt → Full lane** (`workflows/eight-phase-flow.md`).
+Chosen at Specify after bounded read-only diagnosis and the path/semantic assessment in `flow-skills/lightweight-lane/SKILL.md`: ordinary single-outcome work · reversible · mechanically verifiable · complete assessment · no objective Full trigger. An initially unknown cause or file count alone does not select Full.
 
 ## Procedure (single AI Developer session — no two-agent split)
 
-1. **Confirm tier.** Re-check the eligibility gate. If any condition fails or there is doubt → STOP, use the Full lane.
+1. **Diagnose and confirm tier.** If cause or risk is unclear, perform bounded read-only diagnosis. Persist the structured path-router result and semantic declarations. A mechanical match or semantic trigger routes to Full; incomplete assessment continues bounded diagnosis, then stops at `BLOCKED-AT-lane-assessment` if unresolved.
 2. **Pre-task checkpoint.** Git checkpoint per `workflows/git-discipline.md` (so revert is clean).
-3. **Write the change-note** from `templates/change-note.md` (problem · change · verified · rollback · `change_tier: lightweight`). Inline in the commit body for the smallest changes, or `docs/changes/<date>-<slug>.md`.
-4. **Make the change.** Single coherent concern. If scope grows past a couple files / surfaces a risk / needs a decision / reveals a deeper bug → STOP and promote (see below).
+3. **Write the change-note** from `templates/change-note.md` (one product outcome decision · problem · diagnosis · router result · semantic declarations · change · verified · rollback · `change_tier: lightweight`). Inline in the commit body for the smallest changes, or `docs/changes/<date>-<slug>.md`.
+4. **Make the change.** Keep one coherent product outcome. If an objective Full trigger appears, stop and promote (see below). More files or a deeper cause alone does not promote.
 5. **Lint + typecheck** (FR-13).
 6. **Build once.**
 7. **Live-verify** — run the probe/measurement; apply the `validation-and-qa` 3-question empirical test to the acceptance criterion (did it run on a real input · observed vs expected · reproducible from the note). This is the safety floor; never skip it.
@@ -24,7 +24,7 @@ Chosen at Specify when the eligibility gate in `flow-skills/lightweight-lane/SKI
 
 ## Self-attestation
 
-The same role attestation as any AI Developer session (per `FLOW_RULES.md` § Self-attestation, FR-01..FR-27), naming the AI Developer role and `flow-skills/role-discipline/SKILL.md`. Add one line: "Running the Lightweight Lane (FR-21): one change-note, one build→verify→deploy pass, plain operator go-ahead; safety floor (live proof, explicit go-ahead, FR-07, rollback, one commit) kept; I will STOP and promote to Full if this turns non-trivial."
+The same role attestation as any AI Developer session (per `FLOW_RULES.md` § Self-attestation, FR-01..FR-27), naming the AI Developer role and `flow-skills/role-discipline/SKILL.md`. Add one line: "Running the Lightweight Lane (FR-21): one change-note, one build→verify→deploy pass, plain operator go-ahead; safety floor (live proof, explicit go-ahead, FR-07, rollback, one commit) kept; I will stop and promote if an objective Full trigger appears, or stop at `BLOCKED-AT-lane-assessment` if assessment remains incomplete."
 
 ## Mid-flight promotion (mandatory)
 

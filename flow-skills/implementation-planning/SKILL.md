@@ -48,7 +48,7 @@ Before drafting any planning artifact, apply the tier from `flow-skills/document
 | `verification-gate.md` | Full lane **or** `policies/required-artifacts.yml` / `policies/gate-contracts.yml` requires it for this tier. |
 | implement handoff | a fresh AI Developer session will execute the chain. Point to canonical spec/decisions/tasks; do NOT reprint them. |
 
-Fail-safe: when unsure, choose the higher tier. Never weaken a safety artifact required by policy to "save docs". (Lightweight-eligible work should not reach this skill — it takes the change-note path in `requirements-specification`.)
+Invoke this skill only after the lane assessment identifies an objective Full trigger. If assessment is incomplete after bounded read-only diagnosis, stop at `BLOCKED-AT-lane-assessment`; do not infer Full or Lightweight. Never weaken a safety artifact required by policy to save docs. Lightweight work takes the change-note path in `requirements-specification`.
 
 ## Required inputs
 
@@ -75,6 +75,10 @@ Fail-safe: when unsure, choose the higher tier. Never weaken a safety artifact r
 11. After lock: increment letter prefix and T-counter in `AGENTS.md`. Update `tasks.md` SHAs to LOCKED.
 12. Draft implementer handoff from `templates/handoff-implement.md` (canonical); save to `docs/tmp/handoff/<YYYY-MM-DD>-<slug>-implement.md` BEFORE outputting in chat (FR-04). Per FR-23, the handoff points to canonical `spec.md` / `decisions.md` / `tasks.md` (cite paths + AC/decision IDs); it must NOT reprint their contents.
 13. Tell operator: "Implement handoff saved to <path>. Open that file, paste into a fresh AI agent session as AI Developer."
+
+## Worked example
+
+A completed lane assessment declares `public-contract` at `src/api/orders.ts:18`, so the ticket enters Full. The Product Owner maps the contract outcome to AC1, records the operator's API-shape decision in B1, splits implementation and compatibility verification into separate T-tasks, and saves one implement handoff that points to those owners. A no-trigger assessment would not reach this skill; an incomplete assessment would stop at `BLOCKED-AT-lane-assessment`.
 
 ## Output artifacts
 

@@ -50,7 +50,7 @@ Before creating, expanding, or revising any of:
 | Input | Where it lives | If missing |
 |---|---|---|
 | The artifact request | operator intent / current ticket | Ask what future action the doc must enable |
-| Change risk + size | spec / lane classification (`lightweight-lane`, FR-21) | Default to higher tier (fail-safe-up) |
+| Change risk + size | diagnosed behavior/diff + lane classification (`lightweight-lane`, FR-21) | Run bounded read-only diagnosis; unresolved assessment blocks classification |
 | Existing artifacts | `docs/specs/<slug>/`, `docs/<app>/`, git history | Read before writing; prefer a pointer to an existing owner |
 
 ## Core rule (FR-23)
@@ -74,16 +74,16 @@ Before writing a persistent AI-consumed artifact, classify the documentation tie
 | Tier | Name | Use when | Output |
 |---|---|---|---|
 | 0 | No persistent doc | transient exploration, no code change, already captured in code/tests/git/existing docs | none |
-| 1 | Change-note | Lightweight-eligible change (FR-21): small, reversible, single-concern, mechanically verifiable, no security/permission/public-contract risk, root cause understood | a single change-note (`templates/change-note.md`) inline in the commit body or `docs/changes/<date>-<slug>.md` |
+| 1 | Change-note | Lightweight-eligible change (FR-21): ordinary, reversible, single-outcome, mechanically verifiable, complete path/semantic assessment with no objective Full trigger | a single change-note (`templates/change-note.md`) inline in the commit body or `docs/changes/<date>-<slug>.md` |
 | 2 | Active handoff | long session restart, code mid-flight, no new product/architecture decision, next AI session needs exact continuation state | `docs/tmp/handoff.md` (superseded each session, FR-18; archived to `docs/tmp/handoff/archive/` on restart supersede / mode transition only — run-ledger updates supersede in place; dated history, never loaded) |
 | 3 | Spec + tasks | multi-file Full-lane work, clear scope, few/no architectural decisions, no major security/migration/public-contract risk | `docs/specs/<slug>/spec.md` + `tasks.md`; `decisions.md` only if real decisions; gate per policy |
 | 4 | Full pack | high-risk / ambiguous product behavior / new app / new public contract / permissions / auth / migrations / data ownership / cross-cutting architecture / deploy-sensitive | full Flow artifact chain — no duplicated rationale across artifacts |
 
 **Lesson/incident routing:** a diagnosis lesson, recurring pattern, or platform quirk is not a ticket artifact in this tier table — route it via `workflows/knowledge-curation.md` (FR-15: problem-catalog entry or project-internal skill); its creation cost is still gated by FR-23.
 
-**Fail-safe:** when unsure between two tiers, choose the higher one (mirrors FR-21's in-doubt→Full).
+**Incomplete assessment:** uncertainty at intake allows bounded read-only diagnosis before tier selection. If the assessment remains unresolved, stop at `BLOCKED-AT-lane-assessment`; do not infer a tier or create speculative artifacts.
 
-**Promotion:** if a Tier 0/1/2 change grows a security/permission/migration/public-contract concern or a real architectural decision mid-flight, STOP and reclassify upward before continuing (mirrors FR-21 mid-flight promotion).
+**Promotion:** if a Tier 0/1/2 change activates an auth, permissions, secrets, data/schema, public-contract, production/release, protected-path, cross-cutting architecture, or unresolved product-decision trigger, stop and reclassify upward before continuing. File count or a newly discovered deeper cause alone does not promote.
 
 ## Artifact ownership (canonical owner; others point, never restate)
 
@@ -128,13 +128,17 @@ Bad: a doc that reprints full background, all decisions, all ACs, and all implem
 ## Procedure
 
 1. Identify the artifact request (path + intent).
-2. Run the classification questions (Q1-Q7).
-3. Select the tier; if unsure, choose higher.
+2. Run bounded read-only diagnosis when risk or cause is unclear; obtain the path-router result and semantic declarations.
+3. Run the classification questions (Q1-Q7). Select a tier only after assessment is complete; otherwise stop at `BLOCKED-AT-lane-assessment`.
 4. Reduce to the minimal artifact set for that tier.
 5. Assign canonical ownership per the table; replace would-be duplication with pointers.
 6. Supersede stale content (FR-18); do not accumulate.
 7. Write Mode B / Mode-B-lite (no narrative padding, no chat visuals).
-8. If scope/risk grows mid-flight, reclassify upward and stop for promotion.
+8. If an objective Full trigger appears mid-flight, reclassify upward and stop for promotion.
+
+## Worked example
+
+A bug arrives with an unknown cause. Bounded read-only diagnosis finds one reversible source correction, no mechanical match, and no semantic trigger. Tier 1 creates one change-note containing the product outcome decision, assessment evidence, proof, and rollback. If diagnosis instead finds a public API behavior change, Tier 4 owns the Full artifact chain. If assessment remains incomplete, create neither and report `BLOCKED-AT-lane-assessment`.
 
 ## Output artifacts
 

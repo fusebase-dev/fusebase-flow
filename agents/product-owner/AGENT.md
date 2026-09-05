@@ -58,11 +58,11 @@ Complete each line against `FLOW_RULES.md` (pointers only, never re-paste the ru
 
 ## Lane selection at Specify (FR-21)
 
-Before drafting anything, classify the ticket **Full** or **Lightweight** using the eligibility gate in `flow-skills/lightweight-lane/SKILL.md` (small + reversible + security-neutral + mechanically-verifiable + no decision needed + root cause known). 
+Before drafting anything, allow bounded read-only diagnosis to identify the behavior, likely diff, and risk evidence. Persist the path-router result and semantic declarations, then classify the ticket **Full** or **Lightweight** with `flow-skills/lightweight-lane/SKILL.md`.
 
-- **Lightweight** → skip the spec/decisions/tasks/gate chain. Produce a single **change-note** (`templates/change-note.md`) and hand the AI Developer a single build→verify→deploy pass (`workflows/lightweight-lane.md`); deploy clears on a plain operator go-ahead (no deploy handoff, no DP.1/DP.6). Keep the safety floor (live proof, explicit go-ahead, FR-07, rollback, one commit). Record `change_tier` + SHA in the change-note/commit (a consolidated ledger only if the project keeps one — never assume a repo-root `docs/changes/index.md`).
-- **Full** → the eight-phase flow below.
-- **In doubt → Full.** If a Lightweight change turns non-trivial mid-flight, the AI Developer STOPS and promotes; you then open a Full-lane spec carrying over what was found (PO.16).
+- **Lightweight** → complete assessment, no objective trigger. Skip the spec/decisions/tasks/gate chain. Produce one **change-note** (`templates/change-note.md`) with one product outcome decision, diagnosis, router result, declarations, proof, and rollback; hand the AI Developer one build→verify→deploy pass (`workflows/lightweight-lane.md`). Keep the safety floor and record `change_tier` + SHA.
+- **Full** → a mechanical match or semantic auth, permissions, secrets, data/schema, public-contract, production/release, protected-path, cross-cutting architecture, or unresolved product-decision trigger activates the eight-phase flow below.
+- **Incomplete** → continue bounded read-only diagnosis, then stop at `BLOCKED-AT-lane-assessment` if unresolved. File count or an initially unknown cause alone is not a Full trigger. If an objective trigger appears mid-flight, the AI Developer stops and promotes; open a Full-lane spec carrying over the diagnosis (PO.16).
 
 ## Phase ownership (Full lane — eight-phase flow)
 
@@ -134,7 +134,7 @@ The full list with refusal phrasing lives in `flow-skills/role-discipline/refere
 | **PO.13** | **Don't define smoke prompts from pre-outcome implementation signals.** Use `smoke-testing`; every S<n> needs an operator-visible success criterion, ground-truth diagnostic surface, adversarial check, and evidence requirement. | **always** |
 | **PO.14** | **Don't delegate production code edits or side effects.** `task-delegation` is read-only / doc-only for PO. Implementation goes through AI Developer. | **always** |
 | **PO.15** | **Don't create or import skills by copying external text or skipping classification.** Use `skill-authoring` to classify destination, compare overlap, assign role applicability, and define clean-room acceptance criteria. | **always** |
-| **PO.16** | **Don't full-lane a Lightweight change or lightweight-lane a risky one.** Classify tier at Specify (`lightweight-lane`); in doubt → Full; promote mid-flight if it grows; never drop the safety floor. | **always (FR-21)** |
+| **PO.16** | **Don't full-lane ordinary work without an objective trigger or lightweight-lane sensitive work.** Allow bounded diagnosis, require complete path/semantic assessment, promote on an objective trigger, block unresolved assessment, and never drop the safety floor. | **always (FR-21)** |
 | AR.1 | Don't propose decisions outside the ticket's scope | escalation |
 | AR.2 | Don't write code in escalated investigation either | escalation |
 | AR.3 | Affirm or call out worker-undisturbed posture for protected-path changes | escalation |

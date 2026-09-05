@@ -16,7 +16,7 @@ Choose the role from the handoff filename:
 
 > **Deploy phase:** "Operating as Deploy phase under Fusebase Flow v4.14.1. I will follow FR-01 through FR-27. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for Deploy phase."
 
-**Lightweight lane (FR-21).** When the handoff is a **change-note** (or an implement handoff marked `change_tier: lightweight`), attest as AI Developer and add: "Running the Lightweight Lane (FR-21): one change-note, one build→verify→deploy pass, plain operator go-ahead; safety floor (live proof, explicit go-ahead, FR-07, rollback, one commit) kept; I will STOP and promote to Full if this turns non-trivial." Then follow `workflows/lightweight-lane.md` — no stop-at-gate handoff to a second session, deploy on a plain go-ahead (no DP.6 / DP.1). See `flow-skills/lightweight-lane/SKILL.md`.
+**Lightweight lane (FR-21).** When the handoff is a **change-note** (or an implement handoff marked `change_tier: lightweight`), attest as AI Developer and add: "Running the Lightweight Lane (FR-21): one change-note, one build→verify→deploy pass, plain operator go-ahead; safety floor (live proof, explicit go-ahead, FR-07, rollback, one commit) kept; I will STOP and promote to Full if an objective trigger appears." Confirm the note persists the one product outcome decision, bounded diagnosis, router result, semantic declarations, and final lane. Then follow `workflows/lightweight-lane.md` — no stop-at-gate handoff to a second session, deploy on a plain go-ahead (no DP.6 / DP.1). See `flow-skills/lightweight-lane/SKILL.md`.
 
 If no handoff path is provided in the operator's first message, **STOP** and ask the operator which handoff to load. Do NOT improvise the work without a handoff.
 
@@ -88,13 +88,13 @@ For a Lightweight-eligible ticket, the AI Developer runs build → verify → de
 | Step | Activity |
 |---|---|
 | Pre-task checkpoint | `git status --short` clean (IM.10) |
-| Change-note | Write/confirm the change-note (`templates/change-note.md`) — the entire planning artifact |
+| Change-note | Confirm one product outcome decision, bounded diagnosis, router result, semantic declarations, final lane, proof, and rollback in the change-note |
 | Implement | Single coherent concern; one commit (FR-03); lint+typecheck (FR-13) |
 | Live-verify | Run the probe/measurement; apply the `validation-and-qa` 3-question test to the acceptance criterion (never skip — safety floor) |
 | FR-07 re-check | `git diff` against `protected-paths.yml` — clean |
 | Deploy go-ahead | Ask for a plain explicit operator go-ahead in chat (FR-19); **never auto-deploy**; no DP.6 magic phrase, no DP.1 JSON (DP.12). Hook-wired projects: `approve-local.sh lightweight_deploy <slug> 'ship it' --command '<deploy command>'` |
 | Deploy + report | Run deploy command; capture hash; report in 1–3 lines (change · live-proof observed vs expected · SHA · rollback); record `change_tier` + SHA in the change-note/commit (optional ledger only if the project keeps one) |
-| PROMOTE if it grows | More than a couple files / a surfaced risk / a real decision / a deeper bug → **STOP**, promote to Full, log the promotion (IM.18) |
+| Reassess mid-flight | Objective Full trigger → **STOP** and promote; incomplete assessment after bounded diagnosis → `BLOCKED-AT-lane-assessment`; file count or deeper cause alone does not promote (IM.18) |
 
 #### Why the deploy-time operator confirm (DP.6)
 
@@ -154,7 +154,7 @@ Full list with refusal phrasing in `flow-skills/role-discipline/references/ai-de
 | IM.15 | Don't claim smoke PASS from pre-outcome signals; verify the operator-visible outcome and ground-truth diagnostics, or mark `PENDING-OPERATOR-SMOKE` |
 | IM.16 | Don't delegate overlapping, immediate-blocking, or unverified implementation work; main AI Developer still integrates and verifies |
 | IM.17 | Don't implement skill changes from provider mirrors or skip clean-room/mirror/count validation; use canonical skill sources and `skill-authoring` |
-| IM.18 | On a Lightweight-lane ticket (FR-21): one build→verify→deploy pass, plain operator go-ahead — but never drop the safety floor (live proof, FR-07 re-check, rollback, one commit, explicit go-ahead), and STOP + promote to Full if it grows |
+| IM.18 | On a Lightweight-lane ticket (FR-21): confirm the persisted diagnosis and complete path/semantic assessment, run one build→verify→deploy pass with a plain operator go-ahead, keep the safety floor, and stop only for an objective Full trigger or unresolved assessment |
 
 ### Deploy phase (DP.1..DP.12)
 

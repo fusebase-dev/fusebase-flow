@@ -74,7 +74,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixtur
   hook-manifest newline-preserve baseline-merge hook-wiring-intent wire-hooks-beside stamp-eol-guard \
   sync-allowlist policy-state bootstrap-baseline-hop fr22-delivery po-verifiable-boot \
   po-investigate liveness codex-parity codex-plugin cli-0259 cli-version cli-vendor cli-rendered secret-scan-staged bootstrap-exception \
-  lane-router \
+  lane-router lane-workflow \
   trusted-enforcer hook-install-rc msys-tree-cleanup job-probe ws5-upgrade ff-only return-budget \
   supersede-primitive rule-inventory boot-size prohibition-residency token-waste-classify \
   budget-literals history-extraction approval-binding approval-writer approval-receipt command-policy denial-message upgrade-classify \
@@ -507,6 +507,7 @@ run_shell_phase test-hook-manifest.sh        "hook-manifest"
 # self-classified Lightweight, shipped, reviewed, reverted (5f8004f). The rule was correct and
 # was prose.
 run_shell_phase test-lane-router.sh          "lane-router"
+run_shell_phase test-lane-workflow.sh        "lane-workflow"
 run_shell_phase test-newline-preserve.sh     "newline-preserve"
 run_shell_phase test-baseline-merge.sh       "baseline-merge"
 # S1: the intent marker + the health engine's PreToolUse enforcement arm. Most rows are

@@ -34,11 +34,13 @@ Turn vague operator intent into a versioned spec with explicit acceptance criter
 - Operator is asking how something already works (use code-review or repo-onboarding-context-map instead)
 - Task is a one-line bug fix that does not need clarify (see "Skip-clarify gate" below)
 
-## Lane + documentation-budget classification first (FR-21 + FR-23)
+## Diagnosis, lane, and documentation-budget classification first (FR-21 + FR-23)
 
-Before drafting a spec, classify the ticket **Full** or **Lightweight** using the eligibility gate in `flow-skills/lightweight-lane/SKILL.md`. If the change is small, reversible, security-neutral, mechanically-verifiable, needs no architectural decision, and the root cause is known → it is **Lightweight**: do NOT draft spec/clarify/decisions/tasks/gate. Instead produce a single **change-note** (`templates/change-note.md`) and route to `workflows/lightweight-lane.md` (one build→verify→deploy pass, plain operator go-ahead). In doubt → **Full** (continue below). The skip-clarify gate that follows is a *Full-lane* micro-optimization (it skips clarify only); the Lightweight lane is the bigger lever for genuinely small work.
+Before drafting a spec, allow bounded read-only diagnosis to identify the behavior, likely diff, and risk evidence. Run the changed paths through `hooks/local/lane-router.sh --json`, then inspect the diagnosed behavior/diff and declare every semantic risk trigger with evidence path/reason through `hooks/local/lane-assessment.py`. A mechanical match or semantic auth, permissions, secrets, data/schema, public-contract, production/release, protected-path, cross-cutting architecture, or unresolved product-decision trigger routes to **Full**. An initially unknown cause or file count alone does not. If assessment remains incomplete after bounded diagnosis, stop at `BLOCKED-AT-lane-assessment`; never infer a safe lane.
 
-Then run the FR-23 documentation-budget classifier (`flow-skills/documentation-budget/SKILL.md`) before creating any spec artifact: **Tier 0** (transient / already captured in code/tests/git) → no doc; **Tier 1** (Lightweight) → change-note only; **Tier 2** (mid-flight restart) → `docs/tmp/handoff.md` only; **Tier 3/4** → proceed to a full spec below. Do NOT create `docs/specs/<slug>/` artifacts for Tier 0/1/2 work. When unsure between tiers, choose the higher.
+An ordinary, reversible, mechanically verifiable change with a complete no-trigger assessment is **Lightweight**: do not draft spec/clarify/decisions/tasks/gate. Record the one product outcome decision, router result, semantic declarations, proof, and rollback in a single **change-note** (`templates/change-note.md`) and route to `workflows/lightweight-lane.md` for one build→verify→deploy pass and a plain operator go-ahead. The skip-clarify gate below is a Full-lane micro-optimization.
+
+Then run the FR-23 documentation-budget classifier (`flow-skills/documentation-budget/SKILL.md`) before creating any spec artifact: **Tier 0** (transient / already captured in code/tests/git) → no doc; **Tier 1** (Lightweight) → change-note only; **Tier 2** (mid-flight restart) → `docs/tmp/handoff.md` only; **Tier 3/4** → proceed to a full spec below. Do not create `docs/specs/<slug>/` artifacts for Tier 0/1/2 work.
 
 ## Skip-clarify gate (Full lane — when "skip clarify" is allowed)
 
@@ -56,17 +58,15 @@ If ANY condition is unmet: run clarify, even if the operator pushes for speed. T
 
 When skipping: spec.md is still drafted and its scope is frozen in the same step (spec `Status: DRAFT` — scope-lock is recorded in `decisions.md` (**Lock status: LOCKED**), NOT as a `Status: LOCKED` value; the Status stays DRAFT until the deploy session flips it to DONE). The clarify-conversation.md file is replaced by a one-line note: `Clarify skipped per operator request; ticket meets skip-clarify gate (see requirements-specification/SKILL.md).`
 
-## Phase 1 / Phase 2 split (diagnostic vs fix)
+## Full-lane Phase 1 / Phase 2 split (diagnostic vs fix)
 
-For bug investigation tickets where the root cause is unknown, split the spec into two phases:
+Use this split only after an objective trigger has already selected Full and implementation acceptance still depends on deeper diagnosis:
 
 **Phase 1 — Diagnostic.** Acceptance criterion is "we can name the root cause + cite evidence". No production code change. Output: an investigation note in `docs/specs/<slug>/diagnostic.md` with reproduction steps, suspected component, and evidence (logs, traces, repro). The phase ends when the operator confirms the diagnosis.
 
 **Phase 2 — Fix.** Drafted as a separate spec section (or separate spec file `<slug>-fix/spec.md`) AFTER Phase 1 closes. Acceptance criteria are concrete code changes; verification gate references the diagnostic.
 
-Why split: collapsing both phases lets the implementer guess at fixes while the bug is still not understood — produces "shotgun debugging" commits and burns context. The split also makes it explicit when the operator should be asked "is the root cause confirmed?" before you write any code.
-
-When NOT to split: the bug is already understood (e.g., known typo, obvious off-by-one, broken import). Single-phase spec is fine.
+Do not use this split merely because the cause was unknown at intake. Ordinary lane diagnosis happens before persistent spec artifacts. If that bounded diagnosis resolves the behavior without an objective Full trigger, route to Lightweight. If lane assessment remains incomplete, stop at `BLOCKED-AT-lane-assessment`.
 
 ## Required inputs
 
@@ -80,14 +80,19 @@ When NOT to split: the bug is already understood (e.g., known typo, obvious off-
 ## Procedure
 
 1. Read the backlog ticket (or capture operator intent in chat as a 1-paragraph problem statement).
-2. For Fusebase Apps tickets, read `docs/fusebase-cli-edition.md` and identify any CLI domain skills that should inform scope, constraints, or acceptance criteria. Use them as supporting context; do not copy their content into the spec.
-3. Identify ambiguities. For each, draft a clarify question with 2–3 options + recommendation. Save to `docs/specs/<slug>/clarify-conversation.md` using `templates/clarify-conversation.md`.
-4. If the operator asks for alternatives, variations, product/UI directions, or other possible shapes, invoke `flow-skills/design-discovery-ideation/SKILL.md` before drafting the final clarify options. Capture the selected direction in `clarify-conversation.md` or `spec.md`.
-5. Present clarify questions in chat text (FR-19): no popup / clickable menu tools. Use a short options table or numbered list when there are multiple choices, with **(Recommended)** marked when appropriate.
-6. Wait for operator answers. Update `clarify-conversation.md` with locked answers.
-7. Draft `docs/specs/<slug>/spec.md` using `templates/spec.md`. Status: DRAFT.
-8. Spec must include: problem statement, why-now, in-scope, out-of-scope, acceptance criteria (numbered AC1..ACn), risks, constraints from FLOW_RULES (worker-undisturbed, mixed-fleet if applicable). **For app-feature tickets — quality-pattern scan:** check the category index in `flow-skills/app-quality-patterns/SKILL.md`; every pattern whose Trigger matches this feature becomes an AC citing its ID (e.g., "AC4 — filter/report state encoded in URL; refresh restores the exact view (QP-01)"). Cite IDs only — do not paste pattern bodies (FR-23). **For audience-classified surfaces** (`docs/audience.md` exists — or the operator explicitly requested a client-vs-internal posture check — and `client-vs-internal` classified the surface): each applicable posture checklist row becomes an AC citing its C/I/S ID (e.g., "AC7 — destructive actions confirm before executing (client-vs-internal C2)"); where a row overlaps a QP pattern, cite both IDs on one AC line.
-9. State announcement footer in chat: phase advances from `Specify` to `Plan` once spec.md is saved.
+2. Perform bounded read-only diagnosis when cause or risk is unclear. Persist the router result and semantic declarations. Route complete no-trigger ordinary work to the Lightweight change-note; route objective triggers to Full; unresolved assessment stops at `BLOCKED-AT-lane-assessment`.
+3. For Fusebase Apps tickets, read `docs/fusebase-cli-edition.md` and identify any CLI domain skills that should inform scope, constraints, or acceptance criteria. Use them as supporting context; do not copy their content into the spec.
+4. Identify ambiguities. For each, draft a clarify question with 2–3 options + recommendation. Save to `docs/specs/<slug>/clarify-conversation.md` using `templates/clarify-conversation.md`.
+5. If the operator asks for alternatives, variations, product/UI directions, or other possible shapes, invoke `flow-skills/design-discovery-ideation/SKILL.md` before drafting the final clarify options. Capture the selected direction in `clarify-conversation.md` or `spec.md`.
+6. Present clarify questions in chat text (FR-19): no popup / clickable menu tools. Use a short options table or numbered list when there are multiple choices, with **(Recommended)** marked when appropriate.
+7. Wait for operator answers. Update `clarify-conversation.md` with locked answers.
+8. Draft `docs/specs/<slug>/spec.md` using `templates/spec.md`. Status: DRAFT.
+9. Spec must include: problem statement, why-now, in-scope, out-of-scope, acceptance criteria (numbered AC1..ACn), risks, constraints from FLOW_RULES (worker-undisturbed, mixed-fleet if applicable). **For app-feature tickets — quality-pattern scan:** check the category index in `flow-skills/app-quality-patterns/SKILL.md`; every pattern whose Trigger matches this feature becomes an AC citing its ID (e.g., "AC4 — filter/report state encoded in URL; refresh restores the exact view (QP-01)"). Cite IDs only — do not paste pattern bodies (FR-23). **For audience-classified surfaces** (`docs/audience.md` exists — or the operator explicitly requested a client-vs-internal posture check — and `client-vs-internal` classified the surface): each applicable posture checklist row becomes an AC citing its C/I/S ID (e.g., "AC7 — destructive actions confirm before executing (client-vs-internal C2)"); where a row overlaps a QP pattern, cite both IDs on one AC line.
+10. State announcement footer in chat: phase advances from `Specify` to `Plan` once spec.md is saved.
+
+## Worked example
+
+A reported formatting defect has no known cause. Bounded read-only diagnosis finds one reversible formatter change; the path router has no match and semantic assessment is complete with no trigger. Write one change-note with the product outcome decision and use the Lightweight pass. If the same diagnosis finds an access-control branch, declare `auth` with its source path and reason, then continue here with a Full spec.
 
 ## Output artifacts
 

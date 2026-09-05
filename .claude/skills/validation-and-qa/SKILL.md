@@ -88,7 +88,7 @@ For a Lightweight-lane ticket there is no `verification-gate.md` and no long-for
 3. Confirm the FR-07 protected-path re-check is clean (`git diff` against `policies/protected-paths.yml`).
 4. Report in **1–3 lines**: `<what changed> · observed <X>, expected <Y> ✓ · FR-07 clean`. That is the LL gate.
 
-If the live proof can't be produced (no real input reachable, outcome not measurable), the ticket is **not** Lightweight-eligible per condition 3 — promote to Full (`flow-skills/lightweight-lane/SKILL.md`).
+If the live proof cannot be produced, continue bounded diagnosis and assessment. Declare an objective trigger and promote only when evidence supports it; otherwise stop at `BLOCKED-AT-lane-assessment`. Never turn missing proof into an inferred safe result.
 
 ### Sub-mode B — Smoke prompt verification (post-deploy)
 
@@ -140,6 +140,10 @@ Run BEFORE marking the spec DONE. Smoke runs and reproducibility attempts often 
 4. **Document in the gate report:** one-line "Test-data hygiene: <N> ephemeral artifacts cleaned; 0 remaining; git status clean."
 
 Skip this sub-mode only if no test data was written during the ticket (rare — even pure typecheck tickets often leave `node_modules/` / `__pycache__/` churn that should be ignored, not deleted).
+
+## Worked example
+
+An ordinary Lightweight correction has a one-command probe. Run it on the diagnosed input, compare observed and expected output, and record reproduction steps in the change-note. If the probe cannot reach a real input, continue bounded diagnosis; declare an objective Full trigger only with evidence, otherwise stop at `BLOCKED-AT-lane-assessment`. A Full-lane ticket instead records the same evidence against its P-check in the gate report.
 
 ## Output artifacts
 
