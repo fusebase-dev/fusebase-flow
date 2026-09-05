@@ -76,7 +76,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixtur
   po-investigate liveness codex-parity codex-plugin cli-0259 cli-version cli-vendor cli-rendered secret-scan-staged bootstrap-exception \
   lane-router lane-workflow \
   trusted-enforcer hook-install-rc msys-tree-cleanup job-probe ws5-upgrade ff-only return-budget \
-  supersede-primitive rule-inventory boot-size prohibition-residency startup-context token-waste-classify \
+  supersede-primitive rule-inventory boot-size prohibition-residency startup-context validator-evidence validation-instructions token-waste-classify \
   budget-literals history-extraction approval-binding approval-writer approval-receipt command-policy denial-message upgrade-classify \
   upgrade-boundary preboundary-consumed upgrade-repair n5-delivery n6-truthful-base n6-missing-base n6-recover n4-parity-scope recovery-hint install-doc release-authority \
   release-tag-binding fingerprint-rows signal-reap cli-flow-recovery)
@@ -569,6 +569,8 @@ run_shell_phase test-rule-inventory.sh         "rule-inventory"
 run_shell_phase test-boot-size.sh              "boot-size"
 run_shell_phase test-prohibition-residency.sh  "prohibition-residency"
 run_shell_phase test-startup-context.sh        "startup-context"
+run_shell_phase test-validator-evidence.sh     "validator-evidence"
+run_shell_phase test-validation-instructions.sh "validation-instructions"
 run_shell_phase test-token-waste-classify.sh   "token-waste-classify"
 run_shell_phase test-budget-literals.sh        "budget-literals"
 run_shell_phase test-history-extraction.sh     "history-extraction"

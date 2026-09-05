@@ -26,7 +26,7 @@ After `implementation-planning` has produced `decisions.md` (all locked), `tasks
 2. Self-attest: "Operating as AI Developer under Fusebase Flow v4.14.1. I will follow FR-01 through FR-27. I will apply Mode A on chat output and Mode B on every file I write. I will apply the role-discipline skill section for AI Developer (IM.1..IM.18)."
 3. Pre-task git checkpoint: `git status --short`. If non-empty, STOP and ask operator.
 4. Execute tasks T<first>..T<gate> per `tasks.md`. One task = one commit (FR-03). Each commit:
-   - Lint + typecheck clean (FR-13)
+   - After exact staging, run `bash hooks/local/run-validators.sh` for authenticated exact-state lint + typecheck evidence (FR-13). Pre-commit reuses only a matching receipt and otherwise reruns; secret, protected-path, module-size, and release controls remain live. The receipt resists repository-only forgery; arbitrary hostile same-user execution is outside its trust boundary.
    - Worker-undisturbed paths show empty diff (FR-07)
    - Commit message cites T-number (FR-03)
 5. Stop at T<gate>. Do NOT proceed to T<deploy>. Wait for an explicit deploy handoff (FR-05).

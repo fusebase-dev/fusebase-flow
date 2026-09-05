@@ -162,6 +162,8 @@ Per FR-05, stop at `T<gate>`. Do NOT run deploy. Report gate per `verification-g
 ## Per-commit pre-attestation
 
 <!-- prevents: broken-main (lint/typecheck), regression-attribution-loss (one task scope), silent-protected-path-drift (worker-undisturbed) — taxonomy: policies/ratchet-governance.yml -->
+After staging the exact task files, run `bash hooks/local/run-validators.sh`. Its authenticated exact-state receipt binds successful lint/typecheck to the command, working tree, index, configuration, dependencies, environment, and toolchain. The pre-commit hook reuses only an exact match; unavailable authentication or any mismatch reruns the validators. Secret, protected-path, module-size, and release controls remain live. The receipt resists repository-only forgery; arbitrary hostile execution as the same user is outside its trust boundary.
+
 ```
 T<n> pre-commit check:
 ☐ Lint clean

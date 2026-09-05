@@ -2,11 +2,7 @@
 # Fusebase Flow — pre-commit git hook
 # fusebase-flow-managed-hook: v1
 #
-# Runs before each commit. Defends FR-07 (worker-undisturbed), FR-12 (secrets),
-# FR-13 (lint+typecheck), and FR-25 (module-size ratchet). Original Fusebase
-# Flow content; clean-room.
 #
-# Install: bash hooks/local/install-git-hooks.sh
 #
 # Bypass: NEVER use --no-verify. Real secret flagged => rotate + `git reset HEAD --
 # <file>` to unstage; never whitelist it (disables a pattern globally, breaks the
@@ -54,6 +50,7 @@ if [ -z "$ROOT" ]; then
 fi
 
 cd "$ROOT" || exit 0
+FFVE_ORIGINAL_PATH="$PATH"
 
 # ENV SANITIZATION (T30, security floor): scrub every python-influencing env var ONCE,
 # before any python invocation below. ANY python call running with a mutable/inherited
@@ -74,7 +71,6 @@ unset PYTHONPATH PYTHONSTARTUP PYTHONHOME 2>/dev/null || true
 export PYTHONNOUSERSITE=1
 export PYTHONSAFEPATH=1
 
-# 1. Reject likely secret files in staged changes.
 SECRETS_REGEX='\.env$|\.env\.[^\.]*$|credentials\.json$|/secrets/|\.pem$|\.key$|\.netrc$'
 STAGED_PATHS="$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null || true)"
 SECRET_HITS="$(echo "$STAGED_PATHS" | grep -E "$SECRETS_REGEX" || true)"
@@ -91,9 +87,6 @@ fi
 #     FALSE without python3. §2 was wrapped in `if command -v python3` with NO else (the content
 #     scan silently did not happen) and §3 printed a WARN and committed anyway (FR-07 not
 #     enforced). Both are security controls; neither may depend on an interpreter being reachable
-#     under one particular name.
-#     DISCOVERY, then BLOCK. Git Bash has no guaranteed `python3` alias even where a supported
-#     Python 3 is installed, so look for one under the names Windows/Git-Bash actually ship
 #     (`python`, `py -3`) and put a `python3` shim on PATH for this hook's lifetime — the same
 #     provisioning the CI workflow already does. It changes no committed default and relaxes no
 #     check; every invocation below still runs `python3 -S <file>` with a controlled PYTHONPATH.
@@ -111,7 +104,6 @@ fi
 FFPC_SHIM_DIR=""
 _ffpc_cleanup_shim() { [ -n "$FFPC_SHIM_DIR" ] && rm -rf "$FFPC_SHIM_DIR" 2>/dev/null; return 0; }
 trap _ffpc_cleanup_shim EXIT
-# 3.10+ is the floor the handlers/scanner are written against (see .python-version).
 _ffpc_is_py3() { "$@" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] >= (3, 10) else 1)' >/dev/null 2>&1; }
 
 # 1b-v. PRIMARY-INTERPRETER VERSION SYMMETRY (S2d; docs/specs/pre-commit-trusted-tool-contract/).
@@ -767,18 +759,25 @@ if [ -f "$ROOT/hooks/local/check-module-size.sh" ]; then
     fi
 fi
 
-# 5. Lint + typecheck (FR-13). Project hooks may set FUSEBASE_FLOW_LINT / FUSEBASE_FLOW_TYPECHECK.
+# 5. Lint + typecheck (FR-13).
 LINT_CMD="${FUSEBASE_FLOW_LINT:-}"
 TYPECHECK_CMD="${FUSEBASE_FLOW_TYPECHECK:-}"
+[ -n "$LINT_CMD" ] || ! grep -q '"lint"' package.json 2>/dev/null || LINT_CMD="npm run -s lint"
+[ -n "$TYPECHECK_CMD" ] || ! grep -q '"typecheck"' package.json 2>/dev/null || TYPECHECK_CMD="npm run -s typecheck"
 
-# Auto-detect node project lint/typecheck if env vars are unset.
-if [ -z "$LINT_CMD" ] && [ -f package.json ] && grep -q '"lint"' package.json; then
-    LINT_CMD="npm run -s lint"
+FFVE_REUSE=0
+FFVE_TMP="$(mktemp -d 2>/dev/null || mktemp -d -t ff-validator-evidence)"
+if [ -n "$LINT_CMD$TYPECHECK_CMD" ] && [ -d "$FFVE_TMP" ] \
+   && git show HEAD:hooks/local/lib/validator-evidence.py > "$FFVE_TMP/validator-evidence.py" 2>/dev/null; then
+    FFVE_ORIGINAL_PATH="$FFVE_ORIGINAL_PATH" PYTHONPATH="$FFVE_TMP" \
+      python3 -S "$FFVE_TMP/validator-evidence.py" verify --root "$ROOT" \
+        --lint "$LINT_CMD" --typecheck "$TYPECHECK_CMD" >/dev/null 2>&1 && FFVE_REUSE=1
 fi
-if [ -z "$TYPECHECK_CMD" ] && [ -f package.json ] && grep -q '"typecheck"' package.json; then
-    TYPECHECK_CMD="npm run -s typecheck"
-fi
+rm -rf "$FFVE_TMP"
 
+if [ "$FFVE_REUSE" -eq 1 ]; then
+    echo "[fusebase-flow:pre-commit] reusing authentic exact-state lint/typecheck evidence" >&2
+else
 if [ -n "$LINT_CMD" ]; then
     echo "[fusebase-flow:pre-commit] running lint: $LINT_CMD" >&2
     if ! eval "$LINT_CMD"; then
@@ -793,6 +792,8 @@ if [ -n "$TYPECHECK_CMD" ]; then
         echo "[fusebase-flow:pre-commit] BLOCK — typecheck failed (FR-13)." >&2
         exit 1
     fi
+fi
+
 fi
 
 echo "[fusebase-flow:pre-commit] all checks passed" >&2
