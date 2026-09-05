@@ -316,4 +316,101 @@ else
   bad "D1-recovery-consumes-record-verdict" "post-fusebase-update.sh does not capture the recorder's rc"
 fi
 
+"$PY" - "$MERGE" "$ROOT/.claude/settings.json.example" "$WHB_TMP" <<'PY'
+import copy
+import importlib.util
+import json
+from pathlib import Path
+import subprocess
+import sys
+
+merge_path = Path(sys.argv[1])
+complete_config = Path(sys.argv[2])
+temp = Path(sys.argv[3])
+spec = importlib.util.spec_from_file_location("settings_merge", merge_path)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+for original in ({}, {"enabledMcpjsonServers": []}, {"enabledMcpjsonServers": ["custom"]}):
+    settings = copy.deepcopy(original)
+    before_mcp = copy.deepcopy(settings.get("enabledMcpjsonServers", None))
+    settings["permissions"] = {"allow": ["Read"], "deny": ["Bash(rm:*)"]}
+    settings["custom"] = {"timeout": 913, "flag": True}
+    permissions = copy.deepcopy(settings["permissions"])
+    custom = copy.deepcopy(settings["custom"])
+    updated, _ = module.merge_settings(settings)
+    assert updated.get("enabledMcpjsonServers", None) == before_mcp
+    assert updated["permissions"] == permissions
+    assert updated["custom"] == custom
+
+flow = module.DEFAULT_FLOW_HOOKS["Stop"]
+settings = {"hooks": {"Stop": [
+    {"matcher": "first", "hooks": [{"type": "command", "command": "consumer-a", "timeout": 41}]},
+    {"matcher": "second", "hooks": [
+        {"type": "command", "command": flow, "timeout": 77},
+        {"type": "command", "command": "consumer-b", "timeout": 42},
+    ]},
+    {"matcher": "third", "hooks": [{"type": "command", "command": flow, "timeout": 88}]},
+]}}
+updated, _ = module.merge_settings(copy.deepcopy(settings))
+blocks = updated["hooks"]["Stop"]
+commands = [hook.get("command") for block in blocks for hook in block.get("hooks", [])]
+assert commands.count(flow) == 1
+assert commands[:3] == ["consumer-a", flow, "consumer-b"]
+assert blocks[0]["hooks"][0]["timeout"] == 41
+assert blocks[1]["hooks"][0]["timeout"] == 77
+
+fixture = temp / "t2-config"
+(fixture / ".claude").mkdir(parents=True, exist_ok=True)
+(fixture / ".fusebase-flow-source/.claude").mkdir(parents=True, exist_ok=True)
+settings_path = fixture / ".claude/settings.json"
+settings_path.write_text(json.dumps({"hooks": {}}), encoding="utf-8")
+malicious = {
+    "hooks": {
+        event: [{"hooks": [{"type": "command", "command": "bash ./malicious.py"}]}]
+        for event in module.DEFAULT_FLOW_HOOKS
+    }
+}
+(fixture / ".fusebase-flow-source/.claude/settings.json.example").write_text(
+    json.dumps(malicious), encoding="utf-8"
+)
+result = subprocess.run([sys.executable, str(merge_path), str(settings_path)], cwd=fixture)
+assert result.returncode == 0
+merged = json.loads(settings_path.read_text(encoding="utf-8"))
+commands = [
+    hook.get("command", "")
+    for blocks in merged["hooks"].values()
+    for block in blocks
+    for hook in block.get("hooks", [])
+]
+assert not any("malicious.py" in command for command in commands)
+assert all(
+    any(expected in command for command in commands)
+    for expected in module.DEFAULT_FLOW_HOOKS.values()
+)
+
+before = settings_path.read_bytes()
+partial = fixture / "partial.json"
+partial.write_text(json.dumps({"hooks": {"Stop": []}}), encoding="utf-8")
+result = subprocess.run(
+    [sys.executable, str(merge_path), str(settings_path), "--flow-config", str(partial)],
+    cwd=fixture,
+)
+assert result.returncode == 1
+assert settings_path.read_bytes() == before
+
+result = subprocess.run(
+    [
+        sys.executable,
+        str(merge_path),
+        str(settings_path),
+        "--flow-config",
+        str(complete_config),
+    ],
+    cwd=fixture,
+)
+assert result.returncode == 0
+PY
+ok "T2-settings-ownership-config-and-stop-uniqueness"
+
 finish

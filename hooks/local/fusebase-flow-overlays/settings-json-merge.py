@@ -1,38 +1,8 @@
 #!/usr/bin/env python3
-"""
-Fusebase Flow — settings.json merge (Python implementation).
+"""Merge the installed Fusebase Flow hook set into a Claude settings file.
 
-No `jq` dependency — Python 3 is already a Fusebase Flow hook-runtime requirement
-(see hooks/handlers/*.py + hooks/requirements.txt), so this adds zero new
-dependencies and works on Windows out of the box.
-
-Adds the missing Fusebase Flow lifecycle event keys, adds Flow's block BESIDE a
-consumer's own blocks when an event array is already occupied, and appends Fusebase
-Flow's stop.py hook to the existing Stop array — only if each piece is not already
-present. Consumer blocks are never dropped, reordered or rewritten.
-
-UPGRADE POSTURE:
-    The set of events, handler commands, and matchers is auto-discovered at
-    runtime from the upstream `.fusebase-flow-source/.claude/settings.json.example`
-    file. This means minor upstream releases that add/rename/move events require
-    ZERO maintenance to this script. Falls back to a hardcoded 6-event set if the
-    upstream clone isn't available (e.g. fresh project install before the clone
-    is set up).
-
-Idempotent: safe to run multiple times; second run is a byte-identical no-op.
-
-Usage:
-    python3 hooks/local/fusebase-flow-overlays/settings-json-merge.py .claude/settings.json
-    python3 .../settings-json-merge.py .claude/settings.json --baseline-out state/audit/cli-stop-baseline.json
-
-`--baseline-out PATH` writes the durable CLI-Stop-hook receipt the health-check
-reads (single-sources the "CLI-owned iff it names a file under .claude/hooks/"
-rule the reporter uses). Why a receipt and not the pre-merge backup: spec D1
-(post-fusebase-update.sh overwrites .pre-flow-merge before every merge).
-
-Exit codes:
-    0  merge complete (or no merge needed — already in place; receipt written)
-    1  file not found / not valid JSON / write error
+Consumer hook blocks and settings outside Flow-owned commands are preserved. An alternate
+hook source is accepted only through --flow-config after complete handler/matcher validation.
 """
 
 from __future__ import annotations
@@ -43,12 +13,8 @@ import sys
 from pathlib import Path
 from typing import Any
 
-# Default Fusebase Flow hook commands. Used when upstream `.fusebase-flow-source/`
-# clone is not available. Auto-discovered from the upstream when present.
 # Commands route through hooks/local/run-handler.sh (interpreter auto-detect +
-# graceful self-degrade on a python-less machine). The FULL handler path is passed so
-# the `hooks/handlers/<x>.py` substring stays in the command — both the discovery above
-# (`'hooks/handlers/' in hc`) and the Stop-detection below key on that substring.
+# graceful self-degrade on a python-less machine).
 DEFAULT_FLOW_HOOKS = {
     "SessionStart":     'bash "$CLAUDE_PROJECT_DIR"/hooks/local/run-handler.sh "$CLAUDE_PROJECT_DIR"/hooks/handlers/session_start.py',
     "UserPromptSubmit": 'bash "$CLAUDE_PROJECT_DIR"/hooks/local/run-handler.sh "$CLAUDE_PROJECT_DIR"/hooks/handlers/user_prompt_submit.py',
@@ -58,9 +24,6 @@ DEFAULT_FLOW_HOOKS = {
     "PreCompact":       'bash "$CLAUDE_PROJECT_DIR"/hooks/local/run-handler.sh "$CLAUDE_PROJECT_DIR"/hooks/handlers/pre_compact.py',
 }
 
-# Default matchers per Claude Code conventions. Auto-discovered from upstream
-# when available.
-#
 # TRIPWIRE (E6): PreToolUse must name EVERY command-carrying tool the host exposes —
 # Claude Code exposes `PowerShell` beside `Bash` on Windows, and a tool absent from the
 # matcher never reaches pre_tool_use.py, so FR-06 denies and FR-12 approvals simply do not
@@ -69,8 +32,6 @@ DEFAULT_EVENT_MATCHERS = {
     "PreToolUse":  "Bash|PowerShell|Edit|Write|MultiEdit|NotebookEdit",
     "PostToolUse": "Edit|Write|MultiEdit|NotebookEdit",
 }
-
-DEFAULT_CLI_MCP_SERVERS = ["fusebase-dashboards", "fusebase-gate"]
 
 # D1 (preserve-only): Flow's Stop merge NEVER static-injects a CLI hook from a
 # name. It appends stop.py and preserves every Stop hook already in the file.
@@ -82,77 +43,8 @@ DEFAULT_CLI_MCP_SERVERS = ["fusebase-dashboards", "fusebase-gate"]
 CLI_STOP_HOOKS: list[tuple[str, dict[str, Any]]] = []
 
 
-def discover_flow_config_from_upstream() -> tuple[dict[str, str], dict[str, str]] | tuple[None, None]:
-    """Read upstream .fusebase-flow-source/.claude/settings.json.example to
-    discover the canonical event names, handler commands, and matchers.
-
-    The upstream example uses ${PROJECT_DIR} as a placeholder; we rewrite it
-    to "$CLAUDE_PROJECT_DIR" to match Claude Code's runtime substitution.
-
-    Returns (FLOW_HOOKS, EVENT_MATCHERS) on success, or (None, None) if the
-    upstream clone or its example file isn't reachable.
-    """
-    candidates = [
-        Path('.fusebase-flow-source/.claude/settings.json.example'),
-        Path('../.fusebase-flow-source/.claude/settings.json.example'),
-    ]
-    for example_path in candidates:
-        if not example_path.is_file():
-            continue
-        try:
-            data = json.loads(example_path.read_text(encoding='utf-8'))
-        except Exception:
-            continue
-        hooks = data.get('hooks') or {}
-        if not isinstance(hooks, dict) or not hooks:
-            continue
-        discovered_hooks: dict[str, str] = {}
-        discovered_matchers: dict[str, str] = {}
-        for event, blocks in hooks.items():
-            if not isinstance(blocks, list) or not blocks:
-                continue
-            block = blocks[0]
-            if not isinstance(block, dict):
-                continue
-            if isinstance(block.get('matcher'), str):
-                discovered_matchers[event] = block['matcher']
-            handlers = block.get('hooks')
-            if not isinstance(handlers, list) or not handlers:
-                continue
-            # U14: pick the FLOW handler, not handlers[0]. On shared events (Stop)
-            # the example chain lists CLI hooks BEFORE Flow's, so handlers[0] is a
-            # CLI command (e.g. run-typecheck-apps.js) — discovering that as the
-            # "Stop" Flow command makes the merge wire a CLI command under the Flow
-            # label and never wire stop.py. Flow handlers live under hooks/handlers/.
-            cmd = None
-            for h in handlers:
-                if isinstance(h, dict):
-                    hc = h.get('command')
-                    if isinstance(hc, str) and 'hooks/handlers/' in hc:
-                        cmd = hc
-                        break
-            if cmd is None:
-                first = handlers[0]
-                cmd = first.get('command') if isinstance(first, dict) else None
-            if not isinstance(cmd, str):
-                continue
-            # Upstream example uses ${PROJECT_DIR}; Claude Code substitutes
-            # $CLAUDE_PROJECT_DIR at runtime. Normalize.
-            cmd_norm = cmd.replace('${PROJECT_DIR}', '"$CLAUDE_PROJECT_DIR"')
-            discovered_hooks[event] = cmd_norm
-        if discovered_hooks:
-            return discovered_hooks, discovered_matchers
-    return None, None
-
-
-# Resolve final config: prefer upstream-discovered, fall back to hardcoded defaults
-_disc_hooks, _disc_matchers = discover_flow_config_from_upstream()
-FLOW_HOOKS: dict[str, str] = _disc_hooks if _disc_hooks else DEFAULT_FLOW_HOOKS
-EVENT_MATCHERS: dict[str, str] = _disc_matchers if _disc_matchers else DEFAULT_EVENT_MATCHERS
-
-# Sanity: always need a Stop event for the stop.py append logic to work.
-if "Stop" not in FLOW_HOOKS:
-    FLOW_HOOKS["Stop"] = DEFAULT_FLOW_HOOKS["Stop"]
+FLOW_HOOKS: dict[str, str] = dict(DEFAULT_FLOW_HOOKS)
+EVENT_MATCHERS: dict[str, str] = dict(DEFAULT_EVENT_MATCHERS)
 
 
 def make_event_block(event: str) -> dict[str, Any]:
@@ -164,6 +56,84 @@ def make_event_block(event: str) -> dict[str, Any]:
 
 
 _HANDLER_RE = re.compile(r"hooks/handlers/([a-z_]+)\.py")
+
+
+def _recognized_flow_command(cmd: Any, event: str) -> bool:
+    if not isinstance(cmd, str):
+        return False
+    configured = FLOW_HOOKS[event]
+    stem = _HANDLER_RE.search(configured)
+    if stem is None:
+        return False
+    name = stem.group(1)
+    return cmd.strip() in {
+        configured.strip(),
+        f'python3 "$CLAUDE_PROJECT_DIR"/hooks/handlers/{name}.py',
+        f'python3 "${{PROJECT_DIR}}"/hooks/handlers/{name}.py',
+    }
+
+
+def _config_from_file(path: Path) -> tuple[dict[str, str], dict[str, str]]:
+    data = json.loads(path.read_text(encoding="utf-8"))
+    source_hooks = data.get("hooks")
+    if not isinstance(source_hooks, dict):
+        raise ValueError("explicit Flow config has no hooks object")
+    commands: dict[str, str] = {}
+    matchers: dict[str, str] = {}
+    for event, expected in DEFAULT_FLOW_HOOKS.items():
+        expected_match = _HANDLER_RE.search(expected)
+        blocks = source_hooks.get(event)
+        if expected_match is None or not isinstance(blocks, list):
+            raise ValueError(f"explicit Flow config is missing {event}")
+        candidates: list[str] = []
+        for block in blocks:
+            if not isinstance(block, dict):
+                continue
+            matcher = block.get("matcher")
+            if event in DEFAULT_EVENT_MATCHERS and isinstance(matcher, str):
+                matchers[event] = matcher
+            for hook in block.get("hooks") or []:
+                command = hook.get("command") if isinstance(hook, dict) else None
+                match = _HANDLER_RE.search(command or "")
+                if match and match.group(1) == expected_match.group(1):
+                    candidates.append(command)
+        if len(candidates) != 1:
+            raise ValueError(
+                f"explicit Flow config needs exactly one recognized {event} handler"
+            )
+        normalized = candidates[0].replace(
+            '"${PROJECT_DIR}"', '"$CLAUDE_PROJECT_DIR"'
+        ).replace("${PROJECT_DIR}", "$CLAUDE_PROJECT_DIR")
+        if normalized != expected:
+            raise ValueError(f"explicit Flow config has an unrecognized {event} command")
+        commands[event] = normalized
+    for event, required in DEFAULT_EVENT_MATCHERS.items():
+        actual = _matcher_tokens(matchers.get(event))
+        expected = _matcher_tokens(required)
+        if actual is None or expected is None or not set(expected).issubset(actual):
+            raise ValueError(f"explicit Flow config has an incomplete {event} matcher")
+    return commands, matchers
+
+
+def _deduplicate_flow_handlers(blocks: Any, event: str) -> int:
+    if not isinstance(blocks, list):
+        return 0
+    seen = False
+    removed = 0
+    for block in blocks:
+        if not isinstance(block, dict) or not isinstance(block.get("hooks"), list):
+            continue
+        kept = []
+        for hook in block["hooks"]:
+            command = hook.get("command") if isinstance(hook, dict) else None
+            if _recognized_flow_command(command, event):
+                if seen:
+                    removed += 1
+                    continue
+                seen = True
+            kept.append(hook)
+        block["hooks"] = kept
+    return removed
 
 
 def _is_legacy_flow_command(cmd: Any, stem: str) -> bool:
@@ -261,22 +231,16 @@ def _widen_matchers(blocks: Any, event: str) -> bool:
 
 
 def _flow_handler_present(blocks: Any, event: str) -> bool:
-    """True iff some block in `blocks` names this event's canonical Flow handler.
-
-    Same detection contract the health arm applies (hooks/local/lib/hook-wiring-intent.sh):
-    the `hooks/handlers/<stem>.py` SUBSTRING, never the event key. Every wiring form — the
-    run-handler.sh wrapper and the legacy `python3 …` variants _migrate_blocks still
-    recognises — carries it, so a migrated block reads present and is never duplicated."""
+    """True iff some block names an exact current or legacy Flow command."""
     stem_m = _HANDLER_RE.search(FLOW_HOOKS.get(event, ""))
     if not stem_m or not isinstance(blocks, list):
         return False
-    needle = f"hooks/handlers/{stem_m.group(1)}.py"
     for block in blocks:
         if not isinstance(block, dict):
             continue
         for hook in block.get("hooks") or []:
             cmd = hook.get("command") if isinstance(hook, dict) else None
-            if isinstance(cmd, str) and needle in cmd:
+            if _recognized_flow_command(cmd, event):
                 return True
     return False
 
@@ -284,13 +248,6 @@ def _flow_handler_present(blocks: Any, event: str) -> bool:
 def merge_settings(settings: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     """Return (updated settings, list of changes applied)."""
     changes: list[str] = []
-
-    servers = settings.setdefault("enabledMcpjsonServers", [])
-    if isinstance(servers, list):
-        for server in DEFAULT_CLI_MCP_SERVERS:
-            if server not in servers:
-                servers.append(server)
-                changes.append(f"added MCP server {server}")
 
     hooks = settings.setdefault("hooks", {})
 
@@ -317,6 +274,9 @@ def merge_settings(settings: dict[str, Any]) -> tuple[dict[str, Any], list[str]]
             # Existing install wired with bare python3 -> route through run-handler.sh so a
             # python-less machine self-degrades instead of erroring every event.
             changes.append(f"migrated {event} to run-handler.sh wrapper")
+        removed = _deduplicate_flow_handlers(hooks[event], event)
+        if removed:
+            changes.append(f"removed {removed} duplicate Fusebase Flow {event} handler(s)")
         if not _flow_handler_present(hooks[event], event):
             # ADD BESIDE, never replace. The array is occupied by somebody else's block(s), so
             # the wholesale-add branch above correctly did not fire — and _migrate_blocks /
@@ -350,23 +310,35 @@ def merge_settings(settings: dict[str, Any]) -> tuple[dict[str, Any], list[str]]
         hooks["Stop"] = [{"hooks": stop_chain}]
         changes.append("added Stop event with Fusebase Flow stop.py")
     else:
-        # Stop array exists; check first block's hooks chain for our stop.py
-        stop_block = hooks["Stop"][0]
-        stop_hooks = stop_block.setdefault("hooks", [])
-        # Migrate a legacy python3 stop.py IN PLACE (before the append-if-missing check —
-        # already_present stays True via the substring, so we rewrite rather than duplicate).
+        if not isinstance(hooks["Stop"], list) or not all(
+            isinstance(block, dict) for block in hooks["Stop"]
+        ):
+            print(
+                "[settings-merge] WARNING: hooks.Stop is not an array of objects; leaving it untouched.",
+                file=sys.stderr,
+            )
+            return settings, changes
         if _migrate_blocks(hooks["Stop"], "Stop"):
             changes.append("migrated Stop to run-handler.sh wrapper")
+        removed = _deduplicate_flow_handlers(hooks["Stop"], "Stop")
+        if removed:
+            changes.append(f"removed {removed} duplicate Fusebase Flow Stop handler(s)")
+        stop_hooks = hooks["Stop"][0].setdefault("hooks", [])
+        if not isinstance(stop_hooks, list):
+            print(
+                "[settings-merge] WARNING: hooks.Stop[0].hooks is not an array; leaving it untouched.",
+                file=sys.stderr,
+            )
+            return settings, changes
         for marker, hook in reversed(CLI_STOP_HOOKS):
-            already_cli_present = any(marker in h.get("command", "") for h in stop_hooks)
+            already_cli_present = any(
+                isinstance(item, dict) and marker in item.get("command", "")
+                for item in stop_hooks
+            )
             if not already_cli_present and Path(f".claude/hooks/{marker}").is_file():
                 stop_hooks.insert(0, dict(hook))
                 changes.append(f"added CLI Stop hook {marker}")
-        already_present = any(
-            "hooks/handlers/stop.py" in h.get("command", "")
-            for h in stop_hooks
-        )
-        if not already_present:
+        if not _flow_handler_present(hooks["Stop"], "Stop"):
             stop_hooks.append({
                 "type": "command",
                 "command": FLOW_HOOKS["Stop"],
@@ -419,8 +391,10 @@ def write_baseline(settings: dict[str, Any], out_path: Path) -> None:
 
 
 def main() -> int:
+    global FLOW_HOOKS, EVENT_MATCHERS
     args = sys.argv[1:]
     baseline_out: str | None = None
+    flow_config: str | None = None
     if "--baseline-out" in args:
         i = args.index("--baseline-out")
         if i + 1 >= len(args):
@@ -428,10 +402,24 @@ def main() -> int:
             return 1
         baseline_out = args[i + 1]
         del args[i:i + 2]
+    if "--flow-config" in args:
+        i = args.index("--flow-config")
+        if i + 1 >= len(args):
+            print("Usage: --flow-config requires a PATH", file=sys.stderr)
+            return 1
+        flow_config = args[i + 1]
+        del args[i:i + 2]
 
     if len(args) != 1:
-        print("Usage: python3 settings-json-merge.py <settings.json path> [--baseline-out PATH]", file=sys.stderr)
+        print("Usage: python3 settings-json-merge.py <settings.json path> [--baseline-out PATH] [--flow-config PATH]", file=sys.stderr)
         return 1
+
+    if flow_config is not None:
+        try:
+            FLOW_HOOKS, EVENT_MATCHERS = _config_from_file(Path(flow_config))
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            print(f"ERROR: explicit Flow config rejected: {exc}", file=sys.stderr)
+            return 1
 
     path = Path(args[0])
     if not path.is_file():
