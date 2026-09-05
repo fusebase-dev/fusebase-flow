@@ -65,9 +65,9 @@ sha_batch() {
 }
 # Single-file fallback (only used if a path is somehow not primed — keeps drift
 # correct even on a cache miss; on Windows this is the slow path we avoid).
-sha_one() {
-    if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | awk '{print $1}'
-    else shasum -a 256 "$1" | awk '{print $1}'; fi
+sha_one_into() {
+    if command -v sha256sum >/dev/null 2>&1; then read -r HASH_VALUE _ < <(sha256sum -- "$1")
+    else read -r HASH_VALUE _ < <(shasum -a 256 -- "$1"); fi
 }
 
 # ---- Phase 1: enumerate the exact mirror set (SKILL.md + references/*) ----
@@ -147,10 +147,10 @@ while IFS= read -r line; do
 done < "$HASH_RAW"
 rm -f "$HASH_RAW"
 
-cache_hash() { # cache_hash <path> -> hash (cache hit, else single-file fallback)
+cache_hash_into() {
     local p="$1"
-    if [ -n "${HASHCACHE[$p]:-}" ]; then printf '%s' "${HASHCACHE[$p]}"
-    else sha_one "$p"; fi
+    if [ -n "${HASHCACHE[$p]:-}" ]; then HASH_VALUE="${HASHCACHE[$p]}"
+    else sha_one_into "$p"; fi
 }
 
 # ---- Phase 3 (--check): real read-only drift check ----
@@ -186,16 +186,19 @@ if [ "$CHECK_ONLY" -eq 1 ]; then
         rel="${line%%$'\t'*}"
         canon_file="${line#*$'\t'}"
         target="$ROOT/$rel"
-        canon_hash="$(cache_hash "$canon_file")"
+        cache_hash_into "$canon_file"; canon_hash="$HASH_VALUE"
         if [ "${COMMITTED[$rel]:-}" != "$canon_hash" ]; then
             drifted=$((drifted + 1))
             echo "[mirror-skills] --check DRIFT: $rel manifest=${COMMITTED[$rel]:-<absent>} canonical=$canon_hash" >&2
         elif [ ! -f "$target" ]; then
             drifted=$((drifted + 1))
             echo "[mirror-skills] --check DRIFT: $rel mirror file missing on disk" >&2
-        elif [ "$(cache_hash "$target")" != "$canon_hash" ]; then
-            drifted=$((drifted + 1))
-            echo "[mirror-skills] --check DRIFT: $rel on-disk mirror != canonical" >&2
+        else
+            cache_hash_into "$target"; existing_hash="$HASH_VALUE"
+            if [ "$existing_hash" != "$canon_hash" ]; then
+                drifted=$((drifted + 1))
+                echo "[mirror-skills] --check DRIFT: $rel on-disk mirror != canonical" >&2
+            fi
         fi
     done
     # Manifest rows with no live MIRROR_LINES counterpart = stale/extra manifest entry.
@@ -219,19 +222,23 @@ fi
 # per-file $(dirname) fork — one less spawn per mirrored file (MSYS 255-fork relief).
 mirrored=0
 drifted=0
+copied=0
 manifest_rows=""
 for line in "${MIRROR_LINES[@]}"; do
     rel="${line%%$'\t'*}"
     canon_file="${line#*$'\t'}"
     target="$ROOT/$rel"
-    canon_hash="$(cache_hash "$canon_file")"
+    cache_hash_into "$canon_file"; canon_hash="$HASH_VALUE"
 
     if [ -f "$target" ]; then
-        existing_hash="$(cache_hash "$target")"
+        cache_hash_into "$target"; existing_hash="$HASH_VALUE"
         [ "$existing_hash" != "$canon_hash" ] && drifted=$((drifted + 1))
     fi
-    mkdir -p "${target%/*}"
-    cp "$canon_file" "$target"
+    if [ ! -f "$target" ] || [ "$existing_hash" != "$canon_hash" ]; then
+        mkdir -p "${target%/*}"
+        cp "$canon_file" "$target"
+        copied=$((copied + 1))
+    fi
     mirrored=$((mirrored + 1))
     manifest_rows+="$rel  $canon_hash"$'\n'
 done
@@ -251,7 +258,11 @@ done
 # hash map, so order does not affect drift detection.
 manifest_tmp="$MANIFEST.tmp.$$"
 printf '%s' "$manifest_rows" | LC_ALL=C sort > "$manifest_tmp"
-mv -f "$manifest_tmp" "$MANIFEST"
+if [ -f "$MANIFEST" ] && cmp -s "$manifest_tmp" "$MANIFEST"; then
+    rm -f "$manifest_tmp"
+else
+    mv -f "$manifest_tmp" "$MANIFEST"
+fi
 
-echo "[mirror-skills] mirrored $mirrored files (across ${#MIRRORS[@]} mirrors); $drifted had pre-existing drift."
+echo "[mirror-skills] mirrored $mirrored files (across ${#MIRRORS[@]} mirrors); copied $copied; $drifted had pre-existing drift."
 echo "[mirror-skills] manifest: $MANIFEST"

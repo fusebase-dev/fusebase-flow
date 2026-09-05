@@ -63,3 +63,17 @@ ffrp_applied() {
 ffrp_finish() {
   ffrp_write "$1" "$2" "${3:-}"
 }
+
+ffrp_owned_snapshot() {
+  python3 -I -S - "$1" "$2" <<'PY'
+import hashlib, json, pathlib, sys
+root = pathlib.Path(sys.argv[1])
+relative = sys.argv[2]
+path = root / relative
+manifest = json.loads((root / "audit/managed-content-manifest.json").read_text(encoding="utf-8"))
+expected = next((item.get("sha256") for item in manifest.get("files", manifest.get("assets", []))
+                 if isinstance(item, dict) and item.get("path") == relative), None)
+if not isinstance(expected, str) or hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+    raise SystemExit(1)
+PY
+}

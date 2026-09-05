@@ -49,9 +49,14 @@ for hook in pre-commit commit-msg; do
     [ -f "$src_file" ] || continue
 
     if [ -f "$dest_file" ] && ! is_flow_managed "$dest_file"; then
-        # A pre-existing CUSTOM hook. Back it up; never silent-clobber.
-        backup="$dest_file.pre-flow-$(date -u +%Y%m%dT%H%M%SZ)"
-        cp "$dest_file" "$backup"
+        backup=""
+        for candidate in "$dest_file".pre-flow-*; do
+            [ -f "$candidate" ] && cmp -s "$dest_file" "$candidate" && { backup="$candidate"; break; }
+        done
+        if [ -z "$backup" ]; then
+            backup="$dest_file.pre-flow-$(date -u +%Y%m%dT%H%M%SZ)"
+            cp "$dest_file" "$backup"
+        fi
         if [ "$FORCE" -eq 1 ]; then
             cp "$src_file" "$dest_file"
             chmod +x "$dest_file"
@@ -65,7 +70,10 @@ for hook in pre-commit commit-msg; do
         continue
     fi
 
-    # Absent or already Flow-managed => safe to (re)install in place.
+    if [ -f "$dest_file" ] && cmp -s "$src_file" "$dest_file" && [ -x "$dest_file" ]; then
+        echo "[fusebase-flow] current $hook -> $dest_file"
+        continue
+    fi
     cp "$src_file" "$dest_file"
     chmod +x "$dest_file"
     echo "[fusebase-flow] installed $hook -> $dest_file"

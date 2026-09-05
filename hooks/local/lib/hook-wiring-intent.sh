@@ -73,6 +73,16 @@ import json, os, pathlib, tempfile
 path = pathlib.Path(os.sys.argv[1])
 enabled = os.environ["FFHC_HWI_ENABLED"] == "true"
 surfaces = [item for item in os.environ["FFHC_HWI_SURFACES"].split(",") if item]
+if path.is_file():
+    try:
+        current = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        current = None
+    if isinstance(current, dict) and current.get("schema_version") == 2 \
+            and current.get("enabled") == enabled \
+            and current.get("repo_root") == os.environ["FFHC_HWI_ROOT"] \
+            and current.get("surfaces") == surfaces:
+        raise SystemExit
 doc = {
     "schema_version": 2,
     "enabled": enabled,

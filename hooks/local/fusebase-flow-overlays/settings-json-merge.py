@@ -387,8 +387,12 @@ def write_baseline(settings: dict[str, Any], out_path: Path) -> None:
         "cli_stop_hooks": cli_stop_hook_basenames(settings, cli_hook_dir),
         "written_by": "post-fusebase-update --wire-hooks",
     }
+    content = json.dumps(receipt, indent=2) + "\n"
+    if out_path.is_file() and out_path.read_text(encoding="utf-8") == content:
+        print(f"[settings-merge] baseline receipt already current: {out_path}")
+        return
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
+    _atomic_write_text(out_path, content)
     print(f"[settings-merge] baseline receipt written: {out_path} "
           f"({len(receipt['cli_stop_hooks'])} CLI Stop hook(s))")
 
@@ -400,7 +404,8 @@ def _atomic_write_text(path: Path, content: str) -> None:
             handle.write(content)
             handle.flush()
             os.fsync(handle.fileno())
-        os.chmod(temp_name, stat.S_IMODE(path.stat().st_mode))
+        if path.exists():
+            os.chmod(temp_name, stat.S_IMODE(path.stat().st_mode))
         os.replace(temp_name, path)
     except Exception:
         try:
@@ -414,6 +419,7 @@ def main() -> int:
     global FLOW_HOOKS, EVENT_MATCHERS
     args = sys.argv[1:]
     baseline_out: str | None = None
+    backup_out: str | None = None
     flow_config: str | None = None
     if "--baseline-out" in args:
         i = args.index("--baseline-out")
@@ -421,6 +427,13 @@ def main() -> int:
             print("Usage: --baseline-out requires a PATH", file=sys.stderr)
             return 1
         baseline_out = args[i + 1]
+        del args[i:i + 2]
+    if "--backup-out" in args:
+        i = args.index("--backup-out")
+        if i + 1 >= len(args):
+            print("Usage: --backup-out requires a PATH", file=sys.stderr)
+            return 1
+        backup_out = args[i + 1]
         del args[i:i + 2]
     if "--flow-config" in args:
         i = args.index("--flow-config")
@@ -431,7 +444,7 @@ def main() -> int:
         del args[i:i + 2]
 
     if len(args) != 1:
-        print("Usage: python3 settings-json-merge.py <settings.json path> [--baseline-out PATH] [--flow-config PATH]", file=sys.stderr)
+        print("Usage: python3 settings-json-merge.py <settings.json path> [--baseline-out PATH] [--backup-out PATH] [--flow-config PATH]", file=sys.stderr)
         return 1
 
     if flow_config is not None:
@@ -456,19 +469,22 @@ def main() -> int:
     updated, changes = merge_settings(settings)
 
     new_text = json.dumps(updated, indent=2, ensure_ascii=False) + "\n"
+    if baseline_out is not None:
+        write_baseline(updated, Path(baseline_out))
     if not changes:
         print(f"[settings-merge] {path}: already up to date (no changes needed)")
     elif new_text == original_text:
         print(f"[settings-merge] {path}: byte-identical after merge (no-op)")
     else:
+        if backup_out:
+            backup_path = Path(backup_out)
+            backup_path.parent.mkdir(parents=True, exist_ok=True)
+            _atomic_write_text(backup_path, original_text)
         _atomic_write_text(path, new_text)
         print(f"[settings-merge] {path}: applied {len(changes)} change(s):")
         for c in changes:
             print(f"  - {c}")
 
-    # Receipt on every path (D1): durable + self-refreshing on the no-op run too.
-    if baseline_out is not None:
-        write_baseline(updated, Path(baseline_out))
     return 0
 
 

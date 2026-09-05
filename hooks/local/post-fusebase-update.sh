@@ -256,8 +256,13 @@ ff_migrate_marker() {
 
 echo "[post-fusebase-update] Step 1: re-mirror Fusebase Flow skills..."
 if [ -x hooks/local/mirror-skills.sh ]; then
-  bash hooks/local/mirror-skills.sh >/dev/null 2>&1 || WARNINGS+=("mirror-skills.sh exited non-zero")
-  ACTIONS_TAKEN+=("re-mirrored Fusebase Flow skills (.claude/skills/ + .agents/skills/)")
+  SKILL_MIRROR_OUTPUT="$(bash hooks/local/mirror-skills.sh 2>&1)" \
+    || WARNINGS+=("mirror-skills.sh exited non-zero: $SKILL_MIRROR_OUTPUT")
+  if printf '%s\n' "$SKILL_MIRROR_OUTPUT" | grep -qF "copied 0;"; then
+    ACTIONS_SKIPPED+=("Fusebase Flow skill mirrors already current")
+  else
+    ACTIONS_TAKEN+=("re-mirrored Fusebase Flow skills (.claude/skills/ + .agents/skills/)")
+  fi
 else
   WARNINGS+=("hooks/local/mirror-skills.sh not found or not executable")
 fi
@@ -269,8 +274,13 @@ fi
 command -v ffrp_applied >/dev/null 2>&1 && ffrp_applied "skill_mirrors"
 echo "[post-fusebase-update] Step 2: re-mirror Fusebase Flow sub-agents..."
 if [ -x hooks/local/mirror-agents.sh ]; then
-  bash hooks/local/mirror-agents.sh >/dev/null 2>&1 || WARNINGS+=("mirror-agents.sh exited non-zero")
-  ACTIONS_TAKEN+=("re-mirrored Fusebase Flow sub-agents (.claude/agents/ + .codex/agents/)")
+  AGENT_MIRROR_OUTPUT="$(bash hooks/local/mirror-agents.sh 2>&1)" \
+    || WARNINGS+=("mirror-agents.sh exited non-zero: $AGENT_MIRROR_OUTPUT")
+  if printf '%s\n' "$AGENT_MIRROR_OUTPUT" | grep -qF "copied 0;"; then
+    ACTIONS_SKIPPED+=("Fusebase Flow agent mirrors already current")
+  else
+    ACTIONS_TAKEN+=("re-mirrored Fusebase Flow sub-agents (.claude/agents/ + .codex/agents/)")
+  fi
 else
   WARNINGS+=("hooks/local/mirror-agents.sh not found or not executable")
 fi
@@ -373,21 +383,18 @@ elif ! command -v python3 >/dev/null 2>&1; then
 elif [ ! -f "$MERGE_SCRIPT" ]; then
   WARNINGS+=("$MERGE_SCRIPT missing; cannot merge settings.json")
 else
-  cp .claude/settings.json .claude/settings.json.pre-flow-merge
-  # D1 receipt: the merge writes state/audit/cli-stop-baseline.json on EVERY
-  # wire-hooks run (real merge AND the no-op "already wired" path) so the
-  # health-check's diff baseline is durable + self-refreshing. NOT .pre-flow-merge
-  # (overwritten at :259 / rm -f'd on no-op).
   CLI_STOP_BASELINE="state/audit/cli-stop-baseline.json"
   set +e
-  MERGE_OUTPUT=$(python3 "$MERGE_SCRIPT" .claude/settings.json --baseline-out "$CLI_STOP_BASELINE" 2>&1)
+  MERGE_OUTPUT=$(python3 "$MERGE_SCRIPT" .claude/settings.json \
+    --baseline-out "$CLI_STOP_BASELINE" --backup-out .claude/settings.json.pre-flow-merge 2>&1)
   MERGE_EXIT=$?
   set -e
   # S1 intent: recorded ONLY when the tree ACHIEVED the wiring (the canonical handler is in the
   # merged file), never on the merge's exit code — see the TRIPWIRE on ffhc_hwi_record_wiring.
   # A failed merge (rc 3) stays silent: the merge failure is already reported below.
   HWI_RC=""
-  if [ "$WIRE_HOOKS_REQUESTED" -eq 1 ] && command -v ffhc_hwi_record_wiring >/dev/null 2>&1; then
+  if [ "$WIRE_HOOKS_REQUESTED" -eq 1 ] && [ "$HWI_STATE" != "ENABLED" ] \
+      && command -v ffhc_hwi_record_wiring >/dev/null 2>&1; then
     set +e
     ffhc_hwi_record_wiring "$ROOT" "$MERGE_EXIT"; HWI_RC=$?
     set -e
@@ -401,17 +408,18 @@ else
     if [ "$HWI_RC" = "0" ]; then
       ACTIONS_TAKEN+=(".claude/settings.json: recorded Flow hook-wiring intent ($FFHC_HWI_REL)")
     fi
-    ACTIONS_TAKEN+=(".claude/settings.json: wrote CLI Stop baseline receipt ($CLI_STOP_BASELINE)")
+    if echo "$MERGE_OUTPUT" | grep -q "baseline receipt already current"; then
+      ACTIONS_SKIPPED+=(".claude/settings.json: CLI Stop baseline receipt already current")
+    else
+      ACTIONS_TAKEN+=(".claude/settings.json: wrote CLI Stop baseline receipt ($CLI_STOP_BASELINE)")
+    fi
     if echo "$MERGE_OUTPUT" | grep -q "already up to date\|byte-identical"; then
       ACTIONS_SKIPPED+=(".claude/settings.json: Fusebase Flow events already wired")
-      rm -f .claude/settings.json.pre-flow-merge
     else
       ACTIONS_TAKEN+=(".claude/settings.json: merged Fusebase Flow lifecycle events (backup at .claude/settings.json.pre-flow-merge)")
     fi
   else
-    WARNINGS+=("Python merge failed (exit $MERGE_EXIT); .claude/settings.json restored from backup. Output: $MERGE_OUTPUT")
-    cp .claude/settings.json.pre-flow-merge .claude/settings.json
-    rm -f .claude/settings.json.pre-flow-merge
+    WARNINGS+=("Python merge failed (exit $MERGE_EXIT); atomic target write was not completed. Output: $MERGE_OUTPUT")
   fi
 fi
 
@@ -436,8 +444,12 @@ if [ "$RESTORE_GIT_HOOKS" -eq 1 ] && [ -d .git/hooks ] && [ -x hooks/local/insta
     WARNINGS+=("git fallback hook (re)install FAILED (exit $GH_RC); Flow hooks may be stale — re-run 'bash hooks/local/install-git-hooks.sh' and review. Output: $GH_OUTPUT")
   elif printf '%s' "$GH_OUTPUT" | grep -qi 'custom .* detected'; then
     WARNINGS+=("custom .git/hooks preserved (not overwritten); re-run 'bash hooks/local/install-git-hooks.sh --force' to install the Flow hook")
-  else
+  elif printf '%s\n' "$GH_OUTPUT" | grep -q '^\[fusebase-flow\] installed '; then
     ACTIONS_TAKEN+=("(re)installed Flow git fallback hooks (.git/hooks/pre-commit, commit-msg)")
+  else
+    ACTIONS_SKIPPED+=("Flow git fallback hooks already current")
+  fi
+  if [ "$GH_RC" -eq 0 ] && ! printf '%s' "$GH_OUTPUT" | grep -qi 'custom .* detected'; then
     if [ "$WIRE_HOOKS_REQUESTED" -eq 1 ] && command -v ffhc_hwi_write >/dev/null 2>&1; then
       ffhc_hwi_write "$ROOT" true "claude_settings,git_hooks" \
         || WARNINGS+=("could not extend hook-wiring intent to the verified Git-hook surface")
@@ -460,18 +472,29 @@ ACTIONS_SKIPPED+=(".claude/hooks/** is CLI-owned; Flow recovery does not patch C
 ###############################################################################
 
 echo "[post-fusebase-update] Step 7: fusebase-flow-health-check skill restore..."
-HEALTH_SKILL_TEMPLATE="$OVERLAYS/skills/fusebase-flow-health-check/SKILL.md"
-if [ ! -f "$HEALTH_SKILL_TEMPLATE" ]; then
-  WARNINGS+=("$HEALTH_SKILL_TEMPLATE missing; cannot restore fusebase-flow-health-check skill")
+HEALTH_SKILL_CANON="flow-skills/fusebase-flow-health-check/SKILL.md"
+HEALTH_SKILL_SNAPSHOT="hooks/local/fusebase-flow-overlays/skills/fusebase-flow-health-check/SKILL.md"
+HEALTH_SKILL_SOURCE=""
+if [ -f "$HEALTH_SKILL_CANON" ]; then
+  HEALTH_SKILL_SOURCE="$HEALTH_SKILL_CANON"
+elif command -v ffrp_owned_snapshot >/dev/null 2>&1 \
+    && ffrp_owned_snapshot "$ROOT" "$HEALTH_SKILL_SNAPSHOT"; then
+  HEALTH_SKILL_SOURCE="$HEALTH_SKILL_SNAPSHOT"
+  ACTIONS_SKIPPED+=("canonical health skill unavailable; used ownership-verified recovery snapshot")
+else
+  WARNINGS+=("canonical health skill missing and recovery snapshot ownership is unverified")
+fi
+if [ -z "$HEALTH_SKILL_SOURCE" ]; then
+  :
 else
   RESTORED=0
   for target_dir in .claude/skills .agents/skills; do
     target_path="$target_dir/fusebase-flow-health-check/SKILL.md"
     mkdir -p "$(dirname "$target_path")"
-    if [ -f "$target_path" ] && diff -q "$HEALTH_SKILL_TEMPLATE" "$target_path" >/dev/null 2>&1; then
+    if [ -f "$target_path" ] && diff -q "$HEALTH_SKILL_SOURCE" "$target_path" >/dev/null 2>&1; then
       :
     else
-      cp "$HEALTH_SKILL_TEMPLATE" "$target_path"
+      cp "$HEALTH_SKILL_SOURCE" "$target_path"
       RESTORED=$((RESTORED + 1))
     fi
   done

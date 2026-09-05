@@ -40,37 +40,69 @@ mkdir -p "$(dirname "$MANIFEST")"
 # before that write; pre-declared + trapped so a sort/mv failure mid-write can't leave a
 # half-written temp behind (set -u safe; rm -f "" is a no-op until it is set).
 manifest_tmp=""
-trap 'rm -f "$manifest_tmp"' EXIT
+hash_raw="$(mktemp "${TMPDIR:-/tmp}/agent-mirror-hash-cache.XXXXXX")"
+trap 'rm -f "$hash_raw" "$manifest_tmp"' EXIT
 
-sha_cmd() {
-    if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | awk '{print $1}'
-    else shasum -a 256 "$1" | awk '{print $1}'; fi
+sha_batch() {
+    if command -v sha256sum >/dev/null 2>&1; then xargs -0 -n 256 sha256sum --
+    else xargs -0 -n 256 shasum -a 256 --; fi
+}
+
+declare -a AGENT_LINES=()
+for agent_dir in "$CANON"/*/; do
+    agent_dir="${agent_dir%/}"
+    agent_name="${agent_dir##*/}"
+    canon_file="$agent_dir/AGENT.md"
+    [ -f "$canon_file" ] || { echo "[mirror-agents] skip $agent_name (no AGENT.md)"; continue; }
+    for mirror_root in "${MIRRORS[@]}"; do
+        AGENT_LINES+=("$mirror_root/$agent_name.md"$'\t'"$canon_file")
+    done
+done
+
+{
+    for line in "${AGENT_LINES[@]}"; do
+        canon_file="${line#*$'\t'}"
+        printf '%s\0' "$canon_file"
+        target_file="$ROOT/${line%%$'\t'*}"
+        [ -f "$target_file" ] && printf '%s\0' "$target_file"
+    done
+    true
+} | sha_batch > "$hash_raw"
+
+declare -A HASHCACHE=()
+while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    HASHCACHE["${line:66}"]="${line:0:64}"
+done < "$hash_raw"
+rm -f "$hash_raw"
+
+cache_hash_into() {
+    local path="$1"
+    if [ -n "${HASHCACHE[$path]:-}" ]; then HASH_VALUE="${HASHCACHE[$path]}"
+    elif command -v sha256sum >/dev/null 2>&1; then read -r HASH_VALUE _ < <(sha256sum -- "$path")
+    else read -r HASH_VALUE _ < <(shasum -a 256 -- "$path"); fi
 }
 
 mirrored=0
+copied=0
 drifted=0
 manifest_rows=""
-
-for agent_dir in "$CANON"/*/; do
-    agent_name="$(basename "$agent_dir")"
-    canon_file="$agent_dir/AGENT.md"
-    [ -f "$canon_file" ] || { echo "[mirror-agents] skip $agent_name (no AGENT.md)"; continue; }
-    canon_hash="$(sha_cmd "$canon_file")"
-
-    for mirror_root in "${MIRRORS[@]}"; do
-        target_dir="$ROOT/$mirror_root"
-        target_file="$target_dir/$agent_name.md"
-        mkdir -p "$target_dir"
-        if [ -f "$target_file" ]; then
-            existing_hash="$(sha_cmd "$target_file")"
-            if [ "$existing_hash" != "$canon_hash" ]; then
-                drifted=$((drifted + 1))
-            fi
-        fi
+for line in "${AGENT_LINES[@]}"; do
+    rel="${line%%$'\t'*}"
+    canon_file="${line#*$'\t'}"
+    target_file="$ROOT/$rel"
+    cache_hash_into "$canon_file"; canon_hash="$HASH_VALUE"
+    if [ -f "$target_file" ]; then
+        cache_hash_into "$target_file"; existing_hash="$HASH_VALUE"
+        [ "$existing_hash" != "$canon_hash" ] && drifted=$((drifted + 1))
+    fi
+    if [ ! -f "$target_file" ] || [ "$existing_hash" != "$canon_hash" ]; then
+        mkdir -p "${target_file%/*}"
         cp "$canon_file" "$target_file"
-        mirrored=$((mirrored + 1))
-        manifest_rows+="$mirror_root/$agent_name.md  $canon_hash"$'\n'
-    done
+        copied=$((copied + 1))
+    fi
+    mirrored=$((mirrored + 1))
+    manifest_rows+="$rel  $canon_hash"$'\n'
 done
 
 # Atomic, byte-deterministic manifest write (cross-platform AND concurrency-safe) — see
@@ -81,7 +113,11 @@ done
 # hash-map-based, so order does not affect it.
 manifest_tmp="$MANIFEST.tmp.$$"
 printf '%s' "$manifest_rows" | LC_ALL=C sort > "$manifest_tmp"
-mv -f "$manifest_tmp" "$MANIFEST"
+if [ -f "$MANIFEST" ] && cmp -s "$manifest_tmp" "$MANIFEST"; then
+    rm -f "$manifest_tmp"
+else
+    mv -f "$manifest_tmp" "$MANIFEST"
+fi
 
-echo "[mirror-agents] mirrored $mirrored files (across ${#MIRRORS[@]} mirrors); $drifted had pre-existing drift."
+echo "[mirror-agents] mirrored $mirrored files (across ${#MIRRORS[@]} mirrors); copied $copied; $drifted had pre-existing drift."
 echo "[mirror-agents] manifest: $MANIFEST"

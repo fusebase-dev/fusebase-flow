@@ -22,6 +22,7 @@
 # Canonical Flow skill files, relative to <tree>/flow-skills/.
 FFCF_SKILL_FILES=(
   communication/SKILL.md
+  fusebase-flow-health-check/SKILL.md
   role-discipline/SKILL.md
   zz-fixture-flat/SKILL.md
   zz-fixture-nested/SKILL.md
@@ -29,7 +30,7 @@ FFCF_SKILL_FILES=(
   zz-fixture-nested/references/two.txt
 )
 # Canonical skill DIRECTORY names (what the conflict reporter + health engine enumerate).
-FFCF_SKILL_NAMES=(communication role-discipline zz-fixture-flat zz-fixture-nested)
+FFCF_SKILL_NAMES=(communication fusebase-flow-health-check role-discipline zz-fixture-flat zz-fixture-nested)
 FFCF_AGENTS=(zz-fixture-agent-a zz-fixture-agent-b)
 # The CLI provider surface — DERIVED from the ownership map, never handwritten.
 #
@@ -78,13 +79,19 @@ FFCF_COMMANDS=(fusebase-health.md product-owner.md)
 
 # Single source of truth for fixture bytes: canonical and mirror writers both call these, so a
 # hand-built mirror can never silently differ from its canonical source.
-ffcf_skill_body() { printf '# fixture skill file %s\n\nFIXTURE FLOW SKILL CONTENT %s\n' "$1" "$1"; }
+ffcf_skill_body() {
+  if [ "$1" = "fusebase-flow-health-check/SKILL.md" ]; then
+    printf '# fusebase-flow-health-check\n\nFIXTURE CANONICAL HEALTH SKILL\n'
+  else
+    printf '# fixture skill file %s\n\nFIXTURE FLOW SKILL CONTENT %s\n' "$1" "$1"
+  fi
+}
 ffcf_agent_body() { printf '# fixture agent %s\n\nFIXTURE FLOW AGENT CONTENT %s\n' "$1" "$1"; }
 
 # ffcf_canonical <tree>: the Flow-owned canonical sources (flow-skills/ + agents/).
 ffcf_canonical() {
   local d="$1" f n
-  mkdir -p "$d/flow-skills/communication" "$d/flow-skills/role-discipline" \
+  mkdir -p "$d/flow-skills/communication" "$d/flow-skills/fusebase-flow-health-check" "$d/flow-skills/role-discipline" \
            "$d/flow-skills/zz-fixture-flat" "$d/flow-skills/zz-fixture-nested/references" \
            "$d/agents/${FFCF_AGENTS[0]}" "$d/agents/${FFCF_AGENTS[1]}"
   for f in "${FFCF_SKILL_FILES[@]}"; do ffcf_skill_body "$f" > "$d/flow-skills/$f"; done
@@ -106,7 +113,6 @@ ffcf_flow_mirrors() {
     "$d/.claude/agents" "$d/.codex/agents" "$d/.claude/commands"
   for m in .claude/skills .agents/skills; do
     for f in "${FFCF_SKILL_FILES[@]}"; do ffcf_skill_body "$f" > "$d/$m/$f"; done
-    printf '# fusebase-flow-health-check\n\nFIXTURE HEALTH SKILL\n' > "$d/$m/fusebase-flow-health-check/SKILL.md"
   done
   for m in .claude/agents .codex/agents; do
     for n in "${FFCF_AGENTS[@]}"; do ffcf_agent_body "$n" > "$d/$m/$n.md"; done

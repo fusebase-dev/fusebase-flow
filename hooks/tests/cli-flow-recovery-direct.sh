@@ -24,6 +24,21 @@
 # The mutation below deliberately runs on the REDUCED corpus: the full run proves BREADTH, the
 # mutation proves the assertions are not vacuous. Running it in a copy (never $ROOT) also keeps
 # the phase read-only with respect to the repository.
+ffcf_tree_inventory() {
+  "$python_bin" - "$@" <<'PY'
+import hashlib, json, pathlib, sys
+root, out = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+paths = []
+for rel in sys.argv[3:]:
+    path = root / rel
+    paths.extend(item for item in path.rglob("*") if item.is_file()) if path.is_dir() else paths.append(path)
+doc = {str(path.relative_to(root)).replace("\\", "/"): [
+    hashlib.sha256(path.read_bytes()).hexdigest(), path.stat().st_mtime_ns]
+    for path in sorted(set(paths)) if path.is_file()}
+out.write_text(json.dumps(doc, sort_keys=True), encoding="utf-8")
+PY
+}
+
 ffcf_production_breadth() {
   local real=0 sd out rc d files
   for sd in "$ROOT"/flow-skills/*/; do [ -f "$sd/SKILL.md" ] && real=$((real + 1)); done
@@ -69,6 +84,41 @@ ffcf_production_breadth() {
   diff -q "$d/audit/skill-mirror-manifest.txt" "$ROOT/audit/skill-mirror-manifest.txt" >/dev/null 2>&1 \
     || fail "production write: the manifest produced over the full corpus is not byte-identical to the committed audit/skill-mirror-manifest.txt"
   pass "production write: mirror-skills.sh write mode over all $real canonical skills exits 0, materializes all $files mirror files, and reproduces the committed manifest byte for byte"
+
+  ffcf_tree_inventory "$d" "$TMP_BASE/skills-before.json" audit/skill-mirror-manifest.txt .agents/skills .claude/skills
+  ( cd "$d" && bash hooks/local/mirror-skills.sh > "$TMP_BASE/skills-noop.out" 2>&1 )
+  ffcf_tree_inventory "$d" "$TMP_BASE/skills-after.json" audit/skill-mirror-manifest.txt .agents/skills .claude/skills
+  diff -q "$TMP_BASE/skills-before.json" "$TMP_BASE/skills-after.json" >/dev/null 2>&1 \
+    || fail "T4: full-corpus skill no-op changed mirror or manifest bytes/mtimes"
+  grep -qF "copied 0;" "$TMP_BASE/skills-noop.out" \
+    || fail "T4: full-corpus skill no-op did not report zero copies"
+  printf '\nT4 DRIFT\n' >> "$d/.agents/skills/communication/SKILL.md"
+  ( cd "$d" && bash hooks/local/mirror-skills.sh > "$TMP_BASE/skills-repair.out" 2>&1 )
+  grep -qF "copied 1;" "$TMP_BASE/skills-repair.out" \
+    || fail "T4: one drifted skill did not produce exactly one copy"
+  diff -q "$d/flow-skills/communication/SKILL.md" "$d/.agents/skills/communication/SKILL.md" >/dev/null 2>&1 \
+    || fail "T4: one drifted skill was not repaired"
+  pass "T4: full-corpus skill mirrors and manifest are zero-write on no-op; one drift repairs one file"
+
+  local a="$TMP_BASE/agent-write"
+  mkdir -p "$a/hooks/local"
+  cp -R "$ROOT/agents" "$a/agents"
+  cp "$ROOT/hooks/local/mirror-agents.sh" "$a/hooks/local/"
+  ( cd "$a" && bash hooks/local/mirror-agents.sh > "$TMP_BASE/agents-first.out" 2>&1 )
+  ffcf_tree_inventory "$a" "$TMP_BASE/agents-before.json" audit/agent-mirror-manifest.txt .claude/agents .codex/agents
+  ( cd "$a" && bash hooks/local/mirror-agents.sh > "$TMP_BASE/agents-noop.out" 2>&1 )
+  ffcf_tree_inventory "$a" "$TMP_BASE/agents-after.json" audit/agent-mirror-manifest.txt .claude/agents .codex/agents
+  diff -q "$TMP_BASE/agents-before.json" "$TMP_BASE/agents-after.json" >/dev/null 2>&1 \
+    || fail "T4: agent no-op changed mirror or manifest bytes/mtimes"
+  grep -qF "copied 0;" "$TMP_BASE/agents-noop.out" \
+    || fail "T4: agent no-op did not report zero copies"
+  printf '\nT4 DRIFT\n' >> "$a/.claude/agents/ai-developer.md"
+  ( cd "$a" && bash hooks/local/mirror-agents.sh > "$TMP_BASE/agents-repair.out" 2>&1 )
+  grep -qF "copied 1;" "$TMP_BASE/agents-repair.out" \
+    || fail "T4: one drifted agent did not produce exactly one copy"
+  diff -q "$a/agents/ai-developer/AGENT.md" "$a/.claude/agents/ai-developer.md" >/dev/null 2>&1 \
+    || fail "T4: one drifted agent was not repaired"
+  pass "T4: agent mirrors and manifest are zero-write on no-op; one drift repairs one file"
 
   # (5) RETAINED RED-BEFORE MUTATION — a WRITE-ONLY defect must be caught. The mutation is the
   # recorded incident (concurrent per-row appends producing duplicated manifest rows, which the
@@ -199,8 +249,6 @@ EOF
   pass "U9: first preserve-aware upgrade seeds the new FLOW:PRESERVE region from the legacy table (lossless)"
 }
 
-# Invalid .claude/settings.json under --wire-hooks: warn, restore the original, exit 1, leave no
-# backup. The merge path is opt-in, so the invalid-JSON handling is only reachable with the flag.
 ffcf_bad_settings() {
   local d="$TMP_BASE/bad-settings" rc
   ffcf_canonical "$d"
@@ -213,11 +261,44 @@ ffcf_bad_settings() {
   ( cd "$d" && bash hooks/local/post-fusebase-update.sh --wire-hooks > "$TMP_BASE/bad-settings.out" 2>&1 )
   rc=$?
   set -e
-  [ "$rc" -eq 1 ] || fail "invalid settings recovery should return 1, got $rc"
-  grep -q "\[post-fusebase-update\] Summary" "$TMP_BASE/bad-settings.out" || fail "invalid settings recovery did not print summary"
+  [ "$rc" -eq 2 ] || fail "invalid settings recovery should return 2, got $rc"
+  grep -q "recovery plan validation failed" "$TMP_BASE/bad-settings.out" || fail "invalid settings recovery did not report prevalidation failure"
   [ ! -f "$d/.claude/settings.json.pre-flow-merge" ] || fail "invalid settings recovery left backup behind"
   grep -q "{ invalid json" "$d/.claude/settings.json" || fail "invalid settings recovery did not restore original settings"
-  pass "invalid settings merge (--wire-hooks) reports warning and cleans backup"
+  pass "invalid settings merge (--wire-hooks) fails prevalidation without target writes"
+}
+
+ffcf_t4_health_fallback() {
+  local d="$TMP_BASE/t4-health-fallback" snapshot hash rc
+  ffcf_canonical "$d"
+  rm -rf "$d/flow-skills/fusebase-flow-health-check"
+  ffcf_engine_scripts "$d"
+  ffcf_root_docs "$d"
+  ffcf_apply_overlays "$d"
+  ffcf_settings_hooksoff "$d"
+  snapshot="hooks/local/fusebase-flow-overlays/skills/fusebase-flow-health-check/SKILL.md"
+  hash="$(sha_cmd "$d/$snapshot")"
+  mkdir -p "$d/audit"
+  printf '{"assets":[{"path":"%s","sha256":"%s"}]}\n' "$snapshot" "$hash" \
+    > "$d/audit/managed-content-manifest.json"
+  ( cd "$d" && bash hooks/local/post-fusebase-update.sh > "$TMP_BASE/t4-fallback.out" 2>&1 )
+  for m in .claude/skills .agents/skills; do
+    diff -q "$d/$snapshot" "$d/$m/fusebase-flow-health-check/SKILL.md" >/dev/null 2>&1 \
+      || fail "T4: ownership-verified health snapshot did not restore $m fallback"
+  done
+  grep -q "ownership-verified recovery snapshot" "$TMP_BASE/t4-fallback.out" \
+    || fail "T4: verified health fallback was not reported"
+
+  printf '\nUNOWNED DRIFT\n' >> "$d/$snapshot"
+  rm -f "$d/.claude/skills/fusebase-flow-health-check/SKILL.md"
+  set +e
+  ( cd "$d" && bash hooks/local/post-fusebase-update.sh > "$TMP_BASE/t4-unowned.out" 2>&1 )
+  rc=$?
+  set -e
+  [ "$rc" -eq 1 ] || fail "T4: unowned health snapshot should return partial rc=1, got $rc"
+  [ ! -f "$d/.claude/skills/fusebase-flow-health-check/SKILL.md" ] \
+    || fail "T4: unowned health snapshot superseded the missing canonical source"
+  pass "T4: health snapshot is fallback-only and requires manifest-verified ownership"
 }
 
 # U20 (v3.9.0) — the REAL upgrade.sh migration, run on THE single full-tree clone: a pre-3.9.0
@@ -346,5 +427,6 @@ ffcf_direct_run() {
   ffcf_u15_eslint
   ffcf_legacy_overlays
   ffcf_bad_settings
+  ffcf_t4_health_fallback
   ffcf_u20_migration
 }

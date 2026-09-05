@@ -279,7 +279,7 @@ t3_fixture() {
   local d="$1"
   mkdir -p "$d/hooks/local/lib" "$d/hooks/local/fusebase-flow-overlays/commands" \
     "$d/hooks/local/fusebase-flow-overlays/skills/fusebase-flow-health-check" \
-    "$d/flow-skills/fixture" "$d/agents/fixture" "$d/.claude"
+    "$d/flow-skills/fixture" "$d/flow-skills/fusebase-flow-health-check" "$d/agents/fixture" "$d/.claude"
   cp "$ROOT/hooks/local/post-fusebase-update.sh" "$d/hooks/local/"
   cp "$ROOT/hooks/local/lib/hook-wiring-intent.sh" "$ROOT/hooks/local/lib/flow-recovery-plan.sh" "$d/hooks/local/lib/"
   cp "$ROOT/hooks/local/fusebase-flow-overlays/agents-md-overlay.md" \
@@ -288,6 +288,7 @@ t3_fixture() {
     "$ROOT/hooks/local/fusebase-flow-overlays/settings-json-merge.py" \
     "$d/hooks/local/fusebase-flow-overlays/"
   printf '# fixture\n' > "$d/flow-skills/fixture/SKILL.md"
+  printf '# health\n' > "$d/flow-skills/fusebase-flow-health-check/SKILL.md"
   printf '# fixture\n' > "$d/agents/fixture/AGENT.md"
   printf '# command\n' > "$d/hooks/local/fusebase-flow-overlays/commands/fusebase-health.md"
   printf '# health\n' > "$d/hooks/local/fusebase-flow-overlays/skills/fusebase-flow-health-check/SKILL.md"

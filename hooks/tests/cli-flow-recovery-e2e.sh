@@ -21,6 +21,32 @@ ffcf_e2e_build() {
   ffcf_settings_wired "$PROJECT"
 }
 
+ffcf_recovery_inventory() {
+  "$python_bin" - "$1" "$2" <<'PY'
+import hashlib, json, pathlib, sys
+root = pathlib.Path(sys.argv[1])
+out = pathlib.Path(sys.argv[2])
+paths = [
+    root / "AGENTS.md", root / "CLAUDE.md",
+    root / "audit/skill-mirror-manifest.txt", root / "audit/agent-mirror-manifest.txt",
+    root / ".claude/settings.json", root / ".claude/settings.json.pre-flow-merge",
+    root / "state/audit/cli-stop-baseline.json",
+    root / "state/audit/flow-hook-wiring-intent.json",
+    root / ".git/hooks/pre-commit", root / ".git/hooks/commit-msg",
+]
+for directory in (".claude/skills", ".agents/skills", ".claude/agents", ".codex/agents", ".claude/commands"):
+    paths.extend(path for path in (root / directory).rglob("*") if path.is_file())
+doc = {
+    str(path.relative_to(root)).replace("\\", "/"): {
+        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+        "mtime_ns": path.stat().st_mtime_ns,
+    }
+    for path in sorted(set(paths)) if path.is_file()
+}
+out.write_text(json.dumps(doc, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+PY
+}
+
 ffcf_e2e_run() {
   ffcf_e2e_build
 
@@ -60,6 +86,24 @@ ffcf_e2e_run() {
   done
   grep -q "run-typecheck-apps.js" "$PROJECT/.claude/settings.json" && fail "unwired run-typecheck-apps.js re-injected (double typecheck)" || true
   pass "F3: --wire-hooks appends stop.py and preserves the 0.25.9-era CLI Stop set (unchanged through 0.25.16; no run-typecheck-apps.js re-inject)"
+
+  ffcf_recovery_inventory "$PROJECT" "$TMP_BASE/t4-before.json"
+  ( cd "$PROJECT" && bash hooks/local/post-fusebase-update.sh --wire-hooks > "$OUT.noop" )
+  ffcf_recovery_inventory "$PROJECT" "$TMP_BASE/t4-after.json"
+  diff -q "$TMP_BASE/t4-before.json" "$TMP_BASE/t4-after.json" >/dev/null 2>&1 \
+    || fail "T4: second recovery changed a target hash or mtime"
+  [ -f "$PROJECT/.claude/settings.json.pre-flow-merge" ] \
+    || fail "T4: second recovery removed retained settings recovery material"
+  grep -q "skill mirrors already current" "$OUT.noop" \
+    || fail "T4: clean skill mirrors were not reported as current"
+  grep -q "agent mirrors already current" "$OUT.noop" \
+    || fail "T4: clean agent mirrors were not reported as current"
+  for m in .claude/skills .agents/skills; do
+    diff -q "$PROJECT/flow-skills/fusebase-flow-health-check/SKILL.md" \
+      "$PROJECT/$m/fusebase-flow-health-check/SKILL.md" >/dev/null 2>&1 \
+      || fail "T4: $m health skill did not retain canonical bytes"
+  done
+  pass "T4: second recovery retains every target hash/mtime and canonical health bytes"
 
   # THE one full-tree clone (see the header tripwire). Handed to U20 as a defined base.
   cp -R "$PROJECT" "$FFCF_SNAPSHOT"
@@ -113,7 +157,7 @@ ffcf_e2e_run() {
   pass "F2: --refresh-overlays on a current block is a no-op (byte-identical; BEGIN/END balanced at 1)"
 
   # (2) drift AGENTS.md, refresh -> restored to one balanced block, drift removed.
-  printf '\nDRIFTED-FLOW-BLOCK-EXTRA-LINE\n' >> "$PROJECT/AGENTS.md"
+  sed -i '0,/Fusebase Flow ships:/s//DRIFTED-FLOW-BLOCK-EXTRA-LINE/' "$PROJECT/AGENTS.md"
   ( cd "$PROJECT" && bash hooks/local/post-fusebase-update.sh --refresh-overlays > "$OUT.refresh2" )
   [ "$(ffcf_count_marker "$PROJECT/AGENTS.md" "$FFCF_MB")" -eq 1 ] \
     || fail "F2: after refreshing a DRIFTED AGENTS.md, BEGIN count is $(ffcf_count_marker "$PROJECT/AGENTS.md" "$FFCF_MB") (expected 1)"
@@ -140,7 +184,7 @@ ffcf_e2e_run() {
   grep -q "<!-- FLOW:PRESERVE:BEGIN" "$PROJECT/AGENTS.md" || fail "U1 precondition: AGENTS.md block lacks FLOW:PRESERVE markers"
   sed -i -E 's/\| Project name \| [^|]*\|/| Project name | WORKHUB-MANAGED |/' "$PROJECT/AGENTS.md"
   grep -q "WORKHUB-MANAGED" "$PROJECT/AGENTS.md" || fail "U1 setup: could not set the operator project value"
-  sed -i 's/workflow lifecycle overlay/workflow lifecycle overlay (DRIFTED-FRAMEWORK-PROSE)/' "$PROJECT/AGENTS.md"
+  sed -i '0,/Fusebase Flow ships:/s//DRIFTED-FRAMEWORK-PROSE/' "$PROJECT/AGENTS.md"
   rm -f "$PROJECT"/AGENTS.md.pre-refresh-*
   ( cd "$PROJECT" && bash hooks/local/post-fusebase-update.sh --refresh-overlays > "$OUT.u1" )
   grep -q "WORKHUB-MANAGED" "$PROJECT/AGENTS.md" || fail "U1: refresh WIPED the operator's project value (data loss!)"
