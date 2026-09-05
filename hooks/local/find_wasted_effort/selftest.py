@@ -486,6 +486,7 @@ def _deviation_gating_kind_cases(check_bool):
 
 from .selftest_e2e import e2e_cases as _e2e_cases   # noqa: E402
 from .selftest_proposals import proposal_cases as _proposal_cases   # noqa: E402
+from .selftest_windowing import windowing_cases as _windowing_cases   # noqa: E402
 
 
 # --------------------------------------------------------------------------
@@ -529,6 +530,7 @@ def run_selftest():
     _evidence_scoping_cases(check_bool)
     _deviation_gating_kind_cases(check_bool)
     _e2e_cases(check_e2e)
+    _windowing_cases(check_bool)
     _containment_cases(check_bool)
     _proposal_cases(check_bool)
 

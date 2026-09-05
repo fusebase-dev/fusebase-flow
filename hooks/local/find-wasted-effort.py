@@ -46,6 +46,7 @@ from find_wasted_effort.constants import (   # noqa: E402
     CONFIRMED, DISMISSED, INCONCLUSIVE, DEFAULT_WINDOW, FALSE_POSITIVE_HEADER,
 )
 from find_wasted_effort import evidence as ev_mod   # noqa: E402
+from find_wasted_effort import windowing   # noqa: E402
 from find_wasted_effort.rules import RULE_EVALUATORS, RULE_TITLES   # noqa: E402
 from find_wasted_effort.proposals import build_proposals   # noqa: E402
 
@@ -167,15 +168,23 @@ def assemble_evidence(root, window):
     rounds = ev_mod.build_rounds(commits, numstat)
     artifacts = ev_mod.collect_artifacts(root)
     approvals = ev_mod.collect_approvals(root)
-    gating_approvals = ev_mod.deviation_gating_approvals(approvals)
+    window_artifacts, historical_artifacts, artifact_linkage = \
+        windowing.partition_artifacts(root, artifacts, commits)
+    window_approvals, historical_approvals, approval_linkage = \
+        windowing.partition_approvals(root, approvals, commits)
+    gating_approvals = ev_mod.deviation_gating_approvals(window_approvals)
+    historical_gating_approvals = ev_mod.deviation_gating_approvals(historical_approvals)
 
-    gate_approvals, gate_blocks = ev_mod.collect_gate_outcomes(artifacts)
-    suite_runs, suite_reason = ev_mod.collect_suite_runs(artifacts, rounds)
-    lane_cand, lane_reason = ev_mod.collect_lane_candidates(rounds, artifacts)
-    cross_sig, cross_reason = ev_mod.collect_cross_session_rederivation(artifacts)
+    gate_approvals, gate_blocks = ev_mod.collect_gate_outcomes(window_artifacts)
+    historical_gate_approvals, historical_gate_blocks = \
+        ev_mod.collect_gate_outcomes(historical_artifacts)
+    suite_runs, suite_reason = ev_mod.collect_suite_runs(window_artifacts, rounds)
+    lane_cand, lane_reason = ev_mod.collect_lane_candidates(rounds, window_artifacts)
+    cross_sig, cross_reason = ev_mod.collect_cross_session_rederivation(window_artifacts)
     annotations, ann_lines = ev_mod.collect_prevents_annotations(root)
     gov_elements, gov_ok, severity_tag = ev_mod.load_ratchet_governance(root)
-    fired_classes = ev_mod.collect_firing_evidence(artifacts)
+    fired_classes = ev_mod.collect_firing_evidence(window_artifacts)
+    historical_fired_classes = ev_mod.collect_firing_evidence(historical_artifacts)
     dups = ev_mod.detect_duplicate_blocks(artifacts, FALSE_POSITIVE_HEADER)
 
     return {
@@ -183,6 +192,9 @@ def assemble_evidence(root, window):
         "gate_blocks": gate_blocks,
         "gate_approvals": gate_approvals,
         "gating_approvals": gating_approvals,
+        "historical_gate_approvals": historical_gate_approvals,
+        "historical_gate_blocks": historical_gate_blocks,
+        "historical_gating_approvals": historical_gating_approvals,
         # rule 2
         "full_suite_runs_per_round": suite_runs,
         "full_suite_reason": suite_reason,
@@ -197,15 +209,22 @@ def assemble_evidence(root, window):
         "governance_ok": gov_ok,
         "governance_elements": gov_elements,
         "fired_classes": fired_classes,
+        "historical_fired_classes": historical_fired_classes,
         "severity_tag": severity_tag,
         # rule 7
         "cross_session_rederivation": cross_sig,
         "cross_session_reason": cross_reason,
         # context
         "approvals": approvals,
+        "window_approvals": window_approvals,
+        "historical_approvals": historical_approvals,
+        "approval_linkage": approval_linkage,
         "rounds": rounds,
         "commits": commits,
         "artifacts": artifacts,
+        "window_artifacts": window_artifacts,
+        "historical_artifacts": historical_artifacts,
+        "artifact_linkage": artifact_linkage,
         "window": window,
     }
 
@@ -223,8 +242,11 @@ def build_report(ev, root, today):
         findings.append(f)
     lines = [
         "# Find-wasted-effort audit — %s" % today, "",
-        "Scope: %d artifact(s), %d round(s), %d approval(s), window %d commit(s), git root `%s`." % (
-            len(ev["artifacts"]), len(ev["rounds"]), len(ev["approvals"]), ev["window"], root),
+        "Scope: %d window-linked artifact(s), %d historical/unlinked artifact(s), %d round(s), "
+        "%d window-linked approval(s), %d historical/unlinked approval(s), requested window %d commit(s), git root `%s`." % (
+            len(ev.get("window_artifacts", [])), len(ev.get("historical_artifacts", [])),
+            len(ev["rounds"]), len(ev.get("window_approvals", [])),
+            len(ev.get("historical_approvals", [])), ev["window"], root),
         "Read-only (Phase 1 / D4): no writes/prune/reclassify; this report is the only output "
         "(contained under state/audit/, symlink-checked).",
         "", FALSE_POSITIVE_HEADER, "",
@@ -265,11 +287,26 @@ def build_report(ev, root, today):
     else:
         lines.append("policies/ratchet-governance.yml absent/unparseable — coverage cannot be stated "
                      "(rule 6 inconclusive). This is a coverage GAP, not a safety verdict.")
-    lines += ["", "## Inputs collected (read-only)", "",
+    lines += ["", "## Temporal evidence split (A7)", "",
+              "Window-specific findings use only artifacts or approvals linked to a selected commit by their Git history or an explicit commit SHA. Historical/unlinked evidence remains visible below but cannot change a window verdict.", "",
+              "Rule 3 remains a current-corpus duplicate inventory across both sets; it is structural evidence, not a window event.", "",
+              "| Evidence | Window-linked | Historical / unlinked |", "|---|---:|---:|",
+              "| Artifacts | %d | %d |" % (
+                  len(ev.get("window_artifacts", [])), len(ev.get("historical_artifacts", []))),
+              "| Approvals | %d | %d |" % (
+                  len(ev.get("window_approvals", [])), len(ev.get("historical_approvals", []))),
+              "| Gate outcomes (approve / block) | %d / %d | %d / %d |" % (
+                  ev["gate_approvals"], ev["gate_blocks"],
+                  ev.get("historical_gate_approvals", 0), ev.get("historical_gate_blocks", 0)),
+              "| Control firing classes | %d | %d |" % (
+                  len(ev["fired_classes"]), len(ev.get("historical_fired_classes", set()))),
+              "", "## Inputs collected (read-only)", "",
               "| Input | Count / status |", "|---|---|",
               "| Rounds (git log + diffstat) | %d |" % len(ev["rounds"]),
-              "| Round artifacts (handoffs/gate/deploy/change-notes) | %d |" % len(ev["artifacts"]),
-              "| Approval artifacts (state/approvals/) | %d |" % len(ev["approvals"]),
+              "| Window-linked round artifacts | %d |" % len(ev.get("window_artifacts", [])),
+              "| Historical/unlinked artifacts retained | %d |" % len(ev.get("historical_artifacts", [])),
+              "| Window-linked approval artifacts | %d |" % len(ev.get("window_approvals", [])),
+              "| Historical/unlinked approvals retained | %d |" % len(ev.get("historical_approvals", [])),
               "| Deviation-gating approvals (rule-1 contrary evidence) | %s |" % (
                   ", ".join(sorted({a["kind"] for a in ev.get("gating_approvals", [])}))
                   or "none"),
@@ -453,8 +490,9 @@ def main():
         print("[find-wasted-effort] ERROR: refusing to write — %s" % exc, file=sys.stderr)
         return 2
 
-    print("[find-wasted-effort] artifacts: %d | rounds: %d | window: %d | report: %s" % (
-        len(ev["artifacts"]), len(ev["rounds"]), args.window, wrote))
+    print("[find-wasted-effort] artifacts linked/historical: %d/%d | rounds: %d | window: %d | report: %s" % (
+        len(ev["window_artifacts"]), len(ev["historical_artifacts"]),
+        len(ev["rounds"]), args.window, wrote))
     print("[find-wasted-effort] confirmed %d · dismissed %d · inconclusive %d · proposals %d "
           "(candidates, not verdicts — see report header)" % (
               counts[CONFIRMED], counts[DISMISSED], counts[INCONCLUSIVE], len(proposals)))
