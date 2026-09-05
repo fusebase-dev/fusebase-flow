@@ -137,101 +137,25 @@ TS_REFRESH=$(date -u +%Y%m%dT%H%M%SZ)
 # place (with a .pre-refresh backup) only when they genuinely differ. A legacy
 # marker-less block is treated as drifted and migrated to the wrapped form.
 refresh_overlay_block() {
-  local file="$1" heading="$2" template="$3" label="$4"
+  local file="$1" heading="$2" legacy_heading="$3" template="$4" label="$5"
   [ -f "$template" ] || { WARNINGS+=("$template missing; cannot refresh $label overlay"); return 0; }
 
-  local heading_line begin_line
-  heading_line=$(awk -v h="$heading" 'index($0,h){print NR; exit}' "$file")
-  begin_line=$(awk -v hl="$heading_line" '
-      index($0,"<!-- CUSTOM:SKILL:BEGIN -->") && (hl=="" || NR<=hl){b=NR}
-      END{print b+0}' "$file")
-  # Only accept a BEGIN that sits just above the heading (templates put it 4 lines
-  # up). A distant BEGIN belongs to a different (e.g. CLI-owned) custom block —
-  # treat the Flow block as marker-less so we never truncate that other block.
-  if [ "${begin_line:-0}" -gt 0 ] && [ "${heading_line:-0}" -gt 0 ] \
-     && [ $((heading_line - begin_line)) -gt 6 ]; then
-    begin_line=0
-  fi
-
-  # U1: carry the operator's FLOW:PRESERVE sub-region forward. Build an "effective
-  # template" = the fresh template with its preserve-region swapped for whatever the
-  # existing block currently has, so a refresh updates framework prose WITHOUT
-  # clobbering operator-owned values (e.g. AGENTS.md ### Project-specific values).
-  # ONLY built when the operator actually customized the region (the regions differ);
-  # otherwise the raw template is used unchanged so the rebuild stays byte-identical
-  # to a fresh append. If either side lacks the markers, the raw template is used.
-  local eff_template="$template"
-  local tmp_pres="" tmp_tpres="" tmp_eff="" seed_mode=""
-  if grep -q "<!-- FLOW:PRESERVE:BEGIN" "$template" 2>/dev/null && [ "${begin_line:-0}" -gt 0 ]; then
-    if grep -q "<!-- FLOW:PRESERVE:BEGIN" "$file" 2>/dev/null; then
-      seed_mode="markers"                                  # live block already marked
-    elif grep -q "^### Project-specific values" "$file" 2>/dev/null; then
-      seed_mode="legacy"                                   # U9: pre-markers block — seed from the legacy table
-    fi
-  fi
-  if [ -n "$seed_mode" ]; then
-    tmp_pres="$(mktemp)"; tmp_tpres="$(mktemp)"
-    awk 'index($0,"<!-- FLOW:PRESERVE:BEGIN"){p=1} p{print} index($0,"<!-- FLOW:PRESERVE:END -->"){p=0}' "$template" > "$tmp_tpres"
-    if [ "$seed_mode" = "markers" ]; then
-      awk 'index($0,"<!-- FLOW:PRESERVE:BEGIN"){p=1} p{print} index($0,"<!-- FLOW:PRESERVE:END -->"){p=0}' "$file" > "$tmp_pres"
-    else
-      # U9 legacy seed: wrap the live block's marker-less `### Project-specific values`
-      # table (heading → "…rules win." footer) in the template's preserve markers, so a
-      # pre-markers block isn't reset on the FIRST preserve-aware upgrade.
-      {
-        grep -m1 "<!-- FLOW:PRESERVE:BEGIN" "$template"
-        awk '/^### Project-specific values/{p=1} p{print} /project-specific rules win\./{p=0}' "$file"
-        echo "<!-- FLOW:PRESERVE:END -->"
-      } > "$tmp_pres"
-    fi
-    # Carry the region forward when it's a legacy seed (the block is migrating anyway)
-    # or when the operator actually customized it (markers mode that differs from default).
-    if [ "$seed_mode" = "legacy" ] || ! diff -q "$tmp_pres" "$tmp_tpres" >/dev/null 2>&1; then
-      tmp_eff="$(mktemp)"
-      awk -v pf="$tmp_pres" '
-        BEGIN { n=0; while ((getline ln < pf) > 0) pres[++n]=ln }
-        index($0,"<!-- FLOW:PRESERVE:BEGIN"){ for (i=1;i<=n;i++) print pres[i]; skip=1; next }
-        index($0,"<!-- FLOW:PRESERVE:END -->"){ skip=0; next }
-        !skip { print }
-      ' "$template" > "$tmp_eff"
-      eff_template="$tmp_eff"
-    fi
-    rm -f "$tmp_pres" "$tmp_tpres"; tmp_pres=""; tmp_tpres=""
-  fi
-
-  local file_block tmpl_block
-  tmpl_block=$(awk 'index($0,"<!-- CUSTOM:SKILL:BEGIN -->"){f=1} f' "$eff_template")
-  if [ "${begin_line:-0}" -gt 0 ]; then
-    file_block=$(awk -v s="$begin_line" 'NR>=s' "$file")
-  else
-    file_block="__LEGACY_MARKERLESS_BLOCK__"   # force migrate to wrapped form
-  fi
-
-  if [ "$file_block" = "$tmpl_block" ]; then
-    ACTIONS_SKIPPED+=("$label overlay present and current")
-    [ -n "$tmp_eff" ] && rm -f "$tmp_eff"
+  local helper="$OVERLAYS/overlay-block-replace.py" backup="$file.pre-refresh-$TS_REFRESH"
+  [ -f "$helper" ] || { WARNINGS+=("$helper missing; cannot refresh $label overlay"); return 0; }
+  local output rc
+  set +e
+  output=$(python3 "$helper" "$file" "$template" "$heading" "$backup" --legacy-heading "$legacy_heading" 2>&1)
+  rc=$?
+  set -e
+  if [ "$rc" -ne 0 ]; then
+    WARNINGS+=("$label overlay refresh refused: $output")
     return 0
   fi
-
-  cp "$file" "$file.pre-refresh-$TS_REFRESH"
-  local cut trim_rule=0
-  if [ "${begin_line:-0}" -gt 0 ]; then cut="$begin_line"; else cut="$heading_line"; trim_rule=1; fi
-  # Preserve everything before the block start; TRIM trailing blank lines (so the
-  # template's single leading blank yields exactly one blank before BEGIN — byte-
-  # identical to a fresh append). In the legacy marker-less migration (begin_line==0)
-  # ALSO trim a trailing `---` rule (U7) so the template's own `---` isn't doubled.
-  awk -v c="$cut" -v tr="$trim_rule" '
-    NR<c {
-      lines[NR]=$0
-      is_blank = ($0 ~ /^[[:space:]]*$/)
-      is_rule  = (tr && $0 ~ /^[[:space:]]*---[[:space:]]*$/)
-      if (!is_blank && !is_rule) last=NR
-    }
-    END { for (i=1; i<=last; i++) print lines[i] }
-  ' "$file.pre-refresh-$TS_REFRESH" > "$file"
-  cat "$eff_template" >> "$file"
-  [ -n "$tmp_eff" ] && rm -f "$tmp_eff"
-  ACTIONS_TAKEN+=("$label: refreshed DRIFTED overlay block (backup: $file.pre-refresh-$TS_REFRESH)")
+  if [ "$output" = "current" ]; then
+    ACTIONS_SKIPPED+=("$label overlay present and current")
+    return 0
+  fi
+  ACTIONS_TAKEN+=("$label: refreshed DRIFTED overlay block (backup: $backup)")
 }
 
 # ff_migrate_marker FILE OLD_HEADING NEW_HEADING: rewrite an exact overlay heading
@@ -293,17 +217,17 @@ echo "[post-fusebase-update] Step 3: AGENTS.md overlay check..."
 # valid; migration just converges the installed base on the canonical NEW form.
 AGENTS_MARKER="## FuseBase Flow — workflow lifecycle overlay"
 AGENTS_MARKER_OLD="## Fusebase Flow — workflow lifecycle overlay"
-if [ -f AGENTS.md ] && grep -qF "$AGENTS_MARKER_OLD" AGENTS.md && ! grep -qF "$AGENTS_MARKER" AGENTS.md; then
+if [ "$REFRESH_OVERLAYS" -ne 1 ] && [ -f AGENTS.md ] && grep -qF "$AGENTS_MARKER_OLD" AGENTS.md && ! grep -qF "$AGENTS_MARKER" AGENTS.md; then
   # sed over the exact heading line only (leading `## `), never elsewhere in prose.
   ff_migrate_marker AGENTS.md "$AGENTS_MARKER_OLD" "$AGENTS_MARKER" \
     && ACTIONS_TAKEN+=("AGENTS.md: migrated overlay heading marker Fusebase->FuseBase (WS6)")
 fi
 if [ ! -f AGENTS.md ]; then
   WARNINGS+=("AGENTS.md not found in repo root; skipping overlay restore")
-elif grep -qF "$AGENTS_MARKER" AGENTS.md; then
+elif grep -qF "$AGENTS_MARKER" AGENTS.md || grep -qF "$AGENTS_MARKER_OLD" AGENTS.md; then
   # F2: present — refresh if DRIFTED, only under --refresh-overlays (marker-anchored).
   if [ "$REFRESH_OVERLAYS" -eq 1 ]; then
-    refresh_overlay_block AGENTS.md "$AGENTS_MARKER" "$OVERLAYS/agents-md-overlay.md" "AGENTS.md"
+    refresh_overlay_block AGENTS.md "$AGENTS_MARKER" "$AGENTS_MARKER_OLD" "$OVERLAYS/agents-md-overlay.md" "AGENTS.md"
   else
     ACTIONS_SKIPPED+=("AGENTS.md overlay already present (use --refresh-overlays to update a drifted block)")
   fi
@@ -324,16 +248,16 @@ echo "[post-fusebase-update] Step 4: CLAUDE.md overlay check..."
 # WS6 marker migration (idempotent) — same as AGENTS.md above.
 CLAUDE_MARKER="## FuseBase Flow — additional rules (overlay)"
 CLAUDE_MARKER_OLD="## Fusebase Flow — additional rules (overlay)"
-if [ -f CLAUDE.md ] && grep -qF "$CLAUDE_MARKER_OLD" CLAUDE.md && ! grep -qF "$CLAUDE_MARKER" CLAUDE.md; then
+if [ "$REFRESH_OVERLAYS" -ne 1 ] && [ -f CLAUDE.md ] && grep -qF "$CLAUDE_MARKER_OLD" CLAUDE.md && ! grep -qF "$CLAUDE_MARKER" CLAUDE.md; then
   ff_migrate_marker CLAUDE.md "$CLAUDE_MARKER_OLD" "$CLAUDE_MARKER" \
     && ACTIONS_TAKEN+=("CLAUDE.md: migrated overlay heading marker Fusebase->FuseBase (WS6)")
 fi
 if [ ! -f CLAUDE.md ]; then
   ACTIONS_SKIPPED+=("CLAUDE.md not present (Claude Code not configured for this project)")
-elif grep -qF "$CLAUDE_MARKER" CLAUDE.md; then
+elif grep -qF "$CLAUDE_MARKER" CLAUDE.md || grep -qF "$CLAUDE_MARKER_OLD" CLAUDE.md; then
   # F2: present — refresh if DRIFTED, only under --refresh-overlays (marker-anchored).
   if [ "$REFRESH_OVERLAYS" -eq 1 ]; then
-    refresh_overlay_block CLAUDE.md "$CLAUDE_MARKER" "$OVERLAYS/claude-md-overlay.md" "CLAUDE.md"
+    refresh_overlay_block CLAUDE.md "$CLAUDE_MARKER" "$CLAUDE_MARKER_OLD" "$OVERLAYS/claude-md-overlay.md" "CLAUDE.md"
   else
     ACTIONS_SKIPPED+=("CLAUDE.md overlay already present (use --refresh-overlays to update a drifted block)")
   fi

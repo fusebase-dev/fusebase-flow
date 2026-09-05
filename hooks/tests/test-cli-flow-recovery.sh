@@ -85,6 +85,11 @@ mkdir -p "$PROJECT"
 . "$ROOT/hooks/tests/cli-flow-recovery-engine.sh"
 . "$ROOT/hooks/tests/cli-flow-recovery-direct.sh"
 
+if [ "${FFCF_T1_ONLY:-0}" = "1" ]; then
+  ffcf_t1_overlay_spans
+  exit 0
+fi
+
 ffcf_e2e_run
 ffcf_classify_run
 ffcf_engine_run

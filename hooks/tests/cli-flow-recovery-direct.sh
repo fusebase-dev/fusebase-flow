@@ -253,7 +253,94 @@ ffcf_u20_migration() {
   pass "U20: upgrade.sh migrates root skills/ -> flow-skills/ (retires old dir w/ backup, re-mirrors, idempotent)"
 }
 
+ffcf_t1_overlay_spans() {
+  "$python_bin" - "$ROOT/hooks/local/fusebase-flow-overlays/overlay-block-replace.py" "$TMP_BASE/t1-overlay" <<'PY'
+import importlib.util
+from pathlib import Path
+import sys
+
+helper = Path(sys.argv[1])
+work = Path(sys.argv[2])
+work.mkdir(parents=True, exist_ok=True)
+spec = importlib.util.spec_from_file_location("overlay_replace", helper)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+heading = "## FuseBase Flow — workflow lifecycle overlay"
+legacy = ("## Fusebase Flow — workflow lifecycle overlay",)
+template = Path("hooks/local/fusebase-flow-overlays/agents-md-overlay.md").resolve()
+template_bytes = template.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
+customized = template_bytes.replace(
+    b"| Project name | (run `/onboard` or edit) |",
+    "| Project name | München-東京 |".encode(),
+)
+customized = customized.replace(b"Fusebase Flow ships:", b"STALE Flow ships:")
+prefix = b"CLI-PREFIX-\xc3\xa9\r\n<!-- CUSTOM:SKILL:BEGIN -->\r\nUNRELATED-A\r\n<!-- CUSTOM:SKILL:END -->\r\n"
+suffix = b"\r\nCLI-SUFFIX-\xe6\x9d\xb1\xe4\xba\xac\r\n<!-- CUSTOM:SKILL:BEGIN -->\r\nUNRELATED-B\r\n<!-- CUSTOM:SKILL:END -->\r\n"
+target = work / "AGENTS.md"
+backup = work / "AGENTS.backup"
+target.write_bytes(prefix + customized + suffix)
+preserve_start = customized.index(module.PRESERVE_BEGIN)
+preserve_end = customized.index(module.PRESERVE_END) + len(module.PRESERVE_END)
+preserve = customized[preserve_start:preserve_end]
+
+assert module.replace_overlay(target, template, heading, legacy, backup) == "refreshed"
+updated = target.read_bytes()
+assert updated.startswith(prefix)
+assert updated.endswith(suffix)
+assert preserve in updated
+assert b"STALE Flow ships:" not in updated
+assert b"\n" not in updated.replace(b"\r\n", b"")
+mtime = target.stat().st_mtime_ns
+backup_mtime = backup.stat().st_mtime_ns
+assert module.replace_overlay(target, template, heading, legacy, backup) == "current"
+assert target.stat().st_mtime_ns == mtime
+assert backup.stat().st_mtime_ns == backup_mtime
+
+def refused(name, data):
+    candidate = work / name
+    candidate.write_bytes(data)
+    before = candidate.read_bytes()
+    try:
+        module.replace_overlay(candidate, template, heading, legacy, work / f"{name}.backup")
+    except module.OverlayError:
+        pass
+    else:
+        raise AssertionError(f"{name}: ambiguous input was accepted")
+    assert candidate.read_bytes() == before
+    assert not (work / f"{name}.backup").exists()
+
+flow = template_bytes
+refused("duplicate-heading.md", flow + suffix + flow)
+refused("nested.md", flow.replace(module.BEGIN, module.BEGIN + b"\r\n" + module.BEGIN, 1))
+refused("unbalanced.md", flow.replace(module.END, b"", 1))
+refused(
+    "duplicate-preserve.md",
+    flow.replace(module.PRESERVE_END, module.PRESERVE_END + b"\r\n" + module.PRESERVE_END, 1),
+)
+
+atomic = work / "atomic.md"
+atomic.write_bytes(customized)
+atomic_before = atomic.read_bytes()
+atomic_backup = work / "atomic.backup"
+def fail_replace(_source, _target):
+    raise OSError("injected replace failure")
+try:
+    module.replace_overlay(
+        atomic, template, heading, legacy, atomic_backup, replace_fn=fail_replace
+    )
+except OSError:
+    pass
+else:
+    raise AssertionError("atomic failure injection did not fail")
+assert atomic.read_bytes() == atomic_before
+assert atomic_backup.read_bytes() == atomic_before
+PY
+  pass "T1: exact overlay span preserves prefix/suffix/CRLF/Unicode/FLOW:PRESERVE, rejects ambiguity, and is atomic/idempotent"
+}
+
 ffcf_direct_run() {
+  ffcf_t1_overlay_spans
   ffcf_production_breadth
   ffcf_u14_wire_stop
   ffcf_u15_eslint

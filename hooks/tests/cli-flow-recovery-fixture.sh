@@ -217,6 +217,7 @@ ffcf_engine_scripts() {
   cp hooks/local/fusebase-flow-overlays/agent-surface-ownership.json \
      hooks/local/fusebase-flow-overlays/agents-md-overlay.md \
      hooks/local/fusebase-flow-overlays/claude-md-overlay.md \
+     hooks/local/fusebase-flow-overlays/overlay-block-replace.py \
      hooks/local/fusebase-flow-overlays/settings-json-merge.py \
      "$d/hooks/local/fusebase-flow-overlays/"
   cp "hooks/local/fusebase-flow-overlays/commands/${FFCF_COMMANDS[0]}" \
