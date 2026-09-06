@@ -188,17 +188,44 @@ if [ "$PREVALIDATION_RC" -ne 0 ]; then
   exit 2
 fi
 RECOVERY_PLAN_ID="$(tail -n 1 <<<"$PREVALIDATION_OUTPUT" | tr -d '\r')"
-rm -f "$PREFLIGHT_PLAN"
 
 if command -v ffrp_begin >/dev/null 2>&1; then
   ffrp_begin "$ROOT" "skill_mirrors,agent_mirrors,agents_overlay,claude_overlay,claude_settings,git_hooks,health_skill,commands" "$RECOVERY_PLAN_ID"
 fi
+
+ff_restore_provider_backup() {
+  local target="$1" backup detail temp
+  local -a fields=()
+  mapfile -t fields < <(python3 -I -S -c '
+import json,sys
+value=json.load(open(sys.argv[1], encoding="utf-8"))
+row=next((row for row in value["overlays"] if row["surface"] == sys.argv[2]), {})
+print(row.get("backup", ""))
+print(row.get("backup_error", ""))
+' "$PREFLIGHT_PLAN" "$target")
+  backup="${fields[0]:-}"
+  detail="${fields[1]:-}"
+  backup="${backup%$'\r'}"
+  detail="${detail%$'\r'}"
+  if [ -z "$backup" ]; then
+    [ -n "$detail" ] && WARNINGS+=("$target provider restore unavailable: $detail")
+    return 1
+  fi
+  temp="$(mktemp ".${target}.flow-XXXXXX")"
+  cp "$backup" "$temp"
+  mv "$temp" "$target"
+  ACTIONS_TAKEN+=("$target: restored ownership-verified provider bytes from $backup")
+}
 RECOVERY_FINALIZED=0
 ff_recovery_on_exit() {
   local rc="$1"
   if [ "$RECOVERY_FINALIZED" -eq 0 ] && command -v ffrp_finish >/dev/null 2>&1; then
     ffrp_finish "partial" "${rc:-1}" "recovery ended before final verification" || true
   fi
+  if [ -n "${PREFLIGHT_PLAN:-}" ]; then
+    rm -f "$PREFLIGHT_PLAN"
+  fi
+  return "$rc"
 }
 trap 'ff_recovery_on_exit $?' EXIT
 trap 'exit 130' INT
@@ -323,7 +350,10 @@ if [ "$REFRESH_OVERLAYS" -ne 1 ] && [ -f AGENTS.md ] && grep -qF "$AGENTS_MARKER
     && ACTIONS_TAKEN+=("AGENTS.md: migrated overlay heading marker Fusebase->FuseBase (WS6)")
 fi
 if [ ! -f AGENTS.md ]; then
-  WARNINGS+=("AGENTS.md not found in repo root; skipping overlay restore")
+  if ! ff_restore_provider_backup AGENTS.md; then
+    WARNINGS+=("AGENTS.md provider bytes unavailable and no ownership-verified backup exists; base was not synthesized")
+    RECOVERY_PARTIAL_REASON="provider bytes could not be restored authoritatively"
+  fi
 elif grep -qF "$AGENTS_MARKER" AGENTS.md || grep -qF "$AGENTS_MARKER_OLD" AGENTS.md; then
   # F2: present — refresh if DRIFTED, only under --refresh-overlays (marker-anchored).
   if [ "$REFRESH_OVERLAYS" -eq 1 ]; then
@@ -360,7 +390,10 @@ if [ "$REFRESH_OVERLAYS" -ne 1 ] && [ -f CLAUDE.md ] && ! grep -qF "$CLAUDE_MARK
   done
 fi
 if [ ! -f CLAUDE.md ]; then
-  ACTIONS_SKIPPED+=("CLAUDE.md not present (Claude Code not configured for this project)")
+  if ! ff_restore_provider_backup CLAUDE.md; then
+    WARNINGS+=("CLAUDE.md provider bytes unavailable and no ownership-verified backup exists; base was not synthesized")
+    RECOVERY_PARTIAL_REASON="provider bytes could not be restored authoritatively"
+  fi
 elif grep -qF "$CLAUDE_MARKER" CLAUDE.md || grep -qF "$CLAUDE_MARKER_OLD" CLAUDE.md \
     || grep -qF "$CLAUDE_MARKER_OLDER" CLAUDE.md; then
   # F2: present — refresh if DRIFTED, only under --refresh-overlays (marker-anchored).
@@ -591,6 +624,27 @@ fi
 echo ""
 echo "============================================================"
 command -v ffrp_applied >/dev/null 2>&1 && ffrp_applied "commands"
+if [ -n "${FUSEBASE_FLOW_TEST_TAMPER_AFTER_APPLY:-}" ]; then
+  printf '\nT15 POST-APPLY TAMPER\n' >> "$FUSEBASE_FLOW_TEST_TAMPER_AFTER_APPLY"
+fi
+VERIFY_RESULT="$(mktemp "${TMPDIR:-/tmp}/flow-recovery-verify.XXXXXX")"
+set +e
+VERIFY_OUTPUT="$(python3 -B hooks/local/lib/recovery-verify.py --root "$ROOT" \
+  --plan "$PREFLIGHT_PLAN" --result "$VERIFY_RESULT" 2>&1)"
+VERIFY_RC=$?
+set -e
+if [ -s "$VERIFY_RESULT" ]; then
+  VERIFIED_SURFACES="$(python3 -I -S -c 'import json,sys; print(",".join(json.load(open(sys.argv[1]))["verified_surfaces"]))' "$VERIFY_RESULT")"
+  UNCERTAIN_SURFACES="$(python3 -I -S -c 'import json,sys; print(",".join(json.load(open(sys.argv[1]))["uncertain_surfaces"]))' "$VERIFY_RESULT")"
+  command -v ffrp_verified >/dev/null 2>&1 \
+    && ffrp_verified "$VERIFIED_SURFACES" "$UNCERTAIN_SURFACES"
+fi
+rm -f "$VERIFY_RESULT" "$PREFLIGHT_PLAN"
+PREFLIGHT_PLAN=""
+if [ "$VERIFY_RC" -ne 0 ]; then
+  WARNINGS+=("post-apply verification found incomplete surfaces: $VERIFY_OUTPUT")
+  RECOVERY_PARTIAL_REASON="one or more recovery surfaces could not be verified"
+fi
 echo "[post-fusebase-update] Summary"
 echo "============================================================"
 echo ""
@@ -607,6 +661,10 @@ fi
 if [ "${#WARNINGS[@]}" -gt 0 ]; then
   echo "Warnings (${#WARNINGS[@]}):"
   for w in "${WARNINGS[@]}"; do echo "  ! $w"; done
+  echo ""
+fi
+if [ -n "$RECOVERY_PARTIAL_REASON" ]; then
+  echo "Recovery uncertainty: $RECOVERY_PARTIAL_REASON"
   echo ""
 fi
 

@@ -277,13 +277,18 @@ if grep -q -- "--forget-hook-wiring" "$RECOVERY"; then ok "recovery-offers-opt-o
 
 t3_fixture() {
   local d="$1"
-  mkdir -p "$d/hooks/local/lib" "$d/hooks/local/fusebase-flow-overlays/commands" \
+  mkdir -p "$d/hooks/local/lib" "$d/hooks/local/fusebase-flow-overlays/commands" "$d/hooks/git" \
     "$d/hooks/local/fusebase-flow-overlays/skills/fusebase-flow-health-check" \
     "$d/flow-skills/fixture" "$d/flow-skills/fusebase-flow-health-check" "$d/agents/fixture" "$d/.claude"
   cp "$ROOT/hooks/local/post-fusebase-update.sh" "$d/hooks/local/"
-  cp "$ROOT/hooks/local/lib/hook-wiring-intent.sh" "$ROOT/hooks/local/lib/flow-recovery-plan.sh" "$d/hooks/local/lib/"
+  cp "$ROOT/hooks/local/lib/hook-wiring-intent.sh" \
+    "$ROOT/hooks/local/lib/flow-recovery-plan.sh" \
+    "$ROOT/hooks/local/lib/recovery-owned-write.py" \
+    "$ROOT/hooks/local/lib/recovery-preflight.py" \
+    "$ROOT/hooks/local/lib/recovery-verify.py" "$d/hooks/local/lib/"
   cp "$ROOT/hooks/local/fusebase-flow-overlays/agents-md-overlay.md" \
     "$ROOT/hooks/local/fusebase-flow-overlays/claude-md-overlay.md" \
+    "$ROOT/hooks/local/fusebase-flow-overlays/agent-surface-ownership.json" \
     "$ROOT/hooks/local/fusebase-flow-overlays/overlay-block-replace.py" \
     "$ROOT/hooks/local/fusebase-flow-overlays/settings-json-merge.py" \
     "$d/hooks/local/fusebase-flow-overlays/"
@@ -292,9 +297,9 @@ t3_fixture() {
   printf '# fixture\n' > "$d/agents/fixture/AGENT.md"
   printf '# command\n' > "$d/hooks/local/fusebase-flow-overlays/commands/fusebase-health.md"
   printf '# health\n' > "$d/hooks/local/fusebase-flow-overlays/skills/fusebase-flow-health-check/SKILL.md"
-  printf '#!/usr/bin/env bash\nexit 0\n' > "$d/hooks/local/mirror-skills.sh"
-  printf '#!/usr/bin/env bash\nexit 0\n' > "$d/hooks/local/mirror-agents.sh"
-  printf '#!/usr/bin/env bash\nprintf installed\nprintf wired > .git/hooks/pre-commit\n' > "$d/hooks/local/install-git-hooks.sh"
+  cp "$ROOT/hooks/local/mirror-skills.sh" "$ROOT/hooks/local/mirror-agents.sh" \
+    "$ROOT/hooks/local/install-git-hooks.sh" "$d/hooks/local/"
+  cp "$ROOT/hooks/git/pre-commit" "$ROOT/hooks/git/commit-msg" "$d/hooks/git/"
   chmod +x "$d/hooks/local/"*.sh
   printf '# CLI AGENTS\n' > "$d/AGENTS.md"
   cat "$d/hooks/local/fusebase-flow-overlays/agents-md-overlay.md" >> "$d/AGENTS.md"
@@ -335,24 +340,89 @@ doc["schema_version"] = 1
 doc.pop("surfaces")
 path.write_text(json.dumps(doc), encoding="utf-8")
 PY
+set +e
 ( cd "$fx" && bash hooks/local/post-fusebase-update.sh > recovery.log 2>&1 )
+t3_rc=$?
+set -e
 if grep -q "hooks/handlers/pre_tool_use.py" "$fx/.claude/settings.json" \
-   && [ ! -f "$fx/.git/hooks/pre-commit" ]; then
+   && [ ! -f "$fx/.git/hooks/pre-commit" ] && [ "$t3_rc" -eq 0 ]; then
   ok "recovery-schema1-restores-settings-without-git-authorization"
 else
-  bad "recovery-schema1-restores-settings-without-git-authorization" "legacy intent widened its surface"
+  bad "recovery-schema1-restores-settings-without-git-authorization" "rc=$t3_rc: $(tr '\n' ' ' < "$fx/recovery.log")"
 fi
 
 fx="$TMP/t3-git-surface"; t3_fixture "$fx"
 strip_settings "$fx"
 ( cd "$fx" && ffhc_hwi_write "$(git rev-parse --show-toplevel)" true "claude_settings,git_hooks" ) >/dev/null
+set +e
 ( cd "$fx" && bash hooks/local/post-fusebase-update.sh > recovery.log 2>&1 )
+t3_rc=$?
+set -e
 if grep -q "hooks/handlers/pre_tool_use.py" "$fx/.claude/settings.json" \
-   && grep -q "wired" "$fx/.git/hooks/pre-commit"; then
+   && cmp -s "$fx/hooks/git/pre-commit" "$fx/.git/hooks/pre-commit" \
+   && [ "$t3_rc" -eq 0 ]; then
   ok "recovery-schema2-restores-recorded-git-surface"
 else
   bad "recovery-schema2-restores-recorded-git-surface" "recorded Git surface was not restored: $(tr '\n' ' ' < "$fx/recovery.log")"
 fi
+
+# TRIPWIRE: the final verifier owns the complete verdict. Exercise each installed-hook failure
+# directly against one prevalidated plan so output from an installer cannot mask drift.
+git_plan="$fx/t15-git-plan.json"
+python3 "$fx/hooks/local/lib/recovery-preflight.py" --root "$fx" --output "$git_plan" \
+  --wire-hooks --restore-git-hooks >/dev/null || bad "git-verifier-plan" "preflight failed"
+git_verify() {
+  local label="$1" expected="$2" rc result
+  result="$fx/t15-$label.json"
+  set +e
+  python3 "$fx/hooks/local/lib/recovery-verify.py" --root "$fx" --plan "$git_plan" --result "$result" \
+    >"$fx/t15-$label.log" 2>&1
+  rc=$?
+  set -e
+  if [ "$rc" -eq "$expected" ] && python3 - "$result" "$expected" <<'PY'
+import json, sys
+value = json.load(open(sys.argv[1], encoding="utf-8"))
+assert ("git_hooks" in value["uncertain_surfaces"]) == (int(sys.argv[2]) == 1)
+PY
+  then ok "git-verifier-$label"; else bad "git-verifier-$label" "rc=$rc"; fi
+}
+
+git_verify current 0 0
+printf '\nstale\n' >> "$fx/.git/hooks/pre-commit"
+git_verify stale 1 1
+cp "$fx/hooks/git/pre-commit" "$fx/.git/hooks/pre-commit"; chmod +x "$fx/.git/hooks/pre-commit"
+rm "$fx/.git/hooks/commit-msg"
+git_verify missing 1 1
+cp "$fx/hooks/git/commit-msg" "$fx/.git/hooks/commit-msg"; chmod +x "$fx/.git/hooks/commit-msg"
+printf '#!/usr/bin/env bash\necho custom\n' > "$fx/.git/hooks/pre-commit"
+git_verify custom 1 1
+cp "$fx/hooks/git/pre-commit" "$fx/.git/hooks/pre-commit"; chmod -x "$fx/.git/hooks/pre-commit"
+if python3 -c 'import os,sys; sys.exit(0 if os.name == "nt" else 1)'; then
+  ok "git-verifier-non-executable-Windows-UNVERIFIED"
+else
+  git_verify non-executable 1 1
+fi
+
+cp "$fx/hooks/git/pre-commit" "$fx/.git/hooks/pre-commit"; chmod +x "$fx/.git/hooks/pre-commit"
+cat > "$fx/hooks/local/install-git-hooks.sh" <<'SH'
+#!/usr/bin/env bash
+echo "[fusebase-flow] installed pre-commit -> .git/hooks/pre-commit"
+echo "[fusebase-flow] installed commit-msg -> .git/hooks/commit-msg"
+SH
+chmod +x "$fx/hooks/local/install-git-hooks.sh"
+rm "$fx/.git/hooks/pre-commit"
+set +e
+( cd "$fx" && bash hooks/local/post-fusebase-update.sh > false-installer.log 2>&1 )
+t3_rc=$?
+set -e
+if [ "$t3_rc" -eq 1 ] && [ ! -e "$fx/.git/hooks/pre-commit" ] \
+   && python3 - "$fx/state/audit/flow-recovery-status.json" <<'PY'
+import json, sys
+value = json.load(open(sys.argv[1], encoding="utf-8"))
+assert value["status"] == "partial" and "git_hooks" in value["uncertain_surfaces"]
+PY
+then ok "recovery-rejects-false-installer-success-text"; else
+  bad "recovery-rejects-false-installer-success-text" "rc=$t3_rc"; fi
 
 fx="$TMP/t3-prevalidation"; t3_fixture "$fx"
 printf '{ invalid\n' > "$fx/.claude/settings.json"
@@ -363,12 +433,8 @@ set +e
 t3_rc=$?
 set -e
 after="$(sha256sum "$fx/AGENTS.md" | awk '{print $1}')"
-if [ "$t3_rc" -eq 2 ] && [ "$before" = "$after" ] && python3 - "$fx/state/audit/flow-recovery-status.json" <<'PY'
-import json, sys
-doc = json.load(open(sys.argv[1], encoding="utf-8"))
-assert doc["status"] == "failed" and doc["exit_code"] == 2
-assert doc["applied_surfaces"] == []
-PY
+if [ "$t3_rc" -eq 2 ] && [ "$before" = "$after" ] \
+   && [ ! -e "$fx/state/audit/flow-recovery-status.json" ]
 then ok "recovery-prevalidation-fails-before-target-writes"; else
   bad "recovery-prevalidation-fails-before-target-writes" "rc=$t3_rc"; fi
 

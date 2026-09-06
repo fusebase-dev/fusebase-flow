@@ -94,6 +94,10 @@ if [ "${FFCF_T14_ONLY:-0}" = "1" ]; then
   ffcf_t14_progress_ledger
   exit 0
 fi
+if [ "${FFCF_T15_ONLY:-0}" = "1" ]; then
+  ffcf_t15_verification
+  exit 0
+fi
 
 ffcf_e2e_run
 ffcf_classify_run

@@ -136,6 +136,36 @@ def target_rows(root: Path, ownership: Any) -> list[dict[str, str]]:
     return rows
 
 
+def verified_provider_backup(root: Path, name: str, overlay: Any, headings: tuple[bytes, ...]) -> tuple[str, str]:
+    status_path = root / "state/audit/flow-recovery-status.json"
+    if not status_path.is_file():
+        return "", "no retained provider receipt"
+    try:
+        status = json.loads(status_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return "", "retained provider receipt is invalid"
+    rows = status.get("backup_artifacts", [])
+    candidates = [row for row in rows if isinstance(row, dict)
+                  and str(row.get("path", "")).startswith(f"{name}.pre-refresh-")]
+    for row in reversed(candidates):
+        relative = row.get("path")
+        expected = row.get("sha256")
+        path = root / relative
+        if not isinstance(expected, str) or not path.is_file() or path.is_symlink():
+            continue
+        if hashlib.sha256(path.read_bytes()).hexdigest() != expected:
+            return "", f"retained provider backup hash mismatch: {relative}"
+        try:
+            content = path.read_bytes()
+            start, end, _legacy = overlay._owned_span(content, headings, allow_legacy=False)
+            if not (content[:start].strip() or content[end:].strip()):
+                raise ValueError("backup contains no external provider bytes")
+        except (OSError, ValueError) as exc:
+            return "", f"retained provider backup is structurally invalid: {exc}"
+        return relative, ""
+    return "", "no ownership-verified provider backup"
+
+
 def validate_overlays(root: Path, refresh: bool) -> list[dict[str, str]]:
     helper_path = root / "hooks/local/fusebase-flow-overlays/overlay-block-replace.py"
     overlay = load_module(helper_path, "flow_overlay_preflight")
@@ -153,9 +183,11 @@ def validate_overlays(root: Path, refresh: bool) -> list[dict[str, str]]:
         if target.exists() and (target.is_symlink() or not target.is_file()):
             raise ValueError(f"{target_name} is not a regular file")
         state = "missing"
+        backup = ""
+        backup_error = ""
+        headings = tuple(x.encode() for x in (heading, *legacy))
         if target.is_file():
             data = target.read_bytes()
-            headings = tuple(x.encode() for x in (heading, *legacy))
             present = any(overlay._line_matches(data, (candidate,)) for candidate in headings)
             if present and refresh:
                 state = overlay.replace_overlay(
@@ -164,7 +196,12 @@ def validate_overlays(root: Path, refresh: bool) -> list[dict[str, str]]:
                 )
             else:
                 state = "present" if present else "append"
-        rows.append({"surface": target_name, "state": state})
+        elif not target.exists():
+            backup, backup_error = verified_provider_backup(root, target_name, overlay, headings)
+            if backup:
+                state = "restore-backup"
+        rows.append({"surface": target_name, "state": state, "backup": backup,
+                     "backup_error": backup_error})
     return rows
 
 
@@ -173,6 +210,7 @@ def build_plan(root: Path, wire: bool, restore_git: bool, refresh: bool) -> dict
         root / "hooks/local/mirror-skills.sh", root / "hooks/local/mirror-agents.sh",
         root / "hooks/local/lib/recovery-owned-write.py",
         root / "hooks/local/fusebase-flow-overlays/settings-json-merge.py",
+        root / "hooks/local/lib/recovery-verify.py",
     ]
     for path in required:
         regular_source(path, "recovery helper")

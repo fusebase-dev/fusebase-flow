@@ -83,6 +83,67 @@ PY
   pass "T14: interrupted progress remains accurate and retry reconciles the same plan history"
 }
 
+ffcf_t15_verification() {
+  ffcf_e2e_build
+  local rc backup status="$PROJECT/state/audit/flow-recovery-status.json"
+  cat "$PROJECT/hooks/local/fusebase-flow-overlays/claude-md-overlay.md" >> "$PROJECT/CLAUDE.md"
+  backup="$PROJECT/CLAUDE.md.pre-refresh-20260906T000000Z"
+  cp "$PROJECT/CLAUDE.md" "$backup"
+  "$python_bin" - "$PROJECT" "$backup" <<'PY'
+import hashlib, json, pathlib, sys
+root, backup = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+path = root / "state/audit/flow-recovery-status.json"
+path.parent.mkdir(parents=True, exist_ok=True)
+relative = backup.relative_to(root).as_posix()
+path.write_text(json.dumps({
+    "schema_version": 2, "status": "complete", "backup_paths": [relative],
+    "backup_artifacts": [{"path": relative, "sha256": hashlib.sha256(backup.read_bytes()).hexdigest()}],
+    "attempts": [],
+}), encoding="utf-8")
+PY
+  rm "$PROJECT/CLAUDE.md"
+  set +e
+  ( cd "$PROJECT" && bash hooks/local/post-fusebase-update.sh > "$OUT.t15-restore" 2>&1 )
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] \
+    || { cat "$OUT.t15-restore" >&2; fail "T15: ownership-verified provider backup was not restored"; }
+  cmp -s "$backup" "$PROJECT/CLAUDE.md" \
+    || { sha256sum "$backup" "$PROJECT/CLAUDE.md" >&2; find "$PROJECT" -maxdepth 1 -name 'CLAUDE.md.pre-refresh-*' -print >&2; fail "T15: restored provider bytes do not match the hash-recorded backup"; }
+
+  rm "$PROJECT/CLAUDE.md"
+  printf '\nTAMPERED\n' >> "$backup"
+  set +e
+  ( cd "$PROJECT" && bash hooks/local/post-fusebase-update.sh >/dev/null 2>&1 )
+  rc=$?
+  set -e
+  [ "$rc" -eq 1 ] && [ ! -e "$PROJECT/CLAUDE.md" ] \
+    || fail "T15: tampered provider backup was trusted or reported complete"
+
+  rm "$backup"
+  set +e
+  ( cd "$PROJECT" && bash hooks/local/post-fusebase-update.sh >/dev/null 2>&1 )
+  rc=$?
+  set -e
+  [ "$rc" -eq 1 ] && [ ! -e "$PROJECT/CLAUDE.md" ] \
+    || fail "T15: missing provider without a verified backup did not remain partial"
+
+  ffcf_e2e_build
+  set +e
+  ( cd "$PROJECT" && FUSEBASE_FLOW_TEST_TAMPER_AFTER_APPLY=.claude/commands/fusebase-health.md \
+      bash hooks/local/post-fusebase-update.sh >/dev/null 2>&1 )
+  rc=$?
+  set -e
+  [ "$rc" -eq 1 ] && "$python_bin" - "$status" <<'PY' \
+    || fail "T15: post-apply tamper was not reflected in final status"
+import json, sys
+value = json.load(open(sys.argv[1], encoding="utf-8"))
+assert value["status"] == "partial" and "commands" in value["uncertain_surfaces"]
+assert "commands" not in value["verified_surfaces"]
+PY
+  pass "T15: verified provider backup restores; tampered backup and post-apply mutation stay partial"
+}
+
 ffcf_e2e_run() {
   ffcf_e2e_build
 

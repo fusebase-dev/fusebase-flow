@@ -3,6 +3,7 @@
 FFRP_STATUS_REL="state/audit/flow-recovery-status.json"
 FFRP_APPLIED=""
 FFRP_VERIFIED=""
+FFRP_UNCERTAIN=""
 FFRP_PLANNED=""
 FFRP_PLAN_ID=""
 FFRP_ROOT=""
@@ -14,13 +15,15 @@ ffrp_write() {
   FFRP_STATUS="$status" FFRP_EXIT="$exit_code" FFRP_NOTE="$note" \
   FFRP_ROOT_ENV="$FFRP_ROOT" FFRP_APPLIED_ENV="$FFRP_APPLIED" \
   FFRP_VERIFIED_ENV="$FFRP_VERIFIED" FFRP_PLANNED_ENV="$FFRP_PLANNED" \
+  FFRP_UNCERTAIN_ENV="$FFRP_UNCERTAIN" \
   FFRP_PLAN_ID_ENV="$FFRP_PLAN_ID" FFRP_NEW_ATTEMPT_ENV="$FFRP_NEW_ATTEMPT" \
     python3 -I -S -c '
-import datetime, json, os, pathlib, tempfile
+import datetime, hashlib, json, os, pathlib, tempfile
 path = pathlib.Path(os.sys.argv[1])
 now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 applied = [x for x in os.environ["FFRP_APPLIED_ENV"].split(",") if x]
 verified = [x for x in os.environ["FFRP_VERIFIED_ENV"].split(",") if x]
+uncertain = [x for x in os.environ["FFRP_UNCERTAIN_ENV"].split(",") if x]
 planned = [x for x in os.environ["FFRP_PLANNED_ENV"].split(",") if x]
 previous = {}
 if path.is_file():
@@ -31,6 +34,18 @@ if path.is_file():
 attempts = previous.get("attempts", []) if isinstance(previous.get("attempts"), list) else []
 if os.environ["FFRP_NEW_ATTEMPT_ENV"] == "1":
     attempts.append({"started_at": now, "resumed_applied_surfaces": applied.copy()})
+root = pathlib.Path(os.environ["FFRP_ROOT_ENV"])
+backup_paths = sorted(
+    str(item.relative_to(root)).replace("\\", "/")
+    for pattern in ("*.pre-refresh-*", ".claude/settings.json.pre-flow-merge", ".git/hooks/*.pre-flow*")
+    for item in root.glob(pattern) if item.is_file()
+)
+prior_artifacts = previous.get("backup_artifacts", [])
+known = {row.get("path"): row for row in prior_artifacts if isinstance(row, dict)} \
+    if isinstance(prior_artifacts, list) else {}
+for relative in backup_paths:
+    if relative not in known:
+        known[relative] = {"path": relative, "sha256": hashlib.sha256((root / relative).read_bytes()).hexdigest()}
 doc = {
     "schema_version": 2,
     "plan_id": os.environ["FFRP_PLAN_ID_ENV"],
@@ -40,13 +55,10 @@ doc = {
     "planned_surfaces": planned,
     "applied_surfaces": applied,
     "verified_surfaces": verified,
+    "uncertain_surfaces": uncertain,
     "pending_surfaces": [x for x in planned if x not in applied],
-    "backup_paths": sorted(
-        str(item.relative_to(pathlib.Path(os.environ["FFRP_ROOT_ENV"]))).replace("\\", "/")
-        for pattern in ("*.pre-refresh-*", ".claude/settings.json.pre-flow-merge", ".git/hooks/*.pre-flow*")
-        for item in pathlib.Path(os.environ["FFRP_ROOT_ENV"]).glob(pattern)
-        if item.is_file()
-    ),
+    "backup_paths": backup_paths,
+    "backup_artifacts": [known[key] for key in sorted(known)],
     "attempts": attempts,
     "note": os.environ["FFRP_NOTE"],
     "updated_at": now,
@@ -68,6 +80,7 @@ ffrp_begin() {
   FFRP_PLAN_ID="$3"
   FFRP_APPLIED=""
   FFRP_VERIFIED=""
+  FFRP_UNCERTAIN=""
   local path="$FFRP_ROOT/$FFRP_STATUS_REL" restored
   restored="$(FFRP_EXPECTED_PLAN="$FFRP_PLAN_ID" python3 -I -S - "$path" <<'PY'
 import json, os, pathlib, sys
@@ -107,6 +120,12 @@ ffrp_applied() {
 
 ffrp_finish() {
   ffrp_write "$1" "$2" "${3:-}"
+}
+
+ffrp_verified() {
+  FFRP_VERIFIED="$1"
+  FFRP_UNCERTAIN="$2"
+  ffrp_write "in_progress" "" "fresh post-apply verification recorded"
 }
 
 ffrp_owned_snapshot() {
