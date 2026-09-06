@@ -79,7 +79,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixtur
   supersede-primitive rule-inventory boot-size prohibition-residency startup-context validator-evidence validation-instructions consumer-benchmark wasted-effort-windowing token-waste-classify \
   budget-literals history-extraction approval-binding approval-writer approval-receipt command-policy denial-message upgrade-classify \
   upgrade-boundary preboundary-consumed upgrade-repair n5-delivery n6-truthful-base n6-missing-base n6-recover n4-parity-scope recovery-hint install-doc release-authority \
-  release-tag-binding fingerprint-rows signal-reap cli-flow-recovery)
+  release-tag-binding fingerprint-rows signal-reap cli-flow-recovery-selectors cli-flow-recovery)
 
 # OPT-IN-ONLY tags: registered and reachable, but NEVER in the default/required set — they run
 # only when named in FF_ONLY. This is the review's "Maintainer opt-in" tier (repeated kill/load
@@ -638,6 +638,7 @@ run_shell_phase test-run-tests-signal-reap.sh           "signal-reap"
 # GONE: "remove the 900-second recovery default and every release-time timeout override with it".
 # A bound hit is now rc 124 with zero rows, which the crash guard turns into a FAIL — never an
 # INCONCLUSIVE that a green total could swallow.
+run_shell_phase test-cli-flow-recovery-selectors.sh     "cli-flow-recovery-selectors"
 run_shell_phase test-cli-flow-recovery.sh               "cli-flow-recovery"
 
 
