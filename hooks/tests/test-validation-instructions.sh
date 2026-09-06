@@ -7,6 +7,8 @@ HANDOFF="$ROOT/templates/handoff-implement.md"
 WORKFLOW="$ROOT/workflows/greenlight-implement.md"
 SKILL="$ROOT/flow-skills/validation-and-qa/SKILL.md"
 PRECOMMIT="$ROOT/hooks/git/pre-commit"
+REUSE_HELPER="$ROOT/hooks/local/lib/precommit-validator-reuse.sh"
+VALIDATOR_RUNNER="$ROOT/hooks/local/lib/validator-runner.py"
 RUNNER="$ROOT/hooks/tests/run-tests.sh"
 TMP="$(mktemp -d 2>/dev/null || mktemp -d -t validation-instructions)"
 trap 'rm -rf "$TMP"' EXIT
@@ -63,6 +65,23 @@ if [ -n "$secret_line" ] && [ "$secret_line" -lt "$reuse_line" ] \
     ok "precommit-reuse-boundary-follows-live-controls"
 else
     bad "precommit-reuse-boundary-follows-live-controls" "secret=$secret_line protected=$protected_line module=$module_line reuse=$reuse_line"
+fi
+
+if [ "$(wc -l < "$PRECOMMIT" | tr -d ' ')" -lt 800 ] \
+   && grep -qF 'run_precommit_validators' "$PRECOMMIT" \
+   && grep -qF 'def run_validators' "$ROOT/hooks/local/lib/validator-evidence.py" \
+   && grep -qF 'evidence.run_validators' "$VALIDATOR_RUNNER" \
+   && ! grep -qE 'choices=.*begin|choices=.*finish' "$ROOT/hooks/local/lib/validator-evidence.py"; then
+    ok "trusted-runner-and-extracted-reuse-boundary"
+else
+    bad "trusted-runner-and-extracted-reuse-boundary" "public mint remains, runner ownership missing, or pre-commit not reduced"
+fi
+
+if grep -qF 'git -C "$root" show HEAD:hooks/local/lib/validator-evidence.py' "$REUSE_HELPER" \
+   && grep -qF 'reuse unavailable' "$ROOT/hooks/local/lib/validator-evidence.py"; then
+    ok "reuse-verifier-is-tracked-and-authority-fails-closed"
+else
+    bad "reuse-verifier-is-tracked-and-authority-fails-closed" "trusted verifier or fallback missing"
 fi
 
 if grep -qE 'run_shell_phase test-release-evidence-authority\.sh +"release-authority"' "$RUNNER" \

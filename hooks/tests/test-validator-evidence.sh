@@ -21,6 +21,8 @@ new_fixture() {
     cp "$ROOT/hooks/git/pre-commit" "$D/hooks/git/pre-commit"
     cp "$ROOT/hooks/local/run-validators.sh" "$D/hooks/local/run-validators.sh"
     cp "$ROOT/hooks/local/lib/validator-evidence.py" "$D/hooks/local/lib/validator-evidence.py"
+    cp "$ROOT/hooks/local/lib/validator-runner.py" "$D/hooks/local/lib/validator-runner.py"
+    cp "$ROOT/hooks/local/lib/precommit-validator-reuse.sh" "$D/hooks/local/lib/precommit-validator-reuse.sh"
     cp "$ROOT"/hooks/shared/*.py "$D/hooks/shared/"
     cp "$ROOT"/policies/*.yml "$D/policies/"
     cat > "$TOOL" <<'PY'
@@ -117,7 +119,11 @@ expect_rerun() {
 case_reuse() {
     new_fixture reuse
     make_receipt && run_hook
-    expect_reuse "authentic-matching-success-skips"
+    if [ -f "$(receipt_path)" ]; then
+        expect_reuse "authentic-matching-success-skips"
+    else
+        expect_rerun "unproved-authority-reruns"
+    fi
     invalidate
 }
 
@@ -146,7 +152,13 @@ case_forged() {
 case_edited() {
     new_fixture edited
     make_receipt
-    python3 - "$(receipt_path)" <<'PY'
+    receipt="$(receipt_path)"
+    if [ ! -f "$receipt" ]; then
+        ok "edited-receipt-authority-host-unavailable"
+        invalidate
+        return
+    fi
+    python3 - "$receipt" <<'PY'
 import json
 import pathlib
 import sys
@@ -265,6 +277,11 @@ case_unavailable_symlink_target() {
 case_replay() {
     new_fixture replay
     make_receipt
+    if [ ! -f "$(receipt_path)" ]; then
+        ok "replayed-receipt-authority-host-unavailable"
+        invalidate
+        return
+    fi
     verify_receipt || bad "matching-receipt-verifies-before-replay" "initial verify failed"
     printf 'later\n' >> "$D/src.txt"
     ( cd "$D" && git add -- src.txt )
@@ -274,6 +291,52 @@ case_replay() {
         ok "replayed-receipt-on-new-state-disables-reuse"
     else
         bad "replayed-receipt-on-new-state-disables-reuse" "verify=$verify_rc"
+    fi
+    invalidate
+}
+
+case_public_mint_rejected() {
+    new_fixture public-mint
+    ( cd "$D" && with_env python3 -I -S hooks/local/lib/validator-evidence.py begin \
+      --root . --lint "$RUN_LINT" --typecheck "$RUN_TYPECHECK" ) >"$TMP/direct.out" 2>&1
+    begin_rc=$?
+    ( cd "$D" && with_env python3 -I -S hooks/local/lib/validator-evidence.py finish \
+      --root . ) >>"$TMP/direct.out" 2>&1
+    finish_rc=$?
+    if [ "$begin_rc" -ne 0 ] && [ "$finish_rc" -ne 0 ] && [ ! -f "$(receipt_path)" ] \
+       && [ "$(count_of lint)" = 0 ] && [ "$(count_of typecheck)" = 0 ]; then
+        ok "public-success-mint-api-rejected"
+    else
+        bad "public-success-mint-api-rejected" "begin=$begin_rc finish=$finish_rc"
+    fi
+}
+
+case_substituted_runner() {
+    new_fixture substituted-runner
+    mkdir -p "$TMP/substituted"
+    cp "$D/hooks/local/lib/validator-runner.py" "$TMP/substituted/validator-runner.py"
+    cp "$D/hooks/local/lib/validator-evidence.py" "$TMP/substituted/validator-evidence.py"
+    ( cd "$D" && with_env python3 -I -S "$TMP/substituted/validator-runner.py" \
+      --root . --lint "$RUN_LINT" --typecheck "$RUN_TYPECHECK" ) >"$TMP/substituted.out" 2>&1
+    runner_rc=$?
+    if [ "$runner_rc" -ne 0 ] && [ ! -f "$(receipt_path)" ] \
+       && [ "$(count_of lint)" = 0 ] && [ "$(count_of typecheck)" = 0 ]; then
+        ok "substituted-runner-rejected-before-execution"
+    else
+        bad "substituted-runner-rejected-before-execution" "runner=$runner_rc"
+    fi
+}
+
+case_skipped_validator() {
+    new_fixture skipped-validator
+    ( cd "$D" && with_env python3 -I -S hooks/local/lib/validator-runner.py \
+      --root . --lint "" --typecheck "$RUN_TYPECHECK" ) >"$TMP/skipped.out" 2>&1
+    verify_receipt
+    verify_rc=$?
+    if [ "$verify_rc" -ne 0 ] && [ "$(count_of lint)" = 0 ] && [ "$(count_of typecheck)" = 1 ]; then
+        ok "skipped-required-validator-cannot-produce-reusable-evidence"
+    else
+        bad "skipped-required-validator-cannot-produce-reusable-evidence" "verify=$verify_rc"
     fi
     invalidate
 }
@@ -350,6 +413,9 @@ case_symlink_target
 case_unavailable_symlink_target
 case_replay
 case_concurrent
+case_public_mint_rejected
+case_substituted_runner
+case_skipped_validator
 case_secret
 case_protected
 

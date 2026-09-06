@@ -760,41 +760,14 @@ if [ -f "$ROOT/hooks/local/check-module-size.sh" ]; then
 fi
 
 # 5. Lint + typecheck (FR-13).
-LINT_CMD="${FUSEBASE_FLOW_LINT:-}"
-TYPECHECK_CMD="${FUSEBASE_FLOW_TYPECHECK:-}"
-[ -n "$LINT_CMD" ] || ! grep -q '"lint"' package.json 2>/dev/null || LINT_CMD="npm run -s lint"
-[ -n "$TYPECHECK_CMD" ] || ! grep -q '"typecheck"' package.json 2>/dev/null || TYPECHECK_CMD="npm run -s typecheck"
-
-FFVE_REUSE=0
-FFVE_TMP="$(mktemp -d 2>/dev/null || mktemp -d -t ff-validator-evidence)"
-if [ -n "$LINT_CMD$TYPECHECK_CMD" ] && [ -d "$FFVE_TMP" ] \
-   && git show HEAD:hooks/local/lib/validator-evidence.py > "$FFVE_TMP/validator-evidence.py" 2>/dev/null; then
-    FFVE_ORIGINAL_PATH="$FFVE_ORIGINAL_PATH" PYTHONPATH="$FFVE_TMP" \
-      python3 -S "$FFVE_TMP/validator-evidence.py" verify --root "$ROOT" \
-        --lint "$LINT_CMD" --typecheck "$TYPECHECK_CMD" >/dev/null 2>&1 && FFVE_REUSE=1
+FFVE_REUSE_HELPER="$ROOT/hooks/local/lib/precommit-validator-reuse.sh"
+if [ ! -f "$FFVE_REUSE_HELPER" ]; then
+    echo "[fusebase-flow:pre-commit] BLOCK — validator reuse helper is missing (FR-13)." >&2
+    exit 1
 fi
-rm -rf "$FFVE_TMP"
-
-if [ "$FFVE_REUSE" -eq 1 ]; then
-    echo "[fusebase-flow:pre-commit] reusing authentic exact-state lint/typecheck evidence" >&2
-else
-if [ -n "$LINT_CMD" ]; then
-    echo "[fusebase-flow:pre-commit] running lint: $LINT_CMD" >&2
-    if ! eval "$LINT_CMD"; then
-        echo "[fusebase-flow:pre-commit] BLOCK — lint failed (FR-13)." >&2
-        exit 1
-    fi
-fi
-
-if [ -n "$TYPECHECK_CMD" ]; then
-    echo "[fusebase-flow:pre-commit] running typecheck: $TYPECHECK_CMD" >&2
-    if ! eval "$TYPECHECK_CMD"; then
-        echo "[fusebase-flow:pre-commit] BLOCK — typecheck failed (FR-13)." >&2
-        exit 1
-    fi
-fi
-
-fi
+# See flow-skills/validation-and-qa/SKILL.md for the exact-state reuse contract.
+. "$FFVE_REUSE_HELPER"
+run_precommit_validators "$ROOT" "$FFVE_ORIGINAL_PATH" || exit 1
 
 echo "[fusebase-flow:pre-commit] all checks passed" >&2
 exit 0

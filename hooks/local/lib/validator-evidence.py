@@ -109,7 +109,15 @@ def paths(root: Path) -> tuple[Path, Path, Path]:
 
 
 def ensure_key(path: Path) -> bytes:
+    if os.name == "nt":
+        raise RuntimeError("independent validator authority is unproved on Windows")
     path.parent.mkdir(parents=True, exist_ok=True)
+    path.parent.chmod(0o700)
+    parent = path.parent.stat()
+    if parent.st_uid != os.geteuid() or stat.S_IMODE(parent.st_mode) & 0o077:
+        raise RuntimeError("validator authority directory ownership or permissions are unproved")
+    if path.is_symlink():
+        raise RuntimeError("validator authority key cannot be a symlink")
     try:
         fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     except FileExistsError:
@@ -120,8 +128,9 @@ def ensure_key(path: Path) -> bytes:
     data = path.read_bytes()
     if len(data) != 32:
         raise RuntimeError("validator authority key has invalid length")
-    if os.name != "nt" and stat.S_IMODE(path.stat().st_mode) & 0o077:
-        raise RuntimeError("validator authority key permissions are too broad")
+    key_meta = path.stat()
+    if key_meta.st_uid != os.geteuid() or stat.S_IMODE(key_meta.st_mode) & 0o077:
+        raise RuntimeError("validator authority key ownership or permissions are unproved")
     return data
 
 
@@ -313,6 +322,14 @@ def declared_files(root: Path, values: list[str]) -> list[dict[str, Any]]:
     return records
 
 
+def execution_shell(root: Path) -> dict[str, Any]:
+    token = os.environ.get("COMSPEC", "cmd.exe") if os.name == "nt" else "/bin/sh"
+    resolved = resolve_tool(token, root)
+    if not resolved:
+        raise RuntimeError(f"validator execution shell cannot be resolved: {token}")
+    return {"token": token, "record": path_record(resolved, str(resolved))}
+
+
 def identity(root: Path, lint: str, typecheck: str) -> dict[str, Any]:
     source, rels = source_identity(root)
     context = validator_context()
@@ -335,6 +352,8 @@ def identity(root: Path, lint: str, typecheck: str) -> dict[str, Any]:
             for name, value in commands.items()
             if value
         },
+        "execution_shell": execution_shell(root),
+        "runner": file_record(root, "hooks/local/lib/validator-runner.py"),
     }
 
 
@@ -359,35 +378,33 @@ def invalidate(root: Path) -> None:
             pass
 
 
-def begin(root: Path, lint: str, typecheck: str) -> str:
-    key_path, receipt, pending = paths(root)
-    ensure_key(key_path)
+def run_validators(root: Path, lint: str, typecheck: str, runner: Path) -> Path | None:
+    expected_runner = (root / "hooks/local/lib/validator-runner.py").resolve(strict=True)
+    if runner.resolve(strict=True) != expected_runner or runner.is_symlink():
+        raise RuntimeError("validator runner substitution rejected")
     invalidate(root)
-    token = secrets.token_hex(24)
-    atomic_json(
-        pending,
-        {"schema": SCHEMA, "token": token, "identity": identity(root, lint, typecheck)},
-    )
-    if receipt.exists():
-        raise RuntimeError("stale validator receipt survived invalidation")
-    return token
-
-
-def finish(root: Path, token: str) -> Path:
-    key_path, receipt, pending = paths(root)
-    key = existing_key(key_path)
-    saved = json.loads(pending.read_text(encoding="utf-8"))
-    if saved.get("schema") != SCHEMA or not hmac.compare_digest(str(saved.get("token", "")), token):
-        raise RuntimeError("validator pending token mismatch")
-    original = saved["identity"]
-    current = identity(root, original["commands"]["lint"], original["commands"]["typecheck"])
-    confirm = identity(root, original["commands"]["lint"], original["commands"]["typecheck"])
-    if original != current or current != confirm:
+    before = identity(root, lint, typecheck)
+    for name, command in (("lint", lint), ("typecheck", typecheck)):
+        if not command:
+            continue
+        print(f"[run-validators] running {name}: {command}", file=sys.stderr)
+        result = subprocess.run(command, cwd=root, shell=True)
+        if result.returncode != 0:
+            invalidate(root)
+            raise RuntimeError(f"{name} failed with exit {result.returncode}")
+    current = identity(root, lint, typecheck)
+    confirm = identity(root, lint, typecheck)
+    if before != current or current != confirm:
         invalidate(root)
         raise RuntimeError("validator-visible state changed during validation")
+    try:
+        key_path, receipt, _ = paths(root)
+        key = ensure_key(key_path)
+    except RuntimeError as exc:
+        print(f"[run-validators] reuse unavailable: {exc}", file=sys.stderr)
+        return None
     evidence = {"schema": SCHEMA, "result": "success", "identity": current, "created_at": int(time.time())}
     atomic_json(receipt, {"evidence": evidence, "signature": signature(key, evidence)})
-    pending.unlink(missing_ok=True)
     return receipt
 
 
@@ -408,11 +425,10 @@ def verify(root: Path, lint: str, typecheck: str) -> bool:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=("begin", "finish", "verify", "invalidate", "path"))
+    parser.add_argument("action", choices=("verify", "invalidate", "path"))
     parser.add_argument("--root", required=True)
     parser.add_argument("--lint", default="")
     parser.add_argument("--typecheck", default="")
-    parser.add_argument("--token", default="")
     return parser.parse_args()
 
 
@@ -420,11 +436,7 @@ def main() -> int:
     args = parse_args()
     try:
         root = canonical_root(args.root)
-        if args.action == "begin":
-            print(begin(root, args.lint, args.typecheck))
-        elif args.action == "finish":
-            print(finish(root, args.token))
-        elif args.action == "verify":
+        if args.action == "verify":
             return 0 if verify(root, args.lint, args.typecheck) else 3
         elif args.action == "invalidate":
             invalidate(root)
