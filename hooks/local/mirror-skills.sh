@@ -121,7 +121,9 @@ HASH_RAW="$(mktemp "${TMPDIR:-/tmp}/mirror-hash-cache.XXXXXX")"
 # here so the EXIT trap (set -u safe) also sweeps a half-written manifest temp if sort
 # or mv fails mid-write. Empty until then -> rm -f "" is a harmless no-op.
 manifest_tmp=""
-trap 'rm -f "$HASH_RAW" "$manifest_tmp"' EXIT
+write_plan=""
+write_result=""
+trap 'rm -f "$HASH_RAW" "$manifest_tmp" "$write_plan" "$write_result"' EXIT
 # Feed canon sources + any existing targets (NUL-delimited) to ONE chunked sha
 # pass; capture the raw "<hash>  <path>" output to a temp file. Kept off a
 # pipefail pipeline whose tail `read` would return EOF=1 and trip `set -e` in a
@@ -224,24 +226,33 @@ mirrored=0
 drifted=0
 copied=0
 manifest_rows=""
+write_plan="$(mktemp "${TMPDIR:-/tmp}/mirror-skill-write-plan.XXXXXX")"
+write_result="$(mktemp "${TMPDIR:-/tmp}/mirror-skill-write-result.XXXXXX")"
+declare -A CANON_HASH_BY_REL=()
 for line in "${MIRROR_LINES[@]}"; do
     rel="${line%%$'\t'*}"
     canon_file="${line#*$'\t'}"
-    target="$ROOT/$rel"
     cache_hash_into "$canon_file"; canon_hash="$HASH_VALUE"
-
-    if [ -f "$target" ]; then
-        cache_hash_into "$target"; existing_hash="$HASH_VALUE"
-        [ "$existing_hash" != "$canon_hash" ] && drifted=$((drifted + 1))
-    fi
-    if [ ! -f "$target" ] || [ "$existing_hash" != "$canon_hash" ]; then
-        mkdir -p "${target%/*}"
-        cp "$canon_file" "$target"
-        copied=$((copied + 1))
-    fi
-    mirrored=$((mirrored + 1))
-    manifest_rows+="$rel  $canon_hash"$'\n'
+    CANON_HASH_BY_REL["$rel"]="$canon_hash"
+    printf '%s\t%s\n' "$canon_file" "$rel" >> "$write_plan"
 done
+set +e
+python3 "$ROOT/hooks/local/lib/recovery-owned-write.py" --root "$ROOT" \
+  --surface skill --plan "$write_plan" --result "$write_result"
+write_rc=$?
+set -e
+while IFS=$'\t' read -r status rel detail backup; do
+    case "$status" in
+        current) mirrored=$((mirrored + 1)) ;;
+        missing-and-authorized|owned-repair)
+            mirrored=$((mirrored + 1)); copied=$((copied + 1)); drifted=$((drifted + 1)) ;;
+        *)
+            drifted=$((drifted + 1))
+            echo "[mirror-skills] preserved $rel ($status: $detail)" >&2
+            continue ;;
+    esac
+    manifest_rows+="$rel  ${CANON_HASH_BY_REL[$rel]}"$'\n'
+done < "$write_result"
 
 # Atomic, byte-deterministic manifest write (cross-platform AND concurrency-safe).
 # Rows are collected in-memory above, then written ONCE to a temp file and renamed into
@@ -266,3 +277,4 @@ fi
 
 echo "[mirror-skills] mirrored $mirrored files (across ${#MIRRORS[@]} mirrors); copied $copied; $drifted had pre-existing drift."
 echo "[mirror-skills] manifest: $MANIFEST"
+exit "$write_rc"

@@ -500,16 +500,26 @@ if [ -z "$HEALTH_SKILL_SOURCE" ]; then
   :
 else
   RESTORED=0
+  HEALTH_PLAN="$(mktemp "${TMPDIR:-/tmp}/flow-health-write-plan.XXXXXX")"
+  HEALTH_RESULT="$(mktemp "${TMPDIR:-/tmp}/flow-health-write-result.XXXXXX")"
   for target_dir in .claude/skills .agents/skills; do
     target_path="$target_dir/fusebase-flow-health-check/SKILL.md"
-    mkdir -p "$(dirname "$target_path")"
-    if [ -f "$target_path" ] && diff -q "$HEALTH_SKILL_SOURCE" "$target_path" >/dev/null 2>&1; then
-      :
-    else
-      cp "$HEALTH_SKILL_SOURCE" "$target_path"
-      RESTORED=$((RESTORED + 1))
-    fi
+    printf '%s\t%s\n' "$ROOT/$HEALTH_SKILL_SOURCE" "$target_path" >> "$HEALTH_PLAN"
   done
+  set +e
+  python3 "$ROOT/hooks/local/lib/recovery-owned-write.py" --root "$ROOT" \
+    --surface health-skill --plan "$HEALTH_PLAN" --result "$HEALTH_RESULT"
+  HEALTH_RC=$?
+  set -e
+  while IFS=$'\t' read -r status target_path detail backup; do
+    case "$status" in
+      missing-and-authorized|owned-repair) RESTORED=$((RESTORED + 1)) ;;
+      current) : ;;
+      *) WARNINGS+=("health-skill target preserved: $target_path ($status: $detail)") ;;
+    esac
+  done < "$HEALTH_RESULT"
+  rm -f "$HEALTH_PLAN" "$HEALTH_RESULT"
+  [ "$HEALTH_RC" -eq 0 ] || RECOVERY_PARTIAL_REASON="one or more health-skill targets were preserved"
   if [ "$RESTORED" -gt 0 ]; then
     ACTIONS_TAKEN+=("fusebase-flow-health-check skill: restored to $RESTORED of 2 mirror paths")
   else
@@ -531,19 +541,29 @@ if [ ! -d "$CMD_TEMPLATE_DIR" ]; then
 else
   CMD_RESTORED=0
   CMD_TOTAL=0
-  mkdir -p "$CMD_TARGET_DIR"
+  CMD_PLAN="$(mktemp "${TMPDIR:-/tmp}/flow-command-write-plan.XXXXXX")"
+  CMD_RESULT="$(mktemp "${TMPDIR:-/tmp}/flow-command-write-result.XXXXXX")"
   for cmd_template in "$CMD_TEMPLATE_DIR"/*.md; do
     [ -f "$cmd_template" ] || continue
     CMD_TOTAL=$((CMD_TOTAL + 1))
     cmd_name="$(basename "$cmd_template")"
     cmd_target="$CMD_TARGET_DIR/$cmd_name"
-    if [ -f "$cmd_target" ] && diff -q "$cmd_template" "$cmd_target" >/dev/null 2>&1; then
-      :
-    else
-      cp "$cmd_template" "$cmd_target"
-      CMD_RESTORED=$((CMD_RESTORED + 1))
-    fi
+    printf '%s\t%s\n' "$cmd_template" "$cmd_target" >> "$CMD_PLAN"
   done
+  set +e
+  python3 "$ROOT/hooks/local/lib/recovery-owned-write.py" --root "$ROOT" \
+    --surface command --plan "$CMD_PLAN" --result "$CMD_RESULT"
+  CMD_RC=$?
+  set -e
+  while IFS=$'\t' read -r status cmd_target detail backup; do
+    case "$status" in
+      missing-and-authorized|owned-repair) CMD_RESTORED=$((CMD_RESTORED + 1)) ;;
+      current) : ;;
+      *) WARNINGS+=("command target preserved: $cmd_target ($status: $detail)") ;;
+    esac
+  done < "$CMD_RESULT"
+  rm -f "$CMD_PLAN" "$CMD_RESULT"
+  [ "$CMD_RC" -eq 0 ] || RECOVERY_PARTIAL_REASON="one or more command targets were preserved"
   if [ "$CMD_RESTORED" -gt 0 ]; then
     ACTIONS_TAKEN+=("Fusebase Flow slash commands: restored $CMD_RESTORED of $CMD_TOTAL to $CMD_TARGET_DIR")
   else

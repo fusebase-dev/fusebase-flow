@@ -41,7 +41,9 @@ mkdir -p "$(dirname "$MANIFEST")"
 # half-written temp behind (set -u safe; rm -f "" is a no-op until it is set).
 manifest_tmp=""
 hash_raw="$(mktemp "${TMPDIR:-/tmp}/agent-mirror-hash-cache.XXXXXX")"
-trap 'rm -f "$hash_raw" "$manifest_tmp"' EXIT
+write_plan=""
+write_result=""
+trap 'rm -f "$hash_raw" "$manifest_tmp" "$write_plan" "$write_result"' EXIT
 
 sha_batch() {
     if command -v sha256sum >/dev/null 2>&1; then xargs -0 -n 256 sha256sum --
@@ -87,23 +89,33 @@ mirrored=0
 copied=0
 drifted=0
 manifest_rows=""
+write_plan="$(mktemp "${TMPDIR:-/tmp}/agent-write-plan.XXXXXX")"
+write_result="$(mktemp "${TMPDIR:-/tmp}/agent-write-result.XXXXXX")"
+declare -A CANON_HASH_BY_REL=()
 for line in "${AGENT_LINES[@]}"; do
     rel="${line%%$'\t'*}"
     canon_file="${line#*$'\t'}"
-    target_file="$ROOT/$rel"
     cache_hash_into "$canon_file"; canon_hash="$HASH_VALUE"
-    if [ -f "$target_file" ]; then
-        cache_hash_into "$target_file"; existing_hash="$HASH_VALUE"
-        [ "$existing_hash" != "$canon_hash" ] && drifted=$((drifted + 1))
-    fi
-    if [ ! -f "$target_file" ] || [ "$existing_hash" != "$canon_hash" ]; then
-        mkdir -p "${target_file%/*}"
-        cp "$canon_file" "$target_file"
-        copied=$((copied + 1))
-    fi
-    mirrored=$((mirrored + 1))
-    manifest_rows+="$rel  $canon_hash"$'\n'
+    CANON_HASH_BY_REL["$rel"]="$canon_hash"
+    printf '%s\t%s\n' "$canon_file" "$rel" >> "$write_plan"
 done
+set +e
+python3 "$ROOT/hooks/local/lib/recovery-owned-write.py" --root "$ROOT" \
+  --surface agent --plan "$write_plan" --result "$write_result"
+write_rc=$?
+set -e
+while IFS=$'\t' read -r status rel detail backup; do
+    case "$status" in
+        current) mirrored=$((mirrored + 1)) ;;
+        missing-and-authorized|owned-repair)
+            mirrored=$((mirrored + 1)); copied=$((copied + 1)); drifted=$((drifted + 1)) ;;
+        *)
+            drifted=$((drifted + 1))
+            echo "[mirror-agents] preserved $rel ($status: $detail)" >&2
+            continue ;;
+    esac
+    manifest_rows+="$rel  ${CANON_HASH_BY_REL[$rel]}"$'\n'
+done < "$write_result"
 
 # Atomic, byte-deterministic manifest write (cross-platform AND concurrency-safe) — see
 # mirror-skills.sh for the full rationale. Rows are collected in-memory above, then
@@ -121,3 +133,4 @@ fi
 
 echo "[mirror-agents] mirrored $mirrored files (across ${#MIRRORS[@]} mirrors); copied $copied; $drifted had pre-existing drift."
 echo "[mirror-agents] manifest: $MANIFEST"
+exit "$write_rc"

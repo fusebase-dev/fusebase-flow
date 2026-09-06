@@ -54,9 +54,10 @@ ffcf_production_breadth() {
 
   # (2) production RECOVERY/WRITE mode over the full corpus, rc asserted.
   d="$TMP_BASE/production-write"
-  mkdir -p "$d/hooks/local"
+  mkdir -p "$d/hooks/local/lib"
   cp -R "$ROOT/flow-skills" "$d/flow-skills"
   cp "$ROOT/hooks/local/mirror-skills.sh" "$d/hooks/local/"
+  cp "$ROOT/hooks/local/lib/recovery-owned-write.py" "$d/hooks/local/lib/"
   set +e
   ( cd "$d" && bash hooks/local/mirror-skills.sh > "$TMP_BASE/prodwrite.out" 2>&1 )
   rc=$?
@@ -92,18 +93,21 @@ ffcf_production_breadth() {
     || fail "T4: full-corpus skill no-op changed mirror or manifest bytes/mtimes"
   grep -qF "copied 0;" "$TMP_BASE/skills-noop.out" \
     || fail "T4: full-corpus skill no-op did not report zero copies"
-  printf '\nT4 DRIFT\n' >> "$d/.agents/skills/communication/SKILL.md"
+  printf '\nT13 OWNED UPDATE\n' >> "$d/flow-skills/communication/SKILL.md"
   ( cd "$d" && bash hooks/local/mirror-skills.sh > "$TMP_BASE/skills-repair.out" 2>&1 )
-  grep -qF "copied 1;" "$TMP_BASE/skills-repair.out" \
-    || fail "T4: one drifted skill did not produce exactly one copy"
-  diff -q "$d/flow-skills/communication/SKILL.md" "$d/.agents/skills/communication/SKILL.md" >/dev/null 2>&1 \
-    || fail "T4: one drifted skill was not repaired"
-  pass "T4: full-corpus skill mirrors and manifest are zero-write on no-op; one drift repairs one file"
+  grep -qF "copied 2;" "$TMP_BASE/skills-repair.out" \
+    || fail "T13: one canonical skill update did not repair both owned mirrors"
+  for target in .agents/skills .claude/skills; do
+    diff -q "$d/flow-skills/communication/SKILL.md" "$d/$target/communication/SKILL.md" >/dev/null 2>&1 \
+      || fail "T13: canonical skill update did not repair $target"
+  done
+  pass "T13: full-corpus skill mirrors are zero-write on no-op; one canonical update repairs both owned targets"
 
   local a="$TMP_BASE/agent-write"
-  mkdir -p "$a/hooks/local"
+  mkdir -p "$a/hooks/local/lib"
   cp -R "$ROOT/agents" "$a/agents"
   cp "$ROOT/hooks/local/mirror-agents.sh" "$a/hooks/local/"
+  cp "$ROOT/hooks/local/lib/recovery-owned-write.py" "$a/hooks/local/lib/"
   ( cd "$a" && bash hooks/local/mirror-agents.sh > "$TMP_BASE/agents-first.out" 2>&1 )
   ffcf_tree_inventory "$a" "$TMP_BASE/agents-before.json" audit/agent-mirror-manifest.txt .claude/agents .codex/agents
   ( cd "$a" && bash hooks/local/mirror-agents.sh > "$TMP_BASE/agents-noop.out" 2>&1 )
@@ -112,13 +116,15 @@ ffcf_production_breadth() {
     || fail "T4: agent no-op changed mirror or manifest bytes/mtimes"
   grep -qF "copied 0;" "$TMP_BASE/agents-noop.out" \
     || fail "T4: agent no-op did not report zero copies"
-  printf '\nT4 DRIFT\n' >> "$a/.claude/agents/ai-developer.md"
+  printf '\nT13 OWNED UPDATE\n' >> "$a/agents/ai-developer/AGENT.md"
   ( cd "$a" && bash hooks/local/mirror-agents.sh > "$TMP_BASE/agents-repair.out" 2>&1 )
-  grep -qF "copied 1;" "$TMP_BASE/agents-repair.out" \
-    || fail "T4: one drifted agent did not produce exactly one copy"
-  diff -q "$a/agents/ai-developer/AGENT.md" "$a/.claude/agents/ai-developer.md" >/dev/null 2>&1 \
-    || fail "T4: one drifted agent was not repaired"
-  pass "T4: agent mirrors and manifest are zero-write on no-op; one drift repairs one file"
+  grep -qF "copied 2;" "$TMP_BASE/agents-repair.out" \
+    || fail "T13: one canonical agent update did not repair both owned mirrors"
+  for target in .claude/agents .codex/agents; do
+    diff -q "$a/agents/ai-developer/AGENT.md" "$a/$target/ai-developer.md" >/dev/null 2>&1 \
+      || fail "T13: canonical agent update did not repair $target"
+  done
+  pass "T13: agent mirrors are zero-write on no-op; one canonical update repairs both owned targets"
 
   # (5) RETAINED RED-BEFORE MUTATION — a WRITE-ONLY defect must be caught. The mutation is the
   # recorded incident (concurrent per-row appends producing duplicated manifest rows, which the
@@ -133,6 +139,8 @@ ffcf_production_breadth() {
   done
   sed 's#"$manifest_rows" | LC_ALL=C sort#"$manifest_rows$manifest_rows" | LC_ALL=C sort#' \
       "$ROOT/hooks/local/mirror-skills.sh" > "$m/hooks/local/mirror-skills.sh"
+  mkdir -p "$m/hooks/local/lib"
+  cp "$ROOT/hooks/local/lib/recovery-owned-write.py" "$m/hooks/local/lib/"
   grep -q '"$manifest_rows$manifest_rows"' "$m/hooks/local/mirror-skills.sh" \
     || fail "production write mutation: the manifest-write anchor no longer matches, so the mutation was not applied — an unapplied mutation proves nothing"
   set +e
@@ -142,6 +150,97 @@ ffcf_production_breadth() {
   set -e
   [ "$rc" -ne 0 ] || { cat "$TMP_BASE/mutant-check.out" >&2; fail "production write mutation: a writer that duplicates every manifest row still produced a 0-drift tree — the write-mode assertions cannot see a write-only defect"; }
   pass "production write mutation: a duplicate-row manifest writer is caught (write-only defect class; parity on a clean tree cannot reach it)"
+}
+
+ffcf_t13_owned_write_matrix() {
+  local d="$TMP_BASE/t13-owned-write" plan result target before rc surface
+  ffcf_path_fingerprint() {
+    "$python_bin" -c 'import hashlib,pathlib,sys; p=pathlib.Path(sys.argv[1]); print(f"{hashlib.sha256(p.read_bytes()).hexdigest()}:{p.stat().st_mtime_ns}")' "$1"
+  }
+  mkdir -p "$d/hooks/local/lib" "$d/sources"
+  cp "$ROOT/hooks/local/lib/recovery-owned-write.py" "$d/hooks/local/lib/"
+  for surface in skill agent command health-skill; do
+    printf '%s\n' "$surface-v1" > "$d/sources/$surface.txt"
+    target="targets/$surface.txt"
+    plan="$d/$surface.plan"
+    result="$d/$surface.result"
+    printf '%s\t%s\n' "$d/sources/$surface.txt" "$target" > "$plan"
+    "$python_bin" "$d/hooks/local/lib/recovery-owned-write.py" --root "$d" \
+      --surface "$surface" --plan "$plan" --result "$result"
+    grep -q $'^missing-and-authorized\t'"$target" "$result" \
+      || fail "T13: $surface missing target was not authorized"
+    before="$(ffcf_path_fingerprint "$d/$target")"
+    "$python_bin" "$d/hooks/local/lib/recovery-owned-write.py" --root "$d" \
+      --surface "$surface" --plan "$plan" --result "$result"
+    [ "$before" = "$(ffcf_path_fingerprint "$d/$target")" ] || fail "T13: $surface current target changed mtime"
+    printf '%s\n' "$surface-v2" > "$d/sources/$surface.txt"
+    "$python_bin" "$d/hooks/local/lib/recovery-owned-write.py" --root "$d" \
+      --surface "$surface" --plan "$plan" --result "$result"
+    grep -q $'^owned-repair\t'"$target" "$result" \
+      || fail "T13: $surface prior ownership did not permit repair"
+    [ -f "$d/$target.pre-flow-repair" ] || fail "T13: $surface repair retained no original"
+  done
+
+  printf 'unowned\n' > "$d/targets/unowned.txt"
+  printf 'source\n' > "$d/sources/unowned.txt"
+  printf '%s\t%s\n' "$d/sources/unowned.txt" targets/unowned.txt > "$d/unowned.plan"
+  before="$(ffcf_path_fingerprint "$d/targets/unowned.txt")"
+  set +e
+  "$python_bin" "$d/hooks/local/lib/recovery-owned-write.py" --root "$d" \
+    --surface skill --plan "$d/unowned.plan" --result "$d/unowned.result"
+  rc=$?
+  set -e
+  [ "$rc" -eq 1 ] && [ "$before" = "$(ffcf_path_fingerprint "$d/targets/unowned.txt")" ] \
+    || fail "T13: unowned collision was modified or returned rc=$rc"
+
+  mkdir -p "$d/targets/type-mismatch"
+  printf '%s\t%s\n' "$d/sources/unowned.txt" targets/type-mismatch > "$d/type.plan"
+  set +e
+  "$python_bin" "$d/hooks/local/lib/recovery-owned-write.py" --root "$d" \
+    --surface agent --plan "$d/type.plan" --result "$d/type.result"
+  rc=$?
+  set -e
+  [ "$rc" -eq 1 ] && [ -d "$d/targets/type-mismatch" ] \
+    || fail "T13: target type mismatch was overwritten or returned rc=$rc"
+
+  printf 'link-target\n' > "$d/targets/link-target.txt"
+  if ln -s link-target.txt "$d/targets/link.txt" 2>/dev/null && [ -L "$d/targets/link.txt" ]; then
+    printf '%s\t%s\n' "$d/sources/unowned.txt" targets/link.txt > "$d/link.plan"
+    before="$(ffcf_path_fingerprint "$d/targets/link-target.txt")"
+    set +e
+    "$python_bin" "$d/hooks/local/lib/recovery-owned-write.py" --root "$d" \
+      --surface command --plan "$d/link.plan" --result "$d/link.result"
+    rc=$?
+    set -e
+    [ "$rc" -eq 1 ] && [ "$before" = "$(ffcf_path_fingerprint "$d/targets/link-target.txt")" ] \
+      || fail "T13: symlink destination or target was modified"
+  fi
+
+  printf '%s\t%s\n' "$d/sources/unowned.txt" targets/interrupted.txt > "$d/interrupted.plan"
+  set +e
+  FF_RECOVERY_WRITE_INTERRUPT='before-replace:targets/interrupted.txt' \
+    "$python_bin" "$d/hooks/local/lib/recovery-owned-write.py" --root "$d" \
+      --surface skill --plan "$d/interrupted.plan" --result "$d/interrupted.result"
+  rc=$?
+  set -e
+  [ "$rc" -eq 1 ] && [ ! -e "$d/targets/interrupted.txt" ] \
+    || fail "T13: before-replace interruption changed target"
+  "$python_bin" "$d/hooks/local/lib/recovery-owned-write.py" --root "$d" \
+    --surface skill --plan "$d/interrupted.plan" --result "$d/interrupted.result"
+  printf 'source-v2\n' > "$d/sources/unowned.txt"
+  set +e
+  FF_RECOVERY_WRITE_INTERRUPT='after-retain:targets/interrupted.txt' \
+    "$python_bin" "$d/hooks/local/lib/recovery-owned-write.py" --root "$d" \
+      --surface skill --plan "$d/interrupted.plan" --result "$d/interrupted.result"
+  rc=$?
+  set -e
+  [ "$rc" -eq 1 ] && grep -q '^source$' "$d/targets/interrupted.txt" \
+    && [ -f "$d/targets/interrupted.txt.pre-flow-repair" ] \
+    || fail "T13: after-retain interruption did not preserve original target"
+  "$python_bin" "$d/hooks/local/lib/recovery-owned-write.py" --root "$d" \
+    --surface skill --plan "$d/interrupted.plan" --result "$d/interrupted.result"
+  grep -q '^source-v2$' "$d/targets/interrupted.txt" || fail "T13: retry did not converge"
+  pass "T13: skill/agent/command/health ownership, atomic repair, collisions, symlink, interruption, and retry"
 }
 
 # U14 — --wire-hooks must wire stop.py (not a copied CLI command) onto a Stop chain that already
@@ -269,7 +368,10 @@ ffcf_bad_settings() {
 }
 
 ffcf_t4_health_fallback() {
-  local d="$TMP_BASE/t4-health-fallback" snapshot hash rc
+  local d="$TMP_BASE/t4-health-fallback" snapshot hash rc health_target command_target health_before command_before
+  ffcf_collision_fingerprint() {
+    "$python_bin" -c 'import hashlib,pathlib,sys; p=pathlib.Path(sys.argv[1]); print(f"{hashlib.sha256(p.read_bytes()).hexdigest()}:{p.stat().st_mtime_ns}")' "$1"
+  }
   ffcf_canonical "$d"
   rm -rf "$d/flow-skills/fusebase-flow-health-check"
   ffcf_engine_scripts "$d"
@@ -288,6 +390,25 @@ ffcf_t4_health_fallback() {
   done
   grep -q "ownership-verified recovery snapshot" "$TMP_BASE/t4-fallback.out" \
     || fail "T4: verified health fallback was not reported"
+
+  health_target="$d/.claude/skills/fusebase-flow-health-check/SKILL.md"
+  command_target="$d/.claude/commands/${FFCF_COMMANDS[0]}"
+  printf 'UNOWNED HEALTH COLLISION\n' > "$health_target"
+  printf 'UNOWNED COMMAND COLLISION\n' > "$command_target"
+  health_before="$(ffcf_collision_fingerprint "$health_target")"
+  command_before="$(ffcf_collision_fingerprint "$command_target")"
+  set +e
+  ( cd "$d" && bash hooks/local/post-fusebase-update.sh > "$TMP_BASE/t13-target-collisions.out" 2>&1 )
+  rc=$?
+  set -e
+  [ "$rc" -eq 1 ] \
+    && [ "$health_before" = "$(ffcf_collision_fingerprint "$health_target")" ] \
+    && [ "$command_before" = "$(ffcf_collision_fingerprint "$command_target")" ] \
+    || fail "T13: post-update changed an unowned health/command collision or returned rc=$rc"
+  grep -q 'health-skill target preserved' "$TMP_BASE/t13-target-collisions.out" \
+    && grep -q 'command target preserved' "$TMP_BASE/t13-target-collisions.out" \
+    || fail "T13: post-update did not report both preserved target collisions"
+  pass "T13: post-update preserves unowned health and command collisions byte/mtime-exactly and returns partial"
 
   printf '\nUNOWNED DRIFT\n' >> "$d/$snapshot"
   rm -f "$d/.claude/skills/fusebase-flow-health-check/SKILL.md"
@@ -422,6 +543,7 @@ PY
 
 ffcf_direct_run() {
   ffcf_t1_overlay_spans
+  ffcf_t13_owned_write_matrix
   ffcf_production_breadth
   ffcf_u14_wire_stop
   ffcf_u15_eslint
