@@ -2,15 +2,15 @@
 
 ## Current state
 
-Operate as AI Developer under Fusebase Flow v4.14.1. T26 `335ed08`, T27 `597b02d`, T28 `e657392` are complete. Diagnostic suite stopped safely at 139 PASS/2 FAIL: PY5 whole-hook wall proxy and mutation budget comparison. Execute T29 then T30, complete T21 on final T30 source, and stop for T22. No deploy/publication/migration target.
+Operate as AI Developer under Fusebase Flow v4.14.1. T29 `17749db`, T30 `314ead3` complete. Final-source health phase reached 22/23 in 1319s; sole AC5 count-ratio race. Run stopped safely before meaningful git-smoke. Execute T31 test-only synchronized heartbeat fixture, then T21 once on final T31 source and stop for T22. No deploy/publication/migration target.
 
 | Owner | Pointer |
 |---|---|
-| Scope/AC/files/dependencies | `docs/specs/flow-performance-and-recovery-hardening/tasks.md`, T29-T30 |
+| Scope/AC/files/dependencies | `docs/specs/flow-performance-and-recovery-hardening/tasks.md`, T31 |
 | Proof/coverage/smoke | `verification-gate.md` in same directory |
 | Safety defects | `adversarial-review.md`, B1-B8/N1-N2 |
 | Efficiency rationale | `state/audit/execution-efficiency-review-2026-09-06.md` |
-| Tail | T29 -> T30 -> T21 -> T22 -> T23 |
+| Tail | T31 -> T21 -> T22 -> T23 |
 
 ## Required context
 
@@ -20,8 +20,7 @@ Read mandatory bootstrap/role bodies once when absent, then the active task sect
 
 | Task | Action |
 |---|---|
-| T29 | Batch artifact manifest via captured real Python; full independent evidence/parity; measure before/after |
-| T30 | Diagnose actual probe deadlines; replace whole-hook budget proxy with valid semantics; preserve timeout/reap and mutation negative controls |
+| T31 | Actual child started/release/exited synchronization; two real pre-release heartbeats; focused --only ac5 and bounded negative controls |
 | T21 | One complete final registered suite; constituent rows satisfy covered focused tests; only uncovered smoke/repo-state checks separately; replace gate report |
 | T22 | Separate GPT-6 Astra targeted replay and whole-diff review; no duplicate full suite |
 | T23 | Docs-only closeout only after zero blockers |
@@ -46,4 +45,4 @@ T25 wrapper reached U14 after ~11m; isolated failure took ~8s. Public selectors 
 ---
 📍 Phase: Implement
 🎯 Ticket: flow-performance-and-recovery-hardening
-⏭️ Next: execute T29/T30; run T21 once on final source; stop for review
+⏭️ Next: execute T31; run T21 once on final source; stop for review
