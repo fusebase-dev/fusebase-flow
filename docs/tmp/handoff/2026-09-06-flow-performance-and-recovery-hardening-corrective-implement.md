@@ -2,7 +2,7 @@
 
 ## Role and stop contract
 
-Operate as AI Developer under Fusebase Flow v4.14.1. Execute T11-T20 serially, one task/commit. Produce T21 as report-only and stop at the gate. Do not perform T22 review or T23 closeout in the implementation session. No production deploy/publication exists.
+Operate as AI Developer under Fusebase Flow v4.14.1. T11-T20 are complete through `adc1a3d`. Execute T24 as one task/one commit, then rerun T21 report-only and stop at the gate. Do not perform T22 review or T23 closeout in the implementation session. No production deploy/publication exists.
 
 | Field | Value |
 |---|---|
@@ -11,8 +11,9 @@ Operate as AI Developer under Fusebase Flow v4.14.1. Execute T11-T20 serially, o
 | Canonical plan | `docs/specs/flow-performance-and-recovery-hardening/tasks.md` |
 | Gate contract | `docs/specs/flow-performance-and-recovery-hardening/verification-gate.md` |
 | Review record | `docs/specs/flow-performance-and-recovery-hardening/adversarial-review.md` |
-| Final implementation task | T20 |
-| Technical gate | T21, no source commit |
+| Resume source | `adc1a3d` (T20) |
+| Final implementation task | T24, fixture-only correction |
+| Technical gate | T21 after T24, no source commit |
 | Repeated independent review | T22, GPT-6 Astra |
 | Final closeout | T23, docs-only after zero blockers |
 | UI/client | N/A |
@@ -40,9 +41,10 @@ Operate as AI Developer under Fusebase Flow v4.14.1. Execute T11-T20 serially, o
 | T18 | executed lane workflow/actions/artifacts with mutation controls | lane workflow + consumer benchmark |
 | T19 | outcome/task/commit-specific temporal linkage | wasted-effort windowing selftest |
 | T20 | three independent write-mode no-op attempts and corrected labels | consumer benchmark + recovery E2E |
+| T24 | initialize recovery E2E as a real disposable Git repo/identity; preserve CLI/user bytes | T15-focused registered wrapper + full registered wrapper |
 | T21 | full technical verification and replacement gate report | full registered suite/preflight/manifests/module-size/pre-commit/smoke |
 
-Dependencies and exact files/tests/acceptance/module-size/worker-undisturbed rules are authoritative in `tasks.md`; do not merge tasks or broaden files without updating the plan first.
+T11-T20 are historical complete rows. Active dependency tail: T20 -> T24 -> T21 -> T22 -> T23. Exact files/tests/acceptance/module-size/worker-undisturbed rules are authoritative in `tasks.md`; do not merge tasks or broaden files.
 
 ## Blocker closure contract
 
@@ -67,6 +69,7 @@ Dependencies and exact files/tests/acceptance/module-size/worker-undisturbed rul
 - Existing authorization covers the planned correction scope; it does not cover deploy/publication, new permissions, secrets, or unrelated paths.
 - Keep `.claude/hooks/**`, CLI provider skills/app agents, `fusebase.json`, `.mcp.json`, `.codex/config.toml`, custom hooks/settings, and unowned collisions unchanged outside disposable fixtures.
 - Preserve the three ignored smoke `.log` files and `docs/wasted-code/`; do not stage them. Generated replacement smoke JSON/logs remain gate evidence unless T23 explicitly closes docs.
+- T24 stages only `hooks/tests/cli-flow-recovery-e2e.sh` and uses normal pre-commit. It does not touch a protected path or authorize any shared `.git` mutation.
 
 ## Module and comment discipline
 
@@ -85,7 +88,14 @@ Dependencies and exact files/tests/acceptance/module-size/worker-undisturbed rul
 
 ## T21 gate execution
 
-Run all task-focused tests, then once on T20 HEAD:
+Before T21, implement T24 only in `hooks/tests/cli-flow-recovery-e2e.sh`: replace the `.git/hooks` directory imitation in `ffcf_e2e_build` with a real disposable `git init` plus fixture-local `user.name`/`user.email`; normalize the fixture root only if needed for identical Git/intent identity. Run:
+
+```text
+FFCF_T15_ONLY=1 bash hooks/tests/test-cli-flow-recovery.sh
+bash hooks/tests/test-cli-flow-recovery.sh
+```
+
+Both must prove `--wire-hooks` exits complete, intent root matches the Git root, exact Flow Git hooks exist and verify, and CLI/user sentinel bytes are unchanged. Commit this one T24 slice. Then run all task-focused tests once on T24 HEAD:
 
 ```text
 FF_FULL=1 FFHC_HEARTBEAT_SECS=30 bash hooks/tests/run-tests.sh
@@ -94,7 +104,7 @@ bash hooks/local/mirror-skills.sh --check
 bash hooks/local/check-module-size.sh --all
 ```
 
-Also run the normal pre-commit path, manifest checks, secret/protected-path controls, exact CLI/user byte/semantic comparison, and S1-S3 from `verification-gate.md`. Replace `gate-report.md`; do not append to the superseded report. Record T11-T20 SHAs/timing and every open residual. Stop after T21 and hand off T22 to GPT-6 Astra.
+Also run the normal pre-commit path, manifest checks, secret/protected-path controls, exact CLI/user byte/semantic comparison, and S1-S3 from `verification-gate.md`. Replace `gate-report.md`; do not append to the superseded/blocked report. Record T11-T20/T24 SHAs/timing and every open residual. Stop after T21 and hand off T22 to GPT-6 Astra.
 
 ## Smoke/evidence corrections
 
@@ -109,4 +119,4 @@ Also run the normal pre-commit path, manifest checks, secret/protected-path cont
 ---
 📍 Phase: Implement
 🎯 Ticket: `flow-performance-and-recovery-hardening`
-⏭️ Next: execute T11 from source `2217a9c631300e510b18437548ed4bccb5f31036`; stop after T21 report
+⏭️ Next: execute T24 from `adc1a3d`, then rerun report-only T21 and stop

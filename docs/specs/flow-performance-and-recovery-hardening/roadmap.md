@@ -1,10 +1,10 @@
 # Flow performance and recovery hardening — roadmap
 
-**Status:** CORRECTIVE EXECUTION PLANNED; Astra review verdict CHANGES REQUIRED
+**Status:** T21 BLOCKED by recovery E2E fixture Git contract; T24 planned
 **Documentation tier:** 4
 **Execution owner:** `tasks.md` owns order, dependencies, files, SHAs and status; `verification-gate.md` owns proof.
 **Starting source:** `2217a9c631300e510b18437548ed4bccb5f31036`
-**Sequence:** validator trust -> recovery ownership/preflight/verification -> exact hook/overlay ownership -> real workflow evidence -> temporal/write-mode measurement -> gate -> Astra re-review -> closeout.
+**Sequence:** T11-T20 complete -> T24 real-Git fixture correction -> T21 gate -> T22 Astra re-review -> T23 closeout.
 
 ## Evidence inputs
 
@@ -27,4 +27,4 @@
 
 ## Constraints
 
-Serialize shared validator and recovery files. T11-T20 each produce one commit; T21 is report-only, T22 is the repeated Astra review, and T23 is docs-only closeout. No production deployment/publication. Actual CLI install/update/recover comparison, five-provider host telemetry, Windows authority ACL proof, and three real-symlink controls remain UNVERIFIED until directly exercised. UI/client applicability: N/A.
+T24 changes only `hooks/tests/cli-flow-recovery-e2e.sh`: initialize the disposable fixture as a real Git repository with fixture-local identity and minimum cross-platform root normalization, then prove the T15 focused path and registered recovery wrapper without weakening Git verification. Dependency tail: T20 -> T24 -> T21 -> T22 -> T23. T24 is one task/one commit; T21 remains report-only, T22 review-only, and T23 docs-only. No production deployment/publication. Actual CLI install/update/recover comparison, five-provider host telemetry, Windows authority ACL proof, and three real-symlink controls remain UNVERIFIED until directly exercised. UI/client applicability: N/A.

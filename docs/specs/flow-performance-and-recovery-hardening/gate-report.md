@@ -1,16 +1,27 @@
 # Gate report - flow-performance-and-recovery-hardening (T10 superseded)
 
-**Status:** CHANGES REQUIRED; prior technical PASS is superseded/provisional
+**Status:** PROVISIONAL / BLOCKED-AT-T21-FIXTURE-CONTRACT; T24 required before gate rerun
 **Slug:** `flow-performance-and-recovery-hardening`
 **Task range:** T1..T10
 **Reporting session:** AI Developer under Fusebase Flow v4.14.1, FR-01..FR-27
 **Date:** 2026-09-06
 **Baseline:** `ef6cac3`
 **Final source:** `2217a9c631300e510b18437548ed4bccb5f31036`
+**Corrective source through T20:** `adc1a3d` (`86b98db`..`adc1a3d`)
 **Independent review:** `adversarial-review.md` - 8 blockers, 2 non-blockers; zero-blocker approval withheld
-**Correction chain:** T11-T20 implementation; T21 report-only gate; T22 repeated Astra review; T23 docs-only closeout
+**Correction chain:** T11-T20 complete -> T24 fixture correction -> T21 report-only rerun -> T22 review -> T23 closeout
 
 All PASS labels below record the provisional T10 fixture/check results at `2217a9c`; they do not establish current gate satisfaction. B1-B8 show that several tests asserted incomplete or simulated evidence. Existing counts, SHAs, timestamps, and residual observations are retained as historical facts.
+
+## T21 blocked attempt
+
+| Field | Evidence |
+|---|---|
+| Trigger | Post-T15 recovery E2E through the registered wrapper |
+| Fixture defect | `ffcf_e2e_build` created only `$PROJECT/.git/hooks`; `$PROJECT` was not a Git repository and had no fixture identity |
+| Correct runtime result | `post-fusebase-update.sh --wire-hooks` returned partial: `install-git-hooks.sh` exited 128 (`not a git repository`); hook-intent project identity mismatched; expected Git hooks were absent |
+| Disposition | Do not weaken T15 verification or claim gate PASS. T24 initializes a real disposable Git repo/identity, applies only minimum root normalization, preserves CLI/user sentinels, and proves both focused and registered wrappers. |
+| Dependency | T20 -> T24 -> T21; T21 remains report-only |
 
 ## 1. Provisional T10 per-task commit table
 
@@ -155,6 +166,7 @@ No production publish/deploy, migration, CLI runtime/SDK/MCP behavior change, ap
 | S3 | same scripted fixture output repeated 3 times | SIMULATION; AC8 coverage UNVERIFIED until T18/T21 executes actions and mutations |
 | CLI ownership | named fixture comparisons passed | BLOCKED by collision and final-verification gaps; T13-T15 |
 | Adversarial review | GPT-6 Astra whole-implementation review completed | CHANGES REQUIRED: 8 blockers, 2 non-blockers; zero-blocker approval withheld |
+| T21 recovery wrapper | tightened Git verification correctly rejected the non-repository fixture | BLOCKED pending T24; no product/runtime regression established |
 
 Smoke evidence:
 
@@ -172,6 +184,7 @@ Smoke evidence:
 | B1-B2 validator completeness/authority | T11-T12 | implement and prove complete identity plus trusted runner; otherwise reuse unavailable |
 | B3-B6 recovery ownership/correctness | T13-T17 | implement collision, preflight, final verification, exact hook, and bounded overlay corrections |
 | B7-B8/N2 evidence validity | T18-T20 | execute real fixture actions, scope outcomes, and run independent write-mode attempts |
+| T21 fixture contract | T24 | initialize a real disposable Git repository/identity, prove focused and registered recovery wrappers, preserve CLI/user bytes |
 | GPT-6 Astra repeated review | T22 | review correction diff and T21 evidence; zero blockers required |
 | Five-provider delivered-context measurement | provider-capable verification environment | run identical scenario/model/settings pairs; retain UNVERIFIED until telemetry exists |
 | Three symlink controls | Linux/CI | execute fixtures on a host that creates real symlinks |
@@ -186,13 +199,13 @@ The T10 gate at source 2217a9c is superseded. GPT-6 Astra returned CHANGES REQUI
 
 The 1,274/1,274 suite result, source SHAs, and recorded timings remain historical facts. They are insufficient for approval because validator identity/signing, recovery ownership/preflight/verification, hook/overlay ownership, workflow execution, temporal linkage, and write-mode no-op evidence have open defects.
 
-Execute T11-T20 one commit each. T21 replaces this provisional report, T22 repeats the independent Astra review, and T23 performs docs-only closeout only after zero blockers.
+T11-T20 are committed through adc1a3d. T21 correctly exposed a fixture defect: the recovery E2E created `.git/hooks` without initializing a Git repository, so tightened Git verification returned partial. Implement T24 as one commit, then rerun report-only T21. T22 and T23 remain review-only and docs-only.
 
 Residuals remain UNVERIFIED: five-provider delivered-context telemetry, three real-symlink controls on MSYS, Windows authority ACL/isolation, and actual CLI install/update/recover comparison. UI/client and production deploy are N/A.
 ```
 
 ---
-📍 Phase: Plan (corrective implementation)
+📍 Phase: Plan (T24 fixture correction)
 🎯 Ticket: `flow-performance-and-recovery-hardening`
 ✅ Historical: T1-T10 source/evidence at `2217a9c`; provisional gate superseded
-⏭️ Next: execute T11-T20, then T21 gate and T22 Astra review
+⏭️ Next: execute T24, rerun T21, then T22 Astra review

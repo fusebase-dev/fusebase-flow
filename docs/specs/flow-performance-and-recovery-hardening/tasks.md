@@ -2,8 +2,8 @@
 
 **T-counter going in:** T11
 **Historical implementation:** T1-T10 complete provisionally; T10 gate superseded by Astra CHANGES REQUIRED
-**Corrective implementation:** T11-T20, one commit each
-**Final technical gate:** T21, report-only
+**Corrective implementation:** T11-T20 complete; T24 fixture correction pending, one commit
+**Final technical gate:** T21, report-only after T24
 **Repeated adversarial review:** T22, report-only
 **Closeout:** T23, docs-only; former T11 moved without reuse
 **Starting source:** `2217a9c631300e510b18437548ed4bccb5f31036`
@@ -30,17 +30,18 @@
 
 | T# | Slice | Review | Decision | Depends on | Commit/status |
 |---|---|---|---|---|---|
-| T11 | complete validator-visible identity and portable fixture | B1, N1 | A6, B1 | T10 | pending |
-| T12 | trusted validator execution/signing boundary | B2 | A6, B1 | T11 | pending |
-| T13 | ownership-safe atomic mirror/command/health writes | B3 | A1-A3, B2 | T10 | pending |
-| T14 | whole-plan recovery preflight and durable progress | B4 | A2-A3, B2 | T13 | pending |
-| T15 | authoritative recovery verification and provider/Git proof | B4 | A2-A3, B2 | T14 | pending |
-| T16 | exact Flow hook recognition and isolated matcher scope | B5 | A1-A4, B3 | T15 | pending |
-| T17 | bounded markerless overlay migration | B6 | A1, B4 | T14 | pending |
-| T18 | executed lane workflow and mutation-resistant evidence | B7 | A4, B5 | T16-T17 | pending |
-| T19 | outcome/task-specific temporal linkage | B8 | A7, B5 | T18 | pending |
-| T20 | repeated write-mode no-op benchmark and claim correction | N2, B7 | A6-A7, B5 | T15, T18-T19 | pending |
-| T21 | final technical gate/report | B1-B8, N1-N2 | A1-A7, B1-B5 | T11-T20 | report-only |
+| T11 | complete validator-visible identity and portable fixture | B1, N1 | A6, B1 | T10 | `86b98db`; complete |
+| T12 | trusted validator execution/signing boundary | B2 | A6, B1 | T11 | `6af5291`; complete |
+| T13 | ownership-safe atomic mirror/command/health writes | B3 | A1-A3, B2 | T10 | `2db3f5b`; complete |
+| T14 | whole-plan recovery preflight and durable progress | B4 | A2-A3, B2 | T13 | `d126865`; complete |
+| T15 | authoritative recovery verification and provider/Git proof | B4 | A2-A3, B2 | T14 | `41c1fd2`; complete; T21 exposed fixture contract gap |
+| T16 | exact Flow hook recognition and isolated matcher scope | B5 | A1-A4, B3 | T15 | `deb21b1`; complete |
+| T17 | bounded markerless overlay migration | B6 | A1, B4 | T14 | `82db5f0`; complete |
+| T18 | executed lane workflow and mutation-resistant evidence | B7 | A4, B5 | T16-T17 | `44cc556`; complete |
+| T19 | outcome/task-specific temporal linkage | B8 | A7, B5 | T18 | `bd3bc76`; complete |
+| T20 | repeated write-mode no-op benchmark and claim correction | N2, B7 | A6-A7, B5 | T15, T18-T19 | `adc1a3d`; complete |
+| T24 | initialize recovery E2E as a real disposable Git repository | T21 fixture defect | A2-A3, B2 | T20 | pending; one commit |
+| T21 | final technical gate/report | B1-B8, N1-N2 | A1-A7, B1-B5 | T24 | report-only |
 | T22 | repeated GPT-6 Astra whole-implementation review | all | all | T21 | review-only |
 | T23 | final docs closeout | all | all | T22 zero blockers | docs-only pending |
 
@@ -154,18 +155,28 @@
 **Worker-undisturbed:** fixture directory only; shared workspace hash/status unchanged; no real workspace `fusebase update`; generated smoke evidence is not committed in T20.
 **Commit:** one `T20` commit; stage exact source/test files only.
 
+## T24 - Initialize the recovery E2E fixture as a real Git repository
+
+**Files:** `hooks/tests/cli-flow-recovery-e2e.sh` only.
+**Work:** in `ffcf_e2e_build`, initialize the disposable `$PROJECT` with `git init` and fixture-local `user.name`/`user.email` before recovery. Let Git create `.git/hooks`; remove the directory-only Git imitation. Normalize the fixture root only where required so the intent writer, recovery planner, and final verifier compare the same repository identity across MSYS/native paths. Do not weaken T15 Git verification or production recovery behavior.
+**Acceptance:** the T15 focused path and registered recovery wrapper run in a real disposable repository; `post-fusebase-update.sh --wire-hooks` no longer returns partial from Git rc128 or project-identity mismatch; exact Flow pre-commit/commit-msg destinations and same-project hook intent verify; CLI/user sentinel bytes remain identical.
+**Tests:** `FFCF_T15_ONLY=1 bash hooks/tests/test-cli-flow-recovery.sh`; `bash hooks/tests/test-cli-flow-recovery.sh`; assert fixture `git rev-parse --show-toplevel` succeeds, local identity is configured, Git hooks verify exact owned content/executable state, intent root matches normalized Git root, and CLI/user before/after hashes match.
+**Module size:** `hooks/tests/cli-flow-recovery-e2e.sh` is 334 lines before T24 and must remain <=800; no extraction/exemption needed.
+**Worker-undisturbed:** only a disposable fixture changes. Shared `.git`, installed hooks, CLI/provider assets, consumer config, `docs/wasted-code/`, and smoke evidence remain untouched.
+**Commit:** exactly one `T24` commit; stage only `hooks/tests/cli-flow-recovery-e2e.sh`; normal pre-commit; no `--no-verify`.
+
 ## T21 - Final technical gate report
 
 **Files:** `docs/specs/flow-performance-and-recovery-hardening/gate-report.md`; uncommitted smoke JSON/log evidence under the existing smoke directory; durable `state/audit/` outputs only where existing commands own them.
-**Work/tests:** no source change or commit. Replace `gate-report.md` with final evidence only after T11-T20 are committed. Run every focused command, `FF_FULL=1 FFHC_HEARTBEAT_SECS=30 bash hooks/tests/run-tests.sh`, `bash hooks/local/preflight.sh`, mirror/manifest checks, module-size `--all`, normal pre-commit, secret/protected-path checks, CLI ownership comparison, three independent S1-S3 attempts, and `verification-gate.md`.
-**Acceptance:** every B1-B8/N1-N2 has direct closure evidence or remains open; exact T11-T20 SHAs/timing and failed-then-passed evidence recorded; spec remains DRAFT; stop at gate.
+**Work/tests:** no source change or commit. Replace `gate-report.md` with final evidence only after T24 is committed. Run every focused command including both T24 recovery-wrapper commands, `FF_FULL=1 FFHC_HEARTBEAT_SECS=30 bash hooks/tests/run-tests.sh`, `bash hooks/local/preflight.sh`, mirror/manifest checks, module-size `--all`, normal pre-commit, secret/protected-path checks, CLI ownership comparison, three independent S1-S3 attempts, and `verification-gate.md`.
+**Acceptance:** every B1-B8/N1-N2 has direct closure evidence or remains open; exact T11-T20/T24 SHAs/timing and failed-then-passed evidence recorded; T24 proves the tightened Git verifier against a real fixture repository; spec remains DRAFT; stop at gate.
 **Module size:** N/A; report/evidence only.
 **Worker-undisturbed:** verify all task boundaries and shared workspace hash/status; do not stage `docs/wasted-code/` or existing smoke `.log` files.
 
 ## T22 - Repeat the GPT-6 Astra whole-implementation review
 
 **Files:** read-only implementation/evidence review; review result prepared for `adversarial-review.md` but committed only in T23.
-**Work/tests:** no implementation commit. GPT-6 Astra reviews `2217a9c..T20_HEAD`, T21 report, focused evidence, smoke attempts, ownership/authority boundaries, and every B1-B8/N1-N2 closure. Adversarially replay the named mutations and false-claim cases.
+**Work/tests:** no implementation commit. GPT-6 Astra reviews `2217a9c..T24_HEAD`, T21 report, focused evidence, smoke attempts, ownership/authority boundaries, and every B1-B8/N1-N2 closure. Adversarially replay the named mutations and false-claim cases.
 **Acceptance:** zero blockers. Any blocker returns to newly numbered implementation tasks and invalidates T23; do not claim closeout early.
 **Module size:** N/A; read-only review.
 **Worker-undisturbed:** no source/provider/config mutation during review.
@@ -195,10 +206,11 @@
 | AC10 / B8/N2 | T18-T20 -> observed workflow, scoped conclusions, write-mode metrics -> T21 |
 | AC11 | T13-T15/T20 -> CLI byte/semantic boundaries; full real CLI chain remains residual unless run -> T21 |
 | AC12 | T13-T15 -> canonical/snapshot ownership and verified mirrors -> T21 |
+| T21 fixture contract | T24 -> real Git repository/identity, registered wrapper, T15 Git verification, CLI/user byte sentinels -> T21 |
 | A1-A3 | T13-T17 |
 | A4-A5 | T16-T18; retained T7 regression |
 | A6 / B1-B2 | T11-T12/T20 |
 | A7 / B5 | T18-T20 |
 | Final zero-blocker review | T22 before T23 |
 
-**Serialization:** T11-T12 share validator files; T13-T17 share recovery files; T18-T20 share evidence consumers. Execute in listed dependency order. No worker-undisturbed path is configured, but every task carries the stricter CLI/user zero-change boundary.
+**Serialization:** T11-T12 share validator files; T13-T17 share recovery files; T18-T20 share evidence consumers. Current tail is T20 -> T24 -> T21 -> T22 -> T23. No worker-undisturbed path is configured, but every task carries the stricter CLI/user zero-change boundary.
