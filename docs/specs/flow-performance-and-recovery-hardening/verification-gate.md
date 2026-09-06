@@ -1,45 +1,64 @@
-# Verification gate — flow-performance-and-recovery-hardening
+# Verification gate - flow-performance-and-recovery-hardening
 
-**Linked spec:** `docs/specs/flow-performance-and-recovery-hardening/spec.md`
-**Linked tasks:** `docs/specs/flow-performance-and-recovery-hardening/tasks.md`
-**Gate task:** T10
-**Report path:** `docs/specs/flow-performance-and-recovery-hardening/gate-report.md` (filled from `templates/gate-report.md`)
-**Smoke threshold:** S1–S3 each reproduced 3/3 PASS; persist each attempt, investigate any failed-then-passed result
-**Rollback surface:** code-only framework/template changes; no migration, secret, sidecar, app, or cross-app contract
+**Status:** PLANNED; prior T10 gate superseded by CHANGES REQUIRED
+**Starting source:** `2217a9c631300e510b18437548ed4bccb5f31036`
+**Linked tasks:** `tasks.md` T11-T23
+**Review findings:** `adversarial-review.md` B1-B8, N1-N2
+**Gate task:** T21, report-only
+**Independent review:** T22, zero blockers required
+**Closeout:** T23, docs-only
+**Smoke threshold:** S1-S3 each requires three independent process executions; three assertions from one run are not three repetitions
+**Rollback:** code-only framework/template changes; no migration, secret, app deploy, or production target
 
-## Acceptance-criterion → task mapping
+## AC and review mapping
 
-| AC | Implemented in | Evidence |
+| Requirement | Implementation | Required evidence |
 |---|---|---|
-| AC1 | T1 | focused overlay mutation/round-trip fixtures |
-| AC2, AC4 | T2 | settings ownership/config/ordering/idempotence matrix |
-| AC3, AC11 | T3, T9 | A2 surface/legacy-intent matrix, prevalidation/fault/interruption/retry fixtures, recovery E2E, disposable CLI attempt |
-| AC5, AC12 | T4 | skill/agent and whole-recovery no-op/one-drift/fallback tests + all target manifests |
-| AC6 | T5 | native Stop fixtures + read-count benchmark |
-| AC8 | T6 | path-router unit tests plus separate semantic-assessment/workflow artifact evidence under A4 |
-| AC7 | T7 | invariant inventory + provider bootstrap + delivered-context measurement |
-| AC9 | T8 | actual pre-commit counted-validator reuse/rerun, forgery/staleness/concurrency matrix + live safety checks |
-| AC10 | T9 | temporal-linkage fixtures + benchmark report |
-| AC1..AC12 | T10 | integrated suite and adversarial review |
+| AC1 / B6 | T17 | bounded legacy span; unrelated/custom suffix refusal; exit 2 zero-write; marker round-trip |
+| AC2 | T14 | complete settings/config plan rejects malformed/unavailable input before target writes |
+| AC3 / B3-B4 | T13-T15 | ownership matrix; atomic retained originals; interruption/retry ledger; authoritative provider/Git verification |
+| AC4 / B5 | T15-T16 | exact handler parsing; dedicated Flow blocks; custom order/matcher/timeout/scope preservation |
+| AC5 / N2 | T13, T20 | collision preservation plus three independent write-mode no-op snapshots/counts |
+| AC6 | retained T5 | Stop fixture regression and one-read 1/10/30 MiB evidence |
+| AC7 | retained T7 | semantic inventory; host-by-host telemetry status, with unavailable hosts UNVERIFIED |
+| AC8 / B7 | T18 | executed diagnosis/action/artifact records; extra relay/artifact/skipped diagnosis mutation controls |
+| AC9 / B1-B2/N1 | T11-T12 | ignored/symlink/env/wrapped tool identity; direct-mint/substituted-runner rejection; Linux-portable fixture |
+| AC10 / B8/N2 | T18-T20 | per-conclusion task/commit linkage; mixed-history tests; observed workflow/write metrics |
+| AC11 | T13-T15, T20 | CLI/user zero-change hashes/semantics; actual CLI install/update/recover stays UNVERIFIED unless executed |
+| AC12 | T13-T15 | canonical source precedence, verified snapshot fallback, zero mirror/manifest drift |
+| B1-B8/N1-N2 closure | T21-T22 | final report plus independent repeated Astra review with zero blockers |
 
-## Required gate-report fields
+## Required commands and conditions
 
-Per `policies/gate-contracts.yml: gate_report`; produce the report from `templates/gate-report.md`.
-
-## Commands
-
-| Layer | Command / condition |
+| Layer | Command / result |
 |---|---|
-| Targeted | each T-task runs its named focused test(s) |
-| Registered suite | `bash hooks/tests/run-tests.sh` once after final source state |
-| Preflight | `bash hooks/local/preflight.sh` |
-| Mirror integrity | `bash hooks/local/mirror-skills.sh --check` plus agent/managed/hook manifest checks from preflight |
-| Module size | `bash hooks/local/check-module-size.sh --all` |
-| Whitespace/markers | focused recovery and overlay tests; no unbalanced Flow/CUSTOM/FLOW:PRESERVE markers |
-| Secrets | staged secret scanner through the normal pre-commit gate; detected values never printed |
-| Protected paths | exact staged diff + digest-bound bootstrap approval for `FLOW_RULES.md`, policies, handlers/shared paths if touched |
-| CLI ownership | before/after hashes and parsed semantic comparison for every fixture CLI-owned surface |
-| Current CLI | bounded disposable project refresh attempt; no workspace update |
+| Validator identity/trust | `bash hooks/tests/test-validator-evidence.sh`; `bash hooks/tests/test-validation-instructions.sh`; Linux/CI same validator test where available |
+| Recovery ownership/preflight/verification | `bash hooks/tests/cli-flow-recovery-direct.sh`; `bash hooks/tests/cli-flow-recovery-e2e.sh`; `bash hooks/tests/test-hook-wiring-intent.sh` |
+| Hook matcher ownership | `bash hooks/tests/test-wire-hooks-add-beside.sh`; exact/mixed/restrictive-first matrix PASS |
+| Workflow behavior | `bash hooks/tests/test-lane-workflow.sh`; real fixture actions plus all mutation controls PASS |
+| Temporal evidence | `bash hooks/tests/test-wasted-effort-windowing.sh`; old-footer/SHA/mixed-report cases PASS |
+| Consumer benchmark | `bash hooks/tests/test-flow-consumer-benchmark.sh`; read-only/write-mode labels correct |
+| Registered suite | `FF_FULL=1 FFHC_HEARTBEAT_SECS=30 bash hooks/tests/run-tests.sh` once on final T20 source |
+| Preflight | `bash hooks/local/preflight.sh`; zero errors/warnings or exact explained residual |
+| Mirrors/manifests | `bash hooks/local/mirror-skills.sh --check` plus agent, hook, and managed manifest checks; `--check` labeled read-only integrity |
+| Module size | `bash hooks/local/check-module-size.sh --all`; no new/grown violation; `hooks/git/pre-commit` shrinks below 800 in T12 |
+| Normal commit gate | normal pre-commit on exact final staged state; no `--no-verify`; live secret/protected/release checks verified |
+| CLI ownership | before/after bytes and parsed semantics for every CLI/user fixture surface |
+| Git protection | exact staging and digest-bound single-use approval for protected paths; inventory shows acceptable/consumed state |
+| Current CLI | only full isolated install/update/recover comparison can verify coverage; update-only probe remains UNVERIFIED |
+| Diff hygiene | no TODO/FIXME/WIP; `git diff --check`; no `docs/wasted-code/` or existing smoke `.log` files staged |
+
+## Recovery verdict matrix
+
+| Condition | Required result |
+|---|---|
+| Any invalid/unavailable plan input | exit 2; zero repair-target, backup, receipt, intent, or Git writes |
+| Unowned collision or symlink | target unchanged; retained classification; partial/exit 1 |
+| Interrupted apply | durable accurate plan/applied/verified/pending inventory and retained originals; partial/exit 1 |
+| Retry | revalidate prior record and current state; no progress reset; converge without duplicate/overwrite |
+| Missing provider bytes | restore only verified backup; otherwise unchanged/uncertain and partial/exit 1 |
+| Git restoration | exact per-surface intent plus exact owned installed hook verified; output text is insufficient |
+| Complete | fresh parsed/hash verification of every authorized surface; complete/exit 0 |
 
 ## Worker-undisturbed and ownership boundaries
 
@@ -47,89 +66,67 @@ Per `policies/gate-contracts.yml: gate_report`; produce the report from `templat
 |---|---|
 | Configured worker-undisturbed paths | none |
 | `.claude/hooks/**` | zero byte change |
-| CLI provider skills and app agents | zero byte change |
-| `fusebase.json`, `.mcp.json`, `.codex/config.toml` | zero semantic/byte change unless the fixture simulates CLI writing them before Flow recovery |
-| Consumer settings, permissions, custom hooks | preserved; only exact Flow-owned hook entries repaired |
-| Flow provider mirrors | exact canonical bytes; zero drift |
-| Pre-existing `docs/wasted-code/` | untouched and excluded from all commits |
+| CLI provider skills/app agents | zero byte change |
+| `fusebase.json`, `.mcp.json`, `.codex/config.toml` | zero byte/semantic change outside isolated CLI fixture writes |
+| Consumer settings/custom hooks | only exact Flow entries repaired; all custom order/matcher/timeout/scope preserved |
+| Unowned skill/agent/command/health collisions and symlinks | zero bytes/mtime changes; partial recorded |
+| Flow provider mirrors/manifests | exact canonical bytes for owned targets; collision status explicit; zero no-op drift |
+| `docs/wasted-code/` and existing smoke logs | untouched and excluded from commits |
 
 ## Smoke contract
 
-Evidence directory: `docs/tmp/handoff/2026-09-05-flow-performance-and-recovery-hardening-smoke/`.
-Mode: record-then-read; each scenario runs in a disposable directory with a hard timeout and writes its result before inspection.
+Evidence directory remains `docs/tmp/handoff/2026-09-05-flow-performance-and-recovery-hardening-smoke/`. Existing evidence is provisional and retained; T21 replaces claims only after new attempts. Each attempt has a unique ID/timestamp, hard timeout <=60 seconds, independent process execution, saved result, and post-run inspection.
 
-| ID | Operator-facing scenario | Visible success | Ground truth | Adversarial falsifier | Evidence |
-|---|---|---|---|---|---|
-| S1 | Run recovery on CLI-overwritten fixture with valid prior intent | report says complete; Flow hooks/overlays restored | parsed settings + exact hashes/markers after recovery | trailing CLI instruction missing, MCP list changed, duplicate hook, or CLI byte drift | `S1-recovery.log`, `S1-state.json` |
-| S2 | Run recovery again on the restored fixture | report says no repair needed; timing distribution reported without a hard speed threshold | zero changed recovery-target mtimes/hashes/copies, including agent manifests/settings receipts/intent/backups | any unchanged destination or manifest rewritten | `S2-noop.log`, `S2-mtimes.json` |
-| S3 | Run an ordinary low-risk diagnosis→fix routing fixture and a sensitive fixture | ordinary case stays one-pass lightweight; sensitive case escalates with named trigger | router output + evidenced semantic assessment + workflow fixture artifact/decision/relay inventory | ordinary case creates Full pack/relay or sensitive case enters lightweight | `S3-lanes.log`, `S3-artifacts.json` |
+| ID | Scenario | Visible outcome | Ground truth | Falsifier |
+|---|---|---|---|---|
+| S1 | Recover a CLI-overwritten fixture with valid prior surface intent; also execute named negative cases | complete only for fully recoverable state; partial/failed otherwise | parsed settings/overlays/provider/Git state; hashes; plan/applied/verified/pending ledger; retained originals | unowned overwrite, suffix loss, duplicate/widened hook, missing surface, false exit 0, or inaccurate inventory |
+| S2 | After convergence, run full write-mode recovery three independent times | each reports no repair required | per-attempt bytes/mtimes/write/copy counts for every repair target and manifest | any write/copy/mtime change; a read-only `--check` substituted for write mode; three assertions from one process |
+| S3 | Run ordinary and sensitive fixture workflows three independent times | ordinary executes one-pass lightweight; sensitive stops in Full | actual diagnosis/action record and created artifact/relay inventory | hardcoded count, skipped diagnosis, extra relay/artifact, sensitive lightweight, or mutation surviving |
 
-### S1 — CLI-preserving recovery
+### S1 negative minimum
 
-1. Create a disposable fixture carrying named CLI/user sentinels, external suffix instructions, customized MCP list, permissions/custom hooks, and a valid same-project enabled intent.
-2. Simulate CLI overwrite only on documented shared provider files.
-3. Run recovery bounded to 60 seconds.
-4. Read persisted recovery status, settings structure, overlay markers, and hashes once.
+- malformed event array or unavailable later input: exit 2 and zero writes;
+- skill/agent/command/health collision and symlink: unchanged plus partial/exit 1;
+- interruption after an applied surface: retained truthful ledger/original and convergent retry;
+- provider backup present/missing/tampered: verified restore or explicit uncertainty;
+- settings-only legacy intent does not authorize Git; exact Git ownership/install proof required;
+- markerless suffix/custom heading refuses without backup or target write.
 
-Pass: complete status/exit 0 for recoverable fixture; every authorized surface restored exactly once; every external/CLI/user byte and semantic value preserved. Separate A2 negative fixtures assert failed/exit 2 with zero writes before apply, partial/exit 1 after injected failure, retained recovery material, missing-provider uncertainty, no Git activation from legacy settings intent, and convergent retry.
-Insufficient: exit code 0 or file presence without parsed/hash comparison.
+### S2 evidence minimum
 
-### S2 — no-op recovery
+For attempts 1, 2, and 3 record process ID/attempt ID, start/end UTC, command, exit, target inventory digest, per-path before/after hash+mtime, structured writes/copies, and diagnostics excluded from targets. `mirror-skills.sh --check` may be reported separately as read-only integrity only.
 
-1. Record hashes and mtimes after S1.
-2. Run the same recovery bounded to 60 seconds.
-3. Compare hashes, mtimes, copy count, and status.
+### S3 evidence minimum
 
-Pass: no target/manifest/backup/receipt/intent/Git-hook writes and no CLI/app validator execution. Separate new run diagnostics may be written and are identified outside the repair-target inventory.
-Insufficient: “0 drift” text while mtimes changed.
+Record the real fixture directory before cleanup, diagnosis commands/results, router and assessor output, performed action, actual created files, relay count, final lane, and validation result. Run negative mutation modes for extra relay, extra artifact, and skipped diagnosis; all must fail the fixture assertion.
 
-### S3 — consumer lane behavior
+## Performance evidence labels
 
-1. Route a small unknown-cause issue through bounded read-only diagnosis that resolves to a reversible, security-neutral fix.
-2. Evaluate fixtures for auth/permissions, data/schema, public contract, protected path, cross-cutting architecture, and release/deploy risk through A4's semantic assessor, including sensitive behavior in an ordinary source filename.
-3. Inspect mechanical matches, evidenced semantic declarations, final lane, and actual workflow artifact/decision/relay inventory. Invalid router input or unresolved assessment never implies Lightweight.
-
-Pass: ordinary fixture uses lightweight; every sensitive fixture uses Full with a named trigger.
-Insufficient: prose claim without structured route/artifact evidence.
-
-## Performance evidence
-
-| Measure | Required report |
+| Measure | Gate label |
 |---|---|
-| Mirror | baseline/new wall time, destinations copied, target/manifest mtimes |
-| Stop | 1/10/30 MiB wall time, transcript read count/bytes |
-| Startup | paired actual host-delivered context per same scenario/model/settings; per-host decrease required for verified coverage; character-only estimate or missing telemetry = UNVERIFIED host coverage, never PASS |
-| Workflow | tool calls, operator decisions, role relays, artifacts for representative ordinary/sensitive changes |
-| Validation | command identity, runs/duration, exact state binding, reuse/mismatch outcome |
+| Stop transcript | measured one-read behavior and wall-time distribution; no hard timing threshold |
+| Startup carriers | static character/byte estimate only unless actual same scenario/model/settings host telemetry exists |
+| Workflow | executed fixture counts; host token/tool telemetry UNAVAILABLE unless exposed |
+| Validation | complete identity, authority result, executions/duration, reuse/rerun outcome |
+| Mirror `--check` | read-only integrity; never a write count |
+| Recovery no-op | three independent write-mode attempts with bytes/mtimes/write/copy evidence |
+| CLI compatibility | UNVERIFIED until actual isolated install/update/recover comparison |
 
-No fixed timing threshold blocks the gate. Functional no-op conditions—zero copies/writes and one transcript read—do.
+## Residuals allowed at T21/T23
 
-## Adversarial review
+- five-provider actual host-delivered startup telemetry: UNVERIFIED;
+- three real-symlink controls on MSYS: UNVERIFIED until Linux/CI;
+- Windows validator-authority ACL/isolation: UNPROVEN; reuse unavailable there unless proved;
+- actual CLI install/update/recover comparison: UNVERIFIED;
+- UI/client behavior: N/A;
+- platform auth/session/permission problem-catalog item: none; domain N/A.
 
-After T10 evidence exists, GPT-6 Astra Medium reviews the entire diff and gate evidence for:
+## Gate completion rules
 
-- CLI/user ownership loss and incomplete recovery;
-- fail-open intent/config/marker parsing;
-- duplicate hooks or validation;
-- lost safety invariants during compaction;
-- lane misrouting on sensitive changes;
-- stale validation evidence;
-- false performance or window-specific claims.
-
-Any blocker returns to a new implementation task/commit and reruns affected checks plus T10.
-
-## Rollback
-
-Before publication, revert individual T-task commits in reverse dependency order with `git revert <sha>`. After any recovery slice revert, rerun S1 to verify prior known-good recovery. No database, app deployment, or remote rollback applies.
-
-## Cross-artifact gate
-
-- Every AC maps to a task and evidence row.
-- Every locked A-decision is cited by at least one task.
-- All Q-A..Q-F are resolved.
-- Every implementation task T1–T9 has one SHA; T10 has a report only; T11 is pending until review.
-- AC7 records host-by-host verified/UNVERIFIED coverage; any unavailable host remains an explicit residual risk, not a claimed measured improvement.
-- No TODO/FIXME/WIP in the ticket diff.
-- Spec remains DRAFT until T11.
-- CLI-owned byte/semantic comparison passes.
-- GPT-6 Astra final review has zero open blockers.
+- T11-T20 each have one exact SHA and passed focused checks.
+- T21 replaces the provisional T10 report and does not commit source.
+- Any failed-then-passed check is investigated and reproduced; no silent PASS.
+- Every B1-B8/N1-N2 row has direct evidence or remains open.
+- Spec remains DRAFT through T21.
+- T22 reviews the whole correction diff/evidence and reports zero blockers before T23.
+- T23 is the only final docs closeout commit; no deploy/publication command runs.

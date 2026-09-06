@@ -14,6 +14,7 @@
 | Q-D | Side effects | Migration/deploy authorized if needed; no data, schema, app, or deploy target exists in this ticket | operator authorization plus repository constitution |
 | Q-E | Decisions | Recommendations are approved for execution; use GPT-6 Astra Medium review and GPT-5.6 Sol xhigh implementation roles | explicit execution rules |
 | Q-F | Liveness | Poll delegated work proactively; retry transient API-limit failures on the same agent within the bounded envelope | explicit execution rules + FR-27 |
+| Q-G | Review disposition | GPT-6 Astra returned CHANGES REQUIRED with B1-B8 and N1-N2; prior T10 PASS is superseded, corrections and repeated review are authorized, and the spec stays DRAFT | operator corrective-planning instruction, 2026-09-06 |
 
 ## Unresolved
 

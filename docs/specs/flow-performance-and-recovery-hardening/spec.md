@@ -5,8 +5,9 @@
 **Created:** 2026-09-05
 **Change tier:** Full
 **Documentation tier:** 4
-**Linked decisions:** A1..A7
+**Linked decisions:** A1..A7, B1..B5
 **Source evidence:** `state/audit/adversarial-review-2026-09-05.md`
+**Correction basis:** `adversarial-review.md` - CHANGES REQUIRED on source `2217a9c631300e510b18437548ed4bccb5f31036`
 **Deploy hash:** N/A until completion
 
 ## Problem
@@ -35,17 +36,17 @@ The locked North Star makes low-friction ordinary work the primary product outco
 
 ## Acceptance criteria
 
-1. **AC1 — bounded overlay replacement:** refresh replaces exactly one valid Flow-owned marker block, preserves prefix, suffix, unrelated custom blocks, CRLF/Unicode, and FLOW:PRESERVE bytes, refuses ambiguous markers without writing, and is byte/mtime stable on the second run.
+1. **AC1 — bounded overlay replacement:** refresh replaces exactly one valid Flow-owned marker block, preserves prefix, suffix, unrelated custom blocks, CRLF/Unicode, and FLOW:PRESERVE bytes, and is byte/mtime stable on the second run. Markerless input is accepted only when both legacy boundaries are proven; an unrelated suffix/custom heading or any ambiguity refuses with exit 2 and zero writes.
 2. **AC2 — settings ownership:** recovery does not add/remove MCP servers, change permissions/custom settings, or source hook configuration from incidental staging trees; alternate configuration is accepted only through an explicit verified source with the complete Flow handler set.
-3. **AC3 — intent-aware restoration:** a valid enabled same-project hook-intent record restores previously enabled Flow hooks, including from a missing settings file where Flow can safely reconstruct its own settings; absent, revoked, malformed, foreign, or incomplete intent never enables integrations. Recovery follows the per-surface authorization and failure contract in A2; reports machine-readable complete, partial, or failed status after verification, with safe retry and retained recovery material.
-4. **AC4 — one owned hook:** every expected Flow event has exactly one recognized Flow handler after recovery; Stop detection searches all blocks, preserves CLI/consumer block order and timeouts, and converges on a byte-identical second run.
-5. **AC5 — no-op recovery and mirroring:** an unchanged canonical/mirror tree performs zero destination copies and leaves target/manifest mtimes unchanged; a one-file drift repairs only that file while preserving canonical inventory and manifest format. Whole recovery also leaves agent mirrors, settings, backups, receipts, intent records, and Git-hook targets unchanged on a second run; only explicitly separate diagnostic evidence may be newly written.
+3. **AC3 — intent-aware restoration:** a valid enabled same-project hook-intent record restores only its proven surfaces. Recovery prevalidates the complete target plan before mutation, retains an interruption/retry ledger and originals, and assigns exit 2/zero writes to invalid input, exit 1 to partial/uncertain recovery, and exit 0 only after authoritative parsed/hash verification. Missing provider bytes require a verified backup restore or explicit uncertainty; Git restoration requires per-surface intent plus verified installed-hook ownership.
+4. **AC4 — one exactly owned hook:** every expected Flow event has exactly one exact recognized Flow handler in a dedicated Flow-owned block after recovery. Substring lookalikes and mixed custom blocks are not Flow-owned; custom block order, matchers, timeouts, commands, and scope remain unchanged. Stop detection searches all blocks and convergence is byte-identical.
+5. **AC5 — ownership-safe no-op recovery and mirroring:** each skill, agent, command, health-skill, settings, and Git-hook target is classified before write. Unowned collisions and symlinks remain untouched and yield partial/exit 1; owned repair retains the original and replaces atomically. Three independent write-mode no-op recoveries perform zero target copies/writes and preserve target/manifest bytes and mtimes; `--check` is labeled read-only integrity only.
 6. **AC6 — single transcript read:** an ordinary native Stop event reads its transcript once while retaining final-assistant-only claim matching, whole-transcript signal detection, corrupt-transcript fail-closed behavior, and existing fixture verdicts.
 7. **AC7 — smaller consumer context:** one authoritative always-on safety/ownership core and short role deltas replace duplicated startup prose across AGENTS/FLOW_RULES/mandatory skills/provider adapters. Measured host-delivered startup context decreases on measured supported hosts without changing deterministic safety behavior. Each host records identical scenario/model/settings and baseline/new input measurement; character-only estimates are labeled UNVERIFIED host coverage, never an AC7 pass for that host.
-8. **AC8 — lightweight ordinary default:** ordinary diagnosis may run read-only before lane selection; objective auth/data/schema/permissions/public-contract/release-risk triggers escalate to Full. Ordinary low-risk changes need one product decision and no forced cross-session role relay; all carriers agree. The path router supplies mechanical matches only; the semantic assessor and workflow evidence owner follow A4, including sensitive changes in otherwise ordinary source paths.
-9. **AC9 — validation responsibility:** CLI-owned lint/typecheck Stop hooks remain untouched. The actual Flow pre-commit invocation boundary reuses only authentic successful exact-state validator evidence under A6; Flow instructions follow the same contract; consumer recovery runs focused ownership/wiring/hash checks. Missing or mismatched evidence reruns, and secret/protected-path/release checks always remain live.
-10. **AC10 — honest measurement:** ceremony reports separate historical artifacts from the requested Git window and correlate claims only when task/commit linkage exists. Benchmarks record wall time, actual tokens when available, tool calls, operator decisions, validator runs/duration, and no-op writes without hard performance gates.
-11. **AC11 — CLI-safe recovery proof:** disposable recovery tests compare CLI-owned bytes and semantics before/after repair, restore every previously enabled Flow surface, reject unowned overwrite, and repeat to a no-op. The installed CLI channel is exercised only in an isolated project with a bounded command; inability to run it is reported as an explicit residual risk, never a false pass.
+8. **AC8 — lightweight ordinary default:** ordinary diagnosis may run read-only before lane selection; objective auth/data/schema/permissions/public-contract/release-risk triggers escalate to Full. The workflow fixture performs and records real diagnosis/actions/artifact writes; counts derive from observed files/actions, and mutation proves an extra relay, extra artifact, or skipped diagnosis fails. A simulation is labeled as such and cannot verify AC8.
+9. **AC9 — validation responsibility:** CLI-owned lint/typecheck Stop hooks remain untouched. Reuse requires a complete validator-visible identity, including ignored declared inputs/dependencies, symlink targets, all validator-affecting environment, and every executable/toolchain layer. The trusted runner owns child execution and signing; direct mint/substituted runner fails. Completeness or external authority unavailable means reuse unavailable and validators rerun. Fixtures are portable without mandatory `cygpath` and execute on Linux where available.
+10. **AC10 — honest measurement:** window conclusions require outcome- and task-specific linkage; a cosmetic current edit, generic SHA mention, or mixed historical/current report cannot promote an old outcome. Benchmarks label `--check` read-only integrity and use repeated write-mode evidence for writes/mtimes. Workflow counts come from executed actions; unavailable tokens/tool telemetry remain explicit.
+11. **AC11 — CLI-safe recovery proof:** disposable recovery tests compare CLI-owned bytes and semantics before/after repair, restore every proven prior Flow surface, reject unowned overwrite, and repeat to a no-op. Actual install/update/recover comparison is required for verified current-CLI coverage; an update-only probe remains UNVERIFIED. Inability to run it is an explicit residual risk.
 12. **AC12 — recovery-source convergence:** canonical Flow skills are the normal mirror source; the health-check recovery snapshot is fallback-only when canonical content is absent and may never supersede present canonical content. Provider mirrors and manifests finish at zero drift.
 
 ## Constitution invariants verified
@@ -83,6 +84,7 @@ The locked North Star makes low-friction ordinary work the primary product outco
 | Q-D | Migrations and deploy authorized if needed; neither applies to this framework-only ticket | 2026-09-05 |
 | Q-E | All recommended decisions and end-to-end sub-agent execution authorized | 2026-09-05 |
 | Q-F | Proactive delegated-work polling and bounded same-agent retry | 2026-09-05 |
+| Q-G | Astra verdict CHANGES REQUIRED; execute B1-B8 and N1-N2 before a repeated independent review; prior gate PASS is superseded | 2026-09-06 |
 
 ## Related
 
@@ -91,3 +93,4 @@ The locked North Star makes low-friction ordinary work the primary product outco
 - `docs/specs/flow-performance-and-recovery-hardening/decisions.md`
 - `docs/specs/flow-performance-and-recovery-hardening/tasks.md`
 - `docs/specs/flow-performance-and-recovery-hardening/verification-gate.md`
+- `docs/specs/flow-performance-and-recovery-hardening/adversarial-review.md`

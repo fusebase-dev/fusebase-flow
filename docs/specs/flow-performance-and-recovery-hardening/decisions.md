@@ -119,3 +119,63 @@ T6 aligns role references and all behavioral carriers before T7 compaction; file
 |---|---|
 | Treat all artifacts as part of `--window N` | current behavior cites evidence outside the requested window |
 | Remove historical evidence | loses useful low-frequency safety counterexamples |
+
+## B1 — Validator reuse fails closed on identity or authority incompleteness
+
+**Lock status:** LOCKED by corrective instruction, 2026-09-06
+
+**Decision:** Reuse is available only when the trusted runner owns validator child execution and receipt signing and can prove the complete validator-visible state: declared ignored inputs/dependencies, followed symlink targets, every validator-affecting environment value, commands, wrappers, interpreters, package runners, and toolchain binaries. Remove public success minting. A direct mint, substituted runner, failed/skipped validator, incomplete identity, concurrent mutation, or unproved external authority disables reuse and runs validators normally.
+
+| Alternative | Rejected because |
+|---|---|
+| Add the four missing hashes to the current begin/finish API | public finish still signs success without proving validator execution |
+| Treat same-user key storage as independent authority | the invoking user can call the signer directly; Windows ACL authority is unproven |
+| Keep reuse on partial identity with a warning | stale validation can bless a different dependency/input/toolchain state |
+
+## B2 — Recovery is ownership-classified, planned before writes, and verified after apply
+
+**Lock status:** LOCKED by corrective instruction, 2026-09-06
+
+**Decision:** Build the complete recovery plan before target writes. Each destination is classified `current`, `missing-and-authorized`, `owned-repair`, `unowned-collision`, or `unsafe` (including symlinks). Preserve collisions as partial, retain originals for owned repairs, and use atomic per-file replacement. Persist plan/applied/verified/pending state without resetting an interrupted run. Exit 2 means invalid plan and zero target writes; exit 1 means partial/uncertain end state; exit 0 requires a fresh parsed/hash verification of every authorized surface.
+
+Provider restoration requires verified original bytes or an explicit partial uncertainty. Git-hook restoration requires per-surface intent plus exact installed Flow ownership; command output text is not proof.
+
+| Alternative | Rejected because |
+|---|---|
+| Continue best-effort sequential writes and summarize warnings | later invalid input can leave earlier mutations and status can outrun reality |
+| Overwrite any path whose name matches a Flow asset | path name does not prove ownership and loses user/CLI content |
+| Claim transaction-wide atomicity | the implementation can guarantee atomic replacement per file, not one atomic multi-file commit |
+
+## B3 — Hook ownership is exact and Flow scope is isolated
+
+**Lock status:** LOCKED by corrective instruction, 2026-09-06
+
+**Decision:** Recognize only exact canonical/current legacy Flow commands for the expected event. Move an exact Flow command out of a mixed custom block into a dedicated Flow block before applying Flow matcher changes. Preserve custom command order, matcher, timeout, and scope byte/semantically; substring lookalikes are unowned. Deduplication produces one dedicated exact Flow block with the full Flow matcher even when the first duplicate was restrictive.
+
+| Alternative | Rejected because |
+|---|---|
+| Treat any `hooks/handlers/` path as Flow-owned | custom paths and arguments can match the substring |
+| Widen the first block containing a Flow command | a mixed block silently widens every custom command in that block |
+
+## B4 — Markerless overlays require a proven end boundary
+
+**Lock status:** LOCKED by corrective instruction, 2026-09-06
+
+**Decision:** Marker-wrapped overlays remain the normal owned span. Markerless migration is allowed only for a fully recognized legacy layout with a proven terminal boundary. A suffix, custom heading, unrecognized section, duplicate boundary, or any ambiguity returns exit 2 with zero target/backup writes.
+
+| Alternative | Rejected because |
+|---|---|
+| Keep heading-to-EOF ownership | unrelated instructions after the legacy overlay are deleted |
+| Guess the boundary from Markdown heading level alone | consumer headings are not ownership markers |
+
+## B5 — Evidence linkage and performance claims derive from executed outcomes
+
+**Lock status:** LOCKED by corrective instruction, 2026-09-06
+
+**Decision:** A window conclusion needs structured outcome/task/commit linkage; file recency or an arbitrary SHA mention cannot promote the whole artifact. Mixed reports partition conclusions individually. Workflow evidence counts actual actions and created artifacts, with mutation controls for extra relay/artifact and skipped diagnosis. No-op write claims require three independent write-mode recoveries with byte/mtime/write evidence; `--check` is read-only integrity evidence only.
+
+| Alternative | Rejected because |
+|---|---|
+| Link the whole file by its latest commit or any SHA in its body | a cosmetic footer or unrelated reference promotes historical outcomes |
+| Count fixture constants as workflow outcomes | the test verifies its own assignments rather than the workflow |
+| Infer zero writes from `--check` | the command performs no writes by design |

@@ -1,134 +1,204 @@
-# Tasks — flow-performance-and-recovery-hardening
+# Tasks - flow-performance-and-recovery-hardening
 
-**T-counter going in:** T0
-**Task range:** T1..T11
-**Gate task:** T10
-**Closeout task:** T11
+**T-counter going in:** T11
+**Historical implementation:** T1-T10 complete provisionally; T10 gate superseded by Astra CHANGES REQUIRED
+**Corrective implementation:** T11-T20, one commit each
+**Final technical gate:** T21, report-only
+**Repeated adversarial review:** T22, report-only
+**Closeout:** T23, docs-only; former T11 moved without reuse
+**Starting source:** `2217a9c631300e510b18437548ed4bccb5f31036`
 **Linked spec:** `docs/specs/flow-performance-and-recovery-hardening/spec.md`
-**Linked decisions:** `docs/specs/flow-performance-and-recovery-hardening/decisions.md`
+**Linked decisions:** A1-A7, B1-B5
+**Review owner:** `docs/specs/flow-performance-and-recovery-hardening/adversarial-review.md`
 
-## Task chain
+## Historical implementation ledger
 
-| T# | Slice | Scope | Decision | Depends on | SHA | Status |
-|---|---|---|---|---|---|---|
-| T1 | S1 | exact Flow overlay replacement | A1, A2 | — | — | pending |
-| T2 | S2 | settings ownership, trusted config, hook uniqueness | A1, A3 | T1 | — | pending |
-| T3 | S3 | prior-intent restoration and recovery verdict | A2, A3 | T2 | — | pending |
-| T4 | S4 | no-op mirrors and canonical recovery source | A1, A6 | T3 | — | pending |
-| T5 | S5 | one-read Stop transcript processing | A6 | T2 | — | pending |
-| T6 | S6 | lightweight diagnosis-first consumer flow | A4 | T3 | — | pending |
-| T7 | S7 | compact startup carriers and role deltas | A5 | T6 | — | pending |
-| T8 | S8 | validation responsibility and focused recovery checks | A6 | T4, T7 | — | pending |
-| T9 | S9 | window-honest measurement and benchmark record | A7 | T8 | — | pending |
-| T10 | S10 | integrated verification gate; no commit | A1..A7 | T1..T9 | — | pending |
-| T11 | S10 | post-review closeout docs commit; no production deploy | A1..A7 | T10 + adversarial review | — | pending |
+| T# | Scope | SHA/status |
+|---|---|---|
+| T1 | overlay replacement | `c158b451f52c89190b6be745b4340f4cbf3a75ea`; provisional evidence superseded by B6 |
+| T2 | settings ownership/uniqueness | `5bf89f8b0cf9bc2519f3693702372f708cfbbe7e`; provisional evidence superseded by B4-B5 |
+| T3 | intent restoration/recovery verdict | `0829d169d1ddb4a39472f1836260def04e5ae4b8`; provisional evidence superseded by B3-B4 |
+| T4 | mirror/recovery no-op | `1b44a95dd794bc6384d85eadeb0dc95dca5e05df`; provisional evidence superseded by B3/N2 |
+| T5 | one-read Stop | `598c6670195bf2d0e95ee90abcc8a1ad23f0547f`; retained, subject to T21 regression |
+| T6 | diagnosis-first lightweight flow | `0db37fc1f436e6cdbf90dd8da991e1edfa459c39`; provisional evidence superseded by B7 |
+| T7 | startup compaction | `7ab052af5a372017ad997b0e2749033bed4f025f`; host telemetry remains UNVERIFIED |
+| T8 | validator evidence | `b581d71f6a953cae5d2bf77d90fb6384a7a2dcf6`; provisional evidence superseded by B1-B2/N1 |
+| T9 | temporal evidence/benchmark | `ff941eafb1618bd061ce4ee8a6dd660304f02153`; provisional evidence superseded by B8/N2 |
+| T10 | integrated gate plus fix-forward | `b42a2038d9c50308d894418318561b4ae88f3904`, `e300953de504633a03c071514b1ca17babad7830`, final source `2217a9c631300e510b18437548ed4bccb5f31036`; gate superseded |
 
-## T1 — Replace only the owned Flow overlay block
+## Corrective chain
 
-**Files:** `hooks/local/post-fusebase-update.sh`, `hooks/tests/cli-flow-recovery-direct.sh`, recovery fixture helpers only if required.
-**Work:** validate exactly one non-nested BEGIN/END pair associated with the Flow heading; preserve prefix/suffix and FLOW:PRESERVE bytes; reject ambiguity before writes; atomic per-file replacement under A2, retaining original recovery material.
-**Acceptance:** AC1.
-**Tests:** suffix/custom-block/CRLF/Unicode/preserve/duplicate/nested/unbalanced/second-no-op; failed atomic replacement preserves destination and recovery material.
-**Module-size:** all targets are under the 800-line ceiling at plan time; keep span parsing in a named helper if growth would cross it.
-**Worker-undisturbed:** CLI-owned provider assets and `.claude/hooks/**` unchanged.
-**Commit:** one T1 commit.
+| T# | Slice | Review | Decision | Depends on | Commit/status |
+|---|---|---|---|---|---|
+| T11 | complete validator-visible identity and portable fixture | B1, N1 | A6, B1 | T10 | pending |
+| T12 | trusted validator execution/signing boundary | B2 | A6, B1 | T11 | pending |
+| T13 | ownership-safe atomic mirror/command/health writes | B3 | A1-A3, B2 | T10 | pending |
+| T14 | whole-plan recovery preflight and durable progress | B4 | A2-A3, B2 | T13 | pending |
+| T15 | authoritative recovery verification and provider/Git proof | B4 | A2-A3, B2 | T14 | pending |
+| T16 | exact Flow hook recognition and isolated matcher scope | B5 | A1-A4, B3 | T15 | pending |
+| T17 | bounded markerless overlay migration | B6 | A1, B4 | T14 | pending |
+| T18 | executed lane workflow and mutation-resistant evidence | B7 | A4, B5 | T16-T17 | pending |
+| T19 | outcome/task-specific temporal linkage | B8 | A7, B5 | T18 | pending |
+| T20 | repeated write-mode no-op benchmark and claim correction | N2, B7 | A6-A7, B5 | T15, T18-T19 | pending |
+| T21 | final technical gate/report | B1-B8, N1-N2 | A1-A7, B1-B5 | T11-T20 | report-only |
+| T22 | repeated GPT-6 Astra whole-implementation review | all | all | T21 | review-only |
+| T23 | final docs closeout | all | all | T22 zero blockers | docs-only pending |
 
-## T2 — Make settings recovery ownership-safe and unique
+## T11 - Complete validator-visible identity and portable fixture
 
-**Files:** `hooks/local/fusebase-flow-overlays/settings-json-merge.py`, `hooks/tests/test-wire-hooks-add-beside.sh`, `hooks/tests/cli-flow-recovery-direct.sh`, focused settings-merge fixture/test owner.
-**Work:** remove MCP mutation; use installed complete Flow hook configuration; ignore incidental staging; verify exact recognized commands; search every Stop block before adding.
-**Acceptance:** AC2, AC4.
-**Tests:** empty/missing/custom MCP lists; permissions/custom settings; Stop positions/order/timeouts; stale/partial/malicious staging; complete handler/matcher set; idempotence.
-**Module-size:** merger is 468 lines; extract trusted configuration validation to `hooks/local/fusebase-flow-overlays/flow-hook-config.py` if needed rather than growing toward the ceiling.
-**Worker-undisturbed:** `.claude/hooks/**`, `.mcp.json`, `fusebase.json`, CLI skills/agents unchanged.
-**Commit:** one T2 commit.
+**Files:** `hooks/local/lib/validator-evidence.py`; `hooks/tests/test-validator-evidence.sh`.
+**Work:** include declared ignored validator inputs/dependencies, followed symlink target identity, arbitrary validator-affecting environment supplied by the trusted runner, and every executable/interpreter/wrapper/package-runner layer. Ambiguous/unreadable identity returns reuse unavailable. Make path conversion conditional; no mandatory `cygpath`.
+**Acceptance:** AC9; B1; N1.
+**Tests:** existing state mutations plus ignored dependency, ignored input, symlink target without link-text change, custom environment key, interpreter/wrapper/nested toolchain change, unreadable target, Linux-native path execution when available.
+**Commands:** `bash hooks/tests/test-validator-evidence.sh`; Linux/CI same command for real-symlink and no-`cygpath` coverage.
+**Module size:** `validator-evidence.py` is 325 and the shell test is 256 lines. Both remain <=800; extract a named identity concern before either crosses the ceiling. No exemption.
+**Worker-undisturbed:** `.claude/hooks/run-lint-on-stop.sh`, `.claude/hooks/run-typecheck-on-stop.sh`, `.claude/hooks/quality-check-apps.js`, provider assets, settings, and Git-hook destinations remain byte-identical.
+**Commit:** one `T11` commit; stage exact files only.
 
-## T3 — Restore valid prior hook intent
+## T12 - Make the trusted runner own execution and signing
 
-**Files:** `hooks/local/post-fusebase-update.sh`, `hooks/local/lib/hook-wiring-intent.sh`, `hooks/tests/test-hook-wiring-intent.sh`, recovery E2E/classification fixtures.
-**Work:** implement A2 surface matrix, schema-1 compatibility, whole-plan prevalidation, atomic per-file apply, durable interrupted/partial inventory and verified status/exit contract; parse settings event/command/matcher structure. Do not infer Git-hook authorization from settings intent.
-**Acceptance:** AC3, AC11.
-**Tests:** enabled/absent/revoked/malformed/foreign/empty-root intent; missing/partial settings; missing AGENTS/CLAUDE with/without recoverable originals; settings-only legacy intent and absent/custom Git hooks; unowned collisions; unavailable source/malformed later target produces zero writes; mid-apply failure/interruption persists partial inventory and backups; safe retry and exact CLI/user preservation; structured exit/status.
-**Module-size:** post-update script is 545 lines; extract recovery-plan/verification responsibility into `hooks/local/lib/flow-recovery-plan.sh`; caller and helper each remain below 800.
-**Worker-undisturbed:** CLI-owned bytes are named fixture sentinels and must remain identical.
-**Commit:** one T3 commit.
+**Files:** `hooks/local/run-validators.sh`; `hooks/local/lib/validator-evidence.py`; new `hooks/local/lib/validator-runner.py`; `hooks/git/pre-commit`; new `hooks/local/lib/precommit-validator-reuse.sh`; `hooks/tests/test-validator-evidence.sh`; `hooks/tests/test-validation-instructions.sh`.
+**Work:** remove public `begin`/`finish` success minting. The trusted runner launches validators, observes each required zero exit, rechecks identity, and alone requests signing. Bind evidence to runner/tool identity. A substituted runner, direct signer call, missing validator, or unproved authority cannot mint/reuse. Hosts without independently proved authority rerun at pre-commit. Extract the pre-commit reuse seam because the hook is already 800 lines.
+**Acceptance:** AC9; B2; B1 authority fallback.
+**Tests:** direct begin/finish rejected; direct mint rejected; substituted runner rejected; lint/typecheck skip/failure never signs; matching trusted run reuses only when authority is proved; unavailable authority reruns; replay/edit/concurrency/live secret/protected/release checks remain fail-closed.
+**Commands:** `bash hooks/tests/test-validator-evidence.sh`; `bash hooks/tests/test-validation-instructions.sh`.
+**Module size:** `hooks/git/pre-commit` is 800 lines and must shrink through `precommit-validator-reuse.sh`; all new helpers stay <=800. No baseline increase/exemption.
+**Worker-undisturbed:** CLI Stop validators and CLI provider assets byte-identical; protected `hooks/git/pre-commit` requires exact staged digest-bound approval.
+**Commit:** one `T12` commit; stage exact files and approval artifact only as required, then consume approval.
 
-## T4 — Eliminate unchanged mirror writes and duplicate health-skill source
+## T13 - Preserve unowned recovery targets and atomically repair owned targets
 
-**Files:** `hooks/local/mirror-skills.sh`, `hooks/local/mirror-agents.sh`, `hooks/local/post-fusebase-update.sh`, `hooks/tests/cli-flow-recovery-direct.sh`, mirror tests/manifest fixtures.
-**Work:** use populated hash cache without per-file command substitution; skip identical skill/agent copies and manifests; make canonical health skill normal source and ownership-verified snapshot fallback-only. Apply A6 no-op scope to every recovery target, including settings backups/receipts/intent and Git hooks.
-**Acceptance:** AC5, AC12.
-**Tests:** full-corpus skill/agent zero-copy/mtime no-op; one-file repair; whole recovery target inventory unchanged on second run; missing canonical fallback; divergent snapshot cannot supersede canonical; manifest/mirror drift zero. Count diagnostics separately.
-**Module-size:** targets under ceiling; keep fallback policy in the recovery-plan helper from T3.
-**Worker-undisturbed:** CLI provider skills with colliding/similar names unchanged.
-**Commit:** one T4 commit.
+**Files:** new `hooks/local/lib/recovery-owned-write.py`; `hooks/local/mirror-skills.sh`; `hooks/local/mirror-agents.sh`; `hooks/local/post-fusebase-update.sh`; `hooks/tests/cli-flow-recovery-direct.sh`; `hooks/tests/cli-flow-recovery-e2e.sh`.
+**Work:** classify skill, agent, command, and health-skill targets before write. `current` is no-op; `missing-and-authorized` and proven `owned-repair` use atomic replacement; owned repair retains original bytes; unowned collision, directory/type mismatch, and symlink remain untouched and yield partial/exit 1. Preserve manifest consistency without claiming the collision is mirrored.
+**Acceptance:** AC5, AC11, AC12; B3.
+**Tests:** owned/current/unowned skill; agent; command; health target; symlink destination and symlink target; injected interruption before replace and after retained original; retry convergence; no unowned byte/mtime change.
+**Commands:** `bash hooks/tests/cli-flow-recovery-direct.sh`; `bash hooks/tests/cli-flow-recovery-e2e.sh`.
+**Module size:** current sources: mirror skills 268, agents 123, recovery 599 lines. Centralize ownership/atomic logic in the named helper; every gated source remains <=800.
+**Worker-undisturbed:** CLI skills/app agents, `.claude/hooks/**`, MCP/config, consumer settings, and unowned collisions are zero-write boundaries.
+**Commit:** one `T13` commit; stage exact files only.
 
-## T5 — Reuse one Stop transcript read
+## T14 - Prevalidate the complete recovery plan and retain truthful progress
 
-**Files:** `hooks/handlers/stop.py`, focused Stop test owner, `hooks/tests/fixtures/18_*.jsonl` through `21_*.jsonl` only if fixture changes are necessary.
-**Work:** read raw transcript once; pass it into final-assistant extraction and signal scanning; keep agent_message handling separate.
-**Acceptance:** AC6.
-**Tests:** existing Stop fixtures plus read-count assertion and 1/10/30 MiB benchmark record.
-**Module-size:** handler is 339 lines; no extraction required unless responsibility clarity improves.
-**Worker-undisturbed:** `hooks/handlers/**` is protected; use the operator-authorized, digest-bound bootstrap approval at commit.
-**Commit:** one T5 commit.
+**Files:** `hooks/local/post-fusebase-update.sh`; `hooks/local/lib/flow-recovery-plan.sh`; new `hooks/local/lib/recovery-preflight.py`; `hooks/local/fusebase-flow-overlays/settings-json-merge.py`; `hooks/tests/cli-flow-recovery-direct.sh`; `hooks/tests/cli-flow-recovery-e2e.sh`.
+**Work:** enumerate every authorized target and source before target mutation; validate sources, ownership classifications, marker spans, settings hook/event arrays, provider states, intent schema, and Git prerequisites. Persist plan identity plus applied/verified/pending surfaces; resume/reconcile an interrupted record instead of resetting it. Keep diagnostics separate from target writes.
+**Acceptance:** AC2, AC3, AC5, AC11; B4 preflight/progress.
+**Tests:** malformed early/later event arrays, unavailable later source, invalid overlay, ownership conflict, missing interpreter/provider, and stale in-progress record. Invalid plan exits 2 with zero target/backup/receipt/intent/Git writes; injected interruption exits 1 with retained accurate applied/pending inventory; retry reconciles rather than erases history.
+**Commands:** `bash hooks/tests/cli-flow-recovery-direct.sh`; `bash hooks/tests/cli-flow-recovery-e2e.sh`.
+**Module size:** recovery is 599 and settings merge 492 lines. Put plan construction/validation in `recovery-preflight.py`; do not grow recovery past 800.
+**Worker-undisturbed:** same zero-write boundaries as T13; status evidence may change only after plan validation and must not be counted as a repair target.
+**Commit:** one `T14` commit; stage exact files only.
 
-## T6 — Make ordinary work diagnosis-first and lightweight by default
+## T15 - Verify every recovered surface authoritatively
 
-**Files:** `FLOW_RULES.md`, `flow-skills/lightweight-lane/SKILL.md`, `flow-skills/documentation-budget/SKILL.md`, `flow-skills/requirements-specification/SKILL.md`, `workflows/eight-phase-flow.md`, `workflows/lightweight-lane.md`, `agents/ai-developer/AGENT.md`, `flow-skills/role-discipline/references/ai-developer.md`, affected shared/PO role protocols, `hooks/local/lane-router.sh`, `hooks/tests/test-lane-router.sh`, affected mirrors.
-**Work:** replace doubt/unknown-cause escalation with bounded read-only diagnosis before classification; define objective Full triggers; ordinary low-risk tasks use one product decision and one-pass implementation; retain release authorization and safety floor.
-**Acceptance:** AC8.
-**Tests:** router path/input-error/structured-output unit cases plus distinct workflow fixture runner per A4; ordinary diagnosis→lightweight fix; each sensitive trigger→Full including auth/public-contract logic in ordinary source filenames; unresolved assessment never safe; artifact/decision/relay inventory; carrier consistency search. Name and register the focused workflow test in the existing test registry.
-**Module-size:** shell/Python sources remain under ceiling; markdown carriers are documentation, not gated source.
-**Worker-undisturbed:** only Flow canonical/mirrors change; CLI provider assets unchanged.
-**Commit:** one T6 commit.
+**Files:** `hooks/local/post-fusebase-update.sh`; `hooks/local/lib/flow-recovery-plan.sh`; new `hooks/local/lib/recovery-verify.py`; `hooks/local/lib/hook-wiring-intent.sh`; `hooks/local/install-git-hooks.sh`; `hooks/tests/cli-flow-recovery-direct.sh`; `hooks/tests/cli-flow-recovery-e2e.sh`; `hooks/tests/test-hook-wiring-intent.sh`.
+**Work:** parse/hash the final state against the prevalidated plan before status complete. Provider overlay restoration uses verified retained original bytes or records uncertainty; no base synthesis. Git hooks require exact per-surface intent, exact Flow ownership marker/content, executable state, and installed-destination verification. Do not infer success from installer output. Status inventory records verified vs pending/uncertain surfaces.
+**Acceptance:** AC3, AC4, AC11; B4 final verification/provider/Git proof.
+**Tests:** missing provider with verified backup; missing provider without backup; tampered backup; stale/missing/custom/non-executable Git hooks; settings-only schema-1 intent; false installer text; post-apply tamper; verified complete exit 0; each uncertainty partial exit 1; final mismatch never complete.
+**Commands:** `bash hooks/tests/cli-flow-recovery-direct.sh`; `bash hooks/tests/cli-flow-recovery-e2e.sh`; `bash hooks/tests/test-hook-wiring-intent.sh`.
+**Module size:** keep final verification in `recovery-verify.py`; recovery caller and all helpers <=800. No exemption.
+**Worker-undisturbed:** unproven provider/Git content remains untouched; custom Git hooks retained; CLI paths and consumer config unchanged.
+**Commit:** one `T15` commit; exact staging; protected installed-hook source edits require digest-bound approval where policy matches.
 
-## T7 — Compact mandatory startup context
+## T16 - Recognize exact Flow hooks and isolate matcher scope
 
-**Files:** `AGENTS.md`, `hooks/local/fusebase-flow-overlays/agents-md-overlay.md`, `CLAUDE.md`/overlay source if it duplicates protocol bodies, `FLOW_RULES.md`, `flow-skills/communication/SKILL.md`, `flow-skills/role-discipline/SKILL.md`, role reference deltas, `agents/ai-developer/AGENT.md`, `agents/product-owner/AGENT.md`, provider mirrors, instruction/overlay tests.
-**Work:** establish one authoritative core, retain all prohibitions and mixed-fleet bootstrap behavior, move procedure detail to on-demand references, generate/pointer provider adapters, preserve FLOW:PRESERVE values.
-**Acceptance:** AC7, AC12.
-**Tests:** semantic invariant inventory across old/new carriers; required-path bootstrap on supported providers; overlay recovery; paired host-delivered-context measurements with identical scenario/model/settings. Per-host character estimates remain UNVERIFIED, with missing telemetry reason; report verified and unverified coverage separately.
-**Module-size:** documentation/provider files are exempt; scripts touched for generation remain below ceiling.
-**Worker-undisturbed:** CLI base instructions outside the exact Flow overlay and CLI provider assets unchanged.
-**Commit:** one T7 commit.
+**Files:** `hooks/local/fusebase-flow-overlays/settings-json-merge.py`; `hooks/local/lib/hook-wiring-intent.sh`; `hooks/tests/test-wire-hooks-add-beside.sh`; `hooks/tests/test-hook-wiring-intent.sh`; `hooks/tests/cli-flow-recovery-direct.sh`.
+**Work:** replace substring ownership with exact event-specific command parsing. Isolate an exact Flow command from mixed blocks before applying Flow matcher/timeout. Preserve custom block/command order, matcher, timeout, and scope. Deduplicate to one dedicated Flow block with full required matcher, independent of which duplicate appears first.
+**Acceptance:** AC4; B5; B3.
+**Tests:** exact current/legacy command; substring lookalike; added flags/custom path; mixed Flow/custom block; restrictive first duplicate plus full later duplicate; Stop handler outside first block; malformed structures remain preflight failures; second run byte-identical.
+**Commands:** `bash hooks/tests/test-wire-hooks-add-beside.sh`; `bash hooks/tests/test-hook-wiring-intent.sh`; focused recovery direct test.
+**Module size:** settings merge is 492 and intent library 266 lines; extract exact command parsing to a named helper if either approaches 800. No exemption.
+**Worker-undisturbed:** CLI Stop chain order/timeouts, consumer matchers/commands, settings outside exact Flow entries, and CLI hooks unchanged.
+**Commit:** one `T16` commit; stage exact files only.
 
-## T8 — Assign validation once per exact state
+## T17 - Bound or refuse markerless overlay migration
 
-**Files:** `hooks/git/pre-commit`, new `hooks/local/lib/validator-evidence.py`, trusted validator-runner entry point, focused validator-evidence tests, `hooks/local/post-fusebase-update.sh`, `templates/handoff-implement.md`, `workflows/greenlight-implement.md`, `flow-skills/validation-and-qa/SKILL.md`, focused recovery-hint/instruction tests; do not edit CLI Stop validators.
-**Work:** implement A6 authenticated exact-state reuse at actual pre-commit lint/typecheck invocation; extract identity/receipt validation from the 799-line hook. Keep fail-closed rerun when host authenticity is unavailable. Replace consumer recovery full-suite advice with focused checks and align instructions with runtime behavior.
-**Acceptance:** AC9.
-**Tests:** invoke actual pre-commit boundary with counted validators: authentic matching success skips once permitted; missing/failed/forged/edited/replayed receipt reruns; source/staged/unstaged/untracked/config/dependency/environment/command/toolchain mismatch and concurrent mutation rerun. Assert secret/protected/release checks still execute on reuse; CLI validators unchanged; recovery advice excludes full maintainer suite.
-**Module-size:** pre-commit is 799 lines: extract validator invocation/evidence responsibility before adding behavior; pre-commit and named helpers stay ≤800. No exemption/baseline increase.
-**Worker-undisturbed:** `hooks/git/**` requires exact staged digest-bound approval; `.claude/hooks/run-lint-on-stop.sh`, `.claude/hooks/run-typecheck-on-stop.sh`, `.claude/hooks/quality-check-apps.js` byte-identical.
-**Commit:** one T8 commit.
+**Files:** `hooks/local/fusebase-flow-overlays/overlay-block-replace.py`; `hooks/tests/cli-flow-recovery-direct.sh`.
+**Work:** replace markerless heading-to-EOF ownership with a proven legacy terminal boundary. Refuse unknown/custom suffix structure before backup or target write. Preserve marker-wrapped behavior, CRLF/Unicode, and FLOW:PRESERVE bytes.
+**Acceptance:** AC1; B6; B4 zero-write invalid plan.
+**Tests:** recognized bounded legacy layout; unrelated text suffix; custom heading suffix; extra same/lower-level section; duplicate/absent legacy footer; marker-wrapped prefix/suffix; refusal exit 2 with target and backup absent/unchanged; second run no-op.
+**Commands:** focused overlay section in `bash hooks/tests/cli-flow-recovery-direct.sh`.
+**Module size:** helper is 226 lines and test owner 432 lines; remain <=800 or extract an overlay fixture module by responsibility. No exemption.
+**Worker-undisturbed:** bytes outside the proven owned span and all CLI/provider content remain identical.
+**Commit:** one `T17` commit; stage exact files only.
 
-## T9 — Make ceremony evidence window-honest and benchmark consumers
+## T18 - Execute lane fixture actions and derive evidence from results
 
-**Files:** `hooks/local/find-wasted-effort.py`, `hooks/local/find_wasted_effort/evidence.py`, rule/report/fixture modules, `state/audit/` benchmark outputs (gitignored; evidence only).
-**Work:** separate historical artifact evidence from commit-window-linked evidence; require linkage for window-specific conclusions; record representative ordinary change/recovery measurements with missing-metric labels.
-**Acceptance:** AC10, AC11.
-**Tests:** old artifact outside window; linked/unlinked artifacts; approval history; false-positive preservation; isolated current CLI refresh attempt bounded and recorded.
-**Module-size:** `evidence.py` must stay under ceiling or extract temporal correlation into `hooks/local/find_wasted_effort/windowing.py`.
-**Worker-undisturbed:** CLI/current workspace remains unchanged; actual CLI refresh runs only in a disposable validated directory.
-**Commit:** one T9 commit; do not commit gitignored benchmark output.
+**Files:** `hooks/tests/lane-workflow-fixture.py`; `hooks/tests/test-lane-workflow.sh`; `hooks/tests/benchmark-flow-consumers.py`; `hooks/tests/test-flow-consumer-benchmark.sh`.
+**Work:** run each scenario in a disposable fixture, perform a bounded read-only diagnosis, invoke router/assessor, create the actual lane artifacts/relay, perform the allowed fixture action, and inspect filesystem/action records for counts. No hardcoded decision/relay/artifact/diagnosis success fields. Add mutation modes for extra relay, extra artifact, and skipped diagnosis; each must fail. Label any remaining scripted boundary as simulation and keep host workflow coverage UNVERIFIED.
+**Acceptance:** AC8, AC10; B7; B5.
+**Tests:** ordinary one-pass fixture; every sensitive trigger; unresolved assessment; three mutation controls; observed artifact/relay/action counts; benchmark consumes the observed record.
+**Commands:** `bash hooks/tests/test-lane-workflow.sh`; `bash hooks/tests/test-flow-consumer-benchmark.sh`.
+**Module size:** lane fixture 145 and benchmark 263 lines. Extract fixture artifact/action execution into a named module before any file exceeds 800. No exemption.
+**Worker-undisturbed:** disposable fixture only; no shared spec/handoff, approval, provider, config, or production files written.
+**Commit:** one `T18` commit; do not stage generated smoke logs/JSON.
 
-## T10 — Integrated verification gate
+## T19 - Link conclusions by outcome, task, and commit
 
-No code change or commit. Fill `templates/gate-report.md` into `docs/specs/flow-performance-and-recovery-hardening/gate-report.md`. Run targeted tests per T1–T9, full registered hook suite once on final state, preflight, mirror checks, module-size gate, secret scan, protected-path verification, CLI-owned byte comparison, no-op recovery, and bounded disposable current-CLI refresh test when supported.
+**Files:** `hooks/local/find_wasted_effort/windowing.py`; `hooks/local/find_wasted_effort/evidence.py`; `hooks/local/find_wasted_effort/selftest_windowing.py`; `hooks/local/find-wasted-effort.py`; `hooks/tests/test-wasted-effort-windowing.sh`.
+**Work:** parse structured conclusion records and link each conclusion to its task/commit. File last-commit and generic SHA mentions are context only. Partition mixed reports per conclusion; keep unlinked/historical outcomes visible without affecting the selected-window verdict.
+**Acceptance:** AC10; B8; B5.
+**Tests:** old outcome plus current cosmetic footer; old outcome plus unrelated selected SHA mention; mixed current/historical outcomes in one report; task mismatch; exact outcome/task/commit match; approvals remain action/outcome scoped; report labels both scopes.
+**Commands:** `bash hooks/tests/test-wasted-effort-windowing.sh`; focused `python hooks/local/find-wasted-effort.py --selftest` if registered separately.
+**Module size:** windowing 73, evidence 749, main 504 lines at plan check. Extract a named conclusion-link parser before changing `evidence.py`; keep each <=800. No exemption.
+**Worker-undisturbed:** read-only repository analysis; generated audit report remains evidence-only unless a later task explicitly stages it.
+**Commit:** one `T19` commit; stage exact files only.
 
-## T11 — Post-review closeout
+## T20 - Prove no-op writes with repeated write-mode recovery
 
-After GPT-6 Astra Medium adversarial review reports zero blockers, update this spec from DRAFT to DONE with final implementation SHA, fill task SHAs/statuses, and make one docs-only closeout commit. No production deploy command exists for this repository; record deploy as N/A and rollback as per-commit `git revert`.
+**Files:** `hooks/tests/benchmark-flow-consumers.py`; `hooks/tests/test-flow-consumer-benchmark.sh`; `hooks/tests/cli-flow-recovery-fixture.sh`; `hooks/tests/cli-flow-recovery-e2e.sh`.
+**Work:** label `mirror-skills.sh --check` as read-only integrity. In one isolated initialized fixture, run full write-mode recovery to convergence, then perform three independent bounded write-mode recovery attempts. Snapshot repair-target bytes/mtimes before and after every attempt and consume structured write/copy counts. Derive performance/no-op claims only from those observations. Do not promote update-only CLI evidence to install/update/recover coverage.
+**Acceptance:** AC5, AC10, AC11; N2; B7 smoke repetition correction.
+**Tests:** three distinct process executions with attempt IDs/timestamps; zero target writes/copies/hash/mtime changes each; injected write detected; diagnostics excluded by named inventory; `--check` result labeled read-only; current CLI comparison stays UNVERIFIED unless full chain runs.
+**Commands:** `bash hooks/tests/test-flow-consumer-benchmark.sh`; `bash hooks/tests/cli-flow-recovery-e2e.sh`.
+**Module size:** benchmark 263 and fixture/e2e 15/194 lines; keep repeated-run recorder in a named function/module, all <=800. No exemption.
+**Worker-undisturbed:** fixture directory only; shared workspace hash/status unchanged; no real workspace `fusebase update`; generated smoke evidence is not committed in T20.
+**Commit:** one `T20` commit; stage exact source/test files only.
 
-## Task chain audit
+## T21 - Final technical gate report
 
-| Invariant | Coverage |
+**Files:** `docs/specs/flow-performance-and-recovery-hardening/gate-report.md`; uncommitted smoke JSON/log evidence under the existing smoke directory; durable `state/audit/` outputs only where existing commands own them.
+**Work/tests:** no source change or commit. Replace `gate-report.md` with final evidence only after T11-T20 are committed. Run every focused command, `FF_FULL=1 FFHC_HEARTBEAT_SECS=30 bash hooks/tests/run-tests.sh`, `bash hooks/local/preflight.sh`, mirror/manifest checks, module-size `--all`, normal pre-commit, secret/protected-path checks, CLI ownership comparison, three independent S1-S3 attempts, and `verification-gate.md`.
+**Acceptance:** every B1-B8/N1-N2 has direct closure evidence or remains open; exact T11-T20 SHAs/timing and failed-then-passed evidence recorded; spec remains DRAFT; stop at gate.
+**Module size:** N/A; report/evidence only.
+**Worker-undisturbed:** verify all task boundaries and shared workspace hash/status; do not stage `docs/wasted-code/` or existing smoke `.log` files.
+
+## T22 - Repeat the GPT-6 Astra whole-implementation review
+
+**Files:** read-only implementation/evidence review; review result prepared for `adversarial-review.md` but committed only in T23.
+**Work/tests:** no implementation commit. GPT-6 Astra reviews `2217a9c..T20_HEAD`, T21 report, focused evidence, smoke attempts, ownership/authority boundaries, and every B1-B8/N1-N2 closure. Adversarially replay the named mutations and false-claim cases.
+**Acceptance:** zero blockers. Any blocker returns to newly numbered implementation tasks and invalidates T23; do not claim closeout early.
+**Module size:** N/A; read-only review.
+**Worker-undisturbed:** no source/provider/config mutation during review.
+
+## T23 - Final docs-only closeout
+
+**Files:** `docs/specs/flow-performance-and-recovery-hardening/spec.md`; `roadmap.md`; `tasks.md`; `verification-gate.md`; `gate-report.md`; `adversarial-review.md`.
+**Work:** after T22 reports zero blockers, record final SHAs/status and make one docs-only closeout commit. Keep five-provider startup telemetry, three real-symlink MSYS controls, Windows authority ACL, and actual CLI install/update/recover comparison UNVERIFIED unless direct evidence exists. Deployment/publication and UI/client work remain N/A.
+**Tests/acceptance:** cross-artifact AC/decision/task/evidence audit, stale-status search, `git diff --check`, and exact staged-path inspection; spec changes DRAFT -> DONE only with zero blockers; rollback remains per-task `git revert` in reverse dependency order.
+**Module size:** N/A; docs only.
+**Worker-undisturbed:** source, provider, config, `docs/wasted-code/`, and smoke `.log` files unchanged/staged-excluded.
+**Commit:** one docs-only `T23` closeout commit.
+
+## Coverage audit
+
+| Requirement | Task/evidence |
 |---|---|
-| Every AC mapped | T1–T9; integrated at T10 |
-| Every decision cited | T1–T9 |
-| Worker-undisturbed | every task names CLI/Flow boundaries |
-| Mixed fleet | T6–T8 |
-| Migration | none |
-| UI/client functionality | N/A |
-| Deploy | no target; T11 docs closeout only |
+| AC1 / B6 / B4 zero-write invalid input | T17 -> overlay refusal/round-trip matrix -> T21 |
+| AC2 | T14 -> complete settings/config preflight -> T21 |
+| AC3 / B3-B4 | T13-T15 -> ownership, interruption, retry, provider/Git verification -> T21 |
+| AC4 / B5 | T15-T16 -> exact parsed hook state and matcher isolation -> T21 |
+| AC5 / N2 | T13, T20 -> collision tests plus three write-mode no-op attempts -> T21 |
+| AC6 | retained T5 plus full regression -> T21 |
+| AC7 | retained T7; five provider hosts remain UNVERIFIED unless measured -> T21/T23 |
+| AC8 / B7 | T18 -> executed actions/artifacts and mutation controls -> T21 |
+| AC9 / B1-B2/N1 | T11-T12 -> identity, trust, direct-mint, portability matrix -> T21 |
+| AC10 / B8/N2 | T18-T20 -> observed workflow, scoped conclusions, write-mode metrics -> T21 |
+| AC11 | T13-T15/T20 -> CLI byte/semantic boundaries; full real CLI chain remains residual unless run -> T21 |
+| AC12 | T13-T15 -> canonical/snapshot ownership and verified mirrors -> T21 |
+| A1-A3 | T13-T17 |
+| A4-A5 | T16-T18; retained T7 regression |
+| A6 / B1-B2 | T11-T12/T20 |
+| A7 / B5 | T18-T20 |
+| Final zero-blocker review | T22 before T23 |
+
+**Serialization:** T11-T12 share validator files; T13-T17 share recovery files; T18-T20 share evidence consumers. Execute in listed dependency order. No worker-undisturbed path is configured, but every task carries the stricter CLI/user zero-change boundary.
