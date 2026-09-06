@@ -2,8 +2,8 @@
 
 **T-counter going in:** T11
 **Historical implementation:** T1-T10 complete provisionally; T10 gate superseded by Astra CHANGES REQUIRED
-**Corrective implementation:** T11-T20 complete; T24 focused proof passed, fixture commit pending; T25 liveness correction pending
-**Final technical gate:** T21, report-only after T25
+**Corrective implementation:** T11-T20 complete; T24 complete at `fe1629c`; T25 focused/engine proof passed, commit pending; T26 U14 fixture correction planned
+**Final technical gate:** T21, report-only after T26
 **Repeated adversarial review:** T22, GPT-6 Astra review-only
 **Closeout:** T23, docs-only; former T11 moved without reuse
 **Starting source:** `2217a9c631300e510b18437548ed4bccb5f31036`
@@ -40,9 +40,10 @@
 | T18 | executed lane workflow and mutation-resistant evidence | B7 | A4, B5 | T16-T17 | `44cc556`; complete |
 | T19 | outcome/task-specific temporal linkage | B8 | A7, B5 | T18 | `bd3bc76`; complete |
 | T20 | repeated write-mode no-op benchmark and claim correction | N2, B7 | A6-A7, B5 | T15, T18-T19 | `adc1a3d`; complete |
-| T24 | initialize recovery E2E as a real disposable Git repository | T21 fixture defect | A2-A3, B2 | T20 | focused rc0; fixture-only commit pending |
+| T24 | initialize recovery E2E as a real disposable Git repository | T21 fixture defect | A2-A3, B2 | T20 | `fe1629c`; complete |
 | T25 | Windows/MSYS timeout reap liveness and observable bounded engine fixtures | registered wrapper stall | A2-A3, B2 | T24 | pending; one commit |
-| T21 | final technical gate/report | B1-B8, N1-N2 | A1-A7, B1-B5 | T25 | report-only |
+| T26 | correct U14 assertions for isolated Stop blocks | stale fixture | A2-A3, B3 | T25 | pending; one fixture-only commit |
+| T21 | final technical gate/report | B1-B8, N1-N2 | A1-A7, B1-B5 | T26 | report-only |
 | T22 | repeated GPT-6 Astra whole-implementation review | all | all | T21 | review-only |
 | T23 | final docs closeout | all | all | T22 zero blockers | docs-only pending |
 
@@ -170,24 +171,32 @@
 
 **Files:** `hooks/local/lib/run-with-timeout.sh`; `hooks/tests/test-health-check-timeout.sh`; `hooks/tests/cli-flow-recovery-engine.sh`. `hooks/local/lib/job-fence.sh` only if reproduction proves that seam contributes to the stall.
 **Work:** reproduce the Windows/MSYS `run_with_timeout` / `ffhc_msys_wait_reap` stall with bounded process/phase evidence before choosing a fix. Repair completion/reaping at its proven owner; extend the existing timeout selftest. Emit engine scenario/start/completion/timeout identity incrementally outside captured verdict output; bound each engine call below the outer suite watchdog, including cleanup margin. Do not merely increase the 600s fixture budgets or 1200s outer timeout.
-**Acceptance:** repeated bounded Windows/MSYS cases complete or time out with correct exit status and no lingering owned children; normal child failure, timeout, and termination stay fail-closed. Full registered recovery wrapper PASS is mandatory. U17/U18 must still execute the real health engine and assert HEALTHY; no skipped check, fabricated verdict, swallowed timeout, or weaker verification.
+**Acceptance:** repeated bounded Windows/MSYS cases complete or time out with correct exit status and no lingering owned children; normal child failure, timeout, and termination stay fail-closed. Timeout selftest 23/23 and bounded U16/U17/U18 rc0 permit the T25 commit: the wrapper advanced to 33 PASS then exposed the independent U14 stale assertion owned by T26. U17/U18 still execute the real engine and assert HEALTHY; no skipped check, fabricated verdict, swallowed timeout, or weaker verification. Terminal full-wrapper PASS remains mandatory at T26.
 **Tests:** `bash hooks/tests/test-health-check-timeout.sh`; bounded reproducer covering normal/nonzero exit, timeout and reap/descendant cleanup; repeated U17/U18 execution with visible phase identity; `FFCF_T15_ONLY=1 bash hooks/tests/test-cli-flow-recovery.sh`; full `bash hooks/tests/test-cli-flow-recovery.sh` under an outer watchdog with incremental saved evidence. Preserve the 23-row stalled run and targeted <=180s rc0 HEALTHY observations; isolated success does not close nondeterministic liveness.
 **Module size:** inspect current counts before edits; each gated source stays <=800 and no already-over-ceiling file grows. Extract only a named timeout/reap responsibility if needed; no exemption or baseline increase.
 **Worker-undisturbed:** owned disposable processes/fixtures only; no shared Git/config/provider changes, broad process killing, smoke removal, or `docs/wasted-code/` mutation. T24 source diff belongs solely to T24.
-**Commit:** one `T25` commit after focused tests and full registered recovery wrapper PASS; exact file staging, normal pre-commit, policy-required protected approval only where applicable.
+**Commit:** one `T25` commit after focused timeout/engine proof; exact file staging, normal pre-commit, policy-required protected approval only where applicable. Retain both the historical stall and subsequent U14 failure; neither is a full-wrapper PASS.
+
+## T26 - Correct U14 assertions for isolated Stop blocks
+
+**Files:** `hooks/tests/cli-flow-recovery-direct.sh` only (675 lines; remain <=800, no exemption).
+**Work:** replace U14's `hooks.Stop[0]` assumption with parsed traversal of every Stop block. Match exact Flow command/status identity; require exactly one `stop.py` entry with its correct status across all blocks. Assert both unique CLI entries, order, timeout and original block/matcher semantics survive; Flow occupies its own intended block without widening a consumer matcher or corrupting a shared block. Extend the existing U14 fixture for mixed/restrictive matcher coverage if necessary; do not change production merging or weaken T16 ownership.
+**Acceptance/tests:** focused U14 and `bash hooks/tests/test-wire-hooks-add-beside.sh` PASS; then full registered `bash hooks/tests/test-cli-flow-recovery.sh` PASS under a bounded watchdog with saved incremental evidence before T21. Assert duplicate/missing Flow or CLI entries and matcher widening fail. Preserve the 33-PASS/U14 failure and explanation: T16 correctly keeps CLI Stop[0] and adds Flow Stop[1].
+**Worker-undisturbed:** only disposable fixture settings; CLI/provider/config/source and unrelated untracked evidence unchanged.
+**Commit:** one `T26` fixture-only commit after focused and terminal full-wrapper PASS; exact stage, normal pre-commit.
 
 ## T21 - Final technical gate report
 
 **Files:** `docs/specs/flow-performance-and-recovery-hardening/gate-report.md`; uncommitted smoke JSON/log evidence under the existing smoke directory; durable `state/audit/` outputs only where existing commands own them.
-**Work/tests:** no source change or commit. Replace `gate-report.md` with final evidence only after T24 and T25 are committed. Run every focused command including T24/T25 timeout and recovery-wrapper checks, `FF_FULL=1 FFHC_HEARTBEAT_SECS=30 bash hooks/tests/run-tests.sh`, `bash hooks/local/preflight.sh`, mirror/manifest checks, module-size `--all`, normal pre-commit, secret/protected-path checks, CLI ownership comparison, three independent S1-S3 attempts, and `verification-gate.md`.
-**Acceptance:** every B1-B8/N1-N2 has direct closure evidence or remains open; exact T11-T20/T24/T25 SHAs/timing and failed-then-passed evidence recorded; real Git verification and full registered wrapper liveness proved; spec remains DRAFT; stop at gate.
+**Work/tests:** no source change or commit. Replace `gate-report.md` with final evidence only after T24-T26 are committed. Run every focused command including T24-T26 timeout and recovery-wrapper checks, `FF_FULL=1 FFHC_HEARTBEAT_SECS=30 bash hooks/tests/run-tests.sh`, `bash hooks/local/preflight.sh`, mirror/manifest checks, module-size `--all`, normal pre-commit, secret/protected-path checks, CLI ownership comparison, three independent S1-S3 attempts, and `verification-gate.md`.
+**Acceptance:** every B1-B8/N1-N2 has direct closure evidence or remains open; exact T11-T20/T24-T26 SHAs/timing and failed-then-passed evidence recorded; real Git verification and full registered wrapper liveness proved; spec remains DRAFT; stop at gate.
 **Module size:** N/A; report/evidence only.
 **Worker-undisturbed:** verify all task boundaries and shared workspace hash/status; do not stage `docs/wasted-code/` or existing smoke `.log` files.
 
 ## T22 - Repeat the GPT-6 Astra whole-implementation review
 
 **Files:** read-only implementation/evidence review; review result prepared for `adversarial-review.md` but committed only in T23.
-**Work/tests:** no implementation commit. GPT-6 Astra reviews `2217a9c..T25_HEAD`, T21 report, focused evidence, smoke attempts, ownership/authority boundaries, and every B1-B8/N1-N2 closure. Adversarially replay the named mutations and false-claim cases.
+**Work/tests:** no implementation commit. GPT-6 Astra reviews `2217a9c..T26_HEAD`, T21 report, focused evidence, smoke attempts, ownership/authority boundaries, and every B1-B8/N1-N2 closure. Adversarially replay the named mutations and false-claim cases.
 **Acceptance:** zero blockers. Any blocker returns to newly numbered implementation tasks and invalidates T23; do not claim closeout early.
 **Module size:** N/A; read-only review.
 **Worker-undisturbed:** no source/provider/config mutation during review.
@@ -218,11 +227,11 @@
 | AC11 | T13-T15/T20 -> CLI byte/semantic boundaries; full real CLI chain remains residual unless run -> T21 |
 | AC12 | T13-T15 -> canonical/snapshot ownership and verified mirrors -> T21 |
 | T21 fixture contract | T24 -> real Git repository/identity, focused T15 Git verification, CLI/user byte sentinels -> T25 -> T21 |
-| Registered wrapper liveness | T25 -> timeout/reap selftest, observable bounded engine calls, full registered recovery wrapper PASS -> T21 |
+| Registered wrapper closure | T25 timeout/reap selftest and bounded engines -> T26 exact Stop-block fixture and full wrapper PASS -> T21 |
 | A1-A3 | T13-T17 |
 | A4-A5 | T16-T18; retained T7 regression |
 | A6 / B1-B2 | T11-T12/T20 |
 | A7 / B5 | T18-T20 |
 | Final zero-blocker review | T22 before T23 |
 
-**Serialization:** T11-T12 share validator files; T13-T17 share recovery files; T18-T20 share evidence consumers. Current tail is T20 -> T24 -> T25 -> T21 -> T22 -> T23. No worker-undisturbed path is configured, but every task carries the stricter CLI/user zero-change boundary.
+**Serialization:** T11-T12 share validator files; T13-T17 share recovery files; T18-T20 share evidence consumers. Current tail is T20 -> T24 -> T25 -> T26 -> T21 -> T22 -> T23. No worker-undisturbed path is configured, but every task carries the stricter CLI/user zero-change boundary.

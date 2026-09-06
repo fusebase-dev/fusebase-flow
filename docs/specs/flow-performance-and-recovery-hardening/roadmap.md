@@ -1,10 +1,10 @@
 # Flow performance and recovery hardening — roadmap
 
-**Status:** T21 BLOCKED by recovery E2E fixture Git contract; T24 planned
+**Status:** T24 complete; T25 focused/engine proof passed; T26 U14 fixture correction precedes T21
 **Documentation tier:** 4
 **Execution owner:** `tasks.md` owns order, dependencies, files, SHAs and status; `verification-gate.md` owns proof.
 **Starting source:** `2217a9c631300e510b18437548ed4bccb5f31036`
-**Sequence:** T11-T20 complete -> T24 real-Git fixture correction -> T25 Windows/MSYS liveness -> T21 gate -> T22 Astra re-review -> T23 closeout.
+**Sequence:** T11-T20 complete -> T24 real-Git fixture -> T25 Windows/MSYS liveness -> T26 Stop fixture -> T21 gate -> T22 Astra re-review -> T23 closeout.
 
 ## Evidence inputs
 
@@ -27,4 +27,4 @@
 
 ## Constraints
 
-T24 changes only `hooks/tests/cli-flow-recovery-e2e.sh`; focused T15 rc0 permits its real-Git fixture commit. Full wrapper passed 23 rows then stalled in U17; targeted U17/U18 each reached rc0 HEALTHY within 180s, leaving nondeterministic liveness unresolved. T25 owns Windows/MSYS timeout/reap reproduction and correction, observable bounded engine phases, and full registered recovery wrapper PASS (`tasks.md` T25). Verdicts remain fail-closed; no timeout increase or fabricated HEALTHY substitutes for proof. Dependency tail: T20 -> T24 -> T25 -> T21 -> T22 -> T23. T24/T25 each have one commit; T21 remains report-only, T22 GPT-6 Astra review-only, and T23 docs-only. No production deployment/publication. Actual CLI install/update/recover comparison, five-provider host telemetry, Windows authority ACL proof, and three real-symlink controls remain UNVERIFIED until directly exercised. UI/client applicability: N/A.
+T24 is committed at `fe1629c`. T25 timeout 23/23 and bounded engine rc0 permit its separate commit; the wrapper advanced to 33 PASS and exposed U14's stale first-Stop-block assumption. T26 owns that fixture correction and terminal full-wrapper PASS (`tasks.md` T26), preserving T16's correct CLI/Flow block isolation. No production merger changes or weakened verdicts. T21 remains report-only, T22 GPT-6 Astra review-only, T23 docs-only. No production deployment/publication. Actual CLI install/update/recover comparison, five-provider host telemetry, Windows authority ACL proof, and three real-symlink controls remain UNVERIFIED until directly exercised. UI/client applicability: N/A.

@@ -1,6 +1,6 @@
 # Gate report - flow-performance-and-recovery-hardening (T10 superseded)
 
-**Status:** PROVISIONAL / BLOCKED-AT-T25-LIVENESS; T24 focused proof permits fixture-only commit
+**Status:** PROVISIONAL / BLOCKED-AT-T26-U14; T25 focused/engine proof permits its commit
 **Slug:** `flow-performance-and-recovery-hardening`
 **Task range:** T1..T10
 **Reporting session:** AI Developer under Fusebase Flow v4.14.1, FR-01..FR-27
@@ -9,7 +9,7 @@
 **Final source:** `2217a9c631300e510b18437548ed4bccb5f31036`
 **Corrective source through T20:** `adc1a3d` (`86b98db`..`adc1a3d`)
 **Independent review:** `adversarial-review.md` - 8 blockers, 2 non-blockers; zero-blocker approval withheld
-**Correction chain:** T11-T20 complete -> T24 fixture correction -> T25 liveness correction -> T21 report-only rerun -> T22 review -> T23 closeout
+**Correction chain:** T11-T20 complete -> T24 fixture correction -> T25 liveness correction -> T26 Stop fixture -> T21 report-only rerun -> T22 review -> T23 closeout
 
 All PASS labels below record the provisional T10 fixture/check results at `2217a9c`; they do not establish current gate satisfaction. B1-B8 show that several tests asserted incomplete or simulated evidence. Existing counts, SHAs, timestamps, and residual observations are retained as historical facts.
 
@@ -23,8 +23,9 @@ All PASS labels below record the provisional T10 fixture/check results at `2217a
 | T24 focused proof | Real-Git fixture correction is correct; T15-focused wrapper rc0. Commit only `hooks/tests/cli-flow-recovery-e2e.sh` after focused proof and normal pre-commit; no full-wrapper PASS claimed. |
 | Registered wrapper attempt | 23 rows passed, then U17 stalled nondeterministically through its 600s health fixture budget and outer 1200s timeout. |
 | Targeted observations | xtrace U17 and U18 each completed rc0 HEALTHY under <=180s; isolated success does not explain or close the full-wrapper stall. |
-| T25 disposition | Reproduce/fix Windows/MSYS `run_with_timeout` / `ffhc_msys_wait_reap` liveness and buffered phase identity; `job-fence.sh` only if proven causal. Bound each engine call below the outer watchdog; require full registered recovery wrapper PASS. Runtime verdicts remain fail-closed. |
-| Dependency | T20 -> T24 -> T25 -> T21; T21 remains report-only |
+| T25 disposition | Timeout selftest 23/23 PASS; bounded U16/U17/U18 each rc0; wrapper advanced to 33 PASS. Focused/engine proof permits separate T25 commit; no terminal wrapper PASS claimed. |
+| T26 blocker | U14 reads only Stop[0]; T16 correctly preserves CLI Stop[0] and creates isolated Flow Stop[1]. Isolated reproduction confirms production output. Correct fixture only per tasks.md T26; require focused U14/wire-hooks and terminal full-wrapper PASS. |
+| Dependency | T20 -> T24 -> T25 -> T26 -> T21; T21 remains report-only |
 
 ## 1. Provisional T10 per-task commit table
 
@@ -169,7 +170,7 @@ No production publish/deploy, migration, CLI runtime/SDK/MCP behavior change, ap
 | S3 | same scripted fixture output repeated 3 times | SIMULATION; AC8 coverage UNVERIFIED until T18/T21 executes actions and mutations |
 | CLI ownership | named fixture comparisons passed | BLOCKED by collision and final-verification gaps; T13-T15 |
 | Adversarial review | GPT-6 Astra whole-implementation review completed | CHANGES REQUIRED: 8 blockers, 2 non-blockers; zero-blocker approval withheld |
-| T21 recovery wrapper | T24 focused Git proof rc0; full wrapper passed 23 rows then stalled in U17 | BLOCKED pending T25 liveness correction and full wrapper PASS; no weakened verdict allowed |
+| T21 recovery wrapper | T25 timeout 23/23 and engines rc0; wrapper reached 33 PASS then failed U14 | BLOCKED pending T26 fixture correction and full wrapper PASS; no weakened verdict allowed |
 
 Smoke evidence:
 
@@ -188,7 +189,8 @@ Smoke evidence:
 | B3-B6 recovery ownership/correctness | T13-T17 | implement collision, preflight, final verification, exact hook, and bounded overlay corrections |
 | B7-B8/N2 evidence validity | T18-T20 | execute real fixture actions, scope outcomes, and run independent write-mode attempts |
 | T21 fixture contract | T24 | focused rc0 permits single-file fixture commit; preserve CLI/user bytes |
-| Registered wrapper liveness | T25 | reproduce timeout/reap stall, expose engine phases, bound calls, extend timeout selftest, obtain full registered recovery wrapper PASS |
+| Registered wrapper liveness | T25 | commit focused-proven timeout/reap correction; preserve prior stall evidence |
+| Registered wrapper closure | T26 | correct stale U14 Stop[0] assertion; prove exact Flow/CLI identity and matcher scope, then full wrapper PASS |
 | GPT-6 Astra repeated review | T22 | review correction diff and T21 evidence; zero blockers required |
 | Five-provider delivered-context measurement | provider-capable verification environment | run identical scenario/model/settings pairs; retain UNVERIFIED until telemetry exists |
 | Three symlink controls | Linux/CI | execute fixtures on a host that creates real symlinks |
@@ -203,13 +205,13 @@ The T10 gate at source 2217a9c is superseded. GPT-6 Astra returned CHANGES REQUI
 
 The 1,274/1,274 suite result, source SHAs, and recorded timings remain historical facts. They are insufficient for approval because validator identity/signing, recovery ownership/preflight/verification, hook/overlay ownership, workflow execution, temporal linkage, and write-mode no-op evidence have open defects.
 
-T11-T20 are committed through adc1a3d. T24 corrects the real-Git fixture and its focused proof returned rc0; commit its single fixture file. The full wrapper passed 23 rows then stalled in U17 through the 600s health budget and 1200s outer timeout. Targeted U17/U18 each returned rc0 HEALTHY within 180s; this does not close nondeterministic liveness. Implement T25 per tasks.md, require full registered recovery wrapper PASS, then rerun report-only T21. T22 remains GPT-6 Astra review-only and T23 docs-only.
+T11-T20 are committed through adc1a3d; T24 is fe1629c. T25 timeout selftest passed 23/23 and bounded U16/U17/U18 returned rc0, permitting its commit. The wrapper reached 33 PASS then exposed U14's stale Stop[0] assumption. T26 corrects only that fixture and must obtain terminal full-wrapper PASS before report-only T21. T22 remains GPT-6 Astra review-only and T23 docs-only.
 
 Residuals remain UNVERIFIED: five-provider delivered-context telemetry, three real-symlink controls on MSYS, Windows authority ACL/isolation, and actual CLI install/update/recover comparison. UI/client and production deploy are N/A.
 ```
 
 ---
-📍 Phase: Plan (T25 liveness correction)
+📍 Phase: Plan (T26 Stop fixture correction)
 🎯 Ticket: `flow-performance-and-recovery-hardening`
 ✅ Historical: T1-T10 source/evidence at `2217a9c`; provisional gate superseded
-⏭️ Next: commit focused-proven T24, execute T25, rerun T21, then T22 Astra review
+⏭️ Next: commit focused-proven T25, execute T26, rerun T21, then T22 Astra review
