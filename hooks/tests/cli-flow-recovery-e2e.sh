@@ -17,7 +17,10 @@ ffcf_e2e_build() {
   ffcf_canonical "$PROJECT"
   ffcf_cli_surface "$PROJECT"
   ffcf_engine_scripts "$PROJECT" hooks/local/stamp-cli-provenance.sh
-  mkdir -p "$PROJECT/.git/hooks" "$PROJECT/hooks/git"
+  git -C "$PROJECT" init --quiet
+  git -C "$PROJECT" config --local user.name "Fusebase Flow recovery fixture"
+  git -C "$PROJECT" config --local user.email "flow-recovery-fixture@example.invalid"
+  mkdir -p "$PROJECT/hooks/git"
   cp hooks/local/install-git-hooks.sh "$PROJECT/hooks/local/"
   cp hooks/git/pre-commit hooks/git/commit-msg "$PROJECT/hooks/git/"
   ffcf_root_docs "$PROJECT"
