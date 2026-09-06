@@ -16,12 +16,8 @@
 #   unrelated lifecycles, a future diagnostic writer could create it without opting in,
 #   and file-presence carries no schema and no corruption handling.
 #
-# TRIPWIRE (detection contract): enforcement presence is the CANONICAL HANDLER SUBSTRING
-#   `hooks/handlers/pre_tool_use.py`, never the `"PreToolUse":` event key. Every wiring
-#   form — the run-handler.sh wrapper in .claude/settings.json.example, and the legacy
-#   `python3 .../hooks/handlers/<stem>.py` forms settings-json-merge.py still recognises —
-#   carries that substring; a PreToolUse chain without it is somebody else's hook, not
-#   Flow enforcement. Same rule the engine already applies to stop.py.
+# TRIPWIRE (detection contract): enforcement requires an exact canonical current or legacy
+# PreToolUse command. A command that merely contains the handler path remains custom.
 #
 # TRIPWIRE (false-drift budget): a false alarm here is WORSE than the silence it replaces
 #   — it trains operators to ignore the one check that reports missing FR-06/07/12
@@ -216,7 +212,23 @@ else:
 ffhc_hwi_wired() {
   local settings="$1/.claude/settings.json"
   [ -f "$settings" ] || return 2
-  grep -q "$FFHC_HWI_HANDLER" "$settings" 2>/dev/null
+  ffhc_hwi_py -c '
+import json, sys
+try:
+    value = json.load(open(sys.argv[1], encoding="utf-8"))
+    blocks = value.get("hooks", {}).get("PreToolUse", [])
+    commands = [hook.get("command") for block in blocks if isinstance(block, dict)
+                for hook in block.get("hooks", []) if isinstance(hook, dict)]
+    current = '\''bash "$CLAUDE_PROJECT_DIR"/hooks/local/run-handler.sh "$CLAUDE_PROJECT_DIR"/hooks/handlers/pre_tool_use.py'\''
+    legacy = {
+        '\''python3 "$CLAUDE_PROJECT_DIR"/hooks/handlers/pre_tool_use.py'\'',
+        '\''python3 "${PROJECT_DIR}"/hooks/handlers/pre_tool_use.py'\'',
+    }
+    raise SystemExit(0 if any(isinstance(cmd, str) and cmd.strip() in ({current} | legacy)
+                              for cmd in commands) else 1)
+except (OSError, ValueError, TypeError, KeyError):
+    raise SystemExit(1)
+' "$settings" 2>/dev/null
 }
 
 # ffhc_hwi_check <root> — the engine arm. Appends to LOCAL_OK / LOCAL_UNVERIFIED in the

@@ -52,7 +52,12 @@ EVENT_MATCHERS: dict[str, str] = dict(DEFAULT_EVENT_MATCHERS)
 
 def make_event_block(event: str) -> dict[str, Any]:
     """Build the `[{matcher?, hooks: [...]}]` array for a given event."""
-    block: dict[str, Any] = {"hooks": [{"type": "command", "command": FLOW_HOOKS[event], "timeout": 30}]}
+    handler: dict[str, Any] = {
+        "type": "command", "command": FLOW_HOOKS[event], "timeout": 30,
+    }
+    if event == "Stop":
+        handler["statusMessage"] = "Fusebase Flow stop hookâ€¦"
+    block: dict[str, Any] = {"hooks": [handler]}
     if event in EVENT_MATCHERS:
         block["matcher"] = EVENT_MATCHERS[event]
     return block
@@ -84,9 +89,8 @@ def _config_from_file(path: Path) -> tuple[dict[str, str], dict[str, str]]:
     commands: dict[str, str] = {}
     matchers: dict[str, str] = {}
     for event, expected in DEFAULT_FLOW_HOOKS.items():
-        expected_match = _HANDLER_RE.search(expected)
         blocks = source_hooks.get(event)
-        if expected_match is None or not isinstance(blocks, list):
+        if not isinstance(blocks, list):
             raise ValueError(f"explicit Flow config is missing {event}")
         candidates: list[str] = []
         for block in blocks:
@@ -97,8 +101,7 @@ def _config_from_file(path: Path) -> tuple[dict[str, str], dict[str, str]]:
                 matchers[event] = matcher
             for hook in block.get("hooks") or []:
                 command = hook.get("command") if isinstance(hook, dict) else None
-                match = _HANDLER_RE.search(command or "")
-                if match and match.group(1) == expected_match.group(1):
+                if _recognized_flow_command(command, event):
                     candidates.append(command)
         if len(candidates) != 1:
             raise ValueError(
@@ -118,25 +121,35 @@ def _config_from_file(path: Path) -> tuple[dict[str, str], dict[str, str]]:
     return commands, matchers
 
 
-def _deduplicate_flow_handlers(blocks: Any, event: str) -> int:
-    if not isinstance(blocks, list):
-        return 0
-    seen = False
-    removed = 0
+def _isolate_flow_handler(blocks: list[Any], event: str) -> tuple[int, bool]:
+    """Move exact Flow handlers into one dedicated canonical block."""
+    retained: list[Any] = []
+    found = 0
+    isolated = False
     for block in blocks:
         if not isinstance(block, dict) or not isinstance(block.get("hooks"), list):
+            retained.append(block)
             continue
-        kept = []
-        for hook in block["hooks"]:
-            command = hook.get("command") if isinstance(hook, dict) else None
-            if _recognized_flow_command(command, event):
-                if seen:
-                    removed += 1
-                    continue
-                seen = True
-            kept.append(hook)
-        block["hooks"] = kept
-    return removed
+        original = block["hooks"]
+        custom = [
+            hook for hook in original
+            if not _recognized_flow_command(
+                hook.get("command") if isinstance(hook, dict) else None, event
+            )
+        ]
+        count = len(original) - len(custom)
+        found += count
+        if count and custom:
+            isolated = True
+        if custom:
+            block["hooks"] = custom
+            retained.append(block)
+        elif not count:
+            retained.append(block)
+    if found:
+        retained.append(make_event_block(event))
+    blocks[:] = retained
+    return max(0, found - 1), isolated
 
 
 def _is_legacy_flow_command(cmd: Any, stem: str) -> bool:
@@ -191,46 +204,6 @@ def _matcher_tokens(matcher: Any) -> list[str] | None:
     if not all(_SIMPLE_MATCHER_TOKEN.match(p) for p in parts):
         return None
     return parts
-
-
-def _widen_matchers(blocks: Any, event: str) -> bool:
-    """Union Flow's required matcher tokens into an ALREADY-INSTALLED matcher (E6).
-
-    Without this, only a FRESH install got a widened matcher: the add-if-missing branch
-    below never runs for a consumer who already wired the event, so a security-relevant
-    tool added upstream (PowerShell) would never reach the handler on an existing install
-    no matter how many times they re-ran --wire-hooks. Union, never overwrite — a consumer
-    who added their own tools keeps them. Only OUR block is touched (its hook chain must
-    name a hooks/handlers/ command); somebody else's PreToolUse block is left alone."""
-    required = _matcher_tokens(EVENT_MATCHERS.get(event, ""))
-    if not required or not isinstance(blocks, list):
-        return False
-    changed = False
-    for block in blocks:
-        if not isinstance(block, dict):
-            continue
-        if not any(isinstance(h, dict) and "hooks/handlers/" in (h.get("command") or "")
-                   for h in block.get("hooks") or []):
-            continue
-        existing = _matcher_tokens(block.get("matcher"))
-        if existing is None:
-            # A hand-written regex is never rewritten (a `|` split would corrupt it), but
-            # silence here would leave that consumer ungated on the new tool without ever
-            # saying so. `*`/absent already match every tool, so only a regex is warned on.
-            raw = block.get("matcher")
-            if isinstance(raw, str) and raw.strip() and raw.strip() != "*":
-                absent = [t for t in required if t not in raw]
-                if absent:
-                    print(f"[settings-merge] WARNING: {event} matcher {raw!r} is a regex this "
-                          f"merge will not rewrite, and it does not name {', '.join(absent)}. "
-                          f"Tools it omits never reach the Flow hook (FR-06/FR-12 do not apply "
-                          f"to them). Add them by hand.", file=sys.stderr)
-            continue
-        missing = [t for t in required if t not in existing]
-        if missing:
-            block["matcher"] = "|".join(existing + missing)
-            changed = True
-    return changed
 
 
 def _flow_handler_present(blocks: Any, event: str) -> bool:
@@ -298,25 +271,20 @@ def merge_settings(settings: dict[str, Any]) -> tuple[dict[str, Any], list[str]]
             # Existing install wired with bare python3 -> route through run-handler.sh so a
             # python-less machine self-degrades instead of erroring every event.
             changes.append(f"migrated {event} to run-handler.sh wrapper")
-        removed = _deduplicate_flow_handlers(hooks[event], event)
+        removed, isolated = _isolate_flow_handler(hooks[event], event)
         if removed:
             changes.append(f"removed {removed} duplicate Fusebase Flow {event} handler(s)")
+        if isolated:
+            changes.append(f"isolated Fusebase Flow {event} handler from custom commands")
         if not _flow_handler_present(hooks[event], event):
             # ADD BESIDE, never replace. The array is occupied by somebody else's block(s), so
-            # the wholesale-add branch above correctly did not fire — and _migrate_blocks /
-            # _widen_matchers both skip a block naming no hooks/handlers/ command, so before
-            # this branch NOTHING added Flow's block and --wire-hooks exited 0 unwired.
+            # the wholesale-add branch above correctly did not fire.
             # TRIPWIRE: append a SEPARATE block, never Flow's command into the consumer's chain
             # — that would inherit the consumer's matcher (measured: `Bash|Edit|Write`) and
             # re-open E6, leaving PowerShell ungated by FR-06/FR-12 on every consumer tree.
             existing = len(hooks[event])
             hooks[event].append(make_event_block(event))
             changes.append(f"added Fusebase Flow {event} block beside {existing} existing block(s)")
-        elif _widen_matchers(hooks[event], event):
-            # E6: an existing install must pick up a newly-gated tool on re-merge, not only
-            # on a fresh `cp settings.json.example`. (A block just appended above already
-            # carries the full matcher, so widening is only for a pre-existing Flow block.)
-            changes.append(f"widened {event} matcher to cover every command-carrying tool")
 
     # Stop event: preserve existing CLI hooks; append Fusebase Flow stop.py only if missing
     if "Stop" not in hooks or not hooks["Stop"]:
@@ -325,13 +293,7 @@ def merge_settings(settings: dict[str, Any]) -> tuple[dict[str, Any], list[str]]
             if Path(f".claude/hooks/{marker}").is_file():
                 stop_chain.append(dict(hook))
                 changes.append(f"added CLI Stop hook {marker}")
-        stop_chain.append({
-            "type": "command",
-            "command": FLOW_HOOKS["Stop"],
-            "statusMessage": "Fusebase Flow stop hook…",
-            "timeout": 30,
-        })
-        hooks["Stop"] = [{"hooks": stop_chain}]
+        hooks["Stop"] = [{"hooks": stop_chain}, make_event_block("Stop")]
         changes.append("added Stop event with Fusebase Flow stop.py")
     else:
         if not isinstance(hooks["Stop"], list) or not all(
@@ -344,9 +306,13 @@ def merge_settings(settings: dict[str, Any]) -> tuple[dict[str, Any], list[str]]
             return settings, changes
         if _migrate_blocks(hooks["Stop"], "Stop"):
             changes.append("migrated Stop to run-handler.sh wrapper")
-        removed = _deduplicate_flow_handlers(hooks["Stop"], "Stop")
+        removed, isolated = _isolate_flow_handler(hooks["Stop"], "Stop")
         if removed:
             changes.append(f"removed {removed} duplicate Fusebase Flow Stop handler(s)")
+        if isolated:
+            changes.append("isolated Fusebase Flow Stop handler from custom commands")
+        if hooks["Stop"] and _flow_handler_present([hooks["Stop"][0]], "Stop"):
+            hooks["Stop"].insert(0, {"hooks": []})
         stop_hooks = hooks["Stop"][0].setdefault("hooks", [])
         if not isinstance(stop_hooks, list):
             print(
@@ -363,12 +329,7 @@ def merge_settings(settings: dict[str, Any]) -> tuple[dict[str, Any], list[str]]
                 stop_hooks.insert(0, dict(hook))
                 changes.append(f"added CLI Stop hook {marker}")
         if not _flow_handler_present(hooks["Stop"], "Stop"):
-            stop_hooks.append({
-                "type": "command",
-                "command": FLOW_HOOKS["Stop"],
-                "statusMessage": "Fusebase Flow stop hook…",
-                "timeout": 30,
-            })
+            hooks["Stop"].append(make_event_block("Stop"))
             changes.append("appended Fusebase Flow stop.py to existing Stop chain")
 
     return settings, changes

@@ -5,8 +5,7 @@
 # The defect (MEASURED, deterministic): settings-json-merge.py's add branch is a WHOLESALE
 # REPLACE guarded to fire only when there is nothing to preserve (`event not in hooks or not
 # hooks[event]`). A consumer who wired their OWN PreToolUse veto before adopting Flow lands in
-# the fall-through, where _migrate_blocks (no legacy Flow command) and _widen_matchers (skips
-# any block naming no hooks/handlers/ command) are both correct no-ops. Nothing adds Flow's
+# the fall-through, where the legacy migrator is a correct no-op. Nothing adds Flow's
 # block. Measured on all FIVE non-Stop events; Stop alone had an add-beside path.
 #
 # Why it was worse than a missing feature: the intent marker was recorded on the merge's EXIT
@@ -86,6 +85,18 @@ PY
 # run_merge <tree> — run the merge exactly as Step 5 of post-fusebase-update.sh does.
 run_merge() { ( cd "$1" && "$PY" "$MERGE" .claude/settings.json >/dev/null 2>&1 ); }
 
+recovery_fixture() {
+  local d="$1"
+  mkdir -p "$d/hooks/local" "$d/hooks" "$d/.claude" "$d/.git/hooks"
+  cp "$ROOT/hooks/local/post-fusebase-update.sh" "$ROOT/hooks/local/mirror-skills.sh" "$ROOT/hooks/local/mirror-agents.sh" \
+    "$ROOT/hooks/local/install-git-hooks.sh" "$d/hooks/local/"
+  cp -R "$ROOT/hooks/local/lib" "$ROOT/hooks/local/fusebase-flow-overlays" "$d/hooks/local/"
+  cp -R "$ROOT/hooks/git" "$d/hooks/"
+  cp -R "$ROOT/flow-skills" "$ROOT/agents" "$d/"
+  cp "$ROOT/AGENTS.md" "$ROOT/CLAUDE.md" "$d/"
+  ( cd "$d" && git init -q )
+}
+
 # handler_count <tree> <stem>
 handler_count() { grep -c "hooks/handlers/$2\.py" "$1/.claude/settings.json" 2>/dev/null || true; }
 
@@ -149,8 +160,7 @@ done
 ###############################################################################
 # Row A5 — PRESERVE, the other half. The consumer's block must survive DEEP-EQUAL
 # (matcher never rewritten, chain never edited, timeout kept) and stay at its index.
-# _widen_matchers already documents this guarantee for a Flow block; adding beside must
-# not cost it.
+# TRIPWIRE: isolating Flow must not alter any custom block field or command order.
 ###############################################################################
 t="$(newtree)"; consumer_only "$t/.claude/settings.json" "PreToolUse"
 cp "$t/.claude/settings.json" "$t/before.json"
@@ -270,18 +280,16 @@ if [ ! -f "$t/state/audit/flow-hook-wiring-intent.json" ]; then ok "B3-failed-me
 # and exits 1) — asserting the ACHIEVED state instead of the exit code is this ticket's subject.
 ###############################################################################
 t="$(newtree)"
-mkdir -p "$t/hooks/local/fusebase-flow-overlays" "$t/flow-skills" "$t/agents"
-cp "$MERGE" "$ROOT/hooks/local/fusebase-flow-overlays/overlay-block-replace.py" \
-  "$ROOT/hooks/local/fusebase-flow-overlays/agents-md-overlay.md" \
-  "$ROOT/hooks/local/fusebase-flow-overlays/claude-md-overlay.md" \
-  "$t/hooks/local/fusebase-flow-overlays/"
+recovery_fixture "$t"
 consumer_only "$t/.claude/settings.json" "PreToolUse"
-( cd "$t" && bash "$RECOVERY" --wire-hooks >"$t/wire.log" 2>&1 )
+( cd "$t" && bash hooks/local/post-fusebase-update.sh --wire-hooks >"$t/wire.log" 2>&1 )
 if [ "$(handler_count "$t" pre_tool_use)" -ge 1 ]; then ok "C1-e2e-wire-hooks-wires-handler"; else
   bad "C1-e2e-wire-hooks-wires-handler" "handler still absent after a real --wire-hooks run"; fi
 if [ -f "$t/state/audit/flow-hook-wiring-intent.json" ]; then ok "C1-e2e-wire-hooks-records-intent"; else
   bad "C1-e2e-wire-hooks-records-intent" "no intent marker after a real --wire-hooks run"; fi
-run_arm "$t"
+recorded_root="$($PY -c 'import json,sys; print(json.load(open(sys.argv[1]))["repo_root"])' \
+  "$t/state/audit/flow-hook-wiring-intent.json")"
+run_arm "$recorded_root"
 if [ "${#LOCAL_DRIFT[@]}" -eq 0 ] && joined "${LOCAL_OK[@]}" | grep -q "pre_tool_use.py"; then
   ok "C1-convergence-no-stripped-report-after-wire-hooks"
 else
@@ -294,14 +302,16 @@ fi
 # recorded intent is what made the recovery loop non-convergent.
 ###############################################################################
 t="$(newtree)"
-mkdir -p "$t/hooks/local/fusebase-flow-overlays" "$t/flow-skills" "$t/agents"
-cp "$ROOT/hooks/local/fusebase-flow-overlays/overlay-block-replace.py" \
-  "$ROOT/hooks/local/fusebase-flow-overlays/agents-md-overlay.md" \
-  "$ROOT/hooks/local/fusebase-flow-overlays/claude-md-overlay.md" \
-  "$t/hooks/local/fusebase-flow-overlays/"
-printf '#!/usr/bin/env python3\nimport sys\nsys.exit(0)\n' > "$t/hooks/local/fusebase-flow-overlays/settings-json-merge.py"
+recovery_fixture "$t"
+cat > "$t/hooks/local/lib/hook-wiring-intent.sh" <<'SH'
+FFHC_HWI_HANDLER="hooks/handlers/pre_tool_use.py"
+FFHC_HWI_REL="state/audit/flow-hook-wiring-intent.json"
+ffhc_hwi_state() { echo ABSENT; }
+ffhc_hwi_surfaces() { return 1; }
+ffhc_hwi_record_wiring() { return 4; }
+SH
 consumer_only "$t/.claude/settings.json" "PreToolUse"
-( cd "$t" && bash "$RECOVERY" --wire-hooks >"$t/wire.log" 2>&1 )
+( cd "$t" && bash hooks/local/post-fusebase-update.sh --wire-hooks >"$t/wire.log" 2>&1 )
 if [ ! -f "$t/state/audit/flow-hook-wiring-intent.json" ]; then ok "C2-e2e-unachieved-records-nothing"; else
   bad "C2-e2e-unachieved-records-nothing" "intent recorded although the merge wired nothing"; fi
 if grep -qi "NOT recorded\|not wired" "$t/wire.log"; then ok "C2-e2e-unachieved-warns"; else
@@ -363,9 +373,42 @@ updated, _ = module.merge_settings(copy.deepcopy(settings))
 blocks = updated["hooks"]["Stop"]
 commands = [hook.get("command") for block in blocks for hook in block.get("hooks", [])]
 assert commands.count(flow) == 1
-assert commands[:3] == ["consumer-a", flow, "consumer-b"]
+assert commands == ["consumer-a", "consumer-b", flow]
 assert blocks[0]["hooks"][0]["timeout"] == 41
-assert blocks[1]["hooks"][0]["timeout"] == 77
+assert blocks[1]["hooks"][0]["timeout"] == 42
+assert blocks[-1]["hooks"][0]["timeout"] == 30
+
+flow = module.DEFAULT_FLOW_HOOKS["PreToolUse"]
+full = module.DEFAULT_EVENT_MATCHERS["PreToolUse"]
+lookalikes = [
+    flow + " --extra",
+    flow.replace("hooks/handlers", "custom/hooks/handlers"),
+    "echo " + flow,
+]
+for lookalike in lookalikes:
+    original = {"matcher": "Bash", "scope": "custom", "hooks": [
+        {"type": "command", "command": lookalike, "timeout": 91},
+    ]}
+    updated, _ = module.merge_settings({"hooks": {"PreToolUse": [copy.deepcopy(original)]}})
+    blocks = updated["hooks"]["PreToolUse"]
+    assert blocks[0] == original
+    assert len(blocks) == 2 and blocks[1]["matcher"] == full
+
+custom_a = {"type": "command", "command": "bash ./custom-a.sh", "timeout": 17}
+custom_b = {"type": "command", "command": "bash ./custom-b.sh", "timeout": 18}
+mixed = {"matcher": "Bash", "timeout": 73, "scope": "operator", "hooks": [
+    custom_a, {"type": "command", "command": flow, "timeout": 99}, custom_b,
+]}
+duplicate = {"matcher": full, "hooks": [{"type": "command", "command": flow}]}
+updated, _ = module.merge_settings({"hooks": {"PreToolUse": [mixed, duplicate]}})
+blocks = updated["hooks"]["PreToolUse"]
+assert blocks[0] == {"matcher": "Bash", "timeout": 73, "scope": "operator",
+                     "hooks": [custom_a, custom_b]}
+assert len(blocks) == 2 and blocks[1]["matcher"] == full
+assert blocks[1]["hooks"] == [{"type": "command", "command": flow, "timeout": 30}]
+first = json.dumps(updated, sort_keys=True)
+again, _ = module.merge_settings(updated)
+assert json.dumps(again, sort_keys=True) == first
 
 fixture = temp / "t2-config"
 (fixture / ".claude").mkdir(parents=True, exist_ok=True)
