@@ -42,7 +42,7 @@
 | T20 | repeated write-mode no-op benchmark and claim correction | N2, B7 | A6-A7, B5 | T15, T18-T19 | `adc1a3d`; complete |
 | T24 | initialize recovery E2E as a real disposable Git repository | T21 fixture defect | A2-A3, B2 | T20 | `fe1629c`; complete |
 | T25 | Windows/MSYS timeout reap liveness and observable bounded engine fixtures | registered wrapper stall | A2-A3, B2 | T24 | pending; one commit |
-| T26 | correct U14 assertions for isolated Stop blocks | stale fixture | A2-A3, B3 | T25 | pending; one fixture-only commit |
+| T26 | correct U14 assertions and intended Stop status text | stale fixture / encoding regression | A2-A3, B3 | T25 | pending; one two-file commit |
 | T21 | final technical gate/report | B1-B8, N1-N2 | A1-A7, B1-B5 | T26 | report-only |
 | T22 | repeated GPT-6 Astra whole-implementation review | all | all | T21 | review-only |
 | T23 | final docs closeout | all | all | T22 zero blockers | docs-only pending |
@@ -179,11 +179,11 @@
 
 ## T26 - Correct U14 assertions for isolated Stop blocks
 
-**Files:** `hooks/tests/cli-flow-recovery-direct.sh` only (675 lines; remain <=800, no exemption).
-**Work:** replace U14's `hooks.Stop[0]` assumption with parsed traversal of every Stop block. Match exact Flow command/status identity; require exactly one `stop.py` entry with its correct status across all blocks. Assert both unique CLI entries, order, timeout and original block/matcher semantics survive; Flow occupies its own intended block without widening a consumer matcher or corrupting a shared block. Extend the existing U14 fixture for mixed/restrictive matcher coverage if necessary; do not change production merging or weaken T16 ownership.
+**Files:** `hooks/tests/cli-flow-recovery-direct.sh` (675 lines before T26) and `hooks/local/fusebase-flow-overlays/settings-json-merge.py` only; each remains <=800, no exemption.
+**Work:** replace U14's `hooks.Stop[0]` assumption with parsed traversal of every Stop block. Match exact Flow command/status identity; require exactly one `stop.py` entry with runtime status `Fusebase Flow stop hook…` across all blocks. Correct only the mojibake status literal at `settings-json-merge.py:59`, preferably using Python `\u2026` for encoding-stable source. T16 `deb21b1` introduced the bytes `c3 a2 e2 82 ac c2 a6`; `CHANGELOG.md:2677` records intended text. Assert both unique CLI entries, order, timeout and original block/matcher semantics survive; Flow occupies its intended block without widening a consumer matcher or corrupting a shared block. Extend U14 mixed/restrictive coverage if needed; production merge behavior and T16 ownership remain unchanged.
 **Acceptance/tests:** focused U14 and `bash hooks/tests/test-wire-hooks-add-beside.sh` PASS; then full registered `bash hooks/tests/test-cli-flow-recovery.sh` PASS under a bounded watchdog with saved incremental evidence before T21. Assert duplicate/missing Flow or CLI entries and matcher widening fail. Preserve the 33-PASS/U14 failure and explanation: T16 correctly keeps CLI Stop[0] and adds Flow Stop[1].
 **Worker-undisturbed:** only disposable fixture settings; CLI/provider/config/source and unrelated untracked evidence unchanged.
-**Commit:** one `T26` fixture-only commit after focused and terminal full-wrapper PASS; exact stage, normal pre-commit.
+**Commit:** one `T26` two-file commit after focused exact-text/multi-block assertions and terminal full-wrapper PASS; exact stage, normal pre-commit.
 
 ## T21 - Final technical gate report
 

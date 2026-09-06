@@ -100,7 +100,7 @@ bash hooks/tests/test-health-check-timeout.sh
 bash hooks/tests/test-cli-flow-recovery.sh
 ```
 
-T25 timeout 23/23 and bounded U16/U17/U18 rc0 permit its separate commit; the wrapper advanced to 33 PASS and failed U14's stale Stop[0] assertion. T26 changes only `hooks/tests/cli-flow-recovery-direct.sh` per tasks.md: exact Flow identity/count across all Stop blocks, both unique CLI entries and matcher/block preservation. Require focused U14/wire-hooks and terminal full-wrapper PASS before its separate commit. Retain both failed attempts and their distinct explanations. Then run all task-focused tests once on T26 HEAD:
+T25 timeout 23/23 and bounded U16/U17/U18 rc0 permit its separate commit; the wrapper advanced to 33 PASS and failed U14's stale Stop[0] assertion. T26 changes exactly `hooks/tests/cli-flow-recovery-direct.sh` and the proven status literal in `hooks/local/fusebase-flow-overlays/settings-json-merge.py` per tasks.md: exact runtime `Fusebase Flow stop hook…` (prefer Python `\u2026` source), Flow identity/count across all Stop blocks, both unique CLI entries and matcher/block preservation. Require focused exact-text U14/wire-hooks and terminal full-wrapper PASS before its separate commit. Retain failed attempts and their distinct explanations, including the mojibake regression. Then run all task-focused tests once on T26 HEAD:
 
 ```text
 FF_FULL=1 FFHC_HEARTBEAT_SECS=30 bash hooks/tests/run-tests.sh

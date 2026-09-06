@@ -39,7 +39,7 @@
 | Recovery ownership/preflight/verification | `bash hooks/tests/cli-flow-recovery-direct.sh`; `bash hooks/tests/cli-flow-recovery-e2e.sh`; `bash hooks/tests/test-hook-wiring-intent.sh` |
 | Real Git fixture | `FFCF_T15_ONLY=1 bash hooks/tests/test-cli-flow-recovery.sh` PASS at T24; terminal wrapper proof owned by T26 |
 | Timeout/recovery liveness | `bash hooks/tests/test-health-check-timeout.sh`; bounded U16/U17/U18 rc0 before T25 commit; each engine call bounded below outer watchdog with cleanup margin and durable phase identity |
-| U14 fixture | focused U14 plus wire-hooks PASS; full `bash hooks/tests/test-cli-flow-recovery.sh` PASS before T26 commit; no production merger changes |
+| U14 fixture/status | focused U14 asserts exact runtime `Fusebase Flow stop hook…` and rejects mojibake; wire-hooks PASS; full `bash hooks/tests/test-cli-flow-recovery.sh` PASS before T26 commit; production edit restricted to status literal |
 | Hook matcher ownership | `bash hooks/tests/test-wire-hooks-add-beside.sh`; exact/mixed/restrictive-first matrix PASS |
 | Workflow behavior | `bash hooks/tests/test-lane-workflow.sh`; real fixture actions plus all mutation controls PASS |
 | Temporal evidence | `bash hooks/tests/test-wasted-effort-windowing.sh`; old-footer/SHA/mixed-report cases PASS |

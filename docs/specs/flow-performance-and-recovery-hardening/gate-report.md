@@ -24,7 +24,7 @@ All PASS labels below record the provisional T10 fixture/check results at `2217a
 | Registered wrapper attempt | 23 rows passed, then U17 stalled nondeterministically through its 600s health fixture budget and outer 1200s timeout. |
 | Targeted observations | xtrace U17 and U18 each completed rc0 HEALTHY under <=180s; isolated success does not explain or close the full-wrapper stall. |
 | T25 disposition | Timeout selftest 23/23 PASS; bounded U16/U17/U18 each rc0; wrapper advanced to 33 PASS. Focused/engine proof permits separate T25 commit; no terminal wrapper PASS claimed. |
-| T26 blocker | U14 reads only Stop[0]; T16 correctly preserves CLI Stop[0] and creates isolated Flow Stop[1]. Isolated reproduction confirms production output. Correct fixture only per tasks.md T26; require focused U14/wire-hooks and terminal full-wrapper PASS. |
+| T26 blocker | U14 reads only Stop[0]; T16 correctly isolates CLI/Flow blocks. Exact-text assertion then exposed T16's mojibake status literal at settings-json-merge.py:59; intended text is documented at CHANGELOG.md:2677. Correct fixture plus that literal only per tasks.md T26; require focused U14/wire-hooks and terminal full-wrapper PASS. |
 | Dependency | T20 -> T24 -> T25 -> T26 -> T21; T21 remains report-only |
 
 ## 1. Provisional T10 per-task commit table
@@ -205,7 +205,7 @@ The T10 gate at source 2217a9c is superseded. GPT-6 Astra returned CHANGES REQUI
 
 The 1,274/1,274 suite result, source SHAs, and recorded timings remain historical facts. They are insufficient for approval because validator identity/signing, recovery ownership/preflight/verification, hook/overlay ownership, workflow execution, temporal linkage, and write-mode no-op evidence have open defects.
 
-T11-T20 are committed through adc1a3d; T24 is fe1629c. T25 timeout selftest passed 23/23 and bounded U16/U17/U18 returned rc0, permitting its commit. The wrapper reached 33 PASS then exposed U14's stale Stop[0] assumption. T26 corrects only that fixture and must obtain terminal full-wrapper PASS before report-only T21. T22 remains GPT-6 Astra review-only and T23 docs-only.
+T11-T20 are committed through adc1a3d; T24 is fe1629c. T25 timeout selftest passed 23/23 and bounded U16/U17/U18 returned rc0, permitting its commit. The wrapper reached 33 PASS then exposed U14's stale Stop[0] assumption. T26 corrects that fixture and the proven status-literal encoding regression, then must obtain terminal full-wrapper PASS before report-only T21. T22 remains GPT-6 Astra review-only and T23 docs-only.
 
 Residuals remain UNVERIFIED: five-provider delivered-context telemetry, three real-symlink controls on MSYS, Windows authority ACL/isolation, and actual CLI install/update/recover comparison. UI/client and production deploy are N/A.
 ```
