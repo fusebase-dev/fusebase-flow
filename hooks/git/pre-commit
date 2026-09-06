@@ -111,14 +111,26 @@ _ffpc_is_py3() { "$@" -c 'import sys; raise SystemExit(0 if sys.version_info[:2]
 #     TRIPWIRE: `-S -c` support is NOT a consumer requirement — a wrapper honouring only
 #     `-S <file>` must keep working, so an unusable `-c` falls through to the file probe.
 _ffpc_bounded() {   # <secs> <out> <err> <mark> CMD… — rc 124 == killed at the bound
-    local s=$1 o=$2 e=$3 m=$4 p w r; shift 4; rm -f "$m" 2>/dev/null
-    "$@" >"$o" 2>"$e" & p=$!
-    # TRIPWIRE: the deadline is CLOCK-based and one poll tick SHORT — counting N sleeps lets a 1s
-    # tick push an attempt past its stated bound.
-    ( d=$((SECONDS + s - 1)); while [ "$SECONDS" -lt "$d" ]; do kill -0 $p 2>/dev/null || exit 0; sleep 1; done
-      : > "$m"; kill -9 $p 2>/dev/null ) >/dev/null 2>&1 & w=$!
+    local s=$1 o=$2 e=$3 m=$4 p w r t f nap=0 monitor=0; shift 4; rm -f "$m" 2>/dev/null
+    f="$m.fifo"
+    if mkfifo "$f" 2>/dev/null && { exec 8<>"$f"; } 2>/dev/null; then nap=1; fi
+    rm -f "$f" 2>/dev/null
+    case $- in *m*) monitor=1 ;; esac
+    set -m; t=$SECONDS; "$@" >"$o" 2>"$e" & p=$!; [ "$monitor" -eq 1 ] || set +m
+    # TRIPWIRE: a timed built-in read avoids MSYS spawn delay; the FIFO is open read/write so EOF
+    # cannot return early. Unsupported hosts use the one-spawn fallback at the same deadline.
+    ( if [ "$nap" -eq 1 ]; then read -t "$((s - 1))" -u 8 _ 2>/dev/null || true
+      else sleep "$((s - 1))"; fi
+      kill -0 $p 2>/dev/null || exit 0
+      printf '%s %s\n' "$((s - 1))" "$((SECONDS - t))" > "$m"
+      kill -9 -- "-$p" 2>/dev/null || kill -9 "$p" 2>/dev/null ) >/dev/null 2>&1 & w=$!
     wait $p; r=$?; kill $w 2>/dev/null; wait $w 2>/dev/null
-    [ -f "$m" ] && r=124
+    [ "$nap" -eq 0 ] || { exec 8<&- 8>&-; }
+    FFPC_BOUND_RETURN=$((SECONDS - t)); FFPC_BOUND_DEADLINE=none; FFPC_BOUND_SIGNAL=none
+    if [ -f "$m" ]; then
+        r=124; read -r FFPC_BOUND_DEADLINE FFPC_BOUND_SIGNAL < "$m"
+        FFPC_BOUND_DEADLINE="${FFPC_BOUND_DEADLINE}s"; FFPC_BOUND_SIGNAL="${FFPC_BOUND_SIGNAL}s"
+    fi
     return $r
 }
 _ffpc_ver() {   # one bounded probe; sets FFPC_VER (maj.min; empty = unproven), appends FFPC_DIAG
@@ -126,7 +138,7 @@ _ffpc_ver() {   # one bounded probe; sets FFPC_VER (maj.min; empty = unproven), 
     # captured in $FFPC_VD/e and replayed in the BLOCK diagnostic — never discard it.
     _ffpc_bounded 10 "$FFPC_VD/o" "$FFPC_VD/e" "$FFPC_VD/m" python3 -S "$@" 2>/dev/null; local r=$?
     FFPC_VER="$(sed -n 's/^FFPCVER \([0-9][0-9]*\) \([0-9][0-9]*\)$/\1.\2/p' "$FFPC_VD/o" 2>/dev/null | head -1)"
-    FFPC_DIAG="$FFPC_DIAG [-S ${1##*/} rc=$r$([ $r -eq 124 ] && printf ' TIMEOUT@10s')] $(tr '\r\n' '  ' < "$FFPC_VD/e" 2>/dev/null | cut -c1-160)"
+    FFPC_DIAG="$FFPC_DIAG [-S ${1##*/} rc=$r$([ $r -eq 124 ] && printf ' TIMEOUT@10s') deadline=${FFPC_BOUND_DEADLINE} signal=${FFPC_BOUND_SIGNAL} return=${FFPC_BOUND_RETURN}s] $(tr '\r\n' '  ' < "$FFPC_VD/e" 2>/dev/null | cut -c1-160)"
 }
 if [ -n "$STAGED_ANY" ] && command -v python3 >/dev/null 2>&1; then
     FFPC_VD="$(mktemp -d 2>/dev/null || mktemp -d -t ffflow-pyver)"

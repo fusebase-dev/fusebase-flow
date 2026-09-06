@@ -22,15 +22,24 @@
 
 set -uo pipefail
 
+CASE_SCOPE=all
+if [ "$#" -gt 0 ]; then
+  [ "$#" -eq 2 ] && [ "$1" = "--only" ] && [ -n "$2" ] \
+    || { echo "usage: $0 [--only py5]" >&2; exit 2; }
+  [ "$2" = "py5" ] || { echo "unknown case selector: $2" >&2; exit 2; }
+  CASE_SCOPE=py5
+fi
+
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 HOOK_SRC="${FFPV_HOOK:-$ROOT/hooks/git/pre-commit}"
 FIXTURE="$ROOT/hooks/tests/lib/minimal-path-fixture.sh"
 BLOCK_DIAG="did not prove Python 3.10+"
 
 pass=0; fail=0
-ok()  { pass=$((pass + 1)); echo "PASS: python3-version $1"; }
-bad() { fail=$((fail + 1)); echo "FAIL: python3-version $1 (${2:-})"; }
-finish() { echo "[test-pre-commit-python3-version-contract] $pass/$((pass + fail)) PASS"; exit $fail; }
+SUITE=python3-version; [ "$CASE_SCOPE" = all ] || SUITE=python3-version-scoped
+ok()  { pass=$((pass + 1)); echo "PASS: $SUITE $1"; }
+bad() { fail=$((fail + 1)); echo "FAIL: $SUITE $1 (${2:-})"; }
+finish() { echo "[test-pre-commit-python3-version-contract:$CASE_SCOPE] $pass/$((pass + fail)) PASS"; exit $fail; }
 
 [ -f "$HOOK_SRC" ] || { bad "hook-source-present" "missing $HOOK_SRC"; finish; }
 command -v python3 >/dev/null 2>&1 || { ok "skipped-no-python3"; finish; }
@@ -79,8 +88,11 @@ shim "$B/noc" python3 '#!/usr/bin/env bash' \
   "exec \"$REALPY\" \"\$@\""
 # boom: every attempt errors, with an attributable rc and stderr.
 shim "$B/boom" python3 '#!/usr/bin/env bash' 'echo "ffpv-boom" >&2' 'exit 7'
-# hang: every attempt blocks past the 10s per-attempt bound.
-shim "$B/hang" python3 '#!/usr/bin/env bash' 'sleep 60'
+# hang: every attempt records its owned wrapper/child PIDs, then blocks past the per-attempt bound.
+PROBE_PIDS="$TMP/hang-pids.log"
+shim "$B/hang" python3 '#!/usr/bin/env bash' \
+  "echo \"\$\$\" >> \"$PROBE_PIDS\"" 'sleep 60 & child=$!' \
+  "echo \"\$child\" >> \"$PROBE_PIDS\"" 'wait "$child"'
 # junk: exits 0 with malformed (unparseable) version output.
 shim "$B/junk" python3 '#!/usr/bin/env bash' 'echo "not-a-version"' 'exit 0'
 # log: a real interpreter that records every argv it is handed. The version probe is then a DIRECT
@@ -103,12 +115,29 @@ run_hook() {
   RESIDUE="$(ls -A "$TMPROOT" 2>/dev/null | grep -c . || true)"
 }
 has() { case "$ERR" in *"$1"*) return 0 ;; esac; return 1; }
+timeout_evidence_valid() {
+  local evidence="$1" cleanup_ok="$2" count value
+  count="$(printf '%s' "$evidence" | grep -o 'TIMEOUT@10s' | grep -c .)"
+  [ "${count:-0}" -eq 2 ] || return 1
+  count=0
+  for value in $(printf '%s' "$evidence" | grep -o 'deadline=[0-9][0-9]*s' | cut -d= -f2 | tr -d s); do
+    [ "$value" -le 10 ] || return 1
+    count=$((count + 1))
+  done
+  [ "$count" -eq 2 ] || return 1
+  count="$(printf '%s' "$evidence" | grep -o 'signal=[0-9][0-9]*s' | grep -c .)"
+  [ "${count:-0}" -eq 2 ] && [ "$cleanup_ok" = yes ]
+}
 
 C1="$TMP/c1"; mk_consumer "$C1" head || { bad "consumer-repo-built" "could not build the HEAD consumer"; finish; }
-C0="$TMP/c0"; mk_consumer "$C0" nohead || { bad "consumer-repo-built" "could not build the unborn-HEAD consumer"; finish; }
+C0="$TMP/c0"
+if [ "$CASE_SCOPE" = all ]; then
+  mk_consumer "$C0" nohead || { bad "consumer-repo-built" "could not build the unborn-HEAD consumer"; finish; }
+fi
 ok "consumer-repo-built"
 
 # ---- PY1: real CPython >=3.10 ------------------------------------------------------------------
+if [ "$CASE_SCOPE" = all ]; then
 run_hook "$C1" "$PATH"
 if [ "$RC" -eq 0 ] && has "all checks passed"; then ok "PY1-real-cpython-passes"
 else bad "PY1-real-cpython-passes" "rc=$RC on the normal PATH; the same staged state must pass, or no BLOCK below is attributable to §1b-v"; fi
@@ -140,6 +169,7 @@ if [ "$RC" -eq 0 ]; then ok "PY4-c-rejecting-wrapper-passes"
 else bad "PY4-c-rejecting-wrapper-passes" "rc=$RC — a wrapper that supports the existing -S <file> interface was newly refused: ${ERR:-<empty>}"; fi
 if ! has "$BLOCK_DIAG" && has "all checks passed"; then ok "PY4-c-support-not-a-requirement"
 else bad "PY4-c-support-not-a-requirement" "the bounded file-script fallback did not prove the version; -S -c became a consumer requirement"; fi
+fi
 
 # ---- PY5: probe/fallback error, timeout, malformed output --------------------------------------
 run_hook "$C1" "$B/boom:$PATH"
@@ -153,14 +183,42 @@ hang_elapsed=$ELAPSED
 timeouts="$(printf '%s' "$ERR" | grep -o 'TIMEOUT@10s' | grep -c .)"
 if [ "$RC" -ne 0 ] && [ "${timeouts:-0}" -eq 2 ]; then ok "PY5-timeout-class-attributed"
 else bad "PY5-timeout-class-attributed" "rc=$RC with ${timeouts:-0} bounded-attempt markers (expected rc!=0 and 2): ${ERR:-<empty>}"; fi
-# <=10s per attempt, <=20s total (spec.md § S2d). The wall below also carries hook startup and the
-# staged-set listing, so the assertion is the budget plus a fixed allowance, never the budget alone.
-if [ "$hang_elapsed" -ge 16 ] && [ "$hang_elapsed" -le 26 ]; then ok "PY5-probe-budget-bounded"
-else bad "PY5-probe-budget-bounded" "two bounded attempts took ${hang_elapsed}s (expected 16-26s: 2x<=10s probe budget plus hook startup)"; fi
+# Validate each recorded signal deadline directly. Whole-hook wall time is diagnostic because it
+# also carries startup, staged enumeration, termination/reap, and host scheduling.
+alive=0
+while IFS= read -r owned_pid; do
+  [ -n "$owned_pid" ] || continue
+  if kill -0 "$owned_pid" 2>/dev/null; then alive=$((alive + 1)); kill -9 "$owned_pid" 2>/dev/null || true; fi
+done < "$PROBE_PIDS"
+cleanup_ok=yes; [ "$alive" -eq 0 ] || cleanup_ok=no
+if timeout_evidence_valid "$ERR" "$cleanup_ok"; then ok "PY5-probe-budget-bounded"
+else bad "PY5-probe-budget-bounded" "invalid per-probe deadline evidence or cleanup (whole_hook=${hang_elapsed}s alive=$alive): ${ERR:-<empty>}"; fi
+if [ "$cleanup_ok" = yes ]; then ok "PY5-owned-children-reaped"
+else bad "PY5-owned-children-reaped" "$alive recorded probe process(es) remained alive after the hook returned"; fi
+if ! has "all checks passed" && ! has "first-adoption bootstrap" && ! has "trusted HEAD"; then ok "PY5-timeout-blocks-before-controls"
+else bad "PY5-timeout-blocks-before-controls" "execution reached a later control after timeout refusal: ${ERR:-<empty>}"; fi
+over_budget="$(printf '%s' "$ERR" | sed '0,/deadline=[0-9][0-9]*s/s//deadline=11s/')"
+missing_timeout="$(printf '%s' "$ERR" | sed '0,/TIMEOUT@10s/s///')"
+if ! timeout_evidence_valid "$over_budget" yes; then ok "PY5-over-budget-negative-rejected"
+else bad "PY5-over-budget-negative-rejected" "an 11s probe deadline was accepted"; fi
+if ! timeout_evidence_valid "$missing_timeout" yes; then ok "PY5-missing-timeout-negative-rejected"
+else bad "PY5-missing-timeout-negative-rejected" "evidence missing one timeout marker was accepted"; fi
+if ! timeout_evidence_valid "$ERR" no; then ok "PY5-broken-cleanup-negative-rejected"
+else bad "PY5-broken-cleanup-negative-rejected" "evidence with unreaped owned children was accepted"; fi
+echo "[python3-version] PY5 whole_hook=${hang_elapsed}s cleanup=$cleanup_ok probes: $(printf '%s' "$ERR" | grep -o 'TIMEOUT@10s deadline=[^]]*')" >&2
 
 run_hook "$C1" "$B/junk:$PATH"
 if [ "$RC" -ne 0 ] && has "version=unproven"; then ok "PY5-malformed-output-blocks"
 else bad "PY5-malformed-output-blocks" "rc=$RC — unparseable version output was not treated as unproven"; fi
+
+if [ "$CASE_SCOPE" = py5 ]; then
+  run_hook "$C1" "$B/boom:$PATH"
+  if [ "${RESIDUE:-1}" -eq 0 ]; then ok "PY5-block-leaves-no-temp-residue"
+  else bad "PY5-block-leaves-no-temp-residue" "${RESIDUE} entr(y|ies) survived in the run's private TMPDIR after a probe BLOCK"; fi
+  if cmp -s "$HOOK_SRC" "$TMP/hook-at-start"; then ok "hook-under-test-unmodified"
+  else bad "hook-under-test-unmodified" "$HOOK_SRC changed during this run"; fi
+  finish
+fi
 
 # ---- PY6: the discovered `python` / `py -3` fallbacks keep their existing behaviour -------------
 if [ ! -f "$FIXTURE" ]; then

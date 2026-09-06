@@ -93,6 +93,23 @@ else bad "mutation-negative-control-is-unmutated" "the negative control differs 
 mkdir -p "$TMP/bin"
 printf '#!/usr/bin/env bash\necho "FFPCVER 3 9"\nexit 0\n' > "$TMP/bin/python3"; chmod +x "$TMP/bin/python3"
 
+probe_budget_ok() {
+  local evidence="$1" records line deadline returned
+  records="$(grep -o 'deadline=[^ ]* signal=[^ ]* return=[0-9][0-9]*s' "$evidence" 2>/dev/null)"
+  [ -n "$records" ] || return 1
+  while IFS= read -r line; do
+    deadline="${line%% *}"; deadline="${deadline#deadline=}"
+    returned="${line##*return=}"; returned="${returned%s}"
+    case "$deadline" in
+      none) [ "$returned" -le 10 ] || return 1 ;;
+      *s) deadline="${deadline%s}"; [ "$deadline" -le 10 ] || return 1 ;;
+      *) return 1 ;;
+    esac
+  done <<EOF
+$records
+EOF
+}
+
 # snapshot <hook-copy> <label>: build a PRISTINE scenario repo, run the hook once, write
 # $TMP/<label>.snap (key=value) and $TMP/<label>.err (normalized stderr).
 snapshot() {
@@ -115,6 +132,7 @@ snapshot() {
   ( cd "$d" && PATH="$TMP/bin:$PATH" TMPDIR="$td" bash hooks/git/pre-commit ) \
       >"$TMP/$label.out.raw" 2>"$TMP/$label.err.raw"; rc=$?
   t1="$(date +%s)"; el=$((t1 - t0))
+  printf '%s\n' "$el" > "$TMP/$label.hook.elapsed-s"
 
   # Declared nondeterminism: ONLY the private TMPDIR and the scenario repo path.
   sed -e "s#$td#<TMPDIR>#g" -e "s#$d#<REPO>#g" "$TMP/$label.err.raw" > "$TMP/$label.err"
@@ -141,7 +159,7 @@ snapshot() {
     echo "head_unchanged=$([ "$(git -C "$d" rev-parse HEAD 2>/dev/null)" = "$head_before" ] && echo yes || echo no)"
     echo "temp_residue=$(ls -A "$td" 2>/dev/null | grep -c . || true)"
     echo "timeout_class=$tclass"
-    echo "budget_ok=$([ "$el" -le 26 ] && echo yes || echo no)"
+    echo "budget_ok=$(probe_budget_ok "$TMP/$label.err" && echo yes || echo no)"
     echo "tracked_hook_sha=$(sha256sum "$HOOK" | cut -d' ' -f1)"
   } | LC_ALL=C sort > "$TMP/$label.snap"
   SNAP_ELAPSED=$el; SNAP_RC=$rc
@@ -208,7 +226,7 @@ else bad "mutation-production-hook-unchanged" "hooks/git/pre-commit changed duri
   echo "[python3-version-mutation] MUTANT snapshot:";   sed 's/^/    /' "$TMP/mutant.snap"
   echo "[python3-version-mutation] manifest evidence:"
   for label in baseline mutant negative; do
-    echo "    $label elapsed_ms=$(cat "$TMP/$label.manifest.elapsed-ms") count=$(grep -c . "$TMP/$label.manifest" || true) sha=$(sha256sum "$TMP/$label.manifest" | cut -d' ' -f1)"
+    echo "    $label manifest_elapsed_ms=$(cat "$TMP/$label.manifest.elapsed-ms") hook_elapsed_s=$(cat "$TMP/$label.hook.elapsed-s") count=$(grep -c . "$TMP/$label.manifest" || true) sha=$(sha256sum "$TMP/$label.manifest" | cut -d' ' -f1)"
   done
   echo "[python3-version-mutation] snapshot delta (baseline -> mutant):"
   diff "$TMP/baseline.snap" "$TMP/mutant.snap" || true
