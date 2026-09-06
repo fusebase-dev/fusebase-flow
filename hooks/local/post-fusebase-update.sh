@@ -168,17 +168,30 @@ ff_prevalidate_recovery() {
   fi
 }
 
-if ! PREVALIDATION_OUTPUT="$(ff_prevalidate_recovery 2>&1)"; then
-  echo "[post-fusebase-update] FATAL: recovery plan validation failed: $PREVALIDATION_OUTPUT" >&2
-  if command -v ffrp_write >/dev/null 2>&1; then
-    FFRP_ROOT="$ROOT"; FFRP_PLANNED=""; FFRP_APPLIED=""
-    ffrp_write "failed" "2" "$PREVALIDATION_OUTPUT" || true
-  fi
+RECOVERY_PREFLIGHT="hooks/local/lib/recovery-preflight.py"
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "[post-fusebase-update] FATAL: recovery plan validation requires python3" >&2
   exit 2
 fi
+PREFLIGHT_PLAN="$(mktemp "${TMPDIR:-/tmp}/flow-recovery-plan.XXXXXX")"
+PREFLIGHT_ARGS=(--root "$ROOT" --output "$PREFLIGHT_PLAN")
+[ "$WIRE_HOOKS" -eq 1 ] && PREFLIGHT_ARGS+=(--wire-hooks)
+[ "$RESTORE_GIT_HOOKS" -eq 1 ] && PREFLIGHT_ARGS+=(--restore-git-hooks)
+[ "$REFRESH_OVERLAYS" -eq 1 ] && PREFLIGHT_ARGS+=(--refresh-overlays)
+set +e
+PREVALIDATION_OUTPUT="$(python3 -B "$RECOVERY_PREFLIGHT" "${PREFLIGHT_ARGS[@]}" 2>&1)"
+PREVALIDATION_RC=$?
+set -e
+if [ "$PREVALIDATION_RC" -ne 0 ]; then
+  rm -f "$PREFLIGHT_PLAN"
+  echo "[post-fusebase-update] FATAL: recovery plan validation failed: $PREVALIDATION_OUTPUT" >&2
+  exit 2
+fi
+RECOVERY_PLAN_ID="$(tail -n 1 <<<"$PREVALIDATION_OUTPUT" | tr -d '\r')"
+rm -f "$PREFLIGHT_PLAN"
 
 if command -v ffrp_begin >/dev/null 2>&1; then
-  ffrp_begin "$ROOT" "skill_mirrors,agent_mirrors,agents_overlay,claude_overlay,claude_settings,git_hooks,health_skill,commands"
+  ffrp_begin "$ROOT" "skill_mirrors,agent_mirrors,agents_overlay,claude_overlay,claude_settings,git_hooks,health_skill,commands" "$RECOVERY_PLAN_ID"
 fi
 RECOVERY_FINALIZED=0
 ff_recovery_on_exit() {

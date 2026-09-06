@@ -1,0 +1,245 @@
+#!/usr/bin/env python3
+"""Construct and validate a complete, read-only Flow recovery plan."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import importlib.util
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+from typing import Any
+
+
+SURFACES = [
+    "skill_mirrors", "agent_mirrors", "agents_overlay", "claude_overlay",
+    "claude_settings", "git_hooks", "health_skill", "commands",
+]
+
+
+def native_path(raw: str) -> Path:
+    if os.name == "nt" and raw.startswith("/"):
+        raw = subprocess.run(
+            ["cygpath", "-m", raw], check=True, text=True, capture_output=True
+        ).stdout.strip()
+    return Path(raw)
+
+
+def load_module(path: Path, name: str) -> Any:
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise ValueError(f"cannot load helper: {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def regular_source(path: Path, label: str) -> None:
+    if path.is_symlink() or not path.is_file():
+        raise ValueError(f"{label} is missing, non-file, or symlink: {path}")
+
+
+def read_json(path: Path, label: str) -> Any:
+    regular_source(path, label)
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"{label} is invalid JSON: {exc}") from exc
+
+
+def validate_intent(root: Path) -> str:
+    path = root / "state/audit/flow-hook-wiring-intent.json"
+    if not path.exists():
+        return "absent"
+    value = read_json(path, "hook-wiring intent")
+    if not isinstance(value, dict) or value.get("schema_version") not in (1, 2):
+        raise ValueError("hook-wiring intent has an unsupported schema")
+    if not isinstance(value.get("enabled"), bool):
+        raise ValueError("hook-wiring intent enabled is not boolean")
+    recorded_root = value.get("repo_root")
+    if not isinstance(recorded_root, str) or not recorded_root.strip():
+        raise ValueError("hook-wiring intent has no project identity")
+    if value["schema_version"] == 2:
+        allowed = {"claude_settings", "git_hooks"}
+        surfaces = value.get("surfaces")
+        if not isinstance(surfaces, list) or any(x not in allowed for x in surfaces):
+            raise ValueError("hook-wiring intent has invalid surfaces")
+        if value["enabled"] and not surfaces:
+            raise ValueError("enabled hook-wiring intent has no surfaces")
+    return "enabled" if value["enabled"] else "revoked"
+
+
+def validate_ownership_map(root: Path) -> dict[str, Any]:
+    path = root / "hooks/local/fusebase-flow-overlays/agent-surface-ownership.json"
+    value = read_json(path, "provider ownership map")
+    if value.get("schema_version") != 1 or not isinstance(value.get("paths"), list):
+        raise ValueError("provider ownership map has invalid schema")
+    required = {"cli-owned", "flow-owned", "shared-merge"}
+    owners = value.get("owners")
+    if not isinstance(owners, dict) or not required.issubset(owners):
+        raise ValueError("provider ownership map is incomplete")
+    for index, row in enumerate(value["paths"]):
+        if not isinstance(row, dict) or row.get("owner") not in required:
+            raise ValueError(f"provider ownership row {index} is invalid")
+    return value
+
+
+def target_rows(root: Path, ownership: Any) -> list[dict[str, str]]:
+    receipt_path = root / "state/audit/recovery-owned-targets.json"
+    receipt = {"schema": 1, "targets": {}}
+    if receipt_path.exists():
+        receipt = read_json(receipt_path, "owned-target receipt")
+        if receipt.get("schema") != 1 or not isinstance(receipt.get("targets"), dict):
+            raise ValueError("owned-target receipt has invalid schema")
+    rows: list[dict[str, str]] = []
+
+    def add(source: Path, target: str, surface: str) -> None:
+        regular_source(source, f"{surface} source")
+        destination = ownership.safe_target(root, target)
+        state, detail = ownership.classify(source, destination, target, receipt["targets"])
+        rows.append({
+            "surface": surface, "source": str(source.relative_to(root)).replace("\\", "/"),
+            "target": target, "classification": state, "detail": detail,
+        })
+
+    skill_count = 0
+    for source in sorted((root / "flow-skills").rglob("*")):
+        if source.is_file():
+            skill_count += 1
+            rel = source.relative_to(root / "flow-skills").as_posix()
+            add(source, f".claude/skills/{rel}", "skill_mirrors")
+            add(source, f".agents/skills/{rel}", "skill_mirrors")
+    if not skill_count:
+        raise ValueError("canonical flow-skills has no source files")
+    agent_count = 0
+    for source in sorted((root / "agents").glob("*/AGENT.md")):
+        agent_count += 1
+        name = source.parent.name
+        add(source, f".claude/agents/{name}.md", "agent_mirrors")
+        add(source, f".codex/agents/{name}.md", "agent_mirrors")
+    if not agent_count:
+        raise ValueError("canonical agents has no source files")
+    health = root / "flow-skills/fusebase-flow-health-check/SKILL.md"
+    if not health.is_file():
+        health = root / "hooks/local/fusebase-flow-overlays/skills/fusebase-flow-health-check/SKILL.md"
+    for provider in (".claude", ".agents"):
+        add(health, f"{provider}/skills/fusebase-flow-health-check/SKILL.md", "health_skill")
+    command_dir = root / "hooks/local/fusebase-flow-overlays/commands"
+    commands = sorted(command_dir.glob("*.md")) if command_dir.is_dir() else []
+    if not commands:
+        raise ValueError("no recovery command sources are available")
+    for source in commands:
+        add(source, f".claude/commands/{source.name}", "commands")
+    return rows
+
+
+def validate_overlays(root: Path, refresh: bool) -> list[dict[str, str]]:
+    helper_path = root / "hooks/local/fusebase-flow-overlays/overlay-block-replace.py"
+    overlay = load_module(helper_path, "flow_overlay_preflight")
+    specs = [
+        ("AGENTS.md", "agents-md-overlay.md", "## FuseBase Flow — workflow lifecycle overlay",
+         ("## Fusebase Flow — workflow lifecycle overlay",)),
+        ("CLAUDE.md", "claude-md-overlay.md", "## FuseBase Flow — Claude Code adapter",
+         ("## FuseBase Flow — additional rules (overlay)", "## Fusebase Flow — additional rules (overlay)")),
+    ]
+    rows = []
+    for target_name, template_name, heading, legacy in specs:
+        target = root / target_name
+        template = root / "hooks/local/fusebase-flow-overlays" / template_name
+        regular_source(template, f"{target_name} overlay template")
+        if target.exists() and (target.is_symlink() or not target.is_file()):
+            raise ValueError(f"{target_name} is not a regular file")
+        state = "missing"
+        if target.is_file():
+            data = target.read_bytes()
+            headings = tuple(x.encode() for x in (heading, *legacy))
+            present = any(overlay._line_matches(data, (candidate,)) for candidate in headings)
+            if present and refresh:
+                state = overlay.replace_overlay(
+                    target, template, heading, legacy, target.with_suffix(".unused"),
+                    validate_only=True,
+                )
+            else:
+                state = "present" if present else "append"
+        rows.append({"surface": target_name, "state": state})
+    return rows
+
+
+def build_plan(root: Path, wire: bool, restore_git: bool, refresh: bool) -> dict[str, Any]:
+    required = [
+        root / "hooks/local/mirror-skills.sh", root / "hooks/local/mirror-agents.sh",
+        root / "hooks/local/lib/recovery-owned-write.py",
+        root / "hooks/local/fusebase-flow-overlays/settings-json-merge.py",
+    ]
+    for path in required:
+        regular_source(path, "recovery helper")
+    ownership_map = validate_ownership_map(root)
+    ownership = load_module(required[2], "flow_recovery_ownership")
+    settings_helper = load_module(required[3], "flow_settings_preflight")
+    intent = validate_intent(root)
+    settings_path = root / ".claude/settings.json"
+    if wire and settings_path.exists():
+        settings_helper.validate_settings_shape(read_json(settings_path, "Claude settings"))
+    operations = [
+        {"surface": "agents_overlay", "source": "hooks/local/fusebase-flow-overlays/agents-md-overlay.md", "target": "AGENTS.md"},
+        {"surface": "claude_overlay", "source": "hooks/local/fusebase-flow-overlays/claude-md-overlay.md", "target": "CLAUDE.md"},
+    ]
+    if wire:
+        operations.append({"surface": "claude_settings", "source": str(required[3].relative_to(root)).replace("\\", "/"), "target": ".claude/settings.json"})
+    if restore_git:
+        installer = root / "hooks/local/install-git-hooks.sh"
+        regular_source(installer, "Git hook installer")
+        if not os.access(installer, os.X_OK) or not (root / ".git/hooks").is_dir():
+            raise ValueError("Git hook restoration prerequisites are unavailable")
+        for name in ("pre-commit", "commit-msg"):
+            source = root / "hooks/git" / name
+            regular_source(source, "Git hook source")
+            operations.append({"surface": "git_hooks", "source": f"hooks/git/{name}", "target": f".git/hooks/{name}"})
+    plan = {
+        "schema_version": 1, "repo_root": str(root), "surfaces": SURFACES,
+        "options": {"wire_hooks": wire, "restore_git_hooks": restore_git,
+                    "refresh_overlays": refresh},
+        "intent_state": intent, "provider_path_count": len(ownership_map["paths"]),
+        "overlays": validate_overlays(root, refresh),
+        "targets": target_rows(root, ownership),
+        "operations": operations,
+    }
+    identity_input = {
+        "schema_version": plan["schema_version"], "repo_root": plan["repo_root"],
+        "surfaces": plan["surfaces"], "options": plan["options"],
+        "sources": [
+            (row["surface"], row["source"], row["target"],
+             hashlib.sha256((root / row["source"]).read_bytes()).hexdigest())
+            for row in plan["targets"]
+        ],
+        "operations": plan["operations"],
+        "overlays": [row["surface"] for row in plan["overlays"]],
+    }
+    identity = hashlib.sha256(json.dumps(identity_input, sort_keys=True).encode()).hexdigest()
+    return {**plan, "plan_id": identity}
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--root", required=True)
+    parser.add_argument("--output", required=True)
+    parser.add_argument("--wire-hooks", action="store_true")
+    parser.add_argument("--restore-git-hooks", action="store_true")
+    parser.add_argument("--refresh-overlays", action="store_true")
+    args = parser.parse_args()
+    try:
+        root = native_path(args.root).resolve()
+        plan = build_plan(root, args.wire_hooks, args.restore_git_hooks, args.refresh_overlays)
+        native_path(args.output).write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
+    except (OSError, ValueError, RuntimeError, json.JSONDecodeError) as exc:
+        print(f"[recovery-preflight] invalid plan: {exc}", file=sys.stderr)
+        return 2
+    print(plan["plan_id"])
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

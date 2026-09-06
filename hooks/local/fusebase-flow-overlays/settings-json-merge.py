@@ -248,8 +248,29 @@ def _flow_handler_present(blocks: Any, event: str) -> bool:
     return False
 
 
+def validate_settings_shape(settings: Any) -> None:
+    """Reject structures that the merge cannot preserve without guessing."""
+    if not isinstance(settings, dict):
+        raise ValueError("settings root is not an object")
+    hooks = settings.get("hooks", {})
+    if not isinstance(hooks, dict):
+        raise ValueError("hooks is not an object")
+    for event, blocks in hooks.items():
+        if not isinstance(blocks, list):
+            raise ValueError(f"hooks.{event} is not an array")
+        for index, block in enumerate(blocks):
+            if not isinstance(block, dict):
+                raise ValueError(f"hooks.{event}[{index}] is not an object")
+            handlers = block.get("hooks")
+            if not isinstance(handlers, list):
+                raise ValueError(f"hooks.{event}[{index}].hooks is not an array")
+            if any(not isinstance(handler, dict) for handler in handlers):
+                raise ValueError(f"hooks.{event}[{index}].hooks contains a non-object")
+
+
 def merge_settings(settings: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     """Return (updated settings, list of changes applied)."""
+    validate_settings_shape(settings)
     changes: list[str] = []
 
     hooks = settings.setdefault("hooks", {})
@@ -466,7 +487,11 @@ def main() -> int:
         print(f"ERROR: {path} is not valid JSON: {exc}", file=sys.stderr)
         return 1
 
-    updated, changes = merge_settings(settings)
+    try:
+        updated, changes = merge_settings(settings)
+    except ValueError as exc:
+        print(f"ERROR: {path} has an invalid hook structure: {exc}", file=sys.stderr)
+        return 2
 
     new_text = json.dumps(updated, indent=2, ensure_ascii=False) + "\n"
     if baseline_out is not None:

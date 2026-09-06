@@ -89,6 +89,11 @@ if [ "${FFCF_T1_ONLY:-0}" = "1" ]; then
   ffcf_t1_overlay_spans
   exit 0
 fi
+if [ "${FFCF_T14_ONLY:-0}" = "1" ]; then
+  ffcf_t14_preflight
+  ffcf_t14_progress_ledger
+  exit 0
+fi
 
 ffcf_e2e_run
 ffcf_classify_run

@@ -24,6 +24,99 @@
 # The mutation below deliberately runs on the REDUCED corpus: the full run proves BREADTH, the
 # mutation proves the assertions are not vacuous. Running it in a copy (never $ROOT) also keeps
 # the phase read-only with respect to the repository.
+ffcf_t14_preflight() {
+  local d="$TMP_BASE/t14-plan" plan="$TMP_BASE/t14-plan.json" rc before after
+  ffcf_canonical "$d"
+  ffcf_cli_surface "$d"
+  ffcf_engine_scripts "$d" hooks/local/install-git-hooks.sh
+  ffcf_root_docs "$d"
+  ffcf_settings_wired "$d"
+  mkdir -p "$d/.git/hooks" "$d/hooks/git"
+  cp hooks/git/pre-commit hooks/git/commit-msg "$d/hooks/git/"
+
+  before="$(find "$d" -type f -print0 | sort -z | xargs -0 sha256sum)"
+  "$python_bin" -B "$d/hooks/local/lib/recovery-preflight.py" --root "$d" \
+    --output "$plan" --wire-hooks --restore-git-hooks >/dev/null \
+    || fail "T14: a complete recovery plan was rejected"
+  "$python_bin" - "$plan" <<'PY' || fail "T14: plan omitted identity, surfaces, or targets"
+import json, sys
+value = json.load(open(sys.argv[1], encoding="utf-8"))
+assert len(value["plan_id"]) == 64
+assert len(value["surfaces"]) == 8
+assert value["targets"] and all("classification" in row for row in value["targets"])
+PY
+  after="$(find "$d" -type f -print0 | sort -z | xargs -0 sha256sum)"
+  [ "$before" = "$after" ] || fail "T14: valid preflight mutated the recovery tree"
+
+  for event in SessionStart Stop; do
+    ffcf_settings_wired "$d"
+    "$python_bin" - "$d/.claude/settings.json" "$event" <<'PY'
+import json, sys
+path, event = sys.argv[1:]
+value = json.load(open(path, encoding="utf-8"))
+value["hooks"][event] = {"malformed": True}
+open(path, "w", encoding="utf-8").write(json.dumps(value))
+PY
+    before="$(find "$d" -type f ! -path '*/settings.json' -print0 | sort -z | xargs -0 sha256sum)"
+    set +e
+    ( cd "$d" && bash hooks/local/post-fusebase-update.sh --wire-hooks \
+        >"$TMP_BASE/t14-$event.out" 2>&1 )
+    rc=$?
+    set -e
+    after="$(find "$d" -type f ! -path '*/settings.json' -print0 | sort -z | xargs -0 sha256sum)"
+    [ "$rc" -eq 2 ] && [ "$before" = "$after" ] \
+      || fail "T14: malformed $event did not fail preflight with zero writes"
+  done
+
+  ffcf_settings_wired "$d"
+  mv "$d/flow-skills/fusebase-flow-health-check/SKILL.md" \
+    "$d/flow-skills/fusebase-flow-health-check/SKILL.md.missing"
+  mv "$d/hooks/local/fusebase-flow-overlays/skills/fusebase-flow-health-check/SKILL.md" \
+    "$d/hooks/local/fusebase-flow-overlays/skills/fusebase-flow-health-check/SKILL.md.missing"
+  set +e
+  "$python_bin" -B "$d/hooks/local/lib/recovery-preflight.py" --root "$d" \
+    --output "$plan" --wire-hooks --restore-git-hooks >/dev/null 2>&1
+  rc=$?
+  set -e
+  [ "$rc" -eq 0 ] && fail "T14: unavailable later health source was omitted from the plan"
+  mv "$d/flow-skills/fusebase-flow-health-check/SKILL.md.missing" \
+    "$d/flow-skills/fusebase-flow-health-check/SKILL.md"
+  mv "$d/hooks/local/fusebase-flow-overlays/skills/fusebase-flow-health-check/SKILL.md.missing" \
+    "$d/hooks/local/fusebase-flow-overlays/skills/fusebase-flow-health-check/SKILL.md"
+
+  before="$(find "$d" -type f -print0 | sort -z | xargs -0 sha256sum)"
+  set +e
+  ( cd "$d" && env PATH="/usr/bin:/mingw64/bin" bash hooks/local/post-fusebase-update.sh \
+      >"$TMP_BASE/t14-no-python.out" 2>&1 )
+  rc=$?
+  set -e
+  after="$(find "$d" -type f -print0 | sort -z | xargs -0 sha256sum)"
+  [ "$rc" -eq 2 ] && [ "$before" = "$after" ] \
+    || fail "T14: missing interpreter did not fail before every tree write"
+
+  cat "$d/hooks/local/fusebase-flow-overlays/agents-md-overlay.md" >> "$d/AGENTS.md"
+  cat "$d/hooks/local/fusebase-flow-overlays/agents-md-overlay.md" >> "$d/AGENTS.md"
+  before="$(sha_cmd "$d/AGENTS.md")"
+  set +e
+  ( cd "$d" && bash hooks/local/post-fusebase-update.sh --refresh-overlays \
+      >"$TMP_BASE/t14-overlay.out" 2>&1 )
+  rc=$?
+  set -e
+  [ "$rc" -eq 2 ] && [ "$before" = "$(sha_cmd "$d/AGENTS.md")" ] \
+    && ! find "$d" -name '*.pre-refresh-*' -print -quit | grep -q . \
+    || fail "T14: invalid overlay did not fail before target or backup writes"
+
+  printf '{"schema_version":999}\n' > \
+    "$d/hooks/local/fusebase-flow-overlays/agent-surface-ownership.json"
+  set +e
+  "$python_bin" -B "$d/hooks/local/lib/recovery-preflight.py" --root "$d" \
+    --output "$plan" >/dev/null 2>&1
+  rc=$?
+  set -e
+  [ "$rc" -eq 2 ] || fail "T14: invalid provider ownership state did not fail closed"
+  pass "T14: complete preflight accepts valid input and rejects malformed settings/providers before writes"
+}
+
 ffcf_tree_inventory() {
   "$python_bin" - "$@" <<'PY'
 import hashlib, json, pathlib, sys

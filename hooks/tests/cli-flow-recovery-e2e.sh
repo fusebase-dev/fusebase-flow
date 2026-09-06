@@ -17,6 +17,9 @@ ffcf_e2e_build() {
   ffcf_canonical "$PROJECT"
   ffcf_cli_surface "$PROJECT"
   ffcf_engine_scripts "$PROJECT" hooks/local/stamp-cli-provenance.sh
+  mkdir -p "$PROJECT/.git/hooks" "$PROJECT/hooks/git"
+  cp hooks/local/install-git-hooks.sh "$PROJECT/hooks/local/"
+  cp hooks/git/pre-commit hooks/git/commit-msg "$PROJECT/hooks/git/"
   ffcf_root_docs "$PROJECT"
   ffcf_settings_wired "$PROJECT"
 }
@@ -45,6 +48,39 @@ doc = {
 }
 out.write_text(json.dumps(doc, sort_keys=True, indent=2) + "\n", encoding="utf-8")
 PY
+}
+
+ffcf_t14_progress_ledger() {
+  ffcf_e2e_build
+  local status="$PROJECT/state/audit/flow-recovery-status.json" first_plan rc
+  set +e
+  ( cd "$PROJECT" && FUSEBASE_FLOW_TEST_FAIL_AFTER_SURFACE=skill_mirrors \
+      bash hooks/local/post-fusebase-update.sh > "$OUT.t14-interrupt" 2>&1 )
+  rc=$?
+  set -e
+  [ "$rc" -eq 1 ] || fail "T14: injected recovery interruption exited $rc instead of 1"
+  "$python_bin" - "$status" <<'PY' || fail "T14: interrupted status inventory is inaccurate"
+import json, sys
+value = json.load(open(sys.argv[1], encoding="utf-8"))
+assert value["schema_version"] == 2 and value["status"] == "partial"
+assert value["applied_surfaces"] == ["skill_mirrors"]
+assert "skill_mirrors" not in value["pending_surfaces"]
+assert len(value["attempts"]) == 1
+PY
+  first_plan="$($python_bin -c 'import json,sys; print(json.load(open(sys.argv[1]))["plan_id"])' "$status")"
+  ( cd "$PROJECT" && bash hooks/local/post-fusebase-update.sh > "$OUT.t14-retry" 2>&1 ) \
+    || fail "T14: retry after interruption did not converge"
+  "$python_bin" - "$status" "$first_plan" <<'PY' \
+    || fail "T14: retry reset plan identity or attempt history"
+import json, sys
+value = json.load(open(sys.argv[1], encoding="utf-8"))
+assert value["status"] == "complete" and value["exit_code"] == 0
+assert value["plan_id"] == sys.argv[2]
+assert value["pending_surfaces"] == []
+assert len(value["attempts"]) == 2
+assert value["attempts"][1]["resumed_applied_surfaces"] == ["skill_mirrors"]
+PY
+  pass "T14: interrupted progress remains accurate and retry reconciles the same plan history"
 }
 
 ffcf_e2e_run() {
