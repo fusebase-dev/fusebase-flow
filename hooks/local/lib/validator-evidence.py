@@ -17,7 +17,8 @@ from pathlib import Path
 from typing import Any
 
 
-SCHEMA = 1
+SCHEMA = 2
+CONTEXT_ENV = "FUSEBASE_FLOW_VALIDATOR_CONTEXT"
 ENV_NAMES = {
     "CI",
     "HOME",
@@ -138,24 +139,49 @@ def digest_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def file_record(root: Path, rel: str) -> dict[str, Any]:
-    path = root / rel
+def path_record(path: Path, label: str, seen: set[Path] | None = None) -> dict[str, Any]:
+    seen = set() if seen is None else seen
     try:
         meta = path.lstat()
     except FileNotFoundError:
-        return {"path": rel, "kind": "missing"}
+        return {"path": label, "kind": "missing"}
     mode = stat.S_IMODE(meta.st_mode)
     if path.is_symlink():
-        return {"path": rel, "kind": "symlink", "mode": mode, "target": os.readlink(path)}
+        resolved = path.resolve(strict=True)
+        if resolved in seen:
+            raise RuntimeError(f"validator input symlink cycle: {label}")
+        return {
+            "path": label,
+            "kind": "symlink",
+            "mode": mode,
+            "target": os.readlink(path),
+            "resolved": path_record(resolved, str(resolved), seen),
+        }
     if path.is_file():
         return {
-            "path": rel,
+            "path": label,
             "kind": "file",
             "mode": mode,
             "size": meta.st_size,
             "sha256": digest_file(path),
         }
-    return {"path": rel, "kind": "other", "mode": mode}
+    if path.is_dir():
+        resolved = path.resolve(strict=True)
+        if resolved in seen:
+            raise RuntimeError(f"validator input directory cycle: {label}")
+        entries = []
+        try:
+            children = sorted(path.iterdir(), key=lambda item: item.name)
+        except OSError as exc:
+            raise RuntimeError(f"validator input unreadable: {label}: {exc}") from exc
+        for child in children:
+            entries.append(path_record(child, f"{label}/{child.name}", seen | {resolved}))
+        return {"path": label, "kind": "directory", "mode": mode, "entries": entries}
+    raise RuntimeError(f"validator input has unsupported type: {label}")
+
+
+def file_record(root: Path, rel: str) -> dict[str, Any]:
+    return path_record(root / rel, rel)
 
 
 def source_identity(root: Path) -> tuple[str, list[str]]:
@@ -181,32 +207,115 @@ def effective_path() -> str:
     return os.environ.get("FFVE_ORIGINAL_PATH", os.environ.get("PATH", ""))
 
 
-def environment_identity() -> dict[str, str]:
-    result: dict[str, str] = {}
+def validator_context() -> dict[str, list[str]]:
+    raw = os.environ.get(CONTEXT_ENV, "")
+    if not raw:
+        return {"inputs": [], "dependencies": [], "environment": [], "toolchains": []}
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"invalid {CONTEXT_ENV}: {exc}") from exc
+    if not isinstance(parsed, dict):
+        raise RuntimeError(f"invalid {CONTEXT_ENV}: expected object")
+    allowed = {"inputs", "dependencies", "environment", "toolchains"}
+    if set(parsed) - allowed:
+        raise RuntimeError(f"invalid {CONTEXT_ENV}: unknown keys")
+    result: dict[str, list[str]] = {}
+    for key in sorted(allowed):
+        values = parsed.get(key, [])
+        if not isinstance(values, list) or any(not isinstance(item, str) or not item for item in values):
+            raise RuntimeError(f"invalid {CONTEXT_ENV}: {key} must be nonempty strings")
+        if len(values) != len(set(values)):
+            raise RuntimeError(f"invalid {CONTEXT_ENV}: duplicate {key}")
+        result[key] = sorted(values)
+    return result
+
+
+def environment_identity(extra_names: list[str]) -> dict[str, str | None]:
+    result: dict[str, str | None] = {}
     for key, value in os.environ.items():
         upper = key.upper()
-        if upper not in ENV_NAMES and not upper.startswith(ENV_PREFIXES):
+        if upper not in ENV_NAMES and not upper.startswith(ENV_PREFIXES) and key not in extra_names:
             continue
         result[key] = effective_path() if upper == "PATH" else value
+    for key in extra_names:
+        result.setdefault(key, None)
     return dict(sorted(result.items()))
 
 
-def command_executable(command: str) -> dict[str, str]:
+def resolve_tool(token: str, root: Path) -> Path | None:
+    candidate = Path(token)
+    if not candidate.is_absolute():
+        repo_candidate = root / candidate
+        if repo_candidate.is_file():
+            candidate = repo_candidate
+    if candidate.is_file():
+        return candidate.resolve()
+    resolved = shutil.which(token, path=effective_path())
+    return Path(resolved).resolve() if resolved else None
+
+
+def shebang_layers(path: Path, root: Path) -> list[dict[str, Any]]:
+    try:
+        with path.open("rb") as handle:
+            first = handle.readline(4096)
+    except OSError as exc:
+        raise RuntimeError(f"validator tool unreadable: {path}: {exc}") from exc
+    if not first.startswith(b"#!"):
+        return []
+    try:
+        words = shlex.split(first[2:].decode("utf-8").strip(), posix=True)
+    except (UnicodeDecodeError, ValueError) as exc:
+        raise RuntimeError(f"validator tool has ambiguous shebang: {path}") from exc
+    layers = []
+    for token in words:
+        resolved = resolve_tool(token, root)
+        if resolved:
+            layers.append(path_record(resolved, str(resolved)))
+    return layers
+
+
+def command_toolchain(command: str, root: Path, declared: list[str]) -> list[dict[str, Any]]:
     try:
         words = shlex.split(command, posix=os.name != "nt")
-    except ValueError:
-        words = []
-    token = words[0] if words else ""
-    candidate = Path(token) if token else None
-    resolved = str(candidate) if candidate and candidate.is_file() else shutil.which(token, path=effective_path()) if token else None
-    if not resolved:
-        return {"token": token, "resolved": "", "sha256": ""}
-    path = Path(resolved).resolve()
-    return {"token": token, "resolved": str(path), "sha256": digest_file(path)}
+    except ValueError as exc:
+        raise RuntimeError(f"validator command is ambiguous: {command}") from exc
+    if not words:
+        raise RuntimeError("validator command is empty")
+    candidates = [words[0], *declared]
+    candidates.extend(word for word in words[1:] if resolve_tool(word, root))
+    layers: list[dict[str, Any]] = []
+    seen: set[Path] = set()
+    for token in candidates:
+        resolved = resolve_tool(token, root)
+        if not resolved:
+            raise RuntimeError(f"validator tool cannot be resolved: {token}")
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        record = path_record(resolved, str(resolved))
+        layers.append({"token": token, "record": record})
+        for shebang in shebang_layers(resolved, root):
+            shebang_path = Path(str(shebang["path"]))
+            if shebang_path not in seen:
+                seen.add(shebang_path)
+                layers.append({"token": "#!", "record": shebang})
+    return layers
+
+
+def declared_files(root: Path, values: list[str]) -> list[dict[str, Any]]:
+    records = []
+    for value in values:
+        path = Path(value)
+        if not path.is_absolute():
+            path = root / path
+        records.append(path_record(path, value))
+    return records
 
 
 def identity(root: Path, lint: str, typecheck: str) -> dict[str, Any]:
     source, rels = source_identity(root)
+    context = validator_context()
     index = hashlib.sha256(run_git(root, "ls-files", "--stage", "-z")).hexdigest()
     head = run_git(root, "rev-parse", "HEAD").decode().strip()
     commands = {"lint": lint, "typecheck": typecheck}
@@ -214,12 +323,18 @@ def identity(root: Path, lint: str, typecheck: str) -> dict[str, Any]:
         "root": str(root),
         "head": head,
         "commands": commands,
-        "environment": environment_identity(),
+        "environment": environment_identity(context["environment"]),
         "source": source,
         "index": index,
         "configs": selected_files(root, rels, CONFIG_NAMES),
         "dependencies": selected_files(root, rels, LOCK_NAMES),
-        "toolchains": {name: command_executable(value) for name, value in commands.items() if value},
+        "declared_inputs": declared_files(root, context["inputs"]),
+        "declared_dependencies": declared_files(root, context["dependencies"]),
+        "toolchains": {
+            name: command_toolchain(value, root, context["toolchains"])
+            for name, value in commands.items()
+            if value
+        },
     }
 
 

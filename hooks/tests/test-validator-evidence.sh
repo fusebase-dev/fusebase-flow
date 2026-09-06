@@ -15,31 +15,45 @@ new_fixture() {
     local name="$1"
     D="$TMP/$name/repo"
     COUNT="$TMP/$name/count"
-    TOOL="$TMP/$name/validator.sh"
+    TOOL="$TMP/$name/validator.py"
+    NESTED="$TMP/$name/nested-tool.sh"
     mkdir -p "$D/hooks/git" "$D/hooks/local/lib" "$D/hooks/shared" "$D/policies" "$COUNT"
     cp "$ROOT/hooks/git/pre-commit" "$D/hooks/git/pre-commit"
     cp "$ROOT/hooks/local/run-validators.sh" "$D/hooks/local/run-validators.sh"
     cp "$ROOT/hooks/local/lib/validator-evidence.py" "$D/hooks/local/lib/validator-evidence.py"
     cp "$ROOT"/hooks/shared/*.py "$D/hooks/shared/"
     cp "$ROOT"/policies/*.yml "$D/policies/"
-    cat > "$TOOL" <<'SH'
-#!/usr/bin/env bash
-kind="$1"
-printf x >> "$FUSEBASE_FLOW_TEST_COUNT_DIR/$kind"
-[ "${FUSEBASE_FLOW_TEST_FAIL:-}" != "$kind" ]
-SH
+    cat > "$TOOL" <<'PY'
+import os
+import pathlib
+import sys
+
+kind = sys.argv[1]
+path = pathlib.Path(os.environ["FUSEBASE_FLOW_TEST_COUNT_DIR"]) / kind
+with path.open("a", encoding="utf-8") as handle:
+    handle.write("x")
+raise SystemExit(1 if os.environ.get("FUSEBASE_FLOW_TEST_FAIL") == kind else 0)
+PY
     chmod +x "$TOOL"
-    TOOL_WIN="$(cygpath -m "$TOOL")"
-    LINT="$TOOL_WIN lint"
-    TYPECHECK="$TOOL_WIN typecheck"
+    printf '#!/usr/bin/env bash\n:\n' > "$NESTED"
+    chmod +x "$NESTED"
+    to_command_path() { command -v cygpath >/dev/null 2>&1 && cygpath -m "$1" || printf '%s' "$1"; }
+    TOOL_CMD="$(to_command_path "$TOOL")"
+    LINT="python3 $TOOL_CMD lint"
+    TYPECHECK="python3 $TOOL_CMD typecheck"
     RUN_LINT="$LINT"
     RUN_TYPECHECK="$TYPECHECK"
     RUN_NODE_ENV="baseline"
+    RUN_CUSTOM_ENV="baseline"
+    RUN_CONTEXT="{\"inputs\":[\"ignored-input.txt\"],\"dependencies\":[\"ignored-dependency.lock\"],\"environment\":[\"CUSTOM_VALIDATOR_MODE\"],\"toolchains\":[\"$(to_command_path "$NESTED")\"]}"
     printf 'base\n' > "$D/src.txt"
     printf '{}\n' > "$D/eslint.config.js"
     printf '{}\n' > "$D/package-lock.json"
+    printf 'ignored-input\n' > "$D/ignored-input.txt"
+    printf 'ignored-dependency\n' > "$D/ignored-dependency.lock"
+    printf 'ignored-input.txt\nignored-dependency.lock\n' > "$D/.gitignore"
     ( cd "$D" && git init -q && git config user.email fixture@example.test \
-      && git config user.name fixture && git add -- hooks policies src.txt eslint.config.js package-lock.json \
+      && git config user.name fixture && git add -- hooks policies src.txt eslint.config.js package-lock.json .gitignore \
       && git commit -qm base )
     printf 'change\n' >> "$D/src.txt"
     ( cd "$D" && git add -- src.txt )
@@ -48,8 +62,9 @@ SH
 with_env() {
     env FUSEBASE_FLOW_LINT="$RUN_LINT" \
         FUSEBASE_FLOW_TYPECHECK="$RUN_TYPECHECK" \
-        FUSEBASE_FLOW_TEST_COUNT_DIR="$(cygpath -m "$COUNT")" \
-        NODE_ENV="$RUN_NODE_ENV" "$@"
+        FUSEBASE_FLOW_TEST_COUNT_DIR="$(to_command_path "$COUNT")" \
+        FUSEBASE_FLOW_VALIDATOR_CONTEXT="$RUN_CONTEXT" \
+        CUSTOM_VALIDATOR_MODE="$RUN_CUSTOM_ENV" NODE_ENV="$RUN_NODE_ENV" "$@"
 }
 
 make_receipt() {
@@ -60,6 +75,11 @@ run_hook() {
     ( cd "$D" && with_env bash hooks/git/pre-commit ) >"$TMP/hook.out" 2>&1
 }
 
+verify_receipt() {
+    ( cd "$D" && with_env python3 -S hooks/local/lib/validator-evidence.py verify \
+      --root . --lint "$RUN_LINT" --typecheck "$RUN_TYPECHECK" ) >"$TMP/verify.out" 2>&1
+}
+
 invalidate() {
     ( cd "$D" && python3 -S hooks/local/lib/validator-evidence.py invalidate --root . ) >/dev/null 2>&1
 }
@@ -67,7 +87,7 @@ invalidate() {
 receipt_path() {
     local raw
     raw="$(cd "$D" && python3 -S hooks/local/lib/validator-evidence.py path --root .)"
-    cygpath -u "$raw"
+    command -v cygpath >/dev/null 2>&1 && cygpath -u "$raw" || printf '%s' "$raw"
 }
 
 count_of() {
@@ -113,8 +133,13 @@ case_forged() {
     new_fixture forged
     make_receipt
     printf '{"evidence":{"result":"success"},"signature":"forged"}\n' > "$(receipt_path)"
-    run_hook
-    expect_rerun "forged-receipt-reruns"
+    verify_receipt
+    verify_rc=$?
+    if [ "$verify_rc" -ne 0 ]; then
+        ok "forged-receipt-disables-reuse"
+    else
+        bad "forged-receipt-disables-reuse" "verify=$verify_rc"
+    fi
     invalidate
 }
 
@@ -130,8 +155,13 @@ d = json.loads(p.read_text())
 d["evidence"]["result"] = "failure"
 p.write_text(json.dumps(d))
 PY
-    run_hook
-    expect_rerun "edited-receipt-reruns"
+    verify_receipt
+    verify_rc=$?
+    if [ "$verify_rc" -ne 0 ]; then
+        ok "edited-receipt-disables-reuse"
+    else
+        bad "edited-receipt-disables-reuse" "verify=$verify_rc"
+    fi
     invalidate
 }
 
@@ -139,22 +169,28 @@ case_failed() {
     new_fixture failed
     FUSEBASE_FLOW_TEST_FAIL=lint make_receipt
     runner_rc=$?
-    run_hook
-    if [ "$runner_rc" -ne 0 ] && [ "$(count_of lint)" = 2 ] && [ "$(count_of typecheck)" = 1 ]; then
-        ok "failed-validation-never-reuses"
+    receipt="$(receipt_path)"
+    if [ "$runner_rc" -ne 0 ] && [ ! -f "$receipt" ] \
+       && [ "$(count_of lint)" = 1 ] && [ "$(count_of typecheck)" = 0 ]; then
+        ok "failed-validation-never-signs"
     else
-        bad "failed-validation-never-reuses" "runner=$runner_rc lint=$(count_of lint) typecheck=$(count_of typecheck)"
+        bad "failed-validation-never-signs" "runner=$runner_rc receipt=$([ -f "$receipt" ] && echo yes || echo no)"
     fi
     invalidate
 }
 
-rerun_after() {
+reject_reuse_after() {
     local name="$1" mutation="$2"
     new_fixture "$name"
     make_receipt
     "$mutation"
-    run_hook
-    expect_rerun "$name-reruns"
+    verify_receipt
+    verify_rc=$?
+    if [ "$verify_rc" -ne 0 ] && [ "$(count_of lint)" = 1 ] && [ "$(count_of typecheck)" = 1 ]; then
+        ok "$name-disables-reuse"
+    else
+        bad "$name-disables-reuse" "verify=$verify_rc lint=$(count_of lint) typecheck=$(count_of typecheck)"
+    fi
     invalidate
 }
 
@@ -164,20 +200,80 @@ mutate_untracked() { printf 'untracked\n' > "$D/new-source.txt"; }
 mutate_config() { printf '{"changed":true}\n' > "$D/eslint.config.js"; }
 mutate_dependency() { printf '{"lock":2}\n' > "$D/package-lock.json"; }
 mutate_environment() { RUN_NODE_ENV=changed; }
+mutate_custom_environment() { RUN_CUSTOM_ENV=changed; }
 mutate_command() { RUN_LINT="$LINT alternate"; }
 mutate_toolchain() { printf '\n:\n' >> "$TOOL"; }
+mutate_nested_toolchain() { printf '\n:\n' >> "$NESTED"; }
+mutate_ignored_input() { printf 'changed\n' >> "$D/ignored-input.txt"; }
+mutate_ignored_dependency() { printf 'changed\n' >> "$D/ignored-dependency.lock"; }
+mutate_missing_declared_input() { RUN_CONTEXT='{"inputs":["missing-input.txt"],"dependencies":[],"environment":[],"toolchains":[]}'; }
+
+case_incomplete_identity() {
+    new_fixture incomplete-identity
+    RUN_CONTEXT='{"unknown":[]}'
+    make_receipt
+    runner_rc=$?
+    receipt="$(receipt_path)"
+    if [ "$runner_rc" -ne 0 ] && [ ! -f "$receipt" ]; then
+        ok "incomplete-identity-never-signs"
+    else
+        bad "incomplete-identity-never-signs" "runner=$runner_rc receipt=$([ -f "$receipt" ] && echo yes || echo no)"
+    fi
+    invalidate
+}
+
+case_symlink_target() {
+    new_fixture symlink-target-state
+    printf 'target\n' > "$D/ignored-target.txt"
+    if ln -s ignored-target.txt "$D/linked-input.txt" 2>/dev/null && [ -L "$D/linked-input.txt" ]; then
+        RUN_CONTEXT='{"inputs":["linked-input.txt"],"dependencies":[],"environment":[],"toolchains":[]}'
+        make_receipt
+        printf 'changed\n' >> "$D/ignored-target.txt"
+        verify_receipt
+        verify_rc=$?
+        if [ "$verify_rc" -ne 0 ]; then
+            ok "symlink-target-state-disables-reuse"
+        else
+            bad "symlink-target-state-disables-reuse" "verify=$verify_rc"
+        fi
+        invalidate
+    else
+        ok "symlink-target-state-host-unavailable"
+    fi
+}
+
+case_unavailable_symlink_target() {
+    new_fixture unavailable-symlink-target
+    printf 'target\n' > "$D/ignored-target.txt"
+    if ln -s ignored-target.txt "$D/linked-input.txt" 2>/dev/null && [ -L "$D/linked-input.txt" ]; then
+        RUN_CONTEXT='{"inputs":["linked-input.txt"],"dependencies":[],"environment":[],"toolchains":[]}'
+        make_receipt
+        mv "$D/ignored-target.txt" "$D/ignored-target-away.txt"
+        verify_receipt
+        verify_rc=$?
+        if [ "$verify_rc" -ne 0 ]; then
+            ok "unavailable-symlink-target-disables-reuse"
+        else
+            bad "unavailable-symlink-target-disables-reuse" "verify=$verify_rc"
+        fi
+        invalidate
+    else
+        ok "unavailable-symlink-target-host-unavailable"
+    fi
+}
 
 case_replay() {
     new_fixture replay
     make_receipt
-    run_hook
+    verify_receipt || bad "matching-receipt-verifies-before-replay" "initial verify failed"
     printf 'later\n' >> "$D/src.txt"
     ( cd "$D" && git add -- src.txt )
-    run_hook
-    if [ "$(count_of lint)" = 2 ] && [ "$(count_of typecheck)" = 2 ]; then
-        ok "replayed-receipt-on-new-state-reruns"
+    verify_receipt
+    verify_rc=$?
+    if [ "$verify_rc" -ne 0 ] && [ "$(count_of lint)" = 1 ] && [ "$(count_of typecheck)" = 1 ]; then
+        ok "replayed-receipt-on-new-state-disables-reuse"
     else
-        bad "replayed-receipt-on-new-state-reruns" "lint=$(count_of lint) typecheck=$(count_of typecheck)"
+        bad "replayed-receipt-on-new-state-disables-reuse" "verify=$verify_rc"
     fi
     invalidate
 }
@@ -190,9 +286,14 @@ case_concurrent() {
         printf '%s\n' "$n" > "$D/racing-source.txt"
       done
     ) & race_pid=$!
-    run_hook
+    verify_receipt
+    verify_rc=$?
     wait "$race_pid"
-    expect_rerun "concurrent-mutation-reruns"
+    if [ "$verify_rc" -ne 0 ]; then
+        ok "concurrent-mutation-disables-reuse"
+    else
+        bad "concurrent-mutation-disables-reuse" "verify=$verify_rc"
+    fi
     invalidate
 }
 
@@ -231,14 +332,22 @@ case_missing
 case_forged
 case_edited
 case_failed
-rerun_after staged-state mutate_staged
-rerun_after unstaged-state mutate_unstaged
-rerun_after untracked-state mutate_untracked
-rerun_after config-state mutate_config
-rerun_after dependency-state mutate_dependency
-rerun_after environment-state mutate_environment
-rerun_after command-state mutate_command
-rerun_after toolchain-state mutate_toolchain
+reject_reuse_after staged-state mutate_staged
+reject_reuse_after unstaged-state mutate_unstaged
+reject_reuse_after untracked-state mutate_untracked
+reject_reuse_after config-state mutate_config
+reject_reuse_after dependency-state mutate_dependency
+reject_reuse_after environment-state mutate_environment
+reject_reuse_after custom-environment-state mutate_custom_environment
+reject_reuse_after command-state mutate_command
+reject_reuse_after wrapper-toolchain-state mutate_toolchain
+reject_reuse_after nested-toolchain-state mutate_nested_toolchain
+reject_reuse_after ignored-input-state mutate_ignored_input
+reject_reuse_after ignored-dependency-state mutate_ignored_dependency
+reject_reuse_after declared-input-set-state mutate_missing_declared_input
+case_incomplete_identity
+case_symlink_target
+case_unavailable_symlink_target
 case_replay
 case_concurrent
 case_secret
