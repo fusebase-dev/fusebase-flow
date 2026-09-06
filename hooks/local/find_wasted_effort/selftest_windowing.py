@@ -46,11 +46,10 @@ def windowing_cases(check_bool):
         _git(root, "config", "user.name", "Fixture")
         _write(root, "VERSION", "fixture\n")
         _write(root, "docs/specs/old/gate-report.md",
-               "# Gate report\n## Status\nGate blocked deploy.\n")
-        _commit(root, "fixture: old evidence", "VERSION", "docs/specs/old/gate-report.md")
+               "# Gate report\n## Conclusion: old\n## Status\nOutcome: Gate blocked deploy.\nTask: T1\nCommit: pending\n")
+        old = _commit(root, "T1: old evidence", "VERSION", "docs/specs/old/gate-report.md")
 
-        _write(root, "docs/specs/direct/gate-report.md",
-               "# Gate report\n## Status\nGate blocked deploy.\n")
+        _write(root, "docs/specs/direct/gate-report.md", "# Gate report\n")
         _write(root, "docs/specs/modified/gate-report.md",
                "# Gate report\n## Status\nNo deviation outcome.\n")
         current = _commit(root, "T9: current window change",
@@ -58,10 +57,18 @@ def windowing_cases(check_bool):
         _write(root, "docs/specs/modified/gate-report.md",
                "# Gate report\n## Status\nGate blocked deploy.\n")
 
-        _write(root, "docs/specs/explicit/gate-report.md",
-               "# Gate report\n## Status\nGate blocked deploy.\nCommit linkage: `%s`.\n" % current)
+        linked_record = ("## Conclusion: current\n## Status\nOutcome: Gate blocked deploy.\n"
+                         "Task: T9\nCommit: %s\n" % current)
+        _write(root, "docs/specs/direct/gate-report.md", "# cosmetic footer\n" + linked_record)
+        _write(root, "docs/specs/explicit/gate-report.md", "# Gate report\n" + linked_record)
         _write(root, "docs/specs/unlinked/gate-report.md",
-               "# Gate report\n## Status\nGate blocked deploy.\n")
+               "# Gate report\n## Conclusion: mismatch\n## Status\nOutcome: Gate blocked deploy.\nTask: T8\nCommit: %s\n" % current)
+        _write(root, "docs/specs/mixed/gate-report.md",
+               "# Gate report\n" + linked_record +
+               "## Conclusion: historical\n## Status\nOutcome: Gate blocked deploy.\nTask: T8\nCommit: %s\n" % current)
+        _write(root, "docs/specs/cosmetic/gate-report.md",
+               "# Gate report\n## Conclusion: old outcome\n## Status\nOutcome: Gate blocked deploy.\n"
+               "Task: T1\nCommit: %s\n\nFooter updated for %s\n" % (old, current))
         _write(root, "docs/specs/instruction/verification-gate.md",
                "# Verification gate\nCommit linkage: `%s`.\nIf any probe fails, redirect AI Developer.\n" % current)
         _write(root, "state/approvals/protected_path_edit-old.json",
@@ -73,7 +80,7 @@ def windowing_cases(check_bool):
         evidence = main.assemble_evidence(root, 1)
         linked = {rel for rel, _ in evidence["window_artifacts"]}
         historical = {rel for rel, _ in evidence["historical_artifacts"]}
-        check_bool("windowing: artifact committed in selected window is linked",
+        check_bool("windowing: exact outcome/task/commit match is linked",
                    "docs/specs/direct/gate-report.md" in linked, True)
         check_bool("windowing: explicit selected-commit SHA links an uncommitted artifact",
                    "docs/specs/explicit/gate-report.md" in linked, True)
@@ -84,15 +91,20 @@ def windowing_cases(check_bool):
         check_bool("windowing: dirty content is not linked by an older clean commit",
                    "docs/specs/modified/gate-report.md" in historical, True)
         check_bool("windowing: only linked recorded reports affect window gate outcomes",
-                   evidence["gate_blocks"], 2)
-        check_bool("windowing: old, unlinked, and dirty gate outcomes remain historical",
-                   evidence["historical_gate_blocks"], 3)
+                   evidence["gate_blocks"], 3)
+        check_bool("windowing: mixed report partitions conclusions",
+                   sum(rel == "docs/specs/mixed/gate-report.md" for rel in linked) == 1
+                   and sum(rel == "docs/specs/mixed/gate-report.md" for rel in historical) == 1, True)
+        check_bool("windowing: task mismatch and unstructured dirty outcomes remain historical",
+                   evidence["historical_gate_blocks"], 5)
+        check_bool("windowing: cosmetic footer cannot promote old structured outcome",
+                   "docs/specs/cosmetic/gate-report.md" in historical, True)
         check_bool("windowing: linked deviation approval affects window contrary evidence",
                    len(evidence["gating_approvals"]), 1)
         check_bool("windowing: approval history is retained outside window verdicts",
                    len(evidence["historical_gating_approvals"]), 1)
         check_bool("windowing: linked instructional fixture cannot fabricate a gate outcome",
-                   evidence["gate_blocks"], 2)
+                   evidence["gate_blocks"], 3)
         report, _, _, _ = main.build_report(evidence, root, "2026-09-05")
         check_bool("windowing: report labels window and historical evidence separately",
                    "## Temporal evidence split (A7)" in report

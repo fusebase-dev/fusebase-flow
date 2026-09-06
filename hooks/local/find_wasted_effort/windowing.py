@@ -3,6 +3,8 @@
 import re
 import subprocess
 
+from find_wasted_effort.conclusion_link import linked_commit, parse_conclusions
+
 
 SHA_RE = re.compile(r"(?<![0-9a-f])([0-9a-f]{7,40})(?![0-9a-f])", re.IGNORECASE)
 
@@ -42,15 +44,23 @@ def partition_artifacts(root, artifacts, commits):
     historical = []
     rows = []
     for rel, body in artifacts:
-        links = set()
         last = _last_commit(root, rel).lower()
-        if last in shas and _path_clean(root, rel):
-            links.add(last)
-        links.update(_matched_refs(body, shas))
-        target = linked if links else historical
-        target.append((rel, body))
-        rows.append({"file": rel, "status": "linked" if links else "historical/unlinked",
-                     "commits": sorted(links), "last_commit": last or None})
+        records = parse_conclusions(body)
+        if not records:
+            legacy_link = last if last in shas and _path_clean(root, rel) else None
+            (linked if legacy_link else historical).append((rel, body))
+            rows.append({"file": rel, "status": "linked-legacy" if legacy_link else "historical/unlinked",
+                         "commits": [legacy_link] if legacy_link else [],
+                         "last_commit": last or None, "reason": "no structured conclusions"})
+            continue
+        for index, record in enumerate(records, 1):
+            sha = linked_commit(record, commits)
+            target = linked if sha else historical
+            fragment = f"{rel}#conclusion-{index}"
+            target.append((rel, record["body"]))
+            rows.append({"file": fragment, "status": "linked" if sha else "historical/unlinked",
+                         "commits": [sha] if sha else [], "last_commit": last or None,
+                         "task": record.get("task"), "outcome": record.get("outcome")})
     return linked, historical, rows
 
 

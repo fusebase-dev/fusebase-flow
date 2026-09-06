@@ -26,8 +26,11 @@ check() {
 }
 
 check "old-artifact-outside-window" "PASS windowing: old committed artifact is historical outside selected window"
-check "direct-and-explicit-linkage" "PASS windowing: explicit selected-commit SHA links an uncommitted artifact"
+check "exact-linkage" "PASS windowing: exact outcome/task/commit match is linked"
 check "dirty-and-unlinked-content-excluded" "PASS windowing: dirty content is not linked by an older clean commit"
+check "mixed-report-partition" "PASS windowing: mixed report partitions conclusions"
+check "task-mismatch" "PASS windowing: task mismatch and unstructured dirty outcomes remain historical"
+check "cosmetic-footer" "PASS windowing: cosmetic footer cannot promote old structured outcome"
 check "approval-history-separated" "PASS windowing: approval history is retained outside window verdicts"
 check "false-positive-preserved" "PASS windowing: linked instructional fixture cannot fabricate a gate outcome"
 check "report-labels-both-scopes" "PASS windowing: report labels window and historical evidence separately"
