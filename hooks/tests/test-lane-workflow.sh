@@ -38,7 +38,9 @@ if not (
     and ordinary["product_decisions"] == 1
     and ordinary["relays"] == 0
     and ordinary["agent_passes"] == 1
-    and ordinary["created_artifacts"] == ["change-note"]
+    and ordinary["created_artifacts"] == ["change-note.md"]
+    and ordinary["allowed_actions"] == 1
+    and ordinary["boundary"] == "scripted fixture simulation"
 ):
     failures.append("ordinary diagnosis did not persist the one-pass Lightweight inventory")
 else:
@@ -117,6 +119,16 @@ print("PASS: lane-workflow persisted-decision-relay-artifact-inventory")
 PY
 fixture_rc=$?
 
+for mutation in extra-relay extra-artifact skip-diagnosis; do
+  if "$PYTHON_BIN" "$ROOT/hooks/tests/lane-workflow-fixture.py" --bash "$BASH_EXE" \
+      --mutation "$mutation" --output "$TMP_DIR/$mutation.json" >/dev/null 2>&1; then
+    echo "FAIL: lane-workflow mutation-$mutation-was-accepted"
+    fixture_rc=1
+  else
+    echo "PASS: lane-workflow mutation-$mutation-rejected"
+  fi
+done
+
 carriers=(
   FLOW_RULES.md
   templates/change-note.md
@@ -164,7 +176,7 @@ else
 fi
 
 if [ "$fixture_rc" -eq 0 ] && [ "$carrier_rc" -eq 0 ]; then
-  echo "[test-lane-workflow] 9/9 PASS"
+  echo "[test-lane-workflow] 12/12 PASS"
   exit 0
 fi
 exit 1

@@ -88,6 +88,7 @@ def workflow_measurements():
             "operator_decisions": measured(result["product_decisions"], "decisions"),
             "role_relays": measured(result["relays"], "relays"),
             "artifacts": measured(len(result["created_artifacts"]), "artifacts"),
+            "evidence_boundary": result["boundary"],
         })
     return rows
 
@@ -133,12 +134,17 @@ def validation_measurement():
             name: len((outside / name).read_text()) if (outside / name).exists() else 0
             for name in ("lint", "typecheck")
         }
+        reusable = rc == 0 and verify_rc == 0 and counts == {"lint": 1, "typecheck": 1}
+        authority_reason = (
+            "trusted validator receipt authority is unavailable on native Windows; validators must rerun"
+            if os.name == "nt" and not reusable else None
+        )
         return {
             "command_identity": measured({"lint": lint, "typecheck": typecheck}),
             "validator_runs": measured(sum(counts.values()), "runs"),
             "validator_duration": measured(round(elapsed, 6), "seconds"),
             "receipt_verify_duration": measured(round(verify_elapsed, 6), "seconds"),
-            "exact_state_reuse": measured(rc == 0 and verify_rc == 0 and counts == {"lint": 1, "typecheck": 1}),
+            "exact_state_reuse": unavailable(authority_reason) if authority_reason else measured(reusable),
             "error": unavailable(error or verify_error) if error or verify_error else None,
         }
 

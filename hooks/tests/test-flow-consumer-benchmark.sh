@@ -32,13 +32,22 @@ for scenario, lane in (("ordinary-diagnosed-fix", "lightweight"), ("sensitive-au
     for metric in ("operator_decisions", "role_relays", "artifacts"):
         if row.get(metric, {}).get("status") != "MEASURED":
             failures.append(f"{scenario} {metric} not measured")
+    if row.get("evidence_boundary") != "scripted fixture simulation":
+        failures.append(f"{scenario} scripted boundary is not labeled")
 validation = doc.get("validation", {})
-if validation.get("validator_runs", {}).get("value") != 2:
-    failures.append("validator run count is not 2")
+if sys.platform == "win32":
+    if validation.get("validator_runs", {}).get("value") != 0:
+        failures.append("Windows fail-closed validator run count is not zero")
+    reuse = validation.get("exact_state_reuse", {})
+    if reuse.get("status") != "UNAVAILABLE" or "must rerun" not in reuse.get("reason", ""):
+        failures.append("Windows authority-unavailable rerun label is missing")
+else:
+    if validation.get("validator_runs", {}).get("value") != 2:
+        failures.append("validator run count is not 2")
+    if validation.get("exact_state_reuse", {}).get("value") is not True:
+        failures.append("exact-state validation evidence did not verify")
 if validation.get("validator_duration", {}).get("status") != "MEASURED":
     failures.append("validator duration missing")
-if validation.get("exact_state_reuse", {}).get("value") is not True:
-    failures.append("exact-state validation evidence did not verify")
 recovery = doc.get("recovery", {})
 if recovery.get("result") != "PASS" or recovery.get("no_op_writes", {}).get("value") != 0:
     failures.append("recovery no-op writes not measured at zero")
