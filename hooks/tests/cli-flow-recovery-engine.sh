@@ -28,18 +28,25 @@ ffcf_engine_tree() {
   ( cd "$d" && python3 hooks/local/lib/managed_content_manifest.py stamp --root . >/dev/null 2>&1 ) || true
 }
 
-# Generous per-check budgets: this asserts the VERDICT, never the host's speed. `|| true` plus
-# the budgets keep an exit 4 (UNVERIFIED) from aborting the suite before the assertion runs.
-ffcf_engine_out() { # ffcf_engine_out <tree> <out-file>
-  ( cd "$1" || exit 1
+# Each scenario gets a visible outer watchdog below the registered suite bound. Internal checks
+# remain real and fail closed; the outer identity prevents a buffered health run from looking idle.
+ffcf_engine_out() { # ffcf_engine_out <tree> <out-file> <scenario>
+  local watchdog="${FFCF_ENGINE_WATCHDOG_SECS:-180}" rc
+  printf '[cli-flow-recovery] engine %s START watchdog=%ss\n' "$3" "$watchdog" >&2
+  if ( cd "$1" || exit 1
     bash hooks/local/stamp-hook-manifest.sh >/dev/null 2>&1
-    FFHC_PREFLIGHT_TIMEOUT=600 FFHC_TESTS_TIMEOUT=600 FFHC_CONFLICT_TIMEOUT=600 \
-    FFHC_MANIFEST_TIMEOUT=600 FFHC_FETCH_TIMEOUT=30 \
-    bash hooks/local/fusebase-flow-health-check.sh > "$2" 2>&1 ) || true
+    FFHC_PREFLIGHT_TIMEOUT=90 FFHC_TESTS_TIMEOUT=90 FFHC_CONFLICT_TIMEOUT=90 \
+    FFHC_MANIFEST_TIMEOUT=90 FFHC_FETCH_TIMEOUT=15 \
+    timeout -k 5s "${watchdog}s" bash hooks/local/fusebase-flow-health-check.sh > "$2" 2>&1
+  ); then rc=0; else rc=$?; fi
+  printf '[cli-flow-recovery] engine %s END rc=%s\n' "$3" "$rc" >&2
+  case "$rc" in
+    124|137) fail "$3: health engine exceeded ${watchdog}s watchdog" ;;
+  esac
 }
 
-ffcf_engine_verdict() { # ffcf_engine_verdict <tree> -> the Verdict line
-  ffcf_engine_out "$1" "$TMP_BASE/engine.out"
+ffcf_engine_verdict() { # ffcf_engine_verdict <tree> <scenario> -> the Verdict line
+  ffcf_engine_out "$1" "$TMP_BASE/engine.out" "$2"
   grep -m1 "^Verdict:" "$TMP_BASE/engine.out" || echo "Verdict: (none captured)"
 }
 
@@ -50,7 +57,7 @@ ffcf_engine_run() {
   # benign (U11 consistency): an overlay-only install (CLI hooks present, no Flow stop.py, no
   # clobber) must NOT be SHARED_MERGE_DRIFT.
   d="$TMP_BASE/f2-engine-hooksoff"; ffcf_engine_tree "$d"; ffcf_settings_hooksoff "$d"
-  ffcf_engine_out "$d" "$TMP_BASE/f2.out"
+  ffcf_engine_out "$d" "$TMP_BASE/f2.out" "U16"
   grep -q "Verdict: SHARED_MERGE_DRIFT" "$TMP_BASE/f2.out" && { sed -n '/Verdict/,$p' "$TMP_BASE/f2.out" >&2; fail "F2: main health engine verdict SHARED_MERGE_DRIFT for deliberate hooks-off (should be benign)"; } || true
   grep -qE "lifecycle events wired \(stop.py present|stop.py missing from Stop chain" "$TMP_BASE/f2.out" && fail "F2: main engine recorded a settings.json drift for the opt-in-off state" || true
   grep -q "Flow lifecycle hooks not wired (opt-in" "$TMP_BASE/f2.out" || fail "F2: main engine did not emit the benign opt-in note for hooks-off"
@@ -59,7 +66,7 @@ ffcf_engine_run() {
   # U17 — flag-gated absence (the U10 class) must not surface as engine drift.
   d="$TMP_BASE/u17-engine-flaggated"; ffcf_engine_tree "$d"
   rm -rf "$d/.claude/skills/managed-integrations" "$d/.agents/skills/managed-integrations"
-  v="$(ffcf_engine_verdict "$d")"
+  v="$(ffcf_engine_verdict "$d" "U17")"
   case "$v" in
     *CLI_LAYER_DRIFT*) fail "U17: main engine $v for a flag-gated absence (should be benign)";;
     *HEALTHY*) : ;;
@@ -72,7 +79,7 @@ ffcf_engine_run() {
   rm -rf "$d/.agents/skills/app-backend" "$d/.agents/skills/app-routing" \
          "$d/.agents/skills/app-secrets" "$d/.agents/skills/app-sidecar" \
          "$d/.agents/skills/app-ui-design"
-  v="$(ffcf_engine_verdict "$d")"
+  v="$(ffcf_engine_verdict "$d" "U18")"
   case "$v" in
     *CLI_LAYER_DRIFT*) fail "U18: main engine $v for a .agents CLI-provider gap (should be benign)";;
     *HEALTHY*) : ;;

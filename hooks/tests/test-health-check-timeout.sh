@@ -538,6 +538,48 @@ $OUT"
   fi
 }
 
+# T25: force the historical ambiguous state where `kill -0` keeps saying alive after the
+# bounded wrapper published completion. The done record must win, preserve rc, and reap promptly.
+ht_t25_msys_completion_reap() {
+  # shellcheck source=/dev/null
+  . hooks/local/lib/run-with-timeout.sh
+  ffhc_detect_timeout
+  if [ -z "$FFHC_TIMEOUT_BIN" ]; then
+    ht_pass "t25-msys-completion-reap [SKIP - no timeout binary]"
+    return
+  fi
+  local D="$TMP_BASE/t25-reap" pid rc started elapsed f="" i
+  mkdir -p "$D"
+  ( printf '7\n' > "$D/done"; exit 7 ) & pid=$!
+  i=0
+  while [ ! -s "$D/done" ] && [ "$i" -lt 20 ]; do sleep 0.1; i=$((i + 1)); done
+  kill() {
+    if [ "${1:-}" = "-0" ] && [ "${2:-}" = "$pid" ]; then return 0; fi
+    builtin kill "$@"
+  }
+  started=$SECONDS
+  ffhc_msys_wait_reap "$pid" 3 "" "" "$D/done"; rc=$?
+  elapsed=$((SECONDS - started))
+  unset -f kill
+  [ "$rc" -eq 7 ] || f="$f [completed child rc changed: $rc]"
+  [ "$elapsed" -lt 3 ] || f="$f [completion record ignored for ${elapsed}s]"
+
+  for i in 0 7 0 7 0; do
+    ffhc_run_bounded 5 bash -c "exit $i"
+    [ "$FFHC_LAST_RC" -eq "$i" ] || f="$f [bounded exit $i became $FFHC_LAST_RC]"
+  done
+  printf '#!/usr/bin/env bash\nprintf "%%s" "$$" > "$D/child.pid"\ntrap "" TERM\nwhile :; do sleep 1; done\n' > "$D/hang.sh"
+  FFHC_TIMEOUT_KILL_GRACE=1 ffhc_run_bounded 1 bash "$D/hang.sh"
+  ffhc_timed_out "$FFHC_LAST_RC" || f="$f [timeout rc was $FFHC_LAST_RC]"
+  pid="$(cat "$D/child.pid" 2>/dev/null || true)"
+  [ -z "$pid" ] || ! kill -0 "$pid" 2>/dev/null || f="$f [timed-out child $pid still alive]"
+  if [ -z "$f" ]; then
+    ht_pass "t25-msys-completion-reap (done record beats ambiguous kill-0; rc/timeout/cleanup preserved)"
+  else
+    ht_fail "t25-msys-completion-reap" "$f"
+  fi
+}
+
 # ---- run everything ----------------------------------------------------------
 mv_baseline_healthy
 mv_verify_timeout
@@ -559,6 +601,7 @@ ht_ws6_install_append_idempotent
 ht_m9_aged_warn_verdict_neutral
 ht_m9_negative_controls
 ht_m9_unit_array_contract
+ht_t25_msys_completion_reap
 
 # ============================================================================================
 # AC5 / decision M3 — parent-owned heartbeat on a CAPTURED run. The child's ENTIRE stream is
@@ -694,7 +737,7 @@ ht_ac5_optins() {
     || f="$f [run-tests.sh does not opt into the heartbeat]"
   grep -q 'FFHC_HEARTBEAT_SECS' "$ROOT/hooks/local/lib/hook-integrity-check.sh" \
     || f="$f [the health deep run does not opt into the heartbeat]"
-  grep -q 'run_with_timeout "$secs" "$@" >"$_tf"' "$lib" \
+  grep -q '_ffhc_timeout_child_done "$_done" "$secs" "$@" >"$_tf"' "$lib" \
     || f="$f [the tempfile capture is gone - M3 forbids switching to tee/pipe]"
   printf '%s\n' "$code" | grep -qE '\|[[:space:]]*(tee|while[[:space:]]+read)' \
     && f="$f [a tee/pipe transport appeared - reintroduces the MSYS inherited-pipe hang (M3)]"

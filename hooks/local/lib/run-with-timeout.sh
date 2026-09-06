@@ -185,7 +185,7 @@ _ffhc_nap_probe
 # Only ever called when FFHC_NAP_OK=1. `read -t` returns non-zero on timeout — expected.
 _ffhc_nap() { read -t "$1" -u "$FFHC_NAP_FD" _ 2>/dev/null || true; }
 
-# ffhc_msys_wait_reap BPID SECS [WINPID]: MSYS-only wait that returns BPID's own rc
+# ffhc_msys_wait_reap BPID SECS [WINPID [TRIGGER_FILE [DONE_FILE]]]: MSYS-only wait that returns BPID's own rc
 # (so 124/137 are preserved) while reaping its native descendant tree once the
 # deadline passes. Polls with an adaptive sub-second nap (F3; fallback `sleep 1`);
 # after SECS elapses it taskkill-tree-kills the bounded proc so a native runaway is
@@ -205,7 +205,7 @@ _ffhc_nap() { read -t "$1" -u "$FFHC_NAP_FD" _ 2>/dev/null || true; }
 # (an atomic strictly-scoped hard-kill that AUGMENTS the taskkill). The rc still comes
 # from wait "$bpid" below (true 124/137), so the fence never changes the rc contract.
 ffhc_msys_wait_reap() {
-  local bpid="$1" secs="$2" winpid="${3:-}" trigger="${4:-}"
+  local bpid="$1" secs="$2" winpid="${3:-}" trigger="${4:-}" done_file="${5:-}"
   local grace="${FFHC_TIMEOUT_KILL_GRACE:-5s}"; local gsec="${grace%[!0-9]*}"
   case "$gsec" in ''|*[!0-9]*) gsec=5 ;; esac
   local cap=$(( secs + gsec + 2 )) waited=0 reaped=0
@@ -223,7 +223,7 @@ ffhc_msys_wait_reap() {
   if [ "$FFHC_NAP_OK" -eq 1 ] && [ -n "${EPOCHREALTIME:-}" ]; then
     local start_us now_us nap="0.05"
     start_us=$(( 10#${EPOCHREALTIME/./} ))
-    while kill -0 "$bpid" 2>/dev/null; do
+    while { [ -z "$done_file" ] || [ ! -s "$done_file" ]; } && kill -0 "$bpid" 2>/dev/null; do
       _ffhc_nap "$nap"
       # Exponential nap ladder 0.05 -> 0.1 -> 0.25 -> 0.5 -> 1 (then hold at 1).
       case "$nap" in 0.05) nap="0.1" ;; 0.1) nap="0.25" ;; 0.25) nap="0.5" ;; 0.5) nap="1" ;; esac
@@ -235,7 +235,7 @@ ffhc_msys_wait_reap() {
       [ "$waited" -ge "$cap" ] && { _ffhc_reap; break; }
     done
   else
-    while kill -0 "$bpid" 2>/dev/null; do
+    while { [ -z "$done_file" ] || [ ! -s "$done_file" ]; } && kill -0 "$bpid" 2>/dev/null; do
       sleep 1; waited=$((waited + 1))
       if [ "$waited" -ge "$secs" ] && [ "$reaped" -eq 0 ]; then
         _ffhc_reap; reaped=1
@@ -296,7 +296,7 @@ command -v ffhc_job_available >/dev/null 2>&1 || ffhc_job_available() { return 1
 _ffhc_heartbeat_loop() {   # <interval> <deadline-secs> <label>
   local interval="$1" deadline="$2" label="$3" waited=0 cap=$(( $2 + 10 ))
   while [ "$waited" -lt "$cap" ]; do
-    sleep "$interval" 2>/dev/null || return 0
+    if [ "$FFHC_NAP_OK" -eq 1 ]; then _ffhc_nap "$interval"; else sleep "$interval" 2>/dev/null || return 0; fi
     waited=$((waited + interval))
     printf '[bounded] still running (%ss/%ss) — %s\n' "$waited" "$deadline" "$label" >&2
   done
@@ -361,9 +361,21 @@ _ffhc_heartbeat_stop() {   # <pid>
   return 0
 }
 
+# Publish completion before the background wrapper becomes waitable. MSYS can keep a completed
+# child visible to `kill -0`, so the reap loop needs an out-of-band completion fact to avoid
+# spending the whole timeout budget on work that has already returned.
+_ffhc_timeout_child_done() {   # <done-file> <secs> <command...>
+  local done_file="$1"; shift
+  set +e
+  run_with_timeout "$@"
+  local rc=$?
+  printf '%s\n' "$rc" > "$done_file"
+  return "$rc"
+}
+
 _ffhc_tempfile_capture() {
   local stderr_mode="$1" stdin_mode="$2" secs="$3"; shift 3
-  local _tf
+  local _tf _done
   _tf="$(mktemp "${TMPDIR:-/tmp}/ffhc-bounded.$$.XXXXXX" 2>/dev/null || true)"
   # TRIPWIRE: a missing/unwritable temp must SKIP (UNVERIFIED), never launch the
   # bounded run into a dead redirect (that returns empty => false BROKEN) or hang.
@@ -372,6 +384,8 @@ _ffhc_tempfile_capture() {
     FFHC_LAST_OUT=""; FFHC_LAST_RC=125; FFHC_LAST_SKIPPED=1; FFHC_LAST_TIMED_OUT=0
     return 0
   fi
+  _done="${_tf}.done"
+  rm -f "$_done" 2>/dev/null
   # TRIPWIRE (T17/T18): a backgrounded (`&`) command's stdin defaults to /dev/null and that
   # default OVERRIDES a `< file` redirect applied to the CALLER — so the child never sees
   # the caller's fd 0 unless we redirect it explicitly here. STDIN_MODE is an EXPLICIT
@@ -383,15 +397,15 @@ _ffhc_tempfile_capture() {
   # keep the tempfile capture + winpid/childpid reap IDENTICAL below.
   if [ "$stdin_mode" = "inherit" ]; then
     if [ "$stderr_mode" = "drop" ]; then
-      run_with_timeout "$secs" "$@" >"$_tf" 2>/dev/null 0<&0 &
+      _ffhc_timeout_child_done "$_done" "$secs" "$@" >"$_tf" 2>/dev/null 0<&0 &
     else
-      run_with_timeout "$secs" "$@" >"$_tf" 2>&1 0<&0 &
+      _ffhc_timeout_child_done "$_done" "$secs" "$@" >"$_tf" 2>&1 0<&0 &
     fi
   else
     if [ "$stderr_mode" = "drop" ]; then
-      run_with_timeout "$secs" "$@" >"$_tf" 2>/dev/null </dev/null &
+      _ffhc_timeout_child_done "$_done" "$secs" "$@" >"$_tf" 2>/dev/null </dev/null &
     else
-      run_with_timeout "$secs" "$@" >"$_tf" 2>&1 </dev/null &
+      _ffhc_timeout_child_done "$_done" "$secs" "$@" >"$_tf" 2>&1 </dev/null &
     fi
   fi
   local _bpid=$!
@@ -439,7 +453,7 @@ _ffhc_tempfile_capture() {
     _ffhc_job_fence "$_winpid" "$secs"
     _trig="$FFHC_JOB_FENCE_TRIG"
   fi
-  if ffhc_is_msys; then ffhc_msys_wait_reap "$_bpid" "$secs" "$_winpid" "$_trig"; else wait "$_bpid"; fi
+  if ffhc_is_msys; then ffhc_msys_wait_reap "$_bpid" "$secs" "$_winpid" "$_trig" "$_done"; else wait "$_bpid"; fi
   FFHC_LAST_RC=$?
   _ffhc_heartbeat_stop "$_hbpid"    # never outlive the run we were reporting on
   # Release + reap the fence helper (ours): touch the trigger so a still-waiting helper
@@ -457,7 +471,7 @@ _ffhc_tempfile_capture() {
   # apply. Guarded by [ -r ] so an unreadable/vanished tempfile leaves an empty capture,
   # identical to the prior `$(cat … 2>/dev/null)` fall-through (never a bash read error).
   FFHC_LAST_OUT=""; [ -r "$_tf" ] && FFHC_LAST_OUT="$(<"$_tf")"
-  rm -f "$_tf" 2>/dev/null
+  rm -f "$_tf" "$_done" 2>/dev/null
   ffhc_timed_out "$FFHC_LAST_RC" && FFHC_LAST_TIMED_OUT=1 || FFHC_LAST_TIMED_OUT=0
 }
 
