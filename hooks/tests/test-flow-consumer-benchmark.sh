@@ -49,8 +49,8 @@ else:
 if validation.get("validator_duration", {}).get("status") != "MEASURED":
     failures.append("validator duration missing")
 recovery = doc.get("recovery", {})
-if recovery.get("result") != "PASS" or recovery.get("no_op_writes", {}).get("value") != 0:
-    failures.append("recovery no-op writes not measured at zero")
+if recovery.get("result") != "PASS" or recovery.get("mode") != "read-only integrity":
+    failures.append("mirror check is not labeled read-only integrity")
 refresh = doc.get("current_cli_refresh", {})
 if refresh.get("result") != "UNVERIFIED" or not refresh.get("reason"):
     failures.append("skipped current-CLI attempt lacks explicit UNVERIFIED reason")
@@ -61,7 +61,7 @@ if failures:
 print("PASS: consumer-benchmark metrics-and-missing-labels")
 print("PASS: consumer-benchmark workflow-ordinary-sensitive")
 print("PASS: consumer-benchmark validation-runs-duration")
-print("PASS: consumer-benchmark recovery-no-op-writes")
+print("PASS: consumer-benchmark mirror-check-read-only-integrity")
 print("PASS: consumer-benchmark skipped-cli-is-unverified")
 print("[test-flow-consumer-benchmark] 5/5 PASS")
 PY

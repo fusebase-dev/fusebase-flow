@@ -98,6 +98,10 @@ if [ "${FFCF_T15_ONLY:-0}" = "1" ]; then
   ffcf_t15_verification
   exit 0
 fi
+if [ "${FFCF_T20_ONLY:-0}" = "1" ]; then
+  ffcf_t20_repeated_noop
+  exit 0
+fi
 
 ffcf_e2e_run
 ffcf_classify_run

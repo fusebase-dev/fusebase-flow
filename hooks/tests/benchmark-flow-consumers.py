@@ -169,9 +169,8 @@ def recovery_measurement():
     after = tree_fingerprint(targets)
     return {
         "command": "bash hooks/local/mirror-skills.sh --check",
+        "mode": "read-only integrity",
         "wall_time": measured(round(elapsed, 6), "seconds"),
-        "no_op_writes": measured(0 if rc == 0 and before == after else None, "writes")
-        if rc == 0 and before == after else unavailable(error or "hash check failed or target bytes changed"),
         "result": "PASS" if rc == 0 and before == after else "UNVERIFIED",
     }
 
