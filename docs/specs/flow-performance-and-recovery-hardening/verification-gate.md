@@ -1,10 +1,10 @@
 # Verification gate - flow-performance-and-recovery-hardening
 
-**Status:** T26 focused proof permits commit; T27 legacy fixture and T28 selectors precede final gate
+**Status:** superseded diagnostic stopped at 139 PASS/2 FAIL; T29/T30 correction required before final gate
 **Starting source:** `2217a9c631300e510b18437548ed4bccb5f31036`
-**Linked tasks:** `tasks.md` T11-T28
+**Linked tasks:** `tasks.md` T11-T30
 **Review findings:** `adversarial-review.md` B1-B8, N1-N2
-**Gate task:** T21, report-only after T28
+**Gate task:** T21, report-only after T30
 **Independent review:** T22, zero blockers required
 **Closeout:** T23, docs-only
 **Smoke threshold:** S1-S3 each requires three independent process executions; three assertions from one run are not three repetitions
@@ -31,13 +31,16 @@
 | Stop fixture | T26 | U14 1/1 and wire/settings 36/36; wrapper crossed U14/U15 before independent stale U7; permits commit |
 | Legacy fixture | T27 | recognized positive migration/no-op; ambiguous body zero-write refusal; U9 preservation |
 | Diagnostic selectors | T28 | invalid selection exit 2 before mutation; scoped output non-attesting; real selected groups; default count unchanged |
+| Mutation manifest cost | T29 | tiny old/new byte parity, complete independent snapshots, measured count/hash/time; no per-file subprocesses |
+| Probe budget semantics | T30 | actual <=10s probe deadline evidence; timeout attribution/reap; over-budget/missing-timeout/cleanup negative controls; complete contract and mutation green |
 | B1-B8/N1-N2 closure | T21-T22 | final report plus independent repeated Astra review with zero blockers |
 
 ## Required commands and conditions
 
 | Layer | Command / result |
 |---|---|
-| Complete registered coverage | `FF_FULL=1 FFHC_HEARTBEAT_SECS=30 bash hooks/tests/run-tests.sh` once on final T28 source; exact source/command/platform/exit and constituent rows |
+| Complete registered coverage | `FF_FULL=1 FFHC_HEARTBEAT_SECS=30 bash hooks/tests/run-tests.sh` once on final T30 source; exact source/command/platform/exit and constituent rows |
+| Pre-gate T29/T30 diagnosis | `python hooks/tests/test-artifact-manifest.py`; focused PY5, then `FF_ONLY=python3-version,python3-version-mutation bash hooks/tests/run-tests.sh`; scoped evidence only; do not repeat separately during T21 |
 | Focused coverage mapping | Its validator, validation-instructions, cli-flow-recovery, hook-intent, timeout, wire-hooks, lane-workflow, windowing, benchmark and selector-selftest rows satisfy corresponding task checks; do not repeat these suites separately |
 | Diagnostic entry points | T28 wrapper `--only u14`, `--only legacy`, `--only engine` and task selectors are scoped development proof only; never execute sourced-only direct/E2E modules as tests |
 | T26 commit proof | Focused U14 1/1 and wire/settings 36/36; full wrapper reached 35 PASS through U14/U15 then stale U7; final full-wrapper PASS belongs to T21 |
@@ -126,9 +129,9 @@ Record the real fixture directory before cleanup, diagnosis commands/results, ro
 
 ## Gate completion rules
 
-- T11-T20 and T24-T28 each have one exact SHA and changed-slice proof. T25 is `ef320de`; T26 commit uses its focused evidence above.
+- T11-T20 and T24-T30 each have one exact SHA and changed-slice proof. T25 is `ef320de`; T26 commit uses its focused evidence above.
 - T27 corrects legacy fixture assumptions without weakening T17; T28 adds scoped diagnostics without reducing default coverage. Preserve historical stall, U14 and U7 failures with distinct explanations.
-- Tail: T26 -> T27 -> T28 -> T21 -> T22 -> T23. T21 uses one final complete suite, then only uncovered smoke/live repo-state checks; no source commit. Fixture phase tests do not substitute for current repository integrity checks.
+- Tail: T29 -> T30 -> T21 -> T22 -> T23. T21 uses one final complete suite, then only uncovered smoke/live repo-state checks; no source commit. Fixture phase tests do not substitute for current repository integrity checks.
 - Any failed-then-passed check is investigated and reproduced; no silent PASS.
 - Every B1-B8/N1-N2 row has direct evidence or remains open.
 - Spec remains DRAFT through T21.
@@ -138,3 +141,7 @@ Record the real fixture directory before cleanup, diagnosis commands/results, ro
 ## Efficiency basis
 
 `state/audit/execution-efficiency-review-2026-09-06.md`: ~11m full-wrapper prefix versus ~8s isolated U14; ~33m timeout-suite log activity. One coverage map removes redundant final focused execution without removing any case. Exact token savings unmeasured. New failure: isolate case, diagnose/change control, verify impacted group; never label partial/scoped runs full PASS. Normal staged secret/protected checks stay live.
+
+## Superseded diagnostic evidence
+
+At `e657392`: python3-version 20/21 in 516s (PY5 whole-hook wall 39s vs 16-26; functional timeout rows passed); mutation 10/11 in 1577s (baseline/mutant `budget_ok` differed). Stopped at git-context, 139 PASS/2 FAIL; owned process tree empty. These are failure/diagnostic records, not final gate proof. T29 batches identical manifest evidence; T30 separates actual probe deadline semantics from whole-hook wall variance. Preserve mutation strength and <=10s per probe; no blind bound inflation.

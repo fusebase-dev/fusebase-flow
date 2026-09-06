@@ -2,15 +2,15 @@
 
 ## Current state
 
-Operate as AI Developer under Fusebase Flow v4.14.1. T25 is `ef320de`; T26 two-file diff has focused U14 1/1 and wire/settings 36/36 PASS. Full wrapper crossed U14/U15 (35 PASS), then independently stale U7 failed. Commit T26 from focused proof; execute T27 and T28; complete T21 report-only and stop for T22. No deploy/publication/migration target.
+Operate as AI Developer under Fusebase Flow v4.14.1. T26 `335ed08`, T27 `597b02d`, T28 `e657392` are complete. Diagnostic suite stopped safely at 139 PASS/2 FAIL: PY5 whole-hook wall proxy and mutation budget comparison. Execute T29 then T30, complete T21 on final T30 source, and stop for T22. No deploy/publication/migration target.
 
 | Owner | Pointer |
 |---|---|
-| Scope/AC/files/dependencies | `docs/specs/flow-performance-and-recovery-hardening/tasks.md`, T26-T28 |
+| Scope/AC/files/dependencies | `docs/specs/flow-performance-and-recovery-hardening/tasks.md`, T29-T30 |
 | Proof/coverage/smoke | `verification-gate.md` in same directory |
 | Safety defects | `adversarial-review.md`, B1-B8/N1-N2 |
 | Efficiency rationale | `state/audit/execution-efficiency-review-2026-09-06.md` |
-| Tail | T26 -> T27 -> T28 -> T21 -> T22 -> T23 |
+| Tail | T29 -> T30 -> T21 -> T22 -> T23 |
 
 ## Required context
 
@@ -20,9 +20,8 @@ Read mandatory bootstrap/role bodies once when absent, then the active task sect
 
 | Task | Action |
 |---|---|
-| T26 | Exact two-file commit from focused proof; preserve U14/U15 success and independent U7 failure |
-| T27 | One-file legacy fixture correction: recognized positive footer/migration/no-op; ambiguous body zero-write refusal; U9 preservation; no T17 weakening |
-| T28 | Bounded public diagnostic selectors, fail-closed parsing, scoped evidence, durable phase logs; exact files and tests in tasks |
+| T29 | Batch artifact manifest via captured real Python; full independent evidence/parity; measure before/after |
+| T30 | Diagnose actual probe deadlines; replace whole-hook budget proxy with valid semantics; preserve timeout/reap and mutation negative controls |
 | T21 | One complete final registered suite; constituent rows satisfy covered focused tests; only uncovered smoke/repo-state checks separately; replace gate report |
 | T22 | Separate GPT-6 Astra targeted replay and whole-diff review; no duplicate full suite |
 | T23 | Docs-only closeout only after zero blockers |
@@ -36,7 +35,7 @@ Read mandatory bootstrap/role bodies once when absent, then the active task sect
 - No-argument recovery behavior/count and final full-suite attestation remain complete. Scoped PASS is development evidence only.
 - Run long work under sized watchdogs with durable progress; check one cheap activity signal approximately every 60 seconds. Diagnose structural failure before changed-control retry. Resume provider-limit failures with same-agent `try again` per operator authorization; preserve retry evidence.
 - T21 maps source/command/platform/exit and constituent results to ACs. Avoid separate focused reruns already covered by its full suite. Live staged security/protected checks remain mandatory; do not reuse invalidated evidence.
-- Keep failed-then-passed evidence and explain the changed control. T26 focused proof does not claim a terminal full-wrapper PASS.
+- Keep failed-then-passed evidence and explain the changed control. The stopped diagnostic 139/2 is not final gate evidence; do not combine its rows with final-source results.
 - S1-S3 remain three independent process executions each, with parsed/hash outcomes and mutation evidence per gate.
 - Residuals: five-provider delivered telemetry, real symlinks on MSYS, Windows authority ACL/isolation and actual CLI install/update/recover remain UNVERIFIED unless directly proved. UI/client and platform auth/session problem catalog: N/A.
 
@@ -47,4 +46,4 @@ T25 wrapper reached U14 after ~11m; isolated failure took ~8s. Public selectors 
 ---
 📍 Phase: Implement
 🎯 Ticket: flow-performance-and-recovery-hardening
-⏭️ Next: commit T26; execute T27/T28; run T21 and stop for review
+⏭️ Next: execute T29/T30; run T21 once on final source; stop for review

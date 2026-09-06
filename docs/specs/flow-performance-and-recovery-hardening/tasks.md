@@ -2,8 +2,8 @@
 
 **T-counter going in:** T11
 **Historical implementation:** T1-T10 complete provisionally; T10 gate superseded by Astra CHANGES REQUIRED
-**Corrective implementation:** T11-T20/T24 complete; T25 `ef320de`; T26 focused proof complete; T27 legacy fixture and T28 diagnostic selectors planned
-**Final technical gate:** T21, report-only after T28
+**Corrective implementation:** T26 `335ed08`, T27 `597b02d`, T28 `e657392`; T29 manifest batching and T30 timeout evidence correction planned
+**Final technical gate:** T21, report-only after T30
 **Repeated adversarial review:** T22, GPT-6 Astra review-only
 **Closeout:** T23, docs-only; former T11 moved without reuse
 **Starting source:** `2217a9c631300e510b18437548ed4bccb5f31036`
@@ -45,7 +45,9 @@
 | T26 | correct U14 assertions and intended Stop status text | stale fixture / encoding regression | A2-A3, B3 | T25 | pending; one two-file commit |
 | T27 | recognized legacy fixture and ambiguous-input refusal | stale U7/U9 fixture | A1, B4 | T26 | one fixture-only commit |
 | T28 | bounded public recovery diagnostic selectors | efficiency E2-E4 | A2-A3, B2 | T27 | one test-tooling commit |
-| T21 | final technical gate/report | B1-B8, N1-N2 | A1-A7, B1-B5 | T28 | report-only |
+| T29 | single-process mutation artifact manifests | measured spawn amplification | A6-A7 | T28 | one test-tooling commit |
+| T30 | probe-boundary timeout evidence and mutation budget semantics | PY5 wall/mutation failures | A6, B1 | T29 | one diagnosed correction commit |
+| T21 | final technical gate/report | B1-B8, N1-N2 | A1-A7, B1-B5 | T30 | report-only |
 | T22 | repeated GPT-6 Astra whole-implementation review | all | all | T21 | review-only |
 | T23 | final docs closeout | all | all | T22 zero blockers | docs-only pending |
 
@@ -202,7 +204,24 @@
 **Tests:** tiny registered selftest covers list/invalid/missing/empty/conflict parsing, selected-vs-unselected dispatch, default group list parity, nonzero/timeout propagation and non-attesting scoped output. Run actual U14, legacy and engine group diagnostics; default complete case/count behavior is verified by the single T21 full suite. Parser probes must not recreate full recovery trees repeatedly.
 **Commit/boundaries:** one T28 commit, exact three-file scope; normal pre-commit; no production recovery, CLI assets, cache/receipt authority, CI rewrite or new governance mechanism.
 
-## Execution efficiency amendment
+## T29 - Batch mutation artifact manifests
+
+**Files:** `hooks/tests/test-pre-commit-python3-version-mutation.sh` (212 lines); new `hooks/tests/lib/artifact-manifest.py`; new `hooks/tests/test-artifact-manifest.py`. The mutation harness invokes the small parity selftest so existing registered mutation coverage includes it; no runner-registry rewrite. Each remains <=800.
+**Work:** replace per-file wc/tr/sha256sum/cut subprocesses with one captured real interpreter (`REALPY`, never the scenario shim) using stdlib traversal/stat/hashlib. Keep every independent snapshot, regular-file scope, relative `./` paths, `.git` pruning, mutation-input hook exclusion, size/hash and deterministic C-compatible ordering. Fail on unreadable/unstable enumeration rather than emitting partial success; preserve supported symlink semantics. No baseline-hash caching or fixture reduction.
+**AC/tests:** byte-parity on a tiny old/new fixture with empty/binary/CRLF/space/Unicode/nested files; exclusion tests; same-size mutation and added/deleted artifact detection; one interpreter process and zero per-file subprocesses. Preserve baseline block, mutant declared delta, unmutated-negative rejection, index/HEAD/temp/tracked-hook evidence. T29 may commit parity/manifest proof with the known distinct budget failure explicitly retained for T30; never claim full mutation PASS from 10/11.
+**Measurement:** prior manifests 384-440s each over approximately 195 files/2.11MB, whole mutation 1577s. Record final corpus count/hash and each manifest elapsed; do not rerun the slow old corpus loop just for timing. Keep tiny old/new parity evidence. Expected >95% manifest-time reduction is a hypothesis until measured, not a test threshold.
+**Focused commands:** `python hooks/tests/test-artifact-manifest.py`; bounded `FF_ONLY=python3-version-mutation bash hooks/tests/run-tests.sh` after manifest parity, once if needed for independent snapshot measurement. T30 owns final mutation semantic closure; final full suite is T21 only.
+**Boundaries/commit:** one exact three-file T29 commit; normal pre-commit; test-only, no CLI/provider/runtime/config mutation; preserve untracked evidence.
+
+## T30 - Measure the actual probe deadline and preserve mutation discrimination
+
+**Files:** `hooks/tests/test-pre-commit-python3-version-contract.sh` (213 lines); `hooks/tests/test-pre-commit-python3-version-mutation.sh` after T29. `hooks/git/pre-commit` (773 lines) only if bounded reproduction proves its probe deadline/reap implementation is defective; protected-path approval and exact staging apply. No other runtime file or blanket watchdog change.
+**Diagnosis first:** separate hook startup/staged enumeration, each actual `_ffpc_bounded` probe, and cleanup/follow-on controls with monotonic timing and owned-process evidence. Reproduce on this MSYS host without competing full suites. Existing failure: contract 20/21 in 516s, two timeout-attribution checks passed but whole-hook 39s violated 16-26s; mutation 10/11 in 1577s because baseline `budget_ok=yes` versus mutant `no`. The mutant deliberately continues into extra controls, so whole-hook duration is not inherently an invariant of that mutation.
+**Work/AC:** preserve the <=10-second deadline for each actual probe, both timeout attributions, nonzero failure, no later controls after real refusal, and cleanup/reap of owned children. Assert deadline scheduling/termination at the actual probe boundary; report host scheduling/reap delay separately rather than pretending whole-hook wall time equals probe time. If real code exceeds its promised deadline, correct that owner; do not solve by raising 26s or labeling any delay benign. Mutation `budget_ok` must derive from the same valid bounded-probe property on baseline/mutant/negative; record differing total hook time as diagnostic, not an undeclared security delta. Never simply delete the bound or make budget success unconditional.
+**Tests:** focused PY5 (a minimal optional case selector within contract script is permitted; unknown/empty selection exits 2 and scoped output is non-attesting); deterministic over-budget/missing-timeout/broken-cleanup negative controls must fail. Then `FF_ONLY=python3-version,python3-version-mutation bash hooks/tests/run-tests.sh` once with durable logs: complete contract and all mutation rows green, only declared mutant changes accepted, unmutated negative rejected, production-hook hash preserved. Record per-probe deadline/termination/cleanup and total hook/manifest timing on this host; Linux comparison when available, otherwise explicit residual.
+**Boundaries/commit:** one T30 commit after focused closure; <=800 per source, no exemption. No CLI-owned assets, shared configuration, wider mutation normalizations, cache authority or unrelated timeout changes. If no trustworthy probe-boundary observable can be established, retain the blocker; do not convert the flaky wall proxy into fabricated proof.
+
+## Execution efficiency disposition
 
 **Evidence:** `state/audit/execution-efficiency-review-2026-09-06.md` (GPT-6 Astra Medium). T25 full wrapper took ~11m before U14 versus ~8s isolated; timeout-suite log activity totaled ~33m; four amendments repeated state across five docs. These are observed log intervals, not billed token/CPU measurements.
 **Action:** tasks own scope/dependencies; gate owns proof mapping; handoff carries current state/pointers. Defer roadmap/report status churn to closeout. Diagnose the failed case before rerunning its group; structural retry requires a changed control. Preserve same-agent provider-limit retries under operator authorization. Expected isolated-case savings ~10m per similar late failure; aggregate savings unmeasured.
@@ -210,15 +229,15 @@
 ## T21 - Final technical gate report
 
 **Files:** `docs/specs/flow-performance-and-recovery-hardening/gate-report.md`; uncommitted smoke JSON/log evidence under the existing smoke directory; durable `state/audit/` outputs only where existing commands own them.
-**Work/tests:** no source change or commit. After T28, run `FF_FULL=1 FFHC_HEARTBEAT_SECS=30 bash hooks/tests/run-tests.sh` once on final source. Its constituent rows satisfy matching focused coverage; do not rerun those suites separately. Add only uncovered S1-S3 smoke and live repo-state/preflight/mirror/manifest/module/security/CLI checks from `verification-gate.md`. Never execute sourced-only modules as tests. Replace `gate-report.md` with source/command/platform/exit/coverage evidence; partial runs never attest full PASS.
-**Acceptance:** every B1-B8/N1-N2 has direct closure evidence or remains open; exact T11-T20/T24-T28 SHAs/timing and failed-then-passed evidence recorded; real Git verification and full registered wrapper liveness proved; spec remains DRAFT; stop at gate.
+**Work/tests:** no source change or commit. After T30, run `FF_FULL=1 FFHC_HEARTBEAT_SECS=30 bash hooks/tests/run-tests.sh` once on final T30 source. Its constituent rows satisfy matching focused coverage; do not rerun those suites separately. Add only uncovered S1-S3 smoke and live repo-state/preflight/mirror/manifest/module/security/CLI checks from `verification-gate.md`. Never execute sourced-only modules as tests. Replace `gate-report.md` with source/command/platform/exit/coverage evidence; partial runs never attest full PASS. Retain superseded diagnostic 139 PASS/2 FAIL, stopped safely at git-context; do not merge its rows into final-source PASS.
+**Acceptance:** every B1-B8/N1-N2 has direct closure evidence or remains open; exact T11-T20/T24-T30 SHAs/timing and failed-then-passed evidence recorded; real Git verification and full registered wrapper liveness proved; spec remains DRAFT; stop at gate.
 **Module size:** N/A; report/evidence only.
 **Worker-undisturbed:** verify all task boundaries and shared workspace hash/status; do not stage `docs/wasted-code/` or existing smoke `.log` files.
 
 ## T22 - Repeat the GPT-6 Astra whole-implementation review
 
 **Files:** read-only implementation/evidence review; review result prepared for `adversarial-review.md` but committed only in T23.
-**Work/tests:** no implementation commit. GPT-6 Astra reviews `2217a9c..T28_HEAD`, T21 coverage/evidence, smoke, ownership/authority boundaries, and B1-B8/N1-N2 closure. Replay targeted mutations/false-claim cases and selector failure paths; consume T21 full-suite evidence rather than rerunning the whole suite. Any new source correction requires the affected proof and final-source gate; never reuse invalidated evidence.
+**Work/tests:** no implementation commit. GPT-6 Astra reviews `2217a9c..T30_HEAD`, T21 coverage/evidence, smoke, ownership/authority boundaries, and B1-B8/N1-N2 closure. Replay targeted mutations/false-claim cases, manifest parity and probe-budget negative controls; consume T21 full-suite evidence rather than rerunning the whole suite. Any new source correction requires the affected proof and final-source gate; never reuse invalidated evidence.
 **Acceptance:** zero blockers. Any blocker returns to newly numbered implementation tasks and invalidates T23; do not claim closeout early.
 **Module size:** N/A; read-only review.
 **Worker-undisturbed:** no source/provider/config mutation during review.
@@ -256,4 +275,4 @@
 | A7 / B5 | T18-T20 |
 | Final zero-blocker review | T22 before T23 |
 
-**Serialization:** T11-T12 share validator files; T13-T17 share recovery files; T18-T20 share evidence consumers. Current tail is T26 -> T27 -> T28 -> T21 -> T22 -> T23. No worker-undisturbed path is configured; every task preserves the stricter CLI/user boundary.
+**Serialization:** T29 -> T30 -> T21 -> T22 -> T23. T29/T30 share the mutation harness; no concurrent writes. No worker-undisturbed path is configured; every task preserves the stricter CLI/user boundary.
