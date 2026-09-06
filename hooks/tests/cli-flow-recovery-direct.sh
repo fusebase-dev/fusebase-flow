@@ -415,13 +415,14 @@ EOF
 }
 
 # U7 + U9 — the two LEGACY overlay migrations, one tree, one --refresh-overlays run.
-#   U7: a pre-3.6.0 marker-LESS CLAUDE.md (bare '---' then the heading) migrates to exactly one
-#       wrapped block with no doubled '---' rule.
+#   U7: a pre-3.6.0 marker-LESS CLAUDE.md with the recognized CLAUDE footer migrates to exactly
+#       one wrapped block with no doubled '---' rule. TRIPWIRE: an arbitrary terminal body is
+#       ambiguous and must still fail before any recovery-tree byte changes.
 #   U9: a 3.7.0-era AGENTS.md (CUSTOM:SKILL-wrapped, WITH the ### Project-specific values table
 #       but WITHOUT FLOW:PRESERVE markers, and a customized value) must SEED the new preserve
 #       region from that legacy table — the first preserve-aware upgrade has to be LOSSLESS.
 ffcf_legacy_overlays() {
-  local d="$TMP_BASE/legacy-overlays" rules
+  local d="$TMP_BASE/legacy-overlays" rules rc before after
   ffcf_canonical "$d"
   ffcf_engine_scripts "$d"
   cat > "$d/CLAUDE.md" <<'EOF'
@@ -433,7 +434,8 @@ project rules here
 
 ## Fusebase Flow — additional rules (overlay)
 
-old stale body
+legacy adapter body
+For active context, commands, install/update recovery, and mixed-fleet behavior, use `AGENTS.md`; do not reprint those procedures here.
 EOF
   {
     printf '# pre-upgrade AGENTS\n\nCURRENT CLI AGENTS SENTINEL\n'
@@ -441,23 +443,79 @@ EOF
         -e 's/\| Project name \| [^|]*\|/| Project name | SEEDED-FROM-LEGACY |/' \
         "$d/hooks/local/fusebase-flow-overlays/agents-md-overlay.md"
   } > "$d/AGENTS.md"
-  # Preconditions: CUSTOM:SKILL present, FLOW:PRESERVE absent, legacy value set.
+  # Preconditions: CLAUDE uses one recognized terminal footer; AGENTS has the legacy value.
+  [ "$(grep -Fxc 'For active context, commands, install/update recovery, and mixed-fleet behavior, use `AGENTS.md`; do not reprint those procedures here.' "$d/CLAUDE.md")" -eq 1 ] \
+    || fail "U7 precondition: expected one recognized CLAUDE legacy footer"
+  [ "$(ffcf_count_marker "$d/CLAUDE.md" "$FFCF_MB")" -eq 0 ] || fail "U7 precondition: CLAUDE should be marker-less"
   [ "$(ffcf_count_marker "$d/AGENTS.md" "$FFCF_MB")" -eq 1 ] || fail "U9 precondition: expected 1 CUSTOM:SKILL:BEGIN"
   grep -q "<!-- FLOW:PRESERVE:BEGIN" "$d/AGENTS.md" && fail "U9 precondition: pre-upgrade block should have NO FLOW:PRESERVE markers" || true
   grep -q "SEEDED-FROM-LEGACY" "$d/AGENTS.md" || fail "U9 setup: could not set the legacy project value"
 
   set +e
   ( cd "$d" && bash hooks/local/post-fusebase-update.sh --refresh-overlays > "$TMP_BASE/legacy.out" 2>&1 )
+  rc=$?
   set -e
+  [ "$rc" -eq 0 ] || fail "U7/U9: valid legacy recovery returned $rc"
 
   [ "$(ffcf_count_marker "$d/CLAUDE.md" "$FFCF_MB")" -eq 1 ] || fail "U7: legacy migration did not produce exactly 1 BEGIN ($(ffcf_count_marker "$d/CLAUDE.md" "$FFCF_MB"))"
   rules="$(awk '/^## Fuse[bB]ase Flow — additional rules/{exit} /^[[:space:]]*---[[:space:]]*$/{c++} END{print c+0}' "$d/CLAUDE.md")"
   [ "$rules" -le 1 ] || fail "U7: $rules '---' rules before the heading (expected <=1; doubled-rule regression)"
-  pass "U7: legacy marker-less CLAUDE.md migrates to a single wrapped block (no doubled ---)"
+  "$python_bin" - "$d/CLAUDE.md" <<'PY' || fail "U7: bounded migration changed the CLI prefix or marker suffix"
+from pathlib import Path
+import sys
+data = Path(sys.argv[1]).read_bytes()
+assert data.startswith(b"# Legacy CLAUDE\n\nproject rules here\n\n")
+assert data.rstrip().endswith(b"<!-- CUSTOM:SKILL:END -->")
+PY
 
   grep -q "SEEDED-FROM-LEGACY" "$d/AGENTS.md" || fail "U9: first preserve-aware upgrade RESET the legacy project value (lossy transition!)"
   grep -q "<!-- FLOW:PRESERVE:BEGIN" "$d/AGENTS.md" || fail "U9: refresh did not add FLOW:PRESERVE markers (no migration)"
   [ "$(ffcf_count_marker "$d/AGENTS.md" "$FFCF_MB")" -eq 1 ] || fail "U9: BEGIN count not 1 after legacy seed"
+
+  "$python_bin" - "$d/CLAUDE.md" "$d/AGENTS.md" > "$TMP_BASE/legacy-targets.before" <<'PY'
+from hashlib import sha256
+from pathlib import Path
+import sys
+for name in sys.argv[1:]:
+    path = Path(name)
+    print(f"{sha256(path.read_bytes()).hexdigest()}:{path.stat().st_mtime_ns}")
+PY
+  ( cd "$d" && bash hooks/local/post-fusebase-update.sh --refresh-overlays > "$TMP_BASE/legacy-second.out" 2>&1 ) \
+    || fail "U7/U9: second valid recovery failed"
+  "$python_bin" - "$d/CLAUDE.md" "$d/AGENTS.md" > "$TMP_BASE/legacy-targets.after" <<'PY'
+from hashlib import sha256
+from pathlib import Path
+import sys
+for name in sys.argv[1:]:
+    path = Path(name)
+    print(f"{sha256(path.read_bytes()).hexdigest()}:{path.stat().st_mtime_ns}")
+PY
+  cmp -s "$TMP_BASE/legacy-targets.before" "$TMP_BASE/legacy-targets.after" \
+    || fail "U7/U9: second valid recovery rewrote a current overlay target"
+
+  cat > "$d/CLAUDE.md" <<'EOF'
+# Legacy CLAUDE
+
+project rules here
+
+---
+
+## Fusebase Flow — additional rules (overlay)
+
+old stale body
+EOF
+  before="$(find "$d" -type f -print0 | sort -z | xargs -0 sha256sum)"
+  set +e
+  ( cd "$d" && bash hooks/local/post-fusebase-update.sh --refresh-overlays > "$TMP_BASE/legacy-ambiguous.out" 2>&1 )
+  rc=$?
+  set -e
+  after="$(find "$d" -type f -print0 | sort -z | xargs -0 sha256sum)"
+  [ "$rc" -eq 2 ] && [ "$before" = "$after" ] \
+    || fail "U7: ambiguous legacy body did not return 2 with byte-identical zero-write refusal"
+  grep -q "expected one recognized legacy footer, found 0" "$TMP_BASE/legacy-ambiguous.out" \
+    || fail "U7: ambiguous legacy refusal omitted its exact boundary reason"
+
+  pass "U7: recognized marker-less CLAUDE migrates/no-ops; ambiguous body refuses with zero writes"
   pass "U9: first preserve-aware upgrade seeds the new FLOW:PRESERVE region from the legacy table (lossless)"
 }
 
