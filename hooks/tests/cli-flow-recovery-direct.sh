@@ -614,6 +614,34 @@ refused(
     flow.replace(module.PRESERVE_END, module.PRESERVE_END + b"\r\n" + module.PRESERVE_END, 1),
 )
 
+legacy_footer = module.LEGACY_TERMINAL_LINES[0]
+legacy_body = (
+    b"CLI-LEGACY-PREFIX\r\n---\r\n"
+    + legacy[0].encode() + b"\r\nlegacy overlay body\r\n"
+    + b"### Project-specific values\r\n| Project name | Legacy custom |\r\n"
+    + legacy_footer + b"\r\n"
+)
+legacy_target = work / "legacy-bounded.md"
+legacy_backup = work / "legacy-bounded.backup"
+legacy_target.write_bytes(legacy_body)
+assert module.replace_overlay(
+    legacy_target, template, heading, legacy, legacy_backup
+) == "refreshed"
+assert legacy_target.read_bytes().startswith(b"CLI-LEGACY-PREFIX\r\n")
+assert b"| Project name | Legacy custom |" in legacy_target.read_bytes()
+assert module.BEGIN in legacy_target.read_bytes() and module.END in legacy_target.read_bytes()
+legacy_mtime = legacy_target.stat().st_mtime_ns
+assert module.replace_overlay(
+    legacy_target, template, heading, legacy, legacy_backup
+) == "current"
+assert legacy_target.stat().st_mtime_ns == legacy_mtime
+
+refused("legacy-unrelated-suffix.md", legacy_body + b"operator suffix\r\n")
+refused("legacy-custom-heading.md", legacy_body + b"## Operator section\r\nbody\r\n")
+refused("legacy-lower-heading.md", legacy_body + b"### Operator subsection\r\nbody\r\n")
+refused("legacy-duplicate-footer.md", legacy_body + legacy_footer + b"\r\n")
+refused("legacy-absent-footer.md", legacy_body.replace(legacy_footer, b"unknown ending"))
+
 atomic = work / "atomic.md"
 atomic.write_bytes(customized)
 atomic_before = atomic.read_bytes()
@@ -631,7 +659,7 @@ else:
 assert atomic.read_bytes() == atomic_before
 assert atomic_backup.read_bytes() == atomic_before
 PY
-  pass "T1: exact overlay span preserves prefix/suffix/CRLF/Unicode/FLOW:PRESERVE, rejects ambiguity, and is atomic/idempotent"
+  pass "T17: bounded overlay span preserves prefix/suffix/CRLF/Unicode/FLOW:PRESERVE, refuses unowned suffixes, and is atomic/idempotent"
 }
 
 ffcf_direct_run() {

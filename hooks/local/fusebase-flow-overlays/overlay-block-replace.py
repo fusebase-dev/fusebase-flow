@@ -15,6 +15,10 @@ BEGIN = b"<!-- CUSTOM:SKILL:BEGIN -->"
 END = b"<!-- CUSTOM:SKILL:END -->"
 PRESERVE_BEGIN = b"<!-- FLOW:PRESERVE:BEGIN"
 PRESERVE_END = b"<!-- FLOW:PRESERVE:END -->"
+LEGACY_TERMINAL_LINES = (
+    b"**Where Fusebase Flow and project-specific rules conflict, project-specific rules win.**",
+    b"For active context, commands, install/update recovery, and mixed-fleet behavior, use `AGENTS.md`; do not reprint those procedures here.",
+)
 
 
 class OverlayError(ValueError):
@@ -69,6 +73,21 @@ def _legacy_start(data: bytes, heading_start: int) -> int:
     return heading_start
 
 
+def _legacy_end(data: bytes, heading_start: int) -> int:
+    matches = [
+        match for match in _line_matches(data, LEGACY_TERMINAL_LINES)
+        if match[0] > heading_start
+    ]
+    if len(matches) != 1:
+        raise OverlayError(f"expected one recognized legacy footer, found {len(matches)}")
+    end = matches[0][1]
+    while data[end:end + 1] in (b"\r", b"\n"):
+        end += 1
+    if data[end:].strip():
+        raise OverlayError("marker-less legacy overlay has an unowned suffix")
+    return end
+
+
 def _owned_span(
     data: bytes,
     headings: tuple[bytes, ...],
@@ -85,7 +104,7 @@ def _owned_span(
         return owners[0][0], owners[0][1], False
     if owners or not allow_legacy:
         raise OverlayError("Flow heading is outside one owned marker span")
-    return _legacy_start(data, heading_start), len(data), True
+    return _legacy_start(data, heading_start), _legacy_end(data, heading_start), True
 
 
 def _newline_style(data: bytes) -> bytes:
