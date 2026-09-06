@@ -336,9 +336,9 @@ ffcf_t13_owned_write_matrix() {
   pass "T13: skill/agent/command/health ownership, atomic repair, collisions, symlink, interruption, and retry"
 }
 
-# U14 — --wire-hooks must wire stop.py (not a copied CLI command) onto a Stop chain that already
-# has CLI hooks, when discovering the Flow config from the upstream example (whose Stop chain
-# lists CLI hooks BEFORE stop.py). Regression for the handlers[0] discovery bug.
+# U14 — --wire-hooks must discover Flow's exact stop.py entry after CLI entries in the upstream
+# example, then isolate it beside an existing restrictive CLI Stop block. TRIPWIRE: inspect every
+# Stop block; assuming Stop[0] is Flow hides a correct isolated merge and matcher regressions.
 ffcf_u14_wire_stop() {
   local d="$TMP_BASE/u14-wirestop"
   mkdir -p "$d/.fusebase-flow-source/.claude" "$d/.claude/hooks" "$d/hooks/local/fusebase-flow-overlays"
@@ -347,23 +347,43 @@ ffcf_u14_wire_stop() {
   printf '// cli\n' > "$d/.claude/hooks/run-typecheck-apps.js"
   printf '// cli\n' > "$d/.claude/hooks/quality-check-apps.js"
   cat > "$d/.claude/settings.json" <<'EOF'
-{ "hooks": { "Stop": [ { "hooks": [
+{ "hooks": { "Stop": [ { "matcher": "Bash", "hooks": [
   { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/run-typecheck-apps.js", "timeout": 300 },
   { "type": "command", "command": "node \"$CLAUDE_PROJECT_DIR\"/.claude/hooks/quality-check-apps.js", "timeout": 30 }
 ] } ] } }
 EOF
   ( cd "$d" && "$python_bin" hooks/local/fusebase-flow-overlays/settings-json-merge.py .claude/settings.json >/dev/null 2>&1 )
-  ffcf_json_assert "$d/.claude/settings.json" "U14: --wire-hooks did not wire stop.py onto an existing CLI Stop chain" <<'PY'
+  ffcf_json_assert "$d/.claude/settings.json" "U14: --wire-hooks did not isolate exact Flow stop.py beside the preserved CLI Stop block" <<'PY'
 import json, sys
 d = json.loads(open(sys.argv[1], encoding="utf-8").read())
-chain = d["hooks"]["Stop"][0]["hooks"]
-flow = [h for h in chain if "Fusebase Flow stop hook" in h.get("statusMessage", "")]
-assert flow, "no Flow-labeled Stop entry produced"
-assert "hooks/handlers/stop.py" in flow[0]["command"], f"Flow Stop entry has the WRONG command (handlers[0] bug): {flow[0]['command']}"
-assert any("hooks/handlers/stop.py" in h.get("command", "") for h in chain), "stop.py missing from Stop chain"
-assert sum("run-typecheck-apps.js" in h.get("command", "") for h in chain) == 1, "CLI typecheck duplicated or dropped"
+blocks = d["hooks"]["Stop"]
+expected_typecheck = 'node "$CLAUDE_PROJECT_DIR"/.claude/hooks/run-typecheck-apps.js'
+expected_quality = 'node "$CLAUDE_PROJECT_DIR"/.claude/hooks/quality-check-apps.js'
+expected_flow = 'bash "$CLAUDE_PROJECT_DIR"/hooks/local/run-handler.sh "$CLAUDE_PROJECT_DIR"/hooks/handlers/stop.py'
+expected_status = "Fusebase Flow stop hook\u2026"
+expected_cli_block = {"matcher": "Bash", "hooks": [
+    {"type": "command", "command": expected_typecheck, "timeout": 300},
+    {"type": "command", "command": expected_quality, "timeout": 30},
+]}
+
+assert all(isinstance(block, dict) and isinstance(block.get("hooks"), list) for block in blocks), "invalid Stop block shape"
+entries = [(block_index, hook) for block_index, block in enumerate(blocks) for hook in block["hooks"]]
+commands = [hook.get("command", "") for _, hook in entries]
+stop_entries = [(block_index, hook) for block_index, hook in entries if "hooks/handlers/stop.py" in hook.get("command", "")]
+flow_labeled = [(block_index, hook) for block_index, hook in entries if hook.get("statusMessage") == expected_status]
+cli_blocks = [index for index, block in enumerate(blocks) if any(hook.get("command") in {expected_typecheck, expected_quality} for hook in block["hooks"])]
+
+assert commands.count(expected_typecheck) == 1, "CLI typecheck duplicated or dropped"
+assert commands.count(expected_quality) == 1, "CLI quality check duplicated or dropped"
+assert len(cli_blocks) == 1 and blocks[cli_blocks[0]] == expected_cli_block, "CLI block matcher/order/timeout semantics changed"
+assert len(stop_entries) == 1, f"expected one stop.py entry across all Stop blocks, got {len(stop_entries)}"
+assert len(flow_labeled) == 1 and flow_labeled[0] == stop_entries[0], "stop.py lacks the exact Flow status identity"
+flow_block_index, flow_hook = stop_entries[0]
+assert flow_hook.get("command") == expected_flow, f"Flow Stop entry has the wrong command: {flow_hook.get('command')}"
+assert flow_block_index != cli_blocks[0], "Flow handler was merged into the CLI block"
+assert blocks[flow_block_index] == {"hooks": [{"type": "command", "command": expected_flow, "timeout": 30, "statusMessage": expected_status}]}, "Flow Stop block widened a matcher or contains non-Flow hooks"
 PY
-  pass "U14: --wire-hooks wires stop.py (not a CLI command) onto an existing CLI Stop chain (discovery picks the Flow handler)"
+  pass "U14: --wire-hooks preserves CLI Stop semantics and isolates one exact Flow stop.py block"
 }
 
 # U15 — eslint-ignore-flow-paths.sh adds .fusebase-flow-source/** next to .claude/** so the

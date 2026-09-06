@@ -56,7 +56,7 @@ def make_event_block(event: str) -> dict[str, Any]:
         "type": "command", "command": FLOW_HOOKS[event], "timeout": 30,
     }
     if event == "Stop":
-        handler["statusMessage"] = "Fusebase Flow stop hookâ€¦"
+        handler["statusMessage"] = "Fusebase Flow stop hook\u2026"
     block: dict[str, Any] = {"hooks": [handler]}
     if event in EVENT_MATCHERS:
         block["matcher"] = EVENT_MATCHERS[event]
