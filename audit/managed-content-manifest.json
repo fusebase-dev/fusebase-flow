@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "3bd59d191da7088f02d1c23021c5925ef1c2dd7582d6f45327d64237799992dc"
+      "sha256": "976b680ca905001dcaee09042071385cd2deb796680b49067a9b12ec0a121455"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -1437,5 +1437,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "b111bf17941d36d51c7cec2a053bb240cb202388e06924c4bbca1db8f5be8194"
+  "manifest_self_sha256": "51bd1700d984eb57efafdb0f0477f1d24755b7ab90cd195a5e3cdc86e58cfdd4"
 }
