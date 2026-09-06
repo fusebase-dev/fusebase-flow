@@ -35,6 +35,11 @@ finish() { echo "[test-pre-commit-python3-version-mutation] $pass/$((pass + fail
 command -v python3 >/dev/null 2>&1 || { ok "skipped-no-python3"; finish; }
 command -v sha256sum >/dev/null 2>&1 || { bad "sha256sum-present" "no sha256sum; the artifact manifest cannot be hashed"; finish; }
 REALPY="$(command -v python3)"
+MANIFEST_HELPER="$ROOT/hooks/tests/lib/artifact-manifest.py"
+MANIFEST_SELFTEST="$ROOT/hooks/tests/test-artifact-manifest.py"
+
+"$REALPY" "$MANIFEST_SELFTEST" >&2 || { bad "artifact-manifest-parity" "batched manifest parity selftest failed"; finish; }
+ok "artifact-manifest-parity"
 
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/ffpvm-mutation.XXXXXX")"
 cleanup() { case "$TMP" in "${TMPDIR:-/tmp}"/ffpvm-mutation.*) rm -rf -- "$TMP" ;; esac; }
@@ -117,12 +122,12 @@ snapshot() {
 
   # Artifact manifest: every worktree file the run could have touched, as path|type|size|hash.
   # The hook under test is EXCLUDED — it is the mutation INPUT, not an observable of the run.
-  ( cd "$d" && find . -path ./.git -prune -o -type f -print 2>/dev/null \
-      | grep -v '^\./hooks/git/pre-commit$' | LC_ALL=C sort \
-      | while IFS= read -r f; do
-          printf '%s|file|%s|%s\n' "$f" "$(wc -c < "$f" 2>/dev/null | tr -d ' ')" \
-                                   "$(sha256sum "$f" 2>/dev/null | cut -d' ' -f1)"
-        done ) > "$TMP/$label.manifest"
+  local manifest_t0 manifest_t1
+  manifest_t0="$(date +%s%3N)"
+  "$REALPY" "$MANIFEST_HELPER" --root "$d" --exclude './hooks/git/pre-commit' \
+    > "$TMP/$label.manifest" || return 1
+  manifest_t1="$(date +%s%3N)"
+  printf '%s\n' "$((manifest_t1 - manifest_t0))" > "$TMP/$label.manifest.elapsed-ms"
 
   local tclass=none
   grep -q 'TIMEOUT@' "$TMP/$label.err" && tclass=bounded-hit
@@ -201,6 +206,10 @@ else bad "mutation-production-hook-unchanged" "hooks/git/pre-commit changed duri
   echo "[python3-version-mutation] tracked_hook_sha=$TRACKED_HOOK_SHA"
   echo "[python3-version-mutation] BASELINE snapshot:"; sed 's/^/    /' "$TMP/baseline.snap"
   echo "[python3-version-mutation] MUTANT snapshot:";   sed 's/^/    /' "$TMP/mutant.snap"
+  echo "[python3-version-mutation] manifest evidence:"
+  for label in baseline mutant negative; do
+    echo "    $label elapsed_ms=$(cat "$TMP/$label.manifest.elapsed-ms") count=$(grep -c . "$TMP/$label.manifest" || true) sha=$(sha256sum "$TMP/$label.manifest" | cut -d' ' -f1)"
+  done
   echo "[python3-version-mutation] snapshot delta (baseline -> mutant):"
   diff "$TMP/baseline.snap" "$TMP/mutant.snap" || true
   echo "[python3-version-mutation] stderr delta (baseline -> mutant):"
