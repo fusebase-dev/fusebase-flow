@@ -2,7 +2,7 @@
 
 ## Role and stop contract
 
-Operate as AI Developer under Fusebase Flow v4.14.1. T11-T20 are complete through `adc1a3d`. Execute T24 as one task/one commit, then rerun T21 report-only and stop at the gate. Do not perform T22 review or T23 closeout in the implementation session. No production deploy/publication exists.
+Operate as AI Developer under Fusebase Flow v4.14.1. T11-T20 are complete through `adc1a3d`. Commit focused-proven T24 as one fixture-only commit, execute T25 as a separate liveness correction, then rerun T21 report-only and stop at the gate. Do not perform T22 review or T23 closeout in the implementation session. No production deploy/publication exists.
 
 | Field | Value |
 |---|---|
@@ -12,8 +12,8 @@ Operate as AI Developer under Fusebase Flow v4.14.1. T11-T20 are complete throug
 | Gate contract | `docs/specs/flow-performance-and-recovery-hardening/verification-gate.md` |
 | Review record | `docs/specs/flow-performance-and-recovery-hardening/adversarial-review.md` |
 | Resume source | `adc1a3d` (T20) |
-| Final implementation task | T24, fixture-only correction |
-| Technical gate | T21 after T24, no source commit |
+| Final implementation task | T25, timeout/reap liveness and observable bounded engine fixtures |
+| Technical gate | T21 after T25, no source commit |
 | Repeated independent review | T22, GPT-6 Astra |
 | Final closeout | T23, docs-only after zero blockers |
 | UI/client | N/A |
@@ -41,10 +41,11 @@ Operate as AI Developer under Fusebase Flow v4.14.1. T11-T20 are complete throug
 | T18 | executed lane workflow/actions/artifacts with mutation controls | lane workflow + consumer benchmark |
 | T19 | outcome/task/commit-specific temporal linkage | wasted-effort windowing selftest |
 | T20 | three independent write-mode no-op attempts and corrected labels | consumer benchmark + recovery E2E |
-| T24 | initialize recovery E2E as a real disposable Git repo/identity; preserve CLI/user bytes | T15-focused registered wrapper + full registered wrapper |
+| T24 | real disposable Git repo/identity; preserve CLI/user bytes; focused proof rc0 permits single-file commit | T15-focused registered wrapper |
+| T25 | Windows/MSYS reap liveness; observable bounded engine phases; full wrapper closure | existing timeout selftest + full registered recovery wrapper PASS |
 | T21 | full technical verification and replacement gate report | full registered suite/preflight/manifests/module-size/pre-commit/smoke |
 
-T11-T20 are historical complete rows. Active dependency tail: T20 -> T24 -> T21 -> T22 -> T23. Exact files/tests/acceptance/module-size/worker-undisturbed rules are authoritative in `tasks.md`; do not merge tasks or broaden files.
+T11-T20 are historical complete rows. Active dependency tail: T20 -> T24 -> T25 -> T21 -> T22 -> T23. Exact files/tests/acceptance/module-size/worker-undisturbed rules are authoritative in `tasks.md`; do not merge tasks or broaden files.
 
 ## Blocker closure contract
 
@@ -88,14 +89,17 @@ T11-T20 are historical complete rows. Active dependency tail: T20 -> T24 -> T21 
 
 ## T21 gate execution
 
-Before T21, implement T24 only in `hooks/tests/cli-flow-recovery-e2e.sh`: replace the `.git/hooks` directory imitation in `ffcf_e2e_build` with a real disposable `git init` plus fixture-local `user.name`/`user.email`; normalize the fixture root only if needed for identical Git/intent identity. Run:
+Before T21, commit T24 only in `hooks/tests/cli-flow-recovery-e2e.sh`: the real disposable Git repository/identity correction has T15-focused rc0 proof. Preserve that proof of exact Git hooks, same-root intent and CLI/user bytes; normal pre-commit remains required. Full registered wrapper completion is deferred to the distinct T25 blocker.
+
+T25 evidence: full wrapper passed 23 rows, then U17 stalled through its 600s health budget and outer 1200s timeout; targeted xtrace U17/U18 each returned rc0 HEALTHY under <=180s. Reproduce the nondeterministic Windows/MSYS timeout/reap stall before fixing `hooks/local/lib/run-with-timeout.sh`; touch `job-fence.sh` only on causal proof. Extend `hooks/tests/test-health-check-timeout.sh`; expose incremental phase identity and bound each engine call in `hooks/tests/cli-flow-recovery-engine.sh` below the outer watchdog with cleanup margin. Keep real HEALTHY assertions and failure/timeout semantics; no skipped checks, fabricated verdict or budget-only fix. Run:
 
 ```text
 FFCF_T15_ONLY=1 bash hooks/tests/test-cli-flow-recovery.sh
+bash hooks/tests/test-health-check-timeout.sh
 bash hooks/tests/test-cli-flow-recovery.sh
 ```
 
-Both must prove `--wire-hooks` exits complete, intent root matches the Git root, exact Flow Git hooks exist and verify, and CLI/user sentinel bytes are unchanged. Commit this one T24 slice. Then run all task-focused tests once on T24 HEAD:
+T25 requires repeated bounded reap/engine evidence and full registered recovery wrapper PASS before its separate commit. Retain the failed attempt; isolated U17/U18 success is insufficient. Then run all task-focused tests once on T25 HEAD:
 
 ```text
 FF_FULL=1 FFHC_HEARTBEAT_SECS=30 bash hooks/tests/run-tests.sh
@@ -104,7 +108,7 @@ bash hooks/local/mirror-skills.sh --check
 bash hooks/local/check-module-size.sh --all
 ```
 
-Also run the normal pre-commit path, manifest checks, secret/protected-path controls, exact CLI/user byte/semantic comparison, and S1-S3 from `verification-gate.md`. Replace `gate-report.md`; do not append to the superseded/blocked report. Record T11-T20/T24 SHAs/timing and every open residual. Stop after T21 and hand off T22 to GPT-6 Astra.
+Also run the normal pre-commit path, manifest checks, secret/protected-path controls, exact CLI/user byte/semantic comparison, and S1-S3 from `verification-gate.md`. Replace `gate-report.md`; do not append to the superseded/blocked report. Record T11-T20/T24/T25 SHAs/timing and every open residual. Stop after T21 and hand off T22 to GPT-6 Astra.
 
 ## Smoke/evidence corrections
 
@@ -119,4 +123,4 @@ Also run the normal pre-commit path, manifest checks, secret/protected-path cont
 ---
 📍 Phase: Implement
 🎯 Ticket: `flow-performance-and-recovery-hardening`
-⏭️ Next: execute T24 from `adc1a3d`, then rerun report-only T21 and stop
+⏭️ Next: commit focused-proven T24, execute T25, then rerun report-only T21 and stop

@@ -1,10 +1,10 @@
 # Verification gate - flow-performance-and-recovery-hardening
 
-**Status:** BLOCKED at T21 by disposable recovery-fixture Git contract; T24 planned
+**Status:** BLOCKED at T25 registered-wrapper liveness; T24 focused Git proof rc0 permits its fixture-only commit
 **Starting source:** `2217a9c631300e510b18437548ed4bccb5f31036`
-**Linked tasks:** `tasks.md` T11-T24
+**Linked tasks:** `tasks.md` T11-T25
 **Review findings:** `adversarial-review.md` B1-B8, N1-N2
-**Gate task:** T21, report-only after T24
+**Gate task:** T21, report-only after T25
 **Independent review:** T22, zero blockers required
 **Closeout:** T23, docs-only
 **Smoke threshold:** S1-S3 each requires three independent process executions; three assertions from one run are not three repetitions
@@ -26,7 +26,8 @@
 | AC10 / B8/N2 | T18-T20 | per-conclusion task/commit linkage; mixed-history tests; observed workflow/write metrics |
 | AC11 | T13-T15, T20 | CLI/user zero-change hashes/semantics; actual CLI install/update/recover stays UNVERIFIED unless executed |
 | AC12 | T13-T15 | canonical source precedence, verified snapshot fallback, zero mirror/manifest drift |
-| T21 fixture contract | T24 | real disposable Git repo/identity; focused T15 path and registered wrapper; exact Git verification; CLI/user sentinels |
+| T21 fixture contract | T24 | real disposable Git repo/identity; focused T15 path rc0; exact Git verification; CLI/user sentinels; permits fixture-only commit |
+| Registered wrapper liveness | T25 | bounded Windows/MSYS reap regression; incremental engine phase identity; full registered recovery wrapper PASS |
 | B1-B8/N1-N2 closure | T21-T22 | final report plus independent repeated Astra review with zero blockers |
 
 ## Required commands and conditions
@@ -35,12 +36,13 @@
 |---|---|
 | Validator identity/trust | `bash hooks/tests/test-validator-evidence.sh`; `bash hooks/tests/test-validation-instructions.sh`; Linux/CI same validator test where available |
 | Recovery ownership/preflight/verification | `bash hooks/tests/cli-flow-recovery-direct.sh`; `bash hooks/tests/cli-flow-recovery-e2e.sh`; `bash hooks/tests/test-hook-wiring-intent.sh` |
-| Real Git fixture | `FFCF_T15_ONLY=1 bash hooks/tests/test-cli-flow-recovery.sh`; `bash hooks/tests/test-cli-flow-recovery.sh`; both PASS after T24 |
+| Real Git fixture | `FFCF_T15_ONLY=1 bash hooks/tests/test-cli-flow-recovery.sh` PASS before T24 commit; full wrapper deferred to T25 |
+| Timeout/recovery liveness | `bash hooks/tests/test-health-check-timeout.sh`; repeated bounded U17/U18; full `bash hooks/tests/test-cli-flow-recovery.sh` PASS before T25 commit; each engine call bounded below outer watchdog with cleanup margin and durable phase identity |
 | Hook matcher ownership | `bash hooks/tests/test-wire-hooks-add-beside.sh`; exact/mixed/restrictive-first matrix PASS |
 | Workflow behavior | `bash hooks/tests/test-lane-workflow.sh`; real fixture actions plus all mutation controls PASS |
 | Temporal evidence | `bash hooks/tests/test-wasted-effort-windowing.sh`; old-footer/SHA/mixed-report cases PASS |
 | Consumer benchmark | `bash hooks/tests/test-flow-consumer-benchmark.sh`; read-only/write-mode labels correct |
-| Registered suite | `FF_FULL=1 FFHC_HEARTBEAT_SECS=30 bash hooks/tests/run-tests.sh` once on final T24 source |
+| Registered suite | `FF_FULL=1 FFHC_HEARTBEAT_SECS=30 bash hooks/tests/run-tests.sh` once on final T25 source |
 | Preflight | `bash hooks/local/preflight.sh`; zero errors/warnings or exact explained residual |
 | Mirrors/manifests | `bash hooks/local/mirror-skills.sh --check` plus agent, hook, and managed manifest checks; `--check` labeled read-only integrity |
 | Module size | `bash hooks/local/check-module-size.sh --all`; no new/grown violation; `hooks/git/pre-commit` shrinks below 800 in T12 |
@@ -61,6 +63,7 @@
 | Missing provider bytes | restore only verified backup; otherwise unchanged/uncertain and partial/exit 1 |
 | Git restoration | exact per-surface intent plus exact owned installed hook verified; output text is insufficient |
 | Complete | fresh parsed/hash verification of every authorized surface; complete/exit 0 |
+| Engine timeout/reap uncertainty | non-success with visible scenario/phase and retained diagnostics; never fabricate HEALTHY or weaken verdict checks |
 
 ## Worker-undisturbed and ownership boundaries
 
@@ -125,8 +128,9 @@ Record the real fixture directory before cleanup, diagnosis commands/results, ro
 
 ## Gate completion rules
 
-- T11-T20 and T24 each have one exact SHA and passed focused checks.
-- T21 resumes only after T24; it replaces the provisional T10/T21-blocked report and does not commit source.
+- T11-T20, T24 and T25 each have one exact SHA and passed focused checks. T24 may commit its single fixture file after focused proof; full wrapper is a distinct T25 blocker.
+- T25 requires full registered recovery wrapper PASS; targeted U17/U18 rc0 HEALTHY alone cannot close the nondeterministic stall. Keep failed attempt evidence and reproduce/explain before PASS.
+- Dependency tail: T20 -> T24 -> T25 -> T21 -> T22 -> T23. T21 resumes only after T25; it replaces the provisional T10/T21-blocked report and does not commit source.
 - Any failed-then-passed check is investigated and reproduced; no silent PASS.
 - Every B1-B8/N1-N2 row has direct evidence or remains open.
 - Spec remains DRAFT through T21.

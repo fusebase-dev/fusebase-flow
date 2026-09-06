@@ -4,7 +4,7 @@
 **Documentation tier:** 4
 **Execution owner:** `tasks.md` owns order, dependencies, files, SHAs and status; `verification-gate.md` owns proof.
 **Starting source:** `2217a9c631300e510b18437548ed4bccb5f31036`
-**Sequence:** T11-T20 complete -> T24 real-Git fixture correction -> T21 gate -> T22 Astra re-review -> T23 closeout.
+**Sequence:** T11-T20 complete -> T24 real-Git fixture correction -> T25 Windows/MSYS liveness -> T21 gate -> T22 Astra re-review -> T23 closeout.
 
 ## Evidence inputs
 
@@ -27,4 +27,4 @@
 
 ## Constraints
 
-T24 changes only `hooks/tests/cli-flow-recovery-e2e.sh`: initialize the disposable fixture as a real Git repository with fixture-local identity and minimum cross-platform root normalization, then prove the T15 focused path and registered recovery wrapper without weakening Git verification. Dependency tail: T20 -> T24 -> T21 -> T22 -> T23. T24 is one task/one commit; T21 remains report-only, T22 review-only, and T23 docs-only. No production deployment/publication. Actual CLI install/update/recover comparison, five-provider host telemetry, Windows authority ACL proof, and three real-symlink controls remain UNVERIFIED until directly exercised. UI/client applicability: N/A.
+T24 changes only `hooks/tests/cli-flow-recovery-e2e.sh`; focused T15 rc0 permits its real-Git fixture commit. Full wrapper passed 23 rows then stalled in U17; targeted U17/U18 each reached rc0 HEALTHY within 180s, leaving nondeterministic liveness unresolved. T25 owns Windows/MSYS timeout/reap reproduction and correction, observable bounded engine phases, and full registered recovery wrapper PASS (`tasks.md` T25). Verdicts remain fail-closed; no timeout increase or fabricated HEALTHY substitutes for proof. Dependency tail: T20 -> T24 -> T25 -> T21 -> T22 -> T23. T24/T25 each have one commit; T21 remains report-only, T22 GPT-6 Astra review-only, and T23 docs-only. No production deployment/publication. Actual CLI install/update/recover comparison, five-provider host telemetry, Windows authority ACL proof, and three real-symlink controls remain UNVERIFIED until directly exercised. UI/client applicability: N/A.
