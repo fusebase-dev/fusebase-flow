@@ -112,6 +112,13 @@ if [ -n "$FFCF_SELECTED" ] && [ -z "${FFCF_SELECTOR_CHILD:-}" ]; then
     export FFCF_T15_DIAGNOSTIC
     printf '[cli-flow-recovery] SCOPED stage-diagnostic=%s\n' "$FFCF_T15_DIAGNOSTIC" >&2
   fi
+  if [ "$FFCF_SELECTED" = "t20" ]; then
+    # TRIPWIRE: each completed attempt must survive selector timeout cleanup independently.
+    FFCF_T20_DIAGNOSTIC_DIR="${TMPDIR:-/tmp}/fusebase-flow-t20-evidence-$$"
+    mkdir -p "$FFCF_T20_DIAGNOSTIC_DIR"
+    export FFCF_T20_DIAGNOSTIC_DIR
+    printf '[cli-flow-recovery] SCOPED stage-diagnostic=%s\n' "$FFCF_T20_DIAGNOSTIC_DIR" >&2
+  fi
   ffcf_started="$(date +%s)"
   printf '[cli-flow-recovery] SCOPED group=%s START elapsed=0s timeout=%ss\n' \
     "$FFCF_SELECTED" "$FFCF_SELECTOR_TIMEOUT_SECS" >&2

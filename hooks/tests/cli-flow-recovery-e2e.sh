@@ -167,45 +167,16 @@ PY
 }
 
 ffcf_t20_repeated_noop() {
-  ffcf_e2e_build
-  local evidence="$TMP_BASE/t20-attempts.json" before after out rc attempt
-  ( cd "$PROJECT" && bash hooks/local/post-fusebase-update.sh >/dev/null 2>&1 ) \
-    || fail "T20: convergence recovery failed"
-  printf '{"attempts":[' > "$evidence"
-  for attempt in 1 2 3; do
-    before="$TMP_BASE/t20-before-$attempt.json"
-    after="$TMP_BASE/t20-after-$attempt.json"
-    out="$TMP_BASE/t20-run-$attempt.log"
-    ffcf_recovery_inventory "$PROJECT" "$before"
-    set +e
-    ( cd "$PROJECT" && timeout 120s bash hooks/local/post-fusebase-update.sh > "$out" 2>&1 )
-    rc=$?
-    set -e
-    ffcf_recovery_inventory "$PROJECT" "$after"
-    [ "$attempt" -eq 1 ] || printf ',' >> "$evidence"
-    "$python_bin" - "$attempt" "$rc" "$before" "$after" "$out" >> "$evidence" <<'PY'
-import datetime, json, pathlib, sys
-attempt, rc = int(sys.argv[1]), int(sys.argv[2])
-before, after = (json.load(open(path, encoding="utf-8")) for path in sys.argv[3:5])
-changed = sorted(key for key in set(before) | set(after) if before.get(key) != after.get(key))
-print(json.dumps({"attempt_id": f"write-mode-{attempt}",
- "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(), "exit_code": rc,
- "changed_targets": changed, "write_copy_count": len(changed)}), end="")
-PY
-  done
-  printf ']}' >> "$evidence"
-  "$python_bin" - "$evidence" <<'PY' || fail "T20: repeated write-mode attempts were not no-ops"
-import json, sys
-rows = json.load(open(sys.argv[1], encoding="utf-8"))["attempts"]
-assert len(rows) == 3 and len({row["attempt_id"] for row in rows}) == 3
-assert all(row["timestamp"] and row["exit_code"] == 0 and not row["changed_targets"]
-           and row["write_copy_count"] == 0 for row in rows)
-PY
-  ffcf_recovery_inventory "$PROJECT" "$TMP_BASE/t20-mutation-before.json"
-  printf '\ninjected mutation\n' >> "$PROJECT/.claude/commands/fusebase-health.md"
-  ffcf_recovery_inventory "$PROJECT" "$TMP_BASE/t20-mutation-after.json"
-  cmp -s "$TMP_BASE/t20-mutation-before.json" "$TMP_BASE/t20-mutation-after.json" \
-    && fail "T20: injected write was not detected"
+  local bash_executable="${BASH:-}" evidence_dir
+  [ -n "$bash_executable" ] || bash_executable="$(command -v bash)"
+  if command -v cygpath >/dev/null 2>&1; then
+    bash_executable="$(cygpath -am "$bash_executable")"
+  fi
+  evidence_dir="${FFCF_T20_DIAGNOSTIC_DIR:-$TMP_BASE/t20-evidence}"
+  "$python_bin" "$ROOT/hooks/tests/test-recovery-noop.py" \
+    --source-root "$ROOT" --project "$PROJECT" --evidence-dir "$evidence_dir" \
+    --bash-executable "$bash_executable" \
+    || fail "T20: bounded repeated write-mode evidence failed"
   pass "T20: three independent write-mode recoveries preserve hashes/mtimes and injected writes are detected"
 }
 

@@ -20,6 +20,11 @@ SCHEMA = 1
 GIT_TIMEOUT = 15
 REGULAR_GIT_MODES = {"100644", "100755"}
 MANIFEST_ROW = re.compile(r"^(.+?)  ([0-9a-f]{64})$")
+SUPPORTED_SURFACES = {"skill", "agent", "health-skill", "command"}
+SURFACE_MANIFESTS = {
+    "skill": "audit/skill-mirror-manifest.txt",
+    "agent": "audit/agent-mirror-manifest.txt",
+}
 
 
 def native_path(raw: str) -> Path:
@@ -336,16 +341,33 @@ def prepare_rows(
             continue
         by_target[row.target_rel] = row
         unique.append(row)
-    baseline = Baseline(root, unique)
     prepared = []
+    bootstrap = []
     for row in unique:
         try:
             source = safe_source(root, row.source_raw)
             target = safe_target(root, row.target_rel)
-            status, detail, proof = _classify(source, target, row, targets, baseline)
+            status, detail, proof = _classify(source, target, row, targets, None)
             prepared.append(PreparedRow(row, source, target, status, detail, proof))
+            if status == "unowned-collision" and row.manifest_rel \
+                    and detail == "existing bytes are not proven Flow-owned":
+                bootstrap.append(len(prepared) - 1)
         except Exception as exc:
             prepared.append(PreparedRow(row, None, None, "unsafe", str(exc), None))
+    baseline = Baseline(root, [prepared[index].row for index in bootstrap])
+    for index in bootstrap:
+        item = prepared[index]
+        try:
+            status, detail, proof = _classify(
+                item.source, item.target, item.row, targets, baseline,
+            )
+            prepared[index] = PreparedRow(
+                item.row, item.source, item.target, status, detail, proof,
+            )
+        except Exception as exc:
+            prepared[index] = PreparedRow(
+                item.row, None, None, "unsafe", str(exc), None,
+            )
     return baseline, prepared
 
 
@@ -377,7 +399,9 @@ def copy_atomic(source: Path, target: Path) -> None:
         temp.unlink(missing_ok=True)
 
 
-def apply(root: Path, plan: Path, result: Path, surface: str) -> int:
+def apply(
+    root: Path, plan: Path, result: Path, surface: str, manifest: Path | None = None,
+) -> int:
     receipt_path = root / "state/audit/recovery-owned-targets.json"
     receipt = load_receipt(receipt_path)
     targets = receipt["targets"]
@@ -390,6 +414,7 @@ def apply(root: Path, plan: Path, result: Path, surface: str) -> int:
         except Exception as exc:
             head_error = str(exc)
     rows = []
+    manifest_rows = []
     partial = False
     for item in prepared:
         row = item.row
@@ -414,16 +439,26 @@ def apply(root: Path, plan: Path, result: Path, surface: str) -> int:
                     raise RuntimeError("injected interruption before replace")
                 copy_atomic(source, target)
             if status in {"current", "missing-and-authorized", "owned-repair"}:
-                owned = {"sha256": digest(target), "surface": surface}
-                if targets.get(row.target_rel) != owned:
+                target_hash = digest(target)
+                prior = targets.get(row.target_rel)
+                stable = isinstance(prior, dict) and prior.get("sha256") == target_hash \
+                    and prior.get("surface") in SUPPORTED_SURFACES
+                if not stable:
+                    owned = {"sha256": target_hash, "surface": surface}
                     targets[row.target_rel] = owned
                     atomic_json_if_changed(receipt_path, receipt)
+                if manifest is not None:
+                    manifest_rows.append(f"{row.target_rel}  {detail}\n")
             else:
                 partial = True
             rows.append((status, row.target_rel, detail, backup))
         except Exception as exc:
             partial = True
             rows.append(("unsafe", row.target_rel, str(exc), ""))
+    if manifest is not None:
+        encoded = "".join(sorted(manifest_rows, key=lambda row: row.encode("utf-8"))).encode("utf-8")
+        if not manifest.is_file() or manifest.read_bytes() != encoded:
+            atomic_bytes(manifest, encoded)
     result.write_text("".join("\t".join(item) + "\n" for item in rows), encoding="utf-8")
     return 1 if partial else 0
 
@@ -434,10 +469,23 @@ def main() -> int:
     parser.add_argument("--plan", required=True)
     parser.add_argument("--result", required=True)
     parser.add_argument("--surface", required=True)
+    parser.add_argument("--manifest")
     args = parser.parse_args()
     root = native_path(args.root).resolve()
     try:
-        return apply(root, native_path(args.plan), native_path(args.result), args.surface)
+        manifest = None
+        if args.manifest:
+            expected = SURFACE_MANIFESTS.get(args.surface)
+            raw_manifest = native_path(args.manifest)
+            if not raw_manifest.is_absolute():
+                raw_manifest = root / raw_manifest
+            manifest = Path(os.path.abspath(raw_manifest))
+            if not expected or manifest != root / expected:
+                raise RuntimeError("manifest path is not authorized for surface")
+            reject_symlinks(root, manifest, "manifest")
+        return apply(
+            root, native_path(args.plan), native_path(args.result), args.surface, manifest,
+        )
     except Exception as exc:
         print(f"[recovery-owned-write] {exc}", file=sys.stderr)
         return 2

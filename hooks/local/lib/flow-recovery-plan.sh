@@ -11,7 +11,6 @@ FFRP_NEW_ATTEMPT=0
 
 ffrp_write() {
   local status="$1" exit_code="$2" note="${3:-}" path="$FFRP_ROOT/$FFRP_STATUS_REL"
-  mkdir -p "$(dirname "$path")" || return 1
   FFRP_STATUS="$status" FFRP_EXIT="$exit_code" FFRP_NOTE="$note" \
   FFRP_ROOT_ENV="$FFRP_ROOT" FFRP_APPLIED_ENV="$FFRP_APPLIED" \
   FFRP_VERIFIED_ENV="$FFRP_VERIFIED" FFRP_PLANNED_ENV="$FFRP_PLANNED" \
@@ -20,6 +19,7 @@ ffrp_write() {
     python3 -I -S -c '
 import datetime, hashlib, json, os, pathlib, tempfile
 path = pathlib.Path(os.sys.argv[1])
+path.parent.mkdir(parents=True, exist_ok=True)
 now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 applied = [x for x in os.environ["FFRP_APPLIED_ENV"].split(",") if x]
 verified = [x for x in os.environ["FFRP_VERIFIED_ENV"].split(",") if x]
@@ -70,7 +70,7 @@ with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
     handle.flush()
     os.fsync(handle.fileno())
 os.replace(tmp, path)
-' "$path"
+' "$path" || return 1
   FFRP_NEW_ATTEMPT=0
 }
 

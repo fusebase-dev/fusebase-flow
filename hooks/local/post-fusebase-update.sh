@@ -36,6 +36,59 @@ set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$ROOT"
 
+ff_text_has_literal() {
+  case "$1" in *"$2"*) return 0 ;; esac
+  return 1
+}
+
+ff_text_has_exact_line() {
+  local line
+  while IFS= read -r line || [ -n "$line" ]; do
+    [ "$line" = "$2" ] && return 0
+  done <<< "$1"
+  return 1
+}
+
+ff_text_has_prefix_line() {
+  local line
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in "$2"*) return 0 ;; esac
+  done <<< "$1"
+  return 1
+}
+
+ff_text_has_custom_detected() {
+  case "${1,,}" in *custom\ *\ detected*) return 0 ;; esac
+  return 1
+}
+
+ff_classify_git_hook_output() {
+  local rc="$1" output="$2"
+  GH_CUSTOM_PRESERVED=0
+  ff_text_has_custom_detected "$output" && GH_CUSTOM_PRESERVED=1
+  if [ "$rc" -ne 0 ]; then
+    GH_HOOK_CLASS="failed"
+  elif [ "$GH_CUSTOM_PRESERVED" -eq 1 ]; then
+    GH_HOOK_CLASS="custom"
+  elif ff_text_has_prefix_line "$output" "[fusebase-flow] installed "; then
+    GH_HOOK_CLASS="installed"
+  else
+    GH_HOOK_CLASS="current"
+  fi
+}
+
+ff_read_verify_fields() {
+  python3 -I -S -c '
+import json, sys
+value = json.load(open(sys.argv[1], encoding="utf-8"))
+for name in ("verified_surfaces", "uncertain_surfaces"):
+    items = value[name]
+    if not isinstance(items, list) or any(not isinstance(item, str) for item in items):
+        raise SystemExit(1)
+    print(name + "=" + ",".join(items))
+' "$1"
+}
+
 # Git-exclude the *.pre-refresh-<ts> backups this recovery drops, so a downstream
 # `git add -A` (FuseBase CLI `fusebase update` checkpoint) never stages them. upgrade.sh's
 # hooks.pre-upgrade/policies.pre-upgrade snapshots carry the OLD secret-scan fixtures that
@@ -126,11 +179,11 @@ if command -v ffhc_hwi_state >/dev/null 2>&1; then
 fi
 if [ "$WIRE_HOOKS_REQUESTED" -eq 0 ] && [ "$HWI_STATE" = "ENABLED" ]; then
   HWI_SURFACES="$(ffhc_hwi_surfaces "$ROOT" 2>/dev/null || true)"
-  if printf '%s\n' "$HWI_SURFACES" | grep -qxF "claude_settings"; then
+  if ff_text_has_exact_line "$HWI_SURFACES" "claude_settings"; then
     WIRE_HOOKS=1
     AUTO_RESTORE=1
   fi
-  if printf '%s\n' "$HWI_SURFACES" | grep -qxF "git_hooks"; then
+  if ff_text_has_exact_line "$HWI_SURFACES" "git_hooks"; then
     RESTORE_GIT_HOOKS=1
   fi
 fi
@@ -303,7 +356,7 @@ echo "[post-fusebase-update] Step 1: re-mirror Fusebase Flow skills..."
 if [ -x hooks/local/mirror-skills.sh ]; then
   SKILL_MIRROR_OUTPUT="$(bash hooks/local/mirror-skills.sh 2>&1)" \
     || WARNINGS+=("mirror-skills.sh exited non-zero: $SKILL_MIRROR_OUTPUT")
-  if printf '%s\n' "$SKILL_MIRROR_OUTPUT" | grep -qF "copied 0;"; then
+  if ff_text_has_literal "$SKILL_MIRROR_OUTPUT" "copied 0;"; then
     ACTIONS_SKIPPED+=("Fusebase Flow skill mirrors already current")
   else
     ACTIONS_TAKEN+=("re-mirrored Fusebase Flow skills (.claude/skills/ + .agents/skills/)")
@@ -321,7 +374,7 @@ echo "[post-fusebase-update] Step 2: re-mirror Fusebase Flow sub-agents..."
 if [ -x hooks/local/mirror-agents.sh ]; then
   AGENT_MIRROR_OUTPUT="$(bash hooks/local/mirror-agents.sh 2>&1)" \
     || WARNINGS+=("mirror-agents.sh exited non-zero: $AGENT_MIRROR_OUTPUT")
-  if printf '%s\n' "$AGENT_MIRROR_OUTPUT" | grep -qF "copied 0;"; then
+  if ff_text_has_literal "$AGENT_MIRROR_OUTPUT" "copied 0;"; then
     ACTIONS_SKIPPED+=("Fusebase Flow agent mirrors already current")
   else
     ACTIONS_TAKEN+=("re-mirrored Fusebase Flow sub-agents (.claude/agents/ + .codex/agents/)")
@@ -466,12 +519,13 @@ else
     if [ "$HWI_RC" = "0" ]; then
       ACTIONS_TAKEN+=(".claude/settings.json: recorded Flow hook-wiring intent ($FFHC_HWI_REL)")
     fi
-    if echo "$MERGE_OUTPUT" | grep -q "baseline receipt already current"; then
+    if ff_text_has_literal "$MERGE_OUTPUT" "baseline receipt already current"; then
       ACTIONS_SKIPPED+=(".claude/settings.json: CLI Stop baseline receipt already current")
     else
       ACTIONS_TAKEN+=(".claude/settings.json: wrote CLI Stop baseline receipt ($CLI_STOP_BASELINE)")
     fi
-    if echo "$MERGE_OUTPUT" | grep -q "already up to date\|byte-identical"; then
+    if ff_text_has_literal "$MERGE_OUTPUT" "already up to date" \
+        || ff_text_has_literal "$MERGE_OUTPUT" "byte-identical"; then
       ACTIONS_SKIPPED+=(".claude/settings.json: Fusebase Flow events already wired")
     else
       ACTIONS_TAKEN+=(".claude/settings.json: merged Fusebase Flow lifecycle events (backup at .claude/settings.json.pre-flow-merge)")
@@ -498,16 +552,17 @@ if [ "$RESTORE_GIT_HOOKS" -eq 1 ] && [ -d .git/hooks ] && [ -x hooks/local/insta
   set +e
   GH_OUTPUT="$(bash hooks/local/install-git-hooks.sh 2>&1)"; GH_RC=$?
   set -e
-  if [ "$GH_RC" -ne 0 ]; then
+  ff_classify_git_hook_output "$GH_RC" "$GH_OUTPUT"
+  if [ "$GH_HOOK_CLASS" = "failed" ]; then
     WARNINGS+=("git fallback hook (re)install FAILED (exit $GH_RC); Flow hooks may be stale — re-run 'bash hooks/local/install-git-hooks.sh' and review. Output: $GH_OUTPUT")
-  elif printf '%s' "$GH_OUTPUT" | grep -qi 'custom .* detected'; then
+  elif [ "$GH_HOOK_CLASS" = "custom" ]; then
     WARNINGS+=("custom .git/hooks preserved (not overwritten); re-run 'bash hooks/local/install-git-hooks.sh --force' to install the Flow hook")
-  elif printf '%s\n' "$GH_OUTPUT" | grep -q '^\[fusebase-flow\] installed '; then
+  elif [ "$GH_HOOK_CLASS" = "installed" ]; then
     ACTIONS_TAKEN+=("(re)installed Flow git fallback hooks (.git/hooks/pre-commit, commit-msg)")
   else
     ACTIONS_SKIPPED+=("Flow git fallback hooks already current")
   fi
-  if [ "$GH_RC" -eq 0 ] && ! printf '%s' "$GH_OUTPUT" | grep -qi 'custom .* detected'; then
+  if [ "$GH_RC" -eq 0 ] && [ "$GH_CUSTOM_PRESERVED" -eq 0 ]; then
     if [ "$WIRE_HOOKS_REQUESTED" -eq 1 ] && command -v ffhc_hwi_write >/dev/null 2>&1; then
       ffhc_hwi_write "$ROOT" true "claude_settings,git_hooks" \
         || WARNINGS+=("could not extend hook-wiring intent to the verified Git-hook surface")
@@ -634,10 +689,25 @@ VERIFY_OUTPUT="$(python3 -B hooks/local/lib/recovery-verify.py --root "$ROOT" \
 VERIFY_RC=$?
 set -e
 if [ -s "$VERIFY_RESULT" ]; then
-  VERIFIED_SURFACES="$(python3 -I -S -c 'import json,sys; print(",".join(json.load(open(sys.argv[1]))["verified_surfaces"]))' "$VERIFY_RESULT")"
-  UNCERTAIN_SURFACES="$(python3 -I -S -c 'import json,sys; print(",".join(json.load(open(sys.argv[1]))["uncertain_surfaces"]))' "$VERIFY_RESULT")"
-  command -v ffrp_verified >/dev/null 2>&1 \
-    && ffrp_verified "$VERIFIED_SURFACES" "$UNCERTAIN_SURFACES"
+  set +e
+  VERIFY_FIELDS_OUTPUT="$(ff_read_verify_fields "$VERIFY_RESULT" 2>&1)"
+  VERIFY_FIELDS_RC=$?
+  set -e
+  mapfile -t VERIFY_FIELDS <<< "$VERIFY_FIELDS_OUTPUT"
+  if [ "$VERIFY_FIELDS_RC" -eq 0 ] && [ "${#VERIFY_FIELDS[@]}" -eq 2 ] \
+      && [[ "${VERIFY_FIELDS[0]}" == verified_surfaces=* ]] \
+      && [[ "${VERIFY_FIELDS[1]}" == uncertain_surfaces=* ]]; then
+    VERIFIED_SURFACES="${VERIFY_FIELDS[0]#verified_surfaces=}"
+    UNCERTAIN_SURFACES="${VERIFY_FIELDS[1]#uncertain_surfaces=}"
+    command -v ffrp_verified >/dev/null 2>&1 \
+      && ffrp_verified "$VERIFIED_SURFACES" "$UNCERTAIN_SURFACES"
+  else
+    VERIFY_RC=1
+    VERIFY_OUTPUT="${VERIFY_OUTPUT:+$VERIFY_OUTPUT; }verification result parse failed: $VERIFY_FIELDS_OUTPUT"
+  fi
+else
+  VERIFY_RC=1
+  VERIFY_OUTPUT="${VERIFY_OUTPUT:+$VERIFY_OUTPUT; }verification result was missing or empty"
 fi
 rm -f "$VERIFY_RESULT" "$PREFLIGHT_PLAN"
 PREFLIGHT_PLAN=""

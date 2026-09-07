@@ -10,13 +10,6 @@
 # deprecates the root ./skills name). Legacy root skills/ is still accepted as a
 # fallback so a not-yet-migrated tree keeps mirroring until upgrade.sh migrates it.
 #
-# Windows portability (U1, v3.24.x): Git-Bash spawns a process in ~0.8-1.4s
-# (vs ~1-3ms on Linux/macOS), so a per-file sha256sum/cp/$() loop turns into a
-# multi-minute stall. We batch all hashing into ONE chunked sha256sum call into
-# an assoc-array cache and run a fork-free loop (no $(basename)/$(sha_cmd) per
-# file). Copy scope is UNCHANGED — only SKILL.md + references/* per skill, not a
-# blind `cp -R` of whole dirs — so the manifest/preflight contract (preflight §5
-# validates exactly that set) and the manifest bytes stay identical.
 
 set -euo pipefail
 
@@ -44,12 +37,6 @@ if [ ! -d "$CANON" ]; then
 fi
 
 MANIFEST="$ROOT/audit/skill-mirror-manifest.txt"
-# Write mode rebuilds the manifest via a single atomic temp-write + rename at the end
-# (NOT per-row appends — see Phase 3), so no early truncate here. --check must NOT touch
-# it (read-only).
-if [ "$CHECK_ONLY" -eq 0 ]; then
-    mkdir -p "$(dirname "$MANIFEST")"
-fi
 
 # Batched hash command (chunked for ARG_MAX safety). Reads NUL-delimited paths on
 # stdin, emits "<hash>  <path>" lines. -n 256 keeps each spawn's argv well under
@@ -111,6 +98,7 @@ echo "[mirror-skills] mirroring $SKILL_COUNT skill(s) across ${#MIRRORS[@]} mirr
 # ---- Phase 2: prime the hash cache (one chunked spawn over canon + targets) ----
 # Hash canonical sources AND any existing target files in a single batched pass so
 # the drift comparison reads the cache directly (no per-file sha spawn).
+if [ "$CHECK_ONLY" -eq 1 ]; then
 declare -A HASHCACHE=()
 # Temp cache under $TMPDIR (not repo root): an interrupt between create and the
 # `rm` below otherwise leaves untracked .mirror-hash-cache.* debris in the tree
@@ -160,7 +148,6 @@ cache_hash_into() {
 # no cp, no manifest rewrite. Drift = any of: manifest missing a rel, committed hash !=
 # current canonical hash, or the mirror file on disk != canonical. Exit nonzero on any
 # drift so a caller (preflight, a pre-tag self-test) can gate on it deterministically.
-if [ "$CHECK_ONLY" -eq 1 ]; then
     if [ ! -f "$MANIFEST" ]; then
         echo "[mirror-skills] --check: committed manifest missing ($MANIFEST) — run mirror-skills.sh" >&2
         exit 1
@@ -217,28 +204,21 @@ if [ "$CHECK_ONLY" -eq 1 ]; then
     exit 1
 fi
 
-# ---- Phase 3 (write): drift detection from the pre-copy cache + bounded copy ----
-# Drift is computed BEFORE copying (the cache holds pre-copy target hashes), so the
-# printed drift count and the manifest are identical to the per-file implementation.
-# Fork-free: the target dir is peeled with ${target%/*} (parameter expansion), not a
-# per-file $(dirname) fork — one less spawn per mirrored file (MSYS 255-fork relief).
+# ---- Phase 3 (write): bounded ownership-aware copy ----
 mirrored=0
 drifted=0
 copied=0
-manifest_rows=""
 write_plan="$(mktemp "${TMPDIR:-/tmp}/mirror-skill-write-plan.XXXXXX")"
 write_result="$(mktemp "${TMPDIR:-/tmp}/mirror-skill-write-result.XXXXXX")"
-declare -A CANON_HASH_BY_REL=()
+trap 'rm -f "$write_plan" "$write_result"' EXIT
 for line in "${MIRROR_LINES[@]}"; do
     rel="${line%%$'\t'*}"
     canon_file="${line#*$'\t'}"
-    cache_hash_into "$canon_file"; canon_hash="$HASH_VALUE"
-    CANON_HASH_BY_REL["$rel"]="$canon_hash"
     printf '%s\t%s\n' "$canon_file" "$rel" >> "$write_plan"
 done
 set +e
 python3 "$ROOT/hooks/local/lib/recovery-owned-write.py" --root "$ROOT" \
-  --surface skill --plan "$write_plan" --result "$write_result"
+  --surface skill --plan "$write_plan" --result "$write_result" --manifest "$MANIFEST"
 write_rc=$?
 set -e
 while IFS=$'\t' read -r status rel detail backup; do
@@ -251,30 +231,7 @@ while IFS=$'\t' read -r status rel detail backup; do
             echo "[mirror-skills] preserved $rel ($status: $detail)" >&2
             continue ;;
     esac
-    manifest_rows+="$rel  ${CANON_HASH_BY_REL[$rel]}"$'\n'
 done < "$write_result"
-
-# Atomic, byte-deterministic manifest write (cross-platform AND concurrency-safe).
-# Rows are collected in-memory above, then written ONCE to a temp file and renamed into
-# place — never appended per-row. Two failure modes this closes:
-#   1. Locale drift — glob order is LC_COLLATE-dependent, so a Windows regen would
-#      re-order rows vs Linux CI and fail the mirror-drift gate on a no-op diff.
-#      LC_ALL=C sort pins byte order identically everywhere.
-#   2. Concurrent-run corruption — two overlapping mirror-skills runs doing per-row >>
-#      appends interleave into a DUPLICATED manifest (real incident: 71 dup rows that
-#      the hash-based --check could not see). A single temp-write + atomic rename means
-#      the last writer wins with a COMPLETE manifest; rows can never interleave. The temp
-#      name carries $$ so parallel runs never share a temp.
-# The manifest is header-less, so sorting the whole file is safe; --check reads it into a
-# hash map, so order does not affect drift detection.
-manifest_tmp="$MANIFEST.tmp.$$"
-printf '%s' "$manifest_rows" | LC_ALL=C sort > "$manifest_tmp"
-if [ -f "$MANIFEST" ] && cmp -s "$manifest_tmp" "$MANIFEST"; then
-    rm -f "$manifest_tmp"
-else
-    mv -f "$manifest_tmp" "$MANIFEST"
-fi
-
 echo "[mirror-skills] mirrored $mirrored files (across ${#MIRRORS[@]} mirrors); copied $copied; $drifted had pre-existing drift."
 echo "[mirror-skills] manifest: $MANIFEST"
 exit "$write_rc"

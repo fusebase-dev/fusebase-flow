@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.14.1",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 371,
+  "asset_count": 372,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "4f73ce898767f76a82d8e3652c6f7ee53027ad3c54ed81fd95885b1a7e0000ff"
+      "sha256": "59713bfbb3293e7bde8814645da8a750c39f7046a21bb6838da96f3bcaafc9a6"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -502,7 +502,7 @@
     },
     {
       "path": "hooks/local/lib/flow-recovery-plan.sh",
-      "sha256": "787928bcab7450de5130dee3967164f576e92d4827a1ec21d56f49469ca6d249"
+      "sha256": "b2cb755a54444ca6b69db32fa7b2b2bd802771a3f605564b86828d65cef97681"
     },
     {
       "path": "hooks/local/lib/health-recommendations.sh",
@@ -514,7 +514,7 @@
     },
     {
       "path": "hooks/local/lib/hook-wiring-intent.sh",
-      "sha256": "2b05d1954e7392c838e515e070b442b472f7bc5272b5e5e213d28ea7f06315ed"
+      "sha256": "e95f2aba2a84006945d748adadaf6ca7180df75b8a5e9b7e7da7b576213a5456"
     },
     {
       "path": "hooks/local/lib/hook_manifest.py",
@@ -554,7 +554,7 @@
     },
     {
       "path": "hooks/local/lib/recovery-owned-write.py",
-      "sha256": "1b1c6b87c26b10dd24bb34747229d9c44c55e9d023650f54fc14f11c45f78142"
+      "sha256": "625b3e4ec6e42cfd6068028861f3860dcaf033dbe164a459ac6c07cb4223dd25"
     },
     {
       "path": "hooks/local/lib/recovery-preflight.py",
@@ -590,11 +590,11 @@
     },
     {
       "path": "hooks/local/mirror-agents.sh",
-      "sha256": "0f976344968acc692a1b775d6f77e0fbe445a6dd4e8712087c0b9a7b0a266e91"
+      "sha256": "a67ae90b8f08789dc0b772c246bf072916e6493293fcf14d145183d6ab4ba8fb"
     },
     {
       "path": "hooks/local/mirror-skills.sh",
-      "sha256": "e3b0be135265240a673c719e7a1b4f118dfb2aa772b654eb84ad47989bd93849"
+      "sha256": "ea4b1f3bef9561dc697429d0e3f19189fcd19349ffe704cd92bff7a76344821b"
     },
     {
       "path": "hooks/local/po-investigate.sh",
@@ -602,7 +602,7 @@
     },
     {
       "path": "hooks/local/post-fusebase-update.sh",
-      "sha256": "d1d8c6fae8398586ef2e48b7189a17f4ffc462beb33a3bc191c321a864939143"
+      "sha256": "2bfce297ede6c3c2f8ca3ee2db1c7a6f1e08adbe92df5477e8af6fb9005013f8"
     },
     {
       "path": "hooks/local/preflight.sh",
@@ -750,7 +750,7 @@
     },
     {
       "path": "hooks/tests/cli-flow-recovery-e2e.sh",
-      "sha256": "d96e2e739944c2ab1d0fe0fff6638dfc0964ee4e4f7b9e41845a6e494c3b2a4c"
+      "sha256": "58518ff0a46210bdac798d6f21e26f97eb5021ad8d01d923952864d664ac6f7d"
     },
     {
       "path": "hooks/tests/cli-flow-recovery-engine.sh",
@@ -1034,7 +1034,7 @@
     },
     {
       "path": "hooks/tests/test-cli-flow-recovery.sh",
-      "sha256": "b94f12e1a627cc5a0d75b6269f38fa817a64f94a6985876f660c89ef0cee1bc4"
+      "sha256": "2e76e0803ce3ff66692ff45bc5b3be60586ba258d4a49c111dd083fa0f64deaf"
     },
     {
       "path": "hooks/tests/test-cli-vendor-refresh.sh",
@@ -1195,6 +1195,10 @@
     {
       "path": "hooks/tests/test-recovery-hint-honesty.sh",
       "sha256": "7d58e8d2064c6d5baaa88cfe67559cc3eba7d710cb4b58a3923e7bdf54065e19"
+    },
+    {
+      "path": "hooks/tests/test-recovery-noop.py",
+      "sha256": "236c29b8acfcfa3ad3c9bff46851e5805ca034ca2fcb28257a17cd6142df05fd"
     },
     {
       "path": "hooks/tests/test-recovery-owned-bootstrap.py",
@@ -1489,5 +1493,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "e9b1d1aafb1a2bb6734b06d1e6d00035ec80c8e28cede12cd8b8c5f0e9d1113e"
+  "manifest_self_sha256": "3974cf76cfeac587dead46d6f641f001f05b6a236b452ea57c2efdbaf0c1654c"
 }

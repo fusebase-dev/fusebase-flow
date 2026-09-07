@@ -61,12 +61,12 @@ ffhc_hwi_have_py() {
 # carries gitignored state/) legible as copied state instead of a false drift.
 ffhc_hwi_write() {
   local root="$1" enabled="$2" surfaces="${3:-claude_settings}" path="$1/$FFHC_HWI_REL"
-  mkdir -p "$(dirname "$path")" 2>/dev/null || return 1
   MSYS2_ENV_CONV_EXCL=FFHC_HWI_ROOT FFHC_HWI_ROOT="$root" \
   FFHC_HWI_ENABLED="$enabled" FFHC_HWI_SURFACES="$surfaces" \
     ffhc_hwi_py -c '
 import json, os, pathlib, tempfile
 path = pathlib.Path(os.sys.argv[1])
+path.parent.mkdir(parents=True, exist_ok=True)
 enabled = os.environ["FFHC_HWI_ENABLED"] == "true"
 surfaces = [item for item in os.environ["FFHC_HWI_SURFACES"].split(",") if item]
 if path.is_file():
