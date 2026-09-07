@@ -426,6 +426,7 @@ fi
 # as Phase 2: count "PASS:/FAIL: health-check-timeout <name>" lines; a non-zero
 # exit with zero parsed FAIL lines means the script crashed before reporting.
 HT_TEST="$ROOT/hooks/tests/test-health-check-timeout.sh"
+HT_ACCOUNTED=0
 if ! ff_selected health-check-timeout; then
     ff_skip_note health-check-timeout
 elif [ -f "$HT_TEST" ]; then
@@ -442,14 +443,28 @@ elif [ -f "$HT_TEST" ]; then
         result="${line%%:*}"
         report_rows="$report_rows| test-health-check-timeout.sh | $name | $result | timeout/verdict scenario |"$'\n'
     done < <(echo "$ht_out" | grep -E '^(PASS|FAIL): health-check-timeout')
-    if [ "$ht_rc" -ne 0 ] && [ "$ht_failed" -eq 0 ]; then
+    if [ "$((ht_pass + ht_failed))" -eq 0 ]; then
         total=$((total + 1))
         fail=$((fail + 1))
-        echo "FAIL: test-health-check-timeout.sh $(phase_abnormal_label "$ht_rc") (exit $ht_rc) before reporting scenarios"
-        report_rows="$report_rows| test-health-check-timeout.sh | (harness) | FAIL | $(phase_abnormal_label "$ht_rc") with exit $ht_rc, no scenario output |"$'\n'
+        if [ "$ht_rc" -eq 0 ]; then
+            echo "FAIL: test-health-check-timeout.sh exited 0 without reporting scenarios"
+            report_rows="$report_rows| test-health-check-timeout.sh | (harness) | FAIL | exit 0 with no scenario output |"$'\n'
+        else
+            echo "FAIL: test-health-check-timeout.sh $(phase_abnormal_label "$ht_rc") (exit $ht_rc) before reporting scenarios"
+            report_rows="$report_rows| test-health-check-timeout.sh | (harness) | FAIL | $(phase_abnormal_label "$ht_rc") with exit $ht_rc, no scenario output |"$'\n'
+        fi
+    elif [ "$ht_rc" -ne 0 ] && [ "$ht_failed" -eq 0 ]; then
+        total=$((total + 1)); fail=$((fail + 1))
+        echo "FAIL: test-health-check-timeout.sh $(phase_abnormal_label "$ht_rc") (exit $ht_rc) after reporting only PASS scenarios"
+        report_rows="$report_rows| test-health-check-timeout.sh | (harness) | FAIL | $(phase_abnormal_label "$ht_rc") with exit $ht_rc after PASS-only output |"$'\n'
     fi
     ht_bad=$ht_failed; [ "$ht_rc" -eq 0 ] || ht_bad=$((ht_bad + 1))
     emit_phase_diagnostics "health-check-timeout scenarios" "$ht_out" "$ht_bad"
+    HT_ACCOUNTED=1
+else
+    total=$((total + 1)); fail=$((fail + 1))
+    echo "FAIL: test-health-check-timeout.sh missing (selected health dependency did not execute)"
+    report_rows="$report_rows| test-health-check-timeout.sh | (harness) | FAIL | selected health dependency missing |"$'\n'
 fi
 
 # Phases 4-7 — upgrade-tooling-hardening shell scenarios (v3.24.x). Same parse
@@ -457,11 +472,12 @@ fi
 # with zero parsed FAIL lines means the script crashed before reporting. One loop
 # over (script, tag) pairs keeps run-tests under the FR-25 ceiling.
 run_shell_phase() { # run_shell_phase <test-script> <tag>
-    local script="$ROOT/hooks/tests/$1" tag="$2"
+    local test_name="$1" script="$ROOT/hooks/tests/$1" tag="$2"
+    shift 2
     ff_selected "$tag" || { ff_skip_note "$tag"; return 0; }
     [ -f "$script" ] || return 0
     local out rc p f
-    run_bounded_phase "$tag" bash "$script"
+    run_bounded_phase "$tag" bash "$script" "$@"
     out="$FFHC_LAST_OUT"; rc=$FFHC_LAST_RC
     echo "$out" | grep -E "^(PASS|FAIL): $tag " || true
     p="$(echo "$out" | grep -c "^PASS: $tag ")"
@@ -469,12 +485,12 @@ run_shell_phase() { # run_shell_phase <test-script> <tag>
     total=$((total + p + f)); pass=$((pass + p)); fail=$((fail + f))
     while IFS= read -r line; do
         name="${line#*: $tag }"; result="${line%%:*}"
-        report_rows="$report_rows| $1 | $name | $result | shell scenario |"$'\n'
+        report_rows="$report_rows| $test_name | $name | $result | shell scenario |"$'\n'
     done < <(echo "$out" | grep -E "^(PASS|FAIL): $tag ")
     if [ "$rc" -ne 0 ] && [ "$f" -eq 0 ]; then
         total=$((total + 1)); fail=$((fail + 1))
-        echo "FAIL: $1 $(phase_abnormal_label "$rc") (exit $rc) before reporting scenarios"
-        report_rows="$report_rows| $1 | (harness) | FAIL | $(phase_abnormal_label "$rc") with exit $rc, no scenario output |"$'\n'
+        echo "FAIL: $test_name $(phase_abnormal_label "$rc") (exit $rc) before reporting scenarios"
+        report_rows="$report_rows| $test_name | (harness) | FAIL | $(phase_abnormal_label "$rc") with exit $rc, no scenario output |"$'\n'
     fi
     local bad=$f; [ "$rc" -eq 0 ] || bad=$((bad + 1))
     emit_phase_diagnostics "$tag" "$out" "$bad"
@@ -535,7 +551,12 @@ run_shell_phase test-bootstrap-baseline-hop.sh "bootstrap-baseline-hop"
 run_shell_phase test-fr22-delivery-guarantee.sh "fr22-delivery"
 run_shell_phase test-po-verifiable-boot.sh     "po-verifiable-boot"
 run_shell_phase test-po-investigate.sh         "po-investigate"
-run_shell_phase test-liveness-bounded-run.sh   "liveness"
+if [ "$HT_ACCOUNTED" -eq 1 ]; then
+    printf '[run-tests] liveness composition: health-check-timeout already accounted; dependency row omitted\n' >&2
+    run_shell_phase test-liveness-bounded-run.sh "liveness" --core-only
+else
+    run_shell_phase test-liveness-bounded-run.sh "liveness"
+fi
 run_shell_phase test-codex-prompt-parity.sh    "codex-parity"
 run_shell_phase test-codex-plugin-surface.sh   "codex-plugin"
 run_shell_phase test-cli-0259-compat.sh        "cli-0259"

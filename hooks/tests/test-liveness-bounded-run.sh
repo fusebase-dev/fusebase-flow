@@ -13,6 +13,23 @@
 
 set -uo pipefail
 
+core_only=0
+case "$#" in
+  0) ;;
+  1)
+    if [ "$1" = "--core-only" ]; then
+      core_only=1
+    else
+      echo "[test-liveness-bounded-run] ERROR: unknown mode '$1' (expected --core-only)" >&2
+      exit 2
+    fi
+    ;;
+  *)
+    echo "[test-liveness-bounded-run] ERROR: expected no arguments or --core-only" >&2
+    exit 2
+    ;;
+esac
+
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$ROOT"
 LIB="$ROOT/hooks/local/lib/bounded-run.sh"
@@ -20,7 +37,14 @@ LIB="$ROOT/hooks/local/lib/bounded-run.sh"
 pass=0; fail=0
 ok()  { pass=$((pass + 1)); echo "PASS: liveness $1"; }
 bad() { fail=$((fail + 1)); echo "FAIL: liveness $1 (${2:-})"; }
-finish() { echo "[test-liveness-bounded-run] $pass/$((pass + fail)) PASS"; exit $fail; }
+finish() {
+  if [ "$core_only" -eq 1 ]; then
+    echo "[test-liveness-bounded-run] $pass/$((pass + fail)) PASS (CORE-ONLY — partial, non-attesting)"
+  else
+    echo "[test-liveness-bounded-run] $pass/$((pass + fail)) PASS"
+  fi
+  exit $fail
+}
 
 # Loud precondition: a missing lib must FAIL, never false-green.
 [ -f "$LIB" ] || { bad "setup-lib-present" "missing $LIB"; finish; }
@@ -33,13 +57,18 @@ if bash -n "$LIB" 2>/dev/null; then ok "lib-syntax-clean"; else bad "lib-syntax-
 # logs heartbeats + the terminal line to stderr).
 run_bounded() { # run_bounded <env-assignments> <deadline> <label> -- <cmd...> ; prints stderr then RC=<rc>
   local env_assign="$1"; shift
-  local out rc
-  out="$(env $env_assign bash -c '
+  local capture out rc
+  capture="$(mktemp "${TMPDIR:-/tmp}/ff-liveness-bounded.$$.XXXXXX" 2>/dev/null)" || {
+    printf 'bounded-run helper capture setup failed\nRC=125\n'
+    return 0
+  }
+  env $env_assign bash -c '
     source "'"$LIB"'"
     bounded_run "$@"
-  ' _ "$@" 2>&1 >/dev/null)"
-  # Re-run capturing rc separately (stderr already captured above for assertions).
-  env $env_assign bash -c 'source "'"$LIB"'"; bounded_run "$@" >/dev/null 2>&1' _ "$@"; rc=$?
+  ' _ "$@" 2>"$capture" >/dev/null
+  rc=$?
+  out="$(<"$capture")"
+  rm -f "$capture"
   printf '%s\nRC=%s\n' "$out" "$rc"
 }
 
@@ -95,7 +124,9 @@ echo "$c_out" | grep -q "bounded-run: SKIPPED" && ok "ac3c-skip-marker-line" || 
 # suite (which sources run-with-timeout.sh and exercises the ffhc_* API) still
 # passes. bounded-run.sh reuses that core; if it broke the API the suite fails.
 ###############################################################################
-if [ -f "$ROOT/hooks/tests/test-health-check-timeout.sh" ]; then
+if [ "$core_only" -eq 1 ]; then
+  echo "[test-liveness-bounded-run] CORE-ONLY: health-check-timeout dependency omitted; partial, non-attesting" >&2
+elif [ -f "$ROOT/hooks/tests/test-health-check-timeout.sh" ]; then
   ht_out="$(bash "$ROOT/hooks/tests/test-health-check-timeout.sh" 2>&1)"; ht_rc=$?
   ht_failed="$(echo "$ht_out" | grep -c '^FAIL: health-check-timeout')"
   if [ "$ht_rc" -eq 0 ] && [ "$ht_failed" -eq 0 ]; then

@@ -15,6 +15,17 @@
 
 set -uo pipefail
 
+t32_only=0; t32_case=all
+case "$#" in
+  0) ;;
+  2) [ "$1" = "--only" ] && [ "$2" = "t32" ] && t32_only=1 || exit 2 ;;
+  3)
+    [ "$1" = "--only" ] && [ "$2" = "t32" ] || exit 2
+    case "$3" in full|both|liveness|failed|missing|core|helper) t32_only=1; t32_case="$3" ;; *) exit 2 ;; esac
+    ;;
+  *) exit 2 ;;
+esac
+
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 RT="$ROOT/hooks/tests/run-tests.sh"
 FULL_RESULTS="$ROOT/state/audit/hook-test-results.md"
@@ -28,6 +39,8 @@ finish() { echo "[test-ff-only] $pass/$((pass + fail)) PASS"; exit $fail; }
 
 # Source the strict PASS classifiers the health engine uses — the fail-closed proof.
 . "$ROOT/hooks/local/lib/run-with-timeout.sh"
+
+if [ "$t32_only" -eq 0 ]; then
 
 # Canonical tag count (FF_LIST is the discovery source). A scoped run to ONE tag must
 # skip (count - 1) phases — robust to future tag additions, no hardcoded 19/20.
@@ -294,5 +307,191 @@ rm -f "$HEAVY_SENTINEL"
   && ok "ci-env-takes-the-full-path-without-a-flag" \
   || bad "ci-env-takes-the-full-path-without-a-flag" "GITHUB_ACTIONS=true did not force the full set"
 rm -rf "$TIERREPO"
+fi
+
+# (tasks.md T32)
+COMPREPO="$(mktemp -d)"
+mkdir -p "$COMPREPO/hooks/tests" "$COMPREPO/hooks/local/lib"
+cp "$RT" "$COMPREPO/hooks/tests/run-tests.sh"
+cat > "$COMPREPO/hooks/local/lib/run-with-timeout.sh" <<'SH'
+ffhc_detect_timeout() { FFHC_TIMEOUT_BIN=""; }
+ffhc_is_msys() { return 1; }
+ffhc_timed_out() { [ "${1:-}" = 124 ] || [ "${1:-}" = 137 ]; }
+ffhc_run_bounded() {
+  local capture
+  capture="$(mktemp)" || { FFHC_LAST_OUT="capture setup failed"; FFHC_LAST_RC=125; return 0; }
+  shift; "$@" > "$capture" 2>&1; FFHC_LAST_RC=$?
+  FFHC_LAST_OUT="$(<"$capture")"; rm -f "$capture"
+}
+SH
+( cd "$COMPREPO" && git init -q )
+COMP_COUNT="$COMPREPO/health-count"
+COMP_ARGS="$COMPREPO/liveness-args"
+cat > "$COMPREPO/hooks/tests/run_hook_tests.py" <<'PY'
+print("PASS: synthetic fixture")
+PY
+cat > "$COMPREPO/hooks/tests/test-health-check-timeout.sh" <<'SH'
+#!/usr/bin/env bash
+n=0
+[ ! -s "$FF_COMP_COUNT" ] || read -r n < "$FF_COMP_COUNT"
+n=$((n + 1)); printf '%s\n' "$n" > "$FF_COMP_COUNT"
+case "${FF_COMP_HEALTH_MODE:-pass}" in
+  pass) echo "PASS: health-check-timeout synthetic-health"; exit 0 ;;
+  fail) echo "FAIL: health-check-timeout synthetic-health"; exit 1 ;;
+  empty) exit 0 ;;
+  *) exit 2 ;;
+esac
+SH
+cat > "$COMPREPO/hooks/tests/test-liveness-bounded-run.sh" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "${1:-standalone}" >> "$FF_COMP_ARGS"
+if [ "${1:-}" = "--core-only" ]; then
+  echo "PASS: liveness synthetic-core"
+  echo "[test-liveness-bounded-run] 1/1 PASS (CORE-ONLY — partial, non-attesting)"
+  exit 0
+fi
+if [ ! -f hooks/tests/test-health-check-timeout.sh ]; then
+  echo "FAIL: liveness ac6-health-check-timeout-no-regression"
+  exit 1
+fi
+bash hooks/tests/test-health-check-timeout.sh >/dev/null 2>&1; rc=$?
+if [ "$rc" -eq 0 ]; then
+  echo "PASS: liveness ac6-health-check-timeout-no-regression"
+else
+  echo "FAIL: liveness ac6-health-check-timeout-no-regression"
+fi
+echo "PASS: liveness synthetic-core"
+exit "$rc"
+SH
+chmod +x "$COMPREPO/hooks/tests/test-health-check-timeout.sh" "$COMPREPO/hooks/tests/test-liveness-bounded-run.sh"
+
+comp_run() {
+  local only="$1" full="$2" mode="${3:-pass}"
+  : > "$COMP_COUNT"; : > "$COMP_ARGS"
+  ( cd "$COMPREPO" && env -u CI -u GITHUB_ACTIONS \
+      FF_COMP_COUNT="$COMP_COUNT" FF_COMP_ARGS="$COMP_ARGS" FF_COMP_HEALTH_MODE="$mode" \
+      FF_ONLY="$only" FF_FULL="$full" FF_PHASE_TIMEOUT=30 FFHC_HEARTBEAT_SECS=0 \
+      bash hooks/tests/run-tests.sh 2>&1 )
+}
+comp_count() { local n=0; [ ! -s "$COMP_COUNT" ] || read -r n < "$COMP_COUNT"; printf '%s' "$n"; }
+t32_case_selected() { [ "$t32_case" = all ] || [ "$t32_case" = "$1" ]; }
+
+if t32_case_selected full; then
+comp_out="$(comp_run "" 1)"; comp_rc=$?
+if [ "$comp_rc" -eq 0 ] && [ "$(comp_count)" -eq 1 ] && grep -qx -- '--core-only' "$COMP_ARGS"; then
+  ok "composition-full-launches-health-once"
+else
+  bad "composition-full-launches-health-once" "rc=$comp_rc count=$(comp_count) args=[$(tr '\n' ',' < "$COMP_ARGS")]"
+fi
+case "$comp_out" in
+  *"health-check-timeout already accounted; dependency row omitted"*) ok "composition-explains-reduced-row-count" ;;
+  *) bad "composition-explains-reduced-row-count" "composition marker missing" ;;
+esac
+fi
+
+if t32_case_selected both; then
+comp_out="$(comp_run "health-check-timeout,liveness" 0)"; comp_rc=$?
+if [ "$comp_rc" -eq 0 ] && [ "$(comp_count)" -eq 1 ] && grep -qx -- '--core-only' "$COMP_ARGS"; then
+  ok "composition-both-selected-launches-health-once"
+else
+  bad "composition-both-selected-launches-health-once" "rc=$comp_rc count=$(comp_count) args=[$(tr '\n' ',' < "$COMP_ARGS")]"
+fi
+fi
+
+if t32_case_selected liveness; then
+comp_out="$(comp_run "liveness" 0)"; comp_rc=$?
+if [ "$comp_rc" -eq 0 ] && [ "$(comp_count)" -eq 1 ] && grep -qx 'standalone' "$COMP_ARGS" \
+   && printf '%s\n' "$comp_out" | grep -q '^PASS: liveness ac6-health-check-timeout-no-regression$'; then
+  ok "composition-liveness-only-retains-health-dependency"
+else
+  bad "composition-liveness-only-retains-health-dependency" "rc=$comp_rc count=$(comp_count) args=[$(tr '\n' ',' < "$COMP_ARGS")]"
+fi
+fi
+
+if t32_case_selected failed; then
+comp_out="$(comp_run "health-check-timeout,liveness" 0 fail)"; comp_rc=$?
+if [ "$comp_rc" -ne 0 ] && [ "$(comp_count)" -eq 1 ] \
+   && ! printf '%s\n' "$comp_out" | grep -q '^PASS: liveness ac6-health-check-timeout-no-regression$'; then
+  ok "composition-failed-health-stays-red-without-fabricated-pass"
+else
+  bad "composition-failed-health-stays-red-without-fabricated-pass" "rc=$comp_rc count=$(comp_count)"
+fi
+fi
+
+if t32_case_selected missing; then
+mv "$COMPREPO/hooks/tests/test-health-check-timeout.sh" "$COMPREPO/test-health-check-timeout.disabled"
+comp_out="$(comp_run "health-check-timeout,liveness" 0)"; comp_rc=$?
+if [ "$comp_rc" -ne 0 ] && [ "$(comp_count)" -eq 0 ] \
+   && ! printf '%s\n' "$comp_out" | grep -q '^PASS: liveness ac6-health-check-timeout-no-regression$'; then
+  ok "composition-missing-health-stays-red"
+else
+  bad "composition-missing-health-stays-red" "rc=$comp_rc count=$(comp_count)"
+fi
+mv "$COMPREPO/test-health-check-timeout.disabled" "$COMPREPO/hooks/tests/test-health-check-timeout.sh"
+fi
+
+if t32_case_selected core; then
+core_out="$(cd "$COMPREPO" && FF_COMP_COUNT="$COMP_COUNT" FF_COMP_ARGS="$COMP_ARGS" \
+  bash hooks/tests/test-liveness-bounded-run.sh --core-only 2>&1)"; core_rc=$?
+core_summary="$(printf '%s\n' "$core_out" | grep 'CORE-ONLY' | tail -1)"
+if [ "$core_rc" -eq 0 ] && printf '%s' "$core_summary" | grep -q 'partial, non-attesting' \
+   && ! ffhc_run_tests_pass_ok "$core_summary"; then
+  ok "core-only-summary-rejected-as-complete-proof"
+else
+  bad "core-only-summary-rejected-as-complete-proof" "rc=$core_rc summary=[$core_summary]"
+fi
+
+bash "$ROOT/hooks/tests/test-liveness-bounded-run.sh" --unknown >/dev/null 2>&1; unknown_rc=$?
+[ "$unknown_rc" -eq 2 ] && ok "liveness-unknown-mode-exit-2-before-work" \
+  || bad "liveness-unknown-mode-exit-2-before-work" "rc=$unknown_rc"
+fi
+rm -rf "$COMPREPO"
+
+# (tasks.md T32)
+if t32_case_selected helper; then
+HELPREPO="$(mktemp -d)"
+mkdir -p "$HELPREPO/hooks/tests" "$HELPREPO/hooks/local/lib" "$HELPREPO/templates"
+cp "$ROOT/hooks/tests/test-liveness-bounded-run.sh" "$HELPREPO/hooks/tests/"
+cp "$ROOT/templates/handoff-implement.md" "$HELPREPO/templates/"
+( cd "$HELPREPO" && git init -q )
+HELP_COUNT="$HELPREPO/bounded-count"
+cat > "$HELPREPO/hooks/local/lib/bounded-run.sh" <<'SH'
+bounded_run() {
+  local n=0
+  [ ! -s "$FF_HELP_COUNT" ] || read -r n < "$FF_HELP_COUNT"
+  n=$((n + 1)); printf '%s\n' "$n" > "$FF_HELP_COUNT"
+  case "$n" in
+    1) echo "bounded-run: still running: synthetic" >&2; echo "bounded-run: TIMEOUT: synthetic" >&2; return 124 ;;
+    2) echo "bounded-run: TIMEOUT: synthetic" >&2; return 137 ;;
+    3) echo "bounded-run: SKIPPED: synthetic" >&2; return 125 ;;
+    *) echo "bounded-run: unexpected duplicate invocation" >&2; return 99 ;;
+  esac
+}
+SH
+cat > "$HELPREPO/hooks/local/lib/run-with-timeout.sh" <<'SH'
+FFHC_NAP_OK=1
+ffhc_detect_timeout() { :; }
+ffhc_timed_out() { [ "${1:-}" = 124 ] || [ "${1:-}" = 137 ]; }
+run_with_timeout() { shift; "$@"; }
+ffhc_run_bounded() { if [ "$1" = 600 ]; then FFHC_LAST_RC=0; else FFHC_LAST_RC=124; fi; return 0; }
+ffhc_run_tests_pass_ok() { return 1; }
+ffhc_count_pass_lines() { echo 0; }
+ffhc_select_pass_line() { :; }
+ffhc_pass_line_broken_msg() { :; }
+SH
+helper_out="$(cd "$HELPREPO" && FF_HELP_COUNT="$HELP_COUNT" \
+  bash hooks/tests/test-liveness-bounded-run.sh --core-only 2>&1)"; helper_rc=$?
+helper_count=0; [ ! -s "$HELP_COUNT" ] || read -r helper_count < "$HELP_COUNT"
+if [ "$helper_count" -eq 3 ] \
+   && printf '%s\n' "$helper_out" | grep -q '^PASS: liveness ac3a-hang-rc-124-or-137$' \
+   && printf '%s\n' "$helper_out" | grep -q '^PASS: liveness ac3a-terminal-timeout-line$' \
+   && printf '%s\n' "$helper_out" | grep -q '^PASS: liveness ac3d-ignored-sigterm-sigkilled$' \
+   && printf '%s\n' "$helper_out" | grep -q '^PASS: liveness ac3c-no-binary-skip-rc-125$'; then
+  ok "bounded-helper-single-call-couples-output-and-status"
+else
+  bad "bounded-helper-single-call-couples-output-and-status" "script_rc=$helper_rc calls=$helper_count"
+fi
+rm -rf "$HELPREPO"
+fi
 
 finish
