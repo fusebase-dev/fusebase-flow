@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import importlib.util
 import json
@@ -112,7 +113,7 @@ def validate_bash(raw: str) -> Path:
 
 
 def selection(raw: str) -> str:
-    if raw != "status-writer":
+    if raw not in {"settings-wiring", "status-writer"}:
         raise argparse.ArgumentTypeError(f"unknown selection: {raw}")
     return raw
 
@@ -231,6 +232,114 @@ def status_writer_check(bash: Path) -> tuple[str, str]:
     )
 
 
+def invoke_merge(module, path: Path) -> int:
+    original = module.sys.argv
+    try:
+        module.sys.argv = [str(module.__file__), str(path)]
+        return module.main()
+    finally:
+        module.sys.argv = original
+
+
+def settings_wiring_check() -> tuple[str, str]:
+    with tempfile.TemporaryDirectory(prefix="flow-t49-settings-") as raw:
+        root = Path(raw).resolve()
+        overlay_dir = root / "hooks/local/fusebase-flow-overlays"
+        verifier_dir = root / "hooks/local/lib"
+        overlay_dir.mkdir(parents=True)
+        verifier_dir.mkdir(parents=True)
+        merge_path = overlay_dir / "settings-json-merge.py"
+        verifier_path = verifier_dir / "recovery-verify.py"
+        shutil.copyfile(
+            SOURCE_ROOT / "hooks/local/fusebase-flow-overlays/settings-json-merge.py",
+            merge_path,
+        )
+        shutil.copyfile(SOURCE_ROOT / "hooks/local/lib/recovery-verify.py", verifier_path)
+        merge = load(merge_path, "t49_settings_merge")
+        verifier = load(verifier_path, "t49_recovery_verify")
+
+        hooks = {
+            event: [merge.make_event_block(event)] for event in merge.DEFAULT_FLOW_HOOKS
+        }
+        consumer_a = {
+            "matcher": "Bash", "scope": "operator-a",
+            "hooks": [{"type": "command", "command": "bash ./consumer-a.sh", "timeout": 41}],
+        }
+        consumer_b = {
+            "matcher": "Write", "scope": "operator-b",
+            "hooks": [{"type": "command", "command": "bash ./consumer-b.sh", "timeout": 42}],
+        }
+        restricted = merge.make_event_block("PreToolUse")
+        restricted["matcher"] = "Bash"
+        hooks["PreToolUse"] = [copy.deepcopy(consumer_a), restricted, copy.deepcopy(consumer_b)]
+        settings_path = root / ".claude/settings.json"
+        settings_path.parent.mkdir()
+        settings_path.write_text(json.dumps({"hooks": hooks}, indent=2) + "\n", encoding="utf-8")
+        intent = root / "state/audit/flow-hook-wiring-intent.json"
+        intent.parent.mkdir(parents=True)
+        intent.write_text(json.dumps({
+            "schema_version": 2, "enabled": True, "repo_root": str(root),
+            "surfaces": ["claude_settings"],
+        }), encoding="utf-8")
+        plan = {"options": {"wire_hooks": True}}
+
+        initial_failures: dict[str, list[str]] = {}
+        verifier.verify_settings(root, plan, initial_failures)
+        assert "claude_settings" in initial_failures
+        before = settings_path.read_bytes()
+        assert invoke_merge(merge, settings_path) == 0
+        after = settings_path.read_bytes()
+        assert after != before
+        repaired = json.loads(settings_path.read_text(encoding="utf-8"))
+        blocks = repaired["hooks"]["PreToolUse"]
+        assert blocks[:2] == [consumer_a, consumer_b]
+        assert blocks[-1] == merge.make_event_block("PreToolUse")
+        repaired_failures: dict[str, list[str]] = {}
+        verifier.verify_settings(root, plan, repaired_failures)
+        assert not repaired_failures
+
+        assert invoke_merge(merge, settings_path) == 0
+        assert settings_path.read_bytes() == after
+
+        metadata_mutation = copy.deepcopy(repaired)
+        metadata_handler = metadata_mutation["hooks"]["PostToolUse"][0]["hooks"][0]
+        metadata_handler["type"] = "prompt"
+        metadata_handler["timeout"] = 99
+        metadata_handler["scope"] = "operator"
+        settings_path.write_text(json.dumps(metadata_mutation), encoding="utf-8")
+        mutated_bytes = settings_path.read_bytes()
+        assert invoke_merge(merge, settings_path) == 0
+        assert settings_path.read_bytes() != mutated_bytes
+        metadata_repaired = json.loads(settings_path.read_text(encoding="utf-8"))
+        assert metadata_repaired["hooks"]["PostToolUse"] == [
+            merge.make_event_block("PostToolUse")
+        ]
+
+        duplicate = copy.deepcopy(repaired)
+        duplicate["hooks"]["PreToolUse"].append(merge.make_event_block("PreToolUse"))
+        settings_path.write_text(json.dumps(duplicate), encoding="utf-8")
+        duplicate_failures: dict[str, list[str]] = {}
+        verifier.verify_settings(root, plan, duplicate_failures)
+        assert "claude_settings" in duplicate_failures
+
+        wrong_type = copy.deepcopy(repaired)
+        flow_handler = wrong_type["hooks"]["PreToolUse"][-1]["hooks"][0]
+        flow_handler["type"] = "prompt"
+        flow_handler["timeout"] = 99
+        settings_path.write_text(json.dumps(wrong_type), encoding="utf-8")
+        wrong_type_failures: dict[str, list[str]] = {}
+        verifier.verify_settings(root, plan, wrong_type_failures)
+        assert "claude_settings" in wrong_type_failures
+
+    return (
+        "PASS: T49 Bash-only matcher repair persisted\n"
+        "PASS: T49 custom block order and scope preserved\n"
+        "PASS: T49 second merge byte-identical\n"
+        "PASS: T49 duplicate and wrong-type mutations rejected",
+        "",
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root")
@@ -242,6 +351,10 @@ def main() -> int:
     stage_file = Path(args.stage_file).resolve()
     try:
         bash = validate_bash(args.bash_executable)
+        if args.only == "settings-wiring":
+            stage(stage_file, "settings-wiring", settings_wiring_check)
+            print("PARTIAL/NON-ATTESTING: settings-wiring selection only")
+            return 0
         if args.only == "status-writer":
             stage(stage_file, "status-writer", lambda: status_writer_check(bash))
             print("PARTIAL/NON-ATTESTING: status-writer selection only")

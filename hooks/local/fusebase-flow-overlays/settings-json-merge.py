@@ -7,6 +7,7 @@ hook source is accepted only through --flow-config after complete handler/matche
 
 from __future__ import annotations
 
+import copy
 import json
 import os
 import re
@@ -241,6 +242,32 @@ def validate_settings_shape(settings: Any) -> None:
                 raise ValueError(f"hooks.{event}[{index}].hooks contains a non-object")
 
 
+def validate_flow_wiring(settings: Any) -> None:
+    validate_settings_shape(settings)
+    hooks = settings.get("hooks", {})
+    for event in FLOW_HOOKS:
+        blocks = hooks.get(event)
+        locations: list[tuple[dict[str, Any], dict[str, Any]]] = []
+        if isinstance(blocks, list):
+            for block in blocks:
+                for handler in block.get("hooks", []):
+                    if _recognized_flow_command(handler.get("command"), event):
+                        locations.append((block, handler))
+        if len(locations) != 1:
+            raise ValueError(f"{event} needs exactly one Fusebase Flow handler")
+        block, handler = locations[0]
+        expected = make_event_block(event)
+        if handler != expected["hooks"][0] or block.get("hooks") != expected["hooks"]:
+            raise ValueError(f"{event} Flow handler is not an exact dedicated command")
+        if event in EVENT_MATCHERS:
+            actual = _matcher_tokens(block.get("matcher"))
+            required = _matcher_tokens(EVENT_MATCHERS[event])
+            if actual is None or required is None or not set(required).issubset(actual):
+                raise ValueError(f"{event} Flow matcher omits required tools")
+        if block != expected:
+            raise ValueError(f"{event} Flow block has noncanonical metadata")
+
+
 def merge_settings(settings: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
     """Return (updated settings, list of changes applied)."""
     validate_settings_shape(settings)
@@ -267,6 +294,8 @@ def merge_settings(settings: dict[str, Any]) -> tuple[dict[str, Any], list[str]]
                   f"{event} handler is NOT wired. Fix the array by hand, then re-run.",
                   file=sys.stderr)
             continue
+        event_before = copy.deepcopy(hooks[event])
+        change_count_before = len(changes)
         if _migrate_blocks(hooks[event], event):
             # Existing install wired with bare python3 -> route through run-handler.sh so a
             # python-less machine self-degrades instead of erroring every event.
@@ -285,6 +314,8 @@ def merge_settings(settings: dict[str, Any]) -> tuple[dict[str, Any], list[str]]
             existing = len(hooks[event])
             hooks[event].append(make_event_block(event))
             changes.append(f"added Fusebase Flow {event} block beside {existing} existing block(s)")
+        if hooks[event] != event_before and len(changes) == change_count_before:
+            changes.append(f"repaired Fusebase Flow {event} block to canonical form")
 
     # Stop event: preserve existing CLI hooks; append Fusebase Flow stop.py only if missing
     if "Stop" not in hooks or not hooks["Stop"]:
@@ -304,6 +335,8 @@ def merge_settings(settings: dict[str, Any]) -> tuple[dict[str, Any], list[str]]
                 file=sys.stderr,
             )
             return settings, changes
+        event_before = copy.deepcopy(hooks["Stop"])
+        change_count_before = len(changes)
         if _migrate_blocks(hooks["Stop"], "Stop"):
             changes.append("migrated Stop to run-handler.sh wrapper")
         removed, isolated = _isolate_flow_handler(hooks["Stop"], "Stop")
@@ -331,6 +364,8 @@ def merge_settings(settings: dict[str, Any]) -> tuple[dict[str, Any], list[str]]
         if not _flow_handler_present(hooks["Stop"], "Stop"):
             hooks["Stop"].append(make_event_block("Stop"))
             changes.append("appended Fusebase Flow stop.py to existing Stop chain")
+        if hooks["Stop"] != event_before and len(changes) == change_count_before:
+            changes.append("repaired Fusebase Flow Stop block to canonical form")
 
     return settings, changes
 

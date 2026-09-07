@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "2145d63a61e08de69b0292b0bb380d18609d5c5067cef8bdaf3449aa507e00c9"
+      "sha256": "da339f69c6e8f8fbf2433dd0837846917cf6d50d1bc8e130c4965628ff3433e6"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -450,7 +450,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/settings-json-merge.py",
-      "sha256": "43e769eb0494b5306c8ac8ee6ccbf48f04891a963fe5c9e6a2cc1ee100409c97"
+      "sha256": "88803ac79fa3e3f7297049729ca5958ad40eab28dfa210f14298d28d9ecbe419"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/skills/fusebase-flow-health-check/SKILL.md",
@@ -562,7 +562,7 @@
     },
     {
       "path": "hooks/local/lib/recovery-verify.py",
-      "sha256": "1fd904379b746408500c92c9b89b0d7ae67875c31c0a23faf8fe49ad3145503b"
+      "sha256": "99d9bfdd2914c00215e561ad7c826dd5ddca2a3f1b9a1d3c83fa23aa7a4da401"
     },
     {
       "path": "hooks/local/lib/run-with-timeout.sh",
@@ -1190,7 +1190,7 @@
     },
     {
       "path": "hooks/tests/test-recovery-final-verification.py",
-      "sha256": "f57886574a9dca49c79ce08e5a1e8c1547c2420f34043cc0044cf042e1d2309d"
+      "sha256": "e15b95de4a56588ab2cf58ae6d563322e4faab37d4d2bb82fc884e0511c0c9b7"
     },
     {
       "path": "hooks/tests/test-recovery-hint-honesty.sh",
@@ -1493,5 +1493,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "6bdde0b318fa3030c1593dfe0a0af0afa00b3875ba90290c30cadb50a8f9b7c2"
+  "manifest_self_sha256": "d40b3e72cbe4022bd37ef1622239fce90086ce8d5694d96d963eb7d872b33356"
 }

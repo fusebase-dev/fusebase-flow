@@ -119,11 +119,7 @@ def verify_settings(root: Path, plan: dict[str, Any], failures: dict[str, list[s
     path = root / ".claude/settings.json"
     try:
         value = json.loads(path.read_text(encoding="utf-8"))
-        helper.validate_settings_shape(value)
-        hooks = value["hooks"]
-        for event in helper.DEFAULT_FLOW_HOOKS:
-            if not helper._flow_handler_present(hooks.get(event), event):
-                raise ValueError(f"exact {event} Flow handler is absent")
+        helper.validate_flow_wiring(value)
     except (OSError, KeyError, ValueError, json.JSONDecodeError) as exc:
         failures.setdefault("claude_settings", []).append(str(exc))
     intent_error = validate_intent(root, "claude_settings")
