@@ -1,30 +1,22 @@
 # Flow performance and recovery hardening — roadmap
 
-**Status:** T24 complete; T25 focused/engine proof passed; T26 U14 fixture correction precedes T21
-**Documentation tier:** 4
-**Execution owner:** `tasks.md` owns order, dependencies, files, SHAs and status; `verification-gate.md` owns proof.
-**Starting source:** `2217a9c631300e510b18437548ed4bccb5f31036`
-**Sequence:** T11-T20 complete -> T24 real-Git fixture -> T25 Windows/MSYS liveness -> T26 Stop fixture -> T21 gate -> T22 Astra re-review -> T23 closeout.
+**Status:** implementation through T47 complete/absorbed; source `008ade7`; T21 report reconciled, T22/T23 OPEN; spec DRAFT. Tier 4 existing pack. `tasks.md` owns detailed slices; `gate-report.md` owns evidence and residuals.
 
-## Evidence inputs
-
-- `state/audit/adversarial-review-2026-09-05.md`
-- `state/audit/adversarial-review-2026-09-05-probes.json`
-- `state/audit/find-wasted-effort-2026-09-05.md`
-- `docs/specs/flow-performance-and-recovery-hardening/adversarial-review.md`
-
-## Baseline and measurement targets
-
-| Measure | Baseline | Target / owner |
+| Recommendation order | Slices | Disposition |
 |---|---|---|
-| Unchanged skill mirror writes | 98/98 targets rewritten | three independent write-mode no-op recoveries; AC5 / T20 |
-| Read-only mirror integrity | prior `--check` run | label read-only only; never infer write count; N2 / T20 |
-| Native Stop reads | 2 full reads | one; AC6 / T5 |
-| Mandatory startup estimate | 61,509 chars, common AI Developer inputs | paired actual delivered-context decrease; estimate-only hosts UNVERIFIED; AC7 / T7 |
-| Ordinary decisions | multiple possible gates/relays | one product decision; release go-ahead only when releasing; AC8 / T6 |
-| Repeated Flow validation | pre-commit always runs configured validators | complete trusted identity or reuse unavailable; AC9 / T11-T12 |
-| CLI mutations | demonstrated recovery defects | zero unowned mutation and authoritative per-surface verification; AC1-AC5, AC11 / T13-T17 |
+| Recovery and ownership first | T1-T4, T11-T17 | implemented; final negative-path acceptance under T22 |
+| Ordinary-work efficiency and honest measurement | T5-T9, T18-T20 | implemented; measured-host/real-CLI residuals explicit |
+| Initial gate | T10 | historical, superseded by independent CHANGES REQUIRED |
+| Real-Git/timeout/fixture/portability corrections | T24-T31 | completed with scoped evidence |
+| Remove repeated execution and adopt scoped gates | T32-T33 | completed; current T32 composition 9/9 |
+| Bootstrap/shared classify/import compatibility | T34-T36; T35 absorbed into T36 | completed; final dependency review pending |
+| Observable provider/status recovery | T37-T38; T38 absorbed into T37 | completed; preserve partial-run evidence honestly |
+| Minimal no-op harness and product process reduction | T39-T41 | absorbed into `008ade7` |
+| Retire observer and mirrored helper tests | T42-T45 | superseded experiments removed; material failures retained |
+| Lazy baseline/stable receipt/batched mirror work | T46 | committed at `008ade7` |
+| Scoped orphan cleanup and one environment-corrected run | T47 | complete; T20 all 3 no-ops PASS |
+| Reconcile technical acceptance | T21 | report complete; scoped gate OPEN |
+| Independent whole-diff/evidence review | T22 | NEXT; review original findings and current closure limits |
+| Honest docs closeout | T23 | only after zero-blocker T22 and residual disposition |
 
-## Constraints
-
-T24 is committed at `fe1629c`. T25 timeout 23/23 and bounded engine rc0 permit its separate commit; the wrapper advanced to 33 PASS and exposed U14's stale first-Stop-block assumption. T26 owns that fixture correction, the proven Stop-status encoding regression, and terminal full-wrapper PASS (`tasks.md` T26), preserving T16's correct CLI/Flow block isolation. Production change is restricted to the intended status literal; no weakened verdicts. T21 remains report-only, T22 GPT-6 Astra review-only, T23 docs-only. No production deployment/publication. Actual CLI install/update/recover comparison, five-provider host telemetry, Windows authority ACL proof, and three real-symlink controls remain UNVERIFIED until directly exercised. UI/client applicability: N/A.
+No more implementation or test execution is implied by this roadmap. T22 identifies any concrete remaining defect; only its affected evidence is revisited. Preserve existing bounds and anti-overtesting disposition. Actual CLI install/update/recover, host telemetry, real symlink/Windows authority and full platform/release coverage remain UNVERIFIED/DEFERRED. No app UI/deploy/migration scope.

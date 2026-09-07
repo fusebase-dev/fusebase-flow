@@ -2,40 +2,17 @@
 
 **Status:** operator-locked B6; T32 narrow deduplication and T33 scoped-validation policy/tooling
 **Starting source:** `2217a9c631300e510b18437548ed4bccb5f31036`
-**Linked tasks:** `tasks.md` T11-T33
+**Linked tasks:** `tasks.md` T11-T47; completed/absorbed implementation, T22/T23 open
 **Review findings:** `adversarial-review.md` B1-B8, N1-N2
-**Gate task:** T21, report-only after T33
+**Gate task:** T21 report reconciled at `008ade7`; OPEN pending T22. Current ledger: 12 PASS / 3 OPEN / 1 DEFERRED; PASS labels are scoped, not full AC/release attestation.
 **Independent review:** T22, zero blockers required
 **Closeout:** T23, docs-only
 **Smoke threshold:** S1/S3 one execution per distinct positive/negative scenario; S2 retains three independent write-mode no-op calls; repeat diagnosed races only
 **Rollback:** code-only framework/template changes; no migration, secret, app deploy, or production target
 
-## AC and review mapping
+## Required conditions and evidence mapping
 
-| Requirement | Implementation | Required evidence |
-|---|---|---|
-| AC1 / B6 | T17 | bounded legacy span; unrelated/custom suffix refusal; exit 2 zero-write; marker round-trip |
-| AC2 | T14 | complete settings/config plan rejects malformed/unavailable input before target writes |
-| AC3 / B3-B4 | T13-T15 | ownership matrix; atomic retained originals; interruption/retry ledger; authoritative provider/Git verification |
-| AC4 / B5 | T15-T16 | exact handler parsing; dedicated Flow blocks; custom order/matcher/timeout/scope preservation |
-| AC5 / N2 | T13, T20 | collision preservation plus three independent write-mode no-op snapshots/counts |
-| AC6 | retained T5 | Stop fixture regression and one-read 1/10/30 MiB evidence |
-| AC7 | retained T7 | semantic inventory; host-by-host telemetry status, with unavailable hosts UNVERIFIED |
-| AC8 / B7 | T18 | executed diagnosis/action/artifact records; extra relay/artifact/skipped diagnosis mutation controls |
-| AC9 / B1-B2/N1 | T11-T12 | ignored/symlink/env/wrapped tool identity; direct-mint/substituted-runner rejection; Linux-portable fixture |
-| AC10 / B8/N2 | T18-T20 | per-conclusion task/commit linkage; mixed-history tests; observed workflow/write metrics |
-| AC11 | T13-T15, T20 | CLI/user zero-change hashes/semantics; actual CLI install/update/recover stays UNVERIFIED unless executed |
-| AC12 | T13-T15 | canonical source precedence, verified snapshot fallback, zero mirror/manifest drift |
-| T21 fixture contract | T24 | real disposable Git repo/identity; focused T15 path rc0; exact Git verification; CLI/user sentinels; permits fixture-only commit |
-| Registered wrapper liveness | T25 | timeout selftest 23/23; bounded U16/U17/U18 rc0; preserve failed wrapper evidence |
-| Stop fixture | T26 | U14 1/1 and wire/settings 36/36; wrapper crossed U14/U15 before independent stale U7; permits commit |
-| Legacy fixture | T27 | recognized positive migration/no-op; ambiguous body zero-write refusal; U9 preservation |
-| Diagnostic selectors | T28 | invalid selection exit 2 before mutation; scoped output non-attesting; real selected groups; default count unchanged |
-| Mutation manifest cost | T29 | tiny old/new byte parity, complete independent snapshots, measured count/hash/time; no per-file subprocesses |
-| Probe budget semantics | T30 | actual <=10s probe deadline evidence; timeout attribution/reap; over-budget/missing-timeout/cleanup negative controls; complete contract and mutation green |
-| B1-B8/N1-N2 closure | T21-T22 | final report plus independent repeated Astra review with zero blockers |
-
-## Required commands and conditions
+This table defines evidence scope, not a pending execution checklist. Current reconciliation and exceptions are in gate-report.md; no automatic reruns are authorized by old command examples.
 
 | Layer | Command / result |
 |---|---|
@@ -161,3 +138,26 @@ Full health regression and all liveness predicates execute once in composed gate
 Each AC/risk row: changed behavior; dependency files/config/toolchain/platform; exact tested source; command/selection; expected positive/negative outcome; actual exit/result; durable log; reused/new/deferred; invalidation rationale. A new SHA alone does not invalidate unrelated proof; unchanged HEAD alone never proves validity. Unknown dependencies require the affected group to rerun. Every B1-B8/N1-N2 row closes directly or remains open. Missing/zero-row/crashed selected tests remain non-success; subsets cannot satisfy strict full-summary parsing. No automatic proof cache or receipt signer is added.
 
 Per-change syntax/lint and normal staged safety checks remain. Broad release-tag/vendor/legacy compatibility and mutation variants run in maintainer/release CI; absent execution is DEFERRED, not PASS. Full cross-platform CI success is not claimed from configuration inspection. S1/S3 equivalent existing scenario evidence avoids duplicate smoke; S2 still needs three independent write-mode calls. Record selected phase start/end/elapsed/rc/timeout and expected total before long execution; stop and diagnose unexplained cost, never blind-restart prefixes or inflate timeout defaults.
+
+## T21 scoped acceptance ledger — `008ade7`
+
+Platform/toolchain: Windows 11, Git Bash, PowerShell, Python 3. T47 supplied the final current-source T20 evidence and T32 supplied the remaining composition proof. Status totals: **12 PASS / 3 OPEN / 1 DEFERRED**.
+
+| Risk / AC | Changed behavior and dependencies | Exact command/source/platform | Expected positive / negative | Actual result and evidence | Status / invalidation rationale |
+|---|---|---|---|---|---|
+| AC1 / B6 | bounded overlay replacement; `overlay-block-replace.py`, recovery direct legacy fixtures | `test-cli-flow-recovery.sh --only legacy`; T28 source on Windows Git Bash | bounded recognized span passes; ambiguity refuses zero-write | `t28-legacy-diagnostic.log`; production/helper dependencies unchanged afterward | REUSED — PASS |
+| AC2 | settings source/ownership; `settings-json-merge.py`, wire fixtures | T26 `t26-wire-hooks.log`, Windows Git Bash | custom/CLI settings preserved; malformed input red | wire/settings 36/36; dependencies unchanged after T26 | REUSED — PASS |
+| AC3 / B3-B4 | ownership, complete plan and final verification | T47 T20 current-source convergence complete/8 verified; prior T37/T38 negative evidence | current positive composition PASS | T46 changes lazy bootstrap orchestration; fresh negative-path closure awaits T22 review; no claim those negatives reran | OPEN |
+| AC4 / B5 | exact dedicated Flow hook and matcher isolation; hook-intent/settings fixtures | T26 U14 + `t26-wire-hooks.log`, Windows Git Bash | exact Flow+CLI entries; duplicate/lookalike/widening red | focused U14 1/1 and wire/settings 36/36; exact parser inputs unchanged | REUSED — PASS |
+| AC5 / N2 / S2 | three independent no-op recoveries | T47 T20, Windows Git Bash; final-source dependency recorded in gate report | all three zero changed targets/copies, receipt and manifest mtimes stable; mutation changed 1/refusals 2 | PASS for S2 current-source no-op; collision/bootstrap negative review remains under AC3/AC12 | PASS (scoped S2) |
+| AC6 | one Stop transcript read; `hooks/handlers/stop.py`, fixture handler tests | T5 evidence plus stopped current-prefix log; Windows | one read with final-assistant and corrupt-input controls | Stop implementation unchanged; affected fixtures passed before the stopped prefix reached later phases | REUSED — PASS |
+| AC7 | compact carriers and host-delivered context | T7 static evidence; supported-host telemetry unavailable | deterministic carrier behavior retained; same-host input decreases | later carrier text changed and five-provider delivered-token telemetry is unavailable | DEFERRED |
+| AC8 / B7 / S3 | executed diagnosis/actions/artifacts; lane fixture, router, assessor, carriers | `t21-lane.log` 12/12 at post-T18 source, Windows Git Bash | ordinary lightweight; sensitive full; three mutations rejected | executed artifact/relay counts and extra-relay/extra-artifact/skip-diagnosis controls passed; dependencies unchanged | REUSED — PASS |
+| AC9 / B1-B2 / N1 | complete validator identity and trusted signer; validator runner/evidence/pre-commit | `t21-validator.log`, Windows Git Bash | direct mint/substitution/state mutations red; unavailable authority reruns | focused validator matrix passed; validator sources unchanged; Windows authority remains safely unavailable | REUSED — PASS |
+| AC10 / B8 | task/outcome temporal linkage and honest benchmark labels | `t21-window.log`; `t21-benchmark.log`, Windows | exact outcome/task link passes; generic/mixed history red; unavailable metrics labeled | window focused proof and benchmark 5/5 passed; source dependencies unchanged | REUSED — PASS |
+| AC11 / S1 | CLI/user preservation | T47 T20 current-source fixture and prior T37 evidence | synthetic CLI/user preservation PASS | actual full CLI install/update/recover absent; do not promote fixture evidence to current-CLI verification | OPEN; real CLI DEFERRED |
+| AC12 | canonical/fallback and ownership bootstrap convergence | T34/T36 prior focused proof; T47 current-source convergence and no-ops | normal canonical/mirror convergence PASS | T46 lazy baseline changes orchestration; prior bootstrap proof is dependency-limited pending T22 assessment | OPEN |
+| T24-T30 support | real-Git fixture, selectors, batched manifests, timeout semantics | T24-T30 focused logs and commits on Windows | named positive/negative groups pass without broad-prefix replay | task-specific focused proofs retained; no dependency change for their isolated assertions | REUSED — PASS |
+| T31-T32 liveness | heartbeat and single composed launch/status | T31 retained evidence; T32-final-composition.log current 9/9, rc0, 85.777s | coupled failure/missing/partial controls pass; survivors 0 reported | scoped composition closure; not every platform/process-tree path | PASS |
+| T33 / B6 | scoped ledger, phase visibility, fail-closed missing/zero/crash/timeout | T33 6/6 + carriers 15/15 + real selected phase 8/8 at `fb156aa` | scoped proof stays non-attesting; every abnormal phase red | all focused checks passed; real phase emitted START/END/tag/33s/rc0/120s | NEW — PASS |
+| Current integrity/safety | committed manifests and normal commit checks | `008ade7`: hook 209/209, managed 372/372, normal precommit 18.3s; executor report | current manifests and commit gate PASS | no claim new standalone full preflight/release CI or platform proof ran | PASS (scoped) |

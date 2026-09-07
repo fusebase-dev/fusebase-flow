@@ -1,47 +1,11 @@
-# Active handoff
+# Handoff — flow-performance-and-recovery-hardening
 
-Mode: run-ledger
-**Updated:** 2026-08-12T22:25:52Z
-**Branch:** `main`
-**Release baseline:** `main` at `096619d` before this corrective documentation commit
-**Current HEAD:** the corrective commit containing this handoff
+**Updated:** 2026-09-07. **Role:** Architect. **Source:** `008ade7553009f38ebf0d9ee29c83df8be64d50b`. **Spec:** DRAFT. **Next:** T22 independent final review; T23 OPEN.
 
-## Release state
+T21 report-only reconciliation is complete; scoped gate remains OPEN. Read `docs/specs/flow-performance-and-recovery-hardening/gate-report.md` for exact evidence and `verification-gate.md` for the 16-row ledger (12 scoped PASS / 3 OPEN / 1 DEFERRED). No full-suite/release claim.
 
-| Version | State | Evidence |
-|---|---|---|
-| `v4.8.0` | PUBLISHED | Tag/release published from `20fd707`. |
-| `v4.9.0` | TAGGED, RELEASE FAILED, UNPUBLISHED | Immutable tag targets `096619d`; release workflow failed and published nothing. |
-| `v4.9.1` | NEXT | Corrective release; create a new tag after the authoritative-state corrections are committed and verified. |
+T47 cleanup removed 11 validated orphan loops without unrelated processes. Existing T20 passed all 3 independent no-op attempts and mutation control; T32 composition 9/9 passed. Current manifests 209/209 and 372/372; normal precommit 18.3s. Exact timings/paths are in gate report. T39-T47 history consolidated in tasks.md; failed evidence retained. Experimental helper/tracer tests are absent.
 
-Do not move or reuse `v4.9.0`. Release publication remains gated by the exact tagged SHA on Linux
-and Windows/MSYS per `PUBLISHING.md`.
+T22 must assess original B1-B8/N1-N2 against `2217a9c..008ade7`, especially changed bootstrap/negative-path dependency reuse. Preserve `adversarial-review.md` as prior findings until that review. Do not launch a full prefix, recreate helper tests or repeat successful T20/T32 without an actual invalidating change. Current real-CLI/host/symlink/Windows-authority/platform coverage remains explicitly unverified/deferred.
 
-## Main changes since v4.8.0
-
-| Surface | Commit(s) | Current state |
-|---|---|---|
-| S2d Python version symmetry | `d5abf3d` | Landed: a resolved `python3` must prove Python >=3.10. |
-| S2b git fail-closed | `facae26` | Landed: broken git in repository context blocks; outside-repository behavior is preserved. |
-| R1 denial diagnostic | `ac0879d` | Landed: denial names rule and pattern without claiming match location. |
-| R2 deploy-approval receipt | `88b3ea6` | Landed: locked C3 receipt contract is implemented. |
-| Release fingerprint table | `eb31188`, `98fbb37` | Landed: managed-content and hook-layer lookup; self-reference limit requires each tag's row in the next release. |
-| Published-tag policy | `f08b5a8` | Landed as procedural policy; no repository ruleset mechanically enforces immutability. |
-| `INSTALLED_FROM` | `9fdba11`, reverted by `519170d` | REVERTED — NOT SHIPPED. It described a future upgrade source and could not identify the tree already on disk; fingerprint lookup superseded it. |
-
-T4-T8 in `docs/specs/consumer-escalation-v480/spec.md` were T1 fix-forward work and are moot after
-`519170d`.
-
-## Open
-
-| Item | State | Next evidence/action |
-|---|---|---|
-| R1 root defect (K21/M8) | OPEN | Parser/matching behavior still treats honest quoted prose as executable text; S4b owns any semantic change. |
-| Tag immutability | OPEN — procedural only | Apply repository-side enforcement; until then, operator confirmation is the control. |
-| Windows job-probe flake | OPEN — cause unproven | Instrument rc, elapsed time, helper-path outcome, and output marker before choosing retry logic. See `docs/backlog/release-gate-flaky-job-probe/README.md`. |
-
-## Next action
-
-Prepare and verify the `v4.9.1` corrective release from a new commit on `main`; do not alter the
-`v4.9.0` tag. After tagging `v4.9.1`, append the exact row emitted by
-`bash hooks/local/print-release-fingerprints.sh v4.9.1` for delivery in the following release.
+Seven documentation files are reconciled in the T21 docs-only commit; source/tests remain unchanged. Preserve all existing untracked smoke evidence, archive and docs/wasted-code paths. No test or process was launched by this Architect. Owning executor reported final scoped survivors 0; no claim all machine processes stopped. After T22 zero blockers and residual disposition, T23 owns docs-only closeout.

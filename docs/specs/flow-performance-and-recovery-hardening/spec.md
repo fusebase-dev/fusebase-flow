@@ -8,7 +8,8 @@
 **Linked decisions:** A1..A7, B1..B6
 **Source evidence:** `state/audit/adversarial-review-2026-09-05.md`
 **Correction basis:** `adversarial-review.md` - CHANGES REQUIRED on source `2217a9c631300e510b18437548ed4bccb5f31036`
-**Deploy hash:** N/A until completion
+**Deploy hash:** N/A; no deployment
+**Current acceptance:** source `008ade7553009f38ebf0d9ee29c83df8be64d50b`; T21 scoped reconciliation in `gate-report.md`; T22/T23 OPEN. Spec remains DRAFT.
 
 ## Problem
 
