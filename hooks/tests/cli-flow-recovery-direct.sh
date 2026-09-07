@@ -24,8 +24,11 @@
 # The mutation below deliberately runs on the REDUCED corpus: the full run proves BREADTH, the
 # mutation proves the assertions are not vacuous. Running it in a copy (never $ROOT) also keeps
 # the phase read-only with respect to the repository.
+# shellcheck source=lib/minimal-path-fixture.sh
+. "$ROOT/hooks/tests/lib/minimal-path-fixture.sh"
+
 ffcf_t14_preflight() {
-  local d="$TMP_BASE/t14-plan" plan="$TMP_BASE/t14-plan.json" rc before after
+  local d="$TMP_BASE/t14-plan" plan="$TMP_BASE/t14-plan.json" rc before after no_python_path
   ffcf_canonical "$d"
   ffcf_cli_surface "$d"
   ffcf_engine_scripts "$d" hooks/local/install-git-hooks.sh
@@ -84,13 +87,16 @@ PY
   mv "$d/hooks/local/fusebase-flow-overlays/skills/fusebase-flow-health-check/SKILL.md.missing" \
     "$d/hooks/local/fusebase-flow-overlays/skills/fusebase-flow-health-check/SKILL.md"
 
+  mpf_build || fail "T14: missing-interpreter fixture unavailable: $MPF_REASON"
+  no_python_path="$MPF_PATH"
   before="$(find "$d" -type f -print0 | sort -z | xargs -0 sha256sum)"
   set +e
-  ( cd "$d" && env PATH="/usr/bin:/mingw64/bin" bash hooks/local/post-fusebase-update.sh \
-      >"$TMP_BASE/t14-no-python.out" 2>&1 )
+  ( cd "$d" && env -u FUSEBASE_FLOW_PYTHON PATH="$no_python_path" \
+      bash hooks/local/post-fusebase-update.sh >"$TMP_BASE/t14-no-python.out" 2>&1 )
   rc=$?
   set -e
   after="$(find "$d" -type f -print0 | sort -z | xargs -0 sha256sum)"
+  mpf_destroy
   [ "$rc" -eq 2 ] && [ "$before" = "$after" ] \
     || fail "T14: missing interpreter did not fail before every tree write"
 
