@@ -20,6 +20,31 @@ set -uo pipefail
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$ROOT"
 
+HT_ONLY=""
+case "$#" in
+  0) ;;
+  1)
+    if [ "$1" = "--list" ]; then
+      printf '%s\n' ac5
+      exit 0
+    fi
+    printf 'unknown or incomplete selector: %s\n' "$1" >&2
+    exit 2
+    ;;
+  2)
+    if [ "$1" = "--only" ] && [ "$2" = "ac5" ]; then
+      HT_ONLY="ac5"
+    else
+      printf 'unknown selector: %s %s\n' "$1" "$2" >&2
+      exit 2
+    fi
+    ;;
+  *)
+    printf 'conflicting selectors\n' >&2
+    exit 2
+    ;;
+esac
+
 TMP_BASE="${TMPDIR:-/tmp}/fusebase-flow-hc-timeout.$$"
 mkdir -p "$TMP_BASE"
 
@@ -111,8 +136,6 @@ run_hc() {  # $1=dir; rest=args/env already exported by caller
   out="$(cd "$dir" && "$@" bash hooks/local/fusebase-flow-health-check.sh --no-upstream 2>&1)"; rc=$?
   printf '%s\nEXIT=%s\n' "$out" "$rc"
 }
-
-build_golden
 
 # ===== Manifest-verify CRITICAL (D4) — the retargeted core =====================
 
@@ -581,6 +604,19 @@ ht_t25_msys_completion_reap() {
 }
 
 # ---- run everything ----------------------------------------------------------
+
+# The synchronized AC5 fixture is isolated so this default phase stays below the source ceiling.
+# shellcheck source=health-check-heartbeat.sh
+. "$ROOT/hooks/tests/health-check-heartbeat.sh"
+
+if [ "$HT_ONLY" = "ac5" ]; then
+  ht_ac5_heartbeat
+  ht_ac5_optins
+  echo "[test-health-check-timeout] SCOPED ac5 $pass_count/$((pass_count + fail_count)) PASS"
+  exit "$fail_count"
+fi
+
+build_golden
 mv_baseline_healthy
 mv_verify_timeout
 mv_absent_manifest
@@ -602,156 +638,6 @@ ht_m9_aged_warn_verdict_neutral
 ht_m9_negative_controls
 ht_m9_unit_array_contract
 ht_t25_msys_completion_reap
-
-# ============================================================================================
-# AC5 / decision M3 — parent-owned heartbeat on a CAPTURED run. The child's ENTIRE stream is
-# redirected into a tempfile the parent reads only after completion, so progress MUST come from
-# the PARENT and the captured payload MUST stay byte-exact.
-# ============================================================================================
-AC5_CAP_SECS=30       # bounded wait (FR-27); also catches a heartbeat that BLOCKS the parent
-# TRIPWIRE (C3 / F-A): do NOT go back to sampling stderr at ONE fixed wall-clock instant. A single
-# read at 2s against a 4s child with a 1s heartbeat interval expected exactly 1 line, so ANY MSYS
-# scheduling delay flipped it to 0 — green in isolation, flaky in the composed suite. The margin
-# now comes from a COUNT RATIO instead of an instant: the child (4s) and the heartbeat (1s) both
-# use `sleep`, so a loaded host stretches them together and the ratio survives. Never relax this
-# to >= 0 and never delete it: pre-M3 code emits ZERO bytes mid-run, which is what it discriminates.
-AC5_MIN_HB_LINES=2    # >= 2 of the ~4 a 1s interval yields on a ~4s child
-
-# TRIPWIRE: sets AC5_PROBE_PID instead of echoing it — a `$( … )` wrapper around a background
-# launch is the very hang this feature must not reintroduce (see _ffhc_heartbeat_start).
-_ac5_start_probe() {   # <dir> <tag> <heartbeat-secs>
-  local D="$1" tag="$2" hb="$3"
-  FFHC_HEARTBEAT_SECS="$hb" FFHC_HEARTBEAT_LABEL="ac5-probe" \
-    bash "$D/probe.sh" "$ROOT" "$D/child.sh" "$D/out.$tag" "$D/rc.$tag" "$D/done.$tag" \
-    > "$D/stdout.$tag" 2> "$D/err.$tag" &
-  AC5_PROBE_PID=$!
-}
-
-_ac5_count_hb() {   # <err-file> -> heartbeat line count on stdout (0 when unreadable)
-  local n; n="$(grep -c 'still running' "$1" 2>/dev/null || true)"
-  case "$n" in ''|*[!0-9]*) n=0 ;; esac
-  printf '%s' "$n"
-}
-
-# Completion is observed via the done-FILE, not `kill -0` (a reaped-but-unwaited child is a
-# zombie and still answers it). Returns 1 iff the cap elapsed with the probe still running.
-# With <poll-heartbeat>=1, EVERY tick up to the bounded cap looks for the first parent heartbeat
-# line and records whether the child was provably alive (done-file absent) at that moment — so the
-# discriminator has as many chances as the child has seconds, not exactly one.
-_ac5_wait_probe() {   # <dir> <tag> <poll-heartbeat:1|0>
-  local D="$1" tag="$2" poll="$3" w=0 n alive_now
-  AC5_MID_LINES=0; AC5_MID_BYTES=0; AC5_ALIVE_AT_FIRST_HB=0; AC5_FIRST_HB_AT=""; AC5_END_LINES=0
-  while [ ! -f "$D/done.$tag" ] && [ "$w" -lt "$AC5_CAP_SECS" ]; do
-    sleep 1; w=$((w + 1))
-    [ "$poll" -eq 1 ] && [ -z "$AC5_FIRST_HB_AT" ] || continue
-    # Aliveness is read BEFORE the count, so a line seen a moment later cannot be credited to a
-    # child that had already exited.
-    if [ -f "$D/done.$tag" ]; then alive_now=0; else alive_now=1; fi
-    n="$(_ac5_count_hb "$D/err.$tag")"
-    [ "$n" -ge 1 ] || continue
-    AC5_FIRST_HB_AT="$w"; AC5_ALIVE_AT_FIRST_HB="$alive_now"; AC5_MID_LINES="$n"
-    AC5_MID_BYTES="$(wc -c < "$D/err.$tag" 2>/dev/null | tr -d ' ' || true)"
-  done
-  if [ ! -f "$D/done.$tag" ]; then
-    kill -9 "$AC5_PROBE_PID" 2>/dev/null; wait "$AC5_PROBE_PID" 2>/dev/null; return 1
-  fi
-  wait "$AC5_PROBE_PID" 2>/dev/null
-  AC5_END_LINES="$(_ac5_count_hb "$D/err.$tag")"
-  return 0
-}
-
-ht_ac5_heartbeat() {
-  local tbin
-  tbin="$(bash -c '. "$1/hooks/local/lib/run-with-timeout.sh"; ffhc_detect_timeout; printf "%s" "${FFHC_TIMEOUT_BIN:-}"' _ "$ROOT" 2>/dev/null || true)"
-  if [ -z "$tbin" ]; then
-    ht_pass "ac5-heartbeat-before-child-exit [SKIP - no timeout binary; the capture path under test is unreachable]"
-    return 0
-  fi
-  local D; D="$(mktemp -d "$TMP_BASE/ac5.XXXXXX")"
-  cat > "$D/child.sh" <<'AC5_CHILD'
-#!/usr/bin/env bash
-printf 'ac5-payload-line-1\n'
-printf 'ac5-stderr-line\n' >&2
-sleep 4
-printf 'ac5-payload-line-2\n'
-AC5_CHILD
-  cat > "$D/probe.sh" <<'AC5_PROBE'
-#!/usr/bin/env bash
-# argv: <root> <child-script> <out-file> <rc-file> <done-file>
-set -uo pipefail
-. "$1/hooks/local/lib/run-with-timeout.sh"
-ffhc_detect_timeout
-ffhc_run_bounded 30 bash "$2"
-printf '%s' "$FFHC_LAST_OUT" > "$3"
-printf '%s' "$FFHC_LAST_RC"  > "$4"
-: > "$5"
-AC5_PROBE
-
-  local ac5_fail="" capped_on=""
-  # DISCRIMINATOR: read the parent's stderr BEFORE the child exits.
-  _ac5_start_probe "$D" "hb" 1
-  _ac5_wait_probe  "$D" "hb" 1 || capped_on="hb"
-  local mid_bytes="${AC5_MID_BYTES:-0}" alive="${AC5_ALIVE_AT_FIRST_HB:-0}"
-  local first_hb="${AC5_FIRST_HB_AT:-}" hb_lines="${AC5_END_LINES:-0}"
-  # NEGATIVE CONTROL: same run with the heartbeat OFF must yield a byte-identical payload AND no
-  # progress lines at all (proves the count above comes from the knob, not from ambient stderr).
-  _ac5_start_probe "$D" "off" 0
-  _ac5_wait_probe  "$D" "off" 0 || capped_on="${capped_on:+$capped_on,}off"
-  local off_lines="${AC5_END_LINES:-0}"
-
-  [ -z "$capped_on" ] || ac5_fail="$ac5_fail [probe($capped_on) still running after ${AC5_CAP_SECS}s - the wrapper did not return; a heartbeat started under \$( ) blocks the parent until its cap]"
-  if [ -z "$first_hb" ]; then
-    ac5_fail="$ac5_fail [no heartbeat line appeared on the parent's stderr at ANY poll tick while the child ran (${mid_bytes} bytes) - pre-M3 code emits exactly this]"
-  elif [ "$alive" -ne 1 ]; then
-    ac5_fail="$ac5_fail [PRECONDITION: the probe had already finished at the first heartbeat observation (t=${first_hb}s) - it proves nothing about mid-run visibility]"
-  fi
-  [ "$hb_lines" -ge "$AC5_MIN_HB_LINES" ] 2>/dev/null || ac5_fail="$ac5_fail [only ${hb_lines} heartbeat line(s) over the whole run; >= ${AC5_MIN_HB_LINES} expected from a 1s interval on a ~4s child - one line is not margin]"
-  [ "$off_lines" -eq 0 ] 2>/dev/null || ac5_fail="$ac5_fail [the heartbeat-OFF run still emitted ${off_lines} progress line(s) - FFHC_HEARTBEAT_SECS=0 is not actually OFF]"
-  if [ -f "$D/out.hb" ] && [ -f "$D/out.off" ]; then
-    cmp -s "$D/out.hb" "$D/out.off" \
-      || ac5_fail="$ac5_fail [captured payload DIFFERS from a heartbeat-off run - the heartbeat contaminated the capture]"
-    grep -q 'still running' "$D/out.hb" \
-      && ac5_fail="$ac5_fail [a heartbeat line leaked INTO the captured payload]"
-    grep -q 'ac5-stderr-line' "$D/out.hb" \
-      || ac5_fail="$ac5_fail [the child's merged stderr is missing from the capture - the 2>&1 merge regressed]"
-  else
-    ac5_fail="$ac5_fail [capture files missing - a probe did not complete]"
-  fi
-  [ "$(cat "$D/rc.hb" 2>/dev/null)" = "0" ] \
-    || ac5_fail="$ac5_fail [child rc not preserved through the heartbeat path: $(cat "$D/rc.hb" 2>/dev/null)]"
-  rm -rf "$D"
-  if [ -z "$ac5_fail" ]; then
-    ht_pass "ac5-heartbeat-before-child-exit (first progress line observed at t=${first_hb}s with the child provably alive; ${hb_lines} line(s) over the run >= ${AC5_MIN_HB_LINES}; heartbeat-off run emitted ${off_lines}; capture byte-identical to heartbeat-off)"
-  else
-    ht_fail "ac5-heartbeat-before-child-exit" "$ac5_fail"
-  fi
-}
-
-# AC5 carrier: both intended consumers must actually opt in, and the tempfile capture must still
-# be the transport (M3 forbids buying progress with a `tee`/pipe or child-side-unbuffering
-# regression). Comment lines are stripped first: the M3 tripwire NAMES the forbidden mechanisms.
-ht_ac5_optins() {
-  local f="" lib="$ROOT/hooks/local/lib/run-with-timeout.sh" code
-  code="$(grep -vE '^[[:space:]]*#' "$lib" || true)"
-  grep -q 'FFHC_HEARTBEAT_SECS' "$ROOT/hooks/tests/run-tests.sh" \
-    || f="$f [run-tests.sh does not opt into the heartbeat]"
-  grep -q 'FFHC_HEARTBEAT_SECS' "$ROOT/hooks/local/lib/hook-integrity-check.sh" \
-    || f="$f [the health deep run does not opt into the heartbeat]"
-  grep -q '_ffhc_timeout_child_done "$_done" "$secs" "$@" >"$_tf"' "$lib" \
-    || f="$f [the tempfile capture is gone - M3 forbids switching to tee/pipe]"
-  printf '%s\n' "$code" | grep -qE '\|[[:space:]]*(tee|while[[:space:]]+read)' \
-    && f="$f [a tee/pipe transport appeared - reintroduces the MSYS inherited-pipe hang (M3)]"
-  printf '%s\n' "$code" | grep -qE '(^|[^[:alnum:]_])(stdbuf|PYTHONUNBUFFERED)' \
-    && f="$f [child-side unbuffering added - it cannot escape a parent redirect and would ship as a fix that changes nothing (M3)]"
-  printf '%s\n' "$code" | grep -qE '_hbpid="?\$\(' \
-    && f="$f [the heartbeat pid is captured via \$( ) - the backgrounded loop inherits that pipe and blocks the parent until its cap]"
-  if [ -z "$f" ]; then
-    ht_pass "ac5-both-consumers-opt-in-and-capture-transport-unchanged"
-  else
-    ht_fail "ac5-both-consumers-opt-in-and-capture-transport-unchanged" "$f"
-  fi
-}
-
 ht_ac5_heartbeat
 ht_ac5_optins
 
