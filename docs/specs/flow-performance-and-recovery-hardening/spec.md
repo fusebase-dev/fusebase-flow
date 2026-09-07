@@ -1,6 +1,6 @@
 # Flow performance and recovery hardening — specification
 
-**Status:** DONE - scoped local completion
+**Status:** DONE - final implementation `e99d61b`; release preparation complete, publication pending
 **Scope lock:** locked 2026-09-05 — operator authorized all recommended slices and end-to-end execution
 **Created:** 2026-09-05
 **Change tier:** Full
@@ -9,11 +9,11 @@
 **Source evidence:** `state/audit/adversarial-review-2026-09-05.md`
 **Correction basis:** `adversarial-review.md` - CHANGES REQUIRED on source `2217a9c631300e510b18437548ed4bccb5f31036`
 **Deploy hash:** N/A; no deployment
-**Current acceptance:** final T22 APPROVED / ZERO BLOCKERS at559ca5a; T23 docs closed. R1-R5 closed for reviewed contract; gate-report.md owns evidence and residual disposition.
+**Current acceptance:** final T22 APPROVED / ZERO BLOCKERS at559ca5a; implementation completed through T59 `e99d61b`; T60 reconciles release evidence. R1-R5 remain closed for the reviewed contract; `gate-report.md` owns current evidence and residual disposition.
 
 ## Scoped completion and residual disposition
 
-Actual current CLI install/update/recover, five-provider delivered-context telemetry, real-symlink/MSYS/Linux coverage and Windows authority isolation remain DEFERRED/UNVERIFIED. They are explicitly outside the approved local completion boundary and are not blockers for this scoped closeout; they still prohibit claims of verified release/platform coverage. Validator reuse is globally unavailable: validators execute normally on every platform. AC7 host measurement and AC11 actual CLI execution are deferred, not relabeled PASS. AC9 is satisfied by unconditional fail-closed unavailability; successful receipt reuse and reduced lint/typecheck execution are not delivered outcomes. No deploy, migration or app UI scope.
+AC11 is observed for the recorded actual CLI `2026.090414.3609` Windows/Git Bash consumer scenario: update, recovery rc0, byte preservation, conflict HEALTHY, second recovery no-op, and final `e99d61b` sync/health. Earlier update/recovery/no-op evidence remains dependency evidence; only final sync and health reran at `e99d61b`. Tagged Linux and Windows/MSYS release CI, unexecuted real-symlink cases, five-provider delivered-context telemetry, and Windows authority isolation/successful signing remain DEFERRED/UNVERIFIED. AC7 host measurement remains deferred. AC9 is satisfied by unconditional fail-closed unavailability; validator reuse, successful signing, and reduced lint/typecheck execution are not delivered outcomes. No deploy, migration or app UI scope.
 
 ## Problem
 

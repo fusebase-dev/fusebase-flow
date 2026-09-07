@@ -1,18 +1,23 @@
-# T56 actual CLI overlay coexistence correction
+# T60 v4.15.0 release evidence reconciliation
 
-**Verdict:** PASS - T56 focused local gate; no release/platform attestation.
-**Current source:** T56 commit (this commit); prior accepted source `559ca5a` remains historical dependency evidence.
-**Report date/owner:** 2026-09-07, AI Developer. **Started at:** 2026-09-07T13:07:08Z. **Committed at:** 2026-09-07T13:34:23Z.
+**Verdict:** PASS - current Windows/Git Bash consumer scenario; tagged release CI remains pending.
+**Current source:** final implementation `e99d61b`; T60 is this documentation reconciliation. Earlier task runs remain dependency evidence at their owning commits.
+**Report date/owner:** 2026-09-07, AI Developer. **T60 started at:** 2026-09-07T16:06:28Z. **T60 committed at:** 2026-09-07T16:19:33Z.
 
-## T56 affected evidence
+## Current release-candidate evidence
 
-| Risk | Command/probe | Result | Scope |
+| Evidence | Source | Result | Scope |
 |---|---|---|---|
-| Standalone malformed markers | `test-recovery-final-verification.py --only t54` | PASS, 2 assertions, 0.031s | unmatched/nested refusal; marker-free append control |
-| Structural overlay grammar | `test-recovery-final-verification.py --only t56` | PASS, 3 assertion groups, 4.781s | canonical compact, prose negative, legacy forms, inline CUSTOM/PRESERVE prose, append hash, provider bytes, stable current overlay, malformed standalone preserve refusal before backup/write |
-| Actual R55 fixture | new conflict reporter against `flow-cli-coexistence-v4150-r55` | HEALTHY, rc0; AGENTS/CLAUDE both OK | read-only Windows/Git Bash fixture probe; not a CLI update/recover attestation |
+| T56 structural overlay grammar | `f4c577b` | focused T54/T56 selectors PASS | exact standalone markers; inline/backticked examples remain prose |
+| T57 health-stage progress | `96de58e` | focused timeout/visibility proof PASS | observability only; no speedup or total-wall claim |
+| T58 release preparation | `e432480` | version/release docs/manifests prepared | preparation only; no tag or publication claim |
+| T59 canonical Claude heading | `e99d61b` | focused `test-cli-flow-recovery.sh --only t14` PASS | exact logical-line matching accepts an optional terminal CR |
+| Actual CLI consumer update/recovery | `C:\Users\Pavel\AppData\Local\Temp\final-cli-recovery-1788792842096` | CLI `2026.090414.3609`; update completed; recovery rc0; conflict HEALTHY; second recovery no-op | Windows/Git Bash consumer scenario; update/recovery/no-op evidence predates final `e99d61b` sync and health |
+| Consumer byte preservation | same evidence directory | 149 provider/shared inventory entries and 6,638 app files preserved | prior byte proof from the actual CLI scenario; not rerun at `e99d61b` |
+| Final managed sync | `e99d61b` | 375/375 MATCH | current-source run |
+| Final health | `e99d61b` | HEALTHY, rc0, 93s caller wall; embedded preflight 28s rc0; hook 212/212; conflict rc0 | current-source run; T57 progress is diagnostic, not a runtime optimization |
 
-No full/default suite ran. T56 changes invalidate AC1/shared-overlay parsing only; T54 and T56 are the selected local rows under B6. Release evidence remains exact-tag CI.
+No full/default suite, CLI update, recovery, or health run was repeated for T60. The vendored CLI `0.29.8` comparison is advisory only. Tagged Linux and Windows/MSYS release CI remains the publication authority.
 
 
 ## Prior final affected evidence - accepted by final T22
@@ -34,7 +39,7 @@ No precommit duration supplied for these commits. Implementation and focused pro
 | R3 / T50 |8a8d450 |4/4 in49.266s; prior authorization, uncertainty, preflight/pinned post-state seams |hook209/209, managed372/372; normal precommit PASS, duration unreported |
 | R5 / T52 |6fa185e |16/16 in1.535s; explicit temporal linkage and counterexamples |managed372/372; hook manifest unaffected; normal precommit PASS, duration unreported |
 
-This earlier correction group ended at `6fa185e`; final source is `559ca5a`. Results/timings are owning-executor evidence; manifest asset inventories were also read from each commit (209 hook/372 managed entries). Inventory counts alone are not verification execution. Named logs remain under the existing smoke directory; original T48 timeout120s/155.9s and4/6 partial result are retained historical evidence, not retrospectively6/6. The remaining run reports4/4, not the earlier planned3/3.
+This earlier correction group ended at `6fa185e`; final source for the T22 review was `559ca5a`. Results/timings are owning-executor evidence; manifest asset inventories were also read from each commit (209 hook/372 managed entries). Inventory counts alone are not verification execution. Named logs remain under the existing smoke directory; original T48 timeout120s/155.9s and4/6 partial result are retained historical evidence, not retrospectively6/6. The remaining run reports4/4, not the earlier planned3/3.
 
 T20/T32 evidence below is reused only by dependency: T32 composition implementation is unchanged; T20's measured three independent processes/zero-change observations remain valid at008ade7. T49/T51/T50 change recovery semantics, so their focused seam proofs supplement that history; no claim T20 ran on6fa185e or proves all changed paths. No broad reruns occurred or are requested. Final T22 accepted R1-R5 closure and this scoped dependency mapping.
 
@@ -80,14 +85,14 @@ verification-gate.md owns final scoped acceptance and explicit deferred coverage
 
 No failed record is erased or relabeled PASS. The historical T20 timing at `008ade7` is measured; separation of runtime optimization versus environment cleanup contributions is UNKNOWN. No causal percentage speedup or total token-saving claim.
 
-## Final local acceptance and explicit residual disposition
+## Final acceptance and residual disposition
 
-Final T22 APPROVED/ZERO BLOCKERS at559ca5a closes R1-R5 for the reviewed contract. T53 c3c2580 and T54 559ca5a evidence above accepted; T49/T51/T52 closure retained. Reviewer checked complete=true refusal and malformed no-heading refusal/marker-free append in memory, inspected old-receipt fail-closed control flow, and checked normalized209 hook/372 managed manifest hashes. No suites were repeated by that review.
+Final T22 APPROVED/ZERO BLOCKERS at559ca5a closes R1-R5 for the reviewed contract. T53 c3c2580 and T54 559ca5a evidence above accepted; T49/T51/T52 closure retained. T56 `f4c577b`, T57 `96de58e`, T58 `e432480`, and T59 `e99d61b` followed that review; this T60 reconciliation does not represent a repeated independent review. Historical normalized209 hook/372 managed counts remain attributed to559ca5a; final current-source counts are212/212 hook and375/375 managed.
 
-Scoped local implementation and T23 docs are DONE. Actual current CLI install/update/recover, five-provider delivered-context telemetry, real-symlink/MSYS/Linux coverage and Windows authority isolation remain DEFERRED/UNVERIFIED. They are explicitly outside the approved local completion boundary and are not blockers for this scoped closeout; they still prohibit claims of verified release/platform coverage. Validator reuse is globally unavailable: validators execute normally on every platform.
+Implementation through T59 is complete. The actual CLI `2026.090414.3609` Windows/Git Bash consumer scenario observed update, recovery rc0, preservation, conflict HEALTHY, and a second no-op; final sync and health then ran at `e99d61b`. Tagged Linux and Windows/MSYS release CI, unexecuted real-symlink cases, five-provider delivered-context telemetry, and Windows authority isolation/successful signing remain DEFERRED/UNVERIFIED. Validator reuse is globally unavailable: validators execute normally on every platform.
 
 Main outcomes within reviewed source/fixture coverage: CLI/user ownership preservation and restore safety; fewer redundant mirror/recovery processes; byte/mtime-stable mirrors and ownership receipt; one native Stop transcript read; composed heavy health/liveness execution once; compact static context and honest outcome linkage. Three historical T20 no-op calls remained under45s with zero target changes/copies after T47 cleanup; T32 9/9. No measured consumer-token saving or causal end-to-end speedup claim. No duplicate lint/typecheck elimination: validators always run.
 
 Anti-overtesting outcome: dynamic tracer and implementation-mirroring helper-test loop retired; one existing composed product oracle, dependency-aware focused corrections, stop-first-red. T47 was a documented environment-precondition correction with identity-scoped cleanup, not an unchanged retry. No active implementation/test collection remains.
 
-Restore paths remain docs/install-fusebase-cli-project.md and docs/fusebase-cli-edition.md; preserve retained consumer originals and ownership boundaries. No deploy, migration or app UI scope. Exact task rollback in reverse dependency order; preserve all unrelated dirty/untracked smoke/archive/wasted-code. This closeout edits docs only and makes no commit.
+Restore paths remain docs/install-fusebase-cli-project.md and docs/fusebase-cli-edition.md; preserve retained consumer originals and ownership boundaries. No deploy, migration or app UI scope. Exact task rollback in reverse dependency order; preserve all unrelated dirty/untracked smoke/archive/wasted-code. T60 edits release evidence only.

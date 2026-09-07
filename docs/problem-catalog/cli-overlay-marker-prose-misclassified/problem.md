@@ -3,7 +3,7 @@
 **Slug:** `cli-overlay-marker-prose-misclassified`
 **Filed:** 2026-09-07
 **Severity:** high
-**Status:** resolved by T56 + T59
+**Status:** resolved by T56 `f4c577b` + T59 `e99d61b`; actual CLI consumer scenario observed
 
 ## Symptom
 
@@ -23,7 +23,7 @@ Overlay ownership tokens were treated as substrings in prose. Case-sensitive pro
 | Recovery preflight | Reuse the same parser for append/refusal decisions and expected-byte pinning. |
 | Embedded preflight | Accept only exact canonical, legacy, or source-template heading lines; product-name prose does not qualify. |
 
-Focused proof: T56 uses `hooks/tests/test-recovery-final-verification.py --only t54` and `--only t56`; T59 uses `hooks/tests/test-cli-flow-recovery.sh --only t14`.
+T59 matches headings by exact logical line and accepts an optional terminal CR; inline or surrounding prose cannot qualify. Focused proof: T56 uses `hooks/tests/test-recovery-final-verification.py --only t54` and `--only t56`; T59 uses `hooks/tests/test-cli-flow-recovery.sh --only t14`. The recorded CLI `2026.090414.3609` Windows/Git Bash scenario completed update and recovery rc0, reported conflict HEALTHY, and converged to a second no-op. `docs/specs/flow-performance-and-recovery-hardening/gate-report.md` owns exact evidence attribution.
 
 ## Guardrail
 

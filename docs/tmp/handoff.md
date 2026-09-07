@@ -1,9 +1,9 @@
-# Handoff - scoped local work complete
+# Handoff - T60 release evidence reconciliation
 
-**Source:**559ca5a. **Status:**DONE scoped local implementation/T23 documentation. Final T22 APPROVED/ZERO BLOCKERS; R1-R5 closed. **No active implementation remains.** This Architect prepared docs without committing.
+**Source:** final implementation `e99d61b`. **Status:** T60 reconciliation recorded by this commit; implementation complete, publication evidence pending.
 
-Read gate-report.md for exact proof and residuals, tasks.md for all slice SHAs/order, and adversarial-review.md for independent approval (under docs/specs/flow-performance-and-recovery-hardening). T53 c3c2580 and T54 559ca5a accepted. T20 historical3 no-ops under45s and T32 9/9 are dependency-reused; no broad rerun or current-head integrated claim.
+Read `docs/specs/flow-performance-and-recovery-hardening/gate-report.md` for current proof and run attribution, `tasks.md` for slice chronology, and `adversarial-review.md` for the prior independent T22 approval through `559ca5a`.
 
-Validator reuse is globally unavailable; normal validators run. Actual CLI install/update/recover, five-provider telemetry, real-symlink/MSYS/Linux and Windows authority remain DEFERRED/UNVERIFIED, explicitly non-blocking for this scoped local completion. They are not passed release coverage.
+Observed actual CLI `2026.090414.3609` Windows/Git Bash evidence: update complete; recovery rc0; 149 provider/shared entries and 6,638 app files preserved; conflict HEALTHY; second recovery no-op. Final `e99d61b` evidence: managed375/375; health HEALTHY rc0/93s with preflight28s rc0, hook212/212, conflict rc0. Earlier update/recovery/no-op proof did not rerun at `e99d61b`.
 
-No deploy/migration/UI scope. Preserve CLI/user bytes, repair backups and untracked smoke/archive/wasted-code. Restore instructions remain docs/install-fusebase-cli-project.md and docs/fusebase-cli-edition.md. No new implementation/test execution requested; normal owning docs-commit handling is outside this no-commit turn.
+Validator reuse remains disabled; T57 is observability only. Tagged Linux+Windows/MSYS release CI, unexecuted real symlinks, five-provider telemetry, and Windows authority isolation/successful signing remain deferred. Preserve unrelated untracked smoke/archive/wasted-code and repair-backup paths. Next action: tagged release verification under `PUBLISHING.md`.

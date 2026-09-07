@@ -24,6 +24,8 @@ CLI update while reducing repeated diagnosis, context loading, validation, and r
 - **T56 marker/prose compatibility.** Overlay discovery treats ownership markers as exact standalone
   line structure. Inline or backticked marker examples remain provider prose, and canonical or legacy
   adapter headings count only when the owned span parses successfully.
+- **T59 canonical heading compatibility.** The Claude adapter heading matches only as an exact logical
+  line, with an optional terminal CR; surrounding or inline prose cannot establish ownership.
 - Recovery no-op paths avoid redundant copies and rewrites; canonical mirrors, version carriers, and
   integrity manifests stay synchronized by repository-owned tooling.
 
@@ -62,15 +64,23 @@ CLI update while reducing repeated diagnosis, context loading, validation, and r
   stages, enforce a total wall, or establish any runtime speedup.
 - No lint/typecheck skip benefit is claimed: validator reuse is disabled. Historical local timings and
   focused fixture results are development evidence, not release attestation.
+- **Observed actual-CLI consumer evidence.** On Windows/Git Bash with CLI `2026.090414.3609`, update
+  completed, recovery returned rc0, prior byte proof preserved 149 provider/shared inventory entries
+  and 6,638 app files, conflict reporting was HEALTHY, and a second recovery was a no-op. At final
+  implementation `e99d61b`, managed sync matched 375/375 and health was HEALTHY rc0 within a 93s
+  caller wall, including embedded preflight 28s rc0, hook 212/212, and conflict rc0. Only final sync
+  and health reran at `e99d61b`; the earlier operations remain dependency evidence. Vendored CLI
+  `0.29.8` comparison is advisory only.
 
 ### Release boundary
 
 **Tagged-SHA publication evidence.** Publication requires the tagged SHA to pass the Linux and
 Windows/MSYS CI jobs plus the repository verify gate described in `PUBLISHING.md`.
 
-**Fusebase CLI compatibility evidence.** An actual current Fusebase CLI install/update/recover
-exercise remains deferred under the final ticket gate. It is outside tagged-SHA publication evidence.
-See `docs/release-notes/v4.15.0.md`.
+**Remaining evidence.** The observed Windows/Git Bash actual-CLI scenario is outside tagged-SHA
+publication evidence. Tagged Linux and Windows/MSYS release CI, unexecuted real-symlink cases,
+five-provider delivered-context telemetry, and Windows authority isolation/successful signing remain
+deferred. See `docs/release-notes/v4.15.0.md` and the ticket `gate-report.md`.
 
 ## [4.14.1] — 2026-08-23
 

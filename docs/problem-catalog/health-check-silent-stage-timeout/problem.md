@@ -23,10 +23,13 @@ The report is assembled on stdout only after all checks finish. Default MSYS `--
 | Probe | Result |
 |---|---|
 | Focused delayed preflight | live `START`; timeout `END` rc 124/137 in 3s with 1s child budget plus kill/scheduling grace; `PARTIAL_UNVERIFIED`, exit 4; progress absent from stdout |
-| Disposable v4.15.0 fixture, one bounded run | completed before its 180s caller watchdog; preflight 27s/120s rc1, manifest 6s/60s rc1, conflict 4s/30s rc1, CLI-version 4s/10s rc0; no bounded-stage overrun |
-| Inline-stage visibility | active approvals 12s; local inventory 22s; CLI version 4s; partial-upgrade 13s |
+| Historical disposable v4.15.0 fixture | completed before its 180s caller watchdog; preflight 27s/120s rc1, manifest 6s/60s rc1, conflict 4s/30s rc1, CLI-version 4s/10s rc0; no bounded-stage overrun |
+| Historical inline-stage visibility | active approvals 12s; local inventory 22s; CLI version 4s; partial-upgrade 13s |
+| Final `e99d61b` consumer health | HEALTHY rc0 within 93s caller wall; embedded preflight 28s rc0; hook212/212; conflict rc0 |
 
 The fixture carried `FFHC_PREFLIGHT_TIMEOUT=120` and `FFHC_TESTS_TIMEOUT=300`; the former raised its `--no-upstream` bounded-child sum to 220s even though the optional deep run was not selected. Its final `BROKEN` verdict came from pre-existing preflight/fixture drift plus the deliberately copied unstamped health candidate. The timing evidence supports observability only; it does not isolate a safe runtime correction.
+
+The final healthy run confirms usable stage reporting in the recorded Windows/Git Bash consumer scenario. It does not prove a runtime speedup or an enforced total wall. `docs/specs/flow-performance-and-recovery-hardening/gate-report.md` owns the current run evidence.
 
 ## Retrieval pointers
 

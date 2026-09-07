@@ -1,6 +1,6 @@
-# Roadmap - scoped local completion
+# Roadmap - v4.15.0 implementation complete
 
-**Status:** T56 actual-CLI coexistence release blocker corrected with focused local proof; no release/platform attestation.
+**Status:** final implementation T59 `e99d61b`; observed Windows/Git Bash consumer compatibility; tagged publication evidence pending.
 
 | Recommendation order | Completed slices/outcome |
 |---|---|
@@ -12,10 +12,14 @@
 | Reduce real no-op recovery cost |T39-T47; minimal three-call fixture, fewer runtime launches, stable receipt/manifests, environment cleanup |
 | Close independent findings |T48,T49,T51,T50,T52,T53,T54; final T22 ZERO BLOCKERS |
 | Reconcile and close |T21,T22,T23 complete; exact SHAs/order in tasks.md |
-| Correct actual CLI overlay parsing |T56; structural headings/owned spans and standalone marker lines; T54/T56 focused selectors PASS |
+| Correct actual CLI overlay parsing |T56 `f4c577b`; structural headings/owned spans and standalone marker lines; T54/T56 focused selectors PASS |
+| Expose health progress |T57 `96de58e`; stage observability only, no speedup claim |
+| Prepare v4.15.0 |T58 `e432480`; release preparation, not publication |
+| Accept canonical Claude heading |T59 `e99d61b`; exact logical line with optional terminal CR |
+| Reconcile final evidence |T60; docs-only gate/release/status update |
 
 Measured T20 historical attempts23.687/23.312/31.015s are each below45s with zero target changes/copies after T47 cleanup; T32 composition9/9. Cleanup versus runtime timing contributions are unknown. Static context reduction is not measured host-token savings. Validator reuse globally unavailable; no lint/typecheck skip benefit claimed.
 
-Actual current CLI install/update/recover, five-provider delivered-context telemetry, real-symlink/MSYS/Linux coverage and Windows authority isolation remain DEFERRED/UNVERIFIED. They are explicitly outside the approved local completion boundary and are not blockers for this scoped closeout; they still prohibit claims of verified release/platform coverage. Validator reuse is globally unavailable: validators execute normally on every platform.
+Actual CLI `2026.090414.3609` update/recovery/no-op and preservation were observed in a Windows/Git Bash consumer scenario; final managed sync375/375 and health HEALTHY rc0 with hook212/212 ran at `e99d61b`. Earlier operations remain dependency evidence. Tagged Linux and Windows/MSYS release CI, unexecuted real-symlink cases, five-provider delivered-context telemetry, and Windows authority isolation/successful signing remain DEFERRED/UNVERIFIED. Validator reuse is globally unavailable: validators execute normally on every platform.
 
-T56 implementation is complete; gate-report.md owns evidence and adversarial-review.md owns the prior T22 approval. No broad reruns; dependency-aware focused validation and stop-first-red remain policy. No deployment, migration or UI work.
+Implementation through T59 is complete; gate-report.md owns evidence and adversarial-review.md owns the prior T22 approval. No broad reruns; dependency-aware focused validation and stop-first-red remain policy. No deployment, migration or UI work.

@@ -1,7 +1,7 @@
-# Tasks - scoped local completion
+# Tasks - v4.15.0 completion
 
-**Status:** T56 implementation complete with focused local proof; no release/platform attestation.
-**Source:** T56 commit (this commit). **Prior review:** adversarial-review.md final T22 at `559ca5a`. **Evidence/history:** gate-report.md.
+**Status:** implementation complete through T59 `e99d61b`; T60 documentation reconciliation recorded by this commit; publication evidence pending.
+**Source:** final implementation `e99d61b`. **Prior review:** adversarial-review.md final T22 at `559ca5a`. **Evidence/history owner:** gate-report.md.
 
 ## Complete slice mapping and order
 
@@ -20,10 +20,14 @@
 | T47 |identity-scoped orphan cleanup and one environment-corrected T20 run; no source commit |
 | T48 -> T49 -> T51 -> T50 -> T52 |8e54a74 ->90288ae ->078f0b2 ->8a8d450 ->6fa185e |
 | T53 -> T54 |c3c2580 ->559ca5a; final focused corrections accepted |
-| T56 |this commit; exact overlay structure replaces prose/substring detection; T54/T56 focused selectors PASS |
+| T56 |`f4c577b`; exact overlay structure replaces prose/substring detection; T54/T56 focused selectors PASS |
+| T57 |`96de58e`; health stages emit observable progress; no speedup claim |
+| T58 |`e432480`; v4.15.0 release preparation only; no publication/tag |
+| T59 |`e99d61b`; canonical Claude adapter heading matches an exact logical line with optional terminal CR |
+| T60 |this commit; reconcile final release evidence and remaining deferrals; docs only |
 | T21 |81bb130 report plus affected evidence reconciliations |
 | T22 |final targeted APPROVED/ZERO BLOCKERS; prior findings/corrections retained in review |
-| T23 |DONE scoped docs closeout; this turn does not commit |
+| T23 |`079e84d`; scoped docs closeout |
 
 ## Exact commit chronology (includes planning commits)
 
@@ -83,11 +87,16 @@
 | `6fa185e` | fix(T52): require explicit temporal evidence links |
 | `c3c2580` | fix(T53): disable unproved validator reuse |
 | `559ca5a` | fix(T54): reject malformed overlay append inputs |
-| `this commit` | fix(T56): parse overlay markers structurally |
+| `079e84d` | docs(T23): close performance hardening roadmap |
+| `f4c577b` | fix(T56): parse overlay markers structurally |
+| `96de58e` | fix(T57): expose health stage progress |
+| `e432480` | chore(T58): prepare Fusebase Flow v4.15.0 |
+| `e99d61b` | fix(T59): accept canonical Claude adapter heading |
+| `this commit` | docs(T60): reconcile v4.15.0 release evidence |
 
 ## Delivery/rollback boundaries
 
-Actual current CLI install/update/recover, five-provider delivered-context telemetry, real-symlink/MSYS/Linux coverage and Windows authority isolation remain DEFERRED/UNVERIFIED. They are explicitly outside the approved local completion boundary and are not blockers for this scoped closeout; they still prohibit claims of verified release/platform coverage. Validator reuse is globally unavailable: validators execute normally on every platform.
+Actual CLI `2026.090414.3609` compatibility is observed in the recorded Windows/Git Bash consumer scenario; gate-report.md owns exact attribution. Tagged Linux and Windows/MSYS release CI, unexecuted real-symlink cases, five-provider delivered-context telemetry, and Windows authority isolation/successful signing remain DEFERRED/UNVERIFIED. Validator reuse is globally unavailable: validators execute normally on every platform.
 
 No deploy/migration/UI scope. Preserve CLI/user bytes, retained originals and repair backups. Recovery/restore instructions remain in docs/install-fusebase-cli-project.md and docs/fusebase-cli-edition.md; do not replace them with an improvised procedure. Roll back exact owning commits in reverse dependency order; preserve unrelated dirty/untracked smoke/archive/wasted-code paths.
 

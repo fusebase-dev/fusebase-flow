@@ -2,7 +2,7 @@
 
 **Reviewer:** independent Architect, GPT-6 Astra Medium; final targeted T22, 2026-09-07.
 **Range:** retained whole-implementation review ef6cac3..81bb130; correction diffs 81bb130..559ca5a and reconciled docs; final focus c3c2580 (T53) and 559ca5a (T54).
-**Verdict:** APPROVED for scoped local completion; **ZERO BLOCKERS**. R1-R5 closed for the reviewed contract. T23 may proceed with explicit residual disposition; this is not unconditional release/platform acceptance.
+**Verdict:** APPROVED for the reviewed source through `559ca5a`; **ZERO BLOCKERS**. R1-R5 closed for that contract. T56-T60 post-review evidence is owned by `gate-report.md`; this file does not claim a repeated independent review or publication acceptance.
 **Method:** targeted source/diff/manifests/focused-evidence review plus targeted in-memory negative/positive controls and read-only manifest hashes. No suites, recovery writes, external actions or source edits. UI/client N/A.
 
 ## Blockers
@@ -31,7 +31,7 @@
 ## Evidence and claim limits
 
 - Correction commits: T48 8e54a74; T49 90288ae; T51 078f0b2; T50 8a8d450; T52 6fa185e; T53 c3c2580; T54 559ca5a. gate-report.md owns focused commands/results/timing. T48 timeout/partial evidence remains historical non-success.
-- Read-only normalized-byte hashing matched all209 hook and372 managed manifest entries at559ca5a. Validator guidance mirror entries carry the canonical updated hash. Recorded normal precommit remains executor evidence, not a new full/platform run. No new secret leakage or critical CLI/MCP/runtime overwrite demonstrated; Actual CLI compatibility remains unverified despite reviewed preservation safety.
+- Read-only normalized-byte hashing matched all209 hook and372 managed manifest entries at559ca5a. Those counts are historical review evidence. Final `e99d61b` execution matched212/212 hook and375/375 managed entries; `gate-report.md` owns the post-review run attribution. Recorded normal precommit remains executor evidence, not a full/platform run.
 - T20 three independent no-ops and T32 composed9/9 remain historical at008ade7; changed recovery semantics rely on focused corrections, not a claimed integrated run at the final559ca5a. T47 cleanup remains limited to recorded owned identities.
 - Performance: static carrier reduction, one transcript read and observed zero writes only. Validator reuse is disabled globally; do not claim duplicate lint/typecheck elimination or successful HMAC reuse as delivered performance. No consumer/model token or end-to-end speedup proved; cleanup-versus-runtime timing contribution UNKNOWN.
 - Rollback: exact task commits in reverse dependency order; retained consumer originals. No deploy/migration/UI scope.
@@ -40,16 +40,16 @@
 
 | Item | Disposition |
 |---|---|
-| Actual current CLI install/update/recover | UNVERIFIED AC11; source/fixture proof does not establish real CLI compatibility. |
+| Actual current CLI install/update/recover | OBSERVED on CLI `2026.090414.3609` Windows/Git Bash consumer scenario; update/recovery/no-op evidence predates final `e99d61b` sync/health. |
 | Five-provider delivered-context telemetry | DEFERRED AC7; static reduction is not host measurement. |
-| Real symlink/MSYS, Linux, Windows authority isolation, full platform/release CI | DEFERRED/UNVERIFIED; safe Windows fallback is not signing proof. |
+| Tagged Linux + Windows/MSYS release CI, unexecuted real symlinks, Windows authority isolation/successful signing | DEFERRED/UNVERIFIED; observed consumer compatibility is not tagged publication or signing proof. |
 | Hostile same-user execution | Outside HMAC trust model; no stronger protection claimed. |
-| T23 | ELIGIBLE for docs-only scoped closeout after explicit AC7/AC11 and platform residual disposition. T21 DEFERRED/UNVERIFIED actual CLI/provider/symlink/Windows-authority evidence is outside this local execution model and non-blocking for scoped completion, but still blocks claims that those acceptance paths passed. T23 documents now record that disposition and globally-disabled reuse; deferred evidence remains non-PASS. |
+| T23 | COMPLETE at `079e84d`; later actual-CLI evidence is owned by `gate-report.md`. AC7 delivered-context telemetry and remaining release/platform cases stay deferred. |
 
-**Plan:** T53/T54 accepted; T23 owns current-state reconciliation and explicit residual disposition. verification-gate.md owns dependency limits. Reuse unaffected T49/T51/T52/T32 and historical T20. No broad/default suite, benchmark repeat, successful-prefix replay or observer harness.
+**Post-review reconciliation:** T56 `f4c577b`, T57 `96de58e`, T58 `e432480`, and T59 `e99d61b` followed this review. T60 updates status only; `gate-report.md` owns current evidence. T58 prepared the release and did not publish it. T57 adds observability only. Validator reuse remains disabled. No broad/default suite, benchmark repeat, successful-prefix replay or observer harness.
 **T23 documentation check:** APPROVE after correcting historical-source labels, separating in-memory proof from old-receipt source inspection, and restoring the T10 roadmap disposition. Exact commit chronology matches Git history. No source/tests/external actions or commit; doc diff-check passed.
 
 **Workspace:** documentation only; pre-existing repair backups, smoke/archive/wasted-code preserved.
 
 ---
-Phase: Verify | Ticket: flow-performance-and-recovery-hardening | Next: T23 docs-only scoped closeout with explicit residual disposition.
+Phase: Verify | Ticket: flow-performance-and-recovery-hardening/T60 | Next: tagged release verification under `PUBLISHING.md`.
