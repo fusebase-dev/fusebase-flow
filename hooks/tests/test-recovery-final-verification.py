@@ -113,7 +113,7 @@ def validate_bash(raw: str) -> Path:
 
 
 def selection(raw: str) -> str:
-    if raw not in {"settings-wiring", "status-writer"}:
+    if raw not in {"settings-wiring", "status-writer", "t50"}:
         raise argparse.ArgumentTypeError(f"unknown selection: {raw}")
     return raw
 
@@ -340,6 +340,134 @@ def settings_wiring_check() -> tuple[str, str]:
     )
 
 
+def intent_call(bash: Path, root: Path, command: str) -> subprocess.CompletedProcess[str]:
+    lib = SOURCE_ROOT / "hooks/local/lib/hook-wiring-intent.sh"
+    return subprocess.run(
+        [str(bash), "-c", f'. "$1"; {command}', "t50-intent",
+         shell_path(lib), shell_path(root)],
+        text=True, capture_output=True, timeout=20, shell=False,
+    )
+
+
+def t50_intent_check(bash: Path) -> str:
+    with tempfile.TemporaryDirectory(prefix="flow-t50-intent-") as raw:
+        root = Path(raw).resolve()
+        for name in ("pre-commit", "commit-msg"):
+            source = root / "hooks/git" / name
+            target = root / ".git/hooks" / name
+            source.parent.mkdir(parents=True, exist_ok=True)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            source.write_bytes(f"#!/bin/sh\n# {name}\n".encode())
+            shutil.copyfile(source, target)
+        result = intent_call(
+            bash, root,
+            'ffhc_hwi_write "$2" true "claude_settings,git_hooks" && '
+            'ffhc_hwi_git_proven "$2" && '
+            'ffhc_hwi_set_settings_unresolved "$2" true && '
+            'ffhc_hwi_write "$2" true "claude_settings,git_hooks" && '
+            'ffhc_hwi_settings_unresolved "$2"',
+        )
+        if result.returncode:
+            raise AssertionError(f"receipt/uncertainty setup failed: {result.stderr}")
+        marker_path = root / "state/audit/flow-hook-wiring-intent.json"
+        marker = json.loads(marker_path.read_text(encoding="utf-8"))
+        if set(marker.get("git_hook_receipt", {})) != {"pre-commit", "commit-msg"}:
+            raise AssertionError("explicit installation did not record both Git-hook proofs")
+        for name in ("pre-commit", "commit-msg"):
+            (root / ".git/hooks" / name).unlink()
+        if intent_call(bash, root, 'ffhc_hwi_git_proven "$2"').returncode:
+            raise AssertionError("prior Git-hook proof did not survive target loss")
+        marker.pop("git_hook_receipt")
+        marker_path.write_text(json.dumps(marker), encoding="utf-8")
+        if intent_call(bash, root, 'ffhc_hwi_git_proven "$2"').returncode == 0:
+            raise AssertionError("surface intent without installed-hook proof authorized auto restore")
+        if intent_call(bash, root, 'ffhc_hwi_settings_unresolved "$2"').returncode:
+            raise AssertionError("external settings uncertainty did not persist across processes")
+        result = intent_call(bash, root, 'ffhc_hwi_set_settings_unresolved "$2" false')
+        if result.returncode or intent_call(bash, root, 'ffhc_hwi_settings_unresolved "$2"').returncode == 0:
+            raise AssertionError("explicit disposition did not clear settings uncertainty")
+    return (
+        "PASS: T50 automatic Git restoration requires a prior two-hook receipt\n"
+        "PASS: T50 external settings uncertainty persists until explicit disposition"
+    )
+
+
+def t50_overlay_check(bash: Path) -> str:
+    preflight = load(SOURCE_ROOT / "hooks/local/lib/recovery-preflight.py", "t50_preflight")
+    verifier = load(SOURCE_ROOT / "hooks/local/lib/recovery-verify.py", "t50_verifier")
+    with tempfile.TemporaryDirectory(prefix="flow-t50-overlay-") as raw:
+        root = Path(raw).resolve()
+        overlay_dir = root / "hooks/local/fusebase-flow-overlays"
+        library_dir = root / "hooks/local/lib"
+        overlay_dir.mkdir(parents=True)
+        library_dir.mkdir(parents=True)
+        for name in ("overlay-block-replace.py", "agents-md-overlay.md", "claude-md-overlay.md"):
+            shutil.copyfile(SOURCE_ROOT / "hooks/local/fusebase-flow-overlays" / name, overlay_dir / name)
+        shutil.copyfile(SOURCE_ROOT / "hooks/local/lib/flow-recovery-plan.sh", library_dir / "flow-recovery-plan.sh")
+        agents_template = (overlay_dir / "agents-md-overlay.md").read_bytes()
+        claude_template = (overlay_dir / "claude-md-overlay.md").read_bytes()
+        agents = root / "AGENTS.md"
+        claude = root / "CLAUDE.md"
+        agents.write_bytes(b"consumer agents\n" + agents_template + agents_template)
+        claude.write_bytes(b"consumer claude\n" + claude_template)
+        before = {path: path.read_bytes() for path in (agents, claude)}
+        try:
+            preflight.validate_overlays(root, False)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("invalid duplicate overlay marker passed preflight")
+        if any(path.read_bytes() != content for path, content in before.items()):
+            raise AssertionError("invalid-marker preflight changed a target")
+
+        agents.write_bytes(b"consumer agents\n" + agents_template)
+        rows = preflight.validate_overlays(root, False)
+        plan = {
+            "schema_version": 1, "plan_id": "t50-overlay",
+            "surfaces": list(verifier.SURFACES),
+            "options": {"wire_hooks": False, "restore_git_hooks": False},
+            "overlays": rows, "targets": [],
+        }
+        positive = verifier.verify(root, plan)
+        if positive["failures"]:
+            raise AssertionError(f"canonical overlay control failed: {positive}")
+        agents.write_bytes(b"mutated external\n" + agents_template)
+        mutated = verifier.verify(root, plan)
+        if "agents_overlay" not in mutated["uncertain_surfaces"]:
+            raise AssertionError("external byte mutation escaped final verification")
+        bad_plan = copy.deepcopy(plan)
+        bad_plan["surfaces"][-1] = "commands\r"
+        try:
+            verifier.verify(root, bad_plan)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("CR-suffixed surface identifier passed final verification")
+
+        transport = copy.deepcopy(plan)
+        transport["surfaces"][-1] = "commands\r"
+        result = write_status(root, transport, list(verifier.SURFACES), [], bash)
+        if result.returncode:
+            raise AssertionError(f"CR transport normalization failed: {result.stderr}")
+        status_path = root / "state/audit/flow-recovery-status.json"
+        status = json.loads(status_path.read_text(encoding="utf-8"))
+        if status["planned_surfaces"] != verifier.SURFACES:
+            raise AssertionError("status persisted non-canonical surface identifiers")
+        previous = status_path.read_bytes()
+        transport["surfaces"][-1] = "unknown"
+        result = write_status(root, transport, list(verifier.SURFACES), [], bash)
+        if result.returncode == 0 or status_path.read_bytes() != previous:
+            raise AssertionError("unknown surface changed the recovery status")
+    return (
+        "PASS: T50 invalid overlay marker aborts preflight with zero target writes\n"
+        "PASS: T50 pinned overlay detects external mutation and enforces exact surfaces"
+    )
+
+
+def t50_check(bash: Path) -> tuple[str, str]:
+    return t50_intent_check(bash) + "\n" + t50_overlay_check(bash), ""
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root")
@@ -358,6 +486,10 @@ def main() -> int:
         if args.only == "status-writer":
             stage(stage_file, "status-writer", lambda: status_writer_check(bash))
             print("PARTIAL/NON-ATTESTING: status-writer selection only")
+            return 0
+        if args.only == "t50":
+            stage(stage_file, "t50", lambda: t50_check(bash))
+            print("PARTIAL/NON-ATTESTING: T50 risk group only")
             return 0
         if not args.root or not args.backup:
             raise ValueError("--root and --backup are required without --only")

@@ -64,29 +64,49 @@ ffhc_hwi_write() {
   MSYS2_ENV_CONV_EXCL=FFHC_HWI_ROOT FFHC_HWI_ROOT="$root" \
   FFHC_HWI_ENABLED="$enabled" FFHC_HWI_SURFACES="$surfaces" \
     ffhc_hwi_py -c '
-import json, os, pathlib, tempfile
+import hashlib, json, os, pathlib, tempfile
 path = pathlib.Path(os.sys.argv[1])
 path.parent.mkdir(parents=True, exist_ok=True)
 enabled = os.environ["FFHC_HWI_ENABLED"] == "true"
 surfaces = [item for item in os.environ["FFHC_HWI_SURFACES"].split(",") if item]
+current = None
 if path.is_file():
     try:
         current = json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         current = None
-    if isinstance(current, dict) and current.get("schema_version") == 2 \
-            and current.get("enabled") == enabled \
-            and current.get("repo_root") == os.environ["FFHC_HWI_ROOT"] \
-            and current.get("surfaces") == surfaces:
-        raise SystemExit
+unresolved = current.get("external_settings_unresolved", False) \
+    if isinstance(current, dict) else False
+receipt = current.get("git_hook_receipt") if isinstance(current, dict) else None
+root = pathlib.Path(os.environ["FFHC_HWI_ROOT"])
+if "git_hooks" in surfaces:
+    installed = {}
+    for name in ("pre-commit", "commit-msg"):
+        source, target = root / "hooks/git" / name, root / ".git/hooks" / name
+        if source.is_file() and target.is_file() and not target.is_symlink() \
+                and source.read_bytes() == target.read_bytes():
+            installed[name] = hashlib.sha256(target.read_bytes()).hexdigest()
+    if len(installed) == 2:
+        receipt = installed
+elif not enabled:
+    receipt = None
 doc = {
     "schema_version": 2,
     "enabled": enabled,
     "repo_root": os.environ["FFHC_HWI_ROOT"],
     "surfaces": surfaces,
+    "external_settings_unresolved": bool(unresolved),
     "updated_at": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
     "written_by": "post-fusebase-update.sh",
 }
+if isinstance(receipt, dict):
+    doc["git_hook_receipt"] = receipt
+comparable = dict(doc)
+comparable.pop("updated_at")
+old = dict(current) if isinstance(current, dict) else {}
+old.pop("updated_at", None)
+if old == comparable:
+    raise SystemExit
 fd, tmp = tempfile.mkstemp(prefix=path.name + ".", dir=path.parent)
 with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
     json.dump(doc, handle, indent=2)
@@ -205,6 +225,50 @@ if doc["schema_version"] == 1:
 else:
     print("\n".join(doc["surfaces"]))
 ' "$path" 2>/dev/null
+}
+
+ffhc_hwi_git_proven() {
+  local root="$1" path="$1/$FFHC_HWI_REL"
+  [ "$(ffhc_hwi_state "$root")" = "ENABLED" ] || return 1
+  ffhc_hwi_py -c '
+import json, re, sys
+doc = json.load(open(sys.argv[1], encoding="utf-8"))
+receipt = doc.get("git_hook_receipt")
+expected = {"pre-commit", "commit-msg"}
+valid = isinstance(receipt, dict) and set(receipt) == expected \
+    and all(isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value)
+            for value in receipt.values())
+raise SystemExit(0 if "git_hooks" in doc.get("surfaces", []) and valid else 1)
+' "$path" 2>/dev/null
+}
+
+ffhc_hwi_settings_unresolved() {
+  local root="$1" path="$1/$FFHC_HWI_REL"
+  [ "$(ffhc_hwi_state "$root")" = "ENABLED" ] || return 1
+  ffhc_hwi_py -c '
+import json, sys
+doc = json.load(open(sys.argv[1], encoding="utf-8"))
+raise SystemExit(0 if doc.get("external_settings_unresolved") is True else 1)
+' "$path" 2>/dev/null
+}
+
+ffhc_hwi_set_settings_unresolved() {
+  local root="$1" unresolved="$2" path="$1/$FFHC_HWI_REL"
+  [ "$(ffhc_hwi_state "$root")" = "ENABLED" ] || return 1
+  FFHC_HWI_UNRESOLVED="$unresolved" ffhc_hwi_py -c '
+import json, os, pathlib, tempfile
+path = pathlib.Path(os.sys.argv[1])
+doc = json.loads(path.read_text(encoding="utf-8"))
+value = os.environ["FFHC_HWI_UNRESOLVED"] == "true"
+if doc.get("external_settings_unresolved", False) is value:
+    raise SystemExit
+doc["external_settings_unresolved"] = value
+doc["updated_at"] = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+fd, tmp = tempfile.mkstemp(prefix=path.name + ".", dir=path.parent)
+with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
+    json.dump(doc, handle, indent=2); handle.write("\n"); handle.flush(); os.fsync(handle.fileno())
+os.replace(tmp, path)
+' "$path"
 }
 
 # ffhc_hwi_wired <root> — 0 iff .claude/settings.json carries the canonical Flow PreToolUse

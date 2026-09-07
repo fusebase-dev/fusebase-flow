@@ -21,10 +21,19 @@ import datetime, hashlib, json, os, pathlib, tempfile
 path = pathlib.Path(os.sys.argv[1])
 path.parent.mkdir(parents=True, exist_ok=True)
 now = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-applied = [x for x in os.environ["FFRP_APPLIED_ENV"].split(",") if x]
-verified = [x for x in os.environ["FFRP_VERIFIED_ENV"].split(",") if x]
-uncertain = [x for x in os.environ["FFRP_UNCERTAIN_ENV"].split(",") if x]
-planned = [x for x in os.environ["FFRP_PLANNED_ENV"].split(",") if x]
+allowed = ["skill_mirrors", "agent_mirrors", "agents_overlay", "claude_overlay",
+           "claude_settings", "git_hooks", "health_skill", "commands"]
+def surfaces(name):
+    values = [x.rstrip("\r") for x in os.environ[name].split(",") if x.rstrip("\r")]
+    if len(values) != len(set(values)) or any(x not in allowed for x in values):
+        raise SystemExit(f"invalid recovery surface list: {name}")
+    return values
+applied = surfaces("FFRP_APPLIED_ENV")
+verified = surfaces("FFRP_VERIFIED_ENV")
+uncertain = surfaces("FFRP_UNCERTAIN_ENV")
+planned = surfaces("FFRP_PLANNED_ENV")
+if planned != allowed or any(x not in planned for x in applied + verified + uncertain):
+    raise SystemExit("planned recovery surfaces are not the exact canonical set")
 previous = {}
 if path.is_file():
     try:

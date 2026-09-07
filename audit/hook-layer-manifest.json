@@ -114,7 +114,7 @@
     },
     {
       "path": "hooks/local/lib/flow-recovery-plan.sh",
-      "sha256": "b2cb755a54444ca6b69db32fa7b2b2bd802771a3f605564b86828d65cef97681"
+      "sha256": "ff5a4a28f9a4f1b7e7d804d97f28c2555a52c2c40075180b16fc38c3681fc9cb"
     },
     {
       "path": "hooks/local/lib/health-recommendations.sh",
@@ -126,7 +126,7 @@
     },
     {
       "path": "hooks/local/lib/hook-wiring-intent.sh",
-      "sha256": "e95f2aba2a84006945d748adadaf6ca7180df75b8a5e9b7e7da7b576213a5456"
+      "sha256": "9c34e412fae345d99834170c6878ebbaa7b678c2033916305a61581a64a02a03"
     },
     {
       "path": "hooks/local/lib/hook_manifest.py",
@@ -170,11 +170,11 @@
     },
     {
       "path": "hooks/local/lib/recovery-preflight.py",
-      "sha256": "b06204f49253c463f434aa72a8be85762d48456568729b0f92d6f94618415532"
+      "sha256": "31f0bb3e2629ee43a5505c308233031f3f2b6324ca810acbbd5e66ad5ef56e5f"
     },
     {
       "path": "hooks/local/lib/recovery-verify.py",
-      "sha256": "99d9bfdd2914c00215e561ad7c826dd5ddca2a3f1b9a1d3c83fa23aa7a4da401"
+      "sha256": "b5f61831e677e750d66d4a15c9684253f448055cda2252d506676ff0639b61a9"
     },
     {
       "path": "hooks/local/lib/run-with-timeout.sh",
@@ -214,7 +214,7 @@
     },
     {
       "path": "hooks/local/post-fusebase-update.sh",
-      "sha256": "2bfce297ede6c3c2f8ca3ee2db1c7a6f1e08adbe92df5477e8af6fb9005013f8"
+      "sha256": "5d40e010f0d968ce7a81a3647422c99ab79c729685395bc4a926b712c66fea42"
     },
     {
       "path": "hooks/local/preflight.sh",
@@ -841,5 +841,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "5734afec1283f3ac77a89bd1085601fa8b8a1310804c87793b8830469dfcd5b1"
+  "manifest_self_sha256": "d70aa849d80ebbb29a552a5b6e8ae0115169797e0861935d54ed1f2962280068"
 }

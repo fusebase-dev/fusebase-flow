@@ -4,12 +4,19 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import importlib.util
 import json
 import os
 import subprocess
 from pathlib import Path
 from typing import Any
+
+
+SURFACES = [
+    "skill_mirrors", "agent_mirrors", "agents_overlay", "claude_overlay",
+    "claude_settings", "git_hooks", "health_skill", "commands",
+]
 
 
 def native_path(raw: str) -> Path:
@@ -71,15 +78,20 @@ def verify_overlays(root: Path, plan: dict[str, Any], failures: dict[str, list[s
     planned = {row["surface"]: row for row in plan["overlays"]}
     for name, (surface, heading, legacy, _required) in specs.items():
         target = root / name
-        backup = planned.get(name, {}).get("backup", "")
-        if backup:
-            reason = exact_file(root / backup, target)
-            if reason:
-                failures.setdefault(surface, []).append(
-                    f"{name}: restored provider bytes do not match {backup}: {reason}"
-                )
+        row = planned.get(name)
+        if not isinstance(row, dict):
+            failures.setdefault(surface, []).append(f"{name}: missing overlay plan row")
+            continue
+        expected = row.get("expected_sha256")
+        if not isinstance(expected, str) or len(expected) != 64:
+            failures.setdefault(surface, []).append(f"{name}: missing pinned expected bytes")
+            continue
         try:
             data = target.read_bytes()
+            if hashlib.sha256(data).hexdigest() != expected:
+                failures.setdefault(surface, []).append(
+                    f"{name}: canonical overlay or preserved external bytes differ from the plan"
+                )
             headings = tuple(item.encode() for item in (heading, *legacy))
             helper._owned_span(data, headings, allow_legacy=False)
         except (OSError, ValueError) as exc:
@@ -143,11 +155,13 @@ def verify_git(root: Path, plan: dict[str, Any], failures: dict[str, list[str]])
 
 
 def verify(root: Path, plan: dict[str, Any]) -> dict[str, Any]:
+    planned = plan.get("surfaces")
+    if planned != SURFACES:
+        raise ValueError("recovery plan surfaces are not the exact canonical set")
     failures = verify_targets(root, plan)
     verify_overlays(root, plan, failures)
     verify_settings(root, plan, failures)
     verify_git(root, plan, failures)
-    planned = plan["surfaces"]
     verified = [surface for surface in planned if surface not in failures]
     return {
         "schema_version": 1,

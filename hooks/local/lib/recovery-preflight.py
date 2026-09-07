@@ -194,6 +194,25 @@ def verified_provider_backup(root: Path, name: str, overlay: Any, headings: tupl
     return "", "no ownership-verified provider backup"
 
 
+def expected_overlay_bytes(
+    original: bytes, template_bytes: bytes, overlay: Any,
+    headings: tuple[bytes, ...], canonical: bytes,
+) -> tuple[bytes, str]:
+    matches = [match for heading in headings for match in overlay._line_matches(original, (heading,))]
+    if not matches:
+        return original + template_bytes, "append"
+    start, end, legacy = overlay._owned_span(original, headings, allow_legacy=True)
+    template_start, template_end, _ = overlay._owned_span(
+        template_bytes, (canonical,), allow_legacy=False
+    )
+    effective = overlay._effective_template(
+        original[start:end], template_bytes[template_start:template_end],
+        overlay._newline_style(original),
+    )
+    expected = original[:start] + effective + original[end:]
+    return expected, "refresh-needed" if legacy or expected != original else "current"
+
+
 def validate_overlays(root: Path, refresh: bool) -> list[dict[str, str]]:
     helper_path = root / "hooks/local/fusebase-flow-overlays/overlay-block-replace.py"
     overlay = load_module(helper_path, "flow_overlay_preflight")
@@ -214,22 +233,30 @@ def validate_overlays(root: Path, refresh: bool) -> list[dict[str, str]]:
         backup = ""
         backup_error = ""
         headings = tuple(x.encode() for x in (heading, *legacy))
+        canonical = heading.encode()
+        template_bytes = template.read_bytes()
+        expected: bytes | None = None
         if target.is_file():
             data = target.read_bytes()
-            present = any(overlay._line_matches(data, (candidate,)) for candidate in headings)
-            if present and refresh:
-                state = overlay.replace_overlay(
-                    target, template, heading, legacy, target.with_suffix(".unused"),
-                    validate_only=True,
-                )
-            else:
-                state = "present" if present else "append"
+            expected, canonical_state = expected_overlay_bytes(
+                data, template_bytes, overlay, headings, canonical
+            )
+            state = canonical_state if refresh else (
+                "present" if canonical_state != "append" else "append"
+            )
         elif not target.exists():
             backup, backup_error = verified_provider_backup(root, target_name, overlay, headings)
             if backup:
                 state = "restore-backup"
-        rows.append({"surface": target_name, "state": state, "backup": backup,
-                     "backup_error": backup_error})
+                original = (root / backup).read_bytes()
+                expected, _ = expected_overlay_bytes(
+                    original, template_bytes, overlay, headings, canonical
+                )
+        rows.append({
+            "surface": target_name, "state": state, "backup": backup,
+            "backup_error": backup_error,
+            "expected_sha256": hashlib.sha256(expected).hexdigest() if expected is not None else "",
+        })
     return rows
 
 
@@ -282,7 +309,7 @@ def build_plan(root: Path, wire: bool, restore_git: bool, refresh: bool) -> dict
             for row in plan["targets"]
         ],
         "operations": plan["operations"],
-        "overlays": [row["surface"] for row in plan["overlays"]],
+        "overlays": plan["overlays"],
     }
     identity = hashlib.sha256(json.dumps(identity_input, sort_keys=True).encode()).hexdigest()
     return {**plan, "plan_id": identity}

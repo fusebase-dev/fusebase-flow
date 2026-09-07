@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "3d837dcb1d8a5027862e12482cc7dcda4fcaafbeb491858ed6ea0dab49e7dc73"
+      "sha256": "e85710f4df9735cb6bfc6db59d2944a89ce653b989341e8f75ffba3416a574cb"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -502,7 +502,7 @@
     },
     {
       "path": "hooks/local/lib/flow-recovery-plan.sh",
-      "sha256": "b2cb755a54444ca6b69db32fa7b2b2bd802771a3f605564b86828d65cef97681"
+      "sha256": "ff5a4a28f9a4f1b7e7d804d97f28c2555a52c2c40075180b16fc38c3681fc9cb"
     },
     {
       "path": "hooks/local/lib/health-recommendations.sh",
@@ -514,7 +514,7 @@
     },
     {
       "path": "hooks/local/lib/hook-wiring-intent.sh",
-      "sha256": "e95f2aba2a84006945d748adadaf6ca7180df75b8a5e9b7e7da7b576213a5456"
+      "sha256": "9c34e412fae345d99834170c6878ebbaa7b678c2033916305a61581a64a02a03"
     },
     {
       "path": "hooks/local/lib/hook_manifest.py",
@@ -558,11 +558,11 @@
     },
     {
       "path": "hooks/local/lib/recovery-preflight.py",
-      "sha256": "b06204f49253c463f434aa72a8be85762d48456568729b0f92d6f94618415532"
+      "sha256": "31f0bb3e2629ee43a5505c308233031f3f2b6324ca810acbbd5e66ad5ef56e5f"
     },
     {
       "path": "hooks/local/lib/recovery-verify.py",
-      "sha256": "99d9bfdd2914c00215e561ad7c826dd5ddca2a3f1b9a1d3c83fa23aa7a4da401"
+      "sha256": "b5f61831e677e750d66d4a15c9684253f448055cda2252d506676ff0639b61a9"
     },
     {
       "path": "hooks/local/lib/run-with-timeout.sh",
@@ -602,7 +602,7 @@
     },
     {
       "path": "hooks/local/post-fusebase-update.sh",
-      "sha256": "2bfce297ede6c3c2f8ca3ee2db1c7a6f1e08adbe92df5477e8af6fb9005013f8"
+      "sha256": "5d40e010f0d968ce7a81a3647422c99ab79c729685395bc4a926b712c66fea42"
     },
     {
       "path": "hooks/local/preflight.sh",
@@ -1190,7 +1190,7 @@
     },
     {
       "path": "hooks/tests/test-recovery-final-verification.py",
-      "sha256": "e15b95de4a56588ab2cf58ae6d563322e4faab37d4d2bb82fc884e0511c0c9b7"
+      "sha256": "2ad0013ee3f2253926b4b1ba2e16ece2f65d2fe3578dce0ebf4e2a98b1c86ca7"
     },
     {
       "path": "hooks/tests/test-recovery-hint-honesty.sh",
@@ -1493,5 +1493,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "6904724976390ebd8cefbcd5398a065224223fb4ce13a03146d4677db931ad07"
+  "manifest_self_sha256": "dc1d4b7ed6fb11eee1f6c7abce3e05f958d37f6c2bfb05a2e1c970e0805dd5fc"
 }

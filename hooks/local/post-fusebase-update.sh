@@ -81,11 +81,18 @@ ff_read_verify_fields() {
   python3 -I -S -c '
 import json, sys
 value = json.load(open(sys.argv[1], encoding="utf-8"))
+allowed = {"skill_mirrors", "agent_mirrors", "agents_overlay", "claude_overlay",
+           "claude_settings", "git_hooks", "health_skill", "commands"}
+seen = []
 for name in ("verified_surfaces", "uncertain_surfaces"):
     items = value[name]
-    if not isinstance(items, list) or any(not isinstance(item, str) for item in items):
+    if not isinstance(items, list) or len(items) != len(set(items)) \
+            or any(not isinstance(item, str) or item not in allowed for item in items):
         raise SystemExit(1)
+    seen.extend(items)
     print(name + "=" + ",".join(items))
+if set(seen) != allowed or len(seen) != len(allowed):
+    raise SystemExit(1)
 ' "$1"
 }
 
@@ -184,8 +191,18 @@ if [ "$WIRE_HOOKS_REQUESTED" -eq 0 ] && [ "$HWI_STATE" = "ENABLED" ]; then
     AUTO_RESTORE=1
   fi
   if ff_text_has_exact_line "$HWI_SURFACES" "git_hooks"; then
-    RESTORE_GIT_HOOKS=1
+    if command -v ffhc_hwi_git_proven >/dev/null 2>&1 && ffhc_hwi_git_proven "$ROOT"; then
+      RESTORE_GIT_HOOKS=1
+    else
+      WARNINGS+=("Git-hook intent has no prior installed-hook receipt; automatic installation was refused (use --wire-hooks to activate explicitly)")
+      RECOVERY_PARTIAL_REASON="automatic Git-hook restoration lacks prior ownership proof"
+    fi
   fi
+fi
+if [ "$WIRE_HOOKS_REQUESTED" -eq 0 ] \
+    && command -v ffhc_hwi_settings_unresolved >/dev/null 2>&1 \
+    && ffhc_hwi_settings_unresolved "$ROOT"; then
+  RECOVERY_PARTIAL_REASON="prior external settings bytes remain unresolved; restore them or run --wire-hooks as explicit disposition"
 fi
 
 if [ ! -d "$OVERLAYS" ]; then
@@ -477,6 +494,10 @@ if [ "$WIRE_HOOKS" -eq 1 ] && [ ! -f .claude/settings.json ]; then
   printf '{}\n' > "$SETTINGS_SEED"
   mv "$SETTINGS_SEED" .claude/settings.json
   RECOVERY_PARTIAL_REASON="created minimal Flow-only settings; prior external settings bytes were unavailable"
+  if [ "$AUTO_RESTORE" -eq 1 ] && command -v ffhc_hwi_set_settings_unresolved >/dev/null 2>&1; then
+    ffhc_hwi_set_settings_unresolved "$ROOT" true \
+      || WARNINGS+=("could not persist unresolved external settings state")
+  fi
   ACTIONS_TAKEN+=(".claude/settings.json: created minimal Flow-only settings from valid intent")
 fi
 if [ "$WIRE_HOOKS" -ne 1 ]; then
@@ -516,6 +537,12 @@ else
     esac
   fi
   if [ "$MERGE_EXIT" -eq 0 ]; then
+    if [ "$WIRE_HOOKS_REQUESTED" -eq 1 ] \
+        && command -v ffhc_hwi_set_settings_unresolved >/dev/null 2>&1 \
+        && [ "$(ffhc_hwi_state "$ROOT")" = "ENABLED" ]; then
+      ffhc_hwi_set_settings_unresolved "$ROOT" false \
+        || WARNINGS+=("could not record explicit disposition of prior external settings uncertainty")
+    fi
     if [ "$HWI_RC" = "0" ]; then
       ACTIONS_TAKEN+=(".claude/settings.json: recorded Flow hook-wiring intent ($FFHC_HWI_REL)")
     fi
@@ -694,6 +721,8 @@ if [ -s "$VERIFY_RESULT" ]; then
   VERIFY_FIELDS_RC=$?
   set -e
   mapfile -t VERIFY_FIELDS <<< "$VERIFY_FIELDS_OUTPUT"
+  VERIFY_FIELDS=("${VERIFY_FIELDS[0]-}" "${VERIFY_FIELDS[1]-}")
+  VERIFY_FIELDS=("${VERIFY_FIELDS[0]%$'\r'}" "${VERIFY_FIELDS[1]%$'\r'}")
   if [ "$VERIFY_FIELDS_RC" -eq 0 ] && [ "${#VERIFY_FIELDS[@]}" -eq 2 ] \
       && [[ "${VERIFY_FIELDS[0]}" == verified_surfaces=* ]] \
       && [[ "${VERIFY_FIELDS[1]}" == uncertain_surfaces=* ]]; then
