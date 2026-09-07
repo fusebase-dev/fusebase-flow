@@ -15,12 +15,12 @@
 
 set -uo pipefail
 
-t32_only=0; t33_only=0; t32_case=all
+t32_only=0; t33_only=0; selection_only=0; t32_case=all
 case "$#" in
   0) ;;
   2)
     [ "$1" = "--only" ] || exit 2
-    case "$2" in t32) t32_only=1 ;; t33) t33_only=1 ;; *) exit 2 ;; esac
+    case "$2" in t32) t32_only=1 ;; t33) t33_only=1 ;; selection) selection_only=1 ;; *) exit 2 ;; esac
     ;;
   3)
     [ "$1" = "--only" ] && [ "$2" = "t32" ] || exit 2
@@ -43,7 +43,32 @@ finish() { echo "[test-ff-only] $pass/$((pass + fail)) PASS"; exit $fail; }
 # Source the strict PASS classifiers the health engine uses — the fail-closed proof.
 . "$ROOT/hooks/local/lib/run-with-timeout.sh"
 
+write_selection_bounds() {
+    # These fixtures test dispatch/results; real timeout and process cleanup have their own phases.
+    cat > "$1/hooks/local/lib/run-with-timeout.sh" <<'SH'
+ffhc_detect_timeout() { FFHC_TIMEOUT_BIN=""; }
+ffhc_is_msys() { return 1; }
+ffhc_timed_out() { [ "${1:-}" = 124 ] || [ "${1:-}" = 137 ]; }
+ffhc_run_bounded() {
+  local capture
+  capture="$(mktemp)" || { FFHC_LAST_OUT="capture setup failed"; FFHC_LAST_RC=125; return 0; }
+  shift; "$@" > "$capture" 2>&1; FFHC_LAST_RC=$?
+  FFHC_LAST_OUT="$(<"$capture")"; rm -f "$capture"
+}
+SH
+}
+
 if [ "$t32_only" -eq 0 ] && [ "$t33_only" -eq 0 ]; then
+
+SELECTIONREPO="$(mktemp -d)"
+trap 'rm -rf "$SELECTIONREPO"' EXIT
+mkdir -p "$SELECTIONREPO/hooks/tests" "$SELECTIONREPO/hooks/local/lib" "$SELECTIONREPO/state/audit"
+git init -q "$SELECTIONREPO"
+write_selection_bounds "$SELECTIONREPO"
+printf 'echo "PASS: newline-preserve selection-fixture"\n' > "$SELECTIONREPO/hooks/tests/test-newline-preserve.sh"
+FULL_RESULTS="$SELECTIONREPO/state/audit/hook-test-results.md"
+printf 'retained full result\n' > "$FULL_RESULTS"
+cd "$SELECTIONREPO" || exit 1
 
 # Canonical tag count (FF_LIST is the discovery source). A scoped run to ONE tag must
 # skip (count - 1) phases — robust to future tag additions, no hardcoded 19/20.
@@ -63,7 +88,7 @@ fi
 sc_out="$(FF_ONLY=newline-preserve bash "$RT" 2>/tmp/ff-only-sc.$$.err)"; sc_rc=$?
 sc_err="$(cat /tmp/ff-only-sc.$$.err 2>/dev/null)"; rm -f "/tmp/ff-only-sc.$$.err"
 
-starts="$(printf '%s\n' "$sc_err" | grep -c '^\[run-tests\] starting ')"
+starts="$(printf '%s\n' "$sc_err" | grep -c '^\[run-tests\] START tag=newline-preserve ')"
 skips="$(printf '%s\n' "$sc_out" | grep -c '^SKIP (FF_ONLY):')"
 want_skips=$((TAG_COUNT - 1))
 
@@ -93,7 +118,7 @@ fi
 before_hash=""; [ -f "$FULL_RESULTS" ] && before_hash="$(sha256sum "$FULL_RESULTS" 2>/dev/null | cut -d' ' -f1)"
 FF_ONLY=newline-preserve bash "$RT" >/dev/null 2>&1
 after_hash=""; [ -f "$FULL_RESULTS" ] && after_hash="$(sha256sum "$FULL_RESULTS" 2>/dev/null | cut -d' ' -f1)"
-if [ -f "$ROOT/state/audit/hook-test-results-scoped.md" ]; then
+if [ -f "$SELECTIONREPO/state/audit/hook-test-results-scoped.md" ]; then
   ok "scoped-results-file-written"
 else
   bad "scoped-results-file-written" "hook-test-results-scoped.md not created by a scoped run"
@@ -112,25 +137,14 @@ FF_ONLY=this-tag-does-not-exist bash "$RT" >/dev/null 2>&1; bg_rc=$?
 FF_ONLY=" , " bash "$RT" >/dev/null 2>&1; em_rc=$?
 [ "$em_rc" -eq 2 ] && ok "empty-selection-exit-2" || bad "empty-selection-exit-2" "rc=$em_rc (expected 2)"
 
-# --- A scoped run WITH a real failure still exits non-zero (fail-closed on failure,
-#     not just on the summary shape). Inject a temporary always-fail fixture whose
-#     expected decision can never match, scope to the fixtures phase, assert rc != 0.
-#     TRIPWIRE: the injected fixture MUST live in the fixtures dir that run-tests.sh
-#     globs ($ROOT/hooks/tests/fixtures) so the scoped fixtures phase discovers it — it
-#     cannot be relocated to an isolated tmpdir without changing run-tests' TESTS_DIR
-#     discovery. So it is LEAK-PROOFED with a trap that removes it on ANY exit/signal
-#     (a bare `rm -f` after the run leaks the fixture if the script dies mid-run, and a
-#     stray zz-*.json then poisons every future full-gate fixture loop). ---
-BADFIX="$ROOT/hooks/tests/fixtures/zz-ff-only-injected-fail.json"
-trap 'rm -f "$BADFIX"' EXIT
-cat > "$BADFIX" <<'JSON'
-{"_test":"ff-only injected failure","_handler":"pre_tool_use.py","_expected_decision":"deny","tool_name":"Read","tool_input":{"file_path":"README.md"}}
-JSON
-FF_ONLY=fixtures bash "$RT" >/dev/null 2>&1; inj_rc=$?
-rm -f "$BADFIX"
-trap - EXIT
+printf 'echo "FAIL: newline-preserve injected-failure"\nexit 1\n' > "$SELECTIONREPO/hooks/tests/test-newline-preserve.sh"
+FF_ONLY=newline-preserve bash "$RT" >/dev/null 2>&1; inj_rc=$?
 [ "$inj_rc" -ne 0 ] && ok "scoped-with-injected-failure-exits-nonzero (rc=$inj_rc)" \
   || bad "scoped-with-injected-failure-exits-nonzero" "scoped run with an injected failing fixture returned rc 0 (must be non-zero)"
+
+cd "$ROOT" || exit 1
+rm -rf "$SELECTIONREPO"
+trap - EXIT
 
 # --- emit_phase_diagnostics (C4/FR-27): a FAILING phase's stderr-only reason must reach BOTH the
 #     harness's composed stderr and the results artifact. ffhc_run_bounded captures the phase's
@@ -143,7 +157,7 @@ trap - EXIT
 DIAGREPO="$(mktemp -d)"
 mkdir -p "$DIAGREPO/hooks/tests" "$DIAGREPO/hooks/local/lib"
 cp "$RT" "$DIAGREPO/hooks/tests/run-tests.sh"
-cp "$ROOT/hooks/local/lib/run-with-timeout.sh" "$DIAGREPO/hooks/local/lib/"
+write_selection_bounds "$DIAGREPO"
 ( cd "$DIAGREPO" && git init -q )
 DIAG_SENTINEL="FFDIAG-STDERR-ONLY-$$"
 cat > "$DIAGREPO/hooks/tests/test-boot-size.sh" <<EOF
@@ -173,17 +187,14 @@ else
 fi
 rm -rf "$DIAGREPO"
 
-# --- Opt-in-only tier (architecture-review step 2; registry emptied at step 7) -----------------
-# The maintainer opt-in tier is diagnostic-only: a member must be ABSENT from the default set and
-# still reachable by name. cli-flow-profile was its one member and was deleted with the
-# instrumentation seam it drove, so the shipped registry (FF_OPTIN_TAGS) is now EMPTY.
+# Opt-in members must remain absent from required runs and reachable by name.
 # TRIPWIRE: this drives the MECHANISM against a SYNTHETIC member injected into a copied runner,
 # never against whichever diagnostic happens to exist. Asserting on a real member is why deleting
 # one diagnostic would otherwise silently delete the tier's only coverage. If the copy cannot be
 # patched, the rows go RED — a mechanism that could not be driven is not a mechanism that works.
 OPTINREPO="$(mktemp -d)"
 mkdir -p "$OPTINREPO/hooks/tests" "$OPTINREPO/hooks/local/lib"
-cp "$ROOT/hooks/local/lib/run-with-timeout.sh" "$OPTINREPO/hooks/local/lib/"
+write_selection_bounds "$OPTINREPO"
 ( cd "$OPTINREPO" && git init -q )
 OPTIN_RT="$OPTINREPO/hooks/tests/run-tests.sh"
 # Register `optin-probe` as a tag AND as the opt-in registry's only member, and give it a phase.
@@ -195,7 +206,7 @@ OPTIN_RT="$OPTINREPO/hooks/tests/run-tests.sh"
 # exactly what registering release-tag-binding did. Anchor to the tail of the array, not to a
 # neighbouring tag's name.
 sed -e 's/^\(.*\)cli-flow-recovery)$/\1cli-flow-recovery optin-probe)/' \
-    -e 's/^FF_OPTIN_TAGS=()$/FF_OPTIN_TAGS=(optin-probe)/' \
+    -e 's/^FF_OPTIN_TAGS=(.*)$/FF_OPTIN_TAGS=(optin-probe)/' \
     -e '/^run_shell_phase test-run-tests-signal-reap\.sh/i\run_shell_phase test-optin-probe.sh "optin-probe"' \
     "$RT" > "$OPTIN_RT"
 
@@ -252,7 +263,7 @@ rm -rf "$OPTINREPO"
 TIERREPO="$(mktemp -d)"
 mkdir -p "$TIERREPO/hooks/tests" "$TIERREPO/hooks/local/lib"
 cp "$RT" "$TIERREPO/hooks/tests/run-tests.sh"
-cp "$ROOT/hooks/local/lib/run-with-timeout.sh" "$TIERREPO/hooks/local/lib/"
+write_selection_bounds "$TIERREPO"
 sed -i '/^    if \[ ! -f "\$script" \]; then$/,/^    fi$/c\    [ -f "$script" ] || return 0' "$TIERREPO/hooks/tests/run-tests.sh"
 ( cd "$TIERREPO" && git init -q )
 HEAVY_SENTINEL="$TIERREPO/heavy-phase-executed"
@@ -260,10 +271,10 @@ printf 'print("PASS: stub-fixture")\n' > "$TIERREPO/hooks/tests/run_hook_tests.p
 printf '#!/usr/bin/env bash\necho "PASS: module-size stub"\n' > "$TIERREPO/hooks/tests/test-module-size.sh"
 printf '#!/usr/bin/env bash\necho "PASS: health-check-timeout stub"\n' > "$TIERREPO/hooks/tests/test-health-check-timeout.sh"
 printf '#!/usr/bin/env bash\necho "PASS: git-smoke stub"\n' > "$TIERREPO/hooks/tests/test-git-hooks-smoke.sh"
-cat > "$TIERREPO/hooks/tests/test-rule-inventory.sh" <<EOF
+cat > "$TIERREPO/hooks/tests/test-newline-preserve.sh" <<EOF
 #!/usr/bin/env bash
 touch "$HEAVY_SENTINEL"
-echo "PASS: rule-inventory stub"
+echo "PASS: newline-preserve stub"
 EOF
 tier_run() { ( cd "$TIERREPO" && env -u GITHUB_ACTIONS -u CI FF_ONLY= "$@" bash hooks/tests/run-tests.sh 2>/dev/null ); }
 
@@ -314,6 +325,8 @@ rm -f "$HEAVY_SENTINEL"
   || bad "ci-env-takes-the-full-path-without-a-flag" "GITHUB_ACTIONS=true did not force the full set"
 rm -rf "$TIERREPO"
 fi
+
+[ "$selection_only" -eq 0 ] || finish
 
 # (tasks.md T32)
 if [ "$t33_only" -eq 0 ]; then

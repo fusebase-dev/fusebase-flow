@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "ae4c98a0b0fcbdbb3911f9f026387a54d88b48df1dc4b2762e2cab769733e23b"
+      "sha256": "4ae54d2dae61bd3fb10cd0c0ce71e8272155bbc385c2ce5b57abddc24e658b5d"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -994,7 +994,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "82a1ce9579f0d0aaabebc7e34f775d38a0cddbb09c45717fefff91b35c98fee4"
+      "sha256": "794b1fbd1095b775fde03dc1204c13b7789dd8329e4b9e1864fc21a43edd8bbe"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -1074,7 +1074,7 @@
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
-      "sha256": "a309eaa5d5ae90296f29523454a3ff2f9de260efd47f2aebc5f41410c8e352f3"
+      "sha256": "01eecf46ee697b016da382bda5f80b8918dd16a566e102471d4d51f89fa30237"
     },
     {
       "path": "hooks/tests/test-fingerprint-row-per-tag.sh",
@@ -1218,7 +1218,7 @@
     },
     {
       "path": "hooks/tests/test-release-evidence-authority.sh",
-      "sha256": "ea7942106dec8f0c2b40b4336533f4d7c32b36f4396bb53245541cc37050662a"
+      "sha256": "06cdf2305c83b7f053b160358dba7338c91116476dd36e817739493cf55a6a3e"
     },
     {
       "path": "hooks/tests/test-release-tag-binding.sh",
@@ -1290,7 +1290,7 @@
     },
     {
       "path": "hooks/tests/test-validation-instructions.sh",
-      "sha256": "83c6971661fc609f6375072e62474fe672bef961d8438d61f743c38fe09b2c7a"
+      "sha256": "2ae3409dddd7b6d70c1b093a2f0085fab5633ea9be1d16525ca37242045e76ae"
     },
     {
       "path": "hooks/tests/test-validator-evidence.sh",
@@ -1505,5 +1505,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "b058dab0b326c7fb2f736f82bdbb63c0be1c4f30d9f0d8162a15a1981f330573"
+  "manifest_self_sha256": "e5f2a3a35fa70ca6fa23d4a55ae09c1d1f7a21e8cd5f1db1a0c566f5021682fc"
 }

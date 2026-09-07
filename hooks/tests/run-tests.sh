@@ -22,10 +22,8 @@
 #   NOT the strict "[run-tests] N/N PASS" shape, so ffhc_run_tests_pass_ok /
 #   ffhc_count_pass_lines read it as NOT a clean full pass, and its rows go to a separate
 #   file — the canonical hook-test-results.md is never touched by a subset run.
-#   A LOCAL gate report may cite ONLY state/audit/hook-test-results.md — never the -scoped
-#   or -fast file. Unknown or empty FF_ONLY selection => exit 2 (never a "scoped to
-#   nothing" green). Canonical home for this rule: this header +
-#   flow-skills/validation-and-qa/SKILL.md (sub-mode A).
+#   Focused reports prove their named scope; only the full required set produces the
+#   strict full-suite summary. Unknown or empty selections fail (docs/maintainer-testing.md).
 
 set -uo pipefail
 
@@ -81,14 +79,8 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixtur
   upgrade-boundary preboundary-consumed upgrade-repair n5-delivery n6-truthful-base n6-missing-base n6-recover n4-parity-scope recovery-hint install-doc release-authority \
   release-tag-binding fingerprint-rows signal-reap cli-flow-recovery-selectors cli-flow-recovery)
 
-# OPT-IN-ONLY tags: registered and reachable, but NEVER in the default/required set — they run
-# only when named in FF_ONLY. This is the review's "Maintainer opt-in" tier (repeated kill/load
-# stress, profiling, compatibility soak, CI-job reproduction): diagnostic only, never release
-# evidence. Currently EMPTY — cli-flow-profile was its one member and was deleted with the
-# instrumentation seam it drove (architecture-review Q3, step 7). The mechanism stays because
-# the tier stays; test-ff-only.sh drives it against a synthetic tag, so its coverage does not
-# depend on any particular diagnostic existing.
-FF_OPTIN_TAGS=()
+# Diagnostic classification and retained safety coverage: docs/maintainer-testing.md.
+FF_OPTIN_TAGS=(return-budget supersede-primitive rule-inventory startup-context budget-literals history-extraction consumer-benchmark)
 # TRIPWIRE: the +"${…}" guard is required while the registry is EMPTY — under `set -u` a bare
 # "${arr[@]}" on an empty array is an unbound-variable error on bash < 4.4.
 declare -A FF_OPTIN=(); for t in ${FF_OPTIN_TAGS[@]+"${FF_OPTIN_TAGS[@]}"}; do FF_OPTIN[$t]=1; done

@@ -25,7 +25,7 @@ These checks remain available with `FF_ONLY` when their subject changes. They do
 | supersede-primitive | Searches prose for editing advice and retired phrases | Actual recovery preservation/idempotency tests; editorial review on instruction changes |
 | rule-inventory | Instrument for deliberate rule-compression comparisons | Boot/delivery/prohibition checks; run inventory explicitly for rule changes |
 | startup-context | Frozen compression baseline and size comparison | boot-size, prohibition-residency, provider delivery and mirror checks |
-| budget-literals | Consistency of historical prose performance-budget numbers | boot-size retains the implemented structural/size checks |
+| budget-literals | Consistency of performance-budget numbers in live prose | boot-size retains the implemented structural/size checks |
 | history-extraction | One-time migration equivalence against historical Git blobs | Current rule/skill structure and delivery; Git preserves migration history |
 | consumer-benchmark | Comparative profiling/benchmark output | Actual recovery, ownership, no-op and failure scenarios in cli-flow-recovery |
 

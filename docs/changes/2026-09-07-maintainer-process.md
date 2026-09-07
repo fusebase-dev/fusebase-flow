@@ -16,4 +16,15 @@
 
 ## Results
 
-Pending implementation verification. Commands and review result will replace this line; logs remain in `state/audit/`.
+| Task / check | Result |
+|---|---|
+| T62 | `8a3247a`; normal pre-commit passed; project-specific process adopted |
+| T63 validator behavior | `bash hooks/tests/test-validation-instructions.sh`: 5/5; actual helper execution/order and lint/typecheck failure propagation |
+| T63 release graph | `python hooks/tests/lib/workflow_graph_check.py --root .`: 36/36 including negative mutations |
+| T63 selection | `bash hooks/tests/test-ff-only.sh --only selection`: 27/27 under 180s watchdog; `state/audit/T63-selection-focused.log` |
+| T63 registry | 75 registered, 68 required, 7 explicit diagnostics; `state/audit/T63-required-selection.log`, `T63-diagnostic-selection.log` |
+| T63 review | Independent Architect REVIEW_CLEAR after correcting required-tier fixture; `state/audit/T63-independent-review.md` |
+| T63 earlier failure | Broad selector phase interrupted after stale START assertion; `state/audit/T63-selector-tests.log`; changed to isolated synthetic dispatch fixtures, no unchanged broad rerun. Known watchdog processes exited; injected root fixture absent. |
+| T64 | CI configuration/checks in progress; no hosted execution or publication claimed |
+
+No standalone lint/typecheck command is configured for this framework; Python/shell/YAML checks cover the touched languages. Normal Git controls remain active. Comment-policy review: applied (FR-22).
