@@ -95,6 +95,12 @@ If an identifier needs verification (e.g., the dashboard was renamed), note it: 
 
 ---
 
+## Validation scope and budget
+
+Before launching validation, use the changed-risk/AC-to-test ledger in `docs/specs/<slug>/verification-gate.md`; declare the selected rows and expected total budget. Run affected rows only, keep missing/unknown dependencies open, and record broad release-CI coverage as `DEFERRED` or `UNVERIFIED` unless it actually ran. Each selected phase records START/END, canonical tag, elapsed time, rc, and timeout budget; a missing phase, zero result rows, crash, or timeout fails. After an interruption, record a full owned-descendant process scan and clear every survivor; checking only the parent PID is insufficient. A scoped/fast summary never becomes a full-suite or release claim; normal lint/typecheck, secret, protected-path, module-size, and pre-commit checks remain live.
+
+---
+
 ## Tracks (if parallel)
 
 1. **Track A (T<a1>..T<a2>)** — <scope>

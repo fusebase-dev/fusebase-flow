@@ -273,23 +273,18 @@ _ff_sentinel_stop() {
 trap _ff_exit_reap EXIT
 _ff_sentinel_start
 
-# progress <phase>: flush a starting marker to stderr BEFORE the (possibly multi-min)
-# phase runs, so a slow phase is visibly progressing, never mistakable for a freeze.
-progress() { printf '[run-tests] starting %s\n' "$1" >&2; }
+progress() { printf '[run-tests] START tag=%s timeout_budget=%ss label=%s\n' "$1" "$FF_PHASE_TIMEOUT" "$2" >&2; }
 
-# run_bounded_phase <label> CMD...: flush progress, run CMD under ffhc_run_bounded
-# (tempfile capture + T1 strict-scoped reap; FFHC_LAST_WINPID tracks the in-flight
-# child for the EXIT-trap), exposing FFHC_LAST_OUT / FFHC_LAST_RC to the caller. Clears
-# FFHC_LAST_WINPID on return so the EXIT-trap never reaps a completed phase's dead winpid.
 run_bounded_phase() {
-    local label="$1"; shift
-    progress "$label"
+    local tag="$1" label="$2"; shift 2
+    progress "$tag" "$label"
     local _t0=$SECONDS
     FFHC_HEARTBEAT_LABEL="$label"
     ffhc_run_bounded "$FF_PHASE_TIMEOUT" "$@"
     # D14.1: per-phase wall time on STDERR (progress() precedent :112) — stdout parse
     # contracts (strict summary, ^PASS:/^FAIL: counting) stay byte-clean.
-    printf '[run-tests] %s took %ss\n' "$label" "$((SECONDS - _t0))" >&2
+    printf '[run-tests] END tag=%s elapsed=%ss rc=%s timeout_budget=%ss\n' \
+        "$tag" "$((SECONDS - _t0))" "$FFHC_LAST_RC" "$FF_PHASE_TIMEOUT" >&2
     FFHC_LAST_WINPID=""; FFHC_LAST_CHILD_PID=""   # phase returned => child reaped; no stale sweep on exit
 }
 
@@ -368,7 +363,7 @@ if ff_selected fixtures; then
     # PASS:/FAIL: line shapes as the retired fork-loop, plus the synthetic
     # _parse-invariant row. Counted like run_shell_phase (^PASS:/^FAIL:); the
     # bounded phase is one spawn, not 21x(>=3) MSYS spawns.
-    run_bounded_phase "fixture handler tests (single-process)" "$python_bin" "$ROOT/hooks/tests/run_hook_tests.py"
+    run_bounded_phase fixtures "fixture handler tests (single-process)" "$python_bin" "$ROOT/hooks/tests/run_hook_tests.py"
     fx_out="$FFHC_LAST_OUT"; fx_rc=$FFHC_LAST_RC
     echo "$fx_out" | grep -E '^(PASS|FAIL):' || true
     fx_pass="$(echo "$fx_out" | grep -c '^PASS:')"
@@ -380,10 +375,14 @@ if ff_selected fixtures; then
     done < <(echo "$fx_out" | grep -E '^(PASS|FAIL):')
     # Crash guard (same contract as run_shell_phase): a non-zero exit with zero
     # parsed FAIL lines means the runner died before reporting a single fixture.
-    if [ "$fx_rc" -ne 0 ] && [ "$fx_failed" -eq 0 ]; then
+    if [ "$((fx_pass + fx_failed))" -eq 0 ]; then
         total=$((total + 1)); fail=$((fail + 1))
-        echo "FAIL: run_hook_tests.py $(phase_abnormal_label "$fx_rc") (exit $fx_rc) before reporting fixtures"
-        report_rows="$report_rows| run_hook_tests.py | (harness) | FAIL | $(phase_abnormal_label "$fx_rc") with exit $fx_rc, no fixture output |"$'\n'
+        echo "FAIL: run_hook_tests.py exit $fx_rc without reporting fixtures"
+        report_rows="$report_rows| run_hook_tests.py | (harness) | FAIL | exit $fx_rc with no fixture output |"$'\n'
+    elif [ "$fx_rc" -ne 0 ] && [ "$fx_failed" -eq 0 ]; then
+        total=$((total + 1)); fail=$((fail + 1))
+        echo "FAIL: run_hook_tests.py $(phase_abnormal_label "$fx_rc") (exit $fx_rc) after reporting only PASS fixtures"
+        report_rows="$report_rows| run_hook_tests.py | (harness) | FAIL | $(phase_abnormal_label "$fx_rc") with exit $fx_rc after PASS-only output |"$'\n'
     fi
     fx_bad=$fx_failed; [ "$fx_rc" -eq 0 ] || fx_bad=$((fx_bad + 1))
     emit_phase_diagnostics "fixture handler tests" "$fx_out" "$fx_bad"
@@ -396,7 +395,7 @@ MS_TEST="$ROOT/hooks/tests/test-module-size.sh"
 if ! ff_selected module-size; then
     ff_skip_note module-size
 elif [ -f "$MS_TEST" ]; then
-    run_bounded_phase "module-size ratchet" bash "$MS_TEST"
+    run_bounded_phase module-size "module-size ratchet" bash "$MS_TEST"
     ms_out="$FFHC_LAST_OUT"; ms_fail=$FFHC_LAST_RC
     echo "$ms_out" | grep -E '^(PASS|FAIL): module-size' || true
     ms_pass="$(echo "$ms_out" | grep -c '^PASS: module-size')"
@@ -411,14 +410,24 @@ elif [ -f "$MS_TEST" ]; then
     done < <(echo "$ms_out" | grep -E '^(PASS|FAIL): module-size')
     # Crash guard: a non-zero exit with zero parsed FAIL lines means the scenario
     # script died before running (mktemp/cp/syntax) — count it, don't go green.
-    if [ "$ms_fail" -ne 0 ] && [ "$ms_failed" -eq 0 ]; then
+    if [ "$((ms_pass + ms_failed))" -eq 0 ]; then
         total=$((total + 1))
         fail=$((fail + 1))
-        echo "FAIL: test-module-size.sh $(phase_abnormal_label "$ms_fail") (exit $ms_fail) before reporting scenarios"
-        report_rows="$report_rows| test-module-size.sh | (harness) | FAIL | $(phase_abnormal_label "$ms_fail") with exit $ms_fail, no scenario output |"$'\n'
+        echo "FAIL: test-module-size.sh exit $ms_fail without reporting scenarios"
+        report_rows="$report_rows| test-module-size.sh | (harness) | FAIL | exit $ms_fail with no scenario output |"$'\n'
+    elif [ "$ms_fail" -ne 0 ] && [ "$ms_failed" -eq 0 ]; then
+        total=$((total + 1)); fail=$((fail + 1))
+        echo "FAIL: test-module-size.sh $(phase_abnormal_label "$ms_fail") (exit $ms_fail) after reporting only PASS scenarios"
+        report_rows="$report_rows| test-module-size.sh | (harness) | FAIL | $(phase_abnormal_label "$ms_fail") with exit $ms_fail after PASS-only output |"$'\n'
     fi
     ms_bad=$ms_failed; [ "$ms_fail" -eq 0 ] || ms_bad=$((ms_bad + 1))
     emit_phase_diagnostics "module-size ratchet" "$ms_out" "$ms_bad"
+else
+    progress module-size missing
+    printf '[run-tests] END tag=module-size elapsed=0s rc=127 timeout_budget=%ss\n' "$FF_PHASE_TIMEOUT" >&2
+    total=$((total + 1)); fail=$((fail + 1))
+    echo "FAIL: test-module-size.sh missing (selected phase did not execute)"
+    report_rows="$report_rows| test-module-size.sh | (harness) | FAIL | selected phase missing |"$'\n'
 fi
 
 # Phase 3 — health-check bounded-execution + verdict/exit contract scenarios
@@ -430,7 +439,7 @@ HT_ACCOUNTED=0
 if ! ff_selected health-check-timeout; then
     ff_skip_note health-check-timeout
 elif [ -f "$HT_TEST" ]; then
-    run_bounded_phase "health-check-timeout scenarios" bash "$HT_TEST"
+    run_bounded_phase health-check-timeout "health-check-timeout scenarios" bash "$HT_TEST"
     ht_out="$FFHC_LAST_OUT"; ht_rc=$FFHC_LAST_RC
     echo "$ht_out" | grep -E '^(PASS|FAIL): health-check-timeout' || true
     ht_pass="$(echo "$ht_out" | grep -c '^PASS: health-check-timeout')"
@@ -462,6 +471,8 @@ elif [ -f "$HT_TEST" ]; then
     emit_phase_diagnostics "health-check-timeout scenarios" "$ht_out" "$ht_bad"
     HT_ACCOUNTED=1
 else
+    progress health-check-timeout missing
+    printf '[run-tests] END tag=health-check-timeout elapsed=0s rc=127 timeout_budget=%ss\n' "$FF_PHASE_TIMEOUT" >&2
     total=$((total + 1)); fail=$((fail + 1))
     echo "FAIL: test-health-check-timeout.sh missing (selected health dependency did not execute)"
     report_rows="$report_rows| test-health-check-timeout.sh | (harness) | FAIL | selected health dependency missing |"$'\n'
@@ -475,9 +486,16 @@ run_shell_phase() { # run_shell_phase <test-script> <tag>
     local test_name="$1" script="$ROOT/hooks/tests/$1" tag="$2"
     shift 2
     ff_selected "$tag" || { ff_skip_note "$tag"; return 0; }
-    [ -f "$script" ] || return 0
+    if [ ! -f "$script" ]; then
+        progress "$tag" missing
+        printf '[run-tests] END tag=%s elapsed=0s rc=127 timeout_budget=%ss\n' "$tag" "$FF_PHASE_TIMEOUT" >&2
+        total=$((total + 1)); fail=$((fail + 1))
+        echo "FAIL: $test_name missing (selected phase did not execute)"
+        report_rows="$report_rows| $test_name | (harness) | FAIL | selected phase missing |"$'\n'
+        return 0
+    fi
     local out rc p f
-    run_bounded_phase "$tag" bash "$script" "$@"
+    run_bounded_phase "$tag" "$tag" bash "$script" "$@"
     out="$FFHC_LAST_OUT"; rc=$FFHC_LAST_RC
     echo "$out" | grep -E "^(PASS|FAIL): $tag " || true
     p="$(echo "$out" | grep -c "^PASS: $tag ")"
@@ -487,10 +505,14 @@ run_shell_phase() { # run_shell_phase <test-script> <tag>
         name="${line#*: $tag }"; result="${line%%:*}"
         report_rows="$report_rows| $test_name | $name | $result | shell scenario |"$'\n'
     done < <(echo "$out" | grep -E "^(PASS|FAIL): $tag ")
-    if [ "$rc" -ne 0 ] && [ "$f" -eq 0 ]; then
+    if [ "$((p + f))" -eq 0 ]; then
         total=$((total + 1)); fail=$((fail + 1))
-        echo "FAIL: $test_name $(phase_abnormal_label "$rc") (exit $rc) before reporting scenarios"
-        report_rows="$report_rows| $test_name | (harness) | FAIL | $(phase_abnormal_label "$rc") with exit $rc, no scenario output |"$'\n'
+        echo "FAIL: $test_name exit $rc without reporting scenarios"
+        report_rows="$report_rows| $test_name | (harness) | FAIL | exit $rc with no scenario output |"$'\n'
+    elif [ "$rc" -ne 0 ] && [ "$f" -eq 0 ]; then
+        total=$((total + 1)); fail=$((fail + 1))
+        echo "FAIL: $test_name $(phase_abnormal_label "$rc") (exit $rc) after reporting only PASS scenarios"
+        report_rows="$report_rows| $test_name | (harness) | FAIL | $(phase_abnormal_label "$rc") with exit $rc after PASS-only output |"$'\n'
     fi
     local bad=$f; [ "$rc" -eq 0 ] || bad=$((bad + 1))
     emit_phase_diagnostics "$tag" "$out" "$bad"

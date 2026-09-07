@@ -5,6 +5,8 @@ ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 POST="$ROOT/hooks/local/post-fusebase-update.sh"
 HANDOFF="$ROOT/templates/handoff-implement.md"
 WORKFLOW="$ROOT/workflows/greenlight-implement.md"
+GATE_TEMPLATE="$ROOT/templates/verification-gate.md"
+GATE_WORKFLOW="$ROOT/workflows/verification-gate.md"
 SKILL="$ROOT/flow-skills/validation-and-qa/SKILL.md"
 PRECOMMIT="$ROOT/hooks/git/pre-commit"
 REUSE_HELPER="$ROOT/hooks/local/lib/precommit-validator-reuse.sh"
@@ -96,5 +98,52 @@ if bash "$ROOT/hooks/local/mirror-skills.sh" --check >/dev/null 2>&1; then
 else
     bad "validation-skill-mirrors-current" "mirror hash drift"
 fi
+
+check_local_ledger() {
+    local file="$1"
+    grep -qF 'Changed-risk / AC-to-test ledger' "$file" \
+        && grep -qF 'Source / config / input dependencies' "$file" \
+        && grep -qF 'Toolchain / platform' "$file" \
+        && grep -qF 'Exact command / selection' "$file" \
+        && grep -qF 'Actual exit / result' "$file" \
+        && grep -qF 'Durable evidence' "$file" \
+        && grep -qF 'Invalidation rationale' "$file" \
+        && grep -qF 'DEFERRED' "$file" \
+        && grep -qF 'UNVERIFIED' "$file" \
+        && grep -qF 'Expected local budget' "$file" \
+        && grep -qF 'START/END' "$file" \
+        && grep -qi 'zero result rows' "$file"
+}
+
+if check_local_ledger "$GATE_TEMPLATE"; then
+    ok "risk-scoped-local-ledger-contract"
+else
+    bad "risk-scoped-local-ledger-contract" "required risk/dependency/evidence fields missing"
+fi
+
+cp "$GATE_TEMPLATE" "$TMP/verification-gate.md"
+sed -i 's#Source / config / input dependencies#Inputs#' "$TMP/verification-gate.md"
+if check_local_ledger "$TMP/verification-gate.md"; then
+    bad "risk-scoped-local-ledger-negative-control" "ledger passed after dependency mapping was removed"
+else
+    ok "risk-scoped-local-ledger-negative-control"
+fi
+
+for file in "$HANDOFF" "$GATE_WORKFLOW" "$SKILL"; do
+    name="${file#"$ROOT/"}"
+    if grep -qiE 'changed-risk ?/ ?AC-to-test ledger' "$file" \
+       && grep -qi 'expected total\|expected local budget' "$file" \
+       && grep -qF 'DEFERRED' "$file" \
+       && grep -qF 'UNVERIFIED' "$file" \
+       && grep -qF 'START/END' "$file" \
+       && grep -qi 'zero result rows' "$file" \
+       && grep -qi 'owned-descendant process scan' "$file" \
+       && grep -qi 'scoped.*full-suite\|scoped.*release' "$file" \
+       && grep -qi 'secret.*protected-path.*module-size.*pre-commit' "$file"; then
+        ok "risk-scoped-carrier-$name"
+    else
+        bad "risk-scoped-carrier-$name" "ledger, budget, deferred truth, subset boundary, or live controls missing"
+    fi
+done
 
 finish

@@ -15,10 +15,13 @@
 
 set -uo pipefail
 
-t32_only=0; t32_case=all
+t32_only=0; t33_only=0; t32_case=all
 case "$#" in
   0) ;;
-  2) [ "$1" = "--only" ] && [ "$2" = "t32" ] && t32_only=1 || exit 2 ;;
+  2)
+    [ "$1" = "--only" ] || exit 2
+    case "$2" in t32) t32_only=1 ;; t33) t33_only=1 ;; *) exit 2 ;; esac
+    ;;
   3)
     [ "$1" = "--only" ] && [ "$2" = "t32" ] || exit 2
     case "$3" in full|both|liveness|failed|missing|core|helper) t32_only=1; t32_case="$3" ;; *) exit 2 ;; esac
@@ -40,7 +43,7 @@ finish() { echo "[test-ff-only] $pass/$((pass + fail)) PASS"; exit $fail; }
 # Source the strict PASS classifiers the health engine uses — the fail-closed proof.
 . "$ROOT/hooks/local/lib/run-with-timeout.sh"
 
-if [ "$t32_only" -eq 0 ]; then
+if [ "$t32_only" -eq 0 ] && [ "$t33_only" -eq 0 ]; then
 
 # Canonical tag count (FF_LIST is the discovery source). A scoped run to ONE tag must
 # skip (count - 1) phases — robust to future tag additions, no hardcoded 19/20.
@@ -250,9 +253,12 @@ TIERREPO="$(mktemp -d)"
 mkdir -p "$TIERREPO/hooks/tests" "$TIERREPO/hooks/local/lib"
 cp "$RT" "$TIERREPO/hooks/tests/run-tests.sh"
 cp "$ROOT/hooks/local/lib/run-with-timeout.sh" "$TIERREPO/hooks/local/lib/"
+sed -i '/^    if \[ ! -f "\$script" \]; then$/,/^    fi$/c\    [ -f "$script" ] || return 0' "$TIERREPO/hooks/tests/run-tests.sh"
 ( cd "$TIERREPO" && git init -q )
 HEAVY_SENTINEL="$TIERREPO/heavy-phase-executed"
 printf 'print("PASS: stub-fixture")\n' > "$TIERREPO/hooks/tests/run_hook_tests.py"
+printf '#!/usr/bin/env bash\necho "PASS: module-size stub"\n' > "$TIERREPO/hooks/tests/test-module-size.sh"
+printf '#!/usr/bin/env bash\necho "PASS: health-check-timeout stub"\n' > "$TIERREPO/hooks/tests/test-health-check-timeout.sh"
 printf '#!/usr/bin/env bash\necho "PASS: git-smoke stub"\n' > "$TIERREPO/hooks/tests/test-git-hooks-smoke.sh"
 cat > "$TIERREPO/hooks/tests/test-rule-inventory.sh" <<EOF
 #!/usr/bin/env bash
@@ -310,9 +316,11 @@ rm -rf "$TIERREPO"
 fi
 
 # (tasks.md T32)
+if [ "$t33_only" -eq 0 ]; then
 COMPREPO="$(mktemp -d)"
 mkdir -p "$COMPREPO/hooks/tests" "$COMPREPO/hooks/local/lib"
 cp "$RT" "$COMPREPO/hooks/tests/run-tests.sh"
+sed -i '/^    if \[ ! -f "\$script" \]; then$/,/^    fi$/c\    [ -f "$script" ] || return 0' "$COMPREPO/hooks/tests/run-tests.sh"
 cat > "$COMPREPO/hooks/local/lib/run-with-timeout.sh" <<'SH'
 ffhc_detect_timeout() { FFHC_TIMEOUT_BIN=""; }
 ffhc_is_msys() { return 1; }
@@ -330,6 +338,10 @@ COMP_ARGS="$COMPREPO/liveness-args"
 cat > "$COMPREPO/hooks/tests/run_hook_tests.py" <<'PY'
 print("PASS: synthetic fixture")
 PY
+cat > "$COMPREPO/hooks/tests/test-module-size.sh" <<'SH'
+#!/usr/bin/env bash
+echo "PASS: module-size synthetic"
+SH
 cat > "$COMPREPO/hooks/tests/test-health-check-timeout.sh" <<'SH'
 #!/usr/bin/env bash
 n=0
@@ -492,6 +504,86 @@ else
   bad "bounded-helper-single-call-couples-output-and-status" "script_rc=$helper_rc calls=$helper_count"
 fi
 rm -rf "$HELPREPO"
+fi
+fi
+
+# (tasks.md T33)
+if [ "$t32_only" -eq 0 ]; then
+PHASEREPO="$(mktemp -d)"
+mkdir -p "$PHASEREPO/hooks/tests" "$PHASEREPO/hooks/local/lib"
+cp "$RT" "$PHASEREPO/hooks/tests/run-tests.sh"
+cat > "$PHASEREPO/hooks/local/lib/run-with-timeout.sh" <<'SH'
+ffhc_detect_timeout() { FFHC_TIMEOUT_BIN=""; }
+ffhc_is_msys() { return 1; }
+ffhc_timed_out() { [ "${1:-}" = 124 ] || [ "${1:-}" = 137 ]; }
+ffhc_run_bounded() {
+  local capture
+  capture="$(mktemp)" || { FFHC_LAST_OUT="capture setup failed"; FFHC_LAST_RC=125; return 0; }
+  shift; "$@" > "$capture" 2>&1; FFHC_LAST_RC=$?
+  FFHC_LAST_OUT="$(<"$capture")"; rm -f "$capture"
+}
+SH
+( cd "$PHASEREPO" && git init -q )
+cat > "$PHASEREPO/hooks/tests/test-return-budget.sh" <<'SH'
+#!/usr/bin/env bash
+echo "PASS: return-budget t33-success"
+SH
+cat > "$PHASEREPO/hooks/tests/test-supersede-primitive.sh" <<'SH'
+#!/usr/bin/env bash
+echo "PASS: supersede-primitive t33-pass-before-crash"
+exit 7
+SH
+cat > "$PHASEREPO/hooks/tests/test-rule-inventory.sh" <<'SH'
+#!/usr/bin/env bash
+exit 0
+SH
+cat > "$PHASEREPO/hooks/tests/test-boot-size.sh" <<'SH'
+#!/usr/bin/env bash
+exit 124
+SH
+chmod +x "$PHASEREPO/hooks/tests/"test-*.sh
+phase_out="$(cd "$PHASEREPO" && FF_PHASE_TIMEOUT=37 FFHC_HEARTBEAT_SECS=0 \
+  FF_ONLY=return-budget,supersede-primitive,rule-inventory,boot-size,prohibition-residency \
+  bash hooks/tests/run-tests.sh 2>&1)"; phase_rc=$?
+
+if [ "$phase_rc" -ne 0 ] \
+   && printf '%s\n' "$phase_out" | grep -Eq '^\[run-tests\] START tag=return-budget timeout_budget=37s ' \
+   && printf '%s\n' "$phase_out" | grep -Eq '^\[run-tests\] END tag=return-budget elapsed=[0-9]+s rc=0 timeout_budget=37s$'; then
+  ok "phase-reporting-success-start-end-budget-rc"
+else
+  bad "phase-reporting-success-start-end-budget-rc" "success lifecycle missing or aggregate unexpectedly green"
+fi
+if printf '%s\n' "$phase_out" | grep -Eq '^\[run-tests\] END tag=supersede-primitive elapsed=[0-9]+s rc=7 timeout_budget=37s$' \
+   && printf '%s\n' "$phase_out" | grep -q '^FAIL: test-supersede-primitive.sh crashed (exit 7) after reporting only PASS scenarios$'; then
+  ok "phase-reporting-pass-only-crash-stays-red"
+else
+  bad "phase-reporting-pass-only-crash-stays-red" "rc7 lifecycle or harness failure missing"
+fi
+if printf '%s\n' "$phase_out" | grep -Eq '^\[run-tests\] END tag=boot-size elapsed=[0-9]+s rc=124 timeout_budget=37s$' \
+   && printf '%s\n' "$phase_out" | grep -q '^FAIL: test-boot-size.sh exit 124 without reporting scenarios$'; then
+  ok "phase-reporting-timeout-stays-red"
+else
+  bad "phase-reporting-timeout-stays-red" "rc124 lifecycle or zero-row failure missing"
+fi
+if printf '%s\n' "$phase_out" | grep -q '^\[run-tests\] START tag=prohibition-residency timeout_budget=37s label=missing$' \
+   && printf '%s\n' "$phase_out" | grep -q '^\[run-tests\] END tag=prohibition-residency elapsed=0s rc=127 timeout_budget=37s$' \
+   && printf '%s\n' "$phase_out" | grep -q '^FAIL: test-prohibition-residency.sh missing (selected phase did not execute)$'; then
+  ok "phase-reporting-missing-selection-stays-red"
+else
+  bad "phase-reporting-missing-selection-stays-red" "missing lifecycle/failure row absent"
+fi
+if printf '%s\n' "$phase_out" | grep -q '^FAIL: test-rule-inventory.sh exit 0 without reporting scenarios$'; then
+  ok "phase-reporting-zero-row-success-stays-red"
+else
+  bad "phase-reporting-zero-row-success-stays-red" "rc0 zero-row phase was not rejected"
+fi
+phase_summary="$(printf '%s\n' "$phase_out" | grep -E '^\[run-tests\] [0-9]+/[0-9]+ PASS' | tail -1)"
+if printf '%s' "$phase_summary" | grep -q '(SCOPED FF_ONLY=' && ! ffhc_run_tests_pass_ok "$phase_summary"; then
+  ok "phase-reporting-scoped-summary-remains-nonattesting"
+else
+  bad "phase-reporting-scoped-summary-remains-nonattesting" "summary=[$phase_summary]"
+fi
+rm -rf "$PHASEREPO"
 fi
 
 finish

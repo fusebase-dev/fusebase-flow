@@ -13,6 +13,16 @@
 | AC2 | T<m> | <test names> |
 | AC3 | T<m+1>, T<m+2> | <test names> |
 
+## Changed-risk / AC-to-test ledger (local acceptance)
+
+**Expected local budget:** <total seconds/minutes from selected rows>. Reevaluate unexplained overruns; a heartbeat alone is not progress.
+
+| Risk / AC | Changed behavior | Source / config / input dependencies | Toolchain / platform | Exact command / selection | Expected positive + negative outcome | Actual exit / result | Durable evidence | Status | Invalidation rationale |
+|---|---|---|---|---|---|---|---|---|---|
+| <risk, AC1> | <observable delta> | <exact files, config, fixtures, inputs> | <versions; OS/runtime> | `<command>` | <pass and counterexample> | <rc + observed result> | <path/log/row> | `NEW | REUSED | DEFERRED | UNVERIFIED` | <why evidence applies, reruns, or remains open> |
+
+Rules: changed dependencies invalidate matching rows; unknown dependency completeness reruns the affected group. HEAD/filename equality alone is insufficient. Each selected phase records START/END, canonical tag, elapsed time, rc, and timeout budget; a missing phase, zero result rows, crash, or timeout fails. After an interrupted phase, attach a full owned-descendant process scan and clear every survivor; parent-process absence is insufficient. `DEFERRED`/`UNVERIFIED` never means PASS. Scoped/fast output may satisfy only mapped local rows; it cannot satisfy a full-suite or release claim. Keep lint/typecheck, staged secret, protected-path, module-size, and pre-commit checks live.
+
 ## Required gate-report fields
 
 Per `policies/gate-contracts.yml: gate_report` (machine-readable schema); the AI Developer produces the report from `templates/gate-report.md`. Do not restate the field list here.
