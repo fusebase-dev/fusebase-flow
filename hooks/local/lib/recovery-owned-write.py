@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 from collections import namedtuple
+from contextlib import contextmanager
 import hashlib
 import io
 import json
@@ -13,7 +14,13 @@ import stat
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path, PurePosixPath
+
+if os.name == "nt":
+    import msvcrt
+else:
+    import fcntl
 
 
 SCHEMA = 1
@@ -148,8 +155,9 @@ PlanRow = namedtuple(
 TreeEntry = namedtuple("TreeEntry", ("mode", "kind", "oid"))
 BootstrapProof = namedtuple("BootstrapProof", ("head", "source_hash", "target_hash"))
 PreparedRow = namedtuple(
-    "PreparedRow", ("row", "source", "target", "status", "detail", "proof"),
+    "PreparedRow", ("row", "source", "target", "status", "detail", "proof", "state"),
 )
+ClassifiedState = namedtuple("ClassifiedState", ("source_hash", "target_kind", "target_hash"))
 
 
 def git_run(root: Path, *args: str) -> bytes:
@@ -295,34 +303,37 @@ def parse_plan(root: Path, plan: Path, surface: str) -> list[PlanRow]:
 
 def _classify(
     source: Path, target: Path, row: PlanRow, targets: dict, baseline: Baseline | None,
-) -> tuple[str, str, BootstrapProof | None]:
+) -> tuple[str, str, BootstrapProof | None, ClassifiedState | None]:
     if source.is_symlink() or not source.is_file():
-        return "unsafe", "source is missing, non-file, or symlink", None
+        return "unsafe", "source is missing, non-file, or symlink", None, None
     source_hash = digest(source)
     if target.is_symlink():
-        return "unowned-collision", "target is a symlink", None
+        return "unowned-collision", "target is a symlink", None, None
     if not target.exists():
-        return "missing-and-authorized", source_hash, None
+        return "missing-and-authorized", source_hash, None, ClassifiedState(
+            source_hash, "missing", None,
+        )
     if not target.is_file():
-        return "unowned-collision", "target is not a regular file", None
+        return "unowned-collision", "target is not a regular file", None, None
     target_hash = digest(target)
+    state = ClassifiedState(source_hash, "file", target_hash)
     if target_hash == source_hash:
-        return "current", source_hash, None
+        return "current", source_hash, None, state
     prior = targets.get(row.target_rel)
     if isinstance(prior, dict) and prior.get("sha256") == target_hash:
-        return "owned-repair", source_hash, None
+        return "owned-repair", source_hash, None, state
     if baseline is None:
-        return "unowned-collision", "existing bytes are not proven Flow-owned", None
+        return "unowned-collision", "existing bytes are not proven Flow-owned", None, None
     try:
         proof = baseline.prove(row, source_hash, target_hash)
-        return "owned-repair", source_hash, proof
+        return "owned-repair", source_hash, proof, state
     except RuntimeError as exc:
-        return "unowned-collision", str(exc), None
+        return "unowned-collision", str(exc), None, None
 
 
 def classify(source: Path, target: Path, rel: str, targets: dict) -> tuple[str, str]:
     row = PlanRow(str(source), None, rel, None)
-    status, detail, _proof = _classify(source, target, row, targets, None)
+    status, detail, _proof, _state = _classify(source, target, row, targets, None)
     return status, detail
 
 
@@ -347,26 +358,26 @@ def prepare_rows(
         try:
             source = safe_source(root, row.source_raw)
             target = safe_target(root, row.target_rel)
-            status, detail, proof = _classify(source, target, row, targets, None)
-            prepared.append(PreparedRow(row, source, target, status, detail, proof))
+            status, detail, proof, state = _classify(source, target, row, targets, None)
+            prepared.append(PreparedRow(row, source, target, status, detail, proof, state))
             if status == "unowned-collision" and row.manifest_rel \
                     and detail == "existing bytes are not proven Flow-owned":
                 bootstrap.append(len(prepared) - 1)
         except Exception as exc:
-            prepared.append(PreparedRow(row, None, None, "unsafe", str(exc), None))
+            prepared.append(PreparedRow(row, None, None, "unsafe", str(exc), None, None))
     baseline = Baseline(root, [prepared[index].row for index in bootstrap])
     for index in bootstrap:
         item = prepared[index]
         try:
-            status, detail, proof = _classify(
+            status, detail, proof, state = _classify(
                 item.source, item.target, item.row, targets, baseline,
             )
             prepared[index] = PreparedRow(
-                item.row, item.source, item.target, status, detail, proof,
+                item.row, item.source, item.target, status, detail, proof, state,
             )
         except Exception as exc:
             prepared[index] = PreparedRow(
-                item.row, None, None, "unsafe", str(exc), None,
+                item.row, None, None, "unsafe", str(exc), None, None,
             )
     return baseline, prepared
 
@@ -399,7 +410,64 @@ def copy_atomic(source: Path, target: Path) -> None:
         temp.unlink(missing_ok=True)
 
 
-def apply(
+def revalidate_prepared(root: Path, item: PreparedRow) -> None:
+    if item.source is None or item.target is None or item.state is None:
+        raise RuntimeError(item.detail)
+    source = safe_source(root, item.row.source_raw)
+    target = safe_target(root, item.row.target_rel)
+    if source != item.source or target != item.target or digest(source) != item.state.source_hash:
+        raise RuntimeError("source changed after ownership classification")
+    if item.state.target_kind == "missing":
+        if target.exists() or target.is_symlink():
+            raise RuntimeError("target changed after ownership classification")
+    elif not target.is_file() or digest(target) != item.state.target_hash:
+        raise RuntimeError("target changed after ownership classification")
+
+
+def revalidate_written(root: Path, item: PreparedRow) -> None:
+    source = safe_source(root, item.row.source_raw)
+    target = safe_target(root, item.row.target_rel)
+    if source != item.source or target != item.target or not target.is_file():
+        raise RuntimeError("source or target changed during replacement")
+    source_hash = digest(source)
+    if source_hash != item.state.source_hash or digest(target) != source_hash:
+        raise RuntimeError("source or target changed during replacement")
+
+
+@contextmanager
+def recovery_lock(root: Path):
+    identity = hashlib.sha256(os.path.normcase(str(root)).encode("utf-8")).hexdigest()
+    lock_dir = Path(tempfile.gettempdir()) / "fusebase-flow-recovery-locks"
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    lock_path = lock_dir / f"{identity}.lock"
+    with lock_path.open("a+b", buffering=0) as handle:
+        if handle.seek(0, os.SEEK_END) == 0:
+            handle.write(b"\0")
+            os.fsync(handle.fileno())
+        deadline = time.monotonic() + GIT_TIMEOUT
+        while True:
+            try:
+                if os.name == "nt":
+                    handle.seek(0)
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError:
+                if time.monotonic() >= deadline:
+                    raise RuntimeError("recovery writer lock timed out")
+                time.sleep(0.05)
+        try:
+            yield
+        finally:
+            handle.seek(0)
+            if os.name == "nt":
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
+def _apply_locked(
     root: Path, plan: Path, result: Path, surface: str, manifest: Path | None = None,
 ) -> int:
     receipt_path = root / "state/audit/recovery-owned-targets.json"
@@ -424,6 +492,8 @@ def apply(
             source, target = item.source, item.target
             status, detail, proof = item.status, item.detail, item.proof
             backup = ""
+            if status in {"current", "missing-and-authorized", "owned-repair"}:
+                revalidate_prepared(root, item)
             if status == "owned-repair":
                 if proof:
                     if head_error:
@@ -437,8 +507,14 @@ def apply(
             if status in {"missing-and-authorized", "owned-repair"}:
                 if interrupted("before-replace", row.target_rel):
                     raise RuntimeError("injected interruption before replace")
+                if status == "owned-repair":
+                    revalidate_prepared(root, item)
                 copy_atomic(source, target)
             if status in {"current", "missing-and-authorized", "owned-repair"}:
+                if status != "current":
+                    revalidate_written(root, item)
+                else:
+                    revalidate_prepared(root, item)
                 target_hash = digest(target)
                 prior = targets.get(row.target_rel)
                 stable = isinstance(prior, dict) and prior.get("sha256") == target_hash \
@@ -461,6 +537,13 @@ def apply(
             atomic_bytes(manifest, encoded)
     result.write_text("".join("\t".join(item) + "\n" for item in rows), encoding="utf-8")
     return 1 if partial else 0
+
+
+def apply(
+    root: Path, plan: Path, result: Path, surface: str, manifest: Path | None = None,
+) -> int:
+    with recovery_lock(root):
+        return _apply_locked(root, plan, result, surface, manifest)
 
 
 def main() -> int:

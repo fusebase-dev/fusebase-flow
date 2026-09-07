@@ -9,7 +9,10 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest import mock
 
@@ -324,7 +327,7 @@ class BootstrapTest(unittest.TestCase):
             (plan, "source_raw", "raw"),
             (module.TreeEntry("100644", "blob", "oid"), "mode", "100644"),
             (module.BootstrapProof(head="head", source_hash="source", target_hash="target"), "head", "head"),
-            (module.PreparedRow(plan, None, None, "status", "detail", None), "status", "status"),
+            (module.PreparedRow(plan, None, None, "status", "detail", None, None), "status", "status"),
         )
         for record, field, value in records:
             self.assertEqual(getattr(record, field), value)
@@ -468,6 +471,106 @@ class BootstrapTest(unittest.TestCase):
                     (root / ".agents/skills").symlink_to(root / "skill-targets", target_is_directory=True)
                 self.assert_refused(root, "flow-skills/alpha/SKILL.md", ".agents/skills/alpha/SKILL.md")
 
+    def test_race_revalidation_and_concurrent_receipt_union(self) -> None:
+        target_rel = ".agents/skills/alpha/SKILL.md"
+        user_bytes = b"operator-race\n"
+        for case in ("current", "receipt-owned", "missing"):
+            with self.subTest(case=case):
+                root = self.repo()
+                source = root / "flow-skills/alpha/SKILL.md"
+                target = root / target_rel
+                if case == "receipt-owned":
+                    source.write_bytes(b"skill-v2\n")
+                    put(root, "state/audit/recovery-owned-targets.json", json.dumps({
+                        "schema": 1,
+                        "targets": {target_rel: {"sha256": sha(b"skill-v1\n"), "surface": "skill"}},
+                    }, sort_keys=True, indent=2).encode() + b"\n")
+                elif case == "missing":
+                    target.unlink()
+                receipt = root / "state/audit/recovery-owned-targets.json"
+                receipt_before = receipt.read_bytes() if receipt.exists() else None
+                plan = root / "race.tsv"
+                result = root / "race.result"
+                plan.write_text(f"{source}\t{target_rel}\n", encoding="utf-8")
+                module = production_load(HELPER, f"owned_race_{case}")
+                original_prepare = module.prepare_rows
+
+                def inject(*args):
+                    prepared = original_prepare(*args)
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(user_bytes)
+                    return prepared
+
+                with mock.patch.object(module, "prepare_rows", inject):
+                    self.assertEqual(module.apply(root, plan, result, "skill"), 1)
+                self.assertEqual(target.read_bytes(), user_bytes)
+                receipt_after = receipt.read_bytes() if receipt.exists() else None
+                self.assertEqual(receipt_after, receipt_before)
+                self.assertFalse(target.with_name(target.name + ".pre-flow-repair").exists())
+
+        root = self.repo()
+        source = root / "flow-skills/alpha/SKILL.md"
+        target = root / target_rel
+        source.write_bytes(b"skill-v2\n")
+        put(root, "state/audit/recovery-owned-targets.json", json.dumps({
+            "schema": 1,
+            "targets": {target_rel: {"sha256": sha(b"skill-v1\n"), "surface": "skill"}},
+        }, sort_keys=True, indent=2).encode() + b"\n")
+        plan = root / "owned.tsv"
+        result = root / "owned.result"
+        plan.write_text(f"{source}\t{target_rel}\n", encoding="utf-8")
+        module = production_load(HELPER, "owned_unchanged_control")
+        self.assertEqual(module.apply(root, plan, result, "skill"), 0)
+        self.assertEqual(target.read_bytes(), b"skill-v2\n")
+        self.assertEqual(target.with_name(target.name + ".pre-flow-repair").read_bytes(), b"skill-v1\n")
+
+        root = self.repo()
+        module = production_load(HELPER, "owned_concurrent_union")
+        plans = []
+        targets = [
+            ".agents/skills/alpha/SKILL.md",
+            ".claude/skills/alpha/SKILL.md",
+        ]
+        for index, rel in enumerate(targets):
+            plan = root / f"union-{index}.tsv"
+            plan.write_text(f"{root / 'flow-skills/alpha/SKILL.md'}\t{rel}\n", encoding="utf-8")
+            plans.append(plan)
+        active = 0
+        maximum = 0
+        guard = threading.Lock()
+        original_load = module.load_receipt
+
+        def slow_load(path):
+            nonlocal active, maximum
+            with guard:
+                active += 1
+                maximum = max(maximum, active)
+            time.sleep(0.1)
+            value = original_load(path)
+            with guard:
+                active -= 1
+            return value
+
+        def writer(index):
+            return module.apply(root, plans[index], root / f"union-{index}.result", "skill")
+
+        with mock.patch.object(module, "load_receipt", slow_load):
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                outcomes = list(executor.map(writer, range(2)))
+        self.assertEqual(outcomes, [0, 0])
+        self.assertEqual(maximum, 1)
+        receipt = json.loads((root / "state/audit/recovery-owned-targets.json").read_text())
+        self.assertEqual(set(receipt["targets"]), set(targets))
+        print("PASS: T51 current, receipt-owned, and missing races preserved user bytes")
+        print("PASS: T51 rejected races left ownership authority unchanged")
+        print("PASS: T51 unchanged owned repair retained and copied exact bytes")
+        print("PASS: T51 concurrent writers serialized and retained receipt union")
+
 
 if __name__ == "__main__":
+    if sys.argv[1:] == ["--only", "race"]:
+        suite = unittest.TestSuite([
+            BootstrapTest("test_race_revalidation_and_concurrent_receipt_union")
+        ])
+        raise SystemExit(0 if unittest.TextTestRunner(verbosity=2).run(suite).wasSuccessful() else 1)
     unittest.main(verbosity=2)

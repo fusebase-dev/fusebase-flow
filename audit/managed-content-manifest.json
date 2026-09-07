@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "da339f69c6e8f8fbf2433dd0837846917cf6d50d1bc8e130c4965628ff3433e6"
+      "sha256": "3d837dcb1d8a5027862e12482cc7dcda4fcaafbeb491858ed6ea0dab49e7dc73"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -554,7 +554,7 @@
     },
     {
       "path": "hooks/local/lib/recovery-owned-write.py",
-      "sha256": "625b3e4ec6e42cfd6068028861f3860dcaf033dbe164a459ac6c07cb4223dd25"
+      "sha256": "ccddfd99c8b5143b25d61485a07105ddcc40bb1ca004ede0e570647e81289bd6"
     },
     {
       "path": "hooks/local/lib/recovery-preflight.py",
@@ -1202,7 +1202,7 @@
     },
     {
       "path": "hooks/tests/test-recovery-owned-bootstrap.py",
-      "sha256": "6f7cf790204bff2c888a19b855e33211035666f8a93fede8fc24d73bbb260fcc"
+      "sha256": "9480d6bb4048826fb864e639129563844c6c769c68f8287b6db775bca207e102"
     },
     {
       "path": "hooks/tests/test-release-evidence-authority.sh",
@@ -1493,5 +1493,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "d40b3e72cbe4022bd37ef1622239fce90086ce8d5694d96d963eb7d872b33356"
+  "manifest_self_sha256": "6904724976390ebd8cefbcd5398a065224223fb4ce13a03146d4677db931ad07"
 }
