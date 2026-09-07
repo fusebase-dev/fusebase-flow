@@ -5,7 +5,7 @@
 **Created:** 2026-09-05
 **Change tier:** Full
 **Documentation tier:** 4
-**Linked decisions:** A1..A7, B1..B5
+**Linked decisions:** A1..A7, B1..B6
 **Source evidence:** `state/audit/adversarial-review-2026-09-05.md`
 **Correction basis:** `adversarial-review.md` - CHANGES REQUIRED on source `2217a9c631300e510b18437548ed4bccb5f31036`
 **Deploy hash:** N/A until completion
@@ -58,7 +58,7 @@ The locked North Star makes low-friction ordinary work the primary product outco
 | Migration approach | no migration |
 | Auth model | N/A; no app/auth functionality |
 | UI / audience posture | N/A; internal developer tooling with no visual or interactive product surface |
-| Quality bar | targeted mutation/regression fixtures, full registered suite, mirror/preflight checks |
+| Quality bar | risk-scoped AC evidence and affected dependency tests; full release CI; mirror/preflight checks (B6) |
 
 ## Runtime and file changes
 

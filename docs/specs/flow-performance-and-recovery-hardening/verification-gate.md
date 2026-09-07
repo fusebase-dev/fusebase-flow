@@ -1,13 +1,13 @@
 # Verification gate - flow-performance-and-recovery-hardening
 
-**Status:** T31 complete; T32 removes confirmed nested health/liveness duplication
+**Status:** operator-locked B6; T32 narrow deduplication and T33 scoped-validation policy/tooling
 **Starting source:** `2217a9c631300e510b18437548ed4bccb5f31036`
-**Linked tasks:** `tasks.md` T11-T32
+**Linked tasks:** `tasks.md` T11-T33
 **Review findings:** `adversarial-review.md` B1-B8, N1-N2
-**Gate task:** T21, report-only after T32
+**Gate task:** T21, report-only after T33
 **Independent review:** T22, zero blockers required
 **Closeout:** T23, docs-only
-**Smoke threshold:** S1-S3 each requires three independent process executions; three assertions from one run are not three repetitions
+**Smoke threshold:** S1/S3 one execution per distinct positive/negative scenario; S2 retains three independent write-mode no-op calls; repeat diagnosed races only
 **Rollback:** code-only framework/template changes; no migration, secret, app deploy, or production target
 
 ## AC and review mapping
@@ -39,11 +39,12 @@
 
 | Layer | Command / result |
 |---|---|
-| Complete registered coverage | `FF_FULL=1 FFHC_HEARTBEAT_SECS=30 bash hooks/tests/run-tests.sh` once on final T32 source; exact source/command/platform/exit and constituent rows |
+| Local acceptance | AC/risk ledger with source/input dependencies, command, platform, result, evidence and invalidation decision; scoped reports allowed but never full PASS. Run only uncovered/invalidated affected rows; no full-prefix restart (B6) |
+| Broad coverage | Existing maintainer/release CI runs full Linux and Windows/MSYS; no ordinary PR/nightly trigger. Record actual run/SHA/result or DEFERRED; local acceptance is not release evidence |
 | Pre-gate T29/T30 diagnosis | `python hooks/tests/test-artifact-manifest.py`; focused PY5, then `FF_ONLY=python3-version,python3-version-mutation bash hooks/tests/run-tests.sh`; scoped evidence only; do not repeat separately during T21 |
 | Focused coverage mapping | Its validator, validation-instructions, cli-flow-recovery, hook-intent, timeout, wire-hooks, lane-workflow, windowing, benchmark and selector-selftest rows satisfy corresponding task checks; do not repeat these suites separately |
-| Diagnostic entry points | T28 wrapper `--only u14`, `--only legacy`, `--only engine` and task selectors are scoped development proof only; never execute sourced-only direct/E2E modules as tests |
-| T26 commit proof | Focused U14 1/1 and wire/settings 36/36; full wrapper reached 35 PASS through U14/U15 then stale U7; final full-wrapper PASS belongs to T21 |
+| Diagnostic entry points | T28 wrapper `--only u14`, `--only legacy`, `--only engine` and task selectors are scoped evidence eligible for matching local AC rows only; never execute sourced-only direct/E2E modules as tests |
+| T26 commit proof | Focused U14 1/1 and wire/settings 36/36; full wrapper reached 35 PASS through U14/U15 then stale U7; T21 records relevant wrapper groups and dependency coverage |
 | Preflight | `bash hooks/local/preflight.sh`; zero errors/warnings or exact explained residual |
 | Mirrors/manifests | `bash hooks/local/mirror-skills.sh --check` plus agent, hook, and managed manifest checks; `--check` labeled read-only integrity |
 | Module size | `bash hooks/local/check-module-size.sh --all`; no new/grown violation; `hooks/git/pre-commit` shrinks below 800 in T12 |
@@ -81,13 +82,13 @@
 
 ## Smoke contract
 
-Evidence directory remains `docs/tmp/handoff/2026-09-05-flow-performance-and-recovery-hardening-smoke/`. Existing evidence is provisional and retained; T21 replaces claims only after new attempts. Each attempt has a unique ID/timestamp, hard timeout <=60 seconds, independent process execution, saved result, and post-run inspection.
+Evidence directory remains `docs/tmp/handoff/2026-09-05-flow-performance-and-recovery-hardening-smoke/`. Existing evidence is retained; T21 validates dependencies before carrying forward a row and replaces invalidated or missing claims with new attempts. Each attempt has a unique ID/timestamp, hard timeout <=60 seconds, independent process execution, saved result, and post-run inspection.
 
 | ID | Scenario | Visible outcome | Ground truth | Falsifier |
 |---|---|---|---|---|
 | S1 | Recover a CLI-overwritten fixture with valid prior surface intent; also execute named negative cases | complete only for fully recoverable state; partial/failed otherwise | parsed settings/overlays/provider/Git state; hashes; plan/applied/verified/pending ledger; retained originals | unowned overwrite, suffix loss, duplicate/widened hook, missing surface, false exit 0, or inaccurate inventory |
 | S2 | After convergence, run full write-mode recovery three independent times | each reports no repair required | per-attempt bytes/mtimes/write/copy counts for every repair target and manifest | any write/copy/mtime change; a read-only `--check` substituted for write mode; three assertions from one process |
-| S3 | Run ordinary and sensitive fixture workflows three independent times | ordinary executes one-pass lightweight; sensitive stops in Full | actual diagnosis/action record and created artifact/relay inventory | hardcoded count, skipped diagnosis, extra relay/artifact, sensitive lightweight, or mutation surviving |
+| S3 | Run ordinary and sensitive fixture workflows once per distinct scenario | ordinary executes one-pass lightweight; sensitive stops in Full | actual diagnosis/action record and created artifact/relay inventory | hardcoded count, skipped diagnosis, extra relay/artifact, sensitive lightweight, or mutation surviving |
 
 ### S1 negative minimum
 
@@ -124,18 +125,19 @@ Record the real fixture directory before cleanup, diagnosis commands/results, ro
 - three real-symlink controls on MSYS: UNVERIFIED until Linux/CI;
 - Windows validator-authority ACL/isolation: UNPROVEN; reuse unavailable there unless proved;
 - actual CLI install/update/recover comparison: UNVERIFIED;
+- full current-source CI completion within existing 60-minute job wall: UNVERIFIED; configured full coverage is not executed proof;
 - UI/client behavior: N/A;
 - platform auth/session/permission problem-catalog item: none; domain N/A.
 
 ## Gate completion rules
 
-- T11-T20 and T24-T32 each have one exact SHA and changed-slice proof. T25 is `ef320de`; T26 commit uses its focused evidence above.
+- T11-T20 and T24-T33 each have one exact SHA and changed-slice proof. T25 is `ef320de`; T26 commit uses its focused evidence above.
 - T27 corrects legacy fixture assumptions without weakening T17; T28 adds scoped diagnostics without reducing default coverage. Preserve historical stall, U14 and U7 failures with distinct explanations.
-- Tail: T32 -> T21 -> T22 -> T23. T21 uses one final complete suite, then only uncovered smoke/live repo-state checks; no source commit. Fixture phase tests do not substitute for current repository integrity checks.
+- Tail: T32 -> T33 -> T21 -> T22 -> T23. T21 uses scoped AC acceptance plus uncovered/invalidated smoke and live repo-state checks; no source commit or full-prefix rerun. Fixture phase tests do not substitute for current repository integrity checks.
 - Any failed-then-passed check is investigated and reproduced; no silent PASS.
 - Every B1-B8/N1-N2 row has direct evidence or remains open.
 - Spec remains DRAFT through T21.
-- T22 reviews the whole correction diff/evidence and targeted counterexamples, consumes T21 full-suite proof without duplicating it, and reports zero blockers before T23.
+- T22 reviews the whole correction diff/evidence and targeted counterexamples, consumes T21 scoped evidence ledger and replays named counterexamples only, and reports zero blockers before T23.
 - T23 is the only final docs closeout commit; no deploy/publication command runs.
 
 ## Efficiency basis
@@ -148,8 +150,14 @@ At `e657392`: python3-version 20/21 in 516s (PY5 whole-hook wall 39s vs 16-26; f
 
 ## T31 heartbeat proof
 
-At `314ead3`, health-check-timeout 22/23 in 1319s; sole AC5 failure one heartbeat vs two in a ~4s child window. All T25 cleanup/reap cases passed; stopped safely before meaningful git-smoke. T31 requires synchronized actual-child markers and two real pre-release heartbeats, off/one-shot/late/capture/cleanup controls and three focused `--only ac5` processes. Default 23 predicates remain; final T21 covers the full phase once. No production change or blind timing inflation. See tasks T31 and `state/audit/execution-efficiency-review-2026-09-06.md`.
+At `314ead3`, health-check-timeout 22/23 in 1319s; sole AC5 failure one heartbeat vs two in a ~4s child window. All T25 cleanup/reap cases passed; stopped safely before meaningful git-smoke. T31 requires synchronized actual-child markers and two real pre-release heartbeats, off/one-shot/late/capture/cleanup controls and three focused `--only ac5` processes. Default 23 predicates remain; T21 reruns only missing or invalidated heartbeat/affected dependency evidence. No production change or blind timing inflation. See tasks T31 and `state/audit/execution-efficiency-review-2026-09-06.md`.
 
 ## T32 composition proof
 
-Full health regression and all liveness predicates execute once in composed gate; standalone liveness retains health dependency. Synthetic launch counts cover full/both-selected/liveness-only and failed/missing dependency. Core-only is partial, never standalone full proof; no trusted environment skip or cached receipt. One-call stdout/stderr/rc attribution replaces duplicate bounded command execution. Measured >19m nested cost and bounded sibling scan in efficiency audit; final suite on T32 source only.
+Full health regression and all liveness predicates execute once in composed gate; standalone liveness retains health dependency. Synthetic launch counts cover full/both-selected/liveness-only and failed/missing dependency. Core-only is partial, never standalone full proof; no trusted environment skip or cached receipt. One-call stdout/stderr/rc attribution replaces duplicate bounded command execution. Measured >19m nested cost and bounded sibling scan in efficiency audit; T32 synthetic composition plus focused core proof; T21 uses B6 scoped acceptance.
+
+## Local acceptance ledger contract (B6 / T33)
+
+Each AC/risk row: changed behavior; dependency files/config/toolchain/platform; exact tested source; command/selection; expected positive/negative outcome; actual exit/result; durable log; reused/new/deferred; invalidation rationale. A new SHA alone does not invalidate unrelated proof; unchanged HEAD alone never proves validity. Unknown dependencies require the affected group to rerun. Every B1-B8/N1-N2 row closes directly or remains open. Missing/zero-row/crashed selected tests remain non-success; subsets cannot satisfy strict full-summary parsing. No automatic proof cache or receipt signer is added.
+
+Per-change syntax/lint and normal staged safety checks remain. Broad release-tag/vendor/legacy compatibility and mutation variants run in maintainer/release CI; absent execution is DEFERRED, not PASS. Full cross-platform CI success is not claimed from configuration inspection. S1/S3 equivalent existing scenario evidence avoids duplicate smoke; S2 still needs three independent write-mode calls. Record selected phase start/end/elapsed/rc/timeout and expected total before long execution; stop and diagnose unexplained cost, never blind-restart prefixes or inflate timeout defaults.

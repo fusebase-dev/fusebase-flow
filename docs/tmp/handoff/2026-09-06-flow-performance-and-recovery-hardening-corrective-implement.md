@@ -2,15 +2,15 @@
 
 ## Current state
 
-Operate as AI Developer under Fusebase Flow v4.14.1. T31 `1cad34d` complete. T21 exposed >19m duplicated health suite inside liveness. Execute narrow T32 composition/single-run capture correction, then T21 once on final T32 source and stop for T22. No deploy/publication/migration target.
+Operate as AI Developer under Fusebase Flow v4.14.1. T31 `1cad34d` complete. T21 exposed >19m duplicated health suite inside liveness. Execute narrow T32 composition/single-run capture correction, then T33 policy/tooling, T21 scoped acceptance and stop for T22; never restart the 108-minute prefix. No deploy/publication/migration target.
 
 | Owner | Pointer |
 |---|---|
-| Scope/AC/files/dependencies | `docs/specs/flow-performance-and-recovery-hardening/tasks.md`, T31 |
+| Scope/AC/files/dependencies | `docs/specs/flow-performance-and-recovery-hardening/tasks.md`, T32-T33 |
 | Proof/coverage/smoke | `verification-gate.md` in same directory |
 | Safety defects | `adversarial-review.md`, B1-B8/N1-N2 |
 | Efficiency rationale | `state/audit/execution-efficiency-review-2026-09-06.md` |
-| Tail | T32 -> T21 -> T22 -> T23 |
+| Tail | T32 -> T33 -> T21 -> T22 -> T23 |
 
 ## Required context
 
@@ -21,7 +21,8 @@ Read mandatory bootstrap/role bodies once when absent, then the active task sect
 | Task | Action |
 |---|---|
 | T32 | Compose health dependency once; retain standalone coverage; couple output/status to one invocation; synthetic count/failure controls |
-| T21 | One complete final registered suite; constituent rows satisfy covered focused tests; only uncovered smoke/repo-state checks separately; replace gate report |
+| T33 | Durable B6 scoped-proof policy, canonical/mirror/template alignment and phase timing; focused synthetic tests |
+| T21 | Scoped AC/dependency ledger; uncovered or invalidated checks only; broad CI DEFERRED unless executed; replace gate report |
 | T22 | Separate GPT-6 Astra targeted replay and whole-diff review; no duplicate full suite |
 | T23 | Docs-only closeout only after zero blockers |
 
@@ -45,4 +46,4 @@ T25 wrapper reached U14 after ~11m; isolated failure took ~8s. Public selectors 
 ---
 📍 Phase: Implement
 🎯 Ticket: flow-performance-and-recovery-hardening
-⏭️ Next: execute T32; run T21 once on final source; stop for review
+⏭️ Next: execute T32 then T33; scoped T21 acceptance; stop for review
