@@ -4,6 +4,26 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [4.15.1] — 2026-09-07
+
+**Recovery portability and release completion.** This release carries the recovery and workflow work
+prepared for v4.15.0, whose tagged workflow failed before publication, with the cross-platform repair
+needed by the release gate.
+
+- Native Windows CRLF output is normalized only at the typed-surface line boundary. Exact LF/CRLF
+  members are accepted; prefix and suffix lookalikes remain rejected.
+- Release phase reporting permits only the declared off-MSYS signal-reap `N/A`; unexpected `N/A`,
+  nonzero exits, timeouts, and zero-result phases remain failures.
+- Linux/MSYS fixture setup now supplies current dependencies and ownership markers and uses portable
+  Bash resolution. Validator receipt reuse remains disabled and validators still execute normally.
+- Seven editorial/profiling checks are explicit opt-in diagnostics. Required runtime, recovery,
+  executable-safety, manifest, and exact-SHA publication checks remain in the release suite.
+- Maintainer CI provides focused Linux and Windows/MSYS feedback before release. Publication still
+  requires the full reusable verification workflow and aggregate gate on the exact candidate/tagged SHA.
+
+The release makes no universal speedup, host token-savings, or lint/typecheck-skip claim. See
+`docs/release-notes/v4.15.1.md` for recovery guidance, evidence attribution, and remaining limits.
+
 ## [4.15.0] — 2026-09-07
 
 **Recovery and workflow performance hardening.** This release gathers the recovery, evidence, and
