@@ -741,6 +741,7 @@ PY
 }
 
 ffcf_direct_run() {
+  ffcf_t59_preflight_headings
   ffcf_t1_overlay_spans
   ffcf_t13_owned_write_matrix
   ffcf_production_breadth

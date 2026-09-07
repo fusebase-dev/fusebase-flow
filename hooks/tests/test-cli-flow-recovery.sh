@@ -2,7 +2,7 @@
 # Simulate a FuseBase CLI agent-asset refresh followed by Fusebase Flow recovery.
 # The test proves ownership behavior, not exact CLI wording.
 #
-# Entry point only. The 32 predicates live in four sourced modules (step 4 of
+# Entry point only. The 34 predicates live in five test modules plus fixture builders (step 4 of
 # docs/specs/backlog-triage-execution/architecture-review.md § Q2 — "delete the monolithic phase
 # after a 31-to-new-test coverage map proves every predicate has an owner"):
 #
@@ -11,6 +11,7 @@
 #   cli-flow-recovery-classify.sh  12 isolated read-only classification fixtures
 #   cli-flow-recovery-engine.sh    3 isolated main-health-engine drives
 #   cli-flow-recovery-direct.sh    direct-helper tests, legacy migration, and the U20 upgrade
+#   cli-flow-recovery-preflight.sh embedded-preflight heading grammar
 #
 # TRIPWIRE — the suite budget is FORK COUNT, not bytes: an MSYS process spawn costs ~0.6s, so the
 # old 34-skill fixture made mirror-skills alone ~125s on EVERY recovery run. Adding a canonical
@@ -18,7 +19,7 @@
 #
 # Output contract (parsed by run-tests.sh run_shell_phase):
 #   "PASS: cli-flow-recovery <name>" / "FAIL: cli-flow-recovery <name>"; exit = fail count.
-# Step 7 moved this phase off the single-row exit-code treatment: 33 predicates now report as 33
+# Step 7 moved this phase off the single-row exit-code treatment: 34 predicates now report as 34
 # rows, so a red run names the predicate instead of one opaque "exit 1".
 
 set -euo pipefail
@@ -208,6 +209,7 @@ mkdir -p "$PROJECT"
 . "$ROOT/hooks/tests/cli-flow-recovery-classify.sh"
 . "$ROOT/hooks/tests/cli-flow-recovery-engine.sh"
 . "$ROOT/hooks/tests/cli-flow-recovery-direct.sh"
+. "$ROOT/hooks/tests/cli-flow-recovery-preflight.sh"
 
 ffcf_t34_bootstrap() {
   if "$python_bin" "$ROOT/hooks/tests/test-recovery-owned-bootstrap.py"; then
@@ -223,7 +225,7 @@ if [ -n "$FFCF_SELECTED" ]; then
     legacy) ffcf_legacy_overlays ;;
     engine) ffcf_engine_run ;;
     t1) ffcf_t1_overlay_spans ;;
-    t14) ffcf_t14_preflight; ffcf_t14_progress_ledger ;;
+    t14) ffcf_t14_preflight; ffcf_t14_progress_ledger; ffcf_t59_preflight_headings ;;
     t15) ffcf_t15_verification ;;
     t20) ffcf_t20_repeated_noop ;;
     t34) ffcf_t34_bootstrap ;;

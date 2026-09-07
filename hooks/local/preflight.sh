@@ -23,6 +23,9 @@ note() { echo "[preflight] $*"; }
 err()  { echo "[preflight] ERROR: $*" >&2; errors=$((errors + 1)); }
 warn() { echo "[preflight] warn:  $*" >&2; warnings=$((warnings + 1)); }
 
+# shellcheck source=lib/preflight-overlay-headings.sh
+. "$FF_PF_DIR/lib/preflight-overlay-headings.sh"
+
 # Canonical skills dir: flow-skills/ (v3.9.0+); legacy root skills/ as fallback.
 SKILLS_CANON="flow-skills"
 [ -d "$FF_DIR/$SKILLS_CANON" ] || SKILLS_CANON="skills"
@@ -240,11 +243,8 @@ if [ -d "$OVL" ]; then
     done
 fi
 
-# 5e. Overlay heading-marker assert (WS6) — dual-accept, mirrors the health-check
-#     engine so preflight ⟷ health-check agree on what a valid overlay looks like.
-#     Accept the legacy `## Fusebase Flow — …` OR the new `## FuseBase Flow — …`
-#     marker; if neither, accept the source-template baseline title (edition mode).
-#     A file with NEITHER a marker NOR the baseline title is real drift => ERROR.
+# 5e. Overlay heading-marker assert (WS6).
+# TRIPWIRE: accepted CLAUDE markers are exact complete lines; product-name prose is not structure.
 if [ -f AGENTS.md ]; then
     if grep -qE "^## Fuse[bB]ase Flow — workflow lifecycle overlay" AGENTS.md; then
         : # overlay marker present (old or new) — OK
@@ -255,12 +255,10 @@ if [ -f AGENTS.md ]; then
     fi
 fi
 if [ -f CLAUDE.md ]; then
-    if grep -qE "^## Fuse[bB]ase Flow — additional rules \(overlay\)" CLAUDE.md; then
-        :
-    elif grep -qF "Claude Code adapter for Fusebase Flow" CLAUDE.md; then
+    if ffpf_claude_overlay_present CLAUDE.md; then
         :
     else
-        err "CLAUDE.md missing the FuseBase Flow overlay heading marker (## FuseBase Flow — additional rules (overlay)) and baseline title"
+        err "CLAUDE.md missing an exact Flow adapter heading (canonical, legacy, or source-template title)"
     fi
 fi
 
