@@ -18,7 +18,7 @@
 #
 # Output contract (parsed by run-tests.sh run_shell_phase):
 #   "PASS: cli-flow-recovery <name>" / "FAIL: cli-flow-recovery <name>"; exit = fail count.
-# Step 7 moved this phase off the single-row exit-code treatment: 32 predicates now report as 32
+# Step 7 moved this phase off the single-row exit-code treatment: 33 predicates now report as 33
 # rows, so a red run names the predicate instead of one opaque "exit 1".
 
 set -euo pipefail
@@ -29,7 +29,7 @@ cd "$ROOT"
 # Public diagnostic groups run the real fixture functions under the same tempfile-based timeout
 # owner as the registered suite. TRIPWIRE: parse before TMP_BASE is created, and keep selected
 # result rows SCOPED so they cannot satisfy run-tests.sh's full-phase PASS parser.
-FFCF_GROUPS=(u14 legacy engine t1 t14 t15 t20)
+FFCF_GROUPS=(u14 legacy engine t1 t14 t15 t20 t34)
 ffcf_selector_error() { echo "[cli-flow-recovery] ERROR: $*" >&2; exit 2; }
 
 FFCF_SELECTED=""
@@ -195,6 +195,14 @@ mkdir -p "$PROJECT"
 . "$ROOT/hooks/tests/cli-flow-recovery-engine.sh"
 . "$ROOT/hooks/tests/cli-flow-recovery-direct.sh"
 
+ffcf_t34_bootstrap() {
+  if "$python_bin" "$ROOT/hooks/tests/test-recovery-owned-bootstrap.py"; then
+    pass "T34: receiptless mirror ownership bootstrap"
+  else
+    fail "T34: receiptless mirror ownership bootstrap"
+  fi
+}
+
 if [ -n "$FFCF_SELECTED" ]; then
   case "$FFCF_SELECTED" in
     u14) ffcf_u14_wire_stop ;;
@@ -204,6 +212,7 @@ if [ -n "$FFCF_SELECTED" ]; then
     t14) ffcf_t14_preflight; ffcf_t14_progress_ledger ;;
     t15) ffcf_t15_verification ;;
     t20) ffcf_t20_repeated_noop ;;
+    t34) ffcf_t34_bootstrap ;;
   esac
   exit 0
 fi
@@ -212,3 +221,4 @@ ffcf_e2e_run
 ffcf_classify_run
 ffcf_engine_run
 ffcf_direct_run
+ffcf_t34_bootstrap
