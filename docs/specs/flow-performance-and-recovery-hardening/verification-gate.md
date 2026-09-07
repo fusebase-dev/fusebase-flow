@@ -1,10 +1,10 @@
 # Verification gate - flow-performance-and-recovery-hardening
 
-**Status:** T30 source health phase 22/23; T31 AC5 synchronization required
+**Status:** T31 complete; T32 removes confirmed nested health/liveness duplication
 **Starting source:** `2217a9c631300e510b18437548ed4bccb5f31036`
-**Linked tasks:** `tasks.md` T11-T31
+**Linked tasks:** `tasks.md` T11-T32
 **Review findings:** `adversarial-review.md` B1-B8, N1-N2
-**Gate task:** T21, report-only after T31
+**Gate task:** T21, report-only after T32
 **Independent review:** T22, zero blockers required
 **Closeout:** T23, docs-only
 **Smoke threshold:** S1-S3 each requires three independent process executions; three assertions from one run are not three repetitions
@@ -39,7 +39,7 @@
 
 | Layer | Command / result |
 |---|---|
-| Complete registered coverage | `FF_FULL=1 FFHC_HEARTBEAT_SECS=30 bash hooks/tests/run-tests.sh` once on final T31 source; exact source/command/platform/exit and constituent rows |
+| Complete registered coverage | `FF_FULL=1 FFHC_HEARTBEAT_SECS=30 bash hooks/tests/run-tests.sh` once on final T32 source; exact source/command/platform/exit and constituent rows |
 | Pre-gate T29/T30 diagnosis | `python hooks/tests/test-artifact-manifest.py`; focused PY5, then `FF_ONLY=python3-version,python3-version-mutation bash hooks/tests/run-tests.sh`; scoped evidence only; do not repeat separately during T21 |
 | Focused coverage mapping | Its validator, validation-instructions, cli-flow-recovery, hook-intent, timeout, wire-hooks, lane-workflow, windowing, benchmark and selector-selftest rows satisfy corresponding task checks; do not repeat these suites separately |
 | Diagnostic entry points | T28 wrapper `--only u14`, `--only legacy`, `--only engine` and task selectors are scoped development proof only; never execute sourced-only direct/E2E modules as tests |
@@ -129,9 +129,9 @@ Record the real fixture directory before cleanup, diagnosis commands/results, ro
 
 ## Gate completion rules
 
-- T11-T20 and T24-T31 each have one exact SHA and changed-slice proof. T25 is `ef320de`; T26 commit uses its focused evidence above.
+- T11-T20 and T24-T32 each have one exact SHA and changed-slice proof. T25 is `ef320de`; T26 commit uses its focused evidence above.
 - T27 corrects legacy fixture assumptions without weakening T17; T28 adds scoped diagnostics without reducing default coverage. Preserve historical stall, U14 and U7 failures with distinct explanations.
-- Tail: T31 -> T21 -> T22 -> T23. T21 uses one final complete suite, then only uncovered smoke/live repo-state checks; no source commit. Fixture phase tests do not substitute for current repository integrity checks.
+- Tail: T32 -> T21 -> T22 -> T23. T21 uses one final complete suite, then only uncovered smoke/live repo-state checks; no source commit. Fixture phase tests do not substitute for current repository integrity checks.
 - Any failed-then-passed check is investigated and reproduced; no silent PASS.
 - Every B1-B8/N1-N2 row has direct evidence or remains open.
 - Spec remains DRAFT through T21.
@@ -149,3 +149,7 @@ At `e657392`: python3-version 20/21 in 516s (PY5 whole-hook wall 39s vs 16-26; f
 ## T31 heartbeat proof
 
 At `314ead3`, health-check-timeout 22/23 in 1319s; sole AC5 failure one heartbeat vs two in a ~4s child window. All T25 cleanup/reap cases passed; stopped safely before meaningful git-smoke. T31 requires synchronized actual-child markers and two real pre-release heartbeats, off/one-shot/late/capture/cleanup controls and three focused `--only ac5` processes. Default 23 predicates remain; final T21 covers the full phase once. No production change or blind timing inflation. See tasks T31 and `state/audit/execution-efficiency-review-2026-09-06.md`.
+
+## T32 composition proof
+
+Full health regression and all liveness predicates execute once in composed gate; standalone liveness retains health dependency. Synthetic launch counts cover full/both-selected/liveness-only and failed/missing dependency. Core-only is partial, never standalone full proof; no trusted environment skip or cached receipt. One-call stdout/stderr/rc attribution replaces duplicate bounded command execution. Measured >19m nested cost and bounded sibling scan in efficiency audit; final suite on T32 source only.

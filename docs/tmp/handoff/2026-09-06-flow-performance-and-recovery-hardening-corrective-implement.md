@@ -2,7 +2,7 @@
 
 ## Current state
 
-Operate as AI Developer under Fusebase Flow v4.14.1. T29 `17749db`, T30 `314ead3` complete. Final-source health phase reached 22/23 in 1319s; sole AC5 count-ratio race. Run stopped safely before meaningful git-smoke. Execute T31 test-only synchronized heartbeat fixture, then T21 once on final T31 source and stop for T22. No deploy/publication/migration target.
+Operate as AI Developer under Fusebase Flow v4.14.1. T31 `1cad34d` complete. T21 exposed >19m duplicated health suite inside liveness. Execute narrow T32 composition/single-run capture correction, then T21 once on final T32 source and stop for T22. No deploy/publication/migration target.
 
 | Owner | Pointer |
 |---|---|
@@ -10,7 +10,7 @@ Operate as AI Developer under Fusebase Flow v4.14.1. T29 `17749db`, T30 `314ead3
 | Proof/coverage/smoke | `verification-gate.md` in same directory |
 | Safety defects | `adversarial-review.md`, B1-B8/N1-N2 |
 | Efficiency rationale | `state/audit/execution-efficiency-review-2026-09-06.md` |
-| Tail | T31 -> T21 -> T22 -> T23 |
+| Tail | T32 -> T21 -> T22 -> T23 |
 
 ## Required context
 
@@ -20,7 +20,7 @@ Read mandatory bootstrap/role bodies once when absent, then the active task sect
 
 | Task | Action |
 |---|---|
-| T31 | Actual child started/release/exited synchronization; two real pre-release heartbeats; focused --only ac5 and bounded negative controls |
+| T32 | Compose health dependency once; retain standalone coverage; couple output/status to one invocation; synthetic count/failure controls |
 | T21 | One complete final registered suite; constituent rows satisfy covered focused tests; only uncovered smoke/repo-state checks separately; replace gate report |
 | T22 | Separate GPT-6 Astra targeted replay and whole-diff review; no duplicate full suite |
 | T23 | Docs-only closeout only after zero blockers |
@@ -45,4 +45,4 @@ T25 wrapper reached U14 after ~11m; isolated failure took ~8s. Public selectors 
 ---
 📍 Phase: Implement
 🎯 Ticket: flow-performance-and-recovery-hardening
-⏭️ Next: execute T31; run T21 once on final source; stop for review
+⏭️ Next: execute T32; run T21 once on final source; stop for review

@@ -2,8 +2,8 @@
 
 **T-counter going in:** T11
 **Historical implementation:** T1-T10 complete provisionally; T10 gate superseded by Astra CHANGES REQUIRED
-**Corrective implementation:** T29 `17749db`, T30 `314ead3`; T31 synchronized AC5 fixture planned
-**Final technical gate:** T21, report-only after T31
+**Corrective implementation:** T31 `1cad34d`; T32 nested-suite deduplication planned
+**Final technical gate:** T21, report-only after T32
 **Repeated adversarial review:** T22, GPT-6 Astra review-only
 **Closeout:** T23, docs-only; former T11 moved without reuse
 **Starting source:** `2217a9c631300e510b18437548ed4bccb5f31036`
@@ -48,7 +48,8 @@
 | T29 | single-process mutation artifact manifests | measured spawn amplification | A6-A7 | T28 | one test-tooling commit |
 | T30 | probe-boundary timeout evidence and mutation budget semantics | PY5 wall/mutation failures | A6, B1 | T29 | one diagnosed correction commit |
 | T31 | synchronized AC5 heartbeat proof and focused selector | one-of-two heartbeat wall race | A2-A3, B2 | T30 | one test-only commit |
-| T21 | final technical gate/report | B1-B8, N1-N2 | A1-A7, B1-B5 | T31 | report-only |
+| T32 | compose health/liveness coverage once; single-run status capture | >19m nested duplicate | A6-A7 | T31 | one test-tooling commit |
+| T21 | final technical gate/report | B1-B8, N1-N2 | A1-A7, B1-B5 | T32 | report-only |
 | T22 | repeated GPT-6 Astra whole-implementation review | all | all | T21 | review-only |
 | T23 | final docs closeout | all | all | T22 zero blockers | docs-only pending |
 
@@ -232,7 +233,15 @@
 **Tests/measurement:** `bash hooks/tests/test-health-check-timeout.sh --only ac5` with three independent bounded executions and negative controls; record actual-child start, heartbeat observations, release/exit, wrapper rc, cleanup and elapsed. Record focused duration against historical whole-phase 1319s without claiming all 1319s was AC5 or a guaranteed full-suite speedup. Default full phase runs once within final T21; do not repeat 1319s prefix for development. No covered scenario deletion or lowered liveness requirement.
 **Commit/boundaries:** one T31 commit, exact two/three test paths; normal pre-commit, no exception. CLI/provider/config and preserved untracked directories unchanged. Broader full-engine optimization needs per-case profiling and is outside T31.
 
-## Efficiency evidence
+## T32 - Remove nested equivalent-state test execution
+
+**Files:** `hooks/tests/test-liveness-bounded-run.sh`; `hooks/tests/run-tests.sh`; `hooks/tests/test-ff-only.sh` for small synthetic composition tests. No runtime/CLI changes. Respect <=800 or existing no-growth ratchet; no exemption or general runner rewrite.
+**Diagnosis:** liveness AC3e/AC6 runs the complete health timeout suite again although composed runner already ran it; >19m repeated work observed. Liveness spec AC3e/AC6 requires green health regression evidence, not duplicate execution. Its `run_bounded` also executes identical commands twice to combine first stderr with second rc, wasting work and weakening attribution. Audit: `state/audit/execution-efficiency-review-2026-09-06.md`, nested-suite follow-up.
+**Work/AC:** standalone no-argument liveness retains full nested health coverage. Add explicit `--core-only` diagnostic mode that omits only nested dependency invocation, labels summary partial/non-attesting, retains direct API and every other liveness predicate. Unknown arguments exit 2 before work. Composed runner uses that mode only when its earlier health phase actually executed and its result is accounted in the same invocation; no environment/cached-evidence success assertion. Failed/missing/timed-out health remains full-gate failure; no fabricated dependency PASS. `FF_ONLY=liveness` without health still runs dependency. Explain aggregate row-count reduction rather than silently retaining duplicate PASS. Capture stderr and rc from one bounded_run invocation; preserve 124/137/125, timeout messages, progress and non-execution sentinel.
+**Tests:** extend existing ff-only synthetic fixtures to count health launches: full/both-selected exactly one; liveness-only/standalone retains health invocation; failed/missing dependency cannot produce full PASS; core-only summary rejected as standalone complete proof; unknown mode refused. Tiny execution counter plus distinct output/rc proves run_bounded executes once and couples evidence. Run real core-only genuine timeout/SIGTERM/degrade cases once; final T21 supplies full health+liveness integration. No extra full health run for development diagnostics.
+**Measurement/boundaries:** record composed dependency count and focused liveness elapsed against observed >19m nested cost; preserve all semantic cases. Static sibling scan found necessary changed-input interpreter mutation, synthetic ff-only and selector probes; no other identical full heavy nested suite confirmed. Do not remove these distinct controls. One exact three-file T32 commit, normal pre-commit; CLI/provider/config and untracked evidence untouched.
+
+## Efficiency rationale
 
 **Evidence:** `state/audit/execution-efficiency-review-2026-09-06.md` (GPT-6 Astra Medium). T25 full wrapper took ~11m before U14 versus ~8s isolated; timeout-suite log activity totaled ~33m; four amendments repeated state across five docs. These are observed log intervals, not billed token/CPU measurements.
 **Action:** tasks own scope/dependencies; gate owns proof mapping; handoff carries current state/pointers. Defer roadmap/report status churn to closeout. Diagnose the failed case before rerunning its group; structural retry requires a changed control. Preserve same-agent provider-limit retries under operator authorization. Expected isolated-case savings ~10m per similar late failure; aggregate savings unmeasured.
@@ -240,15 +249,15 @@
 ## T21 - Final technical gate report
 
 **Files:** `docs/specs/flow-performance-and-recovery-hardening/gate-report.md`; uncommitted smoke JSON/log evidence under the existing smoke directory; durable `state/audit/` outputs only where existing commands own them.
-**Work/tests:** no source change or commit. After T31, run `FF_FULL=1 FFHC_HEARTBEAT_SECS=30 bash hooks/tests/run-tests.sh` once on final T31 source. Its constituent rows satisfy matching focused coverage; do not rerun those suites separately. Add only uncovered S1-S3 smoke and live repo-state/preflight/mirror/manifest/module/security/CLI checks from `verification-gate.md`. Never execute sourced-only modules as tests. Replace `gate-report.md` with source/command/platform/exit/coverage evidence; partial runs never attest full PASS. Retain superseded diagnostic 139 PASS/2 FAIL, stopped safely at git-context; do not merge its rows into final-source PASS.
-**Acceptance:** every B1-B8/N1-N2 has direct closure evidence or remains open; exact T11-T20/T24-T31 SHAs/timing and failed-then-passed evidence recorded; real Git verification and full registered wrapper liveness proved; spec remains DRAFT; stop at gate.
+**Work/tests:** no source change or commit. After T32, run `FF_FULL=1 FFHC_HEARTBEAT_SECS=30 bash hooks/tests/run-tests.sh` once on final T32 source. Its constituent rows satisfy matching focused coverage; do not rerun those suites separately. Add only uncovered S1-S3 smoke and live repo-state/preflight/mirror/manifest/module/security/CLI checks from `verification-gate.md`. Never execute sourced-only modules as tests. Replace `gate-report.md` with source/command/platform/exit/coverage evidence; partial runs never attest full PASS. Retain superseded diagnostic 139 PASS/2 FAIL, stopped safely at git-context; do not merge its rows into final-source PASS.
+**Acceptance:** every B1-B8/N1-N2 has direct closure evidence or remains open; exact T11-T20/T24-T32 SHAs/timing and failed-then-passed evidence recorded; real Git verification and full registered wrapper liveness proved; spec remains DRAFT; stop at gate.
 **Module size:** N/A; report/evidence only.
 **Worker-undisturbed:** verify all task boundaries and shared workspace hash/status; do not stage `docs/wasted-code/` or existing smoke `.log` files.
 
 ## T22 - Repeat the GPT-6 Astra whole-implementation review
 
 **Files:** read-only implementation/evidence review; review result prepared for `adversarial-review.md` but committed only in T23.
-**Work/tests:** no implementation commit. GPT-6 Astra reviews `2217a9c..T31_HEAD`, T21 coverage/evidence, smoke, ownership/authority boundaries, and B1-B8/N1-N2 closure. Replay targeted mutations/false-claim cases, manifest parity and probe-budget negative controls; consume T21 full-suite evidence rather than rerunning the whole suite. Any new source correction requires the affected proof and final-source gate; never reuse invalidated evidence.
+**Work/tests:** no implementation commit. GPT-6 Astra reviews `2217a9c..T32_HEAD`, T21 coverage/evidence, smoke, ownership/authority boundaries, and B1-B8/N1-N2 closure. Replay targeted mutations/false-claim cases, manifest parity and probe-budget negative controls; consume T21 full-suite evidence rather than rerunning the whole suite. Any new source correction requires the affected proof and final-source gate; never reuse invalidated evidence.
 **Acceptance:** zero blockers. Any blocker returns to newly numbered implementation tasks and invalidates T23; do not claim closeout early.
 **Module size:** N/A; read-only review.
 **Worker-undisturbed:** no source/provider/config mutation during review.
@@ -286,4 +295,4 @@
 | A7 / B5 | T18-T20 |
 | Final zero-blocker review | T22 before T23 |
 
-**Serialization:** T31 -> T21 -> T22 -> T23. T29/T30 share the mutation harness; no concurrent writes. No worker-undisturbed path is configured; every task preserves the stricter CLI/user boundary.
+**Serialization:** T32 -> T21 -> T22 -> T23. T29/T30 share the mutation harness; no concurrent writes. No worker-undisturbed path is configured; every task preserves the stricter CLI/user boundary.
