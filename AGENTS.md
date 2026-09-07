@@ -59,6 +59,8 @@ Merge existing consumer content; never overwrite `AGENTS.md`, `CLAUDE.md`, `.git
 <!-- FLOW:PRESERVE:BEGIN (operator-owned — overlay refresh carries this region forward verbatim; edit freely) -->
 ### Project-specific values
 
+For maintenance of `fusebase-dev/fusebase-flow` itself, read `docs/maintainer-execution.md` and follow its project-specific implementation, review and testing process. This exception does not apply to consumer app work or relax executable safety controls.
+
 | Field | Value | Where enforced |
 |---|---|---|
 | Project name | (run `/onboard` or edit) | informational |

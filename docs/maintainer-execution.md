@@ -1,45 +1,49 @@
-# How to execute work on THIS repo (maintainer-side)
+# Maintaining this repository
 
-**Not part of Fusebase Flow.** Flow's rules for consumers are `FLOW_RULES.md` / `AGENTS.md`. This file is how the maintaining agent runs tickets *in this repository*. It is **not copied into consumers by default** — top-level `docs/*.md` are framework docs, staged only with `--with-framework-docs` and namespaced under `docs/_fusebase-flow/`.
+This is the maintainer process for `fusebase-dev/fusebase-flow`, approved on 2026-09-07. It overrides generic lifecycle ceremony for work on this framework. Consumer projects retain their own Flow workflow. Installation does not copy this file by default; `--with-framework-docs` places it under `docs/_fusebase-flow/` for reference.
 
-Read this at session start alongside `AGENTS.md`.
+## One outcome, one implementation pass
 
-## Why this exists
+1. Record the intended outcome, affected boundary and a success/failure example in one issue or change note. Use a design document only when behavior or ownership needs a real decision. The same record owns the task list and results; no automatic spec/decisions/tasks/gate/handoff bundle.
+2. Diagnose and implement with one owner. Existing operator authorization carries forward. Role changes within the approved work do not require a new session or relay. Ask only about a material product decision or an external action not already authorized.
+3. Run the cheapest meaningful checks for the changed behavior. A deterministic reproduction with a causal explanation is enough to fix; repeat trials only investigate actual races, flaky behavior or measured performance. No mandatory baseline full suite or three-run ritual.
+4. Review the diff after focused checks, before expensive verification. Ordinary maintenance uses implementer review. Changes to ownership, upgrade/recovery authority, security or release publication require an independent review of the relevant contract and diff.
+5. Resolve substantive findings together. Re-review the corrections and affected boundaries, expanding only for a concrete new risk. Findings require an input/trigger, wrong outcome and expected behavior. Wording and unrelated improvements do not restart the gate unless they change behavior or a material public claim.
+6. Commit one independently reversible outcome at a time. A probe, fixture calibration or report correction does not need its own task. Once behavior is demonstrated, applicable checks pass and blockers are resolved, finish.
 
-Measured on the v4.7.0/v4.7.1 cycle (adversarial retrospective, Codex xhigh, 2026-08-05):
+If another fix breaks the same boundary, settle the shared contract before patching again. A known correctness or safety blocker never becomes acceptable because a review has already run once. Prior examples: `docs/problem-catalog/undecided-contract-drives-repeat-defects/problem.md`.
 
-| | |
+## Checks and evidence
+
+| Stage | Required work |
 |---|---|
-| Source ticket elapsed | **117h12m** for ~42h active work |
-| Gaps waiting on a PO ruling | **89h06m — 76% of elapsed** |
-| Longest single pause | **52h32m** (M14→M16) — longer than the realistic target for the whole ticket |
-| Adversarial-review *thinking* | **~2h20m** across 14 rounds |
+| Edit loop | Affected tests and relevant syntax/configuration checks; `FF_ONLY=tag1,tag2 bash hooks/tests/run-tests.sh` when the registered runner is useful |
+| Commit | Normal staged secret, protected-path, module-size and configured lint/typecheck checks; no mandatory separate validator invocation immediately before pre-commit |
+| Maintainer CI | Focused deterministic contracts on Linux and Windows/MSYS; feedback only, not release evidence |
+| Release | Complete required suite and package integrity through `.github/workflows/fusebase-flow-verify.yml` on the exact candidate/tagged SHA; both platforms must succeed |
+| Diagnostics | Editorial instruction checks, profiling and repeated performance experiments explicitly selected when their subject changes |
 
-The cost was **not** gates and **not** reviews. It was work sitting finished, waiting to be ruled on. Full evidence: `docs/problem-catalog/po-latency-dominates-elapsed-time/problem.md`.
+Configured validators execute normally; no signed-receipt shortcut is required. An earlier manual validator run is optional feedback. CI repeats checks because it supplies a clean independent environment. If a check is not configured, report that fact rather than inventing a lint/typecheck result.
 
-## The seven rules
+Two-platform gating is mandatory: `verify-linux` and `verify-windows-msys`, plus the aggregate gate, must pass before publication. A focused CI/local pass is not full-suite or release evidence. `PUBLISHING.md` owns release procedures. Full-suite membership and diagnostic exclusions are documented in `docs/maintainer-testing.md`.
 
-| # | Rule | What it fixes |
-|---|---|---|
-| 1 | **Rule in batch.** When an agent stops on a contract question, answer it *and* pre-authorize the next two likely branches | One ruling per cycle is the 76% |
-| 2 | **Contract matrix before locking**, 45-min cap. Any decision saying "behave like X" enumerates every X first | "Judge as the gate judges" had three different answers (`command_policy` supplies `repo_id`+`command_digest`; `path_policy` supplies neither; health deferrals aren't in `require_approval`). Three rounds found that one at a time |
-| 3 | **Review before the expensive gate**, not after | Gate → review → invalidate both runs the costly step before the informative one |
-| 4 | **Tier the gate.** `run-tests.sh` = fast local default (≤10 min, ~5.5 min measured); `FF_FULL=1 run-tests.sh` = full unscoped; `FF_ONLY="a,b"` = scoped. Release evidence is the CI `verify` job on the tagged SHA (`PUBLISHING.md` § Release evidence authority). No local run — scoped, fast, or full — is release proof | A comment deletion took the same 45-min gate as a 400-line rewrite |
-| 5 | **Lightweight-lane text-only residuals** (comments, assertion renames) | Full-lane ceremony on wording cost multiple cycles |
-| 6 | **Build only what was asked** | A consumer wrote *"this is not a request to change your default"*. It was read as a feature request: 3 rounds, 3 green gates, 3 NO-SHIPs, parked unshipped |
-| 7 | **Thin handoffs.** Don't restate rules the sub-agent already reads | Docs + generated artifacts were **38.5% of churn — more than production code** |
+Record only commit/source state, selected command/group, environment, result and log pointer. CI logs and existing reports own the detail. A missing report field is repaired from evidence already present; rerun only when evidence is missing or invalidated. A focused result can close the affected local task without pretending it was a complete suite. Save a handoff only when work must cross sessions.
 
-## Hard stop
+## Failure handling
 
-A review round whose findings sit **inside the previous round's fix** means the contract is undecided. Stop implementing and decide it. See `docs/problem-catalog/undecided-contract-drives-repeat-defects/problem.md`. This fired three times before it was honoured; overriding it on a "the list is converging" argument was wrong both times it was tried.
+| Observation | Action |
+|---|---|
+| Wrong product behavior | Fix it and rerun affected tests |
+| Proven fixture or tooling error | Fix the smallest responsible boundary and retain the original failure |
+| Timeout, crash or zero result rows | Failed/incomplete execution; diagnose before retrying; never infer PASS from partial output |
+| Same experiment without new inputs | Stop repeating it; choose a simpler oracle or resolve the prerequisite |
+| Interrupted process tree | Inspect and clean only verified owned descendants before another run |
+| Unrelated review suggestion | Record as optional follow-up; keep the current outcome fixed |
 
-## What NOT to cut
+Use bounded execution and durable logs for long checks. Time budgets are design targets, not correctness assertions. Fix slow setup, isolation and repeated subprocesses before changing a wall; no blanket timeout increase or successful-prefix replay. No new instrumentation subsystem is needed to measure existing CI duration.
 
-**The adversarial reviews.** They found 100% of real defects on that cycle; three consecutive green suites found zero. Two self-serving claims were refuted by the retrospective: reviews *did* already run before code (`a44962c`, 17 findings applied), and agent quality *was* a contributing factor — the first implementation review found a manifest fail-open, symlink escape, non-atomic repair, mutable-source trust and widened destructive authority.
+## Safety and scope
 
-## Operational notes for this host
+Preserve user/CLI ownership, supported upgrade paths, prior activation intent, recoverability, secret/protected-path enforcement and truthful partial/failure states. Keep tag/verified-SHA binding and the publication dependency on verification. Do not bypass Git hooks, rewrite published tags or interpret local verification as permission to publish.
 
-- **Two-platform gating is mandatory before any release claim, and the machinery now enforces it.** A green MSYS run alone has been wrong twice, and a green Linux run alone carries the same risk in the other direction. `fusebase-flow-verify.yml` runs `verify-linux` + `verify-windows-msys` on the exact SHA the caller passes, and `publish` is dispatched only when both — plus the `verify-gate` aggregate — succeed; timed-out and skipped legs are non-success, never passes. Both legs run committed defaults under a committed `timeout-minutes: 60`. **Not yet measured:** no `windows-latest` run of the full suite exists; the only measured MSYS full gate is a loaded developer host (~2h02m pre-step-4, est. ~1h28m after steps 4–5), which is over that wall. A leg that hits the wall is RED and blocks the Release — fail-closed, and the thing to fix before tagging. Docker recipe: `docs/problem-catalog/ci-linux-msys-test-divergence/problem.md`.
-- **Before diagnosing a timing FAIL, run `ps -W | grep run-tests`** — a competing suite on this machine has caused one, and `ps -W` alone can miss it (check Win32 `CommandLine`).
-- **Several gate phases sit within 0.5% of their walls** — `docs/backlog/gate-bounds-lack-headroom/`. Treat an `exit 124` with zero failed assertions as a bound problem, not a code problem, and say so explicitly rather than recording a gate as clean.
-- **Write long-running agent output to `c:/tmp/`**, not the session scratchpad — another Claude Code process can wipe it mid-run.
+Apply process simplification here first. Changing consumer roles, shipped skill behavior or supported compatibility is a separate product decision. Historical audit: `state/audit/find-wasted-effort-2026-09-07-process-review.md` (local, not required for using this process).
