@@ -194,7 +194,7 @@
     },
     {
       "path": "hooks/local/lib/validator-evidence.py",
-      "sha256": "18c776c26bd594fc3a97d492d06c9b7753d91354dca30881695da31ddc066dc4"
+      "sha256": "04a947806b00864bf698691710725d702fb3b57419de13c8b3533b423a380c4e"
     },
     {
       "path": "hooks/local/lib/validator-runner.py",
@@ -822,7 +822,7 @@
     },
     {
       "path": "hooks/tests/test-validator-evidence.sh",
-      "sha256": "60d0f6d13d6c811911f3689ed1d20b7ace025aebd732ecfdc924b61c63834f28"
+      "sha256": "6183b7008308b7c783c2b76c4b306ab512f2a0fac59db2bff055aac720b41703"
     },
     {
       "path": "hooks/tests/test-vendored-rendered.sh",
@@ -841,5 +841,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "d70aa849d80ebbb29a552a5b6e8ae0115169797e0861935d54ed1f2962280068"
+  "manifest_self_sha256": "ce370706ae1bcd1870592c9fa2446f12cb49c96ef30ccf3bb99e8aec64453bbf"
 }

@@ -241,7 +241,9 @@ def validator_context() -> dict[str, Any]:
         if len(values) != len(set(values)):
             raise RuntimeError(f"invalid {CONTEXT_ENV}: duplicate {key}")
         result[key] = sorted(values)
-    return result
+    raise RuntimeError(
+        "validator context completeness is caller-asserted; independent proof is unavailable"
+    )
 
 
 def environment_identity(extra_names: list[str]) -> dict[str, str | None]:

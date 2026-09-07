@@ -9,11 +9,11 @@ fail=0
 ONLY=""
 if [ "${1:-}" = "--only" ] && [ "$#" -eq 2 ]; then
     case "$2" in
-        t48|t48-remaining) ONLY="$2" ;;
-        *) echo "usage: $0 [--only t48|t48-remaining]" >&2; exit 2 ;;
+        t48|t48-remaining|t53) ONLY="$2" ;;
+        *) echo "usage: $0 [--only t48|t48-remaining|t53]" >&2; exit 2 ;;
     esac
 elif [ "$#" -ne 0 ]; then
-    echo "usage: $0 [--only t48|t48-remaining]" >&2
+    echo "usage: $0 [--only t48|t48-remaining|t53]" >&2
     exit 2
 fi
 
@@ -233,6 +233,47 @@ case_t48_remaining() {
         ok "remaining-lint-failure-boundary-stays-red"
     else
         bad "remaining-lint-failure-boundary-stays-red" \
+          "rc=$failure_rc lint=$(count_of lint) typecheck=$(count_of typecheck)"
+    fi
+    invalidate
+}
+
+case_t53() {
+    new_fixture t53
+    RUN_CONTEXT="{\"schema\":1,\"complete\":true,\"inputs\":[\"src.txt\"],\"dependencies\":[\"package-lock.json\"],\"environment\":[\"CUSTOM_VALIDATOR_MODE\"],\"toolchains\":[\"$(to_command_path "$NESTED")\"]}"
+    make_receipt
+    runner_rc=$?
+    receipt="$(receipt_path)"
+    if [ "$runner_rc" -eq 0 ] && [ ! -f "$receipt" ] \
+       && [ "$(count_of lint)" = 1 ] && [ "$(count_of typecheck)" = 1 ] \
+       && grep -q "independent proof is unavailable" "$TMP/runner.out"; then
+        ok "t53-caller-complete-context-cannot-mint-reuse"
+    else
+        bad "t53-caller-complete-context-cannot-mint-reuse" \
+          "runner=$runner_rc receipt=$([ -f "$receipt" ] && echo yes || echo no) lint=$(count_of lint) typecheck=$(count_of typecheck)"
+    fi
+
+    mutate_undeclared_ignored_input
+    mutate_undeclared_environment
+    run_reuse_boundary "$TMP/t53-fallback.out"
+    fallback_rc=$?
+    if [ "$fallback_rc" -eq 0 ] && [ ! -f "$receipt" ] \
+       && [ "$(count_of lint)" = 2 ] && [ "$(count_of typecheck)" = 2 ] \
+       && ! grep -q "reusing authentic exact-state" "$TMP/t53-fallback.out"; then
+        ok "t53-omitted-input-and-environment-rerun-real-validators"
+    else
+        bad "t53-omitted-input-and-environment-rerun-real-validators" \
+          "rc=$fallback_rc lint=$(count_of lint) typecheck=$(count_of typecheck)"
+    fi
+
+    FUSEBASE_FLOW_TEST_FAIL=lint run_reuse_boundary "$TMP/t53-failure.out"
+    failure_rc=$?
+    if [ "$failure_rc" -ne 0 ] && [ ! -f "$receipt" ] \
+       && [ "$(count_of lint)" = 3 ] && [ "$(count_of typecheck)" = 2 ] \
+       && grep -q "BLOCK.*lint failed" "$TMP/t53-failure.out"; then
+        ok "t53-fallback-validator-failure-stays-red"
+    else
+        bad "t53-fallback-validator-failure-stays-red" \
           "rc=$failure_rc lint=$(count_of lint) typecheck=$(count_of typecheck)"
     fi
     invalidate
@@ -507,6 +548,10 @@ if [ "$ONLY" = "t48" ]; then
 fi
 if [ "$ONLY" = "t48-remaining" ]; then
     case_t48_remaining
+    finish
+fi
+if [ "$ONLY" = "t53" ]; then
+    case_t53
     finish
 fi
 
