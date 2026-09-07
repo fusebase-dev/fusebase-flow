@@ -1,30 +1,7 @@
 #!/usr/bin/env bash
 # Fusebase Flow — health check engine (read-only).
-#
-# PROVENANCE:
-#   Shipped as part of Fusebase Flow v2.2.0+. Lives at hooks/local/ — outside the
-#   Fusebase CLI's refresh manifest, so it survives `fusebase update`.
-#
-# PURPOSE:
-#   Diagnostic inventory of the Fusebase Flow overlay state plus upstream-vs-local
-#   comparison. Surfaces drift signatures (especially the `fusebase update`
-#   aftermath signature) and recommends a recovery path. NEVER repairs. The agent
-#   surfaces the report; on the operator's go-ahead (an affirmative reply to the
-#   recovery offer in chat) the AGENT runs `bash hooks/local/post-fusebase-update.sh`
-#   — the operator runs nothing.
-#
-# UPGRADE POSTURE:
-#   The expected sets of skills, agents, and lifecycle events are auto-discovered
-#   from the upstream `.fusebase-flow-source/` clone at runtime — NOT hardcoded.
-#   This means minor upstream releases (e.g. v2.2 -> v2.3 adding a new skill)
-#   require ZERO maintenance to this engine: the engine simply discovers the
-#   new expected count.
-#   Major upstream releases (e.g. V2 -> V3) may still require manual edits to:
-#     - Heading markers (still hardcoded in the engine + recovery script + overlay templates)
-#     - Overlay template content (project-specific values, FR-XX rule references)
-#
-# USAGE:
-#   bash hooks/local/fusebase-flow-health-check.sh
+# Read-only local/overlay inventory plus optional upstream comparison. It never
+# repairs; expected sets are discovered from staged or local canonical sources.
 #
 # EXIT CODES:
 #   0  HEALTHY (ALL critical checks ran and passed; no drift; upstream may be
@@ -64,29 +41,22 @@ fi
 # shellcheck source=lib/run-with-timeout.sh
 . "$FFHC_LIB"
 ffhc_detect_timeout   # sets FFHC_TIMEOUT_BIN to "timeout" | "gtimeout" | ""
+FFHC_PROGRESS_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/health-stage-progress.sh"
+[ -f "$FFHC_PROGRESS_LIB" ] || { echo "[health-check] BROKEN - missing $FFHC_PROGRESS_LIB" >&2; exit 2; }
+. "$FFHC_PROGRESS_LIB"                 # shellcheck source=lib/health-stage-progress.sh
 
-# U7 (v3.24.x): the PARTIAL_UPGRADE derived-facts check lives in a sourced lib
-# (FR-25 — the engine was at the 800-line ceiling). A missing lib degrades the
-# check open (the function simply isn't defined; the section below no-ops) — it is
-# a NEW signal, not a critical the verdict depends on, so its absence must not flip
-# a HEALTHY tree to BROKEN.
+# Optional derived-fact checks stay verdict-neutral when their library is absent.
 FFHC_PARTIAL_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/partial-upgrade-check.sh"
 # shellcheck source=lib/partial-upgrade-check.sh
 [ -f "$FFHC_PARTIAL_LIB" ] && . "$FFHC_PARTIAL_LIB"; FFHC_MBASE_LIB="${FFHC_PARTIAL_LIB%/*}/missing-base-check.sh"; [ -f "$FFHC_MBASE_LIB" ] && . "$FFHC_MBASE_LIB"   # N6-D2
 
-# SLO-budgeted timeouts (seconds), env-overridable. WS4: preflight/tests defaults
-# are platform-gated by ffhc_default_timeout (MSYS 60/120, POSIX 30/60) — see the
-# lib for the WHY; an explicit FFHC_*_TIMEOUT env value still wins via ${VAR:-…}.
+# Stage budgets are env-overridable; MSYS defaults come from ffhc_default_timeout.
 FFHC_FETCH_TIMEOUT="${FFHC_FETCH_TIMEOUT:-15}"
 FFHC_PREFLIGHT_TIMEOUT="${FFHC_PREFLIGHT_TIMEOUT:-$(ffhc_default_timeout preflight)}"
 FFHC_CONFLICT_TIMEOUT="${FFHC_CONFLICT_TIMEOUT:-30}"
 FFHC_TESTS_TIMEOUT="${FFHC_TESTS_TIMEOUT:-$(ffhc_default_timeout tests)}"
-# Manifest verify replaces the run-tests CRITICAL (D4) — one python hash pass
-# (seconds); budget = the preflight default (30 POSIX / 60 MSYS).
 FFHC_MANIFEST_TIMEOUT="${FFHC_MANIFEST_TIMEOUT:-$(ffhc_default_timeout preflight)}"
-# Opt-in escape hatch: when no timeout binary exists, run the bounded ops
-# UNbounded instead of skipping them (H5 — off by default so a network-impaired
-# host can never hang).
+# Explicit opt-in only; otherwise missing timeout support skips bounded operations.
 FFHC_ALLOW_UNBOUNDED="${FFHC_ALLOW_UNBOUNDED:-0}"
 
 # Flags (H3): --no-upstream = full local verdict, exit 0 OK (upstream is
@@ -110,7 +80,9 @@ for arg in "$@"; do
       echo "  --skip-hook-tests  alias for --fast (skips the integrity critical; PARTIAL; exit 4, never 0)"
       echo "  --run-hook-tests   optional deep diagnostic (never required for the verdict). PLATFORM-ADAPTIVE: POSIX runs the FULL run-tests.sh; MSYS/Git-Bash runs the FAST subset (single-process fixtures + git-smoke + hook-manifest, < 120s)"
       echo "  --run-hook-tests-full  force the FULL run-tests.sh suite even on MSYS (also: FFHC_RUN_HOOK_TESTS_FULL=1)"
-      echo "Env knobs (seconds): FFHC_FETCH_TIMEOUT FFHC_PREFLIGHT_TIMEOUT FFHC_CONFLICT_TIMEOUT FFHC_MANIFEST_TIMEOUT FFHC_TESTS_TIMEOUT"
+      echo "Bounded-child defaults (seconds): preflight=30 POSIX/60 MSYS; manifest=30 POSIX/60 MSYS; conflict=30; CLI-version=10; fetch=15 unless --no-upstream."
+      echo "No enforced total wall exists: stages run sequentially, and inline work plus timeout termination grace add time. Optional deep runs add their displayed per-child budgets."
+      echo "Env knobs (seconds): FFHC_FETCH_TIMEOUT FFHC_PREFLIGHT_TIMEOUT FFHC_CONFLICT_TIMEOUT FFHC_MANIFEST_TIMEOUT FFHC_CLI_VERSION_TIMEOUT FFHC_TESTS_TIMEOUT"
       echo "  FFHC_ALLOW_UNBOUNDED=1  run bounded ops unbounded when no timeout binary exists"
       echo "  FFHC_RUN_HOOK_TESTS_FULL=1  force the full deep-run suite on MSYS (same as --run-hook-tests-full)"
       exit 0 ;;
@@ -118,7 +90,6 @@ for arg in "$@"; do
   esac
 done
 
-# Tracking
 LOCAL_OK=()
 LOCAL_DRIFT=()
 LOCAL_BROKEN=()
@@ -142,7 +113,6 @@ DEEP_RUN_NOTES=()             # --run-hook-tests optional deep-run notes (NEVER 
 
 ###############################################################################
 # Section 0 — Active approval artifacts (informational, before any checks)
-###############################################################################
 # Read state/approvals/*.json, filter for non-expired entries. Two artifact types:
 #
 #   - protected_path_edit-*.json  (existing, since v2.0)
@@ -164,10 +134,12 @@ DEEP_RUN_NOTES=()             # --run-hook-tests optional deep-run notes (NEVER 
 # shared scope). APPROVAL_WARNINGS is age visibility only (M9) — it feeds no verdict array.
 FFHC_APPROVALS_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/active-approvals.sh"
 # shellcheck source=lib/active-approvals.sh
+ffhc_stage_start "active-approvals" "none"
 if [ -f "$FFHC_APPROVALS_LIB" ]; then
   . "$FFHC_APPROVALS_LIB"
   ffhc_collect_active_approvals
 fi
+ffhc_stage_end "none"
 
 ###############################################################################
 # Helper: record_drift — push to LOCAL_DRIFT or LOCAL_DEFERRED based on whether
@@ -196,6 +168,7 @@ record_drift() {
 # Section 1 — Local inventory (read-only)
 ###############################################################################
 
+ffhc_stage_start "local-inventory" "none"
 # VERSION
 if [ -f VERSION ]; then
   LOCAL_VERSION=$(cat VERSION 2>/dev/null | tr -d '\n')
@@ -399,6 +372,9 @@ fi
 
 # Preflight (CRITICAL, read-only — bounded). Timed-out/skipped => UNVERIFIED
 # (never silently OK); a completed run that fails => BROKEN (AC4a).
+ffhc_stage_end "none"
+ffhc_stage_start "preflight" "${FFHC_PREFLIGHT_TIMEOUT}s"
+FFHC_LAST_RC="not-run"
 if [ -x hooks/local/preflight.sh ]; then
   ffhc_run_bounded "$FFHC_PREFLIGHT_TIMEOUT" bash hooks/local/preflight.sh
   if [ "$FFHC_LAST_TIMED_OUT" -eq 1 ]; then
@@ -419,12 +395,16 @@ fi
 # missing lib degrades to LOCAL_UNVERIFIED + a re-upgrade hint (degrade-sane,
 # consistent with the absent-manifest class — never a false HEALTHY). --run-hook-tests
 # adds the OPTIONAL full run-tests.sh deep diagnostic (D5), gated inside the lib.
+ffhc_stage_end "$FFHC_LAST_RC"
 FFHC_INTEGRITY_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/hook-integrity-check.sh"
+ffhc_stage_start "hook-layer-integrity" "${FFHC_MANIFEST_TIMEOUT}s"
+FFHC_LAST_RC="not-run"
+FFHC_INTEGRITY_AVAILABLE=0
 if [ -f "$FFHC_INTEGRITY_LIB" ]; then
   # shellcheck source=lib/hook-integrity-check.sh
   . "$FFHC_INTEGRITY_LIB"
+  FFHC_INTEGRITY_AVAILABLE=1
   ffhc_hook_manifest_verify
-  ffhc_hook_tests_deep_run
 else
   LOCAL_UNVERIFIED+=("hook layer integrity: UNVERIFIED — missing $FFHC_INTEGRITY_LIB (re-clone or run 'bash hooks/local/upgrade.sh')")
 fi
@@ -432,8 +412,18 @@ fi
 # CLI/Flow ownership report (CRITICAL, read-only — bounded; does full-tree scans
 # that are slow in large repos). Timed-out/skipped => UNVERIFIED. JSON is read
 # from stdout only (stderr suppressed) so the parser sees clean output.
+ffhc_stage_end "$FFHC_LAST_RC"
+if [ "$OPT_RUN_HOOK_TESTS" -eq 1 ] && [ "$FFHC_INTEGRITY_AVAILABLE" -eq 1 ]; then
+  ffhc_stage_start "hook-tests-deep" "${FFHC_TESTS_TIMEOUT}s/component"
+  FFHC_LAST_RC="not-run"
+  ffhc_hook_tests_deep_run
+  ffhc_stage_end "$FFHC_LAST_RC" "last-child"
+fi
+
 CONFLICT_TIMED_OUT=0
 CONFLICT_SKIPPED=0
+ffhc_stage_start "cli-flow-conflicts" "${FFHC_CONFLICT_TIMEOUT}s"
+FFHC_LAST_RC="not-run"
 if [ -x hooks/local/check-cli-flow-conflicts.sh ]; then
   # Bounded stdout-only capture via the lib's belt-#2 helper (D-B1): tempfile +
   # MSYS tree-reap so a descendant can't starve the parent; stderr dropped so the
@@ -496,13 +486,9 @@ fi
 # (exit 1). Newer/older than the bundled snapshot, unreadable, or absent => a verdict-neutral
 # advisory: after a full `fusebase update` the adopter's documents came from their OWN CLI and
 # are correct, so a non-green verdict there would report Flow's review status as their defect.
+ffhc_stage_end "$FFHC_LAST_RC"
 FFHC_CLIVER_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/cli-version-check.sh"
-if [ -f "$FFHC_CLIVER_LIB" ]; then
-  . "$FFHC_CLIVER_LIB"                  # shellcheck source=lib/cli-version-check.sh
-  ffhc_cli_version_check
-else
-  LOCAL_UNVERIFIED+=("CLI version check: UNVERIFIED — missing $FFHC_CLIVER_LIB (re-clone or run 'bash hooks/local/upgrade.sh')")
-fi
+ffhc_run_cli_version_stage "$FFHC_CLIVER_LIB"
 
 ###############################################################################
 # Section 1b — PARTIAL_UPGRADE derived-facts check (U7, read-only, local).
@@ -513,6 +499,7 @@ fi
 # path). Findings are genuine DRIFT (concrete, repairable) — recorded so the
 # verdict can name PARTIAL_UPGRADE (a sub-class of the drift exit, code 1). NOT
 # exit 4: this check RAN and FOUND drift; exit 4 is for a critical that couldn't run.
+ffhc_stage_start "partial-upgrade" "none"
 if command -v ffhc_partial_upgrade_findings >/dev/null 2>&1; then
   while IFS= read -r pu; do
     [ -z "$pu" ] && continue
@@ -520,11 +507,15 @@ if command -v ffhc_partial_upgrade_findings >/dev/null 2>&1; then
     record_drift "partial_upgrade" "PARTIAL_UPGRADE — $pu"
   done < <(ffhc_partial_upgrade_findings 2>/dev/null)
 fi; command -v ffmb_collect >/dev/null 2>&1 && ffmb_collect   # N6-D2: State 1 => record_drift, State 2 => visibility-only pointer
+ffhc_stage_end "none"
 
 ###############################################################################
 # Section 2 — Upstream comparison (.fusebase-flow-source/)
 ###############################################################################
 
+if [ "$OPT_NO_UPSTREAM" -eq 1 ]; then FFHC_UPSTREAM_BUDGET="skipped"; else FFHC_UPSTREAM_BUDGET="${FFHC_FETCH_TIMEOUT}s"; fi
+ffhc_stage_start "upstream-comparison" "$FFHC_UPSTREAM_BUDGET"
+FETCH_RC="not-run"
 if [ "$OPT_NO_UPSTREAM" -eq 1 ]; then
   # --no-upstream / --fast: upstream is optional, so skipping it is a NOTE only —
   # it never becomes UNVERIFIED and never blocks exit 0 (H3/H4).
@@ -543,9 +534,9 @@ elif [ -d "$SOURCE_CLONE/.git" ]; then
     GIT_TERMINAL_PROMPT=0 run_with_timeout "$FFHC_FETCH_TIMEOUT" \
       git -c http.lowSpeedLimit=1000 -c http.lowSpeedTime="$FFHC_FETCH_TIMEOUT" \
       fetch origin --tags >/dev/null 2>&1
-    ffhc_timed_out "$?" && FETCH_TIMED_OUT=1
+    FETCH_RC=$?; ffhc_timed_out "$FETCH_RC" && FETCH_TIMED_OUT=1
   elif [ "$FFHC_ALLOW_UNBOUNDED" = "1" ]; then
-    GIT_TERMINAL_PROMPT=0 git fetch origin --tags >/dev/null 2>&1 || true
+    GIT_TERMINAL_PROMPT=0 git fetch origin --tags >/dev/null 2>&1; FETCH_RC=$?
   else
     FETCH_TIMED_OUT=1   # no timeout binary: skip the unbounded network op (treat as not-verified)
   fi
@@ -586,6 +577,8 @@ fi
 # Section 3 — Drift signature analysis
 ###############################################################################
 
+ffhc_stage_end "$FETCH_RC"
+ffhc_stage_start "verdict-analysis" "none"
 DRIFT_COUNT="${#LOCAL_DRIFT[@]}"
 BROKEN_COUNT="${#LOCAL_BROKEN[@]}"
 UNVERIFIED_COUNT="${#LOCAL_UNVERIFIED[@]}"
@@ -673,11 +666,15 @@ fi
 # diagnosis, the lib owns what to tell the operator). A missing lib leaves
 # RECOMMENDATIONS empty — the verdict and exit code are unaffected, so it degrades
 # to "less advice", never to a wrong verdict.
+ffhc_stage_end "none"
+ffhc_stage_start "recommendations" "none"
 FFHC_RECS_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/health-recommendations.sh"
 if [ -f "$FFHC_RECS_LIB" ]; then
   . "$FFHC_RECS_LIB"                    # shellcheck source=lib/health-recommendations.sh
   ffhc_build_recommendations
 fi
+ffhc_stage_end "none"
+ffhc_stage_start "report-output" "none"
 
 ###############################################################################
 # Section 5 — Output
@@ -787,6 +784,7 @@ echo "============================================================"
 # both full health (0) and drift/breakage (1/2). U7: PARTIAL_UPGRADE is a named
 # drift sub-class -> exit 1 (NOT 4 — exit 4 is reserved for a critical that could
 # not RUN; PARTIAL_UPGRADE means the check ran and FOUND stale derived facts).
+ffhc_stage_end "none"
 case "$DRIFT_SIGNATURE" in
   HEALTHY)             exit 0 ;;
   EXCEPTION_IN_EFFECT) exit 3 ;;

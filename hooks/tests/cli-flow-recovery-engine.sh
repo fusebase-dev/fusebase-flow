@@ -16,6 +16,7 @@ ffcf_engine_tree() {
   ffcf_conflict_tree "$d"
   cp hooks/local/fusebase-flow-health-check.sh hooks/local/stamp-hook-manifest.sh \
      hooks/local/verify-hook-manifest.sh "$d/hooks/local/"
+  cp hooks/local/lib/health-stage-progress.sh "$d/hooks/local/lib/"
   cp VERSION "$d/VERSION"   # the engine reads VERSION at repo root
   # Same reason the hook manifest is stamped above (see this file's second tripwire): the engine
   # now also inspects the MANAGED-CONTENT base, and an absent base is a real, reportable state

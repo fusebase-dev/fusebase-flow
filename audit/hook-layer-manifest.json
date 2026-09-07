@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.14.1",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 209,
+  "asset_count": 210,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -70,7 +70,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-health-check.sh",
-      "sha256": "d1fe1cac4dde93216ff55387fc89dfb9f1c37bd2f29e39cddbfdf955102c5b80"
+      "sha256": "be4769dd365f89d5000118538197056570cf8c8c74b17b1897913d5d89f31775"
     },
     {
       "path": "hooks/local/install-codex-prompts.sh",
@@ -119,6 +119,10 @@
     {
       "path": "hooks/local/lib/health-recommendations.sh",
       "sha256": "0fde87bf606134a16d335f6ebe87333c3ffc1f1d74bc6aef6b079a1bff90e467"
+    },
+    {
+      "path": "hooks/local/lib/health-stage-progress.sh",
+      "sha256": "7ad56c8ed94a524508c221e9ca02ce13f3276d455a13b2f4a97c5dc74e6c1418"
     },
     {
       "path": "hooks/local/lib/hook-integrity-check.sh",
@@ -350,7 +354,7 @@
     },
     {
       "path": "hooks/tests/cli-flow-recovery-engine.sh",
-      "sha256": "b25f44b825a5d91d30eb2a420c65ea9956583ab15ea63dcdfee7d3d7f77ea4e6"
+      "sha256": "e2cbb6762e17e523f1fbe8b551c32e0afbf2f81adfbc45ee3dc9090e33316335"
     },
     {
       "path": "hooks/tests/cli-flow-recovery-fixture.sh",
@@ -594,7 +598,7 @@
     },
     {
       "path": "hooks/tests/test-cli-version-gate.sh",
-      "sha256": "951dfcd8f8d4d77944b5af82dc3809addd92ed4cb22ac1bfcf52a3a532d0aad1"
+      "sha256": "d9fcaa4d3adf5e5eb47be0c668cfc9b0914f38abe0b5799be80f5a0e7502757f"
     },
     {
       "path": "hooks/tests/test-codex-plugin-surface.sh",
@@ -634,7 +638,7 @@
     },
     {
       "path": "hooks/tests/test-health-check-timeout.sh",
-      "sha256": "aed715813120a4793517c308ed58a5d898da48e0e4a436c50cfbd7e071c6fd09"
+      "sha256": "95d88d3ec25f13c005ff980ee36c6d06404cf2e5322f76995387a33076e8683f"
     },
     {
       "path": "hooks/tests/test-history-extraction.sh",
@@ -841,5 +845,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "9c186ae2926ceb23c82439d8383d93ba6f95886dd4cd090f376f867a87f55396"
+  "manifest_self_sha256": "6af9fe49eb397550c1fff00826dea981e251fd5e7cc5ff38f203e8e401e4806d"
 }

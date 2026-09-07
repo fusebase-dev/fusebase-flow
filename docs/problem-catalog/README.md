@@ -16,6 +16,7 @@ docs/problem-catalog/
 
 | Slug | Severity | Status | One-line summary |
 |---|---|---|---|
+| `health-check-silent-stage-timeout` | medium | resolved (observability) | MSYS `--no-upstream` can exceed a 120s caller wall before the final stdout report; stage START/END stderr now names progress, elapsed time, child rc, and budget without changing verdict semantics |
 ```
 
 ## When to file

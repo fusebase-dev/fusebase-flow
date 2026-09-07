@@ -44,6 +44,14 @@ set -uo pipefail
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 cd "$ROOT"
 
+CVG_ONLY=""
+case "$#" in
+  0) ;;
+  2) [ "$1" = "--only" ] && [ "$2" = "below-incompatible-0.25.16" ] || exit 2
+     CVG_ONLY="$2" ;;
+  *) exit 2 ;;
+esac
+
 pass=0; fail=0
 ok()  { pass=$((pass + 1)); echo "PASS: cli-version $1"; }
 # TRIPWIRE (C4): the reason goes on the SAME stdout line as the FAIL marker and newlines are
@@ -251,6 +259,7 @@ build_golden() {
   cp hooks/local/lib/run-with-timeout.sh hooks/local/lib/hook-integrity-check.sh \
      hooks/local/lib/hook_manifest.py hooks/local/lib/active-approvals.sh \
      hooks/local/lib/cli-version-check.sh hooks/local/lib/health-recommendations.sh \
+     hooks/local/lib/health-stage-progress.sh \
      "$dir/hooks/local/lib/"
   cp hooks/shared/__init__.py hooks/shared/approval_artifact.py \
      hooks/shared/policy_loader.py hooks/shared/audit_logger.py "$dir/hooks/shared/"
@@ -270,16 +279,16 @@ build_golden() {
 fx() { rm -rf "$1"; cp -R "$GOLDEN" "$1"; }
 
 # neuter_gate <fixture>: the MUTATION CONTROL. Replace the two lines that invoke the S1
-# gate with `:` so the engine runs every OTHER check unchanged and has no CLI-version
+# gate wrapper with `:` so the engine runs every OTHER check unchanged and has no CLI-version
 # signal at all — i.e. the pre-ticket engine's behaviour, reproduced from the current one.
 # Returns nonzero if the mutation did not apply (a control that silently didn't mutate is
 # worse than no control).
 neuter_gate() {
   local e="$1/hooks/local/fusebase-flow-health-check.sh"
-  sed -e 's/^  ffhc_cli_version_check$/  :/' \
+  sed -e 's/^ffhc_run_cli_version_stage "\$FFHC_CLIVER_LIB"$/:/' \
       -e 's|^  LOCAL_UNVERIFIED+=("CLI version compatibility: UNVERIFIED — missing.*|  :|' \
       "$e" > "$e.mut" || return 1
-  grep -q '^  ffhc_cli_version_check$' "$e.mut" && return 1      # call still present => not mutated
+  grep -q '^ffhc_run_cli_version_stage "\$FFHC_CLIVER_LIB"$' "$e.mut" && return 1
   cmp -s "$e" "$e.mut" && return 1                               # byte-identical => not mutated
   mv "$e.mut" "$e" || return 1
   bash -n "$e" || return 1                                       # mutant must still be valid bash
@@ -335,6 +344,7 @@ build_golden
 # policy and the remediation command.
 scenario below-incompatible-0.25.16 "0.25.16" CLI_VERSION_UNSUPPORTED 1 yes \
   "installed FuseBase Apps CLI is 0.25.16, below 0.29.0" "$RANGE" "npm install -g fusebase-apps-cli@latest"
+[ -z "$CVG_ONLY" ] || finish
 
 # A2 — matches the bundled snapshot: HEALTHY, exit 0. No control: the pre-ticket engine also
 # read HEALTHY here, so a control would assert nothing. This row guards that the gate did not

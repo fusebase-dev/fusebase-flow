@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.14.1",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 372,
+  "asset_count": 373,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "85836bf0884cec6b9d42254fb285d5ba3b7f95f4d78239dc2c40c27d3da40db5"
+      "sha256": "50ee7e5eef874d56e5873be9c1e5673c9f37ce8366cbde1cec2e309697067a39"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -402,7 +402,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-health-check.sh",
-      "sha256": "d1fe1cac4dde93216ff55387fc89dfb9f1c37bd2f29e39cddbfdf955102c5b80"
+      "sha256": "be4769dd365f89d5000118538197056570cf8c8c74b17b1897913d5d89f31775"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/agent-surface-ownership.json",
@@ -507,6 +507,10 @@
     {
       "path": "hooks/local/lib/health-recommendations.sh",
       "sha256": "0fde87bf606134a16d335f6ebe87333c3ffc1f1d74bc6aef6b079a1bff90e467"
+    },
+    {
+      "path": "hooks/local/lib/health-stage-progress.sh",
+      "sha256": "7ad56c8ed94a524508c221e9ca02ce13f3276d455a13b2f4a97c5dc74e6c1418"
     },
     {
       "path": "hooks/local/lib/hook-integrity-check.sh",
@@ -754,7 +758,7 @@
     },
     {
       "path": "hooks/tests/cli-flow-recovery-engine.sh",
-      "sha256": "b25f44b825a5d91d30eb2a420c65ea9956583ab15ea63dcdfee7d3d7f77ea4e6"
+      "sha256": "e2cbb6762e17e523f1fbe8b551c32e0afbf2f81adfbc45ee3dc9090e33316335"
     },
     {
       "path": "hooks/tests/cli-flow-recovery-fixture.sh",
@@ -1042,7 +1046,7 @@
     },
     {
       "path": "hooks/tests/test-cli-version-gate.sh",
-      "sha256": "951dfcd8f8d4d77944b5af82dc3809addd92ed4cb22ac1bfcf52a3a532d0aad1"
+      "sha256": "d9fcaa4d3adf5e5eb47be0c668cfc9b0914f38abe0b5799be80f5a0e7502757f"
     },
     {
       "path": "hooks/tests/test-codex-plugin-surface.sh",
@@ -1082,7 +1086,7 @@
     },
     {
       "path": "hooks/tests/test-health-check-timeout.sh",
-      "sha256": "aed715813120a4793517c308ed58a5d898da48e0e4a436c50cfbd7e071c6fd09"
+      "sha256": "95d88d3ec25f13c005ff980ee36c6d06404cf2e5322f76995387a33076e8683f"
     },
     {
       "path": "hooks/tests/test-history-extraction.sh",
@@ -1493,5 +1497,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "3004df96665f2b772da7d6d6ad45df12f2c8460319c5da4cffee19a8ca5d86db"
+  "manifest_self_sha256": "957d3b98876710b5999f53e061d4221d863fa9b23235e3f882bad6cd1945f809"
 }

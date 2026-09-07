@@ -25,15 +25,15 @@ case "$#" in
   0) ;;
   1)
     if [ "$1" = "--list" ]; then
-      printf '%s\n' ac5
+      printf '%s\n' ac5 t57
       exit 0
     fi
     printf 'unknown or incomplete selector: %s\n' "$1" >&2
     exit 2
     ;;
   2)
-    if [ "$1" = "--only" ] && [ "$2" = "ac5" ]; then
-      HT_ONLY="ac5"
+    if [ "$1" = "--only" ] && { [ "$2" = "ac5" ] || [ "$2" = "t57" ]; }; then
+      HT_ONLY="$2"
     else
       printf 'unknown selector: %s %s\n' "$1" "$2" >&2
       exit 2
@@ -92,7 +92,7 @@ build_golden() {
            "$dir/hooks/shared" "$dir/policies" "$dir/state/approvals"
   cp hooks/local/fusebase-flow-health-check.sh "$dir/hooks/local/"
   cp hooks/local/lib/run-with-timeout.sh hooks/local/lib/hook-integrity-check.sh \
-     hooks/local/lib/hook_manifest.py "$dir/hooks/local/lib/"
+     hooks/local/lib/hook_manifest.py hooks/local/lib/health-stage-progress.sh "$dir/hooks/local/lib/"
   # S1 (cli-0298-compatibility): the engine sources these two. Without cli-version-check.sh
   # every scenario inherits a spurious "CLI version: UNVERIFIED" critical (exit 4) and without
   # health-recommendations.sh the Recommendations block is empty — both would make the
@@ -603,6 +603,57 @@ ht_t25_msys_completion_reap() {
   fi
 }
 
+ht_t57_stage_progress() {
+  local D="$TMP_BASE/t57-stage-progress"; fx "$D"
+  printf '#!/usr/bin/env bash\nsleep 30\nexit 7\n' > "$D/hooks/local/preflight.sh"
+  chmod +x "$D/hooks/local/preflight.sh"
+  hc_stamp "$D"
+
+  local pid seen=0 i=0 rc started elapsed pre_elapsed failure="" stage
+  started=$SECONDS
+  (
+    cd "$D" || exit 99
+    FFHC_PREFLIGHT_TIMEOUT=1 FFHC_TIMEOUT_KILL_GRACE=1 \
+      FFHC_MANIFEST_TIMEOUT=10 FFHC_CONFLICT_TIMEOUT=10 \
+      bash hooks/local/fusebase-flow-health-check.sh --no-upstream \
+      >t57.stdout 2>t57.stderr
+    printf '%s' "$?" > t57.rc
+  ) & pid=$!
+  while kill -0 "$pid" 2>/dev/null && [ "$i" -lt 100 ]; do
+    if grep -q '^\[health-check\] START stage=preflight budget=1s$' "$D/t57.stderr" 2>/dev/null; then
+      seen=1
+      break
+    fi
+    sleep 0.1
+    i=$((i + 1))
+  done
+  wait "$pid" 2>/dev/null
+  elapsed=$((SECONDS - started))
+  rc="$(cat "$D/t57.rc" 2>/dev/null || echo missing)"
+
+  [ "$seen" -eq 1 ] || failure="$failure [no live preflight START before process exit]"
+  grep -qE '^\[health-check\] END stage=preflight elapsed=[0-9]+s child_rc=(124|137) budget=1s$' "$D/t57.stderr" \
+    || failure="$failure [no budgeted timeout END for preflight]"
+  pre_elapsed="$(sed -n 's/^\[health-check\] END stage=preflight elapsed=\([0-9][0-9]*\)s .*/\1/p' "$D/t57.stderr")"
+  [ -n "$pre_elapsed" ] && [ "$pre_elapsed" -le 5 ] 2>/dev/null \
+    || failure="$failure [preflight exceeded 1s budget + kill/scheduling grace: ${pre_elapsed:-missing}s]"
+  [ "$rc" = "4" ] || failure="$failure [health rc=$rc, expected 4]"
+  grep -q '^Verdict: PARTIAL_UNVERIFIED$' "$D/t57.stdout" \
+    || failure="$failure [missing PARTIAL_UNVERIFIED stdout verdict]"
+  grep -q '^\[health-check\] ' "$D/t57.stdout" \
+    && failure="$failure [progress leaked into stdout]"
+  for stage in active-approvals local-inventory preflight hook-layer-integrity cli-flow-conflicts cli-version partial-upgrade upstream-comparison verdict-analysis recommendations report-output; do
+    [ "$(grep -c "^\[health-check\] START stage=$stage " "$D/t57.stderr")" -eq 1 ] \
+      && [ "$(grep -c "^\[health-check\] END stage=$stage " "$D/t57.stderr")" -eq 1 ] \
+      || failure="$failure [$stage lacks one START/END pair]"
+  done
+  if [ -z "$failure" ]; then
+    ht_pass "t57-stage-progress (live START; timeout END rc 124/137 within ${pre_elapsed}s; PARTIAL_UNVERIFIED/4; stdout unchanged; wall ${elapsed}s)"
+  else
+    ht_fail "t57-stage-progress" "$failure stderr=$(tr '\n' '|' < "$D/t57.stderr") stdout=$(tr '\n' '|' < "$D/t57.stdout")"
+  fi
+}
+
 # ---- run everything ----------------------------------------------------------
 
 # The synchronized AC5 fixture is isolated so this default phase stays below the source ceiling.
@@ -613,6 +664,13 @@ if [ "$HT_ONLY" = "ac5" ]; then
   ht_ac5_heartbeat
   ht_ac5_optins
   echo "[test-health-check-timeout] SCOPED ac5 $pass_count/$((pass_count + fail_count)) PASS"
+  exit "$fail_count"
+fi
+
+if [ "$HT_ONLY" = "t57" ]; then
+  build_golden
+  ht_t57_stage_progress
+  echo "[test-health-check-timeout] SCOPED t57 $pass_count/$((pass_count + fail_count)) PASS"
   exit "$fail_count"
 fi
 
