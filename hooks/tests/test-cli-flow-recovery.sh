@@ -105,6 +105,13 @@ if [ -n "$FFCF_SELECTED" ] && [ -z "${FFCF_SELECTOR_CHILD:-}" ]; then
   FFHC_HEARTBEAT_SECS="${FFCF_SELECTOR_HEARTBEAT_SECS:-30}"
   FFCF_SELECTOR_TMP_BASE="${TMPDIR:-/tmp}/fusebase-flow-cli-sim.$$.$FFCF_SELECTED"
   export FFCF_SELECTOR_CHILD="$FFCF_SELECTED" FFCF_SELECTOR_TMP_BASE
+  if [ "$FFCF_SELECTED" = "t15" ]; then
+    # TRIPWIRE: keep stage evidence outside selector cleanup so a timeout cannot erase it.
+    FFCF_T15_DIAGNOSTIC="${TMPDIR:-/tmp}/fusebase-flow-t15-stages-$$.log"
+    : > "$FFCF_T15_DIAGNOSTIC"
+    export FFCF_T15_DIAGNOSTIC
+    printf '[cli-flow-recovery] SCOPED stage-diagnostic=%s\n' "$FFCF_T15_DIAGNOSTIC" >&2
+  fi
   ffcf_started="$(date +%s)"
   printf '[cli-flow-recovery] SCOPED group=%s START elapsed=0s timeout=%ss\n' \
     "$FFCF_SELECTED" "$FFCF_SELECTOR_TIMEOUT_SECS" >&2

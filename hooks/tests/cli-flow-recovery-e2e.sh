@@ -87,8 +87,24 @@ PY
 }
 
 ffcf_t15_verification() {
-  ffcf_e2e_build
   local rc backup status="$PROJECT/state/audit/flow-recovery-status.json"
+  local stage_file="${FFCF_T15_DIAGNOSTIC:-$TMP_BASE/t15-stages.log}"
+  local started out err elapsed
+  started="$(date +%s)"
+  printf 'stage=fixture event=START elapsed=0 rc=pending\n' >> "$stage_file"
+  out="$TMP_BASE/t15-fixture.stdout"; err="$TMP_BASE/t15-fixture.stderr"
+  set +e
+  ffcf_e2e_build > "$out" 2> "$err"
+  rc=$?
+  set -e
+  elapsed=$(( $(date +%s) - started ))
+  { printf 'stage=fixture stream=stdout BEGIN\n'; cat "$out"
+    printf 'stage=fixture stream=stdout END\nstage=fixture stream=stderr BEGIN\n'; cat "$err"
+    printf 'stage=fixture stream=stderr END\nstage=fixture event=END elapsed=%s rc=%s\n' "$elapsed" "$rc"
+  } >> "$stage_file"
+  [ "$rc" -eq 0 ] || fail "T15: fixture creation failed"
+  pass "T15: disposable Git fixture built"
+
   cat "$PROJECT/hooks/local/fusebase-flow-overlays/claude-md-overlay.md" >> "$PROJECT/CLAUDE.md"
   backup="$PROJECT/CLAUDE.md.pre-refresh-20260906T000000Z"
   cp "$PROJECT/CLAUDE.md" "$backup"
@@ -105,46 +121,49 @@ path.write_text(json.dumps({
 }), encoding="utf-8")
 PY
   rm "$PROJECT/CLAUDE.md"
+  started="$(date +%s)"
+  printf 'stage=positive-restore event=START elapsed=0 rc=pending\n' >> "$stage_file"
+  out="$OUT.t15-restore.stdout"; err="$OUT.t15-restore.stderr"
   set +e
-  ( cd "$PROJECT" && bash hooks/local/post-fusebase-update.sh > "$OUT.t15-restore" 2>&1 )
+  ( cd "$PROJECT" && bash hooks/local/post-fusebase-update.sh > "$out" 2> "$err" )
   rc=$?
   set -e
-  [ "$rc" -eq 0 ] \
-    || { cat "$OUT.t15-restore" >&2; fail "T15: ownership-verified provider backup was not restored"; }
-  cmp -s "$backup" "$PROJECT/CLAUDE.md" \
-    || { sha256sum "$backup" "$PROJECT/CLAUDE.md" >&2; find "$PROJECT" -maxdepth 1 -name 'CLAUDE.md.pre-refresh-*' -print >&2; fail "T15: restored provider bytes do not match the hash-recorded backup"; }
-
-  rm "$PROJECT/CLAUDE.md"
-  printf '\nTAMPERED\n' >> "$backup"
-  set +e
-  ( cd "$PROJECT" && bash hooks/local/post-fusebase-update.sh >/dev/null 2>&1 )
-  rc=$?
-  set -e
-  [ "$rc" -eq 1 ] && [ ! -e "$PROJECT/CLAUDE.md" ] \
-    || fail "T15: tampered provider backup was trusted or reported complete"
-
-  rm "$backup"
-  set +e
-  ( cd "$PROJECT" && bash hooks/local/post-fusebase-update.sh >/dev/null 2>&1 )
-  rc=$?
-  set -e
-  [ "$rc" -eq 1 ] && [ ! -e "$PROJECT/CLAUDE.md" ] \
-    || fail "T15: missing provider without a verified backup did not remain partial"
-
-  ffcf_e2e_build
-  set +e
-  ( cd "$PROJECT" && FUSEBASE_FLOW_TEST_TAMPER_AFTER_APPLY=.claude/commands/fusebase-health.md \
-      bash hooks/local/post-fusebase-update.sh >/dev/null 2>&1 )
-  rc=$?
-  set -e
-  [ "$rc" -eq 1 ] && "$python_bin" - "$status" <<'PY' \
-    || fail "T15: post-apply tamper was not reflected in final status"
+  if [ "$rc" -eq 0 ] && ! cmp -s "$backup" "$PROJECT/CLAUDE.md"; then
+    sha256sum "$backup" "$PROJECT/CLAUDE.md" >> "$err" 2>&1
+    find "$PROJECT" -maxdepth 1 -name 'CLAUDE.md.pre-refresh-*' -print >> "$err" 2>&1
+    rc=1
+  fi
+  if [ "$rc" -eq 0 ]; then
+    "$python_bin" - "$status" >> "$out" 2>> "$err" <<'PY' || rc=1
 import json, sys
 value = json.load(open(sys.argv[1], encoding="utf-8"))
-assert value["status"] == "partial" and "commands" in value["uncertain_surfaces"]
-assert "commands" not in value["verified_surfaces"]
+assert value["status"] == "complete" and value["exit_code"] == 0
+assert not value["pending_surfaces"] and not value["uncertain_surfaces"]
 PY
-  pass "T15: verified provider backup restores; tampered backup and post-apply mutation stay partial"
+  fi
+  elapsed=$(( $(date +%s) - started ))
+  { printf 'stage=positive-restore stream=stdout BEGIN\n'; cat "$out"
+    printf 'stage=positive-restore stream=stdout END\nstage=positive-restore stream=stderr BEGIN\n'; cat "$err"
+    printf 'stage=positive-restore stream=stderr END\nstage=positive-restore event=END elapsed=%s rc=%s\n' "$elapsed" "$rc"
+  } >> "$stage_file"
+  [ "$rc" -eq 0 ] \
+    || { cat "$out" "$err" >&2; fail "T15: ownership-verified provider backup was not restored"; }
+  pass "T15: ownership-verified provider backup restores exact bytes with complete status"
+  out="$OUT.t15-direct.stdout"; err="$OUT.t15-direct.stderr"
+  local bash_executable="${BASH:-}"
+  [ -n "$bash_executable" ] || bash_executable="$(command -v bash)"
+  if command -v cygpath >/dev/null 2>&1; then
+    bash_executable="$(cygpath -am "$bash_executable")"
+  fi
+  set +e
+  "$python_bin" "$ROOT/hooks/tests/test-recovery-final-verification.py" \
+    --root "$PROJECT" --backup "$backup" --stage-file "$stage_file" \
+    --bash-executable "$bash_executable" > "$out" 2> "$err"
+  rc=$?
+  set -e
+  cat "$out"
+  [ "$rc" -eq 0 ] || { cat "$err" >&2; fail "T15: focused final-verification negatives failed"; }
+  pass "T15: direct provider refusals and post-apply uncertainty use production validators"
 }
 
 ffcf_t20_repeated_noop() {
