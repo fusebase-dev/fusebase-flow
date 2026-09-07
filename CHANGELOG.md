@@ -4,6 +4,74 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [4.15.0] — 2026-09-07
+
+**Recovery and workflow performance hardening.** This release gathers the recovery, evidence, and
+workflow hardening completed since v4.14.1. It makes Fusebase Flow safer to restore after a Fusebase
+CLI update while reducing repeated diagnosis, context loading, validation, and recovery work.
+
+### Recovery and Fusebase CLI coexistence
+
+- Recovery now classifies ownership before it writes, preserves consumer and CLI content, revalidates
+  targets immediately before apply, coordinates receipt writers, and verifies canonical overlays and
+  exact hook/settings structure at the end.
+- Automatic Git-hook restoration requires prior Flow ownership proof. Explicit `--wire-hooks` remains
+  the activation path for an operator who wants wiring added.
+- Legitimate marker-free provider files receive one validated overlay append. Malformed, nested, or
+  unmatched markers, symlink/type changes, changed classified bytes within the reviewed coordination
+  model, stale receipts, and unresolved external settings loss fail closed without entering a false
+  ownership receipt.
+- **T56 marker/prose compatibility.** Overlay discovery treats ownership markers as exact standalone
+  line structure. Inline or backticked marker examples remain provider prose, and canonical or legacy
+  adapter headings count only when the owned span parses successfully.
+- Recovery no-op paths avoid redundant copies and rewrites; canonical mirrors, version carriers, and
+  integrity manifests stay synchronized by repository-owned tooling.
+
+### Diagnosis-first and lightweight workflow
+
+- The lifecycle now routes work from a bounded diagnosis into Lightweight or Full execution,
+  with verification chosen from the changed risk surface instead of automatically repeating the whole
+  suite for every small edit.
+- Liveness, timeout, fixture, and selector rules make silent or stuck work observable while keeping
+  focused tasks bounded. Approval and recovery checkpoints preserve their existing safety boundaries.
+
+### Compact context and token economy
+
+- Provider carriers and recovery-owned context are deduplicated and mirrored from canonical sources.
+  Stop-time transcript work is composed into one bounded read, and skills point to retrieval owners
+  instead of carrying repeated bodies.
+- These are static context and process reductions. Host-side token savings were not measured, so this
+  release makes no quantitative token-reduction claim.
+
+### Temporal evidence and conclusions
+
+- Current outcomes require an explicit, valid, unambiguous commit plus task-specific association.
+  Generic SHA mentions, cosmetic current-file commits, missing commit fields, and unstructured outcomes
+  remain historical. Approval conclusions require the equivalent explicit action/task linkage.
+- Validator-result reuse is globally disabled because caller-supplied completeness cannot prove that
+  ignored inputs or environment dependencies were captured. Validators execute on every platform.
+
+### Test and runtime performance
+
+- Shared Git fixtures, bounded selectors, batched manifest hashing, identity-safe process cleanup, and
+  no-op recovery checks remove repeated setup and subprocess work while retaining focused mutation and
+  failure-boundary evidence.
+- **T57 health-stage observability.** Every health-check stage emits flushed stderr `START`/`END`
+  records with its name, elapsed time, child result, and declared budget. Stdout reports, verdicts,
+  and exit codes are unchanged. This makes a caller-side timeout diagnosable; it does not speed up the
+  stages, enforce a total wall, or establish any runtime speedup.
+- No lint/typecheck skip benefit is claimed: validator reuse is disabled. Historical local timings and
+  focused fixture results are development evidence, not release attestation.
+
+### Release boundary
+
+**Tagged-SHA publication evidence.** Publication requires the tagged SHA to pass the Linux and
+Windows/MSYS CI jobs plus the repository verify gate described in `PUBLISHING.md`.
+
+**Fusebase CLI compatibility evidence.** An actual current Fusebase CLI install/update/recover
+exercise remains deferred under the final ticket gate. It is outside tagged-SHA publication evidence.
+See `docs/release-notes/v4.15.0.md`.
+
 ## [4.14.1] — 2026-08-23
 
 **Corrects v4.14.0.** That release told exposed consumers to run `--wire-hooks`. If their
