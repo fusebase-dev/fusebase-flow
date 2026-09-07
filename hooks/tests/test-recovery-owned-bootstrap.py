@@ -16,6 +16,8 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 HELPER = ROOT / "hooks/local/lib/recovery-owned-write.py"
+PREFLIGHT = ROOT / "hooks/local/lib/recovery-preflight.py"
+VERIFY = ROOT / "hooks/local/lib/recovery-verify.py"
 SKILL_MIRROR = ROOT / "hooks/local/mirror-skills.sh"
 AGENT_MIRROR = ROOT / "hooks/local/mirror-agents.sh"
 
@@ -58,6 +60,22 @@ def git(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
 def fingerprint(path: Path) -> tuple[bytes, int]:
     return path.read_bytes(), path.stat().st_mtime_ns
 
+def production_load(path: Path, name: str):
+    spec = importlib.util.spec_from_file_location("recovery_preflight_test", PREFLIGHT)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load preflight: {PREFLIGHT}")
+    preflight = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(preflight)
+    return preflight.load_module(path, name)
+
+def load_path(path: Path, name: str):
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"cannot load module: {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
 class BootstrapTest(unittest.TestCase):
     def repo(self) -> Path:
         holder = tempfile.TemporaryDirectory()
@@ -97,6 +115,30 @@ class BootstrapTest(unittest.TestCase):
         git(root, "config", "user.email", "t34@example.invalid")
         git(root, "add", ".")
         git(root, "commit", "-qm", "baseline")
+        return root
+
+    def preflight_repo(self) -> Path:
+        root = self.repo()
+        health = b"health-v1\n"
+        put(root, "flow-skills/fusebase-flow-health-check/SKILL.md", health)
+        put(root, ".agents/skills/fusebase-flow-health-check/SKILL.md", health)
+        put(root, ".claude/skills/fusebase-flow-health-check/SKILL.md", health)
+        put(root, "hooks/local/fusebase-flow-overlays/skills/fusebase-flow-health-check/SKILL.md", b"fallback\n")
+        put(root, "hooks/local/fusebase-flow-overlays/commands/health.md", b"command\n")
+        put(root, "flow-skills/README.md", b"ignored\n")
+        put(root, "flow-skills/alpha/references/nested/ignored.md", b"ignored\n")
+        manifest = root / "audit/skill-mirror-manifest.txt"
+        rows = manifest.read_text(encoding="utf-8").splitlines()
+        rows.extend(
+            f"{provider}/skills/fusebase-flow-health-check/SKILL.md  {sha(health)}"
+            for provider in (".agents", ".claude")
+        )
+        manifest.write_text("\n".join(sorted(rows)) + "\n", encoding="utf-8")
+        git(root, "add", ".")
+        git(root, "commit", "-qm", "preflight baseline")
+        put(root, "flow-skills/alpha/SKILL.md", b"skill-v2\n")
+        put(root, "flow-skills/alpha/references/note.md", b"reference-v2\n")
+        put(root, "agents/builder/AGENT.md", b"agent-v2\n")
         return root
 
     def helper(
@@ -253,12 +295,10 @@ class BootstrapTest(unittest.TestCase):
         result = root / "result.tsv"
         target = ".agents/skills/alpha/SKILL.md"
         plan.write_text(f"{root / 'flow-skills/alpha/SKILL.md'}\t{target}\n", encoding="utf-8")
-        spec = importlib.util.spec_from_file_location("recovery_owned_write", HELPER)
-        self.assertIsNotNone(spec and spec.loader)
-        module = importlib.util.module_from_spec(spec)
-        assert spec and spec.loader
-        sys.modules[spec.name] = module
-        spec.loader.exec_module(module)
+        name = "recovery_owned_write_pinned_head"
+        sys.modules.pop(name, None)
+        module = production_load(HELPER, name)
+        self.assertNotIn(name, sys.modules)
         original = module.Baseline.revalidate_head
 
         def advance(instance):
@@ -271,6 +311,139 @@ class BootstrapTest(unittest.TestCase):
         self.assertEqual(rc, 1)
         self.assertEqual(fingerprint(root / target), before)
         self.assertFalse((root / f"{target}.pre-flow-repair").exists())
+
+    def test_production_loader_supports_immutable_records_without_registration(self) -> None:
+        name = "recovery_owned_write_unregistered"
+        sys.modules.pop(name, None)
+        module = production_load(HELPER, name)
+        self.assertNotIn(name, sys.modules)
+        plan = module.PlanRow(
+            source_raw="raw", source_rel="source", target_rel="target", manifest_rel="manifest",
+        )
+        records = (
+            (plan, "source_raw", "raw"),
+            (module.TreeEntry("100644", "blob", "oid"), "mode", "100644"),
+            (module.BootstrapProof(head="head", source_hash="source", target_hash="target"), "head", "head"),
+            (module.PreparedRow(plan, None, None, "status", "detail", None), "status", "status"),
+        )
+        for record, field, value in records:
+            self.assertEqual(getattr(record, field), value)
+            with self.assertRaises(AttributeError):
+                setattr(record, field, "changed")
+
+    def test_legacy_classifier_is_conservative_without_git_context(self) -> None:
+        module = production_load(HELPER, "recovery_owned_write_legacy")
+        holder = tempfile.TemporaryDirectory()
+        self.addCleanup(holder.cleanup)
+        root = Path(holder.name)
+        source = root / "source"
+        target = root / "target"
+        source.write_bytes(b"new\n")
+        with mock.patch.object(module, "git_run", side_effect=AssertionError("unexpected Git")):
+            self.assertEqual(module.classify(source, target, "target", {}),
+                             ("missing-and-authorized", sha(b"new\n")))
+            target.write_bytes(b"new\n")
+            self.assertEqual(module.classify(source, target, "target", {})[0], "current")
+            target.write_bytes(b"old\n")
+            receipt = {"target": {"sha256": sha(b"old\n")}}
+            self.assertEqual(module.classify(source, target, "target", receipt)[0], "owned-repair")
+            self.assertEqual(module.classify(source, target, "target", {})[0], "unowned-collision")
+            source.unlink()
+            result = module.classify(source, target, "target", {})
+            self.assertEqual(result, ("unsafe", "source is missing, non-file, or symlink"))
+            self.assertEqual(len(result), 2)
+
+    def test_preflight_writer_and_verifier_share_bootstrap_classification(self) -> None:
+        root = self.preflight_repo()
+        module = production_load(root / "hooks/local/lib/recovery-owned-write.py", "owned_seam")
+        preflight = load_path(PREFLIGHT, "preflight_seam")
+        verifier = load_path(VERIFY, "verify_seam")
+        planned = preflight.target_rows(root, module)
+        mirrored = [row for row in planned if row["surface"] in {"skill_mirrors", "agent_mirrors"}]
+        changed = [row for row in mirrored if "/alpha/" in row["target"] or "builder.md" in row["target"]]
+        self.assertTrue(changed)
+        self.assertEqual({row["classification"] for row in changed}, {"owned-repair"})
+        health_targets = [row for row in planned if "fusebase-flow-health-check" in row["target"]]
+        self.assertEqual(len(health_targets), 2)
+        self.assertEqual({row["surface"] for row in health_targets}, {"skill_mirrors"})
+        self.assertFalse(any("README.md" in row["target"] or "/nested/" in row["target"]
+                             for row in planned))
+        for label, rows in (("skill", [row for row in mirrored if row["surface"] == "skill_mirrors"]),
+                            ("agent", [row for row in mirrored if row["surface"] == "agent_mirrors"])):
+            plan = root / f"{label}.tsv"
+            result = root / f"{label}.result"
+            plan.write_text("".join(f"{root / row['source']}\t{row['target']}\n" for row in rows),
+                            encoding="utf-8")
+            self.assertEqual(module.apply(root, plan, result, label), 0, result.read_text())
+        self.assertEqual(verifier.verify_targets(root, {"targets": mirrored}), {})
+
+    def test_preflight_collisions_remain_unowned_after_writer(self) -> None:
+        for case in ("custom-target", "bad-manifest"):
+            with self.subTest(case=case):
+                root = self.preflight_repo()
+                target_rel = ".agents/skills/alpha/SKILL.md"
+                target = root / target_rel
+                if case == "custom-target":
+                    target.write_bytes(b"custom\n")
+                else:
+                    manifest = root / "audit/skill-mirror-manifest.txt"
+                    manifest.write_text("broken\n", encoding="utf-8")
+                    git(root, "add", str(manifest))
+                    git(root, "commit", "-qm", "bad manifest")
+                module = production_load(root / "hooks/local/lib/recovery-owned-write.py", f"owned_{case}")
+                preflight = load_path(PREFLIGHT, f"preflight_{case}")
+                verifier = load_path(VERIFY, f"verify_{case}")
+                before = fingerprint(target)
+                row = next(row for row in preflight.target_rows(root, module)
+                           if row["target"] == target_rel)
+                self.assertEqual(row["classification"], "unowned-collision")
+                plan = root / "collision.tsv"
+                result = root / "collision.result"
+                plan.write_text(f"{root / row['source']}\t{target_rel}\n", encoding="utf-8")
+                self.assertEqual(module.apply(root, plan, result, "skill"), 1)
+                self.assertEqual(fingerprint(target), before)
+                again = next(item for item in preflight.target_rows(root, module)
+                             if item["target"] == target_rel)
+                self.assertEqual(again["classification"], "unowned-collision")
+                self.assertIn("skill_mirrors", verifier.verify_targets(root, {"targets": [row]}))
+
+    def test_preparation_rejects_invalid_inputs_without_writes_and_uses_one_baseline(self) -> None:
+        root = self.preflight_repo()
+        module = production_load(root / "hooks/local/lib/recovery-owned-write.py", "owned_invalid")
+        preflight = load_path(PREFLIGHT, "preflight_invalid")
+        target = root / ".agents/skills/alpha/SKILL.md"
+        before = fingerprint(target)
+        command = root / "hooks/local/fusebase-flow-overlays/commands/health.md"
+        command.unlink()
+        command.mkdir()
+        with self.assertRaises(ValueError):
+            preflight.target_rows(root, module)
+        self.assertEqual(fingerprint(target), before)
+        command.rmdir()
+        put(root, "hooks/local/fusebase-flow-overlays/commands/health.md", b"command\n")
+        put(root, "state/audit/recovery-owned-targets.json", b"{broken\n")
+        with self.assertRaises(ValueError):
+            preflight.target_rows(root, module)
+        self.assertEqual(fingerprint(target), before)
+        (root / "state/audit/recovery-owned-targets.json").unlink()
+        first = module.make_plan_row(root, str(root / "flow-skills/alpha/SKILL.md"),
+                                     ".agents/skills/alpha/SKILL.md", "skill")
+        conflict = module.make_plan_row(root, str(root / "agents/builder/AGENT.md"),
+                                        ".agents/skills/alpha/SKILL.md", "agent")
+        with self.assertRaises(RuntimeError):
+            module.prepare_rows(root, [first, conflict], {})
+        count = 0
+        original = module.Baseline
+        class CountingBaseline(original):
+            def __init__(self, *args):
+                nonlocal count
+                count += 1
+                super().__init__(*args)
+        with mock.patch.object(module, "Baseline", CountingBaseline):
+            baseline, prepared = module.prepare_rows(root, [first, first], {})
+        self.assertIsInstance(baseline, original)
+        self.assertEqual((count, len(prepared)), (1, 1))
+        self.assertEqual(fingerprint(target), before)
 
     def test_real_symlink_refusals(self) -> None:
         probe_root = self.repo()

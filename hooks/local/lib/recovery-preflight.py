@@ -94,45 +94,73 @@ def target_rows(root: Path, ownership: Any) -> list[dict[str, str]]:
         receipt = read_json(receipt_path, "owned-target receipt")
         if receipt.get("schema") != 1 or not isinstance(receipt.get("targets"), dict):
             raise ValueError("owned-target receipt has invalid schema")
-    rows: list[dict[str, str]] = []
+    candidates = []
+    metadata: dict[str, tuple[str, str]] = {}
 
-    def add(source: Path, target: str, surface: str) -> None:
-        regular_source(source, f"{surface} source")
-        destination = ownership.safe_target(root, target)
-        state, detail = ownership.classify(source, destination, target, receipt["targets"])
-        rows.append({
-            "surface": surface, "source": str(source.relative_to(root)).replace("\\", "/"),
-            "target": target, "classification": state, "detail": detail,
-        })
+    def add(source: Path, target: str, surface: str, owner_surface: str) -> None:
+        source_raw = str(source)
+        row = ownership.make_plan_row(root, source_raw, target, owner_surface)
+        candidates.append(row)
+        metadata.setdefault(target, (surface, source.relative_to(root).as_posix()))
 
     skill_count = 0
-    for source in sorted((root / "flow-skills").rglob("*")):
-        if source.is_file():
-            skill_count += 1
-            rel = source.relative_to(root / "flow-skills").as_posix()
-            add(source, f".claude/skills/{rel}", "skill_mirrors")
-            add(source, f".agents/skills/{rel}", "skill_mirrors")
+    for source in sorted((root / "flow-skills").glob("*/SKILL.md")):
+        if not (source.is_file() or source.is_symlink()):
+            continue
+        skill_count += 1
+        skill = source.parent.name
+        for provider in (".claude", ".agents"):
+            add(source, f"{provider}/skills/{skill}/SKILL.md", "skill_mirrors", "skill")
+        references = source.parent / "references"
+        if references.is_dir():
+            for reference in sorted(references.glob("*")):
+                if reference.is_file() or reference.is_symlink():
+                    for provider in (".claude", ".agents"):
+                        add(
+                            reference, f"{provider}/skills/{skill}/references/{reference.name}",
+                            "skill_mirrors", "skill",
+                        )
     if not skill_count:
         raise ValueError("canonical flow-skills has no source files")
     agent_count = 0
     for source in sorted((root / "agents").glob("*/AGENT.md")):
+        if not (source.is_file() or source.is_symlink()):
+            continue
         agent_count += 1
         name = source.parent.name
-        add(source, f".claude/agents/{name}.md", "agent_mirrors")
-        add(source, f".codex/agents/{name}.md", "agent_mirrors")
+        add(source, f".claude/agents/{name}.md", "agent_mirrors", "agent")
+        add(source, f".codex/agents/{name}.md", "agent_mirrors", "agent")
     if not agent_count:
         raise ValueError("canonical agents has no source files")
     health = root / "flow-skills/fusebase-flow-health-check/SKILL.md"
-    if not health.is_file():
+    if not (health.exists() or health.is_symlink()):
         health = root / "hooks/local/fusebase-flow-overlays/skills/fusebase-flow-health-check/SKILL.md"
     for provider in (".claude", ".agents"):
-        add(health, f"{provider}/skills/fusebase-flow-health-check/SKILL.md", "health_skill")
+        add(
+            health, f"{provider}/skills/fusebase-flow-health-check/SKILL.md",
+            "health_skill", "health-skill",
+        )
     command_dir = root / "hooks/local/fusebase-flow-overlays/commands"
     commands = sorted(command_dir.glob("*.md")) if command_dir.is_dir() else []
     if not commands:
         raise ValueError("no recovery command sources are available")
     for source in commands:
-        add(source, f".claude/commands/{source.name}", "commands")
+        add(source, f".claude/commands/{source.name}", "commands", "command")
+    baseline, prepared = ownership.prepare_rows(root, candidates, receipt["targets"])
+    proofs = [item for item in prepared if item.proof]
+    if proofs:
+        baseline.revalidate_head()
+        for item in proofs:
+            baseline.revalidate(item.proof, item.source, item.target)
+    rows: list[dict[str, str]] = []
+    for item in prepared:
+        if item.source is None or item.target is None or item.status == "unsafe":
+            raise ValueError(f"invalid recovery target {item.row.target_rel}: {item.detail}")
+        surface, source_rel = metadata[item.row.target_rel]
+        rows.append({
+            "surface": surface, "source": source_rel, "target": item.row.target_rel,
+            "classification": item.status, "detail": item.detail,
+        })
     return rows
 
 

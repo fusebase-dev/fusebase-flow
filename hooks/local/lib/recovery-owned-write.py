@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import namedtuple
 import hashlib
 import io
 import json
@@ -12,7 +13,6 @@ import stat
 import subprocess
 import sys
 import tempfile
-from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
 
@@ -137,36 +137,14 @@ def expected_mapping(source_rel: str, target_rel: str, surface: str) -> str | No
     return None
 
 
-@dataclass(frozen=True)
-class PlanRow:
-    source_raw: str
-    source_rel: str | None
-    target_rel: str
-    manifest_rel: str | None
-
-
-@dataclass(frozen=True)
-class TreeEntry:
-    mode: str
-    kind: str
-    oid: str
-
-
-@dataclass(frozen=True)
-class BootstrapProof:
-    head: str
-    source_hash: str
-    target_hash: str
-
-
-@dataclass(frozen=True)
-class PreparedRow:
-    row: PlanRow
-    source: Path | None
-    target: Path | None
-    status: str
-    detail: str
-    proof: BootstrapProof | None
+PlanRow = namedtuple(
+    "PlanRow", ("source_raw", "source_rel", "target_rel", "manifest_rel"),
+)
+TreeEntry = namedtuple("TreeEntry", ("mode", "kind", "oid"))
+BootstrapProof = namedtuple("BootstrapProof", ("head", "source_hash", "target_hash"))
+PreparedRow = namedtuple(
+    "PreparedRow", ("row", "source", "target", "status", "detail", "proof"),
+)
 
 
 def git_run(root: Path, *args: str) -> bytes:
@@ -292,25 +270,29 @@ class Baseline:
             raise RuntimeError("target changed after ownership classification")
 
 
+def make_plan_row(root: Path, source_raw: str, target_rel: str, surface: str) -> PlanRow:
+    source_rel = None
+    try:
+        source_rel = lexical_path(root, source_raw).relative_to(root).as_posix()
+    except RuntimeError:
+        pass
+    manifest_rel = expected_mapping(source_rel, target_rel, surface) if source_rel else None
+    return PlanRow(source_raw, source_rel, target_rel, manifest_rel)
+
+
 def parse_plan(root: Path, plan: Path, surface: str) -> list[PlanRow]:
     rows = []
     for raw in plan.read_text(encoding="utf-8").splitlines():
-        if not raw:
-            continue
-        source_raw, target_rel = raw.split("\t", 1)
-        source_rel = None
-        try:
-            source_rel = lexical_path(root, source_raw).relative_to(root).as_posix()
-        except RuntimeError:
-            pass
-        manifest_rel = expected_mapping(source_rel, target_rel, surface) if source_rel else None
-        rows.append(PlanRow(source_raw, source_rel, target_rel, manifest_rel))
+        if raw:
+            rows.append(make_plan_row(root, *raw.split("\t", 1), surface))
     return rows
 
 
-def classify(
-    source: Path, target: Path, row: PlanRow, targets: dict, baseline: Baseline,
+def _classify(
+    source: Path, target: Path, row: PlanRow, targets: dict, baseline: Baseline | None,
 ) -> tuple[str, str, BootstrapProof | None]:
+    if source.is_symlink() or not source.is_file():
+        return "unsafe", "source is missing, non-file, or symlink", None
     source_hash = digest(source)
     if target.is_symlink():
         return "unowned-collision", "target is a symlink", None
@@ -324,11 +306,47 @@ def classify(
     prior = targets.get(row.target_rel)
     if isinstance(prior, dict) and prior.get("sha256") == target_hash:
         return "owned-repair", source_hash, None
+    if baseline is None:
+        return "unowned-collision", "existing bytes are not proven Flow-owned", None
     try:
         proof = baseline.prove(row, source_hash, target_hash)
         return "owned-repair", source_hash, proof
     except RuntimeError as exc:
         return "unowned-collision", str(exc), None
+
+
+def classify(source: Path, target: Path, rel: str, targets: dict) -> tuple[str, str]:
+    row = PlanRow(str(source), None, rel, None)
+    status, detail, _proof = _classify(source, target, row, targets, None)
+    return status, detail
+
+
+def prepare_rows(
+    root: Path, rows: list[PlanRow], targets: dict,
+) -> tuple[Baseline, list[PreparedRow]]:
+    unique = []
+    by_target: dict[str, PlanRow] = {}
+    for row in rows:
+        prior = by_target.get(row.target_rel)
+        if prior:
+            prior_source = prior.source_rel or prior.source_raw
+            row_source = row.source_rel or row.source_raw
+            if prior_source != row_source:
+                raise RuntimeError(f"conflicting sources for recovery target: {row.target_rel}")
+            continue
+        by_target[row.target_rel] = row
+        unique.append(row)
+    baseline = Baseline(root, unique)
+    prepared = []
+    for row in unique:
+        try:
+            source = safe_source(root, row.source_raw)
+            target = safe_target(root, row.target_rel)
+            status, detail, proof = _classify(source, target, row, targets, baseline)
+            prepared.append(PreparedRow(row, source, target, status, detail, proof))
+        except Exception as exc:
+            prepared.append(PreparedRow(row, None, None, "unsafe", str(exc), None))
+    return baseline, prepared
 
 
 def retained_path(target: Path) -> Path:
@@ -364,16 +382,7 @@ def apply(root: Path, plan: Path, result: Path, surface: str) -> int:
     receipt = load_receipt(receipt_path)
     targets = receipt["targets"]
     plan_rows = parse_plan(root, plan, surface)
-    baseline = Baseline(root, plan_rows)
-    prepared = []
-    for row in plan_rows:
-        try:
-            source = safe_source(root, row.source_raw)
-            target = safe_target(root, row.target_rel)
-            status, detail, proof = classify(source, target, row, targets, baseline)
-            prepared.append(PreparedRow(row, source, target, status, detail, proof))
-        except Exception as exc:
-            prepared.append(PreparedRow(row, None, None, "unsafe", str(exc), None))
+    baseline, prepared = prepare_rows(root, plan_rows, targets)
     head_error = ""
     if any(item.proof for item in prepared):
         try:
