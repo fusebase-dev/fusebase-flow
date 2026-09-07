@@ -10,9 +10,9 @@ on:
   # Reachable two ways now, both deliberate:
   #   workflow_dispatch — a maintainer asks for it on a branch.
   #   workflow_call     — fusebase-flow-release.yml calls it for the tagged SHA.
-  # CONSEQUENCE, stated rather than hidden: ordinary pushes and PRs now run NO CI in this
-  # template. Release coverage is unchanged — it is the same one definition of the suite, on the
-  # same two required platforms, gating publication exactly as before.
+  # Consumer pushes and PRs do not start hosted test runners. Upstream maintainer pushes/PRs
+  # get focused feedback from fusebase-flow-maintainer.yml. This full release definition
+  # still requires both platforms and gates publication; focused feedback cannot replace it.
   workflow_dispatch:
   # Reusable: fusebase-flow-release.yml calls this workflow so the release publish gate
   # runs ONE definition of the suite (no step drift). NO push.tags / release: triggers

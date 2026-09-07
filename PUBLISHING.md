@@ -137,13 +137,12 @@ section exists to prevent.
 
 ## Local pre-flight — developer feedback, not release evidence
 
-Run all of, so CI fails rarely — not because these authorize anything:
+Follow `docs/maintainer-testing.md`: run the affected checks once and repair failures at their
+source. For example, after changing the release workflow:
 
 ```bash
 bash hooks/local/preflight.sh
-bash hooks/tests/run-tests.sh              # FAST LOCAL DEFAULT (<=10 min); heavy phases skipped
-FF_FULL=1 bash hooks/tests/run-tests.sh    # the full local set, when you want it (hours on MSYS)
-bash hooks/local/mirror-skills.sh
+FF_ONLY=release-authority bash hooks/tests/run-tests.sh
 git status --short
 ```
 
@@ -151,21 +150,24 @@ git status --short
 `FF_ONLY="tag1,tag2"` (scoped). Only the full unscoped run is attesting — it alone writes
 `state/audit/hook-test-results.md` and prints the strict `[run-tests] N/N PASS`. The other two
 write `-fast.md` / `-scoped.md` and print a summary the strict classifier rejects, so a subset
-result can never be read as a complete one. CI takes the full path automatically.
+result can never be read as a complete one. Release CI takes the full required path automatically.
 None of the three tiers is release evidence — see § Release evidence authority above.
 
-Expected (self-derived — do not hardcode counts that re-stale; the live source is authoritative):
+Use the fast default when no narrower group fits. A local `FF_FULL=1` run is optional;
+do not require both fast and full runs for the same change. Explicit diagnostics remain
+selectable with `FF_ONLY`. Refresh skill mirrors only when their canonical sources change;
+release CI still checks mirror parity. Preflight must have zero errors, and selected tests
+must finish with zero failures. Inspect warnings and the final diff before committing.
 
-```
-preflight:    0 errors / 0 warnings
-hook tests:   0 FAIL. The full run prints "[run-tests] N/N PASS"; the fast default prints the
-              same counts with a "(FAST LOCAL DEFAULT …)" suffix. N is whatever the current
-              tier totals — a clean run is N/N with 0 FAIL, not a fixed number
-mirror:       mirror-skills.sh reports 0 drift; the mirrored file count == the row count
-              in audit/skill-mirror-manifest.txt (which == the live canonical set:
-              one row per flow-skills/*/SKILL.md + flow-skills/*/references/* × 2 mirrors)
-git status:   clean (or only the regenerated mirror manifest, if previously stale)
-```
+`fusebase-flow-maintainer.yml` runs focused Linux and Windows/MSYS contracts on upstream
+`main` pushes and PRs. In consumer repositories its runner jobs require manual dispatch.
+It records the event SHA and cannot publish or substitute for full release verification.
+
+Before tagging, dispatch `fusebase-flow-verify.yml` on the prepared candidate ref and wait
+for both platforms and `verify-gate` to pass. Record the verified SHA; tag that same commit
+only after release authorization. Any candidate changes need fresh verification. The tag
+workflow rechecks its exact SHA before publication; the existing publication gate remains
+the authority. This deliberate repeat avoids introducing a second publication mechanism.
 
 Also verify the **public-surface allowlist guard** passes — every tracked top-level entry must be on the approved allowlist. The allowlist is the same one enforced by `.github/workflows/fusebase-flow-verify.yml`:
 
@@ -189,7 +191,7 @@ done
 echo "All tracked top-level entries are on the approved allowlist."
 ```
 
-If any of these checks fail, correct the working tree and re-run before pushing — a red local check
+If a check fails, correct its cause and rerun the affected check before pushing — a red local check
 is a red CI check waiting to happen. A green local run does not authorize a release; only the
 `verify` run on the tagged SHA does.
 
@@ -266,10 +268,10 @@ PRIMARY enforcement and stands alone even if an operator forgets these settings;
 the two settings above close the raw-tag-ref and manual-create surfaces that a
 file in the repo cannot. Applying the settings is operator-owned.
 
-## After publication
+## Tagging and publication
 
-- Watch the GitHub Action `fusebase-flow-verify` on the first push; **both**
-  `verify-linux` and `verify-windows-msys` must pass.
+- Dispatch `fusebase-flow-verify` on the prepared candidate before tagging; **both**
+  `verify-linux` and `verify-windows-msys`, plus `verify-gate`, must pass on its exact SHA.
 - **Push the `v<version>` tag** (`git push origin v<version>`) — that is the ONLY
   release step. `.github/workflows/fusebase-flow-release.yml` runs the full
   `verify` suite on the tagged sha on both platforms and, ONLY if every leg is

@@ -1,0 +1,88 @@
+name: fusebase-flow-maintainer
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maintainer-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    # Template consumers incur runner cost only after an explicit manual dispatch.
+    if: github.repository == 'fusebase-dev/fusebase-flow' || github.event_name == 'workflow_dispatch'
+    name: contracts-${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux
+            os: ubuntu-latest
+            python: python3
+          - platform: windows-msys
+            os: windows-latest
+            python: python
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    env:
+      PYTHON: ${{ matrix.python }}
+      EXPECTED_SHA: ${{ github.sha }}
+    steps:
+      - name: Checkout candidate
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Record exact source
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          mkdir -p state/audit
+          printf 'sha=%s\nplatform=%s\n' "$EXPECTED_SHA" "$RUNNER_OS" > state/audit/maintainer-source.txt
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+      - name: Provide python3 on Windows
+        if: runner.os == 'Windows'
+        run: |
+          set -euo pipefail
+          if ! command -v python3 >/dev/null 2>&1; then
+            mkdir -p "$HOME/bin"
+            printf '#!/usr/bin/env bash\nexec python "$@"\n' > "$HOME/bin/python3"
+            chmod +x "$HOME/bin/python3"
+            echo "$HOME/bin" >> "$GITHUB_PATH"
+          fi
+      - name: Install hook dependencies
+        run: python -m pip install -r hooks/requirements.txt
+      - name: Prepare shell entry points
+        run: |
+          git config core.fileMode false
+          chmod +x hooks/local/*.sh hooks/tests/*.sh hooks/git/pre-commit hooks/git/commit-msg
+      - name: Package and instruction structure
+        run: bash hooks/local/preflight.sh
+      - name: Focused contracts (not release evidence)
+        env:
+          FF_ONLY: fixtures,git-smoke,newline-preserve,baseline-merge,lane-router,command-policy,upgrade-classify,validation-instructions,release-authority
+        run: bash hooks/tests/run-tests.sh
+      - name: Recovery input contract
+        run: bash hooks/tests/test-cli-flow-recovery.sh --only t14
+      - name: Upload feedback
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: maintainer-${{ matrix.platform }}
+          path: state/audit/
+          if-no-files-found: warn
+          retention-days: 14

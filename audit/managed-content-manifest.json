@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.15.0",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 375,
+  "asset_count": 376,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -969,6 +969,10 @@
       "sha256": "802543f54d3b795567f5d0c3ceb9536ae34df18988985f7744b8c5e50bc4debb"
     },
     {
+      "path": "hooks/tests/lib/maintainer_ci_check.py",
+      "sha256": "eb93c8794744ff8ad720a643f5877b95309d617a76b02fc9ecf8087372a7bc23"
+    },
+    {
       "path": "hooks/tests/lib/minimal-path-fixture.sh",
       "sha256": "a5c90585b67dad0b7007debf35593b781539e73ba224679df1cd2e7d5424d33a"
     },
@@ -990,7 +994,7 @@
     },
     {
       "path": "hooks/tests/lib/workflow_graph_check.py",
-      "sha256": "3a235dde159adaf2f9e57fb84a7662b6943c26f2515addf4494137aea846ea94"
+      "sha256": "e7db33c6f9f366b111038cad87f76279fcda4a3ee2875a954926f67bd459988e"
     },
     {
       "path": "hooks/tests/run-tests.sh",
@@ -1505,5 +1509,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "e5f2a3a35fa70ca6fa23d4a55ae09c1d1f7a21e8cd5f1db1a0c566f5021682fc"
+  "manifest_self_sha256": "8d21e420c39b9b16b90f597428438cf035486fda98e50a5d6aa3ea77ae2c4505"
 }

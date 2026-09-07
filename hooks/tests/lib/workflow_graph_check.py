@@ -24,6 +24,7 @@ import sys
 from pathlib import Path
 
 import yaml
+from maintainer_ci_check import check_maintainer
 
 TAG = "release-authority"
 VERIFY_WF = ".github/workflows/fusebase-flow-verify.yml"
@@ -395,6 +396,7 @@ def main() -> int:
     failures = 0
     checker = assert_graph(verify, release)
     checker.rows += assert_measure(measure, rtext).rows
+    checker.rows += check_maintainer(root)
     for name, result, reason in checker.rows:
         emit(name, result, reason)
         failures += result == "FAIL"
