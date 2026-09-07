@@ -1,52 +1,55 @@
 # Adversarial review - flow-performance-and-recovery-hardening
 
-**Reviewer:** GPT-6 Astra, whole-implementation review
-**Reviewed source:** `2217a9c631300e510b18437548ed4bccb5f31036`
-**Verdict:** CHANGES REQUIRED
-**Approval:** withheld; zero-blocker approval was not reached
-**Findings:** 8 blockers, 2 non-blockers
-**Gate effect:** supersedes the provisional T10 technical PASS; spec remains DRAFT
+**Reviewer:** independent Architect, GPT-6 Astra Medium; final targeted T22, 2026-09-07.
+**Range:** retained whole-implementation review ef6cac3..81bb130; correction diffs 81bb130..559ca5a and reconciled docs; final focus c3c2580 (T53) and 559ca5a (T54).
+**Verdict:** APPROVED for scoped local completion; **ZERO BLOCKERS**. R1-R5 closed for the reviewed contract. T23 may proceed with explicit residual disposition; this is not unconditional release/platform acceptance.
+**Method:** targeted source/diff/manifests/focused-evidence review plus targeted in-memory negative/positive controls and read-only manifest hashes. No suites, recovery writes, external actions or source edits. UI/client N/A.
 
 ## Blockers
 
-| ID | Finding | Compact evidence | Corrective proof required |
-|---|---|---|---|
-| B1 | Validator identity is incomplete. Ignored validator dependencies/inputs and symlink-target changes are excluded, arbitrary validator-affecting environment is filtered out, and only the first executable is hashed. Reuse must be complete or unavailable. | `hooks/local/lib/validator-evidence.py:161-169` enumerates tracked plus non-ignored untracked files; `:148-149` records only symlink text; `:184-191` allowlists environment; `:194-205` hashes one command token. | Ignored dependency/input, symlink target, custom environment, and wrapped/multi-tool toolchain mutations force rerun; inability to prove complete identity disables reuse. |
-| B2 | Public `begin` plus `finish` can mint a signed success without validators running. The trusted runner must own execution and signing; direct mint and substituted runner paths must fail. | `hooks/local/lib/validator-evidence.py:247-275` exposes token begin/finish and signs success without child-process evidence; `hooks/local/run-validators.sh:33-48` runs validators outside the signer. | One trusted execution/signing boundary; no public success-mint API; failed, skipped, direct-mint, and substituted-runner cases cannot create reusable evidence. |
-| B3 | Recovery overwrites unowned colliding skill mirrors, agent mirrors, commands, and health-skill targets without ownership classification, retained originals, or atomic replacement. | `hooks/local/mirror-skills.sh:233-240`, `hooks/local/mirror-agents.sh:95-102`, and `hooks/local/post-fusebase-update.sh:503-510,534-545` copy over differing targets. | Per-target ownership classification; unowned collision and symlink remain untouched with partial/exit 1; owned repair is atomic and retains the original; interruption is retryable. |
-| B4 | Recovery lacks a complete preflight and authoritative final verification. Malformed event arrays may still return success; intent detection is substring-based; progress can reset or be reported ahead of completed work; missing providers and Git intent/install proof are insufficient. | Preflight checks only broad prerequisites at `hooks/local/post-fusebase-update.sh:143-169`; malformed events warn/continue at `hooks/local/fusebase-flow-overlays/settings-json-merge.py:267-275,316-335`; progress is static/in-memory at `hooks/local/lib/flow-recovery-plan.sh:44-64`; final success is asserted at `hooks/local/post-fusebase-update.sh:597` without parsed end-state verification; intent presence uses grep at `hooks/local/lib/hook-wiring-intent.sh:214-219`. | Whole-plan validation before target writes; invalid plan exit 2 with zero writes; authoritative parsed/hash post-apply verification; truthful retained interruption/retry ledger; verified provider backup restore or explicit uncertainty; per-surface Git intent and installed-hook proof; partial exit 1 when incomplete. |
-| B5 | Matcher ownership uses `hooks/handlers/` substring recognition and can widen custom or mixed blocks, changing custom command scope. | `hooks/local/fusebase-flow-overlays/settings-json-merge.py:212-232` treats any command containing that substring as Flow-owned before widening; intent uses the same substring at `hooks/local/lib/hook-wiring-intent.sh:19-24,214-219`. | Exact Flow command recognition and dedicated Flow-block isolation; preserve custom block order, matcher, timeout, and scope; cover substring lookalike, mixed block, and restrictive-first dedup cases. |
-| B6 | Markerless overlay migration claims from the Flow heading through EOF and can delete an unrelated suffix. | `hooks/local/fusebase-flow-overlays/overlay-block-replace.py:57-88` returns `len(data)` for a markerless legacy span. | Prove a bounded legacy span or refuse ambiguous markerless input with zero writes; cover unrelated suffix and custom-heading suffix. |
-| B7 | The workflow fixture hardcodes decisions, relays, artifacts, and diagnosis instead of executing them. S2 labels three assertions from one run as three repetitions. | `hooks/tests/lane-workflow-fixture.py:58-88` assigns outcomes; `hooks/tests/test-lane-workflow.sh:27-116` asserts those assignments. `docs/tmp/handoff/2026-09-05-flow-performance-and-recovery-hardening-smoke/S2-noop.log` records three different assertions as attempts. | Execute fixture actions and create/inspect real artifacts, or label simulation and keep coverage UNVERIFIED. Record three independent no-op recovery attempts. Mutation must catch an extra relay, extra artifact, and skipped diagnosis. Correct performance claims from observed actions. |
-| B8 | Windowing links an entire historical artifact/body when the file has a current cosmetic edit or mentions a selected SHA, so old outcomes can affect the current window. | `hooks/local/find_wasted_effort/windowing.py:39-53` promotes the whole artifact by last commit or any SHA reference. | Outcome/task-specific linkage; mixed outcomes stay historical unless each conclusion is linked; cover old outcome plus current footer and mixed reports. |
+**None. Zero-blocker approval is explicit.** No new correctness/security or evidence-only blocker found in final changed seams.
 
-## Non-blockers
+## Final R1/R3 closure
 
-| ID | Finding | Evidence / correction |
-|---|---|---|
-| N1 | Validator fixture assumes `cygpath`; portability is incomplete. | `hooks/tests/test-validator-evidence.sh:32,51,70`. Make conversion conditional and exercise the matrix on Linux where available. |
-| N2 | The benchmark calls `mirror-skills.sh --check` and reports zero writes, but `--check` is read-only. | `hooks/tests/benchmark-flow-consumers.py:157-169`. Label this read-only integrity evidence and use repeated write-mode recovery with byte/mtime/write evidence for no-op claims. |
-
-## Security and CLI safety
-
-| Surface | Review result |
+| Finding / correction | Evidence and scope |
 |---|---|
-| Validation authority | BLOCKED by B2. The receipt can assert successful lint/typecheck without trusted execution. Secret and protected-path checks remain separate live pre-commit steps, but their presence does not authenticate validator success. |
-| Hook enforcement scope | BLOCKED by B4-B5. Substring ownership can both miss authoritative installed-state proof and widen custom command scope. |
-| Consumer/CLI bytes | BLOCKED by B3-B4. Unowned collisions can be overwritten, and the final status does not prove every provider/Git surface. |
-| Platform auth/session/permissions | N/A. This review found no platform auth, session, or permission behavior change; no problem-catalog item is warranted for that domain. |
-| Secrets/production/deploy | No secret, database, app deploy, or production mutation is part of the correction plan. Publication/deploy remains N/A. |
+| R1 / T53 c3c2580 | CLOSED: hooks/local/lib/validator-evidence.py:244 unconditionally rejects caller-asserted completeness after schema parsing. In-memory complete=true with nonempty inputs/dependencies/environment/toolchains refuses both before and after undeclared VALIDATOR_STRICT mutation; omitted files cannot restore eligibility. Runner :393-407 executes validators on unavailable identity and returns before signing; verifier :434 and main :459 fail closed for old receipts too. Focused executor evidence3/3,31.620s; fixture checks actual rerun counts and lint failure propagation. Reusable receipts are now unavailable on every platform, not only Windows. |
+| R3 / T54 559ca5a | CLOSED: hooks/local/lib/recovery-preflight.py:202-216 validates canonical template, existing CUSTOM markers and preserve span before append selection. In-memory unmatched/nested no-heading inputs now refuse; marker-free provider bytes yield exactly original+template. Existing focused fixture validates unchanged target inventory on refusal and exact planned append hash. Executor evidence2/2, command0.122s/stage0.031s. Preflight remains before recovery writes. |
+| R2/R4/R5 regression lens | Final diff changes only validator evidence, overlay preflight, their focused fixtures, validator guidance/mirrors and manifests. Settings canonicalization, owned-writer classification/lock/revalidation, temporal linkage and their dependencies are unchanged; prior closure retained without reruns. |
 
-## Residuals retained after correction
+## Closed corrections and retained evidence
 
-| Residual | Status |
+| Scope | Disposition |
 |---|---|
-| Actual host-delivered startup telemetry for Codex, Claude Code, Cursor, Copilot/VS Code, and Gemini | UNVERIFIED |
-| Three real-symlink controls on MSYS | UNVERIFIED until Linux/CI executes real symlinks |
-| Windows validator-authority ACL/isolation | UNPROVEN; reuse unavailable unless independently proved |
-| Actual CLI install/update/recover comparison | UNVERIFIED |
-| UI/client behavior | N/A |
+| R2 / T49 / B5 | CLOSED: settings-json-merge.py:297,338 detects real semantic mutation; :245 validates exact dedicated canonical handler/block/matcher. Restricted matcher repairs persist; custom scope/order preserved. Focused4/4 retained. |
+| R4 / T51 / B3 | CLOSED for reviewed model: recovery-owned-write.py:413,427,438 revalidate source/target ancestry/type/bytes and serialize writers; :496-517 applies checks before receipt authority. Four race/control cases retained. No hostile same-user race guarantee. |
+| R5 / T52 / B8 | CLOSED: hooks/local/find_wasted_effort/conclusion_link.py requires explicit valid unique SHA/task and action-linked approval; windowing removes cosmetic-current fallback. Focused16/16 retained. |
+| R1 / T48 / B1-B2 | Missing/incomplete context now reruns; direct minting remains removed; command/config binding and live identity checks retained. Windows authority refuses safely. T53 closes completeness by disabling reuse; no validator-skipping performance benefit remains. |
+| R3 / T50 / B4 | Prior two-hook receipt gates auto Git restoration; external-settings uncertainty persists; exact planned overlay digest and surface partition strengthen final proof. Focused4/4 retained; T54 closes the no-heading append gap. |
+| T1-T10 and other fix-forwards / B6-B7 / N1-N2 | Prior whole-implementation review retained: exact spans, CLI/user ownership, one-read transcript, diagnosis-first lanes, compact core/role bootstrap, no-op mirrors, rollback and manifests. No additional blocker in changed seams. |
 
-## Required disposition
+## Evidence and claim limits
 
-Implement T11-T20 from `tasks.md`; rerun the report-only technical gate at T21; repeat the independent Astra review at T22. T23 may close the spec only after T22 reports zero blockers.
+- Correction commits: T48 8e54a74; T49 90288ae; T51 078f0b2; T50 8a8d450; T52 6fa185e; T53 c3c2580; T54 559ca5a. gate-report.md owns focused commands/results/timing. T48 timeout/partial evidence remains historical non-success.
+- Read-only normalized-byte hashing matched all209 hook and372 managed manifest entries at559ca5a. Validator guidance mirror entries carry the canonical updated hash. Recorded normal precommit remains executor evidence, not a new full/platform run. No new secret leakage or critical CLI/MCP/runtime overwrite demonstrated; Actual CLI compatibility remains unverified despite reviewed preservation safety.
+- T20 three independent no-ops and T32 composed9/9 remain historical at008ade7; changed recovery semantics rely on focused corrections, not a claimed integrated run at the final559ca5a. T47 cleanup remains limited to recorded owned identities.
+- Performance: static carrier reduction, one transcript read and observed zero writes only. Validator reuse is disabled globally; do not claim duplicate lint/typecheck elimination or successful HMAC reuse as delivered performance. No consumer/model token or end-to-end speedup proved; cleanup-versus-runtime timing contribution UNKNOWN.
+- Rollback: exact task commits in reverse dependency order; retained consumer originals. No deploy/migration/UI scope.
+
+## Non-blockers and residual UNVERIFIED
+
+| Item | Disposition |
+|---|---|
+| Actual current CLI install/update/recover | UNVERIFIED AC11; source/fixture proof does not establish real CLI compatibility. |
+| Five-provider delivered-context telemetry | DEFERRED AC7; static reduction is not host measurement. |
+| Real symlink/MSYS, Linux, Windows authority isolation, full platform/release CI | DEFERRED/UNVERIFIED; safe Windows fallback is not signing proof. |
+| Hostile same-user execution | Outside HMAC trust model; no stronger protection claimed. |
+| T23 | ELIGIBLE for docs-only scoped closeout after explicit AC7/AC11 and platform residual disposition. T21 DEFERRED/UNVERIFIED actual CLI/provider/symlink/Windows-authority evidence is outside this local execution model and non-blocking for scoped completion, but still blocks claims that those acceptance paths passed. T23 documents now record that disposition and globally-disabled reuse; deferred evidence remains non-PASS. |
+
+**Plan:** T53/T54 accepted; T23 owns current-state reconciliation and explicit residual disposition. verification-gate.md owns dependency limits. Reuse unaffected T49/T51/T52/T32 and historical T20. No broad/default suite, benchmark repeat, successful-prefix replay or observer harness.
+**T23 documentation check:** APPROVE after correcting historical-source labels, separating in-memory proof from old-receipt source inspection, and restoring the T10 roadmap disposition. Exact commit chronology matches Git history. No source/tests/external actions or commit; doc diff-check passed.
+
+**Workspace:** documentation only; pre-existing repair backups, smoke/archive/wasted-code preserved.
+
+---
+Phase: Verify | Ticket: flow-performance-and-recovery-hardening | Next: T23 docs-only scoped closeout with explicit residual disposition.

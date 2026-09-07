@@ -1,22 +1,20 @@
-# Flow performance and recovery hardening — roadmap
+# Roadmap - scoped local completion
 
-**Status:** implementation through T47 complete/absorbed; source `008ade7`; T21 report reconciled, T22/T23 OPEN; spec DRAFT. Tier 4 existing pack. `tasks.md` owns detailed slices; `gate-report.md` owns evidence and residuals.
+**Status:** DONE - scoped local implementation and T23 documentation closed after final T22 ZERO BLOCKERS at559ca5a; no release/platform attestation.
 
-| Recommendation order | Slices | Disposition |
-|---|---|---|
-| Recovery and ownership first | T1-T4, T11-T17 | implemented; final negative-path acceptance under T22 |
-| Ordinary-work efficiency and honest measurement | T5-T9, T18-T20 | implemented; measured-host/real-CLI residuals explicit |
-| Initial gate | T10 | historical, superseded by independent CHANGES REQUIRED |
-| Real-Git/timeout/fixture/portability corrections | T24-T31 | completed with scoped evidence |
-| Remove repeated execution and adopt scoped gates | T32-T33 | completed; current T32 composition 9/9 |
-| Bootstrap/shared classify/import compatibility | T34-T36; T35 absorbed into T36 | completed; final dependency review pending |
-| Observable provider/status recovery | T37-T38; T38 absorbed into T37 | completed; preserve partial-run evidence honestly |
-| Minimal no-op harness and product process reduction | T39-T41 | absorbed into `008ade7` |
-| Retire observer and mirrored helper tests | T42-T45 | superseded experiments removed; material failures retained |
-| Lazy baseline/stable receipt/batched mirror work | T46 | committed at `008ade7` |
-| Scoped orphan cleanup and one environment-corrected run | T47 | complete; T20 all 3 no-ops PASS |
-| Reconcile technical acceptance | T21 | report complete; scoped gate OPEN |
-| Independent whole-diff/evidence review | T22 | NEXT; review original findings and current closure limits |
-| Honest docs closeout | T23 | only after zero-blocker T22 and residual disposition |
+| Recommendation order | Completed slices/outcome |
+|---|---|
+| Preserve recovery/CLI ownership first |T1-T4,T11-T17; bounded overlays/settings, complete preflight, ownership and final verification |
+| Reduce ordinary work cost |T5-T9,T18-T20; one transcript read, compact static context, executed workflow/temporal evidence |
+| Initial gate |T10 historical gate superseded by independent findings and corrective proof |
+| Correct fixtures and remove duplicate execution |T24-T33; real-Git/bounded selectors, composed heavy health/liveness once, scoped acceptance |
+| Correct bootstrap/import/recovery evidence |T34-T38; conservative shared preparation and selected-shell direct proof |
+| Reduce real no-op recovery cost |T39-T47; minimal three-call fixture, fewer runtime launches, stable receipt/manifests, environment cleanup |
+| Close independent findings |T48,T49,T51,T50,T52,T53,T54; final T22 ZERO BLOCKERS |
+| Reconcile and close |T21,T22,T23 complete; exact SHAs/order in tasks.md |
 
-No more implementation or test execution is implied by this roadmap. T22 identifies any concrete remaining defect; only its affected evidence is revisited. Preserve existing bounds and anti-overtesting disposition. Actual CLI install/update/recover, host telemetry, real symlink/Windows authority and full platform/release coverage remain UNVERIFIED/DEFERRED. No app UI/deploy/migration scope.
+Measured T20 historical attempts23.687/23.312/31.015s are each below45s with zero target changes/copies after T47 cleanup; T32 composition9/9. Cleanup versus runtime timing contributions are unknown. Static context reduction is not measured host-token savings. Validator reuse globally unavailable; no lint/typecheck skip benefit claimed.
+
+Actual current CLI install/update/recover, five-provider delivered-context telemetry, real-symlink/MSYS/Linux coverage and Windows authority isolation remain DEFERRED/UNVERIFIED. They are explicitly outside the approved local completion boundary and are not blockers for this scoped closeout; they still prohibit claims of verified release/platform coverage. Validator reuse is globally unavailable: validators execute normally on every platform.
+
+No active implementation, deployment, migration or UI work. gate-report.md owns evidence; adversarial-review.md owns final approval. No broad reruns; dependency-aware focused validation, one composed run and stop-first-red remain policy. Retired tracer/helper experimentation stays retired.

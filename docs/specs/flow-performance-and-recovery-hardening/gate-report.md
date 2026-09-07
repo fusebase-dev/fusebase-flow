@@ -1,10 +1,34 @@
 # T21 scoped acceptance reconciliation
 
-**Verdict:** OPEN for final independent T22 review; spec DRAFT, T23 OPEN. Current 16-row ledger: 12 scoped PASS / 3 OPEN / 1 DEFERRED (`verification-gate.md`). Previous 9/6/1 is historical. No full-suite, real-CLI or release attestation.
-**Final source:** `008ade7553009f38ebf0d9ee29c83df8be64d50b` — `perf(T46): accelerate no-op recovery`. Commit includes T39/T40 harness, T41 runtime reductions, T46 ownership/mirror optimization and final manifests. T47 corrected environment only.
+**Verdict:** DONE - scoped local implementation and T23 documentation closed after final T22 ZERO BLOCKERS at559ca5a; no release/platform attestation.
+**Current source:**559ca5a; previous integrated T20 source008ade7 remains historical dependency-scoped evidence.
 **Report date/owner:** 2026-09-07, Architect; report-only. The reconciliation itself changed no source/tests and launched no tests.
 
-## Current evidence
+
+## Final affected evidence - accepted by final T22
+
+| Correction | Commit | Focused evidence | Packaging (executor-reported) |
+|---|---|---|---|
+| T53 / R1 / AC9 |c3c2580 |3/3 in31.620s; uncertain completeness stays non-reusable |mirror98/98, hook209/209, managed372/372; normal precommit PASS |
+| T54 / R3 / AC1 |559ca5a |2/2; command0.122s, stage0.031s; no-heading marker preflight |hook209/209, managed372/372; normal precommit PASS |
+
+No precommit duration supplied for these commits. Implementation and focused proof accepted by final targeted T22 ZERO BLOCKERS. T49/T51/T52 findings remain closed; unchanged T50 seams and dependency-limited T20/T32 evidence retained. No broad rerun. Final review assessed6fa185e..559ca5a and R1/R3 counterexamples; adversarial-review.md owns APPROVED/ZERO BLOCKERS and read-only209/372 manifest hash verification.
+
+## R1-R5 correction evidence - closed
+
+| Finding/task | Commit | Focused evidence | Packaging evidence (executor-reported) |
+|---|---|---|---|
+| R1 / T48 |8e54a74 |four earlier named PASS retained; remaining4/4 in30.168s; real runner/fallback and failure propagation; Windows authority unavailable |hook209/209, managed372/372; normal precommit PASS, duration unreported |
+| R2 / T49 |90288ae |4/4 in0.235s; canonical matcher persistence and final predicate |hook209/209, managed372/372; precommit PASS23.4s |
+| R4 / T51 |078f0b2 |4 named cases in4.487s; apply-time target races and unchanged control |hook209/209, managed372/372; precommit PASS29.84s |
+| R3 / T50 |8a8d450 |4/4 in49.266s; prior authorization, uncertainty, preflight/pinned post-state seams |hook209/209, managed372/372; normal precommit PASS, duration unreported |
+| R5 / T52 |6fa185e |16/16 in1.535s; explicit temporal linkage and counterexamples |managed372/372; hook manifest unaffected; normal precommit PASS, duration unreported |
+
+This earlier correction group ended at `6fa185e`; final source is `559ca5a`. Results/timings are owning-executor evidence; manifest asset inventories were also read from each commit (209 hook/372 managed entries). Inventory counts alone are not verification execution. Named logs remain under the existing smoke directory; original T48 timeout120s/155.9s and4/6 partial result are retained historical evidence, not retrospectively6/6. The remaining run reports4/4, not the earlier planned3/3.
+
+T20/T32 evidence below is reused only by dependency: T32 composition implementation is unchanged; T20's measured three independent processes/zero-change observations remain valid at008ade7. T49/T51/T50 change recovery semantics, so their focused seam proofs supplement that history; no claim T20 ran on6fa185e or proves all changed paths. No broad reruns occurred or are requested. Final T22 accepted R1-R5 closure and this scoped dependency mapping.
+
+## Prior integrated evidence (dependency-scoped reuse)
 
 | Evidence | Exact result | Attribution/limit |
 |---|---|---|
@@ -24,21 +48,9 @@
 
 Named logs above are under `docs/tmp/handoff/2026-09-05-flow-performance-and-recovery-hardening-smoke/`. Temporary T20 result files remain at the explicit directory above; do not claim tracked portability. Counts/manifest/precommit/survivor assertions supplied by the owning executor are labeled as such; this Architect read the commit, logs, stage evidence and cleanup record and did not rerun them. Executions preceded the final commit; use the executor's final source/dependency mapping, not a claim they ran after the SHA existed. Final-manifest changes are separate from the tested fixture behavior.
 
-## Acceptance boundaries
+## Acceptance ownership
 
-| Scope | Verdict | Reason |
-|---|---|---|
-| AC1/AC2/AC4 | PASS, reused | retained overlay/settings exact ownership proofs; unchanged source dependencies listed in ledger |
-| AC3 | OPEN; current positive PASS | composed recovery/final verification proven; T46 bootstrap orchestration requires final review of negative-path dependency reuse |
-| AC5/S2 | PASS, scoped | all 3 independent write-mode attempts; receipt/manifest no-op and injected change detection; broader ownership negatives under AC3/AC12 |
-| AC6 | PASS, reused | unchanged one-read Stop implementation and retained fixture evidence |
-| AC7 | DEFERRED | actual paired host-delivered telemetry absent; character estimates insufficient |
-| AC8/S3 | PASS, reused | post-T18 lane 12/12 executed actions/mutations; no new rerun needed |
-| AC9 | PASS, scoped fail-closed reuse | retained validator matrix; unavailable Windows authority means reuse unavailable, not verified signer isolation |
-| AC10 | PASS, scoped | retained window/benchmark proofs plus honest T20 write-mode metrics |
-| AC11 |OPEN | fixture CLI/user preservation PASS; actual full CLI install/update/recover UNVERIFIED/DEFERRED |
-| AC12 | OPEN; normal convergence PASS | canonical/fallback prior evidence plus current no-op; lazy bootstrap dependency review pending |
-| T32/current manifests/precommit | PASS, scoped | evidence table; neither release nor whole-platform attestation |
+verification-gate.md owns final scoped acceptance and explicit deferred coverage. Earlier12/3/1 observations were superseded by focused corrections and final zero-blocker review; they are not current unresolved blockers.
 
 ## Material failures retained
 
@@ -47,7 +59,7 @@ Named logs above are under `docs/tmp/handoff/2026-09-05-flow-performance-and-rec
 | Initial T10 | 1,274/1,274 reported; superseded by independent CHANGES REQUIRED, never final acceptance |
 | Corrective broad prefix | 414 PASS/0 FAIL over 108 minutes, no complete terminal result; never rerun to inflate counts |
 | T24-T30 | real-Git, Stop fixture, encoding, portability and timeout defects corrected; focused evidence in tasks/history |
-| T33/T34 | stale manifests and receiptless first-edit bootstrap gap; current manifests fixed, bootstrap implementation retained for T22 review |
+| T33/T34 | stale manifests and receiptless first-edit bootstrap gap; current manifests fixed, bootstrap implementation accepted by final T22 within the reviewed model |
 | T35/T36 | dataclass dynamic import and classify API mismatch; shared preparation plus conservative legacy API |
 | T37/T38 | T15 timeout then bare Bash selected WSL; composed restore/provider negatives retained and explicit-shell final-status correction |
 | T39/T40 | convergence 55/80s timeouts; no attempts accepted |
@@ -56,10 +68,16 @@ Named logs above are under `docs/tmp/handoff/2026-09-05-flow-performance-and-rec
 | T46 | `child_copy` and selector124; no convergence END; infrastructure-inconclusive |
 | T47 | identity-scoped orphan cleanup; one corrected-environment T20 passed unchanged bounds |
 
-No failed record is erased or relabeled PASS. The improved current timing is measured; separation of runtime optimization versus environment cleanup contributions is UNKNOWN. No causal percentage speedup or total token-saving claim.
+No failed record is erased or relabeled PASS. The historical T20 timing at `008ade7` is measured; separation of runtime optimization versus environment cleanup contributions is UNKNOWN. No causal percentage speedup or total token-saving claim.
 
-## Gate remainder and next action
+## Final local acceptance and explicit residual disposition
 
-T22 independently reviews `2217a9c..008ade7`, current source/dependency evidence and original B1-B8/N1-N2 findings in unchanged `adversarial-review.md`. Review decides remaining AC3/AC12 negative-path evidence sufficiency; no automatic test prefix or new helper suite. Concrete blockers require narrowly scoped correction and affected-evidence invalidation only.
+Final T22 APPROVED/ZERO BLOCKERS at559ca5a closes R1-R5 for the reviewed contract. T53 c3c2580 and T54 559ca5a evidence above accepted; T49/T51/T52 closure retained. Reviewer checked complete=true refusal and malformed no-heading refusal/marker-free append in memory, inspected old-receipt fail-closed control flow, and checked normalized209 hook/372 managed manifest hashes. No suites were repeated by that review.
 
-Actual CLI full chain, cross-provider context telemetry, real symlink/MSYS controls, Windows authority isolation and full platform/release CI remain UNVERIFIED/DEFERRED. T23 cannot mark DONE until zero-blocker review and explicit disposition of acceptance residuals. No deploy/publication claim. Preserve all existing untracked smoke/archive/wasted-code paths. Rollback uses exact owning commits in reverse dependency order; do not discard shared dirty documentation.
+Scoped local implementation and T23 docs are DONE. Actual current CLI install/update/recover, five-provider delivered-context telemetry, real-symlink/MSYS/Linux coverage and Windows authority isolation remain DEFERRED/UNVERIFIED. They are explicitly outside the approved local completion boundary and are not blockers for this scoped closeout; they still prohibit claims of verified release/platform coverage. Validator reuse is globally unavailable: validators execute normally on every platform.
+
+Main outcomes within reviewed source/fixture coverage: CLI/user ownership preservation and restore safety; fewer redundant mirror/recovery processes; byte/mtime-stable mirrors and ownership receipt; one native Stop transcript read; composed heavy health/liveness execution once; compact static context and honest outcome linkage. Three historical T20 no-op calls remained under45s with zero target changes/copies after T47 cleanup; T32 9/9. No measured consumer-token saving or causal end-to-end speedup claim. No duplicate lint/typecheck elimination: validators always run.
+
+Anti-overtesting outcome: dynamic tracer and implementation-mirroring helper-test loop retired; one existing composed product oracle, dependency-aware focused corrections, stop-first-red. T47 was a documented environment-precondition correction with identity-scoped cleanup, not an unchanged retry. No active implementation/test collection remains.
+
+Restore paths remain docs/install-fusebase-cli-project.md and docs/fusebase-cli-edition.md; preserve retained consumer originals and ownership boundaries. No deploy, migration or app UI scope. Exact task rollback in reverse dependency order; preserve all unrelated dirty/untracked smoke/archive/wasted-code. This closeout edits docs only and makes no commit.
