@@ -50,7 +50,7 @@
     },
     {
       "path": "hooks/local/check-cli-flow-conflicts.sh",
-      "sha256": "044c69e7688c441a9595827345457f9d0d633e591107909123462cc24c4288f2"
+      "sha256": "850123ec723758014e0596dd0e0d295be286d56ba211378a1597dfa663d8a358"
     },
     {
       "path": "hooks/local/check-module-size.sh",
@@ -841,5 +841,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "81c3fa06c4f08c6ca12b9b9d6341a6de2aeed25f90fb619437ed63b581d1d44e"
+  "manifest_self_sha256": "9c186ae2926ceb23c82439d8383d93ba6f95886dd4cd090f376f867a87f55396"
 }

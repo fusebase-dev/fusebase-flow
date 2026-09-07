@@ -1,7 +1,7 @@
 # Verification gate - scoped local completion
 
-**Status:** DONE - scoped local implementation and T23 documentation closed after final T22 ZERO BLOCKERS at559ca5a; no release/platform attestation.
-**Source:**559ca5a. **Authority:**adversarial-review.md final T22 APPROVED/ZERO BLOCKERS. **Evidence owner:**gate-report.md. **T23:**DONE documentation; no commit in this Architect turn.
+**Status:** T56 focused local gate PASS; no release/platform attestation.
+**Source:** T56 commit (this commit). **Prior authority:** adversarial-review.md final T22 at `559ca5a`. **Evidence owner:** gate-report.md.
 
 | Acceptance/risk | Final disposition | Evidence limit |
 |---|---|---|
@@ -16,6 +16,7 @@
 | T32 composition |PASS retained9/9 |unchanged dependency; not whole-platform proof |
 | Current integrity |PASS |T53/T54 packaging and reviewer209 hook/372 managed normalized hashes; normal precommit executor evidence |
 | Final T22 |ZERO BLOCKERS |R1-R5 closed; no hostile same-user guarantee |
+| T56 / R55a / R55b |PASS focused |T54 malformed standalone markers retained; T56 canonical/legacy structure, prose negative, inline-marker append, exact provider bytes, stable current overlay, and malformed preserve refusal before backup/write |
 
 Actual current CLI install/update/recover, five-provider delivered-context telemetry, real-symlink/MSYS/Linux coverage and Windows authority isolation remain DEFERRED/UNVERIFIED. They are explicitly outside the approved local completion boundary and are not blockers for this scoped closeout; they still prohibit claims of verified release/platform coverage. Validator reuse is globally unavailable: validators execute normally on every platform.
 

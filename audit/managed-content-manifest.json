@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "8baf05b0b201b88fea829ee1ae6fdfa77bf55c19e6f3a7d0bbd70f4a74b0960f"
+      "sha256": "85836bf0884cec6b9d42254fb285d5ba3b7f95f4d78239dc2c40c27d3da40db5"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -274,7 +274,7 @@
     },
     {
       "path": "hooks/local/check-cli-flow-conflicts.sh",
-      "sha256": "044c69e7688c441a9595827345457f9d0d633e591107909123462cc24c4288f2"
+      "sha256": "850123ec723758014e0596dd0e0d295be286d56ba211378a1597dfa663d8a358"
     },
     {
       "path": "hooks/local/check-module-size.sh",
@@ -446,7 +446,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/overlay-block-replace.py",
-      "sha256": "acb569f64c5760f5ec8d9ae62b1a1077d79552d486e2f5ee5f85e50eeacc89a3"
+      "sha256": "199132b7ec9dfb2f00941e4da9f6468be526ea2f414b8d975b5cb4bda62d92ed"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/settings-json-merge.py",
@@ -1190,7 +1190,7 @@
     },
     {
       "path": "hooks/tests/test-recovery-final-verification.py",
-      "sha256": "59960dde8d20bb2488cd9292fbee949e8b65692f7011043eb5af0ae502065a67"
+      "sha256": "da1cdfe31d9aff2041003e672b9590f075b610153e4ea3612703ad0c59d58ab6"
     },
     {
       "path": "hooks/tests/test-recovery-hint-honesty.sh",
@@ -1493,5 +1493,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "2efe9c2c9a19f05086602e61f57970a77d214d22a1b7541718942a332d104f59"
+  "manifest_self_sha256": "3004df96665f2b772da7d6d6ad45df12f2c8460319c5da4cffee19a8ca5d86db"
 }

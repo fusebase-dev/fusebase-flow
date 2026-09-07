@@ -113,7 +113,7 @@ def validate_bash(raw: str) -> Path:
 
 
 def selection(raw: str) -> str:
-    if raw not in {"settings-wiring", "status-writer", "t50", "t54"}:
+    if raw not in {"settings-wiring", "status-writer", "t50", "t54", "t56"}:
         raise argparse.ArgumentTypeError(f"unknown selection: {raw}")
     return raw
 
@@ -520,6 +520,131 @@ def t54_check() -> tuple[str, str]:
     )
 
 
+def t56_check(bash: Path) -> tuple[str, str]:
+    preflight = load(SOURCE_ROOT / "hooks/local/lib/recovery-preflight.py", "t56_preflight")
+    with tempfile.TemporaryDirectory(prefix="flow-t56-overlay-") as raw:
+        root = Path(raw).resolve()
+        overlay_dir = root / "hooks/local/fusebase-flow-overlays"
+        overlay_dir.mkdir(parents=True)
+        for name in (
+            "overlay-block-replace.py", "agents-md-overlay.md",
+            "claude-md-overlay.md", "agent-surface-ownership.json",
+        ):
+            shutil.copyfile(
+                SOURCE_ROOT / "hooks/local/fusebase-flow-overlays" / name,
+                overlay_dir / name,
+            )
+        conflict = root / "hooks/local/check-cli-flow-conflicts.sh"
+        shutil.copyfile(SOURCE_ROOT / "hooks/local/check-cli-flow-conflicts.sh", conflict)
+        agents_template = (overlay_dir / "agents-md-overlay.md").read_bytes()
+        claude_template = (overlay_dir / "claude-md-overlay.md").read_bytes()
+        agents = root / "AGENTS.md"
+        claude = root / "CLAUDE.md"
+
+        def shared_statuses() -> dict[str, str]:
+            result = subprocess.run(
+                [str(bash), shell_path(conflict), "--json", shell_path(root)],
+                text=True, capture_output=True, timeout=20, shell=False,
+            )
+            if result.returncode not in (0, 1, 2, 3, 4):
+                raise AssertionError(
+                    f"conflict reporter failed rc={result.returncode}: {result.stderr}"
+                )
+            report = json.loads(result.stdout)
+            return {
+                row["path"]: row["status"] for row in report["findings"]
+                if row["path"] in {"AGENTS.md", "CLAUDE.md"}
+            }
+
+        agents.write_bytes(agents_template)
+        claude.write_bytes(
+            b"<!-- CUSTOM:SKILL:BEGIN -->\r\n"
+            b"## FuseBase Flow \xe2\x80\x94 Claude Code adapter\r\n"
+            b"<!-- CUSTOM:SKILL:END -->\r\n"
+        )
+        if shared_statuses() != {"AGENTS.md": "OK", "CLAUDE.md": "OK"}:
+            raise AssertionError("canonical compact overlays were not structurally accepted")
+
+        claude.write_bytes(b"Provider prose mentions Fusebase Flow but has no overlay.\n")
+        if shared_statuses().get("CLAUDE.md") != "DRIFT":
+            raise AssertionError("prose-only old product name passed overlay detection")
+
+        agents.write_bytes(
+            b"provider\n## Fusebase Flow \xe2\x80\x94 workflow lifecycle overlay\n"
+            b"### Project-specific values\n"
+            b"**Where Fusebase Flow and project-specific rules conflict, project-specific rules win.**\n"
+        )
+        claude.write_bytes(
+            b"provider\n## FuseBase Flow \xe2\x80\x94 additional rules (overlay)\n"
+            b"For active context, commands, install/update recovery, and mixed-fleet behavior, "
+            b"use `AGENTS.md`; do not reprint those procedures here.\n"
+        )
+        if shared_statuses() != {"AGENTS.md": "OK", "CLAUDE.md": "OK"}:
+            raise AssertionError("recognized markerless legacy overlays were rejected")
+
+        agents.write_bytes(b"provider agents\n" + agents_template)
+        cli_prefix = (
+            b"# Always-on rules (read before @AGENTS.md)\r\n\r\n"
+            b"**Custom skill-doc additions (required format):** use only custom blocks:\r\n"
+            b"`<!-- CUSTOM:SKILL:BEGIN --> ... <!-- CUSTOM:SKILL:END -->`.\r\n"
+            b"Preserve docs may mention `<!-- FLOW:PRESERVE:BEGIN --> ... "
+            b"<!-- FLOW:PRESERVE:END -->` inline.\r\n"
+        )
+        claude.write_bytes(cli_prefix)
+        before = claude.read_bytes()
+        rows = {row["surface"]: row for row in preflight.validate_overlays(root, False)}
+        expected = cli_prefix + claude_template
+        row = rows["CLAUDE.md"]
+        if row["state"] != "append" or row["expected_sha256"] != hashlib.sha256(expected).hexdigest():
+            raise AssertionError("inline marker documentation blocked the missing-overlay append plan")
+        if claude.read_bytes() != before:
+            raise AssertionError("append preflight changed provider bytes")
+        claude.write_bytes(expected)
+        overlay = load(overlay_dir / "overlay-block-replace.py", "t56_overlay")
+        result = overlay.replace_overlay(
+            claude, overlay_dir / "claude-md-overlay.md",
+            "## FuseBase Flow \u2014 Claude Code adapter",
+            ("## FuseBase Flow \u2014 additional rules (overlay)",
+             "## Fusebase Flow \u2014 additional rules (overlay)"),
+            root / "CLAUDE.md.unused-backup",
+        )
+        if result != "current" or claude.read_bytes() != expected:
+            raise AssertionError("canonical overlay with CLI marker prose was not byte-stable")
+        if not claude.read_bytes().startswith(cli_prefix):
+            raise AssertionError("CLI provider prefix changed during append/current validation")
+
+        malformed = (
+            cli_prefix
+            + b"<!-- CUSTOM:SKILL:BEGIN -->\r\n"
+            + b"## FuseBase Flow \xe2\x80\x94 Claude Code adapter\r\n"
+            + b"<!-- FLOW:PRESERVE:BEGIN missing-close\r\n"
+            + b"provider-owned value\r\n"
+            + b"<!-- CUSTOM:SKILL:END -->\r\n"
+        )
+        claude.write_bytes(malformed)
+        backup = root / "CLAUDE.md.malformed-backup"
+        try:
+            overlay.replace_overlay(
+                claude, overlay_dir / "claude-md-overlay.md",
+                "## FuseBase Flow \u2014 Claude Code adapter",
+                ("## FuseBase Flow \u2014 additional rules (overlay)",
+                 "## Fusebase Flow \u2014 additional rules (overlay)"),
+                backup,
+            )
+        except overlay.OverlayError:
+            pass
+        else:
+            raise AssertionError("malformed standalone FLOW:PRESERVE BEGIN was accepted")
+        if claude.read_bytes() != malformed or backup.exists():
+            raise AssertionError("malformed preserve refusal changed bytes or created a backup")
+    return (
+        "PASS: T56 structural conflict detection accepts canonical/legacy overlays and rejects prose\n"
+        "PASS: T56 inline marker docs plan and append exactly while canonical bytes remain stable\n"
+        "PASS: T56 malformed standalone preserve BEGIN refuses before backup or write",
+        "",
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root")
@@ -546,6 +671,10 @@ def main() -> int:
         if args.only == "t54":
             stage(stage_file, "t54", t54_check)
             print("PARTIAL/NON-ATTESTING: T54 append preflight group only")
+            return 0
+        if args.only == "t56":
+            stage(stage_file, "t56", lambda: t56_check(bash))
+            print("PARTIAL/NON-ATTESTING: T56 overlay structure group only")
             return 0
         if not args.root or not args.backup:
             raise ValueError("--root and --backup are required without --only")

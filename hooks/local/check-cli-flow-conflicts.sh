@@ -66,6 +66,7 @@ fi
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import sys
 from fnmatch import fnmatch
@@ -75,6 +76,47 @@ from typing import Any
 root = Path(sys.argv[1]).resolve()
 manifest_path = Path(sys.argv[2]).resolve()
 fmt = sys.argv[3]
+
+
+def load_overlay_parser():
+    path = root / "hooks/local/fusebase-flow-overlays/overlay-block-replace.py"
+    spec = importlib.util.spec_from_file_location("flow_overlay_conflict_check", path)
+    if spec is None or spec.loader is None:
+        raise ValueError(f"cannot load overlay parser: {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+try:
+    OVERLAY_PARSER = load_overlay_parser()
+except (OSError, ValueError, ImportError):
+    OVERLAY_PARSER = None
+
+
+OVERLAY_HEADINGS = {
+    "AGENTS.md": (
+        b"## FuseBase Flow \xe2\x80\x94 workflow lifecycle overlay",
+        b"## Fusebase Flow \xe2\x80\x94 workflow lifecycle overlay",
+    ),
+    "CLAUDE.md": (
+        b"## FuseBase Flow \xe2\x80\x94 Claude Code adapter",
+        b"## FuseBase Flow \xe2\x80\x94 additional rules (overlay)",
+        b"## Fusebase Flow \xe2\x80\x94 additional rules (overlay)",
+    ),
+}
+
+
+def has_valid_flow_overlay(path: Path, rel_path: str) -> bool:
+    if OVERLAY_PARSER is None:
+        return False
+    try:
+        OVERLAY_PARSER._owned_span(
+            path.read_bytes(), OVERLAY_HEADINGS[rel_path], allow_legacy=True
+        )
+    except (OSError, ValueError):
+        return False
+    return True
 
 # --- CLI vendor provenance (B2/B3) -----------------------------------------
 # audit/cli-vendor-manifest.json maps each vendored CLI-owned asset to its
@@ -343,8 +385,7 @@ for entry in paths:
             else:
                 add("INFO", layer, owner, rel, "optional file absent")
             continue
-        text = read_text(path)
-        if "Fusebase Flow" in text:
+        if has_valid_flow_overlay(path, rel):
             add("OK", layer, owner, rel, action, "Flow marker present")
         else:
             add("DRIFT", layer, owner, rel, action, "Flow overlay marker missing")

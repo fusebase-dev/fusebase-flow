@@ -1,7 +1,7 @@
 # Tasks - scoped local completion
 
-**Status:** DONE - scoped local implementation and T23 documentation closed after final T22 ZERO BLOCKERS at559ca5a; no release/platform attestation.
-**Source:**559ca5a. **Review:**adversarial-review.md final T22. **Evidence/history:**gate-report.md. **No active implementation remains.** T23 docs are prepared without committing in this Architect turn.
+**Status:** T56 implementation complete with focused local proof; no release/platform attestation.
+**Source:** T56 commit (this commit). **Prior review:** adversarial-review.md final T22 at `559ca5a`. **Evidence/history:** gate-report.md.
 
 ## Complete slice mapping and order
 
@@ -20,6 +20,7 @@
 | T47 |identity-scoped orphan cleanup and one environment-corrected T20 run; no source commit |
 | T48 -> T49 -> T51 -> T50 -> T52 |8e54a74 ->90288ae ->078f0b2 ->8a8d450 ->6fa185e |
 | T53 -> T54 |c3c2580 ->559ca5a; final focused corrections accepted |
+| T56 |this commit; exact overlay structure replaces prose/substring detection; T54/T56 focused selectors PASS |
 | T21 |81bb130 report plus affected evidence reconciliations |
 | T22 |final targeted APPROVED/ZERO BLOCKERS; prior findings/corrections retained in review |
 | T23 |DONE scoped docs closeout; this turn does not commit |
@@ -82,6 +83,7 @@
 | `6fa185e` | fix(T52): require explicit temporal evidence links |
 | `c3c2580` | fix(T53): disable unproved validator reuse |
 | `559ca5a` | fix(T54): reject malformed overlay append inputs |
+| `this commit` | fix(T56): parse overlay markers structurally |
 
 ## Delivery/rollback boundaries
 

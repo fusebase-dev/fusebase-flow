@@ -1,11 +1,21 @@
-# T21 scoped acceptance reconciliation
+# T56 actual CLI overlay coexistence correction
 
-**Verdict:** DONE - scoped local implementation and T23 documentation closed after final T22 ZERO BLOCKERS at559ca5a; no release/platform attestation.
-**Current source:**559ca5a; previous integrated T20 source008ade7 remains historical dependency-scoped evidence.
-**Report date/owner:** 2026-09-07, Architect; report-only. The reconciliation itself changed no source/tests and launched no tests.
+**Verdict:** PASS - T56 focused local gate; no release/platform attestation.
+**Current source:** T56 commit (this commit); prior accepted source `559ca5a` remains historical dependency evidence.
+**Report date/owner:** 2026-09-07, AI Developer. **Started at:** 2026-09-07T13:07:08Z. **Committed at:** 2026-09-07T13:34:23Z.
+
+## T56 affected evidence
+
+| Risk | Command/probe | Result | Scope |
+|---|---|---|---|
+| Standalone malformed markers | `test-recovery-final-verification.py --only t54` | PASS, 2 assertions, 0.031s | unmatched/nested refusal; marker-free append control |
+| Structural overlay grammar | `test-recovery-final-verification.py --only t56` | PASS, 3 assertion groups, 4.781s | canonical compact, prose negative, legacy forms, inline CUSTOM/PRESERVE prose, append hash, provider bytes, stable current overlay, malformed standalone preserve refusal before backup/write |
+| Actual R55 fixture | new conflict reporter against `flow-cli-coexistence-v4150-r55` | HEALTHY, rc0; AGENTS/CLAUDE both OK | read-only Windows/Git Bash fixture probe; not a CLI update/recover attestation |
+
+No full/default suite ran. T56 changes invalidate AC1/shared-overlay parsing only; T54 and T56 are the selected local rows under B6. Release evidence remains exact-tag CI.
 
 
-## Final affected evidence - accepted by final T22
+## Prior final affected evidence - accepted by final T22
 
 | Correction | Commit | Focused evidence | Packaging (executor-reported) |
 |---|---|---|---|

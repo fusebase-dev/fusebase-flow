@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import os
 from pathlib import Path
-import re
 import shutil
 import stat
 import tempfile
@@ -38,12 +37,12 @@ def _line_matches(data: bytes, values: tuple[bytes, ...]) -> list[tuple[int, int
 
 def _marker_pairs(data: bytes) -> list[tuple[int, int]]:
     events = sorted(
-        [(match.start(), True) for match in re.finditer(re.escape(BEGIN), data)]
-        + [(match.start(), False) for match in re.finditer(re.escape(END), data)]
+        [(start, end, True) for start, end in _line_matches(data, (BEGIN,))]
+        + [(start, end, False) for start, end in _line_matches(data, (END,))]
     )
     pairs: list[tuple[int, int]] = []
     opened: int | None = None
-    for position, is_begin in events:
+    for position, marker_end, is_begin in events:
         if is_begin:
             if opened is not None:
                 raise OverlayError("nested CUSTOM:SKILL marker")
@@ -51,7 +50,7 @@ def _marker_pairs(data: bytes) -> list[tuple[int, int]]:
         else:
             if opened is None:
                 raise OverlayError("CUSTOM:SKILL END without BEGIN")
-            pairs.append((opened, position + len(END)))
+            pairs.append((opened, marker_end))
             opened = None
     if opened is not None:
         raise OverlayError("CUSTOM:SKILL BEGIN without END")
@@ -118,16 +117,26 @@ def _convert_newlines(data: bytes, newline: bytes) -> bytes:
 
 
 def _preserve_span(block: bytes) -> tuple[int, int] | None:
-    starts = [match.start() for match in re.finditer(re.escape(PRESERVE_BEGIN), block)]
-    ends = [match.start() for match in re.finditer(re.escape(PRESERVE_END), block)]
+    starts: list[tuple[int, int]] = []
+    ends: list[tuple[int, int]] = []
+    offset = 0
+    for line in block.splitlines(keepends=True):
+        body = line.rstrip(b"\r\n")
+        marker_end = offset + len(body)
+        if body.startswith(PRESERVE_BEGIN):
+            if not body.endswith(b"-->"):
+                raise OverlayError("FLOW:PRESERVE BEGIN is malformed")
+            starts.append((offset, marker_end))
+        elif body == PRESERVE_END:
+            ends.append((offset, marker_end))
+        offset += len(line)
     if not starts and not ends:
         return None
     if len(starts) != 1 or len(ends) != 1:
         raise OverlayError("ambiguous FLOW:PRESERVE markers")
-    begin_close = block.find(b"-->", starts[0])
-    if begin_close < 0 or ends[0] <= begin_close:
+    if ends[0][0] <= starts[0][1]:
         raise OverlayError("unbalanced FLOW:PRESERVE markers")
-    return starts[0], ends[0] + len(PRESERVE_END)
+    return starts[0][0], ends[0][1]
 
 
 def _legacy_preserve(block: bytes, template_preserve: bytes, newline: bytes) -> bytes | None:
