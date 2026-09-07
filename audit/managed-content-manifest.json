@@ -358,7 +358,7 @@
     },
     {
       "path": "hooks/local/find_wasted_effort/conclusion_link.py",
-      "sha256": "d7fa4b6027fe9015da46a264486f266a00897e9f59dd08aad24b6aae68bb97ac"
+      "sha256": "269884c5d52a63e2017db0aa92a118310797c1c6bc766fa2046a055874bd4d63"
     },
     {
       "path": "hooks/local/find_wasted_effort/constants.py",
@@ -394,11 +394,11 @@
     },
     {
       "path": "hooks/local/find_wasted_effort/selftest_windowing.py",
-      "sha256": "b1cb0a9b05cd1c49272d043dbbfc15ca71d4acbf771103572b77aa1622497faf"
+      "sha256": "4eab99fad257f4bc3cb6351247955b9bd1821bb55b4a623bbf7f6cb8a706b804"
     },
     {
       "path": "hooks/local/find_wasted_effort/windowing.py",
-      "sha256": "a246ffbbb68a6b8b4d2c51881397fd4b73e6192e52a0587d05dbc3a989f96bd5"
+      "sha256": "87d00710504ef1a9bd4ad99a0a206663300e777340edb6904054243bb54f4f74"
     },
     {
       "path": "hooks/local/fusebase-flow-health-check.sh",
@@ -1493,5 +1493,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "dc1d4b7ed6fb11eee1f6c7abce3e05f958d37f6c2bfb05a2e1c970e0805dd5fc"
+  "manifest_self_sha256": "7a1fa4210081103b846d2ac10a72cf8938dbc780ab5f5536900afd00837002ec"
 }
