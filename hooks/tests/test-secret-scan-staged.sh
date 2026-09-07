@@ -194,12 +194,13 @@ T31_BASE_REF="555b897"
 # real pre-commit + the bootstrap-approval writer. Echoes the repo dir.
 ph_repo() {
   local D; D="$(mktemp -d)"
-  mkdir -p "$D/hooks/shared" "$D/hooks/git" "$D/hooks/local" "$D/policies" "$D/state/approvals" "$D/src"
+  mkdir -p "$D/hooks/shared" "$D/hooks/git" "$D/hooks/local/lib" "$D/policies" "$D/state/approvals" "$D/src"
   cp "$ROOT/hooks/shared/"*.py "$D/hooks/shared/" 2>/dev/null || true
   : > "$D/hooks/shared/__init__.py"
   cp "$ROOT/policies/secret-patterns.yml"  "$D/policies/"
   cp "$ROOT/policies/protected-paths.yml"  "$D/policies/"
   cp "$ROOT/hooks/git/pre-commit"          "$D/hooks/git/"
+  cp "$ROOT/hooks/local/lib/precommit-validator-reuse.sh" "$D/hooks/local/lib/"
   cp "$ROOT/hooks/local/write-bootstrap-approval.sh" "$D/hooks/local/" 2>/dev/null || true
   ( cd "$D" && git init -q && git config user.email t@t.t && git config user.name t \
       && git config core.autocrlf false \

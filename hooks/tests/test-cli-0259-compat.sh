@@ -63,6 +63,8 @@ make_project() { # make_project <dir>
   cp "$CONFLICT" "$p/hooks/local/check-cli-flow-conflicts.sh"
   cp "$STAMP"    "$p/hooks/local/stamp-cli-provenance.sh"
   cp "$MERGE"    "$p/hooks/local/fusebase-flow-overlays/settings-json-merge.py"
+  cp "$ROOT/hooks/local/fusebase-flow-overlays/overlay-block-replace.py" \
+     "$p/hooks/local/fusebase-flow-overlays/overlay-block-replace.py"
   # Required Flow paths (presence is all the reporter checks for these globs).
   # The reporter derives expected Flow skill/agent mirrors from the fixture's own
   # flow-skills/ + agents/ dirs, then checks the mirror copies exist — so a
@@ -78,8 +80,8 @@ make_project() { # make_project <dir>
   printf 'x\n' > "$p/.claude/agents/product-owner.md"
   printf 'x\n' > "$p/.codex/agents/product-owner.md"
   printf 'x\n' > "$p/hooks/handlers/stop.py"
-  printf '# Fusebase Flow\n' > "$p/AGENTS.md"
-  printf '# Fusebase Flow\n' > "$p/CLAUDE.md"
+  printf '# Project\n<!-- CUSTOM:SKILL:BEGIN -->\n## FuseBase Flow — workflow lifecycle overlay\n<!-- CUSTOM:SKILL:END -->\n' > "$p/AGENTS.md"
+  printf '# Project\n<!-- CUSTOM:SKILL:BEGIN -->\n## FuseBase Flow — Claude Code adapter\n<!-- CUSTOM:SKILL:END -->\n' > "$p/CLAUDE.md"
   # 0.25.9 ships 4 hooks on disk; run-typecheck-apps.js is present but UNWIRED.
   for h in run-lint-on-stop.sh run-typecheck-on-stop.sh run-typecheck-apps.js quality-check-apps.js; do
     printf '// %s\n' "$h" > "$p/.claude/hooks/$h"
@@ -366,7 +368,7 @@ stop_chain_259_clionly > "$P/.claude/settings.json"
 "$python_bin" - "$P/.claude/settings.json" <<'PY' && ok "ac2-merge-preserve-only" || bad "ac2-merge-preserve-only" "see assert"
 import json,sys
 d=json.load(open(sys.argv[1]))
-chain=[h.get("command","") for h in d["hooks"]["Stop"][0]["hooks"]]
+chain=[h.get("command","") for block in d["hooks"]["Stop"] for h in block.get("hooks", [])]
 assert sum("run-typecheck-apps.js" in c for c in chain)==0, f"run-typecheck-apps.js re-injected: {chain}"
 for m in ("run-lint-on-stop.sh","run-typecheck-on-stop.sh","quality-check-apps.js"):
     assert sum(m in c for c in chain)==1, f"{m} not preserved exactly once: {chain}"
@@ -391,7 +393,7 @@ EOF
 "$python_bin" - "$P/.claude/settings.json" <<'PY' && ok "ac2-older-cli-typecheck-preserved" || bad "ac2-older-cli-typecheck-preserved" "see assert"
 import json,sys
 d=json.load(open(sys.argv[1]))
-chain=[h.get("command","") for h in d["hooks"]["Stop"][0]["hooks"]]
+chain=[h.get("command","") for block in d["hooks"]["Stop"] for h in block.get("hooks", [])]
 assert sum("run-typecheck-apps.js" in c for c in chain)==1, f"older-CLI hook removed: {chain}"
 assert sum("hooks/handlers/stop.py" in c for c in chain)==1, f"stop.py not appended: {chain}"
 PY

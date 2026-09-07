@@ -590,6 +590,44 @@ if printf '%s\n' "$phase_out" | grep -q '^FAIL: test-rule-inventory.sh exit 0 wi
 else
   bad "phase-reporting-zero-row-success-stays-red" "rc0 zero-row phase was not rejected"
 fi
+
+cat > "$PHASEREPO/hooks/tests/test-validator-evidence.sh" <<'SH'
+#!/usr/bin/env bash
+echo "N/A: validator-evidence synthetic-escape — forbidden"
+SH
+chmod +x "$PHASEREPO/hooks/tests/test-validator-evidence.sh"
+na_out="$(cd "$PHASEREPO" && FF_ONLY=validator-evidence bash hooks/tests/run-tests.sh 2>&1)"; na_rc=$?
+if [ "$na_rc" -ne 0 ] \
+   && printf '%s\n' "$na_out" | grep -q '^FAIL: test-validator-evidence.sh reported an unauthorized N/A scenario$'; then
+  ok "phase-reporting-unrelated-na-stays-red"
+else
+  bad "phase-reporting-unrelated-na-stays-red" "unrelated N/A escaped: rc=$na_rc"
+fi
+
+cat > "$PHASEREPO/hooks/tests/test-run-tests-signal-reap.sh" <<'SH'
+#!/usr/bin/env bash
+echo "N/A: signal-reap all-scenarios — off-MSYS. POSIX process-group teardown reaps the phase tree, so this defect class cannot exist here. Declared statically; owned by the required verify-windows-msys job."
+SH
+chmod +x "$PHASEREPO/hooks/tests/test-run-tests-signal-reap.sh"
+sig_na_out="$(cd "$PHASEREPO" && FF_ONLY=signal-reap bash hooks/tests/run-tests.sh 2>&1)"; sig_na_rc=$?
+case "$(uname -s 2>/dev/null)" in
+  MINGW*|MSYS*|CYGWIN*)
+    if [ "$sig_na_rc" -ne 0 ] \
+       && printf '%s\n' "$sig_na_out" | grep -q '^FAIL: test-run-tests-signal-reap.sh reported an unauthorized N/A scenario$'; then
+      ok "phase-reporting-msys-signal-na-stays-red"
+    else
+      bad "phase-reporting-msys-signal-na-stays-red" "MSYS signal N/A escaped: rc=$sig_na_rc"
+    fi ;;
+  *)
+    sig_na_summary="$(printf '%s\n' "$sig_na_out" | grep -E '^\[run-tests\] [0-9]+/[0-9]+ PASS' | tail -1)"
+    if [ "$sig_na_rc" -eq 0 ] \
+       && printf '%s\n' "$sig_na_out" | grep -Fxq 'N/A: signal-reap all-scenarios — off-MSYS. POSIX process-group teardown reaps the phase tree, so this defect class cannot exist here. Declared statically; owned by the required verify-windows-msys job.' \
+       && printf '%s\n' "$sig_na_summary" | grep -q '^\[run-tests\] 0/0 PASS (SCOPED FF_ONLY='; then
+      ok "phase-reporting-off-msys-signal-na-visible-excluded"
+    else
+      bad "phase-reporting-off-msys-signal-na-visible-excluded" "rc=$sig_na_rc summary=[$sig_na_summary]"
+    fi ;;
+esac
 phase_summary="$(printf '%s\n' "$phase_out" | grep -E '^\[run-tests\] [0-9]+/[0-9]+ PASS' | tail -1)"
 if printf '%s' "$phase_summary" | grep -q '(SCOPED FF_ONLY=' && ! ffhc_run_tests_pass_ok "$phase_summary"; then
   ok "phase-reporting-scoped-summary-remains-nonattesting"

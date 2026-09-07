@@ -230,11 +230,11 @@ ffcf_production_breadth() {
   for sn in "${FFCF_SKILL_NAMES[@]}"; do
     [ -d "$ROOT/flow-skills/$sn" ] && cp -R "$ROOT/flow-skills/$sn" "$m/flow-skills/"
   done
-  sed 's#"$manifest_rows" | LC_ALL=C sort#"$manifest_rows$manifest_rows" | LC_ALL=C sort#' \
-      "$ROOT/hooks/local/mirror-skills.sh" > "$m/hooks/local/mirror-skills.sh"
+  cp "$ROOT/hooks/local/mirror-skills.sh" "$m/hooks/local/mirror-skills.sh"
   mkdir -p "$m/hooks/local/lib"
-  cp "$ROOT/hooks/local/lib/recovery-owned-write.py" "$m/hooks/local/lib/"
-  grep -q '"$manifest_rows$manifest_rows"' "$m/hooks/local/mirror-skills.sh" \
+  sed 's/manifest_rows, key=/manifest_rows + manifest_rows, key=/' \
+      "$ROOT/hooks/local/lib/recovery-owned-write.py" > "$m/hooks/local/lib/recovery-owned-write.py"
+  grep -q 'manifest_rows + manifest_rows, key=' "$m/hooks/local/lib/recovery-owned-write.py" \
     || fail "production write mutation: the manifest-write anchor no longer matches, so the mutation was not applied — an unapplied mutation proves nothing"
   set +e
   ( cd "$m" && bash hooks/local/mirror-skills.sh >/dev/null 2>&1 )

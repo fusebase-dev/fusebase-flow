@@ -378,10 +378,12 @@ case_incomplete_identity() {
     make_receipt
     runner_rc=$?
     receipt="$(receipt_path)"
-    if [ "$runner_rc" -ne 0 ] && [ ! -f "$receipt" ]; then
-        ok "incomplete-identity-never-signs"
+    if [ "$runner_rc" -eq 0 ] && [ ! -f "$receipt" ] \
+       && [ "$(count_of lint)" -eq 1 ] && [ "$(count_of typecheck)" -eq 1 ]; then
+        ok "incomplete-identity-reruns-without-receipt"
     else
-        bad "incomplete-identity-never-signs" "runner=$runner_rc receipt=$([ -f "$receipt" ] && echo yes || echo no)"
+        bad "incomplete-identity-reruns-without-receipt" \
+          "runner=$runner_rc receipt=$([ -f "$receipt" ] && echo yes || echo no) lint=$(count_of lint) typecheck=$(count_of typecheck)"
     fi
     invalidate
 }

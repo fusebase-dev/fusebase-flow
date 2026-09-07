@@ -26,11 +26,13 @@ AGENT_MIRROR = ROOT / "hooks/local/mirror-agents.sh"
 
 def bash_executable() -> str:
     git_path = Path(shutil.which("git") or "")
-    for candidate in (
+    candidates = (
         git_path.parent.parent / "bin/bash.exe",
         git_path.parent.parent / "usr/bin/bash.exe",
-        Path(shutil.which("sh") or ""),
-    ):
+    )
+    if os.name != "nt":
+        candidates = (Path(shutil.which("bash") or ""),) + candidates
+    for candidate in candidates:
         if candidate.is_file():
             return str(candidate)
     raise RuntimeError("Git Bash is unavailable")

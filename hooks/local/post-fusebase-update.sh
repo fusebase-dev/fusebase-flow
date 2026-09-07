@@ -44,6 +44,7 @@ ff_text_has_literal() {
 ff_text_has_exact_line() {
   local line
   while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%$'\r'}"
     [ "$line" = "$2" ] && return 0
   done <<< "$1"
   return 1

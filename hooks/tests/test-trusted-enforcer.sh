@@ -37,13 +37,14 @@ command -v python3 >/dev/null 2>&1 || { echo "PASS: trusted-enforcer skipped-no-
 # commits them into HEAD when a test needs the TRUSTED-HEAD path to fire.
 new_repo() {
   local D; D="$(mktemp -d)"
-  mkdir -p "$D/hooks/shared" "$D/hooks/git" "$D/hooks/local" "$D/policies" "$D/state/approvals" "$D/src"
+  mkdir -p "$D/hooks/shared" "$D/hooks/git" "$D/hooks/local/lib" "$D/policies" "$D/state/approvals" "$D/src"
   cp "$ROOT/hooks/shared/path_policy.py"   "$D/hooks/shared/"
   cp "$ROOT/hooks/shared/policy_loader.py" "$D/hooks/shared/"
   cp "$ROOT/hooks/shared/"*.py             "$D/hooks/shared/" 2>/dev/null || true
   : > "$D/hooks/shared/__init__.py"
   cp "$ROOT/policies/protected-paths.yml"  "$D/policies/"
   cp "$ROOT/hooks/git/pre-commit"          "$D/hooks/git/"
+  cp "$ROOT/hooks/local/lib/precommit-validator-reuse.sh" "$D/hooks/local/lib/"
   cp "$ROOT/hooks/local/install-git-hooks.sh"     "$D/hooks/local/"
   cp "$ROOT/hooks/local/write-bootstrap-approval.sh" "$D/hooks/local/"
   ( cd "$D" && git init -q && git config user.email t@t.t && git config user.name t \
@@ -184,8 +185,9 @@ rm -rf "$D"
 # 19c. HEAD lacks path_policy.py (first-adoption). Build a repo whose seed commit has NO
 #      enforcer, then stage the first-add of the whole enforcer + mint the bootstrap approval.
 D="$(mktemp -d)"
-mkdir -p "$D/hooks/shared" "$D/hooks/git" "$D/hooks/local" "$D/policies" "$D/state/approvals" "$D/src"
+mkdir -p "$D/hooks/shared" "$D/hooks/git" "$D/hooks/local/lib" "$D/policies" "$D/state/approvals" "$D/src"
 cp "$ROOT/hooks/git/pre-commit" "$D/hooks/git/"
+cp "$ROOT/hooks/local/lib/precommit-validator-reuse.sh" "$D/hooks/local/lib/"
 cp "$ROOT/hooks/local/write-bootstrap-approval.sh" "$D/hooks/local/"
 ( cd "$D" && git init -q && git config user.email t@t.t && git config user.name t \
     && git config core.autocrlf false && echo seed > seed.txt && git add seed.txt && git commit -qm seed )

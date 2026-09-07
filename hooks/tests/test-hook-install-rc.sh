@@ -32,7 +32,11 @@ finish() { echo "[test-hook-install-rc] $pass/$((pass + fail)) PASS"; exit $fail
 # a shipped file, so the assertions run the REAL code. The block opens at the line
 # carrying `TRIPWIRE (T24)` and closes at the FIRST subsequent line that is exactly
 # `  fi` (2-space indent — the call-site's own closing fi).
-extract_t24() { awk '/TRIPWIRE \(T24\)/{p=1} p{print} p&&/^  fi$/{exit}' "$1"; }
+extract_upgrade_t24() { awk '/TRIPWIRE \(T24\)/{p=1} p{print} p&&/^  fi$/{exit}' "$UPGRADE"; }
+extract_postup_t24() { awk '/TRIPWIRE \(T24\)/{p=1} p&&/^else$/{exit} p{print}' "$POSTUP"; }
+extract_postup_classifier() {
+  sed -n '/^ff_text_has_prefix_line()/,/^ff_read_verify_fields()/p' "$POSTUP" | sed '$d'
+}
 
 # stub_installer DIR RC EXTRA: write a fake hooks/local/install-git-hooks.sh in DIR that
 # prints EXTRA (to stdout+stderr as the real one splits) and exits RC.
@@ -51,7 +55,7 @@ STUB
 # ---- upgrade.sh block: run the extracted T24 branch under the ENGINE environment
 # (`set -euo pipefail`) against a stub installer, capture stdout, assert the message. ----
 run_upgrade_block() { # DIR -> prints the block's stdout
-  local d="$1" body; body="$(extract_t24 "$UPGRADE")"
+  local d="$1" body; body="$(extract_upgrade_t24)"
   [ -n "$body" ] || { echo "__EXTRACT_FAILED__"; return; }
   ( cd "$d" && bash -c "set -euo pipefail
 $body
@@ -84,7 +88,7 @@ rm -rf "$D"
 # 4. set -e-safety: the rc≠0 branch must NOT abort the script — a marker AFTER the block
 #    must still print (proves the capture neutralized -e).
 D="$(mktemp -d)"; stub_installer "$D" 5 ""
-BODY="$(extract_t24 "$UPGRADE")"
+BODY="$(extract_upgrade_t24)"
 OUT="$( ( cd "$D" && bash -c "set -euo pipefail
 $BODY
 echo REACHED-AFTER-BLOCK
@@ -96,10 +100,12 @@ rm -rf "$D"
 # ---- post-fusebase-update.sh block: same three cases. The block appends to WARNINGS[]
 # / ACTIONS_TAKEN[] arrays; seed them + WIRE_HOOKS=1 + echo the arrays after. ----
 run_postup_block() { # DIR -> prints WARNINGS + ACTIONS after running the block
-  local d="$1" body; body="$(extract_t24 "$POSTUP")"
+  local d="$1" body; body="$(extract_postup_t24)"
   [ -n "$body" ] || { echo "__EXTRACT_FAILED__"; return; }
+  extract_postup_classifier > "$d/hooks/local/postup-hook-classifier.sh"
   ( cd "$d" && bash -c "set -euo pipefail
-WARNINGS=(); ACTIONS_TAKEN=(); ACTIONS_SKIPPED=(); WIRE_HOOKS=1
+. hooks/local/postup-hook-classifier.sh
+WARNINGS=(); ACTIONS_TAKEN=(); ACTIONS_SKIPPED=(); WIRE_HOOKS=1; WIRE_HOOKS_REQUESTED=0; ROOT=\$PWD
 $body
 printf 'WARN:%s\n' \"\${WARNINGS[@]:-}\"
 printf 'ACTION:%s\n' \"\${ACTIONS_TAKEN[@]:-}\"

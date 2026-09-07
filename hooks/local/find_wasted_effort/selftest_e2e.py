@@ -15,6 +15,7 @@ call write_report against the real repo. Temp dirs are cleaned up.
 
 import datetime
 import importlib.util
+import re
 import shutil
 import subprocess
 import tempfile
@@ -25,6 +26,24 @@ from .constants import CONFIRMED, DISMISSED, INCONCLUSIVE, DEFAULT_WINDOW
 
 def _git(root, *args):
     subprocess.run(["git", *args], cwd=str(root), capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
+
+
+def _link_current(root, *paths):
+    subject = subprocess.check_output(
+        ["git", "log", "-1", "--format=%s"], cwd=str(root), text=True,
+        encoding="utf-8", timeout=30).strip()
+    task_match = re.search(r"\bT\d+\b", subject)
+    if task_match is None:
+        _git(root, "commit", "--allow-empty", "-qm", "T1: fixture evidence link")
+        task = "T1"
+    else:
+        task = task_match.group(0)
+    head = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=str(root), text=True, encoding="utf-8", timeout=30).strip()
+    link = "## Conclusion: current\n## Status\nOutcome: recorded evidence.\nTask: %s\nCommit: %s\n\n" % (task, head)
+    for rel in paths:
+        path = root / rel
+        path.write_text(link + path.read_text(encoding="utf-8"), encoding="utf-8")
 
 
 def _init_fixture_repo(root, files, commits):
@@ -112,6 +131,7 @@ def e2e_cases(check_e2e):
              [("docs/specs/waste-fixture-round-one/x.txt", "a\n")]),
         ]
         _init_fixture_repo(tmp, files, commits)
+        _link_current(tmp, "docs/specs/waste-fixture-round-one/gate-report.md")
         v2, ev, report = _verdict_for(2, tmp)
         check_e2e("e2e r2 confirmed (3 full-suite runs + identical recorded fail-sets)", v2, CONFIRMED)
         v6, _, _ = _verdict_for(6, tmp)
@@ -194,6 +214,7 @@ def e2e_cases(check_e2e):
              [("README.md", "typo fixed\n")]),
         ]
         _init_fixture_repo(tmp, files, commits)
+        _link_current(tmp, "docs/handoff/2026-01-01-tiny-typo-round-fix-deploy.md")
         v5, ev, _ = _verdict_for(5, tmp)
         check_e2e("e2e r5 confirmed (small diff + 0 decisions + Full ceremony)", v5, CONFIRMED)
     finally:
@@ -210,6 +231,11 @@ def e2e_cases(check_e2e):
                 "# Implement handoff\n\nPredecessor deployed hash `abc1234def` (re-stated here).\n",
         }
         _init_fixture_repo(tmp, files, [])
+        _link_current(
+            tmp,
+            "docs/handoff/2026-01-01-hash-round-one-deploy.md",
+            "docs/handoff/2026-01-02-hash-round-one-implement.md",
+        )
         v7, _, _ = _verdict_for(7, tmp)
         check_e2e("e2e r7 confirmed (deploy-hash re-derived across 2 dated artifacts)", v7, CONFIRMED)
     finally:
@@ -289,6 +315,11 @@ def e2e_cases(check_e2e):
              [("docs/specs/scoping-fixture-round/x.txt", "a\n")]),
         ]
         _init_fixture_repo(tmp, files, commits)
+        _link_current(
+            tmp,
+            "docs/specs/scoping-fixture-round/deploy-report-2026-06-13.md",
+            "docs/tmp/handoff/2026-06-13-scoping-fixture-round-deploy.md",
+        )
         # the real pipeline collects the genuine recorded outcomes as firings
         main2 = _load_main()
         ev = main2.assemble_evidence(tmp, DEFAULT_WINDOW)

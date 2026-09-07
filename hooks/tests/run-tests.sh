@@ -486,18 +486,31 @@ run_shell_phase() { # run_shell_phase <test-script> <tag>
         report_rows="$report_rows| $test_name | (harness) | FAIL | selected phase missing |"$'\n'
         return 0
     fi
-    local out rc p f
+    local out rc p f n accepted_na=0 expected_signal_na unexpected_na
     run_bounded_phase "$tag" "$tag" bash "$script" "$@"
     out="$FFHC_LAST_OUT"; rc=$FFHC_LAST_RC
-    echo "$out" | grep -E "^(PASS|FAIL): $tag " || true
+    echo "$out" | grep -E "^(PASS|FAIL|N/A): $tag " || true
     p="$(echo "$out" | grep -c "^PASS: $tag ")"
     f="$(echo "$out" | grep -c "^FAIL: $tag ")"
+    n="$(echo "$out" | grep -c "^N/A: $tag ")"
+    expected_signal_na="N/A: signal-reap all-scenarios — off-MSYS. POSIX process-group teardown reaps the phase tree, so this defect class cannot exist here. Declared statically; owned by the required verify-windows-msys job."
+    if [ "$tag" = signal-reap ]; then
+        case "$(uname -s 2>/dev/null)" in
+            MINGW*|MSYS*|CYGWIN*) : ;;
+            *) [ "$n" -eq 1 ] && printf '%s\n' "$out" | grep -Fxq "$expected_signal_na" && accepted_na=1 ;;
+        esac
+    fi
+    unexpected_na=$((n - accepted_na))
     total=$((total + p + f)); pass=$((pass + p)); fail=$((fail + f))
     while IFS= read -r line; do
         name="${line#*: $tag }"; result="${line%%:*}"
         report_rows="$report_rows| $test_name | $name | $result | shell scenario |"$'\n'
-    done < <(echo "$out" | grep -E "^(PASS|FAIL): $tag ")
-    if [ "$((p + f))" -eq 0 ]; then
+    done < <(echo "$out" | grep -E "^(PASS|FAIL|N/A): $tag ")
+    if [ "$unexpected_na" -ne 0 ]; then
+        total=$((total + 1)); fail=$((fail + 1))
+        echo "FAIL: $test_name reported an unauthorized N/A scenario"
+        report_rows="$report_rows| $test_name | (harness) | FAIL | unauthorized N/A scenario |"$'\n'
+    elif [ "$((p + f + accepted_na))" -eq 0 ]; then
         total=$((total + 1)); fail=$((fail + 1))
         echo "FAIL: $test_name exit $rc without reporting scenarios"
         report_rows="$report_rows| $test_name | (harness) | FAIL | exit $rc with no scenario output |"$'\n'
@@ -662,7 +675,7 @@ run_shell_phase test-release-tag-binding.sh             "release-tag-binding"
 run_shell_phase test-fingerprint-row-per-tag.sh       "fingerprint-rows"
 # S2 signal lifecycle (T4): the orphan-sentinel discriminator set. HEAVY + fault-injection, so it
 # lives in the CI/FF_FULL tier, not the fast local default (architecture-review Q3/Q4: Windows/MSYS
-# CI owns it). Off-MSYS it skips every row — the defect class is MSYS-only.
+# CI owns it). Off-MSYS it reports one visible N/A row — the defect class is MSYS-only.
 run_shell_phase test-run-tests-signal-reap.sh           "signal-reap"
 # CLI recovery/upgrade integration. HEAVY (CI/FF_FULL tier) and decomposed into 5 sourced modules
 # at step 4; step 7 moved it off the single-row exit-code treatment onto the SAME per-scenario

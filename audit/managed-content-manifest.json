@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "4ae54d2dae61bd3fb10cd0c0ce71e8272155bbc385c2ce5b57abddc24e658b5d"
+      "sha256": "37ec2c58c24e74dae48a715514d47abb91e5f9139e7ccada6b2eb4a1a90d7b9c"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -386,7 +386,7 @@
     },
     {
       "path": "hooks/local/find_wasted_effort/selftest_e2e.py",
-      "sha256": "49e18f9cb732c0b88c681bfad0734d682d43b333f2ea285e32330952dcbfb7d3"
+      "sha256": "b37e2011c90c9171d0c0e7eb9916d29ef2dce4e63cb00ba293bb213e98ebd34b"
     },
     {
       "path": "hooks/local/find_wasted_effort/selftest_proposals.py",
@@ -610,7 +610,7 @@
     },
     {
       "path": "hooks/local/post-fusebase-update.sh",
-      "sha256": "5d40e010f0d968ce7a81a3647422c99ab79c729685395bc4a926b712c66fea42"
+      "sha256": "a99f89e12a9b1eb6315fa912a506794db339c018365ef49700fbc7df38abf4a5"
     },
     {
       "path": "hooks/local/preflight.sh",
@@ -742,7 +742,7 @@
     },
     {
       "path": "hooks/tests/benchmark-flow-consumers.py",
-      "sha256": "e6761e17f0be14f2cc88ee2c382b58f986748caa2710963087953311b056f5a9"
+      "sha256": "284bd20149231692634f1cca155fb1e79df7fff81ae22f87d56ac03aae5ddcd6"
     },
     {
       "path": "hooks/tests/benchmark-stop-transcript.py",
@@ -754,7 +754,7 @@
     },
     {
       "path": "hooks/tests/cli-flow-recovery-direct.sh",
-      "sha256": "4844d68584ff9e5b646b3b035e900062500643b17a10ee0c07b0deed4f30b358"
+      "sha256": "4bd185ae7fa5ee1fab61ffb6247b82592addab51b0ab2429cf0686fb180a5dac"
     },
     {
       "path": "hooks/tests/cli-flow-recovery-e2e.sh",
@@ -998,7 +998,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "794b1fbd1095b775fde03dc1204c13b7789dd8329e4b9e1864fc21a43edd8bbe"
+      "sha256": "f6ec380338c85e901c852b4bf1c22068a494f8d00eb1a794650e573edfecbd09"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -1034,7 +1034,7 @@
     },
     {
       "path": "hooks/tests/test-bootstrap-exception.sh",
-      "sha256": "3b23a083d7449eca0db769532a56ff93b7f7dc2cd9b9454b4511ffdff4891e79"
+      "sha256": "3772bc5c4c1ef5f8b0c5ab997837f5bb808b65d2a3fbf9642ba15719e10b21e5"
     },
     {
       "path": "hooks/tests/test-budget-literals.sh",
@@ -1042,15 +1042,15 @@
     },
     {
       "path": "hooks/tests/test-cli-0259-compat.sh",
-      "sha256": "9ab052a30a5803dafc5f0982d026fb9aea151a3e8777fa7c5685f80976c40f72"
+      "sha256": "be6d883ff229be7b823b03b7cd722cdd9bb9601e21de76aa70a5eafb8d1529a3"
     },
     {
       "path": "hooks/tests/test-cli-flow-recovery-selectors.sh",
-      "sha256": "943705195bf5fd254d0569640165cb345ca7c668b7964e370c036c185b0ee1d2"
+      "sha256": "2d5eaba0384a8d2013d346cbfd868da5ad5da86fa648f51ed69c4798aa9f85e6"
     },
     {
       "path": "hooks/tests/test-cli-flow-recovery.sh",
-      "sha256": "6a5f2f5c55eefc1ca5de194648f7770a123f3994335b3fe615bed1a6b5a5ce8a"
+      "sha256": "583ee1c444f35273c6f032688cf181460cfada333b3a80565d6ce54e4671f1b4"
     },
     {
       "path": "hooks/tests/test-cli-vendor-refresh.sh",
@@ -1078,7 +1078,7 @@
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
-      "sha256": "01eecf46ee697b016da382bda5f80b8918dd16a566e102471d4d51f89fa30237"
+      "sha256": "954d9c4d542308d0509193b8802d0ea4b47ce4085ee2ba2c43178cf180d66b28"
     },
     {
       "path": "hooks/tests/test-fingerprint-row-per-tag.sh",
@@ -1086,7 +1086,7 @@
     },
     {
       "path": "hooks/tests/test-flow-consumer-benchmark.sh",
-      "sha256": "1fd8418a9786feaf8647f135dfe4224b2ea2d330b4e9cdbc4c25c33cc0e0cbb6"
+      "sha256": "fbba9bafbae1a418cb64c6e98584fcbcf503037046b63e184bc3054d088dc481"
     },
     {
       "path": "hooks/tests/test-fr22-delivery-guarantee.sh",
@@ -1106,7 +1106,7 @@
     },
     {
       "path": "hooks/tests/test-hook-install-rc.sh",
-      "sha256": "163c95777b76956acfcc742095db59c76198db4512e5766eec34b1ca50f1ccb2"
+      "sha256": "54eb67f173edeaaf9ec355334f93e4cf3c00d10e0fc531c9cf06e8d1029d1a4b"
     },
     {
       "path": "hooks/tests/test-hook-manifest.sh",
@@ -1114,7 +1114,7 @@
     },
     {
       "path": "hooks/tests/test-hook-wiring-intent.sh",
-      "sha256": "19a2b298e487ecc74ccf076a540647e19691e0aa64051620a5b56b638e3769e8"
+      "sha256": "face3c525e900cdc73a55ce6f63432da42a22f9c358e6424280eed8776b00e32"
     },
     {
       "path": "hooks/tests/test-install-fusebase-cli-project-doc.sh",
@@ -1130,7 +1130,7 @@
     },
     {
       "path": "hooks/tests/test-lane-workflow.sh",
-      "sha256": "401dc05537fab1d60763acdb07591ca5233e8d360779988323bd4513d1e5364f"
+      "sha256": "161b5eb4a840ebaf6c828e5d226f589bb990b6315695806f97118a102bfc2575"
     },
     {
       "path": "hooks/tests/test-liveness-bounded-run.sh",
@@ -1218,7 +1218,7 @@
     },
     {
       "path": "hooks/tests/test-recovery-owned-bootstrap.py",
-      "sha256": "9480d6bb4048826fb864e639129563844c6c769c68f8287b6db775bca207e102"
+      "sha256": "18443ae2270fb0a137beb8fe45ce1187143cd7f32714de1e538bc83953340cfa"
     },
     {
       "path": "hooks/tests/test-release-evidence-authority.sh",
@@ -1242,7 +1242,7 @@
     },
     {
       "path": "hooks/tests/test-secret-scan-staged.sh",
-      "sha256": "613f960b44d760381edb3b55b55d3b1fc4b21be3cc8f7c134f05f8dc9760fb05"
+      "sha256": "2fa8ad289fb2afeae5ed29fd63a8fd22b4696b4141c2b3d983d274270e4aa9dd"
     },
     {
       "path": "hooks/tests/test-stamp-eol-guard.sh",
@@ -1266,7 +1266,7 @@
     },
     {
       "path": "hooks/tests/test-trusted-enforcer.sh",
-      "sha256": "d8c1432f112a1f586f3f86cff6e602933cf82776fea0df0820d61eb0e99cc414"
+      "sha256": "82ea616cfefe9f11b7b2456ecc1fe9091472844ecb13eb0d8ab509d194cdf055"
     },
     {
       "path": "hooks/tests/test-upgrade-conflict-classification.sh",
@@ -1298,7 +1298,7 @@
     },
     {
       "path": "hooks/tests/test-validator-evidence.sh",
-      "sha256": "6183b7008308b7c783c2b76c4b306ab512f2a0fac59db2bff055aac720b41703"
+      "sha256": "60203d0c6c0c6a4c0f77732f4579a5b0af97e1a9e41a4912c6e6fcf8bf8fd370"
     },
     {
       "path": "hooks/tests/test-vendored-rendered.sh",
@@ -1406,7 +1406,7 @@
     },
     {
       "path": "templates/handoff-implement.md",
-      "sha256": "5b7f05d0622ec032ca8a21e2f4deca14e8d46c2531f1f316ac8d19173e076c67"
+      "sha256": "b13293d9828ba8dfcb150f3452db53c8ae00f08e34e8c01d7936dfc7f5580f02"
     },
     {
       "path": "templates/handoff.md",
@@ -1474,7 +1474,7 @@
     },
     {
       "path": "workflows/greenlight-implement.md",
-      "sha256": "4ce6260754f39014a8cf37db8d8ca770e6cef0467557a6844ce83a03453bc303"
+      "sha256": "61d5e8c1d23f38473576cfb66a7e4d617e3a8cebbdd377e80da42f2bd65534a2"
     },
     {
       "path": "workflows/knowledge-curation.md",
@@ -1509,5 +1509,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "8d21e420c39b9b16b90f597428438cf035486fda98e50a5d6aa3ea77ae2c4505"
+  "manifest_self_sha256": "0399010a85c8d57c090dd102cdae3045de8393a1ce61f9e4de7906febe61d9cf"
 }

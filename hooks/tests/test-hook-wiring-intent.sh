@@ -35,6 +35,28 @@ fi
 
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 
+eval "$(sed -n '/^ff_text_has_exact_line()/,/^}/p' "$ROOT/hooks/local/post-fusebase-update.sh")"
+if ff_text_has_exact_line $'claude_settings\ngit_hooks' "claude_settings"; then
+  ok "typed-surface-lf-exact-line"
+else
+  bad "typed-surface-lf-exact-line" "LF output lost exact membership"
+fi
+if ff_text_has_exact_line $'claude_settings\r\ngit_hooks\r' "claude_settings"; then
+  ok "typed-surface-crlf-exact-line"
+else
+  bad "typed-surface-crlf-exact-line" "CRLF output lost exact membership"
+fi
+if ! ff_text_has_exact_line $'prefix-claude_settings\r\ngit_hooks\r' "claude_settings"; then
+  ok "typed-surface-prefix-rejected"
+else
+  bad "typed-surface-prefix-rejected" "prefix qualified as an exact surface"
+fi
+if ! ff_text_has_exact_line $'claude_settings-suffix\r\ngit_hooks\r' "claude_settings"; then
+  ok "typed-surface-suffix-rejected"
+else
+  bad "typed-surface-suffix-rejected" "suffix qualified as an exact surface"
+fi
+
 ###############################################################################
 # Harness — one fixture tree per row; the arm is called exactly as the engine
 # calls it, with record_drift stubbed the way the engine defines it.
@@ -352,8 +374,15 @@ else
 fi
 
 fx="$TMP/t3-git-surface"; t3_fixture "$fx"
+( cd "$fx" && bash hooks/local/install-git-hooks.sh >/dev/null )
 strip_settings "$fx"
 ( cd "$fx" && ffhc_hwi_write "$(git rev-parse --show-toplevel)" true "claude_settings,git_hooks" ) >/dev/null
+rm "$fx/.git/hooks/pre-commit"
+if [ ! -e "$fx/.git/hooks/pre-commit" ]; then
+  ok "recovery-schema2-missing-hook-precondition"
+else
+  bad "recovery-schema2-missing-hook-precondition" "owned hook remained before recovery"
+fi
 set +e
 ( cd "$fx" && bash hooks/local/post-fusebase-update.sh > recovery.log 2>&1 )
 t3_rc=$?

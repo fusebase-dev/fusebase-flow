@@ -28,13 +28,14 @@ command -v python3 >/dev/null 2>&1 || { echo "PASS: bootstrap-exception skipped-
 # path_policy stack, protected-paths.yml, the pre-commit hook, and the local scripts.
 new_repo() {
   local D; D="$(mktemp -d)"
-  mkdir -p "$D/hooks/shared" "$D/hooks/git" "$D/hooks/local" "$D/policies" "$D/state/approvals" "$D/src"
+  mkdir -p "$D/hooks/shared" "$D/hooks/git" "$D/hooks/local/lib" "$D/policies" "$D/state/approvals" "$D/src"
   cp "$ROOT/hooks/shared/path_policy.py"   "$D/hooks/shared/"
   cp "$ROOT/hooks/shared/policy_loader.py" "$D/hooks/shared/"
   cp "$ROOT/hooks/shared/"*.py             "$D/hooks/shared/" 2>/dev/null || true
   : > "$D/hooks/shared/__init__.py"
   cp "$ROOT/policies/protected-paths.yml"  "$D/policies/"
   cp "$ROOT/hooks/git/pre-commit"          "$D/hooks/git/"
+  cp "$ROOT/hooks/local/lib/precommit-validator-reuse.sh" "$D/hooks/local/lib/"
   cp "$ROOT/hooks/git/commit-msg"          "$D/hooks/git/" 2>/dev/null || true
   cp "$ROOT/hooks/local/install-git-hooks.sh"     "$D/hooks/local/"
   cp "$ROOT/hooks/local/write-bootstrap-approval.sh" "$D/hooks/local/"

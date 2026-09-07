@@ -1,4 +1,4 @@
-# Problem: tests that pass on MSYS-local FAIL on Linux CI (and the composed suite hid it) — five distinct env-divergence pitfalls
+# Problem: tests that pass on one release platform fail on the other — six distinct env-divergence pitfalls
 
 **Slug:** `ci-linux-msys-test-divergence`
 **Filed:** 2026-07-09
@@ -21,7 +21,7 @@ Once the composed suite finally ran fully green on the MSYS box (`396/396`), the
 
 Reproduces: 3/3 on CI (deterministic per platform). **Reproduce locally without CI:** clone the repo INSIDE an `ubuntu:24.04` container (`git clone /src /work`, never a bind-mounted dirty worktree), `git config core.fileMode false`, `chmod +x`, then run the workflow's steps in order — this reproduced pitfall 5 in ~50 s, versus a CI round-trip whose logs need auth.
 
-## Root cause — five env-specific assumptions MSYS-local runs mask
+## Root cause — six environment-specific assumptions one platform can mask
 
 1. **Shallow checkout breaks `HEAD~1`.** `actions/checkout` defaults to `fetch-depth: 1` (one commit). `test-po-investigate.sh` runs `git diff HEAD~1 HEAD` → `HEAD~1` doesn't exist → git **rc=128** (×5 cases). Local full clones always have `HEAD~1`. **Fix: `fetch-depth: 0` in the checkout step.**
 2. **A PATH-dir mask removes git on Linux.** `test-bootstrap-exception.sh` masked `python3` by dropping every PATH dir that contains a python. On `ubuntu-latest` `git` and `python3` **share `/usr/bin`**, so dropping it also removed `git` → the hook's initial `git rev-parse --show-toplevel` guard treated the run as outside a git repo, printed its skip warning, and **exited 0 there** (the test mis-tested, not a real fail-open); it never reached the §3 `git diff --cached` logic. On MSYS git/python live in separate dirs, so the mask kept git → the hook reached its real warn → passed. **Fix: a git-preserving mask (symlink a curated bin excluding only python) + a precondition asserting git survives.**
@@ -29,6 +29,8 @@ Reproduces: 3/3 on CI (deterministic per platform). **Reproduce locally without 
 4. **A new health-check critical needs a manifest in test fixtures.** After v4.2.0 replaced the hook-tests critical with the hook-layer manifest verify, `test-cli-flow-recovery.sh`'s fixtures (which run the main health engine expecting HEALTHY) lacked `verify-hook-manifest.sh` + a manifest → the critical returned **UNVERIFIED → PARTIAL_UNVERIFIED** where HEALTHY was expected. **Fix: copy the stamp/verify scripts + stamp a fresh manifest in each fixture before the health-engine call.**
 
 5. **A synthetic fixture built without `.gitattributes` + `core.autocrlf=true` ships CRLF `.sh`; only MSYS bash tolerates CR.** (v4.7.0 release run, 2026-07-29 — `test-upgrade-conflict-classification.sh` §7 `t29c-classification-eol-stable-under-autocrlf-true`.) The case clones a fixture upstream with `git -c core.autocrlf=true clone` to prove the classifier is EOL-stable. The fixture is a bare `git init` repo with **no `.gitattributes`**, so `hooks/local/bootstrap-upgrade.sh` copied into it lands **CRLF** on checkout. Git-for-Windows bash strips the trailing CR and runs the script; **Linux bash does not** — `line 48: $'\r': command not found`, `line 49: set: pipefail: invalid option name` → the engine never ran → `[no base synthesis]` → FAIL. The **shipped** product is unaffected: the real `.gitattributes` pins `*.sh text eol=lf`, so a real consumer's autocrlf=true clone gets LF scripts. **Fix (test, not code): give the fixture the same `*.sh text eol=lf` pin the product ships.** Scripts land LF and run; `workflows/wf.md` (unpinned) still lands CRLF, so the assertion keeps its teeth.
+
+6. **Native Windows Python emits CRLF on a typed multi-line surface list.** (v4.15.0 release repair, 2026-09-07.) `post-fusebase-update.sh` compared each `ffhc_hwi_surfaces` line byte-for-byte. Native Python emitted `claude_settings\r\ngit_hooks\r\n`; Bash `read` retained the terminal CR, so automatic recovery missed `claude_settings` while accepting the last `git_hooks` value after command substitution removed its final newline. **Fix: remove exactly one terminal CR at the typed-output boundary before exact membership comparison; LF/CRLF positives and prefix/suffix negatives preserve the allowlist.**
 
 ## Why it matters
 
@@ -41,6 +43,7 @@ Reproduces: 3/3 on CI (deterministic per platform). **Reproduce locally without 
 |---|---|
 | Shipped | v4.2.0 CI green-up: `fetch-depth: 0` (`fe62d34`), git-preserving mask (`8378265`), `core.fileMode false` (`34409e1`), fixture manifest stamp (`ffe879e`). First fully-green CI run in repo history: `34409e1`. |
 | Shipped | v4.7.0 release-run green-up (pitfall 5): fixture `*.sh text eol=lf` pin (`8d3c007`). Reproduced in an `ubuntu:24.04` container cloning the repo at HEAD and mirroring every workflow step: RED 662/663 before, GREEN 663/663 after, all 8 remaining CI steps rc=0. |
+| Verified locally | T61 v4.15.0 release repair (pitfall 6): one-CR normalization at the exact typed-output boundary, with LF/CRLF positive and prefix/suffix negative controls. Publication is reserved for v4.15.1. |
 
 ## Recurrence triggers (so future sessions recognize this)
 
@@ -49,11 +52,12 @@ Reproduces: 3/3 on CI (deterministic per platform). **Reproduce locally without 
 - `git status --porcelain` dirty on CI with a list of `.sh` files as `M` (mode-only) → committed `100644` + `chmod +x`.
 - A newly-added health-check critical → test fixtures that run the engine now return UNVERIFIED/BROKEN.
 - A test builds a synthetic git repo (`git init` + `git add`) and later checks it out with `core.autocrlf=true` (or `git archive` on such a tree) → any `.sh`/executable in that fixture lands CRLF and dies on Linux bash with `$'\r': command not found` / `set: pipefail: invalid option name`. Synthetic fixtures do NOT inherit the repo's `.gitattributes`.
+- A native program emits a typed multi-line allowlist into Bash → remove one terminal CR at the read boundary before exact comparison; never replace the typed allowlist with substring matching.
 - General signal: "the suite is green on Windows but red on CI" / "it passed locally."
 
 ## Guardrail (the lesson)
 
-**MSYS-local and Linux-CI hide DIFFERENT failures — a green local run is not a green CI run.** Concretely: (1) any history-dependent test needs `fetch-depth ≥ 2`; (2) never mask a tool by dropping PATH dirs — symlink a curated bin and ASSERT the tools you meant to keep still resolve; (3) commit scripts executable OR set `core.fileMode false` in CI; (4) when you add a health-check critical, update every fixture that drives the engine; (5) a synthetic fixture inherits NONE of the repo's `.gitattributes` — if the test executes a script from it under `core.autocrlf=true`, pin `*.sh text eol=lf` in the fixture (MSYS bash tolerates CR, Linux bash does not); (6) run the FULL composed suite on BOTH platforms (or gate on CI) before trusting green — the release gate ([[ci-red-invisible-no-release-gate]]) now enforces the CI half.
+**MSYS-local and Linux-CI hide DIFFERENT failures — a green local run is not a green CI run.** Concretely: (1) any history-dependent test needs `fetch-depth ≥ 2`; (2) never mask a tool by dropping PATH dirs — symlink a curated bin and ASSERT the tools you meant to keep still resolve; (3) commit scripts executable OR set `core.fileMode false` in CI; (4) when you add a health-check critical, update every fixture that drives the engine; (5) a synthetic fixture inherits NONE of the repo's `.gitattributes` — if the test executes a script from it under `core.autocrlf=true`, pin `*.sh text eol=lf` in the fixture (MSYS bash tolerates CR, Linux bash does not); (6) normalize one terminal CR before exact typed-output comparisons; (7) run the FULL composed suite on BOTH platforms (or gate on CI) before trusting green — the release gate ([[ci-red-invisible-no-release-gate]]) now enforces the CI half.
 
 ## Related
 

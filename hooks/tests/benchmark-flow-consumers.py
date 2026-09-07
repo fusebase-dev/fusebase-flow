@@ -100,6 +100,7 @@ def validation_measurement():
         (repo / "hooks/local/lib").mkdir(parents=True)
         outside.mkdir()
         shutil.copy2(ROOT / "hooks/local/lib/validator-evidence.py", repo / "hooks/local/lib/")
+        shutil.copy2(ROOT / "hooks/local/lib/validator-runner.py", repo / "hooks/local/lib/")
         shutil.copy2(ROOT / "hooks/local/run-validators.sh", repo / "hooks/local/")
         (repo / "validator.py").write_text(
             "import os,pathlib,sys\np=pathlib.Path(os.environ['FFBENCH_COUNT'])/sys.argv[1]\np.write_text((p.read_text() if p.exists() else '')+'x')\n",
@@ -129,23 +130,40 @@ def validation_measurement():
         rc, elapsed, error = run([bash_executable(), "hooks/local/run-validators.sh"], repo, env)
         verify_rc, verify_elapsed, verify_error = run(
             [bash_executable(), "evidence.sh", "verify"], repo, env)
+        receipt_result = subprocess.run(
+            [bash_executable(), "evidence.sh", "path"], cwd=repo, env=env,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
+        receipt_path = receipt_result.stdout.strip()
+        receipt_path_resolved = receipt_result.returncode == 0 and bool(receipt_path)
+        receipt_present = receipt_path_resolved and Path(receipt_path).exists()
         run([bash_executable(), "evidence.sh", "invalidate"], repo, env)
         counts = {
             name: len((outside / name).read_text()) if (outside / name).exists() else 0
             for name in ("lint", "typecheck")
         }
-        reusable = rc == 0 and verify_rc == 0 and counts == {"lint": 1, "typecheck": 1}
-        authority_reason = (
-            "trusted validator receipt authority is unavailable on native Windows; validators must rerun"
-            if os.name == "nt" and not reusable else None
+        reuse_unavailable = (
+            rc == 0 and verify_rc == 3 and counts == {"lint": 1, "typecheck": 1}
+            and receipt_path_resolved and not receipt_present
+        )
+        reuse_reason = (
+            "validator reuse unavailable; runner completed, verifier refused, and no receipt exists"
+            if reuse_unavailable else
+            "validator reuse measurement did not establish the required refusal boundary"
         )
         return {
             "command_identity": measured({"lint": lint, "typecheck": typecheck}),
             "validator_runs": measured(sum(counts.values()), "runs"),
             "validator_duration": measured(round(elapsed, 6), "seconds"),
+            "validator_runner_rc": measured(rc),
             "receipt_verify_duration": measured(round(verify_elapsed, 6), "seconds"),
-            "exact_state_reuse": unavailable(authority_reason) if authority_reason else measured(reusable),
-            "error": unavailable(error or verify_error) if error or verify_error else None,
+            "receipt_verify_rc": measured(verify_rc),
+            "receipt_path_resolved": measured(receipt_path_resolved),
+            "receipt_present": measured(receipt_present),
+            "exact_state_reuse": (
+                unavailable(reuse_reason) if reuse_unavailable
+                else {"status": "ERROR", "reason": reuse_reason}
+            ),
+            "error": unavailable(error or verify_error or reuse_reason) if error or verify_error or not reuse_unavailable else None,
         }
 
 

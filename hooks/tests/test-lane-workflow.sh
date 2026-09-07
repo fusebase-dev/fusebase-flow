@@ -7,7 +7,10 @@ PYTHON_BIN="${PYTHON:-python3}"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 RECORD="$TMP_DIR/lane-workflow-record.json"
-BASH_EXE="$(cygpath -w "$(command -v bash)")"
+BASH_EXE="$(command -v bash)"
+if command -v cygpath >/dev/null 2>&1; then
+  BASH_EXE="$(cygpath -w "$BASH_EXE")"
+fi
 
 if ! "$PYTHON_BIN" "$ROOT/hooks/tests/lane-workflow-fixture.py" --bash "$BASH_EXE" --output "$RECORD" >/dev/null; then
   echo "FAIL: lane-workflow fixture-runner"

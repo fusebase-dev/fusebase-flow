@@ -114,7 +114,8 @@ else
   bad "selected-failure-propagates-and-retains-log" "rc=$CASE_RC log=[$failure_log]"
 fi
 
-run_case timeout env TMPDIR="$WORK" FFCF_SELECTOR_TIMEOUT_SECS=1 bash "$WRAPPER" --only u14
+run_case timeout env TMPDIR="$WORK" FFCF_SELECTOR_TIMEOUT_SECS=1 \
+  FFCF_SELECTOR_TEST_DELAY_SECS=3 bash "$WRAPPER" --only u14
 timeout_log="$(sed -n 's/^\[cli-flow-recovery\] SCOPED diagnostic=//p' "$WORK/timeout.err" | tail -n 1)"
 if { [ "$CASE_RC" -eq 124 ] || [ "$CASE_RC" -eq 137 ]; } \
   && [ -n "$timeout_log" ] && [ -f "$timeout_log" ] \

@@ -35,17 +35,21 @@ for scenario, lane in (("ordinary-diagnosed-fix", "lightweight"), ("sensitive-au
     if row.get("evidence_boundary") != "scripted fixture simulation":
         failures.append(f"{scenario} scripted boundary is not labeled")
 validation = doc.get("validation", {})
-if sys.platform == "win32":
-    if validation.get("validator_runs", {}).get("value") != 0:
-        failures.append("Windows fail-closed validator run count is not zero")
-    reuse = validation.get("exact_state_reuse", {})
-    if reuse.get("status") != "UNAVAILABLE" or "must rerun" not in reuse.get("reason", ""):
-        failures.append("Windows authority-unavailable rerun label is missing")
-else:
-    if validation.get("validator_runs", {}).get("value") != 2:
-        failures.append("validator run count is not 2")
-    if validation.get("exact_state_reuse", {}).get("value") is not True:
-        failures.append("exact-state validation evidence did not verify")
+if validation.get("validator_runs", {}).get("value") != 2:
+    failures.append("validator run count is not 2")
+if validation.get("validator_runner_rc", {}).get("value") != 0:
+    failures.append("validator runner did not complete successfully")
+if validation.get("receipt_verify_rc", {}).get("value") != 3:
+    failures.append("disabled receipt verifier did not return the exact refusal code")
+if validation.get("receipt_path_resolved", {}).get("value") is not True:
+    failures.append("receipt path query failed or returned an empty path")
+if validation.get("receipt_present", {}).get("value") is not False:
+    failures.append("disabled reuse unexpectedly minted a receipt")
+reuse = validation.get("exact_state_reuse", {})
+if reuse.get("status") != "UNAVAILABLE" or "verifier refused" not in reuse.get("reason", ""):
+    failures.append("disabled exact-state reuse label is missing")
+if validation.get("error") is not None:
+    failures.append("validation measurement reported an unexpected error")
 if validation.get("validator_duration", {}).get("status") != "MEASURED":
     failures.append("validator duration missing")
 recovery = doc.get("recovery", {})

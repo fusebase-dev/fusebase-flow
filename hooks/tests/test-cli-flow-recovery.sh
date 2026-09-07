@@ -220,6 +220,9 @@ ffcf_t34_bootstrap() {
 }
 
 if [ -n "$FFCF_SELECTED" ]; then
+  if [ -n "${FFCF_SELECTOR_TEST_DELAY_SECS:-}" ]; then
+    sleep "$FFCF_SELECTOR_TEST_DELAY_SECS"
+  fi
   case "$FFCF_SELECTED" in
     u14) ffcf_u14_wire_stop ;;
     legacy) ffcf_legacy_overlays ;;
