@@ -18,6 +18,7 @@ from typing import Any
 
 
 SCHEMA = 2
+CONTEXT_SCHEMA = 1
 CONTEXT_ENV = "FUSEBASE_FLOW_VALIDATOR_CONTEXT"
 ENV_NAMES = {
     "CI",
@@ -216,22 +217,25 @@ def effective_path() -> str:
     return os.environ.get("FFVE_ORIGINAL_PATH", os.environ.get("PATH", ""))
 
 
-def validator_context() -> dict[str, list[str]]:
+def validator_context() -> dict[str, Any]:
     raw = os.environ.get(CONTEXT_ENV, "")
     if not raw:
-        return {"inputs": [], "dependencies": [], "environment": [], "toolchains": []}
+        raise RuntimeError(f"missing {CONTEXT_ENV}; validator context is incomplete")
     try:
         parsed = json.loads(raw)
     except json.JSONDecodeError as exc:
         raise RuntimeError(f"invalid {CONTEXT_ENV}: {exc}") from exc
     if not isinstance(parsed, dict):
         raise RuntimeError(f"invalid {CONTEXT_ENV}: expected object")
-    allowed = {"inputs", "dependencies", "environment", "toolchains"}
-    if set(parsed) - allowed:
-        raise RuntimeError(f"invalid {CONTEXT_ENV}: unknown keys")
-    result: dict[str, list[str]] = {}
-    for key in sorted(allowed):
-        values = parsed.get(key, [])
+    declarations = {"inputs", "dependencies", "environment", "toolchains"}
+    required = declarations | {"schema", "complete"}
+    if set(parsed) != required:
+        raise RuntimeError(f"invalid {CONTEXT_ENV}: complete context fields are required")
+    if parsed["schema"] != CONTEXT_SCHEMA or parsed["complete"] is not True:
+        raise RuntimeError(f"invalid {CONTEXT_ENV}: completeness is unproved")
+    result: dict[str, Any] = {"schema": CONTEXT_SCHEMA, "complete": True}
+    for key in sorted(declarations):
+        values = parsed[key]
         if not isinstance(values, list) or any(not isinstance(item, str) or not item for item in values):
             raise RuntimeError(f"invalid {CONTEXT_ENV}: {key} must be nonempty strings")
         if len(values) != len(set(values)):
@@ -340,6 +344,7 @@ def identity(root: Path, lint: str, typecheck: str) -> dict[str, Any]:
         "root": str(root),
         "head": head,
         "commands": commands,
+        "validator_context": context,
         "environment": environment_identity(context["environment"]),
         "source": source,
         "index": index,
@@ -383,7 +388,11 @@ def run_validators(root: Path, lint: str, typecheck: str, runner: Path) -> Path 
     if runner.resolve(strict=True) != expected_runner or runner.is_symlink():
         raise RuntimeError("validator runner substitution rejected")
     invalidate(root)
-    before = identity(root, lint, typecheck)
+    before = None
+    try:
+        before = identity(root, lint, typecheck)
+    except RuntimeError as exc:
+        print(f"[run-validators] reuse unavailable: {exc}", file=sys.stderr)
     for name, command in (("lint", lint), ("typecheck", typecheck)):
         if not command:
             continue
@@ -392,6 +401,8 @@ def run_validators(root: Path, lint: str, typecheck: str, runner: Path) -> Path 
         if result.returncode != 0:
             invalidate(root)
             raise RuntimeError(f"{name} failed with exit {result.returncode}")
+    if before is None:
+        return None
     current = identity(root, lint, typecheck)
     confirm = identity(root, lint, typecheck)
     if before != current or current != confirm:

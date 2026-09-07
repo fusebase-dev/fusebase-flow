@@ -6,6 +6,16 @@ TMP="$(mktemp -d 2>/dev/null || mktemp -d -t validator-evidence)"
 trap 'rm -rf "$TMP"' EXIT
 pass=0
 fail=0
+ONLY=""
+if [ "${1:-}" = "--only" ] && [ "$#" -eq 2 ]; then
+    case "$2" in
+        t48|t48-remaining) ONLY="$2" ;;
+        *) echo "usage: $0 [--only t48|t48-remaining]" >&2; exit 2 ;;
+    esac
+elif [ "$#" -ne 0 ]; then
+    echo "usage: $0 [--only t48|t48-remaining]" >&2
+    exit 2
+fi
 
 ok() { pass=$((pass + 1)); echo "PASS: validator-evidence $1"; }
 bad() { fail=$((fail + 1)); echo "FAIL: validator-evidence $1 ($2)"; }
@@ -47,7 +57,8 @@ PY
     RUN_TYPECHECK="$TYPECHECK"
     RUN_NODE_ENV="baseline"
     RUN_CUSTOM_ENV="baseline"
-    RUN_CONTEXT="{\"inputs\":[\"ignored-input.txt\"],\"dependencies\":[\"ignored-dependency.lock\"],\"environment\":[\"CUSTOM_VALIDATOR_MODE\"],\"toolchains\":[\"$(to_command_path "$NESTED")\"]}"
+    RUN_STRICT_ENV="baseline"
+    RUN_CONTEXT="{\"schema\":1,\"complete\":true,\"inputs\":[\"ignored-input.txt\"],\"dependencies\":[\"ignored-dependency.lock\"],\"environment\":[\"CUSTOM_VALIDATOR_MODE\",\"VALIDATOR_STRICT\"],\"toolchains\":[\"$(to_command_path "$NESTED")\"]}"
     printf 'base\n' > "$D/src.txt"
     printf '{}\n' > "$D/eslint.config.js"
     printf '{}\n' > "$D/package-lock.json"
@@ -66,7 +77,8 @@ with_env() {
         FUSEBASE_FLOW_TYPECHECK="$RUN_TYPECHECK" \
         FUSEBASE_FLOW_TEST_COUNT_DIR="$(to_command_path "$COUNT")" \
         FUSEBASE_FLOW_VALIDATOR_CONTEXT="$RUN_CONTEXT" \
-        CUSTOM_VALIDATOR_MODE="$RUN_CUSTOM_ENV" NODE_ENV="$RUN_NODE_ENV" "$@"
+        CUSTOM_VALIDATOR_MODE="$RUN_CUSTOM_ENV" VALIDATOR_STRICT="$RUN_STRICT_ENV" \
+        NODE_ENV="$RUN_NODE_ENV" "$@"
 }
 
 make_receipt() {
@@ -120,9 +132,108 @@ case_reuse() {
     new_fixture reuse
     make_receipt && run_hook
     if [ -f "$(receipt_path)" ]; then
-        expect_reuse "authentic-matching-success-skips"
+        expect_reuse "complete-context-supported-positive-reuses"
     else
-        expect_rerun "unproved-authority-reruns"
+        expect_rerun "complete-context-positive-authority-unavailable-reruns"
+    fi
+    invalidate
+}
+
+case_incomplete_context_reruns() {
+    local name="$1" context="$2" mutation="${3:-}"
+    new_fixture "$name"
+    RUN_CONTEXT="$context"
+    make_receipt
+    runner_rc=$?
+    [ -z "$mutation" ] || "$mutation"
+    run_hook
+    hook_rc=$?
+    receipt="$(receipt_path)"
+    if [ "$runner_rc" -eq 0 ] && [ "$hook_rc" -eq 0 ] && [ ! -f "$receipt" ] \
+       && [ "$(count_of lint)" = 2 ] && [ "$(count_of typecheck)" = 2 ] \
+       && grep -q "reuse unavailable" "$TMP/runner.out" \
+       && ! grep -q "reusing authentic exact-state" "$TMP/hook.out"; then
+        ok "$name-reruns-without-receipt"
+    else
+        bad "$name-reruns-without-receipt" \
+          "runner=$runner_rc hook=$hook_rc receipt=$([ -f "$receipt" ] && echo yes || echo no) lint=$(count_of lint) typecheck=$(count_of typecheck)"
+    fi
+    invalidate
+}
+
+mutate_undeclared_ignored_input() { printf 'changed\n' >> "$D/ignored-input.txt"; }
+mutate_undeclared_environment() { RUN_STRICT_ENV="changed"; }
+
+case_t48() {
+    case_reuse
+    case_incomplete_context_reruns absent-context ""
+    case_incomplete_context_reruns incomplete-context \
+      '{"schema":1,"complete":true,"inputs":[],"dependencies":[],"environment":[]}'
+    case_incomplete_context_reruns empty-declarations \
+      '{"inputs":[],"dependencies":[],"environment":[],"toolchains":[]}'
+    case_incomplete_context_reruns undeclared-ignored-input \
+      '{"schema":1,"inputs":[],"dependencies":[],"environment":[],"toolchains":[]}' \
+      mutate_undeclared_ignored_input
+    case_incomplete_context_reruns undeclared-environment \
+      '{"schema":1,"inputs":[],"dependencies":[],"environment":[],"toolchains":[]}' \
+      mutate_undeclared_environment
+}
+
+run_reuse_boundary() {
+    local output="$1"
+    ( cd "$D" && with_env bash -c \
+      '. hooks/local/lib/precommit-validator-reuse.sh; run_precommit_validators "$PWD" "$PATH"' \
+    ) >"$output" 2>&1
+}
+
+case_t48_remaining() {
+    new_fixture t48-remaining
+    RUN_CONTEXT='{"schema":1,"inputs":[],"dependencies":[],"environment":[],"toolchains":[]}'
+    make_receipt
+    runner_rc=$?
+    receipt="$(receipt_path)"
+    if [ "$runner_rc" -eq 0 ] && [ ! -f "$receipt" ] \
+       && [ "$(count_of lint)" = 1 ] && [ "$(count_of typecheck)" = 1 ] \
+       && grep -q "reuse unavailable" "$TMP/runner.out"; then
+        ok "remaining-real-runner-refuses-incomplete-receipt"
+    else
+        bad "remaining-real-runner-refuses-incomplete-receipt" \
+          "runner=$runner_rc receipt=$([ -f "$receipt" ] && echo yes || echo no) lint=$(count_of lint) typecheck=$(count_of typecheck)"
+    fi
+
+    mutate_undeclared_ignored_input
+    run_reuse_boundary "$TMP/remaining-input.out"
+    input_rc=$?
+    if [ "$input_rc" -eq 0 ] && [ "$(count_of lint)" = 2 ] \
+       && [ "$(count_of typecheck)" = 2 ] \
+       && ! grep -q "reusing authentic exact-state" "$TMP/remaining-input.out"; then
+        ok "remaining-undeclared-ignored-input-reruns"
+    else
+        bad "remaining-undeclared-ignored-input-reruns" \
+          "rc=$input_rc lint=$(count_of lint) typecheck=$(count_of typecheck)"
+    fi
+
+    mutate_undeclared_environment
+    run_reuse_boundary "$TMP/remaining-environment.out"
+    environment_rc=$?
+    if [ "$environment_rc" -eq 0 ] && [ "$(count_of lint)" = 3 ] \
+       && [ "$(count_of typecheck)" = 3 ] \
+       && ! grep -q "reusing authentic exact-state" "$TMP/remaining-environment.out"; then
+        ok "remaining-undeclared-environment-reruns"
+    else
+        bad "remaining-undeclared-environment-reruns" \
+          "rc=$environment_rc lint=$(count_of lint) typecheck=$(count_of typecheck)"
+    fi
+
+    FUSEBASE_FLOW_TEST_FAIL=lint run_reuse_boundary "$TMP/remaining-failure.out"
+    failure_rc=$?
+    if [ "$failure_rc" -ne 0 ] && [ "$(count_of lint)" = 4 ] \
+       && [ "$(count_of typecheck)" = 3 ] \
+       && grep -q "BLOCK.*lint failed" "$TMP/remaining-failure.out"; then
+        ok "remaining-lint-failure-boundary-stays-red"
+    else
+        bad "remaining-lint-failure-boundary-stays-red" \
+          "rc=$failure_rc lint=$(count_of lint) typecheck=$(count_of typecheck)"
     fi
     invalidate
 }
@@ -389,6 +500,15 @@ case_protected() {
     fi
     invalidate
 }
+
+if [ "$ONLY" = "t48" ]; then
+    case_t48
+    finish
+fi
+if [ "$ONLY" = "t48-remaining" ]; then
+    case_t48_remaining
+    finish
+fi
 
 case_reuse
 case_missing
