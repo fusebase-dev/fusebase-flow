@@ -170,7 +170,7 @@
     },
     {
       "path": "hooks/local/lib/recovery-preflight.py",
-      "sha256": "31f0bb3e2629ee43a5505c308233031f3f2b6324ca810acbbd5e66ad5ef56e5f"
+      "sha256": "2fa4685dc4c92eb06b5ae56232af37887a6df177dc14a0ebfad1455cff21afda"
     },
     {
       "path": "hooks/local/lib/recovery-verify.py",
@@ -841,5 +841,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "ce370706ae1bcd1870592c9fa2446f12cb49c96ef30ccf3bb99e8aec64453bbf"
+  "manifest_self_sha256": "81c3fa06c4f08c6ca12b9b9d6341a6de2aeed25f90fb619437ed63b581d1d44e"
 }

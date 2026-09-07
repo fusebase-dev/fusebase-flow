@@ -113,7 +113,7 @@ def validate_bash(raw: str) -> Path:
 
 
 def selection(raw: str) -> str:
-    if raw not in {"settings-wiring", "status-writer", "t50"}:
+    if raw not in {"settings-wiring", "status-writer", "t50", "t54"}:
         raise argparse.ArgumentTypeError(f"unknown selection: {raw}")
     return raw
 
@@ -468,6 +468,58 @@ def t50_check(bash: Path) -> tuple[str, str]:
     return t50_intent_check(bash) + "\n" + t50_overlay_check(bash), ""
 
 
+def t54_check() -> tuple[str, str]:
+    preflight = load(SOURCE_ROOT / "hooks/local/lib/recovery-preflight.py", "t54_preflight")
+    with tempfile.TemporaryDirectory(prefix="flow-t54-overlay-") as raw:
+        root = Path(raw).resolve()
+        overlay_dir = root / "hooks/local/fusebase-flow-overlays"
+        overlay_dir.mkdir(parents=True)
+        for name in ("overlay-block-replace.py", "agents-md-overlay.md", "claude-md-overlay.md"):
+            shutil.copyfile(SOURCE_ROOT / "hooks/local/fusebase-flow-overlays" / name, overlay_dir / name)
+        agents = root / "AGENTS.md"
+        claude = root / "CLAUDE.md"
+        claude.write_bytes(b"provider claude\n")
+
+        for label, malformed in (
+            ("unmatched", b"provider\n<!-- CUSTOM:SKILL:BEGIN -->\ntruncated\n"),
+            ("nested", b"provider\n<!-- CUSTOM:SKILL:BEGIN -->\n<!-- CUSTOM:SKILL:BEGIN -->\n<!-- CUSTOM:SKILL:END -->\n<!-- CUSTOM:SKILL:END -->\n"),
+        ):
+            agents.write_bytes(malformed)
+            before = {path.name: (path.is_file(), path.is_symlink(), path.read_bytes())
+                      for path in (agents, claude)}
+            try:
+                preflight.validate_overlays(root, False)
+            except ValueError:
+                pass
+            else:
+                raise AssertionError(f"no-heading {label} marker passed preflight")
+            after = {path.name: (path.is_file(), path.is_symlink(), path.read_bytes())
+                     for path in (agents, claude)}
+            if after != before:
+                raise AssertionError(f"no-heading {label} refusal changed target inventory")
+
+        originals = {agents: b"provider agents\n", claude: b"provider claude\n"}
+        for path, content in originals.items():
+            path.write_bytes(content)
+        rows = {row["surface"]: row for row in preflight.validate_overlays(root, False)}
+        for target, template_name in ((agents, "agents-md-overlay.md"),
+                                      (claude, "claude-md-overlay.md")):
+            row = rows[target.name]
+            expected = originals[target] + (overlay_dir / template_name).read_bytes()
+            if row["state"] != "append" or row["expected_sha256"] != hashlib.sha256(expected).hexdigest():
+                raise AssertionError(f"marker-free {target.name} append was not pinned exactly")
+            if target.read_bytes() != originals[target]:
+                raise AssertionError(f"marker-free {target.name} provider bytes changed in preflight")
+            target.write_bytes(expected)
+            if not target.read_bytes().startswith(originals[target]):
+                raise AssertionError(f"marker-free {target.name} provider prefix was not preserved")
+    return (
+        "PASS: T54 unmatched and nested no-heading markers refuse with unchanged inventory\n"
+        "PASS: T54 marker-free provider content retains exact append behavior",
+        "",
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--root")
@@ -490,6 +542,10 @@ def main() -> int:
         if args.only == "t50":
             stage(stage_file, "t50", lambda: t50_check(bash))
             print("PARTIAL/NON-ATTESTING: T50 risk group only")
+            return 0
+        if args.only == "t54":
+            stage(stage_file, "t54", t54_check)
+            print("PARTIAL/NON-ATTESTING: T54 append preflight group only")
             return 0
         if not args.root or not args.backup:
             raise ValueError("--root and --backup are required without --only")

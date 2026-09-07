@@ -198,13 +198,21 @@ def expected_overlay_bytes(
     original: bytes, template_bytes: bytes, overlay: Any,
     headings: tuple[bytes, ...], canonical: bytes,
 ) -> tuple[bytes, str]:
-    matches = [match for heading in headings for match in overlay._line_matches(original, (heading,))]
-    if not matches:
-        return original + template_bytes, "append"
-    start, end, legacy = overlay._owned_span(original, headings, allow_legacy=True)
+    template_pairs = overlay._marker_pairs(template_bytes)
+    if len(template_pairs) != 1:
+        raise ValueError("canonical overlay template must contain exactly one marker span")
     template_start, template_end, _ = overlay._owned_span(
         template_bytes, (canonical,), allow_legacy=False
     )
+    overlay._preserve_span(template_bytes)
+    marker_pairs = overlay._marker_pairs(original)
+    preserve_span = overlay._preserve_span(original)
+    matches = [match for heading in headings for match in overlay._line_matches(original, (heading,))]
+    if not matches:
+        if marker_pairs or preserve_span is not None:
+            raise ValueError("marker-bearing provider content has no recognized Flow heading")
+        return original + template_bytes, "append"
+    start, end, legacy = overlay._owned_span(original, headings, allow_legacy=True)
     effective = overlay._effective_template(
         original[start:end], template_bytes[template_start:template_end],
         overlay._newline_style(original),
