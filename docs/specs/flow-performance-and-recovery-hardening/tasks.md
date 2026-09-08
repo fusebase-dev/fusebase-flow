@@ -1,6 +1,6 @@
 # Tasks - v4.15.0 completion
 
-**Status:** historical task chronology; v4.15.0/v4.15.1/v4.15.2 remain unpublished. v4.15.2's [tagged gate](https://github.com/fusebase-dev/fusebase-flow/actions/runs/34176386683) passed Linux, failed Windows at 633/634 essential predicates and skipped publication; T71 prepares v4.15.3.
+**Status:** historical task chronology; v4.15.0/v4.15.1/v4.15.2 remain unpublished. [v4.15.3](https://github.com/fusebase-dev/fusebase-flow/releases/tag/v4.15.3) was published from `1f8d481aae0de73029edae69328dac5e5350a04d` after its [tagged run](https://github.com/fusebase-dev/fusebase-flow/actions/runs/34178271908) passed Linux, Windows, the aggregate gate and publication.
 **Current outcome:** `docs/changes/2026-09-07-release-completion.md`. **Prior review:** adversarial-review.md final T22 at `559ca5a`. **Evidence/history owner:** gate-report.md.
 
 ## Complete slice mapping and order

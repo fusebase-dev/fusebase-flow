@@ -1,6 +1,6 @@
 # Release completion
 
-**Outcome:** integrate the v4.15.0 release portability repair with the compact maintainer process, then publish the verified successor as v4.15.3. **Source:** T65 `bbc1629`; T66 `98e414f0e207c10e96a06e402e9f8bd9b3451df3`; T67 `d7501fcb7b2ee442cdc94048accdb428c37c889b`; T69/v4.15.1 `1e5f44ee80a5ccd2479f8b317142511cbcab5bdb`; T70/v4.15.2 `ecabe95c4767b287c106c1feaae346d3c77b791e`; repair `7a3bd749dca75317546fa8c8726a6fb2901c4a83`. **Status:** v4.15.1 and v4.15.2 remain immutable and unpublished after their tagged gates failed on Windows and skipped publication. T71 completes the shared caller-path contract and prepares v4.15.3 for its single tagged two-platform gate.
+**Outcome:** integrate the v4.15.0 release portability repair with the compact maintainer process, then publish the verified successor as v4.15.3. **Source:** T65 `bbc1629`; T66 `98e414f0e207c10e96a06e402e9f8bd9b3451df3`; T67 `d7501fcb7b2ee442cdc94048accdb428c37c889b`; T69/v4.15.1 `1e5f44ee80a5ccd2479f8b317142511cbcab5bdb`; T70/v4.15.2 `ecabe95c4767b287c106c1feaae346d3c77b791e`; T71/v4.15.3 `1f8d481aae0de73029edae69328dac5e5350a04d`; repair `7a3bd749dca75317546fa8c8726a6fb2901c4a83`. **Status:** COMPLETE. v4.15.1 and v4.15.2 remain immutable and unpublished after their tagged gates failed on Windows and skipped publication. [v4.15.3](https://github.com/fusebase-dev/fusebase-flow/releases/tag/v4.15.3) was published from the exact T71 source at `2026-09-08T02:12:49Z` after [run `34178271908`](https://github.com/fusebase-dev/fusebase-flow/actions/runs/34178271908) passed Linux, Windows, the aggregate gate and publication.
 
 | Task | Result |
 |---|---|
@@ -55,7 +55,7 @@ Full candidate run `34170878444` at `d7501fc` passed Linux and ended Windows at 
 | Independent review | REVIEW_CLEAR, zero source blockers; `state/audit/T69-independent-review.md` |
 | v4.15.1 tagged release gate | FAILED on Windows at 627/628 while Linux passed; mirror-skills full-corpus write exposed the short-path caller defect and publication was skipped; exact source/tag `1e5f44ee80a5ccd2479f8b317142511cbcab5bdb`; [run `34174615178`](https://github.com/fusebase-dev/fusebase-flow/actions/runs/34174615178) |
 
-The tagged workflow will exercise the complete profile, its distinct report/summary and package checks on disposable Linux and Windows hosts. The existing phase and job bounds remain fail-closed. An essential consumer or runner-trust failure blocks publication; an unrelated diagnostic failure retains its evidence for a separate follow-up without automatically expanding this release.
+The v4.15.3 tagged workflow exercised the complete profile, its distinct report/summary and package checks on disposable Linux and Windows hosts. The existing phase and job bounds remain fail-closed. An essential consumer or runner-trust failure blocks publication; an unrelated diagnostic failure retains its evidence for a separate follow-up without automatically expanding a release.
 
 ## T70 portable mirror write and v4.15.2 preparation
 
@@ -68,7 +68,7 @@ The tagged workflow will exercise the complete profile, its distinct report/summ
 | Independent review | REVIEW_CLEAR; caller symmetry and the unchanged writer safety boundary accepted; `state/audit/T70-independent-review.md` |
 | v4.15.2 tagged release gate | FAILED on Windows at 633/634 essential predicates while Linux passed; full-corpus skill and agent write/no-op/repair passed, then U7/U9 legacy recovery exposed the remaining absolute health-skill caller; publication was skipped; exact source/tag `ecabe95c4767b287c106c1feaae346d3c77b791e`; [run `34176386683`](https://github.com/fusebase-dev/fusebase-flow/actions/runs/34176386683) |
 
-## T71 complete writer-caller contract and v4.15.3 preparation
+## T71 complete writer-caller contract and v4.15.3 release
 
 | Check | Result / evidence |
 |---|---|
@@ -77,6 +77,7 @@ The tagged workflow will exercise the complete profile, its distinct report/summ
 | Initial launcher | INCOMPLETE before test execution because PowerShell damaged a nested Bash substitution; it produced no test result or log and was replaced by temporary script transport. |
 | Version and package | PASS: four carriers at 4.15.3; derived strings synchronized; skill/agent mirrors had zero pre-existing drift; hook 212/212 and managed 376/376 manifests match; preflight finished with 0 errors and 0 warnings; package/public-surface checks passed; `state/audit/T71-sync.log`, `state/audit/T71-mirrors.log`, `state/audit/T71-manifests.log`, `state/audit/T71-preflight.log`, `state/audit/T71-package-integrity.log` |
 | Independent review | REVIEW_CLEAR; all callers aligned, writer unchanged, and 4.15.3 metadata/package evidence accepted; `state/audit/T71-independent-review.md` |
+| v4.15.3 tagged release gate | PASS on exact source/tag `1f8d481aae0de73029edae69328dac5e5350a04d`: Linux, Windows, aggregate gate and publish all succeeded; GitHub Release published at `2026-09-08T02:12:49Z`; [run `34178271908`](https://github.com/fusebase-dev/fusebase-flow/actions/runs/34178271908), `state/audit/T71-tagged-release-state.json`, `state/audit/T71-published-release.json` |
 
 **Limits:** exact-state validator receipt reuse remains unavailable; ordinary-consumer timing, five-provider telemetry, real-symlink cases and Windows authority/signing remain unverified. Roll back T65, T66, T67, T69, T70 and T71 separately; never move `v4.15.0`, `v4.15.1` or `v4.15.2`.
 
