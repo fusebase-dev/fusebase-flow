@@ -195,6 +195,13 @@ def assert_graph(verify: dict, release: dict) -> Checker:
             not hits,
             f"the required verify job carries {hits} — a gate that was told to pass is not a passing gate")
 
+    c.check("graph-verify-runs-essential-release-profile",
+            "FF_RELEASE=1 bash hooks/tests/run-tests.sh" in vtext,
+            "the required verify job does not request the explicit essential release profile")
+    c.check("graph-verify-runs-runner-result-contract",
+            "bash hooks/tests/test-ff-only.sh --only t33" in vtext,
+            "the required verify job omits the failure/timeout/zero-result runner contract")
+
     checkout = [s for s in steps_of(vjob) if "actions/checkout" in str(s.get("uses", ""))]
     c.check("graph-verify-checks-out-the-requested-sha",
             any("inputs.sha" in str((s.get("with") or {}).get("ref", "")) for s in checkout),
@@ -316,6 +323,20 @@ def _mut_drop_publish_needs(vtext, rtext):
     return vtext, rtext.replace("    needs: verify\n", "", 1)
 
 
+def _mut_drop_release_profile(vtext, rtext):
+    marker = "FF_RELEASE=1 bash hooks/tests/run-tests.sh"
+    if marker not in vtext:
+        return None, None
+    return vtext.replace(marker, "bash hooks/tests/run-tests.sh", 1), rtext
+
+
+def _mut_drop_runner_result_contract(vtext, rtext):
+    marker = "bash hooks/tests/test-ff-only.sh --only t33"
+    if marker not in vtext:
+        return None, None
+    return vtext.replace(marker, "true", 1), rtext
+
+
 # Measurement-workflow mutations. Same rule: each must turn its named assertion red.
 def _mut_measure_add_push(mtext):
     marker = "on:\n"
@@ -352,6 +373,8 @@ MUTATIONS = {
     "delete-tag-sha-binding": (_mut_drop_tag_binding, "graph-publish-binds-tag-to-verified-sha"),
     "restore-ordinary-push-trigger": (_mut_broaden_verify_triggers, "graph-verify-not-on-ordinary-push-or-pr"),
     "delete-publish-needs-edge": (_mut_drop_publish_needs, "graph-publish-needs-verify"),
+    "delete-release-profile": (_mut_drop_release_profile, "graph-verify-runs-essential-release-profile"),
+    "delete-runner-result-contract": (_mut_drop_runner_result_contract, "graph-verify-runs-runner-result-contract"),
 }
 
 

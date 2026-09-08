@@ -263,7 +263,7 @@ ffcf_t13_owned_write_matrix() {
     target="targets/$surface.txt"
     plan="$d/$surface.plan"
     result="$d/$surface.result"
-    printf '%s\t%s\n' "$d/sources/$surface.txt" "$target" > "$plan"
+    printf '%s\t%s\n' "sources/$surface.txt" "$target" > "$plan"
     "$python_bin" "$d/hooks/local/lib/recovery-owned-write.py" --root "$d" \
       --surface "$surface" --plan "$plan" --result "$result"
     grep -q $'^missing-and-authorized\t'"$target" "$result" \
@@ -282,7 +282,7 @@ ffcf_t13_owned_write_matrix() {
 
   printf 'unowned\n' > "$d/targets/unowned.txt"
   printf 'source\n' > "$d/sources/unowned.txt"
-  printf '%s\t%s\n' "$d/sources/unowned.txt" targets/unowned.txt > "$d/unowned.plan"
+  printf '%s\t%s\n' sources/unowned.txt targets/unowned.txt > "$d/unowned.plan"
   before="$(ffcf_path_fingerprint "$d/targets/unowned.txt")"
   set +e
   "$python_bin" "$d/hooks/local/lib/recovery-owned-write.py" --root "$d" \
@@ -293,7 +293,7 @@ ffcf_t13_owned_write_matrix() {
     || fail "T13: unowned collision was modified or returned rc=$rc"
 
   mkdir -p "$d/targets/type-mismatch"
-  printf '%s\t%s\n' "$d/sources/unowned.txt" targets/type-mismatch > "$d/type.plan"
+  printf '%s\t%s\n' sources/unowned.txt targets/type-mismatch > "$d/type.plan"
   set +e
   "$python_bin" "$d/hooks/local/lib/recovery-owned-write.py" --root "$d" \
     --surface agent --plan "$d/type.plan" --result "$d/type.result"
@@ -304,7 +304,7 @@ ffcf_t13_owned_write_matrix() {
 
   printf 'link-target\n' > "$d/targets/link-target.txt"
   if ln -s link-target.txt "$d/targets/link.txt" 2>/dev/null && [ -L "$d/targets/link.txt" ]; then
-    printf '%s\t%s\n' "$d/sources/unowned.txt" targets/link.txt > "$d/link.plan"
+    printf '%s\t%s\n' sources/unowned.txt targets/link.txt > "$d/link.plan"
     before="$(ffcf_path_fingerprint "$d/targets/link-target.txt")"
     set +e
     "$python_bin" "$d/hooks/local/lib/recovery-owned-write.py" --root "$d" \
@@ -315,7 +315,7 @@ ffcf_t13_owned_write_matrix() {
       || fail "T13: symlink destination or target was modified"
   fi
 
-  printf '%s\t%s\n' "$d/sources/unowned.txt" targets/interrupted.txt > "$d/interrupted.plan"
+  printf '%s\t%s\n' sources/unowned.txt targets/interrupted.txt > "$d/interrupted.plan"
   set +e
   FF_RECOVERY_WRITE_INTERRUPT='before-replace:targets/interrupted.txt' \
     "$python_bin" "$d/hooks/local/lib/recovery-owned-write.py" --root "$d" \

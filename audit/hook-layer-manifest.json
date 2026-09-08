@@ -350,7 +350,7 @@
     },
     {
       "path": "hooks/tests/cli-flow-recovery-direct.sh",
-      "sha256": "cd42045d7e6bc2dde749eed1d28c8c4c97f495c37926be772d127f023c8e4c80"
+      "sha256": "3ae3e49afdc5de08340bcefecdae2f7fdf83a8797325f2eb2406b11468fb3898"
     },
     {
       "path": "hooks/tests/cli-flow-recovery-e2e.sh",
@@ -550,7 +550,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "f6ec380338c85e901c852b4bf1c22068a494f8d00eb1a794650e573edfecbd09"
+      "sha256": "e5c3592bb96e36092c3cf1f74388310ed9b2e569834a79834fdc08b117eab2b0"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -626,7 +626,7 @@
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
-      "sha256": "954d9c4d542308d0509193b8802d0ea4b47ce4085ee2ba2c43178cf180d66b28"
+      "sha256": "77cc6873324af79e826b73eeb594e404df150b6cca3554405874aee005824d81"
     },
     {
       "path": "hooks/tests/test-fingerprint-row-per-tag.sh",
@@ -853,5 +853,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "e09621fe8b59f14d999cf2e1e1fdeb2429618bf118dbd27274c7de78412181e1"
+  "manifest_self_sha256": "f8e06cea670965c6bac6bc679638bf7f7ae77f74a06e8c368495ed8c0f591469"
 }

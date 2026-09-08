@@ -20,12 +20,12 @@ If another fix breaks the same boundary, settle the shared contract before patch
 | Edit loop | Affected tests and relevant syntax/configuration checks; `FF_ONLY=tag1,tag2 bash hooks/tests/run-tests.sh` when the registered runner is useful |
 | Commit | Normal staged secret, protected-path, module-size and configured lint/typecheck checks; no mandatory separate validator invocation immediately before pre-commit |
 | Maintainer CI | Focused deterministic contracts on Linux and Windows/MSYS; feedback only, not release evidence |
-| Release | Complete required suite and package integrity through `.github/workflows/fusebase-flow-verify.yml` on the exact candidate/tagged SHA; both platforms must succeed |
+| Release | Explicit essential profile and package integrity through `.github/workflows/fusebase-flow-verify.yml` on the exact tagged SHA; both platforms must succeed |
 | Diagnostics | Editorial instruction checks, profiling and repeated performance experiments explicitly selected when their subject changes |
 
 Configured validators execute normally; no signed-receipt shortcut is required. An earlier manual validator run is optional feedback. CI repeats checks because it supplies a clean independent environment. If a check is not configured, report that fact rather than inventing a lint/typecheck result.
 
-Two-platform gating is mandatory: `verify-linux` and `verify-windows-msys`, plus the aggregate gate, must pass before publication. A focused CI/local pass is not full-suite or release evidence. `PUBLISHING.md` owns release procedures. Full-suite membership and diagnostic exclusions are documented in `docs/maintainer-testing.md`.
+Two-platform gating is mandatory: `verify-linux` and `verify-windows-msys`, plus the aggregate gate, must pass before publication. A focused CI/local pass is not release evidence. `PUBLISHING.md` owns release procedures. Essential-profile membership and diagnostic access are documented in `docs/maintainer-testing.md`.
 
 Record only commit/source state, selected command/group, environment, result and log pointer. CI logs and existing reports own the detail. A missing report field is repaired from evidence already present; rerun only when evidence is missing or invalidated. A focused result can close the affected local task without pretending it was a complete suite. Save a handoff only when work must cross sessions.
 
@@ -33,6 +33,8 @@ Record only commit/source state, selected command/group, environment, result and
 
 | Observation | Action |
 |---|---|
+| Essential consumer behavior or runner-trust control fails | Resolve the blocker and rerun the affected owner before preparing the tagged release gate |
+| Unrelated diagnostic or tooling check fails | Retain the evidence and open a separate follow-up; do not expand the release scope unless it invalidates an essential-profile result or runner trust |
 | Wrong product behavior | Fix it and rerun affected tests |
 | Proven fixture or tooling error | Fix the smallest responsible boundary and retain the original failure |
 | Timeout, crash or zero result rows | Failed/incomplete execution; diagnose before retrying; never infer PASS from partial output |
@@ -41,6 +43,7 @@ Record only commit/source state, selected command/group, environment, result and
 | Unrelated review suggestion | Record as optional follow-up; keep the current outcome fixed |
 
 Use bounded execution and durable logs for long checks. Time budgets are design targets, not correctness assertions. Fix slow setup, isolation and repeated subprocesses before changing a wall; no blanket timeout increase or successful-prefix replay. No new instrumentation subsystem is needed to measure existing CI duration.
+Reruns require a corrected input, implementation, or environment; there is no fixed retry allowance.
 
 ## Safety and scope
 

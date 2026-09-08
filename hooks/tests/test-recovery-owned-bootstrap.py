@@ -25,10 +25,15 @@ SKILL_MIRROR = ROOT / "hooks/local/mirror-skills.sh"
 AGENT_MIRROR = ROOT / "hooks/local/mirror-agents.sh"
 
 def bash_executable() -> str:
-    git_path = Path(shutil.which("git") or "")
-    candidates = (
-        git_path.parent.parent / "bin/bash.exe",
-        git_path.parent.parent / "usr/bin/bash.exe",
+    git_value = shutil.which("git")
+    git_roots = []
+    if git_value:
+        git_path = Path(git_value)
+        git_roots.append(git_path.parent.parent)
+        if git_path.parent.parent.name.lower() in {"mingw32", "mingw64"}:
+            git_roots.insert(0, git_path.parent.parent.parent)
+    candidates = tuple(
+        root / rel for root in git_roots for rel in ("bin/bash.exe", "usr/bin/bash.exe")
     )
     if os.name != "nt":
         candidates = (Path(shutil.which("bash") or ""),) + candidates
@@ -85,7 +90,7 @@ class BootstrapTest(unittest.TestCase):
     def repo(self) -> Path:
         holder = tempfile.TemporaryDirectory()
         self.addCleanup(holder.cleanup)
-        root = Path(holder.name)
+        root = Path(holder.name).resolve()
         put(root, "hooks/local/lib/recovery-owned-write.py", HELPER.read_bytes())
         put(root, "hooks/local/mirror-skills.sh", SKILL_MIRROR.read_bytes())
         put(root, "hooks/local/mirror-agents.sh", AGENT_MIRROR.read_bytes())
@@ -272,7 +277,7 @@ class BootstrapTest(unittest.TestCase):
     def test_missing_head_refuses_existing_target(self) -> None:
         holder = tempfile.TemporaryDirectory()
         self.addCleanup(holder.cleanup)
-        root = Path(holder.name)
+        root = Path(holder.name).resolve()
         put(root, "hooks/local/lib/recovery-owned-write.py", HELPER.read_bytes())
         put(root, "flow-skills/alpha/SKILL.md", b"new\n")
         put(root, ".agents/skills/alpha/SKILL.md", b"old\n")
@@ -340,7 +345,7 @@ class BootstrapTest(unittest.TestCase):
         module = production_load(HELPER, "recovery_owned_write_legacy")
         holder = tempfile.TemporaryDirectory()
         self.addCleanup(holder.cleanup)
-        root = Path(holder.name)
+        root = Path(holder.name).resolve()
         source = root / "source"
         target = root / "target"
         source.write_bytes(b"new\n")

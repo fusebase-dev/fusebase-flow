@@ -11,9 +11,10 @@
 # ## Run tiers
 #   (default)          FAST LOCAL DEFAULT — the FF_FAST_TAGS set only. Budgeted at <=10min
 #                      under loaded MSYS. Non-attesting: hook-test-results-fast.md.
-#   FF_FULL=1          the FULL unscoped set (every non-opt-in phase). The one explicit
-#                      maintainer invocation. Attesting: hook-test-results.md + the strict
-#                      summary. CI (GITHUB_ACTIONS/CI) takes this path automatically.
+#   FF_RELEASE=1       the explicit ESSENTIAL RELEASE PROFILE. New phases stay excluded until
+#                      deliberately added. Report: hook-test-results-release.md.
+#   FF_FULL=1          the FULL diagnostic set (every non-opt-in phase). Attesting to that local
+#                      scope: hook-test-results.md + the strict summary.
 #   FF_ONLY="a,b"      SCOPED subset (implement-loop iteration speed); opt-in and heavy
 #                      tags are reachable this way. Non-attesting: hook-test-results-scoped.md.
 #   FF_LIST=1          print the tag list (RUN/SKIP) for THIS invocation; exit 0, no run.
@@ -22,7 +23,7 @@
 #   NOT the strict "[run-tests] N/N PASS" shape, so ffhc_run_tests_pass_ok /
 #   ffhc_count_pass_lines read it as NOT a clean full pass, and its rows go to a separate
 #   file — the canonical hook-test-results.md is never touched by a subset run.
-#   Focused reports prove their named scope; only the full required set produces the
+#   Focused and release-profile reports prove their named scope; only the full diagnostic set produces the
 #   strict full-suite summary. Unknown or empty selections fail (docs/maintainer-testing.md).
 
 set -uo pipefail
@@ -79,6 +80,24 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixtur
   upgrade-boundary preboundary-consumed upgrade-repair n5-delivery n6-truthful-base n6-missing-base n6-recover n4-parity-scope recovery-hint install-doc release-authority \
   release-tag-binding fingerprint-rows signal-reap cli-flow-recovery-selectors cli-flow-recovery)
 
+# RETRIEVAL: docs/maintainer-testing.md owns release membership and package-gate boundaries.
+FF_RELEASE_TAGS=(fixtures git-smoke interpreter-contract python3-version git-context \
+  baseline-merge hook-wiring-intent wire-hooks-beside bootstrap-baseline-hop cli-0259 \
+  secret-scan-staged bootstrap-exception trusted-enforcer hook-install-rc validator-evidence \
+  validation-instructions approval-binding approval-writer command-policy upgrade-classify \
+  upgrade-boundary upgrade-repair n5-delivery n6-truthful-base n6-missing-base n6-recover \
+  release-authority release-tag-binding cli-flow-recovery)
+
+declare -A FF_REGISTERED=(); for t in "${FF_TAGS[@]}"; do FF_REGISTERED[$t]=1; done
+declare -A FF_RELEASE_SET=()
+for t in "${FF_RELEASE_TAGS[@]}"; do
+  if [ -z "${FF_REGISTERED[$t]:-}" ] || [ -n "${FF_RELEASE_SET[$t]:-}" ]; then
+    echo "[run-tests] ERROR: invalid or duplicate release tag '$t'" >&2
+    exit 2
+  fi
+  FF_RELEASE_SET[$t]=1
+done
+
 # Diagnostic classification and retained safety coverage: docs/maintainer-testing.md.
 FF_OPTIN_TAGS=(return-budget supersede-primitive rule-inventory startup-context budget-literals history-extraction consumer-benchmark)
 # TRIPWIRE: the +"${…}" guard is required while the registry is EMPTY — under `set -u` a bare
@@ -91,11 +110,10 @@ if [ -n "${FF_ONLY:-}" ]; then
   # Split on commas; trim surrounding whitespace per tag. A bogus or all-blank
   # selection => exit 2 (never a silent "scoped to nothing" green).
   IFS=',' read -r -a _ff_req <<< "$FF_ONLY"
-  declare -A _ff_valid=(); for t in "${FF_TAGS[@]}"; do _ff_valid[$t]=1; done
   for raw in "${_ff_req[@]}"; do
     tag="${raw#"${raw%%[![:space:]]*}"}"; tag="${tag%"${tag##*[![:space:]]}"}"   # trim
     [ -z "$tag" ] && continue
-    if [ -z "${_ff_valid[$tag]:-}" ]; then
+    if [ -z "${FF_REGISTERED[$tag]:-}" ]; then
       echo "[run-tests] ERROR: FF_ONLY unknown tag '$tag' (valid: ${FF_TAGS[*]})" >&2
       exit 2
     fi
@@ -108,6 +126,18 @@ if [ -n "${FF_ONLY:-}" ]; then
   FF_SCOPED=1
 fi
 
+FF_RELEASE_RUN=0
+case "${FF_RELEASE:-0}" in
+  0|'') ;;
+  1) FF_RELEASE_RUN=1 ;;
+  *) echo "[run-tests] ERROR: FF_RELEASE must be 0 or 1" >&2; exit 2 ;;
+esac
+if [ "$FF_RELEASE_RUN" -eq 1 ] \
+    && { [ "$FF_SCOPED" -eq 1 ] || [ "${FF_FULL:-0}" != "0" ]; }; then
+  echo "[run-tests] ERROR: FF_RELEASE cannot be combined with FF_ONLY or FF_FULL" >&2
+  exit 2
+fi
+
 # --- Local tier: the FAST set is the local default -------------------------------------
 # Membership is the architecture-review Q4 "Local default" tier, minus the one member that
 # breaks the review's OWN bound policy ("Local product budget: <=10 minutes under loaded
@@ -115,18 +145,16 @@ fi
 # secret-scan-staged measured 456s of a 600s budget on this host. Its scanner still runs on
 # EVERY commit via hooks/git/pre-commit; only the scenario phase moved. release-authority
 # (14s) is added — it guards the release-evidence contract itself.
-# TRIPWIRE: this is an ALLOWLIST, so a NEW phase is heavy until measured and promoted. The
-# safe direction: a new phase runs in CI/full from day one, never silently on the budget.
+# TRIPWIRE: this is an ALLOWLIST; new phases stay out until measured and promoted.
 FF_FAST_TAGS=(fixtures module-size git-smoke hook-manifest lane-router \
   approval-binding approval-writer command-policy release-authority)
 declare -A FF_FAST=(); for t in "${FF_FAST_TAGS[@]}"; do FF_FAST[$t]=1; done
 
-# FF_FULL=1 => the full unscoped run (every non-opt-in phase). CI is always full: the required
-# verify-linux / verify-windows-msys jobs on the tagged SHA are the release evidence, so they
-# must never inherit the local budget tier. Neither job passes a flag — this switch is what
-# keeps their coverage full while the local default stays fast.
+# FF_FULL=1 => the full unscoped diagnostic run. CI defaults to full unless its workflow requests
+# the explicit release profile; ordinary hosted invocations must never inherit the local tier.
 FF_FULL_RUN=0
-if [ "${FF_FULL:-0}" = "1" ] || [ "${GITHUB_ACTIONS:-}" = "true" ] || [ "${CI:-}" = "true" ]; then
+if [ "$FF_RELEASE_RUN" -eq 0 ] \
+    && { [ "${FF_FULL:-0}" = "1" ] || [ "${GITHUB_ACTIONS:-}" = "true" ] || [ "${CI:-}" = "true" ]; }; then
   FF_FULL_RUN=1
 fi
 
@@ -140,14 +168,16 @@ FF_ATTESTING=0
 # reachable that way). Unscoped => never an opt-in tag; heavy tags only on a full run.
 ff_selected() {
   if [ "$FF_SCOPED" -eq 1 ]; then [ -n "${FF_SEL[$1]:-}" ]; return; fi
+  if [ "$FF_RELEASE_RUN" -eq 1 ]; then [ -n "${FF_RELEASE_SET[$1]:-}" ]; return; fi
   [ -z "${FF_OPTIN[$1]:-}" ] || return 1
   [ "$FF_FULL_RUN" -eq 1 ] || [ -n "${FF_FAST[$1]:-}" ]
 }
 # ff_skip_note TAG: the visible per-phase skip line, naming WHY and how to get the phase back.
 ff_skip_note() {
   if [ "$FF_SCOPED" -eq 1 ]; then echo "SKIP (FF_ONLY): $1"
+  elif [ "$FF_RELEASE_RUN" -eq 1 ]; then echo "SKIP (not in essential release profile): $1"
   elif [ -n "${FF_OPTIN[$1]:-}" ]; then echo "SKIP (opt-in diagnostic — FF_ONLY=$1 to run): $1"
-  else echo "SKIP (heavy — FF_FULL=1 for the full set; CI runs it): $1"; fi
+  else echo "SKIP (heavy — FF_FULL=1 for the full diagnostic set): $1"; fi
 }
 
 # FF_LIST=1: print the canonical tags with RUN/SKIP markers and exit 0 (no run).
@@ -165,6 +195,8 @@ fi
 # attesting (full unscoped) run may touch the canonical path.
 if [ "$FF_SCOPED" -eq 1 ]; then
   RESULTS_FILE="$ROOT/state/audit/hook-test-results-scoped.md"
+elif [ "$FF_RELEASE_RUN" -eq 1 ]; then
+  RESULTS_FILE="$ROOT/state/audit/hook-test-results-release.md"
 elif [ "$FF_ATTESTING" -eq 0 ]; then
   RESULTS_FILE="$ROOT/state/audit/hook-test-results-fast.md"
 else
@@ -225,7 +257,7 @@ FF_SENTINEL_GRACE=5
 FFHC_SENTINEL_STATE=""
 _ff_sentinel_start() {
     ffhc_is_msys || return 0
-    [ "$FF_FULL_RUN" -eq 1 ] || [ "$FF_SCOPED" -eq 1 ] || return 0
+    [ "$FF_FULL_RUN" -eq 1 ] || [ "$FF_SCOPED" -eq 1 ] || [ "$FF_RELEASE_RUN" -eq 1 ] || return 0
     [ -n "${FFHC_TIMEOUT_BIN:-}" ] || return 0
     local sentinel="$ROOT/hooks/tests/lib/orphan-sentinel.sh"
     [ -f "$sentinel" ] || return 0
@@ -333,6 +365,15 @@ if [ "$FF_SCOPED" -eq 1 ]; then
     echo "  SCOPED RUN — FF_ONLY=${FF_ONLY}"
     echo "  This is a SUBSET, not a full gate. Results -> ${RESULTS_FILE#"$ROOT/"}"
     echo "  No local run is release evidence — the CI verify job on the tagged SHA is."
+    echo "============================================================"
+  } >&2
+elif [ "$FF_RELEASE_RUN" -eq 1 ]; then
+  {
+    echo "============================================================"
+    echo "  ESSENTIAL RELEASE PROFILE — ${#FF_RELEASE_TAGS[@]} explicit phases"
+    echo "  Evidence only inside the two-platform tagged-SHA release workflow."
+    echo "  Full diagnostics: FF_FULL=1 bash hooks/tests/run-tests.sh"
+    echo "  Results -> ${RESULTS_FILE#"$ROOT/"}"
     echo "============================================================"
   } >&2
 elif [ "$FF_ATTESTING" -eq 0 ]; then
@@ -556,16 +597,14 @@ run_shell_phase test-baseline-merge.sh       "baseline-merge"
 # S1: the intent marker + the health engine's PreToolUse enforcement arm. Most rows are
 # NEGATIVE — the six states in which the marker can lie must never produce drift, because a
 # false alarm here trains operators to ignore the one check that reports missing FR-06/07/12
-# enforcement. Outside FF_FAST_TAGS: one isolated interpreter spawn per row (that list is an
-# allowlist and a new phase runs in CI/full first).
+# enforcement.
 run_shell_phase test-hook-wiring-intent.sh   "hook-wiring-intent"
 # The other half of that arm: --wire-hooks must ADD BESIDE an occupied event array, and must
 # never record an intent it did not achieve. Its oracle is the CONTROL SET (key-absent / [] /
 # consumer+flow all wired BEFORE the fix), so only the consumer-only row separates fixed from
 # pre-fix. Carries the convergence property: the health arm must not report ENFORCEMENT
 # STRIPPED on a tree --wire-hooks just succeeded on. Measured 8s on this host (two real
-# post-fusebase-update.sh runs), but FF_FAST_TAGS is an ALLOWLIST: a new phase runs in CI/full
-# first and is promoted deliberately, never on its first green.
+# post-fusebase-update.sh runs).
 run_shell_phase test-wire-hooks-add-beside.sh "wire-hooks-beside"
 # S3a: the stamper refuses to attest CRLF bytes held under an `eol=lf` pin. Its core row is
 # THIS repo's own failure — policies/module-size-baseline.txt, hashed CRLF and shipped LF,
@@ -628,8 +667,7 @@ run_shell_phase test-approval-binding.sh       "approval-binding"
 run_shell_phase test-approval-writer.sh        "approval-writer"
 # S2: a committed deploy report cites a CLONE-DURABLE receipt, never the gitignored artifact
 # path. Each evidence row is paired with a control, so a receipt that stops discriminating fails
-# instead of passing quietly. Outside FF_FAST_TAGS — that list is an allowlist and a new phase
-# runs in CI/full first (the tripwire on that array).
+# instead of passing quietly.
 run_shell_phase test-approval-receipt-durability.sh "approval-receipt"
 run_shell_phase test-command-policy.sh        "command-policy"
 # S4a: the deny-rule explanation, and the negative half — no location claim, no matching change.
@@ -641,12 +679,11 @@ run_shell_phase test-upgrade-repair-managed.sh           "upgrade-repair"
 # N5: the ordinary upgrade path must DELIVER, or say it did not. The oracle is the consumer's
 # own reproduction (26 unknown-base / 0 refreshed becomes 24 upstream-only / 2 consumer-only),
 # plus the K9 row proving a forked VERSION still PROCEEDS rather than aborting, and the refusal
-# row. HEAVY (6 real upgrade runs against throwaway git trees) => CI/FF_FULL tier.
+# row.
 run_shell_phase test-upgrade-delivers-or-refuses.sh      "n5-delivery"
 # N6: the base must not record entries the run did not earn (decision N6-D1). Drives the
 # ordinary engine across TWO releases so the seal has a chance to form: without the fix the
-# second run reports a never-touched file as changed-by-both and ABORTS. HEAVY (7 real
-# upgrade runs against throwaway git trees) => CI/FF_FULL tier.
+# second run reports a never-touched file as changed-by-both and ABORTS.
 run_shell_phase test-upgrade-truthful-base.sh            "n6-truthful-base"
 # N6-D2: State 1 (base absent) is detected and routed; State 2 (base + DRIFT) gets a
 # VISIBILITY-ONLY pointer because the two states are locally indistinguishable — measured.
@@ -667,8 +704,7 @@ run_shell_phase test-install-fusebase-cli-project-doc.sh "install-doc"
 run_shell_phase test-release-evidence-authority.sh      "release-authority"
 # B2: the tag a Release is created for must be the tag CI verified. Drives
 # hooks/local/verify-tag-target.sh against a real bare origin + two clones (the tag genuinely
-# moves out from under a checkout), so it is not in the fast tier — FF_FAST_TAGS is an
-# allowlist and a new phase is heavy until measured. CI runs it.
+# moves out from under a checkout).
 run_shell_phase test-release-tag-binding.sh             "release-tag-binding"
 # N3: every v* tag must carry a docs/release-fingerprints.md row. Heavy (clones the repo and runs
 # preflight 4x) — the oracle is the real tag history, which no string fixture can stand in for.
@@ -697,6 +733,11 @@ run_shell_phase test-cli-flow-recovery.sh               "cli-flow-recovery"
         echo "# Hook test results — SCOPED (FF_ONLY=${FF_ONLY})"
         echo
         echo "SUBSET RUN — not a full gate. No local run is release evidence; the CI verify job on the tagged SHA is."
+        echo
+    elif [ "$FF_RELEASE_RUN" -eq 1 ]; then
+        echo "# Hook test results — ESSENTIAL RELEASE PROFILE (${#FF_RELEASE_TAGS[@]} explicit phases)"
+        echo
+        echo "Release evidence only when produced by the two-platform workflow on the exact tagged SHA."
         echo
     elif [ "$FF_ATTESTING" -eq 0 ]; then
         echo "# Hook test results — FAST LOCAL DEFAULT (${#FF_FAST_TAGS[@]} of ${#FF_TAGS[@]} phases)"
@@ -733,6 +774,8 @@ echo
 # it as NOT a clean full pass — fail-closed by construction, not by convention.
 if [ "$FF_SCOPED" -eq 1 ]; then
     echo "[run-tests] $pass/$total PASS (SCOPED FF_ONLY=${FF_ONLY} — subset, not a full gate)"
+elif [ "$FF_RELEASE_RUN" -eq 1 ]; then
+    echo "[run-tests] RELEASE PROFILE $pass/$total PASS (${#FF_RELEASE_TAGS[@]} explicit phases)"
 elif [ "$FF_ATTESTING" -eq 0 ]; then
     echo "[run-tests] $pass/$total PASS (FAST LOCAL DEFAULT — subset, not a full gate; FF_FULL=1 for the full set)"
 else

@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "b3b4ad2eee300e843b5644eb27f8fb777cbc94d23e154d75bc658681247d0b6a"
+      "sha256": "0b2c8a96b761c4d2e4bb78f3ac9bb7831257135a989b587d3dbb25e3f8d50c3b"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -390,7 +390,7 @@
     },
     {
       "path": "hooks/local/find_wasted_effort/selftest_proposals.py",
-      "sha256": "44315d555f5f340ac814562b3f4cb42d13a037cf394bc957446a6a8aedcf7577"
+      "sha256": "7a7528af0225f6eb975185c8d0b542f92fe6cfd9d26ea2c89323f3631310ec34"
     },
     {
       "path": "hooks/local/find_wasted_effort/selftest_windowing.py",
@@ -754,7 +754,7 @@
     },
     {
       "path": "hooks/tests/cli-flow-recovery-direct.sh",
-      "sha256": "cd42045d7e6bc2dde749eed1d28c8c4c97f495c37926be772d127f023c8e4c80"
+      "sha256": "3ae3e49afdc5de08340bcefecdae2f7fdf83a8797325f2eb2406b11468fb3898"
     },
     {
       "path": "hooks/tests/cli-flow-recovery-e2e.sh",
@@ -994,11 +994,11 @@
     },
     {
       "path": "hooks/tests/lib/workflow_graph_check.py",
-      "sha256": "e7db33c6f9f366b111038cad87f76279fcda4a3ee2875a954926f67bd459988e"
+      "sha256": "c83873499077a1845ca0fc8f98711c6addb5f9fa5428af2dec13cf2170ac9204"
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "f6ec380338c85e901c852b4bf1c22068a494f8d00eb1a794650e573edfecbd09"
+      "sha256": "e5c3592bb96e36092c3cf1f74388310ed9b2e569834a79834fdc08b117eab2b0"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -1078,7 +1078,7 @@
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
-      "sha256": "954d9c4d542308d0509193b8802d0ea4b47ce4085ee2ba2c43178cf180d66b28"
+      "sha256": "77cc6873324af79e826b73eeb594e404df150b6cca3554405874aee005824d81"
     },
     {
       "path": "hooks/tests/test-fingerprint-row-per-tag.sh",
@@ -1218,7 +1218,7 @@
     },
     {
       "path": "hooks/tests/test-recovery-owned-bootstrap.py",
-      "sha256": "18443ae2270fb0a137beb8fe45ce1187143cd7f32714de1e538bc83953340cfa"
+      "sha256": "5fdd942a21d1fff6340dfd9148202dfaea030d1533f01c8ecdcae8048c4d6675"
     },
     {
       "path": "hooks/tests/test-release-evidence-authority.sh",
@@ -1509,5 +1509,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "cd45bdf8b23887f5b860df4a20d8cbbcaa5de35641dd973367220f9624401e1a"
+  "manifest_self_sha256": "ec0681229de3bfed1d920d08abc8386bc73d19875bf5de34b224b24b71fadc19"
 }

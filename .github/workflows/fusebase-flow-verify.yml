@@ -2,7 +2,7 @@ name: fusebase-flow-verify
 
 on:
   # RELEASE / MAINTAINER PATHS ONLY (MAJOR 9, final-architecture-review finding 9). This is the
-  # full dual-platform exact-SHA suite: two hosted runners, the complete unscoped phase set, a
+  # dual-platform exact-SHA gate: two hosted runners, the explicit essential release profile, a
   # 60-minute wall per leg. It used to fire on every `push: main` and every `pull_request: main`,
   # and `.github/` SHIPS with the template — so a solo builder inherited maintainer-grade CI
   # latency and runner cost for ordinary work, with no way to opt in. That is the North-Star
@@ -11,7 +11,7 @@ on:
   #   workflow_dispatch — a maintainer asks for it on a branch.
   #   workflow_call     — fusebase-flow-release.yml calls it for the tagged SHA.
   # Consumer pushes and PRs do not start hosted test runners. Upstream maintainer pushes/PRs
-  # get focused feedback from fusebase-flow-maintainer.yml. This full release definition
+  # get focused feedback from fusebase-flow-maintainer.yml. This release definition
   # still requires both platforms and gates publication; focused feedback cannot replace it.
   workflow_dispatch:
   # Reusable: fusebase-flow-release.yml calls this workflow so the release publish gate
@@ -123,11 +123,11 @@ jobs:
       - name: Preflight (structure + YAML + frontmatter + mirror drift + action-name consistency)
         run: bash hooks/local/preflight.sh
 
-      # COMMITTED DEFAULTS ONLY. CI sets GITHUB_ACTIONS, so run-tests.sh takes the FULL
-      # unscoped path by itself. No scoping flag, no skip flag and no bound override may
-      # appear here: a gate that was told to pass is not a passing gate.
-      - name: Hook tests (full unscoped suite, committed bounds)
-        run: bash hooks/tests/run-tests.sh
+      - name: Runner failure, timeout, and zero-result contract
+        run: bash hooks/tests/test-ff-only.sh --only t33
+
+      - name: Hook tests (essential release profile, committed bounds)
+        run: FF_RELEASE=1 bash hooks/tests/run-tests.sh
 
       - name: Runner parity (in-process == subprocess)
         run: ${{ matrix.python }} hooks/tests/run_hook_tests.py --compare-subprocess

@@ -83,6 +83,25 @@ else
   bad "ff-list-tag-count" "FF_LIST reported $TAG_COUNT tags (expected >= 2)"
 fi
 
+release_list="$(FF_ONLY= FF_FULL=0 FF_RELEASE=1 FF_LIST=1 bash "$RT" 2>/dev/null)"
+release_count="$(printf '%s\n' "$release_list" | grep -c '^RUN  ')"
+release_padded=$'\n'"$release_list"$'\n'
+release_core=0; release_nonmember=0
+case "$release_padded" in *$'\nRUN  cli-flow-recovery\n'*) release_core=1 ;; esac
+case "$release_padded" in *$'\nSKIP newline-preserve\n'*) release_nonmember=1 ;; esac
+if [ "$release_count" -eq 29 ] && [ "$release_core" -eq 1 ] && [ "$release_nonmember" -eq 1 ]; then
+  ok "release-profile-is-explicit-29-tag-allowlist"
+else
+  bad "release-profile-is-explicit-29-tag-allowlist" "run_count=$release_count or boundary tags differ"
+fi
+FF_RELEASE=1 FF_ONLY=newline-preserve FF_LIST=1 bash "$RT" >/dev/null 2>&1; rp_scoped_rc=$?
+FF_RELEASE=1 FF_FULL=1 FF_LIST=1 bash "$RT" >/dev/null 2>&1; rp_full_rc=$?
+if [ "$rp_scoped_rc" -eq 2 ] && [ "$rp_full_rc" -eq 2 ]; then
+  ok "release-profile-rejects-other-selection-modes"
+else
+  bad "release-profile-rejects-other-selection-modes" "FF_ONLY rc=$rp_scoped_rc FF_FULL rc=$rp_full_rc"
+fi
+
 # --- Scoped to a single cheap phase: exactly 1 `starting` marker, (count-1) SKIPs,
 #     a scoped summary that the strict classifier REJECTS, and a scoped results file. ---
 sc_out="$(FF_ONLY=newline-preserve bash "$RT" 2>/tmp/ff-only-sc.$$.err)"; sc_rc=$?

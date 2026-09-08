@@ -181,6 +181,7 @@ def _hard_no_write_case(check_bool):
     try:
         repo = base / "repo"
         repo.mkdir()
+        repo = repo.resolve()
         # A realistic project surface the run could (wrongly) try to write to:
         # memory / overlays / specs / provider files / policies — plus raw artifacts
         # that DO produce confirmed findings (so proposals are non-empty and the
