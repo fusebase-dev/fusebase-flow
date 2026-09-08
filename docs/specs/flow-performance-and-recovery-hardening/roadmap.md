@@ -1,6 +1,6 @@
 # Roadmap - v4.15.0 implementation complete
 
-**Status:** historical implementation roadmap; v4.15.1 at `1e5f44ee80a5ccd2479f8b317142511cbcab5bdb` failed its [Windows tagged gate](https://github.com/fusebase-dev/fusebase-flow/actions/runs/34174615178) and remains unpublished. T70 prepares v4.15.2. Current outcome: `docs/changes/2026-09-07-release-completion.md`.
+**Status:** historical implementation roadmap; v4.15.0/v4.15.1/v4.15.2 remain unpublished. v4.15.2's [tagged gate](https://github.com/fusebase-dev/fusebase-flow/actions/runs/34176386683) passed Linux, failed Windows at 633/634 essential predicates and skipped publication; T71 prepares v4.15.3. Current outcome: `docs/changes/2026-09-07-release-completion.md`.
 
 | Recommendation order | Completed slices/outcome |
 |---|---|

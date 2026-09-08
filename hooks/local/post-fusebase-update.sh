@@ -633,7 +633,7 @@ else
   HEALTH_RESULT="$(mktemp "${TMPDIR:-/tmp}/flow-health-write-result.XXXXXX")"
   for target_dir in .claude/skills .agents/skills; do
     target_path="$target_dir/fusebase-flow-health-check/SKILL.md"
-    printf '%s\t%s\n' "$ROOT/$HEALTH_SKILL_SOURCE" "$target_path" >> "$HEALTH_PLAN"
+    printf '%s\t%s\n' "$HEALTH_SKILL_SOURCE" "$target_path" >> "$HEALTH_PLAN"
   done
   set +e
   python3 "$ROOT/hooks/local/lib/recovery-owned-write.py" --root "$ROOT" \

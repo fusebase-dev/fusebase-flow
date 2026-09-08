@@ -4,6 +4,18 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [4.15.3] — 2026-09-07
+
+**Portable recovery writes and release completion.** The health-skill restore now follows the same
+repository-relative source contract as skill mirrors, agent mirrors and command recovery. This
+closes the final MSYS short-path/native-Python alias mismatch without changing the writer's source
+containment, exact manifest authorization or symlink rejection.
+
+The v4.15.2 tagged gate passed Linux and 633/634 Windows essential predicates; its full-corpus skill
+and agent write/no-op/repair checks passed, then legacy recovery exposed the remaining health caller
+and publication was skipped. See `docs/release-notes/v4.15.3.md` for upgrade guidance, focused
+evidence and remaining limits.
+
 ## [4.15.2] — 2026-09-07
 
 **Portable mirror writes and release completion.** The ownership-aware skill and agent mirror callers

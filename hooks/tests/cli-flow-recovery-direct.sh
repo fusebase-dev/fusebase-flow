@@ -461,7 +461,7 @@ EOF
   ( cd "$d" && bash hooks/local/post-fusebase-update.sh --refresh-overlays > "$TMP_BASE/legacy.out" 2>&1 )
   rc=$?
   set -e
-  [ "$rc" -eq 0 ] || fail "U7/U9: valid legacy recovery returned $rc"
+  [ "$rc" -eq 0 ] || { cat "$TMP_BASE/legacy.out" >&2; fail "U7/U9: valid legacy recovery returned $rc"; }
 
   [ "$(ffcf_count_marker "$d/CLAUDE.md" "$FFCF_MB")" -eq 1 ] || fail "U7: legacy migration did not produce exactly 1 BEGIN ($(ffcf_count_marker "$d/CLAUDE.md" "$FFCF_MB"))"
   rules="$(awk '/^## Fuse[bB]ase Flow — additional rules/{exit} /^[[:space:]]*---[[:space:]]*$/{c++} END{print c+0}' "$d/CLAUDE.md")"
