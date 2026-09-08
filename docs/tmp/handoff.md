@@ -1,9 +1,7 @@
-# Handoff - T60 release evidence reconciliation
+# Handoff - v4.15.2 release preparation
 
-**Source:** final implementation `e99d61b`. **Status:** T60 reconciliation recorded by this commit; implementation complete, publication evidence pending.
+**Base/tag:** `1e5f44ee80a5ccd2479f8b317142511cbcab5bdb` / `v4.15.1`. **Status:** [tagged run `34174615178`](https://github.com/fusebase-dev/fusebase-flow/actions/runs/34174615178) passed Linux, failed Windows at 627/628 essential predicates and skipped publication. v4.15.1 remains immutable and unpublished; T70 prepares v4.15.2.
 
-Read `docs/specs/flow-performance-and-recovery-hardening/gate-report.md` for current proof and run attribution, `tasks.md` for slice chronology, and `adversarial-review.md` for the prior independent T22 approval through `559ca5a`.
+Read `docs/changes/2026-09-07-release-completion.md` for the current outcome, focused proof, attribution and limits. The original ticket artifacts under `docs/specs/flow-performance-and-recovery-hardening/` remain historical detail and point back to that note.
 
-Observed actual CLI `2026.090414.3609` Windows/Git Bash evidence: update complete; recovery rc0; 149 provider/shared entries and 6,638 app files preserved; conflict HEALTHY; second recovery no-op. Final `e99d61b` evidence: managed375/375; health HEALTHY rc0/93s with preflight28s rc0, hook212/212, conflict rc0. Earlier update/recovery/no-op proof did not rerun at `e99d61b`.
-
-Validator reuse remains disabled; T57 is observability only. Tagged Linux+Windows/MSYS release CI, unexecuted real symlinks, five-provider telemetry, and Windows authority isolation/successful signing remain deferred. Preserve unrelated untracked smoke/archive/wasted-code and repair-backup paths. Next action: tagged release verification under `PUBLISHING.md`.
+Preserve the recorded limits: validator reuse remains disabled; ordinary-consumer timing, five-provider delivered-context telemetry, real-symlink cases and Windows authority isolation/successful signing remain unverified. Preserve unrelated untracked smoke/archive/wasted-code and repair-backup paths. Next action: commit the reviewed T70 repair and release preparation, then tag that exact source as v4.15.2 and rely on its single two-platform publication gate.

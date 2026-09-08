@@ -4,11 +4,25 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [4.15.2] — 2026-09-07
+
+**Portable mirror writes and release completion.** The ownership-aware skill and agent mirror callers
+now send repository-relative canonical sources and their authorized relative manifest names. Native
+Python can therefore resolve an MSYS short-path root without rejecting the same repository under its
+long Windows spelling. Exact manifest authorization, source containment and symlink rejection remain
+unchanged.
+
+This release carries the recovery, CLI coexistence and maintainer-process work prepared in v4.15.0
+and v4.15.1; neither earlier tag published a GitHub Release. The explicit 29-phase essential profile,
+runner-trust checks, package integrity and two-platform tagged-SHA publication dependency remain.
+See `docs/release-notes/v4.15.2.md` for upgrade guidance, evidence attribution and limits.
+
 ## [4.15.1] — 2026-09-07
 
 **Recovery portability and release completion.** This release carries the recovery and workflow work
 prepared for v4.15.0, whose tagged workflow failed before publication, with the cross-platform repair
-needed by the release gate.
+needed by the release gate. Its tagged Linux job passed, but Windows stopped at 627/628 essential
+predicates when full-corpus mirror write exposed a short-path caller defect; publication was skipped.
 
 - Native Windows CRLF output is normalized only at the typed-surface line boundary. Exact LF/CRLF
   members are accepted; prefix and suffix lookalikes remain rejected.

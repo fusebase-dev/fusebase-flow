@@ -1,6 +1,6 @@
 # Flow performance and recovery hardening — specification
 
-**Status:** DONE - final implementation `e99d61b`; release preparation complete, publication pending
+**Status:** DONE - historical implementation contract; v4.15.1 at `1e5f44ee80a5ccd2479f8b317142511cbcab5bdb` failed its [Windows tagged gate](https://github.com/fusebase-dev/fusebase-flow/actions/runs/34174615178) and remains unpublished. T70 prepares v4.15.2. Current outcome: `docs/changes/2026-09-07-release-completion.md`.
 **Scope lock:** locked 2026-09-05 — operator authorized all recommended slices and end-to-end execution
 **Created:** 2026-09-05
 **Change tier:** Full

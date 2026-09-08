@@ -1,7 +1,7 @@
 # Tasks - v4.15.0 completion
 
-**Status:** implementation complete through T59 `e99d61b`; T60 documentation reconciliation recorded by this commit; publication evidence pending.
-**Source:** final implementation `e99d61b`. **Prior review:** adversarial-review.md final T22 at `559ca5a`. **Evidence/history owner:** gate-report.md.
+**Status:** historical task chronology; v4.15.1 at `1e5f44ee80a5ccd2479f8b317142511cbcab5bdb` failed its [Windows tagged gate](https://github.com/fusebase-dev/fusebase-flow/actions/runs/34174615178) and remains unpublished. T70 prepares v4.15.2.
+**Current outcome:** `docs/changes/2026-09-07-release-completion.md`. **Prior review:** adversarial-review.md final T22 at `559ca5a`. **Evidence/history owner:** gate-report.md.
 
 ## Complete slice mapping and order
 

@@ -33,7 +33,8 @@ if [ ! -d "$CANON" ]; then
     exit 1
 fi
 
-MANIFEST="$ROOT/audit/agent-mirror-manifest.txt"
+MANIFEST_REL="audit/agent-mirror-manifest.txt"
+MANIFEST="$ROOT/$MANIFEST_REL"
 
 declare -a AGENT_LINES=()
 for agent_dir in "$CANON"/*/; do
@@ -55,11 +56,11 @@ trap 'rm -f "$write_plan" "$write_result"' EXIT
 for line in "${AGENT_LINES[@]}"; do
     rel="${line%%$'\t'*}"
     canon_file="${line#*$'\t'}"
-    printf '%s\t%s\n' "$canon_file" "$rel" >> "$write_plan"
+    printf '%s\t%s\n' "${canon_file#"$ROOT"/}" "$rel" >> "$write_plan"
 done
 set +e
 python3 "$ROOT/hooks/local/lib/recovery-owned-write.py" --root "$ROOT" \
-  --surface agent --plan "$write_plan" --result "$write_result" --manifest "$MANIFEST"
+  --surface agent --plan "$write_plan" --result "$write_result" --manifest "$MANIFEST_REL"
 write_rc=$?
 set -e
 while IFS=$'\t' read -r status rel detail backup; do

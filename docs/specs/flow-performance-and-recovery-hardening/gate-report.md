@@ -1,7 +1,7 @@
 # T60 v4.15.0 release evidence reconciliation
 
-**Verdict:** PASS - current Windows/Git Bash consumer scenario; tagged release CI remains pending.
-**Current source:** final implementation `e99d61b`; T60 is this documentation reconciliation. Earlier task runs remain dependency evidence at their owning commits.
+**Verdict:** historical T60 PASS; v4.15.1 at `1e5f44ee80a5ccd2479f8b317142511cbcab5bdb` failed its [Windows tagged gate](https://github.com/fusebase-dev/fusebase-flow/actions/runs/34174615178) and remains unpublished. T70 prepares v4.15.2.
+**Current outcome:** `docs/changes/2026-09-07-release-completion.md`. This report preserves earlier task evidence at its owning commits.
 **Report date/owner:** 2026-09-07, AI Developer. **T60 started at:** 2026-09-07T16:06:28Z. **T60 committed at:** 2026-09-07T16:19:33Z.
 
 ## Current release-candidate evidence

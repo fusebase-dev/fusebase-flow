@@ -11,7 +11,7 @@ Every new AI agent session in a repo where Fusebase Flow is installed.
 1. Read `FLOW_RULES.md` down to `## Amendment log` (27 always-on rules, FR-01..FR-27). `## Amendment log` is a two-line compatibility stub pointing at `FLOW_RULES_HISTORY.md` — dated history, never a session read.
 2. Read `AGENTS.md` (root, project-specific section).
 3. Determine your role: Product Owner / AI Developer / Architect (escalation) / Deploy phase. If the operator's first message implies a role, attest it. If unclear, ask.
-4. Self-attest: "Operating as <role> under Fusebase Flow v4.15.1. I will follow FR-01 through FR-27. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for <role>."
+4. Self-attest: "Operating as <role> under Fusebase Flow v4.15.2. I will follow FR-01 through FR-27. I will apply Mode A on chat output and Mode B on every internal-artifact write. I will apply the role-discipline skill section for <role>."
 5. Load project state in parallel:
    - `docs/tmp/handoff.md` (if present — the ACTIVE restart/run-ledger state; read it first, then apply step 5a before trusting its file table)
    - `docs/specs/repo-context.md` (if present and <90 days old — the durable repo context map; read it INSTEAD of re-investigating structure/commands/protected paths. Older than 90 days or repo restructured since → treat as stale, note it in the status snapshot, offer `repo-onboarding-context-map`)

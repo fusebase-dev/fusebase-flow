@@ -1,6 +1,6 @@
 # Release completion
 
-**Outcome:** integrate the v4.15.0 release portability repair with the compact maintainer process, then publish the verified candidate as v4.15.1. **Source:** T65 `bbc1629`; T66 `98e414f0e207c10e96a06e402e9f8bd9b3451df3`; T67 `d7501fcb7b2ee442cdc94048accdb428c37c889b`; repair `7a3bd749dca75317546fa8c8726a6fb2901c4a83`. **Status:** T68 fixture corrections and the T69 essential release profile are reviewed with focused checks complete; ready for commit and the single tagged two-platform gate. v4.15.1 is not tagged or published.
+**Outcome:** integrate the v4.15.0 release portability repair with the compact maintainer process, then publish the verified successor as v4.15.2. **Source:** T65 `bbc1629`; T66 `98e414f0e207c10e96a06e402e9f8bd9b3451df3`; T67 `d7501fcb7b2ee442cdc94048accdb428c37c889b`; T69/v4.15.1 `1e5f44ee80a5ccd2479f8b317142511cbcab5bdb`; repair `7a3bd749dca75317546fa8c8726a6fb2901c4a83`. **Status:** v4.15.1 is immutable and unpublished: [tagged run `34174615178`](https://github.com/fusebase-dev/fusebase-flow/actions/runs/34174615178) passed Linux, failed Windows at 627/628 essential predicates and skipped publication. T70's two-caller repair and v4.15.2 package are reviewed, verified and ready for commit plus the single tagged two-platform gate.
 
 | Task | Result |
 |---|---|
@@ -9,6 +9,7 @@
 | T67 | Replace T14's MSYS-specific missing-Python PATH with the shared deterministic minimal-PATH fixture; production recovery behavior and its exit-2 plus zero-write contract are unchanged |
 | T68 | Normalize Windows fixture path identities, write T13 recovery sources root-relative and find Bash beside Git's `mingw32`/`mingw64` layout; production recovery behavior is unchanged |
 | T69 | Select 29 registered essential consumer phases explicitly, require the T33 runner-trust owner and package checks, keep full diagnostics callable, and make one exact-tag two-platform gate the publication authority |
+| T70 | Send skill and agent mirror plan sources and authorized manifests root-relative so MSYS short paths and native Python long paths retain the same fail-closed ownership boundary; prepare v4.15.2 |
 
 Historical T61 evidence remains attributed to `7a3bd74`: Linux affected-owner batch 203/204 followed by corrected validation-instructions 15/15; strict Python PY5 13/13; MSYS hook-wiring 41/41. The broader MSYS batch ended incomplete and is not a PASS. Current focused results are recorded below; release evidence requires both jobs and the aggregate gate from `.github/workflows/fusebase-flow-verify.yml` on the exact tagged SHA.
 
@@ -51,9 +52,20 @@ Full candidate run `34170878444` at `d7501fc` passed Linux and ended Windows at 
 | Publication workflow | 56/56 PASS, including mutations removing the essential profile or T33 step; `state/audit/T69-release-authority.log` |
 | Syntax, manifests and preflight | Shell 4/4 and Python AST 3/3 PASS; hook 212/212 and managed 376/376 PASS; preflight finished with 0 errors and 0 warnings; `state/audit/T69-shell-syntax.log`, `state/audit/T69-python-syntax.log`, `state/audit/T69-manifests.log`, `state/audit/T69-preflight.log` |
 | Independent review | REVIEW_CLEAR, zero source blockers; `state/audit/T69-independent-review.md` |
+| Tagged release gate | FAILED on Windows at 627/628 while Linux passed; mirror-skills full-corpus write exposed the short-path caller defect and publication was skipped; exact source/tag `1e5f44ee80a5ccd2479f8b317142511cbcab5bdb`; [run `34174615178`](https://github.com/fusebase-dev/fusebase-flow/actions/runs/34174615178) |
 
 The tagged workflow will exercise the complete profile, its distinct report/summary and package checks on disposable Linux and Windows hosts. The existing phase and job bounds remain fail-closed. An essential consumer or runner-trust failure blocks publication; an unrelated diagnostic failure retains its evidence for a separate follow-up without automatically expanding this release.
 
-**Limits:** exact-state validator receipt reuse remains unavailable; ordinary-consumer timing, five-provider telemetry, real-symlink cases and Windows authority/signing remain unverified. Roll back T65, T66, T67 and the eventual T69 gate-correction commit separately; never move `v4.15.0`.
+## T70 portable mirror write and v4.15.2 preparation
+
+| Check | Result / evidence |
+|---|---|
+| Trigger | v4.15.1 tagged run `34174615178`: Linux SUCCESS; Windows 627/628, `verify-gate` FAILED and publication SKIPPED; `state/audit/T69-tagged-windows.log` |
+| Cause and correction | Both shipped mirror callers passed absolute MSYS manifest and canonical-source paths to native Python after it canonicalized the root's 8.3 spelling. Both now pass root-relative sources and their literal authorized relative manifest; writer containment, exact manifest authorization and symlink rejection are unchanged. |
+| Short-path caller proof | PASS using distinct long and `GetShortPathNameW` spellings: both real callers completed initial writes, exact manifests, byte/mtime-stable no-ops and one-source repairs; `state/audit/T70-short-path-callers.log` |
+| Version and package | Four carriers at 4.15.2; derived strings and mirrors synchronized; hook 212/212 and managed 376/376 manifests; preflight and package integrity PASS; `state/audit/T70-sync.log`, `state/audit/T70-manifests.log`, `state/audit/T70-preflight.log`, `state/audit/T70-package-integrity.log` |
+| Independent review | REVIEW_CLEAR; caller symmetry and the unchanged writer safety boundary accepted; `state/audit/T70-independent-review.md` |
+
+**Limits:** exact-state validator receipt reuse remains unavailable; ordinary-consumer timing, five-provider telemetry, real-symlink cases and Windows authority/signing remain unverified. Roll back T65, T66, T67, T69 and T70 separately; never move `v4.15.0` or `v4.15.1`.
 
 Comment-policy review: applied (FR-22).

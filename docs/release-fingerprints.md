@@ -47,12 +47,14 @@ Match your output to either fingerprint column below; both identify the same tre
 | `v4.14.0` | 4.14.0 | `8e2148042e2cd3e470f3b91af52c3ee4c5e64863fbd2e9e22f9ac110b67bc7f8` | 341 | `e44537591a44bdb6a67209b70dc6e8b0b9242287dd29bb92047ec17e4a8803ad` | 192 |
 | `v4.14.1` | 4.14.1 | `70adc826c268d11db863f3fbdeb878b0423fad70ae1132549dbf7c28d15c209c` | 342 | `e48b7a040b206765ec47466b0f6ec56f0aa059c9c8cdb71a8c74e69862ab01d8` | 193 |
 | `v4.15.0` | 4.15.0 | `b058dab0b326c7fb2f736f82bdbb63c0be1c4f30d9f0d8162a15a1981f330573` | 375 | `4abf3f57df693542d4f97cb2410c48d79e9dccd2066f88501ae811a8c9f7a60c` | 212 |
+| `v4.15.1` | 4.15.1 | `ec0681229de3bfed1d920d08abc8386bc73d19875bf5de34b224b24b71fadc19` | 376 | `f8e06cea670965c6bac6bc679638bf7f7ae77f74a06e8c368495ed8c0f591469` | 212 |
 
-`v4.9.0`, `v4.9.1` and `v4.10.0` are unpublished tagged trees: their release workflows failed
-(2026-08-12, 2026-08-13 and 2026-08-15) and published nothing. Each row identifies an immutable tag
-target; none is evidence of publication. No tag was moved — `v4.9.2` superseded the first two, and
-`v4.10.1` supersedes `v4.10.0`. A tree cloned from `main` during any of those windows is identifiable
-here rather than absent from the table.
+`v4.9.0`, `v4.9.1`, `v4.10.0`, `v4.15.0` and `v4.15.1` are unpublished tagged trees: their release
+workflows failed (2026-08-12, 2026-08-13, 2026-08-15 and 2026-09-07) and published nothing. Each row
+identifies an immutable tag target; none is evidence of publication. No tag was moved — `v4.9.2`
+superseded the first two, `v4.10.1` superseded `v4.10.0`, and `v4.15.2` supersedes the latter two. A
+tree cloned from `main` during any of those windows is identifiable here rather than absent from the
+table.
 
 `v4.10.0` failed for a reason worth recording, because it was self-inflicted: the fingerprint-row
 check added in `v4.9.2` read a tag's target with

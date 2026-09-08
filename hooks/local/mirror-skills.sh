@@ -36,7 +36,8 @@ if [ ! -d "$CANON" ]; then
     exit 1
 fi
 
-MANIFEST="$ROOT/audit/skill-mirror-manifest.txt"
+MANIFEST_REL="audit/skill-mirror-manifest.txt"
+MANIFEST="$ROOT/$MANIFEST_REL"
 
 # Batched hash command (chunked for ARG_MAX safety). Reads NUL-delimited paths on
 # stdin, emits "<hash>  <path>" lines. -n 256 keeps each spawn's argv well under
@@ -214,11 +215,11 @@ trap 'rm -f "$write_plan" "$write_result"' EXIT
 for line in "${MIRROR_LINES[@]}"; do
     rel="${line%%$'\t'*}"
     canon_file="${line#*$'\t'}"
-    printf '%s\t%s\n' "$canon_file" "$rel" >> "$write_plan"
+    printf '%s\t%s\n' "${canon_file#"$ROOT"/}" "$rel" >> "$write_plan"
 done
 set +e
 python3 "$ROOT/hooks/local/lib/recovery-owned-write.py" --root "$ROOT" \
-  --surface skill --plan "$write_plan" --result "$write_result" --manifest "$MANIFEST"
+  --surface skill --plan "$write_plan" --result "$write_result" --manifest "$MANIFEST_REL"
 write_rc=$?
 set -e
 while IFS=$'\t' read -r status rel detail backup; do

@@ -1,6 +1,6 @@
 # Roadmap - v4.15.0 implementation complete
 
-**Status:** final implementation T59 `e99d61b`; observed Windows/Git Bash consumer compatibility; tagged publication evidence pending.
+**Status:** historical implementation roadmap; v4.15.1 at `1e5f44ee80a5ccd2479f8b317142511cbcab5bdb` failed its [Windows tagged gate](https://github.com/fusebase-dev/fusebase-flow/actions/runs/34174615178) and remains unpublished. T70 prepares v4.15.2. Current outcome: `docs/changes/2026-09-07-release-completion.md`.
 
 | Recommendation order | Completed slices/outcome |
 |---|---|
