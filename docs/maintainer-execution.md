@@ -6,12 +6,12 @@ This is the maintainer process for `fusebase-dev/fusebase-flow`, approved on 202
 
 1. Record the intended outcome, affected boundary and a success/failure example in one issue or change note. Use a design document only when behavior or ownership needs a real decision. The same record owns the task list and results; no automatic spec/decisions/tasks/gate/handoff bundle.
 2. Diagnose and implement with one owner. Existing operator authorization carries forward. Role changes within the approved work do not require a new session or relay. Ask only about a material product decision or an external action not already authorized.
-3. Run the cheapest meaningful checks for the changed behavior. A deterministic reproduction with a causal explanation is enough to fix; repeat trials only investigate actual races, flaky behavior or measured performance. No mandatory baseline full suite or three-run ritual.
+3. Choose the smallest meaningful test boundary using `docs/maintainer-testing.md`. A deterministic reproduction with a causal explanation is enough to fix; repeat trials only investigate actual races, flaky behavior or measured performance. No mandatory baseline full suite or three-run ritual.
 4. Review the diff after focused checks, before expensive verification. Ordinary maintenance uses implementer review. Changes to ownership, upgrade/recovery authority, security or release publication require an independent review of the relevant contract and diff.
 5. Resolve substantive findings together. Re-review the corrections and affected boundaries, expanding only for a concrete new risk. Findings require an input/trigger, wrong outcome and expected behavior. Wording and unrelated improvements do not restart the gate unless they change behavior or a material public claim.
 6. Commit one independently reversible outcome at a time. A probe, fixture calibration or report correction does not need its own task. Once behavior is demonstrated, applicable checks pass and blockers are resolved, finish.
 
-If another fix breaks the same boundary, settle the shared contract before patching again. A known correctness or safety blocker never becomes acceptable because a review has already run once. Prior examples: `docs/problem-catalog/undecided-contract-drives-repeat-defects/problem.md`.
+If the same defect appears in another caller, inspect the entire caller family and settle its shared contract before another patch, version or tag. A known correctness or safety blocker never becomes acceptable because a review has already run once. Prior examples: `docs/problem-catalog/undecided-contract-drives-repeat-defects/problem.md`.
 
 ## Checks and evidence
 
@@ -27,7 +27,11 @@ Configured validators execute normally; no signed-receipt shortcut is required. 
 
 Two-platform gating is mandatory: `verify-linux` and `verify-windows-msys`, plus the aggregate gate, must pass before publication. A focused CI/local pass is not release evidence. `PUBLISHING.md` owns release procedures. Essential-profile membership and diagnostic access are documented in `docs/maintainer-testing.md`.
 
-Record only commit/source state, selected command/group, environment, result and log pointer. CI logs and existing reports own the detail. A missing report field is repaired from evidence already present; rerun only when evidence is missing or invalidated. A focused result can close the affected local task without pretending it was a complete suite. Save a handoff only when work must cross sessions.
+Do not run an unchanged full pre-tag suite and then repeat the same tree in the mandatory tagged gate. Use focused pre-tag evidence; the exact tagged gate owns release verification.
+
+Record only commit/source state, selected command/group, environment, result and log pointer. Save large tool output to a local log and return its summary plus path; never place multi-megabyte logs in tool arguments. CI logs and existing reports own the detail. Repair a missing report field from valid evidence already present; never rerun an expensive check solely to populate prose. A focused result can close the affected local task without pretending it was a complete suite. Save a handoff only when work must cross sessions.
+
+After the exact-SHA gate, remote tag identity and publication are confirmed, finish with one factual documentation commit. A docs-only release closeout or maintainer-prose correction does not require a new tag or runtime suite; normal commit hooks apply, plus the relevant structural check only when machine-consumed markers change.
 
 ## Failure handling
 

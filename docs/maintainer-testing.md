@@ -1,6 +1,6 @@
 # Maintainer testing
 
-Test behavior at the smallest useful boundary. Small decision tests use data tables; filesystem/Git tests use tiny isolated repositories; real install/recovery scenarios prove the integrated result. Do not copy the full repository or launch recovery to test a string predicate. Use existing fixtures and runners before creating another harness.
+Test behavior at the smallest useful boundary: table/parser or function first, then a tiny filesystem/Git repository, then an integrated scenario only when the changed boundary requires it. Use a full disposable app or real CLI cycle only when an integration boundary changes or compatibility evidence is missing, never as routine feedback for every edit. Destructive recovery scenarios use the smallest isolated temporary repository, verify the mutation root, and leave the consumer tree and maintainer worktree clean. Do not copy the full repository or launch recovery to test a string predicate. Use existing fixtures and runners before creating another harness.
 
 ## Required guarantees
 
@@ -47,4 +47,4 @@ Aim for seconds to two minutes in the edit loop and a focused hosted check withi
 
 After a change, run its affected group once. Repeat only after a relevant correction or to investigate a named nondeterministic condition. A failed execution never becomes a passing result because earlier rows passed. Preserve the failing diagnostic, fix its owner and rerun the affected group; do not replay an unrelated successful prefix.
 
-Only release CI on the exact tagged SHA authorizes a release claim. The tag-triggered workflow runs the essential profile and package checks once on Linux and Windows/MSYS, then publishes only after the aggregate gate succeeds. Maintainer feedback is a subset and cannot authorize publication. No test-result signing/cache system is needed; a normal run records its source, platform, command, result and log pointer.
+Only release CI on the exact tagged SHA authorizes a release claim. Do not run the same unchanged full verification before tagging and again after tagging. The tag-triggered workflow runs the essential profile and package checks once on Linux and Windows/MSYS, then publishes only after the aggregate gate succeeds. Maintainer feedback is a focused subset and cannot authorize publication. No test-result signing/cache system is needed; a normal run records its source, platform, command, result and log pointer.

@@ -177,9 +177,10 @@ done
 echo "All tracked top-level entries are on the approved allowlist."
 ```
 
-If a check fails, correct its cause and rerun the affected check before pushing — a red local check
-is a red CI check waiting to happen. A green local run does not authorize a release; only the
-`verify` run on the tagged SHA does.
+If an essential consumer or runner-trust check fails, correct its cause and rerun the affected owner
+before pushing. Preserve an unrelated diagnostic failure for a separate follow-up unless it
+invalidates essential evidence or runner trust; see `docs/maintainer-execution.md`. A green local run
+does not authorize a release; only the `verify` run on the tagged SHA does.
 
 **Shipping a new slash command?** The same release MUST ship its installer surface (v3.20.1 rule: *a preflight check may only ship in the same release as its installer step*): the recovery-snapshot copy in `hooks/local/fusebase-flow-overlays/commands/` (this is what `upgrade.sh`/`post-fusebase-update.sh` Step 8 install downstream) plus the command's entry in preflight §8 `FLOW_COMMANDS`. Preflight enforces all three surfaces (live file · snapshot copy · CLAUDE.md reference) per command — an incomplete command surface fails the release here instead of landing BROKEN on every consumer upgrade.
 
@@ -218,7 +219,9 @@ creation remains an operator-controlled open path and must not be used.
   `verify` profile and package checks on the tagged sha on both platforms and, ONLY if every leg is
   green, its gated `publish` job creates the GitHub Release from
   `docs/release-notes/v<version>.md` (or `--generate-notes` when that file is
-  absent). The `gh release view` guard + `--verify-tag` make a re-run idempotent.
+  absent). The `gh release view` guard + `--verify-tag` make a re-run idempotent. After the exact-SHA
+  gate, tag identity and release are confirmed, use the one factual closeout commit described in
+  `docs/maintainer-execution.md`.
 - **After TAGGING — not after publishing — append the tagged tree's fingerprint row.** This step is
   triggered by the tag existing, and by nothing else. Run
   `bash hooks/local/print-release-fingerprints.sh v<version>` and append the emitted row to
