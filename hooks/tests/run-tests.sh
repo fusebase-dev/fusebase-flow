@@ -77,7 +77,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixtur
   trusted-enforcer hook-install-rc msys-tree-cleanup job-probe ws5-upgrade ff-only return-budget \
   supersede-primitive rule-inventory boot-size prohibition-residency startup-context validator-evidence validation-instructions consumer-benchmark wasted-effort-windowing token-waste-classify \
   budget-literals history-extraction approval-binding approval-writer approval-receipt command-policy denial-message upgrade-classify \
-  upgrade-boundary preboundary-consumed upgrade-repair n5-delivery n6-truthful-base n6-missing-base n6-recover n4-parity-scope recovery-hint install-doc release-authority \
+  upgrade-boundary preboundary-consumed upgrade-repair n5-delivery n6-truthful-base n6-missing-base n6-recover n4-parity-scope recovery-hint hop-log-truth install-doc release-authority \
   release-tag-binding fingerprint-rows signal-reap cli-flow-recovery-selectors cli-flow-recovery)
 
 # RETRIEVAL: docs/maintainer-testing.md owns release membership and package-gate boundaries.
@@ -698,6 +698,10 @@ run_shell_phase test-recover-missing-base.sh             "n6-recover"
 # rejected alternative (adopting the manifests into the managed set) out.
 run_shell_phase test-plugin-parity-scope.sh              "n4-parity-scope"
 run_shell_phase test-recovery-hint-honesty.sh            "recovery-hint"
+# S1: the caller's summary must agree with the component's observed outcome. Drives the real
+# recovery through the outcome matrix in a fixture consumer; the regression row is the consumer's
+# withdrawn E8 diagnosis (a run that merged lifecycle events and then printed "NOT modified").
+run_shell_phase test-hop-log-truthfulness.sh            "hop-log-truth"
 run_shell_phase test-install-fusebase-cli-project-doc.sh "install-doc"
 # Pins the shipped prose to the machinery: CI on the tagged SHA owns release evidence, no
 # local run does. Grep-based by nature — the claim is textual (see that file's header).
