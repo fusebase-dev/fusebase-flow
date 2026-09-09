@@ -86,7 +86,8 @@ FF_RELEASE_TAGS=(fixtures git-smoke interpreter-contract python3-version git-con
   secret-scan-staged bootstrap-exception trusted-enforcer hook-install-rc validator-evidence \
   validation-instructions approval-binding approval-writer command-policy upgrade-classify \
   upgrade-boundary upgrade-repair n5-delivery n6-truthful-base n6-missing-base n6-recover \
-  release-authority release-tag-binding cli-flow-recovery)
+  release-authority release-tag-binding cli-flow-recovery \
+  hop-log-truth n4-parity-scope)
 
 declare -A FF_REGISTERED=(); for t in "${FF_TAGS[@]}"; do FF_REGISTERED[$t]=1; done
 declare -A FF_RELEASE_SET=()

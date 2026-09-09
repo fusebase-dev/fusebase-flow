@@ -13,7 +13,7 @@ Test behavior at the smallest useful boundary: table/parser or function first, t
 | Process lifecycle | Failure/timeout propagation, owned-child cleanup, zero-result refusal and selector completeness |
 | Publication | Parsed workflow graph, both platforms, required-job success, manifests and tag/verified-SHA binding |
 
-`hooks/tests/run-tests.sh` owns membership and `FF_LIST=1` lists it. `FF_RELEASE=1` selects an explicit 29-tag release allowlist; a newly registered phase stays out until its consumer or safety responsibility is reviewed and deliberately added. `FF_FULL=1` runs every non-opt-in diagnostic, while `FF_ONLY` names affected groups. Neither local mode authorizes publication.
+`hooks/tests/run-tests.sh` owns membership and `FF_LIST=1` lists it. `FF_RELEASE=1` selects an explicit 31-tag release allowlist; a newly registered phase stays out until its consumer or safety responsibility is reviewed and deliberately added. `FF_FULL=1` runs every non-opt-in diagnostic, while `FF_ONLY` names affected groups. Neither local mode authorizes publication.
 
 | Release responsibility | Existing required tags |
 |---|---|
@@ -22,6 +22,7 @@ Test behavior at the smallest useful boundary: table/parser or function first, t
 | Executable safety | `fixtures`, `git-smoke`, `interpreter-contract`, `python3-version`, `git-context`, `secret-scan-staged`, `trusted-enforcer`, `hook-install-rc`, `approval-binding`, `approval-writer`, `command-policy` |
 | Validator execution | `validator-evidence`, `validation-instructions` |
 | Publication integrity | `release-authority`, `release-tag-binding` |
+| Caller-summary truthfulness and publisher scoping | `hop-log-truth`, `n4-parity-scope` |
 
 The reusable workflow separately requires the T33 runner result contract plus preflight, runner parity, both manifests, module size, mirror parity, public-surface allowlisting and a clean tree. T33 rejects phase failures, timeouts, missing phases, unauthorized `N/A` and zero-result success. Full and change-scoped diagnostics remain callable; release selection does not delete or weaken them.
 
