@@ -108,7 +108,8 @@ APPROVAL_WARNINGS=()     # M9 stale-approval age warnings. VISIBILITY ONLY: prin
 APPROVAL_POLICY_ERRORS=()  # approval-policy could not be loaded (e.g. a local override the tighten-only validation rejects). Reported as a CONFIGURATION ERROR instead of silently substituting compatibility defaults; while set, no artifact is reported active and the FR-07 gates deny
 DRIFT_SIGNATURE=""
 RECOMMENDATIONS=()
-PARTIAL_UPGRADE_FINDINGS=()   # U7: stale derived-fact mismatches (version/FR/plugin vs live strings)
+PARTIAL_UPGRADE_FINDINGS=()   # U7: stale derived-fact mismatches (VERSION/FR-range vs the adapters live strings)
+PUBLISHER_PACKAGING_FINDINGS=()   # plugin-manifest parity, publisher repos only — its OWN class, never PARTIAL_UPGRADE
 DEEP_RUN_NOTES=()             # --run-hook-tests optional deep-run notes (NEVER affect the verdict)
 
 ###############################################################################
@@ -491,14 +492,13 @@ FFHC_CLIVER_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/cli-version-check.sh"
 ffhc_run_cli_version_stage "$FFHC_CLIVER_LIB"
 
 ###############################################################################
-# Section 1b — PARTIAL_UPGRADE derived-facts check (U7, read-only, local).
+# Section 1b — derived-facts + packaging checks (U7, read-only, local).
 ###############################################################################
-# Compare derived facts (VERSION, FR-range, plugin version) against the LIVE
-# attestation strings in the adapters. A mismatch == an upgrade that bumped VERSION
-# but left stale strings (interrupted run / an adapter with no overlay-refresh
-# path). Findings are genuine DRIFT (concrete, repairable) — recorded so the
-# verdict can name PARTIAL_UPGRADE (a sub-class of the drift exit, code 1). NOT
-# exit 4: this check RAN and FOUND drift; exit 4 is for a critical that couldn't run.
+# Derived facts (VERSION, FR-range) vs the adapters LIVE attestation strings: a mismatch
+# is an upgrade that bumped VERSION but left stale strings => PARTIAL_UPGRADE, a drift
+# sub-class (exit 1), NOT exit 4 — this check RAN and FOUND drift. Plugin-manifest parity
+# is a SEPARATE publisher-only class (PACKAGING_DRIFT): a publisher mismatch is packaging
+# drift, not an interrupted upgrade, and a consumer manifest is not ours to judge at all.
 ffhc_stage_start "partial-upgrade" "none"
 if command -v ffhc_partial_upgrade_findings >/dev/null 2>&1; then
   while IFS= read -r pu; do
@@ -506,7 +506,8 @@ if command -v ffhc_partial_upgrade_findings >/dev/null 2>&1; then
     PARTIAL_UPGRADE_FINDINGS+=("$pu")
     record_drift "partial_upgrade" "PARTIAL_UPGRADE — $pu"
   done < <(ffhc_partial_upgrade_findings 2>/dev/null)
-fi; command -v ffmb_collect >/dev/null 2>&1 && ffmb_collect   # N6-D2: State 1 => record_drift, State 2 => visibility-only pointer
+fi; command -v ffhc_publisher_packaging_collect >/dev/null 2>&1 && ffhc_publisher_packaging_collect
+command -v ffmb_collect >/dev/null 2>&1 && ffmb_collect   # N6-D2: State 1 => record_drift, State 2 => visibility-only pointer
 ffhc_stage_end "none"
 
 ###############################################################################
@@ -598,9 +599,10 @@ fi
 # CLI/shared-layer drift and no breakage), the verdict is named PARTIAL_UPGRADE —
 # a sub-class of the drift exit (1), so the v3.24.0 exit contract is unchanged.
 PARTIAL_UPGRADE_COUNT="${#PARTIAL_UPGRADE_FINDINGS[@]}"
-PARTIAL_UPGRADE_DRIFT_COUNT=0
+PARTIAL_UPGRADE_DRIFT_COUNT=0; PACKAGING_DRIFT_COUNT=0
 if [ "$DRIFT_COUNT" -gt 0 ]; then
   PARTIAL_UPGRADE_DRIFT_COUNT=$(printf '%s\n' "${LOCAL_DRIFT[@]}" | grep -c "^PARTIAL_UPGRADE — " || true)
+  PACKAGING_DRIFT_COUNT=$(printf '%s\n' "${LOCAL_DRIFT[@]}" | grep -c "^PACKAGING_DRIFT — " || true)
 fi
 
 # Verdict precedence (LOCKED contract / H4): BROKEN > real drift > EXCEPTION
@@ -620,6 +622,9 @@ elif [ "${#CLI_VERSION_UNSUPPORTED[@]}" -gt 0 ]; then
   # are known-incompatible with it. Named FIRST among drift classes because it is the
   # root cause that makes the other CLI findings ambiguous. Drift class => exit 1 via *).
   DRIFT_SIGNATURE="CLI_VERSION_UNSUPPORTED"
+elif [ "$PACKAGING_DRIFT_COUNT" -gt 0 ] && [ "$PACKAGING_DRIFT_COUNT" -eq "$DRIFT_COUNT" ] \
+     && [ "$CLI_LAYER_DRIFT_COUNT" -eq 0 ] && [ "$SHARED_MERGE_DRIFT_COUNT" -eq 0 ]; then
+  DRIFT_SIGNATURE="PUBLISHER_PACKAGING_DRIFT"
 elif [ "$PARTIAL_UPGRADE_DRIFT_COUNT" -gt 0 ] && [ "$PARTIAL_UPGRADE_DRIFT_COUNT" -eq "$DRIFT_COUNT" ] \
      && [ "$CLI_LAYER_DRIFT_COUNT" -eq 0 ] && [ "$SHARED_MERGE_DRIFT_COUNT" -eq 0 ]; then
   # U7: stale derived facts (version/FR/plugin vs live strings) account for ALL real

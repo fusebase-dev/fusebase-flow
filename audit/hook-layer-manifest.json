@@ -70,7 +70,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-health-check.sh",
-      "sha256": "be4769dd365f89d5000118538197056570cf8c8c74b17b1897913d5d89f31775"
+      "sha256": "890d87f614418323665a1fdcf70d26a86ea91ef836a87c0c1f6a17587fe696e1"
     },
     {
       "path": "hooks/local/install-codex-prompts.sh",
@@ -118,7 +118,7 @@
     },
     {
       "path": "hooks/local/lib/health-recommendations.sh",
-      "sha256": "0fde87bf606134a16d335f6ebe87333c3ffc1f1d74bc6aef6b079a1bff90e467"
+      "sha256": "90dec8f141a4c65bb6b27b11f7f48cffa3060047c1d1e167bb5500bc4f10837c"
     },
     {
       "path": "hooks/local/lib/health-stage-progress.sh",
@@ -158,7 +158,7 @@
     },
     {
       "path": "hooks/local/lib/partial-upgrade-check.sh",
-      "sha256": "676bf4d88b7543d518e89fe6cbe86217c528eb93eb108493c274e7c866978ce2"
+      "sha256": "8a196674f4594f6586069cab72a7fc8a3df28c040ec3f0f880a8a88416685ade"
     },
     {
       "path": "hooks/local/lib/plugin-parity.sh",
@@ -554,7 +554,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "e5c3592bb96e36092c3cf1f74388310ed9b2e569834a79834fdc08b117eab2b0"
+      "sha256": "ed0c1fcdc62440135cc58b1c3507fa47aca8442212a57c362ddea7471a78cd2b"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -670,7 +670,7 @@
     },
     {
       "path": "hooks/tests/test-hop-log-truthfulness.sh",
-      "sha256": "8ce3107cc2b3853c2728b0d9578d9cd52c50c2e1f5528c582f3eb3d73a93be72"
+      "sha256": "f16bc24480b2d502534d125519a5589215a5a94e967ca8f16ed2d65d893e1bfe"
     },
     {
       "path": "hooks/tests/test-install-fusebase-cli-project-doc.sh",
@@ -714,7 +714,7 @@
     },
     {
       "path": "hooks/tests/test-plugin-parity-scope.sh",
-      "sha256": "2fcece866e2dacfd05db092dda73186d7da6cbe707a76569300f1ffd039becd4"
+      "sha256": "56b9ae9414ce498d76eb0690875a3ec7eca2872405ccf3305871839e8a1ddab5"
     },
     {
       "path": "hooks/tests/test-po-investigate.sh",
@@ -861,5 +861,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "283f5e6917443d8327af4149fd493da135eaa701c7871819c1fd563137ca183a"
+  "manifest_self_sha256": "0b10e9d91fc46156fa01dc9bc6995e3941fb6323f1cf1bfb034e472b62d2f875"
 }

@@ -25,6 +25,11 @@ ffhc_build_recommendations() {
       # next step) at detection time — replay it verbatim rather than paraphrasing.
       RECOMMENDATIONS+=("${CLI_VERSION_UNSUPPORTED[@]}")
       RECOMMENDATIONS+=("Only the CLI VERSION signal is verdict-affecting; CLI_SNAPSHOT_STALE / CLI_CUSTOM_AT_RISK / CLI_STOP_* remain advisory.") ;;
+    PUBLISHER_PACKAGING_DRIFT)
+      RECOMMENDATIONS+=("PUBLISHER PACKAGING DRIFT — a Flow-owned plugin manifest does not match VERSION in the PUBLISHER repo (release ledger present). This is packaging drift, NOT an interrupted upgrade: the manifests are deliberately outside the managed set, so no upgrade refreshes them and nothing here says your tree half-applied. The items are listed above as 'PACKAGING_DRIFT — …'.")
+      RECOMMENDATIONS+=("Repair: bump the named manifest(s) to match VERSION, then re-run parity:")
+      RECOMMENDATIONS+=("  bash hooks/local/preflight.sh")
+      RECOMMENDATIONS+=("In a CONSUMER repo this class never fires — a manifest named fusebase-flow without the release ledger is the consumer's own surface, on its own lifecycle. Never hand-copy the publisher's manifest bytes to silence a check.") ;;
     PARTIAL_UPGRADE)
       RECOMMENDATIONS+=("PARTIAL UPGRADE — VERSION/content advanced but live attestation strings are STALE (an interrupted upgrade, or an adapter with no overlay-refresh path). The stale-fact items are listed above as 'PARTIAL_UPGRADE — …'.")
       RECOMMENDATIONS+=("Repair (re-syncs the derived strings + re-applies adapter overlays):")

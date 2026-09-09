@@ -141,4 +141,101 @@ grep -q "ffpp_errors" "$PF" || f="$f [$PF never calls ffpp_errors]"
 grep -qE '^[[:space:]]*for pj in \.claude-plugin/plugin\.json' "$PF"   && f="$f [the OLD unscoped parity loop is still present in $PF — two implementations of one rule, and the unscoped one still fires]"
 [ -z "$f" ] && ok "n4-check-is-wired (preflight delegates parity to the publisher-scoped lib, and the old unscoped loop is gone — one implementation, not two)"             || bad n4-check-is-wired "$f"
 
+
+###############################################################################
+# HEALTH REUSE (S2) — the health engine must apply BOTH predicates, via the SAME helper
+###############################################################################
+# THE COMPLAINT, second instance: lib/partial-upgrade-check.sh carried predicate 1 (ownership by
+# `name`) but not predicate 2 (publisher context), so the consumer above ALSO got a health
+# PARTIAL_UPGRADE verdict for the same three manifests. It drove them to hand-copy the
+# publisher's manifest bytes twice to get a clean verdict — the consumer-ownership risk the
+# exclusion exists to prevent. Spec: docs/specs/hop-log-truthfulness-and-publisher-scope/spec.md § S2.
+PU_LIB="hooks/local/lib/partial-upgrade-check.sh"
+ENGINE="hooks/local/fusebase-flow-health-check.sh"
+RECS="hooks/local/lib/health-recommendations.sh"
+
+# Health's packaging arm in <dir>, with a recording record_drift: one "check_id|message" per finding.
+health_pkg() {
+  ( cd "$1" && bash -c 'PUBLISHER_PACKAGING_FINDINGS=(); record_drift() { printf "%s|%s\n" "$1" "$2"; }; . hooks/local/lib/partial-upgrade-check.sh 2>/dev/null; ffhc_publisher_packaging_collect' 2>/dev/null )
+}
+health_adapters() {
+  ( cd "$1" && bash -c '. hooks/local/lib/partial-upgrade-check.sh 2>/dev/null; ffhc_partial_upgrade_findings' 2>/dev/null )
+}
+# repo_at plus the libs health sources, so the fixture exercises the shipped code paths.
+health_repo_at() {
+  repo_at "$@"
+  mkdir -p "$1/hooks/local/lib"
+  cp "$ROOT/$PU_LIB" "$ROOT/$LIB" "$1/hooks/local/lib/"
+}
+
+f=""
+[ -f "$ROOT/$PU_LIB" ] || f="$f [$PU_LIB does not exist, so every assertion below is vacuous]"
+HC="$BASE_TMP/health-consumer"; health_repo_at "$HC" fusebase-flow 4.9.2 0 4.9.2
+OUT="$(health_pkg "$HC")"
+[ -n "$OUT" ] && f="$f [health flagged a CONSUMER's copied-name manifests: '$OUT' — the false positive that made them hand-copy our bytes]"
+printf '%s' "$(health_adapters "$HC")" | grep -q "plugin.json" \
+  && f="$f [the adapter arm still reports plugin.json, so two implementations of the plugin rule are live again]"
+# ANTI-REGRESSION: v4.15.3's health arm DID fire on this fixture. Without it the row is vacuous.
+OLD_LIB="$BASE_TMP/old-partial-upgrade-check.sh"
+if git show v4.15.3:hooks/local/lib/partial-upgrade-check.sh > "$OLD_LIB" 2>/dev/null; then
+  OLD_OUT="$( cd "$HC" && bash -c '. "$0"; ffhc_partial_upgrade_findings' "$OLD_LIB" 2>/dev/null )"
+  printf '%s' "$OLD_OUT" | grep -q "plugin.json" \
+    || f="$f [v4.15.3's health arm did NOT flag this consumer fixture, so the fixture is not the reported defect]"
+else
+  f="$f [could not read the v4.15.3 health arm, so this row cannot establish the regression]"
+fi
+[ -z "$f" ] && ok "s2-health-consumer-manifests-not-flagged (health applies the publisher predicate too; v4.15.3 flagged this same fixture)" \
+            || bad s2-health-consumer-manifests-not-flagged "$f"
+
+f=""
+HP="$BASE_TMP/health-publisher"; health_repo_at "$HP" fusebase-flow 4.9.2 1
+OUT="$(health_pkg "$HP")"
+printf '%s' "$OUT" | grep -q "plugin.json" \
+  || f="$f [a PUBLISHER manifest lagging VERSION raised nothing — scoping has turned into disabling]"
+printf '%s' "$OUT" | grep -q "^publisher_packaging|PACKAGING_DRIFT" \
+  || f="$f [the finding does not carry its own class/check_id: '$OUT']"
+printf '%s' "$OUT" | grep -q "PARTIAL_UPGRADE" \
+  && f="$f [publisher packaging drift is still labelled PARTIAL_UPGRADE — it is packaging drift, not an interrupted upgrade]"
+grep -q 'DRIFT_SIGNATURE="PUBLISHER_PACKAGING_DRIFT"' "$ROOT/$ENGINE" \
+  || f="$f [$ENGINE has no PUBLISHER_PACKAGING_DRIFT verdict, so the finding cannot get its own interpretation]"
+grep -q "PUBLISHER_PACKAGING_DRIFT)" "$ROOT/$RECS" \
+  || f="$f [$RECS has no publisher remediation, so the operator still gets the interrupted-upgrade advice]"
+grep -A4 "PUBLISHER_PACKAGING_DRIFT)" "$ROOT/$RECS" | grep -qi "interrupted upgrade" \
+  || f="$f [the publisher remediation does not say this is NOT an interrupted upgrade]"
+[ -z "$f" ] && ok "s2-publisher-mismatch-is-packaging-not-partial-upgrade (still fails in the publisher repo, under its own class, verdict and remediation)" \
+            || bad s2-publisher-mismatch-is-packaging-not-partial-upgrade "$f"
+
+f=""
+HM="$BASE_TMP/health-mkt"; health_repo_at "$HM" fusebase-flow 4.11.0 1 4.9.0
+printf '%s' "$(health_pkg "$HM")" | grep -q "marketplace.json" \
+  || f="$f [marketplace.json parity is NOT in health's scope; the recorded decision to include it was not implemented]"
+HM2="$BASE_TMP/health-mkt-consumer"; health_repo_at "$HM2" fusebase-flow 4.11.0 0 4.9.0
+printf '%s' "$(health_pkg "$HM2")" | grep -q "marketplace.json" \
+  && f="$f [marketplace.json parity fires in a CONSUMER repo through health — same defect, different file]"
+[ -z "$f" ] && ok "s2-marketplace-included-deliberately (decision: marketplace.json IS in health's publisher arm; still silent in a consumer)" \
+            || bad s2-marketplace-included-deliberately "$f"
+
+f=""
+HI="$BASE_TMP/health-indep"; health_repo_at "$HI" fusebase-flow 4.9.2 0
+rm -f "$HI/hooks/local/lib/plugin-parity.sh"
+printf 'runs **Fusebase Flow v4.1.0**\n' > "$HI/AGENTS.md"
+printf '| FR-01 |\n' > "$HI/FLOW_RULES.md"
+printf '%s' "$(health_adapters "$HI")" | grep -q "AGENTS.md" \
+  || f="$f [a stale consumer adapter stopped failing once the plugin helper was unavailable — the diagnostics are not independent]"
+printf '%s' "$(health_pkg "$HI")" | grep -q . \
+  && f="$f [the packaging arm invented a finding with no helper present]"
+[ -z "$f" ] && ok "s2-adapter-checks-stay-independent (a missing plugin helper does not suppress the stale-adapter findings)" \
+            || bad s2-adapter-checks-stay-independent "$f"
+
+f=""
+HR="$BASE_TMP/health-readonly"; health_repo_at "$HR" fusebase-flow 4.9.2 1
+BEFORE="$(cd "$HR" && find . -type f -exec cksum {} + 2>/dev/null | sort)"
+health_pkg "$HR" >/dev/null 2>&1
+health_adapters "$HR" >/dev/null 2>&1
+AFTER="$(cd "$HR" && find . -type f -exec cksum {} + 2>/dev/null | sort)"
+[ -n "$BEFORE" ] || f="$f [could not snapshot the fixture, so read-only proves nothing]"
+[ "$BEFORE" = "$AFTER" ] || f="$f [health's checks changed bytes in the tree they inspect]"
+[ -z "$f" ] && ok "s2-health-stays-read-only (both arms leave every byte of the inspected tree untouched)" \
+            || bad s2-health-stays-read-only "$f"
+
 finish

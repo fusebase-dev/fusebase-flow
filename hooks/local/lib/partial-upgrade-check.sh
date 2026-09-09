@@ -15,8 +15,10 @@
 #   reports each mismatch.
 #
 # CONTRACT (the engine relies on these):
-#   ffhc_partial_upgrade_findings  -> echoes one "<surface>: <detail>" line per
-#                                     stale-derived-fact mismatch (empty == none).
+#   ffhc_partial_upgrade_findings      -> echoes one "<surface>: <detail>" line per
+#                                         stale-derived-fact mismatch (empty == none).
+#   ffhc_publisher_packaging_collect   -> records plugin-manifest parity findings in the
+#                                         PUBLISHER repo only, as a SEPARATE class.
 #   Verdict mapping is the ENGINE's call: a non-empty result is genuine DRIFT
 #   (a concrete stale-fact finding), mapped to the PARTIAL_UPGRADE signature /
 #   exit 1 (the drift class). It is NOT exit 4 — exit 4 (PARTIAL_UNVERIFIED) is
@@ -29,7 +31,6 @@
 #   FLOW_RULES.md FR-NN max          -> the canonical FR-range high bound
 #   flow-skills/ dir count           -> the canonical skill count
 # Live strings checked against them, per surface:
-#   .claude-plugin/plugin.json version   == VERSION
 #   GEMINI.md / AGENTS.md / CLAUDE.md / .github/copilot-instructions.md /
 #     .cursor/rules/*.mdc live "Fusebase Flow v<semver>" banner/attestation == VERSION
 #   any adapter "FR-01 through FR-NN" / "FR-01..FR-NN" == derived FR high bound
@@ -46,27 +47,6 @@ ffhc_partial_upgrade_findings() {
   [ -n "$fr_max" ] && fr_hi="$(printf 'FR-%02d' "$fr_max")" || fr_hi=""
   local scan="flow-skills"; [ -d "$scan" ] || scan="skills"
   skill_count="$(find "$scan" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
-
-  # plugin.json version parity (preflight §8 also checks this; surfaced here as a
-  # partial-upgrade signal so the operator gets a repair command, not just an error).
-  # TRIPWIRE: scoped to FLOW-OWNED manifests by `name`. This runs inside CONSUMER repos, which
-  # may carry their own (Fusebase CLI-generated) .codex-plugin/plugin.json — an existence-only
-  # check reported that foreign manifest as Flow drift and demanded the consumer's version match
-  # Flow's. Existence is not ownership.
-  local pj pj_name pj_ver
-  for pj in .claude-plugin/plugin.json .codex-plugin/plugin.json; do
-    [ -f "$pj" ] && command -v python3 >/dev/null 2>&1 || continue
-    pj_name="$(FF_PJ="$pj" python3 -c "import json,os,sys
-try: d=json.load(open(os.environ['FF_PJ'],encoding='utf-8'))
-except Exception: sys.exit(0)
-print(d.get('name',''))" 2>/dev/null)"
-    [ "$pj_name" = "fusebase-flow" ] || continue
-    pj_ver="$(FF_PJ="$pj" python3 -c "import json,os,sys
-try: d=json.load(open(os.environ['FF_PJ'],encoding='utf-8'))
-except Exception: sys.exit(0)
-print(d.get('version',''))" 2>/dev/null)"
-    [ -n "$pj_ver" ] && [ "$pj_ver" != "$ver" ] && echo "$pj: version $pj_ver != VERSION $ver"
-  done
 
   # Live "Fusebase Flow v<semver>" banner/attestation strings per adapter must read
   # the current VERSION. The U5 regex form (optional Local / 2-or-3-part) is matched
@@ -98,5 +78,39 @@ print(d.get('version',''))" 2>/dev/null)"
       [ -n "$stale_fr" ] && echo "$f: live FR-range high bound FR-$stale_fr != derived $fr_hi"
     done
   fi
+  return 0
+}
+
+# Plugin-manifest parity, PUBLISHER-ONLY — the SAME helper preflight uses (lib/plugin-parity.sh),
+# never a second copy. Health previously carried only predicate 1 (ownership by `name`), so a
+# consumer whose three manifests are named fusebase-flow BECAUSE they were generated from Flow's
+# was told their tree was a partial upgrade; they hand-copied our manifest bytes twice to clear
+# it — the consumer-ownership risk the exclusion exists to prevent. Predicate 2 (the release
+# ledger exists) is exactly what plugin-parity.sh added; reuse it instead of re-deriving it.
+#
+# DECISION — marketplace.json IS in scope here, deliberately, not by inheritance. It is not
+# written by sync-version-strings.sh and silently drifted ~20 minor versions before any parity
+# check existed (plugin-parity.sh § TRIPWIRE); the arm is publisher-only, so no consumer tree is
+# affected; and giving health narrower coverage than preflight would recreate the two-copies
+# divergence this reuse removes.
+#
+# TRIPWIRE: a publisher manifest mismatch is packaging drift, NOT evidence of an interrupted
+# upgrade. It gets its own PACKAGING_DRIFT class and its own remediation — never PARTIAL_UPGRADE.
+# TRIPWIRE: this arm must never suppress the adapter checks above. They are independent; a stale
+# consumer adapter still fails whether or not any plugin diagnostic is available. Read-only.
+ffhc_publisher_packaging_collect() {
+  local lib e
+  lib="$(dirname "${BASH_SOURCE[0]}")/plugin-parity.sh"
+  if ! command -v ffpp_errors >/dev/null 2>&1; then
+    [ -f "$lib" ] || return 0
+    # shellcheck source=plugin-parity.sh
+    . "$lib"
+  fi
+  command -v ffpp_errors >/dev/null 2>&1 || return 0
+  while IFS= read -r e; do
+    [ -n "$e" ] || continue
+    PUBLISHER_PACKAGING_FINDINGS+=("$e")
+    command -v record_drift >/dev/null 2>&1 && record_drift "publisher_packaging" "PACKAGING_DRIFT — $e"
+  done < <(ffpp_errors 2>/dev/null)
   return 0
 }
