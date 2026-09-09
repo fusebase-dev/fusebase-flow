@@ -670,7 +670,7 @@
     },
     {
       "path": "hooks/tests/test-hop-log-truthfulness.sh",
-      "sha256": "4be4350af9d4dd72115118675f6456798b436e0ea411aac4cf6a9ca61bd2ed1b"
+      "sha256": "2b2bc70cc9e9e260ae615c0dcd7c2c90b575d4421f1840d45d0a4cd207e35bfa"
     },
     {
       "path": "hooks/tests/test-install-fusebase-cli-project-doc.sh",
@@ -861,5 +861,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "0dfa4a7fb8f798eeee743c6ac761561b35873da9580199b67517aef31f41e9d3"
+  "manifest_self_sha256": "967ee52eb6d25d5cfe07cb248cca7a0799e0900f553443e0aeed5321ebef49aa"
 }

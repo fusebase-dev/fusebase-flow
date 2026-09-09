@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "a03a36dbdff1527b9bf87db51c851d8e0846634425ffe959a7a9e3aea11a3e57"
+      "sha256": "f98adeec497eca27a00920f711ce8826f594005fc81b49c9388f5cd1dd889f2e"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -1122,7 +1122,7 @@
     },
     {
       "path": "hooks/tests/test-hop-log-truthfulness.sh",
-      "sha256": "4be4350af9d4dd72115118675f6456798b436e0ea411aac4cf6a9ca61bd2ed1b"
+      "sha256": "2b2bc70cc9e9e260ae615c0dcd7c2c90b575d4421f1840d45d0a4cd207e35bfa"
     },
     {
       "path": "hooks/tests/test-install-fusebase-cli-project-doc.sh",
@@ -1517,5 +1517,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "ecfc036f27ee3634700524718549a539718e4c9fe02d9abad97f0d8efa8fd3c5"
+  "manifest_self_sha256": "d6393fdc32c2af4b148ac8e6a9222abf0ed7aa2216bfc4a524420ff7386e3caf"
 }
