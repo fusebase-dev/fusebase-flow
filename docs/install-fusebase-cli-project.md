@@ -364,15 +364,21 @@ bash hooks/local/post-fusebase-update.sh
 
 This restores Flow skills, Flow agents, the AGENTS/CLAUDE overlay blocks, the Flow health skill mirror, and the `/fusebase-health` command. It does not patch `.claude/hooks/**` or restore CLI provider text.
 
-Two steps are **opt-in and do not run by default** — merging Flow lifecycle hooks into
-`.claude/settings.json`, and re-installing the Flow git fallback hooks. Ask for them explicitly:
+Two steps never run unasked — merging Flow lifecycle hooks into `.claude/settings.json`, and
+re-installing the Flow git fallback hooks. Ask for them explicitly:
 
 ```bash
 bash hooks/local/post-fusebase-update.sh --wire-hooks
 ```
 
-Without `--wire-hooks` the script reports `.claude/settings.json NOT modified` and leaves
-`.git/hooks` untouched. That default matches the project rule that Flow hooks are opt-in.
+Without `--wire-hooks`, what happens to `.claude/settings.json` depends on what the tree already
+recorded (v4.15.0+). A tree carrying an ENABLED wiring intent for the `claude_settings` surface
+(`state/audit/flow-hook-wiring-intent.json`, written by an earlier `--wire-hooks`) gets its Flow
+lifecycle events restored automatically, and the run reports which events it added. With no such
+marker the script reports `.claude/settings.json NOT modified` and leaves `.git/hooks` untouched.
+Git-hook restoration additionally requires prior ownership proof, so it never follows from the
+marker alone. Record a permanent opt-out with
+`bash hooks/local/post-fusebase-update.sh --forget-hook-wiring`.
 
 When triggered through the chat skill, the agent will **offer** to run recovery for you — reply `yes` (or `run it` / `fix it` / `proceed`) and the agent executes the script and re-checks. The skill never runs recovery without an explicit affirmative reply.
 

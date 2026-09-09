@@ -132,9 +132,9 @@ ACTIONS_SKIPPED=()
 WARNINGS=()
 
 # Flags (F2/F3):
-#   --wire-hooks       opt-in: merge Flow lifecycle hooks into .claude/settings.json.
-#                      DEFAULT IS OFF — recovery never silently changes settings.json
-#                      (matches CLAUDE.md's "hooks are opt-in" contract).
+#   --wire-hooks       opt-in: merge Flow lifecycle hooks into .claude/settings.json. NOT the
+#                      only path since 0829d16 (v4.15.0): an ENABLED intent marker naming the
+#                      claude_settings surface authorizes the same merge with no flag.
 #   --refresh-overlays version-aware: if an AGENTS.md/CLAUDE.md overlay block is
 #                      PRESENT but DRIFTED from the template, replace it (with a
 #                      backup) instead of skipping. Used by upgrade.sh.
