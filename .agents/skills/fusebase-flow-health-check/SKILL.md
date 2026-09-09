@@ -1,6 +1,6 @@
 ---
 name: fusebase-flow-health-check
-description: Use when the operator asks "is Fusebase Flow healthy", "check Fusebase Flow", "did fusebase update break anything", "Fusebase Flow status", "restore Fusebase Flow", or asks whether Fusebase CLI and Fusebase Flow agent files conflict. Runs the read-only health engine, reports layer verdicts (`HEALTHY`, `CLI_LAYER_DRIFT`, `CLI_VERSION_UNSUPPORTED`, `FLOW_LAYER_DRIFT`, `SHARED_MERGE_DRIFT`, `EXCEPTION_IN_EFFECT`, `PARTIAL_UNVERIFIED`, `BROKEN`), and offers Flow recovery only when the drift is Flow-owned or shared-merge. For CLI-owned drift, instruct the operator to run the current FuseBase CLI refresh/update first, then Flow recovery.
+description: Use when the operator asks "is Fusebase Flow healthy", "check Fusebase Flow", "did fusebase update break anything", "Fusebase Flow status", "restore Fusebase Flow", or asks whether Fusebase CLI and Fusebase Flow agent files conflict. Runs the read-only health engine, reports layer verdicts (`HEALTHY`, `CLI_LAYER_DRIFT`, `CLI_VERSION_UNSUPPORTED`, `FLOW_LAYER_DRIFT`, `SHARED_MERGE_DRIFT`, `PARTIAL_UPGRADE`, `PUBLISHER_PACKAGING_DRIFT`, `EXCEPTION_IN_EFFECT`, `PARTIAL_UNVERIFIED`, `BROKEN`), and offers Flow recovery only when the drift is Flow-owned or shared-merge. For CLI-owned drift, instruct the operator to run the current FuseBase CLI refresh/update first, then Flow recovery.
 source_inspiration: original (operator-maintained recovery infrastructure)
 license_status: clean-room-original
 fusebase_flow_version: 3.1
@@ -32,6 +32,8 @@ Verify the local Fusebase Flow overlay and the shared FuseBase CLI / Flow agent 
 | `CLI_VERSION_UNSUPPORTED` | The installed FuseBase Apps CLI is **below the established incompatibility line**, so the CLI documents this Flow edition vendors are known-incompatible with it (`--app` resolution and command templates changed across the gap). The only CLI-version condition that changes the verdict. | Upgrade the CLI, then re-run. Flow recovery does not help — the mismatch is the CLI, not the overlay. |
 | `SHARED_MERGE_DRIFT` | Shared files are missing Flow overlay/merge additions. | Offer Flow recovery. |
 | `FLOW_LAYER_DRIFT` | Flow-owned mirrors or overlay files are missing/drifted. | Offer Flow recovery. |
+| `PARTIAL_UPGRADE` | Every real drift item is a stale DERIVED fact (adapter version/FR-range strings behind `VERSION`) — an upgrade that bumped `VERSION` and left the live strings behind. | Re-run `bash hooks/local/upgrade.sh` (or `sync-version-strings.sh`); the check RAN and found drift, so this is exit 1, never exit 4. |
+| `PUBLISHER_PACKAGING_DRIFT` | **Publisher repos only** (the release ledger `docs/release-fingerprints.md` is present): every real drift item is a Flow-owned plugin manifest whose `version` does not match `VERSION`. Packaging drift, **not** an interrupted upgrade — the manifests are deliberately outside the managed set, so no upgrade refreshes them. A consumer tree never reaches this verdict. | Bump `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json` and `.claude-plugin/marketplace.json` with `VERSION`. Do not run Flow recovery. |
 | `EXCEPTION_IN_EFFECT` | Drift is covered by active approval/deferral artifacts. | Do not run recovery automatically. Surface the artifact. |
 | `BROKEN` | A completed critical check failed, or a sub-script crashed (rc≠0 with no parsable result). | Do not offer recovery; inspect the broken item first. |
 | `PARTIAL_UNVERIFIED` | A **critical** check (preflight, hook-layer integrity, conflict reporter) was skipped / timed out / unavailable, and nothing that ran proves drift or breakage. **Not full health, not a failure** — the run is simply incomplete. | Re-run on a host with more time/CPU, raise the relevant `FFHC_*_TIMEOUT` knob, or run the named check directly. Don't treat as healthy. |
@@ -111,7 +113,7 @@ The conflict reporter (`check-cli-flow-conflicts.sh`) also emits advisory findin
    | Exit | Verdicts |
    |---:|---|
    | 0 | `HEALTHY` (every critical check ran clean) |
-   | 1 | `CLI_LAYER_DRIFT`, `CLI_VERSION_UNSUPPORTED`, `FLOW_LAYER_DRIFT`, `SHARED_MERGE_DRIFT` |
+   | 1 | `CLI_LAYER_DRIFT`, `CLI_VERSION_UNSUPPORTED`, `FLOW_LAYER_DRIFT`, `SHARED_MERGE_DRIFT`, `PARTIAL_UPGRADE`, `PUBLISHER_PACKAGING_DRIFT` |
    | 2 | `BROKEN` |
    | 3 | `EXCEPTION_IN_EFFECT` |
    | 4 | `PARTIAL_UNVERIFIED` (a critical check did not run — partial/unverified; **not** full health, **not** a hard failure) |

@@ -31,6 +31,8 @@
 #   PRESERVED      n4-foreign-name-still-skipped  — the existing ownership test still holds
 #   PRESERVED      n4-marketplace-scoped-too      — same rule for marketplace.json
 #   LOCK           n4-plugin-manifests-not-managed — adoption stays forbidden
+#   REAL-PATH      s2-* rows below run the shipped engine over a copy of this tree: wiring is
+#                  not selection, and the packaging verdict was unreachable behind BROKEN.
 #
 # Output contract (parsed by run-tests.sh run_shell_phase):
 #   "PASS: n4-parity-scope <name>" / "FAIL: n4-parity-scope <name>"; exit = failure count.
@@ -151,6 +153,7 @@ grep -qE '^[[:space:]]*for pj in \.claude-plugin/plugin\.json' "$PF"   && f="$f 
 # publisher's manifest bytes twice to get a clean verdict — the consumer-ownership risk the
 # exclusion exists to prevent. Spec: docs/specs/hop-log-truthfulness-and-publisher-scope/spec.md § S2.
 PU_LIB="hooks/local/lib/partial-upgrade-check.sh"
+C3_PREFIX_SHA="44d0fd2"   # the reviewed pre-fix health arm; C3 anti-regression source
 ENGINE="hooks/local/fusebase-flow-health-check.sh"
 RECS="hooks/local/lib/health-recommendations.sh"
 
@@ -237,5 +240,105 @@ AFTER="$(cd "$HR" && find . -type f -exec cksum {} + 2>/dev/null | sort)"
 [ "$BEFORE" = "$AFTER" ] || f="$f [health's checks changed bytes in the tree they inspect]"
 [ -z "$f" ] && ok "s2-health-stays-read-only (both arms leave every byte of the inspected tree untouched)" \
             || bad s2-health-stays-read-only "$f"
+
+###############################################################################
+# S2/C3 — REAL-PATH verdict selection. The rows above prove the arm is WIRED; these prove the
+# verdict is SELECTED. An ordinary publisher manifest mismatch also fails preflight, and BROKEN
+# is decided before the packaging class, so PUBLISHER_PACKAGING_DRIFT was unreachable in a real
+# run. Driven through the shipped engine — no replaced record_drift, no grepping for strings.
+###############################################################################
+PUB="$BASE_TMP/publisher-tree"
+BK="$BASE_TMP/backup"; mkdir -p "$PUB" "$BK"
+copy_ok=0
+if ( cd "$ROOT" && tar -cf - --exclude=./.git --exclude=./.fusebase-flow-source . ) 2>/dev/null \
+   | ( cd "$PUB" && tar -xf - ) 2>/dev/null; then
+  [ -f "$PUB/VERSION" ] && [ -f "$PUB/$ENGINE" ] && [ -f "$PUB/docs/release-fingerprints.md" ] && copy_ok=1
+fi
+# health <dir> -> prints "<exit>|<verdict>"; the full report is left at <dir>/.hc.out
+health_verdict() {
+  local out rc
+  out="$( cd "$1" && bash hooks/local/fusebase-flow-health-check.sh --no-upstream 2>&1 )"; rc=$?
+  printf '%s' "$out" > "$1/.hc.out"
+  printf '%s|%s' "$rc" "$(printf '%s' "$out" | grep -m1 '^Verdict: ' | sed 's/^Verdict: //')"
+}
+
+if [ "$copy_ok" -ne 1 ]; then
+  bad s2-publisher-packaging-only-is-not-broken "could not stage a copy of the publisher tree, so the real-path rows cannot run"
+  bad s2-prefix-engine-read-packaging-as-broken "no publisher tree fixture"
+  bad s2-unrelated-preflight-error-still-broken "no publisher tree fixture"
+  bad s2-consumer-lagged-manifest-is-not-publisher-drift "no publisher tree fixture"
+else
+  ( cd "$PUB" && git init -q . && git config user.email t@example.invalid && git config user.name t ) >/dev/null 2>&1
+  cp "$PUB/.claude-plugin/plugin.json" "$BK/plugin.json"
+  cp "$PUB/GEMINI.md" "$BK/GEMINI.md" 2>/dev/null
+  # Lag the plugin manifest by one patch: parity is then the ONLY preflight error.
+  python3 - "$PUB" <<'PY' 2>/dev/null
+import json, pathlib, sys
+p = pathlib.Path(sys.argv[1]) / ".claude-plugin/plugin.json"
+o = json.loads(p.read_text(encoding="utf-8"))
+a, b, c = o["version"].split(".")
+o["version"] = "%s.%s.%d" % (a, b, int(c) - 1)
+p.write_text(json.dumps(o, indent=2) + "\n", encoding="utf-8")
+PY
+
+  f=""
+  PF_OUT="$( cd "$PUB" && bash hooks/local/preflight.sh 2>&1 )"
+  PF_ERRS="$(printf '%s\n' "$PF_OUT" | grep -c '^\[preflight\] ERROR: ')"
+  [ "$PF_ERRS" = "1" ] \
+    || f="$f [the copied tree has $PF_ERRS preflight errors, not 1 — parity must be the only one for this row to be the defect: $(printf '%s\n' "$PF_OUT" | grep '^\[preflight\] ERROR: ' | head -3)]"
+  printf '%s\n' "$PF_OUT" | grep -q 'plugin.json version' \
+    || f="$f [the lagged manifest did not produce the parity preflight error]"
+  R="$(health_verdict "$PUB")"
+  [ "$R" = "1|PUBLISHER_PACKAGING_DRIFT" ] \
+    || f="$f [a publisher tree whose ONLY preflight error is manifest parity reported '$R', not 1|PUBLISHER_PACKAGING_DRIFT. Non-OK items: $(grep -E '^  [✗⚠]' "$PUB/.hc.out" | head -3). A stale audit/hook-layer-manifest.json in the SOURCE tree lands here as FLOW_LAYER_DRIFT: re-stamp before re-running]"
+  grep -q '^Verdict: BROKEN' "$PUB/.hc.out" && f="$f [the run still reports BROKEN]"
+  grep -qi 'NOT an interrupted upgrade' "$PUB/.hc.out" \
+    || f="$f [the packaging remediation ('packaging drift, NOT an interrupted upgrade') never reached the operator]"
+  [ -z "$f" ] && ok "s2-publisher-packaging-only-is-not-broken (real run: parity is the only preflight error => Verdict: PUBLISHER_PACKAGING_DRIFT, exit 1, with the packaging remediation)" \
+              || bad s2-publisher-packaging-only-is-not-broken "$f"
+
+  # ANTI-REGRESSION: the pre-fix engine on this same fixture recorded BROKEN, which outranks the
+  # packaging class — that is why the verdict was unreachable.
+  f=""
+  OLD_ENGINE="$BASE_TMP/old-engine.sh"; OLD_PU="$BASE_TMP/old-pu.sh"
+  if git show "$C3_PREFIX_SHA:$ENGINE" > "$OLD_ENGINE" 2>/dev/null \
+     && git show "$C3_PREFIX_SHA:$PU_LIB" > "$OLD_PU" 2>/dev/null \
+     && [ -s "$OLD_ENGINE" ] && [ -s "$OLD_PU" ]; then
+    cp "$PUB/$ENGINE" "$BK/engine.sh"; cp "$PUB/$PU_LIB" "$BK/pu.sh"
+    cp "$OLD_ENGINE" "$PUB/$ENGINE"; cp "$OLD_PU" "$PUB/$PU_LIB"
+    R="$(health_verdict "$PUB")"
+    cp "$BK/engine.sh" "$PUB/$ENGINE"; cp "$BK/pu.sh" "$PUB/$PU_LIB"
+    [ "${R#*|}" = "BROKEN" ] \
+      || f="$f [$C3_PREFIX_SHA's engine reported '$R' on the packaging-only fixture; if it was not BROKEN the verdict was already reachable and these rows prove nothing]"
+  else
+    f="$f [could not extract $C3_PREFIX_SHA's engine/lib, so this row cannot establish the regression]"
+  fi
+  [ -z "$f" ] && ok "s2-prefix-engine-read-packaging-as-broken (anti-vacuity: on the same fixture $C3_PREFIX_SHA reports BROKEN, so PUBLISHER_PACKAGING_DRIFT was unreachable)" \
+              || bad s2-prefix-engine-read-packaging-as-broken "$f"
+
+  # One preflight error that is NOT a packaging finding must still be BROKEN.
+  f=""
+  rm -f "$PUB/GEMINI.md"
+  R="$(health_verdict "$PUB")"
+  [ "$R" = "2|BROKEN" ] \
+    || f="$f [packaging drift plus an unrelated preflight error reported '$R', not 2|BROKEN — a real breakage was reclassified as packaging]"
+  [ -f "$BK/GEMINI.md" ] && cp "$BK/GEMINI.md" "$PUB/GEMINI.md"
+  [ -z "$f" ] && ok "s2-unrelated-preflight-error-still-broken (one non-parity preflight error alongside the packaging finding still reports BROKEN, exit 2)" \
+              || bad s2-unrelated-preflight-error-still-broken "$f"
+
+  # A consumer (no release ledger) with the same lagged manifest: parity is silent end to end.
+  f=""
+  mv "$PUB/docs/release-fingerprints.md" "$BK/release-fingerprints.md"
+  PF_OUT="$( cd "$PUB" && bash hooks/local/preflight.sh 2>&1 )"
+  printf '%s\n' "$PF_OUT" | grep -q 'plugin.json version' \
+    && f="$f [the parity check fired in a tree with no release ledger — the consumer defect is back]"
+  R="$(health_verdict "$PUB")"
+  case "${R#*|}" in
+    BROKEN|PUBLISHER_PACKAGING_DRIFT) f="$f [a consumer tree with a lagged manifest reported '$R']" ;;
+  esac
+  mv "$BK/release-fingerprints.md" "$PUB/docs/release-fingerprints.md"
+  [ -z "$f" ] && ok "s2-consumer-lagged-manifest-is-not-publisher-drift (no ledger: preflight is clean on parity and the verdict is neither BROKEN nor PUBLISHER_PACKAGING_DRIFT)" \
+              || bad s2-consumer-lagged-manifest-is-not-publisher-drift "$f"
+fi
 
 finish

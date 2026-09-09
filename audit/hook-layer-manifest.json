@@ -70,7 +70,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-health-check.sh",
-      "sha256": "890d87f614418323665a1fdcf70d26a86ea91ef836a87c0c1f6a17587fe696e1"
+      "sha256": "9bd9da714714fb1fff3cd2810a78a826b610845bb642d8dad1377df8ef74ccf5"
     },
     {
       "path": "hooks/local/install-codex-prompts.sh",
@@ -158,7 +158,7 @@
     },
     {
       "path": "hooks/local/lib/partial-upgrade-check.sh",
-      "sha256": "8a196674f4594f6586069cab72a7fc8a3df28c040ec3f0f880a8a88416685ade"
+      "sha256": "f6ebde79ff8a1ac94302f59b98dee7e4a195fcc38b7e79a7c27166b2fee7763d"
     },
     {
       "path": "hooks/local/lib/plugin-parity.sh",
@@ -714,7 +714,7 @@
     },
     {
       "path": "hooks/tests/test-plugin-parity-scope.sh",
-      "sha256": "56b9ae9414ce498d76eb0690875a3ec7eca2872405ccf3305871839e8a1ddab5"
+      "sha256": "59a545d243baee088b5f5e62b45b44f8f9cbc05b959f8688fbc6b58e96f8754c"
     },
     {
       "path": "hooks/tests/test-po-investigate.sh",
@@ -861,5 +861,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "967ee52eb6d25d5cfe07cb248cca7a0799e0900f553443e0aeed5321ebef49aa"
+  "manifest_self_sha256": "1793311d842a21af6ec85ffb4f5246f33d2cd19812256a4cd093e85a3e5d3731"
 }

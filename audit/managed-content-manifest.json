@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "f98adeec497eca27a00920f711ce8826f594005fc81b49c9388f5cd1dd889f2e"
+      "sha256": "50198524eeb2b49437497254a371c78ccbd606a36f18eece77bd504a8bab2531"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -106,7 +106,7 @@
     },
     {
       "path": "flow-skills/fusebase-flow-health-check/SKILL.md",
-      "sha256": "7d875f3d7e09cd0036d87be464a1ff59934bd8bbd8757fa33185ded4ee7ac18c"
+      "sha256": "da366ee6a3e5fe71269b4c000bdf14fd2d3512adcffdd0e060a389aff11e0812"
     },
     {
       "path": "flow-skills/git-history-diagnostic/SKILL.md",
@@ -402,7 +402,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-health-check.sh",
-      "sha256": "890d87f614418323665a1fdcf70d26a86ea91ef836a87c0c1f6a17587fe696e1"
+      "sha256": "9bd9da714714fb1fff3cd2810a78a826b610845bb642d8dad1377df8ef74ccf5"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/agent-surface-ownership.json",
@@ -426,7 +426,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/commands/fusebase-health.md",
-      "sha256": "b0ae8facfcac9e34f4ebb5e135b6f6f039367bfb9bce04e3c4c4052a871cc2b5"
+      "sha256": "42b94f47afb18ef1443d992b800a2d6da51373b32627387c2c8ae4ae980f8b78"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/commands/handoff.md",
@@ -546,7 +546,7 @@
     },
     {
       "path": "hooks/local/lib/partial-upgrade-check.sh",
-      "sha256": "8a196674f4594f6586069cab72a7fc8a3df28c040ec3f0f880a8a88416685ade"
+      "sha256": "f6ebde79ff8a1ac94302f59b98dee7e4a195fcc38b7e79a7c27166b2fee7763d"
     },
     {
       "path": "hooks/local/lib/plugin-parity.sh",
@@ -1166,7 +1166,7 @@
     },
     {
       "path": "hooks/tests/test-plugin-parity-scope.sh",
-      "sha256": "56b9ae9414ce498d76eb0690875a3ec7eca2872405ccf3305871839e8a1ddab5"
+      "sha256": "59a545d243baee088b5f5e62b45b44f8f9cbc05b959f8688fbc6b58e96f8754c"
     },
     {
       "path": "hooks/tests/test-po-investigate.sh",
@@ -1517,5 +1517,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "d6393fdc32c2af4b148ac8e6a9222abf0ed7aa2216bfc4a524420ff7386e3caf"
+  "manifest_self_sha256": "62ea856770875a4aa8a17eff38d32dcfbb29a9957b28972a5534b0002b5b8e84"
 }

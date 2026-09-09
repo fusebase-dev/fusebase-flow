@@ -385,7 +385,7 @@ if [ -x hooks/local/preflight.sh ]; then
   elif [ "$FFHC_LAST_RC" -eq 0 ]; then
     LOCAL_OK+=("preflight: clean (0 errors)")
   else
-    LOCAL_BROKEN+=("preflight: errors detected (run 'bash hooks/local/preflight.sh' to inspect)")
+    FFHC_PREFLIGHT_FAIL_OUT="$FFHC_LAST_OUT"   # classified after the packaging arm below; do NOT reorder stages
   fi
 fi
 
@@ -494,11 +494,10 @@ ffhc_run_cli_version_stage "$FFHC_CLIVER_LIB"
 ###############################################################################
 # Section 1b — derived-facts + packaging checks (U7, read-only, local).
 ###############################################################################
-# Derived facts (VERSION, FR-range) vs the adapters LIVE attestation strings: a mismatch
-# is an upgrade that bumped VERSION but left stale strings => PARTIAL_UPGRADE, a drift
-# sub-class (exit 1), NOT exit 4 — this check RAN and FOUND drift. Plugin-manifest parity
-# is a SEPARATE publisher-only class (PACKAGING_DRIFT): a publisher mismatch is packaging
-# drift, not an interrupted upgrade, and a consumer manifest is not ours to judge at all.
+# Derived facts (VERSION, FR-range) vs the adapters' LIVE attestation strings: a mismatch is an
+# upgrade that bumped VERSION but left stale strings => PARTIAL_UPGRADE (drift, exit 1 — this
+# check RAN and FOUND drift, never exit 4). Plugin-manifest parity is a SEPARATE publisher-only
+# class (PACKAGING_DRIFT), and a consumer manifest is not ours to judge at all.
 ffhc_stage_start "partial-upgrade" "none"
 if command -v ffhc_partial_upgrade_findings >/dev/null 2>&1; then
   while IFS= read -r pu; do
@@ -508,6 +507,7 @@ if command -v ffhc_partial_upgrade_findings >/dev/null 2>&1; then
   done < <(ffhc_partial_upgrade_findings 2>/dev/null)
 fi; command -v ffhc_publisher_packaging_collect >/dev/null 2>&1 && ffhc_publisher_packaging_collect
 command -v ffmb_collect >/dev/null 2>&1 && ffmb_collect   # N6-D2: State 1 => record_drift, State 2 => visibility-only pointer
+if [ -n "${FFHC_PREFLIGHT_FAIL_OUT:-}" ] && ! { command -v ffhc_preflight_is_packaging_only >/dev/null 2>&1 && ffhc_preflight_is_packaging_only "$FFHC_PREFLIGHT_FAIL_OUT"; }; then LOCAL_BROKEN+=("preflight: errors detected (run 'bash hooks/local/preflight.sh' to inspect)"); fi
 ffhc_stage_end "none"
 
 ###############################################################################

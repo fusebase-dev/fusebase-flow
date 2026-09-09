@@ -19,6 +19,8 @@
 #                                         stale-derived-fact mismatch (empty == none).
 #   ffhc_publisher_packaging_collect   -> records plugin-manifest parity findings in the
 #                                         PUBLISHER repo only, as a SEPARATE class.
+#   ffhc_preflight_is_packaging_only   -> rc 0 iff every preflight error line is one of those
+#                                         findings (the engine's BROKEN-vs-packaging decision).
 #   Verdict mapping is the ENGINE's call: a non-empty result is genuine DRIFT
 #   (a concrete stale-fact finding), mapped to the PARTIAL_UPGRADE signature /
 #   exit 1 (the drift class). It is NOT exit 4 — exit 4 (PARTIAL_UNVERIFIED) is
@@ -113,4 +115,28 @@ ffhc_publisher_packaging_collect() {
     command -v record_drift >/dev/null 2>&1 && record_drift "publisher_packaging" "PACKAGING_DRIFT — $e"
   done < <(ffpp_errors 2>/dev/null)
   return 0
+}
+
+# ffhc_preflight_is_packaging_only <preflight-combined-output>
+# rc 0 iff preflight reported at least one error line and EVERY one of them is also a packaging
+# finding THIS run collected. The engine uses it to decide whether a failed preflight is the
+# packaging arm's finding restated (verdict falls through to PUBLISHER_PACKAGING_DRIFT) or a
+# genuine breakage (BROKEN). Read-only: preflight is never re-run.
+# TRIPWIRE: match on the error line TEXT, never on counts — equal counts of different findings
+# would hide a real breakage behind the packaging class. preflight's err() prefix is
+# "[preflight] ERROR: " (preflight.sh:23); a prefix change must be reflected here.
+ffhc_preflight_is_packaging_only() {
+  local line stripped e seen=0 hit
+  declare -p PUBLISHER_PACKAGING_FINDINGS >/dev/null 2>&1 || return 1
+  [ "${#PUBLISHER_PACKAGING_FINDINGS[@]}" -gt 0 ] || return 1
+  while IFS= read -r line; do
+    case "$line" in "[preflight] ERROR: "*) : ;; *) continue ;; esac
+    stripped="${line#\[preflight\] ERROR: }"; stripped="${stripped%$'\r'}"
+    seen=$((seen + 1)); hit=0
+    for e in "${PUBLISHER_PACKAGING_FINDINGS[@]}"; do
+      [ "$e" = "$stripped" ] && { hit=1; break; }
+    done
+    [ "$hit" -eq 1 ] || return 1
+  done < <(printf '%s\n' "$1")
+  [ "$seen" -gt 0 ]
 }
