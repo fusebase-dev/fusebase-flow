@@ -694,7 +694,7 @@ echo "[upgrade] Step 3/3: syncing derived attestation strings (sync-version-stri
 # (>/dev/null || true) let a mid-run recovery crash half-apply (stale command
 # files) with the root cause masked. Note: the recovery exits 1 on warnings
 # as well as crashes, so non-zero means "review it", not "upgrade failed".
-RECOVERY_LOG="$(mktemp)"; FF_RO_LIB="$ROOT/hooks/local/lib/recovery-outcome.sh"
+RECOVERY_LOG="$(mktemp)"; FF_RO_LIB="$ROOT/hooks/local/lib/recovery-outcome.sh"; FFRO_OUTCOME_FILE="$(mktemp)"; export FFRO_OUTCOME_FILE   # parser-only channel: consumer bytes reach the LOG, never this file
 if bash hooks/local/post-fusebase-update.sh --refresh-overlays > "$RECOVERY_LOG" 2>&1; then
   grep -E "^  \* " "$RECOVERY_LOG" | sed 's/^/[upgrade] recovery: /' || true
 else
@@ -703,8 +703,8 @@ else
   tail -15 "$RECOVERY_LOG" | sed 's/^/          | /'
   echo "          Re-run it directly and review:  bash hooks/local/post-fusebase-update.sh --refresh-overlays"
 fi
-if [ -f "$FF_RO_LIB" ]; then . "$FF_RO_LIB"; ffro_parse "$RECOVERY_LOG"; fi
-rm -f "$RECOVERY_LOG"
+if [ -f "$FF_RO_LIB" ]; then . "$FF_RO_LIB"; ffro_parse "$FFRO_OUTCOME_FILE"; fi
+rm -f "$RECOVERY_LOG" "$FFRO_OUTCOME_FILE"
 
 # ---- Step 4b: command doc-ref self-check (v3.20.1) ----
 # The overlay refresh above is the injection path for CLAUDE.md command refs.

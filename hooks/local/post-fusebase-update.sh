@@ -163,7 +163,7 @@ FF_HWI_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/hook-wiring-intent.sh"
 FF_RECOVERY_PLAN_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/flow-recovery-plan.sh"
 [ -f "$FF_RECOVERY_PLAN_LIB" ] && . "$FF_RECOVERY_PLAN_LIB"
 FF_RO_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/recovery-outcome.sh"
-if [ -f "$FF_RO_LIB" ]; then . "$FF_RO_LIB"; else FFRO_STATE=unknown; FFRO_DETAIL=""; ffro_settings() { :; }; ffro_settings_merged() { :; }; ffro_emit() { :; }; fi
+if [ -f "$FF_RO_LIB" ]; then . "$FF_RO_LIB"; else FFRO_STATE=unknown; FFRO_DETAIL=""; ffro_settings() { :; }; ffro_settings_merged() { :; }; ffro_emit() { :; }; ffro_aborted_before_settings() { :; }; fi
 
 if [ "$FORGET_HOOK_WIRING" -eq 1 ]; then
   if [ "$WIRE_HOOKS" -eq 1 ]; then
@@ -244,6 +244,7 @@ ff_prevalidate_recovery() {
 RECOVERY_PREFLIGHT="hooks/local/lib/recovery-preflight.py"
 if ! command -v python3 >/dev/null 2>&1; then
   echo "[post-fusebase-update] FATAL: recovery plan validation requires python3" >&2
+  ffro_aborted_before_settings "python3 is unavailable for recovery plan validation"
   exit 2
 fi
 PREFLIGHT_PLAN="$(mktemp "${TMPDIR:-/tmp}/flow-recovery-plan.XXXXXX")"
@@ -258,6 +259,7 @@ set -e
 if [ "$PREVALIDATION_RC" -ne 0 ]; then
   rm -f "$PREFLIGHT_PLAN"
   echo "[post-fusebase-update] FATAL: recovery plan validation failed: $PREVALIDATION_OUTPUT" >&2
+  ffro_aborted_before_settings "recovery plan validation rejected this tree"
   exit 2
 fi
 RECOVERY_PLAN_ID="$(tail -n 1 <<<"$PREVALIDATION_OUTPUT" | tr -d '\r')"

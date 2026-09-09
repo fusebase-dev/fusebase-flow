@@ -20,7 +20,8 @@
 #
 # CONTRACT
 #   recovery side: ffro_settings <state> [detail] · ffro_settings_merged <merge-stdout> · ffro_emit
-#   caller side:   ffro_parse <captured-log> -> FFRO_STATE/FFRO_DETAIL · ffro_settings_trailer
+#   recovery side: ffro_aborted_before_settings <reason-class> [rc]
+#   caller side:   ffro_parse <outcome-channel> -> FFRO_STATE/FFRO_DETAIL · ffro_settings_trailer
 #                  ffro_git_hook_trailer <installed|custom|failed|skipped>
 #   States: merged | already-current | created-minimal | merge-failed | not-authorized | absent
 #           | unavailable | unknown (the log carried no outcome line)
@@ -28,6 +29,9 @@
 FFRO_MARK="[post-fusebase-update] outcome:"
 FFRO_STATE="${FFRO_STATE:-unknown}"
 FFRO_DETAIL="${FFRO_DETAIL:-}"
+# The CLOSED state vocabulary. A value outside it parses as unknown, so bytes a consumer
+# controls can never surface in the caller's trailer as a state.
+FFRO_STATES="merged already-current created-minimal merge-failed not-authorized absent unavailable unknown"
 
 # TRIPWIRE: once this run CREATED the settings file, "could not evaluate" must not erase that —
 # the file was written either way. Only a merge failure may reclassify it.
@@ -53,7 +57,26 @@ ffro_settings_merged() {
   FFRO_STATE="merged"; FFRO_DETAIL="$changes"
 }
 
-ffro_emit() { printf '%s settings=%s detail=%s\n' "$FFRO_MARK" "${FFRO_STATE:-unknown}" "${FFRO_DETAIL:-}"; }
+# TRIPWIRE: the PARSED channel is $FFRO_OUTCOME_FILE — a path the parsing caller creates
+# (mktemp beside its capture log) and exports. Only ffro_emit writes it, so consumer bytes that
+# reach the captured LOG (validator text quoting a hook key, merger diagnostics printed after
+# this record) cannot become a record. The stdout line below is for a human reading a direct
+# run: never parse it, and never point ffro_parse at a captured log.
+ffro_emit() {
+  local rec
+  rec="$FFRO_MARK settings=${FFRO_STATE:-unknown} detail=$(printf '%s' "${FFRO_DETAIL:-}" | tr '\r\n' '  ')"
+  printf '%s\n' "$rec"
+  if [ -n "${FFRO_OUTCOME_FILE:-}" ]; then printf '%s\n' "$rec" > "$FFRO_OUTCOME_FILE" 2>/dev/null || true; fi
+  return 0
+}
+
+# D1: a deterministic pre-apply abort wrote nothing to the target, so the outcome is KNOWN and
+# "cannot say" would be weaker than the truth. TRIPWIRE: the reason class is a FIXED phrase the
+# caller chooses — never validator output or a consumer path, which are consumer bytes.
+ffro_aborted_before_settings() {
+  ffro_settings unavailable "recovery aborted before its settings step ($1); .claude/settings.json was not touched (rc ${2:-2})"
+  ffro_emit
+}
 
 # TRIPWIRE: TOTAL under `set -euo pipefail` for every input class (absent/empty/no-record/one/
 # many). upgrade.sh calls this inside an `if` THEN body with -e live, so any nonzero return here
@@ -73,6 +96,7 @@ ffro_parse() {
     *" detail="*) FFRO_DETAIL="${line#* detail=}" ;;
     *) FFRO_DETAIL="" ;;
   esac
+  case " $FFRO_STATES " in *" $FFRO_STATE "*) ;; *) FFRO_STATE="unknown"; FFRO_DETAIL="" ;; esac
   return 0
 }
 

@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "046db17bd1fdfdc806aa804f1cacafe42d51b45fbde90c16ae1445d8d3b200a8"
+      "sha256": "51f92ae5985af96a27c8fef768e0c8ac1448b92c2cc24dceb9259bf8865894c1"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -562,7 +562,7 @@
     },
     {
       "path": "hooks/local/lib/recovery-outcome.sh",
-      "sha256": "5d80683617f8149efb15a67e2dc00fad689af098d1d891746d60415181b726f0"
+      "sha256": "c6179bceb4a44341a2f6feba7210406dc842b905d6191b4de775965195f4bca3"
     },
     {
       "path": "hooks/local/lib/recovery-owned-write.py",
@@ -614,7 +614,7 @@
     },
     {
       "path": "hooks/local/post-fusebase-update.sh",
-      "sha256": "4ff5c8028df581a37afca506fbe5143a3bea11dc0de81d3563c19ed33c3d6261"
+      "sha256": "91431f1399159c46c26a24788e748c1a832aae8042b22fabeed02f0324c2fd3e"
     },
     {
       "path": "hooks/local/preflight.sh",
@@ -670,7 +670,7 @@
     },
     {
       "path": "hooks/local/upgrade.sh",
-      "sha256": "824c0cd3230ccc4baec4ce13963b3d49a081ac9ea01d0996a4576b1cdb1805a6"
+      "sha256": "e404f4760ab4ec442bac2258f9bf6a08f44a1877e5f1a684fd1cd0a1a8b00447"
     },
     {
       "path": "hooks/local/verify-gate.sh",
@@ -1517,5 +1517,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "d13baac70a27de0599ac92556227d589326a7f79eb934e5af3e6d6196b404c04"
+  "manifest_self_sha256": "e041e99af2ca06ea648bc1150fc58b6d78a799e9d9c862396afc1046dde6f991"
 }
