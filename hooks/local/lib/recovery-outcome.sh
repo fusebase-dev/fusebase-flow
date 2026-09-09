@@ -55,11 +55,17 @@ ffro_settings_merged() {
 
 ffro_emit() { printf '%s settings=%s detail=%s\n' "$FFRO_MARK" "${FFRO_STATE:-unknown}" "${FFRO_DETAIL:-}"; }
 
+# TRIPWIRE: TOTAL under `set -euo pipefail` for every input class (absent/empty/no-record/one/
+# many). upgrade.sh calls this inside an `if` THEN body with -e live, so any nonzero return here
+# kills the upgrade after recovery already ran — the "cannot say" branch below would be
+# unreachable on exactly the runs it exists for. Never let a failed match escape as a status.
 ffro_parse() {
-  local line=""
+  local line="" l=""
   FFRO_STATE="unknown"; FFRO_DETAIL=""
-  [ -f "${1:-}" ] || return 0
-  line="$(grep -F "$FFRO_MARK settings=" "$1" 2>/dev/null | tail -1)"
+  { [ -n "${1:-}" ] && [ -f "$1" ] && [ -r "$1" ]; } || return 0
+  while IFS= read -r l || [ -n "$l" ]; do
+    case "$l" in "$FFRO_MARK settings="*) line="$l" ;; esac
+  done < "$1" || return 0
   [ -n "$line" ] || return 0
   line="${line#*settings=}"
   FFRO_STATE="${line%% detail=*}"

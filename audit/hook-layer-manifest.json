@@ -174,7 +174,7 @@
     },
     {
       "path": "hooks/local/lib/recovery-outcome.sh",
-      "sha256": "1e0a0e788d2cd7fe10c75f772291e6c240f55d1f92d193f53070061d5d0cee00"
+      "sha256": "5d80683617f8149efb15a67e2dc00fad689af098d1d891746d60415181b726f0"
     },
     {
       "path": "hooks/local/lib/recovery-owned-write.py",
@@ -861,5 +861,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "3e448f4a0380d0060b6bb050bf43298bea105d5f2d153e8c96bd954299bfd5fb"
+  "manifest_self_sha256": "854478c2576b27722739ad80008ec3cb74b63ab7faab0de8c1991e8ed8b44417"
 }
