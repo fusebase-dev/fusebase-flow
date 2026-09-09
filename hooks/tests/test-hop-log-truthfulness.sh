@@ -2,21 +2,13 @@
 # Fusebase Flow — S1: the hop log must report what actually happened.
 # Spec: docs/specs/hop-log-truthfulness-and-publisher-scope/spec.md § S1 + corrections.md C1..C5.
 #
-# ROW CLASSES (what each one can and cannot establish):
-#   DRIVEN       runs the REAL hooks/local/post-fusebase-update.sh in a fixture consumer and
-#                parses the REAL outcome channel with the REAL helper. It does NOT run
-#                upgrade.sh itself (that needs a staged source clone and rewrites the tree);
-#                the WIRING rows carry that half.
-#   ANTI-REGRESSION  executes the PRE-FIX bytes (v4.15.3 / 497edf1) against the SAME observed
-#                run. Without it every "the trailer does not say X" assertion is vacuous.
-#   RENDERING    feeds a synthetic state to the shipped renderer. Used only where a fixture
-#                cannot produce the state at all (`skipped` git-hook class: it means the
-#                installer never ran, which a driven row cannot observe by construction).
-#   WIRING       greps the shipped upgrade.sh / post-fusebase-update.sh. Residency only.
-#
-# TRIPWIRE: the parsed channel is $FFRO_OUTCOME_FILE, never the captured log. A row that
-# parses a log re-creates the forgery this suite exists to close (corrections.md C2), so there
-# is deliberately NO log-parsing helper here.
+# TRIPWIRE: a row is DRIVEN only if it runs the real hooks/local/post-fusebase-update.sh and
+# parses the real outcome channel with the real helper; a grep over a shipped file is WIRING and
+# proves residency, not behaviour. Naming them apart is what kept "the arm is wired" from being
+# mistaken for "the verdict is reached".
+# TRIPWIRE: the parsed channel is $FFRO_OUTCOME_FILE, never the captured log. A row that parses a
+# log re-creates the forgery this suite closes (corrections.md C2), so there is deliberately no
+# log-parsing helper here.
 #
 # Output contract (parsed by run-tests.sh run_shell_phase):
 #   "PASS: hop-log-truth <name>" / "FAIL: hop-log-truth <name>"; exit = failure count.

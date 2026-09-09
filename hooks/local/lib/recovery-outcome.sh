@@ -1,17 +1,6 @@
 #!/usr/bin/env bash
-# Fusebase Flow — observed settings/git-hook outcome channel (S1).
-#
-# PROVENANCE:
-#   Spec docs/specs/hop-log-truthfulness-and-publisher-scope/spec.md § S1. Extracted per FR-25
-#   (upgrade.sh sits at its baselined ceiling) and because recovery and its callers must share
-#   ONE outcome vocabulary — two copies of these state names would drift apart exactly the way
-#   the static trailer drifted away from the merger.
-#
-# WHY: upgrade.sh printed an unconditional ".claude/settings.json was NOT modified — run
-#   --wire-hooks" trailer while the nested post-fusebase-update.sh run had merged the lifecycle
-#   events in the SAME hop (authorized by a schema-1 intent marker since 0829d16 / v4.15.0). A
-#   consumer read the trailer, believed the file was untouched, and filed a wrong diagnosis. The
-#   observer owns the fact; the caller renders it.
+# Fusebase Flow — observed settings/git-hook outcome channel.
+# Spec: docs/specs/hop-log-truthfulness-and-publisher-scope/spec.md § S1 + corrections.md C1-C4.
 #
 # TRIPWIRE: a child exit code cannot establish whether settings changed — recovery returns
 #   nonzero for warnings raised AFTER a successful merge. ffro_emit therefore runs at the point
@@ -19,13 +8,12 @@
 #   failure cannot erase the settings result.
 #
 # CONTRACT
-#   recovery side: ffro_settings <state> [detail] · ffro_settings_merged <merge-stdout> · ffro_emit
-#   recovery side: ffro_aborted_before_settings <reason-class> [rc]
+#   recovery side: ffro_settings <state> [detail] · ffro_settings_merged <merge-stdout>
+#                  ffro_aborted_before_settings <reason-class> [rc] · ffro_emit
 #   caller side:   ffro_parse <outcome-channel> -> FFRO_STATE/FFRO_DETAIL · ffro_settings_trailer
 #                  ffro_git_hook_states <installer-out> <rc> -> ffro_git_hook_trailer <states>
 #   States: merged | already-current | created-minimal | merge-failed | not-authorized | absent
-#           | unavailable | unknown (the log carried no outcome line)
-
+#           | unavailable | unknown (the channel carried no record)
 FFRO_MARK="[post-fusebase-update] outcome:"
 FFRO_STATE="${FFRO_STATE:-unknown}"
 FFRO_DETAIL="${FFRO_DETAIL:-}"

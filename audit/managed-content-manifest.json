@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "8a73902e6e86bf251b5e75b006bcdf52484ba25a03785a2b512db0662919b3b7"
+      "sha256": "d10780f0552f52e7e6ab0025f70c5d916e1aee1a014a38d9fe29760b278a7a74"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -546,7 +546,7 @@
     },
     {
       "path": "hooks/local/lib/partial-upgrade-check.sh",
-      "sha256": "f6ebde79ff8a1ac94302f59b98dee7e4a195fcc38b7e79a7c27166b2fee7763d"
+      "sha256": "13c689759bd5cb830f8342345ffecba473d71857609425c9a0cb12e2ee6907b9"
     },
     {
       "path": "hooks/local/lib/plugin-parity.sh",
@@ -562,7 +562,7 @@
     },
     {
       "path": "hooks/local/lib/recovery-outcome.sh",
-      "sha256": "4fd4ef2ce844b46e9cf58bdb5145bdb596a246922cf42ad53a44f17e0f983ab5"
+      "sha256": "1ec74213a413f258cee131ca86bede8abf1efd2f1ebf18ae42fd444862540173"
     },
     {
       "path": "hooks/local/lib/recovery-owned-write.py",
@@ -1122,11 +1122,11 @@
     },
     {
       "path": "hooks/tests/test-hop-log-truthfulness.sh",
-      "sha256": "2b2bc70cc9e9e260ae615c0dcd7c2c90b575d4421f1840d45d0a4cd207e35bfa"
+      "sha256": "d594f4f066b1c73a2245e288837a1bcf814a7820d4d720fa76a97915e5b1e99d"
     },
     {
       "path": "hooks/tests/test-install-fusebase-cli-project-doc.sh",
-      "sha256": "717cacb4e131d877bcd3fbbc2f6f97cb2f78c3a7c574bcf4a79e0302af3c3632"
+      "sha256": "6c6e80d96d8bde16566dd53597f101a8bbc393fa4b44e8106ceb24b35a4c2551"
     },
     {
       "path": "hooks/tests/test-job-probe-honesty.sh",
@@ -1517,5 +1517,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "facf1f0e311130f77c4441e20a9c7e720912a31078d0d1d5122c963a028044fb"
+  "manifest_self_sha256": "e9a01dcdb33baea646a2e52be0df8d130e628127376c5914d65edbf4ebc8e8bd"
 }

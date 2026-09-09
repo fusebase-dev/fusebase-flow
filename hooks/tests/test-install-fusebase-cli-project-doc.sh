@@ -148,6 +148,30 @@ fi
 [ -z "$f" ] && ok "wire-hooks-claim-matches-code (step 5 is WIRE_HOOKS-guarded in the script; the document's default-restore sentence claims no settings/hook work and names the opt-in flag)" \
   || bad "wire-hooks-claim-matches-code" "$f"
 
+# ---- 6b. Settings and Git hooks are DIFFERENT surfaces of the same marker ------------------
+# post-fusebase-update.sh:190-203 tests `claude_settings` and `git_hooks` independently, and the
+# git branch has its own receipt gate with an explicit refusal warning. A sentence that makes
+# .git/hooks follow from the SETTINGS marker is therefore wrong in both directions.
+f=""
+if [ -z "$RECOVERY_SECTION" ]; then
+  f="$f [recovery section heading not found - cannot check the per-surface claim]"
+else
+  printf '%s\n' "$RECOVERY_SECTION" | grep -iE 'NOT modified' | grep -q '\.git/hooks' \
+    && f="$f [one sentence ties .git/hooks to the settings marker; they are independent surfaces]"
+  printf '%s' "$RECOVERY_SECTION" | grep -q 'git_hooks' \
+    || f="$f [the document never names the git_hooks surface, so Git-hook authorization is undescribed]"
+  printf '%s' "$RECOVERY_SECTION" | grep -q 'claude_settings' \
+    || f="$f [the document never names the claude_settings surface]"
+  printf '%s' "$RECOVERY_SECTION" | grep -qiE 'receipt|ownership proof' \
+    || f="$f [the document does not state that Git-hook restoration additionally needs a prior installed-hook receipt]"
+fi
+grep -qE 'ff_text_has_exact_line "\$HWI_SURFACES" "git_hooks"' "$UPDATE" \
+  || f="$f [post-fusebase-update.sh no longer tests the git_hooks surface separately; re-verify the document]"
+grep -q 'ffhc_hwi_git_proven' "$UPDATE" \
+  || f="$f [the shipped receipt gate is gone, so the document's claim about it is unverifiable]"
+[ -z "$f" ] && ok "settings-and-git-hooks-are-separate-surfaces (each surface's authorization is described on its own; the shipped script still gates them independently)" \
+  || bad "settings-and-git-hooks-are-separate-surfaces" "$f"
+
 # ---- 7. "Never copied" is checked against the UPGRADE ENGINE, not just the prose --------
 # The document said the plugin dirs are never copied while managed_content_manifest.py still
 # listed them, so the upgrade engine owned them and could overwrite a consumer's own

@@ -84,21 +84,12 @@ ffhc_partial_upgrade_findings() {
 }
 
 # Plugin-manifest parity, PUBLISHER-ONLY — the SAME helper preflight uses (lib/plugin-parity.sh),
-# never a second copy. Health previously carried only predicate 1 (ownership by `name`), so a
-# consumer whose three manifests are named fusebase-flow BECAUSE they were generated from Flow's
-# was told their tree was a partial upgrade; they hand-copied our manifest bytes twice to clear
-# it — the consumer-ownership risk the exclusion exists to prevent. Predicate 2 (the release
-# ledger exists) is exactly what plugin-parity.sh added; reuse it instead of re-deriving it.
-#
-# DECISION — marketplace.json IS in scope here, deliberately, not by inheritance. It is not
-# written by sync-version-strings.sh and silently drifted ~20 minor versions before any parity
-# check existed (plugin-parity.sh § TRIPWIRE); the arm is publisher-only, so no consumer tree is
-# affected; and giving health narrower coverage than preflight would recreate the two-copies
-# divergence this reuse removes.
-#
+# never a second copy; that lib owns why the rule is scoped twice.
+# DECISION — marketplace.json is deliberately in scope here:
+#   docs/specs/hop-log-truthfulness-and-publisher-scope/corrections.md § D2.
 # TRIPWIRE: a publisher manifest mismatch is packaging drift, NOT evidence of an interrupted
 # upgrade. It gets its own PACKAGING_DRIFT class and its own remediation — never PARTIAL_UPGRADE.
-# TRIPWIRE: this arm must never suppress the adapter checks above. They are independent; a stale
+# TRIPWIRE: this arm must never suppress the adapter checks above — they are independent; a stale
 # consumer adapter still fails whether or not any plugin diagnostic is available. Read-only.
 ffhc_publisher_packaging_collect() {
   local lib e
