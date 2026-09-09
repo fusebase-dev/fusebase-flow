@@ -162,6 +162,8 @@ FF_HWI_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/hook-wiring-intent.sh"
 [ -f "$FF_HWI_LIB" ] && . "$FF_HWI_LIB"
 FF_RECOVERY_PLAN_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/flow-recovery-plan.sh"
 [ -f "$FF_RECOVERY_PLAN_LIB" ] && . "$FF_RECOVERY_PLAN_LIB"
+FF_RO_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/recovery-outcome.sh"
+if [ -f "$FF_RO_LIB" ]; then . "$FF_RO_LIB"; else FFRO_STATE=unknown; FFRO_DETAIL=""; ffro_settings() { :; }; ffro_settings_merged() { :; }; ffro_emit() { :; }; fi
 
 if [ "$FORGET_HOOK_WIRING" -eq 1 ]; then
   if [ "$WIRE_HOOKS" -eq 1 ]; then
@@ -495,6 +497,7 @@ if [ "$WIRE_HOOKS" -eq 1 ] && [ ! -f .claude/settings.json ]; then
   printf '{}\n' > "$SETTINGS_SEED"
   mv "$SETTINGS_SEED" .claude/settings.json
   RECOVERY_PARTIAL_REASON="created minimal Flow-only settings; prior external settings bytes were unavailable"
+  ffro_settings created-minimal "prior external/CLI settings bytes were unavailable"; FFRO_CREATED_MINIMAL=1
   if [ "$AUTO_RESTORE" -eq 1 ] && command -v ffhc_hwi_set_settings_unresolved >/dev/null 2>&1; then
     ffhc_hwi_set_settings_unresolved "$ROOT" true \
       || WARNINGS+=("could not persist unresolved external settings state")
@@ -505,16 +508,16 @@ if [ "$WIRE_HOOKS" -ne 1 ]; then
   # F3: opt-in. By default recovery does NOT touch settings.json — this matches
   # CLAUDE.md's "hooks are opt-in: nothing runs until you copy settings.json.example."
   if [ -f .claude/settings.json ]; then
-    ACTIONS_SKIPPED+=(".claude/settings.json NOT modified (hook wiring is opt-in — re-run with --wire-hooks to merge Flow lifecycle hooks)")
+    ACTIONS_SKIPPED+=(".claude/settings.json NOT modified (hook wiring is opt-in — re-run with --wire-hooks to merge Flow lifecycle hooks)"); ffro_settings not-authorized "no recorded wiring intent covers claude_settings and --wire-hooks was not passed"
   else
-    ACTIONS_SKIPPED+=(".claude/settings.json not present (Claude Code not configured)")
+    ACTIONS_SKIPPED+=(".claude/settings.json not present (Claude Code not configured)"); ffro_settings absent
   fi
 elif [ ! -f .claude/settings.json ]; then
-  ACTIONS_SKIPPED+=(".claude/settings.json not present (Claude Code not configured)")
+  ACTIONS_SKIPPED+=(".claude/settings.json not present (Claude Code not configured)"); ffro_settings absent
 elif ! command -v python3 >/dev/null 2>&1; then
-  WARNINGS+=("python3 not on PATH - cannot AUTO-MERGE .claude/settings.json (the merge script is Python). To enable hooks without it: cp .claude/settings.json.example .claude/settings.json (it ships the run-handler.sh wrapper, which auto-detects py/python at runtime or self-disables). Install Python 3.11+ (or set FUSEBASE_FLOW_PYTHON) for the auto-merge and to run the handlers.")
+  WARNINGS+=("python3 not on PATH - cannot AUTO-MERGE .claude/settings.json (the merge script is Python). To enable hooks without it: cp .claude/settings.json.example .claude/settings.json (it ships the run-handler.sh wrapper, which auto-detects py/python at runtime or self-disables). Install Python 3.11+ (or set FUSEBASE_FLOW_PYTHON) for the auto-merge and to run the handlers."); ffro_settings unavailable "python3 is not on PATH, so the settings merge could not run"
 elif [ ! -f "$MERGE_SCRIPT" ]; then
-  WARNINGS+=("$MERGE_SCRIPT missing; cannot merge settings.json")
+  WARNINGS+=("$MERGE_SCRIPT missing; cannot merge settings.json"); ffro_settings unavailable "$MERGE_SCRIPT is missing, so the settings merge could not run"
 else
   CLI_STOP_BASELINE="state/audit/cli-stop-baseline.json"
   set +e
@@ -554,14 +557,16 @@ else
     fi
     if ff_text_has_literal "$MERGE_OUTPUT" "already up to date" \
         || ff_text_has_literal "$MERGE_OUTPUT" "byte-identical"; then
-      ACTIONS_SKIPPED+=(".claude/settings.json: Fusebase Flow events already wired")
+      ACTIONS_SKIPPED+=(".claude/settings.json: Fusebase Flow events already wired"); ffro_settings already-current
     else
-      ACTIONS_TAKEN+=(".claude/settings.json: merged Fusebase Flow lifecycle events (backup at .claude/settings.json.pre-flow-merge)")
+      ffro_settings_merged "$MERGE_OUTPUT"
+      ACTIONS_TAKEN+=(".claude/settings.json: merged Fusebase Flow lifecycle events [${FFRO_DETAIL:-}] (backup at .claude/settings.json.pre-flow-merge)")
     fi
   else
-    WARNINGS+=("Python merge failed (exit $MERGE_EXIT); atomic target write was not completed. Output: $MERGE_OUTPUT")
+    WARNINGS+=("Python merge failed (exit $MERGE_EXIT); atomic target write was not completed. Output: $MERGE_OUTPUT"); ffro_settings merge-failed "merger exit $MERGE_EXIT; the atomic target write did not complete"
   fi
 fi
+ffro_emit
 
 ###############################################################################
 # Step 5b - (Re)install the Flow git fallback hooks (WS1c).

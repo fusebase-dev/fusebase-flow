@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.15.3",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 212,
+  "asset_count": 214,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -173,6 +173,10 @@
       "sha256": "7de1248bc0e14ddd8bcf60422780c3304c5ba60033f12a58aab7ada979501d15"
     },
     {
+      "path": "hooks/local/lib/recovery-outcome.sh",
+      "sha256": "1e0a0e788d2cd7fe10c75f772291e6c240f55d1f92d193f53070061d5d0cee00"
+    },
+    {
       "path": "hooks/local/lib/recovery-owned-write.py",
       "sha256": "ccddfd99c8b5143b25d61485a07105ddcc40bb1ca004ede0e570647e81289bd6"
     },
@@ -222,7 +226,7 @@
     },
     {
       "path": "hooks/local/post-fusebase-update.sh",
-      "sha256": "e2665f092217dbee7281ff89ba1a5baae3583a2d1d78394e89efb8283b323727"
+      "sha256": "e97acacc2d7a68ee6ede724ff18e1efe21dccbab27e0dd7be7663d56efcf8a38"
     },
     {
       "path": "hooks/local/preflight.sh",
@@ -274,7 +278,7 @@
     },
     {
       "path": "hooks/local/upgrade.sh",
-      "sha256": "d6ea50ba57c4e0fa72a9d4b087c62ecdf125cc6e294f46cd5c2b8958a06af1fb"
+      "sha256": "824c0cd3230ccc4baec4ce13963b3d49a081ac9ea01d0996a4576b1cdb1805a6"
     },
     {
       "path": "hooks/local/verify-gate.sh",
@@ -662,7 +666,11 @@
     },
     {
       "path": "hooks/tests/test-hook-wiring-intent.sh",
-      "sha256": "face3c525e900cdc73a55ce6f63432da42a22f9c358e6424280eed8776b00e32"
+      "sha256": "34ff2c6d1ac15794cdcbb0683cc85b0584e2e33f82e46ae120f9e189f11bef71"
+    },
+    {
+      "path": "hooks/tests/test-hop-log-truthfulness.sh",
+      "sha256": "8ce3107cc2b3853c2728b0d9578d9cd52c50c2e1f5528c582f3eb3d73a93be72"
     },
     {
       "path": "hooks/tests/test-install-fusebase-cli-project-doc.sh",
@@ -853,5 +861,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "a2f38290444ff4c818b0655b83263fdd0088dd0c1bc1724ab414b2b73fe55e6d"
+  "manifest_self_sha256": "283f5e6917443d8327af4149fd493da135eaa701c7871819c1fd563137ca183a"
 }

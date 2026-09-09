@@ -694,7 +694,7 @@ echo "[upgrade] Step 3/3: syncing derived attestation strings (sync-version-stri
 # (>/dev/null || true) let a mid-run recovery crash half-apply (stale command
 # files) with the root cause masked. Note: the recovery exits 1 on warnings
 # as well as crashes, so non-zero means "review it", not "upgrade failed".
-RECOVERY_LOG="$(mktemp)"
+RECOVERY_LOG="$(mktemp)"; FF_RO_LIB="$ROOT/hooks/local/lib/recovery-outcome.sh"
 if bash hooks/local/post-fusebase-update.sh --refresh-overlays > "$RECOVERY_LOG" 2>&1; then
   grep -E "^  \* " "$RECOVERY_LOG" | sed 's/^/[upgrade] recovery: /' || true
 else
@@ -703,6 +703,7 @@ else
   tail -15 "$RECOVERY_LOG" | sed 's/^/          | /'
   echo "          Re-run it directly and review:  bash hooks/local/post-fusebase-update.sh --refresh-overlays"
 fi
+if [ -f "$FF_RO_LIB" ]; then . "$FF_RO_LIB"; ffro_parse "$RECOVERY_LOG"; fi
 rm -f "$RECOVERY_LOG"
 
 # ---- Step 4b: command doc-ref self-check (v3.20.1) ----
@@ -738,14 +739,14 @@ if [ -d .git/hooks ] && [ -x hooks/local/install-git-hooks.sh ]; then
   _gh_out="$(bash hooks/local/install-git-hooks.sh 2>&1)"; _gh_rc=$?
   [ "$_had_e" = 1 ] && set -e
   if [ "$_gh_rc" -ne 0 ]; then
-    echo "[upgrade] WARN: git fallback hook (re)install FAILED (exit $_gh_rc) — Flow hooks may be stale."
+    GH_TRAILER=failed; echo "[upgrade] WARN: git fallback hook (re)install FAILED (exit $_gh_rc) — Flow hooks may be stale."
     echo "          Re-run and review: bash hooks/local/install-git-hooks.sh"
     [ -n "$_gh_out" ] && printf '%s\n' "$_gh_out" | sed 's/^/          | /'
   elif printf '%s' "$_gh_out" | grep -qi 'custom .* detected'; then
-    echo "[upgrade] NOTE: a custom .git/hooks hook was preserved (not overwritten). To install the"
+    GH_TRAILER=custom; echo "[upgrade] NOTE: a custom .git/hooks hook was preserved (not overwritten). To install the"
     echo "          Flow hook, run: bash hooks/local/install-git-hooks.sh --force"
   else
-    echo "[upgrade] (re)installed Flow git fallback hooks (.git/hooks/pre-commit, commit-msg)"
+    GH_TRAILER=installed; echo "[upgrade] (re)installed Flow git fallback hooks (.git/hooks/pre-commit, commit-msg)"
   fi
 fi
 
@@ -800,9 +801,8 @@ echo "  bash hooks/local/write-bootstrap-approval.sh        # single-use, digest
 echo "  git commit -m 'chore(flow): upgrade content to v$SRC_VERSION'"
 echo "  bash hooks/local/write-bootstrap-approval.sh --consume   # single-use: clean up after the commit"
 echo ""
-echo "[upgrade] NOTE: the Flow git fallback pre-commit was (re)installed above so the FIXED"
-echo "          pre-commit is live. .claude/settings.json (Claude Code lifecycle hooks) was"
-echo "          NOT modified — to (re)wire those, run: bash hooks/local/post-fusebase-update.sh --wire-hooks"
+if command -v ffro_settings_trailer >/dev/null 2>&1; then ffro_git_hook_trailer "${GH_TRAILER:-skipped}"; ffro_settings_trailer
+else echo "[upgrade] WARN: hooks/local/lib/recovery-outcome.sh is absent — this run cannot report what happened to .git/hooks or .claude/settings.json; check both directly."; fi
 echo ""
 echo "[upgrade] NOTE: .fusebase-flow-source/ is a transient staging clone. ESLint flat"
 echo "          config does NOT honor .gitignore, so if 'fusebase deploy' runs lint it"

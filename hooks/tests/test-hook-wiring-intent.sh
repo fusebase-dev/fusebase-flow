@@ -305,6 +305,7 @@ t3_fixture() {
   cp "$ROOT/hooks/local/post-fusebase-update.sh" "$d/hooks/local/"
   cp "$ROOT/hooks/local/lib/hook-wiring-intent.sh" \
     "$ROOT/hooks/local/lib/flow-recovery-plan.sh" \
+    "$ROOT/hooks/local/lib/recovery-outcome.sh" \
     "$ROOT/hooks/local/lib/recovery-owned-write.py" \
     "$ROOT/hooks/local/lib/recovery-preflight.py" \
     "$ROOT/hooks/local/lib/recovery-verify.py" "$d/hooks/local/lib/"
