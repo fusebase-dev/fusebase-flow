@@ -728,25 +728,23 @@ fi
 # stale until reinstalled (the "upgrade doesn't wire the fixed pre-commit" gap). Safe:
 # a custom .git/hooks/pre-commit is backed up + preserved (needs --force to replace).
 if [ -d .git/hooks ] && [ -x hooks/local/install-git-hooks.sh ]; then
-  # TRIPWIRE (T24): capture the installer OUTPUT and RC SEPARATELY. The old
-  # `install-git-hooks.sh | grep` gave `$?` of grep, NOT the installer — a nonzero
-  # install that didn't print the custom-preserve line fell into the "installed"
-  # branch (a silent false "installed"). Neutralize -e around the capture (an rc≠0
-  # must NOT abort the upgrade), then decide: rc≠0 warns explicitly (no "installed"
-  # claim), rc0+custom preserves, rc0 clean installs.
+  # TRIPWIRE (T24): capture the installer OUTPUT and RC SEPARATELY, and neutralize -e around
+  # the capture. `install-git-hooks.sh | grep` yields grep's `$?`, so a nonzero install that
+  # printed no custom-preserve line became a silent false "installed"; an rc≠0 must not abort.
   _had_e=0; case $- in *e*) _had_e=1 ;; esac
   set +e
   _gh_out="$(bash hooks/local/install-git-hooks.sh 2>&1)"; _gh_rc=$?
   [ "$_had_e" = 1 ] && set -e
+  if command -v ffro_git_hook_states >/dev/null 2>&1; then GH_TRAILER="$(ffro_git_hook_states "$_gh_out" "$_gh_rc")"; else GH_TRAILER=skipped; fi
   if [ "$_gh_rc" -ne 0 ]; then
-    GH_TRAILER=failed; echo "[upgrade] WARN: git fallback hook (re)install FAILED (exit $_gh_rc) — Flow hooks may be stale."
+    echo "[upgrade] WARN: git fallback hook (re)install FAILED (exit $_gh_rc) — Flow hooks may be stale."
     echo "          Re-run and review: bash hooks/local/install-git-hooks.sh"
-    [ -n "$_gh_out" ] && printf '%s\n' "$_gh_out" | sed 's/^/          | /'
+    [ -n "$_gh_out" ] && printf '%s\n' "$_gh_out" | sed 's/^/          | /' || true
   elif printf '%s' "$_gh_out" | grep -qi 'custom .* detected'; then
-    GH_TRAILER=custom; echo "[upgrade] NOTE: a custom .git/hooks hook was preserved (not overwritten). To install the"
+    echo "[upgrade] NOTE: a custom .git/hooks hook was preserved (not overwritten). To install the"
     echo "          Flow hook, run: bash hooks/local/install-git-hooks.sh --force"
   else
-    GH_TRAILER=installed; echo "[upgrade] (re)installed Flow git fallback hooks (.git/hooks/pre-commit, commit-msg)"
+    echo "[upgrade] (re)installed Flow git fallback hooks (.git/hooks/pre-commit, commit-msg)"
   fi
 fi
 

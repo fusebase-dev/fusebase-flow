@@ -174,7 +174,7 @@
     },
     {
       "path": "hooks/local/lib/recovery-outcome.sh",
-      "sha256": "c6179bceb4a44341a2f6feba7210406dc842b905d6191b4de775965195f4bca3"
+      "sha256": "4fd4ef2ce844b46e9cf58bdb5145bdb596a246922cf42ad53a44f17e0f983ab5"
     },
     {
       "path": "hooks/local/lib/recovery-owned-write.py",
@@ -278,7 +278,7 @@
     },
     {
       "path": "hooks/local/upgrade.sh",
-      "sha256": "e404f4760ab4ec442bac2258f9bf6a08f44a1877e5f1a684fd1cd0a1a8b00447"
+      "sha256": "0123c33d9a4634263f2d3798fba81690bdf37040e4bdb47089d8a699b545f204"
     },
     {
       "path": "hooks/local/verify-gate.sh",
@@ -670,7 +670,7 @@
     },
     {
       "path": "hooks/tests/test-hop-log-truthfulness.sh",
-      "sha256": "f16bc24480b2d502534d125519a5589215a5a94e967ca8f16ed2d65d893e1bfe"
+      "sha256": "4be4350af9d4dd72115118675f6456798b436e0ea411aac4cf6a9ca61bd2ed1b"
     },
     {
       "path": "hooks/tests/test-install-fusebase-cli-project-doc.sh",
@@ -861,5 +861,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "165f0313880f52011c3544ab5b3dda30cdbddcbf24ab7c103bdc017034f2e364"
+  "manifest_self_sha256": "0dfa4a7fb8f798eeee743c6ac761561b35873da9580199b67517aef31f41e9d3"
 }

@@ -22,7 +22,7 @@
 #   recovery side: ffro_settings <state> [detail] · ffro_settings_merged <merge-stdout> · ffro_emit
 #   recovery side: ffro_aborted_before_settings <reason-class> [rc]
 #   caller side:   ffro_parse <outcome-channel> -> FFRO_STATE/FFRO_DETAIL · ffro_settings_trailer
-#                  ffro_git_hook_trailer <installed|custom|failed|skipped>
+#                  ffro_git_hook_states <installer-out> <rc> -> ffro_git_hook_trailer <states>
 #   States: merged | already-current | created-minimal | merge-failed | not-authorized | absent
 #           | unavailable | unknown (the log carried no outcome line)
 
@@ -142,13 +142,52 @@ ffro_settings_trailer() {
   esac
 }
 
+# ffro_git_hook_states <installer-output> <installer-rc> -> "pre-commit=<s> commit-msg=<s>"
+# States: installed | current | custom | failed | skipped.
+# TRIPWIRE: derive PER HOOK. install-git-hooks.sh loops over both and reports each one
+# independently (and skipping a custom one does not change its exit code), so a custom
+# commit-msg is NOT evidence that the Flow pre-commit is dead — that inference is the
+# caller-summary defect this ticket exists to remove.
+ffro_git_hook_states() {
+  local out="${1:-}" rc="${2:-0}" h st states=""
+  for h in pre-commit commit-msg; do
+    st=skipped
+    if [ "$rc" -ne 0 ]; then
+      st=failed
+    else
+      case "$out" in
+        *"installed $h ->"*|*"custom $h backed up"*) st=installed ;;
+        *"current $h ->"*) st=current ;;
+        *"custom $h detected"*) st=custom ;;
+      esac
+    fi
+    states="${states:+$states }$h=$st"
+  done
+  printf '%s\n' "$states"
+}
+
+# ffro_git_hook_state <states-string> <hook> -> that hook's state (skipped when unnamed).
+ffro_git_hook_state() {
+  case " $1 " in *" $2="*) : ;; *) printf 'skipped'; return 0 ;; esac
+  local rest="${1#*$2=}"
+  printf '%s' "${rest%% *}"
+}
+
+# ffro_git_hook_trailer <states-string | single-state>
+# A bare token means "both hooks in that state" — one vocabulary, two arities.
+# TRIPWIRE: "the fixed pre-commit is live" belongs to pre-commit ∈ {installed,current} ONLY.
 ffro_git_hook_trailer() {
-  case "${1:-skipped}" in
-    installed)
-      echo "[upgrade] NOTE: the Flow git fallback hooks were (re)installed above, so the fixed pre-commit is live."
+  local spec="${1:-skipped}" pc cm
+  case "$spec" in
+    *=*) pc="$(ffro_git_hook_state "$spec" pre-commit)"; cm="$(ffro_git_hook_state "$spec" commit-msg)" ;;
+    *) pc="$spec"; cm="$spec" ;;
+  esac
+  case "$pc" in
+    installed|current)
+      echo "[upgrade] NOTE: the Flow .git/hooks/pre-commit is installed and current, so the fixed pre-commit is live."
       ;;
     custom)
-      echo "[upgrade] NOTE: a CUSTOM .git/hooks hook was preserved above — the Flow pre-commit is NOT live."
+      echo "[upgrade] NOTE: a CUSTOM .git/hooks/pre-commit was preserved above — the Flow pre-commit is NOT live."
       echo "          Install it explicitly: bash hooks/local/install-git-hooks.sh --force"
       ;;
     failed)
@@ -160,4 +199,8 @@ ffro_git_hook_trailer() {
       echo "          installer is absent). Install them: bash hooks/local/install-git-hooks.sh"
       ;;
   esac
+  if [ "$cm" = custom ] && [ "$pc" != custom ]; then
+    echo "[upgrade] NOTE: a CUSTOM .git/hooks/commit-msg was preserved above (not overwritten); the Flow"
+    echo "          commit-msg is NOT live. Install it explicitly: bash hooks/local/install-git-hooks.sh --force"
+  fi
 }

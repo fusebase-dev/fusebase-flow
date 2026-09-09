@@ -254,11 +254,9 @@ if [ -n "$PARSE_LN" ] && [ -n "$RM_LN" ]; then
 else
   f="$f [could not locate the parse/delete pair in $UPGRADE]"
 fi
-for cls in failed custom installed; do
-  printf '%s' "$UPG_CODE" | grep -q "GH_TRAILER=$cls" \
-    || f="$f [the installer branch '$cls' does not record its observed class for the trailer]"
-done
-[ -z "$f" ] && ok "s1-upgrade-forwards-the-observed-outcome (residency: parses the captured log before deleting it, renders both surfaces, records all three installer classes, and the static claim is gone)" \
+printf '%s' "$UPG_CODE" | grep -q 'ffro_git_hook_states "\$_gh_out" "\$_gh_rc"' \
+  || f="$f [upgrade.sh no longer derives the git-hook outcome PER HOOK from the installer's own lines]"
+[ -z "$f" ] && ok "s1-upgrade-forwards-the-observed-outcome (residency: parses the captured log before deleting it, renders both surfaces, derives the git-hook state per hook, and the static claim is gone)" \
             || bad s1-upgrade-forwards-the-observed-outcome "$f"
 
 ###############################################################################
