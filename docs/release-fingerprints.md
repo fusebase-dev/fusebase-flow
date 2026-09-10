@@ -50,13 +50,17 @@ Match your output to either fingerprint column below; both identify the same tre
 | `v4.15.1` | 4.15.1 | `ec0681229de3bfed1d920d08abc8386bc73d19875bf5de34b224b24b71fadc19` | 376 | `f8e06cea670965c6bac6bc679638bf7f7ae77f74a06e8c368495ed8c0f591469` | 212 |
 | `v4.15.2` | 4.15.2 | `5a70a1b662edd6ae193550fba91ba173b80aa7b92a28b06c35c0ce0cbcb4eea0` | 376 | `bd11c9d889aca539a900d89efbe4f52f2fa1a9aef577972f682146f4da2f62d8` | 212 |
 | `v4.15.3` | 4.15.3 | `e779a351266ba742a52ff9806cc3eb76514146957b62b4184e5a2d83817b8a2a` | 376 | `a2f38290444ff4c818b0655b83263fdd0088dd0c1bc1724ab414b2b73fe55e6d` | 212 |
+| `v4.16.0` | 4.16.0 | `e6867bd7363b6bbcfd6e73ce0b32259c6c675cad9ed536eacbf5d261f1f5f8a7` | 378 | `1d8964b0650200634f494868c2ca0bcec1b33f80aa23aa942d97fec95b92a77c` | 214 |
 
-`v4.9.0`, `v4.9.1`, `v4.10.0`, `v4.15.0`, `v4.15.1` and `v4.15.2` are unpublished tagged trees: their release
-workflows failed (2026-08-12, 2026-08-13, 2026-08-15 and 2026-09-07) and published nothing. Each row
-identifies an immutable tag target; none is evidence of publication. No tag was moved — `v4.9.2`
-superseded the first two, `v4.10.1` superseded `v4.10.0`, and published `v4.15.3` superseded the latter three. A
-tree cloned from `main` during any of those windows is identifiable here rather than absent from the
-table.
+`v4.9.0`, `v4.9.1`, `v4.10.0`, `v4.15.0`, `v4.15.1`, `v4.15.2` and `v4.16.0` are unpublished tagged
+trees: their release workflows failed (2026-08-12, 2026-08-13, 2026-08-15, 2026-09-07 and 2026-09-10)
+and published nothing. Each row identifies an immutable tag target; none is evidence of publication.
+No tag was moved — `v4.9.2` superseded the first two, `v4.10.1` superseded `v4.10.0`, and published
+`v4.15.3` superseded the v4.15.x trees. `v4.16.0` has no successor yet: its
+[run `34438811255`](https://github.com/fusebase-dev/fusebase-flow/actions/runs/34438811255) passed
+`verify-windows-msys` at 682/682, failed `verify-linux` at 681/682 on one test-fixture portability
+row, and `publish` never dispatched. A tree cloned from `main` during any of those windows is
+identifiable here rather than absent from the table.
 
 `v4.10.0` failed for a reason worth recording, because it was self-inflicted: the fingerprint-row
 check added in `v4.9.2` read a tag's target with
