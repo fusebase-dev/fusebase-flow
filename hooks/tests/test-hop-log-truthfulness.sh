@@ -23,6 +23,9 @@ ok()  { pass=$((pass + 1)); echo "PASS: hop-log-truth $1"; }
 bad() { fail=$((fail + 1)); local w="${2:-}"; [ -z "$w" ] || w=" ($(printf '%s' "$w" | tr '\n\r\t' '   ' | cut -c1-500))"; echo "FAIL: hop-log-truth $1$w"; }
 finish() { echo "[test-hop-log-truthfulness] $pass/$((pass + fail)) PASS"; exit $fail; }
 
+# shellcheck source=lib/minimal-path-fixture.sh
+. "$ROOT/hooks/tests/lib/minimal-path-fixture.sh"
+
 RO_LIB="hooks/local/lib/recovery-outcome.sh"
 UPGRADE="hooks/local/upgrade.sh"
 RECOVERY="hooks/local/post-fusebase-update.sh"
@@ -304,24 +307,25 @@ printf '%s' "$OUT" | grep -qi "cannot say" || f="$f [an unparsable record does n
 ###############################################################################
 # D1 — the other deterministic pre-Step-5 abort: no python3
 ###############################################################################
-path_without_python3() {
-  local d out="" IFS=:
-  for d in $PATH; do
-    [ -n "$d" ] || continue
-    { [ -x "$d/python3" ] || [ -x "$d/python3.exe" ]; } && continue
-    out="${out:+$out:}$d"
-  done
-  printf '%s' "$out"
-}
-NP="$(path_without_python3)"
+# TRIPWIRE — the interpreter-less PATH comes from mpf_build, NEVER from pruning $PATH by
+# directory: python3 shares /usr/bin with bash/grep/sed on Linux, so pruning takes the shell and
+# coreutils with it and the child dies 127 before this row's subject runs (minimal-path-fixture.sh
+# AC7). A row whose subject never started reports an outcome it never observed — the exact defect
+# class S1 exists to close.
 f=""
-if PATH="$NP" command -v python3 >/dev/null 2>&1; then
-  f="$f [python3 is still reachable after pruning its PATH entries, so this row cannot be driven here]"
+if ! mpf_build; then
+  f="$f [the interpreter-less fixture could not be built, so this row cannot be driven here: $MPF_REASON]"
 else
   CHAN="$BASE_TMP/nopy.chan"; : > "$CHAN"
-  ( cd "$FX" && PATH="$NP" FFRO_OUTCOME_FILE="$CHAN" bash hooks/local/post-fusebase-update.sh --wire-hooks ) \
+  ( cd "$FX" && env -u FUSEBASE_FLOW_PYTHON PATH="$MPF_PATH" FFRO_OUTCOME_FILE="$CHAN" \
+      bash hooks/local/post-fusebase-update.sh --wire-hooks ) \
     > "$BASE_TMP/nopy.log" 2>&1
   NOPY_RC=$?
+  mpf_destroy
+  # ANTI-VACUITY: 127 is "no child ran", not "the abort behaved"; naming it apart keeps a broken
+  # fixture from ever being read as the documented rc.
+  [ "$NOPY_RC" -ne 127 ] \
+    || f="$f [the recovery never executed under the fixture PATH (rc 127), so nothing below is about its python3-less branch]"
   [ "$NOPY_RC" -eq 2 ] || f="$f [a python3-less tree exited $NOPY_RC, not the documented rc 2]"
   [ "$(parsed_state "$CHAN")" = "unavailable" ] \
     || f="$f [a python3-less abort published '$(parsed_state "$CHAN")' instead of unavailable]"

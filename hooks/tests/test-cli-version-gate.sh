@@ -102,6 +102,22 @@ path_without_fusebase() {
   printf '%s' "$out"
 }
 BASE_PATH="$(path_without_fusebase)"
+# ANTI-VACUITY (and the D1 lesson): pruning $PATH BY DIRECTORY can take the toolchain with the
+# CLI — a `fusebase` installed into /usr/bin or /usr/local/bin sits beside bash/git/python3. A
+# BASE_PATH missing them makes every engine row die 127 while the __ABSENT__ rows still read
+# "not on PATH", i.e. a green suite whose subject never ran. Prove the toolchain survived, or
+# stop and say why; never continue on a PATH that cannot host the subject.
+# Only a tool the AMBIENT PATH resolved counts: a host without python3 is a host limitation,
+# while a tool the pruning DELETED is this constructor's defect.
+bp_lost=""
+for t in bash git python3 grep sed; do
+  command -v "$t" >/dev/null 2>&1 || continue
+  PATH="$BASE_PATH" command -v "$t" >/dev/null 2>&1 || bp_lost="${bp_lost:+$bp_lost }$t"
+done
+if [ -n "$bp_lost" ]; then
+  bad "base-path-keeps-the-toolchain" "pruning the fusebase dirs from PATH also removed: $bp_lost — every row below would run against a broken PATH, not against the version gate"
+  finish
+fi
 
 ###############################################################################
 # Part 1 — unit rows (no engine spawn)

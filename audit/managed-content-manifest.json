@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "3f5ad9300f4cbc5823f6339a9f2e2b4784c8bc13a368be1f7b84b922d5c07fbd"
+      "sha256": "6d7989161f49a81bec72d8097b6f0469baa3a317ec1daea716903358612d5908"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -1062,7 +1062,7 @@
     },
     {
       "path": "hooks/tests/test-cli-version-gate.sh",
-      "sha256": "d9fcaa4d3adf5e5eb47be0c668cfc9b0914f38abe0b5799be80f5a0e7502757f"
+      "sha256": "28f01c9a6fbde36eded63ad0aaacd3bd3448fef4e78edb5483c2e9c9ce1d5f09"
     },
     {
       "path": "hooks/tests/test-codex-plugin-surface.sh",
@@ -1122,7 +1122,7 @@
     },
     {
       "path": "hooks/tests/test-hop-log-truthfulness.sh",
-      "sha256": "d594f4f066b1c73a2245e288837a1bcf814a7820d4d720fa76a97915e5b1e99d"
+      "sha256": "e6acbfd83830052b4b426e092fd76087fb09cf21405e6ee9673597b90cf2a21f"
     },
     {
       "path": "hooks/tests/test-install-fusebase-cli-project-doc.sh",
@@ -1146,7 +1146,7 @@
     },
     {
       "path": "hooks/tests/test-minimal-path-fixture.sh",
-      "sha256": "c65495769f164ae88d5098fc5637db85901aced4cdefa100de5fece6d52f902a"
+      "sha256": "dbb67fc696591c5135d33396ca7c8d827b5eccee1f6edbe645bc0d7afbb69d06"
     },
     {
       "path": "hooks/tests/test-missing-base-detection.sh",
@@ -1517,5 +1517,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "e6867bd7363b6bbcfd6e73ce0b32259c6c675cad9ed536eacbf5d261f1f5f8a7"
+  "manifest_self_sha256": "7ebd5887a5c0b16f15501975e0c31aad7e4b2a63e8c71cd186a47687bbe32b0c"
 }

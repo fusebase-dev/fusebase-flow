@@ -40,6 +40,27 @@ if grep -qE '(^|[^A-Za-z_])IFS=|ln[[:space:]]+-s' "$FIXTURE"; then
   bad "fixture-no-mirroring-primitives" "the fixture uses IFS splitting or ln -s (host-directory mirroring)"
 else ok "fixture-no-mirroring-primitives"; fi
 
+# ---- 1b. The SAME rule for the fixture's would-be callers. AC7 held inside this file while a
+# suite next door re-invented the pruning it forbids and shipped it into the release profile
+# (v4.16.0 verify-linux: test-hop-log-truthfulness.sh dropped /usr/bin with python3, taking bash
+# and coreutils, so the subject died 127 and the row reported an outcome it never observed).
+# An enumerating site is reviewed once and listed here; a NEW one is red until it is.
+# TRIPWIRE — an entry here is not a licence to prune: it certifies the site proves its
+# constructed PATH still resolves the tools its subject needs, and stops if it does not.
+PATH_ENUM_ALLOWED="test-cli-version-gate.sh"
+enum_found=""
+for candidate in "$ROOT"/hooks/tests/*.sh "$ROOT"/hooks/tests/lib/*.sh; do
+  [ -f "$candidate" ] || continue
+  [ "$candidate" = "$ROOT/hooks/tests/test-minimal-path-fixture.sh" ] && continue
+  grep -qE 'for[[:space:]]+[A-Za-z_]+[[:space:]]+in[[:space:]]+\$PATH' "$candidate" || continue
+  enum_found="${enum_found:+$enum_found }$(basename "$candidate")"
+done
+if [ "$enum_found" = "$PATH_ENUM_ALLOWED" ]; then
+  ok "callers-no-unreviewed-path-enumeration (only $PATH_ENUM_ALLOWED prunes \$PATH, and it stops when the toolchain does not survive)"
+else
+  bad "callers-no-unreviewed-path-enumeration" "\$PATH-enumerating suites are '${enum_found:-<none>}', reviewed set is '$PATH_ENUM_ALLOWED' — a new site must route through mpf_build or prove its constructed PATH still resolves its subject's tools"
+fi
+
 # ---- 2. Positive construction. ----
 if mpf_build; then ok "fixture-builds"
 else bad "fixture-builds" "${MPF_REASON:-unknown}"; finish; fi

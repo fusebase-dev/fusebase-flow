@@ -3,7 +3,7 @@
 **Slug:** `ci-linux-msys-test-divergence`
 **Filed:** 2026-07-09
 **Severity:** high
-**Status:** resolved
+**Status:** resolved per pitfall; pitfall 2 RECURRED in a new carrier (v4.16.0) and is now mechanically ratcheted
 **Filed by:** operator (per FR-15, during the v4.2.0 CI green-up)
 
 ## Symptom
@@ -18,6 +18,8 @@ Once the composed suite finally ran fully green on the MSYS box (`396/396`), the
 | 2 | same suite on `ubuntu-latest` CI | 7 FAIL across 3 tests, then (after fixing those) 1 FAIL at the working-tree-clean step |
 | 3 | v4.7.0 (2026-07-29): suite on MSYS-local | 665/666, 0 FAIL |
 | 4 | same suite, `ubuntu:24.04` container, fresh `git clone` of the repo (not a bind-mounted worktree) | 662/663 — 1 FAIL, pitfall 5 |
+| 5 | v4.16.0 (2026-09-10): `FF_RELEASE=1` profile on the tagged SHA `a62e362` | `verify-windows-msys` 682/682, `verify-linux` **681/682** — 1 FAIL, pitfall 7 |
+| 6 | same tree in an `ubuntu:24.04` container (`apt` python3 at `/usr/bin`), `bash hooks/tests/test-hop-log-truthfulness.sh` | 17/18 — reproduced `rc 127` locally in ~40 s, no CI round-trip |
 
 Reproduces: 3/3 on CI (deterministic per platform). **Reproduce locally without CI:** clone the repo INSIDE an `ubuntu:24.04` container (`git clone /src /work`, never a bind-mounted dirty worktree), `git config core.fileMode false`, `chmod +x`, then run the workflow's steps in order — this reproduced pitfall 5 in ~50 s, versus a CI round-trip whose logs need auth.
 
@@ -32,6 +34,19 @@ Reproduces: 3/3 on CI (deterministic per platform). **Reproduce locally without 
 
 6. **Native Windows Python emits CRLF on a typed multi-line surface list.** (v4.15.0 release repair, 2026-09-07.) `post-fusebase-update.sh` compared each `ffhc_hwi_surfaces` line byte-for-byte. Native Python emitted `claude_settings\r\ngit_hooks\r\n`; Bash `read` retained the terminal CR, so automatic recovery missed `claude_settings` while accepting the last `git_hooks` value after command substitution removed its final newline. **Fix: remove exactly one terminal CR at the typed-output boundary before exact membership comparison; LF/CRLF positives and prefix/suffix negatives preserve the allowlist.**
 
+7. **Pitfall 2 recurred in a NEW carrier — a PATH-dir mask that removes the shell itself.** (v4.16.0 tagged gate, 2026-09-10.) `hooks/tests/test-hop-log-truthfulness.sh:307-333` (slice D1) built its python3-less PATH with `path_without_python3()`: enumerate `$PATH`, drop every dir holding `python3`. On `ubuntu-latest` that dir is `/usr/bin`, which also holds `bash`, `grep` and `sed` — so `bash hooks/local/post-fusebase-update.sh` died **rc 127** before the script's first line. Observed `rc 127` / state `unknown` / "cannot say"; expected `rc 2` / `unavailable` / settings-not-touched. Worse than a red row: **the row had never exercised the python3-less branch on Linux at all**, so the documented `rc 2` behaviour was neither confirmed nor refuted there — a caller reporting an outcome it never observed, which is the exact defect class the S1 suite exists to close. **Fix: route D1 through `mpf_build`/`MPF_PATH` (`hooks/tests/lib/minimal-path-fixture.sh`), which resolves tools BY NAME and re-exposes absolute-exec shims, plus an explicit `rc 127 => the child never started` anti-vacuity assertion.** Production was NOT defective: under the corrected fixture the recovery reaches `post-fusebase-update.sh:245-248` and publishes `settings=unavailable detail=recovery aborted before its settings step (python3 is unavailable for recovery plan validation); .claude/settings.json was not touched (rc 2)`.
+
+### Why the existing tripwire did not prevent pitfall 7
+
+| Control that existed | Scope | Why it missed |
+|---|---|---|
+| `minimal-path-fixture.sh:18-20` TRIPWIRE naming this exact hazard ("python3 and git share /usr/bin on Linux") | comment inside the fixture file | Read only by someone already editing the fixture; D1's author never opened it. |
+| `test-minimal-path-fixture.sh` §1 `fixture-no-path-enumeration-loop` | greps **`$FIXTURE` only** | A mechanical guard aimed at the one file that was already correct. It could not see a suite next door re-inventing the pruning it forbids. |
+| `cli-flow-recovery-direct.sh` `ffcf_t14_preflight` — already drives the same python3-less abort correctly via `mpf_build` | different suite | A correct sibling is not a constraint on a new one. |
+| Two-platform release gate | tagged SHA | Caught it, but only AFTER `v4.16.0` was tagged and immutable. |
+
+**What would have caught it before a tagged cut:** a source-level check binding the AC7 rule to the fixture's *callers*, not just the fixture. Shipped as `test-minimal-path-fixture.sh` §1b `callers-no-unreviewed-path-enumeration` — scan `hooks/tests/**.sh` for `for X in $PATH`, compare against a reviewed allowlist, red on any new site. It is a grep over source, so it fires identically on MSYS and Linux: it would have gone red on the maintainer's own box at the commit that introduced D1, before any tag existed. Verified non-vacuous — reverting D1 to the enumerating version makes the row FAIL naming both files.
+
 ## Why it matters
 
 - A test can be **green locally and red on CI** (pitfalls 1/3) — or worse, **silently mis-test** (pitfall 2: it looked like it exercised the python3-absent path but actually removed git), giving false confidence.
@@ -44,11 +59,14 @@ Reproduces: 3/3 on CI (deterministic per platform). **Reproduce locally without 
 | Shipped | v4.2.0 CI green-up: `fetch-depth: 0` (`fe62d34`), git-preserving mask (`8378265`), `core.fileMode false` (`34409e1`), fixture manifest stamp (`ffe879e`). First fully-green CI run in repo history: `34409e1`. |
 | Shipped | v4.7.0 release-run green-up (pitfall 5): fixture `*.sh text eol=lf` pin (`8d3c007`). Reproduced in an `ubuntu:24.04` container cloning the repo at HEAD and mirroring every workflow step: RED 662/663 before, GREEN 663/663 after, all 8 remaining CI steps rc=0. |
 | Verified locally | T61 v4.15.0 release repair (pitfall 6): one-CR normalization at the exact typed-output boundary, with LF/CRLF positive and prefix/suffix negative controls. Publication is reserved for v4.15.1. |
+| Shipped | v4.16.1 (pitfall 7): D1 routed through `mpf_build`/`MPF_PATH` plus an `rc 127` anti-vacuity assertion; `test-minimal-path-fixture.sh` §1b caller ratchet; a surviving-toolchain guard on the one remaining reviewed enumerator (`test-cli-version-gate.sh` `path_without_fusebase`). Reproduced RED 17/18 and proved GREEN 18/18 in `ubuntu:24.04` with `/usr/bin/python3`. |
 
 ## Recurrence triggers (so future sessions recognize this)
 
 - A test uses `git diff HEAD~1` / `git log -2` / any history depth ≥ 2 → will fail on a shallow CI checkout (`rc=128`, "unknown revision HEAD~1").
 - A test masks a tool by dropping PATH dirs → on Linux the target shares a dir with git/coreutils, so the mask collaterally removes them.
+- **rc 127 from a child the test spawned under a constructed PATH** → the subject never started, so the row's assertions describe the fixture, not the product. Never read a downstream `unknown`/default state as behaviour while rc is 127.
+- **A suite is ADDED to `FF_RELEASE_TAGS`** → rows that until then only ran on the maintainer's MSYS box now run on Linux for the first time. Audit the new phases for platform assumptions in the SAME change (v4.16.0's only additions were `hop-log-truth` and `n4-parity-scope`; `hop-log-truth` carried pitfall 7).
 - `git status --porcelain` dirty on CI with a list of `.sh` files as `M` (mode-only) → committed `100644` + `chmod +x`.
 - A newly-added health-check critical → test fixtures that run the engine now return UNVERIFIED/BROKEN.
 - A test builds a synthetic git repo (`git init` + `git add`) and later checks it out with `core.autocrlf=true` (or `git archive` on such a tree) → any `.sh`/executable in that fixture lands CRLF and dies on Linux bash with `$'\r': command not found` / `set: pipefail: invalid option name`. Synthetic fixtures do NOT inherit the repo's `.gitattributes`.
@@ -57,7 +75,7 @@ Reproduces: 3/3 on CI (deterministic per platform). **Reproduce locally without 
 
 ## Guardrail (the lesson)
 
-**MSYS-local and Linux-CI hide DIFFERENT failures — a green local run is not a green CI run.** Concretely: (1) any history-dependent test needs `fetch-depth ≥ 2`; (2) never mask a tool by dropping PATH dirs — symlink a curated bin and ASSERT the tools you meant to keep still resolve; (3) commit scripts executable OR set `core.fileMode false` in CI; (4) when you add a health-check critical, update every fixture that drives the engine; (5) a synthetic fixture inherits NONE of the repo's `.gitattributes` — if the test executes a script from it under `core.autocrlf=true`, pin `*.sh text eol=lf` in the fixture (MSYS bash tolerates CR, Linux bash does not); (6) normalize one terminal CR before exact typed-output comparisons; (7) run the FULL composed suite on BOTH platforms (or gate on CI) before trusting green — the release gate ([[ci-red-invisible-no-release-gate]]) now enforces the CI half.
+**MSYS-local and Linux-CI hide DIFFERENT failures — a green local run is not a green CI run.** Concretely: (1) any history-dependent test needs `fetch-depth ≥ 2`; (2) never mask a tool by dropping PATH dirs — symlink a curated bin and ASSERT the tools you meant to keep still resolve; (3) commit scripts executable OR set `core.fileMode false` in CI; (4) when you add a health-check critical, update every fixture that drives the engine; (5) a synthetic fixture inherits NONE of the repo's `.gitattributes` — if the test executes a script from it under `core.autocrlf=true`, pin `*.sh text eol=lf` in the fixture (MSYS bash tolerates CR, Linux bash does not); (6) normalize one terminal CR before exact typed-output comparisons; (7) run the FULL composed suite on BOTH platforms (or gate on CI) before trusting green — the release gate ([[ci-red-invisible-no-release-gate]]) now enforces the CI half; (8) **a rule that lives only inside the file it protects is a comment, not a control** — when a correct tool already exists (`mpf_build`), the guard must bind every CALLER by source scan, or the next author re-invents the banned construction in a file the guard never reads.
 
 ## Related
 
@@ -65,3 +83,5 @@ Reproduces: 3/3 on CI (deterministic per platform). **Reproduce locally without 
 - `.github/workflows/fusebase-flow-verify.yml` — `fetch-depth: 0` + `core.fileMode false`.
 - `hooks/tests/{test-po-investigate.sh, test-bootstrap-exception.sh, test-cli-flow-recovery.sh}` — the fixed tests (pitfalls 1/2/4).
 - `hooks/tests/test-upgrade-conflict-classification.sh` §7 — the fixed test (pitfall 5); `.gitattributes` — the shipped `*.sh text eol=lf` pin the fixture now mirrors.
+- `hooks/tests/lib/minimal-path-fixture.sh` — the one sanctioned interpreter-less PATH constructor; `hooks/tests/test-minimal-path-fixture.sh` §1b — the caller ratchet; `hooks/tests/test-hop-log-truthfulness.sh` D1 — the fixed row (pitfall 7).
+- [[undecided-contract-drives-repeat-defects]] — same shape: a fix landed in one carrier and the contract was never bound across the caller family.
