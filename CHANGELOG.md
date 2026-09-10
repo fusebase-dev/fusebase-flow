@@ -4,6 +4,33 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [4.16.3] — 2026-09-10
+
+**Four more contracts gate, and the membership ratchet now gates itself.** No consumer-facing
+behavior changes. See `docs/release-notes/v4.16.3.md`.
+
+- **Closes a recursion in the release-profile guard.** CI ran `test-ff-only.sh --only t33`, a slice
+  that excludes the allowlist-size and boundary-tag assertions — so the ratchet guarding
+  `FF_RELEASE_TAGS` never ran on either leg, including the size number a promotion changes. The
+  `.github/workflows/fusebase-flow-verify.yml` step now runs the suite unscoped.
+- **Fixed by widening the step, not by profile membership, and that was measured.**
+  `FF_RELEASE=1 bash hooks/tests/test-ff-only.sh` is 17/46 FAIL: the suite drives `run-tests.sh`
+  with `FF_ONLY`/`FF_FULL`, which `run-tests.sh` refuses combined with `FF_RELEASE` (rc 2). A
+  separate step also keeps the ratchet non-self-referential — dropping a tag cannot switch off the
+  assertion that would have caught it. Tripwire recorded at the array.
+- `cli-rendered`, `recovery-hint`, `stamp-eol-guard` and `cli-flow-recovery-selectors` join
+  `FF_RELEASE_TAGS`, so each runs on `verify-linux` and `verify-windows-msys` for every tagged SHA.
+  Measured on MSYS: 20 s / 5 s / 17 s / 56 s (+98 s total); the widened `ff-only` step adds 82 s.
+- `test-ff-only.sh` asserts a 36-tag explicit release allowlist (was 32); `docs/maintainer-testing.md`
+  records each new member and its responsibility.
+- **`preboundary-consumed` was measured and declined**, not promoted: 204 s on MSYS across 13
+  `bootstrap-upgrade.sh` engine hops, against 5-56 s for every phase that entered. Green on both
+  platforms, so it is recorded as deferred-on-cost rather than as a diagnostic exclusion.
+- Per this repository's own recurrence trigger, every promoted phase ran on Linux before tagging:
+  `ubuntu:24.04` row counts identical to MSYS (7/6/18/11). The audit surfaced one latent portability
+  defect left as a separate outcome — `test-recovery-owned-bootstrap.py` spawns `python`, not
+  `python3` — recorded in `docs/problem-catalog/ci-linux-msys-test-divergence/problem.md`.
+
 ## [4.16.2] — 2026-09-10
 
 **The v4.16.1 PATH-construction ratchet now gates.** No consumer-facing behavior changes. See
