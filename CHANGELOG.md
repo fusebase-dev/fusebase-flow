@@ -4,6 +4,30 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [4.16.1] — 2026-09-10
+
+**Ships 4.16.0's content; consumers go 4.15.3 -> 4.16.1.** `v4.16.0` was tagged (`a62e362`) and
+never published — its two-platform gate was red on `verify-linux` (681/682) and green on
+`verify-windows-msys` (682/682), so `publish` never ran. The tag stays immutable and unmoved. See
+`docs/release-notes/v4.16.1.md`, which carries 4.16.0's notes in full.
+
+- Fixes the red row, `hop-log-truth s1-missing-python3-reports-untouched-not-unknown`: it built a
+  python3-less `PATH` by dropping every `$PATH` directory containing `python3`, which on
+  `ubuntu-latest` is `/usr/bin` and takes `bash`, `grep` and `sed` with it. The recovery child died
+  rc 127, so the row had never exercised its own subject on Linux. It now uses `mpf_build`/
+  `MPF_PATH` and asserts rc 127 apart from the documented rc 2.
+- **No product defect.** With the fixture corrected, `hooks/local/post-fusebase-update.sh` publishes
+  exactly the documented `settings=unavailable` / not-touched / rc 2 outcome on Linux.
+- `test-minimal-path-fixture.sh` gains a caller ratchet: every `hooks/tests` suite is scanned for a
+  `$PATH`-enumeration loop against a reviewed allowlist, so a new site is red at the commit that
+  adds it rather than at a tagged cut. The prior guard only inspected the fixture file itself.
+- Sibling audit: `test-cli-version-gate.sh` `path_without_fusebase` is the one other enumerator; it
+  now stops with a named diagnosis when pruning removes a tool the ambient `PATH` did resolve.
+- `docs/problem-catalog/ci-linux-msys-test-divergence/problem.md` records this as pitfall 7, a
+  recurrence of pitfall 2 in a new carrier, with why each existing control missed it.
+
+No runtime, hook, skill or consumer-facing behavior changes relative to 4.16.0.
+
 ## [4.16.0] — 2026-09-10
 
 **Truthful hop reporting and publisher-scoped health.** The upgrade hop log now reports what
