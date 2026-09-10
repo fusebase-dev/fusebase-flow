@@ -116,6 +116,8 @@ ffhc_publisher_packaging_collect() {
 # TRIPWIRE: match on the error line TEXT, never on counts — equal counts of different findings
 # would hide a real breakage behind the packaging class. preflight's err() prefix is
 # "[preflight] ERROR: " (preflight.sh:23); a prefix change must be reflected here.
+# TRIPWIRE: normalize BOTH comparison sides identically — a strip on one side plus an assumption
+# on the other rejects a legitimate packaging-only run (corrections.md § Round 2 R2).
 ffhc_preflight_is_packaging_only() {
   local line stripped e seen=0 hit
   declare -p PUBLISHER_PACKAGING_FINDINGS >/dev/null 2>&1 || return 1
@@ -125,7 +127,7 @@ ffhc_preflight_is_packaging_only() {
     stripped="${line#\[preflight\] ERROR: }"; stripped="${stripped%$'\r'}"
     seen=$((seen + 1)); hit=0
     for e in "${PUBLISHER_PACKAGING_FINDINGS[@]}"; do
-      [ "$e" = "$stripped" ] && { hit=1; break; }
+      [ "${e%$'\r'}" = "$stripped" ] && { hit=1; break; }
     done
     [ "$hit" -eq 1 ] || return 1
   done < <(printf '%s\n' "$1")

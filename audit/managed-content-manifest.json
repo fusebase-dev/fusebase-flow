@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "d10780f0552f52e7e6ab0025f70c5d916e1aee1a014a38d9fe29760b278a7a74"
+      "sha256": "2dd8c0000badf1eb1e9f2e2644a6ac2caffb8fe15bc69ac48ac3557de19e07f9"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -546,11 +546,11 @@
     },
     {
       "path": "hooks/local/lib/partial-upgrade-check.sh",
-      "sha256": "13c689759bd5cb830f8342345ffecba473d71857609425c9a0cb12e2ee6907b9"
+      "sha256": "159f5777411f8d21a29cb4ac1882ab6d257d568990cd3a652ffafa73ee56848a"
     },
     {
       "path": "hooks/local/lib/plugin-parity.sh",
-      "sha256": "8ffb9e679236003f550acf81d9c7fdca15930b35be9ad6edc0c3f4dcf777b9e3"
+      "sha256": "d73369b65ebb17aa35917563f30cd0507f74dda2ce65c553c98bebe0b22d37b1"
     },
     {
       "path": "hooks/local/lib/precommit-validator-reuse.sh",
@@ -1166,7 +1166,7 @@
     },
     {
       "path": "hooks/tests/test-plugin-parity-scope.sh",
-      "sha256": "59a545d243baee088b5f5e62b45b44f8f9cbc05b959f8688fbc6b58e96f8754c"
+      "sha256": "9736341adc668544bd366f008d54df2ebd73f7d8cbcb379a2fa984691252d84e"
     },
     {
       "path": "hooks/tests/test-po-investigate.sh",
@@ -1517,5 +1517,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "e9a01dcdb33baea646a2e52be0df8d130e628127376c5914d65edbf4ebc8e8bd"
+  "manifest_self_sha256": "5d4912798fcf0df83d15da2e8c8f051ebc49bd10d31144700b414c073de3fb94"
 }

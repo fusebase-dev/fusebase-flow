@@ -242,6 +242,78 @@ AFTER="$(cd "$HR" && find . -type f -exec cksum {} + 2>/dev/null | sort)"
             || bad s2-health-stays-read-only "$f"
 
 ###############################################################################
+# R2 — CR/LF normalization must be SYMMETRIC, and one violation must stay one line
+###############################################################################
+# THE DEFECT (corrections.md § Round 2, R2): ffpp_field returned the JSON value verbatim, so a
+# version carrying CRLF made the echo emit TWO lines for ONE violation with the first
+# CR-terminated, while the classifier stripped a trailing CR from the PREFLIGHT side only. A run
+# that genuinely was packaging-only was rejected and reported BROKEN.
+R2_SHA="13ebe20"   # the rejecting bytes; round-2 anti-regression source
+
+f=""
+CRV="$BASE_TMP/crlf-value"; repo_at "$CRV" fusebase-flow 4.11.0 1   # in-sync elsewhere: the CRLF value is the ONLY violation
+# JSON escapes, so the PARSED value carries a real CR+LF inside it (not a trailing CR).
+printf '{"name": "fusebase-flow", "version": "4.15.2\\r\\n-rc1"}\n' > "$CRV/.claude-plugin/plugin.json"
+OUT="$(errs "$CRV")"
+R2_LINES="$(printf '%s\n' "$OUT" | grep -c 'plugin.json version')"
+[ "$R2_LINES" = "1" ] \
+  || f="$f [a CRLF-bearing version produced $R2_LINES parity lines, not 1 — one violation must be one line (the lib's CONTRACT) or health can never match it line for line]"
+printf '%s' "$OUT" | grep -q '4.15.2-rc1' || f="$f [the finding does not report the stripped value: '$OUT']"
+[ "$(printf '%s' "$OUT" | wc -c)" = "$(printf '%s' "$OUT" | tr -d '\r\n' | wc -c)" ] \
+  || f="$f [the finding still carries a CR or LF byte, so the preflight line it produces cannot match it]"
+[ -z "$f" ] && ok "r2-crlf-value-is-one-finding (a JSON version carrying CRLF yields exactly one CR/LF-free parity line)" \
+            || bad r2-crlf-value-is-one-finding "$f"
+
+# pkg_only <finding> <one preflight error text> -> the shipped classifier's rc.
+# The finished line is part of the synthetic output because completion is one of the conditions.
+pkg_only() {
+  bash -c 'PUBLISHER_PACKAGING_FINDINGS=("$1"); . "$0" 2>/dev/null
+ffhc_preflight_is_packaging_only "[preflight] ERROR: $2
+[preflight] preflight finished — errors: 1, warnings: 0"' "$ROOT/$PU_LIB" "$1" "$2"
+}
+
+f=""
+R2_CR="$(printf '\r')"
+pkg_only "pkg finding$R2_CR" "pkg finding$R2_CR" \
+  || f="$f [a finding and a preflight line that BOTH end in CR were rejected — the strip is still one-sided]"
+pkg_only "pkg finding$R2_CR" "pkg finding" \
+  || f="$f [a finding ending in CR was rejected against a clean preflight line — the asymmetry R2 names]"
+pkg_only "pkg finding" "some other error" \
+  && f="$f [a preflight line that is NOT a packaging finding was accepted as packaging-only]"
+[ -z "$f" ] && ok "r2-classifier-normalizes-both-sides (a trailing CR on either side or both still matches; a non-finding line still does not)" \
+            || bad r2-classifier-normalizes-both-sides "$f"
+
+# crlf_rc <plugin-parity.sh> <partial-upgrade-check.sh> -> classifier rc on the CRLF fixture,
+# with the preflight output rebuilt from THAT helper's own findings (one err per line, as preflight does).
+crlf_rc() {
+  ( cd "$CRV" && bash -c 'PUBLISHER_PACKAGING_FINDINGS=(); . "$0" 2>/dev/null; . "$1" 2>/dev/null
+out=""; n=0
+while IFS= read -r e; do
+  [ -n "$e" ] || continue
+  PUBLISHER_PACKAGING_FINDINGS+=("$e"); n=$((n + 1)); out="$out[preflight] ERROR: $e
+"
+done < <(ffpp_errors 2>/dev/null)
+out="$out[preflight] preflight finished — errors: $n, warnings: 0"
+ffhc_preflight_is_packaging_only "$out"; echo $?' "$1" "$2" 2>/dev/null )
+}
+
+f=""
+[ "$(crlf_rc "$ROOT/$LIB" "$ROOT/$PU_LIB")" = "0" ] \
+  || f="$f [the CRLF fixture is still NOT read as packaging-only, so a publisher whose manifest carries a line break is still reported BROKEN]"
+R2_OLD_PP="$BASE_TMP/r2-old-plugin-parity.sh"; R2_OLD_PU="$BASE_TMP/r2-old-pu.sh"
+if git show "$R2_SHA:$LIB" > "$R2_OLD_PP" 2>/dev/null && git show "$R2_SHA:$PU_LIB" > "$R2_OLD_PU" 2>/dev/null \
+   && [ -s "$R2_OLD_PP" ] && [ -s "$R2_OLD_PU" ]; then
+  R2_OLD_RC="$(crlf_rc "$R2_OLD_PP" "$R2_OLD_PU")"
+  [ "$R2_OLD_RC" = "1" ] \
+    || f="$f [$R2_SHA's helper+classifier returned rc '$R2_OLD_RC' on the CRLF fixture; if it was not the rejection (1) this row is vacuous]"
+else
+  f="$f [could not extract $R2_SHA's $LIB / $PU_LIB, so this row cannot establish the regression]"
+fi
+[ -z "$f" ] && ok "r2-crlf-fixture-is-packaging-only (the CRLF fixture now classifies as packaging-only; on $R2_SHA's bytes the same fixture was rejected)" \
+            || bad r2-crlf-fixture-is-packaging-only "$f"
+
+
+###############################################################################
 # S2/C3 — REAL-PATH verdict selection. The rows above prove the arm is WIRED; these prove the
 # verdict is SELECTED. An ordinary publisher manifest mismatch also fails preflight, and BROKEN
 # is decided before the packaging class, so PUBLISHER_PACKAGING_DRIFT was unreachable in a real

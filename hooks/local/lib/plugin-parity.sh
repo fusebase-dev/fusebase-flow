@@ -48,6 +48,7 @@
 ffpp_is_publisher() { [ -f "${FFPP_LEDGER:-docs/release-fingerprints.md}" ]; }
 
 # ffpp_field FILE PYEXPR: echo a field, or "" when the file is absent/unparsable.
+# TRIPWIRE: strip CR/LF — a line-broken JSON value otherwise makes one violation two lines, breaking the CONTRACT above and health's text match (lib/partial-upgrade-check.sh).
 ffpp_field() {
   command -v python3 >/dev/null 2>&1 || return 0
   [ -f "$1" ] || return 0
@@ -58,7 +59,7 @@ try:
 except Exception:
     sys.exit(0)
 print($2 or '')
-" 2>/dev/null
+" 2>/dev/null | tr -d '\n\r'
 }
 
 ffpp_errors() {
