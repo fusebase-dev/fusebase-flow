@@ -52,6 +52,7 @@ Match your output to either fingerprint column below; both identify the same tre
 | `v4.15.3` | 4.15.3 | `e779a351266ba742a52ff9806cc3eb76514146957b62b4184e5a2d83817b8a2a` | 376 | `a2f38290444ff4c818b0655b83263fdd0088dd0c1bc1724ab414b2b73fe55e6d` | 212 |
 | `v4.16.0` | 4.16.0 | `e6867bd7363b6bbcfd6e73ce0b32259c6c675cad9ed536eacbf5d261f1f5f8a7` | 378 | `1d8964b0650200634f494868c2ca0bcec1b33f80aa23aa942d97fec95b92a77c` | 214 |
 | `v4.16.1` | 4.16.1 | `05566f4efd0be7d3ed36a07174b02bc103cbc11bb5476219b57abef74fb1f5eb` | 378 | `beb6fd95255bbb1db7684f38628a0286489885e2df3ccd4c497a70d56d2a3a99` | 214 |
+| `v4.16.2` | 4.16.2 | `dc6ae918cafb804d98b8851a36936d54e9522c5344ae24c5b4b2a07ec5412169` | 378 | `d35fa70d4a3387bedeb69acc93ea517cacb4506f931bb9627fd07c0d0ae9a18e` | 214 |
 
 `v4.9.0`, `v4.9.1`, `v4.10.0`, `v4.15.0`, `v4.15.1`, `v4.15.2` and `v4.16.0` are unpublished tagged
 trees: their release workflows failed (2026-08-12, 2026-08-13, 2026-08-15, 2026-09-07 and 2026-09-10)
