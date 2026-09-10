@@ -4,6 +4,42 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [4.16.4] — 2026-09-10
+
+**The MSYS capture hang is closed at its cause, and v4.16.3's content ships.** `v4.16.3` was tagged,
+went red on `verify-windows-msys` and published nothing; its tag is immutable and was not moved.
+No consumer-facing behavior changes. See `docs/release-notes/v4.16.4.md`.
+
+- **The defect.** `secret-scan-staged` hit its 1800 s bound (rc 124) after 17 of 39 rows, on code no
+  part of the release had touched (98 s on the green v4.16.2 run). The block sits in the T31 setup,
+  which builds a throwaway repo through `D="$(ph_repo)"` and captures the real `hooks/git/pre-commit`
+  through `"$( ( cd … && bash hooks/git/pre-commit ) 2>&1 >/dev/null )"`. A `$(…)` substitution is a
+  pipe read until EOF, and under MSYS a Windows-native descendant can retain the write handle past
+  the direct child's exit.
+- **The longer leg is refuted, with numbers.** Cumulative elapsed when `secret-scan-staged` started
+  was **217 s on both runs** (11 phases on v4.16.2, 13 on v4.16.3 — `stamp-eol-guard` 4 s and
+  `cli-rendered` 5 s were the only additions ahead of it). The other two promoted phases run after
+  it. The extra ~30 min on the leg IS the hang.
+- **`resolved` was wrong and is corrected.** The v3.30.5 entry converted ONE call site and guarded it
+  with a grep for that site's exact spelling — blind to a capture hidden inside a wrapper function,
+  which is what most of these are. 27 sites existed on the gated surface; 0 remain.
+- **The control is now shell-syntax, not string match.** `hooks/local/check-git-capture.sh` +
+  `hooks/local/lib/git-capture-scan.py` walk substitutions with nesting and resolve same-file
+  function calls transitively. `git-capture-guard` joins `FF_RELEASE_TAGS` (36 → 37) and runs
+  immediately before `secret-scan-staged` on both legs. 19 rows: six reintroduction mutations must go
+  red, six legitimate shapes must stay green, and two rows INJECT the fault — a retained-handle
+  descendant leaves a `$( … )` open past a 10 s bound while the same fault clears the shipped
+  tempfile capture in ~1 s.
+- **Bounded at the operation, not at the wall.** Every hook run in `secret-scan-staged` goes through
+  `run_hook` (`ffhc_run_bounded`, 180 s), which names the operation, reaps the owned tree, and folds
+  the previous double invocation into one.
+- **A timeout is no longer read as a block.** The phase accepted ANY nonzero hook exit as "the secret
+  was rejected", so a killed hook would have read as the control working.
+- **Not fixed, stated plainly:** 230 capture sites remain outside the gate (185 other
+  `hooks/tests/*.sh`, 43 `hooks/local/**`, 2 elsewhere), and the v4.16.3 TIMING did not reproduce in
+  100 isolated iterations plus a full local phase run. The mechanism is proven; the specific hosted
+  descendant is not. `docs/backlog/gate-bounds-lack-headroom/` stays open.
+
 ## [4.16.3] — 2026-09-10
 
 **Four more contracts gate, and the membership ratchet now gates itself.** No consumer-facing
