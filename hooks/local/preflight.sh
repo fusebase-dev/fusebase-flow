@@ -435,5 +435,47 @@ EOF
     fi
 fi
 
+# 11. Phase-classification registry: every registered FF_TAGS phase must name its gating route
+#     (backlog phase-classification-ratchet). The T83 allowlist ratchet catches a tag being
+#     REMOVED from the release profile; nothing caught one never being ADDED or EXCUSED, which
+#     is what v4.16.0 -> v4.16.2 cost. Predicate + baseline: lib/phase_registry_check.py.
+#
+# TRIPWIRE — the scoping must NARROW the check, never disable it (install-doc §8):
+#   (a) the LIB is resolved from $FF_PF_DIR (beside this script), the SUBJECTS from $ROOT (the
+#       tree being checked). A ROOT-relative lib path silently resolves to nothing in a fixture
+#       or consumer tree, turning a scoped check into a disabled one.
+#   (b) "maintainer tree" = both subjects present. Absent => note + skip (a consumer ships no
+#       run-tests.sh). Present-but-lib-missing => err: a check that cannot run is not a pass.
+#   (c) this section is selected by no FF_ profile, so dropping a tag from a profile cannot
+#       switch off the assertion that would have caught it (same argument as `ff-only`).
+FFPR_PY="$FF_PF_DIR/lib/phase_registry_check.py"
+FFPR_RUNNER="$FF_DIR/hooks/tests/run-tests.sh"
+FFPR_DOC="$FF_DIR/docs/maintainer-testing.md"
+if [ ! -f "$FFPR_RUNNER" ] || [ ! -f "$FFPR_DOC" ]; then
+    note "phase-classification registry: not a maintainer tree (needs hooks/tests/run-tests.sh + docs/maintainer-testing.md) — not applicable"
+elif [ ! -f "$FFPR_PY" ]; then
+    err "phase-classification registry: $FFPR_PY is missing beside preflight — the check is DISABLED, not passing"
+elif ! command -v python3 >/dev/null 2>&1; then
+    warn "phase-classification registry: python3 unavailable, so the FF_TAGS classification check did not run"
+else
+    _pf_pr_tf="$(mktemp "${TMPDIR:-/tmp}/ffhc-pf-phasereg.XXXXXX")"
+    python3 "$FFPR_PY" "$FFPR_RUNNER" "$FFPR_DOC" \
+        "$FF_DIR/.github/workflows/fusebase-flow-verify.yml" > "$_pf_pr_tf" 2>&1
+    _pf_pr_rc=$?
+    while IFS= read -r _pf_pr_line; do
+        case "$_pf_pr_line" in
+            "ERROR "*) err "phase registry: ${_pf_pr_line#ERROR }" ;;
+            "NOTE "*)  note "${_pf_pr_line#NOTE }" ;;
+            "") ;;
+            *) note "phase registry: $_pf_pr_line" ;;
+        esac
+    done < "$_pf_pr_tf"
+    # An interpreter crash exits 99 with no ERROR row: fail loudly rather than read it as clean.
+    if [ "$_pf_pr_rc" -ge 99 ]; then
+        err "preflight subcheck did not complete cleanly: phase registry (python rc $_pf_pr_rc)"
+    fi
+    rm -f "$_pf_pr_tf"
+fi
+
 note "preflight finished — errors: $errors, warnings: $warnings"
 exit $errors

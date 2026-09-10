@@ -102,6 +102,135 @@ else
   bad "release-profile-rejects-other-selection-modes" "FF_ONLY rc=$rp_scoped_rc FF_FULL rc=$rp_full_rc"
 fi
 
+# --- Phase-classification registry ratchet (backlog phase-classification-ratchet) --------------
+# The ratchet directly above catches a tag being REMOVED from the release profile. Nothing caught
+# one never being ADDED or EXCUSED — the v4.16.0 -> v4.16.2 shape, where `minimal-path-fixture`
+# existed and gated nowhere. preflight §11 closes that: docs/maintainer-testing.md must classify
+# every FF_TAGS phase in exactly one table, both tables must agree with FF_RELEASE_TAGS /
+# FF_OPTIN_TAGS in BOTH directions, and `unreviewed` rows may only shrink.
+#
+# TRIPWIRE: the red arm lives HERE, in this suite's own unscoped workflow step, not in preflight.
+# A control whose only oracle is itself proves nothing. Every row predeclares its expected error
+# text: a red that is not the named red is a FAIL, not a pass.
+PRCHK="$ROOT/hooks/local/lib/phase_registry_check.py"
+PRWF="$ROOT/.github/workflows/fusebase-flow-verify.yml"
+PRDOC="$ROOT/docs/maintainer-testing.md"
+PRDIR="$(mktemp -d "${TMPDIR:-/tmp}/ffhc-phasereg.XXXXXX" 2>/dev/null)"
+if [ ! -f "$PRCHK" ] || [ -z "$PRDIR" ]; then
+  bad "phase-registry-predicate-present" "missing $PRCHK or no temp dir"
+elif ! command -v python3 >/dev/null 2>&1; then
+  ok "phase-registry [SKIP — no python3]"
+else
+  # TRIPWIRE: results go to FILES, never `$(...)`. preflight spawns git, and an MSYS native git
+  # descendant can retain the substitution pipe forever (problem-catalog/msys-git-command-
+  # substitution-hang; gated by git-capture-guard).
+  pr_run() { python3 "$PRCHK" "$1" "$2" "$PRWF" > "$PRDIR/out.txt" 2>&1; PR_RC=$?; }
+  pr_tail() { tr '\n' ' ' < "$PRDIR/out.txt" | cut -c1-220; }
+  pr_red() {  # pr_red <row> <runner> <doc> <predeclared error substring>
+    pr_run "$2" "$3"
+    if [ "$PR_RC" -eq 0 ]; then bad "$1" "the mutation left the registry GREEN (rc=0) — the check is vacuous for this shape"
+    elif grep -qF "$4" "$PRDIR/out.txt"; then ok "$1"
+    else bad "$1" "red (rc=$PR_RC) but NOT the predeclared red [$4]; got: $(pr_tail)"; fi
+  }
+
+  # CONTROL: the shipped tree must be clean. A check that fires on a healthy tree blocks every push.
+  pr_run "$RT" "$PRDOC"
+  if [ "$PR_RC" -eq 0 ]; then ok "registry-clean-on-the-real-tree (every registered FF_TAGS phase is classified in exactly one table)"
+  else bad "registry-clean-on-the-real-tree" "rc=$PR_RC: $(pr_tail)"; fi
+
+  # MUTATED INPUTS. Each is a copy; the real tree is never written.
+  sed 's/^FF_TAGS=(fixtures /FF_TAGS=(probe-tag fixtures /' "$RT" > "$PRDIR/newtag.sh"
+  sed 's/^  release-authority /  /' "$RT" > "$PRDIR/norelease.sh"
+  sed 's/ consumer-benchmark)/)/' "$RT" > "$PRDIR/nooptin.sh"
+  grep -v '^| Publication integrity |' "$PRDOC" > "$PRDIR/norelrow.md"
+  grep -v '^| `consumer-benchmark` |' "$PRDOC" > "$PRDIR/nooptinrow.md"
+  sed 's/^| `boot-size` | unreviewed/| `git-smoke` | unreviewed/' "$PRDOC" > "$PRDIR/twice.md"
+  sed 's/^| `boot-size` |/| `gone-tag` |/' "$PRDOC" > "$PRDIR/stale.md"
+  grep -v '^| Tag | Classification | Reason |$' "$PRDOC" > "$PRDIR/noheader.md"
+  sed 's/`Hook-layer manifest freshness`/`No Such Step Exists`/' "$PRDOC" > "$PRDIR/badstep.md"
+  awk '{print} /^\| `ws5-upgrade` \|/{print "| `probe-tag` | unreviewed (pre-ratchet, 2026-09-10) | parked instead of decided |"}' "$PRDOC" > "$PRDIR/parked.md"
+
+  pr_red "new-tag-with-no-doc-row-is-rejected" "$PRDIR/newtag.sh" "$PRDOC" \
+    "FF_TAGS registers 'probe-tag' but no table"
+  pr_red "release-table-must-not-drop-a-gated-tag" "$RT" "$PRDIR/norelrow.md" \
+    "FF_RELEASE_TAGS contains 'release-authority' but the release table does not list it"
+  pr_red "release-array-must-not-drop-a-documented-tag" "$PRDIR/norelease.sh" "$PRDOC" \
+    "the release table lists 'release-authority' but FF_RELEASE_TAGS does not contain it"
+  pr_red "exclusions-table-must-not-drop-an-optin-tag" "$RT" "$PRDIR/nooptinrow.md" \
+    "FF_OPTIN_TAGS contains 'consumer-benchmark' but the Diagnostic-exclusions table"
+  pr_red "optin-array-must-not-drop-a-documented-tag" "$PRDIR/nooptin.sh" "$PRDOC" \
+    "the Diagnostic-exclusions table lists 'consumer-benchmark' but FF_OPTIN_TAGS"
+  pr_red "one-classification-per-phase" "$RT" "$PRDIR/twice.md" \
+    "'git-smoke' appears in 2 tables"
+  pr_red "stale-row-is-rejected" "$RT" "$PRDIR/stale.md" \
+    "classifies 'gone-tag' in the 'Registered, not in the release profile' table but FF_TAGS does not register it"
+  pr_red "unreviewed-count-cannot-grow" "$PRDIR/newtag.sh" "$PRDIR/parked.md" \
+    "above the shrink-only baseline of"
+  # Shrink-only is enforced DOWNWARD too: one unreviewed row retired (row + registration) without
+  # lowering the constant is red; the same retirement with the constant lowered is quiet.
+  pr_n="$(sed -n 's/^FF_UNREVIEWED_BASELINE = \([0-9][0-9]*\)$/\1/p' "$PRCHK")"
+  sed 's/rule-inventory boot-size prohibition-residency/rule-inventory prohibition-residency/' "$RT" > "$PRDIR/retired.sh"
+  grep -v '^| `boot-size` | unreviewed' "$PRDOC" > "$PRDIR/retired.md"
+  pr_red "unreviewed-count-below-baseline-without-lowering-is-rejected" "$PRDIR/retired.sh" "$PRDIR/retired.md" \
+    "Lower FF_UNREVIEWED_BASELINE in hooks/local/lib/phase_registry_check.py to $((${pr_n:-1} - 1)) in this commit"
+  sed "s/^FF_UNREVIEWED_BASELINE = ${pr_n:-x}\$/FF_UNREVIEWED_BASELINE = $((${pr_n:-1} - 1))/" "$PRCHK" > "$PRDIR/lowered.py"
+  python3 "$PRDIR/lowered.py" "$PRDIR/retired.sh" "$PRDIR/retired.md" "$PRWF" > "$PRDIR/out.txt" 2>&1; PR_RC=$?
+  if [ -n "$pr_n" ] && [ "$PR_RC" -eq 0 ] && ! grep -q '^ERROR' "$PRDIR/out.txt"; then
+    ok "unreviewed-count-below-baseline-with-lowered-constant-is-quiet ($pr_n -> $((pr_n - 1)))"
+  else bad "unreviewed-count-below-baseline-with-lowered-constant-is-quiet" "baseline=[$pr_n] rc=$PR_RC: $(pr_tail)"; fi
+  pr_red "removed-table-heading-is-loud-not-silently-empty" "$RT" "$PRDIR/noheader.md" \
+    "the registry cannot be parsed"
+  pr_red "step-gated-claim-must-name-a-real-workflow-step" "$RT" "$PRDIR/badstep.md" \
+    "claims step-gated on 'No Such Step Exists' but no step of that name exists"
+
+  # WIRING: the predicate above proves nothing unless preflight actually reaches it, and unless
+  # its "maintainer trees only" scoping NARROWS the check instead of disabling it (install-doc §8).
+  PRT="$PRDIR/tree"
+  mkdir -p "$PRT/hooks/local" "$PRT/hooks/tests" "$PRT/docs" "$PRT/.github/workflows"
+  cp "$ROOT/hooks/local/preflight.sh" "$PRT/hooks/local/preflight.sh"
+  cp -r "$ROOT/hooks/local/lib" "$PRT/hooks/local/lib"
+  cp "$PRDOC" "$PRT/docs/maintainer-testing.md"
+  cp "$PRWF" "$PRT/.github/workflows/fusebase-flow-verify.yml"
+  # Pin preflight's own ROOT resolution to this fixture: it starts with `git rev-parse
+  # --show-toplevel`, which would otherwise walk out of a TMPDIR that happens to sit in a repo.
+  git init -q "$PRT" 2>/dev/null
+  pr_preflight() { ( cd "$PRT" && bash hooks/local/preflight.sh ) > "$PRDIR/pf.txt" 2>&1; PR_PF_RC=$?; }
+
+  cp "$PRDIR/newtag.sh" "$PRT/hooks/tests/run-tests.sh"
+  pr_preflight
+  if [ "$PR_PF_RC" -ne 0 ] && grep -qF "ERROR: phase registry: FF_TAGS registers 'probe-tag'" "$PRDIR/pf.txt"; then
+    ok "preflight-reaches-the-registry-check (an unclassified tag fails preflight itself, which is step one of BOTH workflows and is selected by no FF_ profile)"
+  else
+    bad "preflight-reaches-the-registry-check" "rc=$PR_PF_RC; tail: $(tr '\n' ' ' < "$PRDIR/pf.txt" | cut -c1-220)"
+  fi
+
+  cp "$RT" "$PRT/hooks/tests/run-tests.sh"
+  pr_preflight
+  if grep -qE "phase registry: [0-9]+ registered" "$PRDIR/pf.txt" && ! grep -qF "ERROR: phase registry" "$PRDIR/pf.txt"; then
+    ok "unmutated-copy-is-quiet (the check RAN and found nothing — negative control, not a silent skip)"
+  else
+    bad "unmutated-copy-is-quiet" "expected the phase-registry summary note and no phase-registry error; got: $(tr '\n' ' ' < "$PRDIR/pf.txt" | cut -c1-220)"
+  fi
+
+  mv "$PRT/docs/maintainer-testing.md" "$PRDIR/doc.parked"
+  pr_preflight
+  if grep -qF "phase-classification registry: not a maintainer tree" "$PRDIR/pf.txt" && ! grep -qF "ERROR: phase registry" "$PRDIR/pf.txt"; then
+    ok "consumer-tree-gets-a-note-not-an-error (AC6 — a tree with no maintainer runner/doc is out of scope, never a failure)"
+  else
+    bad "consumer-tree-gets-a-note-not-an-error" "got: $(tr '\n' ' ' < "$PRDIR/pf.txt" | cut -c1-220)"
+  fi
+
+  mv "$PRDIR/doc.parked" "$PRT/docs/maintainer-testing.md"
+  rm -f "$PRT/hooks/local/lib/phase_registry_check.py"
+  pr_preflight
+  if [ "$PR_PF_RC" -ne 0 ] && grep -qF "the check is DISABLED, not passing" "$PRDIR/pf.txt"; then
+    ok "missing-predicate-is-an-error-not-a-skip (install-doc §8 — scoping must NARROW the check, never disable it)"
+  else
+    bad "missing-predicate-is-an-error-not-a-skip" "rc=$PR_PF_RC; got: $(tr '\n' ' ' < "$PRDIR/pf.txt" | cut -c1-220)"
+  fi
+fi
+[ -n "$PRDIR" ] && rm -rf "$PRDIR"
+
 # --- Scoped to a single cheap phase: exactly 1 `starting` marker, (count-1) SKIPs,
 #     a scoped summary that the strict classifier REJECTS, and a scoped results file. ---
 sc_out="$(FF_ONLY=newline-preserve bash "$RT" 2>/tmp/ff-only-sc.$$.err)"; sc_rc=$?

@@ -15,6 +15,8 @@ Test behavior at the smallest useful boundary: table/parser or function first, t
 
 `hooks/tests/run-tests.sh` owns membership and `FF_LIST=1` lists it. `FF_RELEASE=1` selects an explicit 37-tag release allowlist; a newly registered phase stays out until its consumer or safety responsibility is reviewed and deliberately added. Do that review in the outcome that adds or changes the phase: an essential consumer or safety contract enters the allowlist, an excluded diagnostic gets a brief reason in the table below, and registration alone leaves the outcome incomplete. `FF_FULL=1` runs every non-opt-in diagnostic, while `FF_ONLY` names affected groups. Neither local mode authorizes publication.
 
+That last sentence is now a control, not prose: preflight §11 (`hooks/local/lib/phase_registry_check.py`) rejects any `FF_TAGS` phase that is not classified in exactly one of the three tables below, any release/exclusions table row that disagrees with `FF_RELEASE_TAGS`/`FF_OPTIN_TAGS` in either direction, any row naming a tag that no longer exists, and an `unreviewed` count that differs from `FF_UNREVIEWED_BASELINE` in either direction (above: a new phase was parked; below: a reviewed row did not lower the constant in the same commit). It runs in the preflight step of both workflows and is selected by no `FF_` profile.
+
 | Release responsibility | Existing required tags |
 |---|---|
 | CLI/user ownership and recovery intent, paths, partial state, receipts and no-op | `baseline-merge`, `hook-wiring-intent`, `wire-hooks-beside`, `bootstrap-baseline-hop`, `cli-0259`, `cli-flow-recovery`, `cli-flow-recovery-selectors` |
@@ -27,9 +29,47 @@ Test behavior at the smallest useful boundary: table/parser or function first, t
 | Consumer-facing stamper and recovery-hint honesty | `stamp-eol-guard`, `recovery-hint` |
 | Harness liveness — no command substitution may capture a git/hook process tree, and a block must be bounded at its own operation | `git-capture-guard` |
 
-**Deferred, cost-reviewed — not a diagnostic exclusion.** `preboundary-consumed` is green on both platforms but measured 204 s on MSYS (13 `bootstrap-upgrade.sh` engine hops across 9 fixture trees) against 5-56 s for every phase promoted in v4.16.3. Excluded on cost, not on coverage; reopen with the operator if the MSYS leg gains headroom.
-
 The reusable workflow separately requires the UNSCOPED `test-ff-only.sh` suite plus preflight, runner parity, both manifests, module size, mirror parity, public-surface allowlisting and a clean tree. That suite rejects phase failures, timeouts, missing phases, unauthorized `N/A` and zero-result success, AND asserts this allowlist's size and boundary tags. It runs as its own step, never inside `FF_RELEASE=1`: it drives the runner with `FF_ONLY`/`FF_FULL`, which the runner refuses to combine with `FF_RELEASE` (rc 2), so `ff-only` must stay OUT of the allowlist. Keeping it a separate step is also what makes the membership ratchet non-self-referential — dropping a tag cannot switch off the assertion that would have caught it. Full and change-scoped diagnostics remain callable; release selection does not delete or weaken them.
+
+## Registered, not in the release profile
+
+Every registered phase that is neither in `FF_RELEASE_TAGS` nor an opt-in diagnostic states its route here. `step-gated` names the `fusebase-flow-verify.yml` step that runs it outside `FF_RELEASE=1` (the step name is verified literally; that is the whole depth of step verification). `deferred` names the measurement that bought the deferral. `unreviewed (pre-ratchet, <date>)` is the seeded legacy backlog: the count may only shrink, the commit that reviews a row lowers `FF_UNREVIEWED_BASELINE` to match, and a NEW phase can never be parked here. Reviewing these rows is a separate outcome — each promotion carries an MSYS cost (`docs/backlog/gate-bounds-lack-headroom/`).
+
+| Tag | Classification | Reason |
+|---|---|---|
+| `ff-only` | step-gated — `Runner selection, failure, timeout, zero-result and release-membership contracts` | Drives the runner with `FF_ONLY`/`FF_FULL`, which the runner refuses to combine with `FF_RELEASE` (rc 2); membership would redden it |
+| `module-size` | step-gated — `Module-size ratchet (FR-25, full scan vs committed baseline)` | Self-test of the FR-25 checker that step runs with `--all` |
+| `hook-manifest` | step-gated — `Hook-layer manifest freshness` | Self-test of the stamper/verifier pair that step runs |
+| `fingerprint-rows` | step-gated — `Preflight (structure + YAML + frontmatter + mirror drift + action-name consistency)` | Self-test of preflight §10, which that step runs against the real tag history |
+| `preboundary-consumed` | deferred | Green on both platforms but measured 204 s on MSYS (13 `bootstrap-upgrade.sh` engine hops across 9 fixture trees) against 5-56 s for every phase promoted in v4.16.3. Excluded on cost, not on coverage; reopen with the operator if the MSYS leg gains headroom |
+| `approval-receipt` | unreviewed (pre-ratchet, 2026-09-10) | Approval-receipt durability; sits under the Executable safety guarantee — triage first |
+| `boot-size` | unreviewed (pre-ratchet, 2026-09-10) | Structural/size assertions on the session boot surface |
+| `cli-vendor` | unreviewed (pre-ratchet, 2026-09-10) | Vendored CLI asset refresh; sits under Install and distribution (provider delivery) — triage first |
+| `cli-version` | unreviewed (pre-ratchet, 2026-09-10) | CLI version gate; sits under Install and distribution (provider delivery) — triage first |
+| `codex-parity` | unreviewed (pre-ratchet, 2026-09-10) | Codex prompt/command parity with the canonical commands |
+| `codex-plugin` | unreviewed (pre-ratchet, 2026-09-10) | Codex plugin surface manifest |
+| `denial-message` | unreviewed (pre-ratchet, 2026-09-10) | Command-policy denial text; sits under the Executable safety guarantee — triage first |
+| `fr22-delivery` | unreviewed (pre-ratchet, 2026-09-10) | FR-22 comment-policy delivery guarantee |
+| `git-context-mutation` | unreviewed (pre-ratchet, 2026-09-10) | Mutation oracle for `git-context`, which is itself in the release profile |
+| `health-check-timeout` | unreviewed (pre-ratchet, 2026-09-10) | Health-check timeout propagation; Process lifecycle row, which has zero release tags |
+| `install-doc` | unreviewed (pre-ratchet, 2026-09-10) | Install-doc contract, including the §8 scoped-check-must-narrow lesson |
+| `interpreter-mutation` | unreviewed (pre-ratchet, 2026-09-10) | Mutation oracle for `interpreter-contract`, which is itself in the release profile |
+| `job-probe` | unreviewed (pre-ratchet, 2026-09-10) | Job-probe honesty; Process lifecycle row, which has zero release tags |
+| `lane-router` | unreviewed (pre-ratchet, 2026-09-10) | Lane classification router; reaches only maintainer `Focused contracts (not release evidence)`, which is feedback, not a release route |
+| `lane-workflow` | unreviewed (pre-ratchet, 2026-09-10) | Lightweight-lane workflow contract |
+| `liveness` | unreviewed (pre-ratchet, 2026-09-10) | FR-27 bounded-run behavior; Process lifecycle row, which has zero release tags |
+| `msys-tree-cleanup` | unreviewed (pre-ratchet, 2026-09-10) | Owned-child cleanup on MSYS; covered by nothing in the release gate today |
+| `newline-preserve` | unreviewed (pre-ratchet, 2026-09-10) | Newline preservation; reaches only maintainer `Focused contracts (not release evidence)`, and doubles as the cheap deterministic fixture phase |
+| `po-investigate` | unreviewed (pre-ratchet, 2026-09-10) | Product-owner investigate contract (editorial instrument) |
+| `po-verifiable-boot` | unreviewed (pre-ratchet, 2026-09-10) | Product-owner verifiable-boot contract (editorial instrument) |
+| `policy-state` | unreviewed (pre-ratchet, 2026-09-10) | Policy-state preservation across an upgrade |
+| `prohibition-residency` | unreviewed (pre-ratchet, 2026-09-10) | Prohibitions must stay resident in skill bodies (editorial instrument) |
+| `python3-version-mutation` | unreviewed (pre-ratchet, 2026-09-10) | Mutation oracle for `python3-version`, which is itself in the release profile |
+| `signal-reap` | unreviewed (pre-ratchet, 2026-09-10) | Runner signal reaping; RED pre-existing baseline (`docs/tmp/handoff.md:39`) — resolve before any promotion |
+| `sync-allowlist` | unreviewed (pre-ratchet, 2026-09-10) | Version-string sweep allowlist |
+| `token-waste-classify` | unreviewed (pre-ratchet, 2026-09-10) | Token-waste classifier (editorial instrument) |
+| `wasted-effort-windowing` | unreviewed (pre-ratchet, 2026-09-10) | Wasted-effort windowing (editorial instrument) |
+| `ws5-upgrade` | unreviewed (pre-ratchet, 2026-09-10) | Bounded upgrade WS5; Process lifecycle row, which has zero release tags |
 
 ## Diagnostic exclusions
 
@@ -37,13 +77,13 @@ These checks remain available with `FF_ONLY` when their subject changes. They do
 
 | Tag | Why opt-in | Required protection retained |
 |---|---|---|
-| return-budget | Checks exact editorial wording of delegated response limits | Delivery/preflight and actual hook controls; response-size guidance remains shipped |
-| supersede-primitive | Searches prose for editing advice and retired phrases | Actual recovery preservation/idempotency tests; editorial review on instruction changes |
-| rule-inventory | Instrument for deliberate rule-compression comparisons | Boot/delivery/prohibition checks; run inventory explicitly for rule changes |
-| startup-context | Frozen compression baseline and size comparison | boot-size, prohibition-residency, provider delivery and mirror checks |
-| budget-literals | Consistency of performance-budget numbers in live prose | boot-size retains the implemented structural/size checks |
-| history-extraction | One-time migration equivalence against historical Git blobs | Current rule/skill structure and delivery; Git preserves migration history |
-| consumer-benchmark | Comparative profiling/benchmark output | Actual recovery, ownership, no-op and failure scenarios in cli-flow-recovery |
+| `return-budget` | Checks exact editorial wording of delegated response limits | Delivery/preflight and actual hook controls; response-size guidance remains shipped |
+| `supersede-primitive` | Searches prose for editing advice and retired phrases | Actual recovery preservation/idempotency tests; editorial review on instruction changes |
+| `rule-inventory` | Instrument for deliberate rule-compression comparisons | Boot/delivery/prohibition checks; run inventory explicitly for rule changes |
+| `startup-context` | Frozen compression baseline and size comparison | boot-size, prohibition-residency, provider delivery and mirror checks |
+| `budget-literals` | Consistency of performance-budget numbers in live prose | boot-size retains the implemented structural/size checks |
+| `history-extraction` | One-time migration equivalence against historical Git blobs | Current rule/skill structure and delivery; Git preserves migration history |
+| `consumer-benchmark` | Comparative profiling/benchmark output | Actual recovery, ownership, no-op and failure scenarios in cli-flow-recovery |
 
 Exact machine-consumed markers, schema keys and public command names remain valid assertions. Prose synonyms and numbered comments are not executable contracts. `release-authority` validates the parsed job graph; `validation-instructions` exercises configured validator execution instead of matching guidance sentences. Broader validator-evidence tests continue to cover unavailable reuse and failure propagation.
 

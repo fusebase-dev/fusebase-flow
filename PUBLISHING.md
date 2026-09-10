@@ -71,7 +71,10 @@ regression therefore cannot reach a Release — the failure class recorded in
 
 Both legs explicitly run the committed `FF_RELEASE=1` essential profile: no `FF_ONLY`, `FF_FULL`,
 `FF_SKIP_*` or timeout override, with a committed `timeout-minutes: 60` per leg. The allowlist is
-owned by `hooks/tests/run-tests.sh`; new registered phases do not silently enter it. Full and scoped
+owned by `hooks/tests/run-tests.sh`; new registered phases do not silently enter it. Nor do they
+silently stay out: the preflight step of both workflows fails unless `docs/maintainer-testing.md`
+classifies every registered phase as release, opt-in, step-gated or deferred, so the routing
+decision is made when the phase is registered rather than at tag time. Full and scoped
 diagnostics remain callable outside publication.
 
 ### Publication paths — what the workflow closes, and what it cannot
