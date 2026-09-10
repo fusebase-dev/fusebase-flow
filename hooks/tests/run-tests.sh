@@ -81,13 +81,17 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixtur
   release-tag-binding fingerprint-rows signal-reap cli-flow-recovery-selectors cli-flow-recovery)
 
 # RETRIEVAL: docs/maintainer-testing.md owns release membership and package-gate boundaries.
+# TRIPWIRE: `ff-only` must NEVER join this list. That suite drives THIS script with
+# FF_ONLY/FF_FULL, which are refused in combination with FF_RELEASE (rc 2) — membership
+# reddens 17 of its 46 rows. It is gated by its own unscoped step in fusebase-flow-verify.yml.
 FF_RELEASE_TAGS=(fixtures git-smoke interpreter-contract python3-version git-context \
   baseline-merge hook-wiring-intent wire-hooks-beside bootstrap-baseline-hop cli-0259 \
   secret-scan-staged bootstrap-exception trusted-enforcer hook-install-rc validator-evidence \
   validation-instructions approval-binding approval-writer command-policy upgrade-classify \
   upgrade-boundary upgrade-repair n5-delivery n6-truthful-base n6-missing-base n6-recover \
-  release-authority release-tag-binding cli-flow-recovery \
-  hop-log-truth n4-parity-scope minimal-path-fixture)
+  release-authority release-tag-binding cli-flow-recovery cli-flow-recovery-selectors \
+  hop-log-truth n4-parity-scope minimal-path-fixture \
+  cli-rendered recovery-hint stamp-eol-guard)
 
 declare -A FF_REGISTERED=(); for t in "${FF_TAGS[@]}"; do FF_REGISTERED[$t]=1; done
 declare -A FF_RELEASE_SET=()

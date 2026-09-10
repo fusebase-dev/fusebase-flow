@@ -123,8 +123,16 @@ jobs:
       - name: Preflight (structure + YAML + frontmatter + mirror drift + action-name consistency)
         run: bash hooks/local/preflight.sh
 
-      - name: Runner failure, timeout, and zero-result contract
-        run: bash hooks/tests/test-ff-only.sh --only t33
+      # Runs the WHOLE suite, unscoped, and deliberately OUTSIDE the FF_RELEASE=1 step
+      # below. Both properties are load-bearing:
+      #   * the release-profile membership assertions (allowlist size + boundary tags) live in
+      #     this suite, so a `--only t33` slice skipped the ratchet that guards the very
+      #     allowlist the next step runs — the ratchet did not gate itself;
+      #   * the suite drives run-tests.sh with FF_ONLY/FF_FULL, which run-tests.sh REFUSES to
+      #     combine with FF_RELEASE (rc 2). Inheriting FF_RELEASE=1 reddens 17 of its 46 rows,
+      #     so this phase must never move into FF_RELEASE_TAGS.
+      - name: Runner selection, failure, timeout, zero-result and release-membership contracts
+        run: bash hooks/tests/test-ff-only.sh
 
       - name: Hook tests (essential release profile, committed bounds)
         run: FF_RELEASE=1 bash hooks/tests/run-tests.sh

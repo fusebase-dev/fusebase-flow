@@ -198,9 +198,13 @@ def assert_graph(verify: dict, release: dict) -> Checker:
     c.check("graph-verify-runs-essential-release-profile",
             "FF_RELEASE=1 bash hooks/tests/run-tests.sh" in vtext,
             "the required verify job does not request the explicit essential release profile")
+    # UNSCOPED is the assertion, not an accident of formatting. `--only t33` covers the
+    # failure/timeout/zero-result contract but SKIPS the release-profile membership rows, so a
+    # scoped step leaves the FF_RELEASE_TAGS ratchet ungated on both legs.
     c.check("graph-verify-runs-runner-result-contract",
-            "bash hooks/tests/test-ff-only.sh --only t33" in vtext,
-            "the required verify job omits the failure/timeout/zero-result runner contract")
+            "bash hooks/tests/test-ff-only.sh\n" in vtext,
+            "the required verify job omits the unscoped runner suite (failure/timeout/zero-result "
+            "contract AND the release-profile membership assertions)")
 
     checkout = [s for s in steps_of(vjob) if "actions/checkout" in str(s.get("uses", ""))]
     c.check("graph-verify-checks-out-the-requested-sha",
@@ -331,10 +335,18 @@ def _mut_drop_release_profile(vtext, rtext):
 
 
 def _mut_drop_runner_result_contract(vtext, rtext):
-    marker = "bash hooks/tests/test-ff-only.sh --only t33"
+    marker = "bash hooks/tests/test-ff-only.sh\n"
     if marker not in vtext:
         return None, None
-    return vtext.replace(marker, "true", 1), rtext
+    return vtext.replace(marker, "true\n", 1), rtext
+
+
+def _mut_scope_runner_result_contract(vtext, rtext):
+    """Re-scoping the step to `--only t33` must be red: that slice skips the membership rows."""
+    marker = "bash hooks/tests/test-ff-only.sh\n"
+    if marker not in vtext:
+        return None, None
+    return vtext.replace(marker, "bash hooks/tests/test-ff-only.sh --only t33\n", 1), rtext
 
 
 # Measurement-workflow mutations. Same rule: each must turn its named assertion red.
@@ -375,6 +387,7 @@ MUTATIONS = {
     "delete-publish-needs-edge": (_mut_drop_publish_needs, "graph-publish-needs-verify"),
     "delete-release-profile": (_mut_drop_release_profile, "graph-verify-runs-essential-release-profile"),
     "delete-runner-result-contract": (_mut_drop_runner_result_contract, "graph-verify-runs-runner-result-contract"),
+    "rescope-runner-result-contract": (_mut_scope_runner_result_contract, "graph-verify-runs-runner-result-contract"),
 }
 
 

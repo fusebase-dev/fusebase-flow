@@ -13,19 +13,22 @@ Test behavior at the smallest useful boundary: table/parser or function first, t
 | Process lifecycle | Failure/timeout propagation, owned-child cleanup, zero-result refusal and selector completeness |
 | Publication | Parsed workflow graph, both platforms, required-job success, manifests and tag/verified-SHA binding |
 
-`hooks/tests/run-tests.sh` owns membership and `FF_LIST=1` lists it. `FF_RELEASE=1` selects an explicit 32-tag release allowlist; a newly registered phase stays out until its consumer or safety responsibility is reviewed and deliberately added. Do that review in the outcome that adds or changes the phase: an essential consumer or safety contract enters the allowlist, an excluded diagnostic gets a brief reason in the table below, and registration alone leaves the outcome incomplete. `FF_FULL=1` runs every non-opt-in diagnostic, while `FF_ONLY` names affected groups. Neither local mode authorizes publication.
+`hooks/tests/run-tests.sh` owns membership and `FF_LIST=1` lists it. `FF_RELEASE=1` selects an explicit 36-tag release allowlist; a newly registered phase stays out until its consumer or safety responsibility is reviewed and deliberately added. Do that review in the outcome that adds or changes the phase: an essential consumer or safety contract enters the allowlist, an excluded diagnostic gets a brief reason in the table below, and registration alone leaves the outcome incomplete. `FF_FULL=1` runs every non-opt-in diagnostic, while `FF_ONLY` names affected groups. Neither local mode authorizes publication.
 
 | Release responsibility | Existing required tags |
 |---|---|
-| CLI/user ownership and recovery intent, paths, partial state, receipts and no-op | `baseline-merge`, `hook-wiring-intent`, `wire-hooks-beside`, `bootstrap-baseline-hop`, `cli-0259`, `cli-flow-recovery` |
-| Install, upgrade and provider delivery | `bootstrap-exception`, `upgrade-classify`, `upgrade-boundary`, `upgrade-repair`, `n5-delivery`, `n6-truthful-base`, `n6-missing-base`, `n6-recover` |
+| CLI/user ownership and recovery intent, paths, partial state, receipts and no-op | `baseline-merge`, `hook-wiring-intent`, `wire-hooks-beside`, `bootstrap-baseline-hop`, `cli-0259`, `cli-flow-recovery`, `cli-flow-recovery-selectors` |
+| Install, upgrade and provider delivery | `bootstrap-exception`, `upgrade-classify`, `upgrade-boundary`, `upgrade-repair`, `n5-delivery`, `n6-truthful-base`, `n6-missing-base`, `n6-recover`, `cli-rendered` |
 | Executable safety | `fixtures`, `git-smoke`, `interpreter-contract`, `python3-version`, `git-context`, `secret-scan-staged`, `trusted-enforcer`, `hook-install-rc`, `approval-binding`, `approval-writer`, `command-policy` |
 | Validator execution | `validator-evidence`, `validation-instructions` |
 | Publication integrity | `release-authority`, `release-tag-binding` |
 | Caller-summary truthfulness and publisher scoping | `hop-log-truth`, `n4-parity-scope` |
 | Test-harness fidelity (a suite must exercise its own subject on both platforms) | `minimal-path-fixture` |
+| Consumer-facing stamper and recovery-hint honesty | `stamp-eol-guard`, `recovery-hint` |
 
-The reusable workflow separately requires the T33 runner result contract plus preflight, runner parity, both manifests, module size, mirror parity, public-surface allowlisting and a clean tree. T33 rejects phase failures, timeouts, missing phases, unauthorized `N/A` and zero-result success. Full and change-scoped diagnostics remain callable; release selection does not delete or weaken them.
+**Deferred, cost-reviewed — not a diagnostic exclusion.** `preboundary-consumed` is green on both platforms but measured 204 s on MSYS (13 `bootstrap-upgrade.sh` engine hops across 9 fixture trees) against 5-56 s for every phase promoted in v4.16.3. Excluded on cost, not on coverage; reopen with the operator if the MSYS leg gains headroom.
+
+The reusable workflow separately requires the UNSCOPED `test-ff-only.sh` suite plus preflight, runner parity, both manifests, module size, mirror parity, public-surface allowlisting and a clean tree. That suite rejects phase failures, timeouts, missing phases, unauthorized `N/A` and zero-result success, AND asserts this allowlist's size and boundary tags. It runs as its own step, never inside `FF_RELEASE=1`: it drives the runner with `FF_ONLY`/`FF_FULL`, which the runner refuses to combine with `FF_RELEASE` (rc 2), so `ff-only` must stay OUT of the allowlist. Keeping it a separate step is also what makes the membership ratchet non-self-referential — dropping a tag cannot switch off the assertion that would have caught it. Full and change-scoped diagnostics remain callable; release selection does not delete or weaken them.
 
 ## Diagnostic exclusions
 
