@@ -45,7 +45,11 @@ Reproduces: 3/3 on CI (deterministic per platform). **Reproduce locally without 
 | `cli-flow-recovery-direct.sh` `ffcf_t14_preflight` — already drives the same python3-less abort correctly via `mpf_build` | different suite | A correct sibling is not a constraint on a new one. |
 | Two-platform release gate | tagged SHA | Caught it, but only AFTER `v4.16.0` was tagged and immutable. |
 
-**What would have caught it before a tagged cut:** a source-level check binding the AC7 rule to the fixture's *callers*, not just the fixture. Shipped as `test-minimal-path-fixture.sh` §1b `callers-no-unreviewed-path-enumeration` — scan `hooks/tests/**.sh` for `for X in $PATH`, compare against a reviewed allowlist, red on any new site. It is a grep over source, so it fires identically on MSYS and Linux: it would have gone red on the maintainer's own box at the commit that introduced D1, before any tag existed. Verified non-vacuous — reverting D1 to the enumerating version makes the row FAIL naming both files.
+**What would have caught it before a tagged cut:** a source-level check binding the AC7 rule to the fixture's *callers*, not just the fixture. Shipped in v4.16.1 as `test-minimal-path-fixture.sh` §1b `callers-no-unreviewed-path-enumeration` — scan `hooks/tests/**.sh` for `for X in $PATH`, compare against a reviewed allowlist, red on any new site. It is a grep over source, so its verdict is identical on MSYS and Linux and needs no platform to reproduce. Verified non-vacuous: reverting D1 to the enumerating version makes the row FAIL naming both files.
+
+**Stated exactly, because overstating a guard is this entry's own defect class — the ratchet does not yet gate.** Its `minimal-path-fixture` tag is in `FF_TAGS` but in neither `FF_FAST_TAGS` (the local default), `FF_RELEASE_TAGS` (the tagged two-platform gate), nor `fusebase-flow-maintainer.yml`'s `FF_ONLY` list. It runs today only under `FF_FULL=1` or `FF_ONLY=minimal-path-fixture`. So it would have caught D1 only if someone had chosen to run it; it is not yet a control that fires on its own. `run-tests.sh:568-571` records the reason ("outside `FF_FAST_TAGS` until its runtime is measured") — measured now at ~21 s for 18 rows on MSYS, the slower of the two legs.
+
+**Open follow-up (needs a version and operator authorization to publish):** add `minimal-path-fixture` to `FF_RELEASE_TAGS` (and update the `test-ff-only.sh` allowlist-size assertion, 31 -> 32). Until that ships, this is the SAME gap `T81` closed for `hop-log-truth` — a registered phase absent from the profile, so the gate can pass with it red — and it is the reason pitfall 7 is filed as a recurrence rather than a closed case.
 
 ## Why it matters
 
@@ -60,6 +64,8 @@ Reproduces: 3/3 on CI (deterministic per platform). **Reproduce locally without 
 | Shipped | v4.7.0 release-run green-up (pitfall 5): fixture `*.sh text eol=lf` pin (`8d3c007`). Reproduced in an `ubuntu:24.04` container cloning the repo at HEAD and mirroring every workflow step: RED 662/663 before, GREEN 663/663 after, all 8 remaining CI steps rc=0. |
 | Verified locally | T61 v4.15.0 release repair (pitfall 6): one-CR normalization at the exact typed-output boundary, with LF/CRLF positive and prefix/suffix negative controls. Publication is reserved for v4.15.1. |
 | Shipped | v4.16.1 (pitfall 7): D1 routed through `mpf_build`/`MPF_PATH` plus an `rc 127` anti-vacuity assertion; `test-minimal-path-fixture.sh` §1b caller ratchet; a surviving-toolchain guard on the one remaining reviewed enumerator (`test-cli-version-gate.sh` `path_without_fusebase`). Reproduced RED 17/18 and proved GREEN 18/18 in `ubuntu:24.04` with `/usr/bin/python3`. |
+| Published | `v4.16.1` (`3515ce6`, 2026-09-10): both legs 682/682 across 31 phases, `verify-gate` and `publish` green — [run `34441536913`](https://github.com/fusebase-dev/fusebase-flow/actions/runs/34441536913). The D1 row now passes on Linux by reaching its subject, not by avoiding it. |
+| **Open** | The caller ratchet is not yet in any automatically-selected profile (see above). Until `minimal-path-fixture` joins `FF_RELEASE_TAGS`, the guard exists but does not gate. |
 
 ## Recurrence triggers (so future sessions recognize this)
 
