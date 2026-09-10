@@ -4,6 +4,32 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [4.16.0] — 2026-09-10
+
+**Truthful hop reporting and publisher-scoped health.** The upgrade hop log now reports what
+actually happened to `.claude/settings.json` and to the Git fallback hooks, instead of printing a
+fixed claim. A consumer filed a wrong bug report against v4.15.3 because one run said it had merged
+lifecycle events and that the file "was NOT modified".
+
+- The closing upgrade summary renders the observed settings outcome — events merged (named),
+  already current, not authorized, minimal file created with external entries unresolved, merge
+  failed, or changed-then-a-later-surface-failed — and the observed state of each Git fallback hook.
+- Health's partial-upgrade check now applies the publisher predicate as well as Flow ownership by
+  `name`, so a consumer whose plugin manifests were generated from Flow's no longer receives a
+  `PARTIAL_UPGRADE` they cannot clear.
+- New `PUBLISHER_PACKAGING_DRIFT` verdict (publisher repositories only) with its own remediation:
+  bump the three plugin/marketplace manifests with `VERSION`, and do not run Flow recovery.
+- A preflight failure is recorded as its own fact; empty, unreadable and unparseable preflight
+  output reach `BROKEN` instead of being suppressed, and the packaging-only interpretation must be
+  positively established.
+- Plugin-manifest parity compares values as found and escapes only at render time, so a value equal
+  to `VERSION` only after normalization is still a mismatch on Linux and Windows/MSYS alike.
+
+`docs/release-notes/v4.16.0.md` also corrects, forward, an omission in the v4.15.0 note: v4.15.0
+introduced automatic `.claude/settings.json` restoration from a recorded wiring intent and never
+said so. Event-level wiring intent stays declined this cycle, and the recovery outcome channel is
+exclusive against consumer bytes, not against executable descendants of recovery.
+
 ## [4.15.3] — 2026-09-07
 
 **Portable recovery writes and release completion.** The health-skill restore now follows the same
