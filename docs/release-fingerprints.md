@@ -53,8 +53,9 @@ Match your output to either fingerprint column below; both identify the same tre
 | `v4.16.0` | 4.16.0 | `e6867bd7363b6bbcfd6e73ce0b32259c6c675cad9ed536eacbf5d261f1f5f8a7` | 378 | `1d8964b0650200634f494868c2ca0bcec1b33f80aa23aa942d97fec95b92a77c` | 214 |
 | `v4.16.1` | 4.16.1 | `05566f4efd0be7d3ed36a07174b02bc103cbc11bb5476219b57abef74fb1f5eb` | 378 | `beb6fd95255bbb1db7684f38628a0286489885e2df3ccd4c497a70d56d2a3a99` | 214 |
 | `v4.16.2` | 4.16.2 | `dc6ae918cafb804d98b8851a36936d54e9522c5344ae24c5b4b2a07ec5412169` | 378 | `d35fa70d4a3387bedeb69acc93ea517cacb4506f931bb9627fd07c0d0ae9a18e` | 214 |
+| `v4.16.3` | 4.16.3 | `68386664bece97d4b9ff78e45daaf8c176a039e8a29faf7a342f4716d1a1e296` | 378 | `9c5f714140af702bd31c6e9376c96b90e5f8c3ad03e01f5990d03482faea9c7a` | 214 |
 
-`v4.9.0`, `v4.9.1`, `v4.10.0`, `v4.15.0`, `v4.15.1`, `v4.15.2` and `v4.16.0` are unpublished tagged
+`v4.9.0`, `v4.9.1`, `v4.10.0`, `v4.15.0`, `v4.15.1`, `v4.15.2`, `v4.16.0` and `v4.16.3` are unpublished tagged
 trees: their release workflows failed (2026-08-12, 2026-08-13, 2026-08-15, 2026-09-07 and 2026-09-10)
 and published nothing. Each row identifies an immutable tag target; none is evidence of publication.
 No tag was moved — `v4.9.2` superseded the first two, `v4.10.1` superseded `v4.10.0`, and published
@@ -66,6 +67,8 @@ portability row, and `publish` never dispatched; `v4.16.1`
 both legs at 682/682 and published. Adopters holding a 4.16.0 tree should move to 4.16.1: the two
 trees differ only in test fixtures and documentation, but only 4.16.1 is verified on both platforms. A tree cloned from `main` during any of those windows is
 identifiable here rather than absent from the table.
+
+`v4.16.3` (`022b011`, 2026-09-10) is the newest unpublished tagged tree. Its [run `34506385370`](https://github.com/fusebase-dev/fusebase-flow/actions/runs/34506385370) passed `verify-linux` in 3.2 min and failed `verify-windows-msys` after 49.8 min: the `secret-scan-staged` phase hit its 1800 s bound (rc 124) after 17 of its 39 rows, hanging in the T31 trusted-HEAD dispatch that runs the real `hooks/git/pre-commit` inside a throwaway repo. `verify-gate` went red and `publish` never dispatched, so no Release exists for this tag. The tag is immutable and was not moved. The phase is a pre-existing profile member that took 98 s on the green `v4.16.2` run of the same code: `git diff 46d1125 022b011` touches no file under `hooks/git/`, `hooks/shared/`, `policies/` or `test-secret-scan-staged.sh`, and every other phase on this leg matched v4.16.2 within seconds — including all four newly promoted phases (4 s, 5 s, 1 s, 32 s). Diagnosis of that phase owns the next tag; this row identifies the tree in the meantime.
 
 `v4.10.0` failed for a reason worth recording, because it was self-inflicted: the fingerprint-row
 check added in `v4.9.2` read a tag's target with

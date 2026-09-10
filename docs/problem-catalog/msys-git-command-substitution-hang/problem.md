@@ -3,7 +3,7 @@
 **Slug:** `msys-git-command-substitution-hang`
 **Filed:** 2026-07-03
 **Severity:** medium
-**Status:** resolved
+**Status:** resolved for the converted call site; class RECURRED 2026-09-10 in `secret-scan-staged` on the `v4.16.3` tagged gate (see Reproduction step 4)
 **Filed by:** PO per FR-15 (reliability lesson; operator requested records)
 
 ## Symptom
@@ -17,8 +17,11 @@ A `$(git ls-tree …)` command substitution inside the pre-commit hook intermitt
 | 1 | Run the hook's `$(git ls-tree)` sentinel loop under MSYS repeatedly | intermittent hang; a native git grandchild holds the pipe |
 | 2 | Bound the run | rc=124 (timeout) |
 | 3 | Convert to file-redirect (`git … > tmpfile`), re-run | completes cleanly |
+| 4 | `v4.16.3` tagged gate (2026-09-10), `verify-windows-msys` on `022b011` | `secret-scan-staged` hit its 1800 s bound (rc 124) after 17 of 39 rows, in the T31 block that runs the REAL `hooks/git/pre-commit` inside a throwaway repo. Same phase, same code, 98 s on the green `v4.16.2` run. `verify-gate` red, `publish` skipped, tag left immutable and unmoved. [run `34506385370`](https://github.com/fusebase-dev/fusebase-flow/actions/runs/34506385370) |
 
 Reproduces: intermittent (~non-deterministic; MSYS pipe-inheritance dependent — see FR-10). Sibling of `run-tests-never-completes-msys`.
+
+**Status qualifier (2026-09-10).** `resolved` covers the ONE call site that was converted to a file redirect. It does not mean the class is gone from the hook: step 4 above is a hosted-runner recurrence in a phase whose inputs were untouched by the release that observed it, and it cost a release. `secret-scan-staged` is a required release-profile phase with no headroom analysis (backlog `gate-bounds-lack-headroom`); a bound it clears at 98 s and misses at >1800 s is not a bound, it is a coin flip. Diagnose the T31 dispatch before treating a rerun as evidence.
 
 ## Root cause
 
