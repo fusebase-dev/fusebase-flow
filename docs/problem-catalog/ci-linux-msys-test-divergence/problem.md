@@ -3,7 +3,7 @@
 **Slug:** `ci-linux-msys-test-divergence`
 **Filed:** 2026-07-09
 **Severity:** high
-**Status:** resolved per pitfall; pitfall 2 RECURRED in a new carrier (v4.16.0) and is now mechanically ratcheted
+**Status:** resolved per pitfall; pitfall 2 RECURRED in a new carrier (v4.16.0), and its ratchet GATES the tagged two-platform run from v4.16.2
 **Filed by:** operator (per FR-15, during the v4.2.0 CI green-up)
 
 ## Symptom
@@ -47,9 +47,9 @@ Reproduces: 3/3 on CI (deterministic per platform). **Reproduce locally without 
 
 **What would have caught it before a tagged cut:** a source-level check binding the AC7 rule to the fixture's *callers*, not just the fixture. Shipped in v4.16.1 as `test-minimal-path-fixture.sh` §1b `callers-no-unreviewed-path-enumeration` — scan `hooks/tests/**.sh` for `for X in $PATH`, compare against a reviewed allowlist, red on any new site. It is a grep over source, so its verdict is identical on MSYS and Linux and needs no platform to reproduce. Verified non-vacuous: reverting D1 to the enumerating version makes the row FAIL naming both files.
 
-**Stated exactly, because overstating a guard is this entry's own defect class — the ratchet does not yet gate.** Its `minimal-path-fixture` tag is in `FF_TAGS` but in neither `FF_FAST_TAGS` (the local default), `FF_RELEASE_TAGS` (the tagged two-platform gate), nor `fusebase-flow-maintainer.yml`'s `FF_ONLY` list. It runs today only under `FF_FULL=1` or `FF_ONLY=minimal-path-fixture`. So it would have caught D1 only if someone had chosen to run it; it is not yet a control that fires on its own. `run-tests.sh:568-571` records the reason ("outside `FF_FAST_TAGS` until its runtime is measured") — measured now at ~21 s for 18 rows on MSYS, the slower of the two legs.
+**The control now gates (v4.16.2), stated exactly — overstating a guard is this entry's own defect class.** `minimal-path-fixture` is in `FF_RELEASE_TAGS`, so `test-minimal-path-fixture.sh` (the §1b caller ratchet included) runs on `verify-linux` AND `verify-windows-msys` for every tagged SHA: a new `for X in $PATH` site is red on the run that blocks publication, not only when someone chooses `FF_FULL=1`. Cost is ~21 s for 18 rows on MSYS, the slower leg. Guardrail 8 is the reason that release exists.
 
-**Open follow-up (needs a version and operator authorization to publish):** add `minimal-path-fixture` to `FF_RELEASE_TAGS` (and update the `test-ff-only.sh` allowlist-size assertion, 31 -> 32). Until that ships, this is the SAME gap `T81` closed for `hop-log-truth` — a registered phase absent from the profile, so the gate can pass with it red — and it is the reason pitfall 7 is filed as a recurrence rather than a closed case.
+**What it still does not do.** The tag stays OUT of `FF_FAST_TAGS` (local default) and out of `fusebase-flow-maintainer.yml`'s `FF_ONLY` list, so the earliest AUTOMATIC red is the tagged gate — pre-tag it fires only under `FF_FULL=1` or `FF_ONLY=minimal-path-fixture`. That is later than the commit that introduces a new site, and earlier than a published release.
 
 ## Why it matters
 
@@ -65,14 +65,14 @@ Reproduces: 3/3 on CI (deterministic per platform). **Reproduce locally without 
 | Verified locally | T61 v4.15.0 release repair (pitfall 6): one-CR normalization at the exact typed-output boundary, with LF/CRLF positive and prefix/suffix negative controls. Publication is reserved for v4.15.1. |
 | Shipped | v4.16.1 (pitfall 7): D1 routed through `mpf_build`/`MPF_PATH` plus an `rc 127` anti-vacuity assertion; `test-minimal-path-fixture.sh` §1b caller ratchet; a surviving-toolchain guard on the one remaining reviewed enumerator (`test-cli-version-gate.sh` `path_without_fusebase`). Reproduced RED 17/18 and proved GREEN 18/18 in `ubuntu:24.04` with `/usr/bin/python3`. |
 | Published | `v4.16.1` (`3515ce6`, 2026-09-10): both legs 682/682 across 31 phases, `verify-gate` and `publish` green — [run `34441536913`](https://github.com/fusebase-dev/fusebase-flow/actions/runs/34441536913). The D1 row now passes on Linux by reaching its subject, not by avoiding it. |
-| **Open** | The caller ratchet is not yet in any automatically-selected profile (see above). Until `minimal-path-fixture` joins `FF_RELEASE_TAGS`, the guard exists but does not gate. |
+| Shipped | v4.16.2: `minimal-path-fixture` joins `FF_RELEASE_TAGS` (32-tag allowlist; `test-ff-only.sh` size assertion 31 -> 32), so the caller ratchet is selected by the tagged two-platform gate instead of only by an explicit local choice. Audited for platform assumptions in the same change per the trigger below: 18/18 in `ubuntu:24.04` with `/usr/bin/python3`, 18/18 on MSYS. |
 
 ## Recurrence triggers (so future sessions recognize this)
 
 - A test uses `git diff HEAD~1` / `git log -2` / any history depth ≥ 2 → will fail on a shallow CI checkout (`rc=128`, "unknown revision HEAD~1").
 - A test masks a tool by dropping PATH dirs → on Linux the target shares a dir with git/coreutils, so the mask collaterally removes them.
 - **rc 127 from a child the test spawned under a constructed PATH** → the subject never started, so the row's assertions describe the fixture, not the product. Never read a downstream `unknown`/default state as behaviour while rc is 127.
-- **A suite is ADDED to `FF_RELEASE_TAGS`** → rows that until then only ran on the maintainer's MSYS box now run on Linux for the first time. Audit the new phases for platform assumptions in the SAME change (v4.16.0's only additions were `hop-log-truth` and `n4-parity-scope`; `hop-log-truth` carried pitfall 7).
+- **A suite is ADDED to `FF_RELEASE_TAGS`** → rows that until then only ran on the maintainer's MSYS box now run on Linux for the first time. Audit the new phases for platform assumptions in the SAME change (v4.16.0's only additions were `hop-log-truth` and `n4-parity-scope`; `hop-log-truth` carried pitfall 7. v4.16.2 added `minimal-path-fixture`, audited green on Linux in the same change).
 - `git status --porcelain` dirty on CI with a list of `.sh` files as `M` (mode-only) → committed `100644` + `chmod +x`.
 - A newly-added health-check critical → test fixtures that run the engine now return UNVERIFIED/BROKEN.
 - A test builds a synthetic git repo (`git init` + `git add`) and later checks it out with `core.autocrlf=true` (or `git archive` on such a tree) → any `.sh`/executable in that fixture lands CRLF and dies on Linux bash with `$'\r': command not found` / `set: pipefail: invalid option name`. Synthetic fixtures do NOT inherit the repo's `.gitattributes`.

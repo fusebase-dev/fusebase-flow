@@ -87,7 +87,7 @@ FF_RELEASE_TAGS=(fixtures git-smoke interpreter-contract python3-version git-con
   validation-instructions approval-binding approval-writer command-policy upgrade-classify \
   upgrade-boundary upgrade-repair n5-delivery n6-truthful-base n6-missing-base n6-recover \
   release-authority release-tag-binding cli-flow-recovery \
-  hop-log-truth n4-parity-scope)
+  hop-log-truth n4-parity-scope minimal-path-fixture)
 
 declare -A FF_REGISTERED=(); for t in "${FF_TAGS[@]}"; do FF_REGISTERED[$t]=1; done
 declare -A FF_RELEASE_SET=()
@@ -566,8 +566,9 @@ run_shell_phase() { # run_shell_phase <test-script> <tag>
 }
 run_shell_phase test-git-hooks-smoke.sh      "git-smoke"
 # Self-test of hooks/tests/lib/minimal-path-fixture.sh: the one interpreter-less PATH constructor
-# its consumers share. Outside FF_FAST_TAGS until its runtime is measured (that list is an
-# allowlist by design).
+# its consumers share, plus the §1b caller ratchet that binds its AC7 rule to every hooks/tests
+# suite. In FF_RELEASE_TAGS since 4.16.2 (measured ~21s for 18 rows on MSYS, the slower leg): a
+# ratchet no profile selects is a comment, not a control. Still outside FF_FAST_TAGS (allowlist).
 run_shell_phase test-minimal-path-fixture.sh "minimal-path-fixture"
 # The direct §1b missing-interpreter contract, relocated out of test-bootstrap-exception.sh.
 run_shell_phase test-pre-commit-interpreter-contract.sh "interpreter-contract"

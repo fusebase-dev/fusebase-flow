@@ -4,6 +4,25 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [4.16.2] — 2026-09-10
+
+**The v4.16.1 PATH-construction ratchet now gates.** No consumer-facing behavior changes. See
+`docs/release-notes/v4.16.2.md`.
+
+- `minimal-path-fixture` joins `FF_RELEASE_TAGS`, so `test-minimal-path-fixture.sh` — including the
+  §1b `callers-no-unreviewed-path-enumeration` scan — runs inside `FF_RELEASE=1` on `verify-linux`
+  and `verify-windows-msys` for every tagged SHA. Measured ~21 s for 18 rows on MSYS.
+- `test-ff-only.sh` asserts a 32-tag explicit release allowlist (was 31); `docs/maintainer-testing.md`
+  records the new member and the responsibility it carries.
+- **Corrects the v4.16.1 note forward:** that note claimed the ratchet "would have caught it before a
+  tag existed" and was red "at the commit that introduces a new site". As shipped in 4.16.1 the phase
+  was in no automatically-selected profile, so neither held. The published v4.16.1 note is not
+  edited. From 4.16.2 the ratchet gates the tagged run; it is still not a commit-time control
+  (deliberately outside `FF_FAST_TAGS` and the maintainer CI `FF_ONLY` list).
+- `docs/problem-catalog/ci-linux-msys-test-divergence/problem.md` closes its pitfall-7 OPEN row and
+  states exactly what the control now reaches. The promoted phase was audited for platform
+  assumptions in the same change: 18/18 on Linux and on MSYS.
+
 ## [4.16.1] — 2026-09-10
 
 **Ships 4.16.0's content; consumers go 4.15.3 -> 4.16.1.** `v4.16.0` was tagged (`a62e362`) and

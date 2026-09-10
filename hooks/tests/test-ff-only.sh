@@ -89,10 +89,10 @@ release_padded=$'\n'"$release_list"$'\n'
 release_core=0; release_nonmember=0
 case "$release_padded" in *$'\nRUN  cli-flow-recovery\n'*) release_core=1 ;; esac
 case "$release_padded" in *$'\nSKIP newline-preserve\n'*) release_nonmember=1 ;; esac
-if [ "$release_count" -eq 31 ] && [ "$release_core" -eq 1 ] && [ "$release_nonmember" -eq 1 ]; then
-  ok "release-profile-is-explicit-31-tag-allowlist"
+if [ "$release_count" -eq 32 ] && [ "$release_core" -eq 1 ] && [ "$release_nonmember" -eq 1 ]; then
+  ok "release-profile-is-explicit-32-tag-allowlist"
 else
-  bad "release-profile-is-explicit-31-tag-allowlist" "run_count=$release_count or boundary tags differ"
+  bad "release-profile-is-explicit-32-tag-allowlist" "run_count=$release_count or boundary tags differ"
 fi
 FF_RELEASE=1 FF_ONLY=newline-preserve FF_LIST=1 bash "$RT" >/dev/null 2>&1; rp_scoped_rc=$?
 FF_RELEASE=1 FF_FULL=1 FF_LIST=1 bash "$RT" >/dev/null 2>&1; rp_full_rc=$?
