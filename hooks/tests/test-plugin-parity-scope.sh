@@ -312,6 +312,42 @@ fi
 [ -z "$f" ] && ok "r2-crlf-fixture-is-packaging-only (the CRLF fixture now classifies as packaging-only; on $R2_SHA's bytes the same fixture was rejected)" \
             || bad r2-crlf-fixture-is-packaging-only "$f"
 
+###############################################################################
+# R1 unit rows — positive establishment: completed AND reconciled AND text
+###############################################################################
+# THE PRINCIPLE (corrections.md § Round 2, R1): absence of parseable evidence is not evidence of
+# packaging-only. Each condition below is necessary; none is sufficient alone.
+FIN1='[preflight] preflight finished — errors: 1, warnings: 0'
+FIN2='[preflight] preflight finished — errors: 2, warnings: 0'
+# pkg_raw <finding> <raw combined output> -> the shipped classifier rc (empty finding => no findings).
+pkg_raw() {
+  bash -c 'if [ -n "$1" ]; then PUBLISHER_PACKAGING_FINDINGS=("$1"); else PUBLISHER_PACKAGING_FINDINGS=(); fi
+. "$0" 2>/dev/null; ffhc_preflight_is_packaging_only "$2"' "$ROOT/$PU_LIB" "$1" "$2"
+}
+
+f=""
+pkg_raw "pkg finding" "[preflight] ERROR: pkg finding" \
+  && f="$f [no completion marker, yet the run was read as packaging-only — an unfinished run establishes nothing]"
+pkg_raw "pkg finding" "[preflight] ERROR: pkg finding
+$FIN2" \
+  && f="$f [the finished line reported 2 errors against 1 matched line and the run was still read as packaging-only — the unprefixed failure is exactly what (b) must catch]"
+pkg_raw "pkg finding" "[preflight] ERROR: pkg finding
+$FIN1" \
+  || f="$f [a completed, reconciled, text-matching run was NOT read as packaging-only — the positive path is broken]"
+pkg_raw "pkg finding" "" \
+  && f="$f [an EMPTY capture was read as packaging-only — this is mechanism 1, the false-HEALTHY]"
+pkg_raw "" "[preflight] ERROR: pkg finding
+$FIN1" \
+  && f="$f [no packaging findings were collected, yet a preflight error was attributed to packaging]"
+pkg_raw "pkg finding" "$FIN1" \
+  && f="$f [a completed run with NO prefixed error line was read as packaging-only — (c) requires at least one]"
+pkg_raw "pkg finding" "[preflight] ERROR: pkg finding
+[preflight] preflight finished — errors: , warnings: 0" \
+  && f="$f [an unparsable error count was accepted — an unreadable marker establishes nothing]"
+[ -z "$f" ] && ok "r1-packaging-only-must-be-positively-established (completed + reconciled + text; empty, unfinished, unreconciled and findingless inputs all fall through to BROKEN)" \
+            || bad r1-packaging-only-must-be-positively-established "$f"
+
+
 
 ###############################################################################
 # S2/C3 — REAL-PATH verdict selection. The rows above prove the arm is WIRED; these prove the
@@ -411,6 +447,111 @@ PY
   mv "$BK/release-fingerprints.md" "$PUB/docs/release-fingerprints.md"
   [ -z "$f" ] && ok "s2-consumer-lagged-manifest-is-not-publisher-drift (no ledger: preflight is clean on parity and the verdict is neither BROKEN nor PUBLISHER_PACKAGING_DRIFT)" \
               || bad s2-consumer-lagged-manifest-is-not-publisher-drift "$f"
+
+  ###############################################################################
+  # R1 REAL-PATH — a preflight FAILURE is a fact of its own, not a property of its output
+  ###############################################################################
+  # Both mechanisms the re-review executed from the shipped statements, driven through the engine.
+  # The anti-regression stages ALL THREE changed files from $R1_SHA together: the fix spans the
+  # engine, the classifier and preflight, and any one alone would misreport the pre-fix state.
+  R1_SHA="13ebe20"
+  R1_OLD_ENGINE="$BASE_TMP/r1-old-engine.sh"; R1_OLD_PU="$BASE_TMP/r1-old-pu.sh"; R1_OLD_PF="$BASE_TMP/r1-old-preflight.sh"
+  r1_have_old=0
+  git show "$R1_SHA:$ENGINE" > "$R1_OLD_ENGINE" 2>/dev/null \
+    && git show "$R1_SHA:$PU_LIB" > "$R1_OLD_PU" 2>/dev/null \
+    && git show "$R1_SHA:$PF" > "$R1_OLD_PF" 2>/dev/null \
+    && [ -s "$R1_OLD_ENGINE" ] && [ -s "$R1_OLD_PU" ] && [ -s "$R1_OLD_PF" ] && r1_have_old=1
+  # preflight.sh IS a hook-layer asset, so every byte swap below re-stamps the FIXTURE manifest:
+  # without it an integrity finding, not the verdict under test, would carry the row.
+  r1_swap() {   # r1_swap old|new -> put that generation of the three files in $PUB and re-stamp
+    if [ "$1" = old ]; then
+      cp "$R1_OLD_ENGINE" "$PUB/$ENGINE"; cp "$R1_OLD_PU" "$PUB/$PU_LIB"; cp "$R1_OLD_PF" "$PUB/$PF"
+    else
+      cp "$ROOT/$ENGINE" "$PUB/$ENGINE"; cp "$ROOT/$PU_LIB" "$PUB/$PU_LIB"; cp "$ROOT/$PF" "$PUB/$PF"
+    fi
+    ( cd "$PUB" && bash hooks/local/stamp-hook-manifest.sh ) >/dev/null 2>&1
+  }
+
+  # --- Row R1-traceback: an UNPREFIXED failure beside a packaging finding ---
+  # plugin.json is still lagged from the rows above; the frontmatter reader raises on an undecodable
+  # SKILL.md (read_text(encoding="utf-8")), which at $R1_SHA raised errors with no prefixed line.
+  # Mirror drift is a warn, not an err, so this adds exactly one unprefixed failure.
+  f=""
+  R1_SKILL="$PUB/flow-skills/zoom-out/SKILL.md"
+  if [ "$r1_have_old" -ne 1 ]; then
+    f="$f [could not extract $ENGINE / $PU_LIB / $PF at $R1_SHA, so the anti-regression cannot run]"
+  elif [ ! -f "$R1_SKILL" ]; then
+    f="$f [$R1_SKILL is absent, so the undecodable-skill injection cannot run]"
+  else
+    cp "$R1_SKILL" "$BK/zoom-out-SKILL.md"
+    python3 -c 'import pathlib,sys
+p = pathlib.Path(sys.argv[1]); p.write_bytes(bytes([255, 254]) + p.read_bytes())' "$R1_SKILL"
+    r1_swap old
+    R="$(health_verdict "$PUB")"
+    [ "$R" = "1|PUBLISHER_PACKAGING_DRIFT" ] \
+      || f="$f [$R1_SHA reported '$R' on the traceback fixture, not the SUPPRESSION (1|PUBLISHER_PACKAGING_DRIFT) this row exists to pin. If an unrelated PREFIXED error fired, the fixture is wrong, not the row: $(grep -E '^  [✗⚠]' "$PUB/.hc.out" | head -3)]"
+    r1_swap new
+    R="$(health_verdict "$PUB")"
+    [ "$R" = "2|BROKEN" ] \
+      || f="$f [an unprefixed preflight failure beside a packaging finding reported '$R', not 2|BROKEN — a real breakage is still hidden behind the packaging class]"
+    grep -q "preflight: errors detected" "$PUB/.hc.out" \
+      || f="$f [the run has no preflight BROKEN entry, so an integrity or adapter finding is carrying the verdict]"
+  fi
+  [ -z "$f" ] && ok "r1-unprefixed-failure-beside-packaging-is-broken (undecodable SKILL.md + lagged manifest: BROKEN/2 now, PUBLISHER_PACKAGING_DRIFT/1 at $R1_SHA)" \
+              || bad r1-unprefixed-failure-beside-packaging-is-broken "$f"
+
+  # --- Row R1-source: same count, same exit, one more line ---
+  f=""
+  if [ "$r1_have_old" -ne 1 ] || [ ! -f "$BK/zoom-out-SKILL.md" ]; then
+    f="$f [the traceback fixture was not built, so the preflight comparison cannot run]"
+  else
+    R1_NEW_OUT="$( cd "$PUB" && bash hooks/local/preflight.sh 2>&1 )"; R1_NEW_RC=$?
+    cp "$R1_OLD_PF" "$PUB/$PF"
+    R1_OLD_OUT="$( cd "$PUB" && bash hooks/local/preflight.sh 2>&1 )"; R1_OLD_RC=$?
+    cp "$ROOT/$PF" "$PUB/$PF"
+    printf '%s\n' "$R1_NEW_OUT" | grep -q '^\[preflight\] ERROR: preflight subcheck did not complete cleanly' \
+      || f="$f [the raising subcheck produced no PREFIXED fixed-phrase line, so neither the classifier nor a human can see it]"
+    R1_NEW_N="$(printf '%s\n' "$R1_NEW_OUT" | sed -n 's/^\[preflight\] preflight finished — errors: \([0-9]*\).*/\1/p' | tail -1)"
+    R1_OLD_N="$(printf '%s\n' "$R1_OLD_OUT" | sed -n 's/^\[preflight\] preflight finished — errors: \([0-9]*\).*/\1/p' | tail -1)"
+    [ -n "$R1_NEW_N" ] && [ "$R1_NEW_N" = "$R1_OLD_N" ] \
+      || f="$f [the finished line reports errors: '$R1_NEW_N' where $R1_SHA reported '$R1_OLD_N' — the wrapper must add the same count, not a different one]"
+    [ "$R1_NEW_RC" = "$R1_OLD_RC" ] \
+      || f="$f [preflight exited $R1_NEW_RC where $R1_SHA exited $R1_OLD_RC — the exit contract changed]"
+    R1_NEW_L="$(printf '%s\n' "$R1_NEW_OUT" | grep -c '^\[preflight\] ERROR: ')"
+    R1_OLD_L="$(printf '%s\n' "$R1_OLD_OUT" | grep -c '^\[preflight\] ERROR: ')"
+    [ "$R1_NEW_L" = "$((R1_OLD_L + 1))" ] \
+      || f="$f [the new preflight printed $R1_NEW_L prefixed lines against $R1_OLD_L at $R1_SHA — expected exactly one more]"
+    [ "$R1_OLD_L" -lt "$R1_OLD_N" ] \
+      || f="$f [$R1_SHA printed $R1_OLD_L prefixed lines for $R1_OLD_N errors, so this fixture never reproduced the unprefixed failure and the row is vacuous]"
+  fi
+  [ -z "$f" ] && ok "r1-exception-path-emits-a-prefixed-error (same errors: count, same exit code, exactly one more prefixed line than $R1_SHA)" \
+              || bad r1-exception-path-emits-a-prefixed-error "$f"
+
+  # --- Row R1-empty: a failure with NO output at all ---
+  # No manifest lag, no packaging findings: rc != 0 with an empty capture must still reach BROKEN.
+  f=""
+  if [ "$r1_have_old" -ne 1 ]; then
+    f="$f [could not extract the three files at $R1_SHA, so the anti-regression cannot run]"
+  else
+    [ -f "$BK/zoom-out-SKILL.md" ] && cp "$BK/zoom-out-SKILL.md" "$R1_SKILL"
+    cp "$BK/plugin.json" "$PUB/.claude-plugin/plugin.json"
+    r1_swap old
+    printf '#!/usr/bin/env bash\nexit 1\n' > "$PUB/$PF"; chmod +x "$PUB/$PF"
+    ( cd "$PUB" && bash hooks/local/stamp-hook-manifest.sh ) >/dev/null 2>&1
+    R1_PRE="$(health_verdict "$PUB")"
+    [ "$R1_PRE" = "0|HEALTHY" ] \
+      || f="$f [$R1_SHA reported '$R1_PRE' on an otherwise clean tree whose preflight failed with empty output; this row exists to pin the FALSE-HEALTHY (0|HEALTHY). Non-OK items: $(grep -E '^  [✗⚠]' "$PUB/.hc.out" | head -3)]"
+    grep -qE '^  [✗⚠] preflight' "$PUB/.hc.out" \
+      && f="$f [$R1_SHA recorded a preflight item after all, so the mechanism is not the one this row pins]"
+    cp "$ROOT/$ENGINE" "$PUB/$ENGINE"; cp "$ROOT/$PU_LIB" "$PUB/$PU_LIB"
+    R="$(health_verdict "$PUB")"
+    [ "$R" = "2|BROKEN" ] \
+      || f="$f [a preflight that failed with EMPTY output reported '$R', not 2|BROKEN — the failure is still inferred from the output instead of recorded as a fact]"
+    grep -q "preflight: errors detected" "$PUB/.hc.out" \
+      || f="$f [there is no preflight entry in BROKEN, UNVERIFIED or OK — the failure was recorded nowhere]"
+  fi
+  [ -z "$f" ] && ok "r1-empty-failure-output-is-broken-not-healthy (rc != 0 with no output: BROKEN/2 now; $R1_SHA printed HEALTHY/0 on the same fixture)" \
+              || bad r1-empty-failure-output-is-broken-not-healthy "$f"
 fi
 
 finish

@@ -109,27 +109,44 @@ ffhc_publisher_packaging_collect() {
 }
 
 # ffhc_preflight_is_packaging_only <preflight-combined-output>
-# rc 0 iff preflight reported at least one error line and EVERY one of them is also a packaging
-# finding THIS run collected. The engine uses it to decide whether a failed preflight is the
-# packaging arm's finding restated (verdict falls through to PUBLISHER_PACKAGING_DRIFT) or a
+# rc 0 iff preflight POSITIVELY established a packaging-only failure. Three necessary conditions,
+# none sufficient alone: (a) COMPLETED — the finished line is present; (b) RECONCILED — the count it
+# reports equals the number of prefixed lines seen, so a wrapper that raised the count without
+# printing a line is caught here; (c) TEXT — every prefixed line is a packaging finding THIS run
+# collected, and there is at least one. The engine uses it to decide whether a failed preflight is
+# the packaging arm's finding restated (verdict falls through to PUBLISHER_PACKAGING_DRIFT) or a
 # genuine breakage (BROKEN). Read-only: preflight is never re-run.
-# TRIPWIRE: match on the error line TEXT, never on counts — equal counts of different findings
-# would hide a real breakage behind the packaging class. preflight's err() prefix is
-# "[preflight] ERROR: " (preflight.sh:23); a prefix change must be reflected here.
-# TRIPWIRE: normalize BOTH comparison sides identically — a strip on one side plus an assumption
-# on the other rejects a legitimate packaging-only run (corrections.md § Round 2 R2).
+# TRIPWIRE: absence of parseable evidence is not evidence of packaging-only. Suppressing BROKEN is an
+# affirmative claim about a COMPLETED run — never the default, and never the result of an empty,
+# unreadable or unparseable capture. Any condition that cannot be established returns 1.
+# TRIPWIRE: match on the error line TEXT, never on counts alone — equal counts of different findings
+# would hide a real breakage behind the packaging class. (b) is a second necessary condition, never
+# a replacement for (c).
+# TRIPWIRE: two preflight surfaces are parsed here — err()'s "[preflight] ERROR: " prefix
+# (preflight.sh:23) and the completion marker "[preflight] preflight finished — errors: N, warnings: M"
+# (preflight.sh:438). A change to EITHER must be reflected here.
+# TRIPWIRE: normalize BOTH comparison sides identically — a strip on one side plus an assumption on
+# the other rejects a legitimate packaging-only run (corrections.md § Round 2 R2).
 ffhc_preflight_is_packaging_only() {
-  local line stripped e seen=0 hit
+  local line stripped e seen=0 hit finished=0 n=""
   declare -p PUBLISHER_PACKAGING_FINDINGS >/dev/null 2>&1 || return 1
   [ "${#PUBLISHER_PACKAGING_FINDINGS[@]}" -gt 0 ] || return 1
   while IFS= read -r line; do
-    case "$line" in "[preflight] ERROR: "*) : ;; *) continue ;; esac
-    stripped="${line#\[preflight\] ERROR: }"; stripped="${stripped%$'\r'}"
+    line="${line%$'\r'}"
+    case "$line" in
+      "[preflight] preflight finished — errors: "*) n="${line#*errors: }"; n="${n%%,*}"; finished=1; continue ;;
+      "[preflight] ERROR: "*) : ;;
+      *) continue ;;
+    esac
+    stripped="${line#\[preflight\] ERROR: }"
     seen=$((seen + 1)); hit=0
     for e in "${PUBLISHER_PACKAGING_FINDINGS[@]}"; do
       [ "${e%$'\r'}" = "$stripped" ] && { hit=1; break; }
     done
     [ "$hit" -eq 1 ] || return 1
   done < <(printf '%s\n' "$1")
-  [ "$seen" -gt 0 ]
+  [ "$finished" -eq 1 ] || return 1              # (a) no completion marker => nothing is established
+  case "$n" in ''|*[!0-9]*) return 1 ;; esac     # an unparsable count establishes nothing
+  [ "$n" -eq "$seen" ] || return 1               # (b) an unprefixed failure breaks the equality
+  [ "$seen" -gt 0 ]                              # (c) at least one matched line
 }

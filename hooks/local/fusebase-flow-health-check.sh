@@ -385,7 +385,7 @@ if [ -x hooks/local/preflight.sh ]; then
   elif [ "$FFHC_LAST_RC" -eq 0 ]; then
     LOCAL_OK+=("preflight: clean (0 errors)")
   else
-    FFHC_PREFLIGHT_FAIL_OUT="$FFHC_LAST_OUT"   # classified after the packaging arm below; do NOT reorder stages
+    FFHC_PREFLIGHT_FAILED=1; FFHC_PREFLIGHT_FAIL_OUT="$FFHC_LAST_OUT"   # the FAILURE is the fact, the output only evidence; classified after the packaging arm below, do NOT reorder stages
   fi
 fi
 
@@ -507,7 +507,7 @@ if command -v ffhc_partial_upgrade_findings >/dev/null 2>&1; then
   done < <(ffhc_partial_upgrade_findings 2>/dev/null)
 fi; command -v ffhc_publisher_packaging_collect >/dev/null 2>&1 && ffhc_publisher_packaging_collect
 command -v ffmb_collect >/dev/null 2>&1 && ffmb_collect   # N6-D2: State 1 => record_drift, State 2 => visibility-only pointer
-if [ -n "${FFHC_PREFLIGHT_FAIL_OUT:-}" ] && ! { command -v ffhc_preflight_is_packaging_only >/dev/null 2>&1 && ffhc_preflight_is_packaging_only "$FFHC_PREFLIGHT_FAIL_OUT"; }; then LOCAL_BROKEN+=("preflight: errors detected (run 'bash hooks/local/preflight.sh' to inspect)"); fi
+if [ "${FFHC_PREFLIGHT_FAILED:-0}" -eq 1 ] && ! { command -v ffhc_preflight_is_packaging_only >/dev/null 2>&1 && ffhc_preflight_is_packaging_only "${FFHC_PREFLIGHT_FAIL_OUT:-}"; }; then LOCAL_BROKEN+=("preflight: errors detected (run 'bash hooks/local/preflight.sh' to inspect)"); fi
 ffhc_stage_end "none"
 
 ###############################################################################

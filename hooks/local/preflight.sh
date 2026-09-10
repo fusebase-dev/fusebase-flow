@@ -71,7 +71,7 @@ for skill in (root / canon).glob("*/SKILL.md"):
             errs += 1
 sys.exit(errs)
 PY
-    then errors=$((errors + 1)); fi
+    then err "preflight subcheck did not complete cleanly: skill frontmatter (python rc ${PIPESTATUS[0]})"; fi
 fi
 
 # 4. YAML parse for every policy file
@@ -288,7 +288,7 @@ for entry in (cmd.get("require_approval") or []):
             errs += 1
 sys.exit(errs)
 PY
-    then errors=$((errors + 1)); fi
+    then err "preflight subcheck did not complete cleanly: command policy (python rc ${PIPESTATUS[0]})"; fi
 fi
 
 # 6b. Managed-content base manifest (upgrade classifier). WARNING only — an absent or

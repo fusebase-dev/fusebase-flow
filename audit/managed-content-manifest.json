@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "2dd8c0000badf1eb1e9f2e2644a6ac2caffb8fe15bc69ac48ac3557de19e07f9"
+      "sha256": "ec1a75372c2f2969b0375a0d6f11ab3085f534effa8ea20b5d98759757e05202"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -402,7 +402,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-health-check.sh",
-      "sha256": "9bd9da714714fb1fff3cd2810a78a826b610845bb642d8dad1377df8ef74ccf5"
+      "sha256": "8ff1542e791c85396f95255c6dae6b05e150e6369e80a9bbe3b0202fb04918b8"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/agent-surface-ownership.json",
@@ -546,7 +546,7 @@
     },
     {
       "path": "hooks/local/lib/partial-upgrade-check.sh",
-      "sha256": "159f5777411f8d21a29cb4ac1882ab6d257d568990cd3a652ffafa73ee56848a"
+      "sha256": "7e31bf620b8e4d0278ba10f7bd52e01116488bcba2df707fb37bc9b1c118cca7"
     },
     {
       "path": "hooks/local/lib/plugin-parity.sh",
@@ -618,7 +618,7 @@
     },
     {
       "path": "hooks/local/preflight.sh",
-      "sha256": "4219d75e74f2ef18e8a66387c133d157c34ef9f155a9f02f15520149b31aab2e"
+      "sha256": "7e742426a574131d9e05cf07175edd5f533336b7909fedaf375d75a2354a0bb6"
     },
     {
       "path": "hooks/local/print-release-fingerprints.sh",
@@ -1166,7 +1166,7 @@
     },
     {
       "path": "hooks/tests/test-plugin-parity-scope.sh",
-      "sha256": "9736341adc668544bd366f008d54df2ebd73f7d8cbcb379a2fa984691252d84e"
+      "sha256": "689c615512366df2ac552f7139b3f03c02a8351678d5969d58d5674b2c9b2f20"
     },
     {
       "path": "hooks/tests/test-po-investigate.sh",
@@ -1517,5 +1517,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "5d4912798fcf0df83d15da2e8c8f051ebc49bd10d31144700b414c073de3fb94"
+  "manifest_self_sha256": "b1331766adccec81b78034620ca40698d5cc703e591226785157295203f1fec3"
 }
