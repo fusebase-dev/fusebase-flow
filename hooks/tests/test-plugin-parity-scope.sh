@@ -258,11 +258,59 @@ OUT="$(errs "$CRV")"
 R2_LINES="$(printf '%s\n' "$OUT" | grep -c 'plugin.json version')"
 [ "$R2_LINES" = "1" ] \
   || f="$f [a CRLF-bearing version produced $R2_LINES parity lines, not 1 — one violation must be one line (the lib's CONTRACT) or health can never match it line for line]"
-printf '%s' "$OUT" | grep -q '4.15.2-rc1' || f="$f [the finding does not report the stripped value: '$OUT']"
+printf '%s' "$OUT" | grep -qF '4.15.2\r\n-rc1' || f="$f [the finding does not render the value it found: '$OUT']"
 [ "$(printf '%s' "$OUT" | wc -c)" = "$(printf '%s' "$OUT" | tr -d '\r\n' | wc -c)" ] \
   || f="$f [the finding still carries a CR or LF byte, so the preflight line it produces cannot match it]"
 [ -z "$f" ] && ok "r2-crlf-value-is-one-finding (a JSON version carrying CRLF yields exactly one CR/LF-free parity line)" \
             || bad r2-crlf-value-is-one-finding "$f"
+
+###############################################################################
+# R4 — the rendering must not decide the comparison
+###############################################################################
+# THE DEFECT (corrections.md § Round 2, R4): R2 stripped CR/LF inside ffpp_field, i.e. BEFORE the
+# ownership and equality tests, so a manifest version whose raw bytes differ from VERSION but whose
+# stripped text equals it produced NO finding at all — in preflight and in health. R2's fixture
+# (4.15.2\r\n-rc1) stays unequal after stripping, so it cannot catch this; this one strips to equal.
+R4_SHA="d763f6c"   # the losing bytes; the escape replaced them
+
+f=""
+EQV="$BASE_TMP/crlf-strips-to-equal"; repo_at "$EQV" fusebase-flow 4.11.0 1
+# repo_at writes VERSION=4.11.0. The PARSED value is 4.11.<CR><LF>0: byte-different from VERSION,
+# byte-IDENTICAL to it once CR/LF is removed.
+printf '{"name": "fusebase-flow", "version": "4.11.\\r\\n0"}\n' > "$EQV/.claude-plugin/plugin.json"
+OUT="$(errs "$EQV")"
+R4_LINES="$(printf '%s\n' "$OUT" | grep -c 'plugin.json version')"
+[ "$R4_LINES" = "1" ] \
+  || f="$f [a version that differs from VERSION only in CR/LF bytes produced $R4_LINES parity lines, not 1 — the mismatch is real and must be reported, once]"
+printf '%s' "$OUT" | grep -qF '4.11.\r\n0' \
+  || f="$f [the finding does not render the CR/LF the manifest actually carries, so the operator cannot see WHY it differs: '$OUT']"
+[ "$(printf '%s' "$OUT" | wc -c)" = "$(printf '%s' "$OUT" | tr -d '\r\n' | wc -c)" ] \
+  || f="$f [the finding carries a raw CR or LF byte, so health can never match it line for line]"
+# ANTI-REGRESSION: $R4_SHA normalized before comparing and emitted NOTHING here. Without this the
+# row cannot tell the fix from the defect.
+R4_OLD_PP="$BASE_TMP/r4-old-plugin-parity.sh"
+if git show "$R4_SHA:$LIB" > "$R4_OLD_PP" 2>/dev/null && [ -s "$R4_OLD_PP" ]; then
+  R4_OLD="$( cd "$EQV" && bash -c '. "$0" 2>/dev/null && ffpp_errors' "$R4_OLD_PP" 2>/dev/null )"
+  printf '%s' "$R4_OLD" | grep -q . \
+    && f="$f [$R4_SHA reported '$R4_OLD' on this fixture; if it did not lose the finding, this row is vacuous]"
+else
+  f="$f [could not extract $R4_SHA's $LIB, so this row cannot establish the regression]"
+fi
+[ -z "$f" ] && ok "r4-stripped-equal-is-still-a-mismatch (a version equal to VERSION only after stripping still reports one line; on $R4_SHA's bytes it reported nothing)" \
+            || bad r4-stripped-equal-is-still-a-mismatch "$f"
+
+# Ownership is an identifier match on the RAW name: `fusebase-flow<CR><LF>` is not the name, so the
+# manifest is not Flow's to police — 13ebe20's behaviour, which R2's strip had silently widened.
+f=""
+NCR="$BASE_TMP/crlf-name"; repo_at "$NCR" fusebase-flow 4.11.0 1
+printf '{"name": "fusebase-flow\\r\\n", "version": "9.9.9"}\n' > "$NCR/.claude-plugin/plugin.json"
+OUT="$(errs "$NCR")"
+printf '%s' "$OUT" | grep -q '.claude-plugin/plugin.json' \
+  && f="$f [a manifest whose name is not exactly fusebase-flow was policed anyway: '$OUT'; ownership must not be decided by a normalization either]"
+printf '%s' "$OUT" | grep -q . \
+  && f="$f [an unrelated finding appeared on this fixture: '$OUT']"
+[ -z "$f" ] && ok "r4-ownership-compares-raw-name (a CR/LF-bearing name is not the fusebase-flow identifier, so the manifest is left alone)" \
+            || bad r4-ownership-compares-raw-name "$f"
 
 # pkg_only <finding> <one preflight error text> -> the shipped classifier's rc.
 # The finished line is part of the synthetic output because completion is one of the conditions.

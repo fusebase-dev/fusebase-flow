@@ -42,13 +42,31 @@
 # with exactly this marker; one marker, two publisher-only checks. FFPP_LEDGER overrides it.
 #
 # CONTRACT
-#   ffpp_errors -> one line per parity violation (empty == none). Read-only. Silent, rc 0, in
-#                  any repo that is not the publisher's.
+#   ffpp_errors -> one line per parity violation (empty == none), values rendered escaped
+#                  (\ -> \\, CR -> \r, LF -> \n). Read-only. Silent, rc 0, in any repo that is
+#                  not the publisher's.
 
 ffpp_is_publisher() { [ -f "${FFPP_LEDGER:-docs/release-fingerprints.md}" ]; }
 
-# ffpp_field FILE PYEXPR: echo a field, or "" when the file is absent/unparsable.
-# TRIPWIRE: strip CR/LF — a line-broken JSON value otherwise makes one violation two lines, breaking the CONTRACT above and health's text match (lib/partial-upgrade-check.sh).
+# TRIPWIRE: ESCAPE, never strip. Deleting CR/LF before the comparisons below made a manifest
+# "4.15.\r\n3" compare EQUAL to VERSION 4.15.3 — the mismatch reported nothing (corrections.md
+# § Round 2 R4). This escape is injective, so escaped equality IS raw equality, and one violation
+# still renders as one line for health's text match (lib/partial-upgrade-check.sh).
+FFPP_ESC_PY="s.replace(chr(92), chr(92) * 2).replace(chr(13), chr(92) + 'r').replace(chr(10), chr(92) + 'n')"
+
+# ffpp_esc RAW: a shell-side value under the same escape. Empty without python3 (as ffpp_field).
+ffpp_esc() {
+  command -v python3 >/dev/null 2>&1 || return 0
+  FF_RAW="$1" python3 -c "
+import os
+s = os.environ['FF_RAW']
+print($FFPP_ESC_PY)
+" 2>/dev/null | tr -d '\n\r'
+}
+
+# ffpp_field FILE PYEXPR: echo a field escaped, or "" when the file is absent/unparsable.
+# TRIPWIRE: the tr removes python's own line terminator only — the payload is already escaped, so
+# this stays lossless on both LF and Windows CRLF stdout. Never move it in front of the escape.
 ffpp_field() {
   command -v python3 >/dev/null 2>&1 || return 0
   [ -f "$1" ] || return 0
@@ -58,14 +76,18 @@ try:
     d = json.load(open(os.environ['FF_PJ'], encoding='utf-8'))
 except Exception:
     sys.exit(0)
-print($2 or '')
+s = str($2 or '')
+print($FFPP_ESC_PY)
 " 2>/dev/null | tr -d '\n\r'
 }
 
 ffpp_errors() {
   ffpp_is_publisher || return 0
   local ver pj pj_name pj_ver mkt_name mkt_ver
-  ver="$(tr -d '\n\r' < VERSION 2>/dev/null)"
+  # TRIPWIRE: drop only the file's TRAILING terminator (LF, or the CR of a CRLF) — that is framing.
+  # An embedded CR/LF is content and must reach the comparison, or R4 returns on the VERSION side.
+  ver="$(cat VERSION 2>/dev/null)"
+  ver="$(ffpp_esc "${ver%$'\r'}")"
   [ -n "$ver" ] || return 0
 
   for pj in .claude-plugin/plugin.json .codex-plugin/plugin.json; do

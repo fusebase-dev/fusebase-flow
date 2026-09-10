@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "c784a8d39561aba7f66f14e6b3debe7a4e574b1a92e56f2954d3ccba5c364b00"
+      "sha256": "8f16450d56380c997d98d6760eb7b49b5f0f856738d1e49a44b1ca2a45c4646f"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -550,7 +550,7 @@
     },
     {
       "path": "hooks/local/lib/plugin-parity.sh",
-      "sha256": "d73369b65ebb17aa35917563f30cd0507f74dda2ce65c553c98bebe0b22d37b1"
+      "sha256": "79d0e4f6dac0f9dfcc81cb64b8d607303f589698abc7687c03520772470d2ae9"
     },
     {
       "path": "hooks/local/lib/precommit-validator-reuse.sh",
@@ -1166,7 +1166,7 @@
     },
     {
       "path": "hooks/tests/test-plugin-parity-scope.sh",
-      "sha256": "689c615512366df2ac552f7139b3f03c02a8351678d5969d58d5674b2c9b2f20"
+      "sha256": "c4c18b5a4c6d2a76f924978e69178840f3b706d95572a0c69ce4067447a68625"
     },
     {
       "path": "hooks/tests/test-po-investigate.sh",
@@ -1517,5 +1517,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "187912adb58449a0204ec333dc6b785ec0a7b53a78fcbd823e6d59961dcfa833"
+  "manifest_self_sha256": "a129ab6bedacad213499ccae0af2c5bb7da3c9a13445ec94dab15c531b27a370"
 }
