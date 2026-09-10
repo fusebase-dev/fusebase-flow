@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.16.3",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 214,
+  "asset_count": 217,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -10,7 +10,7 @@
     },
     {
       "path": "hooks/git/pre-commit",
-      "sha256": "d765019b9b16afbb1790b27dd9d1337d8009254bae45cd677057978ebec4b55d"
+      "sha256": "499e12681a2f22d04a23fe0c64729fa90ece0b65a2412bd71af21d2380d81b4a"
     },
     {
       "path": "hooks/handlers/permission_request.py",
@@ -51,6 +51,10 @@
     {
       "path": "hooks/local/check-cli-flow-conflicts.sh",
       "sha256": "850123ec723758014e0596dd0e0d295be286d56ba211378a1597dfa663d8a358"
+    },
+    {
+      "path": "hooks/local/check-git-capture.sh",
+      "sha256": "8c58aaa4e4a40db235ebc65c588297c5677f2630d4c65c0f5f850b799003349f"
     },
     {
       "path": "hooks/local/check-module-size.sh",
@@ -115,6 +119,10 @@
     {
       "path": "hooks/local/lib/flow-recovery-plan.sh",
       "sha256": "ff5a4a28f9a4f1b7e7d804d97f28c2555a52c2c40075180b16fc38c3681fc9cb"
+    },
+    {
+      "path": "hooks/local/lib/git-capture-scan.py",
+      "sha256": "6954e5930ef3789659c2e57c04e3ccc74651bce938dc04f307c8ccafca21ab5f"
     },
     {
       "path": "hooks/local/lib/health-recommendations.sh",
@@ -554,7 +562,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "27183da9a85f236dce65f6cda188da6ca1949b68bcd0b74323fdba8b020cbc9b"
+      "sha256": "68199a3b48ad5239aaae59026cd07335629ac6ec87e51fbcc171ea3ad27b9555"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -630,7 +638,7 @@
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
-      "sha256": "ab34d20b1eb27d8dd431baf23427c6beaa9af28a9c7ac48ffd535b824e79993b"
+      "sha256": "57992daa99b59a0437f60754b2bace27f9a4ffae2385de78cb2a6800ba3f376c"
     },
     {
       "path": "hooks/tests/test-fingerprint-row-per-tag.sh",
@@ -643,6 +651,10 @@
     {
       "path": "hooks/tests/test-fr22-delivery-guarantee.sh",
       "sha256": "7c5863819c7b787e15da35f6bb03e6623fd961680d6fb687f35b665cb8f4c524"
+    },
+    {
+      "path": "hooks/tests/test-git-capture-guard.sh",
+      "sha256": "40814bc66d78a5b8745186f389a581412685c4001893c7ad8d6c8827bd860892"
     },
     {
       "path": "hooks/tests/test-git-hooks-smoke.sh",
@@ -786,7 +798,7 @@
     },
     {
       "path": "hooks/tests/test-secret-scan-staged.sh",
-      "sha256": "2fa8ad289fb2afeae5ed29fd63a8fd22b4696b4141c2b3d983d274270e4aa9dd"
+      "sha256": "5632e14e0f270c303fc38a311934c6640f2166f0dc29c7c5f0215997e8d86bf7"
     },
     {
       "path": "hooks/tests/test-stamp-eol-guard.sh",
@@ -861,5 +873,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "9c5f714140af702bd31c6e9376c96b90e5f8c3ad03e01f5990d03482faea9c7a"
+  "manifest_self_sha256": "77cd9ab19417ccd500ea22275fca361a29366b6e0b580e81cb98da4610059a9d"
 }

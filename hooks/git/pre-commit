@@ -23,7 +23,35 @@ _ffpc_block() {
     echo "[fusebase-flow:pre-commit] BLOCK — git resolved no worktree here, but $1. Failing closed: skipping would drop the FR-12 staged secret scan (§2) and the FR-07 protected-path check (§3) inside a repository. Repair git (or the declared context) and re-run. NEVER use --no-verify." >&2
     exit 1
 }
-ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+# TRIPWIRE (T84): every git read in this hook writes to a FILE and is read back with shell
+# builtins — NEVER `$(git …)`. A Windows-native git descendant can hold the write end of a
+# command-substitution pipe open past exit, so the substitution never sees EOF and the hook
+# hangs (docs/problem-catalog/msys-git-command-substitution-hang/). Gated by
+# hooks/local/check-git-capture.sh; a new `$(git …)` here fails the git-capture-guard phase.
+FFPC_SHIM_DIR=""
+FFPC_GITCAP=""
+_ffpc_cleanup() {
+    [ -n "$FFPC_SHIM_DIR" ] && rm -rf "$FFPC_SHIM_DIR" 2>/dev/null
+    [ -n "$FFPC_GITCAP" ] && rm -f "$FFPC_GITCAP" 2>/dev/null
+    return 0
+}
+trap _ffpc_cleanup EXIT
+FFPC_GITCAP="$(mktemp 2>/dev/null || mktemp -t ffflow-gitcap)"
+if [ -z "$FFPC_GITCAP" ] || ! { : > "$FFPC_GITCAP"; } 2>/dev/null; then
+    echo "[fusebase-flow:pre-commit] BLOCK — no writable temp file for the git reads §2/§3 depend on — failing closed. NEVER use --no-verify." >&2
+    exit 1
+fi
+_ffpc_git_read() {   # CMD… -> stdout in $FFPC_GITCAP, rc in FFPC_GIT_RC (no pipe anywhere)
+    : > "$FFPC_GITCAP" 2>/dev/null
+    "$@" > "$FFPC_GITCAP" 2>/dev/null; FFPC_GIT_RC=$?
+}
+_ffpc_git_line() {   # CMD… -> first output line in FFPC_GIT_OUT via the `read` BUILTIN
+    _ffpc_git_read "$@"
+    FFPC_GIT_OUT=""
+    IFS= read -r FFPC_GIT_OUT < "$FFPC_GITCAP" 2>/dev/null || :   # rc1 on EOF/partial line still sets it
+}
+_ffpc_git_line git rev-parse --show-toplevel
+ROOT="$FFPC_GIT_OUT"
 if [ -z "$ROOT" ]; then
     git rev-parse --git-dir >/dev/null 2>&1 && { echo "[fusebase-flow:pre-commit] a git repository without a worktree here (bare, or invoked inside .git/); no staged worktree content to check; skipping" >&2; exit 0; }
     [ -n "${GIT_DIR:-}${GIT_WORK_TREE:-}" ] && _ffpc_block "the environment declares repository context (GIT_DIR/GIT_WORK_TREE) that git could not resolve"
@@ -72,8 +100,8 @@ export PYTHONNOUSERSITE=1
 export PYTHONSAFEPATH=1
 
 SECRETS_REGEX='\.env$|\.env\.[^\.]*$|credentials\.json$|/secrets/|\.pem$|\.key$|\.netrc$'
-STAGED_PATHS="$(git diff --cached --name-only --diff-filter=ACM 2>/dev/null || true)"
-SECRET_HITS="$(echo "$STAGED_PATHS" | grep -E "$SECRETS_REGEX" || true)"
+_ffpc_git_read git diff --cached --name-only --diff-filter=ACM
+SECRET_HITS="$(grep -E "$SECRETS_REGEX" < "$FFPC_GITCAP" || true)"
 if [ -n "$SECRET_HITS" ]; then
     echo "[fusebase-flow:pre-commit] BLOCK — secret-like files staged:" >&2
     echo "$SECRET_HITS" | sed 's/^/  /' >&2
@@ -94,16 +122,14 @@ fi
 #     env override: an override is the fail-open branch this replaces.
 #     Scoped to commits that actually stage something — an empty staged set has nothing to
 #     protect, and git rejects that commit on its own.
-STAGED_ANY="$(git diff --cached --name-only 2>/dev/null)"; STAGED_ANY_RC=$?
+_ffpc_git_read git diff --cached --name-only; STAGED_ANY_RC=$FFPC_GIT_RC
+STAGED_ANY=""; [ -s "$FFPC_GITCAP" ] && STAGED_ANY=1
 if [ "$STAGED_ANY_RC" -ne 0 ]; then
     echo "[fusebase-flow:pre-commit] BLOCK — could not list staged changes (git rc=$STAGED_ANY_RC) — failing closed." >&2
     echo "Refusing to commit fail-open on an unverifiable staged set; NEVER use --no-verify." >&2
     exit 1
 fi
 
-FFPC_SHIM_DIR=""
-_ffpc_cleanup_shim() { [ -n "$FFPC_SHIM_DIR" ] && rm -rf "$FFPC_SHIM_DIR" 2>/dev/null; return 0; }
-trap _ffpc_cleanup_shim EXIT
 _ffpc_is_py3() { "$@" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] >= (3, 10) else 1)' >/dev/null 2>&1; }
 
 # 1b-v. PRIMARY-INTERPRETER VERSION SYMMETRY (S2d; docs/specs/pre-commit-trusted-tool-contract/).

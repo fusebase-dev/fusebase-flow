@@ -13,7 +13,7 @@ Test behavior at the smallest useful boundary: table/parser or function first, t
 | Process lifecycle | Failure/timeout propagation, owned-child cleanup, zero-result refusal and selector completeness |
 | Publication | Parsed workflow graph, both platforms, required-job success, manifests and tag/verified-SHA binding |
 
-`hooks/tests/run-tests.sh` owns membership and `FF_LIST=1` lists it. `FF_RELEASE=1` selects an explicit 36-tag release allowlist; a newly registered phase stays out until its consumer or safety responsibility is reviewed and deliberately added. Do that review in the outcome that adds or changes the phase: an essential consumer or safety contract enters the allowlist, an excluded diagnostic gets a brief reason in the table below, and registration alone leaves the outcome incomplete. `FF_FULL=1` runs every non-opt-in diagnostic, while `FF_ONLY` names affected groups. Neither local mode authorizes publication.
+`hooks/tests/run-tests.sh` owns membership and `FF_LIST=1` lists it. `FF_RELEASE=1` selects an explicit 37-tag release allowlist; a newly registered phase stays out until its consumer or safety responsibility is reviewed and deliberately added. Do that review in the outcome that adds or changes the phase: an essential consumer or safety contract enters the allowlist, an excluded diagnostic gets a brief reason in the table below, and registration alone leaves the outcome incomplete. `FF_FULL=1` runs every non-opt-in diagnostic, while `FF_ONLY` names affected groups. Neither local mode authorizes publication.
 
 | Release responsibility | Existing required tags |
 |---|---|
@@ -25,6 +25,7 @@ Test behavior at the smallest useful boundary: table/parser or function first, t
 | Caller-summary truthfulness and publisher scoping | `hop-log-truth`, `n4-parity-scope` |
 | Test-harness fidelity (a suite must exercise its own subject on both platforms) | `minimal-path-fixture` |
 | Consumer-facing stamper and recovery-hint honesty | `stamp-eol-guard`, `recovery-hint` |
+| Harness liveness — no command substitution may capture a git/hook process tree, and a block must be bounded at its own operation | `git-capture-guard` |
 
 **Deferred, cost-reviewed — not a diagnostic exclusion.** `preboundary-consumed` is green on both platforms but measured 204 s on MSYS (13 `bootstrap-upgrade.sh` engine hops across 9 fixture trees) against 5-56 s for every phase promoted in v4.16.3. Excluded on cost, not on coverage; reopen with the operator if the MSYS leg gains headroom.
 

@@ -28,7 +28,13 @@
 
 set -uo pipefail
 
-ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+# TRIPWIRE (T84): git output via a FILE + the `read` builtin, never `$(git …)` — an MSYS git
+# descendant can hold a substitution pipe open past exit and hang the harness before any bound
+# is armed (docs/problem-catalog/msys-git-command-substitution-hang/; gated by git-capture-guard).
+ROOT=""; FF_ROOTCAP="$(mktemp 2>/dev/null || true)"
+[ -n "$FF_ROOTCAP" ] && { git rev-parse --show-toplevel > "$FF_ROOTCAP" 2>/dev/null || :
+    IFS= read -r ROOT < "$FF_ROOTCAP" 2>/dev/null || :; rm -f "$FF_ROOTCAP" 2>/dev/null; }
+[ -n "$ROOT" ] || ROOT="$(pwd)"
 TESTS_DIR="$ROOT/hooks/tests/fixtures"
 HANDLERS_DIR="$ROOT/hooks/handlers"
 
@@ -39,10 +45,9 @@ if ! command -v "$python_bin" >/dev/null 2>&1; then
     exit 1
 fi
 
-# Bounded-run engine (WS2-core strict-scoped reap): each heavy phase runs under
-# ffhc_run_bounded (tempfile capture + the recorded-child taskkill), so an MSYS
-# native grandchild can't hold a $(...) pipe open past the deadline and freeze the
-# harness. Reads FFHC_LAST_OUT / FFHC_LAST_RC after each call.
+# Bounded-run engine: each heavy phase runs under ffhc_run_bounded (tempfile capture + the
+# recorded-child reap), so an MSYS native grandchild can't hold a $(...) pipe past the deadline.
+# Reads FFHC_LAST_OUT / FFHC_LAST_RC after each call.
 . "$ROOT/hooks/local/lib/run-with-timeout.sh"
 ffhc_detect_timeout
 # Guarded group-reap primitives, shared with the out-of-band sentinel so both teardown paths
@@ -51,12 +56,10 @@ FF_ORPHAN_REAP="$ROOT/hooks/tests/lib/orphan-reap.sh"
 # shellcheck source=/dev/null
 [ -f "$FF_ORPHAN_REAP" ] && . "$FF_ORPHAN_REAP"
 
-# Per-phase heavy-run bound — a liveness backstop, not a performance assertion.
-# 600s was a rounded-up quiet-host observation and two phases crossed it with ZERO failed
-# assertions (bootstrap-exception 602s, upgrade-repair-managed 603s) while Linux was 746/746
-# on the identical commit; bootstrap-exception then measured 680s on an unloaded host.
-# 1800s is ~2.6x that 680s. NOTE: nothing MECHANICALLY enforces a headroom multiplier — this
-# is a reviewed value, not a checked invariant. Backlog: gate-bounds-lack-headroom.
+# Per-phase heavy-run bound — a liveness backstop, not a performance assertion. TRIPWIRE: the
+# headroom multiplier is a REVIEWED value, mechanically unenforced; a phase that blocks inside
+# this wall is unattributable, so bound at the operation too. Derivation + the open gap:
+# docs/backlog/gate-bounds-lack-headroom/.
 FF_PHASE_TIMEOUT="${FF_PHASE_TIMEOUT:-1800}"
 
 # Opt into the parent-owned heartbeat (decision M3); FFHC_HEARTBEAT_SECS=0 silences it.
@@ -72,7 +75,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixtur
   git-context git-context-mutation \
   hook-manifest newline-preserve baseline-merge hook-wiring-intent wire-hooks-beside stamp-eol-guard \
   sync-allowlist policy-state bootstrap-baseline-hop fr22-delivery po-verifiable-boot \
-  po-investigate liveness codex-parity codex-plugin cli-0259 cli-version cli-vendor cli-rendered secret-scan-staged bootstrap-exception \
+  po-investigate liveness codex-parity codex-plugin cli-0259 cli-version cli-vendor cli-rendered git-capture-guard secret-scan-staged bootstrap-exception \
   lane-router lane-workflow \
   trusted-enforcer hook-install-rc msys-tree-cleanup job-probe ws5-upgrade ff-only return-budget \
   supersede-primitive rule-inventory boot-size prohibition-residency startup-context validator-evidence validation-instructions consumer-benchmark wasted-effort-windowing token-waste-classify \
@@ -86,7 +89,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixtur
 # reddens 17 of its 46 rows. It is gated by its own unscoped step in fusebase-flow-verify.yml.
 FF_RELEASE_TAGS=(fixtures git-smoke interpreter-contract python3-version git-context \
   baseline-merge hook-wiring-intent wire-hooks-beside bootstrap-baseline-hop cli-0259 \
-  secret-scan-staged bootstrap-exception trusted-enforcer hook-install-rc validator-evidence \
+  git-capture-guard secret-scan-staged bootstrap-exception trusted-enforcer hook-install-rc validator-evidence \
   validation-instructions approval-binding approval-writer command-policy upgrade-classify \
   upgrade-boundary upgrade-repair n5-delivery n6-truthful-base n6-missing-base n6-recover \
   release-authority release-tag-binding cli-flow-recovery cli-flow-recovery-selectors \
@@ -144,12 +147,7 @@ if [ "$FF_RELEASE_RUN" -eq 1 ] \
 fi
 
 # --- Local tier: the FAST set is the local default -------------------------------------
-# Membership is the architecture-review Q4 "Local default" tier, minus the one member that
-# breaks the review's OWN bound policy ("Local product budget: <=10 minutes under loaded
-# MSYS. A phase that breaks the budget leaves the local tier — the wall is not raised"):
-# secret-scan-staged measured 456s of a 600s budget on this host. Its scanner still runs on
-# EVERY commit via hooks/git/pre-commit; only the scenario phase moved. release-authority
-# (14s) is added — it guards the release-evidence contract itself.
+# Membership + the <=10-minute local budget that excluded secret-scan-staged: docs/maintainer-testing.md.
 # TRIPWIRE: this is an ALLOWLIST; new phases stay out until measured and promoted.
 FF_FAST_TAGS=(fixtures module-size git-smoke hook-manifest lane-router \
   approval-binding approval-writer command-policy release-authority)
@@ -646,6 +644,8 @@ run_shell_phase test-cli-vendor-refresh.sh     "cli-vendor"
 # audit/cli-vendor-manifest.json, so it follows the vendored surface as it grows. Cheap
 # (no engine spawns) — promote to FF_FAST_TAGS only after it is measured there.
 run_shell_phase test-vendored-rendered.sh      "cli-rendered"
+# Ordered before secret-scan-staged: it gates the capture class that hung that phase (~40s).
+run_shell_phase test-git-capture-guard.sh      "git-capture-guard"
 run_shell_phase test-secret-scan-staged.sh     "secret-scan-staged"
 run_shell_phase test-bootstrap-exception.sh    "bootstrap-exception"
 run_shell_phase test-trusted-enforcer.sh       "trusted-enforcer"

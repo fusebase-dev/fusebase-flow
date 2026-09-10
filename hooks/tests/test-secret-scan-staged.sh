@@ -21,7 +21,21 @@
 
 set -uo pipefail
 
-ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+# TRIPWIRE (T84): no `$(git …)` anywhere in this file. Every scenario drives real git and the
+# real pre-commit under MSYS, where a Windows-native descendant can hold a command-substitution
+# pipe open past exit — the substitution then never sees EOF and the PHASE hangs until the
+# 1800s wall (docs/problem-catalog/msys-git-command-substitution-hang/; v4.16.3 lost a release
+# to it here). git output goes to a FILE; repo builders set a global instead of echoing through
+# a pipe; hook runs go through run_hook, bounded AT THE OPERATION. Gated by the
+# git-capture-guard phase (hooks/local/check-git-capture.sh).
+ROOT=""
+FFSS_ROOTCAP="$(mktemp 2>/dev/null || true)"
+if [ -n "$FFSS_ROOTCAP" ]; then
+  git rev-parse --show-toplevel > "$FFSS_ROOTCAP" 2>/dev/null || :
+  IFS= read -r ROOT < "$FFSS_ROOTCAP" 2>/dev/null || :
+  rm -f "$FFSS_ROOTCAP" 2>/dev/null
+fi
+[ -n "$ROOT" ] || ROOT="$(pwd)"
 HELPER="$ROOT/hooks/shared/staged_secret_scan.py"
 # TRIPWIRE (WS1a): construct every ghp_-shaped token at RUNTIME so no literal PAT is a
 # committed `+` line in THIS file — the release-gate self-test stages the whole tree
@@ -43,12 +57,58 @@ ok()  { pass=$((pass + 1)); echo "PASS: secret-scan-staged $1"; }
 bad() { fail=$((fail + 1)); echo "FAIL: secret-scan-staged $1 (${2:-})"; }
 finish() { echo "[test-secret-scan-staged] $pass/$((pass + fail)) PASS"; exit $fail; }
 
+# --- owner-side operation bound (T84) --------------------------------------------------------
+# The 1800s phase wall and the 30s heartbeat observe the PHASE, so a block inside one hook run
+# is only visible half an hour later and is never attributed to a call. ffhc_run_bounded bounds
+# THIS operation: tempfile capture (no pipe), a watchdog OUTSIDE the capture, and the recorded
+# owned-tree reap. FF_SS_OP_TIMEOUT is a reviewed design target, not a correctness assertion:
+# the slowest hook run measured 17s on a loaded MSYS host and the whole green CI phase was 98s
+# for 39 rows, so 180s is >10x the observed worst case and 10x tighter than the phase wall.
+FFSS_BOUNDED_LIB="$ROOT/hooks/local/lib/run-with-timeout.sh"
+[ -f "$FFSS_BOUNDED_LIB" ] || { bad "bounded-operation-runner-armed" "missing $FFSS_BOUNDED_LIB — every hook run below would be unbounded"; finish; }
+# shellcheck source=/dev/null
+. "$FFSS_BOUNDED_LIB"
+ffhc_detect_timeout
+FF_SS_OP_TIMEOUT="${FF_SS_OP_TIMEOUT:-180}"
+FFSS_OUT=""; FFSS_RC=0; FFSS_TIMEOUT=0; FFSS_SKIPPED=0; FFSS_REPO=""
+
+# run_hook <repo-dir> [hook-relpath] — ONE bounded invocation; both the verdict and the
+# diagnostics come from it (the scenarios used to run the hook TWICE to get each separately).
+run_hook() {
+  local d="$1" h="${2:-hooks/git/pre-commit}"
+  FFHC_HEARTBEAT_LABEL="secret-scan-staged: $h in $d"
+  ffhc_run_bounded "$FF_SS_OP_TIMEOUT" bash -c 'cd "$1" || exit 127; exec bash "$2"' ff-run-hook "$d" "$h"
+  FFSS_OUT="$FFHC_LAST_OUT"; FFSS_RC="$FFHC_LAST_RC"
+  FFSS_TIMEOUT="$FFHC_LAST_TIMED_OUT"; FFSS_SKIPPED="$FFHC_LAST_SKIPPED"
+  if [ "$FFSS_TIMEOUT" -eq 1 ]; then
+    echo "[test-secret-scan-staged] OPERATION TIMEOUT ${FF_SS_OP_TIMEOUT}s — '$h' in '$d' produced no verdict; owned tree reaped" >&2
+  fi
+  return 0
+}
+# TRIPWIRE: a KILLED hook exits nonzero. Reading "nonzero" as "the control blocked" turns a
+# timeout into a PASS — the exact false-pass this phase's own defect class produces. hook_blocked
+# is TRUE only when the hook RAN to a verdict and refused.
+hook_blocked() { [ "$FFSS_TIMEOUT" -eq 0 ] && [ "$FFSS_SKIPPED" -eq 0 ] && [ "$FFSS_RC" -ne 0 ]; }
+hook_passed()  { [ "$FFSS_TIMEOUT" -eq 0 ] && [ "$FFSS_SKIPPED" -eq 0 ] && [ "$FFSS_RC" -eq 0 ]; }
+hook_why() {
+  if [ "$FFSS_TIMEOUT" -eq 1 ]; then printf 'TIMEOUT@%ss, rc=%s — NO verdict, not a block' "$FF_SS_OP_TIMEOUT" "$FFSS_RC"
+  elif [ "$FFSS_SKIPPED" -eq 1 ]; then printf 'bounded runner unavailable (rc=125) — UNVERIFIED'
+  else printf 'rc=%s' "$FFSS_RC"; fi
+}
+hook_says() { echo "$FFSS_OUT" | grep -qiE "$1"; }
+if [ -n "${FFHC_TIMEOUT_BIN:-}" ]; then
+  ok "bounded-operation-runner-armed (per-hook deadline ${FF_SS_OP_TIMEOUT}s via $FFHC_TIMEOUT_BIN)"
+else
+  bad "bounded-operation-runner-armed" "no timeout binary: every hook run below would be UNBOUNDED, so a block would only surface at the 1800s phase wall"
+fi
+
 [ -f "$HELPER" ] || { bad "setup-helper-present" "missing $HELPER"; finish; }
 ok "setup-helper-present"
 command -v python3 >/dev/null 2>&1 || { echo "PASS: secret-scan-staged skipped-no-python3"; pass=$((pass + 1)); finish; }
 
-# new_repo: a minimal git repo with the scanner stack copied in, seeded with one
-# commit. Echoes the repo dir. Scans run via: (cd $D && python3 helper).
+# new_repo: a minimal git repo with the scanner stack copied in, seeded with one commit.
+# Sets FFSS_REPO (T84: never `echo` + `new_repo; D="$FFSS_REPO"` — that capture wraps git init/add/commit,
+# whose native descendants can hold the pipe open). Scans run via: (cd $D && python3 helper).
 new_repo() {
   local D; D="$(mktemp -d)"
   mkdir -p "$D/hooks/shared" "$D/policies" "$D/hooks/tests/fixtures" "$D/src"
@@ -61,20 +121,20 @@ new_repo() {
   ( cd "$D" && git init -q && git config user.email t@t.t && git config user.name t \
       && git config core.autocrlf false \
       && echo seed > seed.txt && git add -A && git commit -qm seed )
-  echo "$D"
+  FFSS_REPO="$D"
 }
 run_helper() { ( cd "$1" && PYTHONPATH="$1/hooks" python3 "$1/hooks/shared/staged_secret_scan.py" >/dev/null 2>&1 ); }
 
 # AC-A1 #1: editing secret-patterns.yml (touching its own ghp example token) is NOT
 # blocked (RED was BLOCK — the self-trip). Path-exclude removes it from the scan.
-D="$(new_repo)"
+new_repo; D="$FFSS_REPO"
 sed -i "s/$DESIGNED_X/$DESIGNED_Y/" "$D/policies/secret-patterns.yml"
 ( cd "$D" && git add policies/secret-patterns.yml )
 if run_helper "$D"; then ok "a1-edit-secret-patterns-not-blocked"; else bad "a1-edit-secret-patterns-not-blocked" "the secret-patterns.yml edit was BLOCKED (path-exclude failed)"; fi
 rm -rf "$D"
 
 # AC-A1 #2: a REAL secret on a + line in a NORMAL file STILL blocks (no weakening).
-D="$(new_repo)"
+new_repo; D="$FFSS_REPO"
 echo "const TOKEN = '$SECRET';" > "$D/src/config.ts"
 ( cd "$D" && git add src/config.ts )
 if run_helper "$D"; then bad "a1-real-secret-plus-line-still-blocks" "a real + secret was NOT blocked (detection weakened!)"; else ok "a1-real-secret-plus-line-still-blocks"; fi
@@ -82,7 +142,7 @@ rm -rf "$D"
 
 # AC-A1 #3: a secret only on a REMOVED (-) line in a normal file is NOT blocked
 # (removed content is leaving the repo).
-D="$(new_repo)"
+new_repo; D="$FFSS_REPO"
 echo "const TOKEN = '$SECRET';" > "$D/src/config.ts"
 ( cd "$D" && git add src/config.ts && git commit -qm add-secret )
 ( cd "$D" && rm src/config.ts && git add src/config.ts )   # stage the deletion (- line)
@@ -91,7 +151,7 @@ rm -rf "$D"
 
 # AC-A1 #4 (deliberate gap, D-A1): a real secret added INSIDE hooks/tests/fixtures/
 # is NOT caught by the commit scan (designed-token path exclude).
-D="$(new_repo)"
+new_repo; D="$FFSS_REPO"
 echo "$SECRET" > "$D/hooks/tests/fixtures/99_designed.txt"
 ( cd "$D" && git add hooks/tests/fixtures/99_designed.txt )
 if run_helper "$D"; then ok "a1-fixtures-excluded-deliberate-gap"; else bad "a1-fixtures-excluded-deliberate-gap" "fixtures/ secret blocked — exclusion not applied"; fi
@@ -104,7 +164,7 @@ rm -rf "$D"
 # backups, while NOTHING else is waved through.
 TS="20260101T000000Z"
 # (positive) the exact root fixture/policy twins are excluded -> no block
-D="$(new_repo)"
+new_repo; D="$FFSS_REPO"
 mkdir -p "$D/hooks.pre-upgrade-$TS/tests/fixtures" "$D/policies.pre-upgrade-$TS"
 echo "$SECRET" > "$D/hooks.pre-upgrade-$TS/tests/fixtures/10_designed.txt"
 echo "$SECRET" > "$D/policies.pre-upgrade-$TS/secret-patterns.yml"
@@ -126,7 +186,7 @@ for spoof in \
   "exact-ts-non-root:sub/hooks.pre-upgrade-$TS/tests/fixtures/creds.txt" \
   "exact-ts-wrong-prefix:evil.pre-upgrade-$TS/tests/fixtures/creds.txt"; do
   name="${spoof%%:*}"; path="${spoof#*:}"
-  D="$(new_repo)"; mkdir -p "$D/$(dirname "$path")"; echo "$SECRET" > "$D/$path"
+  new_repo; D="$FFSS_REPO"; mkdir -p "$D/$(dirname "$path")"; echo "$SECRET" > "$D/$path"
   ( cd "$D" && git add "$path" )
   if run_helper "$D"; then bad "secret-still-blocks-$name" "a real secret at $path bypassed the scanner"; else ok "secret-still-blocks-$name"; fi
   rm -rf "$D"
@@ -148,7 +208,7 @@ echo "$f11" | grep -q '"decision": "deny"' && ok "a2-fixture11-still-detects" ||
 # (test CODE one level above hooks/tests/fixtures/) STILL BLOCKS. Proves the narrow
 # exclude (fixtures/ + the two policy files only) did not blind the scanner to real
 # secrets in test code — the reason WS1a keeps runtime tokens instead of :(exclude)hooks/tests/.
-D="$(new_repo)"
+new_repo; D="$FFSS_REPO"
 mkdir -p "$D/hooks/tests"
 printf 'TOKEN="%s"\n' "$SECRET" > "$D/hooks/tests/leaky-test.sh"
 ( cd "$D" && git add hooks/tests/leaky-test.sh )
@@ -169,8 +229,14 @@ D="$(mktemp -d)"
 # per-file cp loop over ~700 files is prohibitively slow on a loaded MSYS host): pipe
 # `git ls-files -z` through a single tar. Then stage everything explicitly (no `git
 # add -A`; the exact tracked set is what tar carried).
-( cd "$ROOT" && git ls-files -z | tar --null -T - -cf - 2>/dev/null ) | ( cd "$D" && tar -xf - ) 2>/dev/null
-( cd "$D" && git ls-files -o --exclude-standard -z | xargs -0 -r git add -- ) 2>/dev/null
+# T84: the file LIST comes off a git FILE redirect, never a git->tar pipe — the same MSYS
+# hazard: a native git descendant retaining the write end leaves the reader blocked on EOF.
+FFSS_LIST="$(mktemp 2>/dev/null || true)"
+( cd "$ROOT" && git ls-files -z > "$FFSS_LIST" ) 2>/dev/null
+( cd "$ROOT" && tar --null -T "$FFSS_LIST" -cf - 2>/dev/null ) | ( cd "$D" && tar -xf - ) 2>/dev/null
+( cd "$D" && git ls-files -o --exclude-standard -z > "$FFSS_LIST" ) 2>/dev/null
+( cd "$D" && xargs -0 -r git add -- < "$FFSS_LIST" ) 2>/dev/null
+rm -f "$FFSS_LIST" 2>/dev/null
 if ( cd "$D" && PYTHONPATH="$D/hooks" python3 "$D/hooks/shared/staged_secret_scan.py" >/dev/null 2>&1 ); then
   ok "release-gate-self-test-tree-commits-clean"
 else
@@ -205,9 +271,8 @@ ph_repo() {
   ( cd "$D" && git init -q && git config user.email t@t.t && git config user.name t \
       && git config core.autocrlf false \
       && git add -A && git commit -qm seed )   # CLEAN scanner + patterns now in HEAD.
-  echo "$D"
+  FFSS_REPO="$D"   # T84: set, never echoed into a `$( … )` capture
 }
-run_precommit_pc() { ( cd "$1" && bash hooks/git/pre-commit >/dev/null 2>&1 ); }
 # A real high-confidence secret (AWS access key id), built so this test file carries no
 # committed secret literal (WS1a runtime-construction discipline).
 AKIA_KEY="AKIA""IOSFODNN7EXAMPLE"
@@ -216,18 +281,17 @@ AKIA_KEY="AKIA""IOSFODNN7EXAMPLE"
 #      staged_secret_scan.py (UNSTAGED) to `return 0` (report no secrets); stage a file
 #      with a REAL secret. The TRUSTED HEAD scanner runs -> BLOCK. RED (555b897): the
 #      tampered working-tree scanner runs -> the secret commits (rc=0). ----
-D="$(ph_repo)"
+ph_repo; D="$FFSS_REPO"
 printf 'import sys\ndef main():\n    return 0\nif __name__ == "__main__":\n    sys.exit(main())\n' > "$D/hooks/shared/staged_secret_scan.py"  # UNSTAGED tamper
 printf 'const k = "%s";\n' "$AKIA_KEY" > "$D/src/leak.js"
 ( cd "$D" && git add src/leak.js )   # stage ONLY the secret; the scanner tamper is unstaged.
-T31A_ERR="$( ( cd "$D" && bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
-T31A_RC=0; run_precommit_pc "$D" || T31A_RC=$?
-if [ "$T31A_RC" -ne 0 ] && echo "$T31A_ERR" | grep -qiE "secret pattern|BLOCK — secret"; then ok "secret-scan-script-tamper-blocks (trusted HEAD scanner runs, exit $T31A_RC)"; else bad "secret-scan-script-tamper-blocks" "an UNSTAGED working-tree staged_secret_scan.py tamper let a real staged secret through (rc=$T31A_RC) — FR-12 fail-OPEN"; fi
+run_hook "$D"
+if hook_blocked && hook_says "secret pattern|BLOCK — secret"; then ok "secret-scan-script-tamper-blocks (trusted HEAD scanner runs, exit $FFSS_RC)"; else bad "secret-scan-script-tamper-blocks" "an UNSTAGED working-tree staged_secret_scan.py tamper let a real staged secret through ($(hook_why)) — FR-12 fail-OPEN"; fi
 # RED proof: the pre-T31 pre-commit runs the tampered working-tree scanner -> exit 0.
 if git -C "$ROOT" cat-file -e "$T31_BASE_REF:hooks/git/pre-commit" 2>/dev/null; then
   git -C "$ROOT" show "$T31_BASE_REF:hooks/git/pre-commit" > "$D/hooks/git/pre-commit-t30"
-  RED31A=0; ( cd "$D" && bash hooks/git/pre-commit-t30 >/dev/null 2>&1 ) || RED31A=$?
-  if [ "$RED31A" -eq 0 ]; then ok "secret-scan-script-tamper-RED-t30-was-fail-open (working-tree scanner ran; the secret self-passed at exit 0)"; else ok "secret-scan-script-tamper-RED-t30-not-exit0-here (GREEN still asserted)"; fi
+  run_hook "$D" hooks/git/pre-commit-t30
+  if hook_passed; then ok "secret-scan-script-tamper-RED-t30-was-fail-open (working-tree scanner ran; the secret self-passed at exit 0)"; else ok "secret-scan-script-tamper-RED-t30-not-exit0-here (GREEN still asserted)"; fi
   rm -f "$D/hooks/git/pre-commit-t30"
 else ok "secret-scan-script-tamper-RED-skipped-no-baseline (555b897 pre-commit not reachable)"; fi
 rm -rf "$D"
@@ -236,36 +300,36 @@ rm -rf "$D"
 #      WORKING-TREE secret-patterns.yml (UNSTAGED) so no pattern matches; stage a real
 #      secret. The TRUSTED HEAD patterns (seeded into the loader cache) run -> BLOCK.
 #      RED (555b897): the emptied working-tree patterns load -> no match -> commit (rc=0). ----
-D="$(ph_repo)"
+ph_repo; D="$FFSS_REPO"
 printf 'schema_version: 1\ndefault_action: block\npatterns: []\nwhitelist: []\n' > "$D/policies/secret-patterns.yml"  # UNSTAGED tamper (emptied)
 printf 'const k = "%s";\n' "$AKIA_KEY" > "$D/src/leak.js"
 ( cd "$D" && git add src/leak.js )
-T31B_ERR="$( ( cd "$D" && bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
-T31B_RC=0; run_precommit_pc "$D" || T31B_RC=$?
-if [ "$T31B_RC" -ne 0 ] && echo "$T31B_ERR" | grep -qiE "secret pattern|BLOCK — secret"; then ok "secret-scan-patterns-tamper-blocks (trusted HEAD patterns run, exit $T31B_RC)"; else bad "secret-scan-patterns-tamper-blocks" "an UNSTAGED emptied working-tree secret-patterns.yml let a real staged secret through (rc=$T31B_RC) — FR-12 fail-OPEN"; fi
+run_hook "$D"
+if hook_blocked && hook_says "secret pattern|BLOCK — secret"; then ok "secret-scan-patterns-tamper-blocks (trusted HEAD patterns run, exit $FFSS_RC)"; else bad "secret-scan-patterns-tamper-blocks" "an UNSTAGED emptied working-tree secret-patterns.yml let a real staged secret through ($(hook_why)) — FR-12 fail-OPEN"; fi
 if git -C "$ROOT" cat-file -e "$T31_BASE_REF:hooks/git/pre-commit" 2>/dev/null; then
   git -C "$ROOT" show "$T31_BASE_REF:hooks/git/pre-commit" > "$D/hooks/git/pre-commit-t30"
-  RED31B=0; ( cd "$D" && bash hooks/git/pre-commit-t30 >/dev/null 2>&1 ) || RED31B=$?
-  if [ "$RED31B" -eq 0 ]; then ok "secret-scan-patterns-tamper-RED-t30-was-fail-open (emptied working-tree patterns loaded; the secret self-passed at exit 0)"; else ok "secret-scan-patterns-tamper-RED-t30-not-exit0-here (GREEN still asserted)"; fi
+  run_hook "$D" hooks/git/pre-commit-t30
+  if hook_passed; then ok "secret-scan-patterns-tamper-RED-t30-was-fail-open (emptied working-tree patterns loaded; the secret self-passed at exit 0)"; else ok "secret-scan-patterns-tamper-RED-t30-not-exit0-here (GREEN still asserted)"; fi
   rm -f "$D/hooks/git/pre-commit-t30"
 else ok "secret-scan-patterns-tamper-RED-skipped-no-baseline (555b897 pre-commit not reachable)"; fi
 rm -rf "$D"
 
 # ---- T31 #3. STILL-BLOCKS-NORMAL. Untampered clean scanner in HEAD, a real staged secret
 #      -> BLOCK through the trusted-HEAD path (regression: §2 detection intact). ----
-D="$(ph_repo)"
+ph_repo; D="$FFSS_REPO"
 printf 'const k = "%s";\n' "$AKIA_KEY" > "$D/src/leak.js"
 ( cd "$D" && git add src/leak.js )
-T31C_RC=0; run_precommit_pc "$D" || T31C_RC=$?
-if [ "$T31C_RC" -ne 0 ]; then ok "secret-scan-still-blocks-normal (trusted HEAD, untampered, exit $T31C_RC)"; else bad "secret-scan-still-blocks-normal" "a real staged secret was NOT blocked under the trusted-HEAD path (detection broke)"; fi
+run_hook "$D"
+if hook_blocked; then ok "secret-scan-still-blocks-normal (trusted HEAD, untampered, exit $FFSS_RC)"; else bad "secret-scan-still-blocks-normal" "a real staged secret was NOT blocked under the trusted-HEAD path ($(hook_why)) — detection broke"; fi
 rm -rf "$D"
 
 # ---- T31 #4. NO-OVER-BLOCK. A legit non-secret commit passes cleanly through the
 #      trusted-HEAD §2 path (and §3, a non-protected src edit). ----
-D="$(ph_repo)"
+ph_repo; D="$FFSS_REPO"
 echo "const ok = 'hello world';" > "$D/src/app.js"
 ( cd "$D" && git add src/app.js )
-if run_precommit_pc "$D"; then ok "secret-scan-no-over-block-legit-passes (trusted HEAD §2, non-secret)"; else bad "secret-scan-no-over-block-legit-passes" "a legit non-secret commit was over-blocked by the trusted-HEAD §2 path"; fi
+run_hook "$D"
+if hook_passed; then ok "secret-scan-no-over-block-legit-passes (trusted HEAD §2, non-secret)"; else bad "secret-scan-no-over-block-legit-passes" "a legit non-secret commit did not pass the trusted-HEAD §2 path ($(hook_why))"; fi
 rm -rf "$D"
 
 # ---- T31 #5. BOOTSTRAP-EDGE. HEAD LACKS the scanner (first-adoption): the shell falls
@@ -282,10 +346,9 @@ cp "$ROOT/policies/secret-patterns.yml" "$D/policies/"
 cp "$ROOT/policies/protected-paths.yml" "$D/policies/"
 printf 'const k = "%s";\n' "$AKIA_KEY" > "$D/src/leak.js"
 ( cd "$D" && git add hooks/shared policies/secret-patterns.yml policies/protected-paths.yml src/leak.js )
-BOOT_ERR="$( ( cd "$D" && bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
-BOOT_RC=0; ( cd "$D" && bash hooks/git/pre-commit >/dev/null 2>&1 ) || BOOT_RC=$?
-if echo "$BOOT_ERR" | grep -qiE "first-adoption bootstrap|not in HEAD"; then ok "secret-scan-bootstrap-edge-falls-back (working-tree scanner note emitted)"; else bad "secret-scan-bootstrap-edge-falls-back" "the first-add of the scanner did NOT emit the §2 bootstrap fallback note"; fi
-if [ "$BOOT_RC" -ne 0 ] && echo "$BOOT_ERR" | grep -qiE "secret pattern|BLOCK — secret"; then ok "secret-scan-bootstrap-edge-still-blocks (fallback scanner blocks the real secret, exit $BOOT_RC)"; else bad "secret-scan-bootstrap-edge-still-blocks" "the bootstrap fallback did NOT block a real staged secret (rc=$BOOT_RC)"; fi
+run_hook "$D"
+if hook_says "first-adoption bootstrap|not in HEAD"; then ok "secret-scan-bootstrap-edge-falls-back (working-tree scanner note emitted)"; else bad "secret-scan-bootstrap-edge-falls-back" "the first-add of the scanner did NOT emit the §2 bootstrap fallback note ($(hook_why))"; fi
+if hook_blocked && hook_says "secret pattern|BLOCK — secret"; then ok "secret-scan-bootstrap-edge-still-blocks (fallback scanner blocks the real secret, exit $FFSS_RC)"; else bad "secret-scan-bootstrap-edge-still-blocks" "the bootstrap fallback did NOT block a real staged secret ($(hook_why))"; fi
 rm -rf "$D"
 
 # ---- T31 #6. TRANSIENT-ERROR-FAILS-CLOSED (source). The §2 trusted-vs-fallback decision
@@ -342,9 +405,10 @@ T32_BASE_REF="41a8c6d"
 # t32_red_repo: a throwaway repo whose HEAD carries the T32_BASE_REF (pre-T32) pre-commit +
 # the pre-T32 shared scanner stack + patterns + protected-paths policy, so the RED baseline
 # is a FAITHFUL pre-T32 environment (append-style _restore_site_packages + stdin `-S -` MAIN).
-# Echoes the repo dir, or empty string if the baseline blob is unreachable.
+# Sets FFSS_REPO to the repo dir, or "" if the baseline blob is unreachable (T84: not echoed).
 t32_red_repo() {
-  git -C "$ROOT" cat-file -e "$T32_BASE_REF:hooks/git/pre-commit" 2>/dev/null || { echo ""; return; }
+  FFSS_REPO=""
+  git -C "$ROOT" cat-file -e "$T32_BASE_REF:hooks/git/pre-commit" 2>/dev/null || return 0
   local D; D="$(mktemp -d)"
   mkdir -p "$D/hooks/shared" "$D/hooks/git" "$D/policies" "$D/state/approvals" "$D/src"
   local f
@@ -356,7 +420,7 @@ t32_red_repo() {
   git -C "$ROOT" show "$T32_BASE_REF:hooks/git/pre-commit" > "$D/hooks/git/pre-commit"
   ( cd "$D" && git init -q && git config user.email t@t.t && git config user.name t \
       && git config core.autocrlf false && git add -A && git commit -qm seed )
-  echo "$D"
+  FFSS_REPO="$D"
 }
 
 # drop_pathlib_shadow: an UNSTAGED repo-root pathlib.py that short-circuits the interpreter.
@@ -384,20 +448,19 @@ YSHIM
 #      MAIN file-script strips CWD -> pathlib resolves to stdlib -> §2 runs -> BLOCK.
 #      RED (41a8c6d): stdin `-S -` leaves CWD at sys.path[0] -> pathlib shadow os._exit(0)s ->
 #      the §2 process exits 0 -> the secret commits. ----
-D="$(ph_repo)"
+ph_repo; D="$FFSS_REPO"
 drop_pathlib_shadow "$D"
 printf 'const k = "%s";\n' "$AKIA_KEY" > "$D/src/leak.js"
 ( cd "$D" && git add src/leak.js )
-T32A_ERR="$( ( cd "$D" && bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
-T32A_RC=0; run_precommit_pc "$D" || T32A_RC=$?
-if [ "$T32A_RC" -ne 0 ] && echo "$T32A_ERR" | grep -qiE "secret pattern|BLOCK — secret"; then ok "cwd-shadow-secret-pathlib-blocks (§2 file-script strips CWD; pathlib shadow inert, exit $T32A_RC)"; else bad "cwd-shadow-secret-pathlib-blocks" "an UNSTAGED repo-root pathlib.py shadow let a real staged secret through (rc=$T32A_RC) — §2 CWD-on-sys.path bypass"; fi
+run_hook "$D"
+if hook_blocked && hook_says "secret pattern|BLOCK — secret"; then ok "cwd-shadow-secret-pathlib-blocks (§2 file-script strips CWD; pathlib shadow inert, exit $FFSS_RC)"; else bad "cwd-shadow-secret-pathlib-blocks" "an UNSTAGED repo-root pathlib.py shadow let a real staged secret through ($(hook_why)) — §2 CWD-on-sys.path bypass"; fi
 # RED proof on 41a8c6d (faithful pre-T32 env): the stdin `-S -` MAIN imports the shadow -> exit 0.
-RED="$(t32_red_repo)"
+t32_red_repo; RED="$FFSS_REPO"
 if [ -n "$RED" ]; then
   drop_pathlib_shadow "$RED"; printf 'const k = "%s";\n' "$AKIA_KEY" > "$RED/src/leak.js"
   ( cd "$RED" && git add src/leak.js )
-  RED32A=0; ( cd "$RED" && bash hooks/git/pre-commit >/dev/null 2>&1 ) || RED32A=$?
-  if [ "$RED32A" -eq 0 ]; then ok "cwd-shadow-secret-pathlib-RED-was-fail-open (41a8c6d stdin -S - imported the repo-root pathlib shadow; secret self-passed at exit 0)"; else ok "cwd-shadow-secret-pathlib-RED-not-exit0-here (GREEN still asserted)"; fi
+  run_hook "$RED"
+  if hook_passed; then ok "cwd-shadow-secret-pathlib-RED-was-fail-open (41a8c6d stdin -S - imported the repo-root pathlib shadow; secret self-passed at exit 0)"; else ok "cwd-shadow-secret-pathlib-RED-not-exit0-here (GREEN still asserted)"; fi
   rm -rf "$RED"
 else ok "cwd-shadow-secret-pathlib-RED-skipped-no-baseline (41a8c6d not reachable)"; fi
 rm -rf "$D"
@@ -409,19 +472,18 @@ rm -rf "$D"
 #      §2 seeds the TRUSTED patterns -> BLOCK. RED (41a8c6d): the shim wins (CWD ahead of the
 #      APPENDED site-packages) -> §2 sees empty patterns -> §3 stays green -> "all checks
 #      passed", exit 0, the AWS key lands in HEAD. ----
-D="$(ph_repo)"
+ph_repo; D="$FFSS_REPO"
 drop_yaml_shim "$D"
 printf 'const k = "%s";\n' "$AKIA_KEY" > "$D/src/leak.js"
 ( cd "$D" && git add src/leak.js )
-T32B_ERR="$( ( cd "$D" && bash hooks/git/pre-commit ) 2>&1 >/dev/null )"
-T32B_RC=0; run_precommit_pc "$D" || T32B_RC=$?
-if [ "$T32B_RC" -ne 0 ] && echo "$T32B_ERR" | grep -qiE "secret pattern|BLOCK — secret"; then ok "cwd-shadow-secret-yaml-blocks (discriminating shim inert; real PyYAML wins; §2 BLOCKS, exit $T32B_RC)"; else bad "cwd-shadow-secret-yaml-blocks" "the discriminating repo-root yaml.py shim neutered §2 and a real staged secret committed (rc=$T32B_RC) — §2 CWD-shadow bypass"; fi
-RED="$(t32_red_repo)"
+run_hook "$D"
+if hook_blocked && hook_says "secret pattern|BLOCK — secret"; then ok "cwd-shadow-secret-yaml-blocks (discriminating shim inert; real PyYAML wins; §2 BLOCKS, exit $FFSS_RC)"; else bad "cwd-shadow-secret-yaml-blocks" "the discriminating repo-root yaml.py shim neutered §2 and a real staged secret committed ($(hook_why)) — §2 CWD-shadow bypass"; fi
+t32_red_repo; RED="$FFSS_REPO"
 if [ -n "$RED" ]; then
   drop_yaml_shim "$RED"; printf 'const k = "%s";\n' "$AKIA_KEY" > "$RED/src/leak.js"
   ( cd "$RED" && git add src/leak.js )
-  RED32B=0; ( cd "$RED" && bash hooks/git/pre-commit >/dev/null 2>&1 ) || RED32B=$?
-  if [ "$RED32B" -eq 0 ]; then ok "cwd-shadow-secret-yaml-RED-was-fail-open (41a8c6d: discriminating shim neutered §2, kept §3 green; the AWS key self-passed at exit 0)"; else ok "cwd-shadow-secret-yaml-RED-not-exit0-here (GREEN still asserted)"; fi
+  run_hook "$RED"
+  if hook_passed; then ok "cwd-shadow-secret-yaml-RED-was-fail-open (41a8c6d: discriminating shim neutered §2, kept §3 green; the AWS key self-passed at exit 0)"; else ok "cwd-shadow-secret-yaml-RED-not-exit0-here (GREEN still asserted)"; fi
   rm -rf "$RED"
 else ok "cwd-shadow-secret-yaml-RED-skipped-no-baseline (41a8c6d not reachable)"; fi
 rm -rf "$D"
@@ -429,16 +491,17 @@ rm -rf "$D"
 # ---- T32 #3. YAML-STILL-IMPORTS / NO-OVER-BLOCK. A legit non-secret commit still passes the
 #      T32 file-script §2 path (real PyYAML imports under the CWD-strip + prepend); a real
 #      secret on the untampered path still BLOCKS (§2 detection intact). ----
-D="$(ph_repo)"
+ph_repo; D="$FFSS_REPO"
 echo "const ok = 'hello world';" > "$D/src/app.js"
 ( cd "$D" && git add src/app.js )
-if run_precommit_pc "$D"; then ok "cwd-strip-no-over-block-legit-passes (T32 file-script §2, non-secret, PyYAML imports)"; else bad "cwd-strip-no-over-block-legit-passes" "a legit non-secret commit was over-blocked by the T32 §2 file-script path (did PyYAML fail to import after the CWD strip?)"; fi
+run_hook "$D"
+if hook_passed; then ok "cwd-strip-no-over-block-legit-passes (T32 file-script §2, non-secret, PyYAML imports)"; else bad "cwd-strip-no-over-block-legit-passes" "a legit non-secret commit did not pass the T32 §2 file-script path ($(hook_why))"; fi
 rm -rf "$D"
-D="$(ph_repo)"
+ph_repo; D="$FFSS_REPO"
 printf 'const k = "%s";\n' "$AKIA_KEY" > "$D/src/leak.js"
 ( cd "$D" && git add src/leak.js )
-T32C_RC=0; run_precommit_pc "$D" || T32C_RC=$?
-if [ "$T32C_RC" -ne 0 ]; then ok "cwd-strip-still-blocks-untampered-secret (§2 detection intact under file-script, exit $T32C_RC)"; else bad "cwd-strip-still-blocks-untampered-secret" "a real staged secret was NOT blocked under the T32 §2 file-script path (detection broke)"; fi
+run_hook "$D"
+if hook_blocked; then ok "cwd-strip-still-blocks-untampered-secret (§2 detection intact under file-script, exit $FFSS_RC)"; else bad "cwd-strip-still-blocks-untampered-secret" "a real staged secret was NOT blocked under the T32 §2 file-script path ($(hook_why)) — detection broke"; fi
 rm -rf "$D"
 
 # ---- T32 #4. SYSPATH-HAS-NO-CWD (assert) + PREPEND ORDER. The §2 MAIN wrapper's effective
