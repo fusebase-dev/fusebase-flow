@@ -7,13 +7,7 @@
 #   of determination (end of the settings step), never in the exit path, so a later surface
 #   failure cannot erase the settings result.
 #
-# CONTRACT
-#   recovery side: ffro_settings <state> [detail] · ffro_settings_merged <merge-stdout>
-#                  ffro_aborted_before_settings <reason-class> [rc] · ffro_emit
-#   caller side:   ffro_parse <outcome-channel> -> FFRO_STATE/FFRO_DETAIL · ffro_settings_trailer
-#                  ffro_git_hook_states <installer-out> <rc> -> ffro_git_hook_trailer <states>
-#   States: merged | already-current | created-minimal | merge-failed | not-authorized | absent
-#           | unavailable | unknown (the channel carried no record)
+# CONTRACT: spec.md § S1 "Outcome contract"; the state vocabulary is FFRO_STATES below.
 FFRO_MARK="[post-fusebase-update] outcome:"
 FFRO_STATE="${FFRO_STATE:-unknown}"
 FFRO_DETAIL="${FFRO_DETAIL:-}"
@@ -50,6 +44,7 @@ ffro_settings_merged() {
 # reach the captured LOG (validator text quoting a hook key, merger diagnostics printed after
 # this record) cannot become a record. The stdout line below is for a human reading a direct
 # run: never parse it, and never point ffro_parse at a captured log.
+# TRIPWIRE: exclusive against consumer BYTES, not against executable descendants of recovery — the exported path is inheritable and the parser takes the LAST record, so code running inside the recovery tree can still append one (corrections.md § Round 2, C2 — deferred deliberately).
 ffro_emit() {
   local rec
   rec="$FFRO_MARK settings=${FFRO_STATE:-unknown} detail=$(printf '%s' "${FFRO_DETAIL:-}" | tr '\r\n' '  ')"

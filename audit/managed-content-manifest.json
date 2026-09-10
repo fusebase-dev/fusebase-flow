@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "ec1a75372c2f2969b0375a0d6f11ab3085f534effa8ea20b5d98759757e05202"
+      "sha256": "c784a8d39561aba7f66f14e6b3debe7a4e574b1a92e56f2954d3ccba5c364b00"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -562,7 +562,7 @@
     },
     {
       "path": "hooks/local/lib/recovery-outcome.sh",
-      "sha256": "1ec74213a413f258cee131ca86bede8abf1efd2f1ebf18ae42fd444862540173"
+      "sha256": "48a925c9a1fd7e67e67526d7fd69621e543f0a7384ed91ab144989ee29f7f074"
     },
     {
       "path": "hooks/local/lib/recovery-owned-write.py",
@@ -1517,5 +1517,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "b1331766adccec81b78034620ca40698d5cc703e591226785157295203f1fec3"
+  "manifest_self_sha256": "187912adb58449a0204ec333dc6b785ec0a7b53a78fcbd823e6d59961dcfa833"
 }
