@@ -96,8 +96,10 @@ def render_approval_denial(
                  "go-ahead the agent runs:" if why else
                  "Fix - on your chat go-ahead the agent runs this; you type no command:")
     # K19: the copy-paste path must mint a COMMAND-BOUND artifact, so the exact blocked
-    # command travels with the invocation, unelided.
-    quoted = _sq(command)
+    # command travels with the invocation, unelided. EXCEPT when the binding could not be
+    # resolved: minting for that same text would be refused by the writer for the same
+    # reason, so name the shape that can be approved instead of a command that cannot.
+    quoted = "'<the plain git push command you will run>'" if why else _sq(command)
     lines.append(
         "  " + " && ".join(
             f"bash hooks/local/approve-local.sh {a} {slug} --command {quoted}" for a in pending

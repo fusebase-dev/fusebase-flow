@@ -338,7 +338,7 @@
     },
     {
       "path": "hooks/shared/denial_message.py",
-      "sha256": "ecb5009d5651d94c11450e5903c6c87af749a5c01b352a876a225752906f0ad9"
+      "sha256": "d74f1f4965978797e3f7105390ea889e3d1524cd63f530eae67bc86976f4a30a"
     },
     {
       "path": "hooks/shared/git_push_binding.py",
@@ -897,5 +897,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "c802a337d10a537a221f9ae8210163d1f0a042935de13d0c6f17c6a60124a620"
+  "manifest_self_sha256": "65b5b4ad3e2665824fc3c055400e55f753fd607d34f0f74cd72c191f0886d235"
 }
