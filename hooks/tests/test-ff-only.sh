@@ -45,6 +45,7 @@ finish() { echo "[test-ff-only] $pass/$((pass + fail)) PASS"; exit $fail; }
 
 write_selection_bounds() {
     # These fixtures test dispatch/results; real timeout and process cleanup have their own phases.
+    mkdir -p "$1/hooks/tests/lib" && cp "$ROOT/hooks/tests/lib/run-preconditions.sh" "$1/hooks/tests/lib/"
     cat > "$1/hooks/local/lib/run-with-timeout.sh" <<'SH'
 ffhc_detect_timeout() { FFHC_TIMEOUT_BIN=""; }
 ffhc_is_msys() { return 1; }
@@ -89,10 +90,10 @@ release_padded=$'\n'"$release_list"$'\n'
 release_core=0; release_nonmember=0
 case "$release_padded" in *$'\nRUN  cli-flow-recovery\n'*) release_core=1 ;; esac
 case "$release_padded" in *$'\nSKIP newline-preserve\n'*) release_nonmember=1 ;; esac
-if [ "$release_count" -eq 37 ] && [ "$release_core" -eq 1 ] && [ "$release_nonmember" -eq 1 ]; then
-  ok "release-profile-is-explicit-37-tag-allowlist"
+if [ "$release_count" -eq 38 ] && [ "$release_core" -eq 1 ] && [ "$release_nonmember" -eq 1 ]; then
+  ok "release-profile-is-explicit-38-tag-allowlist"
 else
-  bad "release-profile-is-explicit-37-tag-allowlist" "run_count=$release_count or boundary tags differ"
+  bad "release-profile-is-explicit-38-tag-allowlist" "run_count=$release_count or boundary tags differ"
 fi
 FF_RELEASE=1 FF_ONLY=newline-preserve FF_LIST=1 bash "$RT" >/dev/null 2>&1; rp_scoped_rc=$?
 FF_RELEASE=1 FF_FULL=1 FF_LIST=1 bash "$RT" >/dev/null 2>&1; rp_full_rc=$?
@@ -481,6 +482,7 @@ if [ "$t33_only" -eq 0 ]; then
 COMPREPO="$(mktemp -d)"
 mkdir -p "$COMPREPO/hooks/tests" "$COMPREPO/hooks/local/lib"
 cp "$RT" "$COMPREPO/hooks/tests/run-tests.sh"
+mkdir -p "$COMPREPO/hooks/tests/lib" && cp "$ROOT/hooks/tests/lib/run-preconditions.sh" "$COMPREPO/hooks/tests/lib/"
 sed -i '/^    if \[ ! -f "\$script" \]; then$/,/^    fi$/c\    [ -f "$script" ] || return 0' "$COMPREPO/hooks/tests/run-tests.sh"
 cat > "$COMPREPO/hooks/local/lib/run-with-timeout.sh" <<'SH'
 ffhc_detect_timeout() { FFHC_TIMEOUT_BIN=""; }
@@ -673,6 +675,7 @@ if [ "$t32_only" -eq 0 ]; then
 PHASEREPO="$(mktemp -d)"
 mkdir -p "$PHASEREPO/hooks/tests" "$PHASEREPO/hooks/local/lib"
 cp "$RT" "$PHASEREPO/hooks/tests/run-tests.sh"
+mkdir -p "$PHASEREPO/hooks/tests/lib" && cp "$ROOT/hooks/tests/lib/run-preconditions.sh" "$PHASEREPO/hooks/tests/lib/"
 cat > "$PHASEREPO/hooks/local/lib/run-with-timeout.sh" <<'SH'
 ffhc_detect_timeout() { FFHC_TIMEOUT_BIN=""; }
 ffhc_is_msys() { return 1; }

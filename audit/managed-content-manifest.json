@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.16.5",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 383,
+  "asset_count": 385,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "cfdd3d72478ca7a51cc271cd8114c5e2f8e514b6c3e47b86e817fd1b7b6f336f"
+      "sha256": "7356408982624e36b8681b38e3644ee4f4e9e18e7b97fb5aab34b4203945a2ec"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -278,7 +278,7 @@
     },
     {
       "path": "hooks/local/check-git-capture.sh",
-      "sha256": "8c58aaa4e4a40db235ebc65c588297c5677f2630d4c65c0f5f850b799003349f"
+      "sha256": "d420ce40b53369564215ec5e3515bbf555499664af4e2aea0cf8206b30465924"
     },
     {
       "path": "hooks/local/check-module-size.sh",
@@ -1001,6 +1001,10 @@
       "sha256": "3a5ecb7c1b2f46053ce049f9914dc20ab88ed5fad8e68ffa3034a5b2fcc190b3"
     },
     {
+      "path": "hooks/tests/lib/run-preconditions.sh",
+      "sha256": "8484338d576e20b1b897d8391b5ca4b40ddd9b45777a890b7f9dc7373921b7b5"
+    },
+    {
       "path": "hooks/tests/lib/signal-reap-fixture.sh",
       "sha256": "427e5b6b45e5e04810c84413057cf450d230a8fc2073ef97f37b8ec5ac40af40"
     },
@@ -1014,7 +1018,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "68199a3b48ad5239aaae59026cd07335629ac6ec87e51fbcc171ea3ad27b9555"
+      "sha256": "675aad0a448ed0cd15ca3bad4c0d3610174c42fcf4a3add56d836fdf4d3974d1"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -1094,7 +1098,7 @@
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
-      "sha256": "621a0171e0626d0e44fd93ac7cdc39d02bc0a870ed3c29bb092e37a20db6c2bc"
+      "sha256": "e2c59da588df6fc8b6fa44af30654268cc949cd9e5da8d57b2e3eeaa6de9f285"
     },
     {
       "path": "hooks/tests/test-fingerprint-row-per-tag.sh",
@@ -1263,6 +1267,10 @@
     {
       "path": "hooks/tests/test-rule-inventory.sh",
       "sha256": "3311c5ecb7e6f85e2b66fb01ee55b3e654231087ca621c0378501d3491f3c7f8"
+    },
+    {
+      "path": "hooks/tests/test-run-preconditions.sh",
+      "sha256": "f96ea4e4862bb6a6aa5bdaa944dde33419625f768e43cb7166a36e126a241b94"
     },
     {
       "path": "hooks/tests/test-run-tests-signal-reap.sh",
@@ -1537,5 +1545,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "3d31f318011ad89b0529c34c549850c6672d02052107d15ecfdd2889f37abcd7"
+  "manifest_self_sha256": "ed1b924a4ceefc2b0780cab34aaaf2404e3ba4ccebe38c98a8e22e67e672e3c9"
 }

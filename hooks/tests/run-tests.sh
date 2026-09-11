@@ -55,6 +55,7 @@ ffhc_detect_timeout
 FF_ORPHAN_REAP="$ROOT/hooks/tests/lib/orphan-reap.sh"
 # shellcheck source=/dev/null
 [ -f "$FF_ORPHAN_REAP" ] && . "$FF_ORPHAN_REAP"
+. "$ROOT/hooks/tests/lib/run-preconditions.sh" || { echo "[run-tests] ERROR: hooks/tests/lib/run-preconditions.sh missing" >&2; exit 2; }
 
 # Per-phase heavy-run bound — a liveness backstop, not a performance assertion. TRIPWIRE: the
 # headroom multiplier is a REVIEWED value, mechanically unenforced; a phase that blocks inside
@@ -77,7 +78,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixtur
   sync-allowlist policy-state bootstrap-baseline-hop fr22-delivery po-verifiable-boot \
   po-investigate liveness codex-parity codex-plugin cli-0259 cli-version cli-vendor cli-rendered git-capture-guard secret-scan-staged bootstrap-exception \
   lane-router lane-workflow \
-  trusted-enforcer hook-install-rc msys-tree-cleanup job-probe ws5-upgrade ff-only return-budget \
+  trusted-enforcer hook-install-rc msys-tree-cleanup job-probe ws5-upgrade ff-only run-preconditions return-budget \
   supersede-primitive rule-inventory boot-size prohibition-residency startup-context validator-evidence validation-instructions consumer-benchmark wasted-effort-windowing token-waste-classify \
   budget-literals history-extraction approval-binding approval-writer approval-receipt command-policy denial-message upgrade-classify \
   upgrade-boundary preboundary-consumed upgrade-repair n5-delivery n6-truthful-base n6-missing-base n6-recover n4-parity-scope recovery-hint hop-log-truth install-doc release-authority \
@@ -94,7 +95,7 @@ FF_RELEASE_TAGS=(fixtures git-smoke interpreter-contract python3-version git-con
   upgrade-boundary upgrade-repair n5-delivery n6-truthful-base n6-missing-base n6-recover \
   release-authority release-tag-binding cli-flow-recovery cli-flow-recovery-selectors \
   hop-log-truth n4-parity-scope minimal-path-fixture \
-  cli-rendered recovery-hint stamp-eol-guard)
+  cli-rendered recovery-hint stamp-eol-guard run-preconditions)
 
 declare -A FF_REGISTERED=(); for t in "${FF_TAGS[@]}"; do FF_REGISTERED[$t]=1; done
 declare -A FF_RELEASE_SET=()
@@ -134,17 +135,7 @@ if [ -n "${FF_ONLY:-}" ]; then
   FF_SCOPED=1
 fi
 
-FF_RELEASE_RUN=0
-case "${FF_RELEASE:-0}" in
-  0|'') ;;
-  1) FF_RELEASE_RUN=1 ;;
-  *) echo "[run-tests] ERROR: FF_RELEASE must be 0 or 1" >&2; exit 2 ;;
-esac
-if [ "$FF_RELEASE_RUN" -eq 1 ] \
-    && { [ "$FF_SCOPED" -eq 1 ] || [ "${FF_FULL:-0}" != "0" ]; }; then
-  echo "[run-tests] ERROR: FF_RELEASE cannot be combined with FF_ONLY or FF_FULL" >&2
-  exit 2
-fi
+ff_parse_release_mode || exit 2
 
 # --- Local tier: the FAST set is the local default -------------------------------------
 # Membership + the <=10-minute local budget that excluded secret-scan-staged: docs/maintainer-testing.md.
@@ -157,7 +148,7 @@ declare -A FF_FAST=(); for t in "${FF_FAST_TAGS[@]}"; do FF_FAST[$t]=1; done
 # the explicit release profile; ordinary hosted invocations must never inherit the local tier.
 FF_FULL_RUN=0
 if [ "$FF_RELEASE_RUN" -eq 0 ] \
-    && { [ "${FF_FULL:-0}" = "1" ] || [ "${GITHUB_ACTIONS:-}" = "true" ] || [ "${CI:-}" = "true" ]; }; then
+    && { [ "${FF_FULL:-0}" = "1" ] || ff_hosted; }; then
   FF_FULL_RUN=1
 fi
 
@@ -192,6 +183,7 @@ if [ "${FF_LIST:-0}" = "1" ]; then
   done
   exit 0
 fi
+ff_require_evidence_gap || exit 2
 
 # Subset runs write to a SEPARATE results file so the full-gate hook-test-results.md is
 # never clobbered (the health engine / gate reports read only the full file). ONLY an
@@ -656,6 +648,7 @@ run_shell_phase test-msys-tree-cleanup.sh      "msys-tree-cleanup"
 run_shell_phase test-job-probe-honesty.sh      "job-probe"
 run_shell_phase test-ws5-upgrade-bounded.sh    "ws5-upgrade"
 run_shell_phase test-ff-only.sh                "ff-only"
+run_shell_phase test-run-preconditions.sh      "run-preconditions"
 run_shell_phase test-return-budget.sh          "return-budget"
 run_shell_phase test-supersede-primitive.sh    "supersede-primitive"
 run_shell_phase test-rule-inventory.sh         "rule-inventory"
