@@ -78,8 +78,11 @@ ref-update binding is missing.
   agent or a person runs it. The upgrade installs the hook next to `pre-commit`; a custom
   `.git/hooks/pre-push` is preserved and reported, and the boundary is then not active.
 - **The remote URL is compared byte for byte, exactly as git reports it.** Nothing is
-  lower-cased, trimmed or rewritten before the comparison, so two spellings of "the same"
-  remote are two different endpoints: `SSH://host/x` is not `ssh://host/x`, an explicit `:22`
+  lower-cased, trimmed, re-encoded or split on its way from git's output into the approval —
+  git's output is read byte-preservingly and framed on its own record separators (NUL where
+  git offers it), and a URL that itself contains a line or record separator is refused rather
+  than split into two endpoints. Two spellings of "the same" remote are two different
+  endpoints: `SSH://host/x` is not `ssh://host/x`, an explicit `:22`
   is not an omitted port, `host:path` (relative) is not `ssh://host/path` (absolute), and two
   host aliases stay distinct. If your remote URL changes in any way, the approval stops
   matching and you reissue it — one clear error, one command. That is deliberate: a rewrite
