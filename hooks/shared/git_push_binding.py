@@ -31,8 +31,14 @@ _PLAIN_PUSH = re.compile(r"[ \t]*git[ \t]+push(?:[ \t]+[A-Za-z0-9._/@:+^~=,%-]+)
 # Options that change neither which refs are pushed nor where.
 _NEUTRAL_OPTIONS = frozenset({
     "-u", "--set-upstream", "-q", "--quiet", "-v", "--verbose", "--atomic", "--no-atomic",
-    "--porcelain", "--progress", "--no-progress", "-n", "--dry-run", "--no-recurse-submodules",
+    "--porcelain", "--progress", "--no-progress", "--no-recurse-submodules",
 })
+# TRIPWIRE: `--dry-run`/`-n` is NOT neutral for AUTHORIZATION, only for effect. git runs
+# pre-push with the same update lines for a dry run, and that boundary cannot see the
+# command, so an approval minted for a dry run would authorize the REAL push of the same
+# objects — approve something that changes nothing, then push for real on it. A bindable
+# command must be one whose execution performs exactly the updates it binds.
+_DRY_RUN_OPTIONS = frozenset({"-n", "--dry-run"})
 _ZERO_OID = re.compile(r"0{40}|0{64}")
 _HEX_OID = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
 
@@ -135,6 +141,10 @@ def resolve_command_updates(command: str, root: Path | None) -> Resolution:
     for tok in tokens:
         if tok.startswith(("+", "~")):
             return None, f"{tok!r}: forced or tilde-expanded refspecs are not bindable"
+        if tok in _DRY_RUN_OPTIONS:
+            return None, (f"{tok} performs no update, so it cannot authorize one: the pre-push "
+                          f"boundary sees the same refs for a dry run as for the real push. "
+                          f"Inspect with `git log <remote>/<branch>..<branch>` instead")
         if tok in ("-d", "--delete"):
             delete_all = True
         elif tok == "--no-follow-tags":

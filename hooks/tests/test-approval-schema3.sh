@@ -185,6 +185,9 @@ def schema_downgrade(r: Repo, p: list[str]) -> None:
     expect(r.gate(PUSH), "allow", None, "writer-artifact", p)
     r.write({**body, "schema_version": 2})
     expect(r.gate(PUSH), "deny", "LEGACY_SCHEMA", "schema-2", p)
+    for bad in (3.0, True, "3"):
+        r.write({**body, "schema_version": bad})
+        expect(r.gate(PUSH), "deny", None, f"schema-type[{bad!r}]", p)
     weaker = {k: v for k, v in body.items() if k != "updates"}
     weaker.update(schema_version=3, binding_profile="command_only_v1")
     r.write(weaker)
@@ -425,6 +428,76 @@ def resolver_config_remaps(r: Repo, p: list[str]) -> None:
     cfg.write_text(original, encoding="utf-8")
 
 
+def dry_run_cannot_authorize(r: Repo, p: list[str]) -> None:
+    """A dry run performs no update, so it must not be able to authorize one.
+
+    git hands pre-push the SAME update lines for a dry run, and that boundary cannot see the
+    command — so an approval minted for `git push --dry-run origin main` authorized the REAL
+    push of those objects (independent review of 87ed0ff, blocker 1).
+    """
+    r.commit("B")
+    for dry in ("git push --dry-run origin main", "git push -n origin main"):
+        rc, body, err = r.mint(dry)
+        if rc == 0 or body is not None:
+            p.append(f"writer minted an execution-authorizing artifact for {dry!r}")
+        if body is None and "dry" not in err.lower():
+            p.append(f"refusal for {dry!r} does not say why: {err.strip()[-120:]}")
+        # Even hand-written, a dry-run-bound artifact must not pass the command gate.
+        r.write(r.schema3(dry, [upd("refs/heads/main", r.oid("main"))]))
+        expect(r.gate(dry), "deny", "BINDING_UNRESOLVED", f"gate[{dry}]", p)
+    # End to end: the documented mint path yields nothing, so the real push stays refused.
+    for f in (r.work / "state" / "approvals").glob("*.json"):
+        f.unlink()
+    r.mint("git push --dry-run origin main")
+    res = r.push("origin", "main")
+    if res.returncode == 0:
+        p.append("a real push succeeded after approving only a dry run")
+
+
+def ssh_principal_binding(r: Repo, p: list[str]) -> None:
+    """`alice@host:repo.git` and `bob@host:repo.git` are different repositories.
+
+    Stripping the SSH login merged them (independent review of 87ed0ff, blocker 2); an HTTPS
+    userinfo is authentication material and must still never be stored.
+    """
+    from shared.approval_artifact import canonical_endpoint
+    from shared.command_policy import evaluate_push_boundary
+    # Credential-bearing forms are assembled here, never written as literals (secret scanner).
+    https_creds = "https://" + "u5er" + ":" + "t0k3n" + "@host/o/r.git"
+    ssh_creds = "ssh://" + "alice" + ":" + "s3cret" + "@host/x.git"
+    pairs = [("alice@host:repo.git", "alice@host:repo.git"),
+             ("ssh://alice@host/~/repo.git", "ssh://alice@host/~/repo.git"),
+             (https_creds, "https://host/o/r.git"),
+             (ssh_creds, None)]
+    for raw, want in pairs:
+        got = canonical_endpoint(raw)
+        if got != want:
+            p.append(f"canonical_endpoint({raw!r}) = {got!r}, expected {want!r}")
+    if canonical_endpoint("alice@host:repo.git") == canonical_endpoint("bob@host:repo.git"):
+        p.append("two SSH logins still collapse to one endpoint")
+
+    # Gate 1 — the command gate, through the real writer and a changed remote.
+    r.commit("B")
+    git(r.work, "remote", "set-url", "origin", "alice@host:repo.git")
+    rc, body, err = r.mint(PUSH)
+    if body is None:
+        p.append(f"writer could not bind an ssh remote: {err.strip()[-160:]}")
+        return
+    if body["updates"][0]["push_endpoint"] != "alice@host:repo.git":
+        p.append(f"endpoint not bound as minted: {body['updates'][0]['push_endpoint']!r}")
+    expect(r.gate(PUSH), "allow", None, "same-principal", p)
+    git(r.work, "remote", "set-url", "origin", "bob@host:repo.git")
+    expect(r.gate(PUSH), "deny", "UPDATE_MISMATCH", "changed-principal", p)
+
+    # Gate 2 — the pre-push boundary, given the updates git would hand it for bob's remote.
+    line = f"refs/heads/main {r.oid('main')} refs/heads/main {'0' * 40}"
+    for endpoint, want in (("alice@host:repo.git", "allow"), ("bob@host:repo.git", "deny")):
+        decision = evaluate_push_boundary(endpoint, [line], root=r.work)
+        if decision.decision != want:
+            p.append(f"boundary[{endpoint}]: expected {want} got {decision.decision} "
+                     f"[{decision.approval_verdict}]")
+
+
 def handler_route(r: Repo, p: list[str]) -> None:
     def hook(command: str) -> str:
         proc = run(r.work, sys.executable, str(r.work / "hooks/handlers/pre_tool_use.py"),
@@ -459,6 +532,8 @@ case("replay-two-commits-authorizes-only-first", replay_two_commits)
 case("pre-push-gates-destinations-only", boundary_scope)
 case("writer-refuses-unbindable-and-labels-command-only", writer_refuses)
 case("resolver-config-remaps-fail-closed", resolver_config_remaps)
+case("dry-run-approval-cannot-authorize-a-real-push", dry_run_cannot_authorize)
+case("ssh-principal-change-denies-at-both-gates", ssh_principal_binding)
 case("pre-tool-use-handler-route", handler_route)
 sys.exit(FAILS)
 PY
@@ -500,5 +575,5 @@ else
 fi
 
 TOTAL_FAILS=$((PY_FAILS + AA_FAILS))
-echo "[test-approval-schema3] $((17 - TOTAL_FAILS))/17 PASS"
+echo "[test-approval-schema3] $((19 - TOTAL_FAILS))/19 PASS"
 exit "$TOTAL_FAILS"

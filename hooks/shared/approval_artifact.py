@@ -250,16 +250,25 @@ _HEX64 = re.compile(r"[0-9a-f]{64}")
 _OID = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
 _SCHEME_URL = re.compile(r"([A-Za-z][A-Za-z0-9+.-]*)://([^/?#]*)(.*)", re.DOTALL)
 _SCP_LIKE = re.compile(r"([^/:]{2,}):(.*)", re.DOTALL)
+_SCP_AUTHORITY = re.compile(r"(?:([A-Za-z0-9._+-]+)@)?([A-Za-z0-9._-]+|\[[0-9A-Fa-f:.]+\])")
 _REF_FORBIDDEN = re.compile(r"[\x00-\x20\x7f~^:?*\[\\]|\.\.|@\{|//")
 
 
 def canonical_endpoint(url: Any) -> str | None:
-    """Credential-free identity of a push endpoint, or None when it cannot be one.
+    """Identity of a push endpoint, or None when it cannot be one.
 
     TRIPWIRE: writer, command gate and pre-push boundary all derive the endpoint through
-    THIS function from the string git itself reports, so they cannot drift. It strips
-    userinfo (a token often rides there) and refuses a query/fragment rather than store
-    it; it normalizes nothing else — every normalization widens what one approval binds.
+    THIS function from the string git itself reports, so they cannot drift. Two rules pull
+    in opposite directions and BOTH are load-bearing:
+
+      * an HTTP(S)/git userinfo is authentication material (`https://<token>@host/x`), it
+        never selects the repository — the path is absolute — so it is DROPPED, never stored;
+      * an SSH login DOES select the repository: `alice@host:repo.git` and
+        `bob@host:repo.git` are different users' repositories, and `~` expands per principal.
+        Stripping it merged distinct destinations, so the login is KEPT (a login name is not
+        a secret). A password-bearing SSH authority is refused rather than stored or dropped.
+
+    Nothing else is normalized — every normalization widens what one approval binds.
     """
     if not isinstance(url, str):
         return None
@@ -271,14 +280,26 @@ def canonical_endpoint(url: Any) -> str | None:
         scheme, authority, rest = m.groups()
         if "?" in rest or "#" in rest:
             return None
-        host = authority.rsplit("@", 1)[-1]
+        userinfo, at, host = authority.rpartition("@")
         if not host and scheme.lower() != "file":
             return None
+        if at and scheme.lower().endswith("ssh"):
+            if ":" in userinfo or not userinfo:
+                return None                  # password material, or an empty principal
+            return f"{scheme}://{userinfo}@{host}{rest}"
         return f"{scheme}://{host}{rest}"
     m = _SCP_LIKE.fullmatch(text)
     if m:                                    # [user@]host:path; a 1-char head is a drive
-        host = m.group(1).rsplit("@", 1)[-1]
-        return f"{host}:{m.group(2)}" if host else None
+        head, path = m.groups()
+        hm = _SCP_AUTHORITY.fullmatch(head)
+        if not hm:
+            return None
+        user, host = hm.groups()
+        # git's scp-like form carries no password; an `@` in the first path segment means the
+        # string is not the [user@]host:path it parsed as, so refuse instead of guessing.
+        if "@" in path.split("/", 1)[0]:
+            return None
+        return f"{user}@{host}:{path}" if user else f"{host}:{path}"
     return text                              # a local path
 
 
@@ -349,8 +370,11 @@ def command_contract_problems(data: Any) -> tuple[Verdict | None, list[str]]:
         if missing:
             why.append("missing " + ", ".join(missing))
         return Verdict.LEGACY_SCHEMA, why
-    if isinstance(schema, bool) or schema != COMMAND_SCHEMA_VERSION:
-        return Verdict.MALFORMED, [f"unknown schema_version {schema!r}"]
+    # TRIPWIRE: the type check comes FIRST — `3.0 == 3` is True in Python, so a float (or a
+    # bool) would otherwise satisfy an integer-only schema contract.
+    if not isinstance(schema, int) or isinstance(schema, bool) or schema != COMMAND_SCHEMA_VERSION:
+        return Verdict.MALFORMED, [f"unknown schema_version {schema!r} (must be the integer "
+                                   f"{COMMAND_SCHEMA_VERSION})"]
     why = []
     action = data.get("action")
     if not isinstance(action, str) or not action.strip():
