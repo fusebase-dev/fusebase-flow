@@ -30,7 +30,7 @@ workflow_mode: direct_to_main   # direct_to_main | branch_pr
 #   REJECTED : schema absent/1/2, or a superseded binding_revision (both LEGACY_SCHEMA)
 #              whatever strict_approvals says. Files are kept for audit; nothing is migrated
 #              or reconstructed. git_push_v1 endpoints come from a CLOSED set of remote-URL
-#              forms (approval_artifact.canonical_endpoint); anything else refuses to bind.
+#              forms compared BYTE-EXACT (approval_artifact.bindable_endpoint); anything else refuses.
 #   AUDIT    : "approved_by" · "ticket" · "scope" · "reason"  — metadata only,
 #              never authenticated authority (decision K3)
 # Protected-path (protected_path_edit) and health_check_deferral artifacts keep schema v2.

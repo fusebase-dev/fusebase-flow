@@ -18,7 +18,7 @@ import subprocess
 from pathlib import Path
 
 from .approval_artifact import (
-    PROFILE_GIT_PUSH, Update, canonical_endpoint, canonical_updates, valid_destination_ref,
+    PROFILE_GIT_PUSH, Update, bindable_endpoint, canonical_updates, valid_destination_ref,
 )
 
 __all__ = ["PROFILE_GIT_PUSH", "boundary_updates", "resolve_command_updates"]
@@ -183,7 +183,7 @@ def resolve_command_updates(command: str, root: Path | None) -> Resolution:
     urls = [u for u in out.splitlines() if u.strip()] if rc == 0 else []
     if not urls:
         return None, f"push URL of {remote!r} could not be read"
-    endpoints = [canonical_endpoint(u) for u in urls]
+    endpoints = [bindable_endpoint(u) for u in urls]
     if any(e is None for e in endpoints):
         return None, "a push URL carries a query/fragment or is unusable as an endpoint identity"
 
@@ -221,7 +221,7 @@ def boundary_updates(url: str, lines: list[str]) -> Resolution:
     Line = `<local ref> SP <local oid> SP <remote ref> SP <remote oid>`; a deletion carries
     the all-zero local oid. An empty list is a push with nothing to update (all up to date).
     """
-    endpoint = canonical_endpoint(url)
+    endpoint = bindable_endpoint(url)
     if endpoint is None:
         return None, "the push URL is unusable as an endpoint identity"
     entries = []

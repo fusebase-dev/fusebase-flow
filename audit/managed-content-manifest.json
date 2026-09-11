@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "77e3cea279d4b076b3acbd11f9dab066717461389ed991c8e7f25decd70408f9"
+      "sha256": "88fb354d626770d6f08bdf8f63659f1176f3bdb256caa3a1c5019a0abec0c281"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -718,7 +718,7 @@
     },
     {
       "path": "hooks/shared/approval_artifact.py",
-      "sha256": "888dd03c0e8e0eb7f465676ffbab6c3e78fff8e2b584fe8d2819868213912f51"
+      "sha256": "d3ebdbac6d4187b498a2ac4af121c3feff096393b6c73b2387cb53e76495cbc9"
     },
     {
       "path": "hooks/shared/audit_logger.py",
@@ -738,7 +738,7 @@
     },
     {
       "path": "hooks/shared/git_push_binding.py",
-      "sha256": "639ff4abba1bf6626535eb156219d67212f103e368081681c18d412406863db4"
+      "sha256": "fd26def0eb872282d18d3b2c13d02f9a830bd9d2b91e74063bf04e7242451b86"
     },
     {
       "path": "hooks/shared/git_utils.py",
@@ -1042,7 +1042,7 @@
     },
     {
       "path": "hooks/tests/test-approval-schema3.sh",
-      "sha256": "118d22e6428def496d2c2b6b23fbc3d5ee96c6e340eee67af030a3af688093d1"
+      "sha256": "f49507d49938f90a827e517851b0bb846677bcddeae61cfc10467c940c25e0de"
     },
     {
       "path": "hooks/tests/test-approval-writer.sh",
@@ -1370,7 +1370,7 @@
     },
     {
       "path": "policies/approval-policy.yml",
-      "sha256": "97e13c9e8c71833e97e96738392095253f7b53e9fa58bf23aa1082a2913de2e4"
+      "sha256": "6a9d4c012bbcfc067690ce659ab1bc429d634d1f5028b31bc7d5b76e90900b3d"
     },
     {
       "path": "policies/command-policy.yml",
@@ -1561,5 +1561,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "c0ba61b5f00d9562350ea5a4d834183df6336f5f8840ad431a97bb8f2ea205fa"
+  "manifest_self_sha256": "b5d632f8664a01eabc3ccd93111df230d97cf331647dc520661a70a91e19e5a2"
 }

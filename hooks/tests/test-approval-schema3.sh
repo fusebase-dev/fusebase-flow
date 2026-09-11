@@ -17,7 +17,7 @@ if ! command -v python3 >/dev/null 2>&1 || ! command -v git >/dev/null 2>&1; the
 fi
 
 MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$ROOT" <<'PY'
-import json, os, shutil, subprocess, sys, tempfile
+import json, os, re, shutil, subprocess, sys, tempfile
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -128,9 +128,14 @@ class Repo:
         """A real push. TRIPWIRE: an MSYS fork/spawn failure also yields a nonzero rc, which
         would read as "the boundary refused it" — name that condition instead of scoring it."""
         res = run(self.work, "git", "push", *args)
-        if res.returncode != 0 and "Resource temporarily unavailable" in res.stderr:
+        # TRIPWIRE: match the SPAWN diagnostic, not the errno text alone — a remote can report
+        # "Resource temporarily unavailable" itself, and that is a real result, not environment noise.
+        spawn = re.search(r"(line \d+: .*: Resource temporarily unavailable|"
+                          r"fork: Resource temporarily unavailable|"
+                          r"cannot fork|Resource temporarily unavailable.*retry)", res.stderr)
+        if res.returncode != 0 and spawn:
             raise RuntimeError("ENVIRONMENT (not a gate result): MSYS could not spawn git; "
-                               f"rerun this phase on a quieter machine — {res.stderr.strip()[-120:]}")
+                               f"rerun this phase on a quieter machine - {res.stderr.strip()[-120:]}")
         return res
 
     def schema3(self, command: str, updates=None, **over) -> dict:
@@ -276,17 +281,13 @@ def endpoint_change(r: Repo, p: list[str]) -> None:
     cred = "https://" + "u5er" + ":" + token + "@example.invalid/x.git"
     git(r.work, "remote", "set-url", "origin", cred)
     rc, body, err = r.mint(PUSH)
-    blob = json.dumps(body or {})
-    if rc == 0 and (token in blob or "u5er@" in blob or "u5er:" in blob):
-        p.append("writer stored endpoint credentials")
-    if rc == 0 and body and body.get("binding_profile") == "git_push_v1" and \
-            body["updates"][0]["push_endpoint"] != "https://example.invalid/x.git":
-        p.append(f"endpoint identity: {body['updates'][0]['push_endpoint']!r}")
-    if body is not None:
-        body.setdefault("updates", [upd("refs/heads/main", r.oid("main"))])
-        body["updates"][0]["push_endpoint"] = cred
-        r.write(body)
-        expect(r.gate(PUSH), "deny", None, "credential-endpoint-artifact", p)
+    if rc == 0 or body is not None:
+        p.append("writer bound a credential-bearing remote instead of refusing it")
+    if token in (err or ""):
+        p.append("the refusal echoed the credential back")
+    # Hand-written, it must still not authorize: the stored endpoint is not a bindable form.
+    r.write(r.schema3(PUSH, [upd("refs/heads/main", r.oid("main"), endpoint=cred)]))
+    expect(r.gate(PUSH), "deny", None, "credential-endpoint-artifact", p)
 
 
 def extra_refs(r: Repo, p: list[str]) -> None:
@@ -478,27 +479,36 @@ def ssh_principal_binding(r: Repo, p: list[str]) -> None:
     Stripping the SSH login merged them (independent review of 87ed0ff, blocker 2); an HTTPS
     userinfo is authentication material and must still never be stored.
     """
-    from shared.approval_artifact import canonical_endpoint
+    from shared.approval_artifact import bindable_endpoint
     from shared.command_policy import evaluate_push_boundary
     # Credential-bearing forms are assembled here, never written as literals (secret scanner).
     https_creds = "https://" + "u5er" + ":" + "t0k3n" + "@host/o/r.git"
+    https_token = "https://" + "t0k3n" + "@host/o/r.git"
     ssh_creds = "ssh://" + "alice" + ":" + "s3cret" + "@host/x.git"
-    pairs = [("alice@host:repo.git", "alice@host:repo.git"),
-             ("ssh://alice@host/~/repo.git", "ssh://alice@host/~/repo.git"),
-             (https_creds, "https://host/o/r.git"),
-             (ssh_creds, None)]
-    for raw, want in pairs:
-        got = canonical_endpoint(raw)
-        if got != want:
-            p.append(f"canonical_endpoint({raw!r}) = {got!r}, expected {want!r}")
+    helper_creds = "helper::https://" + "alice" + ":" + "fixture" + "@host/x"
+    # A bindable endpoint is returned VERBATIM; anything else is refused. No folding, ever.
+    verbatim = ["alice@host:repo.git", "ssh://alice@host/~/repo.git", "SSH://alice@host/~/repo.git",
+                "ssh+git://alice@host/~/x", "https://host/o/r.git", "file:///srv/x.git",
+                "file://C:/projects/repo", "../remote.git", "C:/Users/a/repo", "git://host/x.git",
+                "ssh://alice@host:22/~/x"]
+    for raw in verbatim:
+        got = bindable_endpoint(raw)
+        if got != raw:
+            p.append(f"bindable_endpoint({raw!r}) = {got!r}, expected it unchanged")
+    for raw in (https_creds, https_token, ssh_creds, helper_creds, "transport::address",
+                "./repo.git ", "ssh://host ", "file://host/share"):
+        if bindable_endpoint(raw) is not None:
+            p.append(f"{raw!r} was bound; credentials/whitespace/helper forms must be refused")
+    if bindable_endpoint("SSH://host/x") == bindable_endpoint("ssh://host/x"):
+        p.append("scheme case was folded: two spellings compare equal")
     # The CLOSED SET: every supported SSH spelling keeps its principal, and everything this
     # function does not fully understand is refused rather than canonicalized by a fallback.
     for scheme in ("ssh", "git+ssh", "ssh+git"):
-        if canonical_endpoint(f"{scheme}://alice@host/~/x") ==            canonical_endpoint(f"{scheme}://bob@host/~/x"):
+        if bindable_endpoint(f"{scheme}://alice@host/~/x") ==            bindable_endpoint(f"{scheme}://bob@host/~/x"):
             p.append(f"{scheme}:// still collapses two logins to one endpoint")
-        if canonical_endpoint(f"{scheme}://alice@host/~/x") != f"{scheme}://alice@host/~/x":
+        if bindable_endpoint(f"{scheme}://alice@host/~/x") != f"{scheme}://alice@host/~/x":
             p.append(f"{scheme}:// did not preserve the principal")
-    if canonical_endpoint("alice@host:repo.git") == canonical_endpoint("bob@host:repo.git"):
+    if bindable_endpoint("alice@host:repo.git") == bindable_endpoint("bob@host:repo.git"):
         p.append("two SSH logins still collapse to one endpoint")
     pct = "%3A"
     refused = ["ssh://alice" + pct + "fixture@host/x",   # decodes to a password separator
@@ -506,8 +516,8 @@ def ssh_principal_binding(r: Repo, p: list[str]) -> None:
                "ftp://host/x.git", "ftps://host/x.git", "rsync://host/x", "unknown://host/x",
                "https://host/x?token=1", "alice%40host:repo.git"]
     for bad in refused:
-        if canonical_endpoint(bad) is not None:
-            p.append(f"unsupported endpoint form was bound: {bad!r} -> {canonical_endpoint(bad)!r}")
+        if bindable_endpoint(bad) is not None:
+            p.append(f"unsupported endpoint form was bound: {bad!r} -> {bindable_endpoint(bad)!r}")
 
     # Gate 1 — the command gate, through the real writer and a changed remote.
     r.commit("B")
@@ -560,6 +570,9 @@ def prefix_binding_revision(r: Repo, p: list[str]) -> None:
     if not body or body.get("binding_revision") != 1:
         p.append(f"writer did not record binding_revision: {err.strip()[-140:]}")
     expect(r.gate(PUSH), "allow", None, "reissued", p)
+    res = r.push("origin", "main")           # the reissue must actually carry a real push
+    if res.returncode != 0:
+        p.append(f"the reissued approval did not authorize the push: {res.stderr.strip()[-160:]}")
 
 
 def handler_route(r: Repo, p: list[str]) -> None:

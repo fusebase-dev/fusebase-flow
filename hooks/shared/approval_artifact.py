@@ -263,80 +263,73 @@ _SCP_AUTHORITY = re.compile(r"(?:([A-Za-z0-9._+-]+)@)?([A-Za-z0-9._-]+)")
 _USERINFO = re.compile(r"[A-Za-z0-9._+-]+")
 _HOSTPORT = re.compile(r"(?:[A-Za-z0-9._-]+|\[[0-9A-Fa-f:.]+\])(?::[0-9]{1,5})?")
 
-#: THE CLOSED SET of endpoint forms an approval may bind, by what their userinfo MEANS.
-#: TRIPWIRE: anything not listed here is REFUSED, not canonicalized by a fallback rule.
-#: Three review rounds found a different URL spelling each time (`git+ssh`, `ssh+git`,
-#: `%3A`-encoded userinfo) because a permissive fallback has to be right about every form Git
-#: accepts. A refusal costs one clear error and a supported spelling; a wrong canonicalization
-#: silently binds the wrong repository. Adding a scheme here is a deliberate decision that
-#: must state what its userinfo selects.
+#: THE CLOSED SET of endpoint forms an approval may bind, classified by what a userinfo
+#: MEANS there. Classification is case-insensitive; IDENTITY IS NOT — see bindable_endpoint.
 _SSH_SCHEMES = frozenset({"ssh", "git+ssh", "ssh+git"})   # login SELECTS the repository (~user)
-_AUTH_SCHEMES = frozenset({"http", "https"})              # userinfo is auth only; path absolute
+_CREDENTIAL_SCHEMES = frozenset({"http", "https"})        # a userinfo here is auth material
 _NO_USERINFO_SCHEMES = frozenset({"git", "file"})         # neither principal nor auth
+_DRIVE_AUTHORITY = re.compile(r"[A-Za-z]:")               # file://C:/projects/repo (Git for Windows)
 _REF_FORBIDDEN = re.compile(r"[\x00-\x20\x7f~^:?*\[\\]|\.\.|@\{|//")
 
 
-def canonical_endpoint(url: Any) -> str | None:
-    """Identity of a push endpoint, or None when it cannot be one.
+def bindable_endpoint(url: Any) -> str | None:
+    """The endpoint EXACTLY as git reports it, or None when it may not be bound.
 
-    ALLOWLIST, not a parser: a form is bound only when this function fully understands what
-    its userinfo selects. Everything else — an unlisted scheme, percent-encoding in the
-    authority, a password-bearing or malformed principal — returns None and the gate denies.
+    TRIPWIRE — THIS FUNCTION NEVER TRANSFORMS. It returns its input unchanged or refuses.
+    Four review rounds on this one contract each found a different spelling slipping through a
+    normalization: lower-casing merged `SSH://` with `ssh://`, trimming merged `./repo.git `
+    with `./repo.git`, stripping userinfo put credentials one rule away from a stored artifact.
+    They are one defect: A TRANSFORMATION APPLIED BEFORE A COMPARISON DESTROYS WHAT THE
+    COMPARISON EXISTS TO DISTINGUISH. An authorization identity is compared byte-exact; a
+    spurious mismatch costs the operator one clear error and one reissue, while a wrong
+    equality authorizes a push to a repository nobody approved. Never re-add folding of any
+    kind, including "harmless" case or whitespace.
 
-    TRIPWIRE: writer, command gate and pre-push boundary all derive the endpoint through
-    THIS function from the string git itself reports, so they cannot drift. Two rules pull
-    in opposite directions and BOTH are load-bearing:
+    Refusals (never rewrites): credentials in the authority — INCLUDING HTTP(S) userinfo, which
+    is why none can reach an artifact — `transport::address` remote-helper syntax whose
+    userinfo semantics are undeclared, percent-encoding in the authority (git decodes escapes
+    before parsing the connection), whitespace or control characters anywhere, query/fragment
+    forms, unlisted schemes, and malformed principals or hosts.
 
-      * an HTTP(S) userinfo is authentication material (`https://<token>@host/x`), it never
-        selects the repository — the path is absolute — so it is DROPPED, never stored;
-      * an SSH login DOES select the repository: `alice@host:repo.git` and
-        `bob@host:repo.git` are different users' repositories, and `~` expands per principal,
-        so the login is KEPT (a login name is not a secret).
-
-    Percent-encoding in the authority is refused outright because git decodes escapes before
-    parsing the connection, so `%3A` is a password separator this function would otherwise
-    store. Spellings are never folded together: `host:path` (relative) and `ssh://host/path`
-    (absolute) are different repositories, and an explicit port or host alias stays distinct.
+    An SSH login is NOT a credential: `alice@host:repo.git` and `bob@host:repo.git` are
+    different users' repositories (`~` expands per principal), so it stays in the bytes. Scheme
+    case CLASSIFIES (which rules apply) and never rewrites, so `SSH://host/x` and
+    `ssh://host/x` are judged by the same rules and remain different endpoints.
     """
-    if not isinstance(url, str):
+    if not isinstance(url, str) or not url:
         return None
-    text = url.strip()
-    if not text or any(ord(c) < 0x21 or ord(c) == 0x7F for c in text):
-        return None
-    m = _SCHEME_URL.fullmatch(text)
+    if any(ord(c) <= 0x20 or ord(c) == 0x7F for c in url):
+        return None                                    # whitespace/control: refuse, never trim
+    if "::" in url.split("/", 1)[0]:
+        return None                    # transport::address helper: undeclared userinfo meaning
+    m = _SCHEME_URL.fullmatch(url)
     if m:
         scheme, authority, rest = m.groups()
-        scheme = scheme.lower()
+        kind = scheme.lower()                          # classification only — never returned
         if "?" in rest or "#" in rest or "%" in authority:
             return None
         userinfo, at, hostport = authority.rpartition("@")
-        if scheme == "file":
-            return f"file://{hostport}{rest}" if not at and not hostport else None
+        if kind == "file":                             # file:/// or file://C:/… , no userinfo
+            return url if not at and (not hostport
+                                      or _DRIVE_AUTHORITY.fullmatch(hostport)) else None
+        if at and kind not in _SSH_SCHEMES:
+            return None                # credentials/undeclared: REFUSE, never strip and bind
         if not _HOSTPORT.fullmatch(hostport):
             return None
-        if scheme in _SSH_SCHEMES:
-            if not at:
-                return f"{scheme}://{hostport}{rest}"
-            return f"{scheme}://{userinfo}@{hostport}{rest}" \
-                if _USERINFO.fullmatch(userinfo) else None
-        if scheme in _AUTH_SCHEMES:
-            return f"{scheme}://{hostport}{rest}"      # userinfo dropped, never stored
-        if scheme in _NO_USERINFO_SCHEMES:
-            return None if at else f"{scheme}://{hostport}{rest}"
+        if kind in _SSH_SCHEMES:
+            return url if not at or _USERINFO.fullmatch(userinfo) else None
+        if kind in _CREDENTIAL_SCHEMES or kind in _NO_USERINFO_SCHEMES:
+            return url
         return None                                    # unlisted scheme: refuse, never guess
-    m = _SCP_LIKE.fullmatch(text)
+    m = _SCP_LIKE.fullmatch(url)
     if m:                                    # [user@]host:path; a 1-char head is a drive
-        head, path = m.groups()
-        hm = _SCP_AUTHORITY.fullmatch(head)
-        if not hm or "%" in head:
+        scp_head, path = m.groups()
+        if not _SCP_AUTHORITY.fullmatch(scp_head) or "%" in scp_head:
             return None
-        user, host = hm.groups()
         # git's scp-like form carries no password; an `@` in the first path segment means the
         # string is not the [user@]host:path it parsed as, so refuse instead of guessing.
-        if "@" in path.split("/", 1)[0]:
-            return None
-        return f"{user}@{host}:{path}" if user else f"{host}:{path}"
-    return text                              # a local filesystem path: no principal, no auth
+        return None if "@" in path.split("/", 1)[0] else url
+    return url                               # a local filesystem path: no principal, no auth
 
 
 def valid_destination_ref(ref: Any) -> bool:
@@ -367,7 +360,7 @@ def canonical_updates(value: Any) -> tuple[Update, ...] | None:
             return None
         endpoint, ref = entry["push_endpoint"], entry["destination_ref"]
         oid, op = entry["source_oid"], entry["operation"]
-        if not isinstance(endpoint, str) or canonical_endpoint(endpoint) != endpoint:
+        if not isinstance(endpoint, str) or bindable_endpoint(endpoint) != endpoint:
             return None
         if not valid_destination_ref(ref):
             return None
@@ -583,7 +576,7 @@ __all__ = [
     "Artifact", "BINDING_PROFILES", "BINDING_REVISION", "COMMAND_SCHEMA_VERSION",
     "NON_COMMAND_ACTIONS", "NOT_OBSERVED",
     "PROFILE_COMMAND_ONLY", "PROFILE_GIT_PUSH", "SCHEMA_VERSION", "UPDATE_KEYS", "Verdict",
-    "accept_with_audit", "binding_state", "canonical_endpoint", "canonical_updates",
+    "accept_with_audit", "binding_state", "bindable_endpoint", "canonical_updates",
     "command_contract_problems", "compute_command_digest", "compute_repo_id",
     "evaluate_artifact", "evaluate_command_approval", "evaluate_file", "expiry_state",
     "filename_action", "is_acceptable", "load", "now_utc", "parse_expiry", "updates_as_json",
