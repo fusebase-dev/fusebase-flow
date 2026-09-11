@@ -15,6 +15,12 @@ reconstructed. Git push approvals bind exact source objects, destinations and pu
 Identical bound operations remain retryable until expiry; approvals are not single-use. Non-Git
 command-only approvals do not yet bind deployed content.**
 
+"Existing" means every artifact on disk, in both senses: the schema 1/2 artifacts consumers
+hold, and — for anyone who ran an unreleased development build — schema-3 artifacts written
+before the binding semantics were finalised. Those carry no `binding_revision` and are rejected
+on sight, because the pre-push boundary compares ref updates rather than the command that was
+approved, so a stale one could otherwise still authorize a real push.
+
 **Before:** an approval with no `command_digest` (or no `repo_id`) still authorized every command
 its action gates — in any checkout, and even with `strict_approvals: true`. One approval for
 `git push origin main` authorized pushing a *different* commit later, because only the command
@@ -71,11 +77,19 @@ ref-update binding is missing.
   `direct_to_main`, a push that updates `main`/`master` needs a matching approval whether an
   agent or a person runs it. The upgrade installs the hook next to `pre-commit`; a custom
   `.git/hooks/pre-push` is preserved and reported, and the boundary is then not active.
+- **Only an explicit set of remote-URL forms can be bound at all.** `[user@]host:path`,
+  `ssh://`, `git+ssh://`, `ssh+git://`, `http(s)://`, `git://`, `file://` and local paths —
+  nothing else. An unlisted scheme, any percent-encoding in the authority, a password-bearing
+  or malformed principal, and a URL carrying a query or fragment are **refused**, with the
+  denial naming the endpoint as unusable. A refusal costs you one supported spelling; guessing
+  at a form would silently bind the wrong repository.
 - **SSH logins are part of the destination.** `alice@host:repo.git` and `bob@host:repo.git` are
-  different repositories (`~` expands per principal), so they bind separately and changing the
-  login invalidates an approval. An HTTP(S) userinfo is authentication material that never
-  selects the repository, so it is dropped and never written into an approval; an SSH URL
-  carrying a password is refused rather than stored.
+  different repositories (`~` expands per principal), so they bind separately in every SSH
+  spelling and changing the login invalidates an approval. An HTTP(S) userinfo is
+  authentication material that never selects the repository, so it is dropped and never
+  written into an approval. Spellings are never folded together: `host:path` and
+  `ssh://host/path` are relative and absolute, an explicit `:22` differs from an omitted port,
+  and different host aliases stay different.
 
 ## What this does NOT protect
 
