@@ -4,6 +4,41 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [4.16.6] — 2026-09-11
+
+**Upgrades proceed on Windows CRLF checkouts.** A consumer on `core.autocrlf=true` with no
+`.gitattributes` holds CRLF checkouts of files whose installed managed-content base is the LF
+digest. Every upstream-changed path classified `changed-by-both`, `plan` returned 9 and
+`upgrade.sh` stopped with exit 3. Classification is now correct and the upgrade proceeds. This
+closes the limitation `v4.16.5` named as still open, **for the classifier**; the stamper ticket
+behind it stays open. See `docs/release-notes/v4.16.6.md`.
+
+- **The rule.** Equivalence is granted only when the file is exactly the installed base's LF bytes
+  with every LF written as CRLF, anchored to the digest recorded at install (not to upstream HEAD),
+  git's own checkout confirms those bytes at that path, and the path carries no `filter`, `ident` or
+  `working-tree-encoding` attribute (detected by presence, so a filter named `unset` or
+  `unspecified` is refused and never run). Missing evidence, an unsafe path or a conversion failure
+  grants nothing and falls back to the previous verdict. **A content edit cannot pass.** A
+  deliberate whole-file LF↔CRLF conversion IS treated as equivalent — it is indistinguishable from a
+  checkout.
+- **Behaviour change.** A file whose only difference is line endings, and which upstream did NOT
+  change, moves from `consumer-only` (preserved) to `upstream-only` (refreshed with LF bytes). The
+  proof has established those bytes are the recorded base, so `consumer-only` was the wrong verdict;
+  the consumer's own `core.autocrlf` converts the file back on the next checkout.
+- **Not fixed, deliberately:** publisher AC1 (all three stampers still hash working-tree bytes);
+  CRLF health checks stay exact and still report DRIFT; `--repair-managed` still reports the repair
+  not confirmed while other covered files remain CRLF; the incoming source-integrity gate is
+  untouched; rewriting content AND recomputing its manifest/self-hash still passes; no automatic
+  consumer restamp.
+- **Residual limits**, as recorded in `docs/backlog/stamper-hashes-worktree-not-artifact/`: the
+  revalidation is point-in-time, not a lock (a symlink can be swapped between the safety check and
+  the read; bytes can change after their re-read), and isolation assumes a trusted `git` on `PATH`.
+- **Maintainer tooling, no consumer behaviour change.** A local `FF_FULL=1`/`FF_RELEASE=1` run in
+  the maintainer tree is refused unless `FF_EVIDENCE_GAP` names the uncovered boundary; a local
+  release-profile selection is refused before any phase runs when the committed manifests are stale;
+  `docs/maintainer-execution.md` and `docs/maintainer-testing.md` carry the review's process wording
+  and the stale `docs/tmp/handoff.md` became a pointer.
+
 ## [4.16.5] — 2026-09-11
 
 **Mirror recovery works on Windows checkouts that write CRLF.** Projects on Windows with
