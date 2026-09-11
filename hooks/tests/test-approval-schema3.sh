@@ -131,8 +131,7 @@ class Repo:
         # TRIPWIRE: match the SPAWN diagnostic, not the errno text alone — a remote can report
         # "Resource temporarily unavailable" itself, and that is a real result, not environment noise.
         spawn = re.search(r"(line \d+: .*: Resource temporarily unavailable|"
-                          r"fork: Resource temporarily unavailable|"
-                          r"cannot fork|Resource temporarily unavailable.*retry)", res.stderr)
+                          r"fork: Resource temporarily unavailable|cannot fork)", res.stderr)
         if res.returncode != 0 and spawn:
             raise RuntimeError("ENVIRONMENT (not a gate result): MSYS could not spawn git; "
                                f"rerun this phase on a quieter machine - {res.stderr.strip()[-120:]}")
@@ -440,6 +439,17 @@ def resolver_config_remaps(r: Repo, p: list[str]) -> None:
     if resolve_command_updates(PUSH + " --no-follow-tags", r.work)[0] is None:
         p.append("--no-follow-tags did not override push.followTags")
     cfg.write_text(original, encoding="utf-8")
+    # An UNRECOGNIZED value must refuse, not merely "fail to match the bad list": a value git
+    # itself would reject must never decide that no remapping is configured.
+    for key, value in (("push.default", "upstream-ish"), ("push.recurseSubmodules", "sometimes"),
+                       ("remote.origin.mirror", "maybe")):
+        git(r.work, "config", key, value)
+        got, why = resolve_command_updates(PUSH, r.work)
+        if got is not None:
+            p.append(f"{key}={value!r} (unrecognized) still resolved")
+        git(r.work, "config", "--unset-all", key)
+    if resolve_command_updates(PUSH, r.work)[0] is None:
+        p.append("a clean config stopped resolving after the unrecognized-value cases")
 
 
 def dry_run_cannot_authorize(r: Repo, p: list[str]) -> None:
@@ -575,6 +585,49 @@ def prefix_binding_revision(r: Repo, p: list[str]) -> None:
         p.append(f"the reissued approval did not authorize the push: {res.stderr.strip()[-160:]}")
 
 
+def record_boundaries(r: Repo, p: list[str]) -> None:
+    """A configured endpoint must never be split, trimmed or rewritten on its way to storage.
+
+    Reproduced on 5d0f9c4: `./repo.git\n` stored as `./repo.git`, and `./one<U+2028>./two`
+    stored as TWO endpoints — the original then got boundary deny while the altered one got
+    allow, on that same approval. Python's splitlines() breaks on far more than LF.
+    """
+    from shared.approval_artifact import bindable_endpoint, has_record_separator
+    from shared.git_push_binding import boundary_updates, resolve_command_updates
+    r.commit("B")
+    sep_cases = {"trailing-newline": "./repo.git\n", "line-separator": "./one\u2028./two",
+                 "paragraph-separator": "./a\u2029./b", "carriage-return": "./repo.git\r",
+                 "next-line": "./a\u0085b", "vertical-tab": "./a\u000bb",
+                 "form-feed": "./a\u000cb", "file-separator": "./a\u001cb"}
+    for label, value in sep_cases.items():
+        if not has_record_separator(value):
+            p.append(f"{label}: separator not detected")
+        if bindable_endpoint(value) is not None:
+            p.append(f"{label}: bound despite a record separator")
+        # The real path: configure it as the remote and ask the resolver for a binding.
+        git(r.work, "remote", "set-url", "origin", value)
+        got, why = resolve_command_updates(PUSH, r.work)
+        if got is not None:
+            stored = [u[0] for u in got]
+            p.append(f"{label}: resolver bound {stored!r} from a separator-bearing URL")
+        rc, body, err = r.mint(PUSH)
+        if rc == 0 or body is not None:
+            p.append(f"{label}: writer minted an artifact for a separator-bearing URL")
+    git(r.work, "remote", "set-url", "origin", "../remote.git")
+
+    # A ref name may legally carry U+2028; the boundary must refuse it, never split it.
+    oid = r.oid("main")
+    forged = f"refs/heads/main\u2028refs/heads/evil {oid} refs/heads/main\u2028x {'0' * 40}"
+    got, why = boundary_updates("../remote.git", [forged])
+    if got:
+        p.append(f"boundary accepted a separator-bearing ref: {got!r}")
+    # And the ordinary line still parses, so this is a refusal and not a blanket deny.
+    good = f"refs/heads/main {oid} refs/heads/main {'0' * 40}"
+    got, why = boundary_updates("../remote.git", [good])
+    if not got or got[0][1] != "refs/heads/main":
+        p.append(f"an ordinary update line stopped parsing: {got!r} {why}")
+
+
 def handler_route(r: Repo, p: list[str]) -> None:
     def hook(command: str) -> str:
         proc = run(r.work, sys.executable, str(r.work / "hooks/handlers/pre_tool_use.py"),
@@ -612,6 +665,7 @@ case("resolver-config-remaps-fail-closed", resolver_config_remaps)
 case("dry-run-approval-cannot-authorize-a-real-push", dry_run_cannot_authorize)
 case("ssh-principal-change-denies-at-both-gates", ssh_principal_binding)
 case("pre-fix-binding-revision-authorizes-nothing", prefix_binding_revision)
+case("endpoint-record-boundaries-are-never-split", record_boundaries)
 case("pre-tool-use-handler-route", handler_route)
 sys.exit(FAILS)
 PY
@@ -653,5 +707,5 @@ else
 fi
 
 TOTAL_FAILS=$((PY_FAILS + AA_FAILS))
-echo "[test-approval-schema3] $((20 - TOTAL_FAILS))/20 PASS"
+echo "[test-approval-schema3] $((21 - TOTAL_FAILS))/21 PASS"
 exit "$TOTAL_FAILS"

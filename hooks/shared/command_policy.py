@@ -460,7 +460,9 @@ def evaluate_push_boundary(remote_url: str, update_lines: list[str], *,
         return error
     mode = approval_policy.get("workflow_mode", "direct_to_main")
     observed, why = boundary_updates(remote_url, update_lines)
-    rows = [line.strip().split(" ") for line in update_lines if line.strip()]
+    # Same framing rule as boundary_updates: exactly one space between fields, nothing
+    # trimmed. A trimmed ref name is a different destination than the one git is updating.
+    rows = [line.split(" ") for line in update_lines if line]
     readable = all(len(r) == 4 for r in rows)      # else the destinations themselves are unknown
     dests_seen = {r[2] for r in rows if len(r) == 4}
     unsatisfied: list[str] = []

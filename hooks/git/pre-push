@@ -52,9 +52,12 @@ elif command -v py >/dev/null 2>&1 && _ffpp_py3 py -3; then FFPP_PY=(py -3)
 fi
 [ "${#FFPP_PY[@]}" -gt 0 ] || _ffpp_block "no Python 3.10+ interpreter (tried python3, python, py -3); the FR-12 push boundary needs one."
 
-# Line 1 = the push URL git reports, then git's update lines verbatim (stdin, not argv, so
-# MSYS path conversion can never rewrite the endpoint identity).
-{ printf '%s\n' "${2:-}"; cat; } > "$FFPP_TMP/in" || _ffpp_block "could not buffer the pre-push update list."
+# TRIPWIRE: the URL gets its OWN file, never a first line of the update stream. Sharing one
+# file makes the framing forgeable — a URL containing a newline would read as "URL + an extra
+# update line" — and it is the same record-boundary defect as splitting git output on
+# newlines. Both cross as FILES, not argv, so MSYS path conversion cannot rewrite them either.
+printf '%s' "${2:-}" > "$FFPP_TMP/url" || _ffpp_block "could not buffer the push URL."
+cat > "$FFPP_TMP/in" || _ffpp_block "could not buffer the pre-push update list."
 
 cat > "$FFPP_TMP/gate.py" <<'FFPPPY'
 import sys
@@ -81,8 +84,11 @@ except BaseException as e:
           "Failing closed. NEVER use --no-verify.", file=sys.stderr)
     sys.exit(1)
 try:
-    data = Path(sys.argv[2]).read_text(encoding="utf-8").splitlines()
-    decision = evaluate_push_boundary(data[0] if data else "", data[1:], root=root)
+    # Byte-preserving read, LF framing only: never read_text(errors="replace") and never
+    # splitlines(), both of which rewrite or split an identity before it is compared.
+    url = Path(sys.argv[2]).read_bytes().decode("utf-8", "surrogateescape")
+    stream = Path(sys.argv[3]).read_bytes().decode("utf-8", "surrogateescape")
+    decision = evaluate_push_boundary(url, [ln for ln in stream.split("\n") if ln], root=root)
 except BaseException as e:
     print(f"[fusebase-flow:pre-push] BLOCK — the push boundary errored ({e!r}). "
           "Failing closed. NEVER use --no-verify.", file=sys.stderr)
@@ -105,4 +111,5 @@ FFPPPY
 # is off under an exported MSYS_NO_PATHCONV, so hand it the NATIVE form (`pwd -W`).
 FFPP_TMP_NATIVE="$(cd "$FFPP_TMP" && { pwd -W 2>/dev/null || pwd; })"
 [ -n "$FFPP_TMP_NATIVE" ] || _ffpp_block "could not resolve the temp dir path."
-PYTHONPATH="" "${FFPP_PY[@]}" -S "$FFPP_TMP_NATIVE/gate.py" "$ROOT" "$FFPP_TMP_NATIVE/in"
+PYTHONPATH="" "${FFPP_PY[@]}" -S "$FFPP_TMP_NATIVE/gate.py" "$ROOT" \
+    "$FFPP_TMP_NATIVE/url" "$FFPP_TMP_NATIVE/in"

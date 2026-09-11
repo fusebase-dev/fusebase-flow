@@ -18,7 +18,8 @@ import subprocess
 from pathlib import Path
 
 from .approval_artifact import (
-    PROFILE_GIT_PUSH, Update, bindable_endpoint, canonical_updates, valid_destination_ref,
+    PROFILE_GIT_PUSH, Update, bindable_endpoint, canonical_updates, has_record_separator,
+    valid_destination_ref,
 )
 
 __all__ = ["PROFILE_GIT_PUSH", "boundary_updates", "resolve_command_updates"]
@@ -46,13 +47,30 @@ Resolution = tuple["tuple[Update, ...] | None", str]
 
 
 def _git(root: Path, *args: str) -> tuple[int, str]:
-    """(rc, stdout). rc -1 when git could not be run at all — callers fail closed."""
+    """(rc, stdout). rc -1 when git could not be run at all — callers fail closed.
+
+    TRIPWIRE: decoding is BYTE-PRESERVING (`surrogateescape`), never `errors="replace"`.
+    Replacement rewrites an undecodable byte into U+FFFD, which is a transformation of an
+    identity: two different remotes could decode to the same stored endpoint. Surrogates are
+    refused downstream by has_record_separator, so such a remote cannot be bound at all.
+    """
     try:
-        proc = subprocess.run(["git", *args], cwd=str(root), capture_output=True, text=True,
-                              encoding="utf-8", errors="replace", timeout=_GIT_TIMEOUT)
+        proc = subprocess.run(["git", *args], cwd=str(root), capture_output=True,
+                              timeout=_GIT_TIMEOUT)
     except (OSError, subprocess.SubprocessError, ValueError):
         return -1, ""
-    return proc.returncode, proc.stdout
+    return proc.returncode, proc.stdout.decode("utf-8", "surrogateescape")
+
+
+def _lines(out: str) -> list[str]:
+    """git's own framing: split on LF ONLY, keep every other byte.
+
+    TRIPWIRE: never str.splitlines() here. It also breaks on CR, VT, FF, FS/GS/RS, NEL,
+    U+2028 and U+2029, so a single configured endpoint `./one ./two` became TWO stored
+    endpoints and an approval authorized a destination nobody approved. A field that still
+    carries such a character is refused later, never split or trimmed.
+    """
+    return [line for line in out.split("\n") if line]
 
 
 def _config(root: Path) -> dict[str, list[str | None]] | None:
@@ -76,26 +94,57 @@ def _config(root: Path) -> dict[str, list[str | None]] | None:
     return values
 
 
-def _config_true(values: list[str | None]) -> bool:
-    last = values[-1] if values else "false"
-    return last is None or last.strip().lower() in ("true", "yes", "on", "1")
+#: Config values these checks understand. TRIPWIRE: an UNRECOGNIZED value (including one
+#: carrying a record separator) must REFUSE, never "fail to match the bad list" — otherwise a
+#: value that git itself would reject decides that no remapping is configured. Same shape as
+#: the forged-record defect: one unrecognized input must not read as several valid ones.
+_BOOL_TRUE = ("true", "yes", "on", "1")
+_BOOL_FALSE = ("false", "no", "off", "0", "")
+
+
+def _config_bool(values: list[str | None]) -> bool | None:
+    """True / False / None for "not a value this check understands" (caller refuses on None)."""
+    if not values:
+        return False
+    last = values[-1]
+    if last is None:                       # a value-less key is git-true
+        return True
+    text = last.strip().lower()            # classification only; never stored
+    if text in _BOOL_TRUE:
+        return True
+    return False if text in _BOOL_FALSE else None
+
+
+def _config_enum(values: list[str | None], safe: tuple[str, ...]) -> bool | None:
+    """False when the effective value is safe, True when it remaps, None when unrecognized."""
+    if not values:
+        return False
+    last = values[-1]
+    if last is None:
+        return None
+    text = last.strip().lower()            # classification only; never stored
+    return False if text in safe else True
 
 
 def _strong_refs(root: Path, name: str) -> list[str] | None:
-    """Local refs `name` strongly matches under git's count_refspec_match, or None on error."""
+    """Local refs `name` strongly matches under git's count_refspec_match, or None on error.
+
+    NUL-framed (`%00` in the format): a ref name may legally contain U+2028 or other
+    line-ish characters, and newline framing would split one ref into two records.
+    """
     candidates = [f"refs/{name}", f"refs/tags/{name}", f"refs/heads/{name}"]
     if name.startswith("refs/"):
         candidates.insert(0, name)
-    rc, out = _git(root, "for-each-ref", "--format=%(refname)", *candidates)
+    rc, out = _git(root, "for-each-ref", "--format=%(refname)%00", *candidates)
     if rc != 0:
         return None
-    existing = set(out.split())
+    existing = {entry for entry in out.split("\0") if entry}
     return [c for c in dict.fromkeys(candidates) if c in existing]
 
 
 def _oid(root: Path, rev: str) -> str | None:
     rc, out = _git(root, "rev-parse", "--verify", "--quiet", "--end-of-options", rev)
-    value = out.strip()
+    value = out.split("\n", 1)[0]          # first record; never .strip() (see _lines)
     return value if rc == 0 and _HEX_OID.fullmatch(value) else None
 
 
@@ -114,8 +163,8 @@ def _colonless(root: Path, spec: str) -> tuple[str | None, str | None, str]:
     """(destination, oid, reason) for a refspec without `:` — the destination is the source ref."""
     if spec == "HEAD":
         rc, out = _git(root, "symbolic-ref", "-q", "HEAD")
-        full = out.strip()
-        if rc != 0 or not full.startswith("refs/heads/"):
+        full = out.split("\n", 1)[0]       # first record; never .strip() (see _lines)
+        if rc != 0 or not full.startswith("refs/heads/") or not valid_destination_ref(full):
             return None, None, "HEAD is detached or unreadable; name the source and destination"
     else:
         refs = _strong_refs(root, spec)
@@ -158,31 +207,54 @@ def resolve_command_updates(command: str, root: Path | None) -> Resolution:
         return None, "name the remote and every refspec explicitly (git push <remote> <refspec>...)"
     remote, specs = positional[0], positional[1:]
 
-    rc, out = _git(root, "remote")
-    if rc != 0:
-        return None, "git remote failed"
-    if remote not in out.split():
-        return None, f"{remote!r} is not a configured remote; push to a named remote"
     cfg = _config(root)
     if cfg is None:
         return None, "git config could not be read"
-    last = {k: (v[-1] or "").strip().lower() for k, v in cfg.items() if v}
+    # Membership comes from the NUL-framed config, not from parsing `git remote` output:
+    # config records cannot be forged by a value, and a name list cannot carry its own framing.
+    if not any(k.startswith(f"remote.{remote}.") for k in cfg):
+        return None, (f"{remote!r} is not a configured remote (or is defined in a legacy "
+                      f".git/remotes file, which cannot be bound); push to a named remote")
     remaps = [
-        (_config_true(cfg.get(f"remote.{remote}.mirror", [])), f"remote.{remote}.mirror"),
-        (last.get("push.recursesubmodules") in ("on-demand", "only"), "push.recurseSubmodules"),
-        (follow_tags is None and _config_true(cfg.get("push.followtags", [])), "push.followTags"),
+        (_config_bool(cfg.get(f"remote.{remote}.mirror", [])), f"remote.{remote}.mirror"),
+        (_config_enum(cfg.get("push.recursesubmodules", []), ("no", "false", "check")),
+         "push.recurseSubmodules"),
+        (None if follow_tags is not None else _config_bool(cfg.get("push.followtags", [])),
+         "push.followTags"),
     ]
     if any(":" not in s for s in specs) and not delete_all:
         remaps.append((bool(cfg.get(f"remote.{remote}.push")), f"remote.{remote}.push"))
-        remaps.append((last.get("push.default") in ("upstream", "tracking"), "push.default"))
+        remaps.append((_config_enum(cfg.get("push.default", []),
+                                    ("nothing", "current", "simple", "matching")), "push.default"))
     for hit, label in remaps:
+        if hit is None and label == "push.followTags" and follow_tags is not None:
+            continue                       # --no-follow-tags settles it; config is not consulted
+        if hit is None:
+            return None, f"{label} holds a value this gate does not recognize; it cannot bind"
         if hit:
             return None, f"{label} adds or remaps pushed refs; use <source>:refs/<full destination>"
 
+    # `git remote get-url` has no NUL form, so its records ARE forgeable by a value that
+    # contains a separator: `./one<U+2028>./two` split into two endpoints, and `./repo.git\n`
+    # lost its newline. Three checks, all fail-closed:
+    #   1. the RAW values come from NUL-framed config and cannot be forged — any separator in
+    #      one is refused outright (this is what catches a TRAILING newline, which splitting
+    #      would silently drop);
+    #   2. output is split on LF only, and each record must still be a bindable endpoint;
+    #   3. the record COUNT must equal the raw count, so no value can manufacture an extra one.
+    raw = cfg.get(f"remote.{remote}.pushurl") or cfg.get(f"remote.{remote}.url") or []
+    if not raw:
+        return None, f"{remote!r} has no configured URL to bind"
+    if any(v is None or has_record_separator(v) for v in raw):
+        return None, (f"a configured URL of {remote!r} contains a line or record separator; "
+                      f"an endpoint is compared byte-exact and cannot carry one")
     rc, out = _git(root, "remote", "get-url", "--push", "--all", remote)
-    urls = [u for u in out.splitlines() if u.strip()] if rc == 0 else []
+    urls = _lines(out) if rc == 0 else []
     if not urls:
         return None, f"push URL of {remote!r} could not be read"
+    if len(urls) != len(raw):
+        return None, (f"{remote!r} reports {len(urls)} push URL(s) for {len(raw)} configured "
+                      f"value(s); a value forged a record boundary")
     endpoints = [bindable_endpoint(u) for u in urls]
     if any(e is None for e in endpoints):
         return None, "a push URL carries a query/fragment or is unusable as an endpoint identity"
@@ -226,9 +298,11 @@ def boundary_updates(url: str, lines: list[str]) -> Resolution:
         return None, "the push URL is unusable as an endpoint identity"
     entries = []
     for line in lines:
-        parts = line.strip().split(" ")
-        if not line.strip():
+        if not line:
             continue
+        # Fields are separated by exactly one space and nothing is trimmed: a ref name may
+        # carry other line-ish characters, and trimming would bind a neighbouring identity.
+        parts = line.split(" ")
         if len(parts) != 4 or not _HEX_OID.fullmatch(parts[1]):
             return None, "unreadable pre-push update line"
         delete = bool(_ZERO_OID.fullmatch(parts[1]))

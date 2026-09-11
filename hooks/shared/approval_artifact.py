@@ -269,6 +269,21 @@ _SSH_SCHEMES = frozenset({"ssh", "git+ssh", "ssh+git"})   # login SELECTS the re
 _CREDENTIAL_SCHEMES = frozenset({"http", "https"})        # a userinfo here is auth material
 _NO_USERINFO_SCHEMES = frozenset({"git", "file"})         # neither principal nor auth
 _DRIVE_AUTHORITY = re.compile(r"[A-Za-z]:")               # file://C:/projects/repo (Git for Windows)
+
+#: Every character that ENDS OR SPLITS A RECORD somewhere between git's output and a stored
+#: artifact: LF/CR framing, NUL, and the characters Python's str.splitlines() also breaks on
+#: (VT, FF, FS/GS/RS, NEL, LINE/PARAGRAPH SEPARATOR). A field carrying one is REFUSED, never
+#: split or trimmed — `./one\u2028./two` split into two stored endpoints, and one approval then
+#: authorized a destination nobody approved. Surrogates are refused too: they are what
+#: byte-preserving decoding produces for undecodable bytes, and JSON cannot carry them.
+_RECORD_SEPARATORS = "\n\r\v\f\x1c\x1d\x1e\x85\u2028\u2029\x00"
+
+
+def has_record_separator(text: Any) -> bool:
+    """True when a value would be split, truncated or rewritten by some later reader."""
+    if not isinstance(text, str):
+        return True
+    return any(c in _RECORD_SEPARATORS or "\ud800" <= c <= "\udfff" for c in text)
 _REF_FORBIDDEN = re.compile(r"[\x00-\x20\x7f~^:?*\[\\]|\.\.|@\{|//")
 
 
@@ -298,7 +313,7 @@ def bindable_endpoint(url: Any) -> str | None:
     """
     if not isinstance(url, str) or not url:
         return None
-    if any(ord(c) <= 0x20 or ord(c) == 0x7F for c in url):
+    if any(ord(c) <= 0x20 or ord(c) == 0x7F for c in url) or has_record_separator(url):
         return None                                    # whitespace/control: refuse, never trim
     if "::" in url.split("/", 1)[0]:
         return None                    # transport::address helper: undeclared userinfo meaning
@@ -333,8 +348,15 @@ def bindable_endpoint(url: Any) -> str | None:
 
 
 def valid_destination_ref(ref: Any) -> bool:
-    """A fully qualified ref name under `git check-ref-format` rules (conservative)."""
+    """A fully qualified ref name under `git check-ref-format` rules (conservative).
+
+    TRIPWIRE: git permits non-ASCII in a ref name, so a record separator like U+2028 can
+    legitimately appear in one. It is refused here rather than carried, because every reader
+    between git and the artifact would split on it.
+    """
     if not isinstance(ref, str) or not ref.startswith("refs/") or ref.endswith(("/", ".", ".lock")):
+        return False
+    if has_record_separator(ref):
         return False
     if _REF_FORBIDDEN.search(ref):
         return False
