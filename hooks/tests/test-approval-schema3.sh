@@ -439,17 +439,7 @@ def resolver_config_remaps(r: Repo, p: list[str]) -> None:
     if resolve_command_updates(PUSH + " --no-follow-tags", r.work)[0] is None:
         p.append("--no-follow-tags did not override push.followTags")
     cfg.write_text(original, encoding="utf-8")
-    # An UNRECOGNIZED value must refuse, not merely "fail to match the bad list": a value git
-    # itself would reject must never decide that no remapping is configured.
-    for key, value in (("push.default", "upstream-ish"), ("push.recurseSubmodules", "sometimes"),
-                       ("remote.origin.mirror", "maybe")):
-        git(r.work, "config", key, value)
-        got, why = resolve_command_updates(PUSH, r.work)
-        if got is not None:
-            p.append(f"{key}={value!r} (unrecognized) still resolved")
-        git(r.work, "config", "--unset-all", key)
-    if resolve_command_updates(PUSH, r.work)[0] is None:
-        p.append("a clean config stopped resolving after the unrecognized-value cases")
+    # Spelling-by-spelling coverage lives in the config-spellings row.
 
 
 def dry_run_cannot_authorize(r: Repo, p: list[str]) -> None:
@@ -628,6 +618,77 @@ def record_boundaries(r: Repo, p: list[str]) -> None:
         p.append(f"an ordinary update line stopped parsing: {got!r} {why}")
 
 
+def single_value_resolution(r: Repo, p: list[str]) -> None:
+    """One question, one answer: ambiguity, multi-URL remotes and multi-record output refuse.
+
+    Round-6 findings: `--format=%(refname)%00` emits NUL AND LF, so NUL-only splitting lost
+    later refs and an ambiguous `topic` bound `refs/heads/topic` instead of refusing; and a
+    changed config snapshot let `./changed.git\n\n` keep a matching record count and bind a
+    trimmed endpoint. Both parsers are gone; these rows pin what replaced them.
+    """
+    from shared.git_push_binding import _one_line, resolve_command_updates
+    # The exact output shapes git produces, asserted directly against the reader.
+    for shape, want in (("./one.git\n", "./one.git"), ("./changed.git\n\n", None),
+                        ("a\nb\n", None), ("no-trailing-newline", None), ("", None),
+                        ("refs/heads/main\x00\nrefs/heads/topic\x00\n", None)):
+        got = _one_line(shape)
+        if got != want:
+            p.append(f"_one_line({shape!r}) = {got!r}, expected {want!r}")
+
+    # A name that is BOTH a branch and a tag: git refuses that push; so must the binding.
+    r.commit("B")
+    git(r.work, "branch", "topic")
+    git(r.work, "tag", "topic")
+    for cmd in ("git push origin topic:refs/heads/main", "git push origin topic"):
+        got, why = resolve_command_updates(cmd, r.work)
+        if got is not None:
+            p.append(f"ambiguous source bound anyway: {cmd!r} -> {[u[1:] for u in got]}")
+        rc, body, err = r.mint(cmd)
+        if rc == 0 or body is not None:
+            p.append(f"writer minted an artifact for an ambiguous source: {cmd!r}")
+    real = r.push("origin", "topic:refs/heads/main")      # git itself refuses it too
+    if real.returncode == 0:
+        p.append("git accepted the ambiguous push, so the refusal was not conservative")
+    git(r.work, "tag", "-d", "topic")
+    got, why = resolve_command_updates("git push origin topic:refs/heads/main", r.work)
+    if got is None:
+        p.append(f"unambiguous branch stopped resolving once the tag was gone: {why}")
+
+    # A multi-URL remote pushes to several repositories at once: refuse, naming the remedy.
+    git(r.work, "remote", "set-url", "--add", "--push", "origin", "../remote2.git")
+    git(r.work, "remote", "set-url", "--add", "--push", "origin", "../remote.git")
+    got, why = resolve_command_updates(PUSH, r.work)
+    if got is not None:
+        p.append(f"multi-URL remote bound {len(got)} endpoint(s) instead of refusing")
+    elif "separately" not in why:
+        p.append(f"multi-URL refusal does not name the remedy: {why!r}")
+
+
+def config_spellings(r: Repo, p: list[str]) -> None:
+    """Config that can remap refs refuses on PRESENCE; push.default matches git's spellings."""
+    from shared.git_push_binding import resolve_command_updates
+    r.commit("B")
+    for key in ("push.recurseSubmodules", "remote.origin.mirror", "push.followTags",
+                "remote.origin.push"):
+        for value in ("no", "false", "0", "on-demand", "true"):
+            git(r.work, "config", key, value)
+            got, why = resolve_command_updates(PUSH, r.work)
+            if got is not None:
+                p.append(f"{key}={value!r} was set and still resolved")
+            git(r.work, "config", "--unset-all", key)
+    # push.default is compared against git's own spellings, case-sensitive and UNTRIMMED.
+    for value, should_bind in (("simple", True), ("current", True), ("matching", True),
+                               ("nothing", True), ("upstream", False), ("tracking", False),
+                               ("Simple", False), ("simple\n", False), ("bogus", False)):
+        git(r.work, "config", "push.default", value)
+        got, why = resolve_command_updates(PUSH, r.work)
+        if bool(got) != should_bind:
+            p.append(f"push.default={value!r}: bound={bool(got)}, expected {should_bind} ({why})")
+        git(r.work, "config", "--unset-all", "push.default")
+    if resolve_command_updates(PUSH, r.work)[0] is None:
+        p.append("a clean config stopped resolving after the push.default cases")
+
+
 def handler_route(r: Repo, p: list[str]) -> None:
     def hook(command: str) -> str:
         proc = run(r.work, sys.executable, str(r.work / "hooks/handlers/pre_tool_use.py"),
@@ -666,6 +727,8 @@ case("dry-run-approval-cannot-authorize-a-real-push", dry_run_cannot_authorize)
 case("ssh-principal-change-denies-at-both-gates", ssh_principal_binding)
 case("pre-fix-binding-revision-authorizes-nothing", prefix_binding_revision)
 case("endpoint-record-boundaries-are-never-split", record_boundaries)
+case("single-value-resolution-refuses-ambiguity", single_value_resolution)
+case("config-spellings-match-git-and-refuse-on-presence", config_spellings)
 case("pre-tool-use-handler-route", handler_route)
 sys.exit(FAILS)
 PY
@@ -707,5 +770,5 @@ else
 fi
 
 TOTAL_FAILS=$((PY_FAILS + AA_FAILS))
-echo "[test-approval-schema3] $((21 - TOTAL_FAILS))/21 PASS"
+echo "[test-approval-schema3] $((23 - TOTAL_FAILS))/23 PASS"
 exit "$TOTAL_FAILS"

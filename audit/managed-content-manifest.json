@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "4329f3b9ce8a246db26ac8c59e1aca6f9efb0f6c89fea59801a41e13e41ae6c4"
+      "sha256": "0d8d47a1dcdf9cf5703696ded64166d3d584938ea64cd032060b1305e426ff19"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -738,7 +738,7 @@
     },
     {
       "path": "hooks/shared/git_push_binding.py",
-      "sha256": "97deeb890892ebe65cc1b138ec545ee4efef4ea656426e99699adcc1d070da5f"
+      "sha256": "f5780524a1f9f681845aa5e8ab4de276898bef174171f2536c8127ebf642378b"
     },
     {
       "path": "hooks/shared/git_utils.py",
@@ -1042,7 +1042,7 @@
     },
     {
       "path": "hooks/tests/test-approval-schema3.sh",
-      "sha256": "1f2dfb006c596e50d945d9c0e1eb18f7fb768f3628b6240539b5a818f32ee3aa"
+      "sha256": "4bc40ce7c9492e2ea81917696f13306456d58a7b2646688285207652f858471a"
     },
     {
       "path": "hooks/tests/test-approval-writer.sh",
@@ -1561,5 +1561,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "ce23c97cf16f3efd6fc107f68073947ca1ce65286d5ce222bb1b345fefd8f646"
+  "manifest_self_sha256": "490d4ad2f61480e7449b5d3beb96e67f0411abde8bf071008c59a6b3772457c8"
 }

@@ -62,15 +62,20 @@ def _git(root: Path, *args: str) -> tuple[int, str]:
     return proc.returncode, proc.stdout.decode("utf-8", "surrogateescape")
 
 
-def _lines(out: str) -> list[str]:
-    """git's own framing: split on LF ONLY, keep every other byte.
+def _one_line(out: str) -> str | None:
+    """The single value git printed, or None when its output is not exactly one record.
 
-    TRIPWIRE: never str.splitlines() here. It also breaks on CR, VT, FF, FS/GS/RS, NEL,
-    U+2028 and U+2029, so a single configured endpoint `./one ./two` became TWO stored
-    endpoints and an approval authorized a destination nobody approved. A field that still
-    carries such a character is refused later, never split or trimmed.
+    TRIPWIRE - THIS IS THE ONLY WAY GIT OUTPUT BECOMES A VALUE HERE, and it is not a split:
+    the output must end with exactly one LF and contain no other LF, so a value carrying a
+    separator FAILS instead of being trimmed or divided. Every enumerate-and-parse read was
+    deleted (`git remote`, `for-each-ref`, `get-url --all`) because each review round found a
+    new way to forge or lose one of their records: `%(refname)%00` turned out to emit NUL AND
+    LF, and dropping empty fields let a changed URL keep a matching count. Ask git one
+    question, take one answer or an error; never reconstruct git's own selection rules.
     """
-    return [line for line in out.split("\n") if line]
+    if not out.endswith("\n") or out.count("\n") != 1:
+        return None
+    return out[:-1]
 
 
 def _config(root: Path) -> dict[str, list[str | None]] | None:
@@ -94,68 +99,54 @@ def _config(root: Path) -> dict[str, list[str | None]] | None:
     return values
 
 
-#: Config values these checks understand. TRIPWIRE: an UNRECOGNIZED value (including one
-#: carrying a record separator) must REFUSE, never "fail to match the bad list" — otherwise a
-#: value that git itself would reject decides that no remapping is configured. Same shape as
-#: the forged-record defect: one unrecognized input must not read as several valid ones.
-_BOOL_TRUE = ("true", "yes", "on", "1")
-_BOOL_FALSE = ("false", "no", "off", "0", "")
+#: git's own spellings for `push.default` (config.c compares them with strcmp, so this is
+#: case-SENSITIVE and untrimmed). `upstream`/`tracking` remap a colon-less destination; the
+#: rest leave it alone. Anything else is a value git itself rejects -> refuse.
+_PUSH_DEFAULT_SAFE = ("nothing", "current", "simple", "matching")
+_PUSH_DEFAULT_REMAPS = ("upstream", "tracking")
 
 
-def _config_bool(values: list[str | None]) -> bool | None:
-    """True / False / None for "not a value this check understands" (caller refuses on None)."""
-    if not values:
-        return False
-    last = values[-1]
-    if last is None:                       # a value-less key is git-true
-        return True
-    text = last.strip().lower()            # classification only; never stored
-    if text in _BOOL_TRUE:
-        return True
-    return False if text in _BOOL_FALSE else None
-
-
-def _config_enum(values: list[str | None], safe: tuple[str, ...]) -> bool | None:
-    """False when the effective value is safe, True when it remaps, None when unrecognized."""
-    if not values:
-        return False
-    last = values[-1]
-    if last is None:
-        return None
-    text = last.strip().lower()            # classification only; never stored
-    return False if text in safe else True
-
-
-def _strong_refs(root: Path, name: str) -> list[str] | None:
-    """Local refs `name` strongly matches under git's count_refspec_match, or None on error.
-
-    NUL-framed (`%00` in the format): a ref name may legally contain U+2028 or other
-    line-ish characters, and newline framing would split one ref into two records.
+def _present(cfg: dict, key: str) -> bool:
+    """TRIPWIRE: PRESENCE, not interpretation. Reading a config value means deciding what git
+    would do with it, and two rounds of review were spent on boolean spellings (`off`, `0`, ``
+    are valid false; `"false\n"` is not a boolean at all). A key that can add or remap pushed
+    refs therefore refuses when it is set AT ALL, and the denial names how to proceed. Same
+    move as refusing a path that merely CARRIES a filter attribute instead of interpreting it.
     """
-    candidates = [f"refs/{name}", f"refs/tags/{name}", f"refs/heads/{name}"]
-    if name.startswith("refs/"):
-        candidates.insert(0, name)
-    rc, out = _git(root, "for-each-ref", "--format=%(refname)%00", *candidates)
-    if rc != 0:
-        return None
-    existing = {entry for entry in out.split("\0") if entry}
-    return [c for c in dict.fromkeys(candidates) if c in existing]
+    return bool(cfg.get(key))
 
 
 def _oid(root: Path, rev: str) -> str | None:
+    """The object `rev` names, asked as ONE question with one answer or an error."""
     rc, out = _git(root, "rev-parse", "--verify", "--quiet", "--end-of-options", rev)
-    value = out.split("\n", 1)[0]          # first record; never .strip() (see _lines)
-    return value if rc == 0 and _HEX_OID.fullmatch(value) else None
+    value = _one_line(out) if rc == 0 else None
+    return value if value and _HEX_OID.fullmatch(value) else None
+
+
+def _named_ref(root: Path, name: str) -> tuple[str | None, str]:
+    """(the one local ref `name` names, "") or (None, reason) — ambiguity REFUSES.
+
+    git's own rule: `refs/heads/<name>` and `refs/tags/<name>` are both strong matches, and it
+    refuses a push whose source matches more than one ("src refspec … matches more than one").
+    Each candidate is probed by EXACT full name, so nothing enumerates refs and nothing
+    reconstructs git's disambiguation order; a weak match (refs/remotes/…) is not resolved here
+    at all, which is the conservative direction.
+    """
+    if name.startswith("refs/"):
+        return (name, "") if _oid(root, name) else (None, f"{name!r} is not a local ref")
+    found = [full for full in (f"refs/heads/{name}", f"refs/tags/{name}") if _oid(root, full)]
+    if len(found) > 1:
+        return None, (f"{name!r} names both a branch and a tag; git refuses that push as "
+                      f"ambiguous — use <source>:refs/heads/<branch>")
+    return (found[0], "") if found else (None, "")
 
 
 def _source(root: Path, src: str) -> tuple[str | None, str]:
     """The object a refspec source pushes (match_explicit: unique ref first, then any rev)."""
-    refs = _strong_refs(root, src)
-    if refs is None:
-        return None, "git for-each-ref failed"
-    if len(refs) > 1:
-        return None, f"source {src!r} matches more than one ref ({', '.join(refs)})"
-    oid = _oid(root, refs[0] if refs else src)
+    full, why = _named_ref(root, src)
+    if why:
+        return None, why
+    oid = _oid(root, full or src)
     return (oid, "") if oid else (None, f"source {src!r} does not resolve to an object")
 
 
@@ -163,17 +154,14 @@ def _colonless(root: Path, spec: str) -> tuple[str | None, str | None, str]:
     """(destination, oid, reason) for a refspec without `:` — the destination is the source ref."""
     if spec == "HEAD":
         rc, out = _git(root, "symbolic-ref", "-q", "HEAD")
-        full = out.split("\n", 1)[0]       # first record; never .strip() (see _lines)
-        if rc != 0 or not full.startswith("refs/heads/") or not valid_destination_ref(full):
+        full = _one_line(out) if rc == 0 else None
+        if not full or not full.startswith("refs/heads/") or not valid_destination_ref(full):
             return None, None, "HEAD is detached or unreadable; name the source and destination"
     else:
-        refs = _strong_refs(root, spec)
-        if refs is None:
-            return None, None, "git for-each-ref failed"
-        if len(refs) != 1:
-            return None, None, (f"{spec!r} matches {len(refs)} local refs; use "
-                                f"<source>:refs/heads/<branch>")
-        full = refs[0]
+        full, why = _named_ref(root, spec)
+        if full is None:
+            return None, None, why or (f"{spec!r} is not a local ref; use "
+                                       f"<source>:refs/heads/<branch>")
     oid = _oid(root, full)
     return (full, oid, "") if oid else (None, None, f"{full} does not resolve")
 
@@ -215,49 +203,46 @@ def resolve_command_updates(command: str, root: Path | None) -> Resolution:
     if not any(k.startswith(f"remote.{remote}.") for k in cfg):
         return None, (f"{remote!r} is not a configured remote (or is defined in a legacy "
                       f".git/remotes file, which cannot be bound); push to a named remote")
-    remaps = [
-        (_config_bool(cfg.get(f"remote.{remote}.mirror", [])), f"remote.{remote}.mirror"),
-        (_config_enum(cfg.get("push.recursesubmodules", []), ("no", "false", "check")),
-         "push.recurseSubmodules"),
-        (None if follow_tags is not None else _config_bool(cfg.get("push.followtags", [])),
-         "push.followTags"),
-    ]
-    if any(":" not in s for s in specs) and not delete_all:
-        remaps.append((bool(cfg.get(f"remote.{remote}.push")), f"remote.{remote}.push"))
-        remaps.append((_config_enum(cfg.get("push.default", []),
-                                    ("nothing", "current", "simple", "matching")), "push.default"))
-    for hit, label in remaps:
-        if hit is None and label == "push.followTags" and follow_tags is not None:
-            continue                       # --no-follow-tags settles it; config is not consulted
-        if hit is None:
-            return None, f"{label} holds a value this gate does not recognize; it cannot bind"
-        if hit:
-            return None, f"{label} adds or remaps pushed refs; use <source>:refs/<full destination>"
+    set_keys = [f"remote.{remote}.mirror", "push.recursesubmodules"]
+    if follow_tags is None:                # --no-follow-tags already settles that question
+        set_keys.append("push.followtags")
+    if any(":" not in spec for spec in specs) and not delete_all:
+        set_keys.append(f"remote.{remote}.push")
+    for key in set_keys:
+        if _present(cfg, key):
+            return None, (f"{key} is set; it can add or remap the refs a push updates, and this "
+                          f"gate does not interpret its value. Unset it for this push, or use "
+                          f"<source>:refs/<full destination>")
+    if any(":" not in spec for spec in specs) and not delete_all:
+        value = (cfg.get("push.default") or [None])[-1]
+        if value is not None and value not in _PUSH_DEFAULT_SAFE:
+            reason = ("remaps a colon-less destination to its upstream"
+                      if value in _PUSH_DEFAULT_REMAPS
+                      else "holds a value git itself rejects")
+            return None, (f"push.default {reason}; use <source>:refs/<full destination>")
 
-    # `git remote get-url` has no NUL form, so its records ARE forgeable by a value that
-    # contains a separator: `./one<U+2028>./two` split into two endpoints, and `./repo.git\n`
-    # lost its newline. Three checks, all fail-closed:
-    #   1. the RAW values come from NUL-framed config and cannot be forged — any separator in
-    #      one is refused outright (this is what catches a TRAILING newline, which splitting
-    #      would silently drop);
-    #   2. output is split on LF only, and each record must still be a bindable endpoint;
-    #   3. the record COUNT must equal the raw count, so no value can manufacture an extra one.
+    # ONE destination per approval. A multi-URL remote pushes to several repositories in one
+    # command, and picking from a list is exactly the enumeration every round found a way to
+    # forge — so it refuses and names the remedy. The count comes from NUL-framed config
+    # (unforgeable); the URL itself comes from a single-value read with a trailing-LF contract.
     raw = cfg.get(f"remote.{remote}.pushurl") or cfg.get(f"remote.{remote}.url") or []
     if not raw:
         return None, f"{remote!r} has no configured URL to bind"
-    if any(v is None or has_record_separator(v) for v in raw):
-        return None, (f"a configured URL of {remote!r} contains a line or record separator; "
+    if len(raw) > 1:
+        return None, (f"{remote!r} has {len(raw)} push URLs, so one push updates several "
+                      f"repositories; approve each destination separately through a "
+                      f"single-URL remote")
+    if raw[0] is None or has_record_separator(raw[0]):
+        return None, (f"the configured URL of {remote!r} contains a line or record separator; "
                       f"an endpoint is compared byte-exact and cannot carry one")
-    rc, out = _git(root, "remote", "get-url", "--push", "--all", remote)
-    urls = _lines(out) if rc == 0 else []
-    if not urls:
-        return None, f"push URL of {remote!r} could not be read"
-    if len(urls) != len(raw):
-        return None, (f"{remote!r} reports {len(urls)} push URL(s) for {len(raw)} configured "
-                      f"value(s); a value forged a record boundary")
-    endpoints = [bindable_endpoint(u) for u in urls]
-    if any(e is None for e in endpoints):
-        return None, "a push URL carries a query/fragment or is unusable as an endpoint identity"
+    rc, out = _git(root, "remote", "get-url", "--push", remote)
+    url = _one_line(out) if rc == 0 else None
+    if url is None:
+        return None, (f"push URL of {remote!r} could not be read as exactly one value "
+                      f"(a URL carrying a line separator is refused, never trimmed)")
+    endpoints = [bindable_endpoint(url)]
+    if endpoints[0] is None:
+        return None, "the push URL is not a bindable endpoint form"
 
     refs: list[tuple[str, str | None, str]] = []
     for spec in specs:
