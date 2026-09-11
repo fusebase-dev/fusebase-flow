@@ -566,7 +566,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "675aad0a448ed0cd15ca3bad4c0d3610174c42fcf4a3add56d836fdf4d3974d1"
+      "sha256": "97c852e0102c587f8bad5fb905e3c5c324b92b02fa3ec0461351a69bcfcc0ec6"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -798,7 +798,7 @@
     },
     {
       "path": "hooks/tests/test-run-preconditions.sh",
-      "sha256": "f96ea4e4862bb6a6aa5bdaa944dde33419625f768e43cb7166a36e126a241b94"
+      "sha256": "26983aa986c35e78ffcb4ae21ff8b89e2935e781c6e5e615b709a0c92e836441"
     },
     {
       "path": "hooks/tests/test-run-tests-signal-reap.sh",
@@ -881,5 +881,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "f153a98449064d159ab1f247c1aa2c10eb85f87d89b8e6942a659187503ced3e"
+  "manifest_self_sha256": "a3976dadfb66779a22d44f4890f4318b1cf56c9640e2a0b1753c9208e5859255"
 }

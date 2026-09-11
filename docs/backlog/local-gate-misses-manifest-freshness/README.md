@@ -1,6 +1,6 @@
 # Backlog — local-gate-misses-manifest-freshness
 
-**Status:** re-scoped to the maintainer lane (2026-08-06, T1). The CI/local discrepancy is REAL and is not closed; only its placement in the consumer default gate was wrong. It must not become another shipped gate phase — see the 2026-08-05 attempt below.
+**Status:** verify arm enforced locally in the maintainer tree (2026-09-11, T94); the stamp-compare arm stays unshipped. Not a shipped gate phase, per the 2026-08-05 placement ruling below.
 **Filed:** 2026-07-27 (during the `rule-inventory-version-literal-noise` publication)
 **Owner:** unassigned
 **Lane guess:** Lightweight (one assertion + its red arm)
@@ -95,6 +95,10 @@ is where it went red — so the guard is later, not absent.
 two lines in `run-tests.sh` (see `s9-manifest-fresh/README.md`). Do not restore it into
 `FF_FAST_TAGS` without a fresh ruling; that escalation was withdrawn once already.
 
+
+## 2026-09-11 — maintainer-tree verify pre-check (T94)
+
+`hooks/tests/run-tests.sh` runs both existing verifiers before any release-profile phase outside the fast default, in the maintainer tree and never in hosted CI (`ff_require_fresh_manifests`, `hooks/tests/lib/run-preconditions.sh`; rows in tag `run-preconditions`). Drift refuses the run with rc 2 before any phase, naming the paths; nothing is restamped. That meets objections 1 (no consumer gate phase; inert without `docs/maintainer-testing.md`) and 3 (read-only). It covers AC1 for modified and missing files; a NEW collected file is named by the managed-content arm, since hook-layer `verify` still reports `extra=0` for it. It does not replace `s9-manifest-fresh/`: `verify` hashes the same worktree bytes the stamper did, so the `i/lf` + `w/crlf` class above stays visible only to stamp-compare of a clean checkout.
 
 ## Notes
 

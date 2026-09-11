@@ -44,3 +44,31 @@ ff_require_evidence_gap() {
   } >&2
   return 2
 }
+
+# ff_require_fresh_manifests: before a release-profile phase outside the fast default runs in the
+# maintainer tree, both committed manifests must describe it; a stale stamp otherwise surfaces as
+# FLOW_LAYER_DRIFT deep inside an expensive suite. Hosted CI verifies both in its own steps.
+# TRIPWIRE: verify only, never stamp. Blessing unexpected bytes is the human's decision.
+ff_require_fresh_manifests() {
+  [ -f "$ROOT/docs/maintainer-testing.md" ] || return 0
+  ff_hosted && return 0
+  local t v note heavy=0 bad=0
+  for t in "${FF_RELEASE_TAGS[@]}"; do
+    if [ -z "${FF_FAST[$t]:-}" ] && ff_selected "$t"; then heavy=1; break; fi
+  done
+  [ "$heavy" -eq 1 ] || return 0
+  for v in verify-hook-manifest verify-managed-content-manifest; do
+    ffhc_run_bounded 300 bash "$ROOT/hooks/local/$v.sh"
+    FFHC_LAST_WINPID=""; FFHC_LAST_CHILD_PID=""
+    [ "$FFHC_LAST_RC" -eq 0 ] && continue
+    bad=1
+    note=""; [ "${FFHC_LAST_SKIPPED:-0}" -eq 1 ] && note=" (not run: no timeout binary)"
+    printf '[run-tests] REFUSED: %s.sh rc=%s%s; the committed manifest does not describe this tree:\n' \
+      "$v" "$FFHC_LAST_RC" "$note" >&2
+    printf '%s\n' "$FFHC_LAST_OUT" | sed '/^[[:space:]]*$/d; s/^/  /' >&2
+  done
+  [ "$bad" -eq 0 ] && return 0
+  echo "  Restamp only if every listed byte is intended, hook-layer first:" >&2
+  echo "    bash hooks/local/stamp-hook-manifest.sh && bash hooks/local/stamp-managed-content-manifest.sh" >&2
+  return 2
+}

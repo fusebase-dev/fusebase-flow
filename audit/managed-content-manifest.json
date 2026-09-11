@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "7356408982624e36b8681b38e3644ee4f4e9e18e7b97fb5aab34b4203945a2ec"
+      "sha256": "80e3f6c76558cab1e4facf05f68d61835e6018aaabc13cac0398e57cdef71c9a"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -1002,7 +1002,7 @@
     },
     {
       "path": "hooks/tests/lib/run-preconditions.sh",
-      "sha256": "8484338d576e20b1b897d8391b5ca4b40ddd9b45777a890b7f9dc7373921b7b5"
+      "sha256": "15e7ffb93e2000d3df41539389665edbf94de722a56881c0e9654f1ea49fb54a"
     },
     {
       "path": "hooks/tests/lib/signal-reap-fixture.sh",
@@ -1018,7 +1018,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "675aad0a448ed0cd15ca3bad4c0d3610174c42fcf4a3add56d836fdf4d3974d1"
+      "sha256": "97c852e0102c587f8bad5fb905e3c5c324b92b02fa3ec0461351a69bcfcc0ec6"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -1270,7 +1270,7 @@
     },
     {
       "path": "hooks/tests/test-run-preconditions.sh",
-      "sha256": "f96ea4e4862bb6a6aa5bdaa944dde33419625f768e43cb7166a36e126a241b94"
+      "sha256": "26983aa986c35e78ffcb4ae21ff8b89e2935e781c6e5e615b709a0c92e836441"
     },
     {
       "path": "hooks/tests/test-run-tests-signal-reap.sh",
@@ -1545,5 +1545,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "ed1b924a4ceefc2b0780cab34aaaf2404e3ba4ccebe38c98a8e22e67e672e3c9"
+  "manifest_self_sha256": "d290ddd2b55e8a887d05a22908d4f9e7483854b771e304f39a38f0eb1ce32cfe"
 }

@@ -184,6 +184,7 @@ if [ "${FF_LIST:-0}" = "1" ]; then
   exit 0
 fi
 ff_require_evidence_gap || exit 2
+ff_require_fresh_manifests || exit 2
 
 # Subset runs write to a SEPARATE results file so the full-gate hook-test-results.md is
 # never clobbered (the health engine / gate reports read only the full file). ONLY an
