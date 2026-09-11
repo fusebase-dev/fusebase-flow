@@ -30,7 +30,7 @@ cd "$ROOT"
 # Public diagnostic groups run the real fixture functions under the same tempfile-based timeout
 # owner as the registered suite. TRIPWIRE: parse before TMP_BASE is created, and keep selected
 # result rows SCOPED so they cannot satisfy run-tests.sh's full-phase PASS parser.
-FFCF_GROUPS=(u14 legacy engine t1 t14 t15 t20 t34)
+FFCF_GROUPS=(u14 legacy engine t1 t14 t15 t20 t34 eol)
 ffcf_selector_error() { echo "[cli-flow-recovery] ERROR: $*" >&2; exit 2; }
 
 FFCF_SELECTED=""
@@ -219,6 +219,14 @@ ffcf_t34_bootstrap() {
   fi
 }
 
+ffcf_t89_eol() {
+  if "$python_bin" "$ROOT/hooks/tests/test-recovery-eol-equivalence.py"; then
+    pass "T89: CRLF-checkout mirror ownership repairs; edited, mixed, binary, attribute, filter, staged and raced targets preserved"
+  else
+    fail "T89: CRLF-checkout mirror ownership equivalence"
+  fi
+}
+
 if [ -n "$FFCF_SELECTED" ]; then
   if [ -n "${FFCF_SELECTOR_TEST_DELAY_SECS:-}" ]; then
     sleep "$FFCF_SELECTOR_TEST_DELAY_SECS"
@@ -232,6 +240,7 @@ if [ -n "$FFCF_SELECTED" ]; then
     t15) ffcf_t15_verification ;;
     t20) ffcf_t20_repeated_noop ;;
     t34) ffcf_t34_bootstrap ;;
+    eol) ffcf_t89_eol ;;
   esac
   exit 0
 fi
@@ -241,3 +250,4 @@ ffcf_classify_run
 ffcf_engine_run
 ffcf_direct_run
 ffcf_t34_bootstrap
+ffcf_t89_eol

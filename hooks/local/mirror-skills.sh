@@ -112,7 +112,9 @@ HASH_RAW="$(mktemp "${TMPDIR:-/tmp}/mirror-hash-cache.XXXXXX")"
 manifest_tmp=""
 write_plan=""
 write_result=""
-trap 'rm -f "$HASH_RAW" "$manifest_tmp" "$write_plan" "$write_result"' EXIT
+eol_in=""
+eol_out=""
+trap 'rm -f "$HASH_RAW" "$manifest_tmp" "$write_plan" "$write_result" "$eol_in" "$eol_out"' EXIT
 # Feed canon sources + any existing targets (NUL-delimited) to ONE chunked sha
 # pass; capture the raw "<hash>  <path>" output to a temp file. Kept off a
 # pipefail pipeline whose tail `read` would return EOF=1 and trip `set -e` in a
@@ -156,11 +158,37 @@ cache_hash_into() {
     declare -A COMMITTED=()
     declare -A ROWCOUNT=()
     while IFS= read -r mline; do
+        mline="${mline%$'\r'}"                        # exactly ONE terminal CR (CRLF checkout of the manifest)
         [ -n "$mline" ] || continue
         mrel="${mline%%  *}"                          # "<rel>  <hash>" (two-space sep)
         COMMITTED["$mrel"]="${mline##*  }"
         ROWCOUNT["$mrel"]=$(( ${ROWCOUNT["$mrel"]:-0} + 1 ))
     done < "$MANIFEST"
+    # Line-ending-equivalent manifest rows: recovery-owned-write.py eol_class_digests (one batched call).
+    declare -A EOL_WITNESS=()
+    eol_rows=()
+    for line in "${MIRROR_LINES[@]}"; do
+        rel="${line%%$'\t'*}"
+        canon_file="${line#*$'\t'}"
+        cache_hash_into "$canon_file"
+        committed="${COMMITTED[$rel]:-}"
+        if [ -n "$committed" ] && [ "$committed" != "$HASH_VALUE" ]; then
+            eol_rows+=("$committed"$'\t'"$canon_file")
+        fi
+    done
+    if [ "${#eol_rows[@]}" -gt 0 ]; then
+        eol_in="$(mktemp "${TMPDIR:-/tmp}/mirror-eol-in.XXXXXX")"
+        eol_out="$(mktemp "${TMPDIR:-/tmp}/mirror-eol-out.XXXXXX")"
+        printf '%s\n' "${eol_rows[@]}" > "$eol_in"
+        if command -v python3 >/dev/null 2>&1 \
+            && python3 "$ROOT/hooks/local/lib/recovery-owned-write.py" --eol-witness < "$eol_in" > "$eol_out"; then
+            while IFS= read -r witnessed; do
+                EOL_WITNESS["${witnessed%$'\r'}"]=1
+            done < "$eol_out"
+        else
+            echo "[mirror-skills] --check: line-ending equivalence unavailable (python3); manifest rows compared byte-exact" >&2
+        fi
+    fi
     drifted=0
     # Duplicate manifest rows: a concurrent mirror run (overlapping per-row appends,
     # pre-v4.3.2) could repeat a <rel> path. The COMMITTED map collapses dupes (last
@@ -177,7 +205,8 @@ cache_hash_into() {
         canon_file="${line#*$'\t'}"
         target="$ROOT/$rel"
         cache_hash_into "$canon_file"; canon_hash="$HASH_VALUE"
-        if [ "${COMMITTED[$rel]:-}" != "$canon_hash" ]; then
+        committed="${COMMITTED[$rel]:-}"
+        if [ "$committed" != "$canon_hash" ] && [ -z "${EOL_WITNESS[$committed$'\t'$canon_file]:-}" ]; then
             drifted=$((drifted + 1))
             echo "[mirror-skills] --check DRIFT: $rel manifest=${COMMITTED[$rel]:-<absent>} canonical=$canon_hash" >&2
         elif [ ! -f "$target" ]; then

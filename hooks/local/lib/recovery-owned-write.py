@@ -28,6 +28,7 @@ GIT_TIMEOUT = 15
 REGULAR_GIT_MODES = {"100644", "100755"}
 MANIFEST_ROW = re.compile(r"^(.+?)  ([0-9a-f]{64})$")
 SUPPORTED_SURFACES = {"skill", "agent", "health-skill", "command"}
+CONVERSION_ATTRIBUTES = {"filter", "ident", "working-tree-encoding"}
 SURFACE_MANIFESTS = {
     "skill": "audit/skill-mirror-manifest.txt",
     "agent": "audit/agent-mirror-manifest.txt",
@@ -54,6 +55,31 @@ def digest(path: Path) -> str:
 
 def bytes_digest(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
+
+
+def lf_form(value: bytes) -> bytes:
+    # TRIPWIRE: collapse CRLF PAIRS only, and only when EVERY line ending is CRLF. Stripping all
+    # CR/LF merges distinct content ("4.15.\r\n3" -> "4.15.3", 2508a85); mixed, lone-CR and NUL stay raw.
+    if b"\0" in value or b"\r\n" not in value or value.count(b"\n") != value.count(b"\r\n"):
+        return value
+    collapsed = value.replace(b"\r\n", b"\n")
+    return value if b"\r" in collapsed else collapsed
+
+
+def crlf_form(value: bytes) -> bytes | None:
+    if b"\0" in value or b"\r" in value or b"\n" not in value:
+        return None
+    return value.replace(b"\n", b"\r\n")
+
+
+def eol_class_digests(value: bytes) -> set[str]:
+    key = lf_form(value)
+    converted = crlf_form(key)
+    return {bytes_digest(key)} | ({bytes_digest(converted)} if converted is not None else set())
+
+
+def content_digest(value: bytes) -> str:
+    return bytes_digest(lf_form(value))
 
 
 def encoded_json(value: dict) -> bytes:
@@ -204,10 +230,12 @@ class Baseline:
         self.entries: dict[str, TreeEntry] = {}
         self.blobs: dict[str, bytes] = {}
         self.error = ""
-        wanted = {
-            item for row in rows if row.manifest_rel
-            for item in (row.source_rel, row.target_rel, row.manifest_rel) if item
-        }
+        self.targets = {row.target_rel for row in rows}
+        self.eol_only: set[str] | None = None
+        wanted = set(self.targets)
+        for row in rows:
+            if row.manifest_rel:
+                wanted.update(item for item in (row.source_rel, row.manifest_rel) if item)
         if not wanted:
             return
         try:
@@ -255,18 +283,76 @@ class Baseline:
             )
         return matches[0]
 
-    def prove(self, row: PlanRow, source_hash: str, target_hash: str) -> BootstrapProof:
+    def eol_only_paths(self) -> set[str]:
+        if self.eol_only is None:
+            rels = sorted(rel for rel in self.targets if "\n" not in rel)
+            try:
+                result = subprocess.run(
+                    ["git", "-C", str(self.root), "check-attr", "--all", "-z", "--stdin"],
+                    input="".join(f"{rel}\0" for rel in rels).encode("utf-8", "surrogateescape"),
+                    check=True, capture_output=True, timeout=GIT_TIMEOUT,
+                )
+            except (OSError, subprocess.SubprocessError) as exc:
+                raise RuntimeError(f"checkout attributes unavailable: {exc}") from exc
+            fields = result.stdout.decode("utf-8", "surrogateescape").split("\0")
+            # TRIPWIRE: block on PRESENCE, never on value. A named query prints filter=unset and
+            # filter=unspecified exactly like -filter and no filter; --all emits only carried attributes.
+            blocked = {
+                fields[index] for index in range(0, len(fields) - 2, 3)
+                if fields[index + 1] in CONVERSION_ATTRIBUTES
+            }
+            self.eol_only = set(rels) - blocked
+        return self.eol_only
+
+    def checkout_form(self, rel: str) -> bytes:
+        try:
+            return subprocess.run(
+                ["git", "-C", str(self.root), "cat-file", "--filters", f"--path={rel}",
+                 self.entries[rel].oid],
+                check=True, capture_output=True, timeout=GIT_TIMEOUT,
+            ).stdout
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise RuntimeError(f"git checkout conversion unavailable: {exc}") from exc
+
+    def require_committed_bytes(self, rel: str, target: Path, target_hash: str, label: str) -> None:
+        committed = self.regular_blob(rel)
+        if target_hash == bytes_digest(committed):
+            return
+        converted = crlf_form(committed)
+        current = target.read_bytes() if converted is not None else b""
+        if converted is not None and bytes_digest(current) != target_hash:
+            raise RuntimeError("target changed during ownership classification")
+        if converted is None or current != converted:
+            raise RuntimeError(f"current target bytes do not match {label}")
+        prefix = f"current target differs from {label} only by CRLF line endings, but"
+        if rel not in self.eol_only_paths():
+            raise RuntimeError(f"{prefix} a filter/ident/encoding attribute makes checkout unverifiable")
+        if self.checkout_form(rel) != converted:
+            raise RuntimeError(f"{prefix} git's checkout does not write CRLF at this path")
+
+    def prove(self, row: PlanRow, source_hash: str, target_hash: str, target: Path) -> BootstrapProof:
         if not row.manifest_rel or not row.source_rel:
             raise RuntimeError("target has no authorized canonical mirror mapping")
         if self.error:
             raise RuntimeError(self.error)
-        canonical_hash = bytes_digest(self.regular_blob(row.source_rel))
-        committed_target_hash = bytes_digest(self.regular_blob(row.target_rel))
+        canonical = self.regular_blob(row.source_rel)
+        committed_target = self.regular_blob(row.target_rel)
         manifest_hash = self.manifest_hash(row.manifest_rel, row.target_rel)
-        if len({canonical_hash, committed_target_hash, manifest_hash}) != 1:
+        if lf_form(canonical) != lf_form(committed_target) \
+                or manifest_hash not in eol_class_digests(committed_target):
             raise RuntimeError("committed canonical, target, and manifest hashes do not agree")
-        if target_hash != canonical_hash:
-            raise RuntimeError("current target bytes do not match proven committed mirror bytes")
+        self.require_committed_bytes(row.target_rel, target, target_hash, "proven committed mirror bytes")
+        return BootstrapProof(self.head, source_hash, target_hash)
+
+    def prove_receipt(
+        self, row: PlanRow, receipt_hash: str, source_hash: str, target_hash: str, target: Path,
+    ) -> BootstrapProof:
+        if self.error:
+            raise RuntimeError(self.error)
+        committed = self.regular_blob(row.target_rel)
+        if receipt_hash not in eol_class_digests(committed):
+            raise RuntimeError("owned-target receipt does not witness the committed target bytes")
+        self.require_committed_bytes(row.target_rel, target, target_hash, "the receipt-witnessed committed bytes")
         return BootstrapProof(self.head, source_hash, target_hash)
 
     def revalidate_head(self) -> None:
@@ -320,15 +406,25 @@ def _classify(
     if target_hash == source_hash:
         return "current", source_hash, None, state
     prior = targets.get(row.target_rel)
-    if isinstance(prior, dict) and prior.get("sha256") == target_hash:
+    receipt_hash = prior.get("sha256") if isinstance(prior, dict) else None
+    if receipt_hash == target_hash:
         return "owned-repair", source_hash, None, state
     if baseline is None:
         return "unowned-collision", "existing bytes are not proven Flow-owned", None, None
-    try:
-        proof = baseline.prove(row, source_hash, target_hash)
-        return "owned-repair", source_hash, proof, state
-    except RuntimeError as exc:
-        return "unowned-collision", str(exc), None, None
+    failure = ""
+    if isinstance(receipt_hash, str):
+        try:
+            proof = baseline.prove_receipt(row, receipt_hash, source_hash, target_hash, target)
+            return "owned-repair", source_hash, proof, state
+        except RuntimeError as exc:
+            failure = f"existing bytes are not proven Flow-owned ({exc})"
+    if row.manifest_rel or not failure:
+        try:
+            proof = baseline.prove(row, source_hash, target_hash, target)
+            return "owned-repair", source_hash, proof, state
+        except RuntimeError as exc:
+            failure = str(exc)
+    return "unowned-collision", failure, None, None
 
 
 def classify(source: Path, target: Path, rel: str, targets: dict) -> tuple[str, str]:
@@ -360,8 +456,8 @@ def prepare_rows(
             target = safe_target(root, row.target_rel)
             status, detail, proof, state = _classify(source, target, row, targets, None)
             prepared.append(PreparedRow(row, source, target, status, detail, proof, state))
-            if status == "unowned-collision" and row.manifest_rel \
-                    and detail == "existing bytes are not proven Flow-owned":
+            if status == "unowned-collision" and detail == "existing bytes are not proven Flow-owned" \
+                    and (row.manifest_rel or isinstance(targets.get(row.target_rel), dict)):
                 bootstrap.append(len(prepared) - 1)
         except Exception as exc:
             prepared.append(PreparedRow(row, None, None, "unsafe", str(exc), None, None))
@@ -380,6 +476,13 @@ def prepare_rows(
                 item.row, None, None, "unsafe", str(exc), None, None,
             )
     return baseline, prepared
+
+
+def manifest_digest(source: Path, source_hash: str) -> str:
+    value = source.read_bytes()
+    if bytes_digest(value) != source_hash:
+        raise RuntimeError("source changed after ownership classification")
+    return content_digest(value)
 
 
 def retained_path(target: Path) -> Path:
@@ -524,7 +627,8 @@ def _apply_locked(
                     targets[row.target_rel] = owned
                     atomic_json_if_changed(receipt_path, receipt)
                 if manifest is not None:
-                    manifest_rows.append(f"{row.target_rel}  {detail}\n")
+                    digest_value = manifest_digest(source, item.state.source_hash)
+                    manifest_rows.append(f"{row.target_rel}  {digest_value}\n")
             else:
                 partial = True
             rows.append((status, row.target_rel, detail, backup))
@@ -546,7 +650,21 @@ def apply(
         return _apply_locked(root, plan, result, surface, manifest)
 
 
+def eol_witness() -> int:
+    for raw in sys.stdin.buffer.read().splitlines():
+        expected, _sep, path = raw.decode("utf-8", "surrogateescape").partition("\t")
+        try:
+            value = native_path(path).read_bytes()
+        except (OSError, subprocess.SubprocessError):
+            continue
+        if expected in eol_class_digests(value):
+            sys.stdout.buffer.write(raw + b"\n")
+    return 0
+
+
 def main() -> int:
+    if sys.argv[1:] == ["--eol-witness"]:
+        return eol_witness()
     parser = argparse.ArgumentParser()
     parser.add_argument("--root", required=True)
     parser.add_argument("--plan", required=True)

@@ -35,7 +35,7 @@ run_case() {
   CASE_RC=$?
 }
 
-expected_groups=$'u14\nlegacy\nengine\nt1\nt14\nt15\nt20\nt34'
+expected_groups=$'u14\nlegacy\nengine\nt1\nt14\nt15\nt20\nt34\neol'
 run_case list env TMPDIR="$WORK" bash "$WRAPPER" --list
 if [ "$CASE_RC" -eq 0 ] && [ "$(<"$WORK/list.out")" = "$expected_groups" ]; then
   ok "list-and-default-group-parity"

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.16.4",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 382,
+  "asset_count": 383,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "cba8a263ebd9404c931c61e8213eaafd5f9c22c35e93bcdc9f6de4be10604214"
+      "sha256": "8b487707386fa3a98741de3ec375fb2bb42ff4c991c92860b541c93938961529"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -578,7 +578,7 @@
     },
     {
       "path": "hooks/local/lib/recovery-owned-write.py",
-      "sha256": "ccddfd99c8b5143b25d61485a07105ddcc40bb1ca004ede0e570647e81289bd6"
+      "sha256": "5ae1e2c65b8984397603a6b6127b8533a6d564fd9f3790ffea33c6f3e82548f8"
     },
     {
       "path": "hooks/local/lib/recovery-preflight.py",
@@ -618,7 +618,7 @@
     },
     {
       "path": "hooks/local/mirror-skills.sh",
-      "sha256": "7d43bc00bf7e2f3c2fa791b7b2bcf1565d1fe3603bec9350897acb202eee544c"
+      "sha256": "9546ca4d225aa8b805cd7e0f0e428bf9468abf0dfe8283951634d87bdf890f03"
     },
     {
       "path": "hooks/local/po-investigate.sh",
@@ -1062,11 +1062,11 @@
     },
     {
       "path": "hooks/tests/test-cli-flow-recovery-selectors.sh",
-      "sha256": "2d5eaba0384a8d2013d346cbfd868da5ad5da86fa648f51ed69c4798aa9f85e6"
+      "sha256": "fc5e6142d3ab8cad0063ff9dda5642ed1edb99da1d640b5d5fd65c267ed9f1f0"
     },
     {
       "path": "hooks/tests/test-cli-flow-recovery.sh",
-      "sha256": "583ee1c444f35273c6f032688cf181460cfada333b3a80565d6ce54e4671f1b4"
+      "sha256": "308f1c7191039b3a986a0f05d3e1612c36d8ee944fba336adb3054c07372317b"
     },
     {
       "path": "hooks/tests/test-cli-vendor-refresh.sh",
@@ -1227,6 +1227,10 @@
     {
       "path": "hooks/tests/test-recover-missing-base.sh",
       "sha256": "88d2f31c88555ffa19adb47d9c041fe40c31c3a7ac7e6d875f01f2f101ed1cb7"
+    },
+    {
+      "path": "hooks/tests/test-recovery-eol-equivalence.py",
+      "sha256": "1e86e93c8773fce59a8eb819d0259cc4ae284559d4fb3ec1adc06016c5a060cf"
     },
     {
       "path": "hooks/tests/test-recovery-final-verification.py",
@@ -1533,5 +1537,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "ee9bbf46c2073c1ab21d11cd0167907e4efd67c2be46bc4f4e25f583dbdbb555"
+  "manifest_self_sha256": "4147ce64d0fe921a957f4756bfd97fd0165e587d644ea15e6fe25409f5598114"
 }

@@ -190,7 +190,7 @@
     },
     {
       "path": "hooks/local/lib/recovery-owned-write.py",
-      "sha256": "ccddfd99c8b5143b25d61485a07105ddcc40bb1ca004ede0e570647e81289bd6"
+      "sha256": "5ae1e2c65b8984397603a6b6127b8533a6d564fd9f3790ffea33c6f3e82548f8"
     },
     {
       "path": "hooks/local/lib/recovery-preflight.py",
@@ -230,7 +230,7 @@
     },
     {
       "path": "hooks/local/mirror-skills.sh",
-      "sha256": "7d43bc00bf7e2f3c2fa791b7b2bcf1565d1fe3603bec9350897acb202eee544c"
+      "sha256": "9546ca4d225aa8b805cd7e0f0e428bf9468abf0dfe8283951634d87bdf890f03"
     },
     {
       "path": "hooks/local/po-investigate.sh",
@@ -610,11 +610,11 @@
     },
     {
       "path": "hooks/tests/test-cli-flow-recovery-selectors.sh",
-      "sha256": "2d5eaba0384a8d2013d346cbfd868da5ad5da86fa648f51ed69c4798aa9f85e6"
+      "sha256": "fc5e6142d3ab8cad0063ff9dda5642ed1edb99da1d640b5d5fd65c267ed9f1f0"
     },
     {
       "path": "hooks/tests/test-cli-flow-recovery.sh",
-      "sha256": "583ee1c444f35273c6f032688cf181460cfada333b3a80565d6ce54e4671f1b4"
+      "sha256": "308f1c7191039b3a986a0f05d3e1612c36d8ee944fba336adb3054c07372317b"
     },
     {
       "path": "hooks/tests/test-cli-vendor-refresh.sh",
@@ -877,5 +877,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "687eda6303465897f255988abe711565c8ffa113334e1170b5a0c44fe6cfc35d"
+  "manifest_self_sha256": "6b649b61d1b37d581d0321b9c9eb888bfebf4c46fa39944428895f51b562ef35"
 }
