@@ -78,15 +78,26 @@ ref-update binding is missing.
   agent or a person runs it. The upgrade installs the hook next to `pre-commit`; a custom
   `.git/hooks/pre-push` is preserved and reported, and the boundary is then not active.
 - **The remote URL is compared byte for byte, exactly as git reports it.** Nothing is
-  lower-cased, trimmed, re-encoded or split on its way from git's output into the approval —
-  git's output is read byte-preservingly and framed on its own record separators (NUL where
-  git offers it), and a URL that itself contains a line or record separator is refused rather
-  than split into two endpoints. Two spellings of "the same" remote are two different
-  endpoints: `SSH://host/x` is not `ssh://host/x`, an explicit `:22`
+  lower-cased, trimmed, re-encoded or split on its way from git's output into the approval.
+  Flow asks git one question and takes one answer: the URL comes from a single-value
+  `git remote get-url --push <remote>` whose output must be exactly one record, so a URL that
+  itself contains a line or record separator is refused rather than trimmed or split into two
+  endpoints. Two spellings of "the same" remote are two different endpoints: `SSH://host/x` is not `ssh://host/x`, an explicit `:22`
   is not an omitted port, `host:path` (relative) is not `ssh://host/path` (absolute), and two
   host aliases stay distinct. If your remote URL changes in any way, the approval stops
   matching and you reissue it — one clear error, one command. That is deliberate: a rewrite
   applied before a comparison is how an approval ends up matching a repository nobody approved.
+- **A remote with more than one push URL cannot be bound.** One push then updates several
+  repositories, and an approval names one destination. Push through a single-URL remote and
+  approve each destination separately; the denial says so.
+- **An ambiguous ref name cannot be bound.** If `topic` is both a branch and a tag, git itself
+  refuses that push (`src refspec topic matches more than one`) — so does the approval, rather
+  than guessing which one you meant. Use `<source>:refs/heads/<branch>`.
+- **Config that can add or remap pushed refs refuses while it is set.** `remote.<name>.mirror`,
+  `remote.<name>.push`, `push.recurseSubmodules` and `push.followTags` are refused on presence
+  — their value is not interpreted — and `push.default` is compared against git's own spellings,
+  so `upstream`/`tracking` refuse and anything git would reject refuses too. Unset the key for
+  the push, or name `<source>:refs/<full destination>` explicitly.
 - **A remote URL carrying credentials cannot be bound at all — it is refused, not cleaned up.**
   `https://<token>@host/x` and any `user:password@` form (in any scheme, percent-encoded or
   not) are rejected with the endpoint named as unusable. Use a credential helper, or a remote
