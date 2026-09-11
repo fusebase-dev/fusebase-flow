@@ -420,7 +420,7 @@ succeed. `preflight.sh` warns when the base is missing or stale.
 
 ## Post-install validation
 
-First, the module-size ratchet (FR-25) must be re-keyed to **this** repo — the copied baseline is the template's, and your existing over-ceiling files would block on first touch otherwise. **You don't run this** — tell your Flow agent *"adopt the module-size baseline for this repo"* and on that go-ahead it runs the adoption for you (regenerates the baseline, auto-mints the FR-07 approval, commits, consumes). For reference, the command it runs is `bash hooks/local/check-module-size.sh --write-baseline`.
+First, the module-size ratchet (FR-25). It is live from your first commit: the copied baseline holds Flow's own rows, and because a committed baseline exists the gate blocks instead of warning. Your source files already over the ceiling (default 800 lines) may be touched or shrunk, but growing one is **blocked whether or not it is adopted** — that is the ratchet working as specified, and the remedy is to extract the addition into a new module. Adoption records those files at their current size and clears them from the `--all` audit; it is not permission to grow. Adopt once from a clean tree before feature work: the baseline is measured from working-tree files, so adopting while a grown file is uncommitted records the growth as its limit. Details: `docs/install-existing-project.md` § Activate the module-size ratchet. **You don't run this** — tell your Flow agent *"adopt the module-size baseline for this repo"* and on that go-ahead it runs the adoption for you (regenerates the baseline, auto-mints the FR-07 approval, commits, consumes). For reference, the command it runs is `bash hooks/local/check-module-size.sh --write-baseline`.
 
 Then run:
 

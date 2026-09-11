@@ -216,7 +216,16 @@ The installer is interactive and opt-in. Pass `--auto-yes` (or `-y`) to accept a
 
 ## Activate the module-size ratchet for your codebase (FR-25)
 
-The copied `policies/module-size-baseline.txt` is the **template's** baseline, not yours — your repo's existing over-ceiling files would block on first touch. It needs regenerating once for this repo (freezes your current over-ceiling files at their present size; new growth then blocks).
+The ratchet is live from your first commit. The copied `policies/module-size-baseline.txt` holds Flow's own rows, not yours, and because a committed baseline exists the gate blocks instead of warning: the "no committed baseline → warn-only" state never applies to an install. For your own source files that are already over the ceiling (default 800 lines):
+
+| Your change to a pre-existing over-ceiling file | Result |
+|---|---|
+| Touch it without growing it, or shrink it | passes |
+| Grow it | **blocked**, whether or not the file is adopted |
+
+A growth block on one of these files is FR-25 working as specified, not an install or upgrade regression. The remedy is to extract the addition into a new module along a responsibility seam.
+
+Adoption records your over-ceiling files at their current size and clears them from the `--all` audit. It does not permit growth: an adopted file may not exceed its recorded size, just as an un-adopted one may not exceed its size at `HEAD`. Adopt once, from a clean tree, before feature work. The baseline is measured from working-tree files, so regenerating it while a grown file is uncommitted records that growth as the new limit. Never regenerate the baseline to clear a growth block.
 
 **You don't run terminal commands for this.** Once Flow is installed, tell your Flow agent: *"adopt the module-size baseline for this repo."* On that go-ahead the agent regenerates the baseline, auto-mints the single-use FR-07 approval, commits it, and consumes the approval — you approve in chat, it runs everything.
 
