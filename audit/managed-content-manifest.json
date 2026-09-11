@@ -1522,7 +1522,7 @@
     },
     {
       "path": "workflows/greenlight-deploy.md",
-      "sha256": "83e0e5cc008a55570fd34848d6939170bee3536fa103d3e7037072792181ed75"
+      "sha256": "e1e90e4681bd2521ff500098c1c3b8ecf492979f0fb864baee09bed4d5c3d120"
     },
     {
       "path": "workflows/greenlight-implement.md",
@@ -1561,5 +1561,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "ae4eafe408a0998b3352fcd8bc3926780889296e21730324bc5449a10c3a8754"
+  "manifest_self_sha256": "2529f8b999ff4109b0e1b3966cad8b67953dbe6de99be3786b718285730722b9"
 }
