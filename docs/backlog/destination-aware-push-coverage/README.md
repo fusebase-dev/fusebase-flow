@@ -14,6 +14,8 @@ The command gate matches raw text. `git push`, `git push origin HEAD` (on `main`
 | Agent command gate | gates only text naming `main`/`master` | plain / HEAD / config-mapped pushes to `main` pass ungated |
 | Git pre-push boundary (`hooks/git/pre-push`) | gates every update whose destination is in `push_destinations`, any route | only where the Flow pre-push is installed; a custom `.git/hooks/pre-push` or `core.hooksPath` keeps it off |
 
+Third case, found by the independent review of `87ed0ff`: git omits UP-TO-DATE refs from the pre-push stream, so a push whose gated destination is already current and which carries only an extra ungated ref never activates the rule, and the boundary allows it. That is this ticket's destination scope, not a subset-comparison defect — the subset check itself rejects every observed update the artifact does not name, and an explicit multi-ref command still needs every update bound at the command gate.
+
 ## Open decisions (need an operator product call)
 
 - Resolve the destination for text that names no ref: `push.default`, `branch.<b>.remote/merge`, `remote.<r>.push`, `remote.pushDefault` — or deny any unresolvable push outright.

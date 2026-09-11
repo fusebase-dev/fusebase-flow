@@ -71,7 +71,36 @@ ref-update binding is missing.
   `direct_to_main`, a push that updates `main`/`master` needs a matching approval whether an
   agent or a person runs it. The upgrade installs the hook next to `pre-commit`; a custom
   `.git/hooks/pre-push` is preserved and reported, and the boundary is then not active.
-- A remote URL's embedded user name or token is never written into an approval.
+- **SSH logins are part of the destination.** `alice@host:repo.git` and `bob@host:repo.git` are
+  different repositories (`~` expands per principal), so they bind separately and changing the
+  login invalidates an approval. An HTTP(S) userinfo is authentication material that never
+  selects the repository, so it is dropped and never written into an approval; an SSH URL
+  carrying a password is refused rather than stored.
+
+## What this does NOT protect
+
+Stated plainly, because each of these is easy to assume from the section above.
+
+- **The pre-push boundary is conditional protection, not a bypass-proof gate.** `git push
+  --no-verify` skips it entirely — that is git's documented behavior — and an absent or custom
+  `.git/hooks/pre-push` is no boundary at all. `--inventory` tells you which of those you are
+  in. The agent command gate still applies on hook-wired agent routes.
+- **The boundary does not enforce FR-06's force-push rule.** It binds the source object and the
+  destination; it does not read the remote's prior value, so it cannot tell a forced overwrite
+  from any other update to the approved object. Force-push denial remains a command-policy
+  `deny` rule at the command layer only, and the resolver refuses forced refspecs (`+main`,
+  `--force*`) when minting.
+- **A push whose gated destination is already up to date is not gated.** git omits up-to-date
+  refs from the pre-push stream, so a push carrying only an extra (ungated) ref does not
+  activate the rule and the boundary allows it. An explicit multi-ref command still requires
+  every update to be bound at the command gate. This is destination scope, tracked in
+  `docs/backlog/destination-aware-push-coverage/`.
+- **A dry run cannot be approved.** `git push --dry-run` / `-n` performs no update, and git
+  hands the boundary the same refs for it as for the real push, so an approval minted for a dry
+  run would have authorized the real one. Minting for a dry run is refused; inspect with
+  `git log <remote>/<branch>..<branch>` instead.
+- **Approvals are audit metadata, not authenticated consent** (decision K3, unchanged): a
+  process running as the same OS user can write a correctly bound artifact.
 
 ## Not in this release
 
