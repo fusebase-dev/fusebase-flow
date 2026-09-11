@@ -90,7 +90,8 @@ from pathlib import Path
 root_path = Path(root)
 sys.path.insert(0, str(root_path / "hooks"))
 from shared.approval_artifact import (  # noqa: E402
-    compute_command_digest, compute_repo_id, evaluate_artifact, now_utc, parse_expiry,
+    NOT_OBSERVED, PROFILE_GIT_PUSH, compute_command_digest, compute_repo_id, evaluate_artifact,
+    evaluate_command_approval, now_utc, parse_expiry,
 )
 
 RECEIPT_SCHEMA = "fusebase-flow/deploy-approval-receipt/v1"
@@ -210,10 +211,29 @@ def do_emit() -> None:
     # format has second resolution, so a sub-second `observed` makes the published
     # `remaining_ttl_seconds` disagree with `expires_at - observed_at` as printed.
     observed = now_utc().replace(microsecond=0)
-    verdict = evaluate_artifact(
-        data, expected_action=action,
-        command_digest=compute_command_digest(command_str) if command_given == "1" else None,
-        repo_id=compute_repo_id(root_path), now=observed)
+    try:
+        from shared.command_policy import approval_binding_for, command_gated_actions
+        gated = action in command_gated_actions(root_path)
+    except BaseException as e:                        # noqa: BLE001
+        fail(f"command-policy could not be read ({e!r}); the verdict cannot be computed.", 2)
+    if gated:
+        # The gate's own contract (schema 3; profile + ref updates re-resolved from --command),
+        # so the receipt can never record VALID for an artifact the gate would refuse.
+        binding = approval_binding_for(command_str, action, root=root_path)[0] \
+            if command_given == "1" else None
+        verdict = evaluate_command_approval(
+            data, expected_action=action,
+            required_profile=binding["binding_profile"] if binding else NOT_OBSERVED,
+            command_digest=compute_command_digest(command_str) if command_given == "1" else None,
+            repo_id=compute_repo_id(root_path),
+            updates=(binding or {}).get("updates", None if data.get("binding_profile")
+                                        == PROFILE_GIT_PUSH else NOT_OBSERVED),
+            now=observed)
+    else:
+        verdict = evaluate_artifact(
+            data, expected_action=action,
+            command_digest=compute_command_digest(command_str) if command_given == "1" else None,
+            repo_id=compute_repo_id(root_path), now=observed)
 
     expires = parse_expiry(data.get("expires_at"))
     remaining = int((expires.astimezone(timezone.utc) - observed).total_seconds()) \

@@ -25,10 +25,12 @@ hooks/
 │   ├── command_policy.py
 │   ├── command_rules.py           ← rule shape: pattern/flags/action|any_of
 │   ├── denial_message.py          ← the one FR-12 denial renderer (both entry points)
+│   ├── git_push_binding.py        ← the ref updates a git push performs (git_push_v1 input)
 │   └── approval_artifact.py       ← the one approval-artifact judge (every carrier)
 ├── git/                           ← git fallback hooks (bash; symlinked into .git/hooks/)
 │   ├── pre-commit
-│   └── commit-msg
+│   ├── commit-msg
+│   └── pre-push                   ← FR-12 boundary for git_push_v1 ref updates
 ├── local/                         ← local helper scripts (agent- or operator-run)
 │   ├── install-git-hooks.sh
 │   ├── preflight.sh

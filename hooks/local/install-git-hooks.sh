@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Fusebase Flow — install-git-hooks
 # Copies (NOT symlinks, for cross-platform portability) the git fallback hooks
-# into .git/hooks/. Re-run after pulling Fusebase Flow updates (upgrade.sh and
-# post-fusebase-update.sh call this so the FIXED pre-commit is live on upgrade).
+# (pre-commit, commit-msg, pre-push) into .git/hooks/. Re-run after pulling Fusebase Flow
+# updates (upgrade.sh and post-fusebase-update.sh call this so the FIXED pre-commit and the
+# FR-12 pre-push boundary are live on upgrade).
 #
 # SAFE (re)install (WS1c): a Flow-managed hook (carrying the UNIQUE managed marker
 # `fusebase-flow-managed-hook: v1`) is refreshed in place; a CUSTOM hook (no unique
@@ -43,7 +44,10 @@ is_flow_managed() {
 }
 
 skipped_custom=0
-for hook in pre-commit commit-msg; do
+# TRIPWIRE: this list IS the Flow git-hook set. A hook missing here is never installed and
+# never (re)installed on upgrade — `pre-push` is the FR-12 execution boundary for
+# git_push_v1 approvals, so dropping it silently turns that boundary off.
+for hook in pre-commit commit-msg pre-push; do
     src_file="$SRC/$hook"
     dest_file="$DEST/$hook"
     [ -f "$src_file" ] || continue

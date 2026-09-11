@@ -382,16 +382,16 @@ custom_hook() { printf '#!/bin/sh\n# a consumer hook Flow does not own\nexit 0\n
 f=""
 D="$(gh_fixture both-absent)"
 S="$(gh_states "$D")"
-[ "$S" = "pre-commit=installed commit-msg=installed" ] || f="$f [a virgin .git/hooks derived '$S']"
+[ "$S" = "pre-commit=installed commit-msg=installed pre-push=installed" ] || f="$f [a virgin .git/hooks derived '$S']"
 render_git "$S" | grep -qi "pre-commit is live" || f="$f [both installed but the trailer does not say the fixed pre-commit is live]"
 
 S="$(gh_states "$D")"
-[ "$S" = "pre-commit=current commit-msg=current" ] || f="$f [a second install over Flow-managed hooks derived '$S']"
+[ "$S" = "pre-commit=current commit-msg=current pre-push=current" ] || f="$f [a second install over Flow-managed hooks derived '$S']"
 render_git "$S" | grep -qi "pre-commit is live" || f="$f [already-current hooks are not reported live]"
 
 D="$(gh_fixture custom-commit-msg)"; custom_hook "$D/.git/hooks/commit-msg"
 S="$(gh_states "$D")"
-[ "$S" = "pre-commit=installed commit-msg=custom" ] || f="$f [a custom commit-msg beside an installable pre-commit derived '$S']"
+[ "$S" = "pre-commit=installed commit-msg=custom pre-push=installed" ] || f="$f [a custom commit-msg beside an installable pre-commit derived '$S']"
 OUT="$(render_git "$S")"
 printf '%s' "$OUT" | grep -qi "pre-commit is live" \
   || f="$f [THE C4 DEFECT: a custom commit-msg suppressed the 'pre-commit is live' fact for a pre-commit that WAS installed]"
@@ -401,14 +401,21 @@ printf '%s' "$OUT" | grep -qi "commit-msg" || f="$f [the preserved custom hook i
 
 D="$(gh_fixture custom-pre-commit)"; custom_hook "$D/.git/hooks/pre-commit"
 S="$(gh_states "$D")"
-[ "$S" = "pre-commit=custom commit-msg=installed" ] || f="$f [a custom pre-commit beside an installable commit-msg derived '$S']"
+[ "$S" = "pre-commit=custom commit-msg=installed pre-push=installed" ] || f="$f [a custom pre-commit beside an installable commit-msg derived '$S']"
 OUT="$(render_git "$S")"
 printf '%s' "$OUT" | grep -qi "pre-commit is NOT live" || f="$f [a preserved custom pre-commit is not reported as not live]"
 printf '%s' "$OUT" | grep -q -- "--force" || f="$f [the preserved-custom branch does not say how to install the Flow hook]"
 
+D="$(gh_fixture custom-pre-push)"; custom_hook "$D/.git/hooks/pre-push"
+S="$(gh_states "$D")"
+[ "$S" = "pre-commit=installed commit-msg=installed pre-push=custom" ] || f="$f [a custom pre-push beside installable hooks derived '$S']"
+OUT="$(render_git "$S")"
+printf '%s' "$OUT" | grep -qi "push boundary is NOT live" || f="$f [a preserved custom pre-push is not reported as leaving the FR-12 push boundary off]"
+printf '%s' "$OUT" | grep -qi "pre-commit is live" || f="$f [a custom pre-push suppressed the live pre-commit fact]"
+
 D="$(gh_fixture installer-fails)"; mv "$D/hooks/git" "$D/hooks/git-moved"
 S="$(gh_states "$D")"
-[ "$S" = "pre-commit=failed commit-msg=failed" ] || f="$f [an installer exiting nonzero derived '$S']"
+[ "$S" = "pre-commit=failed commit-msg=failed pre-push=failed" ] || f="$f [an installer exiting nonzero derived '$S']"
 OUT="$(render_git "$S")"
 printf '%s' "$OUT" | grep -qi "FAILED" || f="$f [the installer-failure branch does not report the failure]"
 printf '%s' "$OUT" | grep -qi "is live" && f="$f [an installer failure still claims a hook is live]"

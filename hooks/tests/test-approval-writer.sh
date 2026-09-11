@@ -101,7 +101,7 @@ from pathlib import Path
 root, repo, expected_reason = Path(sys.argv[1]), Path(sys.argv[2]), sys.argv[3]
 sys.path.insert(0, str(root / "hooks"))
 from shared.approval_artifact import (  # noqa: E402
-    Verdict, compute_command_digest, compute_repo_id, evaluate_artifact, load, now_utc,
+    Verdict, compute_command_digest, compute_repo_id, evaluate_command_approval, load, now_utc,
     parse_expiry,
 )
 fails = []
@@ -116,8 +116,10 @@ else:
         d = art.data
         if d.get("reason") != expected_reason:
             fails.append(f"reason did not round-trip exactly: {d.get('reason')!r}")
-        if d.get("schema_version") != 2:
-            fails.append(f"expected schema_version 2, got {d.get('schema_version')!r}")
+        if d.get("schema_version") != 3:
+            fails.append(f"expected schema_version 3, got {d.get('schema_version')!r}")
+        if d.get("binding_profile") != "command_only_v1" or "updates" in d:
+            fails.append(f"fusebase deploy must be command_only_v1: {d.get('binding_profile')!r}")
         if d.get("action") != "production_deploy":
             fails.append("body action missing/disagrees with the filename")
         if d.get("repo_id") != compute_repo_id(repo):
@@ -131,9 +133,10 @@ else:
             fails.append(f"created_at absent or unparseable: {d.get('created_at')!r}")
         elif abs((now_utc() - created).total_seconds()) > 600:
             fails.append(f"created_at is not the mint time: {d.get('created_at')!r}")
-        v = evaluate_artifact(d, expected_action="production_deploy",
-                              command_digest=compute_command_digest("fusebase deploy"),
-                              repo_id=compute_repo_id(repo))
+        v = evaluate_command_approval(d, expected_action="production_deploy",
+                                      required_profile="command_only_v1",
+                                      command_digest=compute_command_digest("fusebase deploy"),
+                                      repo_id=compute_repo_id(repo))
         if v is not Verdict.VALID:
             fails.append(f"freshly written artifact is not VALID: {v}")
 # No temp files left behind.
@@ -200,23 +203,28 @@ rm -rf "$WRITER_REPO"
 # ---- 6. AC12: the inventory names every artifact and the strict reject count -------
 INV_REPO="$(mktemp -d)"
 INV_REPO_NATIVE="$( cd "$INV_REPO" && { pwd -W 2>/dev/null || pwd; } )"
-mkdir -p "$INV_REPO/state/approvals"
-cat > "$INV_REPO/state/approvals/production_deploy-good-20260728.json" <<'EOF'
-{"schema_version":2,"action":"production_deploy","expires_at":"2099-01-01T00:00:00Z"}
+mkdir -p "$INV_REPO/state/approvals" "$INV_REPO/policies"
+cp "$ROOT/policies/approval-policy.yml" "$ROOT/policies/command-policy.yml" "$INV_REPO/policies/"
+cat > "$INV_REPO/state/approvals/health_check_deferral-good-20260728.json" <<'EOF'
+{"schema_version":2,"action":"health_check_deferral","expires_at":"2099-01-01T00:00:00Z"}
 EOF
-cat > "$INV_REPO/state/approvals/production_deploy-legacy-20260728.json" <<'EOF'
-{"action":"production_deploy"}
+cat > "$INV_REPO/state/approvals/health_check_deferral-legacy-20260728.json" <<'EOF'
+{"action":"health_check_deferral"}
 EOF
-cat > "$INV_REPO/state/approvals/production_deploy-stale-20260728.json" <<'EOF'
-{"action":"production_deploy","expires_at":"2000-01-01T00:00:00Z"}
+cat > "$INV_REPO/state/approvals/health_check_deferral-stale-20260728.json" <<'EOF'
+{"action":"health_check_deferral","expires_at":"2000-01-01T00:00:00Z"}
 EOF
-printf '[1,2,3]' > "$INV_REPO/state/approvals/production_deploy-broken-20260728.json"
+printf '[1,2,3]' > "$INV_REPO/state/approvals/health_check_deferral-broken-20260728.json"
+cat > "$INV_REPO/state/approvals/production_deploy-v2bound-20260728.json" <<'EOF'
+{"schema_version":2,"action":"production_deploy","expires_at":"2099-01-01T00:00:00Z","command_digest":"00"}
+EOF
 INV="$(python3 "$ROOT/hooks/local/lib/approval_inventory.py" --root "$INV_REPO_NATIVE" 2>&1)"
 inv_fail=""
-for needle in "production_deploy-good-20260728.json" "production_deploy-legacy-20260728.json" \
-              "production_deploy-stale-20260728.json" "production_deploy-broken-20260728.json" \
+for needle in "health_check_deferral-good-20260728.json" "health_check_deferral-legacy-20260728.json" \
+              "health_check_deferral-stale-20260728.json" "health_check_deferral-broken-20260728.json" \
               "legacy-no-expiry" "expired" "MALFORMED" "MISSING_EXPIRY" "EXPIRED" \
-              "3 would be REJECTED"; do
+              "4 authorize nothing" "1 command approval artifact(s) no longer authorize" \
+              "production_deploy-v2bound-20260728.json: LEGACY_SCHEMA - schema_version 2"; do
   case "$INV" in *"$needle"*) ;; *) inv_fail="$inv_fail [$needle]" ;; esac
 done
 case "$INV" in *"ACCEPT"*) ;; *) inv_fail="$inv_fail [no ACCEPT row]" ;; esac
@@ -231,7 +239,8 @@ fi
 # artifact AND a command-bound artifact both printed ACCEPT.
 INV2_REPO="$(mktemp -d)"
 INV2_NATIVE="$( cd "$INV2_REPO" && { pwd -W 2>/dev/null || pwd; } )"
-mkdir -p "$INV2_REPO/state/approvals"
+mkdir -p "$INV2_REPO/state/approvals" "$INV2_REPO/policies"
+cp "$ROOT/policies/approval-policy.yml" "$ROOT/policies/command-policy.yml" "$INV2_REPO/policies/"
 MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$ROOT" "$INV2_NATIVE" <<'PY' >/dev/null 2>&1
 import json, sys
 from pathlib import Path
@@ -239,15 +248,21 @@ root, repo = Path(sys.argv[1]), Path(sys.argv[2])
 sys.path.insert(0, str(root / "hooks"))
 from shared.approval_artifact import compute_command_digest, compute_repo_id  # noqa: E402
 d = repo / "state" / "approvals"
-base = {"schema_version": 2, "action": "production_deploy",
-        "expires_at": "2099-01-01T00:00:00Z"}
+base = {"schema_version": 3, "action": "production_deploy", "created_at": "2026-01-01T00:00:00Z",
+        "expires_at": "2099-01-01T00:00:00Z", "binding_profile": "command_only_v1",
+        "command_digest": compute_command_digest("fusebase deploy")}
 (d / "production_deploy-foreignrepo-20260728.json").write_text(
     json.dumps(dict(base, repo_id=compute_repo_id(repo / "somewhere" / "else"))), encoding="utf-8")
 (d / "production_deploy-cmdbound-20260728.json").write_text(
-    json.dumps(dict(base, repo_id=compute_repo_id(repo),
-                    command_digest=compute_command_digest("fusebase deploy"))), encoding="utf-8")
-(d / "production_deploy-plain-20260728.json").write_text(
     json.dumps(dict(base, repo_id=compute_repo_id(repo))), encoding="utf-8")
+(d / "production_deploy-legacyplain-20260728.json").write_text(
+    json.dumps({"schema_version": 2, "action": "production_deploy",
+                "expires_at": "2099-01-01T00:00:00Z", "repo_id": compute_repo_id(repo)}),
+    encoding="utf-8")
+(d / "protected_path_edit-plain-20260728.json").write_text(
+    json.dumps({"schema_version": 2, "action": "protected_path_edit", "paths": ["x"],
+                "expires_at": "2099-01-01T00:00:00Z", "repo_id": compute_repo_id(repo)}),
+    encoding="utf-8")
 PY
 INV2="$(python3 "$ROOT/hooks/local/lib/approval_inventory.py" --root "$INV2_NATIVE" 2>&1)"
 inv2_fail=""
@@ -257,9 +272,15 @@ esac
 case "$(echo "$INV2" | grep cmdbound)" in
   *"UNCHECKED (command-bound)"*) ;; *) inv2_fail="$inv2_fail [command-bound row not UNCHECKED]" ;;
 esac
-case "$(echo "$INV2" | grep 'plain')" in
-  *ACCEPT*) ;; *) inv2_fail="$inv2_fail [valid repo-bound row is not ACCEPT]" ;;
+case "$(echo "$INV2" | grep 'legacyplain' | head -1)" in
+  *"REJECT (LEGACY_SCHEMA)"*) ;; *) inv2_fail="$inv2_fail [schema-2 command approval not REJECTed]" ;;
 esac
+case "$(echo "$INV2" | grep 'protected_path_edit-plain')" in
+  *ACCEPT*) ;; *) inv2_fail="$inv2_fail [valid repo-bound protected-path row is not ACCEPT]" ;;
+esac
+if echo "$INV2" | grep production_deploy | grep -q ' ACCEPT'; then
+  inv2_fail="$inv2_fail [a command approval printed ACCEPT]"
+fi
 if [ -z "$inv2_fail" ]; then
   ok "ac27-inventory-never-accepts-a-gate-rejected-artifact"
 else
@@ -292,26 +313,16 @@ def repo_with(tmp: Path, strict: bool) -> Path:
     return tmp
 
 
-with tempfile.TemporaryDirectory() as d:
-    repo = repo_with(Path(d), strict=False)
-    dec = evaluate("fusebase deploy", root=repo)
-    if dec.decision != "allow":
-        fails.append(f"compat: expiry-less artifact should be allowed, got {dec.decision}")
-    log = repo / "state" / "audit.log.jsonl"
-    if not log.is_file():
-        fails.append("compat: acceptance was SILENT — K7 requires an audit entry")
-    else:
-        text = log.read_text(encoding="utf-8")
-        if "approval_legacy_accepted" not in text or "MISSING_EXPIRY" not in text:
-            fails.append(f"compat: audit entry missing the legacy-acceptance record: {text[:200]}")
-
-with tempfile.TemporaryDirectory() as d:
-    repo = repo_with(Path(d), strict=True)
-    dec = evaluate("fusebase deploy", root=repo)
-    if dec.decision != "deny":
-        fails.append(f"strict: expiry-less artifact must be rejected, got {dec.decision}")
-    if dec.approval_verdict != "MISSING_EXPIRY":
-        fails.append(f"strict: expected MISSING_EXPIRY verdict, got {dec.approval_verdict!r}")
+for strict in (False, True):
+    with tempfile.TemporaryDirectory() as d:
+        repo = repo_with(Path(d), strict=strict)
+        dec = evaluate("fusebase deploy", root=repo)
+        if dec.decision != "deny" or dec.approval_verdict != "LEGACY_SCHEMA":
+            fails.append(f"strict={strict}: a legacy command approval must be rejected as "
+                         f"LEGACY_SCHEMA in every mode, got {dec.decision}/{dec.approval_verdict!r}")
+        log = repo / "state" / "audit.log.jsonl"
+        if log.is_file() and "approval_legacy_accepted" in log.read_text(encoding="utf-8"):
+            fails.append(f"strict={strict}: the command gate still compat-accepts legacy artifacts")
 
 # Tighten-only: a local override cannot turn strict back OFF once the base is ON.
 with tempfile.TemporaryDirectory() as d:
@@ -375,9 +386,9 @@ print(json.dumps(fails))
 PY
 )"
 if [ "$STRICT_OUT" = "[]" ]; then
-  ok "ac12-strict-vs-compat-and-audited-legacy-acceptance"
+  ok "ac12-command-gate-rejects-legacy-in-every-mode"
 else
-  bad "ac12-strict-vs-compat-and-audited-legacy-acceptance" "$STRICT_OUT"
+  bad "ac12-command-gate-rejects-legacy-in-every-mode" "$STRICT_OUT"
 fi
 rm -rf "$INV_REPO"
 

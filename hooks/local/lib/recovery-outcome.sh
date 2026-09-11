@@ -125,15 +125,17 @@ ffro_settings_trailer() {
   esac
 }
 
-# ffro_git_hook_states <installer-output> <installer-rc> -> "pre-commit=<s> commit-msg=<s>"
+# ffro_git_hook_states <installer-output> <installer-rc>
+#   -> "pre-commit=<s> commit-msg=<s> pre-push=<s>"
 # States: installed | current | custom | failed | skipped.
-# TRIPWIRE: derive PER HOOK. install-git-hooks.sh loops over both and reports each one
+# TRIPWIRE: derive PER HOOK. install-git-hooks.sh loops over all of them and reports each one
 # independently (and skipping a custom one does not change its exit code), so a custom
 # commit-msg is NOT evidence that the Flow pre-commit is dead — that inference is the
-# caller-summary defect this ticket exists to remove.
+# caller-summary defect this ticket exists to remove. Keep this list in step with the
+# installer's: a hook missing here reports nothing, which reads as "not installed".
 ffro_git_hook_states() {
   local out="${1:-}" rc="${2:-0}" h st states=""
-  for h in pre-commit commit-msg; do
+  for h in pre-commit commit-msg pre-push; do
     st=skipped
     if [ "$rc" -ne 0 ]; then
       st=failed
@@ -160,10 +162,11 @@ ffro_git_hook_state() {
 # A bare token means "both hooks in that state" — one vocabulary, two arities.
 # TRIPWIRE: "the fixed pre-commit is live" belongs to pre-commit ∈ {installed,current} ONLY.
 ffro_git_hook_trailer() {
-  local spec="${1:-skipped}" pc cm
+  local spec="${1:-skipped}" pc cm pp
   case "$spec" in
-    *=*) pc="$(ffro_git_hook_state "$spec" pre-commit)"; cm="$(ffro_git_hook_state "$spec" commit-msg)" ;;
-    *) pc="$spec"; cm="$spec" ;;
+    *=*) pc="$(ffro_git_hook_state "$spec" pre-commit)"; cm="$(ffro_git_hook_state "$spec" commit-msg)"
+         pp="$(ffro_git_hook_state "$spec" pre-push)" ;;
+    *) pc="$spec"; cm="$spec"; pp="$spec" ;;
   esac
   case "$pc" in
     installed|current)
@@ -186,4 +189,17 @@ ffro_git_hook_trailer() {
     echo "[upgrade] NOTE: a CUSTOM .git/hooks/commit-msg was preserved above (not overwritten); the Flow"
     echo "          commit-msg is NOT live. Install it explicitly: bash hooks/local/install-git-hooks.sh --force"
   fi
+  # The FR-12 push boundary is its own fact: a custom (or absent) pre-push leaves git_push_v1
+  # approvals checked only before the command runs, never against the refs git actually sends.
+  case "$pp" in
+    installed|current|failed) : ;;
+    custom)
+      echo "[upgrade] NOTE: a CUSTOM .git/hooks/pre-push was preserved above (not overwritten); the Flow"
+      echo "          FR-12 push boundary is NOT live. Install it explicitly: bash hooks/local/install-git-hooks.sh --force"
+      ;;
+    *)
+      echo "[upgrade] NOTE: the Flow .git/hooks/pre-push was NOT installed here, so the FR-12 push"
+      echo "          boundary is NOT live. Install it: bash hooks/local/install-git-hooks.sh"
+      ;;
+  esac
 }

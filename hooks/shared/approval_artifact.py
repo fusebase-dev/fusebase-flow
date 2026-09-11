@@ -7,12 +7,18 @@ load, schema detection, expiry parsing, action agreement, binding checks.
 Contract (decision K17): a Verdict is artifact STATE only. Acceptability is the
 separate predicate is_acceptable(verdict, strict=...), so each carrier declares
 its own pass-set and the loader never needs to know who called it.
+
+Two contracts live here. `evaluate_artifact` judges protected-path and deferral
+artifacts (schema 1/2, binding enforced when present). `evaluate_command_approval`
+judges COMMAND approvals: schema 3 only, every binding mandatory, VALID the only
+acceptable verdict whatever `strict_approvals` says (docs/backlog/approval-binding-omits-head/).
 """
 from __future__ import annotations
 
 import hashlib
 import json
 import os
+import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
@@ -31,6 +37,10 @@ class Verdict(str, Enum):
     MALFORMED = "MALFORMED"
     ACTION_MISMATCH = "ACTION_MISMATCH"
     BINDING_MISMATCH = "BINDING_MISMATCH"
+    LEGACY_SCHEMA = "LEGACY_SCHEMA"            # command approval predating schema 3
+    PROFILE_MISMATCH = "PROFILE_MISMATCH"      # binding profile differs from the rule's
+    UPDATE_MISMATCH = "UPDATE_MISMATCH"        # git_push_v1: different ref update(s)
+    BINDING_UNRESOLVED = "BINDING_UNRESOLVED"  # the observed binding could not be resolved
 
 
 #: Verdicts each carrier accepts, by strictness (decision K17's table).
@@ -39,6 +49,29 @@ _ACCEPT_COMPAT = frozenset({Verdict.VALID, Verdict.MISSING_EXPIRY})
 
 SCHEMA_VERSION = 2
 _KNOWN_SCHEMAS = (1, 2)
+
+COMMAND_SCHEMA_VERSION = 3
+PROFILE_COMMAND_ONLY = "command_only_v1"   # binds the command text + repository, NOT content
+PROFILE_GIT_PUSH = "git_push_v1"           # also binds every ref update the push performs
+BINDING_PROFILES = (PROFILE_COMMAND_ONLY, PROFILE_GIT_PUSH)   # weakest first: index = strength
+UPDATE_KEYS = ("push_endpoint", "destination_ref", "source_oid", "operation")
+#: Actions judged by their OWN carrier (path_policy, the health engine), never as command
+#: approvals. Reporters fall back to "every other action is a command approval" when
+#: command-policy cannot be read, so a path/deferral artifact is not hidden by that failure.
+NON_COMMAND_ACTIONS = frozenset({"protected_path_edit", "health_check_deferral"})
+
+
+class _NotObserved:
+    def __repr__(self) -> str:
+        return "NOT_OBSERVED"
+
+
+#: TRIPWIRE: passing NOT_OBSERVED skips an equality check. Only a carrier that
+#: structurally cannot see that input may pass it — the --inventory / health reports, and
+#: the pre-push boundary for `command_digest` (git hands it ref updates, never the command).
+#: The command gate always passes real observed values; None there means "unknown" and
+#: fails closed.
+NOT_OBSERVED: Any = _NotObserved()
 
 
 @dataclass(frozen=True)
@@ -213,6 +246,184 @@ def evaluate_artifact(
     return expiry_verdict or Verdict.VALID
 
 
+_HEX64 = re.compile(r"[0-9a-f]{64}")
+_OID = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
+_SCHEME_URL = re.compile(r"([A-Za-z][A-Za-z0-9+.-]*)://([^/?#]*)(.*)", re.DOTALL)
+_SCP_LIKE = re.compile(r"([^/:]{2,}):(.*)", re.DOTALL)
+_REF_FORBIDDEN = re.compile(r"[\x00-\x20\x7f~^:?*\[\\]|\.\.|@\{|//")
+
+
+def canonical_endpoint(url: Any) -> str | None:
+    """Credential-free identity of a push endpoint, or None when it cannot be one.
+
+    TRIPWIRE: writer, command gate and pre-push boundary all derive the endpoint through
+    THIS function from the string git itself reports, so they cannot drift. It strips
+    userinfo (a token often rides there) and refuses a query/fragment rather than store
+    it; it normalizes nothing else — every normalization widens what one approval binds.
+    """
+    if not isinstance(url, str):
+        return None
+    text = url.strip()
+    if not text or any(ord(c) < 0x21 or ord(c) == 0x7F for c in text):
+        return None
+    m = _SCHEME_URL.fullmatch(text)
+    if m:
+        scheme, authority, rest = m.groups()
+        if "?" in rest or "#" in rest:
+            return None
+        host = authority.rsplit("@", 1)[-1]
+        if not host and scheme.lower() != "file":
+            return None
+        return f"{scheme}://{host}{rest}"
+    m = _SCP_LIKE.fullmatch(text)
+    if m:                                    # [user@]host:path; a 1-char head is a drive
+        host = m.group(1).rsplit("@", 1)[-1]
+        return f"{host}:{m.group(2)}" if host else None
+    return text                              # a local path
+
+
+def valid_destination_ref(ref: Any) -> bool:
+    """A fully qualified ref name under `git check-ref-format` rules (conservative)."""
+    if not isinstance(ref, str) or not ref.startswith("refs/") or ref.endswith(("/", ".", ".lock")):
+        return False
+    if _REF_FORBIDDEN.search(ref):
+        return False
+    return all(part and not part.startswith(".") and not part.endswith(".lock")
+               for part in ref.split("/"))
+
+
+Update = tuple[str, str, "str | None", str]
+
+
+def canonical_updates(value: Any) -> tuple[Update, ...] | None:
+    """The `updates` binding as a sorted tuple, or None when any entry is malformed.
+
+    Entry = {push_endpoint, destination_ref, source_oid, operation}, exactly those keys.
+    `update` carries a full object id; `delete` carries source_oid null (a deletion has
+    no source object). One destination per endpoint — a duplicate is ambiguous.
+    """
+    if not isinstance(value, list) or not value:
+        return None
+    out: list[Update] = []
+    for entry in value:
+        if not isinstance(entry, dict) or set(entry) != set(UPDATE_KEYS):
+            return None
+        endpoint, ref = entry["push_endpoint"], entry["destination_ref"]
+        oid, op = entry["source_oid"], entry["operation"]
+        if not isinstance(endpoint, str) or canonical_endpoint(endpoint) != endpoint:
+            return None
+        if not valid_destination_ref(ref):
+            return None
+        if op == "update":
+            if not isinstance(oid, str) or not _OID.fullmatch(oid):
+                return None
+        elif op != "delete" or oid is not None:
+            return None
+        out.append((endpoint, ref, oid, op))
+    if len({(e, r) for e, r, _o, _p in out}) != len(out):
+        return None
+    return tuple(sorted(out, key=lambda u: (u[0], u[1], u[2] or "", u[3])))
+
+
+def updates_as_json(updates: tuple[Update, ...]) -> list[dict[str, Any]]:
+    return [dict(zip(UPDATE_KEYS, u)) for u in updates]
+
+
+def command_contract_problems(data: Any) -> tuple[Verdict | None, list[str]]:
+    """(structural verdict or None when sound, human reasons) for a command approval.
+
+    Shared by evaluate_command_approval and the --inventory "why" column, so the report
+    can never give a reason the gate does not act on.
+    """
+    if not isinstance(data, dict):
+        return Verdict.MALFORMED, ["not a JSON object"]
+    schema = data.get("schema_version")
+    legacy = schema is None or (isinstance(schema, int) and not isinstance(schema, bool)
+                                and schema in _KNOWN_SCHEMAS)
+    if legacy:
+        missing = [k for k in ("action", "repo_id", "command_digest", "created_at",
+                               "expires_at", "binding_profile")
+                   if not (isinstance(data.get(k), str) and data[k].strip())]
+        why = [f"schema_version {'absent' if schema is None else schema}; "
+               f"command approvals require {COMMAND_SCHEMA_VERSION}"]
+        if missing:
+            why.append("missing " + ", ".join(missing))
+        return Verdict.LEGACY_SCHEMA, why
+    if isinstance(schema, bool) or schema != COMMAND_SCHEMA_VERSION:
+        return Verdict.MALFORMED, [f"unknown schema_version {schema!r}"]
+    why = []
+    action = data.get("action")
+    if not isinstance(action, str) or not action.strip():
+        why.append("action missing or not a string")
+    for key in ("repo_id", "command_digest"):
+        if not isinstance(data.get(key), str) or not _HEX64.fullmatch(data[key]):
+            why.append(f"{key} is not 64 lowercase hex")
+    created, expires = parse_expiry(data.get("created_at")), parse_expiry(data.get("expires_at"))
+    if created is None:
+        why.append("created_at missing or unparseable")
+    if expires is None:
+        why.append("expires_at missing or unparseable")
+    if created is not None and expires is not None and not created < expires:
+        why.append("created_at is not before expires_at")
+    profile = data.get("binding_profile")
+    if profile not in BINDING_PROFILES:
+        why.append(f"binding_profile {profile!r} is not one of {list(BINDING_PROFILES)}")
+    elif profile == PROFILE_GIT_PUSH:
+        if canonical_updates(data.get("updates")) is None:
+            why.append("updates missing or malformed for git_push_v1")
+    elif "updates" in data:
+        why.append(f"updates is not a binding of {profile}")
+    return (Verdict.MALFORMED, why) if why else (None, [])
+
+
+def evaluate_command_approval(
+    data: Any,
+    *,
+    expected_action: str,
+    required_profile: Any,
+    command_digest: Any,
+    repo_id: Any,
+    updates: Any = NOT_OBSERVED,
+    updates_mode: str = "exact",
+    now: datetime | None = None,
+) -> Verdict:
+    """Judge a command approval under schema 3. Mode-independent (K17).
+
+    Precedence: MALFORMED/LEGACY_SCHEMA > ACTION_MISMATCH > EXPIRED > BINDING_MISMATCH
+    (repo) > PROFILE_MISMATCH > BINDING_MISMATCH (command) > BINDING_UNRESOLVED /
+    UPDATE_MISMATCH. `updates` is the observed canonical_updates tuple, None when
+    resolution failed. `updates_mode="subset"` is the pre-push boundary's rule: git omits
+    up-to-date refs and runs the hook once per push URL, so every observed update must be
+    bound while a bound one may be absent. The command gate uses "exact".
+    """
+    structural, _why = command_contract_problems(data)
+    if structural is not None:
+        return structural
+    if data["action"].strip() != (expected_action or "").strip():
+        return Verdict.ACTION_MISMATCH
+    if parse_expiry(data["expires_at"]) < (now or now_utc()):
+        return Verdict.EXPIRED
+    if repo_id is not NOT_OBSERVED and (not repo_id or data["repo_id"] != repo_id):
+        return Verdict.BINDING_MISMATCH
+    profile = data["binding_profile"]
+    # A STRONGER profile satisfies a weaker requirement (git_push_v1 carries every
+    # command_only_v1 binding); a weaker or unknown required profile never passes.
+    if required_profile is not NOT_OBSERVED and (
+            required_profile not in BINDING_PROFILES
+            or BINDING_PROFILES.index(profile) < BINDING_PROFILES.index(required_profile)):
+        return Verdict.PROFILE_MISMATCH
+    if command_digest is not NOT_OBSERVED and (
+            not command_digest or data["command_digest"] != command_digest):
+        return Verdict.BINDING_MISMATCH
+    if profile == PROFILE_GIT_PUSH and updates is not NOT_OBSERVED:
+        if updates is None:
+            return Verdict.BINDING_UNRESOLVED
+        bound, observed = set(canonical_updates(data["updates"]) or ()), set(updates)
+        if not (observed <= bound if updates_mode == "subset" else observed == bound):
+            return Verdict.UPDATE_MISMATCH
+    return Verdict.VALID
+
+
 def evaluate_file(
     path: Path | str,
     *,
@@ -301,8 +512,11 @@ def binding_state(data: Any) -> str:
 
 
 __all__ = [
-    "Artifact", "SCHEMA_VERSION", "Verdict", "accept_with_audit", "binding_state",
-    "compute_command_digest",
-    "compute_repo_id", "evaluate_artifact", "evaluate_file", "expiry_state",
-    "filename_action", "is_acceptable", "load", "now_utc", "parse_expiry",
+    "Artifact", "BINDING_PROFILES", "COMMAND_SCHEMA_VERSION", "NON_COMMAND_ACTIONS", "NOT_OBSERVED",
+    "PROFILE_COMMAND_ONLY", "PROFILE_GIT_PUSH", "SCHEMA_VERSION", "UPDATE_KEYS", "Verdict",
+    "accept_with_audit", "binding_state", "canonical_endpoint", "canonical_updates",
+    "command_contract_problems", "compute_command_digest", "compute_repo_id",
+    "evaluate_artifact", "evaluate_command_approval", "evaluate_file", "expiry_state",
+    "filename_action", "is_acceptable", "load", "now_utc", "parse_expiry", "updates_as_json",
+    "valid_destination_ref",
 ]

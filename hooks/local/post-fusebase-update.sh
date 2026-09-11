@@ -593,7 +593,7 @@ if [ "$RESTORE_GIT_HOOKS" -eq 1 ] && [ -d .git/hooks ] && [ -x hooks/local/insta
   elif [ "$GH_HOOK_CLASS" = "custom" ]; then
     WARNINGS+=("custom .git/hooks preserved (not overwritten); re-run 'bash hooks/local/install-git-hooks.sh --force' to install the Flow hook")
   elif [ "$GH_HOOK_CLASS" = "installed" ]; then
-    ACTIONS_TAKEN+=("(re)installed Flow git fallback hooks (.git/hooks/pre-commit, commit-msg)")
+    ACTIONS_TAKEN+=("(re)installed Flow git fallback hooks (.git/hooks/pre-commit, commit-msg, pre-push)")
   else
     ACTIONS_SKIPPED+=("Flow git fallback hooks already current")
   fi

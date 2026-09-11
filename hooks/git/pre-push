@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+# Fusebase Flow — pre-push git hook
+# fusebase-flow-managed-hook: v1
+#
+# FR-12 execution boundary for git_push_v1 approvals: git hands this hook the exact ref
+# updates it is about to send (after any `commit && push`, moved branch or config change),
+# and hooks/shared/command_policy.evaluate_push_boundary decides. A push that updates a
+# policy `push_destinations` ref needs an unexpired schema-3 approval binding EVERY update.
+#
+# Install: bash hooks/local/install-git-hooks.sh. Bypass: NEVER use --no-verify.
+
+set -uo pipefail
+
+FFPP_TMP=""
+_ffpp_cleanup() { [ -n "$FFPP_TMP" ] && rm -rf "$FFPP_TMP" 2>/dev/null; return 0; }
+trap _ffpp_cleanup EXIT
+_ffpp_block() {
+    echo "[fusebase-flow:pre-push] BLOCK — $1 Failing closed. NEVER use --no-verify." >&2
+    exit 1
+}
+
+FFPP_TMP="$(mktemp -d 2>/dev/null || mktemp -d -t ffflow-prepush)"
+[ -d "${FFPP_TMP:-/nonexistent}" ] || _ffpp_block "no temp dir for the push check."
+# TRIPWIRE (T84): git reads go to a FILE and back through `read` — NEVER `$(git …)`; a
+# Windows-native git descendant can hold a substitution pipe open and hang the push.
+ROOT=""
+git rev-parse --show-toplevel > "$FFPP_TMP/root" 2>/dev/null
+IFS= read -r ROOT < "$FFPP_TMP/root" 2>/dev/null || :
+if [ -z "$ROOT" ]; then
+    FFPP_BARE=""
+    git rev-parse --is-bare-repository > "$FFPP_TMP/bare" 2>/dev/null
+    IFS= read -r FFPP_BARE < "$FFPP_TMP/bare" 2>/dev/null || :
+    if [ "$FFPP_BARE" = "true" ]; then
+        echo "[fusebase-flow:pre-push] bare repository: no policy worktree to check; skipping" >&2
+        exit 0
+    fi
+    _ffpp_block "git resolved no worktree, so the FR-12 push boundary cannot run."
+fi
+cd "$ROOT" || _ffpp_block "cannot enter $ROOT."
+[ -f "$ROOT/hooks/shared/command_policy.py" ] || _ffpp_block "hooks/shared/command_policy.py is missing (re-run the Flow upgrade, or remove .git/hooks/pre-push deliberately)."
+
+# Same env floor as the pre-commit (T30/T32): no inherited PYTHONPATH/startup surface.
+unset PYTHONPATH PYTHONSTARTUP PYTHONHOME 2>/dev/null || true
+export PYTHONNOUSERSITE=1
+export PYTHONSAFEPATH=1
+
+_ffpp_py3() { "$@" -S -c 'import sys; raise SystemExit(0 if sys.version_info[:2] >= (3, 10) else 1)' >/dev/null 2>&1; }
+FFPP_PY=()
+if command -v python3 >/dev/null 2>&1 && _ffpp_py3 python3; then FFPP_PY=(python3)
+elif command -v python >/dev/null 2>&1 && _ffpp_py3 python; then FFPP_PY=(python)
+elif command -v py >/dev/null 2>&1 && _ffpp_py3 py -3; then FFPP_PY=(py -3)
+fi
+[ "${#FFPP_PY[@]}" -gt 0 ] || _ffpp_block "no Python 3.10+ interpreter (tried python3, python, py -3); the FR-12 push boundary needs one."
+
+# Line 1 = the push URL git reports, then git's update lines verbatim (stdin, not argv, so
+# MSYS path conversion can never rewrite the endpoint identity).
+{ printf '%s\n' "${2:-}"; cat; } > "$FFPP_TMP/in" || _ffpp_block "could not buffer the pre-push update list."
+
+cat > "$FFPP_TMP/gate.py" <<'FFPPPY'
+import sys
+# CWD-strip before any non-builtin import (pre-commit T32): a repo-root shadow module must
+# never win over stdlib/site.
+try:
+    import nt as _oscore
+except ImportError:
+    import posix as _oscore
+try:
+    _drop = {"", ".", _oscore.getcwd()}
+except Exception:
+    _drop = {"", "."}
+sys.path[:] = [p for p in sys.path if p not in _drop]
+from pathlib import Path
+root = Path(sys.argv[1])
+sys.path.insert(0, str(root / "hooks"))
+try:
+    from shared.staged_secret_scan import _restore_site_packages
+    _restore_site_packages()
+    from shared.command_policy import evaluate_push_boundary
+except BaseException as e:
+    print(f"[fusebase-flow:pre-push] BLOCK — the push boundary could not load ({e!r}). "
+          "Failing closed. NEVER use --no-verify.", file=sys.stderr)
+    sys.exit(1)
+try:
+    data = Path(sys.argv[2]).read_text(encoding="utf-8").splitlines()
+    decision = evaluate_push_boundary(data[0] if data else "", data[1:], root=root)
+except BaseException as e:
+    print(f"[fusebase-flow:pre-push] BLOCK — the push boundary errored ({e!r}). "
+          "Failing closed. NEVER use --no-verify.", file=sys.stderr)
+    sys.exit(1)
+if decision.rule_id:
+    try:
+        from shared.audit_logger import emit
+        emit("push_boundary", decision=decision.decision, reason=decision.reason,
+             rule_id=decision.rule_id, root=root,
+             extra={"approval_verdict": decision.approval_verdict,
+                    "required_actions": decision.required_actions})
+    except BaseException:
+        pass
+if decision.decision != "allow":
+    print(decision.reason, file=sys.stderr)
+    sys.exit(1)
+FFPPPY
+
+# TRIPWIRE (MSYS): a Windows python cannot open an MSYS "/tmp/..." path and argv conversion
+# is off under an exported MSYS_NO_PATHCONV, so hand it the NATIVE form (`pwd -W`).
+FFPP_TMP_NATIVE="$(cd "$FFPP_TMP" && { pwd -W 2>/dev/null || pwd; })"
+[ -n "$FFPP_TMP_NATIVE" ] || _ffpp_block "could not resolve the temp dir path."
+PYTHONPATH="" "${FFPP_PY[@]}" -S "$FFPP_TMP_NATIVE/gate.py" "$ROOT" "$FFPP_TMP_NATIVE/in"

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.16.6",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 220,
+  "asset_count": 223,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -11,6 +11,10 @@
     {
       "path": "hooks/git/pre-commit",
       "sha256": "499e12681a2f22d04a23fe0c64729fa90ece0b65a2412bd71af21d2380d81b4a"
+    },
+    {
+      "path": "hooks/git/pre-push",
+      "sha256": "459c272d906b2bee841309028bbd6ddb0222d6ceb49956739a5d6050c9b8c6d2"
     },
     {
       "path": "hooks/handlers/permission_request.py",
@@ -42,7 +46,7 @@
     },
     {
       "path": "hooks/local/approve-local.sh",
-      "sha256": "ef70b080f81fc348b3288831da434c330f244e7e28e7824d4875ae43d4de741a"
+      "sha256": "90c802aabfc1b8fce57f15fdcfe2cd6ba47c830ef3622f7d9eac5fb3548928b9"
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
@@ -54,7 +58,7 @@
     },
     {
       "path": "hooks/local/check-git-capture.sh",
-      "sha256": "d420ce40b53369564215ec5e3515bbf555499664af4e2aea0cf8206b30465924"
+      "sha256": "a1ccdff2d32ff1e39cdbf93fe3be0e610816278c20d018836e5aaab6aa4e2214"
     },
     {
       "path": "hooks/local/check-module-size.sh",
@@ -82,7 +86,7 @@
     },
     {
       "path": "hooks/local/install-git-hooks.sh",
-      "sha256": "c7af93c178980b175e92d70094dd993ca908fbaeb48e12f639e9ae445d2dd1b9"
+      "sha256": "611e7d6bc4562c7d77a200dac61b8ad3259bbe56041e3ffe8b530560fafa3155"
     },
     {
       "path": "hooks/local/lane-router.sh",
@@ -90,15 +94,15 @@
     },
     {
       "path": "hooks/local/lib/active-approvals.sh",
-      "sha256": "c60c6cc05e83cbf049eff777ad380e9bbeb1abb1c2e0e9897404f67672d4348c"
+      "sha256": "083a4eec05126835858cf345537c70448958c6129b605c42dfaba9b13a2c9c5b"
     },
     {
       "path": "hooks/local/lib/approval-receipt.sh",
-      "sha256": "2763adc5ea9ccaff03992f597b300c8129b5208162ea796dbbb478039e786f38"
+      "sha256": "9a54e6ae2ad1300c6ec7887b786943c10e6a073e22aa840ceeea44e2cda29a13"
     },
     {
       "path": "hooks/local/lib/approval_inventory.py",
-      "sha256": "48b3fb6f2b6b16075633f7a44938a21958d403db9152c5f25b352207237280f9"
+      "sha256": "f96ad00eae668bbe6f0820e1d4ff263f32df07b46acba1af9853b6392d6c0f2b"
     },
     {
       "path": "hooks/local/lib/backup-hygiene.sh",
@@ -186,7 +190,7 @@
     },
     {
       "path": "hooks/local/lib/recovery-outcome.sh",
-      "sha256": "48a925c9a1fd7e67e67526d7fd69621e543f0a7384ed91ab144989ee29f7f074"
+      "sha256": "b00c983132ebedbfd671700a0e416dd59cf6ecf3bbc9fcca8360f60f409d009a"
     },
     {
       "path": "hooks/local/lib/recovery-owned-write.py",
@@ -238,7 +242,7 @@
     },
     {
       "path": "hooks/local/post-fusebase-update.sh",
-      "sha256": "91431f1399159c46c26a24788e748c1a832aae8042b22fabeed02f0324c2fd3e"
+      "sha256": "bc92b505e758dd711ded7dbb5589794c8a1ec42baba2f53dea83790d3a9cb3f9"
     },
     {
       "path": "hooks/local/preflight.sh",
@@ -290,7 +294,7 @@
     },
     {
       "path": "hooks/local/upgrade.sh",
-      "sha256": "0123c33d9a4634263f2d3798fba81690bdf37040e4bdb47089d8a699b545f204"
+      "sha256": "f87bf8fd1e17eeced3ee8d236abba8f347df7c4185ffef3ea6dc7619be63258f"
     },
     {
       "path": "hooks/local/verify-gate.sh",
@@ -318,7 +322,7 @@
     },
     {
       "path": "hooks/shared/approval_artifact.py",
-      "sha256": "36aaf7992224a825961b7f64d9fb468f328467df38f16a78ead69d1548388727"
+      "sha256": "06ef447bb30df4ed4dfc12cf6a536474e86dbf6934cd1b21c7c843ad55da6910"
     },
     {
       "path": "hooks/shared/audit_logger.py",
@@ -326,7 +330,7 @@
     },
     {
       "path": "hooks/shared/command_policy.py",
-      "sha256": "fc50834d6e854911aabf9cff03e789c7f6550d23f55dd8ec99c3c4502478aa10"
+      "sha256": "e85660335d3d4c21b472f5addab9e63a07f0c6fa098e5cd37ce2a56af0d40614"
     },
     {
       "path": "hooks/shared/command_rules.py",
@@ -334,7 +338,11 @@
     },
     {
       "path": "hooks/shared/denial_message.py",
-      "sha256": "ec58f63e18e12b0bc45f2783f4ed9db0074e3d0cf5527fddfc83c3434d87d543"
+      "sha256": "ecb5009d5651d94c11450e5903c6c87af749a5c01b352a876a225752906f0ad9"
+    },
+    {
+      "path": "hooks/shared/git_push_binding.py",
+      "sha256": "02f7d3e7f8160f7cca6416c528f4eb1455aa9aab2efea47e083861bf746f5cf3"
     },
     {
       "path": "hooks/shared/git_utils.py",
@@ -566,7 +574,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "43ed3755c7e5c744fadaf2942d78cfedf6248b378c9700b33ca9c415453be0e7"
+      "sha256": "5e3b580a9b5740e9f6e69c64a0c7d831785b808efc4d5bb78aaa9ca38068a82e"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -574,15 +582,19 @@
     },
     {
       "path": "hooks/tests/test-approval-binding.sh",
-      "sha256": "a8b4bbbd2204fae775e61b113118b5eb1741858778c88cb0a8dcb7de1ec00e75"
+      "sha256": "f86ac6e3d625b43cf3c2188b484b3e08a0290f984872f4d34502cd0f74150e4d"
     },
     {
       "path": "hooks/tests/test-approval-receipt-durability.sh",
-      "sha256": "f599d509b2bd0e6af3897bf3c094794b4614de7d65836f8a630bfac6fcfee26b"
+      "sha256": "2885671823346029de97d21a012182c1604d5e562ea5e7915cd09d1721ed5792"
+    },
+    {
+      "path": "hooks/tests/test-approval-schema3.sh",
+      "sha256": "785bc6a1231d2be918d7da1bb4e0aacab00eb436587a408a791473cf11f757e1"
     },
     {
       "path": "hooks/tests/test-approval-writer.sh",
-      "sha256": "23effe7cc43d3ca5edafea648cd153ee8daeb64eddff5250a37fcec5aa776bb2"
+      "sha256": "d042503186c48fafb0ec546cf2d871d349f46f55377e5880b36f1144dcc23e3d"
     },
     {
       "path": "hooks/tests/test-baseline-merge.sh",
@@ -638,11 +650,11 @@
     },
     {
       "path": "hooks/tests/test-command-policy.sh",
-      "sha256": "1d7c979a43719f9a60b6c168144b673c1852e02799e81aeff6d77c6739c476a7"
+      "sha256": "3563fded29f8562fb1c9e9468010041614258c83be9e5e0a8a23838062426ac5"
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
-      "sha256": "840375e97cc0c6461a389f71d4bffcc61c0092d14a7ea5d014ffa1ab76538c3e"
+      "sha256": "1ee2fe3029d3f60ab341a3dc2bad9c858463db5d169bf824f6cc5e024705dc6d"
     },
     {
       "path": "hooks/tests/test-fingerprint-row-per-tag.sh",
@@ -686,7 +698,7 @@
     },
     {
       "path": "hooks/tests/test-hop-log-truthfulness.sh",
-      "sha256": "e6acbfd83830052b4b426e092fd76087fb09cf21405e6ee9673597b90cf2a21f"
+      "sha256": "699066c3726dcb0dcd3f96d5652b9213ef2d0c734b0131207587cb3fee570ace"
     },
     {
       "path": "hooks/tests/test-install-fusebase-cli-project-doc.sh",
@@ -885,5 +897,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "5b634bb9a0f3f89548758666702f948fcac4c6e466c16234941ee7437424d839"
+  "manifest_self_sha256": "c802a337d10a537a221f9ae8210163d1f0a042935de13d0c6f17c6a60124a620"
 }

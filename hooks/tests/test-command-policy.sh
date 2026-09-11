@@ -26,6 +26,7 @@ from pathlib import Path
 import yaml
 
 root = Path(sys.argv[1]); sys.path.insert(0, str(root / "hooks"))
+from shared.approval_artifact import compute_command_digest, compute_repo_id  # noqa: E402
 from shared.command_policy import POLICY_ERROR_RULE_ID, evaluate  # noqa: E402
 from shared.policy_loader import reset_cache  # noqa: E402
 
@@ -48,9 +49,13 @@ def make_repo(tmp: Path, *, command_policy=None) -> Path:
     return tmp
 
 
-def mint(repo: Path, action: str, slug: str = "t") -> None:
+def mint(repo: Path, action: str, command: str, slug: str = "t") -> None:
+    """A schema-3 command_only_v1 approval of `action` bound to exactly `command`."""
     (repo / "state" / "approvals" / f"{action}-{slug}-20260728.json").write_text(
-        json.dumps({"action": action, "expires_at": FUTURE}), encoding="utf-8")
+        json.dumps({"schema_version": 3, "action": action, "created_at": "2026-01-01T00:00:00Z",
+                    "expires_at": FUTURE, "binding_profile": "command_only_v1",
+                    "repo_id": compute_repo_id(repo),
+                    "command_digest": compute_command_digest(command)}), encoding="utf-8")
 
 
 def decide(repo: Path, command: str):
@@ -119,7 +124,7 @@ with tempfile.TemporaryDirectory() as d:
 # unsatisfied set; `all_required_actions` carries the full set.
 with tempfile.TemporaryDirectory() as d:
     repo = make_repo(Path(d))
-    mint(repo, "production_deploy")
+    mint(repo, "production_deploy", "fusebase deploy && npx prisma migrate deploy")
     dec = decide(repo, "fusebase deploy && npx prisma migrate deploy")
     expect("ac6-compound-migration-not-smuggled", dec,
            decision="deny", required=["database_migration"],
@@ -133,7 +138,7 @@ with tempfile.TemporaryDirectory() as d:
     if len(dec.reason.splitlines()) > 8:
         fails.append("ac21-message-length: denial exceeded the 8-line budget")
     # ... and the same command with BOTH artifacts is allowed.
-    mint(repo, "database_migration")
+    mint(repo, "database_migration", "fusebase deploy && npx prisma migrate deploy")
     expect("ac6-compound-both-artifacts",
            decide(repo, "fusebase deploy && npx prisma migrate deploy"), decision="allow")
 
@@ -144,23 +149,35 @@ with tempfile.TemporaryDirectory() as d:
 COMPOUND = "fusebase deploy && git push origin main"
 with tempfile.TemporaryDirectory() as d:
     repo = make_repo(Path(d))
-    mint(repo, "lightweight_deploy")
+    mint(repo, "lightweight_deploy", COMPOUND)
     expect("ac20-dedup-bypass-lightweight-only", decide(repo, COMPOUND),
            decision="deny", required=["production_deploy"],
            reason_has=("production_deploy",))
-# Discriminator pair: with BOTH artifacts the same command is allowed — proving the fix
-# is per-rule evaluation, not a blanket deny.
+# Schema 3: a gated push inside a compound command is never bindable (a chained command can
+# change what is pushed), so even BOTH artifacts deny it — with the reason, not NO_ARTIFACT.
 with tempfile.TemporaryDirectory() as d:
     repo = make_repo(Path(d))
-    mint(repo, "lightweight_deploy")
-    mint(repo, "production_deploy")
-    expect("ac20-dedup-bypass-both-artifacts", decide(repo, COMPOUND), decision="allow")
+    mint(repo, "lightweight_deploy", COMPOUND)
+    mint(repo, "production_deploy", COMPOUND)
+    dec = decide(repo, COMPOUND)
+    expect("ac20-compound-push-unbindable", dec, decision="deny", required=["production_deploy"],
+           reason_has=("BINDING_UNRESOLVED",))
+# The K18(a) per-rule proof on a pair that CAN be bound: `fusebase deploy` (any_of) and
+# `vercel deploy` (production_deploy) share the display action.
+PAIR = "fusebase deploy && vercel deploy"
+with tempfile.TemporaryDirectory() as d:
+    repo = make_repo(Path(d))
+    mint(repo, "lightweight_deploy", PAIR)
+    expect("ac20-pair-lightweight-only", decide(repo, PAIR), decision="deny",
+           required=["production_deploy"])
+    mint(repo, "production_deploy", PAIR)
+    expect("ac20-dedup-bypass-both-artifacts", decide(repo, PAIR), decision="allow")
 # production_deploy alone satisfies both rules (any_of accepts it too).
 with tempfile.TemporaryDirectory() as d:
     repo = make_repo(Path(d))
-    mint(repo, "production_deploy")
-    expect("ac20-production-satisfies-both-rules", decide(repo, COMPOUND), decision="allow")
-    dec = decide(repo, COMPOUND)
+    mint(repo, "production_deploy", PAIR)
+    expect("ac20-production-satisfies-both-rules", decide(repo, PAIR), decision="allow")
+    dec = decide(repo, PAIR)
     if sorted(set(dec.required_actions)) != sorted(dec.required_actions):
         fails.append(f"ac20-no-duplicate-display: {dec.required_actions}")
 
@@ -196,7 +213,7 @@ with tempfile.TemporaryDirectory() as d:
 # K16 accepted consequence: `rm` contributes destructive_file_delete to the required set.
 with tempfile.TemporaryDirectory() as d:
     repo = make_repo(Path(d))
-    mint(repo, "production_deploy")
+    mint(repo, "production_deploy", "fusebase deploy && rm -r build/")
     expect("k16-compound-rm-requires-destructive-delete",
            decide(repo, "fusebase deploy && rm -r build/"),
            decision="deny", required=["destructive_file_delete"],
@@ -278,11 +295,11 @@ with tempfile.TemporaryDirectory() as d:
     repo = make_repo(Path(d))
     expect("ac8-neither-artifact", decide(repo, "fusebase deploy"),
            decision="deny", required=["production_deploy"])
-    mint(repo, "lightweight_deploy")
+    mint(repo, "lightweight_deploy", "fusebase deploy")
     expect("ac8-lightweight-satisfies", decide(repo, "fusebase deploy"), decision="allow")
 with tempfile.TemporaryDirectory() as d:
     repo = make_repo(Path(d))
-    mint(repo, "production_deploy")
+    mint(repo, "production_deploy", "fusebase deploy")
     expect("ac8-production-still-satisfies", decide(repo, "fusebase deploy"), decision="allow")
 
 # A rule declaring both `action` and `any_of` is a policy error, not a silent pick.
@@ -341,10 +358,17 @@ def build(tmp: Path) -> Path:
     return tmp
 
 
+sys.path.insert(0, str(root / "hooks"))
+from shared.approval_artifact import compute_command_digest, compute_repo_id  # noqa: E402
+
+
 def mint(repo: Path, action: str) -> None:
+    """Schema-3 command_only_v1 approval bound to the scenario's current CMD."""
     (repo / "state" / "approvals" / f"{action}-smoke-20260728.json").write_text(
-        json.dumps({"schema_version": 2, "action": action, "expires_at": FUTURE}),
-        encoding="utf-8")
+        json.dumps({"schema_version": 3, "action": action, "created_at": "2026-01-01T00:00:00Z",
+                    "expires_at": FUTURE, "binding_profile": "command_only_v1",
+                    "repo_id": compute_repo_id(repo),
+                    "command_digest": compute_command_digest(CMD)}), encoding="utf-8")
 
 
 def run(repo: Path, handler: str, payload: dict) -> tuple[int, dict]:
@@ -398,12 +422,20 @@ with tempfile.TemporaryDirectory() as d:
     mint(repo, "database_migration")
     both(repo, "t29-compound-both-actions-satisfied-allows", "allow")
 
-# T29(a) — the K18(a) display-dedup bypass, through both handlers.
+# T29(a) — the K18(a) display-dedup bypass, through both handlers. A chained gated push is
+# unbindable under schema 3, so the allow arm uses the bindable `vercel deploy` pair.
 CMD = "fusebase deploy && git push origin main"
 with tempfile.TemporaryDirectory() as d:
     repo = build(Path(d))
     mint(repo, "lightweight_deploy")
     both(repo, "t29-dedup-bypass-lightweight-only-denies", "deny")
+    mint(repo, "production_deploy")
+    both(repo, "t29-compound-push-unbindable-denies", "deny")
+CMD = "fusebase deploy && vercel deploy"
+with tempfile.TemporaryDirectory() as d:
+    repo = build(Path(d))
+    mint(repo, "lightweight_deploy")
+    both(repo, "t29-pair-lightweight-only-denies", "deny")
     mint(repo, "production_deploy")
     both(repo, "t29-dedup-bypass-both-artifacts-allows", "allow")
 

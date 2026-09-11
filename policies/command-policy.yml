@@ -37,11 +37,21 @@
 # policy-error reason. It never skips the rule and never falls through to `default`.
 #
 # RULE SHAPE (schema_version 2):
-#   {pattern, action | any_of, flags?, reason, rule_id, only_when?}
+#   {pattern, action | any_of, flags?, reason, rule_id, only_when?,
+#    binding_profile?, push_destinations?}
 #   * `action` and `any_of` are MUTUALLY EXCLUSIVE; a require_approval rule needs
 #     exactly one. `any_of` is satisfied when ANY listed action has a valid artifact,
 #     and its FIRST entry is the rule's display name in denial messages + --inventory.
 #   * `flags` accepts ["i"] (case-insensitive) only. Unknown flags fail closed.
+#   * `binding_profile` (require_approval only; default command_only_v1) is what the
+#     approval MUST bind. The policy selects it; an artifact can never pick a weaker one.
+#       command_only_v1 - schema-3 artifact bound to the exact command text + repository.
+#                         It does NOT bind deployed content or a migration set.
+#       git_push_v1     - additionally binds every ref update of the push (endpoint,
+#                         destination ref, source object, update|delete). Needs
+#                         `push_destinations`: the full refs whose update gates a push at
+#                         the pre-push boundary (hooks/git/pre-push). An unknown profile, or
+#                         a git_push_v1 rule without destinations, fails closed.
 schema_version: 2
 local_override_file: policies/command-policy.local.yml
 
@@ -89,37 +99,49 @@ require_approval:
     any_of: [production_deploy, lightweight_deploy]
     reason: "FR-12/FR-21: production deploy requires a production_deploy (Full lane) or lightweight_deploy (FR-21 Lightweight lane) approval artifact."
     rule_id: FR-12
+    binding_profile: command_only_v1
 
   - pattern: '\bvercel\s+(deploy|--prod)\b'
     action: production_deploy
     reason: "FR-12: vercel production deploy requires approval artifact."
     rule_id: FR-12
+    binding_profile: command_only_v1
 
   - pattern: '\bnetlify\s+deploy\s+--prod\b'
     action: production_deploy
     reason: "FR-12: netlify production deploy requires approval artifact."
     rule_id: FR-12
+    binding_profile: command_only_v1
 
+  # The command gate matches the literal text; the pre-push boundary gates by the refs git
+  # actually updates (push_destinations), so `commit && push` or a moved branch cannot ride
+  # an approval minted for a different commit. A plain `git push` with no literal
+  # main/master is gated only at that boundary (docs/backlog/destination-aware-push-coverage/).
   - pattern: '\bgit\s+push\b.*\b(main|master)\b'
     action: production_deploy
     reason: "FR-12: pushes to main/master require deploy approval when workflow_mode is direct_to_main."
     rule_id: FR-12
     only_when: { workflow_mode: direct_to_main }
+    binding_profile: git_push_v1
+    push_destinations: [refs/heads/main, refs/heads/master]
 
   - pattern: '\b(npx\s+)?prisma\s+migrate\s+(deploy|reset)\b'
     action: database_migration
     reason: "FR-12: schema migrations require approval artifact."
     rule_id: FR-12
+    binding_profile: command_only_v1
 
   - pattern: '\bsequelize-cli\s+db:migrate\b'
     action: database_migration
     reason: "FR-12: schema migrations require approval artifact."
     rule_id: FR-12
+    binding_profile: command_only_v1
 
   - pattern: '\b(npx\s+)?knex\s+migrate:latest\b'
     action: database_migration
     reason: "FR-12: schema migrations require approval artifact."
     rule_id: FR-12
+    binding_profile: command_only_v1
 
   # Case-insensitive per-rule (AC7): `drop table users` is the same statement as
   # `DROP TABLE users`, and lowercase SQL is the common form in shell one-liners.
@@ -129,6 +151,7 @@ require_approval:
     flags: [i]
     reason: "FR-12: destructive or schema-changing SQL on production requires approval."
     rule_id: FR-12
+    binding_profile: command_only_v1
 
   # Both the flag group and any second whitespace run are OPTIONAL. The old
   # `\brm\s+(-r|-rf|-fr)?\s+` required a second run, so plain `rm build.log` matched
@@ -138,11 +161,13 @@ require_approval:
     action: destructive_file_delete
     reason: "FR-12: file delete (when not matching the deny entry above) requires approval."
     rule_id: FR-12
+    binding_profile: command_only_v1
 
   - pattern: '(curl|http|wget).*--data.*api\.(twilio|sendgrid|mailgun|postmark)\.com'
     action: external_customer_visible_message
     reason: "FR-12: outbound customer-visible messages require approval."
     rule_id: FR-12
+    binding_profile: command_only_v1
 
 # Allow list (positive override). Anything matching here is explicitly allowed
 # even if a `deny` or `require_approval` pattern would also match. Use sparingly.

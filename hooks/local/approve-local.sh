@@ -33,11 +33,15 @@
 # Example (Deploy session, on the operator's typed DP.6 phrase):
 #   bash hooks/local/approve-local.sh production_deploy priority-fix 'approve deploy now' --command 'fusebase deploy'
 #
-# Binding (decision K2/K6 revised): --command records a sha256 of the exact command
-# string TRIMMED ONLY — interior whitespace is never collapsed, because inside a quoted
-# argument it is data. Pass the command byte-for-byte as it will be run. repo_id is
-# always recorded. Both are enforced by the gate when present; an artifact without them
-# stays action-scoped (legacy-compatible).
+# Binding (schema 3, command-gated actions): --command records a sha256 of the exact
+# command string TRIMMED ONLY (K6 revised — interior whitespace is data), plus repo_id and
+# the binding_profile the MATCHING command-policy rule requires; the gate rejects any of
+# them missing or different. git_push_v1 (a gated `git push`) also records every ref update
+# the push performs, resolved NOW: mint after the last commit you intend to push, and a
+# later commit, moved branch, endpoint or extra ref needs a new approval. The same bound
+# operation stays retryable until expiry — approvals are not single-use.
+# Reissue a push approval (agent-run, on the operator's chat go-ahead):
+#   bash hooks/local/approve-local.sh production_deploy <slug> '<reason>' --command 'git push origin main'
 #
 # Exit: 0 written and re-parsed OK; 2 bad usage / unknown action / unsafe slug (NO file
 # written); 1 write or verification failure. Exit 2 also when --command is missing for a
@@ -65,7 +69,7 @@ while [ "$#" -gt 0 ]; do
         --inventory) INVENTORY=1; shift ;;
         --command) COMMAND_STR="${2:-}"; shift 2 ;;
         --path) PATHS_NL="${PATHS_NL}${2:-}"$'\n'; shift 2 ;;
-        --help|-h) sed -n '2,44p' "$0"; exit 0 ;;
+        --help|-h) sed -n '2,48p' "$0"; exit 0 ;;
         --*) echo "[approve-local] unknown option: $1" >&2; exit 2 ;;
         *)
             case "$positional" in
@@ -117,8 +121,10 @@ root, action, slug, reason, command_str, paths_nl = (
 root_path = Path(root)
 sys.path.insert(0, str(root_path / "hooks"))
 from shared.approval_artifact import (  # noqa: E402
-    SCHEMA_VERSION, compute_command_digest, compute_repo_id, evaluate_artifact,
+    COMMAND_SCHEMA_VERSION, NOT_OBSERVED, SCHEMA_VERSION, compute_repo_id, evaluate_artifact,
+    evaluate_command_approval, updates_as_json,
 )
+from shared.command_policy import approval_binding_for  # noqa: E402
 from shared.path_policy import _DIGEST_BOUND_OPERATIONS, is_protected  # noqa: E402
 from shared.policy_loader import get_policy  # noqa: E402
 
@@ -169,6 +175,15 @@ if action in command_gated and not command_str.strip():
           f"  bash hooks/local/approve-local.sh {action} {slug} --command '<exact command>'",
           file=sys.stderr)
     sys.exit(2)
+binding = None
+if action in command_gated:
+    # Same computation the gate verifies with (command_policy.approval_binding_for), so a
+    # file this writer reports as written is one the gate accepts for this exact operation.
+    binding, why = approval_binding_for(command_str, action, root=root_path)
+    if binding is None:
+        print(f"[approve-local] ERROR: cannot bind {action!r} to this command: {why}\n"
+              "[approve-local] NO file written.", file=sys.stderr)
+        sys.exit(2)
 
 # TRIPWIRE (MAJOR 11): `protected_path_edit` is authorized by PATH MEMBERSHIP — path_policy
 # accepts an artifact only when the queried path is in its `paths` array. This writer emitted
@@ -211,20 +226,22 @@ now = datetime.now(timezone.utc)
 expires_at = (now + timedelta(minutes=ttl)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 data = {
-    "schema_version": SCHEMA_VERSION,
+    "schema_version": COMMAND_SCHEMA_VERSION if binding else SCHEMA_VERSION,
     "action": action,                       # MUST equal the filename action (AC1)
     "scope": slug,
     "expires_at": expires_at,               # mandatory, parseable UTC (AC2)
-    # Additive (M9): drives the stale-approval age warning. Schema-optional — an artifact
-    # written before this field shipped reports age=unknown; it is never a reject reason.
+    # M9 age warning; for command approvals (schema 3) also a required, ordered field.
     "created_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
     "approved_by": os.environ.get("USER") or os.environ.get("USERNAME") or "operator",
     "ticket": slug,                         # AUDIT METADATA ONLY — not a binding (K3)
     "reason": reason,
     "repo_id": compute_repo_id(root_path),
 }
-if command_str:
-    data["command_digest"] = compute_command_digest(command_str)
+if binding:
+    data["command_digest"] = binding["command_digest"]
+    data["binding_profile"] = binding["binding_profile"]
+    if "updates" in binding:
+        data["updates"] = updates_as_json(binding["updates"])
 if approved_paths:
     data["paths"] = approved_paths          # protected-paths.yml exception_artifact contract
 
@@ -252,19 +269,25 @@ except BaseException:
 # Re-read and re-validate through the SAME loader the gate uses, so "written" can never
 # be reported for an artifact the gate would reject.
 reloaded = json.loads(artifact.read_text(encoding="utf-8"))
-verdict = evaluate_artifact(
-    reloaded, expected_action=action,
-    command_digest=data.get("command_digest"), repo_id=data["repo_id"],
-)
+if binding:
+    verdict = evaluate_command_approval(
+        reloaded, expected_action=action, required_profile=binding["binding_profile"],
+        command_digest=binding["command_digest"], repo_id=binding["repo_id"],
+        updates=binding.get("updates", NOT_OBSERVED))
+else:
+    verdict = evaluate_artifact(reloaded, expected_action=action, repo_id=data["repo_id"])
 if verdict.value != "VALID" or reloaded != data:
     print(f"[approve-local] ERROR: verification failed after write (verdict={verdict.value}); "
           f"removing {artifact}", file=sys.stderr)
     artifact.unlink(missing_ok=True)
     sys.exit(1)
 
-bound = " command-bound" if "command_digest" in data else ""
+bound = f" command-bound; {binding['binding_profile']}" if binding else ""
 print(f"[approve-local] artifact written + re-verified: {artifact} "
-      f"(schema v{SCHEMA_VERSION}; expires {expires_at}; repo-bound{bound})")
+      f"(schema v{data['schema_version']}; expires {expires_at}; repo-bound{bound})")
+for u in data.get("updates", []):
+    print(f"[approve-local]   binds {u['operation']} {u['destination_ref']} <- "
+          f"{u['source_oid'] or '(delete)'} at {u['push_endpoint']}")
 if action == "protected_path_edit":
     print(f"[approve-local] paths authorized ({len(approved_paths)}): "
           f"{', '.join(approved_paths)}")

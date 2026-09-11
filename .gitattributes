@@ -38,6 +38,7 @@
 VERSION               text eol=lf
 hooks/git/pre-commit  text eol=lf
 hooks/git/commit-msg  text eol=lf
+hooks/git/pre-push    text eol=lf
 
 # Binary classes — never line-ending-normalize
 *.png       binary

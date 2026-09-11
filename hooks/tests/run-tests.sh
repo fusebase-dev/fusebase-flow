@@ -80,7 +80,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixtur
   lane-router lane-workflow \
   trusted-enforcer hook-install-rc msys-tree-cleanup job-probe ws5-upgrade ff-only run-preconditions return-budget \
   supersede-primitive rule-inventory boot-size prohibition-residency startup-context validator-evidence validation-instructions consumer-benchmark wasted-effort-windowing token-waste-classify \
-  budget-literals history-extraction approval-binding approval-writer approval-receipt command-policy denial-message upgrade-classify upgrade-classify-eol \
+  budget-literals history-extraction approval-binding approval-writer approval-schema3 approval-receipt command-policy denial-message upgrade-classify upgrade-classify-eol \
   upgrade-boundary preboundary-consumed upgrade-repair n5-delivery n6-truthful-base n6-missing-base n6-recover n4-parity-scope recovery-hint hop-log-truth install-doc release-authority \
   release-tag-binding fingerprint-rows signal-reap cli-flow-recovery-selectors cli-flow-recovery)
 
@@ -91,7 +91,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixtur
 FF_RELEASE_TAGS=(fixtures git-smoke interpreter-contract python3-version git-context \
   baseline-merge hook-wiring-intent wire-hooks-beside bootstrap-baseline-hop cli-0259 \
   git-capture-guard secret-scan-staged bootstrap-exception trusted-enforcer hook-install-rc validator-evidence \
-  validation-instructions approval-binding approval-writer command-policy upgrade-classify upgrade-classify-eol \
+  validation-instructions approval-binding approval-writer approval-schema3 command-policy upgrade-classify upgrade-classify-eol \
   upgrade-boundary upgrade-repair n5-delivery n6-truthful-base n6-missing-base n6-recover \
   release-authority release-tag-binding cli-flow-recovery cli-flow-recovery-selectors \
   hop-log-truth n4-parity-scope minimal-path-fixture \
@@ -665,6 +665,7 @@ run_shell_phase test-budget-literals.sh        "budget-literals"
 run_shell_phase test-history-extraction.sh     "history-extraction"
 run_shell_phase test-approval-binding.sh       "approval-binding"
 run_shell_phase test-approval-writer.sh        "approval-writer"
+run_shell_phase test-approval-schema3.sh       "approval-schema3"
 # S2: a committed deploy report cites a CLONE-DURABLE receipt, never the gitignored artifact
 # path. Each evidence row is paired with a control, so a receipt that stops discriminating fails
 # instead of passing quietly.

@@ -84,18 +84,25 @@ receipt emit production_deploy demo --deploy-hash "$HASH" --command "$CMD" --for
     > "$OUT/receipt-mutated.json" 2>/dev/null
 cp "$OUT/artifact-original.json" "$ARTIFACT"
 
-# An EXPIRED approval must not be laundered into clean-looking evidence.
-MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$REPO_NATIVE" <<'PY'
+# An EXPIRED approval must not be laundered into clean-looking evidence. The fixture is a
+# complete schema-3 command approval, so EXPIRED (not LEGACY_SCHEMA) is the only defect.
+MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$REPO_NATIVE" "$CMD" <<'PY'
 import json, sys
 from pathlib import Path
-p = Path(sys.argv[1]) / "state" / "approvals" / "production_deploy-stale-20260101.json"
-p.write_text(json.dumps({"schema_version": 2, "action": "production_deploy", "scope": "stale",
+repo = Path(sys.argv[1])
+sys.path.insert(0, str(repo / "hooks"))
+from shared.approval_artifact import compute_command_digest, compute_repo_id
+p = repo / "state" / "approvals" / "production_deploy-stale-20260101.json"
+p.write_text(json.dumps({"schema_version": 3, "action": "production_deploy", "scope": "stale",
                          "created_at": "1999-12-31T00:00:00Z",
                          "expires_at": "2000-01-01T00:00:00Z",
+                         "binding_profile": "command_only_v1",
+                         "repo_id": compute_repo_id(repo),
+                         "command_digest": compute_command_digest(sys.argv[2]),
                          "approved_by": "operator", "reason": "fixture"}, indent=2) + "\n",
              encoding="utf-8")
 PY
-STALE="$(receipt emit production_deploy stale --deploy-hash "$HASH" --format json 2>/dev/null)"
+STALE="$(receipt emit production_deploy stale --deploy-hash "$HASH" --command "$CMD" --format json 2>/dev/null)"
 echo "rc=$?" > "$OUT/stale.rc"
 printf '%s' "$STALE" > "$OUT/receipt-stale.json"
 

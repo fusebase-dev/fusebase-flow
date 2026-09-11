@@ -13,7 +13,7 @@ Test behavior at the smallest useful boundary: table/parser or function first, t
 | Process lifecycle | Failure/timeout propagation, owned-child cleanup, zero-result refusal and selector completeness |
 | Publication | Parsed workflow graph, both platforms, required-job success, manifests and tag/verified-SHA binding |
 
-`hooks/tests/run-tests.sh` owns membership and `FF_LIST=1` lists it. `FF_RELEASE=1` selects an explicit 39-tag release allowlist; a newly registered phase stays out until its consumer or safety responsibility is reviewed and deliberately added. Do that review in the outcome that adds or changes the phase: an essential consumer or safety contract enters the allowlist, an excluded diagnostic gets a brief reason in the table below, and registration alone leaves the outcome incomplete. `FF_FULL=1` runs every non-opt-in diagnostic, while `FF_ONLY` names affected groups. Neither local mode authorizes publication.
+`hooks/tests/run-tests.sh` owns membership and `FF_LIST=1` lists it. `FF_RELEASE=1` selects an explicit 40-tag release allowlist; a newly registered phase stays out until its consumer or safety responsibility is reviewed and deliberately added. Do that review in the outcome that adds or changes the phase: an essential consumer or safety contract enters the allowlist, an excluded diagnostic gets a brief reason in the table below, and registration alone leaves the outcome incomplete. `FF_FULL=1` runs every non-opt-in diagnostic, while `FF_ONLY` names affected groups. Neither local mode authorizes publication.
 
 That last sentence is now a control, not prose: preflight §11 (`hooks/local/lib/phase_registry_check.py`) rejects any `FF_TAGS` phase that is not classified in exactly one of the three tables below, any release/exclusions table row that disagrees with `FF_RELEASE_TAGS`/`FF_OPTIN_TAGS` in either direction, any row naming a tag that no longer exists, and an `unreviewed` count that differs from `FF_UNREVIEWED_BASELINE` in either direction (above: a new phase was parked; below: a reviewed row did not lower the constant in the same commit). It runs in the preflight step of both workflows and is selected by no `FF_` profile.
 
@@ -21,7 +21,7 @@ That last sentence is now a control, not prose: preflight §11 (`hooks/local/lib
 |---|---|
 | CLI/user ownership and recovery intent, paths, partial state, receipts and no-op | `baseline-merge`, `hook-wiring-intent`, `wire-hooks-beside`, `bootstrap-baseline-hop`, `cli-0259`, `cli-flow-recovery`, `cli-flow-recovery-selectors` |
 | Install, upgrade and provider delivery | `bootstrap-exception`, `upgrade-classify`, `upgrade-classify-eol`, `upgrade-boundary`, `upgrade-repair`, `n5-delivery`, `n6-truthful-base`, `n6-missing-base`, `n6-recover`, `cli-rendered` |
-| Executable safety | `fixtures`, `git-smoke`, `interpreter-contract`, `python3-version`, `git-context`, `secret-scan-staged`, `trusted-enforcer`, `hook-install-rc`, `approval-binding`, `approval-writer`, `command-policy` |
+| Executable safety | `fixtures`, `git-smoke`, `interpreter-contract`, `python3-version`, `git-context`, `secret-scan-staged`, `trusted-enforcer`, `hook-install-rc`, `approval-binding`, `approval-writer`, `approval-schema3`, `command-policy` |
 | Validator execution | `validator-evidence`, `validation-instructions` |
 | Publication integrity | `release-authority`, `release-tag-binding` |
 | Caller-summary truthfulness and publisher scoping | `hop-log-truth`, `n4-parity-scope` |

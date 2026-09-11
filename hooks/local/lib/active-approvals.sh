@@ -21,6 +21,8 @@
 #                           array and count — never LOCAL_DRIFT / LOCAL_BROKEN /
 #                           LOCAL_UNVERIFIED — and they invalidate no approval. An artifact
 #                           that warns still authorizes and still lands in ACTIVE_ARTIFACTS.
+#                           Also "<basename>: no longer authorizes commands (LEGACY_SCHEMA…)"
+#                           for a pre-schema-3 command approval, which is NOT active.
 #   APPROVAL_POLICY_ERRORS[]  configuration errors that make approval-policy unloadable.
 #                           FAIL CLOSED: while one is present NO artifact is reported active,
 #                           because the merged policy that decides acceptance strictness could
@@ -115,6 +117,37 @@ try:
     if art is None:
         sys.exit(2)
     data = art.data
+    # Command approvals (any action a command-policy rule gates) are judged by the schema-3
+    # contract the gate uses — VALID-only in every mode. A legacy one no longer authorizes,
+    # so it must not be reported active; it surfaces as a LEGACY_WARN line instead.
+    from shared.approval_artifact import NON_COMMAND_ACTIONS
+    from shared.command_policy import command_gated_actions
+    try:
+        _gated = command_gated_actions(Path(project))
+    except Exception:
+        _gated = None                   # unreadable: every non-path/deferral action is withheld
+    _is_command = (filename_action(p) in _gated) if _gated is not None \
+        else filename_action(p) not in NON_COMMAND_ACTIONS
+    if _is_command and _gated is None:
+        sys.exit(1)
+    if _is_command:
+        from shared.approval_artifact import (
+            NOT_OBSERVED, Verdict, command_contract_problems, compute_repo_id,
+            evaluate_command_approval,
+        )
+        _v = evaluate_command_approval(
+            data, expected_action=filename_action(p), required_profile=NOT_OBSERVED,
+            command_digest=NOT_OBSERVED, repo_id=compute_repo_id(Path(project)),
+            updates=NOT_OBSERVED)
+        if _v is Verdict.LEGACY_SCHEMA:
+            _why = "; ".join(command_contract_problems(data)[1])
+            print(f"LEGACY_WARN:no longer authorizes commands (LEGACY_SCHEMA: {_why}); file "
+                  "kept; reissue only for an intended operation")
+        if _v is not Verdict.VALID:
+            sys.exit(1)
+        print(f"command-bound status={expiry_state(data)} "
+              f"profile={(data or {}).get('binding_profile')} expires={(data or {}).get('expires_at')}")
+        sys.exit(0)
     verdict = evaluate_artifact(data, expected_action=filename_action(p))
     # TRIPWIRE: ARRAY CONTRACT. fusebase-flow-health-check.sh reads ACTIVE_ARTIFACTS /
     # ARTIFACT_NOTES / DEFERRED_CHECKS / DEFERRED_BY_ARTIFACT and classifies
@@ -181,6 +214,9 @@ PY
       *$'\n'STALE_WARN:*)
         warn_line="${summary#*$'\n'STALE_WARN:}"
         summary="${summary%%$'\n'STALE_WARN:*}" ;;
+    esac
+    case "$summary" in
+      LEGACY_WARN:*) APPROVAL_WARNINGS+=("$artifact_basename: ${summary#LEGACY_WARN:}"); continue ;;
     esac
     if [ "$rc" -eq 0 ]; then
       ACTIVE_ARTIFACTS+=("$artifact_basename")

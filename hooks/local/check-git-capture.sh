@@ -25,6 +25,7 @@ fi
 FF_GIT_CAPTURE_GATED=(
     hooks/git/pre-commit
     hooks/git/commit-msg
+    hooks/git/pre-push
     hooks/tests/run-tests.sh
     hooks/tests/test-secret-scan-staged.sh
     hooks/local/lib/run-with-timeout.sh

@@ -11,14 +11,21 @@ from pathlib import Path
 from typing import Any
 
 from .approval_artifact import (
+    BINDING_PROFILES,
+    NON_COMMAND_ACTIONS,
+    NOT_OBSERVED,
+    PROFILE_COMMAND_ONLY,
+    PROFILE_GIT_PUSH,
     Verdict,
-    accept_with_audit,
     compute_command_digest,
     compute_repo_id,
-    evaluate_file,
+    evaluate_command_approval,
+    load,
+    valid_destination_ref,
 )
 from .command_rules import rule_actions, rule_matches
-from .denial_message import render_approval_denial
+from .denial_message import render_approval_denial, render_push_boundary_denial
+from .git_push_binding import boundary_updates, resolve_command_updates
 from .policy_loader import find_git_root, get_policy
 
 
@@ -76,9 +83,12 @@ def is_command_tool(tool_name: str | None) -> bool:
 # Reporting priority when several artifacts for one action all fail: name the most
 # specific failure, so the operator can tell a stale approval from an absent one (AC14).
 _VERDICT_RANK = {
-    Verdict.BINDING_MISMATCH: 5,
-    Verdict.ACTION_MISMATCH: 4,
-    Verdict.EXPIRED: 3,
+    Verdict.UPDATE_MISMATCH: 8,
+    Verdict.PROFILE_MISMATCH: 7,
+    Verdict.BINDING_MISMATCH: 6,
+    Verdict.ACTION_MISMATCH: 5,
+    Verdict.EXPIRED: 4,
+    Verdict.LEGACY_SCHEMA: 3,
     Verdict.MISSING_EXPIRY: 2,
     Verdict.MALFORMED: 1,
 }
@@ -105,13 +115,17 @@ def _approval_state(
     *,
     root: Path | None = None,
     command: str | None = None,
-    strict: bool = False,
+    profile: str = PROFILE_COMMAND_ONLY,
+    updates=NOT_OBSERVED,
+    updates_mode: str = "exact",
 ) -> tuple[bool, str]:
     """(acceptable-artifact-present, worst-failing-verdict) for one action name.
 
-    Binding (decision K2) is ADDITIVE: an artifact carrying `command_digest` and/or
-    `repo_id` authorizes only a matching command in a matching repo; one carrying
-    neither stays action-scoped, plus the AC1-AC3 tightening.
+    TRIPWIRE: command approvals are schema 3 with EVERY binding mandatory, and VALID is the
+    only acceptable verdict — `strict_approvals` is deliberately not consulted here. The
+    pre-cutover path accepted digest-less artifacts even in strict mode, so one unexpired
+    production_deploy file authorized any matching command (docs/backlog/approval-binding-omits-head/).
+    `command=None` is the pre-push boundary, which binds ref updates, never command text.
     """
     resolved = resolve_root(root)
     if resolved is None:
@@ -119,24 +133,63 @@ def _approval_state(
     approvals_dir = resolved / "state" / "approvals"
     if not approvals_dir.exists():
         return False, NO_ARTIFACT
-    digest = compute_command_digest(command) if command is not None else None
+    digest = compute_command_digest(command) if command is not None else NOT_OBSERVED
     repo_id = compute_repo_id(resolved)
     best: Verdict | None = None
     for f in sorted(approvals_dir.glob(f"{action}-*.json")):
-        verdict = evaluate_file(
-            f, expected_action=action, command_digest=digest, repo_id=repo_id
-        )
-        if accept_with_audit(verdict, strict=strict, carrier="command_policy",
-                             artifact_path=f, action=action, root=resolved):
+        art = load(f)
+        verdict = evaluate_command_approval(
+            art.data if art else None, expected_action=action, required_profile=profile,
+            command_digest=digest, repo_id=repo_id, updates=updates, updates_mode=updates_mode)
+        if verdict is Verdict.VALID:
             return True, verdict.value
         if best is None or _VERDICT_RANK.get(verdict, 0) > _VERDICT_RANK.get(best, 0):
             best = verdict
     return False, best.value if best else NO_ARTIFACT
 
 
-def _approval_artifact_present(action: str, *, root: Path | None = None) -> bool:
-    """Back-compat wrapper: callers that only need the boolean."""
-    return _approval_state(action, root=root)[0]
+def rule_profile(rule: dict[str, Any]) -> tuple[str, list[str], str | None]:
+    """(binding profile, push destinations, policy-error) a require_approval rule selects.
+
+    The POLICY selects the profile; an artifact cannot choose a weaker one. Absent means
+    command_only_v1 — mandatory command + repository binding, and no claim about content.
+    """
+    profile = rule.get("binding_profile", PROFILE_COMMAND_ONLY)
+    if profile not in BINDING_PROFILES:
+        return "", [], (f"require_approval rule {rule.get('rule_id', '?')!r} has unknown "
+                        f"binding_profile {profile!r} (known: {list(BINDING_PROFILES)}).")
+    dests = rule.get("push_destinations")
+    if profile != PROFILE_GIT_PUSH:
+        if dests is not None:
+            return "", [], (f"require_approval rule {rule.get('rule_id', '?')!r} sets "
+                            f"push_destinations without binding_profile {PROFILE_GIT_PUSH}.")
+        return profile, [], None
+    if not isinstance(dests, list) or not dests or not all(valid_destination_ref(d) for d in dests):
+        return "", [], (f"require_approval rule {rule.get('rule_id', '?')!r} uses "
+                        f"{PROFILE_GIT_PUSH} and needs `push_destinations`: a non-empty list "
+                        f"of full ref names (refs/heads/<branch>).")
+    return profile, list(dests), None
+
+
+def command_gated_actions(root: Path | None = None) -> set[str]:
+    """Every action any require_approval rule names, in any mode: the schema-3 population.
+
+    Raises when command-policy cannot be loaded or is missing/empty — the gate denies
+    everything then (K4), so a report must not judge artifacts as if nothing were gated.
+    """
+    policy = get_policy("command-policy", root=resolve_root(root))
+    if not isinstance(policy, dict) or not policy:
+        raise ValueError("command-policy is missing or empty")
+    out: set[str] = set()
+    for rule in (policy.get("require_approval") if isinstance(policy, dict) else None) or []:
+        if isinstance(rule, dict):
+            out.update(rule_actions(rule, "require_approval")[0] or [])
+    return out
+
+
+def _rule_active(rule: Any, workflow_mode: str) -> bool:
+    only_when = (rule.get("only_when") or {}) if isinstance(rule, dict) else {}
+    return not (only_when.get("workflow_mode") and only_when["workflow_mode"] != workflow_mode)
 
 
 POLICY_ERROR_RULE_ID = "FLOW-POLICY-ERROR"
@@ -223,6 +276,10 @@ def _validate_policy(policy: dict[str, Any]) -> str | None:
             if only_when is not None and not isinstance(only_when, dict):
                 return (f"{stage} rule {rule.get('rule_id', '?')!r} has a non-mapping "
                         f"`only_when` ({type(only_when).__name__}).")
+            if stage == "require_approval":
+                err = rule_profile(rule)[2]
+                if err:
+                    return err
     return None
 
 
@@ -240,7 +297,8 @@ def _evaluate_require_approval(
 ) -> CommandDecision | None:
     workflow_mode = approval_policy.get("workflow_mode", "direct_to_main")
     on_missing = approval_policy.get("on_missing_artifact", "deny")
-    strict = approval_policy.get("strict_approvals") is True      # K7; default compat
+    push: tuple | None = None          # resolved once, only if a git_push_v1 rule matches
+    details: dict[str, str] = {}
 
     # ALL-MATCH (decision K8): every matching rule contributes its action to the required
     # set. First-match-wins let `fusebase deploy && npx prisma migrate deploy` be authorized
@@ -259,10 +317,8 @@ def _evaluate_require_approval(
     seen_outcomes: set[tuple[tuple[str, ...], bool]] = set()
 
     for rule in policy.get("require_approval", []) or []:
-        if isinstance(rule, dict):
-            only_when = rule.get("only_when") or {}
-            if only_when.get("workflow_mode") and only_when["workflow_mode"] != workflow_mode:
-                continue
+        if not _rule_active(rule, workflow_mode):
+            continue
         matched, err = rule_matches(rule, command, "require_approval")
         if err:
             return _policy_error(command, err)
@@ -273,14 +329,22 @@ def _evaluate_require_approval(
         actions, err = rule_actions(rule, "require_approval")
         if err:
             return _policy_error(command, err)
+        profile = rule_profile(rule)[0]
         display = actions[0]
         # `any_of` (decision K5): ANY listed action satisfies the rule — that is how a
         # documented FR-21 Lightweight deploy passes the same gate as a Full deploy. The
         # trust boundary is process-authoritative: the hook cannot verify LL-eligibility.
         chosen, chosen_verdict, present = display, NO_ARTIFACT, False
-        for candidate in actions:
+        updates = NOT_OBSERVED
+        if profile == PROFILE_GIT_PUSH:
+            push = push or resolve_command_updates(command, root)
+            updates = push[0]
+            if updates is None:
+                chosen_verdict = Verdict.BINDING_UNRESOLVED.value
+                details[display] = push[1]
+        for candidate in (actions if updates is not None else []):
             ok, verdict = _approval_state(candidate, root=root, command=command,
-                                          strict=strict)
+                                          profile=profile, updates=updates)
             if ok:
                 chosen, chosen_verdict, present = candidate, verdict, True
                 break
@@ -329,7 +393,7 @@ def _evaluate_require_approval(
         command=command,
         decision="deny" if on_missing == "deny" else "ask",
         reason=render_approval_denial(command, all_required, verdicts,
-                                      unsatisfied_actions=unsatisfied),
+                                      unsatisfied_actions=unsatisfied, details=details),
         rule_id=matched_rule.get("rule_id", "FR-12"),
         matched_pattern=matched_rule["pattern"],
         approval_action=lead,
@@ -357,10 +421,8 @@ def _evaluate_allow(command: str, policy: dict[str, Any]) -> CommandDecision | N
     return None
 
 
-def evaluate(command: str, *, root: Path | None = None) -> CommandDecision:
-    if not command:
-        return CommandDecision(command=command, decision="allow", reason="empty command")
-    resolved = resolve_root(root)
+def _load_policies(command: str, resolved: Path | None):
+    """(command-policy, approval-policy, None) or (None, None, policy-error decision)."""
     # FAIL-CLOSED at the policy load-point (K4): a missing, empty, unreadable or
     # non-mapping command-policy previously yielded {} and fell straight through to
     # `default: allow` — every gated command silently ungated. Deny instead.
@@ -368,16 +430,126 @@ def evaluate(command: str, *, root: Path | None = None) -> CommandDecision:
         policy = get_policy("command-policy", root=resolved)
         approval_policy = get_policy("approval-policy", root=resolved)
     except BaseException as e:                       # noqa: BLE001 — load errors must deny
-        return _policy_error(command, f"policy load failed ({e!r}).")
+        return None, None, _policy_error(command, f"policy load failed ({e!r}).")
     if not isinstance(policy, dict) or not policy:
-        return _policy_error(command, "command-policy is missing or empty.")
+        return None, None, _policy_error(command, "command-policy is missing or empty.")
     if not isinstance(approval_policy, dict):
-        return _policy_error(command, "approval-policy is not a mapping.")
+        return None, None, _policy_error(command, "approval-policy is not a mapping.")
     if not any(policy.get(stage) for stage in _STAGES):
-        return _policy_error(command, "command-policy declares no deny/require_approval/allow rules.")
+        return None, None, _policy_error(
+            command, "command-policy declares no deny/require_approval/allow rules.")
     shape_error = _validate_policy(policy)
     if shape_error:
-        return _policy_error(command, shape_error)
+        return None, None, _policy_error(command, shape_error)
+    return policy, approval_policy, None
+
+
+def evaluate_push_boundary(remote_url: str, update_lines: list[str], *,
+                           root: Path | None = None) -> CommandDecision:
+    """The pre-push execution boundary for every active git_push_v1 rule.
+
+    A push is gated when any update it performs targets one of a rule's
+    `push_destinations`; then EVERY update git hands the hook for this endpoint must be
+    bound by one unexpired schema-3 git_push_v1 artifact of a rule action (no unbound
+    extra ref). The command text is not observable here; the command gate binds it.
+    """
+    label = f"git push -> {remote_url}"
+    resolved = resolve_root(root)
+    policy, approval_policy, error = _load_policies(label, resolved)
+    if error:
+        return error
+    mode = approval_policy.get("workflow_mode", "direct_to_main")
+    observed, why = boundary_updates(remote_url, update_lines)
+    rows = [line.strip().split(" ") for line in update_lines if line.strip()]
+    readable = all(len(r) == 4 for r in rows)      # else the destinations themselves are unknown
+    dests_seen = {r[2] for r in rows if len(r) == 4}
+    unsatisfied: list[str] = []
+    verdicts: dict[str, str] = {}
+    matched_rule: dict[str, Any] | None = None
+    for rule in policy.get("require_approval", []) or []:
+        if not isinstance(rule, dict) or not _rule_active(rule, mode):
+            continue
+        profile, dests, _err = rule_profile(rule)
+        if profile != PROFILE_GIT_PUSH or (readable and not dests_seen & set(dests)):
+            continue
+        matched_rule = matched_rule or rule
+        actions, err = rule_actions(rule, "require_approval")
+        if err:
+            return _policy_error(label, err)
+        ok, verdict = False, Verdict.BINDING_UNRESOLVED.value
+        for candidate in (actions if observed is not None else []):
+            ok, verdict = _approval_state(candidate, root=resolved, command=None,
+                                          profile=PROFILE_GIT_PUSH, updates=observed,
+                                          updates_mode="subset")
+            if ok:
+                break
+        if ok:
+            continue
+        unsatisfied.append(actions[0])
+        verdicts.setdefault(actions[0], verdict)
+    if matched_rule is None:
+        return CommandDecision(command=label, decision="allow",
+                               reason="pre-push: no update targets a gated destination.")
+    if not unsatisfied:
+        return CommandDecision(command=label, decision="allow",
+                               reason="pre-push: every update is bound by an approval.",
+                               rule_id=matched_rule.get("rule_id", "FR-12"),
+                               approval_artifact_present=True)
+    lead = unsatisfied[0]
+    return CommandDecision(
+        command=label, decision="deny",
+        reason=render_push_boundary_denial(remote_url, observed or (), unsatisfied,
+                                           verdicts, detail=why),
+        rule_id=matched_rule.get("rule_id", "FR-12"),
+        matched_pattern=matched_rule.get("pattern", ""),
+        approval_action=lead, approval_verdict=verdicts[lead],
+        required_actions=list(unsatisfied), action_verdicts=verdicts,
+        all_required_actions=list(unsatisfied))
+
+
+def approval_binding_for(command: str, action: str, *,
+                         root: Path | None = None) -> tuple[dict[str, Any] | None, str]:
+    """(binding fields, "") a NEW approval of `action` for `command` must carry, or (None, why).
+
+    TRIPWIRE: approve-local.sh mints through this and the gate verifies through the same
+    rule_profile + resolve_command_updates, so writer and verifier cannot drift. The
+    profile comes from the matching rules — never from the caller.
+    """
+    resolved = resolve_root(root)
+    policy, approval_policy, error = _load_policies(command, resolved)
+    if error:
+        return None, error.reason
+    mode = approval_policy.get("workflow_mode", "direct_to_main")
+    profiles: set[str] = set()
+    for rule in policy.get("require_approval", []) or []:
+        if not _rule_active(rule, mode) or not rule_matches(rule, command, "require_approval")[0]:
+            continue
+        if action in (rule_actions(rule, "require_approval")[0] or []):
+            profiles.add(rule_profile(rule)[0])
+    if not profiles:
+        return None, (f"no active require_approval rule gates this command with {action!r} "
+                      f"(workflow_mode {mode}); an artifact would authorize nothing.")
+    profile = max(profiles, key=BINDING_PROFILES.index)   # the strongest satisfies every rule
+    fields: dict[str, Any] = {"repo_id": compute_repo_id(resolved) if resolved else "",
+                              "command_digest": compute_command_digest(command),
+                              "binding_profile": profile}
+    if not fields["repo_id"]:
+        return None, "repository root unknown; repo_id cannot be bound."
+    if profile == PROFILE_GIT_PUSH:
+        updates, why = resolve_command_updates(command, resolved)
+        if updates is None:
+            return None, f"the push cannot be bound: {why}."
+        fields["updates"] = updates
+    return fields, ""
+
+
+def evaluate(command: str, *, root: Path | None = None) -> CommandDecision:
+    if not command:
+        return CommandDecision(command=command, decision="allow", reason="empty command")
+    resolved = resolve_root(root)
+    policy, approval_policy, error = _load_policies(command, resolved)
+    if error:
+        return error
     order = policy.get("match_order", list(_STAGES))
     default = policy.get("default", "allow")
 
@@ -402,5 +574,7 @@ def evaluate(command: str, *, root: Path | None = None) -> CommandDecision:
     )
 
 
-__all__ = ["COMMAND_TOOL_NAMES", "CommandDecision", "NO_ARTIFACT", "evaluate",
-           "explain_rule_denial", "is_command_tool", "resolve_root"]
+__all__ = ["COMMAND_TOOL_NAMES", "CommandDecision", "NON_COMMAND_ACTIONS", "NO_ARTIFACT",
+           "approval_binding_for",
+           "command_gated_actions", "evaluate", "evaluate_push_boundary", "explain_rule_denial",
+           "is_command_tool", "resolve_root", "rule_profile"]

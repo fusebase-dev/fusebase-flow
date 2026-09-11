@@ -20,12 +20,17 @@ workflow_mode: direct_to_main   # direct_to_main | branch_pr
 # through. Each operation is keyed by the action name used in `command-policy.yml`.
 # An "approval artifact" is a JSON file at:
 #   state/approvals/<operation>-<slug>-<YYYYMMDD>.json
-# Schema v2 (command approvals) — see the trust model at the bottom of this file:
-#   ENFORCED : "schema_version": 2 · "action" (MUST equal the filename action) ·
-#              "expires_at" (parseable UTC) · optional "repo_id" / "command_digest"
-#              (enforced when present)
+# Schema v3 (COMMAND approvals — every action a command-policy rule gates) — see the trust
+# model at the bottom of this file. Mint with approve-local.sh; never hand-write one.
+#   ENFORCED : "schema_version": 3 · "action" (MUST equal the filename action) ·
+#              "repo_id" + "command_digest" (64-hex, MANDATORY, must match) ·
+#              "created_at" < "expires_at" (parseable UTC) · "binding_profile" (at least as strong as
+#              the matched rule's profile, command-policy.yml) · "updates" for git_push_v1
+#   REJECTED : schema absent/1/2 (LEGACY_SCHEMA) whatever strict_approvals says. Files are
+#              kept for audit; nothing is migrated or reconstructed.
 #   AUDIT    : "approved_by" · "ticket" · "scope" · "reason"  — metadata only,
 #              never authenticated authority (decision K3)
+# Protected-path (protected_path_edit) and health_check_deferral artifacts keep schema v2.
 require_approval:
   production_deploy:
     enforce: true
@@ -47,8 +52,8 @@ require_approval:
     rationale: "Production deploys are externally visible and irreversible without rollback ceremony. DP.6 magic phrase is the real per-deploy gate; TTL is stale-state protection only — long for solo direct-to-main, short for team branch_pr."
     # DP.6-phrase authoring (v4.3.0, documented procedure — NO enforcement change): this
     # artifact stays mandatory and on-disk, but the gate does NOT check its AUTHOR
-    # (it checks schema, parsed expiry, body/filename action agreement, and
-    # command/repo binding when present — never `approved_by`). So the Deploy session AUTHORS
+    # (it checks schema 3, parsed expiry, body/filename action agreement, and the mandatory
+    # command/repo/profile binding — never `approved_by`). So the Deploy session AUTHORS
     # every required approval artifact on the operator's behalf once the operator types the
     # DP.6 phrase (`approve deploy now`) — for ALL tickets, INCLUDING database_migration,
     # auth_or_permission_change, protected_path_edit, secret_file_write — never forcing the
@@ -113,7 +118,10 @@ require_approval:
 #
 # ENFORCED by hooks/shared/approval_artifact.py (read by command_policy + path_policy):
 #   schema shape · parsed UTC `expires_at` · body/filename `action` agreement ·
-#   `command_digest` / `repo_id` binding when the artifact carries them.
+#   command approvals: schema 3 with MANDATORY `command_digest` + `repo_id` + profile
+#   binding (git_push_v1 also binds every ref update, re-checked at hooks/git/pre-push);
+#   protected-path artifacts: `repo_id` binding when present, tree_digest where required.
+#   command_only_v1 binds the command TEXT, never deployed content or a migration set.
 # NOT ENFORCED — audit metadata only, never authenticated authority:
 #   `approved_by` · `ticket` · `scope` · `reason`.
 # The agent and the operator write as the same OS principal, so any author string an
@@ -124,9 +132,11 @@ require_approval:
 # WHAT A VALID VERDICT GRANTS — NOT single-use (E3 ask 2): a VALID artifact authorizes its
 # action REPEATEDLY until `expires_at`. The TTLs above are a LIFETIME, never a use count, and
 # nothing consumes an artifact on use. Binding narrows WHICH action an artifact covers
-# (`command_digest` + `repo_id` = "this exact command in this checkout"); it does not SPEND it
-# — the same command may be re-run any number of times inside the TTL, which is what keeps a
-# failed deploy retryable without re-approval. Sole narrowing: a digest-bound
+# (`command_digest` + `repo_id` = "this exact command in this checkout"; git_push_v1 adds
+# "these exact source objects to these destinations"); it does not SPEND it — the same bound
+# operation may be re-run any number of times inside the TTL, which is what keeps a failed
+# deploy retryable without re-approval. Changed inputs (another commit, endpoint or extra
+# ref) need a new approval. Narrowing beyond that: a digest-bound
 # `protected_path_edit` artifact (`write-bootstrap-approval.sh`) is single-CHANGESET, because
 # its `tree_digest` stops matching once the staged content changes
 # (`path_policy.has_active_exception`) — still not single-USE within that one changeset. True
@@ -156,10 +166,12 @@ approval_artifact_dir: "state/approvals/"
 #                    mismatch, binding mismatch — is rejected in BOTH modes.
 #   true  (strict) — only a fully VALID artifact authorizes anything.
 #
-# The NEXT release flips this default. Run `bash hooks/local/approve-local.sh --inventory`
-# to see exactly which artifacts a strict cutover would reject, and reissue them before
-# the flip. Legacy artifacts are NEVER auto-migrated: synthesizing an `expires_at` onto a
-# stale artifact would be Flow inventing an approval no operator gave.
+# SCOPE: protected-path and deferral artifacts only. Command approvals are schema 3 and
+# accept VALID alone in BOTH modes — this key can neither relax nor tighten them.
+# `bash hooks/local/approve-local.sh --inventory` names every artifact that no longer
+# authorizes and why. Legacy artifacts are NEVER auto-migrated: synthesizing an
+# `expires_at`, a digest or today's HEAD onto a stale artifact would be Flow inventing an
+# approval no operator gave.
 #
 # TRIPWIRE: this key is in policy_loader's tighten-only set (local_override_may_relax is
 # false), so a gitignored approval-policy.local.yml can turn it ON but never back OFF.

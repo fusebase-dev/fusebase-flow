@@ -744,7 +744,7 @@ if [ -d .git/hooks ] && [ -x hooks/local/install-git-hooks.sh ]; then
     echo "[upgrade] NOTE: a custom .git/hooks hook was preserved (not overwritten). To install the"
     echo "          Flow hook, run: bash hooks/local/install-git-hooks.sh --force"
   else
-    echo "[upgrade] (re)installed Flow git fallback hooks (.git/hooks/pre-commit, commit-msg)"
+    echo "[upgrade] (re)installed Flow git fallback hooks (.git/hooks/pre-commit, commit-msg, pre-push)"
   fi
 fi
 

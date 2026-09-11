@@ -166,12 +166,18 @@ def build(tmp: Path) -> Path:
     return tmp
 
 
+sys.path.insert(0, str(root / "hooks"))
+from shared.approval_artifact import compute_command_digest, compute_repo_id  # noqa: E402
+
 for stamp in ("9999-12-31T23:59:59-14:00", "0001-01-01T00:00:00+14:00"):
     with tempfile.TemporaryDirectory() as d:
         repo = build(Path(d))
         (repo / "state" / "approvals" / "production_deploy-edge-20260728.json").write_text(
-            json.dumps({"schema_version": 2, "action": "production_deploy",
-                        "expires_at": stamp}), encoding="utf-8")
+            json.dumps({"schema_version": 3, "action": "production_deploy",
+                        "created_at": "2000-01-01T00:00:00Z", "expires_at": stamp,
+                        "binding_profile": "command_only_v1",
+                        "repo_id": compute_repo_id(repo),
+                        "command_digest": compute_command_digest(CMD)}), encoding="utf-8")
         for handler, payload in (
             ("pre_tool_use.py", {"event": "pre_tool_use", "cwd": str(repo),
                                  "tool_name": "Bash", "tool_input": {"command": CMD}}),
@@ -208,11 +214,19 @@ CP_OUT="$(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$ROOT" <<'PY' 2>&
 import json, os, shutil, sys, tempfile
 from pathlib import Path
 root = Path(sys.argv[1]); sys.path.insert(0, str(root / "hooks"))
+from shared.approval_artifact import compute_command_digest, compute_repo_id  # noqa: E402
 from shared.command_policy import evaluate  # noqa: E402
 from shared.policy_loader import reset_cache  # noqa: E402
 
 FUTURE = "2099-01-01T00:00:00Z"
 fails = []
+
+
+def s3(repo: Path, action: str = "production_deploy", command: str = "fusebase deploy") -> dict:
+    """A complete schema-3 command approval (the only shape the command gate accepts)."""
+    return {"schema_version": 3, "action": action, "created_at": "2026-01-01T00:00:00Z",
+            "expires_at": FUTURE, "binding_profile": "command_only_v1",
+            "repo_id": compute_repo_id(repo), "command_digest": compute_command_digest(command)}
 
 
 def make_repo(tmp: Path) -> Path:
@@ -236,7 +250,7 @@ with tempfile.TemporaryDirectory() as d:
     reset_cache()
     # AC1: filename says production_deploy, body says database_migration -> DENY.
     write_artifact(repo, "production_deploy-x-20260728.json",
-                   {"action": "database_migration", "expires_at": FUTURE})
+                   s3(repo, action="database_migration"))
     dec = evaluate(DEPLOY, root=repo)
     if dec.decision != "deny":
         fails.append(f"ac1-action-mismatch: expected deny got {dec.decision}")
@@ -249,8 +263,7 @@ with tempfile.TemporaryDirectory() as d:
     repo = make_repo(Path(d))
     reset_cache()
     # Agreeing body action -> ALLOW (the mismatch above is the discriminator, not the file).
-    write_artifact(repo, "production_deploy-x-20260728.json",
-                   {"action": "production_deploy", "expires_at": FUTURE})
+    write_artifact(repo, "production_deploy-x-20260728.json", s3(repo))
     dec = evaluate(DEPLOY, root=repo)
     if dec.decision != "allow":
         fails.append(f"ac1-agreeing-action: expected allow got {dec.decision} ({dec.reason})")
@@ -278,8 +291,7 @@ with tempfile.TemporaryDirectory() as d:
 with tempfile.TemporaryDirectory() as d, tempfile.TemporaryDirectory() as foreign:
     repo = make_repo(Path(d))
     reset_cache()
-    write_artifact(repo, "production_deploy-x-20260728.json",
-                   {"action": "production_deploy", "expires_at": FUTURE})
+    write_artifact(repo, "production_deploy-x-20260728.json", s3(repo))
     here = os.getcwd()
     from_root = evaluate(DEPLOY, root=repo)
     migrate_from_root = evaluate("npx prisma migrate deploy", root=repo)
@@ -309,7 +321,8 @@ else
   bad "command-policy-action-agreement-and-root-anchoring" "$CP_OUT"
 fi
 
-# ---- 3. AC9: command_digest / repo_id are enforced when present, absent = legacy ---
+# ---- 3. AC9 (schema 3): command_digest + repo_id are MANDATORY for command approvals ---
+# The generic evaluate_artifact contract (protected-path/deferral) keeps K2 "when present".
 BIND_OUT="$(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$ROOT" <<'PY' 2>&1
 import json, shutil, sys, tempfile
 from pathlib import Path
@@ -335,8 +348,11 @@ def make_repo(tmp: Path) -> Path:
 
 
 def mint(repo: Path, **extra) -> None:
-    body = {"schema_version": 2, "action": "production_deploy", "expires_at": FUTURE}
+    body = {"schema_version": 3, "action": "production_deploy", "expires_at": FUTURE,
+            "created_at": "2026-01-01T00:00:00Z", "binding_profile": "command_only_v1",
+            "repo_id": compute_repo_id(repo), "command_digest": compute_command_digest(DEPLOY)}
     body.update(extra)
+    body = {k: v for k, v in body.items() if v is not None}
     (repo / "state" / "approvals" / "production_deploy-t-20260728.json").write_text(
         json.dumps(body), encoding="utf-8")
 
@@ -396,12 +412,18 @@ with tempfile.TemporaryDirectory() as d:
     if dec.approval_verdict != Verdict.BINDING_MISMATCH.value:
         fails.append(f"repo-mismatch-verdict: got {dec.approval_verdict!r}")
 
-# K2 additive rule: an artifact carrying NEITHER binding field stays action-scoped.
+# Schema-3 cutover (supersedes K2's additive rule for COMMAND approvals): an artifact
+# carrying neither binding no longer authorizes; nor does a fully bound schema-2 one.
 with tempfile.TemporaryDirectory() as d:
     repo = make_repo(Path(d))
-    mint(repo)
-    if decide(repo).decision != "allow":
-        fails.append("no-binding-fields: expected legacy action-scoped allow")
+    mint(repo, command_digest=None, repo_id=None)
+    if decide(repo).decision != "deny":
+        fails.append("no-binding-fields: an unbound command approval still authorizes")
+    mint(repo, schema_version=2, binding_profile=None, created_at=None)
+    dec = decide(repo)
+    if dec.decision != "deny" or dec.approval_verdict != Verdict.LEGACY_SCHEMA.value:
+        fails.append(f"schema-2-bound: expected LEGACY_SCHEMA deny got "
+                     f"{dec.decision}/{dec.approval_verdict!r}")
 
 # Fail-closed: a bound artifact whose binding cannot be checked does NOT authorize.
 bound = {"action": "production_deploy", "expires_at": FUTURE, "command_digest": "abc"}
@@ -427,9 +449,9 @@ print(json.dumps(fails))
 PY
 )"
 if [ "$BIND_OUT" = "[]" ]; then
-  ok "ac9-binding-enforced-when-present"
+  ok "ac9-command-binding-mandatory-schema3"
 else
-  bad "ac9-binding-enforced-when-present" "$BIND_OUT"
+  bad "ac9-command-binding-mandatory-schema3" "$BIND_OUT"
 fi
 
 # ---- 4. AC14: the denial message is specific, ordered and <= 8 lines --------------
@@ -437,7 +459,7 @@ UX_OUT="$(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$ROOT" <<'PY' 2>&
 import json, shutil, sys, tempfile
 from pathlib import Path
 root = Path(sys.argv[1]); sys.path.insert(0, str(root / "hooks"))
-from shared.approval_artifact import Verdict  # noqa: E402
+from shared.approval_artifact import Verdict, compute_command_digest, compute_repo_id  # noqa: E402
 from shared.command_policy import evaluate  # noqa: E402
 from shared.denial_message import MAX_LINES, render_approval_denial  # noqa: E402
 from shared.policy_loader import reset_cache  # noqa: E402
@@ -515,7 +537,10 @@ def make_repo(tmp: Path) -> Path:
 with tempfile.TemporaryDirectory() as a, tempfile.TemporaryDirectory() as b:
     stale_repo = make_repo(Path(a))
     (stale_repo / "state" / "approvals" / "production_deploy-t-20260728.json").write_text(
-        json.dumps({"action": "production_deploy", "expires_at": PAST}), encoding="utf-8")
+        json.dumps({"schema_version": 3, "action": "production_deploy",
+                    "created_at": "1999-01-01T00:00:00Z", "expires_at": PAST,
+                    "binding_profile": "command_only_v1", "repo_id": compute_repo_id(stale_repo),
+                    "command_digest": compute_command_digest(DEPLOY)}), encoding="utf-8")
     reset_cache()
     stale = evaluate(DEPLOY, root=stale_repo)
     absent_repo = make_repo(Path(b))
@@ -533,7 +558,10 @@ with tempfile.TemporaryDirectory() as a, tempfile.TemporaryDirectory() as b:
 with tempfile.TemporaryDirectory() as d:
     repo = make_repo(Path(d))
     (repo / "state" / "approvals" / "production_deploy-unrelated-20260728.json").write_text(
-        json.dumps({"action": "database_migration", "expires_at": FUTURE}), encoding="utf-8")
+        json.dumps({"schema_version": 3, "action": "database_migration",
+                    "created_at": "2026-01-01T00:00:00Z", "expires_at": FUTURE,
+                    "binding_profile": "command_only_v1", "repo_id": compute_repo_id(repo),
+                    "command_digest": compute_command_digest(DEPLOY)}), encoding="utf-8")
     reset_cache()
     dec = evaluate(DEPLOY, root=repo)
     if dec.decision != "deny" or "ACTION_MISMATCH" not in dec.reason:
