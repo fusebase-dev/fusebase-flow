@@ -77,19 +77,27 @@ ref-update binding is missing.
   `direct_to_main`, a push that updates `main`/`master` needs a matching approval whether an
   agent or a person runs it. The upgrade installs the hook next to `pre-commit`; a custom
   `.git/hooks/pre-push` is preserved and reported, and the boundary is then not active.
-- **Only an explicit set of remote-URL forms can be bound at all.** `[user@]host:path`,
-  `ssh://`, `git+ssh://`, `ssh+git://`, `http(s)://`, `git://`, `file://` and local paths —
-  nothing else. An unlisted scheme, any percent-encoding in the authority, a password-bearing
-  or malformed principal, and a URL carrying a query or fragment are **refused**, with the
-  denial naming the endpoint as unusable. A refusal costs you one supported spelling; guessing
-  at a form would silently bind the wrong repository.
-- **SSH logins are part of the destination.** `alice@host:repo.git` and `bob@host:repo.git` are
-  different repositories (`~` expands per principal), so they bind separately in every SSH
-  spelling and changing the login invalidates an approval. An HTTP(S) userinfo is
-  authentication material that never selects the repository, so it is dropped and never
-  written into an approval. Spellings are never folded together: `host:path` and
-  `ssh://host/path` are relative and absolute, an explicit `:22` differs from an omitted port,
-  and different host aliases stay different.
+- **The remote URL is compared byte for byte, exactly as git reports it.** Nothing is
+  lower-cased, trimmed or rewritten before the comparison, so two spellings of "the same"
+  remote are two different endpoints: `SSH://host/x` is not `ssh://host/x`, an explicit `:22`
+  is not an omitted port, `host:path` (relative) is not `ssh://host/path` (absolute), and two
+  host aliases stay distinct. If your remote URL changes in any way, the approval stops
+  matching and you reissue it — one clear error, one command. That is deliberate: a rewrite
+  applied before a comparison is how an approval ends up matching a repository nobody approved.
+- **A remote URL carrying credentials cannot be bound at all — it is refused, not cleaned up.**
+  `https://<token>@host/x` and any `user:password@` form (in any scheme, percent-encoded or
+  not) are rejected with the endpoint named as unusable. Use a credential helper, or a remote
+  without embedded credentials, and reissue. Because nothing is stripped, no credential can
+  reach a stored approval by any path.
+- **An SSH login is not a credential and stays part of the destination.**
+  `alice@host:repo.git` and `bob@host:repo.git` are different users' repositories (`~` expands
+  per principal), so they bind separately in every SSH spelling, and changing the login
+  invalidates the approval.
+- **Bindable forms, and nothing else:** `[user@]host:path`, `ssh://`, `git+ssh://`,
+  `ssh+git://`, `http(s)://` and `git://` without userinfo, `file:///path` and
+  `file://C:/path`, and local filesystem paths. Unlisted schemes, `transport::address` remote
+  helpers, percent-encoding in the authority, whitespace, and query/fragment URLs are all
+  refused.
 
 ## What this does NOT protect
 
