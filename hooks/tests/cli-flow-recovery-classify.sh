@@ -195,14 +195,20 @@ PY
   d="$TMP_BASE/prov-missing"; ffcf_conflict_tree "$d"
   ( cd "$d" && bash hooks/local/stamp-cli-provenance.sh >/dev/null )
   rm -f "$d/.claude/skills/fusebase-cli/SKILL.md"
+  # T90: provider-skill entries carry no `required` key; honoring one would silence both rows below.
+  rm -rf "$d/.claude/skills/managed-integrations" "$d/.agents/skills/managed-integrations"
+  printf '{"flags": ["managed-integrations"]}\n' > "$d/fusebase.json"
   ffcf_conflicts "$d" "$TMP_BASE/prov-missing.json"
   [ "$FFCF_RC" -eq 1 ] || fail "MISSING CLI skill must still exit 1 (CLI_LAYER_DRIFT), got $FFCF_RC"
   ffcf_json_assert "$TMP_BASE/prov-missing.json" "MISSING CLI skill should still be CLI_LAYER_DRIFT" <<'PY'
 import json, sys
 d = json.loads(open(sys.argv[1], encoding="utf-8").read())
 assert d["verdict"] == "CLI_LAYER_DRIFT", d["verdict"]
+missing = [(f["path"], f.get("detail", "")) for f in d["findings"] if f["status"] == "MISSING"]
+assert any("/fusebase-cli/" in p and "partially missing" in t for p, t in missing), missing
+assert any("/managed-integrations/" in p and "its flag is on" in t for p, t in missing), missing
 PY
-  pass "MISSING CLI skill still escalates to CLI_LAYER_DRIFT (missing-vs-stale semantics intact)"
+  pass "MISSING CLI skill still escalates to CLI_LAYER_DRIFT (partial-install and flag-on provider skills both MISSING)"
 
   # F4 — single-provider benign absence. A Claude-only / Flow-only project that NEVER installed
   # the CLI provider skills (0 of N present) must NOT be CLI_LAYER_DRIFT: one benign INFO instead

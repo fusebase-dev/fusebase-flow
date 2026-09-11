@@ -91,7 +91,6 @@
     {
       "path": ".claude/skills/<cli-provider-skill>/**",
       "owner": "cli-owned",
-      "required": false,
       "known_names": [
         "api-exploration",
         "app-api-contract-testing",
@@ -123,7 +122,6 @@
     {
       "path": ".agents/skills/<cli-provider-skill>/**",
       "owner": "cli-owned",
-      "required": false,
       "known_names": [
         "api-exploration",
         "app-api-contract-testing",
