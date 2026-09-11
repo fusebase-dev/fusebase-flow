@@ -93,7 +93,7 @@ repo = Path(sys.argv[1])
 sys.path.insert(0, str(repo / "hooks"))
 from shared.approval_artifact import compute_command_digest, compute_repo_id
 p = repo / "state" / "approvals" / "production_deploy-stale-20260101.json"
-p.write_text(json.dumps({"schema_version": 3, "action": "production_deploy", "scope": "stale",
+p.write_text(json.dumps({"schema_version": 3, "binding_revision": 1, "action": "production_deploy", "scope": "stale",
                          "created_at": "1999-12-31T00:00:00Z",
                          "expires_at": "2000-01-01T00:00:00Z",
                          "binding_profile": "command_only_v1",

@@ -248,7 +248,7 @@ root, repo = Path(sys.argv[1]), Path(sys.argv[2])
 sys.path.insert(0, str(root / "hooks"))
 from shared.approval_artifact import compute_command_digest, compute_repo_id  # noqa: E402
 d = repo / "state" / "approvals"
-base = {"schema_version": 3, "action": "production_deploy", "created_at": "2026-01-01T00:00:00Z",
+base = {"schema_version": 3, "binding_revision": 1, "action": "production_deploy", "created_at": "2026-01-01T00:00:00Z",
         "expires_at": "2099-01-01T00:00:00Z", "binding_profile": "command_only_v1",
         "command_digest": compute_command_digest("fusebase deploy")}
 (d / "production_deploy-foreignrepo-20260728.json").write_text(

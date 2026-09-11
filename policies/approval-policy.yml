@@ -22,12 +22,15 @@ workflow_mode: direct_to_main   # direct_to_main | branch_pr
 #   state/approvals/<operation>-<slug>-<YYYYMMDD>.json
 # Schema v3 (COMMAND approvals — every action a command-policy rule gates) — see the trust
 # model at the bottom of this file. Mint with approve-local.sh; never hand-write one.
-#   ENFORCED : "schema_version": 3 · "action" (MUST equal the filename action) ·
-#              "repo_id" + "command_digest" (64-hex, MANDATORY, must match) ·
+#   ENFORCED : "schema_version": 3 (integer) · "binding_revision" (exact; what the bindings
+#              MEAN, bumped when their computation changes) · "action" (MUST equal the filename
+#              action) · "repo_id" + "command_digest" (64-hex, MANDATORY, must match) ·
 #              "created_at" < "expires_at" (parseable UTC) · "binding_profile" (at least as strong as
 #              the matched rule's profile, command-policy.yml) · "updates" for git_push_v1
-#   REJECTED : schema absent/1/2 (LEGACY_SCHEMA) whatever strict_approvals says. Files are
-#              kept for audit; nothing is migrated or reconstructed.
+#   REJECTED : schema absent/1/2, or a superseded binding_revision (both LEGACY_SCHEMA)
+#              whatever strict_approvals says. Files are kept for audit; nothing is migrated
+#              or reconstructed. git_push_v1 endpoints come from a CLOSED set of remote-URL
+#              forms (approval_artifact.canonical_endpoint); anything else refuses to bind.
 #   AUDIT    : "approved_by" · "ticket" · "scope" · "reason"  — metadata only,
 #              never authenticated authority (decision K3)
 # Protected-path (protected_path_edit) and health_check_deferral artifacts keep schema v2.

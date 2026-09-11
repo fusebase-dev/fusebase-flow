@@ -173,7 +173,7 @@ for stamp in ("9999-12-31T23:59:59-14:00", "0001-01-01T00:00:00+14:00"):
     with tempfile.TemporaryDirectory() as d:
         repo = build(Path(d))
         (repo / "state" / "approvals" / "production_deploy-edge-20260728.json").write_text(
-            json.dumps({"schema_version": 3, "action": "production_deploy",
+            json.dumps({"schema_version": 3, "binding_revision": 1, "action": "production_deploy",
                         "created_at": "2000-01-01T00:00:00Z", "expires_at": stamp,
                         "binding_profile": "command_only_v1",
                         "repo_id": compute_repo_id(repo),
@@ -224,7 +224,7 @@ fails = []
 
 def s3(repo: Path, action: str = "production_deploy", command: str = "fusebase deploy") -> dict:
     """A complete schema-3 command approval (the only shape the command gate accepts)."""
-    return {"schema_version": 3, "action": action, "created_at": "2026-01-01T00:00:00Z",
+    return {"schema_version": 3, "binding_revision": 1, "action": action, "created_at": "2026-01-01T00:00:00Z",
             "expires_at": FUTURE, "binding_profile": "command_only_v1",
             "repo_id": compute_repo_id(repo), "command_digest": compute_command_digest(command)}
 
@@ -348,7 +348,7 @@ def make_repo(tmp: Path) -> Path:
 
 
 def mint(repo: Path, **extra) -> None:
-    body = {"schema_version": 3, "action": "production_deploy", "expires_at": FUTURE,
+    body = {"schema_version": 3, "binding_revision": 1, "action": "production_deploy", "expires_at": FUTURE,
             "created_at": "2026-01-01T00:00:00Z", "binding_profile": "command_only_v1",
             "repo_id": compute_repo_id(repo), "command_digest": compute_command_digest(DEPLOY)}
     body.update(extra)
@@ -537,7 +537,7 @@ def make_repo(tmp: Path) -> Path:
 with tempfile.TemporaryDirectory() as a, tempfile.TemporaryDirectory() as b:
     stale_repo = make_repo(Path(a))
     (stale_repo / "state" / "approvals" / "production_deploy-t-20260728.json").write_text(
-        json.dumps({"schema_version": 3, "action": "production_deploy",
+        json.dumps({"schema_version": 3, "binding_revision": 1, "action": "production_deploy",
                     "created_at": "1999-01-01T00:00:00Z", "expires_at": PAST,
                     "binding_profile": "command_only_v1", "repo_id": compute_repo_id(stale_repo),
                     "command_digest": compute_command_digest(DEPLOY)}), encoding="utf-8")
@@ -558,7 +558,7 @@ with tempfile.TemporaryDirectory() as a, tempfile.TemporaryDirectory() as b:
 with tempfile.TemporaryDirectory() as d:
     repo = make_repo(Path(d))
     (repo / "state" / "approvals" / "production_deploy-unrelated-20260728.json").write_text(
-        json.dumps({"schema_version": 3, "action": "database_migration",
+        json.dumps({"schema_version": 3, "binding_revision": 1, "action": "database_migration",
                     "created_at": "2026-01-01T00:00:00Z", "expires_at": FUTURE,
                     "binding_profile": "command_only_v1", "repo_id": compute_repo_id(repo),
                     "command_digest": compute_command_digest(DEPLOY)}), encoding="utf-8")

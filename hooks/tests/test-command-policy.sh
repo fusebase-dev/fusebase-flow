@@ -52,7 +52,7 @@ def make_repo(tmp: Path, *, command_policy=None) -> Path:
 def mint(repo: Path, action: str, command: str, slug: str = "t") -> None:
     """A schema-3 command_only_v1 approval of `action` bound to exactly `command`."""
     (repo / "state" / "approvals" / f"{action}-{slug}-20260728.json").write_text(
-        json.dumps({"schema_version": 3, "action": action, "created_at": "2026-01-01T00:00:00Z",
+        json.dumps({"schema_version": 3, "binding_revision": 1, "action": action, "created_at": "2026-01-01T00:00:00Z",
                     "expires_at": FUTURE, "binding_profile": "command_only_v1",
                     "repo_id": compute_repo_id(repo),
                     "command_digest": compute_command_digest(command)}), encoding="utf-8")
@@ -365,7 +365,7 @@ from shared.approval_artifact import compute_command_digest, compute_repo_id  # 
 def mint(repo: Path, action: str) -> None:
     """Schema-3 command_only_v1 approval bound to the scenario's current CMD."""
     (repo / "state" / "approvals" / f"{action}-smoke-20260728.json").write_text(
-        json.dumps({"schema_version": 3, "action": action, "created_at": "2026-01-01T00:00:00Z",
+        json.dumps({"schema_version": 3, "binding_revision": 1, "action": action, "created_at": "2026-01-01T00:00:00Z",
                     "expires_at": FUTURE, "binding_profile": "command_only_v1",
                     "repo_id": compute_repo_id(repo),
                     "command_digest": compute_command_digest(CMD)}), encoding="utf-8")

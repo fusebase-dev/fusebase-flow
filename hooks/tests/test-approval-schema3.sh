@@ -125,10 +125,16 @@ class Repo:
         return p
 
     def push(self, *args: str) -> subprocess.CompletedProcess:
-        return run(self.work, "git", "push", *args)
+        """A real push. TRIPWIRE: an MSYS fork/spawn failure also yields a nonzero rc, which
+        would read as "the boundary refused it" — name that condition instead of scoring it."""
+        res = run(self.work, "git", "push", *args)
+        if res.returncode != 0 and "Resource temporarily unavailable" in res.stderr:
+            raise RuntimeError("ENVIRONMENT (not a gate result): MSYS could not spawn git; "
+                               f"rerun this phase on a quieter machine — {res.stderr.strip()[-120:]}")
+        return res
 
     def schema3(self, command: str, updates=None, **over) -> dict:
-        body = {"schema_version": 3, "action": "production_deploy",
+        body = {"schema_version": 3, "binding_revision": 1, "action": "production_deploy",
                 "repo_id": compute_repo_id(self.work),
                 "command_digest": compute_command_digest(command),
                 "created_at": CREATED, "expires_at": FUTURE,
@@ -137,6 +143,13 @@ class Repo:
             body["updates"] = updates
         body.update(over)
         return body
+
+
+def prefix_artifact(r: "Repo", command: str, updates: list) -> dict:
+    """What the PRE-FIX writer produced: schema 3, no binding_revision (superseded semantics)."""
+    body = r.schema3(command, updates)
+    body.pop("binding_revision", None)
+    return body
 
 
 def upd(dst: str, oid, endpoint: str = "../remote.git", op: str = "update") -> dict:
@@ -445,9 +458,14 @@ def dry_run_cannot_authorize(r: Repo, p: list[str]) -> None:
         # Even hand-written, a dry-run-bound artifact must not pass the command gate.
         r.write(r.schema3(dry, [upd("refs/heads/main", r.oid("main"))]))
         expect(r.gate(dry), "deny", "BINDING_UNRESOLVED", f"gate[{dry}]", p)
-    # End to end: the documented mint path yields nothing, so the real push stays refused.
-    for f in (r.work / "state" / "approvals").glob("*.json"):
-        f.unlink()
+    # End to end, with the artifact RETAINED (not cleared): a pre-fix artifact minted by the
+    # old writer for a dry run binds the real push's updates, and pre-push never compares the
+    # command digest — so only the binding revision can reject it.
+    r.write(prefix_artifact(r, "git push --dry-run origin main",
+                            [upd("refs/heads/main", r.oid("main"))]))
+    res = r.push("origin", "main")
+    if res.returncode == 0:
+        p.append("a real push succeeded on a retained dry-run approval")
     r.mint("git push --dry-run origin main")
     res = r.push("origin", "main")
     if res.returncode == 0:
@@ -473,8 +491,23 @@ def ssh_principal_binding(r: Repo, p: list[str]) -> None:
         got = canonical_endpoint(raw)
         if got != want:
             p.append(f"canonical_endpoint({raw!r}) = {got!r}, expected {want!r}")
+    # The CLOSED SET: every supported SSH spelling keeps its principal, and everything this
+    # function does not fully understand is refused rather than canonicalized by a fallback.
+    for scheme in ("ssh", "git+ssh", "ssh+git"):
+        if canonical_endpoint(f"{scheme}://alice@host/~/x") ==            canonical_endpoint(f"{scheme}://bob@host/~/x"):
+            p.append(f"{scheme}:// still collapses two logins to one endpoint")
+        if canonical_endpoint(f"{scheme}://alice@host/~/x") != f"{scheme}://alice@host/~/x":
+            p.append(f"{scheme}:// did not preserve the principal")
     if canonical_endpoint("alice@host:repo.git") == canonical_endpoint("bob@host:repo.git"):
         p.append("two SSH logins still collapse to one endpoint")
+    pct = "%3A"
+    refused = ["ssh://alice" + pct + "fixture@host/x",   # decodes to a password separator
+               "ssh://alice%40evil@host/x", "ssh://@host/x", "git://user@host/x",
+               "ftp://host/x.git", "ftps://host/x.git", "rsync://host/x", "unknown://host/x",
+               "https://host/x?token=1", "alice%40host:repo.git"]
+    for bad in refused:
+        if canonical_endpoint(bad) is not None:
+            p.append(f"unsupported endpoint form was bound: {bad!r} -> {canonical_endpoint(bad)!r}")
 
     # Gate 1 — the command gate, through the real writer and a changed remote.
     r.commit("B")
@@ -496,6 +529,37 @@ def ssh_principal_binding(r: Repo, p: list[str]) -> None:
         if decision.decision != want:
             p.append(f"boundary[{endpoint}]: expected {want} got {decision.decision} "
                      f"[{decision.approval_verdict}]")
+
+
+def prefix_binding_revision(r: Repo, p: list[str]) -> None:
+    """An artifact minted before the binding fixes must authorize nothing, and be RETAINED.
+
+    Schema 3 never shipped, so this is our own development population — but the boundary
+    skips the command digest, so a pre-fix artifact binding today's objects would otherwise
+    authorize a real push (independent re-review of ae09d8b).
+    """
+    from shared.command_policy import evaluate_push_boundary
+    r.commit("B")
+    stale = r.write(prefix_artifact(r, PUSH, [upd("refs/heads/main", r.oid("main"))]))
+    before = stale.read_bytes()
+    expect(r.gate(PUSH), "deny", "LEGACY_SCHEMA", "command-gate", p)
+    line = f"refs/heads/main {r.oid('main')} refs/heads/main {'0' * 40}"
+    decision = evaluate_push_boundary("../remote.git", [line], root=r.work)
+    if decision.decision != "deny":
+        p.append(f"boundary accepted a pre-fix artifact: {decision.decision}")
+    res = r.push("origin", "main")           # the artifact stays on disk for the real push
+    if res.returncode == 0:
+        p.append("a real push succeeded on a retained pre-fix artifact")
+    if stale.read_bytes() != before:
+        p.append("the rejected artifact was modified instead of preserved")
+    inv = run(r.work, BASH, "hooks/local/approve-local.sh", "--inventory")
+    if "LEGACY_SCHEMA" not in inv.stdout or "binding_revision" not in inv.stdout:
+        p.append("inventory does not name the superseded binding revision")
+    # A freshly minted artifact for the same push IS accepted, so this is not a blanket deny.
+    rc, body, err = r.mint(PUSH)
+    if not body or body.get("binding_revision") != 1:
+        p.append(f"writer did not record binding_revision: {err.strip()[-140:]}")
+    expect(r.gate(PUSH), "allow", None, "reissued", p)
 
 
 def handler_route(r: Repo, p: list[str]) -> None:
@@ -534,6 +598,7 @@ case("writer-refuses-unbindable-and-labels-command-only", writer_refuses)
 case("resolver-config-remaps-fail-closed", resolver_config_remaps)
 case("dry-run-approval-cannot-authorize-a-real-push", dry_run_cannot_authorize)
 case("ssh-principal-change-denies-at-both-gates", ssh_principal_binding)
+case("pre-fix-binding-revision-authorizes-nothing", prefix_binding_revision)
 case("pre-tool-use-handler-route", handler_route)
 sys.exit(FAILS)
 PY
@@ -575,5 +640,5 @@ else
 fi
 
 TOTAL_FAILS=$((PY_FAILS + AA_FAILS))
-echo "[test-approval-schema3] $((19 - TOTAL_FAILS))/19 PASS"
+echo "[test-approval-schema3] $((20 - TOTAL_FAILS))/20 PASS"
 exit "$TOTAL_FAILS"

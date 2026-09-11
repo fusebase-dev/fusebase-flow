@@ -10,8 +10,9 @@ its own pass-set and the loader never needs to know who called it.
 
 Two contracts live here. `evaluate_artifact` judges protected-path and deferral
 artifacts (schema 1/2, binding enforced when present). `evaluate_command_approval`
-judges COMMAND approvals: schema 3 only, every binding mandatory, VALID the only
-acceptable verdict whatever `strict_approvals` says (docs/backlog/approval-binding-omits-head/).
+judges COMMAND approvals: schema 3 at the current BINDING_REVISION, every binding
+mandatory, VALID the only acceptable verdict whatever `strict_approvals` says
+(docs/backlog/approval-binding-omits-head/).
 """
 from __future__ import annotations
 
@@ -37,7 +38,7 @@ class Verdict(str, Enum):
     MALFORMED = "MALFORMED"
     ACTION_MISMATCH = "ACTION_MISMATCH"
     BINDING_MISMATCH = "BINDING_MISMATCH"
-    LEGACY_SCHEMA = "LEGACY_SCHEMA"            # command approval predating schema 3
+    LEGACY_SCHEMA = "LEGACY_SCHEMA"            # predates schema 3 OR the binding revision
     PROFILE_MISMATCH = "PROFILE_MISMATCH"      # binding profile differs from the rule's
     UPDATE_MISMATCH = "UPDATE_MISMATCH"        # git_push_v1: different ref update(s)
     BINDING_UNRESOLVED = "BINDING_UNRESOLVED"  # the observed binding could not be resolved
@@ -51,6 +52,14 @@ SCHEMA_VERSION = 2
 _KNOWN_SCHEMAS = (1, 2)
 
 COMMAND_SCHEMA_VERSION = 3
+#: How the bindings in a schema-3 artifact were COMPUTED, independent of document shape.
+#: Required and exact: an artifact minted under different binding semantics is rejected on
+#: sight rather than re-interpreted under today's rules. Revision 1 is the first shipped
+#: semantics; the unreleased development artifacts that predate it (dry-run commands could be
+#: bound, SSH logins were stripped) carry no revision and therefore authorize nothing.
+#: Bump this whenever what a binding MEANS changes — a new endpoint scheme, a different digest
+#: input, a changed update-comparison rule — even when every field name stays the same.
+BINDING_REVISION = 1
 PROFILE_COMMAND_ONLY = "command_only_v1"   # binds the command text + repository, NOT content
 PROFILE_GIT_PUSH = "git_push_v1"           # also binds every ref update the push performs
 BINDING_PROFILES = (PROFILE_COMMAND_ONLY, PROFILE_GIT_PUSH)   # weakest first: index = strength
@@ -250,25 +259,44 @@ _HEX64 = re.compile(r"[0-9a-f]{64}")
 _OID = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
 _SCHEME_URL = re.compile(r"([A-Za-z][A-Za-z0-9+.-]*)://([^/?#]*)(.*)", re.DOTALL)
 _SCP_LIKE = re.compile(r"([^/:]{2,}):(.*)", re.DOTALL)
-_SCP_AUTHORITY = re.compile(r"(?:([A-Za-z0-9._+-]+)@)?([A-Za-z0-9._-]+|\[[0-9A-Fa-f:.]+\])")
+_SCP_AUTHORITY = re.compile(r"(?:([A-Za-z0-9._+-]+)@)?([A-Za-z0-9._-]+)")
+_USERINFO = re.compile(r"[A-Za-z0-9._+-]+")
+_HOSTPORT = re.compile(r"(?:[A-Za-z0-9._-]+|\[[0-9A-Fa-f:.]+\])(?::[0-9]{1,5})?")
+
+#: THE CLOSED SET of endpoint forms an approval may bind, by what their userinfo MEANS.
+#: TRIPWIRE: anything not listed here is REFUSED, not canonicalized by a fallback rule.
+#: Three review rounds found a different URL spelling each time (`git+ssh`, `ssh+git`,
+#: `%3A`-encoded userinfo) because a permissive fallback has to be right about every form Git
+#: accepts. A refusal costs one clear error and a supported spelling; a wrong canonicalization
+#: silently binds the wrong repository. Adding a scheme here is a deliberate decision that
+#: must state what its userinfo selects.
+_SSH_SCHEMES = frozenset({"ssh", "git+ssh", "ssh+git"})   # login SELECTS the repository (~user)
+_AUTH_SCHEMES = frozenset({"http", "https"})              # userinfo is auth only; path absolute
+_NO_USERINFO_SCHEMES = frozenset({"git", "file"})         # neither principal nor auth
 _REF_FORBIDDEN = re.compile(r"[\x00-\x20\x7f~^:?*\[\\]|\.\.|@\{|//")
 
 
 def canonical_endpoint(url: Any) -> str | None:
     """Identity of a push endpoint, or None when it cannot be one.
 
+    ALLOWLIST, not a parser: a form is bound only when this function fully understands what
+    its userinfo selects. Everything else — an unlisted scheme, percent-encoding in the
+    authority, a password-bearing or malformed principal — returns None and the gate denies.
+
     TRIPWIRE: writer, command gate and pre-push boundary all derive the endpoint through
     THIS function from the string git itself reports, so they cannot drift. Two rules pull
     in opposite directions and BOTH are load-bearing:
 
-      * an HTTP(S)/git userinfo is authentication material (`https://<token>@host/x`), it
-        never selects the repository — the path is absolute — so it is DROPPED, never stored;
+      * an HTTP(S) userinfo is authentication material (`https://<token>@host/x`), it never
+        selects the repository — the path is absolute — so it is DROPPED, never stored;
       * an SSH login DOES select the repository: `alice@host:repo.git` and
-        `bob@host:repo.git` are different users' repositories, and `~` expands per principal.
-        Stripping it merged distinct destinations, so the login is KEPT (a login name is not
-        a secret). A password-bearing SSH authority is refused rather than stored or dropped.
+        `bob@host:repo.git` are different users' repositories, and `~` expands per principal,
+        so the login is KEPT (a login name is not a secret).
 
-    Nothing else is normalized — every normalization widens what one approval binds.
+    Percent-encoding in the authority is refused outright because git decodes escapes before
+    parsing the connection, so `%3A` is a password separator this function would otherwise
+    store. Spellings are never folded together: `host:path` (relative) and `ssh://host/path`
+    (absolute) are different repositories, and an explicit port or host alias stays distinct.
     """
     if not isinstance(url, str):
         return None
@@ -278,21 +306,29 @@ def canonical_endpoint(url: Any) -> str | None:
     m = _SCHEME_URL.fullmatch(text)
     if m:
         scheme, authority, rest = m.groups()
-        if "?" in rest or "#" in rest:
+        scheme = scheme.lower()
+        if "?" in rest or "#" in rest or "%" in authority:
             return None
-        userinfo, at, host = authority.rpartition("@")
-        if not host and scheme.lower() != "file":
+        userinfo, at, hostport = authority.rpartition("@")
+        if scheme == "file":
+            return f"file://{hostport}{rest}" if not at and not hostport else None
+        if not _HOSTPORT.fullmatch(hostport):
             return None
-        if at and scheme.lower().endswith("ssh"):
-            if ":" in userinfo or not userinfo:
-                return None                  # password material, or an empty principal
-            return f"{scheme}://{userinfo}@{host}{rest}"
-        return f"{scheme}://{host}{rest}"
+        if scheme in _SSH_SCHEMES:
+            if not at:
+                return f"{scheme}://{hostport}{rest}"
+            return f"{scheme}://{userinfo}@{hostport}{rest}" \
+                if _USERINFO.fullmatch(userinfo) else None
+        if scheme in _AUTH_SCHEMES:
+            return f"{scheme}://{hostport}{rest}"      # userinfo dropped, never stored
+        if scheme in _NO_USERINFO_SCHEMES:
+            return None if at else f"{scheme}://{hostport}{rest}"
+        return None                                    # unlisted scheme: refuse, never guess
     m = _SCP_LIKE.fullmatch(text)
     if m:                                    # [user@]host:path; a 1-char head is a drive
         head, path = m.groups()
         hm = _SCP_AUTHORITY.fullmatch(head)
-        if not hm:
+        if not hm or "%" in head:
             return None
         user, host = hm.groups()
         # git's scp-like form carries no password; an `@` in the first path segment means the
@@ -300,7 +336,7 @@ def canonical_endpoint(url: Any) -> str | None:
         if "@" in path.split("/", 1)[0]:
             return None
         return f"{user}@{host}:{path}" if user else f"{host}:{path}"
-    return text                              # a local path
+    return text                              # a local filesystem path: no principal, no auth
 
 
 def valid_destination_ref(ref: Any) -> bool:
@@ -375,6 +411,14 @@ def command_contract_problems(data: Any) -> tuple[Verdict | None, list[str]]:
     if not isinstance(schema, int) or isinstance(schema, bool) or schema != COMMAND_SCHEMA_VERSION:
         return Verdict.MALFORMED, [f"unknown schema_version {schema!r} (must be the integer "
                                    f"{COMMAND_SCHEMA_VERSION})"]
+    # Binding SEMANTICS, not document shape: an artifact minted under superseded rules is the
+    # same "predates the contract, reissue it" case as an older schema, so it takes that path
+    # instead of being re-interpreted under today's meaning of the very same fields.
+    revision = data.get("binding_revision")
+    if not isinstance(revision, int) or isinstance(revision, bool) or revision != BINDING_REVISION:
+        return Verdict.LEGACY_SCHEMA, [
+            f"binding_revision {revision!r} is not {BINDING_REVISION}; the bindings were "
+            f"computed under superseded semantics"]
     why = []
     action = data.get("action")
     if not isinstance(action, str) or not action.strip():
@@ -536,7 +580,8 @@ def binding_state(data: Any) -> str:
 
 
 __all__ = [
-    "Artifact", "BINDING_PROFILES", "COMMAND_SCHEMA_VERSION", "NON_COMMAND_ACTIONS", "NOT_OBSERVED",
+    "Artifact", "BINDING_PROFILES", "BINDING_REVISION", "COMMAND_SCHEMA_VERSION",
+    "NON_COMMAND_ACTIONS", "NOT_OBSERVED",
     "PROFILE_COMMAND_ONLY", "PROFILE_GIT_PUSH", "SCHEMA_VERSION", "UPDATE_KEYS", "Verdict",
     "accept_with_audit", "binding_state", "canonical_endpoint", "canonical_updates",
     "command_contract_problems", "compute_command_digest", "compute_repo_id",

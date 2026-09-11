@@ -121,8 +121,8 @@ root, action, slug, reason, command_str, paths_nl = (
 root_path = Path(root)
 sys.path.insert(0, str(root_path / "hooks"))
 from shared.approval_artifact import (  # noqa: E402
-    COMMAND_SCHEMA_VERSION, NOT_OBSERVED, SCHEMA_VERSION, compute_repo_id, evaluate_artifact,
-    evaluate_command_approval, updates_as_json,
+    BINDING_REVISION, COMMAND_SCHEMA_VERSION, NOT_OBSERVED, SCHEMA_VERSION, compute_repo_id,
+    evaluate_artifact, evaluate_command_approval, updates_as_json,
 )
 from shared.command_policy import approval_binding_for  # noqa: E402
 from shared.path_policy import _DIGEST_BOUND_OPERATIONS, is_protected  # noqa: E402
@@ -238,6 +238,7 @@ data = {
     "repo_id": compute_repo_id(root_path),
 }
 if binding:
+    data["binding_revision"] = BINDING_REVISION   # what these bindings MEAN, not their shape
     data["command_digest"] = binding["command_digest"]
     data["binding_profile"] = binding["binding_profile"]
     if "updates" in binding:

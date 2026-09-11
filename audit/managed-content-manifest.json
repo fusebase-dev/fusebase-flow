@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "822db35e57376640a06ed785fd4db2fbe77cc4e2ff8bbf8fa6d3e8686f710933"
+      "sha256": "77e3cea279d4b076b3acbd11f9dab066717461389ed991c8e7f25decd70408f9"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -270,7 +270,7 @@
     },
     {
       "path": "hooks/local/approve-local.sh",
-      "sha256": "90c802aabfc1b8fce57f15fdcfe2cd6ba47c830ef3622f7d9eac5fb3548928b9"
+      "sha256": "de38a95717706a2192c3c1df17d7a1643f83ef449aeeffcf630e668eabd5f7aa"
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
@@ -718,7 +718,7 @@
     },
     {
       "path": "hooks/shared/approval_artifact.py",
-      "sha256": "b9b94be02bc5d92b238735e0374b274cec2e53c41efd51ca10d2d40b23a42dd2"
+      "sha256": "888dd03c0e8e0eb7f465676ffbab6c3e78fff8e2b584fe8d2819868213912f51"
     },
     {
       "path": "hooks/shared/audit_logger.py",
@@ -734,7 +734,7 @@
     },
     {
       "path": "hooks/shared/denial_message.py",
-      "sha256": "d74f1f4965978797e3f7105390ea889e3d1524cd63f530eae67bc86976f4a30a"
+      "sha256": "2523a0585165f3f8597248aee32d985e9ac1d05797c5d0c376a77af44d71d446"
     },
     {
       "path": "hooks/shared/git_push_binding.py",
@@ -1034,19 +1034,19 @@
     },
     {
       "path": "hooks/tests/test-approval-binding.sh",
-      "sha256": "f86ac6e3d625b43cf3c2188b484b3e08a0290f984872f4d34502cd0f74150e4d"
+      "sha256": "a6307040cf66e61b505ee059f7157f18aaa6772bebb71e1176f0aff724807d63"
     },
     {
       "path": "hooks/tests/test-approval-receipt-durability.sh",
-      "sha256": "2885671823346029de97d21a012182c1604d5e562ea5e7915cd09d1721ed5792"
+      "sha256": "4f39159a55b9aaeef3b63798320b634127aa5567e6d9ea8d294d0ebb552a4f58"
     },
     {
       "path": "hooks/tests/test-approval-schema3.sh",
-      "sha256": "4d45795518bf71a1dd6887f5f70074091f0708f31fa992506d05c7dbe71746d0"
+      "sha256": "118d22e6428def496d2c2b6b23fbc3d5ee96c6e340eee67af030a3af688093d1"
     },
     {
       "path": "hooks/tests/test-approval-writer.sh",
-      "sha256": "d042503186c48fafb0ec546cf2d871d349f46f55377e5880b36f1144dcc23e3d"
+      "sha256": "06d86cf1009efcb8b0f6b352bfefc3a680e479f4713df1ec007a452d32f803a4"
     },
     {
       "path": "hooks/tests/test-artifact-manifest.py",
@@ -1106,7 +1106,7 @@
     },
     {
       "path": "hooks/tests/test-command-policy.sh",
-      "sha256": "3563fded29f8562fb1c9e9468010041614258c83be9e5e0a8a23838062426ac5"
+      "sha256": "28a1f03408f61ea1ebaf9b9788fed84fb90d46cbb86da1ba76906d25aedce543"
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
@@ -1370,7 +1370,7 @@
     },
     {
       "path": "policies/approval-policy.yml",
-      "sha256": "2f01512c108bf4ea4b001273d594888228b664afed459c743212bd14f76b3444"
+      "sha256": "97e13c9e8c71833e97e96738392095253f7b53e9fa58bf23aa1082a2913de2e4"
     },
     {
       "path": "policies/command-policy.yml",
@@ -1561,5 +1561,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "acf5212fe1dd1881f53cc1e80fc8f47e22e428f2c8aaf94142e4100098ea67b1"
+  "manifest_self_sha256": "c0ba61b5f00d9562350ea5a4d834183df6336f5f8840ad431a97bb8f2ea205fa"
 }

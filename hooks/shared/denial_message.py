@@ -25,7 +25,7 @@ _REASON = {
     "MALFORMED": "artifact is present but malformed/unreadable",
     "ACTION_MISMATCH": "artifact's filename action and its JSON body action disagree",
     "BINDING_MISMATCH": "artifact is bound to a different command or repository",
-    "LEGACY_SCHEMA": "artifact predates schema 3 and no longer authorizes commands; reissue it",
+    "LEGACY_SCHEMA": "artifact predates the current approval contract (schema or binding revision) and no longer authorizes commands; reissue it",
     "PROFILE_MISMATCH": "artifact carries a different binding profile than this rule requires",
     "UPDATE_MISMATCH": "artifact is bound to different ref update(s) than this push performs",
     "BINDING_UNRESOLVED": "the push could not be resolved to exact ref updates, so nothing can bind it",
