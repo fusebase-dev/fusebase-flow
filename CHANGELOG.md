@@ -4,6 +4,36 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [4.16.5] — 2026-09-11
+
+**Mirror recovery works on Windows checkouts that write CRLF.** Projects on Windows with
+`core.autocrlf=true` and no `.gitattributes` can now have drifted skill and agent mirrors repaired
+instead of preserved forever as `unowned-collision`. **Still open:** CRLF consumers may still
+encounter blocked upgrades: upstream-changed paths whose checkout bytes differ can abort as
+`changed-by-both`; see `docs/backlog/stamper-hashes-worktree-not-artifact`. See
+`docs/release-notes/v4.16.5.md`.
+
+- **The rule.** Recovery preserves content changes while treating the two specified line-ending
+  forms as equivalent: exact bytes first, else the committed blob with every LF written as CRLF,
+  only where git itself confirms it writes CRLF at that path and the path carries no `filter`,
+  `ident` or `working-tree-encoding` attribute (detected by presence, so filters named `unset` or
+  `unspecified` are refused and never run). A deliberate whole-file LF↔CRLF conversion IS repaired;
+  the `.pre-flow-repair` backup keeps it. Added text, mixed endings, binary, `-text`/`eol=lf`,
+  staged edits and concurrent changes stay preserved.
+- **One representation.** Mirror manifests record line-ending-independent digests (unchanged for LF
+  files), the receipt path can prove a CRLF re-checkout, and `mirror-skills.sh --check` reads CRLF
+  checkouts without false drift. Race checks still compare raw bytes.
+- **Not built from the report:** `git hash-object` comparison (a clean filter could hide an added
+  instruction and recovery would overwrite it) and the `git show HEAD:<path> > <path>` remedy
+  (discards edits, truncates on failure).
+- **Ownership map:** two unused `"required": false` keys removed from the provider-skill entries;
+  detector behavior unchanged, now pinned for both `MISSING` findings.
+- **Docs:** both install guides state FR-25 accurately for existing repositories — live from the
+  first commit, growth blocked whether or not adopted, adoption is not permission to grow.
+- **Recorded, not built:** F2 withdrawn by the reporter; F3 latent in
+  `docs/backlog/cli-flag-resolution-project-local-only/`; the FR-25 block message's `--write-baseline`
+  advice in `docs/backlog/module-size-block-advice-grandfathers-growth/`.
+
 ## [4.16.4] — 2026-09-10
 
 **The MSYS capture hang is closed at its cause, and v4.16.3's content ships.** `v4.16.3` was tagged,
