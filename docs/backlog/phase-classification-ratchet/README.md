@@ -37,7 +37,7 @@ So the honest gap is **28 of 76**, not "40 ungated": 12 of the difference are st
 
 **Second seeding finding (for the triage outcome):** 3 of the 4 `step-gated` rows are checker self-tests — the workflow step runs the CHECKER (`check-module-size.sh --all`, `stamp-hook-manifest.sh`+`verify-hook-manifest.sh`, preflight §10), while the phases `module-size`, `hook-manifest`, `fingerprint-rows` themselves gate nowhere. Only `ff-only` is run by its step. A regression in a self-test (the checker's red arm going vacuous) is therefore unguarded; decide during triage whether each self-test belongs in its step or the release profile.
 
-**Finding surfaced by the seeding pass, not decided here:** the Required-guarantees row "Process lifecycle — failure/timeout propagation, owned-child cleanup, zero-result refusal and selector completeness" has **zero** tags in the release table; `liveness`, `health-check-timeout`, `msys-tree-cleanup`, `signal-reap`, `job-probe`, `ws5-upgrade` are all among the 26. `test-ff-only.sh` covers propagation and zero-result; owned-child cleanup is covered by nothing in the release gate, and `signal-reap` is red pre-existing (`docs/tmp/handoff.md:39`). Likewise `cli-vendor`/`cli-version` (provider delivery) and `approval-receipt`/`denial-message` (executable safety) sit under required-guarantee rows. Triage those first when the 28 are reviewed; each promotion carries an MSYS cost (`gate-bounds-lack-headroom`).
+**Finding surfaced by the seeding pass, not decided here:** the Required-guarantees row "Process lifecycle — failure/timeout propagation, owned-child cleanup, zero-result refusal and selector completeness" has **zero** tags in the release table; `liveness`, `health-check-timeout`, `msys-tree-cleanup`, `signal-reap`, `job-probe`, `ws5-upgrade` are all among the 26. `test-ff-only.sh` covers propagation and zero-result; owned-child cleanup is covered by nothing in the release gate, and `signal-reap` is red pre-existing (its `docs/maintainer-testing.md` row). Likewise `cli-vendor`/`cli-version` (provider delivery) and `approval-receipt`/`denial-message` (executable safety) sit under required-guarantee rows. Triage those first when the 28 are reviewed; each promotion carries an MSYS cost (`gate-bounds-lack-headroom`).
 
 ## Operator pain (in their words)
 
@@ -97,5 +97,5 @@ Deviations from the sketch below, all additive: the predicate is a standalone Py
 - `docs/problem-catalog/ci-linux-msys-test-divergence/problem.md` §8 — "a rule that lives only inside the file it protects is a comment, not a control"
 - `docs/problem-catalog/msys-git-command-substitution-hang/problem.md` — the other root cause (family coverage), deliberately not addressed here
 - `docs/backlog/gate-bounds-lack-headroom/` — the cost side of any promotion out of the 28
-- `docs/tmp/handoff.md:39` — `signal-reap` red baseline
+- `docs/maintainer-testing.md` `signal-reap` row — red baseline
 - `/c/tmp/ff-blockers-out.md` §2a, §2b, §2d, §3a — the adversarial analysis that proposed the wider audit

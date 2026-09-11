@@ -66,7 +66,7 @@ Every registered phase that is neither in `FF_RELEASE_TAGS` nor an opt-in diagno
 | `policy-state` | unreviewed (pre-ratchet, 2026-09-10) | Policy-state preservation across an upgrade |
 | `prohibition-residency` | unreviewed (pre-ratchet, 2026-09-10) | Prohibitions must stay resident in skill bodies (editorial instrument) |
 | `python3-version-mutation` | unreviewed (pre-ratchet, 2026-09-10) | Mutation oracle for `python3-version`, which is itself in the release profile |
-| `signal-reap` | unreviewed (pre-ratchet, 2026-09-10) | Runner signal reaping; RED pre-existing baseline (`docs/tmp/handoff.md:39`) — resolve before any promotion |
+| `signal-reap` | unreviewed (pre-ratchet, 2026-09-10) | Runner signal reaping; RED pre-existing baseline (`launch-window-signal-still-reaps`, red identically at `24cbff3`) — resolve before any promotion |
 | `sync-allowlist` | unreviewed (pre-ratchet, 2026-09-10) | Version-string sweep allowlist |
 | `token-waste-classify` | unreviewed (pre-ratchet, 2026-09-10) | Token-waste classifier (editorial instrument) |
 | `wasted-effort-windowing` | unreviewed (pre-ratchet, 2026-09-10) | Wasted-effort windowing (editorial instrument) |
@@ -92,7 +92,7 @@ Exact machine-consumed markers, schema keys and public command names remain vali
 
 Aim for seconds to two minutes in the edit loop and a focused hosted check within ten minutes per platform. These are design targets, not measured guarantees or reasons to skip a critical test. Release checks retain their committed bounds until evidence supports a deliberate redesign.
 
-After a change, run its affected group once. Repeat only after a relevant correction or to investigate a named nondeterministic condition. A failed execution never becomes a passing result because earlier rows passed. Preserve the failing diagnostic, fix its owner and rerun the affected group; do not replay an unrelated successful prefix.
+After a change, run its affected group once. Repeat only after a relevant correction or to investigate a named nondeterministic condition. A failed execution never becomes a passing result because earlier rows passed. Preserve the failing diagnostic, fix its owner and rerun the affected group; do not replay an unrelated successful prefix. Before tagging, run newly promoted phases and changed platform-dependent cases on Linux and MSYS.
 
 Only release CI on the exact tagged SHA authorizes a release claim. Do not run the same unchanged full verification before tagging and again after tagging. The tag-triggered workflow runs the essential profile and package checks once on Linux and Windows/MSYS, then publishes only after the aggregate gate succeeds. Maintainer feedback is a focused subset and cannot authorize publication. No test-result signing/cache system is needed; a normal run records its source, platform, command, result and log pointer.
 
