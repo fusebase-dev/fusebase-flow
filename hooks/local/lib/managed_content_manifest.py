@@ -26,6 +26,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 MANIFEST_REL = "audit/managed-content-manifest.json"
@@ -35,13 +36,9 @@ SCHEMA_VERSION = 1
 # both the manifest and the upgrade engine. upgrade.sh reads them via `list-managed`;
 # never re-declare them in shell. Adding a tree here puts it under classification and
 # under the CI freshness gate at the same time — which is the point.
-# PUBLISHER-ONLY, deliberately absent: `.claude-plugin/` and `.codex-plugin/`. Those manifests
-# describe THIS repository as a distributable plugin — they carry the name `fusebase-flow`,
-# Flow's own VERSION, and paths relative to Flow's root. docs/install-fusebase-cli-project.md
-# states they are never copied into a consumer project; listing them here contradicted that by
-# putting them in the set the upgrade engine owns and overwrites, so an upgrade could clobber a
-# consumer's own (Fusebase CLI-generated) `.codex-plugin/plugin.json`. Their version parity is
-# enforced by preflight §8 instead, which is publisher-side.
+# TRIPWIRE: `.claude-plugin/` and `.codex-plugin/` are PUBLISHER-ONLY and must stay absent —
+# listing them would let an upgrade clobber a consumer's own plugin manifest. Version parity is
+# preflight §8's job (docs/install-fusebase-cli-project.md).
 MANAGED_DIRS = (
     "flow-skills", "agents", "workflows", "policies", "templates", "hooks",
 )
@@ -250,14 +247,194 @@ def _emit_verify(result: dict, as_json: bool, rc: int) -> int:
     return rc
 
 
+# Classification-only line-ending proof: docs/backlog/stamper-hashes-worktree-not-artifact/.
+# TRIPWIRE: never reach this from verify() or a stamper — integrity comparison stays exact bytes.
+_TIMEOUT = 30
+_CONVERSION_ATTRIBUTES = {"filter", "ident", "working-tree-encoding"}
+# Only this conversion vocabulary crosses into the scratch checkout; an unlisted value drops its path.
+_EOL_ATTRS = (("text", {"set": "text", "unset": "-text", "auto": "text=auto"}),
+              ("eol", {"unset": "-eol", "lf": "eol=lf", "crlf": "eol=crlf"}))
+_AUTOCRLF = {None: "true", "true": "true", "yes": "true", "on": "true", "1": "true",
+             "input": "input", "": "false", "false": "false", "no": "false", "off": "false",
+             "0": "false"}
+_EOL_CONFIG = {"native": "native", "lf": "lf", "crlf": "crlf"}
+
+
+def _crlf(text: bytes) -> bytes:
+    return text.replace(b"\n", b"\r\n")
+
+
+def _lf_text(local: bytes) -> bytes | None:
+    """The unique C (no CR, no NUL, >= 1 LF) with `local` in {C, R(C)}, else None."""
+    lf = local.replace(b"\r\n", b"\n")
+    bad = b"\0" in lf or b"\r" in lf or b"\n" not in lf
+    return None if bad or local not in (lf, _crlf(lf)) else lf
+
+
+def _safe_rel(root: Path, rel: str) -> bool:
+    parts = rel.split("/")
+    if rel != rel.strip() or any(p in ("", ".", "..") for p in parts) \
+            or any(ord(ch) < 0x20 or ch in "\x7f\\" for ch in rel):
+        return False
+    try:
+        rel.encode("utf-8")
+    except UnicodeEncodeError:
+        return False
+    return not any(root.joinpath(*parts[:n + 1]).is_symlink() for n in range(len(parts)))
+
+
+def _git(cwd: list[str], args: list[str], stdin: bytes | None = None,
+         rcs: tuple[int, ...] = (0,), env: dict[str, str] | None = None) -> bytes:
+    feed = {"input": stdin} if stdin is not None else {"stdin": subprocess.DEVNULL}
+    done = subprocess.run(["git", *cwd, *args], capture_output=True, env=env, timeout=_TIMEOUT, **feed)
+    if done.returncode not in rcs:
+        raise ValueError(f"git {args[0]} rc={done.returncode}")
+    return done.stdout
+
+
+def _blobs(cwd: list[str], oids: list[str]) -> dict[str, bytes]:
+    out = _git(cwd, ["cat-file", "--batch"], "".join(o + "\n" for o in oids).encode("ascii"))
+    pos, blobs = 0, {}
+    for oid in oids:
+        end = out.index(b"\n", pos)
+        head = out[pos:end].split()
+        size = int(head[2]) if len(head) == 3 and head[2].isdigit() else -1
+        if size < 0 or head[0].decode("ascii") != oid or head[1] != b"blob" \
+                or out[end + 1 + size:end + 2 + size] != b"\n":
+            raise ValueError(f"unexpected cat-file record for {oid}")
+        blobs[oid], pos = out[end + 1:end + 1 + size], end + 2 + size
+    if pos != len(out):
+        raise ValueError("trailing cat-file output")
+    return blobs
+
+
+def _checkout_equals_local(cwd: list[str], repo: dict[str, str], same: list[str],
+                           pending: dict[str, tuple[bytes, bytes]]) -> set[str]:
+    """Paths where git's own checkout of C reproduces the local bytes exactly.
+
+    TRIPWIRE: consumer attributes and config are read ONCE here and carried on as DATA; the
+    scratch repository the checkout runs in reads neither, so a consumer filter driver can
+    never be NAMED in the converting process, let alone executed, whatever lands mid-run."""
+    fields = _git(cwd, ["check-attr", "--all", "-z", "--stdin"],
+                  "".join(repo[rel] + "\0" for rel in same).encode("utf-8")).split(b"\0")
+    carried: dict[str, dict[str, str]] = {}
+    for i in range(0, len(fields) - 2, 3):
+        path, name, value = (f.decode("utf-8", "surrogateescape") for f in fields[i:i + 3])
+        carried.setdefault(path, {})[name] = value
+    specs: dict[str, str] = {}
+    for rel in same:
+        at = carried.get(repo[rel], {})
+        words = [t.get(at[n]) for n, t in _EOL_ATTRS if n in at]
+        # TRIPWIRE: conversion attributes block on PRESENCE, never on value (recovery-owned-write.py).
+        if not _CONVERSION_ATTRIBUTES & set(at) and None not in words:
+            specs[rel] = " ".join(words)
+    if not specs:
+        return set()
+    # TRIPWIRE: --null, and split on NUL. A config VALUE may contain a newline, so a line-split
+    # record boundary is forgeable: one core.eol can mint a second core.autocrlf setting.
+    records = _git(cwd, ["config", "--null", "--get-regexp", r"^core\.(autocrlf|eol)$"],
+                   rcs=(0, 1)).decode("utf-8", "surrogateescape").split("\0")
+    if records.pop():
+        raise ValueError("unterminated git config record")
+    cfg: dict[str, str | None] = {"core.autocrlf": "false", "core.eol": "native"}
+    for rec in records:
+        key, sep, value = rec.partition("\n")     # no newline => valueless, git's implicit true
+        cfg[key] = value.lower() if sep else None
+    config = ["-c", "core.autocrlf=" + _AUTOCRLF[cfg["core.autocrlf"]],
+              "-c", "core.eol=" + _EOL_CONFIG[cfg["core.eol"]]]
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    env.update(GIT_CONFIG_NOSYSTEM="1", GIT_CONFIG_GLOBAL=os.devnull,
+               GIT_CONFIG_SYSTEM=os.devnull, GIT_ATTR_NOSYSTEM="1")
+    matched, order = set(), sorted(specs)
+    with tempfile.TemporaryDirectory() as scratch:
+        box = Path(scratch)
+        _git([], ["init", "-q", "--template=", str(box)], env=env)
+        (box / ".git/info").mkdir(parents=True, exist_ok=True)
+        (box / ".git/info/attributes").write_bytes(
+            "".join(f"p/{n} {specs[r]}\n" for n, r in enumerate(order) if specs[r]).encode("utf-8"))
+        (box / "p").mkdir()
+        for n, rel in enumerate(order):
+            (box / "p" / str(n)).write_bytes(pending[rel][1])
+        box_cwd = ["-C", str(box), "-c", f"core.attributesFile={(box / 'none').as_posix()}", *config]
+        _git(box_cwd, ["add", "--", "p"], env=env)
+        _git(box_cwd, ["checkout-index", "-a", "--prefix=out/"], env=env)
+        for n, rel in enumerate(order):
+            written = (box / "out" / "p" / str(n)).read_bytes()
+            if written not in (pending[rel][1], _crlf(pending[rel][1])):
+                raise ValueError(f"checkout of {rel} is neither the LF nor the CRLF form")
+            if written == pending[rel][0]:
+                matched.add(rel)
+    return matched
+
+
+def _git_confirm(git_root: Path, pending: dict[str, tuple[bytes, bytes]]) -> set[str]:
+    lines = _git(["-C", str(git_root)], ["rev-parse", "--show-cdup", "--show-prefix",
+                                         "--verify", "HEAD^{commit}"]).decode("utf-8").split("\n")
+    # TRIPWIRE: refuse, never trim - a newline in a directory name shifts these positional fields.
+    if len(lines) != 4 or lines[3] or len(lines[2]) not in (40, 64) \
+            or any(ch not in "0123456789abcdef" for ch in lines[2]):
+        raise ValueError("git rev-parse did not return exactly cdup, prefix and a commit")
+    cdup, prefix, head = lines[:3]
+    cwd = ["-C", str(git_root)] + (["-C", cdup] if cdup else [])
+    repo = {rel: prefix + rel for rel in pending}
+    wanted = {path: rel for rel, path in repo.items()}
+    tops = sorted({prefix + rel.split("/", 1)[0] for rel in pending})
+    listing = _git(["--literal-pathspecs", *cwd], ["ls-tree", "-rz", "--full-tree", head, "--", *tops])
+    oids: dict[str, str] = {}
+    for raw in listing.split(b"\0"):
+        if not raw:
+            continue
+        meta, path = raw.split(b"\t", 1)
+        mode, kind, oid = meta.split()
+        rel = wanted.get(path.decode("utf-8", "surrogateescape"))
+        if rel is not None and mode in (b"100644", b"100755") and kind == b"blob":
+            oids[rel] = oid.decode("ascii")
+    blobs = _blobs(cwd, sorted(set(oids.values()))) if oids else {}
+    same = sorted(rel for rel, oid in oids.items() if blobs[oid] == pending[rel][1])
+    return _checkout_equals_local(cwd, repo, same, pending) if same else set()
+
+
+def _eol_proven(local_root: Path, git_root: Path, base: dict[str, str],
+                local: dict[str, str], paths: list[str]) -> set[str]:
+    """Paths whose local bytes equal their base only through git's own checkout conversion.
+    Needs C = the pinned HEAD regular-file blob, B in {H(C), H(R(C))}, L in {C, R(C)}, no
+    conversion attribute, and git's checkout of C == L. Missing evidence proves nothing."""
+    pending: dict[str, tuple[bytes, bytes]] = {}
+    for rel in paths:
+        try:
+            data = (local_root / rel).read_bytes() if _safe_rel(local_root, rel) else None
+        except OSError:
+            data = None
+        lf = _lf_text(data) if data is not None else None
+        # TRIPWIRE: the installed manifest digest is the anchor, never consumer HEAD - a consumer
+        # can commit an edit without changing the installed base.
+        if lf is None or hashlib.sha256(data).hexdigest() != local[rel] or base[rel] not in (
+                hashlib.sha256(lf).hexdigest(), hashlib.sha256(_crlf(lf)).hexdigest()):
+            continue
+        pending[rel] = (data, lf)
+    if not pending:
+        return set()
+    try:
+        proven = _git_confirm(git_root, pending)
+        # TRIPWIRE: the proof is NOT atomic. An edit landing WHILE git ran must not inherit the
+        # verdict, so local bytes and path safety are re-proved AFTER the evidence, not only before.
+        return {rel for rel in proven if _safe_rel(local_root, rel)
+                and (local_root / rel).read_bytes() == pending[rel][0]}
+    except Exception:
+        # TRIPWIRE: any failure means NO exception (the pre-proof verdict), never a classifier crash.
+        return set()
+
+
 def classify(base_manifest: Path | None, local_root: Path, upstream_root: Path) -> list[dict]:
     """The K9 truth table over base B x local L x upstream U, one row per managed path.
 
     B is the manifest recorded by the consumer's LAST install/upgrade (what upstream shipped
     them), NOT the incoming tree. Passing the incoming tree as the base would declare every
     consumer edit `current` or `consumer-only` against the wrong reference (K13 option B).
+    L == B may also hold through `_eol_proven`; B and the manifest are never rewritten here.
     """
     base = load_manifest(base_manifest) if base_manifest else None
+    git_root = Path(local_root).resolve()
     local_root = _resolve_root(local_root)
     upstream_root = _resolve_root(upstream_root)
 
@@ -269,18 +446,25 @@ def classify(base_manifest: Path | None, local_root: Path, upstream_root: Path) 
     # own asset list, so it would always land on `unknown-base` and pollute every report.
     # It is replaced wholesale by the base refresh that build_plan appends last.
     candidates = (set(local) | set(upstream) | set(base or {})) - {MANIFEST_REL}
+    mismatched = sorted(p for p in candidates if base and p in base and p in local
+                        and local[p] != base[p] and local[p] != upstream.get(p))
+    proven = _eol_proven(local_root, git_root, base, local, mismatched) if mismatched else set()
     for path in sorted(candidates):
         b = (base or {}).get(path)
         loc = local.get(path)
         up = upstream.get(path)
-        rows.append({"path": path, "classification": _classify_one(b, loc, up),
+        matches_base = loc is not None and (loc == b or path in proven)
+        rows.append({"path": path, "classification": _classify_one(b, loc, up, matches_base),
                      "in_base": b is not None, "in_local": loc is not None,
-                     "in_upstream": up is not None})
+                     "in_upstream": up is not None, "eol_proven": path in proven})
     return rows
 
 
-def _classify_one(b: str | None, loc: str | None, up: str | None) -> str:
+def _classify_one(b: str | None, loc: str | None, up: str | None,
+                  local_matches_base: bool | None = None) -> str:
     """One cell of the K9 table. Row numbers below are that table's rows."""
+    if local_matches_base is None:
+        local_matches_base = loc is not None and loc == b
     if loc is not None and up is not None and loc == up:
         return "current"                                          # row 1
     if b is None:
@@ -294,8 +478,8 @@ def _classify_one(b: str | None, loc: str | None, up: str | None) -> str:
         return "consumer-deleted" if up is not None else "current"  # row 9 / both gone
     if up is None:
         # Upstream dropped it. Clean iff the consumer never touched it (row 5 vs row 6).
-        return "upstream-deleted-clean" if loc == b else "upstream-deleted-dirty"
-    if loc == b:
+        return "upstream-deleted-clean" if local_matches_base else "upstream-deleted-dirty"
+    if local_matches_base:
         return "upstream-only"                                    # row 2
     if up == b:
         return "consumer-only"                                    # row 3
@@ -359,11 +543,9 @@ def build_plan(rows: list[dict], *, auto_yes: bool,
         else:
             op = "skip"
         plan.append((op, row["path"]))
-    # BASE REFRESH, ALWAYS LAST (decision K13b). The new base is the SOURCE tree's
-    # manifest — "what upstream shipped you this time" — so the NEXT upgrade classifies
-    # against reality instead of calling every 4.7.0 file consumer-divergent. Appending it
-    # last matters: if it landed first, a mid-run failure would leave a base claiming
-    # content that was never written.
+    # BASE REFRESH, ALWAYS LAST (decision K13b): the new base is the SOURCE tree's manifest,
+    # so the NEXT upgrade classifies against reality. Order is load-bearing — landing it
+    # first would let a mid-run failure leave a base claiming content that was never written.
     if not abort:
         plan.append(("copy", MANIFEST_REL))
     return plan, abort
@@ -465,6 +647,10 @@ def render_report(rows: list[dict], *, auto_yes: bool, backup_suffix: str,
         paths = by_class.get(cls)
         if paths:
             out.append(f"  {cls:<24} {len(paths):>4} file(s)")
+    eol_only = sum(1 for row in rows if row.get("eol_proven"))
+    if eol_only:
+        out.append(f"  {'(line endings only)':<24} {eol_only:>4} file(s) matched the recorded base "
+                   f"through git's own checkout conversion")
 
     needs_decision = [c for c, cfg in CLASSIFICATIONS.items() if cfg["report"]]
     conflicts = {c: by_class[c] for c in needs_decision if by_class.get(c)}

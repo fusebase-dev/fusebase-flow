@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.16.5",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 385,
+  "asset_count": 386,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "80e3f6c76558cab1e4facf05f68d61835e6018aaabc13cac0398e57cdef71c9a"
+      "sha256": "ef61a411aa2bdae04646c14ec480dfa9445ad799b550f3921993e4268a1382dd"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -538,7 +538,7 @@
     },
     {
       "path": "hooks/local/lib/managed_content_manifest.py",
-      "sha256": "b4a04fb912a21d9ed2518efa51909aee2977ab2d2af531b08972ca2f69ca6304"
+      "sha256": "3f48ab18e16a4efdf6145eceef89dcc7f81b877ae871572abc6bf31945a95307"
     },
     {
       "path": "hooks/local/lib/materialize-managed-source.sh",
@@ -1018,7 +1018,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "97c852e0102c587f8bad5fb905e3c5c324b92b02fa3ec0461351a69bcfcc0ec6"
+      "sha256": "43ed3755c7e5c744fadaf2942d78cfedf6248b378c9700b33ca9c415453be0e7"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -1098,7 +1098,7 @@
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
-      "sha256": "e2c59da588df6fc8b6fa44af30654268cc949cd9e5da8d57b2e3eeaa6de9f285"
+      "sha256": "840375e97cc0c6461a389f71d4bffcc61c0092d14a7ea5d014ffa1ab76538c3e"
     },
     {
       "path": "hooks/tests/test-fingerprint-row-per-tag.sh",
@@ -1303,6 +1303,10 @@
     {
       "path": "hooks/tests/test-trusted-enforcer.sh",
       "sha256": "82ea616cfefe9f11b7b2456ecc1fe9091472844ecb13eb0d8ab509d194cdf055"
+    },
+    {
+      "path": "hooks/tests/test-upgrade-classify-eol.sh",
+      "sha256": "24822eb75a2572febc6f8a6051d55f7656ed2809c9b1ea00786db9f35ce3f113"
     },
     {
       "path": "hooks/tests/test-upgrade-conflict-classification.sh",
@@ -1545,5 +1549,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "d290ddd2b55e8a887d05a22908d4f9e7483854b771e304f39a38f0eb1ce32cfe"
+  "manifest_self_sha256": "e29f8099b9db97211aa7128325c981f4318bd4bde201bb55491226802640cb8a"
 }

@@ -80,7 +80,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixtur
   lane-router lane-workflow \
   trusted-enforcer hook-install-rc msys-tree-cleanup job-probe ws5-upgrade ff-only run-preconditions return-budget \
   supersede-primitive rule-inventory boot-size prohibition-residency startup-context validator-evidence validation-instructions consumer-benchmark wasted-effort-windowing token-waste-classify \
-  budget-literals history-extraction approval-binding approval-writer approval-receipt command-policy denial-message upgrade-classify \
+  budget-literals history-extraction approval-binding approval-writer approval-receipt command-policy denial-message upgrade-classify upgrade-classify-eol \
   upgrade-boundary preboundary-consumed upgrade-repair n5-delivery n6-truthful-base n6-missing-base n6-recover n4-parity-scope recovery-hint hop-log-truth install-doc release-authority \
   release-tag-binding fingerprint-rows signal-reap cli-flow-recovery-selectors cli-flow-recovery)
 
@@ -91,7 +91,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixtur
 FF_RELEASE_TAGS=(fixtures git-smoke interpreter-contract python3-version git-context \
   baseline-merge hook-wiring-intent wire-hooks-beside bootstrap-baseline-hop cli-0259 \
   git-capture-guard secret-scan-staged bootstrap-exception trusted-enforcer hook-install-rc validator-evidence \
-  validation-instructions approval-binding approval-writer command-policy upgrade-classify \
+  validation-instructions approval-binding approval-writer command-policy upgrade-classify upgrade-classify-eol \
   upgrade-boundary upgrade-repair n5-delivery n6-truthful-base n6-missing-base n6-recover \
   release-authority release-tag-binding cli-flow-recovery cli-flow-recovery-selectors \
   hop-log-truth n4-parity-scope minimal-path-fixture \
@@ -673,6 +673,7 @@ run_shell_phase test-command-policy.sh        "command-policy"
 # S4a: the deny-rule explanation, and the negative half — no location claim, no matching change.
 run_shell_phase test-command-policy-denial-message.sh "denial-message"
 run_shell_phase test-upgrade-conflict-classification.sh "upgrade-classify"
+run_shell_phase test-upgrade-classify-eol.sh "upgrade-classify-eol"
 run_shell_phase test-upgrade-source-boundary.sh         "upgrade-boundary"
 run_shell_phase test-upgrade-preboundary-consumed-tree.sh "preboundary-consumed"
 run_shell_phase test-upgrade-repair-managed.sh           "upgrade-repair"
