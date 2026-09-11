@@ -1,6 +1,6 @@
 # carrier-aware-approval-binding
 
-**Status:** OPEN — replaces consumer proposal E1, which is **DECLINED as proposed**
+**Status:** OPEN (narrowed) — replaces consumer proposal E1, which is **DECLINED as proposed**. The COMMAND carrier is built: schema-3 mandatory command + repository + profile binding, no knob, legacy rejected and inventoried (`docs/backlog/approval-binding-omits-head/`, 2026-09-11). Open remainder: path/bootstrap/reporting carriers and the `compat-approval-surfacing` carrier table
 **Opened:** 2026-08-21
 **Source:** paperclip+hermes-v1 escalation E1 (`2026-08-20-E1-require-binding-knob.md`)
 **Premise review:** Codex 5.6 Sol xHigh, verdict **WRONG-LAYER / NO-BUILD as proposed** (`/c/tmp/e1-review-out.md`)

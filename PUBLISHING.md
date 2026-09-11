@@ -217,6 +217,12 @@ creation remains an operator-controlled open path and must not be used.
 
 ## Tagging and publication
 
+- **Pushing commits to `main` needs an approval bound to those exact commits** (schema 3,
+  `git_push_v1`; checked by the agent command gate and by `hooks/git/pre-push`). After the last
+  commit you intend to push, and on the operator's chat go-ahead, the agent mints it with
+  `bash hooks/local/approve-local.sh production_deploy <slug> '<reason>' --command 'git push origin main'`
+  and then runs exactly that push as its own command. Another commit needs another approval;
+  retrying the same push does not. Tag pushes (`refs/tags/*`) are not gated destinations.
 - **Push the `v<version>` tag** (`git push origin v<version>`) — that is the ONLY
   release step. `.github/workflows/fusebase-flow-release.yml` runs the essential
   `verify` profile and package checks on the tagged sha on both platforms and, ONLY if every leg is

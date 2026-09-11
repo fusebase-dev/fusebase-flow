@@ -44,8 +44,21 @@ version that burns the artifact before first use.
   permanently locked.
 - Proven on Windows and on a network filesystem, not only on local POSIX.
 
+## Premise-review corrections (2026-09-11, schema-3 cutover review)
+
+Schema 3 + `git_push_v1` closed DIFFERENT-change reuse; this entry now covers only repetition of IDENTICAL bound inputs. The shape above is wrong in three places and must not be built as written:
+
+| Assumption | Why it fails |
+|---|---|
+| Nonzero exit = no effect → release | Deploys and migrations partially succeed; a failure can carry effects |
+| Finalize after success | A crash after success but before finalization leaves the outcome unknown |
+| Orphan TTL → reusable again | Auto-release after a timeout permits a second execution |
+
+Consequence: "consume on success, release on failure" does not guarantee exactly one successful effect. Preserve unknown/partial outcomes and reconcile before any release.
+
 ## Related
 
+- `docs/backlog/approval-binding-omits-head/` — schema 3 (mandatory binding) that this now builds on
 - `docs/specs/approval-binding-and-upgrade-classification/decisions.md` — K11 (defer), K2 (binding as
   the interim risk reduction), K7 (strict cutover)
 - `docs/problem-catalog/approval-gate-unbound-and-fail-open/problem.md`
