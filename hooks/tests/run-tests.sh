@@ -199,39 +199,41 @@ else
   RESULTS_FILE="$ROOT/state/audit/hook-test-results.md"
 fi
 
-# EXIT-trap reaper (WS3): if the harness is signaled while a bounded phase is still in
-# flight, taskkill ONLY that phase's own recorded child winpid — FFHC_LAST_WINPID, set
-# live at launch by the T1 capture — strict-scoped, never a broad taskkill (depends on
-# WS2-core). It passes FFHC_LAST_CHILD_PID too (T12), so the trap gets the SAME PID-reuse
-# re-verify guard as the deadline path (ffhc_msys_taskkill_winpid re-checks the winpid
-# still maps to our child before killing). The lib + run_bounded_phase CLEAR both the
-# instant a phase returns (its child is already reaped by then), so a normal exit reaps
-# nothing and a stale/reused winpid is never swept. The reap is a no-op off-MSYS.
+# EXIT-trap reaper (WS3): a harness signalled mid-phase taskkills ONLY that phase's recorded
+# child winpid, paired with FFHC_LAST_CHILD_PID so the trap gets the deadline path's PID-reuse
+# re-verify guard. Both are cleared the instant a phase returns, so a normal exit reaps nothing
+# and a stale/reused winpid is never swept. No-op off-MSYS.
 FFHC_LAST_WINPID=""
 FFHC_LAST_CHILD_PID=""
-# _ff_reap_in_flight: the SAME guarded group reap the sentinel runs, executed harness-side while
-# an EXIT trap still can. It reads the PUBLISHED record, so there is exactly one definition of
-# "what is in flight". No record, no guard lib, or an unconfirmable identity => no-op.
+# _ff_reap_in_flight -> 0 when nothing is left in flight, 1 when a phase group survived or could
+# not be confirmed gone. Same guarded reap the sentinel runs, from the same PUBLISHED record, so
+# there is one definition of "what is in flight". The recorded pid is OUR capture subshell and
+# shares OUR group, so the reapable handle sits one level below it (ffor_resolve_phase).
 _ff_reap_in_flight() {
     [ -n "${FFHC_SENTINEL_STATE:-}" ] || return 0
     command -v ffor_state_read >/dev/null 2>&1 || return 0
     ffor_state_read "$FFHC_SENTINEL_STATE"
     [ -n "$FFOR_S_PID" ] || return 0
-    ffor_resolve "$FFOR_S_PID" "$FFOR_S_PGID" || return 0
-    ffor_pgid_of $$ || return 0   # snapshot-backed: a `$( )` here costs a fork this path cannot afford
-    ffor_reap "$FFOR_S_PID" "$FFOR_S_WIN" "$FFOR_R_PGID" "$FFOR_R_LEADSTART" \
-        "$FFOR_PGID_OUT" "${FF_SENTINEL_GRACE:-5}"
-    return 0
+    local hp
+    ffor_pgid_of $$ || return 1   # snapshot-backed: a `$( )` here costs a fork this path cannot afford
+    hp="$FFOR_PGID_OUT"
+    ffor_resolve_phase "$FFOR_S_PID" "$hp" || return 1
+    ffor_reap "$FFOR_R_PGID" "" "$FFOR_R_PGID" "$FFOR_R_LEADSTART" "$hp" 0
+    ffor_group_gone "$FFOR_R_PGID"
 }
-# TRIPWIRE (ordering): cleanup FIRST, disarm the sentinel LAST. The reverse order cleared the
-# in-flight record and killed the sentinel BEFORE the known-insufficient `taskkill //T` ran, so
-# on every EXIT path that does run — the nap-forced-off arm — nothing reaped the phase group.
+# TRIPWIRE (ordering + the CONDITION on disarming): cleanup FIRST, disarm the sentinel LAST and
+# ONLY when the phase group is CONFIRMED gone. This path runs inside the outer `-k` grace, so it
+# is not guaranteed to finish; measured at 2f03652+, a trap that ran, TERMed the group and then
+# unconditionally disarmed the sentinel left `timeout` + its phase child alive with nothing left
+# watching. The reap passes grace 0 for the same reason: a graceful wait it cannot afford becomes
+# no KILL at all. When it cannot confirm, the sentinel stays armed and finishes out-of-band.
 _ff_exit_reap() {
-    _ff_reap_in_flight
+    _ff_reap_in_flight; local gone=$?
     if ffhc_is_msys && [ -n "$FFHC_LAST_WINPID" ]; then
         ffhc_msys_taskkill_winpid "$FFHC_LAST_WINPID" "$FFHC_LAST_CHILD_PID"
     fi
-    _ff_sentinel_stop
+    [ "$gone" -eq 0 ] && _ff_sentinel_stop
+    return 0
 }
 
 # --- S2 orphan sentinel (T4) ------------------------------------------------------------------

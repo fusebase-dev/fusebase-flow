@@ -107,6 +107,10 @@ never what. They are a backstop, not the control.
 - `docs/problem-catalog/run-tests-never-completes-msys/problem.md` — sibling (same pipe-inheritance class)
 - `docs/problem-catalog/ci-linux-msys-test-divergence/problem.md` — why MSYS is a required leg
 - `docs/backlog/gate-bounds-lack-headroom/` — the phase bounds still have no measured headroom
+- `docs/backlog/harness-kill-leaves-orphan-children/` — the OTHER reason an MSYS phase reaches its
+  wall: not this pipe class, but a previous killed run whose children are still consuming CPU. Same
+  lesson as § Scope of the fix, from the opposite direction — the phase wall reports that something
+  hung, never what. Closed at T4 (2026-09-12)
 
 ## Audit log
 

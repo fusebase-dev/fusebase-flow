@@ -11,25 +11,40 @@
 FFSR_TOKEN=""
 declare -A FFSR_TOK=()
 
-# ff_token PID -> FFSR_TOKEN ("<start> <comm>"), the reuse-proof identity of a LIVE pid.
+# ff_token PID -> FFSR_TOKEN ("<start>|<ppid>|<comm>"), the reuse-proof identity of a LIVE pid.
+# The ppid is part of the identity because of the MSYS start-token hazard documented on
+# ff_kill_verified; comm goes LAST because it can contain spaces.
 ff_token() {
   FFSR_TOKEN=""
   ffor_identity "${1:-}" || return 1
-  FFSR_TOKEN="$FFOR_START $FFOR_COMM"
+  FFSR_TOKEN="$FFOR_START|$FFOR_PPID|$FFOR_COMM"
   return 0
 }
 
 # ff_track PID: remember PID together with the identity it has RIGHT NOW.
 ff_track() { local p="${1:-}"; ffor_numeric "$p" || return 0; ff_token "$p" && FFSR_TOK[$p]="$FFSR_TOKEN"; return 0; }
 
-# ff_kill_verified PID TOKEN [SIG]: signal ONLY when the live identity still equals TOKEN.
-# A recycled or vanished pid is skipped silently — never signalled.
+# ff_kill_verified PID TOKEN [SIG]: signal ONLY when the live identity still PROVES this is the
+# same process. Two independent proofs, either sufficient:
+#   (a) the recorded start token still matches, or
+#   (b) it is still THIS shell's own child and the comm matches.
+#
+# TRIPWIRE (measured on MSYS, 2026-09-12): (a) ALONE IS NOT ENOUGH and silently disarmed this
+# whole teardown. `/proc/<pid>/stat` field 20 is a PRE-EXEC value when a pid first appears and
+# changes exactly once — 0.7s later on an idle host, 4.1s later under gate load (recorded
+# 239157481 -> 239161590). A token captured at spawn time therefore never matched again,
+# ff_reap_tracked declined EVERY kill, and each run leaked its fixture siblings: six
+# `while :; do sleep 1; done` loops were still burning CPU three days after the run that made
+# them. (b) is NOT a loosening of the reuse guard: this shell never `wait`s these jobs, and an
+# unreaped child's pid cannot be recycled, so "still our child with this comm" is exact.
 ff_kill_verified() {
-  local pid="${1:-}" tok="${2:-}" sig="${3:-9}"
+  local pid="${1:-}" tok="${2:-}" sig="${3:-9}" rs rp rc rest
   [ -n "$pid" ] && [ -n "$tok" ] || return 0
   ffor_identity "$pid" || return 0
-  [ "$FFOR_START $FFOR_COMM" = "$tok" ] || return 0
-  kill "-$sig" "$pid" 2>/dev/null
+  rs="${tok%%|*}"; rest="${tok#*|}"; rp="${rest%%|*}"; rc="${rest#*|}"
+  if [ "$FFOR_START" = "$rs" ]      || { [ "$rp" = "$$" ] && [ "$FFOR_PPID" = "$$" ] && [ "$FFOR_COMM" = "$rc" ]; }; then
+    kill "-$sig" "$pid" 2>/dev/null
+  fi
   return 0
 }
 
@@ -77,6 +92,20 @@ ff_gone_within() {
   local pid="$1" ceil="$2" i=0
   while [ "$i" -le "$ceil" ]; do
     ff_alive "$pid" || { echo "$i"; return 0; }
+    sleep 1; i=$((i + 1))
+  done
+  echo "-1"; return 1
+}
+
+# ff_ps_gone_within PID CEIL: seconds until PID leaves the PROCESS TABLE, or -1 if it never did.
+# TRIPWIRE: use THIS, not ff_gone_within, for a pid that is this shell's own background job.
+# `kill -0` succeeds on an unwaited zombie, so a correctly reaped child reads as still alive and
+# the assertion reports a leak that is not there.
+ff_ps_gone_within() {
+  local pid="$1" ceil="$2" i=0
+  while [ "$i" -le "$ceil" ]; do
+    ffor_snapshot || { echo "-1"; return 1; }
+    ffor_row "$pid" || { echo "$i"; return 0; }
     sleep 1; i=$((i + 1))
   done
   echo "-1"; return 1
@@ -134,11 +163,12 @@ _ff_reap_in_flight() {
     command -v ffor_state_read >/dev/null 2>&1 || return 0
     ffor_state_read "$FFHC_SENTINEL_STATE"
     [ -n "$FFOR_S_PID" ] || return 0
-    ffor_resolve "$FFOR_S_PID" "$FFOR_S_PGID" || return 0
-    ffor_pgid_of $$ || return 0
-    ffor_reap "$FFOR_S_PID" "$FFOR_S_WIN" "$FFOR_R_PGID" "$FFOR_R_LEADSTART" \
-        "$FFOR_PGID_OUT" "$FF_SENTINEL_GRACE"
-    return 0
+    local hp
+    ffor_pgid_of $$ || return 1
+    hp="$FFOR_PGID_OUT"
+    ffor_resolve_phase "$FFOR_S_PID" "$hp" || return 1
+    ffor_reap "$FFOR_R_PGID" "" "$FFOR_R_PGID" "$FFOR_R_LEADSTART" "$hp" 0
+    ffor_group_gone "$FFOR_R_PGID"
 }
 _ff_sentinel_stop() {
     [ -n "$FF_SENTINEL_PID" ] || { [ -n "$FFHC_SENTINEL_STATE" ] && rm -f "$FFHC_SENTINEL_STATE" 2>/dev/null; return 0; }
@@ -160,12 +190,13 @@ _ff_exit_reap() {
     # trap.log is a post-mortem breadcrumb: "trap-ran" without "reap-returned" means the EXIT path
     # was SIGKILLed part-way (grace budget), not that it ran and reaped nothing (ordering defect).
     echo "trap-ran winpid=$FFHC_LAST_WINPID child=$FFHC_LAST_CHILD_PID" >> "$D/trap.log"
-    _ff_reap_in_flight
-    echo "reap-returned" >> "$D/trap.log"
+    _ff_reap_in_flight; local gone=$?
+    echo "reap-returned gone=$gone" >> "$D/trap.log"
     if ffhc_is_msys && [ -n "$FFHC_LAST_WINPID" ]; then
         ffhc_msys_taskkill_winpid "$FFHC_LAST_WINPID" "$FFHC_LAST_CHILD_PID"
     fi
-    _ff_sentinel_stop
+    [ "$gone" -eq 0 ] && _ff_sentinel_stop
+    return 0
 }
 trap _ff_exit_reap EXIT
 if ffhc_is_msys && [ -n "${FFHC_TIMEOUT_BIN:-}" ] \
@@ -206,7 +237,7 @@ ff_spawn_victim_group() {
   FFSR_V_LEADER=$!
   while [ "$i" -lt 15 ]; do
     if ffor_identity "$FFSR_V_LEADER" && [ "$FFOR_PGID" = "$FFSR_V_LEADER" ]; then
-      FFSR_V_PGID="$FFOR_PGID"; FFSR_V_LEADSTART="$FFOR_START"; break
+      FFSR_V_PGID="$FFOR_PGID"; break
     fi
     sleep 1; i=$((i + 1))
   done
@@ -217,6 +248,11 @@ ff_spawn_victim_group() {
     [ "$(ff_group_size "$FFSR_V_PGID")" -ge 3 ] 2>/dev/null && break
     sleep 1; i=$((i + 1))
   done
+  # TRIPWIRE: read the leader's start token HERE, after the group is populated — not in the poll
+  # loop above. That token is handed to the SHIPPED ffor_reap, which compares it to the live value
+  # at kill time, and a pre-exec value (see ff_kill_verified) would make the guard refuse.
+  ffor_identity "$FFSR_V_LEADER" || return 1
+  FFSR_V_LEADSTART="$FFOR_START"
   local mp mw
   ffor_snapshot || return 0
   ffor_group_members "$FFSR_V_PGID" || return 0

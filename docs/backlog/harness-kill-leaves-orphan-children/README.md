@@ -1,6 +1,8 @@
 # harness-kill-leaves-orphan-children
 
-**Status:** active — S2, reproduced and root-caused at T3; fix is T4
+**Status:** CLOSED at T4 (2026-09-12, `2f03652`+) — shipped, 10/10 on MSYS, zero surviving
+descendants across five outer-wall kills and zero fixture leftovers on a clean run, all verified by
+process inspection. B5/B6 stay accepted (§ 2026-08-07)
 **Filed:** 2026-08-06
 **Severity:** medium-high — silently corrupts the timings of every subsequent run, and presents as flaky tests
 **Surface:** `hooks/tests/run-tests.sh:108-122` (`_ff_exit_reap` / `trap _ff_exit_reap EXIT`) + `hooks/local/lib/run-with-timeout.sh:519-564` (the backgrounded, polled bounded phase)
@@ -56,6 +58,26 @@ blocking read is in flight, so with the nap active an explicit `trap … TERM IN
 before the outer `timeout -k 5s` SIGKILLs the harness. Measurement 2 used an external `sleep`,
 which bash interrupts cleanly — it measured a loop the harness does not have.
 
+**R1 is INCOMPLETE as written, and that is what kept the field discriminator red until T4.** It
+names the topology but not the HANDLE. Measured at `2f03652` (full `ps` + `/proc` capture): the
+identity the harness PUBLISHES is `_bpid`, its own backgrounded capture subshell in
+`_ffhc_tempfile_capture` — and a background job of a non-interactive shell keeps the SHELL's
+process group. The published pid therefore always resolved to the HARNESS's group, which
+`ffor_reap` must refuse; `timeout` creates the reapable group one level BELOW it:
+
+```
+harness   1044675  pgid 1044651   <- the harness's own group
+  +- _bpid 1044717  pgid 1044651  <- PUBLISHED; same group as the harness => unreapable
+       +- timeout   1044726  pgid 1044726  <- the reapable group leader
+            +- bash phase       1044728  pgid 1044726
+                 +- bash grandchild 1044740  pgid 1044726
+```
+
+`hooks/local/lib/run-with-timeout.sh` also probed `ffhc_pgid_of "$_bpid"` and published it as the
+record's pgid field. By construction that value can only ever be the harness's own group, so it
+was a fork per phase for a number no consumer could act on. Retired at T4: the field is now `-`
+and the READER resolves the live group (`ffor_resolve_phase`).
+
 **Therefore no harness-side cleanup can be relied on** — not an EXIT trap, not a signal trap. R2
 stands as originally written. R3 stands: `taskkill //F //T` reports SUCCESS and still leaves the
 descendants alive.
@@ -64,14 +86,15 @@ descendants alive.
 started once per run under its own `timeout` process group so it is immune to the group signal
 that kills the harness and carries a hard cap so it can never outlive the run. It polls the
 harness; when the harness dies with a phase still in flight, it revalidates the recorded identity
-tuple and terminates **that process group only** — R1's topology (wrapper, child and grandchild
-share one pgid; the harness is in a different group) is the handle it reaps. It never signals its
+tuple and terminates **that process group only** — the handle is the shallowest self-led group
+BELOW the published pid that is neither the harness's nor its own (`ffor_resolve_phase`). It never signals its
 own group, the harness's group, an ancestor, a name-wide set, or an unverified pid, so
 `bounded-run-msys-collateral-kill` stays closed.
 
 **The guards live in `hooks/tests/lib/orphan-reap.sh`, which the harness's EXIT path sources too**
-— one guard set for both teardown paths, and the EXIT path runs the reap FIRST and disarms the
-sentinel LAST, so an in-flight guard is never cleared before cleanup. Every guard fails CLOSED:
+— one guard set for both teardown paths. The EXIT path runs the reap FIRST and disarms the
+sentinel LAST **and only when the phase group is CONFIRMED gone** (`ffor_group_gone`); ordering
+alone was not enough, see § 2026-09-12. Every guard fails CLOSED:
 an unresolvable own/harness pgid, a leader start-token mismatch, an occupied-but-unverifiable
 leader pid, an ancestor on the caller's parent chain, or no process table at all all mean **kill
 nothing**. Group ownership is bound by the group LEADER's `/proc` start token, which is what makes
@@ -116,6 +139,56 @@ reap child and grandchild within the grace window, because the sentinel does not
 harness acting on the signal.
 - Signal-correct exit status: `143` for TERM, `130` for INT.
 
+## 2026-09-12 — T4 shipped: the handle, the disarm race, and the proof
+
+Two defects, both measured, both required to leave zero descendants.
+
+| # | Defect | Measured at `2f03652` | Fix |
+|---|---|---|---|
+| D1 | The published identity (`_bpid`) shares the harness's process group, so every guard correctly refused to act and the reap killed NOTHING | `signal-reap` 7/8; `launch-window-signal-still-reaps` FAIL with `child_gone=-1 grandchild_gone=-1` (alive at 8s) | `ffor_resolve_phase` in `hooks/tests/lib/orphan-reap.sh`: BFS one level down the live `ps` parent links to the shallowest self-led group that is neither the harness's nor the caller's own. Fails CLOSED (no snapshot / unresolvable own pgid / no such group => kill nothing) |
+| D2 | `_ff_exit_reap` disarmed the sentinel UNCONDITIONALLY after a reap it cannot finish inside the outer `-k 5s` grace — the grace loop alone is ~8s on MSYS (a `sleep` is a 0.64s spawn), so `kill -KILL -pgid` never landed and the only mechanism that could finish was then killed | 1 of 5 outer-wall kills left `timeout` + its phase child alive 60s after the harness died | harness-side reap uses grace 0 (TERM+KILL back to back, no wait it cannot afford); `_ff_exit_reap` disarms the sentinel ONLY when `ffor_group_gone` CONFIRMS the group is empty. Unconfirmable => the sentinel stays armed and finishes out-of-band |
+
+| D3 | **`/proc/<pid>/stat` field 20 is a PRE-EXEC value on MSYS.** It changes exactly once after a pid appears — 0.45-0.97 s later on an idle host, **4.1 s** under gate load (recorded `239157481` -> `239161590`). Every identity bound to a token captured at spawn time therefore stopped matching, and each guard correctly declined to kill | 12 fixture siblings (`while :; do sleep 1; done`, 2 processes each) survived CLEAN runs and were still burning CPU; one from 2026-09-09 22:25 was alive three days later | Two exact proofs replace the one unreliable one. Fixture: `ff_kill_verified` accepts the start token OR "still THIS shell's own child with this comm" — not a loosening, since an unreaped child's pid cannot be recycled. Shipped sentinel: it REFRESHES the leader token every poll tick from the live leader (one `/proc` read), which is sound because a live process still leading its own pgid is by definition the same process. A "wait for the token to settle" heuristic was tried and REJECTED: the stale value holds for an unbounded number of consecutive reads under load |
+
+Also closed: the sentinel now removes its own state file when it reaps, so a SIGKILLed gate stops
+leaving one `ffhc-sentinel.*` per run in `TMPDIR` (23 had accumulated on the measuring host).
+
+**This contradicts the ticket's own "What is NOT the defect" section, which said the reaper works on
+a clean exit.** It did for the phase tree; it did not for the suite's own fixture processes, and
+nothing measured that until T4 counted the process table before and after a run.
+
+### Evidence
+
+| Check | Result |
+|---|---|
+| `FF_ONLY=signal-reap` on MSYS, at `2f03652` (baseline) | **7/8**, 306s — `launch-window-signal-still-reaps` FAIL |
+| `FF_ONLY=signal-reap` on MSYS, after the fix | **10/10 rc=0**; 166s on a quiet 9-process host, 342s on a contaminated one |
+| Process table across a clean MSYS run | **9 rows before, 9 rows after, 0 fixture leftovers** (was: 3 leaked siblings per run) |
+| New row `phase-group-is-not-the-harness-group` [DISCRIMINATOR] | asserts the recorded pid resolves to the harness group AND that the phase child + grandchild are in a different group resolved below it; reports the old resolve's answer as an ERROR if the fixture stops reproducing that topology |
+| New row `tracked-identity-survives-msys-exec` [DISCRIMINATOR] | asserts the suite's OWN identity-verified teardown actually kills what it tracked, by process table and not by `kill -0` (an unwaited zombie answers that); it runs FIRST because every row below depends on that teardown. Red at `2f03652` for D3 |
+| Outer-wall field kills, `timeout -k 5s <wall> bash hooks/tests/run-tests.sh` with `FF_ONLY=cli-flow-recovery`, walls 120/135/145/150/165 s | **survivors=0** in all five, censused by Win32 `CommandLine` 25s after the wall (not by any trap's return code); two of them on the rc=137 arm, where GNU `timeout`'s `-k` SIGKILL reaches its own group and kills the harness outright |
+| Pre-fix contrast, same census | child + grandchild ALIVE 8s after the harness died (fixture probe on shipped code); 1 of 5 outer-wall kills leaked `timeout` + phase child at +60s |
+| Linux (`ff-gate:24.04`) | `signal-reap` correctly `N/A` (statically, off-MSYS); `liveness`, `msys-tree-cleanup`, `ws5-upgrade`, `job-probe`, `git-capture-guard`, `secret-scan-staged` green. The MSYS-only code paths are inert there |
+
+**A live field instance was found and removed during this work**: a `bash -c 'while :; do sleep 1;
+done'` fixture sibling created 2026-09-09 22:25 was still burning CPU three days later, orphaned by
+an earlier killed `signal-reap` run. It predates the fix, so it does not trigger the B5/B6
+reopen condition (a); it does confirm the leak was live, not theoretical.
+
+### Release-profile classification
+
+`signal-reap` moves from `unreviewed (pre-ratchet)` to **`deferred`** in `docs/maintainer-testing.md`
+(`FF_UNREVIEWED_BASELINE` 28 -> 27). The red baseline that blocked promotion is closed and the COST
+bar is now CLEARED: **166 s on a quiet MSYS host**, against `preboundary-consumed` excluded at 204 s
+and `approval-schema3` carried at 184-286 s; Linux is statically N/A at 18 s.
+
+It is still deferred, on ONE objective condition that is not cost: **it has never run green on
+hosted Windows**, because it was red at every commit until now. Promoting it would make the next
+tagged release gate its first hosted execution of a phase that kills live process trees — the shape
+of risk that already cost this repo the `v4.16.3` cycle. Close it with one non-publishing
+`.github/workflows/fusebase-flow-measure-windows.yml` run at this SHA, then promote: it is the only
+oracle for the Process-lifecycle owned-child row, which has zero release tags today.
+
 ## Related
 
 - `docs/problem-catalog/bounded-run-msys-collateral-kill/problem.md` — same family, different trigger: that entry is the bounded-run kill firing on its OWN deadline (over- and under-killing). This is the harness's parent dying to an EXTERNAL signal.
@@ -125,12 +198,16 @@ harness acting on the signal.
 
 ## 2026-08-07 — B5/B6 ACCEPTED as known limitations (operator decision)
 
-The S2 fix ships with two residual gaps, accepted deliberately rather than patched a third time.
+The S2 mechanism ships with two residual gaps, accepted deliberately rather than patched a third
+time. They are unchanged by T4.
 
-**What is fixed and proven.** The field failure — a killed gate leaving children alive for 38
-minutes — is closed. `signal-reap` is 19/19 with 0 FAIL, including the discriminator that matters:
-*leader dead, 4 surviving descendants, group reaped to 0*. B1, B3 and B8/B9 are closed in shipped
-code; B2, B4 and B7 are materially improved.
+**SUPERSEDED (2026-09-12): "the field failure is closed" was NOT true on 2026-08-07.** That claim
+rested on the three DIRECT-DRIVE guard discriminators, which were green. The one END-TO-END field
+discriminator — `launch-window-signal-still-reaps` — was RED from the day it shipped and stayed
+red at every commit through `2f03652`, because the guards were being handed an unreapable handle
+(§ Reproduced — T3, R1 correction). The suite is now 9 rows, not 19; the 19-row suite was reduced
+to 4 discriminators + 4 controls at T3 for the reason recorded in the phase header, and T4 adds
+the ninth row. Read § 2026-09-12 for the state that is actually proven.
 
 **What is NOT fixed, precisely.**
 

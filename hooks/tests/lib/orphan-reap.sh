@@ -24,6 +24,7 @@ FFOR_COMM=""; FFOR_PPID=""; FFOR_PGID=""; FFOR_START=""
 FFOR_S_PID=""; FFOR_S_WIN=""; FFOR_S_PGID=""
 FFOR_R_PGID=""; FFOR_R_LEADSTART=""
 FFOR_MEMBERS=""
+FFOR_KIDS=""
 FFOR_PS=""
 FFOR_ROW_PPID=""; FFOR_ROW_PGID=""; FFOR_ROW_WIN=""
 FFOR_PGID_OUT=""
@@ -99,6 +100,70 @@ ffor_pgid_of() {
   ffor_identity "${1:-}" || return 1
   FFOR_PGID_OUT="$FFOR_PGID"
   return 0
+}
+
+# ffor_children PID -> FFOR_KIDS ("<pid> " rows) from the snapshot. Fork-free, same scan shape as
+# ffor_group_members. Returns 1 when there is no snapshot, so an empty list is never read as
+# "this process has no children".
+ffor_children() {
+  FFOR_KIDS=""
+  local want="${1:-}" rows line rest pid ppid
+  ffor_numeric "$want" || return 1
+  [ -n "$FFOR_PS" ] || ffor_snapshot || return 1
+  rows="$FFOR_PS"
+  while [ -n "$rows" ]; do
+    line="${rows%%$'\n'*}"
+    if [ "$line" = "$rows" ]; then rows=""; else rows="${rows#*$'\n'}"; fi
+    line="${line#"${line%%[! ]*}"}"
+    pid="${line%% *}"
+    ffor_numeric "$pid" || continue
+    rest="${line#"$pid"}"; rest="${rest#"${rest%%[! ]*}"}"
+    ppid="${rest%% *}"
+    [ "$ppid" = "$want" ] || continue
+    FFOR_KIDS="$FFOR_KIDS$pid "
+  done
+  return 0
+}
+
+# ffor_resolve_phase PID HARNESS_PGID -> FFOR_R_PGID + FFOR_R_LEADSTART, the group that actually
+# holds the bounded phase's subtree.
+#
+# TRIPWIRE (T4, measured at 2f03652): the PUBLISHED pid is the harness's own backgrounded capture
+# subshell, and a background job of a non-interactive shell stays in the SHELL's process group —
+# so ffor_resolve on it returns the HARNESS group every time, which ffor_reap then refuses (as it
+# must). `timeout` creates the reapable group one level BELOW that subshell. Resolving the
+# recorded pid alone therefore reaps nothing, which is the whole field defect. Never "simplify"
+# this back to a single ffor_resolve.
+#
+# Fail closed: no snapshot, no unresolvable own pgid, or no self-led descendant group outside the
+# harness's and ours => return 1 with empty outputs, and the caller kills nothing.
+ffor_resolve_phase() {
+  FFOR_R_PGID=""; FFOR_R_LEADSTART=""
+  local root="${1:-}" hpgid="${2:-}" own frontier next p c hops=0
+  ffor_numeric "$root" || return 1
+  ffor_snapshot || return 1
+  ffor_pgid_of $$ || return 1
+  own="$FFOR_PGID_OUT"
+  ffor_numeric "$own" || return 1
+  ffor_numeric "$hpgid" || return 1
+  ffor_resolve "$root" && [ "$FFOR_R_PGID" != "$hpgid" ] && [ "$FFOR_R_PGID" != "$own" ] && return 0
+  FFOR_R_PGID=""; FFOR_R_LEADSTART=""
+  # Breadth-first so the SHALLOWEST distinct group wins: that is `timeout`'s group, which holds
+  # the phase child and its grandchildren. 8 hops is far past the 2 the shipped topology uses.
+  frontier="$root"
+  while [ -n "$frontier" ] && [ "$hops" -lt 8 ]; do
+    next=""
+    for p in $frontier; do
+      ffor_children "$p" || continue
+      for c in $FFOR_KIDS; do
+        ffor_resolve "$c" && [ "$FFOR_R_PGID" != "$hpgid" ] && [ "$FFOR_R_PGID" != "$own" ] && return 0
+        FFOR_R_PGID=""; FFOR_R_LEADSTART=""
+        next="$next$c "
+      done
+    done
+    frontier="$next"; hops=$((hops + 1))
+  done
+  return 1
 }
 
 # ffor_state_read STATE -> FFOR_S_PID/WIN/PGID ("" when nothing is in flight or no complete
@@ -192,6 +257,16 @@ ffor_any_alive() {
     ffor_numeric "$p" && ffor_alive "$p" && return 0
   done
   return 1
+}
+
+# ffor_group_gone PGID: 0 when the group has no live member left. Returns 1 when that cannot be
+# CONFIRMED (no process table, unusable pgid) — an unconfirmable group is never reported gone,
+# because the caller uses this answer to decide whether the out-of-band sentinel may stand down.
+ffor_group_gone() {
+  ffor_snapshot || return 1
+  ffor_group_members "${1:-}" || return 1
+  ffor_any_alive "$FFOR_MEMBERS" && return 1
+  return 0
 }
 
 # ffor_reap PID WINPID PGID LEADER_START HARNESS_PGID GRACE

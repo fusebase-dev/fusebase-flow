@@ -65,7 +65,9 @@ FIXLIB="$ROOT/hooks/tests/lib/signal-reap-fixture.sh"
 
 # Every row this phase promises to report. Order is cosmetic; membership is the contract.
 DECLARED_ROWS=(
+  tracked-identity-survives-msys-exec         # DISCRIMINATOR
   launch-window-signal-still-reaps            # DISCRIMINATOR
+  phase-group-is-not-the-harness-group        # DISCRIMINATOR
   launch-window-sibling-survives              # CONTROL
   failed-pgid-lookup-kills-nothing            # DISCRIMINATOR
   group-identity-mismatch-kills-nothing       # DISCRIMINATOR
@@ -229,6 +231,30 @@ read_pids() {       # -> HARNESS_PID / CHILD_PID / GC_PID, all tracked with thei
 # against a deliberately re-broken publication order (mutation: publish AFTER the winpid probe).
 # So the window is 120s AND `lw_window` below PROVES it was open at kill time; a raced window is
 # reported red ("could not discriminate"), never as a pass.
+# =========================================================================================
+# The suite's OWN teardown is identity-verified, so it is only teardown if the identity it
+# recorded still matches. On MSYS `/proc/<pid>/stat` field 20 is not final until ~1s after a pid
+# appears, so tracking at spawn time recorded a value that never matched again and
+# ff_reap_tracked declined EVERY kill: measured 6 fixture siblings surviving 2 CLEAN runs, each
+# a `while :; do sleep 1; done` loop loading every later phase on the host. This row runs FIRST
+# because every assertion below depends on that teardown actually working.
+# =========================================================================================
+ff_spawn_sibling; TR_PID="$FFSR_SIB_PID"
+tr_rec="$(ff_tok "$TR_PID")"
+ffor_identity "$TR_PID" && tr_live="$FFOR_START $FFOR_COMM" || tr_live="<unresolvable>"
+if [ -z "$tr_rec" ]; then
+  err "tracked-identity-survives-msys-exec" "ff_track recorded no identity for a live pid (live=[$tr_live]) — the teardown has nothing to verify against and declines every kill"
+else
+  ff_reap_tracked
+  tr_gone="$(ff_ps_gone_within "$TR_PID" "$REAP_CEILING")"
+  if [ "$tr_gone" -ge 0 ] 2>/dev/null; then
+    ok "tracked-identity-survives-msys-exec [DISCRIMINATOR] (a tracked fixture process still identity-matched and left the process table in ${tr_gone}s; a pre-exec start token makes every teardown decline)"
+  else
+    ffor_identity "$TR_PID" && tr_post="$FFOR_START $FFOR_COMM" || tr_post="<gone from /proc>"
+    bad "tracked-identity-survives-msys-exec" "the tracked fixture process is still in the process table ${REAP_CEILING}s after its OWN identity-verified teardown: recorded=[$tr_rec] live-at-track=[$tr_live] live-now=[$tr_post] — a mismatch means the recorded token was pre-exec and this suite leaks a CPU-consuming process per spawn into every later phase"
+  fi
+fi
+
 ff_spawn_sibling; SIB_PID="$FFSR_SIB_PID"
 FFSR_SLOW_WINPID=120; start_harness; FFSR_SLOW_WINPID=""
 if wait_for_file "$FIX/gc.pid" 90 && wait_for_file "$FIX/harness.pid" 5; then
@@ -245,6 +271,33 @@ if wait_for_file "$FIX/gc.pid" 90 && wait_for_file "$FIX/harness.pid" 5; then
       *" - - END") lw_window=open ;;
       *)           lw_window=closed ;;
     esac
+  fi
+  # WHY the row above used to fail, pinned as its own assertion (T4). The PUBLISHED pid is the
+  # harness's own backgrounded capture subshell, and a background job of a non-interactive shell
+  # keeps the SHELL's process group — so resolving the recorded pid yields the HARNESS group,
+  # which ffor_reap must refuse. The reapable group is `timeout`'s, one level below it. Measured
+  # before the kill, while the whole topology is still live.
+  ffor_state_read "$lw_state"
+  pg_h=""; ffor_snapshot && ffor_pgid_of "$HARNESS_PID" && pg_h="$FFOR_PGID_OUT"
+  if [ -z "$FFOR_S_PID" ] || [ -z "$pg_h" ]; then
+    err "phase-group-is-not-the-harness-group" "no published in-flight record, or the harness pgid is unresolvable"
+  elif ffor_resolve "$FFOR_S_PID" && [ "$FFOR_R_PGID" != "$pg_h" ]; then
+    err "phase-group-is-not-the-harness-group" "the recorded pid resolved to $FFOR_R_PGID, not the harness group $pg_h — this fixture no longer reproduces the topology under test"
+  elif ! ffor_resolve_phase "$FFOR_S_PID" "$pg_h"; then
+    bad "phase-group-is-not-the-harness-group" "the recorded pid resolves to the harness group $pg_h and no phase group was found below it — the guard has no handle and reaps nothing"
+  else
+    pg_p="$FFOR_R_PGID"; pg_kids=0
+    ffor_group_members "$pg_p"
+    while read -r pg_m _; do
+      [ "$pg_m" = "$CHILD_PID" ] || [ "$pg_m" = "$GC_PID" ] && pg_kids=$((pg_kids + 1))
+    done <<< "$FFOR_MEMBERS"
+    if [ "$pg_p" = "$OWN_PGID" ]; then
+      bad "phase-group-is-not-the-harness-group" "resolved this test's OWN group ($pg_p) — a reap would kill the suite"
+    elif [ "$pg_kids" -eq 2 ]; then
+      ok "phase-group-is-not-the-harness-group [DISCRIMINATOR] (recorded pid sits in the harness group $pg_h; the phase child and grandchild are in group $pg_p, resolved one level below it)"
+    else
+      bad "phase-group-is-not-the-harness-group" "resolved group $pg_p holds $pg_kids of the 2 phase descendants — reaping it would leave the rest alive"
+    fi
   fi
   ff_kill_verified "$HARNESS_PID" "$HARNESS_TOK" 9
   lw_child="$(ff_gone_within "$CHILD_PID" "$REAP_CEILING")"
@@ -264,6 +317,8 @@ if wait_for_file "$FIX/gc.pid" 90 && wait_for_file "$FIX/harness.pid" 5; then
   fi
 else
   bad "launch-window-signal-still-reaps" "the launch-window fixture never established within 90s"
+  err "phase-group-is-not-the-harness-group" "the launch-window fixture never established within 90s"
+  skip "launch-window-sibling-survives" "the launch-window fixture never established within 90s"
 fi
 ff_reap_tracked
 

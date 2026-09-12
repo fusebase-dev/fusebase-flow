@@ -59,6 +59,19 @@ observed once. The consumer that suffered it was repaired at ITS OWN layer inste
 that does not depend on this reap succeeding, names a deadline as a distinct failure, and retains
 the evidence.
 
+## Changed under this ticket by T4 (2026-09-12) — read before touching `_ffhc_tempfile_capture`
+
+`harness-kill-leaves-orphan-children` T4 edited the same function, one concern away from the
+`wait "$bpid"` this ticket owns. Two facts a fixer here needs, not restated from that ticket:
+
+- the in-flight record's **pgid field is now always `-`**; `FFHC_LAST_CHILD_PGID` and its
+  `ffhc_pgid_of "$_bpid"` probe are gone, because that pid is this shell's own background job and
+  its group is always OUR group. The reapable group is resolved from the live process table by the
+  READER (`hooks/tests/lib/orphan-reap.sh: ffor_resolve_phase`).
+- `ffor_group_gone` now exists in that library and answers "has this group no live member left",
+  fail-closed. A fix here that wants to treat *reaped but still alive* as its own outcome has that
+  oracle already; the shape this ticket asks for is a deadline, not a new probe.
+
 ## What a fix has to preserve
 
 - The no-collateral rule at `:118`. A bound that kills a reused pid is worse than one that hangs.

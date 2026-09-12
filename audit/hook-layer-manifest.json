@@ -174,7 +174,7 @@
     },
     {
       "path": "hooks/local/lib/phase_registry_check.py",
-      "sha256": "6a32d5b0fdef590e0a765fc98065344d3fca063519c5751d1616dc70c5f35fce"
+      "sha256": "a11b85e78ca2444ec9bff2b37ac3e772981b0c2e981e3bc8b0c2ae6716e21f25"
     },
     {
       "path": "hooks/local/lib/plugin-parity.sh",
@@ -206,7 +206,7 @@
     },
     {
       "path": "hooks/local/lib/run-with-timeout.sh",
-      "sha256": "a82ec0930d330fef6c735060a25f4527733a221622c9c27166a01ed63e2bd2f2"
+      "sha256": "551fecaebbdfef60d57434d4e42d47a604c8e2444de5b0ece541a7150b6b5bbf"
     },
     {
       "path": "hooks/local/lib/synthesize-base.sh",
@@ -578,7 +578,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "5e3b580a9b5740e9f6e69c64a0c7d831785b808efc4d5bb78aaa9ca38068a82e"
+      "sha256": "4b849777f7fe2bb95575c7f0c367d6d227e817f9a720503b4b87904fc877e076"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -818,7 +818,7 @@
     },
     {
       "path": "hooks/tests/test-run-tests-signal-reap.sh",
-      "sha256": "0343e9f5a2153d9581aeffc1505ff6de5604a056cc8cb2c4984741eee91f5995"
+      "sha256": "bde418c952df909babee49d07f9d15ea1bf5b6087e32b8e7bdccfbcab5d0175d"
     },
     {
       "path": "hooks/tests/test-secret-scan-staged.sh",
@@ -901,5 +901,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "0d0c1f304d830472dfeba5bb7416c4b5aea21851fab572ad412b361e53d5e3f8"
+  "manifest_self_sha256": "5e72b5afa81c35aa29befb73a92cfddf52990385ff20fca5726bf55fff4c65dc"
 }

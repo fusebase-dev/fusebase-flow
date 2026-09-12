@@ -23,7 +23,7 @@ import sys
 
 # The ratchet: the unreviewed count must EQUAL this. Lowered by the commit that reviews a row.
 # Seeded 2026-09-10 at 28 of 77 registered phases (measured, not guessed).
-FF_UNREVIEWED_BASELINE = 28
+FF_UNREVIEWED_BASELINE = 27
 
 REL_HEADER = "| Release responsibility | Existing required tags |"
 OPTIN_HEADER = "| Tag | Why opt-in | Required protection retained |"
