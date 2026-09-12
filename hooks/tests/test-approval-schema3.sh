@@ -25,7 +25,7 @@ ROOT = Path(sys.argv[1])
 sys.path.insert(0, str(ROOT / "hooks"))
 sys.path.insert(0, str(ROOT / "hooks" / "tests" / "fixtures"))
 from approval_fixture import (  # noqa: E402
-    BASH, CREATED, FUTURE, Repo, case, expect, git, prefix_artifact, run, upd,
+    BASH, CREATED, FUTURE, Repo, case, expect, git, prefix_artifact, remote_refs, run, upd,
 )
 # TRIPWIRE: the failure COUNT is read through the module, never imported by value - `case()`
 # increments the fixture's own counter, and a `from … import FAILS` would exit on the 0 it
@@ -629,6 +629,17 @@ def exact_ref_lookup(r: Repo, p: list[str]) -> None:
             if remote_main != other:
                 p.append(f"remote main is {remote_main!r}, expected the approved {other!r}")
 
+    # Weak-rule source: git pushes refs/remotes/weakly and names the destination after it.
+    git(r.work, "update-ref", "refs/remotes/weakly", other)
+    got, why = resolve_command_updates("git push origin weakly", r.work)
+    if not got or (got[0][1], got[0][2]) != ("refs/remotes/weakly", other):
+        p.append(f"weak-only source bound {got[0][1:] if got else None}, expected "
+                 f"('refs/remotes/weakly', {other[:8]}...): {why}")
+    if r.push("origin", "weakly").returncode != 0:
+        p.append("git refused the weak-rule push this row is pinned to")
+    elif remote_refs(r).get("refs/remotes/weakly") != other:
+        p.append("git did not create refs/remotes/weakly at the bound object")
+
 
 def shadowed_head(r: Repo, p: list[str]) -> None:
     """`HEAD` as a source is the checked-out branch only while no ref shadows that name.
@@ -655,10 +666,7 @@ def shadowed_head(r: Repo, p: list[str]) -> None:
     # behaviour is git's own and not a gate result.
     git(r.work, "remote", "add", "other", "../remote2.git")
     res = r.push("other", "HEAD")
-    refs = dict(
-        (line.split()[0], line.split()[1])
-        for line in git(r.tmp / "remote2.git", "for-each-ref",
-                        "--format=%(refname) %(objectname)").splitlines() if line)
+    refs = remote_refs(r, "remote2.git")
     if res.returncode != 0 or refs.get("refs/tags/HEAD") != b:
         p.append(f"git did not do what this row is pinned to (rc={res.returncode}, "
                  f"remote2={refs}); re-establish the behaviour before trusting the assertion")
@@ -670,6 +678,27 @@ def shadowed_head(r: Repo, p: list[str]) -> None:
             p.append(f"refusal does not name the shadowing: {why!r}")
     elif (got[0][1], got[0][2]) != ("refs/tags/HEAD", b):
         p.append(f"bound {got[0][1:]} but git updated refs/tags/HEAD -> {b}")
+
+    # The same shape one namespace over: refs/remotes/<n> and refs/remotes/<n>/HEAD are
+    # resolution rules too, and a hand-picked candidate list missed them. Created one at a
+    # time - refs/remotes/HEAD is a file where refs/remotes/HEAD/HEAD needs a directory.
+    git(r.work, "update-ref", "-d", "refs/tags/HEAD")
+    for weak in ("refs/remotes/HEAD", "refs/remotes/HEAD/HEAD"):
+        git(r.work, "update-ref", weak, b)
+        got, why = resolve_command_updates("git push origin HEAD", r.work)
+        if got is not None:
+            p.append(f"{weak}: bound {got[0][1:]} though git pushes {weak}")
+        elif weak not in why:
+            p.append(f"{weak}: refusal does not name the shadowing ref: {why!r}")
+        res = r.push("other", "HEAD")
+        pushed = remote_refs(r, "remote2.git")
+        if res.returncode != 0 or pushed.get(weak) != b:
+            p.append(f"{weak}: git did not push it as this row is pinned to "
+                     f"(rc={res.returncode}, remote2={pushed})")
+        # refs/remotes/HEAD and refs/remotes/HEAD/HEAD collide on ONE remote (file vs
+        # directory), so the destination this case just created is cleared before the next.
+        r.push("other", f":{weak}")
+        git(r.work, "update-ref", "-d", weak)
 
 
 def handler_route(r: Repo, p: list[str]) -> None:

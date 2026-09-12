@@ -141,6 +141,12 @@ class Repo:
         return body
 
 
+def remote_refs(r: "Repo", bare: str = "remote.git") -> dict[str, str]:
+    """{full ref: object} in one of the fixture's bare remotes - what a push actually wrote."""
+    out = git(r.tmp / bare, "for-each-ref", "--format=%(refname) %(objectname)")
+    return dict(line.split(" ", 1) for line in out.splitlines() if line)
+
+
 def prefix_artifact(r: "Repo", command: str, updates: list) -> dict:
     """What the PRE-FIX writer produced: schema 3, no binding_revision (superseded semantics)."""
     body = r.schema3(command, updates)

@@ -128,6 +128,24 @@ def _oid(root: Path, rev: str) -> str | None:
     return value if value and _HEX_OID.fullmatch(value) else None
 
 
+#: git's ref resolution order, verbatim from `ref_rev_parse_rules` in git's refs.c (the list
+#: gitrevisions(7) documents): `$GIT_DIR/<refname>`, `refs/<refname>`, `refs/tags/<refname>`,
+#: `refs/heads/<refname>`, `refs/remotes/<refname>`, `refs/remotes/<refname>/HEAD`. Written
+#: ONCE and probed in full. A hand-picked subset is what left refs/remotes out after refs/tags
+#: had already been missed - the same gap, one namespace over, twice.
+#:
+#: git's push matcher splits these into STRONG matches and WEAK ones (refs/remotes/*), and
+#: prefers a unique strong match over a weak one.
+#:
+#: `$GIT_DIR/<refname>` is deliberately NOT probed as a pseudo-ref. The only pseudo-ref a bound
+#: push source can name is HEAD, which `_colonless` handles explicitly (symbolic ref, plus a
+#: refusal when a real ref shadows the name); probing $GIT_DIR/HEAD would make every colonless
+#: HEAD look shadowed by itself. A name that is ALREADY a full `refs/...` path is still probed
+#: as itself below, which is that rule's only other reachable case here.
+_STRONG_RULES = ("refs/{0}", "refs/tags/{0}", "refs/heads/{0}")
+_WEAK_RULES = ("refs/remotes/{0}", "refs/remotes/{0}/HEAD")
+
+
 def _ref_oid(root: Path, full: str) -> str | None:
     """The object at EXACTLY this ref name, or None — no revision resolution.
 
@@ -143,28 +161,31 @@ def _ref_oid(root: Path, full: str) -> str | None:
 
 
 def _named_ref(root: Path, name: str) -> tuple[str | None, str | None, str]:
-    """(full ref, its object, "") for the ONE ref `name` strongly matches, or a refusal.
+    """(full ref, its object, "") for the ONE ref `name` matches, or a refusal.
 
-    git's push matcher treats these as STRONG matches for a source: the name itself when it is
-    already a full ref, `refs/<name>`, `refs/heads/<name>` and `refs/tags/<name>`; more than one
-    is "src refspec … matches more than one" and git refuses the push. Each candidate is a
-    separate EXACT lookup — nothing enumerates refs and nothing re-implements the matcher's
-    ordering. A weak match (refs/remotes/…) is deliberately not resolved here.
+    git prefers a unique STRONG match and, with none, uses a unique WEAK one; more than one in
+    a tier is "src refspec ... matches more than one" and it refuses the push, as does this.
+    Both tiers were verified on disk against real pushes: with only refs/remotes/<n> present,
+    git pushes THAT ref and names the destination after it. Each candidate is a separate EXACT
+    lookup - nothing enumerates refs and nothing re-implements the matcher's ordering.
     """
-    candidates = [f"refs/{name}", f"refs/heads/{name}", f"refs/tags/{name}"]
+    strong = [rule.format(name) for rule in _STRONG_RULES]
     if name.startswith("refs/"):
-        candidates.insert(0, name)
-    found = []
-    for full in dict.fromkeys(candidates):
-        oid = _ref_oid(root, full)
-        if oid:
-            found.append((full, oid))
-    if len(found) > 1:
-        names = ", ".join(f for f, _ in found)
-        return None, None, (f"source {name!r} matches more than one ref ({names}); git refuses "
-                            f"that push as ambiguous - name one, e.g. refs/heads/<branch>:<dest>")
-    if found:
-        return found[0][0], found[0][1], ""
+        strong.insert(0, name)
+    weak = [rule.format(name) for rule in _WEAK_RULES]
+    for tier in (strong, weak):
+        found = []
+        for full in dict.fromkeys(tier):
+            oid = _ref_oid(root, full)
+            if oid:
+                found.append((full, oid))
+        if len(found) > 1:
+            names = ", ".join(f for f, _ in found)
+            return None, None, (f"source {name!r} matches more than one ref ({names}); git "
+                                f"refuses that push as ambiguous - name one, e.g. "
+                                f"refs/heads/<branch>:<dest>")
+        if found:
+            return found[0][0], found[0][1], ""
     return None, None, ""
 
 

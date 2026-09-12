@@ -71,7 +71,7 @@ ref-update binding is missing.
 - **A gated push must be its own plain command:** `git push <remote> <refspec>...`. A push
   chained with other commands (`git commit ... && git push origin main`), a quoted or expanded
   refspec, a forced refspec (`+main`), an unqualified destination (`HEAD:main` — use
-  `HEAD:refs/heads/main`), a `HEAD` source shadowed by a ref of that name, or config that can
+  `HEAD:refs/heads/main`), a colon-less `HEAD` shadowed by a ref of that name, or config that can
   add or remap refs (`push.followTags`, `remote.<name>.mirror` and `push.recurseSubmodules` on
   every push; `remote.<name>.push` and `push.default=upstream` where a refspec omits its
   destination) is refused with the reason; it cannot be approved as written.
@@ -89,11 +89,17 @@ ref-update binding is missing.
   host aliases stay distinct. If your remote URL changes in any way, the approval stops
   matching and you reissue it — one clear error, one command. That is deliberate: a rewrite
   applied before a comparison is how an approval ends up matching a repository nobody approved.
-- **A shadowed `HEAD` cannot be bound.** `git push origin HEAD` means the checked-out branch
-  only while no ref is named `HEAD`. With `refs/tags/HEAD` present git pushes that tag and
-  takes the destination from it (`* [new tag] HEAD -> HEAD`), leaving the branch untouched, so
-  the approval refuses and names the shadowing ref instead of binding the branch. Name the
-  source and destination explicitly, or delete the shadowing ref.
+- **A colon-less `HEAD` shadowed by a ref of that name cannot be bound.** `git push origin
+  HEAD` means the checked-out branch only while no ref is named `HEAD`. With `refs/tags/HEAD`
+  (or `refs/remotes/HEAD`) present, git pushes THAT ref and takes the destination from it
+  (`* [new tag] HEAD -> HEAD`), leaving the branch untouched — so the approval refuses and
+  names the shadowing ref instead of binding the branch. Name the destination explicitly
+  (`HEAD:refs/heads/main`, which binds normally), or delete the shadowing ref.
+- **A source is resolved through git's own ref rules, all of them.** git tries
+  `refs/<name>`, `refs/tags/<name>`, `refs/heads/<name>`, then `refs/remotes/<name>` and
+  `refs/remotes/<name>/HEAD`, preferring a unique match in the first group. An approval follows
+  the same list, so `git push origin topic` where `topic` exists only as `refs/remotes/topic`
+  binds that ref and the destination git actually writes — not the checked-out branch.
 - **A remote with more than one push URL cannot be bound.** One push then updates several
   repositories, and an approval names one destination. Push through a single-URL remote and
   approve each destination separately; the denial says so.

@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "13e683577716b795506b867864d105a0a38f759c86225f433ead92ea371b6470"
+      "sha256": "6157cb05108e01c1f85947317d52ab0a04792b731bc19276780cae4bea960d6f"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -738,7 +738,7 @@
     },
     {
       "path": "hooks/shared/git_push_binding.py",
-      "sha256": "5ed2fcf6b44e15ace4e1dc9dc3c53f66adbabaaf74e9b0893ec28f98c3515ce1"
+      "sha256": "dae64b6cf2cb20b72142cd0cd283ac60597e943ea17dd296d4080043c1a02d27"
     },
     {
       "path": "hooks/shared/git_utils.py",
@@ -918,7 +918,7 @@
     },
     {
       "path": "hooks/tests/fixtures/approval_fixture.py",
-      "sha256": "cee7aed13fb57882a0477cddec4307877b71a3edb1950e1be5081313293c6172"
+      "sha256": "1bbfeb37d47deb11a93de566fff5fafe0eed73a25a477e272a6cb817101bab66"
     },
     {
       "path": "hooks/tests/fixtures/corpus/command-gate-semantic-corpus.json",
@@ -1046,7 +1046,7 @@
     },
     {
       "path": "hooks/tests/test-approval-schema3.sh",
-      "sha256": "399a5dcff00dfe6fb0afb763f7e06127c66e2b4665c7b66bb387ca6465a2778c"
+      "sha256": "3d3499361388bde7ec63036e796b47d0a7d3990bfce89988832767bd32e273fd"
     },
     {
       "path": "hooks/tests/test-approval-writer.sh",
@@ -1565,5 +1565,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "d45f862ffb9b64404f80a8f18fe5e9fee384a60de712bf00e35c9ee56de0ae9c"
+  "manifest_self_sha256": "685a4db4762373614c1bb15fea2417cd8e9c4cc648df6bcf32ae76fef61aa9f8"
 }

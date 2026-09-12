@@ -342,7 +342,7 @@
     },
     {
       "path": "hooks/shared/git_push_binding.py",
-      "sha256": "5ed2fcf6b44e15ace4e1dc9dc3c53f66adbabaaf74e9b0893ec28f98c3515ce1"
+      "sha256": "dae64b6cf2cb20b72142cd0cd283ac60597e943ea17dd296d4080043c1a02d27"
     },
     {
       "path": "hooks/shared/git_utils.py",
@@ -514,7 +514,7 @@
     },
     {
       "path": "hooks/tests/fixtures/approval_fixture.py",
-      "sha256": "cee7aed13fb57882a0477cddec4307877b71a3edb1950e1be5081313293c6172"
+      "sha256": "1bbfeb37d47deb11a93de566fff5fafe0eed73a25a477e272a6cb817101bab66"
     },
     {
       "path": "hooks/tests/fixtures/token-waste-01-growing-tail-classified.jsonl",
@@ -594,7 +594,7 @@
     },
     {
       "path": "hooks/tests/test-approval-schema3.sh",
-      "sha256": "399a5dcff00dfe6fb0afb763f7e06127c66e2b4665c7b66bb387ca6465a2778c"
+      "sha256": "3d3499361388bde7ec63036e796b47d0a7d3990bfce89988832767bd32e273fd"
     },
     {
       "path": "hooks/tests/test-approval-writer.sh",
@@ -901,5 +901,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "226a832f9b5d909cda12ad033dfa35ba72df7cce324dd3b68af46b261d152be9"
+  "manifest_self_sha256": "f0e99d29f5c49254bcd369c2146ff41a8d0105b73ba7d90412f1b704f0787db5"
 }
