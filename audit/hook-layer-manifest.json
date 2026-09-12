@@ -174,7 +174,7 @@
     },
     {
       "path": "hooks/local/lib/phase_registry_check.py",
-      "sha256": "a11b85e78ca2444ec9bff2b37ac3e772981b0c2e981e3bc8b0c2ae6716e21f25"
+      "sha256": "9f5eab2e97d4b9aca3d6524b7b4d12f1c998795c7d8f23c11aa332ba7a826300"
     },
     {
       "path": "hooks/local/lib/plugin-parity.sh",
@@ -901,5 +901,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "63c166043602447ea1ef2379be27f0203bc7b17e3813133bb29e23ff47ee41f0"
+  "manifest_self_sha256": "6bada6abd0e550b822426f6743fcc08ee1cdef290c6d50478f6e53e056eb9eec"
 }
