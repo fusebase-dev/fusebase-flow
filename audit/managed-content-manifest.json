@@ -1266,7 +1266,7 @@
     },
     {
       "path": "hooks/tests/test-recovery-owned-bootstrap.py",
-      "sha256": "5fdd942a21d1fff6340dfd9148202dfaea030d1533f01c8ecdcae8048c4d6675"
+      "sha256": "8611eb906b529fee83c9bcf3e424d7847cf302f292ac3a3354bb070545f45aea"
     },
     {
       "path": "hooks/tests/test-release-evidence-authority.sh",
@@ -1565,5 +1565,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "89dd3015d24747957197af109b256c869d4c982b80895a47462fedac99750806"
+  "manifest_self_sha256": "78212edf5365c7d0a2c2d5a22e17f9e4b0cc2d548933fb660d174dd2cee06e86"
 }

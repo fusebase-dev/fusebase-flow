@@ -157,8 +157,11 @@ class BootstrapTest(unittest.TestCase):
         plan = root / "plan.tsv"
         result = root / "result.tsv"
         plan.write_text(f"{root / source}\t{target}\n", encoding="utf-8")
+        # TRIPWIRE: spawn sys.executable, never a bare "python" — the harness already resolved
+        # ${PYTHON:-python3} (with its own `python` fallback) to launch THIS file, and a Linux
+        # host that ships only python3 has no unversioned alias left to re-resolve.
         return run(
-            root, "python", str(root / "hooks/local/lib/recovery-owned-write.py"),
+            root, sys.executable, str(root / "hooks/local/lib/recovery-owned-write.py"),
             "--root", str(root), "--plan", str(plan), "--result", str(result),
             "--surface", surface,
         )
