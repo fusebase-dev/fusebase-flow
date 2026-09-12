@@ -4,6 +4,33 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [4.17.0] — 2026-09-12
+
+**BREAKING — command approvals bind the exact operation.** Every command approval artifact on
+disk stops authorizing on upgrade and must be reissued for the operation it authorizes. Files are
+preserved; nothing is migrated, re-dated or reconstructed. `bash hooks/local/approve-local.sh
+--inventory` names each artifact that no longer authorizes and why. Protected-path (FR-07)
+approvals and health-check deferrals are unaffected. See `docs/release-notes/v4.17.0.md`.
+
+- **Schema 3, mandatory bindings.** A command approval must carry `schema_version: 3`,
+  `binding_revision`, `action`, `repo_id`, `command_digest`, `created_at`, `expires_at` and
+  `binding_profile`. Schema absent/1/2 — and any pre-release schema-3 artifact without the current
+  `binding_revision` — is `LEGACY_SCHEMA` and authorizes nothing, whatever `strict_approvals` says.
+- **Profiles, not a boolean.** The policy selects the profile per rule; an artifact can satisfy a
+  stronger one but never choose a weaker. `git_push_v1` binds every ref update — push endpoint,
+  destination ref, source object, update/delete — while `fusebase deploy`, migrations, deletes and
+  messages keep mandatory command + repository binding as `command_only_v1`, which makes no claim
+  about deployed content.
+- **Checked at the execution boundary.** A new `hooks/git/pre-push` compares the updates git is
+  about to send against the artifact, so a terminal push is gated on the same terms as an agent
+  one wherever the hook is installed. Approvals stay REUSABLE until they expire: retrying the same
+  push works, a new commit needs a new approval.
+- **Endpoints are compared byte-exact.** A remote URL is validated against a closed set of forms
+  and never rewritten; credential-bearing URLs are refused rather than cleaned up. Sources resolve
+  through git's own ref rules, so a binding names the ref git would actually push.
+- Version-string sweep: the live banner now syncs in both the bolded and unbolded spelling. This
+  repo's `CLAUDE.md` had been stale since v4.14.1 because the sweep anchored on the bold markers.
+
 ## [4.16.6] — 2026-09-11
 
 **Upgrades proceed on Windows CRLF checkouts.** A consumer on `core.autocrlf=true` with no

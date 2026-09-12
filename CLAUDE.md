@@ -1,6 +1,6 @@
 # CLAUDE.md — Claude Code adapter for Fusebase Flow
 
-This repo runs **Fusebase Flow v4.16.5**. Read `AGENTS.md`, `FLOW_RULES.md` through `## Amendment log`, both mandatory skill bodies, `flow-skills/role-discipline/references/<role>.md`, and the active workflow/ticket artifacts. Canonical provider details are in the recovery-owned adapter below.
+This repo runs **Fusebase Flow v4.17.0**. Read `AGENTS.md`, `FLOW_RULES.md` through `## Amendment log`, both mandatory skill bodies, `flow-skills/role-discipline/references/<role>.md`, and the active workflow/ticket artifacts. Canonical provider details are in the recovery-owned adapter below.
 
 For maintenance work in this repository, also read `docs/maintainer-execution.md`. It is not copied into consumers.
 
