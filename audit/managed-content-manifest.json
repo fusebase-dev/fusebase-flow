@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "dd81a0d00f7e893205314fa7a1e2d82a72ed9b4a66a0f3a9a6d876fafcc09b63"
+      "sha256": "9c96bd92975ca810cc4698c9951509ab841d2685d0ffec129a3c50ecaf755656"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -562,7 +562,7 @@
     },
     {
       "path": "hooks/local/lib/phase_registry_check.py",
-      "sha256": "9f5eab2e97d4b9aca3d6524b7b4d12f1c998795c7d8f23c11aa332ba7a826300"
+      "sha256": "1ffdcd1426090dd9d77c7943d4e5748e63caeafcd7642a48983985c3656ac45b"
     },
     {
       "path": "hooks/local/lib/plugin-parity.sh",
@@ -1114,7 +1114,7 @@
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
-      "sha256": "1ee2fe3029d3f60ab341a3dc2bad9c858463db5d169bf824f6cc5e024705dc6d"
+      "sha256": "ff0264e0eeea96d0baf311c70194431e417cb745eacf2dfdee5f431d296b3183"
     },
     {
       "path": "hooks/tests/test-fingerprint-row-per-tag.sh",
@@ -1565,5 +1565,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "8e3ce3634177c0b06adb832184519f5bbf578303cc0dc78deaffe4dfd93d1115"
+  "manifest_self_sha256": "59c21183b1aaa812aa5f6477583447831bff87466eef54d91d47c584728dfa51"
 }

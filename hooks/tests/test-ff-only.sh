@@ -140,13 +140,15 @@ else
   else bad "registry-clean-on-the-real-tree" "rc=$PR_RC: $(pr_tail)"; fi
 
   # MUTATED INPUTS. Each is a copy; the real tree is never written.
+  # TRIPWIRE: `ws5-upgrade` is the borrowed UNREVIEWED row below — repoint these four when it is
+  # reviewed, and synthesize a row instead once the unreviewed baseline reaches 0 (see parked.md).
   sed 's/^FF_TAGS=(fixtures /FF_TAGS=(probe-tag fixtures /' "$RT" > "$PRDIR/newtag.sh"
   sed 's/^  release-authority /  /' "$RT" > "$PRDIR/norelease.sh"
   sed 's/ consumer-benchmark)/)/' "$RT" > "$PRDIR/nooptin.sh"
   grep -v '^| Publication integrity |' "$PRDOC" > "$PRDIR/norelrow.md"
   grep -v '^| `consumer-benchmark` |' "$PRDOC" > "$PRDIR/nooptinrow.md"
-  sed 's/^| `boot-size` | unreviewed/| `git-smoke` | unreviewed/' "$PRDOC" > "$PRDIR/twice.md"
-  sed 's/^| `boot-size` |/| `gone-tag` |/' "$PRDOC" > "$PRDIR/stale.md"
+  sed 's/^| `ws5-upgrade` | unreviewed/| `git-smoke` | unreviewed/' "$PRDOC" > "$PRDIR/twice.md"
+  sed 's/^| `ws5-upgrade` |/| `gone-tag` |/' "$PRDOC" > "$PRDIR/stale.md"
   grep -v '^| Tag | Classification | Reason |$' "$PRDOC" > "$PRDIR/noheader.md"
   sed 's/`Hook-layer manifest freshness`/`No Such Step Exists`/' "$PRDOC" > "$PRDIR/badstep.md"
   awk '{print} /^\| `ws5-upgrade` \|/{print "| `probe-tag` | unreviewed (pre-ratchet, 2026-09-10) | parked instead of decided |"}' "$PRDOC" > "$PRDIR/parked.md"
@@ -170,8 +172,8 @@ else
   # Shrink-only is enforced DOWNWARD too: one unreviewed row retired (row + registration) without
   # lowering the constant is red; the same retirement with the constant lowered is quiet.
   pr_n="$(sed -n 's/^FF_UNREVIEWED_BASELINE = \([0-9][0-9]*\)$/\1/p' "$PRCHK")"
-  sed 's/rule-inventory boot-size prohibition-residency/rule-inventory prohibition-residency/' "$RT" > "$PRDIR/retired.sh"
-  grep -v '^| `boot-size` | unreviewed' "$PRDOC" > "$PRDIR/retired.md"
+  sed 's/job-probe ws5-upgrade ff-only/job-probe ff-only/' "$RT" > "$PRDIR/retired.sh"
+  grep -v '^| `ws5-upgrade` | unreviewed' "$PRDOC" > "$PRDIR/retired.md"
   pr_red "unreviewed-count-below-baseline-without-lowering-is-rejected" "$PRDIR/retired.sh" "$PRDIR/retired.md" \
     "Lower FF_UNREVIEWED_BASELINE in hooks/local/lib/phase_registry_check.py to $((${pr_n:-1} - 1)) in this commit"
   sed "s/^FF_UNREVIEWED_BASELINE = ${pr_n:-x}\$/FF_UNREVIEWED_BASELINE = $((${pr_n:-1} - 1))/" "$PRCHK" > "$PRDIR/lowered.py"
