@@ -4,7 +4,25 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
-## [4.17.0] — 2026-09-12
+## [4.17.1] — 2026-09-12
+
+**Supersedes the unpublished `v4.17.0`.** That tag exists and was never published — its release
+gate went red in `cli-flow-recovery-selectors`, a test phase unrelated to the release content, so
+`publish` never ran and no consumer can hold it. Upgrade **4.16.6 → 4.17.1** directly. The tag is
+immutable and its fingerprint row stands. 4.17.1 is 4.17.0's content plus:
+
+- **The selector phase keeps its own evidence.** Case output moved out of the directory its EXIT
+  trap deletes, so a killed phase no longer destroys the diagnosis on the way out; a failing case
+  also prints an excerpt, because on a hosted runner the job log is the only durable artifact.
+- **Each case is bounded by its owner.** A phase-owned `timeout` per case, larger than the inner
+  bound so the inner contract is still observable, and a case deadline is a distinct named
+  failure — never a pass, never an ordinary nonzero. The shared-helper weakness behind the
+  original hang is filed with evidence (`docs/backlog/bounded-run-waits-unbounded-after-reap/`),
+  not changed underneath every phase that uses it on a single observation.
+
+Everything below this line shipped in the `v4.17.0` tree and is unchanged.
+
+## [4.17.0] — 2026-09-12 (TAGGED, NEVER PUBLISHED — superseded by 4.17.1)
 
 **BREAKING — command approvals bind the exact operation.** Every command approval artifact on
 disk stops authorizing on upgrade and must be reissued for the operation it authorizes. Files are

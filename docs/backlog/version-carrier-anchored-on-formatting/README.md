@@ -1,6 +1,6 @@
 # version-carrier-anchored-on-formatting
 
-**Status:** open — banner carrier fixed and pinned in v4.17.0; the second is a DECISION, not a regex widening
+**Status:** open — banner carrier fixed and pinned in v4.17.1; the second is a DECISION, not a regex widening
 **Filed:** 2026-09-11, while fixing the `CLAUDE.md` banner carrier (schema-3 release prep)
 **Surface:** `hooks/local/sync-version-strings.sh` `SED_EXPRS`, `hooks/local/lib/partial-upgrade-check.sh` `banner_re`, `hooks/tests/test-sync-allowlist.sh` `LIVE_RE`
 **Severity:** low — no wrong value is ever written; a derived string silently stops being derived
