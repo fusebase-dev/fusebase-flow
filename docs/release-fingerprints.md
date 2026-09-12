@@ -57,7 +57,8 @@ Match your output to either fingerprint column below; both identify the same tre
 | `v4.16.4` | 4.16.4 | `7de8ce5e911c3a1aa689e78b33f7a1bad21a5d33f3a23d2dae18043c1256a0b5` | 381 | `0cfad8ef6c769cc7050149ecc91076f25e41f3360cfb0039b9d5e95bfe41db86` | 217 |
 | `v4.16.5` | 4.16.5 | `3d31f318011ad89b0529c34c549850c6672d02052107d15ecfdd2889f37abcd7` | 383 | `ef7250453fe54d4bf0c406097898f845f5701151b45408a9761e183f2b5cb8f0` | 218 |
 | `v4.16.6` | 4.16.6 | `d1bae643315a9342e5d6a8999121c2f954a1fc05545e9cffd68cee6511d8e33a` | 386 | `5b634bb9a0f3f89548758666702f948fcac4c6e466c16234941ee7437424d839` | 220 |
-| `v4.17.0` | 4.17.0 | `9eaba077dba901a144679a6112edce40630fef11c86cff0eca02fa511b4ccf40` | 390 | `c2860a04ac7217ead20d71acbaba5ffa3370381d2e401fa69dc695545a4f4f62` | 224 |
+| `v4.17.0` | 4.17.0 | `9eaba077dba901a144679a6112edce40630fef11c86cff0eca02fa511b4ccf40` | 390 | `c2860a04ac7217ead20d71acbaba5ffa3370381d2e401fa69dc695545a4f4f62` | 224 |  <!-- tagged, never published: its release gate went red; superseded by v4.17.1 -->
+| `v4.17.1` | 4.17.1 | `adfbdd5cee253f22fe4bb802de9a3d0c1b8c8c5db2a3c70bd0ecccd7b26ba202` | 390 | `0d0c1f304d830472dfeba5bb7416c4b5aea21851fab572ad412b361e53d5e3f8` | 224 |
 
 `v4.9.0`, `v4.9.1`, `v4.10.0`, `v4.15.0`, `v4.15.1`, `v4.15.2`, `v4.16.0` and `v4.16.3` are unpublished tagged
 trees: their release workflows failed (2026-08-12, 2026-08-13, 2026-08-15, 2026-09-07 and 2026-09-10)
