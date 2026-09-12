@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "4.16.6",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 223,
+  "asset_count": 224,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -342,7 +342,7 @@
     },
     {
       "path": "hooks/shared/git_push_binding.py",
-      "sha256": "f5780524a1f9f681845aa5e8ab4de276898bef174171f2536c8127ebf642378b"
+      "sha256": "249fdf95714be7d759443db0c0a43064b80d14105259ba384f27cccf80ffbca7"
     },
     {
       "path": "hooks/shared/git_utils.py",
@@ -513,6 +513,10 @@
       "sha256": "ca5d95ba28725e881cc8e0eb85dea7435ec14403403e918a4df064b397d3fa03"
     },
     {
+      "path": "hooks/tests/fixtures/approval_fixture.py",
+      "sha256": "cee7aed13fb57882a0477cddec4307877b71a3edb1950e1be5081313293c6172"
+    },
+    {
       "path": "hooks/tests/fixtures/token-waste-01-growing-tail-classified.jsonl",
       "sha256": "88f6a2c6b2513495353f209b3c846890349068b3cb8d7c7b1a5ba3733e11efec"
     },
@@ -590,7 +594,7 @@
     },
     {
       "path": "hooks/tests/test-approval-schema3.sh",
-      "sha256": "4bc40ce7c9492e2ea81917696f13306456d58a7b2646688285207652f858471a"
+      "sha256": "4d1648d806724ce78f34186c1cc3e4736e45880fd0c7cfaf3af95bf3e2988bfd"
     },
     {
       "path": "hooks/tests/test-approval-writer.sh",
@@ -897,5 +901,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "aa56dc0106f65765cbeed84dde7fd2724f680e0ad7761e8e98af30f408d19103"
+  "manifest_self_sha256": "1a6238be5660c5eaac54ee1a3e41beab621f3379b2b3281341dc3b2190dfb7dd"
 }

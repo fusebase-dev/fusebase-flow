@@ -87,6 +87,11 @@ def _config(root: Path) -> dict[str, list[str | None]] | None:
     rc, out = _git(root, "config", "--list", "-z")
     if rc != 0:
         return None
+    # TRIPWIRE: every record is NUL-TERMINATED, so a complete stream ends with NUL (or is
+    # empty). A trailing fragment means the output was truncated or injected, and treating it
+    # as a value would accept a record git never finished writing.
+    if out and not out.endswith("\0"):
+        return None
     values: dict[str, list[str | None]] = {}
     for entry in out.split("\0"):
         if not entry:
@@ -123,30 +128,62 @@ def _oid(root: Path, rev: str) -> str | None:
     return value if value and _HEX_OID.fullmatch(value) else None
 
 
-def _named_ref(root: Path, name: str) -> tuple[str | None, str]:
-    """(the one local ref `name` names, "") or (None, reason) — ambiguity REFUSES.
+def _ref_oid(root: Path, full: str) -> str | None:
+    """The object at EXACTLY this ref name, or None — no revision resolution.
 
-    git's own rule: `refs/heads/<name>` and `refs/tags/<name>` are both strong matches, and it
-    refuses a push whose source matches more than one ("src refspec … matches more than one").
-    Each candidate is probed by EXACT full name, so nothing enumerates refs and nothing
-    reconstructs git's disambiguation order; a weak match (refs/remotes/…) is not resolved here
-    at all, which is the conservative direction.
+    TRIPWIRE: `show-ref --verify`, never `rev-parse --verify`. rev-parse is a REVISION
+    resolver: asked for `refs/heads/topic` it happily answers with `refs/tags/refs/heads/topic`
+    when only the tag exists, so an "exact existence check" written with it silently resolved
+    to a different ref (round 7). show-ref --verify requires the exact path and errors
+    otherwise.
     """
+    rc, out = _git(root, "show-ref", "--verify", "--hash", full)
+    value = _one_line(out) if rc == 0 else None
+    return value if value and _HEX_OID.fullmatch(value) else None
+
+
+def _named_ref(root: Path, name: str) -> tuple[str | None, str | None, str]:
+    """(full ref, its object, "") for the ONE ref `name` strongly matches, or a refusal.
+
+    git's push matcher treats these as STRONG matches for a source: the name itself when it is
+    already a full ref, `refs/<name>`, `refs/heads/<name>` and `refs/tags/<name>`; more than one
+    is "src refspec … matches more than one" and git refuses the push. Each candidate is a
+    separate EXACT lookup — nothing enumerates refs and nothing re-implements the matcher's
+    ordering. A weak match (refs/remotes/…) is deliberately not resolved here.
+    """
+    candidates = [f"refs/{name}", f"refs/heads/{name}", f"refs/tags/{name}"]
     if name.startswith("refs/"):
-        return (name, "") if _oid(root, name) else (None, f"{name!r} is not a local ref")
-    found = [full for full in (f"refs/heads/{name}", f"refs/tags/{name}") if _oid(root, full)]
+        candidates.insert(0, name)
+    found = []
+    for full in dict.fromkeys(candidates):
+        oid = _ref_oid(root, full)
+        if oid:
+            found.append((full, oid))
     if len(found) > 1:
-        return None, (f"{name!r} names both a branch and a tag; git refuses that push as "
-                      f"ambiguous — use <source>:refs/heads/<branch>")
-    return (found[0], "") if found else (None, "")
+        names = ", ".join(f for f, _ in found)
+        return None, None, (f"source {name!r} matches more than one ref ({names}); git refuses "
+                            f"that push as ambiguous - name one, e.g. refs/heads/<branch>:<dest>")
+    if found:
+        return found[0][0], found[0][1], ""
+    return None, None, ""
 
 
 def _source(root: Path, src: str) -> tuple[str | None, str]:
-    """The object a refspec source pushes (match_explicit: unique ref first, then any rev)."""
-    full, why = _named_ref(root, src)
+    """The object a refspec source pushes: the one strongly matched ref, else a plain rev.
+
+    The rev fallback (HEAD, HEAD~2, an object id) is how git resolves a source that names no
+    ref at all. It is refused for anything REF-SHAPED — a name containing `/` — because that
+    is exactly where a revision resolver and git's push matcher can disagree.
+    """
+    full, oid, why = _named_ref(root, src)
     if why:
         return None, why
-    oid = _oid(root, full or src)
+    if full:
+        return oid, ""
+    if "/" in src:
+        return None, (f"source {src!r} is not a local ref; name it in full, "
+                      f"e.g. refs/heads/<branch>:<destination>")
+    oid = _oid(root, src)
     return (oid, "") if oid else (None, f"source {src!r} does not resolve to an object")
 
 
@@ -158,11 +195,12 @@ def _colonless(root: Path, spec: str) -> tuple[str | None, str | None, str]:
         if not full or not full.startswith("refs/heads/") or not valid_destination_ref(full):
             return None, None, "HEAD is detached or unreadable; name the source and destination"
     else:
-        full, why = _named_ref(root, spec)
+        full, oid, why = _named_ref(root, spec)
         if full is None:
-            return None, None, why or (f"{spec!r} is not a local ref; use "
-                                       f"<source>:refs/heads/<branch>")
-    oid = _oid(root, full)
+            return None, None, why or (f"{spec!r} is not a local ref; name the source in full, "
+                                       f"e.g. refs/heads/<branch>:refs/heads/<branch>")
+        return full, oid, ""
+    oid = _ref_oid(root, full)
     return (full, oid, "") if oid else (None, None, f"{full} does not resolve")
 
 
@@ -210,16 +248,19 @@ def resolve_command_updates(command: str, root: Path | None) -> Resolution:
         set_keys.append(f"remote.{remote}.push")
     for key in set_keys:
         if _present(cfg, key):
+            remedy = ("unset it for this push, or pass --no-follow-tags"
+                      if key == "push.followtags" else "unset it for this push")
             return None, (f"{key} is set; it can add or remap the refs a push updates, and this "
-                          f"gate does not interpret its value. Unset it for this push, or use "
-                          f"<source>:refs/<full destination>")
+                          f"gate does not interpret its value - {remedy}. An explicit refspec "
+                          f"does not bypass this check")
     if any(":" not in spec for spec in specs) and not delete_all:
         value = (cfg.get("push.default") or [None])[-1]
         if value is not None and value not in _PUSH_DEFAULT_SAFE:
             reason = ("remaps a colon-less destination to its upstream"
                       if value in _PUSH_DEFAULT_REMAPS
                       else "holds a value git itself rejects")
-            return None, (f"push.default {reason}; use <source>:refs/<full destination>")
+            return None, (f"push.default {reason}; name the destination explicitly, "
+                          f"e.g. refs/heads/<branch>:refs/heads/<branch>, or unset it")
 
     # ONE destination per approval. A multi-URL remote pushes to several repositories in one
     # command, and picking from a list is exactly the enumeration every round found a way to

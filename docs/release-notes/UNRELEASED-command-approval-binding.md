@@ -90,14 +90,19 @@ ref-update binding is missing.
 - **A remote with more than one push URL cannot be bound.** One push then updates several
   repositories, and an approval names one destination. Push through a single-URL remote and
   approve each destination separately; the denial says so.
-- **An ambiguous ref name cannot be bound.** If `topic` is both a branch and a tag, git itself
-  refuses that push (`src refspec topic matches more than one`) — so does the approval, rather
-  than guessing which one you meant. Use `<source>:refs/heads/<branch>`.
+- **An ambiguous SOURCE ref cannot be bound.** If `topic` names both a branch and a tag, git
+  itself refuses that push (`src refspec topic matches more than one`), and so does the
+  approval rather than guessing which you meant. **Qualify the source** — `git push origin
+  refs/heads/topic:refs/heads/main` — since qualifying only the destination does not resolve
+  it. Source refs are looked up by exact name, so `refs/heads/topic` means that ref and never
+  a tag that happens to be called `refs/tags/refs/heads/topic`.
 - **Config that can add or remap pushed refs refuses while it is set.** `remote.<name>.mirror`,
   `remote.<name>.push`, `push.recurseSubmodules` and `push.followTags` are refused on presence
-  — their value is not interpreted — and `push.default` is compared against git's own spellings,
-  so `upstream`/`tracking` refuse and anything git would reject refuses too. Unset the key for
-  the push, or name `<source>:refs/<full destination>` explicitly.
+  — their value is not interpreted. **Unset the key for the push** (that is the remedy for all
+  four; `push.followTags` also accepts `--no-follow-tags` on the command). An explicit refspec
+  does **not** bypass these — they can add refs no refspec mentions. `push.default` is
+  different: it is compared against git's own spellings, so `upstream`/`tracking` refuse and
+  anything git itself rejects refuses too; name the destination explicitly or unset it.
 - **A remote URL carrying credentials cannot be bound at all — it is refused, not cleaned up.**
   `https://<token>@host/x` and any `user:password@` form (in any scheme, percent-encoded or
   not) are rejected with the endpoint named as unusable. Use a credential helper, or a remote

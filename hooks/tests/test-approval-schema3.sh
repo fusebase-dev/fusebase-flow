@@ -16,166 +16,28 @@ if ! command -v python3 >/dev/null 2>&1 || ! command -v git >/dev/null 2>&1; the
   echo "PASS: approval-schema3 skipped-no-python3-or-git"; exit 0
 fi
 
-MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$ROOT" <<'PY'
-import json, os, re, shutil, subprocess, sys, tempfile
-from datetime import datetime, timedelta, timezone
+ROWS_OUT="$(mktemp)"
+MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$ROOT" <<'PY' | tee "$ROWS_OUT"
+import sys
 from pathlib import Path
 
 ROOT = Path(sys.argv[1])
 sys.path.insert(0, str(ROOT / "hooks"))
-from shared.approval_artifact import compute_command_digest, compute_repo_id  # noqa: E402
+sys.path.insert(0, str(ROOT / "hooks" / "tests" / "fixtures"))
+from approval_fixture import (  # noqa: E402
+    BASH, CREATED, FUTURE, Repo, case, expect, git, prefix_artifact, run, upd,
+)
+# TRIPWIRE: the failure COUNT is read through the module, never imported by value - `case()`
+# increments the fixture's own counter, and a `from … import FAILS` would exit on the 0 it
+# captured at import time, turning every failed row into a green phase.
+import approval_fixture  # noqa: E402
+import json  # noqa: E402
+import shutil  # noqa: E402
+from shared.approval_artifact import (  # noqa: E402
+    compute_command_digest, compute_repo_id,
+)
 from shared.command_policy import evaluate  # noqa: E402
 from shared.policy_loader import reset_cache  # noqa: E402
-
-FAILS = 0
-NOW = datetime.now(timezone.utc)
-STAMP = "%Y-%m-%dT%H:%M:%SZ"
-CREATED, FUTURE = NOW.strftime(STAMP), (NOW + timedelta(days=1)).strftime(STAMP)
-GIT_ENV = {**os.environ, "GIT_TERMINAL_PROMPT": "0", "GIT_AUTHOR_NAME": "t",
-           "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
-HOOK = ROOT / "hooks" / "git" / "pre-push"
-# TRIPWIRE (Windows): CreateProcess searches System32 before PATH, so a bare "bash" is the WSL
-# shim there; resolve through PATH like the MSYS shell that launched this test.
-BASH = shutil.which("bash") or "bash"
-
-
-def row(name: str, problems: list[str]) -> None:
-    global FAILS
-    if problems:
-        FAILS += 1
-        print(f"FAIL: approval-schema3 {name} ({'; '.join(problems)[:600]})")
-    else:
-        print(f"PASS: approval-schema3 {name}")
-
-
-def run(cwd: Path, *args: str, env=None, input_text=None) -> subprocess.CompletedProcess:
-    return subprocess.run(list(args), cwd=str(cwd), capture_output=True, text=True,
-                          encoding="utf-8", errors="replace", timeout=180,
-                          env=env or GIT_ENV, input=input_text)
-
-
-def git(repo: Path, *args: str) -> str:
-    proc = run(repo, "git", *args)
-    if proc.returncode != 0:
-        raise RuntimeError(f"git {' '.join(args)} rc={proc.returncode}: {proc.stderr.strip()}")
-    return proc.stdout.strip()
-
-
-class Repo:
-    """work/ (the consumer, code under test copied in) + bare remote.git/ and remote2.git/."""
-
-    def __init__(self, tmp: Path, *, hook: bool = True):
-        self.tmp, self.work = tmp, tmp / "work"
-        for bare in ("remote.git", "remote2.git"):
-            run(tmp, "git", "init", "-q", "--bare", bare)
-        run(tmp, "git", "init", "-q", "-b", "main", "work")
-        w = self.work
-        for sub in ("hooks/shared", "hooks/handlers"):
-            (w / sub).mkdir(parents=True, exist_ok=True)
-            for f in (ROOT / sub).glob("*.py"):
-                shutil.copy(f, w / sub / f.name)
-        (w / "hooks/local/lib").mkdir(parents=True, exist_ok=True)
-        shutil.copy(ROOT / "hooks/local/approve-local.sh", w / "hooks/local/approve-local.sh")
-        shutil.copy(ROOT / "hooks/local/lib/approval_inventory.py",
-                    w / "hooks/local/lib/approval_inventory.py")
-        (w / "policies").mkdir()
-        for name in ("command-policy.yml", "approval-policy.yml", "protected-paths.yml",
-                     "secret-patterns.yml"):
-            if (ROOT / "policies" / name).is_file():
-                shutil.copy(ROOT / "policies" / name, w / "policies" / name)
-        (w / "state" / "approvals").mkdir(parents=True)
-        (w / ".gitignore").write_text("state/\nhooks/\npolicies/\n", encoding="utf-8")
-        git(w, "add", ".gitignore")
-        git(w, "commit", "-q", "-m", "A")
-        git(w, "remote", "add", "origin", "../remote.git")
-        git(w, "push", "-q", "origin", "main")          # before the hook exists
-        self.hooked = hook and HOOK.is_file()
-        if self.hooked:
-            target = w / ".git" / "hooks" / "pre-push"
-            shutil.copy(HOOK, target)
-            os.chmod(target, 0o755)
-
-    def oid(self, rev: str) -> str:
-        return git(self.work, "rev-parse", rev)
-
-    def commit(self, msg: str) -> str:
-        git(self.work, "commit", "-q", "--allow-empty", "-m", msg)
-        return self.oid("HEAD")
-
-    def gate(self, command: str):
-        reset_cache()
-        return evaluate(command, root=self.work)
-
-    def mint(self, command: str, action: str = "production_deploy", slug: str = "t"):
-        """The documented mint path. Returns (rc, artifact-json-or-None, stderr)."""
-        for f in (self.work / "state" / "approvals").glob(f"{action}-{slug}-*.json"):
-            f.unlink()
-        proc = run(self.work, BASH, "hooks/local/approve-local.sh", action, slug,
-                   "acceptance fixture", "--command", command)
-        found = sorted((self.work / "state" / "approvals").glob(f"{action}-{slug}-*.json"))
-        body = json.loads(found[0].read_text(encoding="utf-8")) if found else None
-        return proc.returncode, body, proc.stderr + proc.stdout
-
-    def write(self, body: dict, action: str = "production_deploy", slug: str = "t") -> Path:
-        """Replace this slug's artifact (the writer's own file included) with `body`."""
-        for f in (self.work / "state" / "approvals").glob(f"{action}-{slug}-*.json"):
-            f.unlink()
-        p = self.work / "state" / "approvals" / f"{action}-{slug}-20260911.json"
-        p.write_text(json.dumps(body), encoding="utf-8")
-        return p
-
-    def push(self, *args: str) -> subprocess.CompletedProcess:
-        """A real push. TRIPWIRE: an MSYS fork/spawn failure also yields a nonzero rc, which
-        would read as "the boundary refused it" — name that condition instead of scoring it."""
-        res = run(self.work, "git", "push", *args)
-        # TRIPWIRE: match the SPAWN diagnostic, not the errno text alone — a remote can report
-        # "Resource temporarily unavailable" itself, and that is a real result, not environment noise.
-        spawn = re.search(r"(line \d+: .*: Resource temporarily unavailable|"
-                          r"fork: Resource temporarily unavailable|cannot fork)", res.stderr)
-        if res.returncode != 0 and spawn:
-            raise RuntimeError("ENVIRONMENT (not a gate result): MSYS could not spawn git; "
-                               f"rerun this phase on a quieter machine - {res.stderr.strip()[-120:]}")
-        return res
-
-    def schema3(self, command: str, updates=None, **over) -> dict:
-        body = {"schema_version": 3, "binding_revision": 1, "action": "production_deploy",
-                "repo_id": compute_repo_id(self.work),
-                "command_digest": compute_command_digest(command),
-                "created_at": CREATED, "expires_at": FUTURE,
-                "binding_profile": "git_push_v1" if updates is not None else "command_only_v1"}
-        if updates is not None:
-            body["updates"] = updates
-        body.update(over)
-        return body
-
-
-def prefix_artifact(r: "Repo", command: str, updates: list) -> dict:
-    """What the PRE-FIX writer produced: schema 3, no binding_revision (superseded semantics)."""
-    body = r.schema3(command, updates)
-    body.pop("binding_revision", None)
-    return body
-
-
-def upd(dst: str, oid, endpoint: str = "../remote.git", op: str = "update") -> dict:
-    return {"push_endpoint": endpoint, "destination_ref": dst, "source_oid": oid, "operation": op}
-
-
-def expect(dec, want: str, verdict: str | None, label: str, out: list[str]) -> None:
-    if dec.decision != want:
-        out.append(f"{label}: expected {want} got {dec.decision} [{dec.approval_verdict}]")
-    elif verdict and dec.approval_verdict != verdict:
-        out.append(f"{label}: expected verdict {verdict} got {dec.approval_verdict}")
-
-
-def case(name: str, fn, **kw) -> None:
-    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as d:
-        try:
-            problems: list[str] = []
-            fn(Repo(Path(d), **kw), problems)
-        except BaseException as e:                     # noqa: BLE001 — a crash is a FAIL
-            problems = [f"raised {e!r}"]
-        row(name, problems)
-
 
 PUSH = "git push origin main"
 
@@ -688,6 +550,85 @@ def config_spellings(r: Repo, p: list[str]) -> None:
     if resolve_command_updates(PUSH, r.work)[0] is None:
         p.append("a clean config stopped resolving after the push.default cases")
 
+    # A config stream that ends mid-record was truncated or injected; it is not a snapshot.
+    # The damage is not a wrong value, it is a key cut inside its NAME: `remote.origin.pus`
+    # reads as ABSENT, so the presence check that exists to refuse `remote.origin.push` passes
+    # and the push binds anyway. Framing is a property of the READ, so it is asserted there.
+    import shared.git_push_binding as gpb
+    real_git = gpb._git
+
+    def unterminated(root, *args):
+        rc, out = real_git(root, *args)
+        if args[:3] == ("config", "--list", "-z") and rc == 0:
+            return rc, out + "remote.origin.pus"       # the terminating NUL never arrives
+        return rc, out
+
+    gpb._git = unterminated
+    try:
+        got, why = resolve_command_updates(PUSH, r.work)
+    finally:
+        gpb._git = real_git
+    if got is not None:
+        p.append("an unterminated config stream resolved; a key cut off mid-name read as absent")
+
+
+def exact_ref_lookup(r: Repo, p: list[str]) -> None:
+    """A source ref is resolved by EXACT lookup, and the binding agrees with what git pushes.
+
+    `rev-parse --verify refs/heads/topic` is a REVISION resolver, so it answers even when that
+    ref does not exist (`refs/tags/refs/heads/topic`) and it never reports the ambiguity git's
+    push matcher sees (round 7). Every assertion here goes through the module's own entry point
+    and compares the result against what git ACTUALLY does with the same command — no private
+    helper is imported, so the row discriminates on BEHAVIOUR, not on a symbol being present.
+    """
+    from shared.git_push_binding import resolve_command_updates
+    base = r.oid("main")
+    other = r.commit("B")
+    git(r.work, "update-ref", "refs/heads/main", base)
+
+    # Ambiguous sources: git refuses the push, so the binding must refuse too. A revision
+    # resolver sees no ambiguity in either of these and confidently returns one object.
+    git(r.work, "update-ref", "refs/heads/topic", base)
+    git(r.work, "update-ref", "refs/tags/heads/topic", other)
+    git(r.work, "update-ref", "refs/tags/refs/heads/topic", other)
+    for src in ("heads/topic", "refs/heads/topic"):
+        cmd = f"git push origin {src}:refs/heads/main"
+        got, why = resolve_command_updates(cmd, r.work)
+        real = r.push("origin", f"{src}:refs/heads/main")
+        if got is not None:
+            p.append(f"{src!r}: bound {[u[1:] for u in got]} where git says "
+                     f"{real.stderr.strip().splitlines()[0][:60]!r}")
+        elif "matches more than one" not in why:
+            p.append(f"{src!r}: refusal does not name the ambiguity: {why!r}")
+        if real.returncode == 0:
+            p.append(f"{src!r}: git performed an ambiguous push, so refusing was not conservative")
+
+    # A source that names no ref at all: git refuses, and so must the binding.
+    git(r.work, "update-ref", "-d", "refs/heads/topic")
+    git(r.work, "update-ref", "-d", "refs/tags/heads/topic")
+    got, why = resolve_command_updates("git push origin topic:refs/heads/main", r.work)
+    if got is not None:
+        p.append(f"unresolvable source still bound: {[u[1:] for u in got]}")
+
+    # The one case git DOES push: the binding must be the object git actually sends.
+    got, why = resolve_command_updates("git push origin refs/heads/topic:refs/heads/main", r.work)
+    if not got:
+        p.append(f"the only ref strongly matching the source stopped binding: {why}")
+    elif got[0][2] != other:
+        p.append(f"bound {got[0][2]!r}, but the only matching ref holds {other!r}")
+    else:
+        rc, body, err = r.mint("git push origin refs/heads/topic:refs/heads/main")
+        if not body:
+            p.append(f"writer refused a push git performs: {err.strip()[-140:]}")
+        else:
+            res = r.push("origin", "refs/heads/topic:refs/heads/main")
+            if res.returncode != 0:
+                p.append(f"the push git performs was denied on its own binding: "
+                         f"{res.stderr.strip()[-160:]}")
+            remote_main = git(r.tmp / "remote.git", "rev-parse", "refs/heads/main")
+            if remote_main != other:
+                p.append(f"remote main is {remote_main!r}, expected the approved {other!r}")
+
 
 def handler_route(r: Repo, p: list[str]) -> None:
     def hook(command: str) -> str:
@@ -729,10 +670,19 @@ case("pre-fix-binding-revision-authorizes-nothing", prefix_binding_revision)
 case("endpoint-record-boundaries-are-never-split", record_boundaries)
 case("single-value-resolution-refuses-ambiguity", single_value_resolution)
 case("config-spellings-match-git-and-refuse-on-presence", config_spellings)
+case("source-refs-resolve-by-exact-lookup", exact_ref_lookup)
 case("pre-tool-use-handler-route", handler_route)
-sys.exit(FAILS)
+sys.exit(approval_fixture.FAILS)
 PY
-PY_FAILS=$?
+PY_FAILS=${PIPESTATUS[0]}
+# TRIPWIRE: a python that dies before scoring (an import error, say) still exits nonzero, and
+# printing "N-1/N PASS" for it would report a score no row produced. A phase that did not score
+# says so.
+if [ "$PY_FAILS" -ne 0 ] && ! grep -q "^FAIL: approval-schema3 " "$ROWS_OUT"; then
+  echo "[test-approval-schema3] ABORTED: the row phase exited $PY_FAILS without scoring a row"
+  rm -f "$ROWS_OUT"; exit "$PY_FAILS"
+fi
+rm -f "$ROWS_OUT"
 
 # ---- The health report must agree with the gate (bash: the lib fills the CALLER's arrays) --
 # A legacy command approval authorizes nothing, so it must not be reported ACTIVE; it surfaces
@@ -770,5 +720,5 @@ else
 fi
 
 TOTAL_FAILS=$((PY_FAILS + AA_FAILS))
-echo "[test-approval-schema3] $((23 - TOTAL_FAILS))/23 PASS"
+echo "[test-approval-schema3] $((24 - TOTAL_FAILS))/24 PASS"
 exit "$TOTAL_FAILS"
