@@ -12,7 +12,14 @@
 #
 # CONTEXT-ANCHORED (critical): it rewrites only the two live phrasings —
 #     "under Fusebase Flow v<semver>"
-#     "runs **Fusebase Flow v<semver>**"
+#     "runs [**]Fusebase Flow v<semver>[**]"
+#   The anchor is the WORD before it (under / runs), never the bold markers. Those are
+#   OPTIONAL (v4.17.0): CLAUDE.md shipped `This repo runs Fusebase Flow v4.14.1` unbolded
+#   while the expression demanded `runs \*\*Fusebase Flow`, so the sweep scanned that file
+#   on every release and silently matched nothing for seven of them. A formatting convention
+#   is not content, and a carrier that only matches one spelling of itself goes stale in the
+#   published tree without a single failing check. Whichever spelling a file uses is
+#   PRESERVED - the markers are outside the replaced text.
 #   It deliberately does NOT do a blanket `Fusebase Flow v<semver>` replace,
 #   because many files carry HISTORICAL/provenance refs that must be preserved:
 #     "Shipped as part of Fusebase Flow v2.3.0+"   (upgrade-engine.sh)
@@ -159,8 +166,8 @@ done
 #   `Fusebase Flow v<VER>` (dropping any stale " Local " in the live banner /
 #   attestation phrasings — those two live forms are always the plain v<semver>).
 SED_EXPRS=(
-  "s/(under Fusebase Flow )(Local )?v[0-9]+(\.[0-9]+){1,2}/\1v${VER}/g"
-  "s/(runs \*\*Fusebase Flow )(Local )?v[0-9]+(\.[0-9]+){1,2}/\1v${VER}/g"
+  "s/(under (\*\*)?Fusebase Flow )(Local )?v[0-9]+(\.[0-9]+){1,2}/\1v${VER}/g"
+  "s/(runs (\*\*)?Fusebase Flow )(Local )?v[0-9]+(\.[0-9]+){1,2}/\1v${VER}/g"
 )
 if [ -n "$FR_HI" ]; then
   SED_EXPRS+=( "s/FR-01 through FR-[0-9]+/FR-01 through ${FR_HI}/g" )

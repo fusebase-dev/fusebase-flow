@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "6157cb05108e01c1f85947317d52ab0a04792b731bc19276780cae4bea960d6f"
+      "sha256": "9ce6fd332d340552e604e88f6b7c4551e96453c833af5bc9a0bfab184a58b08f"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -558,7 +558,7 @@
     },
     {
       "path": "hooks/local/lib/partial-upgrade-check.sh",
-      "sha256": "7e31bf620b8e4d0278ba10f7bd52e01116488bcba2df707fb37bc9b1c118cca7"
+      "sha256": "f9e0d26ca1030069ba2a3e54fe12be8ffc00b518989575f90e344d55a8c46cf1"
     },
     {
       "path": "hooks/local/lib/phase_registry_check.py",
@@ -674,7 +674,7 @@
     },
     {
       "path": "hooks/local/sync-version-strings.sh",
-      "sha256": "fc1d5444fd96715b6aa5a8a5c23bee11ab3ff4c85cc86be08e6c8fcee53e82e2"
+      "sha256": "bbd900cf79191d486b16d39b6808c8fa5e5a5baa91ebe55a9775c0f2b7017629"
     },
     {
       "path": "hooks/local/token-waste-audit.py",
@@ -1310,7 +1310,7 @@
     },
     {
       "path": "hooks/tests/test-sync-allowlist.sh",
-      "sha256": "090e9d0d50f5e04d57e27d05ca59ac2cd7ae2189790fb785a1f128126e6d9bd9"
+      "sha256": "57cb6630b11a49e227bd62e45c657df32530cdfde039fc81bd781b48fa6e37f6"
     },
     {
       "path": "hooks/tests/test-token-waste-classify.sh",
@@ -1565,5 +1565,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "685a4db4762373614c1bb15fea2417cd8e9c4cc648df6bcf32ae76fef61aa9f8"
+  "manifest_self_sha256": "b1d057a4334c84e6a05d045b0362d4db9e3f674fed5f7bcffc457f7c77e29885"
 }

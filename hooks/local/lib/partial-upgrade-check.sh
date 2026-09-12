@@ -56,7 +56,7 @@ ffhc_partial_upgrade_findings() {
   local f live
   # The two live anchors (matching sync-version-strings.sh exactly): "under Fusebase
   # Flow " (space) and "runs **Fusebase Flow " (the ** abuts Fusebase, no space).
-  local banner_re='(under Fusebase Flow |runs \*\*Fusebase Flow )(Local )?v[0-9]+(\.[0-9]+){1,2}'
+  local banner_re='(under|runs) (\*\*)?Fusebase Flow (Local )?v[0-9]+(\.[0-9]+){1,2}'
   for f in GEMINI.md AGENTS.md CLAUDE.md .github/copilot-instructions.md \
            .cursor/rules/fusebase-flow-always.mdc .github/instructions/fusebase-flow.instructions.md; do
     [ -f "$f" ] || continue

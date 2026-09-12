@@ -68,7 +68,7 @@ is_flow_backup_path() {   # <repo-relative path> -> 0 iff a path SEGMENT is an e
 
 # A live attestation/banner/FR/skill-count string (the set the sed actually
 # rewrites) — NOT any historical/provenance "v2.3.0+" mention.
-LIVE_RE='(under Fusebase Flow |runs \*\*Fusebase Flow )(Local )?v[0-9]|FR-01 (through FR-|\.\.FR-)[0-9]|\([0-9]+ canonical'
+LIVE_RE='(under|runs) (\*\*)?Fusebase Flow (Local )?v[0-9]|FR-01 (through FR-|\.\.FR-)[0-9]|\([0-9]+ canonical'
 
 # --- Extract the allowlist arrays straight from the script (source of truth) ---
 # Pull each `NAME=(` … `)` block verbatim and eval it, so the test always reflects
@@ -259,6 +259,68 @@ if [ -f FLOW_RULES_HISTORY.md ]; then
 else
   bad "history-not-in-allowlist" "FLOW_RULES_HISTORY.md missing (extracted amendment log)"
 fi
+
+# --- BOTH SPELLINGS of the live banner sync, and the carrier is not stale. ---------------
+# CLAUDE.md shipped `This repo runs Fusebase Flow v4.14.1` UNBOLDED while the sweep's
+# expression demanded `runs \*\*Fusebase Flow`. The file was in the allowlist and was scanned
+# on every release, so nothing failed — it simply never matched, and the published tree went
+# seven releases stale. Formatting is not content: the anchor is the WORD before the phrase.
+# This drives the REAL script over a fixture repo carrying both spellings, so it fails if the
+# sweep stops matching EITHER one.
+BS="$(mktemp -d)"
+mkdir -p "$BS/hooks/local"
+cp "$SCRIPT" "$BS/hooks/local/sync-version-strings.sh"
+git -C "$BS" init -q
+echo "9.9.9" > "$BS/VERSION"
+# FLOW_RULES.md and a skills dir are not optional scenery: the script derives FR_HI and the
+# skill count from them and, under `set -e -o pipefail`, either one missing exits the whole
+# sweep (rc 2 / rc 1) before it rewrites anything - silently, which is its own hazard.
+printf '# rules
+FR-01
+FR-27
+## Amendment log
+' > "$BS/FLOW_RULES.md"
+mkdir -p "$BS/flow-skills/d"
+printf -- '---
+name: d
+---
+# d
+' > "$BS/flow-skills/d/SKILL.md"
+printf 'This repo runs Fusebase Flow v1.2.3. Read AGENTS.md.\n'   > "$BS/CLAUDE.md"
+printf 'This repo runs **Fusebase Flow v1.2.3**. Read it.\n'      > "$BS/AGENTS.md"
+printf 'Operating as {role} under Fusebase Flow v1.2.3.\n'        > "$BS/GEMINI.md"
+printf 'Operating as {role} under **Fusebase Flow v1.2.3**.\n'    > "$BS/README.md"
+printf 'Shipped as part of Fusebase Flow v2.3.0+ (provenance).\n' > "$BS/CONTRIBUTING.md"
+( cd "$BS" && bash hooks/local/sync-version-strings.sh >/dev/null 2>&1 )
+bs=""
+grep -qF 'runs Fusebase Flow v9.9.9'       "$BS/CLAUDE.md"     || bs="$bs unbolded-banner"
+grep -qF 'runs **Fusebase Flow v9.9.9**'   "$BS/AGENTS.md"     || bs="$bs bolded-banner"
+grep -qF 'under Fusebase Flow v9.9.9'      "$BS/GEMINI.md"     || bs="$bs unbolded-attestation"
+grep -qF 'under **Fusebase Flow v9.9.9**'  "$BS/README.md"     || bs="$bs bolded-attestation"
+grep -qF 'Fusebase Flow v2.3.0+'           "$BS/CONTRIBUTING.md" || bs="$bs PROVENANCE-REWRITTEN"
+rm -rf "$BS"
+[ -z "$bs" ] && ok "banner-syncs-in-both-spellings" \
+             || bad "banner-syncs-in-both-spellings" "sweep missed:$bs"
+
+# The two READERS of the same phrase must see both spellings too, or a stale carrier is
+# invisible to the drift detector (partial-upgrade-check) and to this file's own discovery.
+PUC_RE="$(sed -n "s/^ *local banner_re='\(.*\)'\$/\1/p" hooks/local/lib/partial-upgrade-check.sh)"
+det=""
+[ -n "$PUC_RE" ] || det="$det no-banner_re-extracted"
+for spelling in 'This repo runs Fusebase Flow v4.16.5' 'This repo runs **Fusebase Flow v4.16.5**' \
+                'Operating as X under Fusebase Flow v4.16.5' 'under **Fusebase Flow v4.16.5**'; do
+  printf '%s\n' "$spelling" | grep -qE "$PUC_RE" || det="$det detector:[$spelling]"
+  printf '%s\n' "$spelling" | grep -qE "$LIVE_RE" || det="$det discovery:[$spelling]"
+done
+[ -z "$det" ] && ok "both-readers-see-both-spellings" \
+              || bad "both-readers-see-both-spellings" "missed ->$det"
+
+# The carrier in THIS repo is live, bolded and current — the drift itself, pinned.
+CARRIER="$(sed -n '3p' CLAUDE.md)"
+case "$CARRIER" in
+  *"runs **Fusebase Flow v$(cat VERSION)**"*) ok "claude-md-carrier-current" ;;
+  *) bad "claude-md-carrier-current" "CLAUDE.md:3 does not carry the bolded current version (VERSION=$(cat VERSION)): ${CARRIER:0:80}" ;;
+esac
 
 # --- OVER-REACH guard: a consumer doc with an FR token must NOT be reachable. ---
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
