@@ -40,8 +40,9 @@ text was bound.
 
 1. See which artifacts stopped authorizing, and why:
    `bash hooks/local/approve-local.sh --inventory`
-   Each one is named with its reason (for example `LEGACY_SCHEMA - schema_version 2; command
-   approvals require 3; missing binding_profile`). Nothing is changed or deleted.
+   Each one is named with its reason, verbatim as printed: `production_deploy-t-20260911.json:
+   LEGACY_SCHEMA - schema_version 2; command approvals require 3; missing repo_id,
+   command_digest, created_at, binding_profile`. Nothing is changed or deleted.
 2. Reissue approvals only for operations you still intend. Your agent runs this on your chat
    go-ahead, exactly as before:
    `bash hooks/local/approve-local.sh production_deploy <slug> '<reason>' --command 'git push origin main'`
@@ -59,8 +60,8 @@ Measured on a consumer tree upgraded from the previous release with `bash hooks/
 | You have your own `.git/hooks/pre-push` | It is backed up and preserved, never overwritten. The upgrade then says the FR-12 push boundary is NOT live, and `--inventory` reports the same. `bash hooks/local/install-git-hooks.sh --force` installs Flow's |
 
 If your `command-policy.yml` ends up without `binding_profile: git_push_v1` on its push rule,
-`--inventory` says so directly: *"git_push_v1 binding: NO active rule — pushes are bound by
-command text only"*. Approvals still require mandatory command + repository binding; only the
+`--inventory` says so directly: *"git_push_v1 binding: NO active rule - pushes are bound by
+command text only (check policies/command-policy*.yml)"*. Approvals still require mandatory command + repository binding; only the
 ref-update binding is missing.
 
 ## Behaviour changes to expect
@@ -70,9 +71,10 @@ ref-update binding is missing.
 - **A gated push must be its own plain command:** `git push <remote> <refspec>...`. A push
   chained with other commands (`git commit ... && git push origin main`), a quoted or expanded
   refspec, a forced refspec (`+main`), an unqualified destination (`HEAD:main` — use
-  `HEAD:refs/heads/main`), or config that adds or remaps refs (`push.followTags`,
-  `remote.<name>.push`, `push.default=upstream`) is refused with the reason; it cannot be
-  approved as written.
+  `HEAD:refs/heads/main`), a `HEAD` source shadowed by a ref of that name, or config that can
+  add or remap refs (`push.followTags`, `remote.<name>.mirror` and `push.recurseSubmodules` on
+  every push; `remote.<name>.push` and `push.default=upstream` where a refspec omits its
+  destination) is refused with the reason; it cannot be approved as written.
 - **Terminal pushes are checked too where the Flow `pre-push` hook is installed.** In
   `direct_to_main`, a push that updates `main`/`master` needs a matching approval whether an
   agent or a person runs it. The upgrade installs the hook next to `pre-commit`; a custom
@@ -87,6 +89,11 @@ ref-update binding is missing.
   host aliases stay distinct. If your remote URL changes in any way, the approval stops
   matching and you reissue it — one clear error, one command. That is deliberate: a rewrite
   applied before a comparison is how an approval ends up matching a repository nobody approved.
+- **A shadowed `HEAD` cannot be bound.** `git push origin HEAD` means the checked-out branch
+  only while no ref is named `HEAD`. With `refs/tags/HEAD` present git pushes that tag and
+  takes the destination from it (`* [new tag] HEAD -> HEAD`), leaving the branch untouched, so
+  the approval refuses and names the shadowing ref instead of binding the branch. Name the
+  source and destination explicitly, or delete the shadowing ref.
 - **A remote with more than one push URL cannot be bound.** One push then updates several
   repositories, and an approval names one destination. Push through a single-URL remote and
   approve each destination separately; the denial says so.
@@ -94,15 +101,21 @@ ref-update binding is missing.
   itself refuses that push (`src refspec topic matches more than one`), and so does the
   approval rather than guessing which you meant. **Qualify the source** — `git push origin
   refs/heads/topic:refs/heads/main` — since qualifying only the destination does not resolve
-  it. Source refs are looked up by exact name, so `refs/heads/topic` means that ref and never
-  a tag that happens to be called `refs/tags/refs/heads/topic`.
+  it. Source refs are looked up by exact ref name rather than resolved as a revision, so a
+  source is bound to the ref git's push matcher would actually select — including the case
+  where the only ref strongly matching `refs/heads/topic` is a tag named
+  `refs/tags/refs/heads/topic`, which git does push and which binds to that tag's object.
 - **Config that can add or remap pushed refs refuses while it is set.** `remote.<name>.mirror`,
-  `remote.<name>.push`, `push.recurseSubmodules` and `push.followTags` are refused on presence
-  — their value is not interpreted. **Unset the key for the push** (that is the remedy for all
-  four; `push.followTags` also accepts `--no-follow-tags` on the command). An explicit refspec
-  does **not** bypass these — they can add refs no refspec mentions. `push.default` is
-  different: it is compared against git's own spellings, so `upstream`/`tracking` refuse and
-  anything git itself rejects refuses too; name the destination explicitly or unset it.
+  `push.recurseSubmodules` and `push.followTags` are refused on presence — their value is not
+  interpreted — on **every** push, because they can add or remap refs no refspec mentions, so
+  an explicit refspec does not bypass them. `remote.<name>.push` is different: it is consulted
+  only where it can supply a destination, so it is checked when a refspec omits one and the
+  push is not a deletion; a fully explicit `<source>:<destination>` is **not** checked against
+  it. (A bare `git push <remote>` never reaches that check — it is refused earlier, because
+  every refspec must be named.) Remedy in every case: unset the key for that push; `push.followTags`
+  also accepts `--no-follow-tags`. `push.default` is compared against git's own spellings, so
+  `upstream`/`tracking` refuse and anything git itself rejects refuses too; name the
+  destination explicitly or unset it.
 - **A remote URL carrying credentials cannot be bound at all — it is refused, not cleaned up.**
   `https://<token>@host/x` and any `user:password@` form (in any scheme, percent-encoded or
   not) are rejected with the endpoint named as unusable. Use a credential helper, or a remote

@@ -342,7 +342,7 @@
     },
     {
       "path": "hooks/shared/git_push_binding.py",
-      "sha256": "249fdf95714be7d759443db0c0a43064b80d14105259ba384f27cccf80ffbca7"
+      "sha256": "5ed2fcf6b44e15ace4e1dc9dc3c53f66adbabaaf74e9b0893ec28f98c3515ce1"
     },
     {
       "path": "hooks/shared/git_utils.py",
@@ -594,7 +594,7 @@
     },
     {
       "path": "hooks/tests/test-approval-schema3.sh",
-      "sha256": "4d1648d806724ce78f34186c1cc3e4736e45880fd0c7cfaf3af95bf3e2988bfd"
+      "sha256": "399a5dcff00dfe6fb0afb763f7e06127c66e2b4665c7b66bb387ca6465a2778c"
     },
     {
       "path": "hooks/tests/test-approval-writer.sh",
@@ -901,5 +901,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "1a6238be5660c5eaac54ee1a3e41beab621f3379b2b3281341dc3b2190dfb7dd"
+  "manifest_self_sha256": "226a832f9b5d909cda12ad033dfa35ba72df7cce324dd3b68af46b261d152be9"
 }

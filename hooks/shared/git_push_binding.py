@@ -190,6 +190,20 @@ def _source(root: Path, src: str) -> tuple[str | None, str]:
 def _colonless(root: Path, spec: str) -> tuple[str | None, str | None, str]:
     """(destination, oid, reason) for a refspec without `:` — the destination is the source ref."""
     if spec == "HEAD":
+        # TRIPWIRE: the symbolic-ref fallback is reached ONLY when no ref shadows the name.
+        # git's push matcher treats refs/HEAD, refs/heads/HEAD and refs/tags/HEAD as strong
+        # matches for `HEAD` and prefers one of them over the symbolic ref, deriving the
+        # destination from it - so `git push origin HEAD` in a repository carrying
+        # refs/tags/HEAD updates the TAG, not the checked-out branch (round 7). Refuse rather
+        # than re-implement that precedence.
+        shadow, _shadow_oid, shadow_why = _named_ref(root, spec)
+        if shadow_why:
+            return None, None, shadow_why
+        if shadow:
+            return None, None, (f"HEAD is shadowed by {shadow}; git's push matcher uses that "
+                                f"ref and takes the destination from it, not from the "
+                                f"checked-out branch - name the source and destination "
+                                f"explicitly, e.g. refs/heads/<branch>:refs/heads/<branch>")
         rc, out = _git(root, "symbolic-ref", "-q", "HEAD")
         full = _one_line(out) if rc == 0 else None
         if not full or not full.startswith("refs/heads/") or not valid_destination_ref(full):
@@ -248,11 +262,23 @@ def resolve_command_updates(command: str, root: Path | None) -> Resolution:
         set_keys.append(f"remote.{remote}.push")
     for key in set_keys:
         if _present(cfg, key):
-            remedy = ("unset it for this push, or pass --no-follow-tags"
-                      if key == "push.followtags" else "unset it for this push")
-            return None, (f"{key} is set; it can add or remap the refs a push updates, and this "
-                          f"gate does not interpret its value - {remedy}. An explicit refspec "
-                          f"does not bypass this check")
+            if key == f"remote.{remote}.push":
+                # Only reached for a colon-less, non-deletion refspec: that is exactly when the
+                # key can supply the destination. A fully explicit <source>:<destination> is
+                # never checked against it, and the denial must not claim otherwise.
+                scope = ("this command leaves a destination for it to supply; a fully explicit "
+                         "<source>:<destination> is not checked against it")
+                remedy = "unset it for this push, or name the destination explicitly"
+            elif key == "push.followtags":
+                scope = ("it adds tag updates no refspec mentions, so an explicit refspec does "
+                         "not bypass it")
+                remedy = "unset it for this push, or pass --no-follow-tags"
+            else:
+                scope = ("it can add or remap refs no refspec mentions, so an explicit refspec "
+                         "does not bypass it")
+                remedy = "unset it for this push"
+            return None, (f"{key} is set and this gate does not interpret its value - {scope}. "
+                          f"Remedy: {remedy}")
     if any(":" not in spec for spec in specs) and not delete_all:
         value = (cfg.get("push.default") or [None])[-1]
         if value is not None and value not in _PUSH_DEFAULT_SAFE:

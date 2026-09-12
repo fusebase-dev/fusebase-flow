@@ -630,6 +630,48 @@ def exact_ref_lookup(r: Repo, p: list[str]) -> None:
                 p.append(f"remote main is {remote_main!r}, expected the approved {other!r}")
 
 
+def shadowed_head(r: Repo, p: list[str]) -> None:
+    """`HEAD` as a source is the checked-out branch only while no ref shadows that name.
+
+    Built on disk, pushed for real: with refs/tags/HEAD present, git reports
+    `* [new tag] HEAD -> HEAD` and leaves refs/heads/main alone, so a resolver that answers
+    with the symbolic ref names the wrong destination AND the wrong object. This row records
+    what git does and requires the binding to agree with it or refuse (round 7 fix 1).
+    """
+    from shared.git_push_binding import resolve_command_updates
+    a = r.oid("main")
+
+    # Healthy first: nothing shadows HEAD, so the colon-less form still binds the branch.
+    got, why = resolve_command_updates("git push origin HEAD", r.work)
+    if not got or got[0][1] != "refs/heads/main" or got[0][2] != a:
+        p.append(f"an unshadowed HEAD stopped binding the checked-out branch: {got} {why}")
+
+    b = r.commit("B")
+    git(r.work, "update-ref", "refs/heads/main", a)
+    git(r.work, "update-ref", "refs/tags/HEAD", b)
+    got, why = resolve_command_updates("git push origin HEAD", r.work)
+
+    # What git ACTUALLY does with the same command, against the second remote so the recorded
+    # behaviour is git's own and not a gate result.
+    git(r.work, "remote", "add", "other", "../remote2.git")
+    res = r.push("other", "HEAD")
+    refs = dict(
+        (line.split()[0], line.split()[1])
+        for line in git(r.tmp / "remote2.git", "for-each-ref",
+                        "--format=%(refname) %(objectname)").splitlines() if line)
+    if res.returncode != 0 or refs.get("refs/tags/HEAD") != b:
+        p.append(f"git did not do what this row is pinned to (rc={res.returncode}, "
+                 f"remote2={refs}); re-establish the behaviour before trusting the assertion")
+    if "refs/heads/main" in refs:
+        p.append(f"git pushed the checked-out branch after all: {refs}")
+
+    if got is None:
+        if "shadow" not in why:
+            p.append(f"refusal does not name the shadowing: {why!r}")
+    elif (got[0][1], got[0][2]) != ("refs/tags/HEAD", b):
+        p.append(f"bound {got[0][1:]} but git updated refs/tags/HEAD -> {b}")
+
+
 def handler_route(r: Repo, p: list[str]) -> None:
     def hook(command: str) -> str:
         proc = run(r.work, sys.executable, str(r.work / "hooks/handlers/pre_tool_use.py"),
@@ -671,6 +713,7 @@ case("endpoint-record-boundaries-are-never-split", record_boundaries)
 case("single-value-resolution-refuses-ambiguity", single_value_resolution)
 case("config-spellings-match-git-and-refuse-on-presence", config_spellings)
 case("source-refs-resolve-by-exact-lookup", exact_ref_lookup)
+case("shadowed-head-refuses-instead-of-guessing", shadowed_head)
 case("pre-tool-use-handler-route", handler_route)
 sys.exit(approval_fixture.FAILS)
 PY
@@ -720,5 +763,5 @@ else
 fi
 
 TOTAL_FAILS=$((PY_FAILS + AA_FAILS))
-echo "[test-approval-schema3] $((24 - TOTAL_FAILS))/24 PASS"
+echo "[test-approval-schema3] $((25 - TOTAL_FAILS))/25 PASS"
 exit "$TOTAL_FAILS"
