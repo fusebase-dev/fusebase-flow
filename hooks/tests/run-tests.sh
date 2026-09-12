@@ -237,18 +237,14 @@ _ff_exit_reap() {
 }
 
 # --- S2 orphan sentinel (T4) ------------------------------------------------------------------
-# TIER: armed around the DEEP runner only (FF_FULL / CI / a scoped run that may name a heavy tag),
-# never on the fast local default. The sentinel is symptom-support for multi-minute MSYS process
-# trees; the fast tier has none, so paying for it on every local check is cost without coverage
-# (architecture-review Q3: "keep it only around the Windows/MSYS deep runner").
-# TRIPWIRE: the EXIT trap above is NOT a teardown guarantee. T3 measured that this harness is deaf
-# to TERM/INT while a bounded phase polls (an explicit TERM trap never fired in 12s), so an outer
-# `timeout -k 5s` SIGKILLs it and NOTHING harness-side runs — the phase child and its grandchild
-# then outlive the gate and corrupt the next run's timings.
-# The sentinel is the out-of-band answer: `timeout` gives it its OWN process group (immune to the
-# group signal that kills us) plus a hard cap (it can never outlive the run). It watches THIS pid
-# and, if we die with a phase in flight, revalidates the recorded identity and terminates that
-# phase's process group only. Evidence: state/audit/run-tests-signal-reap/<full-head>/summary.md.
+# TIER: armed around the DEEP runner only (FF_FULL / CI / a scoped run), never the fast local
+# default, which has no multi-minute MSYS process trees to guard (architecture-review Q3).
+# TRIPWIRE: the EXIT trap above is NOT a teardown guarantee. T3 measured this harness deaf to
+# TERM/INT while a bounded phase polls, so an outer `timeout -k 5s` SIGKILLs it and NOTHING
+# harness-side runs. The sentinel is the out-of-band answer: `timeout` gives it its OWN process
+# group plus a hard cap, it watches THIS pid, and on our death it revalidates the recorded
+# identity and terminates that phase's group only.
+# WHY-home: docs/backlog/harness-kill-leaves-orphan-children/ (R1-R3 + the T4 corrections).
 FF_SENTINEL_PID=""
 FF_SENTINEL_PGID=""
 FF_SENTINEL_GRACE=5
@@ -529,6 +525,8 @@ run_shell_phase() { # run_shell_phase <test-script> <tag>
     run_bounded_phase "$tag" "$tag" bash "$script" "$@"
     out="$FFHC_LAST_OUT"; rc=$FFHC_LAST_RC
     echo "$out" | grep -E "^(PASS|FAIL|N/A): $tag " || true
+    # Bounded-operation markers on EVERY run; the replay below is failure-only (backlog gate-bounds-lack-headroom).
+    printf '%s\n' "$out" | grep -E "^\[$tag\] (op|engine) .* (START|END) " >&2 || true
     p="$(echo "$out" | grep -c "^PASS: $tag ")"
     f="$(echo "$out" | grep -c "^FAIL: $tag ")"
     n="$(echo "$out" | grep -c "^N/A: $tag ")"

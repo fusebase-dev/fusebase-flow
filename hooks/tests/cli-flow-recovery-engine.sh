@@ -32,7 +32,7 @@ ffcf_engine_tree() {
 # Each scenario gets a visible outer watchdog below the registered suite bound. Internal checks
 # remain real and fail closed; the outer identity prevents a buffered health run from looking idle.
 ffcf_engine_out() { # ffcf_engine_out <tree> <out-file> <scenario>
-  local watchdog="${FFCF_ENGINE_WATCHDOG_SECS:-180}" rc
+  local watchdog="${FFCF_ENGINE_WATCHDOG_SECS:-180}" rc t0=$SECONDS
   printf '[cli-flow-recovery] engine %s START watchdog=%ss\n' "$3" "$watchdog" >&2
   if ( cd "$1" || exit 1
     bash hooks/local/stamp-hook-manifest.sh >/dev/null 2>&1
@@ -40,7 +40,7 @@ ffcf_engine_out() { # ffcf_engine_out <tree> <out-file> <scenario>
     FFHC_MANIFEST_TIMEOUT=90 FFHC_FETCH_TIMEOUT=15 \
     timeout -k 5s "${watchdog}s" bash hooks/local/fusebase-flow-health-check.sh > "$2" 2>&1
   ); then rc=0; else rc=$?; fi
-  printf '[cli-flow-recovery] engine %s END rc=%s\n' "$3" "$rc" >&2
+  printf '[cli-flow-recovery] engine %s END rc=%s elapsed=%ss\n' "$3" "$rc" "$((SECONDS - t0))" >&2
   case "$rc" in
     124|137) fail "$3: health engine exceeded ${watchdog}s watchdog" ;;
   esac

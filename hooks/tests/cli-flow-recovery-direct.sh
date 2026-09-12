@@ -611,10 +611,14 @@ ffcf_u20_migration() {
   mkdir -p "$d/.fusebase-flow-source"
   cp -R "$d/skills" "$d/.fusebase-flow-source/flow-skills"   # upstream ships the NEW layout
   cp VERSION "$d/.fusebase-flow-source/VERSION"
-  set +e
-  ( cd "$d" && bash hooks/local/upgrade.sh --auto-yes > "$TMP_BASE/u20.out" 2>&1 )
-  rc=$?
-  set -e
+  # Bounded at its OWNER (ffcf_bounded_op). Measured 2026-09-12 on a quiet MSYS host: this whole
+  # function is 190.9s and emits NOTHING until it ends — the single longest blind interval in the
+  # phase, and the operation the 1800s wall was killing mid-flight at `e39cd37`. The deadline is
+  # ~3x the measured worst LOADED cost, deliberate headroom, never a rounded-up observation:
+  # docs/backlog/gate-bounds-lack-headroom/.
+  ffcf_bounded_op "U20 upgrade (migration)" "${FFCF_U20_WATCHDOG_SECS:-600}" \
+    "$d" "$TMP_BASE/u20.out" bash hooks/local/upgrade.sh --auto-yes
+  rc="$FFCF_OP_RC"
   [ "$rc" -eq 0 ] || { cat "$TMP_BASE/u20.out" >&2; fail "U20: upgrade.sh exited $rc during migration"; }
   local f
   for f in "${FFCF_SKILL_FILES[@]}"; do
@@ -625,9 +629,8 @@ ffcf_u20_migration() {
   ffcf_assert_mirrors "$d" "U20"
   grep -q "retired legacy root skills/" "$TMP_BASE/u20.out" || fail "U20: upgrade.sh did not report the canonical migration"
   # Idempotency: a second run is a no-op for migration (no skills/ to retire).
-  set +e
-  ( cd "$d" && bash hooks/local/upgrade.sh --auto-yes > "$TMP_BASE/u20b.out" 2>&1 )
-  set -e
+  ffcf_bounded_op "U20 upgrade (idempotency)" "${FFCF_U20_WATCHDOG_SECS:-600}" \
+    "$d" "$TMP_BASE/u20b.out" bash hooks/local/upgrade.sh --auto-yes
   [ ! -d "$d/skills" ] || fail "U20: second upgrade run re-created root skills/"
   pass "U20: upgrade.sh migrates root skills/ -> flow-skills/ (retires old dir w/ backup, re-mirrors, idempotent)"
 }

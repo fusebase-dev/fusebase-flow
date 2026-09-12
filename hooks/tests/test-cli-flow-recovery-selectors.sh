@@ -236,6 +236,56 @@ else
   bad "an-unexpected-case-deadline-is-a-counted-named-failure" "the deadline branch no longer scores a named failure"
 fi
 
+# --- the phase's own LONG operations are bounded at their OWNER --------------------------------
+# WHY these two rows exist (docs/backlog/gate-bounds-lack-headroom/, measured 2026-09-12): when the
+# 1800s phase wall fired at `e39cd37` the phase had spent its last 190.6s inside ONE operation and
+# the log could not name it. That operation is now known — `ffcf_u20_migration`, 190.9s on a QUIET
+# host — and it is the largest blind interval in the phase. `[bounded] still running (Ns/1800s)`
+# cannot close this: it reports that the phase is ALIVE, never that it is making progress.
+FIXLIB_SRC="$ROOT/hooks/tests/cli-flow-recovery-fixture.sh"
+DIRECT_SRC="$ROOT/hooks/tests/cli-flow-recovery-direct.sh"
+op_problems=""
+grep -q '^ffcf_bounded_op() {' "$FIXLIB_SRC" || op_problems="$op_problems no-ffcf_bounded_op-helper"
+grep -q 'OP DEADLINE ${secs}s exceeded' "$FIXLIB_SRC" || op_problems="$op_problems deadline-is-not-a-named-failure"
+grep -q 'op %s START deadline=%ss' "$FIXLIB_SRC" || op_problems="$op_problems no-START-marker"
+grep -q 'op %s END rc=%s' "$FIXLIB_SRC" || op_problems="$op_problems no-END-marker"
+u20_calls="$(grep -c 'ffcf_bounded_op "U20 upgrade' "$DIRECT_SRC" || true)"
+[ "${u20_calls:-0}" -eq 2 ] || op_problems="$op_problems u20-upgrade-invocations-bounded=${u20_calls:-0}-of-2"
+if grep -q 'bash hooks/local/upgrade.sh --auto-yes > "$TMP_BASE' "$DIRECT_SRC"; then
+  op_problems="$op_problems an-unbounded-upgrade-invocation-came-back"
+fi
+if [ -z "$op_problems" ]; then
+  ok "phase-long-operations-are-bounded-at-their-owner"
+else
+  bad "phase-long-operations-are-bounded-at-their-owner" "$op_problems"
+fi
+
+# LIVE drive of the helper: a stalling command must be cut at ITS OWN deadline, report a named
+# failure, and leave its evidence readable. Source assertions alone cannot show the branch RUNS.
+op_live=""
+( set -e
+  fail() { echo "NAMED-FAILURE: $*" >&2; exit 9; }
+  # The fixture lib DERIVES the CLI provider set at source time, so it needs the driver's two
+  # ambient names; without them sourcing dies under `set -u` and the drive never reaches the
+  # helper (measured: rc 1, no markers, which is what a false green would look like).
+  python_bin="${PYTHON:-python3}"
+  command -v "$python_bin" >/dev/null 2>&1 || python_bin=python
+  # shellcheck source=/dev/null
+  . "$FIXLIB_SRC" >/dev/null 2>&1 || exit 8
+  ffcf_bounded_op "probe" 3 "$WORK" "$EVID/op.out" bash -c 'echo started; sleep 120'
+) > "$EVID/op-drive.out" 2>"$EVID/op-drive.err"
+op_rc=$?
+[ "$op_rc" -eq 9 ] || op_live="$op_live helper-did-not-score-a-named-failure(rc=$op_rc)"
+grep -q 'OP DEADLINE 3s exceeded' "$EVID/op-drive.err" || op_live="$op_live deadline-not-named"
+grep -q 'op probe START deadline=3s' "$EVID/op-drive.err" || op_live="$op_live start-marker-missing"
+grep -q 'op probe END rc=12[47]' "$EVID/op-drive.err" || op_live="$op_live end-marker-missing-or-not-a-timeout-rc"
+grep -q started "$EVID/op.out" || op_live="$op_live evidence-of-the-killed-operation-not-retained"
+if [ -z "$op_live" ]; then
+  ok "stalled-phase-operation-is-cut-at-its-own-deadline-with-evidence-retained"
+else
+  bad "stalled-phase-operation-is-cut-at-its-own-deadline-with-evidence-retained" "$op_live"
+fi
+
 if ! find "$WORK" -maxdepth 1 -type d -name 'fusebase-flow-cli-sim.*' | grep -q .; then
   ok "selected-fixtures-cleaned-after-success-failure-timeout"
 else

@@ -27,31 +27,34 @@ ffor_numeric "$GRACE" || GRACE=5
 # instant it exists — BEFORE its own winpid/pgid probes — and this loop completes the tuple
 # out-of-band while the child is provably alive. That is what makes a signal inside the
 # launch-to-record window still leave a reapable record.
-cur_pid=""; cur_pgid=""; cur_lead=""
+cur_pid=""; cur_pgid=""; cur_lead=""; settle=0
 while :; do
   ffor_state_read "$STATE"
   if [ -n "$FFOR_S_PID" ]; then
     if [ "$FFOR_S_PID" != "$cur_pid" ]; then
-      cur_pid="$FFOR_S_PID"; cur_pgid=""; cur_lead=""
+      cur_pid="$FFOR_S_PID"; cur_pgid=""; cur_lead=""; settle=0
     fi
     # The recorded pid is the harness's own capture subshell, so its group IS the harness's;
     # ffor_resolve_phase descends to the group `timeout` created. Until that group exists it
     # returns 1 and we simply retry on the next tick rather than cache a poisoned handle.
     if [ -z "$cur_pgid" ] && ffor_resolve_phase "$cur_pid" "$HARNESS_PGID"; then
-      cur_pgid="$FFOR_R_PGID"; cur_lead="$FFOR_R_LEADSTART"
+      cur_pgid="$FFOR_R_PGID"; cur_lead="$FFOR_R_LEADSTART"; settle=12
     fi
-    # REFRESH the leader token every tick, one /proc read (~185ms), never a re-resolve.
-    # TRIPWIRE (measured): MSYS reports a PRE-EXEC start token that changes once, up to ~4s after
-    # the pid appears under load — a token cached at resolve time can therefore be stale, and
-    # ffor_reap would then refuse its own target and reap NOTHING. Refreshing is SOUND rather
-    # than a loosening: while the leader is alive and still leads this pgid it is by definition
-    # the same process, so its current token is ours. The reuse guard the token exists for spans
-    # only the last tick before the harness died.
-    if [ -n "$cur_pgid" ] && ffor_identity "$cur_pgid" && [ "$FFOR_PGID" = "$cur_pgid" ]; then
-      cur_lead="$FFOR_START"
+    # REFRESH the leader token across the SETTLE WINDOW only, then stop.
+    # TRIPWIRE (measured): MSYS reports a PRE-EXEC start token that changes EXACTLY ONCE, within
+    # 0.45s idle and 4.1s under gate load. A token cached at resolve time can therefore be the
+    # stale one, and ffor_reap would refuse its own target and reap NOTHING. Refreshing is SOUND,
+    # not a loosening: while the leader is alive and still leads this pgid it is by definition the
+    # same process. 12 ticks is ~3x the worst measured settle; the value never moves again, so
+    # refreshing FOREVER buys nothing and costs a lot — one /proc read is ~185ms here, which made
+    # this loop 202ms/tick against 4ms, i.e. ~330s of background CPU across one 1659s phase
+    # (docs/backlog/gate-bounds-lack-headroom/). Do not restore the unbounded refresh.
+    if [ "$settle" -gt 0 ]; then
+      settle=$((settle - 1))
+      if ffor_identity "$cur_pgid" && [ "$FFOR_PGID" = "$cur_pgid" ]; then cur_lead="$FFOR_START"; fi
     fi
   else
-    cur_pid=""; cur_pgid=""; cur_lead=""
+    cur_pid=""; cur_pgid=""; cur_lead=""; settle=0
   fi
   if ! ffor_alive "$HARNESS_PID"; then
     # The harness is gone. Anything it recorded as in-flight is an orphan by definition.

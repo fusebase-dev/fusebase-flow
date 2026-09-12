@@ -1,15 +1,16 @@
 # gate-bounds-lack-headroom
 
-**Status:** parked — real gate-infrastructure defect, independent of any feature ticket
+**Status:** OPEN - real gate-infrastructure defect, independent of any feature ticket. **The healthy duration is no longer unknown:** `cli-flow-recovery` completes at **1659s rc=0** on a quiet MSYS host at `a795902`, i.e. **1.085x** headroom against the 1800s ceiling; a run preceded by two other phases on the same host was censored at 1805s. Attribution: section 2026-09-12b
 **Filed:** 2026-08-05
 
 ## Defect
 
 Bounded test phases carry no deliberate headroom against their watchdog wall on an ordinary
 developer host, so the gate's verdict is decided by ambient load rather than by the code under
-test. **Current state, measured 2026-09-12 at `e39cd37` against the common 1800s ceiling: the
-defect is confirmed and worse — `cli-flow-recovery` no longer completes inside the ceiling at
-all, and `bootstrap-exception` clears it by 77s.** Numbers, method and raw logs: § 2026-09-12.
+test. **Current state, measured 2026-09-12 at `a795902`: `cli-flow-recovery` DOES complete, at
+1659s against the 1800s ceiling (1.085x headroom), and was censored at 1805s in the very next run
+on the same host.** `bootstrap-exception` clears it by 77s. Numbers, method and raw logs:
+sections 2026-09-12 and 2026-09-12b.
 
 **Historical crossings — censored watchdog exits, NOT runtimes.** Recorded at `5696d8f`
 (Windows/MSYS, ordinary desktop load; no competing suite, verified via Win32 `CommandLine`):
@@ -147,8 +148,12 @@ verified between runs that no orphan descendants survived. Raw logs (gitignored)
 
 ### `cli-flow-recovery` did not complete
 
+> SUPERSEDED IN PART (section 2026-09-12b): it COMPLETES at 1659s on a quiet host. Everything
+> below stands as the record of THAT run; the healthy duration it calls unknown is now known.
+
 `[run-tests] END tag=cli-flow-recovery elapsed=1810s rc=124 timeout_budget=1800s`. 82 predicate
-rows landed before the kill; the phase was mid-operation when the watchdog fired. **This is another
+rows were counted before the kill (41 DISTINCT: section 2026-09-12b shows the watcher
+double-counted them); the phase was mid-operation when the watchdog fired. **This is another
 censored observation — the healthy duration at this commit on this host is unknown, and is known
 only to be `>1810s`.** Prior recorded green durations for this phase, for contrast and NOT as a
 substitute: **1099s** (2026-08-08, pre-B3, quieter host) and **1117s** (v4.16.4 hosted CI,
@@ -186,26 +191,145 @@ stall value follows from these phase totals; calibrate per operation.
 - **Settled:** all three phases now have a same-host, same-hour, uncontended number at one commit.
 - **Settled:** the dominant cost is neither the retired ten-copy fixture nor the full-corpus
   mirror write.
-- **NOT settled:** where `cli-flow-recovery` time actually goes. 41 of 82 predicate rows reached
-  the log in real time; the rest flushed late, so these intervals bound operations without
-  attributing them.
-- **NOT settled:** whether 1723s / 1029s reflect phase growth or this host. Historical
-  `bootstrap-exception` completions were 577s and 680s on other hosts/commits — this run is ~2.5x
-  that. Cross-host attribution needs the hosted
-  `.github/workflows/fusebase-flow-measure-windows.yml` run.
+- **SUPERSEDED (2026-09-12b):** "41 of 82 rows flushed late, so these intervals bound operations
+  without attributing them" is WITHDRAWN as a measurement artifact, and the attribution it
+  blocked is now done. See the next section.
+
+## 2026-09-12b — the phase COMPLETES, and the time is attributed (`a795902`)
+
+**Headline: `cli-flow-recovery` finishes.** Three green runs on a quiet MSYS host at `a795902`+:
+**1659s**, **1559s**, **1571s**, all `rc=0` / 44-44 PASS. That is the first UNCENSORED healthy
+duration at this commit, and the input every decision in this ticket was waiting on. Headroom
+against the 1800s ceiling: **1.08-1.15x**.
+
+**It is not reliable headroom.** A run of the same phase preceded in the same invocation by
+`signal-reap` and `cli-flow-recovery-selectors` hit `elapsed=1805s rc=124`. Same commit, same
+host, same hour: **1659s green and 1805s censored**, decided by what else had just run on the box.
+That is this ticket's thesis reproduced with an uncensored number instead of a guess.
+
+**Attribution no longer needs an external watcher.** Every bounded operation now reports its own
+duration and the runner echoes those markers on GREEN runs too, so the phase's own log answers the
+question this ticket kept having to reconstruct:
+
+```
+[cli-flow-recovery] engine U16 END rc=0 elapsed=57s      (watchdog 180s -> 3.2x)
+[cli-flow-recovery] engine U17 END rc=0 elapsed=55s
+[cli-flow-recovery] engine U18 END rc=0 elapsed=52s
+[cli-flow-recovery] op U20 upgrade (migration)   END rc=0 elapsed=140s   (deadline 600s -> 4.3x)
+[cli-flow-recovery] op U20 upgrade (idempotency) END rc=0 elapsed=111s   (deadline 600s -> 5.4x)
+```
+
+Before this, `run_shell_phase` printed only `^(PASS|FAIL|N/A): <tag> ` on a green run and replayed
+the rest ONLY on a failure, and the END markers carried no elapsed at all. That, not any buffering,
+is why the 2026-09-12 measurement needed a watcher timestamping capture tempfiles from outside.
+
+### The "late flush" finding is withdrawn — it was a watcher artifact, not a runner defect
+
+The `e39cd37` capture holds exactly **41 distinct** `PASS: cli-flow-recovery` messages, and **all
+41 reached the log in real time**. The 52 rows timestamped after the wall are duplicates: the
+external watcher re-read each bounded-capture tempfile from the beginning when its identity
+changed. The set difference between the post-wall message texts and the pre-wall message texts is
+**empty** — not one row arrived late. The recorded intervals were therefore attributable all
+along, and the v4.17.1 `cli-flow-recovery-selectors` shape (score each row at its own deadline,
+keep evidence outside cleanup) does **not** apply here: there was no buffering to fix.
+
+**The real progress-signal gap is a different one, and it is real.** `[bounded] still running
+(Ns/1800s)` is a LIVENESS heartbeat, not progress. It printed six more times after the last
+predicate at 1655.2s, all the way to the wall, while the phase scored nothing. No stall detector
+can be built on it, and nothing else in the phase reports progress between predicates.
+
+### Where the time goes — per module (from the `e39cd37` real-time rows)
+
+| Segment | `e39cd37` (29% load) | quiet (`a795902`) | ratio |
+|---|---:|---:|---:|
+| start -> first predicate | 102.3s | ~50s | ~2.0x |
+| `cli-flow-recovery-e2e` | 493.1s | 294.6s | 1.67x |
+| `cli-flow-recovery-classify` | 263.8s | 109.7s | 2.40x |
+| `cli-flow-recovery-engine` | 316.5s | 146.8s | 2.16x |
+| `preflight` + `direct` | 443.8s | 275.5s | 1.61x |
+| `ffcf_u20_migration` | **censored, >190.6s** | **190.9s** | — |
+| `ffcf_t34_bootstrap` | never reached | 70.2s | — |
+| `ffcf_t89_eol` | never reached | 61.6s | — |
+
+### Where the time goes — per operation (unmodified driver under `bash -x`, EPOCHREALTIME in PS4)
+
+No instrumentation was added to the driver or the phase, and none is committed. Every line below
+is the wall spent ON that line; everything not listed is under 3.5s.
+
+| Operation | Wall (quiet) |
+|---|---:|
+| `post-fusebase-update.sh --refresh-overlays` (drifted block) | **71.5s** |
+| `post-fusebase-update.sh --wire-hooks` (2nd) | **51.5s** |
+| `post-fusebase-update.sh --wire-hooks` (1st) | **40.7s** |
+| `post-fusebase-update.sh` (first full recovery) | **39.9s** |
+| whole fixture build before the first recovery | 17.5s |
+| `cp -R hooks/handlers` per tree | 1.1s |
+| `ffcf_derive_providers` (one python spawn) | 1.0s |
+
+**The ~102.3s to the first predicate is now attributed: ~17.5s of fixture build plus ONE
+`post-fusebase-update.sh` recovery run.** The fixture is not the cost; the recovery engine is. The
+four recovery invocations in the E2E module are ~204s of the phase on a quiet host by themselves.
+
+**The 161.5s interval is attributed: 33.2s of `ffcf_engine_tree` build + 127.4s of U16.** The same
+U16 on a quiet host is **41.5s** (U17 40.1s, U18 40.1s) — so 127.4s was a loaded outlier, not a
+property of the operation.
+
+**The censored 190.6s tail is now NAMED: `ffcf_u20_migration`,** which runs `upgrade.sh --auto-yes`
+twice and emitted nothing for **190.9s on a quiet host** (direct driver) / **251s under the runner**
+(140s migration + 111s idempotency, now reported per invocation). It was the single largest blind interval in
+the phase and the operation the wall was killing mid-flight. It is now bounded at its owner
+(`ffcf_bounded_op`, 600s default, `FFCF_U20_WATCHDOG_SECS`) with START/END markers and a distinct
+named deadline failure, matching what the secret-scan hook run and the selectors cases already do.
+
+### 1099s -> >1810s on the same host: LOAD, not phase growth
+
+Same code, same host, one day apart. Every operation measured on both sides sits between **1.6x
+and 3.1x** (median ~1.8x). Applying that band to the quiet 1099s recorded on 2026-08-08 gives
+**1760-3410s** under the `e39cd37` conditions, and the observed `>=1810s` censored value sits
+inside it. **No growth term is needed to explain the observation**, and the ~110s of named
+additions since (F1 ~31-37s, schema-3 ~42s, the eol group ~35s) account for the gap between that
+1099s and today's quiet number, with the rest inside normal same-host variance.
+
+The earlier question "is the host slower than in August?" therefore resolves to: the host is not
+slower, the MEASUREMENT was taken under load. Primitives measured on this host for the record:
+one MSYS process spawn **643ms**, one whole-table `ps` **562ms**, one `/proc/<pid>/stat` builtin
+read **185ms**. The phase is spawn-bound, so ambient load multiplies it directly.
+
+### A universal 180s stall deadline is refuted with a NAME, not just a number
+
+`ffcf_u20_migration` is **190.9s before any load**, and
+`post-fusebase-update.sh --refresh-overlays` is 71.5s quiet, i.e. ~220s at the 3.07x worst
+observed multiplier. The 180s watchdog already shipped in `ffcf_engine_out` is correctly sized
+**for that operation** (41.5s quiet = 4.3x headroom, 127.4s worst observed = 1.41x) and must not
+be generalised. Calibrate per operation; `ffcf_bounded_op` is the shared shape for doing it.
+
+### Cost regression found and fixed inside this outcome
+
+`T83`'s orphan-sentinel leader-token refresh ran on every poll tick for the life of every bounded
+phase: **202ms/tick against 4ms** (measured), i.e. ~330s of background `/proc` work across one
+1659s phase. The token settles exactly once, so refreshing forever bought nothing. Bounded to a
+12-tick settle window.
+
+### The 1800s wall stays at 1800s
+
+The healthy duration is now known and it is **under** the ceiling, so there is no justification to
+raise the scalar — and this ticket's own history is that every raise from a single measurement was
+crossed again. What the measurement does establish is that headroom is **1.085x**, far below the
+2-3x this ticket asks for, so the ceiling is decided by ambient load rather than by the code under
+test. The lever is the ~204s of repeated `post-fusebase-update.sh` recoveries plus the 190.9s U20
+migration, not the wall.
 
 ### Next steps, with the measured input each now has
 
 | # | Outcome | Measured input that justifies it |
 |---|---|---|
-| 2 | Remove the largest remaining fixture/process cost in `cli-flow-recovery` | Phase exceeds 1800s; ~102s elapses before the FIRST predicate; longest completed silent interval 161.5s |
-| 3 | Calibrated per-operation bounds at shared call sites; keep the 1800s ceiling | `U16` = 127.4s against a shipped 180s watchdog (1.41x); a universal 180s is refuted |
-| 4 | Fault-test silent/chatty hangs, expected refusal, owned-descendant cleanup | The rc-124 path fired for real here and produced a counted FAIL, not a green partial — regression-lock that |
-| 5 | Hosted-CI headroom assessment for the other two phases | `bootstrap-exception` 1.04x and `upgrade-repair` 1.75x locally; both need a hosted number to separate host from phase |
+| 2 | Cut the repeated full recovery runs in `cli-flow-recovery-e2e` | Four `post-fusebase-update.sh` invocations cost 39.9 + 40.7 + 51.5 + 71.5 = **203.6s quiet**, the largest single block in the phase |
+| 3 | Calibrated per-operation bounds at the remaining shared call sites; keep the 1800s ceiling | `ffcf_bounded_op` now exists and U20 uses it; the four E2E recoveries and `ffcf_engine_tree` are the remaining unbounded blocks |
+| 4 | Cut `ffcf_u20_migration`'s 251s | Now split and reported: 140s migration + **111s for an idempotency re-run** on a full-tree clone |
+| 5 | Hosted-CI headroom assessment for the other two phases | `bootstrap-exception` 1.04x and `upgrade-repair` 1.75x locally; both still need a hosted number to separate host from phase |
 
-**Step 2 is the ranked next action.** No bound change is defensible while the healthy duration of
-`cli-flow-recovery` is unknown — and it is unknown precisely because the phase can no longer
-finish inside its wall.
+**Step 2 is the ranked next action**, and it is now a performance ticket with a number rather than
+a bound question.
 
 ## Related
 

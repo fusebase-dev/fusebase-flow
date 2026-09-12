@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "9d1a086ed5b837c762e17432076e8fcfd9c523e9703749f342e7d1c01ad98996"
+      "sha256": "74193000062c80644d273ceb192274f847556a38cf56944d81ab9b014e233792"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -778,7 +778,7 @@
     },
     {
       "path": "hooks/tests/cli-flow-recovery-direct.sh",
-      "sha256": "8753a8ed6000950b6c60eb9b8ef9506d8ea4ded5ded522e82b1ec0e6b20aad08"
+      "sha256": "8e08663e6e9dd498c1edb74aeb93016d248107264fa6d5a7fd4d7febc81e180d"
     },
     {
       "path": "hooks/tests/cli-flow-recovery-e2e.sh",
@@ -786,11 +786,11 @@
     },
     {
       "path": "hooks/tests/cli-flow-recovery-engine.sh",
-      "sha256": "e2cbb6762e17e523f1fbe8b551c32e0afbf2f81adfbc45ee3dc9090e33316335"
+      "sha256": "ce66a97eee3e37d13546b202201a8038e34abe440f520e778e2ddbfa40cb7b12"
     },
     {
       "path": "hooks/tests/cli-flow-recovery-fixture.sh",
-      "sha256": "7a56377616b409618edf6b0ed4c69a95422e6f48085fdfd6b1b2fdf46e299274"
+      "sha256": "a900a707284d86a3dbf47da98f8005af1a4cfd6f8ecbb73066ed1dba60de1b4a"
     },
     {
       "path": "hooks/tests/cli-flow-recovery-preflight.sh",
@@ -1010,7 +1010,7 @@
     },
     {
       "path": "hooks/tests/lib/orphan-sentinel.sh",
-      "sha256": "2f24b51a0be66037a75c2d6d75de37228a9eba063bfa40cb642e9a8082fea79b"
+      "sha256": "df2de7a8e767f22957d780a0216dbf83b72d96c039db47a2f013e14da00149c6"
     },
     {
       "path": "hooks/tests/lib/run-preconditions.sh",
@@ -1030,7 +1030,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "4b849777f7fe2bb95575c7f0c367d6d227e817f9a720503b4b87904fc877e076"
+      "sha256": "f1d61aac924aa37e1a71d5e462e0c2315c8965537fed7071e5b51ae22bdbdc95"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -1082,7 +1082,7 @@
     },
     {
       "path": "hooks/tests/test-cli-flow-recovery-selectors.sh",
-      "sha256": "287e298aa68744f349edb33ee707b9acff83f361a412cf28938ff9795ae3cc13"
+      "sha256": "46dbedc301810c9b07a45b17b3bc36b35ec5720de10517d8814d330f6de72361"
     },
     {
       "path": "hooks/tests/test-cli-flow-recovery.sh",
@@ -1565,5 +1565,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "684860171197ffc67b32f8d1d6744c6489edebb03c946841d6039453c0b8bd93"
+  "manifest_self_sha256": "89dd3015d24747957197af109b256c869d4c982b80895a47462fedac99750806"
 }

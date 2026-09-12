@@ -278,6 +278,37 @@ ffcf_conflict_tree() {
   ffcf_settings_wired "$d"
 }
 
+# ffcf_bounded_op LABEL SECS DIR OUTFILE CMD...: run CMD in DIR, bounded at ITS OWN deadline,
+# with visible START/END markers, and score a deadline as a DISTINCT NAMED failure.
+#
+# WHY (measured 2026-09-12, docs/backlog/gate-bounds-lack-headroom/): the 1800s phase wall is a
+# LIVENESS BACKSTOP, not the owner of any operation's cost. When it fired at `e39cd37` this phase
+# had been inside ONE unbounded operation for the last 190.6s and the log could not name it —
+# `[bounded] still running (Ns/1800s)` reports that the PHASE is alive, never that it is making
+# progress. The same shape was fixed at its owner for the secret-scan hook run and for the
+# selectors cases; this is that contract for the phase's own long operations.
+#
+# TRIPWIRE: `ffcf_engine_out` (cli-flow-recovery-engine.sh) is the SAME contract for the health
+# engine, with its own pre-step and env. Change one, read the other.
+FFCF_OP_RC=0
+ffcf_bounded_op() {
+  local label="$1" secs="$2" dir="$3" out="$4" t0=$SECONDS; shift 4
+  printf '[cli-flow-recovery] op %s START deadline=%ss\n' "$label" "$secs" >&2
+  set +e
+  ( cd "$dir" || exit 1; timeout -k 5s "${secs}s" "$@" > "$out" 2>&1 )
+  FFCF_OP_RC=$?
+  set -e
+  # ELAPSED is the whole point: the replayed diagnostics and the runner echo both carry it, so an
+  # interval never again has to be reconstructed by an external watcher.
+  printf '[cli-flow-recovery] op %s END rc=%s elapsed=%ss\n' "$label" "$FFCF_OP_RC" "$((SECONDS - t0))" >&2
+  case "$FFCF_OP_RC" in
+    124|137)
+      tail -n 40 "$out" >&2
+      fail "$label: OP DEADLINE ${secs}s exceeded (bounded at its owner, not at the phase wall)" ;;
+  esac
+  return 0
+}
+
 # ffcf_assert_mirrors <tree> <label>: EVERY canonical fixture member present in BOTH provider
 # mirrors. Replaces the old "one named skill exists" spot check — a reduced fixture is only
 # safe if the assertion walks the whole fixture, not a name someone remembered to list.
