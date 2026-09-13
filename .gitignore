@@ -57,3 +57,16 @@ docs/fusebase-health/
 # Defensive: hook handlers running with wrong cwd previously created
 # .fusebase-flow/state/audit.log.jsonl. Standard runtime state lives in state/.
 .fusebase-flow/
+
+# Handoff smoke-run evidence: curated .md reports stay committed (tracked smoke dirs
+# run ~8K); raw run artifacts do not (one uncurated run measured 409K of .stdout/
+# .stderr/.native-rc/.body dumps).
+docs/tmp/handoff/*-smoke/**
+!docs/tmp/handoff/*-smoke/**/
+!docs/tmp/handoff/*-smoke/**/*.md
+
+# Local-only command output (same class as docs/fusebase-health/ above)
+docs/wasted-code/
+
+# Backups left beside a file by the flow repair path
+*.pre-flow-repair
