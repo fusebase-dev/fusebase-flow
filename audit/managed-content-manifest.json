@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "8969d5b9cd167d26c86533239164c1c9eb676f35e3f037369b4a90b040115198"
+      "sha256": "d45bcc32605948469bd45f21ed42b301c4e92085fb574ce4e9a21823e9bdbebe"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -1202,7 +1202,7 @@
     },
     {
       "path": "hooks/tests/test-plugin-parity-scope.sh",
-      "sha256": "c4c18b5a4c6d2a76f924978e69178840f3b706d95572a0c69ce4067447a68625"
+      "sha256": "4b63f03b13ce49898fda78153e8a19b9ac9df1d207230afa2e3f813a7875d873"
     },
     {
       "path": "hooks/tests/test-po-investigate.sh",
@@ -1565,5 +1565,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "310720f8c7c3c91ab059b1db9d1a60ec447886636aabde4ce2524ef837dc94a1"
+  "manifest_self_sha256": "f4531daf927933d26e97878e3f68756168374052e78b21dd13db15dd3c1fa302"
 }

@@ -746,7 +746,7 @@
     },
     {
       "path": "hooks/tests/test-plugin-parity-scope.sh",
-      "sha256": "c4c18b5a4c6d2a76f924978e69178840f3b706d95572a0c69ce4067447a68625"
+      "sha256": "4b63f03b13ce49898fda78153e8a19b9ac9df1d207230afa2e3f813a7875d873"
     },
     {
       "path": "hooks/tests/test-po-investigate.sh",
@@ -901,5 +901,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "80d06f1c0f6542f9519caeae424e9177cb34f584ed6001a85c75b0436f773a76"
+  "manifest_self_sha256": "9ef526c657688e451f958010f64cae8e77791d48acb04911805e7cb53464b52a"
 }

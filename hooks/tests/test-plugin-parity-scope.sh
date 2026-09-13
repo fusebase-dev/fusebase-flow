@@ -427,13 +427,18 @@ else
   ( cd "$PUB" && git init -q . && git config user.email t@example.invalid && git config user.name t ) >/dev/null 2>&1
   cp "$PUB/.claude-plugin/plugin.json" "$BK/plugin.json"
   cp "$PUB/GEMINI.md" "$BK/GEMINI.md" 2>/dev/null
-  # Lag the plugin manifest by one patch: parity is then the ONLY preflight error.
-  python3 - "$PUB" <<'PY' 2>/dev/null
+  # Lag the plugin manifest by one on its LAST component: parity is then the ONLY preflight
+  # error. Part-count-agnostic — VERSION is two-part MAJOR.MINOR as of v5.1 (and was three-part
+  # before), so decrement whatever the final component is rather than assuming a fixed arity.
+  # NO `2>/dev/null`: a fixture that cannot lag the manifest must fail LOUDLY here, not silently
+  # leave it in-sync and let the row misread as 0|HEALTHY (the exact way a 3-part unpack masked
+  # itself on the first two-part release).
+  python3 - "$PUB" <<'PY'
 import json, pathlib, sys
 p = pathlib.Path(sys.argv[1]) / ".claude-plugin/plugin.json"
 o = json.loads(p.read_text(encoding="utf-8"))
-a, b, c = o["version"].split(".")
-o["version"] = "%s.%s.%d" % (a, b, int(c) - 1)
+parts = o["version"].split("."); parts[-1] = str(int(parts[-1]) - 1)
+o["version"] = ".".join(parts)
 p.write_text(json.dumps(o, indent=2) + "\n", encoding="utf-8")
 PY
 
