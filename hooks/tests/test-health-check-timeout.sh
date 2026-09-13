@@ -106,8 +106,15 @@ build_golden() {
   # assets: hooks/shared/*.py + hooks/local/lib/*).  state/approvals/ ships EMPTY here;
   # each scenario installs the artifact it needs.
   cp hooks/local/lib/active-approvals.sh "$dir/hooks/local/lib/"
+  # TRIPWIRE: copy the FULL import closure of active-approvals.sh's shared imports.
+  # It imports shared.command_policy (T100), which pulls in command_rules, denial_message
+  # and git_push_binding (+ approval_artifact/policy_loader/audit_logger, already here).
+  # A missing module makes `except Exception: sys.exit(2)` swallow every approval silently
+  # -> the deferral never applies -> false FLOW_LAYER_DRIFT. Add here on any new import.
   cp hooks/shared/__init__.py hooks/shared/approval_artifact.py \
-     hooks/shared/policy_loader.py hooks/shared/audit_logger.py "$dir/hooks/shared/"
+     hooks/shared/policy_loader.py hooks/shared/audit_logger.py \
+     hooks/shared/command_policy.py hooks/shared/command_rules.py \
+     hooks/shared/denial_message.py hooks/shared/git_push_binding.py "$dir/hooks/shared/"
   cp policies/approval-policy.yml "$dir/policies/"
   cp hooks/local/verify-hook-manifest.sh hooks/local/stamp-hook-manifest.sh "$dir/hooks/local/"
   cp VERSION "$dir/VERSION"

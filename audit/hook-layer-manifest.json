@@ -174,7 +174,7 @@
     },
     {
       "path": "hooks/local/lib/phase_registry_check.py",
-      "sha256": "1ffdcd1426090dd9d77c7943d4e5748e63caeafcd7642a48983985c3656ac45b"
+      "sha256": "837f1484b7ec7e0b43b4aae367725b9bd979b686d6ed7129f994a427bcf366af"
     },
     {
       "path": "hooks/local/lib/plugin-parity.sh",
@@ -578,7 +578,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "afda8275484e8607a65663a4ef3bd234b751a672bf3cdbfe68b8df3b4338872e"
+      "sha256": "35c89b9d8af719c95cea9f09d4bb8e5910482b747ac810c85bfca78a1247c1db"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -658,7 +658,7 @@
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
-      "sha256": "6ffb47235ae57a4a7d0a4ccd9724b810deef4df5f6f262caf51f5b2ff00a3e9d"
+      "sha256": "ae7d30aa2d6e26fe6099e3191d6b54b8ec85b886c03d23bbeb25d47211d23be0"
     },
     {
       "path": "hooks/tests/test-fingerprint-row-per-tag.sh",
@@ -682,7 +682,7 @@
     },
     {
       "path": "hooks/tests/test-health-check-timeout.sh",
-      "sha256": "95d88d3ec25f13c005ff980ee36c6d06404cf2e5322f76995387a33076e8683f"
+      "sha256": "9c15820d3717cf09908a838631413754c61a14b8f08b0ba519e043d732de4691"
     },
     {
       "path": "hooks/tests/test-history-extraction.sh",
@@ -901,5 +901,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "c7148994f14b532870b78e7648e555c4df382fd594af7132e244c24f6013e7e5"
+  "manifest_self_sha256": "343851e652f8c904f9f26b45b1d7337108c6a703e1fea199478ca113cea95792"
 }
