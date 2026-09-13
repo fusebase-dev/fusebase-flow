@@ -4,6 +4,25 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [5.2] — 2026-09-13
+
+**Versioning moves to two-part `MAJOR.MINOR`.** From this release versions drop the patch
+component (`5.2`, `6.0`; tags `v5.2`, …). The jump from 4.17.1 consolidates the 4.17.x
+approval-binding command-authorization cutover into a clean major line. **Drop-in from 4.17.1 —
+no runtime behavior change beyond 4.16.x–4.17.1.** Historical three-part version strings stay
+recognised. **Supersedes the unpublished `v5.1`** (its release gate went red on a test-only
+version-lag fixture that assumed a three-part string; no Release was published, tag stays
+immutable).
+
+Maintainer and gate-hardening content: test-harness fixes that reach a consumer's own gate (the
+suite uses the resolved interpreter instead of a bare `python` on Linux; a killed gate reaps its
+orphan process group on Windows/MSYS), and `signal-reap`, `health-check-timeout` and
+`preboundary-consumed` promoted into the essential release profile. Internal: gate-bounds cost
+attributed with measured timings (no wall changed), a git-context oracle corrected, a convergence
+discriminator added, a proposed FR-28 drift-checkpoint rule reviewed and declined, and the
+publisher-packaging parity fixture made part-count-agnostic (test-only; the fix that unblocks the
+two-part scheme). See `docs/release-notes/v5.2.md`.
+
 ## [5.1] — 2026-09-13
 
 **Versioning moves to two-part `MAJOR.MINOR`.** From v5.1 releases drop the patch component
