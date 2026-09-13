@@ -92,7 +92,7 @@ FF_RELEASE_TAGS=(fixtures git-smoke interpreter-contract python3-version git-con
   baseline-merge hook-wiring-intent wire-hooks-beside bootstrap-baseline-hop cli-0259 \
   git-capture-guard secret-scan-staged bootstrap-exception trusted-enforcer hook-install-rc validator-evidence \
   validation-instructions approval-binding approval-writer approval-schema3 command-policy upgrade-classify upgrade-classify-eol \
-  upgrade-boundary upgrade-repair n5-delivery n6-truthful-base n6-missing-base n6-recover \
+  upgrade-boundary preboundary-consumed upgrade-repair n5-delivery n6-truthful-base n6-missing-base n6-recover \
   release-authority release-tag-binding cli-flow-recovery cli-flow-recovery-selectors \
   hop-log-truth n4-parity-scope minimal-path-fixture \
   cli-rendered recovery-hint stamp-eol-guard run-preconditions signal-reap)
