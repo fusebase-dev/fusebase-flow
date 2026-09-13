@@ -578,7 +578,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "f1d61aac924aa37e1a71d5e462e0c2315c8965537fed7071e5b51ae22bdbdc95"
+      "sha256": "2dc763cba414332712227687861bd003eb5c3c8e33f2008dc109dba7a5f86d2b"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -658,7 +658,7 @@
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
-      "sha256": "ff0264e0eeea96d0baf311c70194431e417cb745eacf2dfdee5f431d296b3183"
+      "sha256": "2ea7d0a74dcf5df4f502996efa4a75c35fb87aff123618ff2b39a5887ab6077a"
     },
     {
       "path": "hooks/tests/test-fingerprint-row-per-tag.sh",
@@ -901,5 +901,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "1ee2eeafc93f2037a6d6552ac0d75a8b839933b42d6f9b2391f5cd6dcf424569"
+  "manifest_self_sha256": "a95198800d59a31671d6b41d672c0bb7cf947aa4669949e3969a9acd082b552d"
 }
