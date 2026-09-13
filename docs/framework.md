@@ -7,7 +7,7 @@ The framework lives here. Provider and IDE compatibility files (`.claude/`, `.co
 | Path | Purpose |
 |---|---|
 | `FLOW_RULES.md` | Always-on rules (FR-01..FR-27). Every session loads this. |
-| `VERSION` | Framework version (semver). |
+| `VERSION` | Framework version. Two-part `MAJOR.MINOR` as of v5.1 (was 3-part semver earlier). |
 | `docs/fusebase-cli-edition.md` | Fusebase CLI edition boundary map: Flow lifecycle assets vs CLI provider domain assets. |
 | `workflows/` | Repeatable procedures (eight-phase flow, greenlight-implement, greenlight-deploy, verification-gate, smoke, knowledge-curation, architect-escalation). |
 | `flow-skills/` | Two mandatory skills (`communication`, `role-discipline`) plus 27 on-demand skills (full catalog: README § Skill catalog). Canonical source; mirrored into `.claude/skills/` (Anthropic Claude Code) and `.agents/skills/` (OpenAI/ChatGPT Codex) for provider consumption. |

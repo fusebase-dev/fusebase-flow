@@ -10,6 +10,14 @@
 #   from VERSION and rewrites ONLY those live strings, so VERSION is the single
 #   source of truth.
 #
+# VERSION SCHEME (as of v5.1):
+#   Fusebase Flow versions are two-part `MAJOR.MINOR` from v5.1 onward (no patch
+#   component). VERSION is taken verbatim, so "5.1" flows to every live string and
+#   carrier. The match regex below stays DELIBERATELY tolerant of a 2- OR 3-part
+#   version ({1,2} dotted groups) and MUST NOT be tightened: historical live strings
+#   in older/consumer trees (e.g. `Fusebase Flow v2.4.0`) must still match and sync.
+#   Only the emitted form follows VERSION's own shape.
+#
 # CONTEXT-ANCHORED (critical): it rewrites only the two live phrasings —
 #     "under Fusebase Flow v<semver>"
 #     "runs [**]Fusebase Flow v<semver>[**]"
@@ -160,11 +168,13 @@ done
 # Context-anchored substitutions — live attestation + banner + FR-range + skill
 # count only. Never a blanket replace (historical/provenance refs must survive).
 ###############################################################################
-# U5: the version regex matches an optional " Local " and a 2- OR 3-part semver
+# U5: the version regex matches an optional " Local " and a 2- OR 3-part version
 #   `Fusebase Flow (Local )?v[0-9]+(\.[0-9]+){1,2}` so a stuck `Local v2.1`
-#   header syncs. The replacement re-emits the canonical 3-part live form
-#   `Fusebase Flow v<VER>` (dropping any stale " Local " in the live banner /
-#   attestation phrasings — those two live forms are always the plain v<semver>).
+#   header syncs. The replacement re-emits the current live form `Fusebase Flow
+#   v<VER>` — VERSION's own shape, two-part `MAJOR.MINOR` from v5.1 (dropping any
+#   stale " Local " in the live banner / attestation phrasings — those two live
+#   forms are always the plain v<version>). The MATCH tolerance stays 2-or-3-part
+#   so historical 3-part strings still sync; only the emitted shape follows VERSION.
 SED_EXPRS=(
   "s/(under (\*\*)?Fusebase Flow )(Local )?v[0-9]+(\.[0-9]+){1,2}/\1v${VER}/g"
   "s/(runs (\*\*)?Fusebase Flow )(Local )?v[0-9]+(\.[0-9]+){1,2}/\1v${VER}/g"

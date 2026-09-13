@@ -251,6 +251,12 @@ creation remains an operator-controlled open path and must not be used.
 - **Do NOT run `gh release create` manually** — it bypasses the `needs: verify`
   gate (AC4). Re-run the same immutable tag only for a transient environment failure. A code fix
   requires a new version and tag.
+- **Version scheme (as of v5.1): two-part `MAJOR.MINOR`.** From v5.1 onward Fusebase Flow
+  versions drop the patch component and ship as `MAJOR.MINOR` (e.g. `5.1`, tag `v5.1`). The
+  tooling takes `VERSION` verbatim: `sync-version-strings.sh`, the plugin/marketplace parity
+  check, and the audit manifests all treat it as a string, so a two-part value flows everywhere.
+  The `sync-version-strings.sh` match regex stays deliberately tolerant of older 3-part strings
+  (`v2.4.0` etc. in historical docs and consumer trees) and must not be tightened.
 - Update `VERSION` only when a new release ships. **There are FOUR version carriers**, not three — `VERSION`, `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, and `.claude-plugin/marketplace.json` (`plugins[0].version`). The marketplace one is easy to miss; `preflight.sh` catches it (`marketplace.json plugins[0].version != VERSION`), but bump it with the others rather than discovering it at the gate. Then run `bash hooks/local/sync-version-strings.sh` and restamp **both** audit manifests — `flow_version` is embedded in each, so they change with every bump.
 - Document any post-publication changes in a `CHANGELOG.md` (planned for v0.2).
 
