@@ -41,13 +41,17 @@ TMPP="$(cd "$TMP" && pwd -P)"   # physical: the ceiling is compared against the 
 cp "$HOOK" "$TMP/production-at-start"
 TRACKED_HOOK_SHA="$(sha256sum "$HOOK" | cut -d' ' -f1)"
 
-# ---- 1. Unique target: the ONE `exit 1` between the A2 BLOCK diagnostic and its closing `fi`. ----
+# ---- 1. Unique target: the ONE `exit 1` of the A2 BLOCK, inside the _ffpc_block() body. ----
+# TRIPWIRE: the DIAG and its fail-closed `exit 1` live INSIDE the _ffpc_block() function, so the
+# target region ends at the function's closing `}` — NOT the next `fi`. Bounding by `fi` swept in
+# unrelated fail-closed guards that were later added between the function and the next `fi` (e.g.
+# T84's "no writable temp file" guard), over-counting the single mutation target.
 diag_hits="$(grep -cF "$DIAG" "$HOOK")"
 if [ "${diag_hits:-0}" -eq 1 ]; then ok "mutation-diagnostic-unique"
 else bad "mutation-diagnostic-unique" "expected exactly 1 A2 BLOCK diagnostic, found ${diag_hits:-0}"; finish; fi
 
 diag_line="$(grep -nF "$DIAG" "$HOOK" | cut -d: -f1)"
-end_line="$(awk -v d="$diag_line" 'NR>d && /^[[:space:]]*fi[[:space:]]*$/ {print NR; exit}' "$HOOK")"
+end_line="$(awk -v d="$diag_line" 'NR>d && /^[[:space:]]*}[[:space:]]*$/ {print NR; exit}' "$HOOK")"
 targets="$(awk -v d="$diag_line" -v f="${end_line:-0}" 'NR>d && NR<f && /^[[:space:]]*exit 1[[:space:]]*$/ {print NR}' "$HOOK")"
 target_n="$(printf '%s' "$targets" | grep -c . || true)"
 if [ "${target_n:-0}" -eq 1 ]; then ok "mutation-target-unique"

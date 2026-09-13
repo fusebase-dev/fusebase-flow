@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "9c96bd92975ca810cc4698c9951509ab841d2685d0ffec129a3c50ecaf755656"
+      "sha256": "457a9429907fb9860f4b3665890e793fc9761d4974fd782813ac8532961d2984"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -1222,7 +1222,7 @@
     },
     {
       "path": "hooks/tests/test-pre-commit-git-context-mutation.sh",
-      "sha256": "d89c48bdfb22036cf9645f40e9c60806944d18446997ffa6e092d2eea5fe697e"
+      "sha256": "bf69caa081e4fb9b8f0e4c19d7136fe90aac2e03ba5c75a8e727a25a999e402b"
     },
     {
       "path": "hooks/tests/test-pre-commit-interpreter-contract.sh",
@@ -1565,5 +1565,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "59c21183b1aaa812aa5f6477583447831bff87466eef54d91d47c584728dfa51"
+  "manifest_self_sha256": "065c7f6b163bc4cae47bb0039c86b27ea62c18e2e952d0924d829333f76f84f1"
 }

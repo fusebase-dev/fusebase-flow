@@ -766,7 +766,7 @@
     },
     {
       "path": "hooks/tests/test-pre-commit-git-context-mutation.sh",
-      "sha256": "d89c48bdfb22036cf9645f40e9c60806944d18446997ffa6e092d2eea5fe697e"
+      "sha256": "bf69caa081e4fb9b8f0e4c19d7136fe90aac2e03ba5c75a8e727a25a999e402b"
     },
     {
       "path": "hooks/tests/test-pre-commit-interpreter-contract.sh",
@@ -901,5 +901,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "55cd0c9befaa54050f5b565c71439d49d6455fb12f1d2d63544d55de84db9781"
+  "manifest_self_sha256": "1ee2eeafc93f2037a6d6552ac0d75a8b839933b42d6f9b2391f5cd6dcf424569"
 }
