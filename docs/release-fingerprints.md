@@ -59,7 +59,8 @@ Match your output to either fingerprint column below; both identify the same tre
 | `v4.16.6` | 4.16.6 | `d1bae643315a9342e5d6a8999121c2f954a1fc05545e9cffd68cee6511d8e33a` | 386 | `5b634bb9a0f3f89548758666702f948fcac4c6e466c16234941ee7437424d839` | 220 |
 | `v4.17.0` | 4.17.0 | `9eaba077dba901a144679a6112edce40630fef11c86cff0eca02fa511b4ccf40` | 390 | `c2860a04ac7217ead20d71acbaba5ffa3370381d2e401fa69dc695545a4f4f62` | 224 |  <!-- tagged, never published: its release gate went red; superseded by v4.17.1 -->
 | `v4.17.1` | 4.17.1 | `adfbdd5cee253f22fe4bb802de9a3d0c1b8c8c5db2a3c70bd0ecccd7b26ba202` | 390 | `0d0c1f304d830472dfeba5bb7416c4b5aea21851fab572ad412b361e53d5e3f8` | 224 |
-| `v5.1` | 5.1 | `310720f8c7c3c91ab059b1db9d1a60ec447886636aabde4ce2524ef837dc94a1` | 390 | `80d06f1c0f6542f9519caeae424e9177cb34f584ed6001a85c75b0436f773a76` | 224 |  <!-- tagged, never published: release gate (run 34764700085) went red on n4-parity-scope on BOTH platforms; publish skipped. Tag immutable, not moved; superseded by the next published release (v5.2). -->
+| `v5.1` | 5.1 | `310720f8c7c3c91ab059b1db9d1a60ec447886636aabde4ce2524ef837dc94a1` | 390 | `80d06f1c0f6542f9519caeae424e9177cb34f584ed6001a85c75b0436f773a76` | 224 |  <!-- tagged, never published: release gate (run 34764700085) went red on n4-parity-scope on BOTH platforms; publish skipped. Tag immutable, not moved; superseded by the published v5.2. -->
+| `v5.2` | 5.2 | `8f905bba20c0d2b0e5206b9b07abe5c52ceba4603b68286f2645ee981b57cbaf` | 390 | `cf63b165a6f73e5e7a3564b42e37df272493b1e6caa90e65fdc65bf3988502e2` | 224 |  <!-- published: release gate (run 34768968773) green on both platforms; first published two-part release; supersedes the unpublished v5.1. -->
 
 `v4.9.0`, `v4.9.1`, `v4.10.0`, `v4.15.0`, `v4.15.1`, `v4.15.2`, `v4.16.0` and `v4.16.3` are unpublished tagged
 trees: their release workflows failed (2026-08-12, 2026-08-13, 2026-08-15, 2026-09-07 and 2026-09-10)
