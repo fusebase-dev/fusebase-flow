@@ -50,7 +50,7 @@ Validate changed behavior with deterministic checks before a deploy is approved.
 
 ## Procedure
 
-Execution sequence for code changes (tests first; step → verify loop): `flow-skills/zoom-out/references/karpathy-guidelines.md` §4. The sub-modes below own evidence, classification and reporting.
+Execution sequence for code changes: `flow-skills/zoom-out/references/karpathy-guidelines.md` §4. The sub-modes below own evidence, classification and reporting.
 
 ### Sub-mode A — Verification gate
 

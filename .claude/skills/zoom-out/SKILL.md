@@ -49,6 +49,8 @@ Stop patch-myopia. Before fixing a bug or making an improvement, zoom out and co
 
 ## Procedure
 
+Before step 1, read `flow-skills/zoom-out/references/karpathy-guidelines.md` unless its exact body is already in context; apply it through the fix plan.
+
 1. **Name the symptom vs the cause.** State the visible failure, then the underlying cause. If you can only name the symptom, investigate before patching.
 2. **Layer check.** Is this the right place to fix it? (UI symptom caused by a data/API bug → fix the source, not the surface.)
 3. **Consistency check.** Does the fix contradict the spec, locked decisions, or `docs/north-star.md` (if present)? If yes → stop, raise it.

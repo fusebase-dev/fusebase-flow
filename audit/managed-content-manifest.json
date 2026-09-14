@@ -54,7 +54,7 @@
     },
     {
       "path": "flow-skills/comment-policy/SKILL.md",
-      "sha256": "c4ea4a82d5463df57f64a948b476fbde183c7fec09a3a9df2b41d8ef73f14c34"
+      "sha256": "85ad342c1cfe7fd0cab1f8fef68131064b00714594f98a90baaf9128b5ab7d4b"
     },
     {
       "path": "flow-skills/comment-policy/references/audit-prompt.md",
@@ -166,7 +166,7 @@
     },
     {
       "path": "flow-skills/requirements-specification/SKILL.md",
-      "sha256": "293eb584d15443b205a892810b8f7270e1c4d432dac0f059ac5326310aacf75a"
+      "sha256": "0270aec49546d21bdabc4287958d4475aa1aabe15658a7dd7872ffa7f04e4f60"
     },
     {
       "path": "flow-skills/role-discipline/SKILL.md",
@@ -206,7 +206,7 @@
     },
     {
       "path": "flow-skills/task-delegation/SKILL.md",
-      "sha256": "a464eba0d2d26b761cba42625938b8c025d3c6d04ad89fa5c4790970ea50627f"
+      "sha256": "0a1abbdbb7c442eb48c566dbc56354b732e1fde9269d9013fae96db8b297503b"
     },
     {
       "path": "flow-skills/token-economy/SKILL.md",
@@ -214,11 +214,11 @@
     },
     {
       "path": "flow-skills/validation-and-qa/SKILL.md",
-      "sha256": "313dbbba9928c77458ef03f018f225a0c17430f96426ae14aad33afc7123625b"
+      "sha256": "297c2f03521f061372c07f3d45f8b2ed6f3b6071f3c05b79d1d48606498fef01"
     },
     {
       "path": "flow-skills/zoom-out/SKILL.md",
-      "sha256": "8c989ff4a710df7654e8c3e67d8520a016c03ed8ad56867d22366c8e615de6f1"
+      "sha256": "ee5f705f7bba09b20a7d34a169231c014f708027bec7b00c4cae058455d20301"
     },
     {
       "path": "flow-skills/zoom-out/references/karpathy-guidelines.md",
@@ -1569,5 +1569,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "c2ffdaa939f82a8b1e4ed761cb238308c4a466f54a1eee5abd50894374b5aa4f"
+  "manifest_self_sha256": "13aab59ae03ff4e0ad18e2f631a2addf62f601bde0f1ac49a167181ff945c93e"
 }

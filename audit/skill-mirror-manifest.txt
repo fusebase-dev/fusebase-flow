@@ -5,7 +5,7 @@
 .agents/skills/business-logic-guardian/SKILL.md  1da34d3d70ca69e9aca78a34bd43de45fed5909e1ae6af6f4fa5d4b4d2d6c18a
 .agents/skills/client-vs-internal/SKILL.md  614ac467d2a7f62fb9b1748db59453f9768fc9a073171888d66549e7540fd3d2
 .agents/skills/code-review/SKILL.md  6ca7ca1e12eb82b44d60c42a0ea7def4e2ab84491885b7a58ee0ce001a25c6d8
-.agents/skills/comment-policy/SKILL.md  c4ea4a82d5463df57f64a948b476fbde183c7fec09a3a9df2b41d8ef73f14c34
+.agents/skills/comment-policy/SKILL.md  85ad342c1cfe7fd0cab1f8fef68131064b00714594f98a90baaf9128b5ab7d4b
 .agents/skills/comment-policy/references/audit-prompt.md  5a949b4e7906f6df6eff74a7e5247c4157a07934e3183ff6a2131e1a41c9874c
 .agents/skills/communication/SKILL.md  c90ebc9d89ac5a4d62f47d2df1d3b7e5c363cda3ba41f193d445d46da9ca15a3
 .agents/skills/communication/references/mode-b-detail.md  806d7e0e9bc090e8f5baf3606923d2ba2ab2543943175648db35635ad03161a7
@@ -33,7 +33,7 @@
 .agents/skills/project-onboarding/SKILL.md  bd0eb1bc5f11a4c8f0bd76a3e383d05015fc28e6a1b165a7bef01d3f7176db82
 .agents/skills/release-deploy-reporting/SKILL.md  dcd724ec2cd80591d34c2343978af70f19225fe6b5578e1cdbac6a0bf4e36905
 .agents/skills/repo-onboarding-context-map/SKILL.md  d0e8c40165353b454a7ee48cc77edc77bc136de1e35cafef1cd86046ed1c19c0
-.agents/skills/requirements-specification/SKILL.md  293eb584d15443b205a892810b8f7270e1c4d432dac0f059ac5326310aacf75a
+.agents/skills/requirements-specification/SKILL.md  0270aec49546d21bdabc4287958d4475aa1aabe15658a7dd7872ffa7f04e4f60
 .agents/skills/role-discipline/SKILL.md  024ee687e4131ef3b3fbea76660ee4761a7ec5bb1cd69e6516cb739e113ebabf
 .agents/skills/role-discipline/references/ai-developer.md  cd996576881ac8a696db409d76456d44d8e39edf5317c2930f61f2f42a45929b
 .agents/skills/role-discipline/references/architect.md  fd7f0edf600a618b34284e61025b7ad97ad51fd2e2dfa005eec6596cac996744
@@ -43,10 +43,10 @@
 .agents/skills/security-permissions-review/SKILL.md  fa694285b591f7505dbb07f7eca23e42bf652d623e2230518e623c71b21a2187
 .agents/skills/skill-authoring/SKILL.md  359a126cf411ecc96d7610e1eb045ea1228a76ee4c4f9d472b44b2347ebf22b0
 .agents/skills/smoke-testing/SKILL.md  d2119105bac78b7d0b5321675b02f033e240583ae4b8d5aad42b6d9325364317
-.agents/skills/task-delegation/SKILL.md  a464eba0d2d26b761cba42625938b8c025d3c6d04ad89fa5c4790970ea50627f
+.agents/skills/task-delegation/SKILL.md  0a1abbdbb7c442eb48c566dbc56354b732e1fde9269d9013fae96db8b297503b
 .agents/skills/token-economy/SKILL.md  c4606dc4f8c62097b3527f0ef9a2a380536cf11ce10d6d0b6794985c85e26f19
-.agents/skills/validation-and-qa/SKILL.md  313dbbba9928c77458ef03f018f225a0c17430f96426ae14aad33afc7123625b
-.agents/skills/zoom-out/SKILL.md  8c989ff4a710df7654e8c3e67d8520a016c03ed8ad56867d22366c8e615de6f1
+.agents/skills/validation-and-qa/SKILL.md  297c2f03521f061372c07f3d45f8b2ed6f3b6071f3c05b79d1d48606498fef01
+.agents/skills/zoom-out/SKILL.md  ee5f705f7bba09b20a7d34a169231c014f708027bec7b00c4cae058455d20301
 .agents/skills/zoom-out/references/karpathy-guidelines.md  4bc83d79cee31ac6b59dd06251af59172493417df0d562ee631ff1e4945b7809
 .claude/skills/app-quality-patterns/SKILL.md  ce3cdcd35fb57c31dba0be38382b39e479e4666d60d5b66434e0908b95469884
 .claude/skills/app-quality-patterns/references/data-integrity.md  4ad0bdc4a237d609e70a827c347ec41068d967296b598e32560beeb7d3d5423a
@@ -55,7 +55,7 @@
 .claude/skills/business-logic-guardian/SKILL.md  1da34d3d70ca69e9aca78a34bd43de45fed5909e1ae6af6f4fa5d4b4d2d6c18a
 .claude/skills/client-vs-internal/SKILL.md  614ac467d2a7f62fb9b1748db59453f9768fc9a073171888d66549e7540fd3d2
 .claude/skills/code-review/SKILL.md  6ca7ca1e12eb82b44d60c42a0ea7def4e2ab84491885b7a58ee0ce001a25c6d8
-.claude/skills/comment-policy/SKILL.md  c4ea4a82d5463df57f64a948b476fbde183c7fec09a3a9df2b41d8ef73f14c34
+.claude/skills/comment-policy/SKILL.md  85ad342c1cfe7fd0cab1f8fef68131064b00714594f98a90baaf9128b5ab7d4b
 .claude/skills/comment-policy/references/audit-prompt.md  5a949b4e7906f6df6eff74a7e5247c4157a07934e3183ff6a2131e1a41c9874c
 .claude/skills/communication/SKILL.md  c90ebc9d89ac5a4d62f47d2df1d3b7e5c363cda3ba41f193d445d46da9ca15a3
 .claude/skills/communication/references/mode-b-detail.md  806d7e0e9bc090e8f5baf3606923d2ba2ab2543943175648db35635ad03161a7
@@ -83,7 +83,7 @@
 .claude/skills/project-onboarding/SKILL.md  bd0eb1bc5f11a4c8f0bd76a3e383d05015fc28e6a1b165a7bef01d3f7176db82
 .claude/skills/release-deploy-reporting/SKILL.md  dcd724ec2cd80591d34c2343978af70f19225fe6b5578e1cdbac6a0bf4e36905
 .claude/skills/repo-onboarding-context-map/SKILL.md  d0e8c40165353b454a7ee48cc77edc77bc136de1e35cafef1cd86046ed1c19c0
-.claude/skills/requirements-specification/SKILL.md  293eb584d15443b205a892810b8f7270e1c4d432dac0f059ac5326310aacf75a
+.claude/skills/requirements-specification/SKILL.md  0270aec49546d21bdabc4287958d4475aa1aabe15658a7dd7872ffa7f04e4f60
 .claude/skills/role-discipline/SKILL.md  024ee687e4131ef3b3fbea76660ee4761a7ec5bb1cd69e6516cb739e113ebabf
 .claude/skills/role-discipline/references/ai-developer.md  cd996576881ac8a696db409d76456d44d8e39edf5317c2930f61f2f42a45929b
 .claude/skills/role-discipline/references/architect.md  fd7f0edf600a618b34284e61025b7ad97ad51fd2e2dfa005eec6596cac996744
@@ -93,8 +93,8 @@
 .claude/skills/security-permissions-review/SKILL.md  fa694285b591f7505dbb07f7eca23e42bf652d623e2230518e623c71b21a2187
 .claude/skills/skill-authoring/SKILL.md  359a126cf411ecc96d7610e1eb045ea1228a76ee4c4f9d472b44b2347ebf22b0
 .claude/skills/smoke-testing/SKILL.md  d2119105bac78b7d0b5321675b02f033e240583ae4b8d5aad42b6d9325364317
-.claude/skills/task-delegation/SKILL.md  a464eba0d2d26b761cba42625938b8c025d3c6d04ad89fa5c4790970ea50627f
+.claude/skills/task-delegation/SKILL.md  0a1abbdbb7c442eb48c566dbc56354b732e1fde9269d9013fae96db8b297503b
 .claude/skills/token-economy/SKILL.md  c4606dc4f8c62097b3527f0ef9a2a380536cf11ce10d6d0b6794985c85e26f19
-.claude/skills/validation-and-qa/SKILL.md  313dbbba9928c77458ef03f018f225a0c17430f96426ae14aad33afc7123625b
-.claude/skills/zoom-out/SKILL.md  8c989ff4a710df7654e8c3e67d8520a016c03ed8ad56867d22366c8e615de6f1
+.claude/skills/validation-and-qa/SKILL.md  297c2f03521f061372c07f3d45f8b2ed6f3b6071f3c05b79d1d48606498fef01
+.claude/skills/zoom-out/SKILL.md  ee5f705f7bba09b20a7d34a169231c014f708027bec7b00c4cae058455d20301
 .claude/skills/zoom-out/references/karpathy-guidelines.md  4bc83d79cee31ac6b59dd06251af59172493417df0d562ee631ff1e4945b7809

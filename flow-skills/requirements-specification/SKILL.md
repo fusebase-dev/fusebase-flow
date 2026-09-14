@@ -44,7 +44,7 @@ Then run the FR-23 documentation-budget classifier (`flow-skills/documentation-b
 
 ## Skip-clarify gate (Full lane — when "skip clarify" is allowed)
 
-The clarify phase exists to surface hidden ambiguity before code is written. Skipping it has a cost — undetected ambiguity surfaces later as wrong-direction code or operator-rework. Skip ONLY when ALL of the following hold:
+Clarify applies `flow-skills/zoom-out/references/karpathy-guidelines.md` §1 before code is written. Skip ONLY when ALL of the following hold:
 
 | Skip condition | Concrete check |
 |---|---|

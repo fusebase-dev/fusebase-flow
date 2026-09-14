@@ -83,9 +83,9 @@ COOLDOWN_S = 30        # (backlog 156)
 
 Task T42 edits one retry loop in comment-heavy `sync.ts`.
 - New constant `MAX_RETRIES = 5` gets a tripwire: `# upstream rate limit — keep ≤5 (decision B4)`.
-- The edited loop's `# loop over jobs` restates WHAT → removed with the edit.
+- A draft `# retry the job` the task wrote inside the loop restates WHAT → removed before commit.
+- The loop's pre-existing `# loop over jobs` is not changed by the edit → left untouched; mention it for a separate Lightweight cleanup pass.
 - The touched line's `(backlog 156)` pointer stays.
-- WHAT-restating comments in untouched functions stay; mention them for a separate Lightweight cleanup pass.
 
 Output: `comment-policy review: applied (FR-22)`.
 
