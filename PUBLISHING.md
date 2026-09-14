@@ -265,5 +265,5 @@ creation remains an operator-controlled open path and must not be used.
 - Approved provider / IDE compatibility surfaces (as listed in `README.md` and `docs/compatibility.md`).
 - Stdlib-first Python runtime; PyYAML is the only non-stdlib dependency.
 - Local-only hook handlers; no network surface.
-- Clean-room original content; no third-party code, prompts, skill files, or hook scripts copied.
+- Clean-room original content, except the attributed MIT import of the Karpathy coding guidelines (`flow-skills/zoom-out/references/karpathy-guidelines.md`; see `docs/source-map.md#karpathy-guidelines`); no other third-party code, prompts, skill files, or hook scripts copied.
 - MIT License.

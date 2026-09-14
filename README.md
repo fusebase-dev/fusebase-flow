@@ -817,7 +817,7 @@ fusebase-flow/
 
 ## Clean-room, license & publishing
 
-- **Clean-room** — Canonical Flow files are clean-room original. The bundled FuseBase Apps domain skills are provider-scoped assets; see [`docs/clean-room.md`](docs/clean-room.md) and [`docs/fusebase-cli-edition.md`](docs/fusebase-cli-edition.md).
+- **Clean-room** — Canonical Flow files are clean-room original, except the attributed MIT import of the Karpathy coding guidelines ([`docs/source-map.md#karpathy-guidelines`](docs/source-map.md#karpathy-guidelines)). The bundled FuseBase Apps domain skills are provider-scoped assets; see [`docs/clean-room.md`](docs/clean-room.md) and [`docs/fusebase-cli-edition.md`](docs/fusebase-cli-edition.md).
 - **License** — MIT. See [`LICENSE`](LICENSE).
 - **Publishing** — Before making this repo public, follow the history-hygiene step in [`PUBLISHING.md`](PUBLISHING.md).
 
