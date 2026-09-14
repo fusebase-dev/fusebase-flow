@@ -68,5 +68,5 @@ docs/tmp/handoff/*-smoke/**
 # Local-only command output (same class as docs/fusebase-health/ above)
 docs/wasted-code/
 
-# Backups left beside a file by the flow repair path
-*.pre-flow-repair
+# Backups left beside a file by the flow repair path (numbered .1, .2, ... when one already exists)
+*.pre-flow-repair*
