@@ -4,6 +4,22 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [5.3] — 2026-09-14
+
+**Agents now follow the four Karpathy coding guidelines, and comment cleanup is scoped to the
+task.** **Behavior change:** `comment-policy` (FR-22) applies its "remove everything else" rule
+only to comments the task introduces or necessarily changes. Agents no longer trim pre-existing
+comments beside an edit, and `code-review` no longer flags them; unrelated comment cleanup is a
+separate task. New `flow-skills/zoom-out/references/karpathy-guidelines.md` (Think Before Coding,
+Simplicity First, Surgical Changes, Goal-Driven Execution) is read by the AI Developer before the
+first code edit and used by `zoom-out`, `code-review` and delegated code-edit workers; overlapping
+Flow wording now points to it. The guidelines are imported verbatim under the MIT License from
+`multica-ai/andrej-karpathy-skills`; attribution is in the file header and
+`docs/source-map.md#karpathy-guidelines`. **Drop-in from 5.2** — no hook, policy, installer or
+upgrade change. Internal: maintainer-checkout `.gitignore` rules (not delivered to installed
+projects), maintainer ask-boundary wording, tracked E8/E9 decision records, the `v5.2`
+fingerprint row. See `docs/release-notes/v5.3.md`.
+
 ## [5.2] — 2026-09-13
 
 **Versioning moves to two-part `MAJOR.MINOR`.** From this release versions drop the patch
