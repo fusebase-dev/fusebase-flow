@@ -81,6 +81,8 @@ For external material:
 4. Remove prohibited or irrelevant brand terms before writing repo files.
 5. Write a short comparison table: existing Fusebase skill overlap, new capability, recommended role.
 
+The authorized MIT import documented at `docs/source-map.md#karpathy-guidelines` is a narrow exception to this skill's no-copy instructions and clean-room metadata requirements; preserve its license notice. Other imports remain concept-only.
+
 ### 3. Assign role applicability
 
 | Role | Allowed authoring responsibility |

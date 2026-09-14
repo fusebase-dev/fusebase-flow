@@ -81,7 +81,7 @@ Every delegated task gets a brief with:
 | Objective | one bounded outcome |
 | Role boundary | read-only / code-edit / test-only |
 | Ownership | exact files, modules, or question |
-| Inputs | relevant artifacts and skill paths already loaded |
+| Inputs | relevant artifacts and skill paths already loaded; code-edit workers must read `flow-skills/role-discipline/references/ai-developer.md` before editing |
 | Forbidden actions | no revert of others' edits; no deploy; no secrets; no broad cleanup |
 | Domain skills | relevant CLI provider skill names from `docs/fusebase-cli-edition.md`, if the task touches Fusebase Apps runtime/domain behavior |
 | Output format | the **Delegated return shape** (§5): verdict · SHAs · deltas · artifact pointers · residual risk, within the §5 **return budget** |

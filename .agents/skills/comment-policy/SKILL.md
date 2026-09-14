@@ -47,7 +47,7 @@ Flow source is read by AI agents, not humans line-by-line. WHAT-restating prose,
 
 ## Procedure
 
-Write only two kinds of comment; remove everything else.
+For comments introduced or necessarily changed by this task, write only two kinds; remove everything else. Pre-existing comments you did not need to touch stay as they are (`flow-skills/zoom-out/references/karpathy-guidelines.md` §3); cleaning them is the separate pass in § Escalation path.
 
 ### 1. Tripwire (keep)
 
@@ -79,13 +79,23 @@ COOLDOWN_S = 30        # (backlog 156)
 | Rationale/diagnosis already in a decision/ticket/memory | duplicate of an external record | the ≤1-line pointer |
 | Changelog / history (`# changed 2026-06-04: was X`) | the change is in git | nothing |
 
+## Worked example
+
+Task T42 edits one retry loop in comment-heavy `sync.ts`.
+- New constant `MAX_RETRIES = 5` gets a tripwire: `# upstream rate limit — keep ≤5 (decision B4)`.
+- The edited loop's `# loop over jobs` restates WHAT → removed with the edit.
+- The touched line's `(backlog 156)` pointer stays.
+- WHAT-restating comments in untouched functions stay; mention them for a separate Lightweight cleanup pass.
+
+Output: `comment-policy review: applied (FR-22)`.
+
 ## Delegation push block (for code-writing sub-agents)
 
 When you delegate any code-writing/implementation slice to a sub-agent, paste this block into its prompt (push — sub-agents do not reliably auto-load this skill):
 
 ```
 COMMENT POLICY (FR-22) — applies to all code you write:
-Write ONLY two kinds of comment; remove everything else.
+In comments you introduce or necessarily change, write ONLY two kinds; remove everything else. Leave untouched pre-existing comments alone.
 1) TRIPWIRE — a constraint an editor could break unknowingly, not obvious from local code (≤1 line; ≤4 lines only for security/auth/concurrency/platform).
 2) RETRIEVAL POINTER — a ≤1-line tag naming the external WHY-home, e.g. "(decision B2)" or "backlog 156".
 REMOVE: comments that restate what the code does; rationale already recorded in a decision/ticket/memory; changelog/history (it's in git).
@@ -94,7 +104,7 @@ Do NOT match surrounding comment density upward. Keep pointers — they are not 
 
 ## Two subtleties (do not over-simplify)
 
-- **Do NOT "match surrounding comment density" upward.** Trim toward this policy even in comment-heavy files. This clause is what breaks the harness density-ratchet — without it the policy is silently overridden.
+- **Do NOT "match surrounding comment density" upward.** Comments this task introduces or necessarily changes follow this policy even in comment-heavy files — the FR-22 exception to "Match existing style" in `flow-skills/zoom-out/references/karpathy-guidelines.md` §3. This clause is what breaks the harness density-ratchet — without it the policy is silently overridden.
 - **Storage ≠ retrieval — the pointer is NOT a duplicate.** When an agent opens a file the external records aren't in its context, so deleting the one-line pointer orphans a correct record the agent now has no trigger to open. Kill the prose; keep the pointer.
 
 ## Content gate forbidden — artifact-level checks encouraged

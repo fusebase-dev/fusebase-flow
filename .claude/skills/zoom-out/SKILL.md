@@ -1,8 +1,8 @@
 ---
 name: zoom-out
 description: Use before committing a bug fix or improvement, when a fix is non-trivial, or when the same area has been patched before. Operationalizes FR-20 — zoom out to root cause before applying a narrow patch. Do NOT use for trivial typo/format edits, for net-new feature work with no prior code (nothing to zoom out from), or as a substitute for reproduce-before-fix (FR-10 / validation-and-qa).
-source_inspiration: conceptual-only
-license_status: clean-room-original
+source_inspiration: "Original FR-20 procedure plus attributed Karpathy guidelines"
+license_status: "original-and-MIT"
 fusebase_flow_version: 3.30.8
 risk_level: low
 invocation: automatic
@@ -55,7 +55,7 @@ Stop patch-myopia. Before fixing a bug or making an improvement, zoom out and co
 4. **Drift check.** Will this patch create inconsistency elsewhere (other apps, shared logic, future edits)? Prefer the change that reduces total inconsistency.
 5. **Repeat-patch check.** Has this area been patched before? Two+ patches in one spot = treat as a design problem, not another patch.
 6. **Decide — and emit the Required output block below.** Either (a) produce a root-cause fix plan, or (b) justify a deliberate narrow patch ("symptom-level fix is correct here because …"). Never an unexamined patch.
-7. **Ambiguous bigger picture →** ask the operator in chat (FR-19); do not guess.
+7. **Ambiguous bigger picture →** apply `flow-skills/zoom-out/references/karpathy-guidelines.md` §1 in chat text (FR-19); route unresolved root-cause/design conflicts through § Escalation path.
 
 ## Required output — zoom-out verdict (5 lines)
 
@@ -68,6 +68,17 @@ Layer:      <UI | API | data | shared logic | config> — fixing there? <yes | n
 Drift risk: <none | what becomes inconsistent elsewhere>
 Decision:   <root-cause fix | justified narrow patch because <reason> | escalate (design problem / Architect)>
 ```
+
+## Worked example
+
+Bug: an invoice total is off by 100×; `ui/totals.ts` already carries one rounding patch.
+1. Symptom: wrong total · cause: the API mapper returns cents, the UI assumes units.
+2–4. Layer = API mapper, not UI; a UI-only fix leaves the CSV export wrong (drift).
+5. Prior patch in the same area → fix the source this time.
+6. Verdict `Decision: root-cause fix` in the mapper; the edit stays surgical per `flow-skills/zoom-out/references/karpathy-guidelines.md` §3.
+7. If the correct unit is a product question, ask it per §1.
+
+Output: the 5-line verdict block in chat, then the fix.
 
 ## Output artifacts
 
@@ -86,7 +97,6 @@ Decision:   <root-cause fix | justified narrow patch because <reason> | escalate
 
 ## Escalation path
 
-- Ambiguous bigger picture → ask operator in chat text (FR-19).
 - Root cause spans >10 files / cross-cutting → Architect escalation (`workflows/architect-escalation.md`).
 - Recurring problem → capture in `docs/problem-catalog/` (knowledge-curation).
 
@@ -99,4 +109,4 @@ Decision:   <root-cause fix | justified narrow patch because <reason> | escalate
 
 ## Clean-room note
 
-Original Fusebase Flow content. Designed after reviewing public AI coding workflow patterns; no third-party code, prompts, skill files, or hook scripts are copied. See `docs/source-map.md`.
+The FR-20 procedure in this SKILL.md is original Fusebase Flow content, designed after reviewing public AI coding workflow patterns. `references/karpathy-guidelines.md` is the attributed MIT import; provenance: `docs/source-map.md#karpathy-guidelines`.

@@ -82,7 +82,7 @@ Do not use this split merely because the cause was unknown at intake. Ordinary l
 1. Read the backlog ticket (or capture operator intent in chat as a 1-paragraph problem statement).
 2. Perform bounded read-only diagnosis when cause or risk is unclear. Persist the router result and semantic declarations. Route complete no-trigger ordinary work to the Lightweight change-note; route objective triggers to Full; unresolved assessment stops at `BLOCKED-AT-lane-assessment`.
 3. For Fusebase Apps tickets, read `docs/fusebase-cli-edition.md` and identify any CLI domain skills that should inform scope, constraints, or acceptance criteria. Use them as supporting context; do not copy their content into the spec.
-4. Identify ambiguities. For each, draft a clarify question with 2–3 options + recommendation. Save to `docs/specs/<slug>/clarify-conversation.md` using `templates/clarify-conversation.md`.
+4. Identify ambiguities per `flow-skills/zoom-out/references/karpathy-guidelines.md` §1. For each, draft a clarify question with 2–3 options + recommendation. Save to `docs/specs/<slug>/clarify-conversation.md` using `templates/clarify-conversation.md`.
 5. If the operator asks for alternatives, variations, product/UI directions, or other possible shapes, invoke `flow-skills/design-discovery-ideation/SKILL.md` before drafting the final clarify options. Capture the selected direction in `clarify-conversation.md` or `spec.md`.
 6. Present clarify questions in chat text (FR-19): no popup / clickable menu tools. Use a short options table or numbered list when there are multiple choices, with **(Recommended)** marked when appropriate.
 7. Wait for operator answers. Update `clarify-conversation.md` with locked answers.
@@ -124,7 +124,7 @@ A reported formatting defect has no known cause. Bounded read-only diagnosis fin
 - Do not draft `tasks.md` here — same
 - Do not write production code (FR-01)
 - Do not lock the spec on operator's behalf (FR-11) — operator confirms by saying "lock spec" or "redirect AC<n>"
-- Do not skip the clarify phase if ambiguities exist; "I'll figure it out during implementation" is FR-11 violation
+- Do not skip the clarify phase when §1 of `flow-skills/zoom-out/references/karpathy-guidelines.md` surfaces ambiguity; deferring it to implementation is an FR-11 violation
 
 ## Clean-room note
 

@@ -1,6 +1,6 @@
 # Source map — Fusebase Flow
 
-This document records source boundaries for the Fusebase CLI provider layer. Canonical Fusebase Flow files remain clean-room original. CLI provider assets are copied as Fusebase Apps CLI provider assets and are intentionally kept outside canonical Flow roots.
+This document records source boundaries for the Fusebase CLI provider layer. Canonical Fusebase Flow files remain clean-room original, except the attributed MIT import in § Karpathy guidelines. CLI provider assets are copied as Fusebase Apps CLI provider assets and are intentionally kept outside canonical Flow roots.
 
 ## Standard attestation
 
@@ -8,8 +8,8 @@ This document records source boundaries for the Fusebase CLI provider layer. Can
 
 This wording is used in:
 
-- All 34 canonical SKILL.md `Clean-room note` sections (`flow-skills/<slug>/SKILL.md`).
-- All 68 mirror SKILL.md files (regenerated from canonical via `mirror-skills.sh`).
+- 33 of 34 canonical SKILL.md `Clean-room note` sections (`flow-skills/<slug>/SKILL.md`); `zoom-out`'s note instead names its attributed MIT reference (§ Karpathy guidelines).
+- The matching 66 of 68 mirror SKILL.md files (regenerated from canonical via `mirror-skills.sh`).
 - `templates/skill-template.md` (substrate for future skills).
 - `hooks/README.md` (hook framework attestation).
 
@@ -42,17 +42,17 @@ The following design patterns are common to public AI coding workflow discussion
 
 ## What is NOT copied
 
-- No SKILL.md prose from any third-party project is copied into canonical Flow `flow-skills/`.
+- No SKILL.md prose from any third-party project is copied into canonical Flow `flow-skills/`, except the attributed MIT import in § Karpathy guidelines.
 - No hook handler code or shell scripts from any third-party project are copied into canonical Flow `hooks/handlers/`, `hooks/shared/`, `hooks/git/`, or `hooks/local/`.
 - No vendor configuration examples reproduced verbatim; all examples (`.claude/settings.json.example`, `.codex/config.toml.example`, etc.) are written from the public protocol shape, not copied from any vendor sample repo.
-- No prompt text, system prompt, or skill description from any third-party project.
+- No prompt text, system prompt, or skill description from any third-party project (the § Karpathy guidelines import carries skill body text only, not its description).
 
 ## Verification
 
 The clean-room property is validated by:
 
 1. Original wording check — the public-template tree is verified against a word-boundary search for non-target tool names; expected result is zero matches.
-2. Standard wording presence - `preflight.sh` is configured to inspect skill frontmatter; manual review of clean-room notes confirms the standard wording in all 34 canonical + 68 Flow mirror SKILL.md files.
+2. Standard wording presence - `preflight.sh` is configured to inspect skill frontmatter; manual review of clean-room notes confirms the standard wording in 33 of 34 canonical + 66 of 68 Flow mirror SKILL.md files (`zoom-out` names its attributed MIT reference instead).
 3. Edition boundary check - CLI provider assets remain under provider surfaces and are not added to `flow-skills/` or canonical Flow mirror manifests.
 4. License attestation - see [`docs/clean-room.md`](clean-room.md) for the explicit clean-room statement for canonical Flow files.
 
@@ -64,6 +64,18 @@ Any internal research notes that reference specific external projects belong **o
 
 The FR-26 context-compression discipline update — `flow-skills/token-economy/SKILL.md` § Context compression discipline, the `/token-waste-audit` command, and the `large-output` audit class in `hooks/local/token-waste-audit.py` — is clean-room original FuseBase Flow content. It implements FuseBase-native behavioral rules and deterministic, stdlib-only audit heuristics. No third-party code, prompts, skill files, command text, hook scripts, docs, benchmark language, or dependency is copied or vendored.
 
+## Karpathy guidelines
+
+The only third-party text in canonical Flow roots. Authorized in the maintainer import brief of 2026-09-14 (relayed operator instruction); a narrow exception to `skill-authoring`'s no-copy rule and to `docs/clean-room.md`.
+
+| Field | Value |
+|---|---|
+| Source | [multica-ai/andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills) commit `2c606141936f1eeef17fa3043a72095b4765b9c2`, `skills/karpathy-guidelines/SKILL.md` lines 7–67 (upstream YAML frontmatter omitted). Plugin metadata names author `forrestchang`. |
+| Destination | `flow-skills/zoom-out/references/karpathy-guidelines.md` — the sole guideline body; mirrored to `.agents/skills/` and `.claude/skills/` |
+| Flow changes | One attribution line and four clauses marked *Flow:* (FR-25 seam extraction, FR-22 comment scope, reproduction classification, gate/retry bound). All upstream lines otherwise verbatim. |
+| License | MIT, as declared upstream in three places: the SKILL.md frontmatter (`license: MIT`), `.claude-plugin/plugin.json` (`"license": "MIT"`), and `README.md` § License (`MIT`). Upstream ships no LICENSE file and states no copyright holder, so no separate notice file is included. |
+| Delivery | `flow-skills/role-discipline/references/ai-developer.md` (read before the first code edit); pointers in `requirements-specification`, `implementation-planning`, `lightweight-lane`, `validation-and-qa`, `code-review`, `comment-policy`, `zoom-out`, `docs/maintainer-execution.md`. `zoom-out`'s description is unchanged. |
+
 ## Last amended
 
 ```
@@ -73,4 +85,6 @@ The FR-26 context-compression discipline update — `flow-skills/token-economy/S
               clean-room original; no third-party dependency or content introduced.
 2026-07-11 - `product-owner` skill bridge added as clean-room Flow content; count now
               34 canonical skills / 68 Flow mirror SKILL.md files.
+2026-09-14 - Attributed MIT Karpathy guidelines import (zoom-out reference); sole exception
+              to the no-copy claims above.
 ```

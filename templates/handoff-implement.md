@@ -123,7 +123,7 @@ The chat-return budget binds **delegated** returns. The canonical gate report (�
 
 ```
 COMMENT POLICY (FR-22) — applies to all code you write:
-Write ONLY two kinds of comment; remove everything else.
+In comments you introduce or necessarily change, write ONLY two kinds; remove everything else. Leave untouched pre-existing comments alone.
 1) TRIPWIRE — a constraint an editor could break unknowingly, not obvious from local code (≤1 line; ≤4 lines only for security/auth/concurrency/platform).
 2) RETRIEVAL POINTER — a ≤1-line tag naming the external WHY-home, e.g. "(decision B2)" or "backlog 156".
 REMOVE: comments that restate what the code does; rationale already recorded in a decision/ticket/memory; changelog/history (it's in git).

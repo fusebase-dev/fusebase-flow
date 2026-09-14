@@ -38,7 +38,7 @@ Run enough bounded read-only diagnosis to identify the behavior, likely diff, an
 |---|---|---|
 | 1 | Bounded implementation, single product outcome | One coherent outcome and no cross-cutting architecture. File count alone is not a trigger. |
 | 2 | Reversible | `git revert` / restore-backup undoes it. **No** DB schema/data migration; **no** hard-to-remove new dependency. |
-| 3 | Clear, mechanically-verifiable acceptance | A defined outcome (one or a few sentences) checkable by a gate / probe / measurement. |
+| 3 | Clear, mechanically-verifiable acceptance | Acceptance satisfies `flow-skills/zoom-out/references/karpathy-guidelines.md` §4; outcome stated in one or a few sentences and checkable by a gate / probe / measurement. |
 | 4 | No sensitive semantic trigger | The diagnosed behavior/diff has no auth, permissions, secrets, data/schema, public-contract, production/release, or protected-path trigger. |
 | 5 | No architecture or product-decision trigger | No cross-cutting architecture and no unresolved product decision. |
 | 6 | Assessment complete | The path router succeeded and the AI semantic assessor declared every trigger with an evidence path and reason. |

@@ -50,15 +50,16 @@ Independent review of a diff against the spec contract, locked decisions, and FL
 1. **Trust the recorded gate verdict (review boundary).** When `validation-and-qa` has recorded a gate verdict ("Gate verified. Phase advances to Deploy."), trust it for the deterministic/cross-artifact fields — AC↔task map, decisions-cited-in-tasks, lint/typecheck status, TODO/FIXME/WIP scan, protected-path diff. Do not re-verify them; carry the gate's AC↔task verdict into the review's spec-alignment matrix by citation. If no gate verdict exists, route to `validation-and-qa` first — do not absorb its checks here.
 2. Run `git diff <baseline>..HEAD --stat` to get changed files. For Fusebase Apps diffs, read `docs/fusebase-cli-edition.md` and load the relevant CLI provider skills as review standards for app/runtime/domain behavior.
 3. Semantic review per task T<n>: read the corresponding commit (or accumulated diff). Judge:
-   - Scope-creep: does the change match the *intent* of the `tasks.md` description, not just touch the listed files?
+   - Scope and simplicity: the change matches the *intent* of the `tasks.md` description, not just the listed files, and meets `flow-skills/zoom-out/references/karpathy-guidelines.md` §§2–3 (read it unless its exact body is already in context)
    - Decision adherence in meaning: the gate checks decisions are *cited*; review checks the code *does what the locked decision means* (cite letter+number on divergence)
    - Quality-pattern ACs (QP-xx, `flow-skills/app-quality-patterns`): the cited pattern's Requirement is actually met by the implementation (semantic, by reading — e.g., is the filter state really in the URL, does the delete really handle children)
 4. Maintainability scan:
    - Type safety (no broad casts on external JSON, no `any`)
    - **Comment policy (FR-22)** — see the dedicated dimension in step 4b
-   - Function size and complexity reasonable
 
 4b. Comment-policy dimension (FR-22) — enforce in BOTH directions:
+   - **Scope:** comments this diff introduced or necessarily changed; untouched pre-existing
+     comments are not findings (`flow-skills/zoom-out/references/karpathy-guidelines.md` §3).
    - **Flag for removal (findings):** comments that restate what the code does;
      rationale/diagnosis prose already recorded in a decision/ticket/memory (should be
      replaced by a ≤1-line pointer, not deleted outright); changelog/history narrative
@@ -117,6 +118,15 @@ Independent review of a diff against the spec contract, locked decisions, and FL
    - Non-blockers (improvement candidates; can be follow-up tickets)
    - Spec alignment matrix (table; deterministic AC↔task statuses carried from the gate verdict by citation)
 8. If invoked from operator chat: end with "Review complete. <N> blockers, <M> non-blockers. Operator decides whether to fix or proceed." Proceeding to deploy past an open blocker is not a chat-side call: it requires the per-blocker recorded waiver in the deploy handoff (`release-deploy-reporting` § When to invoke) — step-4d/step-5 safety blockers especially.
+
+## Worked example
+
+Diff for T42 adds a retry cap to `sync.ts`; the gate verdict is recorded.
+- Step 1: cite the gate's AC↔task map; no re-verification.
+- Step 3: an unrequested configurable backoff class and a reformatted untouched function fail §§2–3 → findings naming the lines that don't trace to T42.
+- Step 4b: a new WHAT-restating comment on the edited line → non-blocker; comment-heavy untouched blocks elsewhere → not a finding.
+- Step 4d: cap = 0 and retry after a partial write examined; both hold.
+- Step 7: blockers / non-blockers classified per § Failure cases, plus the alignment matrix.
 
 ## Output artifacts
 

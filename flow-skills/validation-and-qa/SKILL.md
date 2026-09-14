@@ -50,6 +50,8 @@ Validate changed behavior with deterministic checks before a deploy is approved.
 
 ## Procedure
 
+Execution sequence for code changes (tests first; step → verify loop): `flow-skills/zoom-out/references/karpathy-guidelines.md` §4. The sub-modes below own evidence, classification and reporting.
+
 ### Sub-mode A — Verification gate
 
 1. Read `verification-gate.md` to learn the contract (smoke prompts, probe list); required gate-report fields are canonical in `policies/gate-contracts.yml: gate_report` (producer template: `templates/gate-report.md`).
@@ -113,7 +115,7 @@ If the live proof cannot be produced, continue bounded diagnosis and assessment.
      rate* vary, not the bug's reality.
    - **LLM / agent behavior:** the failure is in model output or agent-path choice, where
      run-to-run variance is inherent.
-3. Reproduce 3 times under the same conditions. Verdicts:
+3. For the reproducing test/probe required by `flow-skills/zoom-out/references/karpathy-guidelines.md` §4, reproduce 3 times under the same conditions. Verdicts:
 
    | System type | 3/3 | 1/3 or 2/3 | 0/3 |
    |---|---|---|---|

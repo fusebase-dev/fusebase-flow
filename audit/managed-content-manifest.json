@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "5.2",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 390,
+  "asset_count": 391,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -50,11 +50,11 @@
     },
     {
       "path": "flow-skills/code-review/SKILL.md",
-      "sha256": "998a5d1e2981113b7eedb9c34c61ef794e3f289fe47fe31387f5415ef0aa5442"
+      "sha256": "6ca7ca1e12eb82b44d60c42a0ea7def4e2ab84491885b7a58ee0ce001a25c6d8"
     },
     {
       "path": "flow-skills/comment-policy/SKILL.md",
-      "sha256": "816fac77e995b6fcf5e8bfcb4800b1ba81a2c3ed65aa918711a25d11c2363403"
+      "sha256": "c4ea4a82d5463df57f64a948b476fbde183c7fec09a3a9df2b41d8ef73f14c34"
     },
     {
       "path": "flow-skills/comment-policy/references/audit-prompt.md",
@@ -118,11 +118,11 @@
     },
     {
       "path": "flow-skills/implementation-planning/SKILL.md",
-      "sha256": "6a1d04d5044e4a90ed22cc03e35894191b1c668804374c6698678d86c5317d39"
+      "sha256": "3de0f2052509974e9a868a8353e106b189d563c6a0850c191ce51cb45b52279a"
     },
     {
       "path": "flow-skills/lightweight-lane/SKILL.md",
-      "sha256": "f326cf410c6961295e9fffae9d1ee8551131d6d5220c55df22a1d4cecc3f09d2"
+      "sha256": "2bb75d13ea0d29065bfb85717bd8f39e6f9cfc7b0778090d89360c70a83f490b"
     },
     {
       "path": "flow-skills/liveness-discipline/SKILL.md",
@@ -166,7 +166,7 @@
     },
     {
       "path": "flow-skills/requirements-specification/SKILL.md",
-      "sha256": "627a285eb665bf991cad110b26e4e8181730f68f95d6638d704949086d0948fa"
+      "sha256": "293eb584d15443b205a892810b8f7270e1c4d432dac0f059ac5326310aacf75a"
     },
     {
       "path": "flow-skills/role-discipline/SKILL.md",
@@ -174,7 +174,7 @@
     },
     {
       "path": "flow-skills/role-discipline/references/ai-developer.md",
-      "sha256": "c64772338241af89863239f95fcca64c0846f5bf462a0125c111ed391b92883a"
+      "sha256": "cd996576881ac8a696db409d76456d44d8e39edf5317c2930f61f2f42a45929b"
     },
     {
       "path": "flow-skills/role-discipline/references/architect.md",
@@ -198,7 +198,7 @@
     },
     {
       "path": "flow-skills/skill-authoring/SKILL.md",
-      "sha256": "7a42bdeda00698c6dc8b0e95139ce2610a3e1a15e690fefa56d83353a0053b28"
+      "sha256": "359a126cf411ecc96d7610e1eb045ea1228a76ee4c4f9d472b44b2347ebf22b0"
     },
     {
       "path": "flow-skills/smoke-testing/SKILL.md",
@@ -206,7 +206,7 @@
     },
     {
       "path": "flow-skills/task-delegation/SKILL.md",
-      "sha256": "57da477cf03e740cd909f3f2b92ecb247e2c595c6bdaec7e8820537b57d7501f"
+      "sha256": "a464eba0d2d26b761cba42625938b8c025d3c6d04ad89fa5c4790970ea50627f"
     },
     {
       "path": "flow-skills/token-economy/SKILL.md",
@@ -214,11 +214,15 @@
     },
     {
       "path": "flow-skills/validation-and-qa/SKILL.md",
-      "sha256": "4d1921594004f65d264736c95c2af4ac9f84906b071bce64f8210d25806a3673"
+      "sha256": "313dbbba9928c77458ef03f018f225a0c17430f96426ae14aad33afc7123625b"
     },
     {
       "path": "flow-skills/zoom-out/SKILL.md",
-      "sha256": "dac07aad392bd8151730330f37b1f037c5f80b7e1876b356005971fcfcd37d55"
+      "sha256": "8c989ff4a710df7654e8c3e67d8520a016c03ed8ad56867d22366c8e615de6f1"
+    },
+    {
+      "path": "flow-skills/zoom-out/references/karpathy-guidelines.md",
+      "sha256": "4bc83d79cee31ac6b59dd06251af59172493417df0d562ee631ff1e4945b7809"
     },
     {
       "path": "hooks/README.md",
@@ -1462,7 +1466,7 @@
     },
     {
       "path": "templates/handoff-implement.md",
-      "sha256": "2ddee4ca53dcfdf5b04efd309b48a105ee92de1764430cc4beb580e98717c63c"
+      "sha256": "2e98a580df74b4da4ea985a04fa0eb8e6b383175566f5ccc5853429f5f41f2b2"
     },
     {
       "path": "templates/handoff.md",
@@ -1565,5 +1569,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "8f905bba20c0d2b0e5206b9b07abe5c52ceba4603b68286f2645ee981b57cbaf"
+  "manifest_self_sha256": "c2ffdaa939f82a8b1e4ed761cb238308c4a466f54a1eee5abd50894374b5aa4f"
 }

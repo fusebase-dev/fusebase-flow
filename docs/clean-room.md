@@ -1,5 +1,7 @@
 # License clean-room attestation — Fusebase Flow
 
+Scope: clean-room attestations in this document exclude the MIT Karpathy guideline import identified in `docs/source-map.md#karpathy-guidelines`. All other original-content and CLI-provider boundaries remain unchanged.
+
 ## Statement
 
 Canonical Fusebase Flow content is original content. It was designed after reviewing public AI coding workflow patterns; no third-party code, prompts, skill files, or hook scripts are copied into canonical Flow roots.
@@ -58,4 +60,5 @@ The MIT License's warranty disclaimer applies. Fusebase Flow is provided AS IS, 
 
 ```
 2026-05-27 - Fusebase CLI edition attestation scope clarified.
+2026-09-14 - Scope excludes the attributed MIT Karpathy guideline import (docs/source-map.md#karpathy-guidelines).
 ```
