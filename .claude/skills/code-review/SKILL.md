@@ -119,6 +119,30 @@ Independent review of a diff against the spec contract, locked decisions, and FL
    - Spec alignment matrix (table; deterministic AC↔task statuses carried from the gate verdict by citation)
 8. If invoked from operator chat: end with "Review complete. <N> blockers, <M> non-blockers. Operator decides whether to fix or proceed." Proceeding to deploy past an open blocker is not a chat-side call: it requires the per-blocker recorded waiver in the deploy handoff (`release-deploy-reporting` § When to invoke) — step-4d/step-5 safety blockers especially.
 
+## Review depth and severity
+
+**Severity.** BLOCKER = a mandatory-stop failure. HIGH = a serious, reachable correctness or security risk. MEDIUM = a bounded functional defect. LOW = a non-blocking improvement. These GRADE findings; they never downgrade a blocker § Failure cases already names, and a known correctness/safety blocker does not become acceptable because a review already ran once.
+
+**Depth follows the change, not habit.**
+
+| Change | Review |
+|---|---|
+| **Security-relevant** — code that EXECUTES on an auth, session, token, permission or CSRF path (docs, copy, tests or comments that merely mention those topics are not) | independent adversarial review of code and tests (`adversarial_review` tier — `task-delegation` § Model routing) |
+| **Cross-cutting** — three or more slices or a shared module | independent adversarial review |
+| **HIGH risk** — set per slice in the plan and confirmed at plan review | independent adversarial review |
+| Ordinary change | focused review of the diff |
+| Prose and doc claims | not per change — one consolidated claim-vs-evidence pass at final acceptance |
+
+These are review-DEPTH triggers only. They never narrow the FR-21 Full-lane triggers or `security-permissions-review`'s scope.
+
+**Rereview by severity.** BLOCKER/HIGH correction → rereview the affected boundary. MEDIUM → focused check of that diff. LOW → the implementer's evidence, unless new evidence changes the classification. A reviewer does not reopen a fixed LOW on the same finding and the same evidence; a newly demonstrated defect is a NEW finding, not a reopened one.
+
+**Round bound.** Round 1 is the initial review, round 2 the correction review — default maximum two per change. A successor agent does not reset the counter. On exhaustion, unresolved findings stay blocked or deferred WITH their evidence — never implicitly accepted — and the actor that declared the bound does not author its own extension.
+
+**Persistent LOW work.** Optional and scoped. A LOW cleanup may be one commit only when it is one independently reversible outcome; otherwise leave it parked. Persistent LOW findings go to `docs/backlog/<slug>-low/README.md`, indexed once in `docs/backlog/index.md` — an existing matching ticket wins over a new aggregate.
+
+**Persisted review record.** `docs/verification/<slug>-review.md` SUPERSEDES the prior verdict in place (FR-18; git owns the revisions) and names the round and the reviewed SHA. Open it with a header of at most ten lines: severity counts, one line per BLOCKER and HIGH, verdict. The header is a routing aid, not the authority — read the finding body before deciding anything the header does not settle (`token-economy`).
+
 ## Worked example
 
 Diff for T42 adds a retry cap to `sync.ts`; the gate verdict is recorded.

@@ -28,6 +28,8 @@ Coordinate bounded work across multiple agents when the host environment support
 
 ## When to invoke
 
+**Route first:** an explicit absence/unattended instruction ("I'm stepping out", "run this unattended", "I'll be away", "complete it end to end while I'm away") is the `/step-out` command — `hooks/local/fusebase-flow-overlays/commands/step-out.md`; read it BEFORE assessing delegation eligibility below, then return here. Ordinary attended work, planning-only/read-only requests, and "complete end to end" without an absence instruction are not `/step-out`.
+
 - Operator explicitly asks for delegation, subagents, parallel agents, or parallel work.
 - AI Developer has independent implementation/test slices with disjoint write scopes.
 - Product Owner needs read-only investigation, option comparison, or artifact review that can run in parallel.
@@ -171,6 +173,40 @@ For **delegated returns only** — gate reports keep PASS/FAIL; spec Status valu
 **Ground-truth rule:** any claim that system state changed (launched / registered / deployed / completed) names the verification performed — the system surface read and what it showed. An attempted action or an observed look-alike artifact is not evidence; a false "launched" built from those can survive for hours.
 
 Subagent output is evidence, not proof. Fusebase Flow success still requires the normal gate, smoke, security, and deploy checks.
+
+## Model routing
+
+Per-project selection lives in `policies/model-routing.yml` (optional; per-machine override `policies/model-routing.local.yml`). **A tier selects a MODEL, never authority** — role boundaries (§1), approval artifacts, credential handling and deploy ownership are unchanged by any tier, and an `execution`-tier agent gets no deploy or approval rights from its row (FR-12).
+
+| Tier | Routed work | Alias vs exact id |
+|---|---|---|
+| `planning` | decomposition, slice design, cross-slice acceptance reasoning | floating alias |
+| `adversarial_review` | independent defect/security analysis; prefers a different model family from the implementer when one is reachable | exact id preferred (repeatable review evidence); alias accepted |
+| `sensitive_implementation` | code executing on auth/session/token/permission/CSRF paths, migrations, payments, infrastructure, and any slice the plan marks HIGH risk | exact id preferred; alias accepted |
+| `routine_implementation` | ordinary implementation, focused review, log and prose checking | floating alias |
+| `execution` | runs already-decided commands and reports observations; never issues an acceptance verdict | floating alias |
+
+**Fallback (binding).** An absent, malformed, unavailable or unsupported selector produces a RECORDED fallback — continue on the available host model, sequentially if necessary. Never stop a run for model configuration, never assume an unverified model mapping, never promise per-agent effort (effort is session-level). When no independent agent is reachable, the review still runs and is reported as a **same-family review**; if no independent pass is possible at all, report that limitation instead of claiming independence. Record the resolved model when the host exposes it, otherwise `resolution unavailable`.
+
+**Escalation.** Escalate a tier pre-emptively only where the plan marks the slice HIGH risk; otherwise only after an attempt has actually failed, within the host's real capabilities and the existing retry bounds (`liveness-discipline`).
+
+## Correction ownership
+
+Generalizes the same-agent, context-preserving reuse the provider-limit path already requires (§3) to ALL corrections:
+
+- A fix to a worker's OWN diff goes back to that worker — it still holds the context. Spawn a fresh agent only when the task is unrelated or that context has demonstrably drifted; a successor resumes verify-from-records (§3 successor contract).
+- One correction owner per review round, batched by file. Never one agent per finding.
+- Disjoint write ownership (§4) and one independently reversible outcome per commit still bind: batching findings never merges unrelated outcomes.
+- Verify an external API/SDK shape once, record it where the plan lives, and cite it afterwards. Re-verify what this change touches or what a changed dependency invalidates — not merely what was edited (`token-economy`).
+
+## Unattended scheduling
+
+Applies while `/step-out` is the active mode (`hooks/local/fusebase-flow-overlays/commands/step-out.md`). It changes SCHEDULING only; it opens no gate and grants no authorization.
+
+- **Dispatch return parameter:** brief each worker to ≤29 lines in an unattended run — tighter than, and inside, the § Delegated return shape budget (≤80 lines AND ≤6,000 characters). The gate-report and deploy-report exemptions are unchanged: never truncate those to fit.
+- **Retry exhaustion is a scheduling event.** Once the bounded delegate-retry envelope is spent (`liveness-discipline`), do not wait and do not sleep — record the state, dispatch the next INDEPENDENT authorized slice, and return to the parked one when its clearing condition is met.
+- **A blocked slice does not stop the run.** An unmet gate, missing authorization, or unresolved product question parks that slice AND its dependents, with the exact question, evidence, options and clearing condition recorded. Every other independent authorized slice continues.
+- **Persist only what an owner already owes.** A planner or reviewer writes a full file only where `documentation-budget` and that artifact's owner require one; otherwise it returns the header plus pointers.
 
 ## Output artifacts
 

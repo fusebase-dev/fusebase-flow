@@ -246,7 +246,7 @@
     },
     {
       "path": "hooks/local/preflight.sh",
-      "sha256": "359be44387ef7b4b69d5de102220328bcbf1665c8d2211662249016a2c0add45"
+      "sha256": "f885feb3326e9b6ee1575da346c91894c6fe8f999235a3bfd08f333bc6ffe18b"
     },
     {
       "path": "hooks/local/print-release-fingerprints.sh",
@@ -642,11 +642,11 @@
     },
     {
       "path": "hooks/tests/test-codex-plugin-surface.sh",
-      "sha256": "37802315cb8c146bc4fcc9dc6bd55f9e6f6f9aa3de93a8435faaa99c2c5dbfdb"
+      "sha256": "85a40e327ca6d03fbbaef6e533fca6f05eb247701e29d24126cf13521b189454"
     },
     {
       "path": "hooks/tests/test-codex-prompt-parity.sh",
-      "sha256": "78cc3c4bc3c88f96357b73d4a252b4d3fd9adc369a2011f13ed0322fed9eedb4"
+      "sha256": "6236c8391a9d756129be1dfd5d905a21a6d1a994e761de57540e179b4975a467"
     },
     {
       "path": "hooks/tests/test-command-policy-denial-message.sh",
@@ -901,5 +901,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "da3e1246f73891b72140494a0beaf2d7ebb5a2dcca894b6d37b113baa35c3f61"
+  "manifest_self_sha256": "da6fa87b7df272b9896ce566a8e5b63d4309d70b869038d72d984c32ee83dc3b"
 }

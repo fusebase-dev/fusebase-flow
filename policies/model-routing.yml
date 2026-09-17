@@ -1,0 +1,40 @@
+# Fusebase Flow — model routing policy (committed default; OPTIONAL).
+#
+# Maps a WORK PROPERTY to a model selector. Tier meanings, routing and fallback
+# behaviour are owned by `flow-skills/task-delegation/SKILL.md` § Model routing;
+# this file carries only the per-project selection.
+#
+# TRIPWIRE: a tier selects a MODEL, never a permission. Role authority, approval
+# artifacts and gate ownership are unchanged by anything in this file (FR-12).
+# TRIPWIRE: every row ships null. Flow names no model and no loader resolves these
+# selectors today — the routing contract is instruction-level, read by the agent.
+# `null` = use the host's current model. Absent, malformed or unreachable selector
+# = a RECORDED fallback, never a reason to stop a run.
+#
+# Per-machine override: policies/model-routing.local.yml (gitignored via policies/*.local.yml).
+schema_version: 1
+
+tiers:
+  planning:                 { model: null, family: null }
+  adversarial_review:       { model: null, family: null }
+  sensitive_implementation: { model: null, family: null }
+  routine_implementation:   { model: null, family: null }
+  execution:                { model: null, family: null }
+
+# HOW A PROJECT FILLS THIS IN — illustration only. These are not defaults, and Flow
+# makes no claim that any model or family is reachable from your host.
+#
+#   tiers:
+#     planning:                 { model: opus, family: null }
+#     adversarial_review:       { model: null, family: "<a family other than the implementer's>" }
+#     sensitive_implementation: { model: "<exact-pinned-model-id>", family: null }
+#     routine_implementation:   { model: sonnet, family: null }
+#     execution:                { model: haiku, family: null }
+#
+# - `opus` / `sonnet` / `haiku` are FLOATING aliases — they track whatever the host maps
+#   them to today. An exact model id PINS the choice; prefer a pin where review evidence
+#   must stay comparable across runs (`adversarial_review`, `sensitive_implementation`).
+# - `adversarial_review` prefers a DIFFERENT family from the implementer when one is
+#   reachable: a same-family reviewer shares the implementer's blind spots. When none is
+#   reachable the review still runs and is reported as a same-family review. Family
+#   diversity reduces correlated blind spots; it is never proof of correctness.

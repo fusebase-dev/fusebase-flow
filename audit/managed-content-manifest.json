@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "5.3",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 391,
+  "asset_count": 393,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "dde596a57129736452b8a2763f735995a508b345a533d79ee0443da31b7dff2c"
+      "sha256": "20fbc1a093b73a955278846c40e37051ecfa9d21bb78d76667738041bc62dbb5"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -50,7 +50,7 @@
     },
     {
       "path": "flow-skills/code-review/SKILL.md",
-      "sha256": "6ca7ca1e12eb82b44d60c42a0ea7def4e2ab84491885b7a58ee0ce001a25c6d8"
+      "sha256": "5f335815228a1e1d6bdcfad76d1a4d779a81f7f7258a09e3a7bbea3159587d41"
     },
     {
       "path": "flow-skills/comment-policy/SKILL.md",
@@ -206,7 +206,7 @@
     },
     {
       "path": "flow-skills/task-delegation/SKILL.md",
-      "sha256": "0a1abbdbb7c442eb48c566dbc56354b732e1fde9269d9013fae96db8b297503b"
+      "sha256": "6ddfddbc8faf2c15d8916df3b466dbbc562066c3db13624129127d51fb908c96"
     },
     {
       "path": "flow-skills/token-economy/SKILL.md",
@@ -422,11 +422,11 @@
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/agents-md-overlay.md",
-      "sha256": "e24223c821e82f1a876b2b0aa838b9333dd86d76ca34ac756d8da63935dda36b"
+      "sha256": "7ee79f6a34fdb07ff2843df29c9f28235c960fada8381fb41d8473b280eec6a9"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/claude-md-overlay.md",
-      "sha256": "8aa7ca14d092bbf5ffcf430cf5af1bb4f5ec1fd4942ed314a74ccfba8c12bb51"
+      "sha256": "19b0af821982ed2acd513d93484317f03aac0556e28883acb023eadb4da77245"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/commands/find-wasted-code.md",
@@ -451,6 +451,10 @@
     {
       "path": "hooks/local/fusebase-flow-overlays/commands/product-owner.md",
       "sha256": "9cbbd391af016884c3b56fdaeb564b2bfa1cd21a6b231abbd753987748314f05"
+    },
+    {
+      "path": "hooks/local/fusebase-flow-overlays/commands/step-out.md",
+      "sha256": "1307a479ac5e8799222843bbc64dd9520fcf01a4c9b883cf63bd79f1120d6086"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/commands/token-waste-audit.md",
@@ -638,7 +642,7 @@
     },
     {
       "path": "hooks/local/preflight.sh",
-      "sha256": "359be44387ef7b4b69d5de102220328bcbf1665c8d2211662249016a2c0add45"
+      "sha256": "f885feb3326e9b6ee1575da346c91894c6fe8f999235a3bfd08f333bc6ffe18b"
     },
     {
       "path": "hooks/local/print-release-fingerprints.sh",
@@ -1102,11 +1106,11 @@
     },
     {
       "path": "hooks/tests/test-codex-plugin-surface.sh",
-      "sha256": "37802315cb8c146bc4fcc9dc6bd55f9e6f6f9aa3de93a8435faaa99c2c5dbfdb"
+      "sha256": "85a40e327ca6d03fbbaef6e533fca6f05eb247701e29d24126cf13521b189454"
     },
     {
       "path": "hooks/tests/test-codex-prompt-parity.sh",
-      "sha256": "78cc3c4bc3c88f96357b73d4a252b4d3fd9adc369a2011f13ed0322fed9eedb4"
+      "sha256": "6236c8391a9d756129be1dfd5d905a21a6d1a994e761de57540e179b4975a467"
     },
     {
       "path": "hooks/tests/test-command-policy-denial-message.sh",
@@ -1393,6 +1397,10 @@
       "sha256": "b2af0efc5dadf48a007a03f20d05483d804077fd40b4a8966522a8e9d6773a5d"
     },
     {
+      "path": "policies/model-routing.yml",
+      "sha256": "94afd455ecdc3cfcb455f13f1188ec155aa362055d07ec0daa9a35f059b918b4"
+    },
+    {
       "path": "policies/module-size-baseline.txt",
       "sha256": "0983d2276c29674064c1cd2e35d6ba58bfa8a36a883213ff473967e4788e2682"
     },
@@ -1569,5 +1577,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "ef32611c29d0281d0d6c3bc0068bc5ff71747305be1e5a9fa2b45e78f3aa1e47"
+  "manifest_self_sha256": "b5ad8a610992e0bba0297bb5f1eec4c888f4ec8efaecdaf561b5e089868db9f8"
 }

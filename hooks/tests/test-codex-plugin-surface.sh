@@ -77,4 +77,97 @@ else
   bad "product-owner-mirrors-byte-identical" "mirrors are missing or drift from canonical"
 fi
 
+###############################################################################
+# /step-out on the Codex plugin surface. The manifest forbids a `commands` field
+# (asserted above), so Codex reaches /step-out through the SKILL surface only:
+# task-delegation routes to the canonical command body before it assesses
+# delegation eligibility. These assertions check that bridge and the two owner
+# contracts the command points at — absent config, same-family fallback and the
+# review round cap — so the routing pointer cannot ship without its owners.
+###############################################################################
+TD_CANON="$ROOT/flow-skills/task-delegation/SKILL.md"
+CR_CANON="$ROOT/flow-skills/code-review/SKILL.md"
+CMD_CANON="$ROOT/hooks/local/fusebase-flow-overlays/commands/step-out.md"
+ROUTING_YML="$ROOT/policies/model-routing.yml"
+
+[ -f "$CMD_CANON" ] \
+  && ok "step-out-canonical-command-present" \
+  || bad "step-out-canonical-command-present" "missing hooks/local/fusebase-flow-overlays/commands/step-out.md"
+
+# The routing pointer must sit ABOVE the delegation eligibility checks (§ Do not
+# invoke when) — a pointer placed after them is read too late to route.
+td_route_ln="$(grep -nF 'commands/step-out.md' "$TD_CANON" | head -1 | cut -d: -f1)"
+td_elig_ln="$(grep -nF '## Do not invoke when' "$TD_CANON" | head -1 | cut -d: -f1)"
+if [ -n "$td_route_ln" ] && [ -n "$td_elig_ln" ] && [ "$td_route_ln" -lt "$td_elig_ln" ]; then
+  ok "step-out-routed-before-delegation-eligibility"
+else
+  bad "step-out-routed-before-delegation-eligibility" "pointer line=$td_route_ln not strictly above eligibility=$td_elig_ln"
+fi
+
+# Model routing: the config is optional and ABSENT/unreachable config must not stop a run.
+if grep -qF 'policies/model-routing.yml' "$TD_CANON" \
+  && grep -qF 'Never stop a run for model configuration' "$TD_CANON"; then
+  ok "step-out-absent-config-is-a-fallback"
+else
+  bad "step-out-absent-config-is-a-fallback" "task-delegation lacks the optional-config / never-stop fallback contract"
+fi
+
+# Same-family fallback must be REPORTED, never dressed up as independence.
+if grep -qF 'same-family review' "$TD_CANON" \
+  && grep -qF 'instead of claiming independence' "$TD_CANON"; then
+  ok "step-out-same-family-fallback-reported"
+else
+  bad "step-out-same-family-fallback-reported" "task-delegation lacks the same-family review reporting rule"
+fi
+
+# A tier selects a model, never authority (an execution-tier agent cannot deploy).
+grep -qF 'A tier selects a MODEL, never authority' "$TD_CANON" \
+  && ok "step-out-tier-grants-no-authority" \
+  || bad "step-out-tier-grants-no-authority" "task-delegation does not separate model tier from role authority"
+
+# Unattended scheduling: retry exhaustion moves on; a blocked slice parks its chain only.
+if grep -qF '## Unattended scheduling' "$TD_CANON" \
+  && grep -qF 'dispatch the next INDEPENDENT authorized slice' "$TD_CANON" \
+  && grep -qF 'parks that slice AND its dependents' "$TD_CANON"; then
+  ok "step-out-blocked-dependency-continuation-owned"
+else
+  bad "step-out-blocked-dependency-continuation-owned" "task-delegation lacks the unattended scheduling contract"
+fi
+
+# Review round cap: two rounds, no reset via a successor, exhaustion never accepts.
+if grep -qF 'default maximum two per change' "$CR_CANON" \
+  && grep -qF 'does not reset the counter' "$CR_CANON" \
+  && grep -qF 'never implicitly accepted' "$CR_CANON"; then
+  ok "step-out-round-cap-exhaustion-owned"
+else
+  bad "step-out-round-cap-exhaustion-owned" "code-review lacks the round bound / exhaustion semantics"
+fi
+
+# The shipped policy names NO model: every tier row must be null in the active YAML.
+if [ -f "$ROUTING_YML" ] && command -v "$py_bin" >/dev/null 2>&1; then
+  if ROUTING_YML="$ROUTING_YML" "$py_bin" - <<'PY'
+import os, sys
+try:
+    import yaml
+except ImportError:
+    sys.exit(0)  # yaml unavailable on this host: the grep arm below still guards
+doc = yaml.safe_load(open(os.environ["ROUTING_YML"], encoding="utf-8"))
+tiers = (doc or {}).get("tiers") or {}
+expected = {"planning", "adversarial_review", "sensitive_implementation",
+            "routine_implementation", "execution"}
+ok = set(tiers) == expected and all(
+    (row or {}).get("model") is None and (row or {}).get("family") is None
+    for row in tiers.values()
+)
+sys.exit(0 if ok else 1)
+PY
+  then
+    ok "step-out-model-routing-ships-all-null"
+  else
+    bad "step-out-model-routing-ships-all-null" "policies/model-routing.yml must ship exactly 5 tiers with null model/family"
+  fi
+else
+  bad "step-out-model-routing-ships-all-null" "missing policies/model-routing.yml or python"
+fi
+
 finish

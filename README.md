@@ -89,7 +89,7 @@ flowchart LR
 
 ## Commands & capabilities
 
-Seven slash commands are the only things you invoke directly — everything else is a **skill** that activates automatically when its trigger matches. The tables below are the use-case view; for the phase-mapped trigger view of every skill, see [§ Skill catalog](#skill-catalog).
+Eight slash commands are the only things you invoke directly — everything else is a **skill** that activates automatically when its trigger matches. The tables below are the use-case view; for the phase-mapped trigger view of every skill, see [§ Skill catalog](#skill-catalog).
 
 ### Slash commands
 
@@ -102,8 +102,13 @@ Seven slash commands are the only things you invoke directly — everything else
 | **/token-waste-audit** | Parses this project's transcripts and lists token-waste *candidates* (big reads, re-reads, polling, `large-output`, `repeat-output`) mapped to FR-26. | A session felt expensive → see where the tokens actually went and what to do differently next time. |
 | **/find-wasted-effort** | Audits Flow *artifacts on disk* (gate reports, handoffs, approvals, git log) for ceremony that bought no safety outcome. Read-only; findings are review candidates. | You suspect the process has overhead that isn't earning its keep → spot ceremony to trim (nothing auto-removed). |
 | **/find-wasted-code** | Statically scans the *repo source* (docs, skills, commands, hooks, settings) for friction footguns — dead-end tool calls, broken links, missing helpers, footgun configs, plus a silent-push-through baseline — and writes a tracked report to `docs/wasted-code/report.md`. Manual-trigger only; read-only; findings are review candidates. | Before a release you want to catch the papercuts that make an agent or teammate silently dead-end → get a low-false-positive list of what's broken. |
+| **/step-out** | Unattended-run scheduling for an explicit absence ("I'm stepping out", "run this unattended", "I'll be away"). The grant you type at invocation is recorded verbatim into the run-ledger and continues every authorized, unblocked slice. It opens no gate: an unmet gate or an unanswered product question parks that slice and its dependents while the rest of the run continues. | You have to leave mid-ticket → the run keeps going on everything it is allowed to do, and hands you back a list of exactly what it parked and why. |
 
 These are native Claude Code slash commands. On **Codex, Cursor, Copilot, and Gemini** the same commands work via the `AGENTS.md` command-equivalents table — invoke the named skill, or type the command as text. Codex users who want native `/prompts:<cmd>` can additionally run the per-machine opt-in `bash hooks/local/install-codex-prompts.sh` (user-global, namespaced, Codex-deprecated in favor of skills).
+
+**Invoking `/step-out` safely.** Type the command with the grant in the same message — scope, environment, exclusions and an end condition — for example: `/step-out — away until 18:00 UTC. Authorized: this repo, local commits, the staging deploy. Not authorized: production, pushes, anything touching another product.` Flow records that text verbatim in the run-ledger; it is evidence of the conversation, not an approval artifact, and a later session inherits the ledger but never the grant.
+
+**Optional model routing.** `policies/model-routing.yml` maps five work properties (`planning`, `adversarial_review`, `sensitive_implementation`, `routine_implementation`, `execution`) to a model. Every row ships `null` — the host default — and Flow names no model. Fill in what your host actually offers: `opus`/`sonnet`/`haiku` aliases float with the host, an exact model id pins the choice, and `adversarial_review` prefers a different model family from the implementer when one is reachable (a same-family reviewer shares its blind spots). An absent or unreachable selector is a recorded fallback, never a stopped run, and a tier never grants authority.
 
 ### What the skills do for you
 

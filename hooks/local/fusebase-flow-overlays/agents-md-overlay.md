@@ -22,7 +22,7 @@ Fusebase Flow owns the development lifecycle; existing Fusebase CLI runtime, MCP
 | Gemini-style IDEs | no Flow skill bodies | read both mandatory bodies + role reference |
 | Delegated sub-agent | inherits no mandatory body | delegating prompt supplies required digest; sub-agent reads both bodies + role reference |
 
-Provider adapters point here and to canonical owners; they do not reprint protocol bodies. On-demand skills live in `flow-skills/`; workflows in `workflows/`; policies in `policies/`; hooks in `hooks/`; templates in `templates/`. Portable commands map to their same-named skills; provider command adapters live under `hooks/local/fusebase-flow-overlays/commands/`.
+Provider adapters point here and to canonical owners; they do not reprint protocol bodies. On-demand skills live in `flow-skills/`; workflows in `workflows/`; policies in `policies/`; hooks in `hooks/`; templates in `templates/`. Most portable commands map to their same-named skill; where no such skill exists (`/step-out`), read the canonical command body. Canonical command bodies and provider command adapters both live under `hooks/local/fusebase-flow-overlays/commands/`.
 
 ### Safety and Git
 
@@ -42,6 +42,7 @@ Provider adapters point here and to canonical owners; they do not reprint protoc
 | `/token-waste-audit` | `/token-waste-audit` | `/prompts:token-waste-audit` | invoke the `token-economy` skill |
 | `/find-wasted-effort` | `/find-wasted-effort` | `/prompts:find-wasted-effort` | invoke the `find-wasted-effort` skill |
 | `/find-wasted-code` | `/find-wasted-code` | `/prompts:find-wasted-code` | invoke the `find-wasted-code` skill |
+| `/step-out` | `/step-out` | `/prompts:step-out` | read `hooks/local/fusebase-flow-overlays/commands/step-out.md` |
 
 ### Installation and update safety
 

@@ -34,7 +34,7 @@ finish() { echo "[test-codex-prompt-parity] $pass/$((pass + fail)) PASS"; exit $
 [ -d "$SRC_DIR" ]   || { bad "setup-src-present"       "missing $SRC_DIR"; finish; }
 ok "setup-inputs-present"
 
-COMMANDS=(product-owner onboard handoff fusebase-health token-waste-audit find-wasted-effort find-wasted-code)
+COMMANDS=(product-owner onboard handoff fusebase-health token-waste-audit find-wasted-effort find-wasted-code step-out)
 
 ###############################################################################
 # AC1 — the AGENTS.md command-equivalents table.
@@ -195,6 +195,96 @@ run_install "$CH"
 [ "$RC" -eq 0 ] \
   && ok "ac3-marked-file-not-blocked" \
   || bad "ac3-marked-file-not-blocked" "a now-marked file blocked a plain run (rc=$RC) — collision guard too broad"
+
+###############################################################################
+# AC4 — /step-out routing + limits survive to BOTH shipped surfaces.
+# The command is the only one whose SEMANTICS are safety-relevant (it schedules an
+# unattended run), so parity here means more than "a file exists": the absence
+# triggers, the negative triggers, and the three limits must be present in the
+# canonical body AND in the generated Codex prompt. Without this, adding step-out to
+# COMMANDS above would only prove a filename.
+###############################################################################
+SO_CANON="$SRC_DIR/step-out.md"
+SO_GEN="$CH/prompts/step-out.md"
+
+if [ -f "$SO_CANON" ] && [ -f "$SO_GEN" ]; then
+  ok "ac4-step-out-both-surfaces-present"
+else
+  bad "ac4-step-out-both-surfaces-present" "canonical=$SO_CANON gen=$SO_GEN — one or both missing"
+fi
+
+# POSITIVE triggers: the absence phrases an operator actually types.
+so_missing_pos=""
+for phrase in "stepping out" "unattended" "I'll be away" "end to end"; do
+  grep -qF "$phrase" "$SO_CANON" 2>/dev/null || so_missing_pos="$so_missing_pos|$phrase"
+done
+[ -z "$so_missing_pos" ] \
+  && ok "ac4-absence-triggers-present" \
+  || bad "ac4-absence-triggers-present" "canonical body missing absence trigger(s):$so_missing_pos"
+
+# NEGATIVE triggers: the command must refuse to own attended / read-only work, and
+# must not fire on "end to end" alone. A description that only lists positives
+# over-triggers on every ordinary request.
+so_missing_neg=""
+for phrase in "ordinary attended work" "planning-only/read-only" "without an absence/unattended instruction"; do
+  grep -qF "$phrase" "$SO_CANON" 2>/dev/null || so_missing_neg="$so_missing_neg|$phrase"
+done
+[ -z "$so_missing_neg" ] \
+  && ok "ac4-negative-triggers-present" \
+  || bad "ac4-negative-triggers-present" "canonical body missing negative trigger(s):$so_missing_neg"
+
+# LIMIT 1 — the invocation grant is recorded verbatim and is NOT inherited by a later session.
+if grep -qF "verbatim" "$SO_CANON" 2>/dev/null \
+  && grep -qF "never the grant" "$SO_CANON" 2>/dev/null \
+  && grep -qF "not an approval artifact" "$SO_CANON" 2>/dev/null; then
+  ok "ac4-limit-grant-not-inherited"
+else
+  bad "ac4-limit-grant-not-inherited" "grant verbatim / non-inheritance / not-an-approval-artifact statement missing"
+fi
+
+# LIMIT 2 — the grant does NOT bypass an unmet gate; that slice becomes BLOCKED-AT.
+if grep -qF "clear an unmet Flow gate" "$SO_CANON" 2>/dev/null \
+  && grep -qF 'BLOCKED-AT-<gate>' "$SO_CANON" 2>/dev/null; then
+  ok "ac4-limit-gate-not-bypassed"
+else
+  bad "ac4-limit-gate-not-bypassed" "unmet-gate/BLOCKED-AT limit missing from the command body"
+fi
+
+# LIMIT 3 — an unresolvable question parks only its dependency chain; silence decides nothing.
+if grep -qF "dependency chain" "$SO_CANON" 2>/dev/null \
+  && grep -qF "clearing condition" "$SO_CANON" 2>/dev/null \
+  && grep -qF "Silence is never a decision" "$SO_CANON" 2>/dev/null; then
+  ok "ac4-limit-blocked-dependency-continuation"
+else
+  bad "ac4-limit-blocked-dependency-continuation" "park-the-chain / clearing-condition / silence statement missing"
+fi
+
+# MISSING GRANT — the no-grant path must be explicit, not inferred.
+if grep -qF 'none supplied' "$SO_CANON" 2>/dev/null \
+  && grep -qF 'already-authorized local work' "$SO_CANON" 2>/dev/null; then
+  ok "ac4-missing-grant-path-explicit"
+else
+  bad "ac4-missing-grant-path-explicit" "'none supplied' / already-authorized-only fallback missing"
+fi
+
+# NO SHIPPED MODEL NAMES — the model table is a per-project config read
+# (policies/model-routing.yml), never text in the command.
+so_leaked=""
+for name in Fable Astra Opus Sonnet Haiku GPT-; do
+  grep -qF "$name" "$SO_CANON" 2>/dev/null && so_leaked="$so_leaked $name"
+done
+[ -z "$so_leaked" ] \
+  && ok "ac4-no-model-names-in-command" \
+  || bad "ac4-no-model-names-in-command" "command body ships model name(s):$so_leaked"
+
+# The generated Codex prompt carries the SAME limits (single-source, not a stub).
+so_gen_missing=""
+for phrase in "stepping out" 'BLOCKED-AT-<gate>' "Silence is never a decision" "none supplied"; do
+  grep -qF "$phrase" "$SO_GEN" 2>/dev/null || so_gen_missing="$so_gen_missing|$phrase"
+done
+[ -z "$so_gen_missing" ] \
+  && ok "ac4-generated-prompt-keeps-limits" \
+  || bad "ac4-generated-prompt-keeps-limits" "generated Codex prompt lost:$so_gen_missing"
 
 ###############################################################################
 # AC3+ — marker invariant is TOTAL (Codex LOW, 2026-06-26). A canonical body with
