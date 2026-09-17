@@ -179,6 +179,20 @@ These are native Claude Code slash commands. On **Codex, Cursor, Copilot, and Ge
 
 FuseBase Flow runs natively in your IDE through the FuseBase CLI. There are **no per-token platform fees** -- you pay only for the AI subscription you already have (Claude Code, Codex, Cursor, Gemini, or Copilot).
 
+## How it keeps context cost down
+
+Every rule an agent carries is paid for on *every* turn, so Flow's economy rules (FR-23 documentation budget, FR-25 module size, FR-26 token-efficient execution) target the cost that compounds. Below is what the framework actually does. **This project publishes no percentage, speedup or savings figure** -- it has not run the controlled A/B measurement that would justify one, and an unverified number is exactly the kind of claim its own review rules reject. Every number here is a value you can read out of this repository.
+
+**A small always-resident floor; everything else on demand.** Only `FLOW_RULES.md`, the two mandatory skill bodies, and your role's don't-list are resident at session start. The other skills (34 of them, see [Skill catalog](#skill-catalog)) and the eight [slash commands](#slash-commands) load when their trigger matches. That floor is a gated number, not an aspiration: [`hooks/tests/test-boot-size.sh`](hooks/tests/test-boot-size.sh) fails the build if it exceeds **42,200 bytes**, and the current worst-case role boots at **41,215 bytes**. Raising the ceiling is a recorded decision amendment, never a test edit.
+
+**Pointers instead of copies.** One owner per rule; every other surface cites it rather than restating it. The `/step-out` command is the shape -- **19 lines** of body, almost entirely pointers, plus only the few things that mode alone defines. When the [Karpathy coding guidelines](flow-skills/zoom-out/references/karpathy-guidelines.md) were imported under MIT, the overlapping rules already present in Flow's skills were replaced by references to that single file instead of being duplicated beside it.
+
+**Model routing, so mechanical work need not run on an expensive model.** [`policies/model-routing.yml`](policies/model-routing.yml) maps five work properties -- planning, adversarial review, sensitive implementation, routine implementation, execution -- onto whatever models your host actually offers. It ships **inert**: all five rows are `null`, Flow names no model, and an absent or unreachable selector produces a recorded fallback rather than a stopped run. A tier selects a model; it never grants authority.
+
+**Review spend is bounded rather than open-ended.** Depth follows the change -- independent adversarial review for security-relevant, cross-cutting or HIGH-risk diffs, a focused pass for ordinary ones. Rounds are capped at **2** per change; the count is recorded durably, so a fresh session inherits it instead of restarting the clock, and only you can raise it. Delegated agents return **at most 80 lines and 6,000 characters** -- anything longer is written to an artifact and returned as a path.
+
+**Measure your own project instead of trusting ours.** [`/token-waste-audit`](#slash-commands) parses this project's transcripts for large reads, re-reads and polling loops. [`/find-wasted-effort`](#slash-commands) audits the Flow artifacts on disk for ceremony that bought no safety outcome. Both are read-only and produce candidates for you to judge, not automatic deletions.
+
 ## Coming from ad-hoc agent prompting?
 
 If today you open Claude Code / Codex / Cursor and just say *"build me X"*, you already have everything FuseBase Flow needs -- it doesn't replace your agent, it **gives it a process**:

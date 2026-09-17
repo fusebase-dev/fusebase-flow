@@ -38,3 +38,19 @@ tiers:
 #   reachable: a same-family reviewer shares the implementer's blind spots. When none is
 #   reachable the review still runs and is reported as a same-family review. Family
 #   diversity reduces correlated blind spots; it is never proof of correctness.
+#
+# ONE OPERATOR'S ACTUAL SETUP — a worked example of the above, nothing more.
+# It is NOT a Flow default, NOT a recommendation, and NOT a claim that any of these
+# models exists on, or is reachable from, your host. Copy it only if you have verified
+# every name against your own provider. The shipped rows above stay null.
+#
+#   tiers:
+#     planning:                 { model: "Fable 5.1",   family: null }
+#     adversarial_review:       { model: "GPT-6 Astra", family: null }   # different family from the implementer
+#     sensitive_implementation: { model: "Opus 5",      family: null }
+#     routine_implementation:   { model: "Sonnet 5",    family: null }
+#     execution:                { model: "Haiku 4.5",   family: null }
+#
+# In that setup the implementer is an Anthropic-family model, so the reviewer is
+# deliberately drawn from another vendor. If that reviewer is unreachable the run does
+# not stop — it falls back and reports a same-family review.

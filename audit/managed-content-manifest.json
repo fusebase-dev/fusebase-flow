@@ -1398,7 +1398,7 @@
     },
     {
       "path": "policies/model-routing.yml",
-      "sha256": "94afd455ecdc3cfcb455f13f1188ec155aa362055d07ec0daa9a35f059b918b4"
+      "sha256": "13714790d11cfd7851933f409d761f967e102d3680ab628fa72ce8b91e00086e"
     },
     {
       "path": "policies/module-size-baseline.txt",
@@ -1577,5 +1577,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "87d9279481a53f79c5e5531dff6d7880ac06ece12cca84bc10ea4c8d2e87eb62"
+  "manifest_self_sha256": "8ece29d525439796ef287936a33d6502b5b2f0c8dbb8a448ea04c6f1b03ec72b"
 }
