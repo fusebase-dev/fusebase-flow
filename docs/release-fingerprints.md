@@ -62,6 +62,7 @@ Match your output to either fingerprint column below; both identify the same tre
 | `v5.1` | 5.1 | `310720f8c7c3c91ab059b1db9d1a60ec447886636aabde4ce2524ef837dc94a1` | 390 | `80d06f1c0f6542f9519caeae424e9177cb34f584ed6001a85c75b0436f773a76` | 224 |  <!-- tagged, never published: release gate (run 34764700085) went red on n4-parity-scope on BOTH platforms; publish skipped. Tag immutable, not moved; superseded by the published v5.2. -->
 | `v5.2` | 5.2 | `8f905bba20c0d2b0e5206b9b07abe5c52ceba4603b68286f2645ee981b57cbaf` | 390 | `cf63b165a6f73e5e7a3564b42e37df272493b1e6caa90e65fdc65bf3988502e2` | 224 |  <!-- published: release gate (run 34768968773) green on both platforms; first published two-part release; supersedes the unpublished v5.1. -->
 | `v5.3` | 5.3 | `ef32611c29d0281d0d6c3bc0068bc5ff71747305be1e5a9fa2b45e78f3aa1e47` | 391 | `da3e1246f73891b72140494a0beaf2d7ebb5a2dcca894b6d37b113baa35c3f61` | 224 |  <!-- published: release gate (run 34890398496) green on both platforms. -->
+| `v5.4` | 5.4 | `39e987f2f8917feba53dd7fe4c8edc1fefdf76f6b0ac178976fed216d2b2fe37` | 393 | `b397985e03d82fbbdbcdb4464b53fd3d6df2c0fdd6ce889f99ce264d78993cd1` | 224 |  <!-- published: release gate (run 35266292638) green on both platforms. -->
 
 `v4.9.0`, `v4.9.1`, `v4.10.0`, `v4.15.0`, `v4.15.1`, `v4.15.2`, `v4.16.0` and `v4.16.3` are unpublished tagged
 trees: their release workflows failed (2026-08-12, 2026-08-13, 2026-08-15, 2026-09-07 and 2026-09-10)
