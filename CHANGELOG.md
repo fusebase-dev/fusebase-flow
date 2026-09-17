@@ -4,6 +4,31 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [5.4] — 2026-09-17
+
+**New `/step-out` command for unattended runs, review depth tied to severity with a durable
+two-round cap, and optional model-tier routing.** `/step-out` is the eighth slash command:
+invoked with an explicit absence grant ("I'm stepping out", "run this unattended"), it records
+that grant verbatim in the run-ledger (`docs/tmp/handoff.md`) and continues every authorized,
+unblocked slice. Three limits ship with it — the grant dies with the run (a later session
+inherits the ledger, never the grant); it satisfies "the operator asked" but **opens no gate**,
+so an unmet gate parks that slice as `BLOCKED-AT-<gate>` while the run continues elsewhere; and
+a question it cannot settle read-only is recorded with options and a clearing condition rather
+than guessed. `task-delegation`'s always-loaded description now carries the absence trigger, so
+routing works even for a single simple edit. `code-review` gains § Review depth and severity:
+BLOCKER/HIGH/MEDIUM/LOW grading, independent adversarial review for security-relevant,
+cross-cutting or HIGH-risk diffs and a focused pass otherwise, and a **review round cap of 2
+that is now durably recorded** (in the review record, else the run-ledger) so a fresh session
+inherits the count instead of restarting it — only the operator can raise it, and exhaustion
+never makes a blocker shippable. `task-delegation` gains §§ Model routing · Correction ownership
+· Unattended scheduling; the new `policies/model-routing.yml` maps five work properties to a
+model and **ships inert** — all five rows `null`, Flow names no model, no loader resolves the
+selectors, and an absent or unreachable selector is a recorded fallback that never stops a run.
+A tier selects a model, never authority. README gains "How it keeps context cost down", which
+publishes **no percentage or savings figure** because no controlled measurement exists; every
+number in it is readable out of this repository. **Drop-in from 5.3** — no hook behavior,
+installer, approval, gate or role-boundary change. See `docs/release-notes/v5.4.md`.
+
 ## [5.3] — 2026-09-14
 
 **Agents now follow the four Karpathy coding guidelines, and comment cleanup is scoped to the
