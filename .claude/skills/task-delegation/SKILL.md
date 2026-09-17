@@ -1,6 +1,6 @@
 ---
 name: task-delegation
-description: Use when the operator explicitly asks for delegation, subagents, parallel agents, or when an AI Developer has independent T-task slices that can safely run in parallel. Do NOT use for simple edits, immediate blocking work, deploy commands, production side effects, or Product Owner code-writing.
+description: Use when the operator explicitly asks for delegation, subagents, parallel agents, or when an AI Developer has independent T-task slices that can safely run in parallel. ALSO load on an explicit absence/unattended instruction ("I'm stepping out", "run this unattended", "I'll be away") and route to /step-out first, even when the work is one simple edit. Do NOT use for simple edits, immediate blocking work, deploy commands, production side effects, or Product Owner code-writing; ordinary attended work and planning-only/read-only requests are not absence instructions.
 source_inspiration: conceptual-only
 license_status: clean-room-original
 fusebase_flow_version: 3.1

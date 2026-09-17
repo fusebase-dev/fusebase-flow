@@ -642,7 +642,7 @@
     },
     {
       "path": "hooks/tests/test-codex-plugin-surface.sh",
-      "sha256": "85a40e327ca6d03fbbaef6e533fca6f05eb247701e29d24126cf13521b189454"
+      "sha256": "d4b0d69cf3a1e4c94bb1db78984755fd9822f175e4f8833cbefaec436f93e841"
     },
     {
       "path": "hooks/tests/test-codex-prompt-parity.sh",
@@ -901,5 +901,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "da6fa87b7df272b9896ce566a8e5b63d4309d70b869038d72d984c32ee83dc3b"
+  "manifest_self_sha256": "9cf64ec6e3f19869e8dc3cf326c69639a5a936e5ce906b0a05ee1996bcf1160a"
 }

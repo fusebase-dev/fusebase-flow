@@ -137,7 +137,16 @@ These are review-DEPTH triggers only. They never narrow the FR-21 Full-lane trig
 
 **Rereview by severity.** BLOCKER/HIGH correction → rereview the affected boundary. MEDIUM → focused check of that diff. LOW → the implementer's evidence, unless new evidence changes the classification. A reviewer does not reopen a fixed LOW on the same finding and the same evidence; a newly demonstrated defect is a NEW finding, not a reopened one.
 
-**Round bound.** Round 1 is the initial review, round 2 the correction review — default maximum two per change. A successor agent does not reset the counter. On exhaustion, unresolved findings stay blocked or deferred WITH their evidence — never implicitly accepted — and the actor that declared the bound does not author its own extension.
+**Round bound.** Round 1 is the initial review, round 2 the correction review — default maximum two per change.
+
+**Round accounting is durable and checked BEFORE dispatch (binding).** A bound that exists only in chat cannot be checked before the next dispatch — it is unenforceable the moment the chat rolls over or a successor takes the work (`docs/problem-catalog/adversarial-review-convergence/problem.md`). So:
+
+- The count lives in an artifact this work ALREADY owns — `docs/verification/<slug>-review.md` when a review record is persisted, otherwise the run-ledger `docs/tmp/handoff.md` § Constraints and Guardrails. **Never a new file** (FR-23).
+- One compact line, three fields: change identity (ticket/task + reviewed SHA) · limit · rounds dispatched. Example: `T42 @ 3b1bfaa — review rounds: 1 of 2`.
+- **Read it before launching any review round, and update it as part of that dispatch.** No record found for this change → this is round 1; write the line first.
+- A successor agent INHERITS the count; starting a fresh session, a fresh reviewer, or a fresh chat does not reset it.
+- Only **explicit operator authorization** raises the limit. Not the actor that declared it, not the actor that hit it, and not an agent that merely inherited it — an agent never extends a bound it is subject to.
+- On exhaustion, unresolved findings stay blocked or deferred WITH their evidence, never implicitly accepted. A BLOCKER is still a BLOCKER after round 2; exhaustion returns the work for a budget or scope decision, it does not make anything shippable.
 
 **Persistent LOW work.** Optional and scoped. A LOW cleanup may be one commit only when it is one independently reversible outcome; otherwise leave it parked. Persistent LOW findings go to `docs/backlog/<slug>-low/README.md`, indexed once in `docs/backlog/index.md` — an existing matching ticket wins over a new aggregate.
 
@@ -157,7 +166,7 @@ Diff for T42 adds a retry cap to `sync.ts`; the gate verdict is recorded.
 | Artifact | Path / location | Mode |
 |---|---|---|
 | Review summary | chat output | Mode A |
-| Optional persistent record | `docs/verification/<slug>-review.md` | Mode B (full) |
+| Persistent record — optional, EXCEPT it must carry the round-accounting line whenever it exists (§ Round bound); when it does not exist that line lives in the run-ledger | `docs/verification/<slug>-review.md` | Mode B (full) |
 | Spec alignment matrix | embedded in review summary | Mode B (full, table) |
 
 ## Failure cases

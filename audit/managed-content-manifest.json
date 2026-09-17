@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "20fbc1a093b73a955278846c40e37051ecfa9d21bb78d76667738041bc62dbb5"
+      "sha256": "b9709f38acd5da86979cd23cd2a92f31aae90854682778737f245f239543e004"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -50,7 +50,7 @@
     },
     {
       "path": "flow-skills/code-review/SKILL.md",
-      "sha256": "5f335815228a1e1d6bdcfad76d1a4d779a81f7f7258a09e3a7bbea3159587d41"
+      "sha256": "409f8455b65a8a3ba25126adc8e3113e7181dd0e6fc0f6e2726f409628c4374e"
     },
     {
       "path": "flow-skills/comment-policy/SKILL.md",
@@ -206,7 +206,7 @@
     },
     {
       "path": "flow-skills/task-delegation/SKILL.md",
-      "sha256": "6ddfddbc8faf2c15d8916df3b466dbbc562066c3db13624129127d51fb908c96"
+      "sha256": "b535888327d8dd68c3b16b283e001f46537025f5f13216ca372da724c3182daf"
     },
     {
       "path": "flow-skills/token-economy/SKILL.md",
@@ -454,7 +454,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/commands/step-out.md",
-      "sha256": "1307a479ac5e8799222843bbc64dd9520fcf01a4c9b883cf63bd79f1120d6086"
+      "sha256": "aad3c35d52a228ffa040092f65ab1710ad7b246e57ddd9b472f9e5abbb8d1c39"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/commands/token-waste-audit.md",
@@ -1106,7 +1106,7 @@
     },
     {
       "path": "hooks/tests/test-codex-plugin-surface.sh",
-      "sha256": "85a40e327ca6d03fbbaef6e533fca6f05eb247701e29d24126cf13521b189454"
+      "sha256": "d4b0d69cf3a1e4c94bb1db78984755fd9822f175e4f8833cbefaec436f93e841"
     },
     {
       "path": "hooks/tests/test-codex-prompt-parity.sh",
@@ -1577,5 +1577,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "b5ad8a610992e0bba0297bb5f1eec4c888f4ec8efaecdaf561b5e089868db9f8"
+  "manifest_self_sha256": "87d9279481a53f79c5e5531dff6d7880ac06ece12cca84bc10ea4c8d2e87eb62"
 }
