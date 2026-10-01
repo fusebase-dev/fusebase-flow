@@ -4,6 +4,24 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [5.5] — 2026-09-30
+
+**The upgrade clone stays out of commits, pre-commit lint/typecheck failures name the project's
+command, and `/fusebase-health` flags split `@fusebase/*` installs.** Every `upgrade.sh`,
+`bootstrap-upgrade.sh` and `post-fusebase-update.sh` run now adds `/.fusebase-flow-source/` to
+`.git/info/exclude`, and the template `.gitignore` lists it, so the FuseBase CLI's pre-update
+`git add -A` checkpoint no longer commits the clone as an embedded repository (gitlink, no
+`.gitmodules`); `docs/fusebase-cli-edition.md` gains the cleanup/ESLint section the `AGENTS.md`
+pointer names. The pre-commit BLOCK line for a failing lint or typecheck now quotes the project's
+command and its exit code and says the failure is in the project, not in Flow. In a FuseBase CLI
+project the health check resolves every `@fusebase/*` dependency across `package.json` roots the
+way Node does and prints a verdict-neutral line when one package is installed at more than one
+version (separate SDK copies break `instanceof ApiError`); the advisory section is renamed "CLI
+advisory", and verdict, counts and exit code are unchanged. The split's root cause, `fusebase
+update` rewriting only the root and SPA `package.json`, belongs to the FuseBase CLI. A blocking
+pre-commit SDK version check was considered and not shipped: it would block the CLI's own
+checkpoint commit. **Drop-in from 5.4.** See `docs/release-notes/v5.5.md`.
+
 ## [5.4] — 2026-09-17
 
 **New `/step-out` command for unattended runs, review depth tied to severity with a durable
