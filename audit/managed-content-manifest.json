@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "7ee6255fdfe7037ddb686c7a2a82862e1942f9a3bdf157c1bef763f4a4f6021d"
+      "sha256": "f36b5e14529725ca33c76945e9dfc64a2d0d31484a06b3a4970241dd92557aea"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -578,7 +578,7 @@
     },
     {
       "path": "hooks/local/lib/precommit-validator-reuse.sh",
-      "sha256": "41c1248a1ff23cf165b80ea71f342a0cb5832f89e4e81f07a2df6f53b0ccd77c"
+      "sha256": "b93964a2095edf56a68045692cb72b07042d604a9f56331d25878a26139325c7"
     },
     {
       "path": "hooks/local/lib/preflight-overlay-headings.sh",
@@ -1581,5 +1581,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "a9b03f308e242576df20b0aa47be29a3fe62e706a048c6403d16cfa24a6696d5"
+  "manifest_self_sha256": "b3573a3bd52db5cac705aa924a7590caf172b77171df7fa9a69a4f5a7cb026cb"
 }
