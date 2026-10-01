@@ -4,6 +4,13 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [5.6] — 2026-10-01
+
+**Same changes as 5.5, which was tagged but never published.** GitHub's Windows test runner froze
+during the 5.5 release run, and the run could be neither cancelled nor re-run. 5.6 ships the same
+content with new version strings; see [5.5] below for the changes. **Drop-in from 5.4 or 5.5.** See
+`docs/release-notes/v5.6.md`.
+
 ## [5.5] — 2026-09-30
 
 **The upgrade clone stays out of commits, pre-commit lint/typecheck failures name the project's
