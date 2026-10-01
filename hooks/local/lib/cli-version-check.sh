@@ -66,6 +66,7 @@ FFHC_CLI_BUNDLED_VERSION="0.29.8"
 # verified point — never widen it without evidence for the version you are excusing.
 FFHC_CLI_INCOMPATIBLE_BELOW="0.29.0"
 FFHC_CLI_VERSION_TIMEOUT="${FFHC_CLI_VERSION_TIMEOUT:-10}"
+FFHC_CLI_PACKAGES_TIMEOUT="${FFHC_CLI_PACKAGES_TIMEOUT:-10}"
 
 # ffhc_cli_range_text: the one human-readable policy string, so every message quotes the SAME
 # policy (every outcome must state version found + the bundled snapshot + next step).
@@ -174,4 +175,29 @@ ffhc_cli_version_check() {
   else
     CLI_VERSION_ADVISORY+=("CLI version: installed $found is NEWER than the vendored CLI snapshot $FFHC_CLI_BUNDLED_VERSION. $range. Nothing is known to be broken — a full \`fusebase update\` refreshes these documents from your own CLI. Next step: none required; supply the $found CLI tree to the Flow maintainers if you want the bundled snapshot advanced.")
   fi
+}
+
+# TRIPWIRE: CLI_VERSION_ADVISORY only, never `fusebase update` — it causes the split (F1, docs/changes/2026-09-30-ovation-escalation-f1-f4.md).
+ffhc_cli_package_split_check() {
+  local module line why=""
+  [ -f fusebase.json ] || return 0
+  command -v python3 >/dev/null 2>&1 || return 0
+  module="$(dirname "${BASH_SOURCE[0]}")/fusebase_package_split.py"
+  if [ ! -f "$module" ]; then
+    why="$module is missing"
+  else
+    # TRIPWIRE: the module goes in on stdin — native Windows python3 cannot open an MSYS /c/... path under MSYS_NO_PATHCONV=1.
+    MSYS_NO_PATHCONV=1 ffhc_run_bounded_stdin_stdout "$FFHC_CLI_PACKAGES_TIMEOUT" python3 -I -S - . < "$module"
+    if [ "$FFHC_LAST_TIMED_OUT" -eq 1 ]; then why="timed out after ${FFHC_CLI_PACKAGES_TIMEOUT}s (raise FFHC_CLI_PACKAGES_TIMEOUT)"
+    elif [ "$FFHC_LAST_SKIPPED" -eq 1 ]; then why="skipped, no timeout binary"
+    elif [ "$FFHC_LAST_RC" -ne 0 ]; then why="the scan exited $FFHC_LAST_RC"
+    fi
+  fi
+  if [ -n "$why" ]; then
+    CLI_VERSION_ADVISORY+=("@fusebase/* install check: did not complete — $why. To check by hand, compare node_modules/@fusebase/*/package.json versions across your package.json roots.")
+    return 0
+  fi
+  while IFS= read -r line; do
+    [ -z "$line" ] || CLI_VERSION_ADVISORY+=("$line")
+  done <<< "$FFHC_LAST_OUT"
 }

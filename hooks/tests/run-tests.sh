@@ -76,7 +76,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixtur
   git-context git-context-mutation \
   hook-manifest newline-preserve baseline-merge hook-wiring-intent wire-hooks-beside stamp-eol-guard \
   sync-allowlist policy-state bootstrap-baseline-hop fr22-delivery po-verifiable-boot \
-  po-investigate liveness codex-parity codex-plugin cli-0259 cli-version cli-vendor cli-rendered git-capture-guard secret-scan-staged bootstrap-exception \
+  po-investigate liveness codex-parity codex-plugin cli-0259 cli-version cli-packages cli-vendor cli-rendered git-capture-guard secret-scan-staged bootstrap-exception \
   lane-router lane-workflow \
   trusted-enforcer hook-install-rc msys-tree-cleanup job-probe ws5-upgrade ff-only run-preconditions return-budget \
   supersede-primitive rule-inventory boot-size prohibition-residency startup-context validator-evidence validation-instructions consumer-benchmark wasted-effort-windowing token-waste-classify \
@@ -95,7 +95,7 @@ FF_RELEASE_TAGS=(fixtures git-smoke interpreter-contract python3-version git-con
   upgrade-boundary preboundary-consumed upgrade-repair transient-exclude n5-delivery n6-truthful-base n6-missing-base n6-recover \
   release-authority release-tag-binding cli-flow-recovery cli-flow-recovery-selectors \
   hop-log-truth n4-parity-scope minimal-path-fixture \
-  cli-rendered recovery-hint stamp-eol-guard run-preconditions signal-reap health-check-timeout)
+  cli-rendered cli-packages recovery-hint stamp-eol-guard run-preconditions signal-reap health-check-timeout)
 
 declare -A FF_REGISTERED=(); for t in "${FF_TAGS[@]}"; do FF_REGISTERED[$t]=1; done
 declare -A FF_RELEASE_SET=()
@@ -628,6 +628,7 @@ run_shell_phase test-cli-0259-compat.sh        "cli-0259"
 # because "the health check cannot fail on an incompatible CLI" was the defect. HEAVY (8
 # bounded engine runs), so CI/FF_FULL tier — FF_FAST_TAGS is an allowlist.
 run_shell_phase test-cli-version-gate.sh       "cli-version"
+run_shell_phase test-cli-package-split.sh      "cli-packages"
 # S2: the guarded re-vendor oracle. Preservation is proven BY DELETION and paired with a
 # `--blind` control that destroys the block on the same fixture — a bare "the block is still
 # there" assertion would pass against a hardcoded block. Synthetic CLI trees only.

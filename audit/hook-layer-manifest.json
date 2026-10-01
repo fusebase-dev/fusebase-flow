@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "5.4",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 225,
+  "asset_count": 227,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -78,7 +78,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-health-check.sh",
-      "sha256": "8ff1542e791c85396f95255c6dae6b05e150e6369e80a9bbe3b0202fb04918b8"
+      "sha256": "44e7a528ae7d1431a5ebced128329ed8ae5adedb42ad9c004436aeca77eb1a7d"
     },
     {
       "path": "hooks/local/install-codex-prompts.sh",
@@ -114,7 +114,7 @@
     },
     {
       "path": "hooks/local/lib/cli-version-check.sh",
-      "sha256": "6431e77d7808ac5f0d103aa519f3640ef23519765b9756be914bf4b0ce671757"
+      "sha256": "6a72de339b1f8a17bf79a3ba3dce9b5694a2e08856ea26176201a8b820230260"
     },
     {
       "path": "hooks/local/lib/eol_guard.py",
@@ -123,6 +123,10 @@
     {
       "path": "hooks/local/lib/flow-recovery-plan.sh",
       "sha256": "ff5a4a28f9a4f1b7e7d804d97f28c2555a52c2c40075180b16fc38c3681fc9cb"
+    },
+    {
+      "path": "hooks/local/lib/fusebase_package_split.py",
+      "sha256": "1a3a77b91ecadfb9191f320e7e49127373e1bd46148e15f7c3d934d218823238"
     },
     {
       "path": "hooks/local/lib/git-capture-scan.py",
@@ -134,7 +138,7 @@
     },
     {
       "path": "hooks/local/lib/health-stage-progress.sh",
-      "sha256": "7ad56c8ed94a524508c221e9ca02ce13f3276d455a13b2f4a97c5dc74e6c1418"
+      "sha256": "83b8a01588c31e1da5bc6be8b466e7d5b40a3f80fb7efe7289ea6b7a3adb39aa"
     },
     {
       "path": "hooks/local/lib/hook-integrity-check.sh",
@@ -578,7 +582,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "ca25be6a86f0121f07ac06972753038376a7f24b80db66da3af868425f89a55e"
+      "sha256": "ce81f316f96bd256d63bf3fecbae5dcd45367316e818fe32ecde39fc2ab51443"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -633,6 +637,10 @@
       "sha256": "308f1c7191039b3a986a0f05d3e1612c36d8ee944fba336adb3054c07372317b"
     },
     {
+      "path": "hooks/tests/test-cli-package-split.sh",
+      "sha256": "3716d6df64852791680e0e6bfd4ae92470255b86b16bdb192f88ffec89f08f04"
+    },
+    {
       "path": "hooks/tests/test-cli-vendor-refresh.sh",
       "sha256": "dfbb92aa83b504d0e2a4d42e95fa580d772d2ccda5453f9f057dcaf62edbed4c"
     },
@@ -658,7 +666,7 @@
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
-      "sha256": "f6c15535af533a2a9c7dda7d5909a23e090a1f7f969fc6c95da3e93c1a14b636"
+      "sha256": "1f39bed571b144e78413d127c4b1884836482534b3eb614575faafa8a8a2fd87"
     },
     {
       "path": "hooks/tests/test-fingerprint-row-per-tag.sh",
@@ -905,5 +913,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "4a3a4328d7d255bb04949414da7eecf603abdf5b62a67c56b8f5e7e57c57b430"
+  "manifest_self_sha256": "d2f21242a7d2560259d11f7cae939114abff030a7cd1b0d0d0fdcc93bfd9820c"
 }

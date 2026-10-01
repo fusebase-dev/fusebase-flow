@@ -747,7 +747,7 @@ fi
 # exactly like the approval age warnings below: it cannot change 'Local state (N checks)', the
 # verdict, or the exit code. An adopter whose CLI is newer than our snapshot is not broken.
 if [ "${#CLI_VERSION_ADVISORY[@]}" -gt 0 ]; then
-  echo "CLI version advisory (${#CLI_VERSION_ADVISORY[@]} — informational; NOT part of the verdict, counts, or exit code):"
+  echo "CLI advisory (${#CLI_VERSION_ADVISORY[@]} — informational; NOT part of the verdict, counts, or exit code):"
   for x in "${CLI_VERSION_ADVISORY[@]}"; do echo "  i $x"; done
   echo ""
 fi

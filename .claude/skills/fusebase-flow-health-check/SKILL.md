@@ -63,7 +63,7 @@ Env knobs (seconds; POSIX defaults in parentheses): `FFHC_FETCH_TIMEOUT` (15), `
 |---|---|---:|
 | Below `FFHC_CLI_INCOMPATIBLE_BELOW` (today `0.29.0`) | `CLI_VERSION_UNSUPPORTED` | 1 |
 | Exactly `FFHC_CLI_BUNDLED_VERSION` (today `0.29.8`) | contributes `HEALTHY` | 0 |
-| Anything else — newer, older, unreadable, ambiguous, probe exited non-zero, or `fusebase` not on PATH | `HEALTHY` + a **CLI version advisory** | 0 |
+| Anything else — newer, older, unreadable, ambiguous, probe exited non-zero, or `fusebase` not on PATH | `HEALTHY` + a **CLI advisory** line | 0 |
 
 Every outcome states three things: the version found, the bundled snapshot, and the next step.
 
@@ -74,6 +74,8 @@ Every outcome states three things: the version found, the bundled snapshot, and 
 **`fusebase` absent is likewise exit 0.** CI runners, containers and any machine that only edits the framework have nothing to fix. The advisory is verdict-neutral and, like the approval age warnings, is printed outside every count — it can move neither the verdict nor the exit code.
 
 **Nothing is trusted that was not established.** The probe's exit code must be 0, and the version must be declared on a whole line in one of the two documented shapes (bare `X.Y.Z`, or `FuseBase CLI X.Y.Z`). A version embedded in a banner line, a pre-release/build suffix, a fourth component, trailing text, or two conflicting declarations all read as **not determined** — never as the nearest known version. Softening the outcome to an advisory does not soften this: an advisory reporting a version nobody established is a false claim with a gentler exit code. The incompatibility line is **not** env-overridable — it is the one remaining hard failure, so it is the one that must not be movable.
+
+**Split `@fusebase/*` installs are a CLI advisory too.** With `fusebase.json` at the repo root, `hooks/local/lib/fusebase_package_split.py` resolves each `@fusebase/*` dependency of every `package.json` (skipping `node_modules/` and dot-directories) the way Node does, and prints one line per package installed at more than one version, naming each version's roots — separate SDK copies break `instanceof` checks such as `ApiError`. Verdict, counts and exit code are unchanged. Owner: FuseBase CLI version management; fix: align those `package.json` entries, then `npm install` in each root — never `fusebase update`, which rewrites only the root and SPA `package.json` and is how the split arises. Bounded by `FFHC_CLI_PACKAGES_TIMEOUT` (10 s); a scan that does not complete says so in one advisory line.
 
 ### Advisory signals (informational — never change the verdict or exit code)
 

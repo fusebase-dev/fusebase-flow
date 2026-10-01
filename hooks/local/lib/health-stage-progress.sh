@@ -24,6 +24,10 @@ ffhc_run_cli_version_stage() {
     FFHC_LAST_RC="not-run"
     ffhc_cli_version_check
     ffhc_stage_end "$FFHC_LAST_RC"
+    ffhc_stage_start "cli-packages" "${FFHC_CLI_PACKAGES_TIMEOUT}s"
+    FFHC_LAST_RC="not-run"
+    ffhc_cli_package_split_check
+    ffhc_stage_end "$FFHC_LAST_RC"
   else
     ffhc_stage_start "cli-version" "10s"
     LOCAL_UNVERIFIED+=("CLI version check: UNVERIFIED — missing $library (re-clone or run 'bash hooks/local/upgrade.sh')")
