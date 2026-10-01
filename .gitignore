@@ -70,3 +70,6 @@ docs/wasted-code/
 
 # Backups left beside a file by the flow repair path (numbered .1, .2, ... when one already exists)
 *.pre-flow-repair*
+
+# Transient upstream clone staged by Flow upgrades (docs/fusebase-cli-edition.md)
+/.fusebase-flow-source/

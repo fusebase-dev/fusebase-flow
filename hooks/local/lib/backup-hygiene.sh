@@ -55,11 +55,13 @@ ff_git_exclude_backups() {
     printf '\n' >> "$ex" 2>/dev/null || return 1
   fi
   d="$FF_BACKUP_TS_GLOB"
+  # TRIPWIRE: lines match exactly — editing a shipped one re-appends it to every consumer; post-fusebase-update.sh duplicates this list.
   for line in \
     "# Fusebase Flow upgrade/refresh backups (transient; keep until validated) — never stage them." \
     "*.pre-upgrade-$d" \
     "*.pre-bootstrap-$d" \
-    "*.pre-refresh-$d"; do
+    "*.pre-refresh-$d" \
+    "/.fusebase-flow-source/"; do
     if ! grep -qxF "$line" "$ex" 2>/dev/null; then
       printf '%s\n' "$line" >> "$ex" 2>/dev/null || return 1
     fi

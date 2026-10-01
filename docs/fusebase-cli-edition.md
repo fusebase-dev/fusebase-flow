@@ -131,3 +131,8 @@ After any install or `fusebase update`, run
 | CLI Stop hooks | The FuseBase CLI 0.25.16 wired Stop set — `run-lint-on-stop.sh`, `run-typecheck-on-stop.sh`, `quality-check-apps.js` — runs app lint, typecheck, and quality checks from `.claude/hooks/*` before completion on Claude Code. Flow appends `stop.py` preserve-only (never removing an existing CLI hook). |
 
 Keep the merge additive. Do not overwrite an active downstream `.claude/settings.json`; append or merge after inspection.
+
+## Transient upgrade clone
+
+`.fusebase-flow-source/` is the transient upstream clone that `upgrade.sh` / `bootstrap-upgrade.sh` stage. The shipped `.gitignore` lists `/.fusebase-flow-source/`, and every `upgrade.sh`, `bootstrap-upgrade.sh` and `post-fusebase-update.sh` run writes the same entry to `.git/info/exclude`, so `git add -A` (including the `fusebase update` pre-update checkpoint) never stages it.
+ESLint flat config reads neither file. After an upgrade, delete the clone with `bash hooks/local/cleanup-flow-backups.sh .fusebase-flow-source`, or add it to your ESLint ignores with the opt-in `bash hooks/local/eslint-ignore-flow-paths.sh`.

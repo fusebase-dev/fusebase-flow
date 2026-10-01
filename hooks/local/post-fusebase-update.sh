@@ -116,7 +116,8 @@ ff_git_exclude_backups() {
     "# Fusebase Flow upgrade/refresh backups (transient; keep until validated) — never stage them." \
     "*.pre-upgrade-$d" \
     "*.pre-bootstrap-$d" \
-    "*.pre-refresh-$d"; do
+    "*.pre-refresh-$d" \
+    "/.fusebase-flow-source/"; do
     if ! grep -qxF "$line" "$ex" 2>/dev/null; then
       printf '%s\n' "$line" >> "$ex" 2>/dev/null || return 1
     fi

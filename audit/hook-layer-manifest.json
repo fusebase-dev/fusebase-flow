@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "5.4",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 224,
+  "asset_count": 225,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -106,7 +106,7 @@
     },
     {
       "path": "hooks/local/lib/backup-hygiene.sh",
-      "sha256": "8f54251d25c8db20b07afbbb40c642768d609edafdbe3d67e47d97b218bf6593"
+      "sha256": "895fc7a48bab510eee0dea946d9dfc5bd38f8cb8f31f178c9f4ad54465267cb2"
     },
     {
       "path": "hooks/local/lib/bounded-run.sh",
@@ -242,7 +242,7 @@
     },
     {
       "path": "hooks/local/post-fusebase-update.sh",
-      "sha256": "bc92b505e758dd711ded7dbb5589794c8a1ec42baba2f53dea83790d3a9cb3f9"
+      "sha256": "85a0cce8d2ef145c4bb987575f424e6f9939dde4c60623f51325142d6b9a5c30"
     },
     {
       "path": "hooks/local/preflight.sh",
@@ -578,7 +578,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "35c89b9d8af719c95cea9f09d4bb8e5910482b747ac810c85bfca78a1247c1db"
+      "sha256": "ca25be6a86f0121f07ac06972753038376a7f24b80db66da3af868425f89a55e"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -658,7 +658,7 @@
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
-      "sha256": "ae7d30aa2d6e26fe6099e3191d6b54b8ec85b886c03d23bbeb25d47211d23be0"
+      "sha256": "f6c15535af533a2a9c7dda7d5909a23e090a1f7f969fc6c95da3e93c1a14b636"
     },
     {
       "path": "hooks/tests/test-fingerprint-row-per-tag.sh",
@@ -845,6 +845,10 @@
       "sha256": "27d7a016a5a3fcd24f2c6b91e1fe66f28daa1af13777ba573d509174efbd34c5"
     },
     {
+      "path": "hooks/tests/test-transient-exclude.sh",
+      "sha256": "8a4145e2973ddbf33587e6185e2a75d6152f2776060d7fb385029005ef618820"
+    },
+    {
       "path": "hooks/tests/test-trusted-enforcer.sh",
       "sha256": "82ea616cfefe9f11b7b2456ecc1fe9091472844ecb13eb0d8ab509d194cdf055"
     },
@@ -901,5 +905,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "b397985e03d82fbbdbcdb4464b53fd3d6df2c0fdd6ce889f99ce264d78993cd1"
+  "manifest_self_sha256": "4525cf838d407dfddd2a7e025a7009e5db593ebfee09919b844d6a079cb4a415"
 }
