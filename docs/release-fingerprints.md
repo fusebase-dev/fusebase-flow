@@ -64,6 +64,7 @@ Match your output to either fingerprint column below; both identify the same tre
 | `v5.3` | 5.3 | `ef32611c29d0281d0d6c3bc0068bc5ff71747305be1e5a9fa2b45e78f3aa1e47` | 391 | `da3e1246f73891b72140494a0beaf2d7ebb5a2dcca894b6d37b113baa35c3f61` | 224 |  <!-- published: release gate (run 34890398496) green on both platforms. -->
 | `v5.4` | 5.4 | `39e987f2f8917feba53dd7fe4c8edc1fefdf76f6b0ac178976fed216d2b2fe37` | 393 | `b397985e03d82fbbdbcdb4464b53fd3d6df2c0fdd6ce889f99ce264d78993cd1` | 224 |  <!-- published: release gate (run 35266292638) green on both platforms. -->
 | `v5.5` | 5.5 | `cbd8481fc1d5295a8fcd1051e6f391ae641d89231dec4dab114a8dace2b93ad4` | 396 | `8bb6f0b4b3a813dc76d249abf17e643716fd680b51243ed35de6228b346c491a` | 227 |  <!-- tagged, never published: release gate (run 36802723787) froze on verify-windows-msys (hook-test step cancelled during approval-schema3; cancel and force-cancel returned 409; the 60-min job timeout never finalized the run); verify-linux green; publish not reached. Tag immutable, not moved; same content re-released as v5.6. -->
+| `v5.6` | 5.6 | `a484702b8d994726228407a80c733dc6ba6e931b48b63d921ea49233d80405fb` | 396 | `a8e731e9332016972459b820b4a684e35d1fd724c44d39ef67475d11e424d16a` | 227 |  <!-- published: release gate (run 36811847948) green on both platforms; supersedes the unpublished v5.5. -->
 
 `v4.9.0`, `v4.9.1`, `v4.10.0`, `v4.15.0`, `v4.15.1`, `v4.15.2`, `v4.16.0` and `v4.16.3` are unpublished tagged
 trees: their release workflows failed (2026-08-12, 2026-08-13, 2026-08-15, 2026-09-07 and 2026-09-10)

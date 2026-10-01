@@ -1,6 +1,6 @@
 # Ovation escalation F1-F4
 
-**Outcome:** close the Ovation Benchmarking consumer escalation (2026-09-30) with three independently reversible fixes and one declined item. **Authorization:** operator "go + release" in the PO chat, 2026-09-30; "1. Publish as 5.6 (Recommended)", 2026-10-01. **Release target:** v5.6. **Status:** v5.5 tagged (c78e283 -> ac293c1), not published: GitHub run 36802723787 stuck (Windows runner froze; cancel/force-cancel 409; job timeout did not finalize); shipping as v5.6.
+**Outcome:** close the Ovation Benchmarking consumer escalation (2026-09-30) with three independently reversible fixes and one declined item. **Authorization:** operator "go + release" in the PO chat, 2026-09-30; "1. Publish as 5.6 (Recommended)", 2026-10-01. **Release target:** v5.6. **Status:** released v5.6 — tag `40c30d8` -> `8c62004`, release run 36811847948 green on both platforms, https://github.com/fusebase-dev/fusebase-flow/releases/tag/v5.6. v5.5 tagged (c78e283 -> ac293c1), not published: GitHub run 36802723787 stuck (Windows runner froze; cancel/force-cancel 409; job timeout did not finalize); shipping as v5.6.
 
 | Item | Outcome | Boundary | Success / failure example | Result |
 |---|---|---|---|---|
