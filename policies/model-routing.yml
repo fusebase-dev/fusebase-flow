@@ -45,12 +45,19 @@ tiers:
 # every name against your own provider. The shipped rows above stay null.
 #
 #   tiers:
-#     planning:                 { model: "Fable 5.1",   family: null }
-#     adversarial_review:       { model: "GPT-6 Astra", family: null }   # different family from the implementer
-#     sensitive_implementation: { model: "Opus 5",      family: null }
-#     routine_implementation:   { model: "Sonnet 5",    family: null }
-#     execution:                { model: "Haiku 4.5",   family: null }
+#     planning:                 { model: "claude-opus-5-5", family: null }  # Opus 5.5, extra-high effort
+#     adversarial_review:       { model: "gpt-6-astra",     family: null }  # GPT-6 Astra, high effort
+#     sensitive_implementation: { model: "claude-opus-5-5", family: null }  # Opus 5.5, high effort
+#     routine_implementation:   { model: "claude-opus-5-5", family: null }  # Opus 5.5, high effort
+#     execution:                { model: "claude-opus-5-5", family: null }  # Opus 5.5, high effort
 #
-# In that setup the implementer is an Anthropic-family model, so the reviewer is
-# deliberately drawn from another vendor. If that reviewer is unreachable the run does
-# not stop — it falls back and reports a same-family review.
+# - Effort is a session setting, not a key in this file (task-delegation § Model routing),
+#   so it appears only as a comment.
+# - For real decisions this operator also plans with Fable 5.1 (`claude-fable-5-1`).
+# - `adversarial_review` is a different family from the implementer. Its backup is GPT-6.1 Sol
+#   (`gpt-6.1-sol`), switched in by hand: the schema holds one model per tier.
+# - `gpt-6.1-sol` is listed only by Codex CLI 0.160.0 or later (`codex debug models`).
+#
+# In that setup every implementation tier is an Anthropic-family model, so the reviewer
+# is deliberately drawn from another vendor (OpenAI). If no OpenAI reviewer is reachable
+# the run does not stop — it falls back and reports a same-family review.
