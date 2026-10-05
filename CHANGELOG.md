@@ -4,6 +4,15 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [5.7] — 2026-10-05
+
+**The model-routing worked example names current models.** The commented example in
+`policies/model-routing.yml` now shows one operator's current setup: Opus 5.5
+(`claude-opus-5-5`) for planning, implementation and execution, and GPT-6 Astra (`gpt-6-astra`)
+for adversarial review with GPT-6.1 Sol (`gpt-6.1-sol`) as its backup, with effort noted as
+comments. It is still an example only: the five shipped rows stay `null` and `/step-out` names no
+model. **Drop-in from 5.6.** See `docs/release-notes/v5.7.md`.
+
 ## [5.6] — 2026-10-01
 
 **Same changes as 5.5, which was tagged but never published.** GitHub's Windows test runner froze
