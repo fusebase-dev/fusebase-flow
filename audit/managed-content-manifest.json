@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "33e7355ea5e56d7514f630e24d12ebc5aa8b767b235f3720b4ac8c0fcb37dd32"
+      "sha256": "ce595c41ada34674ba846a44f8431df4c1c8cde0dff120a0e4fcc604899168ee"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -210,7 +210,7 @@
     },
     {
       "path": "flow-skills/token-economy/SKILL.md",
-      "sha256": "6678682811237541e1a8c0761569a34d0a48e6fcc0e82a9c2853676ebbaf1e4a"
+      "sha256": "833cf39153acf2866b9893a8cea4c38f11f25a2202e0d6a49d25333b63e6edbc"
     },
     {
       "path": "flow-skills/validation-and-qa/SKILL.md",
@@ -1030,7 +1030,7 @@
     },
     {
       "path": "hooks/tests/fixtures/token_waste_a2.py",
-      "sha256": "b763d91084a713ba65abfbdb434b3650c747a1d3d977b16ec6aabd7af817ccc6"
+      "sha256": "4d1b65b81db85fbab42012d0acb8975e18e92d17db18201302261f72bc954a2c"
     },
     {
       "path": "hooks/tests/health-check-heartbeat.sh",
@@ -1370,7 +1370,7 @@
     },
     {
       "path": "hooks/tests/test-token-waste-classify.sh",
-      "sha256": "7e1fbdc6cb4e550bac08405a7d9ee894b8642b4be362b4998ddc70613cbbd26b"
+      "sha256": "9955046b826de37f697a5169f1c2d9f675e806dc5045a0e25227ce4140bf3ad2"
     },
     {
       "path": "hooks/tests/test-transient-exclude.sh",
@@ -1629,5 +1629,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "eea25f211188441610b6c342628b389a72bf4ac9823d9161241fbf1164f26fc0"
+  "manifest_self_sha256": "cf0d4f15a4f9d90c3304a1fe0dedadf21d9b9114303c54c5773eb85aed2f4c87"
 }

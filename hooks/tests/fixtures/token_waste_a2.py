@@ -276,6 +276,24 @@ for name, doc in (("skill", root / "flow-skills/token-economy/SKILL.md"),
     check("a2-doc-%s-cost-sections-and-cap" % name, all(text in body for text in (
         "2026-10", "subscription billing differs", "context-residency", "cache-rewrite",
         "Polling", "unpriced", "N more suppressed (session cap)")))
+skill = (root / "flow-skills/token-economy/SKILL.md").read_text(encoding="utf-8")
+measure = skill.split("## Measure it\n", 1)[1].split("## Growth rule\n", 1)[0]
+check("a2-doc-operator-levers-fresh-session", all(text in measure for text in (
+    "| Operator lever (Claude Code; documented, not defaulted) | When | Note |",
+    "| Continue from the handoff in a fresh session | returning after more than ~1 h away |",
+    "a fresh session writes only the floor + handoff (FR-17 rotation)")))
+check("a2-doc-operator-levers-compaction", all(text in measure for text in (
+    "`autoCompactWindow` / `CLAUDE_CODE_AUTO_COMPACT_WINDOW` (100k–1M; the env var takes a plain integer such as `500000`)",
+    "the main transcript's row in § Context residency peaks ≥500k",
+    "a compaction point, never a cap on the work",
+    "effect on sub-agents unverified")))
+check("a2-doc-operator-levers-main-wake", all(text in measure for text in (
+    "| Main-session wake interval up to 15 min |",
+    "`cache-rewrite` rows show the main session on `1h`; the operator says so in chat",
+    "sub-agents stay at ≤4 min (`liveness-discipline` § Wake interval)")))
+check("a2-doc-operator-levers-subagent-ttl", all(text in measure for text in (
+    "| 1h cache TTL for sub-agents | — | NOT recommended:",
+    "every write costs 2× instead of 1.25×, more than the measured re-write savings (2026-10)")))
 check("a2-shell-checks-neutral-names", "round1-" not in (
       root / "hooks/tests/test-token-waste-classify.sh").read_text(encoding="utf-8"))
 print("[token-waste-a2-native] %d/%d PASS" % (passed, passed + failed))

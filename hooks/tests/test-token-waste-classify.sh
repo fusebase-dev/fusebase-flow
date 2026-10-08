@@ -240,7 +240,10 @@ for assertion in a2-mixed-main-exact-category-costs a2-mixed-sub-exact-category-
     a2-report-private-content-absent a2-session-cap-retains-image-reread \
     a2-cap-mutation-hiding-image-reread a2-session-cap-retains-re-read a2-cap-mutation-hiding-re-read \
     a2-session-cap-retains-rewrite a2-cap-mutation-hiding-rewrite a2-cap-retention-flood-active \
-    a2-doc-skill-cost-sections-and-cap a2-doc-command-cost-sections-and-cap a2-shell-checks-neutral-names; do
+    a2-doc-skill-cost-sections-and-cap a2-doc-command-cost-sections-and-cap \
+    a2-doc-operator-levers-fresh-session a2-doc-operator-levers-compaction \
+    a2-doc-operator-levers-main-wake a2-doc-operator-levers-subagent-ttl \
+    a2-shell-checks-neutral-names; do
     says "guard-$assertion" "$A2_CHECKS" "PASS: token-waste-classify $assertion"
 done
 
