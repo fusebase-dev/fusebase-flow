@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "5.7",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 404,
+  "asset_count": 406,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "8c6d02e0cffe7e2e8fc1a7573f6c3296f8209a3d36c99fb3bf17cce1f8649913"
+      "sha256": "6537cba741a39f205f48ca4ecb3762023647af026e0aa74658180377521919d4"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -210,7 +210,7 @@
     },
     {
       "path": "flow-skills/token-economy/SKILL.md",
-      "sha256": "55ddac621104e40da1211beb56a013e44661b59d120abdf202102f38567defc6"
+      "sha256": "53c5a1b5aab6cb8afca1c31743436f6f506b260afeab96f705bcf9c8c1721d85"
     },
     {
       "path": "flow-skills/validation-and-qa/SKILL.md",
@@ -458,7 +458,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/commands/token-waste-audit.md",
-      "sha256": "dbc5a06be19ff495b582d995b90bdbd1cfc1827531bc74583426945bf273584d"
+      "sha256": "828dc3be0e586742749ebf40b192e00b244cb286b0b8a2d73d548d0ad91db3fc"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/overlay-block-replace.py",
@@ -698,15 +698,19 @@
     },
     {
       "path": "hooks/local/token_waste_audit/classification.py",
-      "sha256": "55ced03bd1a3a033758d0b04a5cb1e2bd88d427efec3c53e2822e935f82330a4"
+      "sha256": "8e9bfef87b4e959370b8113721bca9d92224be420f4f8d96b2a5be3a8d4711ac"
     },
     {
       "path": "hooks/local/token_waste_audit/cli.py",
-      "sha256": "e5e467d598f0ac20806644efa4956ab7b59fa00a862f5cf61e1622036aa25273"
+      "sha256": "8f5003ebb8e05ee38167f8f6cae9bbf0abd2d0e4f739f51432af95ee45c05394"
     },
     {
       "path": "hooks/local/token_waste_audit/common.py",
-      "sha256": "a5088dfd53b75a05b83250c6c120a0a9a338e077363b69b5c07f10966624d26d"
+      "sha256": "afd7abf0ff69e73c422c61cc48ff9b34f027d4ca91af37d29193c9624942e6d2"
+    },
+    {
+      "path": "hooks/local/token_waste_audit/costing.py",
+      "sha256": "91213553cc88a6b8ad93d00f14057cda813fd5f7d32524abb7abc967b6c1868c"
     },
     {
       "path": "hooks/local/token_waste_audit/images.py",
@@ -714,11 +718,11 @@
     },
     {
       "path": "hooks/local/token_waste_audit/parsing.py",
-      "sha256": "1d89d70c055d5cb6ad45ec10da050916cd733d14e57a422dc1a0f00c77279792"
+      "sha256": "938c7472e18dcacce2f794f54af5d3604ffc795556c3b70eea5947d097f66056"
     },
     {
       "path": "hooks/local/token_waste_audit/reporting.py",
-      "sha256": "26ed9fa5ef09ad11b9cbc011ab444e8e0d033840a1b025d84c471343b58ac7f6"
+      "sha256": "121792064185020b78eed9f57eae5eb2667ebacdfe421aefbdf35d892ba1c4ba"
     },
     {
       "path": "hooks/local/upgrade-engine.sh",
@@ -1023,6 +1027,10 @@
     {
       "path": "hooks/tests/fixtures/token_waste_a1.py",
       "sha256": "d31ad742a0b1a3dcd9152a087f1c3069c88311e146e3927d11cee54437c48ff3"
+    },
+    {
+      "path": "hooks/tests/fixtures/token_waste_a2.py",
+      "sha256": "081e37a92473b39a26c3fd053bc74fa4ace9d12774bae4134300446e05314e85"
     },
     {
       "path": "hooks/tests/health-check-heartbeat.sh",
@@ -1362,7 +1370,7 @@
     },
     {
       "path": "hooks/tests/test-token-waste-classify.sh",
-      "sha256": "836a9ec90ba1a6eefd81ed00dc07e2d35d8b0ff050206572ac2f85be38abe361"
+      "sha256": "59c1170a927d19024231228f30d8a76ed6b429f11a7346f304af84a3630a33a1"
     },
     {
       "path": "hooks/tests/test-transient-exclude.sh",
@@ -1621,5 +1629,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "899bc25bc2c35aff4f39f2216ca4112d1e5da35ec03fb0e1a45e26e5546e891e"
+  "manifest_self_sha256": "e81d3eb17d0ae1e9e8c09cbba51938e783a8917e2c7121368617e0fb9e845213"
 }

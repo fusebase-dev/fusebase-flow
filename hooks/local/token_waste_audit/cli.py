@@ -1,13 +1,16 @@
 from .common import DEFAULT_LAST, CLASSIFIED, git_root, locate_transcript_dir, munge
 from .parsing import parse_selected_session, usage_totals, transcripts
 from .classification import selected_findings
+from .costing import cost_section, context_section
 from .reporting import (build_report, fallback_summary, terminal_state, TERMINAL_NO_DATA,
                         combined_totals)
 import argparse
 import datetime
+import sys
 from pathlib import Path
 
 def main():
+    sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser(description="FR-26 token-waste audit (deterministic transcript parser)")
     ap.add_argument("--last", type=int, default=DEFAULT_LAST, metavar="N",
                     help="audit the N most recently modified sessions (default %d)" % DEFAULT_LAST)
@@ -46,6 +49,8 @@ def main():
     except OSError as exc:
         wrote = "(write failed: %s)" % exc
 
+    print("\n".join(cost_section(sessions)))
+    print("\n".join(context_section(sessions)))
     print("[token-waste-audit] sessions: %d | report: %s" % (len(sessions), wrote))
     print("")
     print("| Session | Requests | Output tokens | Cache read | Cache creation | Tool-result chars (~tokens) |")
@@ -77,9 +82,10 @@ def main():
                 counts[f.cls] = counts.get(f.cls, 0) + 1
     print("")
     print("LIVE candidates (MAY indicate -- see report header for false-positive classes): "
-          "re-read %d | polling %d | whole-file-rewrite %d | large-output %d | repeat-output %d | image-reread %d" % (
+          "re-read %d | polling %d | whole-file-rewrite %d | large-output %d | repeat-output %d | image-reread %d | context-residency %d | cache-rewrite %d" % (
               counts["re-read"], counts["polling"], counts["rewrite"],
-              counts["large-output"], counts["repeat-output"], counts.get("image-reread", 0)))
+              counts["large-output"], counts["repeat-output"], counts.get("image-reread", 0),
+              counts.get("context-residency", 0), counts.get("cache-rewrite", 0)))
     for session, cls, count in suppressed:
         print("%s | %s: %d more suppressed (session cap)" % (session["file"], cls, count))
     # AC17/AC18: dismissals are counted apart from live findings and every one prints the

@@ -20,7 +20,7 @@ WRITE_TOOLS = {"Edit", "Write", "NotebookEdit"}
 # Both are the association A8/AC15 requires — `target` is a <=100-char display snippet
 # and must never be used as a classification key.
 ToolResult = namedtuple("ToolResult", "chars name target digest key seq err")
-Finding = namedtuple("Finding", "cls desc rule status label evidence rank", defaults=[()])
+Finding = namedtuple("Finding", "cls desc rule status label evidence rank cost details", defaults=[(), None, ""])
 
 LIVE = "live"
 CLASSIFIED = "auto-classified"
@@ -76,7 +76,8 @@ FALSE_POSITIVE_HEADER = (
     "that is itself the subject of the task, deliberate FR-10 reproduction "
     "evidence, and a one-time large diagnostic report written to disk then read once. "
     "For repeat-output: a deliberately re-run command's fresh (different) output and "
-    "FR-10 reproduction reruns are not re-sends of the same body."
+    "FR-10 reproduction reruns are not re-sends of the same body. "
+    "context-residency/cache-rewrite are cost signals, not proof that the work was unnecessary."
 )
 
 

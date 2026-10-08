@@ -46,6 +46,9 @@ def parse_session(path):
         "usage_no_request": [],
         "requests_by_id": {},
         "requests_no_id": [],
+        "tool_requests": {},
+        "bash_requests": {},
+        "compactions": 0,
         "images": [],
         "image_only_read_seqs": set(),
         "subagents": [],
@@ -58,6 +61,7 @@ def parse_session(path):
         "compaction_seqs": [],        # event index of each compaction marker
         "bash_runs": {},              # norm cmd -> max consecutive-without-write run
         "large_writes": [],           # (path, content_chars)
+        "large_write_seqs": [],
         "seen_tool_ids": set(),
     }
     tool_meta = {}                    # tool_use id -> (name, target, full key, seq)
@@ -66,6 +70,7 @@ def parse_session(path):
     seen_result_ids = set()           # tool_use_id of results already counted (no double-count)
     seq = 0                           # monotonic event index: line-level, then per block
     cwd = ""                          # last-seen transcript cwd; roots relative tool paths
+    request_starts = {}
     with path.open(encoding="utf-8", errors="replace") as fh:
         for line in fh:
             line = line.strip()
@@ -85,17 +90,23 @@ def parse_session(path):
             # assistant/user filter, or the marker is never seen.
             if is_compaction_marker(obj):
                 s["compaction_seqs"].append(seq)
+            if obj.get("type") == "system" and obj.get("subtype") == "compact_boundary":
+                s["compactions"] += 1
             if obj.get("type") not in LINE_TYPES:
                 continue
             msg = obj.get("message")
             if not isinstance(msg, dict):
                 continue
             if obj["type"] == "assistant":
+                rid = obj.get("requestId")
+                request_key = rid or ("no-id", seq)
+                request_starts.setdefault(request_key, (obj.get("timestamp"), seq))
                 usage = msg.get("usage")
                 if isinstance(usage, dict):
-                    rid = obj.get("requestId")
                     request = {"request_id": rid, "usage": usage,
-                               "timestamp": obj.get("timestamp"), "model": msg.get("model")}
+                               "key": request_key,
+                               "timestamp": request_starts[request_key][0],
+                               "seq": request_starts[request_key][1], "model": msg.get("model")}
                     # One API request streams many assistant lines repeating the same
                     # usage object — naive summing overcounts ~2.4x; keep last per requestId.
                     if rid:
@@ -115,6 +126,7 @@ def parse_session(path):
                         if tid:
                             s["seen_tool_ids"].add(tid)
                         seq += 1
+                        s["tool_requests"][seq] = request_key
                         name = block.get("name") or "?"
                         tin = block.get("input") if isinstance(block.get("input"), dict) else {}
                         key = None
@@ -132,6 +144,7 @@ def parse_session(path):
                             bash_counts.clear()
                         if name in ("Bash", "PowerShell"):
                             norm = " ".join(str(tin.get("command", "")).split())
+                            s["bash_requests"].setdefault(norm, set()).add(request_key)
                             bash_counts[norm] = bash_counts.get(norm, 0) + 1
                             if bash_counts[norm] > s["bash_runs"].get(norm, 0):
                                 s["bash_runs"][norm] = bash_counts[norm]
@@ -140,6 +153,7 @@ def parse_session(path):
                             content_len = len(str(tin.get("content", "")))
                             if canon_path(fp, cwd) in seen_paths and content_len >= LARGE_WRITE_CHARS:
                                 s["large_writes"].append((snippet(str(fp), keep_tail=True), content_len))
+                                s["large_write_seqs"].append(seq)
                         if fp:
                             seen_paths.add(canon_path(fp, cwd))
             else:  # user line; tool results live in message.content, never top-level toolUseResult

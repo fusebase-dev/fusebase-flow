@@ -5,6 +5,8 @@ from .common import (LIVE, CLASSIFIED, FR10_TRIPLE, READ_REPEAT_MIN,
                      TEST_DIR_PREFIX, Finding, snippet, is_output_heavy)
 import shlex
 from .parsing import transcripts
+from .costing import (request_index, payload_cost, sum_known, polling_cost,
+                      cache_rewrite_findings, residency_finding, cost_order)
 
 def monotonic_growth(sizes):
     return all(a <= b for a, b in zip(sizes, sizes[1:])) and sizes[-1] > sizes[0]
@@ -141,6 +143,7 @@ def classify_bash(cmd, n, probe_cmds=()):
 
 def session_findings(s, probe_cmds=()):
     f = []
+    index = request_index(s)
     for key, n in sorted(s["read_counts"].items(), key=lambda kv: -kv[1]):
         events = s["read_events"].get(key, [])
         if len(events) == n and all(e[0] in s.get("image_only_read_seqs", ()) for e in events):
@@ -153,42 +156,51 @@ def session_findings(s, probe_cmds=()):
             f.append(Finding("re-read", "Read x%d identical window: %s%s" % (n, snippet(fp, keep_tail=True), win),
                              "FR-26 TE-02 — no re-reads of unchanged in-context files",
                              status, "growing-source-tail" if status == CLASSIFIED else "",
-                             evidence))
+                             evidence, (), sum_known([payload_cost(s, index, e[0], e[1] / 4)
+                                                       for e in events])))
     for cmd, n in sorted(s["bash_runs"].items(), key=lambda kv: -kv[1]):
         if n >= BASH_REPEAT_MIN and cmd:
             status, label, evidence = classify_bash(cmd, n, probe_cmds)
+            wakes, tokens, cost = polling_cost(s, cmd)
+            wake_text = "%d wakes; context sum %d tokens (cache-read rate estimate)" % (
+                wakes, tokens) if wakes else ""
             f.append(Finding("polling", "Bash x%d (no intervening Edit/Write): %s" % (n, snippet(cmd)),
                              "FR-26 TE-08 — record-then-read (smoke-testing § Verification cost discipline)",
-                             status, label, evidence))
-    for fp, chars in s["large_writes"]:
+                             status, label, evidence, (), cost, wake_text))
+    for i, (fp, chars) in enumerate(s["large_writes"]):
+        seqs = s.get("large_write_seqs", [])
+        cost = payload_cost(s, index, seqs[i], chars / 4, "output") if i < len(seqs) else None
         f.append(Finding("rewrite", "Write %d chars to pre-existing path: %s" % (chars, fp),
-                         "FR-26 TE-06 — targeted edits over whole-file rewrites", LIVE, "", ""))
+                         "FR-26 TE-06 — targeted edits over whole-file rewrites", LIVE, "", "", (), cost))
     # TRIPWIRE: cap across main + agents in selected_findings, never per transcript.
     large = sorted(
-        ((r.chars, r.name, r.target) for r in s["tool_results"]
+        ((r.chars, r.name, r.target, r.seq) for r in s["tool_results"]
          if r.chars >= LARGE_TOOL_RESULT_CHARS and is_output_heavy(r.name)),
         key=lambda r: (-r[0], r[1], r[2]),
     )
-    for chars, name, target in large:
+    for chars, name, target, seq in large:
+        cost = payload_cost(s, index, seq, chars / 4)
         f.append(Finding("large-output",
                          "Tool result %d chars (~%d tokens): %s %s" % (chars, chars // 4, name, target),
                          "FR-26 TE-11/TE-17 — extract/scope/filter before reasoning over large output",
-                         LIVE, "", "", (-chars, name, target)))
+                         LIVE, "", "", (-chars, name, target), cost))
     # repeat-output: the SAME large body re-sent across turns (identical fingerprint).
     # One finding per recurring digest (count = times seen) — references-not-re-sends.
     by_digest = {}
     for r in s["tool_results"]:
         if r.chars >= LARGE_TOOL_RESULT_CHARS and is_output_heavy(r.name):
-            by_digest.setdefault(r.digest, []).append((r.chars, r.name, r.target))
+            by_digest.setdefault(r.digest, []).append(r)
     repeats = sorted(
-        ((len(v), v[0][0], v[0][1], v[0][2]) for v in by_digest.values() if len(v) >= REPEAT_OUTPUT_MIN),
+        ((len(v), v[0].chars, v[0].name, v[0].target, digest)
+         for digest, v in by_digest.items() if len(v) >= REPEAT_OUTPUT_MIN),
         key=lambda r: (-r[0], -r[1], r[2], r[3]),
     )
-    for n, chars, name, target in repeats:
+    for n, chars, name, target, digest in repeats:
+        cost = sum_known([payload_cost(s, index, r.seq, r.chars / 4) for r in by_digest[digest]])
         f.append(Finding("repeat-output",
                          "Identical large result x%d (~%d chars each): %s %s" % (n, chars, name, target),
                          "FR-26 TE-07 — reference an in-context body by its handle, don't re-send it",
-                         LIVE, "", "", (-n, -chars, name, target)))
+                         LIVE, "", "", (-n, -chars, name, target), cost))
     images_by_digest = {}
     for image in s.get("images", []):
         if image["digest"]:
@@ -199,7 +211,10 @@ def session_findings(s, probe_cmds=()):
             f.append(Finding("image-reread", "Identical image x%d: %s %s" % (
                 len(images), first["name"], first["target"]),
                 "FR-26 TE-02 — no re-reads of unchanged in-context files", LIVE, "",
-                "same image bytes delivered repeatedly in this transcript"))
+                "same image bytes delivered repeatedly in this transcript", (),
+                sum_known([payload_cost(s, index, image["seq"], image["tokens"])
+                           for image in images])))
+    f.extend(cache_rewrite_findings(s))
     return f
 
 
@@ -208,11 +223,14 @@ def selected_findings(sessions, probe_cmds=()):
     for session in sessions:
         found = [(s, f) for s in transcripts([session])
                  for f in session_findings(s, probe_cmds)]
-        kept = [(s, f) for s, f in found if f.cls not in ("large-output", "repeat-output")]
-        for cls in ("large-output", "repeat-output"):
+        residency = residency_finding(session)
+        if residency:
+            found.append((session, residency))
+        kept = [(s, f) for s, f in found if f.cls not in ("large-output", "repeat-output", "cache-rewrite")]
+        for cls in ("large-output", "repeat-output", "cache-rewrite"):
             ranked = sorted(((s, f) for s, f in found if f.cls == cls), key=lambda item: item[1].rank)
             kept.extend(ranked[:TOP_SINKS])
             if len(ranked) > TOP_SINKS:
                 suppressed.append((session, cls, len(ranked) - TOP_SINKS))
-        selected.append((session, kept))
+        selected.append((session, sorted(kept, key=cost_order)))
     return selected, suppressed

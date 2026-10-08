@@ -207,7 +207,40 @@ for assertion in a1-session-large-output-cap a1-session-repeat-output-cap \
     a1-cli-safe-path-env a1-cli-safe-path-P a1-cli-safe-path-I \
     a1-cli-main-only a1-main-only-report-omits-agent-tables \
     a1-image-table-only-nonzero-plus-total a1-image-table-zero-total-only; do
-    says "round1-$assertion" "$A1_CHECKS" "PASS: token-waste-classify $assertion"
+    says "guard-$assertion" "$A1_CHECKS" "PASS: token-waste-classify $assertion"
+done
+
+PYTHONDONTWRITEBYTECODE=1 "$PY" "$FIX/token_waste_a2.py" "$ROOT" "$TW_TMP/a2" > "$TW_TMP/a2-checks.log" 2>&1
+A2_RC=$?
+A2_ROWS=0
+while IFS= read -r line; do
+    case "$line" in
+        'PASS: token-waste-classify '*) pass=$((pass + 1)); A2_ROWS=$((A2_ROWS + 1)); echo "$line" ;;
+        'FAIL: token-waste-classify '*) fail=$((fail + 1)); A2_ROWS=$((A2_ROWS + 1)); echo "$line" ;;
+    esac
+done < "$TW_TMP/a2-checks.log"
+[ "$A2_ROWS" -gt 0 ] && [ "$A2_RC" -eq 0 ] || bad "a2-fixture-execution" "rc=$A2_RC rows=$A2_ROWS; see $TW_TMP/a2-checks.log"
+A2_CHECKS="$(cat "$TW_TMP/a2-checks.log")"
+for assertion in a2-mixed-main-exact-category-costs a2-mixed-sub-exact-category-costs \
+    a2-model-rate-0 a2-model-rate-1 a2-model-rate-2 a2-model-rate-3 a2-model-rate-4 \
+    a2-unsplit-creation-priced-5m a2-unknown-token-only-no-dollar a2-cost-section-first-and-label \
+    a2-cost-shares-and-ranked-categories a2-stdout-cost-first a2-main-only-cost-scope \
+    a2-context-peak-average-requests a2-residency-workhub-fires-once a2-residency-50-at-120k-silent \
+    a2-residency-share-threshold a2-residency-inclusive-thresholds a2-compaction-count-one-event \
+    a2-context-table-peak-average-cost a2-context-top-ten-price-ranked \
+    a2-ttl-1h-70 a2-ttl-exact-1h-cost a2-ttl-1h-20 a2-ttl-5m-6 a2-ttl-exact-5m-cost \
+    a2-ttl-5m-small a2-ttl-1h-boundary a2-ttl-5m-boundary a2-ttl-5m-minimum a2-ttl-mixed-ttl \
+    a2-ttl-unknown-skip a2-ttl-missing-time-skip a2-stream-first-time-last-usage-dedup a2-ttl-no-id-interleaved-order \
+    a2-ttl-synthetic-interleaved a2-residency-synthetic-excluded a2-synthetic-still-unpriced \
+    a2-rewrite-summary-main-sub-split a2-cache-rewrite-session-cap-and-full-summary \
+    a2-cache-rewrite-cap-resets-per-session a2-cache-rewrite-unpriced-retained \
+    a2-polling-wakes-context-price-dedup a2-polling-row-displays-cost-and-wakes \
+    a2-live-order-heavy-before-light-unpriced-last a2-report-order-and-cost-signal-header \
+    a2-report-private-content-absent a2-session-cap-retains-image-reread \
+    a2-cap-mutation-hiding-image-reread a2-session-cap-retains-re-read a2-cap-mutation-hiding-re-read \
+    a2-session-cap-retains-rewrite a2-cap-mutation-hiding-rewrite a2-cap-retention-flood-active \
+    a2-doc-skill-cost-sections-and-cap a2-doc-command-cost-sections-and-cap a2-shell-checks-neutral-names; do
+    says "guard-$assertion" "$A2_CHECKS" "PASS: token-waste-classify $assertion"
 done
 
 finish

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "5.7",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 228,
+  "asset_count": 229,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -581,6 +581,10 @@
       "sha256": "d31ad742a0b1a3dcd9152a087f1c3069c88311e146e3927d11cee54437c48ff3"
     },
     {
+      "path": "hooks/tests/fixtures/token_waste_a2.py",
+      "sha256": "081e37a92473b39a26c3fd053bc74fa4ace9d12774bae4134300446e05314e85"
+    },
+    {
       "path": "hooks/tests/health-check-heartbeat.sh",
       "sha256": "46a5c3a55f3e3f0567ace6680f18bd40930a7d43abaee81b6b584de3b1a514d9"
     },
@@ -854,7 +858,7 @@
     },
     {
       "path": "hooks/tests/test-token-waste-classify.sh",
-      "sha256": "836a9ec90ba1a6eefd81ed00dc07e2d35d8b0ff050206572ac2f85be38abe361"
+      "sha256": "59c1170a927d19024231228f30d8a76ed6b429f11a7346f304af84a3630a33a1"
     },
     {
       "path": "hooks/tests/test-transient-exclude.sh",
@@ -917,5 +921,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "bac3f704cb20c3cb8095db4f97373b21b0c193ec7138f505b18411791b56346e"
+  "manifest_self_sha256": "cbbe1bcfaa358c12c59e05893351ce26626a74819354ceb1d7d5b7d98ab02fd7"
 }

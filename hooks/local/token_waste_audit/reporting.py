@@ -4,6 +4,7 @@ from .common import (LIVE, CLASSIFIED, TOP_SINKS, LARGE_TOOL_RESULT_CHARS,
                      snippet, is_output_heavy)
 from .classification import selected_findings
 from .parsing import usage_totals, transcripts
+from .costing import cost_section, context_section, money
 import subprocess
 
 def combined_totals(items):
@@ -95,7 +96,8 @@ def cross_session_aggregate(sessions):
 def build_report(sessions, root, today, probe_cmds=()):
     lines = ["# Token-waste audit — %s" % today, "",
              "Scope: %d session(s), dir-resolved from git root `%s`." % (len(sessions), root),
-             "", FALSE_POSITIVE_HEADER, "", "## Per-session totals", "",
+             "", *cost_section(sessions), "", FALSE_POSITIVE_HEADER, "",
+             *context_section(sessions), "", "## Per-session totals", "",
              "| Session / scope | Agents | Workflows | Requests | Output tokens | Cache read | Cache creation | Tool-result chars (~tokens) | Malformed lines skipped |",
              "|---|---|---|---|---|---|---|---|---|"]
     all_results = []
@@ -163,11 +165,12 @@ def build_report(sessions, root, today, probe_cmds=()):
             continue
         any_finding = True
         lines += ["### %s" % s.get("label", s["file"]), "",
-                  "| Class | Candidate | Label | FR-26 rule it MAY indicate | Why it stayed live | Transcript |",
-                  "|---|---|---|---|---|---|"]
+                  "| Class | Candidate | Label | FR-26 rule it MAY indicate | Why it stayed live | Estimated USD | Transcript |",
+                  "|---|---|---|---|---|---|---|"]
         for t, f in live:
-            lines.append("| %s | %s | %s | %s | %s | %s |" % (f.cls, f.desc, f.label or "—", f.rule,
-                f.evidence or "threshold match", t.get("label", t["file"])))
+            lines.append("| %s | %s | %s | %s | %s | %s | %s |" % (f.cls, f.desc, f.label or "—", f.rule,
+                f.evidence or "threshold match", money(f.cost) + ("; " + f.details if f.details else ""),
+                t.get("label", t["file"])))
         for session, cls, count in suppressed:
             if session is s:
                 lines += ["", "%s: %d more suppressed (session cap)" % (cls, count)]
