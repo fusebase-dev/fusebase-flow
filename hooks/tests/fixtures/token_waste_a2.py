@@ -122,7 +122,7 @@ finding = residency_finding(workhub)
 check("a2-residency-workhub-fires-once", finding is not None
       and "1 transcripts peaked ≥500k and hold 86.7% of cache-read cost" == finding.desc
       and finding.cost == Decimal("0.13")
-      and finding.rule == "FR-26 — bound context: fresh agent per task group / rotate at phase boundaries (token-economy)"
+      and finding.rule == "FR-26 TE-19 — bounded residency: fresh worker per task group / rotate at milestones (token-economy)"
       and sum(f.cls == "context-residency" for _, f in selected(workhub)) == 1)
 small = parse("small", [assistant(str(i), read=110_000, creation=9000, short=9000, inp=1000)
                        for i in range(50)])

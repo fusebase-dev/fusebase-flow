@@ -91,7 +91,7 @@ def residency_finding(session):
         return Finding("context-residency",
             "%d transcripts peaked ≥500k and hold %.1f%% of cache-read cost" % (
                 len(large), 100 * held / total),
-            "FR-26 — bound context: fresh agent per task group / rotate at phase boundaries (token-economy)",
+            "FR-26 TE-19 — bounded residency: fresh worker per task group / rotate at milestones (token-economy)",
             LIVE, "cost signal", "observed cache-read cost; not an avoidable-spend estimate",
             (), held)
     return None

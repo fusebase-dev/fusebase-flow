@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "6537cba741a39f205f48ca4ecb3762023647af026e0aa74658180377521919d4"
+      "sha256": "03fbb0a7852ff2d6a525e9f2a8f36b8f4025222a73dae0bce439e69ff6e19441"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -126,7 +126,7 @@
     },
     {
       "path": "flow-skills/liveness-discipline/SKILL.md",
-      "sha256": "c5b50984fe8a571e130a9315ee18659db01615e3570d8d0a7bcd0073a671c960"
+      "sha256": "e4be55acbc42759b8fbff56f56cb78a80484d3b289dea028ae4fe153cb216251"
     },
     {
       "path": "flow-skills/module-size-discipline/SKILL.md",
@@ -206,11 +206,11 @@
     },
     {
       "path": "flow-skills/task-delegation/SKILL.md",
-      "sha256": "b535888327d8dd68c3b16b283e001f46537025f5f13216ca372da724c3182daf"
+      "sha256": "0fb6523cf50ece2407bb4b50c9bac3e737d7a794254be51af886fe26071f13ab"
     },
     {
       "path": "flow-skills/token-economy/SKILL.md",
-      "sha256": "53c5a1b5aab6cb8afca1c31743436f6f506b260afeab96f705bcf9c8c1721d85"
+      "sha256": "91c362c4af9fee875841e4ce50e2464c7b9e210e92deb92b8e655ed1e96a28e8"
     },
     {
       "path": "flow-skills/validation-and-qa/SKILL.md",
@@ -710,7 +710,7 @@
     },
     {
       "path": "hooks/local/token_waste_audit/costing.py",
-      "sha256": "91213553cc88a6b8ad93d00f14057cda813fd5f7d32524abb7abc967b6c1868c"
+      "sha256": "6139f4885ba8597d00689d84d4a72683810fad0947a2cfaf56cf8b69d062bcd0"
     },
     {
       "path": "hooks/local/token_waste_audit/images.py",
@@ -1030,7 +1030,7 @@
     },
     {
       "path": "hooks/tests/fixtures/token_waste_a2.py",
-      "sha256": "081e37a92473b39a26c3fd053bc74fa4ace9d12774bae4134300446e05314e85"
+      "sha256": "6e8d1c8d8305aae11903502510ff50223700351e2c6e7e83455a16407ffcb8e5"
     },
     {
       "path": "hooks/tests/health-check-heartbeat.sh",
@@ -1629,5 +1629,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "e81d3eb17d0ae1e9e8c09cbba51938e783a8917e2c7121368617e0fb9e845213"
+  "manifest_self_sha256": "e4777961195ba039cbb892758e2095a4304a72f259ba48ce15a4799454993bb3"
 }

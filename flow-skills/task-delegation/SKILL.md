@@ -192,9 +192,9 @@ Per-project selection lives in `policies/model-routing.yml` (optional; per-machi
 
 ## Correction ownership
 
-Generalizes the same-agent, context-preserving reuse the provider-limit path already requires (§3) to ALL corrections:
+Generalizes the same-agent, context-preserving reuse the provider-limit path already requires (§3) to corrections, bounded by context size:
 
-- A fix to a worker's OWN diff goes back to that worker — it still holds the context. Spawn a fresh agent only when the task is unrelated or that context has demonstrably drifted; a successor resumes verify-from-records (§3 successor contract).
+- A fix to a worker's OWN diff goes back to that worker while its context is small: fewer than 50 tool uses summed across its runs (Claude Code: `<tool_uses>` in each completion notice; `<subagent_tokens>` is not a context measure) and no compaction; a host with no usage notice counts the tasks the brief gave it — one task group. Past that, or when the task is unrelated or that context has demonstrably drifted, brief a fresh successor with the findings + ledger pointers; it resumes verify-from-records (§3 successor contract). Resuming a large idle worker re-writes its whole context (`token-economy` TE-09, TE-19).
 - One correction owner per review round, batched by file. Never one agent per finding.
 - Disjoint write ownership (§4) and one independently reversible outcome per commit still bind: batching findings never merges unrelated outcomes.
 - Verify an external API/SDK shape once, record it where the plan lives, and cite it afterwards. Re-verify what this change touches or what a changed dependency invalidates — not merely what was edited (`token-economy`).
