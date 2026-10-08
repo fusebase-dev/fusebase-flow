@@ -4,6 +4,24 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [5.8] — 2026-10-08
+
+**`/token-waste-audit` sees the whole run, and the guidance targets the real cost drivers.**
+Measured on three consumer runs, sub-agents were 77–84% of the cost and the audit never read them;
+its "large output" rows were screenshots sized as base64 text. The audit now parses sub-agent and
+workflow-agent transcripts (`--main-only` keeps the old scope), counts images as images, opens with a
+list-price cost estimate by category, and flags transcripts whose context peaked past 500k and cache
+rewrites after the cache lifetime expired, capped at 10 rows per class per session. New
+`token-economy` rows TE-19 (bounded context: ~50 tool calls per worker, fresh worker for larger
+work and for fixes once a worker is large), TE-20 (wake on events or check at least every 4 min with
+a bounded check loop; the 60–90 s poll stays only for a delegate that never started) and TE-21
+(compare screenshots by script, read each once, always view the decisive capture). FR-17: offering
+to continue from the handoff in a fresh session at a milestone is forward momentum (offered once
+after a compaction or 3 closed outcomes; the operator opens the session). One canonical sub-agent
+start-up text; `AGENTS.md` is read unless its Flow section is already in context (Codex loads only
+the first 32 KiB). Operator settings such as `autoCompactWindow` are documented, not defaulted.
+**Drop-in from 5.7.** See `docs/release-notes/v5.8.md`.
+
 ## [5.7] — 2026-10-05
 
 **The model-routing worked example names current models.** The commented example in
