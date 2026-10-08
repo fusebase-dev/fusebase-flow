@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "5.7",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 227,
+  "asset_count": 228,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -577,6 +577,10 @@
       "sha256": "0722710725d845e8e6aeaa79aed07062d98ff06e5894874a405ac41aa5d4c2d1"
     },
     {
+      "path": "hooks/tests/fixtures/token_waste_a1.py",
+      "sha256": "d31ad742a0b1a3dcd9152a087f1c3069c88311e146e3927d11cee54437c48ff3"
+    },
+    {
       "path": "hooks/tests/health-check-heartbeat.sh",
       "sha256": "46a5c3a55f3e3f0567ace6680f18bd40930a7d43abaee81b6b584de3b1a514d9"
     },
@@ -842,7 +846,7 @@
     },
     {
       "path": "hooks/tests/test-supersede-primitive.sh",
-      "sha256": "3395081243826f4a2d4b7e0a94852912669f184a68d1b3da20381f89769bd741"
+      "sha256": "60ef63c9a29e4db6322133b224b9ea5493738a136888719dc639a4da82b14e62"
     },
     {
       "path": "hooks/tests/test-sync-allowlist.sh",
@@ -850,7 +854,7 @@
     },
     {
       "path": "hooks/tests/test-token-waste-classify.sh",
-      "sha256": "27d7a016a5a3fcd24f2c6b91e1fe66f28daa1af13777ba573d509174efbd34c5"
+      "sha256": "836a9ec90ba1a6eefd81ed00dc07e2d35d8b0ff050206572ac2f85be38abe361"
     },
     {
       "path": "hooks/tests/test-transient-exclude.sh",
@@ -913,5 +917,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "0d806ed6747cb7f7949fd8b83a28ea92bd8df093c140302d7503ff3a6d8ee258"
+  "manifest_self_sha256": "bac3f704cb20c3cb8095db4f97373b21b0c193ec7138f505b18411791b56346e"
 }

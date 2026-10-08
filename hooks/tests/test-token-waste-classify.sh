@@ -125,9 +125,14 @@ open(dst, "w", encoding="utf-8", newline="\n").write(text)
 PY
 mutctl() { # mutctl <fixture-id> <old> <new> [<old> <new> ...]
     local fx="$1"; shift
-    local dir="$TW_TMP/mut$fx" mutant="$TW_TMP/mutant-$fx.py" out
+    local dir="$TW_TMP/mut$fx" mutant_root="$TW_TMP/mutant-$fx" mutant out
+    mkdir -p "$mutant_root"
+    cp -R "$ROOT/hooks/local/token_waste_audit" "$mutant_root/"
+    mutant="$mutant_root/token-waste-audit.py"
+    cp "$AUDIT" "$mutant"
     mkdir -p "$dir"; cp "$FIX"/token-waste-"$fx"-*.jsonl "$dir/"
-    "$PY" "$TW_TMP/mutate.py" "$AUDIT" "$mutant" "$@" >/dev/null 2>&1 \
+    "$PY" "$TW_TMP/mutate.py" "$ROOT/hooks/local/token_waste_audit/classification.py" \
+        "$mutant_root/token_waste_audit/classification.py" "$@" >/dev/null 2>&1 \
         || { bad "ac27-mutctl-$fx" "patch anchor missing — control would pass vacuously"; return; }
     out="$( cd "$TW_TMP" && PYTHONIOENCODING=utf-8 "$PY" "$mutant" --dir "$dir" 2>&1 )"
     printf '%s' "$out" | grep -F 'auto-classified:' | grep -qF "token-waste-$fx" \
@@ -185,5 +190,24 @@ lacks "ac26-path-alias-not-dismissed"     "$FN_DISMISSED" "token-waste-14"
 
 # --- privacy invariant: fixture bodies never reach the report --------------------------
 lacks "privacy-no-result-bodies" "$RPT" "aaaaaaaaaa"
+
+PYTHONDONTWRITEBYTECODE=1 "$PY" "$FIX/token_waste_a1.py" "$ROOT" "$TW_TMP/a1" > "$TW_TMP/a1-checks.log" 2>&1
+A1_RC=$?
+A1_ROWS=0
+while IFS= read -r line; do
+    case "$line" in
+        'PASS: token-waste-classify '*) pass=$((pass + 1)); A1_ROWS=$((A1_ROWS + 1)); echo "$line" ;;
+        'FAIL: token-waste-classify '*) fail=$((fail + 1)); A1_ROWS=$((A1_ROWS + 1)); echo "$line" ;;
+    esac
+done < "$TW_TMP/a1-checks.log"
+[ "$A1_ROWS" -gt 0 ] && [ "$A1_RC" -eq 0 ] || bad "a1-fixture-execution" "rc=$A1_RC rows=$A1_ROWS; see $TW_TMP/a1-checks.log"
+A1_CHECKS="$(cat "$TW_TMP/a1-checks.log")"
+for assertion in a1-session-large-output-cap a1-session-repeat-output-cap \
+    a1-session-cap-largest-first-provenance a1-cli-session-caps-match-report \
+    a1-cli-safe-path-env a1-cli-safe-path-P a1-cli-safe-path-I \
+    a1-cli-main-only a1-main-only-report-omits-agent-tables \
+    a1-image-table-only-nonzero-plus-total a1-image-table-zero-total-only; do
+    says "round1-$assertion" "$A1_CHECKS" "PASS: token-waste-classify $assertion"
+done
 
 finish

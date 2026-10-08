@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "5.7",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 396,
+  "asset_count": 404,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "958dfbba367f0ff85715ae218a10d597aa4ce585a23633276d3787f9e7d8a721"
+      "sha256": "8c6d02e0cffe7e2e8fc1a7573f6c3296f8209a3d36c99fb3bf17cce1f8649913"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -210,7 +210,7 @@
     },
     {
       "path": "flow-skills/token-economy/SKILL.md",
-      "sha256": "c4606dc4f8c62097b3527f0ef9a2a380536cf11ce10d6d0b6794985c85e26f19"
+      "sha256": "55ddac621104e40da1211beb56a013e44661b59d120abdf202102f38567defc6"
     },
     {
       "path": "flow-skills/validation-and-qa/SKILL.md",
@@ -458,7 +458,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/commands/token-waste-audit.md",
-      "sha256": "9a78c15eae7cb45b8f351adf4ff1e88b5084c81af60de2961994d3287b6caf35"
+      "sha256": "dbc5a06be19ff495b582d995b90bdbd1cfc1827531bc74583426945bf273584d"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/overlay-block-replace.py",
@@ -690,7 +690,35 @@
     },
     {
       "path": "hooks/local/token-waste-audit.py",
-      "sha256": "b158adf3e2b13ff9ec63493c965f6e52fac75375e7226b525a3f5b1cc5f82f68"
+      "sha256": "add54972f590086220f05f28938a7a6c37413777805d23a19e63b7c7855e4146"
+    },
+    {
+      "path": "hooks/local/token_waste_audit/__init__.py",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "hooks/local/token_waste_audit/classification.py",
+      "sha256": "55ced03bd1a3a033758d0b04a5cb1e2bd88d427efec3c53e2822e935f82330a4"
+    },
+    {
+      "path": "hooks/local/token_waste_audit/cli.py",
+      "sha256": "e5e467d598f0ac20806644efa4956ab7b59fa00a862f5cf61e1622036aa25273"
+    },
+    {
+      "path": "hooks/local/token_waste_audit/common.py",
+      "sha256": "a5088dfd53b75a05b83250c6c120a0a9a338e077363b69b5c07f10966624d26d"
+    },
+    {
+      "path": "hooks/local/token_waste_audit/images.py",
+      "sha256": "df8f9c5364d974c77c7fba6745746522673e067af9443c5473fdc1e62f914de0"
+    },
+    {
+      "path": "hooks/local/token_waste_audit/parsing.py",
+      "sha256": "1d89d70c055d5cb6ad45ec10da050916cd733d14e57a422dc1a0f00c77279792"
+    },
+    {
+      "path": "hooks/local/token_waste_audit/reporting.py",
+      "sha256": "26ed9fa5ef09ad11b9cbc011ab444e8e0d033840a1b025d84c471343b58ac7f6"
     },
     {
       "path": "hooks/local/upgrade-engine.sh",
@@ -991,6 +1019,10 @@
     {
       "path": "hooks/tests/fixtures/token-waste-14-path-alias-write-live.jsonl",
       "sha256": "0722710725d845e8e6aeaa79aed07062d98ff06e5894874a405ac41aa5d4c2d1"
+    },
+    {
+      "path": "hooks/tests/fixtures/token_waste_a1.py",
+      "sha256": "d31ad742a0b1a3dcd9152a087f1c3069c88311e146e3927d11cee54437c48ff3"
     },
     {
       "path": "hooks/tests/health-check-heartbeat.sh",
@@ -1322,7 +1354,7 @@
     },
     {
       "path": "hooks/tests/test-supersede-primitive.sh",
-      "sha256": "3395081243826f4a2d4b7e0a94852912669f184a68d1b3da20381f89769bd741"
+      "sha256": "60ef63c9a29e4db6322133b224b9ea5493738a136888719dc639a4da82b14e62"
     },
     {
       "path": "hooks/tests/test-sync-allowlist.sh",
@@ -1330,7 +1362,7 @@
     },
     {
       "path": "hooks/tests/test-token-waste-classify.sh",
-      "sha256": "27d7a016a5a3fcd24f2c6b91e1fe66f28daa1af13777ba573d509174efbd34c5"
+      "sha256": "836a9ec90ba1a6eefd81ed00dc07e2d35d8b0ff050206572ac2f85be38abe361"
     },
     {
       "path": "hooks/tests/test-transient-exclude.sh",
@@ -1589,5 +1621,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "46298ed4b8e1d9ca2392f144704eb718341482c0b50adb6da6fabfa2612386c0"
+  "manifest_self_sha256": "899bc25bc2c35aff4f39f2216ca4112d1e5da35ec03fb0e1a45e26e5546e891e"
 }

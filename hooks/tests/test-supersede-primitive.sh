@@ -28,7 +28,7 @@ CMD_H="$ROOT/.claude/commands/handoff.md"
 OVL_H="$ROOT/hooks/local/fusebase-flow-overlays/commands/handoff.md"
 CMD_T="$ROOT/.claude/commands/token-waste-audit.md"
 OVL_T="$ROOT/hooks/local/fusebase-flow-overlays/commands/token-waste-audit.md"
-AUDIT="$ROOT/hooks/local/token-waste-audit.py"
+AUDIT="$ROOT/hooks/local/token_waste_audit/common.py"
 
 pass=0; fail=0
 ok()  { pass=$((pass + 1)); echo "PASS: supersede-primitive $1"; }
@@ -89,7 +89,7 @@ cmp -s "$CMD_T" "$OVL_T" && ok "ac21-audit-twin-byte-identical" \
 # TRIPWIRE: FALSE_POSITIVE_HEADER is implicit string concatenation across source
 # lines, so grep only ever sees a fragment — match per-fragment, never the joined text.
 has "$AUDIT" "a WARRANTED FR-18 full-Write" \
-    "ac14-audit-parser-header" "token-waste-audit.py FP header does not qualify the supersede class"
+    "ac14-audit-parser-header" "token_waste_audit/common.py FP header does not qualify the supersede class"
 has "$AUDIT" "mandates the replaced semantics, not the rewrite tool" \
     "ac14-audit-parser-primitive-clause" "parser FP header does not say FR-18 mandates semantics, not the tool"
 
