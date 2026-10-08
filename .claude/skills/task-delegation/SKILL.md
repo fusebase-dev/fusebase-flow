@@ -83,7 +83,7 @@ Every delegated task gets a brief with:
 | Objective | one bounded outcome |
 | Role boundary | read-only / code-edit / test-only |
 | Ownership | exact files, modules, or question |
-| Inputs | relevant artifacts and skill paths already loaded; code-edit workers must read `flow-skills/role-discipline/references/ai-developer.md` before editing |
+| Inputs | relevant artifacts and skill paths already loaded; code-edit workers must read `FLOW_RULES.md` (to `## Amendment log`) and `flow-skills/role-discipline/references/ai-developer.md` before editing |
 | Forbidden actions | no revert of others' edits; no deploy; no secrets; no edits beyond §3 of `flow-skills/zoom-out/references/karpathy-guidelines.md` |
 | Domain skills | relevant CLI provider skill names from `docs/fusebase-cli-edition.md`, if the task touches Fusebase Apps runtime/domain behavior |
 | Output format | the **Delegated return shape** (§5): verdict · SHAs · deltas · artifact pointers · residual risk, within the §5 **return budget** |
@@ -104,7 +104,7 @@ For code-edit subtasks, tell the worker: "You are not alone in the codebase. Do 
 
 > Your deliverable must be COMPLETE within this turn — you cannot self-resume; poll in-turn with bounded check loops of at most 4 min each (cache TTL; never a bare leading sleep) or read durable records, never end with "I'll resume when…". Write durable facts into your owed artifacts AS THEY OCCUR (skeleton first, rows as earned), never everything-at-the-end. If you hit an unbounded wait (human gate, no-ETA event), return `BLOCKED-AT-<gate>` + a pointer to where reality is recorded. Return per the delegated return shape: verdict · SHAs · deltas · artifact pointers — never re-paste a body an artifact already holds; state-change claims cite the ground-truth check performed (surface read + what it showed). **Chat-return budget: ≤80 lines and ≤6,000 characters. Longer → write a sanctioned durable artifact and return its path; commit only when the owning workflow requires it.**
 
-**No inherited auto-load.** A delegated sub-agent session does **not** inherit the orchestrator's auto-loaded skills or the always-on FR-24 digest — `session_start` does not fire for it. The anti-reread exemption in `communication` / `role-discipline` therefore does not apply to a worker: it reads them (or the delegating prompt inlines what it needs). Never tell a worker "the skill is already loaded".
+**No inherited auto-load.** A delegated sub-agent session does **not** inherit the orchestrator's auto-loaded skills or the always-on FR-24 digest — `session_start` does not fire for it. The anti-reread exemption in `communication` / `role-discipline` therefore does not apply to a worker. Canonical worker boot: the delegating prompt inlines the FR-24 digest and the push blocks below; a code-edit worker also reads `FLOW_RULES.md` (to `## Amendment log`) and `references/ai-developer.md` (§3 Inputs); a read-only worker reads only what its brief names. Never tell a worker "the skill is already loaded"; never have it re-read a file whose full text is already in its context.
 
 **Mandatory (code-writing / implementation slices):** the delegating prompt MUST inline the comment-policy **Delegation push block** from `flow-skills/comment-policy/SKILL.md` (push, not pull — sub-agents do not reliably auto-load skills, so don't just tell the worker to "load comment-policy"). Read-only / triage delegation is exempt (no code is written).
 

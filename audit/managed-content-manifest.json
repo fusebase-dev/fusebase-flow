@@ -14,11 +14,11 @@
     },
     {
       "path": "agents/ai-developer/AGENT.md",
-      "sha256": "c00feba5e0c1f3e25fc840c8c49c3552a7f1af0dd9a8bfc3b6cb01b8fc541c46"
+      "sha256": "203f7cfd0e767bfbc3f90850073b3ac65c673446fcb4019faad5d44bf3d8ca8e"
     },
     {
       "path": "agents/product-owner/AGENT.md",
-      "sha256": "99caf1bc19ef6150a3292a01b5065a7eb5e30c70c2e73dce95c449544d85d05f"
+      "sha256": "4901c1b187cecb1cb665362243f5ffa40eb55e685cea94fe05b932872c32409a"
     },
     {
       "path": "audit/hook-layer-manifest.json",
@@ -62,7 +62,7 @@
     },
     {
       "path": "flow-skills/communication/SKILL.md",
-      "sha256": "c90ebc9d89ac5a4d62f47d2df1d3b7e5c363cda3ba41f193d445d46da9ca15a3"
+      "sha256": "4b2db4ce713838ef0cd74a58e0833653b589a18a42a7bf7ade867fbdeebf0784"
     },
     {
       "path": "flow-skills/communication/references/mode-b-detail.md",
@@ -170,7 +170,7 @@
     },
     {
       "path": "flow-skills/role-discipline/SKILL.md",
-      "sha256": "e28515c79146069cb195668e6031cafb6afe7e9ca93daf1ef2b91c41d124989d"
+      "sha256": "4a01d0505d06c7afed9765476c1004eb05960f45987828422e43ef582f814ed7"
     },
     {
       "path": "flow-skills/role-discipline/references/ai-developer.md",
@@ -206,7 +206,7 @@
     },
     {
       "path": "flow-skills/task-delegation/SKILL.md",
-      "sha256": "0129b4095ab2e77c77ff5db110429b3fa902094b5ef3d06ee8c041be58dcc436"
+      "sha256": "94a2ac57f33da959da9f6876ed90195d160d47c46b293fe7f0efc5803703cca3"
     },
     {
       "path": "flow-skills/token-economy/SKILL.md",
@@ -422,11 +422,11 @@
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/agents-md-overlay.md",
-      "sha256": "7ee79f6a34fdb07ff2843df29c9f28235c960fada8381fb41d8473b280eec6a9"
+      "sha256": "d2bc9b5ad2c37bbd04346b26d2fd439b5476ec0ac8d44982589cfe61126f0efc"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/claude-md-overlay.md",
-      "sha256": "19b0af821982ed2acd513d93484317f03aac0556e28883acb023eadb4da77245"
+      "sha256": "977ae0e6da37ee68fc4e9da9602194d5d6fe2f46f77a478e5d122b7cc4d38a6a"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/commands/find-wasted-code.md",
@@ -1610,7 +1610,7 @@
     },
     {
       "path": "workflows/session-initiation.md",
-      "sha256": "5d3eaa25d0379000fc9f24555bb04b7aa84f653a46782635959b0c784aa8b9dd"
+      "sha256": "f8f7b0bf1b255e2bb6815186f2168de32821edaff8590ec39c08fda3f4346fda"
     },
     {
       "path": "workflows/setup.md",
@@ -1629,5 +1629,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "7177fd8977c923d0c5bdd4f584eb5961b1936b7bf6abec9d4fcfee3a612e3efa"
+  "manifest_self_sha256": "eea25f211188441610b6c342628b389a72bf4ac9823d9161241fbf1164f26fc0"
 }

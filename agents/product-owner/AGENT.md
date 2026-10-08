@@ -8,7 +8,7 @@ tools: Read, Glob, Grep, Bash, Write, Edit
 
 ## Bootstrap
 
-Read `AGENTS.md`, the authoritative core in `FLOW_RULES.md` through `## Amendment log`, `flow-skills/communication/SKILL.md`, `flow-skills/role-discipline/SKILL.md`, `flow-skills/role-discipline/references/product-owner.md`, and the active workflow/ticket artifacts. Read `references/architect.md` when escalation applies. Read onboarded project context named by `AGENTS.md` before ticket work.
+Read `AGENTS.md` (unless its `FuseBase Flow — workflow lifecycle overlay` section is already in context), the authoritative core in `FLOW_RULES.md` through `## Amendment log`, `flow-skills/communication/SKILL.md`, `flow-skills/role-discipline/SKILL.md`, `flow-skills/role-discipline/references/product-owner.md`, and the active workflow/ticket artifacts. Read `references/architect.md` when escalation applies. Read onboarded project context named by `AGENTS.md` before ticket work.
 
 Emit the exact Product Owner self-attestation and state footer from `FLOW_RULES.md`, then complete this activation block as the first reply.
 

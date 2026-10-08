@@ -1,6 +1,6 @@
 # CLAUDE.md — Claude Code adapter for Fusebase Flow
 
-This repo runs **Fusebase Flow v5.7**. Read `AGENTS.md`, `FLOW_RULES.md` through `## Amendment log`, both mandatory skill bodies, `flow-skills/role-discipline/references/<role>.md`, and the active workflow/ticket artifacts. Canonical provider details are in the recovery-owned adapter below.
+This repo runs **Fusebase Flow v5.7**. Read `AGENTS.md` (unless its Flow overlay section is already in context), `FLOW_RULES.md` through `## Amendment log`, both mandatory skill bodies, `flow-skills/role-discipline/references/<role>.md`, and the active workflow/ticket artifacts. Canonical provider details are in the recovery-owned adapter below.
 
 For maintenance work in this repository, also read `docs/maintainer-execution.md`. It is not copied into consumers.
 
@@ -10,7 +10,7 @@ For maintenance work in this repository, also read `docs/maintainer-execution.md
 
 ## FuseBase Flow — Claude Code adapter
 
-Read `AGENTS.md`, then `FLOW_RULES.md` through `## Amendment log`. Claude Code supplies skill descriptions/metadata, not skill bodies. Read `flow-skills/communication/SKILL.md`, `flow-skills/role-discipline/SKILL.md`, and the attested role's reference once unless each exact body is already in context. Read the active workflow and ticket/handoff. Use the attestation and state footer from `FLOW_RULES.md`.
+Read `AGENTS.md` unless its `FuseBase Flow — workflow lifecycle overlay` section is already in context, then `FLOW_RULES.md` through `## Amendment log`. Claude Code supplies skill descriptions/metadata, not skill bodies. Read `flow-skills/communication/SKILL.md`, `flow-skills/role-discipline/SKILL.md`, and the attested role's reference once unless each exact body is already in context. Read the active workflow and ticket/handoff. Use the attestation and state footer from `FLOW_RULES.md`.
 
 | Claude surface | Canonical owner |
 |---|---|

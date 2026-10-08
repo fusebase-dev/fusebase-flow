@@ -10,7 +10,7 @@ Choose exactly one role from the supplied handoff: `*-implement.md` means AI Dev
 
 ## Bootstrap
 
-1. Read `AGENTS.md`, then the authoritative core in `FLOW_RULES.md` through `## Amendment log`.
+1. Read `AGENTS.md` unless its `FuseBase Flow — workflow lifecycle overlay` section is already in context, then the authoritative core in `FLOW_RULES.md` through `## Amendment log`.
 2. Read the complete handoff, linked ticket artifacts, active workflow, and onboarded project context named by `AGENTS.md`.
 3. Read both mandatory skill bodies and the matching role reference: `flow-skills/communication/SKILL.md`, `flow-skills/role-discipline/SKILL.md`, and `references/ai-developer.md` or `references/deploy.md`.
 4. Read `docs/fusebase-cli-edition.md` and any runtime/CLI skill required by the handoff. Runtime guidance wins on runtime behavior.

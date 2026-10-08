@@ -4,7 +4,7 @@
 
 ## FuseBase Flow — Claude Code adapter
 
-Read `AGENTS.md`, then `FLOW_RULES.md` through `## Amendment log`. Claude Code supplies skill descriptions/metadata, not skill bodies. Read `flow-skills/communication/SKILL.md`, `flow-skills/role-discipline/SKILL.md`, and `flow-skills/role-discipline/references/<role>.md` once unless each exact body is already in context. Read the active workflow and ticket/handoff. Use the attestation and state footer from `FLOW_RULES.md`.
+Read `AGENTS.md` unless its `FuseBase Flow — workflow lifecycle overlay` section is already in context, then `FLOW_RULES.md` through `## Amendment log`. Claude Code supplies skill descriptions/metadata, not skill bodies. Read `flow-skills/communication/SKILL.md`, `flow-skills/role-discipline/SKILL.md`, and `flow-skills/role-discipline/references/<role>.md` once unless each exact body is already in context. Read the active workflow and ticket/handoff. Use the attestation and state footer from `FLOW_RULES.md`.
 
 | Claude surface | Canonical owner |
 |---|---|

@@ -17,7 +17,7 @@ hook_dependencies:
   - session_start
 ---
 
-> **Do not re-Read this file if it is already in your context.** A name/description is not the body. No supported surface guarantees this body; read it once unless the exact body is present. Delegated sub-agents read it.
+> **Do not re-Read this file if it is already in your context.** A name/description is not the body. No supported surface guarantees this body; read it once unless the exact body is present. Delegated sub-agents get what they need from the delegating prompt (`task-delegation`).
 
 # Communication
 

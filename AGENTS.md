@@ -24,9 +24,9 @@ Fusebase Flow owns the development lifecycle; existing Fusebase CLI runtime, MCP
 | Cursor | always-on adapter text, not skill bodies | read both mandatory bodies + role reference |
 | Copilot / VS Code | repository instruction adapters, not skill bodies | read both mandatory bodies + role reference |
 | Gemini-style IDEs | no Flow skill bodies | read both mandatory bodies + role reference |
-| Delegated sub-agent | inherits no mandatory body | delegating prompt supplies required digest; sub-agent reads both bodies + role reference |
+| Delegated sub-agent | inherits no mandatory body | delegating prompt inlines the digest + push blocks (`task-delegation`); a code-edit worker also reads `FLOW_RULES.md` + `references/ai-developer.md`, a read-only worker only what its brief names |
 
-Provider adapters point here and to canonical owners; they do not reprint protocol bodies. On-demand skills live in `flow-skills/`; workflows in `workflows/`; policies in `policies/`; hooks in `hooks/`; templates in `templates/`. Most portable commands map to their same-named skill; where no such skill exists (`/step-out`), read the canonical command body. Canonical command bodies and provider command adapters both live under `hooks/local/fusebase-flow-overlays/commands/`.
+A file is read again only if its full text is not already in context (`token-economy` TE-02); a host may inject only part of it (Codex loads the first 32 KiB of `AGENTS.md` by default), so check for the `FuseBase Flow — workflow lifecycle overlay` section, not for the injection. Provider adapters point here and to canonical owners; they do not reprint protocol bodies. On-demand skills live in `flow-skills/`; workflows in `workflows/`; policies in `policies/`; hooks in `hooks/`; templates in `templates/`. Most portable commands map to their same-named skill; where no such skill exists (`/step-out`), read the canonical command body. Canonical command bodies and provider command adapters both live under `hooks/local/fusebase-flow-overlays/commands/`.
 
 ### Safety and Git
 
