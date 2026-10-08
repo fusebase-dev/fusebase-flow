@@ -128,7 +128,7 @@ def cache_rewrites(s):
 def cache_rewrite_findings(s):
     return [Finding("cache-rewrite", "Cache creation %d tokens after %.1f min gap (TTL %s)" % (
         row["tokens"], row["gap"] / 60, "1h" if row["ttl"] == 3600 else "5m"),
-        "FR-26 — wait under cache TTL / record-then-read (token-economy)", LIVE,
+        "FR-26 TE-20 — wait under the cache TTL / record-then-read (token-economy)", LIVE,
         "cost signal", "start-to-start gap exceeded this request's explicit creation TTL",
         (row["cost"] is None, -(row["cost"] or 0), -row["tokens"]), row["cost"])
         for row in cache_rewrites(s)]

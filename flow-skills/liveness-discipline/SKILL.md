@@ -90,12 +90,23 @@ A dispatched sub-agent (or Codex) is a long/silent launch under someone else's c
 
 | Step | Action |
 |---|---|
-| **Poll, don't wait** | Proactively check the sub-agent's liveness on a FIXED cadence (~every 60–90s) via GIT PROGRESS (new commits / advancing SHA), process activity, or output-file byte growth — NOT the 0-byte transcript file's mere existence (existence proves nothing; the diagnose-by-activity rule above applies). **A missing completion ping is evidence of neither completion nor death** — it is no information at all; only observed progress (or its absence past the expected interval) decides which. |
+| **Poll, don't wait** | Proactively check the sub-agent's liveness via GIT PROGRESS (new commits / advancing SHA), process activity, or output-file byte growth — event-driven where possible, otherwise at most every 4 min (§ Wake interval) — NOT the 0-byte transcript file's mere existence (existence proves nothing; the diagnose-by-activity rule above applies). **A missing completion ping is evidence of neither completion nor death** — it is no information at all; only observed progress (or its absence past the expected interval) decides which. |
 | **Re-dispatch a transient stall** | A transient provider rate-limit / server error / no-start is a DISPATCH failure, never the slice's verdict — **never record it as `FAILED`, `BLOCKED`, or "the delegate couldn't do it"**; the work was never attempted. Recipe: re-dispatch with a minimal **"try again"**, inside the **bounded delegate-retry envelope** below (3 attempts / 5 min / labeled backoff), and only then judge the work. A structural hang is not a rate-limit — do not blind-retry it unchanged. **Provider-limit death ≠ lost session (proven 2026-07-07):** a delegated sub-agent that dies mid-run on a provider rate/session limit usually keeps its context — `SendMessage` the "try again" to the SAME agent id and it resumes from where it stopped. Inside the envelope do NOT spawn a fresh agent (loses context, redoes work; its cache is still warm) and do NOT re-send the full brief (the resumed agent still has it). Past the envelope the successor rule applies; `task-delegation` § Correction ownership sets the context bound on reuse. |
 | **Verify before trusting** | Before you trust ANY sub-agent's output, verify the FINAL git state yourself: clean linear history, the expected commits landed, 0 mirror drift (`mirror-skills.sh --check`), gate evidence present. A completion ping is a claim, not proof. |
 | **Sync for simple work; background+poll for long runs** | Prefer synchronous sub-agent runs for short autonomous work — a backgrounded sub-agent can't autonomously self-resume if it yields mid-task. For a LONG autonomous run where you want progress visibility, backgrounding IS viable when paired with active polling (this table's poll rule) + `SendMessage`-resume on a provider-limit death (row above) — proven 2026-07-07 to continue the same session. Either way, never passively background-and-wait: the run must produce progress, resume on death, or return `BLOCKED-AT-<gate>` (task-delegation turn-completion). |
 
 This is the sub-agent application of the FR-27 floor; `flow-skills/task-delegation` owns the turn-completion / `BLOCKED-AT` return shape (cross-linked below, not duplicated).
+
+### Wake interval (canonical)
+
+Every model-side check re-reads the waiting agent's whole context, and a check after its cache lifetime re-writes it (`token-economy` TE-20). Poll in the shell; wake the model on events. A liveness check reads one SHA, mtime or byte count — never the output (that is evidence: record-then-read).
+
+| Case | Interval |
+|---|---|
+| Bounded watcher (shell loop under `bounded_run`, no model tokens) | polls as often as useful; exits on progress, completion or stall, and the exit wakes you |
+| No watcher | at most every **4 min** — under the 5-min cache TTL of sub-agents and of hosts whose TTL is unknown; a longer main-session interval is an operator choice stated in chat |
+| Stall verdict | no observed progress across two consecutive checks past the slice's expected interval → § Diagnose a suspected hang |
+| Delegate never started | § Bounded delegate-retry envelope (~60 → ~90 → ~120 s) — the one prescribed model-side cadence under 4 min |
 
 ### Bounded delegate-retry envelope (canonical — the ONE exception)
 
@@ -109,7 +120,7 @@ The single sanctioned exception to don't-poll-while-running / record-then-read (
 | Progress read | exactly ONE cheap progress check per interval (advancing SHA / new commit / output-file byte growth). Never tail output, never a second read inside one interval |
 | Exhaustion (attempts OR wall-time) | **STOP retrying.** Read the `task-delegation` progress ledger → re-brief a SUCCESSOR with verify-from-records. No successor possible → return `BLOCKED-AT-delegate-no-start` + what cleared looks like + the ledger path. Never `FAILED-<reason>` and never `BLOCKED-AT-<the-slice's-gate>` — the slice was never attempted |
 
-**When delegate-progress polling overrides record-then-read:** record-then-read presumes a durable surface that outlives the run. A delegate that never started writes nothing, so no record exists to read afterwards — the interval progress read is the only available evidence, and it is capped at one read per interval. The moment the delegate IS producing progress the override ends: judge the work from its commits and artifacts, never by watching it run.
+**When delegate-progress polling overrides record-then-read:** record-then-read presumes a durable surface that outlives the run. A delegate that never started writes nothing, so no record exists to read afterwards — the interval progress read is the only available evidence, and it is capped at one read per interval. The moment the delegate IS producing progress the override ends: judge the work from its commits and artifacts, never by watching it run (liveness checks continue at § Wake interval — a SHA, mtime or byte count, never the output).
 
 Re-dispatches inside this envelope are **not** two-strike attempts: the approach was never executed. A retry after the delegate has started IS a strike.
 
@@ -119,7 +130,7 @@ Re-dispatches inside this envelope are **not** two-strike attempts: the approach
 |---|---|---|
 | Delegated sub-agent turn-completion + `BLOCKED-AT` | `flow-skills/task-delegation/SKILL.md` (turn-completion / Blocked-return) | FR-27 is the GENERAL rule (covers the agent's own work too); task-delegation keeps the sub-agent slice — cross-linked, not narrowed (D6) |
 | Record-then-read / observability-gap finding | `flow-skills/smoke-testing/SKILL.md` § Verification cost discipline | the prescribed remedy for "how do I know it finished?" — read durable evidence once after the run; no durable surface = an observability-gap finding, not agent-side polling |
-| Don't poll while it runs | `flow-skills/token-economy/SKILL.md` (record-then-read row) | agent-side watching costs tokens linear with wall-clock; bound + log + read records instead. Its ONE exception is § Bounded delegate-retry envelope above (canonical here; TE-05/TE-08 and `task-delegation` point at it) |
+| Don't poll while it runs | `flow-skills/token-economy/SKILL.md` (record-then-read row) | agent-side watching of OUTPUT costs tokens linear with wall-clock; bound + log + read records instead. A liveness check (§ Wake interval) reads only a SHA, mtime or byte count and is not watching. Its ONE exception is § Bounded delegate-retry envelope above (canonical here; TE-05/TE-08 and `task-delegation` point at it) |
 
 ## Anti-patterns
 

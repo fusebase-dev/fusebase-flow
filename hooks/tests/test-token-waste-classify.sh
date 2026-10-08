@@ -232,7 +232,7 @@ for assertion in a2-mixed-main-exact-category-costs a2-mixed-sub-exact-category-
     a2-ttl-5m-small a2-ttl-1h-boundary a2-ttl-5m-boundary a2-ttl-5m-minimum a2-ttl-mixed-ttl \
     a2-ttl-unknown-skip a2-ttl-missing-time-skip a2-stream-first-time-last-usage-dedup a2-ttl-no-id-interleaved-order \
     a2-ttl-synthetic-interleaved a2-residency-synthetic-excluded a2-synthetic-still-unpriced \
-    a2-rewrite-summary-main-sub-split a2-cache-rewrite-session-cap-and-full-summary \
+    a2-cache-rewrite-te20-rule a2-rewrite-summary-main-sub-split a2-cache-rewrite-session-cap-and-full-summary \
     a2-cache-rewrite-cap-resets-per-session a2-cache-rewrite-unpriced-retained \
     a2-polling-wakes-context-price-dedup a2-polling-row-displays-cost-and-wakes \
     a2-live-order-heavy-before-light-unpriced-last a2-report-order-and-cost-signal-header \

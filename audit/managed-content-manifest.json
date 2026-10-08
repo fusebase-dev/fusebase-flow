@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "03fbb0a7852ff2d6a525e9f2a8f36b8f4025222a73dae0bce439e69ff6e19441"
+      "sha256": "394517175f12cd75a2523fff40244d5cf3317c8e5552e4db8a967a5123a60556"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -126,7 +126,7 @@
     },
     {
       "path": "flow-skills/liveness-discipline/SKILL.md",
-      "sha256": "e4be55acbc42759b8fbff56f56cb78a80484d3b289dea028ae4fe153cb216251"
+      "sha256": "df1ca900af1235087a24ef50522cc811deadee1cbe81bf5e6d2af2b76bfe0ab0"
     },
     {
       "path": "flow-skills/module-size-discipline/SKILL.md",
@@ -170,7 +170,7 @@
     },
     {
       "path": "flow-skills/role-discipline/SKILL.md",
-      "sha256": "024ee687e4131ef3b3fbea76660ee4761a7ec5bb1cd69e6516cb739e113ebabf"
+      "sha256": "e28515c79146069cb195668e6031cafb6afe7e9ca93daf1ef2b91c41d124989d"
     },
     {
       "path": "flow-skills/role-discipline/references/ai-developer.md",
@@ -206,11 +206,11 @@
     },
     {
       "path": "flow-skills/task-delegation/SKILL.md",
-      "sha256": "0fb6523cf50ece2407bb4b50c9bac3e737d7a794254be51af886fe26071f13ab"
+      "sha256": "0129b4095ab2e77c77ff5db110429b3fa902094b5ef3d06ee8c041be58dcc436"
     },
     {
       "path": "flow-skills/token-economy/SKILL.md",
-      "sha256": "91c362c4af9fee875841e4ce50e2464c7b9e210e92deb92b8e655ed1e96a28e8"
+      "sha256": "76161ebb911daf3cee2ae67bec91cf6cb664b9da3d63b081261ce274a7ff768f"
     },
     {
       "path": "flow-skills/validation-and-qa/SKILL.md",
@@ -710,7 +710,7 @@
     },
     {
       "path": "hooks/local/token_waste_audit/costing.py",
-      "sha256": "6139f4885ba8597d00689d84d4a72683810fad0947a2cfaf56cf8b69d062bcd0"
+      "sha256": "050a5f0cf62ee8dda6975902053f7699c76c54e025f024a2116755d5f9567b0e"
     },
     {
       "path": "hooks/local/token_waste_audit/images.py",
@@ -1030,7 +1030,7 @@
     },
     {
       "path": "hooks/tests/fixtures/token_waste_a2.py",
-      "sha256": "6e8d1c8d8305aae11903502510ff50223700351e2c6e7e83455a16407ffcb8e5"
+      "sha256": "b763d91084a713ba65abfbdb434b3650c747a1d3d977b16ec6aabd7af817ccc6"
     },
     {
       "path": "hooks/tests/health-check-heartbeat.sh",
@@ -1370,7 +1370,7 @@
     },
     {
       "path": "hooks/tests/test-token-waste-classify.sh",
-      "sha256": "59c1170a927d19024231228f30d8a76ed6b429f11a7346f304af84a3630a33a1"
+      "sha256": "1d1323e885f6ef2482932b1298e781e4f9f9a265720359d108de355a3ec2baa5"
     },
     {
       "path": "hooks/tests/test-transient-exclude.sh",
@@ -1590,7 +1590,7 @@
     },
     {
       "path": "workflows/greenlight-deploy.md",
-      "sha256": "c13dc6d6c1b0677821fe01b40b695fb9dbcddc86306755ad89c9bc9d711f04c8"
+      "sha256": "6e6a951e99e9b02784d1a8fca05e8b8177f4082aad279e6c415de76213c6e096"
     },
     {
       "path": "workflows/greenlight-implement.md",
@@ -1629,5 +1629,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "e4777961195ba039cbb892758e2095a4304a72f259ba48ce15a4799454993bb3"
+  "manifest_self_sha256": "3586dafa357fb386bfcf4afb3963a941ff51150742ecea9cd2ac85d96b4d0299"
 }

@@ -194,6 +194,9 @@ check("a2-synthetic-still-unpriced", attribution([synthetic])["unpriced"]["<synt
       and "1 requests unpriced (model <synthetic>)" in build_report([synthetic], root, "fixture"))
 hour["subagents"] = [short_session]
 ttl_report = build_report([hour], root, "fixture")
+check("a2-cache-rewrite-te20-rule", ttl_report.count(
+    "FR-26 TE-20 — wait under the cache TTL / record-then-read (token-economy)") == 2
+    and "FR-26 — wait under cache TTL / record-then-read (token-economy)" not in ttl_report)
 check("a2-rewrite-summary-main-sub-split", "| 1h-70.jsonl | main | 1 | 500000 | $4.000000 | 0 |" in ttl_report
       and "| 1h-70.jsonl | sub-agents | 1 | 200000 | $1.000000 | 0 |" in ttl_report)
 flood = parse("rewrite-flood", [assistant(str(i), 70 * i, creation=100_000 + 1000 * i,
