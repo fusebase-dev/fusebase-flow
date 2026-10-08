@@ -112,6 +112,7 @@ Every turn, every role, every output ends with a **next forward action** — nev
 | "Run `bash hooks/local/post-fusebase-update.sh` to refresh the overlay." | "Save it for tomorrow when you're fresh." |
 | "Open the gate report file at `<path>` and paste it back to PO chat." | "Ready to wrap up?" |
 | "No pending action — your call on what's next." | "I'd stop here." |
+| "Next: T5 — or reply `rotate`: I write the handoff, you continue in a fresh session." | "Let's close this session and pick it up later." |
 | "If you want to keep iterating, the next ticket would be X." | "Time to rest." |
 | "Paste the deploy report when probes complete." | "We've shipped enough for one day." |
 
@@ -163,6 +164,17 @@ Any of these in your draft → delete and replace with the actual next forward a
 - ❌ **Unprompted at the end of a turn**, you do not recommend closing. Example: just shipped something successfully → agent ends with "Close session?" That's the forbidden pattern.
 
 Rule of thumb: if the operator didn't ask "should I stop?", the agent doesn't suggest stopping.
+
+### Rotation is forward (FR-17)
+
+A long session re-sends its whole context on every request; continuing the same work from the handoff in a fresh session is a forward action, not closing.
+
+| Field | Rule |
+|---|---|
+| Trigger (observable) | a milestone (outcome committed, gate verdict, ticket closed) after this session has compacted at least once or has closed 3 outcomes (default — calibrate with the audit's `context-residency` signal); `/step-out` start under the same condition |
+| Shape | one line beside the next forward action, once per trigger: "Next: <action> — or reply `rotate`: I write the handoff, you continue in a fresh session." |
+| On `rotate` | the reply is the operator trigger for `handoff` restart mode: write it, then give the one-line resume prompt for the fresh session |
+| Limits | an option beside the next action, offered once per trigger, never mid-deploy or mid-gate; the operator opens the new session; no reply means continue here, and the offer returns only after a new compaction or 3 more closed outcomes |
 
 ### Refusal phrasing for self-correction
 

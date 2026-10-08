@@ -13,7 +13,7 @@ Scheduling only. Every lifecycle rule stays with its owner; this command adds no
 - A question you cannot settle read-only is recorded with its options and clearing condition, and parks **only** its dependency chain. Silence is never a decision.
 
 1. **Grant.** Record it verbatim (secrets masked) in `docs/tmp/handoff.md` § Constraints and Guardrails: run id · session · product · repo/environment · approved scope and actions · exclusions · expiry or end condition. Absent → `none supplied`, and do only already-authorized local work and safe verification. This record is evidence of the conversation, not an approval artifact — `policies/approval-policy.yml` § TRUST MODEL and the owning role's approval contract still gate every side effect.
-2. **Ledger.** `flow-skills/handoff` `Mode: run-ledger`. Read it at every slice boundary and at final acceptance.
+2. **Ledger.** `flow-skills/handoff` `Mode: run-ledger`. Read it at every slice boundary and at final acceptance. If this session has compacted or closed 3 outcomes (default), say once in the read-back that starting the run in a fresh session from the ledger is cheaper (FR-17 rotation), then proceed here without waiting; dispatch each slice to a fresh worker (`token-economy` TE-19).
 3. **Ceremony.** `flow-skills/lightweight-lane` · `flow-skills/implementation-planning` · `flow-skills/documentation-budget` decide the lane, the slice plan and which artifacts exist.
 4. **Dispatch.** `flow-skills/task-delegation` §§ Model routing · Correction ownership · Unattended scheduling; bounds and retries are `flow-skills/liveness-discipline`.
 5. **Review.** `flow-skills/code-review` § Review depth and severity; security findings route to `flow-skills/security-permissions-review`.

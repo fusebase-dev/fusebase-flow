@@ -20,7 +20,7 @@
 .agents/skills/find-wasted-effort/references/rule-signatures.md  f115cc035a5ba4c34130e22216f49a5535e11264c50073a335f61105f993afb6
 .agents/skills/fusebase-flow-health-check/SKILL.md  610def4020e20c4db435620d4ce683daba48b71853bd3b871f03419d566a1b59
 .agents/skills/git-history-diagnostic/SKILL.md  c6d7cb33a4c64db6464dcfff158d00cf84d3b802f5bbd2afa6592c3d0614890c
-.agents/skills/handoff/SKILL.md  b7b08faabb8152d672415957bea0f695a55b2b931bd9056c11ec6d5d1181ea2c
+.agents/skills/handoff/SKILL.md  43e10a76b973dc7b40a6a885ce1f7fc8cb3201fc477d36b726a25789746f396e
 .agents/skills/implementation-planning/SKILL.md  3de0f2052509974e9a868a8353e106b189d563c6a0850c191ce51cb45b52279a
 .agents/skills/lightweight-lane/SKILL.md  2bb75d13ea0d29065bfb85717bd8f39e6f9cfc7b0778090d89360c70a83f490b
 .agents/skills/liveness-discipline/SKILL.md  df1ca900af1235087a24ef50522cc811deadee1cbe81bf5e6d2af2b76bfe0ab0
@@ -35,11 +35,11 @@
 .agents/skills/repo-onboarding-context-map/SKILL.md  d0e8c40165353b454a7ee48cc77edc77bc136de1e35cafef1cd86046ed1c19c0
 .agents/skills/requirements-specification/SKILL.md  0270aec49546d21bdabc4287958d4475aa1aabe15658a7dd7872ffa7f04e4f60
 .agents/skills/role-discipline/SKILL.md  4a01d0505d06c7afed9765476c1004eb05960f45987828422e43ef582f814ed7
-.agents/skills/role-discipline/references/ai-developer.md  cd996576881ac8a696db409d76456d44d8e39edf5317c2930f61f2f42a45929b
+.agents/skills/role-discipline/references/ai-developer.md  b13b087e43ab643c5f44f51193ea4aa18c9d55dc67dccbb9bab876546fd1bf17
 .agents/skills/role-discipline/references/architect.md  fd7f0edf600a618b34284e61025b7ad97ad51fd2e2dfa005eec6596cac996744
 .agents/skills/role-discipline/references/deploy.md  cd4eed882eef2affc605b76ccbc6539e4786298ce1d93f49bbcfe0b79e8c25ff
-.agents/skills/role-discipline/references/product-owner.md  af2a7f1ada615de21d0f6fc71fb040e2d9761151259062d5abbcf073945a4ab7
-.agents/skills/role-discipline/references/shared-protocols.md  24bd830c94fd34a74a6cc299c83aecb1e96582741b081f2dfb83f17805fa2f10
+.agents/skills/role-discipline/references/product-owner.md  0e6e99972c5acf761b6b0921bf4918893e099effa2064ec997ecb9b23272e94f
+.agents/skills/role-discipline/references/shared-protocols.md  3336970ff451c107cb3d9a32e05d9c8d4c86a9a24f50ac48eabbd37c3ff0d6f4
 .agents/skills/security-permissions-review/SKILL.md  fa694285b591f7505dbb07f7eca23e42bf652d623e2230518e623c71b21a2187
 .agents/skills/skill-authoring/SKILL.md  359a126cf411ecc96d7610e1eb045ea1228a76ee4c4f9d472b44b2347ebf22b0
 .agents/skills/smoke-testing/SKILL.md  166164a6f02f6328285aac35f8b8e3a1645555889b0dba61224dc69887f81ea4
@@ -70,7 +70,7 @@
 .claude/skills/find-wasted-effort/references/rule-signatures.md  f115cc035a5ba4c34130e22216f49a5535e11264c50073a335f61105f993afb6
 .claude/skills/fusebase-flow-health-check/SKILL.md  610def4020e20c4db435620d4ce683daba48b71853bd3b871f03419d566a1b59
 .claude/skills/git-history-diagnostic/SKILL.md  c6d7cb33a4c64db6464dcfff158d00cf84d3b802f5bbd2afa6592c3d0614890c
-.claude/skills/handoff/SKILL.md  b7b08faabb8152d672415957bea0f695a55b2b931bd9056c11ec6d5d1181ea2c
+.claude/skills/handoff/SKILL.md  43e10a76b973dc7b40a6a885ce1f7fc8cb3201fc477d36b726a25789746f396e
 .claude/skills/implementation-planning/SKILL.md  3de0f2052509974e9a868a8353e106b189d563c6a0850c191ce51cb45b52279a
 .claude/skills/lightweight-lane/SKILL.md  2bb75d13ea0d29065bfb85717bd8f39e6f9cfc7b0778090d89360c70a83f490b
 .claude/skills/liveness-discipline/SKILL.md  df1ca900af1235087a24ef50522cc811deadee1cbe81bf5e6d2af2b76bfe0ab0
@@ -85,11 +85,11 @@
 .claude/skills/repo-onboarding-context-map/SKILL.md  d0e8c40165353b454a7ee48cc77edc77bc136de1e35cafef1cd86046ed1c19c0
 .claude/skills/requirements-specification/SKILL.md  0270aec49546d21bdabc4287958d4475aa1aabe15658a7dd7872ffa7f04e4f60
 .claude/skills/role-discipline/SKILL.md  4a01d0505d06c7afed9765476c1004eb05960f45987828422e43ef582f814ed7
-.claude/skills/role-discipline/references/ai-developer.md  cd996576881ac8a696db409d76456d44d8e39edf5317c2930f61f2f42a45929b
+.claude/skills/role-discipline/references/ai-developer.md  b13b087e43ab643c5f44f51193ea4aa18c9d55dc67dccbb9bab876546fd1bf17
 .claude/skills/role-discipline/references/architect.md  fd7f0edf600a618b34284e61025b7ad97ad51fd2e2dfa005eec6596cac996744
 .claude/skills/role-discipline/references/deploy.md  cd4eed882eef2affc605b76ccbc6539e4786298ce1d93f49bbcfe0b79e8c25ff
-.claude/skills/role-discipline/references/product-owner.md  af2a7f1ada615de21d0f6fc71fb040e2d9761151259062d5abbcf073945a4ab7
-.claude/skills/role-discipline/references/shared-protocols.md  24bd830c94fd34a74a6cc299c83aecb1e96582741b081f2dfb83f17805fa2f10
+.claude/skills/role-discipline/references/product-owner.md  0e6e99972c5acf761b6b0921bf4918893e099effa2064ec997ecb9b23272e94f
+.claude/skills/role-discipline/references/shared-protocols.md  3336970ff451c107cb3d9a32e05d9c8d4c86a9a24f50ac48eabbd37c3ff0d6f4
 .claude/skills/security-permissions-review/SKILL.md  fa694285b591f7505dbb07f7eca23e42bf652d623e2230518e623c71b21a2187
 .claude/skills/skill-authoring/SKILL.md  359a126cf411ecc96d7610e1eb045ea1228a76ee4c4f9d472b44b2347ebf22b0
 .claude/skills/smoke-testing/SKILL.md  166164a6f02f6328285aac35f8b8e3a1645555889b0dba61224dc69887f81ea4

@@ -6,7 +6,7 @@
   "assets": [
     {
       "path": "FLOW_RULES.md",
-      "sha256": "22ec4074db17d06386f6f97921cb8dc07501108dc53c3fb1b7a327c6f788b1d0"
+      "sha256": "b3758a5139b77d5a4955a2d1270e666f5e392c23df2d06bbcd8c501a1a428fb0"
     },
     {
       "path": "FLOW_RULES_HISTORY.md",
@@ -114,7 +114,7 @@
     },
     {
       "path": "flow-skills/handoff/SKILL.md",
-      "sha256": "b7b08faabb8152d672415957bea0f695a55b2b931bd9056c11ec6d5d1181ea2c"
+      "sha256": "43e10a76b973dc7b40a6a885ce1f7fc8cb3201fc477d36b726a25789746f396e"
     },
     {
       "path": "flow-skills/implementation-planning/SKILL.md",
@@ -174,7 +174,7 @@
     },
     {
       "path": "flow-skills/role-discipline/references/ai-developer.md",
-      "sha256": "cd996576881ac8a696db409d76456d44d8e39edf5317c2930f61f2f42a45929b"
+      "sha256": "b13b087e43ab643c5f44f51193ea4aa18c9d55dc67dccbb9bab876546fd1bf17"
     },
     {
       "path": "flow-skills/role-discipline/references/architect.md",
@@ -186,11 +186,11 @@
     },
     {
       "path": "flow-skills/role-discipline/references/product-owner.md",
-      "sha256": "af2a7f1ada615de21d0f6fc71fb040e2d9761151259062d5abbcf073945a4ab7"
+      "sha256": "0e6e99972c5acf761b6b0921bf4918893e099effa2064ec997ecb9b23272e94f"
     },
     {
       "path": "flow-skills/role-discipline/references/shared-protocols.md",
-      "sha256": "24bd830c94fd34a74a6cc299c83aecb1e96582741b081f2dfb83f17805fa2f10"
+      "sha256": "3336970ff451c107cb3d9a32e05d9c8d4c86a9a24f50ac48eabbd37c3ff0d6f4"
     },
     {
       "path": "flow-skills/security-permissions-review/SKILL.md",
@@ -454,7 +454,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/commands/step-out.md",
-      "sha256": "aad3c35d52a228ffa040092f65ab1710ad7b246e57ddd9b472f9e5abbb8d1c39"
+      "sha256": "0a504bf813dd33c1cc8a1f8c16bccd67ccc3e2036866cd202c5844af58cd564f"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/commands/token-waste-audit.md",
@@ -1629,5 +1629,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "cf0d4f15a4f9d90c3304a1fe0dedadf21d9b9114303c54c5773eb85aed2f4c87"
+  "manifest_self_sha256": "5e1501556f4cf03ba3a2a36ce4d30893ca1ea5f4f3b7efa0fddbdf7725ec64ac"
 }

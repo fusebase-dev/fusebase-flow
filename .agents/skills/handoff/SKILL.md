@@ -30,6 +30,7 @@ Capture the exact current state of a coding session into `docs/tmp/handoff.md` s
 ## When to invoke
 
 - Operator says "prepare a handoff" / "hand this off" / "continue in a new chat" / runs `/handoff` (→ `Mode: restart`).
+- Operator replies `rotate` to a rotation offer (FR-17; `role-discipline` § Forward Momentum) → `Mode: restart`.
 - Session is getting long / context degrading, or about to stop a complex implementation, migration, or debugging session.
 - Meaningful code/test/schema/config/decision changes were made and must survive into the next session.
 - A long autonomous run needs continuity across possible context death (→ `Mode: run-ledger`, no operator trigger needed; announce the write in chat — one line).
