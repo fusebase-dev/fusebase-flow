@@ -210,7 +210,7 @@ def session_findings(s, probe_cmds=()):
             first = images[0]
             f.append(Finding("image-reread", "Identical image x%d: %s %s" % (
                 len(images), first["name"], first["target"]),
-                "FR-26 TE-02 — no re-reads of unchanged in-context files", LIVE, "",
+                "FR-26 TE-21/TE-02 — image residency: an identical capture re-read", LIVE, "",
                 "same image bytes delivered repeatedly in this transcript", (),
                 sum_known([payload_cost(s, index, image["seq"], image["tokens"])
                            for image in images])))

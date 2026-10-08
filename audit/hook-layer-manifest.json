@@ -578,7 +578,7 @@
     },
     {
       "path": "hooks/tests/fixtures/token_waste_a1.py",
-      "sha256": "d31ad742a0b1a3dcd9152a087f1c3069c88311e146e3927d11cee54437c48ff3"
+      "sha256": "538d9b712eaf4f4197fd7569672337df382627194071428df5d5ae4521848a57"
     },
     {
       "path": "hooks/tests/fixtures/token_waste_a2.py",
@@ -858,7 +858,7 @@
     },
     {
       "path": "hooks/tests/test-token-waste-classify.sh",
-      "sha256": "1d1323e885f6ef2482932b1298e781e4f9f9a265720359d108de355a3ec2baa5"
+      "sha256": "7e1fbdc6cb4e550bac08405a7d9ee894b8642b4be362b4998ddc70613cbbd26b"
     },
     {
       "path": "hooks/tests/test-transient-exclude.sh",
@@ -921,5 +921,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "3e40395ea15c88f3511d401c5f4e7b91ec26f975c9a5770b7899b274bc14ee6b"
+  "manifest_self_sha256": "9e51d45aae8206c1cd15abc4adb3fe47a979d243d59cf12d0e186d2fe923800b"
 }

@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "394517175f12cd75a2523fff40244d5cf3317c8e5552e4db8a967a5123a60556"
+      "sha256": "33e7355ea5e56d7514f630e24d12ebc5aa8b767b235f3720b4ac8c0fcb37dd32"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -202,7 +202,7 @@
     },
     {
       "path": "flow-skills/smoke-testing/SKILL.md",
-      "sha256": "d2119105bac78b7d0b5321675b02f033e240583ae4b8d5aad42b6d9325364317"
+      "sha256": "166164a6f02f6328285aac35f8b8e3a1645555889b0dba61224dc69887f81ea4"
     },
     {
       "path": "flow-skills/task-delegation/SKILL.md",
@@ -210,7 +210,7 @@
     },
     {
       "path": "flow-skills/token-economy/SKILL.md",
-      "sha256": "76161ebb911daf3cee2ae67bec91cf6cb664b9da3d63b081261ce274a7ff768f"
+      "sha256": "6678682811237541e1a8c0761569a34d0a48e6fcc0e82a9c2853676ebbaf1e4a"
     },
     {
       "path": "flow-skills/validation-and-qa/SKILL.md",
@@ -458,7 +458,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/commands/token-waste-audit.md",
-      "sha256": "828dc3be0e586742749ebf40b192e00b244cb286b0b8a2d73d548d0ad91db3fc"
+      "sha256": "058800cdf0b2a42e8dbcfdb59c75b6c1031f70930a0fa61d1429beab660911e4"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/overlay-block-replace.py",
@@ -698,7 +698,7 @@
     },
     {
       "path": "hooks/local/token_waste_audit/classification.py",
-      "sha256": "8e9bfef87b4e959370b8113721bca9d92224be420f4f8d96b2a5be3a8d4711ac"
+      "sha256": "d529b427717e659f0561bb1e78afa38979554599f4211041bf39731cb2f4ba9f"
     },
     {
       "path": "hooks/local/token_waste_audit/cli.py",
@@ -1026,7 +1026,7 @@
     },
     {
       "path": "hooks/tests/fixtures/token_waste_a1.py",
-      "sha256": "d31ad742a0b1a3dcd9152a087f1c3069c88311e146e3927d11cee54437c48ff3"
+      "sha256": "538d9b712eaf4f4197fd7569672337df382627194071428df5d5ae4521848a57"
     },
     {
       "path": "hooks/tests/fixtures/token_waste_a2.py",
@@ -1370,7 +1370,7 @@
     },
     {
       "path": "hooks/tests/test-token-waste-classify.sh",
-      "sha256": "1d1323e885f6ef2482932b1298e781e4f9f9a265720359d108de355a3ec2baa5"
+      "sha256": "7e1fbdc6cb4e550bac08405a7d9ee894b8642b4be362b4998ddc70613cbbd26b"
     },
     {
       "path": "hooks/tests/test-transient-exclude.sh",
@@ -1629,5 +1629,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "3586dafa357fb386bfcf4afb3963a941ff51150742ecea9cd2ac85d96b4d0299"
+  "manifest_self_sha256": "7177fd8977c923d0c5bdd4f584eb5961b1936b7bf6abec9d4fcfee3a612e3efa"
 }

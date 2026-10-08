@@ -42,9 +42,9 @@
 .agents/skills/role-discipline/references/shared-protocols.md  24bd830c94fd34a74a6cc299c83aecb1e96582741b081f2dfb83f17805fa2f10
 .agents/skills/security-permissions-review/SKILL.md  fa694285b591f7505dbb07f7eca23e42bf652d623e2230518e623c71b21a2187
 .agents/skills/skill-authoring/SKILL.md  359a126cf411ecc96d7610e1eb045ea1228a76ee4c4f9d472b44b2347ebf22b0
-.agents/skills/smoke-testing/SKILL.md  d2119105bac78b7d0b5321675b02f033e240583ae4b8d5aad42b6d9325364317
+.agents/skills/smoke-testing/SKILL.md  166164a6f02f6328285aac35f8b8e3a1645555889b0dba61224dc69887f81ea4
 .agents/skills/task-delegation/SKILL.md  0129b4095ab2e77c77ff5db110429b3fa902094b5ef3d06ee8c041be58dcc436
-.agents/skills/token-economy/SKILL.md  76161ebb911daf3cee2ae67bec91cf6cb664b9da3d63b081261ce274a7ff768f
+.agents/skills/token-economy/SKILL.md  6678682811237541e1a8c0761569a34d0a48e6fcc0e82a9c2853676ebbaf1e4a
 .agents/skills/validation-and-qa/SKILL.md  297c2f03521f061372c07f3d45f8b2ed6f3b6071f3c05b79d1d48606498fef01
 .agents/skills/zoom-out/SKILL.md  ee5f705f7bba09b20a7d34a169231c014f708027bec7b00c4cae058455d20301
 .agents/skills/zoom-out/references/karpathy-guidelines.md  4bc83d79cee31ac6b59dd06251af59172493417df0d562ee631ff1e4945b7809
@@ -92,9 +92,9 @@
 .claude/skills/role-discipline/references/shared-protocols.md  24bd830c94fd34a74a6cc299c83aecb1e96582741b081f2dfb83f17805fa2f10
 .claude/skills/security-permissions-review/SKILL.md  fa694285b591f7505dbb07f7eca23e42bf652d623e2230518e623c71b21a2187
 .claude/skills/skill-authoring/SKILL.md  359a126cf411ecc96d7610e1eb045ea1228a76ee4c4f9d472b44b2347ebf22b0
-.claude/skills/smoke-testing/SKILL.md  d2119105bac78b7d0b5321675b02f033e240583ae4b8d5aad42b6d9325364317
+.claude/skills/smoke-testing/SKILL.md  166164a6f02f6328285aac35f8b8e3a1645555889b0dba61224dc69887f81ea4
 .claude/skills/task-delegation/SKILL.md  0129b4095ab2e77c77ff5db110429b3fa902094b5ef3d06ee8c041be58dcc436
-.claude/skills/token-economy/SKILL.md  76161ebb911daf3cee2ae67bec91cf6cb664b9da3d63b081261ce274a7ff768f
+.claude/skills/token-economy/SKILL.md  6678682811237541e1a8c0761569a34d0a48e6fcc0e82a9c2853676ebbaf1e4a
 .claude/skills/validation-and-qa/SKILL.md  297c2f03521f061372c07f3d45f8b2ed6f3b6071f3c05b79d1d48606498fef01
 .claude/skills/zoom-out/SKILL.md  ee5f705f7bba09b20a7d34a169231c014f708027bec7b00c4cae058455d20301
 .claude/skills/zoom-out/references/karpathy-guidelines.md  4bc83d79cee31ac6b59dd06251af59172493417df0d562ee631ff1e4945b7809

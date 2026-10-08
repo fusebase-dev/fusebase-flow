@@ -206,7 +206,8 @@ for assertion in a1-session-large-output-cap a1-session-repeat-output-cap \
     a1-session-cap-largest-first-provenance a1-cli-session-caps-match-report \
     a1-cli-safe-path-env a1-cli-safe-path-P a1-cli-safe-path-I \
     a1-cli-main-only a1-main-only-report-omits-agent-tables \
-    a1-image-table-only-nonzero-plus-total a1-image-table-zero-total-only; do
+    a1-image-table-only-nonzero-plus-total a1-image-table-zero-total-only \
+    a1-image-reread-residency-rule; do
     says "guard-$assertion" "$A1_CHECKS" "PASS: token-waste-classify $assertion"
 done
 

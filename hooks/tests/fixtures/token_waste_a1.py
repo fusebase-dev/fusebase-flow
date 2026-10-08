@@ -163,6 +163,9 @@ repeat = parse_session(write(temp / "repeat.jsonl", image_rows([first, first, fi
 found = [f for f in session_findings(repeat) if f.cls == "image-reread"]
 check("a1-image-identical-bytes-three-one-finding", len(found) == 1 and "x3" in found[0].desc
       and "TE-02" in found[0].rule and len(session_findings(repeat)) == 1)
+image_rule = "FR-26 TE-21/TE-02 — image residency: an identical capture re-read"
+check("a1-image-reread-residency-rule", len(found) == 1 and found[0].rule == image_rule
+      and image_rule in build_report([repeat], root, "fixture"))
 fresh = parse_session(write(temp / "fresh.jsonl", image_rows([first, second, png(1024, 1280, 3)])))
 check("a1-image-recapture-same-path-distinct-bytes", not session_findings(fresh))
 mixed_rows = image_rows([first, first])

@@ -120,6 +120,7 @@ Evidence rules above say WHAT counts; this says HOW to obtain it economically. A
 - **The only exception:** the first live drive of freshly-changed code hunting UNKNOWN failure modes, where catching the defect at the moment it happens is the point. Bound it (one flow, one watch window), then revert to record-then-read.
 - A long-running verification plan states which mode it uses and why (one line in the S<n> or gate plan).
 - Delegated sessions: combine with the turn-completion rule (`task-delegation`) — record-then-read is how a delegated verifier finishes in one turn.
+- **Visual evidence (`token-economy` TE-21):** a screenshot stays in the reading agent's context for the rest of its run. Diff captures by script and read only the ones the report flags, once each unless re-captured; crop to the region in question; one bounded agent per screen group. The script narrows which captures are read; the capture a verdict rests on is viewed whether or not it is flagged (evidence rules above).
 
 ## Output artifacts
 
