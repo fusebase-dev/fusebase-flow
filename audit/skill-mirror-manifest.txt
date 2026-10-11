@@ -43,8 +43,8 @@
 .agents/skills/security-permissions-review/SKILL.md  fa694285b591f7505dbb07f7eca23e42bf652d623e2230518e623c71b21a2187
 .agents/skills/skill-authoring/SKILL.md  359a126cf411ecc96d7610e1eb045ea1228a76ee4c4f9d472b44b2347ebf22b0
 .agents/skills/smoke-testing/SKILL.md  166164a6f02f6328285aac35f8b8e3a1645555889b0dba61224dc69887f81ea4
-.agents/skills/task-delegation/SKILL.md  94a2ac57f33da959da9f6876ed90195d160d47c46b293fe7f0efc5803703cca3
-.agents/skills/token-economy/SKILL.md  833cf39153acf2866b9893a8cea4c38f11f25a2202e0d6a49d25333b63e6edbc
+.agents/skills/task-delegation/SKILL.md  7372a7e815579d3168ad3a50ed065782593810046b4fc0d196696aa2fbec81f2
+.agents/skills/token-economy/SKILL.md  ef7a0800bb51e4d3f8bc9ab85043271d142673b13cb1378283071d8a6aee9b11
 .agents/skills/validation-and-qa/SKILL.md  297c2f03521f061372c07f3d45f8b2ed6f3b6071f3c05b79d1d48606498fef01
 .agents/skills/zoom-out/SKILL.md  ee5f705f7bba09b20a7d34a169231c014f708027bec7b00c4cae058455d20301
 .agents/skills/zoom-out/references/karpathy-guidelines.md  4bc83d79cee31ac6b59dd06251af59172493417df0d562ee631ff1e4945b7809
@@ -93,8 +93,8 @@
 .claude/skills/security-permissions-review/SKILL.md  fa694285b591f7505dbb07f7eca23e42bf652d623e2230518e623c71b21a2187
 .claude/skills/skill-authoring/SKILL.md  359a126cf411ecc96d7610e1eb045ea1228a76ee4c4f9d472b44b2347ebf22b0
 .claude/skills/smoke-testing/SKILL.md  166164a6f02f6328285aac35f8b8e3a1645555889b0dba61224dc69887f81ea4
-.claude/skills/task-delegation/SKILL.md  94a2ac57f33da959da9f6876ed90195d160d47c46b293fe7f0efc5803703cca3
-.claude/skills/token-economy/SKILL.md  833cf39153acf2866b9893a8cea4c38f11f25a2202e0d6a49d25333b63e6edbc
+.claude/skills/task-delegation/SKILL.md  7372a7e815579d3168ad3a50ed065782593810046b4fc0d196696aa2fbec81f2
+.claude/skills/token-economy/SKILL.md  ef7a0800bb51e4d3f8bc9ab85043271d142673b13cb1378283071d8a6aee9b11
 .claude/skills/validation-and-qa/SKILL.md  297c2f03521f061372c07f3d45f8b2ed6f3b6071f3c05b79d1d48606498fef01
 .claude/skills/zoom-out/SKILL.md  ee5f705f7bba09b20a7d34a169231c014f708027bec7b00c4cae058455d20301
 .claude/skills/zoom-out/references/karpathy-guidelines.md  4bc83d79cee31ac6b59dd06251af59172493417df0d562ee631ff1e4945b7809

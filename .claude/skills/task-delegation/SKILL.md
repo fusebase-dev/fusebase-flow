@@ -86,7 +86,7 @@ Every delegated task gets a brief with:
 | Inputs | relevant artifacts and skill paths already loaded; code-edit workers must read `FLOW_RULES.md` (to `## Amendment log`) and `flow-skills/role-discipline/references/ai-developer.md` before editing |
 | Forbidden actions | no revert of others' edits; no deploy; no secrets; no edits beyond §3 of `flow-skills/zoom-out/references/karpathy-guidelines.md` |
 | Domain skills | relevant CLI provider skill names from `docs/fusebase-cli-edition.md`, if the task touches Fusebase Apps runtime/domain behavior |
-| Output format | the **Delegated return shape** (§5): verdict · SHAs · deltas · artifact pointers · residual risk, within the §5 **return budget** |
+| Output format | the **Delegated return shape** (§5): verdict · SHAs · deltas · artifact pointers · residual risk · context, within the §5 **return budget** |
 | Return budget | ≤80 lines **and** ≤6,000 characters (§5); name the sanctioned durable artifact any overflow goes to |
 | Verification | expected tests/checks/evidence |
 
@@ -102,7 +102,7 @@ For code-edit subtasks, tell the worker: "You are not alone in the codebase. Do 
 
 **Delegation contract push block** — inline this in every delegating prompt (push, not pull; workers do not load skills):
 
-> Your deliverable must be COMPLETE within this turn — you cannot self-resume; poll in-turn with bounded check loops of at most 4 min each (cache TTL; never a bare leading sleep) or read durable records, never end with "I'll resume when…". Write durable facts into your owed artifacts AS THEY OCCUR (skeleton first, rows as earned), never everything-at-the-end. If you hit an unbounded wait (human gate, no-ETA event), return `BLOCKED-AT-<gate>` + a pointer to where reality is recorded. Return per the delegated return shape: verdict · SHAs · deltas · artifact pointers — never re-paste a body an artifact already holds; state-change claims cite the ground-truth check performed (surface read + what it showed). **Chat-return budget: ≤80 lines and ≤6,000 characters. Longer → write a sanctioned durable artifact and return its path; commit only when the owning workflow requires it.**
+> Your deliverable must be COMPLETE within this turn — you cannot self-resume; poll in-turn with bounded check loops of at most 4 min each (cache TTL; never a bare leading sleep) or read durable records, never end with "I'll resume when…". Write durable facts into your owed artifacts AS THEY OCCUR (skeleton first, rows as earned), never everything-at-the-end. If you hit an unbounded wait (human gate, no-ETA event), return `BLOCKED-AT-<gate>` + a pointer to where reality is recorded. Return per the delegated return shape: verdict · SHAs · deltas · artifact pointers · context (compacted yes/no + tool uses this run) — never re-paste a body an artifact already holds; state-change claims cite the ground-truth check performed (surface read + what it showed). **Chat-return budget: ≤80 lines and ≤6,000 characters. Longer → write a sanctioned durable artifact and return its path; commit only when the owning workflow requires it.**
 
 **No inherited auto-load.** A delegated sub-agent session does **not** inherit the orchestrator's auto-loaded skills or the always-on FR-24 digest — `session_start` does not fire for it. The anti-reread exemption in `communication` / `role-discipline` therefore does not apply to a worker. Canonical worker boot: the delegating prompt inlines the FR-24 digest and the push blocks below; a code-edit worker also reads `FLOW_RULES.md` (to `## Amendment log`) and `references/ai-developer.md` (§3 Inputs); a read-only worker reads only what its brief names. Never tell a worker "the skill is already loaded"; never have it re-read a file whose full text is already in its context.
 
@@ -165,6 +165,7 @@ For **delegated returns only** — gate reports keep PASS/FAIL; spec Status valu
 | Deltas | counts only: tests before/after, files changed, findings N |
 | Artifacts | POINTERS (paths) to reports/evidence — never re-paste a body an artifact already holds (FR-23/FR-26) |
 | Residual risk | one line, or `None` |
+| Context | `compacted: yes\|no · tool uses: N` for this run — `yes` when your context was compacted (it opens with a continuation summary instead of your earlier turns); N = tool calls you made this run (Claude Code: the completion notice's `<tool_uses>` is authoritative) |
 
 **Return budget (binding):** ≤80 lines **and** ≤6,000 characters. Longer → write a sanctioned durable artifact and return its path; commit only when the owning workflow requires it. Both limits bind together — one 32,000-character line satisfies a line-only cap and still costs the orchestrator the full read. A read-only PO/Architect delegate and a concurrent investigation write to `docs/tmp/` (or the artifact the owning workflow names) without committing.
 
@@ -194,7 +195,7 @@ Per-project selection lives in `policies/model-routing.yml` (optional; per-machi
 
 Generalizes the same-agent, context-preserving reuse the provider-limit path already requires (§3) to corrections, bounded by context size:
 
-- A fix to a worker's OWN diff goes back to that worker while its context is small: fewer than 50 tool uses summed across its runs (Claude Code: `<tool_uses>` in each completion notice; `<subagent_tokens>` is not a context measure) and no compaction; a host with no usage notice counts the tasks the brief gave it — one task group. Past that, or when the task is unrelated or that context has demonstrably drifted, brief a fresh successor with the findings + ledger pointers; it resumes verify-from-records (§3 successor contract). Resuming a large idle worker re-writes its whole context (`token-economy` TE-09, TE-19).
+- A fix to a worker's OWN diff goes back to that worker while its context is small: fewer than 50 tool uses summed across its runs and no compaction, both read from the Context field of its returns (§ Delegated return shape; on Claude Code the completion notice's `<tool_uses>` is authoritative for the count; `<subagent_tokens>` is not a context measure). A return without the Context field counts as past the bound; a host with no usage notice counts the tasks the brief gave it — one task group. Past that, or when the task is unrelated or that context has demonstrably drifted, brief a fresh successor with the findings + ledger pointers; it resumes verify-from-records (§3 successor contract). Resuming a large idle worker re-writes its whole context (`token-economy` TE-09, TE-19).
 - One correction owner per review round, batched by file. Never one agent per finding.
 - Disjoint write ownership (§4) and one independently reversible outcome per commit still bind: batching findings never merges unrelated outcomes.
 - Verify an external API/SDK shape once, record it where the plan lives, and cite it afterwards. Re-verify what this change touches or what a changed dependency invalidates — not merely what was edited (`token-economy`).

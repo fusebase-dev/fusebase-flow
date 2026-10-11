@@ -206,11 +206,11 @@
     },
     {
       "path": "flow-skills/task-delegation/SKILL.md",
-      "sha256": "94a2ac57f33da959da9f6876ed90195d160d47c46b293fe7f0efc5803703cca3"
+      "sha256": "7372a7e815579d3168ad3a50ed065782593810046b4fc0d196696aa2fbec81f2"
     },
     {
       "path": "flow-skills/token-economy/SKILL.md",
-      "sha256": "833cf39153acf2866b9893a8cea4c38f11f25a2202e0d6a49d25333b63e6edbc"
+      "sha256": "ef7a0800bb51e4d3f8bc9ab85043271d142673b13cb1378283071d8a6aee9b11"
     },
     {
       "path": "flow-skills/validation-and-qa/SKILL.md",
@@ -1526,7 +1526,7 @@
     },
     {
       "path": "templates/handoff-implement.md",
-      "sha256": "70a3bef5d1db790c23e4156bde83e04aa8a4977cacce399821f66a3d18294cd6"
+      "sha256": "d0f6d7a2d44c084be213bab12a46437dddbce20a96aa15ae7834523ca5f9b60c"
     },
     {
       "path": "templates/handoff.md",
@@ -1629,5 +1629,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "5f498f4337cba025c7dfb9547530b70e844ac006273fef9471d20c8018e7b40f"
+  "manifest_self_sha256": "72862316d8c0136de9dac47f41606276cf933639d13dc2cc430d6b64e4fcc7a8"
 }
