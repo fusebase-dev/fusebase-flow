@@ -4,6 +4,21 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [5.9] — 2026-10-11
+
+**Fixes from a FuseBase CLI update escalation, plus the v5.8 follow-ups.** `.git/info/exclude` now
+covers `/policies/*.local.yml` and `/.claude/worktrees/`, so the CLI's `git add -A` checkpoint no longer
+stages them into Flow's protected-path block (the install snippet uses the glob; `.gitignore` is never
+touched). `post-fusebase-update.sh` without `--refresh-overlays` compares against the pre-run bytes and
+reports a line-endings-only difference as an exit-0 advisory instead of "Recovery uncertainty"; the
+heading migration moved to Python and no longer rewrites every CRLF on Windows. The six key secret
+patterns are anchored (word boundary, or glued with a digit and an uppercase letter; bounded lookahead),
+so URL slugs stop matching, with a new release-gated `secret-patterns` phase. New approval rule:
+`fusebase isolated-store sql bundle … --apply` requires `database_migration` in every environment.
+Delegated returns carry a context field read by correction ownership; TE-20 gives the break-even per
+cache-read price; `/token-waste-audit` measures send-to-send gaps, counts polling repeats correctly and
+marks observed vs estimated cost. **Drop-in from 5.8.** See `docs/release-notes/v5.9.md`.
+
 ## [5.8] — 2026-10-08
 
 **`/token-waste-audit` sees the whole run, and the guidance targets the real cost drivers.**
