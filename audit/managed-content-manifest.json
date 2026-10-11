@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "dec61827f50761df5bee8a4cf81f335378c3947301c3844ec1ec8d092bd95acc"
+      "sha256": "b15dde11096dc70b372a312a9ac69c571ed6221d3d1fcbfc98cbd9466ef37f7b"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -502,7 +502,7 @@
     },
     {
       "path": "hooks/local/lib/backup-hygiene.sh",
-      "sha256": "895fc7a48bab510eee0dea946d9dfc5bd38f8cb8f31f178c9f4ad54465267cb2"
+      "sha256": "83dc9df76c9470bf795384b82069902cb772f02dfcd9dac15ca815b087f04983"
     },
     {
       "path": "hooks/local/lib/bounded-run.sh",
@@ -642,7 +642,7 @@
     },
     {
       "path": "hooks/local/post-fusebase-update.sh",
-      "sha256": "85a0cce8d2ef145c4bb987575f424e6f9939dde4c60623f51325142d6b9a5c30"
+      "sha256": "0bbe7d18aa96f96feceedd20b4e4f2f2147a0e3d6f69b4f871931b8ef7bb87c1"
     },
     {
       "path": "hooks/local/preflight.sh",
@@ -1374,7 +1374,7 @@
     },
     {
       "path": "hooks/tests/test-transient-exclude.sh",
-      "sha256": "8a4145e2973ddbf33587e6185e2a75d6152f2776060d7fb385029005ef618820"
+      "sha256": "69316b9d6bdae04bfe98042a1d626dbf29816f213cf094b4b07b98a992f557df"
     },
     {
       "path": "hooks/tests/test-trusted-enforcer.sh",
@@ -1629,5 +1629,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "5504c7d4aa972aff5a6b65d223383148fa8fcbfa9456c551f334cd97eed5cb93"
+  "manifest_self_sha256": "932adc030b7855b4e5e2dde1eb66bf25d1d641a3064b2da9124b814d21b63804"
 }

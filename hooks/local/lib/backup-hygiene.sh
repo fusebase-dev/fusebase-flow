@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Fusebase Flow — transient .pre-*-<ts> backup hygiene (one home for three consumers).
+# Fusebase Flow — transient .pre-*-<ts> backup hygiene (one home for four consumers).
 #
 # PROVENANCE:
 #   Extracted verbatim from hooks/local/upgrade.sh + hooks/local/bootstrap-upgrade.sh per
 #   FR-25 (the engine is at the 800-line ceiling) — the git-exclude half was DUPLICATED in
-#   both entry scripts. Sourced by both, and by hooks/local/cleanup-flow-backups.sh.
+#   both entry scripts. Sourced by both, by hooks/local/cleanup-flow-backups.sh, and by hooks/local/post-fusebase-update.sh.
 #
 # API:
 #   FF_BACKUP_TS_GLOB          the EXACT `date -u +%Y%m%dT%H%M%SZ` shell glob
@@ -36,7 +36,9 @@ ff_backup_stem() {   # <basename> -> stem on stdout; rc 1 when not an exact Flow
 # HARD-BLOCK the checkpoint (field escalation, v4.3.2). Local + idempotent. Keep the
 # backups until validated: only previously-COMMITTED content is recoverable from git
 # history; an uncommitted local customization overwritten during refresh survives only
-# in its backup.
+# in its backup. The same writer also excludes per-clone policy overrides (`policies/*.local.yml`,
+# loaded by name — a committed one could neutralize a gate) and host agent worktrees
+# (`.claude/worktrees/`, staged as embedded repositories otherwise); never the tracked .gitignore.
 ff_git_exclude_backups() {
   local ex line d
   # git-path resolves info/exclude to the COMMON dir for linked worktrees (--git-dir would
@@ -55,13 +57,16 @@ ff_git_exclude_backups() {
     printf '\n' >> "$ex" 2>/dev/null || return 1
   fi
   d="$FF_BACKUP_TS_GLOB"
-  # TRIPWIRE: lines match exactly — editing a shipped one re-appends it to every consumer; post-fusebase-update.sh duplicates this list.
+  # TRIPWIRE: lines match exactly — editing a shipped one re-appends it to every consumer; post-fusebase-update.sh sources this function.
   for line in \
     "# Fusebase Flow upgrade/refresh backups (transient; keep until validated) — never stage them." \
     "*.pre-upgrade-$d" \
     "*.pre-bootstrap-$d" \
     "*.pre-refresh-$d" \
-    "/.fusebase-flow-source/"; do
+    "/.fusebase-flow-source/" \
+    "# Fusebase Flow per-clone policy overrides and agent worktrees — never stage them." \
+    "/policies/*.local.yml" \
+    "/.claude/worktrees/"; do
     if ! grep -qxF "$line" "$ex" 2>/dev/null; then
       printf '%s\n' "$line" >> "$ex" 2>/dev/null || return 1
     fi

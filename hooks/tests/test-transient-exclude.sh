@@ -21,15 +21,44 @@ trap 'rm -rf "$TMP_BASE"' EXIT
 G=(git -c user.name=flow-test -c user.email=flow-test@local -c core.autocrlf=false -c commit.gpgsign=false)
 BACKUP="app.txt.pre-upgrade-20260101T000000Z"
 
-extract_fn() { awk -v fn="$1" '$0 ~ ("^" fn "\\(\\) \\{"){p=1} p{print} p&&/^}/{exit}' "$2"; }
-PFU_FN="$(extract_fn ff_git_exclude_backups "$PFU")"
+PFU_SOURCE="$(awk '/^FF_BH_LIB=/{n=4} n{print; n--}' "$PFU")"
 [ -f "$BH_LIB" ] || { bad setup-lib-writer "missing $BH_LIB"; finish; }
-[ -n "$PFU_FN" ] || { bad setup-pfu-writer "ff_git_exclude_backups not found in $PFU"; finish; }
+if [ "$PFU_SOURCE" = 'FF_BH_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/backup-hygiene.sh"
+[ -f "$FF_BH_LIB" ] || FF_BH_LIB="$ROOT/hooks/local/lib/backup-hygiene.sh"
+# shellcheck source=lib/backup-hygiene.sh
+if [ -f "$FF_BH_LIB" ]; then . "$FF_BH_LIB"; else ff_git_exclude_backups() { return 1; }; fi' ] \
+   && ! grep -q '^ff_git_exclude_backups() {' "$PFU"; then
+  ok "pfu-sources-lib-without-inline-writer"
+else
+  bad "pfu-sources-lib-without-inline-writer" "source block missing or inline writer present"; finish
+fi
+PFU_STEP="$TMP_BASE/pfu-step/post-fusebase-update.sh"
+mkdir -p "$(dirname "$PFU_STEP")/lib"
+cp "$BH_LIB" "$(dirname "$PFU_STEP")/lib/backup-hygiene.sh" \
+  || { bad setup-pfu-step "could not copy lib"; finish; }
+printf '%s\n' "$PFU_SOURCE" > "$PFU_STEP"
+awk '/^ff_git_exclude_backups \|\|/{print; found=1} END{if (!found) exit 1}' "$PFU" >> "$PFU_STEP" \
+  || { bad setup-pfu-step "exclude call site missing"; finish; }
+
+MISSING_STEP="$TMP_BASE/missing-lib/post-fusebase-update.sh"
+mkdir -p "$(dirname "$MISSING_STEP")"
+cp "$PFU_STEP" "$MISSING_STEP"
+R="$TMP_BASE/missing-lib-repo"; mkdir -p "$R" && ( cd "$R" && git init -q . ) >/dev/null 2>&1
+cp "$R/.git/info/exclude" "$TMP_BASE/missing-lib-before"
+if ( cd "$R" && bash "$MISSING_STEP" ) > "$TMP_BASE/missing-lib-output" 2>&1 \
+   && grep -q 'note: could not update .git/info/exclude' "$TMP_BASE/missing-lib-output" \
+   && cmp "$TMP_BASE/missing-lib-before" "$R/.git/info/exclude" >/dev/null 2>&1; then
+  ok "pfu-missing-lib-notes-exclude-failure"
+else
+  bad "pfu-missing-lib-notes-exclude-failure" "missing-lib call did not warn without writing"
+fi
 
 run_writer() {
   ( cd "$2" || exit 97
-    case "$1" in lib) . "$BH_LIB" ;; pfu) eval "$PFU_FN" ;; esac
-    ff_git_exclude_backups )
+    case "$1" in
+      lib) . "$BH_LIB"; ff_git_exclude_backups ;;
+      pfu) bash "$PFU_STEP" ;;
+    esac )
 }
 
 # TRIPWIRE: the nested clone needs a commit — without one `git add -A` errors instead of staging a gitlink.
@@ -73,6 +102,30 @@ done
 R="$TMP_BASE/gitignore"; cp -R "$TPL" "$R"; cp "$ROOT/.gitignore" "$R/.gitignore"
 unstaged_row "shipped-gitignore-keeps-clone-unstaged" "$R" 'fusebase-flow-source'
 
+POLICY_TPL="$TMP_BASE/policy-tpl"; cp -R "$TPL" "$POLICY_TPL"
+mkdir -p "$POLICY_TPL/policies" "$POLICY_TPL/.claude/worktrees/x" \
+  && ( cd "$POLICY_TPL" && echo local > policies/model-routing.local.yml \
+       && cd .claude/worktrees/x && git init -q . && echo agent > agent.txt \
+       && "${G[@]}" add agent.txt && "${G[@]}" commit -qm agent ) >/dev/null 2>&1 \
+  || { bad setup-policy-worktree-fixture "could not build the local-policy/worktree fixture"; finish; }
+
+C="$TMP_BASE/policy-control"; cp -R "$POLICY_TPL" "$C"
+if add_all "$C" && grep -q 'policies/model-routing\.local\.yml$' "$C.ls" \
+   && grep -qE '^160000 .*	\.claude/worktrees/x$' "$C.ls"; then
+  ok "control-unexcluded-local-policy-and-worktree-staged"
+else
+  bad "control-unexcluded-local-policy-and-worktree-staged" "fixture does not reproduce the hazard: $(cat "$C.ls" 2>/dev/null)"
+fi
+
+for w in lib pfu; do
+  R="$TMP_BASE/policy-writer-$w"; cp -R "$POLICY_TPL" "$R"
+  if run_writer "$w" "$R"; then
+    unstaged_row "$w-writer-keeps-local-policy-and-worktree-unstaged" "$R" 'policies/model-routing\.local\.yml|\.claude/worktrees/'
+  else
+    bad "$w-writer-keeps-local-policy-and-worktree-unstaged" "writer rc=$?"
+  fi
+done
+
 # TRIPWIRE: these are the exact lines v5.4 consumers already hold; a writer that edits one re-appends it.
 TSG='[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]T[0-9][0-9][0-9][0-9][0-9][0-9]Z'
 for w in lib pfu; do
@@ -83,12 +136,40 @@ for w in lib pfu; do
   n0="$(wc -l < "$EX")"
   run_writer "$w" "$R"; rc1=$?; n1="$(wc -l < "$EX")"
   run_writer "$w" "$R"; rc2=$?; n2="$(wc -l < "$EX")"
-  if [ "$rc1$rc2" = "00" ] && [ "$n1" -eq $((n0 + 1)) ] && [ "$n2" -eq "$n1" ] \
-     && [ "$(tail -n 1 "$EX")" = "/.fusebase-flow-source/" ]; then
-    ok "$w-writer-upgrades-v54-exclude-by-one-line-idempotently"
+  if [ "$rc1$rc2" = "00" ] && [ "$n1" -eq $((n0 + 4)) ] && [ "$n2" -eq "$n1" ] \
+     && [ "$(tail -n 1 "$EX")" = "/.claude/worktrees/" ]; then
+    ok "$w-writer-upgrades-v54-exclude-by-missing-lines-idempotently"
   else
-    bad "$w-writer-upgrades-v54-exclude-by-one-line-idempotently" "rc=$rc1/$rc2 lines $n0->$n1->$n2: $(cat "$EX")"
+    bad "$w-writer-upgrades-v54-exclude-by-missing-lines-idempotently" "rc=$rc1/$rc2 lines $n0->$n1->$n2: $(cat "$EX")"
   fi
 done
+
+for w in lib pfu; do
+  R="$TMP_BASE/v58-$w"; mkdir -p "$R" && ( cd "$R" && git init -q . ) >/dev/null 2>&1
+  EX="$R/.git/info/exclude"; mkdir -p "$(dirname "$EX")"
+  printf '%s\n' "# Fusebase Flow upgrade/refresh backups (transient; keep until validated) — never stage them." \
+    "*.pre-upgrade-$TSG" "*.pre-bootstrap-$TSG" "*.pre-refresh-$TSG" "/.fusebase-flow-source/" >> "$EX"
+  n0="$(wc -l < "$EX")"
+  run_writer "$w" "$R"; rc1=$?; n1="$(wc -l < "$EX")"
+  run_writer "$w" "$R"; rc2=$?; n2="$(wc -l < "$EX")"
+  if [ "$rc1$rc2" = "00" ] && [ "$n1" -eq $((n0 + 3)) ] && [ "$n2" -eq "$n1" ] \
+     && [ "$(tail -n 1 "$EX")" = "/.claude/worktrees/" ]; then
+    ok "$w-writer-upgrades-v58-exclude-by-three-lines"
+  else
+    bad "$w-writer-upgrades-v58-exclude-by-three-lines" "rc=$rc1/$rc2 lines $n0->$n1->$n2: $(cat "$EX")"
+  fi
+done
+
+L="$TMP_BASE/parity-lib"; P="$TMP_BASE/parity-pfu"
+mkdir -p "$L" "$P" \
+  && ( cd "$L" && git init -q . ) >/dev/null 2>&1 \
+  && ( cd "$P" && git init -q . ) >/dev/null 2>&1 \
+  && run_writer lib "$L" && run_writer pfu "$P" \
+  && cmp "$L/.git/info/exclude" "$P/.git/info/exclude" >/dev/null 2>&1
+if [ "$?" -eq 0 ]; then
+  ok "writers-emit-identical-lists"
+else
+  bad "writers-emit-identical-lists" "writer setup, execution or byte parity failed"
+fi
 
 finish

@@ -298,13 +298,9 @@ state/approvals/*
 state/audit/*
 !state/audit/.gitkeep
 
-# Fusebase Flow local policy overrides
-policies/approval-policy.local.yml
-policies/command-policy.local.yml
-policies/protected-paths.local.yml
-policies/required-artifacts.local.yml
-policies/gate-contracts.local.yml
-policies/secret-patterns.local.yml
+# Fusebase Flow local policy overrides (any policies/<name>.local.yml) and agent worktrees
+policies/*.local.yml
+.claude/worktrees/
 ```
 
 ## Merging `.claude/settings.json`

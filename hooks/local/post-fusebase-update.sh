@@ -97,33 +97,10 @@ if set(seen) != allowed or len(seen) != len(allowed):
 ' "$1"
 }
 
-# Git-exclude the *.pre-refresh-<ts> backups this recovery drops, so a downstream
-# `git add -A` (FuseBase CLI `fusebase update` checkpoint) never stages them. upgrade.sh's
-# hooks.pre-upgrade/policies.pre-upgrade snapshots carry the OLD secret-scan fixtures that
-# HARD-BLOCK such a checkpoint; git-excluding these .pre-refresh backups too keeps a
-# wholesale add clean (field escalation, v4.3.2). Local + idempotent.
-ff_git_exclude_backups() {
-  local ex line d
-  ex="$(git rev-parse --git-path info/exclude 2>/dev/null)" || return 0   # not a git repo -> no staging risk -> no-op
-  [ -n "$ex" ] || return 0
-  mkdir -p "$(dirname "$ex")" 2>/dev/null || return 1
-  [ -e "$ex" ] && { [ -r "$ex" ] || return 1; }
-  if [ -s "$ex" ] && [ -n "$(tail -c1 "$ex" 2>/dev/null)" ]; then
-    printf '\n' >> "$ex" 2>/dev/null || return 1
-  fi
-  d='[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]T[0-9][0-9][0-9][0-9][0-9][0-9]Z'
-  for line in \
-    "# Fusebase Flow upgrade/refresh backups (transient; keep until validated) — never stage them." \
-    "*.pre-upgrade-$d" \
-    "*.pre-bootstrap-$d" \
-    "*.pre-refresh-$d" \
-    "/.fusebase-flow-source/"; do
-    if ! grep -qxF "$line" "$ex" 2>/dev/null; then
-      printf '%s\n' "$line" >> "$ex" 2>/dev/null || return 1
-    fi
-  done
-  return 0
-}
+FF_BH_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/backup-hygiene.sh"
+[ -f "$FF_BH_LIB" ] || FF_BH_LIB="$ROOT/hooks/local/lib/backup-hygiene.sh"
+# shellcheck source=lib/backup-hygiene.sh
+if [ -f "$FF_BH_LIB" ]; then . "$FF_BH_LIB"; else ff_git_exclude_backups() { return 1; }; fi
 # NOTE: called AFTER argument parsing below (so `--help` never mutates .git/info/exclude),
 # and its failure routes through WARNINGS (so it isn't swallowed when upgrade.sh filters output).
 
