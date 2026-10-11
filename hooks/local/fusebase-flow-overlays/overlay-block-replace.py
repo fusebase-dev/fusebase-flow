@@ -24,6 +24,37 @@ class OverlayError(ValueError):
     pass
 
 
+def migrate_heading_lines(data: bytes, old: bytes, new: bytes) -> tuple[bytes, int]:
+    lines = data.split(b"\n")
+    count = 0
+    for index, line in enumerate(lines):
+        if line == old or line == old + b"\r":
+            lines[index] = new + (b"\r" if line.endswith(b"\r") else b"")
+            count += 1
+    return b"\n".join(lines), count
+
+
+def migrate_heading_file(target: Path, old: str, new: str) -> int:
+    updated, count = migrate_heading_lines(target.read_bytes(), old.encode(), new.encode())
+    if not count:
+        return 1
+    descriptor, temp_name = tempfile.mkstemp(prefix=f".{target.name}.flow-", dir=target.parent)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(updated)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.chmod(temp_name, stat.S_IMODE(target.stat().st_mode))
+        os.replace(temp_name, target)
+    except Exception:
+        try:
+            os.unlink(temp_name)
+        except FileNotFoundError:
+            pass
+        raise
+    return 0
+
+
 def _line_matches(data: bytes, values: tuple[bytes, ...]) -> list[tuple[int, int]]:
     matches: list[tuple[int, int]] = []
     offset = 0
@@ -227,6 +258,15 @@ def replace_overlay(
 
 def main() -> int:
     parser = argparse.ArgumentParser()
+    if os.sys.argv[1:2] == ["--migrate-heading"]:
+        parser.add_argument("--migrate-heading", nargs=3, metavar=("FILE", "OLD", "NEW"))
+        args = parser.parse_args()
+        target, old, new = args.migrate_heading
+        try:
+            return migrate_heading_file(Path(target), old, new)
+        except (OSError, OverlayError) as exc:
+            print(f"overlay heading migration refused: {exc}", file=os.sys.stderr)
+            return 2
     parser.add_argument("target", type=Path)
     parser.add_argument("template", type=Path)
     parser.add_argument("heading")

@@ -30,7 +30,7 @@ cd "$ROOT"
 # Public diagnostic groups run the real fixture functions under the same tempfile-based timeout
 # owner as the registered suite. TRIPWIRE: parse before TMP_BASE is created, and keep selected
 # result rows SCOPED so they cannot satisfy run-tests.sh's full-phase PASS parser.
-FFCF_GROUPS=(u14 legacy engine t1 t14 t15 t20 t34 eol)
+FFCF_GROUPS=(u14 legacy engine t1 t14 t15 t20 t34 eol overlay-noop)
 ffcf_selector_error() { echo "[cli-flow-recovery] ERROR: $*" >&2; exit 2; }
 
 FFCF_SELECTED=""
@@ -227,6 +227,23 @@ ffcf_t89_eol() {
   fi
 }
 
+ffcf_overlay_noop() {
+  local log="$TMP_BASE/overlay-noop.log" stages="$TMP_BASE/overlay-noop-stages.log"
+  local bash_executable="${BASH:-}"
+  [ -n "$bash_executable" ] || bash_executable="$(command -v bash)"
+  if command -v cygpath >/dev/null 2>&1; then
+    bash_executable="$(cygpath -am "$bash_executable")"
+  fi
+  if "$python_bin" "$ROOT/hooks/tests/test-recovery-final-verification.py" \
+      --only overlay-noop --stage-file "$stages" \
+      --bash-executable "$bash_executable" > "$log" 2>&1; then
+    pass "T131: non-refresh overlay bytes, heading migration and drift advisory contract"
+  else
+    cat "$log" >&2
+    fail "T131: non-refresh overlay bytes, heading migration and drift advisory contract"
+  fi
+}
+
 if [ -n "$FFCF_SELECTED" ]; then
   if [ -n "${FFCF_SELECTOR_TEST_DELAY_SECS:-}" ]; then
     sleep "$FFCF_SELECTOR_TEST_DELAY_SECS"
@@ -241,6 +258,7 @@ if [ -n "$FFCF_SELECTED" ]; then
     t20) ffcf_t20_repeated_noop ;;
     t34) ffcf_t34_bootstrap ;;
     eol) ffcf_t89_eol ;;
+    overlay-noop) ffcf_overlay_noop ;;
   esac
   exit 0
 fi
@@ -251,3 +269,4 @@ ffcf_engine_run
 ffcf_direct_run
 ffcf_t34_bootstrap
 ffcf_t89_eol
+ffcf_overlay_noop

@@ -221,6 +221,25 @@ def expected_overlay_bytes(
     return expected, "refresh-needed" if legacy or expected != original else "current"
 
 
+def overlay_drift(expected: bytes, refreshed: bytes) -> str:
+    if expected == refreshed:
+        return ""
+    normalized = [value.replace(b"\r\n", b"\n") for value in (expected, refreshed)]
+    if normalized[0] == normalized[1]:
+        differing = [index for index, (left, right) in enumerate(
+            zip(expected.split(b"\n"), refreshed.split(b"\n")), 1
+        ) if left != right]
+        count = abs(expected.count(b"\r") - refreshed.count(b"\r"))
+        return f"eol-only:{count}:{differing[0]}-{differing[-1]}"
+    lines = [value.split(b"\n") for value in normalized]
+    for index in range(max(map(len, lines))):
+        left = lines[0][index] if index < len(lines[0]) else None
+        right = lines[1][index] if index < len(lines[1]) else None
+        if left != right:
+            return f"content:{index + 1}"
+    raise ValueError("overlay drift has no differing line")
+
+
 def validate_overlays(root: Path, refresh: bool) -> list[dict[str, str]]:
     helper_path = root / "hooks/local/fusebase-flow-overlays/overlay-block-replace.py"
     overlay = load_module(helper_path, "flow_overlay_preflight")
@@ -240,6 +259,7 @@ def validate_overlays(root: Path, refresh: bool) -> list[dict[str, str]]:
         state = "missing"
         backup = ""
         backup_error = ""
+        drift = ""
         headings = tuple(x.encode() for x in (heading, *legacy))
         canonical = heading.encode()
         template_bytes = template.read_bytes()
@@ -252,6 +272,16 @@ def validate_overlays(root: Path, refresh: bool) -> list[dict[str, str]]:
             state = canonical_state if refresh else (
                 "present" if canonical_state != "append" else "append"
             )
+            if not refresh and canonical_state != "append":
+                refreshed = expected
+                expected = data
+                # Match the shell's substring guards, including CLAUDE's first-alias precedence.
+                if canonical not in data:
+                    for old in headings[1:]:
+                        if old in data:
+                            expected, _ = overlay.migrate_heading_lines(data, old, canonical)
+                            break
+                drift = overlay_drift(expected, refreshed)
         elif not target.exists():
             backup, backup_error = verified_provider_backup(root, target_name, overlay, headings)
             if backup:
@@ -263,6 +293,7 @@ def validate_overlays(root: Path, refresh: bool) -> list[dict[str, str]]:
         rows.append({
             "surface": target_name, "state": state, "backup": backup,
             "backup_error": backup_error,
+            "drift": drift,
             "expected_sha256": hashlib.sha256(expected).hexdigest() if expected is not None else "",
         })
     return rows

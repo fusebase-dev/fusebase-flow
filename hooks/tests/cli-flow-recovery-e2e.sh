@@ -291,6 +291,38 @@ ffcf_e2e_run() {
 
   # (2) drift AGENTS.md, refresh -> restored to one balanced block, drift removed.
   sed -i '0,/Provider adapters point here/s//DRIFTED-FLOW-BLOCK-EXTRA-LINE/' "$PROJECT/AGENTS.md"
+  local drifted_sha="$(sha_cmd "$PROJECT/AGENTS.md")"
+  ( cd "$PROJECT" && bash hooks/local/post-fusebase-update.sh > "$OUT.no-refresh-content" 2>&1 )
+  grep -q "AGENTS.md overlay present; content differs" "$OUT.no-refresh-content" \
+    || fail "T131: non-refresh recovery omitted content drift advisory"
+  [ "$(sha_cmd "$PROJECT/AGENTS.md")" = "$drifted_sha" ] \
+    || fail "T131: non-refresh recovery changed content-drifted AGENTS.md"
+  ! grep -q "Recovery uncertainty" "$OUT.no-refresh-content" \
+    || fail "T131: content drift became recovery uncertainty"
+  pass "T131: non-refresh content drift is advisory with unchanged AGENTS.md bytes"
+
+  "$python_bin" - "$PROJECT/AGENTS.md" "$TMP_BASE/t131-content-agents.md" <<'PY'
+from pathlib import Path
+import sys
+target, backup = map(Path, sys.argv[1:])
+data = target.read_bytes()
+backup.write_bytes(data)
+data = data.replace(b"DRIFTED-FLOW-BLOCK-EXTRA-LINE", b"Provider adapters point here", 1)
+begin = data.index(b"<!-- CUSTOM:SKILL:BEGIN -->")
+end = data.index(b"<!-- CUSTOM:SKILL:END -->", begin)
+padding = b"provider EOL fixture\n" * (data.count(b"\n") + 1)
+target.write_bytes(padding + data[:begin] + data[begin:end].replace(b"\n", b"\r\n") + data[end:])
+PY
+  drifted_sha="$(sha_cmd "$PROJECT/AGENTS.md")"
+  ( cd "$PROJECT" && bash hooks/local/post-fusebase-update.sh > "$OUT.no-refresh-eol" 2>&1 )
+  grep -q "AGENTS.md overlay present; EOL-only drift" "$OUT.no-refresh-eol" \
+    || fail "T131: non-refresh recovery omitted EOL-only drift advisory"
+  [ "$(sha_cmd "$PROJECT/AGENTS.md")" = "$drifted_sha" ] \
+    || fail "T131: non-refresh recovery normalized AGENTS.md EOLs"
+  ! grep -q "Recovery uncertainty" "$OUT.no-refresh-eol" \
+    || fail "T131: EOL-only drift became recovery uncertainty"
+  pass "T131: non-refresh EOL-only drift is advisory with unchanged AGENTS.md bytes"
+  cp "$TMP_BASE/t131-content-agents.md" "$PROJECT/AGENTS.md"
   ( cd "$PROJECT" && bash hooks/local/post-fusebase-update.sh --refresh-overlays > "$OUT.refresh2" )
   [ "$(ffcf_count_marker "$PROJECT/AGENTS.md" "$FFCF_MB")" -eq 1 ] \
     || fail "F2: after refreshing a DRIFTED AGENTS.md, BEGIN count is $(ffcf_count_marker "$PROJECT/AGENTS.md" "$FFCF_MB") (expected 1)"

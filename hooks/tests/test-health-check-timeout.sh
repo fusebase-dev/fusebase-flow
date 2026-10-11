@@ -383,6 +383,7 @@ ht_ws6_migrate_idempotent() {
   local F="$D/agents.md"
   printf '# proj\n\n## Fusebase Flow — workflow lifecycle overlay\n\nbody\n' > "$F"
   # shellcheck source=/dev/null
+  OVERLAYS=hooks/local/fusebase-flow-overlays
   eval "$(awk '/^ff_migrate_marker\(\) \{/{p=1} p{print} p&&/^}/{exit}' hooks/local/post-fusebase-update.sh)"
   ff_migrate_marker "$F" "## Fusebase Flow — workflow lifecycle overlay" "## FuseBase Flow — workflow lifecycle overlay" || { ht_fail "ws6-migrate-idempotent (first migrate returned nonzero)" "$(cat "$F")"; return; }
   grep -qF "## FuseBase Flow — workflow lifecycle overlay" "$F" || { ht_fail "ws6-migrate-idempotent (NEW marker absent after migrate)" "$(cat "$F")"; return; }

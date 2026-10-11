@@ -113,7 +113,7 @@ def validate_bash(raw: str) -> Path:
 
 
 def selection(raw: str) -> str:
-    if raw not in {"settings-wiring", "status-writer", "t50", "t54", "t56"}:
+    if raw not in {"settings-wiring", "status-writer", "t50", "t54", "t56", "overlay-noop"}:
         raise argparse.ArgumentTypeError(f"unknown selection: {raw}")
     return raw
 
@@ -656,6 +656,13 @@ def main() -> int:
     stage_file = Path(args.stage_file).resolve()
     try:
         bash = validate_bash(args.bash_executable)
+        if args.only == "overlay-noop":
+            fixture = load(
+                SOURCE_ROOT / "hooks/tests/fixtures/recovery_overlay_noop.py", "overlay_noop_fixture"
+            )
+            stage(stage_file, "overlay-noop", lambda: fixture.check(SOURCE_ROOT))
+            print("PARTIAL/NON-ATTESTING: overlay-noop selection only")
+            return 0
         if args.only == "settings-wiring":
             stage(stage_file, "settings-wiring", settings_wiring_check)
             print("PARTIAL/NON-ATTESTING: settings-wiring selection only")

@@ -326,26 +326,32 @@ refresh_overlay_block() {
   ACTIONS_TAKEN+=("$label: refreshed DRIFTED overlay block (backup: $backup)")
 }
 
-# ff_migrate_marker FILE OLD_HEADING NEW_HEADING: rewrite an exact overlay heading
-# line (OLD -> NEW) in place. WS6 marker capitalization migration. Line-anchored on
-# the full literal heading so it never rewrites the same words appearing in prose;
-# awk (not sed) so the em-dash + parens are matched as literal bytes without ERE
-# metacharacter escaping. Idempotent by construction — the caller only invokes this
-# when OLD is present and NEW is absent, and it exits 0 only when it actually
-# rewrote a line. Never touches file bytes other than the matched heading line(s).
+# Keep every byte outside heading lines, including CRLF and a missing final newline.
 ff_migrate_marker() {
-  local file="$1" old="$2" new="$3" tmp
-  tmp="$(mktemp)" || return 1
-  awk -v o="$old" -v n="$new" '
-    $0==o { print n; c++; next }
-    { print }
-    END { print c+0 > "/dev/stderr" }
-  ' "$file" 2>"$tmp.n" >"$tmp"
-  local n; n="$(cat "$tmp.n" 2>/dev/null)"; rm -f "$tmp.n"
-  if [ "${n:-0}" -gt 0 ]; then
-    cat "$tmp" > "$file"; rm -f "$tmp"; return 0
-  fi
-  rm -f "$tmp"; return 1
+  python3 -B "$OVERLAYS/overlay-block-replace.py" --migrate-heading "$1" "$2" "$3"
+}
+
+ff_overlay_present() {
+  local file="$1" drift count span
+  drift="$(python3 -I -S -c '
+import json,sys
+value=json.load(open(sys.argv[1], encoding="utf-8"))
+row=next(row for row in value["overlays"] if row["surface"] == sys.argv[2])
+print(row["drift"])
+' "$PREFLIGHT_PLAN" "$file")"
+  drift="${drift%$'\r'}"
+  case "$drift" in
+    eol-only:*)
+      IFS=: read -r count span <<< "${drift#eol-only:}"
+      ACTIONS_SKIPPED+=("$file overlay present; EOL-only drift ($count CR bytes, lines $span) — run post-fusebase-update.sh --refresh-overlays to normalize")
+      ;;
+    content:*)
+      ACTIONS_SKIPPED+=("$file overlay present; content differs from the shipped template from line ${drift#content:} — run post-fusebase-update.sh --refresh-overlays to update")
+      ;;
+    *)
+      ACTIONS_SKIPPED+=("$file overlay already present (use --refresh-overlays to update a drifted block)")
+      ;;
+  esac
 }
 
 ###############################################################################
@@ -412,7 +418,7 @@ elif grep -qF "$AGENTS_MARKER" AGENTS.md || grep -qF "$AGENTS_MARKER_OLD" AGENTS
   if [ "$REFRESH_OVERLAYS" -eq 1 ]; then
     refresh_overlay_block AGENTS.md "$AGENTS_MARKER" "$AGENTS_MARKER_OLD" "$OVERLAYS/agents-md-overlay.md" "AGENTS.md"
   else
-    ACTIONS_SKIPPED+=("AGENTS.md overlay already present (use --refresh-overlays to update a drifted block)")
+    ff_overlay_present AGENTS.md
   fi
 else
   if [ ! -f "$OVERLAYS/agents-md-overlay.md" ]; then
@@ -453,7 +459,7 @@ elif grep -qF "$CLAUDE_MARKER" CLAUDE.md || grep -qF "$CLAUDE_MARKER_OLD" CLAUDE
   if [ "$REFRESH_OVERLAYS" -eq 1 ]; then
     refresh_overlay_block CLAUDE.md "$CLAUDE_MARKER" "$CLAUDE_MARKER_OLD" "$OVERLAYS/claude-md-overlay.md" "CLAUDE.md" "$CLAUDE_MARKER_OLDER"
   else
-    ACTIONS_SKIPPED+=("CLAUDE.md overlay already present (use --refresh-overlays to update a drifted block)")
+    ff_overlay_present CLAUDE.md
   fi
 else
   if [ ! -f "$OVERLAYS/claude-md-overlay.md" ]; then

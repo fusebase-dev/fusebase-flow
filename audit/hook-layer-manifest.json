@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "5.8",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 229,
+  "asset_count": 230,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -202,7 +202,7 @@
     },
     {
       "path": "hooks/local/lib/recovery-preflight.py",
-      "sha256": "2fa4685dc4c92eb06b5ae56232af37887a6df177dc14a0ebfad1455cff21afda"
+      "sha256": "9e4caf5fe2c51b9727d5db452b0daa41b7bfe17a54f0226031096fbedab6f246"
     },
     {
       "path": "hooks/local/lib/recovery-verify.py",
@@ -246,7 +246,7 @@
     },
     {
       "path": "hooks/local/post-fusebase-update.sh",
-      "sha256": "0bbe7d18aa96f96feceedd20b4e4f2f2147a0e3d6f69b4f871931b8ef7bb87c1"
+      "sha256": "317f052564ee05fdfe8438aaecad8c69bdf09f7bc32d60a292169b0bfc2b6500"
     },
     {
       "path": "hooks/local/preflight.sh",
@@ -382,7 +382,7 @@
     },
     {
       "path": "hooks/tests/cli-flow-recovery-e2e.sh",
-      "sha256": "58518ff0a46210bdac798d6f21e26f97eb5021ad8d01d923952864d664ac6f7d"
+      "sha256": "0a981b2e7ff2e49374eaf2264f0b147320d4c346e946bdd19db43204ee46c3af"
     },
     {
       "path": "hooks/tests/cli-flow-recovery-engine.sh",
@@ -521,6 +521,10 @@
       "sha256": "1bbfeb37d47deb11a93de566fff5fafe0eed73a25a477e272a6cb817101bab66"
     },
     {
+      "path": "hooks/tests/fixtures/recovery_overlay_noop.py",
+      "sha256": "c7e67ecb66b87f80f0a454bf9279bda15e0bb053f3f688a2740dcc588b16d63f"
+    },
+    {
       "path": "hooks/tests/fixtures/token-waste-01-growing-tail-classified.jsonl",
       "sha256": "88f6a2c6b2513495353f209b3c846890349068b3cb8d7c7b1a5ba3733e11efec"
     },
@@ -638,11 +642,11 @@
     },
     {
       "path": "hooks/tests/test-cli-flow-recovery-selectors.sh",
-      "sha256": "46dbedc301810c9b07a45b17b3bc36b35ec5720de10517d8814d330f6de72361"
+      "sha256": "b65bce87904193a4ed5df37f3e0c01e5e6dc91a599d615099d597370a0dd0e18"
     },
     {
       "path": "hooks/tests/test-cli-flow-recovery.sh",
-      "sha256": "308f1c7191039b3a986a0f05d3e1612c36d8ee944fba336adb3054c07372317b"
+      "sha256": "3523bb293a7107cc920cbe9ac6bc13629b7f1f52f19a7a02f1406de59836c79b"
     },
     {
       "path": "hooks/tests/test-cli-package-split.sh",
@@ -698,7 +702,7 @@
     },
     {
       "path": "hooks/tests/test-health-check-timeout.sh",
-      "sha256": "9c15820d3717cf09908a838631413754c61a14b8f08b0ba519e043d732de4691"
+      "sha256": "a8af7078279d9a885e507447378c17e2eb196d119ad2b507949e8c927b7729da"
     },
     {
       "path": "hooks/tests/test-history-extraction.sh",
@@ -921,5 +925,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "c7362a9a16f6f299a64c372e698707e0dae3777321767e086214f52f3e9fff39"
+  "manifest_self_sha256": "36c03f8d1bf115e9c04d8d6958553982d3f95402d94c1d104db3b6ea59db0c2f"
 }

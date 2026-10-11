@@ -96,7 +96,7 @@ run_case() {
   fi
 }
 
-expected_groups=$'u14\nlegacy\nengine\nt1\nt14\nt15\nt20\nt34\neol'
+expected_groups=$'u14\nlegacy\nengine\nt1\nt14\nt15\nt20\nt34\neol\noverlay-noop'
 run_case list 60 env TMPDIR="$WORK" bash "$WRAPPER" --list
 if [ "$CASE_RC" -eq 0 ] && [ "$(<"$EVID/list.out")" = "$expected_groups" ]; then
   ok "list-and-default-group-parity"
