@@ -143,6 +143,17 @@ require_approval:
     rule_id: FR-12
     binding_profile: command_only_v1
 
+  # FuseBase's own migration CLI (CLI 2026.100715.4713: `sql bundle` is the only isolated-store
+  # verb; `--apply` is its only mutating flag, `--dry-run`/`--status`/`--json` are read-only).
+  # Every environment: without `--stage` the CLI uses the active environment's backend, so an
+  # env-scoped rule could not tell dev from prod. `[\s\S]*` reaches a wrapped `\`-continued
+  # `--apply`; over-firing on a later line of the same command text is accepted (fails safe).
+  - pattern: '\bfusebase\s+isolated-store\s+sql\s+bundle\b[\s\S]*--apply\b'
+    action: database_migration
+    reason: "FR-12: FuseBase isolated-store migrations (sql bundle --apply) require a database_migration approval artifact."
+    rule_id: FR-12
+    binding_profile: command_only_v1
+
   # Case-insensitive per-rule (AC7): `drop table users` is the same statement as
   # `DROP TABLE users`, and lowercase SQL is the common form in shell one-liners.
   # ALTER TABLE is gated too — it is a schema change like the rest.

@@ -312,6 +312,42 @@ with tempfile.TemporaryDirectory() as d:
     expect("k5-action-and-any_of-mutually-exclusive", decide(repo, "fusebase deploy"),
            decision="deny", rule_id=POLICY_ERROR_RULE_ID)
 
+APPLY = "fusebase isolated-store sql bundle --apply"
+APPLY_COMMANDS = (
+    APPLY,
+    APPLY + " --yes",
+    APPLY + " --stage prod",
+    APPLY + " --env dev",
+    APPLY + " --env=dev",
+    "fusebase isolated-store sql bundle \\\n  --apply --yes",
+)
+for index, command in enumerate(APPLY_COMMANDS):
+    with tempfile.TemporaryDirectory() as d:
+        repo = make_repo(Path(d))
+        expect(f"t132-apply-{index}-requires-migration", decide(repo, command),
+               decision="deny", rule_id="FR-12", required=["database_migration"])
+        mint(repo, "database_migration", command)
+        expect(f"t132-apply-{index}-exact-approval", decide(repo, command),
+               decision="allow")
+
+for flag in ("--dry-run", "--status", "--json", "--assert-migrations", ""):
+    with tempfile.TemporaryDirectory() as d:
+        repo = make_repo(Path(d))
+        command = "fusebase isolated-store sql bundle" + (" " + flag if flag else "")
+        expect(f"t132-readonly-{flag or 'bare'}", decide(repo, command),
+               decision="allow", required=[])
+
+command = "fusebase deploy && " + APPLY
+with tempfile.TemporaryDirectory() as d:
+    repo = make_repo(Path(d))
+    expect("t132-compound-neither-approved", decide(repo, command), decision="deny",
+           required=["production_deploy", "database_migration"])
+    mint(repo, "production_deploy", command)
+    expect("t132-compound-deploy-only", decide(repo, command), decision="deny",
+           required=["database_migration"], reason_has=("production_deploy [SATISFIED]",))
+    mint(repo, "database_migration", command)
+    expect("t132-compound-both-approved", decide(repo, command), decision="allow")
+
 # The dead key is gone from the shipped policy (K16).
 shipped = yaml.safe_load((root / "policies" / "command-policy.yml").read_text(encoding="utf-8"))
 if any("fallthrough" in r for r in (shipped.get("require_approval") or [])):

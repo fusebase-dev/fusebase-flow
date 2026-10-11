@@ -2,7 +2,7 @@
 
 **Status:** open — build-order step 4 of the schema-3 premise review; not in the schema-3 outcome
 **Filed:** 2026-09-11, while building mandatory command/ref-update binding (`approval-binding-omits-head`)
-**Surface:** `policies/command-policy.yml` rules labelled `binding_profile: command_only_v1` (`fusebase deploy`, `vercel`, `netlify`, `prisma`/`sequelize`/`knex`/`psql`)
+**Surface:** `policies/command-policy.yml` rules labelled `binding_profile: command_only_v1` (`fusebase deploy`, `fusebase isolated-store sql bundle --apply`, `vercel`, `netlify`, `prisma`/`sequelize`/`knex`/`psql`)
 **Severity:** medium — an approval binds the command TEXT, not what the command deploys or migrates
 
 ## Defect

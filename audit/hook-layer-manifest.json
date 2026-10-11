@@ -674,7 +674,7 @@
     },
     {
       "path": "hooks/tests/test-command-policy.sh",
-      "sha256": "28a1f03408f61ea1ebaf9b9788fed84fb90d46cbb86da1ba76906d25aedce543"
+      "sha256": "2e30fca13f00b2c98c1bf9851f34dfbd4b6b4b00aba9df5a022b4088f98ac225"
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
@@ -925,5 +925,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "36c03f8d1bf115e9c04d8d6958553982d3f95402d94c1d104db3b6ea59db0c2f"
+  "manifest_self_sha256": "ac11b1388a754b89c625dbcc03188595bd9806c49b846bf67599aed2607253c4"
 }
