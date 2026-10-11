@@ -76,7 +76,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixtur
   git-context git-context-mutation \
   hook-manifest newline-preserve baseline-merge hook-wiring-intent wire-hooks-beside stamp-eol-guard \
   sync-allowlist policy-state bootstrap-baseline-hop fr22-delivery po-verifiable-boot \
-  po-investigate liveness codex-parity codex-plugin cli-0259 cli-version cli-packages cli-vendor cli-rendered git-capture-guard secret-scan-staged bootstrap-exception \
+  po-investigate liveness codex-parity codex-plugin cli-0259 cli-version cli-packages cli-vendor cli-rendered git-capture-guard secret-scan-staged secret-patterns bootstrap-exception \
   lane-router lane-workflow \
   trusted-enforcer hook-install-rc msys-tree-cleanup job-probe ws5-upgrade ff-only run-preconditions return-budget \
   supersede-primitive rule-inventory boot-size prohibition-residency startup-context validator-evidence validation-instructions consumer-benchmark wasted-effort-windowing token-waste-classify \
@@ -90,7 +90,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixtur
 # reddens 17 of its 46 rows. It is gated by its own unscoped step in fusebase-flow-verify.yml.
 FF_RELEASE_TAGS=(fixtures git-smoke interpreter-contract python3-version git-context \
   baseline-merge hook-wiring-intent wire-hooks-beside bootstrap-baseline-hop cli-0259 \
-  git-capture-guard secret-scan-staged bootstrap-exception trusted-enforcer hook-install-rc validator-evidence \
+  git-capture-guard secret-scan-staged secret-patterns bootstrap-exception trusted-enforcer hook-install-rc validator-evidence \
   validation-instructions approval-binding approval-writer approval-schema3 command-policy upgrade-classify upgrade-classify-eol \
   upgrade-boundary preboundary-consumed upgrade-repair transient-exclude n5-delivery n6-truthful-base n6-missing-base n6-recover \
   release-authority release-tag-binding cli-flow-recovery cli-flow-recovery-selectors \
@@ -641,6 +641,7 @@ run_shell_phase test-vendored-rendered.sh      "cli-rendered"
 # Ordered before secret-scan-staged: it gates the capture class that hung that phase (~40s).
 run_shell_phase test-git-capture-guard.sh      "git-capture-guard"
 run_shell_phase test-secret-scan-staged.sh     "secret-scan-staged"
+run_shell_phase test-secret-patterns.sh        "secret-patterns"
 run_shell_phase test-bootstrap-exception.sh    "bootstrap-exception"
 run_shell_phase test-trusted-enforcer.sh       "trusted-enforcer"
 run_shell_phase test-hook-install-rc.sh        "hook-install-rc"

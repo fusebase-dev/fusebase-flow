@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "5.8",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 230,
+  "asset_count": 232,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -525,6 +525,10 @@
       "sha256": "c7e67ecb66b87f80f0a454bf9279bda15e0bb053f3f688a2740dcc588b16d63f"
     },
     {
+      "path": "hooks/tests/fixtures/secret_patterns_matrix.py",
+      "sha256": "1723ddaa803c93e7c7231f932cf50d1b0a0ebb326442c53c0cbf5d78d4cbd8b8"
+    },
+    {
       "path": "hooks/tests/fixtures/token-waste-01-growing-tail-classified.jsonl",
       "sha256": "88f6a2c6b2513495353f209b3c846890349068b3cb8d7c7b1a5ba3733e11efec"
     },
@@ -594,7 +598,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "ce81f316f96bd256d63bf3fecbae5dcd45367316e818fe32ecde39fc2ab51443"
+      "sha256": "a1887175442e1021710706b1269d8627ac3008002d08862d410fd35140fb7287"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -678,7 +682,7 @@
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
-      "sha256": "1f39bed571b144e78413d127c4b1884836482534b3eb614575faafa8a8a2fd87"
+      "sha256": "a1a3a3be6806eb465b81233c2f4e19be01fe1f7f1502fbd4a33638cd85f21354"
     },
     {
       "path": "hooks/tests/test-fingerprint-row-per-tag.sh",
@@ -841,6 +845,10 @@
       "sha256": "bde418c952df909babee49d07f9d15ea1bf5b6087e32b8e7bdccfbcab5d0175d"
     },
     {
+      "path": "hooks/tests/test-secret-patterns.sh",
+      "sha256": "0272f259722723d4a2adecc8589c6e3204125c832ac5b785cd8d066dd2b17c0d"
+    },
+    {
       "path": "hooks/tests/test-secret-scan-staged.sh",
       "sha256": "5632e14e0f270c303fc38a311934c6640f2166f0dc29c7c5f0215997e8d86bf7"
     },
@@ -925,5 +933,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "ac11b1388a754b89c625dbcc03188595bd9806c49b846bf67599aed2607253c4"
+  "manifest_self_sha256": "c5bc31e6c0d494467e3d838eab77f4b43aaf2ec5c0933fb1f688771745b631f4"
 }

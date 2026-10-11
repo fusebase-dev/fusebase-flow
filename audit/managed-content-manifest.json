@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "5.8",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 407,
+  "asset_count": 409,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "af1e4eab78216497f3f7b75ae53d758f19867b3d9bb751218aa1d0bba2422a6a"
+      "sha256": "c4cbadfa24aeff16f84ba634c67a3ce26483c1b0c3eb71300cfd15e9a1da1771"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -973,6 +973,10 @@
       "sha256": "c7e67ecb66b87f80f0a454bf9279bda15e0bb053f3f688a2740dcc588b16d63f"
     },
     {
+      "path": "hooks/tests/fixtures/secret_patterns_matrix.py",
+      "sha256": "1723ddaa803c93e7c7231f932cf50d1b0a0ebb326442c53c0cbf5d78d4cbd8b8"
+    },
+    {
       "path": "hooks/tests/fixtures/token-waste-01-growing-tail-classified.jsonl",
       "sha256": "88f6a2c6b2513495353f209b3c846890349068b3cb8d7c7b1a5ba3733e11efec"
     },
@@ -1086,7 +1090,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "ce81f316f96bd256d63bf3fecbae5dcd45367316e818fe32ecde39fc2ab51443"
+      "sha256": "a1887175442e1021710706b1269d8627ac3008002d08862d410fd35140fb7287"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -1174,7 +1178,7 @@
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
-      "sha256": "1f39bed571b144e78413d127c4b1884836482534b3eb614575faafa8a8a2fd87"
+      "sha256": "a1a3a3be6806eb465b81233c2f4e19be01fe1f7f1502fbd4a33638cd85f21354"
     },
     {
       "path": "hooks/tests/test-fingerprint-row-per-tag.sh",
@@ -1353,6 +1357,10 @@
       "sha256": "bde418c952df909babee49d07f9d15ea1bf5b6087e32b8e7bdccfbcab5d0175d"
     },
     {
+      "path": "hooks/tests/test-secret-patterns.sh",
+      "sha256": "0272f259722723d4a2adecc8589c6e3204125c832ac5b785cd8d066dd2b17c0d"
+    },
+    {
       "path": "hooks/tests/test-secret-scan-staged.sh",
       "sha256": "5632e14e0f270c303fc38a311934c6640f2166f0dc29c7c5f0215997e8d86bf7"
     },
@@ -1478,7 +1486,7 @@
     },
     {
       "path": "policies/secret-patterns.yml",
-      "sha256": "3ae1ef5658b7760b7d9d64ab136af4c431dd45c3554368d9f25494316d41ed0c"
+      "sha256": "fa440720b8764312f9eea1c47aae2dff50c0a38ed2ea1eb5d151d3c5f2f377f0"
     },
     {
       "path": "templates/architect-response.md",
@@ -1633,5 +1641,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "90b1656ff81a4d4384188750750d82eb2e6fed215d3504903a9042d76a823295"
+  "manifest_self_sha256": "64947b3f2d0b96f803aee0fcf4fa5155b2f82881102e904ac440d21185cd74e8"
 }
