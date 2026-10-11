@@ -582,7 +582,7 @@
     },
     {
       "path": "hooks/tests/fixtures/token_waste_a2.py",
-      "sha256": "4d1b65b81db85fbab42012d0acb8975e18e92d17db18201302261f72bc954a2c"
+      "sha256": "75c990de5d3fa4820f3a61da7197a158a7dbeaef2563976aef46a3f329a5021b"
     },
     {
       "path": "hooks/tests/health-check-heartbeat.sh",
@@ -858,7 +858,7 @@
     },
     {
       "path": "hooks/tests/test-token-waste-classify.sh",
-      "sha256": "9955046b826de37f697a5169f1c2d9f675e806dc5045a0e25227ce4140bf3ad2"
+      "sha256": "0fa20a4a0cee7ecb3da2085ded5551a24f206b78456400b6a5125d01fe375071"
     },
     {
       "path": "hooks/tests/test-transient-exclude.sh",
@@ -921,5 +921,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "3a0ad258c15f98d19d2ecb36b2fa7d15786abe5d0e4aa37cc67e25ff146be7ef"
+  "manifest_self_sha256": "9bf2a8ecc4013cfb7f9950d9c705c77bc0431cbf9b96cce4b589a4053a3932a8"
 }

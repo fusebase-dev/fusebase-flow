@@ -20,7 +20,9 @@ WRITE_TOOLS = {"Edit", "Write", "NotebookEdit"}
 # Both are the association A8/AC15 requires — `target` is a <=100-char display snippet
 # and must never be used as a classification key.
 ToolResult = namedtuple("ToolResult", "chars name target digest key seq err")
-Finding = namedtuple("Finding", "cls desc rule status label evidence rank cost details", defaults=[(), None, ""])
+# basis: "observed" = recorded usage tokens x list price; "estimated" = derived from payload size or rates.
+Finding = namedtuple("Finding", "cls desc rule status label evidence rank cost details basis",
+                     defaults=[(), None, "", "estimated"])
 
 LIVE = "live"
 CLASSIFIED = "auto-classified"

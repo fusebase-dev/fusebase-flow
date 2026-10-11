@@ -71,6 +71,7 @@ def parse_session(path):
     seq = 0                           # monotonic event index: line-level, then per block
     cwd = ""                          # last-seen transcript cwd; roots relative tool paths
     request_starts = {}
+    pending_start = None
     with path.open(encoding="utf-8", errors="replace") as fh:
         for line in fh:
             line = line.strip()
@@ -94,13 +95,20 @@ def parse_session(path):
                 s["compactions"] += 1
             if obj.get("type") not in LINE_TYPES:
                 continue
+            if obj["type"] == "user" and obj.get("timestamp"):
+                pending_start = obj["timestamp"]
             msg = obj.get("message")
             if not isinstance(msg, dict):
                 continue
             if obj["type"] == "assistant":
                 rid = obj.get("requestId")
                 request_key = rid or ("no-id", seq)
-                request_starts.setdefault(request_key, (obj.get("timestamp"), seq))
+                if request_key not in request_starts:
+                    # TRIPWIRE: start = send time, not first streamed token.
+                    start = obj.get("timestamp")
+                    if msg.get("model") != "<synthetic>":
+                        start, pending_start = pending_start or start, None
+                    request_starts[request_key] = (start, seq)
                 usage = msg.get("usage")
                 if isinstance(usage, dict):
                     request = {"request_id": rid, "usage": usage,

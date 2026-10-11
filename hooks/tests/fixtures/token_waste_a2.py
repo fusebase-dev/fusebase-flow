@@ -173,6 +173,25 @@ stream = parse("stream", [assistant("a", 0), assistant("a", 69, out=1),
 check("a2-stream-first-time-last-usage-dedup", len(stream["requests_by_id"]) == 2
       and cache_rewrites(stream)[0]["gap"] == 4200
       and stream["requests_by_id"]["a"]["usage"]["output_tokens"] == 1)
+def user_ts(minute):
+    start = datetime(2026, 10, 8, tzinfo=timezone.utc) + timedelta(minutes=minute)
+    return dict(result("sent", "x"), timestamp=start.isoformat())
+
+
+sent = parse("start-user", [assistant("a", 0), user_ts(65),
+    assistant("b", 70, creation=500_000, long=500_000)])
+sent_early = parse("start-user-early", [assistant("a", 0), user_ts(55),
+    assistant("b", 70, creation=500_000, long=500_000)])
+sent_latest = parse("start-user-latest", [assistant("a", 0), user_ts(55), user_ts(65),
+    assistant("b", 70, creation=500_000, long=500_000)])
+check("a2-start-preceding-user-line", len(cache_rewrites(sent)) == 1
+      and cache_rewrites(sent)[0]["gap"] == 3900 and not cache_rewrites(sent_early)
+      and cache_rewrites(sent_latest)[0]["gap"] == 3900)
+sent_synthetic = parse("start-synthetic", [assistant("a", 0), user_ts(65),
+    assistant(None, 66, model="<synthetic>"),
+    assistant("b", 70, creation=500_000, long=500_000)])
+check("a2-start-synthetic-does-not-consume", len(cache_rewrites(sent_synthetic)) == 1
+      and cache_rewrites(sent_synthetic)[0]["gap"] == 3900)
 no_id = assistant(None, 60)
 interleaved = parse("interleaved", [assistant("a"), no_id,
     assistant("b", 70, creation=500_000, long=500_000)])
@@ -221,9 +240,16 @@ poll_rows.append(assistant("0", model="claude-opus-5-5", read=100_000, creation=
                            short=20_000, inp=5000))
 poll = parse("polling", poll_rows)
 wakes, tokens, cost = polling_cost(poll, "curl polling.invalid")
-check("a2-polling-wakes-context-price-dedup", (wakes, tokens, cost) == (4, 500_000, Decimal("0.1125")))
+check("a2-polling-wakes-context-price-dedup", (wakes, tokens, cost) == (3, 375_000, Decimal("0.0875")))
 poll_report = build_report([poll], root, "fixture")
-check("a2-polling-row-displays-cost-and-wakes", "$0.112500; 4 wakes; context sum 500000 tokens (cache-read rate estimate)" in poll_report)
+check("a2-polling-row-displays-cost-and-wakes", "$0.087500 estimated; 3 wakes after the first issue; context sum 375000 tokens (cache-read rate estimate)" in poll_report)
+single_poll = parse("poll-single", [assistant("only", read=100_000, tools=[
+    tool("single-%d" % i, "Bash", {"command": "curl polling.invalid"}) for i in range(3)])])
+single_poll_report = build_report([single_poll], root, "fixture")
+check("a2-polling-single-request-zero-cost",
+      polling_cost(single_poll, "curl polling.invalid") == (0, 0, Decimal(0))
+      and "| polling |" in single_poll_report
+      and "$0.000000 estimated" in single_poll_report)
 order = parse("ordering", [assistant("start", tools=[tool("small", "Read", {"file_path": "/small"})]),
     result("small", "PRIVATE-BODY-" * 2000), assistant("expensive", 70, creation=500_000, long=500_000),
     assistant("unpriced", 71, model="unknown", tools=[tool("u", "Read", {"file_path": "/unknown"})]),
@@ -231,6 +257,14 @@ order = parse("ordering", [assistant("start", tools=[tool("small", "Read", {"fil
 ordered = [f for _, f in selected(order)]
 check("a2-live-order-heavy-before-light-unpriced-last", [f.cls for f in ordered] == ["cache-rewrite", "large-output", "large-output"]
       and ordered[0].cost == 4 and ordered[1].cost == Decimal("0.026") and ordered[-1].cost is None)
+order_report = build_report([order], root, "fixture")
+unpriced_rows = [line for line in order_report.splitlines()
+                 if line.startswith("| large-output |") and "unpriced" in line]
+check("a2-findings-basis-observed-vs-estimated", "| USD (basis) |" in order_report
+      and "$4.000000 observed" in order_report and "$0.026000 estimated" in order_report
+      and len(unpriced_rows) == 1
+      and " observed" not in unpriced_rows[0] and " estimated" not in unpriced_rows[0]
+      and finding.basis == "observed")
 check("a2-report-order-and-cost-signal-header", build_report([order], root, "fixture").index("| cache-rewrite |")
       < build_report([order], root, "fixture").index("| large-output |")
       and "context-residency/cache-rewrite are cost signals, not proof that the work was unnecessary" in FALSE_POSITIVE_HEADER)

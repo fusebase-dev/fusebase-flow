@@ -93,7 +93,7 @@ def residency_finding(session):
                 len(large), 100 * held / total),
             "FR-26 TE-19 — bounded residency: fresh worker per task group / rotate at milestones (token-economy)",
             LIVE, "cost signal", "observed cache-read cost; not an avoidable-spend estimate",
-            (), held)
+            (), held, "", "observed")
     return None
 
 
@@ -130,7 +130,7 @@ def cache_rewrite_findings(s):
         row["tokens"], row["gap"] / 60, "1h" if row["ttl"] == 3600 else "5m"),
         "FR-26 TE-20 — wait under the cache TTL / record-then-read (token-economy)", LIVE,
         "cost signal", "start-to-start gap exceeded this request's explicit creation TTL",
-        (row["cost"] is None, -(row["cost"] or 0), -row["tokens"]), row["cost"])
+        (row["cost"] is None, -(row["cost"] or 0), -row["tokens"]), row["cost"], "", "observed")
         for row in cache_rewrites(s)]
 
 
@@ -151,10 +151,13 @@ def sum_known(costs):
 
 def polling_cost(s, command):
     index = request_index(s)
-    wakes = [index[key] for key in s.get("bash_requests", {}).get(command, ()) if key in index]
+    # A wake is a repeat: the first request that issued the command is the original call, not a wake.
+    issued = sorted((index[key] for key in s.get("bash_requests", {}).get(command, ()) if key in index),
+                    key=lambda r: r.get("seq", 0))
+    wakes = issued[1:]
     costs = [context(r) * rates_for(r)["cache read"] / MILLION
              for r in wakes if rates_for(r) is not None]
-    return len(wakes), sum(context(r) for r in wakes), sum(costs) if costs else None
+    return len(wakes), sum(context(r) for r in wakes), sum(costs) if costs else (None if wakes else Decimal(0))
 
 
 def cost_order(item):

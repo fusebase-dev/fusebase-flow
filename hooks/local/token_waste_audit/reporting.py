@@ -157,7 +157,9 @@ def build_report(sessions, root, today, probe_cmds=()):
     classified_n = sum(1 for _s, fs in per_session for _t, f in fs if f.status == CLASSIFIED)
     lines += ["", "## Findings — LIVE candidates that MAY indicate an FR-26 rule", "",
               "Auto-classified candidates are NOT listed here — they are in their own section "
-              "below, so a dismissal neither buries nor inflates this count. Live: %d." % live_n, ""]
+              "below, so a dismissal neither buries nor inflates this count. Live: %d." % live_n, "",
+              "USD basis: observed = recorded usage tokens x list price; estimated = payload chars/4 or "
+              "context x cache-read rate.", ""]
     any_finding = False
     for s, found in per_session:
         live = [(t, f) for t, f in found if f.status == LIVE]
@@ -165,11 +167,12 @@ def build_report(sessions, root, today, probe_cmds=()):
             continue
         any_finding = True
         lines += ["### %s" % s.get("label", s["file"]), "",
-                  "| Class | Candidate | Label | FR-26 rule it MAY indicate | Why it stayed live | Estimated USD | Transcript |",
+                  "| Class | Candidate | Label | FR-26 rule it MAY indicate | Why it stayed live | USD (basis) | Transcript |",
                   "|---|---|---|---|---|---|---|"]
         for t, f in live:
             lines.append("| %s | %s | %s | %s | %s | %s | %s |" % (f.cls, f.desc, f.label or "—", f.rule,
-                f.evidence or "threshold match", money(f.cost) + ("; " + f.details if f.details else ""),
+                f.evidence or "threshold match",
+                money(f.cost) + (" " + f.basis if f.cost is not None else "") + ("; " + f.details if f.details else ""),
                 t.get("label", t["file"])))
         for session, cls, count in suppressed:
             if session is s:

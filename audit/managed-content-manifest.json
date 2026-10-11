@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "4bcea5935d277218c829412d7f65c9aec5f7a64f814182874d2019912c707968"
+      "sha256": "dec61827f50761df5bee8a4cf81f335378c3947301c3844ec1ec8d092bd95acc"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -210,7 +210,7 @@
     },
     {
       "path": "flow-skills/token-economy/SKILL.md",
-      "sha256": "ef7a0800bb51e4d3f8bc9ab85043271d142673b13cb1378283071d8a6aee9b11"
+      "sha256": "a2bc2309bbea2c9f588fd406d4cf1a34324a2534ed0719b7ece852e68269c18e"
     },
     {
       "path": "flow-skills/validation-and-qa/SKILL.md",
@@ -458,7 +458,7 @@
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/commands/token-waste-audit.md",
-      "sha256": "058800cdf0b2a42e8dbcfdb59c75b6c1031f70930a0fa61d1429beab660911e4"
+      "sha256": "f62e3e9b914344e060e0bdcb9339a5a3c6dc3c0a3e2eaa904c5a0fb3a3207bf5"
     },
     {
       "path": "hooks/local/fusebase-flow-overlays/overlay-block-replace.py",
@@ -698,7 +698,7 @@
     },
     {
       "path": "hooks/local/token_waste_audit/classification.py",
-      "sha256": "d529b427717e659f0561bb1e78afa38979554599f4211041bf39731cb2f4ba9f"
+      "sha256": "1899f00c25b9ec7a8dcb49b636cfacbd407ecc5a83648f71a97b5cabe903b9d2"
     },
     {
       "path": "hooks/local/token_waste_audit/cli.py",
@@ -706,11 +706,11 @@
     },
     {
       "path": "hooks/local/token_waste_audit/common.py",
-      "sha256": "afd7abf0ff69e73c422c61cc48ff9b34f027d4ca91af37d29193c9624942e6d2"
+      "sha256": "466c4171550f6e8394c10455ff0a59eaa05af139eeebc3ff07b3c79b8ad1cb7b"
     },
     {
       "path": "hooks/local/token_waste_audit/costing.py",
-      "sha256": "050a5f0cf62ee8dda6975902053f7699c76c54e025f024a2116755d5f9567b0e"
+      "sha256": "8c5b64aed82f6db257e54886afa892aa9e0d4fe6773128c00cc325a4aceeb544"
     },
     {
       "path": "hooks/local/token_waste_audit/images.py",
@@ -718,11 +718,11 @@
     },
     {
       "path": "hooks/local/token_waste_audit/parsing.py",
-      "sha256": "938c7472e18dcacce2f794f54af5d3604ffc795556c3b70eea5947d097f66056"
+      "sha256": "d0043713cf4e0797aab9fac888711b6e0ede3d9ba5bf5db719a1f684ba980fd0"
     },
     {
       "path": "hooks/local/token_waste_audit/reporting.py",
-      "sha256": "121792064185020b78eed9f57eae5eb2667ebacdfe421aefbdf35d892ba1c4ba"
+      "sha256": "590a8cf77830143f9716238101ba10f70a13a3c4e962f55639681775ba751e93"
     },
     {
       "path": "hooks/local/upgrade-engine.sh",
@@ -1030,7 +1030,7 @@
     },
     {
       "path": "hooks/tests/fixtures/token_waste_a2.py",
-      "sha256": "4d1b65b81db85fbab42012d0acb8975e18e92d17db18201302261f72bc954a2c"
+      "sha256": "75c990de5d3fa4820f3a61da7197a158a7dbeaef2563976aef46a3f329a5021b"
     },
     {
       "path": "hooks/tests/health-check-heartbeat.sh",
@@ -1370,7 +1370,7 @@
     },
     {
       "path": "hooks/tests/test-token-waste-classify.sh",
-      "sha256": "9955046b826de37f697a5169f1c2d9f675e806dc5045a0e25227ce4140bf3ad2"
+      "sha256": "0fa20a4a0cee7ecb3da2085ded5551a24f206b78456400b6a5125d01fe375071"
     },
     {
       "path": "hooks/tests/test-transient-exclude.sh",
@@ -1629,5 +1629,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "72862316d8c0136de9dac47f41606276cf933639d13dc2cc430d6b64e4fcc7a8"
+  "manifest_self_sha256": "5504c7d4aa972aff5a6b65d223383148fa8fcbfa9456c551f334cd97eed5cb93"
 }

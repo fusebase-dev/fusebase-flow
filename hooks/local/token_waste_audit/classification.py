@@ -162,7 +162,7 @@ def session_findings(s, probe_cmds=()):
         if n >= BASH_REPEAT_MIN and cmd:
             status, label, evidence = classify_bash(cmd, n, probe_cmds)
             wakes, tokens, cost = polling_cost(s, cmd)
-            wake_text = "%d wakes; context sum %d tokens (cache-read rate estimate)" % (
+            wake_text = "%d wakes after the first issue; context sum %d tokens (cache-read rate estimate)" % (
                 wakes, tokens) if wakes else ""
             f.append(Finding("polling", "Bash x%d (no intervening Edit/Write): %s" % (n, snippet(cmd)),
                              "FR-26 TE-08 — record-then-read (smoke-testing § Verification cost discipline)",
