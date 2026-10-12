@@ -67,6 +67,7 @@ Match your output to either fingerprint column below; both identify the same tre
 | `v5.6` | 5.6 | `a484702b8d994726228407a80c733dc6ba6e931b48b63d921ea49233d80405fb` | 396 | `a8e731e9332016972459b820b4a684e35d1fd724c44d39ef67475d11e424d16a` | 227 |  <!-- published: release gate (run 36811847948) green on both platforms; supersedes the unpublished v5.5. -->
 | `v5.7` | 5.7 | `46298ed4b8e1d9ca2392f144704eb718341482c0b50adb6da6fabfa2612386c0` | 396 | `0d806ed6747cb7f7949fd8b83a28ea92bd8df093c140302d7503ff3a6d8ee258` | 227 |  <!-- published: release gate (run 37268191148) green on both platforms. -->
 | `v5.8` | 5.8 | `5f498f4337cba025c7dfb9547530b70e844ac006273fef9471d20c8018e7b40f` | 406 | `3a0ad258c15f98d19d2ecb36b2fa7d15786abe5d0e4aa37cc67e25ff146be7ef` | 229 |  <!-- published: release gate (run 37800020301) green on both platforms. -->
+| `v5.9` | 5.9 | `c276846d4f1dc91317a6191e357e4e46c3f85c91b4ec4e5317212102e0d5b43d` | 409 | `35eff7dd52b7f805f3d03946e51c7ab90132ca7474959a4dd61fae18a50c6da2` | 232 |  <!-- published: release gate (run 38188457903) green on both platforms. -->
 
 `v4.9.0`, `v4.9.1`, `v4.10.0`, `v4.15.0`, `v4.15.1`, `v4.15.2`, `v4.16.0` and `v4.16.3` are unpublished tagged
 trees: their release workflows failed (2026-08-12, 2026-08-13, 2026-08-15, 2026-09-07 and 2026-09-10)
