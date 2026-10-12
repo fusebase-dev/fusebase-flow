@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "2f03e19d34c3704ee2390eb29899547509f4c636ac0bc634c454821c60ccd33c"
+      "sha256": "b7f0fc5bec162521833719898ce71c4c0bd1e68ac33f8516be55f310c78c65c8"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -1070,7 +1070,7 @@
     },
     {
       "path": "hooks/tests/lib/orphan-sentinel.sh",
-      "sha256": "df2de7a8e767f22957d780a0216dbf83b72d96c039db47a2f013e14da00149c6"
+      "sha256": "6808de524c540ef11b2706ff9809c8641a4a5010ebc83d89d3d14b51cc91de89"
     },
     {
       "path": "hooks/tests/lib/run-preconditions.sh",
@@ -1078,7 +1078,7 @@
     },
     {
       "path": "hooks/tests/lib/signal-reap-fixture.sh",
-      "sha256": "2bdeecfd666867c935fac30250105eebbcff3af8883ea3336cc14665dae4bf1d"
+      "sha256": "7bacc8cf597c10388df4c63e625ed58969a1e5d8ff7923b0bf736730e5c06429"
     },
     {
       "path": "hooks/tests/lib/upgrade-fixtures.sh",
@@ -1354,7 +1354,7 @@
     },
     {
       "path": "hooks/tests/test-run-tests-signal-reap.sh",
-      "sha256": "bde418c952df909babee49d07f9d15ea1bf5b6087e32b8e7bdccfbcab5d0175d"
+      "sha256": "54e9d119348520b5c44d4bfc87a82bfd38f16a4b9e7ce5393e251fea932a8d97"
     },
     {
       "path": "hooks/tests/test-secret-patterns.sh",
@@ -1641,5 +1641,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "c276846d4f1dc91317a6191e357e4e46c3f85c91b4ec4e5317212102e0d5b43d"
+  "manifest_self_sha256": "81e125edce8f33e03acaf4b487ee75ae745f8d0c0aa73e49b59f4441b2f961a9"
 }

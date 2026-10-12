@@ -1,6 +1,6 @@
 # harness-kill-leaves-orphan-children
 
-**Status:** REOPENED 2026-10-11 — `launch-window-signal-still-reaps` failed on hosted Windows/MSYS with the reaping code byte-identical to v5.8 (reopen condition (a)/(c), § 2026-08-07). Evidence in § 2026-10-11 below. Was: CLOSED at T4 (2026-09-12, `2f03652`+), 10/10 on MSYS.
+**Status:** OPEN — fixed by T134 (sentinel detects harness exit, not parent reap), proven locally on MSYS: new row RED at `c4c2431`'s sentinel, GREEN with the fix (detect 789 ms, reaped 4.25 s), `FF_ONLY=signal-reap` 11/11 twice on a load-contended host; audit (local, `c:/tmp/harness-reap/audit-T134*.md`) r1 FIX-THEN-SHIP → r2 SHIP. Close after the first green hosted Windows run that exercises the new row. Reopened 2026-10-11; mechanism and correction in § 2026-10-12. Prior T4 closure: 2026-09-12, `2f03652`+.
 **Filed:** 2026-08-06
 **Severity:** medium-high — silently corrupts the timings of every subsequent run, and presents as flaky tests
 **Surface:** `hooks/tests/run-tests.sh:108-122` (`_ff_exit_reap` / `trap _ff_exit_reap EXIT`) + `hooks/local/lib/run-with-timeout.sh:519-564` (the backgrounded, polled bounded phase)
@@ -244,4 +244,22 @@ interrupt or fail the first append. A future implementer should not read it as c
 
 Reaping code (`hooks/tests/lib/`, `hooks/local/lib/bounded-run.sh`, `run-with-timeout.sh`, the test and fixture) has 0 diff lines v5.8..`f991d0f`, and v5.8's release run was green — so this is a pre-existing race, not a v5.9 regression. The guard holds the right handle (the preceding discriminator passes) yet the group is not gone within 8 s on one hosted run: either the delayed group SIGKILL / native sweep did not reach the group in time on a slow runner, or B5/B6 (§ 2026-08-07) fired. The row is also timing-sensitive in the other direction (window CLOSED on a loaded local host). v5.9 shipped on trial 2's green evidence by operator decision (2026-10-11, "Tag v5.9 now and reopen the backlog item as its own fix").
 
-**Next (own outcome, premise review first — process-lifecycle contract):** decide between a bounded retry window for the reap assertion (only if the group is proven to die shortly after 8 s) and the persistent supervisor the 2026-08-07 acceptance named; capture the hosted topology trace (`state/audit/run-tests-signal-reap/<sha>/`) on a failing run first.
+**Superseded by § 2026-10-12:** premise review identified exit detection, rather than a wider reap ceiling or supervisor, as the responsible boundary.
+
+## 2026-10-12 — T134: sentinel detects harness exit independently of parent reap
+
+**Mechanism (R1):** on MSYS a SIGKILLed harness remains `kill -0`-alive until its parent reaps it; `/proc/<pid>/stat` is `Z` and `/proc/<pid>/exe` is absent. A parent that never reaps kept the old sentinel blind for 36 s. This is pre-existing exit-detection failure, distinct from B5/B6. Premise and operator authorization: `docs/changes/2026-10-12-sentinel-exit-detection.md`.
+
+**Fix:** `hooks/tests/lib/orphan-sentinel.sh` treats `kill -0` failure OR (absent `exe` AND terminal `Z`) as death. Live ticks check `exe` first; only its absence permits a stat read. Off-MSYS, the `kill -0` path is unchanged. The operator authorized O2 instead of a persistent supervisor for this path; accepted B5/B6 limitations remain.
+
+**Guarantee (operator-adopted):** the sentinel acts within one poll (~1–2 s) of the harness exiting, independent of whether its parent has reaped it.
+
+| Proof boundary | T134 implementation / outstanding evidence |
+|---|---|
+| Deterministic R1 row | `non-reaping-parent-still-reaped`: parent execs sleep without waiting; asserts the unreaped zombie shape and live parent. `--nonreaping-only` plus `FFSR_SENTINEL_SOURCE` permits the same row against a temporary `git show HEAD:hooks/tests/lib/orphan-sentinel.sh` baseline |
+| Detection gate | Fixture-only loop-top heartbeat and DEAD stamps share anchors at HEAD and the fix. At most two heartbeats strictly between the identity-verified kill stamp (immediately before SIGKILL) and DEAD; continued heartbeats without DEAD are FAIL. No heartbeat is ERROR; no post-kill heartbeat or DEAD by the hang bound is ERROR (starved), never PASS |
+| Completion gate | When the sentinel state file disappears, child and grandchild must already have no `/proc/<pid>/exe`; an exited `Z` zombie counts as exited. Zero survivors at that done-point is required. Only numeric completion bound: hang classifier `GRACE + 4 × max observed heartbeat interval`, capped by `FF_SENTINEL_CAP`; no child/grandchild/reaped wall-clock ceiling |
+| Launch window / oracle | Release-file gate holds WinPID resolution through the kill; CLOSED is an ERROR, empty publication is FAIL. Exit watcher stamps before probing `/proc/<pid>/exe`, with fork-free FIFO `read -t 0.25` pauses; the test does not wait for `OUTER_PID` |
+| Failure diagnosis | Detect / TERM / reaped / harness, child and grandchild exit are reported in milliseconds, informational only. TERM stamped after signalling in the fixture reaper copy. Periodic trace `ps` runs separately at most every ~3 s, plus a fresh terminal snapshot; state-file presence and wrapper liveness in `state/audit/run-tests-signal-reap/<sha>/` |
+| Status | OPEN until hosted proof. Local proof: RED at HEAD's sentinel (`heartbeats=3`, `detect=-1ms`); GREEN with fix; 11/11 twice. Product file unchanged since audit r1. Open (low, audit r2): N1 the hang classifier's grace term should be in heartbeat units `(GSEC+4)*max_interval` and printed in PASS text (an idle host running the full 5 s grace could false-FAIL); N3 numeric guard for empty child/grandchild pid at the causal check; F5 `ffor_reap` probes before TERM |
+| Open F5 (pre-existing; separate work) | `hooks/tests/lib/orphan-reap.sh:282-314`: `ffor_reap` runs `ps` and identity/ancestor checks before TERM despite its "SIGNAL FIRST" comment; audit measured 2.4–6.6 s pre-TERM bookkeeping. Review moving TERM before bookkeeping while preserving identity/collateral guards. `orphan-reap.sh` unchanged in T134 round 2 |

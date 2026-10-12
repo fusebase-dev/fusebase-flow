@@ -39,10 +39,12 @@ ff_track() { local p="${1:-}"; ffor_numeric "$p" || return 0; ff_token "$p" && F
 # unreaped child's pid cannot be recycled, so "still our child with this comm" is exact.
 ff_kill_verified() {
   local pid="${1:-}" tok="${2:-}" sig="${3:-9}" rs rp rc rest
+  FFSR_KILL_STAMP=""
   [ -n "$pid" ] && [ -n "$tok" ] || return 0
   ffor_identity "$pid" || return 0
   rs="${tok%%|*}"; rest="${tok#*|}"; rp="${rest%%|*}"; rc="${rest#*|}"
   if [ "$FFOR_START" = "$rs" ]      || { [ "$rp" = "$$" ] && [ "$FFOR_PPID" = "$$" ] && [ "$FFOR_COMM" = "$rc" ]; }; then
+    FFSR_KILL_STAMP="$EPOCHREALTIME"
     kill "-$sig" "$pid" 2>/dev/null
   fi
   return 0
@@ -87,20 +89,7 @@ ff_spawn_sibling() {
   return 0
 }
 
-# ff_gone_within PID CEIL: seconds until the pid disappears, or -1 if it never did.
-ff_gone_within() {
-  local pid="$1" ceil="$2" i=0
-  while [ "$i" -le "$ceil" ]; do
-    ff_alive "$pid" || { echo "$i"; return 0; }
-    sleep 1; i=$((i + 1))
-  done
-  echo "-1"; return 1
-}
-
-# ff_ps_gone_within PID CEIL: seconds until PID leaves the PROCESS TABLE, or -1 if it never did.
-# TRIPWIRE: use THIS, not ff_gone_within, for a pid that is this shell's own background job.
-# `kill -0` succeeds on an unwaited zombie, so a correctly reaped child reads as still alive and
-# the assertion reports a leak that is not there.
+# Gone must be confirmed by a fresh process table; kill -0 can still see a zombie.
 ff_ps_gone_within() {
   local pid="$1" ceil="$2" i=0
   while [ "$i" -le "$ceil" ]; do
@@ -111,14 +100,30 @@ ff_ps_gone_within() {
   echo "-1"; return 1
 }
 
-# ff_write_fixture DIR: the miniature bounded phase + a byte-faithful copy of run-tests.sh's
-# teardown block. TRIPWIRE: harness.sh mirrors hooks/tests/run-tests.sh's reaper + sentinel
-# block. If that block changes and this does not, the control set stops describing the shipped
-# harness. Knobs (test-only, never read by shipped code):
-#   FFSR_SLOW_WINPID=<s>  widen the launch-to-record window deterministically
-#   FFSR_PHASE_SECS=<s>   the miniature phase's bound
+# Keep harness.sh teardown aligned with run-tests.sh; fixture knobs must never enter shipped code.
 ff_write_fixture() {
-  local d="$1"
+  local d="$1" line dead=0 ticks=0 term=0
+  # Fixture stamps: docs/backlog/harness-kill-leaves-orphan-children/README.md § 2026-10-12.
+  while IFS= read -r line; do
+    printf '%s\n' "$line"
+    case "$line" in
+      '  kill -TERM -"$cpgid" 2>/dev/null')
+        printf '%s\n' '  [ -n "${FFSR_TERM_FILE:-}" ] && printf "%s\n" "$EPOCHREALTIME" >> "$FFSR_TERM_FILE"'
+        term=$((term + 1)) ;;
+    esac
+  done < "$ROOT/hooks/tests/lib/orphan-reap.sh" > "$d/orphan-reap.sh"
+  while IFS= read -r line; do
+    case "$line" in
+      'while :; do')
+        printf '%s\n' "$line" '  printf "%s\n" "$EPOCHREALTIME" >> "$STATE.ticks"'
+        ticks=$((ticks + 1)); continue ;;
+      '    [ -n "$cur_pgid" ] && ffor_reap'*)
+        printf '%s\n' '    printf "%s\n" "$EPOCHREALTIME" > "$STATE.dead"' '    FFSR_TERM_FILE="$STATE.term"'
+        dead=$((dead + 1)) ;;
+    esac
+    printf '%s\n' "$line"
+  done < "${FFSR_SENTINEL_SOURCE:-$ROOT/hooks/tests/lib/orphan-sentinel.sh}" > "$d/orphan-sentinel.sh"
+  [ "$dead" -eq 1 ] && [ "$ticks" -eq 1 ] && [ "$term" -eq 1 ] || return 1
   cat > "$d/gc.sh" <<'GC'
 #!/usr/bin/env bash
 D="$1"
@@ -148,8 +153,11 @@ ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 ffhc_detect_timeout
 [ -f "$ROOT/hooks/tests/lib/orphan-reap.sh" ] && . "$ROOT/hooks/tests/lib/orphan-reap.sh"
 FFHC_HEARTBEAT_SECS="${FFHC_HEARTBEAT_SECS:-30}"
-if [ -n "${FFSR_SLOW_WINPID:-}" ]; then
-    ffhc_msys_winpid() { sleep "$FFSR_SLOW_WINPID"; local w=""
+if [ -n "${FFSR_WINPID_RELEASE:-}" ]; then
+    ffhc_msys_winpid() {
+        printf 'waiting\n' > "$D/winpid.waiting"
+        while [ ! -e "$FFSR_WINPID_RELEASE" ]; do sleep 1; done
+        local w=""
         IFS= read -r w 2>/dev/null < "/proc/${1:-0}/winpid" || w=""; printf '%s\n' "$w"; }
 fi
 FFHC_LAST_WINPID=""
@@ -200,14 +208,14 @@ _ff_exit_reap() {
 }
 trap _ff_exit_reap EXIT
 if ffhc_is_msys && [ -n "${FFHC_TIMEOUT_BIN:-}" ] \
-     && [ -f "$ROOT/hooks/tests/lib/orphan-sentinel.sh" ]; then
+     && [ -f "$D/orphan-sentinel.sh" ]; then
     FFHC_SENTINEL_STATE="$(mktemp "${TMPDIR:-/tmp}/ffhc-sentinel.$$.XXXXXX" 2>/dev/null)" || FFHC_SENTINEL_STATE=""
     if [ -n "$FFHC_SENTINEL_STATE" ]; then
         echo "$FFHC_SENTINEL_STATE" > "$D/sentinel.state"
         _g="${FFHC_TIMEOUT_KILL_GRACE:-5s}"; _g="${_g%[!0-9]*}"
         case "$_g" in ''|*[!0-9]*) _g=5 ;; esac
         FF_SENTINEL_GRACE="$_g"
-        "$FFHC_TIMEOUT_BIN" "${FF_SENTINEL_CAP:-600}" bash "$ROOT/hooks/tests/lib/orphan-sentinel.sh" \
+        "$FFHC_TIMEOUT_BIN" "${FF_SENTINEL_CAP:-600}" bash "$D/orphan-sentinel.sh" \
             "$$" "$(ffhc_pgid_of $$)" "$FFHC_SENTINEL_STATE" "$_g" >/dev/null 2>&1 &
         FF_SENTINEL_PID=$!
         FF_SENTINEL_PGID="$(ffhc_pgid_of "$FF_SENTINEL_PID")"

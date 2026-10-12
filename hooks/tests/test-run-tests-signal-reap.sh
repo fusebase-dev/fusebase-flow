@@ -66,6 +66,7 @@ FIXLIB="$ROOT/hooks/tests/lib/signal-reap-fixture.sh"
 # Every row this phase promises to report. Order is cosmetic; membership is the contract.
 DECLARED_ROWS=(
   tracked-identity-survives-msys-exec         # DISCRIMINATOR
+  non-reaping-parent-still-reaped
   launch-window-signal-still-reaps            # DISCRIMINATOR
   phase-group-is-not-the-harness-group        # DISCRIMINATOR
   launch-window-sibling-survives              # CONTROL
@@ -149,35 +150,39 @@ fi
 FIX="$(mktemp -d "${TMPDIR:-/tmp}/ffhc-signal-reap.XXXXXX")" || { bad "setup-fixture" "mktemp failed"; finish; }
 cleanup_fixture() {
   local p
-  for p in harness phase gc; do ff_read_pid_file "$FIX" "$p"; done
+  : > "$FIX/winpid.release"
+  for p in harness phase gc sentinel.wrapper; do ff_read_pid_file "$FIX" "$p"; done
   ff_reap_tracked
   rm -rf "$FIX" 2>/dev/null
 }
 trap cleanup_fixture EXIT
-ff_write_fixture "$FIX"
+ff_write_fixture "$FIX" || { bad "setup-fixture" "fixture copy could not establish heartbeat/DEAD/TERM instrumentation"; finish; }
+mkfifo "$FIX/observe.fifo" || { bad "setup-fixture" "observer FIFO unavailable"; finish; }
+exec {OBS_FD}<>"$FIX/observe.fifo" || { bad "setup-fixture" "observer FIFO could not open"; finish; }
 
 # Fixture knobs are EXPORTED globals set immediately before a launch and reset after: a
 # `VAR=x func` prefix on a shell FUNCTION leaks past the call in bash, which would silently
 # carry a knob into the next scenario.
-export FFSR_SLOW_WINPID="" FFSR_PHASE_SECS=300
+export FFSR_WINPID_RELEASE="" FFSR_PHASE_SECS=300
 
 # Our OWN process group. Every scenario that signals a group compares against this FIRST and
 # aborts the measurement rather than risk signalling this test's own tree.
 OWN_PGID="$(ffor_identity $$ && printf '%s' "$FFOR_PGID")"
 
-printf 'head\ttree\tscenario\tcapture\trole\tpid\tppid\tpgid\twinpid\texe_basename\talive_posix\talive_win\n' > "$TRACE"
+printf 'head\ttree\tscenario\tcapture\trole\tpid\tppid\tpgid\twinpid\texe_basename\talive_posix\talive_win\tps_present\tproc_state\tsentinel_state\tsentinel_wrapper_pid\tsentinel_wrapper_alive\tdetect_ms\tterm_ms\treaped_ms\tharness_exit_ms\tchild_exit_ms\tgrandchild_exit_ms\n' > "$TRACE"
 SIB_PID=""
 capture() {   # capture <scenario> <label>; roles read from the fixture's pid files + one ps snap
   local scen="$1" label="$2" snap tl role pid win ppid pgid exe am aw hp
   snap="$(ps 2>/dev/null)"; tl="$(tasklist //NH //FO CSV 2>/dev/null)"
   hp=""; [ -s "$FIX/harness.pid" ] && IFS= read -r hp < "$FIX/harness.pid"
-  for role in harness child grandchild sibling wrapper; do
+  for role in harness child grandchild sibling wrapper sentinel; do
     case "$role" in
       harness)    pid="$hp" ;;
       child)      pid=""; [ -s "$FIX/phase.pid" ] && IFS= read -r pid < "$FIX/phase.pid" ;;
       grandchild) pid=""; [ -s "$FIX/gc.pid" ] && IFS= read -r pid < "$FIX/gc.pid" ;;
       sibling)    pid="$SIB_PID" ;;
       wrapper)    pid="$(printf '%s\n' "$snap" | awk -v h="$hp" '$2==h && /timeout/ {print $1; exit}')" ;;
+      sentinel)   pid=""; [ -s "$FIX/sentinel.wrapper.pid" ] && IFS= read -r pid < "$FIX/sentinel.wrapper.pid" ;;
     esac
     [ -n "${pid:-}" ] || continue
     ppid="$(printf '%s\n' "$snap" | awk -v p="$pid" '$1==p{print $2; exit}')"
@@ -185,9 +190,11 @@ capture() {   # capture <scenario> <label>; roles read from the fixture's pid fi
     win="$(printf '%s\n' "$snap" | awk -v p="$pid" '$1==p{print $4; exit}')"
     exe="$(printf '%s\n' "$snap" | awk -v p="$pid" '$1==p{print $NF; exit}')"; exe="${exe##*/}"
     ff_alive "$pid" && am=alive || am=gone
-    aw=gone
-    [ -n "${win:-}" ] && printf '%s\n' "$tl" | grep -q "\",\"${win}\"," && aw=alive
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    aw=unknown
+    if [ -n "${win:-}" ] && [ -n "$tl" ]; then
+      aw=gone; printf '%s\n' "$tl" | grep -q "\",\"${win}\"," && aw=alive
+    fi
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t?\t?\t?\t?\t?\t?\t?\t?\t?\t?\t?\n' \
       "${HEAD_FULL:0:12}" "$TREE" "$scen" "$label" "$role" "$pid" "${ppid:-?}" "${pgid:-?}" \
       "${win:-?}" "${exe:-?}" "$am" "$aw" >> "$TRACE"
   done
@@ -198,7 +205,7 @@ HARNESS_PID=""; HARNESS_TOK=""; OUTER_PID=""; CHILD_PID=""; GC_PID=""
 start_harness() {   # start_harness <phase-script>
   local phase="${1:-$FIX/phase.sh}"
   rm -f "$FIX"/*.pid "$FIX"/*.winpid "$FIX"/trap.log "$FIX"/harness.log "$FIX"/sentinel.state \
-        "$FIX"/sentinel.wrapper.pid 2>/dev/null
+        "$FIX"/sentinel.wrapper.pid "$FIX"/winpid.waiting "$FIX"/winpid.release 2>/dev/null
   bash "$FIX/harness.sh" "$FIX" "$LIB" "$phase" >/dev/null 2>&1 &
   OUTER_PID=$!; ff_track "$OUTER_PID"
   return 0
@@ -212,7 +219,187 @@ read_pids() {       # -> HARNESS_PID / CHILD_PID / GC_PID, all tracked with thei
   ff_read_pid_file "$FIX" harness; HARNESS_PID="$FFSR_FILE_PID"
   ff_read_pid_file "$FIX" phase;   CHILD_PID="$FFSR_FILE_PID"
   ff_read_pid_file "$FIX" gc;      GC_PID="$FFSR_FILE_PID"
+  ff_read_pid_file "$FIX" sentinel.wrapper
   HARNESS_TOK="$(ff_tok "$HARNESS_PID")"
+}
+
+ff_ms() {
+  local stamp="$1" frac="${1#*.}000000"
+  frac="${frac:0:6}"
+  FFSR_US=$(( ${stamp%%.*} * 1000000 + 10#$frac ))
+  FFSR_MS=$((FFSR_US / 1000))
+}
+
+observation_trace() {
+  local scenario="$1" elapsed="$2" state="$3" wrapper="$4" role pid exited present wrapper_alive
+  ffor_snapshot || true
+  wrapper_alive=no; [ -e "/proc/$wrapper/exe" ] && wrapper_alive=yes
+  for role in harness child grandchild; do
+    case "$role" in harness) pid="$HARNESS_PID" ;; child) pid="$CHILD_PID" ;; grandchild) pid="$GC_PID" ;; esac
+    exited=alive; [ -e "/proc/$pid/exe" ] || exited=exited
+    present=no; ffor_row "$pid" && present=yes
+    printf '%s\t%s\t%s\ttick-%sms\t%s\t%s\t%s\t%s\t%s\t?\t%s\t?\t%s\t?\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+      "${HEAD_FULL:0:12}" "$TREE" "$scenario" "$elapsed" "$role" "$pid" \
+      "${FFOR_ROW_PPID:-?}" "${FFOR_ROW_PGID:-?}" "${FFOR_ROW_WIN:-?}" "$exited" "$present" "$state" "${wrapper:-?}" "$wrapper_alive" \
+      "$FFSR_OBS_DETECT" "$FFSR_OBS_TERM" "$FFSR_OBS_REAPED" "$FFSR_OBS_EXIT" "$FFSR_OBS_CHILD" "$FFSR_OBS_GC" >> "$TRACE"
+  done
+}
+
+observe_reap() {
+  local scenario="$1" state="$2" killed="$3" killed_ms killed_us now elapsed stamp dead_us=-1
+  local tick tick_ms last_tick=-1 max_interval=1000 interval beats=0 post_kill=0 between=0
+  local cap="${FF_SENTINEL_CAP:-600}" bound last_trace=-3000 trace_pid="" role pid s rest stop
+  local state_present wrapper="" done_ok=0
+  ff_ms "$killed"; killed_ms="$FFSR_MS"; killed_us="$FFSR_US"
+  case "$cap" in ''|*[!0-9]*) cap=600 ;; esac
+  FFSR_OBS_STATUS=FAIL; FFSR_OBS_REASON="sentinel did not finish"
+  FFSR_OBS_CHILD=-1; FFSR_OBS_GC=-1; FFSR_OBS_EXIT=-1
+  FFSR_OBS_DETECT=-1; FFSR_OBS_TERM=-1; FFSR_OBS_REAPED=-1
+  FFSR_OBS_PARENT=1; FFSR_OBS_ZOMBIE=0
+  [ -s "$FIX/sentinel.wrapper.pid" ] && IFS= read -r wrapper < "$FIX/sentinel.wrapper.pid"
+  while :; do
+    stop=1
+    ff_ms "$EPOCHREALTIME"; now="$FFSR_MS"; elapsed=$((now - killed_ms))
+    state_present=yes
+    if [ ! -e "$state" ]; then
+      state_present=no; FFSR_OBS_REAPED="$elapsed"
+      # Do not delay done-point probes behind diagnostics (audit-T134 F1/F2).
+      if [ ! -e "/proc/$CHILD_PID/exe" ] && [ ! -e "/proc/$GC_PID/exe" ]; then done_ok=1; fi
+    fi
+    for role in harness child grandchild; do
+      case "$role" in harness) pid="$HARNESS_PID" ;; child) pid="$CHILD_PID" ;; grandchild) pid="$GC_PID" ;; esac
+      ff_ms "$EPOCHREALTIME"; stamp=$((FFSR_MS - killed_ms))
+      if [ ! -e "/proc/$pid/exe" ]; then
+        case "$role" in
+          harness) [ "$FFSR_OBS_EXIT" -lt 0 ] && FFSR_OBS_EXIT="$stamp" ;;
+          child) [ "$FFSR_OBS_CHILD" -lt 0 ] && FFSR_OBS_CHILD="$stamp" ;;
+          grandchild) [ "$FFSR_OBS_GC" -lt 0 ] && FFSR_OBS_GC="$stamp" ;;
+        esac
+      fi
+    done
+    if [ "$scenario" = non-reaping-parent ]; then
+      [ -e "/proc/$OUTER_PID/exe" ] || FFSR_OBS_PARENT=0
+      if [ "$FFSR_OBS_ZOMBIE" -eq 0 ] && [ "$FFSR_OBS_EXIT" -ge 0 ] && ff_alive "$HARNESS_PID" \
+        && IFS= read -r s 2>/dev/null < "/proc/$HARNESS_PID/stat"; then
+        case "$s" in *') '*) rest="${s##*) }"; [ "${rest%% *}" = Z ] && FFSR_OBS_ZOMBIE=1 ;; esac
+      fi
+    fi
+    if [ "$dead_us" -lt 0 ] && [ -s "$state.dead" ]; then
+      IFS= read -r stamp < "$state.dead"; ff_ms "$stamp"
+      dead_us="$FFSR_US"; FFSR_OBS_DETECT=$((FFSR_MS - killed_ms))
+    fi
+    if [ "$FFSR_OBS_TERM" -lt 0 ] && [ -s "$state.term" ]; then
+      IFS= read -r stamp < "$state.term"; ff_ms "$stamp"; FFSR_OBS_TERM=$((FFSR_MS - killed_ms))
+    fi
+    if [ -s "$state.ticks" ]; then
+      while IFS= read -r tick; do
+        ff_ms "$tick"; tick_ms="$FFSR_MS"
+        [ "$tick_ms" -gt "$last_tick" ] || continue
+        if [ "$last_tick" -ge 0 ]; then
+          interval=$((tick_ms - last_tick)); [ "$interval" -le "$max_interval" ] || max_interval="$interval"
+        fi
+        last_tick="$tick_ms"; beats=$((beats + 1))
+        [ "$FFSR_US" -le "$killed_us" ] || post_kill=$((post_kill + 1))
+      done < "$state.ticks"
+      between=0
+      while IFS= read -r tick; do
+        ff_ms "$tick"
+        if [ "$FFSR_US" -gt "$killed_us" ] && { [ "$dead_us" -lt 0 ] || [ "$FFSR_US" -lt "$dead_us" ]; }; then
+          between=$((between + 1))
+        fi
+      done < "$state.ticks"
+    fi
+    bound=$((GSEC * 1000 + 4 * max_interval))
+    [ "$bound" -le "$((cap * 1000))" ] || bound=$((cap * 1000))
+    if [ "$between" -gt 2 ]; then
+      FFSR_OBS_REASON="more than two heartbeats after kill before DEAD"
+    elif [ "$state_present" = no ]; then
+      if [ "$beats" -eq 0 ]; then
+        FFSR_OBS_STATUS=ERROR; FFSR_OBS_REASON="sentinel starved: no heartbeat"
+      elif [ "$dead_us" -lt 0 ]; then
+        FFSR_OBS_REASON="sentinel finished without DEAD"
+      elif [ "$done_ok" -ne 1 ]; then
+        FFSR_OBS_REASON="child or grandchild still executing at sentinel done-point"
+      elif [ "$FFSR_OBS_EXIT" -lt 0 ]; then
+        FFSR_OBS_STATUS=ERROR; FFSR_OBS_REASON="harness exit not established"
+      else
+        FFSR_OBS_STATUS=PASS; FFSR_OBS_REASON="within two kill-anchored heartbeats; zero survivors at sentinel done-point"
+      fi
+    elif [ "$elapsed" -ge "$bound" ]; then
+      if [ "$dead_us" -lt 0 ] && [ "$post_kill" -eq 0 ]; then
+        FFSR_OBS_STATUS=ERROR; FFSR_OBS_REASON="sentinel starved: no post-kill heartbeat or DEAD"
+      else
+        FFSR_OBS_REASON="sentinel hang at GRACE + 4 * max heartbeat interval (capped by FF_SENTINEL_CAP)"
+      fi
+    else
+      stop=0
+    fi
+    [ "$stop" -eq 0 ] || break
+    if [ "$((elapsed - last_trace))" -ge 3000 ] && { [ -z "$trace_pid" ] || ! ff_alive "$trace_pid"; }; then
+      [ -z "$trace_pid" ] || wait "$trace_pid" 2>/dev/null
+      last_trace="$elapsed"
+      # Keep ps off the 4 Hz exit watcher (audit-T134 F2).
+      observation_trace "$scenario" "$elapsed" "$state_present" "$wrapper" & trace_pid=$!
+    fi
+    read -r -t 0.25 -u "$OBS_FD" _ || true
+  done
+  [ -z "$trace_pid" ] || wait "$trace_pid" 2>/dev/null
+  observation_trace "$scenario" "$elapsed" "$state_present" "$wrapper"
+  FFSR_OBS_DETAIL="detect=${FFSR_OBS_DETECT}ms TERM=${FFSR_OBS_TERM}ms reaped=${FFSR_OBS_REAPED}ms exit(harness/child/grandchild)=${FFSR_OBS_EXIT}/${FFSR_OBS_CHILD}/${FFSR_OBS_GC}ms heartbeats=$between (-1 = unobserved); trace=$TRACE"
+}
+
+report_reap() {
+  local row="$1" context="$2"
+  case "$FFSR_OBS_STATUS" in
+    PASS) ok "$row [DISCRIMINATOR] ($context; $FFSR_OBS_REASON; $FFSR_OBS_DETAIL)" ;;
+    ERROR) err "$row" "$context; $FFSR_OBS_REASON; $FFSR_OBS_DETAIL" ;;
+    *) bad "$row" "$context; $FFSR_OBS_REASON; $FFSR_OBS_DETAIL" ;;
+  esac
+}
+
+non_reaping_parent_row() {
+  local state="" parent_ready=0 i killed hpg=""
+  rm -f "$FIX"/*.pid "$FIX"/*.winpid "$FIX"/sentinel.state
+  # Never wait for the harness: exec keeps its parent alive without a SIGCHLD reaper (premise R4).
+  bash -c 'bash "$1/harness.sh" "$1" "$2" >/dev/null 2>&1 & exec sleep 600' _ "$FIX" "$LIB" >/dev/null 2>&1 &
+  OUTER_PID=$!
+  for ((i=0; i<15; i++)); do
+    if ffor_identity "$OUTER_PID" && [ "$FFOR_COMM" = sleep ]; then parent_ready=1; break; fi
+    sleep 1
+  done
+  ff_track "$OUTER_PID"
+  if [ "$parent_ready" -ne 1 ] || ! wait_for_file "$FIX/gc.pid" 90 || ! wait_for_file "$FIX/sentinel.state" 5; then
+    err "non-reaping-parent-still-reaped" "exec-sleep parent or phase fixture did not establish"
+  else
+    read_pids
+    IFS= read -r state < "$FIX/sentinel.state"
+    if ! ffor_identity "$HARNESS_PID" || [ "$FFOR_PPID" != "$OUTER_PID" ] || [ ! -e "$state" ] || [ -e "$state.dead" ]; then
+      err "non-reaping-parent-still-reaped" "live harness under exec-sleep parent and armed sentinel not established"
+    else
+      hpg="$FFOR_PGID"
+      ff_kill_verified "$HARNESS_PID" "$HARNESS_TOK" 9
+      killed="$FFSR_KILL_STAMP"
+      if [ -z "$killed" ]; then
+        err "non-reaping-parent-still-reaped" "identity-verified kill did not run"
+      else
+        observe_reap non-reaping-parent "$state" "$killed"
+        if [ "$FFSR_OBS_ZOMBIE" -ne 1 ] || [ "$FFSR_OBS_PARENT" -ne 1 ]; then
+          err "non-reaping-parent-still-reaped" "unreaped harness shape not observed: zombie=$FFSR_OBS_ZOMBIE parent_alive=$FFSR_OBS_PARENT; $FFSR_OBS_DETAIL"
+        else
+          report_reap non-reaping-parent-still-reaped "parent never reaped"
+        fi
+      fi
+    fi
+  fi
+  if [ -n "$state" ] && [ -n "$hpg" ]; then
+    ffor_state_read "$state"
+    if ffor_resolve_phase "$FFOR_S_PID" "$hpg"; then
+      ffor_reap "$FFOR_R_PGID" "" "$FFOR_R_PGID" "$FFOR_R_LEADSTART" "$hpg" 0
+      ff_track "$FFOR_S_PID"
+    fi
+  fi
+  ff_reap_tracked
+  [ -n "$state" ] && rm -f "$state" "$state.dead" "$state.ticks" "$state.term"
 }
 
 # =========================================================================================
@@ -221,16 +408,7 @@ read_pids() {       # -> HARNESS_PID / CHILD_PID / GC_PID, all tracked with thei
 # A signal inside the LAUNCH-TO-RECORD window: the child exists but its winpid/pgid probes (MSYS
 # spawns) have not completed. Recording only AFTER those probes left this window seconds wide — a
 # SIGKILL here published nothing, the guard read "nothing in flight", and the leak returned.
-# FFSR_SLOW_WINPID makes the window deterministic instead of hoping to hit a millisecond race.
-# SIGKILL is used on purpose: no EXIT trap, no signal handler, so ONLY what was already PUBLISHED
-# can save the tree. That makes this strictly harder than the TERM/INT arms it replaces.
-#
-# TRIPWIRE (measured): the widened window must outlast THIS TEST's own pre-kill overhead — the
-# `capture` below spawns `ps` + `tasklist`, tens of seconds on a loaded MSYS host. At the former
-# 25s the probe finished first, the full tuple was already published, and the row went green
-# against a deliberately re-broken publication order (mutation: publish AFTER the winpid probe).
-# So the window is 120s AND `lw_window` below PROVES it was open at kill time; a raced window is
-# reported red ("could not discriminate"), never as a pass.
+# Never release the WinPID gate before the kill: otherwise this discriminator can pass outside its window.
 # =========================================================================================
 # The suite's OWN teardown is identity-verified, so it is only teardown if the identity it
 # recorded still matches. On MSYS `/proc/<pid>/stat` field 20 is not final until ~1s after a pid
@@ -255,9 +433,15 @@ else
   fi
 fi
 
+non_reaping_parent_row
+if [ "${1:-}" = --nonreaping-only ]; then
+  DECLARED_ROWS=(tracked-identity-survives-msys-exec non-reaping-parent-still-reaped)
+  finish
+fi
+
 ff_spawn_sibling; SIB_PID="$FFSR_SIB_PID"
-FFSR_SLOW_WINPID=120; start_harness; FFSR_SLOW_WINPID=""
-if wait_for_file "$FIX/gc.pid" 90 && wait_for_file "$FIX/harness.pid" 5; then
+FFSR_WINPID_RELEASE="$FIX/winpid.release"; start_harness; FFSR_WINPID_RELEASE=""
+if wait_for_file "$FIX/gc.pid" 90 && wait_for_file "$FIX/harness.pid" 5 && wait_for_file "$FIX/winpid.waiting" 5; then
   read_pids
   capture launch-window "in-window"
   # Window state at the moment of the kill, read from the record the sentinel actually consumes:
@@ -300,15 +484,20 @@ if wait_for_file "$FIX/gc.pid" 90 && wait_for_file "$FIX/harness.pid" 5; then
     fi
   fi
   ff_kill_verified "$HARNESS_PID" "$HARNESS_TOK" 9
-  lw_child="$(ff_gone_within "$CHILD_PID" "$REAP_CEILING")"
-  lw_gc="$(ff_gone_within "$GC_PID" "$REAP_CEILING")"
-  capture launch-window "after-grace"
-  if [ "$lw_window" = closed ]; then
-    bad "launch-window-signal-still-reaps" "the launch-to-record window had already CLOSED at kill time (full tuple published) — this row could not discriminate on this host; raise FFSR_SLOW_WINPID above the pre-kill \`ps\`/\`tasklist\` cost. Reported red, never as a pass."
-  elif [ "$lw_child" -ge 0 ] 2>/dev/null && [ "$lw_gc" -ge 0 ] 2>/dev/null; then
-    ok "launch-window-signal-still-reaps [DISCRIMINATOR] (window provably $lw_window at kill time; harness SIGKILLed while the identity probes were still in flight: child ${lw_child}s / grandchild ${lw_gc}s)"
+  lw_killed="$FFSR_KILL_STAMP"
+  if [ -n "$lw_killed" ]; then
+    observe_reap launch-window "$lw_state" "$lw_killed"
   else
-    bad "launch-window-signal-still-reaps" "window=$lw_window child_gone=${lw_child}s grandchild_gone=${lw_gc}s (-1 = alive at ${REAP_CEILING}s) — the launch-to-record window published nothing, so the guard had no identity to act on"
+    FFSR_OBS_STATUS=ERROR; FFSR_OBS_REASON="identity-verified kill did not run"
+    FFSR_OBS_DETAIL="detect=-1ms TERM=-1ms reaped=-1ms exit(harness/child/grandchild)=-1/-1/-1ms (-1 = unobserved)"
+  fi
+  capture launch-window "after-observation"
+  if [ "$lw_window" = closed ]; then
+    err "launch-window-signal-still-reaps" "window=CLOSED despite the unreleased WinPID gate — fixture failed to hold the launch window; $FFSR_OBS_DETAIL"
+  elif [ "$lw_window" != open ]; then
+    bad "launch-window-signal-still-reaps" "window=$lw_window — harness publication failed to supply a complete in-flight PID record; $FFSR_OBS_DETAIL"
+  else
+    report_reap launch-window-signal-still-reaps "window provably $lw_window at kill time"
   fi
   if ff_alive "$SIB_PID"; then
     ok "launch-window-sibling-survives [CONTROL] (the independently launched same-executable bash sibling outside the target tree is alive — no collateral)"
@@ -320,7 +509,9 @@ else
   err "phase-group-is-not-the-harness-group" "the launch-window fixture never established within 90s"
   skip "launch-window-sibling-survives" "the launch-window fixture never established within 90s"
 fi
+: > "$FIX/winpid.release"
 ff_reap_tracked
+[ -n "${lw_state:-}" ] && rm -f "$lw_state" "$lw_state.dead" "$lw_state.ticks" "$lw_state.term"
 
 # =========================================================================================
 # GUARD-LEVEL discriminators. Driven directly so the fail-closed cases are deterministic

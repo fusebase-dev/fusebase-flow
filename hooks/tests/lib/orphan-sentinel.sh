@@ -23,6 +23,19 @@ ffor_numeric "$GRACE" || GRACE=5
 
 [ -n "$HARNESS_PID" ] && [ -n "$STATE" ] || exit 0
 
+msys_proc=0
+case "$(uname -s 2>/dev/null)" in MINGW*|MSYS*|CYGWIN*) msys_proc=1 ;; esac
+ffos_harness_alive() {
+  ffor_alive "$HARNESS_PID" || return 1
+  [ "$msys_proc" -eq 1 ] || return 0
+  # Keep /proc reads off live ticks: only terminal Z proves exit before parent reap (backlog harness-kill-leaves-orphan-children § 2026-10-12).
+  [ -e "/proc/$HARNESS_PID/exe" ] && return 0
+  local stat rest
+  IFS= read -r stat 2>/dev/null < "/proc/$HARNESS_PID/stat" || return 0
+  case "$stat" in *') '*) rest="${stat##*) }" ;; *) return 0 ;; esac
+  [ "${rest%% *}" != Z ]
+}
+
 # Cached identity of the CURRENT in-flight child. TRIPWIRE: the harness publishes the pid the
 # instant it exists — BEFORE its own winpid/pgid probes — and this loop completes the tuple
 # out-of-band while the child is provably alive. That is what makes a signal inside the
@@ -56,7 +69,7 @@ while :; do
   else
     cur_pid=""; cur_pgid=""; cur_lead=""; settle=0
   fi
-  if ! ffor_alive "$HARNESS_PID"; then
+  if ! ffos_harness_alive; then
     # The harness is gone. Anything it recorded as in-flight is an orphan by definition.
     # Reap the phase GROUP by its own leader: the recorded winpid/pid belong to the harness-group
     # subshell above it, and ffor_reap's recorded-child guards would reject that pairing.
