@@ -1,8 +1,6 @@
 # harness-kill-leaves-orphan-children
 
-**Status:** CLOSED at T4 (2026-09-12, `2f03652`+) — shipped, 10/10 on MSYS, zero surviving
-descendants across five outer-wall kills and zero fixture leftovers on a clean run, all verified by
-process inspection. B5/B6 stay accepted (§ 2026-08-07)
+**Status:** REOPENED 2026-10-11 — `launch-window-signal-still-reaps` failed on hosted Windows/MSYS with the reaping code byte-identical to v5.8 (reopen condition (a)/(c), § 2026-08-07). Evidence in § 2026-10-11 below. Was: CLOSED at T4 (2026-09-12, `2f03652`+), 10/10 on MSYS.
 **Filed:** 2026-08-06
 **Severity:** medium-high — silently corrupts the timings of every subsequent run, and presents as flaky tests
 **Surface:** `hooks/tests/run-tests.sh:108-122` (`_ff_exit_reap` / `trap _ff_exit_reap EXIT`) + `hooks/local/lib/run-with-timeout.sh:519-564` (the backgrounded, polled bounded phase)
@@ -235,3 +233,15 @@ widens for any reason; (c) a consumer reports flaky gate timings traceable to le
 
 The `launch-window-signal-still-reaps` test only delays the WinPID probe — it does not tear,
 interrupt or fail the first append. A future implementer should not read it as covering B6.
+
+## 2026-10-11 — reopened: intermittent launch-window reap failure on hosted Windows
+
+| Run | SHA | Result |
+|---|---|---|
+| hosted `fusebase-flow-verify` 38184917706 (pre-tag, dispatched) | `f991d0f` (v5.9 release commit) | verify-windows-msys FAIL 1/967: `launch-window-signal-still-reaps` — `window=open`, `phase-group-is-not-the-harness-group` PASS (both descendants in group 36147, one level below the harness group 36088), harness SIGKILLed, child AND grandchild alive at `REAP_CEILING`=8 s; phase 33 s (last green hosted 17 s). Linux green |
+| hosted `fusebase-flow-verify` 38186458485 (same SHA, trial 2) | `f991d0f` | all green, both platforms |
+| local MSYS `FF_ONLY=signal-reap` ×3 (load-contended host, CPU ~85%) | `f991d0f` | 2 PASS (reaped in 1 s / 2 s); 1 FAIL of the OTHER kind — window already CLOSED at kill time (row cannot discriminate) |
+
+Reaping code (`hooks/tests/lib/`, `hooks/local/lib/bounded-run.sh`, `run-with-timeout.sh`, the test and fixture) has 0 diff lines v5.8..`f991d0f`, and v5.8's release run was green — so this is a pre-existing race, not a v5.9 regression. The guard holds the right handle (the preceding discriminator passes) yet the group is not gone within 8 s on one hosted run: either the delayed group SIGKILL / native sweep did not reach the group in time on a slow runner, or B5/B6 (§ 2026-08-07) fired. The row is also timing-sensitive in the other direction (window CLOSED on a loaded local host). v5.9 shipped on trial 2's green evidence by operator decision (2026-10-11, "Tag v5.9 now and reopen the backlog item as its own fix").
+
+**Next (own outcome, premise review first — process-lifecycle contract):** decide between a bounded retry window for the reap assertion (only if the group is proven to die shortly after 8 s) and the persistent supervisor the 2026-08-07 acceptance named; capture the hosted topology trace (`state/audit/run-tests-signal-reap/<sha>/`) on a failing run first.
