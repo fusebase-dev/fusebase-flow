@@ -526,7 +526,7 @@
     },
     {
       "path": "hooks/tests/fixtures/secret_patterns_matrix.py",
-      "sha256": "1723ddaa803c93e7c7231f932cf50d1b0a0ebb326442c53c0cbf5d78d4cbd8b8"
+      "sha256": "b16e86e0db1c13368e84f9a806b6c168279f734b876e98bf792530ab21763677"
     },
     {
       "path": "hooks/tests/fixtures/token-waste-01-growing-tail-classified.jsonl",
@@ -933,5 +933,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "5b5aad2257469f63824e6b3f2a7f1b33f6b104e5f87d6b789d7db7d96b51a9dc"
+  "manifest_self_sha256": "7e200249163c9a4db8c1654c10f54cd698e3d2c1fbc7bf7dc4b6fa150baf2773"
 }

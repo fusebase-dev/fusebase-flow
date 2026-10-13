@@ -96,10 +96,18 @@ for entry in patterns:
     except re.error:
         compile_errors.append(entry["id"])
 check("every-pattern-compiles", bool(patterns) and not compile_errors)
+def unbounded_lookahead(pattern):
+    return any(re.search(r"[*+]|\{\d*,\}", body)
+               for body in re.findall(r"\(\?[=!](.*?)\)", pattern))
+
+
 unbounded = [entry["id"] for entry in patterns
-             if any("*" in body or "+" in body
-                    for body in re.findall(r"\(\?[=!](.*?)\)", entry["pattern"]))]
+             if unbounded_lookahead(entry["pattern"])]
 check("no-unbounded-lookahead", not unbounded)
+check("unbounded-lookahead-open-quantifier-rejected",
+      unbounded_lookahead(r"(?=[x]{0,}[0-9])"))
+check("unbounded-lookahead-empty-lower-bound-rejected",
+      unbounded_lookahead(r"(?=[x]{,}[0-9])"))
 
 tp_total = tp_passed = fp_total = fp_passed = 0
 with patch.object(secret_scanner, "get_policy", return_value=policy):

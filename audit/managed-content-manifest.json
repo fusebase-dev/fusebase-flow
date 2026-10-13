@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "9361351b334dc7c0ffdbed320044e212e4417101d52f68769da744ed01a4f2ce"
+      "sha256": "ce822ea6fb61eb147238893f032a7d977a16f1b62972d6041d78a50b198327ac"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -974,7 +974,7 @@
     },
     {
       "path": "hooks/tests/fixtures/secret_patterns_matrix.py",
-      "sha256": "1723ddaa803c93e7c7231f932cf50d1b0a0ebb326442c53c0cbf5d78d4cbd8b8"
+      "sha256": "b16e86e0db1c13368e84f9a806b6c168279f734b876e98bf792530ab21763677"
     },
     {
       "path": "hooks/tests/fixtures/token-waste-01-growing-tail-classified.jsonl",
@@ -1641,5 +1641,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "c0b799d6354f1c253788d31426186d5a4ffe41c4844ee4dcf9fb1ac0dbe7d524"
+  "manifest_self_sha256": "8cc190281676cd4d767613eef8cc30ec92ec29ba09d91e6ced56015239c457ba"
 }
