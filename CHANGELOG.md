@@ -4,6 +4,18 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [5.10] — 2026-10-12
+
+**The orphan watcher now works on Windows.** When a test run was killed, the watcher that stops its
+child processes only noticed once the run's parent had collected it; on MSYS that could take many
+seconds or never happen, leaving children alive. It now detects the exit itself (`/proc/<pid>/exe`
+gone and state `Z`), acting within one poll of the run exiting — about 1–2 s on an idle host — and
+on hosted Windows detects in 29–622 ms with no survivors. The `signal-reap` release check gates on the
+watcher's own heartbeats and on no descendant surviving when it finishes, instead of wall-clock limits.
+`task-delegation`'s correction-ownership fallback reads as the stricter rule. Test-only hardening for
+the secret-pattern matrix and token-audit fixtures; three follow-ups filed in the backlog.
+**Drop-in from 5.9.** See `docs/release-notes/v5.10.md`.
+
 ## [5.9] — 2026-10-11
 
 **Fixes from a FuseBase CLI update escalation, plus the v5.8 follow-ups.** `.git/info/exclude` now
