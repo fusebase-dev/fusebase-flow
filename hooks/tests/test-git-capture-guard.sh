@@ -61,9 +61,10 @@ else
 fi
 
 # 2. The gated list is a real surface, not an empty allowlist that trivially passes.
-gated_n="$(bash "$CHECK" --list | grep -c .)"
-if [ "$gated_n" -ge 6 ] && bash "$CHECK" --list | grep -qx 'hooks/git/pre-commit' \
-   && bash "$CHECK" --list | grep -qx 'hooks/tests/test-secret-scan-staged.sh'; then
+gated_list="$(bash "$CHECK" --list)"
+gated_n="$(grep -c . <<< "$gated_list")"
+if [ "$gated_n" -ge 6 ] && grep -qx 'hooks/git/pre-commit' <<< "$gated_list" \
+   && grep -qx 'hooks/tests/test-secret-scan-staged.sh' <<< "$gated_list"; then
     ok "gated-list-covers-the-commit-and-release-surface ($gated_n files)"
 else
     bad "gated-list-covers-the-commit-and-release-surface" "list=$gated_n files; pre-commit or the release phase is missing"

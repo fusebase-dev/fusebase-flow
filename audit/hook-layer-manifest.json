@@ -698,7 +698,7 @@
     },
     {
       "path": "hooks/tests/test-git-capture-guard.sh",
-      "sha256": "40814bc66d78a5b8745186f389a581412685c4001893c7ad8d6c8827bd860892"
+      "sha256": "97c4c417dfbcee3dffe99a0da013fba2defc37b0c9d37fc7adc912b7f665b309"
     },
     {
       "path": "hooks/tests/test-git-hooks-smoke.sh",
@@ -933,5 +933,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "e9bd1861b7e8a562df74b0c9a5ecea48c0b22baf315c82d6d354011bbf7eb7f5"
+  "manifest_self_sha256": "d00f2ea90fc13d8a1f7356d2eadc8575513bd101098b96c0e1c0aa328499a04d"
 }
