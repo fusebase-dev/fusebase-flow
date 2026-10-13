@@ -249,7 +249,8 @@ creation remains an operator-controlled open path and must not be used.
     release gate, so a missed row BLOCKS the next cut instead of being discovered by a consumer.
   - Update the external index too when one exists.
 - **Do NOT run `gh release create` manually** — it bypasses the `needs: verify`
-  gate (AC4). Re-run the same immutable tag only for a transient environment failure. A code fix
+  gate (AC4). Re-run the same immutable tag only for a transient environment failure, or once under the
+  pre-existing-intermittent row of `docs/maintainer-execution.md` § Failure handling. A code fix
   requires a new version and tag.
 - **Version scheme (as of v5.1): two-part `MAJOR.MINOR`.** From v5.1 onward Fusebase Flow
   versions drop the patch component and ship as `MAJOR.MINOR` (e.g. `5.1`, tag `v5.1`). The
