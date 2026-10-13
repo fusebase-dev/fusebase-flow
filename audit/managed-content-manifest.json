@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "64c40f5c1de09d899af200df292dbc0be8579fa090a884e8c80f994b59262133"
+      "sha256": "3b7b2761bddac05642da953da666ab1ff5aefb45d2c80efb9b4b4358d28d8a2b"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -642,7 +642,7 @@
     },
     {
       "path": "hooks/local/post-fusebase-update.sh",
-      "sha256": "317f052564ee05fdfe8438aaecad8c69bdf09f7bc32d60a292169b0bfc2b6500"
+      "sha256": "fd1d9d5f69d499ee6d67a2b16a027dfcf6bac763c9d298ff60b65eb124f47a3e"
     },
     {
       "path": "hooks/local/preflight.sh",
@@ -1641,5 +1641,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "7925dd24de55acd2cb8278f11b0f45941310e8fcc84abbcfefe7a698bcc1821d"
+  "manifest_self_sha256": "6576bae69be88229042216e4ff9e56b04fd5fa22d126a20be453978fbdb285e4"
 }

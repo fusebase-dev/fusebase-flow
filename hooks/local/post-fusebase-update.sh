@@ -284,11 +284,9 @@ trap 'ff_recovery_on_exit $?' EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-# Git-exclude the .pre-refresh backups this recovery drops (after arg parsing, so --help is
-# a pure no-op). Best-effort + NON-fatal: a non-git dir is a no-op success (helper returns
-# 0); a genuine write failure in a git repo is a plain note — NOT a WARNING (which would
-# `exit 1` below and wrongly fail an overlay recovery that actually succeeded).
-ff_git_exclude_backups || echo "[post-fusebase-update] note: could not update .git/info/exclude — .pre-refresh backups may be stageable by a later 'git add -A' (delete or unstage them before committing)." >&2
+# --help must stay a no-op; excludes cover pre-bootstrap/refresh/upgrade backups, the upgrade clone, local policy overrides and agent worktrees.
+# A non-git directory is a no-op success; a write failure must stay a note: WARNING would exit 1 after a successful overlay recovery.
+ff_git_exclude_backups || echo "[post-fusebase-update] note: could not update .git/info/exclude — pre-bootstrap/refresh/upgrade backups, the upgrade clone, local policy overrides and agent worktrees may be stageable by a later 'git add -A' (delete or unstage them before committing)." >&2
 
 TS_REFRESH=$(date -u +%Y%m%dT%H%M%SZ)
 
@@ -404,7 +402,7 @@ echo "[post-fusebase-update] Step 3: AGENTS.md overlay check..."
 AGENTS_MARKER="## FuseBase Flow — workflow lifecycle overlay"
 AGENTS_MARKER_OLD="## Fusebase Flow — workflow lifecycle overlay"
 if [ "$REFRESH_OVERLAYS" -ne 1 ] && [ -f AGENTS.md ] && grep -qF "$AGENTS_MARKER_OLD" AGENTS.md && ! grep -qF "$AGENTS_MARKER" AGENTS.md; then
-  # sed over the exact heading line only (leading `## `), never elsewhere in prose.
+  # Python helper overlay-block-replace.py must target only the exact heading line, never prose.
   ff_migrate_marker AGENTS.md "$AGENTS_MARKER_OLD" "$AGENTS_MARKER" \
     && ACTIONS_TAKEN+=("AGENTS.md: migrated overlay heading marker Fusebase->FuseBase (WS6)")
 fi

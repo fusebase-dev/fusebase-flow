@@ -246,7 +246,7 @@
     },
     {
       "path": "hooks/local/post-fusebase-update.sh",
-      "sha256": "317f052564ee05fdfe8438aaecad8c69bdf09f7bc32d60a292169b0bfc2b6500"
+      "sha256": "fd1d9d5f69d499ee6d67a2b16a027dfcf6bac763c9d298ff60b65eb124f47a3e"
     },
     {
       "path": "hooks/local/preflight.sh",
@@ -933,5 +933,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "612e9c095dca194545245324cbc0bde97d8e99b3d38c0b91848219ee10d2f12c"
+  "manifest_self_sha256": "781de297550cc8dbfc50434d15c9b76c846d2ce340f5734100d8fe60480aad8b"
 }
