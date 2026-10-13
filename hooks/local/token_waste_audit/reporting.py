@@ -159,7 +159,7 @@ def build_report(sessions, root, today, probe_cmds=()):
               "Auto-classified candidates are NOT listed here — they are in their own section "
               "below, so a dismissal neither buries nor inflates this count. Live: %d." % live_n, "",
               "USD basis: observed = recorded usage tokens x list price; estimated = payload chars/4 or "
-              "context x cache-read rate.", ""]
+              "image w×h/750 (after resizing), each x input rate, or context x cache-read rate.", ""]
     any_finding = False
     for s, found in per_session:
         live = [(t, f) for t, f in found if f.status == LIVE]

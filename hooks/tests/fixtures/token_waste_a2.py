@@ -192,6 +192,15 @@ sent_synthetic = parse("start-synthetic", [assistant("a", 0), user_ts(65),
     assistant("b", 70, creation=500_000, long=500_000)])
 check("a2-start-synthetic-does-not-consume", len(cache_rewrites(sent_synthetic)) == 1
       and cache_rewrites(sent_synthetic)[0]["gap"] == 3900)
+consecutive = parse("start-consecutive", [user_ts(0), assistant("a", 4),
+    assistant("b", 6, creation=200_000, short=200_000)])
+check("a2-start-consecutive-requests-reset-pending", consecutive["requests_by_id"]["a"]["timestamp"]
+      == user_ts(0)["timestamp"]
+      and consecutive["requests_by_id"]["b"]["timestamp"] == assistant("b", 6)["timestamp"]
+      and cache_rewrites(consecutive) == [
+          {"tokens": 200_000, "gap": 360, "ttl": 300, "cost": Decimal("1")}])
+check("a2-findings-basis-image-estimate", "image w×h/750 (after resizing), each x input rate"
+      in build_report([consecutive], root, "fixture"))
 no_id = assistant(None, 60)
 interleaved = parse("interleaved", [assistant("a"), no_id,
     assistant("b", 70, creation=500_000, long=500_000)])
