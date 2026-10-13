@@ -65,6 +65,12 @@ FIXLIB="$ROOT/hooks/tests/lib/signal-reap-fixture.sh"
 
 # Every row this phase promises to report. Order is cosmetic; membership is the contract.
 DECLARED_ROWS=(
+  observer-bound-heartbeat-units
+  observer-bound-cap
+  observer-done-empty-child-error
+  observer-done-empty-grandchild-error
+  observer-done-nonnumeric-child-error
+  observer-done-nonnumeric-grandchild-error
   tracked-identity-survives-msys-exec         # DISCRIMINATOR
   non-reaping-parent-still-reaped
   launch-window-signal-still-reaps            # DISCRIMINATOR
@@ -264,7 +270,11 @@ observe_reap() {
     if [ ! -e "$state" ]; then
       state_present=no; FFSR_OBS_REAPED="$elapsed"
       # Do not delay done-point probes behind diagnostics (audit-T134 F1/F2).
-      if [ ! -e "/proc/$CHILD_PID/exe" ] && [ ! -e "/proc/$GC_PID/exe" ]; then done_ok=1; fi
+      if ! [[ "$CHILD_PID" =~ ^[1-9][0-9]*$ && "$GC_PID" =~ ^[1-9][0-9]*$ ]]; then
+        done_ok=-1
+      elif [ ! -e "/proc/$CHILD_PID/exe" ] && [ ! -e "/proc/$GC_PID/exe" ]; then
+        done_ok=1
+      fi
     fi
     for role in harness child grandchild; do
       case "$role" in harness) pid="$HARNESS_PID" ;; child) pid="$CHILD_PID" ;; grandchild) pid="$GC_PID" ;; esac
@@ -309,9 +319,11 @@ observe_reap() {
         fi
       done < "$state.ticks"
     fi
-    bound=$((GSEC * 1000 + 4 * max_interval))
+    bound=$(((GSEC + 4) * max_interval))
     [ "$bound" -le "$((cap * 1000))" ] || bound=$((cap * 1000))
-    if [ "$between" -gt 2 ]; then
+    if [ "$done_ok" -eq -1 ]; then
+      FFSR_OBS_STATUS=ERROR; FFSR_OBS_REASON="child or grandchild PID missing or nonnumeric at sentinel done-point"
+    elif [ "$between" -gt 2 ]; then
       FFSR_OBS_REASON="more than two heartbeats after kill before DEAD"
     elif [ "$state_present" = no ]; then
       if [ "$beats" -eq 0 ]; then
@@ -329,7 +341,7 @@ observe_reap() {
       if [ "$dead_us" -lt 0 ] && [ "$post_kill" -eq 0 ]; then
         FFSR_OBS_STATUS=ERROR; FFSR_OBS_REASON="sentinel starved: no post-kill heartbeat or DEAD"
       else
-        FFSR_OBS_REASON="sentinel hang at GRACE + 4 * max heartbeat interval (capped by FF_SENTINEL_CAP)"
+        FFSR_OBS_REASON="sentinel hang at (GSEC + 4) * max heartbeat interval (capped by FF_SENTINEL_CAP)"
       fi
     else
       stop=0
@@ -345,8 +357,43 @@ observe_reap() {
   done
   [ -z "$trace_pid" ] || wait "$trace_pid" 2>/dev/null
   observation_trace "$scenario" "$elapsed" "$state_present" "$wrapper"
-  FFSR_OBS_DETAIL="detect=${FFSR_OBS_DETECT}ms TERM=${FFSR_OBS_TERM}ms reaped=${FFSR_OBS_REAPED}ms exit(harness/child/grandchild)=${FFSR_OBS_EXIT}/${FFSR_OBS_CHILD}/${FFSR_OBS_GC}ms heartbeats=$between (-1 = unobserved); trace=$TRACE"
+  FFSR_OBS_DETAIL="detect=${FFSR_OBS_DETECT}ms TERM=${FFSR_OBS_TERM}ms reaped=${FFSR_OBS_REAPED}ms exit(harness/child/grandchild)=${FFSR_OBS_EXIT}/${FFSR_OBS_CHILD}/${FFSR_OBS_GC}ms heartbeats=$between bound=${bound}ms (-1 = unobserved); trace=$TRACE"
 }
+
+observer_contract_probe() (
+  local state="$FIX/observer-contract"
+  GSEC=5; FF_SENTINEL_CAP="$1"
+  HARNESS_PID=999999999; CHILD_PID="$2"; GC_PID="$3"
+  printf '100.000000\n102.000000\n' > "$state.ticks"
+  printf '100.500000\n' > "$state.dead"
+  observation_trace() { :; }
+  observe_reap observer-contract "$state" 100.000000
+  printf '%s|%s\n' "$FFSR_OBS_STATUS" "$FFSR_OBS_DETAIL"
+)
+
+observer_result="$(observer_contract_probe 600 999999998 999999997)"
+case "$observer_result" in
+  'PASS|'*'bound=18000ms '*) ok "observer-bound-heartbeat-units [CONTROL]" ;;
+  *) bad "observer-bound-heartbeat-units" "$observer_result" ;;
+esac
+observer_result="$(observer_contract_probe 12 999999998 999999997)"
+case "$observer_result" in
+  'PASS|'*'bound=12000ms '*) ok "observer-bound-cap [CONTROL]" ;;
+  *) bad "observer-bound-cap" "$observer_result" ;;
+esac
+for observer_case in empty-child empty-grandchild nonnumeric-child nonnumeric-grandchild; do
+  case "$observer_case" in
+    empty-child) observer_child=""; observer_gc=999999997 ;;
+    empty-grandchild) observer_child=999999998; observer_gc="" ;;
+    nonnumeric-child) observer_child=invalid; observer_gc=999999997 ;;
+    nonnumeric-grandchild) observer_child=999999998; observer_gc=invalid ;;
+  esac
+  observer_result="$(observer_contract_probe 600 "$observer_child" "$observer_gc")"
+  case "$observer_result" in
+    'ERROR|'*) ok "observer-done-$observer_case-error [CONTROL]" ;;
+    *) bad "observer-done-$observer_case-error" "$observer_result" ;;
+  esac
+done
 
 report_reap() {
   local row="$1" context="$2"

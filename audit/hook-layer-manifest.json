@@ -842,7 +842,7 @@
     },
     {
       "path": "hooks/tests/test-run-tests-signal-reap.sh",
-      "sha256": "54e9d119348520b5c44d4bfc87a82bfd38f16a4b9e7ce5393e251fea932a8d97"
+      "sha256": "2331f744a0f7050c1e26baaf804d1c8c01336fde45eb5c7fde03f5cf6ac76573"
     },
     {
       "path": "hooks/tests/test-secret-patterns.sh",
@@ -933,5 +933,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "2780dc3b0e47576619d7060d2274907fc41118a21a5315b682fcd4d56df5b417"
+  "manifest_self_sha256": "5b5aad2257469f63824e6b3f2a7f1b33f6b104e5f87d6b789d7db7d96b51a9dc"
 }
