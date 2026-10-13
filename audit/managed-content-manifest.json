@@ -206,7 +206,7 @@
     },
     {
       "path": "flow-skills/task-delegation/SKILL.md",
-      "sha256": "7372a7e815579d3168ad3a50ed065782593810046b4fc0d196696aa2fbec81f2"
+      "sha256": "71c27b93f3e73592d78804267e483851d14906cd7ed54eb8b8999829298a9258"
     },
     {
       "path": "flow-skills/token-economy/SKILL.md",
@@ -1641,5 +1641,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "6576bae69be88229042216e4ff9e56b04fd5fa22d126a20be453978fbdb285e4"
+  "manifest_self_sha256": "5e043ab296dfc94d3b4a962c7f99e51dce9656eeb506a1e8ce6aa4d2e165b879"
 }
