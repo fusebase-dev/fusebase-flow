@@ -44,10 +44,11 @@ Expected:
 [run-tests] 24/24 PASS
 ```
 
-CI does **not** run on ordinary pushes or PRs. `.github/workflows/fusebase-flow-verify.yml` is the
+Only focused feedback (`fusebase-flow-maintainer.yml`) runs on upstream `main` pushes and PRs; the full suite does not. `.github/workflows/fusebase-flow-verify.yml` is the
 full dual-platform exact-SHA suite (two hosted runners, complete phase set) and is reachable two
 ways on purpose: `workflow_dispatch` when a maintainer asks for it, and `workflow_call` from the
 release workflow for a tagged SHA. Run the checks locally before you push.
+A manual dispatch of `fusebase-flow-maintainer.yml` may pass `groups` to run chosen tags on Linux and Windows/MSYS as feedback only; it records the event SHA and cannot publish or substitute for the tagged gate.
 
 ## Commits & pull requests
 

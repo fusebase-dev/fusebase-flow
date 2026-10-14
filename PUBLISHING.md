@@ -151,9 +151,7 @@ selectable with `FF_ONLY`. Refresh skill mirrors only when their canonical sourc
 release CI still checks mirror parity. Preflight must have zero errors, and selected tests
 must finish with zero failures. Inspect warnings and the final diff before committing.
 
-`fusebase-flow-maintainer.yml` runs focused Linux and Windows/MSYS contracts on upstream
-`main` pushes and PRs. In consumer repositories its runner jobs require manual dispatch.
-It records the event SHA and cannot publish or substitute for tagged release verification.
+`fusebase-flow-maintainer.yml` runs focused Linux and Windows/MSYS contracts on upstream `main` pushes and PRs (consumer repositories require manual dispatch); a manual dispatch may pass `groups` to run chosen tags instead, still records the event SHA, and cannot publish or substitute for the tagged gate.
 
 After focused checks, review and release authorization, tag the prepared commit once. The tag
 workflow checks that exact SHA on both platforms and is the only publication authority.

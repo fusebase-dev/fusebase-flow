@@ -19,7 +19,7 @@ If the same defect appears in another caller, inspect the entire caller family a
 |---|---|
 | Edit loop | Affected tests and relevant syntax/configuration checks; `FF_ONLY=tag1,tag2 bash hooks/tests/run-tests.sh` when the registered runner is useful |
 | Commit | Normal staged secret, protected-path, module-size and configured lint/typecheck checks; no mandatory separate validator invocation immediately before pre-commit |
-| Maintainer CI | Focused deterministic contracts on Linux and Windows/MSYS; feedback only, not release evidence |
+| Maintainer CI | Focused deterministic contracts or the tags a manual dispatch names in `groups` on Linux and Windows/MSYS; feedback only, not release evidence |
 | Release | Explicit essential profile and package integrity through `.github/workflows/fusebase-flow-verify.yml` on the exact tagged SHA; both platforms must succeed |
 | Diagnostics | Editorial instruction checks, profiling and repeated performance experiments explicitly selected when their subject changes |
 

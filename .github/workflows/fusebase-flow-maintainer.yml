@@ -6,19 +6,25 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      groups:
+        type: string
+        required: false
+        default: ""
+        description: "Feedback only: comma-separated tags accepted by FF_ONLY; empty uses the fixed contracts."
 
 permissions:
   contents: read
 
 concurrency:
-  group: maintainer-${{ github.workflow }}-${{ github.ref }}
+  group: maintainer-${{ github.workflow }}-${{ github.event_name == 'workflow_dispatch' && github.run_id || github.ref }}
   cancel-in-progress: true
 
 jobs:
   contracts:
     # Template consumers incur runner cost only after an explicit manual dispatch.
     if: github.repository == 'fusebase-dev/fusebase-flow' || github.event_name == 'workflow_dispatch'
-    name: contracts-${{ matrix.platform }}
+    name: contracts-${{ matrix.platform }}${{ inputs.groups != '' && '-dispatch' || '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -45,11 +51,14 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Record exact source
+        env:
+          FF_DISPATCH_GROUPS: ${{ inputs.groups }}
         run: |
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
           mkdir -p state/audit
           printf 'sha=%s\nplatform=%s\n' "$EXPECTED_SHA" "$RUNNER_OS" > state/audit/maintainer-source.txt
+          printf 'groups=%s\n' "${FF_DISPATCH_GROUPS:-}" >> state/audit/maintainer-source.txt
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -75,7 +84,19 @@ jobs:
       - name: Focused contracts (not release evidence)
         env:
           FF_ONLY: fixtures,git-smoke,newline-preserve,baseline-merge,lane-router,command-policy,upgrade-classify,validation-instructions,release-authority
-        run: bash hooks/tests/run-tests.sh
+          FF_DISPATCH_GROUPS: ${{ inputs.groups }}
+        # TRIPWIRE: dispatch input reaches the script only via env; never interpolate expressions inside run.
+        run: |
+          set -euo pipefail
+          if [[ -n "${FF_DISPATCH_GROUPS:-}" ]]; then
+            if [[ "${FF_DISPATCH_GROUPS:-}" == *[!a-z0-9,-]* ]] ||
+               [[ ! "${FF_DISPATCH_GROUPS:-}" =~ ^[a-z0-9-]+(,[a-z0-9-]+)*$ ]]; then
+              echo 'Invalid groups: use comma-separated nonempty tags containing only a-z, 0-9 and hyphens.' >&2
+              exit 2
+            fi
+            export FF_ONLY="${FF_DISPATCH_GROUPS:-}"
+          fi
+          bash hooks/tests/run-tests.sh
       - name: Recovery input contract
         run: bash hooks/tests/test-cli-flow-recovery.sh --only t14
       - name: Upload feedback

@@ -1058,7 +1058,7 @@
     },
     {
       "path": "hooks/tests/lib/maintainer_ci_check.py",
-      "sha256": "eb93c8794744ff8ad720a643f5877b95309d617a76b02fc9ecf8087372a7bc23"
+      "sha256": "1ceed22ea054a0fa529be16ae9e3e982310550333e502edacef76c8257c3b771"
     },
     {
       "path": "hooks/tests/lib/minimal-path-fixture.sh",
@@ -1641,5 +1641,5 @@
       "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
     }
   ],
-  "manifest_self_sha256": "73b5f3c731fb4f444e6c204984f5a72aed55cf9c37f371bfc33b553853c06cf9"
+  "manifest_self_sha256": "e311899702b626e02e232cf3f682c46dad135f398d2754c714e737decf854dc9"
 }
