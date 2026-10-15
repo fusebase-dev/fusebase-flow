@@ -250,4 +250,32 @@ for assertion in a2-mixed-main-exact-category-costs a2-mixed-sub-exact-category-
     says "guard-$assertion" "$A2_CHECKS" "PASS: token-waste-classify $assertion"
 done
 
+PYTHONDONTWRITEBYTECODE=1 "$PY" "$FIX/token_waste_a3.py" "$ROOT" "$TW_TMP/a3" > "$TW_TMP/a3-checks.log" 2>&1
+A3_RC=$?
+A3_ROWS=0
+while IFS= read -r line; do
+    case "$line" in
+        'PASS: token-waste-classify '*) pass=$((pass + 1)); A3_ROWS=$((A3_ROWS + 1)); echo "$line" ;;
+        'FAIL: token-waste-classify '*) fail=$((fail + 1)); A3_ROWS=$((A3_ROWS + 1)); echo "$line" ;;
+    esac
+done < "$TW_TMP/a3-checks.log"
+[ "$A3_ROWS" -gt 0 ] && [ "$A3_RC" -eq 0 ] || bad "a3-fixture-execution" "rc=$A3_RC rows=$A3_ROWS; see $TW_TMP/a3-checks.log"
+A3_CHECKS="$(cat "$TW_TMP/a3-checks.log")"
+for assertion in a3-advisor-request-counted-once a3-advisor-priced-at-iteration-model \
+    a3-advisor-cost-row-and-totals a3-advisor-wait-observed a3-advisor-model-row \
+    a3-advisor-section-placement a3-advisor-private-content-absent a3-advisor-unknown-model-unpriced \
+    a3-advisor-sub-agent-scope a3-advisor-none-says-so \
+    a3-mutation-ignored-iteration-fails-totals a3-mutation-per-line-iterations-fails-totals \
+    a3-wall-classes a3-wall-bash-40min-stall-candidate a3-wall-task-40min-delegation-not-stall \
+    a3-wall-span-min-inclusive a3-wall-other-tool-wait a3-wall-missing-timestamp-skipped \
+    a3-wall-never-hang-verdict a3-wall-section-placement a3-wall-class-summary \
+    a3-wall-top10-per-class a3-wall-names-transcript \
+    a3-share-break-even-per-model a3-share-single-model-line a3-share-gap-over-hour-excluded \
+    a3-share-under-100k-excluded a3-share-1h-writes-bound a3-share-mixed-cost-weighted \
+    a3-share-one-priced-model-keeps-threshold a3-share-new-turn-tokens-not-avoidable a3-share-prefix-less-own-read \
+    a3-share-threshold-counts-replacement-reads a3-share-no-writes a3-share-main-only-omitted \
+    a3-share-unknown-models a3-doc-skill-measure-rows a3-doc-command-sections; do
+    says "guard-$assertion" "$A3_CHECKS" "PASS: token-waste-classify $assertion"
+done
+
 finish

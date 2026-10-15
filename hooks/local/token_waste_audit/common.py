@@ -13,6 +13,7 @@ SNIPPET_MAX = 100
 TOP_SINKS = 10
 LARGE_TOOL_RESULT_CHARS = 20_000
 REPEAT_OUTPUT_MIN = 2          # an identical large body seen >= this many times = candidate
+SPAN_MIN = 600                 # seconds, not minutes; wall-time lens (v5.11 O16)
 LINE_TYPES = {"assistant", "user"}
 WRITE_TOOLS = {"Edit", "Write", "NotebookEdit"}
 

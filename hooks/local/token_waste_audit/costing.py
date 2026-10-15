@@ -55,6 +55,27 @@ def context(request):
     return sum(parts[c] for c in CATEGORIES[:4])
 
 
+def advisor_iterations(s):
+    return [{"usage": it, "model": it.get("model")}
+            for its in s.get("advisor_by_request", {}).values() for it in its]
+
+
+def advisor_by_model(items):
+    rows = {}
+    for s in items:
+        for it in advisor_iterations(s):
+            parts, priced = token_parts(it), request_costs(it)
+            row = rows.setdefault(it["model"] or "<missing>", {
+                "iterations": 0, "input": 0, "output": 0,
+                "cost": None if priced is None else Decimal(0)})
+            row["iterations"] += 1
+            row["input"] += context(it)
+            row["output"] += parts["output"]
+            if priced is not None:
+                row["cost"] += sum(priced.values())
+    return rows
+
+
 def attribution(items):
     tokens = dict.fromkeys(CATEGORIES, 0)
     costs = dict.fromkeys(CATEGORIES, Decimal(0))
@@ -69,8 +90,14 @@ def attribution(items):
             else:
                 for category, cost in priced.items():
                     costs[category] += cost
+    # TRIPWIRE: never add advisor to CATEGORIES — token_parts/rates_for zip over it.
+    advisor = advisor_by_model(items)
+    advisor_cost = sum((r["cost"] for r in advisor.values() if r["cost"] is not None), Decimal(0))
     return {"tokens": tokens, "costs": costs, "unpriced": unpriced,
-            "total": sum(costs.values())}
+            "advisor_tokens": sum(r["input"] + r["output"] for r in advisor.values()),
+            "advisor_cost": advisor_cost,
+            "advisor_unpriced": Counter({m: r["iterations"] for m, r in advisor.items() if r["cost"] is None}),
+            "total": sum(costs.values()) + advisor_cost}
 
 
 def residency(s):
@@ -105,13 +132,13 @@ def timestamp(raw):
         return None
 
 
-def cache_rewrites(s):
-    previous = None
-    rows = []
+def rewrite_requests(s):
+    previous = prior = None
     for request in requests(s, include_synthetic=False):
         start = timestamp(request.get("timestamp"))
         gap = start - previous if start is not None and previous is not None else None
-        previous = start
+        previous, before = start, prior
+        prior = request
         split = request["usage"].get("cache_creation") or {}
         ttl = (3600 if (split.get("ephemeral_1h_input_tokens") or 0) > 0
                else 300 if (split.get("ephemeral_5m_input_tokens") or 0) > 0 else None)
@@ -121,8 +148,76 @@ def cache_rewrites(s):
             continue
         priced = request_costs(request)
         cost = None if priced is None else priced["cache write 5m"] + priced["cache write 1h"]
-        rows.append({"tokens": creation, "gap": gap, "ttl": ttl, "cost": cost})
-    return rows
+        yield request, before, {"tokens": creation, "gap": gap, "ttl": ttl, "cost": cost}
+
+
+def cache_rewrites(s):
+    return [row for _request, _before, row in rewrite_requests(s)]
+
+
+def reusable_prefix(request, before):
+    # TRIPWIRE: cap at the prior request's cached prefix; new-turn tokens are written under 1h too.
+    now, then = token_parts(request), token_parts(before)
+    cached = then["cache read"] + then["cache write 5m"] + then["cache write 1h"]
+    return max(0, min(now["cache write 5m"] + now["cache write 1h"], cached - now["cache read"]))
+
+
+def rewrite_share(items):
+    """Sub-agent 1h-TTL break-even inputs (decision F; premise review F12)."""
+    out = {"written": 0, "rewritten": 0, "written_1h": 0, "models": set(), "unpriced": 0,
+           "cost_5m": Decimal(0), "cost_1h": Decimal(0)}
+    for s in items:
+        hits = {id(request): reusable_prefix(request, before)
+                for request, before, row in rewrite_requests(s) if row["ttl"] == 300 and row["gap"] <= 3600}
+        for request in requests(s):
+            parts = token_parts(request)
+            written = parts["cache write 5m"] + parts["cache write 1h"]
+            if not written:
+                continue
+            rewritten = hits.get(id(request), 0)
+            out["written"] += written
+            out["rewritten"] += rewritten
+            out["written_1h"] += parts["cache write 1h"]
+            card = RATES.get(request.get("model"))
+            if card is None:
+                out["unpriced"] += 1
+                continue
+            inp, _out, read = card
+            out["models"].add(request["model"])
+            out["cost_5m"] += written * inp * Decimal("1.25") / MILLION
+            out["cost_1h"] += ((written - rewritten) * inp * 2 + rewritten * read) / MILLION
+    return out
+
+
+def break_even(model):
+    inp, _out, read = RATES[model]
+    return read / inp, Decimal("0.75") / (2 - read / inp)
+
+
+def share_line(label, share):
+    written, rewritten = share["written"], share["rewritten"]
+    head = "Sub-agent rewrites at 5-60 min gaps (%s): %d of %d cache-write tokens" % (
+        label, rewritten, written)
+    if not written:
+        return head + " (no sub-agent cache writes)"
+    models = sorted(share["models"])
+    if len(models) == 1:
+        ratio, threshold = break_even(models[0])
+        verdict = "a 1h TTL pays above %.1f%% at %s rates (0.75/(2 - r), r = cache-read/input = %g)%s" % (
+            100 * threshold, models[0], ratio,
+            "; share includes %d requests of unpriced models" % share["unpriced"] if share["unpriced"] else "")
+    elif models:
+        verdict = ("mixed models, cost-weighted over priced writes: 1h TTL %s vs 5m %s "
+                   "(1h pays only when lower; %d unpriced requests excluded)" % (
+                       money(share["cost_1h"]), money(share["cost_5m"]), share["unpriced"]))
+    else:
+        verdict = "break-even unpriced (unknown models)"
+    bound = ("rewrites count only the prefix cached before the gap; "
+             "lower bound: rewrites under 100k creation not counted")
+    if share["written_1h"]:
+        bound += "; 1h writes present, so rewrites they avoided are not counted either"
+    return "%s (%.1f%%); %s; %s (token-economy § Measure it, operator-lever table)" % (
+        head, 100 * Decimal(rewritten) / written, verdict, bound)
 
 
 def cache_rewrite_findings(s):
@@ -181,6 +276,7 @@ def cost_section(sessions):
             "| Scope | Category | Tokens (including unpriced) | Estimated USD | Share of session priced cost |",
             "|---|---|---|---|---|"]
         rows = [(scope, c, a["tokens"][c], a["costs"][c]) for scope, a in data for c in CATEGORIES]
+        rows += [(scope, "advisor", a["advisor_tokens"], a["advisor_cost"]) for scope, a in data]
         for scope, c, tokens, cost in sorted(rows, key=lambda r: -r[3]):
             lines.append("| %s | %s | %d | %s | %.1f%% |" % (
                 scope, c, tokens, money(cost), 100 * cost / total if total else 0))
@@ -193,6 +289,12 @@ def cost_section(sessions):
             unknown.update(a["unpriced"])
         for model, count in sorted(unknown.items()):
             lines.append("%d requests unpriced (model %s) — tokens only; excluded from USD" % (count, model))
+        unknown_advisor = Counter()
+        for _, a in data:
+            unknown_advisor.update(a["advisor_unpriced"])
+        for model, count in sorted(unknown_advisor.items()):
+            lines.append("%d advisor iterations unpriced (model %s) — tokens only; excluded from USD" % (
+                count, model))
         if session.get("main_only"):
             lines.append("Sub-agents: not parsed (--main-only)")
         lines.append("")
@@ -226,4 +328,7 @@ def context_section(sessions):
                 session["file"], scope, len(rows), sum(r["tokens"] for r in rows),
                 money(sum_known([r["cost"] for r in rows]) if rows else Decimal(0)),
                 sum(r["cost"] is None for r in rows)))
+    for session in sessions:
+        if not session.get("main_only"):
+            lines += ["", share_line(session["file"], rewrite_share(session.get("subagents", [])))]
     return lines

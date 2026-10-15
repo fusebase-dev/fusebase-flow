@@ -4,7 +4,8 @@ from .common import (LIVE, CLASSIFIED, TOP_SINKS, LARGE_TOOL_RESULT_CHARS,
                      snippet, is_output_heavy)
 from .classification import selected_findings
 from .parsing import usage_totals, transcripts
-from .costing import cost_section, context_section, money
+from .costing import cost_section, context_section, money, advisor_by_model, advisor_iterations
+from .timing import span_seconds, wall_time_lens
 import subprocess
 
 def combined_totals(items):
@@ -63,6 +64,38 @@ def fallback_summary(root):
     return "\n".join(lines)
 
 
+def advisor_section(sessions):
+    lines = ["## Advisor calls", "",
+             "Calls = `server_tool_use` blocks named `advisor`. Tokens = `usage.iterations` entries of type "
+             "`advisor_message` (top-level usage omits them), one set per request, priced at each "
+             "iteration's own model and included in § Cost attribution. Wait = the call's line to its "
+             "`advisor_tool_result` line (observed on one local transcript shape)."]
+    calls, models = [], []
+    for session in sessions:
+        scopes = [("main", [session])]
+        if not session.get("main_only"):
+            scopes.append(("sub-agents", session.get("subagents", [])))
+        for scope, items in scopes:
+            count = sum(len(s.get("advisor_calls", {})) for s in items)
+            waits = [w[0] for s in items for w in span_seconds(s, ("advisor",))]
+            if count or waits:
+                calls.append("| %s | %s | %d | %d | %.1f | %.1f |" % (
+                    session["file"], scope, count, len(waits), sum(waits) / 60, max(waits, default=0) / 60))
+            for model, row in sorted(advisor_by_model(items).items()):
+                models.append("| %s | %s | %s | %d | %d | %d | %s |" % (
+                    session["file"], scope, model, row["iterations"], row["input"], row["output"],
+                    money(row["cost"])))
+    if not calls and not models:
+        return lines + ["", "No advisor calls or advisor iterations in the parsed transcripts."]
+    if calls:
+        lines += ["", "| Session | Scope | Calls | Waits observed | Wait total (min) | Longest wait (min) |",
+                  "|---|---|---|---|---|---|", *calls]
+    if models:
+        lines += ["", "| Session | Scope | Model | Iterations | Input tokens (incl. cache) | Output tokens | Estimated USD |",
+                  "|---|---|---|---|---|---|---|", *models]
+    return lines
+
+
 AGGREGATE_HEADER = (
     "> Read-tool/Bash visibility only — auto-injected always-on context never appears as transcript "
     "tool calls, so the dominant cross-session floor cost may be invisible here. Recurring rules/handoff "
@@ -97,7 +130,7 @@ def build_report(sessions, root, today, probe_cmds=()):
     lines = ["# Token-waste audit — %s" % today, "",
              "Scope: %d session(s), dir-resolved from git root `%s`." % (len(sessions), root),
              "", *cost_section(sessions), "", FALSE_POSITIVE_HEADER, "",
-             *context_section(sessions), "", "## Per-session totals", "",
+             *context_section(sessions), "", *advisor_section(sessions), "", "## Per-session totals", "",
              "| Session / scope | Agents | Workflows | Requests | Output tokens | Cache read | Cache creation | Tool-result chars (~tokens) | Malformed lines skipped |",
              "|---|---|---|---|---|---|---|---|---|"]
     all_results = []
@@ -120,8 +153,11 @@ def build_report(sessions, root, today, probe_cmds=()):
     flat = transcripts(sessions)
     totals = combined_totals(flat)
     scope = "main only" if all(s.get("main_only") for s in sessions) else "main + sub-agents"
-    lines += ["", "Totals (%s): requests %d | output %d | cache read %d | cache creation %d." % (
-        scope, totals["requests"], totals["output_tokens"], totals["cache_read"], totals["cache_creation"])]
+    advisor = [it["usage"] for s in flat for it in advisor_iterations(s)]
+    lines += ["", "Totals (%s): requests %d | output %d | cache read %d | cache creation %d | "
+              "advisor iterations %d (output %d; not in top-level usage)." % (
+        scope, totals["requests"], totals["output_tokens"], totals["cache_read"], totals["cache_creation"],
+        len(advisor), sum(u.get("output_tokens") or 0 for u in advisor))]
     for s in sessions:
         if s.get("main_only"):
             lines += ["", "Sub-agents: not parsed (--main-only)"]
@@ -152,6 +188,7 @@ def build_report(sessions, root, today, probe_cmds=()):
               "| Chars (~tokens) | Tool | Target |", "|---|---|---|"]
     for r in sorted(all_results, key=lambda r: (-r.chars, r.name, r.target))[:TOP_SINKS]:
         lines.append("| %d (~%d) | %s | %s |" % (r.chars, r.chars // 4, r.name, r.target))
+    lines += ["", *wall_time_lens(sessions)]
     per_session, suppressed = selected_findings(sessions, probe_cmds)
     live_n = sum(1 for _s, fs in per_session for _t, f in fs if f.status == LIVE)
     classified_n = sum(1 for _s, fs in per_session for _t, f in fs if f.status == CLASSIFIED)

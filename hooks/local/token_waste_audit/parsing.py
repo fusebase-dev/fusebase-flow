@@ -63,8 +63,13 @@ def parse_session(path):
         "large_writes": [],           # (path, content_chars)
         "large_write_seqs": [],
         "seen_tool_ids": set(),
+        "advisor_by_request": {},
+        "advisor_calls": {},          # server_tool_use id -> (start timestamp, request key, seq)
+        "tool_spans": [],             # TRIPWIRE: (name, target, start, end, seq), unpacked by timing.span_seconds
     }
     tool_meta = {}                    # tool_use id -> (name, target, full key, seq)
+    tool_starts = {}
+    advisor_done = set()
     bash_counts = {}
     seen_paths = set()
     seen_result_ids = set()           # tool_use_id of results already counted (no double-count)
@@ -123,10 +128,26 @@ def parse_session(path):
                     else:
                         s["usage_no_request"].append(usage)
                         s["requests_no_id"].append(request)
+                    # TRIPWIRE: early streamed lines carry no iterations, later ones repeat the final list (absent from top-level usage) — keep the last non-empty list per request, never sum.
+                    advisor = [it for it in usage.get("iterations") or ()
+                               if isinstance(it, dict) and it.get("type") == "advisor_message"]
+                    if advisor:
+                        s["advisor_by_request"][request_key] = advisor
                 content = msg.get("content")
                 if isinstance(content, list):
                     for block in content:
-                        if not (isinstance(block, dict) and block.get("type") == "tool_use"):
+                        btype = block.get("type") if isinstance(block, dict) else None
+                        if btype == "server_tool_use" and block.get("name") == "advisor":
+                            s["advisor_calls"].setdefault(block.get("id") or ("no-id", seq),
+                                                          (obj.get("timestamp"), request_key, seq))
+                        elif btype == "advisor_tool_result":
+                            call_id = block.get("tool_use_id")
+                            call = s["advisor_calls"].get(call_id)
+                            if call and call_id not in advisor_done:
+                                advisor_done.add(call_id)
+                                s["tool_spans"].append(
+                                    ("advisor", "advisor", call[0], obj.get("timestamp"), call[2]))
+                        if btype != "tool_use":
                             continue
                         tid = block.get("id")
                         if tid in s["seen_tool_ids"]:
@@ -145,6 +166,7 @@ def parse_session(path):
                             s["read_display"].setdefault(key, raw_read)
                         if tid:
                             tool_meta[tid] = (name, tool_target(name, tin), key, seq)
+                            tool_starts[tid] = obj.get("timestamp")
                         if name in WRITE_TOOLS:
                             wpath = tin.get("file_path") or tin.get("notebook_path")
                             if wpath:
@@ -181,6 +203,9 @@ def parse_session(path):
                     err = err or block.get("is_error") is True
                     s["tool_result_chars"] += chars
                     name, target, key, use_seq = tool_meta.get(rid_res, ("?", "?", None, seq))
+                    if rid_res in tool_starts:
+                        s["tool_spans"].append(
+                            (name, target, tool_starts[rid_res], obj.get("timestamp"), use_seq))
                     images = result_images(block.get("content"))
                     if images and not chars and name == "Read":
                         s["image_only_read_seqs"].add(use_seq)
