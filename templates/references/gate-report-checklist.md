@@ -14,6 +14,7 @@ Before pasting the filled report to operator, verify:
 - [ ] Worker-undisturbed re-check actually run; output pasted
 - [ ] Test counts before / after / delta computed (operator should be able to verify)
 - [ ] Deviations field is honest (don't hide split-tasks; surface them)
+- [ ] Every gate criterion has a §7 row with Status `PASS` or `FAIL` and, for `PASS`, an evidence pointer; no ✓/PARTIAL; the headline claims nothing beyond the row counts
 - [ ] Section 9 operator-relay block is filled in with actual content (not template `<...>` placeholders)
 - [ ] State announcement footer included
 

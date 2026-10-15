@@ -20,9 +20,6 @@ if [ -z "$REPORT_FILE" ] || [ ! -f "$REPORT_FILE" ]; then
 fi
 
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-# TRIPWIRE: the embedded python reads policies/gate-contracts.yml CWD-relative;
-# cd to ROOT so verify-gate works from any subdirectory (matches preflight.sh).
-cd "$ROOT" || exit 1
 POLICY="$ROOT/policies/gate-contracts.yml"
 
 if [ ! -f "$POLICY" ]; then
@@ -30,35 +27,4 @@ if [ ! -f "$POLICY" ]; then
     exit 1
 fi
 
-python3 - "$REPORT_FILE" "$CONTRACT" <<'PY'
-import sys, yaml, re
-from pathlib import Path
-
-report_file, contract_name = Path(sys.argv[1]), sys.argv[2]
-policy = yaml.safe_load(Path("policies/gate-contracts.yml").read_text())
-contract = policy.get(contract_name)
-if not contract:
-    print(f"[verify-gate] unknown contract: {contract_name}", file=sys.stderr)
-    sys.exit(2)
-
-text = report_file.read_text(encoding="utf-8")
-required = contract.get("required_fields") or {}
-missing = []
-
-for field, spec in required.items():
-    field_label = field.replace("_", " ")
-    pattern = field.replace("_", "[ _]?")
-    found = bool(re.search(pattern, text, flags=re.IGNORECASE))
-    if not found:
-        # try alt: contains_phrase clue
-        cp = (spec or {}).get("contains_phrase") if isinstance(spec, dict) else None
-        if cp and cp in text:
-            found = True
-    if not found:
-        missing.append(field_label)
-
-if missing:
-    print(f"[verify-gate] {contract_name} INCOMPLETE — missing: {', '.join(missing)}")
-    sys.exit(1)
-print(f"[verify-gate] {contract_name} all required fields present (lightweight check; full validation in code-review skill)")
-PY
+PYTHONIOENCODING=utf-8 python3 "$ROOT/hooks/local/lib/gate_contract_check.py" "$REPORT_FILE" "$CONTRACT" "$POLICY"

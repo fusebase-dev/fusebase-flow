@@ -24,6 +24,7 @@ You are an AI Developer session that has just completed `T<first>..T<gate>` and 
 **Task range:** T<first>..T<gate>
 **Reporting session:** AI Developer (under Fusebase Flow v5.10, FR-01..FR-27)
 **Date:** <YYYY-MM-DD>
+**Implementation summary:** <≤3 sentences>
 
 ---
 
@@ -123,13 +124,17 @@ If no deviations: state **"No deviations from the locked plan."**
 
 ## 7. Gate satisfaction
 
+Rows are AI Developer claims; the verdict is the Product Owner side's (`workflows/verification-gate.md`).
+
 Per `docs/specs/<slug>/verification-gate.md`:
 
-| Gate item | Required | Actual | Pass? |
-|---|---|---|---|
-| <gate criterion 1> | <expected> | <observed> | ✓ |
-| <gate criterion 2> | <expected> | <observed> | ✓ |
-| ... | ... | ... | ... |
+| Gate item | Required | Actual | Evidence | Status |
+|---|---|---|---|---|
+| <gate criterion 1> | <expected> | <observed> | <path / log line / ledger row> | PASS |
+| <gate criterion 2> | <expected> | <observed> | <open finding or missing capture> | FAIL |
+| ... | ... | ... | ... | ... |
+
+Status is `PASS` or `FAIL` only, never ✓, PARTIAL or blank. `PASS` needs this row's own evidence at the gated SHA (post-deploy smoke rows: the final deploy id), or a `REUSED` ledger row whose invalidation rationale holds. An open finding, or a `DEFERRED`/`UNVERIFIED` ledger row, is `FAIL`.
 
 ---
 
@@ -149,7 +154,7 @@ Per `docs/specs/<slug>/verification-gate.md`:
 ````
 Gate reached for <slug> (T<gate>). AI Developer is halted at the gate per FR-05 / IM.8.
 
-Headline: <one-line summary — e.g., "All gate items PASS. Ready for PO review and deploy handoff.">
+Headline: <n> PASS / <m> FAIL gate rows (AI Developer claims). Awaiting PO verdict.
 
 Per-task commits: T<first>..T<gate> (<count> commits). All lint+typecheck clean. Worker-undisturbed: empty diff on all protected paths.
 

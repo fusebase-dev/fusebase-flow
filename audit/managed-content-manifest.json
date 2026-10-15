@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "5.10",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 409,
+  "asset_count": 411,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -525,6 +525,10 @@
       "sha256": "1a3a77b91ecadfb9191f320e7e49127373e1bd46148e15f7c3d934d218823238"
     },
     {
+      "path": "hooks/local/lib/gate_contract_check.py",
+      "sha256": "72511f0a332a45eeaff257032071f7c7d97600c6c6678776619381b034e40122"
+    },
+    {
       "path": "hooks/local/lib/git-capture-scan.py",
       "sha256": "6954e5930ef3789659c2e57c04e3ccc74651bce938dc04f307c8ccafca21ab5f"
     },
@@ -734,7 +738,7 @@
     },
     {
       "path": "hooks/local/verify-gate.sh",
-      "sha256": "e9b2d13e9eca2b611d5ef0a8752bf213ca06c66903c622e50cb7f0d09d8ddf8f"
+      "sha256": "5204a618a8981d44987d50c673825327a51cb0bd01fb66d12f79b83446f1860e"
     },
     {
       "path": "hooks/local/verify-hook-manifest.sh",
@@ -1090,7 +1094,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "a1887175442e1021710706b1269d8627ac3008002d08862d410fd35140fb7287"
+      "sha256": "2749052270b9f7362ce42635c3d0faf82e5a3010bd5c53662040037489a6efe9"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -1191,6 +1195,10 @@
     {
       "path": "hooks/tests/test-fr22-delivery-guarantee.sh",
       "sha256": "7c5863819c7b787e15da35f6bb03e6623fd961680d6fb687f35b665cb8f4c524"
+    },
+    {
+      "path": "hooks/tests/test-gate-contract.sh",
+      "sha256": "0042ca946cea43bf008428377576702009c2c4aa45c4a134c8567dc73d058f79"
     },
     {
       "path": "hooks/tests/test-git-capture-guard.sh",
@@ -1458,7 +1466,7 @@
     },
     {
       "path": "policies/gate-contracts.yml",
-      "sha256": "b2af0efc5dadf48a007a03f20d05483d804077fd40b4a8966522a8e9d6773a5d"
+      "sha256": "542a002e720f8f68b486b70af37bcfafd8ef18eea442a08a23e65640c997c8bd"
     },
     {
       "path": "policies/model-routing.yml",
@@ -1526,7 +1534,7 @@
     },
     {
       "path": "templates/gate-report.md",
-      "sha256": "666dc8732903bff61fa295a870a1c5a0239998be9ea5af8a46586c9170136bf8"
+      "sha256": "9be15c51b171fb7c14e0303d162f889eda37d24782e48f9012e97472b4f2e6ae"
     },
     {
       "path": "templates/handoff-deploy.md",
@@ -1566,7 +1574,7 @@
     },
     {
       "path": "templates/references/gate-report-checklist.md",
-      "sha256": "05f6ebf8d624838f48575aa522b18d84e93ca6aa7f6a0fbc1df000c2ee1e662d"
+      "sha256": "3415c5f0543e2f5201475687d02e581f80b6c59624ca707eac3e1d235aa0ca5f"
     },
     {
       "path": "templates/skill-template.md",
@@ -1641,5 +1649,5 @@
       "sha256": "b6580a1dbfb0756c0d8b2cbf02fd628066f2f74de55fdc83ed5d1961dd759918"
     }
   ],
-  "manifest_self_sha256": "301a8c14d5a5137c80e1e2066203e27c7cd2d763a3d0231308a44431ffe1ebeb"
+  "manifest_self_sha256": "cc1df32a6ca3baf07dfa4f13ac61bcb5745dbca31cc1cbb5f65554adb9f0752c"
 }

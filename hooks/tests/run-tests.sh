@@ -79,7 +79,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixtur
   po-investigate liveness codex-parity codex-plugin cli-0259 cli-version cli-packages cli-vendor cli-rendered git-capture-guard secret-scan-staged secret-patterns bootstrap-exception \
   lane-router lane-workflow \
   trusted-enforcer hook-install-rc msys-tree-cleanup job-probe ws5-upgrade ff-only run-preconditions return-budget \
-  supersede-primitive rule-inventory boot-size prohibition-residency startup-context validator-evidence validation-instructions consumer-benchmark wasted-effort-windowing token-waste-classify \
+  supersede-primitive rule-inventory boot-size prohibition-residency startup-context validator-evidence validation-instructions gate-contract consumer-benchmark wasted-effort-windowing token-waste-classify \
   budget-literals history-extraction approval-binding approval-writer approval-schema3 approval-receipt command-policy denial-message upgrade-classify upgrade-classify-eol \
   upgrade-boundary preboundary-consumed upgrade-repair transient-exclude n5-delivery n6-truthful-base n6-missing-base n6-recover n4-parity-scope recovery-hint hop-log-truth install-doc release-authority \
   release-tag-binding fingerprint-rows signal-reap cli-flow-recovery-selectors cli-flow-recovery)
@@ -660,6 +660,7 @@ run_shell_phase test-prohibition-residency.sh  "prohibition-residency"
 run_shell_phase test-startup-context.sh        "startup-context"
 run_shell_phase test-validator-evidence.sh     "validator-evidence"
 run_shell_phase test-validation-instructions.sh "validation-instructions"
+run_shell_phase test-gate-contract.sh          "gate-contract"
 run_shell_phase test-flow-consumer-benchmark.sh "consumer-benchmark"
 run_shell_phase test-wasted-effort-windowing.sh "wasted-effort-windowing"
 run_shell_phase test-token-waste-classify.sh   "token-waste-classify"

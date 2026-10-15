@@ -7,13 +7,14 @@ schema_version: 1
 local_override_file: policies/gate-contracts.local.yml
 
 gate_report:
-  description: "AI Developer's gate report at end of T<gate>; PO reads to verify before deploy."
+  description: "AI Developer's gate report at end of T<gate>; row statuses are claims; the verdict is the PO side's (validation-and-qa)."
   required_fields:
     implementation_summary:
       type: string
       max_sentences: 3
     per_task_shas:
       type: list
+      label: "Per-task commit table"
       item_format: "T<n>: <sha> <subject>"
       min_items: 1
     test_counts:
@@ -28,12 +29,15 @@ gate_report:
           e2e: { before: int, after: int, delta: int, optional: true }
     lint_status:
       type: enum
+      label: "Lint + typecheck status"
       values: [clean, warnings, errors]
     typecheck_status:
       type: enum
+      label: "Lint + typecheck status"
       values: [clean, errors]
     worker_undisturbed_diff:
       type: list
+      label: "Worker-undisturbed verification"
       item_format: "<file>: empty diff ✓"
       min_items: 0      # 0 if no protected paths apply to this ticket
     manifest_version:
@@ -43,9 +47,15 @@ gate_report:
     deviations:
       type: string
       default: "none"
-    self_attestation:
-      type: string
-      contains_phrase: "Operating as AI Developer"
+    gate_rows:
+      type: list
+      section: "Gate satisfaction"
+      item_shape:
+        criterion: string
+        evidence: string
+        status: enum [PASS, FAIL]
+      evidence_required_for: [PASS]
+      min_items: 1
 
 deploy_report:
   description: "Deploy phase's report after deploy + probes."
@@ -82,9 +92,6 @@ deploy_report:
       type: string
     rollback_procedure:
       type: string
-    self_attestation:
-      type: string
-      contains_phrase: "Operating as Deploy phase"
 
 smoke_report:
   description: "Smoke run results, persisted per-prompt with evidence."
