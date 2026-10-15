@@ -22,12 +22,14 @@ You are operating as the **AI Developer** under Fusebase Flow v5.10.
 
 ## Mandatory pre-execution reads (in order)
 
+Read this handoff in full. From each ticket artifact read the slice your tasks need (FR-26; `token-economy` TE-01); read the whole artifact before you edit against its invariants or close verification on it (TE-13).
+
 1. `FLOW_RULES.md` — FR-01 through FR-27 (stop at `## Amendment log` — dated history)
 2. `AGENTS.md` (project-specific section, especially worker-undisturbed paths and project invariants)
-3. `docs/specs/<slug>/spec.md` — locked spec
-4. `docs/specs/<slug>/decisions.md` — every decision with `Lock status: LOCKED`
-5. `docs/specs/<slug>/tasks.md` — T-numbered task list
-6. `docs/specs/<slug>/verification-gate.md` — gate contract you'll have to satisfy
+3. `docs/specs/<slug>/spec.md` — locked spec: the acceptance criteria, Out of scope and Constitution invariants (they bind, cited or not), plus the sections your tasks cite
+4. `docs/specs/<slug>/decisions.md` — the Decision matrix in full (every `LOCKED` row binds, cited or not), then the body of each decision your tasks cite or whose subject touches the files you change
+5. `docs/specs/<slug>/tasks.md` — tasks `T<first>..T<gate>` of this handoff
+6. `docs/specs/<slug>/verification-gate.md` — the AC→task, ledger, command and worker-undisturbed rows for your tasks; the whole file before `T<gate>`
 7. `policies/protected-paths.yml` — worker-undisturbed list
 8. `flow-skills/role-discipline/references/ai-developer.md` (mirrored under `.claude/skills/`) — IM.1..IM.18 don't-list; shared protocols in `flow-skills/role-discipline/SKILL.md`
 

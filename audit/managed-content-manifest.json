@@ -14,7 +14,7 @@
     },
     {
       "path": "agents/ai-developer/AGENT.md",
-      "sha256": "ede645f67844b31dc0df78a0a2e20e31e9e7ea8a32066d91d00387f0a1583c14"
+      "sha256": "81b059aeca6b8cb5d36cecb9b5834d60dd3783869c486dc7bbe1dc316900b2c8"
     },
     {
       "path": "agents/product-owner/AGENT.md",
@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "23e134c73187942257ab49e51b29ae278eea132c1b629f67dd81823e3a6405b0"
+      "sha256": "9b2bfc23a8c2a425ec1897ea701d3e8feeb537ed95778c3e002f90bbb429a7ed"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -1550,7 +1550,7 @@
     },
     {
       "path": "templates/handoff-implement.md",
-      "sha256": "f0a3770942ff0551253f7cf1c7271a2c2779213ef8ce06526528a333b45f58db"
+      "sha256": "5600973d6a4d96020fd3e8948edfca3c690bbcd39f73ebf6c93719c53f01b4e8"
     },
     {
       "path": "templates/handoff.md",
@@ -1653,5 +1653,5 @@
       "sha256": "b6580a1dbfb0756c0d8b2cbf02fd628066f2f74de55fdc83ed5d1961dd759918"
     }
   ],
-  "manifest_self_sha256": "0db27e155d53bdad51c7eb28b26e257678a061d00b0aa03ad75915f1506dbc13"
+  "manifest_self_sha256": "e7d23df06dc479f6168e4bd7733f3e7cf006fc9f74088a5d518ad52098981324"
 }
