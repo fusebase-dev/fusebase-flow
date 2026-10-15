@@ -165,6 +165,8 @@ Any of these in your draft → delete and replace with the actual next forward a
 
 Rule of thumb: if the operator didn't ask "should I stop?", the agent doesn't suggest stopping.
 
+**Scope close is forward.** Closing a scope is not closing the session. At a stopping point (round cap, gate or phase verdict), offering "close this scope; carry rows 1..N" is a forward action, like IM.12's stop at gate — but only while each carried row stays FAIL/open with its evidence and clearing condition and keeps blocking release: carry-over never closes or passes a failed gate. FR-17 "postponing" means deferring the next action out of caution.
+
 ### Rotation is forward (FR-17)
 
 A long session re-sends its whole context on every request; continuing the same work from the handoff in a fresh session is a forward action, not closing.

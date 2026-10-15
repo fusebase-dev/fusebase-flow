@@ -39,11 +39,11 @@
 .agents/skills/role-discipline/references/architect.md  fd7f0edf600a618b34284e61025b7ad97ad51fd2e2dfa005eec6596cac996744
 .agents/skills/role-discipline/references/deploy.md  cd4eed882eef2affc605b76ccbc6539e4786298ce1d93f49bbcfe0b79e8c25ff
 .agents/skills/role-discipline/references/product-owner.md  0e6e99972c5acf761b6b0921bf4918893e099effa2064ec997ecb9b23272e94f
-.agents/skills/role-discipline/references/shared-protocols.md  3336970ff451c107cb3d9a32e05d9c8d4c86a9a24f50ac48eabbd37c3ff0d6f4
+.agents/skills/role-discipline/references/shared-protocols.md  74a5c771aa8d3324ed991dc732fef68a134f7e56bd383d54e778b8018054d247
 .agents/skills/security-permissions-review/SKILL.md  fa694285b591f7505dbb07f7eca23e42bf652d623e2230518e623c71b21a2187
 .agents/skills/skill-authoring/SKILL.md  359a126cf411ecc96d7610e1eb045ea1228a76ee4c4f9d472b44b2347ebf22b0
 .agents/skills/smoke-testing/SKILL.md  9c08743926e913f09c51b0be986c59800a35a8ff9f9a383db0c03e6154e84c33
-.agents/skills/task-delegation/SKILL.md  ad1a2e82b2a55722d866e8fb7fd298b943b32ab4dbcfd7bfab3bc150c500638d
+.agents/skills/task-delegation/SKILL.md  6f95b1a72100027516d3ad5153cf0e46a6911031e7e04a2c857495790a061cb9
 .agents/skills/token-economy/SKILL.md  a68e0216870b97daecea80e85a4a127480759e76ca54aa6c9ace55ae4f21b000
 .agents/skills/validation-and-qa/SKILL.md  297c2f03521f061372c07f3d45f8b2ed6f3b6071f3c05b79d1d48606498fef01
 .agents/skills/zoom-out/SKILL.md  ee5f705f7bba09b20a7d34a169231c014f708027bec7b00c4cae058455d20301
@@ -89,11 +89,11 @@
 .claude/skills/role-discipline/references/architect.md  fd7f0edf600a618b34284e61025b7ad97ad51fd2e2dfa005eec6596cac996744
 .claude/skills/role-discipline/references/deploy.md  cd4eed882eef2affc605b76ccbc6539e4786298ce1d93f49bbcfe0b79e8c25ff
 .claude/skills/role-discipline/references/product-owner.md  0e6e99972c5acf761b6b0921bf4918893e099effa2064ec997ecb9b23272e94f
-.claude/skills/role-discipline/references/shared-protocols.md  3336970ff451c107cb3d9a32e05d9c8d4c86a9a24f50ac48eabbd37c3ff0d6f4
+.claude/skills/role-discipline/references/shared-protocols.md  74a5c771aa8d3324ed991dc732fef68a134f7e56bd383d54e778b8018054d247
 .claude/skills/security-permissions-review/SKILL.md  fa694285b591f7505dbb07f7eca23e42bf652d623e2230518e623c71b21a2187
 .claude/skills/skill-authoring/SKILL.md  359a126cf411ecc96d7610e1eb045ea1228a76ee4c4f9d472b44b2347ebf22b0
 .claude/skills/smoke-testing/SKILL.md  9c08743926e913f09c51b0be986c59800a35a8ff9f9a383db0c03e6154e84c33
-.claude/skills/task-delegation/SKILL.md  ad1a2e82b2a55722d866e8fb7fd298b943b32ab4dbcfd7bfab3bc150c500638d
+.claude/skills/task-delegation/SKILL.md  6f95b1a72100027516d3ad5153cf0e46a6911031e7e04a2c857495790a061cb9
 .claude/skills/token-economy/SKILL.md  a68e0216870b97daecea80e85a4a127480759e76ca54aa6c9ace55ae4f21b000
 .claude/skills/validation-and-qa/SKILL.md  297c2f03521f061372c07f3d45f8b2ed6f3b6071f3c05b79d1d48606498fef01
 .claude/skills/zoom-out/SKILL.md  ee5f705f7bba09b20a7d34a169231c014f708027bec7b00c4cae058455d20301

@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "8595bf896d0e5692b1394c7ff1435bb2324e8c8bfda87388fb191eae0a281b47"
+      "sha256": "960e108967379aabaf35a651097f959d55246a29bd3b35893e1a06bf26f1f5d8"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -190,7 +190,7 @@
     },
     {
       "path": "flow-skills/role-discipline/references/shared-protocols.md",
-      "sha256": "3336970ff451c107cb3d9a32e05d9c8d4c86a9a24f50ac48eabbd37c3ff0d6f4"
+      "sha256": "74a5c771aa8d3324ed991dc732fef68a134f7e56bd383d54e778b8018054d247"
     },
     {
       "path": "flow-skills/security-permissions-review/SKILL.md",
@@ -206,7 +206,7 @@
     },
     {
       "path": "flow-skills/task-delegation/SKILL.md",
-      "sha256": "ad1a2e82b2a55722d866e8fb7fd298b943b32ab4dbcfd7bfab3bc150c500638d"
+      "sha256": "6f95b1a72100027516d3ad5153cf0e46a6911031e7e04a2c857495790a061cb9"
     },
     {
       "path": "flow-skills/token-economy/SKILL.md",
@@ -1657,5 +1657,5 @@
       "sha256": "b6580a1dbfb0756c0d8b2cbf02fd628066f2f74de55fdc83ed5d1961dd759918"
     }
   ],
-  "manifest_self_sha256": "0328e483e81eda18d1fc31994806af337ded2dd5599e3cf9d892df34c7997826"
+  "manifest_self_sha256": "71ffbd9e4d50c52fc5c055c76d22638112626fa732a1052f43e47896f9816941"
 }

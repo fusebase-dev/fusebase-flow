@@ -39,7 +39,7 @@ Coordinate bounded work across multiple agents when the host environment support
 
 - The task is simple enough to finish directly.
 - The next critical-path step depends on the subtask result; do that locally.
-- The work requires operator interaction or a decision while the subagent is running.
+- The subtask itself needs an operator interaction or decision while it runs. A decision pending for other work does not block dispatching independent slices outside a Product Owner session (§ Pending operator answers).
 - The work touches deploy commands, production side effects, approval artifacts, secrets, or live-user credentials.
 - Product Owner would be delegating production code edits.
 - Write scopes overlap or cannot be clearly owned.
@@ -199,6 +199,15 @@ Generalizes the same-agent, context-preserving reuse the provider-limit path alr
 - One correction owner per review round, batched by file. Never one agent per finding.
 - Disjoint write ownership (§4) and one independently reversible outcome per commit still bind: batching findings never merges unrelated outcomes.
 - Verify an external API/SDK shape once, record it where the plan lives, and cite it afterwards. Re-verify what this change touches or what a changed dependency invalidates — not merely what was edited (`token-economy`).
+
+## Pending operator answers
+
+Applies in every mode, attended or `/step-out`, to any session that hands out work — never to a Product Owner session, where Operator Relay step 4 still halts until explicit approval (`role-discipline` shared-protocols § Operator Relay Protocol). It changes SCHEDULING only; it opens no gate and grants no authorization.
+
+- **A pending answer parks the gated action and its dependents** (delegate side: §3 Blocked-return rule). Waiting means not executing that action: independent authorized work is compatible with the Operator Gate Protocol; executing the pending action, or anything presented under it, is not.
+- **Before the turn ends, dispatch the already-authorized independent slices.** A turn that ends with delegates in flight leaves a bounded watcher running (`liveness-discipline` § Wake interval); where no watcher is possible, poll in-turn and ask at the end.
+- **The question is the turn's last content block,** above the state footer, in chat text (FR-19).
+- **One open task per tree.** A code-writing session with an uncommitted task starts no other task in that tree (FR-03, IM.4).
 
 ## Unattended scheduling
 
