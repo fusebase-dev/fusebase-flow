@@ -37,8 +37,10 @@ ff_backup_stem() {   # <basename> -> stem on stdout; rc 1 when not an exact Flow
 # backups until validated: only previously-COMMITTED content is recoverable from git
 # history; an uncommitted local customization overwritten during refresh survives only
 # in its backup. The same writer also excludes per-clone policy overrides (`policies/*.local.yml`,
-# loaded by name — a committed one could neutralize a gate) and host agent worktrees
-# (`.claude/worktrees/`, staged as embedded repositories otherwise); never the tracked .gitignore.
+# loaded by name — a committed one could neutralize a gate), host agent worktrees
+# (`.claude/worktrees/`, staged as embedded repositories otherwise) and bounded-run heartbeat
+# files (`/state/audit/liveness/` only — consumers may track other state/audit/ content; decision D);
+# never the tracked .gitignore.
 ff_git_exclude_backups() {
   local ex line d
   # git-path resolves info/exclude to the COMMON dir for linked worktrees (--git-dir would
@@ -66,7 +68,9 @@ ff_git_exclude_backups() {
     "/.fusebase-flow-source/" \
     "# Fusebase Flow per-clone policy overrides and agent worktrees — never stage them." \
     "/policies/*.local.yml" \
-    "/.claude/worktrees/"; do
+    "/.claude/worktrees/" \
+    "# Fusebase Flow bounded-run heartbeat files — never stage them." \
+    "/state/audit/liveness/"; do
     if ! grep -qxF "$line" "$ex" 2>/dev/null; then
       printf '%s\n' "$line" >> "$ex" 2>/dev/null || return 1
     fi

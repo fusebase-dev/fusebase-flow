@@ -284,9 +284,9 @@ trap 'ff_recovery_on_exit $?' EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-# --help must stay a no-op; excludes cover pre-bootstrap/refresh/upgrade backups, the upgrade clone, local policy overrides and agent worktrees.
+# --help must stay a no-op; excludes cover pre-bootstrap/refresh/upgrade backups, the upgrade clone, local policy overrides, agent worktrees and bounded-run heartbeat files.
 # A non-git directory is a no-op success; a write failure must stay a note: WARNING would exit 1 after a successful overlay recovery.
-ff_git_exclude_backups || echo "[post-fusebase-update] note: could not update .git/info/exclude — pre-bootstrap/refresh/upgrade backups, the upgrade clone, local policy overrides and agent worktrees may be stageable by a later 'git add -A' (delete or unstage them before committing)." >&2
+ff_git_exclude_backups || echo "[post-fusebase-update] note: could not update .git/info/exclude — pre-bootstrap/refresh/upgrade backups, the upgrade clone, local policy overrides, agent worktrees and bounded-run heartbeat files may be stageable by a later 'git add -A' (delete or unstage them before committing)." >&2
 
 TS_REFRESH=$(date -u +%Y%m%dT%H%M%SZ)
 

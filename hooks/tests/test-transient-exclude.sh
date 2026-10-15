@@ -103,61 +103,58 @@ R="$TMP_BASE/gitignore"; cp -R "$TPL" "$R"; cp "$ROOT/.gitignore" "$R/.gitignore
 unstaged_row "shipped-gitignore-keeps-clone-unstaged" "$R" 'fusebase-flow-source'
 
 POLICY_TPL="$TMP_BASE/policy-tpl"; cp -R "$TPL" "$POLICY_TPL"
-mkdir -p "$POLICY_TPL/policies" "$POLICY_TPL/.claude/worktrees/x" \
+mkdir -p "$POLICY_TPL/policies" "$POLICY_TPL/.claude/worktrees/x" "$POLICY_TPL/state/audit/liveness" \
   && ( cd "$POLICY_TPL" && echo local > policies/model-routing.local.yml \
+       && echo running > state/audit/liveness/probe-1-1.hb \
        && cd .claude/worktrees/x && git init -q . && echo agent > agent.txt \
        && "${G[@]}" add agent.txt && "${G[@]}" commit -qm agent ) >/dev/null 2>&1 \
-  || { bad setup-policy-worktree-fixture "could not build the local-policy/worktree fixture"; finish; }
+  || { bad setup-policy-worktree-fixture "could not build the local-policy/worktree/heartbeat fixture"; finish; }
 
 C="$TMP_BASE/policy-control"; cp -R "$POLICY_TPL" "$C"
 if add_all "$C" && grep -q 'policies/model-routing\.local\.yml$' "$C.ls" \
-   && grep -qE '^160000 .*	\.claude/worktrees/x$' "$C.ls"; then
-  ok "control-unexcluded-local-policy-and-worktree-staged"
+   && grep -qE '^160000 .*	\.claude/worktrees/x$' "$C.ls" \
+   && grep -q 'state/audit/liveness/probe-1-1\.hb$' "$C.ls"; then
+  ok "control-unexcluded-local-policy-worktree-and-heartbeat-staged"
 else
-  bad "control-unexcluded-local-policy-and-worktree-staged" "fixture does not reproduce the hazard: $(cat "$C.ls" 2>/dev/null)"
+  bad "control-unexcluded-local-policy-worktree-and-heartbeat-staged" "fixture does not reproduce the hazard: $(cat "$C.ls" 2>/dev/null)"
 fi
 
 for w in lib pfu; do
   R="$TMP_BASE/policy-writer-$w"; cp -R "$POLICY_TPL" "$R"
   if run_writer "$w" "$R"; then
-    unstaged_row "$w-writer-keeps-local-policy-and-worktree-unstaged" "$R" 'policies/model-routing\.local\.yml|\.claude/worktrees/'
+    unstaged_row "$w-writer-keeps-local-policy-worktree-and-heartbeat-unstaged" "$R" \
+      'policies/model-routing\.local\.yml|\.claude/worktrees/|state/audit/liveness/'
   else
-    bad "$w-writer-keeps-local-policy-and-worktree-unstaged" "writer rc=$?"
+    bad "$w-writer-keeps-local-policy-worktree-and-heartbeat-unstaged" "writer rc=$?"
   fi
 done
 
-# TRIPWIRE: these are the exact lines v5.4 consumers already hold; a writer that edits one re-appends it.
+# TRIPWIRE: these are the exact lines v5.4 / v5.5-v5.8 / v5.9-v5.10 consumers already hold; a writer that edits one re-appends it.
 TSG='[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]T[0-9][0-9][0-9][0-9][0-9][0-9]Z'
-for w in lib pfu; do
-  R="$TMP_BASE/v54-$w"; mkdir -p "$R" && ( cd "$R" && git init -q . ) >/dev/null 2>&1
+V54=("# Fusebase Flow upgrade/refresh backups (transient; keep until validated) — never stage them."
+  "*.pre-upgrade-$TSG" "*.pre-bootstrap-$TSG" "*.pre-refresh-$TSG")
+V58=("${V54[@]}" "/.fusebase-flow-source/")
+V59=("${V58[@]}" "# Fusebase Flow per-clone policy overrides and agent worktrees — never stage them."
+  "/policies/*.local.yml" "/.claude/worktrees/")
+upgrade_row() { # upgrade_row <row> <writer> <lines-added> <seeded line>...
+  local row="$1" w="$2" add="$3" R EX n0 n1 n2 rc1 rc2; shift 3
+  R="$TMP_BASE/$row-$w"; mkdir -p "$R" && ( cd "$R" && git init -q . ) >/dev/null 2>&1
   EX="$R/.git/info/exclude"; mkdir -p "$(dirname "$EX")"
-  printf '%s\n' "# Fusebase Flow upgrade/refresh backups (transient; keep until validated) — never stage them." \
-    "*.pre-upgrade-$TSG" "*.pre-bootstrap-$TSG" "*.pre-refresh-$TSG" >> "$EX"
+  printf '%s\n' "$@" >> "$EX"
   n0="$(wc -l < "$EX")"
   run_writer "$w" "$R"; rc1=$?; n1="$(wc -l < "$EX")"
   run_writer "$w" "$R"; rc2=$?; n2="$(wc -l < "$EX")"
-  if [ "$rc1$rc2" = "00" ] && [ "$n1" -eq $((n0 + 4)) ] && [ "$n2" -eq "$n1" ] \
-     && [ "$(tail -n 1 "$EX")" = "/.claude/worktrees/" ]; then
-    ok "$w-writer-upgrades-v54-exclude-by-missing-lines-idempotently"
+  if [ "$rc1$rc2" = "00" ] && [ "$n1" -eq $((n0 + add)) ] && [ "$n2" -eq "$n1" ] \
+     && [ "$(tail -n 1 "$EX")" = "/state/audit/liveness/" ]; then
+    ok "$w-writer-upgrades-$row"
   else
-    bad "$w-writer-upgrades-v54-exclude-by-missing-lines-idempotently" "rc=$rc1/$rc2 lines $n0->$n1->$n2: $(cat "$EX")"
+    bad "$w-writer-upgrades-$row" "rc=$rc1/$rc2 lines $n0->$n1->$n2: $(cat "$EX")"
   fi
-done
-
+}
 for w in lib pfu; do
-  R="$TMP_BASE/v58-$w"; mkdir -p "$R" && ( cd "$R" && git init -q . ) >/dev/null 2>&1
-  EX="$R/.git/info/exclude"; mkdir -p "$(dirname "$EX")"
-  printf '%s\n' "# Fusebase Flow upgrade/refresh backups (transient; keep until validated) — never stage them." \
-    "*.pre-upgrade-$TSG" "*.pre-bootstrap-$TSG" "*.pre-refresh-$TSG" "/.fusebase-flow-source/" >> "$EX"
-  n0="$(wc -l < "$EX")"
-  run_writer "$w" "$R"; rc1=$?; n1="$(wc -l < "$EX")"
-  run_writer "$w" "$R"; rc2=$?; n2="$(wc -l < "$EX")"
-  if [ "$rc1$rc2" = "00" ] && [ "$n1" -eq $((n0 + 3)) ] && [ "$n2" -eq "$n1" ] \
-     && [ "$(tail -n 1 "$EX")" = "/.claude/worktrees/" ]; then
-    ok "$w-writer-upgrades-v58-exclude-by-three-lines"
-  else
-    bad "$w-writer-upgrades-v58-exclude-by-three-lines" "rc=$rc1/$rc2 lines $n0->$n1->$n2: $(cat "$EX")"
-  fi
+  upgrade_row v54-exclude-by-missing-lines-idempotently "$w" 6 "${V54[@]}"
+  upgrade_row v58-exclude-by-missing-lines "$w" 5 "${V58[@]}"
+  upgrade_row v59-exclude-by-heartbeat-lines "$w" 2 "${V59[@]}"
 done
 
 L="$TMP_BASE/parity-lib"; P="$TMP_BASE/parity-pfu"

@@ -59,7 +59,15 @@ rc=$?
 # rc 124 = deadline elapsed; rc 137 = ignored SIGTERM, SIGKILLed after the -k grace.
 # On timeout the wrapper already printed the terminal "bounded-run: TIMEOUT" line —
 # surface it, flush partial results, then diagnose (do not blind-retry).
+
+# Long run: launch the WRAPPER as the host's background command (Claude Code: run_in_background), or `&`
+# only from a shell that outlives the wait — never `&` under it. Then wait on its terminal line in <=230 s
+# slices (tool timeout >=240 s); bounded_wait rc 124 = not yet: re-issue it, or arm a watcher.
+bounded_run 1800 "suite" -- ./scripts/run-suite.sh >suite.log 2>&1 &
+bounded_wait suite.log '^bounded-run: (done|TIMEOUT|SKIPPED).* — suite( \(rc |$)'
 ```
+
+**Heartbeat file.** Each call also writes `state/audit/liveness/<label>-<pid>-<n>.hb` (git-excluded on upgrade; `BOUNDED_RUN_HB_DIR` moves it, empty disables; pruned after 7 days untouched): a header, one `running <s>/<deadline>` line per heartbeat, then `done` / `TIMEOUT` / `SKIPPED`. It proves the wrapper is alive, not that the work progresses. No terminal record = the wrapper has not returned yet: an rc-137 return lands after deadline + the 5 s kill grace, so treat it as hung only with no terminal record by launch + deadline + grace + ~30 s (MSYS reap slack).
 
 **Honest scope (D7 — do not overstate).** `bounded_run` bounds the **monitored** process only. It does **NOT**:
 
@@ -103,7 +111,7 @@ Every model-side check re-reads the waiting agent's whole context, and a check a
 
 | Case | Interval |
 |---|---|
-| Bounded watcher — **default** for an orchestrating or main session on a host that wakes it on background completion (§ Host wake paths): a background shell loop under `bounded_run`, no model tokens, reading SHAs and mtimes | polls as often as useful; exits on progress, completion, stall or its deadline (a bounded wakeup — silence still wakes you), and every exit wakes you |
+| Bounded watcher — **default** for an orchestrating or main session on a host that wakes it on background completion (§ Host wake paths): a background shell loop under `bounded_run`, no model tokens, reading SHAs, mtimes and `state/audit/liveness/*.hb` heartbeats (`bounded_wait` = the one-file form) | polls as often as useful; exits on progress, completion, stall or its deadline (a bounded wakeup — silence still wakes you), and every exit wakes you |
 | Delegated session (cannot be re-invoked after its turn) | in-turn bounded check loop, each ≤4 min (`task-delegation` turn-completion) |
 | No watcher can wake you | at most every **4 min** — under the 5-min cache TTL of sub-agents and of hosts whose TTL is unknown; a longer main-session interval is an operator choice stated in chat |
 | Stall verdict | no observed progress across two consecutive checks past the slice's expected interval → § Diagnose a suspected hang |

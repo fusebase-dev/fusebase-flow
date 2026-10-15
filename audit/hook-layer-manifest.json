@@ -110,11 +110,11 @@
     },
     {
       "path": "hooks/local/lib/backup-hygiene.sh",
-      "sha256": "83dc9df76c9470bf795384b82069902cb772f02dfcd9dac15ca815b087f04983"
+      "sha256": "8a43d459e2e066074c31ea7a28030d479fdcd48a900e0793f56e11780bc42ec3"
     },
     {
       "path": "hooks/local/lib/bounded-run.sh",
-      "sha256": "91bea5023707011070f522ecf7070242923528ea1bdd843faf726a0aba6d8e77"
+      "sha256": "d28cec4d4e8db3518e8408137d49d6f2cf52bf0b7a5495bc1f128c68059cf34c"
     },
     {
       "path": "hooks/local/lib/cli-version-check.sh",
@@ -186,7 +186,7 @@
     },
     {
       "path": "hooks/local/lib/phase_registry_check.py",
-      "sha256": "837f1484b7ec7e0b43b4aae367725b9bd979b686d6ed7129f994a427bcf366af"
+      "sha256": "115a2a3f76948f00723f7067f3f02333433fa34a6f64b85057893d25beeafada"
     },
     {
       "path": "hooks/local/lib/plugin-parity.sh",
@@ -246,7 +246,7 @@
     },
     {
       "path": "hooks/local/post-fusebase-update.sh",
-      "sha256": "fd1d9d5f69d499ee6d67a2b16a027dfcf6bac763c9d298ff60b65eb124f47a3e"
+      "sha256": "47c3bd25e0f03755987d135375f510da922e0ad23cfec9ccfdb82690de267265"
     },
     {
       "path": "hooks/local/preflight.sh",
@@ -750,7 +750,7 @@
     },
     {
       "path": "hooks/tests/test-liveness-bounded-run.sh",
-      "sha256": "da7746feee7908b55a4d8c95f8ca98b6046f1dadb6e049a64fcca1187bd25d0c"
+      "sha256": "02d0ad6ef2367ab839178efc9d9fdadd350c35f11635183b7ba1da3d38702d0b"
     },
     {
       "path": "hooks/tests/test-minimal-path-fixture.sh",
@@ -878,7 +878,7 @@
     },
     {
       "path": "hooks/tests/test-transient-exclude.sh",
-      "sha256": "69316b9d6bdae04bfe98042a1d626dbf29816f213cf094b4b07b98a992f557df"
+      "sha256": "f92f27171add0c73a5b73a92ec470cdb79001a607797adcc6a32a92770c363a7"
     },
     {
       "path": "hooks/tests/test-trusted-enforcer.sh",
@@ -937,5 +937,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "7d17d08e10a266f310071533cfb58c4f34add552625554adb12edea8d41c22c1"
+  "manifest_self_sha256": "8f82e722c86b92aee2753e827f21cb706bc04fb7e992a5c939b546dc4234ba37"
 }

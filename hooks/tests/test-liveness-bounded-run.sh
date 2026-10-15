@@ -53,6 +53,18 @@ ok "setup-lib-present"
 # bash -n on the lib (syntax gate; a broken lib must not silently pass downstream).
 if bash -n "$LIB" 2>/dev/null; then ok "lib-syntax-clean"; else bad "lib-syntax-clean" "bash -n failed"; fi
 
+# TRIPWIRE: test-ff-only's stub lib defines only bounded_run and pins exactly 3 calls — every
+# bounded_wait / heartbeat-file row (and the 4th, relative-source call) runs only when have_bw=1.
+have_bw=0
+( set +u; . "$LIB" >/dev/null 2>&1; type bounded_wait >/dev/null 2>&1 ) && have_bw=1
+if [ "$have_bw" -eq 0 ] && grep -q '^bounded_wait()' "$LIB"; then
+  bad "bounded-wait-sourced" "the lib text defines bounded_wait but sourcing it did not"
+fi
+skip_row() { ok "$1 [SKIP — sourced lib defines no bounded_wait]"; }
+HBT="$(mktemp -d "${TMPDIR:-/tmp}/ff-liveness-hb.XXXXXX" 2>/dev/null)" || { bad "setup-hb-tmpdir" "mktemp -d failed"; finish; }
+trap 'rm -rf "$HBT"' EXIT
+: > "$HBT/t0"
+
 # Run a bounded_run call in a clean subshell; echo "RC=<rc>" + stderr (the wrapper
 # logs heartbeats + the terminal line to stderr).
 run_bounded() { # run_bounded <env-assignments> <deadline> <label> -- <cmd...> ; prints stderr then RC=<rc>
@@ -77,8 +89,9 @@ run_bounded() { # run_bounded <env-assignments> <deadline> <label> -- <cmd...> ;
 # deadline (rc 124 or 137). The silent-unbounded-wait is structurally bounded.
 ###############################################################################
 if command -v timeout >/dev/null 2>&1 || command -v gtimeout >/dev/null 2>&1; then
+  HB_A="$HBT/a"; mkdir -p "$HB_A" && touch -t 202001010000 "$HB_A/stale-1-1.hb"
   start=$(date +%s)
-  a_out="$(run_bounded "BOUNDED_RUN_HEARTBEAT_SECS=1" 2 "hang probe" -- sleep 30)"
+  a_out="$(BOUNDED_RUN_HB_DIR="$HB_A" run_bounded "BOUNDED_RUN_HEARTBEAT_SECS=1" 2 "hang probe" -- sleep 30)"
   end=$(date +%s); span=$((end - start))
   a_rc="$(echo "$a_out" | sed -n 's/^RC=//p' | tail -1)"
   # rc must be timeout-induced (124 deadline, or 137 SIGKILL after -k grace).
@@ -91,11 +104,29 @@ if command -v timeout >/dev/null 2>&1 || command -v gtimeout >/dev/null 2>&1; th
   # AC3b — incremental progress is emitted (heartbeat line) while CMD runs.
   ###############################################################################
   echo "$a_out" | grep -q "bounded-run: still running" && ok "ac3b-incremental-progress" || bad "ac3b-incremental-progress" "no heartbeat line in: $a_out"
+  if [ "$have_bw" -eq 1 ]; then
+    hb_files=( "$HB_A"/*.hb ); hb_a="${hb_files[0]}"
+    if [ "${#hb_files[@]}" -eq 1 ] && [ -f "$hb_a" ] && case "${hb_a##*/}" in hang-probe-*-1.hb) true ;; *) false ;; esac; then
+      ok "hb-one-file-per-call-and-stale-pruned"
+    else
+      bad "hb-one-file-per-call-and-stale-pruned" "files: ${hb_files[*]}"
+    fi
+    [ "$(head -n 1 "$hb_a" 2>/dev/null)" = "bounded-run hang probe deadline=2s" ] \
+      && ok "hb-header-label-and-deadline" || bad "hb-header-label-and-deadline" "$(head -n 1 "$hb_a" 2>/dev/null)"
+    grep -qE '^running [0-9]+/2$' "$hb_a" 2>/dev/null \
+      && ok "hb-advances-while-running" || bad "hb-advances-while-running" "$(cat "$hb_a" 2>/dev/null)"
+    case "$(tail -n 1 "$hb_a" 2>/dev/null)" in
+      "TIMEOUT rc=124"|"TIMEOUT rc=137") ok "hb-terminal-record-last" ;;
+      *) bad "hb-terminal-record-last" "$(cat "$hb_a" 2>/dev/null)" ;;
+    esac
+  else
+    for r in hb-one-file-per-call-and-stale-pruned hb-header-label-and-deadline hb-advances-while-running hb-terminal-record-last; do skip_row "$r"; done
+  fi
   ###############################################################################
   # AC3d — an ignored-SIGTERM child is still killed by run_with_timeout's -k
   # SIGKILL grace => rc 137. The child traps TERM and keeps sleeping.
   ###############################################################################
-  d_out="$(run_bounded "FFHC_TIMEOUT_KILL_GRACE=1s BOUNDED_RUN_HEARTBEAT_SECS=10" 1 "stubborn child" -- bash -c 'trap "" TERM; sleep 30')"
+  d_out="$(BOUNDED_RUN_HB_DIR= run_bounded "FFHC_TIMEOUT_KILL_GRACE=1s BOUNDED_RUN_HEARTBEAT_SECS=10" 1 "stubborn child" -- bash -c 'trap "" TERM; sleep 30')"
   d_rc="$(echo "$d_out" | sed -n 's/^RC=//p' | tail -1)"
   if [ "$d_rc" = "137" ]; then ok "ac3d-ignored-sigterm-sigkilled"; else bad "ac3d-ignored-sigterm-sigkilled" "rc=$d_rc (expected 137 — the -k SIGKILL grace did not fire)"; fi
 else
@@ -112,12 +143,116 @@ fi
 ###############################################################################
 MARK="${TMPDIR:-/tmp}/fusebase-flow-liveness-mark.$$"
 rm -f "$MARK"
-c_out="$(run_bounded "FFHC_FORCE_NO_TIMEOUT=1" 2 "degrade" -- touch "$MARK")"
+c_out="$(BOUNDED_RUN_HB_DIR="$HBT/c" run_bounded "FFHC_FORCE_NO_TIMEOUT=1" 2 "degrade" -- touch "$MARK")"
 c_rc="$(echo "$c_out" | sed -n 's/^RC=//p' | tail -1)"
 if [ "$c_rc" = "125" ]; then ok "ac3c-no-binary-skip-rc-125"; else bad "ac3c-no-binary-skip-rc-125" "rc=$c_rc (expected 125 sentinel)"; fi
 # The command MUST NOT have run (no false "bounded" that silently executes unbounded).
 if [ ! -e "$MARK" ]; then ok "ac3c-no-binary-command-not-run"; else bad "ac3c-no-binary-command-not-run" "command ran despite no-binary skip (false bounded!)"; rm -f "$MARK"; fi
 echo "$c_out" | grep -q "bounded-run: SKIPPED" && ok "ac3c-skip-marker-line" || bad "ac3c-skip-marker-line" "no SKIPPED line: $c_out"
+
+###############################################################################
+# Heartbeat file (A3.5, decision D). TRIPWIRE: AC3a/AC3c point BOUNDED_RUN_HB_DIR at $HBT and
+# AC3d sets it empty, so no row writes the live tree's state/.
+###############################################################################
+if [ "$have_bw" -eq 1 ]; then
+  hb_c=( "$HBT/c"/degrade-*-1.hb )
+  if [ -f "${hb_c[0]}" ] && [ "$(head -n 1 "${hb_c[0]}")" = "bounded-run degrade deadline=2s" ] \
+     && [ "$(tail -n 1 "${hb_c[0]}")" = "SKIPPED" ]; then
+    ok "hb-skip-path-records-skipped"
+  else
+    bad "hb-skip-path-records-skipped" "files: ${hb_c[*]}"
+  fi
+  RR="$HBT/rel root"
+  mkdir -p "$RR/hooks/local/lib" "$RR/sub" \
+    && cp "$ROOT/hooks/local/lib/bounded-run.sh" "$ROOT/hooks/local/lib/run-with-timeout.sh" "$RR/hooks/local/lib/" \
+    && : > "$HBT/t-rel"
+  ( cd "$RR" && unset BOUNDED_RUN_HB_DIR && set +u && . hooks/local/lib/bounded-run.sh && cd sub \
+    && BOUNDED_RUN_HEARTBEAT_SECS=0 bounded_run 5 "rel probe" -- true ) >/dev/null 2>&1
+  rel_new="$(find "$RR" -type f -newer "$HBT/t-rel" 2>/dev/null)"
+  case "$rel_new" in
+    *$'\n'*) bad "hb-relative-source-then-cd-writes-only-under-root-liveness" "more than one new file: [$rel_new]" ;;
+    "$RR/state/audit/liveness/rel-probe-"*-1.hb)
+      case "$(tail -n 1 "$rel_new")" in
+        "done rc=0 "*s|SKIPPED) ok "hb-relative-source-then-cd-writes-only-under-root-liveness" ;;
+        *) bad "hb-relative-source-then-cd-writes-only-under-root-liveness" "record: $(cat "$rel_new")" ;;
+      esac ;;
+    *) bad "hb-relative-source-then-cd-writes-only-under-root-liveness" "new files: [$rel_new]" ;;
+  esac
+  # TRIPWIRE: match only this suite's labels — an outer bounded_run wrapping this suite heartbeats into the same dir.
+  live_new="$(find "$ROOT/state/audit/liveness" -maxdepth 1 \( -name 'hang-probe-*.hb' -o -name 'stubborn-child-*.hb' \
+    -o -name 'degrade-*.hb' -o -name 'rel-probe-*.hb' \) -newer "$HBT/t0" 2>/dev/null)"
+  [ -z "$live_new" ] && ok "hb-suite-writes-nothing-under-live-state" \
+    || bad "hb-suite-writes-nothing-under-live-state" "$live_new"
+else
+  for r in hb-skip-path-records-skipped hb-relative-source-then-cd-writes-only-under-root-liveness hb-suite-writes-nothing-under-live-state; do skip_row "$r"; done
+fi
+
+###############################################################################
+# bounded_wait (A10): self-bounding poll on one regular file; never calls bounded_run.
+###############################################################################
+run_wait() { # run_wait <cap> <path> <ere>: stderr -> $HBT/err; rc = bounded_wait's
+  rm -f "$HBT/ready"
+  ( set +u; . "$LIB" >/dev/null 2>&1; : > "$HBT/ready"; bounded_wait "$2" "$3" "$1" ) 2>"$HBT/err"
+}
+if [ "$have_bw" -eq 1 ]; then
+  # TRIPWIRE: the append waits for bounded_wait's 2nd grep (its first poll, after it read the start
+  # size) — a timed sleep races the start-size read on a loaded MSYS host and reports growth 0.
+  mkdir -p "$HBT/gshim" && printf '#!/bin/sh\n[ -e "%s" ] && echo x >> "%s"\nexec "%s" "$@"\n' \
+    "$HBT/ready" "$HBT/grep-calls" "$(command -v grep)" > "$HBT/gshim/grep" && chmod +x "$HBT/gshim/grep"
+  printf 'started\n' > "$HBT/log"
+  ( i=0; while [ "$(cat "$HBT/grep-calls" 2>/dev/null | wc -l)" -lt 2 ] && [ "$i" -lt 120 ]; do sleep 1; i=$((i + 1)); done
+    printf 'DONE\n' >> "$HBT/log" ) & bw_writer=$!
+  PATH="$HBT/gshim:$PATH" BOUNDED_WAIT_POLL_SECS=1 run_wait 120 "$HBT/log" '^DONE$'; w_rc=$?
+  wait "$bw_writer" 2>/dev/null
+  if [ "$w_rc" -eq 0 ] && grep -q "bounded-wait: matched — .*(.*s, 13 bytes, growth 5)" "$HBT/err"; then
+    ok "bounded-wait-match-rc-0-reports-bytes-and-growth"
+  else
+    bad "bounded-wait-match-rc-0-reports-bytes-and-growth" "rc=$w_rc $(cat "$HBT/err")"
+  fi
+
+  printf 'running\n' > "$HBT/quiet"
+  w_start=$(date +%s)
+  BOUNDED_WAIT_POLL_SECS=120 run_wait 2 "$HBT/quiet" '^DONE$'; w_rc=$?
+  w_span=$(( $(date +%s) - w_start ))
+  if [ "$w_rc" -eq 124 ] && [ "$w_span" -le 60 ] \
+     && grep -q "bounded-wait: TIMEOUT after 2s — .*(8 bytes, growth 0)" "$HBT/err"; then
+    ok "bounded-wait-no-match-rc-124-poll-clamped-to-cap"
+  else
+    bad "bounded-wait-no-match-rc-124-poll-clamped-to-cap" "rc=$w_rc ${w_span}s $(cat "$HBT/err")"
+  fi
+
+  mkdir -p "$HBT/shim" && printf '#!/bin/sh\nexit 125\n' > "$HBT/shim/timeout" && cp "$HBT/shim/timeout" "$HBT/shim/gtimeout" \
+    && chmod +x "$HBT/shim/timeout" "$HBT/shim/gtimeout"
+  PATH="$HBT/shim:$PATH" FFHC_FORCE_NO_TIMEOUT=1 BOUNDED_WAIT_POLL_SECS=1 run_wait 2 "$HBT/absent" 'x'; w_rc=$?
+  [ "$w_rc" -eq 124 ] && ok "bounded-wait-no-timeout-binary-still-bounded" \
+    || bad "bounded-wait-no-timeout-binary-still-bounded" "rc=$w_rc (125 = it depended on a timeout binary)"
+  grep -q "bounded-wait: TIMEOUT after 2s — .*(absent)" "$HBT/err" && ok "bounded-wait-absent-path-is-not-yet" \
+    || bad "bounded-wait-absent-path-is-not-yet" "$(cat "$HBT/err")"
+
+  mkfifo "$HBT/fifo" 2>/dev/null || mkdir -p "$HBT/fifo"
+  BOUNDED_WAIT_POLL_SECS=1 run_wait 2 "$HBT/fifo" 'x'; w_rc=$?
+  [ "$w_rc" -eq 124 ] && grep -q "(not a regular file)" "$HBT/err" && ok "bounded-wait-non-regular-path-never-read" \
+    || bad "bounded-wait-non-regular-path-never-read" "rc=$w_rc $(cat "$HBT/err")"
+
+  run_wait 300 "$HBT/log" 'x'; w_rc=$?
+  [ "$w_rc" -eq 2 ] && grep -q "must stay under the 300s cache TTL" "$HBT/err" \
+    && ok "bounded-wait-cap-at-ttl-refused-rc-2" || bad "bounded-wait-cap-at-ttl-refused-rc-2" "rc=$w_rc $(cat "$HBT/err")"
+  run_wait 2 "$HBT/log" '('; w_rc=$?
+  [ "$w_rc" -eq 2 ] && grep -q "invalid ERE" "$HBT/err" \
+    && ok "bounded-wait-invalid-ere-refused-rc-2" || bad "bounded-wait-invalid-ere-refused-rc-2" "rc=$w_rc $(cat "$HBT/err")"
+  BOUNDED_WAIT_POLL_SECS=0 run_wait 2 "$HBT/log" 'x'; w_rc=$?
+  [ "$w_rc" -eq 2 ] && grep -q "not a positive integer" "$HBT/err" \
+    && ok "bounded-wait-non-positive-bound-refused-rc-2" || bad "bounded-wait-non-positive-bound-refused-rc-2" "rc=$w_rc $(cat "$HBT/err")"
+  run_wait 2 "" 'x'; w_rc=$?
+  [ "$w_rc" -eq 2 ] && ok "bounded-wait-missing-argument-refused-rc-2" \
+    || bad "bounded-wait-missing-argument-refused-rc-2" "rc=$w_rc $(cat "$HBT/err")"
+else
+  for r in bounded-wait-match-rc-0-reports-bytes-and-growth bounded-wait-no-match-rc-124-poll-clamped-to-cap \
+           bounded-wait-no-timeout-binary-still-bounded bounded-wait-absent-path-is-not-yet \
+           bounded-wait-non-regular-path-never-read bounded-wait-cap-at-ttl-refused-rc-2 \
+           bounded-wait-invalid-ere-refused-rc-2 bounded-wait-non-positive-bound-refused-rc-2 \
+           bounded-wait-missing-argument-refused-rc-2; do skip_row "$r"; done
+fi
 
 ###############################################################################
 # AC3e / AC6 — FFHC API intact + no regression: the existing health-check timeout

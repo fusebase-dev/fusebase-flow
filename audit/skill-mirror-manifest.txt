@@ -23,7 +23,7 @@
 .agents/skills/handoff/SKILL.md  43e10a76b973dc7b40a6a885ce1f7fc8cb3201fc477d36b726a25789746f396e
 .agents/skills/implementation-planning/SKILL.md  98cb052b69e74cf9e42c3009958b42c95949e1c168ca1ab53a31a9f967a7baa6
 .agents/skills/lightweight-lane/SKILL.md  2bb75d13ea0d29065bfb85717bd8f39e6f9cfc7b0778090d89360c70a83f490b
-.agents/skills/liveness-discipline/SKILL.md  dabc145f71f72d6fa74d195d3a7c13179edc57adbb9ba0e3202fa9321d8c6188
+.agents/skills/liveness-discipline/SKILL.md  a1e4d0f0d25916746fee3c2260bcc2c5181d9bcaa09dc18105a170d57a4b1fcd
 .agents/skills/module-size-discipline/SKILL.md  192702fd3774df95f6c1bbac08a58fce0e36603ee594bd43df7e8dfcb18d6120
 .agents/skills/north-star/SKILL.md  53d83bae6f5539c134a995c80ec3ef9f59178b9aee7e2cd8870c73379c7ba89d
 .agents/skills/phase-audit/SKILL.md  7410f5a2f6d1b9eb5ebf57849fa4378dc3fac059c02637ec913acc1ef8b3e5ae
@@ -44,7 +44,7 @@
 .agents/skills/skill-authoring/SKILL.md  359a126cf411ecc96d7610e1eb045ea1228a76ee4c4f9d472b44b2347ebf22b0
 .agents/skills/smoke-testing/SKILL.md  9c08743926e913f09c51b0be986c59800a35a8ff9f9a383db0c03e6154e84c33
 .agents/skills/task-delegation/SKILL.md  c5ba6705d9495d4ee6b91afd033f1daf89b0dfe02a118a9755ceeb0f42a75380
-.agents/skills/token-economy/SKILL.md  07a3a1b761f346370d85fe993cf5c326a8f86877887c12c8f067c79f88e2cbd8
+.agents/skills/token-economy/SKILL.md  7cec1d837594bff5bd30aca7a78bb688727d85fc4f1df04d9480d55149cfe778
 .agents/skills/validation-and-qa/SKILL.md  4162f7c4606cc6a2c7fea996f4b3c10b5ca47650aa1c54d5527f3b2ed9faf2dc
 .agents/skills/zoom-out/SKILL.md  ee5f705f7bba09b20a7d34a169231c014f708027bec7b00c4cae058455d20301
 .agents/skills/zoom-out/references/karpathy-guidelines.md  4bc83d79cee31ac6b59dd06251af59172493417df0d562ee631ff1e4945b7809
@@ -73,7 +73,7 @@
 .claude/skills/handoff/SKILL.md  43e10a76b973dc7b40a6a885ce1f7fc8cb3201fc477d36b726a25789746f396e
 .claude/skills/implementation-planning/SKILL.md  98cb052b69e74cf9e42c3009958b42c95949e1c168ca1ab53a31a9f967a7baa6
 .claude/skills/lightweight-lane/SKILL.md  2bb75d13ea0d29065bfb85717bd8f39e6f9cfc7b0778090d89360c70a83f490b
-.claude/skills/liveness-discipline/SKILL.md  dabc145f71f72d6fa74d195d3a7c13179edc57adbb9ba0e3202fa9321d8c6188
+.claude/skills/liveness-discipline/SKILL.md  a1e4d0f0d25916746fee3c2260bcc2c5181d9bcaa09dc18105a170d57a4b1fcd
 .claude/skills/module-size-discipline/SKILL.md  192702fd3774df95f6c1bbac08a58fce0e36603ee594bd43df7e8dfcb18d6120
 .claude/skills/north-star/SKILL.md  53d83bae6f5539c134a995c80ec3ef9f59178b9aee7e2cd8870c73379c7ba89d
 .claude/skills/phase-audit/SKILL.md  7410f5a2f6d1b9eb5ebf57849fa4378dc3fac059c02637ec913acc1ef8b3e5ae
@@ -94,7 +94,7 @@
 .claude/skills/skill-authoring/SKILL.md  359a126cf411ecc96d7610e1eb045ea1228a76ee4c4f9d472b44b2347ebf22b0
 .claude/skills/smoke-testing/SKILL.md  9c08743926e913f09c51b0be986c59800a35a8ff9f9a383db0c03e6154e84c33
 .claude/skills/task-delegation/SKILL.md  c5ba6705d9495d4ee6b91afd033f1daf89b0dfe02a118a9755ceeb0f42a75380
-.claude/skills/token-economy/SKILL.md  07a3a1b761f346370d85fe993cf5c326a8f86877887c12c8f067c79f88e2cbd8
+.claude/skills/token-economy/SKILL.md  7cec1d837594bff5bd30aca7a78bb688727d85fc4f1df04d9480d55149cfe778
 .claude/skills/validation-and-qa/SKILL.md  4162f7c4606cc6a2c7fea996f4b3c10b5ca47650aa1c54d5527f3b2ed9faf2dc
 .claude/skills/zoom-out/SKILL.md  ee5f705f7bba09b20a7d34a169231c014f708027bec7b00c4cae058455d20301
 .claude/skills/zoom-out/references/karpathy-guidelines.md  4bc83d79cee31ac6b59dd06251af59172493417df0d562ee631ff1e4945b7809
