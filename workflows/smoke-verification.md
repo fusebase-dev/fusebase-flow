@@ -16,9 +16,9 @@
 
 1. Read smoke prompts S1..Sn from `docs/specs/<slug>/verification-gate.md`; restate each success criterion + ground-truth diagnostic per `flow-skills/smoke-testing/SKILL.md`.
 2. Create evidence dir: `mkdir -p docs/tmp/handoff/<date>-<slug>-smoke/screenshots/`.
-3. For each S<n>: execute the steps, capture operator-visible outcome evidence, inspect the ground-truth diagnostic surface, and record PASS / FAIL — all sufficiency rules (supporting-checks-insufficient, UI/browser plan, shared-state discipline, test-data cleanup) per the smoke-testing skill.
+3. For each S<n>: execute the steps, capture operator-visible outcome evidence, inspect the ground-truth diagnostic surface, and record PASS / FAIL — all sufficiency rules (supporting-checks-insufficient, UI/browser plan, shared-state discipline, test-data cleanup) per the smoke-testing skill. After a FAIL, continue with every independent S<n>; a dependent row is `S<n>: BLOCKED-BY S<k>` (not-PASS) — `flow-skills/smoke-testing/SKILL.md` § Live-run discipline.
 4. Save evidence: `docs/tmp/handoff/<date>-<slug>-smoke/S<n>-<scenario>.{png,md,log}`.
-5. Compute pass ratio: `<n_pass>/<n_total>`.
+5. Compute pass ratio: `<n_pass>/<n_total>` from the last whole S1..Sn run on the final deploy (reruns after a fix: smoke-testing § Live-run discipline); a row `FLAKY (unresolved)` per smoke-testing § Flaky-result counts as FAIL even if it PASSed in that run.
 6. Append summary to deploy report:
    ```
    Smoke results: <n_pass>/<n_total> PASS

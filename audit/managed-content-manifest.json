@@ -202,7 +202,7 @@
     },
     {
       "path": "flow-skills/smoke-testing/SKILL.md",
-      "sha256": "166164a6f02f6328285aac35f8b8e3a1645555889b0dba61224dc69887f81ea4"
+      "sha256": "9c08743926e913f09c51b0be986c59800a35a8ff9f9a383db0c03e6154e84c33"
     },
     {
       "path": "flow-skills/task-delegation/SKILL.md",
@@ -1638,7 +1638,7 @@
     },
     {
       "path": "workflows/smoke-verification.md",
-      "sha256": "f9e2579c9c2e3d07e592f042e9095bbba3abf3c7b73cc1bd2f245074d4ea639f"
+      "sha256": "64f28530de43d41abbfe30542f5a6b3be9754558d6dec3e79f554ad6a041242b"
     },
     {
       "path": "workflows/verification-gate.md",
@@ -1649,5 +1649,5 @@
       "sha256": "b6580a1dbfb0756c0d8b2cbf02fd628066f2f74de55fdc83ed5d1961dd759918"
     }
   ],
-  "manifest_self_sha256": "93415f6b2a38a515de0c4991b48c53b56a7699fefc1492771e410d1af9b3f2e3"
+  "manifest_self_sha256": "7a50248fd69121ba18857c8fc206825fb93a53c87eab071f53c3c6ae2a87a649"
 }

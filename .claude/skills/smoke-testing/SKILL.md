@@ -88,7 +88,7 @@ Prevent pre-outcome signals from being mislabeled as smoke success. A smoke test
 11. If end-to-end execution is not feasible, report `PENDING-OPERATOR-SMOKE` with the missing prerequisite and exact operator steps. Do not claim PASS, DONE, or SHIPPED.
 12. Persist evidence under `docs/tmp/handoff/<date>-<slug>-smoke/` and include exact paths in the deploy report.
 13. Clean up or document test data and external-service side effects before DONE. Keep evidence files; remove throwaway data not needed for audit.
-14. If a smoke missed a bug, update future smoke methodology immediately: add the missed outcome or diagnostic surface to the next gate/handoff.
+14. If a smoke missed a bug, update future smoke methodology immediately: add the missed outcome or diagnostic surface to the next gate/handoff; inside the current gate apply it per § Live-run discipline (standard freeze).
 
 ### Flaky-result semantics (FAIL-then-PASS is not PASS)
 
@@ -110,6 +110,15 @@ launders a real defect (race, ordering dependency, state leak, async timing) int
   smoke threshold and blocks DONE like any FAIL.
 - Reproduction mechanics and the deterministic-vs-model-variance verdict split live in
   `flow-skills/validation-and-qa/SKILL.md` Sub-mode C.
+
+### Live-run discipline (reruns, waits, evidence standard)
+
+- **Freeze the standard per gate.** Before the first live run, commit pending smoke-contract edits and record the contract's commit (`git log -1 --format=%H -- docs/specs/<slug>/verification-gate.md`) in the evidence dir. A mid-gate tightening applies to rows not yet run and to the next gate: commit it and record the new contract commit in the evidence dir with the rows run under each commit. Re-prove an already-PASSed row only when the tightening shows its evidence missed its own pass criterion, and name those rows in the evidence dir.
+- **Run past a failure.** After a FAIL, run every remaining independent S<n>. A row that needs state or data another row creates is dependent: if that row failed, record `S<n>: BLOCKED-BY S<k>` (not-PASS against the threshold); never run it on missing setup.
+- **Audit waits once.** After the first timing failure, check every harness wait in one pass and correct all short waits together — never one wait per live launch. A wait on the operator-visible outcome is short only when stricter than the product's latency criterion (with no stated criterion, never) and is raised at most to that criterion, never past it; a wait on harness setup is short when below the setup latency the ground-truth diagnostic recorded (log or network timestamps). Short waits on product-finding rows (next bullet) are corrected in the same pass, raised at most to the criterion; the row stays a product finding on its recorded latency.
+- **Harness wait vs product failure.** The product's own latency criterion (spec or S<n> pass criterion) stays binding. A timing FAIL is harness-only ONLY with the recorded latency ATTACHED showing the harness wait was stricter than that criterion and the latency above the wait but within the product's stated criterion, or showing the wait timed something explicitly outside its scope (harness setup, not the operator-visible outcome); with no stated criterion only a wait on harness setup qualifies. Then correct the wait per the audit and keep the original FAIL in the evidence. Naming an infrastructure cause (cold start, platform or dev-environment latency) is never enough. A recorded latency over the criterion is a product finding whatever the wait was, as is any timing FAIL without that evidence: `validation-and-qa` Sub-mode C applies, an external cause clears it only under the Explained-external conditions (§ Flaky-result "Explained"), the original FAIL stays, and product timeouts and retries are never lengthened.
+- **Fakes need real timing.** A stub or fake service the harness controls runs with a latency mode set from measured real latency; an instant fake never exercises the harness waits.
+- **Rerun after a fix.** Rerun the failed and BLOCKED-BY rows, then one whole S1..Sn run on the final deploy; the reported ratio comes from that whole run, where a row still `FLAKY (unresolved)` counts as FAIL. A rerun after a change that targets that row's failure verifies the fix (a wait change counts only through the harness-only evidence above); FAIL-then-PASS with no such change stays FLAKY.
 
 ## Verification cost discipline (record-then-read default)
 
