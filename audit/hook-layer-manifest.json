@@ -186,7 +186,7 @@
     },
     {
       "path": "hooks/local/lib/phase_registry_check.py",
-      "sha256": "115a2a3f76948f00723f7067f3f02333433fa34a6f64b85057893d25beeafada"
+      "sha256": "6e4209518495891f56e80998bb42f8f8afde7ca5257316af313195b1ba3f43ec"
     },
     {
       "path": "hooks/local/lib/plugin-parity.sh",
@@ -598,7 +598,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "2749052270b9f7362ce42635c3d0faf82e5a3010bd5c53662040037489a6efe9"
+      "sha256": "03b40c5871b9f28e9ef2541cfc34cb4d961f43e08247a54dcb9b414df425e1f2"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -682,7 +682,7 @@
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
-      "sha256": "a1a3a3be6806eb465b81233c2f4e19be01fe1f7f1502fbd4a33638cd85f21354"
+      "sha256": "df160503cb0fe95188accc445f0a9d8543282185314177342c8cb22447de99c4"
     },
     {
       "path": "hooks/tests/test-fingerprint-row-per-tag.sh",
@@ -937,5 +937,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "8f82e722c86b92aee2753e827f21cb706bc04fb7e992a5c939b546dc4234ba37"
+  "manifest_self_sha256": "dca0654f509f84aad7ebba4cc8505d31cc045a015c410be6b5c359006324fe24"
 }

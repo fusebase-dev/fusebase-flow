@@ -24,7 +24,7 @@ import sys
 # The ratchet: the unreviewed count must EQUAL this. Lowered by the commit that reviews a row.
 # Seeded 2026-09-10 at 28 of 77 registered phases (measured, not guessed).
 # 5->4 (2026-09-12): health-check-timeout reviewed and promoted to FF_RELEASE_TAGS.
-# 4->3 (2026-10-15): liveness reviewed; deferred (awaiting hosted MSYS cost, H2).
+# 4->3 (2026-10-15): liveness reviewed and promoted to FF_RELEASE_TAGS (25 s hosted MSYS).
 FF_UNREVIEWED_BASELINE = 3
 
 REL_HEADER = "| Release responsibility | Existing required tags |"
