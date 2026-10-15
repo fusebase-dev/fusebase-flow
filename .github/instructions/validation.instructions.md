@@ -20,7 +20,7 @@ When the operator describes a single observed failure:
 2. Reproduce 3 times under the same conditions.
 3. Outcomes:
    - 3/3 reproduce → systemic; draft fix.
-   - 1/3 or 2/3 → likely model variance / non-determinism; document and recommend no-op close.
+   - 1/3 or 2/3 → deterministic app code = real race/state bug unless Explained-external; LLM/agent behavior = model-variance no-op close (`flow-skills/validation-and-qa/SKILL.md` Sub-mode C).
    - 0/3 → close as no-op-needed.
 
 ## Smoke prompts (post-deploy)

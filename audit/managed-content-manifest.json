@@ -1638,8 +1638,8 @@
     },
     {
       "path": "workflows/violation-recovery.md",
-      "sha256": "c3a3a5cdd7cef80617e2f2499834142cb5dee534e953bb412212895822b80acb"
+      "sha256": "b6580a1dbfb0756c0d8b2cbf02fd628066f2f74de55fdc83ed5d1961dd759918"
     }
   ],
-  "manifest_self_sha256": "e311899702b626e02e232cf3f682c46dad135f398d2754c714e737decf854dc9"
+  "manifest_self_sha256": "4fc00f26ca428f3f6b7c452dd0801de6f431e784506e90f670d591abd012e0ac"
 }

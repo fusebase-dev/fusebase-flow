@@ -126,7 +126,7 @@ So the first `Edit` of a protected path cannot mint the approval that would perm
 1. Stop draft work.
 2. Run 3 reproduction attempts under the same conditions.
 3. If 3/3 reproduce: continue draft (the failure is systemic).
-4. If 1/3 or 2/3: close as model-variance no-op; document the variance; revert any draft changes.
+4. If 1/3 or 2/3: deterministic app code = real race/state bug unless Explained-external; LLM/agent behavior = model-variance no-op close — document the variance, revert any draft changes (`flow-skills/validation-and-qa/SKILL.md` Sub-mode C).
 5. If 0/3: close as no-op-needed.
 
 ### FR-11 — Stop and ask, don't improvise
