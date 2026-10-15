@@ -47,7 +47,7 @@ Independent review of a diff against the spec contract, locked decisions, and FL
 
 ## Procedure
 
-1. **Trust the recorded gate verdict (review boundary).** When `validation-and-qa` has recorded a gate verdict ("Gate verified. Phase advances to Deploy."), trust it for the deterministic/cross-artifact fields — AC↔task map, decisions-cited-in-tasks, lint/typecheck status, TODO/FIXME/WIP scan, protected-path diff. Do not re-verify them; carry the gate's AC↔task verdict into the review's spec-alignment matrix by citation. If no gate verdict exists, route to `validation-and-qa` first — do not absorb its checks here.
+1. **Trust the recorded gate verdict (review boundary).** When `validation-and-qa` has recorded a gate verdict ("Gate verified. Phase advances to Deploy.") — the Product Owner side's verdict, never the implementer's row statuses or headline — trust it for the deterministic/cross-artifact fields: AC↔task map, decisions-cited-in-tasks, lint/typecheck status, TODO/FIXME/WIP scan, protected-path diff; gate-satisfaction rows are judged evidence, outside this trusted set. Do not re-verify the trusted fields; carry the gate's AC↔task verdict into the review's spec-alignment matrix by citation. If no gate verdict exists, route to `validation-and-qa` first — do not absorb its checks here.
 2. Run `git diff <baseline>..HEAD --stat` to get changed files. For Fusebase Apps diffs, read `docs/fusebase-cli-edition.md` and load the relevant CLI provider skills as review standards for app/runtime/domain behavior.
 3. Semantic review per task T<n>: read the corresponding commit (or accumulated diff). Judge:
    - Scope and simplicity: the change matches the *intent* of the `tasks.md` description, not just the listed files, and meets `flow-skills/zoom-out/references/karpathy-guidelines.md` §§2–3 (read it unless its exact body is already in context)
@@ -138,6 +138,7 @@ These are review-DEPTH triggers only. They never narrow the FR-21 Full-lane trig
 **Rereview by severity.** BLOCKER/HIGH correction → rereview the affected boundary. MEDIUM → focused check of that diff. LOW → the implementer's evidence, unless new evidence changes the classification. A reviewer does not reopen a fixed LOW on the same finding and the same evidence; a newly demonstrated defect is a NEW finding, not a reopened one.
 
 **Round bound.** Round 1 is the initial review, round 2 the correction review — default maximum two per change.
+Gate rounds (`workflows/verification-gate.md` § Gate failure response) apply this bound on their own line and never consume review rounds.
 
 **Round accounting is durable and checked BEFORE dispatch (binding).** A bound that exists only in chat cannot be checked before the next dispatch — it is unenforceable the moment the chat rolls over or a successor takes the work (`docs/problem-catalog/adversarial-review-convergence/problem.md`). So:
 
@@ -197,7 +198,7 @@ Diff for T42 adds a retry cap to `sync.ts`; the gate verdict is recorded.
 - Do NOT fix code yourself; surface findings, operator + implementer fix
 - Do NOT lock-or-redirect decisions; that's the operator's call (FR-11)
 - Do NOT block on stylistic preferences absent a lint rule; flag as non-blocker
-- Do NOT re-verify deterministic gate fields (AC↔task map, decisions-cited, lint/typecheck, TODO scan, protected paths) when a recorded gate verdict exists — trust it; absent a verdict, route to `validation-and-qa` first
+- Do NOT re-verify deterministic gate fields (AC↔task map, decisions-cited, lint/typecheck, TODO scan, protected paths) when a recorded PO-side gate verdict exists — trust it; absent a verdict, route to `validation-and-qa` first
 - Do NOT enforce the comment policy (FR-22) by proposing a regex/lint gate — it's a semantic call; review by reading. And don't only hunt over-commenting: a deleted tripwire/pointer is the symmetric failure (over-trim) and is a blocker.
 - Do NOT judge split quality (FR-25) by line counts alone — the gate already counts lines; review checks the semantic part (is the seam a nameable responsibility), which no regex can.
 - Do NOT certify "safe to ship" from scope/decision/style/size checks alone — a review without the step-4d defect hunt never looked for a bug, and "is this safe?" was the question. An empty blocker list must carry the hunt evidence (top-2 suspect paths examined).

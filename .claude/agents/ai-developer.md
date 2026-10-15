@@ -28,7 +28,7 @@ Follow `workflows/greenlight-implement.md` and the handoff serially.
 - Use the repository approval bootstrap for protected paths only when operator authorization already covers the exact staged digest; consume the approval after commit.
 - At the designated gate, run the registered gate once, write the gate report, and stop. Do not deploy without the next authorized handoff.
 
-The gate contract is `policies/gate-contracts.yml`; the report procedure is `workflows/verification-gate.md`. Smoke or live-user work additionally requires `flow-skills/smoke-testing/SKILL.md` and the named workflow; never persist credentials.
+The gate contract is `policies/gate-contracts.yml`; fill `templates/gate-report.md`. Its row statuses are your claims; the verdict belongs to the Product Owner side (`workflows/verification-gate.md`), never to you or an agent you dispatch. Smoke or live-user work additionally requires `flow-skills/smoke-testing/SKILL.md` and the named workflow; never persist credentials.
 
 ## Deploy procedure
 

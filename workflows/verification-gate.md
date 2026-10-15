@@ -14,7 +14,9 @@ If any required field is missing, the gate report is incomplete and must be redi
 
 ## Verification procedure (Product Owner side, via validation-and-qa skill)
 
-1. Verify all required fields present.
+The verdict is the Product Owner side's; the AI Developer's report carries row claims, never the verdict. A verdict issued by the session or delegated agent that implemented the gated tasks is void: rerun this procedure from the PO side. Every PO-side run of this procedure is one gate round, including the initial check and a run that stops at a missing field; record it before step 1 (§ Gate failure response).
+
+1. Verify all required fields present. For a file report, `bash hooks/local/verify-gate.sh <report> gate_report` is the advisory structural and row-value check (rc 0/1/2); it never issues the verdict.
 2. Cross-reference per-task SHAs against `tasks.md` — every task has a SHA.
 3. Cross-reference test deltas against `verification-gate.md` expected coverage.
 4. Verify each local acceptance row has risk/AC, dependencies, toolchain/platform, exact command, expected counterexample, actual rc/result, durable evidence, status, and invalidation rationale. Changed or unknown dependencies rerun the affected group; missing evidence remains open. `DEFERRED`/`UNVERIFIED` rows are never PASS.
@@ -26,9 +28,9 @@ If any required field is missing, the gate report is incomplete and must be redi
    - No TODO/FIXME/WIP markers in diff
    - Spec status still DRAFT (will flip in deploy)
 8. Confirm lint/typecheck, staged secret scan, protected-path, module-size, and pre-commit controls ran live.
-9. If verified, advance phase to Deploy. If not, redirect AI Developer with concrete failure list.
+9. Recount the gate-report §7 rows yourself at the gated SHA. All PASS and steps 1–8 clean → "Gate verified. Phase advances to Deploy." naming the gated SHA and your recount (`<n> PASS / 0 FAIL`). Otherwise redirect the AI Developer with the FAIL rows, or at the round limit return `BLOCKED-AT-gate-budget` (§ Gate failure response).
 
-`code-review` trusts this gate's recorded verdict for the deterministic/cross-artifact fields (AC↔task map, decisions-cited, lint/typecheck, TODO scan, protected paths) and reviews only semantic dimensions — see `flow-skills/code-review/SKILL.md`.
+`code-review` trusts this gate's recorded PO-side verdict for the deterministic/cross-artifact fields (AC↔task map, decisions-cited, lint/typecheck, TODO scan, protected paths) and reviews only semantic dimensions — see `flow-skills/code-review/SKILL.md`.
 
 ## Smoke prompts (when applicable)
 
@@ -53,9 +55,12 @@ Each ticket gets its own `docs/specs/<slug>/verification-gate.md` drafted by `im
 
 ## Gate failure response
 
+**Gate rounds.** Count them under `flow-skills/code-review/SKILL.md` § Round bound as written (default 2; durable line in the artifact it names, read and updated before each round; successors inherit it; only explicit operator authorization raises it), on a separate line: `T<gate> @ <gated SHA> — gate rounds: 1 of 2`. A correction commit updates the SHA, never the count. The counter is not shared with review rounds: that bound numbers the initial diff review round 1, and review starts only after a gate verdict. When any redirect in the table below (missing field, evidence gap, lint/typecheck, protected path or FAIL rows) would need a round past the limit, return `BLOCKED-AT-gate-budget` to the operator with the open findings, and FAIL rows still FAIL, never relabelled PASS; every redirect below defers to this.
+
 | Failure | Response |
 |---|---|
 | Missing field | Redirect AI Developer: "Gate report missing <field>. Re-run." |
+| Row status not `PASS`/`FAIL` (✓, PARTIAL, blank), or `PASS` without its own evidence | Count the row as FAIL; redirect naming it |
 | Test delta below expected | Surface: missing tests for AC<n>; require additional task |
 | Scoped evidence has no complete risk/dependency row | Keep affected AC open; rerun or complete the ledger |
 | Deferred/unverified evidence presented as PASS | Reject the claim; preserve the row as open |

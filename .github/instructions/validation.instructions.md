@@ -12,6 +12,8 @@ Required fields are canonical in `policies/gate-contracts.yml: gate_report` (mac
 
 If any field is missing, redirect: "Gate report missing <field>. Per FR-05, complete reports only. Re-run."
 
+Rows are AI Developer PASS/FAIL claims; only the Product Owner side issues the verdict, after its own recount, and gate rounds are bounded (default 2, then `BLOCKED-AT-gate-budget`) per `workflows/verification-gate.md`.
+
 ## Reproducibility before fix (FR-10)
 
 When the operator describes a single observed failure:

@@ -14,15 +14,15 @@
     },
     {
       "path": "agents/ai-developer/AGENT.md",
-      "sha256": "203f7cfd0e767bfbc3f90850073b3ac65c673446fcb4019faad5d44bf3d8ca8e"
+      "sha256": "ede645f67844b31dc0df78a0a2e20e31e9e7ea8a32066d91d00387f0a1583c14"
     },
     {
       "path": "agents/product-owner/AGENT.md",
-      "sha256": "4901c1b187cecb1cb665362243f5ffa40eb55e685cea94fe05b932872c32409a"
+      "sha256": "a63da9e06157a4cb457d0744e8d4a3e87d377dc90435ceb1ff2cac0bbac9bb61"
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "b1cbf2c66e716f04b158a27d76558fb9f9dee136d339eacd31196675416a3b53"
+      "sha256": "23e134c73187942257ab49e51b29ae278eea132c1b629f67dd81823e3a6405b0"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -50,7 +50,7 @@
     },
     {
       "path": "flow-skills/code-review/SKILL.md",
-      "sha256": "409f8455b65a8a3ba25126adc8e3113e7181dd0e6fc0f6e2726f409628c4374e"
+      "sha256": "50c5427df90d74ae67f7363322b70510865aa090d2ba2968b21676e7462db960"
     },
     {
       "path": "flow-skills/comment-policy/SKILL.md",
@@ -186,7 +186,7 @@
     },
     {
       "path": "flow-skills/role-discipline/references/product-owner.md",
-      "sha256": "0e6e99972c5acf761b6b0921bf4918893e099effa2064ec997ecb9b23272e94f"
+      "sha256": "e490fcf71ea0e54b0cceb91bbde5a14225ca19db04cc7251d5c10ea2a2ad18b1"
     },
     {
       "path": "flow-skills/role-discipline/references/shared-protocols.md",
@@ -214,7 +214,7 @@
     },
     {
       "path": "flow-skills/validation-and-qa/SKILL.md",
-      "sha256": "4162f7c4606cc6a2c7fea996f4b3c10b5ca47650aa1c54d5527f3b2ed9faf2dc"
+      "sha256": "c13af93fa58767a3e3752e38e89ca32fd651868b0a9547825deefe0220fbd545"
     },
     {
       "path": "flow-skills/zoom-out/SKILL.md",
@@ -1598,7 +1598,7 @@
     },
     {
       "path": "templates/verification-gate.md",
-      "sha256": "ab22b42b8d669587bdb4cfa04797a89a73eb9fd3588b21d75563fae87237d1a4"
+      "sha256": "455a5d2ce36290cd66cb4947bb05eef6789f6746aaa8a1f6c2393730799d588b"
     },
     {
       "path": "workflows/architect-escalation.md",
@@ -1646,12 +1646,12 @@
     },
     {
       "path": "workflows/verification-gate.md",
-      "sha256": "7bf7400f1dffd24514ec191fb8c7733b1e49e06f4bf5fc4bdf29b0e522c1f476"
+      "sha256": "9df0e43a70bee9d04a660654c384ce86957f620cad01069e2ba5fa411a2166d5"
     },
     {
       "path": "workflows/violation-recovery.md",
       "sha256": "b6580a1dbfb0756c0d8b2cbf02fd628066f2f74de55fdc83ed5d1961dd759918"
     }
   ],
-  "manifest_self_sha256": "1db9bb82bc27de5f480631237c8af53a8a631bd26a9662ca050b5fb888e43dd9"
+  "manifest_self_sha256": "2cc4e6a9961320af8f8dcfc76425cfb66aae11f67a6958c4dc15a09fa7711f7c"
 }

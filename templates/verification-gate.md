@@ -23,6 +23,8 @@
 
 Rules: changed dependencies invalidate matching rows; unknown dependency completeness reruns the affected group. HEAD/filename equality alone is insufficient. Each selected phase records START/END, canonical tag, elapsed time, rc, and timeout budget; a missing phase, zero result rows, crash, or timeout fails. After an interrupted phase, attach a full owned-descendant process scan and clear every survivor; parent-process absence is insufficient. `DEFERRED`/`UNVERIFIED` never means PASS. Scoped/fast output may satisfy only mapped local rows; it cannot satisfy a full-suite or release claim. Keep lint/typecheck, staged secret, protected-path, module-size, and pre-commit checks live.
 
+In the gate report, a `DEFERRED`/`UNVERIFIED` ledger row counts as `FAIL` (`templates/gate-report.md` §7).
+
 ## Required gate-report fields
 
 Per `policies/gate-contracts.yml: gate_report` (machine-readable schema); the AI Developer produces the report from `templates/gate-report.md`. Do not restate the field list here.

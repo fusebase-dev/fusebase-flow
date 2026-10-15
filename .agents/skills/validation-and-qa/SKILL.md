@@ -54,9 +54,9 @@ Execution sequence for code changes: `flow-skills/zoom-out/references/karpathy-g
 
 ### Sub-mode A — Verification gate
 
-1. Read `verification-gate.md` to learn the contract (smoke prompts, probe list); required gate-report fields are canonical in `policies/gate-contracts.yml: gate_report` (producer template: `templates/gate-report.md`).
-2. Verify completeness of the pasted gate report against that field schema.
-3. If any field missing, redirect implementer: "Gate report missing <field>. Per FR-05, complete reports only. Re-run."
+1. Record this gate round before anything else (`workflows/verification-gate.md` § Gate failure response). Read `verification-gate.md` to learn the contract (smoke prompts, probe list); required gate-report fields are canonical in `policies/gate-contracts.yml: gate_report` (producer template: `templates/gate-report.md`).
+2. Verify completeness of the pasted gate report against that field schema. For a file report, `bash hooks/local/verify-gate.sh <report> gate_report` is the advisory structural and row-value check; it never issues the verdict.
+3. If any field missing, redirect implementer: "Gate report missing <field>. Per FR-05, complete reports only. Re-run." — unless that redirect would need a gate round past the limit: then `BLOCKED-AT-gate-budget` (`workflows/verification-gate.md` § Gate failure response).
 4. Run cross-artifact consistency check (every AC exercised in tasks; every locked decision cited where applied; no TODO/FIXME/WIP markers; spec status still DRAFT).
 5. **Apply the 3-question test for empirical coverage** to each AC:
    1. *Did this AC actually run on a real input?* (or only in unit tests with mocks?)
@@ -73,7 +73,7 @@ Execution sequence for code changes: `flow-skills/zoom-out/references/karpathy-g
    - Auth/session plan, including whether synthetic test data or live-user verification is required.
    - Test data setup using unique values; no exact-count assumptions against shared state unless the test created the records.
    - Browser-visible evidence plus backend/log/API diagnostic evidence when the feature spans frontend and backend.
-7. If passes, output approval to operator with explicit phrase "Gate verified. Phase advances to Deploy."
+7. If passes, output approval to operator with explicit phrase "Gate verified. Phase advances to Deploy." naming the gated SHA and your own §7 recount (`<n> PASS / 0 FAIL`); otherwise redirect with the FAIL rows, or at the round limit return `BLOCKED-AT-gate-budget` with them still FAIL. You issue the verdict as the PO side; never take it from the report's statuses or headline. A delegated gate check never runs under the AI Developer agent definition or in the session that implemented the gated tasks.
 
 **Release evidence is CI, never a local run.** No `hooks/tests/run-tests.sh` invocation on a developer host is release evidence — the CI `verify` job on the tagged SHA is (`PUBLISHING.md` § Release evidence authority). A local run is unpinned-host feedback; it records neither SHA nor platform. Do not accept a local result as a release claim.
 

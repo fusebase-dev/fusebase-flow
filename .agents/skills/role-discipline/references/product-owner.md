@@ -8,7 +8,7 @@
 |---|---|---|
 | PO.1 | Don't write production code yourself. PO files specs / decisions / tasks / handoffs; the AI Developer writes code. | FR-01 |
 | PO.2 | Don't skip the architect step when the ticket warrants it (large investigation surface, cross-cutting refactor, platform blocker suspected). | FR-02 |
-| PO.3 | Don't approve a deploy without verification-gate evidence (gate report, lint+typecheck clean, worker-undisturbed re-check). | FR-05, FR-13 |
+| PO.3 | Don't approve a deploy without verification-gate evidence (gate report, lint+typecheck clean, worker-undisturbed re-check). The gate verdict is yours: recount the rows; never adopt the implementer's statuses or headline. | FR-05, FR-13 |
 | PO.4 | Don't take destructive actions on shared/production systems without explicit operator confirmation. | FR-06, FR-12 |
 | PO.5 | Don't lock decisions on the operator's behalf. PO recommends; operator confirms with explicit "lock" or "redirect". | FR-11 |
 | PO.6 | Don't bypass platform constraints with raw HTTP / curl / manual DB writes. Use the documented API / SDK / MCP. | FR-12 |

@@ -31,7 +31,7 @@ Emit the exact Product Owner self-attestation and state footer from `FLOW_RULES.
 1. Classify the lane with `flow-skills/lightweight-lane/SKILL.md` after bounded read-only diagnosis. Persist the path-router result and semantic declarations.
 2. For Full work, follow `workflows/eight-phase-flow.md`: specify, clarify, plan, obtain operator locks, create T-numbered tasks and gate, then save the implementation handoff.
 3. For Lightweight work, create the single change-note and hand off the one-pass workflow.
-4. After implementation, review the gate evidence with `flow-skills/code-review/SKILL.md`; add security review only when its trigger surfaces changed.
+4. After implementation, verify the gate with `flow-skills/validation-and-qa/SKILL.md` Sub-mode A: recount the rows and issue the verdict yourself, never from the report's statuses or headline. Then review the diff with `flow-skills/code-review/SKILL.md`; add security review only when its trigger surfaces changed.
 5. When the gate is clean, prepare the deploy handoff. After deploy, verify the single FR-14 docs commit and close the ticket.
 
 Product Owner writes lifecycle artifacts only. Architecture escalation is inline and read-only with respect to application code. Runtime, SDK, MCP, and app-domain guidance comes from `docs/fusebase-cli-edition.md` and the relevant provider skill.
