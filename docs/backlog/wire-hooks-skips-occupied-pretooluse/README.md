@@ -8,12 +8,12 @@
 
 ## Release action REQUIRED (open — PO/release call, not done here)
 
-`docs/release-notes/v4.14.0.md:6-9` and `CHANGELOG.md` § [4.14.0] direct **every exposed consumer** at `bash hooks/local/post-fusebase-update.sh --wire-hooks` as the E6 security remediation. For a consumer holding a consumer-authored PreToolUse block that command silently did not wire enforcement. Two corrections belong in the next release note:
+`docs/release-notes/v4.14.0.md:6-9` and `docs/release-notes/CHANGELOG-pre-5.md` § [4.14.0] direct **every exposed consumer** at `bash hooks/local/post-fusebase-update.sh --wire-hooks` as the E6 security remediation. For a consumer holding a consumer-authored PreToolUse block that command silently did not wire enforcement. Two corrections belong in the next release note:
 
 | Carrier | Stale claim | Correction |
 |---|---|---|
 | `docs/release-notes/v4.14.0.md:60` | "Existing install, runs `--wire-hooks` → Matcher widened in place" | True only when a Flow block already exists. Consumer-only array → nothing widened, nothing added |
-| `CHANGELOG.md` § [4.14.0] + `docs/release-notes/v4.14.0.md:6-9` | "Existing installs stay exposed until they re-merge" | A consumer who DID re-merge could still be exposed pre-fix; they must re-run `--wire-hooks` on the fixed release and confirm `grep -c hooks/handlers/pre_tool_use.py .claude/settings.json` ≥ 1 |
+| `docs/release-notes/CHANGELOG-pre-5.md` § [4.14.0] + `docs/release-notes/v4.14.0.md:6-9` | "Existing installs stay exposed until they re-merge" | A consumer who DID re-merge could still be exposed pre-fix; they must re-run `--wire-hooks` on the fixed release and confirm `grep -c hooks/handlers/pre_tool_use.py .claude/settings.json` ≥ 1 |
 
 Published tags are immutable — the correction goes in the NEXT release note, not by rewriting v4.14.0.
 
