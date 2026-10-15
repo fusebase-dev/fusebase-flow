@@ -4,28 +4,30 @@
 
 | Item | Outcome | Status |
 |---|---|---|
-| O14 | FR-10 partial-reproduction carriers point at validation-and-qa Sub-mode C | in build |
-| O1 | One lint/typecheck run per commit (pre-commit); receipt-reuse machinery removed (helper path + 2-arg function kept for installed copies); effective-hook fallback (Astra F1) | in build |
-| O2 | `hooks/git/pre-commit`: named repair for a missing runner; per-stage timings (builtins) | in build |
-| O-tier | Docs-only commit tier: project-declared allowlist, empty by default, read from HEAD; FR-13 wording | design |
-| O3 | Deny `git commit -n` clusters and `core.hooksPath` setting forms (hard deny incl. `--unset`); narrow heuristic contract (Astra F2) | design |
-| O4 | FR-27 premise corrected: watched from outside; watcher default for wakeable sessions; verified host wake paths only | in build |
-| O5 | `bounded_run` heartbeat (`state/audit/liveness/`, `.git/info/exclude`); `bounded_wait`; liveness phase reviewed | in build |
-| O6 | 1h sub-agent cache TTL: computed break-even R/W > 0.75/(2−r) (supersedes T127 flat rejection) | in build |
-| O7 | Gate contract: PASS/FAIL rows with evidence; label hints; `self_attestation` removed; value validator (advisory) | in build |
-| O8 | Gate verdict is the PO side's; gate rounds counted against the round bound (Astra F4) | in build |
-| O9 | Declared task inputs + agent tool reach (judged guidance) | after profile design |
-| O-profile | Committed project tool profile for Flow agents (`policies/agent-tools.yml`, protected), survives upgrade + preflight | design |
-| O10 | Slice-first reading for the AI Developer | in build |
-| O11 | Unattended ordering, own-brief re-dispatch, successor brief, grant ≠ approval artifact | in build |
-| O12 | Continue authorized independent work while an answer is pending (not PO); scope close with carry-over is forward | in build |
-| O13 | Smoke live-run discipline; product criterion binding over harness attribution (Astra F6) | in build |
-| O15 | find-wasted-effort links Flow's gate-report template; rounds by recorded Task range | in build |
-| O16 | token-waste-audit: advisor calls priced; wall-time lens; sub-agent rewrite share + threshold | in build |
-| O17 | Stop hook: completion evidence from agent-authored text only, obligations keep full scan; repeat-deny guard (Astra F7–F11) | design |
-| O18 | ROADMAP / hooks README / smoke template / framework.md truth | in build |
-| O19 | Pre-5.0 CHANGELOG archived to `docs/release-notes/CHANGELOG-pre-5.md` | release prep |
+| O14 | FR-10 partial-reproduction carriers point at validation-and-qa Sub-mode C | DONE T142 `548f3ee` |
+| O18 | ROADMAP / hooks README / smoke template / framework.md truth | DONE T143 `5044c2a` |
+| O7 | Gate contract: PASS/FAIL rows with evidence; label hints; `self_attestation` removed; value validator (advisory); new deferred phase `gate-contract` | DONE T144 `5551b26` (FR-07 mint/consume) |
+| O11 | Unattended ordering, own-brief re-dispatch, successor brief, grant ≠ approval artifact (scope `command_only_v1` vs `git_push_v1`) | DONE T145 `4b70752` |
+| O4 | FR-27 premise corrected: watched from outside; watcher default for wakeable sessions; verified host wake paths only | DONE T146 `cb04186` |
+| O13 | Smoke live-run discipline; product criterion binding over harness attribution (Astra F6) | DONE T147 `dbfc515` |
+| O16 | token-waste-audit: advisor calls priced (past totals omitted them); wall-time lens; sub-agent rewrite share + threshold | DONE T148 `520337c` |
+| O12 | Continue authorized independent work while an answer is pending (not PO); scope close with carry-over is forward | DONE T149 `f569392` |
+| O1+O2 | One lint/typecheck run per commit; receipt reuse removed (helper path + 2-arg function kept); effective-hook fallback (Astra F1); named repair; per-stage timings incl. blocking stages (Astra diff F2) | DONE T150 `b5236ef` (one outcome: shared hook/helper/test; FR-07 mint/consume; independent review) |
+| O6 | 1h sub-agent cache TTL: computed break-even R/W > 0.75/(2−r) (supersedes T127 flat rejection) | DONE T151 `a96baaf` |
+| O9 | Declared task inputs (`**Inputs:**`) + agent tool reach (judged guidance) | DONE T152 `9875f88` |
+| O9b | Committed project tool profile `policies/agent-tools.yml` → `.claude/agents/<agent>-project.md` variants; base mirrors untouched; preflight 5b2 | DONE T153 `35ae1c6` (independent review, 2 rounds: orphan F1 fixed) |
+| O19 | Pre-5.0 CHANGELOG archived to `docs/release-notes/CHANGELOG-pre-5.md` | DONE T154 `7f99fa4` |
+| O5 | `bounded_run` heartbeat (`state/audit/liveness/`, `.git/info/exclude`); `bounded_wait`; liveness phase reviewed | DONE T155 `11d9b08` |
+| O8 | Gate verdict is the PO side's; gate rounds counted against the round bound (Astra F4); any over-limit redirect → `BLOCKED-AT-gate-budget` | DONE T156 `3db790e` |
+| — | `liveness` promoted to `FF_RELEASE_TAGS` (46→47; 25 s hosted MSYS, run 38707275006) | DONE T157 `b1c73e5` |
+| O10 | Slice-first reading for the AI Developer (handoff full; spec AC/Out of scope/invariants + cited; decision matrix full) | DONE T158 `904a05a` |
+| O-tier | Docs-only commit tier: project-declared `policies/validator-free-paths.yml`, absent by default, read from HEAD; FR-13 wording | READY (Astra diff SHIP; worktree `c:/tmp/flow-wt/intT`) — waits on operator FR-13 OK |
+| O3 | Deny `git commit -n` clusters, `--no-veri*`, `core.hooksPath` setting forms (hard deny incl. `--unset`) | BLOCKED-AT-review-budget (premise r2 REWORK: backtracking) — operator decides extra round |
+| O17 | Stop hook: evidence from agent-authored text; obligations keep full scan; repeat-deny guard; host-valid output | BLOCKED-AT-review-budget (premise r2 REWORK: refusal provenance, uncorrelated downgrade) — operator decides extra round |
+| O15 | find-wasted-effort links Flow's gate-report template; rounds by recorded Task range | BLOCKED-AT-review-budget (r2 FIX: false gate-block dismissals, §7 FAIL rows unused) — operator decides extra round |
 | O20 | `FLOW_RULES.md` status line → FR range (release version-sweep approval) | release prep |
+
+Focused hosted feedback (both platforms, all green): run 38698585420 (T142–T151, 25 groups), 38707275006 (T152–T155, 17 groups), 38713742244 (T156–T158, 10 groups); push runs green at each push.
 
 ## Explicitly not built
 
