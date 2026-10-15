@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "9d87266ead5882ad9a5825ffb9275cf6fb54cc74e1bd57c8832699260b99d2a0"
+      "sha256": "cf9f86aac3432177981961da131e84f3578452e447f871947523edd377136a2f"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -118,7 +118,7 @@
     },
     {
       "path": "flow-skills/implementation-planning/SKILL.md",
-      "sha256": "3de0f2052509974e9a868a8353e106b189d563c6a0850c191ce51cb45b52279a"
+      "sha256": "98cb052b69e74cf9e42c3009958b42c95949e1c168ca1ab53a31a9f967a7baa6"
     },
     {
       "path": "flow-skills/lightweight-lane/SKILL.md",
@@ -206,7 +206,7 @@
     },
     {
       "path": "flow-skills/task-delegation/SKILL.md",
-      "sha256": "6f95b1a72100027516d3ad5153cf0e46a6911031e7e04a2c857495790a061cb9"
+      "sha256": "c5ba6705d9495d4ee6b91afd033f1daf89b0dfe02a118a9755ceeb0f42a75380"
     },
     {
       "path": "flow-skills/token-economy/SKILL.md",
@@ -1586,7 +1586,7 @@
     },
     {
       "path": "templates/tasks.md",
-      "sha256": "7a44638354e524674409ef856d8f168d89109bed79c804cdbde43cc0571b50e7"
+      "sha256": "251c6b9005467d9d968759f25ea74a68b1523dc6e152a739e53c1a5f6f8742e0"
     },
     {
       "path": "templates/verification-gate.md",
@@ -1645,5 +1645,5 @@
       "sha256": "b6580a1dbfb0756c0d8b2cbf02fd628066f2f74de55fdc83ed5d1961dd759918"
     }
   ],
-  "manifest_self_sha256": "23dc7dc25b4cb51c92598a14967b3288be34922c05e449e500a76cbf2394abc9"
+  "manifest_self_sha256": "a7b03c27b9e9f8704013b0bd0c4bc24fc392826215dfbf379a0653f8c204bf91"
 }

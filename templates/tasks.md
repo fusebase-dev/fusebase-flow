@@ -26,6 +26,7 @@
 **Files:** `<path>`, `<path>`
 **Module-size (FR-25):** <"all targets under ceiling" | "extracts <concern> into `<new module>`" | "exemption: <one-line reason> (operator-approved)">
 **Cites:** decision <Letter><n>
+**Inputs:** <required inputs other than decisions (owner answers, external references) — each with the tool or access that reads it — or "—">
 **Depends on:** <T-numbers, or "—">
 **Acceptance:** AC<n> from spec
 **Tests:** new unit / integration / e2e tests covering this scope

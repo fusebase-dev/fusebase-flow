@@ -83,7 +83,7 @@ Every delegated task gets a brief with:
 | Objective | one bounded outcome |
 | Role boundary | read-only / code-edit / test-only |
 | Ownership | exact files, modules, or question |
-| Inputs | relevant artifacts and skill paths already loaded; code-edit workers must read `FLOW_RULES.md` (to `## Amendment log`) and `flow-skills/role-discipline/references/ai-developer.md` before editing |
+| Inputs | relevant artifacts and skill paths already loaded; code-edit workers must read `FLOW_RULES.md` (to `## Amendment log`) and `flow-skills/role-discipline/references/ai-developer.md` before editing; each required input from the task's `Inputs:` line with the tool that reads it — dispatch only to an agent whose `tools:` line has that tool (the `<name>-project` variant when only it has it, § Agent tool reach), otherwise stop with `BLOCKED-AT-input` naming the input and the missing tool |
 | Forbidden actions | no revert of others' edits; no deploy; no secrets; no edits beyond §3 of `flow-skills/zoom-out/references/karpathy-guidelines.md` |
 | Domain skills | relevant CLI provider skill names from `docs/fusebase-cli-edition.md`, if the task touches Fusebase Apps runtime/domain behavior |
 | Output format | the **Delegated return shape** (§5): verdict · SHAs · deltas · artifact pointers · residual risk · context, within the §5 **return budget** |
@@ -190,6 +190,27 @@ Per-project selection lives in `policies/model-routing.yml` (optional; per-machi
 **Fallback (binding).** An absent, malformed, unavailable or unsupported selector produces a RECORDED fallback — continue on the available host model, sequentially if necessary. Never stop a run for model configuration, never assume an unverified model mapping, never promise per-agent effort (effort is session-level). When no independent agent is reachable, the review still runs and is reported as a **same-family review**; if no independent pass is possible at all, report that limitation instead of claiming independence. Record the resolved model when the host exposes it, otherwise `resolution unavailable`.
 
 **Escalation.** Escalate a tier pre-emptively only where the plan marks the slice HIGH risk; otherwise only after an attempt has actually failed, within the host's real capabilities and the existing retry bounds (`liveness-discipline`).
+
+## Agent tool reach
+
+A Flow agent's `tools:` line is Flow's (`agents/<name>/AGENT.md`). Never edit its mirror `.claude/agents/<name>.md`: preflight reports the drift, and recovery preserves the edit and exits partial.
+
+When a task's required input needs a tool the Flow agent lacks, add it to the project's tool profile, `policies/agent-tools.yml`. The profile is project-owned: Flow never ships, upgrades or restores it. It is protected (`policies/*.yml`), so the operator approves the exact tool list in chat and the commit uses a single-use approval.
+
+    schema_version: 1
+    agents:
+      ai-developer:
+        add_tools: [mcp__<server>__<tool>]
+
+`bash hooks/local/mirror-agents.sh` generates `.claude/agents/<name>-project.md`: the Flow body, the Flow `tools:` list plus the profile's tools, and a generated marker. The Flow mirror stays a byte copy. Upgrade, `post-fusebase-update.sh` and `mirror-agents.sh` regenerate the variant, and remove it when its profile entry goes. Preflight reports a missing, stale or hand-edited variant; a hand edit is preserved, never overwritten. Commit the profile and the variant together.
+
+Dispatch `<name>-project` only for tasks whose `Inputs:` need a profile tool; every other task keeps the lighter `<name>`. The variant is the same role: `<name>-project` counts as `<name>` for every role, gate and agent-type rule.
+
+Profiles only add tools: never `AskUserQuestion` (FR-19), never `Agent`/`Task`, named MCP tools only. A tool is reach, never authority: role boundaries, approvals and gates are unchanged (FR-12). Flow's hooks do not inspect MCP tool calls, so list only the tools the inputs need. Reach is not connection: the MCP server must be configured and signed in for the session.
+
+Reserved agent names: every Flow agent name, its `-project` variant, and the FuseBase CLI agents (`known_names` in `hooks/local/fusebase-flow-overlays/agent-surface-ownership.json`). Any other `.claude/agents/<name>.md` is the project's own file; Flow never writes, restores or flags it. If such an agent works as a Flow role, its body says "Read and follow `agents/<role>/AGENT.md` before working." — never a copied body, which stops receiving Flow updates.
+
+An input no reachable agent can read is a question (FR-11) or `BLOCKED-AT-input` naming the input and the missing tool — never a fallback that builds without it; PENDING states belong to verification only (`smoke-testing`). Codex and other hosts without per-agent tool lists (`.codex/agents/` is operator-referenced; no variant is generated there): guidance only — confirm the session itself can read the input.
 
 ## Correction ownership
 
