@@ -2,7 +2,7 @@
 # Simulate a FuseBase CLI agent-asset refresh followed by Fusebase Flow recovery.
 # The test proves ownership behavior, not exact CLI wording.
 #
-# Entry point only. The 34 predicates live in five test modules plus fixture builders (step 4 of
+# Entry point only. The 35 predicates live in five test modules plus fixture builders (step 4 of
 # docs/specs/backlog-triage-execution/architecture-review.md § Q2 — "delete the monolithic phase
 # after a 31-to-new-test coverage map proves every predicate has an owner"):
 #
@@ -19,7 +19,7 @@
 #
 # Output contract (parsed by run-tests.sh run_shell_phase):
 #   "PASS: cli-flow-recovery <name>" / "FAIL: cli-flow-recovery <name>"; exit = fail count.
-# Step 7 moved this phase off the single-row exit-code treatment: 34 predicates now report as 34
+# Step 7 moved this phase off the single-row exit-code treatment: 35 predicates now report as 35
 # rows, so a red run names the predicate instead of one opaque "exit 1".
 
 set -euo pipefail
@@ -244,6 +244,14 @@ ffcf_overlay_noop() {
   fi
 }
 
+ffcf_t_variants() {
+  if "$python_bin" "$ROOT/hooks/tests/test-agent-tool-profile.py" --with-shell; then
+    pass "T153: project agent variants generated beside byte-identical base mirrors; hand edits preserved; profile validated"
+  else
+    fail "T153: project agent variants"
+  fi
+}
+
 if [ -n "$FFCF_SELECTED" ]; then
   if [ -n "${FFCF_SELECTOR_TEST_DELAY_SECS:-}" ]; then
     sleep "$FFCF_SELECTOR_TEST_DELAY_SECS"
@@ -270,3 +278,4 @@ ffcf_direct_run
 ffcf_t34_bootstrap
 ffcf_t89_eol
 ffcf_overlay_noop
+ffcf_t_variants

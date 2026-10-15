@@ -91,6 +91,7 @@ with tempfile.TemporaryDirectory() as d:
         "hooks/local/upgrade.local.sh": "operator override\n",
         "hooks/shared/__pycache__/x.cpython-311.pyc": "noise\n",
         "policies/command-policy.yml.pre-upgrade-20260101T000000Z": "backup\n",
+        "policies/agent-tools.yml": "schema_version: 1\nagents: {}\n",
     }
     t = tree(Path(d), dict(BASE_FILES, **extra))
     paths = mcm.collect_paths(t)

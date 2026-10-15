@@ -52,10 +52,11 @@ MANAGED_FILES = (
 )
 
 # Never part of the managed set: operator overrides that upgrade deliberately preserves,
-# build noise, and the transient backup twins upgrade/bootstrap drop.
+# build noise, the transient backup twins upgrade/bootstrap drop, and project-owned profiles.
 _EXCLUDED_DIR_NAMES = {"__pycache__", ".git", "node_modules"}
 _EXCLUDED_SUFFIXES = (".pyc", ".pyo")
 _BACKUP_MARKERS = (".pre-upgrade-", ".pre-bootstrap-", ".pre-refresh-")
+_PROJECT_OWNED = frozenset({"policies/agent-tools.yml"})  # TRIPWIRE: Flow never ships these (upgrade would abort changed-by-both)
 
 
 def _excluded(rel: str) -> bool:
@@ -68,7 +69,7 @@ def _excluded(rel: str) -> bool:
         return True
     # `*.local.*` are operator overrides; upgrade never overwrites them, so upstream has
     # no opinion about their content and they must never classify as consumer-divergent.
-    return ".local." in name
+    return ".local." in name or rel in _PROJECT_OWNED
 
 
 def _rel(root: Path, p: Path) -> str:

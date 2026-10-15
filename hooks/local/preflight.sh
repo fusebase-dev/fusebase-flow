@@ -203,6 +203,29 @@ if [ -d "$FF_DIR/agents" ]; then
     fi
 fi
 
+# 5b2. Project agent variants (policies/agent-tools.yml -> .claude/agents/<flow-agent>-project.md).
+#     §5b still requires byte-identical base mirrors. TRIPWIRE: lib from $FF_PF_DIR, subjects from $ROOT (§11 (a)).
+if [ -f "$FF_DIR/policies/agent-tools.yml" ] || compgen -G "$ROOT/.claude/agents/*-project.md" >/dev/null; then
+    if ! command -v python3 >/dev/null 2>&1; then
+        warn "agent tool profile: python3 unavailable, so project agent variants were not checked"
+    else
+        _pf_atp_tf="$(mktemp "${TMPDIR:-/tmp}/ffhc-pf-atp.XXXXXX")"
+        python3 "$FF_PF_DIR/lib/agent_tool_profile.py" check --root "$ROOT" > "$_pf_atp_tf" 2>&1
+        _pf_atp_rc=$?
+        while IFS= read -r _pf_atp_line; do
+            case "$_pf_atp_line" in
+                "ERROR "*) err "agent tool profile: ${_pf_atp_line#ERROR }" ;;
+                "WARN "*)  warn "agent tool profile: ${_pf_atp_line#WARN }" ;;
+                "NOTE "*)  note "agent tool profile: ${_pf_atp_line#NOTE }" ;;
+                "") ;;
+                *) note "agent tool profile: $_pf_atp_line" ;;
+            esac
+        done < "$_pf_atp_tf"
+        rm -f "$_pf_atp_tf"
+        [ "$_pf_atp_rc" -ge 99 ] && err "preflight subcheck did not complete cleanly: agent tool profile (python rc $_pf_atp_rc)"
+    fi
+fi
+
 # 5c. CLI vendor provenance manifest (info/advisory only — never fails).
 #     The manifest is a document of record for vendored CLI-owned assets
 #     (audit/cli-vendor-manifest.json). If present it must parse; if absent,
