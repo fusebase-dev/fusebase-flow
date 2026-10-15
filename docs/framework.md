@@ -25,7 +25,7 @@ The framework lives here. Provider and IDE compatibility files (`.claude/`, `.co
 1. On start: load `FLOW_RULES.md` plus the active workflow.
 2. On code-write request: check `policies/required-artifacts.yml`. If spec/tasks missing, redirect.
 3. On tool call: `hooks/handlers/pre_tool_use.py` reads `policies/command-policy.yml` and `policies/protected-paths.yml`.
-4. On task complete or stop: `hooks/handlers/stop.py` checks `policies/gate-contracts.yml`.
+4. On task complete or stop: `hooks/handlers/stop.py` checks `policies/required-artifacts.yml`.
 5. On context compaction: `hooks/handlers/pre_compact.py` writes `state/context-summary.md`.
 
 ## How to extend

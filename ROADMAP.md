@@ -4,16 +4,9 @@ FuseBase Flow ships **reactively** — each release is driven by real friction s
 
 ## Now (released)
 
-- **v4.6.0** (2026-07-26) — **session-floor + report-budget remediation**, driven by a consumer `/token-waste-audit` over 5 sessions (7,175 requests). The measured role-aware boot floor every session paid before any work started fell **78,148 → 41,321 bytes (47.1%)** with **zero rule loss**, proven mechanically by a new `rule-inventory.sh` tripwire (170 normalized rows carrying residency). Also: dated amendment log extracted to `FLOW_RULES_HISTORY.md` behind a compatibility stub · a truthful per-surface auto-load matrix (descriptions inject, **bodies do not**) · delegated chat-return budget (≤80 lines **and** ≤6,000 chars) · supersede clarified as a semantics rule, not a whole-file-rewrite rule · labeled auto-classification in `token-waste-audit.py` (label, never silently dismiss) · a bounded zero-trust delegate-retry envelope. Lazy `references/` content is **re-tiered, not deleted**. Six BLOCKERs were caught by adversarial review *after* the first gate passed 537/537 — the gate alone did not find them.
-- **v3.19.0** (2026-06-11) — **app-quality-patterns** (29th skill): cross-project behavioral quality library (QP-01..24 — URL-state, delete cascades, empty/loading/error states…) injected as spec ACs with copy-ready smoke recipes.
-- **v3.17.0–v3.18.2** (2026-06-10/11) — efficiency line: always-on session floor −50%, procedure layer −20%, reversible-deploy waiver, handoff paper trail (timestamped archives).
-- **v3.16.0** (2026-06-10) — **FR-25 module-size ratchet**: the first deterministic write-time gate (ceiling 800; over-ceiling files may shrink, never grow; plan-time target-file rule; 28th skill `module-size-discipline`). Driven by a consumer audit that found 19k-line source files accreted under full discipline.
-- **v3.15.0** (2026-06-08) — **FR-24 write-time discipline delivery**: the always-on, role-scoped digest that guarantees FR-09/18/22/23/25 reach the writing agent at write time.
-- **v3.12.0–v3.14.2** — **FR-23 documentation budget** (tier-classified artifacts, pointers over duplication), all handoffs consolidated under `docs/tmp/handoff`, the portable `handoff` skill + `/handoff` command, release-hygiene guards (preflight §8).
-- **v3.7.0–v3.11.1** — **FR-21 Lightweight Lane** (ceremony proportional to change size) and **FR-22 comment policy** (tripwire + retrieval-pointer only) with its write-time carrier skill.
-- **v3.2.0–v3.6.0** — FuseBase CLI edition packaging (CLI-first/Flow-second recovery, vendor provenance, two-writer hazard guards), generic anti-drift skills (`zoom-out`, `phase-audit`, `git-history-diagnostic`), project onboarding + North Star, upgrade-path hardening.
+What shipped, newest first: [CHANGELOG](CHANGELOG.md); current version: [`VERSION`](VERSION).
 
-Current shape: **27 always-on rules (FR-01..FR-27) · 32 canonical skills · 2 sub-agents · 13 workflows · 22 templates · 9 policies · 24 hook tests**.
+Current shape: **always-on rules FR-01..FR-27 · (34 canonical skills) · 2 sub-agents** — the FR range and skill count are re-derived from the tree at each release by `hooks/local/sync-version-strings.sh`.
 
 ## Next likely (no firm dates — when needed)
 
@@ -39,7 +32,7 @@ Considered and **deliberately deferred or rejected**. Surfacing them prevents mi
 |---|---|
 | **A required CLI / install daemon / SaaS** | The whole framework is plain files in your repo. No external dependency, no runtime service. |
 | **Plugin-marketplace-only distribution** | The copy/`install.sh` model is the canonical provider-neutral path. The Claude Code plugin (v3.3.0+) is an optional convenience on one surface, never the only path. |
-| **Slash commands as the primary entry point** | Slash commands work on one provider. Skills, sub-agents, and trigger phrases work across all 5 supported surfaces; the seven slash commands (`/onboard`, `/product-owner`, `/fusebase-health`, `/handoff`, `/token-waste-audit`, `/find-wasted-effort`, `/find-wasted-code`) are Claude Code conveniences only. |
+| **Slash commands as the primary entry point** | Slash commands work on one provider. Skills, sub-agents, and trigger phrases work across all 5 supported surfaces; the eight slash commands (`/onboard`, `/product-owner`, `/fusebase-health`, `/handoff`, `/token-waste-audit`, `/find-wasted-effort`, `/find-wasted-code`, `/step-out`) are Claude Code conveniences only. |
 | **Telemetry / analytics / phone-home** | Local-only is a feature, not a missing capability. |
 | **Heavy framework dependencies (FastAPI, daemons, etc.)** | Stdlib-first by design; one runtime dep (PyYAML). |
 | **Vendor-specific content outside provider mirrors** | Canonical `flow-skills/` / `agents/` / `workflows/` / `templates/` are vendor-neutral; provider folders (`.claude/`, `.agents/`, `.codex/`, `.cursor/`, `.github/`) are generated mirrors or scoped adapters. |
@@ -50,10 +43,10 @@ Considered and **deliberately deferred or rejected**. Surfacing them prevents mi
 
 1. **File an issue** describing the pain you're hitting today — lead with the pain, not the proposed solution. See [CONTRIBUTING.md](CONTRIBUTING.md).
 2. **Parked tickets** live under [`docs/backlog/`](docs/backlog/README.md) — per-ticket folders with rough acceptance criteria; promoted to `docs/specs/<slug>/spec.md` when the operator decides to ship.
-3. **Specs in flight** live under `docs/specs/`. Last spec → DONE: `module-size-discipline` (v3.16.0).
+3. **Specs in flight** live under `docs/specs/`.
 
 ## What we don't promise
 
 - **No fixed dates.** Releases land when the friction-fix is ready, not on a calendar.
 - **No guaranteed backward-compat across major restructurings** — but migrations ship with tooling (e.g., the v3.9.0 `skills/` → `flow-skills/` move auto-migrates via `upgrade.sh`) and are signaled in release notes.
-- **No long-term v4 vision posted.** v3.x is the current line; pre-committing a v4 shape would invite churn before v3.x surfaces concrete pressure.
+- **No long-term vision for the next major line posted.** Pre-committing its shape would invite churn before the current line surfaces concrete pressure.

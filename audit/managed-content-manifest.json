@@ -226,7 +226,7 @@
     },
     {
       "path": "hooks/README.md",
-      "sha256": "96c0caa98e3d53e42eb56e8641ea15995be87cc01d7ad2e054326059c4795208"
+      "sha256": "3ed51b8a6f4dc400bca1ce50016dc2baeb8867c23851f7729635f3d013d8bae2"
     },
     {
       "path": "hooks/flow_hook_event.schema.json",
@@ -1574,7 +1574,7 @@
     },
     {
       "path": "templates/smoke-test-playwright.md",
-      "sha256": "e07a23e4739fe7b625291a8fcbb8d9e11f2a494a96ba14485514ba5172ff0b13"
+      "sha256": "37cd47fe4f8c4acbf66903fbbb1b996fa8db87fc228ee0b3459b33708165f096"
     },
     {
       "path": "templates/spec.md",
@@ -1641,5 +1641,5 @@
       "sha256": "b6580a1dbfb0756c0d8b2cbf02fd628066f2f74de55fdc83ed5d1961dd759918"
     }
   ],
-  "manifest_self_sha256": "4fc00f26ca428f3f6b7c452dd0801de6f431e784506e90f670d591abd012e0ac"
+  "manifest_self_sha256": "301a8c14d5a5137c80e1e2066203e27c7cd2d763a3d0231308a44431ffe1ebeb"
 }

@@ -157,7 +157,7 @@ SMOKE_BASE_URL=<deployed url> npx playwright test docs/specs/<slug>/smoke.spec.t
 - Do not use brittle selectors tied to styling, layout, generated classes, or incidental copy
 - Do not assert exact counts, first-row assumptions, or empty states unless this smoke created or isolated the data
 - Do not use placeholder values that can collide with previous runs; create unique values and document them
-- Do not commit screenshots to git — keep them in `docs/tmp/handoff/<date>-<slug>-smoke/` (which is committed for audit; rotate with deploy ticket retention)
+- Do not commit screenshots or raw run output — they stay local under `docs/tmp/handoff/<date>-<slug>-smoke/` and the deploy report cites their paths; rotate with deploy ticket retention
 - Do not embed deploy URL or session credentials in the spec file — read from env vars
 - Do not trigger real notifications, charges, or customer-visible external-service actions without an explicit approval or sandbox path
 - Do not over-instrument — smoke tests are end-to-end happy-path checks, not exhaustive regression suites
