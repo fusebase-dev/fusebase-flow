@@ -168,7 +168,7 @@ Per FR-05, stop at `T<gate>`. Do NOT run deploy. Report gate per `verification-g
 ## Per-commit pre-attestation
 
 <!-- prevents: broken-main (lint/typecheck), regression-attribution-loss (one task scope), silent-protected-path-drift (worker-undisturbed) — taxonomy: policies/ratchet-governance.yml -->
-After staging the exact task files, run `bash hooks/local/run-validators.sh`; validators execute lint and typecheck. Exact-state reuse is unavailable until the runner can independently prove complete context, so it creates no receipt and pre-commit reruns validators. Secret, protected-path, module-size, and release controls remain live.
+Commit the exact task files; the Flow pre-commit hook runs the project lint and typecheck once (FR-13) with the secret, protected-path and module-size checks, so do not run a separate validator pass first. That holds only while the effective hook is Flow's: `h="$(git rev-parse --git-path hooks)/pre-commit"; [ -x "$h" ] && grep -q fusebase-flow-managed-hook "$h"` (honours `core.hooksPath` and linked worktrees). If it fails, run the project lint and typecheck yourself before committing. With Flow's hook active, the Lint clean / Typecheck clean rows below are met by that hook passing; its BLOCK is the "check fails, STOP and fix" case.
 
 ```
 T<n> pre-commit check:

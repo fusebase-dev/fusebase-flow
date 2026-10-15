@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "5.10",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 413,
+  "asset_count": 410,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -214,7 +214,7 @@
     },
     {
       "path": "flow-skills/validation-and-qa/SKILL.md",
-      "sha256": "297c2f03521f061372c07f3d45f8b2ed6f3b6071f3c05b79d1d48606498fef01"
+      "sha256": "4162f7c4606cc6a2c7fea996f4b3c10b5ca47650aa1c54d5527f3b2ed9faf2dc"
     },
     {
       "path": "flow-skills/zoom-out/SKILL.md",
@@ -238,7 +238,7 @@
     },
     {
       "path": "hooks/git/pre-commit",
-      "sha256": "499e12681a2f22d04a23fe0c64729fa90ece0b65a2412bd71af21d2380d81b4a"
+      "sha256": "450afd66d2b5852f93c3a6f659b84273a1da0c33624c1f364cf7db8140fd6abc"
     },
     {
       "path": "hooks/git/pre-push",
@@ -586,7 +586,7 @@
     },
     {
       "path": "hooks/local/lib/precommit-validator-reuse.sh",
-      "sha256": "b93964a2095edf56a68045692cb72b07042d604a9f56331d25878a26139325c7"
+      "sha256": "acfe76dd0b453754e38cdc763b3220a86977c727a33a838e15375827a69230f2"
     },
     {
       "path": "hooks/local/lib/preflight-overlay-headings.sh",
@@ -623,14 +623,6 @@
     {
       "path": "hooks/local/lib/upgrade-delivery-guard.sh",
       "sha256": "12a358f619e4603a633eb7bc00e20012363c98fdc47f375ee86801875f51fae2"
-    },
-    {
-      "path": "hooks/local/lib/validator-evidence.py",
-      "sha256": "04a947806b00864bf698691710725d702fb3b57419de13c8b3533b423a380c4e"
-    },
-    {
-      "path": "hooks/local/lib/validator-runner.py",
-      "sha256": "fcf5bcbedb2ec1d6b068a2ebee36d1d1e08a2193640f106864d09e840f89b0b5"
     },
     {
       "path": "hooks/local/mirror-agents.sh",
@@ -671,10 +663,6 @@
     {
       "path": "hooks/local/run-handler.sh",
       "sha256": "3083e36fe46a5e376692e9e6e800ae75f5d892afc6d8ad45a4a33e489da26492"
-    },
-    {
-      "path": "hooks/local/run-validators.sh",
-      "sha256": "b9fb64fe744593fa84c6d8134c86843aaed7f84574e8ceefd6263e4d2b166809"
     },
     {
       "path": "hooks/local/stamp-cli-provenance.sh",
@@ -818,7 +806,7 @@
     },
     {
       "path": "hooks/tests/benchmark-flow-consumers.py",
-      "sha256": "284bd20149231692634f1cca155fb1e79df7fff81ae22f87d56ac03aae5ddcd6"
+      "sha256": "63f2da745b2f6cda427fdeab996ec62783dd648b48ad941ac27f9c69fbd88c80"
     },
     {
       "path": "hooks/tests/benchmark-stop-transcript.py",
@@ -1198,7 +1186,7 @@
     },
     {
       "path": "hooks/tests/test-flow-consumer-benchmark.sh",
-      "sha256": "fbba9bafbae1a418cb64c6e98584fcbcf503037046b63e184bc3054d088dc481"
+      "sha256": "b08be547316f92d1ebfde41fa3c9b13c832c912b3605ee631c781083016b766b"
     },
     {
       "path": "hooks/tests/test-fr22-delivery-guarantee.sh",
@@ -1442,7 +1430,7 @@
     },
     {
       "path": "hooks/tests/test-validator-evidence.sh",
-      "sha256": "60203d0c6c0c6a4c0f77732f4579a5b0af97e1a9e41a4912c6e6fcf8bf8fd370"
+      "sha256": "82d18964ea3b20d3f09a8016c4d7dbc6ba2c3780311880aea88c355fc04c201e"
     },
     {
       "path": "hooks/tests/test-vendored-rendered.sh",
@@ -1554,7 +1542,7 @@
     },
     {
       "path": "templates/handoff-implement.md",
-      "sha256": "146d515905391e5becf95b8ebd719a1622da16c0be9a0a387e59c9f7671c86df"
+      "sha256": "f0a3770942ff0551253f7cf1c7271a2c2779213ef8ce06526528a333b45f58db"
     },
     {
       "path": "templates/handoff.md",
@@ -1622,7 +1610,7 @@
     },
     {
       "path": "workflows/greenlight-implement.md",
-      "sha256": "41d95778856d9390512e9f891fd152fcda4591d355bfd0c2f1435d2c20c33106"
+      "sha256": "2757702ec6677e72701bf0b0bc814760a3de371834b241fc319105852355f39b"
     },
     {
       "path": "workflows/knowledge-curation.md",
@@ -1657,5 +1645,5 @@
       "sha256": "b6580a1dbfb0756c0d8b2cbf02fd628066f2f74de55fdc83ed5d1961dd759918"
     }
   ],
-  "manifest_self_sha256": "71ffbd9e4d50c52fc5c055c76d22638112626fa732a1052f43e47896f9816941"
+  "manifest_self_sha256": "c9ca59e6def0253095d9f792a3fbbcaed379599409b2d8e1f0a777bee7f5ce3a"
 }

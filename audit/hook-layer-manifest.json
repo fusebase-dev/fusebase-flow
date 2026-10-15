@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "5.10",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 235,
+  "asset_count": 232,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -10,7 +10,7 @@
     },
     {
       "path": "hooks/git/pre-commit",
-      "sha256": "499e12681a2f22d04a23fe0c64729fa90ece0b65a2412bd71af21d2380d81b4a"
+      "sha256": "450afd66d2b5852f93c3a6f659b84273a1da0c33624c1f364cf7db8140fd6abc"
     },
     {
       "path": "hooks/git/pre-push",
@@ -190,7 +190,7 @@
     },
     {
       "path": "hooks/local/lib/precommit-validator-reuse.sh",
-      "sha256": "b93964a2095edf56a68045692cb72b07042d604a9f56331d25878a26139325c7"
+      "sha256": "acfe76dd0b453754e38cdc763b3220a86977c727a33a838e15375827a69230f2"
     },
     {
       "path": "hooks/local/lib/preflight-overlay-headings.sh",
@@ -227,14 +227,6 @@
     {
       "path": "hooks/local/lib/upgrade-delivery-guard.sh",
       "sha256": "12a358f619e4603a633eb7bc00e20012363c98fdc47f375ee86801875f51fae2"
-    },
-    {
-      "path": "hooks/local/lib/validator-evidence.py",
-      "sha256": "04a947806b00864bf698691710725d702fb3b57419de13c8b3533b423a380c4e"
-    },
-    {
-      "path": "hooks/local/lib/validator-runner.py",
-      "sha256": "fcf5bcbedb2ec1d6b068a2ebee36d1d1e08a2193640f106864d09e840f89b0b5"
     },
     {
       "path": "hooks/local/mirror-agents.sh",
@@ -275,10 +267,6 @@
     {
       "path": "hooks/local/run-handler.sh",
       "sha256": "3083e36fe46a5e376692e9e6e800ae75f5d892afc6d8ad45a4a33e489da26492"
-    },
-    {
-      "path": "hooks/local/run-validators.sh",
-      "sha256": "b9fb64fe744593fa84c6d8134c86843aaed7f84574e8ceefd6263e4d2b166809"
     },
     {
       "path": "hooks/local/stamp-cli-provenance.sh",
@@ -698,7 +686,7 @@
     },
     {
       "path": "hooks/tests/test-flow-consumer-benchmark.sh",
-      "sha256": "fbba9bafbae1a418cb64c6e98584fcbcf503037046b63e184bc3054d088dc481"
+      "sha256": "b08be547316f92d1ebfde41fa3c9b13c832c912b3605ee631c781083016b766b"
     },
     {
       "path": "hooks/tests/test-fr22-delivery-guarantee.sh",
@@ -926,7 +914,7 @@
     },
     {
       "path": "hooks/tests/test-validator-evidence.sh",
-      "sha256": "60203d0c6c0c6a4c0f77732f4579a5b0af97e1a9e41a4912c6e6fcf8bf8fd370"
+      "sha256": "82d18964ea3b20d3f09a8016c4d7dbc6ba2c3780311880aea88c355fc04c201e"
     },
     {
       "path": "hooks/tests/test-vendored-rendered.sh",
@@ -945,5 +933,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "25e661a23209f9d64bf2e817978229c1f923b6fa73c7dd85879aaa2a405cb862"
+  "manifest_self_sha256": "8ceb6f7f99ed84a79f4c77554ad87ab525f02aa2d84ad843643e0388d44502d6"
 }

@@ -26,7 +26,7 @@ After `implementation-planning` has produced `decisions.md` (all locked), `tasks
 2. Self-attest: "Operating as AI Developer under Fusebase Flow v5.10. I will follow FR-01 through FR-27. I will apply Mode A on chat output and Mode B on every file I write. I will apply the role-discipline skill section for AI Developer (IM.1..IM.18)."
 3. Pre-task git checkpoint: `git status --short`. If non-empty, STOP and ask operator.
 4. Execute tasks T<first>..T<gate> per `tasks.md`. One task = one commit (FR-03). Each commit:
-   - After exact staging, run `bash hooks/local/run-validators.sh`; validators execute lint + typecheck (FR-13). Exact-state reuse is unavailable until the runner can independently prove complete context, so it creates no receipt and pre-commit reruns validators. Secret, protected-path, module-size, and release controls remain live.
+   - Commit the exact task files; the Flow pre-commit hook runs the project lint and typecheck once (FR-13) with the secret, protected-path and module-size checks, so do not run a separate validator pass first. That holds only while the effective hook is Flow's: `h="$(git rev-parse --git-path hooks)/pre-commit"; [ -x "$h" ] && grep -q fusebase-flow-managed-hook "$h"` (honours `core.hooksPath` and linked worktrees). If it fails, run the project lint and typecheck yourself before committing. With Flow's hook active, the Lint clean / Typecheck clean rows below are met by that hook passing; its BLOCK is the "check fails, STOP and fix" case.
    - Worker-undisturbed paths show empty diff (FR-07)
    - Commit message cites T-number (FR-03)
 5. Stop at T<gate>. Do NOT proceed to T<deploy>. Wait for an explicit deploy handoff (FR-05).

@@ -1,26 +1,13 @@
 #!/usr/bin/env bash
+# Fixed path and 2-arg call (ROOT ORIGINAL_PATH; arg 2 unused): installed .git/hooks/pre-commit copies source this file.
 
 run_precommit_validators() {
-    local root="$1" original_path="$2" lint_cmd typecheck_cmd reuse temp rc
+    local root="$1" lint_cmd typecheck_cmd rc
     lint_cmd="${FUSEBASE_FLOW_LINT:-}"
     typecheck_cmd="${FUSEBASE_FLOW_TYPECHECK:-}"
     [ -n "$lint_cmd" ] || ! grep -q '"lint"' "$root/package.json" 2>/dev/null || lint_cmd="npm run -s lint"
     [ -n "$typecheck_cmd" ] || ! grep -q '"typecheck"' "$root/package.json" 2>/dev/null || typecheck_cmd="npm run -s typecheck"
 
-    reuse=0
-    temp="$(mktemp -d 2>/dev/null || mktemp -d -t ff-validator-evidence)"
-    if [ -n "$lint_cmd$typecheck_cmd" ] && [ -d "$temp" ] \
-       && git -C "$root" show HEAD:hooks/local/lib/validator-evidence.py > "$temp/validator-evidence.py" 2>/dev/null; then
-        FFVE_ORIGINAL_PATH="$original_path" PYTHONPATH="$temp" \
-          python3 -I -S "$temp/validator-evidence.py" verify --root "$root" \
-            --lint "$lint_cmd" --typecheck "$typecheck_cmd" >/dev/null 2>&1 && reuse=1
-    fi
-    rm -rf "$temp"
-
-    if [ "$reuse" -eq 1 ]; then
-        echo "[fusebase-flow:pre-commit] reusing authentic exact-state lint/typecheck evidence" >&2
-        return 0
-    fi
     if [ -n "$lint_cmd" ]; then
         echo "[fusebase-flow:pre-commit] running lint: $lint_cmd" >&2
         rc=0; eval "$lint_cmd" || rc=$?

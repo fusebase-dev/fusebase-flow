@@ -37,17 +37,10 @@ for scenario, lane in (("ordinary-diagnosed-fix", "lightweight"), ("sensitive-au
 validation = doc.get("validation", {})
 if validation.get("validator_runs", {}).get("value") != 2:
     failures.append("validator run count is not 2")
+if validation.get("validator_runs_by_kind", {}).get("value") != {"lint": 1, "typecheck": 1}:
+    failures.append("lint and typecheck did not each run exactly once through the pre-commit helper")
 if validation.get("validator_runner_rc", {}).get("value") != 0:
     failures.append("validator runner did not complete successfully")
-if validation.get("receipt_verify_rc", {}).get("value") != 3:
-    failures.append("disabled receipt verifier did not return the exact refusal code")
-if validation.get("receipt_path_resolved", {}).get("value") is not True:
-    failures.append("receipt path query failed or returned an empty path")
-if validation.get("receipt_present", {}).get("value") is not False:
-    failures.append("disabled reuse unexpectedly minted a receipt")
-reuse = validation.get("exact_state_reuse", {})
-if reuse.get("status") != "UNAVAILABLE" or "verifier refused" not in reuse.get("reason", ""):
-    failures.append("disabled exact-state reuse label is missing")
 if validation.get("error") is not None:
     failures.append("validation measurement reported an unexpected error")
 if validation.get("validator_duration", {}).get("status") != "MEASURED":

@@ -45,7 +45,7 @@
 .agents/skills/smoke-testing/SKILL.md  9c08743926e913f09c51b0be986c59800a35a8ff9f9a383db0c03e6154e84c33
 .agents/skills/task-delegation/SKILL.md  6f95b1a72100027516d3ad5153cf0e46a6911031e7e04a2c857495790a061cb9
 .agents/skills/token-economy/SKILL.md  a68e0216870b97daecea80e85a4a127480759e76ca54aa6c9ace55ae4f21b000
-.agents/skills/validation-and-qa/SKILL.md  297c2f03521f061372c07f3d45f8b2ed6f3b6071f3c05b79d1d48606498fef01
+.agents/skills/validation-and-qa/SKILL.md  4162f7c4606cc6a2c7fea996f4b3c10b5ca47650aa1c54d5527f3b2ed9faf2dc
 .agents/skills/zoom-out/SKILL.md  ee5f705f7bba09b20a7d34a169231c014f708027bec7b00c4cae058455d20301
 .agents/skills/zoom-out/references/karpathy-guidelines.md  4bc83d79cee31ac6b59dd06251af59172493417df0d562ee631ff1e4945b7809
 .claude/skills/app-quality-patterns/SKILL.md  ce3cdcd35fb57c31dba0be38382b39e479e4666d60d5b66434e0908b95469884
@@ -95,6 +95,6 @@
 .claude/skills/smoke-testing/SKILL.md  9c08743926e913f09c51b0be986c59800a35a8ff9f9a383db0c03e6154e84c33
 .claude/skills/task-delegation/SKILL.md  6f95b1a72100027516d3ad5153cf0e46a6911031e7e04a2c857495790a061cb9
 .claude/skills/token-economy/SKILL.md  a68e0216870b97daecea80e85a4a127480759e76ca54aa6c9ace55ae4f21b000
-.claude/skills/validation-and-qa/SKILL.md  297c2f03521f061372c07f3d45f8b2ed6f3b6071f3c05b79d1d48606498fef01
+.claude/skills/validation-and-qa/SKILL.md  4162f7c4606cc6a2c7fea996f4b3c10b5ca47650aa1c54d5527f3b2ed9faf2dc
 .claude/skills/zoom-out/SKILL.md  ee5f705f7bba09b20a7d34a169231c014f708027bec7b00c4cae058455d20301
 .claude/skills/zoom-out/references/karpathy-guidelines.md  4bc83d79cee31ac6b59dd06251af59172493417df0d562ee631ff1e4945b7809

@@ -99,26 +99,11 @@ def validation_measurement():
         outside = Path(raw) / "count"
         (repo / "hooks/local/lib").mkdir(parents=True)
         outside.mkdir()
-        shutil.copy2(ROOT / "hooks/local/lib/validator-evidence.py", repo / "hooks/local/lib/")
-        shutil.copy2(ROOT / "hooks/local/lib/validator-runner.py", repo / "hooks/local/lib/")
-        shutil.copy2(ROOT / "hooks/local/run-validators.sh", repo / "hooks/local/")
+        shutil.copy2(ROOT / "hooks/local/lib/precommit-validator-reuse.sh", repo / "hooks/local/lib/")
         (repo / "validator.py").write_text(
             "import os,pathlib,sys\np=pathlib.Path(os.environ['FFBENCH_COUNT'])/sys.argv[1]\np.write_text((p.read_text() if p.exists() else '')+'x')\n",
             encoding="utf-8",
         )
-        (repo / "evidence.sh").write_text(
-            "#!/usr/bin/env bash\npython3 -S hooks/local/lib/validator-evidence.py \"$1\" --root \"$PWD\" --lint \"$FUSEBASE_FLOW_LINT\" --typecheck \"$FUSEBASE_FLOW_TYPECHECK\"\n",
-            encoding="utf-8",
-        )
-        (repo / "source.txt").write_text("source\n", encoding="utf-8")
-        subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
-        subprocess.run(["git", "config", "user.email", "fixture@example.test"], cwd=repo, check=True)
-        subprocess.run(["git", "config", "user.name", "Fixture"], cwd=repo, check=True)
-        subprocess.run(
-            ["git", "add", "--", "hooks", "validator.py", "evidence.sh", "source.txt"], cwd=repo, check=True)
-        subprocess.run(["git", "commit", "-qm", "fixture"], cwd=repo, check=True)
-        (repo / "source.txt").write_text("changed\n", encoding="utf-8")
-        subprocess.run(["git", "add", "--", "source.txt"], cwd=repo, check=True)
         lint = "python3 validator.py lint"
         typecheck = "python3 validator.py typecheck"
         env = os.environ.copy()
@@ -127,43 +112,23 @@ def validation_measurement():
             "FUSEBASE_FLOW_TYPECHECK": typecheck,
             "FFBENCH_COUNT": str(outside),
         })
-        rc, elapsed, error = run([bash_executable(), "hooks/local/run-validators.sh"], repo, env)
-        verify_rc, verify_elapsed, verify_error = run(
-            [bash_executable(), "evidence.sh", "verify"], repo, env)
-        receipt_result = subprocess.run(
-            [bash_executable(), "evidence.sh", "path"], cwd=repo, env=env,
-            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30)
-        receipt_path = receipt_result.stdout.strip()
-        receipt_path_resolved = receipt_result.returncode == 0 and bool(receipt_path)
-        receipt_present = receipt_path_resolved and Path(receipt_path).exists()
-        run([bash_executable(), "evidence.sh", "invalidate"], repo, env)
+        rc, elapsed, error = run([
+            bash_executable(), "-c",
+            '. hooks/local/lib/precommit-validator-reuse.sh; run_precommit_validators "$PWD" "$PATH"',
+        ], repo, env)
         counts = {
             name: len((outside / name).read_text()) if (outside / name).exists() else 0
             for name in ("lint", "typecheck")
         }
-        reuse_unavailable = (
-            rc == 0 and verify_rc == 3 and counts == {"lint": 1, "typecheck": 1}
-            and receipt_path_resolved and not receipt_present
-        )
-        reuse_reason = (
-            "validator reuse unavailable; runner completed, verifier refused, and no receipt exists"
-            if reuse_unavailable else
-            "validator reuse measurement did not establish the required refusal boundary"
-        )
+        once_each = rc == 0 and counts == {"lint": 1, "typecheck": 1}
         return {
             "command_identity": measured({"lint": lint, "typecheck": typecheck}),
             "validator_runs": measured(sum(counts.values()), "runs"),
+            "validator_runs_by_kind": measured(counts, "runs"),
             "validator_duration": measured(round(elapsed, 6), "seconds"),
             "validator_runner_rc": measured(rc),
-            "receipt_verify_duration": measured(round(verify_elapsed, 6), "seconds"),
-            "receipt_verify_rc": measured(verify_rc),
-            "receipt_path_resolved": measured(receipt_path_resolved),
-            "receipt_present": measured(receipt_present),
-            "exact_state_reuse": (
-                unavailable(reuse_reason) if reuse_unavailable
-                else {"status": "ERROR", "reason": reuse_reason}
-            ),
-            "error": unavailable(error or verify_error or reuse_reason) if error or verify_error or not reuse_unavailable else None,
+            "error": None if once_each else unavailable(
+                error or "pre-commit validator helper did not run lint and typecheck exactly once each"),
         }
 
 

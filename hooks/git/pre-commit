@@ -203,6 +203,18 @@ if [ -n "$STAGED_ANY" ] && ! command -v python3 >/dev/null 2>&1; then
     echo "[fusebase-flow:pre-commit] note: python3 was not on PATH; using discovered '$FFPC_FOUND' for §2/§3 (shim is temporary, this commit only)." >&2
 fi
 
+# Stage timings (docs/changes/2026-10-15-v511-consumer-review.md O2): report-only, never a gate.
+# TRIPWIRE: builtins only — a `date` spawn costs ~1 s on MSYS, and this file is git-capture gated.
+# _ffpc_now stays ONE line (validator-evidence extracts and evals it) and strips EVERY non-digit:
+# some locales print EPOCHREALTIME with a decimal comma.
+_ffpc_now() { local t="${EPOCHREALTIME:-}"; t="${t//[!0-9]/}"; if [ -n "$t" ]; then FFPC_NOW_US=$((10#$t)); else FFPC_NOW_US=$((SECONDS * 1000000)); fi; }
+_ffpc_stage() {
+    local start=$FFPC_MARK_US us; _ffpc_now; FFPC_MARK_US=$FFPC_NOW_US
+    us=$((FFPC_NOW_US - start)); [ "$us" -ge 0 ] || us=0
+    printf '[fusebase-flow:pre-commit] stage=%s elapsed=%d.%02ds\n' "$1" $((us / 1000000)) $((us % 1000000 / 10000)) >&2
+}
+_ffpc_now; FFPC_MARK_US=$FFPC_NOW_US
+
 # 2. Secret content scan (FR-12): ONLY added (+) lines, designed-token files path-excluded
 #    (D-A1 — secret-patterns.yml self-trip + whitelist trap). scan() semantics UNCHANGED
 #    (hooks/tests/fixtures 10/11 call scan() directly).
@@ -415,7 +427,7 @@ SECPY
     # Clean up the trusted temp package (FR-27 no-runaways: bounded, always removed)
     # BEFORE acting on the rc so a BLOCK never leaks the temp dir.
     [ -n "$SEC_TMP" ] && rm -rf "$SEC_TMP"
-    if [ "${exit_secret:-0}" -ne 0 ]; then exit 1; fi
+    if [ "${exit_secret:-0}" -ne 0 ]; then _ffpc_stage secret-scan; exit 1; fi
 elif [ -n "$STAGED_ANY" ]; then
     # Unreachable while §1b holds (it blocks or provisions python3). Kept as the fail-closed
     # else the original `if` never had: if this branch is ever reached, the content scan did
@@ -423,6 +435,7 @@ elif [ -n "$STAGED_ANY" ]; then
     echo "[fusebase-flow:pre-commit] BLOCK — §2 secret scan could not run (python3 unreachable after the interpreter contract) — failing closed. NEVER use --no-verify." >&2
     exit 1
 fi
+_ffpc_stage secret-scan
 
 # 3. Reject protected-path edits without an active exception artifact. Covers the
 #    FULL staged change set — ADDS/MODS *and* DELETES + RENAMES (a `git rm` or rename
@@ -777,7 +790,7 @@ PY
         # Clean up the trusted-HEAD temp package (FR-27 no-runaways: bounded, always
         # removed) BEFORE acting on the rc so a BLOCK never leaks the temp dir.
         [ -n "$FR07_TMP" ] && rm -rf "$FR07_TMP"
-        if [ "${exit_proto:-0}" -ne 0 ]; then exit 1; fi
+        if [ "${exit_proto:-0}" -ne 0 ]; then _ffpc_stage protected-paths; exit 1; fi
     else
         # python3 absent + staged changes: BLOCK (MAJOR 12). Unreachable while §1b holds; a
         # WARN here used to mean FR-07 was simply not enforced for that commit, which is the
@@ -787,25 +800,31 @@ PY
         exit 1
     fi
 fi
+_ffpc_stage protected-paths
 
 # 4. Module-size ratchet (FR-25). Warn-only until policies/module-size-baseline.txt
 #    is committed; then over-ceiling growth blocks (extract or operator exemption).
 if [ -f "$ROOT/hooks/local/check-module-size.sh" ]; then
     if ! bash "$ROOT/hooks/local/check-module-size.sh" --staged; then
         echo "[fusebase-flow:pre-commit] BLOCK — module-size ratchet failed (FR-25)." >&2
+        _ffpc_stage module-size
         exit 1
     fi
 fi
+_ffpc_stage module-size
 
 # 5. Lint + typecheck (FR-13).
 FFVE_REUSE_HELPER="$ROOT/hooks/local/lib/precommit-validator-reuse.sh"
 if [ ! -f "$FFVE_REUSE_HELPER" ]; then
-    echo "[fusebase-flow:pre-commit] BLOCK — validator reuse helper is missing (FR-13)." >&2
+    echo "[fusebase-flow:pre-commit] BLOCK — the FR-13 validator runner hooks/local/lib/precommit-validator-reuse.sh is missing, so lint/typecheck cannot run." >&2
+    echo "Restore it: git checkout HEAD -- hooks/local/lib/precommit-validator-reuse.sh (when HEAD has it), else bash hooks/local/bootstrap-upgrade.sh --repair-managed hooks/local/lib/precommit-validator-reuse.sh (a plain upgrade keeps a deleted managed file deleted). NEVER use --no-verify." >&2
     exit 1
 fi
-# See flow-skills/validation-and-qa/SKILL.md for the exact-state reuse contract.
+# TRIPWIRE: runner path is fixed — installed hook copies (install-git-hooks.sh copies, not links) source it.
 . "$FFVE_REUSE_HELPER"
-run_precommit_validators "$ROOT" "$FFVE_ORIGINAL_PATH" || exit 1
+FFPC_VAL_RC=0; run_precommit_validators "$ROOT" "$FFVE_ORIGINAL_PATH" || FFPC_VAL_RC=1
+_ffpc_stage validators
+[ "$FFPC_VAL_RC" -eq 0 ] || exit 1
 
 echo "[fusebase-flow:pre-commit] all checks passed" >&2
 exit 0
