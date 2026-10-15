@@ -335,8 +335,15 @@ check("a2-doc-operator-levers-main-wake", all(text in measure for text in (
     "`cache-rewrite` rows show the main session on `1h`; the operator says so in chat",
     "sub-agents stay at ≤4 min (`liveness-discipline` § Wake interval)")))
 check("a2-doc-operator-levers-subagent-ttl", all(text in measure for text in (
-    "| 1h cache TTL for sub-agents | — | NOT recommended:",
-    "every write costs 2× instead of 1.25×, more than the measured re-write savings (2026-10)")))
+    "| 1h cache TTL for sub-agents (`subagentPromptCacheTtl: 1h`; Claude Code v2.1.242+;",
+    "`Sub-agent rewrites at 5-60 min gaps` line still puts R of W sub-agent cache-write tokens",
+    "above about 38-40% (R/W > 0.75/(2-r))",
+    "so it pays only when 1.25W > 2(W - R) + rR",
+    "fix waits first",
+    "check intervals stay ≤4 min (TE-20 guard)")) and not any(text in measure for text in (
+    "NOT recommended:", "37.5"))
+      and "Sub-agent rewrites at 5-60 min gaps" in (
+          root / "hooks/local/token_waste_audit/costing.py").read_text(encoding="utf-8"))
 check("a2-shell-checks-neutral-names", "round1-" not in (
       root / "hooks/tests/test-token-waste-classify.sh").read_text(encoding="utf-8"))
 print("[token-waste-a2-native] %d/%d PASS" % (passed, passed + failed))

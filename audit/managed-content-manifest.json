@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "960e108967379aabaf35a651097f959d55246a29bd3b35893e1a06bf26f1f5d8"
+      "sha256": "9d87266ead5882ad9a5825ffb9275cf6fb54cc74e1bd57c8832699260b99d2a0"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -210,7 +210,7 @@
     },
     {
       "path": "flow-skills/token-economy/SKILL.md",
-      "sha256": "a68e0216870b97daecea80e85a4a127480759e76ca54aa6c9ace55ae4f21b000"
+      "sha256": "07a3a1b761f346370d85fe993cf5c326a8f86877887c12c8f067c79f88e2cbd8"
     },
     {
       "path": "flow-skills/validation-and-qa/SKILL.md",
@@ -1034,7 +1034,7 @@
     },
     {
       "path": "hooks/tests/fixtures/token_waste_a2.py",
-      "sha256": "af648bae62c495b301fa101670dc0decbbe390025d9efffd53c1ec67c80432cd"
+      "sha256": "34c8d7cbe1655720b9fdf6f7bb0003a867978dcad6e0730b10c9d86d68dd64bc"
     },
     {
       "path": "hooks/tests/fixtures/token_waste_a3.py",
@@ -1645,5 +1645,5 @@
       "sha256": "b6580a1dbfb0756c0d8b2cbf02fd628066f2f74de55fdc83ed5d1961dd759918"
     }
   ],
-  "manifest_self_sha256": "c9ca59e6def0253095d9f792a3fbbcaed379599409b2d8e1f0a777bee7f5ce3a"
+  "manifest_self_sha256": "23dc7dc25b4cb51c92598a14967b3288be34922c05e449e500a76cbf2394abc9"
 }
