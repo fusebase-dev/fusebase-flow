@@ -1,6 +1,6 @@
 ---
 name: liveness-discipline
-description: Use when launching any long or silent work that could hang — your own probe/script/deploy/fetch-loop/browser-automation, a sub-agent, or a workflow — or when the operator says "the background task hangs", "the agent sits idle", "it never resumes", "is it still running?", or a turn ended waiting on something that never came back. Delivers FR-27's never-launch-bare protocol: bounded/watchdog wrapper, in-turn completion, or BLOCKED-AT return; how to diagnose a suspected hang by activity not 0-byte existence; how to recover. Do NOT use to justify a blocking gate or a hook that claims to verify the protocol (a hang is undetectable by construction), and do NOT use for delegated sub-agent turn-completion alone (task-delegation owns that slice — cross-linked here).
+description: Use when launching any long or silent work that could hang — your own probe/script/deploy/fetch-loop/browser-automation, a sub-agent, or a workflow — or when the operator says "the background task hangs", "the agent sits idle", "it never resumes", "is it still running?", or a turn ended waiting on something that never came back, or an orchestrating session must wait on background work. Delivers FR-27's never-launch-bare protocol: bounded/watchdog wrapper, in-turn completion, or BLOCKED-AT return; the outside-watcher default and host wake paths; how to diagnose a suspected hang by activity not 0-byte existence; how to recover. Do NOT use to justify a blocking gate or a hook that claims to verify the protocol (a hang is invisible from inside; it is watched from outside), and do NOT use for delegated sub-agent turn-completion alone (task-delegation owns that slice — cross-linked here).
 source_inspiration: conceptual-only
 license_status: clean-room-original
 fusebase_flow_version: "3.28"
@@ -21,7 +21,7 @@ hook_dependencies:
 
 ## The failure (why this rule exists)
 
-A long/silent command (probe, test script, deploy, fetch loop, browser automation), a sub-agent, or a harness-auto-backgrounded workflow that **HANGS** emits **no completion event**. The host therefore never re-invokes the agent, which idles indefinitely while appearing "done" — until a human asks "is it still running?". The hang→no-event→idle failure is **invisible by construction**: there is no elapsed-time/idle event in the hook schema, and a call that never returns can never fire a post-call hook. So this rule is **not** enforced by a gate or a verification hook — a Stop-time "watchdog: applied" signal would be attestation theatre. Enforcement = **safe-default tooling** (`hooks/local/lib/bounded-run.sh`) + **present-by-construction delivery** (this skill in context at launch time).
+A long/silent command (probe, test script, deploy, fetch loop, browser automation), a sub-agent, or a harness-auto-backgrounded workflow that **HANGS** emits **no completion event**. The host therefore never re-invokes the agent, which idles indefinitely while appearing "done" — until a human asks "is it still running?". The hang→no-event→idle failure is **invisible from inside**: the hung call fires no post-call hook, the agent waiting on it cannot act, and a host stall watchdog that excludes tool-call time does not see it. It is **visible from outside**: a separate bounded watcher that polls activity (SHA, mtime, byte count) and exits on progress, completion or stall (§ Wake interval). So this rule is **not** enforced by a gate, and a Stop-time "watchdog: applied" signal would be attestation theatre. Enforcement = **safe-default tooling** (`hooks/local/lib/bounded-run.sh`) + **present-by-construction delivery** (this skill in context at launch time) + **an outside watcher** (§ Wake interval).
 
 ## Guardrail (the rule's floor)
 
@@ -90,7 +90,7 @@ A dispatched sub-agent (or Codex) is a long/silent launch under someone else's c
 
 | Step | Action |
 |---|---|
-| **Poll, don't wait** | Proactively check the sub-agent's liveness via GIT PROGRESS (new commits / advancing SHA), process activity, or output-file byte growth — event-driven where possible, otherwise at most every 4 min (§ Wake interval) — NOT the 0-byte transcript file's mere existence (existence proves nothing; the diagnose-by-activity rule above applies). **A missing completion ping is evidence of neither completion nor death** — it is no information at all; only observed progress (or its absence past the expected interval) decides which. |
+| **Poll, don't wait** | Proactively check the sub-agent's liveness via GIT PROGRESS (new commits / advancing SHA), process activity, or output-file byte growth — event-driven where possible (a bounded watcher polls for you — § Wake interval), otherwise at most every 4 min — NOT the 0-byte transcript file's mere existence (existence proves nothing; the diagnose-by-activity rule above applies). **A missing completion ping is evidence of neither completion nor death** — it is no information at all; only observed progress (or its absence past the expected interval) decides which. |
 | **Re-dispatch a transient stall** | A transient provider rate-limit / server error / no-start is a DISPATCH failure, never the slice's verdict — **never record it as `FAILED`, `BLOCKED`, or "the delegate couldn't do it"**; the work was never attempted. Recipe: re-dispatch with a minimal **"try again"**, inside the **bounded delegate-retry envelope** below (3 attempts / 5 min / labeled backoff), and only then judge the work. A structural hang is not a rate-limit — do not blind-retry it unchanged. **Provider-limit death ≠ lost session (proven 2026-07-07):** a delegated sub-agent that dies mid-run on a provider rate/session limit usually keeps its context — `SendMessage` the "try again" to the SAME agent id and it resumes from where it stopped. Inside the envelope do NOT spawn a fresh agent (loses context, redoes work; its cache is still warm) and do NOT re-send the full brief (the resumed agent still has it). Past the envelope the successor rule applies; `task-delegation` § Correction ownership sets the context bound on reuse. |
 | **Verify before trusting** | Before you trust ANY sub-agent's output, verify the FINAL git state yourself: clean linear history, the expected commits landed, 0 mirror drift (`mirror-skills.sh --check`), gate evidence present. A completion ping is a claim, not proof. |
 | **Sync for simple work; background+poll for long runs** | Prefer synchronous sub-agent runs for short autonomous work — a backgrounded sub-agent can't autonomously self-resume if it yields mid-task. For a LONG autonomous run where you want progress visibility, backgrounding IS viable when paired with active polling (this table's poll rule) + `SendMessage`-resume on a provider-limit death (row above) — proven 2026-07-07 to continue the same session. Either way, never passively background-and-wait: the run must produce progress, resume on death, or return `BLOCKED-AT-<gate>` (task-delegation turn-completion). |
@@ -103,10 +103,22 @@ Every model-side check re-reads the waiting agent's whole context, and a check a
 
 | Case | Interval |
 |---|---|
-| Bounded watcher (shell loop under `bounded_run`, no model tokens) | polls as often as useful; exits on progress, completion or stall, and the exit wakes you |
-| No watcher | at most every **4 min** — under the 5-min cache TTL of sub-agents and of hosts whose TTL is unknown; a longer main-session interval is an operator choice stated in chat |
+| Bounded watcher — **default** for an orchestrating or main session on a host that wakes it on background completion (§ Host wake paths): a background shell loop under `bounded_run`, no model tokens, reading SHAs and mtimes | polls as often as useful; exits on progress, completion, stall or its deadline (a bounded wakeup — silence still wakes you), and every exit wakes you |
+| Delegated session (cannot be re-invoked after its turn) | in-turn bounded check loop, each ≤4 min (`task-delegation` turn-completion) |
+| No watcher can wake you | at most every **4 min** — under the 5-min cache TTL of sub-agents and of hosts whose TTL is unknown; a longer main-session interval is an operator choice stated in chat |
 | Stall verdict | no observed progress across two consecutive checks past the slice's expected interval → § Diagnose a suspected hang |
 | Delegate never started | § Bounded delegate-retry envelope (~60 → ~90 → ~120 s) — the one prescribed model-side cadence under 4 min |
+
+**Large-context orchestrator** (host listed in § Host wake paths as able to wake you; otherwise the "No watcher can wake you" row): after dispatch, arm the watcher, then end the turn — the watcher does FR-27's proactive polling shell-side. On each wake read the one fact it reports: still running → arm a fresh watcher before ending the turn again; done → § Zero-trust **Verify before trusting**, then trust the result; stalled → § Diagnose a suspected hang. A report-back is an extra wake, never the only one (a missing ping is no information). Never poll model-side while a watcher can wake you.
+
+**A watcher cannot cover:** your own hung foreground call (its wake queues behind it — bound that call), a session that cannot be re-invoked after its turn (→ in-turn loop), a host freeze (a same-host watcher freezes too).
+
+### Host wake paths
+
+| Host | Wakes a turn-ended main session | Note |
+|---|---|---|
+| Claude Code | a background shell command's exit (task notification) — the watcher's path · a background sub-agent / Workflow completion notification — never the only wake · an `asyncRewake` command hook exiting **2** (its stderr arrives as a system reminder; only exit 2 wakes, so map the alert to exit 2) | a Workflow agent's stall restart excludes time in its own tool calls; only your watcher sees a hung call |
+| Codex / others | none documented | ≤4-min checks (row "No watcher can wake you"); guidance only |
 
 ### Bounded delegate-retry envelope (canonical — the ONE exception)
 
@@ -134,8 +146,8 @@ Re-dispatches inside this envelope are **not** two-strike attempts: the approach
 
 ## Anti-patterns
 
-- Launching a background probe/deploy/fetch-loop with no timeout, then ending the turn "running in background — I'll resume when it completes" (you won't — the host never re-invokes a hung call).
-- Adding a hook or Stop-time signal that claims to VERIFY this protocol or detect a hang — structurally impossible; it would be attestation theatre (the inert-lever anti-pattern).
+- Launching a background probe/deploy/fetch-loop with no timeout, or ending the turn on background work with no watcher armed — "running in background — I'll resume when it completes" (you won't — nothing re-invokes you for a hung call; on a host listed in § Host wake paths a bounded watcher's exit, or a `bounded_run` job's own exit, does; elsewhere, and in a delegated session, stay in-turn with ≤4-min checks or return `BLOCKED-AT-<gate>`).
+- Adding a hook or Stop-time signal that claims to VERIFY this protocol was applied — attestation theatre (the inert-lever anti-pattern). Detecting a stall is the outside watcher's job (§ Wake interval), never an attestation.
 - A blocking gate on background launches — the failure is semantic (real hang vs legitimate long-live run); a gate trains premature kills (intelligence damage).
 - `&`-detaching under `bounded_run` and assuming the deadline still bounds the detached grandchild (it does not).
 - Diagnosing a hang by "the output file exists" (0-byte existence proves nothing) instead of by activity/mtime/last-progress.

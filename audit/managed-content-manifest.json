@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "c5f88d254a0ff90115d584254d3e798a983fb10815649d246ceb82ecc1cea9b6"
+      "sha256": "8595bf896d0e5692b1394c7ff1435bb2324e8c8bfda87388fb191eae0a281b47"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -126,7 +126,7 @@
     },
     {
       "path": "flow-skills/liveness-discipline/SKILL.md",
-      "sha256": "df1ca900af1235087a24ef50522cc811deadee1cbe81bf5e6d2af2b76bfe0ab0"
+      "sha256": "dabc145f71f72d6fa74d195d3a7c13179edc57adbb9ba0e3202fa9321d8c6188"
     },
     {
       "path": "flow-skills/module-size-discipline/SKILL.md",
@@ -170,11 +170,11 @@
     },
     {
       "path": "flow-skills/role-discipline/SKILL.md",
-      "sha256": "4a01d0505d06c7afed9765476c1004eb05960f45987828422e43ef582f814ed7"
+      "sha256": "7103b3883a1251c0387e0da825b3a5b07127079d9b275f118fcb566114722036"
     },
     {
       "path": "flow-skills/role-discipline/references/ai-developer.md",
-      "sha256": "b13b087e43ab643c5f44f51193ea4aa18c9d55dc67dccbb9bab876546fd1bf17"
+      "sha256": "cf05954d97db5032028368085c8e25724613f471f7883fb4402988588da111b7"
     },
     {
       "path": "flow-skills/role-discipline/references/architect.md",
@@ -206,11 +206,11 @@
     },
     {
       "path": "flow-skills/task-delegation/SKILL.md",
-      "sha256": "b8773e5d3c033f09e1e381ef9e4138d1a3b285786f6dd535d1c1a3572fa18a9b"
+      "sha256": "ad1a2e82b2a55722d866e8fb7fd298b943b32ab4dbcfd7bfab3bc150c500638d"
     },
     {
       "path": "flow-skills/token-economy/SKILL.md",
-      "sha256": "a2bc2309bbea2c9f588fd406d4cf1a34324a2534ed0719b7ece852e68269c18e"
+      "sha256": "a1a7dcd07fa8c153cb4534968c1a851dcf050b3c4219950eecdfa3c318a78f7d"
     },
     {
       "path": "flow-skills/validation-and-qa/SKILL.md",
@@ -1649,5 +1649,5 @@
       "sha256": "b6580a1dbfb0756c0d8b2cbf02fd628066f2f74de55fdc83ed5d1961dd759918"
     }
   ],
-  "manifest_self_sha256": "f680e861a1674d393360953165ff710e33b94514793245c804ee2ced93d927a2"
+  "manifest_self_sha256": "93415f6b2a38a515de0c4991b48c53b56a7699fefc1492771e410d1af9b3f2e3"
 }
