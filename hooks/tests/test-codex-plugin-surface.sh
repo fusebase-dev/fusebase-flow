@@ -134,6 +134,21 @@ else
   bad "step-out-blocked-dependency-continuation-owned" "task-delegation lacks the unattended scheduling contract"
 fi
 
+# (v5.11 O11: A9, A6.3)
+sched_missing=""
+for phrase in "Cross-slice checks wait for every slice they cover" "a parked slice parks them with it" \
+              "Unfinished work keeps its own brief" "never appended to another slice's worker" \
+              "Successor state" "never a transcript tail" "an unattended run never closes it out" \
+              "not an approval artifact, so that slice returns" "a worker never mints"; do
+  grep -qF "$phrase" "$TD_CANON" || sched_missing="$sched_missing|$phrase"
+done
+[ -z "$sched_missing" ] \
+  && ok "step-out-cross-slice-order-and-successor-brief-owned" \
+  || bad "step-out-cross-slice-order-and-successor-brief-owned" "task-delegation missing:$sched_missing"
+grep -qF 'neither relaunch nor orphan' "$ROOT/templates/handoff.md" \
+  && ok "run-ledger-processes-in-flight-slot" \
+  || bad "run-ledger-processes-in-flight-slot" "templates/handoff.md lacks the processes-in-flight line"
+
 # Review round cap: two rounds, no reset via a successor, exhaustion never accepts.
 if grep -qF 'default maximum two per change' "$CR_CANON" \
   && grep -qF 'INHERITS the count' "$CR_CANON" \

@@ -23,6 +23,8 @@
 |---|---|---|
 | `<path>` | <what> | yes/no |
 
+<Commands/processes still running, one line each: command · PID or output path · bound — the successor must neither relaunch nor orphan them. `None` if none.>
+
 ## Changed This Session
 <Commits / diffs landed this session — SHAs + one-line each. `None` if nothing committed.>
 

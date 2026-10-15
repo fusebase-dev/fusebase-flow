@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "7904cbed9fca1e7fa3901ec9f4d5c0f3483f7f1858e2f97d4b73c2184d3b9cc8"
+      "sha256": "c5f88d254a0ff90115d584254d3e798a983fb10815649d246ceb82ecc1cea9b6"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -206,7 +206,7 @@
     },
     {
       "path": "flow-skills/task-delegation/SKILL.md",
-      "sha256": "71c27b93f3e73592d78804267e483851d14906cd7ed54eb8b8999829298a9258"
+      "sha256": "b8773e5d3c033f09e1e381ef9e4138d1a3b285786f6dd535d1c1a3572fa18a9b"
     },
     {
       "path": "flow-skills/token-economy/SKILL.md",
@@ -1166,7 +1166,7 @@
     },
     {
       "path": "hooks/tests/test-codex-plugin-surface.sh",
-      "sha256": "d4b0d69cf3a1e4c94bb1db78984755fd9822f175e4f8833cbefaec436f93e841"
+      "sha256": "e6804501ad3695f00a5e79105d47feb4364702d563de02fe1c881d208b320f71"
     },
     {
       "path": "hooks/tests/test-codex-prompt-parity.sh",
@@ -1550,7 +1550,7 @@
     },
     {
       "path": "templates/handoff.md",
-      "sha256": "e1108e4741369366d1a57608ee124584f4f13c8e10128947600be829c029741f"
+      "sha256": "5e55f5ccab3c819aa01a8577ab0ae371d1d07be9f349b2448734e3d2b1bc64c8"
     },
     {
       "path": "templates/north-star.md",
@@ -1649,5 +1649,5 @@
       "sha256": "b6580a1dbfb0756c0d8b2cbf02fd628066f2f74de55fdc83ed5d1961dd759918"
     }
   ],
-  "manifest_self_sha256": "cc1df32a6ca3baf07dfa4f13ac61bcb5745dbca31cc1cbb5f65554adb9f0752c"
+  "manifest_self_sha256": "f680e861a1674d393360953165ff710e33b94514793245c804ee2ced93d927a2"
 }
