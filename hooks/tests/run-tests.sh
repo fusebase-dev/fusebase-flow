@@ -78,7 +78,7 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixtur
   sync-allowlist policy-state bootstrap-baseline-hop fr22-delivery po-verifiable-boot \
   liveness codex-parity codex-plugin cli-0259 cli-version cli-packages cli-vendor cli-rendered git-capture-guard secret-scan-staged secret-patterns bootstrap-exception \
   lane-router lane-workflow \
-  trusted-enforcer hook-install-rc msys-tree-cleanup job-probe ws5-upgrade ff-only run-preconditions return-budget \
+  trusted-enforcer hook-install-rc msys-tree-cleanup job-probe ws5-upgrade ff-only run-preconditions return-budget skill-carry \
   supersede-primitive rule-inventory boot-size prohibition-residency startup-context validator-evidence validation-instructions gate-contract consumer-benchmark wasted-effort-windowing token-waste-classify \
   budget-literals history-extraction approval-binding approval-writer approval-schema3 command-policy denial-message upgrade-classify upgrade-classify-eol \
   upgrade-boundary preboundary-consumed upgrade-repair transient-exclude n5-delivery n6-truthful-base n6-missing-base n6-recover n4-parity-scope recovery-hint hop-log-truth install-doc release-authority \
@@ -108,7 +108,7 @@ for t in "${FF_RELEASE_TAGS[@]}"; do
 done
 
 # Diagnostic classification and retained safety coverage: docs/maintainer-testing.md.
-FF_OPTIN_TAGS=(return-budget supersede-primitive rule-inventory startup-context budget-literals history-extraction consumer-benchmark)
+FF_OPTIN_TAGS=(return-budget skill-carry supersede-primitive rule-inventory startup-context budget-literals history-extraction consumer-benchmark)
 # TRIPWIRE: the +"${…}" guard is required while the registry is EMPTY — under `set -u` a bare
 # "${arr[@]}" on an empty array is an unbound-variable error on bash < 4.4.
 declare -A FF_OPTIN=(); for t in ${FF_OPTIN_TAGS[@]+"${FF_OPTIN_TAGS[@]}"}; do FF_OPTIN[$t]=1; done
@@ -652,6 +652,7 @@ run_shell_phase test-ws5-upgrade-bounded.sh    "ws5-upgrade"
 run_shell_phase test-ff-only.sh                "ff-only"
 run_shell_phase test-run-preconditions.sh      "run-preconditions"
 run_shell_phase test-return-budget.sh          "return-budget"
+run_shell_phase test-skill-carry.sh            "skill-carry"
 run_shell_phase test-supersede-primitive.sh    "supersede-primitive"
 run_shell_phase test-rule-inventory.sh         "rule-inventory"
 run_shell_phase test-boot-size.sh              "boot-size"

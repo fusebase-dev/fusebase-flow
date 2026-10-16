@@ -83,6 +83,7 @@ These checks remain available with `FF_ONLY` when their subject changes. They do
 | Tag | Why opt-in | Required protection retained |
 |---|---|---|
 | `return-budget` | Checks exact editorial wording of delegated response limits | Delivery/preflight and actual hook controls; response-size guidance remains shipped |
+| `skill-carry` | Checks that the 6.0.0 skill drafts carry the named 5.11 text and interface names | The 5.11 skills stay live until WP 6 final |
 | `supersede-primitive` | Searches prose for editing advice and retired phrases | Actual recovery preservation/idempotency tests; editorial review on instruction changes |
 | `rule-inventory` | Instrument for deliberate rule-compression comparisons | Boot/delivery/prohibition checks; run inventory explicitly for rule changes |
 | `startup-context` | Frozen compression baseline and size comparison | boot-size, prohibition-residency, provider delivery and mirror checks |
