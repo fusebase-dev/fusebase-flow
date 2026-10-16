@@ -7,23 +7,30 @@ never touch base mirrors or the agent-mirror manifest.
 from __future__ import annotations
 
 import argparse
-import functools
+from contextlib import contextmanager
 import hashlib
-import importlib.util
 import json
+import os
 import re
 import subprocess
 import sys
+import tempfile
+import time
 from pathlib import Path
+
+if os.name == "nt":
+    import msvcrt
+else:
+    import fcntl
 
 PROFILE_REL = "policies/agent-tools.yml"
 LOCAL_TWIN_REL = "policies/agent-tools.local.yml"
-OWNERSHIP_REL = "hooks/local/fusebase-flow-overlays/agent-surface-ownership.json"
 VARIANT_DIR = ".claude/agents"
 SUFFIX = "-project"
 MAX_PROFILE_BYTES = 65536
 MAX_TOOLS = 32
 AGENT_RE = re.compile(r"[a-z0-9][a-z0-9-]{0,63}")
+CLI_RESERVED_RE = re.compile(r"app-[a-z0-9][a-z0-9-]*")
 # TRIPWIRE: fullmatch only. match() with `$` accepts a trailing newline, which injects frontmatter.
 TOOL_RE = re.compile(r"[A-Z][A-Za-z0-9]{0,63}|mcp__[A-Za-z0-9][A-Za-z0-9_-]{0,127}__[A-Za-z0-9][A-Za-z0-9_.-]{0,127}")
 DENY_CASEFOLD = {"askuserquestion", "agent", "task"}
@@ -46,13 +53,79 @@ class ProfileError(Exception):
     pass
 
 
-@functools.lru_cache(maxsize=None)
-def _helper():
-    path = Path(__file__).with_name("recovery-owned-write.py")
-    spec = importlib.util.spec_from_file_location("flow_agent_profile_owned_write", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+# TRIPWIRE: verbatim copies of recovery-owned-write.py helpers (ask 11a); row helper-copy-parity fails on drift.
+def native_path(raw: str) -> Path:
+    if os.name == "nt" and raw.startswith("/"):
+        converted = subprocess.run(
+            ["cygpath", "-m", raw], check=True, text=True, capture_output=True,
+            timeout=GIT_TIMEOUT,
+        ).stdout.strip()
+        return Path(converted)
+    return Path(raw)
+
+
+def lf_form(value: bytes) -> bytes:
+    # TRIPWIRE: collapse CRLF PAIRS only, and only when EVERY line ending is CRLF. Stripping all
+    # CR/LF merges distinct content ("4.15.\r\n3" -> "4.15.3", 2508a85); mixed, lone-CR and NUL stay raw.
+    if b"\0" in value or b"\r\n" not in value or value.count(b"\n") != value.count(b"\r\n"):
+        return value
+    collapsed = value.replace(b"\r\n", b"\n")
+    return value if b"\r" in collapsed else collapsed
+
+
+def atomic_bytes(path: Path, value: bytes) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, raw = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    temp = Path(raw)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(value)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temp, path)
+    finally:
+        temp.unlink(missing_ok=True)
+
+
+def reject_symlinks(root: Path, path: Path, label: str) -> None:
+    current = root
+    for part in path.relative_to(root).parts:
+        current = current / part
+        if current.is_symlink():
+            raise RuntimeError(f"{label} or ancestor is a symlink: {path.relative_to(root).as_posix()}")
+
+
+@contextmanager
+def recovery_lock(root: Path):
+    identity = hashlib.sha256(os.path.normcase(str(root)).encode("utf-8")).hexdigest()
+    lock_dir = Path(tempfile.gettempdir()) / "fusebase-flow-recovery-locks"
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    lock_path = lock_dir / f"{identity}.lock"
+    with lock_path.open("a+b", buffering=0) as handle:
+        if handle.seek(0, os.SEEK_END) == 0:
+            handle.write(b"\0")
+            os.fsync(handle.fileno())
+        deadline = time.monotonic() + GIT_TIMEOUT
+        while True:
+            try:
+                if os.name == "nt":
+                    handle.seek(0)
+                    msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError:
+                if time.monotonic() >= deadline:
+                    raise RuntimeError("recovery writer lock timed out")
+                time.sleep(0.05)
+        try:
+            yield
+        finally:
+            handle.seek(0)
+            if os.name == "nt":
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
 
 def _one_line(value) -> str:
@@ -80,12 +153,7 @@ def canonical_agents(root: Path) -> list[str]:
 
 
 def cli_reserved(root: Path) -> set[str]:
-    try:
-        doc = json.loads((root / OWNERSHIP_REL).read_text(encoding="utf-8"))
-        return {name for entry in doc["paths"] if "<cli-provider-agent>" in entry.get("path", "")
-                for name in entry.get("known_names") or []}
-    except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
-        raise ProfileError(f"cannot read CLI agent names from {OWNERSHIP_REL}: {_one_line(exc)}") from exc
+    return {name for name in canonical_agents(root) if CLI_RESERVED_RE.fullmatch(name)}
 
 
 def _tools(agent: str, tools) -> list[str]:
@@ -116,7 +184,7 @@ def load_profile(root: Path) -> dict[str, list[str]] | None:
     if not (path.exists() or path.is_symlink()):
         return None
     try:
-        _helper().reject_symlinks(root, path, "profile")
+        reject_symlinks(root, path, "profile")
     except RuntimeError as exc:
         raise ProfileError(_one_line(exc)) from exc
     if not path.is_file():
@@ -140,7 +208,6 @@ def load_profile(root: Path) -> dict[str, list[str]] | None:
     if not isinstance(agents, dict):
         raise ProfileError("agents must be a mapping (write 'agents: {}' for none)")
     canonical = canonical_agents(root)
-    reserved = cli_reserved(root)
     valid = ", ".join(canonical)
     out: dict[str, list[str]] = {}
     for name, entry in agents.items():
@@ -148,7 +215,7 @@ def load_profile(root: Path) -> dict[str, list[str]] | None:
             raise ProfileError(f"unknown agent {_show(name)}; valid: {valid}")
         if name.endswith(SUFFIX):
             raise ProfileError(f"agent '{name}': reserved suffix '{SUFFIX}'; list the Flow agent, Flow generates the variant")
-        if name in reserved:
+        if CLI_RESERVED_RE.fullmatch(name):
             raise ProfileError(f"agent '{name}' is a CLI-owned agent; the profile covers Flow agents only")
         if name not in canonical:
             raise ProfileError(f"unknown agent '{name}'; valid: {valid}")
@@ -164,7 +231,7 @@ def load_profile(root: Path) -> dict[str, list[str]] | None:
 def _parse_canonical(agent: str, raw: bytes):
     yaml = _yaml()
     source = f"agents/{agent}/AGENT.md"
-    lf = _helper().lf_form(raw)
+    lf = lf_form(raw)
     try:
         lines = lf.decode("utf-8").split("\n")
         if lines[0] != "---":
@@ -227,7 +294,7 @@ def compose(agent: str, canon_bytes: bytes, added: list[str]) -> bytes:
 
 def owned(raw: bytes, agent: str) -> bool:
     try:
-        lines = _helper().lf_form(raw).decode("utf-8").split("\n")
+        lines = lf_form(raw).decode("utf-8").split("\n")
         if lines[0] != "---":
             return False
         k = lines.index("---", 1)
@@ -263,14 +330,13 @@ def _scan(root: Path, desired: dict[str, tuple[str, bytes]]) -> list[tuple[str, 
     variant_dir = root / VARIANT_DIR
     if variant_dir.is_dir():
         rels.update(f"{VARIANT_DIR}/{path.name}" for path in variant_dir.glob(f"*{SUFFIX}.md"))
-    lf_form = _helper().lf_form
     rows = []
     for rel in sorted(rels):
         agent = rel.rsplit("/", 1)[1][:-len(f"{SUFFIX}.md")]
         if rel not in desired and agent not in canonical:
             orphan = None
             try:
-                _helper().reject_symlinks(root, root / rel, "variant")
+                reject_symlinks(root, root / rel, "variant")
                 if (root / rel).is_file():
                     orphan = (root / rel).read_bytes()
             except RuntimeError:
@@ -281,7 +347,7 @@ def _scan(root: Path, desired: dict[str, tuple[str, bytes]]) -> list[tuple[str, 
             continue
         target = root / rel
         try:
-            _helper().reject_symlinks(root, target, "variant")
+            reject_symlinks(root, target, "variant")
             if target.exists() and not target.is_file():
                 raise RuntimeError("not a regular file")
         except RuntimeError:
@@ -307,7 +373,7 @@ def _unchanged(target: Path, raw: bytes | None) -> bool:
 
 
 def apply(root: Path) -> int:
-    with _helper().recovery_lock(root):
+    with recovery_lock(root):
         if (root / LOCAL_TWIN_REL).exists():
             print(f"{TAG} ignored {LOCAL_TWIN_REL}: only the committed {PROFILE_REL} is read", file=sys.stderr)
         try:
@@ -340,7 +406,7 @@ def apply(root: Path) -> int:
                 target.unlink()
                 counts["removed"] += 1
             else:
-                _helper().atomic_bytes(target, desired[rel][1])
+                atomic_bytes(target, desired[rel][1])
                 counts["generated"] += 1
         if shown:
             print(f"{TAG} project variants: {'; '.join(f'{key} {value}' for key, value in counts.items())} ({PROFILE_REL})")
@@ -394,7 +460,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--root", required=True)
     args = parser.parse_args(argv)
     try:
-        root = _helper().native_path(args.root).resolve()
+        root = native_path(args.root).resolve()
         return apply(root) if args.command == "apply" else check(root)
     except Exception as exc:
         if args.command == "check":

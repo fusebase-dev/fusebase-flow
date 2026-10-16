@@ -8,6 +8,7 @@ from __future__ import annotations
 import contextlib
 import hashlib
 import importlib.util
+import inspect
 import io
 import json
 import os
@@ -25,8 +26,11 @@ sys.dont_write_bytecode = True
 
 REPO = Path(__file__).resolve().parents[2]
 LIB_REL = "hooks/local/lib/agent_tool_profile.py"
-COPIES = ("hooks/local/mirror-agents.sh", "hooks/local/lib/recovery-owned-write.py", LIB_REL,
-          "hooks/local/fusebase-flow-overlays/agent-surface-ownership.json")
+COPIES = ("hooks/local/mirror-agents.sh", LIB_REL)
+OWNED_WRITE_REL = "hooks/local/lib/recovery-owned-write.py"
+# mirror-agents.sh still calls the maintainer writer; only the shell rows carry it (ask 11a).
+SHELL_EXTRA = (OWNED_WRITE_REL, "hooks/local/fusebase-flow-overlays/agent-surface-ownership.json")
+HELPER_COPIES = ("native_path", "lf_form", "atomic_bytes", "reject_symlinks", "recovery_lock")
 TOOL = "mcp__example__read_file"
 AD, PO = ".claude/agents/ai-developer-project.md", ".claude/agents/product-owner-project.md"
 PROFILE = "policies/agent-tools.yml"
@@ -84,7 +88,7 @@ def workdir():
             shutil.rmtree(path, onerror=unlock)
 
 
-def fixture(tmp: Path, mirrors: bool = True, name: str = "repo") -> Path:
+def fixture(tmp: Path, mirrors: bool = True, name: str = "repo", extra: tuple[str, ...] = ()) -> Path:
     root = tmp / name
     for agent_dir in sorted((REPO / "agents").iterdir()):
         canon = agent_dir / "AGENT.md"
@@ -94,7 +98,7 @@ def fixture(tmp: Path, mirrors: bool = True, name: str = "repo") -> Path:
         if mirrors:
             put(root, f".claude/agents/{agent_dir.name}.md", canon.read_bytes())
             put(root, f".codex/agents/{agent_dir.name}.md", canon.read_bytes())
-    for rel in COPIES:
+    for rel in COPIES + extra:
         put(root, rel, (REPO / rel).read_bytes())
     git(root, "init", "-q")
     git(root, "config", "user.name", "atp fixture")
@@ -403,6 +407,13 @@ def row_maintainer_guards() -> None:
     report("maintainer-guards", not problems, "; ".join(problems))
 
 
+def row_helper_copy_parity() -> None:
+    original = load(REPO / OWNED_WRITE_REL, "recovery_owned_write_atp")
+    drift = [name for name in HELPER_COPIES
+             if inspect.getsource(getattr(atp, name)) != inspect.getsource(getattr(original, name))]
+    report("helper-copy-parity", not drift, f"copies differ from {OWNED_WRITE_REL}: {drift}")
+
+
 def _git_bash():
     spec = importlib.util.spec_from_file_location("git_bash", Path(__file__).resolve().parent / "lib" / "git_bash.py")
     module = importlib.util.module_from_spec(spec)
@@ -425,7 +436,7 @@ MIRRORED_RE = re.compile(r"\[mirror-agents\] mirrored \d+ files \(across 2 mirro
 
 def shell_rows() -> None:
     with workdir() as tmp:
-        plain = fixture(tmp, mirrors=False, name="plain")
+        plain = fixture(tmp, mirrors=False, name="plain", extra=SHELL_EXTRA)
         put(plain, ".claude/agents/marketing-project.md", "---\nname: marketing-project\n---\nmine\n")
         bare = sh(plain, "hooks/local/mirror-agents.sh")
         lines = bare.stdout.splitlines()
@@ -433,7 +444,7 @@ def shell_rows() -> None:
                and MIRRORED_RE.fullmatch(lines[0]) is not None and lines[1].startswith("[mirror-agents] manifest: ")
                and not bare.stderr, f"rc {bare.returncode} {bare.stdout!r} {bare.stderr!r}")
 
-        root = fixture(tmp, mirrors=False)
+        root = fixture(tmp, mirrors=False, extra=SHELL_EXTRA)
         profile(root, {"ai-developer": [TOOL]})
         first, second = sh(root, "hooks/local/mirror-agents.sh"), sh(root, "hooks/local/mirror-agents.sh")
         lines = first.stdout.splitlines()
@@ -470,7 +481,8 @@ def shell_rows() -> None:
 
 def main() -> int:
     for row in (row_compose_shape, row_apply_cycle, row_hand_edit, row_invalid_profiles, row_dup_and_orphans,
-                row_canonical_removed_orphan, row_no_profile_and_twin, row_crlf, row_managed_set, row_check_states, row_maintainer_guards):
+                row_canonical_removed_orphan, row_no_profile_and_twin, row_crlf, row_managed_set, row_check_states, row_maintainer_guards,
+                row_helper_copy_parity):
         try:
             row()
         except Exception as exc:

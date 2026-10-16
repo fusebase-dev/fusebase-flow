@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "195cc7986c6b1d06f3fee909dffd9f83445e384ead6f67c83e74d7c657ca0a73"
+      "sha256": "e09304c051821f89f6008f2cb4cd21bb3e3af94ad97c6b8b613c07d4f8b4799e"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -498,7 +498,7 @@
     },
     {
       "path": "hooks/local/lib/agent_tool_profile.py",
-      "sha256": "f71e26734847d5e118c814f96d3e676b1dc28540d7f11ccbebcfe2c6cc6e571e"
+      "sha256": "6f6feb21222e9ceab8501a2dfd49ee6af3ebd1cf28ca6c0bb313bdf03db5a55e"
     },
     {
       "path": "hooks/local/lib/approval_inventory.py",
@@ -1142,7 +1142,7 @@
     },
     {
       "path": "hooks/tests/test-agent-tool-profile.py",
-      "sha256": "3831f4808adb52e6ad5a37f5fd1bfc6623f1f6ded2f68c0a4f4c359be0bea56f"
+      "sha256": "fff571bf44f1a77490ac585b53337d51d40f57a061e5c293d920b6da9d98528a"
     },
     {
       "path": "hooks/tests/test-approval-binding.sh",
@@ -1689,5 +1689,5 @@
       "sha256": "bd9e3cf2d643a7f71016d480cfc720c36a6065271e073c3b638d8379d84fe47d"
     }
   ],
-  "manifest_self_sha256": "f291f6c494a98d615f057fc87f95f76a229dfca3c4294d347996cf0fc6c38896"
+  "manifest_self_sha256": "d3f1f56b1c547eacf916c4452b150c9a23d11f7a62e41b6fa7fc4901484c62fd"
 }

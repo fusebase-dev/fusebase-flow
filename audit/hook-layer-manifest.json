@@ -98,7 +98,7 @@
     },
     {
       "path": "hooks/local/lib/agent_tool_profile.py",
-      "sha256": "f71e26734847d5e118c814f96d3e676b1dc28540d7f11ccbebcfe2c6cc6e571e"
+      "sha256": "6f6feb21222e9ceab8501a2dfd49ee6af3ebd1cf28ca6c0bb313bdf03db5a55e"
     },
     {
       "path": "hooks/local/lib/approval_inventory.py",
@@ -961,5 +961,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "6e3bb988c5dee08a9ed6b31bf84f8a92b20b5c5ae42c7648bc5ff547008eed0a"
+  "manifest_self_sha256": "e63ef36c01da6e1932270e1b83ce4bd4a0181c16f2c7c764a8cd56b3069f67b2"
 }
