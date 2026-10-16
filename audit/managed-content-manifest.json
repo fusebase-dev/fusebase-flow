@@ -2,11 +2,11 @@
   "schema_version": 1,
   "flow_version": "5.10",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 412,
+  "asset_count": 414,
   "assets": [
     {
       "path": "FLOW_RULES.md",
-      "sha256": "48fd50918564f774a11262e0c37ad808c6382f4fa680fbd83f3f52894cf3ce0a"
+      "sha256": "0c8d8e32935715ce92831ff2e2e7e0a94580bbeab879d0926e66a8b5d745258b"
     },
     {
       "path": "FLOW_RULES_HISTORY.md",
@@ -122,7 +122,7 @@
     },
     {
       "path": "flow-skills/lightweight-lane/SKILL.md",
-      "sha256": "2bb75d13ea0d29065bfb85717bd8f39e6f9cfc7b0778090d89360c70a83f490b"
+      "sha256": "f9b37d1091b822f1dbebf46c9ff4a4cb89fabe966ef7902b9e362d7e8ca451c0"
     },
     {
       "path": "flow-skills/liveness-discipline/SKILL.md",
@@ -214,7 +214,7 @@
     },
     {
       "path": "flow-skills/validation-and-qa/SKILL.md",
-      "sha256": "c13af93fa58767a3e3752e38e89ca32fd651868b0a9547825deefe0220fbd545"
+      "sha256": "bb8ed55b8555e187bda7f58f120949b8ab6ae4e22a07de82eb4f6eb85b3046fe"
     },
     {
       "path": "flow-skills/zoom-out/SKILL.md",
@@ -286,7 +286,7 @@
     },
     {
       "path": "hooks/local/check-git-capture.sh",
-      "sha256": "a1ccdff2d32ff1e39cdbf93fe3be0e610816278c20d018836e5aaab6aa4e2214"
+      "sha256": "22bdb4723a34a08494a41861e364aefed1507d09a590da80dbdd8d62cb238934"
     },
     {
       "path": "hooks/local/check-module-size.sh",
@@ -562,7 +562,7 @@
     },
     {
       "path": "hooks/local/lib/managed_content_manifest.py",
-      "sha256": "60930dcd5d1fe45aa27836cdfcee4b4d8000bde4b2a30c48839f0b3ac24deb49"
+      "sha256": "94714ee46c32e0077984da2fdd032b11ae8c92d2f2a24e30187e5296c6b5f5c7"
     },
     {
       "path": "hooks/local/lib/materialize-managed-source.sh",
@@ -590,7 +590,7 @@
     },
     {
       "path": "hooks/local/lib/precommit-validator-reuse.sh",
-      "sha256": "acfe76dd0b453754e38cdc763b3220a86977c727a33a838e15375827a69230f2"
+      "sha256": "474f026bba4aadd2359678806ffa4007a8d19183f87a8f119e2e2b08bb9db002"
     },
     {
       "path": "hooks/local/lib/preflight-overlay-headings.sh",
@@ -627,6 +627,10 @@
     {
       "path": "hooks/local/lib/upgrade-delivery-guard.sh",
       "sha256": "12a358f619e4603a633eb7bc00e20012363c98fdc47f375ee86801875f51fae2"
+    },
+    {
+      "path": "hooks/local/lib/validator_tier.py",
+      "sha256": "0a77529b6bf4948546f6e03d479a19779e0565222294902407e6190513006588"
     },
     {
       "path": "hooks/local/mirror-agents.sh",
@@ -1438,7 +1442,11 @@
     },
     {
       "path": "hooks/tests/test-validator-evidence.sh",
-      "sha256": "82d18964ea3b20d3f09a8016c4d7dbc6ba2c3780311880aea88c355fc04c201e"
+      "sha256": "e5984149fc229654c13cf4716cc21073c6d770a8cea54e5c452a4a0a96706255"
+    },
+    {
+      "path": "hooks/tests/test-validator-tier.py",
+      "sha256": "c86f6cf4f09685009bae285caa94afe064522c9cbaef98a2a18db7709668e7cc"
     },
     {
       "path": "hooks/tests/test-vendored-rendered.sh",
@@ -1550,7 +1558,7 @@
     },
     {
       "path": "templates/handoff-implement.md",
-      "sha256": "5600973d6a4d96020fd3e8948edfca3c690bbcd39f73ebf6c93719c53f01b4e8"
+      "sha256": "4ab46213156ee4cb99bb70c19fe909b147d1729c43921c0c74d83c38a2cb04e6"
     },
     {
       "path": "templates/handoff.md",
@@ -1610,7 +1618,7 @@
     },
     {
       "path": "workflows/git-discipline.md",
-      "sha256": "f3e32bdf67c22e0c672babc424d46926fa0efafd77c83a26a15612bb28122704"
+      "sha256": "06c4f584fcfdf6426b4fa5b6289e4d161e6b230236a343dab1d473e488ae83aa"
     },
     {
       "path": "workflows/greenlight-deploy.md",
@@ -1650,8 +1658,8 @@
     },
     {
       "path": "workflows/violation-recovery.md",
-      "sha256": "b6580a1dbfb0756c0d8b2cbf02fd628066f2f74de55fdc83ed5d1961dd759918"
+      "sha256": "bd9e3cf2d643a7f71016d480cfc720c36a6065271e073c3b638d8379d84fe47d"
     }
   ],
-  "manifest_self_sha256": "5a0f84c7bafe37463335e1cc830e698c6524dbdc8a4b4ee6105c03e0f11412ab"
+  "manifest_self_sha256": "d503f2e935ee8a51c5acc6d42517989f2b60060480675e72708bd39652c41b44"
 }

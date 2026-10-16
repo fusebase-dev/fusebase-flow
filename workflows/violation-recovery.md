@@ -149,13 +149,14 @@ So the first `Edit` of a protected path cannot mint the approval that would perm
 | Customer-visible message sent without artifact | Cannot un-send. Document; if outbound was wrong, send a correction; file `docs/problem-catalog/<date>-unintended-outbound/problem.md`. |
 | Session-key used without artifact | Session is potentially compromised. Operator signs out immediately to invalidate. Document in `docs/problem-catalog/<date>-session-key-bypass/problem.md`. |
 
-### FR-13 — Lint+typecheck per commit
+### FR-13 — Lint+typecheck per code commit (declared docs-only paths skip)
 
-**Symptom:** committed broken state (lint or typecheck failed but commit was made anyway).
+**Symptom:** committed broken state (lint or typecheck failed but commit was made anyway), or a validator-free declaration covered a path a validator reads.
 
 1. Identify the broken commit by SHA.
-2. Fix-forward: next commit fixes the issue. Reference the broken SHA in the fix commit message: `fix(lint): resolve T<n>'s lint regression introduced by sha:<broken-sha>`.
-3. Document in next gate report's "deviations" field.
+2. If `policies/validator-free-paths.yml` let it through, narrow it first (protected edit, FR-07); that commit runs the validators.
+3. Fix-forward: next commit fixes the issue. Reference the broken SHA in the fix commit message: `fix(lint): resolve T<n>'s lint regression introduced by sha:<broken-sha>`.
+4. Document in next gate report's "deviations" field.
 
 ### FR-14 — Single docs commit on deploy
 

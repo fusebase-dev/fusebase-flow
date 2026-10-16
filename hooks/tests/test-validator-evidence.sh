@@ -19,8 +19,12 @@ new_fixture() {
     mkdir -p "$D/hooks/git" "$D/hooks/local/lib" "$D/hooks/shared" "$D/policies" "$COUNT"
     cp "$ROOT/hooks/git/pre-commit" "$D/hooks/git/pre-commit"
     cp "$ROOT/hooks/local/lib/precommit-validator-reuse.sh" "$D/hooks/local/lib/precommit-validator-reuse.sh"
+    cp "$ROOT/hooks/local/lib/validator_tier.py" "$D/hooks/local/lib/validator_tier.py"
     cp "$ROOT"/hooks/shared/*.py "$D/hooks/shared/"
     cp "$ROOT"/policies/*.yml "$D/policies/"
+    rm -f "$D/policies/validator-free-paths.yml"
+    [ "$#" -lt 2 ] || { printf 'schema_version: 1\nvalidator_free_paths:\n'; printf '  - "%s"\n' "${@:2}"; } \
+        > "$D/policies/validator-free-paths.yml"
     cat > "$tool" <<'PY'
 import os
 import pathlib
@@ -65,6 +69,13 @@ check() {
     else
         bad "$name" "rc=$rc lint=$(count_of lint) typecheck=$(count_of typecheck)"
     fi
+}
+
+stage_only() {
+    local f
+    mkdir -p "$D/docs"
+    for f in "$@"; do [ -f "$D/$f" ] || printf 'doc\n' > "$D/$f"; done
+    ( cd "$D" && git reset -q -- src.txt && git add -- "$@" )
 }
 
 stages_of() {
@@ -119,6 +130,58 @@ printf '\n' >> "$D/hooks/git/pre-commit"
 run_hook; check protected-check-remains-live "$?" nonzero 0 0 -F "protected paths edited"
 if grep -q "stage=protected-paths elapsed=" "$OUT"; then ok "stage-timing-printed-when-protected-paths-block"
 else bad "stage-timing-printed-when-protected-paths-block" "no protected-paths timing line"; fi
+
+if python3 "$ROOT/hooks/tests/test-validator-tier.py" >"$TMP/tier-unit.out" 2>&1; then ok "tier-unit"
+else bad "tier-unit" "$(tail -n 5 "$TMP/tier-unit.out" | tr '\n' '|')"; fi
+
+new_fixture tier-none
+run_hook; check tier-full-no-declaration "$?" 0 1 1 -F "tier=full: lint/typecheck run - no declaration"
+
+new_fixture tier-docs 'docs/**'
+stage_only docs/a.md
+run_hook; check tier-validator-free-docs-only "$?" 0 0 0 -F "tier=validator-free"
+if grep -q "stage=validators elapsed=" "$OUT" && grep -qF "all checks passed" "$OUT"; then ok "tier-validator-free-completes-hook"
+else bad "tier-validator-free-completes-hook" "$(tr '\n' '|' < "$OUT")"; fi
+
+new_fixture tier-undeclared 'docs/**'
+mkdir -p "$D/docs"; printf 'doc\n' > "$D/docs/a.md"; ( cd "$D" && git add -- docs/a.md )
+run_hook; check tier-full-undeclared-path "$?" 0 1 1 -F "src.txt is not declared validator-free"
+
+new_fixture tier-widening 'docs/**'
+printf '  - "src.txt"\n' >> "$D/policies/validator-free-paths.yml"
+run_hook; check tier-worktree-widening-ignored "$?" 0 1 1 -F "src.txt is not declared validator-free"
+
+new_fixture tier-rename 'docs/**'
+mkdir -p "$D/docs"; ( cd "$D" && git mv src.txt docs/src.md )
+run_hook; check tier-rename-both-sides "$?" 0 1 1 -F "src.txt is not declared validator-free"
+
+new_fixture tier-invalid '**'
+stage_only docs/a.md
+run_hook; check tier-invalid-declaration-runs "$?" 0 1 1 -F "is invalid"
+
+new_fixture tier-secret 'docs/**'
+mkdir -p "$D/docs"; printf 'k = "%s"\n' "AKIA""IOSFODNN7EXAMPLE" > "$D/docs/leak.md"
+stage_only docs/leak.md
+run_hook; check tier-secret-scan-still-runs "$?" nonzero 0 0 -F "secret pattern in staged added lines"
+
+new_fixture tier-protected '**/*.md'
+( cd "$D" && printf 'rules\n' > FLOW_RULES.md && git add -- FLOW_RULES.md && git commit -qm rules \
+  && printf 'edit\n' >> FLOW_RULES.md && git add -- FLOW_RULES.md )
+run_hook; check tier-protected-check-still-runs "$?" nonzero 0 0 -F "protected paths edited"
+
+new_fixture tier-module-size 'scripts/**'
+mkdir -p "$D/hooks/local" "$D/scripts"
+cp "$ROOT/hooks/local/check-module-size.sh" "$D/hooks/local/check-module-size.sh"
+: > "$D/policies/module-size-baseline.txt"
+( cd "$D" && git add -- hooks/local/check-module-size.sh policies/module-size-baseline.txt && git commit -qm size )
+for _ in $(seq 1 801); do echo 'echo x'; done > "$D/scripts/big.sh"
+( cd "$D" && git add -- scripts/big.sh )
+run_hook; check tier-module-size-still-runs "$?" nonzero 0 0 -F "module-size ratchet failed"
+
+new_fixture tier-old-hook 'docs/**'
+stage_only docs/a.md
+in_fixture "" bash -c '. hooks/local/lib/precommit-validator-reuse.sh; run_precommit_validators "$PWD" "$PATH"'
+check tier-old-hook-copy "$?" 0 0 0 -F "tier=validator-free"
 
 cli_hashes="$(sha256sum "$ROOT/.claude/hooks/run-lint-on-stop.sh" \
   "$ROOT/.claude/hooks/run-typecheck-on-stop.sh" "$ROOT/.claude/hooks/quality-check-apps.js" \

@@ -56,7 +56,7 @@ MANAGED_FILES = (
 _EXCLUDED_DIR_NAMES = {"__pycache__", ".git", "node_modules"}
 _EXCLUDED_SUFFIXES = (".pyc", ".pyo")
 _BACKUP_MARKERS = (".pre-upgrade-", ".pre-bootstrap-", ".pre-refresh-")
-_PROJECT_OWNED = frozenset({"policies/agent-tools.yml"})  # TRIPWIRE: Flow never ships these (upgrade would abort changed-by-both)
+_PROJECT_OWNED = frozenset({"policies/agent-tools.yml", "policies/validator-free-paths.yml"})  # TRIPWIRE: Flow never ships these (upgrade would abort changed-by-both)
 
 
 def _excluded(rel: str) -> bool:

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "5.10",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 233,
+  "asset_count": 234,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -58,7 +58,7 @@
     },
     {
       "path": "hooks/local/check-git-capture.sh",
-      "sha256": "a1ccdff2d32ff1e39cdbf93fe3be0e610816278c20d018836e5aaab6aa4e2214"
+      "sha256": "22bdb4723a34a08494a41861e364aefed1507d09a590da80dbdd8d62cb238934"
     },
     {
       "path": "hooks/local/check-module-size.sh",
@@ -166,7 +166,7 @@
     },
     {
       "path": "hooks/local/lib/managed_content_manifest.py",
-      "sha256": "60930dcd5d1fe45aa27836cdfcee4b4d8000bde4b2a30c48839f0b3ac24deb49"
+      "sha256": "94714ee46c32e0077984da2fdd032b11ae8c92d2f2a24e30187e5296c6b5f5c7"
     },
     {
       "path": "hooks/local/lib/materialize-managed-source.sh",
@@ -194,7 +194,7 @@
     },
     {
       "path": "hooks/local/lib/precommit-validator-reuse.sh",
-      "sha256": "acfe76dd0b453754e38cdc763b3220a86977c727a33a838e15375827a69230f2"
+      "sha256": "474f026bba4aadd2359678806ffa4007a8d19183f87a8f119e2e2b08bb9db002"
     },
     {
       "path": "hooks/local/lib/preflight-overlay-headings.sh",
@@ -231,6 +231,10 @@
     {
       "path": "hooks/local/lib/upgrade-delivery-guard.sh",
       "sha256": "12a358f619e4603a633eb7bc00e20012363c98fdc47f375ee86801875f51fae2"
+    },
+    {
+      "path": "hooks/local/lib/validator_tier.py",
+      "sha256": "0a77529b6bf4948546f6e03d479a19779e0565222294902407e6190513006588"
     },
     {
       "path": "hooks/local/mirror-agents.sh",
@@ -918,7 +922,7 @@
     },
     {
       "path": "hooks/tests/test-validator-evidence.sh",
-      "sha256": "82d18964ea3b20d3f09a8016c4d7dbc6ba2c3780311880aea88c355fc04c201e"
+      "sha256": "e5984149fc229654c13cf4716cc21073c6d770a8cea54e5c452a4a0a96706255"
     },
     {
       "path": "hooks/tests/test-vendored-rendered.sh",
@@ -937,5 +941,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "dca0654f509f84aad7ebba4cc8505d31cc045a015c410be6b5c359006324fe24"
+  "manifest_self_sha256": "6ec0a5da67757afd1b90e4ca79568ebecfd68be8afe82d8422b6a4483710be42"
 }

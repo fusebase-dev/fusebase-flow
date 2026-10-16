@@ -92,7 +92,7 @@ These checks remain available with `FF_ONLY` when their subject changes. They do
 | `history-extraction` | One-time migration equivalence against historical Git blobs | Current rule/skill structure and delivery; Git preserves migration history |
 | `consumer-benchmark` | Comparative profiling/benchmark output | Actual recovery, ownership, no-op and failure scenarios in cli-flow-recovery |
 
-Exact machine-consumed markers, schema keys and public command names remain valid assertions. Prose synonyms and numbered comments are not executable contracts. `release-authority` validates the parsed job graph; `validation-instructions` exercises configured validator execution instead of matching guidance sentences. `validator-evidence` drives the real pre-commit hook: lint and typecheck run once per commit, failures block, a missing helper blocks, and the secret and protected-path checks stay live.
+Exact machine-consumed markers, schema keys and public command names remain valid assertions. Prose synonyms and numbered comments are not executable contracts. `release-authority` validates the parsed job graph; `validation-instructions` exercises configured validator execution instead of matching guidance sentences. `validator-evidence` drives the real pre-commit hook: lint and typecheck run once per commit, failures block, a missing helper blocks, and the secret and protected-path checks stay live, plus the FR-13 validator-free tier (Python unit + hook rows).
 
 ## Execution and completion
 

@@ -1,6 +1,6 @@
 # Fusebase Flow — always-on rules (FR-01..FR-27)
 
-**Status:** v0.29 · latest FR-27 (liveness, v3.28.0). **Scope:** every session, any IDE/agent, whatever skill/workflow is active. Clean-room original.
+**Status:** FR-01..FR-27. **Scope:** every session, any IDE/agent, whatever skill/workflow is active. Clean-room original.
 Rule + why here; the rest lazy: enforcement surface per rule + git-surface modes `docs/rail-mapping.md` · policies `policies/*.yml` · procedures `workflows/*.md` · expertise `flow-skills/*/SKILL.md` · dated history `FLOW_RULES_HISTORY.md` (never load at session start).
 
 | ID | Rule | Why |
@@ -17,7 +17,7 @@ Rule + why here; the rest lazy: enforcement surface per rule + git-surface modes
 | FR-10 | Reproducibility before fix | Observed single-failure reports often reflect model variance. Drafting fix decisions before reproducing 3/3 wastes effort and ships speculative changes |
 | FR-11 | Stop and ask, don't improvise | Ambiguity on locked decisions, missing context, or undeclared scope creep should surface as a question, not a guess |
 | FR-12 | Approval-gated side effects | DB migrations, customer-visible external messages, auth/permission changes, secret handling, and production deploys require an approval artifact on disk |
-| FR-13 | Lint+typecheck per commit | Broken state on main forces emergency rollback and breaks downstream pulls |
+| FR-13 | Lint+typecheck per code commit (declared docs-only paths skip) | Broken state on main forces emergency rollback and breaks downstream pulls |
 | FR-14 | Single docs commit on deploy | DRAFT→DONE flip, tasks marks, backlog index update belong together so a single revert restores known-good doc state |
 | FR-15 | Knowledge curation triggers | Without persistent capture, every new session re-discovers solved problems |
 | FR-16 | Operator is a thin relay | Operator's job = product/business decisions, gate approvals, relaying messages. All other cognitive work — interpreting status, recommending next steps, composing paste-back prompts — is the agent's (especially the PO's); operator attention is the most expensive resource. |

@@ -31,6 +31,7 @@ FF_GIT_CAPTURE_GATED=(
     hooks/local/lib/run-with-timeout.sh
     hooks/tests/lib/orphan-reap.sh
     hooks/tests/lib/run-preconditions.sh
+    hooks/local/lib/precommit-validator-reuse.sh
 )
 
 SCANNER="$ROOT/hooks/local/lib/git-capture-scan.py"

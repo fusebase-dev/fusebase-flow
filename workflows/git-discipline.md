@@ -18,7 +18,7 @@ Discipline that replaces branch protection:
 |---|---|
 | Pre-task git checkpoint (verify clean state before T<first>) | AI Developer self-check + `pre_tool_use` hook |
 | One task = one commit (FR-03) | AI Developer self-check + `commit-msg` git hook |
-| Lint+typecheck per commit (FR-13) | `pre-commit` git hook |
+| Lint+typecheck per code commit; declared docs-only paths skip (FR-13; see § Validator-free paths) | `pre-commit` git hook |
 | No `git add -A` / `git add .` for production code (FR-06) | `command-policy.yml` + `pre_tool_use` hook |
 | No `--no-verify` (FR-06) | `command-policy.yml` + `pre_tool_use` hook |
 | No `git reset --hard` without confirmation (FR-06) | `command-policy.yml` + `pre_tool_use` hook |
@@ -43,7 +43,7 @@ The flow rules (FR-01..FR-27) are identical. Only the git surface changes.
 2. Pull latest from main.
 3. (Branch mode only) Create branch: `git checkout -b feature/<slug>` if not yet created.
 4. Make edits for one task (T<n>).
-5. Run lint + typecheck. Both must be clean.
+5. The Flow pre-commit hook runs the project lint and typecheck once (FR-13; § Validator-free paths) with the secret, protected-path and module-size checks, so do not run a separate validator pass first. That holds only while the effective hook is Flow's (check: `greenlight-implement.md` step 4); otherwise run both yourself before committing.
 6. Worker-undisturbed check: `git diff` against `protected-paths.yml` for paths declared protected. Must be empty.
 7. Stage files explicitly by name (no `git add -A` / `git add .`).
 8. Commit with message format: `<type>(<scope>): T<n> <one-liner>`. Examples:
@@ -86,11 +86,27 @@ Pre-task checkpoint per FR-06:
 - After gate (branch mode): push branch; PR opens for review
 - After deploy: push includes the single docs commit (FR-14)
 
+## Validator-free paths (FR-13)
+
+FR-13 in full: Lint+typecheck per code commit. A commit whose staged paths all match the project's declared docs-only list (empty by default) skips lint and typecheck and still runs the secret scan, protected paths and module size. Any other staged path runs lint and typecheck once. The `pre-commit` hook skips lint and typecheck only when **every** staged path is declared in `policies/validator-free-paths.yml` **as committed at HEAD**. Flow ships no such file, so by default every commit runs both. The declaration means: neither configured validator (`FUSEBASE_FLOW_LINT` / `FUSEBASE_FLOW_TYPECHECK`, or the root `package.json` `lint` / `typecheck` scripts) reads these paths. A **validator input** is any staged path the declaration does not cover; deletions and both sides of a rename count.
+
+    schema_version: 1
+    validator_free_paths:   # repo-relative: * one segment, ** any depth, ? one character
+      - "docs/**"
+      - "**/*.png"
+
+- Never skips: a commit that stages this file, a validator config (`package.json`, lockfiles, `tsconfig*.json`, eslint / prettier / markdownlint / cspell / stylelint / biome / deno configs, `.editorconfig`, `.gitignore`, Python linter configs) or the tier's own code; a first commit; a missing, empty, malformed or over-broad declaration (a pattern that covers a validator config, such as `**/*.json`).
+- Always runs: the secret scan, the protected-path check and the module-size ratchet.
+- Do not declare paths your lint or typecheck reads, including scripts they execute. prettier, markdownlint, cspell, `@eslint/markdown` and `astro check` read `.md`.
+- Creating or changing the file is a protected edit (`policies/*.yml`, FR-07): the operator approves in chat, then the agent commits it under a digest-bound approval. It applies from the next commit.
+- The hook prints `tier=validator-free` or `tier=full` with the reason.
+
 ## Related
 
 - `policies/approval-policy.yml` — `workflow_mode` (direct_to_main / branch_pr)
 - `policies/command-policy.yml` — banned commands list
 - `policies/protected-paths.yml` — worker-undisturbed list
+- `policies/validator-free-paths.yml` — optional, project-created FR-13 declaration (none by default)
 - `hooks/git/pre-commit` — local lint/typecheck gate
 - `hooks/git/commit-msg` — T-number requirement
 - `hooks/handlers/pre_tool_use.py` — agent-level command policy enforcement

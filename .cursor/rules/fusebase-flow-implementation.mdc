@@ -21,7 +21,7 @@ If any check fails, STOP and ask the operator.
 ## Per-task discipline
 
 - One task = one commit (FR-03)
-- Lint + typecheck clean per commit (FR-13)
+- Lint + typecheck clean per code commit; declared docs-only commits skip them (FR-13)
 - Stage files explicitly by name — never `git add -A` / `git add .` (FR-06)
 - Commit message format: `<type>(<scope>): T<n> <one-liner>`
   - `feat(spa): T17 ...`

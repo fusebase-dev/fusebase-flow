@@ -72,7 +72,7 @@ The path router accepts changed paths and emits structured matched paths and tri
 - **An explicit operator deploy go-ahead** — never auto-deploy; just lighter than a JSON artifact + magic phrase for a reversible trivial change.
 - **FR-07 worker-undisturbed / protected-path check** — cheap and safety-relevant; run it.
 - **A documented rollback** — one line in the change-note.
-- **One commit per change** (FR-03) + the SHA recorded; lint + typecheck per commit (FR-13).
+- **One commit per change** (FR-03) + the SHA recorded; lint + typecheck per code commit, declared docs-only paths skip (FR-13).
 
 ## What LL DROPS (planning/traceability overhead, not safety)
 

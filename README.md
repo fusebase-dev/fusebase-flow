@@ -693,7 +693,7 @@ Hooks read a unified JSON event from stdin (schema at `hooks/flow_hook_event.sch
 
 ## Default workflow modes
 
-- **Solo / local default:** direct-to-main with pre-task git checkpoint, one-task-one-commit, lint+typecheck per commit, and verification gate before deploy.
+- **Solo / local default:** direct-to-main with pre-task git checkpoint, one-task-one-commit, lint+typecheck per commit (a project may declare docs-only paths that skip it), and verification gate before deploy.
 - **Team / shared mode:** feature branches + PR review. Switch via `policies/approval-policy.yml: workflow_mode: branch_pr` (or in a local override at `approval-policy.local.yml`).
 
 The flow rules are identical in both modes; only the git surface changes.
