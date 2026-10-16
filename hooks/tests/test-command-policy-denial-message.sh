@@ -67,6 +67,11 @@ def expected(rule_id: str, pattern: str) -> str:
 policy = yaml.safe_load((root / "policies" / "command-policy.yml").read_text(encoding="utf-8"))
 deny_rules = policy["deny"]
 
+# The O3 patterns exactly as yaml.safe_load yields them (each mixes " and ', hence r"""...""").
+O3_N = r"""\bgit(?:[ \t]+(?:(?:-[Cc]|--(?:git-dir|work-tree|namespace|config-env|attr-source|super-prefix))[ \t]+(?:"[^"\n]*"|'[^'\n]*'|[^\s"';&|])+|(?!(?:-[Cc]|--(?:git-dir|work-tree|namespace|config-env|attr-source|super-prefix))[ \t])--?[A-Za-z][\w-]*(?:=(?:"[^"\n]*"|'[^'\n]*'|[^\s"';&|])+)?))*[ \t]+commit(?![\w.-])(?:\\\r?\n|(?![ \t]--(?=[\s;&|)]|$))[^;&|\n])*?[ \t]-[apzseiovq]*n[apzseiovqn]*(?:[CcFmtUuS]|(?=[\s"'`;&|)<>]|$))"""
+O3_HP = r"""\bgit(?:[ \t]+(?:(?:-[Cc]|--(?:git-dir|work-tree|namespace|config-env|attr-source|super-prefix))[ \t]+(?:"[^"\n]*"|'[^'\n]*'|[^\s"';&|])+|(?!(?:-[Cc]|--(?:git-dir|work-tree|namespace|config-env|attr-source|super-prefix))[ \t])--?[A-Za-z][\w-]*(?:=(?:"[^"\n]*"|'[^'\n]*'|[^\s"';&|])+)?))*[ \t]+(?:(?:-c[ \t]+|--config-env(?:=|[ \t]+))["']?core\.hooksPath\b|config(?![\w.-])(?:(?=[^;&|\n]*?[ \t](?:--unset(?:-all)?|--replace-all|--add|set|unset)(?![\w-]))[^;&|\n]*?[ \t]["']?core\.hooksPath\b|[^;&|\n]*?[ \t](["']?)core\.hooksPath\1[ \t]+(?![0-9]*[<>]|-)[^\s;&|]))"""
+O3_ENV = r"""\bGIT_CONFIG_(?:PARAMETERS\b[^;&|\n]*?|KEY_\d+[\]"']*[ \t]*[=,][ \t]*["']?)core\.hooksPath\b"""
+
 # One matching command per SHIPPED deny rule. Completeness is asserted below, so a new deny rule
 # lands here as a FAIL rather than as silent uncovered surface.
 SAMPLES = {
@@ -78,6 +83,10 @@ SAMPLES = {
     r'\bgit\s+clean\s+-fdx?\b': "git clean -fdx",
     r'\bgit\s+add\s+(\.(\s|$)|--all\b|-A\b)': "git add -A",
     r'--no-verify\b': "git commit --no-verify -m wip",
+    O3_N: "git commit -n -m wip",
+    r'--no-verif?\b': "git commit --no-verif -m wip",
+    O3_HP: "git -c core.hooksPath=/dev/null commit -m wip",
+    O3_ENV: "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/x git commit -m wip",
 }
 
 with tempfile.TemporaryDirectory() as d:
@@ -163,6 +172,10 @@ with tempfile.TemporaryDirectory() as d:
         ("git add hooks/shared/x.py",        "allow", "",      ""),
         ("fusebase deploy",                  "deny",  "FR-12", r'\bfusebase\s+deploy\b'),
         ("npx prisma migrate deploy",        "deny",  "FR-12", r'\b(npx\s+)?prisma\s+migrate\s+(deploy|reset)\b'),
+        ("git commit -an -m wip",            "deny",  "FR-13", O3_N),
+        ("git config --unset core.hooksPath", "deny", "FR-13", O3_HP),
+        ("git config core.hooksPath",        "allow", "",      ""),
+        ("git log -n 3",                     "allow", "",      ""),
     ]
     for cmd, want_decision, want_rule, want_pattern in PINNED:
         dec = decide(repo, cmd)

@@ -20,7 +20,7 @@ Discipline that replaces branch protection:
 | One task = one commit (FR-03) | AI Developer self-check + `commit-msg` git hook |
 | Lint+typecheck per code commit; declared docs-only paths skip (FR-13; see § Validator-free paths) | `pre-commit` git hook |
 | No `git add -A` / `git add .` for production code (FR-06) | `command-policy.yml` + `pre_tool_use` hook |
-| No `--no-verify` (FR-06) | `command-policy.yml` + `pre_tool_use` hook |
+| No `--no-verify`, `git commit -n`, or `core.hooksPath` changes (FR-06) | `command-policy.yml` + `pre_tool_use` hook |
 | No `git reset --hard` without confirmation (FR-06) | `command-policy.yml` + `pre_tool_use` hook |
 | No `git push --force` to main (FR-06) | `command-policy.yml` + `pre_tool_use` hook + recovery via `git revert` |
 

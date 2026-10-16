@@ -83,6 +83,30 @@ deny:
   - pattern: '--no-verify\b'
     reason: "FR-06 + FR-13: --no-verify bypasses pre-commit hooks (lint, typecheck, secret scan)."
     rule_id: FR-13
+  # git commit -n IS --no-verify (v5.11 decision C); residual rows pinned in hooks/tests/test-command-policy.sh.
+  # TRIPWIRE (backtracking): no token may match two branches of the `\bgit(...)*` global-option loop. The
+  # generic flag branch refuses -C/-c/--git-dir/... + blank (the value branch owns them) and `-[Cc]` stays ONE
+  # class; any overlap is exponential (`git -C -C ... status`). No (?>...) or *+: Python 3.10 cannot compile
+  # them, and a pattern that fails to compile denies EVERY command (K4).
+  - pattern: '\bgit(?:[ \t]+(?:(?:-[Cc]|--(?:git-dir|work-tree|namespace|config-env|attr-source|super-prefix))[ \t]+(?:"[^"\n]*"|''[^''\n]*''|[^\s"'';&|])+|(?!(?:-[Cc]|--(?:git-dir|work-tree|namespace|config-env|attr-source|super-prefix))[ \t])--?[A-Za-z][\w-]*(?:=(?:"[^"\n]*"|''[^''\n]*''|[^\s"'';&|])+)?))*[ \t]+commit(?![\w.-])(?:\\\r?\n|(?![ \t]--(?=[\s;&|)]|$))[^;&|\n])*?[ \t]-[apzseiovq]*n[apzseiovqn]*(?:[CcFmtUuS]|(?=[\s"''`;&|)<>]|$))'
+    reason: "FR-06 + FR-13: git commit -n is --no-verify; it skips the pre-commit (secret scan, protected paths, lint, typecheck) and commit-msg hooks. A message that mentions -n goes through git commit -F <file>."
+    rule_id: FR-13
+  # git's unique-prefix rule makes --no-veri/--no-verif mean --no-verify (v5.11 operator decision 6).
+  - pattern: '--no-verif?\b'
+    reason: "FR-06 + FR-13: --no-veri/--no-verif is git's abbreviation of --no-verify and bypasses the same hooks."
+    rule_id: FR-13
+  # core.hooksPath SETTING forms only, --unset included; reads stay open (v5.11 decision C).
+  # TRIPWIRE: the `\bgit(...)*` prefix is the -n rule's verbatim: keep the two identical. The terminal
+  # -c / --config-env alternatives re-match a loop option on purpose; they never repeat, so stay linear.
+  - pattern: '\bgit(?:[ \t]+(?:(?:-[Cc]|--(?:git-dir|work-tree|namespace|config-env|attr-source|super-prefix))[ \t]+(?:"[^"\n]*"|''[^''\n]*''|[^\s"'';&|])+|(?!(?:-[Cc]|--(?:git-dir|work-tree|namespace|config-env|attr-source|super-prefix))[ \t])--?[A-Za-z][\w-]*(?:=(?:"[^"\n]*"|''[^''\n]*''|[^\s"'';&|])+)?))*[ \t]+(?:(?:-c[ \t]+|--config-env(?:=|[ \t]+))["'']?core\.hooksPath\b|config(?![\w.-])(?:(?=[^;&|\n]*?[ \t](?:--unset(?:-all)?|--replace-all|--add|set|unset)(?![\w-]))[^;&|\n]*?[ \t]["'']?core\.hooksPath\b|[^;&|\n]*?[ \t](["'']?)core\.hooksPath\1[ \t]+(?![0-9]*[<>]|-)[^\s;&|]))'
+    flags: [i]
+    reason: "FR-06 + FR-13: changing core.hooksPath (git -c, --config-env, git config set/unset) points git away from the Flow pre-commit, commit-msg and pre-push hooks, including the FR-12 pre-push boundary. That is the operator's change to make. Read the active hooks directory with git rev-parse --git-path hooks."
+    rule_id: FR-13
+  # Environment form of git -c core.hooksPath (v5.11 decision C).
+  - pattern: '\bGIT_CONFIG_(?:PARAMETERS\b[^;&|\n]*?|KEY_\d+[\]"'']*[ \t]*[=,][ \t]*["'']?)core\.hooksPath\b'
+    flags: [i]
+    reason: "FR-06 + FR-13: GIT_CONFIG_KEY_<n> or GIT_CONFIG_PARAMETERS carrying core.hooksPath is git -c core.hooksPath by environment; same hook bypass."
+    rule_id: FR-13
 
 # Require approval. The pre_tool_use hook checks state/approvals/ for an
 # artifact matching the action. Action names match approval-policy.yml keys.
@@ -97,7 +121,7 @@ require_approval:
   # lightweight-lane skill own that discipline, not this file.
   - pattern: '\bfusebase\s+deploy\b'
     any_of: [production_deploy, lightweight_deploy]
-    reason: "FR-12/FR-21: production deploy requires a production_deploy (Full lane) or lightweight_deploy (FR-21 Lightweight lane) approval artifact."
+    reason: "FR-12/FR-21: every fusebase deploy, in any environment, requires a production_deploy (Full lane) or lightweight_deploy (FR-21 Lightweight lane) approval artifact bound to the exact command; the command text cannot prove the target is non-production."
     rule_id: FR-12
     binding_profile: command_only_v1
 
@@ -180,8 +204,8 @@ require_approval:
     rule_id: FR-12
     binding_profile: command_only_v1
 
-# Allow list (positive override). Anything matching here is explicitly allowed
-# even if a `deny` or `require_approval` pattern would also match. Use sparingly.
+# Allow list. Evaluated AFTER deny and require_approval (match_order), so an entry here never
+# exempts a denied or approval-gated command; it only pre-empts `default`. Use sparingly.
 allow: []
 
 # Behavior on first-match. Order: deny → require_approval → allow → default.

@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "61cd38e48e5ee5b136040b6ebb5c80df5994f51305c3f64d78a400737b32c6dc"
+      "sha256": "d8229ac3b7e7d57e9675257cf5326849ee49ffe69a329a609a6dd42ce7382c3f"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -1186,11 +1186,11 @@
     },
     {
       "path": "hooks/tests/test-command-policy-denial-message.sh",
-      "sha256": "2260d528c6c2f08ab92f321c9f22beb8fb3a933423c4b39ecb2bcd7b5f4616f8"
+      "sha256": "a5fe4c99c2dd19373327decce964551b5943325c1b2d119397492a26a5e0c8c1"
     },
     {
       "path": "hooks/tests/test-command-policy.sh",
-      "sha256": "2e30fca13f00b2c98c1bf9851f34dfbd4b6b4b00aba9df5a022b4088f98ac225"
+      "sha256": "39d68d82b0ea84533ccc98e9d15051b0843154c3a13b3a5bfac83c4c0ab3c3ff"
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
@@ -1474,7 +1474,7 @@
     },
     {
       "path": "policies/command-policy.yml",
-      "sha256": "b1bc016af2c6815129a96da62e8085d182ac17e83ac65c905b12c2c30003654e"
+      "sha256": "4f8599bae6e914e61c4082f12d8370fbb09920e7d115c97c63d41204054d7f55"
     },
     {
       "path": "policies/comment-policy.yml",
@@ -1622,7 +1622,7 @@
     },
     {
       "path": "workflows/git-discipline.md",
-      "sha256": "06c4f584fcfdf6426b4fa5b6289e4d161e6b230236a343dab1d473e488ae83aa"
+      "sha256": "9a83741cf03957a84a6d0574c86f71720f7920d23d8091d9dbb8ca551990e6fb"
     },
     {
       "path": "workflows/greenlight-deploy.md",
@@ -1665,5 +1665,5 @@
       "sha256": "bd9e3cf2d643a7f71016d480cfc720c36a6065271e073c3b638d8379d84fe47d"
     }
   ],
-  "manifest_self_sha256": "8556f42c8fced77f9c4af85bf640461918ab550c36e530206697620cea4b844d"
+  "manifest_self_sha256": "c356525a710ba1e1716a24a4f77f7be6d68604bc291f429dac75498ebab83ceb"
 }

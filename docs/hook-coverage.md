@@ -28,7 +28,7 @@ to the gate does not make the *rules* PowerShell-aware. Measured against the shi
 
 | Command shape | Example | Gated |
 |---|---|---|
-| Shell-agnostic gated commands | `git reset --hard`, `git push --force`, `--no-verify`, `npx prisma migrate deploy`, `fusebase deploy` | yes (identical text in both shells) |
+| Shell-agnostic gated commands | `git reset --hard`, `git push --force`, `--no-verify`, `git commit -n`, `core.hooksPath` changes, `npx prisma migrate deploy`, `fusebase deploy` | yes (identical text in both shells) |
 | bash destructive form | `rm -rf <path>` | yes |
 | PowerShell alias + native flags | `rm -Recurse -Force <path>` | partial — `destructive_file_delete` (FR-12), not the FR-06 deny |
 | PowerShell cmdlet / short alias / pipeline | `Remove-Item -Recurse -Force <path>`, `ri -r -fo <path>`, `... \| Remove-Item -Recurse` | **no** |

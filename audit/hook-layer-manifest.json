@@ -678,11 +678,11 @@
     },
     {
       "path": "hooks/tests/test-command-policy-denial-message.sh",
-      "sha256": "2260d528c6c2f08ab92f321c9f22beb8fb3a933423c4b39ecb2bcd7b5f4616f8"
+      "sha256": "a5fe4c99c2dd19373327decce964551b5943325c1b2d119397492a26a5e0c8c1"
     },
     {
       "path": "hooks/tests/test-command-policy.sh",
-      "sha256": "2e30fca13f00b2c98c1bf9851f34dfbd4b6b4b00aba9df5a022b4088f98ac225"
+      "sha256": "39d68d82b0ea84533ccc98e9d15051b0843154c3a13b3a5bfac83c4c0ab3c3ff"
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
@@ -941,5 +941,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "692e77c42e8c3842dd5c8d17aafae7eba9f6eded04b722f8fd33993250bff5fc"
+  "manifest_self_sha256": "6d2c2a8b329df1ca46ef2ca8076c6a2c55636eabe11250f69cf05cc1f6573d2f"
 }

@@ -21,7 +21,7 @@ command -v python3 >/dev/null 2>&1 || { echo "PASS: command-policy skipped-no-py
 
 # ---- AC5 fail-closed · AC6 all-match · AC7 SQL · K16 fallthrough removal ----------
 OUT="$(MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - "$ROOT" <<'PY' 2>&1
-import json, shutil, sys, tempfile
+import faulthandler, json, shutil, sys, tempfile, time
 from pathlib import Path
 import yaml
 
@@ -348,6 +348,58 @@ with tempfile.TemporaryDirectory() as d:
     mint(repo, "database_migration", command)
     expect("t132-compound-both-approved", decide(repo, command), decision="allow")
 
+# O3 (v5.11 decision C). `# over-fires` / `# misses` rows pin K21 residuals: INVERT them when a parser lands.
+O3_DENY = (
+    "git commit -n -m wip", "git commit -an -m wip", "git commit -nm wip", "git commit -sn -m wip",
+    "git commit -nuno -m wip", "git commit -m wip -n", "git -C sub commit -n -m wip", "git commit -vn",
+    'git -c user.name="A B" commit -n -m wip', "cd sub && git commit -n -m wip", "git commit \\\n  -n -m wip",
+    "git --git-dir .git --work-tree . commit -n -m wip", "git --no-pager -C sub commit -n -m wip",
+    "git commit --no-verif -m wip", "git commit --no-veri -m wip", "git push --no-veri origin feature",
+    "git -c core.hooksPath=/dev/null commit -m wip", "git -c CORE.HOOKSPATH=x commit -m wip",
+    'git -c "core.hooksPath=/dev/null" commit -m wip', "git --config-env=core.hooksPath=HP commit -m wip",
+    "git -c core.hooksPath=/dev/null push origin main", "git config core.hooksPath .githooks",
+    "git config --global core.hooksPath ~/.githooks", 'git config "core.hooksPath" x',
+    "git config --unset core.hooksPath", "git config --unset-all core.hooksPath",
+    "git config set core.hooksPath x", "git config unset --global core.hooksPath",
+    "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath GIT_CONFIG_VALUE_0=/x git commit -m wip",
+    "$env:GIT_CONFIG_KEY_0 = 'core.hooksPath'", "GIT_CONFIG_PARAMETERS=\"'core.hooksPath'='/x'\" git commit",
+    # over-fires (prose, a read with a value-pattern): commit with -F <file>; search with the Grep tool
+    'git commit -m "fix tail -n 20 output"', 'rg "git commit -n" docs',
+    'git commit -m "docs: git config core.hooksPath .githooks"', "git config --get core.hooksPath x",
+)
+O3_OPEN = (
+    *(f"bash hooks/local/install-git-hooks.sh{a}" for a in ("", " --force", " -f", " --help", " -h")),
+    *(f"bash hooks/local/post-fusebase-update.sh{a}" for a in ("", " --wire-hooks", " --forget-hook-wiring",
+      " --refresh-overlays", " --help", " -h", " --wire-hooks --refresh-overlays")),
+    "git commit -m 'chore(flow): restore Fusebase Flow overlay after fusebase update'",
+    "git rev-parse --git-path hooks", "rg core.hooksPath docs", "git config core.hooksPath",
+    "git config --get core.hooksPath", 'git commit -m "msg"', 'git commit -am "msg"', 'git commit -m "-n"',
+    "git commit -- -n", "git commit -mn", "git commit -uno -m wip", "git commit -Sn -m wip", "git add -n .",
+    "git clean -n", "git push -n origin feature", "git log -n 5", "git grep commit -n",
+    "git log --grep commit -n 3", "git commit -m wip && git log -n 3", "git commit -F m.txt 2>&1 | tail -n 20",
+    "git revert -n HEAD", "git cherry-pick -n abc123", "bash hooks/tests/test-release-tag-binding.sh",
+    'git -c user.email="a@b" -c user.name="n" commit -m "Initial commit"',
+    # misses (K21 quote-splitting / dynamic construction / a quoted separator before -n)
+    'git commit "-n" -m wip', 'git commit -m "a; b" -n', 'git commit -m "x -- y" -n', "git ci -n -m wip",
+)
+with tempfile.TemporaryDirectory() as d:
+    repo = make_repo(Path(d))
+    for cmd in O3_DENY:
+        expect(f"o3-deny[{cmd[:48]}]", decide(repo, cmd), decision="deny", rule_id="FR-13")
+    for cmd in O3_OPEN:
+        expect(f"o3-open[{cmd[:48]}]", decide(repo, cmd), decision="allow")
+    # TRIPWIRE (Astra O3 r2 F1): a token two git-prefix branches accept backtracks exponentially, a HANG
+    # not a slow run; the watchdog thread fires even while `re` holds the GIL and exits non-zero.
+    faulthandler.dump_traceback_later(60, exit=True)
+    for n in (40, 200, 2000):
+        for cmd in [f"git {t * n}{e}" for t in ("-C ", "-c ", "--git-dir ", "-C x ", "-c a=b ", "--no-pager ")
+                    for e in ("status", "config x", "commit -m x")] + [f"git commit {t * n}" for t in ("-n ", "-m x ")]:
+            t0 = time.perf_counter()
+            evaluate(cmd, root=repo)
+            if (dt := time.perf_counter() - t0) > 1.0:
+                fails.append(f"o3-bounded-time[{cmd[:20]}...x{n}]: {dt:.2f}s")
+    faulthandler.cancel_dump_traceback_later()
+
 # The dead key is gone from the shipped policy (K16).
 shipped = yaml.safe_load((root / "policies" / "command-policy.yml").read_text(encoding="utf-8"))
 if any("fallthrough" in r for r in (shipped.get("require_approval") or [])):
@@ -474,6 +526,10 @@ with tempfile.TemporaryDirectory() as d:
     both(repo, "t29-pair-lightweight-only-denies", "deny")
     mint(repo, "production_deploy")
     both(repo, "t29-dedup-bypass-both-artifacts-allows", "allow")
+
+CMD = "git commit -n -m wip"
+with tempfile.TemporaryDirectory() as d:
+    both(build(Path(d)), "o3-commit-n-both-handlers", "deny")
 
 print(json.dumps(fails))
 PY
