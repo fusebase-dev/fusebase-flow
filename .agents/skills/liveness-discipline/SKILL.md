@@ -125,7 +125,7 @@ Every model-side check re-reads the waiting agent's whole context, and a check a
 
 | Host | Wakes a turn-ended main session | Note |
 |---|---|---|
-| Claude Code | a background shell command's exit (task notification) — the watcher's path · a background sub-agent / Workflow completion notification — never the only wake · an `asyncRewake` command hook exiting **2** (its stderr arrives as a system reminder; only exit 2 wakes, so map the alert to exit 2) | a Workflow agent's stall restart excludes time in its own tool calls; only your watcher sees a hung call |
+| Claude Code | a background shell command's exit (task notification) — the watcher's path · a background sub-agent / Workflow completion notification — never the only wake · a scheduled task firing (incl. a `/loop` iteration) — never the only wake · a message another session sends — never the only wake · an `asyncRewake` command hook exiting **2** (its stderr arrives as a system reminder; only exit 2 wakes, so map the alert to exit 2) | report-back, scheduled-task and cross-session turns: hooks docs § UserPromptSubmit · a Workflow agent's stall restart excludes time in its own tool calls; only your watcher sees a hung call |
 | Codex / others | none documented | ≤4-min checks (row "No watcher can wake you"); guidance only |
 
 ### Bounded delegate-retry envelope (canonical — the ONE exception)

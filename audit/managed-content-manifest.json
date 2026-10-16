@@ -126,7 +126,7 @@
     },
     {
       "path": "flow-skills/liveness-discipline/SKILL.md",
-      "sha256": "a1e4d0f0d25916746fee3c2260bcc2c5181d9bcaa09dc18105a170d57a4b1fcd"
+      "sha256": "c7819c222288c34e02b3395f964d9652350c5f27b2bdb464301bf384042f67bc"
     },
     {
       "path": "flow-skills/module-size-discipline/SKILL.md",
@@ -1653,5 +1653,5 @@
       "sha256": "b6580a1dbfb0756c0d8b2cbf02fd628066f2f74de55fdc83ed5d1961dd759918"
     }
   ],
-  "manifest_self_sha256": "e7d23df06dc479f6168e4bd7733f3e7cf006fc9f74088a5d518ad52098981324"
+  "manifest_self_sha256": "5a0f84c7bafe37463335e1cc830e698c6524dbdc8a4b4ee6105c03e0f11412ab"
 }
