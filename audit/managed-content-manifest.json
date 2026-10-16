@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "b7ca327af5217f178e9dc0c2681d921562dc74efc233111e261f71681c99a3ac"
+      "sha256": "195cc7986c6b1d06f3fee909dffd9f83445e384ead6f67c83e74d7c657ca0a73"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -226,7 +226,7 @@
     },
     {
       "path": "hooks/README.md",
-      "sha256": "d440d028564444441a7fff7e133d70eeb38c1d69c3c7b000a7b94f9290e7989f"
+      "sha256": "c2dc3fb582d86c386de80e204b3988fd1acf3952f63e27c4b5344dbd81234ddd"
     },
     {
       "path": "hooks/flow_hook_event.schema.json",
@@ -678,7 +678,7 @@
     },
     {
       "path": "hooks/local/run-handler.sh",
-      "sha256": "3083e36fe46a5e376692e9e6e800ae75f5d892afc6d8ad45a4a33e489da26492"
+      "sha256": "009493546e7939c7076950db52fa6a4a0415d41a98a49db85adcc8ecbf030ece"
     },
     {
       "path": "hooks/local/stamp-cli-provenance.sh",
@@ -1486,7 +1486,7 @@
     },
     {
       "path": "hooks/tests/test-wire-hooks-add-beside.sh",
-      "sha256": "33d8d3c165ee46a7e030f278b6b5c90b4a25b387418d44f4d50f176123140abb"
+      "sha256": "9c0a1a0d7f467c4dc08ae009ad679ef2fcb3fc494679965a821e1a44078ebdcf"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
@@ -1689,5 +1689,5 @@
       "sha256": "bd9e3cf2d643a7f71016d480cfc720c36a6065271e073c3b638d8379d84fe47d"
     }
   ],
-  "manifest_self_sha256": "0d6a21c5e364d4b5a5fe19186649551d9065641318ca9b87e78586c80a37d37a"
+  "manifest_self_sha256": "f291f6c494a98d615f057fc87f95f76a229dfca3c4294d347996cf0fc6c38896"
 }

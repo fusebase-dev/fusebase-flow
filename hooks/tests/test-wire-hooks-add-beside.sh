@@ -463,4 +463,52 @@ assert result.returncode == 0
 PY
 ok "T2-settings-ownership-config-and-stop-uniqueness"
 
+###############################################################################
+# Rows run-handler-* — a Python-less machine leaves one marker the status reader reports, and the
+# marker heals once an interpreter is found (backlog core-hook-inventory).
+###############################################################################
+WHB_MPF_LIB="$(dirname "${BASH_SOURCE[0]}")/lib/minimal-path-fixture.sh"
+MPF_TMPROOT="$WHB_TMP"
+t="$(newtree)"
+mkdir -p "$t/hooks/local" "$t/hooks/handlers"
+cp "$ROOT/hooks/local/run-handler.sh" "$t/hooks/local/"
+marker="$t/state/reader/hooks-no-python"
+f=""
+if [ ! -f "$WHB_MPF_LIB" ]; then
+  f="missing $WHB_MPF_LIB"
+else
+  # shellcheck source=lib/minimal-path-fixture.sh
+  . "$WHB_MPF_LIB"
+  if ! mpf_build; then
+    f="the interpreter-less fixture could not be built: $MPF_REASON"
+  else
+    for stem in pre_tool_use post_tool_use; do
+      env -u FUSEBASE_FLOW_PYTHON PATH="$MPF_PATH" bash "$t/hooks/local/run-handler.sh" \
+        "$t/hooks/handlers/$stem.py" </dev/null >>"$t/nopy.out" 2>>"$t/nopy.err"
+      rc=$?
+      # ANTI-VACUITY: 127 means the wrapper never ran, not that it allowed.
+      [ "$rc" -ne 127 ] || f="$f [$stem: the wrapper never executed under the fixture PATH (rc 127)]"
+      [ "$rc" -eq 0 ] || f="$f [$stem: rc=$rc, expected 0]"
+    done
+    mpf_destroy
+    warns="$(grep -c "No working Python 3" "$t/nopy.err")"
+    [ "$warns" = 1 ] || f="$f [two events gave $warns warnings, expected 1]"
+    [ -f "$marker" ] || f="$f [no marker at state/reader/hooks-no-python]"
+    [ ! -s "$t/nopy.out" ] || f="$f [stdout carried output: $(head -c 200 "$t/nopy.out")]"
+  fi
+fi
+[ -z "$f" ] && ok "run-handler-no-python-marker-once" || bad "run-handler-no-python-marker-once" "$f"
+
+f=""
+[ -f "$marker" ] || { mkdir -p "${marker%/*}" && : > "$marker"; }
+printf 'import pathlib, sys\npathlib.Path(sys.argv[0]).with_suffix(".ran").write_text("ok")\n' \
+  > "$t/hooks/handlers/noop.py"
+FUSEBASE_FLOW_PYTHON="$PY" bash "$t/hooks/local/run-handler.sh" "$t/hooks/handlers/noop.py" \
+  </dev/null >"$t/py.out" 2>"$t/py.err"
+rc=$?
+[ "$rc" -eq 0 ] || f="$f [rc=$rc, expected 0: $(head -c 200 "$t/py.err")]"
+[ -f "$t/hooks/handlers/noop.ran" ] || f="$f [the handler did not run, so no interpreter was found]"
+[ ! -e "$marker" ] || f="$f [the marker survived a run that found an interpreter]"
+[ -z "$f" ] && ok "run-handler-python-clears-marker" || bad "run-handler-python-clears-marker" "$f"
+
 finish

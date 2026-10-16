@@ -278,7 +278,7 @@
     },
     {
       "path": "hooks/local/run-handler.sh",
-      "sha256": "3083e36fe46a5e376692e9e6e800ae75f5d892afc6d8ad45a4a33e489da26492"
+      "sha256": "009493546e7939c7076950db52fa6a4a0415d41a98a49db85adcc8ecbf030ece"
     },
     {
       "path": "hooks/local/stamp-cli-provenance.sh",
@@ -954,12 +954,12 @@
     },
     {
       "path": "hooks/tests/test-wire-hooks-add-beside.sh",
-      "sha256": "33d8d3c165ee46a7e030f278b6b5c90b4a25b387418d44f4d50f176123140abb"
+      "sha256": "9c0a1a0d7f467c4dc08ae009ad679ef2fcb3fc494679965a821e1a44078ebdcf"
     },
     {
       "path": "hooks/tests/test-ws5-upgrade-bounded.sh",
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "befd6600740a77c52965286b866da56adb7f4de4d71a90f18f6c864a01290637"
+  "manifest_self_sha256": "6e3bb988c5dee08a9ed6b31bf84f8a92b20b5c5ae42c7648bc5ff547008eed0a"
 }

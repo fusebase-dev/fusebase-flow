@@ -20,7 +20,7 @@
 #
 # Interpreter resolution order: $FUSEBASE_FLOW_PYTHON (override) -> python3 -> py -3 ->
 # python. stdin is passed through untouched; the handler's stdout and EXACT exit code are
-# propagated (0=allow, 2=deny, ... -- see hooks/README.md). A missing interpreter NEVER
+# propagated (0=allow, 2=deny, 1=handler error, non-blocking). A missing interpreter NEVER
 # flattens a real deny: we only exit 0 when we did NOT run the handler at all.
 
 set -uo pipefail
@@ -71,18 +71,20 @@ if [ ${#FF_PY_CMD[@]} -eq 0 ]; then
     fi
 fi
 
+case "${BASH_SOURCE[0]}" in */*) _ff_here="${BASH_SOURCE[0]%/*}" ;; *) _ff_here=. ;; esac
+# TRIPWIRE: the status reader reports this exact path (backlog heartbeat-reader); rename both together.
+FF_NOPY_MARKER="$_ff_here/../../state/reader/hooks-no-python"
+
 if [ ${#FF_PY_CMD[@]} -eq 0 ]; then
-    # No WORKING interpreter. Emit ONE warning -- routed to the lowest-frequency event
-    # (SessionStart) and silent on the high-frequency ones (Pre/PostToolUse, ...) so a
-    # python-less machine sees a single clear message, not one per tool call. The warning
-    # MUST go to stderr: stdout may be parsed as a hook decision.
-    case "$HANDLER" in
-        *session_start.py)
-            echo "[fusebase-flow] No working Python 3 found (checked python3 / py / python; Microsoft Store alias stubs and Python 2 are rejected) -- Fusebase Flow lifecycle hooks are DISABLED for this session. Install Python 3.11+ or set FUSEBASE_FLOW_PYTHON to your interpreter. (Git fallback hooks still enforce protected paths and secrets.)" >&2
-            ;;
-    esac
+    # TRIPWIRE: set -C opens the marker O_EXCL, so of concurrent events only its creator warns.
+    # The warning MUST go to stderr: stdout may be parsed as a hook decision.
+    if [ ! -e "$FF_NOPY_MARKER" ] && mkdir -p -- "${FF_NOPY_MARKER%/*}" 2>/dev/null \
+        && (set -C; : > "$FF_NOPY_MARKER") 2>/dev/null; then
+        echo "[fusebase-flow] No working Python 3 found (checked python3 / py / python; Microsoft Store alias stubs and Python 2 are rejected) -- Fusebase Flow lifecycle hooks are DISABLED until one is found (marker state/reader/hooks-no-python; this warning prints once). Install Python 3.11+ or set FUSEBASE_FLOW_PYTHON to your interpreter. (Git fallback hooks still enforce protected paths and secrets.)" >&2
+    fi
     exit 0
 fi
+[ -e "$FF_NOPY_MARKER" ] && rm -f -- "$FF_NOPY_MARKER"
 
 if [ ! -f "$HANDLER" ]; then
     echo "[fusebase-flow:run-handler] handler not found: $HANDLER -- skipping (allow)." >&2
