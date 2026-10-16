@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "5.11",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 425,
+  "asset_count": 421,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "a51ab8cdf9709baa2191cf09c3afcd99ae6474a7349bcd376c527529c3595c01"
+      "sha256": "b7ca327af5217f178e9dc0c2681d921562dc74efc233111e261f71681c99a3ac"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -274,7 +274,7 @@
     },
     {
       "path": "hooks/local/approve-local.sh",
-      "sha256": "de38a95717706a2192c3c1df17d7a1643f83ef449aeeffcf630e668eabd5f7aa"
+      "sha256": "807051ae750b0895272164308e30a0e2fa9fc69f13be764263d3a01320993dc3"
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
@@ -501,10 +501,6 @@
       "sha256": "f71e26734847d5e118c814f96d3e676b1dc28540d7f11ccbebcfe2c6cc6e571e"
     },
     {
-      "path": "hooks/local/lib/approval-receipt.sh",
-      "sha256": "9a54e6ae2ad1300c6ec7887b786943c10e6a073e22aa840ceeea44e2cda29a13"
-    },
-    {
       "path": "hooks/local/lib/approval_inventory.py",
       "sha256": "f96ad00eae668bbe6f0820e1d4ff263f32df07b46acba1af9853b6392d6c0f2b"
     },
@@ -655,10 +651,6 @@
     {
       "path": "hooks/local/mirror-skills.sh",
       "sha256": "9546ca4d225aa8b805cd7e0f0e428bf9468abf0dfe8283951634d87bdf890f03"
-    },
-    {
-      "path": "hooks/local/po-investigate.sh",
-      "sha256": "76179cfdb3851defb66e4ae3a1f155b0587b9892763c228d6bd2d34a04d16547"
     },
     {
       "path": "hooks/local/post-fusebase-update.sh",
@@ -1142,7 +1134,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "b5ac29367cd26a7abda2b556e90ff3d2db9c2d23c6e2a6a0b160cab722620828"
+      "sha256": "742e05ed906e23c0b30754260f66d8394049f3d3894b25c65b3c3b85258690d8"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -1155,10 +1147,6 @@
     {
       "path": "hooks/tests/test-approval-binding.sh",
       "sha256": "bb155849ab56e4ab2fc0e5efc7e88f28fc50c993512fb55502fa53f05be312ef"
-    },
-    {
-      "path": "hooks/tests/test-approval-receipt-durability.sh",
-      "sha256": "4f39159a55b9aaeef3b63798320b634127aa5567e6d9ea8d294d0ebb552a4f58"
     },
     {
       "path": "hooks/tests/test-approval-schema3.sh",
@@ -1230,7 +1218,7 @@
     },
     {
       "path": "hooks/tests/test-command-policy.sh",
-      "sha256": "234cf963018b8470dd7632631c2c93b864139748d9d64a0cf13726b7c978d737"
+      "sha256": "71a5a29295713703efdaf9cab8f5bac1b3a3545e52553af5352ee60611d12002"
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
@@ -1327,10 +1315,6 @@
     {
       "path": "hooks/tests/test-plugin-parity-scope.sh",
       "sha256": "4b63f03b13ce49898fda78153e8a19b9ac9df1d207230afa2e3f813a7875d873"
-    },
-    {
-      "path": "hooks/tests/test-po-investigate.sh",
-      "sha256": "124b72e2977cfe60e819d713e1123bc5ecc3130bace35b1874bc0c4c58f7a7ac"
     },
     {
       "path": "hooks/tests/test-po-verifiable-boot.sh",
@@ -1586,7 +1570,7 @@
     },
     {
       "path": "templates/deploy-report.md",
-      "sha256": "a2a8da9161b4d8a3d3c405e5944cf3aa4b3e7242107336f7a627148671399fc9"
+      "sha256": "a30c08fefa9f7235d8b868f30ec476418173be3bc425364d792a768c21a106b8"
     },
     {
       "path": "templates/gate-report.md",
@@ -1705,5 +1689,5 @@
       "sha256": "bd9e3cf2d643a7f71016d480cfc720c36a6065271e073c3b638d8379d84fe47d"
     }
   ],
-  "manifest_self_sha256": "ec8201f29595f088fc68e1b364f8e6c6353f51b96aa08b32ead03f13cc789eb3"
+  "manifest_self_sha256": "0d6a21c5e364d4b5a5fe19186649551d9065641318ca9b87e78586c80a37d37a"
 }

@@ -76,11 +76,11 @@ FF_TAGS=(fixtures module-size health-check-timeout git-smoke minimal-path-fixtur
   git-context git-context-mutation \
   hook-manifest newline-preserve baseline-merge hook-wiring-intent wire-hooks-beside stamp-eol-guard \
   sync-allowlist policy-state bootstrap-baseline-hop fr22-delivery po-verifiable-boot \
-  po-investigate liveness codex-parity codex-plugin cli-0259 cli-version cli-packages cli-vendor cli-rendered git-capture-guard secret-scan-staged secret-patterns bootstrap-exception \
+  liveness codex-parity codex-plugin cli-0259 cli-version cli-packages cli-vendor cli-rendered git-capture-guard secret-scan-staged secret-patterns bootstrap-exception \
   lane-router lane-workflow \
   trusted-enforcer hook-install-rc msys-tree-cleanup job-probe ws5-upgrade ff-only run-preconditions return-budget \
   supersede-primitive rule-inventory boot-size prohibition-residency startup-context validator-evidence validation-instructions gate-contract consumer-benchmark wasted-effort-windowing token-waste-classify \
-  budget-literals history-extraction approval-binding approval-writer approval-schema3 approval-receipt command-policy denial-message upgrade-classify upgrade-classify-eol \
+  budget-literals history-extraction approval-binding approval-writer approval-schema3 command-policy denial-message upgrade-classify upgrade-classify-eol \
   upgrade-boundary preboundary-consumed upgrade-repair transient-exclude n5-delivery n6-truthful-base n6-missing-base n6-recover n4-parity-scope recovery-hint hop-log-truth install-doc release-authority \
   release-tag-binding fingerprint-rows signal-reap cli-flow-recovery-selectors cli-flow-recovery)
 
@@ -613,7 +613,6 @@ run_shell_phase test-policy-state-preserve.sh "policy-state"
 run_shell_phase test-bootstrap-baseline-hop.sh "bootstrap-baseline-hop"
 run_shell_phase test-fr22-delivery-guarantee.sh "fr22-delivery"
 run_shell_phase test-po-verifiable-boot.sh     "po-verifiable-boot"
-run_shell_phase test-po-investigate.sh         "po-investigate"
 if [ "$HT_ACCOUNTED" -eq 1 ]; then
     printf '[run-tests] liveness composition: health-check-timeout already accounted; dependency row omitted\n' >&2
     run_shell_phase test-liveness-bounded-run.sh "liveness" --core-only
@@ -669,10 +668,6 @@ run_shell_phase test-history-extraction.sh     "history-extraction"
 run_shell_phase test-approval-binding.sh       "approval-binding"
 run_shell_phase test-approval-writer.sh        "approval-writer"
 run_shell_phase test-approval-schema3.sh       "approval-schema3"
-# S2: a committed deploy report cites a CLONE-DURABLE receipt, never the gitignored artifact
-# path. Each evidence row is paired with a control, so a receipt that stops discriminating fails
-# instead of passing quietly.
-run_shell_phase test-approval-receipt-durability.sh "approval-receipt"
 run_shell_phase test-command-policy.sh        "command-policy"
 # S4a: the deny-rule explanation, and the negative half — no location claim, no matching change.
 run_shell_phase test-command-policy-denial-message.sh "denial-message"

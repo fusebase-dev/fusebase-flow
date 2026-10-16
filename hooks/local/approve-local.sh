@@ -25,11 +25,6 @@
 #     a DIGEST-BOUND category (fusebase_flow_internals, ci_cd_config) are refused here and
 #     redirected to hooks/local/write-bootstrap-approval.sh, whose artifact is single-use.
 #   bash hooks/local/approve-local.sh --inventory      # AC12: what is on disk + strict verdict
-#   bash hooks/local/approve-local.sh --receipt emit <action> <slug> --deploy-hash <hash> \
-#        [--command '<exact command>']                 # clone-durable deploy-report evidence
-#   bash hooks/local/approve-local.sh --receipt verify <committed-report-file>
-#     --receipt must be the FIRST argument; it dispatches to hooks/local/lib/approval-receipt.sh.
-#     The artifact here is gitignored, so a committed report cites the RECEIPT, never this path.
 # Example (Deploy session, on the operator's typed DP.6 phrase):
 #   bash hooks/local/approve-local.sh production_deploy priority-fix 'approve deploy now' --command 'fusebase deploy'
 #
@@ -50,11 +45,6 @@
 set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
-
-if [ "${1:-}" = "--receipt" ]; then
-    shift
-    exec bash "$ROOT/hooks/local/lib/approval-receipt.sh" "$@"
-fi
 
 ACTION=""
 SLUG=""

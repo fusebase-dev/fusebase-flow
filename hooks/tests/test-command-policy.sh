@@ -778,14 +778,14 @@ if CP_TMP="$(mktemp -d "${TMPDIR:-/tmp}/ffhc-cmdpol.XXXXXX" 2>/dev/null)" \
    && git -C "$CP_TMP" init -q >/dev/null 2>&1; then
   e7_destroyed=""
   for e7s in test-history-extraction.sh test-budget-literals.sh \
-             test-token-waste-classify.sh test-po-investigate.sh; do
+             test-token-waste-classify.sh; do
     [ -f "$ROOT/hooks/tests/$e7s" ] || continue
     e7v="$CP_TMP/victim-$e7s"; mkdir -p "$e7v/precious"; echo data > "$e7v/keep.txt"
     ( cd "$CP_TMP" && env TMP="$e7v" TEMP="$e7v" bash "$ROOT/hooks/tests/$e7s" ) >/dev/null 2>&1
     [ -f "$e7v/keep.txt" ] || e7_destroyed="$e7_destroyed $e7s"
   done
   if [ -z "$e7_destroyed" ]; then
-    ok "e7-cleanup-cannot-delete-uncreated-path (4 subjects, poisoned TMP/TEMP)"
+    ok "e7-cleanup-cannot-delete-uncreated-path (3 subjects, poisoned TMP/TEMP)"
   else
     bad "e7-cleanup-cannot-delete-uncreated-path" \
         "these deleted a directory they did not create:$e7_destroyed"

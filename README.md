@@ -733,7 +733,7 @@ No. The Product Owner / AI Developer sub-agents are **opt-in**. The framework is
 <details>
 <summary><strong>Do I need the Python hooks?</strong></summary>
 
-They're optional guardrails. Nothing runs until you copy `.claude/settings.json.example` → `.claude/settings.json`. The git fallback hooks (`hooks/git/`) provide a safety net even with Claude Code hooks off. Dependencies: **Python 3.11+** (also used by preflight, slash commands, and `po-investigate`) plus PyYAML (~100 KB). On a machine without Python, the lifecycle hooks **self-disable with a single warning** rather than erroring on every event — they route through `hooks/local/run-handler.sh`, which auto-detects `python3`/`py`/`python` (override with `FUSEBASE_FLOW_PYTHON`).
+They're optional guardrails. Nothing runs until you copy `.claude/settings.json.example` → `.claude/settings.json`. The git fallback hooks (`hooks/git/`) provide a safety net even with Claude Code hooks off. Dependencies: **Python 3.11+** (also used by preflight and slash commands) plus PyYAML (~100 KB). On a machine without Python, the lifecycle hooks **self-disable with a single warning** rather than erroring on every event — they route through `hooks/local/run-handler.sh`, which auto-detects `python3`/`py`/`python` (override with `FUSEBASE_FLOW_PYTHON`).
 </details>
 
 <details>
@@ -805,7 +805,7 @@ fusebase-flow/
 │   ├── handlers/                   ← 8 Python lifecycle handlers
 │   ├── shared/                     ← 7 shared utilities (incl. module_size.py)
 │   ├── git/                        ← pre-commit + commit-msg
-│   ├── local/                      ← preflight / verify-gate / approve-local / mirror-skills / mirror-agents / po-investigate
+│   ├── local/                      ← preflight / verify-gate / approve-local / mirror-skills / mirror-agents
 │   │                                  / install-git-hooks / fusebase-flow-health-check / post-fusebase-update / upgrade / upgrade-engine / sync-version-strings
 │   ├── local/fusebase-flow-overlays/  ← AGENTS.md + CLAUDE.md overlay templates,
 │   │                                     settings-json-merge.py, health-check skill + slash command templates

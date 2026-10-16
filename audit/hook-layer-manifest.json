@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "5.11",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 243,
+  "asset_count": 239,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -46,7 +46,7 @@
     },
     {
       "path": "hooks/local/approve-local.sh",
-      "sha256": "de38a95717706a2192c3c1df17d7a1643f83ef449aeeffcf630e668eabd5f7aa"
+      "sha256": "807051ae750b0895272164308e30a0e2fa9fc69f13be764263d3a01320993dc3"
     },
     {
       "path": "hooks/local/bootstrap-upgrade.sh",
@@ -99,10 +99,6 @@
     {
       "path": "hooks/local/lib/agent_tool_profile.py",
       "sha256": "f71e26734847d5e118c814f96d3e676b1dc28540d7f11ccbebcfe2c6cc6e571e"
-    },
-    {
-      "path": "hooks/local/lib/approval-receipt.sh",
-      "sha256": "9a54e6ae2ad1300c6ec7887b786943c10e6a073e22aa840ceeea44e2cda29a13"
     },
     {
       "path": "hooks/local/lib/approval_inventory.py",
@@ -255,10 +251,6 @@
     {
       "path": "hooks/local/mirror-skills.sh",
       "sha256": "9546ca4d225aa8b805cd7e0f0e428bf9468abf0dfe8283951634d87bdf890f03"
-    },
-    {
-      "path": "hooks/local/po-investigate.sh",
-      "sha256": "76179cfdb3851defb66e4ae3a1f155b0587b9892763c228d6bd2d34a04d16547"
     },
     {
       "path": "hooks/local/post-fusebase-update.sh",
@@ -638,7 +630,7 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "b5ac29367cd26a7abda2b556e90ff3d2db9c2d23c6e2a6a0b160cab722620828"
+      "sha256": "742e05ed906e23c0b30754260f66d8394049f3d3894b25c65b3c3b85258690d8"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
@@ -647,10 +639,6 @@
     {
       "path": "hooks/tests/test-approval-binding.sh",
       "sha256": "bb155849ab56e4ab2fc0e5efc7e88f28fc50c993512fb55502fa53f05be312ef"
-    },
-    {
-      "path": "hooks/tests/test-approval-receipt-durability.sh",
-      "sha256": "4f39159a55b9aaeef3b63798320b634127aa5567e6d9ea8d294d0ebb552a4f58"
     },
     {
       "path": "hooks/tests/test-approval-schema3.sh",
@@ -718,7 +706,7 @@
     },
     {
       "path": "hooks/tests/test-command-policy.sh",
-      "sha256": "234cf963018b8470dd7632631c2c93b864139748d9d64a0cf13726b7c978d737"
+      "sha256": "71a5a29295713703efdaf9cab8f5bac1b3a3545e52553af5352ee60611d12002"
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
@@ -815,10 +803,6 @@
     {
       "path": "hooks/tests/test-plugin-parity-scope.sh",
       "sha256": "4b63f03b13ce49898fda78153e8a19b9ac9df1d207230afa2e3f813a7875d873"
-    },
-    {
-      "path": "hooks/tests/test-po-investigate.sh",
-      "sha256": "124b72e2977cfe60e819d713e1123bc5ecc3130bace35b1874bc0c4c58f7a7ac"
     },
     {
       "path": "hooks/tests/test-po-verifiable-boot.sh",
@@ -977,5 +961,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "c04366557da2ba15a3d94b0dc7146527bd1e00c144db3d9dd14d92e38befe860"
+  "manifest_self_sha256": "befd6600740a77c52965286b866da56adb7f4de4d71a90f18f6c864a01290637"
 }
