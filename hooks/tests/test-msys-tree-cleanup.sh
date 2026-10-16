@@ -125,7 +125,7 @@ if [ -n "${FFHC_TIMEOUT_BIN:-}" ]; then
   green_out="$FFHC_LAST_OUT"
   rm -f "$t17_fix"
 
-  if echo "$red_out" | grep -q '"decision": "allow"' && echo "$green_out" | grep -q '"decision": "deny"'; then
+  if echo "$red_out" | grep -q '"flow_decision": "allow"' && echo "$green_out" | grep -q '"flow_decision": "deny"'; then
     ok "t17-stdin-reaches-child (RED old stdout path=allow [stdin dropped] => GREEN new stdin path=deny [fixture reached handler])"
   else
     bad "t17-stdin-reaches-child" "expected RED allow + GREEN deny; got RED=[$red_out] GREEN=[$green_out]"
@@ -185,7 +185,7 @@ if [ -n "${FFHC_TIMEOUT_BIN:-}" ]; then
   printf '%s' '{"tool_name":"Bash","tool_input":{"command":"rm -rf /"}}' > "$t18s_fix"
   ( export FFHC_CAPTURE_STDIN=1
     ffhc_run_bounded_stdin_stdout 30 python3 "$ROOT/hooks/handlers/pre_tool_use.py" < "$t18s_fix"
-    echo "$FFHC_LAST_OUT" | grep -q '"decision": "deny"'
+    echo "$FFHC_LAST_OUT" | grep -q '"flow_decision": "deny"'
   )
   t18s_rc=$?
   rm -f "$t18s_fix"

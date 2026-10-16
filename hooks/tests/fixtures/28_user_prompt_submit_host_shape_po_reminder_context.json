@@ -1,0 +1,16 @@
+{
+  "_test": "O22 host shape: the /product-owner reminder reaches the model as hookSpecificOutput.additionalContext; no top-level decision, no user banner",
+  "_handler": "user_prompt_submit.py",
+  "_expected_decision": "warn",
+  "_expected_host_output": {
+    "decision": null,
+    "systemMessage": null,
+    "hookSpecificOutput.hookEventName": "UserPromptSubmit",
+    "hookSpecificOutput.additionalContext": "*"
+  },
+  "event": "user_prompt_submit",
+  "session_id": "test-28",
+  "cwd": ".",
+  "host_tool": "claude_code",
+  "prompt": "/product-owner"
+}

@@ -386,10 +386,10 @@ fi
 
 if ff_selected fixtures; then
     # F5/D6: ALL fixtures in ONE python process via the single-process runner
-    # (hooks/tests/run_hook_tests.py). Same 21 fixtures + assertion semantics +
+    # (hooks/tests/run_hook_tests.py). Same 30 fixtures + assertion semantics +
     # PASS:/FAIL: line shapes as the retired fork-loop, plus the synthetic
-    # _parse-invariant row. Counted like run_shell_phase (^PASS:/^FAIL:); the
-    # bounded phase is one spawn, not 21x(>=3) MSYS spawns.
+    # _parse-invariant + _host-shape-invariant rows. Counted like run_shell_phase (^PASS:/^FAIL:); the
+    # bounded phase is one spawn, not 30x(>=3) MSYS spawns.
     run_bounded_phase fixtures "fixture handler tests (single-process)" "$python_bin" "$ROOT/hooks/tests/run_hook_tests.py"
     fx_out="$FFHC_LAST_OUT"; fx_rc=$FFHC_LAST_RC
     echo "$fx_out" | grep -E '^(PASS|FAIL):' || true

@@ -475,8 +475,8 @@ def both(repo: Path, label: str, expected: str) -> None:
     rc, data = run(repo, "pre_tool_use.py",
                    {"event": "pre_tool_use", "cwd": str(repo), "tool_name": "Bash",
                     "tool_input": {"command": CMD}})   # CMD is rebound per scenario
-    if data.get("decision") != expected:
-        fails.append(f"{label}/pre_tool_use: expected {expected} got {data.get('decision')!r}")
+    if data.get("flow_decision") != expected:
+        fails.append(f"{label}/pre_tool_use: expected {expected} got {data.get('flow_decision')!r}")
     rc, data = run(repo, "permission_request.py",
                    {"event": "permission_request", "cwd": str(repo),
                     "permission_request": {"tool_name": "Bash",

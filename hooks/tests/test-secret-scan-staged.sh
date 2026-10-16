@@ -200,9 +200,9 @@ WL="$(grep -E '^whitelist:' "$ROOT/policies/secret-patterns.yml" | head -1)"
 if [ "$WL" = "whitelist: []" ]; then ok "a2-no-whitelist-added"; else bad "a2-no-whitelist-added" "whitelist is not empty: $WL"; fi
 
 f10="$(python3 "$ROOT/hooks/handlers/user_prompt_submit.py" < "$ROOT/hooks/tests/fixtures/10_user_prompt_submit_secret.json" 2>/dev/null)"
-echo "$f10" | grep -q '"decision": "warn"' && ok "a2-fixture10-still-detects" || bad "a2-fixture10-still-detects" "fixture 10 decision changed: $f10"
+echo "$f10" | grep -q '"flow_decision": "warn"' && ok "a2-fixture10-still-detects" || bad "a2-fixture10-still-detects" "fixture 10 decision changed: $f10"
 f11="$(python3 "$ROOT/hooks/handlers/pre_tool_use.py" < "$ROOT/hooks/tests/fixtures/11_pre_tool_use_secret_in_write.json" 2>/dev/null)"
-echo "$f11" | grep -q '"decision": "deny"' && ok "a2-fixture11-still-detects" || bad "a2-fixture11-still-detects" "fixture 11 decision changed: $f11"
+echo "$f11" | grep -q '"flow_decision": "deny"' && ok "a2-fixture11-still-detects" || bad "a2-fixture11-still-detects" "fixture 11 decision changed: $f11"
 
 # NEGATIVE TEST (WS1a): a REAL hard-coded secret added to a NON-designed hooks/tests/*.sh
 # (test CODE one level above hooks/tests/fixtures/) STILL BLOCKS. Proves the narrow

@@ -60,10 +60,22 @@ def main() -> int:
                 extra=extra,
                 root=root,
             )
-            sys.stdout.write(json.dumps({"decision": "warn", "warnings": [
+            warnings = [
                 f"protected path modified: {h['path']} (category={h['category']}, exception={h['has_exception']})"
                 for h in protected_hits
-            ]}))
+            ]
+            # TRIPWIRE: PostToolUse accepts no top-level `decision` but "block"; Flow's verdict is `flow_decision`.
+            sys.stdout.write(json.dumps({
+                "flow_decision": "warn",
+                "warnings": warnings,
+                "hookSpecificOutput": {
+                    "hookEventName": "PostToolUse",
+                    # TRIPWIRE (FR-26): re-sent on every edit while any protected path differs from HEAD; keep it capped.
+                    "additionalContext": "[fusebase-flow] WARN: protected paths modified — verify "
+                    "approval artifact (FR-07): " + "; ".join(warnings[:5])
+                    + (f"; +{len(warnings) - 5} more" if len(warnings) > 5 else ""),
+                },
+            }))
             return 0
 
     # Lightweight short status snapshot for audit only.
@@ -74,7 +86,7 @@ def main() -> int:
             pass
 
     emit("post_tool_use", decision="allow", reason="logged", extra=extra, root=root)
-    sys.stdout.write(json.dumps({"decision": "allow"}))
+    sys.stdout.write(json.dumps({"flow_decision": "allow"}))
     return 0
 
 

@@ -106,12 +106,14 @@ def main() -> int:
 
     warnings: list[str] = []
     rule_ids: list[str] = []
+    secret_warning = ""
 
     if secret_matches:
-        warnings.append(
+        secret_warning = (
             "Possible secret-shaped string detected in prompt: "
             + ", ".join(f"{m.pattern_id}({m.confidence})" for m in secret_matches)
         )
+        warnings.append(secret_warning)
         rule_ids.append("FR-12")
 
     for pat, rule_id in bypass_hits:
@@ -153,18 +155,17 @@ def main() -> int:
     )
 
     rule_id_str = ",".join(sorted(set(rule_ids))) if rule_ids else None
-    out = {"decision": decision, "rule_id": rule_id_str, "warnings": warnings}
-    # Surface warnings to the model via the native hook contract: an exit-0 JSON
-    # `{"decision":"allow"}` alone does NOT reach the model, so on a warn we attach
-    # hookSpecificOutput.additionalContext (the only UserPromptSubmit channel the host
-    # injects into the model's context). Kept additive: the legacy keys above stay for
-    # the flow-schema fixtures; stderr is also written for host logs.
+    # TRIPWIRE: a top-level `decision` other than "block" fails host validation and the host
+    # drops the whole reply (warnings included); Flow's verdict is `flow_decision`.
+    out = {"flow_decision": decision, "rule_id": rule_id_str, "warnings": warnings}
     if warnings:
         out["hookSpecificOutput"] = {
             "hookEventName": "UserPromptSubmit",
             "additionalContext": "[fusebase-flow] "
             + "; ".join(warnings),
         }
+    if secret_warning:
+        out["systemMessage"] = f"[fusebase-flow] WARN: {secret_warning}"
     sys.stdout.write(json.dumps(out))
     if warnings:
         for w in warnings:

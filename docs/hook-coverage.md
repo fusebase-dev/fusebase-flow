@@ -9,7 +9,7 @@ Lists every Fusebase Flow lifecycle hook handler and which provider / fallback s
 | `session_start` | yes (`SessionStart`) | yes (`session_start`) | n/a | `preflight.sh` runs equivalent checks | implemented |
 | `user_prompt_submit` | yes (`UserPromptSubmit`; reads both `prompt` (native) and `user_prompt` (Flow-schema) — see § Host field-shape) | yes (`user_prompt_submit`) | n/a | n/a | implemented |
 | `pre_tool_use` | yes (`PreToolUse`; matchers: Bash, **PowerShell**, Edit, Write, MultiEdit, NotebookEdit) | yes (`pre_tool_use`; matchers: Bash, **PowerShell**, Edit, Write, MultiEdit) | partial (`pre-commit` blocks at commit time) | n/a | implemented |
-| `permission_request` | reserved (returned `ask` decision honored when host invokes) | yes (`permission_request`) | n/a | `approve-local.sh` authors approval artifacts the handler reads | implemented |
+| `permission_request` | not wired (`PermissionRequest` is absent from `.claude/settings.json.example`); its reply is not host-valid there — see § Host output shape | yes (`permission_request`) | n/a | `approve-local.sh` authors approval artifacts the handler reads | implemented |
 | `post_tool_use` | yes (`PostToolUse`; matchers: Edit, Write, MultiEdit) | yes (`post_tool_use`; matchers: Edit, Write, MultiEdit) | n/a | n/a | implemented |
 | `stop` | yes (`Stop`; claim detection reads the final assistant message from `transcript_path` (native) or `agent_message` (Flow-schema) — see § Host field-shape) | yes (`stop`) | partial (`verify-gate.sh` checks pasted gate report shape) | `verify-gate.sh` for ad-hoc validation | implemented |
 
@@ -47,9 +47,29 @@ Claude Code's native events do NOT use the Flow-schema keys the earlier fixtures
 | `user_prompt_submit` | `prompt` | `user_prompt` | reads `user_prompt` **or** `prompt` (dual-key). FR-12 secret warn, bypass-attempt warn, and the `/product-owner` reminder now fire on native `UserPromptSubmit`. |
 | `stop` | `transcript_path` (JSONL; final assistant message = the claim) | `agent_message` | claim detection runs against `agent_message` when present, else the **last** assistant message parsed from the tail of `transcript_path` (never the whole transcript — a historical claim phrase does not over-trigger). FR-04/05/14 done/deploy deny + FR-22 recommended-warn now fire on native `Stop`. |
 
-Warns surface via `hookSpecificOutput.additionalContext` (JSON stdout) so the model actually receives them; deny reasons print to stderr before the non-zero exit (Stop exit-2 semantics feed stderr, not stdout JSON). The deny/warn LOGIC (`CLAIM_PATTERNS`, `BYPASS_PATTERNS`, secret scan, `signal_definitions`) is unchanged — only the INPUT source was fixed.
+Warns surface via `hookSpecificOutput.additionalContext` (JSON stdout), which reaches the model only in a host-valid reply (§ Host output shape; `stop` is a residual there); deny reasons print to stderr before the non-zero exit (Stop exit-2 semantics feed stderr, not stdout JSON). The deny/warn LOGIC (`CLAIM_PATTERNS`, `BYPASS_PATTERNS`, secret scan, `signal_definitions`) is unchanged — only the INPUT source was fixed.
 | `task_complete` | n/a (Stop covers this) | n/a (stop covers this) | n/a | n/a | retired v3.18.0 (handler was wired nowhere; `stop` owns completion gating) |
 | `pre_compact` | yes (`PreCompact`) | reserved (host-dependent) | n/a | n/a | implemented |
+
+## Host output shape (v5.11 O22)
+
+`pre_tool_use`, `user_prompt_submit`, `post_tool_use` and `session_start` print one host-valid JSON object (Claude Code hooks reference): Flow's verdict is `flow_decision` (allow / warn / deny / ask), never a top-level `decision` (the host accepts that only as `"block"`). Text for the model goes in `hookSpecificOutput.additionalContext`, text for the user in `systemMessage`. Before O22 the host rejected these replies on every non-blocking run ('Hook JSON output validation failed' → a 'hook error' notice, output dropped; observed in the transcripts of two wired consumer projects, 2026-10-15).
+
+| Handler | allow | warn | deny / ask |
+|---|---|---|---|
+| `pre_tool_use` | `flow_decision` only, exit 0 | `additionalContext` + `systemMessage`, exit 0 | `permissionDecision` `deny` (exit 2, same line on stderr) or `ask` (exit 0), with `permissionDecisionReason` = the stderr line |
+| `user_prompt_submit` | `flow_decision` only | `additionalContext` (secret, bypass, implementation-without-spec, PO reminder); the FR-12 secret warn also sets `systemMessage` | — (never blocks a prompt) |
+| `post_tool_use` | `flow_decision` only | FR-07 protected-path warn in `additionalContext`, capped at 5 paths | — |
+| `session_start` | the bootstrap summary in `additionalContext` (~900 chars; also on stderr) | not a git repo: `systemMessage` | — |
+
+- **PreToolUse never emits `permissionDecision: "allow"`.** An allow skips the host's permission prompt, so it would auto-approve every tool call no rule matched. Silence leaves the normal permission flow in charge.
+- **PreToolUse `ask`** is Flow's verdict for a require-approval command when `on_missing_artifact` is not `deny`. The shipped policy sets `deny` (`policies/approval-policy.yml`) and a local downgrade is refused, so `ask` is unreachable as shipped. A project that reaches it now gets a real prompt, even in auto mode; before O22 the reply was dropped and the call ran.
+- **Newly reaching the model:** the SessionStart summary once per session, and the FR-07 PostToolUse warn after every Edit/Write while any protected path differs from `HEAD`.
+- **Residual — `stop.py`** (wired as `Stop`) still prints a top-level `decision` (`allow` / `warn` / `deny`). The host rejects its non-blocking replies the same way, so a Stop warn is dropped; a deny still blocks through exit 2 + stderr. The Stop rework is deferred to the minimal-core rebuild, which retires the Stop gate.
+- **Residual — `pre_compact.py`** (wired as `PreCompact`) still prints `{"decision": "allow", …}`; the one-line fix is `decision` → `flow_decision`. Outside operator decision 8's four files.
+- **Residual — `permission_request.py`** prints a top-level `decision` (`deny` / `ask` / `allow`) and denies by exit 2. It is not wired for Claude Code; if it were, the reply would fail validation and exit 2 is not honored on `PermissionRequest` (a deny needs `hookSpecificOutput.decision.behavior`).
+- **Codex:** `.codex/hooks.json.example` wires the same handlers; their reply shape on Codex stays unverified, now including `flow_decision`.
+- `hooks/tests/run_hook_tests.py` checks every reply of the four handlers against the per-event host shape and these channel rules (fixtures 27–30 pin one handler each; a synthetic `_host-shape-invariant` row proves the check rejects the pre-O22 shapes). `stop` and `permission_request` replies are not shape-checked (residuals above). Backlog `hook-output-host-validity`.
 
 ## Approval-artifact trust model (FR-12)
 
@@ -83,11 +103,11 @@ Both are pre-existing properties of regex-on-raw-command, not regressions, and b
 
 ## Hook event protocol
 
-All handlers read a JSON event from stdin matching `flow_hook_event.schema.json` and write a JSON decision to stdout. Hosts that read exit codes also receive `0` (allow), `2` (deny), or `1` (handler error).
+All handlers read a JSON event from stdin matching `flow_hook_event.schema.json` and write one JSON object to stdout carrying Flow's verdict as `flow_decision` (`stop`, `permission_request` and `pre_compact`: `decision`; see § Host output shape). Hosts that read exit codes also receive `0` (allow), `2` (deny), or `1` (handler error).
 
 ## Test coverage
 
-21 deterministic fixtures at `hooks/tests/fixtures/*.json` (plus companion `*.jsonl` transcripts referenced by the stop fixtures 18–21), driven by the **single-process runner** `hooks/tests/run_hook_tests.py`: one python process imports each handler and drives `main()` in-process — same fixtures, same assertions as the retired fork-per-case loop, and a `--compare-subprocess` mode proves in-process ≡ subprocess for the **(exit_code, decision, rule_id)** triple (21/21, run as a permanent CI step). `run-tests.sh` is **tiered**: the bare command is the fast local default (a 9-phase allowlist, ≤10 min, developer feedback only), `FF_FULL=1` is the full unscoped set, `FF_ONLY="a,b"` is scoped. `FF_LIST=1` prints the live phase list — read it there rather than trusting a count in prose. Release evidence is neither: it is the required `verify-linux` + `verify-windows-msys` jobs on the tagged SHA (`PUBLISHING.md` § Release evidence authority), each of which takes the full path automatically and uploads its own `fusebase-flow-audit-<platform>` artifact. A local run writes `state/audit/hook-test-results.md` (gitignored runtime path); a subset run writes `-fast.md` / `-scoped.md` and can never be mistaken for a complete result. Coverage matrix:
+30 deterministic fixtures at `hooks/tests/fixtures/*.json` (plus companion `*.jsonl` transcripts referenced by the stop fixtures 18–21), driven by the **single-process runner** `hooks/tests/run_hook_tests.py`: one python process imports each handler and drives `main()` in-process — same fixtures, same assertions as the retired fork-per-case loop, and a `--compare-subprocess` mode proves in-process ≡ subprocess for the **(exit_code, decision, rule_id)** triple (30/30, run as a permanent CI step). `run-tests.sh` is **tiered**: the bare command is the fast local default (a 9-phase allowlist, ≤10 min, developer feedback only), `FF_FULL=1` is the full unscoped set, `FF_ONLY="a,b"` is scoped. `FF_LIST=1` prints the live phase list — read it there rather than trusting a count in prose. Release evidence is neither: it is the required `verify-linux` + `verify-windows-msys` jobs on the tagged SHA (`PUBLISHING.md` § Release evidence authority), each of which takes the full path automatically and uploads its own `fusebase-flow-audit-<platform>` artifact. A local run writes `state/audit/hook-test-results.md` (gitignored runtime path); a subset run writes `-fast.md` / `-scoped.md` and can never be mistaken for a complete result. Coverage matrix:
 
 | Test | Hook tested | Decision |
 |---|---|---|
@@ -112,6 +132,15 @@ All handlers read a JSON event from stdin matching `flow_hook_event.schema.json`
 | 19 | `stop` | allow when done-claim is EARLIER in transcript (no over-trigger) |
 | 20 | `stop` | deny **native** corrupt/format-drifted transcript that carries a done-claim but yields no extractable final message (fail-closed) |
 | 21 | `stop` | allow **native** corrupt transcript with NO done-claim (no false-deny) |
+| 22 | `pre_tool_use` | deny compound command with no approval artifact (K8 all-match) |
+| 23 | `permission_request` | deny compound command with no approval artifact (K8 all-match) |
+| 24 | `pre_tool_use` | deny FR-06 destructive command via the **PowerShell** tool (E6) |
+| 25 | `pre_tool_use` | deny FR-12 require-approval command via **PowerShell**, no artifact (E6) |
+| 26 | `permission_request` | deny FR-12 require-approval **PowerShell** request, no artifact (E6) |
+| 27 | `pre_tool_use` | allow; host shape: `flow_decision` only, no `permissionDecision` (O22) |
+| 28 | `user_prompt_submit` | warn: `/product-owner` reminder reaches the model as `additionalContext`, no `systemMessage` (O22) |
+| 29 | `post_tool_use` | allow on a non-edit tool; host shape: `flow_decision` only (O22) |
+| 30 | `session_start` | allow; the bootstrap summary in `additionalContext` (O22) |
 
 ## Manifest verification & trust model
 
@@ -165,4 +194,5 @@ Every hook execution appends a JSONL record to `state/audit.log.jsonl` (gitignor
 ```
 2026-05-08 — Phase 4; added GitHub Action verification of hook tests + preflight.
 2026-07-03 — Phase C S1; documented per-host field-shape (native `prompt` / `transcript_path` vs Flow-schema `user_prompt` / `agent_message`) — the live enforcement fix. Fixture count 11→19; added rows 12-19.
+2026-10-16 — v5.11 O22; host-valid replies from pre_tool_use / user_prompt_submit / post_tool_use / session_start (operator decision 8): `flow_decision`, model text in `additionalContext`, user text in `systemMessage`, never PreToolUse `allow`; runner host-shape check; fixture count 21→30 (26 already shipped); added rows 22-30.
 ```

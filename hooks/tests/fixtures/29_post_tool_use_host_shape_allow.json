@@ -1,0 +1,12 @@
+{
+  "_test": "O22 host shape: PostToolUse on a non-edit tool emits flow_decision only (no top-level decision); a non-edit tool keeps the verdict independent of the working tree",
+  "_handler": "post_tool_use.py",
+  "_expected_decision": "allow",
+  "_expected_host_output": { "decision": null, "hookSpecificOutput": null },
+  "event": "post_tool_use",
+  "session_id": "test-29",
+  "cwd": ".",
+  "host_tool": "claude_code",
+  "tool_name": "Bash",
+  "tool_input": { "command": "git status --short" }
+}

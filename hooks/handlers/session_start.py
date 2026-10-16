@@ -56,10 +56,9 @@ def main() -> int:
     try:
         root = find_git_root(Path(event.get("cwd") or "."))
     except FileNotFoundError:
-        out = {
-            "decision": "warn",
-            "reason": "Not a git repo or FUSEBASE_FLOW_ROOT not set; Fusebase Flow context unavailable.",
-        }
+        reason = "Not a git repo or FUSEBASE_FLOW_ROOT not set; Fusebase Flow context unavailable."
+        # TRIPWIRE: SessionStart accepts no top-level `decision`; Flow's verdict is `flow_decision`.
+        out = {"flow_decision": "warn", "reason": reason, "systemMessage": f"[fusebase-flow] WARN: {reason}"}
         sys.stdout.write(json.dumps(out))
         return 0
 
@@ -153,9 +152,9 @@ def main() -> int:
     )
 
     out = {
-        "decision": "allow",
-        "context_summary": summary,
+        "flow_decision": "allow",
         "version": version,
+        "hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": summary},
     }
     sys.stdout.write(json.dumps(out))
     return 0

@@ -1,0 +1,12 @@
+{
+  "_test": "O22 host shape: an allowed command emits flow_decision only — no top-level decision and no permissionDecision (an \"allow\" would skip the host permission prompt)",
+  "_handler": "pre_tool_use.py",
+  "_expected_decision": "allow",
+  "_expected_host_output": { "decision": null, "hookSpecificOutput": null },
+  "event": "pre_tool_use",
+  "session_id": "test-27",
+  "cwd": ".",
+  "host_tool": "claude_code",
+  "tool_name": "Bash",
+  "tool_input": { "command": "git log --oneline -1" }
+}

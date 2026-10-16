@@ -2,16 +2,18 @@
 """Fusebase Flow — single-process fixture runner (D6).
 
 Imports each handler ONCE and drives its main() in-process, per fixture, so the
-26-fixture suite is one python process instead of 26x(>=3 MSYS spawns). Handlers
+30-fixture suite is one python process instead of 30x(>=3 MSYS spawns). Handlers
 and shared/ are UNMODIFIED (FR-07) — this only DRIVES them.
 
 Default mode: run every fixtures/*.json (sorted, same order as run-tests.sh),
 assert decision / rule_id exactly as the bash loop did, print PASS:/FAIL: lines,
-exit = fail count. A synthetic `_parse-invariant` row is retained (D6).
+exit = fail count. A synthetic `_parse-invariant` row is retained (D6); every reply of
+the four O22 handlers also passes the host-shape check, guarded by a synthetic
+`_host-shape-invariant` row.
 
 `--compare-subprocess` mode: run every fixture BOTH in-process and via
 `python hooks/handlers/<h> < fixture`, diff the TRIPLE (exit_code, decision,
-rule_id). Any divergence names both triples and exits nonzero. Required 26/26.
+rule_id). Any divergence names both triples and exits nonzero. Required 30/30.
 
 Exit-code capture (B5): handlers END `raise SystemExit(main())`, so the SystemExit
 path is production; in-process rc = _norm(main() return OR SystemExit.code)
@@ -42,10 +44,10 @@ def _git_root() -> Path:
 
 
 ROOT = _git_root()
-# Release gate contract: all 26 currently shipped handler fixtures must execute.
+# Release gate contract: all 30 currently shipped handler fixtures must execute.
 # Bump when a fixture is added — a stale denominator turns 'N/N PASS' into a claim
 # about what ran, not about what exists.
-EXPECTED_HANDLER_FIXTURES = 26
+EXPECTED_HANDLER_FIXTURES = 30
 # hooks/ on sys.path so `from shared...` resolves before any handler import (the
 # handlers also self-insert their parent; this makes reset_cache importable now).
 sys.path.insert(0, str(ROOT / "hooks"))
@@ -63,15 +65,16 @@ def _norm(code) -> int:
 
 def _parse(out: str) -> tuple[str, str]:
     """Decision + rule_id from handler stdout, exactly as run-tests.sh did:
-    json.loads(out) if it starts with '{' else {}; decision default ''; rule_id
-    default '' (or '' when null)."""
+    json.loads(out) if it starts with '{' else {}; decision = `flow_decision` when
+    present (the host accepts only "block" as a top-level decision), else `decision`
+    (stop.py, permission_request.py), default ''; rule_id default '' (or '' when null)."""
     try:
         data = json.loads(out) if out.strip().startswith("{") else {}
     except Exception:
         data = {}
     if not isinstance(data, dict):
         data = {}
-    return data.get("decision", ""), (data.get("rule_id", "") or "")
+    return data.get("flow_decision", data.get("decision", "")), (data.get("rule_id", "") or "")
 
 
 _HANDLER_CACHE: dict[str, object] = {}
@@ -147,6 +150,72 @@ def _assert(meta: dict, actual_decision: str, actual_rule_id: str) -> tuple[bool
     return ok, detail
 
 
+# Host output contract per Claude Code hooks reference; docs/hook-coverage.md § Host output shape.
+# TRIPWIRE: stop.py / permission_request.py are absent — their top-level `decision` is a recorded residual.
+_HOST_EVENT = {
+    "pre_tool_use.py": "PreToolUse",
+    "post_tool_use.py": "PostToolUse",
+    "user_prompt_submit.py": "UserPromptSubmit",
+    "session_start.py": "SessionStart",
+}
+_HOST_HSO_KEYS = {
+    "PreToolUse": {"hookEventName", "permissionDecision", "permissionDecisionReason",
+                   "updatedInput", "additionalContext"},
+    "PostToolUse": {"hookEventName", "additionalContext", "updatedToolOutput"},
+    "UserPromptSubmit": {"hookEventName", "additionalContext"},
+    "SessionStart": {"hookEventName", "additionalContext", "initialUserMessage",
+                     "sessionTitle", "watchPaths", "reloadSkills"},
+}
+
+
+def _host_shape_errors(handler: str, out: str, rc: int, expected) -> list[str]:
+    event = _HOST_EVENT.get(handler)
+    if event is None or not out.strip():
+        return []
+    try:
+        data = json.loads(out)
+    except ValueError as e:
+        return [f"stdout is not one JSON object ({e})"]
+    if not isinstance(data, dict):
+        return ["stdout JSON is not an object"]
+    errs = []
+    flow = data.get("flow_decision")
+    if flow not in ("allow", "warn", "deny", "ask"):
+        errs.append(f"flow_decision={flow!r}")
+    if "decision" in data:
+        errs.append(f"top-level decision={data['decision']!r} on {event}")
+    for key, typ in (("reason", str), ("systemMessage", str), ("continue", bool), ("stopReason", str)):
+        if key in data and not isinstance(data[key], typ):
+            errs.append(f"{key} is not {typ.__name__}")
+    hso = data.get("hookSpecificOutput")
+    if hso is not None and not isinstance(hso, dict):
+        errs.append("hookSpecificOutput is not an object")
+        hso = None
+    if hso is not None:
+        if hso.get("hookEventName") != event:
+            errs.append(f"hookEventName={hso.get('hookEventName')!r} on {event}")
+        extra = sorted(set(hso) - _HOST_HSO_KEYS[event])
+        if extra:
+            errs.append(f"hookSpecificOutput keys {extra} not accepted on {event}")
+        for key in ("permissionDecisionReason", "additionalContext"):
+            if key in hso and not isinstance(hso[key], str):
+                errs.append(f"hookSpecificOutput.{key} is not str")
+    if event == "PreToolUse":
+        pd = (hso or {}).get("permissionDecision")
+        want = flow if flow in ("deny", "ask") else None
+        if pd != want:
+            errs.append(f"permissionDecision={pd!r} for flow_decision={flow!r} (want {want!r})")
+    if (rc == 2) != (flow == "deny" and event == "PreToolUse"):
+        errs.append(f"exit {rc} for flow_decision={flow!r} on {event}")
+    for path, want in (expected or {}).items():
+        got = data
+        for part in path.split("."):
+            got = got.get(part) if isinstance(got, dict) else None
+        if not (bool(got) if want == "*" else got == want):
+            errs.append(f"{path}={got!r} (want {want!r})")
+    return errs
+
+
 def run_normal() -> int:
     os.chdir(ROOT)  # relative transcript_path fixtures resolve from the git root
     fail = 0
@@ -175,6 +244,10 @@ def run_normal() -> int:
         rc, out, crash = _run_in_process(mod, raw)
         actual_decision, actual_rule_id = _parse(out)
         ok, detail = _assert(meta, actual_decision, actual_rule_id)
+        shape = _host_shape_errors(handler, out, rc, meta.get("_expected_host_output"))
+        if shape:
+            ok = False
+            detail += " host_shape=[" + "; ".join(shape) + "]"
         if crash:
             ok = False
             detail += f" crash={crash}"
@@ -196,6 +269,15 @@ def run_normal() -> int:
     else:
         fail += 1
         print("FAIL: _parse-invariant  (empty _expected_rule_id not preserved — substring path not selected)")
+    legacy = (("pre_tool_use.py", '{"decision": "allow", "hookSpecificOutput": {"hookEventName": '
+               '"PreToolUse", "permissionDecision": "allow"}}', 0),
+              ("user_prompt_submit.py", '{"decision": "warn", "rule_id": "FR-12"}', 0),
+              ("session_start.py", '{"decision": "allow", "context_summary": "x"}', 0))
+    if all(_host_shape_errors(h, o, rc, None) for h, o, rc in legacy):
+        print("PASS: _host-shape-invariant  (pre-O22 legacy replies rejected by the host-shape check)")
+    else:
+        fail += 1
+        print("FAIL: _host-shape-invariant  (a pre-O22 legacy reply passed the host-shape check)")
     if exercised != EXPECTED_HANDLER_FIXTURES:
         fail += 1
         print(f"FAIL: handler fixture coverage — exercised {exercised}, "

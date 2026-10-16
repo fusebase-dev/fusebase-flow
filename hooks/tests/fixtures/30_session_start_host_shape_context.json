@@ -1,0 +1,14 @@
+{
+  "_test": "O22 host shape: the SessionStart bootstrap summary reaches the model as hookSpecificOutput.additionalContext; no top-level decision",
+  "_handler": "session_start.py",
+  "_expected_decision": "allow",
+  "_expected_host_output": {
+    "decision": null,
+    "hookSpecificOutput.hookEventName": "SessionStart",
+    "hookSpecificOutput.additionalContext": "*"
+  },
+  "event": "session_start",
+  "session_id": "test-30",
+  "cwd": ".",
+  "host_tool": "claude_code"
+}

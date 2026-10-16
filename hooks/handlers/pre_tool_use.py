@@ -174,21 +174,23 @@ def main() -> int:
 
 
 def _output_decision(decision: str, reason: str, rule_id: str) -> None:
-    """Emit Claude-Code-compatible JSON on stdout, plus exit-code semantics."""
-    out = {
-        "decision": decision,
-        "reason": reason,
-        "rule_id": rule_id or None,
-        # Claude Code current shape:
-        "hookSpecificOutput": {
+    # TRIPWIRE (security): never emit permissionDecision "allow" — the host then skips the
+    # permission prompt, so every unmatched tool call would be auto-approved. A top-level
+    # `decision` other than "block" fails host validation; Flow's verdict is `flow_decision`.
+    out = {"flow_decision": decision, "reason": reason, "rule_id": rule_id or None}
+    line = f"[fusebase-flow] {decision.upper()}: {reason}"
+    if decision in ("deny", "ask"):
+        out["hookSpecificOutput"] = {
             "hookEventName": "PreToolUse",
-            "permissionDecision": "deny" if decision == "deny" else ("allow" if decision == "allow" else "ask"),
-            "permissionDecisionReason": reason,
-        },
-    }
+            "permissionDecision": decision,
+            "permissionDecisionReason": line,
+        }
+    elif decision != "allow":
+        out["hookSpecificOutput"] = {"hookEventName": "PreToolUse", "additionalContext": line}
+        out["systemMessage"] = line
     sys.stdout.write(json.dumps(out))
     if decision != "allow":
-        print(f"[fusebase-flow] {decision.upper()}: {reason}", file=sys.stderr)
+        print(line, file=sys.stderr)
 
 
 if __name__ == "__main__":

@@ -106,7 +106,7 @@ mkjson() { # mkjson <key> ; reads MSG env -> prints {"<key>":<json>,"cwd":"."}
 ups_run() { # ups_run <user_prompt> -> prints "decision|warns_joined" via stdout JSON
   MSG="$1" mkjson user_prompt \
     | "$python_bin" "$UPS_PY" 2>/dev/null \
-    | "$python_bin" -c 'import json,sys;d=json.load(sys.stdin);print(d.get("decision","")+"|"+" ".join(d.get("warnings",[])))'
+    | "$python_bin" -c 'import json,sys;d=json.load(sys.stdin);print(d.get("flow_decision","")+"|"+" ".join(d.get("warnings",[])))'
 }
 ups_rc() { # ups_rc <user_prompt> -> prints the handler exit code
   MSG="$1" mkjson user_prompt | "$python_bin" "$UPS_PY" >/dev/null 2>&1; echo $?

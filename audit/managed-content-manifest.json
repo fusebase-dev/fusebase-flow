@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "5.10",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 416,
+  "asset_count": 420,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -226,7 +226,7 @@
     },
     {
       "path": "hooks/README.md",
-      "sha256": "3ed51b8a6f4dc400bca1ce50016dc2baeb8867c23851f7729635f3d013d8bae2"
+      "sha256": "d440d028564444441a7fff7e133d70eeb38c1d69c3c7b000a7b94f9290e7989f"
     },
     {
       "path": "hooks/flow_hook_event.schema.json",
@@ -250,7 +250,7 @@
     },
     {
       "path": "hooks/handlers/post_tool_use.py",
-      "sha256": "05aff11ae8dca5bb800bd8cb885ceff3bbe46cd9abdde340546279c2b6b315a2"
+      "sha256": "d700166da4b375bfd4bb14f5c68fca960ddca5644f73065faf206367e3db4359"
     },
     {
       "path": "hooks/handlers/pre_compact.py",
@@ -258,11 +258,11 @@
     },
     {
       "path": "hooks/handlers/pre_tool_use.py",
-      "sha256": "9d8567b3ff19564f447c640404d0c419eb716c6fac9d064132a6673559a04a85"
+      "sha256": "653d770deac8d21461cae4b8db6dfeba8a405ffdba8ad4158d7fcd404297b596"
     },
     {
       "path": "hooks/handlers/session_start.py",
-      "sha256": "4430cfd70e22c567d82a7678b3fa31eee6182334c5f2b4af3af645854bf1ed09"
+      "sha256": "888aeb7f2d3c16de5d4fb57a1d2cc8f00f95d8133fe72a3dbc7097e4cce9f6ad"
     },
     {
       "path": "hooks/handlers/stop.py",
@@ -270,7 +270,7 @@
     },
     {
       "path": "hooks/handlers/user_prompt_submit.py",
-      "sha256": "d3afc54547241943beaf7c37e8520fab92493c8ea19452cce5d042bc40679710"
+      "sha256": "44b74d0565b60181373fc5fa9475335a1e1415681b04d8e3d28c331c9132daf7"
     },
     {
       "path": "hooks/local/approve-local.sh",
@@ -969,6 +969,22 @@
       "sha256": "ca5d95ba28725e881cc8e0eb85dea7435ec14403403e918a4df064b397d3fa03"
     },
     {
+      "path": "hooks/tests/fixtures/27_pre_tool_use_host_shape_allow_no_permission_decision.json",
+      "sha256": "3796c5e74da683e690dd291a639fdfc0403c31fae43917f9d0183633603b5a4e"
+    },
+    {
+      "path": "hooks/tests/fixtures/28_user_prompt_submit_host_shape_po_reminder_context.json",
+      "sha256": "1429634b192347078d6e6bf67956a44e76554e0934f1e9406bf4d2b300b0d13f"
+    },
+    {
+      "path": "hooks/tests/fixtures/29_post_tool_use_host_shape_allow.json",
+      "sha256": "cb2fa835d80ca1e7d1ec8a12d568e2506f4d41bb8dd45336fe832f436c1abce0"
+    },
+    {
+      "path": "hooks/tests/fixtures/30_session_start_host_shape_context.json",
+      "sha256": "9ea8f329df2b39a9c23c1e5a5ec01015c04f1b5fbe985d28b89335d9d21f8fa8"
+    },
+    {
       "path": "hooks/tests/fixtures/approval_fixture.py",
       "sha256": "1bbfeb37d47deb11a93de566fff5fafe0eed73a25a477e272a6cb817101bab66"
     },
@@ -1106,11 +1122,11 @@
     },
     {
       "path": "hooks/tests/run-tests.sh",
-      "sha256": "03b40c5871b9f28e9ef2541cfc34cb4d961f43e08247a54dcb9b414df425e1f2"
+      "sha256": "b5ac29367cd26a7abda2b556e90ff3d2db9c2d23c6e2a6a0b160cab722620828"
     },
     {
       "path": "hooks/tests/run_hook_tests.py",
-      "sha256": "062f9c43f4f8e30fe775a20298ebcb2be61a4d7ed86b717bb2c623d4594bff85"
+      "sha256": "02339b69025167c273445a82f2f5d6043299199cd93efd6b9f86ed9e0ed20e7c"
     },
     {
       "path": "hooks/tests/test-agent-tool-profile.py",
@@ -1118,7 +1134,7 @@
     },
     {
       "path": "hooks/tests/test-approval-binding.sh",
-      "sha256": "a6307040cf66e61b505ee059f7157f18aaa6772bebb71e1176f0aff724807d63"
+      "sha256": "bb155849ab56e4ab2fc0e5efc7e88f28fc50c993512fb55502fa53f05be312ef"
     },
     {
       "path": "hooks/tests/test-approval-receipt-durability.sh",
@@ -1126,7 +1142,7 @@
     },
     {
       "path": "hooks/tests/test-approval-schema3.sh",
-      "sha256": "3d3499361388bde7ec63036e796b47d0a7d3990bfce89988832767bd32e273fd"
+      "sha256": "670123cfd219df7e1840ed588fdcac490430eaf53a0eeb167037037f98a90485"
     },
     {
       "path": "hooks/tests/test-approval-writer.sh",
@@ -1194,7 +1210,7 @@
     },
     {
       "path": "hooks/tests/test-command-policy.sh",
-      "sha256": "39d68d82b0ea84533ccc98e9d15051b0843154c3a13b3a5bfac83c4c0ab3c3ff"
+      "sha256": "234cf963018b8470dd7632631c2c93b864139748d9d64a0cf13726b7c978d737"
     },
     {
       "path": "hooks/tests/test-ff-only.sh",
@@ -1282,7 +1298,7 @@
     },
     {
       "path": "hooks/tests/test-msys-tree-cleanup.sh",
-      "sha256": "5d1967055a564896e13cc38d7df63410f965d5a95ecfde43b9be07614e496bac"
+      "sha256": "18050ca2350a1bc6498887cb674f240e6829879254119d944a73bb722cdd6bca"
     },
     {
       "path": "hooks/tests/test-newline-preserve.sh",
@@ -1298,7 +1314,7 @@
     },
     {
       "path": "hooks/tests/test-po-verifiable-boot.sh",
-      "sha256": "8c77c806e4d777788746d26dc6ebf9ba2457a85415ad52d8deb31af3e6cac100"
+      "sha256": "47966d73d81adee7c6d3ae24bb4795376e29a034ddb06ed0231d52af6675b338"
     },
     {
       "path": "hooks/tests/test-policy-state-preserve.sh",
@@ -1386,7 +1402,7 @@
     },
     {
       "path": "hooks/tests/test-secret-scan-staged.sh",
-      "sha256": "5632e14e0f270c303fc38a311934c6640f2166f0dc29c7c5f0215997e8d86bf7"
+      "sha256": "cf91bccf93e164850c67c0f0854162f8a867474f9273d24ea95ee309589a7943"
     },
     {
       "path": "hooks/tests/test-stamp-eol-guard.sh",
@@ -1414,7 +1430,7 @@
     },
     {
       "path": "hooks/tests/test-trusted-enforcer.sh",
-      "sha256": "82ea616cfefe9f11b7b2456ecc1fe9091472844ecb13eb0d8ab509d194cdf055"
+      "sha256": "8ed37e1266e92a987e75741c146658c3c71c9608f274ad7d2eacfa2aff4ab819"
     },
     {
       "path": "hooks/tests/test-upgrade-classify-eol.sh",
@@ -1669,5 +1685,5 @@
       "sha256": "bd9e3cf2d643a7f71016d480cfc720c36a6065271e073c3b638d8379d84fe47d"
     }
   ],
-  "manifest_self_sha256": "89e2579768c9b20407a9195e1fc37ca8fd73008681272214e5aac8658fdb199a"
+  "manifest_self_sha256": "83a18b76b9a2135c9e0fc310ebe82776928b9a84758171e0f3bb80a9340d0b6f"
 }

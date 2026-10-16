@@ -66,19 +66,25 @@ Every handler reads a JSON event from stdin matching `flow_hook_event.schema.jso
 
 ```json
 {
-  "decision": "deny",
+  "flow_decision": "deny",
   "reason": "FR-06: rm -rf is in command-policy.yml deny list.",
   "rule_id": "FR-06",
-  "audit_event_id": "..."
+  "hookSpecificOutput": {
+    "hookEventName": "PreToolUse",
+    "permissionDecision": "deny",
+    "permissionDecisionReason": "[fusebase-flow] DENY: FR-06: rm -rf is in command-policy.yml deny list."
+  }
 }
 ```
 
-| Decision | Meaning |
+Flow's verdict is `flow_decision`; the rest of the object is the host channel for that event (`docs/hook-coverage.md` § Host output shape). Claude Code accepts a top-level `decision` only as `"block"` and rejects the whole reply otherwise, so `pre_tool_use.py`, `user_prompt_submit.py`, `post_tool_use.py` and `session_start.py` never set it. `stop.py`, `permission_request.py` and `pre_compact.py` still print their verdict as a top-level `decision` (residuals, same section).
+
+| `flow_decision` | Meaning |
 |---|---|
-| `allow` | Allow the action. Handler may have logged or warned via stderr. |
-| `deny` | Block the action. Reason printed to stderr; host tool surfaces to operator. |
-| `ask` | Ask operator for explicit confirmation (only for `permission_request` event). |
-| `warn` | Allow, but include a warning. Decision is `allow` but `reason` is surfaced. |
+| `allow` | Allow the action. Nothing host-facing beyond the verdict; PreToolUse never sends `permissionDecision: "allow"`, which would skip the host's permission prompt. |
+| `deny` | Block the action. Reason printed to stderr, exit 2; PreToolUse also sends `permissionDecision: "deny"`. |
+| `ask` | Ask the operator for explicit confirmation (PreToolUse `permissionDecision: "ask"`; `permission_request`'s default). |
+| `warn` | Allow, but surface a warning: `additionalContext` for the model, `systemMessage` for the user (per handler, see § Host output shape). |
 
 ### Exit codes (for hosts that read exit codes only)
 

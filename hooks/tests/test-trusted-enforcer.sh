@@ -235,7 +235,7 @@ tool_decision() { # $1=file_path
     | ( cd "$D" && python3 hooks/handlers/pre_tool_use.py ) 2>/dev/null \
     | python3 -c 'import json,sys;
 try:
-    print(json.load(sys.stdin).get("decision",""))
+    print(json.load(sys.stdin).get("flow_decision",""))
 except Exception:
     print("PARSE_ERR")'
 }

@@ -197,8 +197,8 @@ for stamp in ("9999-12-31T23:59:59-14:00", "0001-01-01T00:00:00+14:00"):
                 data = json.loads(out) if out.strip().startswith("{") else {}
             except Exception:
                 data = {}
-            if data.get("decision") != "deny":
-                fails.append(f"{handler}[{stamp}]: expected deny got {data.get('decision')!r}")
+            if data.get("flow_decision", data.get("decision")) != "deny":
+                fails.append(f"{handler}[{stamp}]: expected deny got {data.get('flow_decision', data.get('decision'))!r}")
 
 print(json.dumps(fails))
 PY

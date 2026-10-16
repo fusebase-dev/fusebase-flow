@@ -707,7 +707,7 @@ def handler_route(r: Repo, p: list[str]) -> None:
                    input_text=json.dumps({"event": "pre_tool_use", "cwd": str(r.work),
                                           "tool_name": "Bash", "tool_input": {"command": command}}))
         try:
-            return json.loads(proc.stdout).get("decision", "")
+            return json.loads(proc.stdout).get("flow_decision", "")
         except Exception:
             return f"unparseable({proc.stdout[-120:]!r})"
     r.write({"schema_version": 2, "action": "production_deploy", "expires_at": FUTURE,
