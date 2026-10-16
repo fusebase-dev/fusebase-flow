@@ -1,0 +1,830 @@
+#!/usr/bin/env bash
+# Fusebase Flow — pre-commit git hook
+# fusebase-flow-managed-hook: v1
+#
+#
+#
+# Bypass: NEVER use --no-verify. Real secret flagged => rotate + `git reset HEAD --
+# <file>` to unstage; never whitelist it (disables a pattern globally, breaks the
+# scanner's own fixtures 10/11). False positive => fix the pattern.
+# Known scan-scope limits (docs/compatibility.md § Secret-scan): designed-token
+# files are path-excluded; PreToolUse self-trips when an agent writes full
+# secret-patterns.yml content.
+
+set -uo pipefail
+
+# 0. REPOSITORY-CONTEXT CLASSIFIER (A2; docs/specs/pre-commit-trusted-tool-contract/spec.md).
+#    TRIPWIRE: an empty `--show-toplevel` means EITHER outside-a-repository OR git-unusable-INSIDE
+#    one; both used to exit 0, skipping §2 (FR-12) + §3 (FR-07). Only independent `.git` evidence
+#    separates them. FAULT detection only: a PATH-controlling caller can still supply a shim.
+# TRIPWIRE: _ffpc_par stays ONE line (the G10 row extracts and evals it); POSIX + UNC only — any other form returns "" and TERMINATES the ascent, under-searching rather than mis-ascending.
+_ffpc_par() { case "$1" in //*/*/*|/[!/]*/*) printf '%s' "${1%/*}" ;; /[!/]*) printf '/' ;; esac; }
+_ffpc_block() {
+    echo "[fusebase-flow:pre-commit] BLOCK — git resolved no worktree here, but $1. Failing closed: skipping would drop the FR-12 staged secret scan (§2) and the FR-07 protected-path check (§3) inside a repository. Repair git (or the declared context) and re-run. NEVER use --no-verify." >&2
+    exit 1
+}
+# TRIPWIRE (T84): every git read in this hook writes to a FILE and is read back with shell
+# builtins — NEVER `$(git …)`. A Windows-native git descendant can hold the write end of a
+# command-substitution pipe open past exit, so the substitution never sees EOF and the hook
+# hangs (docs/problem-catalog/msys-git-command-substitution-hang/). Gated by
+# hooks/local/check-git-capture.sh; a new `$(git …)` here fails the git-capture-guard phase.
+FFPC_SHIM_DIR=""
+FFPC_GITCAP=""
+_ffpc_cleanup() {
+    [ -n "$FFPC_SHIM_DIR" ] && rm -rf "$FFPC_SHIM_DIR" 2>/dev/null
+    [ -n "$FFPC_GITCAP" ] && rm -f "$FFPC_GITCAP" 2>/dev/null
+    return 0
+}
+trap _ffpc_cleanup EXIT
+FFPC_GITCAP="$(mktemp 2>/dev/null || mktemp -t ffflow-gitcap)"
+if [ -z "$FFPC_GITCAP" ] || ! { : > "$FFPC_GITCAP"; } 2>/dev/null; then
+    echo "[fusebase-flow:pre-commit] BLOCK — no writable temp file for the git reads §2/§3 depend on — failing closed. NEVER use --no-verify." >&2
+    exit 1
+fi
+_ffpc_git_read() {   # CMD… -> stdout in $FFPC_GITCAP, rc in FFPC_GIT_RC (no pipe anywhere)
+    : > "$FFPC_GITCAP" 2>/dev/null
+    "$@" > "$FFPC_GITCAP" 2>/dev/null; FFPC_GIT_RC=$?
+}
+_ffpc_git_line() {   # CMD… -> first output line in FFPC_GIT_OUT via the `read` BUILTIN
+    _ffpc_git_read "$@"
+    FFPC_GIT_OUT=""
+    IFS= read -r FFPC_GIT_OUT < "$FFPC_GITCAP" 2>/dev/null || :   # rc1 on EOF/partial line still sets it
+}
+_ffpc_git_line git rev-parse --show-toplevel
+ROOT="$FFPC_GIT_OUT"
+if [ -z "$ROOT" ]; then
+    git rev-parse --git-dir >/dev/null 2>&1 && { echo "[fusebase-flow:pre-commit] a git repository without a worktree here (bare, or invoked inside .git/); no staged worktree content to check; skipping" >&2; exit 0; }
+    [ -n "${GIT_DIR:-}${GIT_WORK_TREE:-}" ] && _ffpc_block "the environment declares repository context (GIT_DIR/GIT_WORK_TREE) that git could not resolve"
+    # TRIPWIRE: strict-parent ascent, each candidate once — stop BEFORE a ceiling entry, before a
+    # mount change unless GIT_DISCOVERY_ACROSS_FILESYSTEM, at the root _ffpc_par reports. NO stat
+    # binary disables the mount stop (search runs FURTHER, erring toward BLOCK); a stat that EXISTS
+    # and FAILS is indeterminate and blocks — never merge those. Device anchors to the STARTING dir.
+    # TRIPWIRE: bare evidence needs `bare = true` — a merely bare-LOOKING layout is not evidence, because newly blocking a commit that works today is the worse outcome.
+    FFPC_D="$(pwd -P 2>/dev/null)"; FFPC_DEV0=""; FFPC_NOSTAT=""; FFPC_CEIL=":$(printf %s "${GIT_CEILING_DIRECTORIES:-}" | tr ';' ':'):"
+    command -v stat >/dev/null 2>&1 || FFPC_NOSTAT=1
+    while [ -n "$FFPC_D" ]; do
+        case "$FFPC_CEIL" in *":$FFPC_D:"*|*":$FFPC_D/:"*) break ;; esac
+        FFPC_DEV="$(stat -c %d "$FFPC_D" 2>/dev/null || stat -f %d "$FFPC_D" 2>/dev/null)"
+        [ -n "$FFPC_DEV$FFPC_NOSTAT" ] || _ffpc_block "'$FFPC_D' could not be stat'd, so repository context is indeterminate"
+        [ -n "$FFPC_DEV0" ] || FFPC_DEV0="$FFPC_DEV"
+        [ "$FFPC_DEV" = "$FFPC_DEV0" ] || [ -n "${GIT_DISCOVERY_ACROSS_FILESYSTEM:-}" ] || break
+        [ -L "$FFPC_D/.git" ] && [ ! -e "$FFPC_D/.git" ] && _ffpc_block "'$FFPC_D/.git' is a dangling symlink, so repository context is indeterminate"
+        [ -e "$FFPC_D/.git" ] && _ffpc_block "'$FFPC_D' carries repository evidence (a .git entry)"
+        [ -d "$FFPC_D/objects" ] && [ -d "$FFPC_D/refs" ] && grep -Eq '^(ref: refs/|[0-9a-f]{40}$)' "$FFPC_D/HEAD" 2>/dev/null && grep -Eqi '^[[:space:]]*bare[[:space:]]*=[[:space:]]*true' "$FFPC_D/config" 2>/dev/null && _ffpc_block "'$FFPC_D' carries repository evidence (a bare repository layout)"
+        FFPC_D="$(_ffpc_par "$FFPC_D")"
+    done
+    echo "[fusebase-flow:pre-commit] not in a git repo; skipping" >&2
+    exit 0
+fi
+
+cd "$ROOT" || exit 0
+FFVE_ORIGINAL_PATH="$PATH"
+
+# ENV SANITIZATION (T30, security floor): scrub every python-influencing env var ONCE,
+# before any python invocation below. ANY python call running with a mutable/inherited
+# PYTHONPATH/startup surface is a sitecustomize-injection point: an attacker who exports
+# `PYTHONPATH=$ROOT/hooks` + drops an untracked hooks/sitecustomize.py can run
+# `os._exit(0)` (or forge a verdict file) at interpreter startup, BEFORE any check.
+# T29 hardened §2/§3 with `-S`, but the §3 PREP step inherited PYTHONPATH and ran plain
+# python3 — the live PoC bypass. Unsetting these here means no inherited value reaches
+# ANY python invocation; each invocation additionally passes `-S` + an explicit,
+# trusted-only PYTHONPATH (defense in depth). PYTHONNOUSERSITE=1 also blocks the user
+# site-dir startup path even for any incidental non-`-S` python a sub-tool might spawn.
+# PYTHONSAFEPATH=1 (T32, defense-in-depth): on Python 3.11+ the interpreter NEVER prepends
+# the script dir / CWD / '' to sys.path, so a `python3 -S -` (stdin) heredoc can no longer
+# import a repo-root pathlib.py/yaml.py shadow ahead of stdlib/site. Harmless/ignored on
+# <3.11. Belt-and-suspenders with the primary T32 fix (§2/§3 mains now run as FILE scripts
+# from the trusted temp dir, whose script-dir is the trusted dir and never the CWD).
+unset PYTHONPATH PYTHONSTARTUP PYTHONHOME 2>/dev/null || true
+export PYTHONNOUSERSITE=1
+export PYTHONSAFEPATH=1
+
+SECRETS_REGEX='\.env$|\.env\.[^\.]*$|credentials\.json$|/secrets/|\.pem$|\.key$|\.netrc$'
+_ffpc_git_read git diff --cached --name-only --diff-filter=ACM
+SECRET_HITS="$(grep -E "$SECRETS_REGEX" < "$FFPC_GITCAP" || true)"
+if [ -n "$SECRET_HITS" ]; then
+    echo "[fusebase-flow:pre-commit] BLOCK — secret-like files staged:" >&2
+    echo "$SECRET_HITS" | sed 's/^/  /' >&2
+    echo "Per FR-12: never commit secrets. Unstage with \`git reset HEAD -- <file>\` and rotate if leaked." >&2
+    exit 1
+fi
+
+# 1b. INTERPRETER CONTRACT (MAJOR 12) — ONE fail-closed rule covering BOTH §2 and §3.
+#     final-architecture-review finding 12: "the scanner runs on every commit" — step 3's stated
+#     justification for moving the secret-scan scenario phase out of the local default — was
+#     FALSE without python3. §2 was wrapped in `if command -v python3` with NO else (the content
+#     scan silently did not happen) and §3 printed a WARN and committed anyway (FR-07 not
+#     enforced). Both are security controls; neither may depend on an interpreter being reachable
+#     (`python`, `py -3`) and put a `python3` shim on PATH for this hook's lifetime — the same
+#     provisioning the CI workflow already does. It changes no committed default and relaxes no
+#     check; every invocation below still runs `python3 -S <file>` with a controlled PYTHONPATH.
+#     If NOTHING supported is found, the commit is BLOCKED with a fixable message. There is no
+#     env override: an override is the fail-open branch this replaces.
+#     Scoped to commits that actually stage something — an empty staged set has nothing to
+#     protect, and git rejects that commit on its own.
+_ffpc_git_read git diff --cached --name-only; STAGED_ANY_RC=$FFPC_GIT_RC
+STAGED_ANY=""; [ -s "$FFPC_GITCAP" ] && STAGED_ANY=1
+if [ "$STAGED_ANY_RC" -ne 0 ]; then
+    echo "[fusebase-flow:pre-commit] BLOCK — could not list staged changes (git rc=$STAGED_ANY_RC) — failing closed." >&2
+    echo "Refusing to commit fail-open on an unverifiable staged set; NEVER use --no-verify." >&2
+    exit 1
+fi
+
+_ffpc_is_py3() { "$@" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] >= (3, 10) else 1)' >/dev/null 2>&1; }
+
+# 1b-v. PRIMARY-INTERPRETER VERSION SYMMETRY (S2d; docs/specs/pre-commit-trusted-tool-contract/).
+#     §1b probed only the DISCOVERED fallbacks, so a resolved `python3` reached §2/§3 unversioned.
+#     TRIPWIRE: `-S -c` support is NOT a consumer requirement — a wrapper honouring only
+#     `-S <file>` must keep working, so an unusable `-c` falls through to the file probe.
+_ffpc_bounded() {   # <secs> <out> <err> <mark> CMD… — rc 124 == killed at the bound
+    local s=$1 o=$2 e=$3 m=$4 p w r t f nap=0 monitor=0; shift 4; rm -f "$m" 2>/dev/null
+    f="$m.fifo"
+    if mkfifo "$f" 2>/dev/null && { exec 8<>"$f"; } 2>/dev/null; then nap=1; fi
+    rm -f "$f" 2>/dev/null
+    case $- in *m*) monitor=1 ;; esac
+    set -m; t=$SECONDS; "$@" >"$o" 2>"$e" & p=$!; [ "$monitor" -eq 1 ] || set +m
+    # TRIPWIRE: a timed built-in read avoids MSYS spawn delay; the FIFO is open read/write so EOF
+    # cannot return early. Unsupported hosts use the one-spawn fallback at the same deadline.
+    ( if [ "$nap" -eq 1 ]; then read -t "$((s - 1))" -u 8 _ 2>/dev/null || true
+      else sleep "$((s - 1))"; fi
+      kill -0 $p 2>/dev/null || exit 0
+      printf '%s %s\n' "$((s - 1))" "$((SECONDS - t))" > "$m"
+      kill -9 -- "-$p" 2>/dev/null || kill -9 "$p" 2>/dev/null ) >/dev/null 2>&1 & w=$!
+    wait $p; r=$?; kill $w 2>/dev/null; wait $w 2>/dev/null
+    [ "$nap" -eq 0 ] || { exec 8<&- 8>&-; }
+    FFPC_BOUND_RETURN=$((SECONDS - t)); FFPC_BOUND_DEADLINE=none; FFPC_BOUND_SIGNAL=none
+    if [ -f "$m" ]; then
+        r=124; read -r FFPC_BOUND_DEADLINE FFPC_BOUND_SIGNAL < "$m"
+        FFPC_BOUND_DEADLINE="${FFPC_BOUND_DEADLINE}s"; FFPC_BOUND_SIGNAL="${FFPC_BOUND_SIGNAL}s"
+    fi
+    return $r
+}
+_ffpc_ver() {   # one bounded probe; sets FFPC_VER (maj.min; empty = unproven), appends FFPC_DIAG
+    # TRIPWIRE: 2>/dev/null hides only the SHELL's "Killed" job report; the probe's own stderr is
+    # captured in $FFPC_VD/e and replayed in the BLOCK diagnostic — never discard it.
+    _ffpc_bounded 10 "$FFPC_VD/o" "$FFPC_VD/e" "$FFPC_VD/m" python3 -S "$@" 2>/dev/null; local r=$?
+    FFPC_VER="$(sed -n 's/^FFPCVER \([0-9][0-9]*\) \([0-9][0-9]*\)$/\1.\2/p' "$FFPC_VD/o" 2>/dev/null | head -1)"
+    FFPC_DIAG="$FFPC_DIAG [-S ${1##*/} rc=$r$([ $r -eq 124 ] && printf ' TIMEOUT@10s') deadline=${FFPC_BOUND_DEADLINE} signal=${FFPC_BOUND_SIGNAL} return=${FFPC_BOUND_RETURN}s] $(tr '\r\n' '  ' < "$FFPC_VD/e" 2>/dev/null | cut -c1-160)"
+}
+if [ -n "$STAGED_ANY" ] && command -v python3 >/dev/null 2>&1; then
+    FFPC_VD="$(mktemp -d 2>/dev/null || mktemp -d -t ffflow-pyver)"
+    [ -d "${FFPC_VD:-/nonexistent}" ] || { echo "[fusebase-flow:pre-commit] BLOCK — no temp dir for the python3 version probe — failing closed. NEVER use --no-verify." >&2; exit 1; }
+    FFPC_VSRC='import sys; print("FFPCVER %d %d" % sys.version_info[:2])'
+    printf '%s\n' "$FFPC_VSRC" > "$FFPC_VD/v.py"
+    FFPC_VER=""; FFPC_DIAG=""
+    _ffpc_ver -c "$FFPC_VSRC"
+    [ -n "$FFPC_VER" ] || _ffpc_ver "$FFPC_VD/v.py"
+    rm -rf "$FFPC_VD"
+    if [ -z "$FFPC_VER" ] || [ "${FFPC_VER%%.*}" -lt 3 ] || { [ "${FFPC_VER%%.*}" -eq 3 ] && [ "${FFPC_VER##*.}" -lt 10 ]; }; then
+        echo "[fusebase-flow:pre-commit] BLOCK — the resolved 'python3' did not prove Python 3.10+ (version=${FFPC_VER:-unproven}); probes:$FFPC_DIAG" >&2
+        echo "§2 (FR-12 staged secret scan) and §3 (FR-07 protected-path check) both run under it, so this commit is refused rather than run on an unsupported interpreter. Point python3 at Python 3.10+. NEVER use --no-verify." >&2
+        exit 1
+    fi
+fi
+
+if [ -n "$STAGED_ANY" ] && ! command -v python3 >/dev/null 2>&1; then
+    FFPC_FOUND=""
+    if _ffpc_is_py3 python; then FFPC_FOUND="python"
+    elif _ffpc_is_py3 py -3; then FFPC_FOUND="py -3"
+    fi
+    if [ -z "$FFPC_FOUND" ]; then
+        echo "[fusebase-flow:pre-commit] BLOCK — no supported Python 3.10+ interpreter found (tried: python3, python, py -3)." >&2
+        echo "Two security controls need one: the FR-12 staged secret scan (§2) and the FR-07 protected-path check (§3). Neither can run, so this commit is refused rather than committed unscanned and unenforced." >&2
+        echo "Install Python 3.10+ (or put it on PATH) and re-run the commit. NEVER use --no-verify." >&2
+        exit 1
+    fi
+    FFPC_SHIM_DIR="$(mktemp -d 2>/dev/null || mktemp -d -t ffflow-py3)"
+    if [ -z "$FFPC_SHIM_DIR" ] || ! printf '#!/usr/bin/env bash\nexec %s "$@"\n' "$FFPC_FOUND" > "$FFPC_SHIM_DIR/python3" 2>/dev/null; then
+        echo "[fusebase-flow:pre-commit] BLOCK — found '$FFPC_FOUND' but could not provision a python3 shim — failing closed. NEVER use --no-verify." >&2
+        exit 1
+    fi
+    chmod +x "$FFPC_SHIM_DIR/python3" 2>/dev/null
+    PATH="$FFPC_SHIM_DIR:$PATH"; export PATH
+    echo "[fusebase-flow:pre-commit] note: python3 was not on PATH; using discovered '$FFPC_FOUND' for §2/§3 (shim is temporary, this commit only)." >&2
+fi
+
+# Stage timings (docs/changes/2026-10-15-v511-consumer-review.md O2): report-only, never a gate.
+# TRIPWIRE: builtins only — a `date` spawn costs ~1 s on MSYS, and this file is git-capture gated.
+# _ffpc_now stays ONE line (validator-evidence extracts and evals it) and strips EVERY non-digit:
+# some locales print EPOCHREALTIME with a decimal comma.
+_ffpc_now() { local t="${EPOCHREALTIME:-}"; t="${t//[!0-9]/}"; if [ -n "$t" ]; then FFPC_NOW_US=$((10#$t)); else FFPC_NOW_US=$((SECONDS * 1000000)); fi; }
+_ffpc_stage() {
+    local start=$FFPC_MARK_US us; _ffpc_now; FFPC_MARK_US=$FFPC_NOW_US
+    us=$((FFPC_NOW_US - start)); [ "$us" -ge 0 ] || us=0
+    printf '[fusebase-flow:pre-commit] stage=%s elapsed=%d.%02ds\n' "$1" $((us / 1000000)) $((us % 1000000 / 10000)) >&2
+}
+_ffpc_now; FFPC_MARK_US=$FFPC_NOW_US
+
+# 2. Secret content scan (FR-12): ONLY added (+) lines, designed-token files path-excluded
+#    (D-A1 — secret-patterns.yml self-trip + whitelist trap). scan() semantics UNCHANGED
+#    (hooks/tests/fixtures 10/11 call scan() directly).
+#
+#    TRUSTED-HEAD SECRET SCANNER (T31, UNCONDITIONAL): the scanner CODE
+#    (staged_secret_scan.py + secret_scanner.py + its shared deps) AND its patterns data
+#    (policies/secret-patterns.yml) are THEMSELVES fusebase_flow_internals — the mutable
+#    working tree cannot be trusted to run its own secret gate. T29/T30 added `-S` + an
+#    env scrub (no startup-file / inherited-PYTHONPATH injection), but the SCRIPT + its
+#    PATTERNS were still the working tree: an UNSTAGED tamper of staged_secret_scan.py
+#    (make it `return 0`) OR of secret-patterns.yml (empty `patterns:`) => "no secrets"
+#    => a real secret in the staged changeset commits unguarded. Same mutable-Python-load
+#    class as the §3 self-tamper (T28-T30), applied to the secret scanner. Closed here by
+#    running §2 from the COMMITTED (HEAD) scanner + patterns, extracted into a temp package
+#    and imported under `-S` with an isolated PYTHONPATH (the trusted temp dir, never
+#    $ROOT/hooks). It scans the STAGED changeset (git diff --cached — unchanged; the
+#    content being committed). The env is already scrubbed at the hook top (T30).
+#    GIT-BASED TRUSTED-vs-FALLBACK (shell-decided, like §3/T30): if HEAD carries the
+#    scanner => ALWAYS trusted (a working-tree tamper cannot run). Fall back to the
+#    working-tree scanner (under `-S`, with a note) ONLY when git proves HEAD genuinely
+#    LACKS it (true first-adoption). A transient git error => fail closed.
+if command -v python3 >/dev/null 2>&1; then
+    # SEC_IMPORT_DIR = where the scanner `shared` package is imported from;
+    # SEC_TRUSTED_PATTERNS = the trusted patterns yaml to seed the loader cache with
+    # (empty => bootstrap fallback, scanner reads the working-tree patterns).
+    SEC_IMPORT_DIR="$ROOT/hooks"
+    SEC_TRUSTED_PATTERNS=""
+    SEC_TMP=""
+    # Sentinels: the scanner code + its patterns data. The SHELL decides trusted-vs-fallback
+    # via `git ls-tree HEAD` (unforgeable — no python/startup file can influence it). rc0+
+    # non-empty => present; rc0+empty => genuinely absent (first-adoption); rc!=0 => transient
+    # git error => fail closed. (staged_secret_scan -> secret_scanner -> {audit_logger,
+    # policy_loader}; policy_loader reads secret-patterns.yml.)
+    SEC_SENTINELS="hooks/shared/__init__.py hooks/shared/staged_secret_scan.py hooks/shared/secret_scanner.py hooks/shared/audit_logger.py hooks/shared/policy_loader.py policies/secret-patterns.yml"
+    SEC_DECISION="trusted"
+    # T32 (RELIABILITY #3, MSYS): the sentinel `git ls-tree HEAD` is captured via a FILE
+    # REDIRECT, NOT `$(git ls-tree ...)` command substitution. On MSYS/Git-Bash a
+    # Windows-native git grandchild can hold the captured pipe open past exit, hanging the
+    # parent shell (rc=124) — the documented $(...)+git freeze that was the source of the
+    # gate timeouts. This is fail-SAFE (a hung hook only ever BLOCKS), not a security
+    # change; the trusted-vs-fallback semantics are IDENTICAL (rc!=0 => fail closed; rc0+
+    # empty => first-adoption fallback). Uses the same file-redirect pattern the PREP
+    # extractor already relies on. The scratch file lives in SEC_LSFILE.
+    SEC_LSFILE="$(mktemp 2>/dev/null || mktemp -t ffflow-secls)"
+    if ! git rev-parse --verify --quiet HEAD >/dev/null 2>&1; then
+        SEC_DECISION="fallback"
+        echo "[fusebase-flow:pre-commit] note: no HEAD yet (first-adoption bootstrap) — §2 secret scan uses the working-tree scanner for this initial commit." >&2
+    else
+        for _s in $SEC_SENTINELS; do
+            git ls-tree HEAD -- "$_s" > "$SEC_LSFILE" 2>/dev/null; _sls_rc=$?
+            _sls="$(cat "$SEC_LSFILE" 2>/dev/null)"
+            if [ "$_sls_rc" -ne 0 ]; then
+                rm -f "$SEC_LSFILE"
+                echo "[fusebase-flow:pre-commit] BLOCK — §2 secret scan could not read the trusted HEAD copy of $_s (transient git error, rc=$_sls_rc) — failing closed, NOT falling back to the untrusted working tree. NEVER use --no-verify." >&2
+                exit 1
+            fi
+            if [ -z "$_sls" ]; then
+                SEC_DECISION="fallback"
+                echo "[fusebase-flow:pre-commit] note: $_s not in HEAD (first-adoption bootstrap) — §2 secret scan uses the working-tree scanner for this commit." >&2
+                break
+            fi
+        done
+    fi
+    rm -f "$SEC_LSFILE"
+    # T32 (primary CWD-strip fix): create the scratch/trusted temp dir UNCONDITIONALLY. The
+    # §2 MAIN check now runs as a FILE SCRIPT from this dir (python3 -S "$SEC_TMP/_main_secret.py"),
+    # so sys.path[0] is the trusted temp dir — NOT the repo-root CWD, which `-S -` (stdin) would
+    # otherwise leave on sys.path[0] and let a repo-root pathlib.py/yaml.py shadow win before any
+    # scrub. On the TRUSTED path the extractor also fills shared/+policies/ here; on the FALLBACK
+    # path the dir holds ONLY the wrapper (SEC_IMPORT_DIR stays $ROOT/hooks, inserted by the wrapper).
+    SEC_TMP="$(mktemp -d 2>/dev/null || mktemp -d -t ffflow-secret)"
+    if [ "$SEC_DECISION" = "trusted" ]; then
+        # Pure extractor (git show HEAD -> temp; no verdict). Written to a file, not a
+        # heredoc-in-$(...) (bash -n here-doc parse). Fail closed on any git-show failure.
+        cat > "$SEC_TMP/_prep_secret.py" <<'SECPREP'
+import os, subprocess, sys
+from pathlib import Path
+
+root = Path(os.environ["ROOT"])
+tmp = Path(os.environ["SEC_TMP"])
+
+# The SHELL has already proven (git ls-tree) every one of these is present in HEAD; this
+# script only EXTRACTS the trusted bytes. secret-patterns.local.yml is an OPTIONAL,
+# gitignored designed-token override (never in HEAD) — deliberately NOT extracted; the
+# trusted-patterns seed below binds the loader to ONLY HEAD's committed patterns.
+files = [
+    ("hooks/shared/__init__.py",            tmp / "shared" / "__init__.py"),
+    ("hooks/shared/staged_secret_scan.py",  tmp / "shared" / "staged_secret_scan.py"),
+    ("hooks/shared/secret_scanner.py",      tmp / "shared" / "secret_scanner.py"),
+    ("hooks/shared/audit_logger.py",        tmp / "shared" / "audit_logger.py"),
+    ("hooks/shared/policy_loader.py",       tmp / "shared" / "policy_loader.py"),
+    ("policies/secret-patterns.yml",        tmp / "policies" / "secret-patterns.yml"),
+]
+
+for src, dst in files:
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    show = subprocess.run(["git", "show", f"HEAD:{src}"],
+                          capture_output=True, cwd=str(root))
+    if show.returncode != 0:
+        print(f"[fusebase-flow:pre-commit] BLOCK — §2 trusted HEAD extraction of {src} "
+              f"failed (git show rc={show.returncode}) — failing closed. NEVER use --no-verify.",
+              file=sys.stderr)
+        sys.exit(1)
+    dst.write_bytes(show.stdout)
+SECPREP
+        SEC_TMP="$SEC_TMP" ROOT="$ROOT" PYTHONPATH="" python3 -S "$SEC_TMP/_prep_secret.py"; SEC_PREP_RC=$?
+        if [ "$SEC_PREP_RC" -ne 0 ]; then
+            [ -n "$SEC_TMP" ] && rm -rf "$SEC_TMP"
+            exit 1
+        fi
+        SEC_IMPORT_DIR="$SEC_TMP"
+        SEC_TRUSTED_PATTERNS="$SEC_TMP/policies/secret-patterns.yml"
+    fi
+    # `-S` (T29): no working-tree/untracked sitecustomize.py/usercustomize.py at startup.
+    # PYTHONPATH is set EXPLICITLY to the SINGLE import dir (T30 scrubbed the env at the top,
+    # so nothing is inherited) — the trusted temp dir on the normal path, $ROOT/hooks ONLY on
+    # the first-adoption bootstrap fallback. The scanner re-adds site-packages (for PyYAML)
+    # via getsitepackages() PATHS without running site.main() (its own _restore_site_packages).
+    #
+    # T32 (PRIMARY CWD-strip fix): the MAIN check runs as a FILE SCRIPT from the trusted temp
+    # dir (python3 -S "$SEC_TMP/_main_secret.py"), NOT `python3 -S -` (stdin). For a file script
+    # sys.path[0] is the SCRIPT'S dir (the trusted temp dir) and the CWD is never added — so a
+    # repo-root pathlib.py/yaml.py can no longer shadow stdlib/site before the scrub or the
+    # trusted-patterns seed's `import yaml`. (Stdin `-` used to put the repo-root CWD at
+    # sys.path[0]; `-S` disables site but does NOT remove the CWD.) The wrapper ALSO scrubs any
+    # residual CWD/'' entry as its first statements (belt-and-suspenders, unshadowable builtin
+    # os core) so the guarantee holds even on interpreters that ignore PYTHONSAFEPATH.
+    cat > "$SEC_TMP/_main_secret.py" <<'SECPY'
+import sys
+# T32 CWD-STRIP (first statements, before ANY non-builtin import): remove the repo-root/CWD/''
+# entries a stdin/`-c` invocation would leave on sys.path. Get CWD via a BUILTIN os core
+# (`nt` on Windows / `posix` on POSIX — both in sys.builtin_module_names, so a repo-root
+# nt.py/posix.py cannot shadow them). sys itself is builtin (unshadowable). Idempotent: a
+# no-op when the file-script/PYTHONSAFEPATH path already stripped CWD. NOT `del sys.path[0]`
+# (that would wrongly drop the stdlib entry when CWD was already absent).
+_cwd = None
+try:
+    import nt as _oscore  # Windows
+except ImportError:
+    import posix as _oscore  # POSIX
+try:
+    _cwd = _oscore.getcwd()
+except Exception:
+    _cwd = None
+_drop = {"", "."}
+if _cwd:
+    _drop.add(_cwd)
+sys.path[:] = [p for p in sys.path if p not in _drop]
+import os
+from pathlib import Path
+# root = the REAL repo: the STAGED diff (git diff --cached) + working-tree cwd are read
+# from here, regardless of whether the scanner CODE was imported from HEAD (trusted) or
+# the tree (bootstrap fallback).
+root = Path(os.environ["SEC_REAL_ROOT"])
+import_dir = os.environ.get("SEC_IMPORT_DIR") or str(root / "hooks")
+sys.path.insert(0, import_dir)
+try:
+    # staged_secret_scan imports only stdlib at module top (subprocess/sys/pathlib), so
+    # importing it does NOT yet reach policy_loader's top-level `import yaml`. Restore
+    # site-packages FIRST (via its own -S-safe getsitepackages re-add), THEN import
+    # secret_scanner — whose transitive `import yaml` would SystemExit under bare `-S` if
+    # site-packages were still dropped (the ordering the original helper's main() used).
+    from shared.staged_secret_scan import staged_added_text, _restore_site_packages
+    _restore_site_packages()
+    from shared.secret_scanner import block_decision, scan
+except BaseException as e:
+    # FAIL CLOSED (mirrors §3's BaseException guard): a tampered/short-circuited scanner
+    # module doing raise SystemExit(0) on import subclasses BaseException; blocking it here
+    # means a broken/lying scanner cannot wave a secret through. (A genuinely scanner-less
+    # bootstrap took the shell fallback above, not this trusted path.)
+    print(f"[fusebase-flow:pre-commit] BLOCK — §2 secret scan could not load the scanner (import error: {e!r}) — failing closed. NEVER use --no-verify.", file=sys.stderr)
+    sys.exit(1)
+# TRUSTED-PATTERNS SEED (mirrors §3's trusted-policy seed): scan() -> get_policy(
+# "secret-patterns") would otherwise read the mutable working-tree patterns file (which a
+# tamperer could have emptied). Seed the loader cache with the TRUSTED HEAD patterns under
+# BOTH keys the scanner reaches (root=None internal call + the cwd-derived root), so every
+# get_policy("secret-patterns") returns the trusted patterns. Scoped to secret-patterns
+# ONLY (other policies untouched). On the bootstrap fallback SEC_TRUSTED_PATTERNS is empty
+# => no seed => the scanner reads the working-tree patterns (a scanner-less repo can't tamper
+# a control it doesn't yet have).
+trusted_patterns = os.environ.get("SEC_TRUSTED_PATTERNS") or ""
+if trusted_patterns:
+    try:
+        import yaml
+        from shared import policy_loader as _pl
+        pol = yaml.safe_load(Path(trusted_patterns).read_text(encoding="utf-8")) or {}
+        _pl._POLICY_CACHE["::secret-patterns"] = pol
+        _pl._POLICY_CACHE[f"{root}::secret-patterns"] = pol
+    except BaseException as e:
+        print(f"[fusebase-flow:pre-commit] BLOCK — §2 secret scan could not seed the trusted HEAD patterns ({e!r}) — failing closed. NEVER use --no-verify.", file=sys.stderr)
+        sys.exit(1)
+# Scan the STAGED changeset (added `+` lines, designed-token files path-excluded — the
+# exclude lives in staged_added_text, run against the REAL root's git). block => exit 1.
+try:
+    matches = scan(staged_added_text(root), tool_context="git_pre_commit")
+except BaseException as e:
+    print(f"[fusebase-flow:pre-commit] BLOCK — §2 secret scan errored ({e!r}) — failing closed. NEVER use --no-verify.", file=sys.stderr)
+    sys.exit(1)
+if matches and block_decision(matches) == "deny":
+    print("[fusebase-flow:pre-commit] BLOCK — secret pattern in staged added lines:", file=sys.stderr)
+    for m in matches:
+        print(f"  {m.pattern_id} ({m.confidence}) — redacted", file=sys.stderr)
+    print("Per FR-12: if this is a REAL credential, rotate it, then `git reset HEAD -- <file>` to unstage. Do NOT whitelist. The scanner skips ONLY Flow's exact fixture/policy backup twins, so treat a hit as potentially real — inspect it; if it is instead a Flow backup a `git add -A` staged, unstage that exact path (`git restore --staged <path>`). See docs/problem-catalog/upgrade-backups-trip-secret-scan/.", file=sys.stderr)
+    sys.exit(1)
+SECPY
+    # Run the MAIN §2 check as a FILE SCRIPT (T32): sys.path[0] = the trusted temp dir, not the
+    # repo-root CWD. PYTHONPATH is still the SINGLE trusted import dir (T30 scrubbed the env).
+    SEC_IMPORT_DIR="$SEC_IMPORT_DIR" SEC_TRUSTED_PATTERNS="$SEC_TRUSTED_PATTERNS" \
+    SEC_REAL_ROOT="$ROOT" PYTHONPATH="$SEC_IMPORT_DIR" python3 -S "$SEC_TMP/_main_secret.py" || exit_secret=$?
+    # Clean up the trusted temp package (FR-27 no-runaways: bounded, always removed)
+    # BEFORE acting on the rc so a BLOCK never leaks the temp dir.
+    [ -n "$SEC_TMP" ] && rm -rf "$SEC_TMP"
+    if [ "${exit_secret:-0}" -ne 0 ]; then _ffpc_stage secret-scan; exit 1; fi
+elif [ -n "$STAGED_ANY" ]; then
+    # Unreachable while §1b holds (it blocks or provisions python3). Kept as the fail-closed
+    # else the original `if` never had: if this branch is ever reached, the content scan did
+    # NOT run, and a silent skip is what made step 3's safety claim false.
+    echo "[fusebase-flow:pre-commit] BLOCK — §2 secret scan could not run (python3 unreachable after the interpreter contract) — failing closed. NEVER use --no-verify." >&2
+    exit 1
+fi
+_ffpc_stage secret-scan
+
+# 3. Reject protected-path edits without an active exception artifact. Covers the
+#    FULL staged change set — ADDS/MODS *and* DELETES + RENAMES (a `git rm` or rename
+#    of a protected file must reach path_policy too; the old ACM-only set let deletes/
+#    rename-sources through with exit 0 — the shipped FR-07 bypass). The gate fires on
+#    ANY staged change (unfiltered), not just ACM. §1/§2 secret checks stay ACM by
+#    design (deleting a file can't leak a secret).
+#    This is a SECURITY control: it FAILS CLOSED. An import error (missing dep, broken/
+#    tampered path_policy, a syntax error introduced in the SAME commit) or any unexpected
+#    error inside the check EXITS 1 (block) — never exit 0. A silent fail-open would let a
+#    protected edit through the moment path_policy can't load. python3 absent + staged changes
+#    is now a BLOCK too (MAJOR 12): §1b either provisions an interpreter or refuses the commit,
+#    so the old "LOUD warn and commit anyway" branch — which left FR-07 unenforced on exactly
+#    the environments least likely to notice — is gone.
+# #1 (T27): the OUTER git-list rc is captured too (mirrors the inner python rc-check). A
+# nonzero rc there means we can't reliably know whether protected paths are staged, so we
+# fail closed rather than skip §3 on an empty-because-broken list. That check now lives in
+# §1b (it also gates the interpreter contract); STAGED_ANY is computed exactly once.
+#
+# TRUSTED-HEAD ENFORCER (T28→T29, UNCONDITIONAL): the enforcement code (path_policy.py /
+# policy_loader.py / shared/__init__.py) and the protected-paths.yml policy are THEMSELVES
+# fusebase_flow_internals — the mutable working tree cannot be trusted to enforce its own
+# protection. §3 therefore runs the enforcer from the COMMITTED (HEAD) copy of that code +
+# policy for EVERY commit with staged changes, not just when the STAGED set touches those
+# files. T28 made it conditional (fired only when the enforcer files were staged); that left
+# two reachable bypasses the clean-HEAD run now closes:
+#   (a) UNSTAGED enforcer tamper: edit the working-tree path_policy.py to lie ("nothing
+#       protected") WITHOUT staging it, then stage only a protected file — the conditional
+#       stayed off, §3 imported the lying working-tree enforcer, exit 0. Now HEAD's clean
+#       enforcer always runs, so the unstaged lie has no effect.
+#   (b) Python STARTUP injection: an untracked hooks/sitecustomize.py (or usercustomize.py)
+#       with `import os; os._exit(0)` is imported at interpreter startup via `site` BEFORE any
+#       check — the check exited 0. Closed by invoking EVERY §3 python (PREP + MAIN, T30) with
+#       `-S` (site disabled ⇒ no sitecustomize/usercustomize), the hook env pre-scrubbed
+#       (unset PYTHONPATH/STARTUP/HOME at the top), and PYTHONPATH set to ONLY the trusted temp
+#       dir (never $ROOT/hooks), so no working-tree startup file is importable.
+#   (c) [T30] PREP-STEP injection + python-writable verdict: T29's PREP (git-show extraction)
+#       still ran PLAIN python3 with INHERITED PYTHONPATH, and the trusted-vs-fallback verdict
+#       was a `RESULT=...` value a python startup file could WRITE. Live PoC:
+#       `PYTHONPATH=$ROOT/hooks` + untracked hooks/sitecustomize.py forging `RESULT=fallback` /
+#       os._exit(0) + an unstaged lying path_policy.py + a staged protected file => exit 0.
+#       Closed by: (1) the env scrub above; (2) `-S` + a controlled PYTHONPATH on the PREP
+#       invocation; and (3) moving the trusted-vs-fallback DECISION out of python entirely —
+#       the SHELL decides it via `git ls-tree HEAD` on the sentinel enforcer files (below),
+#       an unforgeable signal no python/startup file can write. If git proves HEAD HAS the
+#       enforcer => ALWAYS trusted (fallback is IMPOSSIBLE — a forged RESULT cannot be honored);
+#       fall back to the working tree ONLY when git proves HEAD genuinely LACKS it. The PREP
+#       python is now a pure EXTRACTOR (git show HEAD -> temp); it no longer votes.
+# The CLEAN enforcer evaluates the STAGED changeset, still sees `hooks/shared/**` +
+# `policies/protected-paths.yml` as protected, reads the WORKING-TREE state/approvals/ (so a
+# legit sanctioned edit still passes) + STAGED git (the real commit), and BLOCKS an unapproved
+# protected edit. For a clean tree HEAD==working-tree, so behavior is IDENTICAL to before.
+# BOOTSTRAP edge: on the first commit that ADDS these files, HEAD lacks them -> the shell
+# `git ls-tree HEAD` reports rc0+empty (genuinely absent) -> fall back to the working-tree
+# enforcer (the file being added is not a tamper), still under `-S`. A TRANSIENT git error
+# (HEAD has the file but the read fails) is NOT bootstrap -> fail closed (never fall back to
+# the untrusted tree on an unexplained error; T26/T27 contract).
+# ACCEPTED RESIDUALS (a commit-time discipline guardrail cannot mechanically stop these — they
+# are rule-forbidden and/or out of band): `--no-verify` (FR rule-forbidden), deleting/replacing
+# `.git/hooks/pre-commit` on disk, and a full repo write that never invokes this hook. Documented
+# in the deploy problem-catalog; enforcement of those relies on FR discipline + review, not §3.
+if [ -n "$STAGED_ANY" ]; then
+    if command -v python3 >/dev/null 2>&1; then
+        # UNCONDITIONAL trusted-HEAD (T29): the working-tree enforcer is never trusted to
+        # enforce its own protection, so §3 ALWAYS runs from the COMMITTED (HEAD) enforcer +
+        # policy — not just when the staged set touches those files (T28's conditional left
+        # the unstaged-tamper + startup-injection bypasses reachable). Extract HEAD's copies
+        # into a temp dir; import/run FR-07 from THERE with `-S` + an isolated PYTHONPATH.
+        # FR07_IMPORT_DIR = where the enforcement `shared` package is imported from;
+        # FR07_TRUSTED_POLICY = the trusted policy yaml to seed (empty => bootstrap fallback).
+        # Defaults are the working-tree path — used ONLY on the first-adoption bootstrap edge
+        # (HEAD genuinely lacks the enforcer); otherwise the trusted temp dir replaces them.
+        FR07_IMPORT_DIR="$ROOT/hooks"
+        FR07_TRUSTED_POLICY=""
+        FR07_TMP=""
+        # GIT-BASED TRUSTED-vs-FALLBACK DECISION (T30, unforgeable). The SHELL — not any
+        # python script or startup file — decides whether HEAD carries the enforcer. `git
+        # ls-tree HEAD -- <sentinel>` is run directly by bash, so no PYTHONPATH/sitecustomize
+        # can influence it. Three outcomes per sentinel:
+        #   rc0 + non-empty stdout => present in HEAD;
+        #   rc0 + empty stdout      => genuinely absent (first-adoption bootstrap);
+        #   rc!=0                    => transient git error -> fail closed (no fallback).
+        # RULE: if ALL sentinels are present in HEAD => TRUSTED (a forged RESULT=fallback is
+        # impossible to honor — there is no python-written verdict any more). Fall back to the
+        # working-tree enforcer ONLY when git proves a sentinel is genuinely absent (true
+        # first-adoption). The PREP python below is then a pure EXTRACTOR (git show -> temp);
+        # it no longer votes on trusted-vs-fallback.
+        # TRIPWIRE: this list and the PREP extractor `files` list below are the CLOSURE of
+        # path_policy's imports. path_policy now delegates expiry/schema to
+        # approval_artifact.py (decision K1); a module missing from BOTH lists makes the
+        # trusted enforcer die with ImportError and BLOCK every commit. Add here + below
+        # together whenever path_policy grows an intra-package import.
+        FR07_SENTINELS="hooks/shared/__init__.py hooks/shared/path_policy.py hooks/shared/policy_loader.py hooks/shared/approval_artifact.py policies/protected-paths.yml"
+        FR07_DECISION="trusted"
+        # T32 (RELIABILITY #3, MSYS): capture the sentinel `git ls-tree HEAD` via a FILE
+        # REDIRECT, NOT `$(git ls-tree ...)` command substitution — the $(...)+git pattern
+        # intermittently HANGS under MSYS/Git-Bash (a Windows-native git grandchild holds the
+        # captured pipe open past exit => rc=124), the source of the gate timeouts. Fail-SAFE
+        # (a hung hook only ever BLOCKS); the trusted-vs-fallback semantics are IDENTICAL
+        # (rc!=0 => fail closed; rc0+empty => first-adoption fallback). Same file-redirect
+        # pattern the PREP extractor already uses. Scratch file in FR07_LSFILE.
+        FR07_LSFILE="$(mktemp 2>/dev/null || mktemp -t ffflow-fr07ls)"
+        # Unborn HEAD (no commits yet) is a legitimate first-adoption bootstrap, not transient.
+        if ! git rev-parse --verify --quiet HEAD >/dev/null 2>&1; then
+            FR07_DECISION="fallback"
+            echo "[fusebase-flow:pre-commit] note: no HEAD yet (first-adoption bootstrap) — FR-07 §3 uses the working-tree enforcer for this initial commit." >&2
+        else
+            for _s in $FR07_SENTINELS; do
+                git ls-tree HEAD -- "$_s" > "$FR07_LSFILE" 2>/dev/null; _ls_rc=$?
+                _ls="$(cat "$FR07_LSFILE" 2>/dev/null)"
+                if [ "$_ls_rc" -ne 0 ]; then
+                    rm -f "$FR07_LSFILE"
+                    echo "[fusebase-flow:pre-commit] BLOCK — FR-07 could not read the trusted HEAD copy of $_s (transient git error, rc=$_ls_rc) — failing closed, NOT falling back to the untrusted working tree. NEVER use --no-verify." >&2
+                    exit 1
+                fi
+                if [ -z "$_ls" ]; then
+                    # Genuinely absent in HEAD => this commit is ADDING the enforcer
+                    # (first-adoption). The added file is not a tamper of an existing control.
+                    FR07_DECISION="fallback"
+                    echo "[fusebase-flow:pre-commit] note: $_s not in HEAD (first-adoption bootstrap) — FR-07 §3 uses the working-tree enforcer for this commit." >&2
+                    break
+                fi
+            done
+        fi
+        rm -f "$FR07_LSFILE"
+        # T32 (primary CWD-strip fix): create the scratch/trusted temp dir UNCONDITIONALLY so
+        # the §3 MAIN check can run as a FILE SCRIPT from it (python3 -S "$FR07_TMP/_main.py"),
+        # giving sys.path[0] = the trusted temp dir, never the repo-root CWD. On the TRUSTED
+        # path the extractor also fills shared/+policies/ here; on the FALLBACK path the dir
+        # holds ONLY the wrapper (FR07_IMPORT_DIR stays $ROOT/hooks, inserted by the wrapper).
+        FR07_TMP="$(mktemp -d 2>/dev/null || mktemp -d -t ffflow-trusted)"
+        # On TRUSTED: extract HEAD's clean enforcer + policy into a temp package via a pure
+        # extractor script, run under `-S` with a controlled PYTHONPATH (never $ROOT/hooks,
+        # never inherited — the env is already scrubbed at the hook top).
+        if [ "$FR07_DECISION" = "trusted" ]; then
+            # Write the extractor to a file (NOT a heredoc inside $(...), which some bash -n
+            # parsers flag as an unterminated here-doc) then run it. It ONLY does git show ->
+            # temp (no verdict); it exits 1 on a git-show failure (fail closed). Diagnostics
+            # go to stderr (pass through to the operator).
+            cat > "$FR07_TMP/_prep.py" <<'PREP'
+import os, subprocess, sys
+from pathlib import Path
+
+root = Path(os.environ["ROOT"])
+tmp = Path(os.environ["FR07_TMP"])
+
+# (repo-relative source path, destination inside the temp trusted package). The SHELL has
+# already proven (via git ls-tree) that every one of these is present in HEAD, so this
+# script only EXTRACTS the trusted bytes; it does not decide trusted-vs-fallback.
+files = [
+    ("hooks/shared/__init__.py",       tmp / "shared" / "__init__.py"),
+    ("hooks/shared/path_policy.py",    tmp / "shared" / "path_policy.py"),
+    ("hooks/shared/policy_loader.py",  tmp / "shared" / "policy_loader.py"),
+    # Import closure of path_policy (decision K1) — keep in sync with FR07_SENTINELS.
+    ("hooks/shared/approval_artifact.py", tmp / "shared" / "approval_artifact.py"),
+    ("policies/protected-paths.yml",   tmp / "policies" / "protected-paths.yml"),
+]
+
+for src, dst in files:
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    show = subprocess.run(["git", "show", f"HEAD:{src}"],
+                          capture_output=True, cwd=str(root))
+    if show.returncode != 0:
+        # ls-tree said it exists but show failed => TRANSIENT/unexpected => fail closed.
+        print(f"[fusebase-flow:pre-commit] BLOCK — FR-07 trusted HEAD extraction of {src} "
+              f"failed (git show rc={show.returncode}) — failing closed. NEVER use --no-verify.",
+              file=sys.stderr)
+        sys.exit(1)
+    dst.write_bytes(show.stdout)
+PREP
+            # Invoke the extractor WITHOUT $(...) command substitution: on MSYS a Windows-native
+            # git grandchild can hold a captured pipe open past exit and hang the parent (the
+            # documented $(...) freeze). `-S` disables site startup files (no sitecustomize/
+            # usercustomize); PYTHONPATH is EXPLICITLY empty (the extractor only needs stdlib +
+            # git) so no working-tree dir — least of all $ROOT/hooks — is importable.
+            FR07_TMP="$FR07_TMP" ROOT="$ROOT" PYTHONPATH="" python3 -S "$FR07_TMP/_prep.py"; PREP_RC=$?
+            if [ "$PREP_RC" -ne 0 ]; then
+                # Extraction error => fail closed (diagnostic already on stderr).
+                [ -n "$FR07_TMP" ] && rm -rf "$FR07_TMP"
+                exit 1
+            fi
+            FR07_IMPORT_DIR="$FR07_TMP"
+            FR07_TRUSTED_POLICY="$FR07_TMP/policies/protected-paths.yml"
+        fi
+        # else: FR07_DECISION=fallback — keep the working-tree defaults (import dir + no seed).
+        # `-S` (T29): disable `site` so no working-tree/untracked sitecustomize.py or
+        # usercustomize.py runs at interpreter startup (the startup-injection bypass). PYTHONPATH
+        # is set EXPLICITLY to the SINGLE import dir (T30: the env was already scrubbed at the
+        # hook top, so nothing is inherited) — the trusted temp dir on the normal path,
+        # $ROOT/hooks ONLY on the first-adoption bootstrap fallback (HEAD genuinely lacks the
+        # enforcer). Under `-S` site-packages is dropped; the script re-adds it below WITHOUT
+        # importing startup files (needed for PyYAML in the trusted-policy seed).
+        #
+        # T32 (PRIMARY CWD-strip fix): the MAIN check runs as a FILE SCRIPT from the trusted temp
+        # dir (python3 -S "$FR07_TMP/_main.py"), NOT `python3 -S -` (stdin). sys.path[0] is then
+        # the SCRIPT'S dir (the trusted temp dir); the repo-root CWD is never added, so a repo-root
+        # pathlib.py/yaml.py can no longer shadow stdlib/site before the trusted-policy seed's
+        # `import yaml`. The wrapper ALSO scrubs any residual CWD/'' entry as its first statements
+        # (unshadowable builtin os core) so the guarantee holds even where PYTHONSAFEPATH is a no-op.
+        cat > "$FR07_TMP/_main.py" <<'PY'
+import sys
+# T32 CWD-STRIP (first statements, before ANY non-builtin import): drop repo-root/CWD/'' entries
+# a stdin/`-c` invocation would leave on sys.path. CWD via a BUILTIN os core (`nt`/`posix`, both
+# in sys.builtin_module_names — unshadowable by a repo-root nt.py/posix.py). sys is builtin too.
+# Idempotent; NOT `del sys.path[0]` (that would wrongly drop the stdlib entry once CWD is gone).
+_cwd = None
+try:
+    import nt as _oscore  # Windows
+except ImportError:
+    import posix as _oscore  # POSIX
+try:
+    _cwd = _oscore.getcwd()
+except Exception:
+    _cwd = None
+_drop = {"", "."}
+if _cwd:
+    _drop.add(_cwd)
+sys.path[:] = [p for p in sys.path if p not in _drop]
+import os
+from pathlib import Path
+# root = the REAL repo (git --cached + working-tree state/approvals/ are read from here),
+# regardless of whether the enforcement CODE was imported from HEAD (trusted) or the tree.
+root = Path(os.environ["FR07_REAL_ROOT"])
+import_dir = os.environ.get("FR07_IMPORT_DIR") or str(root / "hooks")
+sys.path.insert(0, import_dir)
+
+
+def _restore_site_packages():
+    # `-S` dropped site-packages; the enforcer's policy_loader imports PyYAML. Re-add the
+    # site-packages dirs WITHOUT running site.main() (which would import sitecustomize/
+    # usercustomize). getsitepackages()/getusersitepackages() only RETURN paths.
+    # T32 (DEFENSE-IN-DEPTH #2): PREPEND (insert) site-packages AFTER the leading trusted
+    # import dir (sys.path[0]) — never ahead of it — so real PyYAML/stdlib win over any
+    # working-tree yaml.py shadow while [trusted_dir, site-packages, stdlib] is preserved.
+    import site
+    dirs = []
+    try:
+        dirs.extend(site.getsitepackages())
+    except Exception:
+        pass
+    try:
+        u = site.getusersitepackages()
+        if u:
+            dirs.append(u)
+    except Exception:
+        pass
+    insert_at = 1 if sys.path else 0
+    for p in dirs:
+        if p and p not in sys.path:
+            sys.path.insert(insert_at, p)
+            insert_at += 1
+
+
+_restore_site_packages()
+try:
+    from shared.path_policy import (
+        assert_protected_policy_loaded, evaluate, staged_change_paths,
+    )
+    # TRUSTED-POLICY SEED (T28/#1): when running the trusted HEAD enforcer, the classification
+    # (is_protected / on_unapproved_edit) must read the TRUSTED HEAD policy, not the mutable
+    # working-tree policies/protected-paths.yml a tamperer could have emptied in the same commit.
+    # Seed the policy loader's cache with the trusted YAML under BOTH cache keys the enforcer
+    # uses (root=None internal calls and the explicit-root assert), so every get_policy(
+    # "protected-paths") returns the trusted policy while state/approvals + git stay real.
+    trusted_policy = os.environ.get("FR07_TRUSTED_POLICY") or ""
+    if trusted_policy:
+        import yaml
+        from shared import policy_loader as _pl
+        policy = yaml.safe_load(Path(trusted_policy).read_text(encoding="utf-8")) or {}
+        _pl._POLICY_CACHE["::protected-paths"] = policy
+        _pl._POLICY_CACHE[f"{root}::protected-paths"] = policy
+except BaseException as e:
+    # FAIL CLOSED (T27/#3): catch BaseException, not Exception. A staged/tampered
+    # path_policy.py doing `raise SystemExit(0)` / `sys.exit(0)` on import subclasses
+    # BaseException, so `except Exception` let it slip through -> §3 exited 0 unguarded
+    # (a self-bypass: stage the tampered module in the same commit). BaseException blocks.
+    print(f"[fusebase-flow:pre-commit] BLOCK — FR-07 protected-path check could not load path_policy (import error: {e!r}).", file=sys.stderr)
+    print("Refusing to commit fail-open. Fix the module/env (e.g. install the missing dep); NEVER use --no-verify.", file=sys.stderr)
+    sys.exit(1)
+try:
+    import subprocess
+    # POLICY-PRESENT FAIL-CLOSED (T27/#5): a missing/empty/malformed protected-paths.yml
+    # would make is_protected() always False -> FR-07 silently OFF. Refuse to run against
+    # an unenforceable policy: require a mapping with a non-empty fusebase_flow_internals
+    # category. Scoped to FR-07 (get_policy for other policies is untouched). Raises ->
+    # the BaseException body wrapper below catches it -> BLOCK with the policy-missing text.
+    assert_protected_policy_loaded(root)
+    # ENUMERATION FAIL-CLOSED (T26): staged_change_paths() now RAISES on ANY subprocess
+    # exception AND on a nonzero git rc (T27/#4 — it no longer returns a partial/empty
+    # list), so a FAILED enumeration while staged changes exist can no longer yield
+    # paths=[] -> no hits -> exit 0. The raise reaches the BaseException wrapper -> BLOCK.
+    # Cross-check here too (the enforcement point; path_policy's shared contract stays
+    # intact): re-list staged names with an EXPLICIT rc check. rc!=0 (or the subprocess
+    # itself raising) => cannot enumerate => BLOCK. names non-empty but
+    # staged_change_paths() empty => enumeration disagreement => BLOCK. rc0 + no staged
+    # names is the LEGITIMATE no-op (must still PASS).
+    try:
+        lp = subprocess.run(
+            ["git", "diff", "--cached", "--name-only"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(root),
+        )
+        list_rc = lp.returncode
+        names = [n for n in lp.stdout.splitlines() if n]
+    except Exception:
+        list_rc, names = 1, []
+    if list_rc != 0:
+        print("[fusebase-flow:pre-commit] BLOCK — FR-07 could not list staged changes (git rc != 0) — failing closed.", file=sys.stderr)
+        print("Refusing to commit fail-open on an unverifiable protected-path check; NEVER use --no-verify.", file=sys.stderr)
+        sys.exit(1)
+    paths = staged_change_paths(root)
+    if names and not paths:
+        print("[fusebase-flow:pre-commit] BLOCK — FR-07 staged changes present but protected-path enumeration returned nothing — failing closed.", file=sys.stderr)
+        print("Refusing to commit fail-open; the enumeration disagrees with the staged set. Fix the env; NEVER use --no-verify.", file=sys.stderr)
+        sys.exit(1)
+    hits = []
+    for p in paths:
+        pd = evaluate(p)
+        if pd.protected and not pd.has_exception:
+            hits.append(pd)
+except SystemExit as se:
+    # T27/#3 — the SystemExit split. This §3 block itself calls sys.exit(1) for a genuine
+    # BLOCK (git-rc / enumeration-disagreement / real protected-hit below). Those NONZERO
+    # exits must propagate as-is. But a staged/tampered path_policy whose import or
+    # evaluate()/staged_change_paths() does `raise SystemExit(0)` / `sys.exit(0)` would,
+    # under a bare `raise`, exit 0 and slip the protected edit through (self-bypass). So:
+    # re-raise a NONZERO SystemExit (our own BLOCK), but a code-0 SystemExit is treated as
+    # the fail-open attack -> rewrite it to a hard BLOCK (exit 1). A `None` code == 0.
+    code = se.code if isinstance(se.code, int) else (0 if se.code is None else 1)
+    if code != 0:
+        raise
+    print("[fusebase-flow:pre-commit] BLOCK — FR-07 protected-path check attempted a clean exit(0) from inside the check (tampered/short-circuited path_policy) — failing closed.", file=sys.stderr)
+    print("Refusing to commit fail-open; a security control must never self-exit 0. Fix the module/env; NEVER use --no-verify.", file=sys.stderr)
+    sys.exit(1)
+except BaseException as e:
+    # FAIL CLOSED (T27/#3): catch BaseException, not Exception. Any other non-Exception
+    # error (KeyboardInterrupt-class, etc.) inside the check blocks rather than waving the
+    # edit through. (A clean no-hit falls through to the natural exit 0 below.)
+    print(f"[fusebase-flow:pre-commit] BLOCK — FR-07 protected-path check errored ({e!r}).", file=sys.stderr)
+    print("Refusing to commit fail-open. Fix the check/env; NEVER use --no-verify.", file=sys.stderr)
+    sys.exit(1)
+if hits:
+    print("[fusebase-flow:pre-commit] BLOCK — protected paths edited without exception artifact:", file=sys.stderr)
+    for h in hits:
+        print(f"  {h.path}  (category={h.category})", file=sys.stderr)
+    print("Per FR-07: author an approval artifact at state/approvals/ first.", file=sys.stderr)
+    sys.exit(1)
+PY
+        # Run the MAIN §3 check as a FILE SCRIPT (T32): sys.path[0] = the trusted temp dir, not
+        # the repo-root CWD. PYTHONPATH stays the SINGLE trusted import dir (T30 scrubbed the env).
+        FR07_IMPORT_DIR="$FR07_IMPORT_DIR" FR07_TRUSTED_POLICY="$FR07_TRUSTED_POLICY" \
+        FR07_REAL_ROOT="$ROOT" PYTHONPATH="$FR07_IMPORT_DIR" python3 -S "$FR07_TMP/_main.py" || exit_proto=$?
+        # Clean up the trusted-HEAD temp package (FR-27 no-runaways: bounded, always
+        # removed) BEFORE acting on the rc so a BLOCK never leaks the temp dir.
+        [ -n "$FR07_TMP" ] && rm -rf "$FR07_TMP"
+        if [ "${exit_proto:-0}" -ne 0 ]; then _ffpc_stage protected-paths; exit 1; fi
+    else
+        # python3 absent + staged changes: BLOCK (MAJOR 12). Unreachable while §1b holds; a
+        # WARN here used to mean FR-07 was simply not enforced for that commit, which is the
+        # fail-open branch the review found. An un-enforceable security control refuses.
+        echo "[fusebase-flow:pre-commit] BLOCK — python3 unreachable, so the FR-07 protected-path check cannot run — failing closed rather than committing unenforced." >&2
+        echo "Install Python 3.10+ (or put it on PATH); NEVER use --no-verify." >&2
+        exit 1
+    fi
+fi
+_ffpc_stage protected-paths
+
+# 4. Module-size ratchet (FR-25). Warn-only until policies/module-size-baseline.txt
+#    is committed; then over-ceiling growth blocks (extract or operator exemption).
+if [ -f "$ROOT/hooks/local/check-module-size.sh" ]; then
+    if ! bash "$ROOT/hooks/local/check-module-size.sh" --staged; then
+        echo "[fusebase-flow:pre-commit] BLOCK — module-size ratchet failed (FR-25)." >&2
+        _ffpc_stage module-size
+        exit 1
+    fi
+fi
+_ffpc_stage module-size
+
+# 5. Lint + typecheck (FR-13).
+FFVE_REUSE_HELPER="$ROOT/hooks/local/lib/precommit-validator-reuse.sh"
+if [ ! -f "$FFVE_REUSE_HELPER" ]; then
+    echo "[fusebase-flow:pre-commit] BLOCK — the FR-13 validator runner hooks/local/lib/precommit-validator-reuse.sh is missing, so lint/typecheck cannot run." >&2
+    echo "Restore it: git checkout HEAD -- hooks/local/lib/precommit-validator-reuse.sh (when HEAD has it), else bash hooks/local/bootstrap-upgrade.sh --repair-managed hooks/local/lib/precommit-validator-reuse.sh (a plain upgrade keeps a deleted managed file deleted). NEVER use --no-verify." >&2
+    exit 1
+fi
+# TRIPWIRE: runner path is fixed — installed hook copies (install-git-hooks.sh copies, not links) source it.
+. "$FFVE_REUSE_HELPER"
+FFPC_VAL_RC=0; run_precommit_validators "$ROOT" "$FFVE_ORIGINAL_PATH" || FFPC_VAL_RC=1
+_ffpc_stage validators
+[ "$FFPC_VAL_RC" -eq 0 ] || exit 1
+
+echo "[fusebase-flow:pre-commit] all checks passed" >&2
+exit 0

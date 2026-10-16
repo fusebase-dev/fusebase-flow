@@ -1,0 +1,9 @@
+# Fusebase Flow — minimum runtime requirements for hook handlers
+#
+# Install with: pip install -r hooks/requirements.txt
+#
+# Stdlib-first design. The only non-stdlib dependency is PyYAML, used by
+# hooks/shared/policy_loader.py to parse policies/*.yml.
+# No server, daemon, SaaS, FastAPI, or heavy framework.
+
+pyyaml>=6.0,<7

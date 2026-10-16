@@ -1,0 +1,52 @@
+# Fusebase Flow — line-ending hardening
+# Force LF for files that must round-trip through shells, Python, YAML loaders,
+# and JSON parsers across platforms. Without this, Windows clones may rewrite
+# CRLF on checkout and break shebang detection in shell hooks.
+
+* text=auto
+
+# Shell + Python (executable; LF mandatory)
+*.sh        text eol=lf
+*.bash      text eol=lf
+*.py        text eol=lf
+# Tripwire: vendored CLI hooks (.claude/hooks/*.js) are LF and sha256-manifest-matched;
+# without this pin, Windows autocrlf clones emit 2 spurious advisory CLI_SNAPSHOT_STALE.
+*.js        text eol=lf
+
+# Config / data formats
+*.yml       text eol=lf
+*.yaml      text eol=lf
+*.json      text eol=lf
+*.jsonl     text eol=lf
+*.toml      text eol=lf
+*.ini       text eol=lf
+
+# Documentation (LF for diff stability across platforms)
+*.md        text eol=lf
+*.mdc       text eol=lf
+*.txt       text eol=lf
+
+# Git internals (LF mandatory)
+.gitignore        text eol=lf
+.gitattributes    text eol=lf
+.gitkeep          text eol=lf
+
+# Extensionless files that MUST be LF (read by shells / parsed byte-exact).
+# U11 (v3.24.x): VERSION had no explicit pin — a Windows clone could rewrite it
+# CRLF on checkout, and `tr -d '\n\r'` masks it at read time but the file churns
+# in git diff. Pin it (and the no-extension hook scripts) to LF explicitly.
+VERSION               text eol=lf
+hooks/git/pre-commit  text eol=lf
+hooks/git/commit-msg  text eol=lf
+hooks/git/pre-push    text eol=lf
+
+# Binary classes — never line-ending-normalize
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.pdf       binary
+*.zip       binary
+*.gz        binary
+*.tar       binary

@@ -1,0 +1,22 @@
+# Fusebase Flow runtime state: never commit
+state/audit.log.jsonl
+state/audit/
+state/approvals/*
+!state/approvals/.gitkeep
+state/*.tmp
+policies/*.local.yml
+
+# Secrets
+.env
+.env.*
+*.pem
+*.key
+credentials.json
+
+# Python
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
+Thumbs.db

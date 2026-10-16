@@ -1,0 +1,176 @@
+"""Fusebase Flow — policy_loader.
+
+Loads YAML policies from policies/, layers an optional .local
+override on top, and caches per-process. Handlers call get_policy(name) and
+get back a plain dict. Schema validation is intentionally minimal in v0.1;
+hooks treat unknown keys defensively rather than failing closed on schema drift.
+"""
+from __future__ import annotations
+
+import os
+from pathlib import Path
+from typing import Any
+
+try:
+    import yaml  # PyYAML; standard hook runtime dep
+except ImportError:  # pragma: no cover
+    raise SystemExit(
+        "PyYAML is required for Fusebase Flow hooks. Install with: pip install pyyaml"
+    )
+
+
+_POLICY_CACHE: dict[str, dict[str, Any]] = {}
+
+
+def find_git_root(start: Path | None = None) -> Path:
+    """Walk up from start (default: cwd) until a .git directory is found."""
+    p = (start or Path.cwd()).resolve()
+    for candidate in [p, *p.parents]:
+        if (candidate / ".git").exists():
+            return candidate
+    # Fallback: if no .git, treat the FUSEBASE_FLOW_ROOT env var as authoritative.
+    env_root = os.environ.get("FUSEBASE_FLOW_ROOT")
+    if env_root:
+        return Path(env_root)
+    raise FileNotFoundError(
+        "Cannot locate git root from cwd; set FUSEBASE_FLOW_ROOT to override."
+    )
+
+
+def policies_dir(root: Path | None = None) -> Path:
+    return (root or find_git_root()) / "policies"
+
+
+def _load_yaml(path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    with path.open("r", encoding="utf-8") as f:
+        data = yaml.safe_load(f) or {}
+    if not isinstance(data, dict):
+        raise ValueError(f"Policy file {path} must contain a mapping at top level.")
+    return data
+
+
+def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
+    """Override wins on scalar/list collisions; dicts merge recursively."""
+    out = dict(base)
+    for k, v in override.items():
+        if k in out and isinstance(out[k], dict) and isinstance(v, dict):
+            out[k] = _deep_merge(out[k], v)
+        else:
+            out[k] = v
+    return out
+
+
+def get_policy(name: str, *, root: Path | None = None, refresh: bool = False) -> dict[str, Any]:
+    """Load policy by base filename (without .yml). Layers .local override if present.
+
+    Example: get_policy("command-policy") loads command-policy.yml and merges
+    command-policy.local.yml on top if it exists.
+    """
+    cache_key = f"{root or ''}::{name}"
+    if not refresh and cache_key in _POLICY_CACHE:
+        return _POLICY_CACHE[cache_key]
+
+    pdir = policies_dir(root)
+    base = _load_yaml(pdir / f"{name}.yml")
+    local = _load_yaml(pdir / f"{name}.local.yml")
+
+    # Honor approval-policy.yml: local_override_may_relax flag for approval-policy specifically.
+    if name == "approval-policy" and base.get("local_override_may_relax") is False and local:
+        # Local override may only tighten, never relax. Drop any keys that would relax.
+        local = _restrict_to_tightening(base, local)
+
+    merged = _deep_merge(base, local)
+
+    # FR-07 non-relaxing local override (T27/#5), scoped to protected-paths ONLY: a
+    # gitignored protected-paths.local.yml must be ADDITIVE — it may add paths to a
+    # category but must never DROP/empty a base category's protected paths (the
+    # deep-merge replaces a list on collision, so a local `paths: []` would erase
+    # fusebase_flow_internals and silently disable FR-07). When
+    # local_override_may_relax is false (default; add it if absent), re-union every base
+    # category's paths back into the merged result. Other policies keep normal merge.
+    if name == "protected-paths" and base.get("local_override_may_relax") is not True and local:
+        merged = _restrict_protected_paths_additive(base, merged)
+
+    _POLICY_CACHE[cache_key] = merged
+    return merged
+
+
+def _restrict_protected_paths_additive(base: dict[str, Any], merged: dict[str, Any]) -> dict[str, Any]:
+    """For protected-paths: guarantee every base category's paths survive a local override.
+
+    Additive-only: the merged category paths = union(base paths, merged paths), so a local
+    override can ADD paths but never remove/empty a base category (esp. fusebase_flow_internals).
+    A base category the local dropped entirely is restored. Order-preserving, dedup'd.
+    """
+    base_cats = base.get("categories")
+    if not isinstance(base_cats, dict):
+        return merged
+    out = dict(merged)
+    cats = dict(out.get("categories") or {})
+    for name, base_cfg in base_cats.items():
+        if not isinstance(base_cfg, dict):
+            continue
+        base_paths = base_cfg.get("paths") or []
+        merged_cfg = dict(cats.get(name) or {})
+        merged_paths = merged_cfg.get("paths") or []
+        union: list[str] = []
+        seen: set[str] = set()
+        for p in [*base_paths, *merged_paths]:
+            if p not in seen:
+                seen.add(p)
+                union.append(p)
+        merged_cfg["paths"] = union
+        cats[name] = merged_cfg
+    out["categories"] = cats
+    return out
+
+
+def _restrict_to_tightening(base: dict[str, Any], local: dict[str, Any]) -> dict[str, Any]:
+    """For approval-policy: drop local entries that would relax (e.g., set enforce: false
+    where base has enforce: true). Conservative: when in doubt, keep base."""
+    out = dict(local)
+    if "require_approval" in local and isinstance(local["require_approval"], dict):
+        for op, cfg in list(out["require_approval"].items()):
+            base_op = (base.get("require_approval") or {}).get(op)
+            if base_op and isinstance(cfg, dict) and isinstance(base_op, dict):
+                if base_op.get("enforce") is True and cfg.get("enforce") is False:
+                    cfg["enforce"] = True  # tighten, don't relax
+    if local.get("on_missing_artifact") == "warn" and base.get("on_missing_artifact") == "deny":
+        out["on_missing_artifact"] = "deny"
+    if local.get("on_expired_artifact") == "warn" and base.get("on_expired_artifact") == "deny":
+        out["on_expired_artifact"] = "deny"
+    # TRIPWIRE (K7): strict_approvals is tighten-only. Once the base default flips to
+    # true, a gitignored approval-policy.local.yml must not be able to set it back to
+    # false — that would be an invisible kill switch on the schema gate. Local may only
+    # turn it ON.
+    if base.get("strict_approvals") is True and local.get("strict_approvals") is False:
+        out["strict_approvals"] = True
+    # TRIPWIRE (M9): stale_approval_warn_after_days is tighten-only and LOWER days is
+    # TIGHTER. An invalid or raised value RAISES rather than being coerced to base: a
+    # silent coercion is indistinguishable from acceptance to whoever wrote the override,
+    # and this key exists so a forgotten approval cannot stay invisible.
+    if "stale_approval_warn_after_days" in local:
+        want = local["stale_approval_warn_after_days"]
+        have = base.get("stale_approval_warn_after_days")
+        if isinstance(want, bool) or not isinstance(want, int) or want < 1:
+            raise ValueError(
+                "approval-policy.local.yml: stale_approval_warn_after_days must be a "
+                f"positive integer number of days, got {want!r}."
+            )
+        if isinstance(have, int) and not isinstance(have, bool) and want > have:
+            raise ValueError(
+                "approval-policy.local.yml: stale_approval_warn_after_days may only be "
+                f"lowered or equal (lower days = tighter). Shipped value is {have}, local "
+                f"asked for {want}, and local_override_may_relax is false."
+            )
+    return out
+
+
+def reset_cache() -> None:
+    """Test helper: clear the cache between calls."""
+    _POLICY_CACHE.clear()
+
+
+__all__ = ["get_policy", "find_git_root", "policies_dir", "reset_cache"]

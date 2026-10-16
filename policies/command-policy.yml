@@ -1,0 +1,218 @@
+# Fusebase Flow — command policy (committed default)
+#
+# Pre-tool-use hook reads this to decide whether to allow, deny, or require
+# approval for shell commands. Patterns match against `tool_input.command` for
+# Bash-style tools or equivalent. Patterns are regex; use ^ and $ anchors when
+# you want exact matches.
+#
+# MATCH SEMANTICS (decision K8/K16 — stated here because they are not obvious):
+#   * Stages run in `match_order`: deny -> require_approval -> allow -> default.
+#   * `deny` SHORT-CIRCUITS: a denied command never reaches require_approval.
+#   * Within `require_approval`, EVERY matching rule contributes its action to the
+#     required set. `fusebase deploy && npx prisma migrate deploy` therefore needs
+#     BOTH production_deploy and database_migration, reported in ONE denial.
+#     (First-match-wins was a straightforward bypass of the second action.)
+#   * There is no per-rule suppression flag. The removed `fallthrough: true` key was
+#     never read by any code; the deny->require_approval stage order already does the
+#     job it claimed. Do not reintroduce it — under all-match it would let a compound
+#     command carry an ungated `rm`.
+#
+# MATCHING IS REGEX OVER THE RAW COMMAND STRING — a guardrail, not a sandbox (K21).
+# Stated because the opposite is easy to assume: every rule sees the literal text the hook
+# received, so the gate is defeatable by
+#   * quote-fragmentation — `fusebase de'pl'oy` and `npx prisma mi"grate" deploy` execute
+#     the gated command but match no pattern;
+#   * dynamic construction — eval, command substitution, variables, aliases.
+# The same raw-string matching also over-fires: PROSE that merely QUOTES a destructive pattern
+# is DENIED (a `git commit -m` message, a heredoc body) — the sanctioned path for such text is
+# `git commit -F <file>`, not a narrowing of these patterns (M8; docs/backlog/command-gate-shell-evasion/
+# lists the narrowings that MUST NOT be attempted and why each opens an evasion hole).
+# Closing this needs shell-aware parsing (or a conservative deny of dynamically constructed
+# gated commands); tracked in docs/backlog/command-gate-shell-evasion/. Do NOT write a
+# half-parser here — one wrong in either direction either breaks ordinary approvals or
+# opens a new evasion class. Process discipline is the control; this file is defence in depth.
+#
+# FAIL-CLOSED (decision K4): an unparseable regex, a rule with no `pattern`, an
+# unsupported `flags` entry, or a missing/empty/non-mapping policy file DENIES with a
+# policy-error reason. It never skips the rule and never falls through to `default`.
+#
+# RULE SHAPE (schema_version 2):
+#   {pattern, action | any_of, flags?, reason, rule_id, only_when?,
+#    binding_profile?, push_destinations?}
+#   * `action` and `any_of` are MUTUALLY EXCLUSIVE; a require_approval rule needs
+#     exactly one. `any_of` is satisfied when ANY listed action has a valid artifact,
+#     and its FIRST entry is the rule's display name in denial messages + --inventory.
+#   * `flags` accepts ["i"] (case-insensitive) only. Unknown flags fail closed.
+#   * `binding_profile` (require_approval only; default command_only_v1) is what the
+#     approval MUST bind. The policy selects it; an artifact can never pick a weaker one.
+#       command_only_v1 - schema-3 artifact bound to the exact command text + repository.
+#                         It does NOT bind deployed content or a migration set.
+#       git_push_v1     - additionally binds every ref update of the push (endpoint,
+#                         destination ref, source object, update|delete). Needs
+#                         `push_destinations`: the full refs whose update gates a push at
+#                         the pre-push boundary (hooks/git/pre-push). An unknown profile, or
+#                         a git_push_v1 rule without destinations, fails closed.
+schema_version: 2
+local_override_file: policies/command-policy.local.yml
+
+# Hard deny. The pre_tool_use hook returns deny with the reason cited.
+# Operators cannot override these without removing the entry from this file
+# (deliberate change, not just an approval artifact).
+deny:
+  - pattern: '\brm\s+-rf\b'
+    reason: "FR-06: rm -rf erases recoverable state without operator consent."
+    rule_id: FR-06
+  - pattern: '\bfind\b.*-delete\b'
+    reason: "FR-06: find -delete is bulk delete without recovery."
+    rule_id: FR-06
+  - pattern: '\bgit\s+push\s+(.+\s+)?--force(?:-with-lease)?\b'
+    reason: "FR-06: never force-push to main; use git revert <sha> instead."
+    rule_id: FR-06
+  - pattern: '\bgit\s+reset\s+--hard\b'
+    reason: "FR-06: reset --hard destroys uncommitted changes."
+    rule_id: FR-06
+  - pattern: '\bgit\s+checkout\s+--\s+\.'
+    reason: "FR-06: checkout -- . destroys uncommitted changes."
+    rule_id: FR-06
+  - pattern: '\bgit\s+clean\s+-fdx?\b'
+    reason: "FR-06: git clean -fdx destroys untracked files including .env."
+    rule_id: FR-06
+  - pattern: '\bgit\s+add\s+(\.(\s|$)|--all\b|-A\b)'
+    reason: "FR-06: mass-staging risks committing .env, credentials, and unrelated work; stage by name."
+    rule_id: FR-06
+  - pattern: '--no-verify\b'
+    reason: "FR-06 + FR-13: --no-verify bypasses pre-commit hooks (lint, typecheck, secret scan)."
+    rule_id: FR-13
+  # git commit -n IS --no-verify (v5.11 decision C); residual rows pinned in hooks/tests/test-command-policy.sh.
+  # TRIPWIRE (backtracking): no token may match two branches of the `\bgit(...)*` global-option loop. The
+  # generic flag branch refuses -C/-c/--git-dir/... + blank (the value branch owns them) and `-[Cc]` stays ONE
+  # class; any overlap is exponential (`git -C -C ... status`). No (?>...) or *+: Python 3.10 cannot compile
+  # them, and a pattern that fails to compile denies EVERY command (K4).
+  - pattern: '\bgit(?:[ \t]+(?:(?:-[Cc]|--(?:git-dir|work-tree|namespace|config-env|attr-source|super-prefix))[ \t]+(?:"[^"\n]*"|''[^''\n]*''|[^\s"'';&|])+|(?!(?:-[Cc]|--(?:git-dir|work-tree|namespace|config-env|attr-source|super-prefix))[ \t])--?[A-Za-z][\w-]*(?:=(?:"[^"\n]*"|''[^''\n]*''|[^\s"'';&|])+)?))*[ \t]+commit(?![\w.-])(?:\\\r?\n|(?![ \t]--(?=[\s;&|)]|$))[^;&|\n])*?[ \t]-[apzseiovq]*n[apzseiovqn]*(?:[CcFmtUuS]|(?=[\s"''`;&|)<>]|$))'
+    reason: "FR-06 + FR-13: git commit -n is --no-verify; it skips the pre-commit (secret scan, protected paths, lint, typecheck) and commit-msg hooks. A message that mentions -n goes through git commit -F <file>."
+    rule_id: FR-13
+  # git's unique-prefix rule makes --no-veri/--no-verif mean --no-verify (v5.11 operator decision 6).
+  - pattern: '--no-verif?\b'
+    reason: "FR-06 + FR-13: --no-veri/--no-verif is git's abbreviation of --no-verify and bypasses the same hooks."
+    rule_id: FR-13
+  # core.hooksPath SETTING forms only, --unset included; reads stay open (v5.11 decision C).
+  # TRIPWIRE: the `\bgit(...)*` prefix is the -n rule's verbatim: keep the two identical. The terminal
+  # -c / --config-env alternatives re-match a loop option on purpose; they never repeat, so stay linear.
+  - pattern: '\bgit(?:[ \t]+(?:(?:-[Cc]|--(?:git-dir|work-tree|namespace|config-env|attr-source|super-prefix))[ \t]+(?:"[^"\n]*"|''[^''\n]*''|[^\s"'';&|])+|(?!(?:-[Cc]|--(?:git-dir|work-tree|namespace|config-env|attr-source|super-prefix))[ \t])--?[A-Za-z][\w-]*(?:=(?:"[^"\n]*"|''[^''\n]*''|[^\s"'';&|])+)?))*[ \t]+(?:(?:-c[ \t]+|--config-env(?:=|[ \t]+))["'']?core\.hooksPath\b|config(?![\w.-])(?:(?=[^;&|\n]*?[ \t](?:--unset(?:-all)?|--replace-all|--add|set|unset)(?![\w-]))[^;&|\n]*?[ \t]["'']?core\.hooksPath\b|[^;&|\n]*?[ \t](["'']?)core\.hooksPath\1[ \t]+(?![0-9]*[<>]|-)[^\s;&|]))'
+    flags: [i]
+    reason: "FR-06 + FR-13: changing core.hooksPath (git -c, --config-env, git config set/unset) points git away from the Flow pre-commit, commit-msg and pre-push hooks, including the FR-12 pre-push boundary. That is the operator's change to make. Read the active hooks directory with git rev-parse --git-path hooks."
+    rule_id: FR-13
+  # Environment form of git -c core.hooksPath (v5.11 decision C).
+  - pattern: '\bGIT_CONFIG_(?:PARAMETERS\b[^;&|\n]*?|KEY_\d+[\]"'']*[ \t]*[=,][ \t]*["'']?)core\.hooksPath\b'
+    flags: [i]
+    reason: "FR-06 + FR-13: GIT_CONFIG_KEY_<n> or GIT_CONFIG_PARAMETERS carrying core.hooksPath is git -c core.hooksPath by environment; same hook bypass."
+    rule_id: FR-13
+
+# Require approval. The pre_tool_use hook checks state/approvals/ for an
+# artifact matching the action. Action names match approval-policy.yml keys.
+require_approval:
+
+  # FR-21 lane parity (decision K5). Four shipped documents state that a Lightweight
+  # deploy's one-command `lightweight_deploy` stamp REPLACES production_deploy, but this
+  # rule required production_deploy — so a documented LL deploy was denied by the hook.
+  # TRUST BOUNDARY, stated because it cannot be enforced: lane classification is
+  # PROCESS-authoritative. The hook cannot verify a change was genuinely LL-eligible;
+  # an agent could self-declare Lightweight to take the cheaper gate. FR-21 + the
+  # lightweight-lane skill own that discipline, not this file.
+  - pattern: '\bfusebase\s+deploy\b'
+    any_of: [production_deploy, lightweight_deploy]
+    reason: "FR-12/FR-21: every fusebase deploy, in any environment, requires a production_deploy (Full lane) or lightweight_deploy (FR-21 Lightweight lane) approval artifact bound to the exact command; the command text cannot prove the target is non-production."
+    rule_id: FR-12
+    binding_profile: command_only_v1
+
+  - pattern: '\bvercel\s+(deploy|--prod)\b'
+    action: production_deploy
+    reason: "FR-12: vercel production deploy requires approval artifact."
+    rule_id: FR-12
+    binding_profile: command_only_v1
+
+  - pattern: '\bnetlify\s+deploy\s+--prod\b'
+    action: production_deploy
+    reason: "FR-12: netlify production deploy requires approval artifact."
+    rule_id: FR-12
+    binding_profile: command_only_v1
+
+  # The command gate matches the literal text; the pre-push boundary gates by the refs git
+  # actually updates (push_destinations), so `commit && push` or a moved branch cannot ride
+  # an approval minted for a different commit. A plain `git push` with no literal
+  # main/master is gated only at that boundary (docs/backlog/destination-aware-push-coverage/).
+  - pattern: '\bgit\s+push\b.*\b(main|master)\b'
+    action: production_deploy
+    reason: "FR-12: pushes to main/master require deploy approval when workflow_mode is direct_to_main."
+    rule_id: FR-12
+    only_when: { workflow_mode: direct_to_main }
+    binding_profile: git_push_v1
+    push_destinations: [refs/heads/main, refs/heads/master]
+
+  - pattern: '\b(npx\s+)?prisma\s+migrate\s+(deploy|reset)\b'
+    action: database_migration
+    reason: "FR-12: schema migrations require approval artifact."
+    rule_id: FR-12
+    binding_profile: command_only_v1
+
+  - pattern: '\bsequelize-cli\s+db:migrate\b'
+    action: database_migration
+    reason: "FR-12: schema migrations require approval artifact."
+    rule_id: FR-12
+    binding_profile: command_only_v1
+
+  - pattern: '\b(npx\s+)?knex\s+migrate:latest\b'
+    action: database_migration
+    reason: "FR-12: schema migrations require approval artifact."
+    rule_id: FR-12
+    binding_profile: command_only_v1
+
+  # FuseBase's own migration CLI (CLI 2026.100715.4713: `sql bundle` is the only isolated-store
+  # verb; `--apply` is its only mutating flag, `--dry-run`/`--status`/`--json` are read-only).
+  # Every environment: without `--stage` the CLI uses the active environment's backend, so an
+  # env-scoped rule could not tell dev from prod. `[\s\S]*` reaches a wrapped `\`-continued
+  # `--apply`; over-firing on a later line of the same command text is accepted (fails safe).
+  - pattern: '\bfusebase\s+isolated-store\s+sql\s+bundle\b[\s\S]*--apply\b'
+    action: database_migration
+    reason: "FR-12: FuseBase isolated-store migrations (sql bundle --apply) require a database_migration approval artifact."
+    rule_id: FR-12
+    binding_profile: command_only_v1
+
+  # Case-insensitive per-rule (AC7): `drop table users` is the same statement as
+  # `DROP TABLE users`, and lowercase SQL is the common form in shell one-liners.
+  # ALTER TABLE is gated too — it is a schema change like the rest.
+  - pattern: '\bpsql\b.*\b(DROP|TRUNCATE|DELETE\s+FROM|ALTER\s+TABLE)\b'
+    action: database_migration
+    flags: [i]
+    reason: "FR-12: destructive or schema-changing SQL on production requires approval."
+    rule_id: FR-12
+    binding_profile: command_only_v1
+
+  # Both the flag group and any second whitespace run are OPTIONAL. The old
+  # `\brm\s+(-r|-rf|-fr)?\s+` required a second run, so plain `rm build.log` matched
+  # nothing (docs/backlog/rm-rule-pattern-single-space-gap/). The `(?<![-\w])` guard keeps
+  # `docker run --rm image` and `npm run ...` out.
+  - pattern: '(?<![-\w])rm\s+(-[A-Za-z]+\s+)*\S'
+    action: destructive_file_delete
+    reason: "FR-12: file delete (when not matching the deny entry above) requires approval."
+    rule_id: FR-12
+    binding_profile: command_only_v1
+
+  - pattern: '(curl|http|wget).*--data.*api\.(twilio|sendgrid|mailgun|postmark)\.com'
+    action: external_customer_visible_message
+    reason: "FR-12: outbound customer-visible messages require approval."
+    rule_id: FR-12
+    binding_profile: command_only_v1
+
+# Allow list. Evaluated AFTER deny and require_approval (match_order), so an entry here never
+# exempts a denied or approval-gated command; it only pre-empts `default`. Use sparingly.
+allow: []
+
+# Behavior on first-match. Order: deny → require_approval → allow → default.
+match_order: [deny, require_approval, allow]
+
+# What to do when a command doesn't match any rule.
+default: allow
+
+# Whether to log every check (allowed or not) to audit log.
+log_all_checks: true

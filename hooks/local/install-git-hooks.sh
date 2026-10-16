@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+# Fusebase Flow — install-git-hooks
+# Copies (NOT symlinks, for cross-platform portability) the git fallback hooks
+# (pre-commit, commit-msg, pre-push) into .git/hooks/. Re-run after pulling Fusebase Flow
+# updates (upgrade.sh and post-fusebase-update.sh call this so the FIXED pre-commit and the
+# FR-12 pre-push boundary are live on upgrade).
+#
+# SAFE (re)install (WS1c): a Flow-managed hook (carrying the UNIQUE managed marker
+# `fusebase-flow-managed-hook: v1`) is refreshed in place; a CUSTOM hook (no unique
+# marker) is NEVER silently clobbered — it is backed up and left in place, and
+# overwriting it requires the explicit --force opt-in. The marker is a token no
+# hand-written custom hook carries, so a consumer's custom hook that merely mentions
+# "Fusebase Flow" in a comment is treated as CUSTOM (preserved), not clobbered.
+
+set -euo pipefail
+
+FORCE=0
+for arg in "$@"; do
+    case "$arg" in
+        --force|-f) FORCE=1 ;;
+        --help|-h) sed -n '2,12p' "$0"; exit 0 ;;
+        *) echo "[fusebase-flow] unknown argument: $arg (supported: --force)" >&2; exit 2 ;;
+    esac
+done
+
+ROOT="$(git rev-parse --show-toplevel)"
+SRC="$ROOT/hooks/git"
+DEST="$ROOT/.git/hooks"
+# TRIPWIRE: a linked worktree's .git is a file; its hooks are the common dir's. Never --git-path hooks: it follows core.hooksPath.
+[ -d "$ROOT/.git" ] || DEST="$(git rev-parse --git-common-dir)/hooks"
+FLOW_MARKER="fusebase-flow-managed-hook:"   # UNIQUE token in every Flow-managed hook header (WS1c/T11)
+
+if [ ! -d "$SRC" ]; then
+    echo "Source dir not found: $SRC" >&2
+    exit 1
+fi
+if [ ! -d "$DEST" ]; then
+    echo "Git hooks dir not found: $DEST (is this a git repo?)" >&2
+    exit 1
+fi
+
+# is_flow_managed FILE: 0 (true) iff FILE carries the UNIQUE managed marker in its
+# header (first ~5 lines) — i.e. it is a Flow-installed hook safe to refresh in place.
+is_flow_managed() {
+    [ -f "$1" ] && head -5 "$1" 2>/dev/null | grep -qF "$FLOW_MARKER"
+}
+
+skipped_custom=0
+# TRIPWIRE: this list IS the Flow git-hook set. A hook missing here is never installed and
+# never (re)installed on upgrade — `pre-push` is the FR-12 execution boundary for
+# git_push_v1 approvals, so dropping it silently turns that boundary off.
+for hook in pre-commit commit-msg pre-push; do
+    src_file="$SRC/$hook"
+    dest_file="$DEST/$hook"
+    [ -f "$src_file" ] || continue
+
+    if [ -f "$dest_file" ] && ! is_flow_managed "$dest_file"; then
+        backup=""
+        for candidate in "$dest_file".pre-flow-*; do
+            [ -f "$candidate" ] && cmp -s "$dest_file" "$candidate" && { backup="$candidate"; break; }
+        done
+        if [ -z "$backup" ]; then
+            backup="$dest_file.pre-flow-$(date -u +%Y%m%dT%H%M%SZ)"
+            cp "$dest_file" "$backup"
+        fi
+        if [ "$FORCE" -eq 1 ]; then
+            cp "$src_file" "$dest_file"
+            chmod +x "$dest_file"
+            echo "[fusebase-flow] custom $hook backed up -> $backup, then overwritten (--force)"
+        else
+            skipped_custom=1
+            echo "[fusebase-flow] WARNING: custom $hook detected at $dest_file — NOT overwritten." >&2
+            echo "[fusebase-flow]   backup written: $backup" >&2
+            echo "[fusebase-flow]   to install the Flow hook, re-run with --force (your custom hook stays in the backup)." >&2
+        fi
+        continue
+    fi
+
+    if [ -f "$dest_file" ] && cmp -s "$src_file" "$dest_file" && [ -x "$dest_file" ]; then
+        echo "[fusebase-flow] current $hook -> $dest_file"
+        continue
+    fi
+    cp "$src_file" "$dest_file"
+    chmod +x "$dest_file"
+    echo "[fusebase-flow] installed $hook -> $dest_file"
+done
+
+if [ "$skipped_custom" -eq 1 ]; then
+    echo "[fusebase-flow] one or more custom hooks were preserved (not overwritten). Re-run with --force to replace them." >&2
+fi
+
+# TRIPWIRE: lines byte-equal to backup-hygiene.sh's per-clone group (row exclude-lines-parity); silent on success, callers parse output.
+write_clone_excludes() {
+    local ex line
+    ex="$(git rev-parse --git-path info/exclude 2>/dev/null)" && [ -n "$ex" ] || return 1
+    mkdir -p "$(dirname "$ex")" 2>/dev/null || return 1
+    [ ! -e "$ex" ] || [ -r "$ex" ] || return 1
+    if [ -s "$ex" ] && [ -n "$(tail -c1 "$ex" 2>/dev/null)" ]; then
+        printf '\n' >> "$ex" 2>/dev/null || return 1
+    fi
+    for line in \
+    "# Fusebase Flow per-clone policy overrides and agent worktrees — never stage them." \
+    "/policies/*.local.yml" \
+    "/.claude/worktrees/" \
+    "# Fusebase Flow bounded-run heartbeat files — never stage them." \
+    "/state/audit/liveness/"; do
+        grep -qxF "$line" "$ex" 2>/dev/null || printf '%s\n' "$line" >> "$ex" 2>/dev/null || return 1
+    done
+}
+write_clone_excludes || echo "[fusebase-flow] note: could not update git info/exclude; local policy overrides, agent worktrees and heartbeat files may be stageable by 'git add -A'." >&2
+
+echo "[fusebase-flow] git hooks install complete. Test with: bash $SRC/../tests/run-tests.sh"
