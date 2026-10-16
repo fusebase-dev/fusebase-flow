@@ -4,6 +4,29 @@ All notable changes to Fusebase Flow. Format follows [Keep a Changelog](https://
 
 Public release versions ship as annotated git tags on `main`. Per-version detail lives in `docs/release-notes/v<version>.md`.
 
+## [5.11] — 2026-10-16
+
+**One validator run, honest gate rows, watched waits, a project tool profile.** From a review of 5.10
+against one consumer's measured release. Pre-commit runs lint and typecheck once (the separate
+validator pass and the dead receipt-reuse code are gone) and prints per-stage timings; a project may
+declare docs-only paths (`policies/validator-free-paths.yml`, absent by default) whose commits skip
+lint and typecheck while the secret scan, protected paths and module size still run. FR-13 reads
+"Lint+typecheck per code commit (declared docs-only paths skip)". The command policy refuses
+`git commit -n` clusters, abbreviated `--no-veri…` options and any `core.hooksPath` setting form.
+Gate reports carry PASS/FAIL rows with their own evidence and the verdict belongs to the Product
+Owner side (gate rounds share the 2-round bound); `verify-gate.sh` validates values. A committed
+`policies/agent-tools.yml` generates `<agent>-project` agent variants beside untouched Flow mirrors;
+tasks declare their inputs. Liveness guidance watches hangs from outside with documented wake paths;
+`bounded_run` writes a heartbeat file and `bounded_wait` is new; `liveness` joins the release gate
+(47 tags). Smaller: task-delegation unattended-run and pending-answer rules, smoke live-run
+discipline, slice-first reading, token-waste-audit advisor pricing and wall-time lens, the 1h cache
+break-even, find-wasted-effort template linking, one Git Bash locator for Windows tests, hygiene.
+Four hook handlers (`pre_tool_use`, `user_prompt_submit`, `post_tool_use`, `session_start`) now
+reply in the format Claude Code accepts (`flow_decision` plus the host channel), so wired projects
+stop seeing hook-error notices and their warnings reach the model.
+Not shipped: the Stop-hook rework (failed its final review; the next release retires the Stop gate).
+See `docs/release-notes/v5.11.md`.
+
 ## [5.10] — 2026-10-12
 
 **The orphan watcher now works on Windows.** When a test run was killed, the watcher that stops its
