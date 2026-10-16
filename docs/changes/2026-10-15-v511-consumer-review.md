@@ -21,13 +21,13 @@
 | O8 | Gate verdict is the PO side's; gate rounds counted against the round bound (Astra F4); any over-limit redirect → `BLOCKED-AT-gate-budget` | DONE T156 `3db790e` |
 | — | `liveness` promoted to `FF_RELEASE_TAGS` (46→47; 25 s hosted MSYS, run 38707275006) | DONE T157 `b1c73e5` |
 | O10 | Slice-first reading for the AI Developer (handoff full; spec AC/Out of scope/invariants + cited; decision matrix full) | DONE T158 `904a05a` |
-| O-tier | Docs-only commit tier: project-declared `policies/validator-free-paths.yml`, absent by default, read from HEAD; FR-13 wording | READY (Astra diff SHIP; worktree `c:/tmp/flow-wt/intT`) — waits on operator FR-13 OK |
-| O3 | Deny `git commit -n` clusters, `--no-veri*`, `core.hooksPath` setting forms (hard deny incl. `--unset`) | BLOCKED-AT-review-budget (premise r2 REWORK: backtracking) — operator decides extra round |
-| O17 | Stop hook: evidence from agent-authored text; obligations keep full scan; repeat-deny guard; host-valid output | BLOCKED-AT-review-budget (premise r2 REWORK: refusal provenance, uncorrelated downgrade) — operator decides extra round |
-| O15 | find-wasted-effort links Flow's gate-report template; rounds by recorded Task range | BLOCKED-AT-review-budget (r2 FIX: false gate-block dismissals, §7 FAIL rows unused) — operator decides extra round |
-| O20 | `FLOW_RULES.md` status line → FR range (release version-sweep approval) | release prep |
+| O-tier | Docs-only commit tier: project-declared `policies/validator-free-paths.yml`, absent by default, read from HEAD; FR-13 wording | DONE T160 `3d19861` (FR-13 operator option 2, 2026-10-15; FR-07 mint/consume) |
+| O3 | Deny `git commit -n` clusters, `--no-veri*`, `core.hooksPath` setting forms (hard deny incl. `--unset`) | DONE T162 `2a84c22` (operator R: one extra round; Astra r3 SHIP; FR-07 mint/consume) |
+| O17 | Stop hook: evidence from agent-authored text; obligations keep full scan; repeat-deny guard; host-valid output | NOT SHIPPED (operator R: one extra round; Astra r3 FIX, forgeable status-label provenance → next release; the rebuild removes the Stop gate) |
+| O15 | find-wasted-effort links Flow's gate-report template; rounds by recorded Task range | DONE T161 `09002dd` (operator R: one extra round; Astra r3 SHIP) |
+| O20 | `FLOW_RULES.md` status line → FR range (release version-sweep approval) | DONE in T160 `3d19861`; version strings swept in `fded06b` |
 
-Focused hosted feedback (both platforms, all green): run 38698585420 (T142–T151, 25 groups), 38707275006 (T152–T155, 17 groups), 38713742244 (T156–T158, 10 groups); push runs green at each push.
+Focused hosted feedback (both platforms, all green): run 38698585420 (T142–T151, 25 groups), 38707275006 (T152–T155, 17 groups), 38713742244 (T156–T158, 10 groups), 38843141064 (T163), 38851478770 (T164); push runs green at each push. Release checks: § Closeout.
 
 ## Explicitly not built
 
@@ -46,3 +46,28 @@ Focused hosted feedback (both platforms, all green): run 38698585420 (T142–T15
 - `gate-contracts.local.yml` (`policies/gate-contracts.yml:7`) is read by nothing; `command-policy.local.yml` deep-merge replaces deny lists with no tighten-only guard.
 - `session_start.py` FR-24 reminder omits FR-26 (protected); `FLOW_RULES.md:43` "AI Developer deploy: no" is stale against FR-21 Lightweight; `upgrade.sh:586` comment says `policies/` is overwritten wholesale (per-file classification since 4.x).
 - A6 side finding → `deploy-store-provisioning-ungated`.
+
+## Closeout (2026-10-16)
+
+**Decisions after the record above.** 2026-10-15: R one extra review round for O3, O17 and O15, anything still failing ships next release; R2 with no readable history the Stop hook keeps refusing (moot: O17 not shipped); 1 keep "no" for helper deploys; 2 FR-13 option 2, shortened to the boot ceiling, why column kept (full text in `workflows/git-discipline.md` and `docs/rail-mapping.md`); 3 a full release check on the release commit before tagging, v5.11 only; 4 and 5 no; 6 refuse the abbreviated `--no-veri…` options; 7 yes (not shipped, with O17; confirmed 2026-10-16); 8 fix the four handlers' output. 2026-10-16: one protected-path approval for the `FLOW_RULES.md` attestation line in the version sweep, that edit only.
+
+| Item | Outcome | Status |
+|---|---|---|
+| O4 follow-up | `UserPromptSubmit`-driven wake paths named, each "never the only wake" | DONE T159 `f77edc5` |
+| — | One Git Bash locator for the Python tests that spawn bash (hosted Windows image change broke T34) | DONE T163 `ee2d617` |
+| O22 | `pre_tool_use`, `user_prompt_submit`, `post_tool_use`, `session_start` reply in the host's format; `stop`, `pre_compact`, `permission_request` remain (`hook-output-host-validity`) | DONE T164 `c7fd55e` (decision 8; Astra: implementation passed, unsupported doc counts removed; FR-07 mint/consume) |
+| Release | Version 5.10 → 5.11, string sweep, CHANGELOG, `docs/release-notes/v5.11.md` | `fded06b` (FR-07 mint for the attestation line only, consumed) and `fa3ece5` (managed-content manifest restamped after the hook-layer manifest) |
+
+**Release evidence.** Pre-tag `fusebase-flow-verify` (decision 3): run 38853138045 on `fded06b` was cancelled after Linux failed "Managed-content manifest freshness" (preflight, the essential tests, runner parity and hook-layer freshness had passed); the maintainer's commit helper stamped managed-content before hook-layer, so the release commit carried the 5.10 hook-layer hash. Fixed in `fa3ece5`; run 38854904576 green on Linux, Windows/MSYS and the gate. Tag `v5.11` → `fa3ece5`; release run 38857732510 green on both platforms, Release published 2026-10-16T06:19:08Z; fingerprint row appended.
+
+**Approval records.** Six FR-07 single-use approvals were minted for this program (T144, T150, T160, T162, T164, `fded06b`), each bound to its staged protected paths and consumed after its commit. Each push to `main` had a schema-3 `git_push_v1` approval bound to its commits, removed after the push, with one exception:
+
+- **`fded06b` was pushed without its push approval.** The missing record is the FR-12 push approval, not an FR-07 one: a schema-3 `production_deploy` artifact with binding profile `git_push_v1` for `update refs/heads/main <- fded06b8` at `https://github.com/fusebase-dev/fusebase-flow.git`, which would have been `state/approvals/production_deploy-v511-release-commit-20261016.json`. The maintainer's PowerShell push wrapper passed a reason containing double quotes; PowerShell 5.1 split it, `approve-local.sh` exited 2 (`unexpected argument: with`), and the wrapper pushed anyway. The FR-07 approval for the commit's one protected path (`FLOW_RULES.md`) was minted and consumed, and the commit-time FR-07 check passed under it.
+- **Would wired hooks have blocked it?** Tested in a throwaway repository (`c:/tmp/probe-fded06b8`) and by a read-only replay against this clone, then checked by an independent skeptic: the **FR-07 check would not have**, because FR-07 runs only at commit time and on Edit/Write tool calls, never at push time (`hooks/git/pre-push`, `command_policy.evaluate_push_boundary` and the PreToolUse command branch contain no protected-path check). The **PreToolUse FR-12 check would not have** either: the tool call was the wrapper (`& '…push.ps1' …`), which contains no literal `git push … main`, so no rule matched and the policy fell to `default: allow`; the `git push` ran as the script's child process, which no tool hook sees (`policies/command-policy.yml:20-33`). A direct `git push origin main` with no artifact is denied (FR-12, `NO_ARTIFACT`). **Only the git `pre-push` hook would have blocked it** (sandbox: exit 1, `BLOCKED (FR-12 pre-push)`, remote ref unchanged; replay against `c7fd55ee..fded06b8`: deny, `UPDATE_MISMATCH`). That hook is not installed in this maintainer clone. The wrapper now stops when the mint fails.
+- **Superseded:** the "Explicitly not built" item "`UserPromptSubmit`-on-report-back claim (docs only partly support it)" was corrected by the operator on 2026-10-15; T159 names those wake paths, each "never the only wake".
+
+**T1/T2:** no separate protocol was sent; the consumer runs them as its handoff defines them (`corrections-for-handoff-author.md`, Requests 1).
+
+**Kept for the operator's review, not deleted:** 24 older artifacts in `state/approvals/` (2026-06-15 to 2026-10-05), including `production_deploy-upgrade-baseline-bootstrap-hop-20260615.json` and the `flow-v55` to `flow-v57` main and closeout pushes.
+
+**Not shipped:** O17 (Stop rework; patch kept outside the repository) and decision 7. Tier B stays parked as filed above. Worktrees for the lanes were removed after their diffs were saved outside the repository.
