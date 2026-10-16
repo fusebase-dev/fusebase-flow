@@ -1,6 +1,6 @@
 # startup-context-baseline-stale
 
-**Status:** open — not scheduled. **Filed:** 2026-10-15 (v5.11 program, `docs/changes/2026-10-15-v511-consumer-review.md`). **Severity:** low (opt-in diagnostic, not a release gate). **Surface:** `hooks/tests/test-startup-context.sh` (`EXPECTED_SHA`, `EXPECTED_ROWS`).
+**Status:** open — paid by `eight-rule-kernel-and-cards` (6.0.0 WP 5, wave 3), which re-bases the inventory; close it with that commit. **Filed:** 2026-10-15 (v5.11 program, `docs/changes/2026-10-15-v511-consumer-review.md`). **Severity:** low (opt-in diagnostic, not a release gate). **Surface:** `hooks/tests/test-startup-context.sh` (`EXPECTED_SHA`, `EXPECTED_ROWS`).
 
 ## Observed
 

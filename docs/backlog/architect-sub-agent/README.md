@@ -1,6 +1,6 @@
 # Architect sub-agent (architect-sub-agent)
 
-**Status:** parked
+**Status:** closed — the 6.0.0 rebuild removes the Architect role (two roles, three tool profiles; owner accepted 2026-10-16)
 **Filed:** 2026-05-30 · **Refreshed:** 2026-06-10 (v3.16.0 baseline)
 **One-liner:** Add a dedicated Architect sub-agent (alongside Product Owner + AI Developer) for deep cross-cutting investigation, so escalation tickets don't bloat the PO's context.
 

@@ -1,6 +1,6 @@
 # deploy-store-provisioning-ungated
 
-**Status:** open — not scheduled; confirm against the current FuseBase CLI first. **Filed:** 2026-10-15 (A6 verifier side finding, `docs/changes/2026-10-15-v511-consumer-review.md`). **Severity:** medium (schema changes without a `database_migration` approval). **Surface:** `policies/command-policy.yml` (FR-07).
+**Status:** open — not scheduled; confirm against the current FuseBase CLI first. Carried into 6.0.0 labelled, not fixed, and named in its release note; closing is the owner's call. **Filed:** 2026-10-15 (A6 verifier side finding, `docs/changes/2026-10-15-v511-consumer-review.md`). **Severity:** medium (schema changes without a `database_migration` approval). **Surface:** `policies/command-policy.yml` (FR-07).
 
 ## Observed
 

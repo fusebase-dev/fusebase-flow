@@ -1,6 +1,6 @@
 # gate-countable-facts-tally
 
-**Status:** parked — gated on v5.11 O7/O8 and one consumer gate closed under a tally. **Filed:** 2026-10-15 (consumer handoff 2026-10-14 §5 B3; `docs/changes/2026-10-15-v511-consumer-review.md`). **Severity:** medium (consumer skeptics refuted 16 of 26 gate claims). **Surface:** `policies/gate-contracts.yml` (FR-07), `hooks/local/verify-gate.sh`, `templates/{gate-report,verification-gate}.md`, `workflows/verification-gate.md`.
+**Status:** superseded by `evidence-row-validator` (6.0.0 WP 7c, 2026-10-16). **Filed:** 2026-10-15 (consumer handoff 2026-10-14 §5 B3; `docs/changes/2026-10-15-v511-consumer-review.md`). **Severity:** medium (consumer skeptics refuted 16 of 26 gate claims). **Surface:** `policies/gate-contracts.yml` (FR-07), `hooks/local/verify-gate.sh`, `templates/{gate-report,verification-gate}.md`, `workflows/verification-gate.md`.
 
 ## Observed
 

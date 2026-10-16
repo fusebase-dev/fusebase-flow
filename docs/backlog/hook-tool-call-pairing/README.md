@@ -1,6 +1,6 @@
 # hook-tool-call-pairing
 
-**Status:** parked — gated on T1 and a reader (`outside-liveness-watcher`). **Filed:** 2026-10-15 (consumer handoff 2026-10-14 A3 item 6; `docs/changes/2026-10-15-v511-consumer-review.md`). **Severity:** low (observability only). **Surface:** `hooks/handlers/{pre_tool_use,post_tool_use}.py` + audit logger (FR-07), `.claude/settings.json.example`, `settings-json-merge.py`, health-check event counts.
+**Status:** folded into `audit-line-command-hash` (6.0.0 WP 11, 2026-10-16); unpaired calls are listed by `heartbeat-reader`. **Filed:** 2026-10-15 (consumer handoff 2026-10-14 A3 item 6; `docs/changes/2026-10-15-v511-consumer-review.md`). **Severity:** low (observability only). **Surface:** `hooks/handlers/{pre_tool_use,post_tool_use}.py` + audit logger (FR-07), `.claude/settings.json.example`, `settings-json-merge.py`, health-check event counts.
 
 ## Ask
 

@@ -1,6 +1,6 @@
 # Install into existing Fusebase CLI / MCP project
 
-**Status:** parked
+**Status:** folded into `flow-install-declared-providers` and `flow-migrate` (6.0.0 rebuild, WP 1b and WP 12, 2026-10-16)
 **One-liner:** Build a safer installer for repos that already have Fusebase CLI and MCP configuration.
 
 ## Goal
@@ -48,7 +48,7 @@ Protections:
 
 ## Status
 
-Planned for v0.1.1 or v0.2.
+Superseded by the 6.0.0 rebuild (2026-10-16): fresh installs go through `flow install --providers` and 5.x projects through `flow migrate`; neither writes a CLI-owned path.
 
 ## Related
 

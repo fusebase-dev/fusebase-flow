@@ -1,6 +1,6 @@
 # Backlog — fr22-predelegation-hook (FR-22 Phase 2 / item F)
 
-**Status:** parked
+**Status:** closed — 6.0.0 removes FR-22's delegation push block and write-time digest; the writing card replaces them (`eight-rule-kernel-and-cards`; owner accepted 2026-10-16)
 **Source:** deferred from `fr22-delivery-guarantee` (Phase 1 shipped v3.27.0); design review (Codex 2026-06-16) RESCOPE.
 **Lane (when picked up):** Full (PreToolUse hook + matcher coverage + config + tests).
 

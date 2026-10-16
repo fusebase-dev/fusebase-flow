@@ -1,6 +1,6 @@
 # enforcement-only-hook-wiring
 
-**Status:** ask 2 SHIPPED (v4.14.0); **ask 1 UNBLOCKED and its predicate now BUILT** (`fix/wire-hooks-add-beside-preserve`, T2 `c5a2b36`) — the flag itself is not built; ask 4 still needs its own design
+**Status:** folded into `stop-gate-retirement` (6.0.0 rebuild, WP 11, 2026-10-16). With only the two enforcement and audit handlers in the merge map, ask 1's enforcement-only wiring is the default shape; ask 4 is not built in 6.0.0. History: ask 2 shipped in v4.14.0; ask 1's predicate was built (T2 `c5a2b36`).
 **Filed:** 2026-08-25
 **Source:** paperclip+hermes-v1 escalation E5 (`2026-08-20-E5-wiring-intent-api.md`), asks 1 + 4
 **One-liner:** a record-only wiring-intent flag for a consumer that wires ONLY enforcement, plus an optional consumer-declared "also expected in the chain" list so a stripped consumer entry counts as drift too.

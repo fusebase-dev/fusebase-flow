@@ -1,6 +1,6 @@
 # outside-liveness-watcher
 
-**Status:** parked — gated on v5.11 O4/O5, consumer T1 and phase-7 silence records. **Filed:** 2026-10-15 (consumer handoff 2026-10-14 §5 B1; `docs/changes/2026-10-15-v511-consumer-review.md`). **Severity:** medium (silent hangs: one consumer, 4 silences 185–519 min, 11.7 h on an awake host). **Surface:** new stdlib script under `hooks/local/`, `flow-skills/liveness-discipline`, `hooks/local/lib/backup-hygiene.sh`.
+**Status:** superseded by `heartbeat-reader` (6.0.0 WP 7a, 2026-10-16): a scheduled one-shot reader replaces the per-run watcher; the fuller watcher stays out of scope. **Filed:** 2026-10-15 (consumer handoff 2026-10-14 §5 B1; `docs/changes/2026-10-15-v511-consumer-review.md`). **Severity:** medium (silent hangs: one consumer, 4 silences 185–519 min, 11.7 h on an awake host). **Surface:** new stdlib script under `hooks/local/`, `flow-skills/liveness-discipline`, `hooks/local/lib/backup-hygiene.sh`.
 
 ## Observed
 

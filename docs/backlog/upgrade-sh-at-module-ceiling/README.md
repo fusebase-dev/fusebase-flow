@@ -1,8 +1,8 @@
 # Backlog — upgrade-sh-at-module-ceiling
 
-**Status:** open — **a debt with a named payer, not an amnesty**
+**Status:** closed — **superseded** by owner decision B2 (2026-10-16): 6.0.0 moves `upgrade.sh` to `maintainer/local/upgrade.sh` as a pure rename and re-keys its one protected baseline row (`821 hooks/local/upgrade.sh` → `819 maintainer/local/upgrade.sh`, T189); the 5.x engine retires with 6.0, so the decomposition this item asked for is not built. Record: `docs/changes/2026-10-16-v600-minimal-core.md`.
 **Filed:** 2026-08-15 (during `n5-upgrade-silent-no-op`)
-**Owner:** the next ticket that touches `hooks/local/upgrade.sh`
+**Owner:** `maintainer-tree-split` (6.0.0 WP 1a) if its move touches `hooks/local/upgrade.sh`; otherwise the next ticket that touches it. `flow-migrate` stays outside the file.
 **Lane guess:** Full — it decomposes the engine that strands consumers if it is wrong
 
 ## THE PREREQUISITE

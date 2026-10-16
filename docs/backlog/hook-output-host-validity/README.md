@@ -1,6 +1,6 @@
 # hook-output-host-validity
 
-**Status:** partly done in v5.11 (four handlers); `stop.py`, `pre_compact.py`, `permission_request.py` remain. **Filed:** 2026-10-15 (operator decision 8; `docs/changes/2026-10-15-v511-consumer-review.md`). **Severity:** medium (Stop warns never reach the model; Stop denies still block). **Surface:** `hooks/handlers/stop.py`, `pre_compact.py`, `permission_request.py` (FR-07, protected); `hooks/tests/run_hook_tests.py` `_HOST_EVENT`.
+**Status:** partly done in v5.11 (four handlers); the other three (`stop.py`, `pre_compact.py`, `permission_request.py`) are removed by `stop-gate-retirement` (6.0.0 WP 11, wave 1); close it with that commit. **Filed:** 2026-10-15 (operator decision 8; `docs/changes/2026-10-15-v511-consumer-review.md`). **Severity:** medium (Stop warns never reach the model; Stop denies still block). **Surface:** `hooks/handlers/stop.py`, `pre_compact.py`, `permission_request.py` (FR-07, protected); `hooks/tests/run_hook_tests.py` `_HOST_EVENT`.
 
 ## Why
 

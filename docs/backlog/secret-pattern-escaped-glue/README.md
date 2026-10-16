@@ -1,6 +1,6 @@
 # secret-pattern-escaped-glue
 
-**Status:** open — not scheduled. **Filed:** 2026-10-12 (T133 audit L3). **Severity:** low-medium (secret-detection recall). **Surface:** `policies/secret-patterns.yml` (FR-07 protected).
+**Status:** open — not scheduled; carried into 6.0.0 labelled, not fixed, and named in its release note; closing is the owner's call. **Filed:** 2026-10-12 (T133 audit L3). **Severity:** low-medium (secret-detection recall). **Surface:** `policies/secret-patterns.yml` (FR-07 protected).
 
 ## Observed
 

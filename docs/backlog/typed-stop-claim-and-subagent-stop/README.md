@@ -1,6 +1,6 @@
 # typed-stop-claim-and-subagent-stop
 
-**Status:** parked — gated on consumer T1, `gate-countable-facts-tally`, v5.11 O17. **Filed:** 2026-10-15 (consumer handoff 2026-10-14 §5 B4; `docs/changes/2026-10-15-v511-consumer-review.md`). **Severity:** medium (gate-stage done claims unverified in Workflow runs). **Surface:** `hooks/handlers/stop.py` (FR-07), `hooks/local/fusebase-flow-overlays/settings-json-merge.py`, health-check engines, `hooks/local/lib/hook-wiring-intent.sh`, `hooks/flow_hook_event.schema.json`, `.claude/settings.json.example`.
+**Status:** closed — 6.0.0 has no Stop gate (`stop-gate-retirement`); the typed return is a file the DONE check reads (`done-check`). **Filed:** 2026-10-15 (consumer handoff 2026-10-14 §5 B4; `docs/changes/2026-10-15-v511-consumer-review.md`). **Severity:** medium (gate-stage done claims unverified in Workflow runs). **Surface:** `hooks/handlers/stop.py` (FR-07), `hooks/local/fusebase-flow-overlays/settings-json-merge.py`, health-check engines, `hooks/local/lib/hook-wiring-intent.sh`, `hooks/flow_hook_event.schema.json`, `.claude/settings.json.example`.
 
 ## Observed
 
