@@ -47,12 +47,10 @@ def old_shell_manifest(root: Path) -> list[str]:
     printf '%s|file|%s|%s\n' "$f" "$(wc -c < "$f" 2>/dev/null | tr -d ' ')" \
       "$(sha256sum "$f" 2>/dev/null | cut -d' ' -f1)"
   done'''
-    bash = shutil.which("bash") or "bash"
-    git = shutil.which("git")
-    if os.name == "nt" and git:
-        git_bash = Path(git).resolve().parent.parent / "bin/bash.exe"
-        if git_bash.is_file():
-            bash = os.fspath(git_bash)
+    spec = importlib.util.spec_from_file_location("git_bash", Path(__file__).resolve().parent / "lib" / "git_bash.py")
+    git_bash = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(git_bash)
+    bash = git_bash.bash_executable(default=shutil.which("bash") or "bash")
     result = subprocess.run(
         [bash, "-c", script, "artifact-manifest-reference", root.as_posix()],
         check=True,

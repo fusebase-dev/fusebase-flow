@@ -24,23 +24,15 @@ VERIFY = ROOT / "hooks/local/lib/recovery-verify.py"
 SKILL_MIRROR = ROOT / "hooks/local/mirror-skills.sh"
 AGENT_MIRROR = ROOT / "hooks/local/mirror-agents.sh"
 
+def _git_bash():
+    spec = importlib.util.spec_from_file_location("git_bash", Path(__file__).resolve().parent / "lib" / "git_bash.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def bash_executable() -> str:
-    git_value = shutil.which("git")
-    git_roots = []
-    if git_value:
-        git_path = Path(git_value)
-        git_roots.append(git_path.parent.parent)
-        if git_path.parent.parent.name.lower() in {"mingw32", "mingw64"}:
-            git_roots.insert(0, git_path.parent.parent.parent)
-    candidates = tuple(
-        root / rel for root in git_roots for rel in ("bin/bash.exe", "usr/bin/bash.exe")
-    )
-    if os.name != "nt":
-        candidates = (Path(shutil.which("bash") or ""),) + candidates
-    for candidate in candidates:
-        if candidate.is_file():
-            return str(candidate)
-    raise RuntimeError("Git Bash is unavailable")
+    return _git_bash().bash_executable()
 
 def sha(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()

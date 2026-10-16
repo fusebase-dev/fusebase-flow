@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "5.10",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 415,
+  "asset_count": 416,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "d8229ac3b7e7d57e9675257cf5326849ee49ffe69a329a609a6dd42ce7382c3f"
+      "sha256": "a06ee291e94830d213fddd69d89a8b81c127e315c134d0d2c31902201cacff51"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -818,7 +818,7 @@
     },
     {
       "path": "hooks/tests/benchmark-flow-consumers.py",
-      "sha256": "63f2da745b2f6cda427fdeab996ec62783dd648b48ad941ac27f9c69fbd88c80"
+      "sha256": "6ab18d9c588d66fe9c68e3e7cab0349e1b8893a6baa014ff8fef33b0bd67648d"
     },
     {
       "path": "hooks/tests/benchmark-stop-transcript.py",
@@ -1065,6 +1065,10 @@
       "sha256": "ee32ec905da2fe41468ecbfd1d84213274758610055e58baba217d3d987ba1cd"
     },
     {
+      "path": "hooks/tests/lib/git_bash.py",
+      "sha256": "fce79541cb177899953c4c36767f67f7c98f56b22b06681d1645704c6dc6fa39"
+    },
+    {
       "path": "hooks/tests/lib/heartbeat-probe.py",
       "sha256": "802543f54d3b795567f5d0c3ceb9536ae34df18988985f7744b8c5e50bc4debb"
     },
@@ -1110,7 +1114,7 @@
     },
     {
       "path": "hooks/tests/test-agent-tool-profile.py",
-      "sha256": "7eac94adb45336df7dce6e7279914164a4b765b36a3f42321c5b392f45d9deda"
+      "sha256": "3831f4808adb52e6ad5a37f5fd1bfc6623f1f6ded2f68c0a4f4c359be0bea56f"
     },
     {
       "path": "hooks/tests/test-approval-binding.sh",
@@ -1130,7 +1134,7 @@
     },
     {
       "path": "hooks/tests/test-artifact-manifest.py",
-      "sha256": "228f5a9d1fb9081a219faa26773c9dcc7656b5ab2d2a2cb634482d866604b562"
+      "sha256": "061781f3a6a289d8add75e8f9ed999ea30413ffcef2a57e7e7992dc349f3674e"
     },
     {
       "path": "hooks/tests/test-baseline-merge.sh",
@@ -1350,7 +1354,7 @@
     },
     {
       "path": "hooks/tests/test-recovery-owned-bootstrap.py",
-      "sha256": "8611eb906b529fee83c9bcf3e424d7847cf302f292ac3a3354bb070545f45aea"
+      "sha256": "f8a79a4e7e708d19a10e71999591fe991455da13bd4bb0c6b51cda3e4f96c0eb"
     },
     {
       "path": "hooks/tests/test-release-evidence-authority.sh",
@@ -1665,5 +1669,5 @@
       "sha256": "bd9e3cf2d643a7f71016d480cfc720c36a6065271e073c3b638d8379d84fe47d"
     }
   ],
-  "manifest_self_sha256": "c356525a710ba1e1716a24a4f77f7be6d68604bc291f429dac75498ebab83ceb"
+  "manifest_self_sha256": "89e2579768c9b20407a9195e1fc37ca8fd73008681272214e5aac8658fdb199a"
 }

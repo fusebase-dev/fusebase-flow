@@ -17,17 +17,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def _git_bash():
+    spec = importlib.util.spec_from_file_location("git_bash", Path(__file__).resolve().parent / "lib" / "git_bash.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def bash_executable():
-    configured = os.environ.get("FUSEBASE_FLOW_BASH")
-    git = shutil.which("git")
-    candidates = [configured]
-    if git and os.name == "nt":
-        candidates.append(str(Path(git).resolve().parents[1] / "bin/bash.exe"))
-    candidates.append(shutil.which("bash"))
-    for candidate in candidates:
-        if candidate and Path(candidate).is_file():
-            return candidate
-    return "bash"
+    return _git_bash().bash_executable(default="bash")
 
 
 def measured(value, unit=None):

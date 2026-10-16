@@ -403,16 +403,15 @@ def row_maintainer_guards() -> None:
     report("maintainer-guards", not problems, "; ".join(problems))
 
 
+def _git_bash():
+    spec = importlib.util.spec_from_file_location("git_bash", Path(__file__).resolve().parent / "lib" / "git_bash.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def bash_executable() -> str:
-    if os.name != "nt":
-        return shutil.which("bash") or "bash"
-    git_value = shutil.which("git")
-    if git_value:
-        for base in (Path(git_value).parent.parent, Path(git_value).parent.parent.parent):
-            for rel in ("bin/bash.exe", "usr/bin/bash.exe"):
-                if (base / rel).is_file():
-                    return str(base / rel)
-    raise RuntimeError("Git Bash is unavailable")
+    return _git_bash().bash_executable()
 
 
 def sh(root: Path, *args: str) -> subprocess.CompletedProcess:
