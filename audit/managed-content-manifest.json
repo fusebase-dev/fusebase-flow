@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "5.10",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 414,
+  "asset_count": 415,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "9b2bfc23a8c2a425ec1897ea701d3e8feeb537ed95778c3e002f90bbb429a7ed"
+      "sha256": "61cd38e48e5ee5b136040b6ebb5c80df5994f51305c3f64d78a400737b32c6dc"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -94,7 +94,7 @@
     },
     {
       "path": "flow-skills/find-wasted-effort/SKILL.md",
-      "sha256": "0a88ec0440f42d4bff5a96b1da8885d623c874b1de0cd556ac6087ebc5ad91a7"
+      "sha256": "349bc524eaa229c3e015d0a093fd5f22b3492a5e1208bc7718c83340b5d19757"
     },
     {
       "path": "flow-skills/find-wasted-effort/references/false-positive-examples.md",
@@ -310,7 +310,7 @@
     },
     {
       "path": "hooks/local/find-wasted-effort.py",
-      "sha256": "75ec0c8577e44fd9939f87064819771199c71169aa0854b10336ad55d5b739d5"
+      "sha256": "56b89ae106240df9cec57924eac9bd03024dc10eea9fdaca42a639698a3ad2ac"
     },
     {
       "path": "hooks/local/find_wasted_code/__init__.py",
@@ -370,7 +370,7 @@
     },
     {
       "path": "hooks/local/find_wasted_effort/conclusion_link.py",
-      "sha256": "269884c5d52a63e2017db0aa92a118310797c1c6bc766fa2046a055874bd4d63"
+      "sha256": "e7bef77aa52b508ffb35e76a277ff4a1eab0b6e9f906ae4c8962093cacdc21ac"
     },
     {
       "path": "hooks/local/find_wasted_effort/constants.py",
@@ -378,11 +378,15 @@
     },
     {
       "path": "hooks/local/find_wasted_effort/evidence.py",
-      "sha256": "89377d4208f43cd3231f2a3462e8fc5f1dec7c7a0248f2eecc5fda24a2fb425a"
+      "sha256": "c3d93d4a8b034d3ec6d9c5cbef951623a4e5ffe0b9b79a28f92c5b384d484c61"
     },
     {
       "path": "hooks/local/find_wasted_effort/proposals.py",
       "sha256": "c3b5871320c9fdb845cde2fe8df3f290120fdcd9a62ce0fdc24a6bb2b03995b1"
+    },
+    {
+      "path": "hooks/local/find_wasted_effort/rounds.py",
+      "sha256": "9513ca3cc15bf4b56ef215c44a823d68df9b5b54ce5a92e19928a1b9c7978843"
     },
     {
       "path": "hooks/local/find_wasted_effort/rules.py",
@@ -406,11 +410,11 @@
     },
     {
       "path": "hooks/local/find_wasted_effort/selftest_windowing.py",
-      "sha256": "4eab99fad257f4bc3cb6351247955b9bd1821bb55b4a623bbf7f6cb8a706b804"
+      "sha256": "59c60c297ecb154bf81c49a675d8238f43e03e4577678614195a8728a640e03a"
     },
     {
       "path": "hooks/local/find_wasted_effort/windowing.py",
-      "sha256": "87d00710504ef1a9bd4ad99a0a206663300e777340edb6904054243bb54f4f74"
+      "sha256": "4a0de45576669e1f34818564d837e8b995e118a55b5ced7fb4a6113b59a59cec"
     },
     {
       "path": "hooks/local/fusebase-flow-health-check.sh",
@@ -1454,7 +1458,7 @@
     },
     {
       "path": "hooks/tests/test-wasted-effort-windowing.sh",
-      "sha256": "aa26cf5beb43a344c9890cf4b3c7c95ecc2cd08de1f0b8b6b368e70fd55e90b5"
+      "sha256": "bc83f2f49a8de3dc0fa4c21cf80fd5b1ef9f0e4ea5a7221083bee5ad9b594b51"
     },
     {
       "path": "hooks/tests/test-wire-hooks-add-beside.sh",
@@ -1661,5 +1665,5 @@
       "sha256": "bd9e3cf2d643a7f71016d480cfc720c36a6065271e073c3b638d8379d84fe47d"
     }
   ],
-  "manifest_self_sha256": "d503f2e935ee8a51c5acc6d42517989f2b60060480675e72708bd39652c41b44"
+  "manifest_self_sha256": "8556f42c8fced77f9c4af85bf640461918ab550c36e530206697620cea4b844d"
 }

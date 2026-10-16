@@ -47,6 +47,7 @@ from find_wasted_effort.constants import (   # noqa: E402
 )
 from find_wasted_effort import evidence as ev_mod   # noqa: E402
 from find_wasted_effort import windowing   # noqa: E402
+from find_wasted_effort.rounds import round_claims   # noqa: E402
 from find_wasted_effort.rules import RULE_EVALUATORS, RULE_TITLES   # noqa: E402
 from find_wasted_effort.proposals import build_proposals   # noqa: E402
 
@@ -165,8 +166,8 @@ def assemble_evidence(root, window):
     set so the rule emits an honest inconclusive (BLOCKER 1)."""
     commits = ev_mod.git_log(root, window)
     numstat = ev_mod.git_numstat(root, window)
-    rounds = ev_mod.build_rounds(commits, numstat)
     artifacts = ev_mod.collect_artifacts(root)
+    rounds = ev_mod.build_rounds(commits, numstat, round_claims(artifacts, commits))
     approvals = ev_mod.collect_approvals(root)
     window_artifacts, historical_artifacts, artifact_linkage = \
         windowing.partition_artifacts(root, artifacts, commits)
@@ -288,7 +289,8 @@ def build_report(ev, root, today):
         lines.append("policies/ratchet-governance.yml absent/unparseable — coverage cannot be stated "
                      "(rule 6 inconclusive). This is a coverage GAP, not a safety verdict.")
     lines += ["", "## Temporal evidence split (A7)", "",
-              "Window-specific findings use only artifacts or approvals linked to a selected commit by their Git history or an explicit commit SHA. Historical/unlinked evidence remains visible below but cannot change a window verdict.", "",
+              "Window-specific findings use only structured records linked to a selected commit: a `## Conclusion:` record, or a gate report whose per-task commit table row gives a selected commit's SHA (unique prefix) and a T-number that commit's subject cites, when the report carries a `**Status:**` line. Historical/unlinked evidence remains visible below but cannot change a window verdict.", "",
+              "Approvals link only through explicit task and commit fields; Flow mints approvals before the commit, so its own approvals stay historical.", "",
               "Rule 3 remains a current-corpus duplicate inventory across both sets; it is structural evidence, not a window event.", "",
               "| Evidence | Window-linked | Historical / unlinked |", "|---|---:|---:|",
               "| Artifacts | %d | %d |" % (

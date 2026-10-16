@@ -930,7 +930,7 @@
     },
     {
       "path": "hooks/tests/test-wasted-effort-windowing.sh",
-      "sha256": "aa26cf5beb43a344c9890cf4b3c7c95ecc2cd08de1f0b8b6b368e70fd55e90b5"
+      "sha256": "bc83f2f49a8de3dc0fa4c21cf80fd5b1ef9f0e4ea5a7221083bee5ad9b594b51"
     },
     {
       "path": "hooks/tests/test-wire-hooks-add-beside.sh",
@@ -941,5 +941,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "6ec0a5da67757afd1b90e4ca79568ebecfd68be8afe82d8422b6a4483710be42"
+  "manifest_self_sha256": "692e77c42e8c3842dd5c8d17aafae7eba9f6eded04b722f8fd33993250bff5fc"
 }

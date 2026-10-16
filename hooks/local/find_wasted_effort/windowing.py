@@ -3,7 +3,8 @@
 import json
 import subprocess
 
-from find_wasted_effort.conclusion_link import linked_approval, linked_commit, parse_conclusions
+from find_wasted_effort.conclusion_link import (
+    linked_approval, linked_commit, linked_report, parse_conclusions, parse_template_report)
 
 
 def _git(root, *args):
@@ -29,10 +30,20 @@ def partition_artifacts(root, artifacts, commits):
         last = _last_commit(root, rel).lower()
         records = parse_conclusions(body)
         if not records:
+            report = parse_template_report(rel, body)
+            resolved = linked_report(report, commits)
+            if resolved:
+                # One body per report however many rows resolve, or gate outcomes multiply.
+                linked.append((rel, body))
+                rows.extend({"file": f"{rel}#table-{task}", "status": "linked", "commits": [sha],
+                             "last_commit": last or None, "task": task,
+                             "outcome": report["outcome"]} for task, sha in resolved)
+                continue
             historical.append((rel, body))
             rows.append({"file": rel, "status": "historical/unlinked",
                          "commits": [],
-                         "last_commit": last or None, "reason": "no structured conclusions"})
+                         "last_commit": last or None,
+                         "reason": "no structured conclusions or resolvable commit-table rows"})
             continue
         for index, record in enumerate(records, 1):
             sha = linked_commit(record, commits)

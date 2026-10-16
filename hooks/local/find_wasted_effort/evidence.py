@@ -112,12 +112,14 @@ def slug_from_subject(subject):
     return m.group(1) if m else None
 
 
-def build_rounds(commits, numstat):
-    """Group commits into rounds. A round id is a ticket slug when derivable,
-    else the lead commit sha. Returns {round_id: {commits, tnums, files, ins, del}}."""
+def build_rounds(commits, numstat, claims=None):
+    """Group commits into rounds. A round id is the spec slug of the one gate report
+    whose own commit table resolves the commit (rounds.round_claims), else a subject
+    slug, else the lead commit sha. Returns {round_id: {commits, tnums, files, ins, del}}."""
+    claims = claims or {}
     rounds = {}
     for sha, subj in commits:
-        rid = slug_from_subject(subj) or sha[:7]
+        rid = claims.get(sha) or slug_from_subject(subj) or sha[:7]
         r = rounds.setdefault(rid, {"commits": [], "tnums": set(), "files": 0,
                                     "ins": 0, "dele": 0, "subjects": []})
         r["commits"].append(sha)
@@ -573,6 +575,15 @@ GATE_APPROVE_RE = re.compile(
     r"self-approved per fr-03|approved every deviation)\b", re.IGNORECASE)
 
 
+def _gate_signal(rel, text):
+    # A template gate report's fixed relay text is never an outcome: only §6 text and §7 FAIL rows count.
+    from .conclusion_link import parse_template_report   # lazy: conclusion_link imports this module
+    report = parse_template_report(rel, text) if artifact_kind(rel, text) == "gate-report" else None
+    if report:
+        return report["deviations"], report["fails"]
+    return recorded_outcome_text(text), 0
+
+
 def collect_gate_outcomes(artifacts):
     """Count recorded gate deviation outcomes: approvals vs blocks.
 
@@ -586,9 +597,9 @@ def collect_gate_outcomes(artifacts):
     for rel, text in artifacts:
         if artifact_kind(rel, text) not in RECORDED_REPORT_KINDS:
             continue                       # instructional/spec/contract text — never an outcome
-        body = recorded_outcome_text(text)  # strip rollback/example/template/instruction
+        body, fails = _gate_signal(rel, text)
         approvals += len(GATE_APPROVE_RE.findall(body))
-        blocks += len(GATE_BLOCK_RE.findall(body))
+        blocks += len(GATE_BLOCK_RE.findall(body)) + fails
     return approvals, blocks
 
 
@@ -726,7 +737,8 @@ def collect_firing_evidence(artifacts):
         body = recorded_outcome_text(text)
         low = body.lower()
         # narrow, high-precision firing signals per class — evaluated PER-ARTIFACT
-        if GATE_BLOCK_RE.search(body):
+        gate_text, fails = _gate_signal(rel, text)
+        if fails or GATE_BLOCK_RE.search(gate_text):
             fired |= {"false-green-deploy", "unauthorized-deploy"}
         # a rollback that was actually USED (past-tense outcome), not the procedure.
         # The rollback PROCEDURE / `git revert <hash>` EXAMPLE is already stripped by

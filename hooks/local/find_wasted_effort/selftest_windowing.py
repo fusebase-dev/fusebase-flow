@@ -3,6 +3,7 @@
 import argparse
 import importlib.util
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -134,6 +135,164 @@ def windowing_cases(check_bool):
         check_bool("windowing: report labels window and historical evidence separately",
                    "## Temporal evidence split (A7)" in report
                    and "Historical / unlinked" in report, True)
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+    template_cases(check_bool)
+    real_template_cases(check_bool)
+
+
+def _template_report(slug, rows, status=True, task_range=None):
+    head = ["# Gate report — %s (T7)" % slug, ""]
+    if status:
+        head.append("**Status:** Gate reached; awaiting PO review and deploy handoff")
+    if task_range:
+        head.append("**Task range:** %s" % task_range)
+    table = ["", "## 1. Per-task commit table", "",
+             "| Task | Title | Commit SHA | Lint |", "|---|---|---|---|"]
+    table += ["| %s | work | %s | ✓ |" % row for row in rows]
+    gate = ["", "## 7. Gate satisfaction", "",
+            "| Gate item | Required | Actual | Evidence | Status |", "|---|---|---|---|---|",
+            "| lint | 0 errors | 0 errors | lint.log | PASS |",
+            "| smoke | green | 2 checks red | smoke.log | FAIL |", ""]
+    return "\n".join(head + table + gate)
+
+
+def template_cases(check_bool):
+    root = Path(tempfile.mkdtemp(prefix="fwe-template-"))
+    try:
+        _git(root, "init", "-q")
+        _git(root, "config", "user.email", "fixture@example.test")
+        _git(root, "config", "user.name", "Fixture")
+        _write(root, "VERSION", "fixture\n")
+        _commit(root, "chore: fixture base", "VERSION")
+        shas = {}
+        for task, name in (("T5", "alpha"), ("T6", "beta"), ("T9", "gamma")):
+            _write(root, "src/%s.txt" % name, name + "\n")
+            shas[task] = _commit(root, "%s: add %s" % (task, name), "src/%s.txt" % name)
+        _write(root, "docs/specs/b5/gate-report.md",
+               "# Gate report — b5 (T9)\n\n**Status:** Gate reached\nOutcome: Gate blocked deploy.\n")
+        _commit(root, "docs(gate): T9 gate report", "docs/specs/b5/gate-report.md")
+        short = {task: "`%s`" % sha[:7] for task, sha in shas.items()}
+        _write(root, "docs/specs/ranged/gate-report.md", _template_report(
+            "ranged", [("T5", short["T5"]), ("T6", short["T6"]),
+                       ("T7", "(no commit — this file)")], task_range="T5..T7"))
+        _write(root, "docs/specs/prose/gate-report.md",
+               "# Gate report — prose (T9)\n\n**Status:** Gate reached\n"
+               "T9 shipped in %s.\nOutcome: Gate blocked deploy.\n" % short["T9"])
+        _write(root, "docs/specs/mismatch/gate-report.md",
+               _template_report("mismatch", [("T7", short["T9"])]))
+        _write(root, "docs/specs/nostatus/gate-report.md",
+               _template_report("nostatus", [("T9", short["T9"])], status=False))
+
+        main = _load_main()
+        from find_wasted_effort.evidence import build_rounds
+        from find_wasted_effort.rounds import round_claims
+        evidence = main.assemble_evidence(root, 4)
+        window = [rel for rel, _ in evidence["window_artifacts"]]
+        historical = {rel for rel, _ in evidence["historical_artifacts"]}
+        ranged = "docs/specs/ranged/gate-report.md"
+        table_rows = [row for row in evidence["artifact_linkage"]
+                      if row["file"].startswith(ranged + "#table-")]
+        check_bool("windowing: template report with a resolving commit-table row is linked",
+                   ranged in window, True)
+        check_bool("windowing: two resolving commit-table rows add the report once",
+                   window.count(ranged) == 1
+                   and sorted(row["task"] for row in table_rows) == ["T5", "T6"], True)
+        check_bool("windowing: two-row linked report counts its gate outcome once",
+                   evidence["gate_blocks"], 1)
+        check_bool("windowing: linked template FAIL row without a block phrase counts a gate block",
+                   evidence["gate_blocks"] >= 1, True)
+        check_bool("windowing: linked template report carries its gate-satisfaction row outcomes",
+                   {row["outcome"] for row in table_rows}, {"1 PASS / 1 FAIL"})
+        check_bool("windowing: commit SHA only in report prose stays historical",
+                   "docs/specs/prose/gate-report.md" in historical, True)
+        check_bool("windowing: commit-table row whose commit subject lacks the task stays historical",
+                   "docs/specs/mismatch/gate-report.md" in historical, True)
+        check_bool("windowing: template report without a Status line stays historical",
+                   "docs/specs/nostatus/gate-report.md" in historical, True)
+        check_bool("windowing: docs(gate) commit cannot link an unstructured report (B5)",
+                   "docs/specs/b5/gate-report.md" in historical, True)
+        check_bool("rounds: Task range groups T5 and T6 commits into one round keyed by the spec dir",
+                   set(evidence["rounds"].get("ranged", {}).get("commits", [])),
+                   {shas["T5"], shas["T6"]})
+        a_sha, b_sha, c_sha = "a" * 40, "b" * 40, "c" * 40
+        later = [(c_sha, "T3: tidy"), (b_sha, "T2: feat(c-new-ticket) add delta"),
+                 (a_sha, "T1: add older")]
+        older = _template_report("older", [("T1", "`%s`" % a_sha[:7])], task_range="T1..T3")
+        later_rounds = build_rounds(
+            later, {}, round_claims([("docs/specs/older/gate-report.md", older)], later))
+        check_bool("rounds: an older Task range cannot claim another ticket's commit absent from its table",
+                   {rid: r["commits"] for rid, r in later_rounds.items()},
+                   {"older": [a_sha], "c-new-ticket": [b_sha], "ccccccc": [c_sha]})
+        shared = [(c_sha, "T25: outside range"), (b_sha, "T21: fix(shared-work-item) x"),
+                  (a_sha, "T20: amb-a only")]
+        amb = [("docs/specs/amb-a/gate-report.md", _template_report(
+                    "amb-a", [("T20", "`aaaaaaa`"), ("T21", "`bbbbbbb`")], task_range="T20..T21")),
+               ("docs/specs/amb-b/gate-report.md", _template_report(
+                    "amb-b", [("T21", "`bbbbbbb`"), ("T25", "`ccccccc`")], task_range="T21–T22"))]
+        amb_claims = round_claims(amb, shared)
+        check_bool("rounds: a commit two reports' tables both resolve falls back to the subject",
+                   build_rounds(shared, {}, amb_claims).get("shared-work-item", {}).get("commits"),
+                   [b_sha])
+        check_bool("rounds: a resolving row outside the report's Task range stays unclaimed",
+                   amb_claims, {a_sha: "amb-a"})
+        report, _, _, _ = main.build_report(evidence, root, "2026-10-15")
+        check_bool("windowing: report names commit-table linkage",
+                   "gate report whose per-task commit table row" in report, True)
+    finally:
+        shutil.rmtree(root, ignore_errors=True)
+
+
+def _real_template_report(task, sha, approval, all_pass):
+    text = (Path(__file__).resolve().parents[3] / "templates" / "gate-report.md").read_text(encoding="utf-8")
+    body = text[text.index("```markdown\n") + len("```markdown\n"):text.index("\n## Fill-in checklist")]
+    body = body[:body.rindex("\n```")]
+    for marker in ("T<first>", "T<first+1>", "T<gate-1>", "T<gate>"):
+        body = body.replace(marker, task)
+    body = body.replace("<sha>", sha).replace(
+        "<self-approved per FR-03 / yes per operator chat>", approval)
+    if all_pass:
+        body = body.replace("| FAIL |", "| PASS |")
+    # Every placeholder filled: an unfilled line is stripped before matching, hiding the relay text.
+    return re.sub(r"<[^<>!\n]+>", "1", body)
+
+
+def real_template_cases(check_bool):
+    root = Path(tempfile.mkdtemp(prefix="fwe-real-template-"))
+    try:
+        _git(root, "init", "-q")
+        _git(root, "config", "user.email", "fixture@example.test")
+        _git(root, "config", "user.name", "Fixture")
+        _write(root, "VERSION", "fixture\n")
+        _commit(root, "chore: fixture base", "VERSION")
+        _write(root, "src/alpha.txt", "alpha\n")
+        sha = _commit(root, "T5: add alpha", "src/alpha.txt")[:7]
+        rel = "docs/specs/real/gate-report.md"
+        main = _load_main()
+        from find_wasted_effort.constants import CONFIRMED
+        from find_wasted_effort.rules import rule1_unused_gate_stops
+        _write(root, rel, _real_template_report("T5", sha, "self-approved per FR-03", True))
+        evidence = main.assemble_evidence(root, 2)
+        check_bool("windowing: real gate-report template with all-PASS gate rows is linked",
+                   rel in [path for path, _ in evidence["window_artifacts"]], True)
+        check_bool("windowing: real template relay block adds no gate block",
+                   evidence["gate_blocks"], 0)
+        check_bool("windowing: real template all-PASS report fires no control class",
+                   evidence["fired_classes"], set())
+        check_bool("windowing: real template deviations section still counts its approval",
+                   evidence["gate_approvals"], 1)
+        _write(root, rel, _real_template_report(
+            "T5", sha, ", ".join(["self-approved per FR-03"] * 3), False))
+        evidence = main.assemble_evidence(root, 2)
+        check_bool("windowing: real template FAIL row counts one gate block",
+                   evidence["gate_blocks"], 1)
+        check_bool("windowing: rule 1 cannot confirm over a linked template FAIL row",
+                   rule1_unused_gate_stops(evidence)["verdict"] != CONFIRMED, True)
+        from find_wasted_effort.evidence import collect_gate_outcomes
+        deploy = _template_report("d", [("T5", sha)]).replace("| FAIL |", "| PASS |").replace(
+            "# Gate report", "# Deploy report") + "\n## 3. Probe results\n\nProbe failed on /health.\n"
+        check_bool("windowing: a deploy report with a commit table keeps its recorded block phrase",
+                   collect_gate_outcomes([("docs/specs/d/deploy-report.md", deploy)]), (0, 1))
     finally:
         shutil.rmtree(root, ignore_errors=True)
 

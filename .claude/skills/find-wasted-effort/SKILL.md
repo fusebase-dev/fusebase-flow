@@ -25,7 +25,7 @@ The **process-per-outcome** ceremony audit — the sibling of the **tokens-per-r
 | | `/find-wasted-effort` (this) | `/token-waste-audit` (FR-26) |
 |---|---|---|
 | Axis | process-per-outcome (ceremony) | tokens-per-rule (consumption) |
-| Inputs | Flow artifacts ON DISK: gate/deploy reports, handoffs, approval artifacts, git log, round structure, `prevents:` annotations | Claude Code transcripts (`~/.claude/projects/.../*.jsonl`) |
+| Inputs | Flow artifacts ON DISK: gate/deploy reports (window-linked only by structured records), handoffs, approval artifacts, git log, round structure (keyed by recorded Task range), `prevents:` annotations | Claude Code transcripts (`~/.claude/projects/.../*.jsonl`) |
 | Question | "Which ceremony step bought no safety outcome?" | "Which tokens bought no information?" |
 | Shared | candidate/false-positive header · read-only-first posture · `state/audit/<date>.md` gitignored output | (same) |
 
@@ -63,9 +63,9 @@ The analyzer writes **only** inside the gitignored `state/audit/` directory — 
 
 ## Inputs (already on disk — read-only)
 
-- `docs/specs/*/verification-gate.md`, gate reports, deploy reports (`docs/tmp/handoff/*`, `docs/handoff/*`)
-- approval artifacts (`state/approvals/*.json`), `git log` (per-task/per-round commit shape)
-- round structure (change-notes `docs/changes/*`, future round-files)
+- `docs/specs/*/verification-gate.md`, gate reports, deploy reports (`docs/tmp/handoff/*`, `docs/handoff/*`). A report feeds window verdicts only when linked to a selected commit: a `## Conclusion:` record (Outcome/Task/Commit), or the gate-report template's `**Status:**` line (presence check) plus a `Per-task commit table` row whose SHA resolves to a selected commit whose subject cites that T-number. One linked report = one window body; each §7 Gate satisfaction FAIL row is a gate block and its §6 Deviations text supplies approvals, so fixed template text (the §9 relay block) never counts. Everything else stays historical.
+- approval artifacts (`state/approvals/*.json`; link only via explicit task + commit fields, so Flow-minted approvals, made before the commit, stay historical), `git log` (per-task/per-round commit shape)
+- round structure: a commit joins the spec-slug round of the one linked gate report whose own `Per-task commit table` row resolves it and whose `**Task range:**` covers that row; a range never claims a commit missing from its table. Else the subject slug, else the commit; change-notes `docs/changes/*`, future round-files
 - `prevents:` annotations + `policies/ratchet-governance.yml` (A3 taxonomy + coverage map)
 
 ## Output
