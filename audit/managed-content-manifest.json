@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "5.11",
   "description": "Content-hash manifest of Fusebase Flow-managed content (the trees + files hooks/local/upgrade.sh refreshes). Recorded at install/upgrade so the NEXT upgrade can tell an upstream change from a consumer edit (decision K9). Byte-stable: NO timestamps. Regenerate with hooks/local/stamp-managed-content-manifest.sh; membership resolved by managed_content_manifest.py::collect_paths.",
-  "asset_count": 420,
+  "asset_count": 422,
   "assets": [
     {
       "path": "FLOW_RULES.md",
@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "33f644f27ce518ecbd09f796d3b8ac8d67fccdd595b2680b59e349d255fbe42d"
+      "sha256": "992e5f477b36357cd04f9f015cf9be751b4a0f1e67a429b4e33401aecc29e221"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -601,6 +601,10 @@
       "sha256": "7de1248bc0e14ddd8bcf60422780c3304c5ba60033f12a58aab7ada979501d15"
     },
     {
+      "path": "hooks/local/lib/reader.py",
+      "sha256": "b4de553db5aae90858b893a31b740f0c6cf4455ad4c8ca299a2fb605b917ecfa"
+    },
+    {
       "path": "hooks/local/lib/recovery-outcome.sh",
       "sha256": "b00c983132ebedbfd671700a0e416dd59cf6ecf3bbc9fcca8360f60f409d009a"
     },
@@ -991,6 +995,10 @@
     {
       "path": "hooks/tests/fixtures/corpus/command-gate-semantic-corpus.json",
       "sha256": "fb92bc3b9ec05fc4fd13436570954e73158ac9d63d8a5fff2ab890247e1ad16c"
+    },
+    {
+      "path": "hooks/tests/fixtures/reader_histogram.py",
+      "sha256": "2cc51dce4fa676ac8b98d200acd7d2f27429644523c2e117d3d3047cc6f869dd"
     },
     {
       "path": "hooks/tests/fixtures/recovery_overlay_noop.py",
@@ -1685,5 +1693,5 @@
       "sha256": "bd9e3cf2d643a7f71016d480cfc720c36a6065271e073c3b638d8379d84fe47d"
     }
   ],
-  "manifest_self_sha256": "efea7e489afbc618c3cbf1bf29b28de603344aa33ec6123c50ab1e25f228c107"
+  "manifest_self_sha256": "1b9529070259d7afe47dd94dcd88e9ffeeb55c6c3f41e84e9de6f8c035aec60f"
 }

@@ -2,7 +2,7 @@
   "schema_version": 1,
   "flow_version": "5.11",
   "description": "Content-hash manifest of the Fusebase Flow-owned hook layer (handlers, shared, git wrappers, tests + fixtures, local scripts + lib). Byte-stable: NO timestamps \u2014 the stamp date is git history. Regenerate with hooks/local/stamp-hook-manifest.sh; CI freshness-gates it (stamp + git diff --exit-code). Membership resolved by hook_manifest.py::collect_assets.",
-  "asset_count": 238,
+  "asset_count": 240,
   "assets": [
     {
       "path": "hooks/git/commit-msg",
@@ -199,6 +199,10 @@
     {
       "path": "hooks/local/lib/preflight-overlay-headings.sh",
       "sha256": "7de1248bc0e14ddd8bcf60422780c3304c5ba60033f12a58aab7ada979501d15"
+    },
+    {
+      "path": "hooks/local/lib/reader.py",
+      "sha256": "b4de553db5aae90858b893a31b740f0c6cf4455ad4c8ca299a2fb605b917ecfa"
     },
     {
       "path": "hooks/local/lib/recovery-outcome.sh",
@@ -535,6 +539,10 @@
     {
       "path": "hooks/tests/fixtures/approval_fixture.py",
       "sha256": "1bbfeb37d47deb11a93de566fff5fafe0eed73a25a477e272a6cb817101bab66"
+    },
+    {
+      "path": "hooks/tests/fixtures/reader_histogram.py",
+      "sha256": "2cc51dce4fa676ac8b98d200acd7d2f27429644523c2e117d3d3047cc6f869dd"
     },
     {
       "path": "hooks/tests/fixtures/recovery_overlay_noop.py",
@@ -957,5 +965,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "3540e3c6baa669ab1ce3f315f7d5d86c1e1957efcfd3eee33fc76fe792c5f165"
+  "manifest_self_sha256": "5827ffb6646cafaeeeb7abd631bb6eb7476d4059af1079cee10f8f1ea180d702"
 }
