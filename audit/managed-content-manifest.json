@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "e09304c051821f89f6008f2cb4cd21bb3e3af94ad97c6b8b613c07d4f8b4799e"
+      "sha256": "7952700a9d0b1b2a89089d68a817191e6fe58646ca33f0290ae59a650b483342"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -482,7 +482,7 @@
     },
     {
       "path": "hooks/local/install-git-hooks.sh",
-      "sha256": "611e7d6bc4562c7d77a200dac61b8ad3259bbe56041e3ffe8b530560fafa3155"
+      "sha256": "83ef934c00c8688b5666176e18cd556f8971950dbbb53e583dd08b48eca2f9de"
     },
     {
       "path": "hooks/local/lane-assessment.py",
@@ -1430,7 +1430,7 @@
     },
     {
       "path": "hooks/tests/test-transient-exclude.sh",
-      "sha256": "f92f27171add0c73a5b73a92ec470cdb79001a607797adcc6a32a92770c363a7"
+      "sha256": "54054528843311a375d4b9626a0994ddae1abfabffb88375e2ccc5858f0e1bfe"
     },
     {
       "path": "hooks/tests/test-trusted-enforcer.sh",
@@ -1689,5 +1689,5 @@
       "sha256": "bd9e3cf2d643a7f71016d480cfc720c36a6065271e073c3b638d8379d84fe47d"
     }
   ],
-  "manifest_self_sha256": "d3f1f56b1c547eacf916c4452b150c9a23d11f7a62e41b6fa7fc4901484c62fd"
+  "manifest_self_sha256": "02e5f687415e0645de13666217749d44f66a515042bb1d73d2ebc9f6eceea294"
 }

@@ -26,6 +26,8 @@ done
 ROOT="$(git rev-parse --show-toplevel)"
 SRC="$ROOT/hooks/git"
 DEST="$ROOT/.git/hooks"
+# TRIPWIRE: a linked worktree's .git is a file; its hooks are the common dir's. Never --git-path hooks: it follows core.hooksPath.
+[ -d "$ROOT/.git" ] || DEST="$(git rev-parse --git-common-dir)/hooks"
 FLOW_MARKER="fusebase-flow-managed-hook:"   # UNIQUE token in every Flow-managed hook header (WS1c/T11)
 
 if [ ! -d "$SRC" ]; then
@@ -86,5 +88,25 @@ done
 if [ "$skipped_custom" -eq 1 ]; then
     echo "[fusebase-flow] one or more custom hooks were preserved (not overwritten). Re-run with --force to replace them." >&2
 fi
+
+# TRIPWIRE: lines byte-equal to backup-hygiene.sh's per-clone group (row exclude-lines-parity); silent on success, callers parse output.
+write_clone_excludes() {
+    local ex line
+    ex="$(git rev-parse --git-path info/exclude 2>/dev/null)" && [ -n "$ex" ] || return 1
+    mkdir -p "$(dirname "$ex")" 2>/dev/null || return 1
+    [ ! -e "$ex" ] || [ -r "$ex" ] || return 1
+    if [ -s "$ex" ] && [ -n "$(tail -c1 "$ex" 2>/dev/null)" ]; then
+        printf '\n' >> "$ex" 2>/dev/null || return 1
+    fi
+    for line in \
+    "# Fusebase Flow per-clone policy overrides and agent worktrees — never stage them." \
+    "/policies/*.local.yml" \
+    "/.claude/worktrees/" \
+    "# Fusebase Flow bounded-run heartbeat files — never stage them." \
+    "/state/audit/liveness/"; do
+        grep -qxF "$line" "$ex" 2>/dev/null || printf '%s\n' "$line" >> "$ex" 2>/dev/null || return 1
+    done
+}
+write_clone_excludes || echo "[fusebase-flow] note: could not update git info/exclude; local policy overrides, agent worktrees and heartbeat files may be stageable by 'git add -A'." >&2
 
 echo "[fusebase-flow] git hooks install complete. Test with: bash $SRC/../tests/run-tests.sh"

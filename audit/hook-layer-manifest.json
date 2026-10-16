@@ -86,7 +86,7 @@
     },
     {
       "path": "hooks/local/install-git-hooks.sh",
-      "sha256": "611e7d6bc4562c7d77a200dac61b8ad3259bbe56041e3ffe8b530560fafa3155"
+      "sha256": "83ef934c00c8688b5666176e18cd556f8971950dbbb53e583dd08b48eca2f9de"
     },
     {
       "path": "hooks/local/lane-router.sh",
@@ -902,7 +902,7 @@
     },
     {
       "path": "hooks/tests/test-transient-exclude.sh",
-      "sha256": "f92f27171add0c73a5b73a92ec470cdb79001a607797adcc6a32a92770c363a7"
+      "sha256": "54054528843311a375d4b9626a0994ddae1abfabffb88375e2ccc5858f0e1bfe"
     },
     {
       "path": "hooks/tests/test-trusted-enforcer.sh",
@@ -961,5 +961,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "e63ef36c01da6e1932270e1b83ce4bd4a0181c16f2c7c764a8cd56b3069f67b2"
+  "manifest_self_sha256": "5bc493e9e3216ba57e12e4d99ccb5c44fbcb4d116742cc1cf0c7fbe44b83a881"
 }

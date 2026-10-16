@@ -169,4 +169,84 @@ else
   bad "writers-emit-identical-lists" "writer setup, execution or byte parity failed"
 fi
 
+# WP11-f: install-git-hooks.sh writes the per-clone group on a fresh clone, before any upgrade runs.
+IGH="$ROOT/hooks/local/install-git-hooks.sh"
+CLONE_LINES=("# Fusebase Flow per-clone policy overrides and agent worktrees — never stage them."
+  "/policies/*.local.yml" "/.claude/worktrees/"
+  "# Fusebase Flow bounded-run heartbeat files — never stage them." "/state/audit/liveness/")
+run_install() { # run_install <repo>: the real installer over the repo's own hooks/git; output in <repo>.out
+  ( cd "$1" || exit 97
+    mkdir -p hooks/git && { [ -f .git ] || mkdir -p .git/hooks; } && cp "$ROOT/hooks/git/pre-commit" "$ROOT/hooks/git/commit-msg" "$ROOT/hooks/git/pre-push" hooks/git/ \
+      || exit 96
+    bash "$IGH" ) > "$1.out" 2>&1
+}
+clone_lines_once() { local l; for l in "${CLONE_LINES[@]}"; do [ "$(grep -cxF -- "$l" "$1")" = 1 ] || return 1; done; }
+fresh_repo() { mkdir -p "$1" && ( cd "$1" && git init -q . ) >/dev/null 2>&1; }
+
+R="$TMP_BASE/policy-writer-install"; cp -R "$POLICY_TPL" "$R"
+if run_install "$R"; then
+  unstaged_row "install-writer-keeps-local-policy-worktree-and-heartbeat-unstaged" "$R" \
+    'policies/model-routing\.local\.yml|\.claude/worktrees/|state/audit/liveness/'
+else
+  bad "install-writer-keeps-local-policy-worktree-and-heartbeat-unstaged" "installer rc=$?: $(cat "$R.out")"
+fi
+
+R="$TMP_BASE/install-twice"; fresh_repo "$R"; EX="$R/.git/info/exclude"
+run_install "$R"; rc1=$?; n1="$(wc -l < "$EX")"
+quiet=0; [ "$(grep -vcE '^\[fusebase-flow\] (installed (pre-commit|commit-msg|pre-push) -> |git hooks install complete\.)' "$R.out")" = 0 ] && quiet=1
+run_install "$R"; rc2=$?; n2="$(wc -l < "$EX")"
+if [ "$rc1$rc2" = "00" ] && [ "$quiet" = 1 ] && clone_lines_once "$EX" && [ "$n2" -eq "$n1" ]; then
+  ok "install-writes-clone-lines-once-silently-and-idempotently"
+else
+  bad "install-writes-clone-lines-once-silently-and-idempotently" "rc=$rc1/$rc2 quiet=$quiet lines $n1->$n2: $(cat "$EX")"
+fi
+
+R="$TMP_BASE/lib-then-install"; fresh_repo "$R"; EX="$R/.git/info/exclude"
+run_writer lib "$R"; rc1=$?; n1="$(wc -l < "$EX")"
+run_install "$R"; rc2=$?; n2="$(wc -l < "$EX")"
+if [ "$rc1$rc2" = "00" ] && [ "$n2" -eq "$n1" ] && clone_lines_once "$EX"; then
+  ok "install-after-upgrader-adds-nothing"
+else
+  bad "install-after-upgrader-adds-nothing" "rc=$rc1/$rc2 lines $n1->$n2: $(cat "$EX")"
+fi
+
+# The upgrader then adds only its own backup group (comment, three patterns, the source clone): 5 lines.
+R="$TMP_BASE/install-then-lib"; fresh_repo "$R"; EX="$R/.git/info/exclude"
+run_install "$R"; rc1=$?; n1="$(wc -l < "$EX")"
+run_writer lib "$R"; rc2=$?; n2="$(wc -l < "$EX")"
+if [ "$rc1$rc2" = "00" ] && [ "$n2" -eq $((n1 + 5)) ] && clone_lines_once "$EX"; then
+  ok "upgrader-after-install-adds-no-clone-line"
+else
+  bad "upgrader-after-install-adds-no-clone-line" "rc=$rc1/$rc2 lines $n1->$n2: $(cat "$EX")"
+fi
+
+# A linked worktree's .git is a file: hooks and info/exclude are the main repo's (the common dir).
+M="$TMP_BASE/wt-main"; W="$TMP_BASE/wt-linked"; EX="$M/.git/info/exclude"; row="install-from-linked-worktree-writes-common-hooks-and-exclude-once"
+if fresh_repo "$M" && mkdir -p "$M/.git/hooks" \
+   && ( cd "$M" && "${G[@]}" commit -q --allow-empty -m base && git worktree add "$W" ) >/dev/null 2>&1 && [ -f "$W/.git" ]; then
+  run_install "$W"; rc1=$?
+  run_install "$W"; rc2=$?
+  hooks=1; for h in pre-commit commit-msg pre-push; do cmp -s "$ROOT/hooks/git/$h" "$M/.git/hooks/$h" && [ -x "$M/.git/hooks/$h" ] || hooks=0; done
+  if [ "$rc1$rc2" = "00" ] && [ "$hooks" = 1 ] && [ -f "$W/.git" ] && clone_lines_once "$EX"; then
+    ok "$row"
+  else
+    bad "$row" "rc=$rc1/$rc2 hooks=$hooks out=$(cat "$W.out") exclude=$(cat "$EX" 2>/dev/null)"
+  fi
+else
+  bad "$row" "could not build the linked-worktree fixture"
+fi
+
+parity_lines() { # parity_lines <file>: five source lines from the single per-clone comment anchor
+  local n anchor='"# Fusebase Flow per-clone policy overrides'
+  [ "$(grep -c -F -- "$anchor" "$1")" = 1 ] || return 1
+  n="$(grep -n -F -- "$anchor" "$1" | cut -d: -f1)"
+  sed -n "${n},$((n + 4))p" "$1"
+}
+if parity_lines "$BH_LIB" > "$TMP_BASE/parity-bh" && parity_lines "$IGH" > "$TMP_BASE/parity-igh" \
+   && [ "$(wc -l < "$TMP_BASE/parity-bh")" -eq 5 ] && cmp "$TMP_BASE/parity-bh" "$TMP_BASE/parity-igh" >/dev/null 2>&1; then
+  ok "exclude-lines-parity"
+else
+  bad "exclude-lines-parity" "install-git-hooks.sh per-clone lines differ from backup-hygiene.sh (or the anchor is not unique)"
+fi
+
 finish
