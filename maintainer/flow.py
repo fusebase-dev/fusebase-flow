@@ -232,10 +232,11 @@ def merge_block(existing: str | None, block: str) -> str:
 
 
 def attributes_block(paths: list[str]) -> str:
-    """`text eol=lf` for each file Flow writes, by its exact path, anchored with a leading slash."""
-    # TRIPWIRE: never a folder, a type or text=auto: the block comes last, so any of those overrides the project's own
-    # `*.png binary` lines and rewrites the CRLF bytes inside its binaries (fix-pass review R1).
-    pins = sorted({*paths, MANIFEST, *DOCUMENTS})
+    """`text eol=lf` for each file Flow writes, by its exact path, and for the Markdown documents in docs/flow/ (the
+    lifecycle writes docs/flow/evidence/P<n>.md too); each line anchored with a leading slash."""
+    # TRIPWIRE: never a folder, text=auto or a type outside docs/flow/: the block comes last, so any of those overrides
+    # the project's own `*.png binary` lines and rewrites the CRLF bytes inside its binaries (fix-pass review R1).
+    pins = sorted({*paths, MANIFEST, f"{DOCS_DIR}/**/*.md"})
     return "\n".join([ATTR_BEGIN, "# core.autocrlf=true would otherwise check these out as CRLF: the hooks break and "
                       "the sha256 records stop matching.", *(f"/{p} text eol=lf" for p in pins), ATTR_END]) + "\n"
 

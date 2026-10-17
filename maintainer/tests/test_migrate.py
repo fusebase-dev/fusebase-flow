@@ -183,7 +183,8 @@ class RemovalFallback(unittest.TestCase):
 GIT_CRLF = [GIT[0], *GIT[1:-2], "-c", "core.autocrlf=true"]  # a Windows checkout
 # CRLF pairs and NUL bytes; the GIF has no NUL, so only the project's own `*.gif binary` line makes it binary
 BINARIES = {"templates/logo.png": b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\r\n", "hooks/blob.bin": b"BIN\r\n\x00\x01\r\nEND",
-            "templates/plain.gif": b"GIF89a\r\nno NUL byte\r\n"}
+            "templates/plain.gif": b"GIF89a\r\nno NUL byte\r\n", "docs/flow/evidence/shot.png": b"\x89PNG\r\n\x00\r\n"}
+EVIDENCE = "docs/flow/evidence/P1.md"  # a Flow document the lifecycle writes, not flow.py
 
 
 class ApplyEndToEnd(unittest.TestCase):
@@ -202,9 +203,10 @@ class ApplyEndToEnd(unittest.TestCase):
         fresh = self.tmp / "binaries"
         run = lambda *args: subprocess.run([*GIT_CRLF, *args], cwd=fresh, capture_output=True, timeout=600)
         subprocess.run([*GIT_CRLF, "clone", "-q", "--no-hardlinks", str(self.clone), str(fresh)], timeout=600)
-        for rel, data in BINARIES.items():
+        for rel, data in {**BINARIES, EVIDENCE: b"# Evidence P1\n\n| Item | Status |\n"}.items():
+            (fresh / rel).parent.mkdir(parents=True, exist_ok=True)
             (fresh / rel).write_bytes(data)
-        self.assertEqual(run("add", "--", *BINARIES).returncode, 0)
+        self.assertEqual(run("add", "--", *BINARIES, EVIDENCE).returncode, 0)
         self.assertEqual(run("commit", "-q", "-m", "chore: T3 the project's binaries").returncode, 0)
         attrs = run("check-attr", "text", "--", *BINARIES).stdout.decode()
         for rel in BINARIES:
@@ -215,8 +217,9 @@ class ApplyEndToEnd(unittest.TestCase):
             self.assertEqual((fresh / rel).read_bytes(), data, rel)
             self.assertEqual(run("cat-file", "blob", f"HEAD:{rel}").stdout, data, rel)
         for rel in ("docs/flow/ledger.md", "audit/flow-install.json", "VERSION", ".codex/agents/builder.toml",
-                    ".claude/skills/plan/SKILL.md", "workflows/lifecycle.md", "hooks/git/pre-commit"):
+                    ".claude/skills/plan/SKILL.md", "workflows/lifecycle.md", "hooks/git/pre-commit", EVIDENCE):
             self.assertNotIn(b"\r", (fresh / rel).read_bytes(), rel)
+        self.assertIn(f"{EVIDENCE}: eol: lf", run("check-attr", "eol", "--", EVIDENCE).stdout.decode())
 
     @classmethod
     def tearDownClass(cls) -> None:
