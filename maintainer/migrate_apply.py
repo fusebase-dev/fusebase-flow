@@ -21,6 +21,7 @@ EXCLUDE_LINES = ("# Fusebase Flow migration backups (flow.py migrate): never sta
 # removal deletes, and, once the migration is complete, the paths and the message of the migration commit.
 JOURNAL = ".migrate"
 CREATED, UNTRACKED, STAGE, MESSAGE = "created.txt", "untracked.txt", "stage.txt", "message.txt"
+DELETE = "delete.txt"  # the commit's deletions; stage.txt holds the paths it adds and, written last, marks it complete
 SLUG = "flow-migrate"
 MINT = f"FF_BOOTSTRAP_TTL_MIN=30 bash hooks/local/write-bootstrap-approval.sh --slug {SLUG}"
 CONSUME = f"bash hooks/local/write-bootstrap-approval.sh --consume --slug {SLUG}"
@@ -247,7 +248,9 @@ def complete(inv: m.Inventory, folder: Path) -> None:
     target = inv.target
     index = index_paths(target)
     paths = [p for p in inv.removals() if p in index] + inv.replace + inv.new + list(m.REWRITTEN) + list(m.DOCS)
-    write_lines(folder / JOURNAL / STAGE, sorted({p for p in paths if p in index or (target / p).is_file()}))
+    paths = sorted({p for p in paths if p in index or (target / p).is_file()})
+    write_lines(folder / JOURNAL / DELETE, [p for p in paths if not (target / p).is_file()])
+    write_lines(folder / JOURNAL / STAGE, [p for p in paths if (target / p).is_file()])
     core = (flow.CORE / "VERSION").read_text(encoding="utf-8").strip()
     flow.write_bytes(folder / JOURNAL / MESSAGE, (
         f"chore(flow): {inv.task} migrate Fusebase Flow {inv.version} to {core}\n\n"
@@ -262,19 +265,30 @@ def bash(target: Path, *args: str) -> subprocess.CompletedProcess:
                           capture_output=True, text=True, timeout=600)
 
 
-def stage_args(target: Path, folder: Path) -> list[str]:
-    stage = (folder / JOURNAL / STAGE).relative_to(target).as_posix()
-    return ["--literal-pathspecs", "add", "-f", f"--pathspec-from-file={stage}"]
+def stage_commands(target: Path, folder: Path) -> list[tuple[str, ...]]:
+    """The git commands that stage the migration by name; each is a no-op once it is staged or committed."""
+    rel = folder.relative_to(target).as_posix()
+    delete = folder / JOURNAL / DELETE
+    rm = [("--literal-pathspecs", "rm", "-q", "-f", "--cached", "--ignore-unmatch",
+           f"--pathspec-from-file={rel}/{JOURNAL}/{DELETE}")] if delete.is_file() and delete.stat().st_size else []
+    return rm + [("--literal-pathspecs", "add", "-f", f"--pathspec-from-file={rel}/{JOURNAL}/{STAGE}")]  # rm: fatal on none
+
+
+def printed(args: tuple[str, ...]) -> str:
+    """A git command as the finish steps print it, the pathspec file quoted."""
+    return "git " + " ".join(f'{a.split("=", 1)[0]}="{a.split("=", 1)[1]}"' if a.startswith("--pathspec-from-file=")
+                             else a for a in args)
 
 
 def commit(inv: m.Inventory, folder: Path) -> int:
     """Stages the migration by name, mints the single-use approval, commits through the hooks, consumes."""
     target = inv.target
-    paths = (folder / JOURNAL / STAGE).read_text(encoding="utf-8").splitlines()
-    add = m.git(target, *stage_args(target, folder))
-    if add.returncode:
-        say(f"STOPPED: git add exited {add.returncode}: {add.stderr.decode('utf-8', 'replace').strip()}")
-        return stopped_part_way(target, folder)
+    paths = [p for name in (DELETE, STAGE) for p in (folder / JOURNAL / name).read_text(encoding="utf-8").splitlines()]
+    for args in stage_commands(target, folder):
+        add = m.git(target, *args)
+        if add.returncode:
+            say(f"STOPPED: git {args[1]} exited {add.returncode}: {add.stderr.decode('utf-8', 'replace').strip()}")
+            return stopped_part_way(target, folder)
     staged = [p for p in m.git(target, "diff", "--cached", "--name-only", "-z").stdout.decode("utf-8").split("\0") if p]
     stray = sorted(set(staged) - set(paths))
     if stray:
@@ -324,21 +338,16 @@ def approval(target: Path) -> tuple[Path | None, str]:
 
 
 def finish_steps(target: Path, folder: Path) -> list[str]:
-    """The by-hand end of a complete migration: stage, commit (minting first when no approval is left), consume."""
-    subject = (folder / JOURNAL / MESSAGE).read_text(encoding="utf-8").splitlines()[0]
+    """The by-hand end of a complete migration: stage, mint, commit with the journal's message, consume."""
+    rel = folder.relative_to(target).as_posix()
     found, expires = approval(target)
-    now = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    lines = ["finish it by hand, once the cause is fixed; stage the migration by name (a no-op when it is staged):",
-             "  $ git " + " ".join(stage_args(target, folder))]
-    commit_line = f'  $ git commit -m "{subject}"'
-    if found and expires > now:
-        lines += [f"  commit; the approval {found.name} holds until {expires}:", commit_line,
-                  f"  after {expires}, or if the staged paths changed, mint a fresh approval, then commit again:",
-                  f"  $ {MINT}"]
-    else:
-        lines += ["  mint the single-use approval (none is left, or its TTL has passed), then commit:",
-                  f"  $ {MINT}", commit_line]
-    return lines + ["  once the commit has passed, consume the approval:", f"  $ {CONSUME}"]
+    lines = ["finish it by hand once the cause is fixed: run these in order from the project's top level in Git Bash; "
+             "each step is safe to run again, and a second run of all of them changes nothing"]
+    if found:
+        lines.append(f"  (the approval {found.name} stays until {expires or 'its TTL'}; the mint step replaces it with "
+                     "one bound to the same staged paths, so the steps work after the TTL too)")
+    return lines + [f"  $ {printed(args)}" for args in stage_commands(target, folder)] + [
+        f"  $ {MINT}", f'  $ git diff --cached --quiet || git commit -F "{rel}/{JOURNAL}/{MESSAGE}"', f"  $ {CONSUME}"]
 
 
 def rollback_steps(target: Path, folder: Path | None) -> list[str]:
