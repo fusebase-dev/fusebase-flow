@@ -543,6 +543,39 @@ class ContentCheck(unittest.TestCase):
         self.assertIn("manifest_self_sha256", str(raised.exception))
 
 
+def mirror_rows(files: dict[str, bytes]) -> bytes:
+    return "".join(f"{p}  {hashlib.sha256(d).hexdigest()}\n" for p, d in sorted(files.items())).encode("utf-8")
+
+
+class ProjectMirrors(unittest.TestCase):
+    def test_a_project_skill_and_agent_mirrored_by_5x_tooling_survive_the_migration(self) -> None:
+        tmp = Path(tempfile.mkdtemp(prefix="flow-migrate-"))
+        try:
+            clone = scratch_clone(tmp)
+            flow_skill = FILES["flow-skills/communication/SKILL.md"].encode("utf-8")
+            own_skill, own_agent = b"---\nname: team-notes\n---\nOur own notes.\n", b"---\nname: team-reviewer\n---\n"
+            skills = {f"{root}/{name}/SKILL.md": data for root in (".claude/skills", ".agents/skills")
+                      for name, data in (("communication", flow_skill), ("team-notes", own_skill))}
+            agents = {".claude/agents/team-reviewer.md": own_agent, ".codex/agents/team-reviewer.md": own_agent}
+            own = {"flow-skills/team-notes/SKILL.md": own_skill, "agents/team-reviewer/AGENT.md": own_agent,
+                   **{p: d for p, d in {**skills, **agents}.items() if "team-" in p}}
+            for rel, data in {**skills, **agents, **own, "audit/skill-mirror-manifest.txt": mirror_rows(skills),
+                              "audit/agent-mirror-manifest.txt": mirror_rows(agents)}.items():
+                commit_file(clone, rel, data, f"chore: T1 {rel}")
+            run = migrate(clone, "--apply", "--go-ahead")
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            for rel, data in own.items():
+                self.assertTrue((clone / rel).is_file(), f"the migration deleted {rel}")
+                self.assertEqual((clone / rel).read_bytes(), data, rel)
+                self.assertEqual(blob(clone, f"HEAD:{rel}"), data, rel)
+            keep = run.stdout.split("keep (project-owned):", 1)[1].split("\n[flow migrate] overlay")[0]
+            self.assertTrue(all(rel in keep for rel in own), keep)
+            self.assertIn("skill mirrors under .claude/skills/: 1 skills, 1 files: communication", run.stdout)
+            self.assertFalse((clone / ".claude/skills/communication/SKILL.md").exists())
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
 @unittest.skipUnless(os.environ.get("FLOW_MIGRATE_FIXTURE"), "FLOW_MIGRATE_FIXTURE not set")
 class RealProjectAbort(unittest.TestCase):
     def test_planted_edit_aborts_on_a_scratch_clone(self) -> None:

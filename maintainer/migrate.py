@@ -95,6 +95,7 @@ class Inventory:
     custom_hooks: list[str] = field(default_factory=list)  # .git/hooks files without Flow's marker: the preflight stops
     edited_hooks: list[str] = field(default_factory=list)  # with the marker, bytes of no 5.x release: it stops too
     foreign: list[str] = field(default_factory=list)  # named like a 5.x file, not Flow's bytes: backed up, left in place
+    own_mirrors: list[str] = field(default_factory=list)  # 5.x mirrors of the project's own skills and agents: kept
     wiring: str = ""
     vendor: tuple[int, int, int] = (0, 0, 0)
     manifest: tuple[int, int] = (0, 0)  # assets recorded in the managed-content manifest, present
@@ -151,6 +152,16 @@ def self_recorded(data: bytes) -> bool:
         return hashlib.sha256(payload.encode("utf-8")).hexdigest() == doc.get("manifest_self_sha256")
     except (ValueError, AttributeError):
         return False
+
+
+def mirror_source(rel: str) -> str:
+    """The canonical file a 5.x mirror copies (mirror-skills.sh, mirror-agents.sh), "" for any other path."""
+    parts = rel.split("/")
+    if len(parts) > 3 and parts[0] in (".claude", ".agents") and parts[1] == "skills":
+        return "/".join(["flow-skills", *parts[2:]])
+    if len(parts) == 3 and parts[0] in (".claude", ".codex") and parts[1] == "agents" and parts[2].endswith(".md"):
+        return f"agents/{parts[2][:-3]}/AGENT.md"
+    return ""
 
 
 def walk_files(root: Path, rel: str) -> list[str]:
@@ -310,7 +321,11 @@ def inventory(target: Path, providers: set[str]) -> Inventory:
     inv.recorded = dict(mc)
     for group, manifest in (("skill mirrors", SKILL_MIRRORS), ("agent mirrors", AGENT_MIRRORS)):
         for p, sha in load_mirrors(target / manifest).items():
-            groups[p], inv.recorded[p] = group, sha
+            src = mirror_source(p)  # a manifest row alone never makes a mirror Flow's: its source must be Flow's
+            if src and (src in mc or flow5_shas(src)):
+                groups[p], inv.recorded[p] = group, sha
+            elif (target / p).is_file() and not cli_owned(p, vendor, cli_skills):
+                inv.own_mirrors.append(p)
     by_name: dict[str, set[str]] = {}  # path -> the sha256 values that make it Flow's own (deleted by its name)
     for cmd in sorted((target / ".claude/commands").glob("*.md")):
         if COMMANDS_SRC + cmd.name in mc:
@@ -404,7 +419,8 @@ def _never_and_keep(inv: Inventory, vendor: dict[str, str], flow_paths: set[str]
     candidates = [p for p in ("fusebase.json", "skills-lock.json", ".mcp.json") + CLI_DOCS if (target / p).is_file()]
     for d in CLI_DIRS:
         candidates += walk_files(target, d)
-    flow_skill_dirs = {"/".join(p.split("/")[:3]) for p in flow_paths if p.split("/")[1:2] == ["skills"]}
+    flow_skill_dirs = {"/".join(p.split("/")[:3]) for p in flow_paths | set(inv.own_mirrors)
+                       if p.split("/")[1:2] == ["skills"]}  # the project's own mirrors are listed under keep
     cli_skill_files: dict[str, int] = {}
     for rel in sorted(set(candidates)):
         parts = rel.split("/")
@@ -439,6 +455,9 @@ def _never_and_keep(inv: Inventory, vendor: dict[str, str], flow_paths: set[str]
                    for p in target.glob(pattern) if p.relative_to(target).as_posix() not in ORPHANS)
     if local:
         inv.keep["local overrides"] = local
+    if inv.own_mirrors:
+        inv.keep["the project's own skills and agents, mirrored by Flow 5.x tooling (6.0 does not mirror them)"] = sorted(
+            set(inv.own_mirrors) | {s for s in map(mirror_source, inv.own_mirrors) if (target / s).is_file()})
     inv.keep["project rows in policies/module-size-baseline.txt"] = inv.rows or ["none"]
 
 
