@@ -482,9 +482,14 @@ def report(inv: Inventory, full: bool) -> None:
     say(f"commit on --apply --go-ahead: chore(flow): {inv.task} migrate Fusebase Flow {inv.version} to {core}")
 
 
-def run(target: Path, providers: set[str], full: bool) -> int:
+def run(target: Path, providers: set[str], full: bool, apply: bool = False, go_ahead: bool = False,
+        task: str | None = None) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # headings carry an em dash
+    if apply and not go_ahead:
+        print("[flow migrate] REFUSED: --apply needs --go-ahead, passed only after the operator's go-ahead in chat; "
+              "nothing written")
+        return 2
     target = target.resolve()
     if flow.git_toplevel(target) != target:
         print(f"[flow migrate] REFUSED: {target} is not the top level of a git work tree")
@@ -507,6 +512,12 @@ def run(target: Path, providers: set[str], full: bool) -> int:
         for line in inv.changed:
             print(f"[flow migrate]   {line}")
         return 3
-    print("[flow migrate] dry run: nothing changed")
+    inv.task = task or inv.task
+    if not apply:
+        print("[flow migrate] dry run: nothing changed")
+        report(inv, full)
+        return 0
+    import migrate_apply
+    print("[flow migrate] apply: the operator's go-ahead was given in chat (--go-ahead)")
     report(inv, full)
-    return 0
+    return migrate_apply.apply(inv)

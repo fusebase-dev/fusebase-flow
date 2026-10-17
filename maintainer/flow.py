@@ -12,6 +12,7 @@ import fnmatch
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -295,6 +296,9 @@ def main(argv: list[str]) -> int:
     m.add_argument("--target", required=True, type=Path)
     m.add_argument("--providers", default="claude,codex")
     m.add_argument("--full", action="store_true", help="list every path, not only the groups")
+    m.add_argument("--apply", action="store_true", help="perform the migration (needs --go-ahead)")
+    m.add_argument("--go-ahead", action="store_true", help="the operator gave the go-ahead in chat")
+    m.add_argument("--task", help="the T<n> of the migration commit (default: one above the highest in git log)")
     args = parser.parse_args(argv)
     providers = {x.strip() for x in args.providers.split(",") if x.strip()}
     unknown = providers - {"claude", "codex"}
@@ -303,7 +307,9 @@ def main(argv: list[str]) -> int:
     if args.cmd == "migrate":
         sys.modules.setdefault("flow", sys.modules[__name__])  # migrate.py imports this module, not a second copy
         import migrate
-        return migrate.run(args.target, providers, args.full)
+        if args.task and not re.fullmatch(r"T\d+", args.task):
+            parser.error("--task takes T<n>, such as T312")
+        return migrate.run(args.target, providers, args.full, args.apply, args.go_ahead, args.task)
     if args.wire_hooks:
         print("[flow] REFUSED: --wire-hooks is not in 6.0.0-m1 (the tool handlers land in phase 7); nothing written")
         return 2
