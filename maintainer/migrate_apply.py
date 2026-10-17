@@ -105,30 +105,31 @@ def overlay_and_version(inv: m.Inventory) -> list[str]:
 
 
 def install_and_carry(inv: m.Inventory) -> list[str]:
-    """Runs milestone 1's install with the 5.x records read before the removal, then carries the project's rows."""
+    """Runs milestone 1's install with the 5.x records read before the removal; install carries the project's rows."""
     target = inv.target
-    rc = flow.install(target, inv.providers, {p: {sha} for p, sha in inv.recorded.items() if sha})
+    # Every 5.x Flow path goes in, those without a sha256 as an empty set: install reads the keys as Flow-owned
+    # when it sorts the baseline's rows into Flow's and the project's.
+    rc = flow.install(target, inv.providers, {p: {sha} if sha else set() for p, sha in inv.recorded.items()})
     if rc != 0:
         raise m.Abort(f"install exited {rc} (its report above); the backup folder holds every file")
     plan = flow.planned_files(inv.providers)
-    wrong = [p for p in inv.replace + inv.new if p in plan
-             and not ((target / p).is_file() and flow.same_content((target / p).read_bytes(), flow.sha256(plan[p])))]
+    manifest = json.loads((target / flow.MANIFEST).read_text(encoding="utf-8"))
+    recorded = {e["path"]: e["sha256"] for e in manifest["files"]}
+    wrong = [p for p in inv.replace + inv.new if p in plan and not (
+        p in recorded and (target / p).is_file() and flow.same_content((target / p).read_bytes(), recorded[p]))]
+    if m.BASELINE in plan and recorded.get(m.BASELINE) != flow.sha256(flow.with_rows(plan[m.BASELINE], inv.rows)):
+        wrong.append(f"{m.BASELINE} (not the core's rows plus the {len(inv.rows)} the dry run named)")
     if wrong:
         raise m.Abort(f"after install {len(wrong)} core paths do not hold the core's bytes: {', '.join(wrong[:10])}")
     done = [f"install: the {len(inv.replace)} replace and {len([p for p in inv.new if p in plan])} new files hold "
-            f"the core's bytes; {flow.MANIFEST} says "
-            f"{json.loads((target / flow.MANIFEST).read_text(encoding='utf-8'))['flow_version']}"]
-    baseline = target / m.BASELINE
-    text = baseline.read_text(encoding="utf-8")
-    rows = [r for r in inv.rows if r not in text.splitlines()]
-    if rows:
-        flow.write_bytes(baseline, (text + ("" if text.endswith("\n") else "\n") + "\n".join(rows) + "\n")
-                         .encode("utf-8"), False)
-    stale = [line.split(None, 1)[1] for line in text.splitlines()
-             if line[:1].isdigit() and len(line.split(None, 1)) == 2 and not (target / line.split(None, 1)[1]).exists()]
+            f"the core's bytes; {flow.MANIFEST} says {manifest['flow_version']}"]
+    rows = flow.baseline_rows((target / m.BASELINE).read_bytes()) if (target / m.BASELINE).is_file() else {}
+    stale = [p for p in rows if not (target / p).exists()]
     done.append(f"carry-over: {m.BASELINE} is the core's plus {len(inv.rows)} project rows"
-                + (f" (rows naming files the core does not carry: {', '.join(stale)})" if stale else "")
-                + f"; local overrides left in place: {len(inv.keep.get('local overrides', []))}")
+                + (f" ({', '.join(inv.rows)})" if inv.rows else "")
+                + (f"; rows naming files the tree does not carry: {', '.join(stale)}" if stale else "")
+                + f"; {flow.MANIFEST} records its sha256; local overrides left in place: "
+                f"{len(inv.keep.get('local overrides', []))}")
     hooks = m.hooks_dir(target)
     same = [h for h in m.GIT_HOOKS if (hooks / h).is_file()
             and (hooks / h).read_bytes() == (flow.CORE / "hooks/git" / h).read_bytes()]

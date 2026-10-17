@@ -77,6 +77,45 @@ def build_project(root: Path) -> None:
     git(root, "commit", "-q", "-m", "chore: T1 Flow 5.6 project")
 
 
+def scratch_clone(tmp: Path) -> Path:
+    """A clone of a fresh synthetic 5.6 project, with a committer identity for the migration commit."""
+    build_project(tmp / "origin")
+    clone = tmp / "scratch"
+    git(tmp, "clone", "-q", "--no-hardlinks", str(tmp / "origin"), str(clone))
+    git(clone, "config", "user.name", "flow-test")
+    git(clone, "config", "user.email", "flow-test@example.invalid")
+    return clone
+
+
+def commit_file(clone: Path, rel: str, data: bytes, subject: str) -> None:
+    (clone / rel).parent.mkdir(parents=True, exist_ok=True)
+    (clone / rel).write_bytes(data)
+    git(clone, "add", "--", rel)
+    git(clone, "commit", "-q", "-m", subject)
+
+
+def blob(clone: Path, spec: str) -> bytes:
+    return subprocess.run([*GIT, "cat-file", "blob", spec], cwd=clone, capture_output=True, timeout=600).stdout
+
+
+def install(target: Path) -> subprocess.CompletedProcess:
+    return subprocess.run([sys.executable, str(FLOW), "install", "--target", str(target)],
+                          capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=1800)
+
+
+def listed(output: str, key: str) -> list[str]:
+    """The paths install prints under `[flow] <key>: N`."""
+    lines, found, inside = output.splitlines(), [], False
+    for line in lines:
+        if line.startswith(f"[flow] {key}: "):
+            inside = True
+        elif inside and line.startswith("[flow]   "):
+            found.append(line[len("[flow]   "):].split(" (")[0])
+        elif inside:
+            break
+    return found
+
+
 class AbortFixture(unittest.TestCase):
     def setUp(self) -> None:
         self.tmp = Path(tempfile.mkdtemp(prefix="flow-migrate-"))
@@ -162,6 +201,31 @@ class ApplyEndToEnd(unittest.TestCase):
             self.assertTrue((clone / "workflows/verification-gate.md").is_file())
             self.assertEqual(git(clone, "checkout", "-q", "-").returncode, 0)
             self.assertEqual(git(clone, "rev-parse", "HEAD").stdout.strip(), after)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
+class BaselineCarry(unittest.TestCase):
+    def test_a_project_row_is_carried_and_a_following_install_keeps_it(self) -> None:
+        tmp = Path(tempfile.mkdtemp(prefix="flow-migrate-"))
+        try:
+            clone = scratch_clone(tmp)
+            baseline = "policies/module-size-baseline.txt"
+            commit_file(clone, baseline, (FILES[baseline] + "900 src/big.ts\n").encode("utf-8"),
+                        "chore: T5 the ratchet adds a project row")
+            run = migrate(clone, "--apply", "--go-ahead")
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            self.assertIn("committed: ", run.stdout)
+            core = (FLOW.parents[1] / baseline).read_bytes().replace(b"\r\n", b"\n")
+            committed = blob(clone, f"HEAD:{baseline}")
+            self.assertEqual(committed, core + b"900 src/big.ts\n")
+            manifest = json.loads(blob(clone, "HEAD:audit/flow-install.json"))
+            recorded = {e["path"]: e["sha256"] for e in manifest["files"]}
+            self.assertEqual(recorded[baseline], hashlib.sha256(committed).hexdigest())
+            again = install(clone)
+            self.assertEqual(again.returncode, 0, again.stdout + again.stderr)
+            self.assertIn(baseline, listed(again.stdout, "unchanged"), again.stdout)
+            self.assertEqual(git(clone, "status", "--porcelain").stdout, "")
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 

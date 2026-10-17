@@ -29,7 +29,7 @@ ORPHANS = ("policies/model-routing.local.yml",)  # override of a policy the core
 COMMANDS_SRC = "hooks/local/fusebase-flow-overlays/commands/"
 GIT_HOOKS = ("pre-commit", "commit-msg", "pre-push")
 HOOK_MARKER = b"fusebase-flow-managed-hook:"
-BASELINE = "policies/module-size-baseline.txt"
+BASELINE = flow.BASELINE
 CLI_DOCS = ("docs/north-star.md", "docs/audience.md", "docs/product.md", "docs/business-logic.md")
 CLI_OWNED = flow.NEVER_TOUCH + (".cursor/mcp.json",) + CLI_DOCS
 CLI_DIRS = (".claude", ".codex", ".cursor", ".codex-plugin", ".agents")
@@ -208,19 +208,6 @@ def wiring(target: Path) -> str:
     return f"claude: {claude}; codex: {codex}"
 
 
-def baseline_rows(target: Path, flow_paths: set[str]) -> list[str]:
-    try:
-        lines = (target / BASELINE).read_text(encoding="utf-8").splitlines()
-    except OSError:
-        return []
-    rows = []
-    for line in lines:
-        parts = line.split(None, 1)
-        if len(parts) == 2 and parts[0].isdigit() and parts[1].strip() not in flow_paths:
-            rows.append(line.strip())
-    return rows
-
-
 def next_task(target: Path) -> str:
     log = git(target, "log", "--format=%s").stdout.decode("utf-8", "replace")
     numbers = [int(n) for n in re.findall(r"\bT(\d+)", log)]
@@ -300,6 +287,10 @@ def inventory(target: Path, providers: set[str]) -> Inventory:
             inv.recorded.setdefault(p, "")
     plan = flow.planned_files(providers)
     plan_paths = set(plan) | {flow.MANIFEST}
+    if (target / BASELINE).is_file() and BASELINE in plan:
+        # install carries these rows into the core's baseline (flow.project_rows); the dry run names them
+        inv.rows = flow.project_rows((target / BASELINE).read_bytes(), plan[BASELINE], set(groups) | plan_paths)
+        plan[BASELINE] = flow.with_rows(plan[BASELINE], inv.rows)
     for rel in sorted(groups):
         sha = inv.recorded[rel]
         f = target / rel
@@ -337,6 +328,9 @@ def inventory(target: Path, providers: set[str]) -> Inventory:
             inv.never.setdefault("core paths the install refuses", []).append(f"{rel} ({why})")
         elif not f.exists():
             inv.new.append(rel)
+        elif rel == BASELINE:  # no 5.x record: install still merges it (the core's rows plus the project's)
+            if not flow.same_content(f.read_bytes(), flow.sha256(plan[rel])):
+                inv.replace.append(rel)
         elif not (rel in plan and flow.same_content(f.read_bytes(), flow.sha256(plan[rel]))):
             inv.changed.append(f"{rel} (exists and is not Flow's: install would keep it, not the core's)")
     _never_and_keep(inv, vendor, set(groups) | plan_paths)
@@ -396,7 +390,6 @@ def _never_and_keep(inv: Inventory, vendor: dict[str, str], flow_paths: set[str]
                    for p in target.glob(pattern) if p.relative_to(target).as_posix() not in ORPHANS)
     if local:
         inv.keep["local overrides"] = local
-    inv.rows = baseline_rows(target, flow_paths)
     inv.keep["project rows in policies/module-size-baseline.txt"] = inv.rows or ["none"]
 
 

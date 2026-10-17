@@ -35,6 +35,7 @@ NEVER_TOUCH = (
     ".claude/settings.local.json", ".claude/hooks/*", ".claude/agents/app-*",
     ".codex/agents/app-*", ".codex/config.toml", ".codex/hooks.json", ".codex-plugin/*",
 )
+BASELINE = "policies/module-size-baseline.txt"  # the core's rows plus the project's, carried by install
 OVERLAY = {"AGENTS.md": "maintainer/overlay/AGENTS.block.md", "CLAUDE.md": "maintainer/overlay/CLAUDE.block.md"}
 FLOW_BEGIN, FLOW_END = "<!-- FLOW:BEGIN", "<!-- FLOW:END -->"
 PRESERVE_BEGIN, PRESERVE_END = "<!-- FLOW:PRESERVE:BEGIN", "<!-- FLOW:PRESERVE:END -->"
@@ -111,6 +112,30 @@ def planned_files(providers: set[str]) -> dict[str, bytes]:
         if "codex" in providers and a in CODEX_AGENTS:
             plan[f".codex/agents/{a}.toml"] = codex_agent_toml(data.decode("utf-8")).encode("utf-8")
     return plan
+
+
+def baseline_rows(data: bytes) -> dict[str, str]:
+    """{path: row} for each `N path` row, parsed as hooks/shared/module_size.py reads them (a later row wins)."""
+    rows: dict[str, str] = {}
+    for line in data.decode("utf-8", "replace").splitlines():
+        line = line.strip()
+        parts = line.split(" ", 1)
+        if line and not line.startswith("#") and len(parts) == 2 and parts[0].isdigit():
+            rows[parts[1]] = line
+    return rows
+
+
+def project_rows(current: bytes, core: bytes, flow_paths: set[str]) -> list[str]:
+    """The project's rows of a module-size baseline: rows naming a path neither Flow nor the core's rows own."""
+    core_paths = set(baseline_rows(core))
+    return [row for path, row in baseline_rows(current).items() if path not in flow_paths and path not in core_paths]
+
+
+def with_rows(core: bytes, rows: list[str]) -> bytes:
+    """The core's baseline with the project's rows appended, LF."""
+    if not rows:
+        return core
+    return core + (b"" if core.endswith(b"\n") else b"\n") + "".join(f"{r}\n" for r in rows).encode("utf-8")
 
 
 def load_prior(target: Path) -> dict[str, set[str]]:
@@ -241,7 +266,13 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
     cli_skills = cli_skill_names(target)
     report: dict[str, list[str]] = {k: [] for k in ("added", "replaced", "unchanged", "kept", "refused", "merged")}
     recorded: list[dict[str, str]] = []
-    for rel, data in planned_files(providers).items():
+    plan = planned_files(providers)
+    rows: list[str] = []
+    if BASELINE in plan and (target / BASELINE).is_file() and not (target / BASELINE).is_symlink():
+        # The rows naming Flow paths are Flow's and come from the core; the project's rows are carried.
+        rows = project_rows((target / BASELINE).read_bytes(), plan[BASELINE], set(plan) | set(prior))
+        plan[BASELINE] = with_rows(plan[BASELINE], rows)
+    for rel, data in plan.items():
         why = refusal(target, rel, cli_skills)
         if why:
             report["refused"].append(f"{rel} ({why})")
@@ -253,10 +284,10 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
                 report["unchanged"].append(rel)
                 recorded.append({"path": rel, "sha256": sha256(data)})
                 continue
-            if not any(same_content(current, s) for s in prior.get(rel, ())):
+            if rel != BASELINE and not any(same_content(current, s) for s in prior.get(rel, ())):
                 report["kept"].append(f"{rel} (differs; not a Flow-owned unedited file)")
                 continue
-            report["replaced"].append(rel)
+            report["replaced"].append(f"{rel} (the core's rows plus {len(rows)} project rows)" if rel == BASELINE else rel)
         else:
             report["added"].append(rel)
         write_bytes(dest, data, matches(rel, EXECUTABLE))
