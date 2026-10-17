@@ -36,6 +36,7 @@ FILES = {
     "AGENTS.md": "# AGENTS.md\n\nCLI text.\n\n" + OVERLAY,
     "scripts/slice.mjs": "read('verification-gate.md')\n",
     "state/approvals/.gitkeep": "",
+    ".gitignore": "__pycache__/\nstate/approvals/*\n!state/approvals/.gitkeep\n",
 }
 
 
@@ -130,6 +131,37 @@ class RemovalFallback(unittest.TestCase):
             for rel in moved:
                 self.assertFalse((clone / rel).exists(), rel)
                 self.assertTrue((folder / migrate_apply.backup_rel(rel)).is_file(), rel)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
+class ApplyEndToEnd(unittest.TestCase):
+    def test_second_apply_is_a_no_op_and_rollback_is_one_checkout(self) -> None:
+        tmp = Path(tempfile.mkdtemp(prefix="flow-migrate-"))
+        try:
+            build_project(tmp / "origin")
+            clone = tmp / "scratch"
+            git(tmp, "clone", "-q", "--no-hardlinks", str(tmp / "origin"), str(clone))
+            git(clone, "config", "user.name", "flow-test")
+            git(clone, "config", "user.email", "flow-test@example.invalid")
+            pre = git(clone, "rev-parse", "HEAD").stdout.strip()
+            run = migrate(clone, "--apply", "--go-ahead")
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            self.assertIn("committed: ", run.stdout)
+            self.assertIn("chore(flow): T2 migrate Fusebase Flow 5.6 to ", run.stdout)
+            self.assertEqual(git(clone, "status", "--porcelain").stdout, "")
+            self.assertEqual(sorted(p.name for p in (clone / "state/approvals").iterdir()), [".gitkeep"])
+            self.assertFalse((clone / "workflows/verification-gate.md").exists())
+            again = migrate(clone, "--apply", "--go-ahead")
+            self.assertEqual(again.returncode, 0, again.stdout)
+            self.assertIn("nothing to migrate", again.stdout)
+            self.assertEqual(git(clone, "status", "--porcelain").stdout, "")
+            after = git(clone, "rev-parse", "HEAD").stdout.strip()
+            self.assertEqual(git(clone, "checkout", "-q", pre).returncode, 0)
+            self.assertEqual((clone / "FLOW_RULES.md").read_text(encoding="utf-8"), FILES["FLOW_RULES.md"])
+            self.assertTrue((clone / "workflows/verification-gate.md").is_file())
+            self.assertEqual(git(clone, "checkout", "-q", "-").returncode, 0)
+            self.assertEqual(git(clone, "rev-parse", "HEAD").stdout.strip(), after)
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
