@@ -286,6 +286,11 @@ class BaselineCarry(unittest.TestCase):
             shutil.rmtree(tmp, ignore_errors=True)
 
 
+# a Flow block whose END marker was lost, with the project's lines after it
+NO_END = (b"*.psd binary\n# FLOW:BEGIN line endings (flow.py install writes this block; re-install replaces it)\n"
+          b"/VERSION text eol=lf\n*.sketch binary\nproject line\n")
+
+
 def hooks_and_exclude(clone: Path) -> dict[str, bytes]:
     found = {}
     for sub in ("hooks", "info"):
@@ -360,6 +365,22 @@ class Preflight(unittest.TestCase):
         self.assertEqual(list(self.clone.glob(".flow-migrate-*")), [])
         self.assertTrue((self.clone / "audit/managed-content-manifest.json").is_file())
         self.assertEqual(git(self.clone, "diff", "--name-only", "HEAD").stdout.split(), tracked)
+
+    def test_a_flow_attributes_block_without_its_end_marker_stops_the_apply(self) -> None:
+        commit_file(self.clone, ".gitattributes", NO_END, "chore: T1 a damaged Flow block")
+        self.assert_stopped_with_nothing_changed(".gitattributes line 2", "FLOW:END")
+
+    def test_install_refuses_a_flow_attributes_block_without_its_end_marker(self) -> None:
+        repo = self.tmp / "fresh"
+        repo.mkdir()
+        git(repo, "init", "-q")
+        commit_file(repo, ".gitattributes", NO_END, "chore: T1 a damaged Flow block")
+        before, git_before = snapshot(repo), hooks_and_exclude(repo)
+        run = install(repo)
+        self.assertEqual(run.returncode, 2, run.stdout + run.stderr)
+        self.assertIn(".gitattributes line 2", run.stdout)
+        self.assertEqual(before, snapshot(repo), "the refused install changed the tree")
+        self.assertEqual(git_before, hooks_and_exclude(repo), "the refused install changed .git/hooks or .git/info")
 
     def test_a_lint_that_writes_a_flow_file_and_passes_stops_the_apply(self) -> None:
         self.lint_that_writes("printf x >> FLOW_RULES.md", "FLOW_RULES.md", ["FLOW_RULES.md"])

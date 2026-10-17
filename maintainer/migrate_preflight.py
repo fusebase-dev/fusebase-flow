@@ -102,6 +102,15 @@ def baseline(inv: m.Inventory) -> Check:
     return Check("baseline carry", f"the core's rows ({core}) plus the project's ({len(inv.rows)}){rows}")
 
 
+def attributes(inv: m.Inventory) -> Check:
+    path = inv.target / flow.ATTRIBUTES
+    found = flow.attribute_markers(path.read_bytes().decode("utf-8", "surrogateescape")) if path.is_file() else (-1, -1)
+    if isinstance(found, str):
+        return Check(flow.ATTRIBUTES, found, True, flow.ATTR_FIX)
+    return Check(flow.ATTRIBUTES, "no Flow line-ending block: install appends one" if found[0] < 0 else
+                 f"the Flow line-ending block, lines {found[0] + 1} to {found[1] + 1}: install replaces it")
+
+
 def planned_paths(inv: m.Inventory) -> list[str]:
     """What the migration commit stages by name (migrate_apply.commit), before any of it exists."""
     index = set(m.git(inv.target, "ls-files", "-z").stdout.decode("utf-8", "replace").split("\0"))
@@ -248,7 +257,7 @@ def run(inv: m.Inventory, apply: bool) -> list[Check]:
     """Prints each check as it completes; lint and typecheck run (with --apply) only when the rest pass."""
     print("[flow migrate] preflight (--apply runs it before it changes anything):")
     stops: list[Check] = []
-    for check in (tracked_tree, git_hooks, hooks_path, baseline, staging, interpreter):
+    for check in (tracked_tree, git_hooks, hooks_path, baseline, attributes, staging, interpreter):
         stops += show(check(inv))
     stops += show(validators(inv, apply) if not stops
                   else Check("lint and typecheck", "not run: a check above stops the apply"))

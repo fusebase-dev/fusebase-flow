@@ -44,6 +44,9 @@ WRAP_BEGIN, WRAP_END = "<!-- CUSTOM:SKILL:BEGIN -->", "<!-- CUSTOM:SKILL:END -->
 ATTRIBUTES = ".gitattributes"
 ATTR_BEGIN, ATTR_END = "# FLOW:BEGIN line endings (flow.py install writes this block; re-install replaces it)", \
     "# FLOW:END line endings"
+ATTR_BEGIN_MARK = ATTR_BEGIN.split(" (")[0]  # a marker line starts with this; the rest of the line may vary
+ATTR_FIX = ("restore the missing marker line, or delete the block's lines by hand, then re-run "
+            "(Flow replaces only a whole marked block and never deletes the project's lines)")
 DOCS_DIR = "docs/flow"
 DOCUMENTS = tuple(f"{DOCS_DIR}/{name}.md" for name in ("backlog", "phases", "evidence", "ledger"))
 
@@ -237,17 +240,33 @@ def attributes_block(paths: list[str]) -> str:
                       "the sha256 records stop matching.", *(f"/{p} text eol=lf" for p in pins), ATTR_END]) + "\n"
 
 
+def attribute_markers(text: str) -> tuple[int, int] | str:
+    """The Flow block's BEGIN and END line indexes ((-1, -1) when it has none), or what is wrong with its markers."""
+    lines = text.split("\n")
+    begins = [i for i, line in enumerate(lines) if line.startswith(ATTR_BEGIN_MARK)]
+    ends = [i for i, line in enumerate(lines) if line.startswith(ATTR_END)]
+    if not begins and not ends:
+        return -1, -1
+    if len(begins) == 1 and len(ends) == 1 and begins[0] < ends[0]:
+        return begins[0], ends[0]
+    where = "; ".join(f"line {i + 1}: '{ATTR_BEGIN_MARK if i in begins else ATTR_END}'" for i in sorted(begins + ends))
+    return f"{ATTRIBUTES} {where}: the Flow block needs one '{ATTR_BEGIN_MARK}' line, then one '{ATTR_END}' line"
+
+
 def merge_attributes(existing: str | None, block: str) -> str:
-    """The block replaces its earlier copy, or is appended; the file keeps its own line endings (merged, as AGENTS.md)."""
+    """The block replaces its earlier copy, or is appended; the file keeps its own line endings (merged, as AGENTS.md).
+    The caller has checked the markers (attribute_markers)."""
     if existing is None:
         return block
     nl = "\r\n" if existing[:existing.find("\n") + 1].endswith("\r\n") else "\n"
     block = block.replace("\n", nl)
-    start = existing.find(ATTR_BEGIN)
-    stop = existing.find(ATTR_END, start) if start >= 0 else -1
-    if stop >= 0:
-        stop = existing.find("\n", stop)
-        return existing[:start] + block + (existing[stop + 1:] if stop >= 0 else "")
+    found = attribute_markers(existing)
+    if isinstance(found, str):
+        raise ValueError(found)
+    start, stop = found
+    if start >= 0:
+        lines = existing.split("\n")  # a CRLF line keeps its \r
+        return "".join(f"{line}\n" for line in lines[:start]) + block + "\n".join(lines[stop + 1:])
     sep = "" if not existing or existing.endswith("\n") else nl
     return existing + sep + (nl if existing else "") + block
 
@@ -288,6 +307,11 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
     target = target.resolve()
     if git_toplevel(target) != target:
         print(f"[flow] REFUSED: {target} is not the top level of a git work tree (git init it first)")
+        return 2
+    attrs = target / ATTRIBUTES
+    damaged = attribute_markers(attrs.read_bytes().decode("utf-8", "surrogateescape")) if attrs.is_file() else ""
+    if isinstance(damaged, str) and damaged:
+        print(f"[flow] REFUSED: {damaged}; {ATTR_FIX}; nothing written")
         return 2
     version = (CORE / "VERSION").read_text(encoding="utf-8").strip()
     prior = load_prior(target)
@@ -332,7 +356,6 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
         if after != before:
             write_bytes(dest, after.encode("utf-8"), False)
         report["merged"].append(f"{name} ({'created' if before is None else 'block updated' if after != before else 'block current'})")
-    attrs = target / ATTRIBUTES
     if attrs.is_symlink() or (attrs.exists() and not attrs.is_file()):
         report["refused"].append(f"{ATTRIBUTES} (a symlink or not a regular file: the line-ending block is not written)")
     else:
