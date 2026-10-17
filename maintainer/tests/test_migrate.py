@@ -268,6 +268,26 @@ class Preflight(unittest.TestCase):
         run = self.assert_stopped_with_nothing_changed(".git/hooks/pre-commit")
         self.assertIn("mv .git/hooks/pre-commit .git/hooks/pre-commit.pre-flow", run.stdout)
 
+    def test_core_hookspath_stops_the_apply_before_any_change(self) -> None:
+        git(self.clone, "config", "core.hooksPath", ".husky")
+        self.assert_stopped_with_nothing_changed("core.hooksPath", ".husky")
+
+    @unittest.skipUnless(shutil.which("npm"), "npm is not on PATH")
+    def test_a_failing_lint_stops_the_apply_before_any_change(self) -> None:
+        commit_file(self.clone, "package.json", b'{\n  "name": "demo",\n  "private": true,\n'
+                    b'  "scripts": {"lint": "exit 3"}\n}\n', "chore: T5 the project's lint")
+        before, git_before = snapshot(self.clone), hooks_and_exclude(self.clone)
+        run = migrate(self.clone, "--apply", "--go-ahead")
+        self.assertEqual(run.returncode, 2, run.stdout + run.stderr)
+        self.assertIn("STOPPED before any change", run.stdout)
+        self.assertIn("lint failed: `npm run -s lint` exited", run.stdout)
+        self.assertEqual(before, snapshot(self.clone), "the stopped run changed the tree")
+        self.assertEqual(git_before, hooks_and_exclude(self.clone), "the stopped run changed .git/hooks or .git/info")
+        self.assertEqual(list(self.clone.glob(".flow-migrate-*")), [])
+        dry = migrate(self.clone)
+        self.assertEqual(dry.returncode, 0, dry.stdout + dry.stderr)
+        self.assertIn("npm run -s lint", dry.stdout)
+
 
 @unittest.skipUnless(os.environ.get("FLOW_MIGRATE_FIXTURE"), "FLOW_MIGRATE_FIXTURE not set")
 class RealProjectAbort(unittest.TestCase):

@@ -521,7 +521,8 @@ def run(target: Path, providers: set[str], full: bool, apply: bool = False, go_a
     print("[flow migrate] dry run: nothing changed" if not apply
           else "[flow migrate] apply: the operator's go-ahead was given in chat (--go-ahead)")
     report(inv, full)
-    stops = migrate_preflight.report(migrate_preflight.checks(inv))
+    sys.stdout.flush()
+    stops = migrate_preflight.run(inv, apply)
     if stops:
         print(f"[flow migrate] {'STOPPED before any change' if apply else '--apply would stop before any change'}: "
               f"{len(stops)} preflight check(s) failed ({', '.join(c.name for c in stops)}); nothing written")
