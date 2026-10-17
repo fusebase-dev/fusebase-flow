@@ -1,0 +1,11 @@
+# Fusebase Flow 6.0 — tool profiles (WP 4). The canonical agents' `tools:` lines must equal these.
+# The reader never gains a write or shell tool. Variants only add tools to builder or planner.
+schema_version: 1
+profiles:
+  planner: [Read, Glob, Grep, Bash, Write, Edit, Agent]
+  builder: [Read, Glob, Grep, Bash, Write, Edit]
+  reader: [Read, Glob, Grep]
+# <variant>: {base: builder|planner, add_tools: [<tool>, ...]}
+agents: {}
+# <kind>: <tool>, for backlog inputs written <kind>:<reference> (the slicer reads this in M3)
+input_kinds: {}
