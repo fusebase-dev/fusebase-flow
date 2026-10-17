@@ -136,6 +136,53 @@ def install_and_carry(inv: m.Inventory) -> list[str]:
     return done
 
 
+def migration_report(inv: m.Inventory, stamp: str, folder: Path, backed: int, moved: list[str]) -> list[str]:
+    core = (flow.CORE / "VERSION").read_text(encoding="utf-8").strip()
+    when = dt.datetime.strptime(stamp, "%Y%m%dT%H%M%SZ").strftime("%Y-%m-%dT%H:%MZ")
+    groups = "; ".join(f"{g} {len(inv.remove[g])}" for g in m.GROUPS)
+    never = "; ".join(f"{k} {len(v)}" for k, v in inv.never.items())
+    keep = "; ".join(f"{k}: {', '.join(v) if len(v) <= 12 else len(v)}" for k, v in inv.keep.items())
+    refs = "; ".join(f"{rel} ({', '.join(found)})" for rel, found in inv.consumers.items()) or "none"
+    lines = [
+        "## Migration report",
+        f"- {when} Fusebase Flow {inv.version} -> {core} by `flow.py migrate --apply --go-ahead` "
+        f"(providers: {', '.join(sorted(inv.providers))})",
+        f"- pre-migration commit: {inv.head} ({inv.branch}); rollback: `git checkout {inv.head[:8]}`",
+        f"- backup folder: {folder.name}/ ({backed} files, excluded in .git/info/exclude; delete it once the "
+        "migration is accepted)" + (f"; {len(moved)} files moved into it, deletion refused" if moved else ""),
+        f"- remove: {len(inv.removals())} ({groups})",
+        f"- replace: {len(inv.replace)} ({len(inv.identical)} already identical); new: {len(inv.new)}; rewritten: "
+        f"{', '.join(list(inv.overlays) + (['VERSION'] if inv.version_is_flow else []))}; .gitignore unchanged",
+        f"- never touch: {never}; {m.CLI_VENDOR} {inv.vendor[0]} listed, {inv.vendor[1]} present",
+        f"- keep: {keep}",
+        "- changed-by-both: 0",
+        f"- consumer references ({len(inv.consumers)}): {refs}",
+        f"- history mentions under {', '.join(m.HISTORY_DIRS)}/: {len(inv.history)} files, kept as written",
+        f"- hidden by .gitignore: {', '.join(inv.hidden) or 'none'}",
+        f"- hook wiring (left as is): {inv.wiring}",
+        "- not run: check-cli-flow-conflicts.sh and the health check (neither is in the 6.0 core yet)",
+    ]
+    return lines
+
+
+def documents(inv: m.Inventory, report: list[str]) -> list[str]:
+    """Creates the four documents from the core's templates when absent; the report leads the ledger."""
+    created = []
+    for rel in m.DOCS:
+        dest = inv.target / rel
+        if not dest.exists():
+            flow.write_bytes(dest, (flow.CORE / "templates" / Path(rel).name).read_bytes(), False)
+            created.append(Path(rel).name)
+    ledger = inv.target / "docs/flow/ledger.md"
+    text = ledger.read_text(encoding="utf-8")
+    head, sep, rest = text.partition("\n") if text.startswith("status:") else ("", "", text)
+    block = "\n".join(report) + "\n"
+    flow.write_bytes(ledger, (head + sep + "\n" + block + ("\n" if not rest.startswith("\n") else "") + rest)
+                     .encode("utf-8"), False)
+    return [f"documents: {', '.join(created) or 'none'} created from the core's templates in docs/flow/; "
+            f"the migration report ({len(report) - 1} lines) leads ledger.md; backlog.md has no items"]
+
+
 def apply(inv: m.Inventory) -> int:
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     folder, files = backup(inv, stamp)
@@ -161,4 +208,6 @@ def apply(inv: m.Inventory) -> int:
     except m.Abort as exc:
         say(f"STOPPED: {exc}")
         return 1
+    for line in documents(inv, migration_report(inv, stamp, folder, len(files), moved)):
+        say(line)
     return 0
