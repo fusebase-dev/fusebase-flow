@@ -40,13 +40,12 @@ OVERLAY = {"AGENTS.md": "maintainer/overlay/AGENTS.block.md", "CLAUDE.md": "main
 FLOW_BEGIN, FLOW_END = "<!-- FLOW:BEGIN", "<!-- FLOW:END -->"
 PRESERVE_BEGIN, PRESERVE_END = "<!-- FLOW:PRESERVE:BEGIN", "<!-- FLOW:PRESERVE:END -->"
 WRAP_BEGIN, WRAP_END = "<!-- CUSTOM:SKILL:BEGIN -->", "<!-- CUSTOM:SKILL:END -->"
-# The project's .gitattributes gets one Flow block pinning what Flow writes to LF, scoped to those paths so the
-# project's own files are not renormalized (Onboarding's 5.6 block is the model); re-install replaces the block.
+# The project's .gitattributes gets one Flow block pinning what Flow writes to LF; re-install replaces the block.
 ATTRIBUTES = ".gitattributes"
 ATTR_BEGIN, ATTR_END = "# FLOW:BEGIN line endings (flow.py install writes this block; re-install replaces it)", \
     "# FLOW:END line endings"
-FLOW_DIRS = ("agents", "flow-skills", "hooks", "policies", "templates", "workflows")
 DOCS_DIR = "docs/flow"
+DOCUMENTS = tuple(f"{DOCS_DIR}/{name}.md" for name in ("backlog", "phases", "evidence", "ledger"))
 
 
 def sha256(data: bytes) -> str:
@@ -230,18 +229,12 @@ def merge_block(existing: str | None, block: str) -> str:
 
 
 def attributes_block(paths: list[str]) -> str:
-    """`text eol=lf` for each path Flow writes: its folders, its skill mirror folders, its single files."""
-    pins = {f"{DOCS_DIR}/**", MANIFEST}
-    for rel in paths:
-        parts = rel.split("/")
-        if parts[0] in FLOW_DIRS:
-            pins.add(f"{parts[0]}/**")
-        elif len(parts) > 3 and parts[0] in (".claude", ".agents") and parts[1] == "skills":
-            pins.add("/".join(parts[:3]) + "/**")
-        else:
-            pins.add(rel)
+    """`text eol=lf` for each file Flow writes, by its exact path, anchored with a leading slash."""
+    # TRIPWIRE: never a folder, a type or text=auto: the block comes last, so any of those overrides the project's own
+    # `*.png binary` lines and rewrites the CRLF bytes inside its binaries (fix-pass review R1).
+    pins = sorted({*paths, MANIFEST, *DOCUMENTS})
     return "\n".join([ATTR_BEGIN, "# core.autocrlf=true would otherwise check these out as CRLF: the hooks break and "
-                      "the sha256 records stop matching.", *(f"{p} text eol=lf" for p in sorted(pins)), ATTR_END]) + "\n"
+                      "the sha256 records stop matching.", *(f"/{p} text eol=lf" for p in pins), ATTR_END]) + "\n"
 
 
 def merge_attributes(existing: str | None, block: str) -> str:

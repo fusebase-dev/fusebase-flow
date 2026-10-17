@@ -179,6 +179,12 @@ class RemovalFallback(unittest.TestCase):
             shutil.rmtree(tmp, ignore_errors=True)
 
 
+GIT_CRLF = [GIT[0], *GIT[1:-2], "-c", "core.autocrlf=true"]  # a Windows checkout
+# CRLF pairs and NUL bytes; the GIF has no NUL, so only the project's own `*.gif binary` line makes it binary
+BINARIES = {"templates/logo.png": b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\r\n", "hooks/blob.bin": b"BIN\r\n\x00\x01\r\nEND",
+            "templates/plain.gif": b"GIF89a\r\nno NUL byte\r\n"}
+
+
 class ApplyEndToEnd(unittest.TestCase):
     """One migration of the synthetic project, shared by the checks below (an apply takes minutes on a loaded host)."""
 
@@ -186,8 +192,30 @@ class ApplyEndToEnd(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.tmp = Path(tempfile.mkdtemp(prefix="flow-migrate-"))
         cls.clone = scratch_clone(cls.tmp)
+        commit_file(cls.clone, ".gitattributes", b"*.png binary\n*.gif binary\n", "chore: T1 the project's attributes")
         cls.pre = git(cls.clone, "rev-parse", "HEAD").stdout.strip()
         cls.applied = migrate(cls.clone, "--apply", "--go-ahead")
+
+    def test_binaries_in_flow_folders_keep_their_bytes(self) -> None:
+        self.assertEqual(self.applied.returncode, 0, self.applied.stdout + self.applied.stderr)
+        fresh = self.tmp / "binaries"
+        run = lambda *args: subprocess.run([*GIT_CRLF, *args], cwd=fresh, capture_output=True, timeout=600)
+        subprocess.run([*GIT_CRLF, "clone", "-q", "--no-hardlinks", str(self.clone), str(fresh)], timeout=600)
+        for rel, data in BINARIES.items():
+            (fresh / rel).write_bytes(data)
+        self.assertEqual(run("add", "--", *BINARIES).returncode, 0)
+        self.assertEqual(run("commit", "-q", "-m", "chore: T3 the project's binaries").returncode, 0)
+        attrs = run("check-attr", "text", "--", *BINARIES).stdout.decode()
+        for rel in BINARIES:
+            self.assertNotIn(f"{rel}: text: set", attrs)
+        self.assertEqual(run("checkout", "-q", self.pre).returncode, 0)
+        self.assertEqual(run("checkout", "-q", "-").returncode, 0)
+        for rel, data in BINARIES.items():
+            self.assertEqual((fresh / rel).read_bytes(), data, rel)
+            self.assertEqual(run("cat-file", "blob", f"HEAD:{rel}").stdout, data, rel)
+        for rel in ("docs/flow/ledger.md", "audit/flow-install.json", "VERSION", ".codex/agents/builder.toml",
+                    ".claude/skills/plan/SKILL.md", "workflows/lifecycle.md", "hooks/git/pre-commit"):
+            self.assertNotIn(b"\r", (fresh / rel).read_bytes(), rel)
 
     @classmethod
     def tearDownClass(cls) -> None:

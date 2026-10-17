@@ -41,7 +41,7 @@ CLI_DIRS = (".claude", ".codex", ".cursor", ".codex-plugin", ".agents")
 CONSUMER_DIRS = ("workflows", "scripts", ".claude")
 HISTORY_DIRS = ("docs/tmp",)
 REWRITTEN = ("AGENTS.md", "CLAUDE.md", "VERSION", ".gitignore", flow.ATTRIBUTES)  # backed up, rewritten in place
-DOCS = ("docs/flow/backlog.md", "docs/flow/phases.md", "docs/flow/evidence.md", "docs/flow/ledger.md")
+DOCS = flow.DOCUMENTS
 GROUPS = ("manifest assets", "skill mirrors", "agent mirrors", "command mirrors", "old audit records",
           "5.x root files", "orphan local overrides", "bytecode under hooks/", "old git hooks")
 HEADING = re.compile(rb"^## FuseBase Flow[^\r\n]*", re.M)
