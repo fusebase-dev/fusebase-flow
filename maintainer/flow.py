@@ -291,11 +291,19 @@ def main(argv: list[str]) -> int:
     p.add_argument("--target", required=True, type=Path)
     p.add_argument("--providers", default="claude,codex")
     p.add_argument("--wire-hooks", action="store_true")
+    m = sub.add_parser("migrate", help="move a project from its Flow 5.x install onto this core (a dry run by default)")
+    m.add_argument("--target", required=True, type=Path)
+    m.add_argument("--providers", default="claude,codex")
+    m.add_argument("--full", action="store_true", help="list every path, not only the groups")
     args = parser.parse_args(argv)
     providers = {x.strip() for x in args.providers.split(",") if x.strip()}
     unknown = providers - {"claude", "codex"}
     if unknown:
         parser.error(f"unknown provider(s): {', '.join(sorted(unknown))} (supported: claude, codex)")
+    if args.cmd == "migrate":
+        sys.modules.setdefault("flow", sys.modules[__name__])  # migrate.py imports this module, not a second copy
+        import migrate
+        return migrate.run(args.target, providers, args.full)
     if args.wire_hooks:
         print("[flow] REFUSED: --wire-hooks is not in 6.0.0-m1 (the tool handlers land in phase 7); nothing written")
         return 2

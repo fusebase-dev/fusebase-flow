@@ -1,0 +1,512 @@
+#!/usr/bin/env python3
+"""`python maintainer/flow.py migrate --target DIR [--providers claude,codex] [--full]`.
+
+Moves a project from its Fusebase Flow 5.x install onto the 6.0 core (handoff WP 12). A dry run by
+default: it prints the lists (remove, replace, new, never touch, keep, consumer references, hidden)
+and changes nothing.
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+import subprocess
+import sys
+from dataclasses import dataclass, field
+from pathlib import Path
+
+import flow
+
+MC_MANIFEST = "audit/managed-content-manifest.json"
+SKILL_MIRRORS = "audit/skill-mirror-manifest.txt"
+AGENT_MIRRORS = "audit/agent-mirror-manifest.txt"
+CLI_VENDOR = "audit/cli-vendor-manifest.json"
+# Flow 5.x files no manifest records; on Onboarding each is byte-identical to Flow v5.6.
+AUDIT_5X = ("audit/README.md", AGENT_MIRRORS, "audit/cli-upstream-manifest.json", CLI_VENDOR,
+            "audit/hook-layer-manifest.json", MC_MANIFEST, SKILL_MIRRORS)
+ROOT_5X = ("GEMINI.md", "install.sh")
+ORPHANS = ("policies/model-routing.local.yml",)  # override of a policy the core drops
+COMMANDS_SRC = "hooks/local/fusebase-flow-overlays/commands/"
+GIT_HOOKS = ("pre-commit", "commit-msg", "pre-push")
+HOOK_MARKER = b"fusebase-flow-managed-hook:"
+BASELINE = "policies/module-size-baseline.txt"
+CLI_DOCS = ("docs/north-star.md", "docs/audience.md", "docs/product.md", "docs/business-logic.md")
+CLI_OWNED = flow.NEVER_TOUCH + (".cursor/mcp.json",) + CLI_DOCS
+CLI_DIRS = (".claude", ".codex", ".cursor", ".codex-plugin", ".agents")
+CONSUMER_DIRS = ("workflows", "scripts", ".claude")
+HISTORY_DIRS = ("docs/tmp",)
+REWRITTEN = ("AGENTS.md", "CLAUDE.md", "VERSION", ".gitignore")  # backed up and rewritten in place
+DOCS = ("docs/flow/backlog.md", "docs/flow/phases.md", "docs/flow/evidence.md", "docs/flow/ledger.md")
+GROUPS = ("manifest assets", "skill mirrors", "agent mirrors", "command mirrors", "old audit records",
+          "5.x root files", "orphan local overrides", "bytecode under hooks/", "old git hooks")
+HEADING = re.compile(rb"^## FuseBase Flow[^\r\n]*", re.M)
+H2 = re.compile(rb"^## ", re.M)
+WORD = re.compile(r"[\w./-]+")
+WRAP_BEGIN, WRAP_END = flow.WRAP_BEGIN.encode(), flow.WRAP_END.encode()
+P_BEGIN, P_END = flow.PRESERVE_BEGIN.encode(), flow.PRESERVE_END.encode()
+
+
+class Abort(Exception):
+    """Stops the run before anything is written; the message names the file."""
+
+
+@dataclass
+class Overlay:
+    name: str
+    heading: str
+    head: int  # byte offset of the heading in the file as committed (LF)
+    start: int  # raw offsets of the replaced span: the CUSTOM:SKILL wrapper when there is one
+    end: int
+    wrapped: bool
+    preserve: bytes  # FLOW:PRESERVE region, its BEGIN marker to its END marker, raw bytes
+    crlf: bool
+    size_lf: int
+    start_lf: int
+    end_lf: int
+
+    def preserve_lf(self) -> int:
+        return len(self.preserve) - self.preserve.count(b"\r\n")
+
+
+@dataclass
+class Inventory:
+    target: Path
+    providers: set[str]
+    version: str
+    remove: dict[str, list[str]] = field(default_factory=lambda: {g: [] for g in GROUPS})
+    replace: list[str] = field(default_factory=list)
+    identical: list[str] = field(default_factory=list)
+    new: list[str] = field(default_factory=list)
+    install_keeps: list[str] = field(default_factory=list)
+    never: dict[str, list[str]] = field(default_factory=dict)
+    keep: dict[str, list[str]] = field(default_factory=dict)
+    changed: list[str] = field(default_factory=list)
+    missing: list[str] = field(default_factory=list)
+    recorded: dict[str, str] = field(default_factory=dict)  # Flow file -> recorded sha256 ("" = none)
+    consumers: dict[str, list[str]] = field(default_factory=dict)
+    history: dict[str, list[str]] = field(default_factory=dict)
+    hidden: list[str] = field(default_factory=list)
+    overlays: dict[str, Overlay] = field(default_factory=dict)
+    rows: list[str] = field(default_factory=list)
+    wiring: str = ""
+    vendor: tuple[int, int, int] = (0, 0, 0)
+    manifest: tuple[int, int] = (0, 0)  # assets recorded in the managed-content manifest, present
+    head: str = ""
+    branch: str = ""
+    task: str = ""
+
+    def removals(self) -> list[str]:
+        return [p for g in GROUPS for p in self.remove[g]]
+
+
+def git(target: Path, *args: str, data: bytes | None = None) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", *args], cwd=target, input=data, capture_output=True, timeout=600)
+
+
+def ls_files(target: Path, *paths: str) -> list[str]:
+    out = git(target, "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", *paths).stdout
+    return sorted({p for p in out.decode("utf-8", "replace").split("\0") if p})
+
+
+def load_assets(path: Path) -> dict[str, str]:
+    try:
+        return {a["path"]: a["sha256"] for a in json.loads(path.read_text(encoding="utf-8"))["assets"]}
+    except (OSError, ValueError, KeyError, TypeError):
+        return {}
+
+
+def load_mirrors(path: Path) -> dict[str, str]:
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return {}
+    pairs = (line.split() for line in lines if line.strip() and not line.startswith("#"))
+    return {p[0]: p[-1] for p in pairs if len(p) >= 2}
+
+
+def walk_files(root: Path, rel: str) -> list[str]:
+    base = root / rel
+    found = []
+    for dirpath, dirnames, filenames in os.walk(base):
+        dirnames[:] = [d for d in dirnames if d != ".git"]
+        for name in filenames:
+            found.append(Path(dirpath, name).relative_to(root).as_posix())
+    return sorted(found)
+
+
+def hooks_dir(target: Path) -> Path:
+    if (target / ".git").is_dir():
+        return target / ".git" / "hooks"
+    common = git(target, "rev-parse", "--git-common-dir").stdout.decode().strip()
+    return (target / common / "hooks").resolve()
+
+
+def lf_offset(raw: bytes, pos: int) -> int:
+    return pos - raw.count(b"\r\n", 0, pos)
+
+
+def find_overlay(target: Path, name: str) -> Overlay | None:
+    path = target / name
+    if not path.is_file():
+        return None
+    raw = path.read_bytes()
+    heads = list(HEADING.finditer(raw))
+    if len(heads) != 1:
+        nxt = [m.start() for m in H2.finditer(raw)]
+        at = nxt[-1] if nxt else max(0, len(raw) - 200)
+        what = "no heading" if not heads else f"{len(heads)} headings"
+        raise Abort(f"{name}: {what} beginning '## FuseBase Flow'; nothing replaced. "
+                    f"The 200 bytes after byte {at:,} (the last level-2 heading): {raw[at:at + 200]!r}")
+    m = heads[0]
+    h = m.start()
+    nxt = H2.search(raw, m.end())
+    end = nxt.start() if nxt else len(raw)
+    start, wrapped = h, False
+    b = raw.rfind(WRAP_BEGIN, 0, h)
+    if b >= 0 and raw[b + len(WRAP_BEGIN):h].strip() in (b"", b"---"):
+        e = raw.find(WRAP_END, h)
+        if e < 0 or (nxt and nxt.start() < e) or raw.find(WRAP_BEGIN, h, e) >= 0:
+            raise Abort(f"{name}: the CUSTOM:SKILL wrapper around '## FuseBase Flow' does not close "
+                        "around that section alone; nothing replaced")
+        start, wrapped = b, True
+        end = e + len(WRAP_END)
+        end += 2 if raw[end:end + 2] == b"\r\n" else 1 if raw[end:end + 1] == b"\n" else 0
+    p = raw.find(P_BEGIN, start, end)
+    q = raw.find(P_END, p, end) if p >= 0 else -1
+    first = raw.find(b"\n")
+    return Overlay(name, m.group(0).decode("utf-8", "replace"), lf_offset(raw, h), start, end, wrapped,
+                   raw[p:q] if q > p >= 0 else b"", first > 0 and raw[first - 1:first] == b"\r",
+                   lf_offset(raw, len(raw)), lf_offset(raw, start), lf_offset(raw, end))
+
+
+def cli_owned(rel: str, vendor: dict[str, str], cli_skills: set[str]) -> bool:
+    parts = rel.split("/")
+    return (flow.matches(rel, CLI_OWNED) or rel in vendor
+            or (len(parts) > 2 and parts[0] in (".claude", ".agents") and parts[1] == "skills"
+                and parts[2] in cli_skills))
+
+
+def wiring(target: Path) -> str:
+    claude = "no .claude/settings.json"
+    try:
+        hooks = json.loads((target / ".claude/settings.json").read_text(encoding="utf-8")).get("hooks", {})
+        events = {ev: json.dumps(v) for ev, v in hooks.items()}
+        flow_events = sorted(ev for ev, v in events.items() if "hooks/handlers" in v or "run-handler" in v)
+        cli_events = sorted(ev for ev, v in events.items() if ".claude/hooks/" in v)
+        cli = f"CLI {'/'.join(cli_events)} hooks only" if cli_events else "no CLI hooks"
+        claude = f"{cli}, flow {'wired (' + '/'.join(flow_events) + ')' if flow_events else 'unenforced'}"
+    except (OSError, ValueError, AttributeError):
+        pass
+    codex = "unenforced"
+    try:
+        if "hooks/handlers" in (target / ".codex/hooks.json").read_text(encoding="utf-8"):
+            codex = "flow wired"
+    except OSError:
+        pass
+    return f"claude: {claude}; codex: {codex}"
+
+
+def baseline_rows(target: Path, flow_paths: set[str]) -> list[str]:
+    try:
+        lines = (target / BASELINE).read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return []
+    rows = []
+    for line in lines:
+        parts = line.split(None, 1)
+        if len(parts) == 2 and parts[0].isdigit() and parts[1].strip() not in flow_paths:
+            rows.append(line.strip())
+    return rows
+
+
+def next_task(target: Path) -> str:
+    log = git(target, "log", "--format=%s").stdout.decode("utf-8", "replace")
+    numbers = [int(n) for n in re.findall(r"\bT(\d+)", log)]
+    return f"T{max(numbers, default=0) + 1}"
+
+
+def reference_tokens(inv: Inventory) -> tuple[set[str], set[str], set[str]]:
+    """(retired paths, retired skill names, word tokens: hyphenated workflow/policy stems and agent types)."""
+    paths = {p for g in GROUPS[:7] for p in inv.remove[g]}
+    skills = {p.split("/")[1] for p in paths if p.startswith("flow-skills/")}
+    skills |= {p.split("/")[2] for p in paths if p.split("/")[1:2] == ["skills"] and len(p.split("/")) > 3}
+    words = {p.split("/")[1] for p in paths if p.startswith("agents/") and p.count("/") == 2}
+    words |= {Path(p).stem for p in paths if p.startswith(".claude/agents/") or p.startswith(".codex/agents/")}
+    words |= {Path(p).stem for p in paths
+              if p.split("/")[0] in ("workflows", "policies") and "-" in Path(p).stem and p.count("/") == 1}
+    return paths, skills, words
+
+
+def mentions(text: str, paths: set[str], skills: set[str], words: set[str]) -> set[str]:
+    found = set()
+    for word in set(WORD.findall(text)):
+        parts = word.strip("./").split("/")
+        for i, part in enumerate(parts):
+            tail = "/".join(parts[i:])
+            if tail in paths and (i == 0 or "/" in tail):  # a root file matches only as the whole word
+                found.add(tail)
+            if part.split(".")[0] in words:
+                found.add(part.split(".")[0])
+            if part in ("flow-skills", "skills") and i + 1 < len(parts) and parts[i + 1] in skills:
+                found.add(f"{part}/{parts[i + 1]}")
+    return found
+
+
+def scan(inv: Inventory, dirs: tuple[str, ...], skip: set[str]) -> dict[str, list[str]]:
+    paths, skills, words = reference_tokens(inv)
+    hits: dict[str, list[str]] = {}
+    for rel in ls_files(inv.target, *dirs):
+        if rel in skip:
+            continue
+        try:
+            data = (inv.target / rel).read_bytes()
+        except OSError:
+            continue
+        if b"\0" in data[:8192]:
+            continue
+        found = mentions(data.decode("utf-8", "replace"), paths, skills, words)
+        if found:
+            hits[rel] = sorted(found)
+    return hits
+
+
+def inventory(target: Path, providers: set[str]) -> Inventory:
+    version = (target / "VERSION").read_text(encoding="utf-8").strip() if (target / "VERSION").is_file() else ""
+    inv = Inventory(target, providers, version or json.loads((target / MC_MANIFEST).read_text(encoding="utf-8"))
+                    .get("flow_version", "5.x"))
+    mc = load_assets(target / MC_MANIFEST)
+    inv.manifest = (len(mc), sum(1 for p in mc if (target / p).is_file()))
+    vendor = load_assets(target / CLI_VENDOR)
+    cli_skills = flow.cli_skill_names(target)
+    groups: dict[str, str] = {p: "manifest assets" for p in mc}
+    inv.recorded = dict(mc)
+    for group, manifest in (("skill mirrors", SKILL_MIRRORS), ("agent mirrors", AGENT_MIRRORS)):
+        for p, sha in load_mirrors(target / manifest).items():
+            groups[p], inv.recorded[p] = group, sha
+    for cmd in sorted((target / ".claude/commands").glob("*.md")):
+        if COMMANDS_SRC + cmd.name in mc:
+            rel = f".claude/commands/{cmd.name}"
+            groups[rel], inv.recorded[rel] = "command mirrors", mc[COMMANDS_SRC + cmd.name]
+    for group, paths in (("old audit records", AUDIT_5X), ("5.x root files", ROOT_5X),
+                         ("orphan local overrides", ORPHANS)):
+        for p in paths:
+            groups.setdefault(p, group)
+            inv.recorded.setdefault(p, "")
+    plan = flow.planned_files(providers)
+    plan_paths = set(plan) | {flow.MANIFEST}
+    for rel in sorted(groups):
+        sha = inv.recorded[rel]
+        f = target / rel
+        if not f.is_file():
+            if sha:
+                inv.missing.append(rel)
+            continue
+        if cli_owned(rel, vendor, cli_skills):
+            inv.never.setdefault("recorded by Flow 5.x but CLI-owned (left alone)", []).append(rel)
+            continue
+        current = f.read_bytes()
+        if sha and rel != BASELINE and not flow.same_content(current, sha):
+            inv.changed.append(f"{rel} (sha256 {flow.sha256(current)[:12]}..., recorded {sha[:12]}...)")
+            continue
+        if rel in plan_paths:
+            inv.replace.append(rel)
+            if rel in plan and flow.same_content(current, flow.sha256(plan[rel])):
+                inv.identical.append(rel)
+        else:
+            inv.remove[groups[rel]].append(rel)
+    for rel in walk_files(target, "hooks"):
+        if "/__pycache__/" in rel or rel.endswith((".pyc", ".pyo")):
+            inv.remove["bytecode under hooks/"].append(rel)
+    for h in GIT_HOOKS:
+        f = hooks_dir(target) / h
+        if f.is_file():
+            if HOOK_MARKER in b"\n".join(f.read_bytes().splitlines()[:5]):
+                inv.remove["old git hooks"].append(f".git/hooks/{h}")
+            else:
+                inv.keep.setdefault("custom git hooks (not Flow's; install-git-hooks.sh keeps them)", []).append(h)
+    for rel in sorted(plan_paths - set(inv.replace) - set(REWRITTEN)):
+        f = target / rel
+        why = flow.refusal(target, rel, cli_skills)
+        if why:
+            inv.never.setdefault("core paths the install refuses", []).append(f"{rel} ({why})")
+        elif not f.exists():
+            inv.new.append(rel)
+        elif not (rel in plan and flow.same_content(f.read_bytes(), flow.sha256(plan[rel]))):
+            inv.install_keeps.append(rel)
+    _never_and_keep(inv, vendor, set(groups) | plan_paths)
+    for name in flow.OVERLAY:
+        overlay = find_overlay(target, name)
+        if overlay:
+            inv.overlays[name] = overlay
+    flow_paths = set(groups) | plan_paths
+    skip = flow_paths | set(inv.removals())
+    inv.consumers = scan(inv, CONSUMER_DIRS, skip)
+    inv.history = scan(inv, HISTORY_DIRS, skip)
+    inv.hidden = flow.ignored_paths(target, inv.new + [d for d in DOCS if not (target / d).exists()])
+    inv.wiring = wiring(target)
+    inv.head = git(target, "rev-parse", "HEAD").stdout.decode().strip()
+    inv.branch = git(target, "rev-parse", "--abbrev-ref", "HEAD").stdout.decode().strip()
+    inv.task = next_task(target)
+    return inv
+
+
+def _never_and_keep(inv: Inventory, vendor: dict[str, str], flow_paths: set[str]) -> None:
+    target = inv.target
+    candidates = [p for p in ("fusebase.json", "skills-lock.json", ".mcp.json") + CLI_DOCS if (target / p).is_file()]
+    for d in CLI_DIRS:
+        candidates += walk_files(target, d)
+    flow_skill_dirs = {"/".join(p.split("/")[:3]) for p in flow_paths if p.split("/")[1:2] == ["skills"]}
+    cli_skill_files: dict[str, int] = {}
+    for rel in sorted(set(candidates)):
+        parts = rel.split("/")
+        if rel in flow_paths:
+            continue
+        if len(parts) > 3 and parts[1] == "skills" and parts[0] in (".claude", ".agents"):
+            if "/".join(parts[:3]) not in flow_skill_dirs:
+                cli_skill_files["/".join(parts[:3])] = cli_skill_files.get("/".join(parts[:3]), 0) + 1
+        elif flow.matches(rel, CLI_OWNED) or rel in vendor:
+            inv.never.setdefault("CLI-owned files", []).append(rel)
+    if cli_skill_files:
+        inv.never["CLI skills"] = [f"{d}/ ({n} files)" for d, n in sorted(cli_skill_files.items())]
+        blocks = [d for d in cli_skill_files
+                  if (target / d / "SKILL.md").is_file() and WRAP_BEGIN in (target / d / "SKILL.md").read_bytes()]
+        if blocks:
+            inv.keep["CUSTOM:SKILL blocks in CLI-owned skills"] = [f"{d}/SKILL.md" for d in sorted(blocks)]
+    present = [p for p in vendor if (target / p).is_file()]
+    same = [p for p in present if flow.same_content((target / p).read_bytes(), vendor[p])]
+    inv.vendor = (len(vendor), len(present), len(same))
+    state = walk_files(target, "state")
+    if state:
+        inv.keep["state/"] = [f"{len(state)} files"]
+    docs = [p for p in walk_files(target, "docs") if p not in CLI_DOCS and not p.startswith("docs/flow/")]
+    if docs:
+        tops: dict[str, int] = {}
+        for p in docs:
+            key = "/".join(p.split("/")[:2]) + ("/" if p.count("/") > 1 else "")
+            tops[key] = tops.get(key, 0) + 1
+        inv.keep["project documents, those written from Flow 5.x templates included"] = [
+            f"{k} {n}" for k, n in sorted(tops.items())]
+    local = sorted(p.relative_to(target).as_posix() for pattern in ("policies/*.local.yml", "hooks/local/*.local.*")
+                   for p in target.glob(pattern) if p.relative_to(target).as_posix() not in ORPHANS)
+    if local:
+        inv.keep["local overrides"] = local
+    inv.rows = baseline_rows(target, flow_paths)
+    inv.keep["project rows in policies/module-size-baseline.txt"] = inv.rows or ["none"]
+
+
+def count_by_top(paths: list[str]) -> str:
+    tops: dict[str, int] = {}
+    for p in paths:
+        key = p.split("/")[0] + ("/" if "/" in p else "")
+        tops[key] = tops.get(key, 0) + 1
+    return ", ".join(f"{k} {n}" for k, n in sorted(tops.items()))
+
+
+def report(inv: Inventory, full: bool) -> None:
+    def say(line: str = "") -> None:
+        print(f"[flow migrate] {line}".rstrip())
+
+    def items(paths: list[str], limit: int = 0) -> None:
+        for p in paths if full or not limit else paths[:limit]:
+            say(f"    {p}")
+
+    core = (flow.CORE / "VERSION").read_text(encoding="utf-8").strip()
+    say(f"Fusebase Flow {inv.version} -> {core} in {inv.target} (providers: {', '.join(sorted(inv.providers))})")
+    say(f"pre-migration commit: {inv.head} ({inv.branch})")
+    say(f"manifest: {inv.manifest[0]} assets recorded in {MC_MANIFEST}, {inv.manifest[1]} present, "
+        f"{len(inv.changed)} changed-by-both")
+    removals = inv.removals()
+    say(f"remove: {len(removals)} files (each copied to the backup folder first)")
+    for g in GROUPS:
+        paths = inv.remove[g]
+        if g in ("skill mirrors", "agent mirrors"):
+            provs = (".claude/skills", ".agents/skills") if g == "skill mirrors" else (".claude/agents", ".codex/agents")
+            for prov in provs:
+                mine = [p for p in paths if p.startswith(prov + "/")]
+                names = sorted({p[len(prov) + 1:].split("/")[0] for p in mine})
+                say(f"  {g} under {prov}/: {len(names)} {'skills' if g == 'skill mirrors' else 'agents'}, "
+                    f"{len(mine)} files: {', '.join(names)}")
+            if full:
+                items(paths)
+            continue
+        detail = count_by_top(paths) if g in ("manifest assets", "bytecode under hooks/") else ", ".join(paths)
+        say(f"  {g}: {len(paths)}" + (f" ({detail})" if paths and len(detail) < 400 else ""))
+        if full and len(detail) >= 400 or full and g == "manifest assets":
+            items(paths)
+    say(f"replace: {len(inv.replace)} files the core carries ({count_by_top(inv.replace)}); "
+        f"{len(inv.identical)} already byte-identical to the core's")
+    if full:
+        items(inv.replace)
+    say(f"new: {len(inv.new)} files the install adds ({count_by_top(inv.new)})")
+    if full:
+        items(inv.new)
+    say(f"rewritten in place: {', '.join(r for r in REWRITTEN if (inv.target / r).is_file())} "
+        "(the overlay by heading, VERSION as the core's, .gitignore negation lines when a core path is hidden)")
+    absent = [d for d in DOCS if not (inv.target / d).exists()]
+    say(f"the four documents, created when absent: {', '.join(absent) or 'all present'}")
+    if inv.install_keeps:
+        say(f"install keeps (the core path exists and is not Flow's, so it is not replaced): {len(inv.install_keeps)}")
+        items(inv.install_keeps)
+    if inv.missing:
+        say(f"recorded Flow files already absent: {len(inv.missing)}")
+        items(inv.missing, 10)
+    say("never touch (CLI-owned):")
+    for k, v in inv.never.items():
+        say(f"  {k}: {len(v)}")
+        items(v, 40)
+    say(f"  {CLI_VENDOR}: {inv.vendor[0]} listed, {inv.vendor[1]} present, never touched "
+        f"({inv.vendor[2]} still match their recorded sha256)")
+    say("keep (project-owned):")
+    for k, v in inv.keep.items():
+        say(f"  {k}: {'; '.join(v) if len(v) <= 12 else str(len(v))}")
+    for name, o in inv.overlays.items():
+        if o.preserve:
+            say(f"  {name}: the FLOW:PRESERVE region, {o.preserve_lf():,} bytes, carried verbatim")
+    for name, o in inv.overlays.items():
+        span = (f"inside a CUSTOM:SKILL wrapper from byte {o.start_lf:,}; {o.end_lf - o.start_lf:,} bytes replaced"
+                if o.wrapped else f"no wrapper; {o.end_lf - o.start_lf:,} bytes replaced")
+        say(f"overlay {name}: '{o.heading}' at byte {o.head:,} as committed, {o.size_lf - o.head:,} bytes "
+            f"to the end; {span}")
+    say(f"consumer references (code and config outside Flow naming a retired Flow path or agent type): {len(inv.consumers)}")
+    for rel, found in inv.consumers.items():
+        say(f"    {rel}: {', '.join(found)}")
+    say(f"history mentions under {', '.join(d + '/' for d in HISTORY_DIRS)} (kept as written; not consumer references): "
+        f"{len(inv.history)}")
+    for rel, found in inv.history.items():
+        say(f"    {rel}: {', '.join(found[:4])}{' ...' if len(found) > 4 else ''}")
+    say(f"hidden by .gitignore (installed paths git would not add): {len(inv.hidden)}")
+    for p in inv.hidden:
+        say(f"    {p}")
+    say(f"hook wiring, left as is: {inv.wiring}")
+    say("backup folder on --apply: .flow-migrate-<UTC timestamp>/ (remove + replace + AGENTS.md, CLAUDE.md, VERSION, .gitignore)")
+    say(f"commit on --apply --go-ahead: chore(flow): {inv.task} migrate Fusebase Flow {inv.version} to {core}")
+
+
+def run(target: Path, providers: set[str], full: bool) -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # headings carry an em dash
+    target = target.resolve()
+    if flow.git_toplevel(target) != target:
+        print(f"[flow migrate] REFUSED: {target} is not the top level of a git work tree")
+        return 2
+    if not (target / MC_MANIFEST).is_file():
+        if (target / flow.MANIFEST).is_file():
+            print(f"[flow migrate] nothing to migrate: {target} carries Fusebase Flow "
+                  f"{json.loads((target / flow.MANIFEST).read_text(encoding='utf-8')).get('flow_version')} "
+                  f"({flow.MANIFEST}); re-run install to upgrade within 6.0")
+            return 0
+        print(f"[flow migrate] REFUSED: no Flow 5.x install in {target} ({MC_MANIFEST} is absent)")
+        return 2
+    try:
+        inv = inventory(target, providers)
+    except Abort as exc:
+        print(f"[flow migrate] ABORT: {exc}")
+        return 3
+    if inv.changed:
+        print("[flow migrate] ABORT: changed-by-both: a project edit inside a Flow-owned file; nothing changed, nothing replaced")
+        for line in inv.changed:
+            print(f"[flow migrate]   {line}")
+        return 3
+    print("[flow migrate] dry run: nothing changed")
+    report(inv, full)
+    return 0
