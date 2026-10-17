@@ -204,6 +204,16 @@ def install_hooks(target: Path) -> tuple[int, str]:
     return proc.returncode, (proc.stdout + proc.stderr).strip()
 
 
+def ignored_paths(target: Path, paths: list[str]) -> list[str]:
+    try:
+        # TRIPWIRE: bytes, not text=True: Windows text mode writes CRLF and git reads "path\r".
+        proc = subprocess.run(["git", "check-ignore", "--stdin"], cwd=target,
+                              input=("\n".join(paths) + "\n").encode("utf-8"), capture_output=True, timeout=120)
+    except (OSError, subprocess.TimeoutExpired):
+        return ["(git check-ignore did not run)"]
+    return [line.strip() for line in proc.stdout.decode("utf-8", "replace").splitlines() if line.strip()]
+
+
 def git_toplevel(target: Path) -> Path | None:
     try:
         out = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=target,
@@ -258,10 +268,12 @@ def install(target: Path, providers: set[str]) -> int:
         "files": sorted(recorded, key=lambda e: e["path"]),
         "merged": sorted(OVERLAY) if "claude" in providers else ["AGENTS.md"],
     }, indent=2) + "\n").encode("utf-8"), False)
+    report["ignored"] = ignored_paths(target, [e["path"] for e in recorded])
     rc, hooks_out = install_hooks(target)
     print(f"[flow] Fusebase Flow {version} -> {target} (providers: {', '.join(sorted(providers)) or 'none'})")
-    for key in ("added", "replaced", "unchanged", "kept", "refused", "merged"):
-        print(f"[flow] {key}: {len(report[key])}")
+    for key in ("added", "replaced", "unchanged", "kept", "refused", "merged", "ignored"):
+        note = " (hidden by the project's .gitignore: commit them with a !negation line)" if key == "ignored" and report[key] else ""
+        print(f"[flow] {key}: {len(report[key])}{note}")
         for item in report[key]:
             print(f"[flow]   {item}")
     print(f"[flow] manifest: {MANIFEST} ({len(recorded)} files)")
