@@ -20,10 +20,10 @@ def size(rel: str) -> int:
 
 
 def push_block() -> int:
-    text = (CORE / "flow-skills/build/SKILL.md").read_text(encoding="utf-8")
+    text = (CORE / "flow-skills/dispatch/SKILL.md").read_text(encoding="utf-8")
     m = re.search(r"^## Builder push block\n\n```text\n(.*?)^```", text, re.S | re.M)
     if not m:
-        sys.exit("measure_boot: no fenced push block under '## Builder push block' in flow-skills/build/SKILL.md")
+        sys.exit("measure_boot: no fenced push block under '## Builder push block' in flow-skills/dispatch/SKILL.md")
     return len(m.group(1).encode("utf-8"))
 
 
@@ -46,7 +46,7 @@ def main() -> int:
     builder = show("builder boot (Flow text in an ordinary slice):", [
         overlay, rules,
         (size("agents/builder/AGENT.md"), "agents/builder/AGENT.md"),
-        (push_block(), "flow-skills/build/SKILL.md, Builder push block (fenced body, inlined in the slice)"),
+        (push_block(), "flow-skills/dispatch/SKILL.md, Builder push block (fenced body, inlined in the slice)"),
         (size("flow-skills/writing-card/SKILL.md"), "flow-skills/writing-card/SKILL.md (whole file, inlined in the slice)"),
     ], BUILDER_LIMIT)
     show("planner boot:", [

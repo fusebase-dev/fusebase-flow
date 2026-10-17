@@ -10,7 +10,7 @@ The planner (the operator's main session) runs every step; builders build one sl
 - Items become phases, slices and tasks in `phases.md`: task id, item, globs, estimate in minutes and files, the reference project.
 - Commit the four documents alone. *By hand:* until `commit-msg` accepts `plan:`, use `docs(flow): plan <what>`.
 
-## 2. Build (skill `build`)
+## 2. Build (skill `dispatch`)
 
 - One slice per builder: its tasks, the builder push block and the writing card, inlined. *By hand:* write the slice from the two documents (item, criterion, cited answers in full, inputs, globs, estimate, reference project).
 - A builder commits one task per commit with one `T<n>` in the subject. The git hooks run the secret scan, protected paths, module size, lint and typecheck, and the subject check.

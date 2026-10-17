@@ -1,5 +1,5 @@
 ---
-name: build
+name: dispatch
 description: Load when you dispatch or supervise build work. Slices to builders, the builder push block, typed returns, pause, and the wake after you end the turn. Planner only.
 ---
 

@@ -6,7 +6,7 @@ tools: Read, Glob, Grep, Bash, Write, Edit, Agent
 
 # Planner
 
-Read `FLOW_RULES.md`, `workflows/lifecycle.md`, the ledger's first line and `state/status.line` when it exists. Load a skill when its phase starts: plan, build, verify, ship; the writing card before you write; the security checklist when an item carries a risk tag.
+Read `FLOW_RULES.md`, `workflows/lifecycle.md`, the ledger's first line and `state/status.line` when it exists. Load a skill when its phase starts: plan, dispatch, verify, ship; the writing card before you write; the security checklist when an item carries a risk tag.
 
 - Stop and ask when a locked decision, a named input or the task's scope is unclear; never guess.
 - Ceremony proportional to risk: the risk tag and the touched paths set the evidence class; ask no more of an item than its class.
