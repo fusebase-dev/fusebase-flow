@@ -94,6 +94,7 @@ class Inventory:
     head: str = ""
     branch: str = ""
     task: str = ""
+    version_is_flow: bool = True  # VERSION is Flow's (reads the manifest's flow_version) or absent
 
     def removals(self) -> list[str]:
         return [p for g in GROUPS for p in self.remove[g]]
@@ -271,9 +272,13 @@ def scan(inv: Inventory, dirs: tuple[str, ...], skip: set[str]) -> dict[str, lis
 
 
 def inventory(target: Path, providers: set[str]) -> Inventory:
-    version = (target / "VERSION").read_text(encoding="utf-8").strip() if (target / "VERSION").is_file() else ""
-    inv = Inventory(target, providers, version or json.loads((target / MC_MANIFEST).read_text(encoding="utf-8"))
-                    .get("flow_version", "5.x"))
+    try:
+        flow_version = str(json.loads((target / MC_MANIFEST).read_text(encoding="utf-8")).get("flow_version") or "5.x")
+    except (OSError, ValueError, AttributeError) as exc:
+        raise Abort(f"{MC_MANIFEST} is unreadable ({exc}); nothing changed")
+    inv = Inventory(target, providers, flow_version)
+    version_file = target / "VERSION"
+    inv.version_is_flow = not version_file.is_file() or version_file.read_text(encoding="utf-8").strip() == flow_version
     mc = load_assets(target / MC_MANIFEST)
     inv.manifest = (len(mc), sum(1 for p in mc if (target / p).is_file()))
     vendor = load_assets(target / CLI_VENDOR)
@@ -440,8 +445,11 @@ def report(inv: Inventory, full: bool) -> None:
     say(f"new: {len(inv.new)} files the install adds ({count_by_top(inv.new)})")
     if full:
         items(inv.new)
-    say(f"rewritten in place: {', '.join(r for r in REWRITTEN if (inv.target / r).is_file())} "
-        "(the overlay by heading, VERSION as the core's, .gitignore negation lines when a core path is hidden)")
+    say(f"rewritten in place: {', '.join(inv.overlays) or 'no overlay'} (the Flow section by heading)"
+        + (", VERSION (the core's)" if inv.version_is_flow else "")
+        + "; .gitignore is backed up and left as is")
+    if not inv.version_is_flow:
+        say("VERSION does not read Flow's version: it is the project's and stays as it is")
     absent = [d for d in DOCS if not (inv.target / d).exists()]
     say(f"the four documents, created when absent: {', '.join(absent) or 'all present'}")
     if inv.install_keeps:

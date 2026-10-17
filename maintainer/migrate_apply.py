@@ -9,6 +9,7 @@ import shutil
 import stat
 from pathlib import Path
 
+import flow
 import migrate as m
 
 BACKUP_PREFIX = ".flow-migrate-"
@@ -80,6 +81,26 @@ def remove(inv: m.Inventory, folder: Path) -> tuple[list[str], list[str], int]:
     return moved, failed, pruned
 
 
+def overlay_and_version(inv: m.Inventory) -> list[str]:
+    """Replaces each 5.x Flow section by heading with the 6.0 block; the FLOW:PRESERVE region rides along verbatim."""
+    done = []
+    for name, o in inv.overlays.items():
+        path = inv.target / name
+        raw = path.read_bytes()
+        block = (flow.CORE / flow.OVERLAY[name]).read_bytes()
+        if o.crlf:
+            block = block.replace(b"\n", b"\r\n")  # the file's own line endings (autocrlf checkouts)
+        if o.preserve:
+            block = block[:block.index(m.P_BEGIN)] + o.preserve + block[block.index(m.P_END):]
+        flow.write_bytes(path, raw[:o.start] + block + raw[o.end:], False)
+        done.append(f"{name}: the '{o.heading}' section ({o.end_lf - o.start_lf:,} bytes) replaced by the 6.0 block"
+                    + (f", FLOW:PRESERVE ({o.preserve_lf():,} bytes) carried verbatim" if o.preserve else ""))
+    if inv.version_is_flow:
+        flow.write_bytes(inv.target / "VERSION", (flow.CORE / "VERSION").read_bytes(), False)
+        done.append(f"VERSION: {inv.version} -> {(flow.CORE / 'VERSION').read_text(encoding='utf-8').strip()}")
+    return done
+
+
 def apply(inv: m.Inventory) -> int:
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     folder, files = backup(inv, stamp)
@@ -97,4 +118,6 @@ def apply(inv: m.Inventory) -> int:
         for line in failed:
             say(f"  {line}")
         return 1
+    for line in overlay_and_version(inv):
+        say(line)
     return 0
