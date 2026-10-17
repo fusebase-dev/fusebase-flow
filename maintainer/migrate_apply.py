@@ -8,6 +8,8 @@ import json
 import os
 import shutil
 import stat
+import subprocess
+import sys
 from pathlib import Path
 
 import flow
@@ -210,4 +212,62 @@ def apply(inv: m.Inventory) -> int:
         return 1
     for line in documents(inv, migration_report(inv, stamp, folder, len(files), moved)):
         say(line)
+    return commit(inv, folder)
+
+
+def bash(target: Path, *args: str) -> subprocess.CompletedProcess:
+    env = dict(os.environ, FF_BOOTSTRAP_TTL_MIN="30")
+    return subprocess.run([shutil.which("bash") or "bash", *args], cwd=target, env=env,
+                          capture_output=True, text=True, timeout=600)
+
+
+def commit(inv: m.Inventory, folder: Path) -> int:
+    """Stages the migration by name, mints the single-use approval, commits through the hooks, consumes."""
+    target = inv.target
+    index = set(m.git(target, "ls-files", "-z").stdout.decode("utf-8", "replace").split("\0"))
+    paths = [p for p in inv.removals() if p in index] + inv.replace + inv.new + list(m.REWRITTEN) + list(m.DOCS)
+    paths = sorted({p for p in paths if p in index or (target / p).is_file()})
+    hidden = set(inv.hidden)
+    for force, group in ((False, [p for p in paths if p not in hidden]), (True, [p for p in paths if p in hidden])):
+        if group:
+            add = m.git(target, "--literal-pathspecs", "add", *(["-f"] if force else []), "--pathspec-from-file=-",
+                        "--pathspec-file-nul", data="\0".join(group).encode("utf-8"))
+            if add.returncode:
+                say(f"STOPPED: git add exited {add.returncode}: {add.stderr.decode('utf-8', 'replace').strip()}")
+                return 1
+    staged = [p for p in m.git(target, "diff", "--cached", "--name-only", "-z").stdout.decode("utf-8").split("\0") if p]
+    stray = sorted(set(staged) - set(paths))
+    if stray:
+        say(f"STOPPED: staged paths outside the migration: {', '.join(stray[:10])}; nothing committed")
+        return 1
+    say(f"staged by name: {len(staged)} paths" + (f" ({len(hidden)} with -f: hidden by .gitignore)" if hidden else ""))
+    core = (flow.CORE / "VERSION").read_text(encoding="utf-8").strip()
+    message = (f"chore(flow): {inv.task} migrate Fusebase Flow {inv.version} to {core}\n\n"
+               f"flow.py migrate --apply --go-ahead: remove {len(inv.removals())}, replace {len(inv.replace)}, "
+               f"new {len(inv.new)}; the migration report leads docs/flow/ledger.md.\n"
+               f"Backup: {folder.name}/ (excluded). Rollback: git checkout {inv.head[:8]}.\n")
+    mint = bash(target, "hooks/local/write-bootstrap-approval.sh", "--slug", "flow-migrate")
+    say(f"approval: {(mint.stdout + mint.stderr).strip()}")
+    try:
+        if mint.returncode:
+            say("STOPPED: the approval was not minted; nothing committed")
+            return 1
+        say(f"committing through the hooks: {message.splitlines()[0]}")
+        sys.stdout.flush()
+        try:
+            done = subprocess.run(["git", "commit", "-q", "-F", "-"], cwd=target, input=message.encode("utf-8"),
+                                  timeout=3600)
+        except subprocess.TimeoutExpired:
+            say(f"STOPPED: the commit did not finish within 3600 s; HEAD is still {inv.head[:8]}")
+            return 1
+    finally:
+        used = bash(target, "hooks/local/write-bootstrap-approval.sh", "--consume", "--slug", "flow-migrate")
+        say(f"approval: {(used.stdout + used.stderr).strip()}")
+    left = sorted(p.name for p in (target / "state/approvals").glob("*") if p.name != ".gitkeep")
+    say(f"state/approvals/: {', '.join(left) if left else 'empty'}")
+    if done.returncode:
+        say(f"STOPPED: the commit did not pass (exit {done.returncode}; the hook output is above). The migration is "
+            f"applied and staged; HEAD is still {inv.head[:8]}, the backup folder holds every file")
+        return 1
+    say(f"committed: {m.git(target, 'log', '-1', '--format=%h %s').stdout.decode('utf-8').strip()}")
     return 0

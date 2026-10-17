@@ -501,6 +501,10 @@ def run(target: Path, providers: set[str], full: bool, apply: bool = False, go_a
         print(f"[flow migrate] REFUSED: {target} is not the top level of a git work tree")
         return 2
     if not (target / MC_MANIFEST).is_file():
+        if (target / flow.MANIFEST).is_file() and git(target, "cat-file", "-e", f"HEAD:{MC_MANIFEST}").returncode == 0:
+            print("[flow migrate] STOPPED: the migration is applied but not committed (HEAD still carries Flow 5.x): "
+                  "stage it by name, mint, commit and consume as workflows/lifecycle.md says")
+            return 1
         if (target / flow.MANIFEST).is_file():
             print(f"[flow migrate] nothing to migrate: {target} carries Fusebase Flow "
                   f"{json.loads((target / flow.MANIFEST).read_text(encoding='utf-8')).get('flow_version')} "
@@ -523,6 +527,11 @@ def run(target: Path, providers: set[str], full: bool, apply: bool = False, go_a
         print("[flow migrate] dry run: nothing changed")
         report(inv, full)
         return 0
+    dirty = git(target, "status", "--porcelain", "--untracked-files=no").stdout.decode("utf-8", "replace").strip()
+    if dirty:
+        print("[flow migrate] REFUSED: tracked changes in the work tree; commit or stash them first, so the "
+              f"migration commit holds the migration alone; nothing written:\n{dirty[:2000]}")
+        return 2
     import migrate_apply
     print("[flow migrate] apply: the operator's go-ahead was given in chat (--go-ahead)")
     report(inv, full)
