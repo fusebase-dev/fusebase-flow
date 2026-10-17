@@ -175,12 +175,12 @@ def migration_report(inv: m.Inventory, stamp: str, folder: Path, backed: int, mo
         f"- backup folder: {folder.name}/ ({backed} files, excluded in .git/info/exclude; delete it once the "
         "migration is accepted)" + (f"; {len(moved)} files moved into it, deletion refused" if moved else ""),
         f"- remove: {len(inv.removals())} ({groups})",
-        f"- left in place (named like Flow 5.x files, bytes not Flow's; copied to the backup folder): "
+        f"- left in place (named like Flow 5.x files, not Flow's bytes or record; copied to the backup folder): "
         f"{', '.join(inv.foreign) or 'none'}",
         f"- replace: {len(inv.replace)} ({len(inv.identical)} already identical); new: {len(inv.new)}; rewritten: "
         f"{', '.join(list(inv.overlays) + (['VERSION'] if inv.version_is_flow else []))}; {flow.ATTRIBUTES}: the Flow "
         "line-ending block; .gitignore unchanged",
-        f"- never touch: {never}; {m.CLI_VENDOR} {inv.vendor[0]} listed, {inv.vendor[1]} present",
+        f"- never touch: {never}; CLI assets {m.CLI_VENDOR} lists: {inv.vendor[0]}, {inv.vendor[1]} present",
         f"- keep: {keep}",
         "- changed-by-both: 0",
         f"- consumer references ({len(inv.consumers)}): {refs}",

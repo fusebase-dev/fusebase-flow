@@ -564,6 +564,54 @@ class ContentCheck(unittest.TestCase):
         self.assertIn("manifest_self_sha256", str(raised.exception))
 
 
+def records(valid: bool) -> dict[str, bytes]:
+    """The four records 5.x tooling writes per project: in their writers' layout (bytes of no release), or not."""
+    sha, asset = "ab" * 32, ".claude/skills/app-backend/SKILL.md"
+    vendor = {"schema_version": 2, "generated_at": "2026-09-30", "source_cli_version": "0.29.9",
+              "reviewed_cli_policy": None, "description": "CLI provenance", "asset_count": 1,
+              "assets": [{"path": asset, "sha256": sha, "upstream_sha256": sha, "merge_derived": False,
+                          "matches_upstream": True}]}
+    upstream = {"schema_version": 1, "generated_at": "2026-09-30", "cli_version": "0.29.9", "description": "upstream",
+                "asset_count": 1, "superseded_custom_blocks": [],
+                "assets": [{"path": asset, "upstream_source": "skills/app-backend/SKILL.md", "upstream_sha256": sha,
+                            "merge_derived": False}]}
+    if not valid:
+        vendor, upstream = {"schema_version": 2, "assets": "our own notes"}, {"notes": "the project's own file"}
+    return {"audit/cli-vendor-manifest.json": json.dumps(vendor, indent=2).encode() + b"\n",
+            "audit/cli-upstream-manifest.json": json.dumps(upstream, indent=2).encode() + b"\n",
+            "audit/skill-mirror-manifest.txt": f".agents/skills/communication/SKILL.md  {sha}\n".encode() if valid
+            else b".agents/skills/communication/SKILL.md  not-a-sha256\n",
+            "audit/agent-mirror-manifest.txt": f".claude/agents/ai-developer.md  {sha}\n".encode() if valid
+            else b"# our agents\nreviewer\n"}
+
+
+class FlowRecords(unittest.TestCase):
+    def test_a_5x_record_goes_when_it_parses_and_stays_when_it_does_not(self) -> None:
+        sys.path.insert(0, str(FLOW.parent))
+        import migrate as mig
+        import migrate_apply as mapply
+        tmp = Path(tempfile.mkdtemp(prefix="flow-migrate-"))
+        try:
+            for valid in (True, False):
+                clone = scratch_clone(tmp / str(valid))
+                for rel, data in records(valid).items():
+                    commit_file(clone, rel, data, f"chore: T1 {rel}")
+                inv = mig.inventory(clone.resolve(), {"claude", "codex"})
+                listing = io.StringIO()
+                with contextlib.redirect_stdout(listing):
+                    mig.report(inv, False)
+                folder, _ = mapply.backup(inv, "20990101T000000Z")
+                mapply.remove(inv, folder)
+                for rel, data in records(valid).items():
+                    self.assertEqual((folder / rel).read_bytes(), data, f"{rel} is not in the backup folder")
+                    self.assertEqual((clone / rel).is_file(), not valid, f"{rel} (parses as the 5.x record: {valid})")
+                    self.assertEqual(rel in inv.foreign, not valid, rel)
+                    if not valid:
+                        self.assertIn(f"\n[flow migrate]     {rel}\n", listing.getvalue().split("left in place", 1)[1])
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
 def mirror_rows(files: dict[str, bytes]) -> bytes:
     return "".join(f"{p}  {hashlib.sha256(d).hexdigest()}\n" for p, d in sorted(files.items())).encode("utf-8")
 

@@ -22,9 +22,23 @@ MC_MANIFEST = "audit/managed-content-manifest.json"
 SKILL_MIRRORS = "audit/skill-mirror-manifest.txt"
 AGENT_MIRRORS = "audit/agent-mirror-manifest.txt"
 CLI_VENDOR = "audit/cli-vendor-manifest.json"
+CLI_UPSTREAM = "audit/cli-upstream-manifest.json"
 # Flow 5.x files no manifest records; on Onboarding each is byte-identical to Flow v5.6.
-AUDIT_5X = ("audit/README.md", AGENT_MIRRORS, "audit/cli-upstream-manifest.json", CLI_VENDOR,
+AUDIT_5X = ("audit/README.md", AGENT_MIRRORS, CLI_UPSTREAM, CLI_VENDOR,
             "audit/hook-layer-manifest.json", MC_MANIFEST, SKILL_MIRRORS)
+# The four records 5.x tooling writes per project go when they parse as their writer lays them out (identical in
+# v5.1 to v5.11), whatever their bytes (owner, 2026-10-17): schema_version, top-level keys, keys every asset has, more
+# keys an asset may have. stamp-cli-provenance.sh writes the vendor record, refresh-cli-vendor.sh the upstream one.
+JSON_RECORDS = {
+    CLI_VENDOR: (2, {"schema_version", "generated_at", "source_cli_version", "reviewed_cli_policy", "description",
+                     "asset_count", "assets"}, {"path", "sha256"}, {"upstream_sha256", "merge_derived", "matches_upstream"}),
+    CLI_UPSTREAM: (1, {"schema_version", "generated_at", "cli_version", "description", "asset_count",
+                       "superseded_custom_blocks", "assets"}, {"path", "upstream_source", "upstream_sha256",
+                                                               "merge_derived"}, set()),
+}
+# mirror-skills.sh and mirror-agents.sh: one row per mirror, MANIFEST_ROW of 5.x hooks/local/lib/recovery-owned-write.py
+MIRROR_RECORDS = {SKILL_MIRRORS: (".claude/skills/", ".agents/skills/"), AGENT_MIRRORS: (".claude/agents/", ".codex/agents/")}
+MIRROR_ROW = re.compile(r"(.+?)  ([0-9a-f]{64})")
 ROOT_5X = ("GEMINI.md", "install.sh")
 ORPHANS = ("policies/model-routing.local.yml",)  # override of a policy the core drops
 # A file deleted by its name goes only when its bytes match Flow's own: a recorded sha256 where the 5.x install has one,
@@ -125,12 +139,33 @@ def load_assets(path: Path) -> dict[str, str]:
 
 
 def load_mirrors(path: Path) -> dict[str, str]:
+    """{mirror path: recorded sha256} from the rows in the 5.x format; any other line is not a row."""
     try:
-        lines = path.read_text(encoding="utf-8").splitlines()
+        lines = path.read_bytes().decode("utf-8", "replace").split("\n")
     except OSError:
         return {}
-    pairs = (line.split() for line in lines if line.strip() and not line.startswith("#"))
-    return {p[0]: p[-1] for p in pairs if len(p) >= 2}
+    rows = (MIRROR_ROW.fullmatch(line.rstrip("\r")) for line in lines)
+    return {r.group(1): r.group(2) for r in rows if r}
+
+
+def is_5x_record(rel: str, data: bytes) -> bool:
+    """A per-project 5.x record laid out as its 5.x writer writes it (JSON_RECORDS, MIRROR_RECORDS)."""
+    try:
+        text = data.decode("utf-8")
+        if rel in MIRROR_RECORDS:
+            rows = [MIRROR_ROW.fullmatch(line.rstrip("\r")) for line in text.split("\n") if line.strip()]
+            return bool(rows) and all(r and r.group(1).startswith(MIRROR_RECORDS[rel]) and mirror_source(r.group(1))
+                                      for r in rows)
+        version, top, need, extra = JSON_RECORDS[rel]
+        doc = json.loads(text)
+        assets = doc["assets"]
+        return (set(doc) == top and doc["schema_version"] == version and isinstance(assets, list)
+                and doc["asset_count"] == len(assets)
+                and all(isinstance(a, dict) and need <= set(a) <= need | extra and isinstance(a["path"], str)
+                        and all(re.fullmatch(r"[0-9a-f]{64}", str(a[k])) for k in need if k.endswith("sha256"))
+                        for a in assets))
+    except (ValueError, KeyError, TypeError, AttributeError):
+        return False
 
 
 _FLOW5: dict[str, dict[str, str]] = {}
@@ -358,7 +393,11 @@ def inventory(target: Path, providers: set[str]) -> Inventory:
         if sha and rel != BASELINE and not flow.same_content(current, sha):
             inv.changed.append(f"{rel} (sha256 {flow.sha256(current)[:12]}..., recorded {sha[:12]}...)")
             continue
-        if rel in by_name and not any(flow.same_content(current, s) for s in by_name[rel]):
+        if rel in by_name and (rel in JSON_RECORDS or rel in MIRROR_RECORDS):
+            if not is_5x_record(rel, current):  # a structure check, not a byte check (owner, 2026-10-17)
+                inv.foreign.append(rel)
+                continue
+        elif rel in by_name and not any(flow.same_content(current, s) for s in by_name[rel]):
             if rel != MC_MANIFEST:
                 inv.foreign.append(rel)  # copied to the backup folder, never deleted
                 continue
@@ -501,8 +540,8 @@ def report(inv: Inventory, full: bool) -> None:
         if full and len(detail) >= 400 or full and g == "manifest assets":
             items(paths)
     if inv.foreign:
-        say(f"left in place: {len(inv.foreign)} files named like Flow 5.x files whose bytes match no Flow release "
-            "(copied to the backup folder on --apply, never deleted)")
+        say(f"left in place: {len(inv.foreign)} files named like Flow 5.x files that are not Flow's: no Flow release's "
+            "bytes, or not laid out as the 5.x record (copied to the backup folder on --apply, never deleted)")
         items(inv.foreign)
     say(f"replace: {len(inv.replace)} files the core carries ({count_by_top(inv.replace)}); "
         f"{len(inv.identical)} already byte-identical to the core's")
@@ -525,7 +564,7 @@ def report(inv: Inventory, full: bool) -> None:
     for k, v in inv.never.items():
         say(f"  {k}: {len(v)}")
         items(v, 40)
-    say(f"  {CLI_VENDOR}: {inv.vendor[0]} listed, {inv.vendor[1]} present, never touched "
+    say(f"  CLI assets {CLI_VENDOR} lists: {inv.vendor[0]}, {inv.vendor[1]} present, never touched "
         f"({inv.vendor[2]} still match their recorded sha256)")
     say("keep (project-owned):")
     for k, v in inv.keep.items():
