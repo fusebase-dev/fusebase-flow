@@ -4,6 +4,7 @@ install and carry-over, the four documents with the migration report, and the mi
 from __future__ import annotations
 
 import datetime as dt
+import json
 import os
 import shutil
 import stat
@@ -101,6 +102,40 @@ def overlay_and_version(inv: m.Inventory) -> list[str]:
     return done
 
 
+def install_and_carry(inv: m.Inventory) -> list[str]:
+    """Runs milestone 1's install with the 5.x records read before the removal, then carries the project's rows."""
+    target = inv.target
+    rc = flow.install(target, inv.providers, {p: {sha} for p, sha in inv.recorded.items() if sha})
+    if rc != 0:
+        raise m.Abort(f"install exited {rc} (its report above); the backup folder holds every file")
+    plan = flow.planned_files(inv.providers)
+    wrong = [p for p in inv.replace + inv.new if p in plan
+             and not ((target / p).is_file() and flow.same_content((target / p).read_bytes(), flow.sha256(plan[p])))]
+    if wrong:
+        raise m.Abort(f"after install {len(wrong)} core paths do not hold the core's bytes: {', '.join(wrong[:10])}")
+    done = [f"install: the {len(inv.replace)} replace and {len([p for p in inv.new if p in plan])} new files hold "
+            f"the core's bytes; {flow.MANIFEST} says "
+            f"{json.loads((target / flow.MANIFEST).read_text(encoding='utf-8'))['flow_version']}"]
+    baseline = target / m.BASELINE
+    text = baseline.read_text(encoding="utf-8")
+    rows = [r for r in inv.rows if r not in text.splitlines()]
+    if rows:
+        flow.write_bytes(baseline, (text + ("" if text.endswith("\n") else "\n") + "\n".join(rows) + "\n")
+                         .encode("utf-8"), False)
+    stale = [line.split(None, 1)[1] for line in text.splitlines()
+             if line[:1].isdigit() and len(line.split(None, 1)) == 2 and not (target / line.split(None, 1)[1]).exists()]
+    done.append(f"carry-over: {m.BASELINE} is the core's plus {len(inv.rows)} project rows"
+                + (f" (rows naming files the core does not carry: {', '.join(stale)})" if stale else "")
+                + f"; local overrides left in place: {len(inv.keep.get('local overrides', []))}")
+    hooks = m.hooks_dir(target)
+    same = [h for h in m.GIT_HOOKS if (hooks / h).is_file()
+            and (hooks / h).read_bytes() == (flow.CORE / "hooks/git" / h).read_bytes()]
+    if len(same) != len(m.GIT_HOOKS):
+        raise m.Abort(f"git hooks not byte-identical to the core's: {', '.join(sorted(set(m.GIT_HOOKS) - set(same)))}")
+    done.append(f"git hooks: {', '.join(same)} in .git/hooks/ byte-identical to the core's")
+    return done
+
+
 def apply(inv: m.Inventory) -> int:
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     folder, files = backup(inv, stamp)
@@ -120,4 +155,10 @@ def apply(inv: m.Inventory) -> int:
         return 1
     for line in overlay_and_version(inv):
         say(line)
+    try:
+        for line in install_and_carry(inv):
+            say(line)
+    except m.Abort as exc:
+        say(f"STOPPED: {exc}")
+        return 1
     return 0

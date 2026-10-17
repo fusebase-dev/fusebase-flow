@@ -174,20 +174,24 @@ def write_bytes(dest: Path, data: bytes, executable: bool) -> None:
 
 
 def merge_block(existing: str | None, block: str) -> str:
+    nl = "\n"
+    if existing is not None and existing[:existing.find("\n") + 1].endswith("\r\n"):
+        # TRIPWIRE: an autocrlf checkout; an LF block inside a CRLF file would mix line endings.
+        nl, block = "\r\n", block.replace("\r\n", "\n").replace("\n", "\r\n")
     inner_start = block.index(FLOW_BEGIN)
     inner = block[inner_start: block.index(FLOW_END) + len(FLOW_END)]
     if existing is None:
         return block
     if FLOW_BEGIN not in existing:
-        sep = "" if existing.endswith("\n") else "\n"
-        return existing + sep + "\n" + block
+        sep = "" if existing.endswith("\n") else nl
+        return existing + sep + nl + block
     start = existing.index(FLOW_BEGIN)
     end = existing.index(FLOW_END, start) + len(FLOW_END)
     old = existing[start:end]
     if PRESERVE_BEGIN in old and PRESERVE_END in old:
-        kept = old[old.index("\n", old.index(PRESERVE_BEGIN)) + 1: old.index(PRESERVE_END)]
-        p_start = inner.index("\n", inner.index(PRESERVE_BEGIN)) + 1
-        inner = inner[:p_start] + kept + inner[inner.index(PRESERVE_END):]
+        # The operator's region, its BEGIN marker line included, stays byte for byte.
+        kept = old[old.index(PRESERVE_BEGIN): old.index(PRESERVE_END)]
+        inner = inner[:inner.index(PRESERVE_BEGIN)] + kept + inner[inner.index(PRESERVE_END):]
     merged = existing[:start] + inner + existing[end:]
     assert merged.startswith(existing[:start]) and merged.endswith(existing[end:])
     return merged
@@ -224,13 +228,16 @@ def git_toplevel(target: Path) -> Path | None:
     return Path(out.stdout.strip()).resolve() if out.returncode == 0 and out.stdout.strip() else None
 
 
-def install(target: Path, providers: set[str]) -> int:
+def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | None = None) -> int:
+    """prior_5x: Flow records read before a migration removed the 5.x manifests (migrate.py)."""
     target = target.resolve()
     if git_toplevel(target) != target:
         print(f"[flow] REFUSED: {target} is not the top level of a git work tree (git init it first)")
         return 2
     version = (CORE / "VERSION").read_text(encoding="utf-8").strip()
     prior = load_prior(target)
+    for rel, shas in (prior_5x or {}).items():
+        prior.setdefault(rel, set()).update(shas)
     cli_skills = cli_skill_names(target)
     report: dict[str, list[str]] = {k: [] for k in ("added", "replaced", "unchanged", "kept", "refused", "merged")}
     recorded: list[dict[str, str]] = []

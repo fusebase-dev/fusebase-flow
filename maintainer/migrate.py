@@ -77,7 +77,6 @@ class Inventory:
     replace: list[str] = field(default_factory=list)
     identical: list[str] = field(default_factory=list)
     new: list[str] = field(default_factory=list)
-    install_keeps: list[str] = field(default_factory=list)
     never: dict[str, list[str]] = field(default_factory=dict)
     keep: dict[str, list[str]] = field(default_factory=dict)
     changed: list[str] = field(default_factory=list)
@@ -152,6 +151,8 @@ def find_overlay(target: Path, name: str) -> Overlay | None:
         return None
     raw = path.read_bytes()
     heads = list(HEADING.finditer(raw))
+    if not heads and name != "AGENTS.md":
+        return None  # no 5.x Flow section here: install appends the 6.0 block
     if len(heads) != 1:
         nxt = [m.start() for m in H2.finditer(raw)]
         at = nxt[-1] if nxt else max(0, len(raw) - 200)
@@ -337,7 +338,7 @@ def inventory(target: Path, providers: set[str]) -> Inventory:
         elif not f.exists():
             inv.new.append(rel)
         elif not (rel in plan and flow.same_content(f.read_bytes(), flow.sha256(plan[rel]))):
-            inv.install_keeps.append(rel)
+            inv.changed.append(f"{rel} (exists and is not Flow's: install would keep it, not the core's)")
     _never_and_keep(inv, vendor, set(groups) | plan_paths)
     for name in flow.OVERLAY:
         overlay = find_overlay(target, name)
@@ -452,9 +453,6 @@ def report(inv: Inventory, full: bool) -> None:
         say("VERSION does not read Flow's version: it is the project's and stays as it is")
     absent = [d for d in DOCS if not (inv.target / d).exists()]
     say(f"the four documents, created when absent: {', '.join(absent) or 'all present'}")
-    if inv.install_keeps:
-        say(f"install keeps (the core path exists and is not Flow's, so it is not replaced): {len(inv.install_keeps)}")
-        items(inv.install_keeps)
     if inv.missing:
         say(f"recorded Flow files already absent: {len(inv.missing)}")
         items(inv.missing, 10)
