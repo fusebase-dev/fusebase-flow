@@ -16,6 +16,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 FLOW = Path(__file__).resolve().parents[1] / "flow.py"
 GIT = ["git", "-c", "user.name=flow-test", "-c", "user.email=flow-test@example.invalid",
@@ -103,6 +104,34 @@ class AbortFixture(unittest.TestCase):
         self.assertIn("changed-by-both", run.stdout)
         self.assertIn(planted, run.stdout)
         self.assertEqual(before, snapshot(self.clone), "the aborted run changed the tree")
+
+
+class RemovalFallback(unittest.TestCase):
+    def test_refused_deletion_moves_the_file_into_the_backup(self) -> None:
+        sys.path.insert(0, str(FLOW.parent))
+        import migrate
+        import migrate_apply
+        tmp = Path(tempfile.mkdtemp(prefix="flow-migrate-"))
+        try:
+            build_project(tmp / "origin")
+            clone = tmp / "scratch"
+            git(tmp, "clone", "-q", "--no-hardlinks", str(tmp / "origin"), str(clone))
+            inv = migrate.inventory(clone.resolve(), {"claude", "codex"})
+            folder, _ = migrate_apply.backup(inv, "20990101T000000Z")
+
+            def refuse(self: Path, *args: object, **kwargs: object) -> None:
+                raise PermissionError(13, "deletion refused by the surface", str(self))
+
+            with mock.patch.object(Path, "unlink", refuse), mock.patch("os.chmod"):
+                moved, failed, _ = migrate_apply.remove(inv, folder)
+            self.assertEqual(failed, [])
+            self.assertEqual(sorted(moved), sorted(inv.removals()))
+            self.assertTrue(moved)
+            for rel in moved:
+                self.assertFalse((clone / rel).exists(), rel)
+                self.assertTrue((folder / migrate_apply.backup_rel(rel)).is_file(), rel)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
 @unittest.skipUnless(os.environ.get("FLOW_MIGRATE_FIXTURE"), "FLOW_MIGRATE_FIXTURE not set")
