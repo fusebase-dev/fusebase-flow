@@ -284,29 +284,31 @@ def commit(inv: m.Inventory, folder: Path) -> int:
     message = (folder / JOURNAL / MESSAGE).read_text(encoding="utf-8")
     mint = bash(target, "hooks/local/write-bootstrap-approval.sh", "--slug", SLUG)
     say(f"approval: {(mint.stdout + mint.stderr).strip()}")
-    try:
-        if mint.returncode:
-            say("STOPPED: the approval was not minted; nothing committed")
-            return 1
-        say(f"committing through the hooks: {message.splitlines()[0]}")
-        sys.stdout.flush()
-        try:
-            done = subprocess.run(["git", "commit", "-q", "-F", "-"], cwd=target, input=message.encode("utf-8"),
-                                  timeout=3600)
-        except subprocess.TimeoutExpired:
-            say(f"STOPPED: the commit did not finish within 3600 s; HEAD is still {inv.head[:8]}")
-            return 1
-    finally:
-        used = bash(target, "hooks/local/write-bootstrap-approval.sh", "--consume", "--slug", SLUG)
-        say(f"approval: {(used.stdout + used.stderr).strip()}")
-    left = sorted(p.name for p in (target / "state/approvals").glob("*") if p.name != ".gitkeep")
-    say(f"state/approvals/: {', '.join(left) if left else 'empty'}")
-    if done.returncode:
-        say(f"STOPPED: the commit did not pass (exit {done.returncode}; the hook output is above). The migration is "
-            f"applied and staged; HEAD is still {inv.head[:8]}, the backup folder holds every file")
+    if mint.returncode:
+        say("STOPPED: the approval was not minted; nothing committed")
         for line in finish_steps(target, folder):
             say(line)
         return 1
+    say(f"committing through the hooks: {message.splitlines()[0]}")
+    sys.stdout.flush()
+    try:
+        done = subprocess.run(["git", "commit", "-q", "-F", "-"], cwd=target, input=message.encode("utf-8"),
+                              timeout=3600)
+        failed = f"the commit did not pass (exit {done.returncode}; the hook output is above)" if done.returncode else ""
+    except subprocess.TimeoutExpired:
+        failed = "the commit did not finish within 3600 s"
+    if failed:
+        # The approval stays until the commit passes or its TTL ends (owner, 2026-10-17): consumed only on success.
+        found, expires = approval(target)
+        say(f"STOPPED: {failed}. The migration is applied and staged; HEAD is still {inv.head[:8]}, the backup "
+            "folder holds every file" + (f", and the approval {found.name} stays until {expires}" if found else ""))
+        for line in finish_steps(target, folder):
+            say(line)
+        return 1
+    used = bash(target, "hooks/local/write-bootstrap-approval.sh", "--consume", "--slug", SLUG)
+    say(f"approval: {(used.stdout + used.stderr).strip()}")
+    left = sorted(p.name for p in (target / "state/approvals").glob("*") if p.name != ".gitkeep")
+    say(f"state/approvals/: {', '.join(left) if left else 'empty'}")
     say(f"committed: {m.git(target, 'log', '-1', '--format=%h %s').stdout.decode('utf-8').strip()}")
     return 0
 

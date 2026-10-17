@@ -46,8 +46,8 @@ def git(cwd: Path, *args: str) -> subprocess.CompletedProcess:
     return subprocess.run([*GIT, *args], cwd=cwd, capture_output=True, text=True, timeout=600)
 
 
-def migrate(target: Path, *extra: str) -> subprocess.CompletedProcess:
-    return subprocess.run([sys.executable, str(FLOW), "migrate", "--target", str(target), *extra],
+def migrate(target: Path, *extra: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
+    return subprocess.run([sys.executable, str(FLOW), "migrate", "--target", str(target), *extra], env=env,
                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=1800)
 
 
@@ -361,6 +361,43 @@ class Interrupted(unittest.TestCase):
             self.assertEqual(outside_backup(before), outside_backup(snapshot(clone)))
             again = migrate(clone)
             self.assertEqual(again.returncode, 0, again.stdout + again.stderr)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
+MINT = "FF_BOOTSTRAP_TTL_MIN=30 bash hooks/local/write-bootstrap-approval.sh --slug flow-migrate"
+CONSUME = "bash hooks/local/write-bootstrap-approval.sh --consume --slug flow-migrate"
+
+
+class CommitFailure(unittest.TestCase):
+    def test_a_failed_commit_keeps_the_approval_and_prints_the_three_commands(self) -> None:
+        tmp = Path(tempfile.mkdtemp(prefix="flow-migrate-"))
+        try:
+            clone = scratch_clone(tmp)
+            plain = {k: v for k, v in os.environ.items() if k != "FUSEBASE_FLOW_LINT"}
+            # passes the preflight (no ledger yet) and fails the commit's pre-commit, like a lint rule over a Flow path
+            failing = dict(plain, FUSEBASE_FLOW_LINT="test ! -e docs/flow/ledger.md")
+            run = migrate(clone, "--apply", "--go-ahead", env=failing)
+            self.assertEqual(run.returncode, 1, run.stdout + run.stderr)
+            self.assertIn("lint failed", run.stdout + run.stderr)
+            kept = sorted((clone / "state/approvals").glob("protected_path_edit-flow-migrate-*.json"))
+            self.assertEqual(len(kept), 1, "the approval was consumed although the commit failed")
+            commands = steps(run.stdout)
+            commit = [c for c in commands if c.startswith('git commit -m "chore(flow): T2 migrate Fusebase Flow 5.6 to ')]
+            self.assertEqual(len(commit), 1, run.stdout)
+            self.assertLess(commands.index(commit[0]), commands.index(MINT))
+            self.assertLess(commands.index(MINT), commands.index(CONSUME))
+            again = migrate(clone, env=plain)
+            self.assertEqual(again.returncode, 1, again.stdout)
+            self.assertIn("applied but not committed", again.stdout)
+            self.assertIn(commit[0], steps(again.stdout))
+            for step in (commit[0], CONSUME):  # the cause is gone; the kept approval still holds
+                done = subprocess.run([shutil.which("bash") or "bash", "-c", step], cwd=clone, env=plain,
+                                      capture_output=True, text=True, timeout=1800)
+                self.assertEqual(done.returncode, 0, f"{step}\n{done.stdout}{done.stderr}")
+            self.assertEqual(git(clone, "status", "--porcelain").stdout, "")
+            self.assertEqual(sorted(p.name for p in (clone / "state/approvals").iterdir()), [".gitkeep"])
+            self.assertIn("nothing to migrate", migrate(clone, env=plain).stdout)
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
