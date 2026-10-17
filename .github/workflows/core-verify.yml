@@ -1,0 +1,99 @@
+name: core-verify
+
+# The 6.0 core's own CI (handoff section 13: one CI-file commit, core-verify.yml and
+# core-release.yml). It tests the core tree itself: the kernel lock, then the done checks a
+# hosted runner can run. `.github/` is never installed into a project, so no consumer inherits it.
+on:
+  push:
+    branches: [core]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      sha:
+        description: >-
+          The exact commit to verify. core-release.yml passes the tagged commit; each leg checks
+          it out and asserts HEAD equals it.
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: verify-${{ matrix.platform }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux
+            os: ubuntu-latest
+            python: python3
+          - platform: windows-msys
+            os: windows-latest
+            python: python
+    runs-on: ${{ matrix.os }}
+    # Owner, 2026-10-16: a pre-release is gated on Linux only; Windows/MSYS gates the 6.0.0 tag.
+    # A pre-release tag carries a hyphen (6.0.0-m...): on it the MSYS leg reports but cannot block.
+    continue-on-error: ${{ matrix.platform == 'windows-msys' && startsWith(github.ref, 'refs/tags/') && contains(github.ref_name, '-') }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    env:
+      PYTHON: ${{ matrix.python }}
+    steps:
+      - name: Check out the commit under verification
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.sha || github.sha }}
+
+      - name: Assert HEAD is that commit
+        run: |
+          set -euo pipefail
+          want='${{ inputs.sha || github.sha }}'
+          got="$(git rev-parse HEAD)"
+          if [ "$got" != "$want" ]; then
+            echo "::error::Verifying $got but $want was requested: this run is not evidence for that commit."
+            exit 1
+          fi
+          echo "platform=${{ matrix.platform }} sha=$got"
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Make python3 resolve on Git Bash
+        if: runner.os == 'Windows'
+        run: |
+          set -euo pipefail
+          # The hooks call python3; Git Bash has no such alias. Provisioning only.
+          if ! command -v python3 >/dev/null 2>&1; then
+            mkdir -p "$HOME/bin"
+            printf '#!/usr/bin/env bash\nexec python "$@"\n' > "$HOME/bin/python3"
+            chmod +x "$HOME/bin/python3"
+            echo "$HOME/bin" >> "$GITHUB_PATH"
+          fi
+
+      - name: Install PyYAML
+        run: python -m pip install -r hooks/requirements.txt
+
+      - name: Kernel lock (byte-identical to 5.x except the authorized trim)
+        run: python maintainer/check_kernel_lock.py
+
+      - name: Done checks (empty-folder install, the three hooks fire, re-install, builder boot)
+        run: bash maintainer/ci_checks.sh
+
+      - name: Migrate tests (synthetic 5.6 project; a planted project edit aborts and changes nothing)
+        run: python maintainer/tests/test_migrate.py
+
+      - name: Working tree clean
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "::error::Working tree changed during verification."
+            git status --short
+            exit 1
+          fi

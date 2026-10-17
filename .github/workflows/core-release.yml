@@ -1,0 +1,67 @@
+name: core-release
+
+# Publishes a GitHub Release for a 6.0 tag, only after core-verify passed on the tagged commit
+# (handoff section 13). A tag with a hyphen (6.0.0-m...) is published as a pre-release and is never
+# marked latest. The release note is required: maintainer/release-notes/<tag>.md.
+on:
+  push:
+    tags: ["v*", "[0-9]*"]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    uses: ./.github/workflows/core-verify.yml
+    with:
+      sha: ${{ github.sha }}
+
+  publish:
+    # The gate: publish starts only when the called workflow succeeded in full.
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: The verify gate is green (tripwire)
+        run: |
+          set -euo pipefail
+          if [ '${{ needs.verify.result }}' != 'success' ]; then
+            echo "::error::publish reached with verify=${{ needs.verify.result }}: the gate edge was bypassed."
+            exit 1
+          fi
+
+      - name: Check out
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: The tag still targets the verified commit
+        run: |
+          set -euo pipefail
+          tag="$GITHUB_REF_NAME"
+          remote="$(git ls-remote origin "refs/tags/${tag}^{}" | cut -f1)"
+          [ -n "$remote" ] || remote="$(git ls-remote origin "refs/tags/${tag}" | cut -f1)"
+          if [ "$remote" != "$GITHUB_SHA" ]; then
+            echo "::error::Tag $tag targets ${remote:-nothing}; the verified commit is $GITHUB_SHA."
+            exit 1
+          fi
+
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="$GITHUB_REF_NAME"
+          notes="maintainer/release-notes/${tag}.md"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists and its tag targets the verified commit; nothing to publish."
+            exit 0
+          fi
+          if [ ! -f "$notes" ]; then
+            echo "::error::$notes is missing: a 6.0 release carries a written note."
+            exit 1
+          fi
+          flags=(--verify-tag -t "$tag" -F "$notes")
+          case "$tag" in *-*) flags+=(--prerelease --latest=false) ;; esac
+          gh release create "$tag" "${flags[@]}"
