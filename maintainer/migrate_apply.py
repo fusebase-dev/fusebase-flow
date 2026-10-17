@@ -177,7 +177,8 @@ def migration_report(inv: m.Inventory, stamp: str, folder: Path, backed: int, mo
         f"- left in place (named like Flow 5.x files, bytes not Flow's; copied to the backup folder): "
         f"{', '.join(inv.foreign) or 'none'}",
         f"- replace: {len(inv.replace)} ({len(inv.identical)} already identical); new: {len(inv.new)}; rewritten: "
-        f"{', '.join(list(inv.overlays) + (['VERSION'] if inv.version_is_flow else []))}; .gitignore unchanged",
+        f"{', '.join(list(inv.overlays) + (['VERSION'] if inv.version_is_flow else []))}; {flow.ATTRIBUTES}: the Flow "
+        "line-ending block; .gitignore unchanged",
         f"- never touch: {never}; {m.CLI_VENDOR} {inv.vendor[0]} listed, {inv.vendor[1]} present",
         f"- keep: {keep}",
         "- changed-by-both: 0",
@@ -196,7 +197,8 @@ def documents(inv: m.Inventory, report: list[str]) -> list[str]:
     for rel in m.DOCS:
         dest = inv.target / rel
         if not dest.exists():
-            flow.write_bytes(dest, (flow.CORE / "templates" / Path(rel).name).read_bytes(), False)
+            template = (flow.CORE / "templates" / Path(rel).name).read_bytes()
+            flow.write_bytes(dest, template.replace(b"\r\n", b"\n"), False)  # generated: LF, whatever the checkout
             created.append(Path(rel).name)
     ledger = inv.target / "docs/flow/ledger.md"
     text = ledger.read_text(encoding="utf-8")

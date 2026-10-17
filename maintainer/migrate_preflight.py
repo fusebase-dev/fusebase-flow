@@ -112,7 +112,8 @@ def changed_paths(inv: m.Inventory) -> list[str]:
     """The paths the migration commit changes, for the validator-free tier (an extra path can only make it stricter)."""
     index = set(m.git(inv.target, "ls-files", "-z").stdout.decode("utf-8", "replace").split("\0"))
     return sorted({p for p in inv.removals() if p in index} | (set(inv.replace) - set(inv.identical)) | set(inv.new)
-                  | set(inv.overlays) | ({"VERSION"} if inv.version_is_flow else set()) | set(m.DOCS))
+                  | set(inv.overlays) | ({"VERSION"} if inv.version_is_flow else set()) | set(m.DOCS)
+                  | {flow.ATTRIBUTES})
 
 
 def staging(inv: m.Inventory) -> Check:

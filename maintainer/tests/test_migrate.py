@@ -180,34 +180,57 @@ class RemovalFallback(unittest.TestCase):
 
 
 class ApplyEndToEnd(unittest.TestCase):
+    """One migration of the synthetic project, shared by the checks below (an apply takes minutes on a loaded host)."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.tmp = Path(tempfile.mkdtemp(prefix="flow-migrate-"))
+        cls.clone = scratch_clone(cls.tmp)
+        cls.pre = git(cls.clone, "rev-parse", "HEAD").stdout.strip()
+        cls.applied = migrate(cls.clone, "--apply", "--go-ahead")
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def test_generated_files_are_lf_and_pinned_lf(self) -> None:
+        clone = self.clone
+        self.assertEqual(self.applied.returncode, 0, self.applied.stdout + self.applied.stderr)
+        generated = ["docs/flow/backlog.md", "docs/flow/phases.md", "docs/flow/evidence.md", "docs/flow/ledger.md",
+                     "audit/flow-install.json", "VERSION", ".codex/agents/builder.toml", ".codex/agents/planner.toml",
+                     "policies/module-size-baseline.txt", ".claude/skills/plan/SKILL.md", "workflows/lifecycle.md"]
+        for rel in generated:
+            self.assertNotIn(b"\r", (clone / rel).read_bytes(), rel)
+        attrs = git(clone, "check-attr", "eol", "--", *generated).stdout
+        for rel in generated:
+            self.assertIn(f"{rel}: eol: lf", attrs)
+        # a Windows checkout (core.autocrlf=true) of the migration commit keeps them LF
+        fresh = self.tmp / "fresh"
+        done = subprocess.run(["git", "-c", "core.autocrlf=true", "clone", "-q", "--no-hardlinks", str(clone), str(fresh)],
+                              capture_output=True, text=True, timeout=600)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        for rel in generated:
+            self.assertNotIn(b"\r", (fresh / rel).read_bytes(), f"{rel} in a core.autocrlf=true clone")
+        self.assertNotIn("AGENTS.md: eol: lf", git(clone, "check-attr", "eol", "--", "AGENTS.md", "src/app.ts").stdout)
+
     def test_second_apply_is_a_no_op_and_rollback_is_one_checkout(self) -> None:
-        tmp = Path(tempfile.mkdtemp(prefix="flow-migrate-"))
-        try:
-            build_project(tmp / "origin")
-            clone = tmp / "scratch"
-            git(tmp, "clone", "-q", "--no-hardlinks", str(tmp / "origin"), str(clone))
-            git(clone, "config", "user.name", "flow-test")
-            git(clone, "config", "user.email", "flow-test@example.invalid")
-            pre = git(clone, "rev-parse", "HEAD").stdout.strip()
-            run = migrate(clone, "--apply", "--go-ahead")
-            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
-            self.assertIn("committed: ", run.stdout)
-            self.assertIn("chore(flow): T2 migrate Fusebase Flow 5.6 to ", run.stdout)
-            self.assertEqual(git(clone, "status", "--porcelain").stdout, "")
-            self.assertEqual(sorted(p.name for p in (clone / "state/approvals").iterdir()), [".gitkeep"])
-            self.assertFalse((clone / "workflows/verification-gate.md").exists())
-            again = migrate(clone, "--apply", "--go-ahead")
-            self.assertEqual(again.returncode, 0, again.stdout)
-            self.assertIn("nothing to migrate", again.stdout)
-            self.assertEqual(git(clone, "status", "--porcelain").stdout, "")
-            after = git(clone, "rev-parse", "HEAD").stdout.strip()
-            self.assertEqual(git(clone, "checkout", "-q", pre).returncode, 0)
-            self.assertEqual((clone / "FLOW_RULES.md").read_text(encoding="utf-8"), FILES["FLOW_RULES.md"])
-            self.assertTrue((clone / "workflows/verification-gate.md").is_file())
-            self.assertEqual(git(clone, "checkout", "-q", "-").returncode, 0)
-            self.assertEqual(git(clone, "rev-parse", "HEAD").stdout.strip(), after)
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
+        clone, run, pre = self.clone, self.applied, self.pre
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertIn("committed: ", run.stdout)
+        self.assertIn("chore(flow): T2 migrate Fusebase Flow 5.6 to ", run.stdout)
+        self.assertEqual(git(clone, "status", "--porcelain").stdout, "")
+        self.assertEqual(sorted(p.name for p in (clone / "state/approvals").iterdir()), [".gitkeep"])
+        self.assertFalse((clone / "workflows/verification-gate.md").exists())
+        again = migrate(clone, "--apply", "--go-ahead")
+        self.assertEqual(again.returncode, 0, again.stdout)
+        self.assertIn("nothing to migrate", again.stdout)
+        self.assertEqual(git(clone, "status", "--porcelain").stdout, "")
+        after = git(clone, "rev-parse", "HEAD").stdout.strip()
+        self.assertEqual(git(clone, "checkout", "-q", pre).returncode, 0)
+        self.assertEqual((clone / "FLOW_RULES.md").read_text(encoding="utf-8"), FILES["FLOW_RULES.md"])
+        self.assertTrue((clone / "workflows/verification-gate.md").is_file())
+        self.assertEqual(git(clone, "checkout", "-q", "-").returncode, 0)
+        self.assertEqual(git(clone, "rev-parse", "HEAD").stdout.strip(), after)
 
 
 class BaselineCarry(unittest.TestCase):

@@ -40,6 +40,13 @@ OVERLAY = {"AGENTS.md": "maintainer/overlay/AGENTS.block.md", "CLAUDE.md": "main
 FLOW_BEGIN, FLOW_END = "<!-- FLOW:BEGIN", "<!-- FLOW:END -->"
 PRESERVE_BEGIN, PRESERVE_END = "<!-- FLOW:PRESERVE:BEGIN", "<!-- FLOW:PRESERVE:END -->"
 WRAP_BEGIN, WRAP_END = "<!-- CUSTOM:SKILL:BEGIN -->", "<!-- CUSTOM:SKILL:END -->"
+# The project's .gitattributes gets one Flow block pinning what Flow writes to LF, scoped to those paths so the
+# project's own files are not renormalized (Onboarding's 5.6 block is the model); re-install replaces the block.
+ATTRIBUTES = ".gitattributes"
+ATTR_BEGIN, ATTR_END = "# FLOW:BEGIN line endings (flow.py install writes this block; re-install replaces it)", \
+    "# FLOW:END line endings"
+FLOW_DIRS = ("agents", "flow-skills", "hooks", "policies", "templates", "workflows")
+DOCS_DIR = "docs/flow"
 
 
 def sha256(data: bytes) -> str:
@@ -222,6 +229,36 @@ def merge_block(existing: str | None, block: str) -> str:
     return merged
 
 
+def attributes_block(paths: list[str]) -> str:
+    """`text eol=lf` for each path Flow writes: its folders, its skill mirror folders, its single files."""
+    pins = {f"{DOCS_DIR}/**", MANIFEST}
+    for rel in paths:
+        parts = rel.split("/")
+        if parts[0] in FLOW_DIRS:
+            pins.add(f"{parts[0]}/**")
+        elif len(parts) > 3 and parts[0] in (".claude", ".agents") and parts[1] == "skills":
+            pins.add("/".join(parts[:3]) + "/**")
+        else:
+            pins.add(rel)
+    return "\n".join([ATTR_BEGIN, "# core.autocrlf=true would otherwise check these out as CRLF: the hooks break and "
+                      "the sha256 records stop matching.", *(f"{p} text eol=lf" for p in sorted(pins)), ATTR_END]) + "\n"
+
+
+def merge_attributes(existing: str | None, block: str) -> str:
+    """The block replaces its earlier copy, or is appended; the file keeps its own line endings (merged, as AGENTS.md)."""
+    if existing is None:
+        return block
+    nl = "\r\n" if existing[:existing.find("\n") + 1].endswith("\r\n") else "\n"
+    block = block.replace("\n", nl)
+    start = existing.find(ATTR_BEGIN)
+    stop = existing.find(ATTR_END, start) if start >= 0 else -1
+    if stop >= 0:
+        stop = existing.find("\n", stop)
+        return existing[:start] + block + (existing[stop + 1:] if stop >= 0 else "")
+    sep = "" if not existing or existing.endswith("\n") else nl
+    return existing + sep + (nl if existing else "") + block
+
+
 def install_hooks(target: Path) -> tuple[int, str]:
     bash = shutil.which("bash")
     if not bash:
@@ -302,10 +339,19 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
         if after != before:
             write_bytes(dest, after.encode("utf-8"), False)
         report["merged"].append(f"{name} ({'created' if before is None else 'block updated' if after != before else 'block current'})")
+    attrs = target / ATTRIBUTES
+    if attrs.is_symlink() or (attrs.exists() and not attrs.is_file()):
+        report["refused"].append(f"{ATTRIBUTES} (a symlink or not a regular file: the line-ending block is not written)")
+    else:
+        before = attrs.read_bytes().decode("utf-8", "surrogateescape") if attrs.is_file() else None
+        after = merge_attributes(before, attributes_block([e["path"] for e in recorded]))
+        if after != before:
+            write_bytes(attrs, after.encode("utf-8", "surrogateescape"), False)
+        report["merged"].append(f"{ATTRIBUTES} ({'created' if before is None else 'block updated' if after != before else 'block current'})")
     write_bytes(target / MANIFEST, (json.dumps({
         "schema_version": 1, "flow_version": version, "providers": sorted(providers),
         "files": sorted(recorded, key=lambda e: e["path"]),
-        "merged": sorted(OVERLAY) if "claude" in providers else ["AGENTS.md"],
+        "merged": sorted(OVERLAY if "claude" in providers else ["AGENTS.md"]) + [ATTRIBUTES],
     }, indent=2) + "\n").encode("utf-8"), False)
     report["ignored"] = ignored_paths(target, [e["path"] for e in recorded])
     rc, hooks_out = install_hooks(target)
