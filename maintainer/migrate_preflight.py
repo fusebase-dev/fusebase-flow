@@ -157,7 +157,7 @@ def interpreter(inv: m.Inventory) -> Check:
         return Check("python3 for the hooks", f"bash finds no python3 with PyYAML ({why[0][:200]}); the approval "
                      "and the hooks run python3", True,
                      "put Python 3.10+ on bash's PATH as python3 and run "
-                     f"`python3 -m pip install -r {(flow.CORE / 'hooks/requirements.txt').as_posix()}`; then re-run")
+                     f"`python3 -m pip install -r \"{(flow.CORE / 'hooks/requirements.txt').as_posix()}\"`; then re-run")
     return Check("python3 for the hooks", f"python3 {probe.stdout.strip()} with PyYAML")
 
 

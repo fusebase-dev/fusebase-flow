@@ -22,6 +22,19 @@ EXCLUDE_LINES = ("# Fusebase Flow migration backups (flow.py migrate): never sta
 JOURNAL = ".migrate"
 CREATED, UNTRACKED, STAGE, MESSAGE = "created.txt", "untracked.txt", "stage.txt", "message.txt"
 DELETE = "delete.txt"  # the commit's deletions; stage.txt holds the paths it adds and, written last, marks it complete
+TRACKED = "tracked.txt"  # the tracked paths the apply may change: the rollback restores these from HEAD, nothing else
+# Puts back the 5.x git hooks the backup folder holds and removes a 6.0 hook where 5.x had none.
+HOOKS_STEP = ('for h in pre-commit commit-msg pre-push; do if [ -f "{backup}/.git-hooks/$h" ]; then '
+              'cp -p -- "{backup}/.git-hooks/$h" "$(git rev-parse --git-path hooks)/$h"; '
+              'else rm -f -- "$(git rev-parse --git-path hooks)/$h"; fi; done')
+# The undo of a completed migration (owner, 2026-10-17): no reset --hard. The release note states the same lines with
+# <UTC time> and <the pre-migration commit> in place of {stamp} and {commit}; maintainer/tests checks them.
+UNDO = ("git checkout -b flow-5x-{stamp} {commit}", HOOKS_STEP.replace("{backup}", BACKUP_PREFIX + "{stamp}"),
+        'while IFS= read -r p; do mkdir -p -- "$(dirname -- "$p")" && cp -p -- "' + BACKUP_PREFIX + '{stamp}/$p" "$p"; '
+        'done < "' + BACKUP_PREFIX + "{stamp}/" + JOURNAL + "/" + UNTRACKED + '"')
+UNDO_INTRO = ("to undo the migration, run these in order from the project's top level in Git Bash: they check out the "
+              "pre-migration commit on a new branch, put the 5.x git hooks back and restore the untracked files the "
+              "migration removed or overwrote; the branch you migrated keeps the migration commit")
 SLUG = "flow-migrate"
 MINT = f"FF_BOOTSTRAP_TTL_MIN=30 bash hooks/local/write-bootstrap-approval.sh --slug {SLUG}"
 CONSUME = f"bash hooks/local/write-bootstrap-approval.sh --consume --slug {SLUG}"
@@ -71,8 +84,15 @@ def backup(inv: m.Inventory, stamp: str) -> tuple[Path, list[str]]:
     index = index_paths(target)
     write_lines(folder / JOURNAL / CREATED,
                 sorted({p for p in inv.new + list(m.REWRITTEN) + list(m.DOCS) if not (target / p).exists()}))
-    write_lines(folder / JOURNAL / UNTRACKED, [p for p in inv.removals() if p not in index and not p.startswith(".git/")])
+    touched = [p for p in inv.removals() + inv.replace + list(m.REWRITTEN) + list(m.DOCS) if not p.startswith(".git/")]
+    write_lines(folder / JOURNAL / TRACKED, sorted({p for p in touched if p in index}))
+    write_lines(folder / JOURNAL / UNTRACKED, sorted({p for p in touched if p not in index and (target / p).is_file()}))
     return folder, files
+
+
+def undo_steps(folder: Path, commit: str) -> list[str]:
+    """UNDO with this migration's values."""
+    return [line.format(stamp=folder.name[len(BACKUP_PREFIX):], commit=commit) for line in UNDO]
 
 
 def remove(inv: m.Inventory, folder: Path) -> tuple[list[str], list[str], int]:
@@ -171,7 +191,7 @@ def migration_report(inv: m.Inventory, stamp: str, folder: Path, backed: int, mo
         "## Migration report",
         f"- {when} Fusebase Flow {inv.version} -> {core} by `flow.py migrate --apply --go-ahead` "
         f"(providers: {', '.join(sorted(inv.providers))})",
-        f"- pre-migration commit: {inv.head} ({inv.branch}); rollback: `git checkout {inv.head[:8]}`",
+        f"- pre-migration commit: {inv.head} ({inv.branch}); the undo is at the end of this report",
         f"- backup folder: {folder.name}/ ({backed} files, excluded in .git/info/exclude; delete it once the "
         "migration is accepted)" + (f"; {len(moved)} files moved into it, deletion refused" if moved else ""),
         f"- remove: {len(inv.removals())} ({groups})",
@@ -188,6 +208,7 @@ def migration_report(inv: m.Inventory, stamp: str, folder: Path, backed: int, mo
         f"- hidden by .gitignore: {', '.join(inv.hidden) or 'none'}",
         f"- hook wiring (left as is): {inv.wiring}",
         "- not run: check-cli-flow-conflicts.sh and the health check (neither is in the 6.0 core yet)",
+        f"- {UNDO_INTRO}:", "", "```", *undo_steps(folder, inv.head), "```",
     ]
     return lines
 
@@ -256,7 +277,8 @@ def complete(inv: m.Inventory, folder: Path) -> None:
         f"chore(flow): {inv.task} migrate Fusebase Flow {inv.version} to {core}\n\n"
         f"flow.py migrate --apply --go-ahead: remove {len(inv.removals())}, replace {len(inv.replace)}, "
         f"new {len(inv.new)}; the migration report leads docs/flow/ledger.md.\n"
-        f"Backup: {folder.name}/ (excluded). Rollback: git checkout {inv.head[:8]}.\n").encode("utf-8"), False)
+        f"Backup: {folder.name}/ (excluded). Undo: the steps at the end of the migration report.\n").encode("utf-8"),
+        False)
 
 
 def bash(target: Path, *args: str) -> subprocess.CompletedProcess:
@@ -324,6 +346,9 @@ def commit(inv: m.Inventory, folder: Path) -> int:
     left = sorted(p.name for p in (target / "state/approvals").glob("*") if p.name != ".gitkeep")
     say(f"state/approvals/: {', '.join(left) if left else 'empty'}")
     say(f"committed: {m.git(target, 'log', '-1', '--format=%h %s').stdout.decode('utf-8').strip()}")
+    say(f"{UNDO_INTRO}:")
+    for line in undo_steps(folder, inv.head):
+        say(f"  $ {line}")
     return 0
 
 
@@ -351,28 +376,31 @@ def finish_steps(target: Path, folder: Path) -> list[str]:
 
 
 def rollback_steps(target: Path, folder: Path | None) -> list[str]:
-    """Restores the pre-migration tree from HEAD and the backup folder."""
-    lines = ["  $ git reset -q", "  $ git checkout -- ."]
+    """Undoes a part-way apply from its journal: the paths it changed, from HEAD and the backup folder, and the hooks."""
     if folder is None:
-        return lines + ["  (no .flow-migrate-* folder: the untracked files the removal deleted and the old "
-                        ".git/hooks cannot be restored from it)"]
+        return [f"  $ git --literal-pathspecs restore --source=HEAD --staged --worktree -- {m.MC_MANIFEST}",
+                "  (no .flow-migrate-* folder, so no record of anything else the apply changed: `git status` shows it)"]
     rel = folder.relative_to(target).as_posix()
-    if (folder / JOURNAL / CREATED).is_file():
-        lines.append(f'  $ while IFS= read -r p; do rm -f -- "$p"; rmdir -p -- "$(dirname -- "$p")" 2>/dev/null; '
-                     f"done < {rel}/{JOURNAL}/{CREATED}; true")
-    if (folder / JOURNAL / UNTRACKED).is_file() and (folder / JOURNAL / UNTRACKED).stat().st_size:
+    journal = lambda name: (folder / JOURNAL / name).is_file() and (folder / JOURNAL / name).stat().st_size
+    lines = []
+    if journal(TRACKED):  # restore and rm exit 128 on an empty pathspec file
+        lines.append("  $ git --literal-pathspecs restore --source=HEAD --staged --worktree "
+                     f'--pathspec-from-file="{rel}/{JOURNAL}/{TRACKED}"')
+    if journal(CREATED):
+        lines += ["  $ git --literal-pathspecs rm -q -f --cached --ignore-unmatch "
+                  f'--pathspec-from-file="{rel}/{JOURNAL}/{CREATED}"',
+                  f'  $ while IFS= read -r p; do rm -f -- "$p"; rmdir -p -- "$(dirname -- "$p")" 2>/dev/null; '
+                  f'done < "{rel}/{JOURNAL}/{CREATED}"; true']
+    if journal(UNTRACKED):
         lines.append(f'  $ while IFS= read -r p; do mkdir -p -- "$(dirname -- "$p")" && cp -p -- "{rel}/$p" "$p"; '
-                     f"done < {rel}/{JOURNAL}/{UNTRACKED}")
-    hooks = m.hooks_dir(target)
-    where = hooks.relative_to(target).as_posix() if target in hooks.parents else hooks.as_posix()
-    for old in sorted((folder / ".git-hooks").glob("*")):
-        lines.append(f"  $ cp -p -- {rel}/.git-hooks/{old.name} {where}/{old.name}")
-    return lines
+                     f'done < "{rel}/{JOURNAL}/{UNTRACKED}"')
+    return lines + [f"  $ {HOOKS_STEP.replace('{backup}', rel)}"]
 
 
 def stopped_part_way(target: Path, folder: Path | None) -> int:
-    say("the apply stopped part-way: do not commit this tree. Roll it back to the pre-migration commit "
-        "(this discards every tracked change since the apply began), fix the cause, then run the migration again:")
+    say("the apply stopped part-way: do not commit this tree. Roll it back with these steps, in order, from the "
+        "project's top level in Git Bash: they restore the paths the apply changed, from HEAD and the backup folder, "
+        "and the git hooks, and leave every other edit as it is. Then fix the cause and run the migration again:")
     for line in rollback_steps(target, folder):
         say(line)
     return 1

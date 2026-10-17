@@ -62,14 +62,15 @@ def snapshot(root: Path) -> tuple[str, dict[str, str]]:
     return status, hashes
 
 
-def build_project(root: Path) -> None:
+def build_project(root: Path, extra: dict[str, str] | None = None) -> None:
     root.mkdir(parents=True)
     git(root, "init", "-q")
-    for rel, text in FILES.items():
+    files = {**FILES, **(extra or {})}
+    for rel, text in files.items():
         (root / rel).parent.mkdir(parents=True, exist_ok=True)
         (root / rel).write_bytes(text.encode("utf-8"))
     assets = [{"path": rel, "sha256": hashlib.sha256((root / rel).read_bytes()).hexdigest()}
-              for rel in sorted(FILES) if rel.split("/")[0] in ("workflows", "flow-skills", "hooks", "policies")
+              for rel in sorted(files) if rel.split("/")[0] in ("workflows", "flow-skills", "hooks", "policies")
               or rel == "FLOW_RULES.md"]
     (root / "audit").mkdir()
     # manifest_self_sha256 as Flow 5.x's managed_content_manifest.py records it: the migrator trusts the record by it
@@ -82,9 +83,9 @@ def build_project(root: Path) -> None:
     git(root, "commit", "-q", "-m", "chore: T1 Flow 5.6 project")
 
 
-def scratch_clone(tmp: Path) -> Path:
+def scratch_clone(tmp: Path, extra: dict[str, str] | None = None) -> Path:
     """A clone of a fresh synthetic 5.6 project, with a committer identity for the migration commit."""
-    build_project(tmp / "origin")
+    build_project(tmp / "origin", extra)
     clone = tmp / "scratch"
     git(tmp, "clone", "-q", "--no-hardlinks", str(tmp / "origin"), str(clone))
     git(clone, "config", "user.name", "flow-test")
@@ -389,6 +390,26 @@ class Preflight(unittest.TestCase):
         self.lint_that_writes("printf 'x\\n' > hooks/lint-report.txt; exit 1", "hooks/lint-report.txt", [])
 
 
+# the git hooks of a 5.x project: committed under hooks/git/, installed byte for byte into .git/hooks
+HOOKS_5X = {f"hooks/git/{h}": f"#!/usr/bin/env bash\n# fusebase-flow-managed-hook: v1\n# Flow 5.6 {h}\nexit 0\n"
+            for h in ("pre-commit", "commit-msg", "pre-push")}
+
+
+def plant_5x_hooks(clone: Path) -> None:
+    for rel, text in HOOKS_5X.items():
+        (clone / ".git/hooks" / Path(rel).name).write_bytes(text.encode("utf-8"))
+
+
+def assert_5x_hooks(test: unittest.TestCase, clone: Path) -> None:
+    for rel, text in HOOKS_5X.items():
+        test.assertEqual((clone / ".git/hooks" / Path(rel).name).read_bytes(), text.encode("utf-8"), rel)
+
+
+def tracked(clone: Path) -> dict[str, str]:
+    paths = git(clone, "ls-files", "-z").stdout.split("\0")
+    return {p: hashlib.sha256((clone / p).read_bytes()).hexdigest() for p in paths if p}
+
+
 def steps(output: str) -> list[str]:
     """The commands a message prints as `[flow migrate]   $ <command>`."""
     return [line.split("$ ", 1)[1] for line in output.splitlines() if line.startswith("[flow migrate]   $ ")]
@@ -405,9 +426,12 @@ class Interrupted(unittest.TestCase):
         import migrate_apply as mapply
         tmp = Path(tempfile.mkdtemp(prefix="flow-migrate-"))
         try:
-            clone = scratch_clone(tmp)
+            clone = scratch_clone(tmp, HOOKS_5X)
+            plant_5x_hooks(clone)
             (clone / "hooks/shared/__pycache__").mkdir()
             (clone / "hooks/shared/__pycache__/x.cpython-312.pyc").write_bytes(b"\x00untracked bytecode")
+            with open(clone / "scripts/slice.mjs", "a", encoding="utf-8", newline="\n") as fh:
+                fh.write("// the operator's own edit, outside the migration's paths\n")
             before = snapshot(clone)
             inv = mig.inventory(clone.resolve(), {"claude", "codex"})
             folder, _ = mapply.backup(inv, "20990101T000000Z")
@@ -418,18 +442,66 @@ class Interrupted(unittest.TestCase):
             self.assertIn("stopped part-way", run.stdout)
             self.assertNotIn("git commit", run.stdout)
             rollback = steps(run.stdout)
-            self.assertIn("git checkout -- .", rollback)
+            self.assertFalse([s for s in rollback if "checkout -- ." in s or "reset" in s], rollback)
             # the same core.autocrlf as this file's git() helper, so the restored files compare byte for byte
             env = dict(os.environ, GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="core.autocrlf", GIT_CONFIG_VALUE_0="false")
             for step in rollback:
                 done = subprocess.run([shutil.which("bash") or "bash", "-c", step], cwd=clone, env=env,
                                       capture_output=True, text=True, timeout=600)
                 self.assertEqual(done.returncode, 0, f"{step}\n{done.stdout}{done.stderr}")
-            self.assertEqual(outside_backup(before), outside_backup(snapshot(clone)))
+            self.assertEqual(outside_backup(before), outside_backup(snapshot(clone)))  # the operator's edit included
+            assert_5x_hooks(self, clone)
+            git(clone, "checkout", "--", "scripts/slice.mjs")  # the preflight wants a clean tracked tree again
             again = migrate(clone)
             self.assertEqual(again.returncode, 0, again.stdout + again.stderr)
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
+
+
+class Undo(unittest.TestCase):
+    """A completed migration in a folder whose path has a space, undone by the steps it printed, run as printed."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.tmp = Path(tempfile.mkdtemp(prefix="flow migrate "))
+        cls.clone = scratch_clone(cls.tmp, HOOKS_5X)
+        plant_5x_hooks(cls.clone)
+        (cls.clone / "hooks/shared/__pycache__").mkdir()
+        (cls.clone / "hooks/shared/__pycache__/x.cpython-312.pyc").write_bytes(b"\x00untracked bytecode")
+        cls.pre, cls.before = git(cls.clone, "rev-parse", "HEAD").stdout.strip(), tracked(cls.clone)
+        cls.applied = migrate(cls.clone, "--apply", "--go-ahead")
+        cls.undo = steps(cls.applied.stdout.split("to undo the migration", 1)[-1])
+        cls.stamp = next(cls.clone.glob(".flow-migrate-*")).name.split("-")[-1]
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def test_the_printed_undo_restores_the_tree_and_the_5x_hooks(self) -> None:
+        self.assertEqual(self.applied.returncode, 0, self.applied.stdout + self.applied.stderr)
+        self.assertEqual(len(self.undo), 3, self.applied.stdout)
+        ledger = blob(self.clone, "HEAD:docs/flow/ledger.md").decode("utf-8")
+        for text in (self.applied.stdout, ledger):
+            self.assertNotIn("reset --hard", text)
+            self.assertTrue(all(step in text for step in self.undo))
+        env = dict(os.environ, GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="core.autocrlf", GIT_CONFIG_VALUE_0="false")
+        for step in self.undo:
+            done = subprocess.run([shutil.which("bash") or "bash", "-c", step], cwd=self.clone, env=env,
+                                  capture_output=True, text=True, timeout=600)
+            self.assertEqual(done.returncode, 0, f"{step}\n{done.stdout}{done.stderr}")
+        self.assertEqual(git(self.clone, "rev-parse", "HEAD").stdout.strip(), self.pre)
+        self.assertEqual(git(self.clone, "status", "--porcelain", "--untracked-files=no").stdout, "")
+        self.assertEqual(tracked(self.clone), self.before)
+        assert_5x_hooks(self, self.clone)
+        self.assertTrue((self.clone / "hooks/shared/__pycache__/x.cpython-312.pyc").is_file())
+
+    def test_the_release_note_states_the_printed_undo_word_for_word(self) -> None:
+        core = FLOW.parents[1]
+        note = (core / "maintainer/release-notes" / f"v{(core / 'VERSION').read_text().strip()}.md").read_text("utf-8")
+        block = note.split("```\ngit checkout -b flow-5x-", 1)[-1].split("```", 1)[0]
+        printed = [s.replace(self.stamp, "<UTC time>").replace(self.pre, "<the pre-migration commit>")
+                   for s in self.undo]
+        self.assertEqual(("git checkout -b flow-5x-" + block).splitlines(), printed)
 
 
 MINT = "FF_BOOTSTRAP_TTL_MIN=30 bash hooks/local/write-bootstrap-approval.sh --slug flow-migrate"
