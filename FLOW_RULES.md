@@ -1,6 +1,6 @@
 # Fusebase Flow — the 8 rules
 
-Every session, any agent. Read to `## Amendment log`. Policies: `policies/*.yml`. Steps: `workflows/lifecycle.md`.
+Every session, any agent. Policies: `policies/*.yml`. Steps: `workflows/lifecycle.md`.
 
 | # | Rule | Why |
 |---|---|---|
@@ -10,7 +10,7 @@ Every session, any agent. Read to `## Amendment log`. Policies: `policies/*.yml`
 | 4 (FR-07) | Worker-undisturbed | Paths declared protected must show empty git diff between deploys unless an approved exception is on file |
 | 5 (FR-12) | Approval-gated side effects. The dev deploy approval is minted for the exact command before an unattended run; only the main session deploys | Migrations, customer-visible messages, auth changes, secrets and production deploys need an approval artifact on disk |
 | 6 (FR-13) | **Lint+typecheck per code commit.** A commit whose staged paths all match the project's declared docs-only list (empty by default) skips lint and typecheck and still runs the secret scan, protected paths and module size. Any other staged path runs lint and typecheck once. | Broken state on main forces emergency rollback and breaks downstream pulls |
-| 7 (FR-25) | Module-size ratchet | A gated file stays at or under the ceiling (default 800 lines); baselined over-ceiling files may shrink, never grow; new over-ceiling files and growth block. Extraction on a responsibility seam is in scope. Exemptions are the operator's decision, given in chat and run by the agent; never `--no-verify` |
+| 7 (FR-25) | Module-size ratchet | A gated file stays at or under the ceiling (default 800 lines); a baselined file may shrink, never grow. Extraction on a responsibility seam is in scope. Exemptions are the operator's call; never `--no-verify` |
 | 8 (FR-27) | Liveness: never launch bare; the heartbeat has a reader | Long or silent work is bounded (`bounded_run`, which writes a heartbeat), finished in-turn, or returned as `BLOCKED-AT-<gate>`: a hung process sends no completion event |
 
 ## Roles
