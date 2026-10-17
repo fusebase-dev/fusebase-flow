@@ -17,6 +17,13 @@ import migrate as m
 
 BACKUP_PREFIX = ".flow-migrate-"
 EXCLUDE_LINES = ("# Fusebase Flow migration backups (flow.py migrate): never stage them.", f"/{BACKUP_PREFIX}*/")
+# The journal inside the backup folder (no Flow path starts with it): what the apply creates, the untracked files its
+# removal deletes, and, once the migration is complete, the paths and the message of the migration commit.
+JOURNAL = ".migrate"
+CREATED, UNTRACKED, STAGE, MESSAGE = "created.txt", "untracked.txt", "stage.txt", "message.txt"
+SLUG = "flow-migrate"
+MINT = f"FF_BOOTSTRAP_TTL_MIN=30 bash hooks/local/write-bootstrap-approval.sh --slug {SLUG}"
+CONSUME = f"bash hooks/local/write-bootstrap-approval.sh --consume --slug {SLUG}"
 
 
 def say(line: str) -> None:
@@ -42,15 +49,28 @@ def exclude(target: Path, lines: tuple[str, ...]) -> None:
             fh.write(("" if not text or text.endswith("\n") else "\n") + "\n".join(missing) + "\n")
 
 
+def index_paths(target: Path) -> set[str]:
+    return set(m.git(target, "ls-files", "-z").stdout.decode("utf-8", "replace").split("\0")) - {""}
+
+
+def write_lines(path: Path, lines: list[str]) -> None:
+    flow.write_bytes(path, "".join(f"{line}\n" for line in lines).encode("utf-8"), False)
+
+
 def backup(inv: m.Inventory, stamp: str) -> tuple[Path, list[str]]:
-    folder = inv.target / f"{BACKUP_PREFIX}{stamp}"
-    exclude(inv.target, EXCLUDE_LINES)  # before the first copy, so git never lists the folder
+    target = inv.target
+    folder = target / f"{BACKUP_PREFIX}{stamp}"
+    exclude(target, EXCLUDE_LINES)  # before the first copy, so git never lists the folder
     folder.mkdir()
-    files = inv.removals() + inv.replace + [r for r in m.REWRITTEN if (inv.target / r).is_file()]
+    files = inv.removals() + inv.replace + [r for r in m.REWRITTEN + m.DOCS if (target / r).is_file()]
     for rel in files:
         dst = folder / backup_rel(rel)
         dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source(inv.target, rel), dst)
+        shutil.copy2(source(target, rel), dst)
+    index = index_paths(target)
+    write_lines(folder / JOURNAL / CREATED,
+                sorted({p for p in inv.new + list(m.REWRITTEN) + list(m.DOCS) if not (target / p).exists()}))
+    write_lines(folder / JOURNAL / UNTRACKED, [p for p in inv.removals() if p not in index and not p.startswith(".git/")])
     return folder, files
 
 
@@ -199,10 +219,10 @@ def apply(inv: m.Inventory) -> int:
         say(f"moved into {folder.name}/ because this surface refused the deletion: {len(moved)} files "
             "(delete the folder once the migration is accepted)")
     if failed:
-        say(f"STOPPED: {len(failed)} files could be neither deleted nor moved; the backup holds every file:")
+        say(f"STOPPED: {len(failed)} files could be neither deleted nor moved:")
         for line in failed:
             say(f"  {line}")
-        return 1
+        return stopped_part_way(inv.target, folder)
     for line in overlay_and_version(inv):
         say(line)
     try:
@@ -210,10 +230,25 @@ def apply(inv: m.Inventory) -> int:
             say(line)
     except m.Abort as exc:
         say(f"STOPPED: {exc}")
-        return 1
+        return stopped_part_way(inv.target, folder)
     for line in documents(inv, migration_report(inv, stamp, folder, len(files), moved)):
         say(line)
+    complete(inv, folder)
     return commit(inv, folder)
+
+
+def complete(inv: m.Inventory, folder: Path) -> None:
+    """Records the migration commit's paths and message in the journal: from here the migration is complete."""
+    target = inv.target
+    index = index_paths(target)
+    paths = [p for p in inv.removals() if p in index] + inv.replace + inv.new + list(m.REWRITTEN) + list(m.DOCS)
+    write_lines(folder / JOURNAL / STAGE, sorted({p for p in paths if p in index or (target / p).is_file()}))
+    core = (flow.CORE / "VERSION").read_text(encoding="utf-8").strip()
+    flow.write_bytes(folder / JOURNAL / MESSAGE, (
+        f"chore(flow): {inv.task} migrate Fusebase Flow {inv.version} to {core}\n\n"
+        f"flow.py migrate --apply --go-ahead: remove {len(inv.removals())}, replace {len(inv.replace)}, "
+        f"new {len(inv.new)}; the migration report leads docs/flow/ledger.md.\n"
+        f"Backup: {folder.name}/ (excluded). Rollback: git checkout {inv.head[:8]}.\n").encode("utf-8"), False)
 
 
 def bash(target: Path, *args: str) -> subprocess.CompletedProcess:
@@ -222,32 +257,27 @@ def bash(target: Path, *args: str) -> subprocess.CompletedProcess:
                           capture_output=True, text=True, timeout=600)
 
 
+def stage_args(target: Path, folder: Path) -> list[str]:
+    stage = (folder / JOURNAL / STAGE).relative_to(target).as_posix()
+    return ["--literal-pathspecs", "add", "-f", f"--pathspec-from-file={stage}"]
+
+
 def commit(inv: m.Inventory, folder: Path) -> int:
     """Stages the migration by name, mints the single-use approval, commits through the hooks, consumes."""
     target = inv.target
-    index = set(m.git(target, "ls-files", "-z").stdout.decode("utf-8", "replace").split("\0"))
-    paths = [p for p in inv.removals() if p in index] + inv.replace + inv.new + list(m.REWRITTEN) + list(m.DOCS)
-    paths = sorted({p for p in paths if p in index or (target / p).is_file()})
-    hidden = set(inv.hidden)
-    for force, group in ((False, [p for p in paths if p not in hidden]), (True, [p for p in paths if p in hidden])):
-        if group:
-            add = m.git(target, "--literal-pathspecs", "add", *(["-f"] if force else []), "--pathspec-from-file=-",
-                        "--pathspec-file-nul", data="\0".join(group).encode("utf-8"))
-            if add.returncode:
-                say(f"STOPPED: git add exited {add.returncode}: {add.stderr.decode('utf-8', 'replace').strip()}")
-                return 1
+    paths = (folder / JOURNAL / STAGE).read_text(encoding="utf-8").splitlines()
+    add = m.git(target, *stage_args(target, folder))
+    if add.returncode:
+        say(f"STOPPED: git add exited {add.returncode}: {add.stderr.decode('utf-8', 'replace').strip()}")
+        return stopped_part_way(target, folder)
     staged = [p for p in m.git(target, "diff", "--cached", "--name-only", "-z").stdout.decode("utf-8").split("\0") if p]
     stray = sorted(set(staged) - set(paths))
     if stray:
         say(f"STOPPED: staged paths outside the migration: {', '.join(stray[:10])}; nothing committed")
         return 1
-    say(f"staged by name: {len(staged)} paths" + (f" ({len(hidden)} with -f: hidden by .gitignore)" if hidden else ""))
-    core = (flow.CORE / "VERSION").read_text(encoding="utf-8").strip()
-    message = (f"chore(flow): {inv.task} migrate Fusebase Flow {inv.version} to {core}\n\n"
-               f"flow.py migrate --apply --go-ahead: remove {len(inv.removals())}, replace {len(inv.replace)}, "
-               f"new {len(inv.new)}; the migration report leads docs/flow/ledger.md.\n"
-               f"Backup: {folder.name}/ (excluded). Rollback: git checkout {inv.head[:8]}.\n")
-    mint = bash(target, "hooks/local/write-bootstrap-approval.sh", "--slug", "flow-migrate")
+    say(f"staged by name: {len(staged)} paths" + (f" ({len(inv.hidden)} hidden by .gitignore)" if inv.hidden else ""))
+    message = (folder / JOURNAL / MESSAGE).read_text(encoding="utf-8")
+    mint = bash(target, "hooks/local/write-bootstrap-approval.sh", "--slug", SLUG)
     say(f"approval: {(mint.stdout + mint.stderr).strip()}")
     try:
         if mint.returncode:
@@ -262,13 +292,87 @@ def commit(inv: m.Inventory, folder: Path) -> int:
             say(f"STOPPED: the commit did not finish within 3600 s; HEAD is still {inv.head[:8]}")
             return 1
     finally:
-        used = bash(target, "hooks/local/write-bootstrap-approval.sh", "--consume", "--slug", "flow-migrate")
+        used = bash(target, "hooks/local/write-bootstrap-approval.sh", "--consume", "--slug", SLUG)
         say(f"approval: {(used.stdout + used.stderr).strip()}")
     left = sorted(p.name for p in (target / "state/approvals").glob("*") if p.name != ".gitkeep")
     say(f"state/approvals/: {', '.join(left) if left else 'empty'}")
     if done.returncode:
         say(f"STOPPED: the commit did not pass (exit {done.returncode}; the hook output is above). The migration is "
             f"applied and staged; HEAD is still {inv.head[:8]}, the backup folder holds every file")
+        for line in finish_steps(target, folder):
+            say(line)
         return 1
     say(f"committed: {m.git(target, 'log', '-1', '--format=%h %s').stdout.decode('utf-8').strip()}")
     return 0
+
+
+def approval(target: Path) -> tuple[Path | None, str]:
+    """The migration's approval artifact in state/approvals/ and its expiry ("" when absent or unreadable)."""
+    for p in sorted((target / "state/approvals").glob(f"protected_path_edit-{SLUG}-*.json")):
+        try:
+            return p, str(json.loads(p.read_text(encoding="utf-8")).get("expires_at") or "")
+        except (OSError, ValueError, AttributeError):
+            return p, ""
+    return None, ""
+
+
+def finish_steps(target: Path, folder: Path) -> list[str]:
+    """The by-hand end of a complete migration: stage, commit (minting first when no approval is left), consume."""
+    subject = (folder / JOURNAL / MESSAGE).read_text(encoding="utf-8").splitlines()[0]
+    found, expires = approval(target)
+    now = dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    lines = ["finish it by hand, once the cause is fixed; stage the migration by name (a no-op when it is staged):",
+             "  $ git " + " ".join(stage_args(target, folder))]
+    commit_line = f'  $ git commit -m "{subject}"'
+    if found and expires > now:
+        lines += [f"  commit; the approval {found.name} holds until {expires}:", commit_line,
+                  f"  after {expires}, or if the staged paths changed, mint a fresh approval, then commit again:",
+                  f"  $ {MINT}"]
+    else:
+        lines += ["  mint the single-use approval (none is left, or its TTL has passed), then commit:",
+                  f"  $ {MINT}", commit_line]
+    return lines + ["  once the commit has passed, consume the approval:", f"  $ {CONSUME}"]
+
+
+def rollback_steps(target: Path, folder: Path | None) -> list[str]:
+    """Restores the pre-migration tree from HEAD and the backup folder."""
+    lines = ["  $ git reset -q", "  $ git checkout -- ."]
+    if folder is None:
+        return lines + ["  (no .flow-migrate-* folder: the untracked files the removal deleted and the old "
+                        ".git/hooks cannot be restored from it)"]
+    rel = folder.relative_to(target).as_posix()
+    if (folder / JOURNAL / CREATED).is_file():
+        lines.append(f'  $ while IFS= read -r p; do rm -f -- "$p"; rmdir -p -- "$(dirname -- "$p")" 2>/dev/null; '
+                     f"done < {rel}/{JOURNAL}/{CREATED}; true")
+    if (folder / JOURNAL / UNTRACKED).is_file() and (folder / JOURNAL / UNTRACKED).stat().st_size:
+        lines.append(f'  $ while IFS= read -r p; do mkdir -p -- "$(dirname -- "$p")" && cp -p -- "{rel}/$p" "$p"; '
+                     f"done < {rel}/{JOURNAL}/{UNTRACKED}")
+    hooks = m.hooks_dir(target)
+    where = hooks.relative_to(target).as_posix() if target in hooks.parents else hooks.as_posix()
+    for old in sorted((folder / ".git-hooks").glob("*")):
+        lines.append(f"  $ cp -p -- {rel}/.git-hooks/{old.name} {where}/{old.name}")
+    return lines
+
+
+def stopped_part_way(target: Path, folder: Path | None) -> int:
+    say("the apply stopped part-way: do not commit this tree. Roll it back to the pre-migration commit "
+        "(this discards every tracked change since the apply began), fix the cause, then run the migration again:")
+    for line in rollback_steps(target, folder):
+        say(line)
+    return 1
+
+
+def resume(target: Path) -> int:
+    """A tree where the 5.x manifest is gone but HEAD still carries it: an apply that did not end in its commit."""
+    folders = sorted(p for p in target.glob(f"{BACKUP_PREFIX}*") if p.is_dir())
+    folder = folders[-1] if folders else None
+    if folder and (folder / JOURNAL / STAGE).is_file() and (folder / JOURNAL / MESSAGE).is_file():
+        say(f"STOPPED: the migration is applied but not committed (HEAD still carries Flow 5.x; "
+            f"{folder.name}/{JOURNAL}/{STAGE} lists the paths of the migration commit)")
+        for line in finish_steps(target, folder):
+            say(line)
+        return 1
+    say(f"STOPPED: an apply stopped part-way: {m.MC_MANIFEST} is gone from the tree, HEAD still carries it"
+        + ("" if (target / flow.MANIFEST).is_file() else f", and there is no {flow.MANIFEST}")
+        + (f"; backup folder {folder.name}/" if folder else "; no backup folder"))
+    return stopped_part_way(target, folder)

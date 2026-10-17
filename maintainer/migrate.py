@@ -495,10 +495,9 @@ def run(target: Path, providers: set[str], full: bool, apply: bool = False, go_a
         print(f"[flow migrate] REFUSED: {target} is not the top level of a git work tree")
         return 2
     if not (target / MC_MANIFEST).is_file():
-        if (target / flow.MANIFEST).is_file() and git(target, "cat-file", "-e", f"HEAD:{MC_MANIFEST}").returncode == 0:
-            print("[flow migrate] STOPPED: the migration is applied but not committed (HEAD still carries Flow 5.x): "
-                  "stage it by name, mint, commit and consume as workflows/lifecycle.md says")
-            return 1
+        if git(target, "cat-file", "-e", f"HEAD:{MC_MANIFEST}").returncode == 0:
+            import migrate_apply  # an apply that did not end in its commit: finish it or roll it back
+            return migrate_apply.resume(target)
         if (target / flow.MANIFEST).is_file():
             print(f"[flow migrate] nothing to migrate: {target} carries Fusebase Flow "
                   f"{json.loads((target / flow.MANIFEST).read_text(encoding='utf-8')).get('flow_version')} "

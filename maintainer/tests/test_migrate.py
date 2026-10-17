@@ -289,6 +289,49 @@ class Preflight(unittest.TestCase):
         self.assertIn("npm run -s lint", dry.stdout)
 
 
+def steps(output: str) -> list[str]:
+    """The commands a message prints as `[flow migrate]   $ <command>`."""
+    return [line.split("$ ", 1)[1] for line in output.splitlines() if line.startswith("[flow migrate]   $ ")]
+
+
+def outside_backup(snap: tuple[str, dict[str, str]]) -> tuple[str, dict[str, str]]:
+    return snap[0], {p: h for p, h in snap[1].items() if not p.startswith(".flow-migrate-")}
+
+
+class Interrupted(unittest.TestCase):
+    def test_a_stop_right_after_removal_prints_the_rollback_and_no_commit(self) -> None:
+        sys.path.insert(0, str(FLOW.parent))
+        import migrate as mig
+        import migrate_apply as mapply
+        tmp = Path(tempfile.mkdtemp(prefix="flow-migrate-"))
+        try:
+            clone = scratch_clone(tmp)
+            (clone / "hooks/shared/__pycache__").mkdir()
+            (clone / "hooks/shared/__pycache__/x.cpython-312.pyc").write_bytes(b"\x00untracked bytecode")
+            before = snapshot(clone)
+            inv = mig.inventory(clone.resolve(), {"claude", "codex"})
+            folder, _ = mapply.backup(inv, "20990101T000000Z")
+            mapply.remove(inv, folder)  # the apply stops here
+            self.assertFalse((clone / "audit/managed-content-manifest.json").exists())
+            run = migrate(clone)
+            self.assertEqual(run.returncode, 1, run.stdout + run.stderr)
+            self.assertIn("stopped part-way", run.stdout)
+            self.assertNotIn("git commit", run.stdout)
+            rollback = steps(run.stdout)
+            self.assertIn("git checkout -- .", rollback)
+            # the same core.autocrlf as this file's git() helper, so the restored files compare byte for byte
+            env = dict(os.environ, GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="core.autocrlf", GIT_CONFIG_VALUE_0="false")
+            for step in rollback:
+                done = subprocess.run([shutil.which("bash") or "bash", "-c", step], cwd=clone, env=env,
+                                      capture_output=True, text=True, timeout=600)
+                self.assertEqual(done.returncode, 0, f"{step}\n{done.stdout}{done.stderr}")
+            self.assertEqual(outside_backup(before), outside_backup(snapshot(clone)))
+            again = migrate(clone)
+            self.assertEqual(again.returncode, 0, again.stdout + again.stderr)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
 @unittest.skipUnless(os.environ.get("FLOW_MIGRATE_FIXTURE"), "FLOW_MIGRATE_FIXTURE not set")
 class RealProjectAbort(unittest.TestCase):
     def test_planted_edit_aborts_on_a_scratch_clone(self) -> None:
