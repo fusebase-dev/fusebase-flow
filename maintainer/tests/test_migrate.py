@@ -367,6 +367,19 @@ class Preflight(unittest.TestCase):
         self.assertTrue((self.clone / "audit/managed-content-manifest.json").is_file())
         self.assertEqual(git(self.clone, "diff", "--name-only", "HEAD").stdout.split(), tracked)
 
+    def test_the_dry_run_names_lint_and_typecheck_as_not_run(self) -> None:
+        cmds = {"FUSEBASE_FLOW_LINT": "npm run -s lint", "FUSEBASE_FLOW_TYPECHECK": "npm run -s typecheck"}
+        dry = migrate(self.clone, env=dict(os.environ, **cmds))
+        self.assertEqual(dry.returncode, 0, dry.stdout + dry.stderr)
+        lines = [line for line in dry.stdout.splitlines() if "lint and typecheck" in line]
+        self.assertEqual([line for line in lines if "ok:" in line], [], lines)
+        self.assertIn("--apply runs them", "\n".join(lines))
+        for cmd in cmds.values():
+            self.assertIn(f"[flow migrate]     $ {cmd}\n", dry.stdout)
+        core = FLOW.parents[1]
+        note = (core / "maintainer/release-notes" / f"v{(core / 'VERSION').read_text().strip()}.md").read_text("utf-8")
+        self.assertIn("only once those two also pass by hand", note)
+
     def test_a_flow_attributes_block_without_its_end_marker_stops_the_apply(self) -> None:
         commit_file(self.clone, ".gitattributes", NO_END, "chore: T1 a damaged Flow block")
         self.assert_stopped_with_nothing_changed(".gitattributes line 2", "FLOW:END")

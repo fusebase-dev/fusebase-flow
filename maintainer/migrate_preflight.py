@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """The preflight of `flow.py migrate --apply` (owner, 2026-10-17): every check that could stop the migration
 commit runs before the first write, so a migration either goes through or stops with the tree as it was. The
-dry run prints the same checks, all but running lint and typecheck."""
+dry run prints the same checks but runs only the structural ones; it names lint and typecheck as not run."""
 from __future__ import annotations
 
 import importlib.util
@@ -28,6 +28,8 @@ class Check:
     stop: bool = False
     fix: str = ""  # what to do when it stops
     wrote: tuple[str, ...] = ()  # paths the project's lint or typecheck changed while the preflight ran it
+    by_hand: tuple[str, ...] = ()  # set when not run: the commands to run by hand instead
+    not_run: bool = False
 
 
 def out(proc: subprocess.CompletedProcess) -> str:
@@ -224,8 +226,9 @@ def validators(inv: m.Inventory, run: bool) -> Check:
     if skip:
         return Check("lint and typecheck", f"{names}: not run, as the pre-commit will skip them ({why})")
     if not run:
-        return Check("lint and typecheck", f"{names}: --apply runs them once before any change, as the "
-                     f"migration commit's pre-commit will ({why})")
+        return Check("lint and typecheck", "the dry run does not run them; --apply runs them once before any change, "
+                     f"as the migration commit's pre-commit will ({why}); to know now, run them by hand from the "
+                     "project's top level:", by_hand=tuple(cmd for _, cmd in cmds), not_run=True)
     bash = shutil.which("bash") or "bash"
     env = {k: v for k, v in os.environ.items() if k not in HOOK_ENV_DROP} | HOOK_ENV_SET
     before = watched(inv)
@@ -259,13 +262,19 @@ def run(inv: m.Inventory, apply: bool) -> list[Check]:
     stops: list[Check] = []
     for check in (tracked_tree, git_hooks, hooks_path, baseline, attributes, staging, interpreter):
         stops += show(check(inv))
-    stops += show(validators(inv, apply) if not stops
-                  else Check("lint and typecheck", "not run: a check above stops the apply"))
+    checked = validators(inv, apply) if not stops else Check("lint and typecheck", "a check above stops the apply",
+                                                              not_run=True)
+    stops += show(checked)
+    if not stops and checked.by_hand:
+        print("[flow migrate] dry run: no structural check stops --apply; it runs lint and typecheck before any change, "
+              "so this dry run means the migration will go through only once those two also pass by hand")
     return stops
 
 
 def show(c: Check) -> list[Check]:
-    print(f"[flow migrate]   {'STOP' if c.stop else 'ok'}: {c.name}: {c.found}")
+    print(f"[flow migrate]   {'STOP' if c.stop else 'not run' if c.not_run else 'ok'}: {c.name}: {c.found}")
+    for cmd in c.by_hand:
+        print(f"[flow migrate]     $ {cmd}")
     if c.stop:
         print(f"[flow migrate]     what to do: {c.fix}")
     sys.stdout.flush()
