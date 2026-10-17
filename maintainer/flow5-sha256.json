@@ -1,0 +1,105 @@
+{
+ "source": "git cat-file of each path at each v5.* tag; regenerate: python maintainer/flow5_table.py",
+ "tags": "v5.1 v5.2 v5.3 v5.4 v5.5 v5.6 v5.7 v5.8 v5.9 v5.10 v5.11",
+ "files": {
+  ".claude/commands/find-wasted-code.md": {
+   "77ba093fb04339ac160af59a38c315d527e1087ecf989d93a967678b7daf2ac6": "v5.1 v5.2 v5.3 v5.4 v5.5 v5.6 v5.7 v5.8 v5.9 v5.10 v5.11"
+  },
+  ".claude/commands/find-wasted-effort.md": {
+   "aec44f9f5cb40d659f5db2d831be73fc6476883325e915ca2cc7eca2451e7541": "v5.1 v5.2 v5.3 v5.4 v5.5 v5.6 v5.7 v5.8 v5.9 v5.10 v5.11"
+  },
+  ".claude/commands/fusebase-health.md": {
+   "42b94f47afb18ef1443d992b800a2d6da51373b32627387c2c8ae4ae980f8b78": "v5.1 v5.2 v5.3 v5.4 v5.5 v5.6 v5.7 v5.8 v5.9 v5.10 v5.11"
+  },
+  ".claude/commands/handoff.md": {
+   "505c253c17ecbf53265062ced2a0d60913c0ee140f2eac4e3bed8cba05ef52ca": "v5.1 v5.2 v5.3 v5.4 v5.5 v5.6 v5.7 v5.8 v5.9 v5.10 v5.11"
+  },
+  ".claude/commands/onboard.md": {
+   "e5ee367b775c33529f6283b0fa66339f02c80b6985cac6f3323fe2e52b462037": "v5.1 v5.2 v5.3 v5.4 v5.5 v5.6 v5.7 v5.8 v5.9 v5.10 v5.11"
+  },
+  ".claude/commands/product-owner.md": {
+   "9cbbd391af016884c3b56fdaeb564b2bfa1cd21a6b231abbd753987748314f05": "v5.1 v5.2 v5.3 v5.4 v5.5 v5.6 v5.7 v5.8 v5.9 v5.10 v5.11"
+  },
+  ".claude/commands/step-out.md": {
+   "0a504bf813dd33c1cc8a1f8c16bccd67ccc3e2036866cd202c5844af58cd564f": "v5.8 v5.9 v5.10 v5.11",
+   "aad3c35d52a228ffa040092f65ab1710ad7b246e57ddd9b472f9e5abbb8d1c39": "v5.4 v5.5 v5.6 v5.7"
+  },
+  ".claude/commands/token-waste-audit.md": {
+   "058800cdf0b2a42e8dbcfdb59c75b6c1031f70930a0fa61d1429beab660911e4": "v5.8",
+   "92b46a37e22bb4b54f93c0aa695a3eee7574d839dc08a1f6d6d6d50fbaaeefb2": "v5.11",
+   "9a78c15eae7cb45b8f351adf4ff1e88b5084c81af60de2961994d3287b6caf35": "v5.1 v5.2 v5.3 v5.4 v5.5 v5.6 v5.7",
+   "f62e3e9b914344e060e0bdcb9339a5a3c6dc3c0a3e2eaa904c5a0fb3a3207bf5": "v5.9 v5.10"
+  },
+  "GEMINI.md": {
+   "48330134389855bbe3cf90bf0694c4ee8d226e5da50bd957d8e128101c44369c": "v5.8 v5.9 v5.10 v5.11",
+   "b7ccaddba289e7f6091d2492cb8c1bc15996daa88e4695731630b2719c591806": "v5.1 v5.2 v5.3 v5.4 v5.5 v5.6 v5.7"
+  },
+  "audit/README.md": {
+   "e2d8e8fa8b94701bfd2ac22a7666af4e1d6140820fd45cd867e7d22841a97dcb": "v5.1 v5.2 v5.3 v5.4 v5.5 v5.6 v5.7 v5.8 v5.9 v5.10 v5.11"
+  },
+  "audit/agent-mirror-manifest.txt": {
+   "23d06b466a9e59cf3da7924d317dbecba21a502b67ebde3f88f97bdfbc15f59a": "v5.8 v5.9 v5.10",
+   "26390b78a6cb924625223c5534a4bfb8389561854a3deabc8d3928ed991550ed": "v5.1 v5.2 v5.3 v5.4 v5.5 v5.6 v5.7",
+   "e429448e23e3de3da89a59ba8a6e309b2a864955560493ea1737ca2e78a4e3d7": "v5.11"
+  },
+  "audit/cli-upstream-manifest.json": {
+   "f1b088cb36e7799e73d3aa7ad2f0e7f0f8ad4462c32466d5734fe8676ca8c3e8": "v5.1 v5.2 v5.3 v5.4 v5.5 v5.6 v5.7 v5.8 v5.9 v5.10 v5.11"
+  },
+  "audit/cli-vendor-manifest.json": {
+   "23f5ad1ae0b2c4480547fe0694d09c08daa603976d3074030fb18e5c9d01fb9c": "v5.1 v5.2 v5.3 v5.4 v5.5 v5.6 v5.7 v5.8 v5.9 v5.10 v5.11"
+  },
+  "audit/hook-layer-manifest.json": {
+   "1e524d23c88d082aba36afaf23a84c3a737e6d73081fa0356add2a2b71a6f5bd": "v5.4",
+   "2f03e19d34c3704ee2390eb29899547509f4c636ac0bc634c454821c60ccd33c": "v5.9",
+   "33f644f27ce518ecbd09f796d3b8ac8d67fccdd595b2680b59e349d255fbe42d": "v5.11",
+   "3d68b33357e2f97cbd4460fb144920cc4c3514fe233ea54a3a2c1017ed3079ce": "v5.5",
+   "4bcea5935d277218c829412d7f65c9aec5f7a64f814182874d2019912c707968": "v5.8",
+   "7904cbed9fca1e7fa3901ec9f4d5c0f3483f7f1858e2f97d4b73c2184d3b9cc8": "v5.10",
+   "8228e7eb9e8db2ff59a65be3d44c93c603fb4755061a56858748cb7601f9971e": "v5.2",
+   "8969d5b9cd167d26c86533239164c1c9eb676f35e3f037369b4a90b040115198": "v5.1",
+   "958dfbba367f0ff85715ae218a10d597aa4ce585a23633276d3787f9e7d8a721": "v5.7",
+   "dd698a78b77cbe5d7773dfdff9883be9e23145fe70b6e419499691625d3034d9": "v5.6",
+   "dde596a57129736452b8a2763f735995a508b345a533d79ee0443da31b7dff2c": "v5.3"
+  },
+  "audit/managed-content-manifest.json": {
+   "4ee6800d32afecec50ed683e089bfc75bd3b41ab90a8586dfeffda47d00ff27c": "v5.1",
+   "701dfc94f89cace349942d1681a017f28da8c46e2ea5271a7ec0dcf649fe8f2d": "v5.10",
+   "7123e4e2a6fd5291b6c13e8547daec87e76be2f04a49bbce183bc4f2dc51bc90": "v5.11",
+   "86c0cb0d16153401f1a6c146165f5907d0bad167c129ae4109253580ff8dd626": "v5.3",
+   "9d9a558d459e7196625d7f3e15ebe19d1e9db3c3230c1da0d85a059c7bdc01aa": "v5.5",
+   "ab5a2b98b49bbf6b4d196e30fe70f3078ff5341b11628dbfb483dc5d0ffc19f0": "v5.4",
+   "bc2a76d41c87c842fd8a38af12f79927b936a27a8567a27379c1694268b63f44": "v5.6",
+   "d8b654b709eec8741a9ae1b7b0c52ff7cc9693f3adb187c279935d065759f741": "v5.9",
+   "e1d9bd32b729d2590c4821a35cad4418bff5913016207db62a01744402417aa6": "v5.7",
+   "e8f291aa349cf6ab58a7c322151ad4fd1a2b9e6b255331bd6354165238621643": "v5.2",
+   "e994e534ff54b5fc46c1dad8dff1593f587b97df95109c23662ba6edcfd09bd0": "v5.8"
+  },
+  "audit/skill-mirror-manifest.txt": {
+   "0b986d717a26c83bf738c3d6eb246593274e1d6ea66ac97095046ad1df93bda2": "v5.11",
+   "181761e0c5fd301dd497771a95c0e74bca8c581da7def126567b1766fb00c21c": "v5.8",
+   "93d03023f096c26a4c4b0a9c92f278e28c6de5540f63e88f85aff5b1392de119": "v5.4",
+   "9f2df591e61128bc46c2f5febd9384c34232308c91ac64c68a152e1f9a7f6cad": "v5.1 v5.2",
+   "b2319a2afbe713a17802a2229e1be815e3b74ac5294daa303ff7aac51fb95e38": "v5.3",
+   "c4e8d277f36522a035b8ea17d0b6f3e6957c10771f305b8d406e6fd8184b4508": "v5.9",
+   "c531715ef8bbcc361d43f26edaf69debf7adf2d9e2e8a5ffbcf4335f7402d6a2": "v5.5 v5.6 v5.7",
+   "e36e834ceeeb76354443344bb3e56b4d519a0bbcc3a84ed80de904bce69ee264": "v5.10"
+  },
+  "hooks/git/commit-msg": {
+   "7c29acf5623ad5299a3f4de7d094d19c5bbc90dd5c3bd2002a63151e88a6af78": "v5.1 v5.2 v5.3 v5.4 v5.5 v5.6 v5.7 v5.8 v5.9 v5.10 v5.11"
+  },
+  "hooks/git/pre-commit": {
+   "450afd66d2b5852f93c3a6f659b84273a1da0c33624c1f364cf7db8140fd6abc": "v5.11",
+   "499e12681a2f22d04a23fe0c64729fa90ece0b65a2412bd71af21d2380d81b4a": "v5.1 v5.2 v5.3 v5.4 v5.5 v5.6 v5.7 v5.8 v5.9 v5.10"
+  },
+  "hooks/git/pre-push": {
+   "61fa39ad945e6fbf5718dc8ab11c7a6892b50c431e4514a94ca71ccb84679120": "v5.1 v5.2 v5.3 v5.4 v5.5 v5.6 v5.7 v5.8 v5.9 v5.10 v5.11"
+  },
+  "install.sh": {
+   "c19cfacf9d109a2596a535e7d82ee52ba051cabca2d409301c33b2bbbe84c651": "v5.1 v5.2 v5.3 v5.4 v5.5 v5.6 v5.7 v5.8 v5.9 v5.10 v5.11"
+  },
+  "policies/model-routing.yml": {
+   "13714790d11cfd7851933f409d761f967e102d3680ab628fa72ce8b91e00086e": "v5.4 v5.5 v5.6",
+   "fe1aaf94e91c3c09550c2f99b97bdc612cc22ebf85bc24f275f646dd386a56bb": "v5.7 v5.8 v5.9 v5.10 v5.11"
+  }
+ }
+}

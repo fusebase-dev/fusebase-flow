@@ -48,17 +48,25 @@ def tracked_tree(inv: m.Inventory) -> Check:
 
 
 def git_hooks(inv: m.Inventory) -> Check:
-    if not inv.custom_hooks:
+    if not inv.custom_hooks and not inv.edited_hooks:
         return Check("git hooks", "pre-commit, commit-msg and pre-push in .git/hooks are Flow's or absent")
-    named = ", ".join(f".git/hooks/{h}" for h in inv.custom_hooks)
-    moves = "; ".join(f"mv .git/hooks/{h} .git/hooks/{h}.pre-flow" for h in inv.custom_hooks)
-    return Check(
-        "git hooks",
-        f"{named}: the project's own (no fusebase-flow-managed-hook marker in the first 5 lines); install keeps it, "
-        "so the migration commit would run it instead of Flow's", True,
-        "either move it aside and re-run, after carrying its pre-commit checks into the project's lint or typecheck "
-        f"command (Flow's pre-commit runs those): {moves}; or keep it and stay on Flow 5.x until its owner decides. "
-        "The migrator never replaces a hook it did not write")
+    found, fixes = [], []
+    if inv.custom_hooks:
+        found.append(f"{', '.join(f'.git/hooks/{h}' for h in inv.custom_hooks)}: the project's own (no "
+                     "fusebase-flow-managed-hook marker in the first 5 lines); install keeps it, so the migration "
+                     "commit would run it instead of Flow's")
+    if inv.edited_hooks:
+        found.append(f"{', '.join(f'.git/hooks/{h}' for h in inv.edited_hooks)}: Flow's marker, but the bytes match "
+                     "no Flow 5.x release: an edit that install would overwrite")
+        fixes.append("to drop the edit, restore Flow's copy: "
+                     + "; ".join(f"cp hooks/git/{h} .git/hooks/{h}" for h in inv.edited_hooks))
+    hooks = inv.custom_hooks + inv.edited_hooks
+    fixes.append("to keep the hook, move it aside after carrying its pre-commit checks into the project's lint or "
+                 "typecheck command (Flow's pre-commit runs those): "
+                 + "; ".join(f"mv .git/hooks/{h} .git/hooks/{h}.pre-flow" for h in hooks)
+                 + "; or stay on Flow 5.x until the hook's owner decides")
+    return Check("git hooks", "; ".join(found), True,
+                 "; ".join(fixes) + ". Then re-run. The migrator never replaces a hook it did not write")
 
 
 def hooks_path(inv: m.Inventory) -> Check:

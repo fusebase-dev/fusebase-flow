@@ -7,7 +7,9 @@ scratch clone of that project (done check 5 of milestone 2).
 """
 from __future__ import annotations
 
+import contextlib
 import hashlib
+import io
 import json
 import os
 import shutil
@@ -70,9 +72,12 @@ def build_project(root: Path) -> None:
               for rel in sorted(FILES) if rel.split("/")[0] in ("workflows", "flow-skills", "hooks", "policies")
               or rel == "FLOW_RULES.md"]
     (root / "audit").mkdir()
-    (root / "audit/managed-content-manifest.json").write_text(json.dumps(
-        {"schema_version": 1, "flow_version": "5.6", "asset_count": len(assets), "assets": assets}, indent=2) + "\n",
-        encoding="utf-8")
+    # manifest_self_sha256 as Flow 5.x's managed_content_manifest.py records it: the migrator trusts the record by it
+    self_sha = hashlib.sha256(json.dumps({"schema_version": 1, "flow_version": "5.6", "assets": assets},
+                                         sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+    (root / "audit/managed-content-manifest.json").write_bytes((json.dumps(
+        {"schema_version": 1, "flow_version": "5.6", "asset_count": len(assets), "manifest_self_sha256": self_sha,
+         "assets": assets}, indent=2) + "\n").encode("utf-8"))
     git(root, "add", "-A")
     git(root, "commit", "-q", "-m", "chore: T1 Flow 5.6 project")
 
@@ -268,6 +273,11 @@ class Preflight(unittest.TestCase):
         run = self.assert_stopped_with_nothing_changed(".git/hooks/pre-commit")
         self.assertIn("mv .git/hooks/pre-commit .git/hooks/pre-commit.pre-flow", run.stdout)
 
+    def test_an_edited_flow_hook_stops_the_apply_before_any_change(self) -> None:
+        hook = self.clone / ".git/hooks/pre-commit"
+        hook.write_bytes(b"#!/bin/sh\n# fusebase-flow-managed-hook: v1\n# a local edit\nexit 0\n")
+        self.assert_stopped_with_nothing_changed(".git/hooks/pre-commit", "match no Flow 5.x release")
+
     def test_core_hookspath_stops_the_apply_before_any_change(self) -> None:
         git(self.clone, "config", "core.hooksPath", ".husky")
         self.assert_stopped_with_nothing_changed("core.hooksPath", ".husky")
@@ -371,6 +381,57 @@ class Overlay(unittest.TestCase):
             self.assertTrue(after.endswith(b"## Project section\n\nThe project's own text.\n"), after)
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
+
+
+GEMINI = b"# GEMINI.md\n\nFusebase Flow 5.x adapter for Gemini.\n"
+GEMINI_V56 = "b7ccaddba289e7f6091d2492cb8c1bc15996daa88e4695731630b2719c591806"  # v5.6:GEMINI.md
+
+
+class ContentCheck(unittest.TestCase):
+    def setUp(self) -> None:
+        sys.path.insert(0, str(FLOW.parent))
+        self.tmp = Path(tempfile.mkdtemp(prefix="flow-migrate-"))
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_an_edited_gemini_md_stays_and_an_unedited_one_goes(self) -> None:
+        import migrate as mig
+        import migrate_apply as mapply
+        real = getattr(mig, "flow5_shas", lambda rel: set())
+        # the synthetic GEMINI.md stands for a release's bytes, as v5.6's does in the shipped table
+        table = lambda rel: real(rel) | ({hashlib.sha256(GEMINI).hexdigest()} if rel == "GEMINI.md" else set())
+        for edited in (False, True):
+            clone = scratch_clone(self.tmp / ("edited" if edited else "unedited"))
+            data = GEMINI + (b"Our project's own Gemini notes.\n" if edited else b"")
+            commit_file(clone, "GEMINI.md", data, "docs: T5 GEMINI.md")
+            with mock.patch.object(mig, "flow5_shas", table, create=True):
+                inv = mig.inventory(clone.resolve(), {"claude", "codex"})
+                listing = io.StringIO()
+                with contextlib.redirect_stdout(listing):
+                    mig.report(inv, False)
+            folder, _ = mapply.backup(inv, "20990101T000000Z")
+            mapply.remove(inv, folder)
+            if edited:
+                self.assertEqual((clone / "GEMINI.md").read_bytes(), data, "an edited GEMINI.md was deleted")
+                self.assertEqual((folder / "GEMINI.md").read_bytes(), data)
+                self.assertIn("left in place", listing.getvalue())
+                self.assertIn("GEMINI.md", listing.getvalue().split("left in place", 1)[1])
+            else:
+                self.assertFalse((clone / "GEMINI.md").exists())
+                self.assertEqual((folder / "GEMINI.md").read_bytes(), data)
+        self.assertIn(GEMINI_V56, real("GEMINI.md"))
+
+    def test_an_edited_install_record_aborts(self) -> None:
+        import migrate as mig
+        clone = scratch_clone(self.tmp)
+        record = json.loads((clone / "audit/managed-content-manifest.json").read_text(encoding="utf-8"))
+        record["assets"] = record["assets"][1:]
+        commit_file(clone, "audit/managed-content-manifest.json", (json.dumps(record, indent=2) + "\n").encode(),
+                    "chore: T5 an edited install record")
+        with self.assertRaises(mig.Abort) as raised:
+            mig.inventory(clone.resolve(), {"claude", "codex"})
+        self.assertIn("manifest_self_sha256", str(raised.exception))
 
 
 @unittest.skipUnless(os.environ.get("FLOW_MIGRATE_FIXTURE"), "FLOW_MIGRATE_FIXTURE not set")

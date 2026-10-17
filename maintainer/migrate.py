@@ -7,6 +7,7 @@ and changes nothing.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -26,6 +27,10 @@ AUDIT_5X = ("audit/README.md", AGENT_MIRRORS, "audit/cli-upstream-manifest.json"
             "audit/hook-layer-manifest.json", MC_MANIFEST, SKILL_MIRRORS)
 ROOT_5X = ("GEMINI.md", "install.sh")
 ORPHANS = ("policies/model-routing.local.yml",)  # override of a policy the core drops
+# A file deleted by its name goes only when its bytes match Flow's own: a recorded sha256 where the 5.x install has one,
+# else this table of each 5.x release's bytes (maintainer/flow5_table.py writes it; maintainer data, never installed).
+FLOW5_TABLE = Path(__file__).resolve().parent / "flow5-sha256.json"
+REFERENCE = {"policies/model-routing.local.yml": "policies/model-routing.yml"}  # a copy of the shipped default
 COMMANDS_SRC = "hooks/local/fusebase-flow-overlays/commands/"
 GIT_HOOKS = ("pre-commit", "commit-msg", "pre-push")
 HOOK_MARKER = b"fusebase-flow-managed-hook:"
@@ -88,6 +93,8 @@ class Inventory:
     overlays: dict[str, Overlay] = field(default_factory=dict)
     rows: list[str] = field(default_factory=list)
     custom_hooks: list[str] = field(default_factory=list)  # .git/hooks files without Flow's marker: the preflight stops
+    edited_hooks: list[str] = field(default_factory=list)  # with the marker, bytes of no 5.x release: it stops too
+    foreign: list[str] = field(default_factory=list)  # named like a 5.x file, not Flow's bytes: backed up, left in place
     wiring: str = ""
     vendor: tuple[int, int, int] = (0, 0, 0)
     manifest: tuple[int, int] = (0, 0)  # assets recorded in the managed-content manifest, present
@@ -123,6 +130,27 @@ def load_mirrors(path: Path) -> dict[str, str]:
         return {}
     pairs = (line.split() for line in lines if line.strip() and not line.startswith("#"))
     return {p[0]: p[-1] for p in pairs if len(p) >= 2}
+
+
+_FLOW5: dict[str, dict[str, str]] = {}
+
+
+def flow5_shas(rel: str) -> set[str]:
+    """The sha256 of `rel` (or the shipped file it copies) in each Flow 5.x release."""
+    if not _FLOW5:
+        _FLOW5.update(json.loads(FLOW5_TABLE.read_text(encoding="utf-8"))["files"])
+    return set(_FLOW5.get(REFERENCE.get(rel, rel), {}))
+
+
+def self_recorded(data: bytes) -> bool:
+    """A 5.x manifest whose manifest_self_sha256 verifies, computed as 5.x's managed_content_manifest.py does."""
+    try:
+        doc = json.loads(data.decode("utf-8"))
+        payload = json.dumps({"schema_version": doc.get("schema_version"), "flow_version": doc.get("flow_version", ""),
+                              "assets": doc.get("assets")}, sort_keys=True, separators=(",", ":"))
+        return hashlib.sha256(payload.encode("utf-8")).hexdigest() == doc.get("manifest_self_sha256")
+    except (ValueError, AttributeError):
+        return False
 
 
 def walk_files(root: Path, rel: str) -> list[str]:
@@ -283,15 +311,18 @@ def inventory(target: Path, providers: set[str]) -> Inventory:
     for group, manifest in (("skill mirrors", SKILL_MIRRORS), ("agent mirrors", AGENT_MIRRORS)):
         for p, sha in load_mirrors(target / manifest).items():
             groups[p], inv.recorded[p] = group, sha
+    by_name: dict[str, set[str]] = {}  # path -> the sha256 values that make it Flow's own (deleted by its name)
     for cmd in sorted((target / ".claude/commands").glob("*.md")):
         if COMMANDS_SRC + cmd.name in mc:
             rel = f".claude/commands/{cmd.name}"
-            groups[rel], inv.recorded[rel] = "command mirrors", mc[COMMANDS_SRC + cmd.name]
+            groups[rel], inv.recorded[rel] = "command mirrors", ""
+            by_name[rel] = {mc[COMMANDS_SRC + cmd.name]} | flow5_shas(rel)
     for group, paths in (("old audit records", AUDIT_5X), ("5.x root files", ROOT_5X),
                          ("orphan local overrides", ORPHANS)):
         for p in paths:
-            groups.setdefault(p, group)
-            inv.recorded.setdefault(p, "")
+            if p not in groups:  # a manifest asset keeps its recorded sha256 (audit/hook-layer-manifest.json)
+                groups[p], inv.recorded[p] = group, ""
+                by_name[p] = flow5_shas(p)
     plan = flow.planned_files(providers)
     plan_paths = set(plan) | {flow.MANIFEST}
     if (target / BASELINE).is_file() and BASELINE in plan:
@@ -312,6 +343,14 @@ def inventory(target: Path, providers: set[str]) -> Inventory:
         if sha and rel != BASELINE and not flow.same_content(current, sha):
             inv.changed.append(f"{rel} (sha256 {flow.sha256(current)[:12]}..., recorded {sha[:12]}...)")
             continue
+        if rel in by_name and not any(flow.same_content(current, s) for s in by_name[rel]):
+            if rel != MC_MANIFEST:
+                inv.foreign.append(rel)  # copied to the backup folder, never deleted
+                continue
+            if not self_recorded(current):  # the record the whole inventory reads: an edited one stops the run
+                raise Abort(f"{MC_MANIFEST} matches no Flow 5.x release and its manifest_self_sha256 does not verify, "
+                            "so it cannot tell Flow's files from the project's; restore it from git "
+                            f"(git checkout HEAD -- {MC_MANIFEST}) or from the 5.x release it came with; nothing changed")
         if rel in plan_paths:
             inv.replace.append(rel)
             if rel in plan and flow.same_content(current, flow.sha256(plan[rel])):
@@ -324,10 +363,13 @@ def inventory(target: Path, providers: set[str]) -> Inventory:
     for h in GIT_HOOKS:
         f = hooks_dir(target) / h
         if f.is_file():
-            if HOOK_MARKER in b"\n".join(f.read_bytes().splitlines()[:5]):
+            data, src = f.read_bytes(), f"hooks/git/{h}"
+            if HOOK_MARKER not in b"\n".join(data.splitlines()[:5]):
+                inv.custom_hooks.append(h)
+            elif any(flow.same_content(data, s) for s in flow5_shas(src) | ({mc[src]} if src in mc else set())):
                 inv.remove["old git hooks"].append(f".git/hooks/{h}")
             else:
-                inv.custom_hooks.append(h)
+                inv.edited_hooks.append(h)  # install would overwrite the edit in place: the preflight stops
     for rel in sorted(plan_paths - set(inv.replace) - set(REWRITTEN)):
         f = target / rel
         why = flow.refusal(target, rel, cli_skills)
@@ -439,6 +481,10 @@ def report(inv: Inventory, full: bool) -> None:
         say(f"  {g}: {len(paths)}" + (f" ({detail})" if paths and len(detail) < 400 else ""))
         if full and len(detail) >= 400 or full and g == "manifest assets":
             items(paths)
+    if inv.foreign:
+        say(f"left in place: {len(inv.foreign)} files named like Flow 5.x files whose bytes match no Flow release "
+            "(copied to the backup folder on --apply, never deleted)")
+        items(inv.foreign)
     say(f"replace: {len(inv.replace)} files the core carries ({count_by_top(inv.replace)}); "
         f"{len(inv.identical)} already byte-identical to the core's")
     if full:
@@ -484,7 +530,8 @@ def report(inv: Inventory, full: bool) -> None:
     for p in inv.hidden:
         say(f"    {p}")
     say(f"hook wiring, left as is: {inv.wiring}")
-    say("backup folder on --apply: .flow-migrate-<UTC timestamp>/ (remove + replace + AGENTS.md, CLAUDE.md, VERSION, .gitignore)")
+    say("backup folder on --apply: .flow-migrate-<UTC timestamp>/ (remove + replace + left in place + AGENTS.md, "
+        "CLAUDE.md, VERSION, .gitignore and the docs/flow documents that exist)")
     say(f"commit on --apply --go-ahead: chore(flow): {inv.task} migrate Fusebase Flow {inv.version} to {core}")
 
 

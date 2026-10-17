@@ -62,7 +62,7 @@ def backup(inv: m.Inventory, stamp: str) -> tuple[Path, list[str]]:
     folder = target / f"{BACKUP_PREFIX}{stamp}"
     exclude(target, EXCLUDE_LINES)  # before the first copy, so git never lists the folder
     folder.mkdir()
-    files = inv.removals() + inv.replace + [r for r in m.REWRITTEN + m.DOCS if (target / r).is_file()]
+    files = inv.removals() + inv.replace + inv.foreign + [r for r in m.REWRITTEN + m.DOCS if (target / r).is_file()]
     for rel in files:
         dst = folder / backup_rel(rel)
         dst.parent.mkdir(parents=True, exist_ok=True)
@@ -174,6 +174,8 @@ def migration_report(inv: m.Inventory, stamp: str, folder: Path, backed: int, mo
         f"- backup folder: {folder.name}/ ({backed} files, excluded in .git/info/exclude; delete it once the "
         "migration is accepted)" + (f"; {len(moved)} files moved into it, deletion refused" if moved else ""),
         f"- remove: {len(inv.removals())} ({groups})",
+        f"- left in place (named like Flow 5.x files, bytes not Flow's; copied to the backup folder): "
+        f"{', '.join(inv.foreign) or 'none'}",
         f"- replace: {len(inv.replace)} ({len(inv.identical)} already identical); new: {len(inv.new)}; rewritten: "
         f"{', '.join(list(inv.overlays) + (['VERSION'] if inv.version_is_flow else []))}; .gitignore unchanged",
         f"- never touch: {never}; {m.CLI_VENDOR} {inv.vendor[0]} listed, {inv.vendor[1]} present",
@@ -209,8 +211,9 @@ def documents(inv: m.Inventory, report: list[str]) -> list[str]:
 def apply(inv: m.Inventory) -> int:
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     folder, files = backup(inv, stamp)
+    copied = len(inv.removals()) + len(inv.replace) + len(inv.foreign)
     say(f"backup: {folder.name}/ holds {len(files)} files: remove {len(inv.removals())} + replace "
-        f"{len(inv.replace)} + {len(files) - len(inv.removals()) - len(inv.replace)} rewritten in place; "
+        f"{len(inv.replace)} + left in place {len(inv.foreign)} + {len(files) - copied} rewritten in place; "
         "listed in .git/info/exclude")
     moved, failed, pruned = remove(inv, folder)
     say(f"removed: {len(inv.removals()) - len(moved) - len(failed)} files deleted, {pruned} folders the removal "
