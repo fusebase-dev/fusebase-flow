@@ -87,6 +87,7 @@ class Inventory:
     hidden: list[str] = field(default_factory=list)
     overlays: dict[str, Overlay] = field(default_factory=dict)
     rows: list[str] = field(default_factory=list)
+    custom_hooks: list[str] = field(default_factory=list)  # .git/hooks files without Flow's marker: the preflight stops
     wiring: str = ""
     vendor: tuple[int, int, int] = (0, 0, 0)
     manifest: tuple[int, int] = (0, 0)  # assets recorded in the managed-content manifest, present
@@ -320,7 +321,7 @@ def inventory(target: Path, providers: set[str]) -> Inventory:
             if HOOK_MARKER in b"\n".join(f.read_bytes().splitlines()[:5]):
                 inv.remove["old git hooks"].append(f".git/hooks/{h}")
             else:
-                inv.keep.setdefault("custom git hooks (not Flow's; install-git-hooks.sh keeps them)", []).append(h)
+                inv.custom_hooks.append(h)
     for rel in sorted(plan_paths - set(inv.replace) - set(REWRITTEN)):
         f = target / rel
         why = flow.refusal(target, rel, cli_skills)
@@ -516,16 +517,16 @@ def run(target: Path, providers: set[str], full: bool, apply: bool = False, go_a
             print(f"[flow migrate]   {line}")
         return 3
     inv.task = task or inv.task
-    if not apply:
-        print("[flow migrate] dry run: nothing changed")
-        report(inv, full)
-        return 0
-    dirty = git(target, "status", "--porcelain", "--untracked-files=no").stdout.decode("utf-8", "replace").strip()
-    if dirty:
-        print("[flow migrate] REFUSED: tracked changes in the work tree; commit or stash them first, so the "
-              f"migration commit holds the migration alone; nothing written:\n{dirty[:2000]}")
-        return 2
-    import migrate_apply
-    print("[flow migrate] apply: the operator's go-ahead was given in chat (--go-ahead)")
+    import migrate_preflight
+    print("[flow migrate] dry run: nothing changed" if not apply
+          else "[flow migrate] apply: the operator's go-ahead was given in chat (--go-ahead)")
     report(inv, full)
+    stops = migrate_preflight.report(migrate_preflight.checks(inv))
+    if stops:
+        print(f"[flow migrate] {'STOPPED before any change' if apply else '--apply would stop before any change'}: "
+              f"{len(stops)} preflight check(s) failed ({', '.join(c.name for c in stops)}); nothing written")
+        return 2
+    if not apply:
+        return 0
+    import migrate_apply
     return migrate_apply.apply(inv)

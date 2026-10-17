@@ -230,6 +230,45 @@ class BaselineCarry(unittest.TestCase):
             shutil.rmtree(tmp, ignore_errors=True)
 
 
+def hooks_and_exclude(clone: Path) -> dict[str, bytes]:
+    found = {}
+    for sub in ("hooks", "info"):
+        for p in sorted((clone / ".git" / sub).glob("*")):
+            if p.is_file() and not p.name.endswith(".sample"):
+                found[f"{sub}/{p.name}"] = p.read_bytes()
+    return found
+
+
+class Preflight(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp(prefix="flow-migrate-"))
+        self.clone = scratch_clone(self.tmp)
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def assert_stopped_with_nothing_changed(self, *names: str) -> subprocess.CompletedProcess:
+        before, git_before = snapshot(self.clone), hooks_and_exclude(self.clone)
+        dry = migrate(self.clone)
+        self.assertEqual(dry.returncode, 2, dry.stdout + dry.stderr)
+        run = migrate(self.clone, "--apply", "--go-ahead")
+        self.assertEqual(run.returncode, 2, run.stdout + run.stderr)
+        self.assertIn("STOPPED before any change", run.stdout)
+        for name in names:
+            self.assertIn(name, dry.stdout)
+            self.assertIn(name, run.stdout)
+        self.assertEqual(before, snapshot(self.clone), "the stopped run changed the tree")
+        self.assertEqual(git_before, hooks_and_exclude(self.clone), "the stopped run changed .git/hooks or .git/info")
+        self.assertEqual(list(self.clone.glob(".flow-migrate-*")), [])
+        return run
+
+    def test_a_custom_git_hook_stops_the_apply_before_any_change(self) -> None:
+        hook = self.clone / ".git/hooks/pre-commit"
+        hook.write_bytes(b"#!/bin/sh\n# the project's own pre-commit\nexit 0\n")
+        run = self.assert_stopped_with_nothing_changed(".git/hooks/pre-commit")
+        self.assertIn("mv .git/hooks/pre-commit .git/hooks/pre-commit.pre-flow", run.stdout)
+
+
 @unittest.skipUnless(os.environ.get("FLOW_MIGRATE_FIXTURE"), "FLOW_MIGRATE_FIXTURE not set")
 class RealProjectAbort(unittest.TestCase):
     def test_planted_edit_aborts_on_a_scratch_clone(self) -> None:
