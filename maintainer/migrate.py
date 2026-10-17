@@ -162,20 +162,26 @@ def find_overlay(target: Path, name: str) -> Overlay | None:
                     f"The 200 bytes after byte {at:,} (the last level-2 heading): {raw[at:at + 200]!r}")
     m = heads[0]
     h = m.start()
-    nxt = H2.search(raw, m.end())
+    # The operator's FLOW:PRESERVE region belongs to the section whole, '## ' lines inside it included: the section
+    # runs to the first level-2 heading after its END marker (or after the heading when there is no region).
+    p = raw.find(P_BEGIN, m.end())
+    q = raw.find(P_END, p) if p >= 0 else -1
+    if p >= 0 and (q < 0 or raw.find(P_BEGIN, p + len(P_BEGIN)) >= 0):
+        raise Abort(f"{name}: the FLOW:PRESERVE region after '## FuseBase Flow' "
+                    f"{'has no END marker' if q < 0 else 'is not the only one'}; nothing replaced")
+    nxt = H2.search(raw, q + len(P_END) if q >= 0 else m.end())
     end = nxt.start() if nxt else len(raw)
     start, wrapped = h, False
     b = raw.rfind(WRAP_BEGIN, 0, h)
     if b >= 0 and raw[b + len(WRAP_BEGIN):h].strip() in (b"", b"---"):
         e = raw.find(WRAP_END, h)
-        if e < 0 or (nxt and nxt.start() < e) or raw.find(WRAP_BEGIN, h, e) >= 0:
+        inner = [x.start() for x in H2.finditer(raw, m.end(), e if e >= 0 else len(raw)) if not p <= x.start() < q]
+        if e < 0 or inner or raw.find(WRAP_BEGIN, h, e) >= 0 or (p >= 0 and not h < p < q < e):
             raise Abort(f"{name}: the CUSTOM:SKILL wrapper around '## FuseBase Flow' does not close "
                         "around that section alone; nothing replaced")
         start, wrapped = b, True
         end = e + len(WRAP_END)
         end += 2 if raw[end:end + 2] == b"\r\n" else 1 if raw[end:end + 1] == b"\n" else 0
-    p = raw.find(P_BEGIN, start, end)
-    q = raw.find(P_END, p, end) if p >= 0 else -1
     first = raw.find(b"\n")
     return Overlay(name, m.group(0).decode("utf-8", "replace"), lf_offset(raw, h), start, end, wrapped,
                    raw[p:q] if q > p >= 0 else b"", first > 0 and raw[first - 1:first] == b"\r",

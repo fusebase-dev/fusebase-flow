@@ -332,6 +332,47 @@ class Interrupted(unittest.TestCase):
             shutil.rmtree(tmp, ignore_errors=True)
 
 
+UNWRAPPED = ("# AGENTS.md\n\nCLI text.\n\n## FuseBase Flow — workflow lifecycle overlay\n\n"
+             "Fusebase Flow 5.x overlay text.\n\n"
+             "<!-- FLOW:PRESERVE:BEGIN (operator-owned — kept verbatim) -->\n| Project name | demo |\n\n"
+             "## Project values\n\n| Deploy owner | Sabina |\n<!-- FLOW:PRESERVE:END -->\n\n"
+             "more Fusebase Flow 5.x text\n\n## Project section\n\nThe project's own text.\n")
+
+
+WRAPPED = UNWRAPPED.replace("## FuseBase Flow", "<!-- CUSTOM:SKILL:BEGIN -->\n\n---\n\n## FuseBase Flow").replace(
+    "more Fusebase Flow 5.x text\n\n", "more Fusebase Flow 5.x text\n\n<!-- CUSTOM:SKILL:END -->\n\n")
+
+
+class Overlay(unittest.TestCase):
+    def test_a_level_2_line_inside_preserve_without_a_wrapper_is_carried_whole(self) -> None:
+        self.carried_whole(UNWRAPPED)
+
+    def test_a_level_2_line_inside_preserve_in_a_wrapper_is_carried_whole(self) -> None:
+        self.carried_whole(WRAPPED)
+
+    def carried_whole(self, agents: str) -> None:
+        sys.path.insert(0, str(FLOW.parent))
+        import migrate as mig
+        import migrate_apply as mapply
+        tmp = Path(tempfile.mkdtemp(prefix="flow-migrate-"))
+        try:
+            clone = scratch_clone(tmp)
+            commit_file(clone, "AGENTS.md", agents.encode("utf-8"), "docs: T5 the operator's region holds a heading")
+            raw = (clone / "AGENTS.md").read_bytes()
+            region = raw[raw.index(b"<!-- FLOW:PRESERVE:BEGIN"):raw.index(b"<!-- FLOW:PRESERVE:END")]
+            inv = mig.inventory(clone.resolve(), {"claude", "codex"})
+            self.assertEqual(inv.overlays["AGENTS.md"].preserve, region)
+            mapply.overlay_and_version(inv)
+            after = (clone / "AGENTS.md").read_bytes()
+            self.assertIn(region, after)
+            self.assertEqual(after.count(b"## FuseBase Flow"), 1)
+            self.assertNotIn(b"Flow 5.x", after)
+            self.assertTrue(after.startswith(b"# AGENTS.md\n\nCLI text.\n\n"))
+            self.assertTrue(after.endswith(b"## Project section\n\nThe project's own text.\n"), after)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
 @unittest.skipUnless(os.environ.get("FLOW_MIGRATE_FIXTURE"), "FLOW_MIGRATE_FIXTURE not set")
 class RealProjectAbort(unittest.TestCase):
     def test_planted_edit_aborts_on_a_scratch_clone(self) -> None:
