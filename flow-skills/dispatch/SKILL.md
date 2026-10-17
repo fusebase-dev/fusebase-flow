@@ -7,7 +7,7 @@ description: Load when you dispatch or supervise build work. Slices to builders,
 
 The planner runs this skill. Builders never load it: each gets the push block below inside its slice.
 
-**6.0.0-m1, by hand until the scripts land:** there is no `slice.py`: write the slice yourself from `backlog.md` and `phases.md` (item, criterion, cited answers in full, inputs, globs, estimate, reference project) and inline the push block and the writing card. There is no `reader.py` or `state/status.line`: read progress from `git log`, mtimes and `state/audit/liveness/*.hb`. Flag 3 and the other checks are the planner's judgment (`workflows/lifecycle.md`).
+**6.0.0-m2, by hand until the scripts land:** there is no `slice.py`: write the slice yourself from `backlog.md` and `phases.md` (item, criterion, cited answers in full, inputs, globs, estimate, reference project) and inline the push block and the writing card. There is no `reader.py` or `state/status.line`: read progress from `git log`, mtimes and `state/audit/liveness/*.hb`. Flag 3 and the other checks are the planner's judgment (`workflows/lifecycle.md`).
 
 ## Dispatch
 

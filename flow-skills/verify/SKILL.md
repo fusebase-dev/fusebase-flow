@@ -7,7 +7,7 @@ description: Load when a slice or a phase reaches verification. DONE check, revi
 
 The planner runs this skill. Reviewers, skeptics and the verdict writer run as `reader` (Read, Glob, Grep only) and receive only the briefs at the end of this file.
 
-**6.0.0-m1, by hand until the scripts land:** there is no `gate.py`, `slice.py` or `checks.py`. Do the DONE check, the four checks and the evidence-row checks yourself as `workflows/lifecycle.md` says, write the briefs below with the slice's data filled in, keep flag rulings as one line each in the review record, and count rounds from the ledger's verdict records.
+**6.0.0-m2, by hand until the scripts land:** there is no `gate.py`, `slice.py` or `checks.py`. Do the DONE check, the four checks and the evidence-row checks yourself as `workflows/lifecycle.md` says, write the briefs below with the slice's data filled in, keep flag rulings as one line each in the review record, and count rounds from the ledger's verdict records.
 
 ## A slice
 

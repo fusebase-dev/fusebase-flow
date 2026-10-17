@@ -365,7 +365,7 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
     print("[flow] git hooks:")
     for line in hooks_out.splitlines():
         print(f"[flow]   {line}")
-    print("[flow] provider hook wiring: not written (opt-in, not in 6.0.0-m1)")
+    print(f"[flow] provider hook wiring: not written (opt-in, not in {version})")
     return 0 if rc == 0 else 1
 
 
@@ -395,7 +395,8 @@ def main(argv: list[str]) -> int:
             parser.error("--task takes T<n>, such as T312")
         return migrate.run(args.target, providers, args.full, args.apply, args.go_ahead, args.task)
     if args.wire_hooks:
-        print("[flow] REFUSED: --wire-hooks is not in 6.0.0-m1 (the tool handlers land in phase 7); nothing written")
+        print(f"[flow] REFUSED: --wire-hooks is not in {(CORE / 'VERSION').read_text(encoding='utf-8').strip()} "
+              "(the tool handlers land in phase 7); nothing written")
         return 2
     return install(args.target, providers)
 

@@ -10,7 +10,8 @@ CORE = Path(__file__).resolve().parent.parent
 BUILDER_LIMIT = 6000
 PLANNER_LIMIT = 8192
 OVERLAY = "maintainer/overlay/CLAUDE.block.md"
-# Representative, not measured: no reader writes state/status.line in 6.0.0-m1 (WP 6 projection estimate).
+VERSION = (CORE / "VERSION").read_text(encoding="utf-8").strip()
+# Representative, not measured: no reader writes state/status.line yet (WP 6 projection estimate).
 STATUS_LINE = ("2026-10-16T19:59:28Z running; last activity 2026-10-16T19:58:10Z P7-S3 builder; hooks: claude wired, "
                "codex unenforced; git hooks: flow; alerts: P7-S2 silent 31 min; reader last seen: 2026-10-16T19:59:28Z\n")
 
@@ -54,7 +55,7 @@ def main() -> int:
         (size("agents/planner/AGENT.md"), "agents/planner/AGENT.md"),
         (size("workflows/lifecycle.md"), "workflows/lifecycle.md (the planner card reads it at boot)"),
         (first_line("templates/ledger.md"), "docs/flow/ledger.md line 1 (templates/ledger.md)"),
-        (len(STATUS_LINE.encode("utf-8")), "state/status.line (representative; no reader in 6.0.0-m1)"),
+        (len(STATUS_LINE.encode("utf-8")), f"state/status.line (representative; no reader in {VERSION})"),
     ], PLANNER_LIMIT)
     print(builder)
     return 0 if builder < BUILDER_LIMIT else 1
