@@ -576,8 +576,11 @@ def run(target: Path, providers: set[str], full: bool, apply: bool = False, go_a
     sys.stdout.flush()
     stops = migrate_preflight.run(inv, apply)
     if stops:
+        wrote = [p for c in stops for p in c.wrote]
         print(f"[flow migrate] {'STOPPED before any change' if apply else '--apply would stop before any change'}: "
-              f"{len(stops)} preflight check(s) failed ({', '.join(c.name for c in stops)}); nothing written")
+              f"{len(stops)} preflight check(s) failed ({', '.join(c.name for c in stops)}); "
+              + (f"the migration wrote nothing, but the project's command changed {len(wrote)} path(s), named above"
+                 if wrote else "nothing written"))
         return 2
     if not apply:
         return 0

@@ -349,6 +349,24 @@ class Preflight(unittest.TestCase):
         self.assertEqual(dry.returncode, 0, dry.stdout + dry.stderr)
         self.assertIn("npm run -s lint", dry.stdout)
 
+    def lint_that_writes(self, lint: str, written: str, tracked: list[str]) -> None:
+        run = migrate(self.clone, "--apply", "--go-ahead", env=dict(os.environ, FUSEBASE_FLOW_LINT=lint))
+        self.assertEqual(run.returncode, 2, run.stdout + run.stderr)
+        stop = [line for line in run.stdout.splitlines() if "STOP: lint and typecheck" in line]
+        self.assertEqual(len(stop), 1, run.stdout)
+        self.assertIn(written, stop[0])
+        self.assertIn(lint, stop[0])
+        self.assertNotIn("nothing written", run.stdout)
+        self.assertEqual(list(self.clone.glob(".flow-migrate-*")), [])
+        self.assertTrue((self.clone / "audit/managed-content-manifest.json").is_file())
+        self.assertEqual(git(self.clone, "diff", "--name-only", "HEAD").stdout.split(), tracked)
+
+    def test_a_lint_that_writes_a_flow_file_and_passes_stops_the_apply(self) -> None:
+        self.lint_that_writes("printf x >> FLOW_RULES.md", "FLOW_RULES.md", ["FLOW_RULES.md"])
+
+    def test_a_lint_that_writes_and_fails_does_not_say_nothing_written(self) -> None:
+        self.lint_that_writes("printf 'x\\n' > hooks/lint-report.txt; exit 1", "hooks/lint-report.txt", [])
+
 
 def steps(output: str) -> list[str]:
     """The commands a message prints as `[flow migrate]   $ <command>`."""

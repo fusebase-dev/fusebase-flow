@@ -27,6 +27,7 @@ class Check:
     found: str  # what the check saw
     stop: bool = False
     fix: str = ""  # what to do when it stops
+    wrote: tuple[str, ...] = ()  # paths the project's lint or typecheck changed while the preflight ran it
 
 
 def out(proc: subprocess.CompletedProcess) -> str:
@@ -186,6 +187,24 @@ def tier(inv: m.Inventory) -> tuple[bool, str]:
         return False, f"tier check error ({exc.__class__.__name__})"
 
 
+def watched(inv: m.Inventory) -> dict[str, str]:
+    """sha256 ("" when absent) of each path the apply reads or writes, and of each untracked file in their folders."""
+    paths = ({p for p in inv.removals() if not p.startswith(".git/")} | set(inv.replace) | set(inv.new)
+             | set(inv.foreign) | set(m.REWRITTEN) | set(m.DOCS))
+    folders = tuple({p.rsplit("/", 1)[0] + "/" for p in paths if "/" in p})
+    others = m.git(inv.target, "ls-files", "-z", "--others", "--exclude-standard").stdout.decode("utf-8", "replace")
+    paths |= {p for p in others.split("\0") if p.startswith(folders)}
+    return {p: flow.sha256((inv.target / p).read_bytes()) if (inv.target / p).is_file() else "" for p in paths}
+
+
+def written(inv: m.Inventory, before: dict[str, str]) -> list[str]:
+    """What a command changed: any tracked path (the preflight found none changed), and the watched paths."""
+    tracked = m.git(inv.target, "diff", "--name-only", "-z", "HEAD", "--").stdout.decode("utf-8", "replace")
+    after = watched(inv)
+    return sorted({p for p in tracked.split("\0") if p} | {p for p in before.keys() | after.keys()
+                                                         if before.get(p, "") != after.get(p, "")})
+
+
 def validators(inv: m.Inventory, run: bool) -> Check:
     cmds = validator_commands(inv.target)
     if not cmds:
@@ -200,6 +219,7 @@ def validators(inv: m.Inventory, run: bool) -> Check:
                      f"migration commit's pre-commit will ({why})")
     bash = shutil.which("bash") or "bash"
     env = {k: v for k, v in os.environ.items() if k not in HOOK_ENV_DROP} | HOOK_ENV_SET
+    before = watched(inv)
     for name, cmd in cmds:
         print(f"[flow migrate] preflight: running {name}: {cmd}")
         sys.stdout.flush()
@@ -208,6 +228,14 @@ def validators(inv: m.Inventory, run: bool) -> Check:
                                 cwd=inv.target, env=env, timeout=3600).returncode
         except subprocess.TimeoutExpired:
             rc = 124
+        changed = written(inv, before)
+        if changed:
+            return Check("lint and typecheck", f"{name}: `{cmd}`{f' exited {rc} and' if rc else ''} changed "
+                         f"{len(changed)} path(s) the migration reads, writes or needs clean: {', '.join(changed[:10])}"
+                         + (" ..." if len(changed) > 10 else ""), True,
+                         "commit what it changed or undo it, so the tree is clean again; make the command pass without "
+                         "writing (Flow's pre-commit runs it at the migration commit; run its fix mode by hand first); "
+                         "then re-run", tuple(changed))
         if rc:
             return Check("lint and typecheck", f"{name} failed: `{cmd}` exited {rc} (its output is above); Flow's "
                          "pre-commit runs it before the migration commit and would block it", True,
