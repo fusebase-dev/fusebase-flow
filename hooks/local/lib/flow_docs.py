@@ -24,12 +24,47 @@ def git(root: Path, *args: str) -> str:
     return r.stdout.decode("utf-8", "replace") if r.returncode == 0 else ""
 
 
+def uncomment(text: str) -> str:
+    """The text without HTML comments: the templates' examples live in them."""
+    return re.sub(r"<!--.*?-->", "", text, flags=re.S)
+
+
 def read(path: Path) -> str:
-    """The text without HTML comments (the templates' examples live in them); "" when the file is absent."""
+    """The file's text without HTML comments; "" when the file is absent."""
     try:
-        return re.sub(r"<!--.*?-->", "", path.read_text(encoding="utf-8", errors="replace"), flags=re.S)
+        return uncomment(path.read_text(encoding="utf-8", errors="replace"))
     except OSError:
         return ""
+
+
+def backlog(text: str) -> tuple[dict[str, dict], dict[str, dict]]:
+    """Items {B<n>: {id, title, source, criterion|test, risk, status, inputs: [...], answers: [A<n>...]}} and answers
+    {A<n>: {id, title, answered, text: [quoted lines]}} from backlog.md's text."""
+    items: dict[str, dict] = {}
+    answers: dict[str, dict] = {}
+    current, key = None, None
+    for line in uncomment(text).splitlines():
+        if m := re.match(r"##\s+(B\d+)\b\s*(.*)", line):
+            current, key = items.setdefault(m[1], {"id": m[1], "title": m[2].strip(), "inputs": [], "answers": []}), None
+        elif m := re.match(r"###\s+(A\d+)\b\s*(.*)", line):
+            current, key = answers.setdefault(m[1], {"id": m[1], "title": m[2].strip(), "text": []}), None
+        elif line.startswith("#"):
+            current = None
+        elif current is None:
+            continue
+        elif m := re.match(r"-\s*([a-z_]+):\s*(.*)", line):
+            key, value = m[1], m[2].strip()
+            if key == "inputs":
+                current["inputs"] += [v.strip() for v in value.split(",") if v.strip()]
+            elif key == "answers":
+                current["answers"] = re.findall(r"A\d+", value)
+            else:
+                current[key] = value
+        elif (m := re.match(r"\s+-\s+(.*)", line)) and key == "inputs":
+            current["inputs"].append(m[1].strip())
+        elif line.startswith(">") and "text" in current:
+            current["text"].append(line[1:].strip())
+    return items, answers
 
 
 def policy(root: Path, name: str = "evidence-classes") -> dict:

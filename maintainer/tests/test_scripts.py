@@ -269,5 +269,138 @@ class Done(Workspace):
         self.assertIn(f"T1: {stray[:12]} is not a commit on this branch", out.stdout)
 
 
+BACKLOG = """# Backlog
+
+## B1 Magic links expire
+- source: owner:2026-10-16
+- criterion: A magic link older than 15 minutes signs nobody in.
+- risk: {risk}
+- status: open
+
+## B2 The expiry has a unit test
+- source: owner:2026-10-16
+- test: test/auth.test.ts::magic link expires
+- risk: none
+- status: open
+
+## B3 The banner says so
+- source: owner:2026-10-16
+- criterion: The sign-in page says "link expired".
+- risk: none
+- status: open
+"""
+RUN_LOG = "# Live run p1 aaa111 (dev)\n\n| Time (UTC) | Row | Record |\n|---|---|---|\n{records}"
+
+
+def blank_png(width: int = 1280, height: int = 720) -> bytes:
+    import struct
+    import zlib
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+    raw = b"".join(b"\x00" + b"\xff" * 3 * width for _ in range(height))
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(raw, 6)) + chunk(b"IEND", b""))
+
+
+class Validator(Workspace):
+    """Done check 3: a phase whose rows all hold, then one fault at a time."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        policy = (CORE / "policies/evidence-classes.yml").read_text(encoding="utf-8")
+        self.base = commit(self.repo, {"policies/evidence-classes.yml": policy,
+                                       "docs/flow/backlog.md": BACKLOG.format(risk="none"),
+                                       "test/auth.test.ts": "test('magic link expires', () => {});\n"}, "init")
+        write(self.repo, "docs/flow/phases.md", phases_doc(self.base, [("T1", "src/a/**"), ("T2", "test/**")])
+              .replace("| T2 | B1 |", "| T2 | B2 |"))
+        commit(self.repo, {"src/a/expiry.ts": "export const ttl = 15;\n"}, "T1: the expiry")
+        commit(self.repo, {"test/auth.test.ts": "test('magic link expires', () => {});\n// ttl\n"}, "T2: the test")
+        write(self.repo, "state/deploys/dev.jsonl", json.dumps({"env": "dev", "finished": "2026-10-18T09:00:00Z"}) + "\n")
+        write(self.repo, "state/runs/P1/index.tsv", "run-1\t2026-10-18T10:00:00Z\truns/run-1\t0\n")
+        write(self.repo, "runs/run-1/README.md", RUN_LOG.format(records="| 2026-10-18T10:00:00.000Z | S1 | PASS |\n"))
+        write(self.repo, "runs/unit.tap", "TAP version 13\nok 1 - magic link expires\n# pass 1\n")
+        self.rows = {"B1": self.capture_row("B1", "runs/run-1/S1/link.json", b'{"signed_in": false, "status": 410}\n'),
+                     "B2": "| B2 | PASS | test/auth.test.ts::magic link expires | - | - | runs/unit.tap | - |"}
+
+    def capture_row(self, item: str, rel: str, data: bytes, log: str = "runs/run-1/README.md", note: str = "-") -> str:
+        (self.repo / rel).parent.mkdir(parents=True, exist_ok=True)
+        (self.repo / rel).write_bytes(data)
+        import hashlib
+        return f"| {item} | PASS | {rel} | {hashlib.sha256(data).hexdigest()} | {len(data)} | {log} | {note} |"
+
+    def validate(self, target: str = "P1") -> subprocess.CompletedProcess:
+        head = "| Criterion | Status | Capture | sha256 | Bytes | Log | Note |\n|---|---|---|---|---|---|---|\n"
+        write(self.repo, "docs/flow/evidence/P1.md", "# Evidence\n\n" + head + "".join(f"{r}\n" for r in self.rows.values()))
+        return run(str(LOCAL / "validate_evidence.py"), target, "--root", str(self.repo), cwd=self.tmp)
+
+    def assert_fails(self, item: str, text: str) -> None:
+        out = self.validate()
+        self.assertEqual(out.returncode, 1, out.stdout + out.stderr)
+        line = next((ln for ln in out.stdout.splitlines() if ln.startswith(f"  {item} FAIL")), "")
+        self.assertIn(text, line, out.stdout)
+
+    def test_a_phase_whose_rows_hold_passes_and_accepts_a_test_id_row_with_its_pass_marker(self) -> None:
+        out = self.validate()
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertIn("  B2 PASS (class unit, minimum unit)", out.stdout)
+        self.assertRegex(out.stdout, r"capture runs/run-1/S1/link.json sha256=[0-9a-f]{64} bytes=\d+")
+        self.assertIn("EVIDENCE: PASS", out.stdout)
+
+    def test_rejects_a_blank_capture_under_the_floor(self) -> None:
+        self.rows["B1"] = self.capture_row("B1", "runs/run-1/S1/page.png", blank_png())
+        self.assert_fails("B1", "under the floor of 10240")
+
+    def test_rejects_a_capture_dated_before_the_deploy_finished(self) -> None:
+        write(self.repo, "state/deploys/dev.jsonl", json.dumps({"env": "dev", "finished": "2026-10-18T09:00:00Z"})
+              + "\n" + json.dumps({"env": "dev", "finished": "2026-10-18T11:00:00Z"}) + "\n")
+        self.assert_fails("B1", "before the dev deploy finished 2026-10-18T11:00:00Z")
+
+    def test_rejects_two_rows_sharing_a_digest(self) -> None:
+        write(self.repo, "docs/flow/phases.md", (self.repo / "docs/flow/phases.md").read_text(encoding="utf-8")
+              + "| T3 | B3 | the banner | `src/b/**` | 10m 1f |\n")
+        self.rows["B3"] = self.capture_row("B3", "runs/run-1/S1/copy.json", b'{"signed_in": false, "status": 410}\n')
+        self.assert_fails("B1", "shares capture")
+        self.assert_fails("B3", "shares capture")
+
+    def test_rejects_a_pass_row_whose_run_log_records_a_finding(self) -> None:
+        write(self.repo, "runs/run-1/README.md", RUN_LOG.format(
+            records="| 2026-10-18T10:00:00.000Z | S1 | PASS |\n| 2026-10-18T10:01:00.000Z | S2 | FINDING F7: banner |\n"))
+        self.assert_fails("B1", "FINDING")
+
+    def test_rejects_a_test_id_row_whose_test_is_absent_at_head(self) -> None:
+        self.rows["B2"] = self.rows["B2"].replace("magic link expires |", "magic link is revoked |")
+        write(self.repo, "runs/unit.tap", "TAP version 13\nok 1 - magic link is revoked\n")
+        self.assert_fails("B2", "the test is absent at HEAD")
+
+    def test_rejects_a_test_id_row_whose_test_gained_skip_in_the_slice_diff(self) -> None:
+        commit(self.repo, {"test/auth.test.ts": "test.skip('magic link expires', () => {});\n"}, "T2: skip it")
+        self.assert_fails("B2", "skip or todo token was added")
+
+    def test_rejects_a_run_log_without_the_header(self) -> None:
+        write(self.repo, "runs/run-1/README.md", "# Live run p1 aaa111 (dev)\n\nS1 PASS\n")
+        self.assert_fails("B1", "unrecognised run log")
+
+    def test_reports_flaky_as_fail_for_a_pass_after_a_fail_without_a_reproduction_note(self) -> None:
+        write(self.repo, "runs/run-0/README.md", RUN_LOG.format(records="| 2026-10-18T09:30:00.000Z | S1 | FAIL: 200 |\n"))
+        write(self.repo, "state/runs/P1/index.tsv",
+              "run-0\t2026-10-18T09:30:00Z\truns/run-0\t1\nrun-1\t2026-10-18T10:00:00Z\truns/run-1\t0\n")
+        self.assert_fails("B1", "FLAKY: run run-0 recorded a FAIL")
+        self.rows["B1"] = self.rows["B1"][:-4] + " repro: a stale build served run-0 |"
+        self.assertEqual(self.validate().returncode, 0)
+
+    def test_the_minimum_class_follows_the_touched_paths(self) -> None:
+        policy = (CORE / "policies/evidence-classes.yml").read_text(encoding="utf-8").replace("  ui: []", "  ui: ['test/**']")
+        commit(self.repo, {"policies/evidence-classes.yml": policy}, "chore: T9 declare the ui globs")
+        self.assert_fails("B2", "unit evidence, under the minimum smoke")
+        self.assertNotIn("no globs declared", self.validate().stdout)
+
+    def test_a_risk_line_changed_inside_its_slice_window_is_a_flag(self) -> None:
+        write(self.repo, "docs/flow/backlog.md", BACKLOG.format(risk="auth"))
+        out = self.validate()
+        self.assertIn("FLAG item-edit B1: risk changed since the phase's base", out.stdout)
+        self.assertIn("  B1 PASS (class live, minimum live)", out.stdout)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
