@@ -10,7 +10,7 @@ Needs git, bash and Python 3.10+ with PyYAML (`pip install -r hooks/requirements
 python maintainer/flow.py install --target <project> --providers claude,codex
 ```
 
-It copies the core, writes the provider mirrors (`.claude/`, `.agents/skills/`, `.codex/agents/`), merges the Flow block into `AGENTS.md` and `CLAUDE.md`, records `audit/flow-install.json`, and installs the git hooks. It never overwrites a file you edited and never touches CLI-owned paths. Re-run it to upgrade within 6.0. Committing the installed files is a protected commit: see `workflows/lifecycle.md`.
+It copies the core, writes the provider mirrors (`.claude/`, `.agents/skills/`, `.codex/agents/`), merges the Flow block into `AGENTS.md` and `CLAUDE.md`, records `audit/flow-install.json`, and installs the git hooks. It never overwrites a file you edited and never touches CLI-owned paths. Re-run it to upgrade within 6.0: it adds the new Flow files, replaces the Flow files you have not edited, keeps the ones you edited, rewrites its marked blocks in `.gitattributes` and `.gitignore` and `audit/flow-install.json`, and touches nothing else. `--register-reader` also schedules the heartbeat reader (`hooks/local/reader.py --once` every 5 minutes, `schtasks` or crontab) and records the line; a plain install schedules nothing. Committing the installed files is a protected commit: see `workflows/lifecycle.md`.
 
 ## Moving a project from Flow 5.x
 

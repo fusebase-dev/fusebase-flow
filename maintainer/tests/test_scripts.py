@@ -689,6 +689,51 @@ class Gate(Workspace):
         self.assertEqual(self.gate().returncode, 1)
 
 
+class Upgrade(Workspace):
+    """Done check 7, its install part on a synthetic project: 6.0.0-m2's install, then a re-run of this tree's."""
+    M2 = "1f91908e"  # 6.0.0-m2
+    NEW = ("hooks/local/reader.py", "hooks/local/done.py", "hooks/local/validate_evidence.py", "hooks/local/checks.py",
+           "hooks/local/slice.py", "hooks/local/gate.py", "hooks/local/lib/flow_docs.py", "policies/evidence-classes.yml")
+
+    def test_a_rerun_on_an_m2_install_adds_the_new_files_and_touches_nothing_else(self) -> None:
+        import tarfile
+        from synthetic import snapshot
+        archive = subprocess.run(["git", "archive", "--format=tar", self.M2], cwd=CORE, capture_output=True)
+        if archive.returncode:
+            self.skipTest(f"6.0.0-m2 ({self.M2}) is not in this clone's history")
+        with tarfile.open(fileobj=io.BytesIO(archive.stdout)) as tar:
+            tar.extractall(self.tmp / "core-m2")
+        write(self.repo, "src/app.ts", "export const app = 1;\n")
+        write(self.repo, ".gitignore", "node_modules/\n")
+        first = run(str(self.tmp / "core-m2/maintainer/flow.py"), "install", "--target", str(self.repo), cwd=self.tmp)
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        _, before = snapshot(self.repo)
+        upgrade = run(str(FLOW), "install", "--target", str(self.repo), cwd=self.tmp)
+        self.assertEqual(upgrade.returncode, 0, upgrade.stdout + upgrade.stderr)
+        _, after = snapshot(self.repo)
+        manifest = json.loads((self.repo / "audit/flow-install.json").read_text(encoding="utf-8"))
+        flow_owned = {e["path"] for e in manifest["files"]} | {".gitattributes", ".gitignore", "audit/flow-install.json"}
+        changed = {p for p in set(before) | set(after) if before.get(p) != after.get(p) and not p.startswith(".git/")}
+        self.assertEqual(sorted(changed - flow_owned), [], "a re-run touched a project file")
+        self.assertTrue(set(self.NEW) <= changed and set(self.NEW) <= flow_owned)
+        self.assertEqual(manifest["flow_version"], (CORE / "VERSION").read_text(encoding="utf-8").strip())
+        self.assertIn("gate_rounds: 2", (self.repo / "policies/approval-policy.yml").read_text(encoding="utf-8"))
+        self.assertTrue((self.repo / ".gitignore").read_text(encoding="utf-8").startswith("node_modules/\n\n# FLOW:BEGIN ignore"))
+        self.assertEqual(before["src/app.ts"], after["src/app.ts"])
+        again = run(str(FLOW), "install", "--target", str(self.repo), cwd=self.tmp)
+        self.assertIn("added: 0", again.stdout)
+        self.assertEqual(snapshot(self.repo)[1], after, "a second re-run changed a file")
+
+    def test_install_never_sources_run_with_timeout_beyond_the_kept_part(self) -> None:
+        """O-2: only bounded-run.sh sources it, and the core carries the trimmed file (the kernel lock holds its bytes)."""
+        sources = [p.relative_to(CORE).as_posix() for p in [*CORE.glob("maintainer/*.py"), *CORE.glob("hooks/**/*.sh"),
+                                                              *CORE.glob("hooks/local/*.py")]
+                   if "run-with-timeout" in p.read_text(encoding="utf-8")]
+        self.assertEqual(sources, ["hooks/local/lib/bounded-run.sh"])
+        kept = (CORE / "hooks/local/lib/run-with-timeout.sh").read_text(encoding="utf-8").splitlines()
+        self.assertLess(len(kept), 69 - 32 + 10, "the trimmed timeout core (5.x lines 32-69 and its header)")
+
+
 class PolicyKeys(unittest.TestCase):
     """The acceptance: no policy key that no script reads."""
 
