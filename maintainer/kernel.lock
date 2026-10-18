@@ -3,6 +3,7 @@
 #   hooks/local/lib/run-with-timeout.sh, trimmed to lines 32-69 (T191; owner, handoff section 9 decision 4).
 # Kernel fixes since, each landed on 5.x first and cherry-picked (owner's milestone 3 rule 5):
 #   policies/approval-policy.yml: gate_rounds: 2 (T239; 5.x main 731acb69, public; O-3).
+#   hooks/local/lib/bounded-run.sh: the command's sha256 on heartbeat line 2 (T255; 5.x 834901cd, local; O-10).
 # A kernel fix lands on 5.x first, is cherry-picked here, and updates this lock in the same commit.
 f2557b19379421fac007a2c758eda73bb6eb21990a7f5c366c438716e1fe2cfb  .gitattributes
 0acfb991aa269888937723022f2667b0e251ed0091ccc96491752360b2a61be0  LICENSE
@@ -13,7 +14,7 @@ f2557b19379421fac007a2c758eda73bb6eb21990a7f5c366c438716e1fe2cfb  .gitattributes
 e9d192b09e351091350d6d4b6f04e865f5611f5268bd0c5c4a24d5cbcd83d582  hooks/local/check-module-size.sh
 83ef934c00c8688b5666176e18cd556f8971950dbbb53e583dd08b48eca2f9de  hooks/local/install-git-hooks.sh
 f96ad00eae668bbe6f0820e1d4ff263f32df07b46acba1af9853b6392d6c0f2b  hooks/local/lib/approval_inventory.py
-d28cec4d4e8db3518e8408137d49d6f2cf52bf0b7a5495bc1f128c68059cf34c  hooks/local/lib/bounded-run.sh
+9d7842ee1cd5f4b4827a737c8ce1bdd6d3eb25b8df877b20dadd57bf92c0216d  hooks/local/lib/bounded-run.sh
 474f026bba4aadd2359678806ffa4007a8d19183f87a8f119e2e2b08bb9db002  hooks/local/lib/precommit-validator-reuse.sh
 59b32bed31dba84ed161b8b1a9f9df989daec2d31a8789e8fd1ebf8b56171ed7  hooks/local/lib/run-with-timeout.sh
 0a77529b6bf4948546f6e03d479a19779e0565222294902407e6190513006588  hooks/local/lib/validator_tier.py

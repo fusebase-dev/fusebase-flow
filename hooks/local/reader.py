@@ -13,6 +13,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -22,6 +23,7 @@ from pathlib import Path
 # A threshold without provenance is UNCALIBRATED and logs instead of alerting (non-negotiable 2).
 SILENCE_S = 30 * 60  # consumer watchdog 2026-10-14; the transcript floor is 15 min (design section 14)
 REPEATS = 3          # UNCALIBRATED: owner seed 2026-10-15; logged, not an alert, until measured
+CMD = re.compile(r"cmd sha256=([0-9a-f]{64})$")  # bounded-run's line 2 (5.x 834901cd)
 TERMINAL = ("done", "TIMEOUT", "SKIPPED")  # bounded-run's last record; a heartbeat file without one is in flight
 OWN = ("state/reader/", "state/status.line")  # the reader's own writes are not activity
 
@@ -38,8 +40,8 @@ def git(root: Path, *args: str) -> str:
 
 
 def heartbeats(root: Path) -> list[tuple[str, float, str, bool]]:
-    """(pid, mtime, sha256 of the label line, in flight) per heartbeat file. bounded-run writes no command hash, so
-    the label line `bounded-run <label>` stands in for the command."""
+    """(pid, mtime, command sha256, in flight) per heartbeat file: bounded-run's `cmd sha256=` line, or for a
+    heartbeat that predates it the sha256 of its label line `bounded-run <label>`."""
     found = []
     for p in sorted((root / "state/audit/liveness").glob("*.hb")):
         try:
@@ -48,7 +50,8 @@ def heartbeats(root: Path) -> list[tuple[str, float, str, bool]]:
             continue
         label = lines[0].rsplit(" deadline=", 1)[0] if lines else p.stem
         pid = p.stem.rsplit("-", 2)[-2] if p.stem.count("-") >= 2 else "?"
-        found.append((pid, mtime, hashlib.sha256(label.encode("utf-8")).hexdigest(),
+        cmd = next((m[1] for line in lines[1:3] if (m := CMD.match(line))), None)
+        found.append((pid, mtime, cmd or hashlib.sha256(label.encode("utf-8")).hexdigest(),
                       not (lines and lines[-1].startswith(TERMINAL))))
     return found
 

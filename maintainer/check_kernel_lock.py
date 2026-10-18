@@ -1,7 +1,7 @@
 """Fail when a kernel file's committed bytes differ from maintainer/kernel.lock.
 
-The kernel is byte-locked to 5.x (release/6.0 at 17b796d3); the lock names its one authorized
-change. Hashes are taken from the committed blob (git cat-file), so a CRLF checkout on Windows
+The kernel is byte-locked to 5.x (release/6.0 at 17b796d3); the lock's header names each authorized
+change and each kernel fix since. Hashes are taken from the committed blob (git cat-file), so a CRLF checkout on Windows
 does not read as a change. A kernel fix lands on 5.x first, is cherry-picked here, and updates
 the lock in the same commit.
 """

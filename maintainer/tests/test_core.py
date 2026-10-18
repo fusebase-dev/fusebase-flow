@@ -12,6 +12,7 @@ import hashlib
 import io
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -251,6 +252,44 @@ class SmallItems(Workspace):
             text = note.read_text(encoding="utf-8")
             self.assertIn("FF_BOOTSTRAP_TTL_MIN=30 bash hooks/local/write-bootstrap-approval.sh", text, note.name)
             self.assertIn("which has no `gate_rounds`; the gate then allows 2 rounds", text, note.name)
+
+
+class CommandHash(Workspace):
+    """O-10: bounded-run writes the command's sha256 into its heartbeat, and the reader counts that, not the label."""
+
+    def bounded(self, label: str, *argv: str) -> Path:
+        folder = self.tmp / "hb"
+        env = {**os.environ, "BOUNDED_RUN_HB_DIR": folder.as_posix(), "BOUNDED_RUN_HEARTBEAT_SECS": "0",
+               "BR_LIB": (CORE / "hooks/local/lib/bounded-run.sh").as_posix()}
+        bash = shutil.which("bash")  # TRIPWIRE: a bare name on Windows finds System32's WSL bash first
+        out = subprocess.run([bash, "-c", '. "$BR_LIB"; bounded_run 60 "$0" -- "$@"', label, *argv], env=env,
+                             capture_output=True, text=True, timeout=600)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        return sorted(folder.glob("*.hb"), key=lambda p: p.stat().st_mtime_ns)[-1]
+
+    def test_the_heartbeat_carries_the_sha256_of_the_commands_arguments(self) -> None:
+        lines = self.bounded("probe", "echo", "a b", "c").read_text(encoding="utf-8").splitlines()
+        want = hashlib.sha256(b"echo\0a b\0c\0").hexdigest()
+        self.assertEqual(lines[0], "bounded-run probe deadline=60s", "the header stays the first line")
+        self.assertEqual(lines[1], f"cmd sha256={want}")
+        self.assertRegex(lines[-1], r"^done rc=0 \d+s$", "the terminal record stays the last line")
+        other = self.bounded("probe", "echo", "a", "b", "c").read_text(encoding="utf-8").splitlines()[1]
+        self.assertNotEqual(other, lines[1], "the arguments' boundaries count")
+
+    def test_the_reader_prefers_the_command_hash_over_the_label(self) -> None:
+        sys.path.insert(0, str(CORE / "hooks/local"))
+        import reader
+        folder = self.repo / "state/audit/liveness"
+        folder.mkdir(parents=True)
+        one, two = hashlib.sha256(b"vitest\0run\0").hexdigest(), hashlib.sha256(b"vitest\0run\0--watch\0").hexdigest()
+        beats = {"tests-1-1.hb": ("tests", one), "tests-2-1.hb": ("tests", two), "unit-3-1.hb": ("unit", one),
+                 "suite-4-1.hb": ("suite", one), "old-5-1.hb": ("old", None)}
+        for name, (label, digest) in beats.items():
+            cmd = f"cmd sha256={digest}\n" if digest else ""
+            (folder / name).write_text(f"bounded-run {label} deadline=900s\n{cmd}running 10/900\n", encoding="utf-8")
+        got = {p: h for p, _, h, _ in reader.heartbeats(self.repo)}
+        self.assertEqual([got["1"], got["2"], got["3"], got["4"]], [one, two, one, one])
+        self.assertEqual(got["5"], hashlib.sha256(b"bounded-run old").hexdigest(), "an older heartbeat keeps the label")
 
 
 if __name__ == "__main__":

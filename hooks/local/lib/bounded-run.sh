@@ -45,6 +45,7 @@ fi
 #   never silently hang the caller.
 #   Heartbeat file: BOUNDED_RUN_HB_DIR (unset = <repo>/state/audit/liveness; empty = off), one
 #   <label>-<pid>-<n>.hb per call; *.hb untouched for BOUNDED_RUN_HB_RETAIN_DAYS (7) are pruned.
+#   Line 2 is `cmd sha256=<hex>`, the sha256 of CMD's arguments each NUL-terminated (absent without a hasher).
 #   TRIPWIRE: a "running" record proves the WRAPPER is alive, never that CMD progresses. No terminal record
 #   (done/TIMEOUT/SKIPPED) = the wrapper has not returned yet; an rc-137 return lands after deadline +
 #   FFHC_TIMEOUT_KILL_GRACE (5s), so call it hung only with none by launch + deadline + grace + ~30 s (MSYS reap).
@@ -53,7 +54,7 @@ bounded_run() {
   [ "${1:-}" = "--" ] && shift   # tolerate the readability "--" separator
 
   local hb="${BOUNDED_RUN_HEARTBEAT_SECS:-10}" hbf
-  _bounded_run_hb_open "$label" "$deadline"; hbf="$_BR_HB_FILE"
+  _bounded_run_hb_open "$label" "$deadline" "$@"; hbf="$_BR_HB_FILE"
   ffhc_detect_timeout
 
   # No-binary policy (mirrors ffhc_run_bounded H5): SKIP rather than run unbounded,
@@ -113,6 +114,20 @@ _bounded_run_hb_open() {
   { [ -d "$dir" ] || mkdir -p "$dir"; } 2>/dev/null || :
   find "$dir" -maxdepth 1 -type f -name '*.hb' -mtime +"${BOUNDED_RUN_HB_RETAIN_DAYS:-7}" -delete 2>/dev/null || :
   { printf 'bounded-run %s deadline=%ss\n' "$1" "$2" > "$_BR_HB_FILE"; } 2>/dev/null || :
+  local sha; sha="$(shift 2; _bounded_run_cmd_sha "$@")"
+  [ -z "$sha" ] || { printf 'cmd sha256=%s\n' "$sha" >> "$_BR_HB_FILE"; } 2>/dev/null || :
+}
+
+# sha256 of the arguments, each NUL-terminated; "" without sha256sum or shasum (a reader then uses the label).
+_bounded_run_cmd_sha() {
+  local out=""
+  if command -v sha256sum >/dev/null 2>&1; then out="$(printf '%s\0' "$@" | sha256sum 2>/dev/null)"
+  elif command -v shasum >/dev/null 2>&1; then out="$(printf '%s\0' "$@" | shasum -a 256 2>/dev/null)"
+  fi
+  out="${out%% *}"
+  case "$out" in *[!0-9a-f]*|"") out="" ;; esac
+  [ "${#out}" -eq 64 ] && printf '%s' "$out"
+  return 0
 }
 
 _bounded_run_hb_note() {
