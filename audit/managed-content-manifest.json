@@ -1510,7 +1510,7 @@
     },
     {
       "path": "policies/approval-policy.yml",
-      "sha256": "6a9d4c012bbcfc067690ce659ab1bc429d634d1f5028b31bc7d5b76e90900b3d"
+      "sha256": "66e639442e9b2f7be2e91c7072a95a6c49331ddf5bd203c29c714cc48fd527bf"
     },
     {
       "path": "policies/command-policy.yml",
@@ -1705,5 +1705,5 @@
       "sha256": "bd9e3cf2d643a7f71016d480cfc720c36a6065271e073c3b638d8379d84fe47d"
     }
   ],
-  "manifest_self_sha256": "ec8201f29595f088fc68e1b364f8e6c6353f51b96aa08b32ead03f13cc789eb3"
+  "manifest_self_sha256": "4252bf41e615a91f0b8b93b0070bf0a062c9bde7b005cc2668827939f11caeee"
 }
