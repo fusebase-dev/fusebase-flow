@@ -5,7 +5,7 @@ name: core-release
 # marked latest. The release note is required: maintainer/release-notes/<tag>.md.
 on:
   push:
-    tags: ["v*", "[0-9]*"]
+    tags: ["[0-9]*"]
 
 permissions:
   contents: read
