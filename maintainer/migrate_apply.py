@@ -24,9 +24,10 @@ CREATED, UNTRACKED, STAGE, MESSAGE = "created.txt", "untracked.txt", "stage.txt"
 DELETE = "delete.txt"  # the commit's deletions; stage.txt holds the paths it adds and, written last, marks it complete
 TRACKED = "tracked.txt"  # the tracked paths the apply may change: the rollback restores these from HEAD, nothing else
 # Puts back the 5.x git hooks the backup folder holds and removes a 6.0 hook where 5.x had none.
+# TRIPWIRE: the folder hooks_dir() backed up and install wrote; never --git-path hooks: it follows core.hooksPath.
 HOOKS_STEP = ('for h in pre-commit commit-msg pre-push; do if [ -f "{backup}/.git-hooks/$h" ]; then '
-              'cp -p -- "{backup}/.git-hooks/$h" "$(git rev-parse --git-path hooks)/$h"; '
-              'else rm -f -- "$(git rev-parse --git-path hooks)/$h"; fi; done')
+              'cp -p -- "{backup}/.git-hooks/$h" "$(git rev-parse --git-common-dir)/hooks/$h"; '
+              'else rm -f -- "$(git rev-parse --git-common-dir)/hooks/$h"; fi; done')
 # The undo of a completed migration (owner, 2026-10-17): no reset --hard. The release note states the same lines with
 # <UTC time> and <the pre-migration commit> in place of {stamp} and {commit}; maintainer/tests checks them.
 UNDO = ("git checkout -b flow-5x-{stamp} {commit}", HOOKS_STEP.replace("{backup}", BACKUP_PREFIX + "{stamp}"),
