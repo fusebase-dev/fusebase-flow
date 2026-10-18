@@ -48,8 +48,8 @@ ATTR_FIX = ("restore the missing marker line, or delete the block's lines by han
             "(Flow replaces only a whole marked block and never deletes the project's lines)")
 # The project's .gitignore gets one Flow block too (O-4): runtime state and bytecode the hooks write.
 IGNORE = ".gitignore"
-IGNORE_LINES = ("state/approvals/*", "!state/approvals/.gitkeep", "state/audit/*", "hooks/**/__pycache__/",
-                "state/reader/", "state/status.line")
+IGNORE_LINES = ("state/approvals/*", "!state/approvals/.gitkeep", "state/audit/*", "state/audit.log.jsonl",
+                "hooks/**/__pycache__/", "state/reader/", "state/status.line", "state/returns/")
 # {file: (BEGIN line, END line, what the block is)}; a BEGIN marker line starts with the part before " (".
 BLOCKS = {ATTRIBUTES: (ATTR_BEGIN, ATTR_END, "line-ending"),
           IGNORE: ("# FLOW:BEGIN ignore (flow.py install writes this block; re-install replaces it)",
@@ -250,6 +250,7 @@ def attributes_block(paths: list[str]) -> str:
 
 def ignore_block() -> str:
     return "\n".join([BLOCKS[IGNORE][0], "# Runtime state and bytecode the Flow hooks write: never committed.",
+                      "# Committed records, so not here: state/flags/ state/gate/ state/done/ state/deploys/ state/runs/",
                       *IGNORE_LINES, BLOCKS[IGNORE][1]]) + "\n"
 
 
@@ -514,6 +515,7 @@ def main(argv: list[str]) -> int:
         parser.error(f"unknown provider(s): {', '.join(sorted(unknown))} (supported: claude, codex)")
     if args.cmd == "migrate":
         sys.modules.setdefault("flow", sys.modules[__name__])  # migrate.py imports this module, not a second copy
+        sys.path.insert(0, str(Path(__file__).resolve().parent))  # PYTHONSAFEPATH=1 leaves the script's folder off
         import migrate
         if args.task and not re.fullmatch(r"T\d+", args.task):
             parser.error("--task takes T<n>, such as T312")

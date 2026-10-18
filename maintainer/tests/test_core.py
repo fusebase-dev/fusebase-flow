@@ -12,6 +12,7 @@ import hashlib
 import io
 import json
 import os
+import subprocess
 import sys
 import time
 import unittest
@@ -213,6 +214,43 @@ class FlagIds(Workspace):
                 beat.write_text(f"bounded-run vitest run deadline=900s\n{record}\n", encoding="utf-8")
                 os.utime(beat, (stamp, stamp))
             self.assertEqual("3 times in flight (UNCALIBRATED: logged)" in self.checks(), expect, record)
+
+
+class SmallItems(Workspace):
+    """O-18: the ignore block follows the records decision, the scripts import each other under PYTHONSAFEPATH=1, and
+    the public texts name the public 5.x commit and the 30-minute mint."""
+
+    def test_the_ignore_block_hides_runtime_state_and_never_a_record(self) -> None:
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(flow.install(self.repo, {"claude", "codex"}), 0, out.getvalue())
+        runtime = ["state/returns/P1-S1.json", "state/returns/P1-S1-review.json", "state/audit.log.jsonl",
+                   "state/reader/last.json", "state/status.line", "state/approvals/x.json", "hooks/shared/__pycache__/x.pyc"]
+        records = ["state/flags/P1-S1.tsv", "state/gate/P1-S1.txt", "state/done/P1-S1.json", "state/deploys/dev.jsonl",
+                   "state/runs/P1/index.tsv", "state/approvals/.gitkeep"]
+        probe = subprocess.run(["git", "check-ignore", "--stdin"], cwd=self.repo, capture_output=True,
+                               input="\n".join(runtime + records).encode() + b"\n")
+        self.assertEqual(sorted(probe.stdout.decode().split()), sorted(runtime))
+
+    @unittest.skipIf(sys.version_info < (3, 11), "PYTHONSAFEPATH arrived in Python 3.11")
+    def test_the_scripts_import_each_other_under_pythonsafepath(self) -> None:
+        env = {**os.environ, "PYTHONSAFEPATH": "1"}
+        for argv in ([str(CORE / "hooks/local/gate.py"), "--help"], [str(CORE / "hooks/local/checks.py"), "--help"],
+                     [str(CORE / "maintainer/flow.py"), "migrate", "--target", str(self.tmp / "absent")]):
+            out = subprocess.run([sys.executable, *argv], cwd=self.tmp, env=env, capture_output=True, text=True,
+                                 timeout=600)
+            self.assertNotIn("Traceback", out.stderr, argv)
+            self.assertNotIn("ModuleNotFoundError", out.stderr + out.stdout, argv)
+
+    def test_public_texts_name_the_public_5x_commit_and_the_30_minute_mint(self) -> None:
+        local = "bac8" + "bbb1"
+        named = subprocess.run(["git", "grep", "-n", local, "--", "."], cwd=CORE, capture_output=True, text=True)
+        self.assertEqual(named.stdout, "", "the local-only 5.x commit is named nowhere")
+        self.assertIn("731acb69", (CORE / "maintainer/kernel.lock").read_text(encoding="utf-8"))
+        for note in sorted((CORE / "maintainer/release-notes").glob("6.0.0-m[3-9]*.md")):
+            text = note.read_text(encoding="utf-8")
+            self.assertIn("FF_BOOTSTRAP_TTL_MIN=30 bash hooks/local/write-bootstrap-approval.sh", text, note.name)
+            self.assertIn("which has no `gate_rounds`; the gate then allows 2 rounds", text, note.name)
 
 
 if __name__ == "__main__":

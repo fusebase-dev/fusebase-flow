@@ -17,7 +17,8 @@ from pathlib import Path
 
 import yaml
 
-sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+# The script's own folder too: PYTHONSAFEPATH=1 leaves it off sys.path, and a sibling script is imported below.
+sys.path[:0] = [str(Path(__file__).resolve().parent / "lib"), str(Path(__file__).resolve().parent)]
 import flow_docs as fd  # noqa: E402
 import checks  # noqa: E402
 import done  # noqa: E402

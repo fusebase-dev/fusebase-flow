@@ -1,8 +1,8 @@
 # Kernel lock: sha256 of each kernel file's committed bytes (git cat-file blob HEAD:<path>).
 # Source: release/6.0 at 17b796d3 (the 5.11 kernel), byte-identical except one authorized change:
 #   hooks/local/lib/run-with-timeout.sh, trimmed to lines 32-69 (T191; owner, handoff section 9 decision 4).
-# Kernel fixes since, each landed on release/6.0 first and cherry-picked:
-#   policies/approval-policy.yml: gate_rounds: 2 (T239; release/6.0 bac8bbb1; owner's milestone 3 rule 5, O-3).
+# Kernel fixes since, each landed on 5.x first and cherry-picked (owner's milestone 3 rule 5):
+#   policies/approval-policy.yml: gate_rounds: 2 (T239; 5.x main 731acb69, public; O-3).
 # A kernel fix lands on 5.x first, is cherry-picked here, and updates this lock in the same commit.
 f2557b19379421fac007a2c758eda73bb6eb21990a7f5c366c438716e1fe2cfb  .gitattributes
 0acfb991aa269888937723022f2667b0e251ed0091ccc96491752360b2a61be0  LICENSE
