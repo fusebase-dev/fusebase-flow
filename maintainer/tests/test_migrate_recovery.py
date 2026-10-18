@@ -157,7 +157,7 @@ class Undo(unittest.TestCase):
 
     def test_the_printed_undo_restores_the_tree_and_the_5x_hooks(self) -> None:
         self.assertEqual(self.applied.returncode, 0, self.applied.stdout + self.applied.stderr)
-        self.assertEqual(len(self.undo.splitlines()), 5, self.undo)
+        self.assertEqual(len(self.undo.splitlines()), 6, self.undo)
         ledger = blob(self.clone, "HEAD:docs/flow/ledger.md").decode("utf-8")
         for text in (self.applied.stdout, ledger):
             self.assertNotIn("reset --hard", text)
@@ -196,12 +196,51 @@ class Undo(unittest.TestCase):
         self.assertEqual(git(clone, "rev-parse", "HEAD").stdout.strip(), head)
         self.assertEqual(git(clone, "branch", "--list", "flow-5x-*").stdout, "")
 
+    def test_without_the_backup_folder_the_hooks_come_from_the_5x_tree(self) -> None:
+        self.assertEqual(self.applied.returncode, 0, self.applied.stdout + self.applied.stderr)
+        clone = copy_of(self.clone, self.tmp / "no backup")
+        shutil.rmtree(next(clone.glob(".flow-migrate-*")))  # the migration report says to, once it is accepted
+        status, out = paste(clone, self.undo)
+        assert_5x_hooks(self, clone)  # the pre-migration commit's hooks/git/ copies
+        self.assertEqual(status, 0, out)
+        self.assertIn("NOTE: the backup folder .flow-migrate-", out)
+        self.assertIn("cannot be restored", out)
+        self.assertEqual(git(clone, "rev-parse", "HEAD").stdout.strip(), self.pre)
+        self.assertEqual(git(clone, "status", "--porcelain", "--untracked-files=no").stdout, "")
+        self.assertEqual(tracked(clone), self.before)
+        self.assertFalse((clone / "hooks/shared/__pycache__/x.cpython-312.pyc").exists())
+        if os.name != "nt":
+            for h in ("pre-commit", "commit-msg", "pre-push"):
+                self.assertTrue(os.access(clone / ".git/hooks" / h, os.X_OK), h)
+
     def test_the_release_note_states_the_printed_undo_word_for_word(self) -> None:
         core = FLOW.parents[1]
         note = (core / "maintainer/release-notes" / f"{(core / 'VERSION').read_text().strip()}.md").read_text("utf-8")
-        start = note.index("( set -e\n  git checkout -b flow-5x-")
+        start = note.index("( set -e\n")
         printed = self.undo.replace(self.stamp, "<UTC time>").replace(self.pre, "<the pre-migration commit>")
         self.assertEqual(note[start:note.index("\n)\n", start) + 3], printed)
+
+
+class UndoWithoutHookCopies(unittest.TestCase):
+    def test_without_the_backup_folder_or_tree_hooks_the_undo_stops_before_any_change(self) -> None:
+        tmp = Path(tempfile.mkdtemp(prefix="flow migrate "))
+        try:
+            clone = scratch_clone(tmp)  # a 5.x project whose commit has no hooks/git/ copies
+            applied = migrate(clone, "--apply", "--go-ahead")
+            self.assertEqual(applied.returncode, 0, applied.stdout + applied.stderr)
+            undo = pasted(applied.stdout.split("to undo the migration", 1)[-1])
+            shutil.rmtree(next(clone.glob(".flow-migrate-*")))
+            before, hooks = snapshot(clone), hooks_in(clone)
+            head, branches = git(clone, "rev-parse", "HEAD").stdout, git(clone, "branch", "--list").stdout
+            status, out = paste(clone, undo)
+            self.assertEqual(hooks_in(clone), hooks, f".git/hooks changed:\n{out}")
+            self.assertEqual(git(clone, "rev-parse", "HEAD").stdout, head, out)
+            self.assertEqual(git(clone, "branch", "--list").stdout, branches, out)
+            self.assertEqual(snapshot(clone), before, out)
+            self.assertTrue(status, f"block exit={status}:\n{out}")
+            self.assertIn("STOPPED", out)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
 MINT = "FF_BOOTSTRAP_TTL_MIN=30 bash hooks/local/write-bootstrap-approval.sh --slug flow-migrate"

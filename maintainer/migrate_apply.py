@@ -30,13 +30,31 @@ HOOKS_STEP = ('for h in pre-commit commit-msg pre-push; do if [ -f "{backup}/.gi
               'else rm -f -- "$(git rev-parse --git-common-dir)/hooks/$h"; fi; done')
 # The undo of a completed migration (owner, 2026-10-17): no reset --hard. The release note states the same block with
 # <UTC time> and <the pre-migration commit> in place of {stamp} and {commit}; maintainer/tests checks them.
-UNDO = ("git checkout -b flow-5x-{stamp} {commit}", HOOKS_STEP.replace("{backup}", BACKUP_PREFIX + "{stamp}"),
-        'while IFS= read -r p; do mkdir -p -- "$(dirname -- "$p")"; cp -p -- "' + BACKUP_PREFIX + '{stamp}/$p" "$p"; '
-        'done < "' + BACKUP_PREFIX + "{stamp}/" + JOURNAL + "/" + UNTRACKED + '"')
+# Without the backup folder the hooks come from the commit's hooks/git/ (owner, 2026-10-18).
+# TRIPWIRE: the first step checks the folder and those copies; every step that changes something comes after it.
+UNDO = tuple(step.replace("{backup}", BACKUP_PREFIX + "{stamp}") for step in (
+    'if [ -d "{backup}" ]; then :; elif git cat-file -e "{commit}:hooks/git/pre-commit" 2>/dev/null && '
+    'git cat-file -e "{commit}:hooks/git/commit-msg" 2>/dev/null && git cat-file -e "{commit}:hooks/git/pre-push" '
+    '2>/dev/null; then echo "NOTE: the backup folder {backup}/ is gone: the git hooks come from the 5.x tree\'s '
+    'hooks/git/, and the untracked files the migration removed or overwrote cannot be restored"; else echo "STOPPED '
+    'before any change: the backup folder {backup}/ is gone, and the pre-migration commit does not hold all three of '
+    'hooks/git/pre-commit, commit-msg and pre-push to put the 5.x git hooks back from"; false; fi',
+    "git checkout -b flow-5x-{stamp} {commit}",
+    'for h in pre-commit commit-msg pre-push; do if [ -f "{backup}/.git-hooks/$h" ]; then '
+    'cp -p -- "{backup}/.git-hooks/$h" "$(git rev-parse --git-common-dir)/hooks/$h"; elif [ -d "{backup}" ]; then '
+    'rm -f -- "$(git rev-parse --git-common-dir)/hooks/$h"; else git cat-file blob "{commit}:hooks/git/$h" > '
+    '"$(git rev-parse --git-common-dir)/hooks/$h"; chmod +x -- "$(git rev-parse --git-common-dir)/hooks/$h"; fi; done',
+    'if [ -d "{backup}" ]; then while IFS= read -r p; do mkdir -p -- "$(dirname -- "$p")"; cp -p -- "{backup}/$p" "$p"; '
+    'done < "{backup}/' + JOURNAL + "/" + UNTRACKED + '"; fi'))
 UNDO_INTRO = ("to undo the migration, paste this block into Git Bash at the project's top level, as one unit: it checks "
               "out the pre-migration commit on a new branch, puts the 5.x git hooks back and restores the untracked "
-              "files the migration removed or overwrote, and stops at the first step that fails; the branch you "
+              "files the migration removed or overwrote, and stops at the first step that fails; if the backup folder "
+              "is gone, it takes the hooks from the 5.x tree's hooks/git/ and says so, those untracked files cannot be "
+              "restored, and it stops before any change when that tree has no hooks/git/ copies; the branch you "
               "migrated keeps the migration commit")
+# What the undo loses without the backup folder, said wherever the folder's deletion is advised.
+DELETE_ADVICE = ("delete the folder once the migration is accepted; without it, the undo takes the git hooks from the "
+                 "5.x tree's hooks/git/ and cannot restore the untracked files the migration removed or overwrote")
 SLUG = "flow-migrate"
 MINT = f"FF_BOOTSTRAP_TTL_MIN=30 bash hooks/local/write-bootstrap-approval.sh --slug {SLUG}"
 CONSUME = f"bash hooks/local/write-bootstrap-approval.sh --consume --slug {SLUG}"
@@ -209,8 +227,8 @@ def migration_report(inv: m.Inventory, stamp: str, folder: Path, backed: int, mo
         f"- {when} Fusebase Flow {inv.version} -> {core} by `flow.py migrate --apply --go-ahead` "
         f"(providers: {', '.join(sorted(inv.providers))})",
         f"- pre-migration commit: {inv.head} ({inv.branch}); the undo is at the end of this report",
-        f"- backup folder: {folder.name}/ ({backed} files, excluded in .git/info/exclude; delete it once the "
-        "migration is accepted)" + (f"; {len(moved)} files moved into it, deletion refused" if moved else ""),
+        f"- backup folder: {folder.name}/ ({backed} files, excluded in .git/info/exclude; {DELETE_ADVICE})"
+        + (f"; {len(moved)} files moved into it, deletion refused" if moved else ""),
         f"- remove: {len(inv.removals())} ({groups})",
         f"- left in place (named like Flow 5.x files, not Flow's bytes or record; copied to the backup folder): "
         f"{', '.join(inv.foreign) or 'none'}",
@@ -260,8 +278,7 @@ def apply(inv: m.Inventory) -> int:
     say(f"removed: {len(inv.removals()) - len(moved) - len(failed)} files deleted, {pruned} folders the removal "
         "left empty pruned")
     if moved:
-        say(f"moved into {folder.name}/ because this surface refused the deletion: {len(moved)} files "
-            "(delete the folder once the migration is accepted)")
+        say(f"moved into {folder.name}/ because this surface refused the deletion: {len(moved)} files ({DELETE_ADVICE})")
     if failed:
         say(f"STOPPED: {len(failed)} files could be neither deleted nor moved:")
         for line in failed:
