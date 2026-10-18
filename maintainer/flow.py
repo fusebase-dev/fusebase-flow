@@ -23,7 +23,7 @@ MANIFEST = "audit/flow-install.json"
 PRIOR_5X = ("audit/managed-content-manifest.json", "audit/hook-layer-manifest.json")
 CORE_PATTERNS = (
     "FLOW_RULES.md", "VERSION", "hooks/requirements.txt", "hooks/git/*", "hooks/shared/*.py",
-    "hooks/local/*.sh", "hooks/local/lib/*.sh", "hooks/local/lib/*.py",
+    "hooks/local/*.sh", "hooks/local/*.py", "hooks/local/lib/*.sh", "hooks/local/lib/*.py",
     "policies/*.yml", "policies/module-size-baseline.txt",
     "agents/*/AGENT.md", "flow-skills/*/SKILL.md", "templates/*.md", "workflows/*.md",
 )
@@ -48,7 +48,8 @@ ATTR_FIX = ("restore the missing marker line, or delete the block's lines by han
             "(Flow replaces only a whole marked block and never deletes the project's lines)")
 # The project's .gitignore gets one Flow block too (O-4): runtime state and bytecode the hooks write.
 IGNORE = ".gitignore"
-IGNORE_LINES = ("state/approvals/*", "!state/approvals/.gitkeep", "state/audit/*", "hooks/**/__pycache__/")
+IGNORE_LINES = ("state/approvals/*", "!state/approvals/.gitkeep", "state/audit/*", "hooks/**/__pycache__/",
+                "state/reader/", "state/status.line")
 # {file: (BEGIN line, END line, what the block is)}; a BEGIN marker line starts with the part before " (".
 BLOCKS = {ATTRIBUTES: (ATTR_BEGIN, ATTR_END, "line-ending"),
           IGNORE: ("# FLOW:BEGIN ignore (flow.py install writes this block; re-install replaces it)",
@@ -307,6 +308,35 @@ def ignored_paths(target: Path, paths: list[str]) -> list[str]:
     return [line.strip() for line in proc.stdout.decode("utf-8", "replace").splitlines() if line.strip()]
 
 
+def reader_line(target: Path) -> tuple[str, list[str]]:
+    """The scheduler line that runs the heartbeat reader every 5 minutes (design section 6), printed and as argv."""
+    script = target / "hooks/local/reader.py"
+    if os.name == "nt":
+        name = f"FuseBase Flow reader {target.name}-{sha256(str(target).encode('utf-8'))[:8]}"
+        quiet = Path(sys.executable).with_name("pythonw.exe")  # no console window every 5 minutes
+        run = f'"{quiet if quiet.is_file() else sys.executable}" "{script}" --once'
+        argv = ["schtasks", "/Create", "/F", "/SC", "MINUTE", "/MO", "5", "/TN", name, "/TR", run]
+        return subprocess.list2cmdline(argv), argv
+    line = f"*/5 * * * * cd '{target}' && '{sys.executable}' hooks/local/reader.py --once >/dev/null 2>&1"
+    return line, ["crontab", line]
+
+
+def register_reader(argv: list[str]) -> tuple[int, str]:
+    """Registers the line with schtasks, or appends it to the user's crontab once."""
+    try:
+        if argv[0] != "crontab":
+            proc = subprocess.run(argv, capture_output=True, text=True, timeout=120)
+            return proc.returncode, (proc.stdout + proc.stderr).strip()
+        have = subprocess.run(["crontab", "-l"], capture_output=True, text=True, timeout=60).stdout
+        if argv[1] in have.splitlines():
+            return 0, "already in the crontab"
+        text = have + ("" if not have or have.endswith("\n") else "\n") + argv[1] + "\n"
+        proc = subprocess.run(["crontab", "-"], input=text, capture_output=True, text=True, timeout=60)
+        return proc.returncode, (proc.stdout + proc.stderr).strip()
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return 1, str(exc)
+
+
 def git_toplevel(target: Path) -> Path | None:
     try:
         out = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=target,
@@ -316,8 +346,10 @@ def git_toplevel(target: Path) -> Path | None:
     return Path(out.stdout.strip()).resolve() if out.returncode == 0 and out.stdout.strip() else None
 
 
-def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | None = None) -> int:
-    """prior_5x: Flow records read before a migration removed the 5.x manifests (migrate.py)."""
+def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | None = None,
+            register: bool = False) -> int:
+    """prior_5x: Flow records read before a migration removed the 5.x manifests (migrate.py). register: schedule the
+    heartbeat reader (--register-reader); a plain install registers nothing and keeps an earlier record."""
     target = target.resolve()
     if git_toplevel(target) != target:
         print(f"[flow] REFUSED: {target} is not the top level of a git work tree (git init it first)")
@@ -381,11 +413,21 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
         if after != before:
             write_bytes(path, after.encode("utf-8", "surrogateescape"), False)
         report["merged"].append(f"{name} ({'created' if before is None else 'block updated' if after != before else 'block current'})")
-    write_bytes(target / MANIFEST, (json.dumps({
+    try:
+        reader = json.loads((target / MANIFEST).read_text(encoding="utf-8")).get("reader")
+    except (OSError, ValueError, AttributeError):
+        reader = None
+    reader_cmd, argv = reader_line(target)
+    reader_rc, reader_out = register_reader(argv) if register else (0, "")
+    if register and reader_rc == 0:
+        reader = {"line": reader_cmd, "registered": True}
+    manifest = {
         "schema_version": 1, "flow_version": version, "providers": sorted(providers),
         "files": sorted(recorded, key=lambda e: e["path"]),
         "merged": sorted(OVERLAY if "claude" in providers else ["AGENTS.md"]) + list(BLOCKS),
-    }, indent=2) + "\n").encode("utf-8"), False)
+    }
+    write_bytes(target / MANIFEST, (json.dumps({**manifest, **({"reader": reader} if reader else {})}, indent=2)
+                                    + "\n").encode("utf-8"), False)
     report["ignored"] = ignored_paths(target, [e["path"] for e in recorded])
     rc, hooks_out = install_hooks(target)
     print(f"[flow] Fusebase Flow {version} -> {target} (providers: {', '.join(sorted(providers)) or 'none'})")
@@ -399,7 +441,14 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
     for line in hooks_out.splitlines():
         print(f"[flow]   {line}")
     print(f"[flow] provider hook wiring: not written (opt-in, not in {version})")
-    return 0 if rc == 0 else 1
+    if register:
+        print(f"[flow] heartbeat reader: {'registered' if reader_rc == 0 else f'NOT registered (rc={reader_rc})'}: {reader_cmd}")
+        for out_line in reader_out.splitlines():
+            print(f"[flow]   {out_line}")
+    else:
+        print("[flow] heartbeat reader: " + ("registered earlier: " + reader["line"] if reader else
+                                             "not scheduled (re-run install with --register-reader to schedule it)"))
+    return 0 if rc == 0 and reader_rc == 0 else 1
 
 
 def main(argv: list[str]) -> int:
@@ -409,6 +458,8 @@ def main(argv: list[str]) -> int:
     p.add_argument("--target", required=True, type=Path)
     p.add_argument("--providers", default="claude,codex")
     p.add_argument("--wire-hooks", action="store_true")
+    p.add_argument("--register-reader", action="store_true",
+                   help="schedule hooks/local/reader.py --once every 5 minutes (schtasks or crontab)")
     m = sub.add_parser("migrate", help="move a project from its Flow 5.x install onto this core (a dry run by default)")
     m.add_argument("--target", required=True, type=Path)
     m.add_argument("--providers", default="claude,codex")
@@ -431,7 +482,7 @@ def main(argv: list[str]) -> int:
         print(f"[flow] REFUSED: --wire-hooks is not in {(CORE / 'VERSION').read_text(encoding='utf-8').strip()} "
               "(the tool handlers land in phase 7); nothing written")
         return 2
-    return install(args.target, providers)
+    return install(args.target, providers, register=args.register_reader)
 
 
 if __name__ == "__main__":

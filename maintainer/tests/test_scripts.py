@@ -93,5 +93,95 @@ class Policy(Workspace):
         self.assertFalse((self.repo / "audit/flow-install.json").exists(), "nothing written")
 
 
+class Reader(Workspace):
+    """Done check 1: files and git only; no audit line exists in any of these repositories."""
+
+    def quiet_project(self, beats: dict[str, str], age_min: float) -> None:
+        """Every signal two hours old except the heartbeat files, written `age_min` minutes ago."""
+        old = int(time.time()) - 7200
+        env = {**os.environ, "GIT_COMMITTER_DATE": f"@{old} +0000", "GIT_AUTHOR_DATE": f"@{old} +0000"}
+        subprocess.run([*GIT, "commit", "-q", "--allow-empty", "-m", "init"], cwd=self.repo, env=env, check=True)
+        if (self.repo / ".git/index").exists():
+            os.utime(self.repo / ".git/index", (old, old))
+        folder = self.repo / "state/audit/liveness"
+        folder.mkdir(parents=True)
+        for name, text in beats.items():
+            (folder / name).write_text(text, encoding="utf-8")
+            stamp = time.time() - age_min * 60
+            os.utime(folder / name, (stamp, stamp))
+
+    def once(self) -> subprocess.CompletedProcess:
+        out = run(str(LOCAL / "reader.py"), "--once", "--root", str(self.repo), cwd=self.tmp)
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertFalse((self.repo / "state/audit.log.jsonl").exists(), "the fixture has no audit line")
+        line = (self.repo / "state/status.line").read_text(encoding="utf-8")
+        self.assertRegex(line.rstrip("\n"), STATUS)
+        self.assertTrue(line.endswith("\n") and line.count("\n") == 1, "one line")
+        return out
+
+    def test_a_gap_past_the_silence_threshold_alerts(self) -> None:
+        self.quiet_project({"npm-test-4242-1.hb": "bounded-run npm test deadline=3600s\nrunning 10/3600\n"}, 31)
+        out = self.once()
+        self.assertIn("ALERT silence-", out.stdout)
+        self.assertIn(" alerts=1 ", (self.repo / "state/status.line").read_text(encoding="utf-8"))
+        self.assertNotIn("npm test", out.stdout + (self.repo / "state/reader/last.json").read_text(encoding="utf-8"),
+                         "a label is hashed, never printed")
+
+    def test_a_gap_under_the_threshold_stays_quiet(self) -> None:
+        self.quiet_project({"npm-test-4242-1.hb": "bounded-run npm test deadline=3600s\nrunning 10/3600\n"}, 29)
+        out = self.once()
+        self.assertNotIn("ALERT", out.stdout)
+        self.assertIn("flow: running ", out.stdout)
+        self.assertIn(" alerts=0 ", out.stdout)
+
+    def test_finished_heartbeats_with_old_activity_read_as_idle(self) -> None:
+        self.quiet_project({"build-7-1.hb": "bounded-run build deadline=600s\ndone rc=0 12s\n"}, 120)
+        out = self.once()
+        self.assertIn("flow: idle ", out.stdout)
+        self.assertNotIn("ALERT", out.stdout)
+
+    def test_the_same_command_hash_three_times_in_flight_is_logged_uncalibrated(self) -> None:
+        beat = "bounded-run vitest run deadline=900s\nrunning 20/900\n"
+        self.quiet_project({f"vitest-{pid}-1.hb": beat for pid in (101, 202, 303)}, 1)
+        out = self.once()
+        record = json.loads((self.repo / "state/reader/last.json").read_text(encoding="utf-8"))
+        self.assertEqual([g["kind"] for g in record["logged"]], ["repeat"])
+        self.assertIn("UNCALIBRATED", out.stdout)
+        self.assertRegex(out.stdout, r"LOG repeat-[0-9a-f]{12}: the same command hash 3 times")
+        self.assertEqual(record["counters"]["in_flight"], 3)
+        two = {f"vitest-{pid}-1.hb": beat for pid in (101, 202)}
+        shutil.rmtree(self.repo / "state")
+        self.quiet_project(two, 1)
+        self.assertNotIn("LOG repeat", self.once().stdout, "two in flight stay under the seed")
+
+    def test_two_runs_with_nothing_changed_keep_the_counters(self) -> None:
+        self.quiet_project({"npm-test-4242-1.hb": "bounded-run npm test deadline=3600s\nrunning 10/3600\n"}, 45)
+        self.once()
+        first = json.loads((self.repo / "state/reader/last.json").read_text(encoding="utf-8"))
+        self.once()
+        second = json.loads((self.repo / "state/reader/last.json").read_text(encoding="utf-8"))
+        self.assertEqual(first["counters"], second["counters"])
+        self.assertEqual(first["counters"]["alerts_raised"], 1)
+
+    def test_register_reader_prints_and_records_the_line_and_plain_install_registers_nothing(self) -> None:
+        sys.path.insert(0, str(CORE / "maintainer"))
+        import flow
+        calls: list[list[str]] = []
+        with mock.patch.object(flow, "register_reader", side_effect=lambda argv: calls.append(argv) or (0, "")):
+            plain = io.StringIO()
+            with contextlib.redirect_stdout(plain):
+                self.assertEqual(flow.install(self.repo, {"claude", "codex"}), 0)
+            self.assertEqual(calls, [])
+            self.assertNotIn("reader", json.loads((self.repo / "audit/flow-install.json").read_text("utf-8")))
+            registered = io.StringIO()
+            with contextlib.redirect_stdout(registered):
+                self.assertEqual(flow.install(self.repo, {"claude", "codex"}, register=True), 0)
+        self.assertEqual(len(calls), 1)
+        record = json.loads((self.repo / "audit/flow-install.json").read_text("utf-8"))["reader"]
+        self.assertIn(record["line"], registered.getvalue())
+        self.assertIn("hooks/local/reader.py", record["line"].replace("\\", "/"))
+        self.assertIn("--once", record["line"])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
