@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Checks against overbuilding (design sections 5 and 14; handoff WP 8): `checks.py <slice>` prints the four flags and
-writes them to state/flags/<slice>.tsv (id, check, task, evidence, ruling: the planner writes upheld or rejected, and a
-re-run keeps it); `checks.py --precision [<slice>]` counts the rulings per check. A flag never blocks the slice.
+writes them to state/flags/<slice>.tsv (id, check, task, evidence, ruling: the planner writes upheld or rejected; a
+re-run keeps it, any column after it, and a row that no longer fires, marked [stale]); `checks.py --precision [<slice>]`
+counts the rulings per check. A flag never blocks the slice. A flag id is its kind, task and path or variable.
 
 1 scope: a path the slice changed outside its tasks' globs (outside), or a new one (new); each glob's breadth printed.
 2 dependency and config: a new runtime dependency no item of the slice names (dep) or the reference project's manifest
@@ -43,6 +44,7 @@ ENV_RE = re.compile(r"process\.env\.([A-Z_][A-Z0-9_]*)|process\.env\[\s*[\"']([A
                     r"|os\.getenv\(\s*[\"']([A-Z_][A-Z0-9_]*)[\"']|Deno\.env\.get\(\s*[\"']([A-Z_][A-Z0-9_]*)[\"']")
 JSONC = re.compile(r'("(?:\\.|[^"\\])*")|//[^\n]*|/\*.*?\*/|,(?=\s*[}\]])', re.S)
 RECORDS = ("docs/flow/", "state/")  # Flow's own records are never a scope or file-budget path
+STALE = "[stale] "  # the evidence cell's prefix on a row that no longer fires
 
 
 def load_json(text: str) -> dict | None:
@@ -95,7 +97,7 @@ def scope_flags(root, sl, log, at_base, head_files, match, out) -> list[tuple]:
     for p in sorted({p for _, _, paths, _ in log for p in paths if not p.startswith(RECORDS)}):
         if not match(p, globs):
             task = next(tid for _, _, paths, tid in log if p in paths)
-            flags.append((1, "new" if p not in at_base else "outside", task, f"{p} is under no task glob of the slice"))
+            flags.append((1, "new" if p not in at_base else "outside", task, f"{p} is under no task glob of the slice", p))
     return flags
 
 
@@ -118,14 +120,14 @@ def dependency_flags(root, sl, log, at_base, test, match, items) -> tuple[list[t
             for dep, spec in {n: s for m in RUNTIME for n, s in (new.get(m) or {}).items()}.items():
                 if dep not in had and not str(spec).startswith(INTERNAL):
                     if not re.search(rf"(?<![\w@/-]){re.escape(dep)}(?![\w/-])", named):
-                        flags.append((2, "dep", task, f"{p}: {dep}, named by no item of the slice"))
+                        flags.append((2, "dep", task, f"{p}: {dep}, named by no item of the slice", f"{p}:{dep}"))
                     if ref_obj is not None and dep not in ref_deps:
-                        flags.append((2, "dep-ref", task, f"{p}: {dep}, not in the reference {ref}"))
+                        flags.append((2, "dep-ref", task, f"{p}: {dep}, not in the reference {ref}", f"{p}:{dep}"))
             logs += [(2, "dep-dev", task, f"{p}: {d}") for d in (new.get("devDependencies") or {}) if d not in had]
             top = {k for k in new if k not in RUNTIME + ("devDependencies", "scripts")}
-            sink += [(2, "cfg", task, f"{p}: {k}") for k in sorted(top - set(old))]
+            sink += [(2, "cfg", task, f"{p}: {k}", f"{p}:{k}") for k in sorted(top - set(old))]
         else:
-            sink += [(2, "cfg", task, f"{p}: {k}") for k in sorted(keys(new) - keys(old))]
+            sink += [(2, "cfg", task, f"{p}: {k}", f"{p}:{k}") for k in sorted(keys(new) - keys(old))]
     readers: dict[str, set[str]] = {}
     for sha, _, _, _ in log:
         for p, lines in added_lines(root, "show", "--format=", sha).items():
@@ -136,7 +138,7 @@ def dependency_flags(root, sl, log, at_base, test, match, items) -> tuple[list[t
         if var not in ENV_BUILTINS and not fd.git(root, "grep", "-l", "-w", "-F", var, base, "--"):
             task = next((tid for _, _, ps, tid in log if paths & set(ps)), "-")
             only_tests = all(match(p, test) for p in paths)
-            (logs if only_tests else flags).append((2, "env", task, f"{var}, read in {', '.join(sorted(paths))}"))
+            (logs if only_tests else flags).append((2, "env", task, f"{var}, read in {', '.join(sorted(paths))}", var))
     return flags, logs
 
 
@@ -155,21 +157,22 @@ def budget_flags(root, sl, log, test, match, slice_id) -> tuple[list[tuple], lis
         end = first.get(t["id"]) or finished
         if t["minutes"] and prev and end and (end - prev) / 60 > BUDGET_X * t["minutes"]:
             flags.append((3, "minutes", t["id"], f"{(end - prev) / 60:.0f} min before its first commit, over "
-                                                 f"{BUDGET_X}x {t['minutes']}m"))
+                                                 f"{BUDGET_X}x {t['minutes']}m", ""))
         prev = first.get(t["id"]) or prev
         paths = {p for _, _, ps, tid in log if tid == t["id"] for p in ps if not p.startswith(RECORDS)}
         tests = {p for p in paths if match(p, test)}
         if t["files"] is not None and len(paths - tests) > BUDGET_X * t["files"]:
             flags.append((3, "files", t["id"], f"{len(paths - tests)} files, over {BUDGET_X}x {t['files']}f "
-                                               f"(test paths apart: {len(tests)})"))
+                                               f"(test paths apart: {len(tests)})", ""))
     calls = ret.get("tool_calls")
     before = calls.get("before_first_work") if isinstance(calls, dict) else None
     spans = calls.get("between_commits", []) if isinstance(calls, dict) else [calls] if not log else []
     if isinstance(before, int) and before > ORIENTATION_CALLS:
-        flags.append((3, "before-work-calls", "-", f"{before} calls before first work, over {ORIENTATION_CALLS}"))
-    flags += [(3, "no-commit-calls", "-", f"{n} calls with no commit, over {NO_COMMIT_CALLS}")
-              for n in spans if isinstance(n, int) and n > NO_COMMIT_CALLS]
-    beats = [b for b in reader.heartbeats(root) if started and finished and started <= b[1] <= finished + 60]
+        flags.append((3, "before-work-calls", "-", f"{before} calls before first work, over {ORIENTATION_CALLS}", ""))
+    flags += [(3, "no-commit-calls", "-", f"{n} calls with no commit, over {NO_COMMIT_CALLS}", f"span {i}")
+              for i, n in enumerate(spans, 1) if isinstance(n, int) and n > NO_COMMIT_CALLS]
+    # In flight only, as the reader counts them (m3 review): three finished runs of one command are not a repeat.
+    beats = [b for b in reader.heartbeats(root) if b[3] and started and finished and started <= b[1] <= finished + 60]
     logs += [(3, "repeat", "-", f"command sha256 {h[:12]} {n} times in flight (UNCALIBRATED: logged)")
              for h, n in Counter(b[2] for b in beats).items() if n >= reader.REPEATS]
     return flags, logs
@@ -201,26 +204,32 @@ def duplicate_flags(root, base, log, head_files, vendored) -> list[tuple]:
             run = next((k for k in range(len(hits)) if hits[k] != hits[0] + k), len(hits))
             spots = index[hash(tuple(s for _, s in ln[hits[0]:hits[0] + window]))]
             other = next(f"{q}:{n}" for q, n in spots if (q, n) != (p, ln[hits[0]][0]))
-            flags.append((4, "dup", tid, f"{p}:{ln[hits[0]][0]} repeats {other}, {run + window - 1} lines"))
+            flags.append((4, "dup", tid, f"{p}:{ln[hits[0]][0]} repeats {other}, {run + window - 1} lines",
+                          f"{p}|{other.rsplit(':', 1)[0]}"))
             hits = hits[run:]
     return flags
 
 
-def write_flags(root: Path, slice_id: str, flags: list[tuple]) -> list[tuple]:
-    path = root / "state/flags" / f"{slice_id}.tsv"
+def write_flags(root: Path, slice_id: str, flags: list[tuple]) -> tuple[list[list[str]], list[list[str]]]:
+    """The fired rows and the stale ones; an old row keeps its ruling and its extra columns under the same id."""
+    path, head = root / "state/flags" / f"{slice_id}.tsv", ["id", "check", "task", "evidence", "ruling"]
     try:
-        kept = {r.split("\t")[0]: r.split("\t")[4] for r in path.read_text("utf-8").splitlines()[1:] if r.count("\t") >= 4}
+        old = [r.split("\t") for r in path.read_text("utf-8").splitlines() if r.strip()]
     except OSError:
-        kept = {}
-    rows = []
-    for check, kind, task, evidence in flags:
-        clean = re.sub(r"\s+", " ", evidence)
-        fid = f"{kind}-{hashlib.sha256(f'{task}|{clean}'.encode()).hexdigest()[:8]}"
-        rows.append((fid, str(check), task, clean, kept.get(fid, "")))
+        old = []
+    head = old[0] if old and old[0][:5] == head else head  # the planner's added column names stay
+    kept, rows, seen = {c[0]: c + [""] * (5 - len(c)) for c in old[1:] if len(c) >= 4}, [], Counter()
+    for check, kind, task, evidence, key in flags:
+        seen[kind, task, key] += 1
+        clean, nth = re.sub(r"\s+", " ", evidence), f"|{seen[kind, task, key]}" if seen[kind, task, key] > 1 else ""
+        fid = f"{kind}-{hashlib.sha256(f'{task}|{key}{nth}'.encode()).hexdigest()[:8]}"
+        legacy = f"{kind}-{hashlib.sha256(f'{task}|{clean}'.encode()).hexdigest()[:8]}"  # 6.0.0-m3's id: the evidence
+        prior = kept.pop(fid, None) or kept.pop(legacy, None) or [""] * 5
+        rows.append([fid, str(check), task, clean, *prior[4:]])
+    stale = [c[:3] + [c[3] if c[3].startswith(STALE) else STALE + c[3]] + c[4:] for c in kept.values()]
     path.parent.mkdir(parents=True, exist_ok=True)
-    text = "".join("\t".join(r) + "\n" for r in [("id", "check", "task", "evidence", "ruling"), *rows])
-    path.write_text(text, encoding="utf-8", newline="\n")
-    return rows
+    path.write_text("".join("\t".join(r) + "\n" for r in [head, *rows, *stale]), encoding="utf-8", newline="\n")
+    return rows, stale
 
 
 def run(root: Path, slice_id: str) -> tuple[int, list[str]]:
@@ -240,11 +249,12 @@ def run(root: Path, slice_id: str) -> tuple[int, list[str]]:
     dep_flags, logs = dependency_flags(root, sl, log, at_base, test, match, items) if log else ([], [])
     budget, budget_logs = budget_flags(root, sl, log, test, match, slice_id)
     flags += dep_flags + budget + ([] if trivial else duplicate_flags(root, base, log, head_files, pol.get("vendored_paths") or []))
-    rows = write_flags(root, slice_id, flags)
-    out += [f"  FLAG {fid} check {check} {task}: {evidence}" + (f" [{ruling}]" if ruling else "")
-            for fid, check, task, evidence, ruling in rows]
-    out += [f"  LOG {kind} check {check} {task}: {ev}" for check, kind, task, ev in logs + budget_logs]
-    out.append(f"CHECKS: {len(rows)} flags in state/flags/{slice_id}.tsv, {len(logs + budget_logs)} logged")
+    rows, stale = write_flags(root, slice_id, flags)
+    out += [f"  {word} {fid} check {check} {task}: {evidence}" + (f" [{ruling}]" if ruling else "")
+            for word, group in (("FLAG", rows), ("STALE", stale)) for fid, check, task, evidence, ruling, *_ in group]
+    out += [f"  LOG {kind} check {check} {task}: {ev}" for check, kind, task, ev, *_ in logs + budget_logs]
+    out.append(f"CHECKS: {len(rows)} flags in state/flags/{slice_id}.tsv, {len(stale)} stale, "
+               f"{len(logs + budget_logs)} logged")
     return 0, out
 
 

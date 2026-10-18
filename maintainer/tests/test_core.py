@@ -6,16 +6,20 @@ A scheduler is never the real one: fake `crontab` and `schtasks` sit first on PA
 """
 from __future__ import annotations
 
+import calendar
 import contextlib
+import hashlib
 import io
 import json
 import os
 import sys
+import time
 import unittest
 from pathlib import Path
 from unittest import mock
 
-from test_scripts import CORE, Workspace
+import test_scripts as m3
+from test_scripts import BLOCK, CHECKS_BACKLOG, CHECKS_TIER, CORE, Workspace, commit, write
 
 sys.path.insert(0, str(CORE / "maintainer"))
 import flow  # noqa: E402
@@ -132,6 +136,83 @@ class Register(Workspace):
         self.assertIn(flow.by_hand(flow.reader_line(self.repo)[1])[1], out.getvalue(), "the line to add by hand")
         self.assertNotIn("reader", json.loads((self.repo / "audit/flow-install.json").read_text("utf-8")))
         self.assertIsNone(self.written())
+
+
+class FlagIds(Workspace):
+    """O-17: a flag's id is its kind, task and path or variable, so a ruling outlives a re-run that moved its numbers."""
+
+    plan, at, returns, checks, kinds = m3.Checks.plan, m3.Checks.at, m3.Checks.returns, m3.Checks.checks, m3.Checks.kinds
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.base = commit(self.repo, {"policies/evidence-classes.yml": CHECKS_TIER, "docs/flow/backlog.md": CHECKS_BACKLOG,
+                                       "package.json": '{"name": "app", "dependencies": {}}\n',
+                                       "src/a/one.ts": BLOCK}, "init")
+        self.globs, self.estimate = "src/a/**`, `package.json`, `tsconfig.json`, `test/**", "30m 2f"
+        self.plan()
+        self.tsv = self.repo / "state/flags/P1-S1.tsv"
+
+    def rows(self) -> list[list[str]]:
+        return [r.split("\t") for r in self.tsv.read_text(encoding="utf-8").splitlines()]
+
+    def test_a_ruling_survives_a_rerun_where_the_duplicates_line_and_count_changed(self) -> None:
+        self.returns()
+        self.at("2026-10-18T10:10:00Z", {"src/a/copy.ts": BLOCK})
+        self.assertRegex(self.checks(), r"src/a/copy.ts:1 repeats src/a/one.ts:1, 25 lines")
+        head, row = self.rows()
+        self.tsv.write_text("\t".join(head + ["note"]) + "\n" + "\t".join(row[:4] + ["rejected", "a test copy"]) + "\n",
+                            encoding="utf-8")
+        moved = "export const pad = 1;\nexport const pad2 = 2;\n" + "".join(BLOCK.splitlines(True)[:23])
+        self.at("2026-10-18T10:20:00Z", {"src/a/copy.ts": moved})
+        out = self.checks()
+        self.assertRegex(out, r"src/a/copy.ts:3 repeats src/a/one.ts:1, 23 lines \[rejected\]")
+        now = self.rows()
+        self.assertEqual(now, [head + ["note"], [row[0], "4", "T1", now[1][3], "rejected", "a test copy"]])
+        self.at("2026-10-18T10:30:00Z", {"src/a/copy.ts": "export const fresh = true;\n"})
+        out = self.checks()
+        self.assertEqual(self.kinds(out), [], "the duplicate no longer fires")
+        self.assertIn(f"  STALE {row[0]} check 4 T1:", out)
+        stale = self.rows()[1]
+        self.assertEqual((stale[0], stale[4], stale[5]), (row[0], "rejected", "a test copy"), "carried, not dropped")
+        self.assertTrue(stale[3].startswith("[stale] "), stale[3])
+        self.assertEqual(self.checks().count("[stale]"), 1, "marked once")
+
+    def test_a_ruling_under_the_m3_id_carries_over_to_the_stable_id(self) -> None:
+        self.returns()
+        self.at("2026-10-18T10:10:00Z", {"src/z/stray.ts": "export const z = 1;\n"})
+        evidence = "src/z/stray.ts is under no task glob of the slice"
+        m3_id = "new-" + hashlib.sha256(f"T1|{evidence}".encode()).hexdigest()[:8]
+        write(self.repo, "state/flags/P1-S1.tsv", f"id\tcheck\ttask\tevidence\truling\n{m3_id}\t1\tT1\t{evidence}\tupheld\n")
+        self.assertIn(f"{evidence} [upheld]", self.checks())
+        self.assertEqual(len(self.rows()), 2, "no stale copy of the m3 row")
+        self.assertNotEqual(self.rows()[1][0], m3_id)
+
+    def test_a_minutes_flag_keeps_its_id_when_the_minutes_change(self) -> None:
+        self.returns()
+        self.estimate = "10m 2f"
+        self.plan()
+        self.at("2026-10-18T10:50:00Z", {"src/a/two.ts": "1\n"})
+        self.checks()
+        first = self.rows()[1]
+        self.returns(started="2026-10-18T10:05:00Z")
+        self.checks()
+        second = self.rows()[1]
+        self.assertEqual((first[2], second[2]), ("T1", "T1"))
+        self.assertNotEqual(first[3], second[3], "the minutes in the evidence changed")
+        self.assertEqual(first[0], second[0])
+
+    def test_finished_heartbeats_are_not_repeats_and_three_in_flight_are(self) -> None:
+        self.returns()
+        self.at("2026-10-18T10:10:00Z", {"src/a/two.ts": "1\n"})
+        folder = self.repo / "state/audit/liveness"
+        folder.mkdir(parents=True)
+        stamp = calendar.timegm(time.strptime("2026-10-18 11:00", "%Y-%m-%d %H:%M"))
+        for record, expect in (("done rc=0 20s", False), ("running 20/900", True)):
+            for pid in (101, 202, 303):
+                beat = folder / f"vitest-{pid}-1.hb"
+                beat.write_text(f"bounded-run vitest run deadline=900s\n{record}\n", encoding="utf-8")
+                os.utime(beat, (stamp, stamp))
+            self.assertEqual("3 times in flight (UNCALIBRATED: logged)" in self.checks(), expect, record)
 
 
 if __name__ == "__main__":
