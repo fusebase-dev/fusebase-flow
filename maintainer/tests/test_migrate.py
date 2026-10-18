@@ -574,9 +574,11 @@ class RealProjectAbort(unittest.TestCase):
 
 
 def load_tests(loader: unittest.TestLoader, tests: unittest.TestSuite, pattern: str | None) -> unittest.TestSuite:
-    """core-verify.yml runs only this file, so it carries every migrate test."""
+    """core-verify.yml runs only this file, so it carries every migrate test and the milestone 3 fixtures."""
     import test_migrate_recovery
+    import test_scripts
     tests.addTests(loader.loadTestsFromModule(test_migrate_recovery))
+    tests.addTests(loader.loadTestsFromModule(test_scripts))
     return tests
 
 

@@ -201,3 +201,8 @@ stale_approval_warn_after_days: 7
 # Whether the local override file may relax (vs. only tighten) this default.
 # When false, local override may only deny more, never approve more.
 local_override_may_relax: false
+
+# Gate round cap (adversarial verdict C2-07). A slice or phase gate gets this many recorded
+# verdicts; once they are used up, Flow 6.0's hooks/local/gate.py returns BLOCKED-AT-gate-budget
+# with a numbered carry-over list. Read from HEAD by gate.py only; the 5.x hooks do not read it.
+gate_rounds: 2

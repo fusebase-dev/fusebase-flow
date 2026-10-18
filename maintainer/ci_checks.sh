@@ -10,7 +10,7 @@ CORE="$(cd "$(dirname "$0")/.." && pwd)"
 PY="${PYTHON:-python3}"
 # The installed file count (core files + provider mirrors) is a deliberate ratchet: change it in
 # the same commit that changes the core's file set, and say why in the body.
-EXPECT_FILES="${EXPECT_FILES:-66}"
+EXPECT_FILES="${EXPECT_FILES:-67}"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/flow-ci.XXXXXX")" || { echo "not ok 1 - temp dir"; exit 1; }
 trap 'rm -rf "$WORK"' EXIT
 
@@ -42,6 +42,17 @@ for h in pre-commit commit-msg pre-push; do
   if [ -f "$hp" ] && cmp -s "$hp" "$CORE/hooks/git/$h"; then ok "git hook $h installed byte-identical"
   else bad "git hook $h installed byte-identical" "$hp"; fi
 done
+
+# --- the Flow .gitignore block (O-4): one block; approvals, the audit folder and bytecode ignored, .gitkeep kept
+probes="$(printf 'state/approvals/probe.yml\nstate/audit/probe.log\nhooks/shared/__pycache__/probe.pyc\nstate/approvals/.gitkeep\n' \
+  | git -C "$P" check-ignore --stdin 2>&1)"
+if [ "$(grep -c '^# FLOW:BEGIN ignore' "$P/.gitignore" 2>/dev/null)" = 1 ] \
+  && [ "$(printf '%s\n' "$probes" | grep -c .)" = 3 ] && ! has "$probes" ".gitkeep"; then
+  ok "install writes the Flow .gitignore block once"
+else
+  bad "install writes the Flow .gitignore block once" "$(cat "$P/.gitignore" 2>&1; printf '%s\n' "$probes")"
+fi
+ignore_before="$(git hash-object "$P/.gitignore" 2>&1)"
 
 # --- check 3: the three hooks fire with their own text
 # The probe key is assembled at run time so the core's own pre-commit never sees the literal.
@@ -76,6 +87,9 @@ if [ "$rc" -eq 0 ] && has "$out" "added: 0" && has "$out" "replaced: 0" && has "
 else
   bad "a second install changes nothing (rc=$rc)" "$(printf '%s\n' "$out" | grep -E 'added:|replaced:|refused:|kept:')"
 fi
+[ "$(git hash-object "$P/.gitignore" 2>&1)" = "$ignore_before" ] && has "$out" ".gitignore (block current)" \
+  && ok "a second install leaves the .gitignore block" \
+  || bad "a second install leaves the .gitignore block" "$(grep -F '.gitignore' <<<"$out")"
 
 # --- check 4: the builder boot stays under 6,000 bytes
 last="$("$PY" "$CORE/maintainer/measure_boot.py" 2>&1 | tail -n 1 | tr -d '\r ')"

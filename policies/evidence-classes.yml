@@ -1,0 +1,38 @@
+# Fusebase Flow 6.0: evidence classes (WP 11). The scripts in hooks/local/ read this file from HEAD;
+# there is no local twin. A list left empty matches nothing.
+schema_version: 1
+
+# The project's globs per class. A row's minimum evidence follows from the paths its task touched:
+# auth, data and deploy_config need live evidence, ui needs smoke, anything else a unit test row.
+# The item's risk tag (auth, data, prod) may raise the class, never lower it. Read by validate_evidence.py.
+classes:
+  auth: []
+  data: []            # migrations included
+  ui: []
+  deploy_config: []
+
+# Trivial tier of rule 1 (design section 10; section 13 places the lists here): a commit whose every
+# path matches one of these lists. Its task id does not count as done (done.py), and a slice made only
+# of such commits runs no scope or redundancy flag (checks.py). `test` also marks the test paths the
+# slice budget counts apart (checks.py).
+trivial:
+  docs_only: []
+  test: []
+  copy: []
+
+# Paths the redundancy flag never reads (checks.py). Default from the handoff, WP 8.
+vendored_paths: [_core, _web]
+
+# Run-log constants (runner conventions for WP 7c, 2026-10-16, sections 2 and 5). Read by validate_evidence.py.
+finding_marker: "^FINDING "
+row_status: "^(PASS|FAIL: .+|BLOCKED-AT-[a-z0-9-]+.*)$"
+run_log_header: "| Time (UTC) | Row | Record |"
+test_pass_marker: "^ok [0-9]+ - "
+
+# Capture size floor in bytes (validate_evidence.py). image (.png .jpg .jpeg .webp .gif): a blank
+# 1280x720 PNG, Playwright's default viewport, is 4,313 bytes at zlib level 6 and a blank 1920x1080
+# one 8,559 bytes (computed for T239), so 10,240 rejects the blank screenshots T127's re-gate read.
+# other: 32 bytes rejects an empty or placeholder file ({}, null, ok) and keeps a small JSON capture.
+capture_min_bytes:
+  image: 10240
+  other: 32

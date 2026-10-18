@@ -552,7 +552,7 @@ def report(inv: Inventory, full: bool) -> None:
         items(inv.new)
     say(f"rewritten in place: {', '.join(inv.overlays) or 'no overlay'} (the Flow section by heading)"
         + (", VERSION (the core's)" if inv.version_is_flow else "")
-        + f"; {flow.ATTRIBUTES} gets the Flow line-ending block; .gitignore is backed up and left as is")
+        + f"; {flow.ATTRIBUTES} gets the Flow line-ending block, {flow.IGNORE} the Flow ignore block")
     if not inv.version_is_flow:
         say("VERSION does not read Flow's version: it is the project's and stays as it is")
     absent = [d for d in DOCS if not (inv.target / d).exists()]

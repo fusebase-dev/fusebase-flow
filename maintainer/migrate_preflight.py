@@ -104,13 +104,18 @@ def baseline(inv: m.Inventory) -> Check:
     return Check("baseline carry", f"the core's rows ({core}) plus the project's ({len(inv.rows)}){rows}")
 
 
-def attributes(inv: m.Inventory) -> Check:
-    path = inv.target / flow.ATTRIBUTES
-    found = flow.attribute_markers(path.read_bytes().decode("utf-8", "surrogateescape")) if path.is_file() else (-1, -1)
+def attributes(inv: m.Inventory, name: str = flow.ATTRIBUTES) -> Check:
+    path = inv.target / name
+    found = flow.block_markers(path.read_bytes().decode("utf-8", "surrogateescape"), name) if path.is_file() else (-1, -1)
     if isinstance(found, str):
-        return Check(flow.ATTRIBUTES, found, True, flow.ATTR_FIX)
-    return Check(flow.ATTRIBUTES, "no Flow line-ending block: install appends one" if found[0] < 0 else
-                 f"the Flow line-ending block, lines {found[0] + 1} to {found[1] + 1}: install replaces it")
+        return Check(name, found, True, flow.ATTR_FIX)
+    what = flow.BLOCKS[name][2]
+    return Check(name, f"no Flow {what} block: install appends one" if found[0] < 0 else
+                 f"the Flow {what} block, lines {found[0] + 1} to {found[1] + 1}: install replaces it")
+
+
+def ignores(inv: m.Inventory) -> Check:
+    return attributes(inv, flow.IGNORE)
 
 
 def planned_paths(inv: m.Inventory) -> list[str]:
@@ -260,7 +265,7 @@ def run(inv: m.Inventory, apply: bool) -> list[Check]:
     """Prints each check as it completes; lint and typecheck run (with --apply) only when the rest pass."""
     print("[flow migrate] preflight (--apply runs it before it changes anything):")
     stops: list[Check] = []
-    for check in (tracked_tree, git_hooks, hooks_path, baseline, attributes, staging, interpreter):
+    for check in (tracked_tree, git_hooks, hooks_path, baseline, attributes, ignores, staging, interpreter):
         stops += show(check(inv))
     checked = validators(inv, apply) if not stops else Check("lint and typecheck", "a check above stops the apply",
                                                               not_run=True)

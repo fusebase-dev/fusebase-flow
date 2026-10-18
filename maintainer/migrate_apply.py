@@ -234,7 +234,7 @@ def migration_report(inv: m.Inventory, stamp: str, folder: Path, backed: int, mo
         f"{', '.join(inv.foreign) or 'none'}",
         f"- replace: {len(inv.replace)} ({len(inv.identical)} already identical); new: {len(inv.new)}; rewritten: "
         f"{', '.join(list(inv.overlays) + (['VERSION'] if inv.version_is_flow else []))}; {flow.ATTRIBUTES}: the Flow "
-        "line-ending block; .gitignore unchanged",
+        f"line-ending block; {flow.IGNORE}: the Flow ignore block",
         f"- never touch: {never}; CLI assets {m.CLI_VENDOR} lists: {inv.vendor[0]}, {inv.vendor[1]} present",
         f"- keep: {keep}",
         "- changed-by-both: 0",

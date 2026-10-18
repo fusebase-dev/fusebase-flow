@@ -44,9 +44,15 @@ WRAP_BEGIN, WRAP_END = "<!-- CUSTOM:SKILL:BEGIN -->", "<!-- CUSTOM:SKILL:END -->
 ATTRIBUTES = ".gitattributes"
 ATTR_BEGIN, ATTR_END = "# FLOW:BEGIN line endings (flow.py install writes this block; re-install replaces it)", \
     "# FLOW:END line endings"
-ATTR_BEGIN_MARK = ATTR_BEGIN.split(" (")[0]  # a marker line starts with this; the rest of the line may vary
 ATTR_FIX = ("restore the missing marker line, or delete the block's lines by hand, then re-run "
             "(Flow replaces only a whole marked block and never deletes the project's lines)")
+# The project's .gitignore gets one Flow block too (O-4): runtime state and bytecode the hooks write.
+IGNORE = ".gitignore"
+IGNORE_LINES = ("state/approvals/*", "!state/approvals/.gitkeep", "state/audit/*", "hooks/**/__pycache__/")
+# {file: (BEGIN line, END line, what the block is)}; a BEGIN marker line starts with the part before " (".
+BLOCKS = {ATTRIBUTES: (ATTR_BEGIN, ATTR_END, "line-ending"),
+          IGNORE: ("# FLOW:BEGIN ignore (flow.py install writes this block; re-install replaces it)",
+                   "# FLOW:END ignore", "ignore")}
 DOCS_DIR = "docs/flow"
 DOCUMENTS = tuple(f"{DOCS_DIR}/{name}.md" for name in ("backlog", "phases", "evidence", "ledger"))
 
@@ -241,27 +247,34 @@ def attributes_block(paths: list[str]) -> str:
                       "the sha256 records stop matching.", *(f"/{p} text eol=lf" for p in pins), ATTR_END]) + "\n"
 
 
-def attribute_markers(text: str) -> tuple[int, int] | str:
-    """The Flow block's BEGIN and END line indexes ((-1, -1) when it has none), or what is wrong with its markers."""
+def ignore_block() -> str:
+    return "\n".join([BLOCKS[IGNORE][0], "# Runtime state and bytecode the Flow hooks write: never committed.",
+                      *IGNORE_LINES, BLOCKS[IGNORE][1]]) + "\n"
+
+
+def block_markers(text: str, name: str = ATTRIBUTES) -> tuple[int, int] | str:
+    """The Flow block's BEGIN and END line indexes in file `name` ((-1, -1) when it has none), or what is wrong with
+    its markers."""
+    begin, end = BLOCKS[name][0].split(" (")[0], BLOCKS[name][1]
     lines = text.split("\n")
-    begins = [i for i, line in enumerate(lines) if line.startswith(ATTR_BEGIN_MARK)]
-    ends = [i for i, line in enumerate(lines) if line.startswith(ATTR_END)]
+    begins = [i for i, line in enumerate(lines) if line.startswith(begin)]
+    ends = [i for i, line in enumerate(lines) if line.startswith(end)]
     if not begins and not ends:
         return -1, -1
     if len(begins) == 1 and len(ends) == 1 and begins[0] < ends[0]:
         return begins[0], ends[0]
-    where = "; ".join(f"line {i + 1}: '{ATTR_BEGIN_MARK if i in begins else ATTR_END}'" for i in sorted(begins + ends))
-    return f"{ATTRIBUTES} {where}: the Flow block needs one '{ATTR_BEGIN_MARK}' line, then one '{ATTR_END}' line"
+    where = "; ".join(f"line {i + 1}: '{begin if i in begins else end}'" for i in sorted(begins + ends))
+    return f"{name} {where}: the Flow block needs one '{begin}' line, then one '{end}' line"
 
 
-def merge_attributes(existing: str | None, block: str) -> str:
+def merge_marked(existing: str | None, block: str, name: str = ATTRIBUTES) -> str:
     """The block replaces its earlier copy, or is appended; the file keeps its own line endings (merged, as AGENTS.md).
-    The caller has checked the markers (attribute_markers)."""
+    The caller has checked the markers (block_markers)."""
     if existing is None:
         return block
     nl = "\r\n" if existing[:existing.find("\n") + 1].endswith("\r\n") else "\n"
     block = block.replace("\n", nl)
-    found = attribute_markers(existing)
+    found = block_markers(existing, name)
     if isinstance(found, str):
         raise ValueError(found)
     start, stop = found
@@ -309,11 +322,12 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
     if git_toplevel(target) != target:
         print(f"[flow] REFUSED: {target} is not the top level of a git work tree (git init it first)")
         return 2
-    attrs = target / ATTRIBUTES
-    damaged = attribute_markers(attrs.read_bytes().decode("utf-8", "surrogateescape")) if attrs.is_file() else ""
-    if isinstance(damaged, str) and damaged:
-        print(f"[flow] REFUSED: {damaged}; {ATTR_FIX}; nothing written")
-        return 2
+    for name in BLOCKS:
+        path = target / name
+        damaged = block_markers(path.read_bytes().decode("utf-8", "surrogateescape"), name) if path.is_file() else ""
+        if isinstance(damaged, str) and damaged:
+            print(f"[flow] REFUSED: {damaged}; {ATTR_FIX}; nothing written")
+            return 2
     version = (CORE / "VERSION").read_text(encoding="utf-8").strip()
     prior = load_prior(target)
     for rel, shas in (prior_5x or {}).items():
@@ -357,18 +371,20 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
         if after != before:
             write_bytes(dest, after.encode("utf-8"), False)
         report["merged"].append(f"{name} ({'created' if before is None else 'block updated' if after != before else 'block current'})")
-    if attrs.is_symlink() or (attrs.exists() and not attrs.is_file()):
-        report["refused"].append(f"{ATTRIBUTES} (a symlink or not a regular file: the line-ending block is not written)")
-    else:
-        before = attrs.read_bytes().decode("utf-8", "surrogateescape") if attrs.is_file() else None
-        after = merge_attributes(before, attributes_block([e["path"] for e in recorded]))
+    for name, block in ((ATTRIBUTES, attributes_block([e["path"] for e in recorded])), (IGNORE, ignore_block())):
+        path = target / name
+        if path.is_symlink() or (path.exists() and not path.is_file()):
+            report["refused"].append(f"{name} (a symlink or not a regular file: the {BLOCKS[name][2]} block is not written)")
+            continue
+        before = path.read_bytes().decode("utf-8", "surrogateescape") if path.is_file() else None
+        after = merge_marked(before, block, name)
         if after != before:
-            write_bytes(attrs, after.encode("utf-8", "surrogateescape"), False)
-        report["merged"].append(f"{ATTRIBUTES} ({'created' if before is None else 'block updated' if after != before else 'block current'})")
+            write_bytes(path, after.encode("utf-8", "surrogateescape"), False)
+        report["merged"].append(f"{name} ({'created' if before is None else 'block updated' if after != before else 'block current'})")
     write_bytes(target / MANIFEST, (json.dumps({
         "schema_version": 1, "flow_version": version, "providers": sorted(providers),
         "files": sorted(recorded, key=lambda e: e["path"]),
-        "merged": sorted(OVERLAY if "claude" in providers else ["AGENTS.md"]) + [ATTRIBUTES],
+        "merged": sorted(OVERLAY if "claude" in providers else ["AGENTS.md"]) + list(BLOCKS),
     }, indent=2) + "\n").encode("utf-8"), False)
     report["ignored"] = ignored_paths(target, [e["path"] for e in recorded])
     rc, hooks_out = install_hooks(target)

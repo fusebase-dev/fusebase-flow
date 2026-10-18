@@ -1,6 +1,8 @@
 # Kernel lock: sha256 of each kernel file's committed bytes (git cat-file blob HEAD:<path>).
 # Source: release/6.0 at 17b796d3 (the 5.11 kernel), byte-identical except one authorized change:
 #   hooks/local/lib/run-with-timeout.sh, trimmed to lines 32-69 (T191; owner, handoff section 9 decision 4).
+# Kernel fixes since, each landed on release/6.0 first and cherry-picked:
+#   policies/approval-policy.yml: gate_rounds: 2 (T239; release/6.0 bac8bbb1; owner's milestone 3 rule 5, O-3).
 # A kernel fix lands on 5.x first, is cherry-picked here, and updates this lock in the same commit.
 f2557b19379421fac007a2c758eda73bb6eb21990a7f5c366c438716e1fe2cfb  .gitattributes
 0acfb991aa269888937723022f2667b0e251ed0091ccc96491752360b2a61be0  LICENSE
@@ -30,7 +32,7 @@ aa629e0517a7c41fa9b15271b757b45fddb0178935a8c439a4a0787c765e91bc  hooks/shared/p
 50919a984d82bb661afd53fedfd80ec407c0088772408978cd6e144d3d22171d  hooks/shared/policy_loader.py
 fecb30ef246aaf2dc90dc55200de5d1b0bab92242c8cbbd5cbd3e9c0d8d784fa  hooks/shared/secret_scanner.py
 4d7e59cbdd0fffa1fc3ffe7dcf937c372ff232c70d45c497c0b56e2fde8b3e8a  hooks/shared/staged_secret_scan.py
-6a9d4c012bbcfc067690ce659ab1bc429d634d1f5028b31bc7d5b76e90900b3d  policies/approval-policy.yml
+66e639442e9b2f7be2e91c7072a95a6c49331ddf5bd203c29c714cc48fd527bf  policies/approval-policy.yml
 4f8599bae6e914e61c4082f12d8370fbb09920e7d115c97c63d41204054d7f55  policies/command-policy.yml
 0983d2276c29674064c1cd2e35d6ba58bfa8a36a883213ff473967e4788e2682  policies/module-size-baseline.txt
 cd603634033c3eb68970210d5d2a0762c3fd0ee01ec53c36a8f4644ec7374f2f  policies/module-size.yml
