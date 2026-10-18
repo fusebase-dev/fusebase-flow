@@ -568,7 +568,9 @@ def report(inv: Inventory, full: bool) -> None:
         f"({inv.vendor[2]} still match their recorded sha256)")
     say("keep (project-owned):")
     for k, v in inv.keep.items():
-        say(f"  {k}: {'; '.join(v) if len(v) <= 12 else str(len(v))}")
+        say(f"  {k}: {'; '.join(v) if len(v) <= 12 else len(v)}")
+        if len(v) > 12:
+            items(v)
     for name, o in inv.overlays.items():
         if o.preserve:
             say(f"  {name}: the FLOW:PRESERVE region, {o.preserve_lf():,} bytes, carried verbatim")

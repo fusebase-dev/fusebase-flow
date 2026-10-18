@@ -186,7 +186,7 @@ def migration_report(inv: m.Inventory, stamp: str, folder: Path, backed: int, mo
     when = dt.datetime.strptime(stamp, "%Y%m%dT%H%M%SZ").strftime("%Y-%m-%dT%H:%MZ")
     groups = "; ".join(f"{g} {len(inv.remove[g])}" for g in m.GROUPS)
     never = "; ".join(f"{k} {len(v)}" for k, v in inv.never.items())
-    keep = "; ".join(f"{k}: {', '.join(v) if len(v) <= 12 else len(v)}" for k, v in inv.keep.items())
+    keep = "; ".join(f"{k}: {', '.join(v)}" for k, v in inv.keep.items())
     refs = "; ".join(f"{rel} ({', '.join(found)})" for rel, found in inv.consumers.items()) or "none"
     lines = [
         "## Migration report",

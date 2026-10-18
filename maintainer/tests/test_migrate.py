@@ -471,32 +471,54 @@ def mirror_rows(files: dict[str, bytes]) -> bytes:
 
 
 class ProjectMirrors(unittest.TestCase):
-    def test_a_project_skill_and_agent_mirrored_by_5x_tooling_survive_the_migration(self) -> None:
-        tmp = Path(tempfile.mkdtemp(prefix="flow-migrate-"))
-        try:
-            clone = scratch_clone(tmp)
-            flow_skill = FILES["flow-skills/communication/SKILL.md"].encode("utf-8")
-            own_skill, own_agent = b"---\nname: team-notes\n---\nOur own notes.\n", b"---\nname: team-reviewer\n---\n"
-            skills = {f"{root}/{name}/SKILL.md": data for root in (".claude/skills", ".agents/skills")
-                      for name, data in (("communication", flow_skill), ("team-notes", own_skill))}
-            agents = {".claude/agents/team-reviewer.md": own_agent, ".codex/agents/team-reviewer.md": own_agent}
-            own = {"flow-skills/team-notes/SKILL.md": own_skill, "agents/team-reviewer/AGENT.md": own_agent,
+    """13 skills and an agent of the project's own, mirrored by 5.x tooling beside a Flow skill's mirrors."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.tmp = Path(tempfile.mkdtemp(prefix="flow-migrate-"))
+        cls.clone = clone = scratch_clone(cls.tmp)
+        flow_skill = FILES["flow-skills/communication/SKILL.md"].encode("utf-8")
+        own_skills = {f"team-{n:02d}": f"---\nname: team-{n:02d}\n---\nOur own notes.\n".encode() for n in range(1, 14)}
+        own_agent = b"---\nname: team-reviewer\n---\n"
+        skills = {f"{root}/{name}/SKILL.md": data for root in (".claude/skills", ".agents/skills")
+                  for name, data in (("communication", flow_skill), *own_skills.items())}
+        agents = {".claude/agents/team-reviewer.md": own_agent, ".codex/agents/team-reviewer.md": own_agent}
+        cls.own = {**{f"flow-skills/{name}/SKILL.md": data for name, data in own_skills.items()},
+                   "agents/team-reviewer/AGENT.md": own_agent,
                    **{p: d for p, d in {**skills, **agents}.items() if "team-" in p}}
-            for rel, data in {**skills, **agents, **own, "audit/skill-mirror-manifest.txt": mirror_rows(skills),
-                              "audit/agent-mirror-manifest.txt": mirror_rows(agents)}.items():
-                commit_file(clone, rel, data, f"chore: T1 {rel}")
-            run = migrate(clone, "--apply", "--go-ahead")
+        files = {**skills, **agents, **cls.own, "audit/skill-mirror-manifest.txt": mirror_rows(skills),
+                 "audit/agent-mirror-manifest.txt": mirror_rows(agents)}
+        for rel, data in files.items():
+            (clone / rel).parent.mkdir(parents=True, exist_ok=True)
+            (clone / rel).write_bytes(data)
+        git(clone, "add", "--", *files)
+        git(clone, "commit", "-q", "-m", "chore: T1 the project's own skills and agent, mirrored by 5.x tooling")
+        cls.dry, cls.full = migrate(clone), migrate(clone, "--full")
+        cls.applied = migrate(clone, "--apply", "--go-ahead")
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def test_a_project_skill_and_agent_mirrored_by_5x_tooling_survive_the_migration(self) -> None:
+        clone, run = self.clone, self.applied
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        for rel, data in self.own.items():
+            self.assertTrue((clone / rel).is_file(), f"the migration deleted {rel}")
+            self.assertEqual((clone / rel).read_bytes(), data, rel)
+            self.assertEqual(blob(clone, f"HEAD:{rel}"), data, rel)
+        self.assertIn("skill mirrors under .claude/skills/: 1 skills, 1 files: communication", run.stdout)
+        self.assertFalse((clone / ".claude/skills/communication/SKILL.md").exists())
+
+    def test_every_kept_mirror_is_listed_in_the_dry_run_the_full_list_and_the_ledger(self) -> None:
+        self.assertEqual(len(self.own), 42)
+        for run in (self.dry, self.full, self.applied):
             self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
-            for rel, data in own.items():
-                self.assertTrue((clone / rel).is_file(), f"the migration deleted {rel}")
-                self.assertEqual((clone / rel).read_bytes(), data, rel)
-                self.assertEqual(blob(clone, f"HEAD:{rel}"), data, rel)
             keep = run.stdout.split("keep (project-owned):", 1)[1].split("\n[flow migrate] overlay")[0]
-            self.assertTrue(all(rel in keep for rel in own), keep)
-            self.assertIn("skill mirrors under .claude/skills/: 1 skills, 1 files: communication", run.stdout)
-            self.assertFalse((clone / ".claude/skills/communication/SKILL.md").exists())
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
+            self.assertEqual([p for p in self.own if f"[flow migrate]     {p}" not in keep.splitlines()], [], keep)
+        ledger = blob(self.clone, "HEAD:docs/flow/ledger.md").decode("utf-8")
+        keep = next(line for line in ledger.splitlines() if line.startswith("- keep: "))
+        self.assertEqual([p for p in self.own if p not in keep], [], keep)
 
 
 @unittest.skipUnless(os.environ.get("FLOW_MIGRATE_FIXTURE"), "FLOW_MIGRATE_FIXTURE not set")
