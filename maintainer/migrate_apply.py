@@ -363,17 +363,29 @@ def approval(target: Path) -> tuple[Path | None, str]:
     return None, ""
 
 
+def guard_step(target: Path, folder: Path) -> str:
+    """Fails, naming them, when the index holds paths the migration commit does not stage, as commit() refuses."""
+    rel = folder.relative_to(target).as_posix()
+    lists = " ".join(f'-f "{rel}/{JOURNAL}/{name}"' for name in (DELETE, STAGE) if (folder / JOURNAL / name).is_file())
+    return (f"if git diff --cached --name-only --no-renames | grep -vxF {lists}; then echo \"STOPPED: the paths above "
+            "are staged but are not part of the migration: unstage each with git restore --staged -- <path> (the file "
+            "keeps your edit), then run these steps again\"; false; fi")
+
+
 def finish_steps(target: Path, folder: Path) -> list[str]:
-    """The by-hand end of a complete migration: stage, mint, commit with the journal's message, consume."""
+    """The by-hand end of a complete migration: stage, check nothing else is staged, mint, commit with the journal's
+    message, consume."""
     rel = folder.relative_to(target).as_posix()
     found, expires = approval(target)
-    lines = ["finish it by hand once the cause is fixed: run these in order from the project's top level in Git Bash; "
-             "each step is safe to run again, and a second run of all of them changes nothing"]
+    lines = ["finish it by hand once the cause is fixed: run these in order from the project's top level in Git Bash, "
+             "and stop at a step that fails; each step is safe to run again, and a second run of all of them changes "
+             "nothing"]
     if found:
         lines.append(f"  (the approval {found.name} stays until {expires or 'its TTL'}; the mint step replaces it with "
                      "one bound to the same staged paths, so the steps work after the TTL too)")
     return lines + [f"  $ {printed(args)}" for args in stage_commands(target, folder)] + [
-        f"  $ {MINT}", f'  $ git diff --cached --quiet || git commit -F "{rel}/{JOURNAL}/{MESSAGE}"', f"  $ {CONSUME}"]
+        f"  $ {guard_step(target, folder)}", f"  $ {MINT}",
+        f'  $ git diff --cached --quiet || git commit -F "{rel}/{JOURNAL}/{MESSAGE}"', f"  $ {CONSUME}"]
 
 
 def rollback_steps(target: Path, folder: Path | None) -> list[str]:

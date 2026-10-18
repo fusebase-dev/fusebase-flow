@@ -163,39 +163,70 @@ CONSUME = "bash hooks/local/write-bootstrap-approval.sh --consume --slug flow-mi
 
 
 class CommitFailure(unittest.TestCase):
+    """One migration whose commit fails in the pre-commit, shared by the tests below; each works on its own copy."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.tmp = Path(tempfile.mkdtemp(prefix="flow-migrate-"))
+        cls.clone = scratch_clone(cls.tmp)
+        cls.pre = git(cls.clone, "rev-parse", "HEAD").stdout.strip()
+        cls.plain = {k: v for k, v in os.environ.items() if k != "FUSEBASE_FLOW_LINT"}
+        # passes the preflight (no ledger yet) and fails the commit's pre-commit, like a lint rule over a Flow path
+        failing = dict(cls.plain, FUSEBASE_FLOW_LINT="test ! -e docs/flow/ledger.md")
+        cls.failed = migrate(cls.clone, "--apply", "--go-ahead", env=failing)
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def copy(self, name: str) -> Path:
+        shutil.copytree(self.clone, self.tmp / name, symlinks=True)
+        return self.tmp / name
+
     def test_a_failed_commit_keeps_the_approval_and_every_printed_step_finishes_it_twice(self) -> None:
-        tmp = Path(tempfile.mkdtemp(prefix="flow-migrate-"))
-        try:
-            clone = scratch_clone(tmp)
-            pre = git(clone, "rev-parse", "HEAD").stdout.strip()
-            plain = {k: v for k, v in os.environ.items() if k != "FUSEBASE_FLOW_LINT"}
-            # passes the preflight (no ledger yet) and fails the commit's pre-commit, like a lint rule over a Flow path
-            failing = dict(plain, FUSEBASE_FLOW_LINT="test ! -e docs/flow/ledger.md")
-            run = migrate(clone, "--apply", "--go-ahead", env=failing)
-            self.assertEqual(run.returncode, 1, run.stdout + run.stderr)
-            self.assertIn("lint failed", run.stdout + run.stderr)
-            kept = sorted((clone / "state/approvals").glob("protected_path_edit-flow-migrate-*.json"))
-            self.assertEqual(len(kept), 1, "the approval was consumed although the commit failed")
-            commands = steps(run.stdout)
-            self.assertIn(MINT, commands)
-            self.assertEqual(commands[-1], CONSUME)
-            again = migrate(clone, env=plain)
-            self.assertEqual(again.returncode, 1, again.stdout)
-            self.assertIn("applied but not committed", again.stdout)
-            self.assertEqual(steps(again.stdout), commands)
-            message = next(clone.glob(".flow-migrate-*/.migrate/message.txt")).read_text(encoding="utf-8")
-            for attempt in (1, 2):  # the cause is gone; every step is safe to run again
-                for step in commands:
-                    done = subprocess.run([shutil.which("bash") or "bash", "-c", step], cwd=clone, env=plain,
-                                          capture_output=True, text=True, timeout=1800)
-                    self.assertEqual(done.returncode, 0, f"attempt {attempt}: {step}\n{done.stdout}{done.stderr}")
-                self.assertEqual(git(clone, "status", "--porcelain").stdout, "")
-                self.assertEqual(sorted(p.name for p in (clone / "state/approvals").iterdir()), [".gitkeep"])
-                self.assertEqual(git(clone, "rev-parse", "HEAD~1").stdout.strip(), pre)
-                self.assertEqual(git(clone, "log", "-1", "--format=%B").stdout.strip(), message.strip())
-            self.assertIn("nothing to migrate", migrate(clone, env=plain).stdout)
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
+        run, plain, pre = self.failed, self.plain, self.pre
+        self.assertEqual(run.returncode, 1, run.stdout + run.stderr)
+        self.assertIn("lint failed", run.stdout + run.stderr)
+        clone = self.copy("twice")
+        kept = sorted((clone / "state/approvals").glob("protected_path_edit-flow-migrate-*.json"))
+        self.assertEqual(len(kept), 1, "the approval was consumed although the commit failed")
+        commands = steps(run.stdout)
+        self.assertIn(MINT, commands)
+        self.assertEqual(commands[-1], CONSUME)
+        again = migrate(clone, env=plain)
+        self.assertEqual(again.returncode, 1, again.stdout)
+        self.assertIn("applied but not committed", again.stdout)
+        self.assertEqual(steps(again.stdout), commands)
+        message = next(clone.glob(".flow-migrate-*/.migrate/message.txt")).read_text(encoding="utf-8")
+        for attempt in (1, 2):  # the cause is gone; every step is safe to run again
+            for step in commands:
+                done = subprocess.run([shutil.which("bash") or "bash", "-c", step], cwd=clone, env=plain,
+                                      capture_output=True, text=True, timeout=1800)
+                self.assertEqual(done.returncode, 0, f"attempt {attempt}: {step}\n{done.stdout}{done.stderr}")
+            self.assertEqual(git(clone, "status", "--porcelain").stdout, "")
+            self.assertEqual(sorted(p.name for p in (clone / "state/approvals").iterdir()), [".gitkeep"])
+            self.assertEqual(git(clone, "rev-parse", "HEAD~1").stdout.strip(), pre)
+            self.assertEqual(git(clone, "log", "-1", "--format=%B").stdout.strip(), message.strip())
+        self.assertIn("nothing to migrate", migrate(clone, env=plain).stdout)
+
+    def test_another_staged_path_stops_the_steps_before_the_commit(self) -> None:
+        self.assertEqual(self.failed.returncode, 1, self.failed.stdout + self.failed.stderr)
+        clone = self.copy("stray")
+        (clone / "notes.txt").write_text("the operator's own change\n", encoding="utf-8")
+        git(clone, "add", "--", "notes.txt")
+        ran = []
+        for step in steps(self.failed.stdout):  # in order, as printed, up to the first step that fails
+            ran.append((step, subprocess.run([shutil.which("bash") or "bash", "-c", step], cwd=clone, env=self.plain,
+                                             capture_output=True, text=True, timeout=1800)))
+            if ran[-1][1].returncode:
+                break
+        head = git(clone, "show", "--name-only", "--format=%s", "HEAD").stdout.splitlines()
+        self.assertEqual(git(clone, "rev-parse", "HEAD").stdout.strip(), self.pre,
+                         f"the steps committed '{head[0]}', {len(head) - 2} paths, notes.txt among them: {'notes.txt' in head}")
+        self.assertIn("notes.txt", git(clone, "diff", "--cached", "--name-only").stdout.split())
+        step, done = ran[-1]
+        self.assertTrue(done.returncode and "grep" in step, step)
+        self.assertIn("notes.txt", done.stdout + done.stderr)
 
 
 if __name__ == "__main__":
