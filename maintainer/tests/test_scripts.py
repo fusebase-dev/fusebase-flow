@@ -617,14 +617,20 @@ class Slicer(Workspace):
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
         self.assertIn("done P1-S1: 1/1 committed\nDONE: PASS", out.stdout)
         self.assertIn("new-1a2b3c4d\t1\tT1\tsrc/z.ts is under no task glob", out.stdout)
-        self.assertIn('"feature_not_asked": {"answer": "yes|no"', out.stdout)
-        self.assertIn('"further_from_reference": {"answer": "yes|no"', out.stdout)
+        self.assertTrue(out.stdout.startswith("REVIEW BRIEF\nSlice P1-S1 at "), out.stdout[:80])
+        self.assertIn("(a) Does the diff add a feature the criterion does not ask for?", out.stdout)
+        self.assertIn('"rubric": {"a": "yes|no", "a_evidence", "b": "yes|no", "b_evidence"}', out.stdout)
+        self.assertIn("B1 answer A2: What does an expired link show?: The words", out.stdout)
+        verdict = self.slice("P1", "--brief", "verdict")
+        self.assertEqual(verdict.returncode, 0, verdict.stdout)
+        self.assertTrue(verdict.stdout.startswith("VERDICT BRIEF\nPhase P1 at "), verdict.stdout[:80])
 
     def test_a_trivial_tier_slice_brief_asks_no_rubric(self) -> None:
         commit(self.repo, {"docs/notes/a.md": "a\n"}, "T1: a note")
         out = self.slice("P1-S1", "--brief")
-        self.assertIn("not asked: a trivial-tier slice", out.stdout)
-        self.assertNotIn("feature_not_asked", out.stdout)
+        self.assertIn("rubric: not asked (a trivial-tier slice)", out.stdout)
+        self.assertNotIn('"rubric"', out.stdout)
+        self.assertNotIn("(a) Does the diff", out.stdout)
 
 
 GATE_BACKLOG = BACKLOG.format(risk="auth").replace("- test: test/auth.test.ts::magic link expires\n- risk: none",
@@ -659,6 +665,8 @@ class Gate(Workspace):
 
     def test_two_recorded_verdicts_exhaust_two_rounds_with_the_carry_over_in_order(self) -> None:
         write(self.repo, "docs/flow/ledger.md", "status: state/status.line\n\n## Records\n" + VERDICTS)
+        write(self.repo, "state/returns/P1-S1-review.json", json.dumps({"findings": [
+            {"file": "src/a/x.ts", "line": 1, "wrong_outcome": "the banner shows twice", "severity": "MEDIUM"}]}))
         out = self.gate()
         self.assertEqual(out.returncode, 3, out.stdout + out.stderr)
         self.assertIn("BLOCKED-AT-gate-budget: 2 verdicts recorded for P1-S1, gate_rounds 2", out.stdout)
@@ -671,6 +679,7 @@ class Gate(Workspace):
         self.assertIn("contradicts owner answer A2", listed[3][2])
         self.assertEqual({c for _, c, _ in listed[4:]}, {"other"})
         self.assertIn("T2 OPEN", out.stdout.split("Carry-over")[1])
+        self.assertIn("P1-S1-review: file=src/a/x.ts; line=1; wrong_outcome=the banner shows twice", out.stdout)
 
     def test_a_local_override_lowers_the_rounds_and_never_raises_them(self) -> None:
         write(self.repo, "docs/flow/ledger.md", "## Records\n" + VERDICTS.splitlines()[0] + "\n")

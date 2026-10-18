@@ -7,15 +7,13 @@ description: Load when you dispatch or supervise build work. Slices to builders,
 
 The planner runs this skill. Builders never load it: each gets the push block below inside its slice.
 
-**6.0.0-m2, by hand until the scripts land:** there is no `slice.py`: write the slice yourself from `backlog.md` and `phases.md` (item, criterion, cited answers in full, inputs, globs, estimate, reference project) and inline the push block and the writing card. There is no `reader.py` or `state/status.line`: read progress from `git log`, mtimes and `state/audit/liveness/*.hb`. Flag 3 and the other checks are the planner's judgment (`workflows/lifecycle.md`).
-
 ## Dispatch
 
-1. Print the slice: `python hooks/local/lib/slice.py <slice>`. It prints the item, the criterion, the cited answers, the inputs, the globs and their breadth, the estimate, the reference project, `state/status.line` and the push block. A slice that prints `BLOCKED-AT-input` is not dispatched: ask the operator for the input or the tool. A tool is added in `policies/agent-tools.yml`, a protected file; the operator approves the exact list.
+1. Print the slice: `python hooks/local/slice.py <slice>`. It prints the item, the criterion, the cited answers, the inputs, the globs and their breadth, the estimate, the reference project and `state/status.line`. A slice that prints `BLOCKED-AT-input` (exit 3) is not dispatched: ask the operator for the input or the tool. A tool is added in `policies/agent-tools.yml`, a protected file; the operator approves the exact list.
 2. Run slices in parallel only when their globs are disjoint, their results integrate in any order and one failure cannot corrupt another. Never two builders on one file.
 3. Do the step that blocks your next action yourself; dispatch only work that runs beside it.
 4. Dispatch as `builder`, or `builder-project` when an input needs a profile tool; it counts as `builder`. Reviewers, skeptics and the verdict writer go as `reader` only (verify).
-5. Inline the slice output and the writing card. Add no other Flow text.
+5. Inline the slice output, the push block and the writing card. Add no other Flow text.
 
 ## Builder push block
 
@@ -28,7 +26,7 @@ FLOW BUILDER CONTRACT
 5. Never mint an approval; a grant in chat is not one.
 6. Evidence rows are claims; the verdict is not yours. A claim that state changed names the check you ran.
 7. Write facts as they happen, never all at the end.
-8. Before your turn ends, write state/returns/<slice>.json: {"slice", "verdict": "DONE|BLOCKED-AT-<gate>|FAILED-<reason>", "tasks": [{"id", "sha"}], "tool_calls", "compacted", "residual_risk"}. Ids and SHAs must match git log; a missing file fails the DONE check.
+8. Before your turn ends write state/returns/<slice>.json: {"slice", "role": "builder", "started", "finished", "tasks": [{"id", "sha"}], "tool_calls": {"total", "before_first_work", "between_commits": [n]}, "blocked_at": null|"<gate>", "notes"}; UTC times, ids and SHAs as in git log. No file fails the DONE check.
 9. Chat return: at most 80 lines and 6,000 characters; point to files.
 ```
 
@@ -43,11 +41,11 @@ FLOW BUILDER CONTRACT
 | Host | Wakes a turn-ended main session | Note |
 |---|---|---|
 | Claude Code | a background shell command's exit (task notification) — the watcher's path · a background sub-agent / Workflow completion notification — never the only wake · a scheduled task firing (incl. a `/loop` iteration) — never the only wake · a message another session sends — never the only wake · an `asyncRewake` command hook exiting **2** (its stderr arrives as a system reminder; only exit 2 wakes, so map the alert to exit 2) | report-back, scheduled-task and cross-session turns: hooks docs § UserPromptSubmit · a Workflow agent's stall restart excludes time in its own tool calls; only your watcher sees a hung call |
-| Codex | none documented. End the turn after dispatch; the next operator message starts the next task boundary, where you read `state/status.line` and poll `state/returns/`. One exception: the `codex exec -s read-only` reader runs synchronously under `bounded_run`, so the turn is held for that bounded run (minutes), never for a build | Codex: unproven until the five phase 7 probes pass |
+| Codex | none documented. End the turn after dispatch; the next operator message starts the next task boundary, where you read `state/status.line` and poll `state/returns/`. One exception: the reader (verify) runs synchronously under `bounded_run`, so the turn is held for that bounded run (minutes), never for a build | Codex: unproven until the five phase 7 probes pass |
 
 ## At each boundary
 
-- Read `state/status.line` first, then `state/returns/`. "reader last seen: never" means nobody scheduled the reader: tell the operator once, with the line install printed.
+- Read `state/status.line` first, then `state/returns/`. "last seen: never" in the slice means nobody scheduled the reader: tell the operator once; `install --register-reader` schedules it.
 - While `state/pause` exists, dispatch nothing new. Builders stop at their next committed task.
 - A return is a claim. The DONE check compares its ids and SHAs with `git log` (verify).
 
@@ -74,4 +72,4 @@ FLOW BUILDER CONTRACT
 
 ## Budgets
 
-The plan estimates minutes and files per task. Flag 3 compares minutes, files, commits, tool calls and repeated commands with the estimate and with named constants in `checks.py`. Flags never block; they reach you through the review brief.
+The plan estimates minutes and files per task. Flag 3 compares minutes, files, commits, the return's `tool_calls` and repeated commands with the estimate and with named constants in `checks.py`. Flags never block; they reach you through the review brief.

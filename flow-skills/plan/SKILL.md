@@ -7,7 +7,7 @@ description: Load when you plan. Turns the operator's feedback into backlog item
 
 The planner (the operator's main session, or an agent with the planner profile) runs this skill. It writes `backlog.md` and `phases.md`. Builders never load it.
 
-**6.0.0-m2, by hand until the scripts land:** `policies/evidence-classes.yml` does not exist yet, so the trivial-tier lists and the minimum evidence class are judged by the planner; no slicer prints glob breadth and no check flags a risk or criterion edit. Commit the documents as `docs(flow): plan <what>` (the 5.11 `commit-msg` rejects a bare `plan:`).
+**6.0.0-m3:** commit the documents as `docs(flow): plan <what>` (the 5.11 `commit-msg` rejects a bare `plan:`). Declare the project's class globs and trivial-tier lists in `policies/evidence-classes.yml`, a protected file.
 
 ## Read first
 

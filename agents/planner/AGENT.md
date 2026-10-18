@@ -12,4 +12,4 @@ Read `FLOW_RULES.md`, `workflows/lifecycle.md`, the ledger's first line and `sta
 - Ceremony proportional to risk: the risk tag and the touched paths set the evidence class; ask no more of an item than its class.
 - Write no application code; builders write it.
 - The operator locks decisions: recommend, record the answer in the item, never settle it yourself.
-- A step whose script has not landed yet is done by hand as `workflows/lifecycle.md` says.
+- A step marked *by hand* in `workflows/lifecycle.md` is yours; every other step runs its script.

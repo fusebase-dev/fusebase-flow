@@ -4,12 +4,14 @@ builder needs for one task (or each task of a slice) and nothing else: the backl
 cited owner answers in full, its inputs, the task's globs with their breadth, the estimate, the reference project and
 the live state/status.line with the reader's last-seen age. A named input whose tool the agent's profile in
 policies/agent-tools.yml lacks prints BLOCKED-AT-input and exits 3.
-`slice.py <slice> --brief [review|skeptic|verdict]` prints the reader's brief: the slice, the gate block and the flag
-rows inline, and the two rubric questions as typed fields (none on a trivial-tier slice).
+`slice.py <slice|phase> --brief [review|skeptic|verdict]` prints the reader's brief: the verify skill's block for the
+role, filled in, then the items, the evidence rows, the gate block and the flag rows inline. The review block's two rubric
+questions are typed fields of its return; a trivial-tier slice's brief drops them.
 """
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 import time
 from pathlib import Path
@@ -17,11 +19,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
 import flow_docs as fd  # noqa: E402
 
-RUBRIC = {"feature_not_asked": "Does the diff add a feature the item's criterion does not ask for?",
-          "further_from_reference": "Is the diff further from the reference project's pattern than the task requires?"}
-ASK = {"review": "Review the slice's diff against its items and tasks.",
-       "skeptic": "Try to refute the gate: find the criterion the evidence does not prove.",
-       "verdict": "Decide PASS or FAIL for the phase from the evidence rows and the gate block."}
+ROLES = ("review", "skeptic", "verdict")  # the REVIEW, SKEPTIC and VERDICT BRIEF blocks of the verify skill
+VERIFY = Path(__file__).resolve().parents[2] / "flow-skills/verify/SKILL.md"
 
 
 def status(root: Path) -> str:
@@ -70,47 +69,58 @@ def blocked(root: Path, tasks: list[dict], items: dict, agent: str) -> list[str]
     return out
 
 
-def brief(root: Path, sid: str, sl: dict, items: dict, role: str) -> list[str]:
-    match, pol = fd.globber(), fd.policy(root)
-    trivial = fd.trivial(fd.slice_log(root, sl), match, fd.tier(pol))
-    out = [f"# {role.capitalize()} brief: {sid} {sl['title']}", ASK[role],
-           "You run as reader (Read, Glob, Grep): return the JSON below and nothing else; the planner records it.",
-           f"reference: {fd.reference(root)}", "## Items and tasks"]
-    for t in sl["tasks"]:
-        item = items.get(t["item"], {})
-        out.append(f"- {t['id']} ({t['item']}, risk {item.get('risk', '?')}): {t['does']}; globs "
-                   + ", ".join(f"`{g}`" for g in t["globs"]))
-        out += [f"  {k}: {item[k]}" for k in ("criterion", "test") if item.get(k)]
-    gate = fd.read(root / "state/gate" / f"{sid}.txt").strip()
-    out += ["## Gate block", gate or f"(not run: python hooks/local/gate.py {sid})", "## Flags (id, check, task, evidence, ruling)"]
-    flags = [r for r in fd.read(root / "state/flags" / f"{sid}.tsv").splitlines()[1:] if r.strip()]
-    out += flags or ["(none)"]
-    asked = role == "review" and not trivial
+def brief(root: Path, target: str, chosen: list[dict], items: dict, answers: dict, role: str) -> list[str]:
+    m = re.search(rf"```text\n({role.upper()} BRIEF\n.*?)```", VERIFY.read_text(encoding="utf-8"), re.S)
+    if m is None:
+        return [f"slice.py: no {role.upper()} BRIEF block in {VERIFY}"]
+    sha = fd.git(root, "rev-parse", "--short=12", "HEAD").strip() or "no commit"
+    text = re.sub(r"<(slice|phase)>", target, m[1]).replace("<sha>", sha)
+    trivial = role == "review" and fd.trivial(fd.slice_log(root, chosen[0]), fd.globber(), fd.tier(fd.policy(root)))
+    if trivial:
+        text = re.sub(r'Answer two questions.*?\n\(b\)[^\n]*\n|"rubric": \{[^}]*\}, ', "", text, flags=re.S)
+    out = [*text.rstrip().splitlines(), "", f"reference: {fd.reference(root)}"]
+    wanted = list(dict.fromkeys(t["item"] for s in chosen for t in s["tasks"]))
+    for s in chosen:
+        for t in s["tasks"]:
+            out.append(f"- {t['id']} ({t['item']}, risk {items.get(t['item'], {}).get('risk', '?')}): {t['does']}; "
+                       "globs " + ", ".join(f"`{g}`" for g in t["globs"]))
+    for i in wanted:
+        out += [f"{i} {k}: {items[i][k]}" for k in ("criterion", "test") if items.get(i, {}).get(k)]
+        out += [f"{i} answer {a}: {answers[a]['title']}: " + " ".join(answers[a]["text"])
+                for a in items.get(i, {}).get("answers", []) if a in answers and role == "review"]
+    if role != "review":
+        phase = chosen[0]["phase"]
+        rows = fd.read(root / f"docs/flow/evidence/{phase}.md") or fd.read(root / "docs/flow/evidence.md")
+        out += ["evidence rows:"] + [r for r in rows.splitlines() if re.match(r"\|\s*(B\d+)\s*\|", r)
+                                     and r.split("|")[1].strip() in wanted]
+    out += ["gate block:", fd.read(root / "state/gate" / f"{target}.txt").strip() or f"(not run: gate.py {target})"]
     if role == "review":
-        out += ["## Rubric (a yes is a flag; on a risk-tagged item it holds the slice until the planner rules)"]
-        out += [f"{k}: {q}" for k, q in RUBRIC.items()] if asked else ["not asked: a trivial-tier slice"]
-    fields = [f'  "{k}": {{"answer": "yes|no", "evidence": "<one line>"}},' for k in RUBRIC] if asked else []
-    return out + ["## Return", "{", f'  "slice": "{sid}", "role": "{role}", "verdict": "PASS|FAIL",', *fields,
-                  '  "findings": [{"where": "<path:line>", "what": "<one line>"}]', "}"]
+        out += ["flag rows (id, check, task, evidence, ruling):"]
+        out += [r for r in fd.read(root / "state/flags" / f"{target}.tsv").splitlines()[1:] if r.strip()] or ["(none)"]
+    for f in sorted((root / "state/returns").glob(f"{target}-skeptic*.json")) if role == "verdict" else []:
+        out += [f"{f.name}:", f.read_text(encoding="utf-8").strip()]
+    return out + (["rubric: not asked (a trivial-tier slice)"] if trivial else [])
 
 
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(prog="slice.py", description=__doc__.split("\n\n")[0])
-    ap.add_argument("target", help="a task (T12) or a slice (P1-S2)")
+    ap.add_argument("target", help="a task (T12), a slice (P1-S2), or a phase (P1) with --brief")
     ap.add_argument("--agent", default="builder", help="the profile whose tools the inputs need (default builder)")
-    ap.add_argument("--brief", nargs="?", const="review", choices=sorted(ASK), help="print a reader's brief instead")
+    ap.add_argument("--brief", nargs="?", const="review", choices=ROLES, help="print a reader's brief instead")
     ap.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[2])
     args = ap.parse_args(argv)
     root = args.root.resolve()
     slices = {sid: {**s, "id": sid} for sid, s in fd.phases(root).items()}
     items, answers = fd.backlog(fd.read(root / fd.BACKLOG))
+    if args.brief:
+        chosen = [s for s in slices.values() if args.target in (s["id"], s["phase"])]
+        print("\n".join(brief(root, args.target, chosen, items, answers, args.brief) if chosen else
+                        [f"slice.py: {args.target} is no slice or phase in {fd.PHASES}"]))
+        return 0 if chosen else 2
     sl = slices.get(args.target) or next((s for s in slices.values() if any(t["id"] == args.target for t in s["tasks"])), None)
     if sl is None:
         print(f"slice.py: {args.target} is no task or slice in {fd.PHASES}")
         return 2
-    if args.brief:
-        print("\n".join(brief(root, sl["id"], sl, items, args.brief)))
-        return 0
     tasks = sl["tasks"] if args.target == sl["id"] else [t for t in sl["tasks"] if t["id"] == args.target]
     stop = blocked(root, tasks, items, args.agent)
     if stop:

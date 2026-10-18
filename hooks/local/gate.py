@@ -53,12 +53,15 @@ def carry_over(root: Path, target: str, lines: list[str], past: list[tuple[str, 
     items = [ln.strip() for ln in lines if re.search(r" OPEN: |^\s+returns: |^\s+B\d+ FAIL: |^\s+FLAG ", ln)
              and not ln.endswith("[rejected]")]
     items += [f"verdict {i + 1} {res}: {note}" for i, (res, note) in enumerate(past) if note and res != "PASS"]
-    for f in sorted((root / "state/returns").glob(f"{target}-*.json")):
+    for f in sorted((root / "state/returns").glob(f"{target}-*.json")):  # the readers' typed returns (verify briefs)
         try:
-            items += [f"{f.stem}: {x.get('where', '')} {x.get('what', '')}".strip()
-                      for x in json.loads(f.read_text(encoding="utf-8")).get("findings", []) if isinstance(x, dict)]
+            doc = json.loads(f.read_text(encoding="utf-8"))
+            found = [*doc.get("findings", []), *doc.get("other_findings", []),
+                     *(r for r in doc.get("rows", []) if r.get("holds") == "no" or r.get("status") == "FAIL")]
         except (OSError, ValueError, AttributeError):
             continue
+        items += [f"{f.stem}: " + ("; ".join(f"{k}={v}" for k, v in x.items()) if isinstance(x, dict) else str(x))
+                  for x in found]
     risk = {i: d.get("risk", "") for i, d in fd.backlog(fd.read(root / fd.BACKLOG))[0].items()}
     items = [re.sub(r"^(B\d+) FAIL:", lambda m: f"{m[1]} (risk {risk.get(m[1], '?')}) FAIL:", i) for i in items]
 

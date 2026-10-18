@@ -2,7 +2,7 @@
 
 <!--
 One file per phase: docs/flow/evidence/P<n>.md. One row per criterion (the item id).
-Status is PASS or FAIL, as the builder's claim; a FAIL row's Note says why.
+Status is PASS, FAIL: <why> or BLOCKED-AT-<gate>, as the builder's claim (row_status in policies/evidence-classes.yml).
 Capture: where the test tool wrote it, with its sha256 and size in bytes; for a test-id row, <file>::<test name> with - in sha256 and Bytes.
 Log: the run log (the run directory's README.md, or a TAP log for a test-id row). Example rows:
 

@@ -7,14 +7,12 @@ description: Load when a slice or a phase reaches verification. DONE check, revi
 
 The planner runs this skill. Reviewers, skeptics and the verdict writer run as `reader` (Read, Glob, Grep only) and receive only the briefs at the end of this file.
 
-**6.0.0-m2, by hand until the scripts land:** there is no `gate.py`, `slice.py` or `checks.py`. Do the DONE check, the four checks and the evidence-row checks yourself as `workflows/lifecycle.md` says, write the briefs below with the slice's data filled in, keep flag rulings as one line each in the review record, and count rounds from the ledger's verdict records.
-
 ## A slice
 
-1. Run `python hooks/local/lib/gate.py <slice>`. It runs the DONE check, the four flags and the evidence-row validator, and writes `state/gate/<slice>.txt`.
+1. Run `python hooks/local/gate.py <slice>`. It runs the DONE check (`done.py`), the four flags (`checks.py`) and the evidence-row validator (`validate_evidence.py`), and writes `state/gate/<slice>.txt`; exit 1 is a failed check, 3 `BLOCKED-AT-gate-budget`.
 2. DONE check failed (a task with no commit whose subject carries exactly its `T<n>` and whose diff touches its globs, or a missing or disagreeing `state/returns/<slice>.json`): send the slice back to build with its open tasks. Review never starts on PARTIAL work.
-3. Review: dispatch one `reader` with the output of `python hooks/local/lib/slice.py <slice> --brief review`. It carries the flag rows and the gate output inline.
-4. Record the return. Rule every flag id with `python hooks/local/lib/checks.py --rule <flag-id> upheld|rejected --reason "<one line>"`. Flags never block. Two holds exist, each released by your ruling: a rubric "yes" on a risk-tagged item, and the DONE send-back.
+3. Review: dispatch one `reader` with the output of `python hooks/local/slice.py <slice> --brief review`. It carries the flag rows and the gate output inline. On Codex the reader runs as `bounded_run 900 reader -- codex exec -s read-only --output-schema <schema.json> -o state/returns/<slice>-<role>.json "<brief>"` (Codex: unproven).
+4. Record the return. Rule every flag: write `upheld` or `rejected` in the `ruling` column of `state/flags/<slice>.tsv`; a re-run keeps it, and `python hooks/local/checks.py --precision` counts them. Flags never block. Two holds exist, each released by your ruling: a rubric "yes" on a risk-tagged item, and the DONE send-back.
 
 ## A phase gate
 
@@ -24,7 +22,7 @@ The planner runs this skill. Reviewers, skeptics and the verdict writer run as `
 
 ## Rounds
 
-- `gate_rounds` (default 2) lives in `policies/approval-policy.yml`. `gate.py` counts rounds from the verdicts recorded in the ledger; you keep no count by hand.
+- `gate_rounds` (default 2) lives in `policies/approval-policy.yml`. `gate.py` counts rounds from the `verdict <slice|phase>` records in the ledger; you keep no count by hand.
 - A round is one verdict dispatch after the gate script passes. A script failure costs no round.
 - Review rounds share the limit and keep their own counter.
 - A local override may lower the limit, never raise it. Raising it is a protected-policy edit the operator approves.
@@ -32,9 +30,9 @@ The planner runs this skill. Reviewers, skeptics and the verdict writer run as `
 
 ## Evidence rows
 
-- `evidence.md`: one row per criterion id with its status (`PASS` or `FAIL`; a FAIL row's `Note` says why, including a runner's `BLOCKED-AT-<reason>` or a run that hit its deadline), the capture's path, sha256 and size, and the run log path. A test-id row cites `<file path>::<test name>` and a TAP log in the run directory. The builder writes rows as claims. The validator hashes captures in place and checks run logs and test ids. The verdict comes from the reader's return, recorded by you.
+- `evidence.md`: one row per criterion id with its status (`PASS`, `FAIL: <why>` or `BLOCKED-AT-<reason>`, the policy's `row_status`; a run that hit its deadline is a FAIL), the capture's path, sha256 and size, and the run log path. A test-id row cites `<file path>::<test name>` and a TAP log in the run directory. The builder writes rows as claims. The validator hashes captures in place and checks run logs and test ids. The verdict comes from the reader's return, recorded by you.
 - The minimum evidence class follows from the paths the task touched (`policies/evidence-classes.yml`); the risk tag may raise it, never lower it. `auth`, `data` and `production` need live evidence; the rest unit or smoke.
-- Flow defines no capture folder: captures and diagnostics stay where the test tool writes them, and `state/runs/<phase>/` holds one index line per run (run id, phase, directory, started, exit code). The run log is the tool's own: the live runner's run-directory `README.md` (`| Time (UTC) | Row | Record |`), a TAP log for test-id rows. Attempts, the contract commit and the rows run under each commit go in the run log. Never commit screenshots or raw run output; the row cites the path.
+- Flow defines no capture folder: captures and diagnostics stay where the test tool writes them, and `state/runs/<phase>/index.tsv` holds one line per run: `run_id`, `started`, `dir`, `rc`, tab-separated. The run log is the tool's own: the live runner's run-directory `README.md` (`| Time (UTC) | Row | Record |`), a TAP log for test-id rows. Attempts, the contract commit and the rows run under each commit go in the run log. Never commit screenshots or raw run output; the row cites the path.
 
 ## Live evidence
 
@@ -103,7 +101,7 @@ launders a real defect (race, ordering dependency, state leak, async timing) int
 
 ## Briefs
 
-`slice.py --brief <kind>` prints these blocks with the slice's or phase's data filled in. A brief carries no Flow rule text and states no expected verdict.
+`python hooks/local/slice.py <slice|phase> --brief review|skeptic|verdict` prints these blocks with the slice's or phase's data filled in. A brief carries no Flow rule text and states no expected verdict.
 
 ```text
 REVIEW BRIEF

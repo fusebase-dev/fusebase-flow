@@ -1,4 +1,5 @@
 status: state/status.line
+committed: derived, never written: python hooks/local/done.py <slice> writes state/done/<slice>.json
 
 ## Next
 -

@@ -7,7 +7,7 @@ description: Load when you deploy or hand off. The approval-gated deploy step, t
 
 The planner runs the deploy step in its own session. A deploy, a rollback, an approval, a secret or a live-session check is never delegated.
 
-**6.0.0-m2:** commit the ship commit as `docs(flow): ship <what>` (the 5.11 `commit-msg` rejects a bare `ship:`). No validator exists yet: the planner checks each row before setting an item `done`.
+**6.0.0-m3:** commit the ship commit as `docs(flow): ship <what>` (the 5.11 `commit-msg` rejects a bare `ship:`). Set an item `done` only when `python hooks/local/validate_evidence.py <phase>` passes its row.
 
 ## Before the deploy
 
@@ -41,11 +41,11 @@ The planner runs the deploy step in its own session. A deploy, a rollback, an ap
 
 ## The ship commit
 
-One `ship:` commit after the live rows: the ledger's deploy record, the `state/deploys/<env>.jsonl` line, the evidence rows, the backlog status, `state/flags/*.tsv` and `state/gate/*.txt`. Nothing else, and never split.
+One `ship:` commit after the live rows: the ledger's deploy record, the `state/deploys/<env>.jsonl` line, the evidence rows, the backlog status, `state/flags/*.tsv`, `state/gate/*.txt` and `state/done/*.json`. Nothing else, and never split.
 
 ## Ledger entries
 
-- The first line points at `state/status.line`. `committed` comes from `git log`; `done` is the validator's verdict. Neither is written by hand.
+- The first line points at `state/status.line`. `committed` is derived by `python hooks/local/done.py <slice>` into `state/done/<slice>.json`; `done` is the validator's verdict. Neither is written by hand.
 - Deploy record: environment, exact command, deploy hash, approval file, rows run, rollback plan.
 - Handoff entry, when work crosses sessions, at most 10 lines: branch and HEAD; the one next step; open questions and parked items with their clearing conditions; commands in flight (command, pid or output path, bound). Done work is a pointer to `git log`, never a list. A fact you do not know is `Unknown`, never a guess.
 - Replace stale entries in place; git keeps the history. Never append a resumption note.
