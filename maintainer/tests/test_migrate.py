@@ -13,6 +13,7 @@ import hashlib
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -519,6 +520,34 @@ class ProjectMirrors(unittest.TestCase):
         ledger = blob(self.clone, "HEAD:docs/flow/ledger.md").decode("utf-8")
         keep = next(line for line in ledger.splitlines() if line.startswith("- keep: "))
         self.assertEqual([p for p in self.own if p not in keep], [], keep)
+
+
+class ReleaseNote(unittest.TestCase):
+    def test_each_command_names_only_paths_that_exist_when_it_runs(self) -> None:
+        """The note's commands in order, inline and fenced: each path is `<a folder an earlier git clone made>/<a path
+        the core tracks>`. The undo block runs in the migrated project; the Undo tests paste it."""
+        core = FLOW.parents[1]
+        version = (core / "VERSION").read_text().strip()
+        note = (core / "maintainer/release-notes" / f"{version}.md").read_text("utf-8")
+        tracked = set(git(core, "ls-files").stdout.splitlines())
+        commands = []
+        for fenced, inline in re.findall(r"^```\n(.*?)^```$|`([^`\n]+)`", note, flags=re.M | re.S):
+            if not fenced.startswith("( set -e"):
+                commands += fenced.splitlines() if fenced else [inline]
+        cloned, named, wrong = set(), [], []
+        for line in (c for c in commands if c.split()[:1] in (["git"], ["pip"], ["python"])):
+            words = line.split()
+            for word in words[1:]:
+                if "/" in word and "://" not in word and not word.startswith(("<", "-")):
+                    named.append(word)
+                    folder, _, rest = word.partition("/")
+                    if folder not in cloned or rest not in tracked:
+                        wrong.append(f"{line}  ({word})")
+            if words[:2] == ["git", "clone"]:
+                cloned.add(words[-1])
+        self.assertEqual(wrong, [], "paths that do not exist when their command runs")
+        self.assertEqual(cloned, {f"fusebase-flow-{version}"})
+        self.assertIn(f"fusebase-flow-{version}/hooks/requirements.txt", named)
 
 
 @unittest.skipUnless(os.environ.get("FLOW_MIGRATE_FIXTURE"), "FLOW_MIGRATE_FIXTURE not set")
