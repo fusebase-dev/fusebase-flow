@@ -317,22 +317,56 @@ def reader_line(target: Path) -> tuple[str, list[str]]:
         run = f'"{quiet if quiet.is_file() else sys.executable}" "{script}" --once'
         argv = ["schtasks", "/Create", "/F", "/SC", "MINUTE", "/MO", "5", "/TN", name, "/TR", run]
         return subprocess.list2cmdline(argv), argv
-    line = f"*/5 * * * * cd '{target}' && '{sys.executable}' hooks/local/reader.py --once >/dev/null 2>&1"
+    line = f"*/5 * * * * cd {sh_quote(str(target))} && {sh_quote(sys.executable)} {READER_RUN} >/dev/null 2>&1"
     return line, ["crontab", line]
 
 
-def register_reader(argv: list[str]) -> tuple[int, str]:
-    """Registers the line with schtasks, or appends it to the user's crontab once."""
+def sh_quote(text: str) -> str:
+    return "'" + text.replace("'", "'\\''") + "'"
+
+
+READER_RUN = "hooks/local/reader.py --once"
+TR_MAX = 261  # schtasks /Create refuses a longer /TR value
+
+
+def by_hand(argv: list[str]) -> tuple[str, str]:
+    """Where and what the user adds by hand when the registration is refused or fails."""
+    if argv[0] == "crontab":
+        return "crontab -e", argv[1]
+    if len(argv[-1]) <= TR_MAX:
+        return "a terminal", subprocess.list2cmdline(argv)
+    exe, _, rest = argv[-1][1:].partition('" ')
+    name, exe, rest = (x.replace("'", "''") for x in (argv[argv.index("/TN") + 1], exe, rest))
+    return "PowerShell", (f"Register-ScheduledTask -TaskName '{name}' -Action (New-ScheduledTaskAction -Execute '{exe}' "
+                          f"-Argument '{rest}') -Trigger (New-ScheduledTaskTrigger -Once -At (Get-Date) "
+                          "-RepetitionInterval (New-TimeSpan -Minutes 5)) -Force")
+
+
+def register_reader(argv: list[str], target: Path) -> tuple[int, str]:
+    """Registers the line with schtasks, or adds it to the user's crontab once. Whenever it cannot be sure, it writes
+    nothing and returns non-zero; the caller prints by_hand(argv)."""
+    exe = shutil.which(argv[0])  # TRIPWIRE: a bare name skips PATH on Windows (System32 is searched first)
+    if not exe:
+        return 1, f"{argv[0]} not found on PATH"
     try:
         if argv[0] != "crontab":
-            proc = subprocess.run(argv, capture_output=True, text=True, timeout=120)
+            if len(argv[-1]) > TR_MAX:
+                return 1, f"the /TR value is {len(argv[-1])} characters; schtasks refuses more than {TR_MAX}"
+            proc = subprocess.run([exe, *argv[1:]], capture_output=True, text=True, timeout=120)
             return proc.returncode, (proc.stdout + proc.stderr).strip()
-        have = subprocess.run(["crontab", "-l"], capture_output=True, text=True, timeout=60).stdout
-        if argv[1] in have.splitlines():
-            return 0, "already in the crontab"
+        read = subprocess.run([exe, "-l"], capture_output=True, timeout=60)
+        err = read.stderr.decode("utf-8", "replace").strip()
+        if read.returncode != 0 and "no crontab" not in err.lower():
+            return 1, f"crontab -l exited {read.returncode} ({err or 'no message'}): the crontab is left untouched"
+        # TRIPWIRE: bytes with surrogateescape, so a crontab that is not UTF-8 goes back byte for byte.
+        have = read.stdout.decode("utf-8", "surrogateescape") if read.returncode == 0 else ""
+        mine = f"cd {sh_quote(str(target))} &&"
+        if any(mine in x and READER_RUN in x for x in have.splitlines() if not x.lstrip().startswith("#")):
+            return 0, "already in the crontab for this project"
         text = have + ("" if not have or have.endswith("\n") else "\n") + argv[1] + "\n"
-        proc = subprocess.run(["crontab", "-"], input=text, capture_output=True, text=True, timeout=60)
-        return proc.returncode, (proc.stdout + proc.stderr).strip()
+        proc = subprocess.run([exe, "-"], input=text.encode("utf-8", "surrogateescape"), capture_output=True,
+                              timeout=60)
+        return proc.returncode, (proc.stdout + proc.stderr).decode("utf-8", "replace").strip()
     except (OSError, subprocess.TimeoutExpired) as exc:
         return 1, str(exc)
 
@@ -418,7 +452,7 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
     except (OSError, ValueError, AttributeError):
         reader = None
     reader_cmd, argv = reader_line(target)
-    reader_rc, reader_out = register_reader(argv) if register else (0, "")
+    reader_rc, reader_out = register_reader(argv, target) if register else (0, "")
     if register and reader_rc == 0:
         reader = {"line": reader_cmd, "registered": True}
     manifest = {
@@ -441,14 +475,20 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
     for line in hooks_out.splitlines():
         print(f"[flow]   {line}")
     print(f"[flow] provider hook wiring: not written (opt-in, not in {version})")
-    if register:
-        print(f"[flow] heartbeat reader: {'registered' if reader_rc == 0 else f'NOT registered (rc={reader_rc})'}: {reader_cmd}")
-        for out_line in reader_out.splitlines():
-            print(f"[flow]   {out_line}")
-    else:
+    if not register:
         print("[flow] heartbeat reader: " + ("registered earlier: " + reader["line"] if reader else
                                              "not scheduled (re-run install with --register-reader to schedule it)"))
-    return 0 if rc == 0 and reader_rc == 0 else 1
+    elif reader_rc == 0:
+        print(f"[flow] heartbeat reader: registered: {reader_cmd}")
+    else:
+        # Its own status: a refused or failed registration leaves the install's exit code alone (O-16).
+        print(f"[flow] heartbeat reader: NOT registered (status {reader_rc}); the install above is complete")
+    for out_line in reader_out.splitlines():
+        print(f"[flow]   {out_line}")
+    if register and reader_rc != 0:
+        where, line = by_hand(argv)
+        print(f"[flow]   add this line by hand ({where}): {line}")
+    return 0 if rc == 0 else 1
 
 
 def main(argv: list[str]) -> int:

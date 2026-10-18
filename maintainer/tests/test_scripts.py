@@ -174,7 +174,7 @@ class Reader(Workspace):
         sys.path.insert(0, str(CORE / "maintainer"))
         import flow
         calls: list[list[str]] = []
-        with mock.patch.object(flow, "register_reader", side_effect=lambda argv: calls.append(argv) or (0, "")):
+        with mock.patch.object(flow, "register_reader", side_effect=lambda argv, target: calls.append(argv) or (0, "")):
             plain = io.StringIO()
             with contextlib.redirect_stdout(plain):
                 self.assertEqual(flow.install(self.repo, {"claude", "codex"}), 0)
