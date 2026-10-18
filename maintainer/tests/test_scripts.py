@@ -402,5 +402,138 @@ class Validator(Workspace):
         self.assertIn("  B1 PASS (class live, minimum live)", out.stdout)
 
 
+CHECKS_BACKLOG = "# Backlog\n\n## B1 Sign-in\n- source: owner:2026-10-16\n- criterion: It works.\n- risk: none\n" \
+                 "- status: open\n- inputs:\n  - dep:zod\n"
+CHECKS_TIER = "schema_version: 1\ntrivial:\n  docs_only: ['docs/notes/**']\n  test: ['test/**']\n  copy: []\n" \
+              "vendored_paths: [_core, _web]\n"
+BLOCK = "".join(f"export function step{n}(value: number): number {{ return value * {n} + {n * 7}; }}\n" for n in range(25))
+
+
+class Checks(Workspace):
+    """Done check 4: each flag fires once and stays quiet once, on files and git only."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.base = commit(self.repo, {"policies/evidence-classes.yml": CHECKS_TIER, "docs/flow/backlog.md": CHECKS_BACKLOG,
+                                       "package.json": '{"name": "app", "dependencies": {}}\n',
+                                       "src/a/one.ts": BLOCK}, "init")
+        self.globs = "src/a/**`, `package.json`, `tsconfig.json`, `test/**"
+        self.estimate = "30m 2f"
+        self.plan()
+
+    def plan(self) -> None:
+        write(self.repo, "docs/flow/phases.md", phases_doc(self.base, [("T1", self.globs)])
+              .replace("| 30m 2f |", f"| {self.estimate} |"))
+
+    def at(self, when: str, files: dict[str, str], subject: str = "T1: work") -> None:
+        env = {**os.environ, "GIT_COMMITTER_DATE": when, "GIT_AUTHOR_DATE": when}
+        for rel, text in files.items():
+            write(self.repo, rel, text)
+            git(self.repo, "add", "--", rel)
+        subprocess.run([*GIT, "commit", "-q", "-m", subject], cwd=self.repo, env=env, check=True)
+
+    def returns(self, calls: object = 40, started: str = "2026-10-18T10:00:00Z") -> None:
+        write(self.repo, "state/returns/P1-S1.json", json.dumps({
+            "slice": "P1-S1", "role": "builder", "started": started, "finished": "2026-10-18T12:00:00Z",
+            "tasks": [], "tool_calls": calls, "blocked_at": None, "notes": ""}))
+
+    def checks(self, *extra: str) -> str:
+        out = run(str(LOCAL / "checks.py"), *(extra or ("P1-S1",)), "--root", str(self.repo), cwd=self.tmp)
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        return out.stdout
+
+    def kinds(self, text: str, word: str = "FLAG") -> list[str]:
+        return re.findall(rf"^  {word} (\S+?)(?:-[0-9a-f]{{8}})? check", text, re.M)
+
+    def test_scope_fires_on_a_new_file_outside_the_globs_and_stays_quiet_inside(self) -> None:
+        self.returns()
+        self.at("2026-10-18T10:10:00Z", {"src/a/two.ts": "export const a = 1;\n"})
+        out = self.checks()
+        self.assertNotIn("new", self.kinds(out))
+        self.assertIn("breadth: T1 `src/a/**` matches 2 files at HEAD", out)
+        self.at("2026-10-18T10:20:00Z", {"src/z/stray.ts": "export const z = 1;\n"})
+        out = self.checks()
+        self.assertEqual(self.kinds(out), ["new"])
+        rows = (self.repo / "state/flags/P1-S1.tsv").read_text(encoding="utf-8").splitlines()
+        self.assertEqual(rows[0], "id\tcheck\ttask\tevidence\truling")
+        self.assertRegex(rows[1], r"^new-[0-9a-f]{8}\t1\tT1\tsrc/z/stray.ts is under no task glob of the slice\t$")
+
+    def test_dependency_and_config_fire_and_stay_quiet_with_both_exemptions_logged(self) -> None:
+        self.returns()
+        self.at("2026-10-18T10:10:00Z", {"package.json": '{"name": "app", "dependencies": {"zod": "3.23.8"}}\n',
+                                         "tsconfig.json": '{"compilerOptions": {"strict": true, // on\n},}\n',
+                                         "test/env.test.ts": "const t = process.env.TEST_TOKEN;\n"})
+        out = self.checks()
+        self.assertEqual(self.kinds(out), [], out)
+        self.assertEqual(sorted(self.kinds(out, "LOG")), ["cfg", "cfg", "env"], out)
+        self.at("2026-10-18T10:20:00Z", {
+            "package.json": '{"name": "app", "engines": {"node": "22"}, "dependencies": {"zod": "3.23.8", "left-pad": '
+                            '"1.3.0"}}\n', "src/a/env.ts": "export const url = process.env.API_URL;\n"})
+        out = self.checks()
+        self.assertEqual(sorted(self.kinds(out)), ["cfg", "dep", "env"], out)
+        self.assertIn("left-pad, named by no item of the slice", out)
+        self.assertIn("API_URL, read in src/a/env.ts", out)
+
+    def test_budget_minutes_and_files_fire_past_2x_and_stay_quiet_under(self) -> None:
+        self.returns()
+        self.at("2026-10-18T10:50:00Z", {"src/a/two.ts": "1\n", "src/a/three.ts": "1\n", "src/a/four.ts": "1\n",
+                                         "test/a.test.ts": "1\n"})
+        self.assertEqual(self.kinds(self.checks()), [])
+        self.estimate = "20m 1f"
+        self.plan()
+        self.assertEqual(sorted(self.kinds(self.checks())), ["files", "minutes"])
+
+    def test_a_no_commit_span_of_201_calls_flags_and_199_does_not(self) -> None:
+        self.at("2026-10-18T10:10:00Z", {"src/a/two.ts": "1\n"})
+        self.returns({"total": 400, "before_first_work": 20, "between_commits": [199, 12]})
+        self.assertEqual(self.kinds(self.checks()), [])
+        self.returns({"total": 400, "before_first_work": 20, "between_commits": [201, 12]})
+        self.assertEqual(self.kinds(self.checks()), ["no-commit-calls"])
+
+    def test_orientation_of_136_calls_flags_and_134_does_not(self) -> None:
+        self.at("2026-10-18T10:10:00Z", {"src/a/two.ts": "1\n"})
+        self.returns({"total": 300, "before_first_work": 134, "between_commits": [40]})
+        self.assertEqual(self.kinds(self.checks()), [])
+        self.returns({"total": 300, "before_first_work": 136, "between_commits": [40]})
+        self.assertEqual(self.kinds(self.checks()), ["before-work-calls"])
+
+    def test_redundancy_fires_on_a_copied_block_and_stays_quiet_on_new_code_and_vendored_copies(self) -> None:
+        self.returns()
+        self.globs += "`, `_core/**"
+        self.plan()
+        self.at("2026-10-18T10:10:00Z", {"_core/copy.ts": BLOCK, "src/a/new.ts": BLOCK.replace("value", "input")
+                                         .replace("return", "const r =")})
+        self.assertEqual(self.kinds(self.checks()), [])
+        self.at("2026-10-18T10:20:00Z", {"src/a/copy.ts": BLOCK})
+        out = self.checks()
+        self.assertEqual(self.kinds(out), ["dup"])
+        self.assertRegex(out, r"src/a/copy.ts:1 repeats (_core/copy|src/a/one).ts:1, 25 lines")
+
+    def test_a_trivial_tier_slice_runs_no_scope_or_redundancy_flag(self) -> None:
+        self.returns()
+        self.at("2026-10-18T10:10:00Z", {"docs/notes/a.md": "a note\n", "docs/notes/b.md": BLOCK})
+        out = self.checks()
+        self.assertIn("trivial tier: yes (no flag 1 or 4, no rubric)", out)
+        self.assertEqual(self.kinds(out), [])
+        self.assertNotIn("breadth:", out)
+
+    def test_precision_reproduces_a_hand_count(self) -> None:
+        write(self.repo, "state/flags/P1-S1.tsv", "id\tcheck\ttask\tevidence\truling\n"
+              "new-00000001\t1\tT1\ta\tupheld\nnew-00000002\t1\tT1\tb\tupheld\nnew-00000003\t1\tT2\tc\trejected\n"
+              "outside-00000004\t1\tT2\td\t\ndup-00000005\t4\tT1\te\trejected\n")
+        out = self.checks("--precision", "P1-S1")
+        self.assertEqual(out.splitlines(), ["check 1: 2 upheld, 1 rejected, 1 open, precision 67%",
+                                            "check 4: 0 upheld, 1 rejected, 0 open, precision 0%"])
+
+    def test_a_rerun_keeps_the_planners_rulings(self) -> None:
+        self.returns()
+        self.at("2026-10-18T10:20:00Z", {"src/z/stray.ts": "export const z = 1;\n"})
+        self.checks()
+        path = self.repo / "state/flags/P1-S1.tsv"
+        path.write_text(path.read_text(encoding="utf-8").replace("slice\t\n", "slice\tupheld\n"), encoding="utf-8")
+        self.checks()
+        self.assertTrue(path.read_text(encoding="utf-8").endswith("\tupheld\n"))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

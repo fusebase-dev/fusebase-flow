@@ -13,7 +13,6 @@ import hashlib
 import json
 import re
 import sys
-from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
@@ -24,13 +23,6 @@ ADDED_SKIP = re.compile(r"^\+(?!\+\+).*\b(skip|todo)\b", re.I | re.M)
 RANK = {"unit": 0, "smoke": 1, "live": 2}
 NEEDS = {"auth": "live", "data": "live", "deploy_config": "live", "ui": "smoke"}  # a touched class -> minimum evidence
 RISK = {"auth": "live", "data": "live", "prod": "live"}  # the risk tag raises, never lowers
-
-
-def stamp(text: str) -> float | None:
-    try:
-        return datetime.fromisoformat(text.strip().replace("Z", "+00:00")).timestamp()
-    except ValueError:
-        return None
 
 
 def run_log(path: Path, header: str) -> dict | None:
@@ -72,7 +64,7 @@ def deploy_finished(root: Path, env: str) -> tuple[float, str] | None:
             value = str(json.loads(line).get("finished", ""))
         except (ValueError, AttributeError):
             continue
-        if (t := stamp(value)) is not None and (latest is None or t > latest[0]):
+        if (t := fd.stamp(value)) is not None and (latest is None or t > latest[0]):
             latest = (t, value)
     return latest
 
@@ -83,7 +75,7 @@ def flaky(root: Path, phase: str, row: dict, header: str) -> str | None:
         runs = [r.split("\t") for r in (root / "state/runs" / phase / "index.tsv").read_text("utf-8").splitlines()]
     except OSError:
         return None
-    runs = [r for r in runs if len(r) >= 4 and stamp(r[1]) is not None]
+    runs = [r for r in runs if len(r) >= 4 and fd.stamp(r[1]) is not None]
     here = (root / row["log"]).parent.resolve()
     current = next((r for r in runs if (root / r[2]).resolve() == here), None)
     if current is None:
@@ -93,7 +85,7 @@ def flaky(root: Path, phase: str, row: dict, header: str) -> str | None:
     except (ValueError, IndexError):
         names = {row["id"]}
     for run_id, started, folder, _ in (r[:4] for r in runs):
-        if stamp(started) < stamp(current[1]) and (log := run_log(root / folder / "README.md", header)):
+        if fd.stamp(started) < fd.stamp(current[1]) and (log := run_log(root / folder / "README.md", header)):
             if any(rec[1] in names and rec[2].startswith("FAIL") for rec in log["records"]):
                 return run_id
     return ""
@@ -138,7 +130,7 @@ def check_capture_row(root: Path, row: dict, pol: dict, phase: str, out: list[st
         problems.append("the run log records a FINDING behind this PASS")
     env = re.search(r"\(([^()]+)\)\s*$", log["title"])
     deployed = deploy_finished(root, env[1]) if env else None
-    started = stamp(log["records"][0][0]) if log["records"] else None
+    started = fd.stamp(log["records"][0][0]) if log["records"] else None
     if deployed and (started is None or started < deployed[0]):
         problems.append(f"the run started {log['records'][0][0] if log['records'] else '?'}, before the "
                         f"{env[1]} deploy finished {deployed[1]}")

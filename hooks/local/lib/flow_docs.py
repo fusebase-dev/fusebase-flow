@@ -6,6 +6,7 @@ import importlib.util
 import json
 import re
 import subprocess
+from datetime import datetime
 from pathlib import Path
 
 import yaml
@@ -22,6 +23,14 @@ def git(root: Path, *args: str) -> str:
     except (OSError, subprocess.TimeoutExpired):
         return ""
     return r.stdout.decode("utf-8", "replace") if r.returncode == 0 else ""
+
+
+def stamp(text: object) -> float | None:
+    """Epoch seconds of an ISO 8601 UTC time (2026-10-18T10:00:00Z, milliseconds allowed), else None."""
+    try:
+        return datetime.fromisoformat(str(text).strip().replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
 
 
 def uncomment(text: str) -> str:
@@ -114,6 +123,26 @@ def phases(root: Path) -> dict[str, dict]:
                                      "globs": re.findall(r"`([^`]+)`", cells[2]),
                                      "minutes": int(est[1]) if est else None, "files": int(est[2]) if est else None})
     return slices
+
+
+def reference(root: Path) -> str:
+    """phases.md's `- reference:` line (the reference project for every phase), or "none"."""
+    m = re.search(r"^-\s*reference:\s*(.+?)\s*$", read(root / PHASES).split("\n## ")[0], re.M)
+    return m[1] if m else "none"
+
+
+def slice_log(root: Path, sl: dict) -> list[tuple[str, str, list[str], str]]:
+    """(sha, subject, paths, task) of each commit since the phase's base whose subject carries a task of the slice."""
+    base, ids = sl["base"] or "", {t["id"] for t in sl["tasks"]}
+    if not SHA.fullmatch(base) or not git(root, "rev-parse", "--verify", "-q", f"{base}^{{commit}}"):
+        return []
+    return [(sha, s, paths, found[0]) for sha, s, paths in commits(root, base)
+            if (found := [i for i in TASK.findall(s) if i in ids])]
+
+
+def trivial(log: list, match, globs: list[str]) -> bool:
+    """A trivial-tier slice: it has commits and every path of every one is in the policy's trivial lists."""
+    return bool(log) and all(paths and all(match(p, globs) for p in paths) for _, _, paths, *_ in log)
 
 
 def commits(root: Path, base: str, head: str = "HEAD") -> list[tuple[str, str, list[str]]]:
