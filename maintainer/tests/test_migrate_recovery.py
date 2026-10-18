@@ -1,5 +1,5 @@
 """flow migrate: the undo of a completed migration, the rollback of a part-way apply and the finish-by-hand
-steps, each run as printed. `python maintainer/tests/test_migrate.py` runs these tests with the others.
+steps, each pasted as printed. `python maintainer/tests/test_migrate.py` runs these tests with the others.
 """
 from __future__ import annotations
 
@@ -20,6 +20,8 @@ HOOKS_5X = {f"hooks/git/{h}": f"#!/usr/bin/env bash\n# fusebase-flow-managed-hoo
             for h in ("pre-commit", "commit-msg", "pre-push")}
 # Husky v5 to v8 track their hooks here and set core.hooksPath to it on npm install (review S1)
 HUSKY = {".husky/pre-commit": "#!/usr/bin/env sh\n# the project's own Husky hook\nnpm test\n"}
+# the same core.autocrlf as the git() helper, so the restored files compare byte for byte
+AUTOCRLF_OFF = {"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "core.autocrlf", "GIT_CONFIG_VALUE_0": "false"}
 
 
 def plant_5x_hooks(clone: Path) -> None:
@@ -33,6 +35,12 @@ def assert_5x_hooks(test: unittest.TestCase, clone: Path) -> None:
         test.assertEqual(hook.read_bytes() if hook.is_file() else None, text.encode("utf-8"), rel)
 
 
+def hooks_in(clone: Path) -> dict[str, str]:
+    """The sha256 of each git hook in .git/hooks, or 'absent'."""
+    return {h: hashlib.sha256((clone / ".git/hooks" / h).read_bytes()).hexdigest()
+            if (clone / ".git/hooks" / h).is_file() else "absent" for h in ("pre-commit", "commit-msg", "pre-push")}
+
+
 def files_under(root: Path, folder: str) -> dict[str, str]:
     return {p.relative_to(root).as_posix(): p.read_text(encoding="utf-8")
             for p in sorted((root / folder).rglob("*")) if p.is_file()}
@@ -43,18 +51,27 @@ def tracked(clone: Path) -> dict[str, str]:
     return {p: hashlib.sha256((clone / p).read_bytes()).hexdigest() for p in paths if p}
 
 
-def steps(output: str) -> list[str]:
-    """The commands a message prints as `[flow migrate]   $ <command>`."""
-    return [line.split("$ ", 1)[1] for line in output.splitlines() if line.startswith("[flow migrate]   $ ")]
+def pasted(output: str) -> str:
+    """The block an output prints for the operator to paste, `( set -e` to `)`, as printed."""
+    lines = output.splitlines()
+    start = lines.index("( set -e")
+    return "\n".join(lines[start:lines.index(")", start) + 1]) + "\n"
 
 
-def run_steps(test: unittest.TestCase, clone: Path, commands: list[str]) -> None:
-    # the same core.autocrlf as the git() helper, so the restored files compare byte for byte
-    env = dict(os.environ, GIT_CONFIG_COUNT="1", GIT_CONFIG_KEY_0="core.autocrlf", GIT_CONFIG_VALUE_0="false")
-    for step in commands:
-        done = subprocess.run([shutil.which("bash") or "bash", "-c", step], cwd=clone, env=env,
-                              capture_output=True, text=True, timeout=600)
-        test.assertEqual(done.returncode, 0, f"{step}\n{done.stdout}{done.stderr}")
+def paste(clone: Path, text: str, env: dict[str, str] | None = None) -> tuple[int | None, str]:
+    """Pastes `text` into one bash session as a unit: its exit status (None when it ended the session, as a top-level
+    set -e or exit ends the operator's shell) and the session's output."""
+    done = subprocess.run([shutil.which("bash") or "bash"], input=(text + 'echo "block exit=$?"\n').encode("utf-8"),
+                          cwd=clone, env=env or dict(os.environ, **AUTOCRLF_OFF), capture_output=True, timeout=1800)
+    out = (done.stdout + done.stderr).decode("utf-8", "replace")
+    status = [line for line in out.splitlines() if line.startswith("block exit=")]
+    return (int(status[-1][len("block exit="):]) if status else None), out
+
+
+def copy_of(clone: Path, dst: Path) -> Path:
+    """A copy of a migrated clone, .git included, for one test to change."""
+    shutil.copytree(clone, dst, symlinks=True)
+    return dst
 
 
 def outside_backup(snap: tuple[str, dict[str, str]]) -> tuple[str, dict[str, str]]:
@@ -63,12 +80,15 @@ def outside_backup(snap: tuple[str, dict[str, str]]) -> tuple[str, dict[str, str
 
 class Interrupted(unittest.TestCase):
     def test_a_stop_right_after_removal_prints_the_rollback_and_no_commit(self) -> None:
-        self.rolled_back(hooks_path=False)
+        self.rolled_back(hooks_path=False, locked=False)
 
     def test_the_rollback_puts_the_hooks_back_in_git_hooks_when_core_hookspath_is_set(self) -> None:
-        self.rolled_back(hooks_path=True)
+        self.rolled_back(hooks_path=True, locked=False)
 
-    def rolled_back(self, hooks_path: bool) -> None:
+    def test_a_failing_step_stops_the_rollback_with_nothing_else_changed(self) -> None:
+        self.rolled_back(hooks_path=False, locked=True)
+
+    def rolled_back(self, hooks_path: bool, locked: bool) -> None:
         sys.path.insert(0, str(FLOW.parent))
         import migrate as mig
         import migrate_apply as mapply
@@ -91,9 +111,18 @@ class Interrupted(unittest.TestCase):
             self.assertEqual(run.returncode, 1, run.stdout + run.stderr)
             self.assertIn("stopped part-way", run.stdout)
             self.assertNotIn("git commit", run.stdout)
-            rollback = steps(run.stdout)
-            self.assertFalse([s for s in rollback if "checkout -- ." in s or "reset" in s], rollback)
-            run_steps(self, clone, rollback)
+            rollback = pasted(run.stdout)
+            self.assertFalse("checkout -- ." in rollback or "reset" in rollback, rollback)
+            if locked:  # another git process holds the index, so the block's first step fails
+                (clone / ".git/index.lock").write_bytes(b"")
+                stopped, hooks = snapshot(clone), hooks_in(clone)
+                status, out = paste(clone, rollback)
+                self.assertEqual(hooks_in(clone), hooks, f".git/hooks changed after the first step failed:\n{out}")
+                self.assertEqual(snapshot(clone), stopped, f"the tree changed after the first step failed:\n{out}")
+                self.assertTrue(status, f"block exit={status}:\n{out}")
+                (clone / ".git/index.lock").unlink()
+            status, out = paste(clone, rollback)
+            self.assertEqual(status, 0, out)
             assert_5x_hooks(self, clone)
             self.assertEqual(files_under(clone, ".husky"), HUSKY)
             self.assertEqual(outside_backup(before), outside_backup(snapshot(clone)))  # the operator's edit included
@@ -107,7 +136,8 @@ class Interrupted(unittest.TestCase):
 
 
 class Undo(unittest.TestCase):
-    """A completed migration in a folder whose path has a space, undone by the steps it printed, run as printed."""
+    """A completed migration in a folder whose path has a space, undone by the block it printed, pasted as printed.
+    Each test pastes it into its own copy of the migrated clone."""
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -118,10 +148,8 @@ class Undo(unittest.TestCase):
         (cls.clone / "hooks/shared/__pycache__/x.cpython-312.pyc").write_bytes(b"\x00untracked bytecode")
         cls.pre, cls.before = git(cls.clone, "rev-parse", "HEAD").stdout.strip(), tracked(cls.clone)
         cls.applied = migrate(cls.clone, "--apply", "--go-ahead")
-        cls.undo = steps(cls.applied.stdout.split("to undo the migration", 1)[-1])
+        cls.undo = pasted(cls.applied.stdout.split("to undo the migration", 1)[-1]) if not cls.applied.returncode else ""
         cls.stamp = next(cls.clone.glob(".flow-migrate-*")).name.split("-")[-1]
-        cls.husky = cls.tmp / "husky"  # each undo test runs on its own copy of the migrated clone
-        shutil.copytree(cls.clone, cls.husky, symlinks=True)
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -129,33 +157,51 @@ class Undo(unittest.TestCase):
 
     def test_the_printed_undo_restores_the_tree_and_the_5x_hooks(self) -> None:
         self.assertEqual(self.applied.returncode, 0, self.applied.stdout + self.applied.stderr)
-        self.assertEqual(len(self.undo), 3, self.applied.stdout)
+        self.assertEqual(len(self.undo.splitlines()), 5, self.undo)
         ledger = blob(self.clone, "HEAD:docs/flow/ledger.md").decode("utf-8")
         for text in (self.applied.stdout, ledger):
             self.assertNotIn("reset --hard", text)
-            self.assertTrue(all(step in text for step in self.undo))
-        run_steps(self, self.clone, self.undo)
-        self.assertEqual(git(self.clone, "rev-parse", "HEAD").stdout.strip(), self.pre)
-        self.assertEqual(git(self.clone, "status", "--porcelain", "--untracked-files=no").stdout, "")
-        self.assertEqual(tracked(self.clone), self.before)
-        assert_5x_hooks(self, self.clone)
-        self.assertTrue((self.clone / "hooks/shared/__pycache__/x.cpython-312.pyc").is_file())
+            self.assertIn(self.undo, text)
+        clone = copy_of(self.clone, self.tmp / "undone")
+        status, out = paste(clone, self.undo)
+        self.assertEqual(status, 0, out)
+        self.assertEqual(git(clone, "rev-parse", "HEAD").stdout.strip(), self.pre)
+        self.assertEqual(git(clone, "status", "--porcelain", "--untracked-files=no").stdout, "")
+        self.assertEqual(tracked(clone), self.before)
+        assert_5x_hooks(self, clone)
+        self.assertTrue((clone / "hooks/shared/__pycache__/x.cpython-312.pyc").is_file())
 
     def test_the_undo_puts_the_hooks_back_in_git_hooks_when_core_hookspath_is_set(self) -> None:
         self.assertEqual(self.applied.returncode, 0, self.applied.stdout + self.applied.stderr)
-        git(self.husky, "config", "core.hooksPath", ".husky")
-        run_steps(self, self.husky, self.undo)
-        assert_5x_hooks(self, self.husky)
-        self.assertEqual(files_under(self.husky, ".husky"), HUSKY)
-        self.assertEqual(tracked(self.husky), self.before)
+        clone = copy_of(self.clone, self.tmp / "husky")
+        git(clone, "config", "core.hooksPath", ".husky")
+        status, out = paste(clone, self.undo)
+        self.assertEqual(status, 0, out)
+        assert_5x_hooks(self, clone)
+        self.assertEqual(files_under(clone, ".husky"), HUSKY)
+        self.assertEqual(tracked(clone), self.before)
+
+    def test_a_failing_first_step_stops_the_undo_with_nothing_else_changed(self) -> None:
+        self.assertEqual(self.applied.returncode, 0, self.applied.stdout + self.applied.stderr)
+        clone = copy_of(self.clone, self.tmp / "dirty")
+        with open(clone / "docs/flow/ledger.md", "a", encoding="utf-8", newline="\n") as fh:
+            fh.write("a row the 6.0 lifecycle wrote, not committed yet\n")  # git checkout -b refuses to drop it
+        before, hooks, head = snapshot(clone), hooks_in(clone), git(clone, "rev-parse", "HEAD").stdout.strip()
+        status, out = paste(clone, self.undo)
+        self.assertEqual(hooks_in(clone), hooks, f".git/hooks changed after the first step failed:\n{out}")
+        self.assertFalse((clone / "hooks/shared/__pycache__/x.cpython-312.pyc").exists(), "an untracked file was copied")
+        self.assertEqual(snapshot(clone), before, out)
+        self.assertTrue(status, f"block exit={status}:\n{out}")
+        self.assertIn("would be overwritten by checkout", out)
+        self.assertEqual(git(clone, "rev-parse", "HEAD").stdout.strip(), head)
+        self.assertEqual(git(clone, "branch", "--list", "flow-5x-*").stdout, "")
 
     def test_the_release_note_states_the_printed_undo_word_for_word(self) -> None:
         core = FLOW.parents[1]
         note = (core / "maintainer/release-notes" / f"v{(core / 'VERSION').read_text().strip()}.md").read_text("utf-8")
-        block = note.split("```\ngit checkout -b flow-5x-", 1)[-1].split("```", 1)[0]
-        printed = [s.replace(self.stamp, "<UTC time>").replace(self.pre, "<the pre-migration commit>")
-                   for s in self.undo]
-        self.assertEqual(("git checkout -b flow-5x-" + block).splitlines(), printed)
+        start = note.index("( set -e\n  git checkout -b flow-5x-")
+        printed = self.undo.replace(self.stamp, "<UTC time>").replace(self.pre, "<the pre-migration commit>")
+        self.assertEqual(note[start:note.index("\n)\n", start) + 3], printed)
 
 
 MINT = "FF_BOOTSTRAP_TTL_MIN=30 bash hooks/local/write-bootstrap-approval.sh --slug flow-migrate"
@@ -179,30 +225,24 @@ class CommitFailure(unittest.TestCase):
     def tearDownClass(cls) -> None:
         shutil.rmtree(cls.tmp, ignore_errors=True)
 
-    def copy(self, name: str) -> Path:
-        shutil.copytree(self.clone, self.tmp / name, symlinks=True)
-        return self.tmp / name
-
     def test_a_failed_commit_keeps_the_approval_and_every_printed_step_finishes_it_twice(self) -> None:
         run, plain, pre = self.failed, self.plain, self.pre
         self.assertEqual(run.returncode, 1, run.stdout + run.stderr)
         self.assertIn("lint failed", run.stdout + run.stderr)
-        clone = self.copy("twice")
+        clone = copy_of(self.clone, self.tmp / "twice")
         kept = sorted((clone / "state/approvals").glob("protected_path_edit-flow-migrate-*.json"))
         self.assertEqual(len(kept), 1, "the approval was consumed although the commit failed")
-        commands = steps(run.stdout)
-        self.assertIn(MINT, commands)
-        self.assertEqual(commands[-1], CONSUME)
+        text = pasted(run.stdout)
+        self.assertIn(f"  {MINT}", text.splitlines())
+        self.assertEqual(text.splitlines()[-2:], [f"  {CONSUME}", ")"])
         again = migrate(clone, env=plain)
         self.assertEqual(again.returncode, 1, again.stdout)
         self.assertIn("applied but not committed", again.stdout)
-        self.assertEqual(steps(again.stdout), commands)
+        self.assertEqual(pasted(again.stdout), text)
         message = next(clone.glob(".flow-migrate-*/.migrate/message.txt")).read_text(encoding="utf-8")
-        for attempt in (1, 2):  # the cause is gone; every step is safe to run again
-            for step in commands:
-                done = subprocess.run([shutil.which("bash") or "bash", "-c", step], cwd=clone, env=plain,
-                                      capture_output=True, text=True, timeout=1800)
-                self.assertEqual(done.returncode, 0, f"attempt {attempt}: {step}\n{done.stdout}{done.stderr}")
+        for attempt in (1, 2):  # the cause is gone; the whole block is safe to paste again
+            status, out = paste(clone, text, plain)
+            self.assertEqual(status, 0, f"attempt {attempt}:\n{out}")
             self.assertEqual(git(clone, "status", "--porcelain").stdout, "")
             self.assertEqual(sorted(p.name for p in (clone / "state/approvals").iterdir()), [".gitkeep"])
             self.assertEqual(git(clone, "rev-parse", "HEAD~1").stdout.strip(), pre)
@@ -211,22 +251,20 @@ class CommitFailure(unittest.TestCase):
 
     def test_another_staged_path_stops_the_steps_before_the_commit(self) -> None:
         self.assertEqual(self.failed.returncode, 1, self.failed.stdout + self.failed.stderr)
-        clone = self.copy("stray")
+        clone = copy_of(self.clone, self.tmp / "stray")
         (clone / "notes.txt").write_text("the operator's own change\n", encoding="utf-8")
         git(clone, "add", "--", "notes.txt")
-        ran = []
-        for step in steps(self.failed.stdout):  # in order, as printed, up to the first step that fails
-            ran.append((step, subprocess.run([shutil.which("bash") or "bash", "-c", step], cwd=clone, env=self.plain,
-                                             capture_output=True, text=True, timeout=1800)))
-            if ran[-1][1].returncode:
-                break
+        approval = next((clone / "state/approvals").glob("protected_path_edit-flow-migrate-*.json"))
+        kept = approval.read_bytes()
+        status, out = paste(clone, pasted(self.failed.stdout), self.plain)
         head = git(clone, "show", "--name-only", "--format=%s", "HEAD").stdout.splitlines()
         self.assertEqual(git(clone, "rev-parse", "HEAD").stdout.strip(), self.pre,
-                         f"the steps committed '{head[0]}', {len(head) - 2} paths, notes.txt among them: {'notes.txt' in head}")
+                         f"the block committed '{head[0]}', {len(head) - 2} paths, notes.txt among them: "
+                         f"{'notes.txt' in head}")
         self.assertIn("notes.txt", git(clone, "diff", "--cached", "--name-only").stdout.split())
-        step, done = ran[-1]
-        self.assertTrue(done.returncode and "grep" in step, step)
-        self.assertIn("notes.txt", done.stdout + done.stderr)
+        self.assertTrue(status, f"block exit={status}:\n{out}")
+        self.assertIn("notes.txt\nSTOPPED: the paths above are staged but are not part of the migration", out)
+        self.assertEqual(approval.read_bytes(), kept, "the block went on to the mint")
 
 
 if __name__ == "__main__":

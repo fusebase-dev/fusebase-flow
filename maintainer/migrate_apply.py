@@ -28,14 +28,15 @@ TRACKED = "tracked.txt"  # the tracked paths the apply may change: the rollback 
 HOOKS_STEP = ('for h in pre-commit commit-msg pre-push; do if [ -f "{backup}/.git-hooks/$h" ]; then '
               'cp -p -- "{backup}/.git-hooks/$h" "$(git rev-parse --git-common-dir)/hooks/$h"; '
               'else rm -f -- "$(git rev-parse --git-common-dir)/hooks/$h"; fi; done')
-# The undo of a completed migration (owner, 2026-10-17): no reset --hard. The release note states the same lines with
+# The undo of a completed migration (owner, 2026-10-17): no reset --hard. The release note states the same block with
 # <UTC time> and <the pre-migration commit> in place of {stamp} and {commit}; maintainer/tests checks them.
 UNDO = ("git checkout -b flow-5x-{stamp} {commit}", HOOKS_STEP.replace("{backup}", BACKUP_PREFIX + "{stamp}"),
-        'while IFS= read -r p; do mkdir -p -- "$(dirname -- "$p")" && cp -p -- "' + BACKUP_PREFIX + '{stamp}/$p" "$p"; '
+        'while IFS= read -r p; do mkdir -p -- "$(dirname -- "$p")"; cp -p -- "' + BACKUP_PREFIX + '{stamp}/$p" "$p"; '
         'done < "' + BACKUP_PREFIX + "{stamp}/" + JOURNAL + "/" + UNTRACKED + '"')
-UNDO_INTRO = ("to undo the migration, run these in order from the project's top level in Git Bash: they check out the "
-              "pre-migration commit on a new branch, put the 5.x git hooks back and restore the untracked files the "
-              "migration removed or overwrote; the branch you migrated keeps the migration commit")
+UNDO_INTRO = ("to undo the migration, paste this block into Git Bash at the project's top level, as one unit: it checks "
+              "out the pre-migration commit on a new branch, puts the 5.x git hooks back and restores the untracked "
+              "files the migration removed or overwrote, and stops at the first step that fails; the branch you "
+              "migrated keeps the migration commit")
 SLUG = "flow-migrate"
 MINT = f"FF_BOOTSTRAP_TTL_MIN=30 bash hooks/local/write-bootstrap-approval.sh --slug {SLUG}"
 CONSUME = f"bash hooks/local/write-bootstrap-approval.sh --consume --slug {SLUG}"
@@ -43,6 +44,21 @@ CONSUME = f"bash hooks/local/write-bootstrap-approval.sh --consume --slug {SLUG}
 
 def say(line: str) -> None:
     print(f"[flow migrate] {line}".rstrip())
+
+
+def block(steps: list[str]) -> list[str]:
+    """Steps as one block to paste into Git Bash, a subshell that stops at the first failing step (owner, 2026-10-18).
+    TRIPWIRE: never a top-level set -e, which closes the operator's shell; and set -e ignores a failure anywhere in an
+    && or || list but its last command, so a command whose failure must stop the block ends with `;`, not `&&`."""
+    return ["( set -e", *(f"  {step}" for step in steps), ")"]
+
+
+def show(intro: list[str], steps: list[str]) -> None:
+    """Prints the intro, then the block without the [flow migrate] prefix, so it pastes as printed."""
+    for line in intro:
+        say(line)
+    print("\n".join(block(steps)))
+    sys.stdout.flush()
 
 
 def source(target: Path, rel: str) -> Path:
@@ -92,7 +108,7 @@ def backup(inv: m.Inventory, stamp: str) -> tuple[Path, list[str]]:
 
 
 def undo_steps(folder: Path, commit: str) -> list[str]:
-    """UNDO with this migration's values."""
+    """UNDO with this migration's values (block() wraps them)."""
     return [line.format(stamp=folder.name[len(BACKUP_PREFIX):], commit=commit) for line in UNDO]
 
 
@@ -209,7 +225,7 @@ def migration_report(inv: m.Inventory, stamp: str, folder: Path, backed: int, mo
         f"- hidden by .gitignore: {', '.join(inv.hidden) or 'none'}",
         f"- hook wiring (left as is): {inv.wiring}",
         "- not run: check-cli-flow-conflicts.sh and the health check (neither is in the 6.0 core yet)",
-        f"- {UNDO_INTRO}:", "", "```", *undo_steps(folder, inv.head), "```",
+        f"- {UNDO_INTRO}:", "", "```", *block(undo_steps(folder, inv.head)), "```",
     ]
     return lines
 
@@ -278,7 +294,7 @@ def complete(inv: m.Inventory, folder: Path) -> None:
         f"chore(flow): {inv.task} migrate Fusebase Flow {inv.version} to {core}\n\n"
         f"flow.py migrate --apply --go-ahead: remove {len(inv.removals())}, replace {len(inv.replace)}, "
         f"new {len(inv.new)}; the migration report leads docs/flow/ledger.md.\n"
-        f"Backup: {folder.name}/ (excluded). Undo: the steps at the end of the migration report.\n").encode("utf-8"),
+        f"Backup: {folder.name}/ (excluded). Undo: the block at the end of the migration report.\n").encode("utf-8"),
         False)
 
 
@@ -323,8 +339,7 @@ def commit(inv: m.Inventory, folder: Path) -> int:
     say(f"approval: {(mint.stdout + mint.stderr).strip()}")
     if mint.returncode:
         say("STOPPED: the approval was not minted; nothing committed")
-        for line in finish_steps(target, folder):
-            say(line)
+        show(*finish_steps(target, folder))
         return 1
     say(f"committing through the hooks: {message.splitlines()[0]}")
     sys.stdout.flush()
@@ -339,17 +354,14 @@ def commit(inv: m.Inventory, folder: Path) -> int:
         found, expires = approval(target)
         say(f"STOPPED: {failed}. The migration is applied and staged; HEAD is still {inv.head[:8]}, the backup "
             "folder holds every file" + (f", and the approval {found.name} stays until {expires}" if found else ""))
-        for line in finish_steps(target, folder):
-            say(line)
+        show(*finish_steps(target, folder))
         return 1
     used = bash(target, "hooks/local/write-bootstrap-approval.sh", "--consume", "--slug", SLUG)
     say(f"approval: {(used.stdout + used.stderr).strip()}")
     left = sorted(p.name for p in (target / "state/approvals").glob("*") if p.name != ".gitkeep")
     say(f"state/approvals/: {', '.join(left) if left else 'empty'}")
     say(f"committed: {m.git(target, 'log', '-1', '--format=%h %s').stdout.decode('utf-8').strip()}")
-    say(f"{UNDO_INTRO}:")
-    for line in undo_steps(folder, inv.head):
-        say(f"  $ {line}")
+    show([f"{UNDO_INTRO}:"], undo_steps(folder, inv.head))
     return 0
 
 
@@ -369,53 +381,54 @@ def guard_step(target: Path, folder: Path) -> str:
     lists = " ".join(f'-f "{rel}/{JOURNAL}/{name}"' for name in (DELETE, STAGE) if (folder / JOURNAL / name).is_file())
     return (f"if git diff --cached --name-only --no-renames | grep -vxF {lists}; then echo \"STOPPED: the paths above "
             "are staged but are not part of the migration: unstage each with git restore --staged -- <path> (the file "
-            "keeps your edit), then run these steps again\"; false; fi")
+            "keeps your edit), then paste this block again\"; false; fi")
 
 
-def finish_steps(target: Path, folder: Path) -> list[str]:
-    """The by-hand end of a complete migration: stage, check nothing else is staged, mint, commit with the journal's
-    message, consume."""
+def finish_steps(target: Path, folder: Path) -> tuple[list[str], list[str]]:
+    """The by-hand end of a complete migration (its intro, its steps): stage, check nothing else is staged, mint, commit
+    with the journal's message, consume."""
     rel = folder.relative_to(target).as_posix()
     found, expires = approval(target)
-    lines = ["finish it by hand once the cause is fixed: run these in order from the project's top level in Git Bash, "
-             "and stop at a step that fails; each step is safe to run again, and a second run of all of them changes "
-             "nothing"]
+    intro = ["finish it by hand once the cause is fixed: paste this block into Git Bash at the project's top level, as "
+             "one unit; it stops at the first step that fails, and a second run changes nothing"]
     if found:
-        lines.append(f"  (the approval {found.name} stays until {expires or 'its TTL'}; the mint step replaces it with "
-                     "one bound to the same staged paths, so the steps work after the TTL too)")
-    return lines + [f"  $ {printed(args)}" for args in stage_commands(target, folder)] + [
-        f"  $ {guard_step(target, folder)}", f"  $ {MINT}",
-        f'  $ git diff --cached --quiet || git commit -F "{rel}/{JOURNAL}/{MESSAGE}"', f"  $ {CONSUME}"]
+        intro.append(f"  (the approval {found.name} stays until {expires or 'its TTL'}; the mint step replaces it with "
+                     "one bound to the same staged paths, so the block works after the TTL too)")
+    return intro, [printed(args) for args in stage_commands(target, folder)] + [
+        guard_step(target, folder), MINT, f'git diff --cached --quiet || git commit -F "{rel}/{JOURNAL}/{MESSAGE}"',
+        CONSUME]
 
 
 def rollback_steps(target: Path, folder: Path | None) -> list[str]:
     """Undoes a part-way apply from its journal: the paths it changed, from HEAD and the backup folder, and the hooks."""
     if folder is None:
-        return [f"  $ git --literal-pathspecs restore --source=HEAD --staged --worktree -- {m.MC_MANIFEST}",
-                "  (no .flow-migrate-* folder, so no record of anything else the apply changed: `git status` shows it)"]
+        return [f"git --literal-pathspecs restore --source=HEAD --staged --worktree -- {m.MC_MANIFEST}"]
     rel = folder.relative_to(target).as_posix()
     journal = lambda name: (folder / JOURNAL / name).is_file() and (folder / JOURNAL / name).stat().st_size
-    lines = []
+    steps = []
     if journal(TRACKED):  # restore and rm exit 128 on an empty pathspec file
-        lines.append("  $ git --literal-pathspecs restore --source=HEAD --staged --worktree "
+        steps.append("git --literal-pathspecs restore --source=HEAD --staged --worktree "
                      f'--pathspec-from-file="{rel}/{JOURNAL}/{TRACKED}"')
     if journal(CREATED):
-        lines += ["  $ git --literal-pathspecs rm -q -f --cached --ignore-unmatch "
+        steps += ["git --literal-pathspecs rm -q -f --cached --ignore-unmatch "
                   f'--pathspec-from-file="{rel}/{JOURNAL}/{CREATED}"',
-                  f'  $ while IFS= read -r p; do rm -f -- "$p"; rmdir -p -- "$(dirname -- "$p")" 2>/dev/null; '
-                  f'done < "{rel}/{JOURNAL}/{CREATED}"; true']
+                  f'while IFS= read -r p; do rm -f -- "$p"; rmdir -p -- "$(dirname -- "$p")" 2>/dev/null || true; '
+                  f'done < "{rel}/{JOURNAL}/{CREATED}"']
     if journal(UNTRACKED):
-        lines.append(f'  $ while IFS= read -r p; do mkdir -p -- "$(dirname -- "$p")" && cp -p -- "{rel}/$p" "$p"; '
+        steps.append(f'while IFS= read -r p; do mkdir -p -- "$(dirname -- "$p")"; cp -p -- "{rel}/$p" "$p"; '
                      f'done < "{rel}/{JOURNAL}/{UNTRACKED}"')
-    return lines + [f"  $ {HOOKS_STEP.replace('{backup}', rel)}"]
+    return steps + [HOOKS_STEP.replace("{backup}", rel)]
 
 
 def stopped_part_way(target: Path, folder: Path | None) -> int:
-    say("the apply stopped part-way: do not commit this tree. Roll it back with these steps, in order, from the "
-        "project's top level in Git Bash: they restore the paths the apply changed, from HEAD and the backup folder, "
-        "and the git hooks, and leave every other edit as it is. Then fix the cause and run the migration again:")
-    for line in rollback_steps(target, folder):
-        say(line)
+    intro = ["the apply stopped part-way: do not commit this tree. Roll it back: paste this block into Git Bash at the "
+             "project's top level, as one unit; it restores the paths the apply changed, from HEAD and the backup "
+             "folder, and the git hooks, leaves every other edit as it is, and stops at the first step that fails. Then "
+             "fix the cause and run the migration again:"]
+    if folder is None:
+        intro.append("(no .flow-migrate-* folder, so no record of anything else the apply changed: `git status` shows "
+                     "it)")
+    show(intro, rollback_steps(target, folder))
     return 1
 
 
@@ -426,8 +439,7 @@ def resume(target: Path) -> int:
     if folder and (folder / JOURNAL / STAGE).is_file() and (folder / JOURNAL / MESSAGE).is_file():
         say(f"STOPPED: the migration is applied but not committed (HEAD still carries Flow 5.x; "
             f"{folder.name}/{JOURNAL}/{STAGE} lists the paths of the migration commit)")
-        for line in finish_steps(target, folder):
-            say(line)
+        show(*finish_steps(target, folder))
         return 1
     say(f"STOPPED: an apply stopped part-way: {m.MC_MANIFEST} is gone from the tree, HEAD still carries it"
         + ("" if (target / flow.MANIFEST).is_file() else f", and there is no {flow.MANIFEST}")
