@@ -167,7 +167,7 @@ def validate(root: Path, target: str, file: str | None = None) -> tuple[int, lis
     for item in wanted:
         mine = [r for r in rows if r["id"] == item]
         need = minimum(item, {t["id"] for t in tasks if t["item"] == item}, log, items, classes, match)
-        problems, actual, detail = [], "unit", []
+        problems, actual, detail = [], "unit" if len(mine) == 1 else "-", []
         if len(mine) != 1:
             problems.append(f"{len(mine)} rows; exactly one is needed")
         elif not re.fullmatch(str(pol.get("row_status", "^PASS$")), mine[0]["status"]):

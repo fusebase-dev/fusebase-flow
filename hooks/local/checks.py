@@ -241,7 +241,8 @@ def run(root: Path, slice_id: str) -> tuple[int, list[str]]:
     budget, budget_logs = budget_flags(root, sl, log, test, match, slice_id)
     flags += dep_flags + budget + ([] if trivial else duplicate_flags(root, base, log, head_files, pol.get("vendored_paths") or []))
     rows = write_flags(root, slice_id, flags)
-    out += [f"  FLAG {fid} check {check} {task}: {evidence}" for fid, check, task, evidence, _ in rows]
+    out += [f"  FLAG {fid} check {check} {task}: {evidence}" + (f" [{ruling}]" if ruling else "")
+            for fid, check, task, evidence, ruling in rows]
     out += [f"  LOG {kind} check {check} {task}: {ev}" for check, kind, task, ev in logs + budget_logs]
     out.append(f"CHECKS: {len(rows)} flags in state/flags/{slice_id}.tsv, {len(logs + budget_logs)} logged")
     return 0, out

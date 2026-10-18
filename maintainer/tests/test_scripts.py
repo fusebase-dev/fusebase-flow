@@ -627,5 +627,78 @@ class Slicer(Workspace):
         self.assertNotIn("feature_not_asked", out.stdout)
 
 
+GATE_BACKLOG = BACKLOG.format(risk="auth").replace("- test: test/auth.test.ts::magic link expires\n- risk: none",
+                                                    "- criterion: Deleting a link keeps the account.\n- risk: data")
+VERDICTS = ("2026-10-18T10:00Z verdict P1-S1 result=FAIL agent=r1 -- the banner text contradicts owner answer A2\n"
+            "2026-10-18T11:00Z verdict P1-S1 result=FAIL agent=r2 -- privacy: the email address is written to the log\n")
+
+
+class Gate(Workspace):
+    """Done check 6."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        approval = (CORE / "policies/approval-policy.yml").read_text(encoding="utf-8")
+        self.base = commit(self.repo, {"policies/approval-policy.yml": approval, "policies/evidence-classes.yml": TIER,
+                                       "docs/flow/backlog.md": GATE_BACKLOG}, "init")
+        write(self.repo, "docs/flow/phases.md", phases_doc(self.base, [("T1", "src/a/**"), ("T2", "src/b/**")])
+              .replace("| T2 | B1 |", "| T2 | B2 |"))
+        commit(self.repo, {"src/a/x.ts": "export const x = 1;\n"}, "T1: the first part")
+
+    def gate(self) -> subprocess.CompletedProcess:
+        return run(str(LOCAL / "gate.py"), "P1-S1", "--root", str(self.repo), cwd=self.tmp)
+
+    def test_the_gate_writes_its_three_blocks(self) -> None:
+        out = self.gate()
+        self.assertEqual(out.returncode, 1, out.stdout + out.stderr)
+        text = (self.repo / "state/gate/P1-S1.txt").read_text(encoding="utf-8")
+        self.assertEqual(re.findall(r"^## (\w+)$", text, re.M), ["DONE", "Checks", "Evidence"])
+        self.assertIn("0 of 2 rounds used", text)
+        self.assertIn("T2 OPEN: no commit carries it alone in its subject", text)
+        self.assertIn("GATE: FAIL: send P1-S1 back to build", text)
+
+    def test_two_recorded_verdicts_exhaust_two_rounds_with_the_carry_over_in_order(self) -> None:
+        write(self.repo, "docs/flow/ledger.md", "status: state/status.line\n\n## Records\n" + VERDICTS)
+        out = self.gate()
+        self.assertEqual(out.returncode, 3, out.stdout + out.stderr)
+        self.assertIn("BLOCKED-AT-gate-budget: 2 verdicts recorded for P1-S1, gate_rounds 2", out.stdout)
+        listed = re.findall(r"^(\d+)\. \[([a-z-]+)\] (.*)$", out.stdout, re.M)
+        self.assertEqual([int(n) for n, _, _ in listed], list(range(1, len(listed) + 1)))
+        self.assertEqual([c for _, c, _ in listed][:4], ["security", "privacy", "data-loss", "owner-answer"])
+        self.assertTrue(listed[0][2].startswith("B1 (risk auth) FAIL"), listed[0])
+        self.assertIn("the email address is written to the log", listed[1][2])
+        self.assertTrue(listed[2][2].startswith("B2 (risk data) FAIL"), listed[2])
+        self.assertIn("contradicts owner answer A2", listed[3][2])
+        self.assertEqual({c for _, c, _ in listed[4:]}, {"other"})
+        self.assertIn("T2 OPEN", out.stdout.split("Carry-over")[1])
+
+    def test_a_local_override_lowers_the_rounds_and_never_raises_them(self) -> None:
+        write(self.repo, "docs/flow/ledger.md", "## Records\n" + VERDICTS.splitlines()[0] + "\n")
+        write(self.repo, "policies/approval-policy.local.yml", "gate_rounds: 1\n")
+        self.assertEqual(self.gate().returncode, 3)
+        write(self.repo, "policies/approval-policy.local.yml", "gate_rounds: 5\n")
+        self.assertEqual(self.gate().returncode, 1)
+
+
+class PolicyKeys(unittest.TestCase):
+    """The acceptance: no policy key that no script reads."""
+
+    def test_every_evidence_classes_key_is_read_by_a_script(self) -> None:
+        doc = yaml.safe_load((CORE / "policies/evidence-classes.yml").read_text(encoding="utf-8"))
+        code = "".join(p.read_text(encoding="utf-8") for p in [*LOCAL.glob("*.py"), LOCAL / "lib/flow_docs.py"])
+        unread = [k for k in [*doc, *doc["capture_min_bytes"]] if f'"{k}"' not in code]
+        self.assertEqual(unread, [])
+        sys.path.insert(0, str(LOCAL / "lib"))
+        sys.path.insert(0, str(LOCAL))
+        import flow_docs
+        import validate_evidence
+        self.assertEqual(set(doc["classes"]), set(validate_evidence.NEEDS))
+        lists = {k: [k] for k in doc["trivial"]}
+        self.assertEqual(flow_docs.tier({"trivial": lists}), list(doc["trivial"]))
+        for name, key in (("approval-policy", "gate_rounds"), ("agent-tools", "input_kinds")):
+            self.assertIn(key, yaml.safe_load((CORE / f"policies/{name}.yml").read_text(encoding="utf-8")))
+            self.assertIn(f'"{key}"', code)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

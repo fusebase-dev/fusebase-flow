@@ -1,6 +1,5 @@
 # Fusebase Flow 6.0: evidence classes (WP 11). The scripts in hooks/local/ read this file from HEAD;
 # there is no local twin. A list left empty matches nothing.
-schema_version: 1
 
 # The project's globs per class. A row's minimum evidence follows from the paths its task touched:
 # auth, data and deploy_config need live evidence, ui needs smoke, anything else a unit test row.
