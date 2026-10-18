@@ -535,5 +535,97 @@ class Checks(Workspace):
         self.assertTrue(path.read_text(encoding="utf-8").endswith("\tupheld\n"))
 
 
+SLICE_BACKLOG = """# Backlog
+
+## B1 Magic-link sign-in expires after 15 minutes
+- source: owner:2026-10-16
+- criterion: A magic link older than 15 minutes shows "link expired" and signs nobody in.
+- risk: auth
+- status: open
+- inputs:
+  - packages/core/src/auth/magic-link.ts
+  - dep:jose
+- answers: A1, A2, A3
+
+## Answers
+
+### A1 How long is a magic link valid?
+- answered: 2026-10-16
+> 15 minutes, counted from the moment the email is sent.
+
+### A2 What does an expired link show?
+- answered: 2026-10-16
+> The words "link expired" and a button that sends a new link.
+> Nothing else on the page changes.
+
+### A3 Does an expired link count as a failed sign-in?
+- answered: 2026-10-17
+> No. Only a wrong code counts.
+"""
+
+
+class Slicer(Workspace):
+    """Done check 5."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        tools = (CORE / "policies/agent-tools.yml").read_text(encoding="utf-8")
+        self.base = commit(self.repo, {"policies/agent-tools.yml": tools, "policies/evidence-classes.yml": TIER,
+                                       "packages/core/src/auth/magic-link.ts": "export {};\n"}, "init")
+        write(self.repo, "docs/flow/backlog.md", SLICE_BACKLOG)
+        write(self.repo, "docs/flow/phases.md", phases_doc(self.base, [("T1", "packages/core/src/auth/**")]))
+
+    def slice(self, *args: str) -> subprocess.CompletedProcess:
+        return run(str(LOCAL / "slice.py"), *args, "--root", str(self.repo), cwd=self.tmp)
+
+    def test_a_task_with_three_cited_answers_fits_and_carries_no_rule_or_skill_text(self) -> None:
+        out = self.slice("T1")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertLess(len(out.stdout.encode("utf-8")), 8000)
+        for text in ('15 minutes, counted from the moment the email is sent.', 'Nothing else on the page changes.',
+                     'No. Only a wrong code counts.', 'criterion: A magic link older than 15 minutes',
+                     'glob: `packages/core/src/auth/**` (1 files at HEAD)', 'estimate: 30m 2f', 'reference: none',
+                     '  - dep:jose'):
+            self.assertIn(text, out.stdout)
+        kernel = [CORE / "FLOW_RULES.md", *sorted(CORE.glob("flow-skills/*/SKILL.md"))]
+        lines = {ln.strip() for f in kernel for ln in f.read_text(encoding="utf-8").splitlines() if len(ln.strip()) >= 25}
+        self.assertEqual([ln for ln in lines if ln in out.stdout], [])
+
+    def test_with_no_reader_run_it_prints_last_seen_never(self) -> None:
+        self.assertIn("last seen: never", self.slice("T1").stdout)
+        stamp = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - 300))
+        write(self.repo, "state/status.line", f"flow: idle last={stamp} hooks: claude unenforced, codex unenforced "
+                                              f"alerts=0 reader={stamp}\n")
+        self.assertRegex(self.slice("T1").stdout, r"reader=\S+; last seen: [45] min ago")
+
+    def test_an_input_tool_absent_from_the_builder_profile_blocks(self) -> None:
+        write(self.repo, "docs/flow/backlog.md", SLICE_BACKLOG.replace("  - dep:jose\n", "  - dep:jose\n  - figma:frame-12\n"))
+        tools = (CORE / "policies/agent-tools.yml").read_text(encoding="utf-8").replace("input_kinds: {}",
+                                                                                         "input_kinds: {figma: figma_mcp}")
+        commit(self.repo, {"policies/agent-tools.yml": tools}, "chore: T9 the figma input kind")
+        out = self.slice("T1")
+        self.assertNotEqual(out.returncode, 0)
+        self.assertIn("BLOCKED-AT-input: T1 input figma:frame-12 needs figma_mcp, absent from the builder profile",
+                      out.stdout)
+        self.assertNotIn("15 minutes", out.stdout)
+
+    def test_the_brief_carries_the_flag_rows_and_the_gate_block_inline(self) -> None:
+        write(self.repo, "state/gate/P1-S1.txt", "## DONE\ndone P1-S1: 1/1 committed\nDONE: PASS\n")
+        write(self.repo, "state/flags/P1-S1.tsv", "id\tcheck\ttask\tevidence\truling\n"
+                                                 "new-1a2b3c4d\t1\tT1\tsrc/z.ts is under no task glob\t\n")
+        out = self.slice("P1-S1", "--brief", "review")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertIn("done P1-S1: 1/1 committed\nDONE: PASS", out.stdout)
+        self.assertIn("new-1a2b3c4d\t1\tT1\tsrc/z.ts is under no task glob", out.stdout)
+        self.assertIn('"feature_not_asked": {"answer": "yes|no"', out.stdout)
+        self.assertIn('"further_from_reference": {"answer": "yes|no"', out.stdout)
+
+    def test_a_trivial_tier_slice_brief_asks_no_rubric(self) -> None:
+        commit(self.repo, {"docs/notes/a.md": "a\n"}, "T1: a note")
+        out = self.slice("P1-S1", "--brief")
+        self.assertIn("not asked: a trivial-tier slice", out.stdout)
+        self.assertNotIn("feature_not_asked", out.stdout)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
