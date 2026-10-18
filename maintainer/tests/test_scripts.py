@@ -183,5 +183,91 @@ class Reader(Workspace):
         self.assertIn("--once", record["line"])
 
 
+TIER = "schema_version: 1\ntrivial:\n  docs_only: ['docs/notes/**']\n  test: []\n  copy: []\n"
+
+
+def commit(repo: Path, files: dict[str, str], message: str) -> str:
+    for rel, text in files.items():
+        (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+        (repo / rel).write_text(text, encoding="utf-8", newline="\n")
+        git(repo, "add", "--", rel)
+    out = subprocess.run([*GIT, "commit", "-q", "--allow-empty", "-F", "-"], cwd=repo, input=message.encode("utf-8"),
+                         capture_output=True)
+    assert out.returncode == 0, out.stderr
+    return git(repo, "rev-parse", "HEAD").stdout.strip()
+
+
+def phases_doc(base: str, rows: list[tuple[str, str]], slice_id: str = "P1-S1") -> str:
+    table = "".join(f"| {tid} | B1 | does {tid} | `{globs}` | 30m 2f |\n" for tid, globs in rows)
+    return (f"# Phases\n- reference: none\n\n## P1 First phase\n- base: {base}\n\n### {slice_id} The slice\n"
+            f"| Task | Item | Does | Globs | Estimate |\n|---|---|---|---|---|\n{table}")
+
+
+def write(repo: Path, rel: str, text: str) -> None:
+    (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+    (repo / rel).write_text(text, encoding="utf-8", newline="\n")
+
+
+class Done(Workspace):
+    """Done check 2."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.base = commit(self.repo, {"policies/evidence-classes.yml": TIER, "README.md": "x\n"}, "init")
+        write(self.repo, "docs/flow/phases.md", phases_doc(self.base, [("T1", "src/a/**"), ("T2", "src/b/**"),
+                                                                     ("T3", "src/c/**")]))
+
+    def done(self) -> subprocess.CompletedProcess:
+        return run(str(LOCAL / "done.py"), "P1-S1", "--root", str(self.repo), cwd=self.tmp)
+
+    def returns(self, tasks: dict[str, str]) -> None:
+        write(self.repo, "state/returns/P1-S1.json", json.dumps({
+            "slice": "P1-S1", "role": "builder", "started": "2026-10-18T10:00:00Z", "finished": "2026-10-18T11:00:00Z",
+            "tasks": [{"id": k, "sha": v} for k, v in tasks.items()], "tool_calls": 40, "blocked_at": None,
+            "notes": ""}))
+
+    def test_body_mentions_trivial_tier_commits_and_commits_outside_the_globs_leave_tasks_open(self) -> None:
+        commit(self.repo, {"src/a/one.ts": "1\n"}, "feat(a): the first part\n\nT1 lives here")
+        commit(self.repo, {"src/a/two.ts": "2\n"}, "plan: T1 the plan")
+        t2 = commit(self.repo, {"docs/notes/b.md": "b\n"}, "T2: a note")
+        t3 = commit(self.repo, {"src/z/c.ts": "c\n"}, "T3: in the wrong folder")
+        self.returns({"T2": t2, "T3": t3})
+        out = self.done()
+        self.assertEqual(out.returncode, 1, out.stdout)
+        self.assertIn("T1 OPEN: no commit carries it alone in its subject", out.stdout)
+        self.assertIn("T2 OPEN: only trivial-tier commits carry it", out.stdout)
+        self.assertIn("T3 OPEN: its commits touch none of its globs", out.stdout)
+        record = json.loads((self.repo / "state/done/P1-S1.json").read_text(encoding="utf-8"))
+        self.assertEqual((record["committed"], record["open"]), ({}, ["T1", "T2", "T3"]))
+
+    def test_every_id_committed_inside_its_globs_is_done(self) -> None:
+        shas = {t: commit(self.repo, {f"src/{d}/x.ts": t}, f"feat({d}): {t} the {d} part")
+                for t, d in (("T1", "a"), ("T2", "b"), ("T3", "c"))}
+        self.returns(shas)
+        out = self.done()
+        self.assertEqual(out.returncode, 0, out.stdout)
+        self.assertIn("DONE: PASS", out.stdout)
+        record = json.loads((self.repo / "state/done/P1-S1.json").read_text(encoding="utf-8"))
+        self.assertEqual(record["committed"], shas)
+
+    def test_a_missing_returns_file_is_a_failure(self) -> None:
+        for t, d in (("T1", "a"), ("T2", "b"), ("T3", "c")):
+            commit(self.repo, {f"src/{d}/x.ts": t}, f"{t}: the {d} part")
+        out = self.done()
+        self.assertEqual(out.returncode, 1, out.stdout)
+        self.assertIn("returns: state/returns/P1-S1.json is missing", out.stdout)
+
+    def test_a_returns_file_naming_a_sha_not_on_the_branch_is_a_failure(self) -> None:
+        git(self.repo, "checkout", "-q", "-b", "side")
+        stray = commit(self.repo, {"src/a/side.ts": "s\n"}, "T1: on another branch")
+        git(self.repo, "checkout", "-q", "main")
+        shas = {t: commit(self.repo, {f"src/{d}/x.ts": t}, f"{t}: the {d} part") for t, d in (("T1", "a"), ("T2", "b"),
+                                                                                                  ("T3", "c"))}
+        self.returns({**shas, "T1": stray})
+        out = self.done()
+        self.assertEqual(out.returncode, 1, out.stdout)
+        self.assertIn(f"T1: {stray[:12]} is not a commit on this branch", out.stdout)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
