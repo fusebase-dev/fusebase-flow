@@ -198,7 +198,7 @@ class Undo(unittest.TestCase):
 
     def test_the_release_note_states_the_printed_undo_word_for_word(self) -> None:
         core = FLOW.parents[1]
-        note = (core / "maintainer/release-notes" / f"v{(core / 'VERSION').read_text().strip()}.md").read_text("utf-8")
+        note = (core / "maintainer/release-notes" / f"{(core / 'VERSION').read_text().strip()}.md").read_text("utf-8")
         start = note.index("( set -e\n  git checkout -b flow-5x-")
         printed = self.undo.replace(self.stamp, "<UTC time>").replace(self.pre, "<the pre-migration commit>")
         self.assertEqual(note[start:note.index("\n)\n", start) + 3], printed)

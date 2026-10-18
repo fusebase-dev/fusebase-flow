@@ -14,7 +14,7 @@ It copies the core, writes the provider mirrors (`.claude/`, `.agents/skills/`, 
 
 ## Moving a project from Flow 5.x
 
-Run `python maintainer/flow.py migrate --target <project> --providers claude,codex`: a dry run that changes nothing. Then add `--apply --go-ahead` after the operator's go-ahead; it checks everything that could stop it before it changes a file, and lands the migration as one commit. Do not run `install` over a 5.x tree. `maintainer/release-notes/v6.0.0-m2.md` has the steps.
+Run `python maintainer/flow.py migrate --target <project> --providers claude,codex`: a dry run that changes nothing. Then add `--apply --go-ahead` after the operator's go-ahead; it checks everything that could stop it before it changes a file, and lands the migration as one commit. Do not run `install` over a 5.x tree. `maintainer/release-notes/6.0.0-m2.md` has the steps.
 
 ## 6.0.0-m2 limits
 

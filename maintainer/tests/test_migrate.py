@@ -300,7 +300,7 @@ class Preflight(unittest.TestCase):
         for cmd in cmds.values():
             self.assertIn(f"[flow migrate]     $ {cmd}\n", dry.stdout)
         core = FLOW.parents[1]
-        note = (core / "maintainer/release-notes" / f"v{(core / 'VERSION').read_text().strip()}.md").read_text("utf-8")
+        note = (core / "maintainer/release-notes" / f"{(core / 'VERSION').read_text().strip()}.md").read_text("utf-8")
         self.assertIn("only once those two also pass by hand", note)
 
     def test_a_flow_attributes_block_without_its_end_marker_stops_the_apply(self) -> None:
