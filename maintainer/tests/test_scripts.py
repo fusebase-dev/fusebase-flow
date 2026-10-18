@@ -163,6 +163,13 @@ class Reader(Workspace):
         self.assertEqual(first["counters"], second["counters"])
         self.assertEqual(first["counters"]["alerts_raised"], 1)
 
+    def test_hooks_read_wired_only_when_the_named_handlers_exist(self) -> None:
+        self.quiet_project({}, 1)
+        write(self.repo, ".claude/settings.json", '{"hooks": {"PreToolUse": [{"command": "python hooks/handlers/pre.py"}]}}')
+        self.assertIn("hooks: claude unenforced, codex unenforced", self.once().stdout)
+        (self.repo / "hooks/handlers").mkdir(parents=True)
+        self.assertIn("hooks: claude wired, codex unenforced", self.once().stdout)
+
     def test_register_reader_prints_and_records_the_line_and_plain_install_registers_nothing(self) -> None:
         sys.path.insert(0, str(CORE / "maintainer"))
         import flow

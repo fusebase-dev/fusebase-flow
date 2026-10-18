@@ -87,10 +87,12 @@ def state_mtimes(root: Path) -> list[float]:
 
 
 def wired(root: Path, rel: str) -> str:
+    """wired when the provider's settings name Flow's handlers and they exist (a migrated 5.x wiring names removed ones)."""
     try:
-        return "wired" if "hooks/handlers/" in (root / rel).read_text(encoding="utf-8", errors="replace") else "unenforced"
+        text = (root / rel).read_text(encoding="utf-8", errors="replace")
     except OSError:
         return "unenforced"
+    return "wired" if "hooks/handlers/" in text and (root / "hooks/handlers").is_dir() else "unenforced"
 
 
 def write(path: Path, text: str) -> None:
