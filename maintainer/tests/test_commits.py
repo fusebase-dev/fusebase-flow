@@ -19,6 +19,7 @@ from pathlib import Path
 from unittest import mock
 
 import test_scripts as m3
+from synthetic import migrate, scratch_clone
 from test_core import MSG_BACKLOG
 from test_scripts import CORE, Workspace, write
 
@@ -144,9 +145,9 @@ STORE = ("Python was not found; run without arguments to install from the Micros
 
 
 class StorePath(NoPython3):
-    """A PATH with a fake Microsoft Store shortcut first: a python3 in a folder named WindowsApps that prints the Store's
-    message and exits 49, as Windows' default App execution aliases resolve python3 on a host with python.org's Python
-    (m4b review). The shims and the host's other commands follow; no Python is on it until a test adds a shim."""
+    """A PATH with a fake Microsoft Store shortcut first: a python3 in a folder named WindowsApps that prints the
+    Store's message and exits 49, as Windows' default App execution aliases resolve python3 on a host with python.org's
+    Python (m4b review). The shims and the host's other commands follow; no Python is on it until a test adds a shim."""
 
     def setUp(self) -> None:
         super().setUp()
@@ -220,6 +221,51 @@ class StoreShortcut(StorePath):
         self.assertIn("turn off the python.exe and python3.exe App execution aliases", out.stderr)
         self.assertIn("or install Python 3.10+", out.stderr)
         self.assertNotIn("all checks passed", out.stderr)
+
+
+class StorePreflight(StorePath):
+    """T270: the migration preflight finds Python as the pre-commit does, so it never says ok to a commit the pre-commit
+    then refuses; it names the interpreter the hooks will run, and the way out when there is none."""
+
+    def preflight_line(self, out: str) -> str:
+        found = [line for line in out.splitlines() if ": Python for the hooks: " in line]
+        self.assertEqual(len(found), 1, out)
+        return found[0]
+
+    def test_behind_the_shortcut_it_names_python_and_the_migration_commits(self) -> None:
+        self.shim("python")
+        clone = scratch_clone(self.tmp / "m")
+        run = migrate(clone, "--apply", "--go-ahead", env={**os.environ, "PATH": self.path})
+        self.assertEqual(run.returncode, 0, run.stdout[-4000:] + run.stderr[-2000:])
+        self.assertRegex(self.preflight_line(run.stdout),
+                         r"ok: Python for the hooks: python \(\S+/python\), Python 3\.\d+\.\d+ with PyYAML: the "
+                         r"pre-commit, commit-msg and the approval scripts run it; python3 "
+                         r"\(\S+/WindowsApps/python3, the Microsoft Store shortcut\) fails the 3\.10\+ probe$")
+        self.assertIn("using discovered 'python' for §2/§3", run.stderr, "the pre-commit took the same one")
+        self.assertEqual(m3.git(clone, "log", "-1", "--format=%s").stdout.strip(),
+                         "flow: migrate Fusebase Flow 5.6 to 6.0.0-m4")
+
+    def test_with_the_shortcut_alone_it_stops_and_names_the_way_out(self) -> None:
+        clone = scratch_clone(self.tmp / "m")
+        dry = migrate(clone, env={**os.environ, "PATH": self.path})
+        self.assertNotEqual(dry.returncode, 0, dry.stdout)
+        line = self.preflight_line(dry.stdout)
+        self.assertIn("STOP: Python for the hooks: bash finds no Python 3.10+", line)
+        self.assertIn("WindowsApps/python3, the Microsoft Store shortcut) fails the 3.10+ probe", line)
+        self.assertIn("turn off the python.exe and python3.exe App execution aliases", dry.stdout)
+        self.assertIn("-m pip install -r", dry.stdout)
+
+
+class StoreNote(unittest.TestCase):
+    def test_the_note_installs_pyyaml_with_the_hooks_interpreter_and_names_the_store_aliases(self) -> None:
+        """T270: a bare pip can belong to another Python than the one the hooks run."""
+        version = (CORE / "VERSION").read_text(encoding="utf-8").strip()
+        note = (CORE / "maintainer/release-notes" / f"{version}.md").read_text(encoding="utf-8")
+        req = f"fusebase-flow-{version}/hooks/requirements.txt"
+        self.assertNotRegex(note, r"(?m)^pip install|`pip install", "no bare pip")
+        self.assertIn(f"\n<the interpreter Flow will use> -m pip install -r {req}\n", note)
+        self.assertIn(f"`python -m pip install -r {req}`", note)
+        self.assertIn("python.exe and python3.exe App execution aliases", note)
 
 
 class Checkpoint(Workspace):
