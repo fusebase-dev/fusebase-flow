@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""The 6.0.0-m4 micro-pass fixtures: the commit-msg interpreter (O-19) and the CLI's checkpoint subjects (O-20).
+"""The 6.0.0-m4 micro-pass fixtures: the commit-msg interpreter (O-19), the CLI's checkpoint subjects (O-20) and
+the Microsoft Store shortcut first on PATH (T269).
 
 `python maintainer/tests/test_commits.py`; test_migrate.py's load_tests runs it too, so core-verify carries it.
 """
@@ -136,6 +137,89 @@ class Approval(NoPython3):
                       "from shared.command_policy import evaluate; d = evaluate(sys.argv[1], root=Path('.')); "
                       "print(d.decision, d.approval_artifact_present)", command, cwd=self.repo)
         self.assertEqual(gate.stdout.split(), ["allow", "True"], gate.stderr)
+
+
+STORE = ("Python was not found; run without arguments to install from the Microsoft Store, or disable this shortcut "
+         "from Settings > Manage App Execution Aliases.")
+
+
+class StorePath(NoPython3):
+    """A PATH with a fake Microsoft Store shortcut first: a python3 in a folder named WindowsApps that prints the Store's
+    message and exits 49, as Windows' default App execution aliases resolve python3 on a host with python.org's Python
+    (m4b review). The shims and the host's other commands follow; no Python is on it until a test adds a shim."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        if os.name != "nt":  # NoPython3 links five tools; the hooks need the host's other commands, minus Python
+            host = self.tmp / "host"
+            host.mkdir()
+            for folder in (Path(d) for d in os.environ.get("PATH", "").split(os.pathsep) if d and Path(d).is_dir()):
+                for entry in folder.iterdir():
+                    interpreter = entry.name.startswith(("python", "pip")) or entry.name == "py"
+                    if interpreter or os.path.lexists(host / entry.name):
+                        continue
+                    if entry.is_file() and os.access(entry, os.X_OK):
+                        os.symlink(entry, host / entry.name)
+            self.path = os.pathsep.join([self.path, str(host)])
+        self.base = self.path
+        store = self.tmp / "WindowsApps"
+        store.mkdir()
+        (store / "python3").write_text(f'#!/bin/sh\necho "{STORE}" >&2\nexit 49\n', encoding="utf-8", newline="\n")
+        (store / "python3").chmod(0o755)
+        self.path = os.pathsep.join([str(store), self.base])
+
+
+class StoreShortcut(StorePath):
+    """T269: the pre-commit falls through past a python3 that fails its 3.10+ probe to python, then py -3, and blocks
+    only when none passes."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(flow.install(self.repo, {"claude"}), 0)  # the real git hooks, as a project gets them
+
+    def hook(self) -> subprocess.CompletedProcess:
+        write(self.repo, "notes.md", "a note\n")
+        m3.git(self.repo, "add", "--", "notes.md")
+        return self.bash(".git/hooks/pre-commit")
+
+    def test_a_commit_falls_through_the_store_shortcut_to_python(self) -> None:
+        self.assertTrue(self.bash("-c", "command -v python3").stdout.strip().endswith("/WindowsApps/python3"))
+        self.shim("python")
+        names = m3.git(self.repo, "ls-files", "--others", "--exclude-standard").stdout.splitlines()
+        m3.git(self.repo, "add", "--", *names)
+        mint = self.bash("hooks/local/write-bootstrap-approval.sh", FF_BOOTSTRAP_TTL_MIN="30")
+        self.assertEqual(mint.returncode, 0, mint.stdout + mint.stderr)
+        out = subprocess.run([*m3.GIT, "commit", "-q", "-m", "T1: install Fusebase Flow"], cwd=self.repo,
+                             env={**os.environ, "PATH": self.path}, capture_output=True, text=True, encoding="utf-8",
+                             errors="replace", timeout=900)
+        self.bash("hooks/local/write-bootstrap-approval.sh", "--consume")
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn("WindowsApps/python3, the Microsoft Store shortcut) failed the 3.10+ probe (version=unproven); "
+                      "using discovered 'python' for §2/§3", out.stderr)
+        for stage in ("stage=secret-scan", "stage=protected-paths", "all checks passed"):
+            self.assertIn(stage, out.stderr)
+        self.assertEqual(m3.git(self.repo, "log", "--format=%s").stdout.splitlines(), ["T1: install Fusebase Flow"])
+        self.assertEqual(list((self.repo / "state/approvals").glob("*.json")), [], "consumed")
+
+    def test_any_python3_that_fails_the_probe_falls_through_to_py_3(self) -> None:
+        self.shim("python3", "-c", "'raise SystemExit(7)'")  # not under WindowsApps; every run exits 7
+        self.shim("py")
+        self.path = self.base
+        out = self.hook()
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn("failed the 3.10+ probe (version=unproven); using discovered 'py -3' for §2/§3", out.stderr)
+        self.assertNotIn("Microsoft Store shortcut", out.stderr)
+        self.assertIn("all checks passed", out.stderr)
+
+    def test_the_store_shortcut_alone_blocks_and_names_the_aliases(self) -> None:
+        out = self.hook()
+        self.assertEqual(out.returncode, 1, out.stderr)
+        self.assertIn("did not prove Python 3.10+ (version=unproven), and neither python nor py -3 did", out.stderr)
+        self.assertIn(STORE, out.stderr, "the probe's own stderr is replayed")
+        self.assertIn("turn off the python.exe and python3.exe App execution aliases", out.stderr)
+        self.assertIn("or install Python 3.10+", out.stderr)
+        self.assertNotIn("all checks passed", out.stderr)
 
 
 class Checkpoint(Workspace):

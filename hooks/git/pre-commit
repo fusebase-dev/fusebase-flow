@@ -30,8 +30,10 @@ _ffpc_block() {
 # hooks/local/check-git-capture.sh; a new `$(git …)` here fails the git-capture-guard phase.
 FFPC_SHIM_DIR=""
 FFPC_GITCAP=""
+FFPC_VD=""
 _ffpc_cleanup() {
     [ -n "$FFPC_SHIM_DIR" ] && rm -rf "$FFPC_SHIM_DIR" 2>/dev/null
+    [ -n "$FFPC_VD" ] && rm -rf "$FFPC_VD" 2>/dev/null
     [ -n "$FFPC_GITCAP" ] && rm -f "$FFPC_GITCAP" 2>/dev/null
     return 0
 }
@@ -115,7 +117,8 @@ fi
 #     FALSE without python3. §2 was wrapped in `if command -v python3` with NO else (the content
 #     scan silently did not happen) and §3 printed a WARN and committed anyway (FR-07 not
 #     enforced). Both are security controls; neither may depend on an interpreter being reachable
-#     (`python`, `py -3`) and put a `python3` shim on PATH for this hook's lifetime — the same
+#     under the literal name python3. So §1b discovers a supported one under the other common names
+#     (`python`, `py -3`) and puts a `python3` shim on PATH for this hook's lifetime — the same
 #     provisioning the CI workflow already does. It changes no committed default and relaxes no
 #     check; every invocation below still runs `python3 -S <file>` with a controlled PYTHONPATH.
 #     If NOTHING supported is found, the commit is BLOCKED with a fixable message. There is no
@@ -129,8 +132,6 @@ if [ "$STAGED_ANY_RC" -ne 0 ]; then
     echo "Refusing to commit fail-open on an unverifiable staged set; NEVER use --no-verify." >&2
     exit 1
 fi
-
-_ffpc_is_py3() { "$@" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] >= (3, 10) else 1)' >/dev/null 2>&1; }
 
 # 1b-v. PRIMARY-INTERPRETER VERSION SYMMETRY (S2d; docs/specs/pre-commit-trusted-tool-contract/).
 #     §1b probed only the DISCOVERED fallbacks, so a resolved `python3` reached §2/§3 unversioned.
@@ -159,40 +160,23 @@ _ffpc_bounded() {   # <secs> <out> <err> <mark> CMD… — rc 124 == killed at t
     fi
     return $r
 }
-_ffpc_ver() {   # one bounded probe; sets FFPC_VER (maj.min; empty = unproven), appends FFPC_DIAG
+_ffpc_ver() {   # <candidate> <probe args…>: one bounded probe; sets FFPC_VER (maj.min; empty = unproven), appends FFPC_DIAG
     # TRIPWIRE: 2>/dev/null hides only the SHELL's "Killed" job report; the probe's own stderr is
     # captured in $FFPC_VD/e and replayed in the BLOCK diagnostic — never discard it.
-    _ffpc_bounded 10 "$FFPC_VD/o" "$FFPC_VD/e" "$FFPC_VD/m" python3 -S "$@" 2>/dev/null; local r=$?
+    local c=$1; shift
+    # shellcheck disable=SC2086  # the candidate "py -3" is two words
+    _ffpc_bounded 10 "$FFPC_VD/o" "$FFPC_VD/e" "$FFPC_VD/m" $c -S "$@" 2>/dev/null; local r=$?
     FFPC_VER="$(sed -n 's/^FFPCVER \([0-9][0-9]*\) \([0-9][0-9]*\)$/\1.\2/p' "$FFPC_VD/o" 2>/dev/null | head -1)"
-    FFPC_DIAG="$FFPC_DIAG [-S ${1##*/} rc=$r$([ $r -eq 124 ] && printf ' TIMEOUT@10s') deadline=${FFPC_BOUND_DEADLINE} signal=${FFPC_BOUND_SIGNAL} return=${FFPC_BOUND_RETURN}s] $(tr '\r\n' '  ' < "$FFPC_VD/e" 2>/dev/null | cut -c1-160)"
+    FFPC_DIAG="$FFPC_DIAG [$c -S ${1##*/} rc=$r$([ $r -eq 124 ] && printf ' TIMEOUT@10s') deadline=${FFPC_BOUND_DEADLINE} signal=${FFPC_BOUND_SIGNAL} return=${FFPC_BOUND_RETURN}s] $(tr '\r\n' '  ' < "$FFPC_VD/e" 2>/dev/null | cut -c1-160)"
 }
-if [ -n "$STAGED_ANY" ] && command -v python3 >/dev/null 2>&1; then
-    FFPC_VD="$(mktemp -d 2>/dev/null || mktemp -d -t ffflow-pyver)"
-    [ -d "${FFPC_VD:-/nonexistent}" ] || { echo "[fusebase-flow:pre-commit] BLOCK — no temp dir for the python3 version probe — failing closed. NEVER use --no-verify." >&2; exit 1; }
-    FFPC_VSRC='import sys; print("FFPCVER %d %d" % sys.version_info[:2])'
-    printf '%s\n' "$FFPC_VSRC" > "$FFPC_VD/v.py"
-    FFPC_VER=""; FFPC_DIAG=""
-    _ffpc_ver -c "$FFPC_VSRC"
-    [ -n "$FFPC_VER" ] || _ffpc_ver "$FFPC_VD/v.py"
-    rm -rf "$FFPC_VD"
-    if [ -z "$FFPC_VER" ] || [ "${FFPC_VER%%.*}" -lt 3 ] || { [ "${FFPC_VER%%.*}" -eq 3 ] && [ "${FFPC_VER##*.}" -lt 10 ]; }; then
-        echo "[fusebase-flow:pre-commit] BLOCK — the resolved 'python3' did not prove Python 3.10+ (version=${FFPC_VER:-unproven}); probes:$FFPC_DIAG" >&2
-        echo "§2 (FR-12 staged secret scan) and §3 (FR-07 protected-path check) both run under it, so this commit is refused rather than run on an unsupported interpreter. Point python3 at Python 3.10+. NEVER use --no-verify." >&2
-        exit 1
-    fi
-fi
-
-if [ -n "$STAGED_ANY" ] && ! command -v python3 >/dev/null 2>&1; then
-    FFPC_FOUND=""
-    if _ffpc_is_py3 python; then FFPC_FOUND="python"
-    elif _ffpc_is_py3 py -3; then FFPC_FOUND="py -3"
-    fi
-    if [ -z "$FFPC_FOUND" ]; then
-        echo "[fusebase-flow:pre-commit] BLOCK — no supported Python 3.10+ interpreter found (tried: python3, python, py -3)." >&2
-        echo "Two security controls need one: the FR-12 staged secret scan (§2) and the FR-07 protected-path check (§3). Neither can run, so this commit is refused rather than committed unscanned and unenforced." >&2
-        echo "Install Python 3.10+ (or put it on PATH) and re-run the commit. NEVER use --no-verify." >&2
-        exit 1
-    fi
+_ffpc_try() {   # <candidate>: 0 when it proves 3.10+ by the `-S -c` probe, else by the `-S <file>` one
+    command -v "${1%% *}" >/dev/null 2>&1 || { FFPC_VER=""; FFPC_DIAG="$FFPC_DIAG [$1: not found]"; return 1; }
+    FFPC_VER=""
+    _ffpc_ver "$1" -c "$FFPC_VSRC"
+    [ -n "$FFPC_VER" ] || _ffpc_ver "$1" "$FFPC_VD/v.py"
+    [ -n "$FFPC_VER" ] && { [ "${FFPC_VER%%.*}" -gt 3 ] || { [ "${FFPC_VER%%.*}" -eq 3 ] && [ "${FFPC_VER##*.}" -ge 10 ]; }; }
+}
+_ffpc_shim() {   # <why>: a python3 shim that runs $FFPC_FOUND, first on PATH for this hook's lifetime
     FFPC_SHIM_DIR="$(mktemp -d 2>/dev/null || mktemp -d -t ffflow-py3)"
     if [ -z "$FFPC_SHIM_DIR" ] || ! printf '#!/usr/bin/env bash\nexec %s "$@"\n' "$FFPC_FOUND" > "$FFPC_SHIM_DIR/python3" 2>/dev/null; then
         echo "[fusebase-flow:pre-commit] BLOCK — found '$FFPC_FOUND' but could not provision a python3 shim — failing closed. NEVER use --no-verify." >&2
@@ -200,7 +184,47 @@ if [ -n "$STAGED_ANY" ] && ! command -v python3 >/dev/null 2>&1; then
     fi
     chmod +x "$FFPC_SHIM_DIR/python3" 2>/dev/null
     PATH="$FFPC_SHIM_DIR:$PATH"; export PATH
-    echo "[fusebase-flow:pre-commit] note: python3 was not on PATH; using discovered '$FFPC_FOUND' for §2/§3 (shim is temporary, this commit only)." >&2
+    echo "[fusebase-flow:pre-commit] note: $1; using discovered '$FFPC_FOUND' for §2/§3 (shim is temporary, this commit only)." >&2
+}
+# O-19 (6.0.0-m4): python3, then python, then py -3, each through the probe above — the order commit-msg and
+# the approval scripts use. A python3 that fails it falls through: on a stock Windows host with python.org's
+# Python, the default App execution aliases resolve python3 to the Microsoft Store shortcut
+# (…/WindowsApps/python3), which prints "Python was not found" and exits 49.
+FFPC_FOUND=""; FFPC_DIAG=""; FFPC_PY3=""; FFPC_PY3_VER=""
+FFPC_VSRC='import sys; print("FFPCVER %d %d" % sys.version_info[:2])'
+FFPC_WAYOUT="On Windows, when python3 or python is the Microsoft Store shortcut (…/WindowsApps/), turn off the python.exe and python3.exe App execution aliases (Settings > Apps > Advanced app settings > App execution aliases), or install Python 3.10+ and put it on PATH; then re-run the commit. NEVER use --no-verify."
+if [ -n "$STAGED_ANY" ]; then
+    FFPC_VD="$(mktemp -d 2>/dev/null || mktemp -d -t ffflow-pyver)"
+    [ -d "${FFPC_VD:-/nonexistent}" ] || { echo "[fusebase-flow:pre-commit] BLOCK — no temp dir for the python3 version probe — failing closed. NEVER use --no-verify." >&2; exit 1; }
+    printf '%s\n' "$FFPC_VSRC" > "$FFPC_VD/v.py"
+    if command -v python3 >/dev/null 2>&1; then
+        FFPC_PY3="$(command -v python3)"
+        _ffpc_try python3 || FFPC_PY3_VER="${FFPC_VER:-unproven}"
+    fi
+    if [ -z "$FFPC_PY3" ] || [ -n "$FFPC_PY3_VER" ]; then
+        if _ffpc_try python; then FFPC_FOUND="python"
+        elif _ffpc_try "py -3"; then FFPC_FOUND="py -3"
+        fi
+    fi
+    rm -rf "$FFPC_VD"
+fi
+
+if [ -n "$FFPC_PY3_VER" ] && [ -z "$FFPC_FOUND" ]; then
+    echo "[fusebase-flow:pre-commit] BLOCK — the resolved 'python3' ($FFPC_PY3) did not prove Python 3.10+ (version=$FFPC_PY3_VER), and neither python nor py -3 did; probes:$FFPC_DIAG" >&2
+    echo "§2 (FR-12 staged secret scan) and §3 (FR-07 protected-path check) both run under it, so this commit is refused rather than run on an unsupported interpreter. $FFPC_WAYOUT" >&2
+    exit 1
+fi
+case "$FFPC_PY3" in *[/\\]WindowsApps[/\\]*) FFPC_PY3="$FFPC_PY3, the Microsoft Store shortcut" ;; esac
+[ -z "$FFPC_PY3_VER" ] || [ -z "$FFPC_FOUND" ] || _ffpc_shim "python3 ($FFPC_PY3) failed the 3.10+ probe (version=$FFPC_PY3_VER)"
+
+if [ -n "$STAGED_ANY" ] && [ -z "$FFPC_PY3" ]; then
+    if [ -z "$FFPC_FOUND" ]; then
+        echo "[fusebase-flow:pre-commit] BLOCK — no supported Python 3.10+ interpreter found (tried: python3, python, py -3)." >&2
+        echo "Two security controls need one: the FR-12 staged secret scan (§2) and the FR-07 protected-path check (§3). Neither can run, so this commit is refused rather than committed unscanned and unenforced." >&2
+        echo "$FFPC_WAYOUT" >&2
+        exit 1
+    fi
+    _ffpc_shim "python3 was not on PATH"
 fi
 
 # Stage timings (docs/changes/2026-10-15-v511-consumer-review.md O2): report-only, never a gate.
