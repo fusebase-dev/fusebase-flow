@@ -4,10 +4,11 @@ Flow's own, besides the four documents (commit_msg.py checks those):
 - an added or changed path whose staged bytes have the sha256 the staged audit/flow-install.json records for it, and
   that manifest itself;
 - a deleted path recorded at HEAD by that manifest or by a 5.x Flow manifest, or whose name and HEAD bytes are those
-  of a path one of them records (a 5.x command mirror); on a 5.x tree also the files the migration deletes by name;
+  of a path one of them records (a 5.x command mirror); on the migration commit also the files it deletes by name;
 - AGENTS.md, CLAUDE.md, .gitattributes and .gitignore when the change stays inside Flow's marked block, checked
-  against HEAD; on a 5.x tree AGENTS.md and CLAUDE.md whole (the migration replaces 5.x's section, which no marker
-  bounds).
+  against HEAD; on the migration commit AGENTS.md and CLAUDE.md whole (it replaces 5.x's section, which no marker
+  bounds; the owner's decision of 2026-10-19).
+The migration commit is the one that deletes HEAD's audit/managed-content-manifest.json, as every 5.x migration does.
 """
 from __future__ import annotations
 
@@ -84,7 +85,7 @@ def foreign(root: Path, pairs: list[tuple[str, str]]) -> list[str]:
              .splitlines() if (m := ROW.fullmatch(ln))]
     staged, recorded = dict(rows(f":{MANIFEST}", "files")), {p for p, _ in head}
     named = {(p.rsplit("/", 1)[-1], s) for p, s in head}  # a mirror keeps its source's name and bytes
-    tree_5x = b.get(f"HEAD:{MC_5X}") is not None
+    migrating = b.get(f"HEAD:{MC_5X}") is not None and side.get(MC_5X) == "HEAD"
 
     def own(s: str, p: str) -> bool:
         data = b.get(f"{side[p]}:{p}")
@@ -93,9 +94,9 @@ def foreign(root: Path, pairs: list[tuple[str, str]]) -> list[str]:
             return True
         if s.startswith("D"):
             return p in recorded or (p.rsplit("/", 1)[-1], sha) in named or (
-                tree_5x and (p in RETIRED_5X or bool(BYTECODE.fullmatch(p))))
+                migrating and (p in RETIRED_5X or bool(BYTECODE.fullmatch(p))))
         if p in MERGED:
             kept = outside(data)
-            return (tree_5x and p in OVERLAYS) or (kept is not None and kept == outside(b.get(f"HEAD:{p}")))
+            return (migrating and p in OVERLAYS) or (kept is not None and kept == outside(b.get(f"HEAD:{p}")))
         return sha is not None and staged.get(p) == sha
     return [p for s, p in pairs if not own(s, p)]

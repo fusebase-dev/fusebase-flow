@@ -224,7 +224,9 @@ class FlowSubject(Workspace):
             m3.git(self.repo, "reset", "-q", "--", rel)
             m3.git(self.repo, "checkout", "-q", "--", rel)
 
-    def test_on_a_5x_tree_the_migrations_deletions_and_overlay_are_flows_own(self) -> None:
+    def test_the_migration_commit_alone_takes_agents_and_claude_whole_and_nothing_else(self) -> None:
+        """The owner's decision of 2026-10-19 (relayed): AGENTS.md and CLAUDE.md are accepted whole on the migration
+        commit only; every other staged path there is Flow's own or one of the four documents."""
         sys.path.insert(0, str(CORE / "hooks/local/lib"))
         import flow_owned
         import migrate
@@ -235,16 +237,33 @@ class FlowSubject(Workspace):
         m3.commit(self.repo, {migrate.MC_MANIFEST: json.dumps({"assets": assets}), "GEMINI.md": "5.x\n",
                               "install.sh": "5.x\n", "audit/README.md": "5.x\n", ".claude/commands/onboard.md": mirror,
                               ".claude/commands/ours.md": "the project's\n", "AGENTS.md": "## FuseBase Flow 5.x\n",
+                              "CLAUDE.md": "## FuseBase Flow 5.x\n", ".gitignore": "node_modules/\n",
                               "src/app.ts": "1\n"}, "a 5.x project")
-        m3.git(self.repo, "rm", "-q", "--", migrate.MC_MANIFEST, "GEMINI.md", "install.sh", "audit/README.md",
-               ".claude/commands/onboard.md")
-        write(self.repo, "AGENTS.md", (CORE / flow.OVERLAY["AGENTS.md"]).read_text(encoding="utf-8"))
-        self.stage("AGENTS.md")
-        self.assertEqual(self.verdict("flow: migrate Fusebase Flow 5.6 to 6.0.0-m4").returncode, 0)
-        m3.git(self.repo, "rm", "-q", "--", ".claude/commands/ours.md")
-        out = self.verdict("flow: migrate Fusebase Flow 5.6 to 6.0.0-m4")
-        self.assertIn("this one also stages .claude/commands/ours.md.", out.stderr)
-
+        retired = [migrate.MC_MANIFEST, "GEMINI.md", "install.sh", "audit/README.md", ".claude/commands/onboard.md"]
+        m3.git(self.repo, "rm", "-q", "--", *retired)
+        for name in ("AGENTS.md", "CLAUDE.md"):
+            write(self.repo, name, (CORE / flow.OVERLAY[name]).read_text(encoding="utf-8"))
+        write(self.repo, ".gitignore", "node_modules/\n\n" + flow.ignore_block())
+        self.stage("AGENTS.md", "CLAUDE.md", ".gitignore")
+        migration = "flow: migrate Fusebase Flow 5.6 to 6.0.0-m4"
+        passed = self.verdict(migration)
+        self.assertEqual(passed.returncode, 0, passed.stderr)
+        for rel, change in ((".claude/commands/ours.md", None), ("src/app.ts", "2\n"),
+                            (".gitignore", "node_modules/\ndist/\n\n" + flow.ignore_block())):
+            if change is None:
+                m3.git(self.repo, "rm", "-q", "--", rel)
+            else:
+                write(self.repo, rel, change)
+                self.stage(rel)
+            self.assertIn(f"this one also stages {rel}.", self.verdict(migration).stderr, rel)
+            m3.git(self.repo, "reset", "-q", "--", rel)
+            m3.git(self.repo, "checkout", "-q", "--", rel)
+        # Without the 5.x manifest's deletion this is no migration: the overlays and the retired names do not pass.
+        write(self.repo, ".gitignore", "node_modules/\n\n" + flow.ignore_block())
+        self.stage(".gitignore")
+        m3.git(self.repo, "reset", "-q", "--", migrate.MC_MANIFEST)
+        out = self.verdict(migration)
+        self.assertIn("this one also stages AGENTS.md, CLAUDE.md, GEMINI.md, audit/README.md, install.sh.", out.stderr)
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
