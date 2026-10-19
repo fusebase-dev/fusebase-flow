@@ -10,11 +10,12 @@
 #   hooks/local/run-handler.sh (O-12, the tool handlers --wire-hooks wires).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
-#   documents and the trivial-tier policy, which 5.x trees do not have).
+#   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
+#   python3 then python then py -3 (T262; O-19).
 # A kernel fix lands on 5.x first, is cherry-picked here, and updates this lock in the same commit.
 f2557b19379421fac007a2c758eda73bb6eb21990a7f5c366c438716e1fe2cfb  .gitattributes
 0acfb991aa269888937723022f2667b0e251ed0091ccc96491752360b2a61be0  LICENSE
-0606e64a8247ba3d2de297dd0247f01aebe7369ff9c79e59136f79a5912c5c74  hooks/git/commit-msg
+7e19361f945b5aa6e0ba5aeb028b066a44b015b502db56ec3c5d6a6e9ac5f180  hooks/git/commit-msg
 f5746f21aa0269015375aafba6278605225ca09d1a819bb72524e3f55d5e0571  hooks/git/pre-commit
 61fa39ad945e6fbf5718dc8ab11c7a6892b50c431e4514a94ca71ccb84679120  hooks/git/pre-push
 d4c7b522d5095dd26b336cb95ef2fd5de290234102f485e79d79d928bc7b8f5f  hooks/handlers/post_tool_use.py

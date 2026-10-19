@@ -17,17 +17,22 @@ import re
 import sys
 from pathlib import Path
 
-import yaml
-
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import flow_docs as fd  # noqa: E402
+BLOCK = "[fusebase-flow:commit-msg] BLOCK — "
+try:
+    import yaml
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import flow_docs as fd
+except ImportError as exc:  # one Flow line, never a traceback (O-19)
+    FIX = (f'"{sys.executable}" -m pip install -r hooks/requirements.txt' if exc.name == "yaml" else
+           "re-run the Flow install, which restores hooks/local/lib/")
+    sys.exit(f"{BLOCK}{exc.name or exc} cannot be imported, so the subject cannot be checked. Fix: {FIX}; "
+             "NEVER use --no-verify.")
 
 FOUR = re.compile(r"docs/flow/(backlog|phases|evidence|ledger)\.md|docs/flow/evidence/[^/]+\.md")
 PLAN = re.compile(r"state/flags/[^/]+\.tsv|state/gate/[^/]+\.txt")  # flow-skills/plan/SKILL.md, "Commit"
 SHIP = re.compile(r"state/flags/[^/]+\.tsv|state/gate/[^/]+\.txt|state/done/[^/]+\.json|state/deploys/[^/]+\.jsonl")
 VAGUE = re.compile(r"^(?:T\d+|plan|ship)\b[:\s]*(update|fix|changes|misc|stuff|wip)\.?$", re.I)
 SKIP = re.compile(r"^\+(?!\+\+).*\b(skip|todo)\b", re.I | re.M)
-BLOCK = "[fusebase-flow:commit-msg] BLOCK — "
 
 
 def subject_of(text: str) -> str:

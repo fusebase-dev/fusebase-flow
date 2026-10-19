@@ -25,8 +25,17 @@ if [ ! -f "$HELPER" ]; then
     echo "[fusebase-flow:commit-msg] BLOCK — $HELPER is missing, so the subject cannot be checked. Restore it: git checkout HEAD -- $HELPER (or re-run the Flow install). NEVER use --no-verify." >&2
     exit 1
 fi
-if ! command -v python3 >/dev/null 2>&1; then
-    echo "[fusebase-flow:commit-msg] BLOCK — python3 not on PATH, so the subject cannot be checked. Install Python 3.10+; NEVER use --no-verify." >&2
+# The interpreter in the pre-commit's order: python3, then python, then py -3, each proved 3.10+ by the pre-commit's
+# probe (O-19). A python.org Windows host has python and py but no python3; the Store stub fails the probe.
+_ffcm_is_py3() { "$@" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] >= (3, 10) else 1)' >/dev/null 2>&1; }
+FFCM_PY=""
+for FFCM_TRY in python3 python "py -3"; do
+    # shellcheck disable=SC2086  # "py -3" is two words
+    if _ffcm_is_py3 $FFCM_TRY; then FFCM_PY="$FFCM_TRY"; break; fi
+done
+if [ -z "$FFCM_PY" ]; then
+    echo "[fusebase-flow:commit-msg] BLOCK — no Python 3.10+ found (tried: python3, python, py -3), so the subject cannot be checked. Install Python 3.10+, then: python -m pip install -r hooks/requirements.txt; NEVER use --no-verify." >&2
     exit 1
 fi
-PYTHONPATH="" python3 -E "$HELPER" "$MSG_FILE"
+# shellcheck disable=SC2086
+PYTHONPATH="" $FFCM_PY -E "$HELPER" "$MSG_FILE"
