@@ -56,6 +56,7 @@ BLOCKS = {ATTRIBUTES: (ATTR_BEGIN, ATTR_END, "line-ending"),
                    "# FLOW:END ignore", "ignore")}
 DOCS_DIR = "docs/flow"
 DOCUMENTS = tuple(f"{DOCS_DIR}/{name}.md" for name in ("backlog", "phases", "evidence", "ledger"))
+COMMIT_MSG_PY = "hooks/local/lib/commit_msg.py"  # 6.0's commit-msg needs it in the work tree
 
 
 def sha256(data: bytes) -> str:
@@ -381,6 +382,51 @@ def git_toplevel(target: Path) -> Path | None:
     return Path(out.stdout.strip()).resolve() if out.returncode == 0 and out.stdout.strip() else None
 
 
+def git_text(target: Path, *args: str, data: str = "") -> str:
+    """git's stdout, "" when it fails."""
+    try:
+        out = subprocess.run(["git", *args], cwd=target, input=data.encode("utf-8"), capture_output=True, timeout=120)
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+    return out.stdout.decode("utf-8", "replace") if out.returncode == 0 else ""
+
+
+def main_worktree(target: Path) -> str:
+    """The main worktree's path when `target` is a linked worktree (`git worktree add`), else "". git keeps one hooks
+    folder for all of a repository's worktrees, so install and migrate run in the main one only (r3-09)."""
+    dirs = git_text(target, "rev-parse", "--git-dir", "--git-common-dir").splitlines()
+    if len(dirs) != 2 or (target / dirs[0]).resolve() == (target / dirs[1]).resolve():
+        return ""
+    first = git_text(target, "worktree", "list", "--porcelain").split("\n", 1)[0]
+    return first[len("worktree "):] if first.startswith("worktree ") else str((target / dirs[1]).resolve().parent)
+
+
+def open_checkouts(target: Path) -> list[str]:
+    """The other local branches and linked worktrees whose tip has no Flow 6.0 commit-msg helper, one line each: the
+    6.0 git hooks, which they share, refuse their commits until they merge the branch installed here (r1-09)."""
+    here = git_text(target, "rev-parse", "--abbrev-ref", "HEAD").strip()
+    heads = git_text(target, "for-each-ref", "--format=%(refname:short)", "refs/heads").splitlines()
+    lines, revs = [f"branch {b}" for b in heads if b and b != here], [b for b in heads if b and b != here]
+    for block in git_text(target, "worktree", "list", "--porcelain").split("\n\n")[1:]:  # the first is the main one
+        tree = dict(line.partition(" ")[::2] for line in block.splitlines())
+        if tree.get("HEAD") and Path(tree.get("worktree", "")).resolve() != target:
+            lines.append(f"worktree {tree['worktree']} ({tree.get('branch', 'detached').removeprefix('refs/heads/')})")
+            revs.append(tree["HEAD"])
+    found = git_text(target, "cat-file", "--batch-check", data="".join(f"{r}:{COMMIT_MSG_PY}\n" for r in revs))
+    found_lines = found.splitlines()
+    if len(found_lines) != len(lines):
+        return lines
+    return [line for line, out in zip(lines, found_lines) if out.endswith(" missing")]
+
+
+def open_warning(lines: list[str], branch: str, commit: str) -> list[str]:
+    """The warning install and migrate print for open_checkouts(), at most 20 of them named."""
+    named = lines[:20] + ([f"and {len(lines) - 20} more"] if len(lines) > 20 else [])
+    return [f"WARNING: {len(lines)} other branches and worktrees have no Flow 6.0 files at their tip ({COMMIT_MSG_PY}); "
+            f"the git hooks are one set for the whole repository, so their commits are refused: each must merge "
+            f"{branch} once {commit} lands, before its next commit:", *(f"  {line}" for line in named)] if lines else []
+
+
 def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | None = None,
             register: bool = False, wire_hooks: bool = False) -> int:
     """prior_5x: Flow records read before a migration removed the 5.x manifests (migrate.py). register: schedule the
@@ -389,6 +435,11 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
     target = target.resolve()
     if git_toplevel(target) != target:
         print(f"[flow] REFUSED: {target} is not the top level of a git work tree (git init it first)")
+        return 2
+    main = main_worktree(target)
+    if main:
+        print(f"[flow] REFUSED: {target} is a linked worktree. The git hooks are one set for all the repository's "
+              f"worktrees, so install runs in the main worktree: {main}; nothing written")
         return 2
     for name in BLOCKS:
         path = target / name
@@ -476,6 +527,10 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
     print("[flow] git hooks:")
     for line in hooks_out.splitlines():
         print(f"[flow]   {line}")
+    if prior_5x is None:  # migrate prints its own
+        here = git_text(target, "rev-parse", "--abbrev-ref", "HEAD").strip()
+        for line in open_warning(open_checkouts(target), here, "the commit of this install"):
+            print(f"[flow] {line}")
     if not wire_hooks:
         print("[flow] provider hook wiring: not written (opt-in: re-run install with --wire-hooks)")
     else:

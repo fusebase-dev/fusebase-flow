@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The 6.0.0-m4 micro-pass fixtures: the commit-msg interpreter (O-19), the CLI's checkpoint subjects (O-20) and
-the Microsoft Store shortcut first on PATH (T269).
+the Microsoft Store shortcut first on PATH (T269); and 6.0.0-m5's: branches and worktrees older than the migration.
 
 `python maintainer/tests/test_commits.py`; test_migrate.py's load_tests runs it too, so core-verify carries it.
 """
@@ -14,12 +14,13 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
 import test_scripts as m3
-from synthetic import migrate, scratch_clone
+from synthetic import FLOW, GIT, migrate, scratch_clone, snapshot
 from test_core import MSG_BACKLOG
 from test_scripts import CORE, Workspace, write
 
@@ -438,6 +439,81 @@ class FlowSubject(Workspace):
         m3.git(self.repo, "reset", "-q", "--", migrate.MC_MANIFEST)
         out = self.verdict(migration)
         self.assertIn("this one also stages AGENTS.md, CLAUDE.md, GEMINI.md, audit/README.md, install.sh.", out.stderr)
+
+
+def commit(cwd: Path, *argv: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
+    """A real `git commit` through the installed hooks."""
+    return subprocess.run([*GIT, "commit", "-q", *argv], cwd=cwd, env=env, capture_output=True, text=True,
+                          encoding="utf-8", errors="replace", timeout=900)
+
+
+class OpenBranches(unittest.TestCase):
+    """r1-09 and r3-09: the migration installs 6.0's git hooks, which every branch and worktree shares. A branch cut
+    before it is refused with the migrated branch named; the CLI's two checkpoints still commit; merging the migrated
+    branch ends it. install refuses a linked worktree; install and migrate list the branches and worktrees left."""
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.tmp = Path(tempfile.mkdtemp(prefix="flow-open-"))
+        lock = (CORE / "maintainer/kernel.lock").read_text(encoding="utf-8").splitlines()
+        kernel = [ln.split(None, 1)[1] for ln in lock if ln.strip() and not ln.startswith("#")]
+        five = {rel: (CORE / rel).read_text(encoding="utf-8") for rel in kernel  # the 5.x tree's kernel, as 5.x has it
+                if rel.startswith(("hooks/", "policies/")) and rel != flow.BASELINE and rel != "hooks/git/commit-msg"}
+        cls.clone = scratch_clone(cls.tmp / "m", five)
+        cls.env = {k: v for k, v in os.environ.items() if not k.startswith("FUSEBASE_FLOW_")}  # no lint
+        cls.migrated = m3.git(cls.clone, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
+        m3.git(cls.clone, "branch", "old")
+        cls.wt = cls.tmp / "wt"
+        m3.git(cls.clone, "worktree", "add", "-q", "-b", "feature", str(cls.wt))
+        cls.dry = migrate(cls.clone, env=cls.env)
+        cls.applied = migrate(cls.clone, "--apply", "--go-ahead", env=cls.env)
+        cls.again = m3.run(str(FLOW), "install", "--target", str(cls.clone), cwd=cls.tmp)  # the upgrade within 6.0
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def test_install_and_migrate_list_the_branches_and_worktrees_left(self) -> None:
+        self.assertEqual(self.applied.returncode, 0, self.applied.stdout[-3000:] + self.applied.stderr[-2000:])
+        self.assertEqual(self.again.returncode, 0, self.again.stdout + self.again.stderr)
+        for name, out in (("dry run", self.dry.stdout), ("apply", self.applied.stdout), ("install", self.again.stdout)):
+            self.assertIn(f"each must merge {self.migrated}", out, name)
+            for line in ("branch feature", "branch old", "/wt (feature)"):
+                self.assertIn(line, out, f"{name}: {line}")
+
+    def test_install_and_migrate_in_a_linked_worktree_refuse_and_name_the_main_worktree(self) -> None:
+        main = m3.git(self.wt, "worktree", "list", "--porcelain").stdout.splitlines()[0].split(" ", 1)[1]
+        hooks = sorted((self.clone / ".git/hooks").iterdir())
+        before = (snapshot(self.wt), [h.read_bytes() for h in hooks])
+        for out in (m3.run(str(FLOW), "install", "--target", str(self.wt), cwd=self.tmp), migrate(self.wt, env=self.env)):
+            self.assertEqual(out.returncode, 2, out.stdout + out.stderr)
+            self.assertIn("is a linked worktree", out.stdout)
+            self.assertIn(f"the main worktree: {main}", out.stdout)
+            self.assertEqual((snapshot(self.wt), [h.read_bytes() for h in hooks]), before, "nothing changed")
+
+    def test_a_branch_cut_before_the_migration_is_refused_until_it_merges_the_migrated_branch(self) -> None:
+        self.assertFalse((self.wt / "hooks/local/lib/commit_msg.py").exists(), "the worktree's branch predates it")
+        write(self.wt, "src/feature.ts", "export const f = 1;\n")
+        m3.git(self.wt, "add", "--", "src/feature.ts")
+        refused = commit(self.wt, "-m", "T5: the feature", env=self.env)
+        self.assertEqual(refused.returncode, 1, refused.stderr)
+        self.assertIn("this branch predates the Flow 6.0 migration", refused.stderr)
+        self.assertIn(f"Merge it into this branch first: git merge {self.migrated}", refused.stderr)
+        self.assertNotIn("git checkout HEAD --", refused.stderr)
+        self.assertNotIn("re-run the Flow install", refused.stderr)
+        for argv in (("-m", CLI_SUBJECTS[0]), ("--allow-empty", "-m", CLI_SUBJECTS[1])):  # dirty, then clean
+            out = commit(self.wt, *argv, env=self.env)
+            self.assertEqual(out.returncode, 0, out.stderr)
+        merged = m3.git(self.wt, "merge", "--no-edit", self.migrated)
+        self.assertEqual(merged.returncode, 0, merged.stdout + merged.stderr)
+        write(self.wt, "src/feature.ts", "export const f = 2;\n")
+        m3.git(self.wt, "add", "--", "src/feature.ts")
+        landed = commit(self.wt, "-m", "T5: the feature, after the merge", env=self.env)
+        self.assertEqual(landed.returncode, 0, landed.stderr)
+        subjects = m3.git(self.wt, "log", "--first-parent", "-4", "--format=%s").stdout.splitlines()
+        self.assertEqual([subjects[0], subjects[2][:30], subjects[3][:29]],
+                         ["T5: the feature, after the merge", CLI_SUBJECTS[1][:30], CLI_SUBJECTS[0][:29]])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

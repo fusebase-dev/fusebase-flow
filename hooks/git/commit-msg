@@ -18,11 +18,47 @@ if [ -z "$MSG_FILE" ] || [ ! -f "$MSG_FILE" ]; then
     exit 0
 fi
 
+# The subject as commit_msg.py reads it: the first line neither blank nor a comment, trimmed. The FuseBase CLI's two
+# update checkpoints (its update-git-checkpoint.ts; the exempt_subjects forms of policies/evidence-classes.yml) are
+# matched here too, because a branch cut before the migration has no 6.0 policy at HEAD.
+FFCM_SUBJECT=""
+while IFS= read -r FFCM_LINE || [ -n "$FFCM_LINE" ]; do
+    case "$FFCM_LINE" in '#'*) continue ;; esac
+    [ -n "${FFCM_LINE//[[:space:]]/}" ] && { FFCM_SUBJECT="$FFCM_LINE"; break; }
+done < "$MSG_FILE"
+FFCM_SUBJECT="${FFCM_SUBJECT#"${FFCM_SUBJECT%%[![:space:]]*}"}"; FFCM_SUBJECT="${FFCM_SUBJECT%"${FFCM_SUBJECT##*[![:space:]]}"}"
+FFCM_CHECKPOINT='^chore\(update\): (pre|post) app update \([^()]+\)$'
+FFCM_CKPT=""; [[ $FFCM_SUBJECT =~ $FFCM_CHECKPOINT ]] && FFCM_CKPT=1
+
 # TRIPWIRE: git runs this hook from the top of the work tree, so the helper path is relative; its successor ships
 # with the hook, and a missing one blocks rather than letting every subject through.
 HELPER="hooks/local/lib/commit_msg.py"
 if [ ! -f "$HELPER" ]; then
-    echo "[fusebase-flow:commit-msg] BLOCK — $HELPER is missing, so the subject cannot be checked. Restore it: git checkout HEAD -- $HELPER (or re-run the Flow install). NEVER use --no-verify." >&2
+    if [ -n "$FFCM_CKPT" ]; then
+        echo "[fusebase-flow:commit-msg] note: the FuseBase CLI's update checkpoint passes; this work tree has no $HELPER, so any other subject is refused until it has one." >&2
+        exit 0
+    fi
+    if git cat-file -e "HEAD:$HELPER" 2>/dev/null; then
+        echo "[fusebase-flow:commit-msg] BLOCK — $HELPER is missing from the work tree, so the subject cannot be checked. Restore it: git checkout HEAD -- $HELPER. NEVER use --no-verify." >&2
+        exit 1
+    fi
+    # A branch cut before the migration: the git hooks every branch and worktree shares are 6.0's, its tree is 5.x's.
+    # TRIPWIRE (T84): git reads go to a file and back through `read`, never `$(git …)`.
+    FFCM_TMP="$(mktemp 2>/dev/null || mktemp -t ffflow-cm)"; FFCM_HAS=(); FFCM_FOUND=""; FFCM_FIRST=""
+    git log --all -n 20 --format=%H --grep='^flow: migrate' > "$FFCM_TMP" 2>/dev/null
+    while IFS= read -r FFCM_LINE; do [ -n "$FFCM_LINE" ] && FFCM_HAS+=(--contains "$FFCM_LINE"); done < "$FFCM_TMP"
+    [ "${#FFCM_HAS[@]}" -eq 0 ] || git branch -a "${FFCM_HAS[@]}" --format='%(refname:short)' > "$FFCM_TMP" 2>/dev/null
+    while [ "${#FFCM_HAS[@]}" -gt 0 ] && IFS= read -r FFCM_LINE; do
+        case "$FFCM_LINE" in ''|'('*|*/HEAD) continue ;; esac
+        FFCM_FIRST="${FFCM_FIRST:-$FFCM_LINE}"; FFCM_FOUND="${FFCM_FOUND:+$FFCM_FOUND, }$FFCM_LINE"
+    done < "$FFCM_TMP"
+    rm -f "$FFCM_TMP"
+    if [ -n "$FFCM_FOUND" ]; then
+        FFCM_WAY="The migrated branch: $FFCM_FOUND (it holds the commit whose subject starts with 'flow: migrate'). Merge it into this branch first: git merge $FFCM_FIRST"
+    else
+        FFCM_WAY="No branch here holds a commit whose subject starts with 'flow: migrate'. Find the migrated branch: the one whose history has such a commit (git log --all --oneline --grep='^flow: migrate', then git branch -a --contains <that commit>), or, after a fresh 6.0 install, the one that carries $HELPER. Merge it into this branch first"
+    fi
+    echo "[fusebase-flow:commit-msg] BLOCK — this branch predates the Flow 6.0 migration: the git hooks, which every branch and worktree of this repository shares, are Flow 6.0's, and this work tree has no $HELPER to check the subject with. $FFCM_WAY, then commit again. NEVER use --no-verify." >&2
     exit 1
 fi
 # The interpreter in the pre-commit's order: python3, then python, then py -3, each proved 3.10+ by the pre-commit's

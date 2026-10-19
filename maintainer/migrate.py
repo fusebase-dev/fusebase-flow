@@ -584,6 +584,9 @@ def report(inv: Inventory, full: bool) -> None:
     say(f"hook wiring, left as is: {inv.wiring}")
     say("backup folder on --apply: .flow-migrate-<UTC timestamp>/ (remove + replace + left in place + AGENTS.md, "
         "CLAUDE.md, VERSION, .gitignore and the docs/flow documents that exist)")
+    for line in flow.open_warning(flow.open_checkouts(inv.target), inv.branch, "the migration commit") or [
+            "other branches and worktrees without Flow 6.0's files: none"]:
+        say(line)
     say(f"commit on --apply --go-ahead: flow: migrate Fusebase Flow {inv.version} to {core}")
 
 
@@ -597,6 +600,11 @@ def run(target: Path, providers: set[str], full: bool, apply: bool = False, go_a
     target = target.resolve()
     if flow.git_toplevel(target) != target:
         print(f"[flow migrate] REFUSED: {target} is not the top level of a git work tree")
+        return 2
+    main = flow.main_worktree(target)
+    if main:
+        print(f"[flow migrate] REFUSED: {target} is a linked worktree. The git hooks are one set for all the "
+              f"repository's worktrees, so the migration runs in the main worktree: {main}; nothing written")
         return 2
     if not (target / MC_MANIFEST).is_file():
         if git(target, "cat-file", "-e", f"HEAD:{MC_MANIFEST}").returncode == 0:
