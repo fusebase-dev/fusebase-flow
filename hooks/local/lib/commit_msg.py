@@ -3,6 +3,8 @@
 from the top of the work tree; exit 0 accept, 1 reject with the reason on stderr.
 
 - A merge (MERGE_HEAD present) passes; `Revert "<s>"` is judged as <s>.
+- A subject matching an `exempt_subjects` form of policies/evidence-classes.yml at HEAD passes whatever it stages: the
+  FuseBase CLI's two update checkpoints.
 - `plan:` and `ship:` pass only when every staged path is one the plan or ship skill's commit stages.
 - Any other subject carries exactly one T<n>. When docs/flow/phases.md at HEAD has tasks, T<n> must be one of them; a
   commit of the four documents alone, or a trivial-tier commit, needs nothing more; any other needs the task's item
@@ -41,6 +43,15 @@ def subject_of(text: str) -> str:
     while m := re.fullmatch(r'Revert "(.*)"', subject):  # decision 10(c) condition 2
         subject = m[1].strip()
     return subject
+
+
+def exempt(root: Path, subject: str) -> bool:
+    """The subject matches a form the committed policy names (O-20), whole; never a local twin or the working tree."""
+    try:
+        doc = yaml.safe_load(fd.git(root, "show", "HEAD:policies/evidence-classes.yml")) or {}
+        return any(re.fullmatch(str(form), subject) for form in doc.get("exempt_subjects") or [])
+    except (yaml.YAMLError, AttributeError, TypeError, re.error):
+        return False
 
 
 def code_extensions(root: Path) -> set[str]:
@@ -89,6 +100,8 @@ def check(root: Path, text: str) -> str | None:
     subject = subject_of(text)
     if not subject:
         return "empty commit message."
+    if exempt(root, subject):
+        return None
     if VAGUE.match(subject):
         return f"vague subject: '{subject}'. Say what the commit does, such as 'T17: reject magic links older than 15 minutes'."
     names = fd.git(root, "diff", "--cached", "--name-status", "--no-renames", "-z", "--ignore-submodules=none").split("\0")

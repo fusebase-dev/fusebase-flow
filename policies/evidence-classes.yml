@@ -19,6 +19,14 @@ trivial:
   test: []
   copy: []
 
+# Subjects commit-msg accepts whatever the commit stages, each matched whole (O-20): the FuseBase CLI's update
+# checkpoints, `chore(update): ${kind} app update (${stamp})` with kind pre or post and a locale date as the stamp,
+# from the CLI's lib/commands/steps/update-git-checkpoint.ts (found by the 6.0.0-m4 review). Read from HEAD by
+# hooks/local/lib/commit_msg.py; never from a local twin or the working tree.
+exempt_subjects:
+  - '^chore\(update\): pre app update \([^()]+\)$'
+  - '^chore\(update\): post app update \([^()]+\)$'
+
 # Paths the redundancy flag never reads (checks.py). Default from the handoff, WP 8.
 vendored_paths: [_core, _web]
 

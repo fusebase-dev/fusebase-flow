@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The 6.0.0-m4 micro-pass fixtures: the commit-msg interpreter (O-19).
+"""The 6.0.0-m4 micro-pass fixtures: the commit-msg interpreter (O-19) and the CLI's checkpoint subjects (O-20).
 
 `python maintainer/tests/test_commits.py`; test_migrate.py's load_tests runs it too, so core-verify carries it.
 """
@@ -13,7 +13,15 @@ import unittest
 from pathlib import Path
 
 import test_scripts as m3
+from test_core import MSG_BACKLOG
 from test_scripts import CORE, Workspace, write
+
+PHASES = ("# Phases\n- reference: none\n\n## P1 First\n- base: pending\n\n### P1-S1 The slice\n"
+          "| Task | Item | Does | Globs | Estimate |\n|---|---|---|---|---|\n| T1 | B1 | the sign-in | `src/**` | 30m 2f |\n")
+# The CLI's own subjects: update-git-checkpoint.ts, `toLocaleString(undefined, {dateStyle: "medium", timeStyle:
+# "medium"})`; en-US carries U+202F before PM under Node's ICU.
+CLI_SUBJECTS = ("chore(update): pre app update (Oct 18, 2026, 7:51:03\u202fPM)",
+                "chore(update): post app update (18.10.2026, 19:51:03)")
 
 
 class Interpreter(Workspace):
@@ -76,6 +84,36 @@ class Interpreter(Workspace):
         self.assertEqual(len(lines), 1, out.stderr)
         self.assertIn("[fusebase-flow:commit-msg] BLOCK", lines[0])
         self.assertIn("-m pip install -r hooks/requirements.txt", lines[0])
+
+
+class Checkpoint(Workspace):
+    """O-20: the FuseBase CLI's two update checkpoint subjects pass on the committed policy alone; nothing wider does."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.policy = (CORE / "policies/evidence-classes.yml").read_text(encoding="utf-8")
+        m3.commit(self.repo, {"policies/evidence-classes.yml": self.policy, "docs/flow/backlog.md": MSG_BACKLOG,
+                              "docs/flow/phases.md": PHASES, "src/a.ts": "export const a = 1;\n"}, "init")
+
+    def verdict(self, subject: str) -> subprocess.CompletedProcess:
+        write(self.repo, "src/a.ts", "export const a = 2;\n")  # the CLI's `git add -A`: a project file
+        m3.git(self.repo, "add", "--", "src/a.ts")
+        (self.tmp / "msg.txt").write_text(subject + "\n", encoding="utf-8")
+        return m3.run(str(CORE / "hooks/local/lib/commit_msg.py"), str(self.tmp / "msg.txt"), cwd=self.repo)
+
+    def test_the_two_cli_subjects_pass_and_a_near_miss_or_a_local_widening_does_not(self) -> None:
+        for subject in CLI_SUBJECTS:
+            out = self.verdict(subject)
+            self.assertEqual(out.returncode, 0, f"{subject}: {out.stderr}")
+        wide = "exempt_subjects: ['^chore\\(update\\): .*$']\n"
+        write(self.repo, "policies/evidence-classes.local.yml", wide)
+        write(self.repo, "policies/evidence-classes.yml", self.policy.replace("exempt_subjects:", wide + "unused:"))
+        m3.git(self.repo, "add", "--", "policies/evidence-classes.yml")  # staged and in the working tree, not at HEAD
+        for subject in ("chore(update): something else", "chore(update): pre app update",
+                        "chore(update): pre app update (Oct 18, 2026) and more", "chore: pre app update (Oct 18, 2026)"):
+            out = self.verdict(subject)
+            self.assertEqual(out.returncode, 1, f"{subject} passed")
+            self.assertIn("must cite a T-number", out.stderr, subject)
 
 
 if __name__ == "__main__":

@@ -746,7 +746,7 @@ class PolicyKeys(unittest.TestCase):
 
     def test_every_evidence_classes_key_is_read_by_a_script(self) -> None:
         doc = yaml.safe_load((CORE / "policies/evidence-classes.yml").read_text(encoding="utf-8"))
-        code = "".join(p.read_text(encoding="utf-8") for p in [*LOCAL.glob("*.py"), LOCAL / "lib/flow_docs.py"])
+        code = "".join(p.read_text(encoding="utf-8") for p in [*LOCAL.glob("*.py"), *(LOCAL / "lib").glob("*.py")])
         unread = [k for k in [*doc, *doc["capture_min_bytes"]] if f'"{k}"' not in code]
         self.assertEqual(unread, [])
         sys.path.insert(0, str(LOCAL / "lib"))
