@@ -33,22 +33,21 @@ CLI_SUBJECTS = ("chore(update): pre app update (Oct 18, 2026, 7:51:03\u202fPM)",
                 "chore(update): post app update (18.10.2026, 19:51:03)")
 
 
-class Interpreter(Workspace):
-    """O-19: commit-msg finds Python as the pre-commit does (python3, then python, then py -3), and a missing PyYAML is
-    one Flow line, never a traceback."""
+class NoPython3(Workspace):
+    """A PATH that holds no python3: a folder for the shims, then git and the coreutils the scripts call."""
+
+    TOOLS = ("git", "date", "mkdir", "rm", "sed")
 
     def setUp(self) -> None:
         super().setUp()
-        for rel in ("hooks/local/lib/commit_msg.py", "hooks/local/lib/flow_docs.py", "hooks/local/lib/flow_owned.py"):
-            write(self.repo, rel, (CORE / rel).read_text(encoding="utf-8"))
-        m3.git(self.repo, "add", "--", "hooks")
         self.bin = self.tmp / "bin"
         self.bin.mkdir()
-        real = shutil.which("git")
-        if os.name == "nt":  # git.exe's own folder (Git\cmd) holds no Python; a native git is found only by its .exe
-            self.path = os.pathsep.join([str(self.bin), str(Path(real).parent)])
-        else:  # /usr/bin holds python3 too: a folder with git alone
-            os.symlink(real, self.bin / "git")
+        if os.name == "nt":  # Git\cmd and Git\usr\bin hold no Python; a native git is found only by its .exe
+            dirs = dict.fromkeys(str(Path(shutil.which(t)).parent) for t in self.TOOLS)
+            self.path = os.pathsep.join([str(self.bin), *dirs])
+        else:  # /usr/bin holds python3 too: links to the tools alone
+            for t in self.TOOLS:
+                os.symlink(shutil.which(t), self.bin / t)
             self.path = str(self.bin)
 
     def shim(self, name: str, *flags: str) -> None:
@@ -59,16 +58,28 @@ class Interpreter(Workspace):
                                      newline="\n")
         (self.bin / name).chmod(0o755)
 
-    def hook(self, subject: str) -> subprocess.CompletedProcess:
-        (self.tmp / "msg.txt").write_text(subject + "\n", encoding="utf-8")
-        return subprocess.run([shutil.which("bash"), str(CORE / "hooks/git/commit-msg"), str(self.tmp / "msg.txt")],
-                              cwd=self.repo, env={**os.environ, "PATH": self.path}, capture_output=True, text=True,
-                              encoding="utf-8", errors="replace", timeout=600)
+    def bash(self, *argv: str, **env: str) -> subprocess.CompletedProcess:
+        return subprocess.run([shutil.which("bash"), *argv], cwd=self.repo, capture_output=True, text=True,
+                              env={**os.environ, **env, "PATH": self.path}, encoding="utf-8", errors="replace",
+                              timeout=600)
 
     def no_python3(self) -> None:
-        found = subprocess.run([shutil.which("bash"), "-c", "command -v python3"], capture_output=True, text=True,
-                               env={**os.environ, "PATH": self.path}, timeout=600)
-        self.assertEqual(found.stdout.strip(), "", "python3 must not be on the test's PATH")
+        self.assertEqual(self.bash("-c", "command -v python3").stdout.strip(), "", "python3 must not be on PATH")
+
+
+class Interpreter(NoPython3):
+    """O-19: commit-msg finds Python as the pre-commit does (python3, then python, then py -3), and a missing PyYAML is
+    one Flow line, never a traceback."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        for rel in ("hooks/local/lib/commit_msg.py", "hooks/local/lib/flow_docs.py", "hooks/local/lib/flow_owned.py"):
+            write(self.repo, rel, (CORE / rel).read_text(encoding="utf-8"))
+        m3.git(self.repo, "add", "--", "hooks")
+
+    def hook(self, subject: str) -> subprocess.CompletedProcess:
+        (self.tmp / "msg.txt").write_text(subject + "\n", encoding="utf-8")
+        return self.bash(str(CORE / "hooks/git/commit-msg"), str(self.tmp / "msg.txt"))
 
     def test_python_alone_or_py_alone_checks_the_subject(self) -> None:
         for name in ("python", "py"):
@@ -93,6 +104,38 @@ class Interpreter(Workspace):
         self.assertEqual(len(lines), 1, out.stderr)
         self.assertIn("[fusebase-flow:commit-msg] BLOCK", lines[0])
         self.assertIn("-m pip install -r hooks/requirements.txt", lines[0])
+
+
+class Approval(NoPython3):
+    """T266: both approval scripts find Python as the hooks do, so an approval is minted with no python3 on PATH."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        for rel in ("hooks/shared", "policies"):
+            shutil.copytree(CORE / rel, self.repo / rel, ignore=shutil.ignore_patterns("__pycache__"))
+        m3.commit(self.repo, {"FLOW_RULES.md": "# rules\n"}, "init")
+        self.shim("python")
+        self.no_python3()
+
+    def test_the_bootstrap_and_the_deploy_approval_are_minted_and_accepted(self) -> None:
+        write(self.repo, "FLOW_RULES.md", "# rules, edited\n")  # fusebase_flow_internals: needs the bootstrap
+        m3.git(self.repo, "add", "--", "FLOW_RULES.md")
+        mint = self.bash(str(CORE / "hooks/local/write-bootstrap-approval.sh"), FF_BOOTSTRAP_TTL_MIN="30")
+        self.assertEqual(mint.returncode, 0, mint.stdout + mint.stderr)
+        made = sorted((self.repo / "state/approvals").glob("protected_path_edit-flow-bootstrap-*.json"))
+        self.assertEqual(len(made), 1, mint.stdout + mint.stderr)
+        artifact = json.loads(made[0].read_text(encoding="utf-8"))
+        self.assertEqual((artifact["paths"], len(artifact["tree_digest"])), (["FLOW_RULES.md"], 64))
+        used = self.bash(str(CORE / "hooks/local/write-bootstrap-approval.sh"), "--consume")
+        self.assertIn("consumed 1 'flow-bootstrap' approval artifact(s)", used.stdout)
+        command = "fusebase deploy --env dev"
+        deploy = self.bash(str(CORE / "hooks/local/approve-local.sh"), "production_deploy", "t266", "the dev deploy",
+                           "--command", command)
+        self.assertEqual(deploy.returncode, 0, deploy.stdout + deploy.stderr)
+        gate = m3.run("-c", "import sys; from pathlib import Path; sys.path.insert(0, 'hooks'); "
+                      "from shared.command_policy import evaluate; d = evaluate(sys.argv[1], root=Path('.')); "
+                      "print(d.decision, d.approval_artifact_present)", command, cwd=self.repo)
+        self.assertEqual(gate.stdout.split(), ["allow", "True"], gate.stderr)
 
 
 class Checkpoint(Workspace):

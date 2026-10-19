@@ -72,13 +72,22 @@ while [ "$#" -gt 0 ]; do
     esac
 done
 
-if ! command -v python3 >/dev/null 2>&1; then
-    echo "[approve-local] python3 not on PATH — cannot author or read approval artifacts." >&2
+# Python in the pre-commit's order: python3, then python, then py -3, each proved 3.10+ by the pre-commit's probe, so
+# a python.org Windows host (python and py, no python3) can mint too; the Store stub fails the probe.
+_ff_is_py3() { "$@" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] >= (3, 10) else 1)' >/dev/null 2>&1; }
+FF_PY=""
+for FF_TRY in python3 python "py -3"; do
+    # shellcheck disable=SC2086  # "py -3" is two words
+    if _ff_is_py3 $FF_TRY; then FF_PY="$FF_TRY"; break; fi
+done
+if [ -z "$FF_PY" ]; then
+    echo "[approve-local] no Python 3.10+ found (tried: python3, python, py -3) — cannot author or read approval artifacts." >&2
     exit 1
 fi
 
 if [ "$INVENTORY" -eq 1 ]; then
-    exec python3 "$ROOT/hooks/local/lib/approval_inventory.py" --root "$ROOT"
+    # shellcheck disable=SC2086
+    exec $FF_PY "$ROOT/hooks/local/lib/approval_inventory.py" --root "$ROOT"
 fi
 
 if [ -z "$ACTION" ] || [ -z "$SLUG" ]; then
@@ -100,7 +109,8 @@ fi
 # The previous heredoc form interpolated $USER/$SLUG/$REASON/$ACTION unescaped into JSON
 # AND $ACTION into Python source, so a quote, backslash, newline or $(...) in any of them
 # produced a corrupt (or executable) artifact.
-MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 python3 - \
+# shellcheck disable=SC2086
+MSYS_NO_PATHCONV=1 PYTHONIOENCODING=utf-8 $FF_PY - \
     "$ROOT" "$ACTION" "$SLUG" "$REASON" "$COMMAND_STR" "$PATHS_NL" <<'PY'
 import json, os, re, sys, tempfile
 from datetime import datetime, timedelta, timezone

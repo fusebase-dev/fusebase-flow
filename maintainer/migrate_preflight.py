@@ -153,19 +153,24 @@ def staging(inv: m.Inventory) -> Check:
 def interpreter(inv: m.Inventory) -> Check:
     bash = shutil.which("bash")
     if not bash:
-        return Check("python3 for the hooks", "no bash on PATH: the git hooks and the approval script need it", True,
+        return Check("Python for the hooks", "no bash on PATH: the git hooks and the approval scripts need it", True,
                      "install Git for Windows (Git Bash) or bash, then re-run")
-    probe = subprocess.run([bash, "-c", 'command -v python3 >/dev/null || { echo "no python3 on PATH"; exit 1; }; '
-                            'python3 -c "import sys, yaml; print(sys.version.split()[0])"'],
+    # The hooks' and the approval scripts' order (T266): the first of python3, python, py -3 that is 3.10+ runs them,
+    # so that one needs PyYAML.
+    probe = subprocess.run([bash, "-c", 'for py in python3 python "py -3"; do '
+                            '$py -c "import sys; raise SystemExit(sys.version_info[:2] < (3, 10))" >/dev/null 2>&1 '
+                            '|| continue; out=$($py -c "import sys, yaml; print(sys.version.split()[0])" 2>&1) '
+                            '&& { echo "$py $out"; exit 0; }; echo "$py: $out"; exit 1; done; '
+                            'echo "no Python 3.10+ (tried: python3, python, py -3)"; exit 1'],
                            cwd=inv.target, capture_output=True, text=True, encoding="utf-8", errors="replace",
                            timeout=600)
     if probe.returncode:
         why = (probe.stdout + probe.stderr).strip().splitlines()[-1:] or ["exit %d" % probe.returncode]
-        return Check("python3 for the hooks", f"bash finds no python3 with PyYAML ({why[0][:200]}); the approval "
-                     "and the hooks run python3", True,
-                     "put Python 3.10+ on bash's PATH as python3 and run "
-                     f"`python3 -m pip install -r \"{(flow.CORE / 'hooks/requirements.txt').as_posix()}\"`; then re-run")
-    return Check("python3 for the hooks", f"python3 {probe.stdout.strip()} with PyYAML")
+        return Check("Python for the hooks", f"bash finds no Python 3.10+ with PyYAML ({why[0][:200]}); the "
+                     "approval scripts and the hooks run the first of python3, python and py -3 that is 3.10+", True,
+                     "put Python 3.10+ on bash's PATH and run it with "
+                     f"`-m pip install -r \"{(flow.CORE / 'hooks/requirements.txt').as_posix()}\"`; then re-run")
+    return Check("Python for the hooks", f"{probe.stdout.strip()} with PyYAML")
 
 
 def validator_commands(target: Path) -> list[tuple[str, str]]:

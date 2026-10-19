@@ -73,8 +73,16 @@ if [ "$CONSUME" -eq 1 ]; then
     exit 0
 fi
 
-if ! command -v python3 >/dev/null 2>&1; then
-    echo "[bootstrap-approval] python3 not on PATH — cannot mint the digest-bound approval." >&2
+# Python in the pre-commit's order: python3, then python, then py -3, each proved 3.10+ by the pre-commit's probe, so
+# a python.org Windows host (python and py, no python3) can mint too; the Store stub fails the probe.
+_ff_is_py3() { "$@" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] >= (3, 10) else 1)' >/dev/null 2>&1; }
+FF_PY=""
+for FF_TRY in python3 python "py -3"; do
+    # shellcheck disable=SC2086  # "py -3" is two words
+    if _ff_is_py3 $FF_TRY; then FF_PY="$FF_TRY"; break; fi
+done
+if [ -z "$FF_PY" ]; then
+    echo "[bootstrap-approval] no Python 3.10+ found (tried: python3, python, py -3) — cannot mint the digest-bound approval." >&2
     exit 1
 fi
 
@@ -87,7 +95,8 @@ ARTIFACT="$APPROVALS_DIR/protected_path_edit-${SLUG}-${DATE_STAMP}.json"
 # writer and verifier). The script collects the staged paths of the requested category,
 # computes the digest, and writes the artifact with the required protected-paths.yml fields
 # + operation + tree_digest.
-PYTHONPATH="$ROOT/hooks" python3 - "$ROOT" "$ARTIFACT" "$CATEGORY" "$TTL_MIN" "$SLUG" <<'PY'
+# shellcheck disable=SC2086
+PYTHONPATH="$ROOT/hooks" $FF_PY - "$ROOT" "$ARTIFACT" "$CATEGORY" "$TTL_MIN" "$SLUG" <<'PY'
 import datetime, json, sys
 from pathlib import Path
 

@@ -10,6 +10,9 @@
 #   T265) and hooks/local/run-handler.sh (O-12, the tool handlers --wire-hooks wires).
 #   hooks/handlers/pre_tool_use.py: the audit line carries the command's hash and a fixed reason, never the
 #   command (T265; 5.x c7ddf591, local; O-22).
+#   hooks/local/write-bootstrap-approval.sh and hooks/local/approve-local.sh: Python found as the pre-commit finds
+#   it, python3 then python then py -3 (T266; 5.x a85b59ec, local; the owner's answer of 2026-10-19, relayed by the
+#   coordinating session). approve-local.sh took 5.x's hunk; its other differences from 5.x stay (T171).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -22,7 +25,7 @@ f5746f21aa0269015375aafba6278605225ca09d1a819bb72524e3f55d5e0571  hooks/git/pre-
 61fa39ad945e6fbf5718dc8ab11c7a6892b50c431e4514a94ca71ccb84679120  hooks/git/pre-push
 d4c7b522d5095dd26b336cb95ef2fd5de290234102f485e79d79d928bc7b8f5f  hooks/handlers/post_tool_use.py
 2ed1c6143f5324e2178f51a6156f0fc4857a6576f8850365ecf13ab829d9487d  hooks/handlers/pre_tool_use.py
-807051ae750b0895272164308e30a0e2fa9fc69f13be764263d3a01320993dc3  hooks/local/approve-local.sh
+6d92a4ab1d91b5c03d5864aabb2f7dd64abcaab4bc2a7850fa8dbf6ef7d4b3aa  hooks/local/approve-local.sh
 e9d192b09e351091350d6d4b6f04e865f5611f5268bd0c5c4a24d5cbcd83d582  hooks/local/check-module-size.sh
 83ef934c00c8688b5666176e18cd556f8971950dbbb53e583dd08b48eca2f9de  hooks/local/install-git-hooks.sh
 f96ad00eae668bbe6f0820e1d4ff263f32df07b46acba1af9853b6392d6c0f2b  hooks/local/lib/approval_inventory.py
@@ -31,7 +34,7 @@ f96ad00eae668bbe6f0820e1d4ff263f32df07b46acba1af9853b6392d6c0f2b  hooks/local/li
 59b32bed31dba84ed161b8b1a9f9df989daec2d31a8789e8fd1ebf8b56171ed7  hooks/local/lib/run-with-timeout.sh
 0a77529b6bf4948546f6e03d479a19779e0565222294902407e6190513006588  hooks/local/lib/validator_tier.py
 009493546e7939c7076950db52fa6a4a0415d41a98a49db85adcc8ecbf030ece  hooks/local/run-handler.sh
-bb5f877a0448be6755529107599e536ff5917e299557a1a81b0e54a622de3835  hooks/local/write-bootstrap-approval.sh
+c6e7d2525d8e3a4534da22d9d9c1a294052cf29ee7c437ac448c7b4ca0283e90  hooks/local/write-bootstrap-approval.sh
 63daf72404eb71177e26c560daf8257d7bcb63dd791983e048848cd88ae94fc8  hooks/requirements.txt
 a17fa14158188b1c02621a2d5cad7a96470578b007abb973a7327a6a00163538  hooks/shared/__init__.py
 e7c5c77c9a71502aa10a79195fcba455e76fbd6fa350c616bbcd9c0280c6ae89  hooks/shared/approval_artifact.py
