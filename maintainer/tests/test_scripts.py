@@ -167,7 +167,7 @@ class Reader(Workspace):
         self.quiet_project({}, 1)
         write(self.repo, ".claude/settings.json", '{"hooks": {"PreToolUse": [{"command": "python hooks/handlers/pre.py"}]}}')
         self.assertIn("hooks: claude unenforced, codex unenforced", self.once().stdout)
-        (self.repo / "hooks/handlers").mkdir(parents=True)
+        write(self.repo, "hooks/handlers/pre.py", "")
         self.assertIn("hooks: claude wired, codex unenforced", self.once().stdout)
 
     def test_register_reader_prints_and_records_the_line_and_plain_install_registers_nothing(self) -> None:

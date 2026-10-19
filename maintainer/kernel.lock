@@ -5,12 +5,17 @@
 #   policies/approval-policy.yml: gate_rounds: 2 (T239; 5.x main 731acb69, public; O-3).
 #   hooks/local/lib/bounded-run.sh: the command's sha256 on heartbeat line 2 (T255; 5.x 834901cd, local; O-10).
 #   hooks/git/pre-commit: stage 4b runs validate_evidence.py --staged on evidence commits (T256; 5.x 2caaf8d1, local; O-11).
+#   hooks/handlers/post_tool_use.py: the audit line with the command's hash and nothing else (T257; 5.x 0b69e6c7,
+#   local; O-12). Carried with it from release/6.0 17b796d3 unchanged: hooks/handlers/pre_tool_use.py and
+#   hooks/local/run-handler.sh (O-12, the tool handlers --wire-hooks wires).
 # A kernel fix lands on 5.x first, is cherry-picked here, and updates this lock in the same commit.
 f2557b19379421fac007a2c758eda73bb6eb21990a7f5c366c438716e1fe2cfb  .gitattributes
 0acfb991aa269888937723022f2667b0e251ed0091ccc96491752360b2a61be0  LICENSE
 7c29acf5623ad5299a3f4de7d094d19c5bbc90dd5c3bd2002a63151e88a6af78  hooks/git/commit-msg
 f5746f21aa0269015375aafba6278605225ca09d1a819bb72524e3f55d5e0571  hooks/git/pre-commit
 61fa39ad945e6fbf5718dc8ab11c7a6892b50c431e4514a94ca71ccb84679120  hooks/git/pre-push
+d4c7b522d5095dd26b336cb95ef2fd5de290234102f485e79d79d928bc7b8f5f  hooks/handlers/post_tool_use.py
+653d770deac8d21461cae4b8db6dfeba8a405ffdba8ad4158d7fcd404297b596  hooks/handlers/pre_tool_use.py
 807051ae750b0895272164308e30a0e2fa9fc69f13be764263d3a01320993dc3  hooks/local/approve-local.sh
 e9d192b09e351091350d6d4b6f04e865f5611f5268bd0c5c4a24d5cbcd83d582  hooks/local/check-module-size.sh
 83ef934c00c8688b5666176e18cd556f8971950dbbb53e583dd08b48eca2f9de  hooks/local/install-git-hooks.sh
@@ -19,6 +24,7 @@ f96ad00eae668bbe6f0820e1d4ff263f32df07b46acba1af9853b6392d6c0f2b  hooks/local/li
 474f026bba4aadd2359678806ffa4007a8d19183f87a8f119e2e2b08bb9db002  hooks/local/lib/precommit-validator-reuse.sh
 59b32bed31dba84ed161b8b1a9f9df989daec2d31a8789e8fd1ebf8b56171ed7  hooks/local/lib/run-with-timeout.sh
 0a77529b6bf4948546f6e03d479a19779e0565222294902407e6190513006588  hooks/local/lib/validator_tier.py
+009493546e7939c7076950db52fa6a4a0415d41a98a49db85adcc8ecbf030ece  hooks/local/run-handler.sh
 bb5f877a0448be6755529107599e536ff5917e299557a1a81b0e54a622de3835  hooks/local/write-bootstrap-approval.sh
 63daf72404eb71177e26c560daf8257d7bcb63dd791983e048848cd88ae94fc8  hooks/requirements.txt
 a17fa14158188b1c02621a2d5cad7a96470578b007abb973a7327a6a00163538  hooks/shared/__init__.py

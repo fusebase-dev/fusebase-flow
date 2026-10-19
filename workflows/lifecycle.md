@@ -2,7 +2,7 @@
 
 The planner (the operator's main session) runs every step; builders build one slice each; readers review and judge. Rules: `FLOW_RULES.md`. The four documents live in `docs/flow/`, copied from `templates/`.
 
-**6.0.0-m3.** The six scripts are in `hooks/local/`. Still *by hand*: the `plan:` and `ship:` subjects (the 6.0.0 `commit-msg`) and provider hook wiring.
+**6.0.0-m3.** The six scripts are in `hooks/local/`. Still *by hand*: the `plan:` and `ship:` subjects (the 6.0.0 `commit-msg`).
 
 ## 1. Plan (skill `plan`)
 
@@ -31,6 +31,6 @@ The planner (the operator's main session) runs every step; builders build one sl
 
 ## Installing Flow
 
-`python <core>/maintainer/flow.py install --target <project> --providers claude,codex` copies the core, the provider mirrors and the three git hooks, and leaves them uncommitted. Committing them touches protected paths: stage them by name, run `FF_BOOTSTRAP_TTL_MIN=30 bash hooks/local/write-bootstrap-approval.sh`, commit, then run it with `--consume`. Re-running the install is the upgrade within 6.0; `--register-reader` also schedules the reader every 5 minutes.
+`python <core>/maintainer/flow.py install --target <project> --providers claude,codex` copies the core, the provider mirrors and the three git hooks, and leaves them uncommitted. Committing them touches protected paths: stage them by name, run `FF_BOOTSTRAP_TTL_MIN=30 bash hooks/local/write-bootstrap-approval.sh`, commit, then run it with `--consume`. Re-running the install is the upgrade within 6.0; `--register-reader` also schedules the reader every 5 minutes, and `--wire-hooks` merges the two tool handlers into `.claude/settings.json` and `.codex/hooks.json`.
 
 `commit-msg` is still 5.11's: one `T<n>` in the subject, or a `docs:`/`chore:` prefix. Resolving `T<n>` in `phases.md`, the trivial tier and `plan:`/`ship:` arrive with the 6.0.0 pass.

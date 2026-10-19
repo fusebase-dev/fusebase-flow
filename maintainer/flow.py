@@ -23,7 +23,7 @@ MANIFEST = "audit/flow-install.json"
 PRIOR_5X = ("audit/managed-content-manifest.json", "audit/hook-layer-manifest.json")
 CORE_PATTERNS = (
     "FLOW_RULES.md", "VERSION", "hooks/requirements.txt", "hooks/git/*", "hooks/shared/*.py",
-    "hooks/local/*.sh", "hooks/local/*.py", "hooks/local/lib/*.sh", "hooks/local/lib/*.py",
+    "hooks/handlers/*.py", "hooks/local/*.sh", "hooks/local/*.py", "hooks/local/lib/*.sh", "hooks/local/lib/*.py",
     "policies/*.yml", "policies/module-size-baseline.txt",
     "agents/*/AGENT.md", "flow-skills/*/SKILL.md", "templates/*.md", "workflows/*.md",
 )
@@ -382,9 +382,10 @@ def git_toplevel(target: Path) -> Path | None:
 
 
 def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | None = None,
-            register: bool = False) -> int:
+            register: bool = False, wire_hooks: bool = False) -> int:
     """prior_5x: Flow records read before a migration removed the 5.x manifests (migrate.py). register: schedule the
-    heartbeat reader (--register-reader); a plain install registers nothing and keeps an earlier record."""
+    heartbeat reader (--register-reader); a plain install registers nothing and keeps an earlier record. wire_hooks:
+    merge the two tool handlers into each provider's hook settings (--wire-hooks); a plain install writes neither."""
     target = target.resolve()
     if git_toplevel(target) != target:
         print(f"[flow] REFUSED: {target} is not the top level of a git work tree (git init it first)")
@@ -475,7 +476,17 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
     print("[flow] git hooks:")
     for line in hooks_out.splitlines():
         print(f"[flow]   {line}")
-    print(f"[flow] provider hook wiring: not written (opt-in, not in {version})")
+    if not wire_hooks:
+        print("[flow] provider hook wiring: not written (opt-in: re-run install with --wire-hooks)")
+    else:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import wire
+    for name in sorted(providers) if wire_hooks else ():
+        wired_rc, wired_out = wire.wire(target, name)
+        # Its own status, as the reader registration's: a refused merge leaves the install's exit code alone.
+        print(f"[flow] provider hook wiring: {'' if wired_rc == 0 else 'NOT wired: '}{wired_out[0]}")
+        for line in "\n".join(wired_out[1:]).splitlines():
+            print(f"[flow]   {line}")
     if not register:
         print("[flow] heartbeat reader: " + ("registered earlier: " + reader["line"] if reader else
                                              "not scheduled (re-run install with --register-reader to schedule it)"))
@@ -498,7 +509,8 @@ def main(argv: list[str]) -> int:
     p = sub.add_parser("install", help="install or upgrade the core in a project")
     p.add_argument("--target", required=True, type=Path)
     p.add_argument("--providers", default="claude,codex")
-    p.add_argument("--wire-hooks", action="store_true")
+    p.add_argument("--wire-hooks", action="store_true",
+                   help="merge the two tool handlers into .claude/settings.json and/or .codex/hooks.json")
     p.add_argument("--register-reader", action="store_true",
                    help="schedule hooks/local/reader.py --once every 5 minutes (schtasks or crontab)")
     m = sub.add_parser("migrate", help="move a project from its Flow 5.x install onto this core (a dry run by default)")
@@ -520,11 +532,7 @@ def main(argv: list[str]) -> int:
         if args.task and not re.fullmatch(r"T\d+", args.task):
             parser.error("--task takes T<n>, such as T312")
         return migrate.run(args.target, providers, args.full, args.apply, args.go_ahead, args.task)
-    if args.wire_hooks:
-        print(f"[flow] REFUSED: --wire-hooks is not in {(CORE / 'VERSION').read_text(encoding='utf-8').strip()} "
-              "(the tool handlers land in phase 7); nothing written")
-        return 2
-    return install(args.target, providers, register=args.register_reader)
+    return install(args.target, providers, register=args.register_reader, wire_hooks=args.wire_hooks)
 
 
 if __name__ == "__main__":

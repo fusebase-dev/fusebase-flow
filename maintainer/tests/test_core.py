@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import calendar
 import contextlib
+import difflib
 import hashlib
 import io
 import json
@@ -350,6 +351,110 @@ class EvidenceHook(Workspace):
             self.repo / "docs/flow/evidence/P1.md").read_text("utf-8") + "| B2 | FAIL: the test is red | - | - | - | - | - |\n"})
         self.assertEqual(failed.returncode, 0, failed.stdout + failed.stderr)
         self.assertIn("EVIDENCE: PASS (0 of 2 rows fail)", failed.stderr)
+
+
+CLI_SETTINGS = """{
+  "enabledMcpjsonServers": [
+    "fusebase-dashboards"
+  ],
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\\"$CLAUDE_PROJECT_DIR\\"/.claude/hooks/run-lint-on-stop.sh",
+            "statusMessage": "Running lint before allowing completion…",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
+}
+"""
+
+
+class Wire(Workspace):
+    """O-12: --wire-hooks merges the two tool handlers beside the CLI's entries; a plain install writes no settings."""
+
+    def install(self, wire_hooks: bool = False, providers: frozenset = frozenset({"claude", "codex"})) -> str:
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(flow.install(self.repo, set(providers), wire_hooks=wire_hooks), 0, out.getvalue())
+        return out.getvalue()
+
+    def status(self) -> str:
+        sys.path.insert(0, str(CORE / "hooks/local"))
+        import reader
+        return f"claude {reader.wired(self.repo, '.claude/settings.json')}, codex {reader.wired(self.repo, '.codex/hooks.json')}"
+
+    def test_a_plain_install_writes_no_hook_settings_and_carries_the_handlers(self) -> None:
+        m3.write(self.repo, ".claude/settings.json", CLI_SETTINGS)
+        out = self.install()
+        self.assertEqual((self.repo / ".claude/settings.json").read_text(encoding="utf-8"), CLI_SETTINGS)
+        self.assertFalse((self.repo / ".codex/hooks.json").exists())
+        self.assertFalse((self.repo / ".codex/config.toml").exists())
+        self.assertIn("provider hook wiring: not written (opt-in: re-run install with --wire-hooks)", out)
+        for rel in ("hooks/handlers/pre_tool_use.py", "hooks/handlers/post_tool_use.py", "hooks/local/run-handler.sh"):
+            self.assertEqual((self.repo / rel).read_bytes(), (CORE / rel).read_bytes(), rel)
+        self.assertEqual(self.status(), "claude unenforced, codex unenforced")
+
+    def test_wiring_adds_beside_the_cli_entries_and_a_second_run_changes_nothing(self) -> None:
+        m3.write(self.repo, ".claude/settings.json", CLI_SETTINGS)
+        out = self.install(wire_hooks=True)
+        after = (self.repo / ".claude/settings.json").read_text(encoding="utf-8")
+        ops = difflib.SequenceMatcher(None, CLI_SETTINGS.splitlines(), after.splitlines(), autojunk=False).get_opcodes()
+        self.assertEqual({op for op, *_ in ops}, {"equal", "insert"}, "the CLI's lines stay, byte for byte, in order")
+        hooks = json.loads(after)["hooks"]
+        self.assertEqual(hooks["Stop"], json.loads(CLI_SETTINGS)["hooks"]["Stop"])
+        self.assertEqual(sorted(hooks), ["PostToolUse", "PostToolUseFailure", "PreToolUse", "Stop"])
+        self.assertEqual(hooks["PostToolUse"][0]["matcher"], "Bash|PowerShell|Edit|Write|MultiEdit|NotebookEdit")
+        self.assertIn("hooks/handlers/post_tool_use.py", hooks["PostToolUseFailure"][0]["hooks"][0]["command"])
+        codex = json.loads((self.repo / ".codex/hooks.json").read_text(encoding="utf-8"))
+        self.assertEqual({e: [b["matcher"] for b in v] for e, v in codex["hooks"].items()},
+                         {"PreToolUse": ["Bash"], "PostToolUse": ["Bash"]})
+        self.assertIn("claude: .claude/settings.json merged: PreToolUse added, PostToolUse added", out)
+        self.assertIn("Codex: unproven", out)
+        self.assertEqual(self.status(), "claude wired, codex wired")
+        files = {rel: (self.repo / rel).read_bytes() for rel in (".claude/settings.json", ".codex/hooks.json")}
+        again = self.install(wire_hooks=True)
+        self.assertEqual({rel: (self.repo / rel).read_bytes() for rel in files}, files, "a second run changes nothing")
+        self.assertIn("already carries Flow's entries; nothing written", again)
+
+    def test_a_file_a_round_trip_would_reformat_is_refused_and_left_as_it_is(self) -> None:
+        packed = '{"hooks":{"Stop":[]}}'
+        m3.write(self.repo, ".claude/settings.json", packed)
+        out = self.install(wire_hooks=True, providers=frozenset({"claude"}))
+        self.assertEqual((self.repo / ".claude/settings.json").read_text(encoding="utf-8"), packed)
+        self.assertIn("provider hook wiring: NOT wired: claude: .claude/settings.json is left as it is", out)
+        self.assertIn('"PostToolUseFailure"', out, "the entries to add by hand")
+
+    def test_a_flow_only_5x_block_gets_the_wider_matcher_and_no_second_block(self) -> None:
+        sys.path.insert(0, str(CORE / "maintainer"))
+        import wire
+        old = {"hooks": {"PostToolUse": [{"matcher": "Edit|Write|MultiEdit|NotebookEdit", "hooks": [
+            {"type": "command", "command": wire.CLAUDE.format("post_tool_use")}]}]}}
+        changed = wire.merge(old, "claude")
+        self.assertIn(f"PostToolUse matcher set to {wire.MATCHER}", changed)
+        self.assertEqual(len(old["hooks"]["PostToolUse"]), 1)
+
+    def test_post_tool_use_writes_the_hash_and_nothing_else_for_a_command(self) -> None:
+        self.install()
+        event = {"hook_event_name": "PostToolUse", "tool_name": "Bash", "tool_use_id": "toolu_1", "agent_id": "a1",
+                 "cwd": str(self.repo), "tool_input": {"command": "npm  test\t-- --run FLOWCANARY7f3a"}}
+        out = subprocess.run([sys.executable, str(self.repo / "hooks/handlers/post_tool_use.py")], cwd=self.repo,
+                             input=json.dumps(event), capture_output=True, text=True, timeout=600)
+        self.assertEqual((out.returncode, json.loads(out.stdout)), (0, {"flow_decision": "allow"}), out.stderr)
+        line = (self.repo / "state/audit.log.jsonl").read_text(encoding="utf-8").splitlines()[-1]
+        record = json.loads(line)
+        self.assertEqual(set(record) - {"ts", "event_id", "decision", "reason", "rule_id", "session_id", "host_tool"},
+                         {"event", "tool_name", "tool_use_id", "agent_id", "cmd_sha256"}, "no git keys")
+        self.assertEqual(record["cmd_sha256"], hashlib.sha256(b"npm test -- --run FLOWCANARY7f3a").hexdigest())
+        self.assertNotIn("FLOWCANARY7f3a", line, "the command text is never written")
+        sys.path.insert(0, str(CORE / "hooks/local"))
+        import reader
+        self.assertEqual(reader.audit(self.repo)[1], [record["cmd_sha256"]])
 
 
 if __name__ == "__main__":
