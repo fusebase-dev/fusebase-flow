@@ -22,7 +22,7 @@
     },
     {
       "path": "audit/hook-layer-manifest.json",
-      "sha256": "a51ab8cdf9709baa2191cf09c3afcd99ae6474a7349bcd376c527529c3595c01"
+      "sha256": "ee1e34c72ba40b8182cbc9b7bec5e602fd51b05ab13a721c130893e3d78c0700"
     },
     {
       "path": "flow-skills/app-quality-patterns/SKILL.md",
@@ -238,7 +238,7 @@
     },
     {
       "path": "hooks/git/pre-commit",
-      "sha256": "450afd66d2b5852f93c3a6f659b84273a1da0c33624c1f364cf7db8140fd6abc"
+      "sha256": "f5746f21aa0269015375aafba6278605225ca09d1a819bb72524e3f55d5e0571"
     },
     {
       "path": "hooks/git/pre-push",
@@ -1705,5 +1705,5 @@
       "sha256": "bd9e3cf2d643a7f71016d480cfc720c36a6065271e073c3b638d8379d84fe47d"
     }
   ],
-  "manifest_self_sha256": "4252bf41e615a91f0b8b93b0070bf0a062c9bde7b005cc2668827939f11caeee"
+  "manifest_self_sha256": "38c8beda8eda7d0af4a3c055dff079725429f94cfcd395ff3e4e251a73ec83db"
 }

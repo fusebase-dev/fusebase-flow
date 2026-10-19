@@ -10,7 +10,7 @@
     },
     {
       "path": "hooks/git/pre-commit",
-      "sha256": "450afd66d2b5852f93c3a6f659b84273a1da0c33624c1f364cf7db8140fd6abc"
+      "sha256": "f5746f21aa0269015375aafba6278605225ca09d1a819bb72524e3f55d5e0571"
     },
     {
       "path": "hooks/git/pre-push",
@@ -977,5 +977,5 @@
       "sha256": "6aa8175788b490e367e66f1fa931813947cd6499645607d5182fff71f18d4ded"
     }
   ],
-  "manifest_self_sha256": "c04366557da2ba15a3d94b0dc7146527bd1e00c144db3d9dd14d92e38befe860"
+  "manifest_self_sha256": "51ec2d1ce779d5f0fe037bc34b0c9cce93aae5d7c55d413df7d2457fdbda09ee"
 }
