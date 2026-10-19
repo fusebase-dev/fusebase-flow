@@ -12,12 +12,29 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 import uuid
 from pathlib import Path
 from typing import Any
 
 from .policy_loader import find_git_root
+
+# A URL's userinfo (`user`, or `user` and a password after a colon) follows its scheme and ends at an `@`: it runs to
+# the last `@` before the host's end (/, ?, # or space).
+_USERINFO = re.compile(r"([A-Za-z][A-Za-z0-9+.\-]*://)[^/?#\s]*@")
+
+
+def strip_userinfo(value: Any) -> Any:
+    """Every URL in every string, inside lists and dicts too, keeps scheme://host/path and loses its user[:password]@:
+    a push URL can carry a token (review r1-43)."""
+    if isinstance(value, str):
+        return _USERINFO.sub(r"\1", value)
+    if isinstance(value, dict):
+        return {k: strip_userinfo(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [strip_userinfo(v) for v in value]
+    return value
 
 
 def audit_log_path(root: Path | None = None) -> Path:
@@ -33,9 +50,9 @@ def emit(
     extra: dict[str, Any] | None = None,
     root: Path | None = None,
 ) -> str:
-    """Append one audit event. Returns the event_id."""
+    """Append one audit event, with no URL userinfo in any string (strip_userinfo). Returns the event_id."""
     event_id = uuid.uuid4().hex
-    record = {
+    record = strip_userinfo({
         "ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "event_id": event_id,
         "event": event,
@@ -45,7 +62,7 @@ def emit(
         "session_id": os.environ.get("FUSEBASE_FLOW_SESSION_ID"),
         "host_tool": os.environ.get("FUSEBASE_FLOW_HOST_TOOL"),
         **(extra or {}),
-    }
+    })
     path = audit_log_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("a", encoding="utf-8") as f:
@@ -63,4 +80,4 @@ def redact(value: str, *, keep_chars: int = 4) -> str:
     return value[:keep_chars] + "*" * max(8, len(value) - keep_chars)
 
 
-__all__ = ["emit", "audit_log_path", "redact"]
+__all__ = ["emit", "audit_log_path", "redact", "strip_userinfo"]

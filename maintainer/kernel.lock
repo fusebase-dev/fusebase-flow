@@ -20,6 +20,8 @@
 #   hooks/git/pre-commit: section 5 leaves lint and typecheck to the commit-msg beside it when that one carries
 #   the line `# fusebase-flow-commit-msg: runs lint and typecheck` and no merge is in progress (T276; 5.x
 #   d9cdb138, local; review r2-43).
+#   hooks/shared/audit_logger.py: emit strips URL userinfo from every string it writes, reason and extra fields
+#   (T277; 5.x a7dc0d5f, local; review r1-43).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -50,7 +52,7 @@ c6e7d2525d8e3a4534da22d9d9c1a294052cf29ee7c437ac448c7b4ca0283e90  hooks/local/wr
 63daf72404eb71177e26c560daf8257d7bcb63dd791983e048848cd88ae94fc8  hooks/requirements.txt
 a17fa14158188b1c02621a2d5cad7a96470578b007abb973a7327a6a00163538  hooks/shared/__init__.py
 e7c5c77c9a71502aa10a79195fcba455e76fbd6fa350c616bbcd9c0280c6ae89  hooks/shared/approval_artifact.py
-69355d2cfb94e5efd9a71bbaa543e764d342f3c7687d45cb2030049ee5a1012a  hooks/shared/audit_logger.py
+0f69349b626801094d3069a4d27a77cc66a4e2d93e62e6ed9394ab040ac156cf  hooks/shared/audit_logger.py
 10524e1cb0e82463f60a5c0a083c7a1f66ddf1deaab6a4ad44ed21cdb1b9271d  hooks/shared/command_policy.py
 80eb6a768dcdf171219b25511a6896123effa83ecea62f92d05cbfad014bf9f7  hooks/shared/command_rules.py
 2523a0585165f3f8597248aee32d985e9ac1d05797c5d0c376a77af44d71d446  hooks/shared/denial_message.py

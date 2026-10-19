@@ -561,5 +561,43 @@ class CheckpointLint(Workspace):
         self.assertEqual(len(m3.git(self.repo, "log", "--first-parent", "--format=%s").stdout.splitlines()), 4)
 
 
+class AuditUserinfo(Workspace):
+    """r1-43: no URL userinfo reaches state/audit.log.jsonl: emit strips it from every string it writes, and the
+    installed pre-push, given a token in the push URL, writes none."""
+
+    TOKEN = "ghp_" + "M5fakeTokenM5fakeTokenM5fakeToken00001"
+
+    def test_emit_strips_userinfo_from_the_reason_and_every_extra_field(self) -> None:
+        shutil.copytree(CORE / "hooks/shared", self.repo / "hooks/shared", ignore=shutil.ignore_patterns("__pycache__"))
+        code = ("import sys; from pathlib import Path; sys.path.insert(0, 'hooks'); from shared.audit_logger import emit; "
+                "t = sys.argv[1]; emit('probe', decision='deny', reason=f'push to https://r1:{t}@github.com/acme/app.git',"
+                " extra={'url': f'https://{t}@example.invalid/x?y=1', 'urls': [f'ssh://git:{t}@host/r', 'a@b.com'],"
+                " 'nested': {'u': f'http://u:{t}@h'}}, root=Path('.'))")
+        out = m3.run("-c", code, self.TOKEN, cwd=self.repo)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        text = (self.repo / "state/audit.log.jsonl").read_text(encoding="utf-8")
+        self.assertNotIn(self.TOKEN, text)
+        line = json.loads(text)
+        self.assertEqual(line["reason"], "push to https://github.com/acme/app.git")
+        self.assertEqual((line["url"], line["urls"], line["nested"]),
+                         ("https://example.invalid/x?y=1", ["ssh://host/r", "a@b.com"], {"u": "http://h"}))
+
+    def test_the_installed_pre_push_writes_no_userinfo_to_the_audit_log(self) -> None:
+        m3.commit(self.repo, {"a.txt": "a\n"}, "init")
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(flow.install(self.repo, {"claude"}), 0)  # the real git hooks
+        sha = m3.git(self.repo, "rev-parse", "HEAD").stdout.strip()
+        push = subprocess.run([shutil.which("bash"), ".git/hooks/pre-push", "origin",
+                               "https://r1:" + self.TOKEN + "@github.com/acme/app.git"], cwd=self.repo,
+                              input=f"refs/heads/main {sha} refs/heads/main {'0' * 40}\n", capture_output=True,
+                              text=True, encoding="utf-8", errors="replace", timeout=600)
+        self.assertEqual(push.returncode, 1, push.stderr)  # a push to main needs its approval
+        text = (self.repo / "state/audit.log.jsonl").read_text(encoding="utf-8")
+        self.assertIn('"event":"push_boundary"', text)
+        self.assertIn("https://github.com/acme/app.git", text)
+        self.assertNotIn(self.TOKEN, text)
+        self.assertNotIn("r1:", text)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
