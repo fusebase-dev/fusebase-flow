@@ -7,7 +7,7 @@ description: Load when you deploy or hand off. The approval-gated deploy step, t
 
 The planner runs the deploy step in its own session. A deploy, a rollback, an approval, a secret or a live-session check is never delegated.
 
-**6.0.0-m3:** commit the ship commit as `docs(flow): ship <what>` (the 5.11 `commit-msg` rejects a bare `ship:`). Set an item `done` only when `python hooks/local/validate_evidence.py <phase>` passes its row.
+Commit the ship commit as `ship: <what>`; `commit-msg` takes `ship:` only on the files under The ship commit below. Set an item `done` only when `python hooks/local/validate_evidence.py <phase>` passes its row.
 
 ## Before the deploy
 

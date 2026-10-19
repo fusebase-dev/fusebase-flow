@@ -7,7 +7,7 @@ description: Load when you plan. Turns the operator's feedback into backlog item
 
 The planner (the operator's main session, or an agent with the planner profile) runs this skill. It writes `backlog.md` and `phases.md`. Builders never load it.
 
-**6.0.0-m3:** commit the documents as `docs(flow): plan <what>` (the 5.11 `commit-msg` rejects a bare `plan:`). Declare the project's class globs and trivial-tier lists in `policies/evidence-classes.yml`, a protected file.
+Commit the documents as `plan: <what>`; `commit-msg` takes `plan:` only on the files under Commit below. Declare the project's class globs and trivial-tier lists in `policies/evidence-classes.yml`, a protected file.
 
 ## Read first
 
@@ -41,7 +41,7 @@ In `phases.md`:
 
 ## Trivial tier
 
-No backlog item is needed when every staged path matches the docs, test or copy lists in `policies/evidence-classes.yml` as committed at HEAD, or the diff is formatting only. The subject still carries one `T<n>`. Never trivial: deleting a test, adding a skip to a test, any edit to the four documents, any code extension.
+No backlog item is needed when every staged path matches the docs, test or copy lists in `policies/evidence-classes.yml` as committed at HEAD, or the diff is formatting only. The subject still carries one `T<n>`. Never trivial: deleting a test, adding a skip to a test, any edit to the four documents, a code extension under the docs or copy list. `commit-msg` checks all of this, resolving the `T<n>` in `phases.md` at HEAD.
 
 ## Commit
 

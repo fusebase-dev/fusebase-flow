@@ -8,10 +8,13 @@
 #   hooks/handlers/post_tool_use.py: the audit line with the command's hash and nothing else (T257; 5.x 0b69e6c7,
 #   local; O-12). Carried with it from release/6.0 17b796d3 unchanged: hooks/handlers/pre_tool_use.py and
 #   hooks/local/run-handler.sh (O-12, the tool handlers --wire-hooks wires).
+# Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
+#   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
+#   documents and the trivial-tier policy, which 5.x trees do not have).
 # A kernel fix lands on 5.x first, is cherry-picked here, and updates this lock in the same commit.
 f2557b19379421fac007a2c758eda73bb6eb21990a7f5c366c438716e1fe2cfb  .gitattributes
 0acfb991aa269888937723022f2667b0e251ed0091ccc96491752360b2a61be0  LICENSE
-7c29acf5623ad5299a3f4de7d094d19c5bbc90dd5c3bd2002a63151e88a6af78  hooks/git/commit-msg
+0606e64a8247ba3d2de297dd0247f01aebe7369ff9c79e59136f79a5912c5c74  hooks/git/commit-msg
 f5746f21aa0269015375aafba6278605225ca09d1a819bb72524e3f55d5e0571  hooks/git/pre-commit
 61fa39ad945e6fbf5718dc8ab11c7a6892b50c431e4514a94ca71ccb84679120  hooks/git/pre-push
 d4c7b522d5095dd26b336cb95ef2fd5de290234102f485e79d79d928bc7b8f5f  hooks/handlers/post_tool_use.py

@@ -340,15 +340,15 @@ class EvidenceHook(Workspace):
         head = "# Evidence\n\n| Criterion | Status | Capture | sha256 | Bytes | Log | Note |\n|---|---|---|---|---|---|---|\n"
         capture = b'{"signed_in": false, "status": 410}\n'
         wrong = self.row("B1", "runs/run-1/S1/link.json", capture, "0" * 64)
-        blocked = self.hooked("T3: the B1 row", {**runs, "docs/flow/evidence/P1.md": f"{head}{wrong}\n"})
+        blocked = self.hooked("T1: the B1 row", {**runs, "docs/flow/evidence/P1.md": f"{head}{wrong}\n"})
         self.assertNotEqual(blocked.returncode, 0, "a PASS row whose digest is wrong is not committed")
         self.assertIn("B1 FAIL: the row's sha256 or Bytes differ from the file", blocked.stdout + blocked.stderr)
         self.assertIn("BLOCK — an evidence row this commit stages does not hold", blocked.stderr)
-        partial = self.hooked("T3: the B1 row", {"docs/flow/evidence/P1.md": f"{head}{self.row('B1', 'runs/run-1/S1/link.json', capture)}\n"})
+        partial = self.hooked("T1: the B1 row", {"docs/flow/evidence/P1.md": f"{head}{self.row('B1', 'runs/run-1/S1/link.json', capture)}\n"})
         self.assertEqual(partial.returncode, 0, partial.stdout + partial.stderr)
         self.assertIn("stage=evidence", partial.stderr)
         self.assertIn("EVIDENCE: PASS (0 of 1 rows fail)", partial.stderr, "B2 has no row yet: no failure here")
-        failed = self.hooked("T4: the B2 row records a FAIL", {"docs/flow/evidence/P1.md": (
+        failed = self.hooked("T2: the B2 row records a FAIL", {"docs/flow/evidence/P1.md": (
             self.repo / "docs/flow/evidence/P1.md").read_text("utf-8") + "| B2 | FAIL: the test is red | - | - | - | - | - |\n"})
         self.assertEqual(failed.returncode, 0, failed.stdout + failed.stderr)
         self.assertIn("EVIDENCE: PASS (0 of 2 rows fail)", failed.stderr)
@@ -506,6 +506,96 @@ class Health(Workspace):
         self.assertIn("1 Flow files missing", verdict)
         self.assertIn("a hook-layer file changed: hooks/local/gate.py", verdict)
         self.assertNotIn("lifecycle.md", verdict, "an edited text is reported, not a fault")
+
+
+MSG_BACKLOG = "# Backlog\n\n## B1 Sign-in\n- source: owner:2026-10-16\n- criterion: It works.\n- risk: none\n- status: open\n"
+MSG_TIER = ("schema_version: 1\ntrivial:\n  docs_only: ['docs/notes/**']\n  test: ['test/**']\n  copy: []\n"
+            "vendored_paths: [_core, _web]\n")
+
+
+class CommitMsg(Workspace):
+    """O-13 (WP 10, decision 10(c)): the subject rules, on a repository whose HEAD holds the plan and the policies."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        rows = (f"| T1 | B1 | the sign-in | `src/**`, `test/**` | 30m 2f |\n"
+                f"| T2 | - | housekeeping | `docs/notes/**`, `test/**` | 10m 1f |\n")
+        commit(self.repo, {"policies/evidence-classes.yml": MSG_TIER, "docs/flow/backlog.md": MSG_BACKLOG,
+                           "policies/module-size.yml": (CORE / "policies/module-size.yml").read_text(encoding="utf-8"),
+                           "docs/flow/phases.md": "# Phases\n- reference: none\n\n## P1 First\n- base: pending\n\n"
+                           "### P1-S1 The slice\n| Task | Item | Does | Globs | Estimate |\n|---|---|---|---|---|\n" + rows,
+                           "test/a.test.ts": "test('a', () => {});\n", "src/a.ts": "export const a = 1;\n"}, "init")
+
+    def verdict(self, subject: str, files: dict[str, str | None]) -> subprocess.CompletedProcess:
+        for rel, text in files.items():
+            if text is None:
+                m3.git(self.repo, "rm", "-q", "--", rel)
+                continue
+            write(self.repo, rel, text)
+            m3.git(self.repo, "add", "--", rel)
+        (self.tmp / "msg.txt").write_text(subject + "\n\nbody\n", encoding="utf-8")
+        out = m3.run(str(CORE / "hooks/local/lib/commit_msg.py"), str(self.tmp / "msg.txt"), cwd=self.repo)
+        m3.git(self.repo, "reset", "-q")
+        return out
+
+    def passes(self, subject: str, files: dict[str, str | None]) -> None:
+        out = self.verdict(subject, files)
+        self.assertEqual(out.returncode, 0, f"{subject}: {out.stderr}")
+
+    def blocks(self, subject: str, files: dict[str, str | None], text: str) -> None:
+        out = self.verdict(subject, files)
+        self.assertEqual(out.returncode, 1, f"{subject} passed")
+        self.assertIn(text, out.stderr)
+
+    def test_the_five_cases_of_wp_10(self) -> None:
+        self.passes("T2: one more test", {"test/b.test.ts": "test('b', () => {});\n"})
+        self.blocks("T2: one more test and its code", {"test/b.test.ts": "x\n", "src/b.ts": "export const b = 2;\n"},
+                    "T2's task names no backlog item at HEAD")
+        self.passes("T1: one more test and its code", {"test/b.test.ts": "x\n", "src/b.ts": "export const b = 2;\n"})
+        self.blocks("docs: the notes", {"src/b.ts": "export const b = 2;\n"}, "must cite a T-number")
+        self.blocks("plan: phase 1 slices", {"docs/flow/phases.md": "# Phases\n", "src/b.ts": "x\n"},
+                    "a `plan:` commit stages the four documents and the state files its skill names only")
+        write(self.repo, "policies/evidence-classes.local.yml", "trivial:\n  docs_only: ['docs/**']\n")
+        self.blocks("T2: a design note", {"docs/design/a.md": "a note\n"}, "T2's task names no backlog item")
+
+    def test_the_conditions_of_decision_10c(self) -> None:
+        self.passes("plan: phase 1 slices", {"docs/flow/phases.md": "# Phases\n", "state/flags/P1-S1.tsv": "id\n"})
+        self.passes("ship: P1 to dev", {"docs/flow/ledger.md": "# Ledger\n", "state/done/P1-S1.json": "{}\n",
+                                        "state/deploys/dev.jsonl": "{}\n", "docs/flow/evidence/P1.md": "# Evidence\n"})
+        self.blocks("ship: P1 to dev", {"src/b.ts": "x\n"}, "a `ship:` commit")
+        self.passes("T1: the evidence row", {"docs/flow/evidence.md": "# Evidence\n"})
+        self.blocks("T9: the evidence row", {"docs/flow/evidence.md": "# Evidence\n"}, "T9 is not a task in docs/flow/phases.md")
+        self.blocks("T1 and T2: two at once", {"test/b.test.ts": "x\n"}, "exactly one T<n> per commit")
+        self.passes('Revert "T1: one more test and its code"', {"src/a.ts": None})
+        self.blocks('Revert "wip"', {"src/a.ts": None}, "must cite a T-number")
+        self.blocks("T1: wip", {"src/b.ts": "x\n"}, "vague subject")
+        self.blocks("T2: code under a docs glob", {"docs/notes/x.py": "x = 1\n"}, "T2's task names no backlog item")
+        self.blocks("T2: drop a test", {"test/a.test.ts": None}, "T2's task names no backlog item")
+        self.blocks("T2: skip a test", {"test/a.test.ts": "test.skip('a', () => {});\n"}, "T2's task names no backlog item")
+        self.passes("T2: a note", {"docs/notes/a.md": "a note\n"})
+        self.passes("T2: reformat", {"src/a.ts": "export  const a = 1;\n\n"})
+        self.blocks("T2: a real change", {"src/a.ts": "export const a = 2;\n"}, "T2's task names no backlog item")
+        commit(self.repo, {"side.txt": "side\n"}, "T1: the side")
+        m3.git(self.repo, "checkout", "-q", "-b", "side", "HEAD~1")
+        commit(self.repo, {"other.txt": "other\n"}, "T1: the other side")
+        m3.git(self.repo, "merge", "-q", "--no-ff", "--no-commit", "main")
+        (self.tmp / "msg.txt").write_text("Merge branch 'main' into side\n", encoding="utf-8")
+        merged = m3.run(str(CORE / "hooks/local/lib/commit_msg.py"), str(self.tmp / "msg.txt"), cwd=self.repo)
+        self.assertEqual(merged.returncode, 0, merged.stderr)
+
+    def test_the_installed_hook_runs_the_rules_and_a_fresh_project_passes_one_id(self) -> None:
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(flow.install(self.repo, {"claude"}), 0)
+        names = m3.git(self.repo, "ls-files", "--others", "--exclude-standard").stdout.splitlines()
+        hooked = EvidenceHook.hooked
+        first = hooked(self, "T1: install Fusebase Flow", {n: (self.repo / n).read_bytes() for n in names}, mint=True)
+        self.assertEqual(first.returncode, 0, first.stderr)
+        self.assertEqual((self.repo / ".git/hooks/commit-msg").read_bytes(), (CORE / "hooks/git/commit-msg").read_bytes())
+        bad = hooked(self, "docs: a note", {"docs/notes/a.md": "a note\n"})
+        self.assertNotEqual(bad.returncode, 0)
+        self.assertIn("must cite a T-number", bad.stderr)
+        good = hooked(self, "T2: a note", {"docs/notes/a.md": "a note\n"})
+        self.assertEqual(good.returncode, 0, good.stderr)
 
 
 if __name__ == "__main__":

@@ -105,11 +105,11 @@ def tier(pol: dict, key: str | None = None) -> list[str]:
     return [g for k, v in lists.items() if key in (None, k) for g in (v or [])]
 
 
-def phases(root: Path) -> dict[str, dict]:
-    """{slice id: {phase, base, title, tasks: [{id, item, does, globs, minutes, files}]}} from phases.md."""
+def phases(root: Path, text: str | None = None) -> dict[str, dict]:
+    """{slice id: {phase, base, title, tasks: [{id, item, does, globs, minutes, files}]}} from phases.md, or from `text`."""
     slices: dict[str, dict] = {}
     phase = base = current = None
-    for line in read(root / PHASES).splitlines():
+    for line in (read(root / PHASES) if text is None else text).splitlines():
         if m := re.match(r"##\s+(P\d+)\b", line):
             phase, base, current = m[1], None, None
         elif (m := re.match(r"-\s*base:\s*(\S+)", line)) and current is None:

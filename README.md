@@ -18,4 +18,4 @@ Run `python maintainer/flow.py migrate --target <project> --providers claude,cod
 
 ## 6.0.0-m3 limits
 
-The six scripts (reader, slicer, DONE check, checks, validator, gate) are in `hooks/local/`. Provider hook wiring and the 6.0.0 `commit-msg` are not in this pre-release; the lifecycle page says which steps stay by hand. Codex: unproven (`docs/provider-coverage.md`).
+The six scripts (reader, slicer, DONE check, checks, validator, gate) are in `hooks/local/`. Provider hook wiring is opt-in (`install --wire-hooks`), and the 6.0.0 `commit-msg` checks the subject (`workflows/lifecycle.md`). Codex: unproven (`docs/provider-coverage.md`).

@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Fusebase Flow — commit-msg git hook
+# Fusebase Flow — commit-msg git hook (6.0)
 # fusebase-flow-managed-hook: v1
 #
-# Per FR-03: implementation commits must cite a T-number.
-# Per code-review discipline: vague messages are rejected.
+# Rules 1 and 2 (FR-01, FR-03) on the subject: exactly one T<n>, resolved in docs/flow/phases.md at HEAD; `plan:` and
+# `ship:` only on a commit of the four documents and the state files their skills name; the trivial tier from
+# policies/evidence-classes.yml at HEAD (handoff WP 10, decision 10(c)). The checks live in
+# hooks/local/lib/commit_msg.py. 6.0 only: 5.x keeps its own commit-msg (owner, 2026-10-19).
 #
 # Install: bash hooks/local/install-git-hooks.sh
 #
@@ -16,42 +18,15 @@ if [ -z "$MSG_FILE" ] || [ ! -f "$MSG_FILE" ]; then
     exit 0
 fi
 
-# Strip comments and trailing blank lines, then read the subject line.
-SUBJECT="$(grep -v '^#' "$MSG_FILE" | sed '/^[[:space:]]*$/d' | head -n 1)"
-
-if [ -z "$SUBJECT" ]; then
-    echo "[fusebase-flow:commit-msg] BLOCK — empty commit message." >&2
+# TRIPWIRE: git runs this hook from the top of the work tree, so the helper path is relative; its successor ships
+# with the hook, and a missing one blocks rather than letting every subject through.
+HELPER="hooks/local/lib/commit_msg.py"
+if [ ! -f "$HELPER" ]; then
+    echo "[fusebase-flow:commit-msg] BLOCK — $HELPER is missing, so the subject cannot be checked. Restore it: git checkout HEAD -- $HELPER (or re-run the Flow install). NEVER use --no-verify." >&2
     exit 1
 fi
-
-# Allow specific docs-only / chore prefixes without T-number requirement.
-ALLOWED_DOCS_PREFIX_REGEX='^(docs|chore|build|ci|style|revert|merge|flow)(\([^)]+\))?:[[:space:]]'
-
-if echo "$SUBJECT" | grep -Eq "$ALLOWED_DOCS_PREFIX_REGEX"; then
-    # Docs/chore commits: still reject vague subjects.
-    if echo "$SUBJECT" | grep -Eiq '^(docs|chore|build|ci|style)(\([^)]+\))?:[[:space:]]+(update|fix|changes|misc|stuff|wip)\.?$'; then
-        echo "[fusebase-flow:commit-msg] BLOCK — vague subject: '$SUBJECT'." >&2
-        echo "Use a specific scope. Example: 'docs(flow): clarify FR-12 approval semantics'." >&2
-        exit 1
-    fi
-    exit 0
-fi
-
-# Implementation commits: require T<number>.
-if ! echo "$SUBJECT" | grep -Eq '\bT[0-9]+\b'; then
-    echo "[fusebase-flow:commit-msg] BLOCK — implementation commits must cite a T-number (FR-03)." >&2
-    echo "Subject: $SUBJECT" >&2
-    echo "Examples:" >&2
-    echo "  feat(spa): T17 add EnrichmentCard 'Skip if already fetched' toggle" >&2
-    echo "  fix(extension): T18 content-script honors skipFlags from EXTRACT" >&2
-    echo "If this is a docs-only commit, prefix with 'docs(...): '." >&2
+if ! command -v python3 >/dev/null 2>&1; then
+    echo "[fusebase-flow:commit-msg] BLOCK — python3 not on PATH, so the subject cannot be checked. Install Python 3.10+; NEVER use --no-verify." >&2
     exit 1
 fi
-
-# Reject vague verbs even on impl commits.
-if echo "$SUBJECT" | grep -Eiq '\bT[0-9]+\b[[:space:]]+(update|fix|changes|misc|stuff|wip)\.?$'; then
-    echo "[fusebase-flow:commit-msg] BLOCK — vague subject after T-number: '$SUBJECT'." >&2
-    exit 1
-fi
-
-exit 0
+PYTHONPATH="" python3 -E "$HELPER" "$MSG_FILE"
