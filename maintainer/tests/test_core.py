@@ -476,7 +476,8 @@ class Health(Workspace):
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
         self.assertEqual(git_files(), inside, "nothing under .git is written")
         self.assertEqual(snapshot(self.repo), before, "read-only")
-        for line in ("manifest: 77 files, 77 as installed, 0 changed, 0 missing", "block: .gitignore present",
+        n = len(json.loads((self.repo / "audit/flow-install.json").read_text(encoding="utf-8"))["files"])
+        for line in (f"manifest: {n} files, {n} as installed, 0 changed, 0 missing", "block: .gitignore present",
                      "git hook: commit-msg installed", "wiring: claude unenforced", "wiring: codex unenforced",
                      "reader: not scheduled", "status.line: absent", "HEALTH: healthy"):
             self.assertIn(line, out.stdout)
