@@ -5,7 +5,9 @@ from the top of the work tree; exit 0 accept, 1 reject with the reason on stderr
 - A merge (MERGE_HEAD present) passes; `Revert "<s>"` is judged as <s>.
 - A subject matching an `exempt_subjects` form of policies/evidence-classes.yml at HEAD passes whatever it stages: the
   FuseBase CLI's two update checkpoints.
-- `plan:` and `ship:` pass only when every staged path is one the plan or ship skill's commit stages.
+- `plan:` and `ship:` pass only when every staged path is one the plan or ship skill's commit stages; `flow:` (Flow's
+  own install, migration and upgrade) only when every staged path is Flow's own or one of the four documents
+  (flow_owned.py).
 - Any other subject carries exactly one T<n>. When docs/flow/phases.md at HEAD has tasks, T<n> must be one of them; a
   commit of the four documents alone, or a trivial-tier commit, needs nothing more; any other needs the task's item
   in backlog.md at HEAD.
@@ -24,6 +26,7 @@ try:
     import yaml
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import flow_docs as fd
+    import flow_owned
 except ImportError as exc:  # one Flow line, never a traceback (O-19)
     FIX = (f'"{sys.executable}" -m pip install -r hooks/requirements.txt' if exc.name == "yaml" else
            "re-run the Flow install, which restores hooks/local/lib/")
@@ -107,6 +110,11 @@ def check(root: Path, text: str) -> str | None:
     names = fd.git(root, "diff", "--cached", "--name-status", "--no-renames", "-z", "--ignore-submodules=none").split("\0")
     pairs = [(names[i], names[i + 1]) for i in range(0, len(names) - 1, 2)]
     staged, deleted = [p for _, p in pairs], {p for s, p in pairs if s.startswith("D")}
+    if subject.startswith("flow:"):  # O-21
+        other = flow_owned.foreign(root, [(s, p) for s, p in pairs if not FOUR.fullmatch(p)])
+        return (f"a `flow:` commit stages Flow's own files (as audit/flow-install.json records them), the four "
+                f"documents and Flow's marked blocks only; this one also stages {', '.join(other[:5])}. Unstage those "
+                "and commit them under a task's T<n>.") if other else None
     if m := re.match(r"(plan|ship):\s", subject):
         allowed = PLAN if m[1] == "plan" else SHIP
         other = [p for p in staged if not (FOUR.fullmatch(p) or allowed.fullmatch(p))]
@@ -114,8 +122,9 @@ def check(root: Path, text: str) -> str | None:
                 f"stages {', '.join(other[:5])}. Commit those under a task's T<n>.") if other else None
     ids = sorted(set(fd.TASK.findall(subject)))
     if len(ids) != 1:
-        return ("implementation commits must cite a T-number (FR-03): exactly one T<n> in the subject, or `plan:` or "
-                f"`ship:` on a commit of the four documents. Subject: {subject}" if not ids else
+        return ("implementation commits must cite a T-number (FR-03): exactly one T<n> in the subject, `plan:` or "
+                "`ship:` on a commit of the four documents, or `flow:` on Flow's own files. "
+                f"Subject: {subject}" if not ids else
                 f"exactly one T<n> per commit (FR-03); the subject names {', '.join(ids)}. Split the commit.")
     tasks = {t["id"]: t for s in fd.phases(root, fd.uncomment(fd.git(root, "show", f"HEAD:{fd.PHASES}"))).values()
              for t in s["tasks"]}

@@ -308,7 +308,7 @@ def complete(inv: m.Inventory, folder: Path) -> None:
     write_lines(folder / JOURNAL / STAGE, [p for p in paths if (target / p).is_file()])
     core = (flow.CORE / "VERSION").read_text(encoding="utf-8").strip()
     flow.write_bytes(folder / JOURNAL / MESSAGE, (
-        f"chore(flow): {inv.task} migrate Fusebase Flow {inv.version} to {core}\n\n"
+        f"flow: migrate Fusebase Flow {inv.version} to {core}\n\n"
         f"flow.py migrate --apply --go-ahead: remove {len(inv.removals())}, replace {len(inv.replace)}, "
         f"new {len(inv.new)}; the migration report leads docs/flow/ledger.md.\n"
         f"Backup: {folder.name}/ (excluded). Undo: the block at the end of the migration report.\n").encode("utf-8"),

@@ -115,7 +115,6 @@ class Inventory:
     manifest: tuple[int, int] = (0, 0)  # assets recorded in the managed-content manifest, present
     head: str = ""
     branch: str = ""
-    task: str = ""
     version_is_flow: bool = True  # VERSION is Flow's (reads the manifest's flow_version) or absent
 
     def removals(self) -> list[str]:
@@ -289,12 +288,6 @@ def wiring(target: Path) -> str:
     return f"claude: {claude}; codex: {codex}"
 
 
-def next_task(target: Path) -> str:
-    log = git(target, "log", "--format=%s").stdout.decode("utf-8", "replace")
-    numbers = [int(n) for n in re.findall(r"\bT(\d+)", log)]
-    return f"T{max(numbers, default=0) + 1}"
-
-
 def reference_tokens(inv: Inventory) -> tuple[set[str], set[str], set[str]]:
     """(retired paths, retired skill names, word tokens: hyphenated workflow/policy stems and agent types)."""
     paths = {p for g in GROUPS[:7] for p in inv.remove[g]}
@@ -449,7 +442,6 @@ def inventory(target: Path, providers: set[str]) -> Inventory:
     inv.wiring = wiring(target)
     inv.head = git(target, "rev-parse", "HEAD").stdout.decode().strip()
     inv.branch = git(target, "rev-parse", "--abbrev-ref", "HEAD").stdout.decode().strip()
-    inv.task = next_task(target)
     return inv
 
 
@@ -592,11 +584,10 @@ def report(inv: Inventory, full: bool) -> None:
     say(f"hook wiring, left as is: {inv.wiring}")
     say("backup folder on --apply: .flow-migrate-<UTC timestamp>/ (remove + replace + left in place + AGENTS.md, "
         "CLAUDE.md, VERSION, .gitignore and the docs/flow documents that exist)")
-    say(f"commit on --apply --go-ahead: chore(flow): {inv.task} migrate Fusebase Flow {inv.version} to {core}")
+    say(f"commit on --apply --go-ahead: flow: migrate Fusebase Flow {inv.version} to {core}")
 
 
-def run(target: Path, providers: set[str], full: bool, apply: bool = False, go_ahead: bool = False,
-        task: str | None = None) -> int:
+def run(target: Path, providers: set[str], full: bool, apply: bool = False, go_ahead: bool = False) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # headings carry an em dash
     if apply and not go_ahead:
@@ -628,7 +619,6 @@ def run(target: Path, providers: set[str], full: bool, apply: bool = False, go_a
         for line in inv.changed:
             print(f"[flow migrate]   {line}")
         return 3
-    inv.task = task or inv.task
     import migrate_preflight
     print("[flow migrate] dry run: nothing changed" if not apply
           else "[flow migrate] apply: the operator's go-ahead was given in chat (--go-ahead)")

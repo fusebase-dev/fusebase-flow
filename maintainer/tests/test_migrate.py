@@ -170,7 +170,7 @@ class ApplyEndToEnd(unittest.TestCase):
         clone, run, pre = self.clone, self.applied, self.pre
         self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
         self.assertIn("committed: ", run.stdout)
-        self.assertIn("chore(flow): T2 migrate Fusebase Flow 5.6 to ", run.stdout)
+        self.assertRegex(run.stdout, r"committed: [0-9a-f]+ flow: migrate Fusebase Flow 5\.6 to ")
         self.assertEqual(git(clone, "status", "--porcelain").stdout, "")
         self.assertEqual(sorted(p.name for p in (clone / "state/approvals").iterdir()), [".gitkeep"])
         self.assertFalse((clone / "workflows/verification-gate.md").exists())

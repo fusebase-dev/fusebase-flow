@@ -13,7 +13,6 @@ import fnmatch
 import hashlib
 import json
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -522,7 +521,6 @@ def main(argv: list[str]) -> int:
     m.add_argument("--full", action="store_true", help="list every path, not only the groups")
     m.add_argument("--apply", action="store_true", help="perform the migration (needs --go-ahead)")
     m.add_argument("--go-ahead", action="store_true", help="the operator gave the go-ahead in chat")
-    m.add_argument("--task", help="the T<n> of the migration commit (default: one above the highest in git log)")
     args = parser.parse_args(argv)
     if args.cmd == "health":
         sys.modules.setdefault("flow", sys.modules[__name__])  # health.py imports this module, not a second copy
@@ -539,9 +537,7 @@ def main(argv: list[str]) -> int:
         sys.modules.setdefault("flow", sys.modules[__name__])  # migrate.py imports this module, not a second copy
         sys.path.insert(0, str(Path(__file__).resolve().parent))  # PYTHONSAFEPATH=1 leaves the script's folder off
         import migrate
-        if args.task and not re.fullmatch(r"T\d+", args.task):
-            parser.error("--task takes T<n>, such as T312")
-        return migrate.run(args.target, providers, args.full, args.apply, args.go_ahead, args.task)
+        return migrate.run(args.target, providers, args.full, args.apply, args.go_ahead)
     return install(args.target, providers, register=args.register_reader, wire_hooks=args.wire_hooks)
 
 
