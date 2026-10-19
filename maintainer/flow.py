@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Fusebase Flow 6.0 installer: `python maintainer/flow.py install --target DIR [--providers claude,codex]`.
+"""Fusebase Flow 6.0 installer: `python maintainer/flow.py install --target DIR [--providers claude,codex]`; also
+`flow.py health --target DIR` (read-only) and `flow.py migrate` (a 5.x project).
 
 Copies the core into a project, generates provider mirrors, merges the overlay block into
 AGENTS.md / CLAUDE.md, writes audit/flow-install.json and installs the three git hooks.
@@ -513,6 +514,8 @@ def main(argv: list[str]) -> int:
                    help="merge the two tool handlers into .claude/settings.json and/or .codex/hooks.json")
     p.add_argument("--register-reader", action="store_true",
                    help="schedule hooks/local/reader.py --once every 5 minutes (schtasks or crontab)")
+    h = sub.add_parser("health", help="what install knows about a project, read-only; exit 0 healthy, 1 not")
+    h.add_argument("--target", required=True, type=Path)
     m = sub.add_parser("migrate", help="move a project from its Flow 5.x install onto this core (a dry run by default)")
     m.add_argument("--target", required=True, type=Path)
     m.add_argument("--providers", default="claude,codex")
@@ -521,6 +524,13 @@ def main(argv: list[str]) -> int:
     m.add_argument("--go-ahead", action="store_true", help="the operator gave the go-ahead in chat")
     m.add_argument("--task", help="the T<n> of the migration commit (default: one above the highest in git log)")
     args = parser.parse_args(argv)
+    if args.cmd == "health":
+        sys.modules.setdefault("flow", sys.modules[__name__])  # health.py imports this module, not a second copy
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+        import health
+        rc, lines = health.report(args.target)
+        print("\n".join(lines))
+        return rc
     providers = {x.strip() for x in args.providers.split(",") if x.strip()}
     unknown = providers - {"claude", "codex"}
     if unknown:

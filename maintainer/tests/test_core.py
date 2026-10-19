@@ -22,6 +22,7 @@ from pathlib import Path
 from unittest import mock
 
 import test_scripts as m3
+from synthetic import snapshot
 from test_scripts import BLOCK, CHECKS_BACKLOG, CHECKS_TIER, CORE, Workspace, commit, write
 
 sys.path.insert(0, str(CORE / "maintainer"))
@@ -455,6 +456,56 @@ class Wire(Workspace):
         sys.path.insert(0, str(CORE / "hooks/local"))
         import reader
         self.assertEqual(reader.audit(self.repo)[1], [record["cmd_sha256"]])
+
+
+class Health(Workspace):
+    """O-14: `flow health` reports what install knows, writes nothing, and its exit status says healthy or not."""
+
+    def health(self) -> subprocess.CompletedProcess:
+        return m3.run(str(CORE / "maintainer/flow.py"), "health", "--target", str(self.repo), cwd=self.tmp)
+
+    def test_a_fresh_install_is_healthy_and_the_check_writes_nothing(self) -> None:
+        self.assertEqual(self.health().returncode, 2, "no install yet")
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(flow.install(self.repo, {"claude", "codex"}), 0)
+        def git_files() -> list[tuple[str, int]]:
+            return sorted((p.as_posix(), p.stat().st_mtime_ns) for p in (self.repo / ".git").rglob("*") if p.is_file())
+        before = snapshot(self.repo)
+        inside = git_files()
+        out = self.health()
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertEqual(git_files(), inside, "nothing under .git is written")
+        self.assertEqual(snapshot(self.repo), before, "read-only")
+        for line in ("manifest: 77 files, 77 as installed, 0 changed, 0 missing", "block: .gitignore present",
+                     "git hook: commit-msg installed", "wiring: claude unenforced", "wiring: codex unenforced",
+                     "reader: not scheduled", "status.line: absent", "HEALTH: healthy"):
+            self.assertIn(line, out.stdout)
+        with contextlib.redirect_stdout(io.StringIO()):
+            flow.install(self.repo, {"claude", "codex"}, wire_hooks=True)
+        m3.run(str(CORE / "hooks/local/reader.py"), "--once", "--root", str(self.repo), cwd=self.tmp)
+        out = self.health()
+        self.assertIn("wiring: claude wired (.claude/settings.json)", out.stdout)
+        self.assertIn("wiring: codex wired (.codex/hooks.json)", out.stdout)
+        self.assertRegex(out.stdout, r"status.line: flow: idle .* hooks: claude wired, codex wired")
+
+    def test_a_missing_file_a_changed_hook_and_a_removed_git_hook_are_not_healthy(self) -> None:
+        with contextlib.redirect_stdout(io.StringIO()):
+            flow.install(self.repo, {"claude"})
+        (self.repo / "templates/ledger.md").unlink()
+        with (self.repo / "hooks/local/gate.py").open("a", encoding="utf-8") as f:
+            f.write("# edited\n")
+        with (self.repo / "workflows/lifecycle.md").open("a", encoding="utf-8") as f:
+            f.write("A project note.\n")
+        (self.repo / ".git/hooks/pre-push").unlink()
+        out = self.health()
+        self.assertEqual(out.returncode, 1, out.stdout)
+        for line in ("  missing: templates/ledger.md", "  changed: hooks/local/gate.py", "  changed: workflows/lifecycle.md",
+                     "git hook: pre-push NOT installed"):
+            self.assertIn(line, out.stdout)
+        verdict = out.stdout.strip().splitlines()[-1]
+        self.assertIn("1 Flow files missing", verdict)
+        self.assertIn("a hook-layer file changed: hooks/local/gate.py", verdict)
+        self.assertNotIn("lifecycle.md", verdict, "an edited text is reported, not a fault")
 
 
 if __name__ == "__main__":
