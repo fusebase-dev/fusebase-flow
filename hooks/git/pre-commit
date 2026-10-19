@@ -124,7 +124,9 @@ fi
 #     If NOTHING supported is found, the commit is BLOCKED with a fixable message. There is no
 #     env override: an override is the fail-open branch this replaces.
 #     Scoped to commits that actually stage something — an empty staged set has nothing to
-#     protect, and git rejects that commit on its own.
+#     protect. Git still runs this hook for one (`git commit --amend` that only rewords, and
+#     `--allow-empty`), so §2, §3, §4 and §4b check staged content only and skip it too: none of
+#     them may run a python3 this section did not probe (T271; Windows' Store shortcut).
 _ffpc_git_read git diff --cached --name-only; STAGED_ANY_RC=$FFPC_GIT_RC
 STAGED_ANY=""; [ -s "$FFPC_GITCAP" ] && STAGED_ANY=1
 if [ "$STAGED_ANY_RC" -ne 0 ]; then
@@ -260,7 +262,7 @@ _ffpc_now; FFPC_MARK_US=$FFPC_NOW_US
 #    scanner => ALWAYS trusted (a working-tree tamper cannot run). Fall back to the
 #    working-tree scanner (under `-S`, with a note) ONLY when git proves HEAD genuinely
 #    LACKS it (true first-adoption). A transient git error => fail closed.
-if command -v python3 >/dev/null 2>&1; then
+if [ -n "$STAGED_ANY" ] && command -v python3 >/dev/null 2>&1; then
     # SEC_IMPORT_DIR = where the scanner `shared` package is imported from;
     # SEC_TRUSTED_PATTERNS = the trusted patterns yaml to seed the loader cache with
     # (empty => bootstrap fallback, scanner reads the working-tree patterns).
@@ -347,6 +349,7 @@ SECPREP
         SEC_TMP="$SEC_TMP" ROOT="$ROOT" PYTHONPATH="" python3 -S "$SEC_TMP/_prep_secret.py"; SEC_PREP_RC=$?
         if [ "$SEC_PREP_RC" -ne 0 ]; then
             [ -n "$SEC_TMP" ] && rm -rf "$SEC_TMP"
+            echo "[fusebase-flow:pre-commit] BLOCK — §2 could not extract the trusted HEAD scanner (python3 exited $SEC_PREP_RC; any output is above) — failing closed. NEVER use --no-verify." >&2
             exit 1
         fi
         SEC_IMPORT_DIR="$SEC_TMP"
@@ -451,6 +454,8 @@ SECPY
     # Clean up the trusted temp package (FR-27 no-runaways: bounded, always removed)
     # BEFORE acting on the rc so a BLOCK never leaks the temp dir.
     [ -n "$SEC_TMP" ] && rm -rf "$SEC_TMP"
+    # Every refusal of the scan itself exits 1 after its own BLOCK line; any other rc is python3 failing to run it.
+    [ "${exit_secret:-0}" -le 1 ] || echo "[fusebase-flow:pre-commit] BLOCK — §2 secret scan did not run: python3 exited ${exit_secret} (any output is above) — failing closed. NEVER use --no-verify." >&2
     if [ "${exit_secret:-0}" -ne 0 ]; then _ffpc_stage secret-scan; exit 1; fi
 elif [ -n "$STAGED_ANY" ]; then
     # Unreachable while §1b holds (it blocks or provisions python3). Kept as the fail-closed
@@ -828,7 +833,7 @@ _ffpc_stage protected-paths
 
 # 4. Module-size ratchet (FR-25). Warn-only until policies/module-size-baseline.txt
 #    is committed; then over-ceiling growth blocks (extract or operator exemption).
-if [ -f "$ROOT/hooks/local/check-module-size.sh" ]; then
+if [ -n "$STAGED_ANY" ] && [ -f "$ROOT/hooks/local/check-module-size.sh" ]; then
     if ! bash "$ROOT/hooks/local/check-module-size.sh" --staged; then
         echo "[fusebase-flow:pre-commit] BLOCK — module-size ratchet failed (FR-25)." >&2
         _ffpc_stage module-size

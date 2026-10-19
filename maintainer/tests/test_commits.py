@@ -184,17 +184,24 @@ class StoreShortcut(StorePath):
         m3.git(self.repo, "add", "--", "notes.md")
         return self.bash(".git/hooks/pre-commit")
 
-    def test_a_commit_falls_through_the_store_shortcut_to_python(self) -> None:
-        self.assertTrue(self.bash("-c", "command -v python3").stdout.strip().endswith("/WindowsApps/python3"))
-        self.shim("python")
+    def commit(self, *argv: str) -> subprocess.CompletedProcess:
+        return subprocess.run([*m3.GIT, "commit", "-q", *argv], cwd=self.repo, env={**os.environ, "PATH": self.path},
+                              capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900)
+
+    def install_commit(self) -> subprocess.CompletedProcess:
+        """The install's files, committed through the real hooks: mint, commit, consume."""
         names = m3.git(self.repo, "ls-files", "--others", "--exclude-standard").stdout.splitlines()
         m3.git(self.repo, "add", "--", *names)
         mint = self.bash("hooks/local/write-bootstrap-approval.sh", FF_BOOTSTRAP_TTL_MIN="30")
         self.assertEqual(mint.returncode, 0, mint.stdout + mint.stderr)
-        out = subprocess.run([*m3.GIT, "commit", "-q", "-m", "T1: install Fusebase Flow"], cwd=self.repo,
-                             env={**os.environ, "PATH": self.path}, capture_output=True, text=True, encoding="utf-8",
-                             errors="replace", timeout=900)
+        out = self.commit("-m", "T1: install Fusebase Flow")
         self.bash("hooks/local/write-bootstrap-approval.sh", "--consume")
+        return out
+
+    def test_a_commit_falls_through_the_store_shortcut_to_python(self) -> None:
+        self.assertTrue(self.bash("-c", "command -v python3").stdout.strip().endswith("/WindowsApps/python3"))
+        self.shim("python")
+        out = self.install_commit()
         self.assertEqual(out.returncode, 0, out.stderr)
         self.assertIn("WindowsApps/python3, the Microsoft Store shortcut) failed the 3.10+ probe (version=unproven); "
                       "using discovered 'python' for §2/§3", out.stderr)
@@ -221,6 +228,20 @@ class StoreShortcut(StorePath):
         self.assertIn("turn off the python.exe and python3.exe App execution aliases", out.stderr)
         self.assertIn("or install Python 3.10+", out.stderr)
         self.assertNotIn("all checks passed", out.stderr)
+
+    def test_a_reworded_amend_and_an_empty_commit_land(self) -> None:
+        """T271: with nothing staged no section runs python3, so the shortcut never runs. Before, section 2 ran it, and
+        the hook refused with a bare exit 1 and only the Store's message."""
+        self.shim("python")
+        first = self.install_commit()
+        self.assertEqual(first.returncode, 0, first.stderr)
+        for argv in (("--amend", "-m", "T1: install Fusebase Flow, reworded"), ("--allow-empty", "-m", "T1: empty")):
+            out = self.commit(*argv)
+            self.assertEqual(out.returncode, 0, f"{argv[0]}: {out.stderr}")
+            self.assertNotIn(STORE, out.stderr, "the shortcut never runs")
+            self.assertIn("all checks passed", out.stderr)
+            self.assertEqual(m3.git(self.repo, "log", "-1", "--format=%s").stdout.strip(), argv[-1])
+        self.assertEqual(len(m3.git(self.repo, "log", "--format=%s").stdout.splitlines()), 2)
 
 
 class StorePreflight(StorePath):

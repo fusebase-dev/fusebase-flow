@@ -15,6 +15,8 @@
 #   coordinating session). approve-local.sh took 5.x's hunk; its other differences from 5.x stay (T171).
 #   hooks/git/pre-commit: section 1b tries python3, then python, then py -3, each through the bounded probe, so a
 #   python3 that fails it (the Microsoft Store shortcut) falls through (T269; 5.x 13c58ca1, local; m4b review).
+#   hooks/git/pre-commit: sections 2 and 4 run only when something is staged, so an amend that only rewords
+#   runs no python3 (T271; 5.x a395d17d, local; m4c review).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -23,7 +25,7 @@
 f2557b19379421fac007a2c758eda73bb6eb21990a7f5c366c438716e1fe2cfb  .gitattributes
 0acfb991aa269888937723022f2667b0e251ed0091ccc96491752360b2a61be0  LICENSE
 7e19361f945b5aa6e0ba5aeb028b066a44b015b502db56ec3c5d6a6e9ac5f180  hooks/git/commit-msg
-e60e233ad73a813aaa93523c6c341d3509b010a6685b185a3ca2ac3b97566fe5  hooks/git/pre-commit
+78504536280b0cca27895d6df30d1a175c4b70d715e07000caf6b6acd82320ee  hooks/git/pre-commit
 61fa39ad945e6fbf5718dc8ab11c7a6892b50c431e4514a94ca71ccb84679120  hooks/git/pre-push
 d4c7b522d5095dd26b336cb95ef2fd5de290234102f485e79d79d928bc7b8f5f  hooks/handlers/post_tool_use.py
 2ed1c6143f5324e2178f51a6156f0fc4857a6576f8850365ecf13ab829d9487d  hooks/handlers/pre_tool_use.py
