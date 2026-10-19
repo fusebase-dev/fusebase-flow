@@ -4,11 +4,12 @@
 # Kernel fixes since, each landed on 5.x first and cherry-picked (owner's milestone 3 rule 5):
 #   policies/approval-policy.yml: gate_rounds: 2 (T239; 5.x main 731acb69, public; O-3).
 #   hooks/local/lib/bounded-run.sh: the command's sha256 on heartbeat line 2 (T255; 5.x 834901cd, local; O-10).
+#   hooks/git/pre-commit: stage 4b runs validate_evidence.py --staged on evidence commits (T256; 5.x 2caaf8d1, local; O-11).
 # A kernel fix lands on 5.x first, is cherry-picked here, and updates this lock in the same commit.
 f2557b19379421fac007a2c758eda73bb6eb21990a7f5c366c438716e1fe2cfb  .gitattributes
 0acfb991aa269888937723022f2667b0e251ed0091ccc96491752360b2a61be0  LICENSE
 7c29acf5623ad5299a3f4de7d094d19c5bbc90dd5c3bd2002a63151e88a6af78  hooks/git/commit-msg
-450afd66d2b5852f93c3a6f659b84273a1da0c33624c1f364cf7db8140fd6abc  hooks/git/pre-commit
+f5746f21aa0269015375aafba6278605225ca09d1a819bb72524e3f55d5e0571  hooks/git/pre-commit
 61fa39ad945e6fbf5718dc8ab11c7a6892b50c431e4514a94ca71ccb84679120  hooks/git/pre-push
 807051ae750b0895272164308e30a0e2fa9fc69f13be764263d3a01320993dc3  hooks/local/approve-local.sh
 e9d192b09e351091350d6d4b6f04e865f5611f5268bd0c5c4a24d5cbcd83d582  hooks/local/check-module-size.sh

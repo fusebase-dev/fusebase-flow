@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Evidence-row validator (design section 6; handoff WP 7c; runner conventions of 2026-10-16, sections 1 to 4):
 `validate_evidence.py <slice|phase> [--file F]`; exit 0 every row holds, 1 not, 2 no such slice or phase.
+`--staged` (the pre-commit's evidence stage): each phase whose evidence file or state/runs/<phase>/ the commit stages,
+the rows present only; a missing row or a recorded FAIL is no failure there, a PASS that does not hold is.
 
 Rows: docs/flow/evidence/<phase>.md (docs/flow/evidence.md when that is absent), exactly one per criterion of the items
 the slice's (or phase's) tasks serve. Run by gate.py and by the ship step. Prints each capture's sha256 and size, and a
@@ -149,7 +151,18 @@ def minimum(item: str, ids: set[str], log: list, items: dict, classes: dict, mat
     return max([RISK.get(items.get(item, {}).get("risk", ""), "unit"), *found], key=RANK.get)
 
 
-def validate(root: Path, target: str, file: str | None = None) -> tuple[int, list[str], list[str]]:
+def staged_phases(root: Path) -> list[str]:
+    """The phases a commit's staged evidence or run paths belong to; docs/flow/evidence.md serves every phase."""
+    known, found = {s["phase"] for s in fd.phases(root).values()}, set()
+    for p in fd.git(root, "diff", "--cached", "--name-only").splitlines():
+        if p == "docs/flow/evidence.md":
+            found |= known
+        elif m := re.fullmatch(r"docs/flow/evidence/(P\d+)\.md|state/runs/(P\d+)/.+", p):
+            found.add(m[1] or m[2])
+    return sorted(found & known)
+
+
+def validate(root: Path, target: str, file: str | None = None, present: bool = False) -> tuple[int, list[str], list[str]]:
     chosen = [s for sid, s in fd.phases(root).items() if target in (sid, s["phase"])]
     if not chosen:
         return 2, [f"evidence {target}: no such slice or phase in {fd.PHASES}"], []
@@ -166,6 +179,8 @@ def validate(root: Path, target: str, file: str | None = None) -> tuple[int, lis
     rows, result, digests = table(fd.read(root / rel)), {}, {}
     for item in wanted:
         mine = [r for r in rows if r["id"] == item]
+        if present and not mine:
+            continue
         need = minimum(item, {t["id"] for t in tasks if t["item"] == item}, log, items, classes, match)
         problems, actual, detail = [], "unit" if len(mine) == 1 else "-", []
         if len(mine) != 1:
@@ -173,7 +188,7 @@ def validate(root: Path, target: str, file: str | None = None) -> tuple[int, lis
         elif not re.fullmatch(str(pol.get("row_status", "^PASS$")), mine[0]["status"]):
             problems.append(f"status `{mine[0]['status']}` does not match row_status")
         elif mine[0]["status"] != "PASS":
-            problems.append(f"the row says {mine[0]['status']}")
+            problems += [] if present else [f"the row says {mine[0]['status']}"]
         elif "::" in mine[0]["capture"]:
             problems += check_test_row(root, mine[0], base, str(pol.get("test_pass_marker", "^ok [0-9]+ - ")))
         else:
@@ -195,19 +210,27 @@ def validate(root: Path, target: str, file: str | None = None) -> tuple[int, lis
     flags = [f"FLAG item-edit {i}: {k} changed since the phase's base" for i in wanted if i in then and i in items
              for k in ("risk", "criterion", "test") if then[i].get(k) != items[i].get(k)]
     bad = sum(bool(r[0]) for r in result.values())
-    out += [f"  {f}" for f in flags] + [f"EVIDENCE: {'FAIL' if bad else 'PASS'} ({bad} of {len(wanted)} criteria fail)"]
+    out += [f"  {f}" for f in flags] + [f"EVIDENCE: {'FAIL' if bad else 'PASS'} ({bad} of {len(result)} "
+                                        f"{'rows' if present else 'criteria'} fail)"]
     return int(bool(bad)), out, flags
 
 
 def main(argv: list[str]) -> int:
     ap = argparse.ArgumentParser(prog="validate_evidence.py", description=__doc__.split("\n\n")[0])
-    ap.add_argument("target", help="a slice (P1-S1) or a phase (P1)")
+    ap.add_argument("target", nargs="?", help="a slice (P1-S1) or a phase (P1)")
     ap.add_argument("--file", help="the evidence file, relative to the root")
+    ap.add_argument("--staged", action="store_true", help="the phases and rows the commit stages (pre-commit)")
     ap.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[2])
     args = ap.parse_args(argv)
-    rc, lines, _ = validate(args.root.resolve(), args.target, args.file)
-    print("\n".join(lines))
-    return rc
+    root = args.root.resolve()
+    if args.staged == bool(args.target):
+        ap.error("a slice or phase, or --staged")
+    if args.staged:
+        runs = [validate(root, phase, None, True) for phase in staged_phases(root)]
+    else:
+        runs = [validate(root, args.target, args.file)]
+    print("\n".join(line for _, lines, _ in runs for line in lines) or "evidence --staged: no phase of phases.md staged")
+    return max((rc for rc, _, _ in runs), default=0)
 
 
 if __name__ == "__main__":

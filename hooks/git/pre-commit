@@ -813,6 +813,27 @@ if [ -f "$ROOT/hooks/local/check-module-size.sh" ]; then
 fi
 _ffpc_stage module-size
 
+# 4b. Evidence rows (6.0's hooks/local/validate_evidence.py --staged): runs only when the commit stages
+#     docs/flow/evidence.md, docs/flow/evidence/<phase>.md or a file under state/runs/, and only where that
+#     validator exists (a 5.x tree has none); otherwise it prints nothing. A row that does not hold blocks.
+FFEV_PY="$ROOT/hooks/local/validate_evidence.py"
+if [ -n "$STAGED_ANY" ] && [ -f "$FFEV_PY" ]; then
+    _ffpc_git_read git diff --cached --name-only
+    if [ "$FFPC_GIT_RC" -ne 0 ]; then
+        echo "[fusebase-flow:pre-commit] BLOCK — could not list staged changes for the evidence check (git rc=$FFPC_GIT_RC) — failing closed." >&2
+        _ffpc_stage evidence
+        exit 1
+    fi
+    if grep -qE '^(docs/flow/evidence\.md|docs/flow/evidence/[^/]+\.md|state/runs/.)' "$FFPC_GITCAP"; then
+        if ! PYTHONPATH="" python3 -E "$FFEV_PY" --staged --root "$ROOT"; then
+            echo "[fusebase-flow:pre-commit] BLOCK — an evidence row this commit stages does not hold (lines above). Fix the row or its capture, or record the row as FAIL; NEVER use --no-verify." >&2
+            _ffpc_stage evidence
+            exit 1
+        fi
+        _ffpc_stage evidence
+    fi
+fi
+
 # 5. Lint + typecheck (FR-13).
 FFVE_REUSE_HELPER="$ROOT/hooks/local/lib/precommit-validator-reuse.sh"
 if [ ! -f "$FFVE_REUSE_HELPER" ]; then

@@ -13,7 +13,7 @@ The planner (the operator's main session) runs every step; builders build one sl
 ## 2. Build (skill `dispatch`)
 
 - One slice per builder: the output of `python hooks/local/slice.py <slice>`, the builder push block and the writing card, inlined.
-- A builder commits one task per commit with one `T<n>` in the subject. The git hooks run the secret scan, protected paths, module size, lint and typecheck, and the subject check.
+- A builder commits one task per commit with one `T<n>` in the subject. The git hooks run the secret scan, protected paths, module size, the evidence validator (on a commit that stages evidence rows or `state/runs/`), lint and typecheck, and the subject check.
 - Before its turn ends a builder writes `state/returns/<slice>.json`. It is a claim.
 - Long or silent commands run under `bounded_run`. `python hooks/local/reader.py --once` (scheduled by `install --register-reader`; `--watch` in a terminal) writes `state/status.line`: running or idle, silence alerts, reader last seen.
 

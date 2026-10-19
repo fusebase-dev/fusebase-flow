@@ -292,5 +292,65 @@ class CommandHash(Workspace):
         self.assertEqual(got["5"], hashlib.sha256(b"bounded-run old").hexdigest(), "an older heartbeat keeps the label")
 
 
+class EvidenceHook(Workspace):
+    """O-11: the installed pre-commit runs the evidence validator on a commit that stages evidence or run files only."""
+
+    def hooked(self, subject: str, files: dict[str, str | bytes], mint: bool = False) -> subprocess.CompletedProcess:
+        for rel, data in files.items():
+            (self.repo / rel).parent.mkdir(parents=True, exist_ok=True)
+            (self.repo / rel).write_bytes(data if isinstance(data, bytes) else data.encode("utf-8"))
+            m3.git(self.repo, "add", "--", rel)
+        bash = shutil.which("bash")
+        if mint:
+            subprocess.run([bash, "hooks/local/write-bootstrap-approval.sh"], cwd=self.repo, check=True,
+                           env={**os.environ, "FF_BOOTSTRAP_TTL_MIN": "30"}, capture_output=True)
+        out = subprocess.run([*m3.GIT, "commit", "-q", "-m", subject], cwd=self.repo, capture_output=True, text=True,
+                             encoding="utf-8", errors="replace", timeout=900)
+        if mint:
+            subprocess.run([bash, "hooks/local/write-bootstrap-approval.sh", "--consume"], cwd=self.repo, check=True,
+                           capture_output=True)
+        return out
+
+    def row(self, item: str, rel: str, data: bytes, sha: str | None = None) -> str:
+        (self.repo / rel).parent.mkdir(parents=True, exist_ok=True)
+        (self.repo / rel).write_bytes(data)
+        return f"| {item} | PASS | {rel} | {sha or hashlib.sha256(data).hexdigest()} | {len(data)} | runs/run-1/README.md | - |"
+
+    def test_the_installed_pre_commit_checks_staged_rows_and_stays_quiet_otherwise(self) -> None:
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(flow.install(self.repo, {"claude"}), 0)
+        names = m3.git(self.repo, "ls-files", "--others", "--exclude-standard").stdout.splitlines()
+        first = self.hooked("T1: install Fusebase Flow", {n: (self.repo / n).read_bytes() for n in names}, mint=True)
+        self.assertEqual(first.returncode, 0, first.stderr)
+        self.assertEqual(list((self.repo / "state/approvals").glob("*.json")), [], "consumed")
+        base = m3.git(self.repo, "rev-parse", "HEAD").stdout.strip()
+        plain = self.hooked("T2: the plan and the code", {
+            "docs/flow/backlog.md": m3.BACKLOG.format(risk="none"),
+            "docs/flow/phases.md": m3.phases_doc(base, [("T1", "src/a/**"), ("T2", "test/**")])
+            .replace("| T2 | B1 |", "| T2 | B2 |"),
+            "src/a/expiry.ts": "export const ttl = 15;\n", "test/auth.test.ts": "test('magic link expires', () => {});\n"})
+        self.assertEqual(plain.returncode, 0, plain.stderr)
+        self.assertNotIn("stage=evidence", plain.stderr, "quiet on a commit with no evidence or run path")
+        self.assertNotIn("EVIDENCE:", plain.stdout + plain.stderr)
+        runs = {"state/deploys/dev.jsonl": json.dumps({"env": "dev", "finished": "2026-10-18T09:00:00Z"}) + "\n",
+                "state/runs/P1/index.tsv": "run-1\t2026-10-18T10:00:00Z\truns/run-1\t0\n",
+                "runs/run-1/README.md": m3.RUN_LOG.format(records="| 2026-10-18T10:00:00.000Z | S1 | PASS |\n")}
+        head = "# Evidence\n\n| Criterion | Status | Capture | sha256 | Bytes | Log | Note |\n|---|---|---|---|---|---|---|\n"
+        capture = b'{"signed_in": false, "status": 410}\n'
+        wrong = self.row("B1", "runs/run-1/S1/link.json", capture, "0" * 64)
+        blocked = self.hooked("T3: the B1 row", {**runs, "docs/flow/evidence/P1.md": f"{head}{wrong}\n"})
+        self.assertNotEqual(blocked.returncode, 0, "a PASS row whose digest is wrong is not committed")
+        self.assertIn("B1 FAIL: the row's sha256 or Bytes differ from the file", blocked.stdout + blocked.stderr)
+        self.assertIn("BLOCK — an evidence row this commit stages does not hold", blocked.stderr)
+        partial = self.hooked("T3: the B1 row", {"docs/flow/evidence/P1.md": f"{head}{self.row('B1', 'runs/run-1/S1/link.json', capture)}\n"})
+        self.assertEqual(partial.returncode, 0, partial.stdout + partial.stderr)
+        self.assertIn("stage=evidence", partial.stderr)
+        self.assertIn("EVIDENCE: PASS (0 of 1 rows fail)", partial.stderr, "B2 has no row yet: no failure here")
+        failed = self.hooked("T4: the B2 row records a FAIL", {"docs/flow/evidence/P1.md": (
+            self.repo / "docs/flow/evidence/P1.md").read_text("utf-8") + "| B2 | FAIL: the test is red | - | - | - | - | - |\n"})
+        self.assertEqual(failed.returncode, 0, failed.stdout + failed.stderr)
+        self.assertIn("EVIDENCE: PASS (0 of 2 rows fail)", failed.stderr)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
