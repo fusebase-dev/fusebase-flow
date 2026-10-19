@@ -272,14 +272,14 @@ def validators(inv: m.Inventory, run: bool) -> Check:
     cmds = validator_commands(inv.target)
     if not cmds:
         return Check("lint and typecheck", "none: no FUSEBASE_FLOW_LINT or FUSEBASE_FLOW_TYPECHECK and no "
-                     '"lint" or "typecheck" in package.json, so Flow\'s pre-commit runs none')
+                     '"lint" or "typecheck" in package.json, so Flow\'s commit hooks run none')
     names = "; ".join(cmd for _, cmd in cmds)
     skip, why = tier(inv)
     if skip:
-        return Check("lint and typecheck", f"{names}: not run, as the pre-commit will skip them ({why})")
+        return Check("lint and typecheck", f"{names}: not run, as the commit hooks will skip them ({why})")
     if not run:
         return Check("lint and typecheck", "the dry run does not run them; --apply runs them once before any change, "
-                     f"as the migration commit's pre-commit will ({why}); to know now, run them by hand from the "
+                     f"as the migration commit's hooks will ({why}); to know now, run them by hand from the "
                      "project's top level:", by_hand=tuple(cmd for _, cmd in cmds), not_run=True)
     bash = shutil.which("bash") or "bash"
     env = {k: v for k, v in os.environ.items() if k not in HOOK_ENV_DROP} | HOOK_ENV_SET

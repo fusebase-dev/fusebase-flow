@@ -33,11 +33,10 @@ FFCM_CKPT=""; [[ $FFCM_SUBJECT =~ $FFCM_CHECKPOINT ]] && FFCM_CKPT=1
 # TRIPWIRE: git runs this hook from the top of the work tree, so the helper path is relative; its successor ships
 # with the hook, and a missing one blocks rather than letting every subject through.
 HELPER="hooks/local/lib/commit_msg.py"
-if [ ! -f "$HELPER" ]; then
-    if [ -n "$FFCM_CKPT" ]; then
-        echo "[fusebase-flow:commit-msg] note: the FuseBase CLI's update checkpoint passes; this work tree has no $HELPER, so any other subject is refused until it has one." >&2
-        exit 0
-    fi
+FFCM_PY=""
+if [ ! -f "$HELPER" ] && [ -n "$FFCM_CKPT" ]; then
+    echo "[fusebase-flow:commit-msg] note: the FuseBase CLI's update checkpoint passes; this work tree has no $HELPER, so any other subject is refused until it has one." >&2
+elif [ ! -f "$HELPER" ]; then
     if git cat-file -e "HEAD:$HELPER" 2>/dev/null; then
         echo "[fusebase-flow:commit-msg] BLOCK — $HELPER is missing from the work tree, so the subject cannot be checked. Restore it: git checkout HEAD -- $HELPER. NEVER use --no-verify." >&2
         exit 1
@@ -60,18 +59,49 @@ if [ ! -f "$HELPER" ]; then
     fi
     echo "[fusebase-flow:commit-msg] BLOCK — this branch predates the Flow 6.0 migration: the git hooks, which every branch and worktree of this repository shares, are Flow 6.0's, and this work tree has no $HELPER to check the subject with. $FFCM_WAY, then commit again. NEVER use --no-verify." >&2
     exit 1
+else
+    # The interpreter in the pre-commit's order: python3, then python, then py -3, each proved 3.10+ by the pre-commit's
+    # probe (O-19). A python.org Windows host has python and py but no python3; the Store stub fails the probe.
+    _ffcm_is_py3() { "$@" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] >= (3, 10) else 1)' >/dev/null 2>&1; }
+    for FFCM_TRY in python3 python "py -3"; do
+        # shellcheck disable=SC2086  # "py -3" is two words
+        if _ffcm_is_py3 $FFCM_TRY; then FFCM_PY="$FFCM_TRY"; break; fi
+    done
+    if [ -z "$FFCM_PY" ]; then
+        echo "[fusebase-flow:commit-msg] BLOCK — no Python 3.10+ found (tried: python3, python, py -3), so the subject cannot be checked. Install Python 3.10+, then: python -m pip install -r hooks/requirements.txt; NEVER use --no-verify." >&2
+        exit 1
+    fi
+    # shellcheck disable=SC2086
+    PYTHONPATH="" $FFCM_PY -E "$HELPER" "$MSG_FILE" || exit 1
 fi
-# The interpreter in the pre-commit's order: python3, then python, then py -3, each proved 3.10+ by the pre-commit's
-# probe (O-19). A python.org Windows host has python and py but no python3; the Store stub fails the probe.
-_ffcm_is_py3() { "$@" -c 'import sys; raise SystemExit(0 if sys.version_info[:2] >= (3, 10) else 1)' >/dev/null 2>&1; }
-FFCM_PY=""
-for FFCM_TRY in python3 python "py -3"; do
-    # shellcheck disable=SC2086  # "py -3" is two words
-    if _ffcm_is_py3 $FFCM_TRY; then FFCM_PY="$FFCM_TRY"; break; fi
-done
-if [ -z "$FFCM_PY" ]; then
-    echo "[fusebase-flow:commit-msg] BLOCK — no Python 3.10+ found (tried: python3, python, py -3), so the subject cannot be checked. Install Python 3.10+, then: python -m pip install -r hooks/requirements.txt; NEVER use --no-verify." >&2
+
+# fusebase-flow-commit-msg: runs lint and typecheck (the pre-commit reads this line: with it, it leaves them here)
+# Lint and typecheck (rule 6, FR-13), after the subject check: git runs the pre-commit before the message exists, so the
+# pre-commit beside this hook leaves them here, on every branch, one older than the migration included. The FuseBase
+# CLI's two update checkpoints skip them, with a warning. A merge runs none, as git runs no pre-commit for one; the
+# pre-commit of a merge that stopped on a conflict runs them itself.
+git rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1 && exit 0
+if [ -n "$FFCM_CKPT" ]; then
+    echo "[fusebase-flow:commit-msg] WARNING — lint and typecheck were not run for this commit: its subject is a FuseBase CLI update checkpoint, which records what \`fusebase update\` changed whatever their state. Run them, and fix what they report under a task (FR-13)." >&2
+    exit 0
+fi
+FFCM_RUNNER="hooks/local/lib/precommit-validator-reuse.sh"
+if [ ! -f "$FFCM_RUNNER" ]; then
+    echo "[fusebase-flow:commit-msg] BLOCK — the FR-13 validator runner $FFCM_RUNNER is missing, so lint/typecheck cannot run. Restore it: git checkout HEAD -- $FFCM_RUNNER. NEVER use --no-verify." >&2
     exit 1
 fi
-# shellcheck disable=SC2086
-PYTHONPATH="" $FFCM_PY -E "$HELPER" "$MSG_FILE"
+# The pre-commit's environment for them: no inherited Python startup surface, and its python3 shim when python3 is not
+# the interpreter found above (the runner's validator-free tier check calls python3).
+unset PYTHONPATH PYTHONSTARTUP PYTHONHOME; export PYTHONNOUSERSITE=1 PYTHONSAFEPATH=1
+if [ "$FFCM_PY" != python3 ] && FFCM_SHIM="$(mktemp -d 2>/dev/null || mktemp -d -t ffflow-cm3)" && [ -d "$FFCM_SHIM" ]; then
+    trap 'rm -rf "$FFCM_SHIM"' EXIT
+    printf '#!/usr/bin/env bash\nexec %s "$@"\n' "$FFCM_PY" > "$FFCM_SHIM/python3" && chmod +x "$FFCM_SHIM/python3" && PATH="$FFCM_SHIM:$PATH"
+fi
+_ffcm_now() { local t="${EPOCHREALTIME:-}"; t="${t//[!0-9]/}"; if [ -n "$t" ]; then FFCM_US=$((10#$t)); else FFCM_US=$((SECONDS * 1000000)); fi; }
+_ffcm_now; FFCM_T0=$FFCM_US
+# shellcheck disable=SC1090
+. "$FFCM_RUNNER"
+FFCM_RC=0; run_precommit_validators "$PWD" "$PATH" || FFCM_RC=1
+_ffcm_now; FFCM_US=$((FFCM_US - FFCM_T0)); [ "$FFCM_US" -ge 0 ] || FFCM_US=0
+printf '[fusebase-flow:commit-msg] stage=validators elapsed=%d.%02ds\n' $((FFCM_US / 1000000)) $((FFCM_US % 1000000 / 10000)) >&2
+exit "$FFCM_RC"

@@ -864,6 +864,19 @@ if [ -n "$STAGED_ANY" ] && [ -f "$FFEV_PY" ]; then
 fi
 
 # 5. Lint + typecheck (FR-13).
+#    6.0.0-m5: git runs this hook before the commit message exists. When the commit-msg beside this hook, the one git
+#    runs next, carries the line `# fusebase-flow-commit-msg: runs lint and typecheck` (Flow 6.0's, which every branch
+#    and worktree of the repository runs, migrated or not), they run there, after the subject check, and the FuseBase
+#    CLI's two update checkpoints skip them with a warning. A merge still runs them here: git runs this hook only for a
+#    merge that stopped on a conflict, and commit-msg runs none on a merge. 5.x's commit-msg has no such line, so on a
+#    5.x install they run here as before.
+if ! git rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1 \
+   && grep -qF '# fusebase-flow-commit-msg: runs lint and typecheck' "${0%/*}/commit-msg" 2>/dev/null; then
+    echo "[fusebase-flow:pre-commit] lint/typecheck: commit-msg runs them, after the subject check (FR-13)" >&2
+    _ffpc_stage validators
+    echo "[fusebase-flow:pre-commit] all checks passed" >&2
+    exit 0
+fi
 FFVE_REUSE_HELPER="$ROOT/hooks/local/lib/precommit-validator-reuse.sh"
 if [ ! -f "$FFVE_REUSE_HELPER" ]; then
     echo "[fusebase-flow:pre-commit] BLOCK — the FR-13 validator runner hooks/local/lib/precommit-validator-reuse.sh is missing, so lint/typecheck cannot run." >&2

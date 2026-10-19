@@ -17,6 +17,9 @@
 #   python3 that fails it (the Microsoft Store shortcut) falls through (T269; 5.x 13c58ca1, local; m4b review).
 #   hooks/git/pre-commit: sections 2 and 4 run only when something is staged, so an amend that only rewords
 #   runs no python3 (T271; 5.x a395d17d, local; m4c review).
+#   hooks/git/pre-commit: section 5 leaves lint and typecheck to the commit-msg beside it when that one carries
+#   the line `# fusebase-flow-commit-msg: runs lint and typecheck` and no merge is in progress (T276; 5.x
+#   d9cdb138, local; review r2-43).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -24,11 +27,13 @@
 #   hooks/git/commit-msg: on a branch or worktree older than the migration (no hooks/local/lib/commit_msg.py) the
 #   CLI's two checkpoint subjects pass and any other subject is refused naming the branch to merge (T274; review
 #   cause r1-09; decision 10(c), core only).
+#   hooks/git/commit-msg: carries that line and runs lint and typecheck after the subject check; the CLI's two
+#   checkpoint subjects skip them with a warning, a merge runs none (T276; review r2-43; decision 10(c)).
 # A kernel fix lands on 5.x first, is cherry-picked here, and updates this lock in the same commit.
 f2557b19379421fac007a2c758eda73bb6eb21990a7f5c366c438716e1fe2cfb  .gitattributes
 0acfb991aa269888937723022f2667b0e251ed0091ccc96491752360b2a61be0  LICENSE
-98884c8fe2d3e22d6ed273996a32a9c65406075eeed84b112ed96bae1c631c4b  hooks/git/commit-msg
-78504536280b0cca27895d6df30d1a175c4b70d715e07000caf6b6acd82320ee  hooks/git/pre-commit
+be312926d6a135837d5f3f38fdf219946f1cd43e16d3d1e3793f1e3ad814f174  hooks/git/commit-msg
+d2cdff8742a9ec0da5d1789766b6499eba4f3ed10e4528f643a8ce323540a9cf  hooks/git/pre-commit
 61fa39ad945e6fbf5718dc8ab11c7a6892b50c431e4514a94ca71ccb84679120  hooks/git/pre-push
 d4c7b522d5095dd26b336cb95ef2fd5de290234102f485e79d79d928bc7b8f5f  hooks/handlers/post_tool_use.py
 2ed1c6143f5324e2178f51a6156f0fc4857a6576f8850365ecf13ab829d9487d  hooks/handlers/pre_tool_use.py

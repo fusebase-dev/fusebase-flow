@@ -76,7 +76,8 @@ class Interpreter(NoPython3):
 
     def setUp(self) -> None:
         super().setUp()
-        for rel in ("hooks/local/lib/commit_msg.py", "hooks/local/lib/flow_docs.py", "hooks/local/lib/flow_owned.py"):
+        for rel in ("hooks/local/lib/commit_msg.py", "hooks/local/lib/flow_docs.py", "hooks/local/lib/flow_owned.py",
+                    "hooks/local/lib/precommit-validator-reuse.sh"):  # commit-msg runs lint and typecheck (T276)
             write(self.repo, rel, (CORE / rel).read_text(encoding="utf-8"))
         m3.git(self.repo, "add", "--", "hooks")
 
@@ -495,15 +496,19 @@ class OpenBranches(unittest.TestCase):
         self.assertFalse((self.wt / "hooks/local/lib/commit_msg.py").exists(), "the worktree's branch predates it")
         write(self.wt, "src/feature.ts", "export const f = 1;\n")
         m3.git(self.wt, "add", "--", "src/feature.ts")
-        refused = commit(self.wt, "-m", "T5: the feature", env=self.env)
+        red = {**self.env, "FUSEBASE_FLOW_LINT": "echo lint-ran >&2; false"}  # T276: never what refuses here
+        refused = commit(self.wt, "-m", "T5: the feature", env=red)
         self.assertEqual(refused.returncode, 1, refused.stderr)
         self.assertIn("this branch predates the Flow 6.0 migration", refused.stderr)
         self.assertIn(f"Merge it into this branch first: git merge {self.migrated}", refused.stderr)
         self.assertNotIn("git checkout HEAD --", refused.stderr)
         self.assertNotIn("re-run the Flow install", refused.stderr)
+        self.assertNotIn("lint-ran", refused.stderr)
         for argv in (("-m", CLI_SUBJECTS[0]), ("--allow-empty", "-m", CLI_SUBJECTS[1])):  # dirty, then clean
-            out = commit(self.wt, *argv, env=self.env)
+            out = commit(self.wt, *argv, env=red)
             self.assertEqual(out.returncode, 0, out.stderr)
+            self.assertIn("WARNING — lint and typecheck were not run for this commit", out.stderr)
+            self.assertNotIn("lint-ran", out.stderr)
         merged = m3.git(self.wt, "merge", "--no-edit", self.migrated)
         self.assertEqual(merged.returncode, 0, merged.stdout + merged.stderr)
         write(self.wt, "src/feature.ts", "export const f = 2;\n")
@@ -513,6 +518,47 @@ class OpenBranches(unittest.TestCase):
         subjects = m3.git(self.wt, "log", "--first-parent", "-4", "--format=%s").stdout.splitlines()
         self.assertEqual([subjects[0], subjects[2][:30], subjects[3][:29]],
                          ["T5: the feature, after the merge", CLI_SUBJECTS[1][:30], CLI_SUBJECTS[0][:29]])
+
+
+class CheckpointLint(Workspace):
+    """r2-43: the pre-commit runs before the message exists, so on a 6.0 tree it leaves lint and typecheck to commit-msg.
+    With the project's lint red, the CLI's two checkpoints commit and say the two were not run, a merge runs neither,
+    and an ordinary T<n> commit is still refused by lint."""
+
+    def test_red_lint_refuses_a_task_commit_and_lets_the_checkpoints_and_a_merge_through(self) -> None:
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(flow.install(self.repo, {"claude"}), 0)  # the real git hooks
+        green = {k: v for k, v in os.environ.items() if not k.startswith("FUSEBASE_FLOW_")}
+        red = {**green, "FUSEBASE_FLOW_LINT": "echo lint-ran >&2; false"}
+        m3.git(self.repo, "add", "--", *m3.git(self.repo, "ls-files", "-o", "--exclude-standard").stdout.splitlines())
+        bash = shutil.which("bash")
+        approve = [bash, "hooks/local/write-bootstrap-approval.sh"]
+        subprocess.run(approve, cwd=self.repo, env={**green, "FF_BOOTSTRAP_TTL_MIN": "30"}, capture_output=True,
+                       timeout=600, check=True)
+        first = commit(self.repo, "-m", "T1: install Fusebase Flow", env=green)
+        subprocess.run([*approve, "--consume"], cwd=self.repo, env=green, capture_output=True, timeout=600)
+        self.assertEqual(first.returncode, 0, first.stderr)
+        m3.git(self.repo, "checkout", "-q", "-b", "side")
+        write(self.repo, "side.md", "a side note\n")
+        m3.git(self.repo, "add", "--", "side.md")
+        self.assertEqual(commit(self.repo, "-m", "T1: a side note", env=green).returncode, 0)
+        m3.git(self.repo, "checkout", "-q", "main")
+        write(self.repo, "src/a.ts", "export const a = 1;\n")
+        m3.git(self.repo, "add", "--", "src/a.ts")
+        refused = commit(self.repo, "-m", "T1: the sign-in", env=red)
+        self.assertEqual(refused.returncode, 1, refused.stderr)
+        self.assertIn("lint-ran", refused.stderr)
+        self.assertIn("BLOCK — lint failed (FR-13)", refused.stderr)
+        for argv in (("-m", CLI_SUBJECTS[0]), ("--allow-empty", "-m", CLI_SUBJECTS[1])):  # dirty, then clean
+            out = commit(self.repo, *argv, env=red)
+            self.assertEqual(out.returncode, 0, out.stderr)
+            self.assertIn("WARNING — lint and typecheck were not run for this commit", out.stderr)
+            self.assertNotIn("lint-ran", out.stderr)
+        merged = subprocess.run([*GIT, "merge", "--no-edit", "side"], cwd=self.repo, env=red, capture_output=True,
+                                text=True, encoding="utf-8", errors="replace", timeout=900)
+        self.assertEqual(merged.returncode, 0, merged.stderr)
+        self.assertNotIn("lint-ran", merged.stdout + merged.stderr)
+        self.assertEqual(len(m3.git(self.repo, "log", "--first-parent", "--format=%s").stdout.splitlines()), 4)
 
 
 if __name__ == "__main__":
