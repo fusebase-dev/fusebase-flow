@@ -151,28 +151,38 @@ def staging(inv: m.Inventory) -> Check:
 
 
 # The pre-commit's interpreter rule (hooks/git/pre-commit section 1b, T269), in bash as the hook runs it: python3, then
-# python, then py -3, each proved 3.10+ by `-S -c`, else by `-S <file>`, within 10 s where `timeout` exists; the first
-# that passes runs sections 2 and 3, which import PyYAML from its site-packages and its user site, never from
-# PYTHONPATH. commit-msg and the approval scripts take the same first one. One line per candidate tried.
+# python, then py -3, each proved 3.10+ by `-S -c`, else by `-S <file>`, within 10 s where `timeout` exists, in the
+# hook's environment (hook()). The first that passes runs everything, so PyYAML must import there in all three ways
+# (T272): `-S` plus the site re-add in the hook's environment (sections 2 and 3), `-E` (commit-msg), and plainly with
+# PYTHONPATH set to hooks/ (the mint). One line per candidate tried.
 PICK = r"""
 src='import sys; print("FFPCVER %d %d" % sys.version_info[:2])'
 yml='import site, sys; sys.path[1:1] = [*site.getsitepackages(), site.getusersitepackages()]; '
 yml="${yml}import yaml; print(sys.version.split()[0])"
+env='import sys; print("%d|%s" % (sys.prefix != sys.base_prefix, getattr(sys, "_base_executable", sys.executable)))'
+hook() { ( unset PYTHONPATH PYTHONSTARTUP PYTHONHOME; PYTHONNOUSERSITE=1 PYTHONSAFEPATH=1 "$@" ); }
 v=$(mktemp) && printf '%s\n' "$src" > "$v" || exit 3
 t=; command -v timeout >/dev/null 2>&1 && t="timeout 10"
 for py in python3 python "py -3"; do
   at=$(command -v "${py%% *}") || continue
-  out=$($t $py -S -c "$src" 2>/dev/null); case $out in FFPCVER*) ;; *) out=$($t $py -S "$v" 2>/dev/null) ;; esac
+  out=$(hook $t $py -S -c "$src" 2>/dev/null)
+  case $out in FFPCVER*) ;; *) out=$(hook $t $py -S "$v" 2>/dev/null) ;; esac
   set -- $(printf '%s\n' "$out" | sed -n 's/^FFPCVER \([0-9][0-9]*\) \([0-9][0-9]*\)$/\1 \2/p' | head -1)
   if [ $# -eq 2 ] && { [ "$1" -gt 3 ] || { [ "$1" -eq 3 ] && [ "$2" -ge 10 ]; }; }; then
-    rm -f "$v"
-    if got=$($py -S -c "$yml" 2>&1); then printf 'use\t%s\t%s\t%s\n' "$py" "$at" "$got"; exit 0; fi
-    printf 'noyaml\t%s\t%s\t%s\n' "$py" "$at" "$(printf '%s\n' "$got" | tail -1)"; exit 1
+    rm -f "$v"; bad=; err=
+    got=$(hook $py -S -c "$yml" 2>&1) || { bad="$bad -S"; err=$got; }
+    e=$($py -E -c 'import yaml' 2>&1) || { bad="$bad -E"; err=$e; }
+    p=$(PYTHONPATH="$PWD/hooks" $py -c 'import yaml' 2>&1) || { bad="$bad plain"; err=$p; }
+    [ -n "$bad" ] || { printf 'use\t%s\t%s\t%s\n' "$py" "$at" "$got"; exit 0; }
+    info=$($py -c "$env" 2>/dev/null)
+    printf 'noyaml\t%s\t%s\t%s\t%s\t%s\t%s\n' "$py" "$at" "${bad# }" "${info%%|*}" "${info#*|}" \
+      "$(printf '%s\n' "$err" | tail -1)"; exit 1
   fi
   printf 'failed\t%s\t%s\n' "$py" "$at"
 done
 rm -f "$v"; exit 1
 """
+IMPORTS = {"-S": "the pre-commit's", "-E": "commit-msg's", "plain": "the mint's"}
 
 
 def interpreter(inv: m.Inventory) -> Check:
@@ -180,20 +190,25 @@ def interpreter(inv: m.Inventory) -> Check:
     if not bash:
         return Check("Python for the hooks", "no bash on PATH: the git hooks and the approval scripts need it", True,
                      "install Git for Windows (Git Bash) or bash, then re-run")
-    env = {k: v for k, v in os.environ.items() if k not in HOOK_ENV_DROP} | HOOK_ENV_SET
-    probe = subprocess.run([bash, "-c", PICK], cwd=inv.target, env=env, capture_output=True, text=True,
-                           encoding="utf-8", errors="replace", timeout=600)
-    rows = [line.split("\t") for line in probe.stdout.splitlines() if line.count("\t") in (2, 3)]
+    probe = subprocess.run([bash, "-c", PICK], cwd=inv.target, capture_output=True, text=True, encoding="utf-8",
+                           errors="replace", timeout=600)
+    rows = [line.split("\t") for line in probe.stdout.splitlines() if line.count("\t") in (2, 3, 6)]
     failed = "".join(f"; {r[1]} ({r[2]}{', the Microsoft Store shortcut' if 'WindowsApps' in r[2].split('/') else ''})"
                      " fails the 3.10+ probe" for r in rows if r[0] == "failed")
     pip = f"-m pip install -r \"{(flow.CORE / 'hooks/requirements.txt').as_posix()}\""
-    last = rows[-1] if rows and len(rows[-1]) == 4 else ["none"]
+    last = rows[-1] if rows and len(rows[-1]) in (4, 7) else ["none"]
     if last[0] == "use":
         return Check("Python for the hooks", f"{last[1]} ({last[2]}), Python {last[3]} with PyYAML: the pre-commit, "
                      f"commit-msg and the approval scripts run it{failed}")
     if last[0] == "noyaml":
-        return Check("Python for the hooks", f"{last[1]} ({last[2]}) is the Python 3.10+ the hooks run, but it cannot "
-                     f"import PyYAML ({last[3][:200]})", True, f"run `{last[1]} {pip}`, then re-run")
+        py, at, modes, venv, base, why = last[1:]
+        found = (f"{py} ({at}) is the Python 3.10+ the hooks run, but {' and '.join(IMPORTS[k] for k in modes.split())}"
+                 f" import of PyYAML fails ({why[:160]})")
+        if venv == "1":
+            return Check("Python for the hooks", f"{found}; it runs a venv whose base interpreter is {base}", True,
+                         f"deactivate the venv, or install PyYAML into both: `{py} {pip}` and `\"{base}\" {pip}`; "
+                         "then re-run")
+        return Check("Python for the hooks", found, True, f"run `{py} {pip}`, then re-run")
     return Check("Python for the hooks", f"bash finds no Python 3.10+ (tried: python3, python, py -3{failed})", True,
                  "if python3 or python is the Microsoft Store shortcut, turn off the python.exe and python3.exe App "
                  "execution aliases (Windows Settings), or install Python 3.10+ and put it on bash's PATH; then run "

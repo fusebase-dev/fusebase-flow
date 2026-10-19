@@ -277,6 +277,29 @@ class StorePreflight(StorePath):
         self.assertIn("-m pip install -r", dry.stdout)
 
 
+    def test_an_activated_venv_without_pyyaml_stops_and_names_the_way_out(self) -> None:
+        """T272: the mint and commit-msg import PyYAML through the venv's own site-packages, but under -S a venv's
+        python finds its base install's PyYAML. The -S import alone said ok, and the migration then stopped at the
+        mint, half-applied."""
+        venv = self.tmp / "venv"
+        subprocess.run([sys.executable, "-m", "venv", "--without-pip", str(venv)], check=True, capture_output=True,
+                       timeout=600)
+        scripts = venv / ("Scripts" if os.name == "nt" else "bin")
+        ask = "import sys; print(getattr(sys, '_base_executable', sys.executable)); import yaml"
+        probe = subprocess.run([str(scripts / "python"), "-c", ask], capture_output=True, text=True, timeout=600)
+        if probe.returncode == 0:
+            self.skipTest("the venv imports PyYAML")
+        base = probe.stdout.splitlines()[0]
+        clone = scratch_clone(self.tmp / "m")
+        dry = migrate(clone, env={**os.environ, "PATH": os.pathsep.join([str(scripts), self.path]),
+                                  "VIRTUAL_ENV": str(venv)})
+        self.assertNotEqual(dry.returncode, 0, dry.stdout)
+        line = self.preflight_line(dry.stdout)
+        self.assertRegex(line, r"STOP: Python for the hooks: python3? \(")
+        self.assertIn("import of PyYAML fails", line)
+        self.assertIn(f"it runs a venv whose base interpreter is {base}", line)
+        self.assertIn("what to do: deactivate the venv, or install PyYAML into both", dry.stdout)
+
 class StoreNote(unittest.TestCase):
     def test_the_note_installs_pyyaml_with_the_hooks_interpreter_and_names_the_store_aliases(self) -> None:
         """T270: a bare pip can belong to another Python than the one the hooks run."""
