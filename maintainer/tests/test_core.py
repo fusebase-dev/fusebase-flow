@@ -137,7 +137,8 @@ class Register(Workspace):
         line = [x for x in out.getvalue().splitlines() if x.startswith("[flow] heartbeat reader:")]
         self.assertEqual(len(line), 1, out.getvalue())
         self.assertIn("NOT registered", line[0])
-        self.assertIn(flow.by_hand(flow.reader_line(self.repo)[1])[1], out.getvalue(), "the line to add by hand")
+        # install() names the task from the resolved path; a temp folder under an 8.3 short name resolves longer
+        self.assertIn(flow.by_hand(flow.reader_line(self.repo.resolve())[1])[1], out.getvalue(), "the line to add by hand")
         self.assertNotIn("reader", json.loads((self.repo / "audit/flow-install.json").read_text("utf-8")))
         self.assertIsNone(self.written())
 
