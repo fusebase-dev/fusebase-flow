@@ -1,4 +1,4 @@
-# Fusebase Flow 6.0 core (6.0.0-m3 pre-release)
+# Fusebase Flow 6.0 core (6.0.0-m4 pre-release)
 
 The lifecycle core a project carries: the three git hooks and their modules, the six scripts in `hooks/local/` (reader, DONE check, validator, checks, slicer, gate), the 8 rules (`FLOW_RULES.md`), three agents (planner, builder, reader), six skills, one lifecycle page (`workflows/lifecycle.md`) and four document templates.
 
@@ -14,8 +14,8 @@ It copies the core, writes the provider mirrors (`.claude/`, `.agents/skills/`, 
 
 ## Moving a project from Flow 5.x
 
-Run `python maintainer/flow.py migrate --target <project> --providers claude,codex`: a dry run that changes nothing. Then add `--apply --go-ahead` after the operator's go-ahead; it checks everything that could stop it before it changes a file, and lands the migration as one commit. Do not run `install` over a 5.x tree. `maintainer/release-notes/6.0.0-m3.md` has the steps.
+Run `python maintainer/flow.py migrate --target <project> --providers claude,codex`: a dry run that changes nothing. Then add `--apply --go-ahead` after the operator's go-ahead; it checks everything that could stop it before it changes a file, and lands the migration as one commit. Do not run `install` over a 5.x tree. `maintainer/release-notes/6.0.0-m4.md` has the steps.
 
-## 6.0.0-m3 limits
+## 6.0.0-m4 limits
 
 The six scripts (reader, slicer, DONE check, checks, validator, gate) are in `hooks/local/`. Provider hook wiring is opt-in (`install --wire-hooks`), and the 6.0.0 `commit-msg` checks the subject (`workflows/lifecycle.md`). Codex: unproven (`docs/provider-coverage.md`).
