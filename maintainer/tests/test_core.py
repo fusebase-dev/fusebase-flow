@@ -457,6 +457,26 @@ class Wire(Workspace):
         import reader
         self.assertEqual(reader.audit(self.repo)[1], [record["cmd_sha256"]])
 
+    def test_pre_tool_use_logs_the_hash_and_the_tool_and_never_the_command(self) -> None:
+        self.install()
+        token = "FLOWCANARY9b1e"
+        command = f"fusebase deploy --env dev --token {token}"  # require_approval, no approval on file
+        event = {"hook_event_name": "PreToolUse", "tool_name": "Bash", "cwd": str(self.repo),
+                 "tool_input": {"command": command}}
+        out = subprocess.run([sys.executable, str(self.repo / "hooks/handlers/pre_tool_use.py")], cwd=self.repo,
+                             input=json.dumps(event), capture_output=True, text=True, timeout=600)
+        self.assertIn(token, out.stdout, "the agent still sees the whole message")
+        line = (self.repo / "state/audit.log.jsonl").read_text(encoding="utf-8").splitlines()[-1]
+        record = json.loads(line)
+        self.assertEqual((record["event"], record["tool_name"], record["all_required_actions"]),
+                         ("pre_tool_use", "Bash", ["production_deploy"]))
+        self.assertEqual(record["reason"], "FR-12: approval required (production_deploy)")
+        self.assertEqual(record["cmd_sha256"], hashlib.sha256(command.encode("utf-8")).hexdigest())
+        self.assertNotIn(token, line, "the command text is never written")
+        sys.path.insert(0, str(CORE / "hooks/local"))
+        import reader
+        self.assertEqual(reader.audit(self.repo)[1], [], "a call that never ran is not counted")
+
 
 class Health(Workspace):
     """O-14: `flow health` reports what install knows, writes nothing, and its exit status says healthy or not."""

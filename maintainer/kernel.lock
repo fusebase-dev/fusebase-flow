@@ -6,8 +6,10 @@
 #   hooks/local/lib/bounded-run.sh: the command's sha256 on heartbeat line 2 (T255; 5.x 834901cd, local; O-10).
 #   hooks/git/pre-commit: stage 4b runs validate_evidence.py --staged on evidence commits (T256; 5.x 2caaf8d1, local; O-11).
 #   hooks/handlers/post_tool_use.py: the audit line with the command's hash and nothing else (T257; 5.x 0b69e6c7,
-#   local; O-12). Carried with it from release/6.0 17b796d3 unchanged: hooks/handlers/pre_tool_use.py and
-#   hooks/local/run-handler.sh (O-12, the tool handlers --wire-hooks wires).
+#   local; O-12). Carried with it from release/6.0 17b796d3 unchanged: hooks/handlers/pre_tool_use.py (until
+#   T265) and hooks/local/run-handler.sh (O-12, the tool handlers --wire-hooks wires).
+#   hooks/handlers/pre_tool_use.py: the audit line carries the command's hash and a fixed reason, never the
+#   command (T265; 5.x c7ddf591, local; O-22).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -19,7 +21,7 @@ f2557b19379421fac007a2c758eda73bb6eb21990a7f5c366c438716e1fe2cfb  .gitattributes
 f5746f21aa0269015375aafba6278605225ca09d1a819bb72524e3f55d5e0571  hooks/git/pre-commit
 61fa39ad945e6fbf5718dc8ab11c7a6892b50c431e4514a94ca71ccb84679120  hooks/git/pre-push
 d4c7b522d5095dd26b336cb95ef2fd5de290234102f485e79d79d928bc7b8f5f  hooks/handlers/post_tool_use.py
-653d770deac8d21461cae4b8db6dfeba8a405ffdba8ad4158d7fcd404297b596  hooks/handlers/pre_tool_use.py
+2ed1c6143f5324e2178f51a6156f0fc4857a6576f8850365ecf13ab829d9487d  hooks/handlers/pre_tool_use.py
 807051ae750b0895272164308e30a0e2fa9fc69f13be764263d3a01320993dc3  hooks/local/approve-local.sh
 e9d192b09e351091350d6d4b6f04e865f5611f5268bd0c5c4a24d5cbcd83d582  hooks/local/check-module-size.sh
 83ef934c00c8688b5666176e18cd556f8971950dbbb53e583dd08b48eca2f9de  hooks/local/install-git-hooks.sh

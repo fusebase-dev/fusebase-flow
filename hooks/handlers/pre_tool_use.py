@@ -13,6 +13,7 @@ exit code 2 on deny so hosts that read exit codes are also covered.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -40,6 +41,20 @@ from shared.secret_scanner import scan, block_decision  # noqa: E402
 # and route every membership test through is_command_tool() (case-insensitive).
 BASH_LIKE_TOOLS = COMMAND_TOOL_NAMES
 EDIT_LIKE_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit", "ApplyDiff", "create_file"}
+
+
+def cmd_sha256(command: str) -> str:
+    # TRIPWIRE: post_tool_use.py's twin, the whitespace-collapsed form hooks/local/token_waste_audit/parsing.py hashes;
+    # change one, change both, or a command's two audit lines stop matching.
+    return hashlib.sha256(" ".join(command.split()).encode("utf-8")).hexdigest()
+
+
+def audit_reason(cd) -> str:
+    """The audit line's reason for a command decision: fixed text, never the command. The reason shown to the agent
+    (render_approval_denial) carries the command twice, a token in a push URL included."""
+    if cd.all_required_actions:
+        return f"FR-12: approval required ({', '.join(cd.all_required_actions)})"
+    return f"{cd.rule_id or 'FR-12'}: {cd.decision} by command-policy"
 
 
 def _command_path(event: dict) -> tuple[str | None, str | None]:
@@ -75,12 +90,15 @@ def main() -> int:
             emit(
                 "pre_tool_use",
                 decision=cd.decision,
-                reason=cd.reason,
+                # The audit line names the tool and the command's hash, never its text; cd.reason goes to the
+                # agent only (_output_decision).
+                reason=audit_reason(cd),
                 rule_id=cd.rule_id,
                 # approval_verdict / required_actions are the GROUND-TRUTH tokens smoke
                 # S1/S2/S5 assert on — stdout prose may be reworded, these may not.
                 extra={
                     "tool_name": tool_name,
+                    "cmd_sha256": cmd_sha256(str(command)),
                     "matched_pattern": cd.matched_pattern,
                     "approval_action": cd.approval_action,
                     "approval_verdict": cd.approval_verdict,
@@ -168,7 +186,10 @@ def main() -> int:
                 return 2 if decision == "deny" else 0
 
     # Default: allow
-    emit("pre_tool_use", decision="allow", reason="no rule matched", root=root, extra={"tool_name": tool_name})
+    extra = {"tool_name": tool_name}
+    if is_command_tool(tool_name):
+        extra["cmd_sha256"] = cmd_sha256(str((event.get("tool_input") or {}).get("command") or ""))
+    emit("pre_tool_use", decision="allow", reason="no rule matched", root=root, extra=extra)
     _output_decision("allow", "no rule matched", "")
     return 0
 

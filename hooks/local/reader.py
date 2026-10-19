@@ -71,7 +71,9 @@ def audit(root: Path) -> tuple[float, list[str]]:
             rec = json.loads(line)
         except ValueError:
             continue
-        if isinstance(rec, dict) and isinstance(rec.get("cmd_sha256"), str):
+        # A completed call only: pre_tool_use writes the same hash before the call runs (O-22).
+        if (isinstance(rec, dict) and str(rec.get("event")).startswith("post_tool_use")
+                and isinstance(rec.get("cmd_sha256"), str)):
             hashes.append(rec["cmd_sha256"])
     return mtime, hashes
 
