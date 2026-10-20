@@ -25,9 +25,15 @@ NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)  # no console window when
 
 
 def git(cwd: Path, *args: str) -> subprocess.CompletedProcess:
-    # TRIPWIRE: --literal-pathspecs: a file name is never a pattern (`app[id].ts` must not also commit `appi.ts`).
-    return subprocess.run(["git", "--literal-pathspecs", *args], cwd=cwd, capture_output=True, text=True,
-                          encoding="utf-8", errors="replace", timeout=600, creationflags=NO_WINDOW)
+    return subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                          timeout=600, creationflags=NO_WINDOW)
+
+
+def literal(names: list[str]) -> list[str]:
+    """A file name is never a pattern (`app[id].ts` must not also commit `appi.ts`)."""
+    # TRIPWIRE: :(literal) on each name, never git's --literal-pathspecs: that flag sets GIT_LITERAL_PATHSPECS=1 for the
+    # hooks too, and the secret scan's :(exclude) entries then name files that do not exist.
+    return [f":(literal){name}" for name in names]
 
 
 def git_running() -> bool:
@@ -120,7 +126,7 @@ def main(argv: list[str]) -> int:
         deadline, present = time.monotonic() + args.wait, [p for p in args.paths if os.path.lexists(p)]
         # A git process outside Flow can take the index lock between the wait and the add: wait and retry, keeping our
         # lock live meanwhile. A named file that is gone is a staged delete or a rename's source: --only takes it.
-        while present and (add := git(here, "add", "--", *present)).returncode and "index.lock" in add.stderr \
+        while present and (add := git(here, "add", "--", *literal(present))).returncode and "index.lock" in add.stderr \
                 and time.monotonic() < deadline:
             os.utime(lock)
             time.sleep(1)
@@ -132,8 +138,8 @@ def main(argv: list[str]) -> int:
         # own on Windows, and every hook's BLOCK, lint error and the commit summary would print there, unseen.
         for stream in filter(None, (sys.stdout, sys.stderr)):  # None under pythonw: nothing to hand on
             stream.flush()
-        proc = subprocess.Popen(["git", "--literal-pathspecs", "commit", "-m", args.message, "--only", "--",
-                                 *args.paths], cwd=here, stdout=sys.stdout, stderr=sys.stderr, creationflags=NO_WINDOW)
+        proc = subprocess.Popen(["git", "commit", "-m", args.message, "--only", "--", *literal(args.paths)], cwd=here,
+                                stdout=sys.stdout, stderr=sys.stderr, creationflags=NO_WINDOW)
         while True:
             try:
                 rc = proc.wait(timeout=LIVE)

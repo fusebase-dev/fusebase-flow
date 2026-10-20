@@ -82,7 +82,8 @@ class LiveRunRule(m3.Validator):
 
 
 class CommitPyOutput(m6.Project):
-    """Re-review A on commit.py: what git and its hooks print reaches the caller (T317)."""
+    """Re-review A on commit.py: what git and its hooks print reaches the caller (T317), and each name is marked
+    :(literal) instead of git's --literal-pathspecs, which reached the hooks (T318)."""
 
     wire = False
 
@@ -102,6 +103,20 @@ class CommitPyOutput(m6.Project):
         done = self.commit_py("T1: one file", "x.ts")
         self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
         self.assertIn("1 file changed", done.stdout)
+
+    def test_the_secret_scan_excludes_hold_through_commit_py(self) -> None:
+        """T318: GIT_LITERAL_PATHSPECS=1, set by git's --literal-pathspecs, reached the hooks and turned the secret
+        scan's :(exclude) entries into file names: a token shape in policies/secret-patterns.yml, which a plain git
+        commit lands, was refused through commit.py."""
+        rel, token = "policies/secret-patterns.yml", "ghp_" + "M6fakeTokenM6fakeTokenM6fakeToken00001"
+        body = (self.repo / rel).read_bytes().rstrip(b"\n") + f"\n# an example: {token}\n".encode("utf-8")
+        (self.repo / rel).write_bytes(body)
+        git(self.repo, "add", "--", rel)
+        mint = self.bash("hooks/local/write-bootstrap-approval.sh", FF_BOOTSTRAP_TTL_MIN="30")
+        self.assertEqual(mint.returncode, 0, mint.stderr)
+        done = self.commit_py("T1: an example token shape in the secret patterns", rel)
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertEqual(git(self.repo, "show", "--name-only", "--format=", "HEAD").stdout.split(), [rel])
 
 
 class NoWindowOutput(unittest.TestCase):
