@@ -559,6 +559,12 @@ def report(inv: Inventory, full: bool) -> None:
     say(f"rewritten in place: {', '.join(inv.overlays) or 'no overlay'} (the Flow section by heading)"
         + (", VERSION (the core's)" if inv.version_is_flow else "")
         + f"; {flow.ATTRIBUTES} gets the Flow line-ending block, {flow.IGNORE} the Flow ignore block")
+    attributes = inv.target / flow.ATTRIBUTES
+    pins = flow.eol_pins.drop(attributes.read_bytes().decode("utf-8", "surrogateescape"))[1] if attributes.is_file() else []
+    if pins:
+        say(f"{flow.ATTRIBUTES}: {len(pins)} Flow 5.x line-ending pin lines go (folder-wide `text eol=lf` rewrites the "
+            "CRLF bytes of a binary committed under them; the file is backed up; your own lines stay):")
+        items([f"  {line}" for line in pins])
     if not inv.version_is_flow:
         say("VERSION does not read Flow's version: it is the project's and stays as it is")
     absent = [d for d in DOCS if not (inv.target / d).exists()]

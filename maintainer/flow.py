@@ -19,6 +19,8 @@ import sys
 from pathlib import Path
 
 CORE = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(CORE / "hooks/local/lib"))
+import eol_pins  # noqa: E402  (the Flow 5.x line-ending pins install and migrate remove; flow_owned.py reads it too)
 MANIFEST = "audit/flow-install.json"
 PRIOR_5X = ("audit/managed-content-manifest.json", "audit/hook-layer-manifest.json")
 CORE_PATTERNS = (
@@ -501,7 +503,7 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
     for rel, shas in (prior_5x or {}).items():
         prior.setdefault(rel, set()).update(shas)
     cli_skills = cli_skill_names(target)
-    report: dict[str, list[str]] = {k: [] for k in ("added", "replaced", "unchanged", "kept", "refused", "merged")}
+    report: dict[str, list[str]] = {k: [] for k in ("added", "replaced", "unchanged", "kept", "refused", "merged", "pins")}
     recorded: list[dict[str, str]] = []
     plan = planned_files(providers)
     rows: list[str] = []
@@ -553,10 +555,13 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
             report["refused"].append(f"{name} (a symlink or not a regular file: the {BLOCKS[name][2]} block is not written)")
             continue
         before = path.read_bytes().decode("utf-8", "surrogateescape") if path.is_file() else None
-        after = merge_marked(before, block, name)
+        # 5.x's folder-wide `text eol=lf` lines rewrote the CRLF bytes of binaries under them (6.0.0-m7 item 2): they go
+        kept, pins = eol_pins.drop(before) if name == ATTRIBUTES and before is not None else (before, [])
+        after = merge_marked(kept, block, name)
         if after != before:
             write_bytes(path, after.encode("utf-8", "surrogateescape"), False)
         report["merged"].append(f"{name} ({'created' if before is None else 'block updated' if after != before else 'block current'})")
+        report["pins"] += pins
     try:
         reader = json.loads((target / MANIFEST).read_text(encoding="utf-8")).get("reader")
     except (OSError, ValueError, AttributeError):
@@ -581,6 +586,11 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
         print(f"[flow] {key}: {len(report[key])}{note}")
         for item in report[key]:
             print(f"[flow]   {item}")
+    if report["pins"]:
+        print(f"[flow] {ATTRIBUTES}: removed {len(report['pins'])} Flow 5.x line-ending pin lines (folder-wide `text eol=lf` "
+              "made git rewrite the CRLF bytes of a binary committed under them; your own lines stay):")
+        for line in report["pins"]:
+            print(f"[flow]   {line}")
     print(f"[flow] manifest: {MANIFEST} ({len(recorded)} files)")
     print("[flow] git hooks:")
     for line in hooks_out.splitlines():

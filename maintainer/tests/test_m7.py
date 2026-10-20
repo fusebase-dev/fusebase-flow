@@ -3,14 +3,21 @@
 carries it."""
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import os
 import shutil
+import struct
+import subprocess
+import sys
 import tempfile
 import unittest
+import zlib
 from pathlib import Path
 
 import test_m6
+from synthetic import git, migrate, no_auto_gc, scratch_clone
 
 CORE = Path(__file__).resolve().parents[2]
 WINDOWS = os.name == "nt"
@@ -22,6 +29,10 @@ def short_name(path: Path) -> str:
     buf = ctypes.create_unicode_buffer(1024)
     n = ctypes.windll.kernel32.GetShortPathNameW(str(path), buf, len(buf))
     return buf.value if 0 < n < len(buf) else str(path)
+
+
+def git_bytes(repo: Path, *args: str) -> bytes:
+    return subprocess.run(["git", *args], cwd=repo, capture_output=True, timeout=600).stdout
 
 
 class ToolTimePaths(test_m6.Project):
@@ -103,6 +114,114 @@ class GoAheadShortTemp(test_m6.GoAhead):
         finally:
             tempfile.tempdir = self.saved
         self.assertNotEqual(str(self.repo), str(self.repo.resolve()), "the project is not spelled by its 8.3 name")
+
+
+# Onboarding's .gitattributes at b176a73d, its 5.x part: the comment and pin lines Flow 5.x left there
+PINS_5X = """\
+# FuseBase Flow line-ending pins, scoped to Flow-owned paths only (so existing
+# app files are not renormalized). core.autocrlf=true would otherwise check these
+# out as CRLF and break the bash/python hooks and Flow's byte-hash integrity checks.
+hooks/**            text eol=lf
+flow-skills/**      text eol=lf
+agents/**           text eol=lf
+policies/**         text eol=lf
+templates/**        text eol=lf
+workflows/**        text eol=lf
+audit/**            text eol=lf
+state/**            text eol=lf
+.agents/skills/**   text eol=lf
+.codex/agents/**    text eol=lf
+.claude/commands/** text eol=lf
+.claude/agents/ai-developer.md   text eol=lf
+VERSION             text eol=lf
+FLOW_RULES.md       text eol=lf
+GEMINI.md           text eol=lf
+# Flow skill mirrors in .claude/skills (CLI provider skills there are left alone)
+.claude/skills/code-review/** text eol=lf
+.claude/skills/zoom-out/** text eol=lf
+"""
+PROJECT_LINES = "*.sql               text eol=lf\n*.sketch binary\n.claude/skills/our-own/** text eol=lf\n"
+
+
+def png() -> bytes:
+    """A real PNG whose compressed data holds CRLF pairs, as r1-03's fixture builds it."""
+    raw = b"".join(b"\x00" + bytes((x * 7 + y * 13) % 256 for x in range(320 * 3)) for y in range(200))
+
+    def chunk(kind: bytes, data: bytes) -> bytes:
+        return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xffffffff)
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 320, 200, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(raw, 6)) + chunk(b"IEND", b""))
+
+
+class EolPins(unittest.TestCase):
+    """m7 item 2 (M6-1, review r1-03): 5.x's folder-wide `text eol=lf` lines made git rewrite the CRLF bytes of a
+    binary committed under those folders. migrate replaces them with 6.0's exact-path block (backed up, listed in the dry
+    run); install removes them on an upgrade and names them; the project's own lines stay."""
+
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp(prefix="flow-m7-eol-"))
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def assert_png_kept(self, repo: Path, rel: str) -> None:
+        data = png()
+        self.assertGreater(data.count(b"\r\n"), 0)
+        (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+        (repo / rel).write_bytes(data)
+        git(repo, "add", "--", rel)
+        attrs = git(repo, "check-attr", "text", "eol", "--", rel).stdout
+        stored = git_bytes(repo, "cat-file", "blob", f":{rel}")
+        self.assertEqual(stored, data, f"git stored {len(stored)} of {len(data)} bytes; attributes:\n{attrs}")
+
+    def test_migrate_replaces_the_5x_pins_lists_them_backs_them_up_and_a_png_under_templates_keeps_its_bytes(self) -> None:
+        clone = scratch_clone(self.tmp, {".gitattributes": PINS_5X + PROJECT_LINES})
+        dry = migrate(clone, "--providers", "claude,codex")
+        self.assertEqual(dry.returncode, 0, dry.stdout + dry.stderr)
+        run = migrate(clone, "--providers", "claude,codex", "--apply", "--go-ahead")
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assert_png_kept(clone, "templates/img/header.png")
+        self.assert_png_kept(clone, "state/runs/P1/run1/login.png")
+        self.assertIn(".gitattributes: 21 Flow 5.x line-ending pin lines go", dry.stdout)
+        self.assertIn("hooks/**            text eol=lf", dry.stdout)
+        text = (clone / ".gitattributes").read_text(encoding="utf-8")
+        for line in PINS_5X.splitlines():
+            self.assertNotIn(line + "\n", text)
+        for line in PROJECT_LINES.splitlines():
+            self.assertIn(line + "\n", text)
+        self.assertIn("/hooks/git/pre-commit text eol=lf", text)
+        backup = next(clone.glob(".flow-migrate-*/.gitattributes"))
+        self.assertEqual(backup.read_text(encoding="utf-8"), PINS_5X + PROJECT_LINES)
+
+    def test_an_upgrade_removes_them_names_them_keeps_the_projects_lines_and_the_flow_commit_carries_the_removal(self) -> None:
+        repo = self.tmp / "project"
+        repo.mkdir()
+        git(repo, "init", "-q", "-b", "main")
+        no_auto_gc(repo)
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(test_m6.flow.install(repo, {"claude", "codex"}), 0)
+        attributes = repo / ".gitattributes"
+        attributes.write_text(PINS_5X + PROJECT_LINES + "\n" + attributes.read_text(encoding="utf-8"), encoding="utf-8")
+        git(repo, "add", "-A")
+        self.assertEqual(git(repo, "commit", "-q", "--no-verify", "-m", "init").returncode, 0)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(test_m6.flow.install(repo, {"claude", "codex"}), 0)
+        self.assert_png_kept(repo, "templates/img/header.png")
+        git(repo, "rm", "-q", "--cached", "--", "templates/img/header.png")
+        self.assertIn("[flow] .gitattributes: removed 21 Flow 5.x line-ending pin lines", out.getvalue())
+        self.assertIn("[flow]   templates/**        text eol=lf", out.getvalue())
+        text = attributes.read_text(encoding="utf-8")
+        self.assertNotIn("templates/**", text)
+        for line in PROJECT_LINES.splitlines():
+            self.assertIn(line + "\n", text)
+        git(repo, "add", "--", ".gitattributes")
+        sys.path.insert(0, str(CORE / "hooks/local/lib"))
+        import flow_owned
+        self.assertEqual(flow_owned.foreign(repo, [("M", ".gitattributes")]), [], "the flow: commit refuses the removal")
+        attributes.write_text(text.replace("*.sketch binary\n", ""), encoding="utf-8")
+        git(repo, "add", "--", ".gitattributes")
+        self.assertEqual(flow_owned.foreign(repo, [("M", ".gitattributes")]), [".gitattributes"], "a project line went too")
 
 
 if __name__ == "__main__":

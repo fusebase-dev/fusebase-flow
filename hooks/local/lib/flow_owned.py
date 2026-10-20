@@ -7,7 +7,8 @@ Flow's own, besides the four documents (commit_msg.py checks those):
   of a path one of them records (a 5.x command mirror); on the migration commit also the files it deletes by name,
   bytecode and the orphan 5.x backups (`*.pre-flow-repair[.<n>]` under .claude/, .agents/ and .codex/);
 - AGENTS.md, CLAUDE.md, .gitattributes and .gitignore when the change stays inside Flow's marked block, checked
-  against HEAD; on the migration commit AGENTS.md and CLAUDE.md whole (it replaces 5.x's section, which no marker
+  against HEAD (.gitattributes may also lose its Flow 5.x line-ending pins, eol_pins.py); on the migration commit
+  AGENTS.md and CLAUDE.md whole (it replaces 5.x's section, which no marker
   bounds; the owner's decision of 2026-10-19).
 The migration commit is the one that deletes HEAD's audit/managed-content-manifest.json, as every 5.x migration does.
 """
@@ -17,7 +18,11 @@ import hashlib
 import json
 import re
 import subprocess
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import eol_pins  # noqa: E402
 
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)  # no console window when the caller has none (pythonw)
 
@@ -100,7 +105,9 @@ def foreign(root: Path, pairs: list[tuple[str, str]]) -> list[str]:
             return p in recorded or (p.rsplit("/", 1)[-1], sha) in named or (
                 migrating and (p in RETIRED_5X or bool(BYTECODE.fullmatch(p) or REPAIR_BACKUP.fullmatch(p))))
         if p in MERGED:
-            kept = outside(data)
-            return (migrating and p in OVERLAYS) or (kept is not None and kept == outside(b.get(f"HEAD:{p}")))
+            kept, old = outside(data), outside(b.get(f"HEAD:{p}"))
+            unpinned = p == ".gitattributes" and kept is not None and old is not None and [x for x in kept if x.strip()] \
+                == [x for x in old if x.strip() and not eol_pins.is_5x_pin(x)]
+            return (migrating and p in OVERLAYS) or (kept is not None and kept == old) or unpinned
         return sha is not None and staged.get(p) == sha
     return [p for s, p in pairs if not own(s, p)]
