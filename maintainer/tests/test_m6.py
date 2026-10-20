@@ -229,6 +229,16 @@ class ReviewRounds(m3.Gate):
         self.assertIn("BLOCKED-AT-gate-budget: 2 reviews recorded for P1-S1, gate_rounds 2", out.stdout)
         self.assertIn("review 1 FAIL: the banner shows twice", out.stdout)
 
+    def test_a_next_or_handoff_bullet_that_says_review_is_no_round(self) -> None:
+        """m6-fix F1 (review B #2): only a line that starts with its record time counts."""
+        template = (CORE / "templates/ledger.md").read_text(encoding="utf-8")
+        ledger = template.replace("## Next\n-\n", "## Next\n- review P1-S1 again once T2 lands\n").replace(
+            "## Handoff\n-\n", "## Handoff\n- review P1-S1 found the banner twice; T2 fixes it\n")
+        m3.write(self.repo, "docs/flow/ledger.md", ledger.replace("## Records\n", "## Records\n" + self.REVIEW))
+        out = self.gate()
+        self.assertNotEqual(out.returncode, 3, out.stdout)
+        self.assertIn("0 of 2 verdict rounds and 1 of 2 review rounds used", out.stdout)
+
 
 class CommitStages(Project):
     """m6 list item 4 (M6-25): the git hooks keep each stage's time where the planner reads it afterwards."""
