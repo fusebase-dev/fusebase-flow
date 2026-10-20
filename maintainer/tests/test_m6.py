@@ -14,6 +14,7 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import test_scripts as m3
 from synthetic import FLOW, GIT, git, no_auto_gc
@@ -340,6 +341,78 @@ class OwnGate(m3.Slicer):
             out = self.slice("T1")
             self.assertEqual((out.returncode, "BLOCKED-AT-criterion: T1 serves B1" in out.stdout), (3, True) if blocked
                              else (0, False), f"{text}: {out.stdout}")
+
+
+FAKE_SCHEDULER = r'''import os, sys
+tool, args = sys.argv[1], sys.argv[2:]
+with open(os.path.join(os.environ["FAKE_SCHED_DIR"], "calls.txt"), "a", encoding="utf-8") as fh:
+    fh.write(" ".join([tool, *args]) + "\n")
+if tool == "crontab":
+    sys.stdout.write(os.environ.get("FAKE_CRONTAB", ""))
+    sys.exit(0)
+status = os.environ.get("FAKE_TASK_STATUS", "missing")
+if status == "missing":
+    sys.stderr.write("ERROR: The system cannot find the file specified.\n")
+    sys.exit(1)
+sys.stdout.write(f"\nFolder: \\\nHostName:                             HOST\nTaskName:                             \\{args[2]}\n"
+                 f"Next Run Time:                        N/A\nStatus:                               {status}\n"
+                 f"Scheduled Task State:                 {'Disabled' if status == 'Disabled' else 'Enabled'}\n")
+'''
+
+
+class ReaderState(Project):
+    """m6 list item 7: health reports the reader from the scheduler's own state, read-only, never from the install
+    record alone (WorkHub: "health reports 'reader scheduled' while the task is disabled"). Fakes only: a guard fails
+    the test before any real schtasks or crontab could run."""
+
+    wire = False
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.bin = self.tmp / "fake-bin"
+        self.bin.mkdir()
+        (self.bin / "fake_sched.py").write_text(FAKE_SCHEDULER, encoding="utf-8")
+        for name in ("schtasks", "crontab"):
+            (self.bin / f"{name}.bat").write_text(f'@"{sys.executable}" "{self.bin / "fake_sched.py"}" {name} %*\r\n',
+                                                  encoding="utf-8", newline="")
+            (self.bin / name).write_text(f'#!/bin/sh\nexec "{sys.executable}" "{self.bin / "fake_sched.py"}" {name} "$@"\n',
+                                         encoding="utf-8", newline="\n")
+            (self.bin / name).chmod(0o755)
+        patcher = mock.patch.dict(os.environ, {"PATH": f"{self.bin}{os.pathsep}{os.environ['PATH']}",
+                                               "FAKE_SCHED_DIR": str(self.tmp)})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        import health
+        self.health, real = health, health.subprocess.run
+
+        def guarded(argv, *args, **kwargs):
+            if Path(argv[0]).stem.lower() in ("crontab", "schtasks") and Path(argv[0]).parent != self.bin:
+                raise AssertionError(f"the real scheduler would be asked: {argv[0]}")
+            return real(argv, *args, **kwargs)
+        guard = mock.patch.object(health.subprocess, "run", guarded)
+        guard.start()
+        self.addCleanup(guard.stop)
+
+    def reader_line(self, record: dict) -> str:
+        manifest = json.loads((self.repo / flow.MANIFEST).read_text(encoding="utf-8"))
+        (self.repo / flow.MANIFEST).write_text(json.dumps({**manifest, "reader": record}), encoding="utf-8")
+        return next(line for line in self.health.report(self.repo)[1] if line.startswith("reader:"))
+
+    def test_health_asks_the_scheduler_and_reports_a_disabled_or_deleted_task(self) -> None:
+        name = "FuseBase Flow reader project-0123abcd"
+        task = {"line": subprocess.list2cmdline(["schtasks", "/Create", "/F", "/SC", "MINUTE", "/MO", "5", "/TN", name,
+                                                 "/TR", '"pythonw.exe" "reader.py" --once']), "registered": True}
+        for status, said in (("Ready", "the task is Ready"), ("Disabled", "the task is Disabled"),
+                             ("missing", f"schtasks has no task {name!r} (deleted)")):
+            os.environ["FAKE_TASK_STATUS"] = status
+            self.assertEqual(self.reader_line(task), f"reader: registered by install; the scheduler says: {said}")
+        self.assertIn(f"schtasks /Query /TN {name} /FO LIST /V", (self.tmp / "calls.txt").read_text(encoding="utf-8"))
+        cron = {"line": f"*/5 * * * * cd {flow.sh_quote(str(self.repo))} && 'python3' {flow.READER_RUN}", "registered": True}
+        for listed, said in ((cron["line"] + "\n", "in the crontab"), ("# " + cron["line"] + "\n", "NOT in the crontab")):
+            os.environ["FAKE_CRONTAB"] = listed
+            self.assertIn(said, self.reader_line(cron))
+        calls = (self.tmp / "calls.txt").read_text(encoding="utf-8").split()
+        self.assertNotIn("/Create", calls, "health only asks")
 
 
 if __name__ == "__main__":

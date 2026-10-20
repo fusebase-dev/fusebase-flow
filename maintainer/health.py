@@ -6,6 +6,7 @@ state/status.line. Exit 0 healthy, 1 not, 2 no 6.0 install there. Writes nothing
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -28,6 +29,35 @@ def hooks_dir(target: Path) -> Path | None:
         return None
     common = Path(out.stdout.strip())
     return (common if common.is_absolute() else target / common) / "hooks" if out.returncode == 0 else None
+
+
+def reader_state(target: Path, record: dict) -> str:
+    """What the scheduler itself says about the recorded reader, read-only (6.0.0-m6 item 7): `schtasks /Query` of the
+    task's name, or the user's crontab; the install record alone said "scheduled" over a disabled task."""
+    line = str(record.get("line", ""))
+    tool = "crontab" if line.startswith("*/") else "schtasks"
+    exe = flow.shutil.which(tool)  # TRIPWIRE: the resolved path; a bare name finds System32 first on Windows
+    if not exe:
+        return f"{tool} not found on PATH, so the scheduler was not asked"
+    if tool == "crontab":
+        argv, mine = [exe, "-l"], f"cd {flow.sh_quote(str(target))} &&"
+    else:
+        name = re.search(r'/TN\s+(?:"([^"]*)"|(\S+))', line)
+        if not name:
+            return "the install record names no task"
+        argv = [exe, "/Query", "/TN", name[1] or name[2], "/FO", "LIST", "/V"]
+    try:
+        out = subprocess.run(argv, capture_output=True, text=True, errors="replace", timeout=120)
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return f"{tool} could not be asked ({exc})"
+    if tool == "crontab":
+        found = any(mine in x and flow.READER_RUN in x for x in out.stdout.splitlines() if not x.lstrip().startswith("#"))
+        return "in the crontab" if out.returncode == 0 and found else "NOT in the crontab (removed or commented out)"
+    if out.returncode != 0:
+        return f"schtasks has no task {name[1] or name[2]!r} (deleted)"
+    fields = dict(x.split(":", 1) for x in out.stdout.splitlines() if ":" in x)
+    state = (fields.get("Status", "") or fields.get("Scheduled Task State", "")).strip()
+    return f"the task is {state}" if state else "schtasks answered, in a form this check does not read"
 
 
 def report(target: Path) -> tuple[int, list[str]]:
@@ -63,7 +93,8 @@ def report(target: Path) -> tuple[int, list[str]]:
     for name in manifest.get("providers", []):
         out.append(f"wiring: {name} {reader.wired(target, SETTINGS[name])} ({SETTINGS[name]})")
     record = manifest.get("reader")
-    out.append(f"reader: {'scheduled: ' + record['line'] if record else 'not scheduled (install --register-reader)'}")
+    out.append(f"reader: registered by install; the scheduler says: {reader_state(target, record)}" if record
+               else "reader: not scheduled (install --register-reader)")
     status = (target / "state/status.line").read_text(encoding="utf-8").strip() if (target / "state/status.line").is_file() else ""
     out.append(f"status.line: {status or 'absent (the reader has not run)'}")
     out.append("HEALTH: " + ("healthy" if not bad else "NOT healthy: " + "; ".join(bad)))
