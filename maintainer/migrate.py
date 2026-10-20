@@ -206,7 +206,9 @@ def walk_files(root: Path, rel: str) -> list[str]:
     base = root / rel
     found = []
     for dirpath, dirnames, filenames in os.walk(base):
-        dirnames[:] = [d for d in dirnames if d != ".git"]
+        # TRIPWIRE: a folder holding a .git entry (a linked worktree under .claude/worktrees/, a submodule, a nested
+        # repository) is another checkout: never this project's files to list or remove (m6 review B #1).
+        dirnames[:] = [d for d in dirnames if d != ".git" and not os.path.lexists(os.path.join(dirpath, d, ".git"))]
         for name in filenames:
             found.append(Path(dirpath, name).relative_to(root).as_posix())
     return sorted(found)

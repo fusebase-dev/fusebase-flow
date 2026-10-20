@@ -677,6 +677,33 @@ class OrphanBackups(unittest.TestCase):
         self.assertLessEqual(set(self.ORPHANS), set(deleted))
         self.assertEqual(git(clone, "status", "--porcelain").stdout, "")
 
+    def test_a_worktree_under_claude_is_another_checkout_and_its_backups_are_left_alone(self) -> None:
+        """m6-fix F9 (review B #1): a linked worktree at .claude/worktrees/agent-x, on a branch carrying orphan backups,
+        keeps every file; the project's own orphans still go."""
+        from synthetic import migrate, scratch_clone
+        tmp = Path(tempfile.mkdtemp(prefix="flow-migrate-"))
+        try:
+            clone = scratch_clone(tmp, {**self.ORPHANS, **self.KEPT})
+            worktree = clone / ".claude/worktrees/agent-x"
+            self.assertEqual(git(clone, "worktree", "add", "-q", "-b", "worktree-agent-x", str(worktree)).returncode, 0)
+            (worktree / ".claude/skills/agent").mkdir(parents=True)
+            (worktree / ".claude/skills/agent/SKILL.md.pre-flow-repair").write_bytes(b"the agent's own, untracked\n")
+            before = {p.relative_to(worktree).as_posix(): p.read_bytes() for p in worktree.rglob("*")
+                      if p.is_file() and ".git" not in p.relative_to(worktree).parts}
+            dry = migrate(clone, "--providers", "claude,codex")
+            self.assertNotIn("worktrees/agent-x/", dry.stdout.split("orphan 5.x backups:")[1].split("\n")[0], dry.stdout)
+            run = migrate(clone, "--providers", "claude,codex", "--apply", "--go-ahead")
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            after = {p.relative_to(worktree).as_posix(): p.read_bytes() for p in worktree.rglob("*")
+                     if p.is_file() and ".git" not in p.relative_to(worktree).parts}
+            self.assertEqual(after, before, "the migration changed the worktree's files")
+            self.assertEqual(git(worktree, "status", "--porcelain", "--untracked-files=no").stdout, "")
+            for rel in self.ORPHANS:
+                self.assertFalse((clone / rel).exists(), rel)
+        finally:
+            git(clone, "worktree", "remove", "--force", str(worktree))
+            shutil.rmtree(tmp, ignore_errors=True)
+
     def test_the_guidance_after_the_migration_makes_the_gate_the_planners_and_one_item_per_evidence_row(self) -> None:
         """m6 list item 11: Onboarding's carried plan modelled the gate as a builder task."""
         self.assertEqual(self.applied.returncode, 0, self.applied.stdout + self.applied.stderr)
