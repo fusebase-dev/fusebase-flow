@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""The 6.0.0-m6 fix pass's owner additions (ii) to (iv) and the reader re-registration: `python
+"""The 6.0.0-m6 fix pass's owner additions (ii) to (iv) and re-review A's two commit.py fixes: `python
 maintainer/tests/test_m6_fix.py`; test_migrate.py's load_tests runs it too, so core-verify carries it."""
 from __future__ import annotations
 
 import json
+import sys
 import unittest
 
+import test_m6 as m6
 import test_scripts as m3
+from synthetic import git
 
 ANSWERS = "\n## Answers\n\n### A1 Is the stale build an accepted cause?\n- answered: 2026-10-20\n> Yes.\n"
 
@@ -76,6 +79,40 @@ class LiveRunRule(m3.Validator):
                 self.assertIn("before the dev deploy finished 2026-10-18T09:45:00Z", line)
         ship = (m3.CORE / "flow-skills/ship/SKILL.md").read_text(encoding="utf-8")
         self.assertIn("`# Live run baseline-<run> <id> (<env>)`", ship)
+
+
+class CommitPyOutput(m6.Project):
+    """Re-review A on commit.py: what git and its hooks print reaches the caller (T317)."""
+
+    wire = False
+
+    def commit_py(self, subject: str, *names: str):
+        return m6.sh(self.repo, sys.executable, "hooks/local/commit.py", "-m", subject, *names)
+
+    def test_a_refused_commit_says_why_and_a_landed_one_prints_its_summary(self) -> None:
+        """T317: commit.py hands git its own stdout and stderr. With CREATE_NO_WINDOW and no handles, git printed to a
+        hidden console of its own on Windows: a refused commit showed exit 1 and no reason."""
+        rel = "policies/protected-paths.yml"
+        (self.repo / rel).write_bytes((self.repo / rel).read_bytes() + b"# one more line\n")
+        done = self.commit_py("T1: a protected file, no approval", rel)
+        self.assertNotEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertIn("[fusebase-flow:pre-commit] BLOCK", done.stdout + done.stderr)
+        git(self.repo, "restore", "--staged", "--worktree", "--", rel)
+        (self.repo / "x.ts").write_bytes(b"export const x = 1;\n")
+        done = self.commit_py("T1: one file", "x.ts")
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertIn("1 file changed", done.stdout)
+
+
+class NoWindowOutput(unittest.TestCase):
+    def test_every_no_window_call_keeps_its_output(self) -> None:
+        """T317: a CREATE_NO_WINDOW call that neither captures nor hands on stdout and stderr prints to a hidden console
+        of its own on Windows (commit.py's git commit did: every hook's refusal was lost)."""
+        lost = [f"{path.relative_to(m6.CORE).as_posix()}:{c.lineno}" for path in m6.NO_WINDOW_FILES
+                for c in m6.subprocess_calls(path.read_text("utf-8"))
+                if "capture_output" not in (kw := {k.arg for k in c.keywords})
+                and not {"stdout", "stderr"} <= kw | ({"stdout"} if c.func.attr == "check_output" else set())]
+        self.assertEqual(lost, [], "no-window calls whose output nobody sees")
 
 
 if __name__ == "__main__":

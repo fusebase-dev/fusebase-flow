@@ -128,8 +128,12 @@ def main(argv: list[str]) -> int:
             print(add.stdout + add.stderr, end="", file=sys.stderr)
             return add.returncode
         # TRIPWIRE: --only commits the named paths from HEAD plus the work tree, never what else sits in the index.
+        # TRIPWIRE: stdout and stderr handed on: with CREATE_NO_WINDOW and no handles, git gets a hidden console of its
+        # own on Windows, and every hook's BLOCK, lint error and the commit summary would print there, unseen.
+        for stream in filter(None, (sys.stdout, sys.stderr)):  # None under pythonw: nothing to hand on
+            stream.flush()
         proc = subprocess.Popen(["git", "--literal-pathspecs", "commit", "-m", args.message, "--only", "--",
-                                 *args.paths], cwd=here, creationflags=NO_WINDOW)
+                                 *args.paths], cwd=here, stdout=sys.stdout, stderr=sys.stderr, creationflags=NO_WINDOW)
         while True:
             try:
                 rc = proc.wait(timeout=LIVE)
