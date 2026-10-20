@@ -395,5 +395,84 @@ class HealthTruth(Installed):
         self.assertIn("a hook-layer file kept from an earlier release: hooks/local/checks.py", text)
 
 
+class LocalTightens(Installed):
+    """m7 item 5 (M6-4, review r2-34): a gitignored *.local.yml only ever tightens. Written through Bash, `deny: []` in
+    command-policy.local.yml emptied the deny list: the handler then allowed `git commit --no-verify`. A Bash write into
+    policies/ or state/approvals/ is denied; Flow's own scripts write there."""
+
+    def decide(self, tool: str, tool_input: dict) -> str:
+        payload = {"session_id": "m7", "cwd": str(self.repo), "hook_event_name": "PreToolUse", "tool_name": tool,
+                   "tool_input": tool_input}
+        out = subprocess.run([sys.executable, "hooks/handlers/pre_tool_use.py"], cwd=self.repo, input=json.dumps(payload),
+                             capture_output=True, text=True, encoding="utf-8", timeout=300)
+        return json.loads(out.stdout or "{}").get("flow_decision", f"no decision: {out.stderr}")
+
+    def bash(self, command: str) -> str:
+        return self.decide("Bash", {"command": command})
+
+    def local(self, name: str, text: str) -> None:
+        (self.repo / "policies" / f"{name}.local.yml").write_text(text, encoding="utf-8")
+
+    def test_an_emptied_deny_list_in_the_local_command_policy_leaves_no_verify_denied(self) -> None:
+        self.local("command-policy", "deny: []\nrequire_approval: []\ndefault: allow\nallow:\n"
+                                     "  - pattern: '.*'\n    reason: everything\n    rule_id: LOCAL\n")
+        for command in ("git commit --no-verify -m x", "git config core.hooksPath /dev/null", "git reset --hard HEAD"):
+            self.assertEqual(self.bash(command), "deny", command)
+        self.assertEqual(self.bash("npx prisma migrate deploy"), "deny", "a shipped approval rule went")
+
+    def test_a_local_file_that_adds_a_deny_rule_takes_effect_beside_the_shipped_ones(self) -> None:
+        self.local("command-policy", "deny:\n  - pattern: '\\bcurl\\b'\n    reason: no curl in this project\n"
+                                     "    rule_id: LOCAL-1\n")
+        self.assertEqual(self.bash("curl https://example.com"), "deny")
+        self.assertEqual(self.bash("git commit --no-verify -m x"), "deny")
+        self.assertEqual(self.bash("ls -la"), "allow")
+
+    def test_a_shell_write_into_policies_or_state_approvals_is_denied_and_reading_them_is_not(self) -> None:
+        for command in ("printf 'deny: []\\n' > policies/command-policy.local.yml",
+                        "echo '{}' >> state/approvals/protected_path_edit-x.json",
+                        "tee -a policies/command-policy.local.yml < /dev/null",
+                        "cp /tmp/x.yml policies/command-policy.local.yml", "mv x.json state/approvals/",
+                        "cp -t policies x.yml", "sed -i s/deny/allow/ policies/command-policy.yml",
+                        "python -c \"open('policies/command-policy.local.yml', 'w').write('deny: []')\"",
+                        "python3 -c \"from pathlib import Path; Path('state/approvals/a.json').write_text('{}')\"",
+                        "cat > ./policies/secret-patterns.local.yml <<'EOF'\nwhitelist: []\nEOF",
+                        "echo x > .git/flow/approved-changes.tsv"):
+            self.assertEqual(self.bash(command), "deny", command)
+        for command in ("cat policies/command-policy.yml", "git add -- policies/module-size-baseline.project.txt",
+                        "if [ -f policies/module-size-baseline.project.txt ]; then git add -- "
+                        "policies/module-size-baseline.project.txt; fi",
+                        "FF_BOOTSTRAP_TTL_MIN=30 bash hooks/local/write-bootstrap-approval.sh",
+                        "bash hooks/local/write-bootstrap-approval.sh --consume",
+                        "cp policies/command-policy.yml /tmp/backup.yml", "grep -n deny policies/*.yml > /tmp/out.txt",
+                        "ls state/approvals/", "git status --short"):
+            self.assertEqual(self.bash(command), "allow", command)
+
+    def test_an_existing_projects_local_tightening_still_works_and_nothing_it_holds_loosens(self) -> None:
+        shipped = (self.repo / "policies/secret-patterns.yml").read_text(encoding="utf-8")
+        start = shipped.index("\npatterns:\n")
+        stop = shipped.index("\n# Per-tool overrides")
+        # the field's form (paperclip+hermes): the whole shipped list copied, two patterns added at the end
+        self.local("secret-patterns", "schema_version: 1\n" + shipped[start:stop] + "\n"
+                   "  - id: json_token_value\n    category: generic\n    pattern: '\"token\":\\s*\"[0-9a-f]{64}\"'\n"
+                   "    confidence: high\n"
+                   "whitelist:\n  - id: aws_fixture\n    pattern: 'AKIA'\n    reason: loosening, dropped\n")
+        token = '{"token": "' + "ab" * 32 + '"}\n'
+        self.assertEqual(self.decide("Write", {"file_path": str(self.repo / "out.json"), "content": token}), "deny")
+        self.assertEqual(self.decide("Write", {"file_path": str(self.repo / "a.txt"),
+                                               "content": "id = AKIA" + "IOSFODNN7EXAMPLE\n"}), "deny")
+        self.local("protected-paths", "categories:\n  worker_undisturbed:\n    paths: ['src/billing/**']\n"
+                                      "  fusebase_flow_internals:\n    paths: []\non_unapproved_edit: warn\n")
+        self.assertEqual(self.decide("Write", {"file_path": "src/billing/x.ts", "content": "x\n"}), "deny")
+        self.assertEqual(self.decide("Write", {"file_path": "FLOW_RULES.md", "content": "x\n"}), "deny")
+        self.local("approval-policy", "on_missing_artifact: warn\nworkflow_mode: branch_pr\n")
+        self.assertEqual(self.bash("npx prisma migrate deploy"), "deny")
+        self.local("module-size", "exempt_globs: ['src/**']\nsource_globs: ['extra/**/*.py']\n")
+        probe = ("import sys; from pathlib import Path; sys.path.insert(0, 'hooks'); from shared import module_size as m; "
+                 "p = m._load_policy(Path('.')); print('src/**' in (p.get('exempt_globs') or []), "
+                 "'extra/**/*.py' in (p.get('source_globs') or []))")
+        out = subprocess.run([sys.executable, "-c", probe], cwd=self.repo, capture_output=True, text=True, timeout=300)
+        self.assertEqual(out.stdout.split(), ["False", "True"], out.stderr)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

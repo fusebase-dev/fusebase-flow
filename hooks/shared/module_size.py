@@ -65,7 +65,9 @@ def _matches(path: str, regexes: list[re.Pattern]) -> bool:
 # Local override is ADDITIVE-ONLY on these keys. enforcement/ceiling/baseline_file
 # stay committed-policy only — a gitignored file that could flip block->warn or
 # blank the globs would be a silent, review-invisible kill switch for the gate.
-LOCAL_OVERRIDE_ADDITIVE = ("exempt_globs", "source_globs")
+# TRIPWIRE (6.0.0-m7 item 5): a local file only tightens, so it may add source globs (more files gated) and never
+# exempt_globs (fewer): a project's own over-ceiling files go in its committed baseline file instead.
+LOCAL_OVERRIDE_ADDITIVE = ("source_globs",)
 
 
 def _load_policy(root: Path) -> dict | None:
@@ -91,7 +93,8 @@ def _load_policy(root: Path) -> dict | None:
                 ignored.append(k)
         note = f"[module-size] local override active ({local_rel}): additive {applied if applied else '[]'}"
         if ignored:
-            note += f"; IGNORED non-overridable keys {ignored} (enforcement/ceiling/baseline_file are committed-policy only)"
+            note += (f"; IGNORED keys {ignored} (a local file only adds source_globs; exemptions go in the committed "
+                     "policies/module-size-baseline.project.txt)")
         print(note, file=sys.stderr)
     return policy
 
