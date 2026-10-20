@@ -563,6 +563,9 @@ class ReleaseNote(unittest.TestCase):
         version = (core / "VERSION").read_text().strip()
         note = (core / "maintainer/release-notes" / f"{version}.md").read_text("utf-8")
         tracked = set(git(core, "ls-files").stdout.splitlines())
+        sys.path.insert(0, str(FLOW.parent))
+        import flow
+        written = {flow.MANIFEST, flow.PROJECT_BASELINE}  # the install writes these in the project (T315)
         commands = []
         for fenced, inline in re.findall(r"^```\n(.*?)^```$|`([^`\n]+)`", note, flags=re.M | re.S):
             if not fenced.startswith("( set -e"):
@@ -575,7 +578,7 @@ class ReleaseNote(unittest.TestCase):
                     named.append(word)
                     folder, _, rest = word.partition("/")
                     # or a path the core tracks, run inside the project the install put it in (hooks/local/commit.py)
-                    if (folder not in cloned or rest not in tracked) and not (cloned and word in tracked):
+                    if (folder not in cloned or rest not in tracked) and not (cloned and word in tracked | written):
                         wrong.append(f"{line}  ({word})")
             if words[:2] == ["git", "clone"]:
                 cloned.add(words[-1])
@@ -630,6 +633,11 @@ class ReleaseNote(unittest.TestCase):
             self.assertEqual(sorted(staged.split()[3:]), sorted(added))
         self.assertIn(f"`python fusebase-flow-{version}/maintainer/flow.py install --target <your-project> --providers "
                       "<the providers audit/flow-install.json lists> --register-reader`", hop)
+        # T315, the one-step run on a copy: with a reader recorded the install prints `registered earlier`, and the
+        # re-registration can leave the manifest as it was
+        self.assertIn("`heartbeat reader: registered earlier: <the recorded line>`", hop)
+        self.assertIn('"registered earlier: " + reader["line"]', FLOW.read_text("utf-8"))
+        self.assertIn("nothing to commit", hop.split("**The reader task.**", 1)[1])
         for line in block[0].splitlines():
             for word in PLACEHOLDER.sub("<>", line).split():
                 if "/" in word and "://" not in word and not word.startswith(("<", "-")):
