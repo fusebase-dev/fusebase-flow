@@ -57,16 +57,29 @@ def audit_reason(cd) -> str:
     return f"{cd.rule_id or 'FR-12'}: {cd.decision} by command-policy"
 
 
-def _command_path(event: dict) -> tuple[str | None, str | None]:
-    """Return (command, target_path) extracted from event['tool_input']."""
-    inp = event.get("tool_input") or {}
-    if is_command_tool(event.get("tool_name")):
-        return inp.get("command") or "", None
-    if event.get("tool_name") in EDIT_LIKE_TOOLS:
-        target = inp.get("file_path") or inp.get("path") or inp.get("filePath") or ""
-        content = inp.get("content") or inp.get("new_string") or ""
-        return content, target
-    return None, None
+def _target(inp: dict) -> str:
+    """The edited path as the tool sends it; NotebookEdit names it notebook_path."""
+    return inp.get("file_path") or inp.get("path") or inp.get("filePath") or inp.get("notebook_path") or ""
+
+
+def _content(inp: dict) -> str:
+    return inp.get("content") or inp.get("new_string") or inp.get("new_source") or ""
+
+
+def repo_relative(target: str, root: Path | None, cwd: str | None) -> str:
+    """The path as git and an approval's `paths` name it, `/` on every platform: the target (taken from the session's
+    folder when relative) and the root both resolved before they are compared, so an 8.3 short name, another case,
+    `..`, `./`, a junction or a symlink reaches the same repo-relative path (6.0.0-m7 item 1). A path that resolves
+    outside the root is judged as given, as before."""
+    if not root:
+        return target
+    path = Path(target)
+    if not path.is_absolute():
+        path = Path(cwd or root) / path
+    try:
+        return path.resolve().relative_to(Path(root).resolve()).as_posix()
+    except (ValueError, OSError, RuntimeError):
+        return target
 
 
 def main() -> int:
@@ -114,7 +127,7 @@ def main() -> int:
     # 2. Path-policy check (Edit-like)
     if tool_name in EDIT_LIKE_TOOLS:
         inp = event.get("tool_input") or {}
-        target = inp.get("file_path") or inp.get("path") or inp.get("filePath") or ""
+        target = _target(inp)
         if target:
             # TOOL-TIME FAIL-CLOSED (T28/#7): evaluate_path() classifies via is_protected(),
             # which reads protected-paths.yml. A MISSING/EMPTY/malformed policy makes
@@ -142,14 +155,9 @@ def main() -> int:
                 )
                 _output_decision("deny", reason, "FR-07")
                 return 2
-            # Make path repo-relative if it's absolute under root, written with / as git and an approval's `paths` write
-            # it (a Windows path's \ never equals a named path).
-            rel = target
-            if root and Path(target).is_absolute():
-                try:
-                    rel = Path(target).relative_to(root).as_posix()
-                except ValueError:
-                    rel = target
+            # TRIPWIRE (6.0.0-m7 item 1): never compare the raw spelling. relative_to() raised on an 8.3 short name
+            # (the Windows runner's RUNNER~1), `..` or a symlink, left the path absolute, and the edit was ALLOWED.
+            rel = repo_relative(target, root, event.get("cwd"))
             pd = evaluate_path(rel, root=root)
             if pd.decision != "allow":
                 emit(
@@ -164,7 +172,7 @@ def main() -> int:
                 return 2 if pd.decision == "deny" else 0
 
         # 3. Secret content check on writes
-        content = inp.get("content") or inp.get("new_string") or ""
+        content = _content(inp)
         if content:
             matches = scan(content, target_path=target, tool_context="pre_tool_use")
             decision = block_decision(matches)

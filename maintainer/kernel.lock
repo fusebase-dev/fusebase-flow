@@ -48,6 +48,9 @@
 #   hooks/local/lib/validator_tier.py, approval_inventory.py and hooks/git/pre-commit: every subprocess call
 #   passes CREATE_NO_WINDOW, so a windowless caller opens no console window (T310; 5.x c378b72d, local; m6 fix
 #   brief, the owner's addition (i)).
+#   hooks/handlers/pre_tool_use.py: the edited path (from the session's folder when relative, notebook_path for
+#   NotebookEdit) and the root resolved before they are compared, so an 8.3 short name, another case, `..`, `./` or a
+#   symlink reaches the protected check (T319; 5.x 967b6dfc, local; m7 item 1, core-verify run 39487718435).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -68,7 +71,7 @@ f2557b19379421fac007a2c758eda73bb6eb21990a7f5c366c438716e1fe2cfb  .gitattributes
 2bd0cbf0ebb0472f55ced57b76bc250003f37f55a866884d59f0b5b4ee0d39ec  hooks/git/pre-commit
 61fa39ad945e6fbf5718dc8ab11c7a6892b50c431e4514a94ca71ccb84679120  hooks/git/pre-push
 a0685b0884a42d5704339ba342247704169b35da26cb228f533f03fc60448e0c  hooks/handlers/post_tool_use.py
-77837c64bacfcc31f56a045a80bc1e3585a20df22f25b8e02678f28da359b166  hooks/handlers/pre_tool_use.py
+caaf463df9ba145bb0e0c73fe20627ccf86c22292007533edf45c5432d5140e8  hooks/handlers/pre_tool_use.py
 6d92a4ab1d91b5c03d5864aabb2f7dd64abcaab4bc2a7850fa8dbf6ef7d4b3aa  hooks/local/approve-local.sh
 e9d192b09e351091350d6d4b6f04e865f5611f5268bd0c5c4a24d5cbcd83d582  hooks/local/check-module-size.sh
 83ef934c00c8688b5666176e18cd556f8971950dbbb53e583dd08b48eca2f9de  hooks/local/install-git-hooks.sh
