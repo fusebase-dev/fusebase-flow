@@ -310,13 +310,35 @@ def ignored_paths(target: Path, paths: list[str]) -> list[str]:
     return [line.strip() for line in proc.stdout.decode("utf-8", "replace").splitlines() if line.strip()]
 
 
-def reader_line(target: Path) -> tuple[str, list[str]]:
-    """The scheduler line that runs the heartbeat reader every 5 minutes (design section 6), printed and as argv."""
+CONSOLE = ("no pythonw.exe was found beside this Python, through the py launcher or on PATH, so the task runs python.exe "
+           "and a console window opens every 5 minutes. To avoid it, install Python from python.org (it ships "
+           "pythonw.exe) or put pythonw.exe on PATH, then re-run install with --register-reader")
+
+
+def quiet_python(executable: str = "") -> tuple[str, str]:
+    """The interpreter the Windows reader task runs, and a warning when it opens a console (brief m5 item 7): pythonw.exe
+    beside this Python, else beside the py launcher's Python 3, else pythonw on PATH, else python.exe."""
+    executable = executable or sys.executable
+    if (beside := Path(executable).with_name("pythonw.exe")).is_file():
+        return str(beside), ""
+    if launcher := shutil.which("py"):  # TRIPWIRE: the resolved path; a bare name finds System32 first on Windows
+        try:
+            out = subprocess.run([launcher, "-3", "-c", "import sys; print(sys.executable)"], capture_output=True,
+                                 text=True, timeout=120).stdout.strip().splitlines()
+        except (OSError, subprocess.TimeoutExpired):
+            out = []
+        if out and (found := Path(out[-1].strip()).with_name("pythonw.exe")).is_file():
+            return str(found), ""
+    return (on_path, "") if (on_path := shutil.which("pythonw")) else (executable, CONSOLE)
+
+
+def reader_line(target: Path, python: str = "") -> tuple[str, list[str]]:
+    """The scheduler line that runs the heartbeat reader every 5 minutes (design section 6), printed and as argv; on
+    Windows with `python` (quiet_python() when not given)."""
     script = target / "hooks/local/reader.py"
     if os.name == "nt":
         name = f"FuseBase Flow reader {target.name}-{sha256(str(target).encode('utf-8'))[:8]}"
-        quiet = Path(sys.executable).with_name("pythonw.exe")  # no console window every 5 minutes
-        run = f'"{quiet if quiet.is_file() else sys.executable}" "{script}" --once'
+        run = f'"{python or quiet_python()[0]}" "{script}" --once'  # no console window every 5 minutes
         argv = ["schtasks", "/Create", "/F", "/SC", "MINUTE", "/MO", "5", "/TN", name, "/TR", run]
         return subprocess.list2cmdline(argv), argv
     line = f"*/5 * * * * cd {sh_quote(str(target))} && {sh_quote(sys.executable)} {READER_RUN} >/dev/null 2>&1"
@@ -504,7 +526,8 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
         reader = json.loads((target / MANIFEST).read_text(encoding="utf-8")).get("reader")
     except (OSError, ValueError, AttributeError):
         reader = None
-    reader_cmd, argv = reader_line(target)
+    python, console = quiet_python() if register and os.name == "nt" else (sys.executable, "")
+    reader_cmd, argv = reader_line(target, python)
     reader_rc, reader_out = register_reader(argv, target) if register else (0, "")
     if register and reader_rc == 0:
         reader = {"line": reader_cmd, "registered": True}
@@ -552,6 +575,8 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
         print(f"[flow] heartbeat reader: NOT registered (status {reader_rc}); the install above is complete")
     for out_line in reader_out.splitlines():
         print(f"[flow]   {out_line}")
+    if console:
+        print(f"[flow]   WARNING: {console}.")
     if register and reader_rc != 0:
         where, line = by_hand(argv)
         print(f"[flow]   add this line by hand ({where}): {line}")

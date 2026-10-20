@@ -143,6 +143,75 @@ class Register(Workspace):
         self.assertIsNone(self.written())
 
 
+class QuietReader(Workspace):
+    """Brief m5 item 7: the Windows reader task runs pythonw.exe, found beside this Python, then beside the py launcher's
+    Python, then on PATH; python.exe only as the last resort, and install then says a console window will open. Fake
+    tools only, `<name>.bat` on Windows: PATH holds the fakes' folder and git's, and no scheduler but the fake runs."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.bin, self.home, self.other = (self.tmp / d for d in ("fake-bin", "home", "other"))
+        for folder in (self.bin, self.home, self.other):
+            folder.mkdir()
+        self.exe = str(self.home / "python.exe")  # a Python with no pythonw.exe beside it (a shim or launcher install)
+        Path(self.exe).write_bytes(b"")
+        git_dir = str(Path(shutil.which("git")).parent)
+        patcher = mock.patch.dict(os.environ, {"PATH": os.pathsep.join([str(self.bin), git_dir])})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        real = flow.subprocess.run
+
+        def guarded(argv, *args, **kwargs):  # TRIPWIRE: never the real scheduler
+            if Path(argv[0]).stem.lower() in ("crontab", "schtasks") and Path(argv[0]).parent != self.bin:
+                raise AssertionError(f"the real scheduler would run: {argv[0]}")
+            return real(argv, *args, **kwargs)
+        guard = mock.patch.object(flow.subprocess, "run", guarded)
+        guard.start()
+        self.addCleanup(guard.stop)
+
+    def fake(self, name: str, prints: str = "") -> Path:
+        """A fake tool first on PATH that prints one line: `<name>.bat` on Windows, which ignores extension-less files."""
+        if os.name == "nt":
+            path = self.bin / f"{name}.bat"
+            path.write_text(f"@echo {prints or name}\r\n", encoding="utf-8", newline="")
+        else:
+            path = self.bin / name
+            path.write_text(f"#!/bin/sh\necho '{prints or name}'\n", encoding="utf-8", newline="\n")
+            path.chmod(0o755)
+        return path
+
+    def test_the_py_launchers_python_with_pythonw_beside_it_comes_before_pythonw_on_path(self) -> None:
+        for name in ("python.exe", "pythonw.exe"):
+            (self.other / name).write_bytes(b"")
+        self.fake("py", str(self.other / "python.exe"))
+        self.fake("pythonw")
+        self.assertEqual(flow.quiet_python(self.exe), (str(self.other / "pythonw.exe"), ""))
+
+    def test_pythonw_on_path_alone_is_chosen(self) -> None:
+        self.fake("py", str(self.other / "python.exe"))  # the launcher's Python has no pythonw.exe beside it
+        path = self.fake("pythonw")
+        chosen, warning = flow.quiet_python(self.exe)
+        self.assertEqual((Path(chosen).resolve(), warning), (path.resolve(), ""))
+
+    def test_with_none_the_task_runs_python_exe_and_install_says_a_console_will_open(self) -> None:
+        chosen, warning = flow.quiet_python(self.exe)
+        self.assertEqual(chosen, self.exe)
+        self.assertIn("a console window opens every 5 minutes", warning)
+        if os.name != "nt":
+            return
+        self.fake("schtasks", "SUCCESS: the fake scheduler")
+        real = flow.quiet_python
+        out = io.StringIO()
+        with mock.patch.object(flow, "quiet_python", lambda: real(self.exe)), contextlib.redirect_stdout(out), \
+                mock.patch.object(flow, "install_hooks", return_value=(0, "git hooks: not in this fixture")):
+            self.assertEqual(flow.install(self.repo, {"claude"}, register=True), 0)
+        text = out.getvalue()
+        self.assertIn(f'/TR "\\"{self.exe}\\"', text)
+        self.assertIn("SUCCESS: the fake scheduler", text)
+        self.assertIn("[flow]   WARNING: no pythonw.exe was found beside this Python, through the py launcher or on "
+                      "PATH, so the task runs python.exe and a console window opens every 5 minutes.", text)
+
+
 class FlagIds(Workspace):
     """O-17: a flag's id is its kind, task and path or variable, so a ruling outlives a re-run that moved its numbers."""
 
