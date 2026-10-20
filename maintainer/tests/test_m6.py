@@ -142,6 +142,36 @@ class GoAhead(Project):
         self.commit_protected([POLICY], "T1: widen the declaration")
         self.assertEqual(list((self.repo / "state/approvals").glob("*.json")), [])
 
+    def test_a_spent_go_ahead_stays_spent_when_head_goes_back_and_never_covers_a_workflow(self) -> None:
+        """m6-fix F6 and F7 (review A #5, #6)."""
+        self.assertEqual(self.mint(POLICY).returncode, 0)
+        (self.repo / POLICY).write_text(DECLARED, encoding="utf-8")
+        git(self.repo, "add", "--", POLICY)
+        done = git(self.repo, "commit", "-q", "-m", "T1: declare docs-only paths")
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertEqual(self.tool("Write", POLICY, content=DECLARED)["flow_decision"], "deny")
+        git(self.repo, "reset", "-q", "--soft", "HEAD~1")  # HEAD back at head_at_mint, the change staged again
+        self.assertEqual(self.tool("Write", POLICY, content=DECLARED)["flow_decision"], "deny", "revived by a reset")
+        git(self.repo, "checkout", "-q", "--detach")
+        self.assertEqual(self.tool("Write", POLICY, content=DECLARED)["flow_decision"], "deny", "revived, detached")
+        again = git(self.repo, "commit", "-q", "-m", "T1: the same change, a second time")
+        self.assertNotEqual(again.returncode, 0, "a spent go-ahead let a second commit land after a reset")
+        self.assertIn("protected paths edited without exception artifact", again.stderr)
+        self.bash("hooks/local/write-bootstrap-approval.sh", "--consume")
+        workflow = ".github/workflows/release.yml"
+        out = self.bash("hooks/local/write-bootstrap-approval.sh", "--category", "ci_cd_config", "--paths", workflow,
+                        FF_BOOTSTRAP_TTL_MIN="30")
+        self.assertEqual(out.returncode, 2, out.stdout + out.stderr)
+        self.assertIn("a go-ahead covers fusebase_flow_internals paths only", out.stderr)
+        head = git(self.repo, "rev-parse", "HEAD").stdout.strip()  # a hand-made go-ahead for a workflow: refused too
+        made = {"approved_by": "ci", "scope": "ci-workflow-edit", "action": "protected_path_edit", "reason": "x",
+                "operation": "ci-workflow-edit", "head_at_mint": head, "paths": [workflow],
+                "expires_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() + 600)),
+                "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+        (self.repo / "state/approvals/protected_path_edit-ci-20991231.json").write_text(json.dumps(made), "utf-8")
+        self.assertEqual(self.tool("Write", workflow, content="on: push\n")["flow_decision"], "deny")
+        (self.repo / "state/approvals/protected_path_edit-ci-20991231.json").unlink()
+
     def test_an_expired_or_long_lived_go_ahead_is_refused_and_the_mint_names_only_its_own_paths(self) -> None:
         self.assertEqual(self.mint(POLICY, ttl="31").returncode, 2)
         for wrong in ("policies/*.yml", "/policies/x.yml", "../policies/x.yml", "src/app.ts", ".github/workflows/x.yml"):

@@ -41,6 +41,9 @@
 #   hooks/shared/module_size.py and policies/protected-paths.yml: the project's rows in the committed sibling
 #   policies/module-size-baseline.project.txt, read beside Flow's baseline, written by --write-baseline and
 #   protected (T298; 5.x feaf0a4a, local; brief m6 list item 9, M6-15).
+#   hooks/shared/path_policy.py and hooks/local/write-bootstrap-approval.sh: a spent go-ahead stays spent when HEAD
+#   goes back to head_at_mint, and --paths covers fusebase_flow_internals only (T307; 5.x af7b3953, local; m6 fix
+#   brief F6, F7).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -71,7 +74,7 @@ f96ad00eae668bbe6f0820e1d4ff263f32df07b46acba1af9853b6392d6c0f2b  hooks/local/li
 59b32bed31dba84ed161b8b1a9f9df989daec2d31a8789e8fd1ebf8b56171ed7  hooks/local/lib/run-with-timeout.sh
 94dc2046a0093dd1f247e8cd55be777998a045599706c9fd73eb48c0379adf67  hooks/local/lib/validator_tier.py
 009493546e7939c7076950db52fa6a4a0415d41a98a49db85adcc8ecbf030ece  hooks/local/run-handler.sh
-87dba646026346ffe707a0fc9eae09a892e069a15df4393669efae908f3421ff  hooks/local/write-bootstrap-approval.sh
+199451536262b6c10cc96aa11ff59a732035a330df85462b453af9fe80e1bd73  hooks/local/write-bootstrap-approval.sh
 63daf72404eb71177e26c560daf8257d7bcb63dd791983e048848cd88ae94fc8  hooks/requirements.txt
 a17fa14158188b1c02621a2d5cad7a96470578b007abb973a7327a6a00163538  hooks/shared/__init__.py
 e7c5c77c9a71502aa10a79195fcba455e76fbd6fa350c616bbcd9c0280c6ae89  hooks/shared/approval_artifact.py
@@ -82,7 +85,7 @@ e7c5c77c9a71502aa10a79195fcba455e76fbd6fa350c616bbcd9c0280c6ae89  hooks/shared/a
 dae64b6cf2cb20b72142cd0cd283ac60597e943ea17dd296d4080043c1a02d27  hooks/shared/git_push_binding.py
 2e86be791cfe5e2b895e91875f93dd97dd4e88e1b2856a9525bcb9e2b8c1aee7  hooks/shared/git_utils.py
 fe16330c99c82b471a21ffd999519c589402853eeb9e7abe1e5d61047c9649a7  hooks/shared/module_size.py
-97be0a403c27913dc1be20317abb994e2a8f23416ef74b8b09b9877299b13124  hooks/shared/path_policy.py
+f6ff456a49a690503a3e1c7b04e0c5b4a19bfe3ccbb8e87d2f3b90ac1e46db42  hooks/shared/path_policy.py
 50919a984d82bb661afd53fedfd80ec407c0088772408978cd6e144d3d22171d  hooks/shared/policy_loader.py
 fecb30ef246aaf2dc90dc55200de5d1b0bab92242c8cbbd5cbd3e9c0d8d784fa  hooks/shared/secret_scanner.py
 4d7e59cbdd0fffa1fc3ffe7dcf937c372ff232c70d45c497c0b56e2fde8b3e8a  hooks/shared/staged_secret_scan.py

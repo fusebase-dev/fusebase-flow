@@ -245,6 +245,18 @@ def _head(root: Path) -> str:
     return proc.stdout.strip() if proc.returncode == 0 else ""
 
 
+def _built_on(root: Path, head: str, since: str) -> bool:
+    """Whether a commit made since the mint has `head` as a parent, in any ref or reflog: the go-ahead's commit landed,
+    even if HEAD went back to `head` since (git reset --soft, a branch or a detached HEAD there). Fails closed."""
+    when = [f"--since={since}"] if parse_expiry(since) is not None else []
+    try:
+        proc = subprocess.run(["git", "rev-list", "--all", "--reflog", "--parents", *when], capture_output=True,
+                              text=True, encoding="utf-8", errors="replace", cwd=str(root))
+    except Exception:
+        return True
+    return proc.returncode != 0 or any(head in line.split()[1:] for line in proc.stdout.splitlines())
+
+
 def _go_ahead_holds(data: dict, path: str, approved: list[str], root: Path, artifact: Path, category: str) -> bool:
     """A go-ahead artifact authorizes `path` while HEAD is the commit it was minted at, its expiry is at most
     GO_AHEAD_MAX_MINUTES away, and every staged path is one it names (the commit touches only those). Each use
@@ -253,6 +265,8 @@ def _go_ahead_holds(data: dict, path: str, approved: list[str], root: Path, arti
     if not isinstance(head, str) or not head.strip() or expires is None:
         return False
     if expires - now_utc() > timedelta(minutes=GO_AHEAD_MAX_MINUTES + 1) or head.strip() != _head(root):
+        return False
+    if _built_on(root, head.strip(), str(data.get("created_at") or "")):
         return False
     if not set(staged_change_paths(root)) <= set(approved):
         return False
@@ -347,8 +361,9 @@ def has_active_exception(
             # an internals approval cannot be replayed to authorize a workflow edit.
             if data.get("operation") != expected_operation:
                 continue
-            if "head_at_mint" in data:  # the go-ahead form: no tree_digest; it binds HEAD
-                if _go_ahead_holds(data, path, list(approved_paths), root, f, category or ""):
+            if "head_at_mint" in data:  # the go-ahead form: no tree_digest; it binds HEAD; Flow internals only
+                if category == _BOOTSTRAP_CATEGORY and _go_ahead_holds(data, path, list(approved_paths), root, f,
+                                                                       category):
                     return True
                 continue
             recorded = data.get("tree_digest", "")

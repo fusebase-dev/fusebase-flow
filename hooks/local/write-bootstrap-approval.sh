@@ -24,10 +24,11 @@
 # emitted no `paths` at all. The operation string per category comes from path_policy's
 # _DIGEST_BOUND_OPERATIONS, so writer and verifier read ONE definition.
 #
-# GO-AHEAD FORM (`--paths`): one operator go-ahead in chat lets the agent edit AND commit named paths of the category,
-# minted BEFORE the change exists. The artifact names those exact paths and binds the commit HEAD is at instead of a
-# staged digest: path_policy then allows the Edit/Write of a named path and a commit whose staged paths are all named,
-# until HEAD moves (the commit that lands spends it) or it expires (at most GO_AHEAD_MAX_MINUTES); each use is audited.
+# GO-AHEAD FORM (`--paths`, fusebase_flow_internals only): one operator go-ahead in chat lets the agent edit AND
+# commit named Flow files, minted BEFORE the change exists. The artifact names those exact paths and binds the commit
+# HEAD is at instead of a staged digest: path_policy then allows the Edit/Write of a named path and a commit whose
+# staged paths are all named, until a commit lands on that HEAD (moving HEAD back does not revive it) or it expires (at
+# most GO_AHEAD_MAX_MINUTES); each use is audited.
 #
 # Usage:
 #   bash hooks/local/write-bootstrap-approval.sh                          # staged internals
@@ -136,6 +137,8 @@ if go_paths:
             return "a glob; name each file"
         return "" if is_protected(p)[1] == category else f"not a {category} path"
     bad = [f"{p}: {why}" for p in go_paths if (why := problem(p))]
+    if category != "fusebase_flow_internals":  # the go-ahead is for Flow's own files (a CI workflow stays digest-bound)
+        bad.insert(0, f"--paths with --category {category}: a go-ahead covers fusebase_flow_internals paths only")
     if bad or ttl_min > GO_AHEAD_MAX_MINUTES or ttl_min < 1:
         for line in bad + ([f"FF_BOOTSTRAP_TTL_MIN={ttl_min}: a go-ahead lives 1 to {GO_AHEAD_MAX_MINUTES} minutes"]
                            if ttl_min > GO_AHEAD_MAX_MINUTES or ttl_min < 1 else []):
