@@ -583,6 +583,12 @@ class ReleaseNote(unittest.TestCase):
         self.assertEqual(len(installs), 1, installs)
         self.assertIn(" --providers <", installs[0], "the providers the project's install lists")
         self.assertNotIn("--wire-hooks", installs[0], "the wiring stays as it is")
+        # T287: every upgrade install line in the note takes the providers the install has, and nothing tells the user
+        # to stash everything after the install (a plain git stash takes Flow's changes too)
+        fenced = [ln for block in re.findall(r"^```\n(.*?)^```$", note, flags=re.M | re.S) for ln in block.splitlines()]
+        self.assertEqual({ln for ln in fenced if "maintainer/flow.py install " in ln}, {installs[0]})
+        self.assertNotIn("commit or stash it", note)
+        self.assertIn("`git stash push -- <your files>`", section)
         named, wrong = [], []
         for line in blocks[0].splitlines():
             for word in PLACEHOLDER.sub("<>", line).split():
