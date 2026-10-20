@@ -13,6 +13,8 @@ import sys
 from pathlib import Path
 from typing import NamedTuple
 
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)  # no console window when the caller has none (pythonw)
+
 DECLARATION = "policies/validator-free-paths.yml"
 SKIP_RC = 10
 MAX_BLOB = 64 * 1024
@@ -177,7 +179,7 @@ def decide(staged, patterns, compile_glob) -> Verdict:
 
 def _git(root: Path, *args: str):
     # TRIPWIRE: inherit the hook env - GIT_INDEX_FILE is the index that `commit -a` / `commit <paths>` will commit.
-    proc = subprocess.run(["git", *args], cwd=str(root), capture_output=True)
+    proc = subprocess.run(["git", *args], cwd=str(root), capture_output=True, creationflags=NO_WINDOW)
     return proc.returncode, proc.stdout
 
 

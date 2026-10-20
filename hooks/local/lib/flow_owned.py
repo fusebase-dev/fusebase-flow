@@ -19,6 +19,8 @@ import re
 import subprocess
 from pathlib import Path
 
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)  # no console window when the caller has none (pythonw)
+
 MANIFEST, MC_5X = "audit/flow-install.json", "audit/managed-content-manifest.json"
 ASSETS_5X = (MC_5X, "audit/hook-layer-manifest.json")  # {"assets": [{"path", "sha256"}]}
 MIRRORS_5X = ("audit/skill-mirror-manifest.txt", "audit/agent-mirror-manifest.txt")  # "<path>  <sha256>" rows
@@ -37,7 +39,7 @@ def blobs(root: Path, specs: list[str]) -> dict[str, bytes | None]:
     """Each `<rev>:<path>` spec's bytes, from one `git cat-file --batch`; None when absent or not a blob."""
     try:
         out = subprocess.run(["git", "cat-file", "--batch"], cwd=root, capture_output=True, timeout=300,
-                             input="".join(f"{s}\n" for s in specs).encode("utf-8")).stdout
+                             input="".join(f"{s}\n" for s in specs).encode("utf-8"), creationflags=NO_WINDOW).stdout
     except (OSError, subprocess.TimeoutExpired):
         return {}
     got, at = {}, 0

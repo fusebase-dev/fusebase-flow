@@ -44,6 +44,10 @@
 #   hooks/shared/path_policy.py and hooks/local/write-bootstrap-approval.sh: a spent go-ahead stays spent when HEAD
 #   goes back to head_at_mint, and --paths covers fusebase_flow_internals only (T307; 5.x af7b3953, local; m6 fix
 #   brief F6, F7).
+#   hooks/shared/git_push_binding.py, git_utils.py, module_size.py, path_policy.py, staged_secret_scan.py,
+#   hooks/local/lib/validator_tier.py, approval_inventory.py and hooks/git/pre-commit: every subprocess call
+#   passes CREATE_NO_WINDOW, so a windowless caller opens no console window (T310; 5.x c378b72d, local; m6 fix
+#   brief, the owner's addition (i)).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -61,18 +65,18 @@
 f2557b19379421fac007a2c758eda73bb6eb21990a7f5c366c438716e1fe2cfb  .gitattributes
 0acfb991aa269888937723022f2667b0e251ed0091ccc96491752360b2a61be0  LICENSE
 76f48682f781c927f09a39d5ad767470da90d55d290fa280262f84cf200e7942  hooks/git/commit-msg
-eb15530809f0e50e6074d0ea5b1b987cbccccab1bfb322fc719c7a16e845296c  hooks/git/pre-commit
+2bd0cbf0ebb0472f55ced57b76bc250003f37f55a866884d59f0b5b4ee0d39ec  hooks/git/pre-commit
 61fa39ad945e6fbf5718dc8ab11c7a6892b50c431e4514a94ca71ccb84679120  hooks/git/pre-push
 a0685b0884a42d5704339ba342247704169b35da26cb228f533f03fc60448e0c  hooks/handlers/post_tool_use.py
 77837c64bacfcc31f56a045a80bc1e3585a20df22f25b8e02678f28da359b166  hooks/handlers/pre_tool_use.py
 6d92a4ab1d91b5c03d5864aabb2f7dd64abcaab4bc2a7850fa8dbf6ef7d4b3aa  hooks/local/approve-local.sh
 e9d192b09e351091350d6d4b6f04e865f5611f5268bd0c5c4a24d5cbcd83d582  hooks/local/check-module-size.sh
 83ef934c00c8688b5666176e18cd556f8971950dbbb53e583dd08b48eca2f9de  hooks/local/install-git-hooks.sh
-f96ad00eae668bbe6f0820e1d4ff263f32df07b46acba1af9853b6392d6c0f2b  hooks/local/lib/approval_inventory.py
+4df6a4b4b48dd9a67b60c3720a04465c94a69e500ead182fae9857891b3eff07  hooks/local/lib/approval_inventory.py
 9d7842ee1cd5f4b4827a737c8ce1bdd6d3eb25b8df877b20dadd57bf92c0216d  hooks/local/lib/bounded-run.sh
 474f026bba4aadd2359678806ffa4007a8d19183f87a8f119e2e2b08bb9db002  hooks/local/lib/precommit-validator-reuse.sh
 59b32bed31dba84ed161b8b1a9f9df989daec2d31a8789e8fd1ebf8b56171ed7  hooks/local/lib/run-with-timeout.sh
-94dc2046a0093dd1f247e8cd55be777998a045599706c9fd73eb48c0379adf67  hooks/local/lib/validator_tier.py
+c0c48c8ca5080fbc99df2ae11270e325e6af76508cc9fb073f3937861b3873dc  hooks/local/lib/validator_tier.py
 009493546e7939c7076950db52fa6a4a0415d41a98a49db85adcc8ecbf030ece  hooks/local/run-handler.sh
 199451536262b6c10cc96aa11ff59a732035a330df85462b453af9fe80e1bd73  hooks/local/write-bootstrap-approval.sh
 63daf72404eb71177e26c560daf8257d7bcb63dd791983e048848cd88ae94fc8  hooks/requirements.txt
@@ -82,13 +86,13 @@ e7c5c77c9a71502aa10a79195fcba455e76fbd6fa350c616bbcd9c0280c6ae89  hooks/shared/a
 710330bccf766c7b0579877904139207b54bf0b8d91b5d357fcf84b0a06b5132  hooks/shared/command_policy.py
 007b22013f8649651fcb9535da6483c626d4eab0280400c7a71b13868cc66cd2  hooks/shared/command_rules.py
 2523a0585165f3f8597248aee32d985e9ac1d05797c5d0c376a77af44d71d446  hooks/shared/denial_message.py
-dae64b6cf2cb20b72142cd0cd283ac60597e943ea17dd296d4080043c1a02d27  hooks/shared/git_push_binding.py
-2e86be791cfe5e2b895e91875f93dd97dd4e88e1b2856a9525bcb9e2b8c1aee7  hooks/shared/git_utils.py
-fe16330c99c82b471a21ffd999519c589402853eeb9e7abe1e5d61047c9649a7  hooks/shared/module_size.py
-f6ff456a49a690503a3e1c7b04e0c5b4a19bfe3ccbb8e87d2f3b90ac1e46db42  hooks/shared/path_policy.py
+c11049e6dba62a00f23891837cb3c65ba47479f1ac2955d0896b6827c39c03c1  hooks/shared/git_push_binding.py
+d62987d303cd4783b682790572a5656596ef5e76c0e9fa9d87701fef7d857dcd  hooks/shared/git_utils.py
+9ff33987328de6bb753f56fed015bb9e6078420dff35aac4faacccffd571d30f  hooks/shared/module_size.py
+f7d1d88406e3067efa641edac3ca3cea607c7c1067d517ff8eb981fd397ae999  hooks/shared/path_policy.py
 50919a984d82bb661afd53fedfd80ec407c0088772408978cd6e144d3d22171d  hooks/shared/policy_loader.py
 fecb30ef246aaf2dc90dc55200de5d1b0bab92242c8cbbd5cbd3e9c0d8d784fa  hooks/shared/secret_scanner.py
-4d7e59cbdd0fffa1fc3ffe7dcf937c372ff232c70d45c497c0b56e2fde8b3e8a  hooks/shared/staged_secret_scan.py
+6d1c6932fcf0504d82fac68cf347c5b84201ad7a7a0c78f1db4f6be8eae437b1  hooks/shared/staged_secret_scan.py
 66e639442e9b2f7be2e91c7072a95a6c49331ddf5bd203c29c714cc48fd527bf  policies/approval-policy.yml
 1a209df59c973c8b41cbf7d373bb5f60aa42d9b674ce6753b7d511752cb9cb10  policies/command-policy.yml
 7747637a42919bf6548600fc78a9f53866ed655dfff00370958a0707674f3840  policies/module-size-baseline.txt

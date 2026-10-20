@@ -17,6 +17,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)  # no console window when the caller has none (pythonw)
+
 _HERE = Path(__file__).resolve().parents[2]      # <root>/hooks
 sys.path.insert(0, str(_HERE))
 
@@ -47,7 +49,7 @@ def _age(data: object) -> str:
 def _git(root: Path, *args: str) -> str:
     try:
         out = subprocess.run(["git", *args], capture_output=True, text=True, check=True,
-                             cwd=str(root), timeout=30)
+                             cwd=str(root), timeout=30, creationflags=NO_WINDOW)
         return out.stdout.strip()
     except Exception:
         return ""

@@ -25,6 +25,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)  # no console window when the caller has none (pythonw)
+
 # Designed-token inputs excluded from the staged content scan (D-A1). A `git diff`
 # pathspec exclude is exact: the two policy files by path, the fixtures by prefix.
 #
@@ -46,7 +48,7 @@ from pathlib import Path
 # both would be real bypasses. A backup of ANY OTHER file, a `x.pre-upgrade-TZ/...` spoof, a
 # non-root or wrong-prefix look-alike all stay SCANNED (verified). `upgrade.sh` also
 # git-excludes backups so they never stage.
-_BACKUP_TS = "[0-9]" * 8 + "T" + "[0-9]" * 6 + "Z"   # date -u +%Y%m%dT%H%M%SZ
+_BACKUP_TS ="[0-9]" * 8 + "T" + "[0-9]" * 6 + "Z"   # date -u +%Y%m%dT%H%M%SZ
 _EXCLUDE_PATHSPECS = [
     ":(exclude)policies/secret-patterns.yml",
     ":(exclude)policies/secret-patterns.local.yml",
@@ -95,7 +97,7 @@ def staged_added_text(root: Path) -> str:
     # non-UTF-8 bytes to U+FFFD without masking ASCII secret tokens; `or ""` guards a None
     # stdout from any other subprocess failure.
     proc = subprocess.run(
-        cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(root)
+        cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(root), creationflags=NO_WINDOW
     )
     # FAIL-CLOSED (mirrors staged_change_paths, T27/#4): a nonzero git rc means we could not
     # reliably read the staged diff. Do NOT return an empty blob — that would silently PASS

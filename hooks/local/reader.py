@@ -20,6 +20,8 @@ import time
 from collections import Counter
 from pathlib import Path
 
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)  # no console window when the caller has none (pythonw)
+
 # A threshold without provenance is UNCALIBRATED and logs instead of alerting (non-negotiable 2).
 SILENCE_S = 30 * 60  # consumer watchdog 2026-10-14; the transcript floor is 15 min (design section 14)
 REPEATS = 3          # UNCALIBRATED: owner seed 2026-10-15; logged, not an alert, until measured
@@ -34,7 +36,8 @@ def utc(t: float) -> str:
 
 def git(root: Path, *args: str) -> str:
     try:
-        return subprocess.run(["git", *args], cwd=root, capture_output=True, text=True, timeout=60).stdout.strip()
+        return subprocess.run(["git", *args], cwd=root, capture_output=True, text=True, timeout=60,
+                              creationflags=NO_WINDOW).stdout.strip()
     except (OSError, subprocess.TimeoutExpired):
         return ""
 

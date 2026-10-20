@@ -8,6 +8,8 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)  # no console window when the caller has none (pythonw)
+
 
 def _run(args: list[str], cwd: Path | None = None) -> subprocess.CompletedProcess:
     # encoding="utf-8" (not the platform default): git emits UTF-8, but `text=True` alone
@@ -23,7 +25,7 @@ def _run(args: list[str], cwd: Path | None = None) -> subprocess.CompletedProces
         text=True,
         encoding="utf-8",
         errors="replace",
-        check=False,
+        check=False, creationflags=NO_WINDOW
     )
 
 

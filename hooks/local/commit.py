@@ -21,20 +21,20 @@ from pathlib import Path
 
 LIVE = 10    # seconds between the holder's touches of the lock
 STALE = 120  # a lock untouched this long has lost its holder (killed, crashed) and is taken over
-NO_WINDOW = {"creationflags": subprocess.CREATE_NO_WINDOW} if os.name == "nt" else {}
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)  # no console window when the caller has none (pythonw)
 
 
 def git(cwd: Path, *args: str) -> subprocess.CompletedProcess:
     # TRIPWIRE: --literal-pathspecs: a file name is never a pattern (`app[id].ts` must not also commit `appi.ts`).
     return subprocess.run(["git", "--literal-pathspecs", *args], cwd=cwd, capture_output=True, text=True,
-                          encoding="utf-8", errors="replace", timeout=600, **NO_WINDOW)
+                          encoding="utf-8", errors="replace", timeout=600, creationflags=NO_WINDOW)
 
 
 def git_running() -> bool:
     """Whether any git process runs on this host (tasklist or ps); True when that cannot be told."""
     argv = ["tasklist", "/FI", "IMAGENAME eq git.exe", "/NH"] if os.name == "nt" else ["ps", "-A", "-o", "comm="]
     try:
-        out = subprocess.run(argv, capture_output=True, text=True, errors="replace", timeout=60, **NO_WINDOW).stdout
+        out = subprocess.run(argv, capture_output=True, text=True, errors="replace", timeout=60, creationflags=NO_WINDOW).stdout
     except (OSError, subprocess.TimeoutExpired):
         return True
     return any(line.strip().lower().split(" ")[0] in ("git", "git.exe") for line in out.splitlines() if line.strip())
@@ -129,7 +129,7 @@ def main(argv: list[str]) -> int:
             return add.returncode
         # TRIPWIRE: --only commits the named paths from HEAD plus the work tree, never what else sits in the index.
         proc = subprocess.Popen(["git", "--literal-pathspecs", "commit", "-m", args.message, "--only", "--",
-                                 *args.paths], cwd=here, **NO_WINDOW)
+                                 *args.paths], cwd=here, creationflags=NO_WINDOW)
         while True:
             try:
                 rc = proc.wait(timeout=LIVE)

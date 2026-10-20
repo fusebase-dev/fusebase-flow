@@ -21,12 +21,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)  # no console window when the caller has none (pythonw)
+
 POLICY_REL = "policies/module-size.yml"
 DEFAULT_BASELINE_REL = "policies/module-size-baseline.txt"
 
 
 def _git(args: list[str], binary: bool = False):
-    proc = subprocess.run(["git"] + args, capture_output=True)
+    proc = subprocess.run(["git"] + args, capture_output=True, creationflags=NO_WINDOW)
     if proc.returncode != 0:
         return None
     return proc.stdout if binary else proc.stdout.decode("utf-8", errors="replace")

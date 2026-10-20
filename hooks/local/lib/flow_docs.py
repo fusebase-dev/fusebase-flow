@@ -11,6 +11,8 @@ from pathlib import Path
 
 import yaml
 
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)  # no console window when the caller has none (pythonw)
+
 PHASES, BACKLOG, LEDGER = "docs/flow/phases.md", "docs/flow/backlog.md", "docs/flow/ledger.md"
 TASK = re.compile(r"\bT\d+\b")
 SHA = re.compile(r"[0-9a-f]{7,40}")
@@ -19,7 +21,7 @@ SHA = re.compile(r"[0-9a-f]{7,40}")
 def git(root: Path, *args: str) -> str:
     """git's stdout, or "" when git fails."""
     try:
-        r = subprocess.run(["git", "-c", "core.quotepath=false", *args], cwd=root, capture_output=True, timeout=300)
+        r = subprocess.run(["git", "-c", "core.quotepath=false", *args], cwd=root, capture_output=True, timeout=300, creationflags=NO_WINDOW)
     except (OSError, subprocess.TimeoutExpired):
         return ""
     return r.stdout.decode("utf-8", "replace") if r.returncode == 0 else ""

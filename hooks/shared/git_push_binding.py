@@ -22,6 +22,8 @@ from .approval_artifact import (
     valid_destination_ref,
 )
 
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)  # no console window when the caller has none (pythonw)
+
 __all__ = ["PROFILE_GIT_PUSH", "boundary_updates", "resolve_command_updates"]
 
 _GIT_TIMEOUT = 30
@@ -56,7 +58,7 @@ def _git(root: Path, *args: str) -> tuple[int, str]:
     """
     try:
         proc = subprocess.run(["git", *args], cwd=str(root), capture_output=True,
-                              timeout=_GIT_TIMEOUT)
+                              timeout=_GIT_TIMEOUT, creationflags=NO_WINDOW)
     except (OSError, subprocess.SubprocessError, ValueError):
         return -1, ""
     return proc.returncode, proc.stdout.decode("utf-8", "surrogateescape")

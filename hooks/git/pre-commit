@@ -346,7 +346,7 @@ files = [
 for src, dst in files:
     dst.parent.mkdir(parents=True, exist_ok=True)
     show = subprocess.run(["git", "show", f"HEAD:{src}"],
-                          capture_output=True, cwd=str(root))
+                          capture_output=True, cwd=str(root), creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     if show.returncode != 0:
         print(f"[fusebase-flow:pre-commit] BLOCK — §2 trusted HEAD extraction of {src} "
               f"failed (git show rc={show.returncode}) — failing closed. NEVER use --no-verify.",
@@ -634,7 +634,7 @@ files = [
 for src, dst in files:
     dst.parent.mkdir(parents=True, exist_ok=True)
     show = subprocess.run(["git", "show", f"HEAD:{src}"],
-                          capture_output=True, cwd=str(root))
+                          capture_output=True, cwd=str(root), creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     if show.returncode != 0:
         # ls-tree said it exists but show failed => TRANSIENT/unexpected => fail closed.
         print(f"[fusebase-flow:pre-commit] BLOCK — FR-07 trusted HEAD extraction of {src} "
@@ -646,7 +646,7 @@ for src, dst in files:
 # Optional, never a sentinel: path_policy's go-ahead check writes its audit line through audit_logger (brief m6 (9));
 # a HEAD without it only loses that line (logging never gates), and it never decides trusted-vs-fallback.
 for src in ("hooks/shared/audit_logger.py",):
-    show = subprocess.run(["git", "show", f"HEAD:{src}"], capture_output=True, cwd=str(root))
+    show = subprocess.run(["git", "show", f"HEAD:{src}"], capture_output=True, cwd=str(root), creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     if show.returncode == 0:
         (tmp / "shared" / Path(src).name).write_bytes(show.stdout)
 PREP
@@ -779,7 +779,7 @@ try:
     try:
         lp = subprocess.run(
             ["git", "diff", "--cached", "--name-only"],
-            capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(root),
+            capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(root), creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)
         )
         list_rc = lp.returncode
         names = [n for n in lp.stdout.splitlines() if n]

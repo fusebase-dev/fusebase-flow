@@ -18,6 +18,8 @@ from .approval_artifact import (
 )
 from .policy_loader import find_git_root, get_policy
 
+NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)  # no console window when the caller has none (pythonw)
+
 # WS1b: the internals-bootstrap category demands a genuinely SINGLE-USE exception.
 # A plain path+TTL artifact is a reusable FR-07 bypass, so for this category the
 # artifact must bind to the exact staged changeset (tree_digest over content+mode)
@@ -172,7 +174,7 @@ def _staged_mode_and_sha(path: str, root: Path) -> tuple[str, str] | None:
     try:
         proc = subprocess.run(
             ["git", "ls-files", "--stage", "--", path],
-            capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(root),
+            capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(root), creationflags=NO_WINDOW
         )
     except Exception:
         return None
@@ -211,7 +213,7 @@ def staged_change_paths(root: Path) -> list[str]:
     try:
         proc = subprocess.run(
             ["git", "diff", "--cached", "--name-status", "-M"],
-            capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(root),
+            capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=str(root), creationflags=NO_WINDOW
         )
     except Exception as e:
         raise RuntimeError(f"staged_change_paths: git name-status subprocess failed ({e!r})") from e
@@ -239,7 +241,7 @@ def staged_change_paths(root: Path) -> list[str]:
 def _head(root: Path) -> str:
     try:
         proc = subprocess.run(["git", "rev-parse", "--verify", "-q", "HEAD^{commit}"], capture_output=True, text=True,
-                              cwd=str(root))
+                              cwd=str(root), creationflags=NO_WINDOW)
     except Exception:
         return ""
     return proc.stdout.strip() if proc.returncode == 0 else ""
@@ -251,7 +253,7 @@ def _built_on(root: Path, head: str, since: str) -> bool:
     when = [f"--since={since}"] if parse_expiry(since) is not None else []
     try:
         proc = subprocess.run(["git", "rev-list", "--all", "--reflog", "--parents", *when], capture_output=True,
-                              text=True, encoding="utf-8", errors="replace", cwd=str(root))
+                              text=True, encoding="utf-8", errors="replace", cwd=str(root), creationflags=NO_WINDOW)
     except Exception:
         return True
     return proc.returncode != 0 or any(head in line.split()[1:] for line in proc.stdout.splitlines())

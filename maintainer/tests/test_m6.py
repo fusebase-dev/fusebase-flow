@@ -3,10 +3,12 @@
 carries it."""
 from __future__ import annotations
 
+import ast
 import contextlib
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -454,6 +456,76 @@ class CommitPyFixes(Project):
         self.assertLess(time.monotonic() - start, 30, "F5: it waited for an index.lock nobody holds")
         with mock.patch.object(commit, "git_running", lambda: True):
             self.assertEqual(commit.take(lock, index_lock, 1), "a git process (index.lock)")
+
+
+NO_WINDOW_FILES = sorted(p for d in ("hooks/local", "hooks/local/lib", "hooks/shared", "hooks/handlers")
+                         for p in (CORE / d).glob("*.py"))
+
+
+def subprocess_calls(text: str) -> list[ast.Call]:
+    names = ("run", "Popen", "check_output", "call", "check_call")
+    return [n for n in ast.walk(ast.parse(text)) if isinstance(n, ast.Call) and isinstance(n.func, ast.Attribute)
+            and n.func.attr in names and isinstance(n.func.value, ast.Name) and n.func.value.id == "subprocess"]
+
+
+class NoConsoleWindow(unittest.TestCase):
+    """m6-fix item (i): no console window on Windows from a script the scheduler or a hook runs: every subprocess call
+    under hooks/ (the reader, flow_docs and every other script, the handlers and hooks/shared) and in the git hooks'
+    embedded Python passes creationflags CREATE_NO_WINDOW (0 elsewhere)."""
+
+    def test_every_subprocess_call_under_hooks_and_in_the_git_hooks_passes_creationflags(self) -> None:
+        bare = []
+        for path in NO_WINDOW_FILES:
+            bare += [f"{path.relative_to(CORE).as_posix()}:{c.lineno}" for c in subprocess_calls(path.read_text("utf-8"))
+                     if not any(k.arg == "creationflags" for k in c.keywords)]
+        for hook in sorted((CORE / "hooks/git").iterdir()):
+            for block in re.findall(r"<<'(\w+)'\n(.*?)\n\1\n", hook.read_text(encoding="utf-8"), flags=re.S):
+                if "subprocess" in block[1]:
+                    bare += [f"hooks/git/{hook.name} <<'{block[0]}':{c.lineno}" for c in subprocess_calls(block[1])
+                             if not any(k.arg == "creationflags" for k in c.keywords)]
+        self.assertEqual(bare, [], "subprocess calls without creationflags")
+
+    def test_the_reader_and_the_hook_modules_run_git_with_no_window(self) -> None:
+        tmp = Path(tempfile.mkdtemp(prefix="flow-m6-"))
+        try:
+            repo = tmp / "p"
+            repo.mkdir()
+            git(repo, "init", "-q", "-b", "main")
+            no_auto_gc(repo)
+            (repo / "a.txt").write_bytes(b"a\n")
+            git(repo, "add", "--", "a.txt")
+            git(repo, "commit", "-q", "-m", "init")
+            for rel in ("hooks/shared", "hooks/local", "policies"):
+                shutil.copytree(CORE / rel, repo / rel, ignore=shutil.ignore_patterns("__pycache__"))
+            sys.path[:0] = [str(repo / "hooks"), str(repo / "hooks/local"), str(repo / "hooks/local/lib")]
+            for name in ("reader", "flow_docs", "flow_owned", "validator_tier", "shared.path_policy", "shared.git_utils",
+                         "shared.staged_secret_scan", "shared.module_size"):
+                sys.modules.pop(name, None)
+            import flow_docs
+            import flow_owned
+            import reader
+            import validator_tier
+            from shared import git_utils, module_size, path_policy, staged_secret_scan
+            seen, real = [], subprocess.Popen
+
+            def record(*args, **kwargs):
+                seen.append((args[0][:2] if args else kwargs.get("args"), kwargs.get("creationflags", "missing")))
+                return real(*args, **kwargs)
+            with mock.patch.object(subprocess, "Popen", record), contextlib.redirect_stdout(io.StringIO()):
+                reader.once(repo)
+                flow_docs.git(repo, "status")
+                flow_owned.blobs(repo, ["HEAD:a.txt"])
+                validator_tier.evaluate(repo)
+                path_policy.staged_change_paths(repo)
+                git_utils.status_short(repo)
+                staged_secret_scan.staged_added_text(repo)
+                module_size._git(["-C", str(repo), "status"])
+            want = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            self.assertGreaterEqual(len(seen), 8, seen)
+            self.assertEqual([s for s in seen if s[1] != want], [], f"calls without CREATE_NO_WINDOW ({want})")
+        finally:
+            sys.path[:] = [p for p in sys.path if not p.startswith(str(tmp))]
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
 class OwnGate(m3.Slicer):
