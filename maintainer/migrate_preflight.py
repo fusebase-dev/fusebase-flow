@@ -52,7 +52,7 @@ def tracked_tree(inv: m.Inventory) -> Check:
 
 def git_hooks(inv: m.Inventory) -> Check:
     if not inv.custom_hooks and not inv.edited_hooks:
-        return Check("git hooks", "pre-commit, commit-msg and pre-push in .git/hooks are Flow's or absent")
+        return Check("git hooks", "pre-commit, commit-msg, pre-push and pre-merge-commit in .git/hooks are Flow's or absent")
     found, fixes = [], []
     if inv.custom_hooks:
         found.append(f"{', '.join(f'.git/hooks/{h}' for h in inv.custom_hooks)}: the project's own (no "

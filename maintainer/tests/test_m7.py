@@ -12,6 +12,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 import zlib
 from pathlib import Path
@@ -222,6 +223,112 @@ class EolPins(unittest.TestCase):
         attributes.write_text(text.replace("*.sketch binary\n", ""), encoding="utf-8")
         git(repo, "add", "--", ".gitattributes")
         self.assertEqual(flow_owned.foreign(repo, [("M", ".gitattributes")]), [".gitattributes"], "a project line went too")
+
+
+class RangeCheck(unittest.TestCase):
+    """m7 item 3 (M6-2, review r1-23, r2-25, r3-25..27): git runs no pre-commit for a clean merge, a cherry-pick, a
+    rebase's replays or a revert. pre-merge-commit checks what a merge brings in; pre-push checks every commit the remote
+    lacks: secret patterns, and protected-path changes with no approval on record."""
+
+    KEY = "AKIA" + "IOSFODNN7EXAMPLE"  # assembled at run time, so no scanner sees the literal in this file
+
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp(prefix="flow-m7-range-"))
+        self.repo, self.remote = self.tmp / "project", self.tmp / "remote.git"
+        self.repo.mkdir()
+        for args in (("init", "-q", "-b", "main", str(self.repo)), ("init", "-q", "--bare", "-b", "main", str(self.remote))):
+            git(self.tmp, *args)
+        no_auto_gc(self.repo)
+        for key, value in (("user.name", "flow-test"), ("user.email", "flow-test@example.invalid")):
+            git(self.repo, "config", key, value)
+        (self.repo / "README.md").write_text("demo\n", encoding="utf-8")
+        self.git("add", "README.md")
+        self.git("commit", "-q", "--no-verify", "-m", "init")
+        self.git("remote", "add", "origin", str(self.remote))
+        self.git("push", "-q", "--no-verify", "origin", "main")  # the remote's history: before any Flow hook
+        self.git("checkout", "-q", "-b", "work")
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(test_m6.flow.install(self.repo, {"claude"}), 0)
+        self.git("add", "-A")
+        # Flow's own install commit, made here without the hooks: a `flow:` commit flow_owned.py accepts
+        self.git("commit", "-q", "--no-verify", "-m", "flow: install Fusebase Flow")
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def git(self, *args: str, ok: bool = True) -> subprocess.CompletedProcess:
+        out = subprocess.run(["git", *args], cwd=self.repo, capture_output=True, text=True, encoding="utf-8",
+                             errors="replace", timeout=900)
+        if ok:
+            self.assertEqual(out.returncode, 0, f"git {' '.join(args)}: {out.stdout}{out.stderr}")
+        return out
+
+    def commit(self, rel: str, text: str, subject: str, *flags: str) -> str:
+        (self.repo / rel).parent.mkdir(parents=True, exist_ok=True)
+        (self.repo / rel).write_text(text, encoding="utf-8")
+        self.git("add", "--", rel)
+        self.git("commit", "-q", *flags, "-m", subject)
+        return self.git("rev-parse", "HEAD").stdout.strip()
+
+    def side_secret(self, branch: str = "side") -> str:
+        self.git("checkout", "-q", "-b", branch, "work")
+        sha = self.commit("config/settings.txt", f"aws_access_key_id = {self.KEY}\n", "T1: settings", "--no-verify")
+        self.git("checkout", "-q", "work")
+        return sha
+
+    def test_a_merge_bringing_in_a_secret_is_refused_and_a_merge_of_the_remotes_work_is_not(self) -> None:
+        self.side_secret()
+        merged = self.git("merge", "--no-ff", "--no-edit", "side", ok=False)
+        self.assertNotEqual(merged.returncode, 0, "the merge carrying a token landed")
+        self.assertIn("[fusebase-flow:pre-merge-commit] BLOCK", merged.stderr)
+        self.assertIn("aws_access_key_id", merged.stderr)
+        self.git("merge", "--abort", ok=False)
+        # a teammate's approved protected change arrives through the remote: merging it is not refused
+        self.git("checkout", "-q", "-b", "team", "work")
+        self.commit("FLOW_RULES.md", (self.repo / "FLOW_RULES.md").read_text(encoding="utf-8") + "\nteam note\n",
+                    "T2: a teammate's rule note", "--no-verify")
+        self.git("push", "-q", "--no-verify", "origin", "team")
+        self.git("checkout", "-q", "work")
+        self.commit("docs/notes.md", "a note\n", "T3: a note", "--no-verify")
+        self.git("fetch", "-q", "origin")
+        self.git("merge", "--no-ff", "--no-edit", "origin/team")
+
+    def test_a_cherry_picked_or_rebased_secret_is_refused_at_push_and_a_clean_push_passes(self) -> None:
+        sha = self.side_secret()
+        self.git("cherry-pick", sha)
+        pushed = self.git("push", "origin", "work", ok=False)
+        self.assertNotEqual(pushed.returncode, 0, "the cherry-picked token reached the remote")
+        self.assertIn("[fusebase-flow:pre-push] BLOCK", pushed.stderr)
+        self.assertIn("secret pattern aws_access_key_id", pushed.stderr)
+        self.git("checkout", "-q", "-b", "rebased", "side")
+        self.git("rebase", "-q", "main")
+        pushed = self.git("push", "origin", "rebased", ok=False)
+        self.assertNotEqual(pushed.returncode, 0, "the rebased token reached the remote")
+        self.assertIn("secret pattern aws_access_key_id", pushed.stderr)
+        self.git("checkout", "-q", "-b", "clean", "work~1")
+        self.commit("docs/notes.md", "a note\n", "T1: a note")  # through the hooks
+        for n in range(50):
+            self.commit(f"docs/n{n}.md", f"note {n}\n", f"T{n + 2}: note {n}", "--no-verify")
+        started = time.monotonic()
+        pushed = self.git("push", "origin", "clean", ok=False)
+        print(f"\n[m7] pre-push range check over 52 commits (the flow: install commit included): "
+              f"{time.monotonic() - started:.1f} s")
+        self.assertEqual(pushed.returncode, 0, pushed.stderr)
+
+    def test_a_revert_of_an_approved_flow_rules_edit_is_refused_at_push(self) -> None:
+        (self.repo / "FLOW_RULES.md").write_text((self.repo / "FLOW_RULES.md").read_text(encoding="utf-8") + "\nx\n",
+                                                 encoding="utf-8")
+        self.git("add", "--", "FLOW_RULES.md")
+        mint = test_m6.sh(self.repo, test_m6.BASH, "hooks/local/write-bootstrap-approval.sh", FF_BOOTSTRAP_TTL_MIN="30")
+        self.assertEqual(mint.returncode, 0, mint.stderr)
+        self.git("commit", "-q", "-m", "T1: an approved rule edit")
+        test_m6.sh(self.repo, test_m6.BASH, "hooks/local/write-bootstrap-approval.sh", "--consume")
+        pushed = self.git("push", "origin", "work", ok=False)
+        self.assertEqual(pushed.returncode, 0, f"the approved edit was refused: {pushed.stderr}")
+        self.git("revert", "--no-edit", "HEAD")
+        pushed = self.git("push", "origin", "work", ok=False)
+        self.assertNotEqual(pushed.returncode, 0, "the revert of an approved FLOW_RULES.md edit reached the remote")
+        self.assertIn("FLOW_RULES.md changed with no approval on record", pushed.stderr)
 
 
 if __name__ == "__main__":

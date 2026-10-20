@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Fusebase Flow — pre-merge-commit git hook (6.0)
+# fusebase-flow-managed-hook: v1
+#
+# git runs no pre-commit for a merge it completes on its own, so this hook gives that merge the pre-commit's secret scan
+# and protected-path check on what it brings in (6.0.0-m7 item 3, review r1-23): hooks/local/lib/range_check.py --merge.
+# Files whose merged bytes a remote-tracking ref already holds arrived from the remote and are not judged. A merge that
+# stops on a conflict is committed with `git commit`, which runs the pre-commit itself.
+# 6.0 only: a tree without hooks/local/lib/commit_msg.py (a 5.x branch, or a branch after the migration's undo) has no
+# range check, and the merge goes on.
+#
+# Install: bash hooks/local/install-git-hooks.sh. Bypass: NEVER use --no-verify.
+
+set -uo pipefail
+
+_ffpm_block() {
+    echo "[fusebase-flow:pre-merge-commit] BLOCK — $1 Failing closed. NEVER use --no-verify." >&2
+    exit 1
+}
+# TRIPWIRE (T84): git reads go to a FILE and back through `read`, never `$(git …)`.
+FFPM_TMP="$(mktemp 2>/dev/null || mktemp -t ffflow-pm)" || _ffpm_block "no temp file for the merge check."
+trap 'rm -f "$FFPM_TMP"' EXIT
+git rev-parse --show-toplevel > "$FFPM_TMP" 2>/dev/null
+ROOT=""
+IFS= read -r ROOT < "$FFPM_TMP" 2>/dev/null || :
+[ -n "$ROOT" ] || exit 0
+cd "$ROOT" || _ffpm_block "cannot enter $ROOT."
+[ -f hooks/local/lib/commit_msg.py ] || exit 0
+[ -f hooks/local/lib/range_check.py ] || _ffpm_block "hooks/local/lib/range_check.py is missing (re-run the Flow install)."
+
+# Same env floor as the pre-commit and the pre-push (T30/T32): no inherited PYTHONPATH/startup surface.
+unset PYTHONPATH PYTHONSTARTUP PYTHONHOME 2>/dev/null || true
+export PYTHONNOUSERSITE=1
+export PYTHONSAFEPATH=1
+
+_ffpm_py3() { "$@" -S -c 'import sys; raise SystemExit(0 if sys.version_info[:2] >= (3, 10) else 1)' >/dev/null 2>&1; }
+FFPM_PY=()
+if command -v python3 >/dev/null 2>&1 && _ffpm_py3 python3; then FFPM_PY=(python3)
+elif command -v python >/dev/null 2>&1 && _ffpm_py3 python; then FFPM_PY=(python)
+elif command -v py >/dev/null 2>&1 && _ffpm_py3 py -3; then FFPM_PY=(py -3)
+fi
+[ "${#FFPM_PY[@]}" -gt 0 ] || _ffpm_block "no Python 3.10+ interpreter (tried python3, python, py -3); the merge check needs one."
+PYTHONPATH="" "${FFPM_PY[@]}" -S hooks/local/lib/range_check.py --merge

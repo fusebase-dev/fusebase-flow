@@ -51,6 +51,9 @@
 #   hooks/handlers/pre_tool_use.py: the edited path (from the session's folder when relative, notebook_path for
 #   NotebookEdit) and the root resolved before they are compared, so an 8.3 short name, another case, `..`, `./` or a
 #   symlink reaches the protected check (T319; 5.x 967b6dfc, local; m7 item 1, core-verify run 39487718435).
+#   hooks/git/pre-push and hooks/local/install-git-hooks.sh: on a 6.0 tree the pre-push checks every commit the remote
+#   lacks (hooks/local/lib/range_check.py), and the installer installs pre-merge-commit where hooks/git/ has it (T321;
+#   5.x 16b3ecd0, local; m7 item 3, review r1-23). install-git-hooks.sh took 5.x's hunk; its other differences stay (T173).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -64,17 +67,23 @@
 #   (T293; brief m6 list item 4; decision 10(c), core only).
 #   policies/module-size-baseline.txt: no row for hooks/local/upgrade.sh, a 5.x file the 6.0 core does not ship
 #   (T278; brief m5 item 4). 5.x keeps the row: it still ships upgrade.sh.
+#   hooks/git/commit-msg: the staged protected-path changes go on record after the subject check, in
+#   <git common dir>/flow/approved-changes.tsv (T321; m7 item 3; decision 10(c), core only).
+#   hooks/git/pre-merge-commit (new, T321; m7 item 3, the owner's "a pre-merge-commit hook"): a merge's secret scan and
+#   protected-path check (hooks/local/lib/range_check.py --merge). Locked as a git hook, core only: the range check and
+#   its record are 6.0's (decision 10(c)); 5.x ships none and its installer skips it.
 # A kernel fix lands on 5.x first, is cherry-picked here, and updates this lock in the same commit.
 f2557b19379421fac007a2c758eda73bb6eb21990a7f5c366c438716e1fe2cfb  .gitattributes
 0acfb991aa269888937723022f2667b0e251ed0091ccc96491752360b2a61be0  LICENSE
-76f48682f781c927f09a39d5ad767470da90d55d290fa280262f84cf200e7942  hooks/git/commit-msg
+e6fe845882eb635b917be76c1398b0bfb26b44abebd8bf6083616ae1a518b952  hooks/git/commit-msg
 2bd0cbf0ebb0472f55ced57b76bc250003f37f55a866884d59f0b5b4ee0d39ec  hooks/git/pre-commit
-61fa39ad945e6fbf5718dc8ab11c7a6892b50c431e4514a94ca71ccb84679120  hooks/git/pre-push
+9cd67869e78cfca6dcb6f0f32d64ed68bec34e9da9cdd99bb7913385ab630055  hooks/git/pre-merge-commit
+465611d38d4fb9058bf93bb57600208abb924ceda6d8cc41e167f5db833a5686  hooks/git/pre-push
 a0685b0884a42d5704339ba342247704169b35da26cb228f533f03fc60448e0c  hooks/handlers/post_tool_use.py
 caaf463df9ba145bb0e0c73fe20627ccf86c22292007533edf45c5432d5140e8  hooks/handlers/pre_tool_use.py
 6d92a4ab1d91b5c03d5864aabb2f7dd64abcaab4bc2a7850fa8dbf6ef7d4b3aa  hooks/local/approve-local.sh
 e9d192b09e351091350d6d4b6f04e865f5611f5268bd0c5c4a24d5cbcd83d582  hooks/local/check-module-size.sh
-83ef934c00c8688b5666176e18cd556f8971950dbbb53e583dd08b48eca2f9de  hooks/local/install-git-hooks.sh
+883b4c8b5f449940f60f4bdfa01f1841fadb30245b8eb380be912803c2a1a54c  hooks/local/install-git-hooks.sh
 4df6a4b4b48dd9a67b60c3720a04465c94a69e500ead182fae9857891b3eff07  hooks/local/lib/approval_inventory.py
 9d7842ee1cd5f4b4827a737c8ce1bdd6d3eb25b8df877b20dadd57bf92c0216d  hooks/local/lib/bounded-run.sh
 474f026bba4aadd2359678806ffa4007a8d19183f87a8f119e2e2b08bb9db002  hooks/local/lib/precommit-validator-reuse.sh

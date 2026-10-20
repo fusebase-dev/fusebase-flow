@@ -6,6 +6,8 @@
 # updates it is about to send (after any `commit && push`, moved branch or config change),
 # and hooks/shared/command_policy.evaluate_push_boundary decides. A push that updates a
 # policy `push_destinations` ref needs an unexpired schema-3 approval binding EVERY update.
+# On a Flow 6.0 tree it then checks every commit the remote lacks (hooks/local/lib/range_check.py):
+# git runs no pre-commit for a cherry-pick, a clean merge, a rebase's replays or a revert.
 #
 # Install: bash hooks/local/install-git-hooks.sh. Bypass: NEVER use --no-verify.
 
@@ -112,4 +114,12 @@ FFPPPY
 FFPP_TMP_NATIVE="$(cd "$FFPP_TMP" && { pwd -W 2>/dev/null || pwd; })"
 [ -n "$FFPP_TMP_NATIVE" ] || _ffpp_block "could not resolve the temp dir path."
 PYTHONPATH="" "${FFPP_PY[@]}" -S "$FFPP_TMP_NATIVE/gate.py" "$ROOT" \
-    "$FFPP_TMP_NATIVE/url" "$FFPP_TMP_NATIVE/in"
+    "$FFPP_TMP_NATIVE/url" "$FFPP_TMP_NATIVE/in" || exit 1
+
+# The commits the push carries (6.0.0-m7 item 3, review r1-23): secret patterns and protected-path changes with no
+# approval on record, each commit the remote lacks. A Flow 6.0 tree carries hooks/local/lib/commit_msg.py; a 5.x tree
+# has no range check, and the push goes on as before.
+if [ -f "$ROOT/hooks/local/lib/commit_msg.py" ]; then
+    [ -f "$ROOT/hooks/local/lib/range_check.py" ] || _ffpp_block "hooks/local/lib/range_check.py is missing (re-run the Flow install)."
+    PYTHONPATH="" "${FFPP_PY[@]}" -S "$ROOT/hooks/local/lib/range_check.py" --push "$FFPP_TMP_NATIVE/in" || exit 1
+fi

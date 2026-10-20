@@ -73,6 +73,11 @@ else
     fi
     # shellcheck disable=SC2086
     PYTHONPATH="" $FFCM_PY -E "$HELPER" "$MSG_FILE" || exit 1
+    # The staged protected-path changes the pre-commit (on a merge, pre-merge-commit) has just allowed go on record, so
+    # the pre-push and pre-merge-commit range check tells them from changes no hook checked (6.0.0-m7 item 3). A record
+    # that cannot be written warns; the push of this commit is then refused until the operator records it.
+    # shellcheck disable=SC2086
+    [ ! -f hooks/local/lib/range_check.py ] || PYTHONPATH="" $FFCM_PY -E hooks/local/lib/range_check.py --record
 fi
 
 # fusebase-flow-commit-msg: runs lint and typecheck (the pre-commit reads this line: with it, it leaves them here)

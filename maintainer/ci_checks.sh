@@ -10,7 +10,7 @@ CORE="$(cd "$(dirname "$0")/.." && pwd)"
 PY="${PYTHON:-python3}"
 # The installed file count (core files + provider mirrors) is a deliberate ratchet: change it in
 # the same commit that changes the core's file set, and say why in the body.
-EXPECT_FILES="${EXPECT_FILES:-83}"
+EXPECT_FILES="${EXPECT_FILES:-85}"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/flow-ci.XXXXXX")" || { echo "not ok 1 - temp dir"; exit 1; }
 trap 'rm -rf "$WORK"' EXIT
 
@@ -37,7 +37,7 @@ if [ ! -e "$P/.claude/settings.json" ] && [ ! -e "$P/.codex/hooks.json" ]; then
 else
   bad "no provider hook wiring without --wire-hooks"
 fi
-for h in pre-commit commit-msg pre-push; do
+for h in pre-commit commit-msg pre-push pre-merge-commit; do
   hp="$(git -C "$P" rev-parse --git-path "hooks/$h")"; case "$hp" in /*|?:*) ;; *) hp="$P/$hp" ;; esac
   if [ -f "$hp" ] && cmp -s "$hp" "$CORE/hooks/git/$h"; then ok "git hook $h installed byte-identical"
   else bad "git hook $h installed byte-identical" "$hp"; fi

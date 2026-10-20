@@ -77,11 +77,12 @@ def outside(data: bytes | None) -> list[str] | None:
     return before + after
 
 
-def foreign(root: Path, pairs: list[tuple[str, str]]) -> list[str]:
-    """The staged (status, path) pairs' paths that are not Flow's own; empty when the `flow:` subject passes."""
-    side = {p: "HEAD" if s.startswith("D") else "" for s, p in pairs}
-    specs = [f"HEAD:{m}" for m in (MANIFEST, *ASSETS_5X, *MIRRORS_5X)] + [f":{MANIFEST}"]
-    specs += [f"{side[p]}:{p}" for p in side] + [f"HEAD:{p}" for p in side if p in MERGED]
+def foreign(root: Path, pairs: list[tuple[str, str]], base: str = "HEAD", tip: str = "") -> list[str]:
+    """The (status, path) pairs' paths that are not Flow's own, the change from `base` to `tip` ("" the index): empty
+    when the `flow:` subject passes; range_check.py asks it of a commit already made (base its parent, tip the commit)."""
+    side = {p: base if s.startswith("D") else tip for s, p in pairs}
+    specs = [f"{base}:{m}" for m in (MANIFEST, *ASSETS_5X, *MIRRORS_5X)] + [f"{tip}:{MANIFEST}"]
+    specs += [f"{side[p]}:{p}" for p in side] + [f"{base}:{p}" for p in side if p in MERGED]
     b = blobs(root, specs)
 
     def rows(spec: str, key: str) -> list[tuple[str, str]]:
@@ -89,12 +90,12 @@ def foreign(root: Path, pairs: list[tuple[str, str]]) -> list[str]:
             return [(e["path"], e["sha256"]) for e in json.loads(b.get(spec) or b"{}").get(key) or []]
         except (ValueError, AttributeError, KeyError, TypeError):
             return []
-    head = rows(f"HEAD:{MANIFEST}", "files") + [r for m in ASSETS_5X for r in rows(f"HEAD:{m}", "assets")]
-    head += [(m[1], m[2]) for f in MIRRORS_5X for ln in (b.get(f"HEAD:{f}") or b"").decode("utf-8", "replace")
+    head = rows(f"{base}:{MANIFEST}", "files") + [r for m in ASSETS_5X for r in rows(f"{base}:{m}", "assets")]
+    head += [(m[1], m[2]) for f in MIRRORS_5X for ln in (b.get(f"{base}:{f}") or b"").decode("utf-8", "replace")
              .splitlines() if (m := ROW.fullmatch(ln))]
-    staged, recorded = dict(rows(f":{MANIFEST}", "files")), {p for p, _ in head}
+    staged, recorded = dict(rows(f"{tip}:{MANIFEST}", "files")), {p for p, _ in head}
     named = {(p.rsplit("/", 1)[-1], s) for p, s in head}  # a mirror keeps its source's name and bytes
-    migrating = b.get(f"HEAD:{MC_5X}") is not None and side.get(MC_5X) == "HEAD"
+    migrating = b.get(f"{base}:{MC_5X}") is not None and side.get(MC_5X) == base
 
     def own(s: str, p: str) -> bool:
         data = b.get(f"{side[p]}:{p}")
@@ -105,7 +106,7 @@ def foreign(root: Path, pairs: list[tuple[str, str]]) -> list[str]:
             return p in recorded or (p.rsplit("/", 1)[-1], sha) in named or (
                 migrating and (p in RETIRED_5X or bool(BYTECODE.fullmatch(p) or REPAIR_BACKUP.fullmatch(p))))
         if p in MERGED:
-            kept, old = outside(data), outside(b.get(f"HEAD:{p}"))
+            kept, old = outside(data), outside(b.get(f"{base}:{p}"))
             unpinned = p == ".gitattributes" and kept is not None and old is not None and [x for x in kept if x.strip()] \
                 == [x for x in old if x.strip() and not eol_pins.is_5x_pin(x)]
             return (migrating and p in OVERLAYS) or (kept is not None and kept == old) or unpinned
