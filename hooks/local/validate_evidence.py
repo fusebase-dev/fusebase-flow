@@ -91,7 +91,10 @@ def check_capture_row(root: Path, row: dict, pol: dict, phase: str, out: list[st
         return problems + [f"unrecognised run log {row['log']} (no `{pol.get('run_log_header')}` header)"], digest, "unit"
     problems += finding_problems(log, pol)
     env = re.search(r"\(([^()]+)\)\s*$", log["title"])
-    deployed = deploy_finished(root, env[1]) if env else None
+    # A pre-deploy baseline run (`baseline` in the title before the environment; the ship skill) records the state before
+    # the deploy it serves, so it may start before that deploy; every other run starts after it finished.
+    baseline = re.search(r"\bbaseline\b", log["title"].rsplit("(", 1)[0], re.I)
+    deployed = deploy_finished(root, env[1]) if env and not baseline else None
     started = fd.stamp(log["records"][0][0]) if log["records"] else None
     if deployed and (started is None or started < deployed[0]):
         problems.append(f"the run started {log['records'][0][0] if log['records'] else '?'}, before the "

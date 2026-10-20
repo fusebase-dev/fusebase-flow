@@ -38,6 +38,7 @@ Commit the ship commit as `ship: <what>`; `commit-msg` takes `ship:` only on the
 
 - The moment the deploy lands, add one JSON line to `state/deploys/<env>.jsonl` (`env`, `command`, `started`, `finished`, `rc`, `head`, `env_file_sha256`, `version_id`, `deploy_id`, `readiness`, `approval`) and write the deploy hash into the ledger.
 - Run the live rows (verify). A failed probe or row: the item is not done; give the operator rollback (the surface plan) or fix-forward, in chat. The operator decides.
+- A live run starts after the deploy it checks has finished: the validator compares its first record with `finished`. A pre-deploy baseline run, which records the state before the deploy it serves, names itself in its run-log title (`# Live run baseline-<run> <id> (<env>)`) and may start before it.
 
 ## The ship commit
 

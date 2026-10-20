@@ -56,5 +56,27 @@ class StagedAsWritten(m3.Validator):
         self.assertIn("EVIDENCE: AS WRITTEN (0 of 2 rows fail; 2 as written, not PASS: B1, B2)", out.stdout)
 
 
+class LiveRunRule(m3.Validator):
+    """Item (iv): a live run must start after its environment's deploy finished (state/deploys/<env>.jsonl), except a
+    pre-deploy baseline run, named so in its run-log title, which may start before the deploy it serves."""
+
+    locals().update(dict.fromkeys(n for n in dir(m3.Validator) if n.startswith("test")))
+
+    def test_a_run_before_the_deploy_fails_unless_it_is_the_pre_deploy_baseline(self) -> None:
+        m3.write(self.repo, "state/deploys/dev.jsonl", json.dumps({"env": "dev", "finished": "2026-10-18T09:45:00Z"}))
+        records = "| 2026-10-18T09:30:00.000Z | S1 | PASS |\n"  # started 15 minutes before the deploy finished
+        for title, holds in (("# Live run p1 aaa111 (dev)", False), ("# Live run baseline-p1 aaa111 (dev)", True),
+                             ("# Live run p1-baseline aaa111 (dev)", True)):
+            m3.write(self.repo, "runs/run-1/README.md", m3.RUN_LOG.format(records=records).replace(
+                "# Live run p1 aaa111 (dev)", title))
+            out = self.validate()
+            line = next(ln for ln in out.stdout.splitlines() if ln.startswith("  B1 "))
+            self.assertEqual(line.startswith("  B1 PASS (class live"), holds, f"{title}: {out.stdout}")
+            if not holds:
+                self.assertIn("before the dev deploy finished 2026-10-18T09:45:00Z", line)
+        ship = (m3.CORE / "flow-skills/ship/SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("`# Live run baseline-<run> <id> (<env>)`", ship)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
