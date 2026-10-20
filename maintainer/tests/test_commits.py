@@ -626,6 +626,13 @@ class MintExempt(Workspace):
         for tail in ("; rm -rf y", " && rm y", " || rm y", "\nrm y", " | rm y", " $(rm y)", " `rm y`", " > out"):
             self.assertEqual(self.hook(self.MINT + tail), "deny", repr(tail))
         self.assertEqual(self.hook(self.MINT.replace("'rm build.log'", '"$(rm build.log)"')), "deny", "a live $( )")
+        # T284: destructive_file_delete only, written exactly; any other action's mint is judged as in 6.0.0-m4
+        for other in ("bash hooks/local/approve-local.sh production_deploy d 'go' --command 'fusebase deploy'",
+                      "bash hooks/local/approve-local.sh production_deploy p 'go' --command 'git push origin main'",
+                      *(self.MINT.replace("destructive_file_delete", alike, 1) for alike in (
+                          "'destructive_file_delete'", "Destructive_File_Delete", "destructive_file_delete_x",
+                          '"destructive_file_delete now"'))):
+            self.assertEqual(self.hook(other), "deny", other)
         self.assertEqual(self.hook("rm build.log"), "deny", "no approval yet")
         mint = subprocess.run([shutil.which("bash"), "hooks/local/approve-local.sh", "destructive_file_delete", "clean",
                                "remove the build log", "--command", "rm build.log"], cwd=self.repo, capture_output=True,
@@ -633,6 +640,53 @@ class MintExempt(Workspace):
         self.assertEqual(mint.returncode, 0, mint.stdout + mint.stderr)
         self.assertEqual(self.hook("rm build.log"), "allow")
         self.assertEqual(self.hook("rm other.log"), "deny")
+
+
+class HandOver(Workspace):
+    """T284: the pre-commit hands lint and typecheck to commit-msg only when the commit-msg git will run (`git rev-parse
+    --git-path hooks/commit-msg`, core.hooksPath honoured) is executable and marked. The installed pre-commit is run as a
+    hook manager's own pre-commit would run it, with the project's lint red."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(flow.install(self.repo, {"claude"}), 0)  # the real git hooks
+        write(self.repo, "src/a.ts", "export const a = 1;\n")
+        m3.git(self.repo, "add", "--", "src/a.ts")
+
+    def pre_commit(self) -> subprocess.CompletedProcess:
+        env = {**os.environ, "FUSEBASE_FLOW_LINT": "echo lint-ran >&2; false"}
+        return subprocess.run([shutil.which("bash"), ".git/hooks/pre-commit"], cwd=self.repo, env=env,
+                              capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=900)
+
+    def executable(self, rel: str) -> bool:
+        return subprocess.run([shutil.which("bash"), "-c", '[ -x "$1" ]', "-", rel], cwd=self.repo).returncode == 0
+
+    def test_marked_and_executable_hands_over_and_anything_else_runs_lint_in_the_pre_commit(self) -> None:
+        out = self.pre_commit()
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn("lint/typecheck: commit-msg runs them", out.stderr)
+        self.assertNotIn("lint-ran", out.stderr)
+        hook = self.repo / ".git/hooks/commit-msg"
+        marked = hook.read_text(encoding="utf-8")
+        hook.write_text(marked.split("\n", 1)[1], encoding="utf-8", newline="\n")  # no #! line: MSYS reads it inert
+        hook.chmod(0o644)
+        out = self.pre_commit()
+        if self.executable(".git/hooks/commit-msg"):  # the decision the hook takes from [ -x ]
+            self.assertIn("lint/typecheck: commit-msg runs them", out.stderr)
+        else:
+            self.assertEqual(out.returncode, 1, out.stderr)
+            self.assertIn("lint-ran", out.stderr)
+            self.assertIn("BLOCK — lint failed (FR-13)", out.stderr)
+        hook.write_text(marked, encoding="utf-8", newline="\n")
+        hook.chmod(0o755)
+        write(self.repo, ".husky/commit-msg", '#!/usr/bin/env sh\nnpx --no -- commitlint --edit "$1"\n')
+        (self.repo / ".husky/commit-msg").chmod(0o755)
+        m3.git(self.repo, "config", "core.hooksPath", ".husky")  # a hook manager's folder: its commit-msg is not Flow's
+        out = self.pre_commit()
+        self.assertEqual(out.returncode, 1, out.stderr)
+        self.assertIn("lint-ran", out.stderr)
+        self.assertNotIn("commit-msg runs them", out.stderr)
 
 
 if __name__ == "__main__":

@@ -864,14 +864,18 @@ if [ -n "$STAGED_ANY" ] && [ -f "$FFEV_PY" ]; then
 fi
 
 # 5. Lint + typecheck (FR-13).
-#    6.0.0-m5: git runs this hook before the commit message exists. When the commit-msg beside this hook, the one git
-#    runs next, carries the line `# fusebase-flow-commit-msg: runs lint and typecheck` (Flow 6.0's, which every branch
-#    and worktree of the repository runs, migrated or not), they run there, after the subject check, and the FuseBase
-#    CLI's two update checkpoints skip them with a warning. A merge still runs them here: git runs this hook only for a
-#    merge that stopped on a conflict, and commit-msg runs none on a merge. 5.x's commit-msg has no such line, so on a
-#    5.x install they run here as before.
-if ! git rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1 \
-   && grep -qF '# fusebase-flow-commit-msg: runs lint and typecheck' "${0%/*}/commit-msg" 2>/dev/null; then
+#    6.0.0-m5: git runs this hook before the commit message exists. When the commit-msg git will run next (`git
+#    rev-parse --git-path hooks/commit-msg`, which honours core.hooksPath) is executable and carries the line
+#    `# fusebase-flow-commit-msg: runs lint and typecheck` (Flow 6.0's, which every branch and worktree of the
+#    repository runs, migrated or not), they run there, after the subject check, and the FuseBase CLI's two update
+#    checkpoints skip them with a warning. A merge still runs them here: git runs this hook only for a merge that stopped
+#    on a conflict, and commit-msg runs none on a merge. Any other commit-msg (5.x's, a hook manager's under
+#    core.hooksPath, a non-executable copy) leaves them here, as before.
+_ffpc_git_line git rev-parse --git-path hooks/commit-msg
+FFPC_CM="$FFPC_GIT_OUT"
+if [ "$FFPC_GIT_RC" -eq 0 ] && [ -n "$FFPC_CM" ] && [ -f "$FFPC_CM" ] && [ -x "$FFPC_CM" ] \
+   && grep -qF '# fusebase-flow-commit-msg: runs lint and typecheck' "$FFPC_CM" 2>/dev/null \
+   && ! git rev-parse -q --verify MERGE_HEAD >/dev/null 2>&1; then
     echo "[fusebase-flow:pre-commit] lint/typecheck: commit-msg runs them, after the subject check (FR-13)" >&2
     _ffpc_stage validators
     echo "[fusebase-flow:pre-commit] all checks passed" >&2

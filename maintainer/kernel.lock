@@ -25,6 +25,9 @@
 #   hooks/shared/command_rules.py, hooks/shared/command_policy.py and policies/command-policy.yml: one whole
 #   approve-local.sh invocation is judged with its --command argument blanked (mint_subject), so a mint is
 #   not refused by the rule it mints for (T280; 5.x d65ca4a1, local; brief m5 addendum item 6).
+#   hooks/shared/command_rules.py, policies/command-policy.yml and hooks/git/pre-commit: the exemption covers a
+#   destructive_file_delete mint only, and lint goes to the commit-msg git will run only when it is executable
+#   and marked (T284; 5.x 53a9b6d3, local; the owner's choice (a), relayed).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -40,7 +43,7 @@
 f2557b19379421fac007a2c758eda73bb6eb21990a7f5c366c438716e1fe2cfb  .gitattributes
 0acfb991aa269888937723022f2667b0e251ed0091ccc96491752360b2a61be0  LICENSE
 be312926d6a135837d5f3f38fdf219946f1cd43e16d3d1e3793f1e3ad814f174  hooks/git/commit-msg
-d2cdff8742a9ec0da5d1789766b6499eba4f3ed10e4528f643a8ce323540a9cf  hooks/git/pre-commit
+f30a28989de29d0486ab66b19af8bc9060571c4bd1018786ed9d855284248100  hooks/git/pre-commit
 61fa39ad945e6fbf5718dc8ab11c7a6892b50c431e4514a94ca71ccb84679120  hooks/git/pre-push
 d4c7b522d5095dd26b336cb95ef2fd5de290234102f485e79d79d928bc7b8f5f  hooks/handlers/post_tool_use.py
 2ed1c6143f5324e2178f51a6156f0fc4857a6576f8850365ecf13ab829d9487d  hooks/handlers/pre_tool_use.py
@@ -59,7 +62,7 @@ a17fa14158188b1c02621a2d5cad7a96470578b007abb973a7327a6a00163538  hooks/shared/_
 e7c5c77c9a71502aa10a79195fcba455e76fbd6fa350c616bbcd9c0280c6ae89  hooks/shared/approval_artifact.py
 0f69349b626801094d3069a4d27a77cc66a4e2d93e62e6ed9394ab040ac156cf  hooks/shared/audit_logger.py
 710330bccf766c7b0579877904139207b54bf0b8d91b5d357fcf84b0a06b5132  hooks/shared/command_policy.py
-b80cdfd973f2eea514ec7efca8bcdd37754f3dfba4bbfd37143397295168f528  hooks/shared/command_rules.py
+007b22013f8649651fcb9535da6483c626d4eab0280400c7a71b13868cc66cd2  hooks/shared/command_rules.py
 2523a0585165f3f8597248aee32d985e9ac1d05797c5d0c376a77af44d71d446  hooks/shared/denial_message.py
 dae64b6cf2cb20b72142cd0cd283ac60597e943ea17dd296d4080043c1a02d27  hooks/shared/git_push_binding.py
 2e86be791cfe5e2b895e91875f93dd97dd4e88e1b2856a9525bcb9e2b8c1aee7  hooks/shared/git_utils.py
@@ -69,7 +72,7 @@ aa629e0517a7c41fa9b15271b757b45fddb0178935a8c439a4a0787c765e91bc  hooks/shared/p
 fecb30ef246aaf2dc90dc55200de5d1b0bab92242c8cbbd5cbd3e9c0d8d784fa  hooks/shared/secret_scanner.py
 4d7e59cbdd0fffa1fc3ffe7dcf937c372ff232c70d45c497c0b56e2fde8b3e8a  hooks/shared/staged_secret_scan.py
 66e639442e9b2f7be2e91c7072a95a6c49331ddf5bd203c29c714cc48fd527bf  policies/approval-policy.yml
-1c52c9650afa413cb48e8eba96902407b6bec49cc3db749c03e6ddb1d6ed3a25  policies/command-policy.yml
+1a209df59c973c8b41cbf7d373bb5f60aa42d9b674ce6753b7d511752cb9cb10  policies/command-policy.yml
 7747637a42919bf6548600fc78a9f53866ed655dfff00370958a0707674f3840  policies/module-size-baseline.txt
 cd603634033c3eb68970210d5d2a0762c3fd0ee01ec53c36a8f4644ec7374f2f  policies/module-size.yml
 6512a266a351c005374713adcdb41a0de4ea0c179df0d071c7a9dd5399e15973  policies/protected-paths.yml
