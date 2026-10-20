@@ -539,6 +539,9 @@ class ProjectMirrors(unittest.TestCase):
         self.assertEqual([p for p in self.own if p not in keep], [], keep)
 
 
+PLACEHOLDER = re.compile(r"<[^<>]*>")  # `<your-project>`, `<the providers audit/flow-install.json lists>`
+
+
 class ReleaseNote(unittest.TestCase):
     def test_each_command_names_only_paths_that_exist_when_it_runs(self) -> None:
         """The note's commands in order, inline and fenced: each path is `<a folder an earlier git clone made>/<a path
@@ -553,7 +556,7 @@ class ReleaseNote(unittest.TestCase):
                 commands += fenced.splitlines() if fenced else [inline]
         cloned, named, wrong = set(), [], []
         for line in (c for c in commands if c.split()[:1] in (["git"], ["pip"], ["python"])):
-            words = line.split()
+            words = PLACEHOLDER.sub("<>", line).split()  # a placeholder names no path
             for word in words[1:]:
                 if "/" in word and "://" not in word and not word.startswith(("<", "-")):
                     named.append(word)
@@ -575,10 +578,14 @@ class ReleaseNote(unittest.TestCase):
         section = note.split("## Upgrading a 6.0.0-m4 project, step by step\n", 1)[1].split("\n## ", 1)[0]
         tracked = set(git(core, "ls-files").stdout.splitlines())
         blocks = re.findall(r"^```\n(.*?)^```$", section, flags=re.M | re.S)
-        self.assertEqual(len(blocks), 2, "the plain install and the wired one")
+        self.assertEqual(len(blocks), 1, "one block for every 6.0.0-m4 install, wired or not (T286)")
+        installs = [ln for ln in blocks[0].splitlines() if "maintainer/flow.py install " in ln]
+        self.assertEqual(len(installs), 1, installs)
+        self.assertIn(" --providers <", installs[0], "the providers the project's install lists")
+        self.assertNotIn("--wire-hooks", installs[0], "the wiring stays as it is")
         named, wrong = [], []
-        for line in (ln for block in blocks for ln in block.splitlines()):
-            for word in line.split():
+        for line in blocks[0].splitlines():
+            for word in PLACEHOLDER.sub("<>", line).split():
                 if "/" in word and "://" not in word and not word.startswith(("<", "-")):
                     named.append(word.removeprefix(f"fusebase-flow-{version}/"))
                     if named[-1] not in tracked:
