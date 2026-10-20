@@ -6,7 +6,7 @@ checking looks in state/approvals/ for matching artifacts.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -23,7 +23,7 @@ from .approval_artifact import (
     load,
     valid_destination_ref,
 )
-from .command_rules import rule_actions, rule_matches
+from .command_rules import mint_subject, rule_actions, rule_matches
 from .denial_message import render_approval_denial, render_push_boundary_denial
 from .git_push_binding import boundary_updates, resolve_command_updates
 from .policy_loader import find_git_root, get_policy
@@ -554,20 +554,19 @@ def evaluate(command: str, *, root: Path | None = None) -> CommandDecision:
         return error
     order = policy.get("match_order", list(_STAGES))
     default = policy.get("default", "allow")
+    subject = mint_subject(command)  # the command, or one approve-local.sh invocation without its --command text
 
     for stage in order:
         if stage == "deny":
-            d = _evaluate_deny(command, policy)
-            if d:
-                return d
+            d = _evaluate_deny(subject, policy)
         elif stage == "require_approval":
-            d = _evaluate_require_approval(command, policy, approval_policy, root=resolved)
-            if d:
-                return d
+            d = _evaluate_require_approval(subject, policy, approval_policy, root=resolved)
         elif stage == "allow":
-            d = _evaluate_allow(command, policy)
-            if d:
-                return d
+            d = _evaluate_allow(subject, policy)
+        else:
+            d = None
+        if d:
+            return d if subject == command else replace(d, command=command)
 
     return CommandDecision(
         command=command,

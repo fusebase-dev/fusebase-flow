@@ -82,4 +82,21 @@ def rule_matches(rule: Any, command: str, stage: str) -> tuple[bool, str | None]
         return False, f"{stage} rule pattern {pattern!r} is not a valid regex ({e})."
 
 
-__all__ = ["rule_actions", "rule_flags", "rule_matches"]
+# One whole approve-local.sh invocation, with or without a leading `bash`: each word is single-quoted, double-quoted
+# with no `$`, backtick or backslash inside, or bare and free of shell syntax. A command with anything else outside its
+# --command argument (`;`, `&&`, `||`, `|`, a newline, `$(...)`, backticks, a redirection) does not match.
+_WORD = r"""(?:'[^']*'|"[^"$`\\]*"|[A-Za-z0-9_./:=@%+,-]+)"""
+_MINT = re.compile(rf"[ \t]*(?:bash[ \t]+)?(?:\./)?hooks/local/approve-local\.sh(?:[ \t]+{_WORD})*?[ \t]+--command[ \t]+"
+                   rf"({_WORD})(?:[ \t]+{_WORD})*[ \t]*")
+
+
+def mint_subject(command: str) -> str:
+    """The text the rules judge for `command`: the command itself, except that one whole approve-local.sh invocation is
+    judged with its --command argument blanked. That argument is the command the approval binds, not one that runs, so
+    the mint is not refused by the rule it mints for (brief m5 item 6); the rest of the invocation is still judged, and
+    the approved command itself is judged when it runs."""
+    m = _MINT.fullmatch(command)
+    return command if not m else f"{command[:m.start(1)]}''{command[m.end(1):]}"
+
+
+__all__ = ["mint_subject", "rule_actions", "rule_flags", "rule_matches"]

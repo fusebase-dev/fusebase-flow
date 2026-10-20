@@ -599,5 +599,41 @@ class AuditUserinfo(Workspace):
         self.assertNotIn("r1:", text)
 
 
+class MintExempt(Workspace):
+    """Brief m5 item 6: the mint for destructive_file_delete is judged without the --command text it binds, through the
+    real PreToolUse handler; chaining or substitution outside that argument gets no exemption; the approved rm is then
+    allowed and an unapproved rm denied."""
+
+    MINT = "bash hooks/local/approve-local.sh destructive_file_delete clean 'remove the build log' --command 'rm build.log'"
+
+    def setUp(self) -> None:
+        super().setUp()
+        for rel in ("hooks/shared", "hooks/handlers", "policies"):
+            shutil.copytree(CORE / rel, self.repo / rel, ignore=shutil.ignore_patterns("__pycache__"))
+        for rel in ("hooks/local/approve-local.sh", "hooks/local/lib/approval_inventory.py"):
+            write(self.repo, rel, (CORE / rel).read_text(encoding="utf-8"))
+        m3.commit(self.repo, {"build.log": "a log\n"}, "init")
+
+    def hook(self, command: str) -> str:
+        out = subprocess.run([sys.executable, str(self.repo / "hooks/handlers/pre_tool_use.py")], cwd=self.repo,
+                             input=json.dumps({"hook_event_name": "PreToolUse", "cwd": str(self.repo), "tool_name": "Bash",
+                                               "tool_input": {"command": command}}),
+                             capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
+        return json.loads(out.stdout)["flow_decision"]
+
+    def test_the_mint_is_allowed_and_only_the_approved_rm_follows(self) -> None:
+        self.assertEqual(self.hook(self.MINT), "allow")
+        for tail in ("; rm -rf y", " && rm y", " || rm y", "\nrm y", " | rm y", " $(rm y)", " `rm y`", " > out"):
+            self.assertEqual(self.hook(self.MINT + tail), "deny", repr(tail))
+        self.assertEqual(self.hook(self.MINT.replace("'rm build.log'", '"$(rm build.log)"')), "deny", "a live $( )")
+        self.assertEqual(self.hook("rm build.log"), "deny", "no approval yet")
+        mint = subprocess.run([shutil.which("bash"), "hooks/local/approve-local.sh", "destructive_file_delete", "clean",
+                               "remove the build log", "--command", "rm build.log"], cwd=self.repo, capture_output=True,
+                              text=True, encoding="utf-8", errors="replace", timeout=600)
+        self.assertEqual(mint.returncode, 0, mint.stdout + mint.stderr)
+        self.assertEqual(self.hook("rm build.log"), "allow")
+        self.assertEqual(self.hook("rm other.log"), "deny")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -31,6 +31,9 @@
 # gated commands); tracked in docs/backlog/command-gate-shell-evasion/. Do NOT write a
 # half-parser here — one wrong in either direction either breaks ordinary approvals or
 # opens a new evasion class. Process discipline is the control; this file is defence in depth.
+# One exception, exact (T280): a command that is one whole `hooks/local/approve-local.sh` invocation, with nothing
+# around it, is matched with its --command argument blanked (hooks/shared/command_rules.py, mint_subject). That text
+# is what the approval binds, not a command that runs; the mint is never refused by the rule it mints for.
 #
 # FAIL-CLOSED (decision K4): an unparseable regex, a rule with no `pattern`, an
 # unsupported `flags` entry, or a missing/empty/non-mapping policy file DENIES with a

@@ -22,6 +22,9 @@
 #   d9cdb138, local; review r2-43).
 #   hooks/shared/audit_logger.py: emit strips URL userinfo from every string it writes, reason and extra fields
 #   (T277; 5.x a7dc0d5f, local; review r1-43).
+#   hooks/shared/command_rules.py, hooks/shared/command_policy.py and policies/command-policy.yml: one whole
+#   approve-local.sh invocation is judged with its --command argument blanked (mint_subject), so a mint is
+#   not refused by the rule it mints for (T280; 5.x d65ca4a1, local; brief m5 addendum item 6).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -55,8 +58,8 @@ c6e7d2525d8e3a4534da22d9d9c1a294052cf29ee7c437ac448c7b4ca0283e90  hooks/local/wr
 a17fa14158188b1c02621a2d5cad7a96470578b007abb973a7327a6a00163538  hooks/shared/__init__.py
 e7c5c77c9a71502aa10a79195fcba455e76fbd6fa350c616bbcd9c0280c6ae89  hooks/shared/approval_artifact.py
 0f69349b626801094d3069a4d27a77cc66a4e2d93e62e6ed9394ab040ac156cf  hooks/shared/audit_logger.py
-10524e1cb0e82463f60a5c0a083c7a1f66ddf1deaab6a4ad44ed21cdb1b9271d  hooks/shared/command_policy.py
-80eb6a768dcdf171219b25511a6896123effa83ecea62f92d05cbfad014bf9f7  hooks/shared/command_rules.py
+710330bccf766c7b0579877904139207b54bf0b8d91b5d357fcf84b0a06b5132  hooks/shared/command_policy.py
+b80cdfd973f2eea514ec7efca8bcdd37754f3dfba4bbfd37143397295168f528  hooks/shared/command_rules.py
 2523a0585165f3f8597248aee32d985e9ac1d05797c5d0c376a77af44d71d446  hooks/shared/denial_message.py
 dae64b6cf2cb20b72142cd0cd283ac60597e943ea17dd296d4080043c1a02d27  hooks/shared/git_push_binding.py
 2e86be791cfe5e2b895e91875f93dd97dd4e88e1b2856a9525bcb9e2b8c1aee7  hooks/shared/git_utils.py
@@ -66,7 +69,7 @@ aa629e0517a7c41fa9b15271b757b45fddb0178935a8c439a4a0787c765e91bc  hooks/shared/p
 fecb30ef246aaf2dc90dc55200de5d1b0bab92242c8cbbd5cbd3e9c0d8d784fa  hooks/shared/secret_scanner.py
 4d7e59cbdd0fffa1fc3ffe7dcf937c372ff232c70d45c497c0b56e2fde8b3e8a  hooks/shared/staged_secret_scan.py
 66e639442e9b2f7be2e91c7072a95a6c49331ddf5bd203c29c714cc48fd527bf  policies/approval-policy.yml
-4f8599bae6e914e61c4082f12d8370fbb09920e7d115c97c63d41204054d7f55  policies/command-policy.yml
+1c52c9650afa413cb48e8eba96902407b6bec49cc3db749c03e6ddb1d6ed3a25  policies/command-policy.yml
 7747637a42919bf6548600fc78a9f53866ed655dfff00370958a0707674f3840  policies/module-size-baseline.txt
 cd603634033c3eb68970210d5d2a0762c3fd0ee01ec53c36a8f4644ec7374f2f  policies/module-size.yml
 6512a266a351c005374713adcdb41a0de4ea0c179df0d071c7a9dd5399e15973  policies/protected-paths.yml
