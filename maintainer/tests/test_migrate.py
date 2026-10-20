@@ -618,6 +618,23 @@ class ReleaseNote(unittest.TestCase):
         self.assertEqual(wrong, [], "paths the release does not ship")
         self.assertLessEqual({"maintainer/flow.py", "hooks/requirements.txt", "hooks/local/write-bootstrap-approval.sh"},
                              set(named))
+        # brief m6-fix item 11: both live projects go from 6.0.0-m4 to 6.0.0-m6 in one step; the same block, every file
+        # the core added since 6.0.0-m4 staged by name, and the reader task's re-registration after the commit
+        hop = note.split(f"## Upgrading a 6.0.0-m4 project to {version} in one step\n", 1)[1].split("\n## ", 1)[0]
+        block = re.findall(r"^```\n(.*?)^```$", hop, flags=re.M | re.S)
+        self.assertEqual(len(block), 1, "one block for every 6.0.0-m4 install")
+        self.assertEqual([ln for ln in block[0].splitlines() if "maintainer/flow.py install " in ln], installs)
+        added = git(core, "diff", "--name-only", "--diff-filter=A", "6.0.0-m4", "HEAD", "--", "hooks").stdout.split()
+        if added:  # a clone without the 6.0.0-m4 tag (a shallow CI checkout) checks the rest
+            staged = next(ln for ln in block[0].splitlines() if ln.startswith("git add -- hooks/"))
+            self.assertEqual(sorted(staged.split()[3:]), sorted(added))
+        self.assertIn(f"`python fusebase-flow-{version}/maintainer/flow.py install --target <your-project> --providers "
+                      "<the providers audit/flow-install.json lists> --register-reader`", hop)
+        for line in block[0].splitlines():
+            for word in PLACEHOLDER.sub("<>", line).split():
+                if "/" in word and "://" not in word and not word.startswith(("<", "-")):
+                    path = word.rstrip(";").removeprefix(f"fusebase-flow-{version}/")
+                    self.assertIn(path, tracked | {flow.PROJECT_BASELINE}, line)
 
 
 @unittest.skipUnless(os.environ.get("FLOW_MIGRATE_FIXTURE"), "FLOW_MIGRATE_FIXTURE not set")
