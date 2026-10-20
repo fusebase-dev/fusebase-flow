@@ -138,7 +138,7 @@ def validate(root: Path, target: str, file: str | None = None, present: bool = F
     out = [f"evidence {target}: {rel}, {len(wanted)} criteria"]
     if not any(classes.values()):
         out.append("  classes: no globs declared in policies/evidence-classes.yml; the risk tag alone sets the class")
-    rows, result, digests, blocked = table(fd.read(root / rel)), {}, {}, {}
+    rows, result, digests, blocked, written = table(fd.read(root / rel)), {}, {}, {}, {}
     for item in wanted:
         mine = [r for r in rows if r["id"] == item]
         if present and not mine:
@@ -151,8 +151,10 @@ def validate(root: Path, target: str, file: str | None = None, present: bool = F
             problems.append(f"status `{mine[0]['status']}` does not match row_status")
         elif mine[0]["status"] != "PASS" and (cited := accepted(mine[0], answers)):  # never PASS, never a failure
             blocked[item], actual = (mine[0]["status"].split()[0], cited), "-"
+        elif mine[0]["status"] != "PASS" and present:  # --staged: a recorded FAIL or BLOCKED row is no failure, never PASS
+            written[item], actual = mine[0]["status"], "-"
         elif mine[0]["status"] != "PASS":
-            problems += [] if present else [f"the row says {mine[0]['status']}"]
+            problems.append(f"the row says {mine[0]['status']}")
         elif "::" in mine[0]["capture"]:
             problems += check_test_row(root, mine[0], base, str(pol.get("test_pass_marker", "^ok [0-9]+ - ")))
         else:
@@ -169,7 +171,8 @@ def validate(root: Path, target: str, file: str | None = None, present: bool = F
                 result[i][0].append(f"shares capture {digest[:12]} with {', '.join(o for o in owners if o != i)}")
     for item, (problems, actual, need, detail) in result.items():
         state = ("FAIL: " + "; ".join(problems) if problems else
-                 f"{blocked[item][0]}: accepted by owner answer {blocked[item][1]}, not PASS" if item in blocked else "PASS")
+                 f"{blocked[item][0]}: accepted by owner answer {blocked[item][1]}, not PASS" if item in blocked else
+                 f"{written[item]} (holds as written: no failure of this commit, not PASS)" if item in written else "PASS")
         out.append(f"  {item} {state} (class {actual}, minimum {need})")
         out += detail
     then, _ = fd.backlog(fd.git(root, "show", f"{base}:{fd.BACKLOG}")) if base else ({}, {})
@@ -178,8 +181,10 @@ def validate(root: Path, target: str, file: str | None = None, present: bool = F
     bad = sum(bool(r[0]) for r in result.values())
     held = f"; {len(blocked)} blocked, accepted by an owner answer: " + ", ".join(f"{i} ({a})" for i, (_, a) in
                                                                                 blocked.items()) if blocked else ""
-    out += [f"  {f}" for f in flags] + [f"EVIDENCE: {'FAIL' if bad else 'BLOCKED' if blocked else 'PASS'} ({bad} of "
-                                        f"{len(result)} {'rows' if present else 'criteria'} fail{held})"]
+    held += f"; {len(written)} as written, not PASS: {', '.join(written)}" if written else ""
+    verdict = "FAIL" if bad else "BLOCKED" if blocked else "AS WRITTEN" if written else "PASS"
+    out += [f"  {f}" for f in flags] + [f"EVIDENCE: {verdict} ({bad} of {len(result)} "
+                                        f"{'rows' if present else 'criteria'} fail{held})"]
     return int(bool(bad)), out, flags
 
 

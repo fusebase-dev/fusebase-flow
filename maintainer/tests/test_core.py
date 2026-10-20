@@ -421,7 +421,9 @@ class EvidenceHook(Workspace):
         failed = self.hooked("T2: the B2 row records a FAIL", {"docs/flow/evidence/P1.md": (
             self.repo / "docs/flow/evidence/P1.md").read_text("utf-8") + "| B2 | FAIL: the test is red | - | - | - | - | - |\n"})
         self.assertEqual(failed.returncode, 0, failed.stdout + failed.stderr)
-        self.assertIn("EVIDENCE: PASS (0 of 2 rows fail)", failed.stderr)
+        # 6.0.0-m6 fix item (iii): the recorded FAIL row is no failure of the commit, and never printed as PASS
+        self.assertIn("B2 FAIL: the test is red (holds as written: no failure of this commit, not PASS)", failed.stderr)
+        self.assertIn("EVIDENCE: AS WRITTEN (0 of 2 rows fail; 1 as written, not PASS: B2)", failed.stderr)
 
 
 CLI_SETTINGS = """{

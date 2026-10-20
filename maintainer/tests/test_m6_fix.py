@@ -34,5 +34,27 @@ class FlakyNote(m3.Validator):
             self.assertEqual(line.startswith("  B1 PASS"), holds, f"{note!r}: {line}")
 
 
+class StagedAsWritten(m3.Validator):
+    """Item (iii): the pre-commit's staged evidence check (`validate_evidence.py --staged`) never prints PASS for a row
+    whose status is FAIL, or BLOCKED without an accepted owner answer; it shows the row's own status and, as before,
+    counts it as no failure of the commit."""
+
+    locals().update(dict.fromkeys(n for n in dir(m3.Validator) if n.startswith("test")))
+
+    def test_a_staged_fail_or_unaccepted_blocked_row_is_shown_as_written_never_pass(self) -> None:
+        head = "| Criterion | Status | Capture | sha256 | Bytes | Log | Note |\n|---|---|---|---|---|---|---|\n"
+        rows = ("| B1 | FAIL: the link signed someone in | - | - | - | - | - |\n"
+                "| B2 | BLOCKED-AT-owner-account | - | - | - | - | no answer yet |\n")
+        m3.write(self.repo, "docs/flow/evidence/P1.md", "# Evidence\n\n" + head + rows)
+        m3.git(self.repo, "add", "--", "docs/flow/evidence/P1.md")
+        out = m3.run(str(m3.LOCAL / "validate_evidence.py"), "--staged", "--root", str(self.repo), cwd=self.tmp)
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertNotRegex(out.stdout, r"(?m)^  B[12] PASS", out.stdout)
+        self.assertIn("  B1 FAIL: the link signed someone in (holds as written: no failure of this commit, not PASS)",
+                      out.stdout)
+        self.assertIn("  B2 BLOCKED-AT-owner-account (holds as written", out.stdout)
+        self.assertIn("EVIDENCE: AS WRITTEN (0 of 2 rows fail; 2 as written, not PASS: B1, B2)", out.stdout)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
