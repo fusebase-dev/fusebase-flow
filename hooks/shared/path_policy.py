@@ -9,11 +9,12 @@ import fnmatch
 import hashlib
 import subprocess
 from dataclasses import dataclass
+from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
 from .approval_artifact import (
-    accept_with_audit, compute_repo_id, evaluate_artifact, load as load_artifact,
+    accept_with_audit, compute_repo_id, evaluate_artifact, load as load_artifact, now_utc, parse_expiry,
 )
 from .policy_loader import find_git_root, get_policy
 
@@ -39,6 +40,10 @@ _DIGEST_BOUND_OPERATIONS = {
 }
 _BOOTSTRAP_CATEGORY = "fusebase_flow_internals"
 _BOOTSTRAP_OPERATION = _DIGEST_BOUND_OPERATIONS[_BOOTSTRAP_CATEGORY]
+# The operator's go-ahead, minted BEFORE the edit (write-bootstrap-approval.sh --paths): the same operation, the named
+# paths and `head_at_mint` instead of a tree_digest. It covers the agent's Edit/Write of those paths and the commit of
+# exactly them while HEAD stays where it was minted; the commit that lands moves HEAD and so spends it (brief m6 (9)).
+GO_AHEAD_MAX_MINUTES = 30
 
 
 @dataclass
@@ -231,6 +236,38 @@ def staged_change_paths(root: Path) -> list[str]:
     return [p for p in out if not (p in seen or seen.add(p))]
 
 
+def _head(root: Path) -> str:
+    try:
+        proc = subprocess.run(["git", "rev-parse", "--verify", "-q", "HEAD^{commit}"], capture_output=True, text=True,
+                              cwd=str(root))
+    except Exception:
+        return ""
+    return proc.stdout.strip() if proc.returncode == 0 else ""
+
+
+def _go_ahead_holds(data: dict, path: str, approved: list[str], root: Path, artifact: Path, category: str) -> bool:
+    """A go-ahead artifact authorizes `path` while HEAD is the commit it was minted at, its expiry is at most
+    GO_AHEAD_MAX_MINUTES away, and every staged path is one it names (the commit touches only those). Each use
+    leaves an audit line."""
+    head, expires = data.get("head_at_mint"), parse_expiry(data.get("expires_at"))
+    if not isinstance(head, str) or not head.strip() or expires is None:
+        return False
+    if expires - now_utc() > timedelta(minutes=GO_AHEAD_MAX_MINUTES + 1) or head.strip() != _head(root):
+        return False
+    if not set(staged_change_paths(root)) <= set(approved):
+        return False
+    try:
+        from .audit_logger import emit
+        emit("approval_go_ahead", decision="allow", rule_id="FR-07",
+             reason=f"FR-07: {path} ({category}) allowed by {artifact.name}, the operator's go-ahead for the paths it "
+                    f"names, while HEAD stays at {head.strip()[:12]}",
+             extra={"artifact": artifact.name, "path": path, "category": category, "head_at_mint": head.strip()},
+             root=root)
+    except BaseException:                        # noqa: BLE001 — logging never gates
+        pass
+    return True
+
+
 def compute_staged_tree_digest(paths: list[str], root: Path) -> str:
     """Digest binding an exception to the exact staged content+mode of `paths`.
 
@@ -257,7 +294,8 @@ def has_active_exception(
     (fusebase_flow_internals, ci_cd_config): for those the artifact must ALSO carry the
     category's exact `operation` and a tree_digest that matches the CURRENT staged content
     of its approved paths (single-use — a second unrelated protected-path edit changes the
-    digest and still DENIES). Other categories keep plain path+TTL matching.
+    digest and still DENIES), or, in the go-ahead form, `head_at_mint` (_go_ahead_holds).
+    Other categories keep plain path+TTL matching.
     """
     root = root or find_git_root()
     if category is None:
@@ -308,6 +346,10 @@ def has_active_exception(
             # sufficient for a digest-bound category. The operation is category-SPECIFIC, so
             # an internals approval cannot be replayed to authorize a workflow edit.
             if data.get("operation") != expected_operation:
+                continue
+            if "head_at_mint" in data:  # the go-ahead form: no tree_digest; it binds HEAD
+                if _go_ahead_holds(data, path, list(approved_paths), root, f, category or ""):
+                    return True
                 continue
             recorded = data.get("tree_digest", "")
             if not recorded:
@@ -378,5 +420,5 @@ def evaluate_many(paths: list[str], *, root: Path | None = None) -> list[PathDec
 __all__ = [
     "ApprovalPolicyError", "PathDecision", "is_protected", "has_active_exception",
     "compute_staged_tree_digest", "staged_change_paths", "evaluate", "evaluate_many",
-    "assert_protected_policy_loaded",
+    "assert_protected_policy_loaded", "GO_AHEAD_MAX_MINUTES",
 ]

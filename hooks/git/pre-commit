@@ -634,6 +634,13 @@ for src, dst in files:
               file=sys.stderr)
         sys.exit(1)
     dst.write_bytes(show.stdout)
+
+# Optional, never a sentinel: path_policy's go-ahead check writes its audit line through audit_logger (brief m6 (9));
+# a HEAD without it only loses that line (logging never gates), and it never decides trusted-vs-fallback.
+for src in ("hooks/shared/audit_logger.py",):
+    show = subprocess.run(["git", "show", f"HEAD:{src}"], capture_output=True, cwd=str(root))
+    if show.returncode == 0:
+        (tmp / "shared" / Path(src).name).write_bytes(show.stdout)
 PREP
             # Invoke the extractor WITHOUT $(...) command substitution: on MSYS a Windows-native
             # git grandchild can hold a captured pipe open past exit and hang the parent (the

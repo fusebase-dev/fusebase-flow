@@ -142,11 +142,12 @@ def main() -> int:
                 )
                 _output_decision("deny", reason, "FR-07")
                 return 2
-            # Make path repo-relative if it's absolute under root.
+            # Make path repo-relative if it's absolute under root, written with / as git and an approval's `paths` write
+            # it (a Windows path's \ never equals a named path).
             rel = target
             if root and Path(target).is_absolute():
                 try:
-                    rel = str(Path(target).relative_to(root))
+                    rel = Path(target).relative_to(root).as_posix()
                 except ValueError:
                     rel = target
             pd = evaluate_path(rel, root=root)

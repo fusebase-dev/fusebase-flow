@@ -9,6 +9,8 @@ The planner (the operator's main session, or an agent with the planner profile) 
 
 Commit the documents as `plan: <what>`; `commit-msg` takes `plan:` only on the files under Commit below. Declare the project's class globs and trivial-tier lists in `policies/evidence-classes.yml`, a protected file.
 
+A protected Flow file (`policies/*.yml`, say) is edited on the operator's go-ahead in chat for the files it names: before the edit, run `FF_BOOTSTRAP_TTL_MIN=30 bash hooks/local/write-bootstrap-approval.sh --paths <file>...`; edit; commit exactly those files under a task's `T<n>`; then run the script with `--consume`. The commit spends the approval, which lasts 30 minutes at most.
+
 ## Read first
 
 - `docs/north-star.md` when it exists: say so when work does not serve it. Never create the file.

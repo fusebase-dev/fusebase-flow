@@ -24,9 +24,15 @@
 # emitted no `paths` at all. The operation string per category comes from path_policy's
 # _DIGEST_BOUND_OPERATIONS, so writer and verifier read ONE definition.
 #
+# GO-AHEAD FORM (`--paths`): one operator go-ahead in chat lets the agent edit AND commit named paths of the category,
+# minted BEFORE the change exists. The artifact names those exact paths and binds the commit HEAD is at instead of a
+# staged digest: path_policy then allows the Edit/Write of a named path and a commit whose staged paths are all named,
+# until HEAD moves (the commit that lands spends it) or it expires (at most GO_AHEAD_MAX_MINUTES); each use is audited.
+#
 # Usage:
 #   bash hooks/local/write-bootstrap-approval.sh                          # staged internals
 #   bash hooks/local/write-bootstrap-approval.sh --category ci_cd_config  # staged workflows
+#   bash hooks/local/write-bootstrap-approval.sh --paths <path>...        # go-ahead: named paths, before the edit
 #   bash hooks/local/write-bootstrap-approval.sh --consume [--category X] # delete artifact(s)
 
 set -euo pipefail
@@ -38,12 +44,15 @@ TTL_MIN="${FF_BOOTSTRAP_TTL_MIN:-15}"   # short-lived: covers the setup commit o
 CATEGORY="fusebase_flow_internals"
 SLUG=""
 CONSUME=0
+GO_PATHS=()
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --consume) CONSUME=1; shift ;;
         --category) CATEGORY="${2:-}"; shift 2 ;;
         --slug) SLUG="${2:-}"; shift 2 ;;
-        --help|-h) sed -n '2,30p' "$0"; exit 0 ;;
+        --paths) shift; while [ "$#" -gt 0 ] && [ "${1#--}" = "$1" ]; do GO_PATHS+=("$1"); shift; done
+                 [ "${#GO_PATHS[@]}" -gt 0 ] || { echo "[bootstrap-approval] --paths needs at least one path" >&2; exit 2; } ;;
+        --help|-h) sed -n '2,36p' "$0"; exit 0 ;;
         *) echo "[bootstrap-approval] unknown argument: $1" >&2; exit 2 ;;
     esac
 done
@@ -96,15 +105,16 @@ ARTIFACT="$APPROVALS_DIR/protected_path_edit-${SLUG}-${DATE_STAMP}.json"
 # computes the digest, and writes the artifact with the required protected-paths.yml fields
 # + operation + tree_digest.
 # shellcheck disable=SC2086
-PYTHONPATH="$ROOT/hooks" $FF_PY - "$ROOT" "$ARTIFACT" "$CATEGORY" "$TTL_MIN" "$SLUG" <<'PY'
-import datetime, json, sys
+PYTHONPATH="$ROOT/hooks" $FF_PY - "$ROOT" "$ARTIFACT" "$CATEGORY" "$TTL_MIN" "$SLUG" ${GO_PATHS[@]+"${GO_PATHS[@]}"} <<'PY'
+import datetime, json, subprocess, sys
 from pathlib import Path
 
 root, artifact, category, ttl_min, slug = (
     sys.argv[1], sys.argv[2], sys.argv[3], int(sys.argv[4]), sys.argv[5])
+go_paths = sys.argv[6:]
 sys.path.insert(0, str(Path(root) / "hooks"))
 from shared.path_policy import (  # noqa: E402
-    _DIGEST_BOUND_OPERATIONS, compute_staged_tree_digest, is_protected, staged_change_paths,
+    _DIGEST_BOUND_OPERATIONS, GO_AHEAD_MAX_MINUTES, compute_staged_tree_digest, is_protected, staged_change_paths,
 )
 
 # TRIPWIRE: minting for a category the VERIFIER does not treat as digest-bound would produce
@@ -115,6 +125,45 @@ if operation is None:
           f"(known: {', '.join(sorted(_DIGEST_BOUND_OPERATIONS))}) — refusing to mint an "
           "artifact the gate would not enforce as single-use.", file=sys.stderr)
     sys.exit(2)
+
+if go_paths:
+    # TRIPWIRE: the go-ahead names exact repo-relative paths of THIS category, never a glob, and binds HEAD; a path
+    # outside the category, or a longer life, would widen what one chat go-ahead lets an agent change.
+    def problem(p: str) -> str:
+        if p.startswith("/") or "\\" in p or ":" in p or any(s in ("", ".", "..") for s in p.split("/")):
+            return "not a repo-relative path written with / (no leading /, no . or .. segment)"
+        if any(ch in p for ch in "*?["):
+            return "a glob; name each file"
+        return "" if is_protected(p)[1] == category else f"not a {category} path"
+    bad = [f"{p}: {why}" for p in go_paths if (why := problem(p))]
+    if bad or ttl_min > GO_AHEAD_MAX_MINUTES or ttl_min < 1:
+        for line in bad + ([f"FF_BOOTSTRAP_TTL_MIN={ttl_min}: a go-ahead lives 1 to {GO_AHEAD_MAX_MINUTES} minutes"]
+                           if ttl_min > GO_AHEAD_MAX_MINUTES or ttl_min < 1 else []):
+            print(f"[bootstrap-approval] refused: {line}", file=sys.stderr)
+        sys.exit(2)
+    head = subprocess.run(["git", "rev-parse", "--verify", "-q", "HEAD^{commit}"], capture_output=True, text=True,
+                          cwd=root).stdout.strip()
+    if not head:
+        print("[bootstrap-approval] refused: no commit yet; a go-ahead binds the commit HEAD is at", file=sys.stderr)
+        sys.exit(2)
+    from shared.approval_artifact import compute_repo_id  # noqa: E402
+    from shared.audit_logger import emit  # noqa: E402
+    paths, now = sorted(set(go_paths)), datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
+    expires = (now + datetime.timedelta(minutes=ttl_min)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    data = {
+        "approved_by": slug, "scope": _DIGEST_BOUND_OPERATIONS[category], "expires_at": expires,
+        "created_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "reason": f"the operator's go-ahead in chat: edit and commit exactly these {category} paths",
+        "action": "protected_path_edit", "operation": _DIGEST_BOUND_OPERATIONS[category], "head_at_mint": head,
+        "repo_id": compute_repo_id(Path(root)), "paths": paths,
+    }
+    Path(artifact).write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    emit("approval_go_ahead_minted", decision="allow", rule_id="FR-07", root=Path(root),
+         reason=f"FR-07: go-ahead {Path(artifact).name} minted for {len(paths)} {category} path(s), until {expires}",
+         extra={"artifact": Path(artifact).name, "paths": paths, "head_at_mint": head})
+    print(f"[bootstrap-approval] minted {artifact} (expires {expires}; the go-ahead for {len(paths)} named path(s): "
+          f"{', '.join(paths)}; edit them and commit exactly them while HEAD stays at {head[:12]}; that commit spends it)")
+    sys.exit(0)
 
 # Full staged change set (A/C/M + DELETES + rename src/dst) so a sanctioned delete or
 # rename of a protected path can be approved via the SAME artifact — writer

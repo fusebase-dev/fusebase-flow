@@ -28,6 +28,10 @@
 #   hooks/shared/command_rules.py, policies/command-policy.yml and hooks/git/pre-commit: the exemption covers a
 #   destructive_file_delete mint only, and lint goes to the commit-msg git will run only when it is executable
 #   and marked (T284; 5.x 53a9b6d3, local; the owner's choice (a), relayed).
+#   hooks/local/write-bootstrap-approval.sh, hooks/shared/path_policy.py, hooks/handlers/pre_tool_use.py and
+#   hooks/git/pre-commit: the go-ahead form (--paths, head_at_mint): one operator go-ahead covers an agent's Edit of
+#   the named Flow-internals paths and the commit of exactly them; the commit spends it (T289; 5.x 91a6ffd3,
+#   local; brief m6 item 9).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -43,10 +47,10 @@
 f2557b19379421fac007a2c758eda73bb6eb21990a7f5c366c438716e1fe2cfb  .gitattributes
 0acfb991aa269888937723022f2667b0e251ed0091ccc96491752360b2a61be0  LICENSE
 be312926d6a135837d5f3f38fdf219946f1cd43e16d3d1e3793f1e3ad814f174  hooks/git/commit-msg
-f30a28989de29d0486ab66b19af8bc9060571c4bd1018786ed9d855284248100  hooks/git/pre-commit
+6233e5c5392a70f3c3e4666a9a21a37d7c901c3100b2d03a159e8b043927b88c  hooks/git/pre-commit
 61fa39ad945e6fbf5718dc8ab11c7a6892b50c431e4514a94ca71ccb84679120  hooks/git/pre-push
 d4c7b522d5095dd26b336cb95ef2fd5de290234102f485e79d79d928bc7b8f5f  hooks/handlers/post_tool_use.py
-2ed1c6143f5324e2178f51a6156f0fc4857a6576f8850365ecf13ab829d9487d  hooks/handlers/pre_tool_use.py
+77837c64bacfcc31f56a045a80bc1e3585a20df22f25b8e02678f28da359b166  hooks/handlers/pre_tool_use.py
 6d92a4ab1d91b5c03d5864aabb2f7dd64abcaab4bc2a7850fa8dbf6ef7d4b3aa  hooks/local/approve-local.sh
 e9d192b09e351091350d6d4b6f04e865f5611f5268bd0c5c4a24d5cbcd83d582  hooks/local/check-module-size.sh
 83ef934c00c8688b5666176e18cd556f8971950dbbb53e583dd08b48eca2f9de  hooks/local/install-git-hooks.sh
@@ -56,7 +60,7 @@ f96ad00eae668bbe6f0820e1d4ff263f32df07b46acba1af9853b6392d6c0f2b  hooks/local/li
 59b32bed31dba84ed161b8b1a9f9df989daec2d31a8789e8fd1ebf8b56171ed7  hooks/local/lib/run-with-timeout.sh
 0a77529b6bf4948546f6e03d479a19779e0565222294902407e6190513006588  hooks/local/lib/validator_tier.py
 009493546e7939c7076950db52fa6a4a0415d41a98a49db85adcc8ecbf030ece  hooks/local/run-handler.sh
-c6e7d2525d8e3a4534da22d9d9c1a294052cf29ee7c437ac448c7b4ca0283e90  hooks/local/write-bootstrap-approval.sh
+87dba646026346ffe707a0fc9eae09a892e069a15df4393669efae908f3421ff  hooks/local/write-bootstrap-approval.sh
 63daf72404eb71177e26c560daf8257d7bcb63dd791983e048848cd88ae94fc8  hooks/requirements.txt
 a17fa14158188b1c02621a2d5cad7a96470578b007abb973a7327a6a00163538  hooks/shared/__init__.py
 e7c5c77c9a71502aa10a79195fcba455e76fbd6fa350c616bbcd9c0280c6ae89  hooks/shared/approval_artifact.py
@@ -67,7 +71,7 @@ e7c5c77c9a71502aa10a79195fcba455e76fbd6fa350c616bbcd9c0280c6ae89  hooks/shared/a
 dae64b6cf2cb20b72142cd0cd283ac60597e943ea17dd296d4080043c1a02d27  hooks/shared/git_push_binding.py
 2e86be791cfe5e2b895e91875f93dd97dd4e88e1b2856a9525bcb9e2b8c1aee7  hooks/shared/git_utils.py
 da74a713f30c28f0f980829b7fe7df134de3d94670635a9b452cfc9b9fbcee56  hooks/shared/module_size.py
-aa629e0517a7c41fa9b15271b757b45fddb0178935a8c439a4a0787c765e91bc  hooks/shared/path_policy.py
+97be0a403c27913dc1be20317abb994e2a8f23416ef74b8b09b9877299b13124  hooks/shared/path_policy.py
 50919a984d82bb661afd53fedfd80ec407c0088772408978cd6e144d3d22171d  hooks/shared/policy_loader.py
 fecb30ef246aaf2dc90dc55200de5d1b0bab92242c8cbbd5cbd3e9c0d8d784fa  hooks/shared/secret_scanner.py
 4d7e59cbdd0fffa1fc3ffe7dcf937c372ff232c70d45c497c0b56e2fde8b3e8a  hooks/shared/staged_secret_scan.py
