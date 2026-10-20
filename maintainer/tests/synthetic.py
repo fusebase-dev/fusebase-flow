@@ -35,6 +35,15 @@ def git(cwd: Path, *args: str) -> subprocess.CompletedProcess:
     return subprocess.run([*GIT, *args], cwd=cwd, capture_output=True, text=True, timeout=600)
 
 
+def no_auto_gc(repo: Path) -> Path:
+    """Every test repository, in its own config: a commit (the migration's, a hook's) starts `git gc --auto` detached,
+    whose packing deletes loose objects and their folders while copy_of()'s copytree reads them (m5 publish, run
+    39364326527). The repository's config, not GIT's -c: flow.py and the hooks run their own git."""
+    for key, value in (("gc.auto", "0"), ("maintenance.auto", "false")):
+        subprocess.run(["git", "config", key, value], cwd=repo, capture_output=True, timeout=600, check=True)
+    return repo
+
+
 def migrate(target: Path, *extra: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
     return subprocess.run([sys.executable, str(FLOW), "migrate", "--target", str(target), *extra], env=env,
                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=1800)
@@ -54,6 +63,7 @@ def snapshot(root: Path) -> tuple[str, dict[str, str]]:
 def build_project(root: Path, extra: dict[str, str] | None = None) -> None:
     root.mkdir(parents=True)
     git(root, "init", "-q")
+    no_auto_gc(root)
     files = {**FILES, **(extra or {})}
     for rel, text in files.items():
         (root / rel).parent.mkdir(parents=True, exist_ok=True)
@@ -77,6 +87,7 @@ def scratch_clone(tmp: Path, extra: dict[str, str] | None = None) -> Path:
     build_project(tmp / "origin", extra)
     clone = tmp / "scratch"
     git(tmp, "clone", "-q", "--no-hardlinks", str(tmp / "origin"), str(clone))
+    no_auto_gc(clone)
     git(clone, "config", "user.name", "flow-test")
     git(clone, "config", "user.email", "flow-test@example.invalid")
     return clone

@@ -22,7 +22,8 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from synthetic import FILES, FLOW, GIT, blob, build_project, commit_file, git, migrate, scratch_clone, snapshot
+from synthetic import (FILES, FLOW, GIT, blob, build_project, commit_file, git, migrate, no_auto_gc, scratch_clone,
+                       snapshot)
 
 
 def install(target: Path) -> subprocess.CompletedProcess:
@@ -49,6 +50,7 @@ class AbortFixture(unittest.TestCase):
         build_project(self.tmp / "origin")
         self.clone = self.tmp / "scratch"
         git(self.tmp, "clone", "-q", "--no-hardlinks", str(self.tmp / "origin"), str(self.clone))
+        no_auto_gc(self.clone)
 
     def tearDown(self) -> None:
         shutil.rmtree(self.tmp, ignore_errors=True)
@@ -83,6 +85,7 @@ class RemovalFallback(unittest.TestCase):
             build_project(tmp / "origin")
             clone = tmp / "scratch"
             git(tmp, "clone", "-q", "--no-hardlinks", str(tmp / "origin"), str(clone))
+            no_auto_gc(clone)
             inv = migrate.inventory(clone.resolve(), {"claude", "codex"})
             folder, _ = migrate_apply.backup(inv, "20990101T000000Z")
 
@@ -134,6 +137,7 @@ class ApplyEndToEnd(unittest.TestCase):
         fresh = self.tmp / "binaries"
         run = lambda *args: subprocess.run([*GIT_CRLF, *args], cwd=fresh, capture_output=True, timeout=600)
         subprocess.run([*GIT_CRLF, "clone", "-q", "--no-hardlinks", str(self.clone), str(fresh)], timeout=600)
+        no_auto_gc(fresh)
         for rel, data in {**BINARIES, EVIDENCE: b"# Evidence P1\n\n| Item | Status |\n"}.items():
             (fresh / rel).parent.mkdir(parents=True, exist_ok=True)
             (fresh / rel).write_bytes(data)
@@ -172,6 +176,7 @@ class ApplyEndToEnd(unittest.TestCase):
         done = subprocess.run(["git", "-c", "core.autocrlf=true", "clone", "-q", "--no-hardlinks", str(clone), str(fresh)],
                               capture_output=True, text=True, timeout=600)
         self.assertEqual(done.returncode, 0, done.stderr)
+        no_auto_gc(fresh)
         for rel in generated:
             self.assertNotIn(b"\r", (fresh / rel).read_bytes(), f"{rel} in a core.autocrlf=true clone")
         self.assertNotIn("AGENTS.md: eol: lf", git(clone, "check-attr", "eol", "--", "AGENTS.md", "src/app.ts").stdout)
@@ -329,6 +334,7 @@ class Preflight(unittest.TestCase):
         repo = self.tmp / "fresh"
         repo.mkdir()
         git(repo, "init", "-q")
+        no_auto_gc(repo)
         commit_file(repo, ".gitattributes", NO_END, "chore: T1 a damaged Flow block")
         before, git_before = snapshot(repo), hooks_and_exclude(repo)
         run = install(repo)
@@ -609,6 +615,7 @@ class RealProjectAbort(unittest.TestCase):
         try:
             clone = tmp / "scratch"
             git(tmp, "clone", "-q", "--no-hardlinks", str(source), str(clone))
+            no_auto_gc(clone)
             git(clone, "checkout", "-q", git(source, "rev-parse", "HEAD").stdout.strip())
             assets = json.loads((clone / "audit/managed-content-manifest.json").read_text(encoding="utf-8"))["assets"]
             planted = assets[len(assets) // 2]["path"]

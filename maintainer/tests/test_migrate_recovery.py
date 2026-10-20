@@ -78,6 +78,41 @@ def outside_backup(snap: tuple[str, dict[str, str]]) -> tuple[str, dict[str, str
     return snap[0], {p: h for p, h in snap[1].items() if not p.startswith(".flow-migrate-")}
 
 
+class AutoGc(unittest.TestCase):
+    """T288: no test repository packs its loose objects on its own. Over gc.auto's threshold (6,700 loose objects,
+    sampled as more than 27 in .git/objects/17) the `git gc --auto` every commit starts packs them and deletes their
+    files and folders, which copy_of()'s copytree was reading (m5 publish, core-release run 39364326527)."""
+
+    def test_a_commit_over_the_threshold_leaves_the_loose_objects_where_copy_of_reads_them(self) -> None:
+        tmp = Path(tempfile.mkdtemp(prefix="flow-migrate-"))
+        try:
+            clone = scratch_clone(tmp)
+            blobs, n = [], 0
+            while len(blobs) < 30:  # committed, so reachable: gc packs them rather than keeping them loose
+                n += 1
+                data = f"loose object {n}\n".encode("utf-8")
+                if hashlib.sha1(b"blob %d\0" % len(data) + data).hexdigest().startswith("17"):
+                    blobs.append(data)
+            for i, data in enumerate(blobs):
+                (clone / f"loose/{i}.txt").parent.mkdir(exist_ok=True)
+                (clone / f"loose/{i}.txt").write_bytes(data)
+            git(clone, "add", "--", "loose")
+            git(clone, "-c", "gc.auto=0", "commit", "-q", "-m", "chore: T2 thirty loose objects under objects/17")
+            before = sorted(p.name for p in (clone / ".git/objects/17").iterdir())
+            self.assertGreaterEqual(len(before), 30)
+            # what git commit runs after every commit, waited for here instead of detached
+            git(clone, "-c", "gc.autoDetach=false", "gc", "--auto")
+            folder = clone / ".git/objects/17"
+            after = sorted(p.name for p in folder.iterdir()) if folder.is_dir() else []
+            self.assertEqual(after, before, f"git gc --auto packed {len(before) - len(after)} loose objects and "
+                                            f"{'emptied' if folder.is_dir() else 'deleted'} .git/objects/17")
+            for repo in (tmp / "origin", clone):
+                self.assertEqual(git(repo, "config", "--get", "gc.auto").stdout.strip(), "0", repo.name)
+                self.assertEqual(git(repo, "config", "--get", "maintenance.auto").stdout.strip(), "false", repo.name)
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
 class Interrupted(unittest.TestCase):
     def test_a_stop_right_after_removal_prints_the_rollback_and_no_commit(self) -> None:
         self.rolled_back(hooks_path=False, locked=False)

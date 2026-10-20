@@ -22,7 +22,7 @@ from unittest import mock
 
 import yaml
 
-from synthetic import FLOW, GIT, git
+from synthetic import FLOW, GIT, git, no_auto_gc
 
 CORE = FLOW.parents[1]
 LOCAL = CORE / "hooks/local"
@@ -43,6 +43,7 @@ class Workspace(unittest.TestCase):
         self.repo = self.tmp / "project"
         self.repo.mkdir()
         git(self.repo, "init", "-q", "-b", "main")
+        no_auto_gc(self.repo)
 
     def tearDown(self) -> None:
         shutil.rmtree(self.tmp, ignore_errors=True)
