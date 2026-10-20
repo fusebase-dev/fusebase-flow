@@ -334,6 +334,98 @@ class OneCommitAtATime(Project):
         self.assertFalse((self.repo / ".git/flow-commit.lock").exists())
 
 
+def commit_module():
+    sys.path.insert(0, str(CORE / "hooks/local"))
+    import commit
+    return commit
+
+
+class CommitPyFixes(Project):
+    """m6-fix F2 to F5 (review A #1 to #4): commit.py commits a staged delete and rename, reads names literally and
+    refuses a folder, releases only its own lock and retries it on Windows, keeps its lock live while it waits to stage,
+    and names an aged index.lock that no git process holds instead of waiting for it."""
+
+    wire = False
+
+    def commit_py(self, subject: str, *names: str) -> subprocess.CompletedProcess:
+        return sh(self.repo, sys.executable, "hooks/local/commit.py", "-m", subject, *names)
+
+    def head_files(self) -> list[str]:
+        return git(self.repo, "show", "--no-renames", "--name-status", "--format=", "HEAD").stdout.split("\n")[:-1]
+
+    def test_a_staged_delete_and_rename_commit_and_a_name_is_never_a_pattern(self) -> None:
+        names = ("a.ts", "b.ts", "app[id].ts", "appi.ts")
+        for name in names:
+            (self.repo / name).write_bytes(f"export const x = '{name}';\n".encode("utf-8"))  # LF: git sees no change
+        done = self.commit_py("T1: four files", *names)
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        git(self.repo, "rm", "-q", "--", "b.ts")
+        done = self.commit_py("T1: b goes", "b.ts")  # F2: a staged delete
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertEqual(self.head_files(), ["D\tb.ts"])
+        git(self.repo, "mv", "a.ts", "a2.ts")
+        done = self.commit_py("T1: a moves", "a.ts", "a2.ts")  # F2: a staged rename
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertEqual(sorted(self.head_files()), ["A\ta2.ts", "D\ta.ts"])
+        for name in ("app[id].ts", "appi.ts"):
+            (self.repo / name).write_bytes(b"export const y = 2;\n")
+        done = self.commit_py("T1: only app[id]", "app[id].ts")  # F3: literal, not a glob over appi.ts
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertEqual(self.head_files(), ["M\tapp[id].ts"])
+        self.assertIn(" M appi.ts", git(self.repo, "status", "--porcelain").stdout)
+        (self.repo / "src").mkdir()
+        (self.repo / "src/c.ts").write_bytes(b"export const c = 1;\n")
+        done = self.commit_py("T1: a folder", "src")  # F3: a folder is refused
+        self.assertEqual((done.returncode, "is a folder; name each file" in done.stderr), (2, True), done.stderr)
+
+    def test_the_lock_goes_only_if_ours_with_retries_and_stays_live_while_staging(self) -> None:
+        commit = commit_module()
+        lock = self.tmp / "flow-commit.lock"
+        lock.write_text(json.dumps({"pid": os.getpid()}), encoding="utf-8")
+        real, failures = Path.unlink, iter([PermissionError(32, "in use"), PermissionError(32, "in use")])
+
+        def busy(path, *args, **kwargs):  # F4: a waiter reading the lock on Windows makes the first deletes fail
+            if path == lock and (exc := next(failures, None)):
+                raise exc
+            return real(path, *args, **kwargs)
+        with mock.patch.object(Path, "unlink", busy):
+            self.assertTrue(commit.release(lock))
+        self.assertFalse(lock.exists())
+        lock.write_text(json.dumps({"pid": os.getpid() + 1}), encoding="utf-8")  # taken over: another holder's now
+        self.assertTrue(commit.release(lock))
+        self.assertTrue(lock.exists(), "a taken-over lock was deleted")
+        lock.unlink()
+        index_lock = self.tmp / "index.lock"
+        calls = iter([(128, "fatal: Unable to create '.git/index.lock': File exists."),
+                      (128, "fatal: Unable to create '.git/index.lock': File exists."), (0, "")])
+
+        def fake_git(cwd, *args):
+            if args[0] == "rev-parse":
+                return subprocess.CompletedProcess(args, 0, str(self.tmp if "--git-common-dir" in args else index_lock), "")
+            rc, err = next(calls)
+            return subprocess.CompletedProcess(args, rc, "", err)
+        touched = []
+        with mock.patch.object(commit, "git", fake_git), \
+                mock.patch.object(commit.os, "utime", lambda p, *a: touched.append(Path(p))), \
+                mock.patch.object(commit.subprocess, "Popen", lambda *a, **k: mock.Mock(wait=lambda timeout: 0)), \
+                mock.patch.object(commit.time, "sleep", lambda s: None):
+            self.assertEqual(commit.main(["-m", "T1: x", str(self.repo / "README.md")]), 0)
+        self.assertEqual(touched, [lock, lock], "F5: the lock was not kept live while the add waited")
+
+    def test_an_aged_index_lock_no_git_holds_is_named_at_once(self) -> None:
+        commit = commit_module()
+        lock, index_lock = self.tmp / "flow-commit.lock", self.tmp / "index.lock"
+        index_lock.write_bytes(b"")
+        old = time.time() - 300
+        os.utime(index_lock, (old, old))
+        start = time.monotonic()
+        with mock.patch.object(commit, "git_running", lambda: False):
+            self.assertEqual(commit.take(lock, index_lock, 600), "stale")
+        self.assertLess(time.monotonic() - start, 30, "F5: it waited for an index.lock nobody holds")
+        with mock.patch.object(commit, "git_running", lambda: True):
+            self.assertEqual(commit.take(lock, index_lock, 1), "a git process (index.lock)")
+
+
 class OwnGate(m3.Slicer):
     """m6 list item 6: an item whose criterion depends on the gate of its own phase is refused where the plan's items
     are checked before dispatch (slice.py, beside BLOCKED-AT-input). Onboarding's B4 (phase 6): "the phase 7 args
