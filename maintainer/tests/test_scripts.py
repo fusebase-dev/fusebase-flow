@@ -374,7 +374,8 @@ class Validator(Workspace):
         for text in (out.stdout, (self.repo / "state/gate/P1.txt").read_text(encoding="utf-8")):
             self.assertIn("  B2 BLOCKED-AT-owner-account: accepted by owner answer A1, not PASS", text)
             self.assertIn("EVIDENCE: BLOCKED (0 of 2 criteria fail; 1 blocked, accepted by an owner answer: B2 (A1))", text)
-            self.assertIn("GATE: PASS: dispatch the verdict (python hooks/local/slice.py P1 --brief verdict); blocked, "
+            self.assertIn("GATE: PASS: dispatch the two skeptics, then the verdict (python hooks/local/slice.py P1 "
+                          "--brief skeptic, then verdict); blocked, "
                           "accepted by an owner answer, not PASS: B2 BLOCKED-AT-owner-account (A1)", text)
 
     def test_rejects_a_blank_capture_under_the_floor(self) -> None:

@@ -92,7 +92,10 @@ def gate(root: Path, target: str) -> tuple[int, list[str]]:
     else:  # a BLOCKED-AT row its owner answer accepts does not fail the gate, and is never PASS (validate_evidence.py)
         held = [f"{m[1]} ({m[2]})" for ln in blocks if (m := re.match(r"  (B\d+ BLOCKED-AT-\S+): accepted by owner answer "
                                                                       r"(A\d+)", ln))]
-        rc, tail = 0, [f"GATE: PASS: dispatch the verdict (python hooks/local/slice.py {target} --brief verdict)"
+        # workflows/lifecycle.md, Verify: a slice gets one review reader; a phase two skeptics, then the verdict reader
+        then = (f"the review (python hooks/local/slice.py {target} --brief review)" if target in slices else
+                f"the two skeptics, then the verdict (python hooks/local/slice.py {target} --brief skeptic, then verdict)")
+        rc, tail = 0, [f"GATE: PASS: dispatch {then}"
                        + (f"; blocked, accepted by an owner answer, not PASS: {', '.join(held)}" if held else "")]
     out = [head, *blocks, *tail]
     path = root / "state/gate" / f"{target}.txt"

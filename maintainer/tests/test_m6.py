@@ -177,5 +177,35 @@ class FlakyScope(m3.Validator):
         self.assert_fails("B1", "FLAKY: run run-0 recorded a FAIL")
 
 
+class GatePass(m3.Validator):
+    """m6 list item 2 (M6-23): the gate's PASS line names the readers workflows/lifecycle.md gives the target: one review
+    reader for a slice; two skeptics, then the verdict reader, for a phase, never per slice."""
+
+    locals().update(dict.fromkeys(n for n in dir(m3.Validator) if n.startswith("test")))
+
+    def setUp(self) -> None:
+        super().setUp()
+        sha = dict(ln.split(" ", 1)[::-1] for ln in git(self.repo, "log", "--format=%H %s").stdout.splitlines())
+        m3.write(self.repo, "state/returns/P1-S1.json", json.dumps({
+            "slice": "P1-S1", "role": "builder", "started": "2026-10-18T10:00:00Z", "finished": "2026-10-18T11:00:00Z",
+            "tasks": [{"id": "T1", "sha": sha["T1: the expiry"]}, {"id": "T2", "sha": sha["T2: the test"]}],
+            "tool_calls": 40, "blocked_at": None, "notes": ""}))
+        self.validate()  # writes the evidence file
+
+    def gate(self, target: str) -> str:
+        out = m3.run(str(m3.LOCAL / "gate.py"), target, "--root", str(self.repo), cwd=self.tmp)
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        return out.stdout.strip().splitlines()[-1]
+
+    def test_a_slice_dispatches_its_review_and_a_phase_its_skeptics_then_its_verdict(self) -> None:
+        self.assertEqual(self.gate("P1-S1"),
+                         "GATE: PASS: dispatch the review (python hooks/local/slice.py P1-S1 --brief review)")
+        self.assertEqual(self.gate("P1"), "GATE: PASS: dispatch the two skeptics, then the verdict "
+                                          "(python hooks/local/slice.py P1 --brief skeptic, then verdict)")
+        lifecycle = (CORE / "workflows/lifecycle.md").read_text(encoding="utf-8")
+        self.assertIn("Review: one reader with `python hooks/local/slice.py <slice> --brief review`", lifecycle)
+        self.assertIn("Phase gate: one verdict reader and two skeptic readers, never per slice", lifecycle)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
