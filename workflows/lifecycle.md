@@ -8,7 +8,7 @@ The planner (the operator's main session) runs every step; builders build one sl
 
 - Feedback becomes items in `backlog.md`: one criterion or test id, inputs, a risk tag (`none`, `auth`, `data`, `prod`), a status. The owner's answers go under `## Answers`, verbatim.
 - Items become phases, slices and tasks in `phases.md`: task id, item, globs, estimate in minutes and files, the reference project.
-- Commit the four documents alone, as `plan: <what>`.
+- Commit the four documents alone, as `plan: <what>`. Every commit, yours and the builders', goes through `python hooks/local/commit.py -m "<subject>" <files>`: one at a time, the named files only.
 
 ## 2. Build (skill `dispatch`)
 

@@ -19,7 +19,7 @@ The planner runs this skill. Builders never load it: each gets the push block be
 
 ```text
 FLOW BUILDER CONTRACT
-1. Only this slice's tasks, inside their globs. One task, one commit, exactly one T<n> in the subject. Never revert others' changes.
+1. Only this slice's tasks, inside their globs. One task, one commit, exactly one T<n> in the subject, by `python hooks/local/commit.py -m "<subject>" <files>`. Never revert others' changes.
 2. Before each task check state/pause; if it exists, write your return and stop.
 3. Missing input or tool: stop with BLOCKED-AT-input naming both; never build without it. Unbounded wait: stop with BLOCKED-AT-<gate> and what cleared looks like.
 4. Long or silent commands: source hooks/local/lib/bounded-run.sh; bounded_run <seconds> <label> -- <command>. Never detach under it. Finish within this turn; you cannot resume.

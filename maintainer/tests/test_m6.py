@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -279,6 +280,47 @@ class PlannerCalls(m3.Validator):
         (self.repo / "state/audit.log.jsonl").unlink()
         out = m3.run(str(m3.LOCAL / "checks.py"), "P1-S1", "--root", str(self.repo), cwd=self.tmp)
         self.assertNotIn("planner-calls", out.stdout, "no audit line, nothing to count from")
+
+
+class OneCommitAtATime(Project):
+    """m6 list item 5: the planner and the builders share one work tree and one git index; every commit goes through
+    hooks/local/commit.py, which takes the repository's Flow commit lock and commits only its named files."""
+
+    wire = False
+
+    def start(self, subject: str, rel: str, **env: str) -> subprocess.Popen:
+        (self.repo / rel).write_text(f"{subject}\n", encoding="utf-8")
+        return subprocess.Popen([sys.executable, "hooks/local/commit.py", "-m", subject, rel], cwd=self.repo,
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env={**os.environ, **env})
+
+    def test_a_planner_commit_waits_for_a_builder_commit_and_neither_takes_the_others_files(self) -> None:
+        (self.repo / "src.ts").write_text("export const a = 1;\n", encoding="utf-8")
+        git(self.repo, "add", "--", "src.ts")  # a builder's staged change, not committed yet
+        lock = self.repo / ".git/index.lock"
+        lock.write_bytes(b"")  # a git process holds the index
+        (self.repo / "docs/flow").mkdir(parents=True, exist_ok=True)
+        (self.repo / "docs/flow/ledger.md").write_text("status: x\n", encoding="utf-8")
+        plain = git(self.repo, "add", "--", "docs/flow/ledger.md")
+        self.assertIn("index.lock", plain.stderr)  # the collision the field saw
+        waiting = self.start("plan: a ledger record", "docs/flow/ledger.md")
+        time.sleep(3)
+        self.assertIsNone(waiting.poll(), "commit.py did not wait for the index lock")
+        lock.unlink()
+        out = waiting.communicate(timeout=900)[0].decode("utf-8", "replace")
+        self.assertEqual(waiting.returncode, 0, out)
+        self.assertIn("waiting: a git process (index.lock) holds the repository", out)
+        self.assertEqual(git(self.repo, "show", "--name-only", "--format=", "HEAD").stdout.split(), ["docs/flow/ledger.md"])
+        self.assertEqual(git(self.repo, "diff", "--cached", "--name-only").stdout.split(), ["src.ts"], "still staged")
+        head = git(self.repo, "rev-parse", "HEAD").stdout.strip()
+        slow = self.start("T1: a builder's task", "src.ts", FUSEBASE_FLOW_LINT="sleep 8")  # lint runs in commit-msg
+        time.sleep(2)
+        fast = self.start("plan: another ledger record", "docs/flow/ledger.md")
+        outs = [p.communicate(timeout=900)[0].decode("utf-8", "replace") for p in (slow, fast)]
+        self.assertEqual([slow.returncode, fast.returncode], [0, 0], outs)
+        self.assertIn("waiting: another Flow commit", outs[1])
+        log = git(self.repo, "log", "--format=%s", f"{head}..HEAD").stdout.splitlines()
+        self.assertEqual(log, ["plan: another ledger record", "T1: a builder's task"])
+        self.assertFalse((self.repo / ".git/flow-commit.lock").exists())
 
 
 if __name__ == "__main__":
