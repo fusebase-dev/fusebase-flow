@@ -2,7 +2,7 @@
 """The gate (design section 6 "Who runs what"; handoff WP 7d; adversarial C2-07): `gate.py <slice|phase>` runs the
 DONE check, the checks and the evidence-row validator and writes state/gate/<target>.txt, three blocks that open the
 verdict brief. Exit 0 ready for the verdict, 1 a check failed (no round spent), 2 no such slice or phase, 3
-BLOCKED-AT-gate-budget: the verdicts recorded in the ledger for the target reached gate_rounds
+BLOCKED-AT-gate-budget: the verdict or the review records in the ledger for the target reached gate_rounds
 (policies/approval-policy.yml at HEAD; a local override may lower it, never raise it), and the gate prints a numbered
 carry-over list for the operator, security, privacy, data-loss and owner-answer contradictions first.
 """
@@ -40,20 +40,20 @@ def rounds(root: Path) -> int:
     return min(limit, lower) if isinstance(lower, int) and lower > 0 else limit
 
 
-def verdicts(root: Path, target: str) -> list[tuple[str, str]]:
-    """(result, note) of each `verdict <target>` record in the ledger, in order."""
-    found = []
+def records(root: Path, target: str) -> dict[str, list[tuple[str, str]]]:
+    """(result, note) of each `verdict <target>` and each `review <target>` record in the ledger, in order, by kind."""
+    found: dict[str, list[tuple[str, str]]] = {"verdict": [], "review": []}
     for line in fd.read(root / fd.LEDGER).splitlines():
-        if m := re.match(rf"\s*\S+\s+verdict\s+{re.escape(target)}\s+(.*)$", line):
-            result = re.search(r"result=(\S+)", m[1])
-            found.append((result[1] if result else "?", m[1].partition(" -- ")[2].strip()))
+        if m := re.match(rf"\s*\S+\s+(verdict|review)\s+{re.escape(target)}\s+(.*)$", line):
+            result = re.search(r"result=(\S+)", m[2])
+            found[m[1]].append((result[1] if result else "?", m[2].partition(" -- ")[2].strip()))
     return found
 
 
-def carry_over(root: Path, target: str, lines: list[str], past: list[tuple[str, str]]) -> list[str]:
+def carry_over(root: Path, target: str, lines: list[str], past: dict[str, list[tuple[str, str]]]) -> list[str]:
     items = [ln.strip() for ln in lines if re.search(r" OPEN: |^\s+returns: |^\s+B\d+ FAIL: |^\s+FLAG ", ln)
              and not ln.endswith("[rejected]")]
-    items += [f"verdict {i + 1} {res}: {note}" for i, (res, note) in enumerate(past) if note and res != "PASS"]
+    items += [f"{k} {i + 1} {r}: {n}" for k, rows in past.items() for i, (r, n) in enumerate(rows) if n and r != "PASS"]
     for f in sorted((root / "state/returns").glob(f"{target}-*.json")):  # the readers' typed returns (verify briefs)
         try:
             doc = json.loads(f.read_text(encoding="utf-8"))
@@ -82,10 +82,12 @@ def gate(root: Path, target: str) -> tuple[int, list[str]]:
                         ("Evidence", [validate_evidence.validate(root, target)[:2]])):
         blocks += [f"## {title}"] + [ln for _, out in runs for ln in out]
         failed = failed or (title != "Checks" and any(rc for rc, _ in runs))
-    past, limit = verdicts(root, target), rounds(root)
-    head = f"# Gate {target} {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}: {len(past)} of {limit} rounds used"
-    if len(past) >= limit:
-        rc, tail = 3, [f"BLOCKED-AT-gate-budget: {len(past)} verdicts recorded for {target}, gate_rounds {limit}. "
+    past, limit = records(root, target), rounds(root)
+    used = {k: len(v) for k, v in past.items()}  # review rounds share the limit, with their own counter (verify skill)
+    head = (f"# Gate {target} {time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}: {used['verdict']} of {limit} verdict "
+            f"rounds and {used['review']} of {limit} review rounds used")
+    if spent := next((f"{n} {k}s" for k, n in used.items() if n >= limit), ""):
+        rc, tail = 3, [f"BLOCKED-AT-gate-budget: {spent} recorded for {target}, gate_rounds {limit}. "
                        "Carry-over for the operator:", *carry_over(root, target, blocks, past)]
     elif failed:
         rc, tail = 1, [f"GATE: FAIL: send {target} back to build with the lines above; no round is spent"]

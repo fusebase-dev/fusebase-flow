@@ -12,7 +12,7 @@ The planner runs this skill. Reviewers, skeptics and the verdict writer run as `
 1. Run `python hooks/local/gate.py <slice>`. It runs the DONE check (`done.py`), the four flags (`checks.py`) and the evidence-row validator (`validate_evidence.py`), and writes `state/gate/<slice>.txt`; exit 1 is a failed check, 3 `BLOCKED-AT-gate-budget`.
 2. DONE check failed (a task with no commit whose subject carries exactly its `T<n>` and whose diff touches its globs, or a missing or disagreeing `state/returns/<slice>.json`): send the slice back to build with its open tasks. Review never starts on PARTIAL work.
 3. Review: dispatch one `reader` with the output of `python hooks/local/slice.py <slice> --brief review`. It carries the flag rows and the gate output inline. On Codex the reader runs as `bounded_run 900 reader -- codex exec -s read-only --output-schema <schema.json> -o state/returns/<slice>-<role>.json "<brief>"` (Codex: unproven).
-4. Record the return. Rule every flag: write `upheld` or `rejected` in the `ruling` column of `state/flags/<slice>.tsv`; a re-run keeps it and any column you add, and a flag that stops firing stays, marked `[stale]`. `python hooks/local/checks.py --precision` counts them. Flags never block. Two holds exist, each released by your ruling: a rubric "yes" on a risk-tagged item, and the DONE send-back.
+4. Record the return in the ledger: `review <slice> result=PASS|FAIL agent=<reader agent id>`, FAIL when a finding goes back to build. Rule every flag: write `upheld` or `rejected` in the `ruling` column of `state/flags/<slice>.tsv`; a re-run keeps it and any column you add, and a flag that stops firing stays, marked `[stale]`. `python hooks/local/checks.py --precision` counts them. Flags never block. Two holds exist, each released by your ruling: a rubric "yes" on a risk-tagged item, and the DONE send-back.
 
 ## A phase gate
 
@@ -22,7 +22,7 @@ The planner runs this skill. Reviewers, skeptics and the verdict writer run as `
 
 ## Rounds
 
-- `gate_rounds` (default 2) lives in `policies/approval-policy.yml`. `gate.py` counts rounds from the `verdict <slice|phase>` records in the ledger; you keep no count by hand.
+- `gate_rounds` (default 2) lives in `policies/approval-policy.yml`. `gate.py` counts rounds from the `verdict <slice|phase>` and `review <slice>` records in the ledger; you keep no count by hand.
 - A round is one verdict dispatch after the gate script passes. A script failure costs no round.
 - Review rounds share the limit and keep their own counter.
 - A local override may lower the limit, never raise it. Raising it is a protected-policy edit the operator approves.

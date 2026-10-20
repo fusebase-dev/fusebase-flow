@@ -690,7 +690,7 @@ class Gate(Workspace):
         self.assertEqual(out.returncode, 1, out.stdout + out.stderr)
         text = (self.repo / "state/gate/P1-S1.txt").read_text(encoding="utf-8")
         self.assertEqual(re.findall(r"^## (\w+)$", text, re.M), ["DONE", "Checks", "Evidence"])
-        self.assertIn("0 of 2 rounds used", text)
+        self.assertIn("0 of 2 verdict rounds and 0 of 2 review rounds used", text)
         self.assertIn("T2 OPEN: no commit carries it alone in its subject", text)
         self.assertIn("GATE: FAIL: send P1-S1 back to build", text)
 

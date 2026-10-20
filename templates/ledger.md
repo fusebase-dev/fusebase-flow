@@ -12,6 +12,7 @@ committed: derived, never written: python hooks/local/done.py <slice> writes sta
 One line each, in time order, never edited: <YYYY-MM-DDTHH:MMZ> <kind> <scope> <key>=<value> ... [-- one line]
 alert   <slice|phase|->  id=<alert id> real=yes|no
 deploy  <phase>          env=<env> hash=<deploy hash> approval=<file> rows=<ids> rollback=<class> -- <exact command>
+review  <slice>          result=PASS|FAIL agent=<reader agent id> [-- the findings sent back]
 verdict <slice|phase>    result=PASS|FAIL agent=<reader agent id>
 Next: exactly one line, replaced in place. Handoff: at most 10 lines for a successor, replaced in place.
 -->

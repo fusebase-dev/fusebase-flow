@@ -20,7 +20,7 @@ The planner (the operator's main session) runs every step; builders build one sl
 ## 3. Verify (skill `verify`)
 
 - `python hooks/local/gate.py <slice>` runs the DONE check (`done.py`), the four flags (`checks.py`) and the evidence-row validator (`validate_evidence.py`) and writes `state/gate/<slice>.txt`. A DONE failure sends the slice back to build.
-- Review: one reader with `python hooks/local/slice.py <slice> --brief review`. Phase gate: one verdict reader and two skeptic readers, never per slice. `gate.py` counts the verdict records in the ledger against `gate_rounds` (default 2) and returns `BLOCKED-AT-gate-budget` at the limit.
+- Review: one reader with `python hooks/local/slice.py <slice> --brief review`. Phase gate: one verdict reader and two skeptic readers, never per slice. `gate.py` counts the verdict and the review records in the ledger, each against `gate_rounds` (default 2), and returns `BLOCKED-AT-gate-budget` at the limit.
 - Evidence: one row per criterion in `docs/flow/evidence/P<n>.md`. The minimum class follows from the paths the task touched, and the risk tag may raise it, never lower it: `auth`, `data` and `prod` need live evidence, the rest unit or smoke. The validator hashes each capture, checks its size and dates, and reads the run log for a finding behind a PASS row.
 
 ## 4. Ship (skill `ship`)

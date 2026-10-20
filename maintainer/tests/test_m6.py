@@ -207,5 +207,26 @@ class GatePass(m3.Validator):
         self.assertIn("Phase gate: one verdict reader and two skeptic readers, never per slice", lifecycle)
 
 
+class ReviewRounds(m3.Gate):
+    """m6 list item 3: the ledger has a record kind for a review round, and the gate counts review rounds beside the
+    verdict rounds, each against gate_rounds (the verify skill: review rounds share the limit, own counter)."""
+
+    locals().update(dict.fromkeys(n for n in dir(m3.Gate) if n.startswith("test")))
+    REVIEW = "2026-10-18T09:00Z review P1-S1 result=FAIL agent=r0 -- the banner shows twice\n"
+
+    def test_review_records_are_counted_on_their_own_counter_and_exhaust_the_rounds(self) -> None:
+        template = (CORE / "templates/ledger.md").read_text(encoding="utf-8")
+        self.assertIn("review  <slice>          result=PASS|FAIL agent=<reader agent id>", template)
+        m3.write(self.repo, "docs/flow/ledger.md", "## Records\n" + self.REVIEW + m3.VERDICTS.splitlines()[0] + "\n")
+        out = self.gate()
+        self.assertEqual(out.returncode, 1, out.stdout + out.stderr)
+        self.assertIn("1 of 2 verdict rounds and 1 of 2 review rounds used", out.stdout)
+        m3.write(self.repo, "docs/flow/ledger.md", "## Records\n" + self.REVIEW + self.REVIEW.replace("r0", "r1"))
+        out = self.gate()
+        self.assertEqual(out.returncode, 3, out.stdout + out.stderr)
+        self.assertIn("BLOCKED-AT-gate-budget: 2 reviews recorded for P1-S1, gate_rounds 2", out.stdout)
+        self.assertIn("review 1 FAIL: the banner shows twice", out.stdout)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
