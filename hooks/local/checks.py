@@ -9,7 +9,8 @@ counts the rulings per check. A flag never blocks the slice. A flag id is its ki
   lacks (dep-ref), a new config key (cfg), a new environment variable read (env). Logged, not flagged: development
   dependencies, keys in a file the slice created, variables read only under test paths.
 3 budget: past 2x a task's minutes before its commit, or 2x its files (test paths counted apart); a no-commit span over
-  200 calls; over 135 calls before first work (state/returns/<slice>.json); one command hash 3 times in flight (logged).
+  200 calls; over 135 calls before first work (state/returns/<slice>.json); one command hash 3 times in flight (logged);
+  the planner's own tool calls in the slice's window, from the audit line (logged).
 4 redundancy: more than 20 lines duplicated in the project's code outside vendored_paths.
 A trivial-tier slice (every commit inside the policy's trivial lists) runs no flag 1 or 4, and its brief no rubric.
 """
@@ -176,7 +177,28 @@ def budget_flags(root, sl, log, test, match, slice_id) -> tuple[list[tuple], lis
     beats = [b for b in reader.heartbeats(root) if b[3] and started and finished and started <= b[1] <= finished + 60]
     logs += [(3, "repeat", "-", f"command sha256 {h[:12]} {n} times in flight (UNCALIBRATED: logged)")
              for h, n in Counter(b[2] for b in beats).items() if n >= reader.REPEATS]
+    if (n := planner_calls(root, started, finished)) is not None:  # only where a provider's hooks write the audit line
+        logs.append((3, "planner-calls", "-", f"{n} planner tool calls from the slice's start to its finish (audit line)"))
     return flags, logs
+
+
+def planner_calls(root: Path, started: float | None, finished: float | None) -> int | None:
+    """Completed tool calls with no agent_id, the main session's, in the audit line between the return's started and
+    finished; None when no provider hook writes the audit line."""
+    try:
+        lines = (root / "state/audit.log.jsonl").read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return None
+    count = 0
+    for line in lines:
+        try:
+            rec = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(rec, dict) and str(rec.get("event")).startswith("post_tool_use") and not rec.get("agent_id"):
+            t = fd.stamp(rec.get("ts"))
+            count += bool(t is not None and started is not None and finished is not None and started <= t <= finished)
+    return count
 
 
 def duplicate_flags(root, base, log, head_files, vendored) -> list[tuple]:

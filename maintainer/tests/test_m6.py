@@ -228,5 +228,58 @@ class ReviewRounds(m3.Gate):
         self.assertIn("review 1 FAIL: the banner shows twice", out.stdout)
 
 
+class CommitStages(Project):
+    """m6 list item 4 (M6-25): the git hooks keep each stage's time where the planner reads it afterwards."""
+
+    wire = False
+
+    def test_each_stage_of_a_commit_is_kept_in_state_audit_with_its_time_and_parent(self) -> None:
+        stages = self.repo / "state/audit/commit-stages.tsv"
+        stages.unlink(missing_ok=True)
+        parent = git(self.repo, "rev-parse", "HEAD").stdout.strip()
+        (self.repo / "src.txt").write_text("a change\n", encoding="utf-8")
+        git(self.repo, "add", "--", "src.txt")
+        done = git(self.repo, "commit", "-q", "-m", "T1: a change")
+        self.assertEqual(done.returncode, 0, done.stderr)
+        rows = [line.split("\t") for line in stages.read_text(encoding="utf-8").splitlines()]
+        self.assertEqual([r[2:4] for r in rows], [["pre-commit", "secret-scan"], ["pre-commit", "protected-paths"],
+                                                  ["pre-commit", "module-size"], ["pre-commit", "validators"],
+                                                  ["commit-msg", "validators"]], rows)
+        for when, head, _, _, seconds in rows:
+            self.assertRegex(when, r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
+            self.assertEqual(head, parent)
+            self.assertRegex(seconds, r"^\d+\.\d\d$")
+        self.assertIn("state/audit/commit-stages.tsv", git(self.repo, "check-ignore", "state/audit/commit-stages.tsv").stdout)
+
+
+class PlannerCalls(m3.Validator):
+    """m6 list item 4 (M6-25): every audit line of a completed call carries its agent_id, and checks.py counts the
+    planner's own calls (no agent_id) in the slice's window."""
+
+    locals().update(dict.fromkeys(n for n in dir(m3.Validator) if n.startswith("test")))
+
+    def test_post_tool_use_marks_each_call_and_checks_counts_the_planners_in_the_window(self) -> None:
+        for rel in ("hooks/shared", "hooks/handlers", "policies"):
+            shutil.copytree(CORE / rel, self.repo / rel, ignore=shutil.ignore_patterns("__pycache__"), dirs_exist_ok=True)
+        for agent in ("builder-1", None):
+            event = {"hook_event_name": "PostToolUse", "cwd": str(self.repo), "tool_name": "Read", "tool_use_id": "t1",
+                     "tool_input": {"file_path": str(self.repo / "README.md")}, **({"agent_id": agent} if agent else {})}
+            sh(self.repo, sys.executable, str(self.repo / "hooks/handlers/post_tool_use.py"), stdin=json.dumps(event))
+        lines = [json.loads(x) for x in (self.repo / "state/audit.log.jsonl").read_text(encoding="utf-8").splitlines()]
+        self.assertEqual([(x["tool_name"], x["agent_id"]) for x in lines], [("Read", "builder-1"), ("Read", None)])
+        m3.write(self.repo, "state/returns/P1-S1.json", json.dumps({
+            "slice": "P1-S1", "role": "builder", "started": "2026-10-18T10:00:00Z", "finished": "2026-10-18T11:00:00Z",
+            "tasks": [], "tool_calls": 40, "blocked_at": None, "notes": ""}))
+        call = '{{"ts":"{}","event":"post_tool_use","tool_name":"Read","agent_id":{}}}\n'
+        m3.write(self.repo, "state/audit.log.jsonl", "".join(call.format(ts, agent) for ts, agent in (
+            ("2026-10-18T09:59:59Z", "null"), ("2026-10-18T10:00:00Z", "null"), ("2026-10-18T10:30:00Z", '"b1"'),
+            ("2026-10-18T10:45:00Z", "null"), ("2026-10-18T11:00:01Z", "null"))))
+        out = m3.run(str(m3.LOCAL / "checks.py"), "P1-S1", "--root", str(self.repo), cwd=self.tmp)
+        self.assertIn("LOG planner-calls check 3 -: 2 planner tool calls from the slice's start to its finish", out.stdout)
+        (self.repo / "state/audit.log.jsonl").unlink()
+        out = m3.run(str(m3.LOCAL / "checks.py"), "P1-S1", "--root", str(self.repo), cwd=self.tmp)
+        self.assertNotIn("planner-calls", out.stdout, "no audit line, nothing to count from")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

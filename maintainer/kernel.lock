@@ -32,6 +32,9 @@
 #   hooks/git/pre-commit: the go-ahead form (--paths, head_at_mint): one operator go-ahead covers an agent's Edit of
 #   the named Flow-internals paths and the commit of exactly them; the commit spends it (T289; 5.x 91a6ffd3,
 #   local; brief m6 item 9).
+#   hooks/git/pre-commit and hooks/handlers/post_tool_use.py: each pre-commit stage's time kept in
+#   state/audit/commit-stages.tsv, and every tool-call audit line carries its agent_id, so the planner's calls
+#   are counted (T293; 5.x 69371aa9, local; brief m6 list item 4, M6-25).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -41,15 +44,17 @@
 #   cause r1-09; decision 10(c), core only).
 #   hooks/git/commit-msg: carries that line and runs lint and typecheck after the subject check; the CLI's two
 #   checkpoint subjects skip them with a warning, a merge runs none (T276; review r2-43; decision 10(c)).
+#   hooks/git/commit-msg: its validators stage time kept beside the pre-commit's in state/audit/commit-stages.tsv
+#   (T293; brief m6 list item 4; decision 10(c), core only).
 #   policies/module-size-baseline.txt: no row for hooks/local/upgrade.sh, a 5.x file the 6.0 core does not ship
 #   (T278; brief m5 item 4). 5.x keeps the row: it still ships upgrade.sh.
 # A kernel fix lands on 5.x first, is cherry-picked here, and updates this lock in the same commit.
 f2557b19379421fac007a2c758eda73bb6eb21990a7f5c366c438716e1fe2cfb  .gitattributes
 0acfb991aa269888937723022f2667b0e251ed0091ccc96491752360b2a61be0  LICENSE
-be312926d6a135837d5f3f38fdf219946f1cd43e16d3d1e3793f1e3ad814f174  hooks/git/commit-msg
-6233e5c5392a70f3c3e4666a9a21a37d7c901c3100b2d03a159e8b043927b88c  hooks/git/pre-commit
+76f48682f781c927f09a39d5ad767470da90d55d290fa280262f84cf200e7942  hooks/git/commit-msg
+eb15530809f0e50e6074d0ea5b1b987cbccccab1bfb322fc719c7a16e845296c  hooks/git/pre-commit
 61fa39ad945e6fbf5718dc8ab11c7a6892b50c431e4514a94ca71ccb84679120  hooks/git/pre-push
-d4c7b522d5095dd26b336cb95ef2fd5de290234102f485e79d79d928bc7b8f5f  hooks/handlers/post_tool_use.py
+a0685b0884a42d5704339ba342247704169b35da26cb228f533f03fc60448e0c  hooks/handlers/post_tool_use.py
 77837c64bacfcc31f56a045a80bc1e3585a20df22f25b8e02678f28da359b166  hooks/handlers/pre_tool_use.py
 6d92a4ab1d91b5c03d5864aabb2f7dd64abcaab4bc2a7850fa8dbf6ef7d4b3aa  hooks/local/approve-local.sh
 e9d192b09e351091350d6d4b6f04e865f5611f5268bd0c5c4a24d5cbcd83d582  hooks/local/check-module-size.sh

@@ -104,4 +104,12 @@ _ffcm_now; FFCM_T0=$FFCM_US
 FFCM_RC=0; run_precommit_validators "$PWD" "$PATH" || FFCM_RC=1
 _ffcm_now; FFCM_US=$((FFCM_US - FFCM_T0)); [ "$FFCM_US" -ge 0 ] || FFCM_US=0
 printf '[fusebase-flow:commit-msg] stage=validators elapsed=%d.%02ds\n' $((FFCM_US / 1000000)) $((FFCM_US % 1000000 / 10000)) >&2
+# Kept beside the pre-commit's stage lines for the planner (6.0.0-m6 item 4); only where state/ exists.
+if [ -d state ]; then
+    TZ=UTC printf -v FFCM_WHEN '%(%Y-%m-%dT%H:%M:%SZ)T' -1 2>/dev/null || FFCM_WHEN="-"
+    FFCM_TMP="$(mktemp 2>/dev/null || mktemp -t ffflow-cm)"; FFCM_HEAD=""
+    git rev-parse -q --verify HEAD > "$FFCM_TMP" 2>/dev/null; IFS= read -r FFCM_HEAD < "$FFCM_TMP" || :; rm -f "$FFCM_TMP"
+    { mkdir -p state/audit && printf '%s\t%s\tcommit-msg\tvalidators\t%d.%02d\n' "$FFCM_WHEN" "${FFCM_HEAD:--}" \
+        $((FFCM_US / 1000000)) $((FFCM_US % 1000000 / 10000)) >> state/audit/commit-stages.tsv; } 2>/dev/null
+fi
 exit "$FFCM_RC"

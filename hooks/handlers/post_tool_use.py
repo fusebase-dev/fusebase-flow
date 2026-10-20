@@ -44,13 +44,14 @@ def main() -> int:
         root = None
 
     tool_name = event.get("tool_name", "")
-    extra: dict = {"tool_name": tool_name}
+    # Every line carries the call's ids: a sub-agent's call has an agent_id, the main session's (the planner's) none,
+    # so its calls can be counted (6.0.0-m6 item 4).
+    extra: dict = {"tool_name": tool_name, "tool_use_id": event.get("tool_use_id"), "agent_id": event.get("agent_id")}
 
     # The audit line (handoff WP 11, adversarial A8): a command tool, or any failed tool, logs its ids and, for a
     # command, the hash; never the command text, and no git call.
     failure = event.get("hook_event_name") == "PostToolUseFailure"
     if is_command_tool(tool_name) or failure:
-        extra.update(tool_use_id=event.get("tool_use_id"), agent_id=event.get("agent_id"))
         if is_command_tool(tool_name):
             extra["cmd_sha256"] = cmd_sha256(str((event.get("tool_input") or {}).get("command") or ""))
         emit("post_tool_use_failure" if failure else "post_tool_use", decision="allow", reason="logged", extra=extra,

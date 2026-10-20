@@ -238,7 +238,15 @@ _ffpc_stage() {
     local start=$FFPC_MARK_US us; _ffpc_now; FFPC_MARK_US=$FFPC_NOW_US
     us=$((FFPC_NOW_US - start)); [ "$us" -ge 0 ] || us=0
     printf '[fusebase-flow:pre-commit] stage=%s elapsed=%d.%02ds\n' "$1" $((us / 1000000)) $((us % 1000000 / 10000)) >&2
+    # The same line, kept: state/audit/commit-stages.tsv (gitignored), so the planner reads a builder's commit costs
+    # afterwards (6.0.0-m6 item 4). Only where state/ exists; a failed write changes nothing.
+    [ -d "$ROOT/state" ] && { mkdir -p "$ROOT/state/audit" && printf '%s\t%s\tpre-commit\t%s\t%d.%02d\n' "$FFPC_T0" \
+        "$FFPC_HEAD" "$1" $((us / 1000000)) $((us % 1000000 / 10000)) >> "$ROOT/state/audit/commit-stages.tsv"; } 2>/dev/null
+    return 0
 }
+# The record's time (bash's own clock, no `date` spawn; "-" where bash lacks %()T) and the commit's parent.
+TZ=UTC printf -v FFPC_T0 '%(%Y-%m-%dT%H:%M:%SZ)T' -1 2>/dev/null || FFPC_T0="-"
+_ffpc_git_line git rev-parse -q --verify HEAD; FFPC_HEAD="${FFPC_GIT_OUT:--}"
 _ffpc_now; FFPC_MARK_US=$FFPC_NOW_US
 
 # 2. Secret content scan (FR-12): ONLY added (+) lines, designed-token files path-excluded
