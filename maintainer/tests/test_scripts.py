@@ -354,6 +354,28 @@ class Validator(Workspace):
         self.assertRegex(out.stdout, r"capture runs/run-1/S1/link.json sha256=[0-9a-f]{64} bytes=\d+")
         self.assertIn("EVIDENCE: PASS", out.stdout)
 
+    def test_a_blocked_at_row_with_an_owner_answer_passes_the_gate_and_is_never_pass(self) -> None:
+        """Item 5 of brief m5: BLOCKED-AT-<reason> citing an A<n> that backlog.md has is accepted, listed as blocked."""
+        sha = dict(ln.split(" ", 1)[::-1] for ln in git(self.repo, "log", "--format=%H %s").stdout.splitlines())
+        write(self.repo, "state/returns/P1-S1.json", json.dumps({
+            "slice": "P1-S1", "role": "builder", "started": "2026-10-18T10:00:00Z", "finished": "2026-10-18T11:00:00Z",
+            "tasks": [{"id": "T1", "sha": sha["T1: the expiry"]}, {"id": "T2", "sha": sha["T2: the test"]}],
+            "tool_calls": 40, "blocked_at": None, "notes": ""}))
+        self.rows["B2"] = "| B2 | BLOCKED-AT-owner-account | - | - | - | - | the account is the owner's: A1 |"
+        for answers, rc in (("", 1), ("\n## Answers\n\n### A2 Other\n- answered: 2026-10-19\n> No.\n", 1),
+                            ("\n## Answers\n\n### A1 Whose account?\n- answered: 2026-10-19\n> The owner's.\n", 0)):
+            write(self.repo, "docs/flow/backlog.md", BACKLOG.format(risk="none") + answers)
+            self.validate()  # writes the evidence file
+            out = run(str(LOCAL / "gate.py"), "P1", "--root", str(self.repo), cwd=self.tmp)
+            self.assertEqual(out.returncode, rc, out.stdout)
+            self.assertNotIn("  B2 PASS", out.stdout)
+        self.assertIn("  B1 PASS", out.stdout)
+        for text in (out.stdout, (self.repo / "state/gate/P1.txt").read_text(encoding="utf-8")):
+            self.assertIn("  B2 BLOCKED-AT-owner-account: accepted by owner answer A1, not PASS", text)
+            self.assertIn("EVIDENCE: BLOCKED (0 of 2 criteria fail; 1 blocked, accepted by an owner answer: B2 (A1))", text)
+            self.assertIn("GATE: PASS: dispatch the verdict (python hooks/local/slice.py P1 --brief verdict); blocked, "
+                          "accepted by an owner answer, not PASS: B2 BLOCKED-AT-owner-account (A1)", text)
+
     def test_rejects_a_blank_capture_under_the_floor(self) -> None:
         self.rows["B1"] = self.capture_row("B1", "runs/run-1/S1/page.png", blank_png())
         self.assert_fails("B1", "under the floor of 10240")

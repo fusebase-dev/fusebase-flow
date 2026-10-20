@@ -144,6 +144,12 @@ def check_capture_row(root: Path, row: dict, pol: dict, phase: str, out: list[st
     return problems, digest, ("live" if log["title"].startswith("# Live run") else "smoke")
 
 
+def accepted(row: dict, answers: dict) -> str:
+    """The owner answer A<n> that a BLOCKED-AT-<reason> row cites (status or note) and backlog.md has, else ""."""
+    cited = re.findall(r"\bA\d+\b", f"{row['status']} {row['note']}") if row["status"].startswith("BLOCKED-AT-") else []
+    return next((a for a in cited if a in answers), "")
+
+
 def minimum(item: str, ids: set[str], log: list, items: dict, classes: dict, match) -> str:
     """The row's minimum class: from the paths its tasks' commits touched, raised (never lowered) by the risk tag."""
     touched = [p for _, subject, paths in log if fd.TASK.findall(subject) in ([i] for i in ids) for p in paths]
@@ -169,14 +175,14 @@ def validate(root: Path, target: str, file: str | None = None, present: bool = F
     phase, base, pol = chosen[0]["phase"], chosen[0]["base"] or "", fd.policy(root)
     base = base if fd.SHA.fullmatch(base) and fd.git(root, "rev-parse", "--verify", "-q", f"{base}^{{commit}}") else ""
     rel = file or next((r for r in (f"docs/flow/evidence/{phase}.md",) if (root / r).is_file()), "docs/flow/evidence.md")
-    items, _ = fd.backlog(fd.read(root / fd.BACKLOG))
+    items, answers = fd.backlog(fd.read(root / fd.BACKLOG))
     tasks = [t for s in chosen for t in s["tasks"] if re.fullmatch(r"B\d+", t["item"])]
     wanted, log, match = list(dict.fromkeys(t["item"] for t in tasks)), fd.commits(root, base) if base else [], fd.globber()
     classes = {k: v or [] for k, v in (pol.get("classes") or {}).items()}
     out = [f"evidence {target}: {rel}, {len(wanted)} criteria"]
     if not any(classes.values()):
         out.append("  classes: no globs declared in policies/evidence-classes.yml; the risk tag alone sets the class")
-    rows, result, digests = table(fd.read(root / rel)), {}, {}
+    rows, result, digests, blocked = table(fd.read(root / rel)), {}, {}, {}
     for item in wanted:
         mine = [r for r in rows if r["id"] == item]
         if present and not mine:
@@ -187,6 +193,8 @@ def validate(root: Path, target: str, file: str | None = None, present: bool = F
             problems.append(f"{len(mine)} rows; exactly one is needed")
         elif not re.fullmatch(str(pol.get("row_status", "^PASS$")), mine[0]["status"]):
             problems.append(f"status `{mine[0]['status']}` does not match row_status")
+        elif mine[0]["status"] != "PASS" and (cited := accepted(mine[0], answers)):  # never PASS, never a failure
+            blocked[item], actual = (mine[0]["status"].split()[0], cited), "-"
         elif mine[0]["status"] != "PASS":
             problems += [] if present else [f"the row says {mine[0]['status']}"]
         elif "::" in mine[0]["capture"]:
@@ -204,14 +212,18 @@ def validate(root: Path, target: str, file: str | None = None, present: bool = F
             for i in owners:
                 result[i][0].append(f"shares capture {digest[:12]} with {', '.join(o for o in owners if o != i)}")
     for item, (problems, actual, need, detail) in result.items():
-        out.append(f"  {item} {'FAIL: ' + '; '.join(problems) if problems else 'PASS'} (class {actual}, minimum {need})")
+        state = ("FAIL: " + "; ".join(problems) if problems else
+                 f"{blocked[item][0]}: accepted by owner answer {blocked[item][1]}, not PASS" if item in blocked else "PASS")
+        out.append(f"  {item} {state} (class {actual}, minimum {need})")
         out += detail
     then, _ = fd.backlog(fd.git(root, "show", f"{base}:{fd.BACKLOG}")) if base else ({}, {})
     flags = [f"FLAG item-edit {i}: {k} changed since the phase's base" for i in wanted if i in then and i in items
              for k in ("risk", "criterion", "test") if then[i].get(k) != items[i].get(k)]
     bad = sum(bool(r[0]) for r in result.values())
-    out += [f"  {f}" for f in flags] + [f"EVIDENCE: {'FAIL' if bad else 'PASS'} ({bad} of {len(result)} "
-                                        f"{'rows' if present else 'criteria'} fail)"]
+    held = f"; {len(blocked)} blocked, accepted by an owner answer: " + ", ".join(f"{i} ({a})" for i, (_, a) in
+                                                                                blocked.items()) if blocked else ""
+    out += [f"  {f}" for f in flags] + [f"EVIDENCE: {'FAIL' if bad else 'BLOCKED' if blocked else 'PASS'} ({bad} of "
+                                        f"{len(result)} {'rows' if present else 'criteria'} fail{held})"]
     return int(bool(bad)), out, flags
 
 

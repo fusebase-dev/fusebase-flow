@@ -89,8 +89,11 @@ def gate(root: Path, target: str) -> tuple[int, list[str]]:
                        "Carry-over for the operator:", *carry_over(root, target, blocks, past)]
     elif failed:
         rc, tail = 1, [f"GATE: FAIL: send {target} back to build with the lines above; no round is spent"]
-    else:
-        rc, tail = 0, [f"GATE: PASS: dispatch the verdict (python hooks/local/slice.py {target} --brief verdict)"]
+    else:  # a BLOCKED-AT row its owner answer accepts does not fail the gate, and is never PASS (validate_evidence.py)
+        held = [f"{m[1]} ({m[2]})" for ln in blocks if (m := re.match(r"  (B\d+ BLOCKED-AT-\S+): accepted by owner answer "
+                                                                      r"(A\d+)", ln))]
+        rc, tail = 0, [f"GATE: PASS: dispatch the verdict (python hooks/local/slice.py {target} --brief verdict)"
+                       + (f"; blocked, accepted by an owner answer, not PASS: {', '.join(held)}" if held else "")]
     out = [head, *blocks, *tail]
     path = root / "state/gate" / f"{target}.txt"
     path.parent.mkdir(parents=True, exist_ok=True)
