@@ -566,6 +566,27 @@ class ReleaseNote(unittest.TestCase):
         self.assertEqual(cloned, {f"fusebase-flow-{version}"})
         self.assertIn(f"fusebase-flow-{version}/hooks/requirements.txt", named)
 
+    def test_the_m4_upgrade_steps_name_only_paths_the_release_ships(self) -> None:
+        """brief m5-finish B: every command of the step-by-step section names a path the release ships, under the
+        release's clone folder or, inside the project, as the install put it there."""
+        core = FLOW.parents[1]
+        version = (core / "VERSION").read_text().strip()
+        note = (core / "maintainer/release-notes" / f"{version}.md").read_text("utf-8")
+        section = note.split("## Upgrading a 6.0.0-m4 project, step by step\n", 1)[1].split("\n## ", 1)[0]
+        tracked = set(git(core, "ls-files").stdout.splitlines())
+        blocks = re.findall(r"^```\n(.*?)^```$", section, flags=re.M | re.S)
+        self.assertEqual(len(blocks), 2, "the plain install and the wired one")
+        named, wrong = [], []
+        for line in (ln for block in blocks for ln in block.splitlines()):
+            for word in line.split():
+                if "/" in word and "://" not in word and not word.startswith(("<", "-")):
+                    named.append(word.removeprefix(f"fusebase-flow-{version}/"))
+                    if named[-1] not in tracked:
+                        wrong.append(f"{line}  ({word})")
+        self.assertEqual(wrong, [], "paths the release does not ship")
+        self.assertLessEqual({"maintainer/flow.py", "hooks/requirements.txt", "hooks/local/write-bootstrap-approval.sh"},
+                             set(named))
+
 
 @unittest.skipUnless(os.environ.get("FLOW_MIGRATE_FIXTURE"), "FLOW_MIGRATE_FIXTURE not set")
 class RealProjectAbort(unittest.TestCase):
