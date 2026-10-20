@@ -501,6 +501,22 @@ class Wire(Workspace):
         self.assertIn("provider hook wiring: NOT wired: claude: .claude/settings.json is left as it is", out)
         self.assertIn('"PostToolUseFailure"', out, "the entries to add by hand")
 
+    def test_the_entries_to_add_by_hand_are_what_the_merge_writes_a_list_per_event(self) -> None:
+        """Brief m5 item 8: Claude Code's schema takes a list of matcher groups per event, which is what merge writes."""
+        sys.path.insert(0, str(CORE / "maintainer"))
+        import wire
+        for provider in ("claude", "codex"):
+            rel = wire.PROVIDERS[provider][0]
+            m3.write(self.repo, rel, "{ not json")
+            rc, lines = wire.wire(self.repo, provider)  # refused: the file is not valid JSON
+            self.assertEqual(rc, 1, lines)
+            self.assertTrue(lines[0].endswith("Add these entries by hand:"), lines)
+            printed, merged = json.loads(lines[1]), {}
+            wire.merge(merged, provider)
+            self.assertEqual(printed, merged, provider)
+            self.assertTrue(all(isinstance(groups, list) for groups in printed["hooks"].values()), provider)
+            self.assertEqual((self.repo / rel).read_text(encoding="utf-8"), "{ not json", "left as it is")
+
     def test_a_flow_only_5x_block_gets_the_wider_matcher_and_no_second_block(self) -> None:
         sys.path.insert(0, str(CORE / "maintainer"))
         import wire

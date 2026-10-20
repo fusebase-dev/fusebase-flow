@@ -72,7 +72,8 @@ def wire(target: Path, provider: str) -> tuple[int, list[str]]:
     """Merges the provider's file; 0 merged or already current, 1 refused (the file untouched)."""
     rel = PROVIDERS[provider][0]
     path = target / rel
-    by_hand = json.dumps({"hooks": entries(provider)}, indent=2)
+    # The shape merge writes: a list of matcher groups per event (Claude Code's schema), never a bare object.
+    by_hand = json.dumps({"hooks": {event: [group] for event, group in entries(provider).items()}}, indent=2)
     if path.is_symlink() or (path.exists() and not path.is_file()):
         return 1, [f"{provider}: {rel} is a symlink or not a regular file; nothing written. Add by hand:", by_hand]
     before = path.read_bytes().decode("utf-8") if path.is_file() else None
