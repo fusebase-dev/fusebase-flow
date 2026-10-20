@@ -369,9 +369,10 @@ def inventory(target: Path, providers: set[str]) -> Inventory:
     plan = flow.planned_files(providers)
     plan_paths = set(plan) | {flow.MANIFEST}
     if (target / BASELINE).is_file() and BASELINE in plan:
-        # install carries these rows into the core's baseline (flow.project_rows); the dry run names them
-        inv.rows = flow.project_rows((target / BASELINE).read_bytes(), plan[BASELINE], set(groups) | plan_paths)
-        plan[BASELINE] = flow.with_rows(plan[BASELINE], inv.rows)
+        # install moves these rows to the project's own file (flow.project_rows, flow.PROJECT_BASELINE); the dry run
+        # names them, and the migration commit adds that file
+        inv.rows = flow.project_rows((target / BASELINE).read_bytes(), plan[BASELINE],
+                                     set(groups) | plan_paths | set(flow.FLOW5_ROWS))
     for rel in sorted(groups):
         sha = inv.recorded[rel]
         f = target / rel
@@ -424,7 +425,7 @@ def inventory(target: Path, providers: set[str]) -> Inventory:
             inv.never.setdefault("core paths the install refuses", []).append(f"{rel} ({why})")
         elif not f.exists():
             inv.new.append(rel)
-        elif rel == BASELINE:  # no 5.x record: install still merges it (the core's rows plus the project's)
+        elif rel == BASELINE:  # no 5.x record: install still writes the core's rows, the project's move out
             if not flow.same_content(f.read_bytes(), flow.sha256(plan[rel])):
                 inv.replace.append(rel)
         elif not (rel in plan and flow.same_content(f.read_bytes(), flow.sha256(plan[rel]))):
@@ -489,7 +490,9 @@ def _never_and_keep(inv: Inventory, vendor: dict[str, str], flow_paths: set[str]
     if inv.own_mirrors:
         inv.keep["the project's own skills and agents, mirrored by Flow 5.x tooling (6.0 does not mirror them)"] = sorted(
             set(inv.own_mirrors) | {s for s in map(mirror_source, inv.own_mirrors) if (target / s).is_file()})
-    inv.keep["project rows in policies/module-size-baseline.txt"] = inv.rows or ["none"]
+    inv.keep[f"project rows in {BASELINE}, moved to {flow.PROJECT_BASELINE}"] = inv.rows or ["none"]
+    if inv.rows and not (target / flow.PROJECT_BASELINE).exists():
+        inv.new.append(flow.PROJECT_BASELINE)
 
 
 def count_by_top(paths: list[str]) -> str:

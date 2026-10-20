@@ -64,7 +64,9 @@ def report(target: Path) -> tuple[int, list[str]]:
     target = target.resolve()
     try:
         manifest = json.loads((target / flow.MANIFEST).read_text(encoding="utf-8"))
-        files = {e["path"]: e["sha256"] for e in manifest["files"]}
+        # an entry marked "project" (the project's module-size rows, policies/module-size-baseline.project.txt) is the
+        # project's file: recorded for the commit that carried it there, never checked (6.0.0-m6 item 9)
+        files = {e["path"]: e["sha256"] for e in manifest["files"] if not e.get("project")}
     except (OSError, ValueError, KeyError, TypeError):
         return 2, [f"[flow health] {target}: no readable {flow.MANIFEST}; not a Flow 6.0 install (run install)"]
     bad, out = [], [f"[flow health] {target}"]

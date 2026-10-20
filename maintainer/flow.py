@@ -35,7 +35,15 @@ NEVER_TOUCH = (
     ".claude/settings.local.json", ".claude/hooks/*", ".claude/agents/app-*",
     ".codex/agents/app-*", ".codex/config.toml", ".codex/hooks.json", ".codex-plugin/*",
 )
-BASELINE = "policies/module-size-baseline.txt"  # the core's rows plus the project's, carried by install
+BASELINE = "policies/module-size-baseline.txt"  # Flow's: the core's rows only
+# The project's rows (6.0.0-m6 item 9, M6-15), the committed sibling hooks/shared/module_size.py also reads: install moves
+# them there out of a baseline that held both, and never rewrites the file after.
+PROJECT_BASELINE = "policies/module-size-baseline.project.txt"
+PROJECT_HEADER = ("# FR-25 module-size baseline — the project's over-ceiling files frozen at current size (Flow's own "
+                  f"rows: {BASELINE}).\n# Regenerate (agent runs on the operator's go-ahead): bash "
+                  "hooks/local/check-module-size.sh --write-baseline\n# Re-key ONE file (no global amnesty): ... "
+                  "--write-baseline <path>\n").encode("utf-8")  # module_size.py's --write-baseline header, byte for byte
+FLOW5_ROWS = ("hooks/local/upgrade.sh",)  # the 5.x core's own row: Flow's, never carried as the project's
 OVERLAY = {"AGENTS.md": "maintainer/overlay/AGENTS.block.md", "CLAUDE.md": "maintainer/overlay/CLAUDE.block.md"}
 FLOW_BEGIN, FLOW_END = "<!-- FLOW:BEGIN", "<!-- FLOW:END -->"
 PRESERVE_BEGIN, PRESERVE_END = "<!-- FLOW:PRESERVE:BEGIN", "<!-- FLOW:PRESERVE:END -->"
@@ -153,6 +161,25 @@ def with_rows(core: bytes, rows: list[str]) -> bytes:
     if not rows:
         return core
     return core + (b"" if core.endswith(b"\n") else b"\n") + "".join(f"{r}\n" for r in rows).encode("utf-8")
+
+
+def old_files(target: Path) -> list[dict]:
+    """The `files` entries of the install manifest already in the target, [] when there is none."""
+    try:
+        files = json.loads((target / MANIFEST).read_text(encoding="utf-8")).get("files")
+    except (OSError, ValueError, AttributeError):
+        return []
+    return [e for e in files if isinstance(e, dict)] if isinstance(files, list) else []
+
+
+def project_baseline(target: Path, rows: list[str]) -> bytes | None:
+    """The project's baseline file with `rows` added to the rows it has (its own row for a path stays), or None when it
+    already holds them all."""
+    path = target / PROJECT_BASELINE
+    current = path.read_bytes() if path.is_file() and not path.is_symlink() else b""
+    have = baseline_rows(current)
+    new = [r for r in rows if r.split(" ", 1)[1] not in have]
+    return with_rows(current or PROJECT_HEADER, new) if new else None
 
 
 def load_prior(target: Path) -> dict[str, set[str]]:
@@ -479,9 +506,8 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
     plan = planned_files(providers)
     rows: list[str] = []
     if BASELINE in plan and (target / BASELINE).is_file() and not (target / BASELINE).is_symlink():
-        # The rows naming Flow paths are Flow's and come from the core; the project's rows are carried.
-        rows = project_rows((target / BASELINE).read_bytes(), plan[BASELINE], set(plan) | set(prior))
-        plan[BASELINE] = with_rows(plan[BASELINE], rows)
+        # The rows naming Flow paths are Flow's and come from the core; the project's rows move to its own file.
+        rows = project_rows((target / BASELINE).read_bytes(), plan[BASELINE], set(plan) | set(prior) | set(FLOW5_ROWS))
     for rel, data in plan.items():
         why = refusal(target, rel, cli_skills)
         if why:
@@ -497,11 +523,20 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
             if rel != BASELINE and not any(same_content(current, s) for s in prior.get(rel, ())):
                 report["kept"].append(f"{rel} (differs; not a Flow-owned unedited file)")
                 continue
-            report["replaced"].append(f"{rel} (the core's rows plus {len(rows)} project rows)" if rel == BASELINE else rel)
+            report["replaced"].append(f"{rel} (the core's rows; {len(rows)} project rows moved to {PROJECT_BASELINE})"
+                                      if rel == BASELINE else rel)
         else:
             report["added"].append(rel)
         write_bytes(dest, data, matches(rel, EXECUTABLE))
         recorded.append({"path": rel, "sha256": sha256(data)})
+    if rows and (data := project_baseline(target, rows)) is not None and not refusal(target, PROJECT_BASELINE, cli_skills):
+        report["added" if not (target / PROJECT_BASELINE).exists() else "replaced"].append(
+            f"{PROJECT_BASELINE} (the project's own: {len(rows)} rows from {BASELINE})")
+        write_bytes(target / PROJECT_BASELINE, data, False)
+        # recorded for the flow: commit that carries it (flow_owned.py); marked the project's, so health never checks it
+        recorded.append({"path": PROJECT_BASELINE, "sha256": sha256(data), "project": True})
+    else:  # the project's file, as an earlier install recorded it: a re-run leaves the entry, and the file, as they are
+        recorded += [e for e in old_files(target) if e.get("path") == PROJECT_BASELINE and e.get("project")][:1]
     for name, block_rel in OVERLAY.items():
         if ("claude" not in providers) and name == "CLAUDE.md":
             continue

@@ -449,5 +449,47 @@ class StateValidatorFree(Project):
                       "file(s) a lint covers (docs/data.json)", done.stderr)
 
 
+class BaselineSplit(Project):
+    """m6 list item 9 (M6-15): Flow's policies/module-size-baseline.txt holds the core's rows only; the project's rows
+    live in policies/module-size-baseline.project.txt, which hooks/shared/module_size.py reads beside it. An upgraded
+    project's `821 hooks/local/upgrade.sh` row (the 5.x core's) is dropped, a live project row moves."""
+
+    wire = False
+
+    def test_an_upgrade_moves_the_project_rows_out_and_drops_the_5x_row_then_health_stays_quiet(self) -> None:
+        base, own = flow.BASELINE, flow.PROJECT_BASELINE
+        core = (CORE / base).read_bytes().replace(b"\r\n", b"\n")
+        (self.repo / "src").mkdir()
+        (self.repo / "src/big.ts").write_text("export const a = 1;\n" * 900, encoding="utf-8")
+        (self.repo / base).write_bytes(core + b"821 hooks/local/upgrade.sh\n900 src/big.ts\n")  # as an m5 upgrade left it
+        self.commit_protected([base, "src/big.ts"], "T1: the project's monolith, frozen")
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            self.assertEqual(flow.install(self.repo, {"claude"}), 0)
+        self.assertIn(f"{own} (the project's own: 1 rows from {base})", out.getvalue())
+        self.assertEqual((self.repo / base).read_bytes(), core)
+        self.assertEqual((self.repo / own).read_bytes(), flow.PROJECT_HEADER + b"900 src/big.ts\n")
+        self.commit_protected(self.untracked_and_changed(), "flow: upgrade Fusebase Flow")  # flow_owned.py accepts it
+        import health
+        rc, lines = health.report(self.repo)
+        self.assertIn("HEALTH: healthy", lines[-1], lines)
+        (self.repo / own).write_bytes(flow.PROJECT_HEADER)  # the project drops its own row
+        self.commit_protected([own], "T1: the monolith is split, its row goes")
+        rc, lines = health.report(self.repo)
+        self.assertEqual((rc, [x for x in lines if own in x]), (0, []), lines)
+        again = sh(self.repo, sys.executable, str(FLOW), "install", "--target", str(self.repo), "--providers", "claude")
+        self.assertEqual(again.returncode, 0, again.stdout)
+        self.assertEqual(git(self.repo, "status", "--porcelain").stdout, "", "a re-run changed a file")
+        (self.repo / "src/big.ts").write_text("export const a = 1;\n" * 950, encoding="utf-8")  # past the ceiling again
+        adopt = self.bash("hooks/local/check-module-size.sh", "--write-baseline")
+        self.assertIn(f"baseline-path: {own}", adopt.stdout, adopt.stderr)
+        self.assertIn("FR-07 approval minted", adopt.stdout, adopt.stderr)
+        self.assertEqual((self.repo / base).read_bytes(), core, "--write-baseline rewrote Flow's file")
+        git(self.repo, "add", "--", "src/big.ts")
+        done = git(self.repo, "commit", "-q", "-m", "T1: the monolith grows, adopted")
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn("950 src/big.ts", (self.repo / own).read_text(encoding="utf-8"))
+        self.bash("hooks/local/write-bootstrap-approval.sh", "--consume")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

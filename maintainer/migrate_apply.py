@@ -193,15 +193,17 @@ def install_and_carry(inv: m.Inventory) -> list[str]:
     recorded = {e["path"]: e["sha256"] for e in manifest["files"]}
     wrong = [p for p in inv.replace + inv.new if p in plan and not (
         p in recorded and (target / p).is_file() and flow.same_content((target / p).read_bytes(), recorded[p]))]
-    if m.BASELINE in plan and recorded.get(m.BASELINE) != flow.sha256(flow.with_rows(plan[m.BASELINE], inv.rows)):
-        wrong.append(f"{m.BASELINE} (not the core's rows plus the {len(inv.rows)} the dry run named)")
+    if m.BASELINE in plan and recorded.get(m.BASELINE) != flow.sha256(plan[m.BASELINE]):
+        wrong.append(f"{m.BASELINE} (not the core's rows)")
+    moved = flow.baseline_rows((target / flow.PROJECT_BASELINE).read_bytes()) if inv.rows else {}
+    if any(r.split(" ", 1)[1] not in moved for r in inv.rows):
+        wrong.append(f"{flow.PROJECT_BASELINE} (not the {len(inv.rows)} project rows the dry run named)")
     if wrong:
         raise m.Abort(f"after install {len(wrong)} core paths do not hold the core's bytes: {', '.join(wrong[:10])}")
     done = [f"install: the {len(inv.replace)} replace and {len([p for p in inv.new if p in plan])} new files hold "
             f"the core's bytes; {flow.MANIFEST} says {manifest['flow_version']}"]
-    rows = flow.baseline_rows((target / m.BASELINE).read_bytes()) if (target / m.BASELINE).is_file() else {}
-    stale = [p for p in rows if not (target / p).exists()]
-    done.append(f"carry-over: {m.BASELINE} is the core's plus {len(inv.rows)} project rows"
+    stale = [p for p in moved if not (target / p).exists()]
+    done.append(f"carry-over: {m.BASELINE} holds the core's rows; {len(inv.rows)} project rows in {flow.PROJECT_BASELINE}"
                 + (f" ({', '.join(inv.rows)})" if inv.rows else "")
                 + (f"; rows naming files the tree does not carry: {', '.join(stale)}" if stale else "")
                 + f"; {flow.MANIFEST} records its sha256; local overrides left in place: "

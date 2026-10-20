@@ -94,6 +94,12 @@ def _load_policy(root: Path) -> dict | None:
     return policy
 
 
+def _project_rel(baseline_rel: str) -> str:
+    """The project's rows, a committed sibling of Flow's baseline (6.0.0-m6 item 9, M6-15): Flow's file holds the core's
+    rows only, so a project's adoption or removal of a row never changes a Flow-owned file."""
+    return (baseline_rel[:-4] if baseline_rel.endswith(".txt") else baseline_rel) + ".project.txt"
+
+
 def _read_baseline(path: Path) -> dict[str, int] | None:
     if not path.is_file():
         return None
@@ -258,25 +264,31 @@ def main(argv: list[str]) -> int:
         # lockstep with check-module-size.sh, which HEAD-derives baseline_file for its
         # staged-baseline scope check.
         baseline_rel = _head_baseline_rel(root)
-        baseline_path = root / baseline_rel
+        flow_rows = _read_baseline(root / baseline_rel) or {}
         header = (
-            "# FR-25 module-size baseline — over-ceiling files frozen at current size.\n"
+            "# FR-25 module-size baseline — the project's over-ceiling files frozen at current size"
+            f" (Flow's own rows: {baseline_rel}).\n"
             "# Regenerate (agent runs on the operator's go-ahead): bash hooks/local/check-module-size.sh --write-baseline\n"
             "# Re-key ONE file (no global amnesty): ... --write-baseline <path>\n"
         )
-        baseline_path.parent.mkdir(parents=True, exist_ok=True)
         # Second layer atop the HEAD-derivation above: refuse to CLOBBER a non-baseline
         # file. Even a HEAD-committed baseline_file could, in principle, name an existing
         # tracked file; overwriting it with baseline text would be a DoS. A legitimate
         # baseline is either absent (first write) or already starts with this header;
-        # anything else is refused, fail-closed.
-        if baseline_path.is_file():
-            head = baseline_path.read_text(encoding="utf-8", errors="replace").lstrip()
-            if not head.startswith("# FR-25 module-size baseline"):
-                print(f"[module-size] refusing to overwrite {baseline_rel}: it is not a module-size "
-                      f"baseline — policy baseline_file may be misconfigured or redirected. Fix "
-                      f"policies/module-size.yml.", file=sys.stderr)
-                return 2
+        # anything else is refused, fail-closed. Flow's file is checked too: a redirect
+        # onto a victim refuses before its sibling is written.
+        for rel in (baseline_rel, _project_rel(baseline_rel)):
+            if (root / rel).is_file():
+                head = (root / rel).read_text(encoding="utf-8", errors="replace").lstrip()
+                if not head.startswith("# FR-25 module-size baseline"):
+                    print(f"[module-size] refusing to overwrite {rel}: it is not a module-size "
+                          f"baseline — policy baseline_file may be misconfigured or redirected. Fix "
+                          f"policies/module-size.yml.", file=sys.stderr)
+                    return 2
+        # The project's rows go to the project's file; Flow's rows stay in Flow's (never rewritten here).
+        baseline_rel = _project_rel(baseline_rel)
+        baseline_path = root / baseline_rel
+        baseline_path.parent.mkdir(parents=True, exist_ok=True)
         if target:
             # Single-file re-key (rename remedy / targeted refresh). Full regen
             # grandfathers EVERY current violation — keep refreshes targeted.
@@ -299,14 +311,16 @@ def main(argv: list[str]) -> int:
             print(f"[module-size] baseline-path: {baseline_rel}")
             print(f"[module-size] baseline re-keyed: {target} — {action} ({baseline_rel})")
             return 0
-        rows = sorted((p, n) for p, n in gated if n > ceiling)
+        rows = sorted((p, n) for p, n in gated if n > ceiling and p not in flow_rows)
         body = "\n".join(f"{n} {p}" for p, n in rows)
         baseline_path.write_text(header + (body + "\n" if body else ""), encoding="utf-8")
         print(f"[module-size] baseline-path: {baseline_rel}")   # wrapper consumes this (see re-key note)
         print(f"[module-size] baseline written: {baseline_rel} ({len(rows)} over-ceiling file(s), ceiling {ceiling})")
         return 0
 
-    baseline = _read_baseline(baseline_path)
+    flow_rows, own_rows = _read_baseline(baseline_path), _read_baseline(root / _project_rel(baseline_rel))
+    baseline = None if flow_rows is None and own_rows is None else {**(flow_rows or {}), **(own_rows or {})}
+    baseline_rel = _project_rel(baseline_rel)  # where an adoption goes, for the remedy text below
     warn_only = baseline is None or enforcement == "warn"
     # A change gate (pre-commit --staged / vs-HEAD --worktree) is delta-aware for
     # un-adopted files; --all is an absolute audit (no HEAD delta to compare).

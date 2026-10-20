@@ -210,6 +210,8 @@ class BaselineCarry(unittest.TestCase):
         self.assertEqual([p for p in rows if p not in flow.core_files()], [])
 
     def test_a_project_row_is_carried_and_a_following_install_keeps_it(self) -> None:
+        sys.path.insert(0, str(FLOW.parent))
+        import flow
         tmp = Path(tempfile.mkdtemp(prefix="flow-migrate-"))
         try:
             clone = scratch_clone(tmp)
@@ -221,10 +223,15 @@ class BaselineCarry(unittest.TestCase):
             self.assertIn("committed: ", run.stdout)
             core = (FLOW.parents[1] / baseline).read_bytes().replace(b"\r\n", b"\n")
             committed = blob(clone, f"HEAD:{baseline}")
-            self.assertEqual(committed, core + b"900 src/big.ts\n")
+            self.assertEqual(committed, core)  # Flow's file: the core's rows only (6.0.0-m6 item 9)
+            own = blob(clone, f"HEAD:{flow.PROJECT_BASELINE}")
+            self.assertEqual(own, flow.PROJECT_HEADER + b"900 src/big.ts\n")
+            self.assertIn("project rows in policies/module-size-baseline.txt, moved to", run.stdout)
             manifest = json.loads(blob(clone, "HEAD:audit/flow-install.json"))
-            recorded = {e["path"]: e["sha256"] for e in manifest["files"]}
-            self.assertEqual(recorded[baseline], hashlib.sha256(committed).hexdigest())
+            recorded = {e["path"]: e for e in manifest["files"]}
+            self.assertEqual(recorded[baseline]["sha256"], hashlib.sha256(committed).hexdigest())
+            self.assertEqual(recorded[flow.PROJECT_BASELINE], {"path": flow.PROJECT_BASELINE, "project": True,
+                                                               "sha256": hashlib.sha256(own).hexdigest()})
             again = install(clone)
             self.assertEqual(again.returncode, 0, again.stdout + again.stderr)
             self.assertIn(baseline, listed(again.stdout, "unchanged"), again.stdout)

@@ -38,6 +38,9 @@
 #   hooks/local/lib/validator_tier.py: Flow's state/ records validator-free by default, except the extensions a
 #   lint covers, and a WARNING for a declared glob over lint-covered files (T297; 5.x c79bd9b3, local; brief m6
 #   list item 8, M6-24, M6-16).
+#   hooks/shared/module_size.py and policies/protected-paths.yml: the project's rows in the committed sibling
+#   policies/module-size-baseline.project.txt, read beside Flow's baseline, written by --write-baseline and
+#   protected (T298; 5.x feaf0a4a, local; brief m6 list item 9, M6-15).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -78,7 +81,7 @@ e7c5c77c9a71502aa10a79195fcba455e76fbd6fa350c616bbcd9c0280c6ae89  hooks/shared/a
 2523a0585165f3f8597248aee32d985e9ac1d05797c5d0c376a77af44d71d446  hooks/shared/denial_message.py
 dae64b6cf2cb20b72142cd0cd283ac60597e943ea17dd296d4080043c1a02d27  hooks/shared/git_push_binding.py
 2e86be791cfe5e2b895e91875f93dd97dd4e88e1b2856a9525bcb9e2b8c1aee7  hooks/shared/git_utils.py
-da74a713f30c28f0f980829b7fe7df134de3d94670635a9b452cfc9b9fbcee56  hooks/shared/module_size.py
+fe16330c99c82b471a21ffd999519c589402853eeb9e7abe1e5d61047c9649a7  hooks/shared/module_size.py
 97be0a403c27913dc1be20317abb994e2a8f23416ef74b8b09b9877299b13124  hooks/shared/path_policy.py
 50919a984d82bb661afd53fedfd80ec407c0088772408978cd6e144d3d22171d  hooks/shared/policy_loader.py
 fecb30ef246aaf2dc90dc55200de5d1b0bab92242c8cbbd5cbd3e9c0d8d784fa  hooks/shared/secret_scanner.py
@@ -87,5 +90,5 @@ fecb30ef246aaf2dc90dc55200de5d1b0bab92242c8cbbd5cbd3e9c0d8d784fa  hooks/shared/s
 1a209df59c973c8b41cbf7d373bb5f60aa42d9b674ce6753b7d511752cb9cb10  policies/command-policy.yml
 7747637a42919bf6548600fc78a9f53866ed655dfff00370958a0707674f3840  policies/module-size-baseline.txt
 cd603634033c3eb68970210d5d2a0762c3fd0ee01ec53c36a8f4644ec7374f2f  policies/module-size.yml
-6512a266a351c005374713adcdb41a0de4ea0c179df0d071c7a9dd5399e15973  policies/protected-paths.yml
+9dda3e4a120c90f7267fff71ca5a6f35105ead3612fc1c189c6e8a9b68dfe9fe  policies/protected-paths.yml
 fa440720b8764312f9eea1c47aae2dff50c0a38ed2ea1eb5d151d3c5f2f377f0  policies/secret-patterns.yml
