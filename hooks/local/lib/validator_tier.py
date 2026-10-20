@@ -49,6 +49,12 @@ BREADTH_PROBES = (
     "deno.json", ".editorconfig", ".gitignore", "pyproject.toml", "setup.cfg", "ruff.toml",
     "mypy.ini",
 )
+# 6.0.0-m6 item 8 (M6-24): Flow's own records under state/ (gate reports, flag rulings, run indexes, deploy lines) are
+# validator-free with no declaration, except by extension what a lint covers: ESLint lints .json and .mjs under docs/
+# and state/ in both live projects. A declared pattern matching such a file at HEAD prints a WARNING (M6-16).
+DEFAULT_FREE = "state/"
+LINT_COVERED = frozenset((".js", ".mjs", ".cjs", ".jsx", ".ts", ".mts", ".cts", ".tsx", ".json", ".jsonc", ".json5",
+                          ".py", ".html", ".htm", ".css", ".scss", ".vue", ".svelte"))
 _BAD_CHARS = frozenset("\\[]{}")
 _CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 
@@ -148,6 +154,10 @@ def parse_declaration(blob: bytes, compile_glob):
     return out, ""
 
 
+def default_free(path: str) -> bool:
+    return path.startswith(DEFAULT_FREE) and Path(path).suffix.lower() not in LINT_COVERED
+
+
 def decide(staged, patterns, compile_glob) -> Verdict:
     if not staged:
         return Verdict(False, "nothing staged")
@@ -158,7 +168,7 @@ def decide(staged, patterns, compile_glob) -> Verdict:
     for path in staged:
         if path in TIER_INPUTS or any(r.fullmatch(path) for r in config):
             return Verdict(False, "%s is a validator config or tier input" % path)
-    undeclared = [p for p in staged if not any(rx.fullmatch(p) for _, rx in patterns)]
+    undeclared = [p for p in staged if not default_free(p) and not any(rx.fullmatch(p) for _, rx in patterns)]
     if undeclared:
         more = " (+%d more)" % (len(undeclared) - 1) if len(undeclared) > 1 else ""
         return Verdict(False, "%s is not declared validator-free%s" % (undeclared[0], more))
@@ -205,19 +215,38 @@ def staged_paths(root: Path):
 
 def evaluate(root: Path) -> Verdict:
     blob, info = read_declaration(root)
-    if blob is None:
-        return Verdict(False, info)
     compile_glob = load_glob(root)
-    patterns, why = parse_declaration(blob, compile_glob)
+    patterns, why = parse_declaration(blob, compile_glob) if blob is not None else ([], "")
     if patterns is None:
         return Verdict(False, "%s@%s is invalid: %s" % (DECLARATION, info, why))
-    if not patterns:
-        return Verdict(False, "%s@%s %s" % (DECLARATION, info, why))
-    staged, why = staged_paths(root)
+    if not patterns and not info.startswith("no declaration") and blob is None:
+        return Verdict(False, info)  # unborn HEAD or an unreadable declaration: never the default either
+    staged, why2 = staged_paths(root)
     if staged is None:
-        return Verdict(False, why)
+        return Verdict(False, why2)
     v = decide(staged, patterns, compile_glob)
+    if not patterns:  # the state/ default alone
+        return Verdict(True, "all %d staged path(s) are Flow's records under %s, validator-free by default"
+                       % (len(staged), DEFAULT_FREE)) if v.skip else Verdict(False, info if blob is None else
+                                                                             "%s@%s %s" % (DECLARATION, info, why))
     return Verdict(v.skip, "%s (%s@%s)" % (v.reason, DECLARATION, info) if v.skip else v.reason)
+
+
+def lint_covered(root: Path) -> list[str]:
+    """M6-16: a WARNING per declared pattern that matches files at HEAD with an extension a lint covers."""
+    blob, _ = read_declaration(root)
+    patterns = parse_declaration(blob, load_glob(root))[0] if blob is not None else None
+    rc, out = _git(root, "ls-tree", "-r", "-z", "--name-only", "HEAD") if patterns else (1, b"")
+    files = [n.decode("utf-8", "replace") for n in out.split(b"\0") if n] if rc == 0 else []
+    covered = [f for f in files if Path(f).suffix.lower() in LINT_COVERED]
+    lines = []
+    for raw, rx in patterns or []:
+        hits = [f for f in covered if rx.fullmatch(f)]
+        if hits:
+            lines.append("%s WARNING: %s declares %r validator-free, and it matches %d file(s) a lint covers (%s%s): "
+                         "a commit of only those skips lint and typecheck for them" % (
+                             TAG, DECLARATION, raw, len(hits), hits[0], ", ..." if len(hits) > 1 else ""))
+    return lines
 
 
 def main(argv) -> int:
@@ -232,6 +261,12 @@ def main(argv) -> int:
         if isinstance(e, KeyboardInterrupt):
             raise
         v = Verdict(False, "tier check error (%s)" % e.__class__.__name__)
+    try:
+        for line in lint_covered(root):
+            print(line, file=sys.stderr)
+    except BaseException as e:  # TRIPWIRE: as above; a warning never changes the verdict, a SystemExit included
+        if isinstance(e, KeyboardInterrupt):
+            raise
     if v.skip:
         print("%s tier=validator-free: lint/typecheck skipped - %s" % (TAG, v.reason), file=sys.stderr)
         return SKIP_RC

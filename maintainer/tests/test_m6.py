@@ -415,5 +415,39 @@ class ReaderState(Project):
         self.assertNotIn("/Create", calls, "health only asks")
 
 
+class StateValidatorFree(Project):
+    """m6 list item 8: Flow's records under state/ skip lint and typecheck with no declaration, except the extensions a
+    lint covers (M6-24); a declared glob that matches lint-covered files at HEAD warns (M6-16). Through the installed
+    hooks, with the project's lint red."""
+
+    wire = False
+    RED = {"FUSEBASE_FLOW_LINT": "echo lint-ran >&2; false"}
+
+    def commit(self, rel: str, text: str = "x\n") -> subprocess.CompletedProcess:
+        (self.repo / rel).parent.mkdir(parents=True, exist_ok=True)
+        (self.repo / rel).write_text(text, encoding="utf-8")
+        git(self.repo, "add", "--", rel)
+        return sh(self.repo, *GIT, "commit", "-q", "-m", "T1: a record", **self.RED)
+
+    def test_state_records_skip_lint_by_default_a_json_there_does_not_and_a_wide_glob_warns(self) -> None:
+        for rel in ("state/gate/P1.txt", "state/runs/P1/index.tsv"):
+            done = self.commit(rel)
+            self.assertEqual(done.returncode, 0, done.stderr)
+            self.assertIn("validator-free by default", done.stderr)
+            self.assertNotIn("lint-ran", done.stderr)
+        refused = self.commit("state/done/P1-S1.json", "{}\n")
+        self.assertNotEqual(refused.returncode, 0, "a .json under state/ skipped the lint that covers it")
+        self.assertIn("lint-ran", refused.stdout + refused.stderr, refused.stdout)
+        git(self.repo, "rm", "-q", "--cached", "--", "state/done/P1-S1.json")
+        (self.repo / "docs").mkdir(exist_ok=True)
+        (self.repo / "docs/data.json").write_text("{}\n", encoding="utf-8")
+        (self.repo / POLICY).write_text("schema_version: 1\nvalidator_free_paths:\n  - 'docs/**'\n", encoding="utf-8")
+        self.commit_protected([POLICY, "docs/data.json"], "T1: declare the docs")
+        done = self.commit("docs/notes.md")
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn("WARNING: policies/validator-free-paths.yml declares 'docs/**' validator-free, and it matches 1 "
+                      "file(s) a lint covers (docs/data.json)", done.stderr)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

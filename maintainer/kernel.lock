@@ -35,6 +35,9 @@
 #   hooks/git/pre-commit and hooks/handlers/post_tool_use.py: each pre-commit stage's time kept in
 #   state/audit/commit-stages.tsv, and every tool-call audit line carries its agent_id, so the planner's calls
 #   are counted (T293; 5.x 69371aa9, local; brief m6 list item 4, M6-25).
+#   hooks/local/lib/validator_tier.py: Flow's state/ records validator-free by default, except the extensions a
+#   lint covers, and a WARNING for a declared glob over lint-covered files (T297; 5.x c79bd9b3, local; brief m6
+#   list item 8, M6-24, M6-16).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -63,7 +66,7 @@ f96ad00eae668bbe6f0820e1d4ff263f32df07b46acba1af9853b6392d6c0f2b  hooks/local/li
 9d7842ee1cd5f4b4827a737c8ce1bdd6d3eb25b8df877b20dadd57bf92c0216d  hooks/local/lib/bounded-run.sh
 474f026bba4aadd2359678806ffa4007a8d19183f87a8f119e2e2b08bb9db002  hooks/local/lib/precommit-validator-reuse.sh
 59b32bed31dba84ed161b8b1a9f9df989daec2d31a8789e8fd1ebf8b56171ed7  hooks/local/lib/run-with-timeout.sh
-0a77529b6bf4948546f6e03d479a19779e0565222294902407e6190513006588  hooks/local/lib/validator_tier.py
+94dc2046a0093dd1f247e8cd55be777998a045599706c9fd73eb48c0379adf67  hooks/local/lib/validator_tier.py
 009493546e7939c7076950db52fa6a4a0415d41a98a49db85adcc8ecbf030ece  hooks/local/run-handler.sh
 87dba646026346ffe707a0fc9eae09a892e069a15df4393669efae908f3421ff  hooks/local/write-bootstrap-approval.sh
 63daf72404eb71177e26c560daf8257d7bcb63dd791983e048848cd88ae94fc8  hooks/requirements.txt
