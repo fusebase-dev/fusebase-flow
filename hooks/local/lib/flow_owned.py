@@ -4,7 +4,8 @@ Flow's own, besides the four documents (commit_msg.py checks those):
 - an added or changed path whose staged bytes have the sha256 the staged audit/flow-install.json records for it, and
   that manifest itself;
 - a deleted path recorded at HEAD by that manifest or by a 5.x Flow manifest, or whose name and HEAD bytes are those
-  of a path one of them records (a 5.x command mirror); on the migration commit also the files it deletes by name;
+  of a path one of them records (a 5.x command mirror); on the migration commit also the files it deletes by name,
+  bytecode and the orphan 5.x backups (`*.pre-flow-repair[.<n>]` under .claude/, .agents/ and .codex/);
 - AGENTS.md, CLAUDE.md, .gitattributes and .gitignore when the change stays inside Flow's marked block, checked
   against HEAD; on the migration commit AGENTS.md and CLAUDE.md whole (it replaces 5.x's section, which no marker
   bounds; the owner's decision of 2026-10-19).
@@ -26,6 +27,7 @@ ROW = re.compile(r"(.+?)  ([0-9a-f]{64})")
 RETIRED_5X = (*ASSETS_5X, *MIRRORS_5X, "audit/README.md", "audit/cli-upstream-manifest.json",
               "audit/cli-vendor-manifest.json", "GEMINI.md", "install.sh", "policies/model-routing.local.yml")
 BYTECODE = re.compile(r"hooks/.*(/__pycache__/.*|\.py[co])")
+REPAIR_BACKUP = re.compile(r"\.(claude|agents|codex)/.+\.pre-flow-repair(\.\d+)?")  # migrate.py's orphan 5.x backups
 MERGED, OVERLAYS = ("AGENTS.md", "CLAUDE.md", ".gitattributes", ".gitignore"), ("AGENTS.md", "CLAUDE.md")
 MARK = re.compile(r"(?:<!-- |# )FLOW:(BEGIN|END)\b")
 WRAP = ("<!-- CUSTOM:SKILL:BEGIN -->", "<!-- CUSTOM:SKILL:END -->")
@@ -94,7 +96,7 @@ def foreign(root: Path, pairs: list[tuple[str, str]]) -> list[str]:
             return True
         if s.startswith("D"):
             return p in recorded or (p.rsplit("/", 1)[-1], sha) in named or (
-                migrating and (p in RETIRED_5X or bool(BYTECODE.fullmatch(p))))
+                migrating and (p in RETIRED_5X or bool(BYTECODE.fullmatch(p) or REPAIR_BACKUP.fullmatch(p))))
         if p in MERGED:
             kept = outside(data)
             return (migrating and p in OVERLAYS) or (kept is not None and kept == outside(b.get(f"HEAD:{p}")))

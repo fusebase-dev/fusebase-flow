@@ -491,5 +491,40 @@ class BaselineSplit(Project):
         self.bash("hooks/local/write-bootstrap-approval.sh", "--consume")
 
 
+class OrphanBackups(unittest.TestCase):
+    """m6 list item 10 (M6-17, O-32 (c)): the migration removes the 5.x repair backups whose file is gone or goes with
+    it, under .claude/, .agents/ and .codex/, `.pre-flow-repair` and `.pre-flow-repair.<n>` alike; one beside a file
+    that stays is left. Backed up, listed in the dry run, and the migration commit lands."""
+
+    ORPHANS = {".claude/skills/old/SKILL.md.pre-flow-repair": "old\n",
+               ".agents/skills/old/SKILL.md.pre-flow-repair.1": "old\n",
+               ".codex/agents/old.toml.pre-flow-repair": "old = 1\n"}
+    KEPT = {".claude/skills/mine/SKILL.md": "---\nname: mine\n---\n",
+            ".claude/skills/mine/SKILL.md.pre-flow-repair": "---\nname: mine\n---\nbefore\n"}
+
+    def test_the_migration_removes_the_orphans_and_keeps_a_backup_whose_file_stays(self) -> None:
+        from synthetic import migrate, scratch_clone
+        tmp = Path(tempfile.mkdtemp(prefix="flow-migrate-"))
+        try:
+            clone = scratch_clone(tmp, {**self.ORPHANS, **self.KEPT})
+            dry = migrate(clone, "--providers", "claude,codex")
+            self.assertEqual(dry.returncode, 0, dry.stdout + dry.stderr)
+            self.assertIn("orphan 5.x backups: 3 (", dry.stdout)
+            self.assertNotIn(".claude/skills/old/", dry.stdout.split("never touch")[1].split("keep (")[0])
+            run = migrate(clone, "--providers", "claude,codex", "--apply", "--go-ahead")
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            self.assertIn("committed: ", run.stdout)
+            for rel in self.ORPHANS:
+                self.assertFalse((clone / rel).exists(), rel)
+                self.assertTrue(next(clone.glob(".flow-migrate-*")).joinpath(rel).is_file(), f"{rel} not backed up")
+            for rel in self.KEPT:
+                self.assertTrue((clone / rel).is_file(), rel)
+            deleted = git(clone, "show", "--name-only", "--diff-filter=D", "--format=", "HEAD").stdout.split()
+            self.assertLessEqual(set(self.ORPHANS), set(deleted))
+            self.assertEqual(git(clone, "status", "--porcelain").stdout, "")
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

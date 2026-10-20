@@ -41,6 +41,10 @@ MIRROR_RECORDS = {SKILL_MIRRORS: (".claude/skills/", ".agents/skills/"), AGENT_M
 MIRROR_ROW = re.compile(r"(.+?)  ([0-9a-f]{64})")
 ROOT_5X = ("GEMINI.md", "install.sh")
 ORPHANS = ("policies/model-routing.local.yml",)  # override of a policy the core drops
+# 5.x's repair tools left `<file>.pre-flow-repair` (and `.pre-flow-repair.<n>`) beside the files they rewrote, in the
+# provider folders; once that file goes, the backup is an orphan (WorkHub: 44, under .claude/, .agents/ and .codex/).
+REPAIR_BACKUP = re.compile(r"(.+)\.pre-flow-repair(?:\.\d+)?")
+BACKUP_DIRS = (".claude", ".agents", ".codex")
 # A file deleted by its name goes only when its bytes match Flow's own: a recorded sha256 where the 5.x install has one,
 # else this table of each 5.x release's bytes (maintainer/flow5_table.py writes it; maintainer data, never installed).
 FLOW5_TABLE = Path(__file__).resolve().parent / "flow5-sha256.json"
@@ -57,7 +61,7 @@ HISTORY_DIRS = ("docs/tmp",)
 REWRITTEN = ("AGENTS.md", "CLAUDE.md", "VERSION", ".gitignore", flow.ATTRIBUTES)  # backed up, rewritten in place
 DOCS = flow.DOCUMENTS
 GROUPS = ("manifest assets", "skill mirrors", "agent mirrors", "command mirrors", "old audit records",
-          "5.x root files", "orphan local overrides", "bytecode under hooks/", "old git hooks")
+          "5.x root files", "orphan local overrides", "orphan 5.x backups", "bytecode under hooks/", "old git hooks")
 HEADING = re.compile(rb"^## FuseBase Flow[^\r\n]*", re.M)
 H2 = re.compile(rb"^## ", re.M)
 WORD = re.compile(r"[\w./-]+")
@@ -408,6 +412,11 @@ def inventory(target: Path, providers: set[str]) -> Inventory:
     for rel in walk_files(target, "hooks"):
         if "/__pycache__/" in rel or rel.endswith((".pyc", ".pyo")):
             inv.remove["bytecode under hooks/"].append(rel)
+    gone = set(inv.removals())
+    for rel in (r for d in BACKUP_DIRS for r in walk_files(target, d)):
+        # a 5.x repair's backup whose file the migration removes, or that is already gone (6.0.0-m6 item 10, O-32 (c))
+        if (m := REPAIR_BACKUP.fullmatch(rel)) and (m[1] in gone or not (target / m[1]).exists()):
+            inv.remove["orphan 5.x backups"].append(rel)
     for h in GIT_HOOKS:
         f = hooks_dir(target) / h
         if f.is_file():
@@ -430,7 +439,7 @@ def inventory(target: Path, providers: set[str]) -> Inventory:
                 inv.replace.append(rel)
         elif not (rel in plan and flow.same_content(f.read_bytes(), flow.sha256(plan[rel]))):
             inv.changed.append(f"{rel} (exists and is not Flow's: install would keep it, not the core's)")
-    _never_and_keep(inv, vendor, set(groups) | plan_paths)
+    _never_and_keep(inv, vendor, set(groups) | plan_paths | set(inv.remove["orphan 5.x backups"]))
     for name in flow.OVERLAY:
         overlay = find_overlay(target, name)
         if overlay:
