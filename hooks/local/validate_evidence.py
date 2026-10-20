@@ -19,30 +19,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
 import flow_docs as fd  # noqa: E402
+from evidence_rules import finding_problems, flaky_problems, run_log  # noqa: E402
 
 IMAGE = (".png", ".jpg", ".jpeg", ".webp", ".gif")  # capture_min_bytes.image applies; other files take .other
 ADDED_SKIP = re.compile(r"^\+(?!\+\+).*\b(skip|todo)\b", re.I | re.M)
 RANK = {"unit": 0, "smoke": 1, "live": 2}
 NEEDS = {"auth": "live", "data": "live", "deploy_config": "live", "ui": "smoke"}  # a touched class -> minimum evidence
 RISK = {"auth": "live", "data": "live", "prod": "live"}  # the risk tag raises, never lowers
-
-
-def run_log(path: Path, header: str) -> dict | None:
-    """{title, records: [(time, row, record)]} when the file carries the policy's run-log header, else None."""
-    try:
-        lines = [line.rstrip() for line in path.read_text(encoding="utf-8", errors="replace").splitlines()]
-    except OSError:
-        return None
-    if header not in lines:
-        return None
-    records = []
-    for line in lines[lines.index(header) + 1:]:
-        if not line.startswith("|"):
-            break
-        cells = [c.strip() for c in line.strip("|").split("|")]
-        if len(cells) >= 3 and not re.fullmatch(r"[-: ]+", cells[0]):
-            records.append((cells[0], cells[1], "|".join(cells[2:]).strip()))
-    return {"title": next((line for line in lines if line.startswith("# ")), ""), "records": records}
 
 
 def table(text: str) -> list[dict]:
@@ -69,28 +52,6 @@ def deploy_finished(root: Path, env: str) -> tuple[float, str] | None:
         if (t := fd.stamp(value)) is not None and (latest is None or t > latest[0]):
             latest = (t, value)
     return latest
-
-
-def flaky(root: Path, phase: str, row: dict, header: str) -> str | None:
-    """An earlier run in this run's folder (its phase's) logging a FAIL for this row; "" when none, None if unindexed."""
-    try:
-        runs = [r.split("\t") for r in (root / "state/runs" / phase / "index.tsv").read_text("utf-8").splitlines()]
-    except OSError:
-        return None
-    runs = [r for r in runs if len(r) >= 4 and fd.stamp(r[1]) is not None]
-    here = (root / row["log"]).parent.resolve()
-    current = next((r for r in runs if (root / r[2]).resolve() == here), None)
-    if current is None:
-        return None
-    try:
-        names = {row["id"], (root / row["capture"]).resolve().relative_to(here).parts[0]}
-    except (ValueError, IndexError):
-        names = {row["id"]}
-    for run_id, started, folder, _ in (r[:4] for r in runs if (root / r[2]).resolve().parent == here.parent):
-        if fd.stamp(started) < fd.stamp(current[1]) and (log := run_log(root / folder / "README.md", header)):
-            if any(rec[1] in names and rec[2].startswith("FAIL") for rec in log["records"]):
-                return run_id
-    return ""
 
 
 def check_test_row(root: Path, row: dict, base: str, marker: str) -> list[str]:
@@ -128,19 +89,14 @@ def check_capture_row(root: Path, row: dict, pol: dict, phase: str, out: list[st
     log = run_log(root / row["log"], str(pol.get("run_log_header", "")))
     if log is None:
         return problems + [f"unrecognised run log {row['log']} (no `{pol.get('run_log_header')}` header)"], digest, "unit"
-    if any(re.match(str(pol.get("finding_marker", "^FINDING ")), rec[2]) for rec in log["records"]):
-        problems.append("the run log records a FINDING behind this PASS")
+    problems += finding_problems(log, pol)
     env = re.search(r"\(([^()]+)\)\s*$", log["title"])
     deployed = deploy_finished(root, env[1]) if env else None
     started = fd.stamp(log["records"][0][0]) if log["records"] else None
     if deployed and (started is None or started < deployed[0]):
         problems.append(f"the run started {log['records'][0][0] if log['records'] else '?'}, before the "
                         f"{env[1]} deploy finished {deployed[1]}")
-    earlier = flaky(root, phase, row, str(pol.get("run_log_header", "")))
-    if earlier is None:
-        out.append(f"    history unresolved: the run is not in state/runs/{phase}/index.tsv")
-    elif earlier and "repro" not in row["note"].lower():
-        problems.append(f"FLAKY: run {earlier} recorded a FAIL for it and the row has no reproduction note")
+    problems += flaky_problems(root, phase, row, pol, out)
     return problems, digest, ("live" if log["title"].startswith("# Live run") else "smoke")
 
 
