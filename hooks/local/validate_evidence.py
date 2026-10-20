@@ -72,7 +72,7 @@ def deploy_finished(root: Path, env: str) -> tuple[float, str] | None:
 
 
 def flaky(root: Path, phase: str, row: dict, header: str) -> str | None:
-    """The earlier run whose log records a FAIL for this row, "" when none, None when the run is not indexed."""
+    """An earlier run in this run's folder (its phase's) logging a FAIL for this row; "" when none, None if unindexed."""
     try:
         runs = [r.split("\t") for r in (root / "state/runs" / phase / "index.tsv").read_text("utf-8").splitlines()]
     except OSError:
@@ -86,7 +86,7 @@ def flaky(root: Path, phase: str, row: dict, header: str) -> str | None:
         names = {row["id"], (root / row["capture"]).resolve().relative_to(here).parts[0]}
     except (ValueError, IndexError):
         names = {row["id"]}
-    for run_id, started, folder, _ in (r[:4] for r in runs):
+    for run_id, started, folder, _ in (r[:4] for r in runs if (root / r[2]).resolve().parent == here.parent):
         if fd.stamp(started) < fd.stamp(current[1]) and (log := run_log(root / folder / "README.md", header)):
             if any(rec[1] in names and rec[2].startswith("FAIL") for rec in log["records"]):
                 return run_id

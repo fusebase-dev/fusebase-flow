@@ -14,6 +14,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import test_scripts as m3
 from synthetic import FLOW, GIT, git, no_auto_gc
 
 CORE = FLOW.parents[1]
@@ -155,6 +156,25 @@ class GoAhead(Project):
             self.assertEqual(self.tool("Write", POLICY, content=DECLARED)["flow_decision"], "deny", expires)
         artifact.write_text(json.dumps(data), encoding="utf-8")
         self.assertEqual(self.tool("Write", POLICY, content=DECLARED)["flow_decision"], "allow")
+
+
+class FlakyScope(m3.Validator):
+    """m6 list item 1 (M6-22): the flaky check reads the earlier runs of this run's own phase. Onboarding's P6 index
+    carries phase 5's runs in their own folder; phase 5's S6 FAIL there flagged phase 6's S6."""
+
+    locals().update(dict.fromkeys(n for n in dir(m3.Validator) if n.startswith("test")))  # the inherited tests run there
+
+    def test_a_fail_in_a_run_another_phase_carried_into_this_index_is_not_flaky_and_one_in_this_phase_is(self) -> None:
+        fail = m3.RUN_LOG.format(records="| 2026-10-18T09:30:00.000Z | S1 | FAIL: 200 |\n")
+        m3.write(self.repo, "runs/carry-over/p0-run/README.md", fail)
+        index = "p0-run\t2026-10-18T09:30:00Z\truns/carry-over/p0-run\t1\nrun-1\t2026-10-18T10:00:00Z\truns/run-1\t0\n"
+        m3.write(self.repo, "state/runs/P1/index.tsv", index)
+        out = self.validate()
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertIn("  B1 PASS", out.stdout)
+        m3.write(self.repo, "runs/run-0/README.md", fail)
+        m3.write(self.repo, "state/runs/P1/index.tsv", index + "run-0\t2026-10-18T09:40:00Z\truns/run-0\t1\n")
+        self.assert_fails("B1", "FLAKY: run run-0 recorded a FAIL")
 
 
 if __name__ == "__main__":
