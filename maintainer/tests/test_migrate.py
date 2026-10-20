@@ -574,7 +574,8 @@ class ReleaseNote(unittest.TestCase):
                 if "/" in word and "://" not in word and not word.startswith(("<", "-")):
                     named.append(word)
                     folder, _, rest = word.partition("/")
-                    if folder not in cloned or rest not in tracked:
+                    # or a path the core tracks, run inside the project the install put it in (hooks/local/commit.py)
+                    if (folder not in cloned or rest not in tracked) and not (cloned and word in tracked):
                         wrong.append(f"{line}  ({word})")
             if words[:2] == ["git", "clone"]:
                 cloned.add(words[-1])
@@ -582,13 +583,18 @@ class ReleaseNote(unittest.TestCase):
         self.assertEqual(cloned, {f"fusebase-flow-{version}"})
         self.assertIn(f"fusebase-flow-{version}/hooks/requirements.txt", named)
 
-    def test_the_m4_upgrade_steps_name_only_paths_the_release_ships(self) -> None:
+    def test_the_upgrade_steps_name_only_paths_the_release_ships(self) -> None:
         """brief m5-finish B: every command of the step-by-step section names a path the release ships, under the
-        release's clone folder or, inside the project, as the install put it there."""
+        release's clone folder or, inside the project, as the install put it there. The section upgrades the
+        pre-release before this one (6.0.0-m5 for 6.0.0-m6)."""
+        sys.path.insert(0, str(FLOW.parent))
+        import flow
         core = FLOW.parents[1]
         version = (core / "VERSION").read_text().strip()
         note = (core / "maintainer/release-notes" / f"{version}.md").read_text("utf-8")
-        section = note.split("## Upgrading a 6.0.0-m4 project, step by step\n", 1)[1].split("\n## ", 1)[0]
+        head = re.search(r"^## Upgrading a 6\.0\.0-m(\d+) project, step by step\n", note, flags=re.M)
+        self.assertEqual(f"6.0.0-m{int(head[1]) + 1}" if head else None, version)
+        section = note[head.end():].split("\n## ", 1)[0]
         tracked = set(git(core, "ls-files").stdout.splitlines())
         blocks = re.findall(r"^```\n(.*?)^```$", section, flags=re.M | re.S)
         self.assertEqual(len(blocks), 1, "one block for every 6.0.0-m4 install, wired or not (T286)")
@@ -606,8 +612,8 @@ class ReleaseNote(unittest.TestCase):
         for line in blocks[0].splitlines():
             for word in PLACEHOLDER.sub("<>", line).split():
                 if "/" in word and "://" not in word and not word.startswith(("<", "-")):
-                    named.append(word.removeprefix(f"fusebase-flow-{version}/"))
-                    if named[-1] not in tracked:
+                    named.append(word.rstrip(";").removeprefix(f"fusebase-flow-{version}/"))
+                    if named[-1] not in tracked | {flow.PROJECT_BASELINE}:  # the project's file the install writes
                         wrong.append(f"{line}  ({word})")
         self.assertEqual(wrong, [], "paths the release does not ship")
         self.assertLessEqual({"maintainer/flow.py", "hooks/requirements.txt", "hooks/local/write-bootstrap-approval.sh"},

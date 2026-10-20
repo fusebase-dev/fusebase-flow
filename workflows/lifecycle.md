@@ -2,7 +2,7 @@
 
 The planner (the operator's main session) runs every step; builders build one slice each; readers review and judge. Rules: `FLOW_RULES.md`. The four documents live in `docs/flow/`, copied from `templates/`.
 
-**6.0.0-m5.** The six scripts are in `hooks/local/`.
+**6.0.0-m6.** The six scripts are in `hooks/local/`.
 
 ## 1. Plan (skill `plan`)
 
