@@ -266,7 +266,7 @@ class StorePreflight(StorePath):
                          r"\(\S+/WindowsApps/python3, the Microsoft Store shortcut\) fails the 3\.10\+ probe$")
         self.assertIn("using discovered 'python' for §2/§3", run.stderr, "the pre-commit took the same one")
         self.assertEqual(m3.git(clone, "log", "-1", "--format=%s").stdout.strip(),
-                         "flow: migrate Fusebase Flow 5.6 to 6.0.0-m4")
+                         f"flow: migrate Fusebase Flow 5.6 to {(CORE / 'VERSION').read_text(encoding='utf-8').strip()}")
 
     def test_with_the_shortcut_alone_it_stops_and_names_the_way_out(self) -> None:
         clone = scratch_clone(self.tmp / "m")
