@@ -15,11 +15,10 @@ import sys
 import time
 from pathlib import Path
 
-import yaml
-
 # The script's own folder too: PYTHONSAFEPATH=1 leaves it off sys.path, and a sibling script is imported below.
 sys.path[:0] = [str(Path(__file__).resolve().parent / "lib"), str(Path(__file__).resolve().parent)]
 import flow_docs as fd  # noqa: E402
+from rounds import records, rounds  # noqa: E402  (the round accounting, lib/rounds.py)
 import checks  # noqa: E402
 import done  # noqa: E402
 import validate_evidence  # noqa: E402
@@ -27,27 +26,6 @@ import validate_evidence  # noqa: E402
 FIRST = (("security", r"secur|\bauth|secret|credential|token|permission"), ("privacy", r"privacy|personal|\bpii\b|consent"),
          ("data-loss", r"risk data|data.loss|lose data|delet|overwrit|migration"),
          ("owner-answer", r"contradict|owner.answer|\bA\d+\b"))
-
-
-def rounds(root: Path) -> int:
-    """gate_rounds from HEAD, lowered (never raised) by policies/approval-policy.local.yml."""
-    limit = fd.policy(root, "approval-policy").get("gate_rounds")
-    limit = limit if isinstance(limit, int) and limit > 0 else 2
-    try:
-        lower = yaml.safe_load((root / "policies/approval-policy.local.yml").read_text(encoding="utf-8"))["gate_rounds"]
-    except (OSError, yaml.YAMLError, TypeError, KeyError):
-        return limit
-    return min(limit, lower) if isinstance(lower, int) and lower > 0 else limit
-
-
-def records(root: Path, target: str) -> dict[str, list[tuple[str, str]]]:
-    """(result, note) of each `verdict <target>` and each `review <target>` record in the ledger, in order, by kind."""
-    found: dict[str, list[tuple[str, str]]] = {"verdict": [], "review": []}
-    for line in fd.read(root / fd.LEDGER).splitlines():
-        if m := re.match(rf"\s*\S+\s+(verdict|review)\s+{re.escape(target)}\s+(.*)$", line):
-            result = re.search(r"result=(\S+)", m[2])
-            found[m[1]].append((result[1] if result else "?", m[2].partition(" -- ")[2].strip()))
-    return found
 
 
 def carry_over(root: Path, target: str, lines: list[str], past: dict[str, list[tuple[str, str]]]) -> list[str]:
