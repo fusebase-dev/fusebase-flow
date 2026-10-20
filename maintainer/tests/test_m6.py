@@ -323,5 +323,24 @@ class OneCommitAtATime(Project):
         self.assertFalse((self.repo / ".git/flow-commit.lock").exists())
 
 
+class OwnGate(m3.Slicer):
+    """m6 list item 6: an item whose criterion depends on the gate of its own phase is refused where the plan's items
+    are checked before dispatch (slice.py, beside BLOCKED-AT-input). Onboarding's B4 (phase 6): "the phase 7 args
+    start from release-1-spec at the phase 6 gate commit"."""
+
+    locals().update(dict.fromkeys(n for n in dir(m3.Slicer) if n.startswith("test")))
+
+    def test_a_criterion_naming_its_own_phases_gate_blocks_and_another_phases_gate_does_not(self) -> None:
+        criterion = '- criterion: A magic link older than 15 minutes shows "link expired" and signs nobody in.'
+        self.assertIn(criterion, m3.SLICE_BACKLOG)
+        for text, blocked in (("the phase 1 gate commit", True), ("P1's gate", True), ("the gate of P1", True),
+                              ("gate.py P1", True), ("state/gate/P1.txt", True), ("the P0 gate commit", False),
+                              ("the phase 11 gate", False), ("a gateway", False)):
+            m3.write(self.repo, "docs/flow/backlog.md", m3.SLICE_BACKLOG.replace(criterion, f"{criterion[:-1]}, at {text}."))
+            out = self.slice("T1")
+            self.assertEqual((out.returncode, "BLOCKED-AT-criterion: T1 serves B1" in out.stdout), (3, True) if blocked
+                             else (0, False), f"{text}: {out.stdout}")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

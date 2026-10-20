@@ -3,7 +3,8 @@
 builder needs for one task (or each task of a slice) and nothing else: the backlog item, its criterion or test id, its
 cited owner answers in full, its inputs, the task's globs with their breadth, the estimate, the reference project and
 the live state/status.line with the reader's last-seen age. A named input whose tool the agent's profile in
-policies/agent-tools.yml lacks prints BLOCKED-AT-input and exits 3.
+policies/agent-tools.yml lacks prints BLOCKED-AT-input and exits 3, and so does an item whose criterion or test names
+the gate of the task's own phase (BLOCKED-AT-criterion): its row cannot pass before that gate, which needs the row.
 `slice.py <slice|phase> --brief [review|skeptic|verdict]` prints the reader's brief: the verify skill's block for the
 role, filled in, then the items, the evidence rows, the gate block and the flag rows inline. The review block's two rubric
 questions are typed fields of its return; a trivial-tier slice's brief drops them.
@@ -69,6 +70,21 @@ def blocked(root: Path, tasks: list[dict], items: dict, agent: str) -> list[str]
     return out
 
 
+def own_gate(phase: str, items: dict, tasks: list[dict]) -> list[str]:
+    """6.0.0-m6 item 6: a criterion or test that names its own phase's gate (P6 gate, phase 6's gate, gate of P6,
+    gate.py P6, state/gate/P6.txt) cannot hold before that gate, and the gate needs it to hold."""
+    n, out = phase[1:], []
+    rx = re.compile(rf"\b(?:{phase}|phase {n})(?:'s)?\s+gate\b|\bgate(?:\.py)?\s+(?:of\s+)?(?:{phase}|phase {n})\b"
+                    rf"|state/gate/{phase}\b", re.I)
+    for t in tasks:
+        item = items.get(t["item"], {})
+        if hit := rx.search(f"{item.get('criterion', '')} {item.get('test', '')}"):
+            out.append(f"BLOCKED-AT-criterion: {t['id']} serves {t['item']}, whose criterion names \"{hit[0]}\", the gate "
+                       f"of {phase}, its own phase: the row cannot pass before that gate, and the gate needs the row. "
+                       "Move that part to an item of a later phase (plan skill)")
+    return out
+
+
 def brief(root: Path, target: str, chosen: list[dict], items: dict, answers: dict, role: str) -> list[str]:
     m = re.search(rf"```text\n({role.upper()} BRIEF\n.*?)```", VERIFY.read_text(encoding="utf-8"), re.S)
     if m is None:
@@ -122,7 +138,7 @@ def main(argv: list[str]) -> int:
         print(f"slice.py: {args.target} is no task or slice in {fd.PHASES}")
         return 2
     tasks = sl["tasks"] if args.target == sl["id"] else [t for t in sl["tasks"] if t["id"] == args.target]
-    stop = blocked(root, tasks, items, args.agent)
+    stop = blocked(root, tasks, items, args.agent) + own_gate(sl["phase"] or "", items, tasks)
     if stop:
         print("\n".join(stop))
         return 3
