@@ -494,7 +494,7 @@ class BaselineSplit(Project):
 class OrphanBackups(unittest.TestCase):
     """m6 list item 10 (M6-17, O-32 (c)): the migration removes the 5.x repair backups whose file is gone or goes with
     it, under .claude/, .agents/ and .codex/, `.pre-flow-repair` and `.pre-flow-repair.<n>` alike; one beside a file
-    that stays is left. Backed up, listed in the dry run, and the migration commit lands."""
+    that stays is left. Backed up, listed in the dry run, and the migration commit lands. One migration, shared."""
 
     ORPHANS = {".claude/skills/old/SKILL.md.pre-flow-repair": "old\n",
                ".agents/skills/old/SKILL.md.pre-flow-repair.1": "old\n",
@@ -502,28 +502,45 @@ class OrphanBackups(unittest.TestCase):
     KEPT = {".claude/skills/mine/SKILL.md": "---\nname: mine\n---\n",
             ".claude/skills/mine/SKILL.md.pre-flow-repair": "---\nname: mine\n---\nbefore\n"}
 
-    def test_the_migration_removes_the_orphans_and_keeps_a_backup_whose_file_stays(self) -> None:
+    @classmethod
+    def setUpClass(cls) -> None:
         from synthetic import migrate, scratch_clone
-        tmp = Path(tempfile.mkdtemp(prefix="flow-migrate-"))
-        try:
-            clone = scratch_clone(tmp, {**self.ORPHANS, **self.KEPT})
-            dry = migrate(clone, "--providers", "claude,codex")
-            self.assertEqual(dry.returncode, 0, dry.stdout + dry.stderr)
-            self.assertIn("orphan 5.x backups: 3 (", dry.stdout)
-            self.assertNotIn(".claude/skills/old/", dry.stdout.split("never touch")[1].split("keep (")[0])
-            run = migrate(clone, "--providers", "claude,codex", "--apply", "--go-ahead")
-            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
-            self.assertIn("committed: ", run.stdout)
-            for rel in self.ORPHANS:
-                self.assertFalse((clone / rel).exists(), rel)
-                self.assertTrue(next(clone.glob(".flow-migrate-*")).joinpath(rel).is_file(), f"{rel} not backed up")
-            for rel in self.KEPT:
-                self.assertTrue((clone / rel).is_file(), rel)
-            deleted = git(clone, "show", "--name-only", "--diff-filter=D", "--format=", "HEAD").stdout.split()
-            self.assertLessEqual(set(self.ORPHANS), set(deleted))
-            self.assertEqual(git(clone, "status", "--porcelain").stdout, "")
-        finally:
-            shutil.rmtree(tmp, ignore_errors=True)
+        cls.tmp = Path(tempfile.mkdtemp(prefix="flow-migrate-"))
+        cls.clone = scratch_clone(cls.tmp, {**cls.ORPHANS, **cls.KEPT})
+        cls.dry = migrate(cls.clone, "--providers", "claude,codex")
+        cls.applied = migrate(cls.clone, "--providers", "claude,codex", "--apply", "--go-ahead")
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def test_the_migration_removes_the_orphans_and_keeps_a_backup_whose_file_stays(self) -> None:
+        dry, run, clone = self.dry, self.applied, self.clone
+        self.assertEqual(dry.returncode, 0, dry.stdout + dry.stderr)
+        self.assertIn("orphan 5.x backups: 3 (", dry.stdout)
+        self.assertNotIn(".claude/skills/old/", dry.stdout.split("never touch")[1].split("keep (")[0])
+        self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+        self.assertIn("committed: ", run.stdout)
+        for rel in self.ORPHANS:
+            self.assertFalse((clone / rel).exists(), rel)
+            self.assertTrue(next(clone.glob(".flow-migrate-*")).joinpath(rel).is_file(), f"{rel} not backed up")
+        for rel in self.KEPT:
+            self.assertTrue((clone / rel).is_file(), rel)
+        deleted = git(clone, "show", "--name-only", "--diff-filter=D", "--format=", "HEAD").stdout.split()
+        self.assertLessEqual(set(self.ORPHANS), set(deleted))
+        self.assertEqual(git(clone, "status", "--porcelain").stdout, "")
+
+    def test_the_guidance_after_the_migration_makes_the_gate_the_planners_and_one_item_per_evidence_row(self) -> None:
+        """m6 list item 11: Onboarding's carried plan modelled the gate as a builder task."""
+        self.assertEqual(self.applied.returncode, 0, self.applied.stdout + self.applied.stderr)
+        ledger = (self.clone / "docs/flow/ledger.md").read_text(encoding="utf-8")
+        for text in (self.applied.stdout, ledger):
+            self.assertIn("one backlog item per evidence row", text)
+            self.assertIn("the gate is the planner's own step (gate.py and the verify skill), never a task for a "
+                          "builder", text)
+        plan = (CORE / "flow-skills/plan/SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("one item per evidence row it needs", plan)
+        self.assertIn("the gate is your step (verify)", plan)
 
 
 if __name__ == "__main__":

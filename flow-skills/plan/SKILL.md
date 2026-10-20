@@ -25,6 +25,7 @@ One item per piece of operator feedback in `backlog.md`: `B<n>`, the source slic
 - Inputs: name each input and the kind of tool that reads it; `policies/agent-tools.yml` maps kinds to tools. An input no profile can read is a question now, never a build-time fallback.
 - Risk tag: `auth`, `data` or `production` need live evidence. The evidence class follows from the paths a task touches (`policies/evidence-classes.yml`); the tag may raise it, never lower it. A change to an item's risk or criterion line inside its own slice window is flagged.
 - A related concern outside the item becomes a new item, never a silent expansion.
+- Work carried from Flow 5.x or another plan: one item per evidence row it needs, each with its own criterion or test id; a 5.x task list's gate, review or close step is not a task: the gate is your step (verify).
 
 ## Questions
 

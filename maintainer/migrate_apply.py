@@ -53,6 +53,10 @@ UNDO_INTRO = ("to undo the migration, paste this block into Git Bash at the proj
               "restored, and it stops before any change when that tree has no hooks/git/ copies; the branch you "
               "migrated keeps the migration commit")
 # What the undo loses without the backup folder, said wherever the folder's deletion is advised.
+# The post-migration guidance (6.0.0-m6 item 11): Onboarding's carried plan modelled the gate as a builder task.
+NEXT = ("next: carry the open 5.x work into docs/flow/ with the plan skill: one backlog item per evidence row (its one "
+        "criterion or test id), and in phases.md only the tasks that build; the gate is the planner's own step "
+        "(gate.py and the verify skill), never a task for a builder")
 DELETE_ADVICE = ("delete the folder once the migration is accepted; without it, the undo takes the git hooks from the "
                  "5.x tree's hooks/git/ and cannot restore the untracked files the migration removed or overwrote")
 SLUG = "flow-migrate"
@@ -244,6 +248,7 @@ def migration_report(inv: m.Inventory, stamp: str, folder: Path, backed: int, mo
         f"- history mentions under {', '.join(m.HISTORY_DIRS)}/: {len(inv.history)} files, kept as written",
         f"- hidden by .gitignore: {', '.join(inv.hidden) or 'none'}",
         f"- hook wiring (left as is): {inv.wiring}",
+        f"- {NEXT}",
         "- not run: check-cli-flow-conflicts.sh (a Flow 5.x script; the 6.0 core does not carry it); the health check: "
         "run it after the migration commit, from the project's top level: `python <the Flow core you migrated with>/"
         "maintainer/flow.py health --target .`",
@@ -382,6 +387,7 @@ def commit(inv: m.Inventory, folder: Path) -> int:
     left = sorted(p.name for p in (target / "state/approvals").glob("*") if p.name != ".gitkeep")
     say(f"state/approvals/: {', '.join(left) if left else 'empty'}")
     say(f"committed: {m.git(target, 'log', '-1', '--format=%h %s').stdout.decode('utf-8').strip()}")
+    say(NEXT)
     show([f"{UNDO_INTRO}:"], undo_steps(folder, inv.head))
     return 0
 
