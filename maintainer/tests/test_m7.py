@@ -331,5 +331,69 @@ class RangeCheck(unittest.TestCase):
         self.assertIn("FLOW_RULES.md changed with no approval on record", pushed.stderr)
 
 
+class Installed(unittest.TestCase):
+    """A git project with Flow installed (claude and codex), nothing committed, no tool hooks wired."""
+
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp(prefix="flow-m7-inst-"))
+        self.repo = self.tmp / "project"
+        self.repo.mkdir()
+        git(self.repo, "init", "-q", "-b", "main")
+        no_auto_gc(self.repo)
+        self.install()
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def install(self, **kwargs) -> str:
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            self.assertEqual(test_m6.flow.install(self.repo, {"claude", "codex"}, **kwargs), 0)
+        return out.getvalue()
+
+
+class HealthTruth(Installed):
+    """m7 item 4 (M6-3, review r1-21, r2-92): health said healthy in three states where Flow does not hold:
+    core.hooksPath pointing away from Flow's hooks (Husky writes it), a hooks.json that names a handler without
+    registering it, and a Flow file an upgrade kept (the project's edit) beside the new release's files."""
+
+    def health(self) -> tuple[int, str]:
+        import health
+        rc, lines = health.report(self.repo)
+        return rc, "\n".join(lines)
+
+    def test_core_hookspath_to_an_empty_folder_is_not_healthy_and_install_warns_and_writes_nothing_there(self) -> None:
+        self.assertEqual(self.health()[0], 0)
+        empty = self.tmp / "husky"
+        empty.mkdir()
+        git(self.repo, "config", "core.hooksPath", str(empty))
+        rc, text = self.health()
+        self.assertEqual(rc, 1, text)
+        self.assertIn("core.hooksPath makes git run the hooks in", text)
+        self.assertIn("HEALTH: NOT healthy", text)
+        out = self.install()
+        self.assertIn("[flow] WARNING: core.hooksPath makes git run the hooks in", out)
+        self.assertEqual(list(empty.iterdir()), [], "install wrote into the hook manager's folder")
+
+    def test_a_hooks_json_that_names_a_handler_without_registering_it_is_not_wired(self) -> None:
+        (self.repo / ".codex").mkdir(exist_ok=True)
+        (self.repo / ".codex/hooks.json").write_text('{"note": "see hooks/handlers/pre_tool_use.py", "hooks": {}}\n',
+                                                     encoding="utf-8")
+        self.assertIn("wiring: codex unenforced (.codex/hooks.json)", self.health()[1])
+        import wire
+        (self.repo / ".codex/hooks.json").write_text(json.dumps({"hooks": {k: [v] for k, v in wire.entries("codex").items()}}),
+                                                     encoding="utf-8")
+        self.assertIn("wiring: codex wired (.codex/hooks.json)", self.health()[1])
+
+    def test_a_kept_older_flow_file_is_listed_as_not_current_and_a_kept_hook_file_is_not_healthy(self) -> None:
+        checks = self.repo / "hooks/local/checks.py"
+        checks.write_bytes(checks.read_bytes() + b"# the project's edit, kept by the upgrade\n")
+        self.assertIn("[flow]   hooks/local/checks.py (differs; not a Flow-owned unedited file)", self.install())
+        rc, text = self.health()
+        self.assertEqual(rc, 1, text)
+        self.assertIn("kept, not current: hooks/local/checks.py", text)
+        self.assertIn("a hook-layer file kept from an earlier release: hooks/local/checks.py", text)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

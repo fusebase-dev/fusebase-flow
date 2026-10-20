@@ -329,6 +329,27 @@ def install_hooks(target: Path) -> tuple[int, str]:
     return proc.returncode, (proc.stdout + proc.stderr).strip()
 
 
+def git_path(target: Path, *args: str) -> Path | None:
+    """`git rev-parse <args>` as an absolute, resolved path, or None."""
+    try:
+        out = subprocess.run(["git", "--no-optional-locks", "rev-parse", *args], cwd=target,
+                             capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    found = out.stdout.strip()
+    return (Path(found) if Path(found).is_absolute() else target / found).resolve() if out.returncode == 0 and found else None
+
+
+def hooks_path_note(target: Path) -> str:
+    """Why Flow's hooks do not run, when git runs another folder's (core.hooksPath; Husky writes it), or "" (6.0.0-m7
+    item 4). install-git-hooks.sh writes to the common git dir's hooks/, never into a hook manager's folder."""
+    runs, common = git_path(target, "--git-path", "hooks"), git_path(target, "--git-common-dir")
+    flows = common / "hooks" if common else None
+    return "" if runs is None or flows is None or runs == flows else (
+        f"core.hooksPath makes git run the hooks in {runs.as_posix()}, not the Flow hooks install writes to "
+        f"{flows.as_posix()}: no secret scan, protected-path check, subject check or push check runs")
+
+
 def ignored_paths(target: Path, paths: list[str]) -> list[str]:
     try:
         # TRIPWIRE: bytes, not text=True: Windows text mode writes CRLF and git reads "path\r".
@@ -524,6 +545,8 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
                 continue
             if rel != BASELINE and not any(same_content(current, s) for s in prior.get(rel, ())):
                 report["kept"].append(f"{rel} (differs; not a Flow-owned unedited file)")
+                # recorded as kept, with this release's sha, so health lists it as not current (6.0.0-m7 item 4)
+                recorded.append({"path": rel, "sha256": sha256(data), "kept": True})
                 continue
             report["replaced"].append(f"{rel} (the core's rows; {len(rows)} project rows moved to {PROJECT_BASELINE})"
                                       if rel == BASELINE else rel)
@@ -549,7 +572,8 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
         if after != before:
             write_bytes(dest, after.encode("utf-8"), False)
         report["merged"].append(f"{name} ({'created' if before is None else 'block updated' if after != before else 'block current'})")
-    for name, block in ((ATTRIBUTES, attributes_block([e["path"] for e in recorded])), (IGNORE, ignore_block())):
+    for name, block in ((ATTRIBUTES, attributes_block([e["path"] for e in recorded if not e.get("kept")])),
+                        (IGNORE, ignore_block())):
         path = target / name
         if path.is_symlink() or (path.exists() and not path.is_file()):
             report["refused"].append(f"{name} (a symlink or not a regular file: the {BLOCKS[name][2]} block is not written)")
@@ -578,7 +602,7 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
     }
     write_bytes(target / MANIFEST, (json.dumps({**manifest, **({"reader": reader} if reader else {})}, indent=2)
                                     + "\n").encode("utf-8"), False)
-    report["ignored"] = ignored_paths(target, [e["path"] for e in recorded])
+    report["ignored"] = ignored_paths(target, [e["path"] for e in recorded if not e.get("kept")])
     rc, hooks_out = install_hooks(target)
     print(f"[flow] Fusebase Flow {version} -> {target} (providers: {', '.join(sorted(providers)) or 'none'})")
     for key in ("added", "replaced", "unchanged", "kept", "refused", "merged", "ignored"):
@@ -591,10 +615,14 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
               "made git rewrite the CRLF bytes of a binary committed under them; your own lines stay):")
         for line in report["pins"]:
             print(f"[flow]   {line}")
-    print(f"[flow] manifest: {MANIFEST} ({len(recorded)} files)")
+    kept = sum(1 for e in recorded if e.get("kept"))
+    print(f"[flow] manifest: {MANIFEST} ({len(recorded) - kept} files" + (f"; {kept} kept, not current" if kept else "") + ")")
     print("[flow] git hooks:")
     for line in hooks_out.splitlines():
         print(f"[flow]   {line}")
+    if note := hooks_path_note(target):
+        print(f"[flow] WARNING: {note}. Unset it (git config --unset core.hooksPath) or have the hook manager call "
+              "Flow's hooks; until git runs them, flow.py health says NOT healthy.")
     if prior_5x is None:  # migrate prints its own
         here = git_text(target, "rev-parse", "--abbrev-ref", "HEAD").strip()
         for line in open_warning(open_checkouts(target), here, "the commit of this install"):

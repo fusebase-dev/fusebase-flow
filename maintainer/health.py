@@ -1,7 +1,9 @@
 """`flow.py health --target DIR`: what install knows about a project, read-only (handoff section 13, a small 6.0 health).
 
-The version, the manifest's drift, the marked blocks, the git hooks, the wiring per provider, the reader's schedule and
-state/status.line. Exit 0 healthy, 1 not, 2 no 6.0 install there. Writes nothing.
+The version, the manifest's drift and the Flow files an install kept (your edits, not this release's), the marked
+blocks, the git hooks in the folder git runs them from (`git rev-parse --git-path hooks`, which follows core.hooksPath),
+the wiring per provider (the settings parsed), the reader's schedule and state/status.line. Exit 0 healthy, 1 not, 2 no
+6.0 install there. Writes nothing.
 """
 from __future__ import annotations
 
@@ -17,18 +19,13 @@ import flow  # noqa: E402
 sys.path.insert(0, str(flow.CORE / "hooks/local"))
 import reader  # noqa: E402  (the one rule for "wired", shared with state/status.line)
 
-HOOKS = ("pre-commit", "commit-msg", "pre-push")
+HOOKS = ("pre-commit", "commit-msg", "pre-push", "pre-merge-commit")  # each one the project's hooks/git/ carries
 SETTINGS = {"claude": ".claude/settings.json", "codex": ".codex/hooks.json"}
 
 
 def hooks_dir(target: Path) -> Path | None:
-    try:
-        out = subprocess.run(["git", "--no-optional-locks", "rev-parse", "--git-common-dir"], cwd=target,
-                             capture_output=True, text=True, timeout=120)
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    common = Path(out.stdout.strip())
-    return (common if common.is_absolute() else target / common) / "hooks" if out.returncode == 0 else None
+    """The folder git runs hooks from: core.hooksPath when set (Husky writes it), else the common git dir's hooks/."""
+    return flow.git_path(target, "--git-path", "hooks")
 
 
 def reader_state(target: Path, record: dict) -> str:
@@ -66,7 +63,8 @@ def report(target: Path) -> tuple[int, list[str]]:
         manifest = json.loads((target / flow.MANIFEST).read_text(encoding="utf-8"))
         # an entry marked "project" (the project's module-size rows, policies/module-size-baseline.project.txt) is the
         # project's file: recorded for the commit that carried it there, never checked (6.0.0-m6 item 9)
-        files = {e["path"]: e["sha256"] for e in manifest["files"] if not e.get("project")}
+        files = {e["path"]: e["sha256"] for e in manifest["files"] if not e.get("project") and not e.get("kept")}
+        kept = sorted(e["path"] for e in manifest["files"] if e.get("kept"))
     except (OSError, ValueError, KeyError, TypeError):
         return 2, [f"[flow health] {target}: no readable {flow.MANIFEST}; not a Flow 6.0 install (run install)"]
     bad, out = [], [f"[flow health] {target}"]
@@ -78,20 +76,27 @@ def report(target: Path) -> tuple[int, list[str]]:
     out.append(f"manifest: {len(files)} files, {len(files) - len(missing) - len(drift)} as installed, {len(drift)} changed, "
                f"{len(missing)} missing")
     out += [f"  changed: {p}" for p in drift] + [f"  missing: {p}" for p in missing]
+    # a Flow file an install kept (your edit) is not this release's: an older one beside the new hooks (6.0.0-m7 item 4)
+    out += [f"  kept, not current: {p} (your edit; install keeps it and does not upgrade it)" for p in kept]
     bad += [f"{len(missing)} Flow files missing"] * bool(missing)
     bad += [f"a hook-layer file changed: {p}" for p in drift if p.startswith("hooks/")]
+    bad += [f"a hook-layer file kept from an earlier release: {p}" for p in kept if p.startswith("hooks/")]
     for name in [*flow.OVERLAY, *flow.BLOCKS] if "claude" in manifest.get("providers", []) else ["AGENTS.md", *flow.BLOCKS]:
         text = (target / name).read_bytes().decode("utf-8", "surrogateescape") if (target / name).is_file() else ""
         found = flow.block_markers(text, name) if name in flow.BLOCKS else (1, 1) if flow.FLOW_BEGIN in text else (-1, -1)
         state = found if isinstance(found, str) else "present" if found[0] >= 0 else "absent"
         out.append(f"block: {name} {state}")
         bad += [f"the Flow block in {name} is {state}"] * (state != "present")
-    folder = hooks_dir(target)
-    for h in HOOKS:
+    folder, note = hooks_dir(target), flow.hooks_path_note(target)
+    if note:
+        out.append(f"git hooks: {note}")
+        bad.append("core.hooksPath points git away from Flow's hooks")
+    for h in [h for h in HOOKS if (target / "hooks/git" / h).is_file()]:
         live, mine = (folder / h if folder else None), target / "hooks/git" / h
-        same = live is not None and live.is_file() and mine.is_file() and live.read_bytes() == mine.read_bytes()
-        out.append(f"git hook: {h} {'installed' if same else 'NOT installed (or differs from hooks/git/' + h + ')'}")
-        bad += [f"git hook {h} not installed"] * (not same)
+        same = live is not None and live.is_file() and live.read_bytes() == mine.read_bytes()
+        where = folder.as_posix() if folder else "the hooks folder"
+        out.append(f"git hook: {h} {'installed' if same else f'NOT installed in {where} (or differs from hooks/git/{h})'}")
+        bad += [f"git hook {h} not installed where git runs it"] * (not same)
     for name in manifest.get("providers", []):
         out.append(f"wiring: {name} {reader.wired(target, SETTINGS[name])} ({SETTINGS[name]})")
     record = manifest.get("reader")

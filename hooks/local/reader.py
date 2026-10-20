@@ -95,13 +95,16 @@ def state_mtimes(root: Path) -> list[float]:
 
 
 def wired(root: Path, rel: str) -> str:
-    """wired when the provider's settings name a Flow handler that exists (a migrated 5.x wiring names removed ones)."""
+    """wired when the provider's settings, parsed, register Flow's PreToolUse handler: a command under hooks.PreToolUse
+    naming hooks/handlers/pre_tool_use.py, which exists (6.0.0-m7 item 4). A mention anywhere else in the file, a
+    removed handler (a migrated 5.x wiring) or a file that does not parse is no wiring."""
     try:
-        text = (root / rel).read_text(encoding="utf-8", errors="replace")
-    except OSError:
+        groups = json.loads((root / rel).read_text(encoding="utf-8"))["hooks"]["PreToolUse"]
+        commands = [str(h.get("command", "")) for g in groups for h in g.get("hooks") or []]
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
         return "unenforced"
-    named = re.findall(r"hooks/handlers/(\w+\.py)", text)
-    return "wired" if any((root / "hooks/handlers" / n).is_file() for n in named) else "unenforced"
+    ok = (root / "hooks/handlers/pre_tool_use.py").is_file() and any("hooks/handlers/pre_tool_use.py" in c for c in commands)
+    return "wired" if ok else "unenforced"
 
 
 def write(path: Path, text: str) -> None:
