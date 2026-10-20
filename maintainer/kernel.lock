@@ -31,6 +31,8 @@
 #   cause r1-09; decision 10(c), core only).
 #   hooks/git/commit-msg: carries that line and runs lint and typecheck after the subject check; the CLI's two
 #   checkpoint subjects skip them with a warning, a merge runs none (T276; review r2-43; decision 10(c)).
+#   policies/module-size-baseline.txt: no row for hooks/local/upgrade.sh, a 5.x file the 6.0 core does not ship
+#   (T278; brief m5 item 4). 5.x keeps the row: it still ships upgrade.sh.
 # A kernel fix lands on 5.x first, is cherry-picked here, and updates this lock in the same commit.
 f2557b19379421fac007a2c758eda73bb6eb21990a7f5c366c438716e1fe2cfb  .gitattributes
 0acfb991aa269888937723022f2667b0e251ed0091ccc96491752360b2a61be0  LICENSE
@@ -65,7 +67,7 @@ fecb30ef246aaf2dc90dc55200de5d1b0bab92242c8cbbd5cbd3e9c0d8d784fa  hooks/shared/s
 4d7e59cbdd0fffa1fc3ffe7dcf937c372ff232c70d45c497c0b56e2fde8b3e8a  hooks/shared/staged_secret_scan.py
 66e639442e9b2f7be2e91c7072a95a6c49331ddf5bd203c29c714cc48fd527bf  policies/approval-policy.yml
 4f8599bae6e914e61c4082f12d8370fbb09920e7d115c97c63d41204054d7f55  policies/command-policy.yml
-0983d2276c29674064c1cd2e35d6ba58bfa8a36a883213ff473967e4788e2682  policies/module-size-baseline.txt
+7747637a42919bf6548600fc78a9f53866ed655dfff00370958a0707674f3840  policies/module-size-baseline.txt
 cd603634033c3eb68970210d5d2a0762c3fd0ee01ec53c36a8f4644ec7374f2f  policies/module-size.yml
 6512a266a351c005374713adcdb41a0de4ea0c179df0d071c7a9dd5399e15973  policies/protected-paths.yml
 fa440720b8764312f9eea1c47aae2dff50c0a38ed2ea1eb5d151d3c5f2f377f0  policies/secret-patterns.yml

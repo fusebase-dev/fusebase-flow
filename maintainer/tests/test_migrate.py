@@ -119,6 +119,16 @@ class ApplyEndToEnd(unittest.TestCase):
         cls.pre = git(cls.clone, "rev-parse", "HEAD").stdout.strip()
         cls.applied = migrate(cls.clone, "--apply", "--go-ahead")
 
+    def test_the_ledger_names_the_health_check_to_run_after_the_commit(self) -> None:
+        """Item 4(i) of brief m5: `flow.py health` exists; check-cli-flow-conflicts.sh is still not in the core."""
+        self.assertEqual(self.applied.returncode, 0, self.applied.stdout + self.applied.stderr)
+        ledger = blob(self.clone, "HEAD:docs/flow/ledger.md").decode("utf-8")
+        line = next(ln for ln in ledger.splitlines() if ln.startswith("- not run: "))
+        self.assertNotIn("neither is in the 6.0 core yet", line)
+        self.assertIn("`python <the Flow core you migrated with>/maintainer/flow.py health --target .`", line)
+        self.assertIn('h = sub.add_parser("health"', FLOW.read_text(encoding="utf-8"))
+        self.assertFalse((FLOW.parents[1] / "hooks/local/check-cli-flow-conflicts.sh").exists(), "still not in 6.0")
+
     def test_binaries_in_flow_folders_keep_their_bytes(self) -> None:
         self.assertEqual(self.applied.returncode, 0, self.applied.stdout + self.applied.stderr)
         fresh = self.tmp / "binaries"
@@ -187,6 +197,13 @@ class ApplyEndToEnd(unittest.TestCase):
 
 
 class BaselineCarry(unittest.TestCase):
+    def test_every_row_of_the_cores_baseline_names_a_file_the_core_ships(self) -> None:
+        """Item 4 of brief m5: hooks/local/upgrade.sh is a 5.x file; 6.0 does not ship it."""
+        sys.path.insert(0, str(FLOW.parent))
+        import flow
+        rows = flow.baseline_rows((FLOW.parents[1] / flow.BASELINE).read_bytes())
+        self.assertEqual([p for p in rows if p not in flow.core_files()], [])
+
     def test_a_project_row_is_carried_and_a_following_install_keeps_it(self) -> None:
         tmp = Path(tempfile.mkdtemp(prefix="flow-migrate-"))
         try:

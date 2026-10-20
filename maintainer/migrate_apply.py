@@ -242,7 +242,9 @@ def migration_report(inv: m.Inventory, stamp: str, folder: Path, backed: int, mo
         f"- history mentions under {', '.join(m.HISTORY_DIRS)}/: {len(inv.history)} files, kept as written",
         f"- hidden by .gitignore: {', '.join(inv.hidden) or 'none'}",
         f"- hook wiring (left as is): {inv.wiring}",
-        "- not run: check-cli-flow-conflicts.sh and the health check (neither is in the 6.0 core yet)",
+        "- not run: check-cli-flow-conflicts.sh (a Flow 5.x script; the 6.0 core does not carry it); the health check: "
+        "run it after the migration commit, from the project's top level: `python <the Flow core you migrated with>/"
+        "maintainer/flow.py health --target .`",
         f"- {UNDO_INTRO}:", "", "```", *block(undo_steps(folder, inv.head)), "```",
     ]
     return lines
