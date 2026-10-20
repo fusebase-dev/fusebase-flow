@@ -417,7 +417,7 @@ class Validator(Workspace):
         write(self.repo, "state/runs/P1/index.tsv",
               "run-0\t2026-10-18T09:30:00Z\truns/run-0\t1\nrun-1\t2026-10-18T10:00:00Z\truns/run-1\t0\n")
         self.assert_fails("B1", "FLAKY: run run-0 recorded a FAIL")
-        self.rows["B1"] = self.rows["B1"][:-4] + " repro: a stale build served run-0 |"
+        self.rows["B1"] = self.rows["B1"][:-4] + " reproduced 1/1 (run-0): a stale build served it |"
         self.assertEqual(self.validate().returncode, 0)
 
     def test_the_minimum_class_follows_the_touched_paths(self) -> None:

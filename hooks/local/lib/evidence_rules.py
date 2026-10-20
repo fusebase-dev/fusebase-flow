@@ -56,11 +56,31 @@ def finding_problems(log: dict, pol: dict) -> list[str]:
     return []
 
 
+REPRODUCED = re.compile(r"\breproduced\s+(\d+)\s*(?:/|of)\s*(\d+)\b", re.I)
+
+
+def resolved(root: Path, phase: str, note: str) -> bool:
+    """A FLAKY row's note resolves it (the verify skill: reproduced or explained) when it cites an owner answer A<n> that
+    docs/flow/backlog.md has under ## Answers, or states the reproduction count, `reproduced <k>/<n>` with k at least 1,
+    and cites n runs of the phase's index by id. "not reproduced" alone resolves nothing (6.0.0-m6 fix item (ii))."""
+    answers = fd.backlog(fd.read(root / fd.BACKLOG))[1]
+    if any(a in answers for a in re.findall(r"\bA\d+\b", note)):
+        return True
+    if not (m := REPRODUCED.search(note)) or int(m[1]) < 1:
+        return False
+    try:
+        ids = {r.split("\t")[0] for r in (root / "state/runs" / phase / "index.tsv").read_text("utf-8").splitlines()}
+    except OSError:
+        ids = set()
+    return sum(bool(re.search(rf"(?<![\w-]){re.escape(i)}(?![\w-])", note)) for i in ids if i) >= int(m[2])
+
+
 def flaky_problems(root: Path, phase: str, row: dict, pol: dict, out: list[str]) -> list[str]:
-    """FLAKY: an earlier run of the phase recorded a FAIL for the row, and the row's note gives no reproduction."""
+    """FLAKY: an earlier run of the phase recorded a FAIL for the row, and the row's note does not resolve it."""
     earlier = flaky(root, phase, row, str(pol.get("run_log_header", "")))
     if earlier is None:
         out.append(f"    history unresolved: the run is not in state/runs/{phase}/index.tsv")
-    elif earlier and "repro" not in row["note"].lower():
-        return [f"FLAKY: run {earlier} recorded a FAIL for it and the row has no reproduction note"]
+    elif earlier and not resolved(root, phase, row["note"]):
+        return [f"FLAKY: run {earlier} recorded a FAIL for it, and the row's note neither cites an owner answer nor "
+                "states `reproduced <k>/<n>` citing each run"]
     return []
