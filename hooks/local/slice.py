@@ -72,13 +72,18 @@ def blocked(root: Path, tasks: list[dict], items: dict, agent: str) -> list[str]
 
 def own_gate(phase: str, items: dict, tasks: list[dict]) -> list[str]:
     """6.0.0-m6 item 6: a criterion or test that names its own phase's gate (P6 gate, phase 6's gate, gate of P6,
-    gate.py P6, state/gate/P6.txt) cannot hold before that gate, and the gate needs it to hold."""
-    n, out = phase[1:], []
-    rx = re.compile(rf"\b(?:{phase}|phase {n})(?:'s)?\s+gate\b|\bgate(?:\.py)?\s+(?:of\s+)?(?:{phase}|phase {n})\b"
-                    rf"|state/gate/{phase}\b", re.I)
+    gate.py P6, state/gate/P6.txt) cannot hold before that gate, and the gate needs it to hold. A slice's own gate
+    (P6-S1), another phase's (P61) and the gate as a time ("before the P6 gate") are not that; no phase, no check."""
+    if not phase:
+        return []
+    n, out, end = phase[1:], [], r"(?![\w-])"  # P6, never P6-S1 or P61 (m6 review B #3)
+    rx = re.compile(rf"\b(?:{phase}|phase {n}){end}(?:'s)?\s+gate\b|\bgate(?:\.py)?\s+(?:of\s+)?(?:{phase}|phase {n})"
+                    rf"{end}|state/gate/{phase}{end}", re.I)
     for t in tasks:
         item = items.get(t["item"], {})
-        if hit := rx.search(f"{item.get('criterion', '')} {item.get('test', '')}"):
+        text = f"{item.get('criterion', '')} {item.get('test', '')}"
+        hit = next((m for m in rx.finditer(text) if not re.search(r"\bbefore(\s+the)?\s*$", text[:m.start()], re.I)), None)
+        if hit:
             out.append(f"BLOCKED-AT-criterion: {t['id']} serves {t['item']}, whose criterion names \"{hit[0]}\", the gate "
                        f"of {phase}, its own phase: the row cannot pass before that gate, and the gate needs the row. "
                        "Move that part to an item of a later phase (plan skill)")

@@ -474,6 +474,21 @@ class OwnGate(m3.Slicer):
             self.assertEqual((out.returncode, "BLOCKED-AT-criterion: T1 serves B1" in out.stdout), (3, True) if blocked
                              else (0, False), f"{text}: {out.stdout}")
 
+    def test_a_slice_gate_another_phase_or_the_gate_as_a_time_is_not_circular_and_no_phase_no_check(self) -> None:
+        """m6-fix F8 (review B #3): the three false refusals, and a slice that sits under no phase."""
+        criterion = '- criterion: A magic link older than 15 minutes shows "link expired" and signs nobody in.'
+        for text in ("the guard state/gate/P1-S0.txt already holds", "gate.py P1-S0 has passed",
+                     "the change is merged before the P1 gate", "P1-S0's gate passed"):
+            m3.write(self.repo, "docs/flow/backlog.md", m3.SLICE_BACKLOG.replace(criterion, f"{criterion[:-1]}, {text}."))
+            out = self.slice("T1")
+            self.assertEqual(out.returncode, 0, f"{text}: {out.stdout}")
+        m3.write(self.repo, "docs/flow/backlog.md", m3.SLICE_BACKLOG.replace(criterion, f"{criterion[:-1]}, after the "
+                                                                                     "release gate."))
+        phases = (self.repo / "docs/flow/phases.md").read_text(encoding="utf-8")
+        m3.write(self.repo, "docs/flow/phases.md", phases.replace("## P1 First phase\n", ""))  # P1-S1 under no phase
+        out = self.slice("T1")
+        self.assertEqual(out.returncode, 0, out.stdout)
+
 
 FAKE_SCHEDULER = r'''import os, sys
 tool, args = sys.argv[1], sys.argv[2:]
