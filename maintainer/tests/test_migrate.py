@@ -587,20 +587,21 @@ class ReleaseNote(unittest.TestCase):
         self.assertIn(f"fusebase-flow-{version}/hooks/requirements.txt", named)
 
     def test_the_upgrade_steps_name_only_paths_the_release_ships(self) -> None:
-        """brief m5-finish B: every command of the step-by-step section names a path the release ships, under the
-        release's clone folder or, inside the project, as the install put it there. The section upgrades the
-        pre-release before this one (6.0.0-m5 for 6.0.0-m6)."""
+        """brief m5-finish B, m7: the one-step section upgrades the pre-release before this one (6.0.0-m6 for 6.0.0-m7),
+        in one block: every command names a path the release ships, under the release's clone folder or, inside the
+        project, as the install put it there; the files the core added under hooks/ since that release are staged by
+        name; the providers come from the project's install, with no --wire-hooks (T286, T287)."""
         sys.path.insert(0, str(FLOW.parent))
         import flow
         core = FLOW.parents[1]
         version = (core / "VERSION").read_text().strip()
         note = (core / "maintainer/release-notes" / f"{version}.md").read_text("utf-8")
-        head = re.search(r"^## Upgrading a 6\.0\.0-m(\d+) project, step by step\n", note, flags=re.M)
-        self.assertEqual(f"6.0.0-m{int(head[1]) + 1}" if head else None, version)
+        head = re.search(r"^## Upgrading a 6\.0\.0-m(\d+) project to (\S+)\n", note, flags=re.M)
+        self.assertEqual((f"6.0.0-m{int(head[1]) + 1}", head[2]) if head else None, (version, version))
         section = note[head.end():].split("\n## ", 1)[0]
         tracked = set(git(core, "ls-files").stdout.splitlines())
         blocks = re.findall(r"^```\n(.*?)^```$", section, flags=re.M | re.S)
-        self.assertEqual(len(blocks), 1, "one block for every 6.0.0-m4 install, wired or not (T286)")
+        self.assertEqual(len(blocks), 1, "one block for every install, wired or not (T286)")
         installs = [ln for ln in blocks[0].splitlines() if "maintainer/flow.py install " in ln]
         self.assertEqual(len(installs), 1, installs)
         self.assertIn(" --providers <", installs[0], "the providers the project's install lists")
@@ -621,29 +622,14 @@ class ReleaseNote(unittest.TestCase):
         self.assertEqual(wrong, [], "paths the release does not ship")
         self.assertLessEqual({"maintainer/flow.py", "hooks/requirements.txt", "hooks/local/write-bootstrap-approval.sh"},
                              set(named))
-        # brief m6-fix item 11: both live projects go from 6.0.0-m4 to 6.0.0-m6 in one step; the same block, every file
-        # the core added since 6.0.0-m4 staged by name, and the reader task's re-registration after the commit
-        hop = note.split(f"## Upgrading a 6.0.0-m4 project to {version} in one step\n", 1)[1].split("\n## ", 1)[0]
-        block = re.findall(r"^```\n(.*?)^```$", hop, flags=re.M | re.S)
-        self.assertEqual(len(block), 1, "one block for every 6.0.0-m4 install")
-        self.assertEqual([ln for ln in block[0].splitlines() if "maintainer/flow.py install " in ln], installs)
-        added = git(core, "diff", "--name-only", "--diff-filter=A", "6.0.0-m4", "HEAD", "--", "hooks").stdout.split()
-        if added:  # a clone without the 6.0.0-m4 tag (a shallow CI checkout) checks the rest
-            staged = next(ln for ln in block[0].splitlines() if ln.startswith("git add -- hooks/"))
+        previous = f"6.0.0-m{head[1]}"
+        added = git(core, "diff", "--name-only", "--diff-filter=A", previous, "HEAD", "--", "hooks").stdout.split()
+        if added:  # a clone without the previous tag (a shallow CI checkout) checks the rest
+            staged = next(ln for ln in blocks[0].splitlines() if ln.startswith("git add -- hooks/"))
             self.assertEqual(sorted(staged.split()[3:]), sorted(added))
-        self.assertIn(f"`python fusebase-flow-{version}/maintainer/flow.py install --target <your-project> --providers "
-                      "<the providers audit/flow-install.json lists> --register-reader`", hop)
-        # T315, the one-step run on a copy: with a reader recorded the install prints `registered earlier`, and the
-        # re-registration can leave the manifest as it was
-        self.assertIn("`heartbeat reader: registered earlier: <the recorded line>`", hop)
+        # T315: with a reader recorded the install prints `registered earlier`, and the task stays as it is
+        self.assertIn("`heartbeat reader: registered earlier: <the recorded line>`", section)
         self.assertIn('"registered earlier: " + reader["line"]', FLOW.read_text("utf-8"))
-        self.assertIn("nothing to commit", hop.split("**The reader task.**", 1)[1])
-        for line in block[0].splitlines():
-            for word in PLACEHOLDER.sub("<>", line).split():
-                if "/" in word and "://" not in word and not word.startswith(("<", "-")):
-                    path = word.rstrip(";").removeprefix(f"fusebase-flow-{version}/")
-                    self.assertIn(path, tracked | {flow.PROJECT_BASELINE}, line)
-
 
 @unittest.skipUnless(os.environ.get("FLOW_MIGRATE_FIXTURE"), "FLOW_MIGRATE_FIXTURE not set")
 class RealProjectAbort(unittest.TestCase):
