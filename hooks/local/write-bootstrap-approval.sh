@@ -184,7 +184,7 @@ if not paths:
 
 digest = compute_staged_tree_digest(paths, Path(root))
 from shared.approval_artifact import compute_repo_id  # noqa: E402
-now = datetime.datetime.utcnow()
+now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
 expires = (now + datetime.timedelta(minutes=ttl_min)).strftime("%Y-%m-%dT%H:%M:%SZ")
 data = {
     "approved_by": slug,
@@ -200,5 +200,5 @@ data = {
     "paths": paths,
 }
 Path(artifact).write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
-print(f"[bootstrap-approval] minted {artifact} (expires {expires}; {len(paths)} path(s); digest {digest[:12]}…)")
+print(f"[bootstrap-approval] minted {artifact} (expires {expires}; {len(paths)} path(s); digest {digest[:12]}...)")
 PY

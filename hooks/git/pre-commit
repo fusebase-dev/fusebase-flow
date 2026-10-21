@@ -872,7 +872,7 @@ if [ -n "$STAGED_ANY" ] && [ -f "$FFEV_PY" ]; then
     fi
     if grep -qE '^(docs/flow/evidence\.md|docs/flow/evidence/[^/]+\.md|state/runs/.)' "$FFPC_GITCAP"; then
         if ! PYTHONPATH="" python3 -E "$FFEV_PY" --staged --root "$ROOT"; then
-            echo "[fusebase-flow:pre-commit] BLOCK — an evidence row this commit stages does not hold (lines above). Fix the row or its capture, or record the row as FAIL; NEVER use --no-verify." >&2
+            echo "[fusebase-flow:pre-commit] BLOCK — an evidence row this commit stages does not hold (lines above). Fix the row or its capture, or record the row as \`FAIL: <why>\`; NEVER use --no-verify." >&2
             _ffpc_stage evidence
             exit 1
         fi
@@ -901,7 +901,11 @@ fi
 FFVE_REUSE_HELPER="$ROOT/hooks/local/lib/precommit-validator-reuse.sh"
 if [ ! -f "$FFVE_REUSE_HELPER" ]; then
     echo "[fusebase-flow:pre-commit] BLOCK — the FR-13 validator runner hooks/local/lib/precommit-validator-reuse.sh is missing, so lint/typecheck cannot run." >&2
-    echo "Restore it: git checkout HEAD -- hooks/local/lib/precommit-validator-reuse.sh (when HEAD has it), else bash hooks/local/bootstrap-upgrade.sh --repair-managed hooks/local/lib/precommit-validator-reuse.sh (a plain upgrade keeps a deleted managed file deleted). NEVER use --no-verify." >&2
+    if [ -f "$ROOT/hooks/local/bootstrap-upgrade.sh" ]; then
+        echo "Restore it: git checkout HEAD -- hooks/local/lib/precommit-validator-reuse.sh (when HEAD has it), else bash hooks/local/bootstrap-upgrade.sh --repair-managed hooks/local/lib/precommit-validator-reuse.sh (a plain upgrade keeps a deleted managed file deleted). NEVER use --no-verify." >&2
+    else  # a 6.0 tree ships no bootstrap-upgrade.sh (review r1-57): its install restores Flow's files
+        echo "Restore it: git checkout HEAD -- hooks/local/lib/precommit-validator-reuse.sh (when HEAD has it), else re-run the Flow install (python <the Flow core>/maintainer/flow.py install --target .). NEVER use --no-verify." >&2
+    fi
     exit 1
 fi
 # TRIPWIRE: runner path is fixed — installed hook copies (install-git-hooks.sh copies, not links) source it.

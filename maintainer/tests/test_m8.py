@@ -499,5 +499,38 @@ class ProtectedStageCost(Kernel):
         self.assertLess(int(calls), 4 * len(paths), f"{calls} git calls for {len(paths)} staged paths")
 
 
+
+class PrintedSteps(Kernel):
+    """Item 6 (review r1-57, r1-64, r2-91, r3-75, r3-84, r1-41, r3-60, r1-54; M6-28): a step the kernel prints names
+    only what the tree ships: no hooks/tests/run-tests.sh or bootstrap-upgrade.sh on a 6.0 tree, `FAIL: <why>` for a row,
+    a `T<n>:` subject for the baseline adoption, and a mint with no DeprecationWarning and an ASCII line."""
+
+    def test_install_names_health_not_a_test_runner_the_core_does_not_ship(self) -> None:
+        repo = self.tmp / "fresh"
+        repo.mkdir()
+        git(repo, "init", "-q", "-b", "main")
+        no_auto_gc(repo)
+        out = run(self.tmp, sys.executable, str(CORE / "maintainer/flow.py"), "install", "--target", str(repo),
+                  "--providers", "claude")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertNotIn("run-tests.sh", out.stdout)
+        self.assertIn("Check with: python <the Flow core>/maintainer/flow.py health --target <this project>", out.stdout)
+
+    def test_the_mint_prints_no_deprecation_warning_and_an_ascii_line(self) -> None:
+        write(self.repo, "FLOW_RULES.md", "# rules, edited\n")
+        git(self.repo, "add", "--", "FLOW_RULES.md")
+        out = self.mint()
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertNotIn("DeprecationWarning", out.stderr)
+        self.assertTrue(out.stdout.isascii(), out.stdout)
+
+    def test_the_hooks_name_6_0_routes(self) -> None:
+        pre = (CORE / "hooks/git/pre-commit").read_text(encoding="utf-8")
+        self.assertIn('if [ -f "$ROOT/hooks/local/bootstrap-upgrade.sh" ]; then', pre)
+        self.assertIn("else re-run the Flow install (python <the Flow core>/maintainer/flow.py install --target .)", pre)
+        self.assertIn("or record the row as \\`FAIL: <why>\\`", pre)
+        size = (CORE / "hooks/local/check-module-size.sh").read_text(encoding="utf-8")
+        self.assertIn('[ -f "$ROOT/hooks/local/lib/commit_msg.py" ] && subject="T<n>: adopt the module-size baseline', size)
+
 if __name__ == "__main__":
     unittest.main()

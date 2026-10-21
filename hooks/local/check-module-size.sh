@@ -91,15 +91,18 @@ PY
 )"
         scope_rc=$?
         scope_first="$(printf '%s\n' "$scope_out" | head -n1)"
+        # A 6.0 tree's commit-msg takes one task id (review r1-41); 5.x keeps its chore subject.
+        subject="chore(fr25): adopt module-size baseline"
+        [ -f "$ROOT/hooks/local/lib/commit_msg.py" ] && subject="T<n>: adopt the module-size baseline (the task that grew the file)"
         if [ "$scope_rc" -eq 0 ] && [ "$scope_first" = "SCOPE_OK" ] && bash "$approval" >/dev/null 2>&1; then
             echo "[module-size] FR-07 approval minted (single-use, baseline-only) for the staged baseline change."
             echo "[module-size] The AGENT now commits the adoption and consumes the approval (the operator runs nothing; NOT --no-verify):"
-            echo "    git commit -m 'chore(fr25): adopt module-size baseline' && bash hooks/local/write-bootstrap-approval.sh --consume"
+            echo "    git commit -m '$subject' && bash hooks/local/write-bootstrap-approval.sh --consume"
         else
             echo "[module-size] NOT auto-minting (fail-closed): could not affirmatively verify the baseline is the ONLY staged protected path." >&2
             printf '%s\n' "$scope_out" | grep -vxE 'SCOPE_OK|OTHER_PROTECTED' | sed 's/^/      staged protected: /' >&2
             echo "[module-size] Adopt the baseline on its own — the agent unstages any other protected path, then runs (the operator runs nothing):" >&2
-            echo "      git add -- $baseline_file && bash hooks/local/write-bootstrap-approval.sh && git commit -m 'chore(fr25): adopt module-size baseline' && bash hooks/local/write-bootstrap-approval.sh --consume" >&2
+            echo "      git add -- $baseline_file && bash hooks/local/write-bootstrap-approval.sh && git commit -m '$subject' && bash hooks/local/write-bootstrap-approval.sh --consume" >&2
         fi
     fi
     exit 0

@@ -109,4 +109,8 @@ write_clone_excludes() {
 }
 write_clone_excludes || echo "[fusebase-flow] note: could not update git info/exclude; local policy overrides, agent worktrees and heartbeat files may be stageable by 'git add -A'." >&2
 
-echo "[fusebase-flow] git hooks install complete. Test with: bash $SRC/../tests/run-tests.sh"
+if [ -f "$SRC/../tests/run-tests.sh" ]; then
+    echo "[fusebase-flow] git hooks install complete. Test with: bash $SRC/../tests/run-tests.sh"
+else  # the 6.0 core ships no hooks/tests/ (review r1-64): its check is health
+    echo "[fusebase-flow] git hooks install complete. Check with: python <the Flow core>/maintainer/flow.py health --target <this project>"
+fi
