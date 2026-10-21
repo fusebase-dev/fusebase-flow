@@ -92,6 +92,11 @@ def check_capture_row(root: Path, row: dict, pol: dict, phase: str, out: list[st
     # the deploy it serves, so it may start before that deploy; every other run starts after it finished.
     baseline = re.search(r"\bbaseline\b", log["title"].rsplit("(", 1)[0], re.I)
     deployed = deploy_finished(root, env[1]) if env and not baseline else None
+    if not baseline and not env:  # field item 7.3: a check that cannot run says so, never passes silently
+        out.append(f"    WARNING deploy order not checked: the run log's title names no environment, `(dev)` say "
+                   f"({log['title'] or 'no title'})")
+    elif not baseline and deployed is None:
+        out.append(f"    WARNING deploy order not checked: state/deploys/{env[1]}.jsonl holds no finished deploy")
     started = fd.stamp(log["records"][0][0]) if log["records"] else None
     if deployed and (started is None or started < deployed[0]):
         problems.append(f"the run started {log['records'][0][0] if log['records'] else '?'}, before the "

@@ -562,5 +562,22 @@ class IndentedTap(m3.Validator):
         self.assertEqual(out.returncode, 0, out.stdout)
         self.assertIn("  B2 PASS", out.stdout)
 
+
+class DeployOrderWarning(m3.Validator):
+    """Field item 7.3: the deploy-order check skipped silently when state/deploys/<env>.jsonl or the `(env)` of the run
+    log's title was missing."""
+
+    locals().update(dict.fromkeys(n for n in dir(m3.Validator) if n.startswith("test")))  # the inherited tests run there
+
+    def test_a_check_that_cannot_run_says_so(self) -> None:
+        (self.repo / "state/deploys/dev.jsonl").unlink()
+        out = self.validate()
+        self.assertIn("WARNING deploy order not checked: state/deploys/dev.jsonl holds no finished deploy", out.stdout)
+        m3.write(self.repo, "runs/run-1/README.md", m3.RUN_LOG.replace(" (dev)", "").format(
+            records="| 2026-10-18T10:00:00.000Z | S1 | PASS |\n"))
+        out = self.validate()
+        self.assertIn("WARNING deploy order not checked: the run log's title names no environment", out.stdout)
+        self.assertEqual(out.returncode, 0, out.stdout)
+
 if __name__ == "__main__":
     unittest.main()
