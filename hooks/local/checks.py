@@ -297,6 +297,7 @@ def precision(root: Path, slice_id: str | None) -> list[str]:
 
 
 def main(argv: list[str]) -> int:
+    fd.utf8_output()
     ap = argparse.ArgumentParser(prog="checks.py", description=__doc__.split("\n\n")[0])
     ap.add_argument("slice", nargs="?")
     ap.add_argument("--precision", action="store_true", help="upheld / (upheld + rejected) per check")

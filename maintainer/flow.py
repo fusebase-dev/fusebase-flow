@@ -325,8 +325,8 @@ def install_hooks(target: Path) -> tuple[int, str]:
     if not bash:
         return 1, "bash not found: the three git hooks were not installed"
     try:
-        proc = subprocess.run([bash, "hooks/local/install-git-hooks.sh"], cwd=target,
-                              capture_output=True, text=True, timeout=600)
+        proc = subprocess.run([bash, "hooks/local/install-git-hooks.sh"], cwd=target, capture_output=True, text=True,
+                              encoding="utf-8", errors="replace", timeout=600)
     except subprocess.TimeoutExpired:
         return 124, "install-git-hooks.sh did not finish within 600 s"
     return proc.returncode, (proc.stdout + proc.stderr).strip()
@@ -336,10 +336,10 @@ def git_path(target: Path, *args: str) -> Path | None:
     """`git rev-parse <args>` as an absolute, resolved path, or None."""
     try:
         out = subprocess.run(["git", "--no-optional-locks", "rev-parse", *args], cwd=target,
-                             capture_output=True, text=True, timeout=120)
+                             capture_output=True, timeout=120)
     except (OSError, subprocess.TimeoutExpired):
         return None
-    found = out.stdout.strip()
+    found = out.stdout.decode("utf-8", "replace").strip()  # git writes UTF-8 paths; never the Windows code page
     return (Path(found) if Path(found).is_absolute() else target / found).resolve() if out.returncode == 0 and found else None
 
 
@@ -450,11 +450,13 @@ def register_reader(argv: list[str], target: Path) -> tuple[int, str]:
 
 def git_toplevel(target: Path) -> Path | None:
     try:
-        out = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=target,
-                             capture_output=True, text=True, timeout=120)
+        out = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=target, capture_output=True, timeout=120)
     except (OSError, subprocess.TimeoutExpired):
         return None
-    return Path(out.stdout.strip()).resolve() if out.returncode == 0 and out.stdout.strip() else None
+    # TRIPWIRE (6.0.0-m8 M6-9, review r2-10): git writes UTF-8; text=True read it in the Windows code page, so a café or
+    # Cyrillic project folder never equalled its own top level and the install refused it.
+    found = out.stdout.decode("utf-8", "replace").strip()
+    return Path(found).resolve() if out.returncode == 0 and found else None
 
 
 def git_text(target: Path, *args: str, data: str = "") -> str:
@@ -660,6 +662,9 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
 
 
 def main(argv: list[str]) -> int:
+    for stream in (sys.stdout, sys.stderr):  # a non-ASCII path or heading prints, piped or not (M6-9, review r2-10)
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
     parser = argparse.ArgumentParser(prog="flow.py")
     sub = parser.add_subparsers(dest="cmd", required=True)
     p = sub.add_parser("install", help="install or upgrade the core in a project")

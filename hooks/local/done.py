@@ -61,6 +61,7 @@ def check(root: Path, slice_id: str) -> tuple[int, list[str], dict]:
 
 
 def main(argv: list[str]) -> int:
+    fd.utf8_output()
     ap = argparse.ArgumentParser(prog="done.py", description=__doc__.split("\n\n")[0])
     ap.add_argument("slice")
     ap.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[2])

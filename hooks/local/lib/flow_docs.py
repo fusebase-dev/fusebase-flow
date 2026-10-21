@@ -6,6 +6,7 @@ import importlib.util
 import json
 import re
 import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -42,6 +43,14 @@ def blobs(root: Path, specs: list[str]) -> dict[str, bytes | None]:
         got[spec] = out[nl + 1:nl + 1 + size] if size >= 0 and head[1] == b"blob" else None
         at = nl + 2 + size if size >= 0 else nl + 1
     return got
+
+
+def utf8_output() -> None:
+    """Print as UTF-8, piped or not: on Windows a pipe took the code page, so a reader decoding UTF-8 saw `§` as U+FFFD
+    (field item 7.6, the cause of review r2-10)."""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
 
 
 def stamp(text: object) -> float | None:

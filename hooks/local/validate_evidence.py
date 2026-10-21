@@ -192,6 +192,7 @@ def validate(root: Path, target: str, file: str | None = None, present: bool = F
 
 
 def main(argv: list[str]) -> int:
+    fd.utf8_output()
     ap = argparse.ArgumentParser(prog="validate_evidence.py", description=__doc__.split("\n\n")[0])
     ap.add_argument("target", nargs="?", help="a slice (P1-S1) or a phase (P1)")
     ap.add_argument("--file", help="the evidence file, relative to the root")

@@ -327,7 +327,7 @@ def complete(inv: m.Inventory, folder: Path) -> None:
 def bash(target: Path, *args: str) -> subprocess.CompletedProcess:
     env = dict(os.environ, FF_BOOTSTRAP_TTL_MIN="30")
     return subprocess.run([shutil.which("bash") or "bash", *args], cwd=target, env=env,
-                          capture_output=True, text=True, timeout=600)
+                          capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
 
 
 def stage_commands(target: Path, folder: Path) -> list[tuple[str, ...]]:

@@ -85,6 +85,7 @@ def gate(root: Path, target: str) -> tuple[int, list[str]]:
 
 
 def main(argv: list[str]) -> int:
+    fd.utf8_output()
     ap = argparse.ArgumentParser(prog="gate.py", description=__doc__.split("\n\n")[0])
     ap.add_argument("target", help="a slice (P1-S1) or a phase (P1)")
     ap.add_argument("--root", type=Path, default=Path(__file__).resolve().parents[2])

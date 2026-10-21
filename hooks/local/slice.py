@@ -124,6 +124,7 @@ def brief(root: Path, target: str, chosen: list[dict], items: dict, answers: dic
 
 
 def main(argv: list[str]) -> int:
+    fd.utf8_output()
     ap = argparse.ArgumentParser(prog="slice.py", description=__doc__.split("\n\n")[0])
     ap.add_argument("target", help="a task (T12), a slice (P1-S2), or a phase (P1) with --brief")
     ap.add_argument("--agent", default="builder", help="the profile whose tools the inputs need (default builder)")

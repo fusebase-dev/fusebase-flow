@@ -255,5 +255,44 @@ class MergeHead(Repo):
         self.assertEqual(self.subject("Merge branch 'side'").returncode, 0)
 
 
+
+class UnicodePaths(unittest.TestCase):
+    """M6-9 (review r2-10) and field item 7.6: git's UTF-8 output was read in the Windows code page, so install refused a
+    project folder with a non-ASCII letter (a Cyrillic one crashed the print), and slice.py printed `§` as U+FFFD."""
+
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp(prefix="flow-m8-"))
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_install_goes_into_a_cafe_and_a_cyrillic_folder(self) -> None:
+        for name in ("café", "проект"):
+            repo = self.tmp / name
+            repo.mkdir()
+            git(repo, "init", "-q", "-b", "main")
+            no_auto_gc(repo)
+            out = subprocess.run([sys.executable, str(CORE / "maintainer/flow.py"), "install", "--target", str(repo),
+                                  "--providers", "claude"], capture_output=True, timeout=900)
+            text = out.stdout.decode("utf-8", "replace") + out.stderr.decode("utf-8", "replace")
+            self.assertEqual(out.returncode, 0, text)
+            self.assertIn(f"-> {repo.resolve()}", text)
+            self.assertTrue((repo / "hooks/local/lib/commit_msg.py").is_file())
+
+    def test_slice_prints_the_section_sign_as_utf8(self) -> None:
+        import test_scripts as m3
+        repo = self.tmp / "p"
+        repo.mkdir()
+        git(repo, "init", "-q", "-b", "main")
+        no_auto_gc(repo)
+        base = m3.commit(repo, {"docs/flow/backlog.md": "# Backlog\n\n## B1 Terms\n- source: owner\n"
+                                "- criterion: § 4.2 of the terms holds.\n- risk: none\n- status: open\n"}, "init")
+        write(repo, "docs/flow/phases.md", m3.phases_doc(base, [("T1", "src/**")]))
+        out = subprocess.run([sys.executable, str(CORE / "hooks/local/slice.py"), "T1", "--root", str(repo)],
+                             capture_output=True, timeout=300)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn("§ 4.2 of the terms holds.", out.stdout.decode("utf-8"))
+
+
 if __name__ == "__main__":
     unittest.main()
