@@ -594,5 +594,19 @@ class PlanCommitsAreNoTasks(m3.Validator):
         log = fd.slice_log(self.repo, fd.phases(self.repo)["P1-S1"])
         self.assertEqual(sorted(s for _, s, _, _ in log), ["T1: the expiry", "T2: the test"])
 
+
+class ItemEditRow(m3.Validator):
+    """Field item 7.5: the item-edit flag had no row in state/flags/<slice>.tsv, so it could not be ruled."""
+
+    locals().update(dict.fromkeys(n for n in dir(m3.Validator) if n.startswith("test")))  # the inherited tests run there
+
+    def test_the_item_edit_flag_gets_a_row_the_planner_can_rule(self) -> None:
+        m3.write(self.repo, "docs/flow/backlog.md", m3.BACKLOG.format(risk="auth"))
+        out = m3.run(str(m3.LOCAL / "checks.py"), "P1-S1", "--root", str(self.repo), cwd=self.tmp)
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        rows = (self.repo / "state/flags/P1-S1.tsv").read_text(encoding="utf-8").splitlines()
+        edit = [r.split("\t") for r in rows if r.startswith("item-edit-")]
+        self.assertEqual([(r[1], r[2], r[3]) for r in edit], [("5", "T1", "B1: risk changed since the phase's base")])
+
 if __name__ == "__main__":
     unittest.main()

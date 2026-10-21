@@ -41,8 +41,9 @@ FIRST = (("security", r"secur|\bauth|secret|credential|token|permission"), ("pri
 
 
 def carry_over(root: Path, target: str, lines: list[str], past: dict[str, list[tuple[str, str]]]) -> list[str]:
+    # the evidence validator's `FLAG item-edit B<n>` line has its ruled row among the checks' flags (field item 7.5)
     items = [ln.strip() for ln in lines if re.search(r" OPEN: |^\s+returns: |^\s+B\d+ FAIL: |^\s+FLAG ", ln)
-             and not ln.endswith("[rejected]")]
+             and not ln.endswith("[rejected]") and not re.match(r"\s+FLAG item-edit B\d+", ln)]
     items += [f"{k} {i + 1} {r}: {n}" for k, rows in past.items() for i, (r, n) in enumerate(rows) if n and r != "PASS"]
     for f in sorted((root / "state/returns").glob(f"{target}-*.json")):  # the readers' typed returns (verify briefs)
         try:
