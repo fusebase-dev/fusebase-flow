@@ -214,7 +214,7 @@ def install_and_carry(inv: m.Inventory) -> list[str]:
                 f"{len(inv.keep.get('local overrides', []))}")
     hooks = m.hooks_dir(target)
     same = [h for h in m.GIT_HOOKS if (hooks / h).is_file()
-            and (hooks / h).read_bytes() == (flow.CORE / "hooks/git" / h).read_bytes()]
+            and (hooks / h).read_bytes() == plan.get(f"hooks/git/{h}")]
     if len(same) != len(m.GIT_HOOKS):
         raise m.Abort(f"git hooks not byte-identical to the core's: {', '.join(sorted(set(m.GIT_HOOKS) - set(same)))}")
     done.append(f"git hooks: {', '.join(same)} in .git/hooks/ byte-identical to the core's")

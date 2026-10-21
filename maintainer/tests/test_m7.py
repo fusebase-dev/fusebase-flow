@@ -4,6 +4,7 @@ carries it."""
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import io
 import json
 import os
@@ -345,6 +346,39 @@ class CheckoutBytes(unittest.TestCase):
                              timeout=600).stdout
         self.assertEqual([ln.split(":")[0] for ln in out.splitlines() if not ln.endswith(": eol: lf")], [],
                          "checked out with the platform's line endings (CRLF under core.autocrlf=true)")
+
+
+class CrlfCheckout(unittest.TestCase):
+    """The coordinator's follow-up to T324: a release already cloned with CRLF bytes (an older clone, a file a pin missed)
+    installs LF bytes and records their sha, so the `flow:` commit that stages them (git makes them LF) is Flow's."""
+
+    def test_a_crlf_checkout_installs_and_records_lf_and_the_flow_commit_accepts_it(self) -> None:
+        tmp = Path(tempfile.mkdtemp(prefix="flow-m7-crlf-"))
+        self.addCleanup(shutil.rmtree, tmp, True)
+        core = tmp / "fusebase-flow"
+        shutil.copytree(CORE, core, ignore=shutil.ignore_patterns(".git", "__pycache__"))
+        crlf = ("hooks/git/pre-merge-commit", "hooks/local/lib/eol_pins.py", "flow-skills/plan/SKILL.md")
+        for rel in crlf:
+            (core / rel).write_bytes((core / rel).read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n"))
+        project = tmp / "project"
+        project.mkdir()
+        git(project, "init", "-q", "-b", "main")
+        no_auto_gc(project)
+        out = subprocess.run([sys.executable, str(core / "maintainer/flow.py"), "install", "--target", str(project),
+                              "--providers", "claude"], capture_output=True, text=True, timeout=900)
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        manifest = {e["path"]: e["sha256"] for e in json.loads((project / "audit/flow-install.json").read_text())["files"]}
+        for rel in (*crlf, ".claude/skills/plan/SKILL.md"):
+            data = (project / rel).read_bytes()
+            self.assertNotIn(b"\r\n", data, rel)
+            self.assertEqual(manifest[rel], hashlib.sha256(data).hexdigest(), rel)
+        git(project, "add", "-A")
+        pairs = [ln.split("\t", 1) for ln in git(project, "diff", "--cached", "--name-status").stdout.splitlines()]
+        found = subprocess.run([sys.executable, "-c", "import sys, json; sys.path.insert(0, 'hooks/local/lib'); "
+                                "import flow_owned; from pathlib import Path; "
+                                "print(json.dumps(flow_owned.foreign(Path('.'), json.loads(sys.argv[1]))))",
+                                json.dumps(pairs)], cwd=project, capture_output=True, text=True, timeout=600)
+        self.assertEqual(json.loads(found.stdout or "null"), [], found.stderr)
 
 
 class Installed(unittest.TestCase):

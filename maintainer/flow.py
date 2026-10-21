@@ -138,7 +138,10 @@ def planned_files(providers: set[str]) -> dict[str, bytes]:
             plan[f".claude/agents/{a}.md"] = data
         if "codex" in providers and a in CODEX_AGENTS:
             plan[f".codex/agents/{a}.toml"] = codex_agent_toml(data.decode("utf-8")).encode("utf-8")
-    return plan
+    # TRIPWIRE (6.0.0-m7, T324's review): LF whatever the release checkout holds. A Windows clone (core.autocrlf=true)
+    # checks out CRLF any file .gitattributes does not pin (pre-merge-commit was one): its sha recorded as CRLF, git's LF
+    # blob then made the `flow:` commit of Flow's own files read as foreign. The block pins every file written here.
+    return {rel: data.replace(b"\r\n", b"\n") for rel, data in plan.items()}
 
 
 def baseline_rows(data: bytes) -> dict[str, str]:
