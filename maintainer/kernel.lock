@@ -57,6 +57,9 @@
 #   hooks/shared/policy_loader.py, hooks/shared/module_size.py and policies/command-policy.yml: a *.local.yml override
 #   only ever tightens (rules, paths and patterns added; TTLs and limits lowered; nothing removed or loosened), and a
 #   shell write into policies/, state/approvals/ or .git/flow/ is denied (T323; 5.x e97ba347, local; m7 item 5, r2-34).
+#   .gitattributes: hooks/git/pre-merge-commit text eol=lf, so a Windows clone (core.autocrlf=true) checks the new hook
+#   out with LF and the install records the bytes git commits (T324; 5.x 2d3977ed, local; m7 item 3, the one-step
+#   upgrade rehearsed on a copy). On 5.x it pins nothing: 5.x ships no pre-merge-commit.
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -76,7 +79,7 @@
 #   protected-path check (hooks/local/lib/range_check.py --merge). Locked as a git hook, core only: the range check and
 #   its record are 6.0's (decision 10(c)); 5.x ships none and its installer skips it.
 # A kernel fix lands on 5.x first, is cherry-picked here, and updates this lock in the same commit.
-f2557b19379421fac007a2c758eda73bb6eb21990a7f5c366c438716e1fe2cfb  .gitattributes
+d29664c17271aee8ab671d1f8e4d609a2b15e1467af9c98883e4252a9e92cae5  .gitattributes
 0acfb991aa269888937723022f2667b0e251ed0091ccc96491752360b2a61be0  LICENSE
 e6fe845882eb635b917be76c1398b0bfb26b44abebd8bf6083616ae1a518b952  hooks/git/commit-msg
 2bd0cbf0ebb0472f55ced57b76bc250003f37f55a866884d59f0b5b4ee0d39ec  hooks/git/pre-commit

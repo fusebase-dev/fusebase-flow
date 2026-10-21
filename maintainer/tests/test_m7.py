@@ -331,6 +331,22 @@ class RangeCheck(unittest.TestCase):
         self.assertIn("FLOW_RULES.md changed with no approval on record", pushed.stderr)
 
 
+class CheckoutBytes(unittest.TestCase):
+    """m7 item 3, found by the one-step upgrade rehearsed on a copy: a Windows clone of the release (core.autocrlf=true)
+    checked hooks/git/pre-merge-commit out with CRLF, since the core's .gitattributes pinned only the three older hooks;
+    the install recorded those bytes, and the `flow:` upgrade commit, whose staged blob git had made LF, was refused."""
+
+    def test_every_script_the_install_copies_is_checked_out_with_lf(self) -> None:
+        sys.path.insert(0, str(CORE / "maintainer"))
+        import flow
+        scripts = [p for p in flow.core_files() if flow.matches(p, flow.EXECUTABLE) or p.endswith(".py")]
+        self.assertIn("hooks/git/pre-merge-commit", scripts)
+        out = subprocess.run(["git", "check-attr", "eol", "--", *scripts], cwd=CORE, capture_output=True, text=True,
+                             timeout=600).stdout
+        self.assertEqual([ln.split(":")[0] for ln in out.splitlines() if not ln.endswith(": eol: lf")], [],
+                         "checked out with the platform's line endings (CRLF under core.autocrlf=true)")
+
+
 class Installed(unittest.TestCase):
     """A git project with Flow installed (claude and codex), nothing committed, no tool hooks wired."""
 
