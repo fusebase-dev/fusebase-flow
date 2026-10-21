@@ -532,5 +532,21 @@ class PrintedSteps(Kernel):
         size = (CORE / "hooks/local/check-module-size.sh").read_text(encoding="utf-8")
         self.assertIn('[ -f "$ROOT/hooks/local/lib/commit_msg.py" ] && subject="T<n>: adopt the module-size baseline', size)
 
+
+class TaskIdInsideAnItemId(m3.Validator):
+    """Field item 7.1: the task-id match took T276 inside an item id such as O-T276-2: a commit subject naming
+    `O-T276-2` counted as task T276's, and commit-msg saw two task ids."""
+
+    locals().update(dict.fromkeys(n for n in dir(m3.Validator) if n.startswith("test")))  # the inherited tests run there
+
+    def test_an_item_id_is_no_task_id(self) -> None:
+        import flow_docs as fd
+        self.assertEqual(fd.TASK.findall("T5: close O-T276-2 and D-T265-3 (T278a stays)"), ["T5"])
+        self.assertEqual(fd.TASK.findall("fix(x): T12 the banner"), ["T12"])
+        msg = self.tmp / "msg.txt"
+        msg.write_text("T2: the test, closing O-T1-2\n", encoding="utf-8")
+        out = m3.run(str(CORE / "hooks/local/lib/commit_msg.py"), str(msg), cwd=self.repo)
+        self.assertNotIn("exactly one T<n> per commit", out.stderr)
+
 if __name__ == "__main__":
     unittest.main()

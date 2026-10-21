@@ -15,7 +15,7 @@ import yaml
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)  # no console window when the caller has none (pythonw)
 
 PHASES, BACKLOG, LEDGER = "docs/flow/phases.md", "docs/flow/backlog.md", "docs/flow/ledger.md"
-TASK = re.compile(r"\bT\d+\b")
+TASK = re.compile(r"(?<![\w-])T\d+(?![\w-])")  # never inside an id such as O-T276-2 (field item 7.1)
 SHA = re.compile(r"[0-9a-f]{7,40}")
 
 
