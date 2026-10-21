@@ -2,7 +2,9 @@
 """Evidence-row validator (design section 6; handoff WP 7c; runner conventions of 2026-10-16, sections 1 to 4):
 `validate_evidence.py <slice|phase> [--file F]`; exit 0 every row holds, 1 not, 2 no such slice or phase.
 `--staged` (the pre-commit's evidence stage): each phase whose evidence file or state/runs/<phase>/ the commit stages,
-the rows present only; a missing row or a recorded FAIL is no failure there, a PASS that does not hold is.
+the rows present only; a missing row or a recorded FAIL is no failure there, a PASS that does not hold is. The evidence
+file, and each run log and capture a row cites, must be the bytes the commit takes: one whose working copy differs from
+its staged copy is refused (review r3-83: the check read the working tree while the commit took the index).
 
 Rows: docs/flow/evidence/<phase>.md (docs/flow/evidence.md when that is absent), exactly one per criterion of the items
 the slice's (or phase's) tasks serve. Run by gate.py and by the ship step. Prints each capture's sha256 and size, and a
@@ -63,6 +65,10 @@ def validate(root: Path, target: str, file: str | None = None, present: bool = F
     if not any(classes.values()):
         out.append("  classes: no globs declared in policies/evidence-classes.yml; the risk tag alone sets the class")
     rows, result, digests, blocked, written = table(fd.read(root / rel)), {}, {}, {}, {}
+    unstaged = set(fd.git(root, "diff", "--name-only", "--no-renames", "-z").split("\0")) - {""} if present else set()
+    if rel in unstaged:
+        return 1, out + [f"EVIDENCE: FAIL ({rel}: its working copy differs from the staged one, and the commit takes the "
+                         "staged one; stage it, or set the working change aside, then commit)"], []
     for item in wanted:
         mine = [r for r in rows if r["id"] == item]
         if present and not mine:
@@ -71,6 +77,9 @@ def validate(root: Path, target: str, file: str | None = None, present: bool = F
         problems, actual, detail = [], "unit" if len(mine) == 1 else "-", []
         if len(mine) != 1:
             problems.append(f"{len(mine)} rows; exactly one is needed")
+        elif changed := sorted({mine[0]["log"], mine[0]["capture"].partition("::")[0].strip()} & unstaged):
+            problems.append(f"{', '.join(changed)}: the working copy differs from the staged one; stage it, or set the "
+                            "working change aside")
         elif not re.fullmatch(str(pol.get("row_status", "^PASS$")), mine[0]["status"]):
             problems.append(f"status `{mine[0]['status']}` does not match row_status")
         elif mine[0]["status"] != "PASS" and (cited := accepted(mine[0], answers)):  # never PASS, never a failure

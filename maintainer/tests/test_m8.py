@@ -17,6 +17,7 @@ from pathlib import Path
 import yaml
 
 from synthetic import git, no_auto_gc
+import test_scripts as m3
 
 CORE = Path(__file__).resolve().parents[2]
 WINDOWS = os.name == "nt"
@@ -330,6 +331,37 @@ class SymlinkedOverlays(unittest.TestCase):
         check = migrate_preflight.overlays(migrate.Inventory(target=self.repo, providers={"claude"}, version="5.6"))
         self.assertTrue(check.stop, check)
         self.assertIn("CLAUDE.md is a symlink", check.found)
+
+
+
+class StagedEvidence(m3.Validator):
+    """r3-83: the pre-commit's evidence stage read docs/flow/evidence/<phase>.md from the working tree while the commit
+    took the staged blob, so a staged row with an all-zero sha256 committed past it."""
+
+    def staged(self) -> subprocess.CompletedProcess:
+        return m3.run(str(CORE / "hooks/local/validate_evidence.py"), "--staged", "--root", str(self.repo), cwd=self.tmp)
+
+    def test_a_staged_row_the_working_copy_hides_is_refused(self) -> None:
+        good = self.rows["B1"]
+        self.rows["B1"] = good.replace(good.split(" | ")[3], "0" * 64)
+        self.validate()  # writes the evidence file with the zero sha256 row
+        git(self.repo, "add", "--", "docs/flow/evidence/P1.md")
+        self.rows["B1"] = good
+        self.validate()  # the working copy now holds the true row; the staged one still the zero row
+        out = self.staged()
+        self.assertEqual(out.returncode, 1, out.stdout)
+        self.assertIn("docs/flow/evidence/P1.md: its working copy differs from the staged one", out.stdout)
+        git(self.repo, "add", "--", "docs/flow/evidence/P1.md")
+        self.assertEqual(self.staged().returncode, 0, "staged and working copies agree")
+
+    def test_a_staged_run_log_the_working_copy_changed_is_refused(self) -> None:
+        self.validate()
+        git(self.repo, "add", "--", "docs/flow/evidence/P1.md", "runs/run-1/README.md")
+        write(self.repo, "runs/run-1/README.md", m3.RUN_LOG.format(records="| 2026-10-18T10:00:00.000Z | S1 | PASS |\n"
+                                                                          "| 2026-10-18T10:05:00.000Z | S1 | PASS |\n"))
+        out = self.staged()
+        self.assertEqual(out.returncode, 1, out.stdout)
+        self.assertIn("runs/run-1/README.md: the working copy differs from the staged one", out.stdout)
 
 
 if __name__ == "__main__":
