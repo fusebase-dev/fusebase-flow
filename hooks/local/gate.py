@@ -46,7 +46,8 @@ def gate(root: Path, target: str) -> tuple[int, list[str]]:
                                                                       r"(A\d+)", ln))]
         # workflows/lifecycle.md, Verify: a slice gets one review reader; a phase two skeptics, then the verdict reader
         then = (f"the review (python hooks/local/slice.py {target} --brief review)" if target in slices else
-                f"the two skeptics, then the verdict (python hooks/local/slice.py {target} --brief skeptic, then verdict)")
+                f"the two skeptics, then the verdict (python hooks/local/slice.py {target} --brief skeptic, for each skeptic; "
+                f"then python hooks/local/slice.py {target} --brief verdict)")
         rc, tail = 0, [f"GATE: PASS: dispatch {then}"
                        + (f"; blocked, accepted by an owner answer, not PASS: {', '.join(held)}" if held else "")]
     out = [head, *blocks, *tail]

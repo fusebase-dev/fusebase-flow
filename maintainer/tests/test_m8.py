@@ -458,5 +458,24 @@ class ReleaseRecheck(unittest.TestCase):
         self.assertIn("::error::the API could not confirm the release 6.0.0-m8", out.stdout)
 
 
+
+class ShippedTexts(unittest.TestCase):
+    """Item 6 (the review's docs-vs-behaviour rows r1-55, r1-56, r2-90, r2-93, r3-74): the texts a project receives say
+    what the tree does: no stale version, the shell the commit route needs and its PowerShell form, python3 and the
+    Linux PyYAML route, the by-name staging."""
+
+    def test_readme_and_the_lifecycle_page_name_no_pre_release_and_the_shell_the_commit_route_needs(self) -> None:
+        readme = (CORE / "README.md").read_text(encoding="utf-8")
+        lifecycle = (CORE / "workflows/lifecycle.md").read_text(encoding="utf-8")
+        for text, name in ((readme, "README.md"), (lifecycle, "workflows/lifecycle.md")):
+            self.assertNotRegex(text, r"6\.0\.0-m\d", f"{name} names a pre-release, which goes stale")
+            self.assertIn("in Git Bash", text, name)
+        for phrase in ('$env:FF_BOOTSTRAP_TTL_MIN=30; & "$env:ProgramFiles\\Git\\bin\\bash.exe"',
+                       "python3 maintainer/flow.py install", "sudo apt install python3-yaml", "git add -u",
+                       "maintainer/release-notes/<version>.md"):
+            self.assertIn(phrase, readme)
+        self.assertIn("stage them by name (`git add -u`, then the added files)", lifecycle)
+
+
 if __name__ == "__main__":
     unittest.main()

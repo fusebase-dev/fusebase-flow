@@ -2,7 +2,7 @@
 
 The planner (the operator's main session) runs every step; builders build one slice each; readers review and judge. Rules: `FLOW_RULES.md`. The four documents live in `docs/flow/`, copied from `templates/`.
 
-**6.0.0-m6.** The six scripts are in `hooks/local/`.
+The six scripts are in `hooks/local/`.
 
 ## 1. Plan (skill `plan`)
 
@@ -31,6 +31,6 @@ The planner (the operator's main session) runs every step; builders build one sl
 
 ## Installing Flow
 
-`python <core>/maintainer/flow.py install --target <project> --providers claude,codex` copies the core, the provider mirrors and the three git hooks, and leaves them uncommitted. Committing them touches protected paths: stage them by name, run `FF_BOOTSTRAP_TTL_MIN=30 bash hooks/local/write-bootstrap-approval.sh`, commit with a `flow:` subject (`flow: install Fusebase Flow <version>`; it passes only on Flow's own files, the four documents and Flow's marked blocks), then run it with `--consume`. Re-running the install is the upgrade within 6.0; `--register-reader` also schedules the reader every 5 minutes, and `--wire-hooks` merges the two tool handlers into `.claude/settings.json` and `.codex/hooks.json`. `flow.py health --target <project>` checks an install, read-only.
+`python <core>/maintainer/flow.py install --target <project> --providers claude,codex` copies the core, the provider mirrors and the git hooks, and leaves them uncommitted. Committing them touches protected paths: stage them by name (`git add -u`, then the added files), run in Git Bash `FF_BOOTSTRAP_TTL_MIN=30 bash hooks/local/write-bootstrap-approval.sh`, commit with a `flow:` subject (`flow: install Fusebase Flow <version>`; it passes only on Flow's own files, the four documents and Flow's marked blocks), then run it with `--consume`. Re-running the install is the upgrade within 6.0; `--register-reader` also schedules the reader every 5 minutes, and `--wire-hooks` merges the two tool handlers into `.claude/settings.json` and `.codex/hooks.json`. `flow.py health --target <project>` checks an install, read-only.
 
 `commit-msg` takes exactly one `T<n>`, a task of `phases.md` at HEAD once it has tasks; `plan:` and `ship:` only on the files their skills name; a merge by git's state. A commit outside the trivial tier (`plan` skill) needs its task's backlog item.

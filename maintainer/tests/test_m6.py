@@ -235,7 +235,7 @@ class GatePass(m3.Validator):
         self.assertEqual(self.gate("P1-S1"),
                          "GATE: PASS: dispatch the review (python hooks/local/slice.py P1-S1 --brief review)")
         self.assertEqual(self.gate("P1"), "GATE: PASS: dispatch the two skeptics, then the verdict "
-                                          "(python hooks/local/slice.py P1 --brief skeptic, then verdict)")
+                                          "(python hooks/local/slice.py P1 --brief skeptic, for each skeptic; then python hooks/local/slice.py P1 --brief verdict)")
         lifecycle = (CORE / "workflows/lifecycle.md").read_text(encoding="utf-8")
         self.assertIn("Review: one reader with `python hooks/local/slice.py <slice> --brief review`", lifecycle)
         self.assertIn("Phase gate: one verdict reader and two skeptic readers, never per slice", lifecycle)
