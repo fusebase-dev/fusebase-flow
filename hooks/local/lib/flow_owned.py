@@ -1,8 +1,9 @@
 """Which staged paths are not Flow's own: the rule of the `flow:` subject (O-21), for hooks/local/lib/commit_msg.py.
 
 Flow's own, besides the four documents (commit_msg.py checks those):
-- an added or changed path whose staged bytes have the sha256 the staged audit/flow-install.json records for it, and
-  that manifest itself;
+- an added or changed path whose staged bytes have the sha256 the staged audit/flow-install.json records for it, when
+  HEAD's manifest records that path or it lies where the install writes (FLOW_PATHS); never because a row the same
+  commit adds names it (M6-7, review r1-32); and that manifest itself, a protected path;
 - a deleted path recorded at HEAD by that manifest or by a 5.x Flow manifest, or whose name and HEAD bytes are those
   of a path one of them records (a 5.x command mirror); on the migration commit also the files it deletes by name,
   bytecode and the orphan 5.x backups (`*.pre-flow-repair[.<n>]` under .claude/, .agents/ and .codex/);
@@ -14,6 +15,7 @@ The migration commit is the one that deletes HEAD's audit/managed-content-manife
 """
 from __future__ import annotations
 
+import fnmatch
 import hashlib
 import json
 import re
@@ -34,8 +36,20 @@ RETIRED_5X = (*ASSETS_5X, *MIRRORS_5X, "audit/README.md", "audit/cli-upstream-ma
 BYTECODE = re.compile(r"hooks/.*(/__pycache__/.*|\.py[co])")
 REPAIR_BACKUP = re.compile(r"\.(claude|agents|codex)/.+\.pre-flow-repair(\.\d+)?")  # migrate.py's orphan 5.x backups
 MERGED, OVERLAYS = ("AGENTS.md", "CLAUDE.md", ".gitattributes", ".gitignore"), ("AGENTS.md", "CLAUDE.md")
+# Where the install writes (maintainer/flow.py planned_files(): CORE_PATTERNS, the provider mirrors, the project's
+# module-size rows; test_m8 keeps the two in step); `*` stays inside one folder, and the CLI's app-* agents are not Flow's.
+FLOW_PATHS = ("FLOW_RULES.md", "VERSION", "hooks/requirements.txt", "hooks/git/*", "hooks/shared/*.py", "hooks/handlers/*.py",
+              "hooks/local/*.sh", "hooks/local/*.py", "hooks/local/lib/*.sh", "hooks/local/lib/*.py", "policies/*.yml",
+              "policies/module-size-baseline.txt", "policies/module-size-baseline.project.txt", "agents/*/AGENT.md",
+              "flow-skills/*/SKILL.md", "templates/*.md", "workflows/*.md", ".claude/skills/*/SKILL.md",
+              ".agents/skills/*/SKILL.md", ".claude/agents/*.md", ".codex/agents/*.toml")
 MARK = re.compile(r"(?:<!-- |# )FLOW:(BEGIN|END)\b")
 WRAP = ("<!-- CUSTOM:SKILL:BEGIN -->", "<!-- CUSTOM:SKILL:END -->")
+
+
+def flow_path(path: str) -> bool:
+    return not re.match(r"\.(claude|codex)/agents/app-", path) and any(
+        fnmatch.fnmatchcase(path, g) and path.count("/") == g.count("/") for g in FLOW_PATHS)
 
 
 def outside(data: bytes | None) -> list[str] | None:
@@ -75,6 +89,7 @@ def foreign(root: Path, pairs: list[tuple[str, str]], base: str = "HEAD", tip: s
     head += [(m[1], m[2]) for f in MIRRORS_5X for ln in (b.get(f"{base}:{f}") or b"").decode("utf-8", "replace")
              .splitlines() if (m := ROW.fullmatch(ln))]
     staged, recorded = dict(rows(f"{tip}:{MANIFEST}", "files")), {p for p, _ in head}
+    installed = {p for p, _ in rows(f"{base}:{MANIFEST}", "files")}
     named = {(p.rsplit("/", 1)[-1], s) for p, s in head}  # a mirror keeps its source's name and bytes
     migrating = b.get(f"{base}:{MC_5X}") is not None and side.get(MC_5X) == base
 
@@ -91,5 +106,5 @@ def foreign(root: Path, pairs: list[tuple[str, str]], base: str = "HEAD", tip: s
             unpinned = p == ".gitattributes" and kept is not None and old is not None and [x for x in kept if x.strip()] \
                 == [x for x in old if x.strip() and not eol_pins.is_5x_pin(x)]
             return (migrating and p in OVERLAYS) or (kept is not None and kept == old) or unpinned
-        return sha is not None and staged.get(p) == sha
+        return sha is not None and staged.get(p) == sha and (p in installed or flow_path(p))
     return [p for s, p in pairs if not own(s, p)]

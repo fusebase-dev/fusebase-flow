@@ -90,6 +90,8 @@ categories:
       - "policies/module-size-baseline.txt"
       # the project's own module-size rows (6.0.0-m6 item 9): its file, still an operator decision to grow (FR-25)
       - "policies/module-size-baseline.project.txt"
+      # the 6.0 install record (6.0.0-m8, M6-7): a row added to it made any file Flow's own under a `flow:` subject
+      - "audit/flow-install.json"
       - "hooks/handlers/**"
       - "hooks/shared/**"
       - "hooks/git/**"

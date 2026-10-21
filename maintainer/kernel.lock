@@ -60,6 +60,9 @@
 #   .gitattributes: hooks/git/pre-merge-commit text eol=lf, so a Windows clone (core.autocrlf=true) checks the new hook
 #   out with LF and the install records the bytes git commits (T324; 5.x 2d3977ed, local; m7 item 3, the one-step
 #   upgrade rehearsed on a copy). On 5.x it pins nothing: 5.x ships no pre-merge-commit.
+#   policies/protected-paths.yml: audit/flow-install.json is a fusebase_flow_internals path, so an edit of the 6.0
+#   install record (the M6-7 forged row) needs an approval; inert on 5.x, which has no such file (T332; 5.x 7f1c3d23,
+#   local; m8 item 5, M6-7).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -115,5 +118,5 @@ fecb30ef246aaf2dc90dc55200de5d1b0bab92242c8cbbd5cbd3e9c0d8d784fa  hooks/shared/s
 9929b96b1bd5492cadf7a662380515ce06a609912dd5be43b405e80092e03b8b  policies/command-policy.yml
 7747637a42919bf6548600fc78a9f53866ed655dfff00370958a0707674f3840  policies/module-size-baseline.txt
 cd603634033c3eb68970210d5d2a0762c3fd0ee01ec53c36a8f4644ec7374f2f  policies/module-size.yml
-9dda3e4a120c90f7267fff71ca5a6f35105ead3612fc1c189c6e8a9b68dfe9fe  policies/protected-paths.yml
+6b9688b914f6231309c73463aff75993b030436ea9d3addd56d8a28ea0c70c11  policies/protected-paths.yml
 fa440720b8764312f9eea1c47aae2dff50c0a38ed2ea1eb5d151d3c5f2f377f0  policies/secret-patterns.yml
