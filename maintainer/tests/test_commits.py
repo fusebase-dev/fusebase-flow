@@ -77,6 +77,7 @@ class Interpreter(NoPython3):
     def setUp(self) -> None:
         super().setUp()
         for rel in ("hooks/local/lib/commit_msg.py", "hooks/local/lib/flow_docs.py", "hooks/local/lib/flow_owned.py",
+                    "hooks/local/lib/eol_pins.py",  # flow_owned.py reads the 5.x pins (6.0.0-m7 item 2)
                     "hooks/local/lib/precommit-validator-reuse.sh"):  # commit-msg runs lint and typecheck (T276)
             write(self.repo, rel, (CORE / rel).read_text(encoding="utf-8"))
         m3.git(self.repo, "add", "--", "hooks")
