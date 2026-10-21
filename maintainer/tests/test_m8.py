@@ -201,5 +201,59 @@ class Approvals(Kernel):
         self.assertEqual(health.approvals(self.repo), ["approval: database_migration-old-20261001.json expired "
                                                        "(2026-10-01T00:00:00Z); it authorizes nothing: delete it"])
 
+
+class MergeHead(Repo):
+    """M6-8 (review r2-29): a MERGE_HEAD file let any subject through. A merge is one whose MERGE_HEAD names commits HEAD
+    does not contain, and what it adds beyond its parents takes the subject rules."""
+
+    def subject(self, text: str) -> subprocess.CompletedProcess:
+        msg = self.tmp / "msg.txt"
+        msg.write_text(text + "\n", encoding="utf-8")
+        return run(self.repo, sys.executable, str(CORE / "hooks/local/lib/commit_msg.py"), str(msg))
+
+    def side(self) -> str:
+        git(self.repo, "checkout", "-q", "-b", "side")
+        write(self.repo, "side.txt", "side\n")
+        git(self.repo, "add", "--", "side.txt")
+        git(self.repo, "commit", "-q", "--no-verify", "-m", "T1: side")
+        git(self.repo, "checkout", "-q", "main")
+        write(self.repo, "main.txt", "main\n")
+        git(self.repo, "add", "--", "main.txt")
+        git(self.repo, "commit", "-q", "--no-verify", "-m", "T2: main")
+        return "side"
+
+    def test_a_hand_made_merge_head_naming_head_lets_no_subject_through(self) -> None:
+        write(self.repo, "src/z.py", "x = 1\n")
+        git(self.repo, "add", "--", "src/z.py")
+        head = git(self.repo, "rev-parse", "HEAD").stdout.strip()
+        write(self.repo, ".git/MERGE_HEAD", head + "\n")
+        out = self.subject("whatever")
+        self.assertEqual(out.returncode, 1, out.stderr)
+        self.assertIn("must cite a T-number", out.stderr)
+
+    def test_code_staged_into_a_real_merge_needs_its_task_and_a_clean_merge_passes(self) -> None:
+        git(self.repo, "merge", "--no-commit", "--no-ff", self.side())
+        self.assertEqual(self.subject("Merge branch 'side'").returncode, 0, "a clean merge")
+        write(self.repo, "src/z.py", "x = 1\n")
+        git(self.repo, "add", "--", "src/z.py")
+        out = self.subject("Merge branch 'side'")
+        self.assertEqual(out.returncode, 1, out.stderr)
+        self.assertIn("this merge changes src/z.py beyond what its parents hold", out.stderr)
+        self.assertEqual(self.subject("Merge branch 'side' (T3: add z)").returncode, 0)
+
+    def test_a_file_both_sides_changed_in_other_hunks_merges_clean(self) -> None:
+        write(self.repo, "f.txt", "".join(f"line {n}\n" for n in range(12)))
+        git(self.repo, "add", "--", "f.txt")
+        git(self.repo, "commit", "-q", "--no-verify", "-m", "T1: f")
+        git(self.repo, "checkout", "-q", "-b", "side")
+        write(self.repo, "f.txt", "".join(f"line {n}{' side' if n == 1 else ''}\n" for n in range(12)))
+        git(self.repo, "commit", "-q", "--no-verify", "-am", "T2: side")
+        git(self.repo, "checkout", "-q", "main")
+        write(self.repo, "f.txt", "".join(f"line {n}{' main' if n == 10 else ''}\n" for n in range(12)))
+        git(self.repo, "commit", "-q", "--no-verify", "-am", "T3: main")
+        git(self.repo, "merge", "--no-commit", "--no-ff", "side")
+        self.assertEqual(self.subject("Merge branch 'side'").returncode, 0)
+
+
 if __name__ == "__main__":
     unittest.main()

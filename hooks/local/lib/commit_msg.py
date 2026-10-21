@@ -2,7 +2,10 @@
 """The 6.0 commit-msg rules (handoff WP 10; decision 10(c)): `commit_msg.py <message file>`, run by hooks/git/commit-msg
 from the top of the work tree; exit 0 accept, 1 reject with the reason on stderr.
 
-- A merge (MERGE_HEAD present) passes; `Revert "<s>"` is judged as <s>.
+- A merge passes when it adds nothing its parents do not hold: MERGE_HEAD names only commits HEAD does not contain,
+  and no staged path carries a hunk no parent has (6.0.0-m8 M6-8, review r2-29: a hand-made MERGE_HEAD, or unrelated
+  code staged into a real merge, passed any subject). Those paths (a conflict resolution, an added change) take the
+  rules below, so the merge's subject names their task. `Revert "<s>"` is judged as <s>.
 - A subject matching an `exempt_subjects` form of policies/evidence-classes.yml at HEAD passes whatever it stages: the
   FuseBase CLI's two update checkpoints.
 - `plan:` and `ship:` pass only when every staged path is one the plan or ship skill's commit stages; `flow:` (Flow's
@@ -90,15 +93,42 @@ def formatting_only(root: Path, pairs: list[tuple[str, str]]) -> bool:
         ln.startswith(heads) or (ln.startswith(("+", "-")) and not ln.startswith(("+++", "---"))) for ln in lines)
 
 
-def merging(root: Path) -> bool:
-    """A merge is told by git's state, never by its subject (decision 10(c) condition 1)."""
+def merge_heads(root: Path) -> list[str]:
+    """The commits a merge in progress brings in, told by git's state, never by its subject (decision 10(c) condition 1):
+    MERGE_HEAD's commits, each one HEAD does not contain; [] when there is none, or when one names HEAD, an ancestor of
+    it or no commit (a hand-made MERGE_HEAD)."""
     rel = fd.git(root, "rev-parse", "--git-path", "MERGE_HEAD").strip()
-    return bool(rel) and (Path(rel) if Path(rel).is_absolute() else root / rel).is_file()
+    path = (Path(rel) if Path(rel).is_absolute() else root / rel) if rel else None
+    try:
+        names = path.read_text(encoding="utf-8", errors="replace").split() if path and path.is_file() else []
+    except OSError:
+        names = []
+    shas = [fd.git(root, "rev-parse", "--verify", "-q", f"{n}^{{commit}}").strip() for n in names]
+    return shas if shas and all(s and fd.git(root, "rev-list", "-1", f"HEAD..{s}").strip() for s in shas) else []
+
+
+def beyond_parents(root: Path, heads: list[str]) -> set[str]:
+    """The staged paths with a hunk no parent holds (`git diff-tree --cc` of the index as a commit of HEAD and the
+    merged commits): what the merge adds itself. A file each side changed in other hunks, merged clean, is not one. When
+    git cannot build that commit, every path that differs from all parents counts."""
+    tree = fd.git(root, "write-tree").strip()
+    parents = [x for h in ["HEAD", *heads] for x in ("-p", h)]
+    commit = tree and fd.git(root, "-c", "user.name=flow-merge-check", "-c", "user.email=flow@invalid", "commit-tree",
+                             tree, *parents, "-m", "flow: merge check").strip()
+    if commit:
+        return {ln[len("diff --cc "):].strip('"') for ln in fd.git(root, "diff-tree", "--cc", "--no-color", commit)
+                .splitlines() if ln.startswith("diff --cc ")}
+    found = set(fd.git(root, "diff", "--cached", "--name-only", "--no-renames", "-z", "HEAD").split("\0")) - {""}
+    for head in heads:
+        found &= set(fd.git(root, "diff", "--cached", "--name-only", "--no-renames", "-z", head).split("\0"))
+    return found
 
 
 def check(root: Path, text: str) -> str | None:
     """None when the message passes, else the reason."""
-    if merging(root):
+    heads = merge_heads(root)
+    own = beyond_parents(root, heads) if heads else None
+    if own is not None and not own:
         return None
     subject = subject_of(text)
     if not subject:
@@ -108,7 +138,7 @@ def check(root: Path, text: str) -> str | None:
     if VAGUE.match(subject):
         return f"vague subject: '{subject}'. Say what the commit does, such as 'T17: reject magic links older than 15 minutes'."
     names = fd.git(root, "diff", "--cached", "--name-status", "--no-renames", "-z", "--ignore-submodules=none").split("\0")
-    pairs = [(names[i], names[i + 1]) for i in range(0, len(names) - 1, 2)]
+    pairs = [(names[i], names[i + 1]) for i in range(0, len(names) - 1, 2) if own is None or names[i + 1] in own]
     staged, deleted = [p for _, p in pairs], {p for s, p in pairs if s.startswith("D")}
     if subject.startswith("flow:"):  # O-21
         other = flow_owned.foreign(root, [(s, p) for s, p in pairs if not FOUR.fullmatch(p)])
@@ -121,6 +151,10 @@ def check(root: Path, text: str) -> str | None:
         return (f"a `{m[1]}:` commit stages the four documents and the state files its skill names only; this one also "
                 f"stages {', '.join(other[:5])}. Commit those under a task's T<n>.") if other else None
     ids = sorted(set(fd.TASK.findall(subject)))
+    if len(ids) != 1 and own:
+        return (f"this merge changes {', '.join(sorted(own)[:5])} beyond what its parents hold (a conflict resolution "
+                "or an added change), so its subject names that work's task: exactly one T<n>, such as "
+                f"'{subject} (T17: resolve the conflict in ...)'.")
     if len(ids) != 1:
         return ("implementation commits must cite a T-number (FR-03): exactly one T<n> in the subject, `plan:` or "
                 "`ship:` on a commit of the four documents, or `flow:` on Flow's own files. "
