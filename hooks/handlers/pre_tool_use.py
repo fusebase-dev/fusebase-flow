@@ -82,6 +82,13 @@ def repo_relative(target: str, root: Path | None, cwd: str | None) -> str:
         return target
 
 
+def approval_store(rel: str) -> bool:
+    """The path is in state/approvals/ or a git folder's flow/ (the approval record), in any case: an agent's Edit or
+    Write there made its own approval (review r2-26b, m7 review A #4)."""
+    parts = [p.lower() for p in Path(rel).parts]
+    return parts[:2] == ["state", "approvals"] or any(a == ".git" and b == "flow" for a, b in zip(parts, parts[1:]))
+
+
 def main() -> int:
     try:
         event = json.loads(sys.stdin.read() or "{}")
@@ -158,6 +165,14 @@ def main() -> int:
             # TRIPWIRE (6.0.0-m7 item 1): never compare the raw spelling. relative_to() raised on an 8.3 short name
             # (the Windows runner's RUNNER~1), `..` or a symlink, left the path absolute, and the edit was ALLOWED.
             rel = repo_relative(target, root, event.get("cwd"))
+            if approval_store(rel):
+                reason = ("FR-07: state/approvals/ and .git/flow/ hold the approvals and the approval record; only Flow's "
+                          "scripts write them (the two mints, range_check.py --record-commit), on the operator's go-ahead "
+                          "in chat (6.0.0-m8, M6-6).")
+                emit("pre_tool_use", decision="deny", reason=reason, rule_id="FR-07",
+                     extra={"tool_name": tool_name, "path": rel}, root=root)
+                _output_decision("deny", reason, "FR-07")
+                return 2
             pd = evaluate_path(rel, root=root)
             if pd.decision != "allow":
                 emit(

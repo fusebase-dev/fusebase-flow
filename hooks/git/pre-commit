@@ -824,7 +824,9 @@ if hits:
     print("[fusebase-flow:pre-commit] BLOCK — protected paths edited without exception artifact:", file=sys.stderr)
     for h in hits:
         print(f"  {h.path}  (category={h.category})", file=sys.stderr)
-    print("Per FR-07: author an approval artifact at state/approvals/ first.", file=sys.stderr)
+    print("Per FR-07: on the operator's go-ahead in chat, stage the change, then mint its single-use approval: "
+          + "; ".join(sorted({f"bash hooks/local/write-bootstrap-approval.sh --category {h.category}" for h in hits}))
+          + "; commit, then run the same script with --consume.", file=sys.stderr)
     sys.exit(1)
 PY
         # Run the MAIN §3 check as a FILE SCRIPT (T32): sys.path[0] = the trusted temp dir, not

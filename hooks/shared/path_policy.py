@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from .approval_artifact import (
-    accept_with_audit, compute_repo_id, evaluate_artifact, load as load_artifact, now_utc, parse_expiry,
+    accept_with_audit, compute_repo_id, evaluate_artifact, lifetime_problem, load as load_artifact, now_utc, parse_expiry,
 )
 from .policy_loader import find_git_root, get_policy
 
@@ -40,6 +40,12 @@ _DIGEST_BOUND_OPERATIONS = {
     "fusebase_flow_internals": "flow-internals-bootstrap",
     "ci_cd_config": "ci-workflow-edit",
 }
+# 6.0.0-m8 (M6-6, review r2-26): EVERY category is digest-bound and single use; a plain path+TTL artifact for
+# fusebase.json or a migration was accepted, and kept authorizing later changes. Another category's operation is
+# `<category>-edit`. A digest-bound approval lives at most EDIT_MAX_MINUTES (protected_path_edit's shipped
+# artifact_ttl_minutes; the policy may lower it), records `minted_on`, the commit HEAD was at, and the commit that lands
+# on it spends it, as the go-ahead's does.
+EDIT_MAX_MINUTES = 60
 _BOOTSTRAP_CATEGORY = "fusebase_flow_internals"
 _BOOTSTRAP_OPERATION = _DIGEST_BOUND_OPERATIONS[_BOOTSTRAP_CATEGORY]
 # The operator's go-ahead, minted BEFORE the edit (write-bootstrap-approval.sh --paths): the same operation, the named
@@ -238,6 +244,26 @@ def staged_change_paths(root: Path) -> list[str]:
     return [p for p in out if not (p in seen or seen.add(p))]
 
 
+def operation_for(category: str | None) -> str | None:
+    """The single-use operation an approval for `category` carries, or None for no category."""
+    return (_DIGEST_BOUND_OPERATIONS.get(category) or f"{category.replace('_', '-')}-edit") if category else None
+
+
+def edit_cap(root: Path) -> int:
+    """EDIT_MAX_MINUTES, lowered (never raised) by approval-policy's protected_path_edit artifact_ttl_minutes."""
+    ops = get_policy("approval-policy", root=root).get("require_approval") or {}
+    ttl = (ops.get("protected_path_edit") or {}).get("artifact_ttl_minutes") if isinstance(ops, dict) else None
+    return min(EDIT_MAX_MINUTES, ttl) if isinstance(ttl, int) and not isinstance(ttl, bool) and ttl > 0 else EDIT_MAX_MINUTES
+
+
+def _unspent(data: dict, root: Path) -> bool:
+    """The approval was minted at the commit HEAD is at, and no commit has landed on that commit since (fails closed)."""
+    minted = data.get("minted_on")
+    if not isinstance(minted, str) or minted.strip() != _head(root):
+        return False
+    return not minted.strip() or not _built_on(root, minted.strip(), str(data.get("created_at") or ""))
+
+
 def _head(root: Path) -> str:
     try:
         proc = subprocess.run(["git", "rev-parse", "--verify", "-q", "HEAD^{commit}"], capture_output=True, text=True,
@@ -306,24 +332,21 @@ def has_active_exception(
 ) -> bool:
     """True iff a non-expired approval artifact authorizes editing `path`.
 
-    Backward-compatible for every category EXCEPT those in `_DIGEST_BOUND_OPERATIONS`
-    (fusebase_flow_internals, ci_cd_config): for those the artifact must ALSO carry the
-    category's exact `operation` and a tree_digest that matches the CURRENT staged content
-    of its approved paths (single-use — a second unrelated protected-path edit changes the
-    digest and still DENIES), or, in the go-ahead form, `head_at_mint` (_go_ahead_holds).
-    Other categories keep plain path+TTL matching.
+    Every category (6.0.0-m8 M6-6): the artifact carries the category's exact `operation` and a tree_digest that matches
+    the CURRENT staged content of its approved paths, lives at most edit_cap() minutes and is unspent (`minted_on`), so
+    it is single use; or, in the go-ahead form, `head_at_mint` (_go_ahead_holds; never a CI workflow).
     """
     root = root or find_git_root()
     if category is None:
         _, category = is_protected(path)
-    expected_operation = _DIGEST_BOUND_OPERATIONS.get(category or "")
-    bootstrap = expected_operation is not None
-    # Read the strictness mode FIRST: an unloadable approval policy must deny even when the
+    expected_operation = operation_for(category)
+    # Read the policy FIRST: an unloadable approval policy must deny even when the
     # approvals directory is absent, so the outcome never depends on which check ran first.
-    strict = _strict_approvals(root)
+    _strict_approvals(root)
     approvals_dir = root / "state" / "approvals"
-    if not approvals_dir.exists():
+    if expected_operation is None or not approvals_dir.exists():
         return False
+    cap = edit_cap(root)
     for f in approvals_dir.glob("protected_path_edit-*.json"):
         artifact = load_artifact(f)
         if artifact is None or artifact.data is None:
@@ -343,11 +366,11 @@ def has_active_exception(
         # checkout), instead of making every bound artifact unusable.
         verdict = evaluate_artifact(data, expected_action="protected_path_edit",
                                     repo_id=compute_repo_id(root))
-        if not accept_with_audit(verdict, strict=strict or bootstrap, carrier="path_policy",
+        if not accept_with_audit(verdict, strict=True, carrier="path_policy",
                                  artifact_path=f, action="protected_path_edit", root=root):
             continue
         approved_paths = data.get("paths") or []
-        if bootstrap:
+        if True:  # every category is digest-bound (6.0.0-m8 M6-6); the block keeps its indentation
             # Single-use gate for every digest-bound category. Hardened (WS1b,
             # both reviews): EXACT membership only — a glob approved_path like
             # `hooks/shared/**` must NOT match a concrete queried path, so the glob
@@ -363,13 +386,12 @@ def has_active_exception(
             # an internals approval cannot be replayed to authorize a workflow edit.
             if data.get("operation") != expected_operation:
                 continue
-            if "head_at_mint" in data:  # the go-ahead form: no tree_digest; it binds HEAD; Flow internals only
-                if category == _BOOTSTRAP_CATEGORY and _go_ahead_holds(data, path, list(approved_paths), root, f,
-                                                                       category):
+            if "head_at_mint" in data:  # the go-ahead form: no tree_digest; it binds HEAD; never a CI workflow
+                if category != "ci_cd_config" and _go_ahead_holds(data, path, list(approved_paths), root, f, category):
                     return True
                 continue
             recorded = data.get("tree_digest", "")
-            if not recorded:
+            if not recorded or lifetime_problem(data, cap) or not _unspent(data, root):
                 continue
             # An approvable internals path must actually be IN the pending commit.
             # A path with staged content (A/C/M) has a blob; a DELETE or rename-SOURCE
@@ -387,10 +409,6 @@ def has_active_exception(
                 continue
             if recorded != compute_staged_tree_digest(list(approved_paths), root):
                 continue
-            return True
-        # Non-bootstrap categories: backward-compatible plain path+TTL matching
-        # (exact membership OR glob).
-        if path in approved_paths or any(_matches_any(path, [p]) for p in approved_paths):
             return True
     return False
 
@@ -437,5 +455,5 @@ def evaluate_many(paths: list[str], *, root: Path | None = None) -> list[PathDec
 __all__ = [
     "ApprovalPolicyError", "PathDecision", "is_protected", "has_active_exception",
     "compute_staged_tree_digest", "staged_change_paths", "evaluate", "evaluate_many",
-    "assert_protected_policy_loaded", "GO_AHEAD_MAX_MINUTES",
+    "assert_protected_policy_loaded", "GO_AHEAD_MAX_MINUTES", "EDIT_MAX_MINUTES", "edit_cap", "operation_for",
 ]

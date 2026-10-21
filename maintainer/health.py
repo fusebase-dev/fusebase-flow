@@ -11,6 +11,7 @@ import json
 import re
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 sys.dont_write_bytecode = True  # read-only: no __pycache__ beside the core's reader either
@@ -55,6 +56,20 @@ def reader_state(target: Path, record: dict) -> str:
     fields = dict(x.split(":", 1) for x in out.stdout.splitlines() if ":" in x)
     state = (fields.get("Status", "") or fields.get("Scheduled Task State", "")).strip()
     return f"the task is {state}" if state else "schtasks answered, in a form this check does not read"
+
+
+def approvals(target: Path) -> list[str]:
+    """Each approval in state/approvals/ that is expired or has no readable expiry (O-31 (k)): it authorizes nothing,
+    and --consume, or deleting it, clears it. Reported, never unhealthy."""
+    found = []
+    for f in sorted((target / "state/approvals").glob("*.json")):
+        try:
+            when = str(json.loads(f.read_text(encoding="utf-8")).get("expires_at", ""))
+            expired = datetime.fromisoformat(when.replace("Z", "+00:00")).astimezone(timezone.utc) < datetime.now(timezone.utc)
+        except (OSError, ValueError, AttributeError, TypeError):
+            when, expired = "unreadable", True
+        found += [f"approval: {f.name} expired ({when}); it authorizes nothing: delete it"] * expired
+    return found
 
 
 def report(target: Path) -> tuple[int, list[str]]:
@@ -102,6 +117,7 @@ def report(target: Path) -> tuple[int, list[str]]:
     record = manifest.get("reader")
     out.append(f"reader: registered by install; the scheduler says: {reader_state(target, record)}" if record
                else "reader: not scheduled (install --register-reader)")
+    out += approvals(target)
     status = (target / "state/status.line").read_text(encoding="utf-8").strip() if (target / "state/status.line").is_file() else ""
     out.append(f"status.line: {status or 'absent (the reader has not run)'}")
     out.append("HEALTH: " + ("healthy" if not bad else "NOT healthy: " + "; ".join(bad)))

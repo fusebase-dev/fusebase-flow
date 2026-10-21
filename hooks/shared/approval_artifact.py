@@ -21,7 +21,7 @@ import json
 import os
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -140,6 +140,31 @@ def parse_expiry(value: Any) -> datetime | None:
 
 def now_utc() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def lifetime_problem(data: Any, max_minutes: int, now: datetime | None = None) -> str:
+    """"" when the artifact was created (not in the future) and lives at most `max_minutes`, else why (6.0.0-m8 M6-6,
+    review r2-26: a hand-written artifact created now and expiring in 2036 was accepted and reused)."""
+    if not isinstance(data, dict):
+        return "not a JSON object"
+    created, expires = parse_expiry(data.get("created_at")), parse_expiry(data.get("expires_at"))
+    if created is None or expires is None:
+        return "created_at or expires_at missing or unparseable"
+    if created > (now or now_utc()) + timedelta(minutes=5):
+        return "created_at lies in the future"
+    if expires - created > timedelta(minutes=max_minutes + 1):
+        return f"lives {(expires - created) // timedelta(minutes=1)} minutes, over the policy's {max_minutes}"
+    return ""
+
+
+def policy_ttl_minutes(approval_policy: Any, action: str) -> int:
+    """The action's artifact_ttl_minutes in the policy's workflow_mode (a flat number or one per mode), else 60, the
+    value approve-local.sh writes then."""
+    ops = approval_policy.get("require_approval") if isinstance(approval_policy, dict) else None
+    ttl = ((ops or {}).get(action) or {}).get("artifact_ttl_minutes") if isinstance(ops, dict) else None
+    if isinstance(ttl, dict):
+        ttl = ttl.get(approval_policy.get("workflow_mode", "direct_to_main"), ttl.get("direct_to_main"))
+    return ttl if isinstance(ttl, int) and not isinstance(ttl, bool) and ttl > 0 else 60
 
 
 def compute_command_digest(command: str) -> str:
@@ -469,8 +494,10 @@ def evaluate_command_approval(
     updates: Any = NOT_OBSERVED,
     updates_mode: str = "exact",
     now: datetime | None = None,
+    max_minutes: int | None = None,
 ) -> Verdict:
-    """Judge a command approval under schema 3. Mode-independent (K17).
+    """Judge a command approval under schema 3. Mode-independent (K17). `max_minutes`, the action's artifact_ttl_minutes,
+    caps created_at..expires_at: a longer-lived artifact is MALFORMED (6.0.0-m8 M6-6).
 
     Precedence: MALFORMED/LEGACY_SCHEMA > ACTION_MISMATCH > EXPIRED > BINDING_MISMATCH
     (repo) > PROFILE_MISMATCH > BINDING_MISMATCH (command) > BINDING_UNRESOLVED /
@@ -486,6 +513,8 @@ def evaluate_command_approval(
         return Verdict.ACTION_MISMATCH
     if parse_expiry(data["expires_at"]) < (now or now_utc()):
         return Verdict.EXPIRED
+    if max_minutes is not None and lifetime_problem(data, max_minutes, now):
+        return Verdict.MALFORMED
     if repo_id is not NOT_OBSERVED and (not repo_id or data["repo_id"] != repo_id):
         return Verdict.BINDING_MISMATCH
     profile = data["binding_profile"]

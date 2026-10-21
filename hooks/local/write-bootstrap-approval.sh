@@ -16,15 +16,14 @@
 # with no operator approval = self-approval, forbidden). Single-use holds even if `--consume` is
 # skipped: the artifact is digest-bound to the committed changeset and self-expires (TTL 15 min).
 #
-# CATEGORIES (MAJOR 11): every protected-paths category that path_policy enforces as
-# digest-bound is mintable here — currently `fusebase_flow_internals` (the default, byte-for-
-# byte the previous behaviour) and `ci_cd_config` (`.github/workflows/**`). Before this, the
-# published protocol told the agent to mint a digest-bound approval for a workflow edit and
-# NO shipped writer could: this script collected internals paths only, and approve-local.sh
-# emitted no `paths` at all. The operation string per category comes from path_policy's
-# _DIGEST_BOUND_OPERATIONS, so writer and verifier read ONE definition.
+# CATEGORIES (MAJOR 11; 6.0.0-m8 M6-6): every protected-paths category is digest-bound and single use, so every one
+# is minted here: `fusebase_flow_internals` (the default), `ci_cd_config` (`.github/workflows/**`) and any other the
+# policy declares (`deployment_config`, `migration_and_schema`, a project's own). The operation per category comes from
+# path_policy.operation_for, so writer and verifier read ONE definition. FF_BOOTSTRAP_TTL_MIN may not pass
+# path_policy.edit_cap (60 minutes), and the artifact records `minted_on`, the commit HEAD is at: the commit that lands
+# on it spends it, so a copy of it never approves the same bytes again.
 #
-# GO-AHEAD FORM (`--paths`, fusebase_flow_internals only): one operator go-ahead in chat lets the agent edit AND
+# GO-AHEAD FORM (`--paths`, any category but ci_cd_config): one operator go-ahead in chat lets the agent edit AND
 # commit named Flow files, minted BEFORE the change exists. The artifact names those exact paths and binds the commit
 # HEAD is at instead of a staged digest: path_policy then allows the Edit/Write of a named path and a commit whose
 # staged paths are all named, until a commit lands on that HEAD (moving HEAD back does not revive it) or it expires (at
@@ -32,7 +31,7 @@
 #
 # Usage:
 #   bash hooks/local/write-bootstrap-approval.sh                          # staged internals
-#   bash hooks/local/write-bootstrap-approval.sh --category ci_cd_config  # staged workflows
+#   bash hooks/local/write-bootstrap-approval.sh --category ci_cd_config  # staged workflows (or another category)
 #   bash hooks/local/write-bootstrap-approval.sh --paths <path>...        # go-ahead: named paths, before the edit
 #   bash hooks/local/write-bootstrap-approval.sh --consume [--category X] # delete artifact(s)
 
@@ -65,7 +64,7 @@ if [ -z "$SLUG" ]; then
     case "$CATEGORY" in
         fusebase_flow_internals) SLUG="flow-bootstrap" ;;
         ci_cd_config)            SLUG="ci-workflow" ;;
-        *) echo "[bootstrap-approval] no default slug for category '$CATEGORY' — pass --slug" >&2; exit 2 ;;
+        *)                       SLUG="$(printf '%s' "$CATEGORY" | tr '_' '-')" ;;
     esac
 fi
 case "$SLUG" in
@@ -115,17 +114,24 @@ root, artifact, category, ttl_min, slug = (
 go_paths = sys.argv[6:]
 sys.path.insert(0, str(Path(root) / "hooks"))
 from shared.path_policy import (  # noqa: E402
-    _DIGEST_BOUND_OPERATIONS, GO_AHEAD_MAX_MINUTES, compute_staged_tree_digest, is_protected, staged_change_paths,
+    GO_AHEAD_MAX_MINUTES, _load_categories, compute_staged_tree_digest, edit_cap, is_protected, operation_for,
+    staged_change_paths,
 )
 
-# TRIPWIRE: minting for a category the VERIFIER does not treat as digest-bound would produce
-# an artifact whose single-use property is decoration. Refuse rather than mislead.
-operation = _DIGEST_BOUND_OPERATIONS.get(category)
+# TRIPWIRE: minting for a category the policy does not declare would produce an artifact no path can use.
+known = sorted(_load_categories())
+operation = operation_for(category) if category in known else None
 if operation is None:
-    print(f"[bootstrap-approval] '{category}' is not a digest-bound category "
-          f"(known: {', '.join(sorted(_DIGEST_BOUND_OPERATIONS))}) — refusing to mint an "
-          "artifact the gate would not enforce as single-use.", file=sys.stderr)
+    print(f"[bootstrap-approval] '{category}' is not a category of policies/protected-paths.yml "
+          f"(known: {', '.join(known)}) — refusing to mint.", file=sys.stderr)
     sys.exit(2)
+cap = edit_cap(Path(root))
+if not go_paths and not 1 <= ttl_min <= cap:
+    print(f"[bootstrap-approval] refused: FF_BOOTSTRAP_TTL_MIN={ttl_min}: an approval lives 1 to {cap} minutes "
+          "(approval-policy.yml, protected_path_edit)", file=sys.stderr)
+    sys.exit(2)
+head = subprocess.run(["git", "rev-parse", "--verify", "-q", "HEAD^{commit}"], capture_output=True, text=True,
+                      cwd=root).stdout.strip()
 
 if go_paths:
     # TRIPWIRE: the go-ahead names exact repo-relative paths of THIS category, never a glob, and binds HEAD; a path
@@ -137,15 +143,13 @@ if go_paths:
             return "a glob; name each file"
         return "" if is_protected(p)[1] == category else f"not a {category} path"
     bad = [f"{p}: {why}" for p in go_paths if (why := problem(p))]
-    if category != "fusebase_flow_internals":  # the go-ahead is for Flow's own files (a CI workflow stays digest-bound)
-        bad.insert(0, f"--paths with --category {category}: a go-ahead covers fusebase_flow_internals paths only")
+    if category == "ci_cd_config":  # a CI workflow stays digest-bound: minted after staging, never before the edit
+        bad.insert(0, "--paths with --category ci_cd_config: a CI workflow is approved after staging, never by a go-ahead")
     if bad or ttl_min > GO_AHEAD_MAX_MINUTES or ttl_min < 1:
         for line in bad + ([f"FF_BOOTSTRAP_TTL_MIN={ttl_min}: a go-ahead lives 1 to {GO_AHEAD_MAX_MINUTES} minutes"]
                            if ttl_min > GO_AHEAD_MAX_MINUTES or ttl_min < 1 else []):
             print(f"[bootstrap-approval] refused: {line}", file=sys.stderr)
         sys.exit(2)
-    head = subprocess.run(["git", "rev-parse", "--verify", "-q", "HEAD^{commit}"], capture_output=True, text=True,
-                          cwd=root).stdout.strip()
     if not head:
         print("[bootstrap-approval] refused: no commit yet; a go-ahead binds the commit HEAD is at", file=sys.stderr)
         sys.exit(2)
@@ -154,10 +158,10 @@ if go_paths:
     paths, now = sorted(set(go_paths)), datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
     expires = (now + datetime.timedelta(minutes=ttl_min)).strftime("%Y-%m-%dT%H:%M:%SZ")
     data = {
-        "approved_by": slug, "scope": _DIGEST_BOUND_OPERATIONS[category], "expires_at": expires,
+        "approved_by": slug, "scope": operation, "expires_at": expires,
         "created_at": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
         "reason": f"the operator's go-ahead in chat: edit and commit exactly these {category} paths",
-        "action": "protected_path_edit", "operation": _DIGEST_BOUND_OPERATIONS[category], "head_at_mint": head,
+        "action": "protected_path_edit", "operation": operation, "head_at_mint": head,
         "repo_id": compute_repo_id(Path(root)), "paths": paths,
     }
     Path(artifact).write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
@@ -179,6 +183,7 @@ if not paths:
     sys.exit(0)
 
 digest = compute_staged_tree_digest(paths, Path(root))
+from shared.approval_artifact import compute_repo_id  # noqa: E402
 now = datetime.datetime.utcnow()
 expires = (now + datetime.timedelta(minutes=ttl_min)).strftime("%Y-%m-%dT%H:%M:%SZ")
 data = {
@@ -190,6 +195,8 @@ data = {
     "action": "protected_path_edit",
     "operation": operation,
     "tree_digest": digest,
+    "minted_on": head,                                    # the commit that lands on it spends it (M6-6)
+    "repo_id": compute_repo_id(Path(root)),               # it never approves the same bytes in another checkout
     "paths": paths,
 }
 Path(artifact).write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")

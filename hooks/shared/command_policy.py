@@ -21,6 +21,7 @@ from .approval_artifact import (
     compute_repo_id,
     evaluate_command_approval,
     load,
+    policy_ttl_minutes,
     valid_destination_ref,
 )
 from .command_rules import mint_subject, rule_actions, rule_matches
@@ -135,12 +136,16 @@ def _approval_state(
         return False, NO_ARTIFACT
     digest = compute_command_digest(command) if command is not None else NOT_OBSERVED
     repo_id = compute_repo_id(resolved)
+    try:  # an artifact living longer than the action's artifact_ttl_minutes is refused (6.0.0-m8 M6-6)
+        cap = policy_ttl_minutes(get_policy("approval-policy", root=resolved), action)
+    except BaseException:                            # noqa: BLE001 — no policy, no cap to check against: refuse
+        return False, NO_ARTIFACT
     best: Verdict | None = None
     for f in sorted(approvals_dir.glob(f"{action}-*.json")):
         art = load(f)
         verdict = evaluate_command_approval(
             art.data if art else None, expected_action=action, required_profile=profile,
-            command_digest=digest, repo_id=repo_id, updates=updates, updates_mode=updates_mode)
+            command_digest=digest, repo_id=repo_id, updates=updates, updates_mode=updates_mode, max_minutes=cap)
         if verdict is Verdict.VALID:
             return True, verdict.value
         if best is None or _VERDICT_RANK.get(verdict, 0) > _VERDICT_RANK.get(best, 0):

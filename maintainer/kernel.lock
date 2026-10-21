@@ -63,6 +63,11 @@
 #   policies/protected-paths.yml: audit/flow-install.json is a fusebase_flow_internals path, so an edit of the 6.0
 #   install record (the M6-7 forged row) needs an approval; inert on 5.x, which has no such file (T332; 5.x 7f1c3d23,
 #   local; m8 item 5, M6-7).
+#   hooks/shared/path_policy.py, approval_artifact.py, command_policy.py, hooks/handlers/pre_tool_use.py,
+#   hooks/local/write-bootstrap-approval.sh, approve-local.sh and hooks/git/pre-commit: every protected-path category is
+#   digest-bound and single use (minted_on), every approval capped by its action's TTL, an Edit or Write into
+#   state/approvals/ or .git/flow/ denied (T333; 5.x aaaa1cf5, local; m8 item 5, M6-6). approve-local.sh took 5.x's hunk;
+#   its other differences stay (T171).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -85,12 +90,12 @@
 d29664c17271aee8ab671d1f8e4d609a2b15e1467af9c98883e4252a9e92cae5  .gitattributes
 0acfb991aa269888937723022f2667b0e251ed0091ccc96491752360b2a61be0  LICENSE
 e6fe845882eb635b917be76c1398b0bfb26b44abebd8bf6083616ae1a518b952  hooks/git/commit-msg
-2bd0cbf0ebb0472f55ced57b76bc250003f37f55a866884d59f0b5b4ee0d39ec  hooks/git/pre-commit
+d2e49cff9722e92fbc1961ff415efbda6a71ed84e18deae2ab5f530725bc4df9  hooks/git/pre-commit
 9cd67869e78cfca6dcb6f0f32d64ed68bec34e9da9cdd99bb7913385ab630055  hooks/git/pre-merge-commit
 465611d38d4fb9058bf93bb57600208abb924ceda6d8cc41e167f5db833a5686  hooks/git/pre-push
 a0685b0884a42d5704339ba342247704169b35da26cb228f533f03fc60448e0c  hooks/handlers/post_tool_use.py
-caaf463df9ba145bb0e0c73fe20627ccf86c22292007533edf45c5432d5140e8  hooks/handlers/pre_tool_use.py
-6d92a4ab1d91b5c03d5864aabb2f7dd64abcaab4bc2a7850fa8dbf6ef7d4b3aa  hooks/local/approve-local.sh
+3cc9c5c34e90a852a8ce1a500fad444f082efa0da75dfa8c68e3ad6c397e92ae  hooks/handlers/pre_tool_use.py
+465857b88e14d4b1a77e91479eb474d3c27efe2f4f888a6211623ed7f5c83400  hooks/local/approve-local.sh
 e9d192b09e351091350d6d4b6f04e865f5611f5268bd0c5c4a24d5cbcd83d582  hooks/local/check-module-size.sh
 883b4c8b5f449940f60f4bdfa01f1841fadb30245b8eb380be912803c2a1a54c  hooks/local/install-git-hooks.sh
 4df6a4b4b48dd9a67b60c3720a04465c94a69e500ead182fae9857891b3eff07  hooks/local/lib/approval_inventory.py
@@ -99,18 +104,18 @@ e9d192b09e351091350d6d4b6f04e865f5611f5268bd0c5c4a24d5cbcd83d582  hooks/local/ch
 59b32bed31dba84ed161b8b1a9f9df989daec2d31a8789e8fd1ebf8b56171ed7  hooks/local/lib/run-with-timeout.sh
 c0c48c8ca5080fbc99df2ae11270e325e6af76508cc9fb073f3937861b3873dc  hooks/local/lib/validator_tier.py
 009493546e7939c7076950db52fa6a4a0415d41a98a49db85adcc8ecbf030ece  hooks/local/run-handler.sh
-199451536262b6c10cc96aa11ff59a732035a330df85462b453af9fe80e1bd73  hooks/local/write-bootstrap-approval.sh
+7e9809d80a56fb48b4989ec2e5e524b72fc161f1642d2ee64fbd386ece3d5f9d  hooks/local/write-bootstrap-approval.sh
 63daf72404eb71177e26c560daf8257d7bcb63dd791983e048848cd88ae94fc8  hooks/requirements.txt
 a17fa14158188b1c02621a2d5cad7a96470578b007abb973a7327a6a00163538  hooks/shared/__init__.py
-e7c5c77c9a71502aa10a79195fcba455e76fbd6fa350c616bbcd9c0280c6ae89  hooks/shared/approval_artifact.py
+696f965553e07c1fcdae0058d83d15f53ea136b25dd9faddb03edeffdcbefcc0  hooks/shared/approval_artifact.py
 0f69349b626801094d3069a4d27a77cc66a4e2d93e62e6ed9394ab040ac156cf  hooks/shared/audit_logger.py
-710330bccf766c7b0579877904139207b54bf0b8d91b5d357fcf84b0a06b5132  hooks/shared/command_policy.py
+68a90b0bbd3ca6adaca58d5513b8576f7a33ee0c35e1e3ce37835797e68eb39e  hooks/shared/command_policy.py
 007b22013f8649651fcb9535da6483c626d4eab0280400c7a71b13868cc66cd2  hooks/shared/command_rules.py
 2523a0585165f3f8597248aee32d985e9ac1d05797c5d0c376a77af44d71d446  hooks/shared/denial_message.py
 c11049e6dba62a00f23891837cb3c65ba47479f1ac2955d0896b6827c39c03c1  hooks/shared/git_push_binding.py
 d62987d303cd4783b682790572a5656596ef5e76c0e9fa9d87701fef7d857dcd  hooks/shared/git_utils.py
 cc747d1b046b652ab5c2677752644e02f73e00917950a6a417a3a50333ce3de3  hooks/shared/module_size.py
-f7d1d88406e3067efa641edac3ca3cea607c7c1067d517ff8eb981fd397ae999  hooks/shared/path_policy.py
+0839f364f30accb06c87097e127e48533ec3b5dd6520a38992b6f801cf013f8e  hooks/shared/path_policy.py
 04934ba091859d9dc46e5f4bae3b72ed69a92ad567e40fcd796c1e1db02b904a  hooks/shared/policy_loader.py
 fecb30ef246aaf2dc90dc55200de5d1b0bab92242c8cbbd5cbd3e9c0d8d784fa  hooks/shared/secret_scanner.py
 6d1c6932fcf0504d82fac68cf347c5b84201ad7a7a0c78f1db4f6be8eae437b1  hooks/shared/staged_secret_scan.py

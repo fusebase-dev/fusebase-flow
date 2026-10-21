@@ -164,7 +164,7 @@ class GoAhead(Project):
         out = self.bash("hooks/local/write-bootstrap-approval.sh", "--category", "ci_cd_config", "--paths", workflow,
                         FF_BOOTSTRAP_TTL_MIN="30")
         self.assertEqual(out.returncode, 2, out.stdout + out.stderr)
-        self.assertIn("a go-ahead covers fusebase_flow_internals paths only", out.stderr)
+        self.assertIn("a CI workflow is approved after staging, never by a go-ahead", out.stderr)  # m8: M6-6
         head = git(self.repo, "rev-parse", "HEAD").stdout.strip()  # a hand-made go-ahead for a workflow: refused too
         made = {"approved_by": "ci", "scope": "ci-workflow-edit", "action": "protected_path_edit", "reason": "x",
                 "operation": "ci-workflow-edit", "head_at_mint": head, "paths": [workflow],

@@ -22,8 +22,8 @@
 #     --path is MANDATORY for protected_path_edit (MAJOR 11): path_policy authorizes a
 #     concrete path by membership in the artifact's `paths` array, so an artifact without
 #     it is a file that LOOKS like an approval and can never authorize anything. Paths in
-#     a DIGEST-BOUND category (fusebase_flow_internals, ci_cd_config) are refused here and
-#     redirected to hooks/local/write-bootstrap-approval.sh, whose artifact is single-use.
+#     every category (all are digest-bound since 6.0.0-m8, M6-6) are refused here and redirected
+#     to hooks/local/write-bootstrap-approval.sh --category <category>, whose artifact is single-use.
 #   bash hooks/local/approve-local.sh --inventory      # AC12: what is on disk + strict verdict
 # Example (Deploy session, on the operator's typed DP.6 phrase):
 #   bash hooks/local/approve-local.sh production_deploy priority-fix 'approve deploy now' --command 'fusebase deploy'
@@ -125,7 +125,7 @@ from shared.approval_artifact import (  # noqa: E402
     evaluate_artifact, evaluate_command_approval, updates_as_json,
 )
 from shared.command_policy import approval_binding_for  # noqa: E402
-from shared.path_policy import _DIGEST_BOUND_OPERATIONS, is_protected  # noqa: E402
+from shared.path_policy import is_protected  # noqa: E402
 from shared.policy_loader import get_policy  # noqa: E402
 
 approved_paths = [p for p in paths_nl.split("\n") if p.strip()]
@@ -198,19 +198,15 @@ if action == "protected_path_edit":
               f"[approve-local] e.g.  bash hooks/local/approve-local.sh {action} {slug} "
               "--path <repo-relative-path>", file=sys.stderr)
         sys.exit(2)
-    # A digest-bound category needs the SINGLE-USE writer; a plain path+TTL artifact is
-    # rejected there by construction (no `operation`, no `tree_digest`), so writing one here
-    # would again produce a file that silently authorizes nothing.
+    # Every category is digest-bound (6.0.0-m8 M6-6): it needs the SINGLE-USE writer; a plain path+TTL artifact is
+    # rejected there by construction, so writing one here would produce a file that silently authorizes nothing.
     for p in approved_paths:
         cat = is_protected(p)[1]
-        if cat in _DIGEST_BOUND_OPERATIONS:
-            print(f"[approve-local] ERROR: {p!r} is in the digest-bound category {cat!r}, which "
-                  "requires a SINGLE-USE artifact bound to the exact staged changeset. This "
-                  "writer cannot produce one.\n"
-                  "[approve-local] Stage the change, then:\n"
-                  f"  bash hooks/local/write-bootstrap-approval.sh --category {cat}",
-                  file=sys.stderr)
-            sys.exit(2)
+        print(f"[approve-local] ERROR: {p!r} is in the category {cat!r}, which requires a SINGLE-USE artifact bound to "
+              "the exact staged changeset. This writer cannot produce one.\n[approve-local] Stage the change, then:\n"
+              f"  bash hooks/local/write-bootstrap-approval.sh --category {cat}" if cat else
+              f"[approve-local] ERROR: {p!r} is not a protected path; it needs no approval.", file=sys.stderr)
+        sys.exit(2)
 
 ra = policy.get("require_approval", {}).get(action) or {}
 ttl = ra.get("artifact_ttl_minutes", 60)

@@ -7,8 +7,10 @@ import hashlib
 import json
 import os
 import shutil
+import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -22,6 +24,17 @@ sys.path[:0] = [str(CORE / "maintainer"), str(CORE / "hooks"), str(CORE / "hooks
 import flow  # noqa: E402
 import flow_owned  # noqa: E402
 from shared import path_policy  # noqa: E402
+
+BASH = shutil.which("bash") or "bash"
+
+
+def stamp(offset: float = 0.0) -> str:
+    return time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() + offset))
+
+
+def run(cwd: Path, *argv: str, stdin: str | None = None, **env: str) -> subprocess.CompletedProcess:
+    return subprocess.run(list(argv), cwd=cwd, input=stdin, capture_output=True, text=True, encoding="utf-8",
+                          errors="replace", env={**os.environ, **env}, timeout=900)
 
 
 def write(root: Path, rel: str, data: str | bytes) -> Path:
@@ -86,6 +99,107 @@ class ManifestForgery(Repo):
         self.assertTrue(path_policy._matches_any(flow_owned.MANIFEST, internals),
                         "audit/flow-install.json is not under fusebase_flow_internals")
 
+
+class Kernel(Repo):
+    """A repository carrying this core's hooks (shared, handlers, the mint scripts) and policies at HEAD."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        for rel in ("hooks/shared", "hooks/handlers", "policies"):
+            shutil.copytree(CORE / rel, self.repo / rel, ignore=shutil.ignore_patterns("__pycache__"))
+        for rel in ("hooks/local/write-bootstrap-approval.sh", "hooks/local/approve-local.sh", "FLOW_RULES.md"):
+            write(self.repo, rel, (CORE / rel).read_bytes())
+        write(self.repo, "fusebase.json", "{}\n")
+        write(self.repo, "state/approvals/.gitkeep", "")
+        git(self.repo, "add", "--", ".")
+        git(self.repo, "commit", "-q", "--no-verify", "-m", "the kernel")
+
+    def py(self, code: str) -> str:
+        out = run(self.repo, sys.executable, "-c", "import sys; sys.path.insert(0, 'hooks')\n" + code)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        return out.stdout.strip()
+
+    def path_decision(self, rel: str) -> str:
+        return self.py(f"from pathlib import Path\nfrom shared.path_policy import evaluate\n"
+                       f"print(evaluate({rel!r}, root=Path.cwd()).decision)")
+
+    def mint(self, *args: str, ttl: str = "30") -> subprocess.CompletedProcess:
+        return run(self.repo, BASH, "hooks/local/write-bootstrap-approval.sh", *args, FF_BOOTSTRAP_TTL_MIN=ttl,
+                   MSYS="noglob")
+
+    def tool(self, name: str, rel: str) -> str:
+        event = {"cwd": str(self.repo), "tool_name": name, "tool_input": {"file_path": rel, "content": "{}\n"}}
+        out = run(self.repo, sys.executable, "hooks/handlers/pre_tool_use.py", stdin=json.dumps(event))
+        return json.loads(out.stdout or "{}").get("flow_decision", f"rc={out.returncode} {out.stderr[-300:]}")
+
+
+class Approvals(Kernel):
+    """M6-6 (review r2-26, r2-26b, O-31 (k)): a hand-written approval with no TTL cap and no single use was accepted and
+    reused. Every category is digest-bound and single use, every approval capped by its action's TTL, and an agent's
+    Edit or Write into state/approvals/ or .git/flow/ denied."""
+
+    def test_a_hand_written_path_and_ttl_approval_for_fusebase_json_is_refused(self) -> None:
+        write(self.repo, "fusebase.json", '{"app": "x"}\n')
+        git(self.repo, "add", "--", "fusebase.json")
+        made = {"schema_version": 2, "action": "protected_path_edit", "scope": "x", "approved_by": "nobody",
+                "created_at": stamp(), "expires_at": "2036-01-01T00:00:00Z", "reason": "x", "paths": ["fusebase.json"]}
+        write(self.repo, "state/approvals/protected_path_edit-x-20261021.json", json.dumps(made))
+        self.assertEqual(self.path_decision("fusebase.json"), "deny")
+
+    def test_the_mint_approves_any_category_once(self) -> None:
+        write(self.repo, "fusebase.json", '{"app": "x"}\n')
+        git(self.repo, "add", "--", "fusebase.json")
+        out = self.mint("--category", "deployment_config")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertEqual(self.path_decision("fusebase.json"), "allow")
+        git(self.repo, "commit", "-q", "--no-verify", "-m", "T1: the approved change lands")
+        git(self.repo, "reset", "-q", "--soft", "HEAD~1")  # HEAD back where it was minted, the same bytes staged again
+        self.assertEqual(self.path_decision("fusebase.json"), "deny", "a spent approval revived by a reset")
+
+    def test_an_approval_living_past_its_cap_is_refused(self) -> None:
+        write(self.repo, "FLOW_RULES.md", "# rules, edited\n")
+        git(self.repo, "add", "--", "FLOW_RULES.md")
+        self.assertEqual(self.mint(ttl="90").returncode, 2, "a 90-minute mint")
+        self.assertEqual(self.mint().returncode, 0)
+        self.assertEqual(self.path_decision("FLOW_RULES.md"), "allow")
+        artifact = next((self.repo / "state/approvals").glob("protected_path_edit-flow-bootstrap-*.json"))
+        data = json.loads(artifact.read_text(encoding="utf-8"))
+        for created, expires in ((data["created_at"], stamp(2 * 86400)), (stamp(86400), stamp(86400 + 600))):
+            artifact.write_text(json.dumps(data | {"created_at": created, "expires_at": expires}), encoding="utf-8")
+            self.assertEqual(self.path_decision("FLOW_RULES.md"), "deny", (created, expires))
+
+    def test_a_command_approval_living_past_its_actions_ttl_is_refused(self) -> None:
+        out = run(self.repo, BASH, "hooks/local/approve-local.sh", "database_migration", "m1", "go",
+                  "--command", "npx prisma migrate deploy")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        decide = ("from pathlib import Path\nfrom shared.command_policy import evaluate\n"
+                  "print(evaluate('npx prisma migrate deploy', root=Path.cwd()).decision)")
+        self.assertEqual(self.py(decide), "allow")
+        artifact = next((self.repo / "state/approvals").glob("database_migration-m1-*.json"))
+        data = json.loads(artifact.read_text(encoding="utf-8"))
+        artifact.write_text(json.dumps(data | {"expires_at": "2036-01-01T00:00:00Z"}), encoding="utf-8")
+        self.assertEqual(self.py(decide), "deny", "a 120-minute action approved until 2036")
+
+    def test_the_write_tool_cannot_write_an_approval_or_the_approval_record(self) -> None:
+        for rel in ("state/approvals/protected_path_edit-x-20991231.json", ".git/flow/approved-changes.tsv",
+                    "STATE/Approvals/x.json"):
+            self.assertEqual(self.tool("Write", rel), "deny", rel)
+        self.assertEqual(self.tool("Write", "state/notes.md"), "allow")
+
+    def test_approve_local_sends_a_protected_path_edit_to_the_single_use_mint(self) -> None:
+        out = run(self.repo, BASH, "hooks/local/approve-local.sh", "protected_path_edit", "x", "--path", "fusebase.json")
+        self.assertEqual(out.returncode, 2, out.stdout + out.stderr)
+        self.assertIn("write-bootstrap-approval.sh --category deployment_config", out.stderr)
+        self.assertEqual(list((self.repo / "state/approvals").glob("protected_path_edit-*.json")), [])
+
+    def test_health_lists_an_expired_approval(self) -> None:
+        import health
+        write(self.repo, "state/approvals/database_migration-old-20261001.json",
+              json.dumps({"action": "database_migration", "expires_at": "2026-10-01T00:00:00Z"}))
+        write(self.repo, "state/approvals/database_migration-new-20991231.json",
+              json.dumps({"action": "database_migration", "expires_at": stamp(600)}))
+        self.assertEqual(health.approvals(self.repo), ["approval: database_migration-old-20261001.json expired "
+                                                       "(2026-10-01T00:00:00Z); it authorizes nothing: delete it"])
 
 if __name__ == "__main__":
     unittest.main()
