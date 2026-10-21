@@ -579,5 +579,20 @@ class DeployOrderWarning(m3.Validator):
         self.assertIn("WARNING deploy order not checked: the run log's title names no environment", out.stdout)
         self.assertEqual(out.returncode, 0, out.stdout)
 
+
+class PlanCommitsAreNoTasks(m3.Validator):
+    """Field item 7.4: slice_log counted a `plan:` commit that named a task as that task's commit, so a 2.5-minute task
+    showed 273 minutes."""
+
+    locals().update(dict.fromkeys(n for n in dir(m3.Validator) if n.startswith("test")))  # the inherited tests run there
+
+    def test_a_plan_ship_or_flow_commit_naming_a_task_is_not_its_commit(self) -> None:
+        import flow_docs as fd
+        for subject in ("plan: T1 widened to src/b/**", "ship: T1 to dev", "flow: upgrade, T1 untouched"):
+            m3.commit(self.repo, {"docs/flow/backlog.md": m3.BACKLOG.format(risk="none") + f"<!-- {subject} -->\n"},
+                      subject)
+        log = fd.slice_log(self.repo, fd.phases(self.repo)["P1-S1"])
+        self.assertEqual(sorted(s for _, s, _, _ in log), ["T1: the expiry", "T2: the test"])
+
 if __name__ == "__main__":
     unittest.main()

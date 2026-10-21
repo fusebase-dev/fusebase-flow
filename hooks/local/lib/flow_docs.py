@@ -159,13 +159,19 @@ def reference(root: Path) -> str:
     return m[1] if m else "none"
 
 
+def task_ids(subject: str) -> list[str]:
+    """The task ids a commit subject carries as its own: none for `plan:`, `ship:` and `flow:` (field item 7.4: a plan
+    commit naming T276 counted as T276's, so a 2.5-minute task showed 273)."""
+    return [] if re.match(r"(plan|ship|flow):", subject) else TASK.findall(subject)
+
+
 def slice_log(root: Path, sl: dict) -> list[tuple[str, str, list[str], str]]:
     """(sha, subject, paths, task) of each commit since the phase's base whose subject carries a task of the slice."""
     base, ids = sl["base"] or "", {t["id"] for t in sl["tasks"]}
     if not SHA.fullmatch(base) or not git(root, "rev-parse", "--verify", "-q", f"{base}^{{commit}}"):
         return []
     return [(sha, s, paths, found[0]) for sha, s, paths in commits(root, base)
-            if (found := [i for i in TASK.findall(s) if i in ids])]
+            if (found := [i for i in task_ids(s) if i in ids])]
 
 
 def trivial(log: list, match, globs: list[str]) -> bool:

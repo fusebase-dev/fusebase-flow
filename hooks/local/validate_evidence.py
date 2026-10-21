@@ -34,7 +34,7 @@ def accepted(row: dict, answers: dict) -> str:
 
 def minimum(item: str, ids: set[str], log: list, items: dict, classes: dict, match) -> str:
     """The row's minimum class: from the paths its tasks' commits touched, raised (never lowered) by the risk tag."""
-    touched = [p for _, subject, paths in log if fd.TASK.findall(subject) in ([i] for i in ids) for p in paths]
+    touched = [p for _, subject, paths in log if fd.task_ids(subject) in ([i] for i in ids) for p in paths]
     found = [NEEDS.get(c, "unit") for c, globs in classes.items() if any(match(p, globs) for p in touched)]
     return max([RISK.get(items.get(item, {}).get("risk", ""), "unit"), *found], key=RANK.get)
 
