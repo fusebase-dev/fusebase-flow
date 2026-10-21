@@ -37,7 +37,8 @@ jobs:
     # Owner, 2026-10-16: a pre-release is gated on Linux only; Windows/MSYS gates the 6.0.0 tag.
     # A pre-release tag carries a hyphen (6.0.0-m...): on it the MSYS leg reports but cannot block.
     continue-on-error: ${{ matrix.platform == 'windows-msys' && startsWith(github.ref, 'refs/tags/') && contains(github.ref_name, '-') }}
-    timeout-minutes: 30
+    # Owner, 2026-10-21: the Windows/MSYS leg may run 60 minutes (the suite outgrew 30 there); Linux keeps 30.
+    timeout-minutes: ${{ matrix.platform == 'windows-msys' && 60 || 30 }}
     defaults:
       run:
         shell: bash
