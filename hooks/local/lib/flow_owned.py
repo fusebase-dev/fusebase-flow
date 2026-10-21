@@ -17,14 +17,12 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import eol_pins  # noqa: E402
-
-NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)  # no console window when the caller has none (pythonw)
+from flow_docs import blobs  # noqa: E402  (git cat-file --batch, the shared git reader)
 
 MANIFEST, MC_5X = "audit/flow-install.json", "audit/managed-content-manifest.json"
 ASSETS_5X = (MC_5X, "audit/hook-layer-manifest.json")  # {"assets": [{"path", "sha256"}]}
@@ -38,23 +36,6 @@ REPAIR_BACKUP = re.compile(r"\.(claude|agents|codex)/.+\.pre-flow-repair(\.\d+)?
 MERGED, OVERLAYS = ("AGENTS.md", "CLAUDE.md", ".gitattributes", ".gitignore"), ("AGENTS.md", "CLAUDE.md")
 MARK = re.compile(r"(?:<!-- |# )FLOW:(BEGIN|END)\b")
 WRAP = ("<!-- CUSTOM:SKILL:BEGIN -->", "<!-- CUSTOM:SKILL:END -->")
-
-
-def blobs(root: Path, specs: list[str]) -> dict[str, bytes | None]:
-    """Each `<rev>:<path>` spec's bytes, from one `git cat-file --batch`; None when absent or not a blob."""
-    try:
-        out = subprocess.run(["git", "cat-file", "--batch"], cwd=root, capture_output=True, timeout=300,
-                             input="".join(f"{s}\n" for s in specs).encode("utf-8"), creationflags=NO_WINDOW).stdout
-    except (OSError, subprocess.TimeoutExpired):
-        return {}
-    got, at = {}, 0
-    for spec in specs:
-        nl = out.find(b"\n", at)
-        head = out[at:nl].split() if nl >= 0 else []
-        size = int(head[2]) if len(head) == 3 and head[2].isdigit() else -1
-        got[spec] = out[nl + 1:nl + 1 + size] if size >= 0 and head[1] == b"blob" else None
-        at = nl + 2 + size if size >= 0 else nl + 1
-    return got
 
 
 def outside(data: bytes | None) -> list[str] | None:

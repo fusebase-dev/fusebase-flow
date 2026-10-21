@@ -27,6 +27,23 @@ def git(root: Path, *args: str) -> str:
     return r.stdout.decode("utf-8", "replace") if r.returncode == 0 else ""
 
 
+def blobs(root: Path, specs: list[str]) -> dict[str, bytes | None]:
+    """Each `<rev>:<path>` spec's bytes, from one `git cat-file --batch`; None when absent or not a blob."""
+    try:
+        out = subprocess.run(["git", "cat-file", "--batch"], cwd=root, capture_output=True, timeout=300,
+                             input="".join(f"{s}\n" for s in specs).encode("utf-8"), creationflags=NO_WINDOW).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return {}
+    got, at = {}, 0
+    for spec in specs:
+        nl = out.find(b"\n", at)
+        head = out[at:nl].split() if nl >= 0 else []
+        size = int(head[2]) if len(head) == 3 and head[2].isdigit() else -1
+        got[spec] = out[nl + 1:nl + 1 + size] if size >= 0 and head[1] == b"blob" else None
+        at = nl + 2 + size if size >= 0 else nl + 1
+    return got
+
+
 def stamp(text: object) -> float | None:
     """Epoch seconds of an ISO 8601 UTC time (2026-10-18T10:00:00Z, milliseconds allowed), else None."""
     try:
