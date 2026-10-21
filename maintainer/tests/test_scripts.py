@@ -164,11 +164,14 @@ class Reader(Workspace):
         self.assertEqual(first["counters"], second["counters"])
         self.assertEqual(first["counters"]["alerts_raised"], 1)
 
-    def test_hooks_read_wired_only_when_the_named_handlers_exist(self) -> None:
+    def test_hooks_read_wired_only_when_pre_tool_use_is_registered_and_exists(self) -> None:
+        """6.0.0-m7 item 4 (T322): the settings are parsed; a PreToolUse command must name the handler, which exists."""
         self.quiet_project({}, 1)
-        write(self.repo, ".claude/settings.json", '{"hooks": {"PreToolUse": [{"command": "python hooks/handlers/pre.py"}]}}')
+        write(self.repo, ".claude/settings.json", '{"hooks": {"PreToolUse": [{"matcher": "Bash", "hooks": '
+              '[{"type": "command", "command": "python hooks/handlers/pre_tool_use.py"}]}]}}')
         self.assertIn("hooks: claude unenforced, codex unenforced", self.once().stdout)
-        write(self.repo, "hooks/handlers/pre.py", "")
+        write(self.repo, "hooks/handlers/pre_tool_use.py", "")
+        write(self.repo, ".codex/hooks.json", '{"note": "see hooks/handlers/pre_tool_use.py", "hooks": {}}')
         self.assertIn("hooks: claude wired, codex unenforced", self.once().stdout)
 
     def test_register_reader_prints_and_records_the_line_and_plain_install_registers_nothing(self) -> None:
