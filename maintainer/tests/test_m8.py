@@ -477,5 +477,27 @@ class ShippedTexts(unittest.TestCase):
         self.assertIn("stage them by name (`git add -u`, then the added files)", lifecycle)
 
 
+
+class ProtectedStageCost(Kernel):
+    """Item 10 (O-31 (j)): the protected-path check ran `git ls-files` once per approved path, per staged path, per
+    artifact: O(n^2) git calls, 830 s for a fresh install's commit on a loaded host. It reads the index once."""
+
+    def test_judging_forty_staged_protected_paths_costs_a_bounded_number_of_git_calls(self) -> None:
+        paths = [f"hooks/shared/probe_{n:02d}.py" for n in range(40)]
+        for rel in paths:
+            write(self.repo, rel, f"X = {len(rel)}\n")
+        git(self.repo, "add", "--", *paths)
+        self.assertEqual(self.mint().returncode, 0)
+        code = ("import subprocess, sys\nfrom pathlib import Path\nfrom shared.path_policy import evaluate\n"
+                "real, calls = subprocess.run, []\n"
+                "def count(*a, **k):\n    calls.append(a[0][:3] if a else k.get('args'))\n    return real(*a, **k)\n"
+                "subprocess.run = count\n"
+                f"decisions = {{evaluate(p, root=Path.cwd()).decision for p in {paths!r}}}\n"
+                "print(sorted(decisions), len(calls))")
+        decisions, calls = self.py(code).rsplit(" ", 1)
+        self.assertEqual(decisions, "['allow']")
+        self.assertLess(int(calls), 4 * len(paths), f"{calls} git calls for {len(paths)} staged paths")
+
+
 if __name__ == "__main__":
     unittest.main()

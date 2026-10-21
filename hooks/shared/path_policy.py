@@ -167,6 +167,56 @@ def assert_protected_policy_loaded(root: Path | None = None) -> None:
         )
 
 
+# TRIPWIRE (6.0.0-m8 item 10, O-31 (j)): the index is read ONCE per process and again only when the index file
+# changes (size, mtime). One `git ls-files` per approved path per staged path per artifact made the protected-path
+# stage O(n^2) git calls: 830 s for a fresh install's 85 paths on a loaded host.
+_INDEX: dict[str, tuple] = {}
+_MEMO: dict[tuple, object] = {}
+
+
+def _index_stamp(root: Path) -> tuple | None:
+    key = ("index-file", str(root))
+    if key not in _MEMO:
+        try:
+            proc = subprocess.run(["git", "rev-parse", "--git-path", "index"], capture_output=True, text=True,
+                                  encoding="utf-8", errors="replace", cwd=str(root), creationflags=NO_WINDOW)
+            rel = proc.stdout.strip() if proc.returncode == 0 else ""
+        except Exception:
+            rel = ""
+        _MEMO[key] = (Path(rel) if Path(rel).is_absolute() else Path(root) / rel) if rel else None
+    index = _MEMO[key]
+    try:
+        st = index.stat() if index else None
+    except OSError:
+        return None
+    return (st.st_mtime_ns, st.st_size, st.st_ino) if st else None
+
+
+def _staged_entries(root: Path) -> dict[str, tuple[str, str]] | None:
+    """{path: (mode, object-id)} of the whole index (stage 0, else the first stage listed), from one
+    `git ls-files --stage -z`; None when git fails."""
+    stamp = _index_stamp(root)
+    hit = _INDEX.get(str(root))
+    if stamp is not None and hit and hit[0] == stamp:
+        return hit[1]
+    try:
+        proc = subprocess.run(["git", "ls-files", "--stage", "-z"], capture_output=True, cwd=str(root),
+                              creationflags=NO_WINDOW)
+    except Exception:
+        return None
+    if proc.returncode != 0:
+        return None
+    entries: dict[str, tuple[str, str]] = {}
+    for record in proc.stdout.decode("utf-8", "surrogateescape").split("\0"):
+        head, _, entry_path = record.partition("\t")
+        parts = head.split()
+        if entry_path and len(parts) >= 2:
+            entries.setdefault(entry_path, (parts[0], parts[1]))
+    if stamp is not None:
+        _INDEX[str(root)] = (stamp, entries)
+    return entries
+
+
 def _staged_mode_and_sha(path: str, root: Path) -> tuple[str, str] | None:
     """(mode, object-id) for the staged content of the EXACT `path`, or None.
 
@@ -177,6 +227,9 @@ def _staged_mode_and_sha(path: str, root: Path) -> tuple[str, str] | None:
     exactly, so a single concrete lookup is unambiguous and a multi-match glob can
     never bind. Mode is field 1 (from `git ls-files --stage`), object id is field 2.
     """
+    entries = _staged_entries(root)
+    if entries is not None:
+        return entries.get(path)
     try:
         proc = subprocess.run(
             ["git", "ls-files", "--stage", "--", path],
@@ -265,6 +318,14 @@ def _unspent(data: dict, root: Path) -> bool:
 
 
 def _head(root: Path) -> str:
+    key = ("head", str(root), _index_stamp(root))
+    if key[2] is not None and key in _MEMO:
+        return _MEMO[key]
+    _MEMO[key] = found = _head_now(root)
+    return found
+
+
+def _head_now(root: Path) -> str:
     try:
         proc = subprocess.run(["git", "rev-parse", "--verify", "-q", "HEAD^{commit}"], capture_output=True, text=True,
                               cwd=str(root), creationflags=NO_WINDOW)
@@ -276,6 +337,14 @@ def _head(root: Path) -> str:
 def _built_on(root: Path, head: str, since: str) -> bool:
     """Whether a commit made since the mint has `head` as a parent, in any ref or reflog: the go-ahead's commit landed,
     even if HEAD went back to `head` since (git reset --soft, a branch or a detached HEAD there). Fails closed."""
+    key = ("built-on", str(root), head, since, _index_stamp(root))
+    if key[4] is not None and key in _MEMO:
+        return _MEMO[key]
+    _MEMO[key] = found = _built_on_now(root, head, since)
+    return found
+
+
+def _built_on_now(root: Path, head: str, since: str) -> bool:
     when = [f"--since={since}"] if parse_expiry(since) is not None else []
     try:
         proc = subprocess.run(["git", "rev-list", "--all", "--reflog", "--parents", *when], capture_output=True,
@@ -347,6 +416,7 @@ def has_active_exception(
     if expected_operation is None or not approvals_dir.exists():
         return False
     cap = edit_cap(root)
+    staged_set: set[str] | None = None
     for f in approvals_dir.glob("protected_path_edit-*.json"):
         artifact = load_artifact(f)
         if artifact is None or artifact.data is None:
@@ -401,7 +471,8 @@ def has_active_exception(
             # AND not staged) is still rejected — an artifact cannot approve a path the
             # pending commit never touches. The digest (with the `-\0-` placeholder for
             # the deleted path) still binds the artifact single-use to THIS changeset.
-            staged_set = set(staged_change_paths(root))
+            if staged_set is None:
+                staged_set = set(staged_change_paths(root))
             if any(
                 _staged_mode_and_sha(p, root) is None and p not in staged_set
                 for p in approved_paths
