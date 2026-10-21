@@ -608,5 +608,21 @@ class ItemEditRow(m3.Validator):
         edit = [r.split("\t") for r in rows if r.startswith("item-edit-")]
         self.assertEqual([(r[1], r[2], r[3]) for r in edit], [("5", "T1", "B1: risk changed since the phase's base")])
 
+
+class GateRoundsAndCarryOver(m3.Gate):
+    """Field items 7.8 and 7.9: a verdict carried from Flow 5.x spent one of the two gate rounds; the carry-over list
+    listed a reader's round-1 findings that round 2 had fixed, and filed by keyword a wording fix as [security]."""
+
+    locals().update(dict.fromkeys(n for n in dir(m3.Gate) if n.startswith("test")))  # the inherited tests run there
+
+    def test_a_carried_verdict_spends_no_round(self) -> None:
+        m3.write(self.repo, "docs/flow/ledger.md", "## Records\n"
+                 "2026-10-20T00:31Z verdict P1-S1 result=PASS agent=5.x-gate@35cfd0fb -- carried 5.x verdict (A4): PASS\n"
+                 "2026-10-20T00:40Z verdict P1-S1 result=PASS agent=r9 carried=5.x\n"
+                 "2026-10-21T10:00Z verdict P1-S1 result=FAIL agent=r1 -- the banner shows twice\n")
+        out = self.gate()
+        self.assertIn("1 of 2 verdict rounds", out.stdout)
+        self.assertNotEqual(out.returncode, 3, out.stdout)
+
 if __name__ == "__main__":
     unittest.main()

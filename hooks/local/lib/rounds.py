@@ -26,10 +26,14 @@ def rounds(root: Path) -> int:
 def records(root: Path, target: str) -> dict[str, list[tuple[str, str]]]:
     """(result, note) of each `verdict <target>` and each `review <target>` record in the ledger, in order, by kind.
     A record starts with its UTC time (templates/ledger.md); a `## Next` or `## Handoff` bullet that says "review P1-S1"
-    is no round (m6 review B #2)."""
+    is no round (m6 review B #2), and neither is a verdict carried from Flow 5.x (`carried=` among its fields, or a note
+    that starts with "carried"; field item 7.8)."""
     found: dict[str, list[tuple[str, str]]] = {"verdict": [], "review": []}
     for line in fd.read(root / fd.LEDGER).splitlines():
         if m := re.match(rf"\s*\d{{4}}-\d\d-\d\dT\S+\s+(verdict|review)\s+{re.escape(target)}\s+(.*)$", line):
+            if re.search(r"(^|\s)carried=", m[2].partition(" -- ")[0]) or m[2].partition(" -- ")[2].lower().startswith(
+                    "carried"):
+                continue
             result = re.search(r"result=(\S+)", m[2])
             found[m[1]].append((result[1] if result else "?", m[2].partition(" -- ")[2].strip()))
     return found
