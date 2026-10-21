@@ -364,5 +364,40 @@ class StagedEvidence(m3.Validator):
         self.assertIn("runs/run-1/README.md: the working copy differs from the staged one", out.stdout)
 
 
+
+class FindingMarker(m3.Validator):
+    """r1-28 (and r2-32's marker part): `FINDING:`, `finding`, `Finding`, `FINDINGS` and `**FINDING**` records, and a
+    FINDING row after a blank line, left a PASS standing; a test-id row passed when its name was any substring of the test
+    file (field item 7.7: a short title such as S2 matched wherever the token stood)."""
+
+    locals().update(dict.fromkeys(n for n in dir(m3.Validator) if n.startswith("test")))  # the inherited tests run there
+
+    def test_every_spelling_of_the_marker_fails_the_pass(self) -> None:
+        for record in ("FINDING: the button is dead", "finding the button is dead", "Finding: dead", "FINDINGS 2",
+                       "**FINDING** dead"):
+            write(self.repo, "runs/run-1/README.md", m3.RUN_LOG.format(
+                records=f"| 2026-10-18T10:00:00.000Z | S1 | PASS |\n| 2026-10-18T10:01:00.000Z | S2 | {record} |\n"))
+            self.assert_fails("B1", "FINDING")
+
+    def test_a_finding_after_a_blank_line_is_read_and_no_findings_is_no_finding(self) -> None:
+        write(self.repo, "runs/run-1/README.md", m3.RUN_LOG.format(
+            records="| 2026-10-18T10:00:00.000Z | S1 | PASS |\n\n| 2026-10-18T10:01:00.000Z | S2 | FINDING F7 |\n"))
+        self.assert_fails("B1", "FINDING")
+        write(self.repo, "runs/run-1/README.md", m3.RUN_LOG.format(
+            records="| 2026-10-18T10:00:00.000Z | S1 | PASS: no findings |\n\n## Notes\n\n| x | S2 | FINDING later |\n"))
+        self.assertEqual(self.validate().returncode, 0)
+
+    def test_a_test_id_row_names_a_whole_test_title(self) -> None:
+        m3.commit(self.repo, {"test/auth.test.ts": "test('magic link expires', () => {});\n// S2 covers the C4 clause\n"},
+                  "T2: the test, with a comment")
+        for name in ("magic", "S2", "C4 clause"):
+            self.rows["B2"] = f"| B2 | PASS | test/auth.test.ts::{name} | - | - | runs/unit.tap | - |"
+            write(self.repo, "runs/unit.tap", f"TAP version 13\nok 1 - {name}\n")
+            self.assert_fails("B2", "the test is absent at HEAD")
+        self.rows["B2"] = "| B2 | PASS | test/auth.test.ts::magic link expires | - | - | runs/unit.tap | - |"
+        write(self.repo, "runs/unit.tap", "TAP version 13\nok 1 - magic link expires\n")
+        self.assertEqual(self.validate().returncode, 0)
+
+
 if __name__ == "__main__":
     unittest.main()

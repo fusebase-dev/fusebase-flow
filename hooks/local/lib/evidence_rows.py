@@ -41,6 +41,14 @@ def deploy_finished(root: Path, env: str) -> tuple[float, str] | None:
     return latest
 
 
+def title(source: str, name: str) -> bool:
+    """`name` is a whole test title in `source`: a quoted string that is the name ('...', "..." or `...`), or a function
+    the name declares (def, func, fn). A substring of any line was enough before (review r1-28: `a` in 'a real test';
+    field item 7.7: a short title like S2 matched wherever the token stood)."""
+    q = re.escape(name)
+    return bool(name) and bool(re.search(rf"""(['"`]){q}\1|\b(?:def|func|fn)\s+{q}\s*[(<]""", source))
+
+
 def check_test_row(root: Path, row: dict, base: str, marker: str) -> list[str]:
     """A test-id row: `ok <n> - <name>` in its TAP log, the test present at HEAD, no skip or todo added since base."""
     file, _, name = row["capture"].partition("::")
@@ -53,8 +61,8 @@ def check_test_row(root: Path, row: dict, base: str, marker: str) -> list[str]:
     if tap is not None and not any((m := re.match(marker, ln)) and ln[m.end():].strip() == name.strip() for ln in tap):
         problems.append(f"no `ok <n> - {name.strip()}` line without SKIP or TODO in {row['log']}")
     source = fd.git(root, "show", f"HEAD:{file.strip()}")
-    if name.strip() not in source:
-        problems.append(f"the test is absent at HEAD ({file.strip()})")
+    if not title(source, name.strip()):
+        problems.append(f"the test is absent at HEAD ({file.strip()}: no test titled `{name.strip()}`)")
     if base and ADDED_SKIP.search(fd.git(root, "diff", base, "HEAD", "--", file.strip())):
         problems.append("a skip or todo token was added to the test file since the phase's base")
     return problems

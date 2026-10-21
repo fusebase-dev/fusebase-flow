@@ -10,7 +10,9 @@ import flow_docs as fd
 
 
 def run_log(path: Path, header: str) -> dict | None:
-    """{title, records: [(time, row, record)]} when the file carries the policy's run-log header, else None."""
+    """{title, records: [(time, row, record)]} when the file carries the policy's run-log header, else None. Every table
+    row after the header counts, blank lines between them too, up to the next heading (review r1-28: a row after a blank
+    line went unread)."""
     try:
         lines = [line.rstrip() for line in path.read_text(encoding="utf-8", errors="replace").splitlines()]
     except OSError:
@@ -19,8 +21,10 @@ def run_log(path: Path, header: str) -> dict | None:
         return None
     records = []
     for line in lines[lines.index(header) + 1:]:
-        if not line.startswith("|"):
+        if line.startswith("#"):
             break
+        if not line.startswith("|"):
+            continue
         cells = [c.strip() for c in line.strip("|").split("|")]
         if len(cells) >= 3 and not re.fullmatch(r"[-: ]+", cells[0]):
             records.append((cells[0], cells[1], "|".join(cells[2:]).strip()))
@@ -49,9 +53,16 @@ def flaky(root: Path, phase: str, row: dict, header: str) -> str | None:
     return ""
 
 
+# A record that opens with the word finding, in any case, after markdown emphasis or a quote mark: `FINDING x`,
+# `FINDING: x`, `finding x`, `Findings x`, `**FINDING** x` (review r1-28; the policy's case-sensitive `^FINDING ` alone
+# missed all but the first). "no findings" does not open with it.
+FINDING = re.compile(r"[\s*_`~>#-]*findings?\b", re.I)
+
+
 def finding_problems(log: dict, pol: dict) -> list[str]:
     """The FINDING marker: a run log that records a finding has no PASS behind it."""
-    if any(re.match(str(pol.get("finding_marker", "^FINDING ")), rec[2]) for rec in log["records"]):
+    marker = str(pol.get("finding_marker", "^FINDING "))
+    if any(FINDING.match(rec[2]) or re.match(marker, rec[2]) for rec in log["records"]):
         return ["the run log records a FINDING behind this PASS"]
     return []
 
