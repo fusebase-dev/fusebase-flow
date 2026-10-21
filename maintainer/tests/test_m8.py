@@ -548,5 +548,19 @@ class TaskIdInsideAnItemId(m3.Validator):
         out = m3.run(str(CORE / "hooks/local/lib/commit_msg.py"), str(msg), cwd=self.repo)
         self.assertNotIn("exactly one T<n> per commit", out.stderr)
 
+
+class IndentedTap(m3.Validator):
+    """Field item 7.2: the evidence check read TAP's `ok N -` only at the start of a line, so Node's indented subtests
+    were invisible."""
+
+    locals().update(dict.fromkeys(n for n in dir(m3.Validator) if n.startswith("test")))  # the inherited tests run there
+
+    def test_an_indented_subtest_line_holds_a_test_id_row(self) -> None:
+        m3.write(self.repo, "runs/unit.tap", "TAP version 13\n# Subtest: auth\n    ok 1 - magic link expires\n    1..1\n"
+                                             "ok 1 - auth\n")
+        out = self.validate()
+        self.assertEqual(out.returncode, 0, out.stdout)
+        self.assertIn("  B2 PASS", out.stdout)
+
 if __name__ == "__main__":
     unittest.main()

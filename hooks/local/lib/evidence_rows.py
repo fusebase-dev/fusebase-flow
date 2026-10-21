@@ -58,7 +58,9 @@ def check_test_row(root: Path, row: dict, base: str, marker: str) -> list[str]:
     except OSError:
         tap = None
         problems.append(f"log {row['log']} is missing")
-    if tap is not None and not any((m := re.match(marker, ln)) and ln[m.end():].strip() == name.strip() for ln in tap):
+    # A line is read after its leading whitespace: Node's test runner indents a subtest's `ok N -` (field item 7.2).
+    if tap is not None and not any((m := re.match(marker, ln.lstrip())) and ln.lstrip()[m.end():].strip() == name.strip()
+                                   for ln in tap):
         problems.append(f"no `ok <n> - {name.strip()}` line without SKIP or TODO in {row['log']}")
     source = fd.git(root, "show", f"HEAD:{file.strip()}")
     if not title(source, name.strip()):
