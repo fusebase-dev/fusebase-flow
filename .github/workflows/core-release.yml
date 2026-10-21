@@ -65,3 +65,11 @@ jobs:
           flags=(--verify-tag -t "$tag" -F "$notes")
           case "$tag" in *-*) flags+=(--prerelease --latest=false) ;; esac
           gh release create "$tag" "${flags[@]}"
+
+      - name: The published release still names the verified commit
+        # 6.0.0-m8 (M6-11, review r1-60, r2-101): a tag moved after verification must never leave a release standing on
+        # an unverified commit; after publishing, or finding the release already published, re-read the tag through the
+        # API and fail loudly when it names another commit (maintainer/release_check.py).
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 maintainer/release_check.py --tag "$GITHUB_REF_NAME" --sha "$GITHUB_SHA" --repo "$GITHUB_REPOSITORY"
