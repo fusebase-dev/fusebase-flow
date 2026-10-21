@@ -399,5 +399,64 @@ class FindingMarker(m3.Validator):
         self.assertEqual(self.validate().returncode, 0)
 
 
+
+class ReleaseRecheck(unittest.TestCase):
+    """M6-11 (review r1-60, r2-101; O-8): core-release.yml re-checks, after publishing, that the release's tag still
+    names the commit core-verify verified. maintainer/release_check.py against a fake GitHub API."""
+
+    VERIFIED, OTHER, TAG_OBJECT = "a" * 40, "b" * 40, "c" * 40
+
+    def serve(self, routes: dict[str, dict]) -> str:
+        import http.server
+        import threading
+
+        class Fake(http.server.BaseHTTPRequestHandler):
+            def do_GET(self) -> None:  # noqa: N802 (http.server's name)
+                body = routes.get(self.path)
+                self.send_response(200 if body is not None else 404)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps(body if body is not None else {"message": "Not Found"}).encode("utf-8"))
+
+            def log_message(self, *args: object) -> None:
+                pass
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Fake)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.shutdown)
+        return f"http://127.0.0.1:{server.server_address[1]}"
+
+    def check(self, api: str, tag: str = "6.0.0-m8") -> subprocess.CompletedProcess:
+        return run(CORE, sys.executable, str(CORE / "maintainer/release_check.py"), "--tag", tag, "--sha", self.VERIFIED,
+                   "--repo", "o/r", "--api", api, GH_TOKEN="")
+
+    def routes(self, ref: dict, tag_object: dict | None = None, release: bool = True) -> dict:
+        found = {"/repos/o/r/git/ref/tags/6.0.0-m8": {"object": ref}}
+        if tag_object is not None:
+            found[f"/repos/o/r/git/tags/{self.TAG_OBJECT}"] = {"object": tag_object}
+        if release:
+            found["/repos/o/r/releases/tags/6.0.0-m8"] = {"tag_name": "6.0.0-m8", "prerelease": True}
+        return found
+
+    def test_the_tag_on_the_verified_commit_passes(self) -> None:
+        for routes in (self.routes({"type": "commit", "sha": self.VERIFIED}),
+                       self.routes({"type": "tag", "sha": self.TAG_OBJECT}, {"type": "commit", "sha": self.VERIFIED})):
+            out = self.check(self.serve(routes))
+            self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+            self.assertIn(f"names the verified commit {self.VERIFIED}", out.stdout)
+
+    def test_a_tag_moved_to_another_commit_fails_loudly(self) -> None:
+        for routes in (self.routes({"type": "commit", "sha": self.OTHER}),
+                       self.routes({"type": "tag", "sha": self.TAG_OBJECT}, {"type": "commit", "sha": self.OTHER})):
+            out = self.check(self.serve(routes))
+            self.assertEqual(out.returncode, 1, out.stdout)
+            self.assertIn(f"::error::the published release 6.0.0-m8 now names commit {self.OTHER}, not "
+                          f"{self.VERIFIED}, the commit core-verify verified", out.stdout)
+
+    def test_no_release_for_the_tag_fails(self) -> None:
+        out = self.check(self.serve(self.routes({"type": "commit", "sha": self.VERIFIED}, release=False)))
+        self.assertEqual(out.returncode, 1, out.stdout)
+        self.assertIn("::error::the API could not confirm the release 6.0.0-m8", out.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()
