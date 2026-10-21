@@ -39,9 +39,12 @@ def records(root: Path, target: str) -> dict[str, list[tuple[str, str]]]:
     return found
 
 
-FIRST = (("security", r"secur|\bauth|secret|credential|token|permission"), ("privacy", r"privacy|personal|\bpii\b|consent"),
-         ("data-loss", r"risk data|data.loss|lose data|delet|overwrit|migration"),
-         ("owner-answer", r"contradict|owner.answer|\bA\d+\b"))
+# The order the carry-over lists, by what an entry DECLARES (field item 7.9: matching words anywhere filed a wording
+# fix as [security]): a finding's `class`, a note that starts `<class>:`, a FAIL row's item risk (auth, data), or a
+# contradiction of an owner answer A<n>; anything else is [other], ordered by its severity.
+FIRST = ("security", "privacy", "data-loss", "owner-answer")
+RISK_CLASS = {"auth": "security", "prod": "security", "data": "data-loss"}
+SEVERITY = ("BLOCKER", "HIGH", "MEDIUM", "LOW")
 
 
 def carry_over(root: Path, target: str, lines: list[str], past: dict[str, list[tuple[str, str]]]) -> list[str]:
@@ -49,7 +52,7 @@ def carry_over(root: Path, target: str, lines: list[str], past: dict[str, list[t
     items = [ln.strip() for ln in lines if re.search(r" OPEN: |^\s+returns: |^\s+B\d+ FAIL: |^\s+FLAG ", ln)
              and not ln.endswith("[rejected]") and not re.match(r"\s+FLAG item-edit B\d+", ln)]
     items += [f"{k} {i + 1} {r}: {n}" for k, rows in past.items() for i, (r, n) in enumerate(rows) if n and r != "PASS"]
-    for f in sorted((root / "state/returns").glob(f"{target}-*.json")):  # the readers' typed returns (verify briefs)
+    for f in latest_returns(root, target):  # the readers' typed returns (verify briefs), the last round of each
         try:
             doc = json.loads(f.read_text(encoding="utf-8"))
             found = [*doc.get("findings", []), *doc.get("other_findings", []),
@@ -61,7 +64,31 @@ def carry_over(root: Path, target: str, lines: list[str], past: dict[str, list[t
     risk = {i: d.get("risk", "") for i, d in fd.backlog(fd.read(root / fd.BACKLOG))[0].items()}
     items = [re.sub(r"^(B\d+) FAIL:", lambda m: f"{m[1]} (risk {risk.get(m[1], '?')}) FAIL:", i) for i in items]
 
-    def rank(text: str) -> int:
-        return next((n for n, (_, rx) in enumerate(FIRST) if re.search(rx, text, re.I)), len(FIRST))
+    def kind(text: str) -> str:
+        declared = re.search(r"(?:^|:\s|;\s)class=([a-z-]+)", text) or re.match(r"(?:verdict|review) \d+ \S+: ([a-z-]+):",
+                                                                                    text)
+        risky = re.match(r"B\d+ \(risk (\w+)\) FAIL", text)
+        if declared and declared[1] in FIRST:
+            return declared[1]
+        if risky and risky[1] in RISK_CLASS:
+            return RISK_CLASS[risky[1]]
+        return "owner-answer" if re.search(r"contradict\w*\b.*\bA\d+\b", text, re.I) else "other"
+
+    def rank(text: str) -> tuple[int, int]:
+        sev = re.search(r"severity=(\w+)", text)
+        return ((FIRST + ("other",)).index(kind(text)),
+                SEVERITY.index(sev[1].upper()) if sev and sev[1].upper() in SEVERITY else len(SEVERITY))
     ordered = sorted(items, key=rank)
-    return [f"{n}. [{FIRST[rank(t)][0] if rank(t) < len(FIRST) else 'other'}] {t}" for n, t in enumerate(ordered, 1)]
+    return [f"{n}. [{kind(t)}] {t}" for n, t in enumerate(ordered, 1)]
+
+
+def latest_returns(root: Path, target: str) -> list[Path]:
+    """The last round of each reader's return for `target`: <target>-review.json is round 1, -review-2.json round 2
+    (field item 7.9: round 1's fixed findings were listed again)."""
+    best: dict[str, tuple[int, Path]] = {}
+    for f in (root / "state/returns").glob(f"{target}-*.json"):
+        m = re.fullmatch(r"(.*?)-?(\d*)", f.stem[len(target) + 1:])
+        key, n = m[1], int(m[2] or 1)
+        if key not in best or n > best[key][0]:
+            best[key] = (n, f)
+    return sorted(f for _, f in best.values())

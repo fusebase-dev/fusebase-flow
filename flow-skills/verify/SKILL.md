@@ -113,7 +113,7 @@ Severity. BLOCKER: a defect reachable on a production path; any test gap above o
 Answer two questions, one line of evidence each:
 (a) Does the diff add a feature the criterion does not ask for?
 (b) Is the diff further from the reference project's pattern than the task requires?
-Return JSON: {"findings": [{"file", "line", "input", "wrong_outcome", "expected", "severity": "BLOCKER|HIGH|MEDIUM|LOW"}], "rubric": {"a": "yes|no", "a_evidence", "b": "yes|no", "b_evidence"}, "examined": ["<suspect path>: <why it holds>", "<suspect path>: <why it holds>"]}
+Return JSON: {"findings": [{"file", "line", "input", "wrong_outcome", "expected", "severity": "BLOCKER|HIGH|MEDIUM|LOW", "class": "security|privacy|data-loss|owner-answer|other"}], "rubric": {"a": "yes|no", "a_evidence", "b": "yes|no", "b_evidence"}, "examined": ["<suspect path>: <why it holds>", "<suspect path>: <why it holds>"]}
 ```
 
 ```text

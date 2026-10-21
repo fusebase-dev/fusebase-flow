@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -623,6 +624,21 @@ class GateRoundsAndCarryOver(m3.Gate):
         out = self.gate()
         self.assertIn("1 of 2 verdict rounds", out.stdout)
         self.assertNotEqual(out.returncode, 3, out.stdout)
+
+    def test_the_carry_over_lists_the_last_round_and_classes_by_what_an_entry_declares(self) -> None:
+        m3.write(self.repo, "docs/flow/ledger.md", "status: state/status.line\n\n## Records\n" + m3.VERDICTS)
+        m3.write(self.repo, "state/returns/P1-S1-review.json", json.dumps({"findings": [
+            {"file": "src/a/x.ts", "wrong_outcome": "round one: the banner shows twice", "severity": "HIGH"}]}))
+        m3.write(self.repo, "state/returns/P1-S1-review-2.json", json.dumps({"findings": [
+            {"file": "src/a/x.ts", "wrong_outcome": "the token name in the help text is misspelt", "severity": "LOW"},
+            {"file": "src/a/y.ts", "wrong_outcome": "the session cookie is not httpOnly", "severity": "HIGH",
+             "class": "security"}]}))
+        out = self.gate()
+        listed = dict((t, c) for _, c, t in re.findall(r"^(\d+)\. \[([a-z-]+)\] (.*)$", out.stdout, re.M))
+        self.assertNotIn("round one", out.stdout, "a finding round 2 superseded is listed again")
+        self.assertEqual(next(c for t, c in listed.items() if "token name" in t), "other")
+        self.assertEqual(next(c for t, c in listed.items() if "httpOnly" in t), "security")
+
 
 if __name__ == "__main__":
     unittest.main()
