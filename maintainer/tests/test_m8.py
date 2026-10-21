@@ -294,5 +294,43 @@ class UnicodePaths(unittest.TestCase):
         self.assertIn("§ 4.2 of the terms holds.", out.stdout.decode("utf-8"))
 
 
+
+class SymlinkedOverlays(unittest.TestCase):
+    """M6-14 (review r2-03): a CLAUDE.md that links to AGENTS.md was replaced by a regular file."""
+
+    def setUp(self) -> None:
+        self.tmp = Path(tempfile.mkdtemp(prefix="flow-m8-"))
+        self.repo = self.tmp / "p"
+        self.repo.mkdir()
+        git(self.repo, "init", "-q", "-b", "main")
+        no_auto_gc(self.repo)
+        write(self.repo, "AGENTS.md", "# Project agents\n")
+        try:
+            os.symlink("AGENTS.md", self.repo / "CLAUDE.md")
+        except (OSError, NotImplementedError) as exc:
+            shutil.rmtree(self.tmp, ignore_errors=True)
+            self.skipTest(f"no symlink here ({exc})")
+
+    def tearDown(self) -> None:
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_install_refuses_a_symlinked_claude_md_and_prints_the_block(self) -> None:
+        out = run(self.tmp, sys.executable, str(CORE / "maintainer/flow.py"), "install", "--target", str(self.repo),
+                  "--providers", "claude")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertTrue((self.repo / "CLAUDE.md").is_symlink(), "the link was replaced")
+        self.assertIn("CLAUDE.md (a symlink or not a regular file: the Flow block is not written", out.stdout)
+        self.assertIn("## FuseBase Flow — Claude Code adapter", out.stdout)
+        self.assertIn("<!-- FLOW:BEGIN", (self.repo / "AGENTS.md").read_text(encoding="utf-8"))
+
+    def test_the_migration_stops_on_a_symlinked_overlay(self) -> None:
+        sys.path.insert(0, str(CORE / "maintainer"))
+        import migrate
+        import migrate_preflight
+        check = migrate_preflight.overlays(migrate.Inventory(target=self.repo, providers={"claude"}, version="5.6"))
+        self.assertTrue(check.stop, check)
+        self.assertIn("CLAUDE.md is a symlink", check.found)
+
+
 if __name__ == "__main__":
     unittest.main()

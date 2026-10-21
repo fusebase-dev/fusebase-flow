@@ -118,6 +118,17 @@ def ignores(inv: m.Inventory) -> Check:
     return attributes(inv, flow.IGNORE)
 
 
+def overlays(inv: m.Inventory) -> Check:
+    """AGENTS.md and CLAUDE.md are regular files: the migration rewrites their Flow section, and a symlink (CLAUDE.md
+    linking to AGENTS.md) would become a regular file (6.0.0-m8 M6-14, review r2-03)."""
+    links = [name for name in flow.OVERLAY if (inv.target / name).is_symlink()]
+    if links:
+        return Check("overlays", f"{', '.join(links)} is a symlink, which the migration would turn into a regular file",
+                     True, "make it a regular file (a copy of what it links to), or move the Flow section by hand, then "
+                     "re-run")
+    return Check("overlays", "AGENTS.md and CLAUDE.md are regular files or absent")
+
+
 def planned_paths(inv: m.Inventory) -> list[str]:
     """What the migration commit stages by name (migrate_apply.commit), before any of it exists."""
     index = set(m.git(inv.target, "ls-files", "-z").stdout.decode("utf-8", "replace").split("\0"))
@@ -312,7 +323,7 @@ def run(inv: m.Inventory, apply: bool) -> list[Check]:
     """Prints each check as it completes; lint and typecheck run (with --apply) only when the rest pass."""
     print("[flow migrate] preflight (--apply runs it before it changes anything):")
     stops: list[Check] = []
-    for check in (tracked_tree, git_hooks, hooks_path, baseline, attributes, ignores, staging, interpreter):
+    for check in (tracked_tree, git_hooks, hooks_path, baseline, attributes, ignores, overlays, staging, interpreter):
         stops += show(check(inv))
     checked = validators(inv, apply) if not stops else Check("lint and typecheck", "a check above stops the apply",
                                                               not_run=True)
