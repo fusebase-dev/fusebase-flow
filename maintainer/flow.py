@@ -577,7 +577,7 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
         recorded.append({"path": PROJECT_BASELINE, "sha256": sha256(data), "project": True})
     else:  # the project's file, as an earlier install recorded it: a re-run leaves the entry, and the file, as they are
         recorded += [e for e in old_files(target) if e.get("path") == PROJECT_BASELINE and e.get("project")][:1]
-    by_hand: list[str] = []
+    overlay_by_hand: list[str] = []  # never `by_hand`: that name is the function below
     for name, block_rel in OVERLAY.items():
         if ("claude" not in providers) and name == "CLAUDE.md":
             continue
@@ -588,7 +588,7 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
         if dest.is_symlink() or (dest.exists() and not dest.is_file()):
             report["refused"].append(f"{name} (a symlink or not a regular file: the Flow block is not written; add it by "
                                      "hand, as printed below, where the link points)")
-            by_hand += [f"{name}:", *block.rstrip("\n").split("\n")]
+            overlay_by_hand += [f"{name}:", *block.rstrip("\n").split("\n")]
             continue
         before = dest.read_bytes().decode("utf-8") if dest.is_file() else None
         after = merge_block(before, block)
@@ -634,9 +634,9 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
         print(f"[flow] {key}: {len(report[key])}{note}")
         for item in report[key]:
             print(f"[flow]   {item}")
-    if by_hand:
+    if overlay_by_hand:
         print("[flow] the Flow block to add by hand to each refused overlay:")
-        for line in by_hand:
+        for line in overlay_by_hand:
             print(f"[flow]   {line}")
     if report["pins"]:
         print(f"[flow] {ATTRIBUTES}: removed {len(report['pins'])} Flow 5.x line-ending pin lines (folder-wide `text eol=lf` "
