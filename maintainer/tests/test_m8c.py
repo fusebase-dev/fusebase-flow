@@ -126,5 +126,17 @@ class StdinThatRuns(Gate):
                             "echo 'a b' | xargs -n1 echo")
 
 
+class UnknownRunners(Gate):
+    """Review B H3, the subcommand slot: the word after any program was taken for its subcommand, so `fakeroot rm -rf`
+    and `proxychains4 fusebase deploy` passed, and so did `npm exec -- fusebase deploy`. It now holds for known CLIs."""
+
+    def test_an_unknown_programs_first_argument_may_be_a_command(self) -> None:
+        self.assert_denied("fakeroot rm -rf /tmp/x", "proxychains4 fusebase deploy", "npm exec -- fusebase deploy",
+                           "npm exec --yes fusebase deploy", "npm x --yes fusebase deploy",
+                           "npm exec -- prisma migrate deploy")
+        self.assert_allowed("npm rm lodash", "git rm old.txt", "docker rm my-container", "helm rm my-release",
+                            "cargo rm serde", "pnpm remove lodash", "make clean")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

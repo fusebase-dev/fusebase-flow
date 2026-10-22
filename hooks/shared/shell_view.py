@@ -41,6 +41,12 @@ WRAPPERS = {"env": "uSCP", "sudo": "ugpChDrtU", "doas": "uC", "nohup": "", "time
             "unbuffer": "", "xargs": "IinPLsdEa", "watch": "nd", "busybox": "", "taskset": "", "strace": "oesp",
             "ltrace": "oesp", "caffeinate": "tw", "npx": "pc", "bunx": "p", "pnpx": "p", "flock": "wE", "nsenter": "t"}
 RUNNERS = {"pnpm", "yarn", "bun"}  # run their own subcommand, or else the project's binary of that name
+# The CLIs whose next word is their own subcommand (npm rm, git rm, docker rm, helm rm): no rule starts there. Any other
+# program's first argument may be a command it runs (fakeroot rm -rf, proxychains4 fusebase deploy; review B H3).
+CLIS = set("npm pnpm yarn bun npx git docker docker-compose podman kubectl helm gh cargo go pip pip3 pipx uv poetry conda "
+           "brew apt apt-get dnf yum apk snap systemctl service fusebase terraform aws az gcloud firebase vercel netlify "
+           "heroku fly flyctl supabase prisma dotnet composer gem bundle rake rails jj hg svn rustup deno nx turbo "
+           "lerna mix kind minikube skaffold".split())
 RUNNER_OWN = set("add remove rm uninstall install i update up upgrade run test init create publish link unlink why "
                  "outdated audit list ls info config store cache prune dedupe import version pack login logout whoami "
                  "global bin workspace workspaces patch rebuild env setup licenses root".split())
@@ -464,7 +470,7 @@ def classify(fields: list[str]) -> list[str]:
 def subcommand_slot(fields: list[str], last: int) -> bool:
     """The word right after a CLI is its subcommand (npm rm, git rm, docker rm): no rule starts there. A wrapper's next
     word is a command instead (classify marks it)."""
-    return last + 1 < len(fields) and bool(BARE.fullmatch(fields[last + 1]))
+    return last + 1 < len(fields) and basename(fields[last]) in CLIS and bool(BARE.fullmatch(fields[last + 1]))
 
 
 def git_data(fields: list[str], roles: list[str], c: int) -> None:
