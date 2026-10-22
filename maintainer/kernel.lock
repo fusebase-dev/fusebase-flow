@@ -89,6 +89,8 @@
 #   hooks/shared/policy_loader.py, hooks/handlers/pre_tool_use.py and policies/command-policy.yml: the tool-time gate
 #   reads the shipped policies as committed at HEAD, and checking out or restoring policies/ is denied (T362; 5.x
 #   fcdcd093, local; m7 review B #1).
+#   hooks/shared/policy_loader.py and hooks/shared/command_policy.py: a malformed local policy file is named in the
+#   denial, with its fix (T363; 5.x 3727d962, local; m7 review B #2).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -130,14 +132,14 @@ d53374aae4f94b1856c5320bfdc1ada113aa84e2ec6eecef793208efbf6c018d  hooks/local/wr
 a17fa14158188b1c02621a2d5cad7a96470578b007abb973a7327a6a00163538  hooks/shared/__init__.py
 696f965553e07c1fcdae0058d83d15f53ea136b25dd9faddb03edeffdcbefcc0  hooks/shared/approval_artifact.py
 0f69349b626801094d3069a4d27a77cc66a4e2d93e62e6ed9394ab040ac156cf  hooks/shared/audit_logger.py
-5f3759ff79057bc5dffca851959d893b9cf814a176a537fb9b2a13b9d222b759  hooks/shared/command_policy.py
+c5a6ff746c8e0baec5f2a5cc0d642e66a0f698d0a891baf4bd222cb6cce5d9d0  hooks/shared/command_policy.py
 fb4f21f1b28e3bceea8c501660a7e4e302f411130100ff95b55e2ce0b9a994bc  hooks/shared/command_rules.py
 b7a4799b594ab720c54648f22e163966e4320bf208e67496a3ae742654c6902c  hooks/shared/denial_message.py
 c11049e6dba62a00f23891837cb3c65ba47479f1ac2955d0896b6827c39c03c1  hooks/shared/git_push_binding.py
 d62987d303cd4783b682790572a5656596ef5e76c0e9fa9d87701fef7d857dcd  hooks/shared/git_utils.py
 cc747d1b046b652ab5c2677752644e02f73e00917950a6a417a3a50333ce3de3  hooks/shared/module_size.py
 96de7d2ea15bb3bb2d689a0567bf91a7316c1d5fe8412c3dcc0b8aec603bd2d7  hooks/shared/path_policy.py
-7f06fc987c678bbae3397ed9fe09d3b56a2dce9c271235fa5c7d2dbeb827170c  hooks/shared/policy_loader.py
+2822da3b8b4aaf8f04f54b4b64d8d0cb359375f5e402fd829c5f0f28b1ce853f  hooks/shared/policy_loader.py
 fecb30ef246aaf2dc90dc55200de5d1b0bab92242c8cbbd5cbd3e9c0d8d784fa  hooks/shared/secret_scanner.py
 5461d47d72c281845c43b40b8f4e572023443c41ebecb1777520b3cf2527cfa8  hooks/shared/shell_parse.py
 0edcc2f71b1fd1cbe6bda218738f337486aea6979790f2c6514fb209ba757b49  hooks/shared/shell_view.py

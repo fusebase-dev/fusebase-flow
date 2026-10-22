@@ -200,13 +200,17 @@ def _rule_active(rule: Any, workflow_mode: str) -> bool:
 POLICY_ERROR_RULE_ID = "FLOW-POLICY-ERROR"
 
 
-def _policy_error(command: str, detail: str) -> CommandDecision:
+def _policy_error(command: str, detail: str, where: str = "") -> CommandDecision:
+    """`where`: the file at fault, when a local override is (m7 review B #2: the message blamed the shipped file)."""
+    where = where or ("" if ".local.yml" in detail else "policies/command-policy.yml")
     return CommandDecision(
         command=command,
         decision="deny",
         reason=(
             f"FR-12/K4: command-policy is defective, so the gate cannot be evaluated — "
-            f"denying (fail closed). {detail} Fix policies/command-policy.yml."
+            f"denying (fail closed). {detail}" + (f" Fix {where}" + (" by hand (a shell write into policies/ is "
+                                                                     "denied)." if ".local." in where else ".")
+                                                  if where else "")
         ),
         rule_id=POLICY_ERROR_RULE_ID,
     )
@@ -238,7 +242,7 @@ def _evaluate_deny(command: str, policy: dict[str, Any]) -> CommandDecision | No
     for rule in policy.get("deny", []) or []:
         matched, err = rule_matches(rule, command, "deny")
         if err:
-            return _policy_error(command, err)
+            return _policy_error(command, err, rule.get("_source", "") if isinstance(rule, dict) else "")
         if matched:
             rule_id = rule.get("rule_id", "FR-06")
             pattern = rule["pattern"]
@@ -331,7 +335,7 @@ def _evaluate_require_approval(
             continue
         matched, err = rule_matches(rule, command, "require_approval")
         if err:
-            return _policy_error(command, err)
+            return _policy_error(command, err, rule.get("_source", "") if isinstance(rule, dict) else "")
         if not matched:
             continue
         if matched_rule is None:

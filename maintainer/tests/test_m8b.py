@@ -154,6 +154,18 @@ class GateReviewB(test_m7.LocalTightens):
                         "git checkout -- src/app.ts"):
             self.assertEqual(self.bash(command), "allow", command)
 
+    def test_a_malformed_local_policy_is_named_in_the_denial(self) -> None:
+        # B#2: the K4 denial told the operator to fix policies/command-policy.yml when the local file was at fault
+        self.local("command-policy", "deny: [\n")
+        out = self.verdict("Bash", {"command": "ls"})
+        self.assertEqual(out["flow_decision"], "deny", out)
+        self.assertIn("policies/command-policy.local.yml is unreadable", out["reason"])
+        self.assertNotIn("Fix policies/command-policy.yml", out["reason"])
+        self.local("command-policy", "deny:\n  - pattern: '('\n    reason: broken\n    rule_id: LOCAL-1\n")
+        out = self.verdict("Bash", {"command": "ls"})
+        self.assertEqual(out["flow_decision"], "deny", out)
+        self.assertIn("Fix policies/command-policy.local.yml by hand", out["reason"])
+
 
 class EolPinRun(unittest.TestCase):
     """m7 review A #6: a project's own line spelled like a 5.x pin (`VERSION text eol=lf`, written by the project before

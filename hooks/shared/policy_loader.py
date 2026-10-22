@@ -102,9 +102,14 @@ def get_policy(name: str, *, root: Path | None = None, refresh: bool = False) ->
 
     pdir = policies_dir(root)
     committed = _committed_text(pdir.parent, name) if str(pdir.parent.resolve()) in _COMMITTED else None
+    local_path = pdir / f"{name}.local.yml"
+    try:
+        local = _load_yaml(local_path)
+    except (ValueError, yaml.YAMLError) as e:  # m7 review B #2: name the local file, not the shipped one
+        raise ValueError(f"policies/{name}.local.yml is unreadable ({e}); it may only add rules, so fix it or delete it "
+                         "by hand (the gate denies a shell write into policies/)") from e
     base = _load_yaml(pdir / f"{name}.yml") if committed is None else _mapping(yaml.safe_load(committed) or {},
                                                                                   f"HEAD:policies/{name}.yml")
-    local = _load_yaml(pdir / f"{name}.local.yml")
     # TRIPWIRE (6.0.0-m7 item 5, review r2-34): a gitignored local file only ever tightens, whatever the
     # committed file's local_override_may_relax says. Written through Bash, `deny: []` in
     # command-policy.local.yml used to empty the deny list and let `git commit --no-verify` through.
@@ -119,7 +124,8 @@ def _tighten(name: str, base: dict[str, Any], local: dict[str, Any]) -> dict[str
     if name == "command-policy":  # more deny and approval rules; never fewer, never an allow or a default
         for stage in ("deny", "require_approval"):
             mine = list(base.get(stage) or [])
-            out[stage] = mine + [r for r in local.get(stage) or [] if isinstance(r, dict) and r not in mine]
+            out[stage] = mine + [{**r, "_source": f"policies/{name}.local.yml"} for r in local.get(stage) or []
+                                 if isinstance(r, dict) and r not in mine]
     elif name == "secret-patterns":  # more patterns; a shipped id keeps its shipped entry; no whitelist
         mine = list(base.get("patterns") or [])
         ids = {p.get("id") for p in mine if isinstance(p, dict)}
