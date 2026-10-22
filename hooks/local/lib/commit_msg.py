@@ -21,7 +21,9 @@ from the top of the work tree; exit 0 accept, 1 reject with the reason on stderr
 from __future__ import annotations
 
 import re
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 BLOCK = "[fusebase-flow:commit-msg] BLOCK — "
@@ -109,19 +111,41 @@ def merge_heads(root: Path) -> list[str]:
 
 def beyond_parents(root: Path, heads: list[str]) -> set[str]:
     """The staged paths with a hunk no parent holds (`git diff-tree --cc` of the index as a commit of HEAD and the
-    merged commits): what the merge adds itself. A file each side changed in other hunks, merged clean, is not one. When
-    git cannot build that commit, every path that differs from all parents counts."""
+    merged commits): what the merge adds itself. A file each side changed in other hunks, merged clean, is not one:
+    --cc joins edits a few lines apart into one hunk, so a file whose staged bytes are git's clean three-way merge is
+    dropped (6.0.0-m8 review A N1). When git cannot build that commit, every path that differs from all parents counts."""
     tree = fd.git(root, "write-tree").strip()
     parents = [x for h in ["HEAD", *heads] for x in ("-p", h)]
     commit = tree and fd.git(root, "-c", "user.name=flow-merge-check", "-c", "user.email=flow@invalid", "commit-tree",
-                             tree, *parents, "-m", "flow: merge check").strip()
+                             "--no-gpg-sign", tree, *parents, "-m", "flow: merge check").strip()
     if commit:
-        return {ln[len("diff --cc "):].strip('"') for ln in fd.git(root, "diff-tree", "--cc", "--no-color", commit)
-                .splitlines() if ln.startswith("diff --cc ")}
+        listed = {ln[len("diff --cc "):].strip('"') for ln in fd.git(root, "diff-tree", "--cc", "--no-color", commit)
+                  .splitlines() if ln.startswith("diff --cc ")}
+        return listed - merged_clean(root, heads[0], listed) if len(heads) == 1 and listed else listed
     found = set(fd.git(root, "diff", "--cached", "--name-only", "--no-renames", "-z", "HEAD").split("\0")) - {""}
     for head in heads:
         found &= set(fd.git(root, "diff", "--cached", "--name-only", "--no-renames", "-z", head).split("\0"))
     return found
+
+
+def merged_clean(root: Path, head: str, paths: set[str]) -> set[str]:
+    """The paths whose staged bytes equal `git merge-file` of HEAD's, the merge base's and `head`'s (a clean merge)."""
+    base = fd.git(root, "merge-base", "HEAD", head).strip()
+    got = fd.blobs(root, [f"{rev}:{p}" for p in paths for rev in ("HEAD", base, head, "")]) if base else {}
+    clean: set[str] = set()
+    with tempfile.TemporaryDirectory() as folder:
+        for p in paths:
+            sides, staged = [got.get(f"{rev}:{p}") for rev in ("HEAD", base, head)], got.get(f":{p}")
+            if staged is None or None in sides:
+                continue
+            files = [Path(folder) / name for name in ("ours", "base", "theirs")]
+            for f, data in zip(files, sides):
+                f.write_bytes(data)
+            out = subprocess.run(["git", "merge-file", "-p", *map(str, files)], capture_output=True, timeout=120,
+                                 creationflags=fd.NO_WINDOW)
+            if out.returncode == 0 and out.stdout == staged:
+                clean.add(p)
+    return clean
 
 
 def check(root: Path, text: str) -> str | None:

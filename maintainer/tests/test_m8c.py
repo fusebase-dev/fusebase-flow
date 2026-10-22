@@ -15,6 +15,7 @@ from pathlib import Path
 from unittest import mock
 
 import test_m7
+import test_m8
 
 CORE = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(CORE / "hooks")]
@@ -195,6 +196,54 @@ class OlderHooksPush(test_m7.RangeCheck):
         self.assertEqual(check(), 0, "6.0.0-m7's pre-push (no --remote) refused a commit the remote holds")
         self.assertEqual(check("--remote", "origin"), 0)
         self.assertNotEqual(check("--remote", str(self.remote)), 0, "a URL trusts no tracking ref")
+
+
+class NearbyMergeEdits(test_m8.MergeHead):
+    """Review A N1 (it held the 6.0.0-m8 tag): `git diff-tree --cc` joins two sides' edits a few lines apart into one
+    combined hunk, so a clean merge was refused ("changes src/app.py beyond what its parents hold"); 6.0.0-m7 passed it.
+    A file whose staged bytes are git's clean three-way merge is no change of the merge's own."""
+
+    locals().update(inherited(test_m8.MergeHead))
+
+    def lines(self, name: str, edit: dict) -> None:
+        test_m8.write(self.repo, name, "".join(f"line {n}{edit.get(n, '')}" + NL for n in range(16)))
+
+    def test_sides_edited_one_to_nine_lines_apart_merge_clean(self) -> None:
+        git = test_m8.git
+        for gap in (1, 2, 3, 9):  # unchanged lines between the two sides' edits
+            name = f"f{gap}.txt"
+            self.lines(name, {})
+            git(self.repo, "add", "--", name)
+            git(self.repo, "commit", "-q", "--no-verify", "-m", f"T1: {name}")
+            git(self.repo, "checkout", "-q", "-b", f"side{gap}")
+            self.lines(name, {3: " side"})
+            git(self.repo, "commit", "-q", "--no-verify", "-am", f"T2: side {gap}")
+            git(self.repo, "checkout", "-q", "main")
+            self.lines(name, {3 + gap + 1: " main"})
+            git(self.repo, "commit", "-q", "--no-verify", "-am", f"T3: main {gap}")
+            merged = git(self.repo, "merge", "--no-commit", "--no-ff", f"side{gap}")
+            self.assertEqual(merged.returncode, 0, merged.stdout + merged.stderr)
+            out = self.subject(f"Merge branch 'side{gap}'")
+            self.assertEqual(out.returncode, 0, f"{gap} unchanged lines between the edits: {out.stderr}")
+            git(self.repo, "commit", "-q", "--no-verify", "-m", f"Merge branch 'side{gap}'")
+
+    def test_an_added_change_in_a_merge_still_takes_the_subject_rules(self) -> None:
+        git = test_m8.git
+        self.lines("g.txt", {})
+        git(self.repo, "add", "--", "g.txt")
+        git(self.repo, "commit", "-q", "--no-verify", "-m", "T1: g")
+        git(self.repo, "checkout", "-q", "-b", "side-g")
+        self.lines("g.txt", {3: " side"})
+        git(self.repo, "commit", "-q", "--no-verify", "-am", "T2: side")
+        git(self.repo, "checkout", "-q", "main")
+        self.lines("g.txt", {6: " main"})
+        git(self.repo, "commit", "-q", "--no-verify", "-am", "T3: main")
+        git(self.repo, "merge", "--no-commit", "--no-ff", "side-g")
+        self.lines("g.txt", {3: " side", 6: " main", 9: " added in the merge"})
+        git(self.repo, "add", "--", "g.txt")
+        out = self.subject("Merge branch 'side-g'")
+        self.assertEqual(out.returncode, 1, "an added change took no subject rule")
+        self.assertIn("beyond what its parents hold", out.stderr)
 
 
 if __name__ == "__main__":
