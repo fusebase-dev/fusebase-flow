@@ -91,5 +91,21 @@ class CodeTheParserReads(Gate):
         self.assert_denied("python3 -c \"import os; os.system('rm -rf /tmp/x \\\"')\"")
 
 
+class ArgumentsThatRun(Gate):
+    """Review B H3, the programs whose argument is a shell command: trap's, git's `submodule foreach`, `rebase -x`, a
+    `!` alias, core.pager and core.sshCommand, and GIT_SSH_COMMAND (CODE_ARGS beside WRAPPERS)."""
+
+    def test_trap_and_git_run_their_argument(self) -> None:
+        self.assert_denied("trap 'rm -rf \"$tmp\"' EXIT", "trap \"rm -rf /tmp/x\" EXIT INT",
+                           "git submodule foreach 'git reset --hard'", "git submodule foreach --recursive 'git clean -fdx'",
+                           "git rebase --exec 'rm -rf /tmp/x' HEAD~1", "git rebase -x 'fusebase deploy' HEAD~1",
+                           "git -c alias.x='!rm -rf /tmp/x' x", "git config alias.x '!fusebase deploy' && git x",
+                           "git -c core.pager='rm -rf /tmp/x' log", "git -c core.sshCommand='fusebase deploy' fetch",
+                           "GIT_SSH_COMMAND='rm -rf /tmp/x' git fetch")
+        self.assert_allowed("trap 'echo done' EXIT", "git submodule foreach 'git status'",
+                            "git rebase -x 'npm test' HEAD~3", "git -c core.pager=less log",
+                            "GIT_SSH_COMMAND='ssh -i ~/.ssh/deploy_key' git fetch", "git config alias.st status")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -46,6 +46,11 @@ RUNNER_OWN = set("add remove rm uninstall install i update up upgrade run test i
                  "global bin workspace workspaces patch rebuild env setup licenses root".split())
 GIT_GLOBAL_VALUE = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env", "--exec-path",
                     "--super-prefix", "--attr-source"}
+# Programs whose argument, or an option's value, is a shell command they run (6.0.0-m8 fix, review B H3): trap's first
+# argument; git's `submodule foreach` command, `rebase -x/--exec`, a `!` alias and the settings and variables below.
+CODE_ARGS = {"trap": "first", "git": "submodule foreach, rebase -x/--exec, -c or config: alias.*=!..., GIT_CODE_KEYS"}
+GIT_CODE_KEYS = {"core.sshcommand", "core.pager", "core.editor", "sequence.editor"}
+GIT_CODE_VARS = {"GIT_SSH_COMMAND", "GIT_PAGER", "GIT_EDITOR", "GIT_SEQUENCE_EDITOR"}
 RESERVED = {"!", "{", "}", "if", "then", "elif", "else", "fi", "do", "done", "while", "until"}
 STDIN = {"-", "/dev/stdin", "/dev/fd/0", "/proc/self/fd/0"}  # a script path that is the shell's own stdin
 BARE = re.compile(r"[A-Za-z][\w.:-]*")
@@ -217,6 +222,9 @@ class Analysis:
                     self.env[name] = value
         if base == "read":
             self.read_into(fields[last + 1:], cmd)
+        for f in fields:  # GIT_SSH_COMMAND='...' git fetch: git runs the value (review B H3)
+            if ASSIGN.match(f) and f.partition("=")[0].rstrip("+") in GIT_CODE_VARS:
+                self.code(f.partition("=")[2])
         self.args(fields, roles, last, base)
         consumer ="shell" if is_shell_reader(fields, last) else "script" if is_script_reader(fields, last) else ""
         self.heredocs(cmd, consumer, fields[last:], out_to)
@@ -264,6 +272,14 @@ class Analysis:
                     roles[k] = "data"
         elif base == "git":
             git_data(fields, roles, c)
+            self.git_code(fields, roles, c)
+        elif base in CODE_ARGS:  # trap '<command>' <signals>
+            k = c + 1
+            while k < len(fields) and fields[k] in ("-p", "-l", "--"):
+                k += 1
+            if k < len(fields):
+                roles[k] = "data"
+                self.code(fields[k])
         elif base == "gh":
             for k in rest:
                 if fields[k - 1] in ("--body", "-b", "--title", "-t", "--notes", "-n", "--message", "-m"):
@@ -304,6 +320,43 @@ class Analysis:
                 self.code(" ".join(fields[k + 1:]))
         self.shell_c(fields, roles, c)
         self.approve_local(fields, roles, c)
+
+    def git_code(self, fields: list[str], roles: list[str], c: int) -> None:
+        """The shell commands a git line hands to a shell (CODE_ARGS)."""
+        k = c + 1
+        while k < len(fields) and fields[k].startswith("-") and fields[k] != "--":
+            if fields[k] == "-c" and k + 1 < len(fields):
+                self.git_setting(fields[k + 1])
+            k += 2 if fields[k] in GIT_GLOBAL_VALUE else 1
+        sub, rest = (fields[k] if k < len(fields) else ""), range(k + 1, len(fields))
+        if sub == "submodule" and fields[k + 1:k + 2] == ["foreach"]:
+            j = k + 2
+            while j < len(fields) and fields[j].startswith("-"):
+                j += 1
+            if j < len(fields):
+                for t in range(j, len(fields)):
+                    roles[t] = "data"
+                self.code(" ".join(fields[j:]))
+        elif sub == "rebase":
+            for j in rest:
+                if fields[j] in ("-x", "--exec") and j + 1 < len(fields):
+                    roles[j + 1] = "data"
+                    self.code(fields[j + 1])
+                elif fields[j].startswith("--exec="):
+                    roles[j] = "data"
+                    self.code(fields[j].partition("=")[2])
+        elif sub == "config":
+            pos = [j for j in rest if not fields[j].startswith("-") and fields[j - 1] not in ("-f", "--file", "--blob")]
+            pos = pos[1:] if pos and fields[pos[0]] == "set" else pos
+            if len(pos) >= 2:
+                self.git_setting(f"{fields[pos[0]]}={fields[pos[1]]}")
+
+    def git_setting(self, setting: str) -> None:
+        key, _, value = setting.partition("=")
+        if key.lower().startswith("alias.") and value.startswith("!"):
+            self.code(value[1:])
+        elif key.lower() in GIT_CODE_KEYS:
+            self.code(value)
 
     def shell_c(self, fields: list[str], roles: list[str], c: int) -> None:
         """`sh -c X` (and `bash -lc X` ...), as the command or anywhere among its arguments: X is shell code; the words
