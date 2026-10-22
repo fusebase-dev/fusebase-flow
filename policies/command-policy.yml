@@ -133,6 +133,9 @@ deny:
   - pattern: '\bopen\(\s*[rbfuRBFU]*["''](?:[^"''\n]*[/\\])?(?:policies|state[/\\]approvals|\.git[/\\]flow)[/\\][^"''\n]*["'']\s*,\s*(?:mode\s*=\s*)?[rbfuRBFU]*["''][rbt+]*[wax]|["''](?:[^"''\n]*[/\\])?(?:policies|state[/\\]approvals|\.git[/\\]flow)[/\\][^"''\n]*["'']\s*\)\s*\.\s*write_(?:text|bytes)\b'
     reason: "FR-07: a script that opens a file in policies/, state/approvals/ or .git/flow/ for writing is a shell write there; a policy change is a committed, protected edit."
     rule_id: FR-07
+  - pattern: '\bgit\s+(?:checkout|restore)\b[^;&|\n]*\s["'']?(?:\./)?policies(?:[/\\]|["'']?(?:\s|$))'
+    reason: "FR-07: checking out or restoring files in policies/ rewrites what the hooks enforce (an older policy without today's denials); a policy change is a committed, protected edit."
+    rule_id: FR-07
   - pattern: '\b(?:Set-Content|Add-Content|Out-File|New-Item|Copy-Item|Move-Item)\b[^;&|\n]*["'']?(?:[^\s"'';&|<>]*[/\\])?(?:policies|state[/\\]approvals|\.git[/\\]flow)[/\\]'
     flags: [i]
     reason: "FR-07: a PowerShell write into policies/, state/approvals/ or .git/flow/ is a write there; a policy change is a committed, protected edit."

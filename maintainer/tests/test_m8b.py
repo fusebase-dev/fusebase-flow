@@ -134,6 +134,25 @@ class GateReviewB(test_m7.LocalTightens):
         self.assertEqual(self.decide("Write", {"file_path": str(self.repo.resolve() / "src/a.ts"), "content": "x\n"}),
                          "allow")
 
+    def test_a_working_tree_edit_of_a_shipped_policy_loosens_nothing_and_checking_policies_out_is_denied(self) -> None:
+        # B#1: the handler read policies/*.yml from the working tree: written by a script, or checked out from an older
+        # commit, they emptied the deny list and `git commit --no-verify` went through
+        self.committed()
+        shipped = self.repo / "policies/command-policy.yml"
+        policy = yaml.safe_load(shipped.read_text(encoding="utf-8"))  # a loosened, well-formed policy
+        policy["deny"] = [r for r in policy["deny"] if not any(w in str(r.get("pattern")) for w in
+                                                               ("verify", "commit", "checkout", "restore"))]
+        policy["require_approval"] = []
+        shipped.write_text(yaml.safe_dump(policy, sort_keys=False), encoding="utf-8")
+        for command in ("git commit --no-verify -m x", "npx prisma migrate deploy"):
+            self.assertEqual(self.bash(command), "deny", command)
+        for command in ("git checkout HEAD~1 -- policies/", "git checkout HEAD~1 -- policies/command-policy.yml",
+                        "git restore --source HEAD~1 policies/command-policy.yml", "git restore policies",
+                        "git checkout -- ./policies/secret-patterns.yml"):
+            self.assertEqual(self.bash(command), "deny", command)
+        for command in ("git checkout main", "git checkout -b policies-fix", "git restore src/policies/rules.ts",
+                        "git checkout -- src/app.ts"):
+            self.assertEqual(self.bash(command), "allow", command)
 
 
 class EolPinRun(unittest.TestCase):

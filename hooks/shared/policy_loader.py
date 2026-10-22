@@ -13,6 +13,7 @@ it holds is dropped. What a project loosens belongs in a committed, protected fi
 from __future__ import annotations
 
 import os
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,25 @@ except ImportError:  # pragma: no cover
 
 
 _POLICY_CACHE: dict[str, dict[str, Any]] = {}
+# TRIPWIRE (6.0.0-m8, m7 review B #1): the roots whose shipped policies/*.yml are read as committed at HEAD. The tool-time
+# handler registers its root: a working-tree edit (node -e writeFileSync, `git checkout HEAD~1 -- policies/`) loosened
+# the deny list, and `git commit --no-verify` went through. The pre-commit reads HEAD's policies its own way.
+_COMMITTED: set[str] = set()
+
+
+def use_committed(root: Path) -> None:
+    """From now on, read root's shipped policies/<name>.yml at HEAD (the working tree only while HEAD lacks it)."""
+    _COMMITTED.add(str(Path(root).resolve()))
+    _POLICY_CACHE.clear()
+
+
+def _committed_text(root: Path, name: str) -> str | None:
+    try:
+        out = subprocess.run(["git", "cat-file", "blob", f"HEAD:policies/{name}.yml"], cwd=str(root),
+                             capture_output=True, timeout=60, creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return out.stdout.decode("utf-8") if out.returncode == 0 else None
 
 
 def find_git_root(start: Path | None = None) -> Path:
@@ -46,14 +66,17 @@ def policies_dir(root: Path | None = None) -> Path:
     return (root or find_git_root()) / "policies"
 
 
+def _mapping(data: Any, where: str) -> dict[str, Any]:
+    if not isinstance(data, dict):
+        raise ValueError(f"Policy file {where} must contain a mapping at top level.")
+    return data
+
+
 def _load_yaml(path: Path) -> dict[str, Any]:
     if not path.exists():
         return {}
     with path.open("r", encoding="utf-8") as f:
-        data = yaml.safe_load(f) or {}
-    if not isinstance(data, dict):
-        raise ValueError(f"Policy file {path} must contain a mapping at top level.")
-    return data
+        return _mapping(yaml.safe_load(f) or {}, str(path))
 
 
 def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -78,7 +101,9 @@ def get_policy(name: str, *, root: Path | None = None, refresh: bool = False) ->
         return _POLICY_CACHE[cache_key]
 
     pdir = policies_dir(root)
-    base = _load_yaml(pdir / f"{name}.yml")
+    committed = _committed_text(pdir.parent, name) if str(pdir.parent.resolve()) in _COMMITTED else None
+    base = _load_yaml(pdir / f"{name}.yml") if committed is None else _mapping(yaml.safe_load(committed) or {},
+                                                                                  f"HEAD:policies/{name}.yml")
     local = _load_yaml(pdir / f"{name}.local.yml")
     # TRIPWIRE (6.0.0-m7 item 5, review r2-34): a gitignored local file only ever tightens, whatever the
     # committed file's local_override_may_relax says. Written through Bash, `deny: []` in

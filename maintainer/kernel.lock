@@ -84,8 +84,11 @@
 #   is scanned (T357; 5.x 4f8601f9, local; m7 review A #2).
 #   hooks/git/pre-push: hands the range check the remote's name, so only that remote's tracking refs count as already
 #   pushed (T358; 5.x 2d145606, local; m7 review A #3).
-#   hooks/handlers/pre_tool_use.py: a Windows spelling of a path (\?\, \?\UNC\, a localhost share, \.\, a trailing dot
+#   hooks/handlers/pre_tool_use.py: a Windows spelling of a path (\\?\, \\?\UNC\, a localhost share, \\.\, a trailing dot
 #   or space, an NTFS stream) is judged as the file Windows opens (T360; 5.x b429ee99, local; m7 review A #5).
+#   hooks/shared/policy_loader.py, hooks/handlers/pre_tool_use.py and policies/command-policy.yml: the tool-time gate
+#   reads the shipped policies as committed at HEAD, and checking out or restoring policies/ is denied (T362; 5.x
+#   fcdcd093, local; m7 review B #1).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -112,7 +115,7 @@ b5f95a53fa55ccc62da9467c08464ccf443b7ad282fb3f7ffb6b073ff28ba717  hooks/git/pre-
 9cd67869e78cfca6dcb6f0f32d64ed68bec34e9da9cdd99bb7913385ab630055  hooks/git/pre-merge-commit
 359f9a0be4b5efc8d01f479fa9430cf226ec198bbecd8ec644803f6fccc13ef5  hooks/git/pre-push
 a0685b0884a42d5704339ba342247704169b35da26cb228f533f03fc60448e0c  hooks/handlers/post_tool_use.py
-e4dc035d2f784f706eb2b3897285c10c284b57be4bdb0d938a060730a12db1d9  hooks/handlers/pre_tool_use.py
+faca0ac8084db3e3c26ac899de43b466107a41c8d0a73a9b9297815234db7cc0  hooks/handlers/pre_tool_use.py
 465857b88e14d4b1a77e91479eb474d3c27efe2f4f888a6211623ed7f5c83400  hooks/local/approve-local.sh
 0f81c1e0228570d3469a8a2079c4386c0093e9ba88c4561f6621f2ff71a1bef4  hooks/local/check-module-size.sh
 8c1c594b604bb3e27a5879619307ae8c051cb52837ade5d30c15453b31ec62ca  hooks/local/install-git-hooks.sh
@@ -134,13 +137,13 @@ c11049e6dba62a00f23891837cb3c65ba47479f1ac2955d0896b6827c39c03c1  hooks/shared/g
 d62987d303cd4783b682790572a5656596ef5e76c0e9fa9d87701fef7d857dcd  hooks/shared/git_utils.py
 cc747d1b046b652ab5c2677752644e02f73e00917950a6a417a3a50333ce3de3  hooks/shared/module_size.py
 96de7d2ea15bb3bb2d689a0567bf91a7316c1d5fe8412c3dcc0b8aec603bd2d7  hooks/shared/path_policy.py
-04934ba091859d9dc46e5f4bae3b72ed69a92ad567e40fcd796c1e1db02b904a  hooks/shared/policy_loader.py
+7f06fc987c678bbae3397ed9fe09d3b56a2dce9c271235fa5c7d2dbeb827170c  hooks/shared/policy_loader.py
 fecb30ef246aaf2dc90dc55200de5d1b0bab92242c8cbbd5cbd3e9c0d8d784fa  hooks/shared/secret_scanner.py
 5461d47d72c281845c43b40b8f4e572023443c41ebecb1777520b3cf2527cfa8  hooks/shared/shell_parse.py
 0edcc2f71b1fd1cbe6bda218738f337486aea6979790f2c6514fb209ba757b49  hooks/shared/shell_view.py
 b2121d6ff3fd99a315087383f772ed29de11bd920c2ef7d8e8041938a50e15c4  hooks/shared/staged_secret_scan.py
 66e639442e9b2f7be2e91c7072a95a6c49331ddf5bd203c29c714cc48fd527bf  policies/approval-policy.yml
-13f95fe50d5fceec55edd31a824da2539d939e59a6dff98616f29175d65522e4  policies/command-policy.yml
+ee394f9236646d39d7623ac6428b0658976f5033211b9e8bc71de880f2e06ecb  policies/command-policy.yml
 7747637a42919bf6548600fc78a9f53866ed655dfff00370958a0707674f3840  policies/module-size-baseline.txt
 cd603634033c3eb68970210d5d2a0762c3fd0ee01ec53c36a8f4644ec7374f2f  policies/module-size.yml
 6b9688b914f6231309c73463aff75993b030436ea9d3addd56d8a28ea0c70c11  policies/protected-paths.yml

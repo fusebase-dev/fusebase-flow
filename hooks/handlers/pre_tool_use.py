@@ -33,7 +33,7 @@ from shared.path_policy import (  # noqa: E402
     assert_protected_policy_loaded,
     evaluate as evaluate_path,
 )
-from shared.policy_loader import find_git_root  # noqa: E402
+from shared.policy_loader import find_git_root, use_committed  # noqa: E402
 from shared.secret_scanner import scan, block_decision  # noqa: E402
 
 
@@ -116,6 +116,8 @@ def main() -> int:
         root = None
 
     tool_name = event.get("tool_name", "")
+    if root is not None:  # the shipped policies as committed, never a working-tree edit of them (m7 review B #1)
+        use_committed(root)
 
     # 1. Command-policy check (Bash-like)
     if is_command_tool(tool_name):
