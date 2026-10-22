@@ -229,7 +229,7 @@ class NearbyMergeEdits(test_m8.MergeHead):
 
     def test_sides_edited_one_to_nine_lines_apart_merge_clean(self) -> None:
         git = test_m8.git
-        for gap in (1, 2, 3, 9):  # unchanged lines between the two sides' edits
+        for gap in (1, 2, 3, 4, 9):  # unchanged lines between the two sides' edits
             name = f"f{gap}.txt"
             self.lines(name, {})
             git(self.repo, "add", "--", name)
@@ -246,23 +246,108 @@ class NearbyMergeEdits(test_m8.MergeHead):
             self.assertEqual(out.returncode, 0, f"{gap} unchanged lines between the edits: {out.stderr}")
             git(self.repo, "commit", "-q", "--no-verify", "-m", f"Merge branch 'side{gap}'")
 
+    def merge_passes(self, branch: str) -> None:
+        merged = test_m8.git(self.repo, "merge", "--no-commit", "--no-ff", branch)
+        self.assertEqual(merged.returncode, 0, merged.stdout + merged.stderr)
+        out = self.subject(f"Merge branch '{branch}'")
+        self.assertEqual(out.returncode, 0, f"{branch}: {out.stderr}")
+        test_m8.git(self.repo, "commit", "-q", "--no-verify", "-m", f"Merge branch '{branch}'")
+
+    def commit_all(self, subject: str) -> None:
+        test_m8.git(self.repo, "add", "-A")
+        test_m8.git(self.repo, "commit", "-q", "--no-verify", "-m", subject)
+
+    def test_a_rename_on_one_side_and_an_edit_on_the_other_merge_clean(self) -> None:
+        # review A's re-check: merge-file had no side for a renamed path, so src/renamed.py stayed flagged
+        git = test_m8.git
+        for near, line in (("near", 2), ("far", 20)):
+            src = f"src/ren_{near}.py"
+            test_m8.write(self.repo, src, "".join(f"x{n} = {n}" + NL for n in range(30)))
+            self.commit_all(f"T1: {src}")
+            git(self.repo, "checkout", "-q", "-b", f"side-ren-{near}")
+            git(self.repo, "mv", src, f"src/renamed_{near}.py")
+            self.commit_all("T2: the rename")
+            git(self.repo, "checkout", "-q", "main")
+            test_m8.write(self.repo, src, "".join(f"x{n} = {n}{' + 1' if n == line else ''}" + NL for n in range(30)))
+            self.commit_all("T3: an edit")
+            self.merge_passes(f"side-ren-{near}")
+
+    def test_a_union_file_and_a_criss_cross_merge_merge_clean(self) -> None:
+        git = test_m8.git
+        test_m8.write(self.repo, ".gitattributes", "notes.txt merge=union" + NL)
+        test_m8.write(self.repo, "notes.txt", "first" + NL)
+        self.lines("cc.txt", {})
+        self.commit_all("T1: base")
+        git(self.repo, "checkout", "-q", "-b", "union-side")
+        test_m8.write(self.repo, "notes.txt", "first" + NL + "side" + NL)
+        self.commit_all("T2: a side note")
+        git(self.repo, "checkout", "-q", "main")
+        test_m8.write(self.repo, "notes.txt", "first" + NL + "main" + NL)
+        self.commit_all("T3: a main note")
+        self.merge_passes("union-side")  # merge=union: both appended lines kept
+        git(self.repo, "checkout", "-q", "-b", "left")
+        self.lines("cc.txt", {2: " left"})
+        self.commit_all("T4: left")
+        git(self.repo, "checkout", "-q", "-b", "right", "main")
+        self.lines("cc.txt", {12: " right"})
+        self.commit_all("T5: right")
+        git(self.repo, "merge", "-q", "--no-ff", "--no-edit", "left~0")  # right takes left
+        git(self.repo, "checkout", "-q", "left")
+        git(self.repo, "merge", "-q", "--no-ff", "--no-edit", "right~1")  # left takes right's own commit: criss-cross
+        self.lines("cc.txt", {2: " left", 12: " right", 5: " left again"})
+        self.commit_all("T6: left again")
+        git(self.repo, "checkout", "-q", "right")
+        self.lines("cc.txt", {2: " left", 12: " right", 9: " right again"})
+        self.commit_all("T7: right again")
+        for into, other in (("left", "right"), ("right", "left")):  # both orders
+            git(self.repo, "checkout", "-q", "-b", f"cc-into-{into}", into)
+            self.merge_passes(other)
+
+    def test_a_resolution_picking_neither_side_and_new_binary_bytes_take_the_subject_rules(self) -> None:
+        git = test_m8.git
+        self.lines("r.txt", {})
+        self.lines("n.txt", {})
+        test_m8.write(self.repo, "b.bin", bytes(range(256)))
+        self.commit_all("T1: base")
+        git(self.repo, "checkout", "-q", "-b", "side-r")
+        self.lines("r.txt", {4: " side"})
+        self.lines("n.txt", {2: " side"})
+        self.commit_all("T2: side")
+        git(self.repo, "checkout", "-q", "main")
+        self.lines("r.txt", {4: " main"})
+        self.lines("n.txt", {5: " main"})
+        self.commit_all("T3: main")
+        git(self.repo, "merge", "--no-commit", "--no-ff", "side-r")  # a conflict on line 4: merge-tree exits 1
+        self.lines("r.txt", {4: " neither"})
+        test_m8.write(self.repo, "b.bin", bytes(reversed(range(256))))
+        git(self.repo, "add", "--", "r.txt", "b.bin", "n.txt")
+        out = self.subject("Merge branch 'side-r'")
+        self.assertEqual(out.returncode, 1, "a resolution picking neither side took no subject rule")
+        self.assertIn("beyond what its parents hold", out.stderr)
+        self.assertIn("r.txt", out.stderr)
+        self.assertIn("b.bin", out.stderr)
+        self.assertNotIn("n.txt", out.stderr)  # merge-file, the fallback, still finds n.txt merged clean
+
     def test_an_added_change_in_a_merge_still_takes_the_subject_rules(self) -> None:
         git = test_m8.git
         self.lines("g.txt", {})
-        git(self.repo, "add", "--", "g.txt")
-        git(self.repo, "commit", "-q", "--no-verify", "-m", "T1: g")
+        test_m8.write(self.repo, "g.bin", bytes(range(256)))
+        self.commit_all("T1: g")
         git(self.repo, "checkout", "-q", "-b", "side-g")
         self.lines("g.txt", {3: " side"})
         git(self.repo, "commit", "-q", "--no-verify", "-am", "T2: side")
         git(self.repo, "checkout", "-q", "main")
         self.lines("g.txt", {6: " main"})
         git(self.repo, "commit", "-q", "--no-verify", "-am", "T3: main")
-        git(self.repo, "merge", "--no-commit", "--no-ff", "side-g")
+        git(self.repo, "merge", "--no-commit", "--no-ff", "side-g")  # clean: merge-tree exits 0
         self.lines("g.txt", {3: " side", 6: " main", 9: " added in the merge"})
-        git(self.repo, "add", "--", "g.txt")
+        test_m8.write(self.repo, "g.bin", bytes(reversed(range(256))))  # bytes neither side has
+        git(self.repo, "add", "--", "g.txt", "g.bin")
         out = self.subject("Merge branch 'side-g'")
         self.assertEqual(out.returncode, 1, "an added change took no subject rule")
         self.assertIn("beyond what its parents hold", out.stderr)
+        self.assertIn("g.txt", out.stderr)
+        self.assertIn("g.bin", out.stderr)
 
 
 if __name__ == "__main__":

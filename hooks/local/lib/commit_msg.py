@@ -129,7 +129,16 @@ def beyond_parents(root: Path, heads: list[str]) -> set[str]:
 
 
 def merged_clean(root: Path, head: str, paths: set[str]) -> set[str]:
-    """The paths whose staged bytes equal `git merge-file` of HEAD's, the merge base's and `head`'s (a clean merge)."""
+    """The paths whose staged blob is git's own clean merge of HEAD and `head`: the blob `git merge-tree --write-tree`
+    writes when it merges clean (a rename, a criss-cross history, a merge driver such as union, as `git merge` does;
+    6.0.0-m8 review A's re-check); with a git older than 2.38, or a conflict elsewhere, `git merge-file` of HEAD's, the
+    merge base's and `head`'s bytes. An added change or a resolution differs from both, and stays."""
+    tree = subprocess.run(["git", "merge-tree", "--write-tree", "HEAD", head], cwd=root, capture_output=True,
+                          timeout=300, creationflags=fd.NO_WINDOW)
+    if tree.returncode == 0 and tree.stdout.split():
+        merged = blob_ids(root, "ls-tree", "-r", "-z", tree.stdout.split()[0].decode(), "--", *sorted(paths))
+        staged = blob_ids(root, "ls-files", "-s", "-z", "--", *(f":(literal){q}" for q in sorted(paths)))
+        return {q for q in paths if q in merged and merged[q] == staged.get(q)}
     base = fd.git(root, "merge-base", "HEAD", head).strip()
     got = fd.blobs(root, [f"{rev}:{p}" for p in paths for rev in ("HEAD", base, head, "")]) if base else {}
     clean: set[str] = set()
@@ -146,6 +155,17 @@ def merged_clean(root: Path, head: str, paths: set[str]) -> set[str]:
             if out.returncode == 0 and out.stdout == staged:
                 clean.add(p)
     return clean
+
+
+def blob_ids(root: Path, *args: str) -> dict[str, str]:
+    """{path: blob id} from `git ls-tree -r -z` or `git ls-files -s -z` (stage 0 only)."""
+    found = {}
+    for rec in fd.git(root, *args).split("\0"):
+        meta, _, path = rec.partition("\t")
+        cells = meta.split()
+        if path and len(cells) == 3 and (args[0] == "ls-tree" or cells[2] == "0"):
+            found[path] = cells[2] if args[0] == "ls-tree" else cells[1]
+    return found
 
 
 def check(root: Path, text: str) -> str | None:
