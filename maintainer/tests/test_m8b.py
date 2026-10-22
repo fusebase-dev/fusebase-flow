@@ -62,6 +62,14 @@ class RangeReviewA(test_m7.RangeCheck):
         self.assertEqual(len(self.git("log", "-1", "--format=%P").stdout.split()), 3)
         self.refused(self.push("octo"), "a token an octopus merge added")
 
+    def test_a_tracking_ref_under_another_remotes_name_hides_nothing(self) -> None:
+        # A#3: any refs/remotes/* ref counted as the remote's, so one set by hand hid a commit from the check
+        sha = self.side_secret()
+        self.git("update-ref", "refs/remotes/other/side", sha)
+        self.refused(self.push("side"), "a token another remote's ref held")
+        merged = self.git("merge", "--no-ff", "--no-edit", "side", ok=False)
+        self.assertNotEqual(merged.returncode, 0, "the merge of a token another remote's ref held landed")
+        self.assertIn("a secret pattern in what the merge brings in", merged.stderr)
 
 
 class StagedScanHeaders(unittest.TestCase):

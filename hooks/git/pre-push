@@ -13,6 +13,7 @@
 
 set -uo pipefail
 
+FFPP_REMOTE="${1:-}"  # the remote's name (or a URL), for the range check
 FFPP_TMP=""
 _ffpp_cleanup() { [ -n "$FFPP_TMP" ] && rm -rf "$FFPP_TMP" 2>/dev/null; return 0; }
 trap _ffpp_cleanup EXIT
@@ -121,5 +122,6 @@ PYTHONPATH="" "${FFPP_PY[@]}" -S "$FFPP_TMP_NATIVE/gate.py" "$ROOT" \
 # has no range check, and the push goes on as before.
 if [ -f "$ROOT/hooks/local/lib/commit_msg.py" ]; then
     [ -f "$ROOT/hooks/local/lib/range_check.py" ] || _ffpp_block "hooks/local/lib/range_check.py is missing (re-run the Flow install)."
-    PYTHONPATH="" "${FFPP_PY[@]}" -S "$ROOT/hooks/local/lib/range_check.py" --push "$FFPP_TMP_NATIVE/in" || exit 1
+    PYTHONPATH="" "${FFPP_PY[@]}" -S "$ROOT/hooks/local/lib/range_check.py" --push "$FFPP_TMP_NATIVE/in" \
+        --remote "$FFPP_REMOTE" || exit 1
 fi

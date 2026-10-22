@@ -82,6 +82,8 @@
 #   file, imports them: the gate's matching is kernel, and 5.x ships the same bytes.
 #   hooks/shared/staged_secret_scan.py: a diff's file header is told by its position, so a staged line starting `++`
 #   is scanned (T357; 5.x 4f8601f9, local; m7 review A #2).
+#   hooks/git/pre-push: hands the range check the remote's name, so only that remote's tracking refs count as already
+#   pushed (T358; 5.x 2d145606, local; m7 review A #3).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -106,7 +108,7 @@ d29664c17271aee8ab671d1f8e4d609a2b15e1467af9c98883e4252a9e92cae5  .gitattributes
 e6fe845882eb635b917be76c1398b0bfb26b44abebd8bf6083616ae1a518b952  hooks/git/commit-msg
 b5f95a53fa55ccc62da9467c08464ccf443b7ad282fb3f7ffb6b073ff28ba717  hooks/git/pre-commit
 9cd67869e78cfca6dcb6f0f32d64ed68bec34e9da9cdd99bb7913385ab630055  hooks/git/pre-merge-commit
-465611d38d4fb9058bf93bb57600208abb924ceda6d8cc41e167f5db833a5686  hooks/git/pre-push
+359f9a0be4b5efc8d01f479fa9430cf226ec198bbecd8ec644803f6fccc13ef5  hooks/git/pre-push
 a0685b0884a42d5704339ba342247704169b35da26cb228f533f03fc60448e0c  hooks/handlers/post_tool_use.py
 c61cc9e319640d0365a406494a8eb26ed29872cd9bb6600a0e4add05f605bb9d  hooks/handlers/pre_tool_use.py
 465857b88e14d4b1a77e91479eb474d3c27efe2f4f888a6211623ed7f5c83400  hooks/local/approve-local.sh

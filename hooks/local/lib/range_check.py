@@ -21,6 +21,7 @@ merged bytes no remote-tracking ref holds at that path. The record: `<git common
 """
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -156,7 +157,10 @@ def range_base(root: Path) -> str:
     return sha if sha and run(root, ["cat-file", "-e", f"{sha}^{{commit}}"]).returncode == 0 else ""
 
 
-def push(root: Path, updates: str) -> list[str]:
+def push(root: Path, updates: str, name: str = "") -> list[str]:
+    """`name` is the remote git pushes to (pre-push's $1): only its tracking refs count as already there (m7 review A
+    #3: a ref set under another remote's name hid a secret); a URL or an odd name trusts none."""
+    remotes = [f"--remotes={name}"] if re.fullmatch(r"[\w.-]+", name or "") else []
     tips, remote = [], []
     for line in updates.split("\n"):
         parts = line.split()
@@ -167,7 +171,7 @@ def push(root: Path, updates: str) -> list[str]:
     if not tips:
         return []
     base = range_base(root)
-    args = [*tips, "--not", "--remotes", *remote, *([base] if base else [])]
+    args = [*tips, "--not", *remotes, *remote, *([base] if base else [])]
     listed = commits(root, args)
     marked = carriers(root, {s for c in listed for s in [c["sha"], *c["parents"]]}) if not base else set()
     judged = {c["sha"]: c for c in listed if base or marked & {c["sha"], *c["parents"]}}
@@ -188,7 +192,9 @@ def merge(root: Path) -> list[str]:
     if not carriers(root, {"HEAD", ""}):
         return []  # a tree from before this check
     changes = staged(root)
-    tips = sorted(set(git(root, "for-each-ref", "--format=%(objectname)", "refs/remotes").split()))
+    branch = git(root, "rev-parse", "--abbrev-ref", "HEAD").strip()
+    upstream = run(root, ["config", f"branch.{branch}.remote"]).stdout.decode("utf-8", "replace").strip() or "origin"
+    tips = sorted(set(git(root, "for-each-ref", "--format=%(objectname)", f"refs/remotes/{upstream}").split()))
     specs = [f"{t}:{p}" for p, _, _, _ in changes for t in tips]
     out = run(root, ["cat-file", "--batch-check=%(objectname)"], "".join(s + "\n" for s in specs).encode("utf-8", "surrogateescape"))
     at_remote = {(s.split(":", 1)[1], a.strip()) for s, a in zip(specs, out.stdout.decode("utf-8", "replace").split("\n"))}
@@ -217,7 +223,8 @@ def main(argv: list[str]) -> int:
     try:
         setup(root)
         if mode == "--push" and rest:
-            bad = push(root, Path(rest[0]).read_bytes().decode("utf-8", "surrogateescape"))
+            bad = push(root, Path(rest[0]).read_bytes().decode("utf-8", "surrogateescape"),
+                       rest[2] if rest[1:2] == ["--remote"] and len(rest) > 2 else "")
         elif mode == "--merge":
             bad = merge(root)
         elif mode == "--record":
