@@ -12,8 +12,10 @@ change committed with --no-verify on one branch reached a remote by any of them.
 A commit passes when no added line matches a secret pattern (the scanner's exclusions honoured) and each protected path
 it changes goes from its old bytes to its new ones by approved steps on record (one step or a chain of them, so an amend
 or a squash of approved commits passes and a revert does not), or it is a `flow:` commit whose every path flow_owned.py
-accepts. Not judged: commits a remote-tracking ref holds (they arrived from the remote) and commits from before this
-check existed (neither the commit nor a parent carries hooks/git/pre-merge-commit). A merge is judged on the files whose
+accepts. Not judged: commits the pushed remote's tracking refs hold (they arrived from it) and the history the
+install found (`<git common dir>/flow/range-base`, the HEAD before the first 6.0.0-m8 install: m7 review A #1, a branch
+older than the upgrade was never judged); without that record, commits from before this check existed (neither the
+commit nor a parent carries hooks/git/pre-merge-commit). A merge is judged on the files whose
 merged bytes no remote-tracking ref holds at that path. The record: `<git common dir>/flow/approved-changes.tsv`, one
 `path, old, new, time` row per approved change, shared by every worktree.
 """
@@ -143,6 +145,15 @@ def flow_commit_ok(root: Path, c: dict) -> bool:
     return not flow_owned.foreign(root, [(s, p) for p, s, _, _ in c["changes"]], base=base, tip=c["sha"])
 
 
+def range_base(root: Path) -> str:
+    """The commit install recorded as where the push check starts, when it still names a commit, else ""."""
+    try:
+        sha = (record_path(root).parent / "range-base").read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+    return sha if sha and run(root, ["cat-file", "-e", f"{sha}^{{commit}}"]).returncode == 0 else ""
+
+
 def push(root: Path, updates: str) -> list[str]:
     tips, remote = [], []
     for line in updates.split("\n"):
@@ -153,10 +164,11 @@ def push(root: Path, updates: str) -> list[str]:
                 remote.append(parts[3])
     if not tips:
         return []
-    args = [*tips, "--not", "--remotes", *remote]
+    base = range_base(root)
+    args = [*tips, "--not", "--remotes", *remote, *([base] if base else [])]
     listed = commits(root, args)
-    marked = carriers(root, {s for c in listed for s in [c["sha"], *c["parents"]]})
-    judged = {c["sha"]: c for c in listed if marked & {c["sha"], *c["parents"]}}
+    marked = carriers(root, {s for c in listed for s in [c["sha"], *c["parents"]]}) if not base else set()
+    judged = {c["sha"]: c for c in listed if base or marked & {c["sha"], *c["parents"]}}
     graph, bad = steps(root), []
     for c in judged.values():
         if flow_commit_ok(root, c):

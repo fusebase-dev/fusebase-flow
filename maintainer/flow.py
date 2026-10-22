@@ -448,6 +448,16 @@ def register_reader(argv: list[str], target: Path) -> tuple[int, str]:
         return 1, str(exc)
 
 
+def record_range_base(target: Path) -> None:
+    """Where the pre-push range check starts (hooks/local/lib/range_check.py): the HEAD this install found, written once
+    to <git common dir>/flow/range-base, so commits an older branch carries are judged too (m7 review A #1)."""
+    common, head = git_path(target, "--git-common-dir"), git_text(target, "rev-parse", "-q", "--verify", "HEAD").strip()
+    base = common / "flow" / "range-base" if common else None
+    if base and head and not base.exists():
+        base.parent.mkdir(parents=True, exist_ok=True)
+        base.write_text(head + "\n", encoding="utf-8", newline="\n")
+
+
 def git_toplevel(target: Path) -> Path | None:
     try:
         out = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=target, capture_output=True, timeout=120)
@@ -616,6 +626,7 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
     write_bytes(target / MANIFEST, (json.dumps({**manifest, **({"reader": reader} if reader else {})}, indent=2)
                                     + "\n").encode("utf-8"), False)
     report["ignored"] = ignored_paths(target, [e["path"] for e in recorded if not e.get("kept")])
+    record_range_base(target)
     rc, hooks_out = install_hooks(target)
     print(f"[flow] Fusebase Flow {version} -> {target} (providers: {', '.join(sorted(providers)) or 'none'})")
     for key in ("added", "replaced", "unchanged", "kept", "refused", "merged", "ignored"):
