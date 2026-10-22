@@ -117,16 +117,18 @@ def secrets(root: Path, diff_args: list[str], keep=None) -> dict[str, list[str]]
     from shared.staged_secret_scan import _EXCLUDE_PATHSPECS
     text = git(root, "-c", "core.quotePath=false", *diff_args, "--", ".", *_EXCLUDE_PATHSPECS)
     added: dict[str, list[str]] = {}
-    key, columns, current = "index", 1, ""
-    for line in text.split("\n"):
+    key, columns, current, header = "index", 1, "", False
+    for line in text.split("\n"):  # a header runs from `diff ` to the first hunk (m7 review A #2: never count `+`)
         if line.startswith("\x01"):
             sha, parents = (line[1:].split("\x02") + [""])[:2]
-            key, columns = sha, max(1, len(parents.split()))
+            key, columns, header = sha, max(1, len(parents.split())), False
         elif line.startswith("diff --git "):
-            current = unquote(line.split(" b/", 1)[-1])
+            current, header = unquote(line.split(" b/", 1)[-1]), True
         elif line.startswith(("diff --cc ", "diff --combined ")):
-            current = unquote(line.split(" ", 2)[2])
-        elif line.startswith("+" * columns) and not line.startswith("+++") and (keep is None or keep(current)):
+            current, header = unquote(line.split(" ", 2)[2]), True
+        elif line.startswith("@@"):
+            header = False
+        elif not header and line.startswith("+" * columns) and (keep is None or keep(current)):
             added.setdefault(key, []).append(line[columns:])
     found = {}
     for key, lines in added.items():

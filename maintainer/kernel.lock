@@ -80,6 +80,8 @@
 #   read is matched raw and its denial names no approval (T353; 5.x 0395c5fc, local; m8 field item 7.10, the owner's
 #   lock D1a and D2-no, relayed 2026-10-21). The two new modules join the lock because command_rules.py, a kernel
 #   file, imports them: the gate's matching is kernel, and 5.x ships the same bytes.
+#   hooks/shared/staged_secret_scan.py: a diff's file header is told by its position, so a staged line starting `++`
+#   is scanned (T357; 5.x 4f8601f9, local; m7 review A #2).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -132,7 +134,7 @@ cc747d1b046b652ab5c2677752644e02f73e00917950a6a417a3a50333ce3de3  hooks/shared/m
 fecb30ef246aaf2dc90dc55200de5d1b0bab92242c8cbbd5cbd3e9c0d8d784fa  hooks/shared/secret_scanner.py
 5461d47d72c281845c43b40b8f4e572023443c41ebecb1777520b3cf2527cfa8  hooks/shared/shell_parse.py
 0edcc2f71b1fd1cbe6bda218738f337486aea6979790f2c6514fb209ba757b49  hooks/shared/shell_view.py
-6d1c6932fcf0504d82fac68cf347c5b84201ad7a7a0c78f1db4f6be8eae437b1  hooks/shared/staged_secret_scan.py
+b2121d6ff3fd99a315087383f772ed29de11bd920c2ef7d8e8041938a50e15c4  hooks/shared/staged_secret_scan.py
 66e639442e9b2f7be2e91c7072a95a6c49331ddf5bd203c29c714cc48fd527bf  policies/approval-policy.yml
 13f95fe50d5fceec55edd31a824da2539d939e59a6dff98616f29175d65522e4  policies/command-policy.yml
 7747637a42919bf6548600fc78a9f53866ed655dfff00370958a0707674f3840  policies/module-size-baseline.txt

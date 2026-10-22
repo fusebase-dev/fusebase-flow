@@ -62,10 +62,12 @@ _EXCLUDE_PATHSPECS = [
 def added_lines(diff_text: str) -> str:
     """Join the added-content lines of a unified diff, leading `+` stripped.
 
-    Drops file headers (`+++`/`---`), hunk headers (`@@`), and every removed
+    Drops each file's header (from its `diff ` line to its first `@@`: a content
+    line that starts `++` reads `+++` in the diff), hunk headers, and every removed
     (`-`) line. Returns the added content as one newline-joined blob.
     """
     out: list[str] = []
+    header = False  # a file header runs from `diff ` to the first hunk: a content line `++x` is `+++x` (m7 review A #2)
     # Split on "\n" ONLY — NOT str.splitlines(), which ALSO breaks on Unicode/control line
     # separators (U+2028/U+2029/U+0085 NEL, \v, \f, FS/GS/RS) that git does NOT treat as line
     # boundaries. `git diff -U0` emits one physical `+` line even when its content contains
@@ -73,9 +75,13 @@ def added_lines(diff_text: str) -> str:
     # secret after such a byte is dropped from the scan (a bypass — flips deny->allow). Only
     # git's own "\n" delimits diff lines here.
     for line in diff_text.split("\n"):
-        if line.startswith("+++") or line.startswith("---"):
+        if line.startswith("diff "):
+            header = True
             continue
         if line.startswith("@@"):
+            header = False
+            continue
+        if header:
             continue
         if line.startswith("+"):
             out.append(line[1:])
