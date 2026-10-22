@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)  # no console window when the caller has none (pythonw)
@@ -37,6 +36,8 @@ def setup(root: Path) -> None:
     sys.path.insert(0, str(root / "hooks"))
     from shared.staged_secret_scan import _restore_site_packages
     _restore_site_packages()
+    global approved, protected, record_path, steps, write_record
+    from range_record import approved, protected, record_path, steps, write_record  # noqa: E402
 
 
 def run(root: Path, args: list[str], data: bytes | None = None) -> subprocess.CompletedProcess:
@@ -100,55 +101,6 @@ def carriers(root: Path, revs: set[str]) -> set[str]:
     specs = sorted(revs)
     out = run(root, ["cat-file", "--batch-check=%(objecttype)"], "".join(f"{s}:{MARK}\n" for s in specs).encode())
     return {s for s, a in zip(specs, out.stdout.decode("utf-8", "replace").split("\n")) if a.strip() == "blob"}
-
-
-def record_path(root: Path) -> Path:
-    common = Path(git(root, "rev-parse", "--git-common-dir").strip())
-    return (common if common.is_absolute() else root / common) / "flow" / "approved-changes.tsv"
-
-
-def steps(root: Path) -> dict[str, dict[str, set[str]]]:
-    """{path: {old side: {new sides}}}, the record."""
-    graph: dict[str, dict[str, set[str]]] = {}
-    try:
-        rows = record_path(root).read_text(encoding="utf-8").splitlines()
-    except OSError:
-        rows = []
-    for row in rows:
-        cells = row.split("\t")
-        if len(cells) >= 3:
-            graph.setdefault(cells[0], {}).setdefault(cells[1], set()).add(cells[2])
-    return graph
-
-
-def approved(graph: dict, path: str, old: str, new: str) -> bool:
-    """A chain of recorded steps leads from `old` to `new` for `path`."""
-    seen, todo = {old}, [old]
-    while todo:
-        for nxt in graph.get(path, {}).get(todo.pop(), ()):
-            if nxt == new:
-                return True
-            if nxt not in seen:
-                seen.add(nxt)
-                todo.append(nxt)
-    return False
-
-
-def protected(path: str) -> bool:
-    from shared.path_policy import is_protected
-    return is_protected(path)[0]
-
-
-def write_record(root: Path, changes: list[tuple[str, str, str, str]]) -> list[str]:
-    when = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-    rows = [f"{p}\t{old}\t{new}\t{when}" for p, _, old, new in changes
-            if old != new and "\t" not in p and "\n" not in p and protected(p)]
-    if rows:
-        path = record_path(root)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("a", encoding="utf-8", newline="\n") as f:
-            f.write("".join(r + "\n" for r in rows))
-    return rows
 
 
 def staged(root: Path) -> list[tuple[str, str, str, str]]:
