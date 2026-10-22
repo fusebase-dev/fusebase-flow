@@ -115,28 +115,30 @@ deny:
   # .git/flow/ (redirection, tee, cp/mv/install/ln/rsync into them, sed -i, a script that opens a file there for
   # writing). The Write tool is denied those paths; through Bash, `deny: []` in command-policy.local.yml emptied the
   # deny list. Flow's own scripts (the two mints, check-module-size.sh --write-baseline) write there; reading stays open.
-  - pattern: '>{1,2}\|?\s*["'']?(?:[^\s"'';&|<>]*[/\\])?(?:policies|state[/\\]approvals|\.git[/\\]flow)[/\\]'
+  # The path is the project's own folder: bare, ./, a ../ chain or absolute (6.0.0-m8, m7 review B #3: any folder named
+  # policies, apps/api/src/policies/ say, was refused); an absolute path is refused whatever project it names.
+  - pattern: '>{1,2}\|?\s*["'']?(?:(?:[A-Za-z]:)?[/\\](?:[^\s"'';&|<>]*[/\\])?|(?:[^\s"'';&|<>]*[/\\])?\.\.[/\\](?:[^\s"'';&|<>]*[/\\])?|\.[/\\])?(?:policies|state[/\\]approvals|\.git[/\\]flow)[/\\]'
     reason: "FR-07: a shell write into policies/, state/approvals/ or .git/flow/ changes what the hooks enforce. A policy change is a committed, protected edit (the operator's go-ahead, then the mint); approvals come from Flow's mint scripts."
     rule_id: FR-07
-  - pattern: '\btee\b[^;&|\n]*?\s["'']?(?:[^\s"'';&|<>]*[/\\])?(?:policies|state[/\\]approvals|\.git[/\\]flow)[/\\]'
+  - pattern: '\btee\b[^;&|\n]*?\s["'']?(?:(?:[A-Za-z]:)?[/\\](?:[^\s"'';&|<>]*[/\\])?|(?:[^\s"'';&|<>]*[/\\])?\.\.[/\\](?:[^\s"'';&|<>]*[/\\])?|\.[/\\])?(?:policies|state[/\\]approvals|\.git[/\\]flow)[/\\]'
     reason: "FR-07: tee into policies/, state/approvals/ or .git/flow/ is a shell write there; a policy change is a committed, protected edit."
     rule_id: FR-07
-  - pattern: '\b(?:cp|mv|install|ln|rsync)\b[^;&|\n]*\s["'']?(?:[^\s"'';&|<>]*[/\\])?(?:policies|state[/\\]approvals|\.git[/\\]flow)(?:[/\\][^\s"'';&|<>]*)?["'']?[ \t]*(?:$|[;&|)\n])'
+  - pattern: '\b(?:cp|mv|install|ln|rsync)\b[^;&|\n]*\s["'']?(?:(?:[A-Za-z]:)?[/\\](?:[^\s"'';&|<>]*[/\\])?|(?:[^\s"'';&|<>]*[/\\])?\.\.[/\\](?:[^\s"'';&|<>]*[/\\])?|\.[/\\])?(?:policies|state[/\\]approvals|\.git[/\\]flow)(?:[/\\][^\s"'';&|<>]*)?["'']?[ \t]*(?:$|[;&|)\n])'
     reason: "FR-07: a copy, move or link into policies/, state/approvals/ or .git/flow/ is a shell write there; a policy change is a committed, protected edit."
     rule_id: FR-07
-  - pattern: '\b(?:cp|mv|install|ln)\b[^;&|\n]*\s(?:-t[ \t]*|--target-directory[= ][ \t]*)["'']?(?:[^\s"'';&|<>]*[/\\])?(?:policies|state[/\\]approvals|\.git[/\\]flow)\b'
+  - pattern: '\b(?:cp|mv|install|ln)\b[^;&|\n]*\s(?:-t[ \t]*|--target-directory[= ][ \t]*)["'']?(?:(?:[A-Za-z]:)?[/\\](?:[^\s"'';&|<>]*[/\\])?|(?:[^\s"'';&|<>]*[/\\])?\.\.[/\\](?:[^\s"'';&|<>]*[/\\])?|\.[/\\])?(?:policies|state[/\\]approvals|\.git[/\\]flow)\b'
     reason: "FR-07: a copy, move or link into policies/, state/approvals/ or .git/flow/ is a shell write there; a policy change is a committed, protected edit."
     rule_id: FR-07
-  - pattern: '\b(?:sed|perl)\b[^;&|\n]*\s-[A-Za-z]*i[^;&|\n]*\s["'']?(?:[^\s"'';&|<>]*[/\\])?(?:policies|state[/\\]approvals|\.git[/\\]flow)[/\\]'
+  - pattern: '\b(?:sed|perl)\b[^;&|\n]*\s-[A-Za-z]*i[^;&|\n]*\s["'']?(?:(?:[A-Za-z]:)?[/\\](?:[^\s"'';&|<>]*[/\\])?|(?:[^\s"'';&|<>]*[/\\])?\.\.[/\\](?:[^\s"'';&|<>]*[/\\])?|\.[/\\])?(?:policies|state[/\\]approvals|\.git[/\\]flow)[/\\]'
     reason: "FR-07: an in-place edit of a file in policies/, state/approvals/ or .git/flow/ is a shell write there; a policy change is a committed, protected edit."
     rule_id: FR-07
-  - pattern: '\bopen\(\s*[rbfuRBFU]*["''](?:[^"''\n]*[/\\])?(?:policies|state[/\\]approvals|\.git[/\\]flow)[/\\][^"''\n]*["'']\s*,\s*(?:mode\s*=\s*)?[rbfuRBFU]*["''][rbt+]*[wax]|["''](?:[^"''\n]*[/\\])?(?:policies|state[/\\]approvals|\.git[/\\]flow)[/\\][^"''\n]*["'']\s*\)\s*\.\s*write_(?:text|bytes)\b'
+  - pattern: '\bopen\(\s*[rbfuRBFU]*["''](?:(?:[A-Za-z]:)?[/\\](?:[^"''\n]*[/\\])?|(?:[^"''\n]*[/\\])?\.\.[/\\](?:[^"''\n]*[/\\])?|\.[/\\])?(?:policies|state[/\\]approvals|\.git[/\\]flow)[/\\][^"''\n]*["'']\s*,\s*(?:mode\s*=\s*)?[rbfuRBFU]*["''][rbt+]*[wax]|["''](?:(?:[A-Za-z]:)?[/\\](?:[^"''\n]*[/\\])?|(?:[^"''\n]*[/\\])?\.\.[/\\](?:[^"''\n]*[/\\])?|\.[/\\])?(?:policies|state[/\\]approvals|\.git[/\\]flow)[/\\][^"''\n]*["'']\s*\)\s*\.\s*write_(?:text|bytes)\b'
     reason: "FR-07: a script that opens a file in policies/, state/approvals/ or .git/flow/ for writing is a shell write there; a policy change is a committed, protected edit."
     rule_id: FR-07
   - pattern: '\bgit\s+(?:checkout|restore)\b[^;&|\n]*\s["'']?(?:\./)?policies(?:[/\\]|["'']?(?:\s|$))'
     reason: "FR-07: checking out or restoring files in policies/ rewrites what the hooks enforce (an older policy without today's denials); a policy change is a committed, protected edit."
     rule_id: FR-07
-  - pattern: '\b(?:Set-Content|Add-Content|Out-File|New-Item|Copy-Item|Move-Item)\b[^;&|\n]*["'']?(?:[^\s"'';&|<>]*[/\\])?(?:policies|state[/\\]approvals|\.git[/\\]flow)[/\\]'
+  - pattern: '\b(?:Set-Content|Add-Content|Out-File|New-Item|Copy-Item|Move-Item)\b[^;&|\n]*\s["'']?(?:(?:[A-Za-z]:)?[/\\](?:[^\s"'';&|<>]*[/\\])?|(?:[^\s"'';&|<>]*[/\\])?\.\.[/\\](?:[^\s"'';&|<>]*[/\\])?|\.[/\\])?(?:policies|state[/\\]approvals|\.git[/\\]flow)[/\\]'
     flags: [i]
     reason: "FR-07: a PowerShell write into policies/, state/approvals/ or .git/flow/ is a write there; a policy change is a committed, protected edit."
     rule_id: FR-07

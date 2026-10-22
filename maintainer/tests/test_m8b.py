@@ -166,6 +166,18 @@ class GateReviewB(test_m7.LocalTightens):
         self.assertEqual(out["flow_decision"], "deny", out)
         self.assertIn("Fix policies/command-policy.local.yml by hand", out["reason"])
 
+    def test_the_write_deny_holds_for_the_projects_own_folders_only(self) -> None:
+        # B#3: any folder named policies (apps/api/src/policies/) or state/approvals was refused
+        for command in ("echo x > policies/a.yml", "echo x > ./policies/a.yml", "echo x > ../project/policies/a.yml",
+                        "echo x > /c/work/project/policies/a.yml", "cp x.yml src/../policies/",
+                        "echo '{}' > state/approvals/a.json", "tee -a ./policies/x.yml < /dev/null",
+                        "python -c \"open('../project/policies/a.yml', 'w').write('x')\""):
+            self.assertEqual(self.bash(command), "deny", command)
+        for command in ("echo x > apps/api/src/policies/rules.ts", "cp a.ts src/policies/b.ts",
+                        "mv x.json pkg/state/approvals/x.json", "sed -i s/a/b/ src/policies/x.ts",
+                        "tee lib/policies/x.ts < /dev/null", "python -c \"open('src/policies/a.py', 'w').write('x')\""):
+            self.assertEqual(self.bash(command), "allow", command)
+
 
 class EolPinRun(unittest.TestCase):
     """m7 review A #6: a project's own line spelled like a 5.x pin (`VERSION text eol=lf`, written by the project before

@@ -91,6 +91,8 @@
 #   fcdcd093, local; m7 review B #1).
 #   hooks/shared/policy_loader.py and hooks/shared/command_policy.py: a malformed local policy file is named in the
 #   denial, with its fix (T363; 5.x 3727d962, local; m7 review B #2).
+#   policies/command-policy.yml: the shell-write deny reads the project's own policies/, state/approvals/ and .git/flow/
+#   (bare, ./, through .. or absolute), not a nested folder of that name (T364; 5.x fe71cab3, local; m7 review B #3).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -145,7 +147,7 @@ fecb30ef246aaf2dc90dc55200de5d1b0bab92242c8cbbd5cbd3e9c0d8d784fa  hooks/shared/s
 0edcc2f71b1fd1cbe6bda218738f337486aea6979790f2c6514fb209ba757b49  hooks/shared/shell_view.py
 b2121d6ff3fd99a315087383f772ed29de11bd920c2ef7d8e8041938a50e15c4  hooks/shared/staged_secret_scan.py
 66e639442e9b2f7be2e91c7072a95a6c49331ddf5bd203c29c714cc48fd527bf  policies/approval-policy.yml
-ee394f9236646d39d7623ac6428b0658976f5033211b9e8bc71de880f2e06ecb  policies/command-policy.yml
+409489ea13502ece110503c5d9c6cb586f299971250c385e158ec54c0becdce5  policies/command-policy.yml
 7747637a42919bf6548600fc78a9f53866ed655dfff00370958a0707674f3840  policies/module-size-baseline.txt
 cd603634033c3eb68970210d5d2a0762c3fd0ee01ec53c36a8f4644ec7374f2f  policies/module-size.yml
 6b9688b914f6231309c73463aff75993b030436ea9d3addd56d8a28ea0c70c11  policies/protected-paths.yml
