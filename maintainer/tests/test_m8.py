@@ -646,7 +646,8 @@ class GateRoundsAndCarryOver(m3.Gate):
 class CommandGateCorpus(Kernel):
     """Item 7.10 (the owner's lock of 2026-10-21, D1 = D1a, D2 = D2-no): FR-06 and FR-12 match the commands a line runs,
     never words inside a quoted message, a heredoc a non-shell reads or a search pattern, and never name an approval for
-    an action the line does not take. The 132-row corpus (a byte copy of 5.x's) is an expectation gate."""
+    an action the line does not take. The corpus (a byte copy of 5.x's) is an expectation gate: 132 rows at the
+    owner's lock, and the rows each fix since adds."""
 
     CORPUS = CORE / "maintainer/tests/command-gate-corpus.json"
 
@@ -667,7 +668,9 @@ class CommandGateCorpus(Kernel):
         gated = json.loads(out.stdout)
         want = {c["id"]: c["should_gate"] and c["id"] not in accepted for c in corpus["cases"]}
         self.assertEqual({k for k, v in gated.items() if v != want[k]}, set(), "cases off their expectation")
-        self.assertEqual(len(corpus["cases"]), 132)
+        ids = [c["id"] for c in corpus["cases"]]
+        self.assertEqual(len(ids), len(set(ids)), "a corpus id twice")
+        self.assertGreaterEqual(len(ids), 132, "rows dropped: the lock's 132 rows only grow")
 
     def test_the_owners_real_cases(self) -> None:
         for command in ('grep -n "rm " hooks/local/*.sh', "cat > notes.md <<'EOF'\nRun fusebase deploy after the build.\nEOF",
