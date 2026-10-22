@@ -20,6 +20,9 @@ import time
 from collections import Counter
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+from wiring import wired  # noqa: E402  (the provider's settings parsed; health reads it through this module)
+
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)  # no console window when the caller has none (pythonw)
 
 # A threshold without provenance is UNCALIBRATED and logs instead of alerting (non-negotiable 2).
@@ -92,19 +95,6 @@ def state_mtimes(root: Path) -> list[float]:
                 except OSError:
                     pass
     return times
-
-
-def wired(root: Path, rel: str) -> str:
-    """wired when the provider's settings, parsed, register Flow's PreToolUse handler: a command under hooks.PreToolUse
-    naming hooks/handlers/pre_tool_use.py, which exists (6.0.0-m7 item 4). A mention anywhere else in the file, a
-    removed handler (a migrated 5.x wiring) or a file that does not parse is no wiring."""
-    try:
-        groups = json.loads((root / rel).read_text(encoding="utf-8"))["hooks"]["PreToolUse"]
-        commands = [str(h.get("command", "")) for g in groups for h in g.get("hooks") or []]
-    except (OSError, ValueError, KeyError, TypeError, AttributeError):
-        return "unenforced"
-    ok = (root / "hooks/handlers/pre_tool_use.py").is_file() and any("hooks/handlers/pre_tool_use.py" in c for c in commands)
-    return "wired" if ok else "unenforced"
 
 
 def write(path: Path, text: str) -> None:

@@ -10,7 +10,7 @@ CORE="$(cd "$(dirname "$0")/.." && pwd)"
 PY="${PYTHON:-python3}"
 # The installed file count (core files + provider mirrors) is a deliberate ratchet: change it in
 # the same commit that changes the core's file set, and say why in the body.
-EXPECT_FILES="${EXPECT_FILES:-89}"
+EXPECT_FILES="${EXPECT_FILES:-90}"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/flow-ci.XXXXXX")" || { echo "not ok 1 - temp dir"; exit 1; }
 trap 'rm -rf "$WORK"' EXIT
 
