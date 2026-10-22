@@ -135,5 +135,18 @@ class GateReviewB(test_m7.LocalTightens):
                          "allow")
 
 
+
+class EolPinRun(unittest.TestCase):
+    """m7 review A #6: a project's own line spelled like a 5.x pin (`VERSION text eol=lf`, written by the project before
+    Flow came) went with the 5.x pins. Only the run of lines a 5.x comment opens goes."""
+
+    def test_a_project_line_spelled_like_a_pin_outside_the_5x_run_stays(self) -> None:
+        import eol_pins
+        own = "VERSION text eol=lf\nhooks/** text eol=lf\n"
+        kept, gone = eol_pins.drop(own + "\n" + test_m7.PINS_5X + test_m7.PROJECT_LINES)
+        self.assertEqual(kept, own + "\n" + test_m7.PROJECT_LINES, gone)
+        self.assertEqual(len(gone), 21)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

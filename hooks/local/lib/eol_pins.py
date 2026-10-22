@@ -4,7 +4,9 @@
 under those folders as text and rewrites its CRLF bytes, so a PNG loses bytes and its signature breaks (review r1-03).
 6.0's block pins exact paths only. These are the 5.x lines as the field carries them (Onboarding's tree at b176a73d):
 each pin line is matched by its words (the pattern, then `text eol=lf`, nothing else; the column spacing may differ),
-each comment line whole. Any other line is the project's and stays: `*.sql text eol=lf`, `*.png binary`, a 5.x copy of
+each comment line whole, and only inside the run of lines a 5.x comment line opens (5.x wrote them together; m7 review A
+#6: a project's own line spelled like a pin elsewhere in the file went with them). Any other line is the project's and
+stays: `*.sql text eol=lf`, `*.png binary`, a 5.x copy of
 Flow's own extension rules. migrate and install remove them (flow.py); a `flow:` commit may carry that removal
 (flow_owned.py).
 """
@@ -41,7 +43,14 @@ def is_5x_pin(line: str) -> bool:
 
 
 def drop(text: str) -> tuple[str, list[str]]:
-    """`text` without its 5.x pin lines, and those lines as they stood."""
-    lines = text.split("\n")
-    gone = [line.rstrip("\r") for line in lines if is_5x_pin(line)]
-    return "\n".join(line for line in lines if not is_5x_pin(line)), gone
+    """`text` without its 5.x pin lines, and those lines as they stood: the lines from a 5.x comment line through the
+    pins, comments and blank lines that follow it."""
+    lines, keep, gone, inside = text.split("\n"), [], [], False
+    for line in lines:
+        bare = line.rstrip("\r").rstrip()
+        inside = bare in COMMENTS_5X or (inside and (not bare or is_5x_pin(line)))
+        if inside and bare:
+            gone.append(line.rstrip("\r"))
+        else:
+            keep.append(line)
+    return "\n".join(keep), gone

@@ -104,7 +104,7 @@ def foreign(root: Path, pairs: list[tuple[str, str]], base: str = "HEAD", tip: s
         if p in MERGED:
             kept, old = outside(data), outside(b.get(f"{base}:{p}"))
             unpinned = p == ".gitattributes" and kept is not None and old is not None and [x for x in kept if x.strip()] \
-                == [x for x in old if x.strip() and not eol_pins.is_5x_pin(x)]
+                == [x for x in eol_pins.drop("\n".join(old))[0].split("\n") if x.strip()]
             return (migrating and p in OVERLAYS) or (kept is not None and kept == old) or unpinned
         return sha is not None and staged.get(p) == sha and (p in installed or flow_path(p))
     return [p for s, p in pairs if not own(s, p)]
