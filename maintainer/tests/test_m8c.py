@@ -107,5 +107,24 @@ class ArgumentsThatRun(Gate):
                             "GIT_SSH_COMMAND='ssh -i ~/.ssh/deploy_key' git fetch", "git config alias.st status")
 
 
+class StdinThatRuns(Gate):
+    """Review B H3, the readers of stdin: a remote or container shell behind ssh, docker exec, kubectl exec or docker
+    compose exec; psql, whose input is judged where a rule names psql; and `xargs ... sh -c`, whose input is the
+    command string."""
+
+    def test_a_remote_or_container_shell_and_psql_run_what_they_read(self) -> None:
+        nl = chr(10)
+        self.assert_denied(f"ssh deploy@host <<'EOF'{nl}rm -rf /srv/app/releases{nl}EOF",
+                           f"ssh deploy@host bash -s <<'EOF'{nl}rm -rf /srv/app/releases{nl}EOF",
+                           f"docker exec -i app sh <<'EOF'{nl}rm -rf /data/uploads{nl}EOF",
+                           f"kubectl exec -i pod -- sh <<'EOF'{nl}rm -rf /data{nl}EOF",
+                           "echo 'rm -rf /srv/app' | ssh host", "echo 'rm -rf /data' | docker exec -i app sh",
+                           "docker compose exec -T db psql -U app <<< 'DROP TABLE users;'", "psql <<< 'TRUNCATE users'",
+                           f"psql \"$DB\" <<'SQL'{nl}DROP TABLE users;{nl}SQL", "echo 'rm -rf /tmp/x' | xargs -0 sh -c")
+        self.assert_allowed("ssh host 'ls -la /srv/app'", "cat notes.md | ssh host 'cat > notes.md'",
+                            "docker exec app ls /data", f"psql \"$DB\" <<'SQL'{nl}SELECT count(*) FROM users;{nl}SQL",
+                            "echo 'a b' | xargs -n1 echo")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

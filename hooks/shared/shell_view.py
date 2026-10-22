@@ -51,6 +51,8 @@ GIT_GLOBAL_VALUE = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--co
 CODE_ARGS = {"trap": "first", "git": "submodule foreach, rebase -x/--exec, -c or config: alias.*=!..., GIT_CODE_KEYS"}
 GIT_CODE_KEYS = {"core.sshcommand", "core.pager", "core.editor", "sequence.editor"}
 GIT_CODE_VARS = {"GIT_SSH_COMMAND", "GIT_PAGER", "GIT_EDITOR", "GIT_SEQUENCE_EDITOR"}
+EXEC_VALUE = {"-e", "--env", "-u", "--user", "-w", "--workdir", "--env-file", "--detach-keys", "--index", "-c",
+              "--container", "-n", "--namespace", "-f", "--filename"}  # docker/kubectl exec options with a value
 RESERVED = {"!", "{", "}", "if", "then", "elif", "else", "fi", "do", "done", "while", "until"}
 STDIN = {"-", "/dev/stdin", "/dev/fd/0", "/proc/self/fd/0"}  # a script path that is the shell's own stdin
 BARE = re.compile(r"[A-Za-z][\w.:-]*")
@@ -198,6 +200,8 @@ class Analysis:
             self.code(text)
         elif consumer == "script":
             self.script(text, fields[0] if fields else "")
+        elif consumer == "sql":  # psql reads it: judged where a rule names psql (review B H3)
+            self.texts.append(("psql " + " ".join(text.split()), (0,)))
 
     def code(self, text: str) -> None:
         self.walk(parse(text))
@@ -226,8 +230,8 @@ class Analysis:
             if ASSIGN.match(f) and f.partition("=")[0].rstrip("+") in GIT_CODE_VARS:
                 self.code(f.partition("=")[2])
         self.args(fields, roles, last, base)
-        consumer ="shell" if is_shell_reader(fields, last) else "script" if is_script_reader(fields, last) else ""
-        self.heredocs(cmd, consumer, fields[last:], out_to)
+        consumer, reader = consumer_of(fields, last)
+        self.heredocs(cmd, consumer, reader, out_to)
         if out_to and base in ("echo", "printf"):
             out = simulate(fields[last:])
             if out is not None:
@@ -532,7 +536,52 @@ def stdin_reader(cmd) -> str:
         return ""
     roles = classify(fields)
     last = max((k for k, r in enumerate(roles) if r == "cmd"), default=0)
-    return "shell" if is_shell_reader(fields, last) else "script" if is_script_reader(fields, last) else ""
+    return consumer_of(fields, last)[0]
+
+
+def remote_command(fields: list[str], c: int) -> list[str] | None:
+    """The command a remote or container shell runs (review B H3): `ssh [opts] HOST [CMD...]` ([] when ssh names none:
+    the login shell then reads stdin), `docker|podman [compose] exec [opts] NAME CMD...`, `docker-compose exec ...`,
+    `kubectl exec [opts] POD [--] CMD...`; None for any other program."""
+    base, rest = basename(fields[c]), fields[c + 1:]
+    if base == "ssh":
+        k = 0
+        while k < len(rest) and rest[k].startswith("-"):
+            k += 2 if len(rest[k]) == 2 and rest[k][1] in "bcDEeFIiJLlmOopQRSWw" else 1
+        return rest[k + 1:]
+    head = rest[:2] if base in ("docker", "podman") and rest[:1] == ["compose"] else rest[:1]
+    if base not in ("docker", "podman", "docker-compose", "kubectl") or head[-1:] != ["exec"]:
+        return None
+    if base == "kubectl" and "--" in rest:
+        return rest[rest.index("--") + 1:]
+    k = len(head)
+    while k < len(rest) and rest[k].startswith("-"):
+        k += 2 if rest[k] in EXEC_VALUE else 1
+    return rest[k + 1:]
+
+
+def consumer_of(fields: list[str], c: int) -> tuple[str, list[str]]:
+    """Who reads this command's stdin as code, and the words of that reader: "shell", "script" (an interpreter), "sql"
+    (psql), or "" (data). A remote or container shell is looked through; `xargs ... sh -c` takes its input as the command
+    string."""
+    if c >= len(fields):
+        return "", []
+    inner = remote_command(fields, c)
+    if inner is not None:
+        if not inner:
+            return ("shell" if basename(fields[c]) == "ssh" else ""), fields[c:]
+        roles = classify(inner)
+        return consumer_of(inner, max((k for k, r in enumerate(roles) if r == "cmd"), default=0))
+    base = basename(fields[c])
+    if is_shell_reader(fields, c) or base in SHELLS and any(basename(f) == "xargs" for f in fields[:c]) and re.fullmatch(
+            r"-[a-zA-Z]*c[a-zA-Z]*", fields[-1]):
+        return "shell", fields[c:]
+    if is_script_reader(fields, c):
+        return "script", fields[c:]
+    if base == "psql" and not any(a in ("-c", "--command", "-f", "--file") or a.startswith(("--command=", "--file="))
+                                  for a in fields[c + 1:]):
+        return "sql", fields[c:]
+    return "", fields[c:]
 
 
 def simulate(words: list[str]) -> str | None:
