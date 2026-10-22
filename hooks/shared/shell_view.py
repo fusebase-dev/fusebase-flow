@@ -436,8 +436,8 @@ class Analysis:
         for k, (f, role) in enumerate(zip(fields, roles)):
             text = DATA if role == "data" else basename(f) if role == "cmd" else f
             text = "".join(DATA if ch.isspace() and ch not in IFS else ch for ch in text)
-            eligible = role != "data" and not any(ch in IFS for ch in text) and text != DATA and not (
-                k == last + 1 and subcommand_slot(fields, last))
+            eligible = role != "data" and (role == "assign" or ASSIGN.match(f) or not any(ch in IFS for ch in text)) and (
+                text != DATA) and not (k == last + 1 and subcommand_slot(fields, last))  # NAME="a b" may start (H4)
             if eligible:
                 starts.append(at)
             out.append(text)

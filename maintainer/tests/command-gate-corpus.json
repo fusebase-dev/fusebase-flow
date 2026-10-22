@@ -254,6 +254,7 @@
     {"id": "RB-52", "command": "perl -ne 'system(\"rm -rf /tmp/x\")' file", "should_gate": true, "expected_rule": "FR-06 deny: rm -rf", "expected_actions": [], "evasion_class": "payload-context", "red_arm": "", "source": "review: m8-review-b", "why": "H4: perl -ne: -e combined."},
     {"id": "RB-53", "command": "perl -e'system(\"rm -rf /tmp/x\")'", "should_gate": true, "expected_rule": "FR-06 deny: rm -rf", "expected_actions": [], "evasion_class": "payload-context", "red_arm": "", "source": "review: m8-review-b", "why": "H4: perl -e with its code attached."},
     {"id": "RB-54", "command": "node --eval=\"require('child_process').execSync('rm -rf /tmp/x')\"", "should_gate": true, "expected_rule": "FR-06 deny: rm -rf", "expected_actions": [], "evasion_class": "payload-context", "red_arm": "", "source": "review: m8-review-b", "why": "H4: node --eval=CODE."},
-    {"id": "RB-55", "command": "npm exec -- eslint .", "should_gate": false, "expected_rule": "(none)", "expected_actions": [], "evasion_class": "plain", "red_arm": "", "source": "review: m8-review-b", "why": "D1a guard: npm exec of an ungated tool."}
+    {"id": "RB-55", "command": "npm exec -- eslint .", "should_gate": false, "expected_rule": "(none)", "expected_actions": [], "evasion_class": "plain", "red_arm": "", "source": "review: m8-review-b", "why": "D1a guard: npm exec of an ungated tool."},
+    {"id": "RB-56", "command": "GIT_CONFIG_PARAMETERS=\"'core.hooksPath'='/dev/null' 'a.b'='c'\" git commit -m x", "should_gate": true, "expected_rule": "FR-13 deny: core.hooksPath", "expected_actions": [], "evasion_class": "plain", "red_arm": "", "source": "review: m8-review-b", "why": "H4: an assignment word holding a space can be where a rule starts (an FR-13 hook bypass)."}
   ]
 }

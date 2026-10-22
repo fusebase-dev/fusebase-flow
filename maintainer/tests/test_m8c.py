@@ -153,5 +153,15 @@ class OptionForms(Gate):
                             "node --eval=\"console.log('fusebase deploy notes')\"")
 
 
+class AssignmentWords(Gate):
+    """Review B H4: an assignment word holding a space was never where a rule could start, so
+    `GIT_CONFIG_PARAMETERS="'core.hooksPath'='/dev/null' 'a.b'='c'" git commit -m x` (the FR-13 hook bypass) passed."""
+
+    def test_an_assignment_word_with_a_space_is_where_a_rule_may_start(self) -> None:
+        self.assert_denied("GIT_CONFIG_PARAMETERS=\"'core.hooksPath'='/dev/null' 'a.b'='c'\" git commit -m x",
+                           "export GIT_CONFIG_PARAMETERS=\"'core.hooksPath'='/dev/null' 'x.y'='z'\"; git commit -m x")
+        self.assert_allowed("MESSAGE=\"rm -rf is denied\" ./notify.sh", "export NOTE=\"fusebase deploy needs approval\"")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
