@@ -339,6 +339,8 @@ class StagedEvidence(m3.Validator):
     """r3-83: the pre-commit's evidence stage read docs/flow/evidence/<phase>.md from the working tree while the commit
     took the staged blob, so a staged row with an all-zero sha256 committed past it."""
 
+    locals().update(dict.fromkeys(n for n in dir(m3.Validator) if n.startswith("test")))  # the inherited tests run there
+
     def staged(self) -> subprocess.CompletedProcess:
         return m3.run(str(CORE / "hooks/local/validate_evidence.py"), "--staged", "--root", str(self.repo), cwd=self.tmp)
 

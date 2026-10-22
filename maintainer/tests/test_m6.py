@@ -4,6 +4,7 @@ carries it."""
 from __future__ import annotations
 
 import ast
+import atexit
 import contextlib
 import io
 import json
@@ -19,7 +20,7 @@ from pathlib import Path
 from unittest import mock
 
 import test_scripts as m3
-from synthetic import FLOW, GIT, git, no_auto_gc
+from synthetic import FAKE_SCHEDULER, FLOW, GIT, git, no_auto_gc
 
 CORE = FLOW.parents[1]
 sys.path.insert(0, str(CORE / "maintainer"))
@@ -36,13 +37,25 @@ def sh(cwd: Path, *argv: str, stdin: str | None = None, **env: str) -> subproces
 
 
 class Project(unittest.TestCase):
-    """A git project with Flow installed and committed, Claude Code's tool hooks wired and committed: the m6 fixture."""
+    """A git project with Flow installed and committed, Claude Code's tool hooks wired and committed: the m6 fixture.
+    Built once per process and variant, then copied for each test (6.0.0-m8 item 10: a build commits Flow's install
+    through every hook, the suite's largest cost)."""
 
     wire = True
+    built: dict[bool, Path] = {}
 
     def setUp(self) -> None:
         self.tmp = Path(tempfile.mkdtemp(prefix="flow-m6-"))
+        base = Project.built.get(self.wire)
+        if base is None or not (base / ".git").is_dir():
+            base = Project.built[self.wire] = Path(tempfile.mkdtemp(prefix="flow-m6-base-")) / "project"
+            atexit.register(shutil.rmtree, base.parent, True)
+            self.repo = base
+            self.build()
         self.repo = self.tmp / "project"
+        shutil.copytree(base, self.repo, symlinks=True)
+
+    def build(self) -> None:
         self.repo.mkdir()
         git(self.repo, "init", "-q", "-b", "main")
         no_auto_gc(self.repo)
@@ -560,23 +573,6 @@ class OwnGate(m3.Slicer):
         m3.write(self.repo, "docs/flow/phases.md", phases.replace("## P1 First phase\n", ""))  # P1-S1 under no phase
         out = self.slice("T1")
         self.assertEqual(out.returncode, 0, out.stdout)
-
-
-FAKE_SCHEDULER = r'''import os, sys
-tool, args = sys.argv[1], sys.argv[2:]
-with open(os.path.join(os.environ["FAKE_SCHED_DIR"], "calls.txt"), "a", encoding="utf-8") as fh:
-    fh.write(" ".join([tool, *args]) + "\n")
-if tool == "crontab":
-    sys.stdout.write(os.environ.get("FAKE_CRONTAB", ""))
-    sys.exit(0)
-status = os.environ.get("FAKE_TASK_STATUS", "missing")
-if status == "missing":
-    sys.stderr.write("ERROR: The system cannot find the file specified.\n")
-    sys.exit(1)
-sys.stdout.write(f"\nFolder: \\\nHostName:                             HOST\nTaskName:                             \\{args[2]}\n"
-                 f"Next Run Time:                        N/A\nStatus:                               {status}\n"
-                 f"Scheduled Task State:                 {'Disabled' if status == 'Disabled' else 'Enabled'}\n")
-'''
 
 
 class ReaderState(Project):

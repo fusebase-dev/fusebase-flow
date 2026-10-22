@@ -681,4 +681,8 @@ def load_tests(loader: unittest.TestLoader, tests: unittest.TestSuite, pattern: 
 
 
 if __name__ == "__main__":
-    unittest.main(verbosity=2)
+    if sys.argv[1:] or os.environ.get("FLOW_TEST_WORKERS") == "1":
+        unittest.main(verbosity=2)  # a named test, or the whole suite in this one process
+    else:
+        import parallel  # the suite's classes across worker processes (6.0.0-m8 item 10)
+        sys.exit(parallel.main())

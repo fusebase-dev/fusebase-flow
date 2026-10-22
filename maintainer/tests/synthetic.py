@@ -30,6 +30,24 @@ FILES = {
     ".gitignore": "__pycache__/\nstate/approvals/*\n!state/approvals/.gitkeep\n",
 }
 
+# A fake schtasks and crontab (test_m6.ReaderState): it logs each call and answers from FAKE_TASK_STATUS and
+# FAKE_CRONTAB; no real scheduler runs.
+FAKE_SCHEDULER = r'''import os, sys
+tool, args = sys.argv[1], sys.argv[2:]
+with open(os.path.join(os.environ["FAKE_SCHED_DIR"], "calls.txt"), "a", encoding="utf-8") as fh:
+    fh.write(" ".join([tool, *args]) + "\n")
+if tool == "crontab":
+    sys.stdout.write(os.environ.get("FAKE_CRONTAB", ""))
+    sys.exit(0)
+status = os.environ.get("FAKE_TASK_STATUS", "missing")
+if status == "missing":
+    sys.stderr.write("ERROR: The system cannot find the file specified.\n")
+    sys.exit(1)
+sys.stdout.write(f"\nFolder: \\\nHostName:                             HOST\nTaskName:                             \\{args[2]}\n"
+                 f"Next Run Time:                        N/A\nStatus:                               {status}\n"
+                 f"Scheduled Task State:                 {'Disabled' if status == 'Disabled' else 'Enabled'}\n")
+'''
+
 
 def git(cwd: Path, *args: str) -> subprocess.CompletedProcess:
     return subprocess.run([*GIT, *args], cwd=cwd, capture_output=True, text=True, timeout=600)

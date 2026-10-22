@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""The 6.0.0-m8 pass, part two (test_m8.py stays under its 800 lines): the m7 reviews' findings (items 8 and 9).
-`python maintainer/tests/test_m8b.py`; test_migrate.py's load_tests runs it too, so core-verify carries it."""
+"""The 6.0.0-m8 pass, part two (test_m8.py stays under its 800 lines): the m7 reviews' findings (items 8 and 9) and
+the suite's speed (item 10). `python maintainer/tests/test_m8b.py`; test_migrate.py's load_tests runs it too, so
+core-verify carries it."""
 from __future__ import annotations
 
 import json
@@ -24,7 +25,6 @@ sys.path[:0] = [str(CORE / "maintainer"), str(CORE / "hooks"), str(CORE / "hooks
 def inherited(base: type) -> dict:
     """The base class's tests set to None here: they run in the base's own module."""
     return dict.fromkeys(n for n in dir(base) if n.startswith("test"))
-
 
 
 class RangeReviewA(test_m7.RangeCheck):
@@ -99,7 +99,6 @@ class StagedScanHeaders(unittest.TestCase):
                 "@@ -0,0 +1,2 @@\n+++token = 1\n+plain\ndiff --git a/y.md b/y.md\n--- a/y.md\n+++ b/y.md\n"
                 "@@ -1 +1 @@\n-old\n+new\n")
         self.assertEqual(added_lines(diff).split("\n"), ["++token = 1", "plain", "new"])
-
 
 
 class GateReviewB(test_m7.LocalTightens):
@@ -191,7 +190,6 @@ class EolPinRun(unittest.TestCase):
         self.assertEqual(len(gone), 21)
 
 
-
 class HealthReviewB(test_m7.HealthTruth):
     """m7 review B #4 and #5: health said NOT healthy for a hook manager that runs Flow's hooks, and the wiring check
     read a mention of the handler as wiring."""
@@ -243,6 +241,38 @@ class HealthReviewB(test_m7.HealthTruth):
                                       ("backslashes", one(handler.replace("/", "\\")), None, False),
                                       ("python", one("python hooks/handlers/pre_tool_use.py", "Bash|Write"), None, False)):
             self.assertEqual(wired(doc, local, bom), "wired", case)
+
+
+class SuiteSpeed(unittest.TestCase):
+    """Item 10: the Windows leg of core-verify ran past 30 minutes. The installed test project (test_m6.Project: an
+    install committed through every hook) is built once per process and copied per test, and test_migrate.py runs the
+    suite's classes across worker processes."""
+
+    def test_the_installed_project_is_built_once_per_process(self) -> None:
+        import test_m6
+        calls, real = [], test_m6.flow.install
+        saved = dict(test_m6.Project.built) if hasattr(test_m6.Project, "built") else None
+        if saved is not None:
+            test_m6.Project.built.clear()
+        try:
+            with mock.patch.object(test_m6.flow, "install", lambda *a, **k: calls.append(a) or real(*a, **k)):
+                for _ in range(2):
+                    case = test_m6.CommitStages("run")
+                    case.setUp()
+                    self.assertTrue((case.repo / "audit/flow-install.json").is_file())
+                    case.tearDown()
+        finally:
+            if saved:
+                test_m6.Project.built.update({k: v for k, v in saved.items() if k not in test_m6.Project.built})
+        self.assertEqual(len(calls), 1, "one install (CommitStages wires nothing) for two tests")
+
+    def test_a_worker_runs_the_classes_it_is_handed_and_reports_each(self) -> None:
+        worker = subprocess.run([sys.executable, str(CORE / "maintainer/tests/parallel.py"), "--worker"],
+                                input="test_m8b.StagedScanHeaders\ntest_m8b.EolPinRun\n", capture_output=True, text=True,
+                                encoding="utf-8", errors="replace", timeout=600, cwd=CORE / "maintainer/tests")
+        done = [json.loads(ln.split(" ", 1)[1]) for ln in worker.stdout.split("\n") if ln.startswith("[suite-worker] ")]
+        self.assertEqual([(d["name"], d["run"], d["failures"] + d["errors"]) for d in done],
+                         [("test_m8b.StagedScanHeaders", 1, 0), ("test_m8b.EolPinRun", 1, 0)], worker.stdout + worker.stderr)
 
 
 if __name__ == "__main__":
