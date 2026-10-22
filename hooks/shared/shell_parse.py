@@ -337,7 +337,9 @@ def ansi_c(body: str) -> str:
             out.append(ANSI[c])
             i += 2
         elif m := re.match(r"x([0-9A-Fa-f]{1,2})|u([0-9A-Fa-f]{1,4})|U([0-9A-Fa-f]{1,8})|([0-7]{1,3})", body[i + 1:]):
-            out.append(chr(int(next(g for g in m.groups() if g), 8 if m[4] else 16)))
+            code = int(next(g for g in m.groups() if g), 8 if m[4] else 16)
+            # TRIPWIRE (6.0.0-m8 fix, review B H1): chr() raised on a code point past U+10FFFF and the line ran ungated
+            out.append(chr(code) if code <= 0x10FFFF and not 0xD800 <= code <= 0xDFFF else "\ufffd")
             i += 1 + m.end()
         elif c == "c" and i + 2 < len(body):
             out.append(chr(ord(body[i + 2]) & 31))

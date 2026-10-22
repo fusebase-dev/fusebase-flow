@@ -658,7 +658,7 @@ class RealProjectAbort(unittest.TestCase):
 def load_tests(loader: unittest.TestLoader, tests: unittest.TestSuite, pattern: str | None) -> unittest.TestSuite:
     """core-verify.yml runs only this file, so it carries every migrate test, the milestone 3 fixtures, the 6.0.0
     pass's, its micro-pass's, the 6.0.0-m6 pass's (test_m6.py, test_m6_fix.py), the 6.0.0-m7 pass's (test_m7.py) and
-    the 6.0.0-m8 pass's (test_m8.py, test_m8b.py)."""
+    the 6.0.0-m8 pass's (test_m8.py, test_m8b.py, test_m8c.py)."""
     import test_commits
     import test_core
     import test_m6
@@ -666,6 +666,7 @@ def load_tests(loader: unittest.TestLoader, tests: unittest.TestSuite, pattern: 
     import test_m7
     import test_m8
     import test_m8b
+    import test_m8c
     import test_migrate_recovery
     import test_scripts
     tests.addTests(loader.loadTestsFromModule(test_migrate_recovery))
@@ -677,6 +678,7 @@ def load_tests(loader: unittest.TestLoader, tests: unittest.TestSuite, pattern: 
     tests.addTests(loader.loadTestsFromModule(test_m7))
     tests.addTests(loader.loadTestsFromModule(test_m8))
     tests.addTests(loader.loadTestsFromModule(test_m8b))
+    tests.addTests(loader.loadTestsFromModule(test_m8c))
     return tests
 
 

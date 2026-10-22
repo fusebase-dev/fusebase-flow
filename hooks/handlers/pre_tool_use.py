@@ -23,18 +23,25 @@ from pathlib import Path
 _HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(_HERE.parent))
 
-from shared.audit_logger import emit  # noqa: E402
-from shared.command_policy import (  # noqa: E402
-    COMMAND_TOOL_NAMES,
-    evaluate as evaluate_command,
-    is_command_tool,
-)
-from shared.path_policy import (  # noqa: E402
-    assert_protected_policy_loaded,
-    evaluate as evaluate_path,
-)
-from shared.policy_loader import find_git_root, use_committed  # noqa: E402
-from shared.secret_scanner import scan, block_decision  # noqa: E402
+# TRIPWIRE (6.0.0-m8 fix, review B H1): an import that fails (PyYAML missing, a broken file) must still end in a printed
+# decision; an uncaught error exits 1, which run-handler.sh treats as non-blocking, so the tool call would run ungated.
+try:
+    from shared.audit_logger import emit  # noqa: E402
+    from shared.command_policy import (  # noqa: E402
+        COMMAND_TOOL_NAMES,
+        evaluate as evaluate_command,
+        is_command_tool,
+    )
+    from shared.path_policy import (  # noqa: E402
+        assert_protected_policy_loaded,
+        evaluate as evaluate_path,
+    )
+    from shared.policy_loader import find_git_root, use_committed  # noqa: E402
+    from shared.secret_scanner import scan, block_decision  # noqa: E402
+    _IMPORT_ERROR: Exception | None = None
+except Exception as _exc:  # noqa: BLE001
+    _IMPORT_ERROR = _exc
+    COMMAND_TOOL_NAMES = frozenset()
 
 
 # TRIPWIRE (E6): re-export only. The authoritative set is shared.command_policy.
@@ -104,7 +111,29 @@ def approval_store(rel: str) -> bool:
     return parts[:2] == ["state", "approvals"] or any(a == ".git" and b == "flow" for a, b in zip(parts, parts[1:]))
 
 
+def _audit(event: str, **kwargs) -> None:
+    """The audit line, never in the way of the decision: a failed write is said on stderr (the decision still prints)."""
+    try:
+        emit(event, **kwargs)
+    except Exception as exc:  # noqa: BLE001
+        print(f"[fusebase-flow] audit line not written: {exc!r}", file=sys.stderr)
+
+
 def main() -> int:
+    """The decision, printed on every path: an error on the way to it denies the call (exit 2), never exit 1."""
+    try:
+        if _IMPORT_ERROR is not None:
+            raise _IMPORT_ERROR
+        return _main()
+    except Exception as exc:  # noqa: BLE001 — TRIPWIRE (6.0.0-m8 fix, review B H1)
+        reason = (f"Fusebase Flow's tool hook failed before it could decide ({type(exc).__name__}: {exc}); the tool call "
+                  "is refused (fail closed). Fix the error, then retry; run hooks/handlers/pre_tool_use.py with the "
+                  "call's JSON on stdin to see it.")
+        _output_decision("deny", reason, "FR-12")
+        return 2
+
+
+def _main() -> int:
     try:
         event = json.loads(sys.stdin.read() or "{}")
     except json.JSONDecodeError:
@@ -112,7 +141,7 @@ def main() -> int:
 
     try:
         root = find_git_root(Path(event.get("cwd") or "."))
-    except FileNotFoundError:
+    except (FileNotFoundError, OSError, ValueError):
         root = None
 
     tool_name = event.get("tool_name", "")
@@ -126,7 +155,7 @@ def main() -> int:
         shell = "powershell" if str(tool_name).strip().lower() in ("powershell", "pwsh") else "bash"
         cd = evaluate_command(command, root=root, shell=shell)
         if cd.decision != "allow":
-            emit(
+            _audit(
                 "pre_tool_use",
                 decision=cd.decision,
                 # The audit line names the tool and the command's hash, never its text; cd.reason goes to the
@@ -171,7 +200,7 @@ def main() -> int:
                     f"the {tool_name} on {target} (fail closed). Fix "
                     f"policies/protected-paths.yml. ({e!r})"
                 )
-                emit(
+                _audit(
                     "pre_tool_use",
                     decision="deny",
                     reason=reason,
@@ -188,13 +217,13 @@ def main() -> int:
                 reason = ("FR-07: state/approvals/ and .git/flow/ hold the approvals and the approval record; only Flow's "
                           "scripts write them (the two mints, range_check.py --record-commit), on the operator's go-ahead "
                           "in chat (6.0.0-m8, M6-6).")
-                emit("pre_tool_use", decision="deny", reason=reason, rule_id="FR-07",
+                _audit("pre_tool_use", decision="deny", reason=reason, rule_id="FR-07",
                      extra={"tool_name": tool_name, "path": rel}, root=root)
                 _output_decision("deny", reason, "FR-07")
                 return 2
             pd = evaluate_path(rel, root=root)
             if pd.decision != "allow":
-                emit(
+                _audit(
                     "pre_tool_use",
                     decision=pd.decision,
                     reason=pd.reason,
@@ -217,7 +246,7 @@ def main() -> int:
                     f"(patterns: {ids}). Redacted in audit log; rotate the credential "
                     f"if real, or whitelist in policies/secret-patterns.yml if a fixture."
                 )
-                emit(
+                _audit(
                     "pre_tool_use",
                     decision=decision,
                     reason=reason,
@@ -232,7 +261,7 @@ def main() -> int:
     extra = {"tool_name": tool_name}
     if is_command_tool(tool_name):
         extra["cmd_sha256"] = cmd_sha256(str((event.get("tool_input") or {}).get("command") or ""))
-    emit("pre_tool_use", decision="allow", reason="no rule matched", root=root, extra=extra)
+    _audit("pre_tool_use", decision="allow", reason="no rule matched", root=root, extra=extra)
     _output_decision("allow", "no rule matched", "")
     return 0
 

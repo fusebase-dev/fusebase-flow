@@ -93,6 +93,9 @@
 #   denial, with its fix (T363; 5.x 3727d962, local; m7 review B #2).
 #   policies/command-policy.yml: the shell-write deny reads the project's own policies/, state/approvals/ and .git/flow/
 #   (bare, ./, through .. or absolute), not a nested folder of that name (T364; 5.x fe71cab3, local; m7 review B #3).
+#   hooks/shared/shell_parse.py, hooks/shared/shell_view.py and hooks/handlers/pre_tool_use.py: any error on the way to
+#   the gate's decision denies or judges the raw text; the hook never exits 1 (T371; 5.x 81358e39, local; m8 fix pass,
+#   review B H1).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -119,7 +122,7 @@ b5f95a53fa55ccc62da9467c08464ccf443b7ad282fb3f7ffb6b073ff28ba717  hooks/git/pre-
 9cd67869e78cfca6dcb6f0f32d64ed68bec34e9da9cdd99bb7913385ab630055  hooks/git/pre-merge-commit
 359f9a0be4b5efc8d01f479fa9430cf226ec198bbecd8ec644803f6fccc13ef5  hooks/git/pre-push
 a0685b0884a42d5704339ba342247704169b35da26cb228f533f03fc60448e0c  hooks/handlers/post_tool_use.py
-faca0ac8084db3e3c26ac899de43b466107a41c8d0a73a9b9297815234db7cc0  hooks/handlers/pre_tool_use.py
+4d2eabaa162b4deac06d69bc87ab22eb041a5ddf6668f7119887cc0e0dbfc23c  hooks/handlers/pre_tool_use.py
 465857b88e14d4b1a77e91479eb474d3c27efe2f4f888a6211623ed7f5c83400  hooks/local/approve-local.sh
 0f81c1e0228570d3469a8a2079c4386c0093e9ba88c4561f6621f2ff71a1bef4  hooks/local/check-module-size.sh
 8c1c594b604bb3e27a5879619307ae8c051cb52837ade5d30c15453b31ec62ca  hooks/local/install-git-hooks.sh
@@ -143,8 +146,8 @@ cc747d1b046b652ab5c2677752644e02f73e00917950a6a417a3a50333ce3de3  hooks/shared/m
 96de7d2ea15bb3bb2d689a0567bf91a7316c1d5fe8412c3dcc0b8aec603bd2d7  hooks/shared/path_policy.py
 2822da3b8b4aaf8f04f54b4b64d8d0cb359375f5e402fd829c5f0f28b1ce853f  hooks/shared/policy_loader.py
 fecb30ef246aaf2dc90dc55200de5d1b0bab92242c8cbbd5cbd3e9c0d8d784fa  hooks/shared/secret_scanner.py
-5461d47d72c281845c43b40b8f4e572023443c41ebecb1777520b3cf2527cfa8  hooks/shared/shell_parse.py
-0edcc2f71b1fd1cbe6bda218738f337486aea6979790f2c6514fb209ba757b49  hooks/shared/shell_view.py
+18115db2f524d3b1b9ba741e86ad019edddc63f536ac204cc0d7a3e89dbfd1d5  hooks/shared/shell_parse.py
+e75c8fad134b3f8d0e8680484b924eb5bf7d4fe354e06c9ec9d722145b85306b  hooks/shared/shell_view.py
 b2121d6ff3fd99a315087383f772ed29de11bd920c2ef7d8e8041938a50e15c4  hooks/shared/staged_secret_scan.py
 66e639442e9b2f7be2e91c7072a95a6c49331ddf5bd203c29c714cc48fd527bf  policies/approval-policy.yml
 409489ea13502ece110503c5d9c6cb586f299971250c385e158ec54c0becdce5  policies/command-policy.yml

@@ -553,7 +553,8 @@ def view(command: str, shell: str = "bash") -> View:
         an = Analysis()
         an.walk(parse(command))
         return View(command, True, an.texts)
-    except (ParseError, RecursionError, IndexError) as exc:
+    except Exception as exc:  # noqa: BLE001 — TRIPWIRE (6.0.0-m8 fix, review B H1): ANY error here means the raw text
+        # is judged; a ValueError from chr() once escaped this function, and the hook's exit 1 let the command run
         return View(command, False, why=str(exc) or type(exc).__name__)
 
 
