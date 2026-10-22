@@ -7,11 +7,14 @@ import contextlib
 import importlib.util
 import io
 import json
+import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
+
+import test_m7
 
 CORE = Path(__file__).resolve().parents[2]
 sys.path[:0] = [str(CORE / "hooks")]
@@ -20,6 +23,7 @@ from shared.command_policy import evaluate  # noqa: E402
 from shared.policy_loader import reset_cache  # noqa: E402
 
 BS = chr(92)  # a backslash, so no escape in this file is read twice
+NL = chr(10)
 
 
 def decision(command: str) -> str:
@@ -161,6 +165,36 @@ class AssignmentWords(Gate):
         self.assert_denied("GIT_CONFIG_PARAMETERS=\"'core.hooksPath'='/dev/null' 'a.b'='c'\" git commit -m x",
                            "export GIT_CONFIG_PARAMETERS=\"'core.hooksPath'='/dev/null' 'x.y'='z'\"; git commit -m x")
         self.assert_allowed("MESSAGE=\"rm -rf is denied\" ./notify.sh", "export NOTE=\"fusebase deploy needs approval\"")
+
+
+def inherited(base: type) -> dict:
+    """The base class's tests set to None here: they run in the base's own module."""
+    return dict.fromkeys(n for n in dir(base) if n.startswith("test"))
+
+
+class OlderHooksPush(test_m7.RangeCheck):
+    """Review A H1 (it held the 6.0.0-m8 tag): a clone that pulled 6.0.0-m8 still runs 6.0.0-m7's copied pre-push, which
+    passes no --remote; the range check then trusted no remote's refs, and a new branch's push was refused for
+    protected commits approved and recorded in another clone. With no --remote, every remote's refs count, as in m7."""
+
+    locals().update(inherited(test_m7.RangeCheck))
+
+    def test_a_push_without_remote_trusts_every_remote_as_before_and_a_url_trusts_none(self) -> None:
+        rules = self.repo / "FLOW_RULES.md"
+        self.commit("FLOW_RULES.md", rules.read_text(encoding="utf-8") + NL + "team" + NL, "T1: recorded elsewhere",
+                    "--no-verify")
+        self.git("push", "-q", "--no-verify", "origin", "work")
+        self.git("checkout", "-q", "-b", "feature")
+        tip = self.commit("docs/n.md", "n" + NL, "T2: a note", "--no-verify")
+        updates = self.tmp / "updates.txt"
+        updates.write_text(f"refs/heads/feature {tip} refs/heads/feature {'0' * 40}" + NL, encoding="utf-8")
+
+        def check(*extra: str) -> int:
+            return subprocess.run([sys.executable, "hooks/local/lib/range_check.py", "--push", str(updates), *extra],
+                                  cwd=self.repo, capture_output=True, timeout=600).returncode
+        self.assertEqual(check(), 0, "6.0.0-m7's pre-push (no --remote) refused a commit the remote holds")
+        self.assertEqual(check("--remote", "origin"), 0)
+        self.assertNotEqual(check("--remote", str(self.remote)), 0, "a URL trusts no tracking ref")
 
 
 if __name__ == "__main__":

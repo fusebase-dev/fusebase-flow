@@ -157,10 +157,12 @@ def range_base(root: Path) -> str:
     return sha if sha and run(root, ["cat-file", "-e", f"{sha}^{{commit}}"]).returncode == 0 else ""
 
 
-def push(root: Path, updates: str, name: str = "") -> list[str]:
+def push(root: Path, updates: str, name: str | None = None) -> list[str]:
     """`name` is the remote git pushes to (pre-push's $1): only its tracking refs count as already there (m7 review A
-    #3: a ref set under another remote's name hid a secret); a URL or an odd name trusts none."""
-    remotes = [f"--remotes={name}"] if re.fullmatch(r"[\w.-]+", name or "") else []
+    #3: a ref set under another remote's name hid a secret); a URL or an odd name trusts none. None, from a 6.0.0-m7
+    pre-push that passes no --remote (a clone that pulled the upgrade and kept its hooks), trusts every remote's refs,
+    as 6.0.0-m7 did (m8 review A H1: its new branches were refused for changes recorded in another clone)."""
+    remotes = ["--remotes"] if name is None else [f"--remotes={name}"] if re.fullmatch(r"[\w.-]+", name) else []
     tips, remote = [], []
     for line in updates.split("\n"):
         parts = line.split()
@@ -210,8 +212,10 @@ def merge(root: Path) -> list[str]:
     return bad
 
 
-FIX = {"pre-push": "A secret: rotate it, then rewrite the branch without it; never push it. A protected-path change the "
-                   "operator approves in chat: python hooks/local/lib/range_check.py --record-commit <sha> --go-ahead, then push.",
+FIX = {"pre-push": "A secret: rotate it, then rewrite the branch without it; never push it. A protected-path change "
+                   "approved in another clone: first run bash hooks/local/install-git-hooks.sh here (this clone's git "
+                   "hooks may predate the Flow it pulled), then push again. Else, a change the operator approves in "
+                   "chat: python hooks/local/lib/range_check.py --record-commit <sha> --go-ahead, then push.",
        "pre-merge-commit": "A secret: rotate it and take it out of the branch first. A protected-path change the operator "
                            "approves in chat: git merge --no-commit <branch>, mint (bash "
                            "hooks/local/write-bootstrap-approval.sh), git commit, then consume."}
@@ -224,7 +228,7 @@ def main(argv: list[str]) -> int:
         setup(root)
         if mode == "--push" and rest:
             bad = push(root, Path(rest[0]).read_bytes().decode("utf-8", "surrogateescape"),
-                       rest[2] if rest[1:2] == ["--remote"] and len(rest) > 2 else "")
+                       rest[2] if rest[1:2] == ["--remote"] and len(rest) > 2 else None)
         elif mode == "--merge":
             bad = merge(root)
         elif mode == "--record":
