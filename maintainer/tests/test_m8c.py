@@ -65,5 +65,31 @@ class FailsClosed(Gate):
         self.assertEqual(json.loads(out.getvalue())["flow_decision"], "deny")
 
 
+class CodeTheParserReads(Gate):
+    """Review B H2: code bash runs that the parser read but never checked: the body after `function NAME`, a command
+    substitution inside $(( )), (( )) or a ${x/a/b} argument, backticks in an unquoted heredoc, `cat - <<EOF | sh`,
+    `bash /dev/stdin`, a variable `read` fills from a here-string, and an exec call's string that does not parse."""
+
+    def test_the_body_after_function_name_is_a_command(self) -> None:
+        self.assert_denied("function f { rm -rf /tmp/x; }; f", "function ship { fusebase deploy; }; ship")
+        self.assert_allowed("function check { grep -n 'rm -rf' README.md; }; check")
+
+    def test_a_substitution_inside_arithmetic_or_a_parameter_argument_runs(self) -> None:
+        self.assert_denied("echo $(( $(rm -rf /tmp/x) + 1 ))", "(( $(rm -rf /tmp/x) ))",
+                           "x=abc; echo ${x/a/$(rm -rf /tmp/x)}", "echo ${x#$(rm -rf /tmp/x)}")
+        self.assert_allowed("echo $(( 1 + 2 ))", "x=abc; echo ${x/a/b}")
+
+    def test_backticks_in_an_unquoted_heredoc_and_stdin_shells_run(self) -> None:
+        nl = chr(10)
+        self.assert_denied(f"cat <<EOF{nl}`rm -rf /tmp/x`{nl}EOF", f"git commit -F - <<EOF{nl}T1: `fusebase deploy`{nl}EOF",
+                           f"cat - <<EOF | sh{nl}rm -rf /tmp/x{nl}EOF", f"bash /dev/stdin <<EOF{nl}rm -rf /tmp/x{nl}EOF",
+                           "read X <<< 'rm -rf /tmp/x'; $X")
+        self.assert_allowed(f"cat > notes.md <<'EOF'{nl}Run `rm -rf build` by hand.{nl}EOF",
+                            "git commit -m 'T1: `fusebase deploy` is gated'")
+
+    def test_an_exec_call_string_that_does_not_parse_is_judged_raw(self) -> None:
+        self.assert_denied("python3 -c \"import os; os.system('rm -rf /tmp/x \\\"')\"")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

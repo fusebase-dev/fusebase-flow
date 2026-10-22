@@ -96,6 +96,8 @@
 #   hooks/shared/shell_parse.py, hooks/shared/shell_view.py and hooks/handlers/pre_tool_use.py: any error on the way to
 #   the gate's decision denies or judges the raw text; the hook never exits 1 (T371; 5.x 81358e39, local; m8 fix pass,
 #   review B H1).
+#   hooks/shared/shell_parse.py and hooks/shared/shell_view.py: the code inside a function header, arithmetic, a ${...}
+#   argument and an unquoted heredoc's backticks is judged (T372; 5.x 9e615afd, local; m8 fix pass, review B H2).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -146,8 +148,8 @@ cc747d1b046b652ab5c2677752644e02f73e00917950a6a417a3a50333ce3de3  hooks/shared/m
 96de7d2ea15bb3bb2d689a0567bf91a7316c1d5fe8412c3dcc0b8aec603bd2d7  hooks/shared/path_policy.py
 2822da3b8b4aaf8f04f54b4b64d8d0cb359375f5e402fd829c5f0f28b1ce853f  hooks/shared/policy_loader.py
 fecb30ef246aaf2dc90dc55200de5d1b0bab92242c8cbbd5cbd3e9c0d8d784fa  hooks/shared/secret_scanner.py
-18115db2f524d3b1b9ba741e86ad019edddc63f536ac204cc0d7a3e89dbfd1d5  hooks/shared/shell_parse.py
-e75c8fad134b3f8d0e8680484b924eb5bf7d4fe354e06c9ec9d722145b85306b  hooks/shared/shell_view.py
+b9f74e2055ff7040a5f45906bbf97758ba86b33156708b41b0e8740dccb2bd9e  hooks/shared/shell_parse.py
+af46e28fcf1fd1d25b724a377cba50cd684628404aa5ee4f049cd5c0557669c7  hooks/shared/shell_view.py
 b2121d6ff3fd99a315087383f772ed29de11bd920c2ef7d8e8041938a50e15c4  hooks/shared/staged_secret_scan.py
 66e639442e9b2f7be2e91c7072a95a6c49331ddf5bd203c29c714cc48fd527bf  policies/approval-policy.yml
 409489ea13502ece110503c5d9c6cb586f299971250c385e158ec54c0becdce5  policies/command-policy.yml

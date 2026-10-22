@@ -12,6 +12,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+BACKSLASH = chr(92)
 NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 ASSIGN = re.compile(r"[A-Za-z_][A-Za-z0-9_]*(\[[^\]]*\])?\+?=")
 
@@ -136,15 +137,41 @@ def parse_pipeline(lx: Lexer, close: str) -> list:
             return cmds
 
 
+def subs_in(text: str) -> list:
+    """The command substitutions in a text the parser does not walk word by word (an arithmetic expression, a ${...}
+    argument, an unquoted heredoc's body): bash runs each `$(...)` and backtick there, quotes or not (6.0.0-m8 fix,
+    review B H2). A substitution that does not parse raises ParseError: the line's raw text is judged."""
+    nodes, i = [], 0
+    while i < len(text):
+        if text[i] == BACKSLASH:
+            i += 2
+        elif text.startswith("$((", i):
+            i += 3
+        elif text.startswith("$(", i) or text[i] == "`":
+            lx = Lexer(text)
+            lx.i = i + 2 if text[i] == "$" else i
+            nodes.append(parse_list(lx, ")") if text[i] == "$" else read_backtick(lx))
+            i = lx.i
+        else:
+            i += 1
+    return nodes
+
+
+def runs(text: str) -> tuple:
+    """A word part that runs the substitutions inside `text` and adds no text of its own."""
+    return ("run", subs_in(text))
+
+
 def parse_command(lx: Lexer, close: str):
     lx.skip_blank()
-    if lx.s.startswith("((", lx.i):  # an arithmetic command: no command runs
-        depth, lx.i = 0, lx.i
+    if lx.s.startswith("((", lx.i):  # an arithmetic command: its substitutions run
+        depth, start = 0, lx.i
         while lx.i < len(lx.s):
             depth += {"(": 1, ")": -1}.get(lx.s[lx.i], 0)
             lx.i += 1
             if depth == 0:
-                return Simple(header=True)
+                text = lx.s[start:lx.i]
+                return Simple([Word([runs(text)], text)], header=True)
         raise ParseError("unbalanced ((")
     if lx.peek() == "(":
         lx.i += 1
@@ -167,10 +194,12 @@ def parse_command(lx: Lexer, close: str):
             continue
         word = read_word(lx)
         if not cmd.words and word.raw in ("case", "coproc", "select", "function") and not cmd.redirs:
-            if word.raw == "function":
-                read_word_after_blank(lx)
-                cmd.header = True
-                continue
+            if word.raw == "function":  # `function NAME [()]`: the header ends here; its body is the next command
+                read_word_after_blank(lx)  # (6.0.0-m8 fix, review B H2: the body's first command was read as data)
+                lx.skip_blank()
+                if m := re.match(r"\(\s*\)", lx.s[lx.i:]):
+                    lx.i += m.end()
+                return Simple(header=True)
             raise ParseError(f"`{word.raw}`")
         if not cmd.words and word.raw in ("for",):
             cmd.header = True
@@ -381,7 +410,7 @@ def read_dollar(lx: Lexer, quoted: bool):
         else:
             raise ParseError("unbalanced $((")
         lx.i = j
-        return ("unk", s[i:j], quoted)
+        return ("var", "", "parts", [("unk", s[i:j], quoted), runs(s[i + 3:j - 2])], quoted)
     if nxt == "(":
         lx.i = i + 2
         return ("sub", parse_list(lx, ")"), quoted)
@@ -400,8 +429,8 @@ def read_dollar(lx: Lexer, quoted: bool):
         lx.i = j
         inner = s[i + 2:j - 1]
         m = re.fullmatch(r"([A-Za-z_][A-Za-z0-9_]*|[0-9]+|[@*#?$!-])(:?[-=+?])?(.*)", inner, re.S)
-        if not m:
-            return ("unk", s[i:j], quoted)
+        if not m or not m[2] and m[3]:  # ${!x}, ${x/a/b}, ${x#p}: the value is unknown, its substitutions run
+            return ("var", "", "parts", [("unk", s[i:j], quoted), runs(inner)], quoted)
         arg = parse_word_text(m[3]) if m[2] else None
         return ("var", m[1], m[2] or "", arg, quoted)
     m = NAME.match(s, i + 1) or re.compile(r"[0-9@*#?$!-]").match(s, i + 1)
@@ -427,4 +456,4 @@ def parse_word_text(text: str) -> Word | None:
     return Word(parts, text)
 
 
-__all__ = ["ASSIGN", "Group", "Lexer", "ParseError", "Redir", "Simple", "Word", "ansi_c", "parse", "parse_list"]
+__all__ = ["ASSIGN", "Group", "Lexer", "ParseError", "Redir", "Simple", "Word", "ansi_c", "parse", "parse_list", "subs_in"]

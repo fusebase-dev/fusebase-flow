@@ -25,7 +25,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-from .shell_parse import ASSIGN, Group, Lexer, ParseError, Simple, Word, ansi_c, parse, parse_list
+from .shell_parse import ASSIGN, Group, ParseError, Simple, Word, ansi_c, parse, subs_in
 
 DATA = "\x00"  # a data word's rendering: no rule matches it, and \b still sees a boundary around it
 IFS = " \t\n"
@@ -47,7 +47,9 @@ RUNNER_OWN = set("add remove rm uninstall install i update up upgrade run test i
 GIT_GLOBAL_VALUE = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env", "--exec-path",
                     "--super-prefix", "--attr-source"}
 RESERVED = {"!", "{", "}", "if", "then", "elif", "else", "fi", "do", "done", "while", "until"}
+STDIN = {"-", "/dev/stdin", "/dev/fd/0", "/proc/self/fd/0"}  # a script path that is the shell's own stdin
 BARE = re.compile(r"[A-Za-z][\w.:-]*")
+NAME_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 EXEC_CALL = re.compile(r"(?:\bos\.(?:system|popen|exec\w*|spawn\w*)|\bsubprocess\.\w+|\bcommands\.getoutput|"
                        r"\bpty\.spawn|\bchild_process\.\w+|\bexecSync|\bexecFileSync|\bspawnSync|\bexecFile|\bspawn|"
                        r"\bexec|\bsystem|\bpopen|\bshell_exec|\bpassthru|\bproc_open)\s*\(\s*\[?")
@@ -107,6 +109,9 @@ class Analysis:
                 segs.append((p[1], False))
             elif kind == "unk":
                 segs.append((p[1], False))
+            elif kind == "run":  # substitutions inside a text no word holds ($((...)), ${x/a/b}): they run
+                for node in p[1]:
+                    self.walk(node)
             elif kind == "sub":
                 out = self.sub_output(p[1])
                 segs.append((out if out is not None else "$(...)", not p[2] and out is not None))
@@ -168,7 +173,7 @@ class Analysis:
     def heredocs(self, cmd: Simple, consumer: str, fields: list[str], out_to: str = "") -> None:
         """Each heredoc's and here-string's text goes to `consumer`; to `out_to` when the consumer is cat in a pipe into
         a shell (`cat <<EOF | sh`)."""
-        if not consumer and out_to and fields and basename(fields[0]) == "cat" and len(fields) == 1:
+        if not consumer and out_to and fields and basename(fields[0]) == "cat" and set(fields[1:]) <= {"-"}:
             consumer = out_to
         for r in cmd.redirs:
             body = r.body
@@ -176,14 +181,9 @@ class Analysis:
                 body = " ".join(self.expand(r.target)) + "\n"
             if body is None:
                 continue
-            if r.op in ("<<", "<<-") and not r.body_quoted:  # $(...) in an unquoted heredoc runs
-                for m in re.finditer(r"\$\(", body):
-                    try:
-                        lx = Lexer(body)
-                        lx.i = m.end()
-                        self.walk(parse_list(lx, ")"))
-                    except ParseError:
-                        pass
+            if r.op in ("<<", "<<-") and not r.body_quoted:  # $(...) and backticks in an unquoted heredoc run
+                for node in subs_in(body):  # (a substitution that does not parse: the line is judged raw)
+                    self.walk(node)
             self.feed(consumer, fields, body)
 
     def feed(self, consumer: str, fields: list[str], text: str) -> None:
@@ -215,8 +215,10 @@ class Analysis:
                 if ASSIGN.match(f):
                     name, _, value = f.partition("=")
                     self.env[name] = value
+        if base == "read":
+            self.read_into(fields[last + 1:], cmd)
         self.args(fields, roles, last, base)
-        consumer = "shell" if is_shell_reader(fields, last) else "script" if is_script_reader(fields, last) else ""
+        consumer ="shell" if is_shell_reader(fields, last) else "script" if is_script_reader(fields, last) else ""
         self.heredocs(cmd, consumer, fields[last:], out_to)
         if out_to and base in ("echo", "printf"):
             out = simulate(fields[last:])
@@ -227,6 +229,23 @@ class Analysis:
             keep = git_without_globals(fields, last)
             if len(keep) < len(fields):
                 self.render([fields[k] for k in keep], [roles[k] for k in keep], last)
+
+    def read_into(self, args: list[str], cmd: Simple) -> None:
+        """`read X <<< 'text'` (or a heredoc): X is known from here on, as an assignment would make it."""
+        names, k = [], 0
+        while k < len(args):
+            if args[k] in ("-p", "-d", "-n", "-N", "-t", "-u", "-a"):  # an option and its value
+                k += 2
+                continue
+            if NAME_RE.fullmatch(args[k]):
+                names.append(args[k])
+            k += 1
+        text = next((" ".join(self.expand(r.target)) if r.op == "<<<" and r.target is not None else
+                     (r.body or "").split("\n", 1)[0] for r in cmd.redirs if r.op in ("<<<", "<<", "<<-")), None)
+        if names and text is not None:
+            words = text.split(None, len(names) - 1)
+            for name, value in zip(names, words + [""] * len(names)):
+                self.env[name] = value
 
     def args(self, fields: list[str], roles: list[str], c: int, base: str) -> None:
         """Marks data words and runs the code an argument carries (roles is edited in place)."""
@@ -434,8 +453,9 @@ def is_shell_reader(fields: list[str], c: int) -> bool:
     args = fields[c + 1:]
     if "-s" in args:
         return True
-    opts = [a for a in args if a.startswith("-")]
-    return not any(re.fullmatch(r"-[a-zA-Z]*c[a-zA-Z]*", o) for o in opts) and not [a for a in args if not a.startswith("-")]
+    opts = [a for a in args if a.startswith("-") and a != "-"]
+    positional = [a for a in args if a not in opts]
+    return not any(re.fullmatch(r"-[a-zA-Z]*c[a-zA-Z]*", o) for o in opts) and (not positional or positional[0] in STDIN)
 
 
 def is_script_reader(fields: list[str], c: int) -> bool:
@@ -446,7 +466,7 @@ def is_script_reader(fields: list[str], c: int) -> bool:
     if any(a in ("-c", "-e", "-E", "--eval", "-p", "-r") for a in args):
         return False
     positional = [a for a in args if a == "-" or not a.startswith("-")]
-    return not positional or positional[0] == "-"
+    return not positional or positional[0] in STDIN
 
 
 def stdin_reader(cmd) -> str:
@@ -516,16 +536,10 @@ def blank_literals(code: str, base: str, an: Analysis) -> str:
             first = STRING.match(rest.lstrip())
             text = literal_body(first[0]) if first else ""
         if text:
-            try:
-                an.code(text)
-            except ParseError:
-                pass
+            an.code(text)  # unparseable: the line is judged raw (6.0.0-m8 fix, H2)
     if base in ("perl", "ruby", "php"):
         for m in re.finditer(r"`([^`]*)`|(?:\bqx|%x)\((.*?)\)", code, re.S):
-            try:
-                an.code(m[1] if m[1] is not None else m[2])
-            except ParseError:
-                pass
+            an.code(m[1] if m[1] is not None else m[2])  # unparseable: the line is judged raw (6.0.0-m8 fix, H2)
         # perl's q() qq() qw() and ruby's %q() %Q() %w(): strings; blanked when they hold whitespace
         code = QUOTE_OP.sub(lambda m: m[0] if not any(ch.isspace() for ch in m[0]) else m[1] + "()", code)
     out, at = [], 0
