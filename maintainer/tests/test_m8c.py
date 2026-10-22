@@ -138,5 +138,20 @@ class UnknownRunners(Gate):
                             "cargo rm serde", "pnpm remove lodash", "make clean")
 
 
+class OptionForms(Gate):
+    """Review B H4, option parsing: `npx -c` and `npm exec -c` run a command line; an interpreter's code option may be
+    combined (`-Sc`, perl's `-ne`) or carry its code attached (`-c"..."`, `-e'...'`, `--eval=...`)."""
+
+    def test_exec_c_and_attached_or_combined_code_options_are_code(self) -> None:
+        self.assert_denied("npx -c 'fusebase deploy'", "npm exec -c 'fusebase deploy'",
+                           "python3 -c\"import os; os.system('rm -rf /tmp/x')\"",
+                           "python3 -Sc \"import os; os.system('rm -rf /tmp/x')\"",
+                           "perl -ne 'system(\"rm -rf /tmp/x\")' file", "perl -e'system(\"rm -rf /tmp/x\")'",
+                           "node --eval=\"require('child_process').execSync('rm -rf /tmp/x')\"")
+        self.assert_allowed("npm exec -- eslint .", "npx -y prettier --check .",
+                            "python3 -c \"print('the rm -rf guard')\"",
+                            "node --eval=\"console.log('fusebase deploy notes')\"")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

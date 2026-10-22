@@ -57,6 +57,10 @@ GIT_GLOBAL_VALUE = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--co
 CODE_ARGS = {"trap": "first", "git": "submodule foreach, rebase -x/--exec, -c or config: alias.*=!..., GIT_CODE_KEYS"}
 GIT_CODE_KEYS = {"core.sshcommand", "core.pager", "core.editor", "sequence.editor"}
 GIT_CODE_VARS = {"GIT_SSH_COMMAND", "GIT_PAGER", "GIT_EDITOR", "GIT_SEQUENCE_EDITOR"}
+EXEC_OPTION_VALUE = {"-p", "--package", "-c", "--call", "-w", "--workspace", "--prefix", "--filter"}  # npm exec / npx
+# The letters that name an interpreter's code option (-c, perl -e, node -e/-p); any other interpreter: c, e, E, p, r.
+CODE_FLAGS = {"python": "c", "python3": "c", "python2": "c", "py": "c", "pypy": "c", "pypy3": "c", "node": "ep",
+              "nodejs": "ep", "bun": "e", "perl": "eE", "ruby": "e", "php": "r"}
 EXEC_VALUE = {"-e", "--env", "-u", "--user", "-w", "--workdir", "--env-file", "--detach-keys", "--index", "-c",
               "--container", "-n", "--namespace", "-f", "--filename"}  # docker/kubectl exec options with a value
 RESERVED = {"!", "{", "}", "if", "then", "elif", "else", "fi", "do", "done", "while", "until"}
@@ -305,11 +309,14 @@ class Analysis:
                 roles[k] = "data"
                 if "=" in fields[k]:
                     self.code(fields[k].partition("=")[2])
-        elif base in INTERPRETERS:
+        elif base in INTERPRETERS:  # -c CODE, -Sc CODE, -cCODE, perl -ne CODE, -eCODE, --eval=CODE (review B H4)
             for k in rest:
-                if fields[k - 1] in ("-c", "-e", "-E", "--eval", "-p", "--print", "-r") and roles[k - 1] != "data":
+                code = code_flag(fields[k], base)
+                if code is None and roles[k - 1] != "data" and code_flag(fields[k - 1], base) == "":
+                    code = fields[k]
+                if code:
                     roles[k] = "data"
-                    self.script(fields[k], base)
+                    self.script(code, base)
         elif base == "find":
             k = c + 1
             while k < len(fields):
@@ -330,6 +337,21 @@ class Analysis:
                 self.code(" ".join(fields[k + 1:]))
         self.shell_c(fields, roles, c)
         self.approve_local(fields, roles, c)
+        self.exec_call(fields, roles)
+
+    def exec_call(self, fields: list[str], roles: list[str]) -> None:
+        """`npx -c '...'`, `npm exec -c '...'` (and --call): the string is a command line (review B H4)."""
+        for k, f in enumerate(fields):
+            if basename(f) == "npx" or basename(f) in ("npm", "pnpm") and fields[k + 1:k + 2] in (["exec"], ["x"]):
+                j = k + (1 if basename(f) == "npx" else 2)
+                while j < len(fields) and fields[j].startswith("-") and fields[j] != "--":
+                    if fields[j] in ("-c", "--call") and j + 1 < len(fields):
+                        roles[j + 1] = "data"
+                        self.code(fields[j + 1])
+                    elif fields[j].startswith("--call="):
+                        roles[j] = "data"
+                        self.code(fields[j].partition("=")[2])
+                    j += 2 if fields[j] in EXEC_OPTION_VALUE else 1
 
     def git_code(self, fields: list[str], roles: list[str], c: int) -> None:
         """The shell commands a git line hands to a shell (CODE_ARGS)."""
@@ -441,14 +463,14 @@ def classify(fields: list[str]) -> list[str]:
         if base in RUNNERS and k + 1 < len(fields):
             nxt = fields[k + 1]
             if nxt in ("exec", "dlx", "x"):
-                k += 2
+                k = exec_options(fields, k + 2)
                 continue
             if nxt in RUNNER_OWN or nxt.startswith("-"):
                 break
             k += 1
             continue
-        if base == "npm" and k + 1 < len(fields) and fields[k + 1] in ("exec", "x"):
-            k += 2
+        if base == "npm" and k + 1 < len(fields) and fields[k + 1] in ("exec", "x") or base == "npx":
+            k = exec_options(fields, k + (1 if base == "npx" else 2))
             continue
         if base not in WRAPPERS:
             break
@@ -465,6 +487,17 @@ def classify(fields: list[str]) -> list[str]:
         if base == "nice" and k < len(fields) and re.fullmatch(r"-?\d+", fields[k]):
             k += 1
     return roles
+
+
+def exec_options(fields: list[str], k: int) -> int:
+    """The index of the command after npm exec's, npx's or pnpm dlx's own options (`--`, --yes, --package=x, -p x)."""
+    while k < len(fields) and fields[k].startswith("-"):
+        k += 1
+        if fields[k - 1] == "--":
+            break
+        if fields[k - 1] in EXEC_OPTION_VALUE and k < len(fields):
+            k += 1
+    return k
 
 
 def subcommand_slot(fields: list[str], last: int) -> bool:
@@ -526,10 +559,28 @@ def is_script_reader(fields: list[str], c: int) -> bool:
     if c >= len(fields) or basename(fields[c]).lower() not in INTERPRETERS:
         return False
     args = fields[c + 1:]
-    if any(a in ("-c", "-e", "-E", "--eval", "-p", "-r") for a in args):
+    if any(code_flag(a, basename(fields[c]).lower()) is not None for a in args):
         return False
     positional = [a for a in args if a == "-" or not a.startswith("-")]
     return not positional or positional[0] in STDIN
+
+
+def code_flag(word: str, base: str) -> str | None:
+    """An interpreter's code option: "" when the code is the next word (-c, -Sc, perl -ne, --eval), the code itself when
+    attached (-cCODE, perl -eCODE, --eval=CODE), None for any other word (review B H4)."""
+    if word in ("--eval", "--print"):
+        return ""
+    if word.startswith(("--eval=", "--print=")):
+        return word.partition("=")[2] or None
+    if not word.startswith("-") or word.startswith("--"):
+        return None
+    letters = CODE_FLAGS.get(base.lower(), "ceEpr")
+    for i, ch in enumerate(word[1:], 1):
+        if ch in letters:
+            return word[i + 1:]
+        if not ch.isalpha():
+            return None
+    return None
 
 
 def stdin_reader(cmd) -> str:

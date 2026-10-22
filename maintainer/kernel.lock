@@ -104,6 +104,8 @@
 #   35a9346b, local; m8 fix pass, review B H3).
 #   hooks/shared/shell_view.py: the subcommand slot holds for known CLIs only (T375; 5.x 77ae0055, local; m8 fix pass,
 #   review B H3).
+#   hooks/shared/shell_view.py: npx -c and npm exec -c are command lines; combined and attached interpreter code options
+#   are code (T376; 5.x 66308f9c, local; m8 fix pass, review B H4).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -155,7 +157,7 @@ cc747d1b046b652ab5c2677752644e02f73e00917950a6a417a3a50333ce3de3  hooks/shared/m
 2822da3b8b4aaf8f04f54b4b64d8d0cb359375f5e402fd829c5f0f28b1ce853f  hooks/shared/policy_loader.py
 fecb30ef246aaf2dc90dc55200de5d1b0bab92242c8cbbd5cbd3e9c0d8d784fa  hooks/shared/secret_scanner.py
 b9f74e2055ff7040a5f45906bbf97758ba86b33156708b41b0e8740dccb2bd9e  hooks/shared/shell_parse.py
-1f2f60c243517d26c8c04a27944805d220e250b7c85eea5b5a615ccd9b546e7d  hooks/shared/shell_view.py
+f435cf6672aa51319876c218bfa85d3536fe89ee64ecf629545ae9ed724a155a  hooks/shared/shell_view.py
 b2121d6ff3fd99a315087383f772ed29de11bd920c2ef7d8e8041938a50e15c4  hooks/shared/staged_secret_scan.py
 66e639442e9b2f7be2e91c7072a95a6c49331ddf5bd203c29c714cc48fd527bf  policies/approval-policy.yml
 409489ea13502ece110503c5d9c6cb586f299971250c385e158ec54c0becdce5  policies/command-policy.yml
