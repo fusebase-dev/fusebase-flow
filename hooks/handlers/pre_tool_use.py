@@ -142,7 +142,12 @@ def _main() -> int:
     try:
         root = find_git_root(Path(event.get("cwd") or "."))
     except (FileNotFoundError, OSError, ValueError):
-        root = None
+        # TRIPWIRE (6.0.0-m8 fix): a call from outside any git work tree (`cd <your-project>` from the folder above it)
+        # is judged by the rules of the project this handler belongs to; a failed lookup denied every such call.
+        try:
+            root = find_git_root(_HERE)
+        except (FileNotFoundError, OSError, ValueError):
+            root = None
 
     tool_name = event.get("tool_name", "")
     if root is not None:  # the shipped policies as committed, never a working-tree edit of them (m7 review B #1)

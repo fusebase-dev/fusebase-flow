@@ -168,6 +168,25 @@ class AssignmentWords(Gate):
         self.assert_allowed("MESSAGE=\"rm -rf is denied\" ./notify.sh", "export NOTE=\"fusebase deploy needs approval\"")
 
 
+class OutsideTheProject(unittest.TestCase):
+    """T371 made the hook print a decision on every path, and a call from outside any git work tree (`cd <your-project>`
+    from the folder above it, as the upgrade's steps run) then met the policy's fail-closed deny: no git root, no
+    policies. Such a call is judged by the rules of the project the handler belongs to."""
+
+    def decide_outside(self, command: str) -> tuple[int, str]:
+        with tempfile.TemporaryDirectory() as folder:
+            event = {"tool_name": "Bash", "cwd": folder, "hook_event_name": "PreToolUse",
+                     "tool_input": {"command": command}}
+            out = subprocess.run([sys.executable, str(CORE / "hooks/handlers/pre_tool_use.py")], input=json.dumps(event),
+                                 capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=folder,
+                                 timeout=300)
+        return out.returncode, json.loads(out.stdout or "{}").get("flow_decision", out.stderr[-200:])
+
+    def test_a_call_from_outside_any_git_work_tree_is_judged_by_the_handlers_project(self) -> None:
+        self.assertEqual(self.decide_outside("cd fx"), (0, "allow"))
+        self.assertEqual(self.decide_outside("rm -rf fx"), (2, "deny"))
+
+
 def inherited(base: type) -> dict:
     """The base class's tests set to None here: they run in the base's own module."""
     return dict.fromkeys(n for n in dir(base) if n.startswith("test"))

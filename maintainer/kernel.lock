@@ -108,6 +108,8 @@
 #   are code (T376; 5.x 66308f9c, local; m8 fix pass, review B H4).
 #   hooks/shared/shell_view.py: an assignment word holding a space can be where a rule starts (T377; 5.x 7e7e3f86, local;
 #   m8 fix pass, review B H4).
+#   hooks/handlers/pre_tool_use.py: a call from outside any git work tree is judged by the handler's own project (T380;
+#   5.x 3449cc51, local; m8 fix pass).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -134,7 +136,7 @@ b5f95a53fa55ccc62da9467c08464ccf443b7ad282fb3f7ffb6b073ff28ba717  hooks/git/pre-
 9cd67869e78cfca6dcb6f0f32d64ed68bec34e9da9cdd99bb7913385ab630055  hooks/git/pre-merge-commit
 359f9a0be4b5efc8d01f479fa9430cf226ec198bbecd8ec644803f6fccc13ef5  hooks/git/pre-push
 a0685b0884a42d5704339ba342247704169b35da26cb228f533f03fc60448e0c  hooks/handlers/post_tool_use.py
-4d2eabaa162b4deac06d69bc87ab22eb041a5ddf6668f7119887cc0e0dbfc23c  hooks/handlers/pre_tool_use.py
+aa01d3670b1372994a819e09708d24b07396609cb04310d3152c377306c02795  hooks/handlers/pre_tool_use.py
 465857b88e14d4b1a77e91479eb474d3c27efe2f4f888a6211623ed7f5c83400  hooks/local/approve-local.sh
 0f81c1e0228570d3469a8a2079c4386c0093e9ba88c4561f6621f2ff71a1bef4  hooks/local/check-module-size.sh
 8c1c594b604bb3e27a5879619307ae8c051cb52837ade5d30c15453b31ec62ca  hooks/local/install-git-hooks.sh
