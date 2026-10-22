@@ -110,6 +110,9 @@
 #   m8 fix pass, review B H4).
 #   hooks/handlers/pre_tool_use.py: a call from outside any git work tree is judged by the handler's own project (T380;
 #   5.x 3449cc51, local; m8 fix pass).
+#   hooks/shared/shell_runners.py (new) and hooks/shared/shell_view.py: the runner tables and word-layout helpers move,
+#   unchanged, to the new module, which joins the lock because shell_view.py imports it (T382; 5.x f9af30b7, local; m8
+#   fix pass, round 2, before re-check B's fixes grow shell_view.py past its ceiling).
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -161,7 +164,8 @@ cc747d1b046b652ab5c2677752644e02f73e00917950a6a417a3a50333ce3de3  hooks/shared/m
 2822da3b8b4aaf8f04f54b4b64d8d0cb359375f5e402fd829c5f0f28b1ce853f  hooks/shared/policy_loader.py
 fecb30ef246aaf2dc90dc55200de5d1b0bab92242c8cbbd5cbd3e9c0d8d784fa  hooks/shared/secret_scanner.py
 b9f74e2055ff7040a5f45906bbf97758ba86b33156708b41b0e8740dccb2bd9e  hooks/shared/shell_parse.py
-87031a6b85070fca0fb554b6e86ce6678abec6f5bb0eb9e86ad3c8d4baf23d0d  hooks/shared/shell_view.py
+5700e024abbcfa5b0ab11b59d4aa47beba5762d80d8bcf6c8648a3ab7a4b8234  hooks/shared/shell_runners.py
+9f0dcb4df414eaac43cef3e237aeb13932cc953686b5259782d7a2670db0712c  hooks/shared/shell_view.py
 b2121d6ff3fd99a315087383f772ed29de11bd920c2ef7d8e8041938a50e15c4  hooks/shared/staged_secret_scan.py
 66e639442e9b2f7be2e91c7072a95a6c49331ddf5bd203c29c714cc48fd527bf  policies/approval-policy.yml
 409489ea13502ece110503c5d9c6cb586f299971250c385e158ec54c0becdce5  policies/command-policy.yml
