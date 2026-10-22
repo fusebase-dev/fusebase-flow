@@ -216,6 +216,34 @@ class HealthReviewB(test_m7.HealthTruth):
         rc, text = self.health()
         self.assertEqual(rc, 0, text)
 
+    def test_the_wiring_is_what_the_settings_run(self) -> None:
+        import reader
+        import wire
+        good = {"hooks": {k: [v] for k, v in wire.entries("claude").items()}}
+        handler = good["hooks"]["PreToolUse"][0]["hooks"][0]["command"]
+
+        def wired(doc: dict | None, local: dict | None = None, bom: bool = False) -> str:
+            for rel, d in ((".claude/settings.json", doc), (".claude/settings.local.json", local)):
+                path = self.repo / rel
+                path.unlink(missing_ok=True)
+                if d is not None:
+                    path.write_text(("\ufeff" if bom else "") + json.dumps(d, indent=2), encoding="utf-8")
+            return reader.wired(self.repo, ".claude/settings.json")
+
+        def one(command: str, matcher: str = "Bash") -> dict:
+            return {"hooks": {"PreToolUse": [{"matcher": matcher, "hooks": [{"type": "command", "command": command}]}]}}
+
+        self.assertEqual(wired(good), "wired")
+        for case, doc, local in (("disableAllHooks", {**good, "disableAllHooks": True}, None),
+                                 ("disableAllHooks in the local file", good, {"disableAllHooks": True}),
+                                 ("an echo", one("echo hooks/handlers/pre_tool_use.py"), None),
+                                 ("a matcher without Bash", one(handler, "Write|Edit"), None)):
+            self.assertEqual(wired(doc, local), "unenforced", case)
+        for case, doc, local, bom in (("a BOM", good, None, True), ("the local file", {}, good, False),
+                                      ("backslashes", one(handler.replace("/", "\\")), None, False),
+                                      ("python", one("python hooks/handlers/pre_tool_use.py", "Bash|Write"), None, False)):
+            self.assertEqual(wired(doc, local, bom), "wired", case)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
