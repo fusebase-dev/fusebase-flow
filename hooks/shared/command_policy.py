@@ -24,7 +24,7 @@ from .approval_artifact import (
     policy_ttl_minutes,
     valid_destination_ref,
 )
-from .command_rules import SHELL, command_view, mint_subject, rule_actions, rule_matches
+from .command_rules import SHELL, mint_subject, rule_actions, rule_matches
 from .denial_message import render_approval_denial, render_push_boundary_denial
 from .git_push_binding import boundary_updates, resolve_command_updates
 from .policy_loader import find_git_root, get_policy
@@ -217,25 +217,21 @@ def _policy_error(command: str, detail: str, where: str = "") -> CommandDecision
 
 
 #: S4a. Rendered verbatim from facts the deny decision ALREADY retains — no re-match, no
-#: payload extraction, no span inference.
+#: tokenizing, no quote parsing, no payload extraction, no span inference.
 #:
-#: TRIPWIRE: it claims NO location, deliberately: a wrong location attached to a correct denial is worse than no
-#: explanation. Since 6.0.0-m8 (item 7.10) a rule matches what the line runs (hooks/shared/shell_view.py); a line the
-#: parser cannot read is matched on its raw text, and says so.
+#: TRIPWIRE: it claims NO location, deliberately. Pointing at the offending span requires the
+#: shell-aware parsing decisions K21 and M8 reserve (see policies/command-policy.yml § MATCHING
+#: IS REGEX OVER THE RAW COMMAND STRING and docs/backlog/command-gate-shell-evasion/). A wrong
+#: location attached to a correct denial is worse than no explanation — never add one here.
 _DENY_EXPLANATION = (
-    "Denied: a command this line runs matched rule {rule_id}, pattern {pattern}. "
-    "Quoted messages, heredocs a non-shell reads and search patterns are not matched."
-)
-_RAW_EXPLANATION = (
-    "Denied: the raw line matched rule {rule_id}, pattern {pattern}. "
-    "It could not be read as shell commands ({why}), so quoted prose can match this pattern; no match location is claimed."
+    "Denied: raw command matched rule {rule_id}, pattern {pattern}. "
+    "Quoted prose can match this pattern; no match location is claimed."
 )
 
 
-def explain_rule_denial(rule_id: str, matched_pattern: str, why: str = "") -> str:
-    """Why a deny-rule fired: which rule and which pattern; `why` names the parse failure when the raw line was judged."""
-    return (_RAW_EXPLANATION.format(rule_id=rule_id, pattern=matched_pattern, why=why) if why else
-            _DENY_EXPLANATION.format(rule_id=rule_id, pattern=matched_pattern))
+def explain_rule_denial(rule_id: str, matched_pattern: str) -> str:
+    """Why a deny-rule fired: which rule, which pattern, and that prose can trip it."""
+    return _DENY_EXPLANATION.format(rule_id=rule_id, pattern=matched_pattern)
 
 
 def _evaluate_deny(command: str, policy: dict[str, Any]) -> CommandDecision | None:
@@ -246,12 +242,11 @@ def _evaluate_deny(command: str, policy: dict[str, Any]) -> CommandDecision | No
         if matched:
             rule_id = rule.get("rule_id", "FR-06")
             pattern = rule["pattern"]
-            seen = command_view(command)
             return CommandDecision(
                 command=command,
                 decision="deny",
                 reason=(f"{rule.get('reason', 'denied by command-policy')}\n"
-                        f"{explain_rule_denial(rule_id, pattern, '' if seen.parsed else seen.why or 'a syntax error')}"),
+                        f"{explain_rule_denial(rule_id, pattern)}"),
                 rule_id=rule_id,
                 matched_pattern=pattern,
             )
@@ -403,13 +398,11 @@ def _evaluate_require_approval(
 
     lead = unsatisfied[0]
     all_required = _unique(satisfied + unsatisfied)
-    seen = command_view(command)
     return CommandDecision(
         command=command,
         decision="deny" if on_missing == "deny" else "ask",
         reason=render_approval_denial(command, all_required, verdicts,
-                                      unsatisfied_actions=unsatisfied, details=details,
-                                      unread="" if seen.parsed else seen.why or "a syntax error"),
+                                      unsatisfied_actions=unsatisfied, details=details),
         rule_id=matched_rule.get("rule_id", "FR-12"),
         matched_pattern=matched_rule["pattern"],
         approval_action=lead,
@@ -562,7 +555,8 @@ def approval_binding_for(command: str, action: str, *,
 
 
 def evaluate(command: str, *, root: Path | None = None, shell: str = "bash") -> CommandDecision:
-    """The gate's decision for `command`; `shell` is the host tool's (a PowerShell line is judged on its raw text)."""
+    """The gate's decision for `command`; `shell` is the host tool's (a PowerShell line is matched on its raw text,
+    without the bash allowlist)."""
     token = SHELL.set(shell)
     try:
         return _evaluate(command, root=root)

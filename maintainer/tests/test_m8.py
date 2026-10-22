@@ -644,10 +644,10 @@ class GateRoundsAndCarryOver(m3.Gate):
 
 
 class CommandGateCorpus(Kernel):
-    """Item 7.10 (the owner's lock of 2026-10-21, D1 = D1a, D2 = D2-no): FR-06 and FR-12 match the commands a line runs,
-    never words inside a quoted message, a heredoc a non-shell reads or a search pattern, and never name an approval for
-    an action the line does not take. The corpus (a byte copy of 5.x's) is an expectation gate: 132 rows at the
-    owner's lock, and the rows each fix since adds."""
+    """Item 7.10, as the owner's cut of 2026-10-22 left it: FR-06 and FR-12 are m7's raw matcher over one allowlist (a
+    heredoc body a non-shell reads, the quoted arguments of grep, printf, echo and sed). The corpus (a byte copy of
+    5.x's: 132 rows at the owner's lock, and the rows each fix since adds) is an expectation gate: every row meets its
+    should_gate but the rows listed under matcher_residue, which go the other way."""
 
     CORPUS = CORE / "maintainer/tests/command-gate-corpus.json"
 
@@ -666,7 +666,10 @@ class CommandGateCorpus(Kernel):
                   stdin=json.dumps(corpus["cases"]))
         self.assertEqual(out.returncode, 0, out.stderr)
         gated = json.loads(out.stdout)
-        want = {c["id"]: c["should_gate"] and c["id"] not in accepted for c in corpus["cases"]}
+        residue = corpus["matcher_residue"]
+        flipped = set(residue["should_gate_but_allowed"]) | set(residue["should_not_gate_but_refused"])
+        self.assertLessEqual(flipped | set(accepted), {c["id"] for c in corpus["cases"]})
+        want = {c["id"]: c["should_gate"] != (c["id"] in flipped) for c in corpus["cases"]}
         self.assertEqual({k for k, v in gated.items() if v != want[k]}, set(), "cases off their expectation")
         ids = [c["id"] for c in corpus["cases"]]
         self.assertEqual(len(ids), len(set(ids)), "a corpus id twice")
@@ -680,15 +683,13 @@ class CommandGateCorpus(Kernel):
             got = self.decide(command)
             self.assertEqual((got["flow_decision"], got["rule_id"]), ("deny", rule), command)
 
-    def test_a_denial_names_only_an_approval_for_an_action_the_line_takes(self) -> None:
-        got = self.decide('git commit -m "fusebase deploy notes" && rm build.log')
-        self.assertEqual(got["flow_decision"], "deny")
-        self.assertIn("approve-local.sh destructive_file_delete", got["reason"])
-        self.assertNotIn("production_deploy", got["reason"])
-        unread = self.decide("case $x in a) fusebase deploy;; esac")  # unreadable: raw text, no approval named
-        self.assertEqual(unread["flow_decision"], "deny")
-        self.assertIn("could not be read as shell commands", unread["reason"])
-        self.assertNotIn("approve-local.sh", unread["reason"])
+    def test_a_denial_of_quoted_prose_says_prose_can_match(self) -> None:
+        # the cut's accepted cost (O3): a commit message quoting a gated command is still refused, and says why
+        got = self.decide('git commit -m "note: never run rm -rf build/ by hand"')
+        self.assertEqual((got["flow_decision"], got["rule_id"]), ("deny", "FR-06"))
+        self.assertIn("Quoted prose can match this pattern", got["reason"])
+        self.assertEqual(self.decide("echo 'A note: rm -rf node_modules is denied' >> notes.md")["flow_decision"],
+                         "allow")
 
     def test_a_powershell_line_is_judged_on_its_raw_text(self) -> None:
         self.assertEqual(self.decide('Write-Output "rm -rf x"', tool="PowerShell")["flow_decision"], "deny")

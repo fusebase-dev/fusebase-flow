@@ -57,6 +57,11 @@
     "AB-06": "no shipped rule names terraform apply",
     "AB-07": "no shipped rule names truncate"
   },
+  "matcher_residue": {
+    "note": "6.0.0-m8, the owner's cut of 2026-10-22: the gate is 6.0.0-m7's raw matcher over allowlisted text (hooks/shared/command_rules.py, THE ALLOWLIST); the command parser left the gate. Measured on that gate: the should_gate true rows listed first are allowed, the should_gate false rows listed second are refused. The drivers expect every other row's should_gate and these rows the other way, so either list changing fails them. accepted_misses stays the record of D2-no and the rule gaps.",
+    "should_gate_but_allowed": ["QS-01", "QS-02", "QS-03", "QS-04", "QS-06", "QS-07", "QS-09", "QS-10", "QS-11", "DC-02", "DC-03", "DC-04", "DC-05", "DC-07", "DC-08", "DC-09", "DC-10", "DC-11", "DC-12", "DC-14", "DC-15", "WS-04", "WS-05", "PF-09", "EN-01", "EN-02", "EN-03", "EN-04", "EN-05", "EN-06", "AB-01", "AB-02", "AB-03", "AB-04", "AB-05", "AB-06", "AB-07", "RB-11", "RB-12", "RB-38"],
+    "should_not_gate_but_refused": ["WS-07", "CH-01", "CH-07", "PC-01", "PC-06", "PC-09", "TN-03", "TN-04", "TN-24", "TN-25", "TN-26", "RB-16"]
+  },
   "cases": [
     {"id": "TP-01", "command": "fusebase deploy", "should_gate": true, "expected_rule": "FR-12 require: fusebase deploy", "expected_actions": ["production_deploy"], "evasion_class": "plain", "red_arm": "", "source": "constructed", "why": "Literal production deploy."},
     {"id": "TP-02", "command": "npx prisma migrate deploy", "should_gate": true, "expected_rule": "FR-12 require: prisma migrate", "expected_actions": ["database_migration"], "evasion_class": "plain", "red_arm": "", "source": "constructed", "why": "Literal schema migration."},

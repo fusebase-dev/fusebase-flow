@@ -60,13 +60,8 @@ def render_approval_denial(
     unsatisfied_actions: list[str] | None = None,
     slug: str = "<slug>",
     details: dict[str, str] | None = None,
-    unread: str = "",
 ) -> str:
     """The AC14 message: blocked -> EVERY required action + status -> reason -> fix.
-
-    `unread` names why the line could not be parsed (hooks/shared/shell_view.py): its raw text was matched, so it may
-    not take the actions named, and the message suggests no approval to mint (6.0.0-m8 item 7.10, the owner: "never
-    suggest minting an approval for an action the command does not take").
 
     `required_actions` is the COMPLETE set every matched rule demands (K18b), each
     rendered on line 2 with its status; `unsatisfied_actions` is the subset that still
@@ -97,11 +92,6 @@ def render_approval_denial(
     hidden = len(pending) - shown
     if hidden > 0:
         lines.append(f"  (+{hidden} more action(s); see policies/command-policy.yml)")
-    if unread:
-        lines.append(f"Fix - this line could not be read as shell commands ({_truncate(unread, 60)}), so its raw text "
-                     "was matched and it may not take these actions: rewrite it as plain commands (a message or a "
-                     "heredoc goes through a file: git commit -F <file>) and run it again; no approval is named here.")
-        return "\n".join(lines[:MAX_LINES])
     lines.append("Fix - run the push as one plain `git push <remote> <refspec>...`, then on your "
                  "go-ahead the agent runs:" if why else
                  "Fix - on your chat go-ahead the agent runs this; you type no command:")

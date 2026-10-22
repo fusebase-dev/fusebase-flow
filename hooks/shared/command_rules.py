@@ -15,8 +15,6 @@ import contextvars
 import re
 from typing import Any
 
-from .shell_view import View, view
-
 # TRIPWIRE: widening this map widens what a policy author can switch on per rule.
 # Anything beyond case-insensitivity (DOTALL, VERBOSE, MULTILINE) changes how patterns
 # read against a whole command line and needs its own review; unknown flags FAIL CLOSED.
@@ -64,19 +62,108 @@ def rule_actions(rule: dict[str, Any], stage: str) -> tuple[list[str], str | Non
     return [], None
 
 
-# The shell the command is written for; command_policy.evaluate sets it per call (PowerShell is judged raw).
+# The shell the command is written for; command_policy.evaluate sets it per call. A PowerShell line is matched on its
+# raw text, as in 6.0.0-m7: the allowlist below reads bash.
 SHELL: contextvars.ContextVar[str] = contextvars.ContextVar("flow_command_shell", default="bash")
-_VIEWS: dict[tuple[str, str], View] = {}
+
+# THE ALLOWLIST (6.0.0-m8, the owner's cut of 2026-10-22: 6.0.0-m7's matcher over allowlisted text, exactly as the
+# kill test measured it). Two kinds of text leave a bash line before the rules see it, and nothing else does:
+#   1. a heredoc body, unless the line that opens it runs a shell, ssh, a container shell, xargs or a database client
+#      (RUNS_CODE): `cat > notes.md <<'EOF'` writes data, `ssh host <<'EOF'` runs its body;
+#   2. the quoted arguments of grep, egrep, fgrep, printf, echo and sed (DATA_PROGRAMS), unless that echo or printf is
+#      piped into a program RUNS_CODE names (`echo 'rm -rf x' | sh` runs it).
+# TRIPWIRE: widening either list lets a gated command past every rule (a heredoc into `bash`, `printf ... | sh`). Text
+# outside them that quotes a gated command (a commit message) is still refused and is reworded, never allowlisted.
+DATA_PROGRAMS = {"grep", "egrep", "fgrep", "printf", "echo", "sed"}
+RUNS_CODE = re.compile(r"(^|[|;&(]\s*|\s)(bash|sh|zsh|dash|ksh|fish|ssh|docker|podman|kubectl|xargs|psql|mysql|sqlite3)"
+                       r"(\s|$)")
+HEREDOC = re.compile(r"<<(-?)\s*(['\"]?)([A-Za-z_][A-Za-z0-9_]*)\2")
 
 
-def command_view(command: str) -> View:
-    """What `command` runs, as hooks/shared/shell_view.py reads it, once per command and shell."""
-    key = (command, SHELL.get())
-    if key not in _VIEWS:
-        if len(_VIEWS) > 64:
-            _VIEWS.clear()
-        _VIEWS[key] = view(command, key[1])
-    return _VIEWS[key]
+def strip_heredocs(text: str) -> str:
+    """`text` without the body of each heredoc whose opening line runs nothing RUNS_CODE names (its delimiter
+    lines stay)."""
+    lines = text.split("\n")
+    out, i = [], 0
+    while i < len(lines):
+        line = lines[i]
+        out.append(line)
+        runs_code = bool(RUNS_CODE.search(line))
+        pending = [(m.group(3), m.group(1) == "-") for m in HEREDOC.finditer(line)]
+        i += 1
+        for word, tabs in pending:
+            while i < len(lines):
+                body = lines[i].lstrip("\t") if tabs else lines[i]
+                if runs_code:
+                    out.append(lines[i])
+                i += 1
+                if body == word:
+                    if not runs_code:
+                        out.append(lines[i - 1])
+                    break
+    return "\n".join(out)
+
+
+def _segments(text: str):
+    """(start, end) of each stretch between the separators ; & | ( ) and a newline that stand outside quotes."""
+    start, i, q = 0, 0, None
+    while i < len(text):
+        c = text[i]
+        if q:
+            if c == "\\" and q == '"':
+                i += 2
+                continue
+            if c == q:
+                q = None
+        elif c in "'\"":
+            q = c
+        elif c == "\\":
+            i += 2
+            continue
+        elif c in ";&|\n()":
+            yield start, i
+            start = i + 1
+        i += 1
+    yield start, len(text)
+
+
+def blank_safe_quotes(text: str) -> str:
+    """`text` with the quoted arguments of a DATA_PROGRAMS command blanked (each character a space), unless it is an
+    echo or printf whose output is piped into a program RUNS_CODE names."""
+    chars = list(text)
+    for s, e in _segments(text):
+        words = text[s:e].split()
+        k = 0
+        while k < len(words) and re.match(r"^[A-Za-z_][A-Za-z0-9_]*=", words[k]):
+            k += 1
+        if k >= len(words) or words[k].rsplit("/", 1)[-1] not in DATA_PROGRAMS:
+            continue
+        rest = text[e:].split("\n", 1)[0]
+        if words[k] in ("echo", "printf") and rest.startswith("|") and RUNS_CODE.search(rest):
+            continue
+        i, q = s, None
+        while i < e:
+            c = text[i]
+            if q:
+                if c == "\\" and q == '"':
+                    chars[i:i + 2] = [" "] * len(chars[i:i + 2])
+                    i += 2
+                    continue
+                if c == q:
+                    q = None
+                else:
+                    chars[i] = " "
+            elif c in "'\"":
+                q = c
+            i += 1
+    return "".join(chars)
+
+
+def allowlisted(command: str) -> str:
+    """The text the rules match: a bash `command` with THE ALLOWLIST applied; any other shell's, as written."""
+    if SHELL.get().strip().lower() not in ("bash", "sh", ""):
+        return command
+    return blank_safe_quotes(strip_heredocs(command))
 
 
 def rule_matches(rule: Any, command: str, stage: str) -> tuple[bool, str | None]:
@@ -86,9 +173,8 @@ def rule_matches(rule: Any, command: str, stage: str) -> tuple[bool, str | None]
     code skipped both, so a typo in a deny pattern silently disabled that rule and the
     command fell through to `default: allow` — a gate whose failure mode is "allow".
 
-    6.0.0-m8 item 7.10 (the owner's lock of D1a and D2-no, 2026-10-21): the pattern matches the commands the line
-    runs, at the start of one of their words (shell_view.View.matches), never words inside a quoted message, a heredoc a
-    non-shell reads or a search pattern; a line the parser cannot read is matched on its raw text, as before.
+    MATCHING IS REGEX OVER THE RAW COMMAND STRING (K21), after THE ALLOWLIST above takes out a heredoc body a
+    non-shell reads and the quoted arguments of grep, printf, echo and sed (6.0.0-m8, the owner's cut of 2026-10-22).
     """
     if not isinstance(rule, dict):
         return False, f"{stage} rule is not a mapping"
@@ -99,7 +185,7 @@ def rule_matches(rule: Any, command: str, stage: str) -> tuple[bool, str | None]
     if err:
         return False, err
     try:
-        return command_view(command).matches(re.compile(pattern, flags)), None
+        return bool(re.search(pattern, allowlisted(command), flags)), None
     except re.error as e:
         return False, f"{stage} rule pattern {pattern!r} is not a valid regex ({e})."
 
@@ -122,4 +208,5 @@ def mint_subject(command: str) -> str:
     return command if not m else f"{command[:m.start(1)]}''{command[m.end(1):]}"
 
 
-__all__ = ["SHELL", "command_view", "mint_subject", "rule_actions", "rule_flags", "rule_matches"]
+__all__ = ["SHELL", "allowlisted", "blank_safe_quotes", "mint_subject", "rule_actions", "rule_flags", "rule_matches",
+           "strip_heredocs"]

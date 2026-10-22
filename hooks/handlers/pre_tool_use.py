@@ -156,7 +156,7 @@ def _main() -> int:
     # 1. Command-policy check (Bash-like)
     if is_command_tool(tool_name):
         command = (event.get("tool_input") or {}).get("command") or ""
-        # A PowerShell line is not bash: shell_view judges it on its raw text (6.0.0-m8 item 7.10).
+        # A PowerShell line is not bash: it is matched on its raw text, without the bash allowlist (command_rules).
         shell = "powershell" if str(tool_name).strip().lower() in ("powershell", "pwsh") else "bash"
         cd = evaluate_command(command, root=root, shell=shell)
         if cd.decision != "allow":
