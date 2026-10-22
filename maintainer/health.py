@@ -72,6 +72,20 @@ def approvals(target: Path) -> list[str]:
     return found
 
 
+def runs_flows(live: Path | None, mine: Path, name: str) -> str:
+    """"same" when git's hook is Flow's byte for byte, "calls" when it is a script that runs Flow's (a hook manager such
+    as Husky chaining it: hooks/git/<name>, or the common git dir's hooks/<name>), else "" (m7 review B #4)."""
+    if live is None or not live.is_file():
+        return ""
+    data = live.read_bytes()
+    if data == mine.read_bytes():
+        return "same"
+    text = data.decode("utf-8", "replace")
+    calls = re.compile(rf"(?:hooks/git/|\.git/hooks/){re.escape(name)}(?![\w.-])")
+    lines = [ln.strip() for ln in text.splitlines()]  # a comment, an echo or a printf names it without running it
+    return "calls" if any(calls.search(ln) and not ln.startswith(("#", "echo ", "printf ")) for ln in lines) else ""
+
+
 def report(target: Path) -> tuple[int, list[str]]:
     target = target.resolve()
     try:
@@ -105,13 +119,14 @@ def report(target: Path) -> tuple[int, list[str]]:
     folder, note = hooks_dir(target), flow.hooks_path_note(target)
     if note:
         out.append(f"git hooks: {note}")
-        bad.append("core.hooksPath points git away from Flow's hooks")
     for h in [h for h in HOOKS if (target / "hooks/git" / h).is_file()]:
         live, mine = (folder / h if folder else None), target / "hooks/git" / h
-        same = live is not None and live.is_file() and live.read_bytes() == mine.read_bytes()
+        state = runs_flows(live, mine, h)
         where = folder.as_posix() if folder else "the hooks folder"
-        out.append(f"git hook: {h} {'installed' if same else f'NOT installed in {where} (or differs from hooks/git/{h})'}")
-        bad += [f"git hook {h} not installed where git runs it"] * (not same)
+        out.append(f"git hook: {h} " + ("installed" if state == "same" else f"installed ({live.as_posix()} calls Flow's)"
+                                         if state == "calls" else f"NOT installed in {where} (or differs from "
+                                                                  f"hooks/git/{h}, and does not call it)"))
+        bad += [f"git hook {h} not run where git runs hooks"] * (not state)
     for name in manifest.get("providers", []):
         out.append(f"wiring: {name} {reader.wired(target, SETTINGS[name])} ({SETTINGS[name]})")
     record = manifest.get("reader")

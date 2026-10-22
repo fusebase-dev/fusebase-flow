@@ -191,5 +191,31 @@ class EolPinRun(unittest.TestCase):
         self.assertEqual(len(gone), 21)
 
 
+
+class HealthReviewB(test_m7.HealthTruth):
+    """m7 review B #4 and #5: health said NOT healthy for a hook manager that runs Flow's hooks, and the wiring check
+    read a mention of the handler as wiring."""
+
+    locals().update(inherited(test_m7.HealthTruth))
+
+    def test_a_hook_manager_that_calls_flows_hooks_is_healthy_and_one_that_does_not_is_not(self) -> None:
+        import health
+        husky = self.repo / ".husky"
+        husky.mkdir()
+        for h in health.HOOKS:
+            (husky / h).write_text(f'#!/usr/bin/env sh\nnpx lint-staged\nsh hooks/git/{h} "$@"\n', encoding="utf-8")
+        git(self.repo, "config", "core.hooksPath", ".husky")
+        rc, text = self.health()
+        self.assertEqual(rc, 0, text)
+        self.assertIn("git hook: pre-commit installed (", text)
+        (husky / "pre-push").write_text('#!/usr/bin/env sh\necho "run hooks/git/pre-push yourself"\n', encoding="utf-8")
+        rc, text = self.health()
+        self.assertEqual(rc, 1, text)
+        self.assertIn("git hook: pre-push NOT installed", text)
+        git(self.repo, "config", "core.hooksPath", "hooks/git")
+        rc, text = self.health()
+        self.assertEqual(rc, 0, text)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

@@ -649,8 +649,9 @@ def install(target: Path, providers: set[str], prior_5x: dict[str, set[str]] | N
     for line in hooks_out.splitlines():
         print(f"[flow]   {line}")
     if note := hooks_path_note(target):
-        print(f"[flow] WARNING: {note}. Unset it (git config --unset core.hooksPath) or have the hook manager call "
-              "Flow's hooks; until git runs them, flow.py health says NOT healthy.")
+        print(f"[flow] WARNING: {note}. Unset it (git config --unset core.hooksPath), or have each of the hook "
+              "manager's hooks call Flow's (hooks/git/<name>); flow.py health says NOT healthy for each hook that "
+              "neither is Flow's nor calls it.")
     if prior_5x is None:  # migrate prints its own
         here = git_text(target, "rev-parse", "--abbrev-ref", "HEAD").strip()
         for line in open_warning(open_checkouts(target), here, "the commit of this install"):
