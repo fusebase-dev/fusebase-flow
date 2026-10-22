@@ -52,10 +52,21 @@ BASH_LIKE_TOOLS = COMMAND_TOOL_NAMES
 EDIT_LIKE_TOOLS = {"Edit", "Write", "MultiEdit", "NotebookEdit", "ApplyDiff", "create_file"}
 
 
+def _stdin_text() -> str:
+    """The hook event's JSON as text: its bytes decoded as UTF-8. Claude Code (Node's JSON.stringify) and Codex send
+    non-ASCII unescaped; Windows' default stdin code page (cp1252) misread it, and pre_tool_use's hash then raised
+    on it, which T371 turned into a deny of the call (6.0.0-m8, re-check B HOLD a)."""
+    stream = sys.stdin
+    if stream is None:
+        return ""
+    return stream.buffer.read().decode("utf-8", "replace") if hasattr(stream, "buffer") else stream.read()
+
+
 def cmd_sha256(command: str) -> str:
     # TRIPWIRE: post_tool_use.py's twin, the whitespace-collapsed form hooks/local/token_waste_audit/parsing.py hashes;
     # change one, change both, or a command's two audit lines stop matching.
-    return hashlib.sha256(" ".join(command.split()).encode("utf-8")).hexdigest()
+    # a lone surrogate (from a JSON escape) is hashed as its code point, never raised on
+    return hashlib.sha256(" ".join(command.split()).encode("utf-8", "surrogatepass")).hexdigest()
 
 
 def audit_reason(cd) -> str:
@@ -135,7 +146,7 @@ def main() -> int:
 
 def _main() -> int:
     try:
-        event = json.loads(sys.stdin.read() or "{}")
+        event = json.loads(_stdin_text() or "{}")
     except json.JSONDecodeError:
         event = {}
 

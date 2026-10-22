@@ -118,6 +118,9 @@
 #   the quoted arguments of grep, egrep, fgrep, printf, echo and sed); shell_parse.py, shell_view.py and
 #   shell_runners.py leave the tree and this lock, 41 -> 38 files (T384; 5.x ecedcde8, local; the owner's cut of
 #   2026-10-22).
+#   hooks/handlers/pre_tool_use.py and post_tool_use.py: the hook event's JSON is read as UTF-8 bytes, and the command
+#   hash encodes a lone surrogate instead of raising (T385; 5.x 4e424e8a, local; re-check B HOLD a, the owner's "one-line
+#   UTF-8 input fix"). 5.x's other five handlers took the same decode there.
 # Core only, by the owner's answer of 2026-10-19 (5.x keeps its own):
 #   hooks/git/commit-msg: the 6.0 subject rules (T259; O-13; decision 10(c)'s designed divergence: the four
 #   documents and the trivial-tier policy, which 5.x trees do not have); Python found as the pre-commit finds it,
@@ -143,8 +146,8 @@ e6fe845882eb635b917be76c1398b0bfb26b44abebd8bf6083616ae1a518b952  hooks/git/comm
 b5f95a53fa55ccc62da9467c08464ccf443b7ad282fb3f7ffb6b073ff28ba717  hooks/git/pre-commit
 9cd67869e78cfca6dcb6f0f32d64ed68bec34e9da9cdd99bb7913385ab630055  hooks/git/pre-merge-commit
 359f9a0be4b5efc8d01f479fa9430cf226ec198bbecd8ec644803f6fccc13ef5  hooks/git/pre-push
-a0685b0884a42d5704339ba342247704169b35da26cb228f533f03fc60448e0c  hooks/handlers/post_tool_use.py
-427c199f99d2c222c21197b003f7dd36d6a60bf21d65ffe5463b1b13854ec9e5  hooks/handlers/pre_tool_use.py
+23cc5357c78145c8ba998d1823b7278f041c3f16d761c982023a43ae0ff1b0bd  hooks/handlers/post_tool_use.py
+585635cdf4b84f76c90bb6a0dfa13c9369cd5217caf9d8b703bbcc7d42e9a518  hooks/handlers/pre_tool_use.py
 465857b88e14d4b1a77e91479eb474d3c27efe2f4f888a6211623ed7f5c83400  hooks/local/approve-local.sh
 0f81c1e0228570d3469a8a2079c4386c0093e9ba88c4561f6621f2ff71a1bef4  hooks/local/check-module-size.sh
 8c1c594b604bb3e27a5879619307ae8c051cb52837ade5d30c15453b31ec62ca  hooks/local/install-git-hooks.sh
