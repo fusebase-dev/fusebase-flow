@@ -587,7 +587,7 @@ class ReleaseNote(unittest.TestCase):
         self.assertIn(f"fusebase-flow-{version}/hooks/requirements.txt", named)
 
     def test_the_upgrade_steps_name_only_paths_the_release_ships(self) -> None:
-        """brief m5-finish B, m7: the one-step section upgrades the pre-release before this one (6.0.0-m6 for 6.0.0-m7),
+        """brief m5-finish B, m7: the one-step section upgrades the pre-release before this one (6.0.0-m7 for 6.0.0-m8),
         in one block: every command names a path the release ships, under the release's clone folder or, inside the
         project, as the install put it there; the files the core added under hooks/ since that release are staged by
         name; the providers come from the project's install, with no --wire-hooks (T286, T287)."""
