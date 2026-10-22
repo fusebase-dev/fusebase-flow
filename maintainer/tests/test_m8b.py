@@ -71,6 +71,23 @@ class RangeReviewA(test_m7.RangeCheck):
         self.assertNotEqual(merged.returncode, 0, "the merge of a token another remote's ref held landed")
         self.assertIn("a secret pattern in what the merge brings in", merged.stderr)
 
+    def test_putting_a_commit_on_record_needs_the_go_ahead_and_leaves_an_audit_line(self) -> None:
+        # A#4: --record-commit approved any commit, silently; the record is the operator's word
+        rules = self.repo / "FLOW_RULES.md"
+        sha = self.commit("FLOW_RULES.md", rules.read_text(encoding="utf-8") + "\nx\n", "T1: a rule edit", "--no-verify")
+        record = [sys.executable, "hooks/local/lib/range_check.py", "--record-commit", sha]
+        asked = subprocess.run(record, cwd=self.repo, capture_output=True, text=True, timeout=600)
+        self.assertEqual(asked.returncode, 2, asked.stdout + asked.stderr)
+        self.assertIn("--go-ahead", asked.stderr)
+        self.assertNotEqual(self.push("work").returncode, 0, "the unrecorded edit reached the remote")
+        done = subprocess.run([*record, "--go-ahead"], cwd=self.repo, capture_output=True, text=True, timeout=600)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn("[fusebase-flow] on record: FLOW_RULES.md", done.stdout)
+        lines = [json.loads(ln) for ln in (self.repo / "state/audit.log.jsonl").read_text(encoding="utf-8").splitlines()]
+        audit = [e for e in lines if e.get("event") == "approval_record"]
+        self.assertEqual([(e["commit"], e["paths"]) for e in audit], [(sha, ["FLOW_RULES.md"])])
+        self.assertEqual(self.push("work").returncode, 0)
+
 
 class StagedScanHeaders(unittest.TestCase):
     """m7 review A #2, the pre-commit's half: the staged secret scan dropped every `+++` line as a file header, so a

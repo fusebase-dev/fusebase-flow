@@ -7,8 +7,8 @@ change committed with --no-verify on one branch reached a remote by any of them.
   --merge                 pre-merge-commit: what the merge brings into the index against HEAD;
   --record                commit-msg: puts the staged protected-path changes the pre-commit (or pre-merge-commit) has
                           just allowed on record;
-  --record-commit <sha>   the same for one commit already made, on the operator's go-ahead in chat (a cherry-pick of an
-                          approved change onto another base, say).
+  --record-commit <sha> --go-ahead   the same for one commit already made, on the operator's go-ahead in chat (a
+                          cherry-pick of an approved change onto another base, say); it writes an audit line.
 A commit passes when no added line matches a secret pattern (the scanner's exclusions honoured) and each protected path
 it changes goes from its old bytes to its new ones by approved steps on record (one step or a chain of them, so an amend
 or a squash of approved commits passes and a revert does not), or it is a `flow:` commit whose every path flow_owned.py
@@ -211,7 +211,7 @@ def merge(root: Path) -> list[str]:
 
 
 FIX = {"pre-push": "A secret: rotate it, then rewrite the branch without it; never push it. A protected-path change the "
-                   "operator approves in chat: python hooks/local/lib/range_check.py --record-commit <sha>, then push.",
+                   "operator approves in chat: python hooks/local/lib/range_check.py --record-commit <sha> --go-ahead, then push.",
        "pre-merge-commit": "A secret: rotate it and take it out of the branch first. A protected-path change the operator "
                            "approves in chat: git merge --no-commit <branch>, mint (bash "
                            "hooks/local/write-bootstrap-approval.sh), git commit, then consume."}
@@ -231,7 +231,16 @@ def main(argv: list[str]) -> int:
             write_record(root, staged(root))
             return 0
         elif mode == "--record-commit" and rest:
-            for row in write_record(root, commits(root, ["-1", rest[0]])[0]["changes"]):
+            if "--go-ahead" not in rest:  # m7 review A #4: the record is the operator's word, never self-serve
+                print("[fusebase-flow] --record-commit puts a protected-path change on record as approved: run it only "
+                      "on the operator's go-ahead in chat, with --go-ahead.", file=sys.stderr)
+                return 2
+            rows = write_record(root, commits(root, ["-1", rest[0]])[0]["changes"])
+            from shared.audit_logger import emit
+            emit("approval_record", decision="allow", rule_id="FR-07", root=root,
+                 reason=f"FR-07: {len(rows)} protected-path change(s) of {rest[0][:12]} put on record (--record-commit)",
+                 extra={"commit": rest[0], "paths": sorted({r.split(chr(9))[0] for r in rows})})
+            for row in rows:
                 print(f"[fusebase-flow] on record: {row}")
             return 0
         else:
@@ -240,7 +249,7 @@ def main(argv: list[str]) -> int:
     except BaseException as e:  # noqa: BLE001 — a check that cannot run never lets the commits through
         if mode == "--record":
             print(f"[fusebase-flow:commit-msg] WARNING — the approval record was not written ({e!r}); a push of this "
-                  "commit is refused until the operator records it (range_check.py --record-commit <sha>).",
+                  "commit is refused until the operator records it (range_check.py --record-commit <sha> --go-ahead).",
                   file=sys.stderr)
             return 0
         print(f"[fusebase-flow:{hook}] BLOCK — the range check errored ({e!r}). Failing closed. NEVER use --no-verify.",
