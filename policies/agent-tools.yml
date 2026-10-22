@@ -5,7 +5,8 @@ profiles:
   planner: [Read, Glob, Grep, Bash, Write, Edit, Agent]
   builder: [Read, Glob, Grep, Bash, Write, Edit]
   reader: [Read, Glob, Grep]
-# <variant>: {base: builder|planner, add_tools: [<tool>, ...]}
+# <variant>: {base: builder|planner, add_tools: [<tool>, ...]}. A project's own variants and input kinds go in
+# policies/agent-tools.local.yml, in this shape (the slicer reads it): new names only, read-only tools only.
 agents: {}
 # <kind>: <tool>, for backlog inputs written <kind>:<reference> (the slicer reads this in M3)
 input_kinds: {}

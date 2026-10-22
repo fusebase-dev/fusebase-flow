@@ -690,5 +690,32 @@ class CommandGateCorpus(Kernel):
         self.assertEqual(self.decide('echo "rm -rf x"')["flow_decision"], "allow")
 
 
+
+class ProjectToolProfile(m3.Slicer):
+    """Field item 7.11: a project's own tool profile lived in an edit of Flow's policies/agent-tools.yml (Onboarding's
+    builder-project), which the upgrade then keeps. It goes in policies/agent-tools.local.yml, which the slicer reads:
+    new variants and input kinds, read-only tools only, never a change to a shipped profile."""
+
+    locals().update(dict.fromkeys(n for n in dir(m3.Slicer) if n.startswith("test")))  # the inherited tests run there
+
+    LOCAL = ("agents:\n  builder-project:\n    base: builder\n    add_tools: [mcp__figma__get_screenshot, Bash, Write]\n"
+             "  builder:\n    base: planner\n    add_tools: [Agent]\n"
+             "input_kinds:\n  figma: mcp__figma__get_screenshot\n"
+             "profiles:\n  reader: [Read, Glob, Grep, Bash]\n")
+
+    def test_a_local_profile_adds_read_only_tools_and_input_kinds_and_nothing_else(self) -> None:
+        m3.write(self.repo, "docs/flow/backlog.md", m3.SLICE_BACKLOG.replace("  - dep:jose\n",
+                                                                             "  - dep:jose\n  - figma:frame-12\n"))
+        m3.write(self.repo, "policies/agent-tools.local.yml", self.LOCAL)
+        out = self.slice("T1", "--agent", "builder-project")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertIn("agent-tools.local.yml: dropped Bash, Write from builder-project (a .local profile adds read-only "
+                      "tools only)", out.stdout)
+        blocked = self.slice("T1")  # the shipped builder profile is untouched: no figma tool there
+        self.assertEqual(blocked.returncode, 3, blocked.stdout)
+        self.assertIn("BLOCKED-AT-input: T1 input figma:frame-12 needs mcp__figma__get_screenshot, absent from the "
+                      "builder profile", blocked.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()

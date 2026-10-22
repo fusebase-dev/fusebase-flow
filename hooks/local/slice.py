@@ -20,7 +20,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
 import flow_docs as fd  # noqa: E402
 
-ROLES = ("review", "skeptic", "verdict")  # the REVIEW, SKEPTIC and VERDICT BRIEF blocks of the verify skill
+ROLES = ("review", "skeptic", "verdict")
+WRITE_TOOLS = {"Bash", "PowerShell", "Write", "Edit", "MultiEdit", "NotebookEdit", "Agent", "Task"}  # the REVIEW, SKEPTIC and VERDICT BRIEF blocks of the verify skill
 VERIFY = Path(__file__).resolve().parents[2] / "flow-skills/verify/SKILL.md"
 
 
@@ -34,8 +35,31 @@ def status(root: Path) -> str:
     return f"status: {line}; last seen: {age}"
 
 
+def tool_policy(root: Path) -> tuple[dict, list[str]]:
+    """policies/agent-tools.yml with the project's policies/agent-tools.local.yml added (field item 7.11: a project's
+    profile lived in an edit of Flow's file): new variants of builder or planner and new input kinds, read-only tools
+    only; a shipped profile, variant or kind never changes. Also what the local file asked for and did not get."""
+    pol, local, notes = fd.policy(root, "agent-tools"), fd.policy(root, "agent-tools.local"), []
+    if not local:
+        return pol, notes
+    agents, kinds = dict(pol.get("agents") or {}), dict(pol.get("input_kinds") or {})
+    for name, v in (local.get("agents") or {}).items():
+        if name in (pol.get("profiles") or {}) or name in agents or not isinstance(v, dict) or \
+                v.get("base") not in ("builder", "planner"):
+            notes.append(f"agent-tools.local.yml: ignored {name} (a .local profile adds a new variant of builder or "
+                         "planner)")
+            continue
+        asked = [t for t in v.get("add_tools") or [] if isinstance(t, str)]
+        if dropped := [t for t in asked if t in WRITE_TOOLS]:
+            notes.append(f"agent-tools.local.yml: dropped {', '.join(dropped)} from {name} (a .local profile adds "
+                         "read-only tools only)")
+        agents[name] = {"base": v["base"], "add_tools": [t for t in asked if t not in WRITE_TOOLS]}
+    kinds.update({k: t for k, t in (local.get("input_kinds") or {}).items() if k not in kinds and isinstance(t, str)})
+    return {**pol, "agents": agents, "input_kinds": kinds}, notes
+
+
 def tools(root: Path, agent: str) -> set[str] | None:
-    pol = fd.policy(root, "agent-tools")
+    pol = tool_policy(root)[0]
     profiles, variants = pol.get("profiles") or {}, pol.get("agents") or {}
     if agent in profiles:
         return set(profiles[agent] or [])
@@ -60,7 +84,7 @@ def task_block(root: Path, sl: dict, task: dict, items: dict, answers: dict, mat
 
 
 def blocked(root: Path, tasks: list[dict], items: dict, agent: str) -> list[str]:
-    kinds, have = fd.policy(root, "agent-tools").get("input_kinds") or {}, tools(root, agent)
+    kinds, have = tool_policy(root)[0].get("input_kinds") or {}, tools(root, agent)
     out = []
     for t in tasks:
         for ref in items.get(t["item"], {}).get("inputs", []):
@@ -149,7 +173,7 @@ def main(argv: list[str]) -> int:
         print("\n".join(stop))
         return 3
     match, files = fd.globber(), fd.git(root, "ls-tree", "-r", "--name-only", "HEAD").splitlines()
-    out = [f"# Slice {args.target}", f"reference: {fd.reference(root)}", status(root)]
+    out = [f"# Slice {args.target}", f"reference: {fd.reference(root)}", status(root), *tool_policy(root)[1]]
     for t in tasks:
         out += [""] + task_block(root, sl, t, items, answers, match, files)
     print("\n".join(out))
