@@ -15,6 +15,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import re
 import sys
 from pathlib import Path
 
@@ -66,6 +68,19 @@ def _content(inp: dict) -> str:
     return inp.get("content") or inp.get("new_string") or inp.get("new_source") or ""
 
 
+def windows_spelling(target: str) -> str:
+    """The file Windows opens for `target` (m7 review A #5): the `\\\\?\\` and `\\\\?\\UNC\\` prefixes and a
+    `\\\\localhost\\C$` (or 127.0.0.1) share dropped, each name's trailing dots and spaces dropped, and an NTFS stream
+    (`::$DATA`, `:name`) cut off its file's name."""
+    path = target.replace("/", "\\")
+    path = re.sub(r"^\\\\[?.]\\UNC\\", r"\\\\", path, flags=re.I)
+    path = re.sub(r"^\\\\[?.]\\", "", path)
+    path = re.sub(r"^\\\\(?:localhost|127\.0\.0\.1)\\([A-Za-z])\$(?=\\|$)", r"\1:", path, flags=re.I)
+    drive, rest = (path[:2], path[2:]) if re.match(r"[A-Za-z]:", path) else ("", path)
+    names = [n if n in (".", "..") else re.sub(r"[. ]+$", "", n.split(":", 1)[0]) for n in rest.split("\\")]
+    return drive + "\\".join(names)
+
+
 def repo_relative(target: str, root: Path | None, cwd: str | None) -> str:
     """The path as git and an approval's `paths` name it, `/` on every platform: the target (taken from the session's
     folder when relative) and the root both resolved before they are compared, so an 8.3 short name, another case,
@@ -73,7 +88,7 @@ def repo_relative(target: str, root: Path | None, cwd: str | None) -> str:
     outside the root is judged as given, as before."""
     if not root:
         return target
-    path = Path(target)
+    path = Path(windows_spelling(target) if os.name == "nt" else target)
     if not path.is_absolute():
         path = Path(cwd or root) / path
     try:

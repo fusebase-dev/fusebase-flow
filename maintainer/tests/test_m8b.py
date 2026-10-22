@@ -101,5 +101,39 @@ class StagedScanHeaders(unittest.TestCase):
         self.assertEqual(added_lines(diff).split("\n"), ["++token = 1", "plain", "new"])
 
 
+
+class GateReviewB(test_m7.LocalTightens):
+    """m7 review A #5 and review B #1..#3: what the tool-time gate let through, or refused that it should not."""
+
+    locals().update(inherited(test_m7.LocalTightens))
+
+    def verdict(self, tool: str, tool_input: dict) -> dict:
+        payload = {"session_id": "m8", "cwd": str(self.repo), "hook_event_name": "PreToolUse", "tool_name": tool,
+                   "tool_input": tool_input}
+        out = subprocess.run([sys.executable, "hooks/handlers/pre_tool_use.py"], cwd=self.repo, input=json.dumps(payload),
+                             capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300)
+        return json.loads(out.stdout or "{}") or {"flow_decision": f"no decision: {out.stderr}"}
+
+    def decide(self, tool: str, tool_input: dict) -> str:
+        return self.verdict(tool, tool_input).get("flow_decision", "")
+
+    def committed(self) -> None:
+        git(self.repo, "add", "-A")
+        git(self.repo, "-c", "user.name=flow-test", "-c", "user.email=flow-test@example.invalid", "commit", "-q",
+            "--no-verify", "-m", "flow: install Fusebase Flow")
+
+    @unittest.skipUnless(WINDOWS, "Windows path spellings")
+    def test_a_write_by_a_windows_spelling_of_a_protected_path_is_denied(self) -> None:
+        # A#5: \\?\, \\?\UNC\, a \\localhost\C$ share, a trailing dot or space and an NTFS stream name the same file
+        rules = str((self.repo / "FLOW_RULES.md").resolve())
+        drive, rest = rules[0], rules[2:]
+        for spelled in (f"\\\\?\\{rules}", f"\\\\?\\UNC\\localhost\\{drive}$\\{rest}", f"\\\\localhost\\{drive}$\\{rest}",
+                        f"\\\\.\\{rules}", f"\\\\127.0.0.1\\{drive.lower()}$\\{rest}", rules + ".", rules + " ",
+                        rules + "::$DATA", rules.replace("FLOW_RULES.md", "flow_rules.md")):
+            self.assertEqual(self.decide("Write", {"file_path": spelled, "content": "x\n"}), "deny", spelled)
+        self.assertEqual(self.decide("Write", {"file_path": str(self.repo.resolve() / "src/a.ts"), "content": "x\n"}),
+                         "allow")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)
